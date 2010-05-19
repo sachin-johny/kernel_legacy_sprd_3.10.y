@@ -1,0 +1,22 @@
+if ARCH_SC8800S
+
+config ARCH_SUPPORTS_BIG_ENDIAN
+	bool
+	default y
+
+comment "SC8800S Board Type"
+	depends on ARCH_SC8800S
+
+config MACH_HISENSE
+	depends on ARCH_SC8800S
+	default y
+	bool "Hisense Board"
+	help
+	  Support for the sc8800s based hisense phone
+
+config SC8800S_IDLE
+	depends on ARCH_SC8800S
+	default y
+	bool "Idle Support for SC8800S"
+
+endif

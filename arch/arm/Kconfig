@@ -794,6 +794,15 @@ config PLAT_SPEAR
 	help
 	  Support for ST's SPEAr platform (SPEAr3xx, SPEAr6xx and SPEAr13xx).
 
+config ARCH_SC8800S
+	bool  "SPREADTRUM SC8800S"
+	depends on MMU
+	select CPU_ARM926T
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	help
+	  Support for Spreadtrum sc8800s based systems.
+
 endchoice
 
 #
