@@ -1027,6 +1027,8 @@ static void composite_disconnect(struct usb_gadget *gadget)
 	else
 		schedule_work(&cdev->switch_work);
 	spin_unlock_irqrestore(&cdev->lock, flags);
+
+	switch_set_state(&cdev->sdev, 0);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1259,6 +1261,23 @@ composite_resume(struct usb_gadget *gadget)
 	}
 
 	cdev->suspended = 0;
+}
+
+static int
+composite_uevent(struct device *dev, struct kobj_uevent_env *env)
+{
+	struct usb_function *f = dev_get_drvdata(dev);
+
+	if (!f) {
+		/* this happens when the device is first created */
+		return 0;
+	}
+
+	if (add_uevent_var(env, "FUNCTION=%s", f->name))
+		return -ENOMEM;
+	if (add_uevent_var(env, "ENABLED=%d", !f->disabled))
+		return -ENOMEM;
+	return 0;
 }
 
 static int
