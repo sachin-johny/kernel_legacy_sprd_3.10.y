@@ -1,3 +1,18 @@
+/* linux/arch/arm/mach-sc8800s/serial_sp.c
+ *
+ *
+ * Copyright (C) 2010 Spreadtrum
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
 #include <linux/module.h>
 #include <linux/tty.h>
 #include <linux/ioport.h>
@@ -9,19 +24,21 @@
 #include <linux/serial.h>
 #include <linux/termios.h>
 #include <linux/interrupt.h>
+#include <linux/delay.h>
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <mach/hardware.h>
-
-#define PORT_SPX 1234 /* FIXME */
-
-#define SPX_VCOM_SERIAL
+#define CONFIG_SERIAL_SC8800_CONSOLE
+/*
+ * port type,it ought to be defined in serial_core.h,
+ * we just put here temporary 
+*/
+#define PORT_SPX 1234
 
 #define SP_TTY_NAME	"ttyS"
-#define SP_TTY_DEVFS_NAME	"tts/"
 #define SP_TTY_MINOR_START	64
 #define SP_TTY_MAJOR	TTY_MAJOR
-
+/*offset*/
 #define ARM_UART_TXD	0x0000
 #define ARM_UART_RXD	0x0004
 #define ARM_UART_STS0	0x0008
@@ -34,134 +51,203 @@
 #define ARM_UART_CLKD0	0x0024
 #define ARM_UART_CLKD1	0x0028
 #define ARM_UART_STS2	0x002C
-
-#define UART1_TXD	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_TXD)))
-#define UART1_RXD	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_RXD)))
-#define UART1_STS0	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_STS0)))
-#define UART1_STS1	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_STS1)))
-#define UART1_STS2	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_STS2)))
-#define UART1_IEN	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_IEN)))
-#define UART1_ICLR	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_ICLR)))
-#define UART1_CTL0	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_CTL0)))
-#define UART1_CTL2	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_CTL2)))
-#define UART1_CLKD0	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_CLKD0)))
-#define UART1_CLKD1	(*((volatile unsigned int *)(SPRD_SERIAL1_BASE+ARM_UART_CLKD1)))
-
-#define INT_IRQ_EN	(*((volatile unsigned int *)(SPRD_INTCV_BASE+0x0010)))
-#define INT_IRQ_EN_CLR	(*((volatile unsigned int *)(SPRD_INTCV_BASE+0x0014)))
-#define INT_IRQ_STS	(*((volatile unsigned int *)(SPRD_INTCV_BASE+0x0004)))
-
-#define IRQ_UART1	24
-
+/*UART IRQ num*/
+#define IRQ_UART0_1	24
+#define IRQ_UART2_3	18
+/*UART FIFO watermark*/
 #define SP_TX_FIFO	8
-#define SP_RX_FIFO	8
+#define SP_RX_FIFO	1	
+/*UART IEN*/
+#define UART_IEN_RX_FIFO_FULL	(0x1<<0)
+#define UART_IEN_TX_FIFO_EMPTY	(0x1<<1)
+#define UART_IEN_BREAK_DETECT	(0x1<<7)
+/*data length*/
+#define UART_DATA_BIT	(0x3<<2)
+#define UART_DATA_5BIT	(0x0<<2)
+#define UART_DATA_6BIT	(0x1<<2)
+#define UART_DATA_7BIT	(0x2<<2)
+#define UART_DATA_8BIT	(0x3<<2)
+/*stop bit*/
+#define UART_STOP_1BIT	(0x1<<4)
+#define UART_STOP_2BIT	(0x3<<4)
+/*parity*/
+#define UART_PARITY	0x3
+#define UART_PARITY_EN	0x2
+#define UART_EVEN_PAR	0x0
+#define UART_ODD_PAR	0x1
+/*line status */
+#define UART_LSR_OE	(0x1<<4)
+#define UART_LSR_FE	(0x1<<3)
+#define UART_LSR_PE	(0x1<<2)
+#define UART_LSR_BI	(0x1<<7)
+#define UART_LSR_DR	(0x1<<8)
+/*flow control */
+#define RX_HW_FLOW_CTL_THRESHOLD	0x7F
+#define RX_HW_FLOW_CTL_EN		(0x1<<7)
+#define TX_HW_FLOW_CTL_EN		(0x1<<8)
+/*status indicator*/
+#define UART_STS_RX_FIFO_FULL	(0x1<<0)
+#define UART_STS_TX_FIFO_EMPTY	(0x1<<1)
+#define UART_STS_BREAK_DETECT	(0x1<<7)
+/*baud rate*/
+#define BAUD_1200_26M	0x54A0
+#define BAUD_2400_26M	0x2A50
+#define BAUD_4800_26M	0x1528
+#define BAUD_9600_26M	0x0A94
+#define BAUD_19200_26M	0x054A
+#define BAUD_38400_26M	0x02A5
+#define BAUD_57600_26M	0x0152
+#define BAUD_115200_26M	0x00E2
+#define BAUD_230400_26M	0x0071
+#define BAUD_460800_26M	0x0038
+#define BAUD_921600_26M	0x001C
+extern void printascii(const char *);
+static inline unsigned int serial_in(struct uart_port *port,int offset)
+{
+	return __raw_readl(port->membase+offset);
+}
+static inline void  serial_out(struct uart_port *port,int offset,int value)
+{
+	//printascii("enter serial_out!!!\r\n");
+	__raw_writel(value,port->membase+offset);
+	//printascii("leave serial_out!!!\r\n");
+}
 
-#define BIT_0	(0x1<<0)
-#define BIT_1	(0x1<<1)
-#define BIT_7	(0x1<<7)
-
+static unsigned int serialsc8800_tx_empty(struct uart_port *port)
+{
+	if(serial_in(port,ARM_UART_STS1)& 0xff00)
+		return 0;
+	else
+		return 1;
+}
+static unsigned int serialsc8800_get_mctrl(struct uart_port *port)
+{
+	return TIOCM_DSR | TIOCM_CTS;
+}
+static void serialsc8800_set_mctrl(struct uart_port *port,unsigned int mctrl)
+{
+}
 static void serialsc8800_stop_tx(struct uart_port *port)
 {
 	unsigned long flags;
+	unsigned int ien,iclr;
 	spin_lock_irqsave(&port->lock,flags);
-	UART1_ICLR |=BIT_1;
-	UART1_IEN &=~BIT_1;
+	iclr=serial_in(port,ARM_UART_ICLR);
+	ien=serial_in(port,ARM_UART_IEN);
+
+	iclr |=UART_IEN_TX_FIFO_EMPTY;
+	ien &=~ UART_IEN_TX_FIFO_EMPTY;
+
+	serial_out(port,ARM_UART_ICLR,iclr);
+	serial_out(port,ARM_UART_IEN,ien);
 	spin_unlock_irqrestore(&port->lock,flags);
 }
-/*static int vcom_tx_chars(struct uart_port *port)
-{
-	struct circ_buf *xmit = &port->info->xmit;
-	int count,i=0;
-	char vcom_buff[128];
-	memset(vcom_buff,0,128);
-	if(port->x_char){
-		port->icount.tx++;
-		port->x_char=0;
-		goto out;
-	}
-	if(uart_circ_empty(xmit) || uart_tx_stopped(port)){
-		goto out;
-	}
-	count=62;
-	do{
-		vcom_buff[i++] = xmit->buf[xmit->tail];
-		xmit->tail = (xmit->tail+1) & (UART_XMIT_SIZE-1);
-		port->icount.tx++;
-		if(uart_circ_empty(xmit))
-			break;
-	}while(--count>0);
-	vcom_buff[i++] = 0;
-	vcom_buff[i] = 0;
-
-	printk("%s\n",&vcom_buff[0]);
-
-	if(uart_circ_chars_pending(xmit) < WAKEUP_CHARS){
-		uart_write_wakeup(port);
-	}
-	out:
-		return 0;
-}*/
 static void serialsc8800_start_tx(struct uart_port *port)
 {
 	unsigned long flags;
+	unsigned int ien;
 	spin_lock_irqsave(&port->lock,flags);
-	//vcom_tx_chars(port);
-	//if(!(INT_IRQ_EN & 1<<IRQ_UART1))
-		//INT_IRQ_EN =1<<IRQ_UART1;
-	if(!(UART1_IEN & BIT_1))
-		UART1_IEN |=BIT_1;
+	ien=serial_in(port,ARM_UART_IEN);
+	if(!(ien & UART_IEN_TX_FIFO_EMPTY)){
+		ien |= UART_IEN_TX_FIFO_EMPTY;
+		serial_out(port,ARM_UART_IEN,ien);
+	}
 	spin_unlock_irqrestore(&port->lock,flags);
 }	
 static void serialsc8800_stop_rx(struct uart_port *port)
 {
 	unsigned long flags;
+	unsigned int ien,iclr;	
 	spin_lock_irqsave(&port->lock,flags);
-	UART1_IEN &=~(BIT_0 | BIT_7);
-	UART1_ICLR |=BIT_0|BIT_7;
+	iclr=serial_in(port,ARM_UART_ICLR);
+	ien=serial_in(port,ARM_UART_IEN);
+
+	ien &=~(UART_IEN_RX_FIFO_FULL|UART_IEN_BREAK_DETECT);
+	iclr |=UART_IEN_RX_FIFO_FULL|UART_IEN_BREAK_DETECT;
+
+	serial_out(port,ARM_UART_IEN,ien);
+	serial_out(port,ARM_UART_ICLR,iclr);
 	spin_unlock_irqrestore(&port->lock,flags);
 }
 static void serialsc8800_enable_ms(struct uart_port *port)
 {
 }
-static irqreturn_t serialsc8800_rx_chars(int irq,void *dev_id)
+static void serialsc8800_break_ctl(struct uart_port *port,int break_state)
 {
-	struct uart_port *port=dev_id;
+}
+static inline void serialsc8800_rx_chars(int irq,void *dev_id)
+{
+	struct uart_port *port=(struct uart_port*)dev_id;
 	struct tty_struct *tty=port->state->port.tty;
-	unsigned int status,ch,flag,rxs,max_count=96;
-	status = UART1_STS1;
-	//printk("serialsc8800_rx_chars func: interrupt handler rx chars\n");
+	unsigned int status,ch,flag,lsr,max_count=96;
+
+	status=serial_in(port,ARM_UART_STS1);
+	lsr=serial_in(port,ARM_UART_STS0);
 	while((status & 0x00ff) && max_count--){
-		ch = UART1_RXD;
+		ch = serial_in(port,ARM_UART_RXD);
 		flag = TTY_NORMAL;
 		port->icount.rx++;
-		rxs = UART1_STS1;
-		//printk("rx_fifo_count=%d\n",rxs);
-		uart_insert_char(port,0,0,ch,flag);
-		status=UART1_STS1;
+
+		if(unlikely(lsr&(UART_LSR_BI|UART_LSR_PE|UART_LSR_FE|UART_LSR_OE))){
+			/*
+ 			*for statistics only
+ 			*/ 
+			if(lsr & UART_LSR_BI){
+				lsr &=~(UART_LSR_FE|UART_LSR_PE);
+				port->icount.brk++;
+				/*
+ 				*we do the SysRQ and SAK checking here because otherwise the
+				*break may get masked by ignore_status_mask or read_status_mask
+ 				*/ 
+				if(uart_handle_break(port))
+					goto ignore_char;
+			}else if(lsr & UART_LSR_PE)
+				port->icount.parity++;
+			else if(lsr & UART_LSR_FE)
+				port->icount.frame++;
+			if(lsr & UART_LSR_OE)
+				port->icount.overrun++;
+			/*
+ 			*mask off conditions which should be ignored
+ 			*/ 
+			lsr &= port->read_status_mask;
+			if(lsr & UART_LSR_BI)
+				flag= TTY_BREAK;
+			else if(lsr & UART_LSR_PE)
+				flag= TTY_PARITY;
+			else if(lsr & UART_LSR_FE)
+				flag= TTY_FRAME;
+		}
+		if(uart_handle_sysrq_char(port,ch))
+			goto ignore_char;
+
+		uart_insert_char(port,lsr,UART_LSR_OE,ch,flag);
+	ignore_char:
+		status=serial_in(port,ARM_UART_STS1);
+		lsr=serial_in(port,ARM_UART_STS0);
 	}
 	tty->low_latency = 1;
 	tty_flip_buffer_push(tty);
-	return IRQ_HANDLED;
 }
-static irqreturn_t serialsc8800_tx_chars(int irq,void *dev_id)
+static inline void  serialsc8800_tx_chars(int irq,void *dev_id)
 {
 	struct uart_port *port=dev_id;
 	struct circ_buf *xmit=&port->state->xmit;
 	int count;
-	//printk("serialsc8800_tx_chars func: interrupt handler tx chars\n");
+	
 	if(port->x_char){
-		UART1_TXD = port->x_char;		
+		serial_out(port,ARM_UART_TXD,port->x_char);
 		port->icount.tx++;
 		port->x_char=0;
-		goto out;
+		return;
 	}
 	if(uart_circ_empty(xmit) || uart_tx_stopped(port)){
 		serialsc8800_stop_tx(port);		
-		goto out;
+		return;
 	}
 	count=SP_TX_FIFO;
 	do{
-		UART1_TXD = xmit->buf[xmit->tail];
+		serial_out(port,ARM_UART_TXD,xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail+1) & (UART_XMIT_SIZE-1);
 		port->icount.tx++;
 		if(uart_circ_empty(xmit))
@@ -174,86 +260,226 @@ static irqreturn_t serialsc8800_tx_chars(int irq,void *dev_id)
 	if(uart_circ_empty(xmit)){
 		serialsc8800_stop_tx(port);	
 	}
-	out:
-		return IRQ_HANDLED;
 }
-static unsigned int serialsc8800_tx_empty(struct uart_port *port)
-{
-	if(UART1_STS1 & 0xff00)
-		return 0;
-	else
-		return 1;
-}
-static unsigned int serialsc8800_get_mctrl(struct uart_port *port)
-{
-	return TIOCM_CAR | TIOCM_DSR | TIOCM_CTS;
-}
-static void serialsc8800_set_mctrl(struct uart_port *port,unsigned int mctrl)
-{
-}
-static void serialsc8800_break_ctl(struct uart_port *port,int break_state)
-{
-	//return 0;
-}
+/*
+ *this handles the interrupt from one port
+ */
 static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 {
+	struct uart_port *port=(struct uart_port *)dev_id;
+	unsigned long flags;
 	int pass_counter=0;
-	while(1){
-		if(!(UART1_STS0 & UART1_IEN)){
-			//printk("serialsc8800_interrupt_chars func:goto break\n");			
+	spin_lock_irqsave(&port->lock,flags);
+	do{
+		if(!(serial_in(port,ARM_UART_STS0) & serial_in(port,ARM_UART_IEN))){
 			break;
 		}
-		if(UART1_STS0 & (BIT_0 | BIT_7)){
-			//printk("serialsc8800_interrupt_chars func:goto serialsc8800_rx_chars\n");
-			serialsc8800_rx_chars(irq,dev_id);
+		if(serial_in(port,ARM_UART_STS0) & (UART_STS_RX_FIFO_FULL | UART_STS_BREAK_DETECT)){
+			serialsc8800_rx_chars(irq,port);
 		}
-		if(UART1_STS0 & BIT_1){
-			//printk("serialsc8800_interrupt_chars func:goto serialsc8800_tx_chars\n");
-			serialsc8800_tx_chars(irq,dev_id);
+		if(serial_in(port,ARM_UART_STS0) & UART_STS_TX_FIFO_EMPTY){
+			serialsc8800_tx_chars(irq,port);
 		}
-		UART1_ICLR = 0xffffffff;
-		if(pass_counter++ > 50)
-			break;
-	}
+		serial_out(port,ARM_UART_ICLR,0xffffffff);
+	}while(pass_counter++<50);
+	spin_unlock_irqrestore(&port->lock,flags);
 	return IRQ_HANDLED;
 }
 
 static int serialsc8800_startup(struct uart_port *port)
 {
 	int ret=0;
-	unsigned int temp;
-	UART1_CTL2 =0x801;
-	while(UART1_STS1 & 0x00ff){
-		temp =UART1_RXD;
+	unsigned int ien;
+	//port->uartclk=26000000;
+	/*
+ 	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
+ 	*/	 
+	serial_out(port,ARM_UART_CTL2,0x801);
+	/*
+ 	*clear rx fifo
+ 	*/ 
+	while(serial_in(port,ARM_UART_STS1) & 0x00ff){
+		serial_in(port,ARM_UART_RXD);
 	}
-	while(UART1_STS1 & 0xff00);
-	UART1_IEN &=0x00;
-	UART1_ICLR =0xff;
-	//printk("begin enter request_irq\n");
-	ret = request_irq(IRQ_UART1,serialsc8800_interrupt_chars,0,"serial",port);
+	/*
+ 	*clear tx fifo
+ 	*/ 
+	while(serial_in(port,ARM_UART_STS1) & 0xff00);
+	/*
+ 	*clear interrupt
+ 	*/
+	serial_out(port,ARM_UART_IEN,0x00); 
+	serial_out(port,ARM_UART_ICLR,0xffffffff); 
+	/*
+ 	*allocate irq
+ 	*/ 
+	ret = request_irq(port->irq,serialsc8800_interrupt_chars,IRQF_SHARED,"serial",port);
 	if(ret)
 	{
  		printk("fail to request serial irq\n");
-		free_irq(IRQ_UART1,port);
+		free_irq(port->irq,port);
 	}
-	UART1_IEN |=BIT_0|BIT_1|BIT_7;
-	INT_IRQ_EN |=1<<IRQ_UART1;
-	return ret;
+	/*
+ 	*enable interrupt
+ 	*/ 
+	ien=serial_in(port,ARM_UART_IEN);
+	ien |= UART_IEN_RX_FIFO_FULL | UART_IEN_TX_FIFO_EMPTY | UART_IEN_BREAK_DETECT;
+	serial_out(port,ARM_UART_IEN,ien);	
+	return 0;
 }
 static void serialsc8800_shutdown(struct uart_port *port)
 {
-	INT_IRQ_EN_CLR |=(1<<IRQ_UART1);
-	UART1_IEN=0;
-	UART1_ICLR =0xff;
-	free_irq(IRQ_UART1,port);
+	serial_out(port,ARM_UART_IEN,0x0);
+	serial_out(port,ARM_UART_ICLR,0xffffffff);
+	free_irq(port->irq,port);
 }
 static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *termios,struct ktermios *old)
-{
+{	
+
+	unsigned int baud,quot;
+	unsigned int lcr,fc;
+	unsigned long flags;
+	//printascii("enter set_termios\r\n");
+	/*
+ 	*ask the core to calculate the divisor for us
+ 	*/
+	baud = uart_get_baud_rate(port,termios,old,1200,921600);
+	printk("baud=%d\r\n",baud);
+	//quot = uart_get_divisor(port,baud);
+	switch (baud){
+	case 1200:
+		quot=BAUD_1200_26M;
+		break;
+	case 2400:
+		quot=BAUD_2400_26M;
+		break;
+	case 4800:
+		quot=BAUD_4800_26M;
+		break;
+	case 9600:
+		quot=BAUD_9600_26M;
+		break;
+	case 19200:
+		quot=BAUD_19200_26M;
+		break;
+	case 38400:
+		quot=BAUD_38400_26M;
+		break;
+	case 57600:
+		quot=BAUD_57600_26M;
+		break;
+	case 230400:
+		quot=BAUD_230400_26M;
+		break;
+	case 460800:
+		quot=BAUD_460800_26M;
+		break;
+	case 921600:
+		quot=BAUD_921600_26M;
+		break;
+	default:
+	case 115200:
+		quot=BAUD_115200_26M;
+		break;
+	}
+	printk("quot=0x%x\r\n",quot);
+	/*
+ 	*set data length
+ 	*/
+	lcr = serial_in(port,ARM_UART_CTL0);
+	lcr &=~UART_DATA_BIT;
+	switch (termios->c_cflag & CSIZE){
+	case CS5:
+		lcr |=UART_DATA_5BIT;
+		break;
+	case CS6:
+		lcr |=UART_DATA_6BIT;
+		break;
+	case CS7:
+		lcr |=UART_DATA_7BIT;
+		break;
+	default:
+	case CS8:
+		lcr |=UART_DATA_8BIT;
+		break;
+	}
+	/*
+ 	*calculate stop bits
+ 	*/ 
+	lcr &=~(UART_STOP_1BIT | UART_STOP_2BIT);
+	if(termios->c_cflag & CSTOPB)
+		lcr |= UART_STOP_2BIT;
+	else 
+		lcr |= UART_STOP_1BIT;
+	/*
+ 	*calculate parity
+ 	*/
+	lcr &=~UART_PARITY;
+	if(termios->c_cflag & PARENB){
+		lcr |= UART_PARITY_EN;
+		if(termios->c_cflag & PARODD)
+			lcr |= UART_ODD_PAR;
+		else 
+			lcr |= UART_EVEN_PAR;
+	}
+	//printk("lcr=0x%x\r\n",lcr);
+	/*
+ 	*change the port state.
+ 	*/ 
+	spin_lock_irqsave(&port->lock,flags);
+	/*
+ 	*update the per-port timeout
+ 	*/ 
+	uart_update_timeout(port,termios->c_cflag,baud);
+	
+	port->read_status_mask = UART_LSR_OE;// | UART_LSR_DR;
+	if(termios->c_iflag & INPCK)
+		port->read_status_mask |= UART_LSR_FE | UART_LSR_PE;
+	if(termios->c_iflag & (BRKINT | PARMRK))
+		port->read_status_mask |= UART_LSR_BI;
+	//printk("read_status_mask=0x%x\r\n",port->read_status_mask);
+	/*
+ 	*characters to ignore
+ 	*/ 
+	port->ignore_status_mask=0;
+	if(termios->c_iflag & IGNPAR)
+		port->ignore_status_mask |= UART_LSR_PE | UART_LSR_FE;
+	if(termios->c_iflag & IGNBRK){
+		port->ignore_status_mask |= UART_LSR_BI;
+		/*
+ 		*if we ignore parity and break indicators,ignore overruns too
+ 		*/ 
+		if(termios->c_iflag & IGNPAR)
+			port->ignore_status_mask |= UART_LSR_OE;
+	}
+	/*
+ 	*ignore all characters if CREAD is not set
+ 	*/ 	
+	//if((termios->c_cflag & CREAD)== 0)
+		//port->ignore_status_mask |= UART_LSR_DR;
+	/*
+ 	*flow control
+ 	*/
+	fc=serial_in(port,ARM_UART_CTL1);
+	fc &=~(RX_HW_FLOW_CTL_THRESHOLD|RX_HW_FLOW_CTL_EN|TX_HW_FLOW_CTL_EN);
+	if(termios->c_cflag & CRTSCTS){
+		fc |= RX_HW_FLOW_CTL_THRESHOLD;
+		fc |= RX_HW_FLOW_CTL_EN;
+		fc |= TX_HW_FLOW_CTL_EN;
+	}
+	serial_out(port,ARM_UART_CLKD0,quot&0xffff);//clock divider bit0~bit15	 
+	serial_out(port,ARM_UART_CLKD1,(quot&0x1f0000)>>16);	 //clock divider bit16~bit20
+	serial_out(port,ARM_UART_CTL0,lcr);
+	serial_out(port,ARM_UART_CTL1,fc);
+		 
+	spin_unlock_irqrestore(&port->lock,flags);
+	printk("quot=0x%x\r\n",quot);
+
 }
 static const char *serialsc8800_type(struct uart_port *port)
 {
 	return "SPX";
-}
+}     
 static void serialsc8800_release_port(struct uart_port *port)
 {
 }
@@ -263,17 +489,16 @@ static int serialsc8800_request_port(struct uart_port *port)
 }
 static void serialsc8800_config_port(struct uart_port *port,int flags)
 {
-	if(flags & UART_CONFIG_TYPE &&serialsc8800_request_port(port)==0)
+	if(flags & UART_CONFIG_TYPE && serialsc8800_request_port(port)==0)
 		port->type =PORT_SPX;
 }
 static int serialsc8800_verify_port(struct uart_port *port,struct serial_struct *ser)
 {
-	int ret=0;
-	if(ser->type !=PORT_SPX)
-		ret=-EINVAL;
-	if(ser->irq !=IRQ_UART1)
-		ret=-EINVAL;
-	return ret;
+	if(unlikely(ser->type != PORT_SPX))
+		return -EINVAL;
+	if(unlikely(port->irq !=ser->irq))
+		return -EINVAL;
+	return 0;
 }
 static struct uart_ops serialsc8800_ops = {
 	.tx_empty =serialsc8800_tx_empty,
@@ -293,86 +518,115 @@ static struct uart_ops serialsc8800_ops = {
 	.config_port=serialsc8800_config_port,
 	.verify_port =serialsc8800_verify_port,
 };
-static struct uart_port serialsc8800_port = {
-	.iotype =SERIAL_IO_PORT,
-	.iobase =0x84000000,
-	.irq =IRQ_UART1,
-	.fifosize =8,
-	.ops =&serialsc8800_ops,
-	.flags =ASYNC_BOOT_AUTOCONF,
-	.line =0,
+static struct uart_port serialsc8800_ports[] = {
+	[0]={
+		.iotype =SERIAL_IO_PORT,
+		.membase =(void *)SPRD_SERIAL0_BASE,
+		.mapbase = SPRD_SERIAL0_BASE,
+		.uartclk =26000000,
+		.irq =IRQ_UART0_1,
+		.fifosize =128,
+		.ops =&serialsc8800_ops,
+		.flags =ASYNC_BOOT_AUTOCONF,
+		.line =0,
+	},
+	[1]={
+		.iotype =SERIAL_IO_PORT,
+		.membase =(void *)SPRD_SERIAL1_BASE,
+		.mapbase = SPRD_SERIAL1_BASE,
+		.uartclk =26000000,
+		.irq =IRQ_UART0_1,
+		.fifosize =128,
+		.ops =&serialsc8800_ops,
+		.flags =ASYNC_BOOT_AUTOCONF,
+		.line =1,
+	},
+	[2]={
+		.iotype =SERIAL_IO_PORT,
+		.membase =(void *)SPRD_SERIAL2_BASE,
+		.mapbase = SPRD_SERIAL2_BASE,
+		.uartclk =26000000,
+		.irq =IRQ_UART2_3,
+		.fifosize =128,
+		.ops =&serialsc8800_ops,
+		.flags =ASYNC_BOOT_AUTOCONF,
+		.line =2,
+	},
+	[3]={
+		.iotype =SERIAL_IO_PORT,
+		.membase =(void *)SPRD_SERIAL3_BASE,
+		.mapbase = SPRD_SERIAL3_BASE,
+		.uartclk =26000000,
+		.irq =IRQ_UART2_3,
+		.fifosize =128,
+		.ops =&serialsc8800_ops,
+		.flags =ASYNC_BOOT_AUTOCONF,
+		.line =3,
+	}
+
 };
+#define UART_NR		ARRAY_SIZE(serialsc8800_ports)
 static void serialsc8800_setup_ports(void)
 {
-	serialsc8800_port.uartclk=13000000;
+	unsigned int i;
+	for(i=0;i<UART_NR;i++)
+		serialsc8800_ports[i].uartclk=26000000;
 }
 
-
-static inline void wait_for_xmitr(void)
+#ifdef CONFIG_SERIAL_SC8800_CONSOLE
+static inline void wait_for_xmitr(struct uart_port *port)
 {
-	unsigned int status,tmout=1000;
+	unsigned int status,tmout=10000;
+	//printascii("enter wait_for_xmitr!!\r\n");
+	/*
+ 	* wait up to 10ms for the character(s) to be sent
+ 	*/ 
 	do{
-		status = UART1_STS0;
+		status=serial_in(port,ARM_UART_STS1);
 		if(--tmout == 0)
 			break;
-	}while((status & BIT_1)!=BIT_1);
+		udelay(1);
+	}while(status & 0xff00);
+	//}while((status & UART_STS_TX_FIFO_EMPTY)!=UART_STS_TX_FIFO_EMPTY);
+	//printascii("leave wait_for_xmitr!!\r\n");
+}
+static void serialsc8800_console_putchar(struct uart_port *port,int ch)
+{
+	//printascii("enter serialsc8800_console_putchar!\r\n");
+	wait_for_xmitr(port);
+	serial_out(port,ARM_UART_TXD,ch);
+	//printascii("leave serialsc8800_console_putchar!\r\n");
 }
 static void serialsc8800_console_write(struct console *co,const char *s,unsigned int count)
 {
-	int i,ien;
-	ien=UART1_IEN;
-	UART1_IEN=0;
-	for(i=0;i<count;i++){
-		wait_for_xmitr();
-		UART1_TXD=s[i];
-		if(s[i] == '\n'){
-			wait_for_xmitr();
-			UART1_TXD='\r';
-		}
-	}
-	wait_for_xmitr();
-	UART1_IEN = ien;
-}
-static void __init serialsc8800_get_options(struct uart_port *port,int *baud,int *parity,int *bits)
-{
-	unsigned int tmp;
-	tmp=UART1_CTL0;
-	switch(tmp & 0x0c){
-	case 0x00:
-		*bits=5;
-		break;
-	case 0x01:
-		*bits=6;
-		break;
-	case 0x02:
-		*bits=7;
-		break;
-	case 0x03:
-		*bits=8;
-		break;
-	}
-	if(tmp & 0x1){
-		*parity='o';
-		if(tmp & 0x2)
-			*parity='e';
-	}
-	tmp=UART1_CLKD0 | ((0x1f & (UART1_CLKD1))<<16);
-	*baud = port->uartclk/(16*(tmp+1));
+	struct uart_port *port=&serialsc8800_ports[co->index];
+	int ien;
+	//printascii("enter serialsc8800_console_write\r\n");
+	/*firstly,save the IEN register and disable the interrupts*/
+	ien=serial_in(port,ARM_UART_IEN);
+	serial_out(port,ARM_UART_IEN,0x0);
+	
+	uart_console_write(port,s,count,serialsc8800_console_putchar);
+	/*finally,wait for  TXD FIFO to become empty and restore the IEN register*/
+	wait_for_xmitr(port);
+	serial_out(port,ARM_UART_IEN,ien);
+	//printascii("leave serialsc8800_console_write\r\n");
 }
 static int __init serialsc8800_console_setup(struct console *co,char *options)
 {
-	struct uart_port *port = &serialsc8800_port;
+	struct uart_port *port;
 	int baud =115200;
 	int bits =8;
 	int parity ='n';
 	int flow ='n';
+	//printascii("enter console_setup!\r\n");
+	if(unlikely(co->index >= UART_NR || co->index < 0));
+		co->index = 0;	
+	port= &serialsc8800_ports[co->index];
 	
- 	//if(machine_is_personal_server())
-		//baud = 57600;
 	if(options)
 		uart_parse_options(options,&baud,&parity,&bits,&flow);
-	else
-		serialsc8800_get_options(port,&baud,&parity,&bits);
+
 	return uart_set_options(port,co,baud,parity,bits,flow);
 }
 static struct uart_driver serialsc8800_reg;
@@ -385,40 +639,44 @@ static struct console serialsc8800_console = {
 	.index =-1,
 	.data =&serialsc8800_reg,
 };
-static int __init rssc8800_console_init(void)
+static int __init serialsc8800_console_init(void)
 {
 	serialsc8800_setup_ports();
 	register_console(&serialsc8800_console);
 	return 0;
 }
-console_initcall(rssc8800_console_init);
-#define SERIAL_SC8800_CONSOLE &serialsc8800_console
+console_initcall(serialsc8800_console_init);
+#define SC8800_CONSOLE		&serialsc8800_console
+#else
+#define SC8800_CONSOLE		NULL
+#endif
 
-#define UART_NR 1
 static struct uart_driver serialsc8800_reg = {
 	.owner = THIS_MODULE,
 	.driver_name = "serial_sc8800",
-	/*.devfs_name = SP_TTY_DEVFS_NAME,*/
 	.dev_name = SP_TTY_NAME,
 	.major = SP_TTY_MAJOR,
 	.minor = SP_TTY_MINOR_START,
 	.nr = UART_NR,
-	.cons = SERIAL_SC8800_CONSOLE,
+	.cons = SC8800_CONSOLE,
 };
 static int __init serialsc8800_init(void)
 {
-	int ret;
+	int ret,i;
 	printk(KERN_INFO"Serial:sc8800s driver $Revision:1.0 $\n");
 	serialsc8800_setup_ports();
 	ret = uart_register_driver(&serialsc8800_reg);
 	if(ret ==0)
 		printk("serialsc8800_init:enter uart_add_one_port\n");
-		uart_add_one_port(&serialsc8800_reg,&serialsc8800_port);
-	return ret;
+	for(i=0;i<UART_NR;i++)
+		uart_add_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
+	return 0;
 }
 static void __exit serialsc8800_exit(void)
 {
-	uart_remove_one_port(&serialsc8800_reg,&serialsc8800_port);
+	int i;
+	for(i=0;i<UART_NR;i++)
+		uart_remove_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
 	uart_unregister_driver(&serialsc8800_reg);
 }
 module_init(serialsc8800_init);
@@ -426,3 +684,4 @@ module_exit(serialsc8800_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("sp serial driver $Revision:1.0$");
+

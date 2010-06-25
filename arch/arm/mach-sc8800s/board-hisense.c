@@ -93,7 +93,7 @@ hisense_fixup(struct machine_desc *desc, struct tag *tag,
 #endif
 }
 
-MACHINE_START(HISENSE, "Hisense Board")
+MACHINE_START(HISENSE, "SPRDHS")
 /* UART for LL DEBUG */
 	.phys_io        = SPRD_SERIAL1_PHYS,
 	.io_pg_offst    = ((SPRD_SERIAL1_BASE) >> 18) & 0xfffc,
