@@ -1028,7 +1028,7 @@ static void composite_disconnect(struct usb_gadget *gadget)
 		schedule_work(&cdev->switch_work);
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
-	switch_set_state(&cdev->sdev, 0);
+	schedule_work(&cdev->switch_work);
 }
 
 /*-------------------------------------------------------------------------*/
