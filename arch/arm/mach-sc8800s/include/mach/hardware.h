@@ -58,35 +58,35 @@
 /* LCD LCM1 control registers */
 #define SPRD_LCD_LCM1_BASE       0xE0006000
 #define SPRD_LCD_LCM1_PHYS       0x20600000
-#define SPRD_LCD_LCM1_SIZE       SZ_4K
+#define SPRD_LCD_LCM1_SIZE       SZ_8K
 
 /* LCD MCU control registers */
-#define SPRD_LCD_MCU_BASE        0xE0007000
+#define SPRD_LCD_MCU_BASE        0xE0008000
 #define SPRD_LCD_MCU_PHYS        0x20700000
 #define SPRD_LCD_MCU_SIZE        SZ_4K
 
 /* rotation  control registers*/
-#define SPRD_ROTO_BASE           0xE0008000
+#define SPRD_ROTO_BASE           0xE0009000
 #define SPRD_ROTO_PHYS           0x20800000
 #define SPRD_ROTO_SIZE           SZ_4K
 
 /* AHB control registers */
-#define SPRD_AHB_BASE            0xE0009000
+#define SPRD_AHB_BASE            0xE000A000
 #define SPRD_AHB_PHYS            0x20900000
 #define SPRD_AHB_SIZE            SZ_4K
 
 /* EMC control registers */
-#define SPRD_EMC_BASE            0xE000A000
+#define SPRD_EMC_BASE            0xE000B000
 #define SPRD_EMC_PHYS            0x20000000
 #define SPRD_EMC_SIZE            SZ_4K
 
 /* DRM control registers */
-#define SPRD_DRM_BASE            0xE000B000
+#define SPRD_DRM_BASE            0xE000C000
 #define SPRD_DRM_PHYS            0x20B00000
 #define SPRD_DRM_SIZE            SZ_4K
 
 /* MEA control registers */
-#define SPRD_MEA_BASE            0xE000C000
+#define SPRD_MEA_BASE            0xE000D000
 #define SPRD_MEA_PHYS            0x20C00000
 #define SPRD_MEA_SIZE            SZ_4K
 

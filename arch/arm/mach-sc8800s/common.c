@@ -78,10 +78,15 @@ static struct platform_device sprd_i2c_device = {
 	.resource	= sprd_i2c_resources,
 };
 
+static struct platform_device sprd_fb_device = {
+	.name	= "sc8800sfb",
+	.id	= -1,
+};
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_nand_device,
 	&sprd_i2c_device,
+	&sprd_fb_device,
 };
 
 void __init sprd_add_devices(void)
