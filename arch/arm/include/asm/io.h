@@ -221,7 +221,6 @@ extern void _memset_io(volatile void __iomem *, int, size_t);
 #define memcpy_toio(c,a,l)	_memcpy_toio(__mem_pci(c),(a),(l))
 
 #elif !defined(readb)
-
 #define readb(c)			(__readwrite_bug("readb"),0)
 #define readw(c)			(__readwrite_bug("readw"),0)
 #define readl(c)			(__readwrite_bug("readl"),0)

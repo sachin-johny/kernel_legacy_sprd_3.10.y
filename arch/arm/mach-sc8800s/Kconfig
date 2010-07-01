@@ -25,4 +25,8 @@ config SC8800S_IDLE
 	default y
 	bool "Idle Support for SC8800S"
 
+config CHIP_VER_8800H5
+	depends on ARCH_SC8800S
+	default y
+	bool "chip version select"
 endif

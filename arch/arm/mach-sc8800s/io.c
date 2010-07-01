@@ -67,6 +67,8 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(EPT),
 	SPRD_DEVICE(SERIAL2),
 	SPRD_DEVICE(SERIAL3),
+	SPRD_DEVICE(ADC),
+	SPRD_DEVICE(TPC),
 };
 
 void __init sprd_map_common_io(void)

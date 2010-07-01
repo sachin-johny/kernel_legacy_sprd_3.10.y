@@ -31,5 +31,5 @@ struct sprd_platform_data
 void __init sprd_add_devices(void);
 void __init sprd_map_common_io(void);
 void __init sprd_init_irq(void);
-
+void __init sprd_add_sdio_device(void);
 #endif

@@ -29,6 +29,9 @@
 #include <mach/hardware.h>
 #include <mach/board.h>
 #include <mach/irqs.h>
+#include <mach/mfp.h>
+#include <mach/mfp-sc8800s.h>
+#include <mach/regs_ahb.h>
 
 struct flash_platform_data sprd_nand_data = {
 	.parts		= 0,
@@ -92,4 +95,48 @@ static struct platform_device *devices[] __initdata = {
 void __init sprd_add_devices(void)
 {
 	platform_add_devices(devices, ARRAY_SIZE(devices));
+}
+
+#define SPRD_SDIO_SLOT0_BASE SPRD_SDIO_BASE
+static struct resource sprd_sdio_resource[] = {
+	[0] = {
+		.start = SPRD_SDIO_SLOT0_BASE,
+		.end   = SPRD_SDIO_SLOT0_BASE + SPRD_SDIO_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_SDIO_INT,
+		.end   = IRQ_SDIO_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+struct platform_device sprd_sdio_device = {
+	.name		= "sprd-sdhci",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(sprd_sdio_resource),
+	.resource	= sprd_sdio_resource,
+};
+
+static unsigned long sdio_func_cfg[] __initdata = {
+	MFP_CFG_X(SD0_CLK, AF0, DS3, PULL_UP, IO_OE),
+	MFP_CFG_X(SD0_CMD, AF0, DS3, PULL_UP, IO_Z),
+	MFP_CFG_X(SD0_D0, AF0, DS3, PULL_UP, IO_Z),
+	MFP_CFG_X(SD0_D1, AF0, DS3, PULL_UP, IO_Z),
+	MFP_CFG_X(SD0_D2, AF0, DS3, PULL_UP, IO_Z),
+	MFP_CFG_X(SD0_D3, AF0, DS3, PULL_UP, IO_Z),		
+};
+
+static void sprd_config_sdio_pins(void)
+{
+	sprd_mfp_config(sdio_func_cfg, ARRAY_SIZE(sdio_func_cfg));
+	
+}
+void __init sprd_add_sdio_device(void)
+{
+	/* Enable SDIO Module */
+	*(volatile unsigned int *)AHB_MISC |= BIT_10;
+
+	sprd_config_sdio_pins();
+	platform_device_register(&sprd_sdio_device);
 }

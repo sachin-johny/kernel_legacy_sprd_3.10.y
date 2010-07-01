@@ -49,7 +49,7 @@
 #define SYSCNT_FREQ	1000
 
 #define GPTIMER_MAX_DELTA 0x7fffff /* 23-bit counter */
-#define GPTIMER_MIN_DELTA 4        /* about 122us */
+#define GPTIMER_MIN_DELTA 33        /* about 122us */ //sword
 /*
  * we use one of the 2 general-purpose timers as the clock event device. 
  * timer0 is chosen as default.
@@ -68,8 +68,12 @@ static irqreturn_t sprd_gptimer_interrupt(int irq, void *dev_id)
 static int
 sprd_gptimer_set_next_event(unsigned long cycles, struct clock_event_device *c)
 {
+	//pr_info("cycle :%d\r\n", cycles);
+	__raw_writel(0, TIMER0_CONTROL); //sword
+	__raw_writel(0x7fffff, TIMER0_CLEAR);
 	__raw_writel(cycles, TIMER0_LOAD);
-
+	
+	__raw_writel((1<<7), TIMER0_CONTROL); //sword
 	return cycles <= GPTIMER_MIN_DELTA ? -ETIME : 0;
 }
 
@@ -78,14 +82,15 @@ sprd_gptimer_set_mode(enum clock_event_mode mode, struct clock_event_device *c)
 {
 	switch (mode) {
 	case CLOCK_EVT_MODE_ONESHOT:
-		__raw_writel((1<<7), TIMER0_CONTROL);
+		//__raw_writel((1<<7), TIMER0_CONTROL);
+		//__raw_bits_and(~(1 << 6), TIMER0_CONTROL);
 		break;
 	case CLOCK_EVT_MODE_SHUTDOWN:
 		__raw_writel(0, TIMER0_CONTROL);
 		break;
-
-	case CLOCK_EVT_MODE_RESUME:
 	case CLOCK_EVT_MODE_PERIODIC:
+		//__raw_bits_or((1 << 6), TIMER0_CONTROL);
+	case CLOCK_EVT_MODE_RESUME:
 	case CLOCK_EVT_MODE_UNUSED:
 		break;
 	}
@@ -125,7 +130,11 @@ static struct clocksource sprd_syscnt = {
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
-
+unsigned long long sched_clock(void)
+{
+	return clocksource_cyc2ns(sprd_syscnt.read(&sprd_syscnt),
+				  sprd_syscnt.mult, sprd_syscnt.shift);
+}
 static void __init sprd_timer_init(void)
 {
 	/* enable timer0 */
@@ -133,7 +142,7 @@ static void __init sprd_timer_init(void)
         
 	/* init timer0 */
 	__raw_writel((1<<3), TIMER0_CLEAR);
-	__raw_writel((1<<7), TIMER0_CONTROL);
+	__raw_writel(0, TIMER0_CONTROL); //sword
 
 	/* enable system counter */
 	__raw_bits_or((1 << 13), GREG_GEN1); /* ? */
@@ -149,6 +158,7 @@ static void __init sprd_timer_init(void)
 	sprd_syscnt.mult =
 		clocksource_hz2mult(SYSCNT_FREQ, sprd_syscnt.shift);
 
+	pr_info("min_delta_ns:%d\n", sprd_gptimer.min_delta_ns);
 	clocksource_register(&sprd_syscnt);
 	clockevents_register_device(&sprd_gptimer);
 	setup_irq(IRQ_TIMER0_INT, &sprd_gptimer_irq);

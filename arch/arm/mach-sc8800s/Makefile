@@ -1,4 +1,5 @@
-obj-y += io.o idle.o irq.o timer.o serial_sp.o
+obj-y += io.o idle.o irq.o timer.o serial_sp.o gpio.o\
+	mfp_sprd.o vibrator.o
 #dma.o
 
 # Common code for board init

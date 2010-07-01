@@ -199,6 +199,19 @@ config MMC_AU1X
 
 	  If unsure, say N.
 
+config MMC_SDHCI_SP8800S
+	tristate "SDHCI support on Spreadtrum 8800S SoC"
+	depends on MMC_SDHCI && ARCH_SC8800S
+	select MMC_SDHCI_IO_ACCESSORS
+	help
+	  This selects the Secure Digital Host Controller Interface (SDHCI)
+	  often referrered to as the HSMMC block in some of the Spreadtrum's
+	  8800S SoC seriels.
+
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say N.
+	  
 choice
 	prompt "Atmel SD/MMC Driver"
 	depends on AVR32 || ARCH_AT91

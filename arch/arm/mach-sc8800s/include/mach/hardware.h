@@ -14,6 +14,7 @@
  */
 
 #ifndef __ASM_ARCH_SPRD_HARDWARE_H
+#define __ASM_ARCH_SPRD_HARDWARE_H
 
 /*
  * SC8800S internal I/O mappings
@@ -70,7 +71,13 @@
 #define SPRD_ROTO_PHYS           0x20800000
 #define SPRD_ROTO_SIZE           SZ_4K
 
-/* AHB control registers */
+/* AHB control registers 
+   NOTE: the real AHB phisical address base is 0x20900100, but here
+	 we can	only map the address aligned by page size, so the
+	 defination of AHB registers should be SPRD_AHB_BASE + 0x100
+	 + register offset.
+*/
+
 #define SPRD_AHB_BASE            0xE000A000
 #define SPRD_AHB_PHYS            0x20900000
 #define SPRD_AHB_SIZE            SZ_4K
@@ -190,5 +197,15 @@
 #define SPRD_SERIAL3_BASE        0xE0032000
 #define SPRD_SERIAL3_PHYS        0x8F000000
 #define SPRD_SERIAL3_SIZE        SZ_4K
+
+/* Aux analog-digital convertor controller */
+#define SPRD_ADC_BASE          0xE0033000
+#define SPRD_ADC_PHYS          0x82000000
+#define SPRD_ADC_SIZE          SZ_4K
+
+/* 8800h touch panel convertor controller */
+#define SPRD_TPC_BASE          0xE0034000
+#define SPRD_TPC_PHYS          0x81003000
+#define SPRD_TPC_SIZE          SZ_4K
 
 #endif
