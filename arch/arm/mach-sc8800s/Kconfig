@@ -9,10 +9,16 @@ comment "SC8800S Board Type"
 
 config MACH_HISENSE
 	depends on ARCH_SC8800S
-	default y
+	default n
 	bool "Hisense Board"
 	help
 	  Support for the sc8800s based hisense phone
+config MACH_BIGPHONE
+	depends on ARCH_SC8800S
+	default y
+	bool "BigPhone Board"
+	help
+	  Support for the sc8800s based big phone
 
 config SC8800S_IDLE
 	depends on ARCH_SC8800S

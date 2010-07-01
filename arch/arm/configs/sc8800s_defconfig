@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Fri Jun 25 16:24:19 2010
+# Thu Jul  1 15:02:22 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -202,7 +202,8 @@ CONFIG_ARCH_SUPPORTS_BIG_ENDIAN=y
 #
 # SC8800S Board Type
 #
-CONFIG_MACH_HISENSE=y
+# CONFIG_MACH_HISENSE is not set
+CONFIG_MACH_BIGPHONE=y
 CONFIG_SC8800S_IDLE=y
 
 #
