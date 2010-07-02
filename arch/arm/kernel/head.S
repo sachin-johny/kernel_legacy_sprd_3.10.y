@@ -76,6 +76,19 @@
  */
 	__HEAD
 ENTRY(stext)
+#ifndef __ARMEB__
+	stmfd sp!,{r0-r12}
+
+	mrc p15,0,r0,c1,c0,0
+	bic r0,r0,#0x80		@little-endian operation
+	bic r0,r0,#0x01		@MMU disable
+	ldr r1,=0x1004		@DCache/ICache disable
+	bic r0,r0,r1		
+	mcr p15,0,r0,c1,c0,0
+
+	ldmfd sp!,{r0-r12}
+#endif
+	
 	setmode	PSR_F_BIT | PSR_I_BIT | SVC_MODE, r9 @ ensure svc mode
 						@ and irqs disabled
 	mrc	p15, 0, r9, c0, c0		@ get processor id
