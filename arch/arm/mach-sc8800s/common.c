@@ -30,7 +30,6 @@
 #include <mach/board.h>
 #include <mach/irqs.h>
 #include <mach/mfp.h>
-#include <mach/mfp-sc8800s.h>
 #include <mach/regs_ahb.h>
 
 struct flash_platform_data sprd_nand_data = {
