@@ -86,6 +86,7 @@ static struct platform_device sprd_fb_device = {
 };
 
 static struct platform_device *devices[] __initdata = {
+	&sprd_kpad_device,
 	&sprd_nand_device,
 	&sprd_i2c_device,
 	&sprd_fb_device,
