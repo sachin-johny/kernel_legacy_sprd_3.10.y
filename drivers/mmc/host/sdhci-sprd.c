@@ -23,8 +23,16 @@
 
 #define SDIO_MAX_CLK 40000000  //40Mhz
 
+/*
+ * Our SD Card host controller is bigendian, when cpu is worked
+ * in little endian, we must do some swab when IO. the problem
+ * maybe changed with later CHIPs.
+ */
+#define CHIP_LITTLE_ENDIAN
+
 static unsigned int chip_get_mpll_clk(void)
 {
+
 	unsigned int pll_freq;
 	unsigned int reg_value, M, N;
 
@@ -101,12 +109,39 @@ static u32 sdhci_sprd_readl(struct sdhci_host *host, int reg)
 
 static u16 sdhci_sprd_readw(struct sdhci_host *host, int reg)
 {
+#ifndef CHIP_LITTLE_ENDIAN
 	return __raw_readw(host->ioaddr + reg);
+#else
+	unsigned long addr = (unsigned long)host->ioaddr + reg;
+	int index;
+
+	index = addr % 4;
+	//round with size of long
+	addr = addr / 4 * 4;
+
+	if (index == 0){
+		addr += 2;
+	}
+
+	return __raw_readw(addr);
+#endif
 }
 
 static u8 sdhci_sprd_readb(struct sdhci_host *host, int reg)
 {
+#ifndef CHIP_LITTLE_ENDIAN
 	return __raw_readb(host->ioaddr + reg);
+#else
+	unsigned long addr = (unsigned long)host->ioaddr + reg;
+	int index;
+
+	index = addr % 4;
+	//round with size of long
+	addr = addr / 4 * 4;
+	addr += 3 - index;
+
+	return __raw_readb(addr);
+#endif
 }
 
 static void sdhci_sprd_writel(struct sdhci_host *host, u32 val, int reg)
@@ -116,12 +151,40 @@ static void sdhci_sprd_writel(struct sdhci_host *host, u32 val, int reg)
 
 static void sdhci_sprd_writew(struct sdhci_host *host, u16 val, int reg)
 {
+#ifndef CHIP_LITTLE_ENDIAN
 	__raw_writew(val, host->ioaddr + reg);
+#else
+	unsigned long addr = (unsigned long)host->ioaddr + reg;
+	int index;
+
+	index = addr % 4;
+	//round with size of long
+	addr = addr / 4 * 4;
+
+	//low 16 bits
+	if (index == 0 ){
+		addr += 2;
+	}
+	__raw_writew(val, addr);
+#endif
 }
 
 static void sdhci_sprd_writeb(struct sdhci_host *host, u8 val, int reg)
 {
+#ifndef CHIP_LITTLE_ENDIAN
 	__raw_writeb(val, host->ioaddr + reg);
+#else
+	unsigned long addr = (unsigned long)host->ioaddr + reg;
+	int index;
+
+	index = addr % 4;
+	//round with size of long
+	addr = addr / 4 * 4;
+
+	addr += 3 - index;
+
+	__raw_writeb(val, addr);
+#endif
 }
 static struct sdhci_ops sdhci_sprd_ops = {
 	.read_l	= sdhci_sprd_readl,
@@ -148,8 +211,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		return irq;
 	}
 	pr_debug("sdio irq:%d \r\n", irq);
-	//io_test();
-	//timer_test();
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {

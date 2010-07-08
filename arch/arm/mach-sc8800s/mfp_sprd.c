@@ -55,7 +55,7 @@ static int __mfp_config_pin(int pin, unsigned long c)
 	unsigned long pin_reg = (unsigned long )PIN_CTL_BASE + (pin * 4);
 	unsigned long pin_cfg;
 
-	pr_info("register is :0x%x, old config is %x", (int)pin_reg, (int)pin_cfg);
+	//pr_info("register is :0x%x, old config is %x", (int)pin_reg, (int)pin_cfg);
 	
 	local_irq_save(flags);
 	pin_cfg =__raw_readl(pin_reg);
@@ -77,7 +77,7 @@ static int __mfp_config_pin(int pin, unsigned long c)
 	__raw_writel(pin_cfg, pin_reg);	
 	local_irq_restore(flags);
 	
-	pr_info("new config is :%x", (int)pin_cfg);
+	//pr_info("new config is :%x", (int)pin_cfg);
 	
 	return 0;
 }

@@ -135,7 +135,7 @@ static void sprd_config_sdio_pins(void)
 void __init sprd_add_sdio_device(void)
 {
 	/* Enable SDIO Module */
-	*(volatile unsigned int *)AHB_MISC |= BIT_10;
+	__raw_bits_or(BIT_10, AHB_MISC);
 
 	sprd_config_sdio_pins();
 	platform_device_register(&sprd_sdio_device);

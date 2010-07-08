@@ -322,6 +322,23 @@ unsigned int mmc_queue_map_sg(struct mmc_queue *mq)
 	return 1;
 }
 
+#define CHIP_LITTLE_ENDIAN
+
+static void swap_buf(char * buf, unsigned long len)
+{
+#ifdef CHIP_LITTLE_ENDIAN
+	__u32 * data_buf = (__u32 *)buf;
+	int i;
+
+	if((unsigned long)buf % 4 != 0) {
+		BUG_ON(1);
+	}
+	for (i = 0; i < len /4; i++){
+		__swab32s(data_buf);
+		data_buf++;
+	}
+#endif
+}
 /*
  * If writing, bounce the data to the buffer before the request
  * is sent to the host driver
@@ -340,6 +357,8 @@ void mmc_queue_bounce_pre(struct mmc_queue *mq)
 	sg_copy_to_buffer(mq->bounce_sg, mq->bounce_sg_len,
 		mq->bounce_buf, mq->sg[0].length);
 	local_irq_restore(flags);
+	//sword debug only for little endian
+	swap_buf(mq->bounce_buf, mq->sg[0].length);
 }
 
 /*
@@ -356,6 +375,8 @@ void mmc_queue_bounce_post(struct mmc_queue *mq)
 	if (rq_data_dir(mq->req) != READ)
 		return;
 
+	//sword debug only for little endian
+	swap_buf(mq->bounce_buf, mq->sg[0].length);
 	local_irq_save(flags);
 	sg_copy_from_buffer(mq->bounce_sg, mq->bounce_sg_len,
 		mq->bounce_buf, mq->sg[0].length);
