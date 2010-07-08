@@ -33,6 +33,7 @@
 
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
+#include <mach/gpio.h>
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -69,6 +70,8 @@ static void __init bigphone_init(void)
 {
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
+	sprd_gpio_init();
+	sprd_add_sdio_device();
 }
 
 static void __init bigphone_map_io(void)
