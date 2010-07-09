@@ -142,4 +142,11 @@ config CHARGER_PCF50633
 	help
 	 Say Y to include support for NXP PCF50633 Main Battery Charger.
 
+config SPRD_POWER
+	tristate "Spreadtrum SoC's power supply& mesurement controller"
+	depends on ARCH_SC8800S
+	help
+	 Say Y to include support for Spreadtrum SoC's power supply and
+	 mesurement controller driver
+
 endif # POWER_SUPPLY
