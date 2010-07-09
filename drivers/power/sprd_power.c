@@ -1,6 +1,6 @@
-/* drivers/power/goldfish_battery.c
+/* drivers/power/sprd_battery.c
  *
- * Power supply driver for the goldfish emulator
+ * Power supply driver for the sprd emulator
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
@@ -26,7 +26,7 @@
 #include <asm/io.h>
 
 
-struct goldfish_battery_data {
+struct sprd_battery_data {
 	uint32_t reg_base;
 	int irq;
 	spinlock_t lock;
@@ -39,8 +39,8 @@ struct goldfish_battery_data {
 #define GOLDFISH_BATTERY_WRITE(data, addr, x)
 
 
-/* temporary variable used between goldfish_battery_probe() and goldfish_battery_open() */
-static struct goldfish_battery_data *battery_data;
+/* temporary variable used between sprd_battery_probe() and sprd_battery_open() */
+static struct sprd_battery_data *battery_data;
 
 enum {
 	/* status register */
@@ -60,12 +60,12 @@ enum {
 };
 
 
-static int goldfish_ac_get_property(struct power_supply *psy,
+static int sprd_ac_get_property(struct power_supply *psy,
 			enum power_supply_property psp,
 			union power_supply_propval *val)
 {
-	struct goldfish_battery_data *data = container_of(psy,
-		struct goldfish_battery_data, ac);
+	struct sprd_battery_data *data = container_of(psy,
+		struct sprd_battery_data, ac);
 	int ret = 0;
 
 	switch (psp) {
@@ -79,12 +79,12 @@ static int goldfish_ac_get_property(struct power_supply *psy,
 	return ret;
 }
 
-static int goldfish_battery_get_property(struct power_supply *psy,
+static int sprd_battery_get_property(struct power_supply *psy,
 				 enum power_supply_property psp,
 				 union power_supply_propval *val)
 {
-	struct goldfish_battery_data *data = container_of(psy,
-		struct goldfish_battery_data, battery);
+	struct sprd_battery_data *data = container_of(psy,
+		struct sprd_battery_data, battery);
 	int ret = 0;
 
 	switch (psp) {
@@ -111,7 +111,7 @@ static int goldfish_battery_get_property(struct power_supply *psy,
 	return ret;
 }
 
-static enum power_supply_property goldfish_battery_props[] = {
+static enum power_supply_property sprd_battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -119,14 +119,14 @@ static enum power_supply_property goldfish_battery_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 };
 
-static enum power_supply_property goldfish_ac_props[] = {
+static enum power_supply_property sprd_ac_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
-static irqreturn_t goldfish_battery_interrupt(int irq, void *dev_id)
+static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 {
 	unsigned long irq_flags;
-	struct goldfish_battery_data *data = dev_id;
+	struct sprd_battery_data *data = dev_id;
 	uint32_t status;
 
 	spin_lock_irqsave(&data->lock, irq_flags);
@@ -145,11 +145,11 @@ static irqreturn_t goldfish_battery_interrupt(int irq, void *dev_id)
 }
 
 
-static int goldfish_battery_probe(struct platform_device *pdev)
+static int sprd_battery_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource *r;
-	struct goldfish_battery_data *data;
+	struct sprd_battery_data *data;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -158,15 +158,15 @@ static int goldfish_battery_probe(struct platform_device *pdev)
 	}
 	spin_lock_init(&data->lock);
 
-	data->battery.properties = goldfish_battery_props;
-	data->battery.num_properties = ARRAY_SIZE(goldfish_battery_props);
-	data->battery.get_property = goldfish_battery_get_property;
+	data->battery.properties = sprd_battery_props;
+	data->battery.num_properties = ARRAY_SIZE(sprd_battery_props);
+	data->battery.get_property = sprd_battery_get_property;
 	data->battery.name = "battery";
 	data->battery.type = POWER_SUPPLY_TYPE_BATTERY;
 
-	data->ac.properties = goldfish_ac_props;
-	data->ac.num_properties = ARRAY_SIZE(goldfish_ac_props);
-	data->ac.get_property = goldfish_ac_get_property;
+	data->ac.properties = sprd_ac_props;
+	data->ac.num_properties = ARRAY_SIZE(sprd_ac_props);
+	data->ac.get_property = sprd_ac_get_property;
 	data->ac.name = "ac";
 	data->ac.type = POWER_SUPPLY_TYPE_MAINS;
 
@@ -186,7 +186,7 @@ static int goldfish_battery_probe(struct platform_device *pdev)
 		goto err_no_irq;
 	}
 
-	ret = request_irq(data->irq, goldfish_battery_interrupt, IRQF_SHARED, pdev->name, data);
+	ret = request_irq(data->irq, sprd_battery_interrupt, IRQF_SHARED, pdev->name, data);
 	if (ret)
 		goto err_request_irq_failed;
 #endif
@@ -216,9 +216,9 @@ err_data_alloc_failed:
 	return ret;
 }
 
-static int goldfish_battery_remove(struct platform_device *pdev)
+static int sprd_battery_remove(struct platform_device *pdev)
 {
-	struct goldfish_battery_data *data = platform_get_drvdata(pdev);
+	struct sprd_battery_data *data = platform_get_drvdata(pdev);
 
 	power_supply_unregister(&data->battery);
 	power_supply_unregister(&data->ac);
@@ -229,26 +229,26 @@ static int goldfish_battery_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver goldfish_battery_device = {
-	.probe		= goldfish_battery_probe,
-	.remove		= goldfish_battery_remove,
+static struct platform_driver sprd_battery_device = {
+	.probe		= sprd_battery_probe,
+	.remove		= sprd_battery_remove,
 	.driver = {
 		.name = "sprd-battery"
 	}
 };
 
-static int __init goldfish_battery_init(void)
+static int __init sprd_battery_init(void)
 {
-	return platform_driver_register(&goldfish_battery_device);
+	return platform_driver_register(&sprd_battery_device);
 }
 
-static void __exit goldfish_battery_exit(void)
+static void __exit sprd_battery_exit(void)
 {
-	platform_driver_unregister(&goldfish_battery_device);
+	platform_driver_unregister(&sprd_battery_device);
 }
 
-module_init(goldfish_battery_init);
-module_exit(goldfish_battery_exit);
+module_init(sprd_battery_init);
+module_exit(sprd_battery_exit);
 
 MODULE_AUTHOR("Mike Lockwood lockwood@android.com");
 MODULE_LICENSE("GPL");
