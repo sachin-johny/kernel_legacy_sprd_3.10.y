@@ -22,9 +22,9 @@
 static wait_queue_head_t fb_state_wq;
 static DEFINE_SPINLOCK(fb_state_lock);
 static enum {
-	FB_STATE_STOPPED_DRAWING,
-	FB_STATE_REQUEST_STOP_DRAWING,
-	FB_STATE_DRAWING_OK,
+	FB_STATE_STOPPED_DRAWING  = 2,
+	FB_STATE_REQUEST_STOP_DRAWING = 2 ,
+	FB_STATE_DRAWING_OK  = 2,
 } fb_state;
 
 /* tell userspace to stop drawing, wait for it to stop */

@@ -19,7 +19,7 @@
 
 #include "sc8800s_lcd.h"
 
-#define  LCD_DEBUG
+//#define  LCD_DEBUG
 #ifdef LCD_DEBUG
 #define LCD_PRINT printk
 #else

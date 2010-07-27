@@ -242,7 +242,7 @@ void change_state(kpd_key_t *key_ptr)
 #if 1
 		colrow = SCAN2KEYVAl(key_ptr->key_code);
 		key = sprd_kpad_find_key(sprd_kpad, sprd_kpad->input, colrow);
-		//printk("colrow = 0x%0x  key = %d  DOWN\n", colrow, key);
+		printk("colrow = 0x%0x  key = %d  DOWN\n", colrow, key);
         	input_report_key(sprd_kpad->input, key, 1);
         	input_sync(sprd_kpad->input);
 #endif
@@ -257,7 +257,7 @@ void change_state(kpd_key_t *key_ptr)
 #if 1
 		colrow = SCAN2KEYVAl(key_ptr->key_code);
 		key = sprd_kpad_find_key(sprd_kpad, sprd_kpad->input, colrow);
-		//printk("colrow = 0x%0x  key = %d  UP\n", colrow, key);
+		printk("colrow = 0x%0x  key = %d  UP\n", colrow, key);
         	input_report_key(sprd_kpad->input, key, 0);
         	input_sync(sprd_kpad->input);
 #endif		

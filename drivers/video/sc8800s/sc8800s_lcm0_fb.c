@@ -33,7 +33,7 @@
 #include <mach/irqs.h>
 #include "sc8800s_lcd.h"
 
-#define  FB_DEBUG
+/* #define  FB_DEBUG */
 #ifdef FB_DEBUG
 #define FB_PRINT printk
 #else
@@ -145,26 +145,110 @@ static int sc8800sfb_check_var(struct fb_var_screeninfo *var, struct fb_info *in
 #define WORD_SWAP(word) ((word<<16)|(word>>16))
 static void convert_format(uint32_t *src, uint32_t *dst, uint32_t w, uint32_t h)
 {
-	uint32_t i , j, bigger;
+	uint32_t i = w * h /2;
 
-	if (w > h) {
-		i = bigger = w;
-		j = h;
-	} else {
-		j = w;
-		i = bigger = h;
-	}
-
-	while (j--) {
-		while (i--) {
-			*(dst++) = WORD_SWAP(*src);
-			src++;
-		}
-		i = bigger;
+	while (i--) {
+		*(dst++) = WORD_SWAP(*src);
+		src++;
 	}
 }
 
 #endif
+int set_lcdc_block(struct fb_var_screeninfo *var, struct fb_info *info)
+{
+	struct sc8800sfb_info *sc8800sfb = info->par;
+	uint32_t reg_val;
+
+	uint32_t tmp;
+
+	/* we assume that
+	 * 1. there's only one fbdev, and only block0 is used
+	 * 2. the pan operation is a sync one
+	 */
+
+	/* switch buffer base */
+#ifndef __ARMEB__
+	reg_val = swapbuf;
+#else
+	reg_val = (info->var.yoffset)?info->fix.smem_start:
+		(info->fix.smem_start+ info->fix.smem_len/2);
+#endif
+	__raw_writel(reg_val, LCDC_LCD_BLOCK0ADDR);
+	FB_PRINT("@fool2[%s] LCDC_LCD_BLOCK0ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCD_BLOCK0ADDR));
+
+	reg_val = (1<<28) | (1<<31); /* startx/y=0, prio=1, enable */
+	__raw_writel(reg_val, LCDC_LCD_BLOCK0START);
+	FB_PRINT("@fool2[%s] LCDC_LCD_BLOCK0START: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCD_BLOCK0START));
+
+	reg_val = (info->var.xres-1) |
+		((info->var.yres-1)<<12) |
+		(((info->var.width>>3))<<24); /* endx/y and width */
+	__raw_writel(reg_val, LCDC_LCD_BLOCK0END);
+	FB_PRINT("@fool2[%s] LCDC_LCD_BLOCK0END: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCD_BLOCK0END));
+
+	/* FIXME: hardcoded color format */
+	reg_val = 1 | (2<<24) | (1<<26) | (1<<28);
+	__raw_writel(reg_val, LCDC_LCD_BLOCK0CONFIG);
+	FB_PRINT("@fool2[%s] LCDC_LCD_BLOCK0CONFIG: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCD_BLOCK0CONFIG));
+
+	/* FIXME: strange code... copied from lcd_sc8800h.c*/
+	__raw_bits_or((1<<27)|(1<<28), LCDC_LCD_BLOCK2CONFIG);
+	__raw_bits_or(0xff, LCDC_LCD_BLOCK2CONFIG);
+
+	/* LCDC_SetDisplayWindows */
+	__raw_writel(0, LCDC_DISP_WIN_START_ADDR);
+	reg_val = (info->var.xres-1) | ((info->var.yres-1)<<16);
+	__raw_writel(reg_val, LCDC_DISP_WIN_END_ADDR);
+	FB_PRINT("@fool2[%s] LCDC_DISP_WIN_START_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_WIN_START_ADDR));
+	FB_PRINT("@fool2[%s] LCDC_DISP_WIN_END_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_WIN_END_ADDR));
+
+	return 0;
+}
+
+int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
+{
+	struct sc8800sfb_info *sc8800sfb = info->par;
+	uint32_t reg_val;
+
+#ifndef __ARMEB__
+	reg_val = (info->var.yoffset == 0)?info->screen_base:
+		(info->screen_base + info->fix.smem_len/2);
+	convert_format((uint32_t*)reg_val, (uint32_t*)swapbuf, 
+			info->var.xres, info->var.yres);
+#else
+	reg_val = (info->var.yoffset == 0)?info->fix.smem_start:
+		(info->fix.smem_start+ info->fix.smem_len/2);
+	__raw_writel(reg_val, LCDC_LCD_BLOCK0ADDR);
+#endif
+
+	/* set brush direction */
+	/* FIXME: hardcoded direction */
+	//sc8800sfb->panel->ops->lcd_set_direction(sc8800sfb->panel, 0);
+	sc8800sfb->panel->ops->lcd_invalidate(sc8800sfb->panel);
+
+	/* write data to LCD GRAM - lcdc_mcu_transcmd() */
+	__raw_bits_or((1<<3),  LCDC_LCD_MODE); /* enable shadow update */
+	FB_PRINT("@fool2[%s] LCDC_LCD_MODE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCD_MODE));
+
+	reg_val = info->var.xres * info->var.yres;
+	reg_val |= (1<<20); /* for device 0 */
+	reg_val |= (1<<26); /* FIXME: hardcoded cs 1 */
+	__raw_writel(reg_val, LCDC_LCM0DATANUMBER);
+	FB_PRINT("@fool2[%s] LCDC_LCMDATANUMBER: 0x%x, reg_val=0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCMDATANUMBER), reg_val);
+
+	__raw_bits_or((1<<5), LCDC_LCD_MODE); /* start refresh */
+	FB_PRINT("@fool2[%s] LCDC_LCD_MODE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCD_MODE));
+
+	/* busy wait for OSD refresh Done */
+	while((__raw_readl(LCDC_LCM0_INT_STATUS) & (1<<1)) == 0);
+	/* clear bit */
+	__raw_bits_or((1<<1), LCDC_LCM0_INT_STATUS);
+	FB_PRINT("@fool2[%s] LCDC_LCM_INT_STATUS: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCM_INT_STATUS));
+
+	/* FIXME: hardcoded direction, and why? */
+	//sc8800sfb->panel->ops->lcd_set_direction(sc8800sfb->panel, 0);
+}
+
 int sc8800sfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	struct sc8800sfb_info *sc8800sfb = info->par;
@@ -178,12 +262,15 @@ int sc8800sfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	 */
 
 	/* switch buffer base */
-	reg_val = (info->var.yoffset)?info->fix.smem_start:
-		(info->fix.smem_start+ info->fix.smem_len/2);
 #ifndef __ARMEB__
+	reg_val = (info->var.yoffset)?info->screen_base:
+		(info->screen_base + info->fix.smem_len/2);
 	convert_format((uint32_t*)reg_val, (uint32_t*)swapbuf, 
 			info->var.xres, info->var.yres);
 	reg_val = swapbuf;
+#else
+	reg_val = (info->var.yoffset)?info->fix.smem_start:
+		(info->fix.smem_start+ info->fix.smem_len/2);
 #endif
 	__raw_writel(reg_val, LCDC_LCD_BLOCK0ADDR);
 	FB_PRINT("@fool2[%s] LCDC_LCD_BLOCK0ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCD_BLOCK0ADDR));
@@ -258,7 +345,8 @@ int sc8800sfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 static struct fb_ops sc8800sfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_check_var = sc8800sfb_check_var,
-	.fb_pan_display = sc8800sfb_pan_display,
+	//.fb_pan_display = sc8800sfb_pan_display,
+	.fb_pan_display = real_pan_display,
 	.fb_fillrect = cfb_fillrect,
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
@@ -624,6 +712,8 @@ static void hw_init(struct sc8800sfb_info *sc8800sfb)
 
 	/* init mounted lcd panel */
 	sc8800sfb->panel->ops->lcd_init(sc8800sfb->panel);
+
+	set_lcdc_block(&sc8800sfb->fb->var, sc8800sfb->fb); /* TEMP */
 }
 
 static unsigned PP[16];
@@ -951,10 +1041,12 @@ static int sc8800sfb_probe(struct platform_device *pdev)
 
 	hw_init(sc8800sfb);
 
+	//set_lcdc_block(&sc8800sfb->fb->var, sc8800sfb->fb); /* TEMP */
+
 	/* FIXME: put the BL stuff to where it belongs. */
 	set_backlight(50);
 
-if(0){ /* in kernel test code */
+if(0){ /* in-kernel test code */
 	struct fb_info test_info;
 	int size = sc8800sfb->fb->var.xres * sc8800sfb->fb->var.yres *2;
 	
@@ -971,7 +1063,8 @@ if(0){ /* in kernel test code */
 		else
 			test_info.var.yoffset = 0;
 
-		sc8800sfb_pan_display(&sc8800sfb->fb->var, &test_info);
+		//sc8800sfb_pan_display(&sc8800sfb->fb->var, &test_info);
+		real_pan_display(&sc8800sfb->fb->var, &test_info);
 		msleep(500);
 	}
 }
