@@ -275,7 +275,7 @@ enum {
 };
 
 
-#define MFP_PIN(x)	(((x) & 0xff) << 16)
+#define MFP_PIN(x)	(((x) & 0xffff) << 16)
 #define MFP_CFG_TO_PIN(x)  ((x) >> 16)
 
 //special bit for setting, for the default value of is not same 
@@ -290,7 +290,7 @@ NOTE, this is not applied to GPIO pins, GPIO pin's input/output direction have s
 	registers and specfic bits.
 */
 #define MFP_IO_NONE  (0x0 << 0)
-#define MFP_IO_Z	MFP_IO_NONE
+#define MFP_IO_Z		MFP_IO_NONE
 #define MFP_IO_OE		(0x1	<< 0)
 #define MFP_IO_IE		(0x2 << 0)
 #define MFP_IO_BOTH   (0x3 << 0)

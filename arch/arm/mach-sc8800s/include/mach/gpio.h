@@ -20,17 +20,11 @@
 
 #define ARCH_NR_GPIOS	GPIO_MAX_PIN_NUM
 
-#define GPIO_MAX_IRQ_NUM	10
-//description of gpio irq;
-struct sprd_gpio_irq_desc {
-	int irq_num;
-	int trigger;
-	int self_clean;
-};
- 
 #define gpio_get_value __gpio_get_value
 #define gpio_set_value __gpio_set_value
 #define gpio_to_irq  __gpio_to_irq
+
+extern __must_check int sprd_gpio_irq_register(int gpio_id, unsigned int irq);
 
 #include <asm-generic/gpio.h>
 

@@ -42,8 +42,13 @@
 #define IRQ_DSP_ICU_INT     19
 #define IRQ_DMA_INT         20
 #define IRQ_VBC_INT         21
+#ifndef CONFIG_CHIP_VER_8800H5
 #define IRQ_MEA_INT         22
 #define IRQ_DCT_INT         23
+#else
+#define IRQ_VSP_INT	    22
+#define IRQ_TPC_INT	    23
+#endif
 #define IRQ_SER0_1_INT      24
 #define IRQ_USBD_INT        25
 #define IRQ_ISP_INT         26
@@ -54,10 +59,11 @@
 #define IRQ_MIX_INT         31
 
 #define NR_SPRD_IRQS  32
-#define NR_GPIO_IRQS  0 /* to be added later */
+#define NR_GPIO_IRQS  10
 #define NR_BOARD_IRQS 0 /* to be added later */
 #define NR_IRQS (NR_SPRD_IRQS + NR_GPIO_IRQS + NR_BOARD_IRQS)
 
+#define GPIO_IRQ_START  NR_SPRD_IRQS
 #define SPRD_GPIO_TO_INT(n) (NR_SPRD_IRQS + (n))
 
 #endif

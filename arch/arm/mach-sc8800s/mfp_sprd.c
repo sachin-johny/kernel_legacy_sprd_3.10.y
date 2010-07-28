@@ -28,6 +28,7 @@ NOTE: pin to gpio's map, you should check it from your chip's spec
 */
 const static unsigned long pin_gpio_map[MFP_PIN_MAX] = {
 	[MFP_PIN_SD1_CLK] = 9,
+	[MFP_PIN_LCD_EN] = 103,
 	[MFP_PIN_MAX - 1] = 0xffff
 };
 

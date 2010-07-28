@@ -14,11 +14,13 @@
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/bug.h>
+#include <linux/module.h>
 #include <asm/io.h>
 #include <asm/gpio.h>
 
 #include <mach/regs_global.h>
 #include <mach/regs_gpio.h>
+
 
 static u32  __get_gpio_page(unsigned gpio_id)
 {
@@ -52,7 +54,7 @@ static int sprd_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 	u32 dir;
 	unsigned gpio_id = offset;
 	
-	if (gpio_id >= GPIO_MAX_PIN_NUM) {
+	if (gpio_id > GPIO_MAX_PIN_NUM) {
 		WARN(1, KERN_WARNING"gpio number is too larger:%d\r\n", gpio_id);
 		return -1;
 	}
@@ -76,7 +78,7 @@ static int sprd_gpio_direction_output(struct gpio_chip *chip,
 	u32 reg_value;
 	unsigned gpio_id = offset;
 	
-	if (gpio_id >= GPIO_MAX_PIN_NUM) {
+	if (gpio_id > GPIO_MAX_PIN_NUM) {
 		WARN(1, KERN_WARNING"gpio number is too larger:%d\r\n", gpio_id);
 		return -1;
 	}
@@ -169,20 +171,15 @@ static int sprd_gpio_request(struct gpio_chip *chip, unsigned offset)
 	unsigned gpio_id = offset;
 	int reg_value;
 	
-	if (gpio_id >= GPIO_MAX_PIN_NUM) {
-		WARN(1, KERN_WARNING"gpio number is too larger:%d\r\n", gpio_id);
-		return -1;
-	}
-
 	gpio_pg_base = __get_gpio_page(gpio_id);
 	bit_num = gpio_id & 0x0f;
 	local_irq_save(flags);
 	reg_value =  __raw_readl(gpio_pg_base + GPIO_DMSK);
 	__raw_writel(reg_value | (1 << bit_num), (gpio_pg_base + GPIO_DMSK));
 	local_irq_restore(flags);
-	pr_info("gpio %d data mask is %x\r\n", bit_num,  __raw_readl(gpio_pg_base + GPIO_DMSK));
+	//pr_info("gpio %d data mask is %x\r\n", bit_num,  __raw_readl(gpio_pg_base + GPIO_DMSK));
 	__raw_bits_or(1<<bit_num, (gpio_pg_base + GPIO_DMSK));
-	pr_info("new data mask is %x\r\n", __raw_readl(gpio_pg_base + GPIO_DMSK));
+	//pr_info("new data mask is %x\r\n", __raw_readl(gpio_pg_base + GPIO_DMSK));
 	return 0;
 }
 
@@ -194,7 +191,7 @@ static void sprd_gpio_free(struct gpio_chip *chip, unsigned offset)
 	int reg_value;
 	unsigned long flags;
 	
-	if (gpio_id >= GPIO_MAX_PIN_NUM) {
+	if (gpio_id > GPIO_MAX_PIN_NUM) {
 		WARN(1, KERN_WARNING"gpio number is too larger:%d\r\n", gpio_id);
 		return;
 	}
@@ -228,46 +225,137 @@ static struct gpio_chip sprd_gpio_chip = {
 	.ngpio		  = GPIO_MAX_PIN_NUM,
 };
 
-void __init sprd_gpio_init(void)
-{
-	//enable gpio bank 0~10, that is, all 176 gpio 
-	__raw_writel(0x7fff, GR_GEN2);
-	gpiochip_add(&sprd_gpio_chip);
-}
-#if 0
+struct gpio_irq_map {
+	int gpio_id;
+	unsigned int irq_num;
+};
+#define GPIO_INVALID_ID 0xffff
+#define GPIO_MAX_IRQ_NUM (NR_GPIO_IRQS)
+static struct gpio_irq_map gpio_irq_table[GPIO_MAX_IRQ_NUM];
+
 void sprd_ack_gpio_irq(unsigned int irq)
 {
-	int gpio = irq - IRQ_GPIO(2) + 2;
-	GEDR(gpio) = GPIO_bit(gpio);
+	int gpio;
+	int bit_num;
+	unsigned int gpio_page;
+ 	struct gpio_irq_map *map= get_irq_chip_data(irq);
+
+	gpio = map->gpio_id;
+	if (gpio >= GPIO_MAX_PIN_NUM ) {
+		pr_warning(" [%s] error gpio %d\n", __FUNCTION__, gpio);
+		return;
+	}
+	//pr_info("ack gpio %d  irq %d", gpio, irq);
+    	gpio_page = __get_gpio_page(gpio);
+	bit_num = gpio & 0x0f;
+	//Interrupt clear, "1" clears edge detection interrupt. "0" has no effect.
+	__raw_bits_or((1 << bit_num), (gpio_page + GPIO_IC));
 }
 EXPORT_SYMBOL(sprd_ack_gpio_irq);
 
 void sprd_mask_gpio_irq(unsigned int irq)
 {
-	int gpio = irq - IRQ_GPIO(2) + 2;
-	gpio = get_irq_chip_data(irq);
-	
-	__clear_bit(gpio, GPIO_IRQ_mask);
-	GRER(gpio) &= ~GPIO_bit(gpio);
-	GFER(gpio) &= ~GPIO_bit(gpio);
+	int gpio;
+	int bit_num;
+	unsigned int gpio_page;
+	struct gpio_irq_map *map= get_irq_chip_data(irq);
+
+	gpio = map->gpio_id;
+	if (gpio >= GPIO_MAX_PIN_NUM ) {
+		pr_warning(" [%s] error gpio %d\n", __FUNCTION__, gpio);
+		return;
+	}
+	//pr_info("mask gpio %d  irq %d", gpio, irq);
+  	gpio_page = __get_gpio_page(gpio);
+	bit_num = gpio & 0x0f;
+	//Clear Interrupt mask register
+	__raw_bits_and( ~(1 << bit_num), (gpio_page + GPIO_IE));
 }
 
 EXPORT_SYMBOL(sprd_mask_gpio_irq);
 
-static void sprd_unmask_gpio_irq(unsigned int irq)
+void sprd_unmask_gpio_irq(unsigned int irq)
 {
-	int gpio = irq - IRQ_GPIO(2) + 2;
-	int idx = gpio >> 5;
-	__set_bit(gpio, GPIO_IRQ_mask);
-	GRER(gpio) = GPIO_IRQ_rising_edge[idx] & GPIO_IRQ_mask[idx];
-	GFER(gpio) = GPIO_IRQ_falling_edge[idx] & GPIO_IRQ_mask[idx];
+	int gpio;
+	int bit_num;
+	unsigned int gpio_page;
+	struct gpio_irq_map *map= get_irq_chip_data(irq);
+
+	gpio = map->gpio_id;
+	if (gpio >= GPIO_MAX_PIN_NUM ) {
+		pr_warning(" [%s] error gpio %d\n", __FUNCTION__, gpio);
+		return;
+	}
+	//pr_info("unmask gpio %d  irq %d", gpio, irq);
+  	gpio_page = __get_gpio_page(gpio);
+	bit_num = gpio & 0x0f;
+	//Set Interrupt mask register
+   	__raw_bits_or( (1 << bit_num), (gpio_page + GPIO_IE));
 }
 
-EXPORT_SYMBOL(sprd_unmask_muxed_gpio);
 
 static int sprd_gpio_irq_type(unsigned int irq, unsigned int type)
 {
+	int gpio;
+	int bit_num;
+	unsigned int gpio_pg_base;
+	struct gpio_irq_map *map= get_irq_chip_data(irq);
+
+	gpio = map->gpio_id;
+	if (gpio >= GPIO_MAX_PIN_NUM ) {
+		pr_warning(" [%s] error gpio %d\n", __FUNCTION__, gpio);
+		return;
+	}
+  	gpio_pg_base = __get_gpio_page(gpio);
+	bit_num = gpio & 0x0f;
+
 	//set irq type
+	switch(type) {
+	case IRQ_TYPE_LEVEL_HIGH: 
+		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IS));
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IBE));
+		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IEV));
+		break;
+
+	case IRQ_TYPE_LEVEL_LOW:
+		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IS));
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IBE));
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IEV));
+		break;
+
+	case IRQ_TYPE_EDGE_BOTH:
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IS));
+		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IBE));
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IEV));
+		break;
+
+	case IRQ_TYPE_EDGE_RISING:
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IS));
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IBE));
+		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IEV));
+		break;
+
+	case IRQ_TYPE_EDGE_FALLING:
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IS));
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IBE));
+		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IEV));
+		break;
+
+	default:
+		pr_warning("error irq type %d\n", type);
+		return -1;
+	}
+
+	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH))
+		__set_irq_handler_unlocked(irq, handle_level_irq);
+	else if (type & (IRQ_TYPE_EDGE_FALLING | IRQ_TYPE_EDGE_RISING))
+		__set_irq_handler_unlocked(irq, handle_edge_irq);
+	return 0;
+}
+
+static void sprd_disable_gpio_irq(unsigned int irq)
+{
+	sprd_mask_gpio_irq(irq);	
 }
 static struct irq_chip sprd_muxed_gpio_chip = {
 	.name		= "GPIO",
@@ -275,64 +363,93 @@ static struct irq_chip sprd_muxed_gpio_chip = {
 	.mask		= sprd_mask_gpio_irq,
 	.unmask		= sprd_unmask_gpio_irq,
 	.set_type	= sprd_gpio_irq_type,
+	.disable	= sprd_disable_gpio_irq,
 };
+
+static  int __get_gpio_int_state(int gpio)
+{
+	int bit_num;
+	unsigned int gpio_pg_base;
+	unsigned int value;
+    
+  	gpio_pg_base = __get_gpio_page(gpio);
+	bit_num = gpio & 0x0f;
+	value = __raw_readl(gpio_pg_base + GPIO_MIS);
+
+	if (value & (1<<bit_num)) 
+		return 1;
+	else
+       	return 0;
+}
+
 
 static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
-	//if dev id is not null, check if it is struct gpio_deshake
-	if (irq_desc->action->dev_id) {
-		//get deshaking interval
-		struct gpio_deshake *shake = dev_id;
-		//ack irq
-		//start a hrtimer with the interval
-	} else {
-		//generic handler_irq
-		//ack irq
-		//mask irq
-		//get the interrupted gpio, and its irq number
-		generic_handle_irq();
-		//unmask irq
+	int i;
+
+	for (i = 0; i < GPIO_MAX_IRQ_NUM; i++) {
+		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID) {
+		            continue;
+        	}
+		if (__get_gpio_int_state(gpio_irq_table[i].gpio_id)) {
+		  	generic_handle_irq(gpio_irq_table[i].irq_num);
+		}
 	}
 }
 static void sprd_gpio_irq_init(void)
 {
-	//set irq chip from IRQ_GPIO1 to GPIO_MAX_IRQ_NUM
-	//if the irq have to be deshaked, install the handle_simple_irq
-		set_irq_chip(IRQ_headset, &sprd_muxed_gpio_chip);
-		set_irq_handler(IRQ_charger, handle_simple_irq);
-	//else install handler according trigger
+	int irq;
+	int i;
 
-		set_irq_chained_handler(IRQ_GPIO, sprd_gpio_demux_handler);
+	for(i = 0; i < GPIO_MAX_IRQ_NUM; i++) {
+		gpio_irq_table[i].gpio_id= GPIO_INVALID_ID;
+	}
+	for (irq = GPIO_IRQ_START; irq < (GPIO_IRQ_START + NR_GPIO_IRQS); irq++) {
+		set_irq_chip(irq, &sprd_muxed_gpio_chip);
+		set_irq_flags(irq, IRQF_VALID | IRQF_PROBE);
+	}
+	
+	set_irq_chained_handler(IRQ_GPIO_INT, sprd_gpio_demux_handler);
 }
-
-struct gpio_irq_map {
-	unsigned gpio_id;
-	struct sprd_gpio_irq_desc gpio_irq_desc;
-};
-
-static struct gpio_irq_map gpio_irq_map[GPIO_MAX_IRQ_NUM];
 
 /*
 	add a gpio irq into the map,and setup the irq
 */
-int sprd_gpio_irq_setup(unsigned gpio_id, struct sprd_gpio_irq_desc * gpio_desc)
+__must_check int sprd_gpio_irq_register(int gpio_id, unsigned int irq)
 {
-	//add the gpio and  irq into the map
+	int i;
 
-	//if the map is full, reture fail
+	   // find a free record
+	for (i = 0; i< GPIO_MAX_IRQ_NUM; i++) {
+		if (gpio_irq_table[i].gpio_id == gpio_id) {
+			pr_warning("GPIO_AddToIntTable: GPIO_%d has been added !\n", gpio_id); 
+		    return -1;
+		}
+	}
 
-	//set the gpio num to the irq's private data
-	set_irq_chip_data(irq, &gpio_irq_map[].gpio_id);
+	for(i = 0; i < GPIO_MAX_IRQ_NUM; i++) {
+		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID) 
+			break;
+	}
+
+	if (i >= GPIO_MAX_IRQ_NUM) {
+		// No free item in the table.
+		return -1;
+	}
+	 gpio_irq_table[i].gpio_id = gpio_id;
+	 gpio_irq_table[i].irq_num = irq;
+	 
+	set_irq_chip_data(irq, &gpio_irq_table[i]);
+	return 0;
 }
 
-EXPORT_SYMBOL(sprd_gpio_irq_add);
+EXPORT_SYMBOL(sprd_gpio_irq_register);
 
-
-//implement in the platform drivers
-static __init int sprd_gpio_init_irqs(void)
+__init void sprd_gpio_init(void)
 {
-	//request the gpio
-	//set gpio's direction interrupt sense
-	//add the gpio irqs, e.g. headset, charger...
+	//enable gpio bank 0~10, that is, all 176 gpio 
+	__raw_writel(0x7fff, GR_GEN2);
+	gpiochip_add(&sprd_gpio_chip);
+
+	sprd_gpio_irq_init();
 }
-#endif
