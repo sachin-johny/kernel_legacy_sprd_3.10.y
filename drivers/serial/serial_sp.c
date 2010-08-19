@@ -1,4 +1,4 @@
-/* linux/arch/arm/mach-sc8800s/serial_sp.c
+/* linux/drivers/serial/serial_sp.c
  *
  *
  * Copyright (C) 2010 Spreadtrum
@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/tty.h>
 #include <linux/ioport.h>
@@ -28,7 +29,8 @@
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <mach/hardware.h>
-#define CONFIG_SERIAL_SC8800_CONSOLE
+#define CONFIG_TS0710_MUX_UART
+
 /*
  * port type,it ought to be defined in serial_core.h,
  * we just put here temporary 
@@ -102,6 +104,20 @@
 #define BAUD_460800_26M	0x0038
 #define BAUD_921600_26M	0x001C
 extern void printascii(const char *);
+
+#ifdef CONFIG_TS0710_MUX_UART
+//static struct tty_struct serial_tty;
+extern struct mux_ringbuffer rbuf;
+struct tty_driver *serial_for_mux_driver = NULL;
+static int serial_mux_guard = 0;
+struct tty_struct *serial_for_mux_tty = NULL;
+extern ssize_t mux_ringbuffer_write(struct mux_ringbuffer *rbuf, const u8 *buf, size_t len);
+extern ssize_t mux_ringbuffer_free(struct mux_ringbuffer *rbuf);
+extern int cmux_opened(void);
+void (*serial_mux_dispatcher)(struct tty_struct *tty) = NULL;
+void (*serial_mux_sender)(void) = NULL;
+#endif
+
 static inline unsigned int serial_in(struct uart_port *port,int offset)
 {
 	return __raw_readl(port->membase+offset);
@@ -175,12 +191,34 @@ static void serialsc8800_enable_ms(struct uart_port *port)
 static void serialsc8800_break_ctl(struct uart_port *port,int break_state)
 {
 }
+static char rev[2048]; 
 static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 {
 	struct uart_port *port=(struct uart_port*)dev_id;
 	struct tty_struct *tty=port->state->port.tty;
 	unsigned int status,ch,flag,lsr,max_count=96;
-
+	unsigned int count,st=0;
+#ifdef CONFIG_TS0710_MUX_UART
+	//printk("enter serialsc8800_rx_chars and mux begin rx\r\n");
+	if ((0==port->line)&& cmux_opened()){
+		//printk("mux opened!\r\n");
+		count =0; 	
+		do {
+			rev[count] = serial_in(port, ARM_UART_RXD);
+			//printk("rev=%x\r\n",rev[count]);
+			st = serial_in(port,ARM_UART_STS1);
+			count++;
+		} while ((st & 0xff) && (max_count-- > 0));
+		//printk("before mux_ringbuffer_write,count=%d\r\n",count);
+		mux_ringbuffer_write(&rbuf, rev, count);
+		//printk("after mux_ringbuffer_write,count=%d\r\n",count);
+		if (serial_mux_dispatcher)
+			serial_mux_dispatcher(tty);
+		//printk("leave mux rx!\r\n");
+		return;
+	}
+	else {
+#endif	
 	status=serial_in(port,ARM_UART_STS1);
 	lsr=serial_in(port,ARM_UART_STS0);
 	while((status & 0x00ff) && max_count--){
@@ -228,6 +266,9 @@ static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 	}
 	tty->low_latency = 1;
 	tty_flip_buffer_push(tty);
+#ifdef CONFIG_TS0710_MUX_UART
+	}
+#endif
 }
 static inline void  serialsc8800_tx_chars(int irq,void *dev_id)
 {
@@ -260,6 +301,15 @@ static inline void  serialsc8800_tx_chars(int irq,void *dev_id)
 	if(uart_circ_empty(xmit)){
 		serialsc8800_stop_tx(port);	
 	}
+
+#ifdef CONFIG_TS0710_MUX_UART
+	if ((0==port->line)&& cmux_opened()){
+		if(serial_mux_sender){
+			serial_mux_sender();	
+		}	
+	}
+#endif
+
 }
 /*
  *this handles the interrupt from one port
@@ -275,6 +325,12 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 			break;
 		}
 		if(serial_in(port,ARM_UART_STS0) & (UART_STS_RX_FIFO_FULL | UART_STS_BREAK_DETECT)){
+			/*if(0==port->line){
+				printk("kewang:STS0=%x,STS1=%x,STS2=%x\r\n",serial_in(port,ARM_UART_STS0),serial_in(port,ARM_UART_STS1),serial_in(port,ARM_UART_STS2));
+				printk("kewang:rxd=%x\r\n",serial_in(port,ARM_UART_RXD));
+				printk("kewang:IEN=%x,ICLR=%x,CTL0=%x,CTL1=%x,CTL2=%x,CLKD0=%x,CLKD1=%x\r\n",serial_in(port,ARM_UART_IEN),serial_in(port,ARM_UART_ICLR),serial_in(port,ARM_UART_CTL0),serial_in(port,ARM_UART_CTL1),serial_in(port,ARM_UART_CTL2),serial_in(port,ARM_UART_CLKD0),serial_in(port,ARM_UART_CLKD1));	
+				break;
+			}  */	//kewang
 			serialsc8800_rx_chars(irq,port);
 		}
 		if(serial_in(port,ARM_UART_STS0) & UART_STS_TX_FIFO_EMPTY){
@@ -291,6 +347,21 @@ static int serialsc8800_startup(struct uart_port *port)
 	int ret=0;
 	unsigned int ien;
 	//port->uartclk=26000000;
+
+#ifdef CONFIG_TS0710_MUX_UART
+	if(port->line == 0){
+
+	        if( serial_mux_guard ) {
+			serial_mux_guard++;
+			printk("Fail to open ttyS0, it's busy!\n");
+			return -EBUSY;
+		} else {
+			serial_mux_guard++;
+			serial_for_mux_tty = port->state->port.tty;
+			printk("=========serial_for_mux_tty=%p========\r\n",serial_for_mux_tty);
+		}
+	}
+#endif
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
  	*/	 
@@ -329,6 +400,12 @@ static int serialsc8800_startup(struct uart_port *port)
 }
 static void serialsc8800_shutdown(struct uart_port *port)
 {
+#ifdef CONFIG_TS0710_MUX_UART
+	if (port->line == 0) {
+		serial_mux_guard--;
+	}
+#endif
+
 	serial_out(port,ARM_UART_IEN,0x0);
 	serial_out(port,ARM_UART_ICLR,0xffffffff);
 	free_irq(port->irq,port);
@@ -382,7 +459,7 @@ static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *ter
 		quot=BAUD_115200_26M;
 		break;
 	}
-	printk("quot=0x%x\r\n",quot);
+	//printk("quot=0x%x\r\n",quot);
 	/*
  	*set data length
  	*/
@@ -573,7 +650,7 @@ static void serialsc8800_setup_ports(void)
 		serialsc8800_ports[i].uartclk=26000000;
 }
 
-#ifdef CONFIG_SERIAL_SC8800_CONSOLE
+#ifdef CONFIG_SERIAL_SC8800S_CONSOLE
 static inline void wait_for_xmitr(struct uart_port *port)
 {
 	unsigned int status,tmout=10000;
@@ -619,15 +696,18 @@ static int __init serialsc8800_console_setup(struct console *co,char *options)
 	int bits =8;
 	int parity ='n';
 	int flow ='n';
+	//int i;
 	//printascii("enter console_setup!\r\n");
 	if(unlikely(co->index >= UART_NR || co->index < 0));
 		co->index = 0;	
-	port= &serialsc8800_ports[co->index];
-	
-	if(options)
-		uart_parse_options(options,&baud,&parity,&bits,&flow);
-
+	//for(i=0;i<4;i++){
+		port= &serialsc8800_ports[co->index];	
+		if(options)
+			uart_parse_options(options,&baud,&parity,&bits,&flow);
+		//uart_set_options(port,co,baud,parity,bits,flow);
+	//}
 	return uart_set_options(port,co,baud,parity,bits,flow);
+	//return uart_set_options(port,co,baud,parity,bits,flow);
 }
 static struct uart_driver serialsc8800_reg;
 static struct console serialsc8800_console = {
@@ -660,24 +740,48 @@ static struct uart_driver serialsc8800_reg = {
 	.nr = UART_NR,
 	.cons = SC8800_CONSOLE,
 };
-static int __init serialsc8800_init(void)
+static int serialsc8800_probe(struct platform_device *dev)
 {
 	int ret,i;
-	printk(KERN_INFO"Serial:sc8800s driver $Revision:1.0 $\n");
+	
 	serialsc8800_setup_ports();
 	ret = uart_register_driver(&serialsc8800_reg);
 	if(ret ==0)
 		printk("serialsc8800_init:enter uart_add_one_port\n");
+#ifdef CONFIG_TS0710_MUX_UART
+	serial_for_mux_driver = serialsc8800_reg.tty_driver;
+	printk("=========serial_for_mux_driver=%p========\r\n",serial_for_mux_driver);
+	//serial_for_mux_tty = &serial_tty;
+	serial_mux_guard = 0;
+#endif
 	for(i=0;i<UART_NR;i++)
 		uart_add_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
 	return 0;
 }
-static void __exit serialsc8800_exit(void)
+static void serialsc8800_remove(struct platform_device *dev)
 {
 	int i;
 	for(i=0;i<UART_NR;i++)
 		uart_remove_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
 	uart_unregister_driver(&serialsc8800_reg);
+}
+static struct platform_driver serialsc8800_driver = {
+	.probe = serialsc8800_probe,
+	.remove = serialsc8800_remove,
+	.driver = {
+		.name = "serial_sp",
+		.owner = THIS_MODULE,
+	},
+};
+static int __init serialsc8800_init(void)
+{
+	printk(KERN_INFO"Serial:sc8800s driver $Revision:1.0 $\n");
+
+	return platform_driver_register(&serialsc8800_driver);
+}
+static void __exit serialsc8800_exit(void)
+{
+	platform_driver_unregister(&serialsc8800_driver);
 }
 module_init(serialsc8800_init);
 module_exit(serialsc8800_exit);

@@ -91,6 +91,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device,
 	&sprd_fb_device,
 	&sprd_battery_device,
+	&sprd_serial_device,
 };
 
 void __init sprd_add_devices(void)
