@@ -114,6 +114,7 @@ struct tty_struct *serial_for_mux_tty = NULL;
 extern ssize_t mux_ringbuffer_write(struct mux_ringbuffer *rbuf, const u8 *buf, size_t len);
 extern ssize_t mux_ringbuffer_free(struct mux_ringbuffer *rbuf);
 extern int cmux_opened(void);
+extern int is_cmux_mode(void);
 void (*serial_mux_dispatcher)(struct tty_struct *tty) = NULL;
 void (*serial_mux_sender)(void) = NULL;
 #endif
@@ -199,22 +200,19 @@ static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 	unsigned int status,ch,flag,lsr,max_count=96;
 	unsigned int count,st=0;
 #ifdef CONFIG_TS0710_MUX_UART
-	//printk("enter serialsc8800_rx_chars and mux begin rx\r\n");
 	if ((0==port->line)&& cmux_opened()){
-		//printk("mux opened!\r\n");
 		count =0; 	
+		printk("\nSR<");
 		do {
 			rev[count] = serial_in(port, ARM_UART_RXD);
-			//printk("rev=%x\r\n",rev[count]);
+			printk("%x",rev[count]);
 			st = serial_in(port,ARM_UART_STS1);
 			count++;
 		} while ((st & 0xff) && (max_count-- > 0));
-		//printk("before mux_ringbuffer_write,count=%d\r\n",count);
+		printk("\nSR>");
 		mux_ringbuffer_write(&rbuf, rev, count);
-		//printk("after mux_ringbuffer_write,count=%d\r\n",count);
-		if (serial_mux_dispatcher)
+		if (serial_mux_dispatcher && is_cmux_mode())
 			serial_mux_dispatcher(tty);
-		//printk("leave mux rx!\r\n");
 		return;
 	}
 	else {
@@ -325,12 +323,14 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 			break;
 		}
 		if(serial_in(port,ARM_UART_STS0) & (UART_STS_RX_FIFO_FULL | UART_STS_BREAK_DETECT)){
-			/*if(0==port->line){
-				printk("kewang:STS0=%x,STS1=%x,STS2=%x\r\n",serial_in(port,ARM_UART_STS0),serial_in(port,ARM_UART_STS1),serial_in(port,ARM_UART_STS2));
+#if 0
+			if(0==port->line){
+			//	printk("kewang:STS0=%x,STS1=%x,STS2=%x\r\n",serial_in(port,ARM_UART_STS0),serial_in(port,ARM_UART_STS1),serial_in(port,ARM_UART_STS2));
 				printk("kewang:rxd=%x\r\n",serial_in(port,ARM_UART_RXD));
-				printk("kewang:IEN=%x,ICLR=%x,CTL0=%x,CTL1=%x,CTL2=%x,CLKD0=%x,CLKD1=%x\r\n",serial_in(port,ARM_UART_IEN),serial_in(port,ARM_UART_ICLR),serial_in(port,ARM_UART_CTL0),serial_in(port,ARM_UART_CTL1),serial_in(port,ARM_UART_CTL2),serial_in(port,ARM_UART_CLKD0),serial_in(port,ARM_UART_CLKD1));	
+			//	printk("kewang:IEN=%x,ICLR=%x,CTL0=%x,CTL1=%x,CTL2=%x,CLKD0=%x,CLKD1=%x\r\n",serial_in(port,ARM_UART_IEN),serial_in(port,ARM_UART_ICLR),serial_in(port,ARM_UART_CTL0),serial_in(port,ARM_UART_CTL1),serial_in(port,ARM_UART_CTL2),serial_in(port,ARM_UART_CLKD0),serial_in(port,ARM_UART_CLKD1));	
 				break;
-			}  */	//kewang
+			}  	//kewang
+#endif
 			serialsc8800_rx_chars(irq,port);
 		}
 		if(serial_in(port,ARM_UART_STS0) & UART_STS_TX_FIFO_EMPTY){

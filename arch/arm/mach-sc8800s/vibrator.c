@@ -84,6 +84,7 @@ static void LCD_SetBackLightBrightness( unsigned long  brightness )
 
 static inline void vibrator_set_status(long value)
 {
+	return;   //kewang add
 	if (value == VIBOFF) {
 		gpio_set_value(vib_gpio, 0);
 		LCD_SetBackLightBrightness(0);

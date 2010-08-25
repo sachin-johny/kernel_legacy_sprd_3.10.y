@@ -169,7 +169,7 @@ static volatile int mux_data_count2[TS0710MUX_COUNT_IDX_NUM] =
     { 0, 0, 0, 0, 0, 0 };
 static struct semaphore mux_data_count_mutex[TS0710MUX_COUNT_IDX_NUM];
 static volatile __u8 post_recv_count_flag = 0;
-static char mux_data[TS0710MUX_MAX_BUF_SIZE * 10];
+static char mux_data[TS0710MUX_MAX_BUF_SIZE * 16];
 struct mux_ringbuffer rbuf;
 
 /*PROC file*/
@@ -188,7 +188,7 @@ typedef struct {
 } gprs_bytes;
 
 static __u8 tty2dlci[NR_MUXS] =
-    { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
+    { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ,14,15,16};
 typedef struct {
 	__u8 cmdtty;
 	__u8 datatty;
@@ -207,8 +207,11 @@ static dlci_tty dlci2tty[] = {
 	{8, 8},			/* DLCI 9 */
 	{9, 9},			/* DLCI 10 */
 	{10, 10},		/* DLCI 11 */
-	{11, 12},		/* DLCI 12 */
-	{13, 13}
+	{11, 11},		/* DLCI 11 */
+	{12, 12},		/* DLCI 12 */
+	{13, 13},
+	{14, 14},		/* DLCI 12 */
+	{15, 15}
 };				/* DLCI 13 */
 typedef struct {
 	volatile __u8 buf[TS0710MUX_SEND_BUF_SIZE];
@@ -343,7 +346,7 @@ static int valid_dlci(__u8 dlci)
 		return 0;
 }
 
-#define TS0710DEBUG
+//#define TS0710DEBUG
 
 #define PRINT_OUTPUT_PRINTK
 
@@ -2254,7 +2257,7 @@ static void mux_sched_send(void)
 
 }
 
-#ifdef CONFIG_TS0710_MUX_SPI
+#if 1 //#ifdef CONFIG_TS0710_MUX_SPI
 
 // Returns 1 if found, 0 otherwise. needle must be null-terminated.
 // strstr might not work because WebBox sends garbage before the first OKread
@@ -2742,7 +2745,6 @@ static void mux_flush_buffer(struct tty_struct *tty)
 	}
 
 }
-
 static int mux_open(struct tty_struct *tty, struct file *filp)
 {
 	int retval;
@@ -2785,30 +2787,34 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 	mux_opened++;
 	if (dlci == 1) {
 
-#ifdef CONFIG_TS0710_MUX_SPI
+//#ifdef CONFIG_TS0710_MUX_SPI
+#if 1
 		if (cmux_mode == 0) {
 			char buffer[256];
 			char *buff = buffer;
 			int i = 0;
 			memset(buffer, 0, 256);
+			mux_ringbuffer_empty(&rbuf);   //kewang
 			COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "at\r",
 						   strlen("at\r"));
 			//wait for response "OK \r"
-			//printk("\n cmux receive:<\n");
+			printk("\n cmux receive:<\n");
 			msleep(1000);
 			while (1) {
 
 				int c = mux_ringbuffer_avail(&rbuf);
-				//printk("ts mux receive %d chars\n",c);
+				printk("ts mux receive %d chars\n",c);
 				if (c > 0) {
+					if(c>256)
+						c=256;
 					mux_ringbuffer_read(&rbuf, buff++, 1,
 							    0);
 					printk("%c", *(buff - 1));
 					if (findInBuf
-					    (buffer, strlen(buffer), "OK"))
+					    (buffer, 256, "OK"))
 						break;
 					if (findInBuf
-					    (buffer, strlen(buffer), "ERROR")) {
+					    (buffer, 256, "ERROR")) {
 						printk
 						    ("\n wrong modem state !!!!\n");
 						break;
