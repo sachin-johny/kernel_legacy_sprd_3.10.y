@@ -176,6 +176,13 @@
 #define CPC_NFD6_REG            		(PIN_CTL_BASE + 0x0230)
 #define CPC_NFD7_REG            		(PIN_CTL_BASE + 0x0234)
 #define CPC_NFD8_REG            		(PIN_CTL_BASE + 0x0238)
+#define CPC_NFD9_REG            		(PIN_CTL_BASE + 0x0338)
+#define CPC_NFD10_REG            		(PIN_CTL_BASE + 0x033c)
+#define CPC_NFD11_REG            		(PIN_CTL_BASE + 0x0340)
+#define CPC_NFD12_REG            		(PIN_CTL_BASE + 0x0344)
+#define CPC_NFD13_REG            		(PIN_CTL_BASE + 0x0348)
+#define CPC_NFD14_REG            		(PIN_CTL_BASE + 0x034c)
+#define CPC_NFD15_REG            		(PIN_CTL_BASE + 0x0350)
 
 #define CPC_LCMCSN0_REG            		(PIN_CTL_BASE + 0x023C)
 #define CPC_LCMCSN1_REG            		(PIN_CTL_BASE + 0x0240)

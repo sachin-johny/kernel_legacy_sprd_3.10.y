@@ -652,7 +652,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         }
 	REG_KPD_ICLR |= 1 << KPDICLR_PB_INT;
 	REG_INT_EN |= 1 << IRQ_MIX_INT;
-	print_kpad();
+	//print_kpad();
 #endif
 
 	return 0;

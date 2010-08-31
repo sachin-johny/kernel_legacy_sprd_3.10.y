@@ -180,7 +180,12 @@ static uint8_t nand_read_byte(struct mtd_info *mtd)
 static uint8_t nand_read_byte16(struct mtd_info *mtd)
 {
 	struct nand_chip *chip = mtd->priv;
+
+#ifdef CONFIG_MTD_NAND_SC8800S
+	return (uint8_t)readw(chip->IO_ADDR_R);
+#else
 	return (uint8_t) cpu_to_le16(readw(chip->IO_ADDR_R));
+#endif
 }
 
 /**
@@ -232,8 +237,12 @@ static void nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
 	int i;
 	struct nand_chip *chip = mtd->priv;
 
+#ifdef CONFIG_MTD_NAND_SC8800S
+	memcpy(chip->IO_ADDR_W, buf, len);
+#else
 	for (i = 0; i < len; i++)
 		writeb(buf[i], chip->IO_ADDR_W);
+#endif
 }
 
 /**
@@ -249,8 +258,12 @@ static void nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 	int i;
 	struct nand_chip *chip = mtd->priv;
 
+#ifdef CONFIG_MTD_NAND_SC8800S
+	memcpy(buf, chip->IO_ADDR_R, len);
+#else
 	for (i = 0; i < len; i++)
 		buf[i] = readb(chip->IO_ADDR_R);
+#endif
 }
 
 /**
@@ -284,11 +297,15 @@ static void nand_write_buf16(struct mtd_info *mtd, const uint8_t *buf, int len)
 {
 	int i;
 	struct nand_chip *chip = mtd->priv;
+
+#ifdef CONFIG_MTD_NAND_SC8800S
+	memcpy(chip->IO_ADDR_W, buf, len);
+#else
 	u16 *p = (u16 *) buf;
 	len >>= 1;
-
 	for (i = 0; i < len; i++)
 		writew(p[i], chip->IO_ADDR_W);
+#endif
 
 }
 
@@ -304,11 +321,17 @@ static void nand_read_buf16(struct mtd_info *mtd, uint8_t *buf, int len)
 {
 	int i;
 	struct nand_chip *chip = mtd->priv;
+
+#ifdef CONFIG_MTD_NAND_SC8800S
+	memcpy(buf, chip->IO_ADDR_R, len);
+#else
 	u16 *p = (u16 *) buf;
 	len >>= 1;
-
 	for (i = 0; i < len; i++)
 		p[i] = readw(chip->IO_ADDR_R);
+#endif
+
+
 }
 
 /**
@@ -654,11 +677,18 @@ static void nand_command_lp(struct mtd_info *mtd, unsigned int command,
 			/* Adjust columns for 16 bit buswidth */
 			if (chip->options & NAND_BUSWIDTH_16)
 				column >>= 1;
+#ifdef CONFIG_MTD_NAND_SC8800S
+			chip->cmd_ctrl(mtd, column, ctrl);
+#else
 			chip->cmd_ctrl(mtd, column, ctrl);
 			ctrl &= ~NAND_CTRL_CHANGE;
 			chip->cmd_ctrl(mtd, column >> 8, ctrl);
+#endif
 		}
 		if (page_addr != -1) {
+#ifdef CONFIG_MTD_NAND_SC8800S
+			chip->cmd_ctrl(mtd, page_addr, ctrl);
+#else
 			chip->cmd_ctrl(mtd, page_addr, ctrl);
 			chip->cmd_ctrl(mtd, page_addr >> 8,
 				       NAND_NCE | NAND_ALE);
@@ -666,6 +696,7 @@ static void nand_command_lp(struct mtd_info *mtd, unsigned int command,
 			if (chip->chipsize > (128 << 20))
 				chip->cmd_ctrl(mtd, page_addr >> 16,
 					       NAND_NCE | NAND_ALE);
+#endif
 		}
 	}
 	chip->cmd_ctrl(mtd, NAND_CMD_NONE, NAND_NCE | NAND_CTRL_CHANGE);
@@ -871,6 +902,9 @@ static int nand_wait(struct mtd_info *mtd, struct nand_chip *chip)
 	}
 	led_trigger_event(nand_led_trigger, LED_OFF);
 
+#ifdef CONFIG_MTD_NAND_SC8800S
+	chip->cmdfunc(mtd, NAND_CMD_STATUS, -1, -1);
+#endif
 	status = (int)chip->read_byte(mtd);
 	return status;
 }
@@ -1237,7 +1271,8 @@ static int nand_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 	uint8_t *ecc_calc = chip->buffers->ecccalc;
 	uint8_t *ecc_code = chip->buffers->ecccode;
 	uint32_t *eccpos = chip->ecc.layout->eccpos;
-
+	int j;
+	//printk("%s  %s  %d   eccsize=%d  eccbytes=%d  eccsteps=%d  ecctotal=%d\n", __FILE__, __FUNCTION__, __LINE__, chip->ecc.size, chip->ecc.bytes, chip->ecc.steps, chip->ecc.total);
 	for (i = 0; eccsteps; eccsteps--, i += eccbytes, p += eccsize) {
 		chip->ecc.hwctl(mtd, NAND_ECC_READ);
 		chip->read_buf(mtd, p, eccsize);
@@ -1253,7 +1288,10 @@ static int nand_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 
 	for (i = 0 ; eccsteps; eccsteps--, i += eccbytes, p += eccsize) {
 		int stat;
-
+		/*printk("\n--------------ecc diff 1-----------\n");
+		for (j = 0; j < chip->ecc.total; j++)
+			printk("ecc_code[%d] = 0x%02x   ecc_calc[%d] = 0x%02x\n", j, ecc_code[j], j, ecc_calc[j]);
+		printk("\n--------------ecc diff 2-----------\n");*/
 		stat = chip->ecc.correct(mtd, p, &ecc_code[i], &ecc_calc[i]);
 		if (stat < 0)
 			mtd->ecc_stats.failed++;
@@ -1602,6 +1640,7 @@ static int nand_read_oob_std(struct mtd_info *mtd, struct nand_chip *chip,
 			     int page, int sndcmd)
 {
 	if (sndcmd) {
+		//printk("%s  %s  %d  page = %d\n", __FILE__, __FUNCTION__, __LINE__, page);
 		chip->cmdfunc(mtd, NAND_CMD_READOOB, 0, page);
 		sndcmd = 0;
 	}
@@ -1750,6 +1789,7 @@ static int nand_do_read_oob(struct mtd_info *mtd, loff_t from,
 
 	DEBUG(MTD_DEBUG_LEVEL3, "%s: from = 0x%08Lx, len = %i\n",
 			__func__, (unsigned long long)from, readlen);
+	//printk("%s: from = 0x%08Lx, len = %i\n", __func__, (unsigned long long)from, readlen);
 
 	if (ops->mode == MTD_OOB_AUTO)
 		len = chip->ecc.layout->oobavail;
@@ -1858,10 +1898,13 @@ static int nand_read_oob(struct mtd_info *mtd, loff_t from,
 		goto out;
 	}
 
-	if (!ops->datbuf)
+	if (!ops->datbuf) {
+		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);	
 		ret = nand_do_read_oob(mtd, from, ops);
-	else
+	} else {
+		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
 		ret = nand_do_read_ops(mtd, from, ops);
+	}
 
  out:
 	nand_release_device(mtd);
@@ -1957,23 +2000,31 @@ static void nand_write_page_swecc(struct mtd_info *mtd, struct nand_chip *chip,
 static void nand_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 				  const uint8_t *buf)
 {
-	int i, eccsize = chip->ecc.size;
-	int eccbytes = chip->ecc.bytes;
-	int eccsteps = chip->ecc.steps;
+	int i, j, eccsize = chip->ecc.size;//2048
+	int eccbytes = chip->ecc.bytes;//12
+	int eccsteps = chip->ecc.steps;//1
 	uint8_t *ecc_calc = chip->buffers->ecccalc;
 	const uint8_t *p = buf;
 	uint32_t *eccpos = chip->ecc.layout->eccpos;
-
+	
+	//printk("%s  %s  %d   eccsize=%d  eccbytes=%d  eccsteps=%d  ecctotal=%d\n", __FILE__, __FUNCTION__, __LINE__, chip->ecc.size, chip->ecc.bytes, chip->ecc.steps, chip->ecc.total);
 	for (i = 0; eccsteps; eccsteps--, i += eccbytes, p += eccsize) {
 		chip->ecc.hwctl(mtd, NAND_ECC_WRITE);
+		/*for (j = 0; j < eccsize; j+=100)
+                        printk(" ww[%d]=%d ", j, p[j]);*/
 		chip->write_buf(mtd, p, eccsize);
 		chip->ecc.calculate(mtd, p, &ecc_calc[i]);
 	}
 
-	for (i = 0; i < chip->ecc.total; i++)
+	for (i = 0; i < chip->ecc.total; i++) {
+		//printk(" wwecc[%d]=%d ", i, ecc_calc[i]);	
 		chip->oob_poi[eccpos[i]] = ecc_calc[i];
+	}
 
 	chip->write_buf(mtd, chip->oob_poi, mtd->oobsize);
+#ifdef CONFIG_MTD_NAND_SC8800S
+	chip->nfc_wr_oob(mtd);
+#endif
 }
 
 /**
@@ -2033,9 +2084,9 @@ static int nand_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 			   const uint8_t *buf, int page, int cached, int raw)
 {
 	int status;
-
+	
 	chip->cmdfunc(mtd, NAND_CMD_SEQIN, 0x00, page);
-
+	printk("%s  %d  raw = %d\n", __FUNCTION__, __LINE__, raw);
 	if (unlikely(raw))
 		chip->ecc.write_page_raw(mtd, chip, buf);
 	else
@@ -2330,6 +2381,7 @@ static int nand_do_write_oob(struct mtd_info *mtd, loff_t to,
 
 	DEBUG(MTD_DEBUG_LEVEL3, "%s: to = 0x%08x, len = %i\n",
 			 __func__, (unsigned int)to, (int)ops->ooblen);
+	printk("%s: to = 0x%08x, len = %i\n", __func__, (unsigned int)to, (int)ops->ooblen);
 
 	if (ops->mode == MTD_OOB_AUTO)
 		len = chip->ecc.layout->oobavail;
@@ -2783,6 +2835,9 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	int i, dev_id, maf_idx;
 	u8 id_data[8];
 
+#ifdef CONFIG_MTD_NAND_SC8800S
+	unsigned long flash_id = 0;
+#endif
 	/* Select the device */
 	chip->select_chip(mtd, 0);
 
@@ -2793,11 +2848,20 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
 
 	/* Send the command for reading device ID */
-	chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
+#ifdef CONFIG_MTD_NAND_SC8800S
+        chip->cmdfunc(mtd, NAND_CMD_READID, -1, -1);
+        flash_id = chip->nfc_readid(mtd);
 
-	/* Read manufacturer and device IDs */
-	*maf_id = chip->read_byte(mtd);
-	dev_id = chip->read_byte(mtd);
+        /* Read manufacturer and device IDs */
+        *maf_id = flash_id & 0xff;
+        dev_id = (flash_id >> 8) & 0xff;
+#else
+        chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
+
+        /* Read manufacturer and device IDs */
+        *maf_id = chip->read_byte(mtd);
+        dev_id = chip->read_byte(mtd);
+#endif	
 
 	/* Try again to make sure, as some systems the bus-hold or other
 	 * interface concerns can cause random data which looks like a
@@ -2805,7 +2869,11 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	 * not match, ignore the device completely.
 	 */
 
-	chip->cmdfunc(mtd, NAND_CMD_READID, 0x00, -1);
+#ifdef CONFIG_MTD_NAND_SC8800S
+        chip->cmdfunc(mtd, NAND_CMD_READID, -1, -1);
+        flash_id = chip->nfc_readid(mtd);
+
+        /* Read manufacturer and device IDs */
 
 	/* Read entire ID string */
 

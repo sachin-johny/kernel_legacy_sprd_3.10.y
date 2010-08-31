@@ -30,6 +30,14 @@ struct mtd_oob_buf64 {
 	__u64 usr_ptr;
 };
 
+struct mtd_pageoob_buf {
+        __u32 start;      /* page start address */
+        __u32 ooblength;
+        __u32 datlength;
+        unsigned char __user *oobptr;
+        unsigned char __user *datptr;
+};
+
 #define MTD_ABSENT		0
 #define MTD_RAM			1
 #define MTD_ROM			2
@@ -110,6 +118,7 @@ struct otp_info {
 #define MEMERASE64		_IOW('M', 20, struct erase_info_user64)
 #define MEMWRITEOOB64		_IOWR('M', 21, struct mtd_oob_buf64)
 #define MEMREADOOB64		_IOWR('M', 22, struct mtd_oob_buf64)
+#define MEMWRITEPAGEOOB         _IOWR('M', 23, struct mtd_pageoob_buf)
 
 /*
  * Obsolete legacy interface. Keep it in order not to break userspace

@@ -13,8 +13,8 @@
  *  published by the Free Software Foundation.
  */
 
-#ifndef _SC8800H_REG_CPC_H_
-#define _SC8800H_REG_CPC_H_
+#ifndef _SC8800H_REG_GPIO_H_
+#define _SC8800H_REG_GPIO_H_
 
 #include <mach/hardware.h>
 

@@ -108,6 +108,22 @@ static int write_eraseblock(int ebnum)
 	return err;
 }
 
+//////////////////////////////////////////////////////
+static int read_eraseblock(int ebnum)
+{
+	uint32_t j;
+	size_t read = 0;
+	int err = 0, i;
+	loff_t addr = ebnum * mtd->erasesize;
+
+	for (j = 0; j < pgcnt - 1; ++j, addr += pgsize) {
+		err = mtd->read(mtd, addr, pgsize, &read, twopages);
+	}
+	
+	return err;
+}
+//////////////////////////////////////////////////////
+
 static int verify_eraseblock(int ebnum)
 {
 	uint32_t j;
@@ -145,6 +161,7 @@ static int verify_eraseblock(int ebnum)
 		}
 		memset(twopages, 0, bufsize);
 		read = 0;
+		printk("\n555555555555%s : %d  addr is %#llx\n", __FUNCTION__, __LINE__, (long long)addr);
 		err = mtd->read(mtd, addr, bufsize, &read, twopages);
 		if (err == -EUCLEAN)
 			err = 0;
@@ -181,6 +198,9 @@ static int verify_eraseblock(int ebnum)
 		}
 		memset(twopages, 0, bufsize);
 		read = 0;
+		printk(PRINT_PREF "error: read failed at %#llx\n",
+			       (long long)addr);
+		printk("\n666666666666666%s : %d  addr is %#llx\n", __FUNCTION__, __LINE__, (long long)addr);
 		err = mtd->read(mtd, addr, bufsize, &read, twopages);
 		if (err == -EUCLEAN)
 			err = 0;
@@ -565,9 +585,27 @@ static int __init mtd_pagetest_init(void)
 	}
 	printk(PRINT_PREF "erased %u eraseblocks\n", i);
 
+	ebcnt = 1;//fcjadd
+
+	/*printk("\n-----------------------------------------------------------\n");
+	for (i = 0; i < ebcnt; ++i) {
+		if (bbt[i])
+			continue;
+		err = read_eraseblock(i);
+		if (err)
+			goto out;
+		if (i % 256 == 0)
+			printk(PRINT_PREF "readed up to eraseblock %u\n", i);
+		cond_resched();
+	}
+	printk("\n-----------------------------------------------------------\n");*/
+
 	/* Write all eraseblocks */
 	simple_srand(1);
 	printk(PRINT_PREF "writing whole device\n");
+
+
+
 	for (i = 0; i < ebcnt; ++i) {
 		if (bbt[i])
 			continue;
@@ -594,6 +632,9 @@ static int __init mtd_pagetest_init(void)
 		cond_resched();
 	}
 	printk(PRINT_PREF "verified %u eraseblocks\n", i);
+	printk("------------end----------------\n");
+	
+	return 0; //fcjadd
 
 	err = crosstest();
 	if (err)

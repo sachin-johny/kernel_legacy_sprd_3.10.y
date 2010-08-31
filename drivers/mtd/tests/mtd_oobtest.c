@@ -124,13 +124,15 @@ static void do_vary_offset(void)
 
 static int write_eraseblock(int ebnum)
 {
-	int i;
+	int i,aaa;
 	struct mtd_oob_ops ops;
 	int err = 0;
 	loff_t addr = ebnum * mtd->erasesize;
-
+	//printk("pgcnt=%d  use_len=%d\n", pgcnt, use_len);
 	for (i = 0; i < pgcnt; ++i, addr += mtd->writesize) {
 		set_random_data(writebuf, use_len);
+		/*for (aaa = 0; aaa < use_len; aaa++)
+			printk("writebuf1[%d]=0x%02x  ", aaa, writebuf[aaa]);*/
 		ops.mode      = MTD_OOB_AUTO;
 		ops.len       = 0;
 		ops.retlen    = 0;
@@ -140,6 +142,7 @@ static int write_eraseblock(int ebnum)
 		ops.datbuf    = NULL;
 		ops.oobbuf    = writebuf;
 		err = mtd->write_oob(mtd, addr, &ops);
+		//printk("err=%d  use_len=%d  oobretlen=%d\n", err, use_len, ops.oobretlen);
 		if (err || ops.oobretlen != use_len) {
 			printk(PRINT_PREF "error: writeoob failed at %#llx\n",
 			       (long long)addr);
@@ -162,8 +165,10 @@ static int write_whole_device(void)
 
 	printk(PRINT_PREF "writing OOBs of whole device\n");
 	for (i = 0; i < ebcnt; ++i) {
-		if (bbt[i])
+		if (bbt[i]) {
 			continue;
+		}
+
 		err = write_eraseblock(i);
 		if (err)
 			return err;
@@ -177,13 +182,16 @@ static int write_whole_device(void)
 
 static int verify_eraseblock(int ebnum)
 {
-	int i;
+	int i,aaa;
 	struct mtd_oob_ops ops;
 	int err = 0;
 	loff_t addr = ebnum * mtd->erasesize;
-
+	//printk("pgcnt=%d   use_len=%d\n", pgcnt, use_len);
 	for (i = 0; i < pgcnt; ++i, addr += mtd->writesize) {
 		set_random_data(writebuf, use_len);
+		/*for (aaa = 0; aaa < use_len; aaa++)
+			printk("writebuf2[%d]=0x%02x  ", aaa, writebuf[aaa]);
+		printk("%s  %d  i=%d\n", __FUNCTION__, __LINE__, i);*/
 		ops.mode      = MTD_OOB_AUTO;
 		ops.len       = 0;
 		ops.retlen    = 0;
@@ -193,12 +201,15 @@ static int verify_eraseblock(int ebnum)
 		ops.datbuf    = NULL;
 		ops.oobbuf    = readbuf;
 		err = mtd->read_oob(mtd, addr, &ops);
+		//printk("err=%d  use_len=%d  oobretlen=%d\n", err, use_len, ops.oobretlen);
 		if (err || ops.oobretlen != use_len) {
 			printk(PRINT_PREF "error: readoob failed at %#llx\n",
 			       (long long)addr);
 			errcnt += 1;
 			return err ? err : -1;
 		}
+		/*for (aaa = 0; aaa < use_len; aaa++)
+			printk("readbuf2[%d]=0x%02x  ", aaa, readbuf[aaa]);*/
 		if (memcmp(readbuf, writebuf, use_len)) {
 			printk(PRINT_PREF "error: verify failed at %#llx\n",
 			       (long long)addr);
@@ -268,14 +279,41 @@ static int verify_eraseblock(int ebnum)
 	return err;
 }
 
+//////////////////
+static int read_eraseblock(int ebnum)
+{
+	int i,aaa;
+	struct mtd_oob_ops ops;
+	int err = 0;
+	loff_t addr = ebnum * mtd->erasesize;
+	
+	for (i = 0; i < pgcnt; ++i, addr += mtd->writesize) {
+		ops.mode      = MTD_OOB_AUTO;
+		ops.len       = 0;
+		ops.retlen    = 0;
+		ops.ooblen    = use_len;
+		ops.oobretlen = 0;
+		ops.ooboffs   = use_offset;
+		ops.datbuf    = NULL;
+		ops.oobbuf    = readbuf;
+		err = mtd->read_oob(mtd, addr, &ops);
+	}
+	return err;
+}
+//////////////////
+
 static int verify_eraseblock_in_one_go(int ebnum)
 {
 	struct mtd_oob_ops ops;
 	int err = 0;
+	int aaa;
 	loff_t addr = ebnum * mtd->erasesize;
 	size_t len = mtd->ecclayout->oobavail * pgcnt;
 
 	set_random_data(writebuf, len);
+	/*printk("len=%d\n", len);
+	for (aaa = 0; aaa < len; aaa++)
+		printk("writebuf3[%d]=0x%02x  ", aaa, writebuf[aaa]);*/
 	ops.mode      = MTD_OOB_AUTO;
 	ops.len       = 0;
 	ops.retlen    = 0;
@@ -285,12 +323,15 @@ static int verify_eraseblock_in_one_go(int ebnum)
 	ops.datbuf    = NULL;
 	ops.oobbuf    = readbuf;
 	err = mtd->read_oob(mtd, addr, &ops);
+	//printk("err=%d  len=%d  oobretlen=%d\n", err, len, ops.oobretlen);
 	if (err || ops.oobretlen != len) {
 		printk(PRINT_PREF "error: readoob failed at %#llx\n",
 		       (long long)addr);
 		errcnt += 1;
 		return err ? err : -1;
 	}
+	/*for (aaa = 0; aaa < len; aaa++)
+		printk("readbuf3[%d]=0x%02x  ", aaa, readbuf[aaa]);*/
 	if (memcmp(readbuf, writebuf, len)) {
 		printk(PRINT_PREF "error: verify failed at %#llx\n",
 		       (long long)addr);
@@ -311,8 +352,9 @@ static int verify_all_eraseblocks(void)
 
 	printk(PRINT_PREF "verifying all eraseblocks\n");
 	for (i = 0; i < ebcnt; ++i) {
-		if (bbt[i])
+		if (bbt[i]) {			
 			continue;
+		}
 		err = verify_eraseblock(i);
 		if (err)
 			return err;
@@ -321,6 +363,27 @@ static int verify_all_eraseblocks(void)
 		cond_resched();
 	}
 	printk(PRINT_PREF "verified %u eraseblocks\n", i);
+	return 0;
+}
+
+static int read_all_eraseblocks(void)
+{
+	int err;
+	unsigned int i;
+
+	printk(PRINT_PREF "reading all eraseblocks\n");
+	for (i = 0; i < ebcnt; ++i) {
+		if (bbt[i]) {			
+			continue;
+		}
+		err = read_eraseblock(i);
+		if (err)
+			return err;
+		if (i % 256 == 0)
+			printk(PRINT_PREF "readed up to eraseblock %u\n", i);
+		cond_resched();
+	}
+	printk(PRINT_PREF "readed %u eraseblocks\n", i);
 	return 0;
 }
 
@@ -391,6 +454,8 @@ static int __init mtd_oobtest_init(void)
 	       (unsigned long long)mtd->size, mtd->erasesize,
 	       mtd->writesize, ebcnt, pgcnt, mtd->oobsize);
 
+	ebcnt = 1;//fcjadd
+
 	err = -ENOMEM;
 	readbuf = kmalloc(mtd->erasesize, GFP_KERNEL);
 	if (!readbuf) {
@@ -419,6 +484,10 @@ static int __init mtd_oobtest_init(void)
 	if (err)
 		goto out;
 
+	printk("\n\n/////////////////////////////////////////////////////////\n\n");
+	err = read_all_eraseblocks();
+	printk("\n\n/////////////////////////////////////////////////////////\n\n");
+
 	simple_srand(1);
 	err = write_whole_device();
 	if (err)
@@ -426,6 +495,9 @@ static int __init mtd_oobtest_init(void)
 
 	simple_srand(1);
 	err = verify_all_eraseblocks();
+
+	return 0;
+
 	if (err)
 		goto out;
 
@@ -457,8 +529,8 @@ static int __init mtd_oobtest_init(void)
 			printk(PRINT_PREF "verified up to eraseblock %u\n", i);
 		cond_resched();
 	}
-	printk(PRINT_PREF "verified %u eraseblocks\n", i);
-
+	printk(PRINT_PREF "verified %u eraseblocks\n", i);	
+	
 	/*
 	 * Third test: write OOB at varying offsets and lengths, read it back
 	 * and verify.

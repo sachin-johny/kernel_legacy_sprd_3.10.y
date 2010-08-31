@@ -196,6 +196,19 @@ config MTD_NAND_PPCHAMELEONEVB
 	help
 	  This enables the NAND flash driver on the PPChameleon EVB Board.
 
+config MTD_NAND_SC8800S
+	tristate "NAND Flash support for SpreadTrum SC8800S"
+	depends on ARCH_SC8800S
+	help
+	  This enables the NAND flash controller on the SC8800S
+
+config MTD_NAND_SC8800S_HWECC
+	bool "SpreadTrum SC8800S NAND hardware ECC"
+	depends on MTD_NAND_SC8800S
+	help
+	  Enable the use of the controller's internal ECC generator when
+	  using NAND.
+
 config MTD_NAND_S3C2410
 	tristate "NAND Flash support for Samsung S3C SoCs"
 	depends on ARCH_S3C2410 || ARCH_S3C64XX

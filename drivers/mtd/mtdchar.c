@@ -166,7 +166,8 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 	char *kbuf;
 
 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_read\n");
-
+	//printk("%s  %d\n", __FUNCTION__, __LINE__);
+	//printk("*ppos = 0x%016Lx  count = 0x%08x\n", (unsigned long long)*ppos, (unsigned long)count);
 	if (*ppos + count > mtd->size)
 		count = mtd->size - *ppos;
 
@@ -206,7 +207,7 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 			ops.datbuf = kbuf;
 			ops.oobbuf = NULL;
 			ops.len = len;
-
+			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			ret = mtd->read_oob(mtd, *ppos, &ops);
 			retlen = ops.retlen;
 			break;
@@ -288,16 +289,19 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			kfree(kbuf);
 			return -EFAULT;
 		}
-
+		
+		printk("mfi->mode = %d\n", mfi->mode);
 		switch (mfi->mode) {
 		case MTD_MODE_OTP_FACTORY:
 			ret = -EROFS;
+			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			break;
 		case MTD_MODE_OTP_USER:
 			if (!mtd->write_user_prot_reg) {
 				ret = -EOPNOTSUPP;
 				break;
 			}
+			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			ret = mtd->write_user_prot_reg(mtd, *ppos, len, &retlen, kbuf);
 			break;
 
@@ -309,13 +313,14 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			ops.datbuf = kbuf;
 			ops.oobbuf = NULL;
 			ops.len = len;
-
+			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			ret = mtd->write_oob(mtd, *ppos, &ops);
 			retlen = ops.retlen;
 			break;
 		}
 
 		default:
+			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			ret = (*(mtd->write))(mtd, *ppos, len, &retlen, kbuf);
 		}
 		if (!ret) {
@@ -530,7 +535,7 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 
 		if(!(file->f_mode & FMODE_WRITE))
 			return -EPERM;
-
+		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
 		erase=kzalloc(sizeof(struct erase_info),GFP_KERNEL);
 		if (!erase)
 			ret = -ENOMEM;
@@ -595,7 +600,7 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 	{
 		struct mtd_oob_buf buf;
 		struct mtd_oob_buf __user *buf_user = argp;
-
+		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
 		/* NOTE: writes return length to buf_user->length */
 		if (copy_from_user(&buf, argp, sizeof(buf)))
 			ret = -EFAULT;
@@ -827,10 +832,75 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		break;
 	}
 
+	case MEMWRITEPAGEOOB:
+	{
+		struct mtd_pageoob_buf buf;
+		struct mtd_oob_ops ops;
+
+		memset(&ops, 0, sizeof(ops));
+	
+		if(!(file->f_mode & 2))
+			return -EPERM;
+	
+		if (copy_from_user(&buf, argp, sizeof(struct mtd_pageoob_buf)))		
+			return -EFAULT;
+
+		if (buf.ooblength > mtd->oobsize)		
+			return -EINVAL;
+
+		if (!mtd->write_oob)
+			ret = -EOPNOTSUPP;
+		else
+			ret = access_ok(VERIFY_READ, buf.oobptr,
+					buf.ooblength) ? 0 : EFAULT;
+
+		if (ret)			
+			return ret;
+		
+		ops.len = mtd->writesize;
+		ops.ooblen = buf.ooblength;
+		ops.ooboffs = buf.start & (mtd->oobsize - 1);
+		ops.mode = MTD_OOB_PLACE;
+
+		if (ops.ooboffs && ops.ooblen > (mtd->oobsize - ops.ooboffs))
+			return -EINVAL;
+
+		/* alloc memory and copy oob data from user mode to kernel mode */
+		ops.oobbuf = kmalloc(buf.ooblength, GFP_KERNEL);
+		if (!ops.oobbuf)
+			return -ENOMEM;
+
+		if (copy_from_user(ops.oobbuf, buf.oobptr, buf.ooblength)) {
+			kfree(ops.oobbuf);
+			return -EFAULT;
+		}
+
+		/* alloc memory and copy page data from user mode to kernel mode */
+		ops.datbuf = kmalloc(mtd->writesize, GFP_KERNEL);
+		if (!ops.datbuf)
+			return -ENOMEM;
+
+		if (copy_from_user(ops.datbuf, buf.datptr, mtd->writesize)) {
+			kfree(ops.datbuf);
+			return -EFAULT;
+		}
+
+		buf.start &= ~(mtd->oobsize - 1);
+		ret = mtd->write_oob(mtd, buf.start, &ops);
+
+		if (copy_to_user(argp + 2*sizeof(uint32_t), &ops.retlen,
+				 sizeof(uint32_t)))
+			ret = -EFAULT;
+
+		kfree(ops.oobbuf);
+		kfree(ops.datbuf);
+		break;
+	}
+
 	default:
 		ret = -ENOTTY;
 	}
-
+	printk("ret = %d\n", ret);
 	return ret;
 } /* memory_ioctl */
 

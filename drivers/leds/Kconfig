@@ -228,6 +228,18 @@ config LEDS_WM8350
 	  This option enables support for LEDs driven by the Wolfson
 	  Microelectronics WM8350 AudioPlus PMIC.
 
+config LEDS_SC8800S_KB
+	tristate "LED Support for SC8800S keyboard backlight"
+	depends on LEDS_CLASS
+	help
+	  This option enables support.
+
+config LEDS_SC8800S_LCD
+	tristate "LED Support for SC8800S LCD backlight"
+	depends on LEDS_CLASS
+	help
+	  This option enables support.
+
 config LEDS_DA903X
 	tristate "LED Support for DA9030/DA9034 PMIC"
 	depends on PMIC_DA903X
