@@ -89,8 +89,10 @@ static void LCD_SetBackLightBrightness( unsigned long  brightness)
 
 static void sprd_led_enable(struct sprd_lcd_led *led)
 {
+/*
 	if (led->enabled)
 		return;
+*/
 	/* backlight on */
 	REG_GPIO6_DATA = REG_GPIO6_DATA | (1 << GPIO_OFFSET);
 	LCD_SetBackLightBrightness(led->value);
@@ -100,8 +102,10 @@ static void sprd_led_enable(struct sprd_lcd_led *led)
 
 static void sprd_led_disable(struct sprd_lcd_led *led)
 {
+/*
 	if (!led->enabled)
 		return;
+*/
 	/* backlight off */
 	REG_GPIO6_DATA = REG_GPIO6_DATA & ~(1 << GPIO_OFFSET);
 	LCD_SetBackLightBrightness(led->value);
