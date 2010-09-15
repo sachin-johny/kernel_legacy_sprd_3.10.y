@@ -1730,9 +1730,61 @@ static int gpiolib_open(struct inode *inode, struct file *file)
 	return single_open(file, gpiolib_show, NULL);
 }
 
+#include <asm/uaccess.h>
+static int gpiolib_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
+{
+    int gpio_num=0,val=0,count;
+    char gpio_buf[8];
+    char args[64];
+    char *p,*p1;
+    int out;
+
+    if (len > sizeof(args))
+        len = sizeof(args);
+	if (copy_from_user(args, buf, len))
+		return -EFAULT;
+    args[len] = 0;
+    
+    if ((args[0] != '-') || ((args[1] != 'o') && (args[1] != 'i'))) {
+        printk("1. Example: set gpio20 to out, level 1\n"
+               "   echo -o 20 1 > /d/gpio\n"
+               "2. Example: set gpio13 to in\n"
+               "   echo -i 13 > /d/gpio\n");
+        return -EFAULT;
+    }
+    
+    out = (args[1] == 'o') ? 1:0;
+
+    p = &args[2];
+    while (*p == ' ') *p++;
+    p1 = p;
+    while ((*p != ' ') && *p) *p++;
+    count = p - p1;
+    memcpy(gpio_buf, p1, count);
+    gpio_buf[count] = 0;
+    while (*p == ' ') *p++;
+    p1 = p;
+    while ((*p != ' ') && *p) *p++;
+    *p = 0;
+
+    val = (int) simple_strtoul(p1, NULL, NULL);
+    gpio_num = (int) simple_strtoul(gpio_buf, NULL, NULL);
+    
+    if (out) {
+        gpio_direction_output(gpio_num, val);
+    } else {
+        gpio_direction_input(gpio_num);
+        val = gpio_get_value(gpio_num);
+    }
+    printk("gpio%d %s %s\n", gpio_num, out ? "out":"in ", val ? "hi":"lo");
+
+	return len;	
+}
+
 static const struct file_operations gpiolib_operations = {
 	.open		= gpiolib_open,
 	.read		= seq_read,
+    .write		= gpiolib_write,
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };

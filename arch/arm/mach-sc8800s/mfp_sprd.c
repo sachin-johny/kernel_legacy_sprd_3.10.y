@@ -15,6 +15,7 @@
  *  published by the Free Software Foundation.
 */
 
+#include <linux/module.h>
 #include <linux/kernel.h>
 #include <asm/io.h>
 #include <mach/mfp.h>
@@ -102,4 +103,4 @@ void sprd_mfp_config(unsigned long *mfp_cfgs, int num)
 		local_irq_restore(flags);
 	}
 }
-
+EXPORT_SYMBOL_GPL(sprd_mfp_config);
