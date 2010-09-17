@@ -83,7 +83,7 @@ static void sc88xx_vbc_dma_params(struct sc88xx_pcm_dma_params *dma, struct vbc_
 
     // VB_CR2
     // Only 16-bit word length audio data is supported in SC8800H5, either ADC or DAC
-    if (dma->aaf & (AUDIO_ADDR_VBDA0 | AUDIO_ADDR_VBDA1)) {
+    if (dma->aaf & (AUDIO_VBDA0 | AUDIO_VBDA1)) {
         // play
         autodma_src = DMA_INCREASE;
         autodma_dst = DMA_NOCHANGE;
@@ -91,7 +91,7 @@ static void sc88xx_vbc_dma_params(struct sc88xx_pcm_dma_params *dma, struct vbc_
         if (width == 32) width = DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH16;
         else if (width == 16) width = DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
         else width = /*DMA_SDATA_WIDTH8*/DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
-    } else if (dma->aaf & (AUDIO_ADDR_VBAD0 | AUDIO_ADDR_VBAD1)) {
+    } else if (dma->aaf & (AUDIO_VBAD0 | AUDIO_VBAD1)) {
         // capture
         autodma_src = DMA_NOCHANGE;
         autodma_dst = DMA_INCREASE;
@@ -136,22 +136,31 @@ static int sc88xx_vbc_hw_params(struct snd_pcm_substream *substream,
 {
     struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
+    struct snd_pcm_runtime *runtime = substream->runtime;
+	struct sc88xx_runtime_data *prtd = runtime->private_data;
     struct sc88xx_pcm_dma_params *dma;
 	int width = snd_pcm_format_physical_width(params_format(params));
 
 	/* generate correct DMA params */
 	if (cpu_dai->dma_data)
 		kfree(cpu_dai->dma_data);
-    cpu_dai->dma_data = dma = kzalloc(2*sizeof(struct sc88xx_pcm_dma_params), GFP_KERNEL);
+    cpu_dai->dma_data = dma = kzalloc(sizeof(struct sc88xx_pcm_dma_params), GFP_KERNEL);
     if (dma) {
         struct vbc_extra extra;
         extra.width = width;
-        dma[0].aaf = AUDIO_ADDR_VBDA0;//  | AUDIO_ADDR_VBDA1;
-        // if (params_channels(params) > 1)
-            dma[0].aaf |= AUDIO_ADDR_VBDA1; // Even mono data we also let DA0 and DA1 work for stereo output
-        sc88xx_vbc_dma_params(&dma[0], &extra);
-        dma[1].aaf = AUDIO_ADDR_VBAD0;
-        sc88xx_vbc_dma_params(&dma[1], &extra);
+        prtd->dma_channel = 0;
+        if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+            prtd->dma_channel |= DMA_VB_DA0_BIT;
+            dma->aaf = AUDIO_VBDA0;//  | AUDIO_VBDA1;
+            // if (params_channels(params) > 1) {
+                prtd->dma_channel |= DMA_VB_DA1_BIT;
+                dma->aaf |= AUDIO_VBDA1; // Even mono data we also let DA0 and DA1 work for stereo output
+            // }
+        } else {
+            prtd->dma_channel |= DMA_VB_AD0_BIT;
+            dma->aaf = AUDIO_VBAD0;
+        }
+        sc88xx_vbc_dma_params(dma, &extra);
     } else return -ENOMEM;
 
     return 0;

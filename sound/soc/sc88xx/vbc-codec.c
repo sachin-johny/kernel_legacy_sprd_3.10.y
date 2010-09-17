@@ -28,6 +28,7 @@
 #include <sound/initval.h>
 #include <sound/soc-dapm.h>
 #include <linux/delay.h>
+#include <sound/tlv.h>
 
 #include "sc88xx-asoc.h"
 
@@ -41,8 +42,28 @@
   just comment this line, you will have slightly higher power
   consumption . 
  */
+static const unsigned int dac_tlv[] = {
+    TLV_DB_RANGE_HEAD(1),
+        0, 0xf, TLV_DB_LINEAR_ITEM(5, 450),
+};
+
+static const char *vbc_mic_sel[] = {
+    "mic1",
+    "mic2",
+};
+
+static const struct soc_enum vbc_mic12_enum = 
+    SOC_ENUM_SINGLE(VBCR2 & 0xffff,
+        MICSEL,
+        2,
+        vbc_mic_sel);
+
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
-    
+    SOC_ENUM("Micphone12 Mux", vbc_mic12_enum),
+    SOC_SINGLE("PCM Playback Switch", VBCR1, DAC_MUTE, 1, 1),
+    SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
 };
 
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
@@ -235,8 +256,8 @@ static int vbc_reset(struct snd_soc_codec *codec)
     vbc_reg_write(VBCCR2, 0, VBC_RATE_8000, 0xf); // 8K sample ADC
 
     vbc_reg_write(VBCGR1, 0, 0x88, 0xff); // DAC Gain
-    vbc_reg_write(VBCGR8, 0, 0x09, 0x1f);
-    vbc_reg_write(VBCGR9, 0, 0x09, 0x1f);
+    vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
+    vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
     msleep(1);
 
     vbc_reg_VBPMR2_set(SB, 0); // Power on sb
@@ -246,8 +267,12 @@ static int vbc_reset(struct snd_soc_codec *codec)
     vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
     msleep(1);
 
+    vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
+    vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
+
     // vbc_reg_write(VBPMR1, 1, 0x02, 0x7f); // power on all units, except SB_BTL
     vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
+    vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
     vbc_reg_VBPMR1_set(SB_MIX, 0);
     vbc_reg_VBPMR1_set(SB_LOUT, 0);
     vbc_reg_VBPMR1_set(SB_OUT, 0); // Power on DAC OUT
@@ -266,24 +291,39 @@ static int vbc_reset(struct snd_soc_codec *codec)
 
 static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 {
-    return 0;
+    // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
+    reg |= ARM_VB_BASE;
+    return  __raw_readl(reg);;
 }
 
 static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int val)
 {
+    // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
+    reg |= ARM_VB_BASE;
+    __raw_writel(val, reg);
     return 0;
 }
 
-static void vbc_dma_start(void)
+static void vbc_dma_control(int chs, bool on)
 {
-    vbc_reg_VBDABUFFDTA_set(VBDA0DMA_EN, 1); // DMA write DAC0 data buffer enable
-    vbc_reg_VBDABUFFDTA_set(VBDA1DMA_EN, 1); // DMA write DAC1 data buffer enable
+    if (chs & AUDIO_VBDA0)
+        vbc_reg_VBDABUFFDTA_set(VBDA0DMA_EN, on); // DMA write DAC0 data buffer enable/disable
+    if (chs & AUDIO_VBDA1)
+        vbc_reg_VBDABUFFDTA_set(VBDA1DMA_EN, on); // DMA write DAC1 data buffer enable/disable
+    if (chs & AUDIO_VBAD0)
+        vbc_reg_VBDABUFFDTA_set(VBAD0DMA_EN, on); // DMA read ADC0 data buffer enable/disable
+    if (chs & AUDIO_VBAD1)
+        vbc_reg_VBDABUFFDTA_set(VBAD1DMA_EN, on); // DAM read ADC1 data buffer enable/disable
 }
 
-static void vbc_dma_stop(void)
+static inline void vbc_dma_start(struct snd_pcm_substream *substream)
 {
-    vbc_reg_VBDABUFFDTA_set(VBDA0DMA_EN, 0); // DMA write DAC0 data buffer disable
-    vbc_reg_VBDABUFFDTA_set(VBDA1DMA_EN, 0); // DMA write DAC1 data buffer disable
+    vbc_dma_control(audio_playback_capture_channel(substream), 1);
+}
+
+static inline void vbc_dma_stop(struct snd_pcm_substream *substream)
+{
+    vbc_dma_control(audio_playback_capture_channel(substream), 0);
 }
 
 void flush_vbc_cache(struct snd_pcm_substream *substream)
@@ -296,14 +336,14 @@ void flush_vbc_cache(struct snd_pcm_substream *substream)
     /* clear dma cache buffer */
     memset((void*)runtime->dma_area, 0, runtime->dma_bytes);
     if (cpu_codec_dma_chain_operate_ready(substream)) {
-        vbc_dma_start(); // we must restart dma
+        vbc_dma_start(substream); // we must restart dma
         start_cpu_dma(substream);
         /* must wait all dma cache chain filled by 0 data */
 //      lprintf("Filling all dma chain cache audio data to 0\n");
         msleep(100);
 //      lprintf("done!\n");
         stop_cpu_dma(substream);
-        vbc_dma_stop();
+        vbc_dma_stop(substream);
     }
 }
 EXPORT_SYMBOL_GPL(flush_vbc_cache);
@@ -311,7 +351,8 @@ EXPORT_SYMBOL_GPL(flush_vbc_cache);
 static int vbc_startup(struct snd_pcm_substream *substream,
     struct snd_soc_dai *dai)
 {
-    vbc_buffer_clear_all();
+    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+        vbc_buffer_clear_all();
 //  vbc_codec_unmute();
     return 0;
 }
@@ -363,16 +404,16 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
 
 	switch (cmd) {
         case SNDRV_PCM_TRIGGER_START:
-            vbc_dma_start();
+            vbc_dma_start(substream);
             break;
         case SNDRV_PCM_TRIGGER_STOP:
         case SNDRV_PCM_TRIGGER_SUSPEND:
         case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-            vbc_dma_stop(); // Stop DMA transfer
+            vbc_dma_stop(substream); // Stop DMA transfer
             break;
         case SNDRV_PCM_TRIGGER_RESUME:
         case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-            vbc_dma_start();
+            vbc_dma_start(substream);
             break;
         default:
             ret = -EINVAL;
@@ -454,7 +495,7 @@ struct snd_soc_dai vbc_dai[] = {
 	.capture = {
 		.stream_name = "Capture",
 		.channels_min = 1,
-		.channels_max = 2,
+		.channels_max = 1, // now we only support mono capture
 		.rates = VBC_PCM_RATES,
 		.formats = VBC_PCM_FORMATS,},
 	.ops = &vbc_dai_ops,

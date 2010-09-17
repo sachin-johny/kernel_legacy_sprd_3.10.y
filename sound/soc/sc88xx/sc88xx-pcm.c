@@ -30,28 +30,24 @@
 #include "sc88xx-asoc.h"
 
 static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
-	.info			= SNDRV_PCM_INFO_MMAP           |
-				      SNDRV_PCM_INFO_MMAP_VALID     |
+    .info           = SNDRV_PCM_INFO_MMAP           |
+                      SNDRV_PCM_INFO_MMAP_VALID     |
                       SNDRV_PCM_INFO_NONINTERLEAVED |
-				      SNDRV_PCM_INFO_PAUSE          |
-				      SNDRV_PCM_INFO_RESUME,
-	.formats		= VBC_PCM_FORMATS,
+                      SNDRV_PCM_INFO_PAUSE          |
+                      SNDRV_PCM_INFO_RESUME,
+    .formats        = VBC_PCM_FORMATS,
 #if !SC88XX_PCM_DMA_SG_CIRCLE
     .period_bytes_min	= VBC_FIFO_FRAME_NUM*2*2, // 16bits, stereo-2-channels
-	.period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
+    .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
 #else
     .period_bytes_min	= VBC_FIFO_FRAME_NUM*2*2, // 16bits, stereo-2-channels
-	.period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
+    .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
 #endif
-	.periods_min		= 128,
-	.periods_max		= 18*PAGE_SIZE/(2*sizeof(sc88xx_dma_desc)), // DA0, DA1 sg are combined
-	.buffer_bytes_max	= 6 * 128 * 1024,
-	.fifo_size		    = VBC_FIFO_FRAME_NUM*2,
+    .periods_min        = 128,
+    .periods_max        = 18*PAGE_SIZE/(2*sizeof(sc88xx_dma_desc)), // DA0, DA1 sg are combined
+    .buffer_bytes_max	= 6 * 128 * 1024,
+    .fifo_size          = VBC_FIFO_FRAME_NUM*2,
 };
-static int pcm_1channel_data_width;
-static int dma_da_ad_1_offset;
-static volatile u32 sc88xx_dma_chs_capture;
-static volatile u32 sc88xx_dma_chs_play;
 
 int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 {
@@ -113,17 +109,19 @@ int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 }
 
 #if !SC88XX_PCM_DMA_SG_CIRCLE
-static void grab_next_sg_data(struct snd_pcm_substream *substream, u32 *chs)
+static void grab_next_sg_data(struct snd_pcm_substream *substream)
 {
     struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
     sc88xx_dma_desc *dma_desc0 = NULL, *dma_desc1 = NULL;
+    int chs = rtd->dma_channel;
+
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-        if (*chs & (1 << DMA_VB_DA0)) {
+        if (chs & DMA_VB_DA0_BIT) {
             if (++rtd->ch0_idx > rtd->ch_max)
                 rtd->ch0_idx = 0;
             dma_desc0 = rtd->dma_desc_array + rtd->ch0_idx;
         }
-        if (*chs & (1 << DMA_VB_DA1)) {
+        if (chs & DMA_VB_DA1_BIT) {
             if (++rtd->ch1_idx > rtd->ch_max)
                 rtd->ch1_idx = 0;
             dma_desc1 = rtd->dma_desc_array1 + rtd->ch1_idx;
@@ -137,12 +135,12 @@ static void grab_next_sg_data(struct snd_pcm_substream *substream, u32 *chs)
             __raw_writel(dma_desc1->dsrc , DMA_VB_DA1_BASE + 0x08);
         }
     } else {
-        if (*chs & (1 << DMA_VB_AD0)) {
+        if (chs & DMA_VB_AD0_BIT) {
             if (++rtd->ch0_idx > rtd->ch_max)
                 rtd->ch0_idx = 0;
             dma_desc0 = rtd->dma_desc_array + rtd->ch0_idx;
         }
-        if (*chs & (1 << DMA_VB_AD1)) {
+        if (chs & DMA_VB_AD1_BIT) {
             if (++rtd->ch1_idx > rtd->ch_max)
                 rtd->ch1_idx = 0;
             dma_desc1 = rtd->dma_desc_array1 + rtd->ch1_idx;
@@ -173,13 +171,10 @@ void sc88xx_pcm_dma_irq(int dma_ch, void *dev_id)
     snd_pcm_period_elapsed(substream);
 #if !SC88XX_PCM_DMA_SG_CIRCLE
 {
-    u32 *chs;
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        chs = &sc88xx_dma_chs_play;
-    else chs = &sc88xx_dma_chs_capture;
+    struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
     // stop_cpu_dma(substream); // hardware will auto clear DMA_CHx_EN
-    __raw_bits_or(*chs, DMA_TRANSF_INT_CLR);
-    grab_next_sg_data(substream, chs);
+    __raw_bits_or(rtd->dma_channel, DMA_TRANSF_INT_CLR);
+    grab_next_sg_data(substream);
     start_cpu_dma(substream);
 }
 #endif
@@ -187,29 +182,29 @@ void sc88xx_pcm_dma_irq(int dma_ch, void *dev_id)
 
 int cpu_codec_dma_chain_operate_ready(struct snd_pcm_substream *substream)
 {
-    volatile u32 *chs;
+    struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
+    u32 chs = rtd->dma_channel;
     int ch_id;
+
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-        chs = &sc88xx_dma_chs_play;
         ch_id = DMA_VB_DA0;
-        if ((*chs & (1 << ch_id)) && 
+        if ((chs & (1 << ch_id)) && 
             !sc88xx_irq_handler_ready(ch_id))
             return 0;
 #if !SC88XX_VBC_DMA_COMBINE
         ch_id = DMA_VB_DA1;
-        if ((*chs & (1 << ch_id)) && 
+        if ((chs & (1 << ch_id)) && 
             !sc88xx_irq_handler_ready(ch_id))
             return 0;
 #endif
     } else {
-        chs = &sc88xx_dma_chs_capture;
         ch_id = DMA_VB_AD0;
-        if ((*chs & (1 << ch_id)) && 
+        if ((chs & (1 << ch_id)) && 
             !sc88xx_irq_handler_ready(ch_id))
             return 0;
 #if !SC88XX_VBC_DMA_COMBINE
         ch_id = DMA_VB_AD1;
-        if ((*chs & (1 << ch_id)) && 
+        if ((chs & (1 << ch_id)) && 
             !sc88xx_irq_handler_ready(ch_id))
             return 0;
 #endif
@@ -220,25 +215,33 @@ EXPORT_SYMBOL_GPL(cpu_codec_dma_chain_operate_ready);
 
 void start_cpu_dma(struct snd_pcm_substream *substream)
 {
-    volatile u32 *chs;
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        chs = &sc88xx_dma_chs_play;
-    else chs = &sc88xx_dma_chs_capture;
-
-    __raw_bits_or(*chs, DMA_CHx_EN);
+    struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
+    __raw_bits_or(rtd->dma_channel, DMA_CHx_EN);
 }
 EXPORT_SYMBOL_GPL(start_cpu_dma);
 
 void stop_cpu_dma(struct snd_pcm_substream *substream)
 {
-    volatile u32 *chs;
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        chs = &sc88xx_dma_chs_play;
-    else chs = &sc88xx_dma_chs_capture;
-
-    __raw_bits_and(~*chs, DMA_CHx_EN);
+    struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
+    __raw_bits_and(~rtd->dma_channel, DMA_CHx_EN);
 }
 EXPORT_SYMBOL_GPL(stop_cpu_dma);
+
+int audio_playback_capture_channel(struct snd_pcm_substream *substream)
+{
+    struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
+    int ch_codec = 0;
+    if (rtd->dma_channel & DMA_VB_DA0_BIT)
+        ch_codec |= AUDIO_VBDA0;
+    if (rtd->dma_channel & DMA_VB_DA1_BIT)
+        ch_codec |= AUDIO_VBDA1;
+    if (rtd->dma_channel & DMA_VB_AD0_BIT)
+        ch_codec |= AUDIO_VBAD0;
+    if (rtd->dma_channel & DMA_VB_AD1_BIT)
+        ch_codec |= AUDIO_VBAD1;
+    return ch_codec;
+}
+EXPORT_SYMBOL_GPL(audio_playback_capture_channel);
 
 static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_hw_params *params)
@@ -251,15 +254,11 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	size_t period = params_period_bytes(params);
 	sc88xx_dma_desc *dma_desc,*dma_desc1;
 	dma_addr_t dma_buff_phys, dma_buff_phys1,next_desc_phys, next_desc_phys1;
-    int idx, ret;
+    int ret;
     int burst_size = sc88xx_pcm_hardware.fifo_size; // sc88xx_pcm_hardware.period_bytes_min / 2; // VBC_FIFO_FRAME_NUM / 2;
 
 	if (!dma)
 		return 0;
-
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        idx = 0;
-    else idx = 1;
 
 	/* when madplay plays mp3, this func will be called several times by oss emulation
 	 * with different params 
@@ -267,20 +266,20 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	if (1 || rtd->params == NULL) {
 		rtd->params = dma;
         ret = 1;
-        if (ret && rtd->params[idx].aaf & AUDIO_ADDR_VBDA0)
+        if (ret && rtd->dma_channel & DMA_VB_DA0_BIT)
             ret = sc88xx_request_dma(DMA_VB_DA0, sc88xx_pcm_dma_irq, substream);
 #if !SC88XX_VBC_DMA_COMBINE
         ret = 1;
 #endif
-        if (ret && rtd->params[idx].aaf & AUDIO_ADDR_VBDA1)
+        if (ret && rtd->dma_channel & DMA_VB_DA1_BIT)
             ret = sc88xx_request_dma(DMA_VB_DA1, sc88xx_pcm_dma_irq, substream);
         ret = 1;
-        if (ret && rtd->params[idx].aaf & AUDIO_ADDR_VBAD0)
+        if (ret && rtd->dma_channel & DMA_VB_AD0_BIT)
             ret = sc88xx_request_dma(DMA_VB_AD0, sc88xx_pcm_dma_irq, substream);
 #if !SC88XX_VBC_DMA_COMBINE
         ret = 1;
 #endif
-        if (ret && rtd->params[idx].aaf & AUDIO_ADDR_VBAD1)
+        if (ret && rtd->dma_channel & DMA_VB_AD1_BIT)
             ret = sc88xx_request_dma(DMA_VB_AD1, sc88xx_pcm_dma_irq, substream);
         if (ret < 0) return ret;
 	} else {
@@ -297,14 +296,14 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	next_desc_phys = rtd->dma_desc_array_phys;
     next_desc_phys1= rtd->dma_desc_array_phys1 = rtd->dma_desc_array_phys + sc88xx_pcm_hardware.periods_max * sizeof(sc88xx_dma_desc);
 
-    dma_da_ad_1_offset = (totsize / params_channels(params)) * (params_channels(params)-1);
-    
+    rtd->dma_da_ad_1_offset = (totsize / params_channels(params)) * (params_channels(params)-1);
+
     /* channel 1 dma start addr */
 	dma_buff_phys = runtime->dma_addr;
     /* channel 2 dma start addr */
-    dma_buff_phys1= dma_buff_phys + dma_da_ad_1_offset;
+    dma_buff_phys1= dma_buff_phys + rtd->dma_da_ad_1_offset;
     /* one channel occupied bytes in one period */
-    pcm_1channel_data_width = period / params_channels(params);
+    rtd->pcm_1channel_data_width = period / params_channels(params);
 
 #if 0
     lprintf("periods_min=%d\n"
@@ -319,6 +318,8 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
             "format=%d\n"
             "sample_bits=[%dbits]\n"
             "rate=%d\n"
+            "dma_channel=0x%08x\n"
+            "dma_channel_first_bit=%d\n"
             ,sc88xx_pcm_hardware.periods_min
             ,sc88xx_pcm_hardware.periods_max
             ,period
@@ -326,11 +327,14 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
             ,params_periods(params)
             ,params_buffer_size(params)
             ,totsize
-            ,pcm_1channel_data_width
+            ,rtd->pcm_1channel_data_width
             ,params_channels(params)
             ,params_format(params)
             ,snd_pcm_format_physical_width(params_format(params))
-            ,params_rate(params));
+            ,params_rate(params)
+            ,rtd->dma_channel
+            ,__builtin_ctz(rtd->dma_channel)
+            );
 #endif
 
 	do {
@@ -340,56 +344,56 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 		dma_desc->llptr = next_desc_phys;
         dma_desc1->llptr = next_desc_phys1;
 
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBDA0) {
-            dma_desc->cfg  = rtd->params[idx].cfg | burst_size;
+        if (rtd->dma_channel & DMA_VB_DA0_BIT) {
+            dma_desc->cfg  = rtd->params->cfg | burst_size;
 #if !SC88XX_PCM_DMA_SG_CIRCLE
             // dma_desc->cfg |= DMA_LLEND;
 #endif
-            dma_desc->tlen = pcm_1channel_data_width;
+            dma_desc->tlen = rtd->pcm_1channel_data_width;
             dma_desc->dsrc = dma_buff_phys;
             dma_desc->ddst = VBDA0 - SPRD_VB_BASE + SPRD_VB_PHYS;
-            dma_desc->pmod =rtd->params[idx].pmod;
-            dma_desc->sbm  =rtd->params[idx].sbm;
-            dma_desc->dbm  =rtd->params[idx].dbm;
+            dma_desc->pmod = rtd->params->pmod;
+            dma_desc->sbm  = rtd->params->sbm;
+            dma_desc->dbm  = rtd->params->dbm;
         }
 
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBDA1) {
-            dma_desc1->cfg  = rtd->params[idx].cfg | burst_size;
+        if (rtd->dma_channel & DMA_VB_DA1_BIT) {
+            dma_desc1->cfg  = rtd->params->cfg | burst_size;
 #if !SC88XX_PCM_DMA_SG_CIRCLE
             // dma_desc1->cfg |= DMA_LLEND;
 #endif
-            dma_desc1->tlen = pcm_1channel_data_width;
+            dma_desc1->tlen = rtd->pcm_1channel_data_width;
             dma_desc1->dsrc = dma_buff_phys1;
             dma_desc1->ddst = VBDA1 - SPRD_VB_BASE + SPRD_VB_PHYS;
-            dma_desc1->pmod =rtd->params[idx].pmod;
-            dma_desc1->sbm  =rtd->params[idx].sbm;
-            dma_desc1->dbm  =rtd->params[idx].dbm;
+            dma_desc1->pmod = rtd->params->pmod;
+            dma_desc1->sbm  = rtd->params->sbm;
+            dma_desc1->dbm  = rtd->params->dbm;
         }
 
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBAD0) {
-            dma_desc->cfg  = rtd->params[idx].cfg | burst_size;
+        if (rtd->dma_channel & DMA_VB_AD0_BIT) {
+            dma_desc->cfg  = rtd->params->cfg | burst_size;
 #if !SC88XX_PCM_DMA_SG_CIRCLE
             // dma_desc->cfg |= DMA_LLEND;
 #endif
-            dma_desc->tlen = pcm_1channel_data_width;
+            dma_desc->tlen = rtd->pcm_1channel_data_width;
             dma_desc->dsrc = VBAD0 - SPRD_VB_BASE + SPRD_VB_PHYS;
             dma_desc->ddst = dma_buff_phys;
-            dma_desc->pmod =rtd->params[idx].pmod;
-            dma_desc->sbm  =rtd->params[idx].sbm;
-            dma_desc->dbm  =rtd->params[idx].dbm;
+            dma_desc->pmod = rtd->params->pmod;
+            dma_desc->sbm  = rtd->params->sbm;
+            dma_desc->dbm  = rtd->params->dbm;
         }
 
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBAD1) {
-            dma_desc1->cfg  = rtd->params[idx].cfg | burst_size;
+        if (rtd->dma_channel & DMA_VB_AD1_BIT) {
+            dma_desc1->cfg  = rtd->params->cfg | burst_size;
 #if !SC88XX_PCM_DMA_SG_CIRCLE
             // dma_desc1->cfg |= DMA_LLEND;
 #endif
-            dma_desc1->tlen = pcm_1channel_data_width;
+            dma_desc1->tlen = rtd->pcm_1channel_data_width;
             dma_desc1->dsrc = VBAD1 - SPRD_VB_BASE + SPRD_VB_PHYS;
             dma_desc1->ddst = dma_buff_phys1; 
-            dma_desc1->pmod =rtd->params[idx].pmod;
-            dma_desc1->sbm  =rtd->params[idx].sbm;
-            dma_desc1->dbm  =rtd->params[idx].dbm;
+            dma_desc1->pmod = rtd->params->pmod;
+            dma_desc1->sbm  = rtd->params->sbm;
+            dma_desc1->dbm  = rtd->params->dbm;
         }
 #if 0
         printk(KERN_EMERG "------------[%d][0x%08x][0x%08x],sg[0x%08x][0x%08x]------------\n"
@@ -438,8 +442,8 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 
 		dma_desc++;
         dma_desc1++;
-		dma_buff_phys += pcm_1channel_data_width;
-        dma_buff_phys1+= pcm_1channel_data_width;
+		dma_buff_phys += rtd->pcm_1channel_data_width;
+        dma_buff_phys1+= rtd->pcm_1channel_data_width;
 	} while (totsize -= period);
 	dma_desc[-1].llptr = rtd->dma_desc_array_phys;
     dma_desc1[-1].llptr = rtd->dma_desc_array_phys1;
@@ -457,19 +461,13 @@ static int sc88xx_pcm_hw_free(struct snd_pcm_substream *substream)
 	snd_pcm_set_runtime_buffer(substream, NULL);
     
     if (rtd->params) {
-        int idx;
-
-        if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-            idx = 0;
-        else idx = 1;
-
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBDA0)
+        if (rtd->dma_channel & DMA_VB_DA0_BIT)
             sc88xx_free_dma(DMA_VB_DA0);
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBDA1)
+        if (rtd->dma_channel & DMA_VB_DA1_BIT)
             sc88xx_free_dma(DMA_VB_DA1);
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBAD0)
+        if (rtd->dma_channel & DMA_VB_AD0_BIT)
             sc88xx_free_dma(DMA_VB_AD0);
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBAD1)
+        if (rtd->dma_channel & DMA_VB_AD1_BIT)
             sc88xx_free_dma(DMA_VB_AD1);
 	}
 	return 0;
@@ -483,23 +481,11 @@ int sc88xx_pcm_prepare(struct snd_pcm_substream *substream)
 int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
-	int ret = 0, idx;
+	int ret = 0;
     sc88xx_dma_ctrl ctrl;
-    volatile u32  *chs;
-
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-        idx = 0;
-        chs = &sc88xx_dma_chs_play;
-    } else {
-        idx = 1;
-        chs = &sc88xx_dma_chs_capture;
-    }
-
-//    lprintf("cmd=%d\n", cmd);
 
 	switch (cmd) {
         case SNDRV_PCM_TRIGGER_START:
-            *chs = 0;
 #if !SC88XX_PCM_DMA_SG_CIRCLE
             ctrl.modes = DMA_NORMAL;
 #else
@@ -507,67 +493,59 @@ int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
             ctrl.modes = DMA_LINKLIST;
 #endif
             ret = 1;
-            if (rtd->params[idx].aaf & AUDIO_ADDR_VBDA0) {
+            if (rtd->dma_channel & DMA_VB_DA0_BIT) {
 #if !SC88XX_PCM_DMA_SG_CIRCLE
-                ctrl.interrupt_type = ret ? /* LLIST_DONE_EN */ TRANS_DONE_EN : INT_NONE;
+            ctrl.interrupt_type = ret ? /* LLIST_DONE_EN */ TRANS_DONE_EN : INT_NONE;
 #else
-                ctrl.interrupt_type = ret ? TRANS_DONE_EN : INT_NONE;
+            ctrl.interrupt_type = ret ? TRANS_DONE_EN : INT_NONE;
 #endif
                 ctrl.ch_id = DMA_VB_DA0;
                 ctrl.dma_desc = rtd->dma_desc_array;
                 ctrl.dma_desc_phy = rtd->dma_desc_array_phys;
-
                 sc88xx_dma_setup(&ctrl);
-                *chs |= 1 << DMA_VB_DA0;
                 ret = 0;
             }
 #if !SC88XX_VBC_DMA_COMBINE
             ret = 1;
 #endif
-            if (rtd->params[idx].aaf & AUDIO_ADDR_VBDA1) {
+            if (rtd->dma_channel & DMA_VB_DA1_BIT) {
 #if !SC88XX_PCM_DMA_SG_CIRCLE
-                ctrl.interrupt_type = ret ? /* LLIST_DONE_EN */ TRANS_DONE_EN : INT_NONE;
+            ctrl.interrupt_type = ret ? /* LLIST_DONE_EN */ TRANS_DONE_EN : INT_NONE;
 #else
-                ctrl.interrupt_type = ret ? TRANS_DONE_EN : INT_NONE;
+            ctrl.interrupt_type = ret ? TRANS_DONE_EN : INT_NONE;
 #endif
                 ctrl.ch_id = DMA_VB_DA1;
                 ctrl.dma_desc = rtd->dma_desc_array1;
                 ctrl.dma_desc_phy = rtd->dma_desc_array_phys1;
-
                 sc88xx_dma_setup(&ctrl);
-                *chs |= 1 << DMA_VB_DA1;
                 ret = 0;
             }
             ret = 1;
-            if (rtd->params[idx].aaf & AUDIO_ADDR_VBAD0) {
+            if (rtd->dma_channel & DMA_VB_AD0_BIT) {
 #if !SC88XX_PCM_DMA_SG_CIRCLE
-                ctrl.interrupt_type = ret ? /* LLIST_DONE_EN */ TRANS_DONE_EN : INT_NONE;
+            ctrl.interrupt_type = ret ? /* LLIST_DONE_EN */ TRANS_DONE_EN : INT_NONE;
 #else
-                ctrl.interrupt_type = ret ? TRANS_DONE_EN : INT_NONE;
+            ctrl.interrupt_type = ret ? TRANS_DONE_EN : INT_NONE;
 #endif
                 ctrl.ch_id = DMA_VB_AD0;
                 ctrl.dma_desc = rtd->dma_desc_array;
                 ctrl.dma_desc_phy = rtd->dma_desc_array_phys;
-
                 sc88xx_dma_setup(&ctrl);
-                *chs |= 1 << DMA_VB_AD0;
                 ret = 0;
             }
 #if !SC88XX_VBC_DMA_COMBINE
             ret = 1;
 #endif
-            if (rtd->params[idx].aaf & AUDIO_ADDR_VBAD1) {
+            if (rtd->dma_channel & DMA_VB_AD1_BIT) {
 #if !SC88XX_PCM_DMA_SG_CIRCLE
-                ctrl.interrupt_type = ret ? /* LLIST_DONE_EN */ TRANS_DONE_EN : INT_NONE;
+            ctrl.interrupt_type = ret ? /* LLIST_DONE_EN */ TRANS_DONE_EN : INT_NONE;
 #else
-                ctrl.interrupt_type = ret ? TRANS_DONE_EN : INT_NONE;
+            ctrl.interrupt_type = ret ? TRANS_DONE_EN : INT_NONE;
 #endif
                 ctrl.ch_id = DMA_VB_AD1;
                 ctrl.dma_desc = rtd->dma_desc_array1;
                 ctrl.dma_desc_phy = rtd->dma_desc_array_phys1;
-
                 sc88xx_dma_setup(&ctrl);
-                *chs |= 1 << DMA_VB_AD1;
                 ret = 0;
             }
             ret = 0;
@@ -602,41 +580,20 @@ sc88xx_pcm_pointer(struct snd_pcm_substream *substream)
     int channels = runtime->channels;
 
     if (rtd->params) {
-        int idx;
-        int ch_id = 0;
         u32 ch_base;
-        
+        int offset;
+
         if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-            idx = 0;
-        else idx = 1;
-
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBAD0) {
-            ch_id = DMA_VB_AD0;
-        }
-
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBAD1) {
-            if (ch_id != DMA_VB_AD0) // Priority AD0
-                ch_id = DMA_VB_AD1;
-        }
-
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBDA0) {
-            ch_id = DMA_VB_DA0;
-        }
-
-        if (rtd->params[idx].aaf & AUDIO_ADDR_VBDA1) {
-            if (ch_id != DMA_VB_DA0) // Priority DA0
-                ch_id = DMA_VB_DA1;
-        }
+            offset = 0x08;
+        else offset = 0x0c;
 
         // We only support 2 channel, but i think sometimes may only use AD1 or DA1, skip AD0 and DA0
         data_base = runtime->dma_addr; // use channel 1 dma addr
-        if (ch_id == DMA_VB_AD1 || ch_id == DMA_VB_DA1)
-            data_base += dma_da_ad_1_offset; // skip to channle 2 dma addr
-        ch_base = DMA_CHx_CTL_BASE + (ch_id * 0x20);
+        if (!(rtd->dma_channel & (DMA_VB_AD0_BIT | DMA_VB_DA0_BIT)))
+            data_base += rtd->dma_da_ad_1_offset; // skip to channle 2 dma addr
+        ch_base = DMA_CHx_CTL_BASE + (__builtin_ctz(rtd->dma_channel) * 0x20);
 
-        if (idx == 0)
-            ptr = __raw_readl(ch_base + 0x08); // Play read dsrc register
-        else ptr = __raw_readl(ch_base + 0x0c); // Capture read ddst register
+        ptr = __raw_readl(ch_base + offset); // read data pointer register
 
         free_data_height = (ptr - data_base) * channels; // Each channel data transfer is symmetrical
     }
@@ -653,7 +610,7 @@ lprintf("dsrc=0x%08x, data_base=0x%08x\n", ptr, data_base);
     char *p = buf;
     u8 *dat[2];
     dat[0] = (void*)runtime->dma_area;
-    dat[1] = dat[0] + dma_da_ad_1_offset;
+    dat[1] = dat[0] + rtd->dma_da_ad_1_offset;
     for (j = 0; j < 2; j++) {
         p = buf;
         for (i = 0; i < 32; i++)

@@ -73,7 +73,8 @@ static int sprdphone_startup(struct snd_pcm_substream *substream)
 
 static void sprdphone_shutdown(struct snd_pcm_substream *substream)
 {
-    vbc_gpio_amplifier_enable(false);
+    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+        vbc_gpio_amplifier_enable(false);
 }
 
 static int sprdphone_prepare(struct snd_pcm_substream *substream)
@@ -84,7 +85,8 @@ static int sprdphone_prepare(struct snd_pcm_substream *substream)
 static int sprdphone_hw_params(struct snd_pcm_substream *substream,
 					struct snd_pcm_hw_params *params)
 {
-    vbc_gpio_amplifier_enable(true);
+    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+        vbc_gpio_amplifier_enable(true);
     return 0;
 }
 

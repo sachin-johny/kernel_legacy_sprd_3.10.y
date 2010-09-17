@@ -46,13 +46,14 @@ extern void start_cpu_dma(struct snd_pcm_substream *substream);
 extern void stop_cpu_dma(struct snd_pcm_substream *substream);
 extern int cpu_codec_dma_chain_operate_ready(struct snd_pcm_substream *substream);
 extern void flush_vbc_cache(struct snd_pcm_substream *substream);
+extern int audio_playback_capture_channel(struct snd_pcm_substream *substream);
 #define pause_cpu_dma() __raw_bits_or(1<<8, DMA_CFG)
 #define resume_cpu_dma() __raw_bits_and(~(1<<8), DMA_CFG)
 
-#define AUDIO_ADDR_VBDA0    (1 << 0)
-#define AUDIO_ADDR_VBDA1    (1 << 1)
-#define AUDIO_ADDR_VBAD0    (1 << 2)
-#define AUDIO_ADDR_VBAD1    (1 << 3)
+#define AUDIO_VBDA0    (1 << 0)
+#define AUDIO_VBDA1    (1 << 1)
+#define AUDIO_VBAD0    (1 << 2)
+#define AUDIO_VBAD1    (1 << 3)
 struct sc88xx_pcm_dma_params {
 	char *name;			/* stream identifier */
     u32 aaf;  // audio codec addr choice flag
@@ -64,7 +65,9 @@ struct sc88xx_pcm_dma_params {
 };
 
 struct sc88xx_runtime_data {
-	int dma_ch;
+    int dma_channel;
+    int pcm_1channel_data_width;
+    int dma_da_ad_1_offset;
 	struct sc88xx_pcm_dma_params *params;
 	sc88xx_dma_desc *dma_desc_array;
 	dma_addr_t dma_desc_array_phys;
