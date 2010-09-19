@@ -58,12 +58,17 @@ static const struct soc_enum vbc_mic12_enum =
         2,
         vbc_mic_sel);
 
+#define VBC_PCM_CTRL(name) \
+    SOC_SINGLE(name" Playback Switch", VBCR1, DAC_MUTE, 1, 1), \
+    SOC_DOUBLE_TLV(name" Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv), \
+    SOC_SINGLE_TLV(name" Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv), \
+    SOC_SINGLE_TLV(name" Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv)
+
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_ENUM("Micphone12 Mux", vbc_mic12_enum),
-    SOC_SINGLE("PCM Playback Switch", VBCR1, DAC_MUTE, 1, 1),
-    SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    VBC_PCM_CTRL("PCM"),
+    VBC_PCM_CTRL("Speaker"),
+    VBC_PCM_CTRL("Earpiece"),
 };
 
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
