@@ -47,9 +47,14 @@ static const unsigned int dac_tlv[] = {
         0, 0xf, TLV_DB_LINEAR_ITEM(5, 450),
 };
 
+static const unsigned int adc_tlv[] = {
+    TLV_DB_RANGE_HEAD(1),
+        0, 0xf, TLV_DB_LINEAR_ITEM(0, 4500),
+};
+
 static const char *vbc_mic_sel[] = {
-    "mic1",
-    "mic2",
+    "1",
+    "2",
 };
 
 static const struct soc_enum vbc_mic12_enum = 
@@ -65,10 +70,11 @@ static const struct soc_enum vbc_mic12_enum =
     SOC_SINGLE_TLV(name" Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv)
 
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
-    SOC_ENUM("Micphone12 Mux", vbc_mic12_enum),
+    SOC_ENUM("Micphone", vbc_mic12_enum),
     VBC_PCM_CTRL("PCM"),
     VBC_PCM_CTRL("Speaker"),
     VBC_PCM_CTRL("Earpiece"),
+    SOC_SINGLE_TLV("Capture Capture Volume", VBCGR10, 4, 0x0f, 0, adc_tlv),
 };
 
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
@@ -255,7 +261,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
 
     vbc_reg_VBCR2_set(DAC_ADWL, DAC_DATA_WIDTH_16_bit); // DAC data sample depth 16bits
     vbc_reg_VBCR2_set(ADC_ADWL, ADC_DATA_WIDTH_16_bit); // ADC data sample depth 16bits
-    vbc_reg_VBCR2_set(MICSEL, MICROPHONE1); // route microphone 1 to ADC module
+    vbc_reg_VBCR2_set(MICSEL, MICROPHONE2); // route microphone 2 to ADC module
 
     vbc_reg_write(VBCCR2, 4, VBC_RATE_8000, 0xf); // 8K sample DAC
     vbc_reg_write(VBCCR2, 0, VBC_RATE_8000, 0xf); // 8K sample ADC
@@ -274,6 +280,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
 
     vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
     vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
+    vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
 
     // vbc_reg_write(VBPMR1, 1, 0x02, 0x7f); // power on all units, except SB_BTL
     vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC

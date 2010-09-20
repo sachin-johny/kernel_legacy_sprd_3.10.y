@@ -98,7 +98,7 @@ static void sc88xx_vbc_dma_params(struct sc88xx_pcm_dma_params *dma, struct vbc_
         autodma_burst_mod_src = SRC_BURST_MODE_SINGLE;
         if (width == 32) width = DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH32;
         else if (width == 16) width = DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
-        else width = /*DMA_SDATA_WIDTH8*/DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH8;
+        else width = /*DMA_SDATA_WIDTH8*/DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
     } else {
         // other codec
         autodma_src = DMA_NOCHANGE;

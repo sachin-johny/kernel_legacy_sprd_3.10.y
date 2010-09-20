@@ -41,7 +41,6 @@
 #define SC88XX_PCM_DMA_SG_CIRCLE    1
 #define SC88XX_VBC_DMA_COMBINE      1 
 #define VBC_PCM_FORMATS             (SNDRV_PCM_FMTBIT_S16_LE) // | SNDRV_PCM_FMTBIT_S8)
-
 extern void start_cpu_dma(struct snd_pcm_substream *substream);
 extern void stop_cpu_dma(struct snd_pcm_substream *substream);
 extern int cpu_codec_dma_chain_operate_ready(struct snd_pcm_substream *substream);

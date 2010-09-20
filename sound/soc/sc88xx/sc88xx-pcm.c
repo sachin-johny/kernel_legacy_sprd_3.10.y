@@ -35,6 +35,9 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
                       SNDRV_PCM_INFO_NONINTERLEAVED |
                       SNDRV_PCM_INFO_PAUSE          |
                       SNDRV_PCM_INFO_RESUME,
+// We can start playback and recording program the same time, 
+// but the second program, will be forced to use a running program's sample rate, 
+// this should be an alsa bug [luther.ge]
     .formats        = VBC_PCM_FORMATS,
 #if !SC88XX_PCM_DMA_SG_CIRCLE
     .period_bytes_min	= VBC_FIFO_FRAME_NUM*2*2, // 16bits, stereo-2-channels
@@ -56,7 +59,12 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	int ret;
 
 	runtime->hw = sc88xx_pcm_hardware;
-
+    // Because VBC only support mono capture and caputer DMA buffer size must be 160*2 bytes,
+    // so we must force half size sc88xx_pcm_hardware.period_bytes_min and period_bytes_max
+    if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
+        runtime->hw.period_bytes_min >>= 1;
+        runtime->hw.period_bytes_max >>= 1;
+    }
 	/*
 	 * For mysterious reasons (and despite what the manual says)
 	 * playback samples are lost if the DMA count is not a multiple
@@ -306,7 +314,8 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
     rtd->pcm_1channel_data_width = period / params_channels(params);
 
 #if 0
-    lprintf("periods_min=%d\n"
+    lprintf("runtime->hw.info=0x%08x\n"
+            "periods_min=%d\n"
             "periods_max=%d\n"
             "period_bytes=%d\n"
             "period_size=%d\n"
@@ -320,6 +329,7 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
             "rate=%d\n"
             "dma_channel=0x%08x\n"
             "dma_channel_first_bit=%d\n"
+            ,runtime->hw.info
             ,sc88xx_pcm_hardware.periods_min
             ,sc88xx_pcm_hardware.periods_max
             ,period
@@ -608,14 +618,13 @@ lprintf("dsrc=0x%08x, data_base=0x%08x\n", ptr, data_base);
     int i, j;
     static char buf[1024];
     char *p = buf;
-    u8 *dat[2];
-    dat[0] = (void*)runtime->dma_area;
-    dat[1] = dat[0] + rtd->dma_da_ad_1_offset;
-    for (j = 0; j < 2; j++) {
+    u8 *dat;
+    for (j = 0; j < channels; j++) {
+        dat = (char *)runtime->dma_area + j * rtd->dma_da_ad_1_offset;
         p = buf;
         for (i = 0; i < 32; i++)
-            p += sprintf(p, "%02x ", dat[j][i]);
-        printk("DA%d: %s\n", j, buf);
+            p += sprintf(p, "%02x ", dat[i]);
+        printk("%s%d: %s\n", (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "DA":"AD", j, buf);
     }
 }
 lprintf("exit  ch=%d, x=%ld\n", channels, x);
