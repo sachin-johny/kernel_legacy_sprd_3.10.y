@@ -74,7 +74,7 @@ static struct resource sprd_i2c_resources[] = {
 };
 
 static struct platform_device sprd_i2c_device = {
-	.name		= "sprd_i2c",
+	.name		= "sc8800-i2c",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(sprd_i2c_resources),
 	.resource	= sprd_i2c_resources,

@@ -114,7 +114,7 @@
 #endif
 /*For BP UART problem End*/
 
-																			  /*#define TS0710MUX_SERIAL_BUF_SIZE (DEF_TS0710_MTU + TS0710_MAX_HDR_SIZE) *//* For BP UART problem  */
+/*#define TS0710MUX_SERIAL_BUF_SIZE (DEF_TS0710_MTU + TS0710_MAX_HDR_SIZE) *//* For BP UART problem  */
 #define TS0710MUX_SERIAL_BUF_SIZE (DEF_TS0710_MTU + TS0710_MAX_HDR_SIZE + ACK_SPACE)	/* For BP UART problem: ACK_SPACE  */
 
 #define TS0710MUX_MAX_TOTAL_FRAME_SIZE (DEF_TS0710_MTU + TS0710_MAX_HDR_SIZE + FLAG_SIZE)
@@ -163,29 +163,9 @@
 #define TS0710MUX_COUNT_MAX_IDX        5
 #define TS0710MUX_COUNT_IDX_NUM (TS0710MUX_COUNT_MAX_IDX + 1)
 
-static volatile int mux_data_count[TS0710MUX_COUNT_IDX_NUM] =
-    { 0, 0, 0, 0, 0, 0 };
-static volatile int mux_data_count2[TS0710MUX_COUNT_IDX_NUM] =
-    { 0, 0, 0, 0, 0, 0 };
-static struct semaphore mux_data_count_mutex[TS0710MUX_COUNT_IDX_NUM];
-static volatile __u8 post_recv_count_flag = 0;
 static char mux_data[TS0710MUX_MAX_BUF_SIZE * 16];
 struct mux_ringbuffer rbuf;
 
-/*PROC file*/
-struct proc_dir_entry *gprs_proc_file = NULL;
-ssize_t file_proc_read(struct file *file, char *buf, size_t size,
-		       loff_t * ppos);
-ssize_t file_proc_write(struct file *file, const char *buf, size_t count,
-			loff_t * ppos);
-struct file_operations file_proc_operations = {
-      read:file_proc_read,
-      write:file_proc_write,
-};
-typedef struct {
-	int recvBytes;
-	int sentBytes;
-} gprs_bytes;
 
 static __u8 tty2dlci[NR_MUXS] =
     { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ,14,15,16};
@@ -245,7 +225,7 @@ typedef struct mux_recv_struct_tag mux_recv_struct;
 
 #define RECV_RUNNING 0
 static unsigned long mux_recv_flags = 0;
-
+int mux_exiting =0;
 static mux_send_struct *mux_send_info[NR_MUXS];
 static volatile __u8 mux_send_info_flags[NR_MUXS];
 static volatile __u8 mux_send_info_idx = NR_MUXS;
@@ -291,16 +271,15 @@ extern struct tty_driver *COMM_FOR_MUX_DRIVER;
 extern struct tty_struct *COMM_FOR_MUX_TTY;
 
 static struct workqueue_struct *muxsend_work_queue;
-static struct workqueue_struct *muxreceive_work_queue;
 static struct workqueue_struct *muxpost_receive_work_queue;
 
 static void receive_worker(struct work_struct *private_);
 static void post_recv_worker(struct work_struct *private_);
 static void send_worker(struct work_struct *private_);
 
-static DECLARE_WORK(mux_send_work, send_worker);
-static DECLARE_WORK(mux_receive_work, receive_worker);
-static DECLARE_WORK(mux_post_receive_work, post_recv_worker);
+static struct semaphore receive_sem;
+static DECLARE_DELAYED_WORK(mux_send_work, send_worker);
+static DECLARE_DELAYED_WORK(mux_post_receive_work, post_recv_worker);
 
 static struct tty_struct **mux_table;
 static volatile short int mux_tty[NR_MUXS];
@@ -310,9 +289,6 @@ static volatile short int mux_tty[NR_MUXS];
 #define min(a,b)    ( (a)<(b) ? (a):(b) )
 #endif
 
-static int get_count(__u8 idx);
-static int set_count(__u8 idx, int count);
-static int add_count(__u8 idx, int count);
 
 static int send_ua(ts0710_con * ts0710, __u8 dlci);
 static int send_dm(ts0710_con * ts0710, __u8 dlci);
@@ -1698,6 +1674,8 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 			mux_recv_struct *recv_info;
 			int recv_room;
 			mux_recv_packet *recv_packet, *recv_packet2;
+			char *tmp;
+			int i;
 
 			TS0710_DEBUG("UIH on channel %d\n", dlci);
 
@@ -1750,11 +1728,6 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 						flow_control = 1;
 					}
 
-					if ((recv_room -
-					     (uih_len + recv_info->total)) <
-					    ts0710->dlci[dlci].mtu) {
-						flow_control = 1;
-					}
 				}
 
 				if (!queue_data) {
@@ -1766,7 +1739,111 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 #ifdef TS0710DEBUG
 					t = jiffies;
 #endif
-
+#if 0
+					/*kewang begin*/
+					tmp= (char *)uih_data_start;
+					switch (tty_idx){
+					/*case 0:
+						printk("\n<0RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 1:
+						printk("\n<1RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;*/
+					case 2:
+						printk("\n<2RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 3:
+						printk("\n<3RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 4:
+						printk("\n<4RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					/*case 5:
+						printk("\n<5RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 6:
+						printk("\n<6RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 7:
+						printk("\n<7RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 8:
+						printk("\n<8RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 9:
+						printk("\n<9RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 10:
+						printk("\n<10RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;
+					case 11:
+						printk("\n<11RV:");
+						for(i=0;i<uih_len;i++){
+							printk("%x",*tmp);
+							tmp++;
+						}
+						printk(">\n");
+						break;*/
+					default:
+						break;
+					}
+					/*kewang end*/
+#endif
 					(tty->ldisc->ops->receive_buf) (tty,
 								  uih_data_start,
 								  NULL,
@@ -1844,47 +1921,6 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 					ts0710_flow_off(tty, dlci, ts0710);
 				}
 
-				if (tty_idx ==
-				    dlci2tty[TS0710MUX_GPRS1_DLCI].datatty) {
-					if (add_count
-					    (TS0710MUX_GPRS1_RECV_COUNT_IDX,
-					     uih_len) < 0) {
-						post_recv_count_flag = 1;
-						post_recv = 1;
-						mux_data_count2
-						    [TS0710MUX_GPRS1_RECV_COUNT_IDX]
-						    += uih_len;
-					}
-				} else if (tty_idx ==
-					   dlci2tty[TS0710MUX_GPRS2_DLCI].
-					   datatty) {
-					if (add_count
-					    (TS0710MUX_GPRS2_RECV_COUNT_IDX,
-					     uih_len) < 0) {
-						post_recv_count_flag = 1;
-						post_recv = 1;
-						mux_data_count2
-						    [TS0710MUX_GPRS2_RECV_COUNT_IDX]
-						    += uih_len;
-					}
-				} else if (tty_idx ==
-					   dlci2tty[TS0710MUX_VT_DLCI].
-					   datatty) {
-					if (add_count
-					    (TS0710MUX_VT_RECV_COUNT_IDX,
-					     uih_len) < 0) {
-						post_recv_count_flag = 1;
-						post_recv = 1;
-						mux_data_count2
-						    [TS0710MUX_VT_RECV_COUNT_IDX]
-						    += uih_len;
-					}
-				}
-
-				if (post_recv)
-					//schedule_work(&post_recv_tqueue);
-					queue_work(muxpost_receive_work_queue,
-						   &mux_post_receive_work);
 
 			}	/* End processing received data */
 		} else {
@@ -1910,7 +1946,7 @@ static void ts0710_close_channel(__u8 dlci)
 	unsigned long t;
 
 	TS0710_DEBUG("ts0710_disc_command on channel %d\n", dlci);
-
+	return;
 	if ((ts0710->dlci[dlci].state == DISCONNECTED)
 	    || (ts0710->dlci[dlci].state == REJECTED)) {
 		return;
@@ -2247,13 +2283,9 @@ static int ts0710_exec_test_cmd(void)
 static void mux_sched_send(void)
 {
 
-#ifdef USB_FOR_MUX
-	schedule_work(&send_tqueue);
-#else
-	//schedule_work(&send_tqueue);
-	queue_work(muxsend_work_queue, &mux_send_work);
-
-#endif
+	if (queue_delayed_work(muxsend_work_queue, &mux_send_work,0)==0){
+		queue_delayed_work(muxsend_work_queue, &mux_send_work,10);	
+	}
 
 }
 
@@ -2358,14 +2390,13 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 		}
 
 		ts0710_flow_on(dlci, ts0710);
-		//schedule_work(&post_recv_tqueue);
-		queue_work(muxpost_receive_work_queue, &mux_post_receive_work);
-
+              if (queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,0)==0) {
+			queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,10);
+              }
 		wake_up_interruptible(&tty->read_wait);
 		wake_up_interruptible(&tty->write_wait);
 		tty->packet = 0;
 
-//      mux_opened-- ;
 	}
 }
 
@@ -2440,9 +2471,9 @@ static void mux_unthrottle(struct tty_struct *tty)
 
 	if (recv_info->total) {
 		recv_info->post_unthrottle = 1;
-		//schedule_work(&post_recv_tqueue);
-		queue_work(muxpost_receive_work_queue, &mux_post_receive_work);
-
+              if (queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,0)==0) {
+			queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,10);
+              }
 	} else {
 		ts0710_flow_on(dlci, ts0710);
 	}
@@ -2525,7 +2556,6 @@ static int mux_write(struct tty_struct *tty,
 	mux_send_struct *send_info;
 	__u8 *d_buf;
 	__u16 c;
-	__u8 post_recv;
 
 	if (count <= 0) {
 		return 0;
@@ -2590,34 +2620,7 @@ static int mux_write(struct tty_struct *tty,
 		send_info->filled = 1;
 		clear_bit(BUF_BUSY, &send_info->flags);
 
-		post_recv = 0;
-		if (dlci == TS0710MUX_GPRS1_DLCI) {
-			if (add_count(TS0710MUX_GPRS1_SEND_COUNT_IDX, c) < 0) {
-				post_recv_count_flag = 1;
-				post_recv = 1;
-				mux_data_count2[TS0710MUX_GPRS1_SEND_COUNT_IDX]
-				    += c;
-			}
-		} else if (dlci == TS0710MUX_GPRS2_DLCI) {
-			if (add_count(TS0710MUX_GPRS2_SEND_COUNT_IDX, c) < 0) {
-				post_recv_count_flag = 1;
-				post_recv = 1;
-				mux_data_count2[TS0710MUX_GPRS2_SEND_COUNT_IDX]
-				    += c;
-			}
-		} else if (dlci == TS0710MUX_VT_DLCI) {
-			if (add_count(TS0710MUX_VT_SEND_COUNT_IDX, c) < 0) {
-				post_recv_count_flag = 1;
-				post_recv = 1;
-				mux_data_count2[TS0710MUX_VT_SEND_COUNT_IDX]
-				    += c;
-			}
-		}
 
-		if (post_recv)
-			//      schedule_work(&post_recv_tqueue);
-			queue_work(muxpost_receive_work_queue,
-				   &mux_post_receive_work);
 
 		if (mux_chars_in_serial_buffer(COMM_FOR_MUX_TTY) == 0) {
 			/* Sending bottom half should be
@@ -2944,10 +2947,8 @@ void mux_dispatcher(struct tty_struct *tty)
 {
 	UNUSED_PARAM(tty);
 
-//      schedule_work(&receive_tqueue);
-	if (queue_work(muxreceive_work_queue, &mux_receive_work) == 0) {
-		printk("MUX:rec work pending!\n");
-	}
+		up(&receive_sem);
+	
 
 }
 
@@ -3020,7 +3021,6 @@ static void receive_worker(struct work_struct *private_)
 	short_frame *short_pkt;
 	long_frame *long_pkt;
 	static int framelen = -1;
-	static int frame_move = 0;
 	/*For BP UART problem Begin */
 	static __u8 expect_seq = 0;
 	__u32 crc_error;
@@ -3030,17 +3030,11 @@ static void receive_worker(struct work_struct *private_)
 
 	UNUSED_PARAM(private_);
 
-	if (!tty)
-		return;
 
-	mux_set_thread_pro(95);
 
 	count = mux_ringbuffer_avail(&rbuf);
 
 	if (count == 0) {
-		if (work_pending(&mux_receive_work)) {
-			queue_work(muxreceive_work_queue, &mux_receive_work);
-		}
 
 		return;
 	}
@@ -3048,40 +3042,17 @@ static void receive_worker(struct work_struct *private_)
 	if (count > (TS0710MUX_MAX_BUF_SIZE - (tbuf_ptr - tbuf))) {
 
 		count = (TS0710MUX_MAX_BUF_SIZE - (tbuf_ptr - tbuf));
-		queue_work(muxreceive_work_queue, &mux_receive_work);
+		up(&receive_sem);
 
 	}
 
 	mux_ringbuffer_read(&rbuf, tbuf_ptr, count, 0);
 	tbuf_ptr += count;
 
-#if 0
-	printk("MUX R >%d\n", count);
-	{			
-		int c = 0;
-		printk("ts <%d\n", count);
-		do {
-			printk("%02x,", tbuf[c]);
-		} while ((c++ < count) && (c < 8));
 
-		printk("ts >%d\n", count);
-
-	}			//jim
-#endif
-
-
-	if (test_and_set_bit(RECV_RUNNING, &mux_recv_flags)) {
-		queue_work(muxreceive_work_queue, &mux_receive_work);
-
-		return;
-	}
 	if ((start_flag != 0) && (framelen != -1)) {
 		if ((tbuf_ptr - start_flag) < framelen) {
 			clear_bit(RECV_RUNNING, &mux_recv_flags);
-			if (work_pending(&mux_receive_work)) {
-				queue_work(muxreceive_work_queue,
-					   &mux_receive_work);
-			}
 			return;
 		}
 	}
@@ -3309,10 +3280,25 @@ static void receive_worker(struct work_struct *private_)
 	}			/* End while(1) */
 
 	clear_bit(RECV_RUNNING, &mux_recv_flags);
-	if (work_pending(&mux_receive_work)) {
-		queue_work(muxreceive_work_queue, &mux_receive_work);
-	}
+}
 
+
+static int mux_receive_thread(void *data)
+{
+
+	mux_set_thread_pro(95);
+
+	while (1) {
+		
+		down(&receive_sem);
+		
+		if (mux_exiting==1) {
+			mux_exiting = 2;
+			return 0;
+		}
+		receive_worker(0);
+
+	}
 }
 
 static void post_recv_worker(struct work_struct *private_)
@@ -3326,15 +3312,14 @@ static void post_recv_worker(struct work_struct *private_)
 	mux_recv_struct *recv_info, *recv_info2, *post_recv_q;
 	int recv_room;
 	mux_recv_packet *recv_packet, *recv_packet2;
-	__u8 j;
 
 	UNUSED_PARAM(private_);
 	mux_set_thread_pro(90);
 
 	if (test_and_set_bit(RECV_RUNNING, &mux_recv_flags)) {
-		//schedule_work(&post_recv_tqueue);
-		queue_work(muxpost_receive_work_queue, &mux_post_receive_work);
-
+		if (queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,0)==0) {
+			queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,10);
+              }
 		return;
 	}
 
@@ -3461,23 +3446,11 @@ static void post_recv_worker(struct work_struct *private_)
 	mux_recv_queue = post_recv_q;
 
       out:
-	if (post_recv_count_flag) {
-		post_recv_count_flag = 0;
-		for (j = 0; j < TS0710MUX_COUNT_IDX_NUM; j++) {
-			if (mux_data_count2[j] > 0) {
-				if (add_count(j, mux_data_count2[j]) == 0) {
-					mux_data_count2[j] = 0;
-				} else {
-					post_recv_count_flag = 1;
-					post_recv = 1;
-				}
-			}
-		}		/* End for (j = 0; j < TS0710MUX_COUNT_IDX_NUM; j++) */
+	if (post_recv) {
+              if (queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,0)==0) {
+			queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,10);
+              }
 	}
-	/* End if( post_recv_count_flag ) */
-	if (post_recv)
-		queue_work(muxpost_receive_work_queue, &mux_post_receive_work);
-
 	clear_bit(RECV_RUNNING, &mux_recv_flags);
 }
 
@@ -3517,6 +3490,8 @@ static void send_worker(struct work_struct *private_)
 	int chars;
 	struct tty_struct *tty;
 	__u8 dlci;
+	int i;
+	char * tmp;
 
 	UNUSED_PARAM(private_);
 
@@ -3556,10 +3531,22 @@ static void send_worker(struct work_struct *private_)
 			send_info->filled = 0;
 			continue;
 		}
-
 		chars = mux_chars_in_serial_buffer(COMM_FOR_MUX_TTY);
 		if (send_info->length <= (TS0710MUX_SERIAL_BUF_SIZE - chars)) {
 			TS0710_DEBUG("Send queued UIH for /dev/mux%d", j);
+#if 0
+			/*kewang begin*/
+			tmp= (char *)send_info->frame;
+			if(j==2){
+				printk("\n<SD:");
+				for(i=0;i<send_info->length;i++){
+					printk("%x",*tmp);
+					tmp++;
+				}
+			printk(">\n");
+			}
+			/*kewang end*/
+#endif
 			basic_write(ts0710, (__u8 *) send_info->frame,
 				    send_info->length);
 			send_info->length = 0;
@@ -3625,118 +3612,8 @@ static void send_worker(struct work_struct *private_)
 	}			/* End for() loop */
 }
 
-static int get_count(__u8 idx)
-{
-	int ret;
 
-	if (idx > TS0710MUX_COUNT_MAX_IDX) {
-		TS0710_PRINTK("MUX get_count: invalid idx: %d!\n", idx);
-		return -1;
-	}
 
-	down(&mux_data_count_mutex[idx]);
-	ret = mux_data_count[idx];
-	up(&mux_data_count_mutex[idx]);
-
-	return ret;
-}
-
-static int set_count(__u8 idx, int count)
-{
-	if (idx > TS0710MUX_COUNT_MAX_IDX) {
-		TS0710_PRINTK("MUX set_count: invalid idx: %d!\n", idx);
-		return -1;
-	}
-	if (count < 0) {
-		TS0710_PRINTK("MUX set_count: invalid count: %d!\n", count);
-		return -1;
-	}
-
-	down(&mux_data_count_mutex[idx]);
-	mux_data_count[idx] = count;
-	up(&mux_data_count_mutex[idx]);
-
-	return 0;
-}
-
-static int add_count(__u8 idx, int count)
-{
-	if (idx > TS0710MUX_COUNT_MAX_IDX) {
-		TS0710_PRINTK("MUX add_count: invalid idx: %d!\n", idx);
-		return -1;
-	}
-	if (count <= 0) {
-		TS0710_PRINTK("MUX add_count: invalid count: %d!\n", count);
-		return -1;
-	}
-
-	if (down_trylock(&mux_data_count_mutex[idx]))
-		return -1;
-	mux_data_count[idx] += count;
-	up(&mux_data_count_mutex[idx]);
-
-	return 0;
-}
-
-ssize_t file_proc_read(struct file * file, char *buf, size_t size,
-		       loff_t * ppos)
-{
-	gprs_bytes gprsData[TS0710MUX_GPRS_SESSION_MAX];
-	int bufLen = sizeof(gprs_bytes) * TS0710MUX_GPRS_SESSION_MAX;
-	int error = 0;
-	UNUSED_PARAM(file);
-	UNUSED_PARAM(size);
-	UNUSED_PARAM(ppos);
-
-	gprsData[0].recvBytes = get_count(TS0710MUX_GPRS1_RECV_COUNT_IDX);
-	gprsData[0].sentBytes = get_count(TS0710MUX_GPRS1_SEND_COUNT_IDX);
-	gprsData[TS0710MUX_GPRS_SESSION_MAX - 1].recvBytes =
-	    get_count(TS0710MUX_GPRS2_RECV_COUNT_IDX);
-	gprsData[TS0710MUX_GPRS_SESSION_MAX - 1].sentBytes =
-	    get_count(TS0710MUX_GPRS2_SEND_COUNT_IDX);
-
-	error = copy_to_user(buf, gprsData, bufLen);
-	if (error)
-		return -1;
-	return bufLen;
-}
-
-ssize_t file_proc_write(struct file * file, const char *buf, size_t count,
-			loff_t * ppos)
-{
-	gprs_bytes gprsData[TS0710MUX_GPRS_SESSION_MAX];
-	int bufLen = sizeof(gprs_bytes) * TS0710MUX_GPRS_SESSION_MAX;
-
-	UNUSED_PARAM(file);
-	UNUSED_PARAM(count);
-	UNUSED_PARAM(ppos);
-
-	memset(gprsData, 0, bufLen);
-
-	if (copy_from_user(gprsData, buf, bufLen))
-		return -1;
-
-	set_count(TS0710MUX_GPRS1_RECV_COUNT_IDX, gprsData[0].recvBytes);
-	set_count(TS0710MUX_GPRS1_SEND_COUNT_IDX, gprsData[0].sentBytes);
-	set_count(TS0710MUX_GPRS2_RECV_COUNT_IDX,
-		  gprsData[TS0710MUX_GPRS_SESSION_MAX - 1].recvBytes);
-	set_count(TS0710MUX_GPRS2_SEND_COUNT_IDX,
-		  gprsData[TS0710MUX_GPRS_SESSION_MAX - 1].sentBytes);
-
-	return bufLen;
-}
-
-static void gprs_proc_init(void)
-{
-	gprs_proc_file =
-	    create_proc_entry("gprsbytes", S_IRUSR | S_IWUSR, NULL);
-	gprs_proc_file->proc_fops = &file_proc_operations;
-}
-
-static void gprs_proc_exit(void)
-{
-	remove_proc_entry("gprsbytes", gprs_proc_file);
-}
 static const struct tty_operations tty_ops = {
 	.open = mux_open,
 	.close = mux_close,
@@ -3750,7 +3627,7 @@ static const struct tty_operations tty_ops = {
 };
 static int __init mux_init(void)
 {
-	unsigned int j;
+	unsigned int j,retval;
 	
 	//tty_ops = kmalloc(sizeof(struct tty_operations),GFP_KERNEL);
 
@@ -3768,19 +3645,14 @@ static int __init mux_init(void)
 	mux_recv_queue = NULL;
 	mux_recv_flags = 0;
 
-	for (j = 0; j < TS0710MUX_COUNT_IDX_NUM; j++) {
-		mux_data_count[j] = 0;
-		mux_data_count2[j] = 0;
-		init_MUTEX(&mux_data_count_mutex[j]);
-	}
-	post_recv_count_flag = 0;
+	//mux_send_work.work.prio = 80;
+	//mux_post_receive_work.work.prio = 90;
 
-	//mux_send_work.prio = 80;
-	//mux_receive_work.prio = 95;
-	//mux_post_receive_work.prio = 90;
+	sema_init(&receive_sem,0);
+	retval = kernel_thread(mux_receive_thread, NULL, 0);
+	BUG_ON(0 == retval);
 
 	muxsend_work_queue = create_workqueue("muxsend");
-	muxreceive_work_queue = create_workqueue("muxreceive");
 	muxpost_receive_work_queue = create_workqueue("muxpostreceive");
 
 	memset(&mux_driver, 0, sizeof(struct tty_driver));
@@ -3826,7 +3698,6 @@ static int __init mux_init(void)
 	COMM_MUX_DISPATCHER = mux_dispatcher;
 	COMM_MUX_SENDER = mux_sender;
 
-	gprs_proc_init();
 
 	return 0;
 }
@@ -3838,7 +3709,6 @@ static void __exit mux_exit(void)
 	COMM_MUX_DISPATCHER = NULL;
 	COMM_MUX_SENDER = NULL;
 
-	gprs_proc_exit();
 
 	mux_send_info_idx = NR_MUXS;
 	mux_recv_queue = NULL;
@@ -3855,6 +3725,13 @@ static void __exit mux_exit(void)
 		mux_recv_info_flags[j] = 0;
 		mux_recv_info[j] = 0;
 	}
+	mux_exiting =1;
+	destroy_workqueue(muxsend_work_queue);
+	up(&receive_sem);
+	while(mux_exiting ==1) {
+		msleep(10);
+	}
+	destroy_workqueue(muxpost_receive_work_queue);
 
 	if (tty_unregister_driver(&mux_driver))
 		panic("Couldn't unregister mux driver");

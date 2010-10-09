@@ -197,19 +197,19 @@ static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 {
 	struct uart_port *port=(struct uart_port*)dev_id;
 	struct tty_struct *tty=port->state->port.tty;
-	unsigned int status,ch,flag,lsr,max_count=96;
+	unsigned int status,ch,flag,lsr,max_count=2048;
 	unsigned int count,st=0;
 #ifdef CONFIG_TS0710_MUX_UART
 	if ((0==port->line)&& cmux_opened()){
 		count =0; 	
-		printk("\nSR<");
+	//	printk("\nSR<");
 		do {
 			rev[count] = serial_in(port, ARM_UART_RXD);
-			printk("%x",rev[count]);
+			//printk("%x",rev[count]);
 			st = serial_in(port,ARM_UART_STS1);
 			count++;
 		} while ((st & 0xff) && (max_count-- > 0));
-		printk("\nSR>");
+	//	printk("\n%dSR>",count);
 		mux_ringbuffer_write(&rbuf, rev, count);
 		if (serial_mux_dispatcher && is_cmux_mode())
 			serial_mux_dispatcher(tty);
@@ -364,8 +364,12 @@ static int serialsc8800_startup(struct uart_port *port)
 #endif
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
- 	*/	 
-	serial_out(port,ARM_UART_CTL2,0x801);
+ 	*/
+	if(port->line == 0)
+		serial_out(port,ARM_UART_CTL2,0x801);
+	else
+		serial_out(port,ARM_UART_CTL2,0x801);
+		
 	/*
  	*clear rx fifo
  	*/ 
