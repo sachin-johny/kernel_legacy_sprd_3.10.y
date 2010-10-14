@@ -10,3 +10,5 @@ obj-$(CONFIG_MACH_HISENSE) += board-hisense.o
 obj-$(CONFIG_MACH_BIGPHONE) += board-bigphone.o
 
 obj-$(CONFIG_PM)		+= pm.o standby.o
+obj-$(CONFIG_CPU_FREQ_SC8800S) += cpufreq-sc8800s.o
+obj-$(CONFIG_CPU_IDLE_SC8800S) += cpuidle-sc8800s.o

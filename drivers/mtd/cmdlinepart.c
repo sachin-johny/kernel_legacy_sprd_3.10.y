@@ -41,7 +41,7 @@
 
 
 /* test cmdline partion function */
-#define CMDLINE_PARTS_TEST 1
+//#define CMDLINE_PARTS_TEST 1
 
 /* special size referring to all the remaining space in a partition */
 #define SIZE_REMAINING UINT_MAX

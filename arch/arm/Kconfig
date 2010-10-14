@@ -142,6 +142,7 @@ config ARCH_HAS_ILOG2_U64
 
 config ARCH_HAS_CPUFREQ
 	bool
+	default y
 	help
 	  Internal node to signify that the ARCH has CPUFREQ support
 	  and that the relevant menu configurations are displayed for
@@ -1539,6 +1540,10 @@ config CPU_FREQ_PXA
 	depends on CPU_FREQ && ARCH_PXA && PXA25x
 	default y
 	select CPU_FREQ_DEFAULT_GOV_USERSPACE
+
+config CPU_FREQ_SC8800S
+	bool "CPUfreq support for Spreadtrum SC8800S CPUs"
+	depends on CPU_FREQ && ARCH_SC8800S
 
 config CPU_FREQ_S3C64XX
 	bool "CPUfreq support for Samsung S3C64XX CPUs"

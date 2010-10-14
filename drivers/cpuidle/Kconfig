@@ -18,3 +18,8 @@ config CPU_IDLE_GOV_MENU
 	bool
 	depends on CPU_IDLE && NO_HZ
 	default y
+
+config CPU_IDLE_SC8800S
+	bool
+	depends on CPU_IDLE
+	default y
