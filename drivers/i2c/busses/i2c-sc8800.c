@@ -99,7 +99,7 @@ struct sc8800_i2c {
 struct sc8800_platform_i2c {
 	unsigned int	normal_freq;	/* normal bus frequency */
 	unsigned int	fast_freq;	/* fast frequency for the bus */
-	unsigned int	min_freq;	/* min frequency for the bus */
+	//unsigned int	min_freq;	/* min frequency for the bus */
 };
 static struct sc8800_platform_i2c sc8800_i2c_default_platform = {
 	.normal_freq	= 100*1000,
@@ -119,7 +119,7 @@ static inline int sc8800_i2c_wait_exec(struct sc8800_i2c *i2c)
 		
 		if (!(cmd & I2C_CMD_BUSY))
 			return 0;
-		msleep(1);
+		//msleep(1);
 	}
 
 	printk( "I2C:timeout,busy in exec commands !\n");
@@ -161,10 +161,10 @@ static void sc8800_i2c_message_start(struct sc8800_i2c *i2c, struct i2c_msg *msg
 
 	if (msg->flags & I2C_M_RD) 
 		cmd |= 0x1;
-
+	
 	cmd=(cmd<<8) | I2C_CMD_START | I2C_CMD_WRITE;
-	 
 	__raw_writel(cmd, i2c->membase + I2C_CMD);
+	ndelay(50);
 }
 /* sc8800_i2c_doxfer
  *
@@ -175,13 +175,13 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 	unsigned int timeout;
 	unsigned long  flags;
 	int ret;
-	
+	#if 1
 	ret = sc8800_i2c_wait_exec(i2c);
 	if (ret != 0) {
 		ret = -EAGAIN;
 		goto out;
 	}
-
+	#endif
 	spin_lock_irqsave(&i2c->lock,flags);
 
 	i2c->msg = msgs;
@@ -195,24 +195,25 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 	sc8800_i2c_message_start(i2c, msgs);
 	
 	spin_unlock_irqrestore(&i2c->lock,flags);
-	
-	timeout = wait_event_timeout(i2c->wait, i2c->msg_num == 0, 1);	//10mSec
-	if (i2c->msg_num != 0)
-		wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ * 5);
+	//timeout = wait_event_timeout(i2c->wait, i2c->msg_num == 0, 1);	//10mSec
+	//if (i2c->msg_num != 0)
+	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ * 5);
 	
 	ret = i2c->msg_idx;
-
 	/* having these next two as dev_err() makes life very 
 	 * noisy when doing an i2cdetect */
 
-	if (timeout == 0)
+	if (timeout == 0){
 		printk("I2C:timeout\n");
-	else if (ret != num)
+		ret = -ENXIO;
+	}else if (ret != num){
 		printk("incomplete xfer (%d)\n", ret);
+		ret = -EAGAIN;
+	}
 
 	/* ensure the stop has been through the bus */
 
-	msleep(1);
+	msleep(5);
 
  out:
 	return ret;
@@ -251,7 +252,7 @@ static const struct i2c_algorithm sc8800_i2c_algorithm = {
 };
 static inline void sc8800_i2c_complete(struct sc8800_i2c *i2c, int ret)
 {
-	printk("I2C:sc8800_i2c_complete %d\n", ret);
+//	printk("I2C:sc8800_i2c_complete %d\n", ret);
 
 	i2c->msg_ptr = 0;
 	i2c->msg = NULL;
@@ -262,16 +263,16 @@ static inline void sc8800_i2c_complete(struct sc8800_i2c *i2c, int ret)
 
 	wake_up(&i2c->wait);
 }
-#if 0
+#if 1
 static inline void sc8800_i2c_stop(struct sc8800_i2c *i2c, int ret)
 {
 	unsigned int cmd;
 
-	printk("I2C:sc8800_i2c_stop!\n");
+	//printk("I2C:sc8800_i2c_stop!\n");
 
 	/* stop the transfer */
-	cmd=__raw_readl(i2c->membase+I2C_CMD);
-	__raw_writel(cmd|I2C_CMD_STOP,i2c->membase+I2C_CMD);
+	cmd= I2C_CMD_STOP | I2C_CMD_WRITE;
+	__raw_writel(cmd,i2c->membase+I2C_CMD);
 	
 	i2c->state = STATE_STOP;
 	
@@ -328,8 +329,11 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 {
 	unsigned char byte;
 	unsigned int cmd;
+	unsigned long flags;
 	int ret = 0;
-
+	
+	spin_lock_irqsave(&i2c->lock,flags);
+	
 	switch (i2c->state) {
 
 	case STATE_IDLE:
@@ -350,9 +354,10 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 			/* ack was not received... */
 
 			printk("I2C error:ack was not received\n");
-			i2c->state = STATE_STOP;
-			sc8800_i2c_complete(i2c,-EREMOTEIO);
-			sc8800_i2c_disable_irq(i2c);
+		//	i2c->state = STATE_STOP;
+		//	sc8800_i2c_complete(i2c,-EREMOTEIO);
+		//	sc8800_i2c_disable_irq(i2c);
+			sc8800_i2c_stop(i2c,-EREMOTEIO);
 			goto out_icr;
 		}
 
@@ -365,10 +370,11 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 		 * (used by the i2c probe to find devices */
 
 		if (is_lastmsg(i2c) && i2c->msg->len == 0) {
-			printk("only one message and len =0\n");
-			i2c->state =STATE_STOP;
-			sc8800_i2c_complete(i2c,0);
-			sc8800_i2c_disable_irq(i2c);
+			printk("detect address finish\n");
+			//i2c->state =STATE_STOP;
+			//sc8800_i2c_complete(i2c,0);
+			//sc8800_i2c_disable_irq(i2c);
+			sc8800_i2c_stop(i2c,0);
 			goto out_icr;
 		}
 
@@ -385,13 +391,15 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 		if (!is_msgend(i2c)) {
 			if(is_msglast(i2c) && is_lastmsg(i2c)){
 				byte = i2c->msg->buf[i2c->msg_ptr++];
-				cmd =(byte & 0xff00) | I2C_CMD_WRITE | I2C_CMD_STOP;
+				cmd =(byte<<8) | I2C_CMD_WRITE | I2C_CMD_STOP;
 				__raw_writel(cmd,i2c->membase+I2C_CMD);
+
 			}
 			else
 			{
 				byte = i2c->msg->buf[i2c->msg_ptr++];
-				cmd =(byte & 0xff00) | I2C_CMD_WRITE;
+				cmd =(byte<<8) | I2C_CMD_WRITE;
+				//printk("w=0x%x\n",cmd);
 				__raw_writel(cmd,i2c->membase+I2C_CMD);
 			}
 			/* delay after writing the byte to allow the
@@ -408,17 +416,18 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 			i2c->msg_ptr = 0;
 			i2c->msg_idx ++;
 			i2c->msg++;
-			
 			/* send the new start */
 			sc8800_i2c_message_start(i2c, i2c->msg);
 			i2c->state = STATE_START;
 			
 		} else {
 			/* send stop */
-			printk("I2C write stop\n");
-			i2c->state =STATE_STOP;
-			sc8800_i2c_complete(i2c,0);
-			sc8800_i2c_disable_irq(i2c);
+			//printk("I2C write finished\n");   //comment by kewang 
+		
+			//i2c->state =STATE_STOP;
+			//sc8800_i2c_complete(i2c,0);
+			//sc8800_i2c_disable_irq(i2c);
+			sc8800_i2c_stop(i2c,0);
 		}
 		break;
 
@@ -433,34 +442,36 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 
 			if (cmd_reg  & I2C_CMD_ACK) {
 				printk("I2C READ error: No Ack\n");
-				i2c->state = STATE_STOP;
-				sc8800_i2c_complete(i2c,-ECONNREFUSED);
-				sc8800_i2c_disable_irq(i2c);
+				//i2c->state = STATE_STOP;
+				//sc8800_i2c_complete(i2c,-ECONNREFUSED);
+				//sc8800_i2c_disable_irq(i2c);
+				sc8800_i2c_stop(i2c,-ECONNREFUSED);
 				goto out_icr;
 			}
 		}
 
 		cmd = __raw_readl(i2c->membase+I2C_CMD);
-		byte = (unsigned char)((cmd>>8) & 0x00ff);
+		byte = (unsigned char)(cmd>>8);
 		i2c->msg->buf[i2c->msg_ptr++] = byte;
 
 	prepare_read:
 		if (is_msglast(i2c)) {
 			/* last byte of message*/
-			if (is_lastmsg(i2c))
+			if (is_lastmsg(i2c)){
 				/*last message of set*/
 				sc8800_i2c_read_tx_ack(i2c);
-			
+			}
 		} else if (is_msgend(i2c)) {
 			/* ok, we've read the entire buffer, see if there
 			 * is anything else we need to do */
 
 			if (is_lastmsg(i2c)) {
 				/* last message, send stop and complete */
-				printk("I2C:read finished\n");
+				//printk("Read finished\n");    //comment by kewang 
 				i2c->state = STATE_STOP;
 				sc8800_i2c_complete(i2c,0);
 				sc8800_i2c_disable_irq(i2c);
+				//sc8800_i2c_stop(i2c,0);
 				
 			} else {
 				/* go to the next transfer */
@@ -481,8 +492,10 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
  out_icr:
 	cmd=__raw_readl(i2c->membase+I2C_CMD);
 	cmd |=I2C_CMD_INT_ACK;   //clear interrupt
-	__raw_writel(cmd,i2c->membase+I2C_CMD);	
- out:
+	__raw_writel(cmd,i2c->membase+I2C_CMD);
+ out:	
+	spin_unlock_irqrestore(&i2c->lock,flags);
+	
 	return ret;
 }
 
@@ -509,6 +522,11 @@ static irqreturn_t sc8800_i2c_irq(unsigned int irq, void *dev_id)
 	
 	/* pretty much this leaves us with the fact that we've
 	 * transmitted or received whatever byte we last sent */
+	ret = sc8800_i2c_wait_exec(i2c);
+	if (ret != 0) {
+		printk("I2C busy on exec command!\n");
+		goto out;
+	}
 	cmd =__raw_readl(i2c->membase+I2C_CMD);
 	ret=sc8800_i2c_irq_nextbyte(i2c,cmd);
 	if(ret!=0)
@@ -520,7 +538,7 @@ static irqreturn_t sc8800_i2c_irq(unsigned int irq, void *dev_id)
 
 static inline struct sc8800_platform_i2c *sc8800_i2c_get_platformdata(struct device *dev)
 {
-	if (dev->platform_data != NULL)
+	if (dev!=NULL && dev->platform_data != NULL)
 		return (struct sc8800_platform_i2c *)dev->platform_data;
 
 	return &sc8800_i2c_default_platform;
@@ -548,24 +566,29 @@ static void sc8800_i2c_init(struct sc8800_i2c *i2c)
 	tmp=__raw_readl(SPRD_GREG_BASE+0x0008); //global reg:i2c_en
 	tmp|=(0x1<<4);
 	__raw_writel(tmp,SPRD_GREG_BASE+0x0008);
+	tmp=__raw_readl(SPRD_GREG_BASE+0x005c); 
+	tmp|=(0x1<<3);
+	__raw_writel(tmp,SPRD_GREG_BASE+0x005c);
 
 	__raw_writel(0x1,i2c->membase+I2C_RST);  //reset i2c module
 	
 	tmp=__raw_readl(i2c->membase+I2C_CTL); 
-	tmp&=~(I2C_CTL_EN|I2C_CTL_IE|I2C_CTL_CMDBUF_EN); //disable i2c module then change clock
-	__raw_writel(tmp,i2c->membase+I2C_CTL);
+	__raw_writel(tmp &~ I2C_CTL_EN,i2c->membase+I2C_CTL); //disable i2c module then change clock
+	tmp=__raw_readl(i2c->membase+I2C_CTL); 
+	__raw_writel(tmp &~ I2C_CTL_IE,i2c->membase+I2C_CTL);
+	tmp=__raw_readl(i2c->membase+I2C_CTL); 
+	__raw_writel(tmp &~ I2C_CTL_CMDBUF_EN,i2c->membase+I2C_CTL);
 
 	pdata=sc8800_i2c_get_platformdata(i2c->adap.dev.parent);
-	set_i2c_clk(i2c,pdata->fast_freq);	//set i2c clock
+	set_i2c_clk(i2c,pdata->normal_freq);	//set i2c clock
 
 	tmp=__raw_readl(i2c->membase+I2C_CTL); 
-	tmp|=(I2C_CTL_EN); 	//enable i2c module
-	__raw_writel(tmp,i2c->membase+I2C_CTL);
+	__raw_writel(tmp|I2C_CTL_EN,i2c->membase+I2C_CTL); //enable i2c module
 
 	sc8800_clr_irq(i2c);  //clear i2c interrupt
 	
 }
-#define res_len(r)		((r)->end - (r)->start + 1)
+//#define res_len(r)		((r)->end - (r)->start + 1)
 /* sc8800_i2c_probe
  *
  * called by the bus driver when a suitable device is found
@@ -574,6 +597,7 @@ static int sc8800_i2c_probe(struct platform_device *pdev)
 {
 	struct sc8800_i2c *i2c;
 	int ret;
+	unsigned int tmp;
 
 	i2c = kzalloc(sizeof(struct sc8800_i2c), GFP_KERNEL);
 	if (!i2c){ 
@@ -610,7 +634,7 @@ static int sc8800_i2c_probe(struct platform_device *pdev)
 	spin_lock_init(&i2c->lock);
 	init_waitqueue_head(&i2c->wait);
 
-	sprintf(i2c->adap.name,"%s","sc8800-iic");
+	snprintf(i2c->adap.name,sizeof(i2c->adap.name),"%s","sc8800-i2c");
 	i2c->adap.owner = THIS_MODULE;
 	i2c->adap.retries = 4;
 	i2c->adap.algo = &sc8800_i2c_algorithm;
@@ -621,6 +645,23 @@ static int sc8800_i2c_probe(struct platform_device *pdev)
 
 	sc8800_i2c_init(i2c);
 	
+	/*tmp=__raw_readl(SPRD_CPC_BASE+0x0098); 
+	printk("0x98=0x%x\n",tmp);
+	tmp=__raw_readl(SPRD_CPC_BASE+0x009c);  //chip pin control SDA_reg:select SDA
+	printk("0x9c=0x%x\n",tmp);
+	tmp=__raw_readl(SPRD_GREG_BASE+0x0008); //global reg:i2c_en
+	printk("global=0x%x\n",tmp);
+	
+	printk("membase=0x%x,irq=%d\n",i2c->membase,i2c->irq);	
+	tmp=__raw_readl(i2c->membase+I2C_CTL);
+	printk("I2C_CTL=0x%x\n",tmp);
+	tmp=__raw_readl(i2c->membase+I2C_CMD);
+	printk("I2C_CMD=0x%x\n",tmp);
+	tmp=__raw_readl(i2c->membase+I2C_CLKD0);
+	printk("clkd0=0x%x\n",tmp);
+	tmp=__raw_readl(i2c->membase+I2C_CLKD1);
+	printk("clkd1=0x%x\n",tmp);
+	*/
 	ret = request_irq(i2c->irq, sc8800_i2c_irq, IRQF_DISABLED,pdev->name, i2c);
 	if (ret) {
 		printk("I2C:request_irq failed!\n");
@@ -652,7 +693,9 @@ err_irq:
 static int sc8800_i2c_remove(struct platform_device *pdev)
 {
 	struct sc8800_i2c *i2c = platform_get_drvdata(pdev);
-
+	
+	platform_set_drvdata(pdev, NULL);
+	
 	i2c_del_adapter(&i2c->adap);
 	
 	free_irq(i2c->irq, i2c);
