@@ -28,7 +28,6 @@
  * in little endian, we must do some swab when IO. the problem
  * maybe changed with later CHIPs.
  */
-#define CHIP_LITTLE_ENDIAN
 
 static unsigned int chip_get_mpll_clk(void)
 {
@@ -109,7 +108,7 @@ static u32 sdhci_sprd_readl(struct sdhci_host *host, int reg)
 
 static u16 sdhci_sprd_readw(struct sdhci_host *host, int reg)
 {
-#ifndef CHIP_LITTLE_ENDIAN
+#ifdef CONFIG_CPU_BIG_ENDIAN
 	return __raw_readw(host->ioaddr + reg);
 #else
 	unsigned long addr = (unsigned long)host->ioaddr + reg;
@@ -129,7 +128,7 @@ static u16 sdhci_sprd_readw(struct sdhci_host *host, int reg)
 
 static u8 sdhci_sprd_readb(struct sdhci_host *host, int reg)
 {
-#ifndef CHIP_LITTLE_ENDIAN
+#ifdef CONFIG_CPU_BIG_ENDIAN
 	return __raw_readb(host->ioaddr + reg);
 #else
 	unsigned long addr = (unsigned long)host->ioaddr + reg;
@@ -151,7 +150,7 @@ static void sdhci_sprd_writel(struct sdhci_host *host, u32 val, int reg)
 
 static void sdhci_sprd_writew(struct sdhci_host *host, u16 val, int reg)
 {
-#ifndef CHIP_LITTLE_ENDIAN
+#ifdef CONFIG_CPU_BIG_ENDIAN
 	__raw_writew(val, host->ioaddr + reg);
 #else
 	unsigned long addr = (unsigned long)host->ioaddr + reg;
@@ -171,7 +170,7 @@ static void sdhci_sprd_writew(struct sdhci_host *host, u16 val, int reg)
 
 static void sdhci_sprd_writeb(struct sdhci_host *host, u8 val, int reg)
 {
-#ifndef CHIP_LITTLE_ENDIAN
+#ifdef CONFIG_CPU_BIG_ENDIAN
 	__raw_writeb(val, host->ioaddr + reg);
 #else
 	unsigned long addr = (unsigned long)host->ioaddr + reg;

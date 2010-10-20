@@ -135,7 +135,7 @@ static void sprd_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 
 	gpio_pg_base = __get_gpio_page(gpio_id);
 	
-	pr_info("gpio_%d base :%x \n", gpio_id, (int)gpio_pg_base);
+	//pr_info("gpio_%d base :%x \n", gpio_id, (int)gpio_pg_base);
 	if(!__get_gpio_dir(gpio_id))
 	{
 		pr_warning("gpio_%d should be output port!\n", gpio_id);
@@ -158,8 +158,10 @@ static void sprd_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	}
 	__raw_writel(reg_value, gpio_pg_base + GPIO_DATA);
 	local_irq_restore(flags);
+/*
 	pr_info("gpio_%d setting :%x \n", gpio_id,\
 		__raw_readl(gpio_pg_base + GPIO_DATA));
+*/
 }
 
 static int sprd_gpio_request(struct gpio_chip *chip, unsigned offset)

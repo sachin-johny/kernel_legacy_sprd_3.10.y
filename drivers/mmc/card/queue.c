@@ -322,11 +322,10 @@ unsigned int mmc_queue_map_sg(struct mmc_queue *mq)
 	return 1;
 }
 
-#define CHIP_LITTLE_ENDIAN
 
 static void swap_buf(char * buf, unsigned long len)
 {
-#ifdef CHIP_LITTLE_ENDIAN
+#ifndef CONFIG_CPU_BIG_ENDIAN
 	__u32 * data_buf = (__u32 *)buf;
 	int i;
 
