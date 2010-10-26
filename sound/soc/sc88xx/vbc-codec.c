@@ -30,6 +30,8 @@
 #include <linux/delay.h>
 #include <sound/tlv.h>
 
+#include <mach/power_manager.h>
+#include <mach/regs_global.h>
 #include "sc88xx-asoc.h"
 
 #define POWER_OFF_ON_STANDBY 0
@@ -97,26 +99,6 @@ static int vbc_add_widgets(struct snd_soc_codec *codec)
     // snd_soc_dapm_new_widgets(codec); 
 
     return 0;
-}
-
-static u32 CHIP_GetVPllClk(void)
-{
-	u32 ext_clk_26M;
-	u32 pll_freq;
-	u32 reg_value, M, N;
-
-	ext_clk_26M = (__raw_readl(GR_GEN1) >> 15) & 0x1;
-
-	reg_value = __raw_readl(GR_VPLL_MN);
-	M = reg_value & 0x0fff;
-	N = (reg_value & 0x0fff0000)>>16;
-
-	if(ext_clk_26M)
-		pll_freq = 26*N/M;
-	else
-		pll_freq = 13*N/M;
-
-	return (pll_freq*1000000);
 }
 
 static inline void vbc_reg_VBAICR_set(u8 mode)
@@ -207,28 +189,16 @@ static void vbc_set_ctrl2arm(void)
     // Enable VB DAC0/DAC1 (ARM-side)
     __raw_bits_or(ARM_VB_MCLKON|ARM_VB_ACC|ARM_VB_DA0ON|ARM_VB_ANAON|ARM_VB_DA1ON|ARM_VB_ADCON, AHB_MISC);
     msleep(2);
-    __raw_bits_or(1<<17,SPRD_GREG_BASE + 0x28); // LDO_VB_PO
+    //__raw_bits_or(1<<17,SPRD_GREG_BASE + 0x28); // LDO_VB_PO
+    __raw_bits_or(1<<17,GR_LDO_CTL0); // LDO_VB_PO
     msleep(10);
 }
 
 static void vbc_set_mainclk_to12M(void)
 {
-    u32 vpll_clk = CHIP_GetVPllClk();
-    u8 vb_div = vpll_clk / 12000000;
-    unsigned long flags;
-    u32 tmp;
+	u32 vpll_clk = CHIP_GetVPllClk();
 
-    vb_div =  1; // Through various numerical experiments, found that the value must be 1 [luther.ge]
-
-    // Set vb_div value for the frequncy of 12MHz
-    raw_local_irq_save(flags);
-    tmp = __raw_readl(GR_GEN0);
-    tmp &= ~(0x1F<<25);
-    tmp |= ((vb_div - 1)&0x1F)<<25;
-    __raw_writel(tmp, GR_GEN0);
-    raw_local_irq_restore(flags);
-
-    msleep(2); // must have a dealy
+	clk_12M_divider_set(vpll_clk);
 }
 
 static inline void vbc_ready2go(void)
