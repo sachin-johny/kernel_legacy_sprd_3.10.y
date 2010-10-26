@@ -31,7 +31,6 @@
 #include <sound/tlv.h>
 
 #include <mach/power_manager.h>
-#include <mach/regs_global.h>
 #include "sc88xx-asoc.h"
 
 #define POWER_OFF_ON_STANDBY 0
