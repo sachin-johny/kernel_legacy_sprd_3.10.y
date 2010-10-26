@@ -32,6 +32,7 @@
 
 #include <linux/usb/android_composite.h>
 
+#include <linux/sched.h>
 #define BULK_BUFFER_SIZE           4096
 
 /* number of tx requests to allocate */
@@ -652,4 +653,5 @@ static int __init init(void)
 	android_register_function(&adb_function);
 	return 0;
 }
-module_init(init);
+//module_init(init);
+late_initcall(init);

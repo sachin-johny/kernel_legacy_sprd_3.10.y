@@ -350,7 +350,8 @@ static struct usb_configuration loopback_driver = {
 	.label		= "loopback",
 	.strings	= loopback_strings,
 	.bind		= loopback_bind_config,
-	.bConfigurationValue = 2,
+	//.bConfigurationValue = 2,
+	.bConfigurationValue = 1,
 	.bmAttributes	= USB_CONFIG_ATT_SELFPOWER,
 	/* .iConfiguration = DYNAMIC */
 };

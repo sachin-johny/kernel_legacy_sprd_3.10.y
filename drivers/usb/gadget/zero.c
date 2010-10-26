@@ -129,7 +129,8 @@ static struct usb_device_descriptor device_desc = {
 
 	.idVendor =		cpu_to_le16(DRIVER_VENDOR_NUM),
 	.idProduct =		cpu_to_le16(DRIVER_PRODUCT_NUM),
-	.bNumConfigurations =	2,
+	//.bNumConfigurations =	2,
+	.bNumConfigurations = 2,
 };
 
 #ifdef CONFIG_USB_OTG

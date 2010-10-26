@@ -252,7 +252,8 @@ static int __init rndis_do_config(struct usb_configuration *c)
 static struct usb_configuration rndis_config_driver = {
 	.label			= "RNDIS",
 	.bind			= rndis_do_config,
-	.bConfigurationValue	= 2,
+	/*.bConfigurationValue	= 2, */ //sword
+	.bConfigurationValue	= 1,
 	/* .iConfiguration = DYNAMIC */
 	.bmAttributes		= USB_CONFIG_ATT_SELFPOWER,
 };

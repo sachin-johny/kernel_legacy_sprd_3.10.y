@@ -505,6 +505,26 @@ config USB_LANGWELL
 	default USB_GADGET
 	select USB_GADGET_SELECTED
 
+config USB_GADGET_SC8800H
+	boolean "SPREADTRUM SC8800 USB1.1 Controller"
+	depends on ARCH_SC8800S
+	help
+	   Spreadtrum's SC8800H usb 1.1 controller is an integrated
+	   full speed USB 1.1 device controller.
+
+	   It has up to 5 endpoints, including endpoint zero (for
+	   control transfers).
+
+	   Say "y" to link the driver statically, or "m" to build a
+	   dynamically linked module called "sc8800h_udc" and force all
+	   gadget drivers to also be dynamically linked.
+
+config USB_SC8800H
+	tristate
+	depends on USB_GADGET_SC8800H
+	default USB_GADGET
+	select USB_GADGET_SELECTED
+
 
 #
 # LAST -- dummy/emulated controller
