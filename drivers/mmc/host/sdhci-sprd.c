@@ -91,7 +91,7 @@ static void sdhci_sprd_set_clock(struct sdhci_host *host, unsigned int clock)
 	//Configure the glabla dividor
 	temp = __raw_readl(GR_CLK_GEN5);
 	temp &= ~(BIT_5|BIT_6|BIT_7|BIT_8|BIT_9);
-	temp |= ((clk_div-1) << 5);
+	temp |= ((clk_div-1)& 0x1f) << 5;
 	__raw_writel(temp, GR_CLK_GEN5);
 
 	//Enable the SD clk
