@@ -31,6 +31,7 @@
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+#include <mach/power_manager.h>
 #include "sc8800s_lcd.h"
 
 /* #define  FB_DEBUG */
@@ -421,65 +422,6 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-/* directly copied from chip.c */
-uint32_t CHIP_GetVPllClk (void)
-{
-	uint32_t ext_clk_26M;
-	uint32_t pll_freq;
-	uint32_t reg_value, M, N;
-
-	ext_clk_26M = (__raw_readl(GR_GEN1) >> 15) & 0x1;
-	FB_PRINT("@fool2[%s] GR_GEN1:0x%x\n", __FUNCTION__, __raw_readl(GR_GEN1));
-
-	reg_value = __raw_readl(GR_VPLL_MN);
-	M = reg_value & 0x0fff;
-	N = (reg_value & 0x0fff0000)>>16;
-
-	if(ext_clk_26M)
-		pll_freq = 26*N/M;
-	else
-		pll_freq = 13*N/M;
-
-	FB_PRINT("@fool2[%s] GR_VPLL_MN:0x%x, M:%d, N:%d, pll_freq: %d\n", __FUNCTION__, reg_value, M, N, pll_freq);
-
-	return (pll_freq*1000000);
-}
-/* directly copied from power_manager_sc8800h.c.c */
-static void PWRMNG_SetVpll(uint32_t vpll_clk)
-{
-	unsigned long flags;
-
-	raw_local_irq_save(flags);
-
-	__raw_bits_or((1<<20), GR_GEN1);
-
-	if (__raw_readl(GR_GEN1) & (1<<15)) {
-		__raw_writel(((vpll_clk/1000000) << 16) | 0x1a, GR_VPLL_MN);
-	} else {
-		__raw_writel(((vpll_clk/1000000) << 16) | 0x0d, GR_VPLL_MN);
-	}
-
-	__raw_bits_and(~(1<<20), GR_GEN1);
-
-	raw_local_irq_restore(flags);
-}
-
-static void PWRMNG_ForcePowerOnVPll(void)
-{
-	uint32_t i;
-	unsigned long flags;
-
-	raw_local_irq_save(flags);
-
-	if (0 == ((__raw_readl(GR_BUSCLK_ALM) & (1<<12)) >>12))
-		__raw_bits_and( ~(1<<14), GR_BUSCLK_ALM);
-	else
-		printk(KERN_ERR "VPLL pd src ctl error!\n");
-
-	raw_local_irq_restore(flags);
-
-	for(i=0; i<5000; i++);
-}
 static void PWRMNG_LCDC_ClkSwitch(uint32_t b_clk_on)
 {
 	if(b_clk_on)

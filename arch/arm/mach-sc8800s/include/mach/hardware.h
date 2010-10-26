@@ -41,11 +41,6 @@
 #define SPRD_ISP_PHYS            0x20200000
 #define SPRD_ISP_SIZE            SZ_4K
 
-/* USB device space */
-#define SPRD_USB_BASE            0xE0003000
-#define SPRD_USB_PHYS            0x20300000
-#define SPRD_USB_SIZE            SZ_4K
-
 /* DCT control registers */
 #define SPRD_DCT_BASE            0xE0004000
 #define SPRD_DCT_PHYS            0x20400000
@@ -208,4 +203,8 @@
 #define SPRD_TPC_PHYS          0x81003000
 #define SPRD_TPC_SIZE          SZ_4K
 
+/* USB device space */
+#define SPRD_USB_BASE            0xE0035000
+#define SPRD_USB_PHYS            0x20300000
+#define SPRD_USB_SIZE            SZ_1M
 #endif

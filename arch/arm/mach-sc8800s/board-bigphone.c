@@ -34,6 +34,7 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <mach/gpio.h>
+#include <mach/power_manager.h>
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -66,12 +67,21 @@ static void __init bigphone_init_irq(void)
 	sprd_init_irq();
 }
 
+static void __init bigphone_init_vpll(void)
+{
+	PWRMNG_SetVpllPdSrc (ARM_CTL);
+	
+	PWRMNG_SetVpll(192000000);
+	PWRMNG_ForcePowerOnVPll();
+}
 static void __init bigphone_init(void)
 {
+ 	bigphone_init_vpll();	
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
 	sprd_gpio_init();
 	sprd_add_sdio_device();
+	sprd_gadget_init();
 }
 
 static void __init bigphone_map_io(void)
