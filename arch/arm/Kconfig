@@ -807,6 +807,19 @@ config ARCH_SC8800S
 	help
 	  Support for Spreadtrum sc8800s based systems.
 
+config ARCH_SC8800G
+	bool  "SPREADTRUM SC8800G"
+	depends on MMU
+	select CPU_ARM926T
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_REQUIRE_GPIOLIB
+#	select HAVE_DYNAMIC_FTRACE
+#	select HAVE_FUNCTION_GRAPH_TRACER	
+	help
+	  Support for Spreadtrum sc8800g based systems.
+
+
 endchoice
 
 #

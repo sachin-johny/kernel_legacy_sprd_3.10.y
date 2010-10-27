@@ -54,8 +54,10 @@
 #define ARM_UART_CLKD1	0x0028
 #define ARM_UART_STS2	0x002C
 /*UART IRQ num*/
-#define IRQ_UART0_1	24
-#define IRQ_UART2_3	18
+#define IRQ_UART0	2
+#define IRQ_UART1	3
+#define IRQ_UART2	4
+
 /*UART FIFO watermark*/
 #define SP_TX_FIFO	8
 #define SP_RX_FIFO	1	
@@ -388,7 +390,7 @@ static int serialsc8800_startup(struct uart_port *port)
 	/*
  	*allocate irq
  	*/ 
-	ret = request_irq(port->irq,serialsc8800_interrupt_chars,IRQF_SHARED,"serial",port);
+	ret = request_irq(port->irq,serialsc8800_interrupt_chars,IRQF_DISABLED,"serial",port);
 	if(ret)
 	{
  		printk("fail to request serial irq\n");
@@ -605,7 +607,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.membase =(void *)SPRD_SERIAL0_BASE,
 		.mapbase = SPRD_SERIAL0_BASE,
 		.uartclk =26000000,
-		.irq =IRQ_UART0_1,
+		.irq =IRQ_UART0,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
 		.flags =ASYNC_BOOT_AUTOCONF,
@@ -616,7 +618,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.membase =(void *)SPRD_SERIAL1_BASE,
 		.mapbase = SPRD_SERIAL1_BASE,
 		.uartclk =26000000,
-		.irq =IRQ_UART0_1,
+		.irq =IRQ_UART1,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
 		.flags =ASYNC_BOOT_AUTOCONF,
@@ -627,22 +629,11 @@ static struct uart_port serialsc8800_ports[] = {
 		.membase =(void *)SPRD_SERIAL2_BASE,
 		.mapbase = SPRD_SERIAL2_BASE,
 		.uartclk =26000000,
-		.irq =IRQ_UART2_3,
+		.irq =IRQ_UART2,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
 		.flags =ASYNC_BOOT_AUTOCONF,
 		.line =2,
-	},
-	[3]={
-		.iotype =SERIAL_IO_PORT,
-		.membase =(void *)SPRD_SERIAL3_BASE,
-		.mapbase = SPRD_SERIAL3_BASE,
-		.uartclk =26000000,
-		.irq =IRQ_UART2_3,
-		.fifosize =128,
-		.ops =&serialsc8800_ops,
-		.flags =ASYNC_BOOT_AUTOCONF,
-		.line =3,
 	}
 
 };
@@ -654,7 +645,7 @@ static void serialsc8800_setup_ports(void)
 		serialsc8800_ports[i].uartclk=26000000;
 }
 
-#ifdef CONFIG_SERIAL_SC8800S_CONSOLE
+#ifdef CONFIG_SERIAL_SPRD_CONSOLE
 static inline void wait_for_xmitr(struct uart_port *port)
 {
 	unsigned int status,tmout=10000;
