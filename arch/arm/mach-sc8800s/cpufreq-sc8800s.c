@@ -24,6 +24,11 @@
 #define REG_CHIP_TYPE					(*((volatile unsigned int *)(CHIP_TYPE)))
 #define REG_GR_DCDC_CTL					(*((volatile unsigned int *)(GR_DCDC_CTL)))
 
+#define MIN_FREQ					(50000)
+#define MAX_FREQ					(600000)
+#define FREQ_STEP					(50000)
+#define FREQ_TABLE_ENTRY				(((MAX_FREQ - MIN_FREQ) / FREQ_STEP) + 1 + 1) 
+
 typedef enum
 {
 	CORE_VOLTAGE_1800MV = 0,
@@ -31,8 +36,6 @@ typedef enum
 	CORE_VOLTAGE_1500MV,
 	CORE_VOLTAGE_1650MV,
 } armcore_voltage_e;
-
-static struct regulator *vddarm;
 
 #ifdef CONFIG_ARCH_SC8800S
 struct sc8800s_dvfs {
@@ -47,14 +50,8 @@ static struct sc8800s_dvfs sc8800s_dvfs_table[] = {
 	[3] = { 1650 , CORE_VOLTAGE_1650MV }, /* 1.65v */
 };
 
-static struct cpufreq_frequency_table sc8800s_freq_table[] = {
-	{ 2,  50000 },
-	{ 3, 100000 },
-	{ 0, 150000 },
-	{ 1, 200000 },
-	{ 1, 240000 },
-	{ 0, CPUFREQ_TABLE_END },
-};
+static struct cpufreq_frequency_table sc8800s_freq_table[FREQ_TABLE_ENTRY];
+
 #endif
 
 /*
@@ -206,45 +203,31 @@ static int sc8800s_cpufreq_set_target(struct cpufreq_policy *policy,
 
 	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 
-	if (freqs.new > freqs.old) {
+	/*if (freqs.new > freqs.old) {
 		ret = sc8800s_freq_table[i].index;
 		//printk("idx = %d  vddarm = %d  ldoarm = %d\n", ret, sc8800s_dvfs_table[ret].vddarm, sc8800s_dvfs_table[ret].ldoarm);
 		set_armcore_voltage(sc8800s_dvfs_table[ret].ldoarm);
-	}
+	}*/
 
 	/* perhaps, we need change lcd and emc pll etc. */
 	ret = clk_set_rate(freqs.new * 1000);
-	if (ret < 0) {
-		printk("cpufreq: Failed to set rate %dkHz: %d\n",
-		       freqs.new, ret);
-		goto err;
-	}
 
-	if (freqs.new < freqs.old) {
+	/*if (freqs.new < freqs.old) {
 		ret = sc8800s_freq_table[i].index;
 		//printk("idx = %d  vddarm = %d  ldoarm = %d\n", ret, sc8800s_dvfs_table[ret].vddarm, sc8800s_dvfs_table[ret].ldoarm);
 		set_armcore_voltage(sc8800s_dvfs_table[ret].ldoarm);
-	}
+	}*/
 
 	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 
 	//printk("cpufreq: Set actual frequency %lukHz\n", clk_get_rate() / 1000);
 
 	return 0;
-
-err_clk:
-	if (clk_set_rate(freqs.old * 1000) < 0)
-		pr_err("Failed to restore original clock rate\n");
-err:
-	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
-
-	return ret;
 }
 
 static int __init sc8800s_cpufreq_driver_init(struct cpufreq_policy *policy)
 {
 	int ret;
-	struct cpufreq_frequency_table *freq;
 
 	if (policy->cpu != 0)
 		return -EINVAL;
@@ -254,7 +237,6 @@ static int __init sc8800s_cpufreq_driver_init(struct cpufreq_policy *policy)
 		return -ENODEV;
 	}
 
-	freq = sc8800s_freq_table;
 	policy->cur = clk_get_rate() / 1000;
 	policy->cpuinfo.transition_latency = 1 * 1000 * 1000;
 
@@ -264,9 +246,7 @@ static int __init sc8800s_cpufreq_driver_init(struct cpufreq_policy *policy)
 
 	ret = cpufreq_frequency_table_cpuinfo(policy, sc8800s_freq_table);
 	if (ret != 0) {
-		pr_err("cpufreq: Failed to configure frequency table: %d\n",
-		       ret);
-		regulator_put(vddarm);
+		pr_err("cpufreq: Failed to configure frequency table: %d\n", ret);
 	}
 	
 	return ret;
@@ -329,6 +309,36 @@ static int __init sc8800s_cpufreq_init(void)
 	mdelay(8000);
 	return 0;
 #endif
+	unsigned int cnt, clk, arm_clk;
+
+	arm_clk = clk_get_rate() / 1000;
+	for (cnt = 0; cnt < FREQ_TABLE_ENTRY; cnt ++) {
+		sc8800s_freq_table[cnt].index = 0;
+		sc8800s_freq_table[cnt].frequency = CPUFREQ_TABLE_END;
+	}
+
+	if (arm_clk <= MIN_FREQ) {
+		printk("arm clock is too low, cpufreq is not needed.\n");
+		return 0;
+	}
+	if (arm_clk > MAX_FREQ) {
+		printk("arm clock is too big beyond frequency table, please add frequency table entry.\n");
+		return 0;
+	}
+
+	cnt = 0;
+	for (clk = MIN_FREQ; clk <= MAX_FREQ; clk += FREQ_STEP) {
+		sc8800s_freq_table[cnt].frequency = clk;
+		if ((clk + FREQ_STEP) >= arm_clk) {
+			sc8800s_freq_table[cnt + 1].frequency = arm_clk;
+			break;
+		}
+		cnt ++;
+	}
+	clk = cnt + 1;
+	for (cnt = 0; cnt <= clk; cnt ++)
+		printk("sc8800s_freq_table[%d].frequency = %d\n", cnt, sc8800s_freq_table[cnt].frequency);
+
 	return cpufreq_register_driver(&sc8800s_cpufreq_driver);
 }
 module_init(sc8800s_cpufreq_init);
