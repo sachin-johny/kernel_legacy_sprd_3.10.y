@@ -54,9 +54,20 @@
 #define ARM_UART_CLKD1	0x0028
 #define ARM_UART_STS2	0x002C
 /*UART IRQ num*/
+#ifdef CONFIG_ARCH_SC8800G
+
 #define IRQ_UART0	2
 #define IRQ_UART1	3
 #define IRQ_UART2	4
+
+#endif
+
+#ifdef CONFIG_ARCH_SC8800S
+
+#define IRQ_UART0_1	24
+#define IRQ_UART2_3	18
+
+#endif
 
 /*UART FIFO watermark*/
 #define SP_TX_FIFO	8
@@ -390,7 +401,12 @@ static int serialsc8800_startup(struct uart_port *port)
 	/*
  	*allocate irq
  	*/ 
+#ifdef CONFIG_ARCH_SC8800G
 	ret = request_irq(port->irq,serialsc8800_interrupt_chars,IRQF_DISABLED,"serial",port);
+#endif
+#ifdef CONFIG_ARCH_SC8800S
+	ret = request_irq(port->irq,serialsc8800_interrupt_chars,IRQF_SHARED,"serial",port);
+#endif	
 	if(ret)
 	{
  		printk("fail to request serial irq\n");
@@ -601,6 +617,7 @@ static struct uart_ops serialsc8800_ops = {
 	.config_port=serialsc8800_config_port,
 	.verify_port =serialsc8800_verify_port,
 };
+#ifdef CONFIG_ARCH_SC8800G
 static struct uart_port serialsc8800_ports[] = {
 	[0]={
 		.iotype =SERIAL_IO_PORT,
@@ -637,6 +654,59 @@ static struct uart_port serialsc8800_ports[] = {
 	}
 
 };
+#endif
+
+#ifdef CONFIG_ARCH_SC8800S
+static struct uart_port serialsc8800_ports[] = {
+	[0]={
+		.iotype =SERIAL_IO_PORT,
+		.membase =(void *)SPRD_SERIAL0_BASE,
+		.mapbase = SPRD_SERIAL0_BASE,
+		.uartclk =26000000,
+		.irq =IRQ_UART0_1,
+		.fifosize =128,
+		.ops =&serialsc8800_ops,
+		.flags =ASYNC_BOOT_AUTOCONF,
+		.line =0,
+	},
+	[1]={
+		.iotype =SERIAL_IO_PORT,
+		.membase =(void *)SPRD_SERIAL1_BASE,
+		.mapbase = SPRD_SERIAL1_BASE,
+		.uartclk =26000000,
+		.irq =IRQ_UART0_1,
+		.fifosize =128,
+		.ops =&serialsc8800_ops,
+		.flags =ASYNC_BOOT_AUTOCONF,
+		.line =1,
+	},
+	[2]={
+		.iotype =SERIAL_IO_PORT,
+		.membase =(void *)SPRD_SERIAL2_BASE,
+		.mapbase = SPRD_SERIAL2_BASE,
+		.uartclk =26000000,
+		.irq =IRQ_UART2_3,
+		.fifosize =128,
+		.ops =&serialsc8800_ops,
+		.flags =ASYNC_BOOT_AUTOCONF,
+		.line =2,
+	},
+	[3]={
+		.iotype =SERIAL_IO_PORT,
+		.membase =(void *)SPRD_SERIAL3_BASE,
+		.mapbase = SPRD_SERIAL3_BASE,
+		.uartclk =26000000,
+		.irq =IRQ_UART2_3,
+		.fifosize =128,
+		.ops =&serialsc8800_ops,
+		.flags =ASYNC_BOOT_AUTOCONF,
+		.line =3,
+	}
+
+
+};
+#endif
+
 #define UART_NR		ARRAY_SIZE(serialsc8800_ports)
 static void serialsc8800_setup_ports(void)
 {
@@ -693,7 +763,7 @@ static int __init serialsc8800_console_setup(struct console *co,char *options)
 	int flow ='n';
 	//int i;
 	//printascii("enter console_setup!\r\n");
-	if(unlikely(co->index >= UART_NR || co->index < 0));
+	if(unlikely(co->index >= UART_NR || co->index < 0))
 		co->index = 0;	
 	//for(i=0;i<4;i++){
 		port= &serialsc8800_ports[co->index];	
