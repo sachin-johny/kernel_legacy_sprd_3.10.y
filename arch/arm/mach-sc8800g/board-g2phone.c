@@ -34,6 +34,7 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <mach/gpio.h>
+#include <mach/power_manager.h>
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -72,6 +73,7 @@ static void __init g2phone_init(void)
 	sprd_add_devices();
 	sprd_gpio_init();
 	sprd_add_sdio_device();
+	sprd_gadget_init();
 }
 
 static void __init g2phone_map_io(void)

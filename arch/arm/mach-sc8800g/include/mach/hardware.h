@@ -42,9 +42,9 @@
 #define SPRD_ISP_SIZE            SZ_4K
 
 /* USB device space */
-#define SPRD_USB_BASE            0xE0003000
-#define SPRD_USB_PHYS            0x20300000
-#define SPRD_USB_SIZE            SZ_4K
+//#define SPRD_USB_BASE            0xE0003000
+//#define SPRD_USB_PHYS            0x20300000
+//#define SPRD_USB_SIZE            SZ_4K
 
 /* DCT control registers */
 #define SPRD_DCT_BASE            0xE0004000
@@ -56,15 +56,10 @@
 #define SPRD_SDIO_PHYS           0x20500000
 #define SPRD_SDIO_SIZE           SZ_4K
 
-/* LCD LCM1 control registers */
-#define SPRD_LCD_LCM1_BASE       0xE0006000
-#define SPRD_LCD_LCM1_PHYS       0x20600000
-#define SPRD_LCD_LCM1_SIZE       SZ_8K
-
-/* LCD MCU control registers */
-#define SPRD_LCD_MCU_BASE        0xE0008000
-#define SPRD_LCD_MCU_PHYS        0x20700000
-#define SPRD_LCD_MCU_SIZE        SZ_4K
+/* LCD control registers */
+#define SPRD_LCDC_BASE        0xE0008000
+#define SPRD_LCDC_PHYS        0x20700000
+#define SPRD_LCDC_SIZE        SZ_4K
 
 /* rotation  control registers*/
 #define SPRD_ROTO_BASE           0xE0009000
@@ -211,5 +206,10 @@
 #define SPRD_TPC_BASE          0xE0034000
 #define SPRD_TPC_PHYS          0x82000280
 #define SPRD_TPC_SIZE          SZ_4K
+
+/* USB device space */
+#define SPRD_USB_BASE            0xE0035000
+#define SPRD_USB_PHYS            0x20300000
+#define SPRD_USB_SIZE            SZ_1M
 
 #endif

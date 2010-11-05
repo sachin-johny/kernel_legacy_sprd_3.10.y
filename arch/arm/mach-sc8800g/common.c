@@ -25,6 +25,7 @@
 
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
+#include <linux/usb/android_composite.h>
 
 #include <mach/hardware.h>
 #include <mach/board.h>
@@ -294,4 +295,129 @@ void __init sprd_add_sdio_device(void)
 
 	//sprd_config_sdio_pins();
 	//platform_device_register(&sprd_sdio_device);
+}
+
+/*Android USB Function */
+#define SPRD_VENDOR_ID		0x22B8
+#define SPRD_PRODUCT_ID		0x41D9
+#define SPRD_ADB_PRODUCT_ID		0x41DB
+#define SPRD_RNDIS_PRODUCT_ID		0x41E4
+#define SPRD_RNDIS_ADB_PRODUCT_ID		0x41E5
+
+//#define SPRD_PRODUCT_ADB
+//#define SPRD_PRODUCT_UMS
+
+static char device_serial[] = "19761202";
+
+static char *usb_functions_ums[] = {
+	"usb_mass_storage",
+};
+
+static char *usb_functions_adb[] = {
+	"adb",
+};
+
+static char *usb_functions_ums_adb[] = {
+	"usb_mass_storage",
+	"adb",
+};
+
+static char *usb_functions_rndis[] = {
+	"rndis",
+};
+
+static char *usb_functions_rndis_adb[] = {
+	"rndis",
+	"adb",
+};
+
+static char *usb_functions_all[] = {
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	"rndis",
+#endif
+#ifdef CONFIG_USB_ANDROID_ADB
+	"adb",
+#endif
+#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
+	"usb_mass_storage",
+#endif
+#ifdef CONFIG_USB_ANDROID_ACM
+	"acm",
+#endif
+};
+
+static struct android_usb_product usb_products[] = {
+//	#ifdef SPRD_PRODUCT_ADB
+	{
+		.product_id	= SPRD_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_adb),
+		.functions	= usb_functions_adb,
+	},
+//	#endif
+//	#ifdef SPRD_PRODUCT_UMS
+	{
+		.product_id	= SPRD_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums),
+		.functions	= usb_functions_ums,
+	},
+//	#endif
+
+	{
+		.product_id	= SPRD_ADB_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
+		.functions	= usb_functions_ums_adb,
+	},
+	{
+		.product_id	= SPRD_RNDIS_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis),
+		.functions	= usb_functions_rndis,
+	},
+	{
+		.product_id	= SPRD_RNDIS_ADB_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_rndis_adb),
+		.functions	= usb_functions_rndis_adb,
+	},
+};
+
+/* standard android USB platform data */
+static struct android_usb_platform_data andusb_plat = {
+	.vendor_id			= SPRD_VENDOR_ID,
+	.product_id			= SPRD_PRODUCT_ID,
+	.manufacturer_name	= "Spreadtrum",
+	.product_name		= "Spreadtrum Bigphone",
+	.serial_number		= device_serial,
+	.num_products = ARRAY_SIZE(usb_products),
+	.products = usb_products,
+	.num_functions = ARRAY_SIZE(usb_functions_all),
+	.functions = usb_functions_all,
+};
+
+static struct platform_device androidusb_device = {
+	.name	= "android_usb",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &andusb_plat,
+	},
+};
+
+static struct usb_mass_storage_platform_data usbms_plat = {
+	.vendor			= "Spreadtrum",
+	.product		= "Bigphone",
+	.release		= 1,
+};
+
+static struct platform_device usb_mass_storage_device = {
+	.name	= "usb_mass_storage",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &usbms_plat,
+	},
+};
+
+void __init sprd_gadget_init(void)
+{
+	#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
+	platform_device_register(&usb_mass_storage_device);
+	#endif
+	platform_device_register(&androidusb_device);
 }
