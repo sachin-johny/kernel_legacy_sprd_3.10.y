@@ -104,7 +104,7 @@ static int nand_get_device(struct nand_chip *chip, struct mtd_info *mtd,
 static int nand_do_write_oob(struct mtd_info *mtd, loff_t to,
 			     struct mtd_oob_ops *ops);
 
-#if defined CONFIG_MTD_NAND_SC8800S && defined NAND_CONV
+#if defined CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 #define my_swab32(data32_ptr) \
 		do{\
 					    uint8_t* data8_ptr = (uint8_t*)data32_ptr;\
@@ -240,7 +240,7 @@ static uint8_t nand_read_byte16(struct mtd_info *mtd)
 {
 	struct nand_chip *chip = mtd->priv;
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	return (uint8_t)readw(chip->IO_ADDR_R);
 #else
 	return (uint8_t) cpu_to_le16(readw(chip->IO_ADDR_R));
@@ -296,7 +296,7 @@ static void nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
 	int i;
 	struct nand_chip *chip = mtd->priv;
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	memcpy(chip->IO_ADDR_W, buf, len);
 #else
 	for (i = 0; i < len; i++)
@@ -317,7 +317,7 @@ static void nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 	int i;
 	struct nand_chip *chip = mtd->priv;
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	memcpy(buf, chip->IO_ADDR_R, len);
 #else
 	for (i = 0; i < len; i++)
@@ -357,7 +357,7 @@ static void nand_write_buf16(struct mtd_info *mtd, const uint8_t *buf, int len)
 	int i;
 	struct nand_chip *chip = mtd->priv;
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	memcpy(chip->IO_ADDR_W, buf, len);
 #else
 	u16 *p = (u16 *) buf;
@@ -381,7 +381,7 @@ static void nand_read_buf16(struct mtd_info *mtd, uint8_t *buf, int len)
 	int i;
 	struct nand_chip *chip = mtd->priv;
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	memcpy(buf, chip->IO_ADDR_R, len);
 #else
 	u16 *p = (u16 *) buf;
@@ -736,7 +736,7 @@ static void nand_command_lp(struct mtd_info *mtd, unsigned int command,
 			/* Adjust columns for 16 bit buswidth */
 			if (chip->options & NAND_BUSWIDTH_16)
 				column >>= 1;
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 			chip->cmd_ctrl(mtd, column, ctrl);
 #else
 			chip->cmd_ctrl(mtd, column, ctrl);
@@ -745,7 +745,7 @@ static void nand_command_lp(struct mtd_info *mtd, unsigned int command,
 #endif
 		}
 		if (page_addr != -1) {
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 			chip->cmd_ctrl(mtd, page_addr, ctrl);
 #else
 			chip->cmd_ctrl(mtd, page_addr, ctrl);
@@ -961,7 +961,7 @@ static int nand_wait(struct mtd_info *mtd, struct nand_chip *chip)
 	}
 	led_trigger_event(nand_led_trigger, LED_OFF);
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	chip->cmdfunc(mtd, NAND_CMD_STATUS, -1, -1);
 #endif
 	status = (int)chip->read_byte(mtd);
@@ -1144,7 +1144,7 @@ static int nand_read_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
 {
 	chip->read_buf(mtd, buf, mtd->writesize);
 	chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
-#if defined  CONFIG_MTD_NAND_SC8800S && defined NAND_CONV
+#if defined  CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 	sprd_nand_trans_oob(mtd, chip, chip->oob_poi, mtd->oobsize);
 #endif
 	return 0;
@@ -1341,7 +1341,7 @@ static int nand_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 		chip->ecc.calculate(mtd, p, &ecc_calc[i]);
 	}
 	chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
-#if defined  CONFIG_MTD_NAND_SC8800S && defined NAND_CONV
+#if defined  CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 	sprd_nand_trans_oob(mtd, chip, chip->oob_poi, mtd->oobsize);
 #endif
 
@@ -1712,7 +1712,7 @@ static int nand_read_oob_std(struct mtd_info *mtd, struct nand_chip *chip,
 	}
 	chip->read_buf(mtd, chip->oob_poi, mtd->oobsize);
 
-#if defined  CONFIG_MTD_NAND_SC8800S && defined NAND_CONV
+#if defined  CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 	sprd_nand_trans_oob(mtd, chip, chip->oob_poi, mtd->oobsize);
 #endif
 
@@ -1780,7 +1780,7 @@ static int nand_write_oob_std(struct mtd_info *mtd, struct nand_chip *chip,
 	int length = mtd->oobsize;
 
 	chip->cmdfunc(mtd, NAND_CMD_SEQIN, mtd->writesize, page);
-#if defined  CONFIG_MTD_NAND_SC8800S && defined NAND_CONV
+#if defined  CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 	sprd_nand_trans_oob_write(mtd, chip, chip->oob_poi, mtd->oobsize);
 #endif
 #if 1
@@ -2013,7 +2013,7 @@ static void nand_write_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
 				const uint8_t *buf)
 {
 	chip->write_buf(mtd, buf, mtd->writesize);
-#if defined  CONFIG_MTD_NAND_SC8800S && defined NAND_CONV
+#if defined  CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 	sprd_nand_trans_oob_write(mtd, chip, chip->oob_poi, mtd->oobsize);
 #endif
 #if 1
@@ -2122,7 +2122,7 @@ static void nand_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 		chip->oob_poi[eccpos[i]] = ecc_calc[i];
 	}
 
-#if defined  CONFIG_MTD_NAND_SC8800S && defined NAND_CONV
+#if defined  CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 	sprd_nand_trans_oob_write(mtd, chip, chip->oob_poi, mtd->oobsize);
 #endif
 #if 0
@@ -2134,7 +2134,7 @@ static void nand_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 	}
 #endif
 	chip->write_buf(mtd, chip->oob_poi, mtd->oobsize);
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	chip->nfc_wr_oob(mtd);
 #endif
 }
@@ -2955,7 +2955,7 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	int i, dev_id, maf_idx;
 	u8 id_data[8];
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	unsigned long flash_id = 0;
 #endif
 	/* Select the device */
@@ -2968,7 +2968,7 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
 
 	/* Send the command for reading device ID */
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
         chip->cmdfunc(mtd, NAND_CMD_READID, -1, -1);
         flash_id = chip->nfc_readid(mtd);
 
@@ -2989,7 +2989,7 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	 * not match, ignore the device completely.
 	 */
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
         chip->cmdfunc(mtd, NAND_CMD_READID, -1, -1);
         flash_id = chip->nfc_readid(mtd);
 

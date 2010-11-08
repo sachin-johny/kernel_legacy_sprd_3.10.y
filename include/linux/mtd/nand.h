@@ -397,7 +397,7 @@ struct nand_chip {
 	int		(*write_page)(struct mtd_info *mtd, struct nand_chip *chip,
 				      const uint8_t *buf, int page, int cached, int raw);
 
-#ifdef CONFIG_MTD_NAND_SC8800S
+#ifdef CONFIG_MTD_NAND_SPRD
 	unsigned long  (*nfc_readid)(struct mtd_info *mtd);
 	unsigned long  (*nfc_wr_oob)(struct mtd_info *mtd);
 #endif

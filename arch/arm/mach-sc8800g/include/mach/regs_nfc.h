@@ -50,7 +50,8 @@
 #define NFC_WPN				(NFC_REG_BASE + 0x1c38)
 #define NFC_IDSTATUS			(NFC_REG_BASE + 0x1c3c)
 #define NFC_ECCEN			(NFC_REG_BASE + 0x1d00)
-#define NFC_TIMEOUT			(NFC_REG_BASE + 0x1d18) 
+#define NFC_TIMEOUT			(NFC_REG_BASE + 0x1d18)
+#define NFC_ENDIAN			(NFC_REG_BASE + 0x1d40)
 
 #define REG_NFC_MBUF                    (*((volatile unsigned int *)(NFC_MBUF)))
 #define REG_NFC_SBUF                    (*((volatile unsigned int *)(NFC_SBUF)))
@@ -74,6 +75,7 @@
 #define REG_NFC_ECCEN			(*((volatile unsigned int *)(NFC_ECCEN)))
 #define REG_NFC_INTSRC			(*((volatile unsigned int *)(NFC_INTSRC)))
 #define REG_NFC_IDSTATUS		(*((volatile unsigned int *)(NFC_IDSTATUS)))
+#define REG_NFC_ENDIAN			(*((volatile unsigned int *)(NFC_ENDIAN)))
 
 #endif 
 
