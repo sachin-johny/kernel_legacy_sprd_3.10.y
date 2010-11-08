@@ -73,9 +73,9 @@ static unsigned int	log_buf[1024]		= {0};
 #define DEBUG(fmt,args...) \
 	pr_debug(fmt, ## args)
 */
-#define DEBUG(fmt, args...) trace_printk(fmt, ## args)
+//#define DEBUG(fmt, args...) trace_printk(fmt, ## args)
 
-//#define DEBUG(fmt, args...) 
+#define DEBUG(fmt, args...) 
 
 /* The current configuration of sc8800_udc */
 static struct sc8800_udc	the_controller;
@@ -2468,13 +2468,6 @@ static __init int sc8800_udc_init(void)
 	pr_info("%s\n", __func__);
 
 	g_use_dma	= 0;
-
-
-	PWRMNG_SetVpllPdSrc (ARM_CTL);
-	
-	PWRMNG_SetVpll(192000000);
-	//mdelay(10);
-	PWRMNG_ForcePowerOnVPll();
 
 	PWRMNG_SetUsbClkSrc();
 
