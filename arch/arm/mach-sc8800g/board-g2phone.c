@@ -34,7 +34,8 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <mach/gpio.h>
-#include <mach/power_manager.h>
+#include <mach/adi_hal_internal.h>
+#include "regs_ana.h"
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -66,8 +67,7 @@ static void __init g2phone_init_irq(void)
 {
 	sprd_init_irq();
 }
-#include <mach/adi_hal_internal.h>
-#include "regs_ana.h"
+
 static void __init g2phone_init(void)
 {
 	ADI_init();
