@@ -24,12 +24,15 @@
 #include <mach/regs_global.h>
 #include <mach/bits.h>
 #include <mach/ldo.h>
+#include "regs_ana.h"
 
 #define LDO_INVALID_REG	0xFFFFFFFF
 #define LDO_INVALID_BIT		0xFFFFFFFF
 
+#define TRUE			1
+#define FALSE		0
 #ifndef NULL
-#define NULL 0
+#define NULL 0x0
 #endif
 
 #define SCI_ASSERT(condition) BUG_ON(!(condition))  
@@ -75,29 +78,102 @@ typedef struct
 }SLP_LDO_CTL_T, * SLP_LDO_CTL_PTR;
 
 
-const LDO_CTL_T ldo_ctl_8800H[] = 
-{    
-
-	{LDO_LDO_USB,		GR_ANATST_CTL, 	BIT_12, 	BIT_13,	NULL,			NULL, 	NULL, 	
-						NULL,			NULL, 	NULL,	NULL,	LDO_VOLT_LEVEL_MAX,		NULL},
-
-       /* modified by zhengfei.xiao for SC8800H5 */
-#ifdef CONFIG_CHIP_VER_8800H5
-       {LDO_LDO_AVBO,		GR_LDO_CTL0, 	BIT_16, 	BIT_17,	GR_LDO_CTL3,	BIT_8, 	BIT_9, 	
-						GR_LDO_CTL3,	BIT_10, 	BIT_11,	NULL,	LDO_VOLT_LEVEL_MAX,		NULL},
-#endif
-	{LDO_LDO_MAX,	NULL,			NULL,	NULL,	NULL,			NULL,	NULL,	
-					NULL,			NULL,	NULL,	NULL,	LDO_VOLT_LEVEL_MAX,		NULL}
-};      
-
-const SLP_LDO_CTL_T slp_ldo_ctl_8800H[] =
+LDO_CTL_T ldo_ctl_data[] =
 {
-	{SLP_LDO_MAX,	NULL,			NULL,	SLP_BIT_SET,	1,	NULL}
+    {
+        LDO_LDO_ABB,   NULL,           NULL,   NULL,   ANA_LDO_VCTL0,  BIT_12, BIT_13,
+        ANA_LDO_VCTL0,  BIT_14, BIT_15, NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_RF1,   NULL,           NULL,   NULL,   ANA_LDO_VCTL0,  BIT_8,  BIT_9,
+        ANA_LDO_VCTL0,  BIT_10, BIT_11, NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_RF0,   NULL,           NULL,   NULL,   ANA_LDO_VCTL0,  BIT_4,  BIT_5,
+        ANA_LDO_VCTL0,  BIT_6,  BIT_7,  NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_RTC,   NULL,           NULL,   NULL,   ANA_LDO_VCTL0,  BIT_0,  BIT_1,
+        ANA_LDO_VCTL0,  BIT_2,  BIT_3,  NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_SDIO,  ANA_LDO_PD_CTL, BIT_2,  BIT_3,  ANA_LDO_VCTL1,  BIT_12,BIT_13,
+        ANA_LDO_VCTL1,  BIT_14, BIT_15, NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_AVBO,  ANA_LDO_PD_CTL, BIT_14, BIT_15, ANA_LDO_VCTL1,  BIT_8,  BIT_9,
+        ANA_LDO_VCTL1,  BIT_10, BIT_11, NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_SIM1,  ANA_LDO_PD_CTL, BIT_6,  BIT_7,  ANA_LDO_VCTL1,  BIT_4,  BIT_5,
+        ANA_LDO_VCTL1,  BIT_6,  BIT_7,  NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_SIM0,  ANA_LDO_PD_CTL, BIT_4,  BIT_5,  ANA_LDO_VCTL1,  BIT_0,  BIT_1,
+        ANA_LDO_VCTL1,  BIT_2,  BIT_3,  NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_USB,   ANA_LDO_PD_CTL, BIT_0,  BIT_1,  ANA_LDO_VCTL2,  BIT_12, BIT_13,
+        ANA_LDO_VCTL2,  BIT_14, BIT_15, NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_USBD,  NULL,           NULL,   NULL,   NULL,           NULL,   NULL,
+        NULL,           NULL,   NULL,   NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_CAMA,  ANA_LDO_PD_CTL, BIT_12, BIT_13, ANA_LDO_VCTL2,  BIT_8,  BIT_9,
+        ANA_LDO_VCTL2,  BIT_10, BIT_11, NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_CAMD1, ANA_LDO_PD_CTL, BIT_10, BIT_11, ANA_LDO_VCTL2,  BIT_4,  BIT_5,
+        ANA_LDO_VCTL2,  BIT_6,  BIT_7,  NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_CAMD0, ANA_LDO_PD_CTL, BIT_8,  BIT_9,  ANA_LDO_VCTL2,  BIT_0,  BIT_1,
+        ANA_LDO_VCTL2,  BIT_2,  BIT_3,  NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_VDD25, NULL,           NULL,   NULL,   ANA_LDO_VCTL3,  BIT_8,  BIT_9,
+        ANA_LDO_VCTL3,  BIT_10, BIT_11, NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_VDD18, NULL,           NULL,   NULL,   ANA_LDO_VCTL3,  BIT_4,  BIT_5,
+        ANA_LDO_VCTL3,  BIT_6,  BIT_7,  NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_VDD28, NULL,           NULL,   NULL,   ANA_LDO_VCTL3,  BIT_0,  BIT_1,
+        ANA_LDO_VCTL3,  BIT_2,  BIT_3,  NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    },
+    {
+        LDO_LDO_MAX,   NULL,           NULL,   NULL,   NULL,           NULL,   NULL,
+        NULL,           NULL,   NULL,   NULL,   LDO_VOLT_LEVEL_MAX,     NULL
+    }
+};
+
+SLP_LDO_CTL_T slp_ldo_ctl_data[] =
+{
+    {SLP_LDO_PA,        ANA_LDO_SLP,    BIT_15, SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_DVDD18,    ANA_LDO_SLP,    BIT_14, SLP_BIT_CLR,    TRUE,   NULL},
+    {SLP_LDO_VDD25,     ANA_LDO_SLP,    BIT_13, SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_VDD18,     ANA_LDO_SLP,    BIT_12, SLP_BIT_CLR,    TRUE,   NULL},
+    {SLP_LDO_VDD28,     ANA_LDO_SLP,    BIT_11, SLP_BIT_CLR,    TRUE,   NULL},
+    {SLP_LDO_ABB,       ANA_LDO_SLP,    BIT_10, SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_SDIO,      ANA_LDO_SLP,    BIT_9,  SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_VBO,       ANA_LDO_SLP,    BIT_8,  SLP_BIT_CLR,    TRUE,   NULL},
+    {SLP_LDO_CAMA,      ANA_LDO_SLP,    BIT_7,  SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_CAMD1,     ANA_LDO_SLP,    BIT_6,  SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_CAMD0,     ANA_LDO_SLP,    BIT_5,  SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_USB,       ANA_LDO_SLP,    BIT_4,  SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_SIM1,      ANA_LDO_SLP,    BIT_3,  SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_SIM0,      ANA_LDO_SLP,    BIT_2,  SLP_BIT_CLR,    TRUE,   NULL},
+    {SLP_LDO_RF1,       ANA_LDO_SLP,    BIT_1,  SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_RF0,       ANA_LDO_SLP,    BIT_0,  SLP_BIT_SET,    TRUE,   NULL},
+    {SLP_LDO_MAX,       NULL,           NULL,   SLP_BIT_SET,    TRUE,   NULL}
 };
 
 static  LDO_CTL_PTR Ldo_Get_Cfg(void)
 {
-	return ldo_ctl_8800H;
+	return ldo_ctl_data;
 }
 
 /**---------------------------------------------------------------------------*
@@ -115,7 +191,7 @@ LDO_CTL_PTR g_ldo_ctl_tab = NULL;
 /*****************************************************************************/
 static SLP_LDO_CTL_PTR Slp_Ldo_Get_Cfg(void)
 {	
-	return  slp_ldo_ctl_8800H;
+	return  slp_ldo_ctl_data;
 }
 
 /**---------------------------------------------------------------------------*
@@ -223,7 +299,7 @@ static  LDO_CTL_PTR LDO_GetLdoCtl(LDO_ID_E ldo_id)
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
 
-	masked_val = __raw_readl(ctl->bp_reg) & ctl->bp;
+	masked_val = (LDO_REG_GET(ctl->bp_reg) & ctl->bp);
 
 	return (masked_val ? 0 : 1);
 }

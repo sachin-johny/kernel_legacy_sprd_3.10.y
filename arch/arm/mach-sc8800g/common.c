@@ -285,16 +285,23 @@ static unsigned long sdio_func_cfg[] __initdata = {
 
 static void sprd_config_sdio_pins(void)
 {
-	sprd_mfp_config(sdio_func_cfg, ARRAY_SIZE(sdio_func_cfg));
-	
+//	sprd_mfp_config(sdio_func_cfg, ARRAY_SIZE(sdio_func_cfg));
+	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xA8) = 0x38a;	//SD0 CLK output pullup drv3
+	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xAC) = 0x38a;	//SD0 CLK output pullup drv3
+	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xB0) = 0x38a;	//SD0 CLK output pullup drv3
+	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xB4) = 0x38a;	//SD0 CLK output pullup drv3
+	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xB8) = 0x38a;	//SD0 CLK output pullup drv3
+	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xA4) = 0x38a;	//SD0 CLK output pullup drv3
 }
 void __init sprd_add_sdio_device(void)
 {
 	/* Enable SDIO Module */
-	//__raw_bits_or(BIT_10, AHB_MISC);
+	__raw_bits_or(BIT_4, AHB_CTL0);
+	__raw_bits_or(BIT_12, AHB_SOFT_RST);
+	__raw_bits_and(~BIT_12, AHB_SOFT_RST);
 
-	//sprd_config_sdio_pins();
-	//platform_device_register(&sprd_sdio_device);
+	sprd_config_sdio_pins();
+	platform_device_register(&sprd_sdio_device);
 }
 
 /*Android USB Function */

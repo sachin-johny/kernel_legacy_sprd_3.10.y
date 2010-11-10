@@ -206,9 +206,14 @@
 #define SPRD_TPC_BASE          0xE0034000
 #define SPRD_TPC_PHYS          0x82000280
 #define SPRD_TPC_SIZE          SZ_4K
+/* Analaog die and Digital die interface space */
+#define SPRD_ADI_BASE             0xE0035000
+#define SPRD_ADI_PHYS             0x82000000
+#define SPRD_ADI_SIZE             SZ_4K
+# define SPRD_ANA_BASE		  (SPRD_ADI_BASE + 0x480)
 
 /* USB device space */
-#define SPRD_USB_BASE            0xE0035000
+#define SPRD_USB_BASE            0xE0036000
 #define SPRD_USB_PHYS            0x20300000
 #define SPRD_USB_SIZE            SZ_1M
 

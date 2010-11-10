@@ -27,6 +27,7 @@ obj-$(CONFIG_MMC_MVSDIO)	+= mvsdio.o
 obj-$(CONFIG_MMC_DAVINCI)       += davinci_mmc.o
 obj-$(CONFIG_MMC_SPI)		+= mmc_spi.o
 obj-$(CONFIG_MMC_SDHCI_SP8800S)	+= sdhci-sprd.o
+obj-$(CONFIG_MMC_SDHCI_SP8800G) += sprdmci.o sc8800g.o
 ifeq ($(CONFIG_OF),y)
 obj-$(CONFIG_MMC_SPI)		+= of_mmc_spi.o
 endif

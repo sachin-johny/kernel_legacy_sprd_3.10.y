@@ -325,7 +325,7 @@ unsigned int mmc_queue_map_sg(struct mmc_queue *mq)
 
 static void swap_buf(char * buf, unsigned long len)
 {
-#ifndef CONFIG_CPU_BIG_ENDIAN
+#if defined(CONFIG_ARCH_8800S) && defined(__LITTLE_ENDIAN)
 	__u32 * data_buf = (__u32 *)buf;
 	int i;
 

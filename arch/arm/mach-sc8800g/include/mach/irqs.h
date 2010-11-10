@@ -21,7 +21,6 @@
  * see spec 4.5.2 
  */
 #define IRQ_SLEEP_INT       0
-#define IRQ_SDIO_INT        1
 
 #define IRQ_SER0_INT      2
 #define IRQ_SER1_INT      3
@@ -64,9 +63,8 @@
 #define IRQ_ISP_INT         27
 #define IRQ_NLC_INT         28
 #define IRQ_LCDC_INT        29
-//#define IRQ_PCMCIA_INT      29
-#define IRQ_DRM_INT         30
-#define IRQ_MIX_INT         31
+#define IRQ_SDIO_INT        30
+#define IRQ_BM_INT         31
 
 #define NR_SPRD_IRQS  32
 #define NR_GPIO_IRQS  10

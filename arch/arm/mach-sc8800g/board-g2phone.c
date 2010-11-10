@@ -66,9 +66,12 @@ static void __init g2phone_init_irq(void)
 {
 	sprd_init_irq();
 }
-
+#include <mach/adi_hal_internal.h>
+#include "regs_ana.h"
 static void __init g2phone_init(void)
 {
+	ADI_init();
+	ANA_REG_SET(ANA_ADIE_CHIP_ID,0);
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
 	sprd_gpio_init();
