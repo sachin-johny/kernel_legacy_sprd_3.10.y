@@ -89,7 +89,7 @@ static struct platform_device sprd_i2c_device = {
 
 
 static struct platform_device sprd_fb_device = {
-	.name	= "sc8800sfb",
+	.name	= "sc8800fb",
 	.id	= -1,
 };
 
