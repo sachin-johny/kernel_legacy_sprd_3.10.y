@@ -1,4 +1,4 @@
-/* drivers/video/sc8800s/sc8800s_lcd.h
+/* drivers/video/sc8800g/sc8800g_lcd.h
  *
  * Spreadtrum LCD abstraction
  *

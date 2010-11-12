@@ -1,4 +1,4 @@
-/* drivers/video/msm_fb/mddi_client_dummy.c
+/* drivers/video/sc8800g/sc8800g_lcd_ili9328.c
  *
  * Support for ILI9328 LCD device
  *

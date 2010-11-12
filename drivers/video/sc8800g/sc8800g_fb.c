@@ -1,4 +1,4 @@
-/* drivers/video/sc8800s/sc8800s_fb.c
+/* drivers/video/sc8800g/sc8800g_fb.c
  *
  * SC8800S LCM0 framebuffer driver.
  *
