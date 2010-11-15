@@ -271,7 +271,7 @@ static void lcdc_mcu_init(void)
 	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
 	
 	/* set background*/
-	__raw_writel((0xff<<16), LCDC_BG_COLOR);   //red
+	__raw_writel(0x0, LCDC_BG_COLOR);   //red
 
 	FB_PRINT("@fool2[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_BG_COLOR));
 
@@ -592,10 +592,10 @@ int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	__raw_bits_or((1<<0),LCDC_IMG_CTRL);  
 #if 1
 	/*little endian*/
-	__raw_bits_or(1<<5,LCDC_IMG_CTRL);  
-	__raw_bits_and(~(1<<6),LCDC_IMG_CTRL);  
-	__raw_bits_or(1<<7,LCDC_IMG_CTRL);  
-	__raw_bits_and(~(1<<8),LCDC_IMG_CTRL);  
+	__raw_bits_or(1<<6,LCDC_IMG_CTRL);  
+	__raw_bits_and(~(1<<5),LCDC_IMG_CTRL);  
+	//__raw_bits_or(1<<7,LCDC_IMG_CTRL);  
+	//__raw_bits_and(~(1<<8),LCDC_IMG_CTRL);  
 	
 	/*data format*/
 	__raw_bits_or(1<<1,LCDC_IMG_CTRL);  //RGB565
@@ -741,8 +741,61 @@ if(1){ /* in-kernel test code */
 	int size = sc8800fb->fb->var.xres * sc8800fb->fb->var.yres *2;
 	
 	/* set color */
+    /*
 	memset(sc8800fb->fb->screen_base, 0x55, size);
 	memset(sc8800fb->fb->screen_base+size, 0x55, size);
+    */
+    if (1) {
+            unsigned short *ptr = (unsigned short *)sc8800fb->fb->screen_base;
+            int len = size/2 /3 ; /* 1/3 frame pixels */
+            int offset;
+
+            for(offset=0;offset< len;offset++)
+                    (* (volatile unsigned short int *)(ptr++))= 0xf800; 
+            for(offset=0;offset< len;offset++)
+                    (* (volatile unsigned short int *)(ptr++))= 0x07e0; 
+            for(offset=0;offset< len;offset++)
+                    (* (volatile unsigned short int *)(ptr++))= 0x001f; 
+            /* now, the second frame */
+            for(offset=0;offset< len;offset++)
+                    (* (volatile unsigned short int *)(ptr++))= 0xf800; 
+            for(offset=0;offset< len;offset++)
+                    (* (volatile unsigned short int *)(ptr++))= 0x07e0; 
+            for(offset=0;offset< len;offset++)
+                    (* (volatile unsigned short int *)(ptr++))= 0x001f; 
+    }
+
+    /* 16-bit write */
+    if (0) {
+            unsigned short *ptr = (unsigned short *)sc8800fb->fb->screen_base;
+            int len = size/2 /3 ; /* 1/3 frame pixels */
+            int offset;
+            unsigned short color = 0;
+
+            for(offset=0;offset< len;offset++) {
+                    (* (volatile unsigned short int *)(ptr++))= color; 
+                    color = ~color;
+            }
+            for(offset=0;offset< len;offset++) {
+                    (* (volatile unsigned short int *)(ptr++))= color; 
+                    if((offset & 0x1) == 0)
+                            color = ~color;
+            }
+            for(offset=0;offset< len;offset++)
+                    (* (volatile unsigned short int *)(ptr++))= 0x001f; 
+            /* now, the second frame */
+            for(offset=0;offset< len;offset++) {
+                    (* (volatile unsigned short int *)(ptr++))= color; 
+                    color = ~color;
+            }
+            for(offset=0;offset< len;offset++) {
+                    (* (volatile unsigned short int *)(ptr++))= color; 
+                    if((offset & 0x1) == 0)
+                            color = ~color;
+            }
+            for(offset=0;offset< len;offset++)
+                    (* (volatile unsigned short int *)(ptr++))= 0x001f; 
+    }
 
 	/* pan display */
 	test_info = *sc8800fb->fb;
