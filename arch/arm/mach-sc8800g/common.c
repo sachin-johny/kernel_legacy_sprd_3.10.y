@@ -93,48 +93,41 @@ static struct platform_device sprd_fb_device = {
 	.id	= -1,
 };
 
-#if defined(CONFIG_KEYBOARD_SPRD) || defined(CONFIG_KEYBOARD_SPRD_MODULE)
 static const unsigned int sprd_keymap[] = {
-        // 0 col
+        // 0 row
 	KEYVAL(0, 0, KEY_BACK),
-        KEYVAL(0, 1, KEY_UP),
-        KEYVAL(0, 2, KEY_CAMERA),
-        KEYVAL(0, 3, KEY_7),
-        KEYVAL(0, 4, KEY_VOLUMEDOWN),
-        KEYVAL(0, 5, KEY_PAUSECD),
-        // 1 col
-        KEYVAL(1, 0, KEY_RIGHT),
-        //KEYVAL(1, 1, KEY_OK),
-	KEYVAL(1, 1, KEY_ENTER),
-        KEYVAL(1, 2, KEY_LEFT),
-        //KEYVAL(1, 3, KEY_HELP), //KEY_HELP is not known
-	KEYVAL(1, 3, KEY_ENTER),
-        KEYVAL(1, 4, KEY_VOLUMEUP),
-        KEYVAL(1, 5, KEY_BACK),
-        // 2 col
+        KEYVAL(0, 1, KEY_RIGHT),
+        KEYVAL(0, 2, KEY_HELP),
+        KEYVAL(0, 3, KEY_SEND),
+        KEYVAL(0, 4, KEY_DOWN),
+        // 1 row
+        KEYVAL(1, 0, KEY_UP),
+	KEYVAL(1, 1, KEY_MENU),
+        KEYVAL(1, 2, KEY_3),
+	KEYVAL(1, 3, KEY_1),
+        KEYVAL(1, 4, KEY_2),
+       // 2 row
         KEYVAL(2, 0, KEY_HELP), //KEY_HELP is not known
-        KEYVAL(2, 1, KEY_3),
+        KEYVAL(2, 1, KEY_LEFT),
         KEYVAL(2, 2, KEY_6),
-        KEYVAL(2, 3, KEY_9),
-        KEYVAL(2, 4, KEY_KPDOT), // is #
-        KEYVAL(2, 5, KEY_FORWARD),
-        // 3 col
-        KEYVAL(3, 0, KEY_SEND),
-        KEYVAL(3, 1, KEY_1),
-        KEYVAL(3, 2, KEY_4),
-        //KEYVAL(3, 3, KEY_1),
-        KEYVAL(3, 4, KEY_KPASTERISK), //is *
-        KEYVAL(3, 5, KEY_MENU),
-        // 4 col
-        KEYVAL(4, 0, KEY_DOWN),
-        KEYVAL(4, 1, KEY_2),
-        KEYVAL(4, 2, KEY_5),
-        KEYVAL(4, 3, KEY_8),
+        KEYVAL(2, 3, KEY_4),
+        KEYVAL(2, 4, KEY_5),
+       // 3 row
+        KEYVAL(3, 0, KEY_VOLUMEUP),
+        KEYVAL(3, 1, KEY_ENTER),
+        KEYVAL(3, 2, KEY_9),
+        KEYVAL(3, 3, KEY_7),
+        KEYVAL(3, 4, KEY_8),
+	// 4 row
+        KEYVAL(4, 0, KEY_VOLUMEDOWN),
+        KEYVAL(4, 1, KEY_HELP), //KEY_POWER instead of KEY_HELP
+        KEYVAL(4, 2, KEY_KPDOT), // is #
+        KEYVAL(4, 3, KEY_KPASTERISK), //is *
         KEYVAL(4, 4, KEY_0),
 };
 
 static struct sprd_kpad_platform_data sprd_kpad_data = {
-        .rows                   = 6,
+        .rows                   = 5,
         .cols                   = 5,
         .keymap                 = sprd_keymap,
         .keymapsize             = ARRAY_SIZE(sprd_keymap),
@@ -162,7 +155,6 @@ static struct platform_device sprd_kpad_device = {
                 .platform_data = &sprd_kpad_data,
         },
 };
-#endif
 
 static struct resource sprd_battery_resources[] = {
         [0] = {
@@ -238,7 +230,7 @@ static struct platform_device sprd_serial_device = {
 };
 
 static struct platform_device *devices[] __initdata = {
-	//&sprd_kpad_device,
+	&sprd_kpad_device,
 	&sprd_nand_device,
 	&sprd_i2c_device,
 	&sprd_fb_device,

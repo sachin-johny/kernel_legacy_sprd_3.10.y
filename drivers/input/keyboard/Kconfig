@@ -134,7 +134,7 @@ config KEYBOARD_QT2160
 	  This driver can also be built as a module. If so, the module
 	  will be called qt2160.
 
-config KEYBOARD_SPRD
+config KEYBOARD_SC8800S
         tristate "Spreadtrum keypad support"
         depends on ARCH_SC8800S
         help
@@ -143,6 +143,14 @@ config KEYBOARD_SPRD
           To compile this driver as a module, choose M here: the
           module will be called sprd-keys.
 
+config KEYBOARD_SC8800G
+        tristate "Spreadtrum keypad support"
+        depends on ARCH_SC8800G
+        help
+          Say Y here if you want to use the sprd keypad.
+
+          To compile this driver as a module, choose M here: the
+          module will be called sprd-keys.
 
 config KEYBOARD_BFIN
 	tristate "Blackfin BF54x keypad support"

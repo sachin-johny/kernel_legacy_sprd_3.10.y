@@ -39,17 +39,23 @@
 #define CPC_SD1_D2_REG           		(PIN_CTL_BASE + 0x0040)
 #define CPC_SD1_D3_REG           		(PIN_CTL_BASE + 0x0044)
 
-#define CPC_KEYOUT0_REG           		(PIN_CTL_BASE + 0x0048)
-#define CPC_KEYOUT1_REG           		(PIN_CTL_BASE + 0x004C)
-#define CPC_KEYOUT2_REG           		(PIN_CTL_BASE + 0x0050)
-#define CPC_KEYOUT3_REG                 	(PIN_CTL_BASE + 0x0054)
-#define CPC_KEYOUT4_REG                 	(PIN_CTL_BASE + 0x0058)
-#define CPC_KEYOUT5_REG            		(PIN_CTL_BASE + 0x005C)
-#define CPC_KEYIN0_REG           		(PIN_CTL_BASE + 0x0060)
-#define CPC_KEYIN1_REG           		(PIN_CTL_BASE + 0x0064)
-#define CPC_KEYIN2_REG           		(PIN_CTL_BASE + 0x0068)
-#define CPC_KEYIN3_REG           		(PIN_CTL_BASE + 0x006C)
-#define CPC_KEYIN4_REG                  	(PIN_CTL_BASE + 0x0070)
+#define CPC_KEYOUT0_REG           		(PIN_CTL_BASE + 0x00C0)
+#define CPC_KEYOUT1_REG           		(PIN_CTL_BASE + 0x00C4)
+#define CPC_KEYOUT2_REG           		(PIN_CTL_BASE + 0x00C8)
+#define CPC_KEYOUT3_REG                 	(PIN_CTL_BASE + 0x00CC)
+#define CPC_KEYOUT4_REG                 	(PIN_CTL_BASE + 0x00D0)
+#define CPC_KEYOUT5_REG            		(PIN_CTL_BASE + 0x00D4)
+#define CPC_KEYOUT6_REG           		(PIN_CTL_BASE + 0x00D8)
+#define CPC_KEYOUT7_REG           		(PIN_CTL_BASE + 0x00DC)
+
+#define CPC_KEYIN0_REG           		(PIN_CTL_BASE + 0x00E0)
+#define CPC_KEYIN1_REG           		(PIN_CTL_BASE + 0x00E4)
+#define CPC_KEYIN2_REG           		(PIN_CTL_BASE + 0x00E8)
+#define CPC_KEYIN3_REG           		(PIN_CTL_BASE + 0x00EC)
+#define CPC_KEYIN4_REG                  	(PIN_CTL_BASE + 0x00F0)
+#define CPC_KEYIN5_REG           		(PIN_CTL_BASE + 0x00F4)
+#define CPC_KEYIN6_REG           		(PIN_CTL_BASE + 0x00F8)
+#define CPC_KEYIN7_REG           		(PIN_CTL_BASE + 0x00FC)
 
 #define CPC_XTLEN_REG           		(PIN_CTL_BASE + 0x0074)
 
@@ -250,9 +256,6 @@
 #define CPC_CCIR_SEL_REG            	(PIN_CTL_BASE + 0x0320)
 
 #define CPC_SD_SEL_REG            		(PIN_CTL_BASE + 0x0324)
-
-#define CPC_KEYOUT6_REG            		(PIN_CTL_BASE + 0x0328)
-#define CPC_KEYOUT7_REG            		(PIN_CTL_BASE + 0x032C)
 
 //#define CPC_RSV_REG            		(PIN_CTL_BASE + 0x0330)
 //#define CPC_RSV_REG            		(PIN_CTL_BASE + 0x0334)

@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-sc8800s/include/mach/regs_kpd.h
+ * arch/arm/mach-sc8800g/include/mach/regs_kpd.h
  *
  * Chip keypad controller registers Definitions
  *
@@ -13,35 +13,42 @@
  *  published by the Free Software Foundation.
  */
 
-#ifndef _SC8800H_REG_KPD_H_
-#define _SC8800H_REG_KPD_H_
+#ifndef _SC8800S_REG_KPD_H_
+#define _SC8800S_REG_KPD_H_
 
 #include <mach/hardware.h>
 #include <mach/bits.h>
 
 #define KPD_REG_BASE                    SPRD_KPD_BASE
 
-#define KPD_STS                         (KPD_REG_BASE + 0x0000)
-#define KPD_CTL                         (KPD_REG_BASE + 0x0004)
-#define KPD_ICLR                        (KPD_REG_BASE + 0x0008)
-#define KPD_POLARITY                    (KPD_REG_BASE + 0x000C)
+#define KPD_CTRL                        (KPD_REG_BASE + 0x0000)
+#define KPD_INT_EN                      (KPD_REG_BASE + 0x0004)
+#define KPD_INT_RAW_STATUS              (KPD_REG_BASE + 0x0008)
+#define KPD_INT_MASK_STATUS             (KPD_REG_BASE + 0x000C)
 
-#define KPD_CLKDIV                      (KPD_REG_BASE + 0x0010)
-#define KPD_TOUTCNT                     (KPD_REG_BASE + 0x0014)
-#define KPD_INT_MSK                     (KPD_REG_BASE + 0x0018)
-#define KPD_PBINT_CTL                   (KPD_REG_BASE + 0x0028)
-#define KPD_PBINT_CNT                   (KPD_REG_BASE + 0x002C)
-#define KPD_PBINT_LATCNT                (KPD_REG_BASE + 0x0030)
+#define KPD_INT_CLR                     (KPD_REG_BASE + 0x0010)
+#define KPD_POLARITY                    (KPD_REG_BASE + 0x0018)
+#define KPD_DEBOUNCE_CNT                (KPD_REG_BASE + 0x001C)
+#define KPD_LONG_KEY_CNT                (KPD_REG_BASE + 0x0020)
 
-#define REG_KPD_STS                     (*((volatile unsigned int *)(KPD_STS)))
-#define REG_KPD_CTL                     (*((volatile unsigned int *)(KPD_CTL)))
-#define REG_KPD_ICLR                    (*((volatile unsigned int *)(KPD_ICLR)))
-#define REG_KPD_POLARITY                (*((volatile unsigned int *)(KPD_POLARITY)))
-#define REG_KPD_CLKDIV                  (*((volatile unsigned int *)(KPD_CLKDIV)))
-#define REG_KPD_TOUTCNT                 (*((volatile unsigned int *)(KPD_TOUTCNT)))
-#define REG_KPD_INT_MSK                 (*((volatile unsigned int *)(KPD_INT_MSK)))
-#define REG_KPD_PBINT_CTL               (*((volatile unsigned int *)(KPD_PBINT_CTL)))
-#define REG_KPD_PBINT_CNT               (*((volatile unsigned int *)(KPD_PBINT_CNT)))
-#define REG_KPD_PBINT_LATCNT            (*((volatile unsigned int *)(KPD_PBINT_LATCNT)))
+#define KPD_SLEEP_CNT                   (KPD_REG_BASE + 0x0024)
+#define KPD_CLK_DIV_CNT                 (KPD_REG_BASE + 0x0028)
+#define KPD_KEY_STATUS                	(KPD_REG_BASE + 0x002C)
+#define KPD_SLEEP_STATUS                (KPD_REG_BASE + 0x0030)
+
+#define REG_KPD_CTRL                    (*((volatile unsigned int *)(KPD_CTRL)))
+#define REG_KPD_INT_EN                  (*((volatile unsigned int *)(KPD_INT_EN)))
+#define REG_KPD_INT_RAW_STATUS          (*((volatile unsigned int *)(KPD_INT_RAW_STATUS)))
+#define REG_KPD_INT_MASK_STATUS         (*((volatile unsigned int *)(KPD_INT_MASK_STATUS)))
+
+#define REG_KPD_INT_CLR         	(*((volatile unsigned int *)(KPD_INT_CLR)))
+#define REG_KPD_POLARITY         	(*((volatile unsigned int *)(KPD_POLARITY)))
+#define REG_KPD_DEBOUNCE_CNT         	(*((volatile unsigned int *)(KPD_DEBOUNCE_CNT)))
+#define REG_KPD_LONG_KEY_CNT         	(*((volatile unsigned int *)(KPD_LONG_KEY_CNT)))
+
+#define REG_KPD_SLEEP_CNT         	(*((volatile unsigned int *)(KPD_SLEEP_CNT)))
+#define REG_KPD_CLK_DIV_CNT         	(*((volatile unsigned int *)(KPD_CLK_DIV_CNT)))
+#define REG_KPD_KEY_STATUS         	(*((volatile unsigned int *)(KPD_KEY_STATUS)))
+#define REG_KPD_SLEEP_STATUS         	(*((volatile unsigned int *)(KPD_SLEEP_STATUS)))
 
 #endif

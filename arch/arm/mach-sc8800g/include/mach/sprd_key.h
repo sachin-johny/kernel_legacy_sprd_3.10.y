@@ -12,6 +12,6 @@ struct sprd_kpad_platform_data {
         u32 keyup_test_interval; /* in ms */
 };
 
-#define KEYVAL(col, row, val) (((col) << 24) | ((row) << 16) | (val))
+#define KEYVAL(row, col, val) (((row) << 24) | ((col) << 16) | (val))
 
 #endif
