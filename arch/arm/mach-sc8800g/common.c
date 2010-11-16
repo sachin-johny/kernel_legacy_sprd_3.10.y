@@ -102,7 +102,7 @@ static const unsigned int sprd_keymap[] = {
         KEYVAL(0, 4, KEY_DOWN),
         // 1 row
         KEYVAL(1, 0, KEY_UP),
-	KEYVAL(1, 1, KEY_MENU),
+	KEYVAL(1, 1, KEY_ENTER),
         KEYVAL(1, 2, KEY_3),
 	KEYVAL(1, 3, KEY_1),
         KEYVAL(1, 4, KEY_2),
@@ -114,7 +114,7 @@ static const unsigned int sprd_keymap[] = {
         KEYVAL(2, 4, KEY_5),
        // 3 row
         KEYVAL(3, 0, KEY_VOLUMEUP),
-        KEYVAL(3, 1, KEY_ENTER),
+        KEYVAL(3, 1, KEY_MENU),
         KEYVAL(3, 2, KEY_9),
         KEYVAL(3, 3, KEY_7),
         KEYVAL(3, 4, KEY_8),

@@ -1,5 +1,5 @@
 /*
- * File:         drivers/input/keyboard/sc8800s-keys.c
+ * File:         drivers/input/keyboard/sc8800g-keys.c
  * Based on:
  * Author:       Richard Feng <Richard Feng@spreadtrum.com>
  *
@@ -23,10 +23,7 @@
  */
 
 #include <linux/module.h>
-
 #include <linux/init.h>
-
-
 #include <linux/fs.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -74,22 +71,6 @@
 #define REG_CPC_KEYIN6          (*((volatile unsigned int *)CPC_KEYIN6_REG))
 #define REG_CPC_KEYIN7          (*((volatile unsigned int *)CPC_KEYIN7_REG))
 
-/* the corresponding bit of KPD_STS register */
-#define KPDSTS_KPD          	(1 << 0)    //Keypad interrupt
-#define KPDSTS_TOUT         	(1 << 1)    //time out interrupt
-#define KPDSTS_ROW_COUNT    	(7 << 2)    //row counter
-#define KPDSTS_COL_COUNT    	(7 << 5)    //column counter
-
-#define KPDICLR_KPD_INT     	(1 << 0)
-#define KPDICLR_PB_INT	     	(3 << 0)
-#define KPDICLR_TOUT_INT    	(1 << 1)
-
-//The corresponding bit of KPD_CTL register.
-#define KPDCTL_KPD_INT      	(0x1 << 0)  //Keypad interrupt enable
-#define KPDCTL_TOUT_INT     	(0x1 << 1)  //Time out interrupt enable
-#define KPDCTL_KPD          	(0x1 << 2)  //Keypad enable
-#define KPDCTL_READ_ICLR    	(0x1 << 3)  //Write 1 to it, INT will be cleared
-
 #define KPD_ROW_MIN_NUM         4  /* when config keypad type, the value of */
 #define KPD_COL_MIN_NUM         3  /* when config keypad type, the value of */
 
@@ -103,18 +84,12 @@
 #define TB_KPD_PRESSED          (TB_KPD_CONST_BASE + 1)
 #define TB_KPD_INVALID_KEY      (0x0FFFF)
 
-#define CHECK_TIMER_EXPIRE      100//20 // ms
-#define PB_TIMER_EXPIRE		20 // ms
-#define PB_TIMER_COUNTER	10  /// ms
-/* 1.2ms * (11 + 1) = 15ms  delete shrinking time is 15ms */
-#define AVOID_QUIVER_MIN_COUNT  5
+#define CHECK_TIMER_EXPIRE      20 //ms
+#define AVOID_QUIVER_MIN_COUNT  2
 
 /* check if this key is the same as the previous one */
 #define IS_KEY_VALID(_key)      ((_key == key_ptr->key_code) ? 1 : 0)
-
 #define SCAN2KEYVAl(codeval) ((((codeval) & 0x70) << 4) | ((codeval) & 0x7))
-
-/////////////////////////////////////////////////////////
 //The corresponding bit of KPD_STS register.
 #define KPD_INT_ALL                     (0xfff)
 
@@ -148,25 +123,12 @@
 #define KPDPOLARITY_ROW                 (0x00FF)    // Internal row output xor with this 
 // value to generate row output.
 #define KPDPOLARITY_COL                 (0xFF00)    // Column input xor with this value to
-//The corresponding bit of KPD_CLK0.
 #define KPDCLK0_CLK_DIV0                0xFFFF      //Clock dividor [15:0]
 #define KPDCLK1_TIME_CNT                0xFFB0      //Time out counter value
 
-/**---------------------------------------------------------------------------*
-**                               Macro Define for kpd                        **
-**---------------------------------------------------------------------------*/
-#define KPD_ROW_NUM                     8               // KPD_ROW_MIN_NUM <= value <= KPD_ROW_MAX_NUM   changed by yong.zou
-#define KPD_COL_NUM                     8           // KPD_COL_MIN_NUM <= value <= KPD_COL_MAX_NUM   changed by yong.zou    
-
 #define CFG_ROW_POLARITY    (0x00FF & KPDPOLARITY_ROW)
 #define CFG_COL_POLARITY    (0xFF00 & KPDPOLARITY_COL)
-
 #define CFG_CLK_DIV         1
-
-#define KPD_NUM  (0x31 << 16)
-
-
-//////////////////////////////////////////////////////////
 
 static void set_gpio_as_keypad(int row, int col)
 {
@@ -312,8 +274,8 @@ void change_state(kpd_key_t *key_ptr)
 		key = sprd_kpad_find_key(sprd_kpad, sprd_kpad->input, rowcol);
         	input_report_key(sprd_kpad->input, key, 1);
         	input_sync(sprd_kpad->input);
-		printk("rowcol = 0x%08x  key = %d  DOWN\n", rowcol, key);
-		
+		//printk("rowcol = 0x%08x  key = %d  DOWN\n", rowcol, key);
+		printk("%d D\n", key);
 	} else {
         	/* Change state from TB_KPD_PRESSED to TB_KPD_RELEASED */
 		rowcol = SCAN2KEYVAl(key_ptr->key_code);
@@ -321,7 +283,8 @@ void change_state(kpd_key_t *key_ptr)
         	input_report_key(sprd_kpad->input, key, 0);
         	input_sync(sprd_kpad->input);	
         	clear_key(key_ptr); 
-		printk("rowcol = 0x%08x  key = %d  UP\n", rowcol, key);
+		//printk("rowcol = 0x%08x  key = %d  UP\n", rowcol, key);
+		printk("%d U\n", key);
     	}
 }
 
@@ -370,7 +333,6 @@ unsigned long handle_key(unsigned short key_code, kpd_key_t *key_ptr)
         	/* Check if this key is the same as the old key, if same, handle it, else then only skip this key */
         	if (IS_KEY_VALID(key_code)) {
             		/* Add count of INT */
-			//printk("%s  %s  %d  count = %d\n", __FILE__, __FUNCTION__, __LINE__, key_ptr->count);
             		key_ptr->count ++;
         	} else {
            		/* Not same */
@@ -389,7 +351,6 @@ unsigned long handle_key(unsigned short key_code, kpd_key_t *key_ptr)
 static void sprd_kpad_timer(unsigned long data)
 {
 	kpd_key_t *key_ptr = (kpd_key_t *)data;
-	//printk("%s  %s  %d  count = %d\n", __FILE__, __FUNCTION__, __LINE__, key_ptr->count);
 	/* Check if the key is released, if the state is TB_KPD_PRESSED and count is 0, it means the key is released */
     	if (key_ptr->state == TB_KPD_PRESSED) {
         	if (key_ptr->count == 0) {
@@ -399,36 +360,10 @@ static void sprd_kpad_timer(unsigned long data)
 			mod_timer(&s_kpd_timer[key_ptr->timer_id], jiffies + CHECK_TIMER_EXPIRE);
 		}
     	}
-	//printk("%s  %s  %d  count = %d\n", __FILE__, __FUNCTION__, __LINE__, key_ptr->count);
-}
-
-static int kpd_getpbstate (void)
-{
-	///fcjaddreturn ((REG_KPD_INT_MSK & BIT_3) >> 3);
-	return 0;//fcjadd
-}
-
-static int check4keycross(void)
-{
-    unsigned long s_reg_status;
-
-    s_reg_status = REG_KPD_KEY_STATUS;
-
-    if (s_reg_status & BIT_3)
-    {
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
 }
 
 static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 {
-        //struct platform_device *pdev = dev_id;
-        //struct sprd_kpad_t *sprd_kpad = platform_get_drvdata(pdev);
-        //struct input_dev *input = sprd_kpad->input;
         int i;
 	unsigned short  key_code = 0;
 	kpd_key_t *key_ptr = NULL;
@@ -438,87 +373,9 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 
 	REG_KPD_INT_CLR |= KPD_INT_ALL;
     	
-	//printk("\ns_int_status = 0x%08x   s_key_status = 0x%08x\n", s_int_status, s_key_status);
-
-#if 0 
-   	//release int:
-    	if (s_reg_status & KPD_RELEASE_INT0)
-    	{
-        	//IsrWriteBuffer (KPD_RELEASE1_INT);
-		//printk("\nwrite released 1\n");
-    	}
-
-    	if (s_reg_status & KPD_RELEASE_INT1)
-    	{
-        	//IsrWriteBuffer (KPD_RELEASE2_INT);
-		//printk("\nwrite released 2\n");
-    	}
-
-    	if (s_reg_status & KPD_RELEASE_INT2)
-    	{
-        	//IsrWriteBuffer (KPD_RELEASE3_INT);
-		//printk("\nwrite released 3\n");
-    	}
-
-#if (MAX_MUL_KEY_NUM == 4)
-
-    	if (s_reg_status & KPD_RELEASE_INT3)
-    	{
-        	//IsrWriteBuffer (KPD_RELEASE4_INT);
-		//printk("\nwrite released 4\n");
-    	}
-
-#endif
-
-    	//press int
-    	if (s_reg_status & KPD_PRESS_INT0)
-    	{
-        	if (!check4keycross())
-       		{
-            		//IsrWriteBuffer (KPD_PRESS1_INT);
-			//printk("\nwrite pressed 1\n");
-        	}
-    	}
-
-    	if (s_reg_status & KPD_PRESS_INT1)
-    	{
-        	if (!check4keycross())
-        	{
-            		//IsrWriteBuffer (KPD_PRESS2_INT);
-			//printk("\nwrite pressed 2\n");
-        	}
-    	}
-
-    	if (s_reg_status & KPD_PRESS_INT2)
-    	{
-        	if (!check4keycross())
-        	{
-            		//IsrWriteBuffer (KPD_PRESS3_INT);
-			//printk("\nwrite pressed 3\n");col
-        	}
-    	}
-
-#if (MAX_MUL_KEY_NUM == 4)
-
-    	if (s_reg_status & KPD_PRESS_INT3)
-    	{
-        	if (!check4keycross())
-        	{
-            		//IsrWriteBuffer (KPD_PRESS4_INT);
-			//printk("\nwrite pressed 4\n");
-        	}
-    	}
-
-#endif
-
-#endif
-	//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
 	/* check the type of INT */    
     	if ((s_int_status & KPD_PRESS_INT0) || (s_int_status & KPD_LONG_KEY_INT0)) {
-        	/* Keypad normal INT */
-        	/* get current key code */
-        	key_code = (s_key_status  & (0x70 | 0x7));
-		//printk("key_code1 = 0x%08x\n", key_code);
+        	key_code = (s_key_status  & (KPD1_ROW_CNT | KPD1_COL_CNT));
 		/* if key_code is stored, don't seat the code again */
 	    	for (i = 0; i< MAX_MUL_KEY_NUM; i++) {
     	        	key_ptr = &s_key[i];
@@ -528,7 +385,6 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 	    			break;
     			}
     		}
-	    	
 	   	if (!found) {
 			/* the key_code is fresh, try to find a seat other than exceed the seat limit */	        	   	
 			for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
@@ -539,10 +395,7 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 			}
 		}
 	} else if ((s_int_status & KPD_PRESS_INT1) || (s_int_status & KPD_LONG_KEY_INT1)) {
-        	/* Keypad normal INT */
-        	/* get current key code */
-        	key_code = (s_key_status  & (0x7000 | 0x700)) >> 8;
-		//printk("key_code2 = 0x%08x\n", key_code);
+        	key_code = (s_key_status  & (KPD2_ROW_CNT | KPD2_COL_CNT)) >> 8;
 		/* if key_code is stored, don't seat the code again */
 	    	for (i = 0; i< MAX_MUL_KEY_NUM; i++) {
     	        	key_ptr = &s_key[i];
@@ -552,7 +405,6 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 	    			break;
     			}
     		}
-	    	
 	   	if (!found) {
 			/* the key_code is fresh, try to find a seat other than exceed the seat limit */	        	   	
 			for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
@@ -562,27 +414,38 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 					break;
 			}
 		}
+	} else if ((s_int_status & KPD_PRESS_INT2) || (s_int_status & KPD_LONG_KEY_INT2)) {
+	       	key_code = (s_key_status  & (KPD3_ROW_CNT | KPD3_COL_CNT)) >> 16;
+		/* if key_code is stored, don't seat the code again */
+	    	for (i = 0; i< MAX_MUL_KEY_NUM; i++) {
+    	        	key_ptr = &s_key[i];
+    			if (key_ptr->key_code == key_code) {
+	    			handle_key(key_code, key_ptr);	    	
+	    			found = 1;
+	    			break;
+    			}
+    		}
+	   	if (!found) {
+			/* the key_code is fresh, try to find a seat other than exceed the seat limit */	        	   	
+			for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
+				key_ptr = &s_key[i];
+				status = handle_key(key_code, key_ptr);
+				if (status == 0)
+					break;
+			}
+		}
+	} else if (s_int_status & KPD_RELEASE_INT0) {
+		if (TB_KPD_RELEASED == s_key[0].state)
+			clear_key(&s_key[0]);
+	} else if (s_int_status & KPD_RELEASE_INT1) {
+		if (TB_KPD_RELEASED == s_key[1].state)
+			clear_key(&s_key[1]);
+	} else if (s_int_status & KPD_RELEASE_INT2) {
+		if (TB_KPD_RELEASED == s_key[2].state)
+			clear_key(&s_key[2]);
 	}
 
         return IRQ_HANDLED;
-}
-
-
-void printk_pinconf(void)
-{
-	printk("REG_CPC_KEYOUT0 = 0x%08x\n", REG_CPC_KEYOUT0);
-	printk("REG_CPC_KEYOUT1 = 0x%08x\n", REG_CPC_KEYOUT1);
-	printk("REG_CPC_KEYOUT2 = 0x%08x\n", REG_CPC_KEYOUT2);
-	printk("REG_CPC_KEYOUT3 = 0x%08x\n", REG_CPC_KEYOUT3);
-	printk("REG_CPC_KEYOUT4 = 0x%08x\n", REG_CPC_KEYOUT4);
-	printk("REG_CPC_KEYOUT5 = 0x%08x\n", REG_CPC_KEYOUT5);
-	printk("REG_CPC_KEYOUT6 = 0x%08x\n", REG_CPC_KEYOUT6);
-	printk("REG_CPC_KEYOUT7 = 0x%08x\n", REG_CPC_KEYOUT7);
-	printk("\nREG_CPC_KEYIN0 = 0x%08x\n", REG_CPC_KEYIN0);
-	printk("REG_CPC_KEYIN1 = 0x%08x\n", REG_CPC_KEYIN1);
-	printk("REG_CPC_KEYIN2 = 0x%08x\n", REG_CPC_KEYIN2);
-	printk("REG_CPC_KEYIN3 = 0x%08x\n", REG_CPC_KEYIN3);	
-	printk("REG_CPC_KEYIN4 = 0x%08x\n", REG_CPC_KEYIN4);
 }
 
 static int __devinit sprd_kpad_probe(struct platform_device *pdev)
@@ -634,10 +497,10 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         REG_KPD_INT_CLR = KPD_INT_ALL;
         REG_KPD_POLARITY = CFG_ROW_POLARITY | CFG_COL_POLARITY;
         REG_KPD_CLK_DIV_CNT = CFG_CLK_DIV & KPDCLK0_CLK_DIV0;
-	REG_KPD_LONG_KEY_CNT = 0x100;
+	REG_KPD_LONG_KEY_CNT = 0x1f;// < 20ms
+	REG_KPD_DEBOUNCE_CNT = 0x40;//hard debounce time are 99 ms
 
 	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20) | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) << 16)) & (KPDCTL_ROW | KPDCTL_COL));
-        //REG_KPD_CTRL = (1 << 0) | key_type;
 	REG_KPD_CTRL = 0x7 | key_type;
 
         error = request_irq(sprd_kpad->irq, sprd_kpad_isr, 0, DRV_NAME, pdev);
