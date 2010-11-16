@@ -4,7 +4,7 @@
  *  Spreadtrum SoC multi-function pin configuration support
  *
  *  The GPIOs on SoC can be configured as one of many alternate
- *  functions, 
+ *  functions,
  *
  *  Author:	Yingchun Li(yingchun.li@spreadtrum.com)
  *  Created:	March 10, 2010
@@ -22,19 +22,21 @@
 #include <mach/regs_cpc.h>
 
 /*
-NOTE: pin to gpio's map, you should check it from your chip's spec 
+NOTE: pin to gpio's map, you should check it from your chip's spec
 	carefully.
-	in the map table, pin as the index, for mostly we use 
+	in the map table, pin as the index, for mostly we use
 	MFP_PIN_TO_GPIO to get the gpio from the pin
 */
 const static unsigned long pin_gpio_map[MFP_PIN_MAX] = {
-	[MFP_PIN_SD1_CLK] = 9,
-	[MFP_PIN_LCD_EN] = 103,
 	[MFP_PIN_MAX - 1] = 0xffff
 };
 
+/*
+	we cann't find a easy way to map pin to gpio, so drop it.
+*/
 unsigned long mfp_to_gpio(int pin)
 {
+	BUG_ON(1);
 	return pin_gpio_map[pin];
 }
 
@@ -50,37 +52,74 @@ static  int __mfp_validate(unsigned long c)
 	return pin;
 }
 
+static unsigned long __mfp_get_pin_reg(int pin)
+{
+	unsigned long offset = 0;
+	if (pin < MFP_ANA_PIN_START) {
+		offset = pin * 4;
+		return (unsigned long)PIN_CTL_BASE + offset;
+	}
+	else {
+		offset = (pin - MFP_ANA_PIN_START) * 4;
+		return (unsigned long)ANA_PIN_CTL_BASE + offset;
+	}
+}
+
+#ifdef DEBUG
+static unsigned long __mfp_get_physical(int pin)
+{
+	unsigned long offset = 0;
+
+	if (pin < MFP_ANA_PIN_START) {
+		offset = pin * 4;
+		return (unsigned long)SPRD_CPC_PHYS + 0x8c + offset;
+	}
+	else {
+		offset = (pin - MFP_ANA_PIN_START) * 4;
+		return (unsigned long)(SPRD_MISC_PHYS + 0x180 + 0x8c + offset);
+	}
+}
+#endif
+
 static int __mfp_config_pin(int pin, unsigned long c)
 {
-	//get chip pin select register base 
+	//get chip pin select register base
 	unsigned long flags;
-	unsigned long pin_reg = (unsigned long )PIN_CTL_BASE + (pin * 4);
+	unsigned long pin_reg = __mfp_get_pin_reg(pin);
 	unsigned long pin_cfg;
 
-	//pr_info("register is :0x%x, old config is %x", (int)pin_reg, (int)pin_cfg);
-	
+/*
+	pr_info("register is :0x%x, old config is %x\r\n",
+		__mfp_get_physical(pin),
+		__raw_readl(pin_reg));
+*/
 	local_irq_save(flags);
 	pin_cfg =__raw_readl(pin_reg);
 	if (c & MFP_IO_SET) {
-		pin_cfg = (pin_cfg & ~MFP_IO_MASK) | (c & MFP_IO_MASK); 
+		pin_cfg = (pin_cfg & ~MFP_IO_MASK) | (c & MFP_IO_MASK);
 	}
 
-	if (c & MFP_PULL_SET) {
-		pin_cfg = (pin_cfg & ~MFP_PULL_MASK) | (c & MFP_PULL_MASK); 
-	}
-
-	if (c & MFP_DS_SET) {
-		pin_cfg = (pin_cfg & ~MFP_DS_MASK) | (c & MFP_DS_MASK); 
+	if (c & MFP_S_PULL_SET) {
+		pin_cfg = (pin_cfg & ~MFP_S_PULL_MASK) | (c & MFP_S_PULL_MASK);
 	}
 
 	if (c & MFP_AF_SET) {
-		pin_cfg = (pin_cfg & ~MFP_AF_MASK) | (c & MFP_AF_MASK); 
+		pin_cfg = (pin_cfg & ~MFP_AF_MASK) | (c & MFP_AF_MASK);
 	}
-	__raw_writel(pin_cfg, pin_reg);	
+
+	if (c & MFP_F_PULL_SET) {
+		pin_cfg = (pin_cfg & ~MFP_F_PULL_MASK) | (c & MFP_F_PULL_MASK);
+	}
+
+	if (c & MFP_DS_SET) {
+		pin_cfg = (pin_cfg & ~MFP_DS_MASK) | (c & MFP_DS_MASK);
+	}
+
+	__raw_writel(pin_cfg, pin_reg);
 	local_irq_restore(flags);
-	
-	//pr_info("new config is :%x", (int)pin_cfg);
-	
+
+	//pr_info("new config is :%x\r\n", (int)pin_cfg);
+
 	return 0;
 }
 

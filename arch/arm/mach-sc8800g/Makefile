@@ -1,5 +1,5 @@
 obj-y += io.o idle.o irq.o timer.o gpio.o\
-	mfp_sprd.o vibrator.o  \
+	mfp_sprd.o \
 	dma.o ldo.o adi_drv.o
 
 	#ts0710_mux.o mux_buffer.o \

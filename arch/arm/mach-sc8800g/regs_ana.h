@@ -23,7 +23,9 @@
 ///
 //Analog die register define
 ///
+#define 	SPRD_ANA_BASE 	(SPRD_MISC_BASE + 0x480)
 #define   ANA_REG_BASE         SPRD_ANA_BASE   //  0x82000480
+
 #define   ANA_AGEN              (ANA_REG_BASE + 0x00)
 #define   ANA_MODULE_ARM_RST    (ANA_REG_BASE + 0x04)
 #define   ANA_CLK_CTL           (ANA_REG_BASE + 0x08)

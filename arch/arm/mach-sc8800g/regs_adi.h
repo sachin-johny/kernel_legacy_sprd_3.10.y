@@ -19,6 +19,7 @@
 #include <mach/bits.h>
 #include <mach/regs_global.h>
 
+#define SPRD_ADI_BASE	SPRD_MISC_BASE
 #define  ADI_BASE            SPRD_ADI_BASE  //0x82000000
 
 #define  ADI_BASE_ADDR          ADI_BASE

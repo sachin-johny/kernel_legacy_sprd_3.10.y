@@ -197,20 +197,11 @@
 //#define SPRD_SERIAL3_PHYS        0x8F000000
 //#define SPRD_SERIAL3_SIZE        SZ_4K
 
-/* Aux analog-digital convertor controller */
-#define SPRD_ADC_BASE          0xE0033000
-#define SPRD_ADC_PHYS          0x82000300
-#define SPRD_ADC_SIZE          SZ_4K
+/* registers for watchdog ,RTC, touch panel, aux adc, analog die... */
+#define SPRD_MISC_BASE          0xE0033000
+#define SPRD_MISC_PHYS          0x82000000
+#define SPRD_MISC_SIZE          SZ_4K
 
-/* 8800h touch panel convertor controller */
-#define SPRD_TPC_BASE          0xE0034000
-#define SPRD_TPC_PHYS          0x82000280
-#define SPRD_TPC_SIZE          SZ_4K
-/* Analaog die and Digital die interface space */
-#define SPRD_ADI_BASE             0xE0035000
-#define SPRD_ADI_PHYS             0x82000000
-#define SPRD_ADI_SIZE             SZ_4K
-# define SPRD_ANA_BASE		  (SPRD_ADI_BASE + 0x480)
 
 /* USB device space */
 #define SPRD_USB_BASE            0xE0036000

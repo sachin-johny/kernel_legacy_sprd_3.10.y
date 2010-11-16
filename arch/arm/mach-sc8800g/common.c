@@ -267,28 +267,24 @@ struct platform_device sprd_sdio_device = {
 };
 
 static unsigned long sdio_func_cfg[] __initdata = {
-	MFP_CFG_X(SD0_CLK, AF0, DS3, PULL_UP, IO_OE),
-	MFP_CFG_X(SD0_CMD, AF0, DS3, PULL_UP, IO_Z),
-	MFP_CFG_X(SD0_D0, AF0, DS3, PULL_UP, IO_Z),
-	MFP_CFG_X(SD0_D1, AF0, DS3, PULL_UP, IO_Z),
-	MFP_CFG_X(SD0_D2, AF0, DS3, PULL_UP, IO_Z),
-	MFP_CFG_X(SD0_D3, AF0, DS3, PULL_UP, IO_Z),		
+	MFP_CFG_X(SD0_CLK, AF0, DS3, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(SD_CMD, AF0, DS3, F_PULL_UP,  S_PULL_NONE, IO_Z),
+	MFP_CFG_X(SD_D0, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(SD_D1, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(SD_D2, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(SD_D3, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
 };
 
 static void sprd_config_sdio_pins(void)
 {
-//	sprd_mfp_config(sdio_func_cfg, ARRAY_SIZE(sdio_func_cfg));
-	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xA8) = 0x38a;	//SD0 CLK output pullup drv3
-	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xAC) = 0x38a;	//SD0 CLK output pullup drv3
-	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xB0) = 0x38a;	//SD0 CLK output pullup drv3
-	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xB4) = 0x38a;	//SD0 CLK output pullup drv3
-	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xB8) = 0x38a;	//SD0 CLK output pullup drv3
-	*(volatile unsigned int*)(SPRD_CPC_BASE + 0xA4) = 0x38a;	//SD0 CLK output pullup drv3
+	sprd_mfp_config(sdio_func_cfg, ARRAY_SIZE(sdio_func_cfg));
 }
+
 void __init sprd_add_sdio_device(void)
 {
 	/* Enable SDIO Module */
 	__raw_bits_or(BIT_4, AHB_CTL0);
+	/* reset sdio module*/
 	__raw_bits_or(BIT_12, AHB_SOFT_RST);
 	__raw_bits_and(~BIT_12, AHB_SOFT_RST);
 
