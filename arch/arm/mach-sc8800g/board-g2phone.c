@@ -35,7 +35,7 @@
 #include <linux/mtd/partitions.h>
 #include <mach/gpio.h>
 #include <mach/adi_hal_internal.h>
-#include "regs_ana.h"
+#include <mach/regs_ana.h>
 
 static struct resource example_resources[] = {
 	[0] = {

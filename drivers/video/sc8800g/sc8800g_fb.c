@@ -32,6 +32,7 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/adi_hal_internal.h>
+#include <mach/regs_ana.h>
 #include "sc8800g_lcd.h"
 
 //#define  FB_DEBUG 
@@ -87,10 +88,9 @@
 #define LCM_CD1                  (SPRD_LCDC_BASE + 0x190)
 #define LCM_DATA1                (SPRD_LCDC_BASE + 0x194)
 
-#define ANA_AGEN	SPRD_ANA_BASE+0x00
 #define AGEN_PINREG_EN	(1<<3)
 
-#define WHTLED_CTL	SPRD_ANA_BASE +0x40
+#define WHTLED_CTL	 ANA_LED_CTL
 #define WHTLED_PD_SET  	(1<<0)
 #define WHTLED_PD_RST  	(1<<1)
 #define WHTLED_V_SHIFT  2

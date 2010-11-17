@@ -24,7 +24,7 @@
 #include <mach/regs_global.h>
 #include <mach/bits.h>
 #include <mach/ldo.h>
-#include "regs_ana.h"
+#include <mach/regs_ana.h>
 
 #define LDO_INVALID_REG	0xFFFFFFFF
 #define LDO_INVALID_BIT		0xFFFFFFFF
