@@ -42,6 +42,9 @@
 		} \
 	}while(0)
 	
+#define ADI_PHYS	SPRD_MISC_PHYS
+#define __adi_virt_to_phys(x) ((x) - SPRD_ADI_BASE + ADI_PHYS)
+
 /*****************************************************************************
  *  Description:    this function performs read operation to the analog die reg .   *
  *                      it will disable all interrupt and polling the ready bit,        *
@@ -63,6 +66,7 @@ unsigned short ADI_Analogdie_reg_read (unsigned int addr)
     SCI_ASSERT ( (addr>=ANA_REG_ADDR_START) && (addr<=ANA_REG_ADDR_END));
 
     //Set read command
+    addr = __adi_virt_to_phys(addr);
     CHIP_REG_SET (ADI_ARM_RD_CMD, addr);
 
     //wait read operation complete, RD_data[31] will be cleared after the read operation complete
@@ -73,7 +77,7 @@ unsigned short ADI_Analogdie_reg_read (unsigned int addr)
     while (adi_rd_data & BIT_31);
 	
     //rd_data high part should be the address of the last read operation
-    SCI_ASSERT ( (adi_rd_data & 0xFFFF0000) == ((addr -SPRD_ADI_BASE) <<16));
+    SCI_ASSERT ( (adi_rd_data & 0xFFFF0000) == ((addr) <<16));
 
     //read operation complete
     //SCI_RestoreFIQ();
