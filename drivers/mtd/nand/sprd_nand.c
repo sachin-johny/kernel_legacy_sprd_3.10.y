@@ -38,9 +38,8 @@
 #include <linux/mtd/partitions.h>
 #include <asm/io.h>
 #include <mach/regs_ahb.h>
-#include <mach/regs_nfc.h>
-#include <mach/regs_cpc.h>
-#include <mach/regs_global.h>
+#include <mach/mfp.h>
+#include "regs_nfc.h"
 
 #define NF_PARA_20M        	0x7ac05      //trwl = 0  trwh = 0
 #define NF_PARA_40M        	0x7ac15      //trwl = 1  trwh = 0
@@ -54,177 +53,46 @@
 #define PAGE_SIZE_L         2048
 #define SPARE_SIZE_L        64
 
-#define REG_CPC_NFWPN				(*((volatile unsigned int *)(CPC_NFWPN_REG)))
-#define REG_CPC_NFRB				(*((volatile unsigned int *)(CPC_NFRB_REG)))
-#define REG_CPC_NFCLE                           (*((volatile unsigned int *)(CPC_NFCLE_REG)))
-#define REG_CPC_NFALE				(*((volatile unsigned int *)(CPC_NFALE_REG)))
-#define REG_CPC_NFCEN                           (*((volatile unsigned int *)(CPC_NFCEN_REG)))
-#define REG_CPC_NFWEN                           (*((volatile unsigned int *)(CPC_NFWEN_REG)))
-#define REG_CPC_NFREN                           (*((volatile unsigned int *)(CPC_NFREN_REG)))
-#define REG_CPC_NFD0                            (*((volatile unsigned int *)(CPC_NFD0_REG)))
-#define REG_CPC_NFD1                            (*((volatile unsigned int *)(CPC_NFD1_REG)))
-#define REG_CPC_NFD2                            (*((volatile unsigned int *)(CPC_NFD2_REG)))
-#define REG_CPC_NFD3                            (*((volatile unsigned int *)(CPC_NFD3_REG)))
-#define REG_CPC_NFD4                            (*((volatile unsigned int *)(CPC_NFD4_REG)))
-#define REG_CPC_NFD5                            (*((volatile unsigned int *)(CPC_NFD5_REG)))
-#define REG_CPC_NFD6                            (*((volatile unsigned int *)(CPC_NFD6_REG)))
-#define REG_CPC_NFD7                            (*((volatile unsigned int *)(CPC_NFD7_REG)))
-#define REG_CPC_NFD8                            (*((volatile unsigned int *)(CPC_NFD8_REG)))
-
-#define REG_CPC_NFD9                            (*((volatile unsigned int *)(CPC_NFD9_REG)))
-#define REG_CPC_NFD10                           (*((volatile unsigned int *)(CPC_NFD10_REG)))
-#define REG_CPC_NFD11                           (*((volatile unsigned int *)(CPC_NFD11_REG)))
-#define REG_CPC_NFD12                           (*((volatile unsigned int *)(CPC_NFD12_REG)))
-#define REG_CPC_NFD13                           (*((volatile unsigned int *)(CPC_NFD13_REG)))
-#define REG_CPC_NFD14                           (*((volatile unsigned int *)(CPC_NFD14_REG)))
-#define REG_CPC_NFD15                           (*((volatile unsigned int *)(CPC_NFD15_REG)))
-
-
-#define REG_AHB_CTL0		       		(*((volatile unsigned int *)(AHB_CTL0)))
-#define REG_AHB_SOFT_RST		       	(*((volatile unsigned int *)(AHB_SOFT_RST)))
-
 #define REG_GR_NFC_MEM_DLY                      (*((volatile unsigned int *)(GR_NFC_MEM_DLY)))
 
-/*
-#define set_gpio_as_nand()	                        \
-do {                                                    \
-        REG_CPC_NFWPN = BIT_0 | BIT_4 | BIT_5;          \
-        REG_CPC_NFWPN &= ~(BIT_6 | BIT_7);              \
-        REG_CPC_NFRB = BIT_0 | BIT_3 | BIT_4 | BIT_5;   \
-        REG_CPC_NFRB &= ~(BIT_6 | BIT_7);               \
-	REG_CPC_NFCLE |= BIT_4 | BIT_5;			\
-	REG_CPC_NFCLE &= ~(BIT_6 | BIT_7);		\
-	REG_CPC_NFALE |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFALE &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFCEN |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFCEN &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFWEN |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFWEN &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFREN |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFREN &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD0 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD0 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD1 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD1 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD2 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD2 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD3 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD3 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD4 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD4 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD5 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD5 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD6 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD6 &= ~(BIT_6 | BIT_7);              \
-        REG_CPC_NFD7 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD7 &= ~(BIT_6 | BIT_7);              \
-       	REG_CPC_NFD8 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD8 &= ~(BIT_6 | BIT_7);              \
-       	REG_CPC_NFD9 |= BIT_4 | BIT_5 | BIT_6;         \
-        REG_CPC_NFD9 &= ~(BIT_7);                      \
-       	REG_CPC_NFD10 |= BIT_4 | BIT_5 | BIT_6;        \
-        REG_CPC_NFD10 &= ~(BIT_7);                     \
-       	REG_CPC_NFD11 |= BIT_4 | BIT_5 | BIT_6;        \
-        REG_CPC_NFD11 &= ~(BIT_7);                     \
-       	REG_CPC_NFD12 |= BIT_4 | BIT_5 | BIT_6;        \
-        REG_CPC_NFD12 &= ~(BIT_7);                     \
-       	REG_CPC_NFD13 |= BIT_4 | BIT_5 | BIT_6;        \
-        REG_CPC_NFD13 &= ~(BIT_7);                     \
-       	REG_CPC_NFD14 |= BIT_4 | BIT_5 | BIT_6;        \
-        REG_CPC_NFD14 &= ~(BIT_7);                     \
-       	REG_CPC_NFD15 |= BIT_4 | BIT_5 | BIT_6;        \
-        REG_CPC_NFD15 &= ~(BIT_7);                     \
-} while (0)
+static unsigned long nand_func_cfg8[] = {
+	MFP_CFG_X(NFWPN, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFRB,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_Z),
+	MFP_CFG_X(NFCLE, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFALE, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFCEN, AF0, DS1, F_PULL_NONE, S_PULL_UP,   IO_Z),
+	MFP_CFG_X(NFWEN, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFREN, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD0,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD1,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD2,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD3,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD4,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD5,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD6,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD7,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+};
 
+static unsigned long nand_func_cfg16[] = {
+	MFP_CFG_X(NFD8,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD9,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD10,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD11,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD12,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD13,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD14,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD15,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+};
 
-#define set_gpio_as_nand()                              \
-do {                                                    \
-        REG_CPC_NFWPN = BIT_0 | BIT_4 | BIT_5;          \
-        REG_CPC_NFWPN &= ~(BIT_6 | BIT_7);              \
-        REG_CPC_NFRB = BIT_0 | BIT_3 | BIT_4 | BIT_5;   \
-        REG_CPC_NFRB &= ~(BIT_6 | BIT_7);               \
-	REG_CPC_NFCLE |= BIT_4 | BIT_5;			\
-	REG_CPC_NFCLE &= ~(BIT_6 | BIT_7);		\
-	REG_CPC_NFALE |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFALE &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFCEN |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFCEN &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFWEN |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFWEN &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFREN |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFREN &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD0 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD0 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD1 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD1 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD2 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD2 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD3 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD3 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD4 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD4 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD5 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD5 &= ~(BIT_6 | BIT_7);              \
-	REG_CPC_NFD6 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD6 &= ~(BIT_6 | BIT_7);              \
-        REG_CPC_NFD7 |= BIT_4 | BIT_5;                 \
-        REG_CPC_NFD7 &= ~(BIT_6 | BIT_7);              \
-} while (0)
-*/
+static void sprd_config_nand_pins8(void)
+{
+	sprd_mfp_config(nand_func_cfg8, ARRAY_SIZE(nand_func_cfg8));	
+}
 
-#define set_sc8800g_gpio_as_nand_8bit()                 \
-do {                                                    \
-        REG_CPC_NFWPN |= BIT_8 | BIT_9;          	\
-        REG_CPC_NFWPN &= ~(BIT_4 | BIT_5);              \
-        REG_CPC_NFRB |= BIT_8 | BIT_9;   		\
-        REG_CPC_NFRB &= ~(BIT_4 | BIT_5);               \
-	REG_CPC_NFCLE |= BIT_8 | BIT_9;			\
-	REG_CPC_NFCLE &= ~(BIT_4 | BIT_5);		\
-	REG_CPC_NFALE |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFALE &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFCEN |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFCEN &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFWEN |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFWEN &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFREN |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFREN &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFD0 |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFD0 &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFD1 |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFD1 &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFD2 |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFD2 &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFD3 |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFD3 &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFD4 |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFD4 &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFD5 |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFD5 &= ~(BIT_4 | BIT_5);              \
-	REG_CPC_NFD6 |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFD6 &= ~(BIT_4 | BIT_5);              \
-        REG_CPC_NFD7 |= BIT_8 | BIT_9;                 \
-        REG_CPC_NFD7 &= ~(BIT_4 | BIT_5);              \
-} while (0)
-
-#define set_sc8800g_gpio_as_nand_16bit()	        \
-do {                                                    \
-       	REG_CPC_NFD8 |= BIT_8 | BIT_9;                 	\
-        REG_CPC_NFD8 &= ~(BIT_4 | BIT_5);              	\
-       	REG_CPC_NFD9 |= BIT_8 | BIT_9;         		\
-        REG_CPC_NFD9 &= ~(BIT_4 | BIT_5);               \
-       	REG_CPC_NFD10 |= BIT_8 | BIT_9;        		\
-        REG_CPC_NFD10 &= ~(BIT_4 | BIT_5);              \
-       	REG_CPC_NFD11 |= BIT_8 | BIT_9;        		\
-        REG_CPC_NFD11 &= ~(BIT_4 | BIT_5);              \
-       	REG_CPC_NFD12 |= BIT_8 | BIT_9;        		\
-        REG_CPC_NFD12 &= ~(BIT_4 | BIT_5);              \
-       	REG_CPC_NFD13 |= BIT_8 | BIT_9;        		\
-        REG_CPC_NFD13 &= ~(BIT_4 | BIT_5);              \
-       	REG_CPC_NFD14 |= BIT_8 | BIT_9;        		\
-        REG_CPC_NFD14 &= ~(BIT_4 | BIT_5);              \
-       	REG_CPC_NFD15 |= BIT_8 | BIT_9;        		\
-        REG_CPC_NFD15 &= ~(BIT_4 | BIT_5);              \
-} while (0)
+static void sprd_config_nand_pins16(void)
+{
+	sprd_mfp_config(nand_func_cfg16, ARRAY_SIZE(nand_func_cfg16));
+}
 
 struct sprd_platform_nand {
 	/* timing information for nand flash controller */
@@ -302,8 +170,6 @@ static struct sprd_platform_nand *to_nand_plat(struct platform_device *dev)
 {
 	return dev->dev.platform_data;
 }
-
-//static unsigned long g_CmdSetting;
 
 #ifdef CONFIG_MTD_PARTITIONS
 const char *part_probes[] = { "cmdlinepart", NULL };
@@ -465,7 +331,6 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 				   unsigned int ctrl)
 {
 	unsigned long phyblk, pageinblk, pageperblk;
-	unsigned long i;
 	unsigned long advance = 1; /* can be set 0 or 1 */
 	unsigned long pagetype; /* 0: small page; 1: large page*/
 	unsigned long chipsel = 0;
@@ -853,7 +718,7 @@ static int sprd_nand_devready(struct mtd_info *mtd)
 static void sprd_nand_select_chip(struct mtd_info *mtd, int chip)
 {
 	struct nand_chip *this = mtd->priv;
-	struct sprd_nand_info *info = this->priv;
+	//struct sprd_nand_info *info = this->priv;
 
 #if 0	
 	if (chip != -1)
@@ -871,7 +736,6 @@ static void sprd_nand_enable_hwecc(struct mtd_info *mtd, int mode)
 
 static unsigned long sprd_nand_wr_oob(struct mtd_info *mtd)
 {
-	unsigned int i;
         /* copy io_wr_port into SBUF */
 	/*for (i = 0; i < mtd->oobsize; i++)
                 	printk(" OOBWport[%d]=%d ", i, io_wr_port[i]);*/
@@ -886,105 +750,9 @@ static unsigned long sprd_nand_wr_oob(struct mtd_info *mtd)
 	return 0;
 }
 
-void nand_ecc_trans(unsigned char *pEccIn, unsigned char *pEccOut, unsigned char nSct)
-{
-#if 1
-	/* little endian */
-        switch(nSct)
-        {
-           case 1:
-                 pEccOut[0] = pEccIn[0];
-                 pEccOut[1] = pEccIn[1];
-                 pEccOut[2] = pEccIn[2];
-                 break;
-           case 2:
-                 pEccOut[0] = pEccIn[0];
-                 pEccOut[1] = pEccIn[1];
-                 pEccOut[2] = pEccIn[2];
-                 pEccOut[4] = pEccIn[4];
-                 pEccOut[5] = pEccIn[5];
-                 pEccOut[6] = pEccIn[6];
-                 break;
-           case 3:
-                 pEccOut[0] = pEccIn[0];
-                 pEccOut[1] = pEccIn[1];
-                 pEccOut[2] = pEccIn[2];
-                 pEccOut[4] = pEccIn[4];
-                 pEccOut[5] = pEccIn[5];
-                 pEccOut[6] = pEccIn[6];
-                 pEccOut[8] = pEccIn[8];
-                 pEccOut[9] = pEccIn[9];
-                 pEccOut[10] = pEccIn[10];
-                 break;
-           case 4:
-                 pEccOut[0] = pEccIn[0];
-                 pEccOut[1] = pEccIn[1];
-                 pEccOut[2] = pEccIn[2];
-                 pEccOut[4] = pEccIn[4];
-                 pEccOut[5] = pEccIn[5];
-                 pEccOut[6] = pEccIn[6];
-                 pEccOut[8] = pEccIn[8];
-                 pEccOut[9] = pEccIn[9];
-                 pEccOut[10] = pEccIn[10];
-                 pEccOut[12] = pEccIn[12];
-                 pEccOut[13] = pEccIn[13];
-                 pEccOut[14] = pEccIn[14];
-                 break;
-           default:
-                 break;     
-        }
-#else
-	/* big endian */
-        switch(nSct)
-        {
-           case 1:
-                 pEccOut[0] = pEccIn[2];
-                 pEccOut[1] = pEccIn[1];
-                 pEccOut[2] = pEccIn[3];
-                 break;
-           case 2:
-                 pEccOut[0] = pEccIn[2];
-                 pEccOut[1] = pEccIn[1];
-                 pEccOut[2] = pEccIn[3];
-                 pEccOut[4] = pEccIn[6];
-                 pEccOut[5] = pEccIn[5];
-                 pEccOut[6] = pEccIn[7];
-                 break;
-           case 3:
-                 pEccOut[0] = pEccIn[2];
-                 pEccOut[1] = pEccIn[1];
-                 pEccOut[2] = pEccIn[3];
-                 pEccOut[4] = pEccIn[6];
-                 pEccOut[5] = pEccIn[5];
-                 pEccOut[6] = pEccIn[7];
-                 pEccOut[8] = pEccIn[10];
-                 pEccOut[9] = pEccIn[9];
-                 pEccOut[10] = pEccIn[11];
-                 break;
-           case 4:
-                 pEccOut[0] = pEccIn[2];
-                 pEccOut[1] = pEccIn[1];
-                 pEccOut[2] = pEccIn[3];
-                 pEccOut[4] = pEccIn[6];
-                 pEccOut[5] = pEccIn[5];
-                 pEccOut[6] = pEccIn[7];
-                 pEccOut[8] = pEccIn[10];
-                 pEccOut[9] = pEccIn[9];
-                 pEccOut[10] = pEccIn[11];
-                 pEccOut[12] = pEccIn[14];
-                 pEccOut[13] = pEccIn[13];
-                 pEccOut[14] = pEccIn[15];
-                 break;
-           default:
-                 break;     
-        }
-#endif
-}
-
 static int sprd_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_char *ecc_code)
 {
 	unsigned long *pecc_val;
-	unsigned int i, j;
 	pecc_val=(unsigned long *)ecc_code;
 
 #if 0
@@ -1078,15 +846,6 @@ static int sprd_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_ch
 	return 0;
 }
 
-static int countbits(unsigned long byte)
-{
-        int res = 0;
-
-        for (;byte; byte >>= 1)
-                res += byte & 0x01;
-        return res;
-}
-
 static void ecc_trans(unsigned char *ecc)
 {
 	unsigned char trans;
@@ -1104,7 +863,6 @@ static int ECC_CompM(unsigned char *pEcc1, unsigned char *pEcc2, unsigned char *
 	unsigned long  nEByte   = 0;
 	unsigned long  nXorT1   = 0, nXorT2 = 0;
 	unsigned long  nCnt;
-	unsigned i,ij;
 
 #if 0
 	if (eccaaa < 10) {
@@ -1174,9 +932,11 @@ static int ECC_CompM(unsigned char *pEcc1, unsigned char *pEcc2, unsigned char *
         case 12 :
 			if (nXorT1 != nXorT2) {
 				//printk("Correctable ECC Error Occurs for Main\n");
+#ifdef CONFIG_ARCH_SC8800G
 				ecc_trans(pEcc1);
 				ecc_trans(pEcc2);
-				/*if (nBW == 0) {
+#else
+				if (nBW == 0) {
 						nEByte  = ((nEccComp >>  9) & 0x100) +
 								((nEccComp >>  8) & 0x80) + ((nEccComp >>  7) & 0x40) +
 								((nEccComp >>  6) & 0x20) + ((nEccComp >>  5) & 0x10) +
@@ -1184,7 +944,9 @@ static int ECC_CompM(unsigned char *pEcc1, unsigned char *pEcc2, unsigned char *
 								((nEccComp >>  2) & 0x02) + ((nEccComp >>  1) & 0x01);
 						nEBit   = ((nEccComp >> 21) & 0x04) +
 								((nEccComp >> 20) & 0x02) + ((nEccComp >> 19) & 0x01);
-				} else */{   /* (nBW == BW_X16) */
+				} else
+#endif
+				{   /* (nBW == BW_X16) */
 						nEByte  = ((nEccComp >>  7) & 0x100) +
 								((nEccComp >>  6) & 0x80) + ((nEccComp >>  5) & 0x40) +
 								((nEccComp >>  4) & 0x20) + ((nEccComp >>  3) & 0x10) +
@@ -1259,7 +1021,7 @@ static int correct(u_char *dat, u_char *read_ecc, u_char *calc_ecc)
 static int sprd_nand_correct_data(struct mtd_info *mtd, uint8_t *dat,
 				     uint8_t *read_ecc, uint8_t *calc_ecc)
 {
-	int i, retval = 0;
+	int retval = 0;
 	int retval0, retval1, retval2, retval3;
 #if 0
 	printk("\nthe all data\n");
@@ -1826,7 +1588,7 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	struct nand_chip *this;
 	struct sprd_nand_info *info;
 	struct sprd_platform_nand *plat = to_nand_plat(pdev);/* get timing */
-	unsigned long i, id, type;
+	unsigned long id, type;
 
 #ifdef NAND_TEST_CODE
 	unsigned char searchdata[] = {0xe0,0x82,0x20,0x08,0xe0,0x83,0x30,0x08};
@@ -1852,19 +1614,27 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	sprd_ecc_mode = NAND_ECC_NONE;
 
 #ifdef CONFIG_ARCH_SC8800S
-	REG_AHB_CTL0 |= BIT_8 | BIT_9;//no BIT_9
+	//REG_AHB_CTL0 |= BIT_8 | BIT_9;//no BIT_9
+	__raw_bits_or(BIT_8 | BIT_9 , AHB_CTL0);
 	//REG_AHB_SOFT_RST |= BIT_5;
+	__raw_bits_or(BIT_5, AHB_SOFT_RST);
+	__raw_bits_and(~BIT_5, AHB_SOFT_RST);
 #else
 	/* CONFIG_ARCH_SC8800G */
-	REG_AHB_CTL0 |= BIT_8;
+	//REG_AHB_CTL0 |= BIT_8;
+	__raw_bits_or(BIT_8, AHB_CTL0);
 	//REG_AHB_SOFT_RST |= BIT_5; need test
+	__raw_bits_or(BIT_5, AHB_SOFT_RST);
+	__raw_bits_and(~BIT_5, AHB_SOFT_RST);
 #endif
+
 	REG_NFC_INTSRC |= BIT_0 | BIT_4 | BIT_5;
 	/* 0x1 : WPN disable, and micron nand flash status is 0xeo 
  	   0x0 : WPN enable, and micron nand flash status is 0x60 */
 	REG_NFC_WPN = 0x1;
 	
-	set_sc8800g_gpio_as_nand_8bit();
+	sprd_config_nand_pins8();
+
 #ifdef CONFIG_ARCH_SC8800S
 	REG_GR_NFC_MEM_DLY = 0x0;
 #endif
@@ -1965,14 +1735,15 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	sprd_nand_inithw(info, pdev);
 	/* 16-bit bus width */
 	if (type == 1) {
+		sprd_config_nand_pins16();
 		this->options |= NAND_BUSWIDTH_16;
 		buswidth = 1;
 		addr_cycle = 5;
-		printk("is 16 Bit\n");	
+		//printk("is 16 Bit\n");	
 	} else {
 		buswidth = 0;
 		addr_cycle = 4;
-		printk("is 8 Bit\n");
+		//printk("is 8 Bit\n");
 	}
 	this->cmd_ctrl = sprd_nand_hwcontrol;
 	this->dev_ready = sprd_nand_devready;
@@ -2122,7 +1893,7 @@ static int nand_freq_policy(struct notifier_block *nb, unsigned long val, void *
 #ifdef CONFIG_PM
 static int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 {
-	struct sprd_nand_info *info = platform_get_drvdata(dev);
+	//struct sprd_nand_info *info = platform_get_drvdata(dev);
 #if 0
 	if (info)
 		clk_disable(info->clk);

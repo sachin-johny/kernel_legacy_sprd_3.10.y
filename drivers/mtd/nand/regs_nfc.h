@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-sc8800s/include/mach/regs_nfc.h
+ * regs_nfc.h
  *
  * Chip nand flash controller registers Definitions
  *

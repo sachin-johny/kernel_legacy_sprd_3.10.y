@@ -22,9 +22,6 @@
 #include <asm/mach/flash.h>
 #include <asm/io.h>
 #include <asm/setup.h>
-
-#include <linux/mtd/nand.h>
-#include <linux/mtd/partitions.h>
 #include <linux/usb/android_composite.h>
 
 #include <mach/hardware.h>
@@ -33,16 +30,6 @@
 
 #include <mach/mfp.h>
 #include <mach/regs_ahb.h>
-
-#include <linux/input.h>
-#include <mach/sprd_key.h>
-
-
-
-struct flash_platform_data sprd_nand_data = {
-	.parts		= 0,
-	.nr_parts	= 0,
-};
 
 static struct resource sprd_nand_resources[] = {
 	[0] = {
@@ -57,9 +44,6 @@ static struct platform_device sprd_nand_device = {
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(sprd_nand_resources),
 	.resource	= sprd_nand_resources,
-	.dev		= {
-		.platform_data	= &sprd_nand_data,
-	},
 };
 
 static struct platform_device sprd_smd_device = {
@@ -93,51 +77,6 @@ static struct platform_device sprd_fb_device = {
 	.id	= -1,
 };
 
-static const unsigned int sprd_keymap[] = {
-        // 0 row
-	KEYVAL(0, 0, KEY_BACK),
-        KEYVAL(0, 1, KEY_RIGHT),
-        KEYVAL(0, 2, KEY_HELP),
-        KEYVAL(0, 3, KEY_SEND),
-        KEYVAL(0, 4, KEY_DOWN),
-        // 1 row
-        KEYVAL(1, 0, KEY_UP),
-	KEYVAL(1, 1, KEY_ENTER),
-        KEYVAL(1, 2, KEY_3),
-	KEYVAL(1, 3, KEY_1),
-        KEYVAL(1, 4, KEY_2),
-       // 2 row
-        KEYVAL(2, 0, KEY_HELP), //KEY_HELP is not known
-        KEYVAL(2, 1, KEY_LEFT),
-        KEYVAL(2, 2, KEY_6),
-        KEYVAL(2, 3, KEY_4),
-        KEYVAL(2, 4, KEY_5),
-       // 3 row
-        KEYVAL(3, 0, KEY_VOLUMEUP),
-        KEYVAL(3, 1, KEY_MENU),
-        KEYVAL(3, 2, KEY_9),
-        KEYVAL(3, 3, KEY_7),
-        KEYVAL(3, 4, KEY_8),
-	// 4 row
-        KEYVAL(4, 0, KEY_VOLUMEDOWN),
-        KEYVAL(4, 1, KEY_HELP), //KEY_POWER instead of KEY_HELP
-        KEYVAL(4, 2, KEY_KPDOT), // is #
-        KEYVAL(4, 3, KEY_KPASTERISK), //is *
-        KEYVAL(4, 4, KEY_0),
-};
-
-static struct sprd_kpad_platform_data sprd_kpad_data = {
-        .rows                   = 5,
-        .cols                   = 5,
-        .keymap                 = sprd_keymap,
-        .keymapsize             = ARRAY_SIZE(sprd_keymap),
-        .repeat                 = 0,
-        .debounce_time          = 5000, /* ns (5ms) */
-        .coldrive_time          = 1000, /* ns (1ms) */
-        .keyup_test_interval    = 50, /* 50 ms (50ms) */
-};
-
-
 static struct resource sprd_kpad_resources[] = {
         {
                 .start = IRQ_KPD_INT,
@@ -151,9 +90,6 @@ static struct platform_device sprd_kpad_device = {
         .id             = -1,
         .num_resources  = ARRAY_SIZE(sprd_kpad_resources),
         .resource       = sprd_kpad_resources,
-        .dev            = {
-                .platform_data = &sprd_kpad_data,
-        },
 };
 
 static struct resource sprd_battery_resources[] = {

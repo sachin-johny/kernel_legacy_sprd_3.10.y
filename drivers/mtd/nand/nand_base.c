@@ -49,7 +49,7 @@
 #include <asm/io.h>
 #include <linux/swab.h>
 
-#define NAND_CONV 1
+//#define NAND_CONV 1
 #ifdef CONFIG_MTD_PARTITIONS
 #include <linux/mtd/partitions.h>
 #endif
@@ -293,7 +293,6 @@ static void nand_select_chip(struct mtd_info *mtd, int chipnr)
  */
 static void nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
 {
-	int i;
 	struct nand_chip *chip = mtd->priv;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -314,7 +313,6 @@ static void nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
  */
 static void nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 {
-	int i;
 	struct nand_chip *chip = mtd->priv;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -354,7 +352,6 @@ static int nand_verify_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
  */
 static void nand_write_buf16(struct mtd_info *mtd, const uint8_t *buf, int len)
 {
-	int i;
 	struct nand_chip *chip = mtd->priv;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -378,7 +375,6 @@ static void nand_write_buf16(struct mtd_info *mtd, const uint8_t *buf, int len)
  */
 static void nand_read_buf16(struct mtd_info *mtd, uint8_t *buf, int len)
 {
-	int i;
 	struct nand_chip *chip = mtd->priv;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -1333,7 +1329,6 @@ static int nand_read_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 	uint8_t *ecc_calc = chip->buffers->ecccalc;
 	uint8_t *ecc_code = chip->buffers->ecccode;
 	uint32_t *eccpos = chip->ecc.layout->eccpos;
-	int j;
 	//printk("%s  %s  %d   eccsize=%d  eccbytes=%d  eccsteps=%d  ecctotal=%d\n", __FILE__, __FUNCTION__, __LINE__, chip->ecc.size, chip->ecc.bytes, chip->ecc.steps, chip->ecc.total);
 	for (i = 0; eccsteps; eccsteps--, i += eccbytes, p += eccsize) {
 		chip->ecc.hwctl(mtd, NAND_ECC_READ);
@@ -1783,7 +1778,7 @@ static int nand_write_oob_std(struct mtd_info *mtd, struct nand_chip *chip,
 #if defined  CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 	sprd_nand_trans_oob_write(mtd, chip, chip->oob_poi, mtd->oobsize);
 #endif
-#if 1
+#if 0
 	printk("%s the oob write to nand\n", __FUNCTION__);
 	int i;
 	for(i=0;i<mtd->oobsize;i++){
@@ -2016,7 +2011,7 @@ static void nand_write_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
 #if defined  CONFIG_MTD_NAND_SPRD && defined NAND_CONV
 	sprd_nand_trans_oob_write(mtd, chip, chip->oob_poi, mtd->oobsize);
 #endif
-#if 1
+#if 0
 	printk("%s the oob write to nand\n", __FUNCTION__);
 	int i;
 	for(i=0;i<mtd->oobsize;i++){
@@ -2101,7 +2096,7 @@ static void nand_write_page_swecc(struct mtd_info *mtd, struct nand_chip *chip,
 static void nand_write_page_hwecc(struct mtd_info *mtd, struct nand_chip *chip,
 				  const uint8_t *buf)
 {
-	int i, j, eccsize = chip->ecc.size;//2048
+	int i, eccsize = chip->ecc.size;//2048
 	int eccbytes = chip->ecc.bytes;//12
 	int eccsteps = chip->ecc.steps;//1
 	uint8_t *ecc_calc = chip->buffers->ecccalc;
