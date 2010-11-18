@@ -1,7 +1,7 @@
 /* 
  * sound/soc/sc88xx/sc88xx-pcm.c
  *
- * sc88xx SpreadTrum VBC codec intergrated chip.
+ * sc88xx SpreadTrum VBC Dolphin codec intergrated chip.
  *
  * Copyright (C) 2010 SpreadTrum Ltd.
  *
@@ -231,7 +231,11 @@ EXPORT_SYMBOL_GPL(start_cpu_dma);
 void stop_cpu_dma(struct snd_pcm_substream *substream)
 {
     struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
+#ifdef CONFIG_ARCH_SC8800S
     __raw_bits_and(~rtd->dma_channel, DMA_CHx_EN);
+#elif defined(CONFIG_ARCH_SC8800G)
+    __raw_bits_or(rtd->dma_channel, DMA_CHx_DIS);
+#endif
 }
 EXPORT_SYMBOL_GPL(stop_cpu_dma);
 

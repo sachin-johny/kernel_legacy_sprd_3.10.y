@@ -1,7 +1,7 @@
 /* 
  * sound/soc/sc88xx/vbc-codec.c
  *
- * VBC -- SpreadTrum sc88xx intergrated codec.
+ * VBC -- SpreadTrum sc88xx intergrated Dolphin codec.
  *
  * Copyright (C) 2010 SpreadTrum Ltd.
  *
@@ -30,7 +30,6 @@
 #include <linux/delay.h>
 #include <sound/tlv.h>
 
-#include <mach/power_manager.h>
 #include "sc88xx-asoc.h"
 
 #define POWER_OFF_ON_STANDBY 0
@@ -186,18 +185,66 @@ static void vbc_codec_unmute(void)
 static void vbc_set_ctrl2arm(void)
 {
     // Enable VB DAC0/DAC1 (ARM-side)
-    __raw_bits_or(ARM_VB_MCLKON|ARM_VB_ACC|ARM_VB_DA0ON|ARM_VB_ANAON|ARM_VB_DA1ON|ARM_VB_ADCON, AHB_MISC);
-    msleep(2);
-    //__raw_bits_or(1<<17,SPRD_GREG_BASE + 0x28); // LDO_VB_PO
-    __raw_bits_or(1<<17,GR_LDO_CTL0); // LDO_VB_PO
-    msleep(10);
+    __raw_bits_or(ARM_VB_MCLKON|ARM_VB_ACC|ARM_VB_DA0ON|ARM_VB_ANAON|ARM_VB_DA1ON|ARM_VB_ADCON, SPRD_VBC_ALSA_CTRL2ARM_REG);
+    msleep(1);
 }
+
+#if defined(CONFIG_ARCH_SC8800G)
+u16 __raw_adi_read(u32 addr)
+{
+    u32 adi_data, phy_addr;
+    check_range(addr);
+    phy_addr = addr - SPRD_ADI_BASE + SPRD_ADI_PHYS;
+    //enter_critical();
+    __raw_writel(phy_addr, ADI_ARM_RD_CMD);
+    do {
+        adi_data = __raw_readl(ADI_RD_DATA);
+    } while (adi_data & (1 << 31));
+    //exit_critical();
+//  lprintf("addr=0x%08x, phy=0x%08x, val=0x%04x\n", addr, phy_addr, adi_data & 0xffff);
+    return adi_data & 0xffff;
+}
+EXPORT_SYMBOL_GPL(__raw_adi_read);
+
+int __raw_adi_write(u32 data, u32 addr)
+{
+    check_range(addr);
+    //enter_critical();
+    while ((__raw_readl(ADI_FIFO_STS) & ADI_FIFO_EMPTY) == 0);
+    __raw_writel(data, addr);
+    //exit_critical();
+    return 1;
+}
+EXPORT_SYMBOL_GPL(__raw_adi_write);
+
+// adi_analogdie ANA_REG_MSK_OR
+/* static void __raw_adi_and(u32 value, u32 addr)
+{
+    enter_critical();
+    __raw_adi_write(__raw_adi_read(addr) & value, addr);
+    exit_critical();
+} */
+
+static void __raw_adi_or(u32 value, u32 addr)
+{
+    enter_critical();
+    __raw_adi_write(__raw_adi_read(addr) | value, addr);
+    exit_critical();
+}
+#endif
 
 static void vbc_set_mainclk_to12M(void)
 {
+#ifdef CONFIG_ARCH_SC8800S
 	u32 vpll_clk = CHIP_GetVPllClk();
-
 	clk_12M_divider_set(vpll_clk);
+    __raw_bits_or(1 << 17, GR_LDO_CTL0); // LDO_VB_PO
+#elif defined(CONFIG_ARCH_SC8800G)
+    __raw_bits_or(GEN0_VB_EN | GEN0_ADI_EN, GR_GEN0); // Enable voiceband module
+    __raw_bits_or(1 << 29, GR_CLK_DLY); // CLK_ADI_EN_ARM and CLK_ADI_SEL=76.8MHZ
+    __raw_adi_or(1 << 15, ANA_LDO_PD_CTL);
+    __raw_adi_or(VBMCLK_ARM_EN | VBCTL_SEL, ANA_CLK_CTL);
+#endif
 }
 
 static inline void vbc_ready2go(void)
@@ -235,7 +282,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
     vbc_reg_write(VBCCR2, 4, VBC_RATE_8000, 0xf); // 8K sample DAC
     vbc_reg_write(VBCCR2, 0, VBC_RATE_8000, 0xf); // 8K sample ADC
 
-    vbc_reg_write(VBCGR1, 0, 0x88, 0xff); // DAC Gain
+    vbc_reg_write(VBCGR1, 0, 0x00, 0xff); // DAC Gain
     vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
     vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
     msleep(1);
@@ -260,11 +307,22 @@ static int vbc_reset(struct snd_soc_codec *codec)
     msleep(5);
 
     // mono use DA0 left channel
+#ifdef CONFIG_ARCH_SC8800S
     vbc_reg_VBCR1_set(MONO, 0); // stereo DAC left & right channel
     vbc_reg_VBCR1_set(HP_DIS, 1); // not route mixer audio data to headphone outputs
     vbc_reg_VBCR1_set(BYPASS, 0); // Analog bypass not route to mixer
     vbc_reg_VBCR1_set(DACSEL, 1); // route DAC to mixer
     vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
+#elif defined(CONFIG_ARCH_SC8800G)
+    vbc_reg_VBCR1_set(MONO, 0); // stereo DAC left & right channel
+    vbc_reg_VBCR1_set(HP_DIS, 0); // route mixer audio data to headphone outputs
+    vbc_reg_VBCR1_set(BYPASS, 0); // Analog bypass not route to mixer
+    vbc_reg_VBCR1_set(DACSEL, 1); // route DAC to mixer
+    vbc_reg_VBCR1_set(BTL_MUTE, 0); // not Mute earpiece
+
+    vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
+    vbc_reg_VBPMR1_set(SB_LIN, 0);
+#endif
     vbc_codec_unmute(); // don't mute
 
     return 0;
@@ -273,15 +331,23 @@ static int vbc_reset(struct snd_soc_codec *codec)
 static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 {
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
-    reg |= ARM_VB_BASE;
-    return  __raw_readl(reg);;
+    reg |= ARM_VB_BASE2;
+#ifdef CONFIG_ARCH_SC8800S
+    return __raw_readl(reg);
+#elif defined(CONFIG_ARCH_SC8800G)
+    return adi_read(reg);
+#endif
 }
 
 static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int val)
 {
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
-    reg |= ARM_VB_BASE;
+    reg |= ARM_VB_BASE2;
+#ifdef CONFIG_ARCH_SC8800S
     __raw_writel(val, reg);
+#elif defined(CONFIG_ARCH_SC8800G)
+    adi_write(val, reg);
+#endif
     return 0;
 }
 

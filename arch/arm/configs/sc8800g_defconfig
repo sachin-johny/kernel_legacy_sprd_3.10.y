@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Wed Nov 17 16:00:32 2010
+# Thu Nov 18 21:42:54 2010
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -284,7 +284,7 @@ CONFIG_ALIGNMENT_TRAP=y
 #
 CONFIG_ZBOOT_ROM_TEXT=0
 CONFIG_ZBOOT_ROM_BSS=0
-CONFIG_CMDLINE="mem=128M console=ttyS1,115200n8 initrd=0x3000000,4194304 init=/init root=/dev/ram0 rw"
+CONFIG_CMDLINE="mem=64M console=ttyS1,115200n8 initrd=0x3000000,4194304 init=/init root=/dev/ram0 rw"
 # CONFIG_XIP_KERNEL is not set
 CONFIG_KEXEC=y
 CONFIG_ATAGS_PROC=y
@@ -913,7 +913,7 @@ CONFIG_SND_SOC=y
 #
 # SoC Audio for the SPREADTRUM SC88XX
 #
-# CONFIG_SND_SC88XX_SOC_SPRDPHONE is not set
+CONFIG_SND_SC88XX_SOC_SPRDPHONE=y
 CONFIG_SND_SOC_I2C_AND_SPI=y
 # CONFIG_SND_SOC_ALL_CODECS is not set
 # CONFIG_SOUND_PRIME is not set

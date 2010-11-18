@@ -1,7 +1,7 @@
 menu "SoC Audio for the SPREADTRUM SC88XX"
 
 config SND_SC88XX_SOC_SPRDPHONE
-	tristate "sprdphone -- SoC Audio for the SPREADTRUM SC88XX chips with intergrated VBC codec"
+	tristate "sprdphone -- SoC Audio for the SPREADTRUM SC88XX chips with intergrated VBC Dolphin codec"
 #   depends on ARCH_SC8800S
     select SND_PCM
     help

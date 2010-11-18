@@ -1,7 +1,7 @@
 /* 
  * sound/soc/sc88xx/sc88xx-pcm.h
  *
- * sc88xx SpreadTrum VBC codec intergrated chip.
+ * sc88xx SpreadTrum VBC Dolphin codec intergrated chip.
  *
  * Copyright (C) 2010 SpreadTrum Ltd.
  *

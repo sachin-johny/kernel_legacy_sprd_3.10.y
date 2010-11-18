@@ -29,7 +29,12 @@
 
 //0X00
 #define DMA_CFG                         (DMA_REG_BASE + 0x0000)
+#ifdef CONFIG_ARCH_SC8800S
 #define DMA_CHx_EN                      (DMA_REG_BASE + 0x0004)
+#elif defined(CONFIG_ARCH_SC8800G)
+#define DMA_CHx_EN                      (DMA_REG_BASE + 0x00C0)
+#define DMA_CHx_DIS                     (DMA_REG_BASE + 0x00C4)
+#endif
 #define DMA_LINKLIST_EN                 (DMA_REG_BASE + 0x0008)
 #define DMA_SOFTLINK_EN                 (DMA_REG_BASE + 0x000C)
 #define DMA_SOFTLIST_SIZE               (DMA_REG_BASE + 0x0010)
@@ -86,10 +91,10 @@
 #define DMA_UART1_RX_BASE               (DMA_REG_BASE + 0x0480)//UID:0x4
 #define DMA_UART2_TX_BASE               (DMA_REG_BASE + 0x04a0)//UID:0x5
 #define DMA_UART2_RX_BASE               (DMA_REG_BASE + 0x04c0)//UID:0x6
-#define DMA_UART3_TX_BASE               (DMA_REG_BASE + 0x04e0)//UID:0x7
-#define DMA_UART3_RX_BASE               (DMA_REG_BASE + 0x0500)//UID:0x8
-#define DMA_ENCRP_RAW_BASE              (DMA_REG_BASE + 0x0520)//UID:0x9
-#define DMA_ENCRP_CPT_BASE              (DMA_REG_BASE + 0x0540)//UID:0xA
+#define DMA_IIS_TX_BASE                 (DMA_REG_BASE + 0x04e0)//UID:0x7
+#define DMA_IIS_RX_BASE                 (DMA_REG_BASE + 0x0500)//UID:0x8
+#define DMA_EPT_IN_BASE                 (DMA_REG_BASE + 0x0520)//UID:0x9
+#define DMA_EPT_OUT_BASE                (DMA_REG_BASE + 0x0540)//UID:0xA
 #define DMA_VB_DA0_BASE                 (DMA_REG_BASE + 0x0560)//UID:0xB
 #define DMA_VB_DA1_BASE                 (DMA_REG_BASE + 0x0580)//UID:0xC
 #define DMA_VB_AD0_BASE                 (DMA_REG_BASE + 0x05A0)//UID:0xD
@@ -98,8 +103,8 @@
 #define DMA_SIM0_RX_BASE                (DMA_REG_BASE + 0x0600)//UID:0x10
 #define DMA_SIM1_TX_BASE                (DMA_REG_BASE + 0x0620)//UID:0x11
 #define DMA_SIM1_RX_BASE                (DMA_REG_BASE + 0x0640)//UID:0x12
-#define DMA_DRM_RAW_BASE                (DMA_REG_BASE + 0x0660)//UID:0x13
-#define DMA_DRM_CPT_BASE                (DMA_REG_BASE + 0x0680)//UID:0x14
+#define DMA_SPI_TX_BASE                 (DMA_REG_BASE + 0x0660)//UID:0x13
+#define DMA_SPI_RX_BASE                 (DMA_REG_BASE + 0x0680)//UID:0x14
 #define DMA_ROT_BASE                    (DMA_REG_BASE + 0x06A0)//UID:0x15
 #define DMA_NLC_BASE                    (DMA_REG_BASE + 0x06C0)//UID:0x16
 #define DMA_USB_EP0_IN_BASE             (DMA_REG_BASE + 0x06E0)//UID:0x17
@@ -137,72 +142,39 @@
 
 #define DMA_CTL_END                     (DMA_REG_BASE+SPRD_DMA_SIZE)
 
-#define DMA_SOFT0                       0
-#define DMA_UART0_TX                    1
-#define DMA_UART0_RX                    2
-#define DMA_UART1_TX                    3
-#define DMA_UART1_RX                    4
-#define DMA_UART2_TX                    5
-#define DMA_UART2_RX                    6
-#define DMA_UART3_TX                    7
-#define DMA_UART3_RX                    8
-#define DMA_ENCRP_RAW                   9
-#define DMA_ENCRP_CPT                   0xa
-#define DMA_VB_DA0                      0xb
-#define DMA_VB_DA1                      0xc
-#define DMA_VB_AD0                      0xd
-#define DMA_VB_AD1                      0xe
-#define DMA_SIM0_TX                     0xf
+// DMA user id
+#define DMA_SOFT0                       0x00
+#define DMA_UART0_TX                    0x01
+#define DMA_UART0_RX                    0x02
+#define DMA_UART1_TX                    0x03
+#define DMA_UART1_RX                    0x04
+#define DMA_UART2_TX                    0x05
+#define DMA_UART2_RX                    0x06
+#define DMA_IIS_TX                      0x07
+#define DMA_IIS_RX                      0x08
+#define DMA_EPT_IN                      0x09
+#define DMA_EPT_OUT                     0x0A
+#define DMA_VB_DA0                      0x0B
+#define DMA_VB_DA1                      0x0C
+#define DMA_VB_AD0                      0x0D
+#define DMA_VB_AD1                      0x0E
+#define DMA_SIM0_TX                     0x0F
 #define DMA_SIM0_RX                     0x10
 #define DMA_SIM1_TX                     0x11
 #define DMA_SIM1_RX                     0x12
-#define DMA_DRM_RAW                     0x13
-#define DMA_DRM_CPT                     0x14
+#define DMA_SPI_TX                      0x13
+#define DMA_SPI_RX                      0x14
 #define DMA_ROT                         0x15
-#define DMA_NLC                         0x16
-#define DMA_USB_EP0_IN                  0x17
-#define DMA_USB_EP0_OUT                 0x18
-#define DMA_USB_EP1                     0x19
-#define DMA_USB_EP2                     0x1a
-#define DMA_USB_EP3                     0x1b
-#define DMA_USB_EP4                     0x1c
+#define DMA_DRM_RAW                     0x1D
+#define DMA_DRM_CPT                     0x1E
+#define DMA_VB_AD                       DMA_VB_AD0
+#define DMA_USB_EP1                     DMA_SOFT0
+#define DMA_USB_EP3                     DMA_SOFT0
 
-
-#define DMA_SOFT0_BIT                   BIT_0
-#define DMA_UART0_TX_BIT                BIT_1
-#define DMA_UART0_RX_BIT                BIT_2
-#define DMA_UART1_TX_BIT                BIT_3
-#define DMA_UART1_RX_BIT                BIT_4
-#define DMA_UART2_TX_BIT                BIT_5
-#define DMA_UART2_RX_BIT                BIT_6
-#define DMA_UART3_TX_BIT                BIT_7
-#define DMA_UART3_RX_BIT                BIT_8
-#define DMA_ENCRP_RAW_BIT               BIT_9
-#define DMA_ENCRP_CPT_BIT               BIT_10
-#define DMA_VB_DA0_BIT                  BIT_11
-#define DMA_VB_DA1_BIT                  BIT_12
-
-#ifndef CHIP_VER_8800H5
-#define DMA_VB_AD0_BIT                  BIT_13
-#define DMA_VB_AD1_BIT                  BIT_14
-#else
-#define DMA_VB_AD                       BIT_13
-#endif
-
-#define DMA_SIM0_TX_BIT                 BIT_15
-#define DMA_SIM0_RX_BIT                 BIT_16
-#define DMA_SIM1_TX_BIT                 BIT_17
-#define DMA_SIM2_RX_BIT                 BIT_18
-#define DMA_DRM_RAW_BIT                 BIT_19
-#define DMA_DRM_CPT_BIT                 BIT_20
-#define DMA_ROT_BIT                     BIT_21
-#define DMA_NLC_BIT                     BIT_22
-#define DMA_USB_EP0_IN_BIT              BIT_23
-#define DMA_USB_EP0_OUT_BIT             BIT_24
-#define DMA_USB_EP1_BIT                 BIT_25
-#define DMA_USB_EP2_BIT                 BIT_26
-#define DMA_USB_EP3_BIT                 BIT_27
-#define DMA_USB_EP4_BIT                 BIT_28
+#define DMA_VB_DA0_BIT                  (1 << DMA_VB_DA0)
+#define DMA_VB_DA1_BIT                  (1 << DMA_VB_DA1)
+#define DMA_VB_AD0_BIT                  (1 << DMA_VB_AD0)
+#define DMA_VB_AD1_BIT                  (1 << DMA_VB_AD1)
 
 // DMA_LISTDONE_INT_EN, DMA_BURST_INT_EN, DMA_TRANSF_INT_EN
 enum {
@@ -224,7 +196,7 @@ enum {
 // CH_CFG0
 #define DMA_LLEND       (1 << 31)
 #define DMA_BIG_ENDIAN  (0 << 30)
-#define DMA_LIT_ENDIAN  (1 << 30)
+#define DMA_LIT_ENDIAN  (1 << 30) // this bit not used by SC8800G2
 #define DMA_SDATA_WIDTH8  (0 << 26)
 #define DMA_SDATA_WIDTH16 (1 << 26)
 #define DMA_SDATA_WIDTH32 (2 << 26)

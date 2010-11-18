@@ -25,7 +25,7 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 
-#include  "regs_adi.h"
+#include <mach/regs_adi.h>
 #include <mach/adi_hal_internal.h>
 
 #define CHIP_REG_OR(reg_addr, value)    (*(volatile unsigned int *)(reg_addr) |= (unsigned int)(value))

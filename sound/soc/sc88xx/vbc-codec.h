@@ -1,7 +1,7 @@
 /* 
  * sound/soc/sc88xx/vbc-codec.h
  *
- * VBC -- SpreadTrum sc88xx intergrated codec.
+ * VBC -- SpreadTrum sc88xx intergrated Dolphin codec.
  *
  * Copyright (C) 2010 SpreadTrum Ltd.
  *
@@ -127,27 +127,79 @@ enum {
 #define VBDAICTL    (ARM_VB_BASE + 0x0024) // 0x0012  Voice band DAI control
 #define VBDAIIN     (ARM_VB_BASE + 0x0028) // 0x0014  Voice band DAI input
 #define VBDAIOUT    (ARM_VB_BASE + 0x002C) // 0x0016  Voice band DAI output
-#define VBAICR      (ARM_VB_BASE + 0x0100) // 0x0080  Voice band Codec AICR
-#define VBCR1       (ARM_VB_BASE + 0x0104) // 0x0082  Voice band Codec CR1
-#define VBCR2       (ARM_VB_BASE + 0x0108) // 0x0084  Voice band Codec CR2
-#define VBCCR1      (ARM_VB_BASE + 0x010C) // 0x0086  Voice band Codec CCR1
-#define VBCCR2      (ARM_VB_BASE + 0x0110) // 0x0088  Voice band Codec CCR2
-#define VBPMR1      (ARM_VB_BASE + 0x0114) // 0x008A  Voice band Codec PMR1
-#define VBPMR2      (ARM_VB_BASE + 0x0118) // 0x008C  Voice band Codec PMR2
-#define VBCRR       (ARM_VB_BASE + 0x011C) // 0x008E  Voice band Codec CRR
-#define VBICR       (ARM_VB_BASE + 0x0120) // 0x0090  Voice band Codec ICR
-#define VBIFR       (ARM_VB_BASE + 0x0124) // 0x0092  Voice band Codec IFR
-#define VBCGR1      (ARM_VB_BASE + 0x0128) // 0x0094  Voice band Codec CGR1
-#define VBCGR2      (ARM_VB_BASE + 0x012C) // 0x0096  Voice band Codec CGR2
-#define VBCGR3      (ARM_VB_BASE + 0x0130) // 0x0098  Voice band Codec CGR3
-#define VBCGR8      (ARM_VB_BASE + 0x0144) // 0x00A2  Voice band Codec CGR8
-#define VBCGR9      (ARM_VB_BASE + 0x0148) // 0x00A4  Voice band Codec CGR9
-#define VBCGR10     (ARM_VB_BASE + 0x014C) // 0x00A6  Voice band Codec CGR10
-#define VBTR1       (ARM_VB_BASE + 0x0150) // 0x00A8  Voice band Codec TR1
-#define VBTR2       (ARM_VB_BASE + 0x0154) // 0x00AA  Voice band Codec TR2
+
+#ifdef CONFIG_ARCH_SC8800S
+#define ARM_VB_BASE2 ARM_VB_BASE
+#elif defined(CONFIG_ARCH_SC8800G)
+#define ANA_DOLPHIN_BASE SPRD_ADI_BASE      // 0x82000100 Analog die register, must use adi_analogdie_read/write
+#define ARM_VB_BASE2 ANA_DOLPHIN_BASE
+#endif
+
+#define VBAICR      (ARM_VB_BASE2 + 0x0100) // 0x0080  Voice band Codec AICR
+#define VBCR1       (ARM_VB_BASE2 + 0x0104) // 0x0082  Voice band Codec CR1
+#define VBCR2       (ARM_VB_BASE2 + 0x0108) // 0x0084  Voice band Codec CR2
+#define VBCCR1      (ARM_VB_BASE2 + 0x010C) // 0x0086  Voice band Codec CCR1
+#define VBCCR2      (ARM_VB_BASE2 + 0x0110) // 0x0088  Voice band Codec CCR2
+#define VBPMR1      (ARM_VB_BASE2 + 0x0114) // 0x008A  Voice band Codec PMR1
+#define VBPMR2      (ARM_VB_BASE2 + 0x0118) // 0x008C  Voice band Codec PMR2
+#define VBCRR       (ARM_VB_BASE2 + 0x011C) // 0x008E  Voice band Codec CRR
+#define VBICR       (ARM_VB_BASE2 + 0x0120) // 0x0090  Voice band Codec ICR
+#define VBIFR       (ARM_VB_BASE2 + 0x0124) // 0x0092  Voice band Codec IFR
+#define VBCGR1      (ARM_VB_BASE2 + 0x0128) // 0x0094  Voice band Codec CGR1
+#define VBCGR2      (ARM_VB_BASE2 + 0x012C) // 0x0096  Voice band Codec CGR2
+#define VBCGR3      (ARM_VB_BASE2 + 0x0130) // 0x0098  Voice band Codec CGR3
+#define VBCGR8      (ARM_VB_BASE2 + 0x0144) // 0x00A2  Voice band Codec CGR8
+#define VBCGR9      (ARM_VB_BASE2 + 0x0148) // 0x00A4  Voice band Codec CGR9
+#define VBCGR10     (ARM_VB_BASE2 + 0x014C) // 0x00A6  Voice band Codec CGR10
+#define VBTR1       (ARM_VB_BASE2 + 0x0150) // 0x00A8  Voice band Codec TR1
+#define VBTR2       (ARM_VB_BASE2 + 0x0154) // 0x00AA  Voice band Codec TR2
+
 //--------------------------
+#ifdef CONFIG_ARCH_SC8800S
+#define SPRD_VBC_ALSA_CTRL2ARM_REG  AHB_MISC
+#include <mach/power_manager.h>
+#elif defined(CONFIG_ARCH_SC8800G)
+#define SPRD_VBC_ALSA_CTRL2ARM_REG  GR_BUSCLK
+#include <mach/regs_ahb.h>
+#include <mach/regs_global.h>
+#include <mach/regs_ana.h>
+#include <mach/adi_hal_internal.h>
+#include <mach/regs_adi.h>
+
+#define enter_critical() \
+    unsigned long flags; \
+    local_irq_save(flags)
+#define exit_critical()  \
+    local_irq_restore(flags)
+
+extern u16 __raw_adi_read(u32 addr);
+extern int __raw_adi_write(u32 data, u32 addr);
+static inline u16 adi_read(u32 addr)
+{
+    u16 data;
+    enter_critical();
+    data = __raw_adi_read(addr);
+    exit_critical();
+    return data;
+}
+
+static inline int adi_write(u32 data, u32 addr)
+{
+    enter_critical();
+    __raw_adi_write(data, addr);
+    exit_critical();
+    return 0;
+}
+#define not_in_adi_range(addr) (addr < ANA_REG_ADDR_START || addr > ANA_REG_ADDR_END)
+#define check_range(addr) \
+    if (not_in_adi_range(addr)) { \
+        printk(KERN_ERR "ADI_AnalogDie addr 0x%08x not in [0x%08x, 0x%08x]\n", addr, ANA_REG_ADDR_START, ANA_REG_ADDR_END); \
+        return 0; \
+    }
+#endif
 static inline void vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
 {
+#ifdef CONFIG_ARCH_SC8800S
     unsigned long flags;
     u32 tmp;
     raw_local_irq_save(flags);
@@ -156,6 +208,18 @@ static inline void vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
     tmp |= val << shift;
     __raw_writel(tmp, reg);
     raw_local_irq_restore(flags);
+#elif defined(CONFIG_ARCH_SC8800G)
+    unsigned long flags;
+    u32 tmp;
+    raw_local_irq_save(flags);
+    if (not_in_adi_range(reg)) tmp = __raw_readl(reg);
+    else tmp = __raw_adi_read(reg);
+    tmp &= ~(mask<<shift);
+    tmp |= val << shift;
+    if (not_in_adi_range(reg)) __raw_writel(tmp, reg);
+    else __raw_adi_write(tmp, reg);
+    raw_local_irq_restore(flags);
+#endif
 }
 //--------------------------
 extern struct snd_soc_codec_device vbc_codec;

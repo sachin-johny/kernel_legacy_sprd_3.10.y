@@ -1,7 +1,7 @@
 /* 
  * sound/soc/sc88xx/sc88xx-vbc.c
  *
- * SC88XX SoC & VBC CODEC DAI-LINK -- Link SpreadTrum sc88xx chip and VBC codec.
+ * SC88XX SoC & VBC CODEC DAI-LINK -- Link SpreadTrum sc88xx chip and VBC Dolphin codec.
  *
  * Copyright (C) 2010 SpreadTrum Ltd.
  *

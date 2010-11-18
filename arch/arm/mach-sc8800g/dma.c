@@ -110,7 +110,7 @@ void sc88xx_dma_setup(sc88xx_dma_ctrl *ctrl)
     // set user id
     dma_reg_write(DMA_CHN_UID_BASE + (ch_id & ~0x03), 
                   (ch_id & 0x03) << 3,
-                  (ch_id > DMA_USB_EP4) ? DMA_SOFT0:ch_id,
+                  (ch_id > DMA_DRM_CPT) ? DMA_SOFT0:ch_id,
                   0x1f);
 
     if (modes & DMA_LINKLIST) {
@@ -184,7 +184,7 @@ static int sprd_dma_init(void)
 
     /*enable dma int*/
     if (ret == 0) {
-        dma_reg_write(INT_IRQ_EN, 20, 1, 1);
+        dma_reg_write(INT_IRQ_EN, 21, 1, 1);
         printk(KERN_INFO "request dma irq ok\n");
     } else printk(KERN_ERR "request dma irq failed %d\n", ret);
 
