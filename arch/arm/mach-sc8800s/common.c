@@ -22,9 +22,6 @@
 #include <asm/mach/flash.h>
 #include <asm/io.h>
 #include <asm/setup.h>
-
-#include <linux/mtd/nand.h>
-#include <linux/mtd/partitions.h>
 #include <linux/usb/android_composite.h>
 
 #include <mach/hardware.h>
@@ -51,9 +48,6 @@ static struct platform_device sprd_nand_device = {
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(sprd_nand_resources),
 	.resource	= sprd_nand_resources,
-	.dev		= {
-		.platform_data	= &sprd_nand_data,
-	},
 };
 
 static struct platform_device sprd_smd_device = {

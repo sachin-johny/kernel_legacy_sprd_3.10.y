@@ -36,7 +36,7 @@
 #include <linux/input.h>
 #include <mach/mfp.h>
 #include "sprd_key.h"
-#include "regs_kpd.h"
+#include "regs_kpd_sc8800g.h"
 
 #define DRV_NAME        	"sprd-keys"
 

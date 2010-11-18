@@ -37,9 +37,9 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
-#include <mach/sprd_key.h>
-#include <mach/regs_kpd.h>
-#include <mach/regs_cpc.h>
+#include <mach/mfp.h>
+#include "sprd_key.h"
+#include "regs_kpd_sc8800s.h"
 
 #define DRV_NAME        	"sprd-keys"
 
@@ -130,35 +130,76 @@
 /* use power button */
 #define PB_INT_ENABLE		1
 
-#define set_gpio_as_keypad()                            \
-do {                                                    \
-        REG_CPC_KEYOUT0 = BIT_0 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYOUT0 &= ~(BIT_6 | BIT_7);            \
-        REG_CPC_KEYOUT1 = BIT_0 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYOUT1 &= ~(BIT_6 | BIT_7);            \
-        REG_CPC_KEYOUT2 = BIT_0 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYOUT2 &= ~(BIT_6 | BIT_7);            \
-        REG_CPC_KEYOUT3 = BIT_0 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYOUT3 &= ~(BIT_6 | BIT_7);            \
-        REG_CPC_KEYOUT4 = BIT_0 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYOUT4 &= ~(BIT_6 | BIT_7);            \
-        REG_CPC_KEYOUT5 = BIT_0 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYOUT5 &= ~(BIT_6 | BIT_7);            \
-        REG_CPC_KEYOUT6 = BIT_0 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYOUT6 &= ~(BIT_6 | BIT_7);            \
-        REG_CPC_KEYOUT7 = BIT_0 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYOUT7 &= ~(BIT_6 | BIT_7);            \
-	REG_CPC_KEYIN0 = BIT_1 | BIT_3 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYIN0 &= ~(BIT_6 | BIT_7);                    \
-        REG_CPC_KEYIN1 = BIT_1 | BIT_3 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYIN1 &= ~(BIT_6 | BIT_7);                    \
-        REG_CPC_KEYIN2 = BIT_1 | BIT_3 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYIN2 &= ~(BIT_6 | BIT_7);                    \
-        REG_CPC_KEYIN3 = BIT_1 | BIT_3 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYIN3 &= ~(BIT_6 | BIT_7);                    \
-        REG_CPC_KEYIN4 = BIT_1 | BIT_3 | BIT_4 | BIT_5;        \
-        REG_CPC_KEYIN4 &= ~(BIT_6 | BIT_7);                    \
-} while (0)
+static const unsigned int sprd_keymap[] = {
+        // 0 col
+	KEYVAL(0, 0, KEY_BACK),
+        KEYVAL(0, 1, KEY_UP),
+        KEYVAL(0, 2, KEY_CAMERA),
+        KEYVAL(0, 3, KEY_7),
+        KEYVAL(0, 4, KEY_VOLUMEDOWN),
+        KEYVAL(0, 5, KEY_PAUSECD),
+        // 1 col
+        KEYVAL(1, 0, KEY_RIGHT),
+        //KEYVAL(1, 1, KEY_OK),
+	KEYVAL(1, 1, KEY_ENTER),
+        KEYVAL(1, 2, KEY_LEFT),
+        //KEYVAL(1, 3, KEY_HELP), //KEY_HELP is not known
+	KEYVAL(1, 3, KEY_ENTER),
+        KEYVAL(1, 4, KEY_VOLUMEUP),
+        KEYVAL(1, 5, KEY_BACK),
+        // 2 col
+        KEYVAL(2, 0, KEY_HELP), //KEY_HELP is not known
+        KEYVAL(2, 1, KEY_3),
+        KEYVAL(2, 2, KEY_6),
+        KEYVAL(2, 3, KEY_9),
+        KEYVAL(2, 4, KEY_KPDOT), // is #
+        KEYVAL(2, 5, KEY_FORWARD),
+        // 3 col
+        KEYVAL(3, 0, KEY_SEND),
+        KEYVAL(3, 1, KEY_1),
+        KEYVAL(3, 2, KEY_4),
+        //KEYVAL(3, 3, KEY_1),
+        KEYVAL(3, 4, KEY_KPASTERISK), //is *
+        KEYVAL(3, 5, KEY_MENU),
+        // 4 col
+        KEYVAL(4, 0, KEY_DOWN),
+        KEYVAL(4, 1, KEY_2),
+        KEYVAL(4, 2, KEY_5),
+        KEYVAL(4, 3, KEY_8),
+        KEYVAL(4, 4, KEY_0),
+};
+
+static struct sprd_kpad_platform_data sprd_kpad_data = {
+        .rows                   = 6,
+        .cols                   = 5,
+        .keymap                 = sprd_keymap,
+        .keymapsize             = ARRAY_SIZE(sprd_keymap),
+        .repeat                 = 0,
+        .debounce_time          = 5000, /* ns (5ms) */
+        .coldrive_time          = 1000, /* ns (1ms) */
+        .keyup_test_interval    = 50, /* 50 ms (50ms) */
+};
+
+static unsigned long keypad_func_cfg[] = {
+	MFP_CFG_X(KEYOUT0, AF0, DS1, PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT1, AF0, DS1, PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT2, AF0, DS1, PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT3, AF0, DS1, PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT4, AF0, DS1, PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT5, AF0, DS1, PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT6, AF0, DS1, PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT7, AF0, DS1, PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYIN0,  AF0, DS3, PULL_UP, IO_IE),
+	MFP_CFG_X(KEYIN1,  AF0, DS3, PULL_UP, IO_IE),
+	MFP_CFG_X(KEYIN2,  AF0, DS3, PULL_UP, IO_IE),
+	MFP_CFG_X(KEYIN3,  AF0, DS3, PULL_UP, IO_IE),
+	MFP_CFG_X(KEYIN4,  AF0, DS3, PULL_UP, IO_IE),
+};
+
+static void sprd_config_keypad_pins(void)
+{
+	sprd_mfp_config(keypad_func_cfg, ARRAY_SIZE(keypad_func_cfg));
+}
 
 struct sprd_kpad_t {
         struct input_dev *input;
@@ -507,29 +548,14 @@ static irqreturn_t sprd_pb_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-void printk_pinconf(void)
-{
-	printk("REG_CPC_KEYOUT0 = 0x%08x\n", REG_CPC_KEYOUT0);
-	printk("REG_CPC_KEYOUT1 = 0x%08x\n", REG_CPC_KEYOUT1);
-	printk("REG_CPC_KEYOUT2 = 0x%08x\n", REG_CPC_KEYOUT2);
-	printk("REG_CPC_KEYOUT3 = 0x%08x\n", REG_CPC_KEYOUT3);
-	printk("REG_CPC_KEYOUT4 = 0x%08x\n", REG_CPC_KEYOUT4);
-	printk("REG_CPC_KEYOUT5 = 0x%08x\n", REG_CPC_KEYOUT5);
-	printk("REG_CPC_KEYOUT6 = 0x%08x\n", REG_CPC_KEYOUT6);
-	printk("REG_CPC_KEYOUT7 = 0x%08x\n", REG_CPC_KEYOUT7);
-	printk("\nREG_CPC_KEYIN0 = 0x%08x\n", REG_CPC_KEYIN0);
-	printk("REG_CPC_KEYIN1 = 0x%08x\n", REG_CPC_KEYIN1);
-	printk("REG_CPC_KEYIN2 = 0x%08x\n", REG_CPC_KEYIN2);
-	printk("REG_CPC_KEYIN3 = 0x%08x\n", REG_CPC_KEYIN3);	
-	printk("REG_CPC_KEYIN4 = 0x%08x\n", REG_CPC_KEYIN4);
-}
-
 static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 {
-        struct sprd_kpad_platform_data *pdata = pdev->dev.platform_data;
+        struct sprd_kpad_platform_data *pdata;
         struct input_dev *input;
         int i, error;
 
+	pdev->dev.platform_data = &sprd_kpad_data;
+	pdata = pdev->dev.platform_data;
         if (!pdata->rows || !pdata->cols || !pdata->keymap) {
                 dev_err(&pdev->dev, "no rows, cols or keymap from pdata\n");
                return -EINVAL;
@@ -569,7 +595,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         /* init sprd keypad controller */
         REG_INT_EN_CLR = (1 << IRQ_KPD_INT) | (1 << IRQ_MIX_INT);
         REG_GR_GEN0 |= BIT_8;
-        set_gpio_as_keypad();
+        sprd_config_keypad_pins();
         REG_KPD_ICLR = KPDICLR_KPD_INT | KPDICLR_TOUT_INT;
         REG_KPD_POLARITY = CFG_ROW_POLARITY | CFG_COL_POLARITY;
         REG_KPD_CLKDIV = 0x1 & 0xffff;
