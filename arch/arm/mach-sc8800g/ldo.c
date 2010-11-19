@@ -31,6 +31,8 @@
 
 #define TRUE			1
 #define FALSE		0
+
+#undef NULL
 #ifndef NULL
 #define NULL 0x0
 #endif
@@ -313,7 +315,6 @@ static  LDO_CTL_PTR LDO_GetLdoCtl(LDO_ID_E ldo_id)
  LDO_ERR_E LDO_SetVoltLevel(LDO_ID_E ldo_id, LDO_VOLT_LEVEL_E volt_level)
 
 {
-	unsigned int reg_val;
 	unsigned int b0_mask,b1_mask;
 	LDO_CTL_PTR  ctl = NULL;
 

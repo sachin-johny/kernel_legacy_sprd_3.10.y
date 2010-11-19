@@ -31,22 +31,35 @@ void ADI_init (void);
 ///for analog die register operation
 #define ANA_REG_OR(reg_addr, value)     \
     do{\
-        unsigned short adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
+	unsigned long flags; \
+        unsigned short adi_tmp_val;\
+	local_irq_save(flags);\
+	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
         adi_tmp_val |= (unsigned short)(value); \
         ADI_Analogdie_reg_write(reg_addr, adi_tmp_val); \
+	local_irq_restore(flags);\
     }while(0)
 #define ANA_REG_MSK_OR(reg_addr, value, msk)        \
     do{\
-        unsigned short adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
+	unsigned long flags; \
+        unsigned short adi_tmp_val;\
+	local_irq_save(flags);\
+	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
         adi_tmp_val &= (unsigned short)(~(msk)); \
         adi_tmp_val |= (unsigned short)((value)&(msk)); \
         ADI_Analogdie_reg_write(reg_addr, adi_tmp_val); \
+	local_irq_restore(flags);\
     }while(0)
 #define ANA_REG_AND(reg_addr, value)    \
     do{\
-        unsigned short adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
+	unsigned long flags; \
+        unsigned short adi_tmp_val;\
+	local_irq_save(flags);\
+	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
+	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
         adi_tmp_val &= (unsigned short)(value); \
         ADI_Analogdie_reg_write(reg_addr, adi_tmp_val); \
+	local_irq_restore(flags);\
     }while(0)
 
 #define ANA_REG_SET(reg_addr, value)    ADI_Analogdie_reg_write(reg_addr, (unsigned short)(value))

@@ -330,9 +330,9 @@ NOTE, this is not applied to GPIO pins, GPIO pin's input/output direction have s
 
 #define MFP_DS0		(0x0 << 8)
 #define MFP_DS1		(0x1 << 8)
-#define MFP_DS2		(0x2 << 9)
-#define MFP_DS3		(0x3 << 9)
-#define MFP_DS_MASK	(0x3 << 9)
+#define MFP_DS2		(0x2 << 8)
+#define MFP_DS3		(0x3 << 8)
+#define MFP_DS_MASK	(0x3 << 8)
 
 
 #define MFP_CFG(pin, af)		\
