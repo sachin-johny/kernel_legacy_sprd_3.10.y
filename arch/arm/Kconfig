@@ -1558,6 +1558,10 @@ config CPU_FREQ_SC8800S
 	bool "CPUfreq support for Spreadtrum SC8800S CPUs"
 	depends on CPU_FREQ && ARCH_SC8800S
 
+config CPU_FREQ_SC8800G
+	bool "CPUfreq support for Spreadtrum SC8800G CPUs"
+	depends on CPU_FREQ && ARCH_SC8800G
+
 config CPU_FREQ_S3C64XX
 	bool "CPUfreq support for Samsung S3C64XX CPUs"
 	depends on CPU_FREQ && CPU_S3C6410

@@ -1,5 +1,5 @@
 /*
- * arch/arm/mach-sc8800s/cpuidle-sc8800s.c
+ * arch/arm/mach-sc8800g/cpuidle-sc8800g.c
  *
  * CPU idle Spreadtrum SoCs
  *
@@ -20,17 +20,17 @@
 #include <linux/io.h>
 #include <asm/proc-fns.h>
 
-#define SC8800S_MAX_STATES	2
+#define SC8800G_MAX_STATES	2
 
-static struct cpuidle_driver sc8800s_idle_driver = {
-	.name =         "sc8800s_idle",
+static struct cpuidle_driver sc8800g_idle_driver = {
+	.name =         "sc8800g_idle",
 	.owner =        THIS_MODULE,
 };
 
-static DEFINE_PER_CPU(struct cpuidle_device, sc8800s_cpuidle_device);
+static DEFINE_PER_CPU(struct cpuidle_device, sc8800g_cpuidle_device);
 
 /* Actual code that puts the SoC in different idle states */
-static int sc8800s_enter_idle(struct cpuidle_device *dev,
+static int sc8800g_enter_idle(struct cpuidle_device *dev,
 			       struct cpuidle_state *state)
 {
 	struct timeval before, after;
@@ -63,16 +63,16 @@ static int sc8800s_enter_idle(struct cpuidle_device *dev,
 }
 
 /* Initialize CPU idle by registering the idle states */
-static int sc8800s_init_cpuidle(void)
+static int sc8800g_init_cpuidle(void)
 {
 	struct cpuidle_device *device;
-	cpuidle_register_driver(&sc8800s_idle_driver);
+	cpuidle_register_driver(&sc8800g_idle_driver);
 
-	device = &per_cpu(sc8800s_cpuidle_device, smp_processor_id());
-	device->state_count = SC8800S_MAX_STATES;
+	device = &per_cpu(sc8800g_cpuidle_device, smp_processor_id());
+	device->state_count = SC8800G_MAX_STATES;
 
 	/* Wait for interrupt state */
-	device->states[0].enter = sc8800s_enter_idle;
+	device->states[0].enter = sc8800g_enter_idle;
 	device->states[0].exit_latency = 1;
 	device->states[0].target_residency = 10000;
 	device->states[0].flags = CPUIDLE_FLAG_TIME_VALID;
@@ -80,17 +80,17 @@ static int sc8800s_init_cpuidle(void)
 	strcpy(device->states[0].desc, "Wait for interrupt");
 
 	/* Wait for interrupt and DDR self refresh state */
-	device->states[1].enter = sc8800s_enter_idle;
+	device->states[1].enter = sc8800g_enter_idle;
 	device->states[1].exit_latency = 10;
 	device->states[1].target_residency = 10000;
 	device->states[1].flags = CPUIDLE_FLAG_TIME_VALID;
 	strcpy(device->states[1].name, "Sdram SR");
 	strcpy(device->states[1].desc, "WFI and Sdram Self Refresh");
 	if (cpuidle_register_device(device)) {
-		printk(KERN_ERR "sc8800s_init_cpuidle: Failed registering\n");
+		printk(KERN_ERR "sc8800g_init_cpuidle: Failed registering\n");
 		return -EIO;
 	}
 	return 0;
 }
 
-device_initcall(sc8800s_init_cpuidle);
+device_initcall(sc8800g_init_cpuidle);

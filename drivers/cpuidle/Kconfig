@@ -20,6 +20,11 @@ config CPU_IDLE_GOV_MENU
 	default y
 
 config CPU_IDLE_SC8800S
-	bool
-	depends on CPU_IDLE
+	bool "CPUIdle support for Spreadtrum SC8800S CPUs"
+	depends on CPU_IDLE && ARCH_SC8800S
+	default y
+
+config CPU_IDLE_SC8800G
+	bool "CPUIdle support for Spreadtrum SC8800G CPUs"
+	depends on CPU_IDLE && ARCH_SC8800G
 	default y
