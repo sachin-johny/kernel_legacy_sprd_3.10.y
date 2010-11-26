@@ -33,6 +33,7 @@
 #include <mach/irqs.h>
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>
+#include <mach/mfp.h>
 #include "sc8800g_lcd.h"
 
 //#define  FB_DEBUG 
@@ -70,6 +71,15 @@
 #define LCDC_OSD4_CTRL                    (SPRD_LCDC_BASE + 0x00b0)
 #define LCDC_OSD5_CTRL                    (SPRD_LCDC_BASE + 0x00d0)
 
+#define LCDC_OSD1_BASE_ADDR                 (SPRD_LCDC_BASE + 0x0044)
+#define LCDC_OSD1_ALPHA_BASE_ADDR           (SPRD_LCDC_BASE + 0x0048)
+#define LCDC_OSD1_SIZE_XY                   (SPRD_LCDC_BASE + 0x004c)
+#define LCDC_OSD1_PITCH                     (SPRD_LCDC_BASE + 0x0050)
+#define LCDC_OSD1_DISP_XY                   (SPRD_LCDC_BASE + 0x0054)
+#define LCDC_OSD1_ALPHA                     (SPRD_LCDC_BASE + 0x0058)
+#define LCDC_OSD1_GREY_RGB                  (SPRD_LCDC_BASE + 0x005c)
+#define LCDC_OSD1_CK                        (SPRD_LCDC_BASE + 0x0060)
+
 #define LCDC_IRQ_EN             (SPRD_LCDC_BASE + 0x0120)
 #define LCDC_IRQ_CLR                (SPRD_LCDC_BASE + 0x0124)
 #define LCDC_IRQ_STATUS         (SPRD_LCDC_BASE + 0x0128)
@@ -87,14 +97,6 @@
 #define LCM_DATA0                (SPRD_LCDC_BASE + 0x184)
 #define LCM_CD1                  (SPRD_LCDC_BASE + 0x190)
 #define LCM_DATA1                (SPRD_LCDC_BASE + 0x194)
-
-#define AGEN_PINREG_EN	(1<<3)
-
-#define WHTLED_CTL	 ANA_LED_CTL
-#define WHTLED_PD_SET  	(1<<0)
-#define WHTLED_PD_RST  	(1<<1)
-#define WHTLED_V_SHIFT  2
-#define WHTLED_V_MSK  	(0x1F << WHTLED_V_SHIFT)
 
 #define BITS_PER_PIXEL 16
 
@@ -152,99 +154,45 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
-#if 0
-/* 
- * there may be some LCD related pins need to be set... 
- * PM_Init/PM_GPIOInit
- */
- /* some temporary code for GPIO */
-static void gpio_set_val(int32_t id, int32_t level)
-{
-	int32_t page, bit_num, gpio_pg_base;
-
-	page = id >>4;
-	bit_num = id&0xf;
-	if (id >=176)
-		gpio_pg_base = page*0x80 + SPRD_GPIO_BASE+0x100;
-	else
-		gpio_pg_base = page*0x80 + SPRD_GPIO_BASE;
-
-	if(level)
-		__raw_bits_or((1<<bit_num), gpio_pg_base);
-	else
-		__raw_bits_and(~(1<<bit_num), gpio_pg_base);
-}
-
-static void gpio_enable(int32_t id)
-{
-	int32_t page, bit_num, gpio_pg_base;
-
-	page = id >>4;
-	bit_num = id&0xf;
-	if (id >=176)
-		gpio_pg_base = page*0x80 + SPRD_GPIO_BASE+0x100;
-	else
-		gpio_pg_base = page*0x80 + SPRD_GPIO_BASE;
-
-	__raw_bits_or((1<<bit_num), gpio_pg_base+4);
-}
-
-/* direction: 1-output, 0-input */
-static void gpio_set_direction(int32_t id, uint32_t direction)
-{
-	int32_t page, bit_num, gpio_pg_base;
-
-	page = id >>4;
-	bit_num = id&0xf;
-	if (id >=176)
-		gpio_pg_base = page*0x80 + SPRD_GPIO_BASE+0x100;
-	else
-		gpio_pg_base = page*0x80 + SPRD_GPIO_BASE;
-
-	FB_PRINT("@fool2[%s] gpio[%d] dir reg val.before: 0x%x\n", __FUNCTION__, id, __raw_readl(gpio_pg_base+8));
-
-	if(direction)
-		__raw_bits_or((1<<bit_num), gpio_pg_base+8);
-	else
-		__raw_bits_and(~(1<<bit_num), gpio_pg_base+8);
-
-	FB_PRINT("@fool2[%s] gpio[%d] dir reg val.after: 0x%x\n", __FUNCTION__, id, __raw_readl(gpio_pg_base+8));
-}
-#endif
 static void set_pins(void)
 {	
 
 	__raw_writel(0x1fff00, SPRD_CPC_BASE);
-	/* pins connect to LCM/lcd */
-	__raw_writel((1<<8), (SPRD_CPC_BASE+0x2AC)); //LCD_CSN1
-	__raw_writel(((1<<8) |(1<<3)), (SPRD_CPC_BASE+0x2B0)); //LCD_RSTN
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2B4)); //LCD_CD
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2B8)); //LCD_D[0]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2BC)); //LCD_D[1]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2C0)); //LCD_D[2]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2C4)); //LCD_D[3]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2C8)); //LCD_D[4]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2CC)); //LCD_D[5]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2D0)); //LCD_D[6]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2D4)); //LCD_D[7]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2D8)); //LCD_D[8]
-	__raw_writel(((1<<8) |(1<<3)), (SPRD_CPC_BASE+0x2DC)); //LCD_WRN
-	__raw_writel(((1<<8) |(1<<3)), (SPRD_CPC_BASE+0x2E0)); //LCD_RDN
-	__raw_writel(((1<<8) |(1<<3)), (SPRD_CPC_BASE+0x2E4)); //LCD_CSN0	
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2E8)); //LCD_D[9]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2EC)); //LCD_D[10]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2F0)); //LCD_D[11]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2F4)); //LCD_D[12]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2F8)); //LCD_D[13]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x2FC)); //LCD_D[14]
-	__raw_writel(((1<<8) |(1<<2)), (SPRD_CPC_BASE+0x300)); //LCD_D[15]
-	__raw_writel((1<<8), (SPRD_CPC_BASE+0x304)); //LCD_D[16]
-	__raw_writel((1<<8), (SPRD_CPC_BASE+0x308)); //LCD_D[17]
-	__raw_writel((1<<8), (SPRD_CPC_BASE+0x30C)); //LCD_FMARK
 
-	
+	/*LCDC pin config*/
+    static unsigned long lcd_func_cfg[] __initdata= {
+
+    MFP_CFG_X(LCD_CSN1,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_CSN1
+    MFP_CFG_X(LCD_RSTN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_RSTN
+    MFP_CFG_X(LCD_CD,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_CD
+    MFP_CFG_X(LCD_D0,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[0]
+    MFP_CFG_X(LCD_D1,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[1]
+    MFP_CFG_X(LCD_D2,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[2]
+    MFP_CFG_X(LCD_D3,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[3]
+    MFP_CFG_X(LCD_D4,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[4]
+    MFP_CFG_X(LCD_D5,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[5]
+    MFP_CFG_X(LCD_D6,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[6]
+    MFP_CFG_X(LCD_D7,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[7]
+    MFP_CFG_X(LCD_D8,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[8]
+    MFP_CFG_X(LCD_WRN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_WRN
+    MFP_CFG_X(LCD_RDN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_RDN
+    MFP_CFG_X(LCD_CSN0,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_CSN0	
+    MFP_CFG_X(LCD_D9,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[9]
+    MFP_CFG_X(LCD_D10,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[10]
+    MFP_CFG_X(LCD_D11,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[11]
+    MFP_CFG_X(LCD_D12,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[12]
+    MFP_CFG_X(LCD_D13,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[13]
+    MFP_CFG_X(LCD_D14,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[14]
+    MFP_CFG_X(LCD_D15,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[15]
+    MFP_CFG_X(LCD_D16,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_D[16]
+    MFP_CFG_X(LCD_D17,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_D[17]
+    MFP_CFG_X(LCD_FMARK,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_FMARK
+    
+    };
+
+    sprd_mfp_config(lcd_func_cfg,ARRAY_SIZE(lcd_func_cfg));
 }
-static void panel_reset(void)
+static uint32_t panel_reset(void)
 {
 	//panel reset
 	__raw_writel(0x1, LCM_RSTN);	
@@ -253,6 +201,8 @@ static void panel_reset(void)
 	mdelay(0x10);
 	__raw_writel(0x1, LCM_RSTN);
 	mdelay(0x10);
+
+    return 0;
 }
 static void lcdc_mcu_init(void)
 {
@@ -330,7 +280,7 @@ int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	reg_val = (info->var.yoffset == 0)?info->fix.smem_start:
 		(info->fix.smem_start+ info->fix.smem_len/2);
 	reg_val = (reg_val>>2) & 0x3fffffff;
-	__raw_writel(reg_val, LCDC_IMG_Y_BASE_ADDR);
+	__raw_writel(reg_val, LCDC_OSD1_BASE_ADDR);
 
 	/* set brush direction */
 	/* FIXME: hardcoded direction */
@@ -349,12 +299,16 @@ int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	FB_PRINT("@fool2[%s] LCDC_LCM_START: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCM_START));
 	FB_PRINT("@fool2[%s] LCDC_LCM_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCM_SIZE));
 	FB_PRINT("@fool2[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_BG_COLOR));
-	FB_PRINT("@fool2[%s] LCDC_IMG_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IMG_CTRL));
-	FB_PRINT("@fool2[%s] LCDC_IMG_Y_BASE_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IMG_Y_BASE_ADDR));
-	FB_PRINT("@fool2[%s] LCDC_IMG_UV_BASE_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IMG_UV_BASE_ADDR));
-	FB_PRINT("@fool2[%s] LCDC_IMG_SIZE_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IMG_SIZE_XY));
-	FB_PRINT("@fool2[%s] LCDC_IMG_PITCH: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IMG_PITCH));
-	FB_PRINT("@fool2[%s] LCDC_IMG_DISP_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IMG_DISP_XY));
+	
+    FB_PRINT("@fool2[%s] LCDC_OSD1_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_CTRL));
+	FB_PRINT("@fool2[%s] LCDC_OSD1_BASE_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_BASE_ADDR));
+	FB_PRINT("@fool2[%s] LCDC_OSD1_ALPHA_BASE_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_ALPHA_BASE_ADDR));
+	FB_PRINT("@fool2[%s] LCDC_OSD1_SIZE_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_SIZE_XY));
+	FB_PRINT("@fool2[%s] LCDC_OSD1_PITCH: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_PITCH));
+	FB_PRINT("@fool2[%s] LCDC_OSD1_DISP_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_DISP_XY));
+	FB_PRINT("@fool2[%s] LCDC_OSD1_ALPHA: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_ALPHA));
+	FB_PRINT("@fool2[%s] LCDC_OSD1_GREY_RGB: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_GREY_RGB));
+	FB_PRINT("@fool2[%s] LCDC_OSD1_CK: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_CK));
 
 	FB_PRINT("@fool2[%s] LCM_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCM_CTRL));
 	FB_PRINT("@fool2[%s] LCM_PARAMETER0: 0x%x\n", __FUNCTION__, __raw_readl(LCM_PARAMETER0));
@@ -371,6 +325,7 @@ int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	__raw_bits_or((1<<0), LCDC_IRQ_CLR);
 	FB_PRINT("@fool2[%s] LCDC_IRQ_RAW: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IRQ_RAW));
 	
+    return 0;
 }
 static struct fb_ops sc8800fb_ops = {
 	.owner = THIS_MODULE,
@@ -577,8 +532,86 @@ static inline int set_lcmrect( struct fb_info *info)
 int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	uint32_t reg_val;
-
+    /******************* OSD1 layer setting **********************/
+#if 1
+    {
 	/* we assume that
+	 * 1. there's only one fbdev, and only block0 is used
+	 * 2. the pan operation is a sync one
+	 */
+
+	__raw_bits_and(~(1<<0),LCDC_IMG_CTRL);  
+	__raw_bits_and(~(1<<0),LCDC_OSD2_CTRL);  
+	__raw_bits_and(~(1<<0),LCDC_OSD3_CTRL);  
+	__raw_bits_and(~(1<<0),LCDC_OSD4_CTRL);  
+	__raw_bits_and(~(1<<0),LCDC_OSD5_CTRL);  
+	/*enable OSD1 layer*/
+	__raw_bits_or((1<<0),LCDC_OSD1_CTRL);  
+
+    /*color key */
+	__raw_bits_and(~(1<<1),LCDC_OSD1_CTRL);  //disable
+    
+	/*alpha mode select*/
+	__raw_bits_or((1<<2),LCDC_OSD1_CTRL);  //block alpha
+
+    /*data format*/
+	__raw_bits_and(~(1<<6),LCDC_OSD1_CTRL);  //RGB565
+	__raw_bits_or(1<<5,LCDC_OSD1_CTRL);  
+	__raw_bits_and(~(1<<4),LCDC_OSD1_CTRL);  
+	__raw_bits_or(1<<3,LCDC_OSD1_CTRL);  	
+
+    /*data endian*/
+	__raw_bits_or(1<<8,LCDC_OSD1_CTRL);  //little endian
+	__raw_bits_and(~(1<<7),LCDC_OSD1_CTRL);  
+	
+    /*alpha endian*/
+    __raw_bits_or(1<<10,LCDC_IMG_CTRL);  
+	__raw_bits_and(~(1<<9),LCDC_IMG_CTRL);  
+	
+	FB_PRINT("@fool2[%s] LCDC_OSD1_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_CTRL));
+
+	/* OSD1 layer base */
+	reg_val = (info->var.yoffset)?info->fix.smem_start:	(info->fix.smem_start+ info->fix.smem_len/2);
+	reg_val = (reg_val >>2)& 0x3fffffff;
+	__raw_writel(reg_val, LCDC_OSD1_BASE_ADDR);
+	
+    FB_PRINT("@fool2[%s] LCDC_OSD1_BASE_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_BASE_ADDR));
+
+    /*OSD1 layer alpha value*/
+	__raw_writel(0xff, LCDC_OSD1_ALPHA);
+
+	FB_PRINT("@fool2[%s] LCDC_OSD1_ALPHA: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_ALPHA));
+    
+    /*alpha base addr*/
+	//__raw_writel(reg_val, LCDC_OSD1_ALPHA_BASE_ADDR); 
+	
+	/*OSD1 layer size*/
+	reg_val = ( info->var.xres & 0x3ff) | (( info->var.yres & 0x3ff )<<16);
+	__raw_writel(reg_val, LCDC_OSD1_SIZE_XY);
+
+	FB_PRINT("@fool2[%s] LCDC_OSD1_SIZE_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_SIZE_XY));
+	
+	/*OSD1 layer start position*/
+	__raw_writel(0, LCDC_OSD1_DISP_XY);
+	
+	FB_PRINT("@fool2[%s] LCDC_OSD1_DISP_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_DISP_XY));
+	
+    /*OSD1 layer pitch*/
+	reg_val = ( info->var.xres & 0x3ff) ;
+	__raw_writel(reg_val, LCDC_OSD1_PITCH);
+	
+	FB_PRINT("@fool2[%s] LCDC_OSD1_PITCH: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_PITCH));
+
+    /*OSD1 color_key value*/
+    //Fix me
+    /*OSD1 grey RGB*/
+    //Fix me
+    }
+#endif
+    /******************** Image layer settting **********************/
+#if 0
+	{
+    /* we assume that
 	 * 1. there's only one fbdev, and only block0 is used
 	 * 2. the pan operation is a sync one
 	 */
@@ -590,7 +623,7 @@ int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	__raw_bits_and(~(1<<0),LCDC_OSD5_CTRL);  
 	/*enable imge layer*/
 	__raw_bits_or((1<<0),LCDC_IMG_CTRL);  
-#if 1
+
 	/*little endian*/
 	__raw_bits_or(1<<6,LCDC_IMG_CTRL);  
 	__raw_bits_and(~(1<<5),LCDC_IMG_CTRL);  
@@ -626,7 +659,9 @@ int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	__raw_writel(reg_val, LCDC_IMG_PITCH);
 	
 	FB_PRINT("@fool2[%s] LCDC_IMG_DISP_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IMG_DISP_XY));
+    }
 #endif
+
 	/*LCDC workplane size*/
 	set_lcdsize(info);
 	
@@ -638,7 +673,6 @@ int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 static void hw_init(struct sc8800fb_info *sc8800fb)
 {
 	int ret;
-	uint32_t reg_val=0;
 
 	/* only MCU mode is supported currently */
 	if (LCD_MODE_RGB == sc8800fb->panel->mode)
@@ -751,50 +785,18 @@ if(1){ /* in-kernel test code */
             int offset;
 
             for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short int *)(ptr++))= 0xf800; 
+                    (* (volatile unsigned short *)(ptr++))= 0xf800; //red 
             for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short int *)(ptr++))= 0x07e0; 
+                    (* (volatile unsigned short *)(ptr++))= 0x07e0; //green
             for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short int *)(ptr++))= 0x001f; 
+                    (* (volatile unsigned short *)(ptr++))= 0x001f; //blue
             /* now, the second frame */
             for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short int *)(ptr++))= 0xf800; 
+                    (* (volatile unsigned short *)(ptr++))= 0xf800; 
             for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short int *)(ptr++))= 0x07e0; 
+                    (* (volatile unsigned short *)(ptr++))= 0x07e0; 
             for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short int *)(ptr++))= 0x001f; 
-    }
-
-    /* 16-bit write */
-    if (0) {
-            unsigned short *ptr = (unsigned short *)sc8800fb->fb->screen_base;
-            int len = size/2 /3 ; /* 1/3 frame pixels */
-            int offset;
-            unsigned short color = 0;
-
-            for(offset=0;offset< len;offset++) {
-                    (* (volatile unsigned short int *)(ptr++))= color; 
-                    color = ~color;
-            }
-            for(offset=0;offset< len;offset++) {
-                    (* (volatile unsigned short int *)(ptr++))= color; 
-                    if((offset & 0x1) == 0)
-                            color = ~color;
-            }
-            for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short int *)(ptr++))= 0x001f; 
-            /* now, the second frame */
-            for(offset=0;offset< len;offset++) {
-                    (* (volatile unsigned short int *)(ptr++))= color; 
-                    color = ~color;
-            }
-            for(offset=0;offset< len;offset++) {
-                    (* (volatile unsigned short int *)(ptr++))= color; 
-                    if((offset & 0x1) == 0)
-                            color = ~color;
-            }
-            for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short int *)(ptr++))= 0x001f; 
+                    (* (volatile unsigned short *)(ptr++))= 0x001f; 
     }
 
 	/* pan display */

@@ -112,16 +112,13 @@ static struct sc8800_platform_i2c sc8800_i2c_default_platform = {
 static inline int sc8800_i2c_wait_exec(struct sc8800_i2c *i2c)
 {
 	unsigned int cmd;
-	int timeout = 400;
+	int timeout = 1000;  //modify by kewang
 
 	while (timeout-- > 0) {
 		cmd = __raw_readl(i2c->membase + I2C_CMD);
-		
 		if (!(cmd & I2C_CMD_BUSY))
 			return 0;
-		//msleep(1);
 	}
-
 	printk( "I2C:timeout,busy in exec commands !\n");
 
 	return -ETIMEDOUT;
@@ -173,15 +170,24 @@ static void sc8800_i2c_message_start(struct sc8800_i2c *i2c, struct i2c_msg *msg
 static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int num)
 {
 	unsigned int timeout;
+	//unsigned int cmd;
 	unsigned long  flags;
 	int ret;
-	#if 1
+#if 1
 	ret = sc8800_i2c_wait_exec(i2c);
 	if (ret != 0) {
 		ret = -EAGAIN;
 		goto out;
 	}
-	#endif
+#endif
+
+#if 0
+    cmd = __raw_readl(i2c->membase + I2C_CMD);
+		
+	while(cmd & I2C_CMD_BUSY)
+        cmd = __raw_readl(i2c->membase + I2C_CMD);  //kewang
+#endif
+ 
 	spin_lock_irqsave(&i2c->lock,flags);
 
 	i2c->msg = msgs;
@@ -215,7 +221,7 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 
 	msleep(5);
 
- out:
+ out:    //kewang
 	return ret;
 }
 
@@ -522,11 +528,28 @@ static irqreturn_t sc8800_i2c_irq(unsigned int irq, void *dev_id)
 	
 	/* pretty much this leaves us with the fact that we've
 	 * transmitted or received whatever byte we last sent */
-	ret = sc8800_i2c_wait_exec(i2c);
+#if 1	
+    ret = sc8800_i2c_wait_exec(i2c);
 	if (ret != 0) {
 		printk("I2C busy on exec command!\n");
 		goto out;
 	}
+#endif
+#if 0
+    uint32_t time=0,time1=0;
+    time=__raw_readl(SPRD_TIMER_BASE +0x0024);
+    time &= 0x7fffff;
+    
+    cmd = __raw_readl(i2c->membase + I2C_CMD);
+		
+	while(cmd & I2C_CMD_BUSY)
+        cmd = __raw_readl(i2c->membase + I2C_CMD);  //kewang
+    
+    time1=__raw_readl(SPRD_TIMER_BASE +0x0024);
+    time1 &= 0x7fffff;
+    printk("<0x%x-0x%x=0x%x>\n",time1,time,time1-time);
+#endif
+    	
 	cmd =__raw_readl(i2c->membase+I2C_CMD);
 	ret=sc8800_i2c_irq_nextbyte(i2c,cmd);
 	if(ret!=0)
@@ -597,7 +620,7 @@ static int sc8800_i2c_probe(struct platform_device *pdev)
 {
 	struct sc8800_i2c *i2c;
 	int ret;
-	unsigned int tmp;
+	//unsigned int tmp;
 
 	i2c = kzalloc(sizeof(struct sc8800_i2c), GFP_KERNEL);
 	if (!i2c){ 
@@ -626,9 +649,9 @@ static int sc8800_i2c_probe(struct platform_device *pdev)
 		goto err_remap;
 	}
 #endif
-	i2c->membase = SPRD_I2C_BASE;
-	i2c->memphys = SPRD_I2C_PHYS;
-	i2c->memsize = SPRD_I2C_SIZE;
+	i2c->membase = (unsigned int *)SPRD_I2C_BASE;
+	i2c->memphys = (unsigned int *)SPRD_I2C_PHYS;
+	i2c->memsize = (unsigned int *)SPRD_I2C_SIZE;
 	i2c->irq = IRQ_I2C_INT;	
 
 	spin_lock_init(&i2c->lock);
@@ -662,7 +685,7 @@ static int sc8800_i2c_probe(struct platform_device *pdev)
 	tmp=__raw_readl(i2c->membase+I2C_CLKD1);
 	printk("clkd1=0x%x\n",tmp);
 	*/
-	ret = request_irq(i2c->irq, sc8800_i2c_irq, IRQF_DISABLED,pdev->name, i2c);
+	ret = request_irq(i2c->irq, sc8800_i2c_irq, IRQF_DISABLED,pdev->name,i2c);
 	if (ret) {
 		printk("I2C:request_irq failed!\n");
 		goto err_irq;
@@ -715,7 +738,7 @@ static struct platform_driver sc8800_i2c_driver = {
 };
 static int __init i2c_adap_sc8800_init(void)
 {
-	printk(KERN_INFO"I2c:sc8800s driver $Revision:1.0 $\n");
+	printk(KERN_INFO"I2c:sc8800 driver $Revision:1.0 $\n");
 	
 	return platform_driver_register(&sc8800_i2c_driver);	
 }

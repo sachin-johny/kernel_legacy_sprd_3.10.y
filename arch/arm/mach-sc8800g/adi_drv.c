@@ -24,6 +24,7 @@
 #include <linux/bug.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 
 #include <mach/regs_adi.h>
 #include <mach/adi_hal_internal.h>
@@ -147,4 +148,6 @@ void ADI_init (void)
 }
 
 
+EXPORT_SYMBOL(ADI_Analogdie_reg_write);
+EXPORT_SYMBOL(ADI_Analogdie_reg_read);
 
