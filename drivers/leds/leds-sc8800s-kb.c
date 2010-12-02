@@ -135,7 +135,7 @@ static int sprd_kb_led_probe(struct platform_device *pdev)
 		goto err_led;
 		
 	/* backlight on */
-	bk_bl_cfg = MFP_CFG_X(MTDO, GPIO, DS0, PULL_NONE, IO_OE);
+	bk_bl_cfg = MFP_CFG_X(MTDO, GPIO, DS0, F_PULL_NONE,S_PULL_NONE, IO_OE);
 	sprd_mfp_config(&bk_bl_cfg, 1);
 	REG_GPIO2_DMSK = REG_GPIO2_DMSK | 0x2;
 	REG_GPIO2_DIR = REG_GPIO2_DIR | 0x2;

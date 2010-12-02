@@ -185,8 +185,8 @@ static int sprd_lcd_led_probe(struct platform_device *pdev)
 		goto err_led;
 		
 	/* backlight on */
-	lcd_bl_cfg = MFP_CFG_X(LCD_EN, GPIO, DS0, PULL_NONE, IO_OE);
-	sprd_mfp_config(&lcd_bl_cfg, 1);
+	//lcd_bl_cfg = MFP_CFG_X(LCD_EN, GPIO, DS0, F_PULL_NONE,S_PULL_NONE, IO_OE);
+	//sprd_mfp_config(&lcd_bl_cfg, 1);
 	REG_GPIO6_DMSK = REG_GPIO6_DMSK | (1 << GPIO_OFFSET);
 	REG_GPIO6_DIR = REG_GPIO6_DIR | (1 << GPIO_OFFSET);
 

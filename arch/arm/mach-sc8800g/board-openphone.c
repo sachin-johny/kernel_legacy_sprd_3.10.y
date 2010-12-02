@@ -34,6 +34,10 @@
 #include <linux/mtd/nand.h>
 #include <linux/mtd/partitions.h>
 #include <mach/gpio.h>
+#include <mach/adi_hal_internal.h>
+#include <mach/regs_ana.h>
+#include <mach/regs_cpc.h>
+
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -66,8 +70,17 @@ static void __init openphone_init_irq(void)
 	sprd_init_irq();
 }
 
+static void __init chip_init(void)
+{
+    ANA_REG_SET(ANA_ADIE_CHIP_ID,0);
+    /* setup pins configration when LDO shutdown*/
+    __raw_writel(0x1fff00, PIN_CTL_REG);
+}
+
 static void __init openphone_init(void)
 {
+    chip_init();
+    ADI_init();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
 	sprd_gpio_init();
