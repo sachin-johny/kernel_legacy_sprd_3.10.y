@@ -51,6 +51,24 @@ static struct platform_device sprd_smd_device = {
 	.id	= -1,
 };
 
+static struct resource sprd_dcam_resources[] = {
+	{
+		.start	= SPRD_ISP_BASE,
+		.end	= SPRD_ISP_BASE + SPRD_ISP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= IRQ_ISP_INT,
+		.end	= IRQ_ISP_INT,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+static struct platform_device sprd_dcam_device = {
+	.name		= "sc8800-dcam",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(sprd_dcam_resources),
+	.resource	= sprd_dcam_resources,
+};
 static struct resource sprd_i2c_resources[] = {
 	{
 		.start	= SPRD_I2C_BASE,
@@ -63,7 +81,6 @@ static struct resource sprd_i2c_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
-
 static struct platform_device sprd_i2c_device = {
 	.name		= "sc8800-i2c",
 	.id		= 0,
@@ -351,4 +368,34 @@ void __init sprd_gadget_init(void)
 	platform_device_register(&usb_mass_storage_device);
 	#endif
 	platform_device_register(&androidusb_device);
+}
+static unsigned long dcam_func_cfg[] __initdata = {	
+	MFP_CFG_X(CCIRMCLK, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRCK, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRHS, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRVS, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRD0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRD1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRD2, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRD3, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRD4, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRD5, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRD6, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRD7, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),	
+	MFP_CFG_X(CCIRRST, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRPD1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(CCIRPD0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+};
+static void sprd_config_dcam_pins(void)
+{
+	sprd_mfp_config(dcam_func_cfg, ARRAY_SIZE(dcam_func_cfg));
+	
+}
+void __init sprd_add_dcam_device(void)
+{
+	// Enable DCAM Module 
+	__raw_bits_or(BIT_26, AHB_CTL0);//wxz: H5:0x20900200[26]
+
+	sprd_config_dcam_pins();
+	platform_device_register(&sprd_dcam_device);
 }

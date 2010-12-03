@@ -86,6 +86,7 @@ static void __init openphone_init(void)
 	sprd_gpio_init();
 	sprd_add_sdio_device();
 	sprd_gadget_init();
+	sprd_add_dcam_device();
 }
 
 static void __init openphone_map_io(void)
