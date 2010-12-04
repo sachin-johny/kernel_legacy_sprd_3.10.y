@@ -242,6 +242,15 @@ static  LDO_CTL_PTR LDO_GetLdoCtl(LDO_ID_E ldo_id)
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
 
+	if(ctl->bp_reg == NULL){
+		if (LDO_LDO_USBD == ldo_id){
+			local_irq_save(flags);
+			//CHIP_REG_AND(GR_CLK_GEN5, (~LDO_USB_PD));
+			__raw_bits_and((~LDO_USB_PD), GR_CLK_GEN5);
+			local_irq_restore(flags);
+		}
+		return LDO_ERR_OK;
+	}
 	//SCI_DisableIRQ();
 	local_irq_save(flags);
 	
@@ -272,6 +281,15 @@ static  LDO_CTL_PTR LDO_GetLdoCtl(LDO_ID_E ldo_id)
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
 
+	if(ctl->bp_reg == NULL){
+		if (LDO_LDO_USBD == ldo_id){
+			local_irq_save(flags);
+			//CHIP_REG_OR(GR_CLK_GEN5, (~LDO_USB_PD));
+			__raw_bits_or((~LDO_USB_PD), GR_CLK_GEN5);
+			local_irq_restore(flags);
+		}
+		return LDO_ERR_OK;
+	}
 	//SCI_DisableIRQ();
 	local_irq_save(flags);
 	
@@ -403,7 +421,7 @@ void LDO_DeepSleepInit(void)
 //  Author: Tao.Feng && Yi.Qiu
 //	Note:           
 /*****************************************************************************/
-static  int __init LDO_Init(void)
+int __init LDO_Init(void)
 {
 	int i;
 	
@@ -425,4 +443,4 @@ static  int __init LDO_Init(void)
 	return LDO_ERR_OK;
 }
 
-arch_initcall(LDO_Init);
+//arch_initcall(LDO_Init);

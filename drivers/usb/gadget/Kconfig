@@ -526,6 +526,26 @@ config USB_SC8800H
 	select USB_GADGET_SELECTED
 
 
+config USB_GADGET_SC8800G
+	boolean "SPREADTRUM SC8800G USB2.0 Controller"
+	depends on ARCH_SC8800G
+	help
+	   Spreadtrum's SC8800G usb 2.0 controller is an integrated
+	   full speed USB 2.0 device controller.
+
+	   It has up to 5 endpoints, including endpoint zero (for
+	   control transfers).
+
+	   Say "y" to link the driver statically, or "m" to build a
+	   dynamically linked module called "sc8800h_udc" and force all
+	   gadget drivers to also be dynamically linked.
+
+config USB_SC8800G
+	tristate
+	depends on USB_GADGET_SC8800G
+	default USB_GADGET
+	select USB_GADGET_SELECTED
+	select USB_GADGET_DUALSPEED
 #
 # LAST -- dummy/emulated controller
 #

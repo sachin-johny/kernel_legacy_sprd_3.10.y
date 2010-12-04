@@ -19,6 +19,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 
+#include <linux/delay.h>
 #include <asm/mach/flash.h>
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -30,6 +31,8 @@
 
 #include <mach/mfp.h>
 #include <mach/regs_ahb.h>
+#include <mach/regs_global.h>
+#include <mach/ldo.h>
 
 static struct resource sprd_nand_resources[] = {
 	[0] = {
@@ -243,6 +246,77 @@ void __init sprd_add_sdio_device(void)
 
 	sprd_config_sdio_pins();
 	platform_device_register(&sprd_sdio_device);
+}
+
+static struct resource sprd_otg_resource[] = {
+	[0] = {
+		.start = SPRD_USB_BASE,
+		.end   = SPRD_USB_BASE + SPRD_USB_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_USBD_INT,
+		.end   = IRQ_USBD_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+struct platform_device sprd_otg_device = {
+	.name		= "dwc_otg",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(sprd_otg_resource),
+	.resource	= sprd_otg_resource,
+};
+
+static inline
+void    usb_ldo_switch(int flag)
+{
+        if(flag){
+            LDO_TurnOnLDO(LDO_LDO_USB);
+        } else {
+            LDO_TurnOffLDO(LDO_LDO_USB);
+        }
+}
+static void usb_enable_module(int en)
+{
+	if (en){
+		__raw_bits_or(BIT_6, AHB_CTL3);
+		__raw_bits_and(~BIT_9, GR_CLK_GEN5);
+	}else {
+		__raw_bits_and(~BIT_6, AHB_CTL3);
+		__raw_bits_or(BIT_9, GR_CLK_GEN5);
+		__raw_bits_and(~BIT_5, AHB_CTL0);
+	}
+}
+static void usb_connect(void)
+{
+	usb_enable_module(1);
+	msleep(10);
+	usb_ldo_switch(0);
+
+	__raw_bits_and(~BIT_1, AHB_CTL3);
+	__raw_bits_and(~BIT_2, AHB_CTL3);
+
+	__raw_bits_or(BIT_5, AHB_CTL0);
+
+	usb_ldo_switch(1);
+	__raw_bits_or(BIT_6, AHB_CTL3);
+
+
+	__raw_bits_or(BIT_7, AHB_SOFT_RST);
+	msleep(10);
+	__raw_bits_and(~BIT_7, AHB_SOFT_RST);
+	msleep(30);
+}
+void __init sprd_add_otg_device(void)
+{
+	__raw_bits_or(BIT_8, USB_PHY_CTRL);
+	usb_connect();
+	if (LDO_IsLDOOn(LDO_LDO_USB)){
+		pr_info("usb ldo is on\r\n");
+	}else
+		pr_info("usb ldo is off\r\n");
+	platform_device_register(&sprd_otg_device);
 }
 
 /*Android USB Function */

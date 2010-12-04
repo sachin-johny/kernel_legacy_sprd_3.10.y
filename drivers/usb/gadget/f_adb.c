@@ -653,5 +653,5 @@ static int __init init(void)
 	android_register_function(&adb_function);
 	return 0;
 }
-//module_init(init);
-late_initcall(init);
+module_init(init);
+//late_initcall(init);

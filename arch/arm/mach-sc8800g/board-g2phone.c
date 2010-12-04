@@ -75,14 +75,20 @@ static void __init chip_init(void)
 	/* setup pins configration when LDO shutdown*/
 	__raw_writel(0x1fff00, PIN_CTL_REG);
 }
+int __init LDO_Init(void);
+
+#include <mach/regs_ahb.h>
 static void __init g2phone_init(void)
 {
+	pr_info("chip id :%x\r\n", readl(CHIP_ID));
 	chip_init();
 	ADI_init();
+	LDO_Init();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
 	sprd_gpio_init();
 	sprd_add_sdio_device();
+	sprd_add_otg_device();
 	sprd_gadget_init();
 }
 
