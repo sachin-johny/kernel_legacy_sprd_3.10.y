@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/initrd.h>
+#include <linux/android_pmem.h>
 
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
@@ -38,6 +39,11 @@
 #include <mach/regs_ana.h>
 #include <mach/regs_cpc.h>
 
+/* pmem area definition */
+#define SPRD_PMEM_BASE          ((256-8)*1024*1024)
+#define SPRD_PMEM_SIZE          (4*1024)
+#define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
+#define SPRD_PMEM_ADSP_SIZE     (4*1024)
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -59,8 +65,39 @@ static struct platform_device example_device = {
 	.resource       = example_resources,
 };
 
+#ifdef CONFIG_ANDROID_PMEM
+static struct android_pmem_platform_data android_pmem_pdata = {
+       .name = "pmem",
+       .start = SPRD_PMEM_BASE,
+       .size = SPRD_PMEM_SIZE,
+       .no_allocator = 1,
+       .cached = 1,
+};
+
+static struct android_pmem_platform_data android_pmem_adsp_pdata = {
+       .name = "pmem_adsp",
+       .start = SPRD_PMEM_ADSP_BASE,
+       .size = SPRD_PMEM_ADSP_SIZE,
+       .no_allocator = 0,
+       .cached = 0,
+};
+
+struct platform_device android_pmem_device = {
+       .name = "android_pmem",
+       .id = 0,
+       .dev = { .platform_data = &android_pmem_pdata },
+};
+
+struct platform_device android_pmem_adsp_device = {
+       .name = "android_pmem",
+       .id = 1,
+       .dev = { .platform_data = &android_pmem_adsp_pdata },
+};
+#endif
 static struct platform_device *devices[] __initdata = {
 	&example_device,
+	&android_pmem_device,
+	&android_pmem_adsp_device,
 };
 
 extern struct sys_timer sprd_timer;
