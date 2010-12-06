@@ -569,7 +569,11 @@ config VIDEO_VIVI
 	  api.
 	  Say Y here if you want to test video apps or debug V4L devices.
 	  In doubt, say N.
-
+config VIDEO_DCAM_SPRD
+	tristate "SPRD DCAM driver"
+	select VIDEOBUF_VMALLOC
+	help
+	  Support digital camera for SPRD
 config VIDEO_VPSS_SYSTEM
 	tristate "VPSS System module driver"
 	depends on ARCH_DAVINCI
