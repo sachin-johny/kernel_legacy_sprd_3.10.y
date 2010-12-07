@@ -40,10 +40,10 @@
 #include <mach/regs_cpc.h>
 
 /* pmem area definition */
-#define SPRD_PMEM_BASE          ((256-8)*1024*1024)
-#define SPRD_PMEM_SIZE          (4*1024)
+#define SPRD_PMEM_BASE          ((256-8-8)*1024*1024)
+#define SPRD_PMEM_SIZE          (8*1024*1024)
 #define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
-#define SPRD_PMEM_ADSP_SIZE     (4*1024)
+#define SPRD_PMEM_ADSP_SIZE     (8*1024*1024)
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -70,7 +70,7 @@ static struct android_pmem_platform_data android_pmem_pdata = {
        .name = "pmem",
        .start = SPRD_PMEM_BASE,
        .size = SPRD_PMEM_SIZE,
-       .no_allocator = 1,
+       .no_allocator = 0,
        .cached = 1,
 };
 
@@ -79,7 +79,7 @@ static struct android_pmem_platform_data android_pmem_adsp_pdata = {
        .start = SPRD_PMEM_ADSP_BASE,
        .size = SPRD_PMEM_ADSP_SIZE,
        .no_allocator = 0,
-       .cached = 0,
+       .cached = 1,
 };
 
 struct platform_device android_pmem_device = {
