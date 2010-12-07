@@ -574,6 +574,13 @@ config VIDEO_DCAM_SPRD
 	select VIDEOBUF_VMALLOC
 	help
 	  Support digital camera for SPRD
+
+config VIDEO_OVERLAY_SPRD
+	tristate "SPRD OVERLAY driver"
+	select VIDEOBUF_VMALLOC
+	help
+	  Support overlay for SPRD
+
 config VIDEO_VPSS_SYSTEM
 	tristate "VPSS System module driver"
 	depends on ARCH_DAVINCI
