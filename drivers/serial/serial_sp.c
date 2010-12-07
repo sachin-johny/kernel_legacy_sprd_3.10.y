@@ -30,9 +30,9 @@
 #include <asm/irq.h>
 #include <mach/hardware.h>
 
-#ifdef CONFIG_ARCH_SC8800S
+//#ifdef CONFIG_ARCH_SC8800S
 #define CONFIG_TS0710_MUX_UART
-#endif
+//#endif
 
 /*
  * port type,it ought to be defined in serial_core.h,
