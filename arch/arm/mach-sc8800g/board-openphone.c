@@ -107,6 +107,7 @@ static void __init openphone_init_irq(void)
 	sprd_init_irq();
 }
 
+int __init LDO_Init();
 static void __init chip_init(void)
 {
     ANA_REG_SET(ANA_ADIE_CHIP_ID,0);
@@ -116,12 +117,14 @@ static void __init chip_init(void)
 
 static void __init openphone_init(void)
 {
-    chip_init();
-    ADI_init();
+	chip_init();
+	ADI_init();
+	LDO_Init();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
 	sprd_gpio_init();
 	sprd_add_sdio_device();
+	sprd_add_otg_device();
 	sprd_gadget_init();
 	sprd_add_dcam_device();
 }
