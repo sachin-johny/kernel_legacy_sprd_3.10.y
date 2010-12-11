@@ -94,11 +94,108 @@ struct platform_device android_pmem_adsp_device = {
        .dev = { .platform_data = &android_pmem_adsp_pdata },
 };
 #endif
+
+#if defined(CONFIG_SPI_SC88XX) || defined(CONFIG_SPI_SC88XX_MODULE)
+#include <linux/spi/spi.h>
+#include <linux/dma-mapping.h>
+#include <mach/irqs.h>
+#include <mach/mfp.h>
+static int spi_cs_gpio[] = {
+    [0] = 32, // cs = 0 , GPIO32 == SPI_CSN0
+    [1] = 33, // cs = 1 , GPIO33 == SPI_CSN1
+    [2] = 32, // to cs0
+    [3] = 33, // to cs1
+};
+
+static struct spi_board_info openhone_spi_devices[] = {
+    {
+        .modalias       = "spidev", // "spidev" --> spidev_spi
+        .chip_select    = 0,
+        .max_speed_hz   = 8 * 1000 * 1000,
+    },
+    {
+        .modalias       = "spidev", // "spidev" --> spidev_spi
+        .chip_select    = 1,
+        .max_speed_hz   = 0.5 * 1000 * 1000,
+    },
+    {
+        .modalias       = "spi_slot0", // "spidev" --> spidev_spi
+        .chip_select    = 2,
+        .max_speed_hz   = 8 * 1000 * 1000,
+    },
+    {
+        .modalias       = "spi_slot1", // "spidev" --> spidev_spi
+        .chip_select    = 3,
+        .max_speed_hz   = 0.5 * 1000 * 1000,
+    },
+};
+
+static u64 spi_dmamask = DMA_BIT_MASK(32);
+static struct resource spi_resources[] = {
+    [0] = {
+        .start  = SPRD_SPI_PHYS,
+        .end    = SPRD_SPI_PHYS + SZ_4K - 1,
+        .flags  = IORESOURCE_MEM,
+	},
+    [1] = {
+        .start  = IRQ_SPI_INT,
+        .end    = IRQ_SPI_INT,
+        .flags  = IORESOURCE_IRQ,
+    },
+};
+static struct platform_device sprd_spi_controller_device = {
+    .name   = "sprd_spi",
+    .id     = 0,
+	.dev    = {
+        .dma_mask           = &spi_dmamask,
+        .coherent_dma_mask  = DMA_BIT_MASK(32),
+	},
+	.resource	= spi_resources,
+	.num_resources	= ARRAY_SIZE(spi_resources),
+};
+
+static unsigned long spi_func_cfg[] = {
+	MFP_CFG_X(SPI_CLK   , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+	MFP_CFG_X(SPI_DI    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+	MFP_CFG_X(SPI_DO    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+    /* configure cs pin to normal gpio */
+	MFP_CFG_X(SPI_CSN0  , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	MFP_CFG_X(SPI_CSN1  , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+};
+
+static void sprd_spi_init(void)
+{
+    int cs_gpio;
+    int i, nr_chip = ARRAY_SIZE(openhone_spi_devices);
+    struct spi_board_info *chip = openhone_spi_devices;
+
+    sprd_mfp_config(spi_func_cfg, ARRAY_SIZE(spi_func_cfg));
+
+    for (i = 0; i < nr_chip; i++) {
+        cs_gpio = spi_cs_gpio[chip[i].chip_select];
+#if 0
+        // we do it in sprd_spi_setup func
+        gpio_request(cs_gpio, chip[i].modalias);
+        gpio_direction_output(cs_gpio, !(chip[i].mode & SPI_CS_HIGH));
+#endif
+        chip[i].controller_data = (void*)cs_gpio;
+    }
+
+    spi_register_board_info(chip, nr_chip);
+    platform_device_register(&sprd_spi_controller_device);
+}
+#else
+static void sprd_spi_init(void) {}
+#endif
+
 static struct platform_device *devices[] __initdata = {
 	&example_device,
+#ifdef CONFIG_ANDROID_PMEM
 	&android_pmem_device,
 	&android_pmem_adsp_device,
+#endif
 };
+
 
 extern struct sys_timer sprd_timer;
 
@@ -127,6 +224,7 @@ static void __init openphone_init(void)
 	sprd_add_otg_device();
 	sprd_gadget_init();
 	sprd_add_dcam_device();
+    sprd_spi_init();
 }
 
 static void __init openphone_map_io(void)

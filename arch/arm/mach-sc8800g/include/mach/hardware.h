@@ -202,6 +202,10 @@
 #define SPRD_MISC_PHYS          0x82000000
 #define SPRD_MISC_SIZE          SZ_4K
 
+/* SPI */
+#define SPRD_SPI_BASE            0xE0034000
+#define SPRD_SPI_PHYS            0x8E002000
+#define SPRD_SPI_SIZE            SZ_4K
 
 /* USB device space */
 #define SPRD_USB_BASE            0xE0036000

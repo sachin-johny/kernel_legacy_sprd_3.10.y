@@ -17,61 +17,66 @@
 #include <linux/interrupt.h>
 #include <mach/dma.h>
 
-struct sc88xx_irq_handler {
+struct sprd_irq_handler {
     void (*handler)(int dma, void *dev_id);
     void *dev_id;
 };
 
-static struct sc88xx_irq_handler sc88xx_irq_handlers[DMA_CH_NUM];
+static struct sprd_irq_handler sprd_irq_handlers[DMA_CH_NUM];
 
-static irqreturn_t sc88xx_dma_irq(int irq, void *dev_id)
+static irqreturn_t sprd_dma_irq(int irq, void *dev_id)
 {
     u32 irq_status = __raw_readl(DMA_INT_STS);
     while (irq_status) {
         int i = 31 - __builtin_clz(irq_status);
         irq_status &= ~(1<<i);
-        if (sc88xx_irq_handlers[i].handler)
-            sc88xx_irq_handlers[i].handler(i, sc88xx_irq_handlers[i].dev_id);
-        else printk(KERN_ERR "DMA channel %d needs handler!\n", i);
 #if 1 || SC88XX_PCM_DMA_SG_CIRCLE
         dma_reg_write(DMA_TRANSF_INT_CLR, i, 1, 1);
         dma_reg_write(DMA_BURST_INT_CLR, i, 1, 1);
         dma_reg_write(DMA_LISTDONE_INT_CLR, i, 1, 1);
 #endif
+        if (sprd_irq_handlers[i].handler)
+            sprd_irq_handlers[i].handler(i, sprd_irq_handlers[i].dev_id);
+        else printk(KERN_ERR "DMA channel %d needs handler!\n", i);
+/* #if 1 || SC88XX_PCM_DMA_SG_CIRCLE
+        dma_reg_write(DMA_TRANSF_INT_CLR, i, 1, 1);
+        dma_reg_write(DMA_BURST_INT_CLR, i, 1, 1);
+        dma_reg_write(DMA_LISTDONE_INT_CLR, i, 1, 1);
+#endif */
     }
     return IRQ_HANDLED;
 }
 
-int sc88xx_request_dma(int ch_id, void (*irq_handler)(int, void *), void *data)
+int sprd_request_dma(int ch_id, void (*irq_handler)(int, void *), void *data)
 {
-    if (sc88xx_irq_handlers[ch_id].handler) {
+    if (sprd_irq_handlers[ch_id].handler) {
         printk(KERN_WARNING "%s: dma channel %d is busy\n", __func__, ch_id);
         return -EBUSY;
     }
-    sc88xx_irq_handlers[ch_id].handler = irq_handler;
-    sc88xx_irq_handlers[ch_id].dev_id = data;
+    sprd_irq_handlers[ch_id].handler = irq_handler;
+    sprd_irq_handlers[ch_id].dev_id = data;
     return 0;
 }
-EXPORT_SYMBOL_GPL(sc88xx_request_dma);
+EXPORT_SYMBOL_GPL(sprd_request_dma);
 
-void sc88xx_free_dma(int ch_id)
+void sprd_free_dma(int ch_id)
 {
-    sc88xx_irq_handlers[ch_id].handler = NULL;
+    sprd_irq_handlers[ch_id].handler = NULL;
 }
-EXPORT_SYMBOL_GPL(sc88xx_free_dma);
+EXPORT_SYMBOL_GPL(sprd_free_dma);
 
-int sc88xx_irq_handler_ready(int ch_id)
+int sprd_irq_handler_ready(int ch_id)
 {
-    return sc88xx_irq_handlers[ch_id].handler != NULL;
+    return sprd_irq_handlers[ch_id].handler != NULL;
 }
-EXPORT_SYMBOL_GPL(sc88xx_irq_handler_ready);
+EXPORT_SYMBOL_GPL(sprd_irq_handler_ready);
 
-void sc88xx_dma_setup(sc88xx_dma_ctrl *ctrl)
+void sprd_dma_setup(sprd_dma_ctrl *ctrl)
 {
     int ch_id = ctrl->ch_id;
     u32 ch_base = DMA_CHx_CTL_BASE + (ch_id * 0x20);
     int interrupt_type = ctrl->interrupt_type; // TRANS_DONE_EN;
-    sc88xx_dma_desc *dma_desc = ctrl->dma_desc;
+    sprd_dma_desc *dma_desc = ctrl->dma_desc;
     dma_addr_t dma_desc_phy = ctrl->dma_desc_phy;
     u32 modes = ctrl->modes; // DMA_LINKLIST;
     u32 wrap_addr_start = 0, wrap_addr_end = 0;
@@ -156,7 +161,62 @@ void sc88xx_dma_setup(sc88xx_dma_ctrl *ctrl)
     __raw_writel(dma_desc->sbm  , ch_base + 0x18);
     __raw_writel(dma_desc->dbm  , ch_base + 0x1c);
 }
-EXPORT_SYMBOL_GPL(sc88xx_dma_setup);
+EXPORT_SYMBOL_GPL(sprd_dma_setup);
+
+void sprd_dma_setup_cfg(sprd_dma_ctrl *ctrl,
+            int ch_id,
+            int dma_modes,
+            int interrupt_type,
+            int autodma_src,
+            int autodma_dst,
+            int autodma_burst_mod_src,
+            int autodma_burst_mod_dst,
+            int burst_size,
+            int src_data_width,
+            int dst_data_width,
+            u32 dsrc,
+            u32 ddst,
+            u32 tlen)
+{
+    sprd_dma_desc *dma_desc = ctrl->dma_desc;
+    int autodma_burst_step_src = 0;
+    int autodma_burst_step_dst = 0;
+    int autodma_width;
+    int pmod = 0, sbm = 0, dbm = 0;
+    int width = 0;
+
+    ctrl->ch_id = ch_id;
+    ctrl->modes = dma_modes;
+    ctrl->interrupt_type = interrupt_type;
+
+    if (src_data_width == 32) width |= DMA_SDATA_WIDTH32;
+    else if (src_data_width == 16) width |= DMA_SDATA_WIDTH16;
+    else width |= DMA_SDATA_WIDTH8;
+
+    if (dst_data_width == 32) width |= DMA_DDATA_WIDTH32;
+    else if (dst_data_width == 16) width |= DMA_DDATA_WIDTH16;
+    else width |= DMA_DDATA_WIDTH8;
+
+    if (autodma_src != DMA_NOCHANGE) {
+        autodma_width = 1 << ((width >> 26) & 0x03); // bit0 means byte, bit1=half, bit2=word
+        pmod |= (autodma_src << 31) | (autodma_width << 16);
+        sbm  = (autodma_src << 25) | autodma_burst_step_src;
+    }
+    if (autodma_dst != DMA_NOCHANGE) {
+        autodma_width = 1 << ((width >> 24) & 0x03); // bit0 means byte, bit1=half, bit2=word
+        pmod |= (autodma_dst << 15) | (autodma_width << 0);
+        dbm  = (autodma_dst << 25) | autodma_burst_step_dst;
+    }
+    dma_desc->cfg = DMA_LIT_ENDIAN | width | DMA_REQMODE_TRANS | burst_size;
+    dma_desc->tlen = tlen;
+    dma_desc->dsrc = dsrc;
+    dma_desc->ddst = ddst;
+    dma_desc->llptr = 0;
+    dma_desc->pmod = pmod;
+    dma_desc->sbm = sbm | autodma_burst_mod_src;
+    dma_desc->dbm = dbm | autodma_burst_mod_dst;
+}
+EXPORT_SYMBOL_GPL(sprd_dma_setup_cfg);
 
 static int sprd_dma_init(void)
 {
@@ -180,7 +240,7 @@ static int sprd_dma_init(void)
     dma_reg_write(DMA_CFG,16, DMA_SOFT_WAITTIME, 0xffff);
 
     /*register dma irq handle to host*/
-    ret = request_irq(IRQ_DMA_INT, sc88xx_dma_irq, 0, "sc88xx-dma", NULL);
+    ret = request_irq(IRQ_DMA_INT, sprd_dma_irq, 0, "sprd-dma", NULL);
 
     /*enable dma int*/
     if (ret == 0) {
@@ -193,6 +253,6 @@ static int sprd_dma_init(void)
 
 arch_initcall(sprd_dma_init);
 
-MODULE_DESCRIPTION("SC88XX DMA Module");
+MODULE_DESCRIPTION("SPRD DMA Module");
 MODULE_AUTHOR("Luther Ge <luther.ge@spreadtrum.com>");
 MODULE_LICENSE("GPL");

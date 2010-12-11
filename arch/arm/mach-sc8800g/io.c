@@ -35,7 +35,7 @@
 
 static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(INTCV),
-        SPRD_DEVICE(DMA),
+    SPRD_DEVICE(DMA),
 	SPRD_DEVICE(ISP),
 	SPRD_DEVICE(USB),
 	SPRD_DEVICE(DCT),
@@ -56,6 +56,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(SIM0),
 	SPRD_DEVICE(SIM1),
 	SPRD_DEVICE(I2C),
+    SPRD_DEVICE(SPI),
 	SPRD_DEVICE(KPD),
 	SPRD_DEVICE(SYSCNT),
 	SPRD_DEVICE(PWM),

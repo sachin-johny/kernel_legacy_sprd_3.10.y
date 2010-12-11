@@ -224,7 +224,7 @@ enum {
 #define DMA_DECREASE         ( 1 )
 #define DMA_NOCHANGE         ( 0xff )
 
-typedef struct sc88xx_dma_desc {
+typedef struct sprd_dma_desc {
 	volatile u32 cfg;
 	volatile u32 tlen; // Total transfer length, in bytes 
 	volatile u32 dsrc; // Source address. This address value should align to the SRC_DATA_WIDTH 
@@ -233,15 +233,15 @@ typedef struct sc88xx_dma_desc {
     volatile u32 pmod; // POST MODE
     volatile u32 sbm;  // src burst mode
     volatile u32 dbm;  // dst burst mode
-} sc88xx_dma_desc;
+} sprd_dma_desc;
 
-typedef struct sc88xx_dma_ctrl {
+typedef struct sprd_dma_ctrl {
     int interrupt_type;
     int modes;
     int ch_id;
-    sc88xx_dma_desc *dma_desc;
+    sprd_dma_desc *dma_desc;
     dma_addr_t dma_desc_phy;
-} sc88xx_dma_ctrl;
+} sprd_dma_ctrl;
 
 static inline void dma_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
 {
@@ -254,10 +254,72 @@ static inline void dma_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
     __raw_writel(tmp, reg);
     raw_local_irq_restore(flags);
 }
+#define sprd_dma_start(ch_id) \
+    __raw_bits_or(1 << ch_id, DMA_CHx_EN) /* Enable DMA channel */
 
-int sc88xx_request_dma(int ch_id, void (*irq_handler)(int, void *), void *data);
-void sc88xx_free_dma(int ch_id);
-void sc88xx_dma_setup(sc88xx_dma_ctrl *ctrl);
-int sc88xx_irq_handler_ready(int ch_id);
+#define sprd_dma_start2(ch_id1, ch_id2) \
+    __raw_bits_or((1 << ch_id1) | (1 << ch_id2), DMA_CHx_EN) /* Enable DMA channel */
 
+#ifdef CONFIG_ARCH_SC8800S
+#define sprd_dma_stop(ch_id) \
+    __raw_bits_and(~(1 << ch_id), DMA_CHx_EN) /* disable DMA channel */
+#elif defined(CONFIG_ARCH_SC8800G)
+#define sprd_dma_stop(ch_id) \
+    __raw_bits_or(1 << ch_id, DMA_CHx_DIS) /* disable DMA channel */
+#endif
+
+#define sprd_dma_cfg(ch_id, cfg) \
+    __raw_writel(cfg,  DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x00) /* cfg */
+
+#define sprd_dma_tlen(ch_id, tlen) \
+    __raw_writel(tlen, DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x04) /* tlen */
+
+#define sprd_dma_dsrc(ch_id, dsrc) \
+    __raw_writel(dsrc, DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x08) /* dsrc */
+
+#define sprd_dma_ddst(ch_id, ddst) \
+    __raw_writel(ddst, DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x0C) /* ddst */
+
+#define sprd_dma_llptr(ch_id, llptr) \
+    __raw_writel(llptr,DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x10) /* llptr */
+
+#define sprd_dma_pmod(ch_id, pmod) \
+    __raw_writel(pmod, DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x14) /* pmod */
+
+#define sprd_dma_sbm(ch_id, sbm) \
+    __raw_writel(sbm,  DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x18) /* sbm */
+
+#define sprd_dma_dbm(ch_id, dbm) \
+    __raw_writel(dbm,  DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x1C) /* dbm */
+
+static inline void sprd_dma_update(const int ch_id, sprd_dma_desc *dma_desc)
+{
+    sprd_dma_cfg  (ch_id,dma_desc->cfg);
+    sprd_dma_tlen (ch_id,dma_desc->tlen);
+    sprd_dma_dsrc (ch_id,dma_desc->dsrc);
+    sprd_dma_ddst (ch_id,dma_desc->ddst);
+    sprd_dma_llptr(ch_id,dma_desc->llptr);
+    sprd_dma_pmod (ch_id,dma_desc->pmod);
+    sprd_dma_sbm  (ch_id,dma_desc->sbm);
+    sprd_dma_dbm  (ch_id,dma_desc->dbm);
+}
+
+int sprd_request_dma(int ch_id, void (*irq_handler)(int, void *), void *data);
+void sprd_free_dma(int ch_id);
+void sprd_dma_setup(sprd_dma_ctrl *ctrl);
+int sprd_irq_handler_ready(int ch_id);
+void sprd_dma_setup_cfg(sprd_dma_ctrl *ctrl,
+            int ch_id,
+            int dma_modes,
+            int interrupt_type,
+            int autodma_src,
+            int autodma_dst,
+            int autodma_burst_mod_src,
+            int autodma_burst_mod_dst,
+            int burst_size,
+            int src_data_width,
+            int dst_data_width,
+            u32 dsrc,
+            u32 ddst,
+            u32 tlen);
 #endif

@@ -53,7 +53,7 @@ extern int audio_playback_capture_channel(struct snd_pcm_substream *substream);
 #define AUDIO_VBDA1    (1 << 1)
 #define AUDIO_VBAD0    (1 << 2)
 #define AUDIO_VBAD1    (1 << 3)
-struct sc88xx_pcm_dma_params {
+struct sprd_pcm_dma_params {
 	char *name;			/* stream identifier */
     u32 aaf;  // audio codec addr choice flag
     u32 cfg;
@@ -67,10 +67,10 @@ struct sc88xx_runtime_data {
     int dma_channel;
     int pcm_1channel_data_width;
     int dma_da_ad_1_offset;
-	struct sc88xx_pcm_dma_params *params;
-	sc88xx_dma_desc *dma_desc_array;
+	struct sprd_pcm_dma_params *params;
+	sprd_dma_desc *dma_desc_array;
 	dma_addr_t dma_desc_array_phys;
-    sc88xx_dma_desc *dma_desc_array1;
+    sprd_dma_desc *dma_desc_array1;
 	dma_addr_t dma_desc_array_phys1;
 #if !SC88XX_PCM_DMA_SG_CIRCLE
     int ch_max;

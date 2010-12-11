@@ -47,7 +47,7 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
     .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
 #endif
     .periods_min        = 128,
-    .periods_max        = 18*PAGE_SIZE/(2*sizeof(sc88xx_dma_desc)), // DA0, DA1 sg are combined
+    .periods_max        = 18*PAGE_SIZE/(2*sizeof(sprd_dma_desc)), // DA0, DA1 sg are combined
     .buffer_bytes_max	= 6 * 128 * 1024,
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,
 };
@@ -120,7 +120,7 @@ int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 static void grab_next_sg_data(struct snd_pcm_substream *substream)
 {
     struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
-    sc88xx_dma_desc *dma_desc0 = NULL, *dma_desc1 = NULL;
+    sprd_dma_desc *dma_desc0 = NULL, *dma_desc1 = NULL;
     int chs = rtd->dma_channel;
 
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -197,23 +197,23 @@ int cpu_codec_dma_chain_operate_ready(struct snd_pcm_substream *substream)
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
         ch_id = DMA_VB_DA0;
         if ((chs & (1 << ch_id)) && 
-            !sc88xx_irq_handler_ready(ch_id))
+            !sprd_irq_handler_ready(ch_id))
             return 0;
 #if !SC88XX_VBC_DMA_COMBINE
         ch_id = DMA_VB_DA1;
         if ((chs & (1 << ch_id)) && 
-            !sc88xx_irq_handler_ready(ch_id))
+            !sprd_irq_handler_ready(ch_id))
             return 0;
 #endif
     } else {
         ch_id = DMA_VB_AD0;
         if ((chs & (1 << ch_id)) && 
-            !sc88xx_irq_handler_ready(ch_id))
+            !sprd_irq_handler_ready(ch_id))
             return 0;
 #if !SC88XX_VBC_DMA_COMBINE
         ch_id = DMA_VB_AD1;
         if ((chs & (1 << ch_id)) && 
-            !sc88xx_irq_handler_ready(ch_id))
+            !sprd_irq_handler_ready(ch_id))
             return 0;
 #endif
     }
@@ -261,10 +261,10 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd = runtime->private_data;
     struct snd_soc_pcm_runtime *srtd = substream->private_data;
-    struct sc88xx_pcm_dma_params *dma = srtd->dai->cpu_dai->dma_data;
+    struct sprd_pcm_dma_params *dma = srtd->dai->cpu_dai->dma_data;
 	size_t totsize = params_buffer_bytes(params);
 	size_t period = params_period_bytes(params);
-	sc88xx_dma_desc *dma_desc,*dma_desc1;
+	sprd_dma_desc *dma_desc,*dma_desc1;
 	dma_addr_t dma_buff_phys, dma_buff_phys1,next_desc_phys, next_desc_phys1;
     int ret;
     int burst_size = sc88xx_pcm_hardware.fifo_size; // sc88xx_pcm_hardware.period_bytes_min / 2; // VBC_FIFO_FRAME_NUM / 2;
@@ -279,20 +279,20 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 		rtd->params = dma;
         ret = 1;
         if (ret && rtd->dma_channel & DMA_VB_DA0_BIT)
-            ret = sc88xx_request_dma(DMA_VB_DA0, sc88xx_pcm_dma_irq, substream);
+            ret = sprd_request_dma(DMA_VB_DA0, sc88xx_pcm_dma_irq, substream);
 #if !SC88XX_VBC_DMA_COMBINE
         ret = 1;
 #endif
         if (ret && rtd->dma_channel & DMA_VB_DA1_BIT)
-            ret = sc88xx_request_dma(DMA_VB_DA1, sc88xx_pcm_dma_irq, substream);
+            ret = sprd_request_dma(DMA_VB_DA1, sc88xx_pcm_dma_irq, substream);
         ret = 1;
         if (ret && rtd->dma_channel & DMA_VB_AD0_BIT)
-            ret = sc88xx_request_dma(DMA_VB_AD0, sc88xx_pcm_dma_irq, substream);
+            ret = sprd_request_dma(DMA_VB_AD0, sc88xx_pcm_dma_irq, substream);
 #if !SC88XX_VBC_DMA_COMBINE
         ret = 1;
 #endif
         if (ret && rtd->dma_channel & DMA_VB_AD1_BIT)
-            ret = sc88xx_request_dma(DMA_VB_AD1, sc88xx_pcm_dma_irq, substream);
+            ret = sprd_request_dma(DMA_VB_AD1, sc88xx_pcm_dma_irq, substream);
         if (ret < 0) return ret;
 	} else {
         lprintf("multi called\n");
@@ -306,7 +306,7 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	dma_desc = rtd->dma_desc_array;
     dma_desc1= rtd->dma_desc_array1 = rtd->dma_desc_array + sc88xx_pcm_hardware.periods_max;
 	next_desc_phys = rtd->dma_desc_array_phys;
-    next_desc_phys1= rtd->dma_desc_array_phys1 = rtd->dma_desc_array_phys + sc88xx_pcm_hardware.periods_max * sizeof(sc88xx_dma_desc);
+    next_desc_phys1= rtd->dma_desc_array_phys1 = rtd->dma_desc_array_phys + sc88xx_pcm_hardware.periods_max * sizeof(sprd_dma_desc);
 
     rtd->dma_da_ad_1_offset = (totsize / params_channels(params)) * (params_channels(params)-1);
 
@@ -352,8 +352,8 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 #endif
 
 	do {
-		next_desc_phys += sizeof(sc88xx_dma_desc);
-        next_desc_phys1+= sizeof(sc88xx_dma_desc);
+		next_desc_phys += sizeof(sprd_dma_desc);
+        next_desc_phys1+= sizeof(sprd_dma_desc);
 
 		dma_desc->llptr = next_desc_phys;
         dma_desc1->llptr = next_desc_phys1;
@@ -431,8 +431,8 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
                ,dma_desc - rtd->dma_desc_array
                ,dma_buff_phys
                ,dma_buff_phys1
-               ,next_desc_phys - sizeof(sc88xx_dma_desc)
-               ,next_desc_phys1 - sizeof(sc88xx_dma_desc)
+               ,next_desc_phys - sizeof(sprd_dma_desc)
+               ,next_desc_phys1 - sizeof(sprd_dma_desc)
                ,dma_desc->cfg 
                ,dma_desc->tlen
                ,dma_desc->dsrc
@@ -476,13 +476,13 @@ static int sc88xx_pcm_hw_free(struct snd_pcm_substream *substream)
     
     if (rtd->params) {
         if (rtd->dma_channel & DMA_VB_DA0_BIT)
-            sc88xx_free_dma(DMA_VB_DA0);
+            sprd_free_dma(DMA_VB_DA0);
         if (rtd->dma_channel & DMA_VB_DA1_BIT)
-            sc88xx_free_dma(DMA_VB_DA1);
+            sprd_free_dma(DMA_VB_DA1);
         if (rtd->dma_channel & DMA_VB_AD0_BIT)
-            sc88xx_free_dma(DMA_VB_AD0);
+            sprd_free_dma(DMA_VB_AD0);
         if (rtd->dma_channel & DMA_VB_AD1_BIT)
-            sc88xx_free_dma(DMA_VB_AD1);
+            sprd_free_dma(DMA_VB_AD1);
 	}
 	return 0;
 }
@@ -496,7 +496,7 @@ int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
 	int ret = 0;
-    sc88xx_dma_ctrl ctrl;
+    sprd_dma_ctrl ctrl;
 
 	switch (cmd) {
         case SNDRV_PCM_TRIGGER_START:
@@ -516,7 +516,7 @@ int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
                 ctrl.ch_id = DMA_VB_DA0;
                 ctrl.dma_desc = rtd->dma_desc_array;
                 ctrl.dma_desc_phy = rtd->dma_desc_array_phys;
-                sc88xx_dma_setup(&ctrl);
+                sprd_dma_setup(&ctrl);
                 ret = 0;
             }
 #if !SC88XX_VBC_DMA_COMBINE
@@ -531,7 +531,7 @@ int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
                 ctrl.ch_id = DMA_VB_DA1;
                 ctrl.dma_desc = rtd->dma_desc_array1;
                 ctrl.dma_desc_phy = rtd->dma_desc_array_phys1;
-                sc88xx_dma_setup(&ctrl);
+                sprd_dma_setup(&ctrl);
                 ret = 0;
             }
             ret = 1;
@@ -544,7 +544,7 @@ int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
                 ctrl.ch_id = DMA_VB_AD0;
                 ctrl.dma_desc = rtd->dma_desc_array;
                 ctrl.dma_desc_phy = rtd->dma_desc_array_phys;
-                sc88xx_dma_setup(&ctrl);
+                sprd_dma_setup(&ctrl);
                 ret = 0;
             }
 #if !SC88XX_VBC_DMA_COMBINE
@@ -559,7 +559,7 @@ int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
                 ctrl.ch_id = DMA_VB_AD1;
                 ctrl.dma_desc = rtd->dma_desc_array1;
                 ctrl.dma_desc_phy = rtd->dma_desc_array_phys1;
-                sc88xx_dma_setup(&ctrl);
+                sprd_dma_setup(&ctrl);
                 ret = 0;
             }
             ret = 0;

@@ -68,7 +68,7 @@ struct vbc_extra {
     int width;
 };
 
-static void sc88xx_vbc_dma_params(struct sc88xx_pcm_dma_params *dma, struct vbc_extra *extra)
+static void sc88xx_vbc_dma_params(struct sprd_pcm_dma_params *dma, struct vbc_extra *extra)
 {
     int autodma_src;
     int autodma_dst;
@@ -138,13 +138,13 @@ static int sc88xx_vbc_hw_params(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *cpu_dai = rtd->dai->cpu_dai;
     struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *prtd = runtime->private_data;
-    struct sc88xx_pcm_dma_params *dma;
+    struct sprd_pcm_dma_params *dma;
 	int width = snd_pcm_format_physical_width(params_format(params));
 
 	/* generate correct DMA params */
 	if (cpu_dai->dma_data)
 		kfree(cpu_dai->dma_data);
-    cpu_dai->dma_data = dma = kzalloc(sizeof(struct sc88xx_pcm_dma_params), GFP_KERNEL);
+    cpu_dai->dma_data = dma = kzalloc(sizeof(struct sprd_pcm_dma_params), GFP_KERNEL);
     if (dma) {
         struct vbc_extra extra;
         extra.width = width;
