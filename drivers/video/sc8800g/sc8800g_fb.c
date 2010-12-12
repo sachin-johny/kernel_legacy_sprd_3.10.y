@@ -36,6 +36,7 @@
 #include <mach/mfp.h>
 #include "sc8800g_lcd.h"
 
+//#define TEST_RRM /* enable rrm test */
 //#define  FB_DEBUG 
 #ifdef FB_DEBUG
 #define FB_PRINT printk
@@ -100,12 +101,16 @@
 
 #define BITS_PER_PIXEL 16
 
+#include "sc8800g_rrm.h"
+
 struct sc8800fb_info {
 	struct fb_info *fb;
 	uint32_t cap;
 	struct ops_mcu *ops;
 	struct lcd_spec *panel;
+	struct rrmanager *rrm;
 };
+
 static int32_t lcm_send_cmd (uint32_t cmd)
 {
 	/* busy wait for ahb fifo full sign's disappearance */
@@ -145,12 +150,17 @@ static struct ops_mcu lcm_mcu_ops = {
 	.send_cmd_data = lcm_send_cmd_data,
 	.send_data = lcm_send_data,
 };
+
 static irqreturn_t lcdc_isr(int irq, void *data)
 {
 	uint32_t val ;
+	struct sc8800fb_info *fb = (struct sc8800fb_info *)data;
+
 	val = __raw_readl(LCDC_IRQ_STATUS);
-	if (val & (1<<0))      /* lcdc done */
+	if (val & (1<<0)){      /* lcdc done */
 			__raw_bits_or((1<<0), LCDC_IRQ_CLR);
+			rrm_interrupt(fb->rrm);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -271,9 +281,10 @@ static int sc8800fb_check_var(struct fb_var_screeninfo *var, struct fb_info *inf
 		 return -EINVAL;
 	return 0;
 }
-int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
+
+static void real_set_layer(void *data)
 {
-	struct sc8800fb_info *sc8800fb = info->par;
+	struct fb_info *info = (struct fb_info *)data;
 	uint32_t reg_val;
 
 	/* image layer base */
@@ -281,18 +292,27 @@ int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		(info->fix.smem_start+ info->fix.smem_len/2);
 	reg_val = (reg_val>>2) & 0x3fffffff;
 	__raw_writel(reg_val, LCDC_OSD1_BASE_ADDR);
+}
 
-	/* set brush direction */
-	/* FIXME: hardcoded direction */
-	
+static void real_refresh(void *para)
+{
+	struct sc8800fb_info *sc8800fb = (struct sc8800fb_info *)para;
+	uint32_t reg_val;
+	struct fb_info *info = sc8800fb->fb;
+
 	sc8800fb->panel->ops->lcd_invalidate(sc8800fb->panel);
 
 	reg_val = info->var.xres * info->var.yres;
 	reg_val |= (1<<20); /* for device 0 */
 	reg_val &=~ ((1<<26)|(1<<27) | (1<<28)); /* FIXME: hardcoded cs 1 */
 	__raw_writel(reg_val, LCM_CTRL);
-	//FB_PRINT("@fool2[%s] LCM_CTRL: 0x%x, reg_val=0x%x\n", __FUNCTION__, __raw_readl(LCM_CTRL), reg_val);
 
+	__raw_bits_or((1<<3), LCDC_CTRL); /* start refresh */
+}
+
+static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
+{
+	rrm_refresh(LID_FB, NULL, info);
 
 	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
 	FB_PRINT("@fool2[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_SIZE));
@@ -315,18 +335,9 @@ int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	FB_PRINT("@fool2[%s] LCM_PARAMETER1: 0x%x\n", __FUNCTION__, __raw_readl(LCM_PARAMETER1));
 	FB_PRINT("@fool2[%s] LCM_IFMODE: 0x%x\n", __FUNCTION__, __raw_readl(LCM_IFMODE));
 	FB_PRINT("@fool2[%s] LCM_RGBMODE: 0x%x\n", __FUNCTION__, __raw_readl(LCM_RGBMODE));
-
-	__raw_bits_or((1<<3), LCDC_CTRL); /* start refresh */
-	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
-
-	/* busy wait for image refresh Done */
-	while((__raw_readl(LCDC_IRQ_RAW) & (1<<0)) == 0);
-	/* clear bit */
-	__raw_bits_or((1<<0), LCDC_IRQ_CLR);
-	FB_PRINT("@fool2[%s] LCDC_IRQ_RAW: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_IRQ_RAW));
-	
     return 0;
 }
+
 static struct fb_ops sc8800fb_ops = {
 	.owner = THIS_MODULE,
 	.fb_check_var = sc8800fb_check_var,
@@ -335,6 +346,7 @@ static struct fb_ops sc8800fb_ops = {
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
 };
+
 static unsigned PP[16];
 static void setup_fb_info(struct sc8800fb_info *sc8800fb)
 {
@@ -565,8 +577,10 @@ int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	__raw_bits_and(~(1<<7),LCDC_OSD1_CTRL);  
 	
     /*alpha endian*/
+    /*
     __raw_bits_or(1<<10,LCDC_IMG_CTRL);  
 	__raw_bits_and(~(1<<9),LCDC_IMG_CTRL);  
+	*/
 	
 	FB_PRINT("@fool2[%s] LCDC_OSD1_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_CTRL));
 
@@ -705,6 +719,9 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 		printk(KERN_ERR "lcdc: failed to request irq!\n");
 		return;
 	}
+
+	/* enable LCDC_DONE IRQ */
+	__raw_bits_or((1<<0), LCDC_IRQ_EN);
 	
 	/* init lcdc mcu mode using default configuration */
 	lcdc_mcu_init();
@@ -721,8 +738,8 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 	sc8800fb->panel->ops->lcd_init(sc8800fb->panel);
 
 	set_lcdc_layers(&sc8800fb->fb->var, sc8800fb->fb); 
-	
 }
+
 static void set_backlight(uint32_t value)
 {
 	
@@ -730,6 +747,121 @@ static void set_backlight(uint32_t value)
 	ANA_REG_OR(WHTLED_CTL,  WHTLED_PD_RST);
 	ANA_REG_MSK_OR (WHTLED_CTL, ( (value << WHTLED_V_SHIFT) &WHTLED_V_MSK), WHTLED_V_MSK);
 }
+
+#ifdef TEST_RRM
+void test_set_layer(void *data)
+{
+	uint32_t reg_val = (uint32_t)data;
+
+	/* image layer base */
+	reg_val = (reg_val >>2)& 0x3fffffff;
+	__raw_writel(reg_val, LCDC_IMG_Y_BASE_ADDR);
+}
+
+static int rrm_test_thread(void * data)
+{
+	struct fb_info *fb = (struct fb_info *)data;
+	struct sc8800fb_info *sc8800fb = fb->par;
+	uint32_t len, addr;
+	int i = 0;
+	uint32_t base[3];
+
+	len = sc8800fb->panel->width * sc8800fb->panel->height *
+		 (BITS_PER_PIXEL/8) * 3;
+	printk("rrm_test_thread started!\n");
+
+	/* the addr should be 8 byte align */
+	addr = __get_free_pages(GFP_ATOMIC | __GFP_ZERO, get_order(len));
+	if (!addr)
+		return -ENOMEM;
+	
+	if (1) {
+		unsigned short *ptr = (unsigned short*)addr;
+		int l = len/3 /2  /3 ; /* 1/3 frame pixels */
+		int offset;
+
+		base[0] = __pa(ptr);
+		printk("rrm_test_thread ptr:%x base[0]:%x\n", ptr, base[0]);
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0xf800; //red 
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x07e0; //green
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x001f; //blue
+		/* now, the second frame */
+		base[1] = __pa(ptr);
+		printk("rrm_test_thread ptr:%x base[1]:%x\n", ptr, base[1]);
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x001f; 
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0xf800; 
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x07e0; 
+		/* now, the third */
+		base[2] = __pa(ptr);
+		printk("rrm_test_thread ptr:%x base[2]:%x\n", ptr, base[2]);
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x07e0; 
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x001f; 
+		for(offset=0;offset< l;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0xf800; 
+
+	}
+
+	printk("rrm_test_thread call rrm_layer_init()\n");
+	rrm_layer_init(LID_VIDEO, 3, test_set_layer);
+
+	printk("rrm_test_thread start looping\n");
+	while (1)
+	{
+		rrm_refresh(LID_VIDEO, NULL, (void *)base[i++]);
+		msleep(100);
+		if(i == 3) i=0;
+	}
+}
+
+#include <linux/kthread.h>
+static void setup_rrm_test(struct fb_info *fb)
+{
+	uint32_t reg_val;
+
+	/*enable imge layer*/
+	__raw_bits_or((1<<0),LCDC_IMG_CTRL);  
+
+	/*little endian*/
+	__raw_bits_or(1<<6,LCDC_IMG_CTRL);  
+	__raw_bits_and(~(1<<5),LCDC_IMG_CTRL);  
+
+	/*data format*/
+	__raw_bits_or(1<<1,LCDC_IMG_CTRL);  //RGB565
+	__raw_bits_and(~(1<<2),LCDC_IMG_CTRL);  
+	__raw_bits_or(1<<3,LCDC_IMG_CTRL);  
+	__raw_bits_and(~(1<<4),LCDC_IMG_CTRL);  	
+
+	/*image layer size*/
+	reg_val = ( fb->var.xres & 0x3ff) | (( fb->var.yres & 0x3ff )<<16);
+	printk("%s: xres=%d yres=%d\n", __FUNCTION__, fb->var.xres, fb->var.yres);
+	__raw_writel(reg_val, LCDC_IMG_SIZE_XY);
+
+	/*image layer start position*/
+	__raw_writel(0, LCDC_IMG_DISP_XY);
+
+	/*image layer pitch*/
+	reg_val = ( fb->var.xres & 0x3ff) ;
+	__raw_writel(reg_val, LCDC_IMG_PITCH);
+
+	/* OSD1 block alpha */
+	__raw_bits_or((1<<2),LCDC_OSD1_CTRL);  
+
+	/* OSD1 alpha 50% */
+	__raw_writel((0xff/2), LCDC_OSD1_ALPHA);
+
+	/* initiate the test thread */
+	kernel_thread(rrm_test_thread, fb, 0);
+}
+#endif
+
 static int sc8800fb_probe(struct platform_device *pdev)
 {
 	struct fb_info *fb;
@@ -745,6 +877,8 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	sc8800fb = fb->par;
 	sc8800fb->fb = fb;
 	sc8800fb->ops = &lcm_mcu_ops;
+	sc8800fb->rrm = rrm_init(real_refresh, (void*)sc8800fb);
+	rrm_layer_init(LID_FB, 2, real_set_layer);
 
 	ret = mount_panel(sc8800fb, &lcd_panel);
 	if (ret) {
@@ -775,43 +909,37 @@ if(1){ /* in-kernel test code */
 	int size = sc8800fb->fb->var.xres * sc8800fb->fb->var.yres *2;
 	
 	/* set color */
-    /*
-	memset(sc8800fb->fb->screen_base, 0x55, size);
-	memset(sc8800fb->fb->screen_base+size, 0x55, size);
-    */
-    if (1) {
-            unsigned short *ptr = (unsigned short *)sc8800fb->fb->screen_base;
-            int len = size/2 /3 ; /* 1/3 frame pixels */
-            int offset;
+	if (1) {
+		unsigned short *ptr=(unsigned short*)sc8800fb->fb->screen_base;
+		int len = size/2 /3 ; /* 1/3 frame pixels */
+		int offset;
 
-            for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short *)(ptr++))= 0xf800; //red 
-            for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short *)(ptr++))= 0x07e0; //green
-            for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short *)(ptr++))= 0x001f; //blue
-            /* now, the second frame */
-            for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short *)(ptr++))= 0xf800; 
-            for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short *)(ptr++))= 0x07e0; 
-            for(offset=0;offset< len;offset++)
-                    (* (volatile unsigned short *)(ptr++))= 0x001f; 
-    }
+		for(offset=0;offset< len;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0xf800; //red 
+		for(offset=0;offset< len;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x07e0; //green
+		for(offset=0;offset< len;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x001f; //blue
+		/* now, the second frame */
+		for(offset=0;offset< len;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0xf800; 
+		for(offset=0;offset< len;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x07e0; 
+		for(offset=0;offset< len;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0x001f; 
+	}
 
 	/* pan display */
 	test_info = *sc8800fb->fb;
 
-//	while(1) {
-		if (test_info.var.yoffset == 0)
-			test_info.var.yoffset = sc8800fb->fb->var.yres;
-		else
-			test_info.var.yoffset = 0;
-
-		real_pan_display(&sc8800fb->fb->var, &test_info);
-		msleep(500);
-	//}
+#ifndef TEST_RRM
+	real_pan_display(&sc8800fb->fb->var, &test_info);
+#endif
 }
+
+#ifdef TEST_RRM
+	setup_rrm_test(fb);
+#endif
 
 	return 0;
 }
