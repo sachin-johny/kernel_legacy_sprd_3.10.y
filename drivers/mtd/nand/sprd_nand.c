@@ -177,11 +177,11 @@ static struct sprd_nand_address sprd_colrow_addr = {0, 0, 0, 0};
 static unsigned char io_wr_port[NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE];
 static nand_ecc_modes_t sprd_ecc_mode = NAND_ECC_NONE;
 #ifdef CONFIG_MACH_G2PHONE
-static unsigned long buswidth = 0; /* 0: X8 bus width 1: X16 bus width */
-static unsigned long addr_cycle = 4; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
+static unsigned long g_buswidth = 0; /* 0: X8 bus width 1: X16 bus width */
+static unsigned long g_addr_cycle = 4; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
 #else
-static unsigned long buswidth = 1; /* 0: X8 bus width 1: X16 bus width */
-static unsigned long addr_cycle = 5; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
+static unsigned long g_buswidth = 1; /* 0: X8 bus width 1: X16 bus width */
+static unsigned long g_addr_cycle = 5; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
 #endif
 //static unsigned long writeaaa = 0;
 //static unsigned long readaaa = 0;
@@ -368,6 +368,8 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 	unsigned long advance = 1; /* can be set 0 or 1 */
 	unsigned long pagetype; /* 0: small page; 1: large page*/
 	unsigned long chipsel = 0;
+	unsigned long buswidth = g_buswidth;
+	unsigned long addr_cycle = g_addr_cycle;
 
 	struct nand_chip *this = (struct nand_chip *)(mtd->priv);
 	if (cmd == NAND_CMD_NONE)
@@ -1049,7 +1051,7 @@ static int ECC_CompM(unsigned char *pEcc1, unsigned char *pEcc2, unsigned char *
 
 static int correct(u_char *dat, u_char *read_ecc, u_char *calc_ecc)
 {
-	return ECC_CompM(read_ecc, calc_ecc, dat, buswidth);
+	return ECC_CompM(read_ecc, calc_ecc, dat, 1);
 }
 
 static int sprd_nand_correct_data(struct mtd_info *mtd, uint8_t *dat,
@@ -1766,12 +1768,12 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	if (type == 1) {
 		sprd_config_nand_pins16();
 		this->options |= NAND_BUSWIDTH_16;
-		buswidth = 1;
-		addr_cycle = 5;
+		g_buswidth = 1;
+		g_addr_cycle = 5;
 		//printk("is 16 Bit\n");	
 	} else {
-		buswidth = 0;
-		addr_cycle = 4;
+		g_buswidth = 0;
+		g_addr_cycle = 4;
 		//printk("is 8 Bit\n");
 	}
 	this->cmd_ctrl = sprd_nand_hwcontrol;
