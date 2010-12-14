@@ -510,14 +510,14 @@ static int dwc_otg_driver_remove(
 	if (!otg_dev) {
 		/* Memory allocation for the dwc_otg_device failed. */
 		DWC_DEBUGPL(DBG_ANY, "%s: otg_dev NULL!\n", __func__);
-		return;
+		return -1;
 	}
 #ifndef DWC_DEVICE_ONLY
 	if (otg_dev->hcd) {
 		hcd_remove(_dev);
 	} else {
 		DWC_DEBUGPL(DBG_ANY, "%s: otg_dev->hcd NULL!\n", __func__);
-		return;
+		return -1;
 	}
 #endif
 

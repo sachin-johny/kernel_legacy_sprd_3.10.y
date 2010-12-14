@@ -1,4 +1,4 @@
-obj-y += io.o idle.o irq.o timer.o gpio.o\
+obj-y += io.o idle.o irq.o timer.o gpio.o gpio_phy.o\
 	mfp_sprd.o \
 	dma.o ldo.o adi_drv.o \
 	ts0710_mux.o mux_buffer.o \
