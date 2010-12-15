@@ -697,8 +697,8 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 	//misc_setup();
 	
 	//select LCD clock source	
-	__raw_bits_or(1<<7, GR_PLL_SRC);    //pll_src=12M
-	__raw_bits_and(~(1<<6), GR_PLL_SRC);  
+	__raw_bits_and(~(1<<7), GR_PLL_SRC);    //pll_src=64M
+	__raw_bits_or((1<<6), GR_PLL_SRC);  
 	
 	//set LCD divdior
 	__raw_bits_and(~(1<<0), GR_GEN4);  //div=0
@@ -841,7 +841,6 @@ static void setup_rrm_test(struct fb_info *fb)
 
 	/*image layer size*/
 	reg_val = ( fb->var.xres & 0x3ff) | (( fb->var.yres & 0x3ff )<<16);
-	printk("%s: xres=%d yres=%d\n", __FUNCTION__, fb->var.xres, fb->var.yres);
 	__raw_writel(reg_val, LCDC_IMG_SIZE_XY);
 
 	/*image layer start position*/
