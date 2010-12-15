@@ -657,5 +657,5 @@ __init void sprd_gpio_init(void)
 	
 	gpiochip_add(&sprd_gpio_chip);
 
-	sprd_gpio_irq_init();
+	//sprd_gpio_irq_init();
 }

@@ -90,6 +90,25 @@ static struct platform_device sprd_i2c_device = {
 	.num_resources	= ARRAY_SIZE(sprd_i2c_resources),
 	.resource	= sprd_i2c_resources,
 };
+static struct resource sprd_tp_resources[] = {
+	{
+		.start	= (SPRD_MISC_BASE +0x280),
+		.end	= (SPRD_MISC_BASE + 0x280+0x44),
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= IRQ_ANA_TPC_INT,
+		.end	= IRQ_ANA_TPC_INT,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+static struct platform_device sprd_tp_device = {
+	.name		= "sprd-tp",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(sprd_tp_resources),
+	.resource	= sprd_tp_resources,
+};
+
 
 
 static struct platform_device sprd_fb_device = {
@@ -193,7 +212,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_battery_device,
 	&sprd_kp_bl_device,
 	&sprd_lcd_bl_device,
-	&sprd_serial_device,
+	&sprd_serial_device, 
+    &sprd_tp_device,
 };
 
 void __init sprd_add_devices(void)
