@@ -16,7 +16,7 @@
 #include <mach/regs_ana.h>
 #include <mach/bits.h>
 
-#define TP_DEBUG
+//#define TP_DEBUG
 #ifdef  TP_DEBUG
 #define TP_PRINT  printk
 #else
@@ -396,7 +396,7 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
                 
             }
             else{
-                printk("func[%s]: done interrupt rise,but can not fetch data!\n",__FUNCTION__);
+                TP_PRINT("func[%s]: done interrupt rise,but can not fetch data!\n",__FUNCTION__);
                 //ANA_REG_AND (TPC_INT_EN, ~TPC_DONE_IRQ_MSK_BIT);
                 return IRQ_HANDLED;
             }
