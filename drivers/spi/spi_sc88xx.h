@@ -58,10 +58,10 @@
     __raw_readl((volatile unsigned char __force *)sprd_data->regs + reg)
 
 #define spi_bits_or(value, reg) \
-    __raw_bits_or(value, (volatile unsigned char __force *)sprd_data->regs + reg)
+    __raw_bits_or(value, (unsigned int)sprd_data->regs + reg)
 
 #define spi_bits_and(value, reg) \
-    __raw_bits_and(value, (volatile unsigned char __force *)sprd_data->regs + reg)
+    __raw_bits_and(value, (unsigned int)sprd_data->regs + reg)
 
 #define spi_write(reg, shift, val, mask) \
 { \
@@ -90,7 +90,7 @@
         sprd_dma_start(DMA_SPI_TX); \
     } while (0)
 
-#define spi_start_rx() \
+#define spi_start_rx(blocks) \
     do { \
         /* 实验发现,SPI_CTL4的bit9,在每次置1之前,必须首先清0, 新一次的rx传输才会发生[luther.ge] */ \
         spi_writel(0x0000, SPI_CTL4); \
@@ -99,7 +99,7 @@
         spi_writel(SPI_FIFO_RST, 0); /* DMA会时常停止工作,通过读取1次SPI_TXD寄存器,DMA才可以恢复工作*/\
         sprd_dma_start(DMA_SPI_RX); \
         /* spi_write(SPI_CTL4,  9, 0x01, 0x01); */ /* start rx spiclk, must do it last */\
-        spi_writel(1 << 9, SPI_CTL4); \
+        spi_writel((1 << 9) | blocks, SPI_CTL4); \
     } while (0)
 
 #if 1
@@ -111,6 +111,7 @@
 #define SPRD_SPI_DMA_MODE 1
 struct sprd_spi_data {
 #define SPRD_SPI_BUFFER_SIZE PAGE_SIZE
+#define SPRD_SPI_DMA_BLOCK_MAX  (0x1ff) /* ctrl4-[0:8] */
     spinlock_t lock;
     struct list_head queue;
     struct spi_message *cspi_msg;
@@ -125,6 +126,7 @@ struct sprd_spi_data {
     void __iomem *regs;
 
     u8 stopping;
+    u8 cs_null;
 };
 
 struct sprd_spi_controller_data {
@@ -132,6 +134,10 @@ struct sprd_spi_controller_data {
     u32 clk_spi_and_div;
     u32 spi_clkd;
     u32 spi_ctl0;
+    u32 spi_ctl3;
+    u32 data_width; /* 1bit,2bit,...,8bits,...,16bits,...,32bits */
+    u32 data_width_order;
+    u32 data_max;
     sprd_dma_desc dma_desc_rx;
     sprd_dma_desc dma_desc_tx;
 };

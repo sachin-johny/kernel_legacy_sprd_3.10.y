@@ -158,9 +158,15 @@ static unsigned long spi_func_cfg[] = {
 	MFP_CFG_X(SPI_CLK   , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 	MFP_CFG_X(SPI_DI    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 	MFP_CFG_X(SPI_DO    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+#if 1
     /* configure cs pin to normal gpio */
 	MFP_CFG_X(SPI_CSN0  , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 	MFP_CFG_X(SPI_CSN1  , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+#else
+    /* configure cs pin to spi csx */ 
+    MFP_CFG_X(SPI_CSN0  , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+	MFP_CFG_X(SPI_CSN1  , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+#endif
 };
 
 static void sprd_spi_init(void)

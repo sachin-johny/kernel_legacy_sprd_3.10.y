@@ -262,10 +262,14 @@ static inline void dma_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
 
 #ifdef CONFIG_ARCH_SC8800S
 #define sprd_dma_stop(ch_id) \
-    __raw_bits_and(~(1 << ch_id), DMA_CHx_EN) /* disable DMA channel */
+    __raw_bits_and(~(1 << ch_id), DMA_CHx_EN) /* Disable DMA channel */
+#define sprd_dma_stop2(ch_id1, ch_id2) \
+    __raw_bits_and(~((1 << ch_id1) | (1 << ch_id2)), DMA_CHx_EN) /* Disable DMA channel */
 #elif defined(CONFIG_ARCH_SC8800G)
 #define sprd_dma_stop(ch_id) \
-    __raw_bits_or(1 << ch_id, DMA_CHx_DIS) /* disable DMA channel */
+    __raw_bits_or(1 << ch_id, DMA_CHx_DIS) /* Disable DMA channel */
+#define sprd_dma_stop2(ch_id1, ch_id2) \
+    __raw_bits_or((1 << ch_id1) | (1 << ch_id2), DMA_CHx_EN) /* Disable DMA channel */
 #endif
 
 #define sprd_dma_cfg(ch_id, cfg) \
