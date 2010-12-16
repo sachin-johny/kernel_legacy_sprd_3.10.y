@@ -70,10 +70,29 @@ static const struct soc_enum vbc_mic12_enum =
     SOC_SINGLE_TLV(name" Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv)
 
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
+    // Mic
     SOC_ENUM("Micphone", vbc_mic12_enum),
-    VBC_PCM_CTRL("PCM"),
-    VBC_PCM_CTRL("Speaker"),
-    VBC_PCM_CTRL("Earpiece"),
+    // PCM
+    SOC_SINGLE("PCM Playback Switch", VBCR1, DAC_MUTE, 1, 1),
+    SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    // Speaker
+    /* SOC_SINGLE("Speaker Playback Switch", VBCR1, xxx, 1, 1), */
+    SOC_DOUBLE_TLV("Speaker Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Speaker Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Speaker Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    // Earpiece
+    SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
+    SOC_DOUBLE_TLV("Earpiece Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Earpiece Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Earpiece Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    // Headphone
+    SOC_SINGLE("Headphone Playback Switch", VBCR1, HP_DIS, 1, 1),
+    SOC_DOUBLE_TLV("Headphone Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Headphone Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Headphone Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    // Capture
     SOC_SINGLE_TLV("Capture Capture Volume", VBCGR10, 4, 0x0f, 0, adc_tlv),
 };
 
@@ -322,6 +341,8 @@ static int vbc_reset(struct snd_soc_codec *codec)
 
     vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
     vbc_reg_VBPMR1_set(SB_LIN, 0);
+
+    vbc_reg_write(DAHPCTL, 8, 1, 1); // headphone 24bits output to sound more appealing
 #endif
     vbc_codec_unmute(); // don't mute
 
