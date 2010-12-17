@@ -87,11 +87,11 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_DOUBLE_TLV("Earpiece Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
     SOC_SINGLE_TLV("Earpiece Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
     SOC_SINGLE_TLV("Earpiece Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
-    // Headphone
-    SOC_SINGLE("Headphone Playback Switch", VBCR1, HP_DIS, 1, 1),
-    SOC_DOUBLE_TLV("Headphone Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("Headphone Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("Headphone Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    // Headset
+    SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
+    SOC_DOUBLE_TLV("Headset Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Headset Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Headset Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Capture
     SOC_SINGLE_TLV("Capture Capture Volume", VBCGR10, 4, 0x0f, 0, adc_tlv),
 };
