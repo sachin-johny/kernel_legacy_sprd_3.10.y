@@ -44,7 +44,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 static ulong gpio_amplifier = MFP_CFG_X(LCD_RSTN, GPIO, DS0, PULL_NONE/* PULL_UP */, IO_OE);
 static u32 speaker_gpio = 102; // mfp_to_gpio(MFP_CFG_TO_PIN(gpio_amplifier));
 #elif defined(CONFIG_ARCH_SC8800G)
-static ulong gpio_amplifier = MFP_CFG_X(RFCTL6, GPIO, DS0, F_PULL_NONE/* PULL_UP */, S_PULL_NONE, IO_OE);
+static ulong gpio_amplifier = MFP_CFG_X(RFCTL6, AF3, DS2, F_PULL_DOWN, S_PULL_DOWN, IO_OE);
 static u32 speaker_gpio = 96;  // GPIO_PROD_SPEAKER_PA_EN_ID 
 #endif
 static inline void vbc_gpio_amplifier_enable(int enable)
