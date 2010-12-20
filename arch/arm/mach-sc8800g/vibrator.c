@@ -7,7 +7,7 @@
 
 #define GPIO_VIBRATOR	9
 
-#ifdef 	CONFIG_SYSFS 
+#ifdef 	CONFIG_SYSFS
 
 #define	VIBON 	 -1
 #define	VIBOFF 	 0
@@ -33,12 +33,12 @@ static inline void vibrator_set_status(long value)
 		pr_info("set spi_cs1");
 		gpio_set_value(spi_cs1_gpio, 1);
 	}
-	else 
+	else
 	      printk("Error getting data");
 }
 
 static ssize_t vibrator_status_store(struct device *dev,
-			struct device_attribute *attr, 
+			struct device_attribute *attr,
 			const char *buf, size_t size)
 {
 	int value;
@@ -63,11 +63,11 @@ struct class output_class = {
 static int bl_gpio_test(void)
 {
 	int err;
-	
+
 	sprd_mfp_config(&bl_gpio_cfg, 1);
 	bl_gpio = mfp_to_gpio(MFP_CFG_TO_PIN(bl_gpio_cfg));
 	pr_info("backlight gpio is:%d\r\n", bl_gpio);
-	
+
 	err = gpio_request(bl_gpio, "backlight");
 	if (err) {
 		pr_warning("cannot alloc gpio for backlight\r\n");
@@ -81,12 +81,12 @@ static unsigned long spi_cs1_gpio_cfg = MFP_CFG_X(SPI_CSN0, GPIO, DS1, F_PULL_NO
 static int spics1_gpio_test(void)
 {
 	int err;
-	
+
 	sprd_mfp_config(&spi_cs1_gpio_cfg, 1);
-	
+
 	spi_cs1_gpio = 32;
 	pr_info("spi_cs1_gpio gpio is:%d\r\n", spi_cs1_gpio);
-	
+
 	err = gpio_request(spi_cs1_gpio, "spi_cs1");
 	if (err) {
 		pr_warning("cannot alloc gpio for spi cs1\r\n");
@@ -96,44 +96,58 @@ static int spics1_gpio_test(void)
 	return 0;
 }
 
-#if 0
-static unsigned long hs_gpio_cfg = MFP_CFG_X(CLK_LCD, GPIO, DS1, PULL_NONE, IO_IE);
+static unsigned long pwr_gpio_cfg =
+	MFP_ANA_CFG_X(PBINT, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
 
-#define IRQ_HEADSET 32
+static unsigned pwr_gpio = 163;
+#define IRQ_POWERON 38
 
 static irqreturn_t
-headset_handler(int irq, void *dev)
+power_button_handler(int irq, void *dev)
 {
+	int value;
+
 //	sprd_ack_gpio_irq(irq);
 //	sprd_mask_gpio_irq(irq);
-	
-	disable_irq_nosync(irq);
-        msleep(1000);
-	enable_irq(irq);
-	pr_info("headset irq \n");
+
+//	disable_irq_nosync(irq);
+	value = __gpio_get_value(pwr_gpio);
+	pr_info("power button irq value: %x\n", value);
+/*
+	if (value)  {
+		set_irq_type(irq, IRQ_TYPE_LEVEL_LOW);
+	} else {
+		set_irq_type(irq, IRQ_TYPE_LEVEL_HIGH);
+	}
+*/
+      msleep(1000);
+//	enable_irq(irq);
+
 	return IRQ_HANDLED;
 }
 
-static int headset_gpio_int_test(void)
+static int pwr_gpio_int_test(void)
 {
-	int hs_gpio;
 	int err;
-	
-	sprd_mfp_config(&hs_gpio_cfg, 1);
-	hs_gpio = 115;//mfp_to_gpio(MFP_CFG_TO_PIN(bl_gpio_cfg));
-	pr_info("headset gpio is:%d\r\n", hs_gpio);
-	
-	err = gpio_request(hs_gpio, "backlight");
+	int irq;
+
+	sprd_mfp_config(&pwr_gpio_cfg, 1);
+	pwr_gpio = 163;//mfp_to_gpio(MFP_CFG_TO_PIN(bl_gpio_cfg));
+	pr_info("power button gpio is:%d\r\n", pwr_gpio);
+
+	err = gpio_request(pwr_gpio, "power button");
 	if (err) {
-		pr_warning("cannot alloc gpio for backlight\r\n");
+		pr_warning("cannot alloc gpio for power button\r\n");
 		return err;
 	}
-	gpio_direction_input(hs_gpio);
+	gpio_direction_input(pwr_gpio);
 
-	sprd_gpio_irq_register(hs_gpio, IRQ_HEADSET);
+	irq = sprd_alloc_gpio_irq(pwr_gpio);
+	if (irq < 0)
+		return -1;
 
-	err = request_threaded_irq(IRQ_HEADSET,NULL, headset_handler, IRQF_TRIGGER_LOW
-		 | IRQF_ONESHOT, "headset irq", NULL);
+	err = request_threaded_irq(irq,NULL, power_button_handler, IRQF_TRIGGER_LOW
+		 | IRQF_ONESHOT, "power button irq", NULL);
 		//| IRQF_NOAUTOEN | IRQF_ONESHOT, "headset irq", NULL);
 	if (err) {
 		pr_warning("cannot alloc irq for headset, err %d\r\n", err);
@@ -147,14 +161,13 @@ static int headset_gpio_int_test(void)
 	return 0;
 }
 
-#endif
 static int creat_vibrator_sysfs_file(void)
 {
 	int err;
-	
-	
+
+
 	err = class_register(&output_class);
-	if (err) 
+	if (err)
 	{
 		printk(KERN_ERR "timed_output: unable to register timed_output class\n");
 		return err;
@@ -170,16 +183,16 @@ static int creat_vibrator_sysfs_file(void)
 	sprd_mfp_config(&vib_gpio_cfg, 1);
 	vib_gpio = mfp_to_gpio(MFP_CFG_TO_PIN(vib_gpio_cfg));
 	pr_info("vibrator gpio is:%d\r\n", vib_gpio);
-	
+
 	err = gpio_request(vib_gpio, "vibrator");
 	if (err) {
 		pr_warning("cannot alloc gpio for vibrator\r\n");
 		return err;
 	}
 	gpio_direction_output(vib_gpio, 0);
-	bl_gpio_test();
-	headset_gpio_int_test();
+	//bl_gpio_test();
 #endif
+	pwr_gpio_int_test();
 	spics1_gpio_test();
 	return 0;
 }

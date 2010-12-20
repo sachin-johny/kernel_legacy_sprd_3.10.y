@@ -16,252 +16,248 @@
 #ifndef __ASM_ARCH_MFP_H
 #define __ASM_ARCH_MFP_H
 
+#include <mach/bits.h>
 /*
 	This is identical to the order of pin's register map.
 	NOTE: if the pin register is not countinus, you should
 	intest a RESEVERED pin between them;
 */
-enum {
-	MFP_PIN_INVALID = -1,
-
-	MFP_PIN_SIMCLK0 = 0,
-	MFP_PIN_SIMDA0,
-	MFP_PIN_SIMRST0,
-	MFP_PIN_SIMCLK1,
-	MFP_PIN_SIMDA1,
-	MFP_PIN_SIMRST1,
-	MFP_PIN_SD0_CLK,
-	MFP_PIN_SD_CMD,
-	MFP_PIN_SD_D0,
-	MFP_PIN_SD_D1,
-	MFP_PIN_SD_D2,
-	MFP_PIN_SD_D3,
-	MFP_PIN_SD1_CLK,
-	MFP_PIN_KEYOUT0,
-	MFP_PIN_KEYOUT1,
-	MFP_PIN_KEYOUT2,
-	MFP_PIN_KEYOUT3,
-	MFP_PIN_KEYOUT4,
-	MFP_PIN_KEYOUT5,
-	MFP_PIN_KEYOUT6,
-	MFP_PIN_KEYOUT7,
-	MFP_PIN_KEYIN0,
-	MFP_PIN_KEYIN1,
-	MFP_PIN_KEYIN2,
-	MFP_PIN_KEYIN3,
-	MFP_PIN_KEYIN4,
-	MFP_PIN_KEYIN5,
-	MFP_PIN_KEYIN6,
-	MFP_PIN_KEYIN7,
-	MFP_PIN_SPI_DI,
-	MFP_PIN_SPI_CLK,
-	MFP_PIN_SPI_DO,
-	MFP_PIN_SPI_CSN0,
-	MFP_PIN_SPI_CSN1,
-	MFP_PIN_MTDO,
-	MFP_PIN_MTDI,
-	MFP_PIN_MTCK,
-	MFP_PIN_MTMS,
-	MFP_PIN_MTRST_N,
-	MFP_PIN_U0TXD,
-	MFP_PIN_U0RXD,
-	MFP_PIN_U0CTS,
-	MFP_PIN_U0RTS,
-	MFP_PIN_U1TXD,
-	MFP_PIN_U1RXD,
-	MFP_PIN_NFWPN,
-	MFP_PIN_NFRB,
-	MFP_PIN_NFCLE,
-	MFP_PIN_NFALE,
-	MFP_PIN_NFCEN,
-	MFP_PIN_NFWEN,
-	MFP_PIN_NFREN,
-	MFP_PIN_NFD0,
-	MFP_PIN_NFD1,
-	MFP_PIN_NFD2,
-	MFP_PIN_NFD3,
-	MFP_PIN_NFD4,
-	MFP_PIN_NFD5,
-	MFP_PIN_NFD6,
-	MFP_PIN_NFD7,
-	MFP_PIN_NFD8,
-	MFP_PIN_NFD9,
-	MFP_PIN_NFD10,
-	MFP_PIN_NFD11,
-	MFP_PIN_NFD12,
-	MFP_PIN_NFD13,
-	MFP_PIN_NFD14,
-	MFP_PIN_NFD15,
-	MFP_PIN_EMRST_N,
-	MFP_PIN_EMA0,
-	MFP_PIN_EMA1,
-	MFP_PIN_EMA2,
-	MFP_PIN_EMA3,
-	MFP_PIN_EMA4,
-	MFP_PIN_EMA5,
-	MFP_PIN_EMA6,
-	MFP_PIN_EMA7,
-	MFP_PIN_EMA8,
-	MFP_PIN_EMA9,
-	MFP_PIN_EMA10,
-	MFP_PIN_EMA11,
-	MFP_PIN_EMA12,
-	MFP_PIN_EMA13,
-	MFP_PIN_EMCKE1,
-	MFP_PIN_EMD0,
-	MFP_PIN_EMD1,
-	MFP_PIN_EMD2,
-	MFP_PIN_EMD3,
-	MFP_PIN_EMD4,
-	MFP_PIN_EMD5,
-	MFP_PIN_EMD6,
-	MFP_PIN_EMD7,
-	MFP_PIN_EMDQM0,
-	MFP_PIN_EMDQS0,
-	MFP_PIN_EMD8,
-	MFP_PIN_EMD9,
-	MFP_PIN_EMD10,
-	MFP_PIN_EMD11,
-	MFP_PIN_EMD12,
-	MFP_PIN_EMD13,
-	MFP_PIN_EMD14,
-	MFP_PIN_EMD15,
-	MFP_PIN_EMDQM1,
-	MFP_PIN_EMDQS1,
-	MFP_PIN_EMD16,
-	MFP_PIN_EMD17,
-	MFP_PIN_EMD18,
-	MFP_PIN_EMD19,
-	MFP_PIN_EMD20,
-	MFP_PIN_EMD21,
-	MFP_PIN_EMD22,
-	MFP_PIN_EMD23,
-	MFP_PIN_EMDQM2,
-	MFP_PIN_EMDQS2,
-	MFP_PIN_EMD24,
-	MFP_PIN_EMD25,
-	MFP_PIN_EMD26,
-	MFP_PIN_EMD27,
-	MFP_PIN_EMD28,
-	MFP_PIN_EMD29,
-	MFP_PIN_EMD30,
-	MFP_PIN_EMD31,
-	MFP_PIN_EMDQM3,
-	MFP_PIN_EMDQS3,
-	MFP_PIN_CLKDPMEM,
-	MFP_PIN_CLKDMMEM,
-	MFP_PIN_EMRAS_N,
-	MFP_PIN_EMCAS_N,
-	MFP_PIN_EMWE_N,
-	MFP_PIN_EMCS_N0,
-	MFP_PIN_EMCS_N1,
-	MFP_PIN_EMCS_N2,
-	MFP_PIN_EMCS_N3,
-	MFP_PIN_EMBA0,
-	MFP_PIN_EMBA1,
-	MFP_PIN_EMCKE0,
-	MFP_PIN_LCD_CSN1,
-	MFP_PIN_LCD_RSTN,
-	MFP_PIN_LCD_CD,
-	MFP_PIN_LCD_D0,
-	MFP_PIN_LCD_D1,
-	MFP_PIN_LCD_D2,
-	MFP_PIN_LCD_D3,
-	MFP_PIN_LCD_D4,
-	MFP_PIN_LCD_D5,
-	MFP_PIN_LCD_D6,
-	MFP_PIN_LCD_D7,
-	MFP_PIN_LCD_D8,
-	MFP_PIN_LCD_WRN,
-	MFP_PIN_LCD_RDN,
-	MFP_PIN_LCD_CSN0,
-	MFP_PIN_LCD_D9,
-	MFP_PIN_LCD_D10,
-	MFP_PIN_LCD_D11,
-	MFP_PIN_LCD_D12,
-	MFP_PIN_LCD_D13,
-	MFP_PIN_LCD_D14,
-	MFP_PIN_LCD_D15,
-	MFP_PIN_LCD_D16,
-	MFP_PIN_LCD_D17,
-	MFP_PIN_LCD_FMARK,
-	MFP_PIN_CCIRMCLK,
-	MFP_PIN_CCIRCK,
-	MFP_PIN_CCIRHS,
-	MFP_PIN_CCIRVS,
-	MFP_PIN_CCIRD0,
-	MFP_PIN_CCIRD1,
-	MFP_PIN_CCIRD2,
-	MFP_PIN_CCIRD3,
-	MFP_PIN_CCIRD4,
-	MFP_PIN_CCIRD5,
-	MFP_PIN_CCIRD6,
-	MFP_PIN_CCIRD7,
-	MFP_PIN_CCIRRST,
-	MFP_PIN_CCIRPD1,
-	MFP_PIN_CCIRPD0,
-	MFP_PIN_SCL,
-	MFP_PIN_SDA,
-	MFP_PIN_CLK_AUX0,
-	MFP_PIN_IISDI,
-	MFP_PIN_IISDO,
-	MFP_PIN_IISCLK,
-	MFP_PIN_IISLRCK,
-	MFP_PIN_IISMCK,
-	MFP_PIN_RFSDA0,
-	MFP_PIN_RFSCK0,
-	MFP_PIN_RFSEN0,
-	MFP_PIN_RFCTL0,
-	MFP_PIN_RFCTL1,
-	MFP_PIN_RFCTL2,
-	MFP_PIN_RFCTL3,
-	MFP_PIN_RFCTL4,
-	MFP_PIN_RFCTL5,
-	MFP_PIN_RFCTL6,
-	MFP_PIN_RFCTL7,
-	MFP_PIN_RFCTL8,
-	MFP_PIN_RFCTL9,
-	MFP_PIN_RFCTL10,
-	MFP_PIN_RFCTL11,
-	MFP_PIN_RFCTL12,
-	MFP_PIN_RFCTL13,
-	MFP_PIN_RFCTL14,
-	MFP_PIN_RFCTL15,
-	MFP_PIN_XTL_EN,
-	MFP_PIN_PTEST,
-	MFP_PIN_GPIO135,
-	MFP_PIN_GPIO136,
-	MFP_PIN_GPIO137,
-	MFP_PIN_GPIO138,
-	MFP_PIN_GPIO139,
-	MFP_PIN_GPIO140,
-	MFP_PIN_OPTION2,
-	MFP_PIN_OPTION3,
-	MFP_PIN_GPIO141,
-	MFP_PIN_GPIO142,
-	MFP_PIN_GPIO143,
-	MFP_PIN_GPIO144,
+#define PIN_SIMCLK0_REG_OFFS                          (0x008C)
+#define PIN_SIMDA0_REG_OFFS                          (0x0090)
+#define PIN_SIMRST0_REG_OFFS                          (0x0094)
+#define PIN_SIMCLK1_REG_OFFS                          (0x0098)
+#define PIN_SIMDA1_REG_OFFS                          (0x009C)
+#define PIN_SIMRST1_REG_OFFS                          (0x00A0)
+#define PIN_SD0_CLK_REG_OFFS                          (0x00A4)
+#define PIN_SD_CMD_REG_OFFS                          (0x00A8)
+#define PIN_SD_D0_REG_OFFS                          (0x00AC)
+#define PIN_SD_D1_REG_OFFS                          (0x00B0)
+#define PIN_SD_D2_REG_OFFS                          (0x00B4)
+#define PIN_SD_D3_REG_OFFS                          (0x00B8)
+#define PIN_SD1_CLK_REG_OFFS                          (0x00BC)
+#define PIN_KEYOUT0_REG_OFFS                          (0x00C0)
+#define PIN_KEYOUT1_REG_OFFS                          (0x00C4)
+#define PIN_KEYOUT2_REG_OFFS                          (0x00C8)
+#define PIN_KEYOUT3_REG_OFFS                          (0x00CC)
+#define PIN_KEYOUT4_REG_OFFS                          (0x00D0)
+#define PIN_KEYOUT5_REG_OFFS                          (0x00D4)
+#define PIN_KEYOUT6_REG_OFFS                          (0x00D8)
+#define PIN_KEYOUT7_REG_OFFS                          (0x00DC)
+#define PIN_KEYIN0_REG_OFFS                          (0x00E0)
+#define PIN_KEYIN1_REG_OFFS                          (0x00E4)
+#define PIN_KEYIN2_REG_OFFS                          (0x00E8)
+#define PIN_KEYIN3_REG_OFFS                          (0x00EC)
+#define PIN_KEYIN4_REG_OFFS                          (0x00F0)
+#define PIN_KEYIN5_REG_OFFS                          (0x00F4)
+#define PIN_KEYIN6_REG_OFFS                          (0x00F8)
+#define PIN_KEYIN7_REG_OFFS                          (0x00FC)
+#define PIN_SPI_DI_REG_OFFS                          (0x0100)
+#define PIN_SPI_CLK_REG_OFFS                          (0x0104)
+#define PIN_SPI_DO_REG_OFFS                          (0x0108)
+#define PIN_SPI_CSN0_REG_OFFS                          (0x010C)
+#define PIN_SPI_CSN1_REG_OFFS                          (0x0110)
+#define PIN_MTDO_REG_OFFS                          (0x0114)
+#define PIN_MTDI_REG_OFFS                          (0x0118)
+#define PIN_MTCK_REG_OFFS                          (0x011C)
+#define PIN_MTMS_REG_OFFS                          (0x0120)
+#define PIN_MTRST_N_REG_OFFS                          (0x0124)
+#define PIN_U0TXD_REG_OFFS                          (0x0128)
+#define PIN_U0RXD_REG_OFFS                          (0x012C)
+#define PIN_U0CTS_REG_OFFS                          (0x0130)
+#define PIN_U0RTS_REG_OFFS                          (0x0134)
+#define PIN_U1TXD_REG_OFFS                          (0x0138)
+#define PIN_U1RXD_REG_OFFS                          (0x013C)
+#define PIN_NFWPN_REG_OFFS                          (0x0140)
+#define PIN_NFRB_REG_OFFS                          (0x0144)
+#define PIN_NFCLE_REG_OFFS                          (0x0148)
+#define PIN_NFALE_REG_OFFS                          (0x014C)
+#define PIN_NFCEN_REG_OFFS                          (0x0150)
+#define PIN_NFWEN_REG_OFFS                          (0x0154)
+#define PIN_NFREN_REG_OFFS                          (0x0158)
+#define PIN_NFD0_REG_OFFS                          (0x015C)
+#define PIN_NFD1_REG_OFFS                          (0x0160)
+#define PIN_NFD2_REG_OFFS                          (0x0164)
+#define PIN_NFD3_REG_OFFS                          (0x0168)
+#define PIN_NFD4_REG_OFFS                          (0x016C)
+#define PIN_NFD5_REG_OFFS                          (0x0170)
+#define PIN_NFD6_REG_OFFS                          (0x0174)
+#define PIN_NFD7_REG_OFFS                          (0x0178)
+#define PIN_NFD8_REG_OFFS                          (0x017C)
+#define PIN_NFD9_REG_OFFS                          (0x0180)
+#define PIN_NFD10_REG_OFFS                          (0x0184)
+#define PIN_NFD11_REG_OFFS                          (0x0188)
+#define PIN_NFD12_REG_OFFS                          (0x018C)
+#define PIN_NFD13_REG_OFFS                          (0x0190)
+#define PIN_NFD14_REG_OFFS                          (0x0194)
+#define PIN_NFD15_REG_OFFS                          (0x0198)
+#define PIN_EMRST_N_REG_OFFS                          (0x019C)
+#define PIN_EMA0_REG_OFFS                          (0x01A0)
+#define PIN_EMA1_REG_OFFS                          (0x01A4)
+#define PIN_EMA2_REG_OFFS                          (0x01A8)
+#define PIN_EMA3_REG_OFFS                          (0x01AC)
+#define PIN_EMA4_REG_OFFS                          (0x01B0)
+#define PIN_EMA5_REG_OFFS                          (0x01B4)
+#define PIN_EMA6_REG_OFFS                          (0x01B8)
+#define PIN_EMA7_REG_OFFS                          (0x01BC)
+#define PIN_EMA8_REG_OFFS                          (0x01C0)
+#define PIN_EMA9_REG_OFFS                          (0x01C4)
+#define PIN_EMA10_REG_OFFS                          (0x01C8)
+#define PIN_EMA11_REG_OFFS                          (0x01CC)
+#define PIN_EMA12_REG_OFFS                          (0x01D0)
+#define PIN_EMA13_REG_OFFS                          (0x01D4)
+#define PIN_EMCKE1_REG_OFFS                          (0x01D8)
+#define PIN_EMD0_REG_OFFS                          (0x01DC)
+#define PIN_EMD1_REG_OFFS                          (0x01E0)
+#define PIN_EMD2_REG_OFFS                          (0x01E4)
+#define PIN_EMD3_REG_OFFS                          (0x01E8)
+#define PIN_EMD4_REG_OFFS                          (0x01EC)
+#define PIN_EMD5_REG_OFFS                          (0x01F0)
+#define PIN_EMD6_REG_OFFS                          (0x01F4)
+#define PIN_EMD7_REG_OFFS                          (0x01F8)
+#define PIN_EMDQM0_REG_OFFS                          (0x01FC)
+#define PIN_EMDQS0_REG_OFFS                          (0x0200)
+#define PIN_EMD8_REG_OFFS                          (0x0204)
+#define PIN_EMD9_REG_OFFS                          (0x0208)
+#define PIN_EMD10_REG_OFFS                          (0x020C)
+#define PIN_EMD11_REG_OFFS                          (0x0210)
+#define PIN_EMD12_REG_OFFS                          (0x0214)
+#define PIN_EMD13_REG_OFFS                          (0x0218)
+#define PIN_EMD14_REG_OFFS                          (0x021C)
+#define PIN_EMD15_REG_OFFS                          (0x0220)
+#define PIN_EMDQM1_REG_OFFS                          (0x0224)
+#define PIN_EMDQS1_REG_OFFS                          (0x0228)
+#define PIN_EMD16_REG_OFFS                          (0x022C)
+#define PIN_EMD17_REG_OFFS                          (0x0230)
+#define PIN_EMD18_REG_OFFS                          (0x0234)
+#define PIN_EMD19_REG_OFFS                          (0x0238)
+#define PIN_EMD20_REG_OFFS                          (0x023C)
+#define PIN_EMD21_REG_OFFS                          (0x0240)
+#define PIN_EMD22_REG_OFFS                          (0x0244)
+#define PIN_EMD23_REG_OFFS                          (0x0248)
+#define PIN_EMDQM2_REG_OFFS                          (0x024C)
+#define PIN_EMDQS2_REG_OFFS                          (0x0250)
+#define PIN_EMD24_REG_OFFS                          (0x0254)
+#define PIN_EMD25_REG_OFFS                          (0x0258)
+#define PIN_EMD26_REG_OFFS                          (0x025C)
+#define PIN_EMD27_REG_OFFS                          (0x0260)
+#define PIN_EMD28_REG_OFFS                          (0x0264)
+#define PIN_EMD29_REG_OFFS                          (0x0268)
+#define PIN_EMD30_REG_OFFS                          (0x026C)
+#define PIN_EMD31_REG_OFFS                          (0x0270)
+#define PIN_EMDQM3_REG_OFFS                          (0x0274)
+#define PIN_EMDQS3_REG_OFFS                          (0x0278)
+#define PIN_CLKDPMEM_REG_OFFS                          (0x027C)
+#define PIN_CLKDMMEM_REG_OFFS                          (0x0280)
+#define PIN_EMRAS_N_REG_OFFS                          (0x0284)
+#define PIN_EMCAS_N_REG_OFFS                          (0x0288)
+#define PIN_EMWE_N_REG_OFFS                          (0x028C)
+#define PIN_EMCS_N0_REG_OFFS                          (0x0290)
+#define PIN_EMCS_N1_REG_OFFS                          (0x0294)
+#define PIN_EMCS_N2_REG_OFFS                          (0x0298)
+#define PIN_EMCS_N3_REG_OFFS                          (0x029C)
+#define PIN_EMBA0_REG_OFFS                          (0x02A0)
+#define PIN_EMBA1_REG_OFFS                          (0x02A4)
+#define PIN_EMCKE0_REG_OFFS                          (0x02A8)
+#define PIN_LCD_CSN1_REG_OFFS                          (0x02AC)
+#define PIN_LCD_RSTN_REG_OFFS                          (0x02B0)
+#define PIN_LCD_CD_REG_OFFS                          (0x02B4)
+#define PIN_LCD_D0_REG_OFFS                          (0x02B8)
+#define PIN_LCD_D1_REG_OFFS                          (0x02BC)
+#define PIN_LCD_D2_REG_OFFS                          (0x02C0)
+#define PIN_LCD_D3_REG_OFFS                          (0x02C4)
+#define PIN_LCD_D4_REG_OFFS                          (0x02C8)
+#define PIN_LCD_D5_REG_OFFS                          (0x02CC)
+#define PIN_LCD_D6_REG_OFFS                          (0x02D0)
+#define PIN_LCD_D7_REG_OFFS                          (0x02D4)
+#define PIN_LCD_D8_REG_OFFS                          (0x02D8)
+#define PIN_LCD_WRN_REG_OFFS                          (0x02DC)
+#define PIN_LCD_RDN_REG_OFFS                          (0x02E0)
+#define PIN_LCD_CSN0_REG_OFFS                          (0x02E4)
+#define PIN_LCD_D9_REG_OFFS                          (0x02E8)
+#define PIN_LCD_D10_REG_OFFS                          (0x02EC)
+#define PIN_LCD_D11_REG_OFFS                          (0x02F0)
+#define PIN_LCD_D12_REG_OFFS                          (0x02F4)
+#define PIN_LCD_D13_REG_OFFS                          (0x02F8)
+#define PIN_LCD_D14_REG_OFFS                          (0x02FC)
+#define PIN_LCD_D15_REG_OFFS                          (0x0300)
+#define PIN_LCD_D16_REG_OFFS                          (0x0304)
+#define PIN_LCD_D17_REG_OFFS                          (0x0308)
+#define PIN_LCD_FMARK_REG_OFFS                          (0x030C)
+#define PIN_CCIRMCLK_REG_OFFS                          (0x0310)
+#define PIN_CCIRCK_REG_OFFS                          (0x0314)
+#define PIN_CCIRHS_REG_OFFS                          (0x0318)
+#define PIN_CCIRVS_REG_OFFS                          (0x031C)
+#define PIN_CCIRD0_REG_OFFS                          (0x0320)
+#define PIN_CCIRD1_REG_OFFS                          (0x0324)
+#define PIN_CCIRD2_REG_OFFS                          (0x0328)
+#define PIN_CCIRD3_REG_OFFS                          (0x032C)
+#define PIN_CCIRD4_REG_OFFS                          (0x0330)
+#define PIN_CCIRD5_REG_OFFS                          (0x0334)
+#define PIN_CCIRD6_REG_OFFS                          (0x0338)
+#define PIN_CCIRD7_REG_OFFS                          (0x033C)
+#define PIN_CCIRRST_REG_OFFS                          (0x0340)
+#define PIN_CCIRPD1_REG_OFFS                          (0x0344)
+#define PIN_CCIRPD0_REG_OFFS                          (0x0348)
+#define PIN_SCL_REG_OFFS                          (0x034C)
+#define PIN_SDA_REG_OFFS                          (0x0350)
+#define PIN_CLK_AUX0_REG_OFFS                          (0x0354)
+#define PIN_IISDI_REG_OFFS                          (0x0358)
+#define PIN_IISDO_REG_OFFS                          (0x035C)
+#define PIN_IISCLK_REG_OFFS                          (0x0360)
+#define PIN_IISLRCK_REG_OFFS                          (0x0364)
+#define PIN_IISMCK_REG_OFFS                          (0x0368)
+#define PIN_RFSDA0_REG_OFFS                          (0x036C)
+#define PIN_RFSCK0_REG_OFFS                          (0x0370)
+#define PIN_RFSEN0_REG_OFFS                          (0x0374)
+#define PIN_RFCTL0_REG_OFFS                          (0x0378)
+#define PIN_RFCTL1_REG_OFFS                          (0x037C)
+#define PIN_RFCTL2_REG_OFFS                          (0x0380)
+#define PIN_RFCTL3_REG_OFFS                          (0x0384)
+#define PIN_RFCTL4_REG_OFFS                          (0x0388)
+#define PIN_RFCTL5_REG_OFFS                          (0x038C)
+#define PIN_RFCTL6_REG_OFFS                          (0x0390)
+#define PIN_RFCTL7_REG_OFFS                          (0x0394)
+#define PIN_RFCTL8_REG_OFFS                          (0x0398)
+#define PIN_RFCTL9_REG_OFFS                          (0x039C)
+#define PIN_RFCTL10_REG_OFFS                          (0x03A0)
+#define PIN_RFCTL11_REG_OFFS                          (0x03A4)
+#define PIN_RFCTL12_REG_OFFS                          (0x03A8)
+#define PIN_RFCTL13_REG_OFFS                          (0x03AC)
+#define PIN_RFCTL14_REG_OFFS                          (0x03B0)
+#define PIN_RFCTL15_REG_OFFS                          (0x03B4)
+#define PIN_XTL_EN_REG_OFFS                          (0x03B8)
+#define PIN_PTEST_REG_OFFS                          (0x03BC)
+#define PIN_GPIO135_REG_OFFS                          (0x03C0)
+#define PIN_GPIO136_REG_OFFS                          (0x03C4)
+#define PIN_GPIO137_REG_OFFS                          (0x03C8)
+#define PIN_GPIO138_REG_OFFS                          (0x03CC)
+#define PIN_GPIO139_REG_OFFS                          (0x03D0)
+#define PIN_GPIO140_REG_OFFS                          (0x03D4)
+#define PIN_OPTION2_REG_OFFS                          (0x03D8)
+#define PIN_OPTION3_REG_OFFS                          (0x03DC)
+#define PIN_GPIO141_REG_OFFS                          (0x03E0)
+#define PIN_GPIO142_REG_OFFS                          (0x03E4)
+#define PIN_GPIO143_REG_OFFS                          (0x03E8)
+#define PIN_GPIO144_REG_OFFS                          (0x03EC)
 
 /*----------Analog Die Pin Control Register----------*/
-	MFP_ANA_PIN_START,
-	MFP_ANA_PIN_CHIP_RSTN = MFP_ANA_PIN_START,
-	MFP_PIN_RESERVE1,
-	MFP_ANA_PIN_PBINT,
-	MFP_ANA_PIN_TP_XL,
-	MFP_ANA_PIN_TP_XR,
-	MFP_ANA_PIN_TP_YU,
-	MFP_ANA_PIN_TP_YD,
 
 
-	/*
-	.....
-	*/
-	MFP_PIN_MAX
-};
+#define ANA_PIN_CHIP_RSTN_REG_OFFS           (0x008C)
+#define ANA_PIN_PBINT_REG_OFFS               (0x0094)
+#define ANA_PIN_TP_XL_REG_OFFS               (0x0098)
+#define ANA_PIN_TP_XR_REG_OFFS               (0x009C)
+#define ANA_PIN_TP_YU_REG_OFFS               (0x00A0)
+#define ANA_PIN_TP_YD_REG_OFFS               (0x00A4)
 
+//The pin is in A die
+#define A_DIE_PIN	BIT_31
 
-#define MFP_PIN(x)	(((x) & 0xffff) << 16)
-#define MFP_CFG_TO_PIN(x)  ((x) >> 16)
+#define MFP_PIN(x)	(((x##_REG_OFFS) & 0xffff) << 16)
+
+#define MFP_ANA_PIN(x) ((((x##_REG_OFFS) & 0xffff) << 16) | A_DIE_PIN)
+
+#define MFP_CFG_TO_REG_OFFS(x)  ((x) >> 16)
 
 //special bit for setting, for the default value of is not same
 //with all registers
@@ -337,19 +333,19 @@ NOTE, this is not applied to GPIO pins, GPIO pin's input/output direction have s
 
 #define MFP_CFG(pin, af)		\
 	(MFP_AF_SET |\
-	 (MFP_PIN(MFP_PIN_##pin) | MFP_##af))
+	 (MFP_PIN(PIN_##pin) | MFP_##af))
 
 #define MFP_CFG_DRV(pin, af, drv)	\
 	((MFP_AF_SET |MFP_DS_SET) |\
-	 (MFP_PIN(MFP_PIN_##pin) | MFP_##af | MFP_##drv))
+	 (MFP_PIN(PIN_##pin) | MFP_##af | MFP_##drv))
 
 #define MFP_CFG_SLEEP_UPDOWN(pin, af, updown)	\
 	((MFP_AF_SET | MFP_S_PULL_SET) |\
-	 (MFP_PIN(MFP_PIN_##pin) | MFP_##af | MFP_##updown))
+	 (MFP_PIN(PIN_##pin) | MFP_##af | MFP_##updown))
 
 #define MFP_CFG_IOE(pin, af, io)	\
 	((MFP_AF_SET |MFP_IO_SET)  |\
-	 (MFP_PIN(MFP_PIN_##pin) | MFP_##af | MFP_##io))
+	 (MFP_PIN(PIN_##pin) | MFP_##af | MFP_##io))
 
 #define MFP_SET_ALL	\
 	(MFP_AF_SET |MFP_IO_SET | MFP_S_PULL_SET | MFP_DS_SET | \
@@ -357,12 +353,12 @@ NOTE, this is not applied to GPIO pins, GPIO pin's input/output direction have s
 
 #define MFP_CFG_X(pin, af, drv, func_updown, sleep_updown, io)	\
 	(MFP_SET_ALL |\
-	 (MFP_PIN(MFP_PIN_##pin) | MFP_##af | MFP_##drv |\
+	 (MFP_PIN(PIN_##pin) | MFP_##af | MFP_##drv |\
 	 MFP_##func_updown  | MFP_##sleep_updown| MFP_##io))
 
 #define MFP_ANA_CFG_X(pin, drv, func_updown, af, sleep_updown, io)	\
 	(MFP_SET_ALL |\
-	 (MFP_PIN(MFP_ANA_PIN_##pin) |  MFP_##af | MFP_##drv |\
+	 (MFP_ANA_PIN(ANA_PIN_##pin) |  MFP_##af | MFP_##drv |\
 	 MFP_##func_updown | MFP_##sleep_updown| MFP_##io))
 
 extern unsigned long mfp_to_gpio(int pin);

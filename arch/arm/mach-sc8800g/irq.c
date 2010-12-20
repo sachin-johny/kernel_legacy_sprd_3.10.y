@@ -1,6 +1,6 @@
 /* linux/arch/arm/mach-sc8800g/irq.c
  *
- * supporting stuff for interrupt handling 
+ * supporting stuff for interrupt handling
  *
  * Copyright (C) 2010 Spreadtrum
  *
@@ -28,13 +28,6 @@
 #include <mach/bits.h>
 #include <mach/adi_hal_internal.h>
 
-//#define ANA_DEBUG
-#ifdef  ANA_DEBUG
-#define ANA_PRINT  printk
-#else
-#define ANA_PRINT(...)
-#endif
-
 #define INTCV_REG(off) (SPRD_INTCV_BASE + (off))
 
 //#define INTCV_FIQ_STS     INTCV_REG(0x0000)
@@ -50,12 +43,6 @@
 #define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
 #define ANA_INT_EN                	(SPRD_MISC_BASE + 0x380 + 0x08)
 #define ANA_INT_STATUS_SYNC      (SPRD_MISC_BASE + 0x380 + 0x0C)
-
-#define ANA_TPC_IRQ         BIT_4
-#define ANA_WDG_IRQ        BIT_3
-#define ANA_RTC_IRQ         BIT_2
-#define ANA_GPIO_IRQ       BIT_1
-#define ANA_ADC_IRQ         BIT_0
 
 static void sprd_irq_ack(unsigned int irq)
 {
@@ -121,7 +108,7 @@ EXPORT_SYMBOL(sprd_unmask_ana_irq);
 
 static void sprd_disable_ana_irq(unsigned int irq)
 {
-	sprd_mask_ana_irq(irq);	
+	sprd_mask_ana_irq(irq);
 }
 
 static void sprd_enable_ana_irq(unsigned int irq)
@@ -142,27 +129,17 @@ static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	uint32_t irq_ana;
 	uint32_t status;
-	
+	int i;
+
 	status=ANA_REG_GET(ANA_INT_STATUS);
-	
-	if(status & ANA_ADC_IRQ)
-		irq_ana = IRQ_ANA_ADC_INT;
-	else if(status & ANA_GPIO_IRQ)
-		irq_ana = IRQ_ANA_GPIO_INT;
-	else if(status & ANA_RTC_IRQ)
-		irq_ana = IRQ_ANA_RTC_INT;
-	else if(status & ANA_WDG_IRQ)
-		irq_ana = IRQ_ANA_WDG_INT;
-	else if(status & ANA_TPC_IRQ)
-		irq_ana = IRQ_ANA_TPC_INT;
-	else {
-		printk("func:[%s]wrong status!\n",__FUNCTION__);
-        return;
-    }
-	
-	ANA_PRINT("func:[%s]enter generic_handle_irq,irq_ana=0x%x\n",__FUNCTION__,irq_ana);
-	generic_handle_irq(irq_ana);
-	
+
+	for (i = 0; i < NR_ANA_IRQS; i++) {
+		if ((status >> i) & 0x1) {
+			irq_ana = IRQ_ANA_INT_START + i;
+			generic_handle_irq(irq_ana);
+		}
+	}
+
 }
 
 void __init sprd_init_irq(void)
@@ -179,12 +156,10 @@ void __init sprd_init_irq(void)
 	}
 
 	for (n = IRQ_ANA_ADC_INT; n < IRQ_ANA_ADC_INT+ NR_ANA_IRQS; n++) {
-	    ANA_PRINT("func:[%s]n=0x%x\n",__FUNCTION__,n);
-        set_irq_chip(n, &sprd_muxed_ana_chip);
+		set_irq_chip(n, &sprd_muxed_ana_chip);
 		set_irq_flags(n, IRQF_VALID );//| IRQF_PROBE);
 		set_irq_handler(n,handle_level_irq);
 	}
-	
-	ANA_PRINT("func:[%s]before set_irq_chained_handler\n",__FUNCTION__);
+
 	set_irq_chained_handler(IRQ_ANA_INT, sprd_ana_demux_handler);
 }

@@ -24,6 +24,12 @@
 #include <mach/regs_ana.h>
 #include "gpio_phy.h"
 
+#ifdef DEBUG
+#define GPIO_DBG(fmt...) pr_debug(fmt)
+#else
+#define GPIO_DBG(fmt...)
+#endif
+
 #ifndef GPO_TRI
 #define GPO_TRI            0xFFFF
 #endif
@@ -34,100 +40,272 @@
 
 
 struct gpio_info{
-    enum gpio_section_type gpio_type;
-    u32 baseAddr;
-    u16 bit_num;
+	enum gpio_section_type gpio_type;
+	u32 base_addr;
+	int   die;
+	u8   bit_num;
 };
 
+struct gpio_irq_map {
+	unsigned int gpio_id;
+	int irq_num;
+};
 
-void GPIO_PHY_GetBaseInfo (u32 gpio_id, struct gpio_info *pGpio_info)
+#define GPIO_INVALID_ID 0xffff
+#define INVALID_REG		(~(u32)0)
+
+static struct gpio_irq_map gpio_irq_table[NR_GPIO_IRQS];
+
+
+static void __get_gpio_base_info (u32 gpio_id, struct gpio_info *info)
 {
-    int i = 0;
-    u32 table_size = 0;
+	int i = 0;
+	u32 table_size = 0;
+	struct gpio_section  *section_table;
 
-    GPIO_SECTION_T  *p_gpio_section_table = (GPIO_SECTION_T *) Gpio_GetCfgSectionTable (&table_size);
+	section_table = gpio_get_section_table (&table_size);
+    	BUG_ON((gpio_id >= GPIO_MAX_PIN_NUM) || (table_size <= 0));
 
-    BUG_ON(!(gpio_id < GPIO_MAX_PIN_NUM && table_size > 0));
 
+    	info->base_addr = __get_base_addr (gpio_id);
+	info->bit_num  = __get_bit_num (gpio_id);
+	info->die	   = __get_gpio_die(gpio_id);
 
-    pGpio_info->baseAddr = GpioCfg_GetBaseAddr (gpio_id);
-    pGpio_info->bit_num  = GpioCfg_GetBitNum (gpio_id);
+	for (i = 0; i < table_size; i++) {
+		if (section_table[i].page_base == info->base_addr) {
+			if (section_table[i].page_size > info->bit_num) {
+	            		info->gpio_type = section_table[i].section_type;
+	            		return;
+	        		}
+			break;
+	    	}
+	}
 
-    for (i = 0; i < table_size; ++i)
-    {
-        if (p_gpio_section_table[i].gpxx_pagex_base == pGpio_info->baseAddr)
-        {
-            if (p_gpio_section_table[i].gpxx_pagex_size > pGpio_info->bit_num)
-            {
-                pGpio_info->gpio_type = p_gpio_section_table[i].gpxx_section_type;
-                return;
-            }
-
-            break;
-        }
-    }
-
-    pGpio_info->gpio_type = GPIO_SECTION_INVALID;
+    info->gpio_type = GPIO_SECTION_INVALID;
 
     return;
 }
 
 
- void GPIO_PHY_SetDirection (struct gpio_info *pGpio_info, int directions)
+
+static void __gpio_set_dir (struct gpio_info * info, int dir)
 {
-    int value = (directions ? true : false);
-    u32 reg_addr = 0;
-	
-    reg_addr = pGpio_info->baseAddr;
+	int value = !!dir;
+	u32 reg_addr = 0;
+	unsigned long flags;
 
-    switch (pGpio_info->gpio_type)
-    {
-        case GPIO_SECTION_GPI:
+	reg_addr = info->base_addr;
 
-            if (directions)
-            {
-                pr_err("[GPIO_DRV]GPIO_SetDirection error");
-                WARN_ON(1);
-            }
+	switch (info->gpio_type) {
+	case GPIO_SECTION_GPI:
+		if (dir) {
+		    WARN(1, "cannot set dir output with GPI");
+		}
+		return;
 
-            return;
+	case GPIO_SECTION_GPO:
+		if (!dir) {
+		WARN(1, "cannot set dir input with GPO");
+		}
+		return;
 
-        case GPIO_SECTION_GPO:
+	case GPIO_SECTION_GPIO:
+		reg_addr += GPIO_DIR;
+		break;
+	case GPIO_SECTION_INVALID:
+	default:
+		    WARN(1, " the GPIO_ID is Invalid in this chip");
+		    return;
+	}
 
-            if (!directions)
-            {
-                pr_err("[GPIO_DRV]GPIO_SetDirection error");
-                WARN_ON(1);
-            }
+	local_irq_save(flags);
+	value = gpio_reg_get(reg_addr, info->die);
 
-            return;
+	if (dir)
+		value |= 1 << info->bit_num;
+	else
+		value &= ~(1 << info->bit_num);
+       gpio_reg_set(reg_addr, info->die, value);
 
-        case GPIO_SECTION_GPIO:
-            reg_addr += GPIO_DIR;
-            break;
-        case GPIO_SECTION_INVALID:
-            pr_err("[GPIO_DRV]the GPIO_ID is Invalid in this chip");
-            BUG_ON(1);
-            return;
-
-        default:
-             BUG_ON(1);
-            break;
-    }
-
-    GPIO_REG_SET (reg_addr, ( (GPIO_REG32 (reg_addr) & ~ (1<<pGpio_info->bit_num)) | (value<<pGpio_info->bit_num)));
-
+	local_irq_restore(flags);
 }
 
-
-static int sprd_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
+/*
+	get data register's offset
+ */
+static u32 __gpio_get_data_reg_offs (struct gpio_info *info)
 {
-	unsigned gpio_id = offset;
-	struct gpio_info gpio_info;
-	
-       GPIO_PHY_GetBaseInfo (gpio_id, &gpio_info);
-	GPIO_PHY_SetDirection(&gpio_info, 0);
-	return 0;
+	u32 offset_addr;
+
+	switch (info->gpio_type) {
+	case GPIO_SECTION_GPI:
+	    offset_addr = GPI_DATA;
+	    break;
+	case GPIO_SECTION_GPO:
+	    offset_addr = GPO_DATA;
+	    break;
+	case GPIO_SECTION_GPIO:
+	    offset_addr = GPIO_DATA;
+	    break;
+	case GPIO_SECTION_INVALID:
+	default:
+	    pr_err("the GPIO_ID is Invalid in this chip");
+	    WARN_ON(1);
+	    return INVALID_REG;
+	}
+
+	return offset_addr;
+}
+
+static int __gpio_get_pin_data (struct gpio_info *info)
+{
+	u32 offset_addr = 0;
+	u32 reg_addr = 0;
+
+	reg_addr = info->base_addr;
+
+	offset_addr = __gpio_get_data_reg_offs (info);
+
+	if (offset_addr != INVALID_REG) {
+	   	reg_addr += offset_addr;
+	 	return gpio_reg_get(reg_addr, info->die) & (1<<info->bit_num);
+	}
+
+	return -EINVAL;
+}
+static u32 __gpio_get_data_mask_reg_offs (struct gpio_info *info)
+{
+	u32 offset_addr;
+
+	switch (info->gpio_type) {
+       case GPIO_SECTION_GPI:
+            offset_addr = GPI_DMSK;
+            break;
+       case GPIO_SECTION_GPO:
+            offset_addr = GPO_TRI;
+            break;
+       case GPIO_SECTION_GPIO:
+            offset_addr = GPIO_DMSK;
+            break;
+       case GPIO_SECTION_INVALID:
+	default:
+            pr_err ("the GPIO_ID is Invalid in this chip");
+            WARN_ON(1);
+            return INVALID_REG;
+    }
+
+    return offset_addr;
+}
+
+/*
+	if the data register can be access, return ture, else return false;
+  */
+static int __gpio_get_data_mask (struct gpio_info *info)
+{
+	u32 offset_addr = 0;
+	u32 reg_addr = 0;
+	int value;
+
+	reg_addr = info->base_addr;
+
+	offset_addr = __gpio_get_data_mask_reg_offs(info);
+	if (offset_addr != INVALID_REG) {
+		reg_addr += offset_addr;
+
+		GPIO_DBG("gpio_addr %x data mask :%x\r\n", info->base_addr,
+			gpio_reg_get(reg_addr, info->die));
+
+		value = gpio_reg_get(reg_addr, info->die);
+		return ( value & (1<< info->bit_num)) ? true : false;
+	}
+
+	return false;
+}
+
+static int __gpio_get_dir (struct gpio_info *info)
+{
+	u32 reg_addr = 0;
+	int value;
+
+	reg_addr = info->base_addr;
+
+	switch (info->gpio_type) {
+	case GPIO_SECTION_GPI:
+	    return false;
+
+	case GPIO_SECTION_GPO:
+	    return true;
+
+	case GPIO_SECTION_GPIO:
+	    reg_addr += GPIO_DIR;
+	    break;
+
+	case GPIO_SECTION_INVALID:
+	default:
+	    pr_warning("[GPIO_DRV]the GPIO_ID is Invalid in this chip");
+	    WARN_ON(1);
+	    return -EINVAL;
+	}
+
+	value = gpio_reg_get(reg_addr, info->die) & (1<< info->bit_num);
+	return value ? true: false;
+}
+
+static void __gpio_set_pin_data (struct gpio_info *info ,int b_on)
+{
+	u32 offset_addr;
+	u32 reg_addr;
+	int value;
+	unsigned long flags;
+
+	reg_addr = info->base_addr;
+
+	offset_addr = __gpio_get_data_reg_offs (info);
+	if (offset_addr == INVALID_REG)
+		return;
+
+	reg_addr += offset_addr;
+
+	local_irq_save(flags);
+
+	value = gpio_reg_get(reg_addr, info->die);
+	if (b_on)
+		value |= 1 << info->bit_num;
+	else
+		value &= ~(1 << info->bit_num);
+	gpio_reg_set(reg_addr, info->die, value);
+	local_irq_restore(flags);
+}
+
+/*
+	set data mask, the gpio data register can be access
+ */
+static void __gpio_set_data_mask (struct gpio_info *info, int b_on)
+{
+	int value;
+	u32 reg_addr;
+	u32 offset_addr;
+	unsigned long flags;
+
+	reg_addr = info->base_addr;
+	offset_addr = __gpio_get_data_mask_reg_offs(info);
+	if (offset_addr != INVALID_REG) {
+		reg_addr += offset_addr;
+
+		local_irq_save(flags);
+		value = gpio_reg_get(reg_addr, info->die);
+		if (b_on)
+			value |= 1 << info->bit_num;
+		else
+			value &= ~(1 << info->bit_num);
+		gpio_reg_set(reg_addr, info->die, value);
+		local_irq_restore(flags);
+
+		GPIO_DBG("After setting gpio_addr %x data mask :%x\r\n", reg_addr,
+		gpio_reg_get(reg_addr, info->die));
+	}
+
+	return;
 }
 
 static int sprd_gpio_direction_output(struct gpio_chip *chip,
@@ -136,136 +314,20 @@ static int sprd_gpio_direction_output(struct gpio_chip *chip,
 	unsigned gpio_id = offset;
 	struct gpio_info gpio_info;
 
-	 GPIO_PHY_GetBaseInfo (gpio_id, &gpio_info);
-	GPIO_PHY_SetDirection(&gpio_info, 1);
+	__get_gpio_base_info (gpio_id, &gpio_info);
+	__gpio_set_dir(&gpio_info, 1);
+	__gpio_set_pin_data(&gpio_info, value);
 	return 0;
 }
 
-static int _GPIO_GetGpioDataRegAddr (struct gpio_info *pGpio_info, u32 *pOffsetAddr)
+static int sprd_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
-    switch (pGpio_info->gpio_type)
-    {
-        case GPIO_SECTION_GPI:
-            *pOffsetAddr = GPI_DATA;
-            break;
-        case GPIO_SECTION_GPO:
-            *pOffsetAddr = GPO_DATA;
-            break;
-        case GPIO_SECTION_GPIO:
-            *pOffsetAddr = GPIO_DATA;
-            break;
-        case GPIO_SECTION_INVALID:
-	 default:
-            pr_err("[GPIO_DRV]the GPIO_ID is Invalid in this chip");
-            BUG_ON(1);
-            return false;
-      }
-    return true;
-}
+	unsigned gpio_id = offset;
+	struct gpio_info gpio_info;
 
-int GPIO_PHY_GetPinData (struct gpio_info *pGpio_info)
-{
-    u32 offsetAddr = 0;
-    u32 reg_addr = 0;
-
-    reg_addr = pGpio_info->baseAddr;
-
-    if (_GPIO_GetGpioDataRegAddr (pGpio_info, &offsetAddr))
-    {
-        reg_addr += offsetAddr;
-        return ( (GPIO_REG32 (reg_addr) & (1<<pGpio_info->bit_num)) ? true : false);
-    }
-
-    return false;
-}
-int _GPIO_GetGpioDataMaskRegAddr (struct gpio_info *pGpio_info, u32 *pOffsetAddr)
-{
-    switch (pGpio_info->gpio_type)
-    {
-        case GPIO_SECTION_GPI:
-            *pOffsetAddr = GPI_DMSK;
-            break;
-        case GPIO_SECTION_GPO:
-            *pOffsetAddr = GPO_TRI;
-            break;
-        case GPIO_SECTION_GPIO:
-            *pOffsetAddr = GPIO_DMSK;
-            break;
-        case GPIO_SECTION_INVALID:
-            pr_err("[GPIO_DRV]the GPIO_ID is Invalid in this chip");
-            BUG_ON(1);
-            return false;
-        default:
-            pr_err ("[GPIO_DRV]the GPIO_ID is Invalid in this chip");
-            BUG_ON(1);
-            return false; /*lint !e527 comfirmed by xuepeng*/
-    }
-
-    return true;
-}
-
-int GPIO_PHY_GetDataMask (struct gpio_info *pGpio_info)
-{
-    u32 offsetAddr = 0;
-    u32 reg_addr = 0;
-
-    reg_addr = pGpio_info->baseAddr;
-
-    if (_GPIO_GetGpioDataMaskRegAddr (pGpio_info, &offsetAddr))
-    {
-        reg_addr += offsetAddr;
-
-	//pr_info("gpio_addr %x data mask :%x\r\n", pGpio_info->baseAddr, __raw_readl(reg_addr));
-        return ( (GPIO_REG32 (reg_addr) & (1<<pGpio_info->bit_num)) ? true : false);
-    }
-
-    return false;
-}
-
-int GPIO_PHY_GetDirection (struct gpio_info *pGpio_info)
-{
-    u32 reg_addr = 0;
-    reg_addr = pGpio_info->baseAddr;
-
-    switch (pGpio_info->gpio_type)
-    {
-        case GPIO_SECTION_GPI:
-            return false;
-
-        case GPIO_SECTION_GPO:
-            return true;
-
-        case GPIO_SECTION_GPIO:
-            reg_addr += GPIO_DIR;
-            break;
-
-        case GPIO_SECTION_INVALID:
-            pr_info("[GPIO_DRV]the GPIO_ID is Invalid in this chip");
-            BUG_ON(1);
-            return false;
-
-        default:
-            BUG_ON(1);
-            break;
-    }
-
-    return ( (GPIO_REG32 (reg_addr) & (1<<pGpio_info->bit_num)) ? true : false);
-}
-
-void GPIO_PHY_SetPinData (struct gpio_info *pGpio_info ,int b_on)
-{
-    u32 offsetAddr = 0;
-    u32 reg_addr = 0;
-    int value = (b_on ? true : false);
-
-    reg_addr = pGpio_info->baseAddr;
-
-    _GPIO_GetGpioDataRegAddr (pGpio_info, &offsetAddr);
-    reg_addr += offsetAddr;
-
-    GPIO_REG_SET (reg_addr, ( (GPIO_REG32 (reg_addr) & ~ (1<<pGpio_info->bit_num)) |
-                              (value<<pGpio_info->bit_num)));
-
+       __get_gpio_base_info (gpio_id, &gpio_info);
+	__gpio_set_dir(&gpio_info, 0);
+	return 0;
 }
 
 /*
@@ -273,26 +335,22 @@ void GPIO_PHY_SetPinData (struct gpio_info *pGpio_info ,int b_on)
  */
 static int sprd_gpio_get(struct gpio_chip *chip, unsigned offset)
 {
-	u32 bit_num;
-	u32 gpio_pg_base;
-	u32 value;
 	unsigned gpio_id = offset;
+	struct gpio_info gpio_info;
 
-	 struct gpio_info gpio_info;
-    GPIO_PHY_GetBaseInfo (gpio_id, &gpio_info);
+	__get_gpio_base_info (gpio_id, &gpio_info);
 
-    if (!GPIO_PHY_GetDataMask (&gpio_info))
-    {
-        WARN(1, "[GPIO_DRV]GPIO_GetValue: GPIO_%d data mask hasn't been opened!\n", gpio_id);
-    }
+	if (!__gpio_get_data_mask (&gpio_info)) {
+		WARN(1, "GPIO_%d data mask hasn't been opened!\n", gpio_id);
+	}
+	/*
+	if (__gpio_get_dir (&gpio_info))
+	{
+	WARN(1, "[GPIO_DRV]GPIO_GetValue: GPIO_%d should be input port!\n", gpio_id);
+	}
+	*/
+	return __gpio_get_pin_data (&gpio_info);
 
-    if (GPIO_PHY_GetDirection (&gpio_info))
-    {
-        WARN(1, "[GPIO_DRV]GPIO_GetValue: GPIO_%d should be input port!\n", gpio_id);
-    }
-
-    return GPIO_PHY_GetPinData (&gpio_info);
-	
 }
 
 
@@ -303,102 +361,71 @@ static void sprd_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 {
 	struct gpio_info gpio_info;
 	u32 gpio_id = offset;
-	
-    BUG_ON (gpio_id >= GPIO_MAX_PIN_NUM);
 
-    GPIO_PHY_GetBaseInfo (gpio_id, &gpio_info);
+	BUG_ON (gpio_id >= GPIO_MAX_PIN_NUM);
 
-    if (!GPIO_PHY_GetDataMask (&gpio_info))
-    {
-        WARN(1, "[GPIO_DRV]GPIO_%d data mask no opened!",  gpio_id);
-    }
+	__get_gpio_base_info (gpio_id, &gpio_info);
 
-    if (!GPIO_PHY_GetDirection (&gpio_info))
-    {
-        WARN(1, "[GPIO_DRV]GPIO_%d dir wrong!", gpio_id);
-    }
-
-    GPIO_PHY_SetPinData (&gpio_info, value);
 /*
-	pr_info("gpio_%d setting :%x \n", gpio_id,\
-		__raw_readl(gpio_pg_base + GPIO_DATA));
+	if (!__gpio_get_data_mask (&gpio_info))
+	{
+	    WARN(1, "GPIO_%d data mask no opened!",  gpio_id);
+	}
 */
-}
 
-void GPIO_PHY_SetDataMask (struct gpio_info *pGpio_info, int b_on)
-{
-    int value = (b_on ? true : false);
-    u32 reg_addr = 0;
-    u32 offsetAddr = 0;
+	if (!__gpio_get_dir (&gpio_info)) {
+	        WARN(1, "GPIO_%d dir wrong!can't set input value", gpio_id);
+		return;
+	}
 
-    reg_addr = pGpio_info->baseAddr;
+	__gpio_set_pin_data (&gpio_info, value);
 
-    if (_GPIO_GetGpioDataMaskRegAddr (pGpio_info, &offsetAddr))
-    {
-        reg_addr += offsetAddr;
-        GPIO_REG_SET ( (reg_addr), ( (GPIO_REG32 (reg_addr) & ~ (1<<pGpio_info->bit_num)) |
-                                     (value<<pGpio_info->bit_num)));
-	//pr_info("After setting gpio_addr %x data mask :%x\r\n", reg_addr, 
-	//	__raw_readl(reg_addr));
-    }
-
-    return;
-}
-
-void GPIO_Enable (u32 gpio_id)
-{
-    struct gpio_info gpio_info;
-    GPIO_PHY_GetBaseInfo (gpio_id, &gpio_info);
-
-	//pr_info("gpio info, pin is :%d, base addr :%p, bit num :%d, type :%d\r\n", gpio_id, 
-		//gpio_info.baseAddr, gpio_info.bit_num, gpio_info.gpio_type);
-    GPIO_PHY_SetDataMask (&gpio_info, true);
-}
-
-
-void GPIO_Disable (u32 gpio_id)
-{
-    struct gpio_info gpio_info;
-    GPIO_PHY_GetBaseInfo (gpio_id, &gpio_info);
-
-    GPIO_PHY_SetDataMask (&gpio_info, false);
+	GPIO_DBG("gpio_%d setting :%x \n", gpio_id, value);
 }
 
 static int sprd_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
-	//this enable the gpio
-	unsigned long flags;
-	u32 bit_num;
-	u32 gpio_pg_base;
 	unsigned gpio_id = offset;
-	int reg_value;
-	
-	GPIO_Enable(gpio_id);
-	//pr_info("new data mask is %x\r\n", __raw_readl(gpio_pg_base + GPIO_DMSK));
+	struct gpio_info gpio_info;
+
+	GPIO_DBG("request gpio_%d\r\n", gpio_id);
+   	__get_gpio_base_info (gpio_id, &gpio_info);
+
+	GPIO_DBG("gpio info, pin is :%d, base addr :%x, bit num :%d, type :%d\r\n", gpio_id,
+		gpio_info.base_addr, gpio_info.bit_num, gpio_info.gpio_type);
+	__gpio_set_data_mask (&gpio_info, true);
+
 	return 0;
 }
 
 static void sprd_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
-	unsigned int  bit_num;
-	unsigned int gpio_pg_base;
 	unsigned gpio_id = offset;
-	int reg_value;
-	unsigned long flags;
-	
+	struct gpio_info gpio_info;
+
 	if (gpio_id > GPIO_MAX_PIN_NUM) {
 		WARN(1, KERN_WARNING"gpio number is too larger:%d\r\n", gpio_id);
 		return;
 	}
 
-	
-	GPIO_Disable(gpio_id);
+	__get_gpio_base_info (gpio_id, &gpio_info);
+	__gpio_set_data_mask (&gpio_info, false);
+
 	return;
 }
+
 static int sprd_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
-	//get the irq for the gpio.
-	return 0;
+	int i;
+
+	for (i = 0; i < NR_GPIO_IRQS; i++) {
+		if (gpio_irq_table[i].gpio_id == offset)
+			break;
+	}
+
+	if (i >= NR_GPIO_IRQS)
+		return -1;
+	return gpio_irq_table[i].irq_num;
 }
 
 static struct gpio_chip sprd_gpio_chip = {
@@ -410,75 +437,346 @@ static struct gpio_chip sprd_gpio_chip = {
 	.request 	  = sprd_gpio_request,
 	.free		  = sprd_gpio_free,
 	.to_irq	= sprd_gpio_to_irq,
-	.base		  = 0,	
+	.base		  = 0,
 	.ngpio		  = GPIO_MAX_PIN_NUM,
 };
 
-struct gpio_irq_map {
-	int gpio_id;
-	unsigned int irq_num;
-};
-
-#define GPIO_INVALID_ID 0xffff
-#define GPIO_MAX_IRQ_NUM (NR_GPIO_IRQS)
-static struct gpio_irq_map gpio_irq_table[GPIO_MAX_IRQ_NUM];
-
-static u32  __get_gpio_page(unsigned gpio_id)
+static u32 __gpio_get_int_mask_addr (struct gpio_info *info)
 {
-	u32 page;
-	u32  gpio_pg_base;
+	u32 offset_addr;
 
-	page = gpio_id >>4;
-	gpio_pg_base = page * 0x80 + GPIO_PG0_BASE;
-	return gpio_pg_base;
+	switch (info->gpio_type) {
+	case GPIO_SECTION_GPI:
+	    offset_addr = GPI_IE;
+	    break;
+	case GPIO_SECTION_GPO:
+	    WARN(1, "this opretion can not belong to GPO");
+	    return INVALID_REG;
+
+	case GPIO_SECTION_GPIO:
+	    offset_addr = GPIO_IE;
+	    break;
+
+	case GPIO_SECTION_INVALID:
+	default:
+	    WARN (1, "the GPIO_ID is Invalid in this chip");
+	    return INVALID_REG;
+	}
+
+	return offset_addr;
+
 }
+
+
+static void __gpio_enable_irq (struct gpio_info *info)
+{
+	int value;
+	u32 reg_addr;
+	u32 offset_addr = 0;
+	unsigned long flags;
+
+	reg_addr = info->base_addr;
+	offset_addr = __gpio_get_int_mask_addr (info);
+	if (offset_addr != INVALID_REG)	{
+		reg_addr += offset_addr;
+		local_irq_save(flags);
+		value = gpio_reg_get(reg_addr, info->die);
+		value |= 1 << info->bit_num;
+		gpio_reg_set(reg_addr, info->die, value);
+		local_irq_restore(flags);
+	}
+
+	return;
+}
+
+static void __gpio_disable_irq (struct gpio_info *info)
+{
+	int value;
+	u32 reg_addr;
+	u32 offset_addr;
+	unsigned long flags;
+
+	reg_addr = info->base_addr;
+	offset_addr = __gpio_get_int_mask_addr (info);
+
+	if (offset_addr != INVALID_REG) {
+		reg_addr += offset_addr;
+		local_irq_save(flags);
+		value = gpio_reg_get(reg_addr, info->die);
+		value &= ~ (1 << info->bit_num);
+		gpio_reg_set(reg_addr, info->die, value);
+		local_irq_restore(flags);
+	}
+
+	return;
+
+}
+
+static void __gpio_clear_irq_status (struct gpio_info *info)
+{
+	int value;
+	u32 reg_addr;
+	unsigned long flags;
+
+	reg_addr = info->base_addr;
+
+	switch (info->gpio_type) {
+	case GPIO_SECTION_GPI:
+	    reg_addr += GPI_IC;
+	    break;
+	case GPIO_SECTION_GPO:
+	    GPIO_DBG("this opretion can not belong to GPO");
+	    return;
+	case GPIO_SECTION_GPIO:
+	    reg_addr += GPIO_IC;
+	    break;
+	case GPIO_SECTION_INVALID:
+	default:
+	    GPIO_DBG("the GPIO_ID is Invalid in this chip");
+	    WARN_ON(1);
+	    return;
+	}
+
+	local_irq_save(flags);
+	value = gpio_reg_get(reg_addr, info->die);
+	value &= ~ (1 << info->bit_num);
+	value |= 1 << info->bit_num;
+	gpio_reg_set(reg_addr, info->die, value);
+}
+
+static int __gpio_get_int_status (struct gpio_info *info)
+{
+	u32 reg_addr = 0;
+	int value;
+
+	reg_addr = info->base_addr;
+
+	switch (info->gpio_type) {
+	case GPIO_SECTION_GPI:
+		reg_addr += GPI_MIS;
+		break;
+	case GPIO_SECTION_GPO:
+		WARN(1, "The corresponding reg of this GPIO_ID is a GPO! No Intr!");
+		return false;
+
+	case GPIO_SECTION_GPIO:
+	    reg_addr += GPIO_MIS;
+	    break;
+	case GPIO_SECTION_INVALID:
+	default:
+	    WARN(1, "the GPIO_ID is Invalid in this chip");
+	    return false;
+	}
+
+	value  = gpio_reg_get(reg_addr, info->die);
+
+	return ( value & (1 << info->bit_num)) ? true : false;
+}
+
+static void __gpio_set_int_type (struct gpio_info *info, int type)
+{
+	if (info->gpio_type == GPIO_SECTION_GPI) {
+		switch (type) {
+		case IRQ_TYPE_LEVEL_HIGH:   // detect high level.
+		           gpio_reg_or( (info->base_addr + GPI_IEV), info->die,
+		           				(0x1 << info->bit_num));
+		            break;
+
+		   case IRQ_TYPE_LEVEL_LOW:    // detect low level.
+		          gpio_reg_and( (info->base_addr + GPI_IEV), info->die,
+		            				~ (0x1 << info->bit_num));
+		            break;
+
+		    case IRQ_TYPE_EDGE_BOTH:    // detect the rising edges and falling edges.
+		    case IRQ_TYPE_EDGE_RISING:  // detect the rising edges.
+		    case IRQ_TYPE_EDGE_FALLING:
+		    default:
+		            WARN(1, "The Irq type is invalid for GPI. \n");
+		         break;
+		    }
+	} else if (info->gpio_type == GPIO_SECTION_GPIO) {
+			switch (type) {
+			case IRQ_TYPE_LEVEL_HIGH:   // detect high level.
+				gpio_reg_or( (info->base_addr + GPIO_IS), info->die, (0x1 << info->bit_num));
+				gpio_reg_and(info->base_addr + GPIO_IBE, info->die, ~ (0x1 << info->bit_num));
+				gpio_reg_or( (info->base_addr + GPIO_IEV), info->die, (0x1 << info->bit_num));
+				break;
+
+			case IRQ_TYPE_LEVEL_LOW:    // detect low level.
+				gpio_reg_or( (info->base_addr + GPIO_IS), info->die, (0x1 << info->bit_num));
+				gpio_reg_and(info->base_addr + GPIO_IBE, info->die, ~ (0x1 << info->bit_num));
+				gpio_reg_and( (info->base_addr + GPIO_IEV), info->die, ~(0x1 << info->bit_num));
+				break;
+
+			case IRQ_TYPE_EDGE_BOTH:    // detect the rising edges and falling edges.
+				gpio_reg_and( (info->base_addr + GPIO_IS), info->die, ~(0x1 << info->bit_num));
+				gpio_reg_or(info->base_addr + GPIO_IBE, info->die, (0x1 << info->bit_num));
+				gpio_reg_and( (info->base_addr + GPIO_IEV), info->die, ~(0x1 << info->bit_num));
+				break;
+
+			case IRQ_TYPE_EDGE_RISING:  // detect the rising edges.
+				gpio_reg_and( (info->base_addr + GPIO_IS), info->die, ~(0x1 << info->bit_num));
+				gpio_reg_and(info->base_addr + GPIO_IBE, info->die, ~ (0x1 << info->bit_num));
+				gpio_reg_or( (info->base_addr + GPIO_IEV), info->die, (0x1 << info->bit_num));
+				break;
+
+			case IRQ_TYPE_EDGE_FALLING:
+				gpio_reg_and( (info->base_addr + GPIO_IS), info->die, ~(0x1 << info->bit_num));
+				gpio_reg_and(info->base_addr + GPIO_IBE, info->die, ~ (0x1 << info->bit_num));
+				gpio_reg_and( (info->base_addr + GPIO_IEV), info->die, ~(0x1 << info->bit_num));
+				break;
+			default:
+				WARN(1, "fault irq type \r\n");
+				break;
+			}
+	}      else {
+		WARN(1, "the gpio type is Invalid for irq\r\n");
+		return;
+	}
+}
+
+/*
+	The GPI module can do handware debouce, the max period is 255ms,
+	NOTE:
+	if your application need debounce time larger than that, please use software
+	timer.
+ */
+void gpio_set_hw_debounce (unsigned int gpio, u8 period)
+{
+	u32 reg_addr = 0;
+	int value;
+	struct gpio_info gpio_info;
+	unsigned long flags;
+
+	__get_gpio_base_info (gpio, &gpio_info);
+	if (gpio_info.gpio_type != GPIO_SECTION_GPI) {
+		WARN(1, "GPIO_%d is not in GPI\r\n", gpio);
+		return;
+	}
+
+	reg_addr = gpio_info.base_addr;
+	reg_addr += (GPI_0CTRL+ (gpio_info.bit_num << 2));
+
+	local_irq_save(flags);
+	if (period >= 1) {
+		/*
+		GPIO_REG_OR (reg_addr, GPI_DEBOUNCE_BIT);
+		GPIO_REG_SET (reg_addr, (GPIO_REG32 (reg_addr) & 0xFF00) +debounce_period);
+		*/
+		gpio_reg_or(reg_addr, gpio_info.die, GPI_DEBOUNCE_BIT);
+		value = (gpio_reg_get(reg_addr, gpio_info.die) & 0xFF00) + period;
+		gpio_reg_set(reg_addr, gpio_info.die, value);
+	} else {// not recommend
+		//GPIO_REG_AND (reg_addr, ~GPI_DEBOUNCE_BIT); //bypass mode
+		gpio_reg_and(reg_addr, gpio_info.die, ~GPI_DEBOUNCE_BIT);
+	}
+	local_irq_restore(flags);
+}
+
+EXPORT_SYMBOL(gpio_set_hw_debounce);
+
+/*
+	generate the trig_start pulse for GPI interrupt;
+ */
+static void __gpio_trig_detect (struct gpio_info *info)
+{
+	int value;
+	u32 reg_addr = 0;
+	unsigned long flags;
+
+	reg_addr = info->base_addr;
+
+	switch (info->gpio_type) {
+	case GPIO_SECTION_GPI:
+		reg_addr += GPI_TRIG;
+		break;
+
+	case GPIO_SECTION_GPO:
+	case GPIO_SECTION_GPIO:
+		GPIO_DBG("[GPIO_DRV]this opretion can not belong to GPO/GPIO");
+		WARN_ON(1);
+		return;
+
+	case GPIO_SECTION_INVALID:
+	default:
+		GPIO_DBG ("[GPIO_DRV]the GPIO_ID is Invalid in this chip");
+		WARN_ON(1);
+	  	return;
+	}
+
+	local_irq_save(flags);
+
+	value = gpio_reg_get(reg_addr, info->die) & ~(1 << info->bit_num);
+	value |= 1 << info->bit_num;
+	gpio_reg_set(reg_addr, info->die, value);
+
+	local_irq_restore(flags);
+	//GPIO_REG_SET (reg_addr, ( (GPIO_REG32 (reg_addr) & ~ (1<<pGpio_info->bit_num)) | (value<<pGpio_info->bit_num)));
+
+}
+
+
+void gpio_enable_gpi_interupt (struct gpio_info *info)
+{
+
+	switch (info->gpio_type) {
+	case GPIO_SECTION_GPI:
+	    __gpio_enable_irq (info);
+	    __gpio_trig_detect (info);
+	    break;
+	case GPIO_SECTION_GPO:
+	case GPIO_SECTION_GPIO:
+	    return;
+
+	default:
+	   WARN_ON(1);
+	    break;
+	}
+}
+
+//EXPORT_SYMBOL(gpio_enable_gpi_interupt);
 
 void sprd_ack_gpio_irq(unsigned int irq)
 {
 	int gpio;
-	int bit_num;
-	unsigned int gpio_page;
  	struct gpio_irq_map *map= get_irq_chip_data(irq);
+	struct gpio_info gpio_info;
 
 	gpio = map->gpio_id;
 	if (gpio >= GPIO_MAX_PIN_NUM ) {
 		pr_warning(" [%s] error gpio %d\n", __FUNCTION__, gpio);
 		return;
 	}
-	//pr_info("ack gpio %d  irq %d", gpio, irq);
-    	gpio_page = __get_gpio_page(gpio);
-	bit_num = gpio & 0x0f;
-	//Interrupt clear, "1" clears edge detection interrupt. "0" has no effect.
-	__raw_bits_or((1 << bit_num), (gpio_page + GPIO_IC));
+	GPIO_DBG("ack irq gpio %d  irq %d", gpio, irq);
+
+	__get_gpio_base_info (gpio, &gpio_info);
+	__gpio_clear_irq_status(&gpio_info);
 }
 EXPORT_SYMBOL(sprd_ack_gpio_irq);
 
 void sprd_mask_gpio_irq(unsigned int irq)
 {
-	int gpio;
-	int bit_num;
-	unsigned int gpio_page;
+	unsigned gpio;
 	struct gpio_irq_map *map= get_irq_chip_data(irq);
+	struct gpio_info gpio_info;
 
 	gpio = map->gpio_id;
 	if (gpio >= GPIO_MAX_PIN_NUM ) {
-		pr_warning(" [%s] error gpio %d\n", __FUNCTION__, gpio);
+		pr_warning(" [%s] error gpio %d\n", __func__, gpio);
 		return;
 	}
-	//pr_info("mask gpio %d  irq %d", gpio, irq);
-  	gpio_page = __get_gpio_page(gpio);
-	bit_num = gpio & 0x0f;
-	//Clear Interrupt mask register
-	__raw_bits_and( ~(1 << bit_num), (gpio_page + GPIO_IE));
+
+	GPIO_DBG("mask gpio %d  irq %d", gpio, irq);
+	__get_gpio_base_info (gpio, &gpio_info);
+	__gpio_disable_irq (&gpio_info);
 }
 
 EXPORT_SYMBOL(sprd_mask_gpio_irq);
 
 void sprd_unmask_gpio_irq(unsigned int irq)
 {
-	int gpio;
-	int bit_num;
-	unsigned int gpio_page;
+	unsigned gpio;
+	struct gpio_info gpio_info;
 	struct gpio_irq_map *map= get_irq_chip_data(irq);
 
 	gpio = map->gpio_id;
@@ -486,65 +784,31 @@ void sprd_unmask_gpio_irq(unsigned int irq)
 		pr_warning(" [%s] error gpio %d\n", __FUNCTION__, gpio);
 		return;
 	}
-	//pr_info("unmask gpio %d  irq %d", gpio, irq);
-  	gpio_page = __get_gpio_page(gpio);
-	bit_num = gpio & 0x0f;
-	//Set Interrupt mask register
-   	__raw_bits_or( (1 << bit_num), (gpio_page + GPIO_IE));
+
+	GPIO_DBG("unmask gpio %d  irq %d", gpio, irq);
+	__get_gpio_base_info (gpio, &gpio_info);
+	__gpio_enable_irq (&gpio_info);
+
+	if(gpio_info.gpio_type == GPIO_SECTION_GPI)
+		__gpio_trig_detect (&gpio_info);
 }
 
 
 static int sprd_gpio_irq_type(unsigned int irq, unsigned int type)
 {
 	int gpio;
-	int bit_num;
-	unsigned int gpio_pg_base;
 	struct gpio_irq_map *map= get_irq_chip_data(irq);
+	struct gpio_info gpio_info;
 
 	gpio = map->gpio_id;
 	if (gpio >= GPIO_MAX_PIN_NUM ) {
 		pr_warning(" [%s] error gpio %d\n", __FUNCTION__, gpio);
 		return -1;
 	}
-  	gpio_pg_base = __get_gpio_page(gpio);
-	bit_num = gpio & 0x0f;
 
+  	__get_gpio_base_info (gpio, &gpio_info);
 	//set irq type
-	switch(type) {
-	case IRQ_TYPE_LEVEL_HIGH: 
-		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IS));
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IBE));
-		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IEV));
-		break;
-
-	case IRQ_TYPE_LEVEL_LOW:
-		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IS));
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IBE));
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IEV));
-		break;
-
-	case IRQ_TYPE_EDGE_BOTH:
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IS));
-		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IBE));
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IEV));
-		break;
-
-	case IRQ_TYPE_EDGE_RISING:
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IS));
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IBE));
-		__raw_bits_or(0x1 << bit_num, (gpio_pg_base + GPIO_IEV));
-		break;
-
-	case IRQ_TYPE_EDGE_FALLING:
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IS));
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IBE));
-		__raw_bits_and(~(0x1 << bit_num), (gpio_pg_base + GPIO_IEV));
-		break;
-
-	default:
-		pr_warning("error irq type %d\n", type);
-		return -1;
-	}
+	__gpio_set_int_type(&gpio_info, type);
 
 	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH))
 		__set_irq_handler_unlocked(irq, handle_level_irq);
@@ -555,7 +819,7 @@ static int sprd_gpio_irq_type(unsigned int irq, unsigned int type)
 
 static void sprd_disable_gpio_irq(unsigned int irq)
 {
-	sprd_mask_gpio_irq(irq);	
+	sprd_mask_gpio_irq(irq);
 }
 static struct irq_chip sprd_muxed_gpio_chip = {
 	.name		= "GPIO",
@@ -566,20 +830,13 @@ static struct irq_chip sprd_muxed_gpio_chip = {
 	.disable	= sprd_disable_gpio_irq,
 };
 
-static  int __get_gpio_int_state(int gpio)
+static  int gpio_get_int_status(unsigned int gpio)
 {
-	int bit_num;
-	unsigned int gpio_pg_base;
-	unsigned int value;
-    
-  	gpio_pg_base = __get_gpio_page(gpio);
-	bit_num = gpio & 0x0f;
-	value = __raw_readl(gpio_pg_base + GPIO_MIS);
+   	struct gpio_info gpio_info;
 
-	if (value & (1<<bit_num)) 
-		return 1;
-	else
-       	return 0;
+    	__get_gpio_base_info (gpio, &gpio_info);
+   	return __gpio_get_int_status (&gpio_info);
+
 }
 
 
@@ -587,11 +844,11 @@ static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	int i;
 
-	for (i = 0; i < GPIO_MAX_IRQ_NUM; i++) {
+	for (i = 0; i < NR_GPIO_IRQS; i++) {
 		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID) {
 		            continue;
         	}
-		if (__get_gpio_int_state(gpio_irq_table[i].gpio_id)) {
+		if (gpio_get_int_status(gpio_irq_table[i].gpio_id)) {
 		  	generic_handle_irq(gpio_irq_table[i].irq_num);
 		}
 	}
@@ -601,61 +858,73 @@ static void sprd_gpio_irq_init(void)
 	int irq;
 	int i;
 
-	for(i = 0; i < GPIO_MAX_IRQ_NUM; i++) {
+	for(i = 0; i < NR_GPIO_IRQS; i++) {
 		gpio_irq_table[i].gpio_id= GPIO_INVALID_ID;
 	}
 	for (irq = GPIO_IRQ_START; irq < (GPIO_IRQ_START + NR_GPIO_IRQS); irq++) {
 		set_irq_chip(irq, &sprd_muxed_gpio_chip);
 		set_irq_flags(irq, IRQF_VALID | IRQF_PROBE);
 	}
-	
+
 	set_irq_chained_handler(IRQ_GPIO_INT, sprd_gpio_demux_handler);
+	set_irq_chained_handler(IRQ_ANA_GPIO_INT, sprd_gpio_demux_handler);
 }
 
 /*
-	add a gpio irq into the map,and setup the irq
+	allocate an irq for gpio
 */
-__must_check int sprd_gpio_irq_register(int gpio_id, unsigned int irq)
+__must_check int sprd_alloc_gpio_irq(unsigned gpio)
 {
+	int irq;
 	int i;
+	struct gpio_info gpio_info;
+	unsigned long flags;
 
-	   // find a free record
-	for (i = 0; i< GPIO_MAX_IRQ_NUM; i++) {
-		if (gpio_irq_table[i].gpio_id == gpio_id) {
-			pr_warning("GPIO_AddToIntTable: GPIO_%d has been added !\n", gpio_id); 
-		    return -1;
+	__get_gpio_base_info (gpio, &gpio_info);
+
+	// find a free record
+	for (i = 0; i< NR_GPIO_IRQS; i++) {
+		if (gpio_irq_table[i].gpio_id == gpio) {
+			pr_warning("irq for GPIO_%d has been alloc !\n", gpio);
+		   	return -1;
 		}
 	}
 
-	for(i = 0; i < GPIO_MAX_IRQ_NUM; i++) {
-		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID) 
+	for(i = 0; i < NR_GPIO_IRQS; i++) {
+		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID)
 			break;
 	}
 
-	if (i >= GPIO_MAX_IRQ_NUM) {
+	if (i >= NR_GPIO_IRQS) {
 		// No free item in the table.
 		return -1;
 	}
-	 gpio_irq_table[i].gpio_id = gpio_id;
+	local_irq_save(flags);
+	irq = GPIO_IRQ_START + i;
+	 gpio_irq_table[i].gpio_id = gpio;
 	 gpio_irq_table[i].irq_num = irq;
-	 
+
 	set_irq_chip_data(irq, &gpio_irq_table[i]);
-	return 0;
+	local_irq_restore(flags);
+	if (gpio_info.gpio_type == GPIO_SECTION_GPI)
+	       __gpio_trig_detect (&gpio_info);
+
+	return irq;
 }
 
-EXPORT_SYMBOL(sprd_gpio_irq_register);
+EXPORT_SYMBOL(sprd_alloc_gpio_irq);
 
 __init void sprd_gpio_init(void)
 {
-	//enable gpio bank 0~10, that is, all 176 gpio 
+	//enable gpio bank 0~10, that is, all 176 gpio
 	//__raw_writel(0x7fff, GR_GEN2);
 	  //CHIP_REG_OR ( (GR_GEN0), (GEN0_GPIO_EN | GEN0_GPIO_RTC_EN));
 	  __raw_bits_or (GEN0_GPIO_EN | GEN0_GPIO_RTC_EN, GR_GEN0);
-    ANA_REG_OR (ANA_AGEN,AGEN_RTC_GPIO_EN);
-    msleep(5);
-    ANA_REG_OR (ANA_AGEN,AGEN_GPIO_EN);
-	
+	ANA_REG_OR (ANA_AGEN,AGEN_RTC_GPIO_EN);
+	msleep(5);
+	ANA_REG_OR (ANA_AGEN,AGEN_GPIO_EN);
+
 	gpiochip_add(&sprd_gpio_chip);
 
-	//sprd_gpio_irq_init();
+	sprd_gpio_irq_init();
 }

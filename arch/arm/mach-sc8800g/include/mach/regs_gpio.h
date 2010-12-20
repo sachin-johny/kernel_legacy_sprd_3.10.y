@@ -24,7 +24,7 @@
 /*----------GPIO ARM Control Register----------*/
 #define GPIO_PG_BASE                    GPIO_BASE
 #define GPI_PG0_BASE                GPIO_BASE   //  GPI 5~0         Register Base Address       =GPIO_ID(15-0)
-#define GPI_PG0_NUM                 0x08        //GPIO 2~0  
+#define GPI_PG0_NUM                 0x08        //GPIO 2~0
 
 #define GPIO_PG0_BASE               (GPIO_PG_BASE + 0x0080) //  GPIO 15~0       Register Base Address   =GPIO_ID(15-0)
 #define GPIO_PG0_NUM                      0x10  //  GPIO 15~0
@@ -89,7 +89,7 @@
 #define GET_GPIO_BASE_ADDR(NUM)     ((((NUM)&0x7F)>>4)*0x80 + GPIO_PG0_BASE)
 
 
-#define ANA_GPIO_BASE		(SPRD_MISC_PHYS + 0x600)
+#define ANA_GPIO_BASE		(SPRD_MISC_BASE + 0x600)
 /*----------Analog Die GPIO----------*/
 //--Analog Die GPIO
 #define ANA_GPIO_PG_BASE            ANA_GPIO_BASE   //GPIO base address on analog die
@@ -106,5 +106,5 @@
 #define GET_ANA_GPIO_REG_ADDR(NUM)  ((((NUM)&0x1F)>>4)*0x80 + ANA_GPIO_PG0_BASE)
 #define ANA_GPIO_BIT(NUM)           (1 << ((NUM)&0x0F))
 
-#endif 
+#endif
 

@@ -1,6 +1,7 @@
 #ifndef __GPIO_PHY_H__
 #define __GPIO_PHY_H__
 
+#include <mach/gpio.h>
 #include <mach/adi_hal_internal.h>
 
 enum gpio_section_type {
@@ -11,98 +12,88 @@ enum gpio_section_type {
 };
 
 
-typedef struct
+struct gpio_section
 {
-    u32 gpxx_pagex_base;
-    u32 gpxx_pagex_size;
-    int gpxx_section_type;
-} GPIO_SECTION_T;
+    u32 page_base;
+    u32 page_size;
+    enum gpio_section_type  section_type;
+};
 
+enum gpio_die {
+	A_DIE = 0,
+	D_DIE = 1,
+};
 
-#define ADI_GPIO_ADDR_MASK 0x08000000
-static int gpio_is_d_die( u32 reg_addr)
+#define NR_D_DIE_GPIOS 160
+
+/*
+	gpio is locate in Digital Die(D die) or Analog Die(A die),
+ */
+static __inline int __get_gpio_die( u32 gpio)
 {
-	if ((reg_addr > GPIO_BASE) && (reg_addr < GPIO_BASE + 0x500))
-		return 1;
-	else
-		return 0;
+	if (gpio < NR_D_DIE_GPIOS)
+		return D_DIE;
+	else if (gpio < GPIO_MAX_PIN_NUM)
+		return A_DIE;
+	else {
+		WARN(1, "wrong gpio %d\r\n", gpio);
+		return -1;
+	}
 }
-static __inline u32 GpioCfg_GetBaseAddr (u32 gpio_id)
+static __inline u32 __get_base_addr (u32 gpio_id)
 {
-    if (gpio_id >= 160)
+    if (gpio_id >= NR_D_DIE_GPIOS)
     {
-       // return ( (gpio_id - 160) >>4) * 0x80 + (unsigned int) 0x82000600;
-       return ( (gpio_id - 160) >>4) * 0x80 + ANA_GPIO_BASE;
+       return ( (gpio_id - NR_D_DIE_GPIOS) >>4) * 0x80 + ANA_GPIO_BASE;
     }
 
     return (gpio_id>>4) * 0x80 + (u32) GPIO_BASE;
 }
 
-static __inline u32 GpioCfg_GetBitNum (u32 gpio_id)
+static __inline u32 __get_bit_num (u32 gpio_id)
 {
     return (gpio_id & 0xF);
 }
-static __inline void gpio_chip_reg_set (u32 reg_addr, u32 value)
+static __inline void gpio_reg_set (u32 reg_addr, int die, u32 value)
 {
-//	pr_info("set reg:%x, value %x\r\n", reg_addr, value);
-    if (gpio_is_d_die(reg_addr))
-    {
-        //CHIP_REG_SET (reg_addr,value);
+//  GPIO_DBG("set %s die reg:%x, value %x\r\n",
+//			(die == D_DIE) ? "D die" : "A die", reg_addr, value);
+    if (die == D_DIE) {
         __raw_writel(value, reg_addr);
     }
     else
     {
         ANA_REG_SET (reg_addr,value);
     }
-
     return;
 }
 
-static __inline u32 gpio_chip_reg32 (u32 reg_addr)
+static __inline u32 gpio_reg_get (u32 reg_addr, int die)
 {
-   // if (reg_addr & ADI_GPIO_ADDR_MASK)
- //  pr_info("read reg:%x\r\n", reg_addr);
-   if (gpio_is_d_die(reg_addr))
-    {
-        return __raw_readl (reg_addr);
-    }
-    else
-    {
-        return ANA_REG_GET (reg_addr);
-    }
+//   	GPIO_DBG("read %s die reg:%x\r\n",
+//   			(die == D_DIE) ? "D die" : "A die", reg_addr);
+   	if (die == D_DIE)
+		return __raw_readl (reg_addr);
+	else
+		return ANA_REG_GET (reg_addr);
 }
-static __inline void gpio_chip_reg_and (u32 reg_addr, u32 value)
+static __inline void gpio_reg_and (u32 reg_addr, int die, u32 value)
 {
-   // if (reg_addr & ADI_GPIO_ADDR_MASK)
-   if (gpio_is_d_die(reg_addr))
-    {
-        //CHIP_REG_AND (reg_addr,value);
-        __raw_bits_and(value, reg_addr);
-    }
-    else
-    {
-        ANA_REG_AND (reg_addr,value);
-    }
+	if (die == D_DIE)
+		__raw_bits_and(value, reg_addr);
+    	else
+		ANA_REG_AND (reg_addr,value);
 }
-static __inline void gpio_chip_reg_or (u32 reg_addr, u32 value)
+static __inline void gpio_reg_or (u32 reg_addr, int die, u32 value)
 {
-   // if (reg_addr & ADI_GPIO_ADDR_MASK)
-   if (gpio_is_d_die(reg_addr))
-    {
-       //CHIP_REG_OR (reg_addr,value);
-       __raw_bits_or(value, reg_addr);
-    }
-    else
-    {
-        ANA_REG_OR (reg_addr,value);
-    }
+
+	if (die == D_DIE)
+		__raw_bits_or(value, reg_addr);
+	else
+		ANA_REG_OR (reg_addr,value);
 }
 
+struct gpio_section *gpio_get_section_table(u32 * table_size);
 
-#define GPIO_REG_SET(x,y) gpio_chip_reg_set(x,y)
-#define GPIO_REG32(x) gpio_chip_reg32(x)
-#define GPIO_REG_AND(reg_addr, value) gpio_chip_reg_and(reg_addr, value)
-#define GPIO_REG_OR(reg_addr, value) gpio_chip_reg_or(reg_addr, value)
-
-GPIO_SECTION_T *Gpio_GetCfgSectionTable (u32 *pSize);
 #endif
+

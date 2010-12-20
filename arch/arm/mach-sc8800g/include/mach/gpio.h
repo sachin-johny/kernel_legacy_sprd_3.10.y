@@ -11,9 +11,10 @@
  *  it under the terms of the GNU General Public License version 2 as
  *  published by the Free Software Foundation.
  */
- #ifndef __ARCH_ARM_MACH_GPIO_H_
+#ifndef __ARCH_ARM_MACH_GPIO_H_
 #define  __ARCH_ARM_MACH_GPIO_H_
 
+#include <linux/init.h>
 
  
 #define GPIO_MAX_PIN_NUM 	176
@@ -25,7 +26,7 @@
 #define gpio_to_irq  __gpio_to_irq
 
 extern __must_check int sprd_gpio_irq_register(int gpio_id, unsigned int irq);
-
+extern __must_check int sprd_alloc_gpio_irq(unsigned gpio);
 #include <asm-generic/gpio.h>
 
 extern void __init sprd_gpio_init(void);

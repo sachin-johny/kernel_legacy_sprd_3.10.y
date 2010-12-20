@@ -4,8 +4,7 @@
 #include <mach/regs_gpio.h>
 #include "gpio_phy.h"
 
-const static GPIO_SECTION_T  s_gpio_section_table[] =
-{
+const static struct gpio_section  s_gpio_section_table[] = {
     {   (GPIO_BASE + 0*0x80),    0x8,    GPIO_SECTION_GPI    },
     {   (GPIO_BASE + 1*0x80),    0x10,    GPIO_SECTION_GPIO    },
     {   (GPIO_BASE + 2*0x80),    0x10,    GPIO_SECTION_GPIO    },
@@ -16,15 +15,15 @@ const static GPIO_SECTION_T  s_gpio_section_table[] =
     {   (GPIO_BASE + 7*0x80),    0x10,    GPIO_SECTION_GPIO   },
     {   (GPIO_BASE + 8*0x80),    0x10,    GPIO_SECTION_GPIO    },
     {   (GPIO_BASE + 9*0x80),    0x10,    GPIO_SECTION_GPIO   },
-    {   (0x82000600),           0x10,    GPIO_SECTION_GPI    },
-    {   (0x82000680),             0x10,    GPIO_SECTION_GPIO  },
-    {   (0x82000680 + 0x1*0x80),  0x10,    GPIO_SECTION_GPIO  },
+    {   (ANA_GPIO_BASE + 0*0x80),   0x8,    GPIO_SECTION_GPI    },
+    {   (ANA_GPIO_BASE + 1*0x80),   0x10,    GPIO_SECTION_GPIO  },
+    {   (ANA_GPIO_BASE + 2*0x80),   0x10,    GPIO_SECTION_GPIO  },
 };
 
-GPIO_SECTION_T *Gpio_GetCfgSectionTable (u32 *pSize)
+struct gpio_section * gpio_get_section_table (u32 *table_size)
 {
-    *pSize = ARRAY_SIZE(s_gpio_section_table);
+    *table_size = ARRAY_SIZE(s_gpio_section_table);
 
-    return (GPIO_SECTION_T *) s_gpio_section_table;
+    return (struct gpio_section *) s_gpio_section_table;
 }
 

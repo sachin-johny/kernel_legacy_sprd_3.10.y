@@ -17,7 +17,7 @@
 #define _SC8800H_REG_CPC_H_
 #include <mach/hardware.h>
 
-#define PIN_CTL_BASE            		(SPRD_CPC_BASE + 0x8C)
+#define PIN_CTL_BASE            		(SPRD_CPC_BASE)
 
 #define PIN_CTL_REG					(SPRD_CPC_BASE + 0x0000)
 

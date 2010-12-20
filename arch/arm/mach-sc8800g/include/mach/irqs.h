@@ -72,13 +72,20 @@
 #define IRQ_ANA_WDG_INT 35
 #define IRQ_ANA_TPC_INT 36
 
+#define IRQ_ANA_INT_START	IRQ_ANA_ADC_INT
+
+
 #define NR_SPRD_IRQS  32
-#define NR_ANA_IRQS	5
+#define NR_ANA_IRQS		5
+
+#define GPIO_IRQ_START  (NR_SPRD_IRQS + NR_ANA_IRQS)
+//#define SPRD_GPIO_TO_INT(n) (NR_SPRD_IRQS + (n))
+
 #define NR_GPIO_IRQS  10
 #define NR_BOARD_IRQS 0 /* to be added later */
+
 #define NR_IRQS (NR_SPRD_IRQS +NR_ANA_IRQS+ NR_GPIO_IRQS + NR_BOARD_IRQS)
 
-#define GPIO_IRQ_START  NR_SPRD_IRQS
-#define SPRD_GPIO_TO_INT(n) (NR_SPRD_IRQS + (n))
+
 
 #endif
