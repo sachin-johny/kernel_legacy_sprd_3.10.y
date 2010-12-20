@@ -7,8 +7,12 @@
 #include <linux/platform_device.h>
 #include <linux/bug.h>
 #include <linux/input.h>
+//#include <linux/proc_fs.h>
+#include <linux/ctype.h>
+#include <linux/device.h>
 #include <asm/io.h>
 #include <asm/irq.h>
+//#include <asm/uaccess.h>
 
 #include <mach/hardware.h>
 #include <mach/adi_hal_internal.h>
@@ -138,15 +142,14 @@
 #define SCI_TRUE	1
 #define SCI_FALSE	0
 
+int a= 35337;
+int b= -305;
+int c= -8622664;
+int d= -105;
+int e= 43086;
+int f= -8445728;
+int g= 65536;
 
-int a=18304;
-int b=0;
-int c=0;
-int d=0;
-int e=22834;
-int f=0;
-int g=33319;
-    
 typedef union
 {
     struct
@@ -330,8 +333,8 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
 	uint32_t int_status;
     int32_t xd,yd;
     int32_t xl,yl;
-
-	TP_PRINT ("TP: enter tp_irq!\n");
+    
+   	TP_PRINT ("TP: enter tp_irq!\n");
 	
 	int_status = ANA_REG_GET (TPC_INT_STS);
 
@@ -370,35 +373,40 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
     //Sample Done interrupt
     else if (int_status & TPC_DONE_IRQ_MSK_BIT)
     {
-        TP_PRINT("DONE\n");
-        //Clear done interrupt*/
-        CLEAR_TPC_INT (TPC_DONE_IRQ_MSK_BIT);
+            TP_PRINT("DONE\n");
+            //Clear done interrupt*/
+            CLEAR_TPC_INT (TPC_DONE_IRQ_MSK_BIT);
 
             //Get data from TP buffer
             if (tp_fetch_data(&(tp->tp_data))) {
-                //TP_PRINT("fetch data finish\n");
-                xd=765-tp->tp_data.data.x;
-                yd=816-tp->tp_data.data.y;
-                xl=(a*xd+b*yd+c)/g;
-                yl=(d*xd+e*yd+f)/g;
-                xl=(xl+20)*3;
-                yl=(yl+15)*2;
-                TP_PRINT("xd=%d,yd=%d\n",xd,yd);
-                TP_PRINT("xl=%d,yl=%d\n",xl,yl);
-           	    input_report_abs(tp->input, ABS_X, xl);
-		        input_report_abs(tp->input, ABS_Y, yl);
-           	    //input_report_abs(tp->input, ABS_X, tp->tp_data.data.x);
-		        //input_report_abs(tp->input, ABS_Y, tp->tp_data.data.y);
-		        input_report_abs(tp->input, ABS_PRESSURE,1);
-		        input_report_key(tp->input, BTN_TOUCH, 1);
-		        input_sync(tp->input);
-                //TP_PRINT("report finish\n");
-                
+                    //TP_PRINT("fetch data finish\n");
+                    //xd=765-tp->tp_data.data.x;
+                    //yd=816-tp->tp_data.data.y;
+                    xd=X_MAX-tp->tp_data.data.x;
+                    yd=Y_MAX-tp->tp_data.data.y;
+                    if(0 == a+b+c+d+e+f+g){
+                      input_report_abs(tp->input, ABS_X, xd);
+                      input_report_abs(tp->input, ABS_Y, yd);
+                    }else{
+                      xl=(a*xd+b*yd+c)/g;
+                      yl=(d*xd+e*yd+f)/g;
+                      xl=(xl+20)*3;
+                      yl=(yl+15)*2;
+                      TP_PRINT("xd=%d,yd=%d\n",xd,yd);
+                      TP_PRINT("xl=%d,yl=%d\n",xl,yl);
+                      input_report_abs(tp->input, ABS_X, xl);
+                      input_report_abs(tp->input, ABS_Y, yl);
+                    }
+                    input_report_abs(tp->input, ABS_PRESSURE,1);
+                    input_report_key(tp->input, BTN_TOUCH, 1);
+                    input_sync(tp->input);
+                    //TP_PRINT("report finish\n");
+
             }
             else{
-                TP_PRINT("func[%s]: done interrupt rise,but can not fetch data!\n",__FUNCTION__);
-                //ANA_REG_AND (TPC_INT_EN, ~TPC_DONE_IRQ_MSK_BIT);
-                return IRQ_HANDLED;
+                    TP_PRINT("func[%s]: done interrupt rise,but can not fetch data!\n",__FUNCTION__);
+                    //ANA_REG_AND (TPC_INT_EN, ~TPC_DONE_IRQ_MSK_BIT);
+                    return IRQ_HANDLED;
             }
             //ANA_REG_AND (TPC_INT_EN, ~TPC_DONE_IRQ_MSK_BIT);
     }
@@ -409,7 +417,121 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
 	
 	return IRQ_HANDLED;
 }
+#if 0
+static int tp_proc_read(char *page, char **start, off_t off, int count, 
+	int *eof, void *data)
+{
+	int len;
+    if(off >0){
+            *eof=1;
+            return 0;
+    }
+	len = sprintf(page, "%d %d %d %d %d %d %d\n",a,b,c,d,e,f,g);
+	return len;
+}
 
+#define PARA_LEN	7
+static int tp_proc_write(struct file *file, const char __user *buf, 
+	unsigned long len, void *data)
+{
+	char tp_buf[len + 1];
+	long para[PARA_LEN];
+	int num;
+	char *endp,*startp;
+
+	memset(tp_buf, 0, len + 1);
+
+	if (copy_from_user(tp_buf, buf, len))
+		return -EFAULT;
+	
+	startp = endp =tp_buf;
+	
+	num=0;
+	do{
+		para[num++] =simple_strtol(startp, &endp, 10);
+		
+		if(endp){
+            endp++;	
+		    startp=endp;
+        }
+		
+	}while( num< 7 );
+    
+	a= (int)para[0];
+    b= (int)para[1];
+	c =(int)para[2];
+    d= (int)para[3];
+    e= (int)para[4];
+    f= (int)para[5];
+    g= (int)para[6];
+
+	return 0;
+
+}
+
+static int tp_create_proc(void)
+{
+	struct proc_dir_entry *tp_entry;
+
+	tp_entry = create_proc_entry("tp_info", 0666, NULL);  //creat /proc/tp_info
+	if (!tp_entry) {
+		printk(KERN_INFO"can not create tp proc entry\n");
+		return -ENOMEM;
+	}
+	
+	tp_entry->read_proc = tp_proc_read;
+	tp_entry->write_proc = tp_proc_write;
+
+	return 0;
+}
+
+static void tp_remove_proc(void)
+{
+	remove_proc_entry("tp_info", NULL);  //remove /proc/tp_info
+
+}
+#endif
+static ssize_t tp_sysfs_show(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	int len;
+    len = sprintf(buf, "%d %d %d %d %d %d %d\n",a,b,c,d,e,f,g);
+	return len;
+}
+#define PARA_LEN	7
+static ssize_t tp_sysfs_store(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t size)
+{
+	long para[PARA_LEN];
+	int num;
+	char *endp,*startp;
+
+	startp = endp = buf;
+	
+	num=0;
+	while(*startp && num < 7){
+		
+		para[num++] =simple_strtol(startp, &endp, 10);		
+		if(endp){
+           endp++;	
+		   startp=endp;
+        }		
+	}
+    
+	a= (int)para[0];
+    b= (int)para[1];
+	c =(int)para[2];
+    d= (int)para[3];
+    e= (int)para[4];
+    f= (int)para[5];
+    g= (int)para[6];
+
+	return size;
+}
+
+static DEVICE_ATTR(tp, 0666, tp_sysfs_show, tp_sysfs_store); 
 /*
  * The functions for inserting/removing us as a module.
  */
@@ -470,10 +592,16 @@ static int __init sprd_tp_probe(struct platform_device *pdev)
 		goto err_reg;
 	}
 	platform_set_drvdata(pdev, tp);
+#if 0
+	if(tp_create_proc())
+		printk("create touch panel proc file failed!\n");
+#endif
+ 	if(device_create_file(&tp->input->dev, &dev_attr_tp)) {
+ 		printk("create touch panel sysfs file failed!\n");
+ 	}
 
-    //ANA_REG_OR(TPC_INT_EN,(TPC_DONE_IRQ_MSK_BIT | TPC_UP_IRQ_MSK_BIT |TPC_DOWN_IRQ_MSK_BIT));
-    ANA_REG_OR(TPC_INT_EN,(TPC_UP_IRQ_MSK_BIT |TPC_DOWN_IRQ_MSK_BIT));
-    //ANA_REG_OR(ANA_INT_EN,BIT_4);
+
+      ANA_REG_OR(TPC_INT_EN,(TPC_UP_IRQ_MSK_BIT |TPC_DOWN_IRQ_MSK_BIT));	
 
 	return 0;
 
@@ -498,6 +626,10 @@ static int sprd_tp_remove(struct platform_device *pdev)
 	free_irq(tp->irq, tp);
 	
 	kfree(tp);
+#if 0
+	tp_remove_proc();
+#endif
+	device_remove_file(&tp->input->dev, &dev_attr_tp);
 
 	return 0;
 }
