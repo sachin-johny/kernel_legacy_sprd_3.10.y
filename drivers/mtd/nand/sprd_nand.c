@@ -23,6 +23,8 @@
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/spinlock.h>
+#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/ioport.h>
 #include <linux/cpufreq.h>
@@ -31,6 +33,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
+#include <linux/dma-mapping.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
@@ -39,6 +42,7 @@
 #include <asm/io.h>
 #include <mach/regs_ahb.h>
 #include <mach/mfp.h>
+#include <mach/dma.h>
 #ifdef CONFIG_ARCH_SC8800G
 #include "regs_nfc_sc8800g.h"
 #endif
@@ -46,18 +50,28 @@
 #include "regs_nfc_sc8800s.h"
 #endif
 
-#define NF_PARA_20M        	0x7ac05      //trwl = 0  trwh = 0
-#define NF_PARA_40M        	0x7ac15      //trwl = 1  trwh = 0
-#define NF_PARA_53M        	0x7ad26      //trwl = 2  trwh = 1
-#define NF_PARA_80M        	0x7ad37      //trwl = 3  trwh = 1
-#define NF_PARA_DEFAULT    	0x7ad77      //trwl = 7  trwh = 1
-#define NF_TIMEOUT_VAL 		0x1000000
+#define NF_PARA_24M        	(0x7ac05)      //trwl = 0  trwh = 0
+#define NF_PARA_48M        	(0x7ac15)      //trwl = 1  trwh = 0
+#define NF_PARA_72M        	(0x7ac25)      //trwl = 2  trwh = 0
+#define NF_PARA_96M        	(0x7ac25)      //trwl = 2  trwh = 0
+#define NF_PARA_100M    	(0x7ad25)      //trwl = 2  trwh = 0
+#define NF_PARA_DEFAULT		(0x7ad77)
+//#define ORIGINAL_NAND_TIMING	(0x7bd07)
+//#define ORIGINAL_NAND_TIMING	(0x7ad05)
+//#define ORIGINAL_NAND_TIMING	(0x5ad05)
+#define ORIGINAL_NAND_TIMING	(0x38d05)
+#define NF_TIMEOUT_VAL 		(0x1000000)
 
 #define PAGE_SIZE_S         512
 #define SPARE_SIZE_S        16
 #define PAGE_SIZE_L         2048
 #define SPARE_SIZE_L        64
 
+#define USE_DMA_MODE			1
+#define DMA_NLC                         (0)
+wait_queue_head_t	wait_queue;
+sprd_dma_ctrl ctrl;
+sprd_dma_desc dma_desc;
 static unsigned long nand_func_cfg8[] = {
 #ifdef CONFIG_ARCH_SC8800G
 	MFP_CFG_X(NFWPN, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
@@ -147,8 +161,11 @@ struct sprd_nand_address {
 };
 
 struct sprd_nand_info {
+	unsigned long			phys_base;
 	struct sprd_platform_nand	*platform;
-	struct clk	*clk;
+	struct clk			*clk;
+	struct mtd_info			mtd;
+	struct platform_device		*pdev;
 #ifdef CONFIG_CPU_FREQ
 	struct notifier_block	freq_transition;
 	struct notifier_block	freq_policy;
@@ -168,13 +185,25 @@ typedef enum {
 	DATA_OOB_AREA,
 } sprd_nand_area_mode_t;
 
+#ifdef USE_DMA_MODE
+typedef enum {
+	NO_PORT,
+	DATA_PORT,
+	OOB_PORT,
+	IDSTATUS_PORT,	/* for sprd_nand_read_byte */
+	OOBWORD_PORT,	/*reserved for sprd_nand_read_word */
+} sprd_nand_port_mode_t;
+static sprd_nand_port_mode_t sprd_port_mode = NO_PORT;
+#else
+static unsigned char io_wr_port[NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE];
+#endif
+
 static struct mtd_info *sprd_mtd = NULL;
 static unsigned long g_cmdsetting = 0;
 static sprd_nand_wr_mode_t sprd_wr_mode = NO_OP;
 static sprd_nand_area_mode_t sprd_area_mode = NO_AREA;
 static unsigned long nand_flash_id = 0;
 static struct sprd_nand_address sprd_colrow_addr = {0, 0, 0, 0};
-static unsigned char io_wr_port[NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE];
 static nand_ecc_modes_t sprd_ecc_mode = NAND_ECC_NONE;
 #ifdef CONFIG_MACH_G2PHONE
 static unsigned long g_buswidth = 0; /* 0: X8 bus width 1: X16 bus width */
@@ -183,9 +212,6 @@ static unsigned long g_addr_cycle = 4; /* advance 0 : can be set 3 or 4; advance
 static unsigned long g_buswidth = 1; /* 0: X8 bus width 1: X16 bus width */
 static unsigned long g_addr_cycle = 5; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
 #endif
-//static unsigned long writeaaa = 0;
-//static unsigned long readaaa = 0;
-//static unsigned long eccaaa = 0;
 
 #ifdef CONFIG_CPU_FREQ
 static int nand_freq_transition(struct notifier_block *nb, unsigned long val, void *data);
@@ -220,12 +246,11 @@ static int nfc_wait_command_finish(void)
 	
 	while ((nfc_cmd & (0x1 << 31)) && (counter < NF_TIMEOUT_VAL)) {
 		nfc_cmd = REG_NFC_CMD;
-		counter++;
+		counter ++;
 	}
 	
-	if (NF_TIMEOUT_VAL == counter) {
+	if (NF_TIMEOUT_VAL == counter)
 		return 2;
-	}
 	
 	return 0;
 }
@@ -245,9 +270,7 @@ static void nfc_read_status(void)
 
         REG_NFC_CMD = cmd;
         nfc_wait_command_finish();
-
         status = REG_NFC_IDSTATUS;
-	//printk("%s  %d  teststatus = 0x%08x\n", __FUNCTION__, __LINE__, status);	
 }
 
 static unsigned long nfc_read_id(void)
@@ -257,9 +280,8 @@ static unsigned long nfc_read_id(void)
 
         REG_NFC_CMD = cmd;
         nfc_wait_command_finish();
-
         id = REG_NFC_IDSTATUS;
-        //printk("\n%s  %s  %d  id = 0x%08x\n", __FILE__, __FUNCTION__, __LINE__, id);
+
 	return id;
 }
 
@@ -270,34 +292,44 @@ static unsigned long nfc_read_id(void)
 static unsigned long nand_bit_width(unsigned long id)
 {
 	unsigned long bw = (id & 0x40000000) >> 30;
+
 	return bw;
 }
+
+/* ahb_clk is frequency of ahb in MHz */
 static void set_nfc_param(unsigned long ahb_clk)
 {
-	unsigned long flags;
+	unsigned long flags, tmp, cycle;
 
 	nfc_wait_command_finish();
 	local_irq_save(flags);
 
 	switch (ahb_clk) {
-	case 20:
-        	REG_NFC_PARA = NF_PARA_20M;
+	case 24:
+        	REG_NFC_PARA = NF_PARA_24M;
         break;
 
-        case 40:
-        	REG_NFC_PARA = NF_PARA_40M;
+        case 48:
+        	REG_NFC_PARA = NF_PARA_48M;
         break;
 
-        case 53:
-        	REG_NFC_PARA = NF_PARA_53M;
+        case 72:
+        	REG_NFC_PARA = NF_PARA_72M;
         break;
 
-        case 80:
-        	REG_NFC_PARA = NF_PARA_80M;
+        case 96:
+        	REG_NFC_PARA = NF_PARA_96M;
         break;
+
+	/*case 100:
+		REG_NFC_PARA = NF_PARA_100M;
+	break;*/
 
         default:
-             	REG_NFC_PARA = NF_PARA_DEFAULT;    
+		ahb_clk = ahb_clk * 1000000;
+		tmp = (1000000000 >> 20) / (ahb_clk >> 20);
+        	cycle = 10/* 20 */ /* 50 */ / tmp;
+		REG_NFC_PARA = ORIGINAL_NAND_TIMING | (cycle << 4);
     	}
 
 	local_irq_restore(flags);	
@@ -308,12 +340,9 @@ static void nand_copy(unsigned char *src, unsigned char *dst, unsigned long len)
 	unsigned long i;
 	unsigned long *pDst_32, *pSrc_32;
 	unsigned short *pDst_16, *pSrc_16;
-	unsigned long flag = 0;
+	unsigned long flag = (unsigned long *)dst;
 	
-	flag = (unsigned long *)dst;
-	//flag = (unsigned long)dst;
 	flag = flag & 0x3;
-
 	switch (flag) {
 		case 0://word alignment
         		pDst_32 = (unsigned long *)dst;
@@ -340,8 +369,201 @@ static void nand_copy(unsigned char *src, unsigned char *dst, unsigned long len)
                     		src++;
                 	}
             	break;
-    	}//switch	
+    	}	
 }
+
+#ifdef USE_DMA_MODE
+void sprd_nand_dma_irq(int dma_ch, void *dev_id)
+{
+	wake_up_interruptible(&wait_queue);
+}
+
+void printk_dma_info()
+{
+	printk("\n--- dma register chn = %d ---\n", DMA_NLC);
+	printk("DMA_CFG  : 0x%08x\n", __raw_readl(DMA_CFG));
+	printk("DMA_CHx_EN  : 0x%08x\n", __raw_readl(DMA_CHx_EN));
+	printk("DMA_CHx_DIS  : 0x%08x\n", __raw_readl(DMA_CHx_DIS));
+	printk("DMA_LINKLIST_EN  : 0x%08x\n", __raw_readl(DMA_LINKLIST_EN));
+	printk("DMA_SOFTLINK_EN  : 0x%08x\n", __raw_readl(DMA_SOFTLINK_EN));
+	printk("DMA_SOFTLIST_SIZE  : 0x%08x\n", __raw_readl(DMA_SOFTLIST_SIZE));
+	printk("DMA_SOFTLIST_CMD  : 0x%08x\n", __raw_readl(DMA_SOFTLIST_CMD));
+	printk("DMA_SOFTLIST_STS  : 0x%08x\n", __raw_readl(DMA_SOFTLIST_STS));
+	printk("DMA_PRI_REG0  : 0x%08x\n", __raw_readl(DMA_PRI_REG0));
+	printk("DMA_PRI_REG1  : 0x%08x\n", __raw_readl(DMA_PRI_REG1));
+	printk("DMA_INT_STS  : 0x%08x\n", __raw_readl(DMA_INT_STS));
+	printk("DMA_INT_RAW  : 0x%08x\n", __raw_readl(DMA_INT_RAW));
+	printk("DMA_LISTDONE_INT_EN  : 0x%08x\n", __raw_readl(DMA_LISTDONE_INT_EN));
+	printk("DMA_BURST_INT_EN : 0x%08x\n", __raw_readl(DMA_BURST_INT_EN));
+	printk("DMA_TRANSF_INT_EN  : 0x%08x\n", __raw_readl(DMA_TRANSF_INT_EN));
+	printk("DMA_LISTDONE_INT_STS  : 0x%08x\n", __raw_readl(DMA_LISTDONE_INT_STS));
+	printk("DMA_BURST_INT_STS  : 0x%08x\n", __raw_readl(DMA_BURST_INT_STS));
+	printk("DMA_TRANSF_INT_STS  : 0x%08x\n", __raw_readl(DMA_TRANSF_INT_STS));
+	printk("DMA_LISTDONE_INT_RAW  : 0x%08x\n", __raw_readl(DMA_LISTDONE_INT_RAW));
+	printk("DMA_BURST_INT_RAW  : 0x%08x\n", __raw_readl(DMA_BURST_INT_RAW));
+	printk("DMA_TRANSF_INT_RAW  : 0x%08x\n", __raw_readl(DMA_TRANSF_INT_RAW));
+	printk("DMA_LISTDONE_INT_CLR  : 0x%08x\n", __raw_readl(DMA_LISTDONE_INT_CLR));
+	printk("DMA_BURST_INT_CLR  : 0x%08x\n", __raw_readl(DMA_BURST_INT_CLR));
+	printk("DMA_TRANSF_INT_CLR  : 0x%08x\n", __raw_readl(DMA_TRANSF_INT_CLR));
+	printk("DMA_SOFT_REQ  : 0x%08x\n", __raw_readl(DMA_SOFT_REQ));
+	printk("DMA_TRANS_STS  : 0x%08x\n", __raw_readl(DMA_TRANS_STS));
+	printk("DMA_REQ_PEND  : 0x%08x\n", __raw_readl(DMA_REQ_PEND));
+	printk("DMA_CHN_UID0  : 0x%08x\n", __raw_readl(DMA_CHN_UID0));
+	printk("DMA_CHN_UID1  : 0x%08x\n", __raw_readl(DMA_CHN_UID1));
+	printk("DMA_CHN_UID2  : 0x%08x\n", __raw_readl(DMA_CHN_UID2));
+	printk("DMA_CHN_UID3  : 0x%08x\n", __raw_readl(DMA_CHN_UID3));
+	printk("DMA_CHN_UID4  : 0x%08x\n", __raw_readl(DMA_CHN_UID4));
+	printk("DMA_CHN_UID5  : 0x%08x\n", __raw_readl(DMA_CHN_UID5));
+	printk("DMA_CHN_UID6  : 0x%08x\n", __raw_readl(DMA_CHN_UID6));
+	printk("DMA_CHN_UID7  : 0x%08x\n", __raw_readl(DMA_CHN_UID7));
+	printk("DMA_CHx_CFG0(%d)  : 0x%08x\n", DMA_NLC, __raw_readl(DMA_CHx_CFG0(DMA_NLC)));
+	printk("DMA_CHx_CFG1(%d)  : 0x%08x\n", DMA_NLC, __raw_readl(DMA_CHx_CFG1(DMA_NLC)));
+	printk("DMA_CHx_SRC_ADDR(%d)  : 0x%08x\n", DMA_NLC, __raw_readl(DMA_CHx_SRC_ADDR(DMA_NLC)));
+	printk("DMA_CHx_DEST_ADDR(%d)  : 0x%08x\n", DMA_NLC, __raw_readl(DMA_CHx_DEST_ADDR(DMA_NLC)));
+	printk("DMA_CHx_LLPTR(%d)  : 0x%08x\n", DMA_NLC, __raw_readl(DMA_CHx_LLPTR(DMA_NLC)));
+	printk("DMA_CHx_SDEP(%d)  : 0x%08x\n", DMA_NLC, __raw_readl(DMA_CHx_SDEP(DMA_NLC)));
+	printk("DMA_CHx_SBP(%d)  : 0x%08x\n", DMA_NLC, __raw_readl(DMA_CHx_SBP(DMA_NLC)));
+	printk("DMA_CHx_DBP(%d)  : 0x%08x\n", DMA_NLC, __raw_readl(DMA_CHx_DBP(DMA_NLC)));
+}
+
+/*
+ * sprd_nand_dma_transfer: configer and start dma transfer
+ * @mtd: MTD device structure
+ * @addr: virtual address in RAM of source/destination
+ * @len: number of data bytes to be transferred
+ * @dir: flag for read/write operation
+	DMA_TO_DEVICE is write to device
+	DMA_FROM_DEVICE is read from device
+ */
+static int sprd_nand_dma_transfer(struct mtd_info *mtd, void *addr, unsigned int len, enum dma_data_direction dir)
+{
+	struct nand_chip *chip = mtd->priv;
+	struct sprd_nand_info *info = chip->priv;
+
+	dma_addr_t dma_addr;
+   	u32 dsrc, ddst;
+    	int width;
+    	int autodma_src, autodma_dst;
+
+	dma_addr = dma_map_single(&info->pdev->dev, addr, len, dir);
+	if (dma_mapping_error(&info->pdev->dev, dma_addr)) {
+		dev_err(&info->pdev->dev,
+			"Couldn't DMA map a %d byte buffer\n", len);
+		goto out_copy;
+	}
+	//printk("dma_addr = 0x%08x\n", dma_addr);
+	memset(&ctrl, 0, sizeof(sprd_dma_ctrl));
+	memset(&dma_desc, 0, sizeof(sprd_dma_desc));
+	ctrl.dma_desc = &dma_desc;
+
+	autodma_src = DMA_INCREASE;
+        autodma_dst = DMA_INCREASE;
+	width = 32;
+
+	if (dir == DMA_TO_DEVICE) {
+		dsrc = dma_addr;
+		if (chip->IO_ADDR_W == NFC_MBUF)
+			ddst = SPRD_NAND_PHYS;
+		else if (chip->IO_ADDR_W == NFC_SBUF)
+			ddst = SPRD_NAND_PHYS + 0x0C00;
+	} else if (dir == DMA_FROM_DEVICE) {
+		ddst = dma_addr;
+		if (chip->IO_ADDR_R == NFC_MBUF)
+			dsrc = SPRD_NAND_PHYS;
+		else if (chip->IO_ADDR_R == NFC_SBUF)
+			dsrc = SPRD_NAND_PHYS + 0x0C00;
+	}
+
+	sprd_dma_setup_cfg(&ctrl,
+                DMA_NLC,
+                DMA_NORMAL,
+                TRANS_DONE_EN,
+                autodma_src, autodma_dst,
+                SRC_BURST_MODE_4, SRC_BURST_MODE_4,
+                16,
+                width, width,
+                dsrc, ddst, len);
+
+	sprd_dma_setup(&ctrl);
+	sprd_dma_update(DMA_NLC, &dma_desc);
+	__raw_bits_or(1 << DMA_NLC, DMA_CHx_EN);
+	__raw_bits_or(1 << DMA_NLC, DMA_SOFT_REQ);
+	interruptible_sleep_on(&wait_queue);
+	dma_unmap_single(&info->pdev->dev, dma_addr, len, dir);
+out_copy:
+
+	return 0;
+}
+
+static void sprd_nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
+{
+	struct nand_chip *chip = mtd->priv;
+
+	if (len == mtd->writesize)
+		sprd_port_mode = DATA_PORT;
+	else if (len == mtd->oobsize)
+		sprd_port_mode = OOB_PORT;
+	else
+		printk("error W PORT\n");
+		
+	if (sprd_port_mode == DATA_PORT)
+		chip->IO_ADDR_W = chip->IO_ADDR_R = NFC_MBUF;
+	else if (sprd_port_mode == OOB_PORT)
+		chip->IO_ADDR_W = chip->IO_ADDR_R = NFC_SBUF;
+
+	//printk("buf = 0x%08x  ADDR_W = 0x%08x\n", buf, chip->IO_ADDR_W);	
+	//sprd_nand_dma_transfer(mtd, buf, len, DMA_TO_DEVICE);
+	memcpy(chip->IO_ADDR_W, buf, len);
+
+}
+
+static void sprd_nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
+{
+	struct nand_chip *chip = mtd->priv;
+
+	if (len == mtd->writesize)
+		sprd_port_mode = DATA_PORT;
+	else if (len == mtd->oobsize)
+		sprd_port_mode = OOB_PORT;
+	else
+		printk("error R PORT\n");
+
+	if (sprd_port_mode == DATA_PORT)
+		chip->IO_ADDR_W = chip->IO_ADDR_R = NFC_MBUF;
+	else if (sprd_port_mode == OOB_PORT)
+		chip->IO_ADDR_W = chip->IO_ADDR_R = NFC_SBUF;
+
+	//printk("buf = 0x%08x  ADDR_R = 0x%08x\n", buf, chip->IO_ADDR_R);
+	//sprd_nand_dma_transfer(mtd, buf, len, DMA_FROM_DEVICE);
+	memcpy(buf, chip->IO_ADDR_R, len);
+
+}
+
+static uint8_t sprd_nand_read_byte(struct mtd_info *mtd)
+{
+	struct nand_chip *chip = mtd->priv;
+
+	if (sprd_port_mode == OOBWORD_PORT)
+		chip->IO_ADDR_R = chip->IO_ADDR_W = NFC_SBUF;
+	else if (sprd_port_mode == IDSTATUS_PORT)
+		chip->IO_ADDR_R = chip->IO_ADDR_W = NFC_IDSTATUS;
+
+	if (g_buswidth == 1) {
+		return (uint8_t)readw(chip->IO_ADDR_R);
+	} else
+		return readb(chip->IO_ADDR_R);
+}
+
+static u16 sprd_nand_read_word(struct mtd_info *mtd)
+{
+	struct nand_chip *chip = mtd->priv;
+	
+	if (sprd_port_mode == OOBWORD_PORT)
+		chip->IO_ADDR_R = chip->IO_ADDR_W = NFC_SBUF;
+
+	return readw(chip->IO_ADDR_R);
+}
+#endif
 
 static int sprd_nand_inithw(struct sprd_nand_info *info, struct platform_device *pdev)
 {
@@ -361,8 +583,7 @@ static int sprd_nand_inithw(struct sprd_nand_info *info, struct platform_device 
 	return 0;
 }
 
-static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
-				   unsigned int ctrl)
+static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 {
 	unsigned long phyblk, pageinblk, pageperblk;
 	unsigned long advance = 1; /* can be set 0 or 1 */
@@ -370,8 +591,8 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 	unsigned long chipsel = 0;
 	unsigned long buswidth = g_buswidth;
 	unsigned long addr_cycle = g_addr_cycle;
+	//struct nand_chip *this = (struct nand_chip *)(mtd->priv);
 
-	struct nand_chip *this = (struct nand_chip *)(mtd->priv);
 	if (cmd == NAND_CMD_NONE)
 		return;
 
@@ -379,6 +600,7 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 		pagetype = 0;
    	else
    	    	pagetype = 1;
+
 	if(addr_cycle == 3)
    		addr_cycle = 0;
    	else if((addr_cycle == 4) &&(advance == 1))
@@ -396,16 +618,12 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 			case NAND_CMD_STATUS:
 				REG_NFC_CMD = cmd | (0x1 << 31);
 				nfc_wait_command_finish();
-				
+#ifdef USE_DMA_MODE
+				sprd_port_mode = IDSTATUS_PORT;
+#else
 				memset((unsigned char *)(this->IO_ADDR_R), 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
 				nand_copy((unsigned char *)NFC_IDSTATUS, this->IO_ADDR_R, 4);
-#if 0
-				/* transfer to big endian */
-				i = io_wr_port[3]; io_wr_port[3] = io_wr_port[0]; io_wr_port[0] = i;
-				i = io_wr_port[2]; io_wr_port[2] = io_wr_port[1]; io_wr_port[1] = i;
 #endif
-        			/*for (i = 0; i < 4; i++)
-                			printk("io_wr_port[%d] = 0x%02x\n", i, io_wr_port[i]);*/
 			break;
 			case NAND_CMD_READID:
         			REG_NFC_CMD = cmd | (0x1 << 31);
@@ -439,7 +657,6 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
         					REG_NFC_STR0 = sprd_colrow_addr.row * mtd->writesize;
 					else
 						REG_NFC_STR0 = sprd_colrow_addr.row * mtd->writesize * 2;
-					//printk("%d  row = %d\n", __LINE__, sprd_colrow_addr.row);
         				
         				REG_NFC_CMD = g_cmdsetting | NAND_CMD_ERASE1;
         				nfc_wait_command_finish();
@@ -452,8 +669,11 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 				sprd_colrow_addr.rowflag = 0;
 				sprd_wr_mode = READ_OP;
 				sprd_area_mode = NO_AREA;
-				//memset((unsigned char *)(this->IO_ADDR_R), 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
+#ifdef USE_DMA_MODE
+				sprd_port_mode = NO_PORT;
+#else
 				memset(io_wr_port, 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
+#endif
 			break;
 			case NAND_CMD_READSTART:
 				if (buswidth == 1) {
@@ -462,54 +682,36 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 								(buswidth << 19) | (pagetype << 18) | (0 << 16) | (0x1 << 31);
         					REG_NFC_CMD = g_cmdsetting | NAND_CMD_READ0;
         					nfc_wait_command_finish();
-						//nand_copy((unsigned char *)NFC_SBUF, this->IO_ADDR_R, mtd->oobsize);
-						//nand_copy((unsigned char *)NFC_SBUF, io_wr_port, mtd->oobsize);
+#ifdef USE_DMA_MODE
+						sprd_port_mode = OOBWORD_PORT;
+#else
 						nand_copy((unsigned long *)NFC_SBUF, (unsigned long *)io_wr_port, mtd->oobsize);
-#if 0
-						if ((io_wr_port[0] != 0xff) || (io_wr_port[1] != 0xff)) {
-							printk("\nrow = 0x%08x  column = 0x%08x\n", sprd_colrow_addr.row, sprd_colrow_addr.column);
-							printk("Rport\n");
-        						//for (i = 0; i < mtd->oobsize; i++)
-							for (i = 0; i < 8; i++)
-								printk("0x%02x,", io_wr_port[i]);
-							printk("\n\n");
-						}
 #endif
 					} else if (sprd_colrow_addr.column == 0) {
-							//printk("%s  %s  %d  mode=%d\n", __FILE__, __FUNCTION__, __LINE__, sprd_area_mode);
 							if (sprd_area_mode == DATA_AREA)
 								sprd_area_mode = DATA_OOB_AREA;
 
 							if (sprd_area_mode == DATA_OOB_AREA) {
                                                 		/* read data and spare area */
-								//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
                                                 		REG_NFC_END0 = 0xffffffff;
                                                 		g_cmdsetting = (chipsel << 26) | (addr_cycle << 24) | (advance << 23) | \
 										(1 << 21) | (buswidth << 19) | (pagetype << 18) | \
 										(0 << 16) | (0x1 << 31);
                                                 		REG_NFC_CMD = g_cmdsetting | NAND_CMD_READ0;
                                                 		nfc_wait_command_finish();
+#ifndef USE_DMA_MODE
 								nand_copy((unsigned char *)NFC_MBUF, io_wr_port, mtd->writesize);
-								/*if (readaaa < 6) {							
-									printk("\nREADPAGE\n");
-									for (i = 0; i < mtd->writesize; i++)
-										printk(",0x%02x", io_wr_port[i]);
-									printk("\n\n");
-									readaaa ++;
-								}*/
+#endif
 
                                         		} else if (sprd_colrow_addr.column == DATA_AREA) {
-								//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
-        							g_cmdsetting = (addr_cycle << 24) | (advance << 23) | \
+        							g_cmdsetting = (chipsel << 26) | (addr_cycle << 24) | (advance << 23) | \
 										(buswidth << 19) | (pagetype << 18) | \
 										(0 << 16) | (0x1 << 31);
         							REG_NFC_CMD = g_cmdsetting | NAND_CMD_READ0;
         							nfc_wait_command_finish();
-				
+#ifndef USE_DMA_MODE				
 								nand_copy((unsigned char *)NFC_MBUF, io_wr_port, mtd->writesize);
-
-        							/*for (i = 0; i < mtd->writesize; i++)
-                							printk(" Rport[%d]=%d ", i, io_wr_port[i]);*/
+#endif
 						}
 					} else
 						printk("Operation !!! area.  %s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
@@ -519,10 +721,11 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 								(pagetype << 18) | (0 << 16) | (0x1 << 31);
         					REG_NFC_CMD = g_cmdsetting | NAND_CMD_READ0;
         					nfc_wait_command_finish();
+#ifdef USE_DMA_MODE
+						sprd_port_mode = OOBWORD_PORT;
+#else
 						nand_copy((unsigned char *)NFC_SBUF, io_wr_port, mtd->oobsize);
-
-        					/*for (i = 0; i < mtd->oobsize; i++)
-                					printk(" Rport[%d]=%d ", i, io_wr_port[i]);*/
+#endif
 					} else if (sprd_colrow_addr.column == 0) {
 						if (sprd_area_mode == DATA_AREA)
 							sprd_area_mode = DATA_OOB_AREA;
@@ -536,26 +739,18 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 
                                                 	REG_NFC_CMD = g_cmdsetting | NAND_CMD_READ0;
                                                 	nfc_wait_command_finish();
-							
+#ifndef USE_DMA_MODE
 							nand_copy((unsigned char *)NFC_MBUF, io_wr_port, mtd->writesize);
-							/*if (readaaa < 6) {							
-									printk("\nREADPAGE\n");
-									for (i = 0; i < mtd->writesize; i++)
-										printk(",0x%02x", io_wr_port[i]);
-									printk("\n\n");
-									readaaa ++;
-							}*/
-
+#endif
                                         	} else if (sprd_colrow_addr.column == DATA_AREA) {
         						g_cmdsetting = (addr_cycle << 24) | (advance << 23) | \
 									(buswidth << 19) | (pagetype << 18) | \
 									(0 << 16) | (0x1 << 31);
         						REG_NFC_CMD = g_cmdsetting | NAND_CMD_READ0;
         						nfc_wait_command_finish();
-				
+#ifndef USE_DMA_MODE
 							nand_copy((unsigned char *)NFC_MBUF, io_wr_port, mtd->writesize);
-        						/*for (i = 0; i < mtd->writesize; i++)
-                						printk(" Rport[%d]=%d ", i, io_wr_port[i]);*/
+#endif
 						}
 					} else
 						printk("Operation !!! area.  %s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
@@ -570,21 +765,20 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 				sprd_colrow_addr.rowflag = 0;
 				sprd_wr_mode = WRITE_OP;
 				sprd_area_mode = NO_AREA;
-				//memset((unsigned char *)(this->IO_ADDR_W), 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
+#ifdef USE_DMA_MODE
+				sprd_port_mode = NO_PORT;
+#else
 				memset(io_wr_port, 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
+#endif
 			break;
 			case NAND_CMD_PAGEPROG:
 				if (buswidth == 1) {
 					if (sprd_colrow_addr.column == (mtd->writesize >> 1)) {
 						g_cmdsetting = (chipsel << 26) | (addr_cycle << 24) | (advance << 23) | \
 								(buswidth << 19) | (pagetype << 18) | (0 << 16) | (0x1 << 31);
-        					/*printk("\nWport\n");
-        					for (i = 0; i < mtd->oobsize; i++)
-                					//printk(" Wport[%d]=0x%02x ", i, io_wr_port[i]);
-							printk("0x%02x,", io_wr_port[i]);
-						printk("\n\n");*/
-						//nand_copy(this->IO_ADDR_W, (unsigned char *)NFC_SBUF, mtd->oobsize);
+#ifndef USE_DMA_MODE
 						nand_copy((unsigned long *)io_wr_port, (unsigned long *)NFC_SBUF, mtd->oobsize);
+#endif
         					REG_NFC_CMD = g_cmdsetting | NAND_CMD_SEQIN;
         					nfc_wait_command_finish();
 					} else if (sprd_colrow_addr.column == 0) {
@@ -599,7 +793,9 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 						} else if (sprd_colrow_addr.column == DATA_AREA) {
         						g_cmdsetting = (chipsel << 26) | (addr_cycle << 24) | (advance << 23) | \
 								(buswidth << 19) | (pagetype << 18) | (0 << 16) | (0x1 << 31);
+#ifndef USE_DMA_MODE
 							nand_copy(io_wr_port, (unsigned char *)NFC_MBUF, mtd->writesize);
+#endif
         						REG_NFC_CMD = g_cmdsetting | NAND_CMD_SEQIN;
         						nfc_wait_command_finish();
 						}
@@ -607,12 +803,11 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 						printk("Operation !!! area.  %s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);	
 				} else {	//if (buswidth == 1)
 					if (sprd_colrow_addr.column == mtd->writesize) {
-        					/*for (i = 0; i < mtd->oobsize; i++)
-                					printk(" Wport[%d]=%d ", i, io_wr_port[i]);*/
-
         					g_cmdsetting = (addr_cycle << 24) | (advance << 23) | (buswidth << 19) | \
 								(pagetype << 18) | (0 << 16) | (0x1 << 31);
+#ifndef USE_DMA_MODE
 						nand_copy(io_wr_port, (unsigned char *)NFC_SBUF, mtd->oobsize);
+#endif
         					REG_NFC_CMD = g_cmdsetting | NAND_CMD_SEQIN;
         					nfc_wait_command_finish();
 					} else if (sprd_colrow_addr.column == 0) {
@@ -628,9 +823,9 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 						} else if (sprd_colrow_addr.column == DATA_AREA) {
         						g_cmdsetting = (addr_cycle << 24) | (advance << 23) | (buswidth << 19) | \
 									(pagetype << 18) | (0 << 16) | (0x1 << 31);
-        			
-							//nand_copy(this->IO_ADDR_W, (unsigned char *)NFC_MBUF, mtd->writesize);
+#ifndef USE_DMA_MODE
 							nand_copy(io_wr_port, (unsigned char *)NFC_MBUF, mtd->writesize);
+#endif
         						REG_NFC_CMD = g_cmdsetting | NAND_CMD_SEQIN;
         						nfc_wait_command_finish();
 						}
@@ -640,6 +835,9 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 
 				sprd_wr_mode = NO_OP;
 				sprd_area_mode = NO_AREA;
+#ifdef USE_DMA_MODE
+				sprd_port_mode = NO_PORT;
+#endif
 			break;
 			default:
 			break;	
@@ -662,10 +860,12 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 			if (buswidth == 1) {
 				if (sprd_colrow_addr.column == (mtd->writesize >> 1)) {
 					pageperblk = mtd->erasesize / mtd->writesize;
-					//printk("pageperblk=%d  mtd->erasesize=%d  mtd->writesize=%d  mtd->oobsize=%d\n", pageperblk, mtd->erasesize, mtd->writesize, mtd->oobsize);
+					/*printk("pageperblk=%d  mtd->erasesize=%d  mtd->writesize=%d  mtd->oobsize=%d\n",
+						 pageperblk, mtd->erasesize, mtd->writesize, mtd->oobsize);*/
 					phyblk = sprd_colrow_addr.row / pageperblk;
         				pageinblk = sprd_colrow_addr.row % pageperblk;
 					//printk("block = %d  page = %d  column = %d\n", phyblk, pageinblk, sprd_colrow_addr.column);
+
         				REG_NFC_STR0 = phyblk * pageperblk * mtd->writesize + 
 								pageinblk * mtd->writesize + 
 								sprd_colrow_addr.column;
@@ -675,12 +875,13 @@ static void sprd_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 					sprd_area_mode = OOB_AREA;
 					/*printk("Operation OOB area.  %s  %s  %d   row=0x%08x  column=0x%08x\n", 
 						__FILE__, __FUNCTION__, __LINE__, sprd_colrow_addr.row, sprd_colrow_addr.column);*/
+
 				} else if (sprd_colrow_addr.column == 0) {
 					pageperblk = mtd->erasesize / mtd->writesize;
 					phyblk = sprd_colrow_addr.row / pageperblk;
         				pageinblk = sprd_colrow_addr.row % pageperblk;
-
-					//printk("Line : %d  block = %d  page = %d  column = %d\n", __LINE__, phyblk, pageinblk, sprd_colrow_addr.column);
+					/*printk("Line : %d  block = %d  page = %d  column = %d\n",
+						__LINE__, phyblk, pageinblk, sprd_colrow_addr.column);*/
         				REG_NFC_STR0 = phyblk * pageperblk * mtd->writesize + 
 								pageinblk * mtd->writesize + 
 								sprd_colrow_addr.column;
@@ -740,9 +941,7 @@ static int sprd_nand_devready(struct mtd_info *mtd)
 
         REG_NFC_CMD = cmd;
         nfc_wait_command_finish();
-
         status = REG_NFC_IDSTATUS;
-	//printk("%s  %s  %d  status = 0x%08x\n", __FILE__, __FUNCTION__, __LINE__, status);	
    	if ((status & 0x1) != 0) 	
      		return -1; /* fail */
    	else if ((status & 0x20) == 0)
@@ -753,7 +952,7 @@ static int sprd_nand_devready(struct mtd_info *mtd)
 
 static void sprd_nand_select_chip(struct mtd_info *mtd, int chip)
 {
-	struct nand_chip *this = mtd->priv;
+	//struct nand_chip *this = mtd->priv;
 	//struct sprd_nand_info *info = this->priv;
 
 #if 0	
@@ -764,18 +963,27 @@ static void sprd_nand_select_chip(struct mtd_info *mtd, int chip)
 #endif
 }
 
-/* ecc function */
+#ifdef USE_DMA_MODE
+static void sprd_nand_enable_hwecc(struct mtd_info *mtd, int mode)
+{
+	sprd_ecc_mode = mode;
+	if (sprd_ecc_mode == NAND_ECC_WRITE) {
+		REG_NFC_ECCEN = 0x1;
+	}
+}
+#else
 static void sprd_nand_enable_hwecc(struct mtd_info *mtd, int mode)
 {
 	sprd_ecc_mode = mode;
 }
+#endif
 
 static unsigned long sprd_nand_wr_oob(struct mtd_info *mtd)
 {
+#ifndef USE_DMA_MODE
         /* copy io_wr_port into SBUF */
-	/*for (i = 0; i < mtd->oobsize; i++)
-                	printk(" OOBWport[%d]=%d ", i, io_wr_port[i]);*/
         nand_copy(io_wr_port, (unsigned char *)NFC_SBUF, mtd->oobsize);
+#endif
 
 	/* write oob area */
 	if (sprd_area_mode == NO_AREA)
@@ -785,57 +993,38 @@ static unsigned long sprd_nand_wr_oob(struct mtd_info *mtd)
 
 	return 0;
 }
-
+#ifdef USE_DMA_MODE
 static int sprd_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_char *ecc_code)
 {
 	unsigned long *pecc_val;
 	pecc_val=(unsigned long *)ecc_code;
 
-#if 0
-	unsigned long testcnt = 0;
-       	unsigned char mydata[512];
-#endif
+	if (sprd_ecc_mode == NAND_ECC_WRITE) {
+		pecc_val[0] = REG_NFC_PAGEECC0;
+		pecc_val[1] = REG_NFC_PAGEECC1;
+		pecc_val[2] = REG_NFC_PAGEECC2;
+		pecc_val[3] = REG_NFC_PAGEECC3;
+		REG_NFC_ECCEN = 0;
+	} else  if (sprd_ecc_mode == NAND_ECC_READ) {
+                /* large page */
+		pecc_val[0] = REG_NFC_PAGEECC0;
+		pecc_val[1] = REG_NFC_PAGEECC1;
+		pecc_val[2] = REG_NFC_PAGEECC2;
+		pecc_val[3] = REG_NFC_PAGEECC3;
+	}
+
+	sprd_ecc_mode = NAND_ECC_NONE;
+
+	return 0;
+}
+#else
+static int sprd_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_char *ecc_code)
+{
+	unsigned long *pecc_val;
+	pecc_val=(unsigned long *)ecc_code;
 
 	if (sprd_ecc_mode == NAND_ECC_WRITE) {
 		REG_NFC_ECCEN = 0x1;
-
-#if 0
-	//////////////////////////////////////////////
-	for (testcnt = 0; testcnt < 256; testcnt ++) {
-                mydata[testcnt + 0] = testcnt;
-                mydata[testcnt + 256] = testcnt;
-        }
-	switch (writeaaa) {
-	case 0:
-		mydata[21] = 0x35;
-		break;
-	case 1:
-		mydata[21] = 0x35;
-		mydata[22] = 0x17;
-		break;
-	}
-	for (testcnt = 0; testcnt < 512; testcnt ++)
-		io_wr_port[testcnt] = mydata[testcnt];
-
-		if (writeaaa < 2) {
-			printk("\nWRITEPAGE  :  %d\n", writeaaa);
-			printk("\n");			
-			for (i = 0; i < mtd->writesize; i++) {
-	               		printk(",0x%02x", io_wr_port[i]);
-				if (i % 16 == 15)
-					printk("\n");
-			}
-			/*printk("\n");
-			for (i = 0; i < 512; i ++) {
-				printk(",0x%02x", io_wr_port[i]);
-				if (i % 16 == 15)
-					printk("\n");
-			}*/
-			printk("\n\n");		
-		}
-	//////////////////////////////////////////////
-#endif
-
 		/* copy io_wr_port into MBUF */
 		nand_copy(io_wr_port, (unsigned char *)NFC_MBUF, mtd->writesize);
 		/* large page */
@@ -843,15 +1032,6 @@ static int sprd_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_ch
 		pecc_val[1] = REG_NFC_PAGEECC1;
 		pecc_val[2] = REG_NFC_PAGEECC2;
 		pecc_val[3] = REG_NFC_PAGEECC3;
-#if 0		
-		if (writeaaa < 2) {
-			printk("\nWRITEECC0 = 0x%08x  ", REG_NFC_PAGEECC0);		
-			printk("ECC1 = 0x%08x   ", REG_NFC_PAGEECC1);		
-			printk("ECC2 = 0x%08x   ", REG_NFC_PAGEECC2);		
-			printk("ECC3 = 0x%08x\n", REG_NFC_PAGEECC3);
-			writeaaa ++;
-		}
-#endif
 		REG_NFC_ECCEN = 0;
 		memset(io_wr_port, 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);	
 	} else if (sprd_ecc_mode == NAND_ECC_READ) {
@@ -860,27 +1040,14 @@ static int sprd_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_ch
 		pecc_val[1] = REG_NFC_PAGEECC1;
 		pecc_val[2] = REG_NFC_PAGEECC2;
 		pecc_val[3] = REG_NFC_PAGEECC3;
-		/*if (readaaa < 6) {
-        		printk("\nREADECC0 = 0x%08x  ", REG_NFC_PAGEECC0);
-                	printk("ECC1 = 0x%08x   ", REG_NFC_PAGEECC1);
-                	printk("ECC2 = 0x%08x   ", REG_NFC_PAGEECC2);
-                	printk("ECC3 = 0x%08x\n", REG_NFC_PAGEECC3);
-		}*/
 		memset(io_wr_port, 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
 		nand_copy((unsigned char *)NFC_SBUF, io_wr_port, mtd->oobsize);
-		/*if (readaaa < 6) {
-			for (i = 0; i < mtd->oobsize; i++)
-                		printk(" OOBRport[%d]=0x%02x ", i, io_wr_port[i]);
-		}*/
-	}	
-
-	/*printk("ecc code :\n");
-	for (j = 0; j < 16; j++)
-		printk(" 0x%02x ", ecc_code[j]);*/
+	}	
 	sprd_ecc_mode = NAND_ECC_NONE;
 
 	return 0;
 }
+#endif
 
 static void ecc_trans(unsigned char *ecc)
 {
@@ -892,36 +1059,13 @@ static void ecc_trans(unsigned char *ecc)
 	ecc[2] = trans;
 }
 
-static int ECC_CompM(unsigned char *pEcc1, unsigned char *pEcc2, unsigned char *pBuf, unsigned char nBW)
+static int ECC_CompM(unsigned char *pEcc1, unsigned char *pEcc2, unsigned char *pBuf)
 {
 	unsigned long  nEccComp = 0, nEccSum = 0;
 	unsigned long  nEBit    = 0;
 	unsigned long  nEByte   = 0;
 	unsigned long  nXorT1   = 0, nXorT2 = 0;
 	unsigned long  nCnt;
-
-#if 0
-	if (eccaaa < 10) {
-		printk("pBuf = \n");
-		for (i = 0; i < 512; i ++) {
-			printk("%02x ", *(pBuf + i));
-			if (i % 16 == 15)
-				printk("\n");
-		}
-
-		printk("pEcc1 = \n");
-		for (i = 0; i < 4; i ++) {
-			printk("%02x ", *(pEcc1 + i));
-		}
-		printk("\n");
-		printk("pEcc2 = \n");
-		for (i = 0; i < 4; i ++) {
-			printk("%02x ", *(pEcc2 + i));
-		}
-		printk("\n");
-		eccaaa ++;
-	}
-#endif
 
 	for (nCnt = 0; nCnt < 2; nCnt++) {
         	nXorT1 ^= (((*pEcc1) >> nCnt) & 0x01);
@@ -931,127 +1075,51 @@ static int ECC_CompM(unsigned char *pEcc1, unsigned char *pEcc2, unsigned char *
     	for (nCnt = 0; nCnt < 3; nCnt++) {
         	nEccComp |= ((~pEcc1[nCnt] ^ ~pEcc2[nCnt]) << (nCnt * 8));
     	}
-    	//printf("nEccComp = 0x%x\n", nEccComp);
+
     	for(nCnt = 0; nCnt < 24; nCnt++) {
         	nEccSum += ((nEccComp >> nCnt) & 0x01);
     	}
 
-    	//printf("nEccSum = %d\n", nEccSum);
     	switch (nEccSum) {
 	case 0 :
-			//printk("No Error for Main\n");
-			return 0;
+		//printk("No Error for Main\n");
+		return 0;
 	case 1 :
-			//printk("ECC Error \n");
-#if 0
-			printk("\n%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
-			printk("pBuf = \n");
-			for (ij = 0; ij < 512; ij ++) {
-				printk("%02x ", *(pBuf + ij));
-				if (ij % 16 == 15)
-					printk("\n");
+		//printk("ECC Error \n");
+		return 1;
+        case 12 :			
+		if (nXorT1 != nXorT2) {
+			nEByte  = ((nEccComp >>  7) & 0x100) +
+				((nEccComp >>  6) & 0x80) + ((nEccComp >>  5) & 0x40) +
+				((nEccComp >>  4) & 0x20) + ((nEccComp >>  3) & 0x10) +
+				((nEccComp >>  2) & 0x08) + ((nEccComp >>  1) & 0x04) +
+				(nEccComp & 0x02) + ((nEccComp >> 23) & 0x01);
+			
+			nEBit   = (unsigned char)(((nEccComp >> 19) & 0x04) +
+				((nEccComp >> 18) & 0x02) + ((nEccComp >> 17) & 0x01));
+			//printk("1ECC Position : %dth byte, %dth bit\n", nEByte, nEBit);
+			if (pBuf != NULL) {
+				//printf("Corrupted : 0x%02x \n", pBuf[nEByte]);
+				pBuf[nEByte] = (unsigned char)(pBuf[nEByte] ^ (1 << nEBit));
+				//printk("Corrected : 0x%02x \n", pBuf[nEByte]);
 			}
-
-			printk("pEcc1 = \n");
-			for (ij = 0; ij < 4; ij ++) {
-				printk("%02x ", *(pEcc1 + ij));
-			}
-			printk("\n");
-			printk("pEcc2 = \n");
-			for (ij = 0; ij < 4; ij ++) {
-				printk("%02x ", *(pEcc2 + ij));
-			}
-			printk("\n");
-			printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
-#endif
 			return 1;
-        case 12 :
-			if (nXorT1 != nXorT2) {
-				//printk("Correctable ECC Error Occurs for Main\n");
-#ifdef CONFIG_ARCH_SC8800G
-				ecc_trans(pEcc1);
-				ecc_trans(pEcc2);
-#else
-				if (nBW == 0) {
-						nEByte  = ((nEccComp >>  9) & 0x100) +
-								((nEccComp >>  8) & 0x80) + ((nEccComp >>  7) & 0x40) +
-								((nEccComp >>  6) & 0x20) + ((nEccComp >>  5) & 0x10) +
-								((nEccComp >>  4) & 0x08) + ((nEccComp >>  3) & 0x04) +
-								((nEccComp >>  2) & 0x02) + ((nEccComp >>  1) & 0x01);
-						nEBit   = ((nEccComp >> 21) & 0x04) +
-								((nEccComp >> 20) & 0x02) + ((nEccComp >> 19) & 0x01);
-				} else
-#endif
-				{   /* (nBW == BW_X16) */
-						nEByte  = ((nEccComp >>  7) & 0x100) +
-								((nEccComp >>  6) & 0x80) + ((nEccComp >>  5) & 0x40) +
-								((nEccComp >>  4) & 0x20) + ((nEccComp >>  3) & 0x10) +
-								((nEccComp >>  2) & 0x08) + ((nEccComp >>  1) & 0x04) +
-								(nEccComp & 0x02)         + ((nEccComp >> 23) & 0x01);
-						nEBit   = (unsigned char)(((nEccComp >> 19) & 0x04) +
-								((nEccComp >> 18) & 0x02) + ((nEccComp >> 17) & 0x01));
-				}
-				//printk("1ECC Position : %dth byte, %dth bit\n", nEByte, nEBit);
-
-				if (pBuf != NULL) {
-						//printf("Corrupted : 0x%02x \n", pBuf[nEByte]);
-						pBuf[nEByte] = (unsigned char)(pBuf[nEByte] ^ (1 << nEBit));
-						//printk("Corrected : 0x%02x \n", pBuf[nEByte]);
-#if 0
-						printk("\n%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
-						printk("pBuf = \n");
-						for (ij = 0; ij < 512; ij ++) {
-							printk("%02x ", *(pBuf + ij));
-							if (ij % 16 == 15)
-								printk("\n");
-						}
-
-						printk("pEcc1 = \n");
-						for (ij = 0; ij < 4; ij ++) {
-							printk("%02x ", *(pEcc1 + ij));
-						}
-						printk("\n");
-						printk("pEcc2 = \n");
-						for (ij = 0; ij < 4; ij ++) {
-							printk("%02x ", *(pEcc2 + ij));
-						}
-						printk("\n");
-						printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
-#endif
-				}
-				return 1;
-			}
+		}
         default :
-			//printk("Uncorrectable ECC Error Occurs for Main\n");
-#if 0
-			printk("\n%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
-			printk("pBuf = \n");
-			for (ij = 0; ij < 512; ij ++) {
-				printk("%02x ", *(pBuf + ij));
-				if (ij % 16 == 15)
-					printk("\n");
-			}
-
-			printk("pEcc1 = \n");
-			for (ij = 0; ij < 4; ij ++) {
-				printk("%02x ", *(pEcc1 + ij));
-			}
-			printk("\n");
-			printk("pEcc2 = \n");
-			for (ij = 0; ij < 4; ij ++) {
-				printk("%02x ", *(pEcc2 + ij));
-			}
-			printk("\n");
-			printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
-#endif
-            break;
+		//printk("Uncorrectable ECC Error Occurs for Main\n");
+        	break;
     	}
+
 	return -1;
 }
 
 static int correct(u_char *dat, u_char *read_ecc, u_char *calc_ecc)
 {
-	return ECC_CompM(read_ecc, calc_ecc, dat, 1);
+#ifdef CONFIG_ARCH_SC8800G
+	ecc_trans(read_ecc);
+	ecc_trans(calc_ecc);
+#endif
+	return ECC_CompM(read_ecc, calc_ecc, dat);
 }
 
 static int sprd_nand_correct_data(struct mtd_info *mtd, uint8_t *dat,
@@ -1059,45 +1127,16 @@ static int sprd_nand_correct_data(struct mtd_info *mtd, uint8_t *dat,
 {
 	int retval = 0;
 	int retval0, retval1, retval2, retval3;
-#if 0
-	printk("\nthe all data\n");
-	for(i = 0; i < 2048; i++) {
-		printk("%02x ", *(dat + i));
-		if(i % 16 == 15)
-		  printk("\n");
-	}
 
-	printk("\nthe read ecc\n");
-	for(i = 0; i < 16; i ++) {
-			printk("%02x ", *(read_ecc + i));
-			if(i % 4 == 3)
-				printk("\n");
-	}
-
-	printk("\nthe calc ecc\n");
-	for(i = 0; i < 16; i ++) {
-			printk("%02x ", *(calc_ecc + i));
-			if(i % 4 == 3)
-				printk("\n");
-	}
-#endif
 	if (mtd->writesize > 512) {
-#if 0
-		for (i = 0; i < 4; i++) {
-			if (correct(dat + 512 * i, read_ecc + 4 * i, calc_ecc + 4 * i) == -1) {				
-				retval = -1;
-			}
-		}
-#else
-	retval0 = correct(dat + 512 * 0, read_ecc + 4 * 0, calc_ecc + 4 * 0);
-	retval1 = correct(dat + 512 * 1, read_ecc + 4 * 1, calc_ecc + 4 * 1);
-	retval2 = correct(dat + 512 * 2, read_ecc + 4 * 2, calc_ecc + 4 * 2);
-	retval3 = correct(dat + 512 * 3, read_ecc + 4 * 3, calc_ecc + 4 * 3);
-	if ((retval0 == -1) || (retval1 == -1) || (retval2 == -1) || (retval3 == -1))
-		retval = -1;
-	else
-		retval = retval0 + retval1 + retval2 + retval3;
-#endif
+		retval0 = correct(dat + 512 * 0, read_ecc + 4 * 0, calc_ecc + 4 * 0);
+		retval1 = correct(dat + 512 * 1, read_ecc + 4 * 1, calc_ecc + 4 * 1);
+		retval2 = correct(dat + 512 * 2, read_ecc + 4 * 2, calc_ecc + 4 * 2);
+		retval3 = correct(dat + 512 * 3, read_ecc + 4 * 3, calc_ecc + 4 * 3);
+		if ((retval0 == -1) || (retval1 == -1) || (retval2 == -1) || (retval3 == -1))
+			retval = -1;
+		else
+			retval = retval0 + retval1 + retval2 + retval3;
 	} else
 		retval = correct(dat, read_ecc, calc_ecc);
 	
@@ -1108,7 +1147,6 @@ static int sprd_nand_correct_data(struct mtd_info *mtd, uint8_t *dat,
 //#define NAND_TEST_CODE 1
 
 #ifdef NAND_TEST_CODE
-
 #define NF_RESET                0xFF
 #define NF_READ_STATUS  	0x70
 #define NF_READ_ID              0x90
@@ -1122,152 +1160,19 @@ int E[512];
 #define CONFIG_BOOTARGS "mem=128M console=ttyS1,115200n8 initrd=0x3000000,4194304 init=/init root=/dev/ram0 rw "MTDPARTS_DEFAULT
 #endif
 
-static int get_row_parity(int idx, int flag)
-{
-	int atmic, step, parity, ii, jj;
-
-	atmic = idx / 8;
-	step = 2 * atmic;
-	
-	parity = 0;
-	if (flag == 2) {
-		parity = E[1];
-		//printf(" E[%d ", 1);
-		for (ii = 2; ii <= atmic; ii++) {
-			//printf(" %d ", ii);
-			parity = parity ^ E[ii];
-		}
-		for (ii = step+1; ii <= 512-step+1; ii+=step)
-			for (jj = 0; jj < atmic; jj++) {
-				//printf(" %d ", ii+jj);
-				parity = parity ^ E[ii+jj];
-			}
-	}
-	
-	if (flag == 1) {
-		parity = E[1+atmic];
-		//printf(" E[%d ", 1+atmic);
-		for (ii = 2+atmic; ii <= 2*atmic; ii++) {
-			//printf(" %d ", ii);
-			parity = parity ^ E[ii];
-		}
-		for (ii = step+atmic+1; ii <= 512-atmic+1; ii+=step)
-			for (jj = 0; jj < atmic; jj++) {
-				//printf(" %d ", ii+jj);
-				parity = parity ^ E[ii+jj];
-			}
-	}
-	
-	//printf("]\nparity = %d\n", parity);	
-	return parity;
-}
-
-/* ecc for 512 bytes */
-static void calculate(unsigned char *dat, unsigned char *ecc)
-{
-	int data[513];
-	int D70;
-	int cnt;
-	int P1_1, P1_2, P2_1, P2_2, P4_1, P4_2;
-	int P8_1, P8_2, P16_1, P16_2, P32_1, P32_2, P64_1, P64_2, P128_1, P128_2, P256_1, P256_2, P512_1, P512_2;
-	int P1024_1, P1024_2, P2048_1, P2048_2;
-
-	for (cnt = 1; cnt <= 512; cnt++)
-		data[cnt] = dat[cnt-1];
-
-	D70 = data[1];
-	for (cnt = 2; cnt <= 512; cnt++) {
-		D70 = D70 ^ data[cnt];
-	}
-	
-	for (cnt = 0; cnt <= 512; cnt++)
-		E[cnt] = 0;
-	
-	for (cnt = 1; cnt <= 512; cnt++) {
-		E[cnt] = ((data[cnt] >> 0) & 0x1) ^ ((data[cnt] >> 1) & 0x1) ^ ((data[cnt] >> 2) & 0x1) \
-			^ ((data[cnt] >> 3) & 0x1) ^ ((data[cnt] >> 4) & 0x1) ^ ((data[cnt] >> 5) & 0x1) \
-			^ ((data[cnt] >> 6) & 0x1) ^ ((data[cnt] >> 7) & 0x1);
-	}
-
-	P1_1 = ((D70 >> 7) & 0x1) ^ ((D70 >> 5) & 0x1) ^ ((D70 >> 3) & 0x1) ^ ((D70 >> 1) & 0x1);	
-	P1_2 = ((D70 >> 6) & 0x1) ^ ((D70 >> 4) & 0x1) ^ ((D70 >> 2) & 0x1) ^ ((D70 >> 0) & 0x1);
-	
-	P2_1 = ((D70 >> 7) & 0x1) ^ ((D70 >> 6) & 0x1) ^ ((D70 >> 3) & 0x1) ^ ((D70 >> 2) & 0x1);	
-	P2_2 = ((D70 >> 5) & 0x1) ^ ((D70 >> 4) & 0x1) ^ ((D70 >> 1) & 0x1) ^ ((D70 >> 0) & 0x1);
-
-	P4_1 = ((D70 >> 7) & 0x1) ^ ((D70 >> 6) & 0x1) ^ ((D70 >> 5) & 0x1) ^ ((D70 >> 4) & 0x1);
-	P4_2 = ((D70 >> 3) & 0x1) ^ ((D70 >> 2) & 0x1) ^ ((D70 >> 1) & 0x1) ^ ((D70 >> 0) & 0x1);
-	//printf("P1_1 = %d  P1_2 = 0x%d  P2_1 = %d  P2_2 = %d  P4_1 = %d  P4_2 = %d\n", P1_1, P1_2, P2_1, P2_2, P4_1, P4_2);
-	
-	P8_2 = get_row_parity(8, 2);
-	//printf("P8_2 = %d  ", P8_2);
-
-	P8_1 = get_row_parity(8, 1);
-	//printf("P8_1 = %d\n", P8_1);
-
-	P16_2 = get_row_parity(16, 2);
-	//printf("P16_2 = %d  ", P16_2);
-
-	P16_1 = get_row_parity(16, 1);
-	//printf("P16_1 = %d\n", P16_1);
-	
-	P32_2 = get_row_parity(32, 2);
-	//printf("P32_2 = %d  ", P32_2);
-	P32_1 = get_row_parity(32, 1);
-	//printf("P32_1 = %d\n", P32_1);
-	
-	P64_2 = get_row_parity(64, 2);
-	//printf("P64_2 = %d  ", P64_2);
-	P64_1 = get_row_parity(64, 1);
-	//printf("P64_1 = %d\n", P64_1);
-	
-	P128_2 = get_row_parity(128, 2);
-	//printf("P128_2 = %d  ", P128_2);
-	P128_1 = get_row_parity(128, 1);
-	//printf("P128_1 = %d\n", P128_1);
-	
-	P256_2 = get_row_parity(256, 2);
-	//printf("P256_2 = %d  ", P256_2);
-	P256_1 = get_row_parity(256, 1);
-	//printf("P256_1 = %d\n", P256_1);
-
-	P512_2 = get_row_parity(512, 2);
-	//printf("P512_2 = %d  ", P512_2);
-	P512_1 = get_row_parity(512, 1);
-	//printf("P512_1 = %d\n", P512_1);
-	
-	P1024_2 = get_row_parity(1024, 2);
-	//printf("P1024_2 = %d  ", P1024_2);
-	P1024_1 = get_row_parity(1024, 1);
-	//printf("P1024_1 = %d\n", P1024_1);
-	
-	P2048_2 = get_row_parity(2048, 2);
-	//printf("P2048_2 = %d  ", P2048_2);
-	P2048_1 = get_row_parity(2048, 1);
-	//printf("P2048_1 = %d\n", P2048_1);
-	
-	ecc[0] = (P64_1 << 7) | (P64_2 << 6) | (P32_1 << 5) | (P32_2 << 4) | \
-			(P16_1 << 3) | (P16_2 << 2) | (P8_1 << 1) | (P8_2 << 0);
-
-	ecc[1] = (P1024_1 << 7) | (P1024_2 << 6) | (P512_1 << 5) | (P512_2 << 4) | \
-			(P256_1 << 3) | (P256_2 << 2) | (P128_1 << 1) | (P128_2 << 0);
-
-	ecc[2] = (P4_1 << 7) | (P4_2 << 6) | (P2_1 << 5) | (P2_2 << 4) | \
-			(P1_1 << 3) | (P1_2 << 2) | (P2048_1 << 1) | (P2048_2 << 0);
-}
-
 static void nfc_ms_read_l(unsigned long page_no, unsigned char *buf)
 {
-#if 0
+#if 1
+	/* test for 16 bit width */
 	unsigned long cmd = NF_READ_1ST;
 	unsigned long i, phyblk, pageinblk, pageperblk;
-	unsigned long addr_cycle = 5; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
 	unsigned long advance = 1; /* can be set 0 or 1 */
 	unsigned long pagetype; /* 0: small page; 1: large page*/
-	unsigned long buswidth = 1; /* 0: X8 bus width 1: X16 bus width */
 	unsigned long chipsel = 0;
+	unsigned long buswidth = g_buswidth;
+	unsigned long addr_cycle = g_addr_cycle;
 	unsigned long PAGEECC0, PAGEECC1, PAGEECC2, PAGEECC3;
-
+	
 	if (512 == PAGE_SIZE_L)
 		pagetype = 0;
    	else
@@ -1283,7 +1188,7 @@ static void nfc_ms_read_l(unsigned long page_no, unsigned char *buf)
 	phyblk = page_no / pageperblk;
         pageinblk = page_no % pageperblk;
 
-	//printk("block = %d  page = %d\n", phyblk, pageinblk);
+	printk("block = %d  page = %d\n", phyblk, pageinblk);
 
         REG_NFC_STR0 = phyblk * pageperblk * PAGE_SIZE_L + pageinblk * PAGE_SIZE_L; 
         REG_NFC_END0 = 0xffffffff;
@@ -1294,14 +1199,15 @@ static void nfc_ms_read_l(unsigned long page_no, unsigned char *buf)
 
         REG_NFC_CMD = g_cmdsetting | cmd;
         nfc_wait_command_finish();
-
-	printk("\nREADECC0 = 0x%08x  ", REG_NFC_PAGEECC0);
+	nfc_read_status();
+	/*printk("\nREADECC0 = 0x%08x  ", REG_NFC_PAGEECC0);
         printk("ECC1 = 0x%08x   ", REG_NFC_PAGEECC1);
         printk("ECC2 = 0x%08x   ", REG_NFC_PAGEECC2);
-        printk("ECC3 = 0x%08x\n", REG_NFC_PAGEECC3);
+        printk("ECC3 = 0x%08x\n", REG_NFC_PAGEECC3);*/
 
         nand_copy((unsigned char *)NFC_MBUF, buf, PAGE_SIZE_L);
         nand_copy((unsigned char *)NFC_SBUF, (buf + PAGE_SIZE_L), SPARE_SIZE_L);
+#if 1	
 	printk("\nRead\n");
         for (i = 0; i < (PAGE_SIZE_L + SPARE_SIZE_L); i++) {
 		if ((i % 16) == 0)
@@ -1310,24 +1216,17 @@ static void nfc_ms_read_l(unsigned long page_no, unsigned char *buf)
 			printk("ReadOob\n");
                 printk("%02x ", buf[i]);
 	}
-	
-	printk("\n");
-
-	/*good place
-	PAGEECC0 = 0;
-	PAGEECC1 = 0;
-	PAGEECC2 = 0;
-	PAGEECC3 = 0;
-	calculate(buf, &PAGEECC0);
-	calculate(buf+512, &PAGEECC1);
-	calculate(buf+1024, &PAGEECC2);
-	calculate(buf+1536, &PAGEECC3);
-	printk("\nREADPAGEECC0 = 0x%08x  ", PAGEECC0);		
-	printk("PAGEECC1 = 0x%08x   ", PAGEECC1);		
-	printk("PAGEECC2 = 0x%08x   ", PAGEECC2);
-	printk("PAGEECC3 = 0x%08x\n", PAGEECC3);*/
-
 #else
+	printk("\nReadOob\n");
+        for (i = PAGE_SIZE_L; i < (PAGE_SIZE_L + SPARE_SIZE_L); i++) {
+		if ((i % 16) == 0)
+			printk("\n");
+                printk("%02x ", buf[i]);
+	}
+#endif
+	printk("\n");
+#else
+	/* test for 8 bit width */
 	unsigned long cmd = NF_READ_1ST;
 	unsigned long i, phyblk, pageinblk, pageperblk;
 	unsigned long addr_cycle = 4; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
@@ -1335,6 +1234,8 @@ static void nfc_ms_read_l(unsigned long page_no, unsigned char *buf)
 	unsigned long pagetype; /* 0: small page; 1: large page*/
 	unsigned long buswidth = 0; /* 0: X8 bus width 1: X16 bus width */
 	unsigned long chipsel = 0;
+	unsigned long buswidth = g_buswidth;
+	unsigned long addr_cycle = g_addr_cycle;
 	unsigned long PAGEECC0, PAGEECC1, PAGEECC2, PAGEECC3;
 
 	if (512 == PAGE_SIZE_L)
@@ -1385,14 +1286,15 @@ static void nfc_ms_read_l(unsigned long page_no, unsigned char *buf)
 
 static void nfc_ms_write_l(unsigned long page_no, unsigned char *buf)
 {
-#if 0
+#if 1
+	/* test for 16 bit width */
 	unsigned long cmd = NF_WRITE_ID;
 	unsigned long i, phyblk, pageinblk, pageperblk;
-	unsigned long addr_cycle = 5; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
 	unsigned long advance = 1; /* can be set 0 or 1 */
 	unsigned long pagetype; /* 0: small page; 1: large page*/
-	unsigned long buswidth = 1; /* 0: X8 bus width 1: X16 bus width */
 	unsigned long chipsel = 0;
+	unsigned long buswidth = g_buswidth;
+	unsigned long addr_cycle = g_addr_cycle;
 	unsigned long PAGEECC0, PAGEECC1, PAGEECC2, PAGEECC3;
 
 	if (512 == PAGE_SIZE_L)
@@ -1411,7 +1313,6 @@ static void nfc_ms_write_l(unsigned long page_no, unsigned char *buf)
         pageinblk = page_no % pageperblk;
 
 	buf[21] = 0x35;
-
 	printk("\nWrite\n");
 	
         for (i = 0; i < (PAGE_SIZE_L + SPARE_SIZE_L); i++) {
@@ -1427,31 +1328,15 @@ static void nfc_ms_write_l(unsigned long page_no, unsigned char *buf)
 	phyblk = page_no / pageperblk;
         pageinblk = page_no % pageperblk;
 
-	//printk("block = %d  page = %d\n", phyblk, pageinblk);
-	/*good place 
-	PAGEECC0 = 0;
-	PAGEECC1 = 0;
-	PAGEECC2 = 0;
-	PAGEECC3 = 0;
-	calculate(buf, &PAGEECC0);
-	calculate(buf+512, &PAGEECC1);
-	calculate(buf+1024, &PAGEECC2);
-	calculate(buf+1536, &PAGEECC3);
-	printk("\nWRITEPAGEECC0 = 0x%08x  ", PAGEECC0);		
-	printk("PAGEECC1 = 0x%08x   ", PAGEECC1);		
-	printk("PAGEECC2 = 0x%08x   ", PAGEECC2);
-	printk("PAGEECC3 = 0x%08x\n", PAGEECC3);*/
-
+	printk("write block = %d  page = %d\n", phyblk, pageinblk);
+	
         REG_NFC_STR0 = phyblk * pageperblk * PAGE_SIZE_L + pageinblk * PAGE_SIZE_L;
-        REG_NFC_END0 = phyblk * pageperblk * PAGE_SIZE_L  + pageinblk * PAGE_SIZE_L + (PAGE_SIZE_L >> 1) - 1;	
-
-	//REG_NFC_END0 = 0xffffffff;
+        //REG_NFC_END0 = phyblk * pageperblk * PAGE_SIZE_L  + pageinblk * PAGE_SIZE_L + (PAGE_SIZE_L >> 1) - 1;	
+	REG_NFC_END0 = 0xffffffff;
+	//printk("%s  %s  %d  addr_cycle = %d  buswidth = %d\n", __FILE__, __FUNCTION__, __LINE__,addr_cycle, buswidth);
 	g_cmdsetting = (chipsel << 26) | (addr_cycle << 24) | (advance << 23) | \
 			(buswidth << 19) | (pagetype << 18) | (0 << 16) | (0x1 << 31);
-#if 0
-	/* no ecc */	
-	nand_copy(buf, (unsigned char *)NFC_MBUF, PAGE_SIZE_L);
-#else
+
 	REG_NFC_ECCEN = 0x1;
 	nand_copy(buf, (unsigned char *)NFC_MBUF, PAGE_SIZE_L);
 	printk("\nWRITEECC0 = 0x%08x  ", REG_NFC_PAGEECC0);		
@@ -1459,13 +1344,15 @@ static void nfc_ms_write_l(unsigned long page_no, unsigned char *buf)
 	printk("ECC2 = 0x%08x   ", REG_NFC_PAGEECC2);
 	printk("ECC3 = 0x%08x\n", REG_NFC_PAGEECC3);
 	REG_NFC_ECCEN = 0;	
-#endif
+
         nand_copy((buf+PAGE_SIZE_L), (unsigned char *)NFC_SBUF, SPARE_SIZE_L);
         REG_NFC_CMD = g_cmdsetting | cmd;
+	//printk("%s  %s  %d  addr_cycle = %d  buswidth = %d\n", __FILE__, __FUNCTION__, __LINE__,addr_cycle, buswidth);
         nfc_wait_command_finish();
+	nfc_read_status();
 
 #else
-
+	/* test for 8 bit width */
 	unsigned long cmd = NF_WRITE_ID;
 	unsigned long i, phyblk, pageinblk, pageperblk;
 	unsigned long addr_cycle = 4; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
@@ -1473,6 +1360,8 @@ static void nfc_ms_write_l(unsigned long page_no, unsigned char *buf)
 	unsigned long pagetype; /* 0: small page; 1: large page*/
 	unsigned long buswidth = 0; /* 0: X8 bus width 1: X16 bus width */
 	unsigned long chipsel = 0;
+	unsigned long buswidth = g_buswidth;
+	unsigned long addr_cycle = g_addr_cycle;
 	unsigned long PAGEECC0, PAGEECC1, PAGEECC2, PAGEECC3;
 
 	if (512 == PAGE_SIZE_L)
@@ -1507,10 +1396,7 @@ static void nfc_ms_write_l(unsigned long page_no, unsigned char *buf)
 
 	g_cmdsetting = (chipsel << 26) | (addr_cycle << 24) | (advance << 23) | \
 			(buswidth << 19) | (pagetype << 18) | (0 << 16) | (0x1 << 31);
-#if 0
-	/* no ecc */	
-	nand_copy(buf, (unsigned char *)NFC_MBUF, PAGE_SIZE_L);
-#else
+
 	REG_NFC_ECCEN = 0x1;
 	nand_copy(buf, (unsigned char *)NFC_MBUF, PAGE_SIZE_L);
 	printk("\nWRITEECC0 = 0x%08x  ", REG_NFC_PAGEECC0);		
@@ -1518,45 +1404,24 @@ static void nfc_ms_write_l(unsigned long page_no, unsigned char *buf)
 	printk("ECC2 = 0x%08x   ", REG_NFC_PAGEECC2);
 	printk("ECC3 = 0x%08x\n", REG_NFC_PAGEECC3);
 	REG_NFC_ECCEN = 0;
-#endif
+
         nand_copy((buf+PAGE_SIZE_L), (unsigned char *)NFC_SBUF, SPARE_SIZE_L);
         REG_NFC_CMD = g_cmdsetting | cmd;
         nfc_wait_command_finish();
 #endif
 }
 
-static int memlookfor(unsigned char *org, unsigned char *patten, unsigned long len)
-{
-	unsigned long idx, addr;
-	unsigned int isfind = 0;
-
-	for (idx = 0; idx <= (PAGE_SIZE_L + SPARE_SIZE_L - len); idx++) {
-		if (org[idx] == patten[0]) {
-			isfind = 0;
-			for (addr = idx; addr < (idx + len); addr++) {
-				if (org[addr] == patten[addr - idx]) {
-					isfind ++;
-				}			
-			}
-			if (isfind == len)
-				return idx;
-		}
-		isfind = 0;
-	}
-	
-	return 0;
-}
-
 static void nfc_erase_block(unsigned long page_no)
 {
-#if 0
+#if 1
+	/* test for 16 bit width */
 	unsigned long cmd = NF_BKERASE_ID;
 	unsigned long i, phyblk, pageinblk, pageperblk;
-	unsigned long addr_cycle = 5; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
 	unsigned long advance = 1; /* can be set 0 or 1 */
 	unsigned long pagetype; /* 0: small page; 1: large page*/
-	unsigned long buswidth = 1; /* 0: X8 bus width 1: X16 bus width */
 	unsigned long chipsel = 0;
+	unsigned long buswidth = g_buswidth;
+	unsigned long addr_cycle = g_addr_cycle;
 
 	if (512 == PAGE_SIZE_L)
 		pagetype = 0;
@@ -1572,16 +1437,17 @@ static void nfc_erase_block(unsigned long page_no)
   	pageperblk = 64;
 	phyblk = page_no / pageperblk;
         pageinblk = page_no % pageperblk;
-
+	printk("erase block = %d\n", phyblk);
 	g_cmdsetting = (chipsel << 26) | (addr_cycle << 24) | (advance << 23) | \
 				(buswidth << 19) | (pagetype << 18) | (0 << 16) | (0x1 << 31);
 
         REG_NFC_STR0 = phyblk * pageperblk * PAGE_SIZE_L;
         REG_NFC_CMD = g_cmdsetting | cmd;
+	//printk("%s  %s  %d  addr_cycle = %d  buswidth = %d\n", __FILE__, __FUNCTION__, __LINE__,addr_cycle, buswidth);
         nfc_wait_command_finish();
 	nfc_read_status();
 #else
-
+	/* test for 8 bit width */
 	unsigned long cmd = NF_BKERASE_ID;
 	unsigned long i, phyblk, pageinblk, pageperblk;
 	unsigned long addr_cycle = 4; /* advance 0 : can be set 3 or 4; advance 1: can be set 4 or 5 */
@@ -1589,6 +1455,8 @@ static void nfc_erase_block(unsigned long page_no)
 	unsigned long pagetype; /* 0: small page; 1: large page*/
 	unsigned long buswidth = 0; /* 0: X8 bus width 1: X16 bus width */
 	unsigned long chipsel = 0;
+	unsigned long buswidth = g_buswidth;
+	unsigned long addr_cycle = g_addr_cycle;
 
 	if (512 == PAGE_SIZE_L)
 		pagetype = 0;
@@ -1627,11 +1495,8 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	unsigned long id, type;
 
 #ifdef NAND_TEST_CODE
-	unsigned char searchdata[] = {0xe0,0x82,0x20,0x08,0xe0,0x83,0x30,0x08};
-	unsigned long searchlen = 0;
 	unsigned char buffer[PAGE_SIZE_L + SPARE_SIZE_L];
 	unsigned long pageno;
-	unsigned long isfind;
 	unsigned long idx;
 #endif
 
@@ -1648,6 +1513,9 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	sprd_wr_mode = NO_OP;
 	sprd_area_mode = NO_AREA;
 	sprd_ecc_mode = NAND_ECC_NONE;
+#ifdef USE_DMA_MODE
+	sprd_port_mode = NO_PORT;
+#endif
 
 #ifdef CONFIG_ARCH_SC8800S
 	//REG_AHB_CTL0 |= BIT_8 | BIT_9;//no BIT_9
@@ -1669,28 +1537,40 @@ static int sprd_nand_probe(struct platform_device *pdev)
  	   0x0 : WPN enable, and micron nand flash status is 0x60 */
 	REG_NFC_WPN = 0x1;
 	sprd_config_nand_pins8();
-	set_nfc_param(0);
+	set_nfc_param(100);
+#ifndef USE_DMA_MODE
 	memset(io_wr_port, 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
+#endif
 	nfc_reset();
         mdelay(2);
         nfc_read_status();
         id = nfc_read_id();
 	type = nand_bit_width(id);
 
-
 #ifdef NAND_TEST_CODE
 	/* run my test code */
 	printk("\nRun nand test is starting\n");
+	/* 16-bit bus width */
+	if (type == 1) {
+		sprd_config_nand_pins16();
+		g_buswidth = 1;
+		g_addr_cycle = 5;
+		printk("is 16 Bit\n");	
+	} else {
+		g_buswidth = 0;
+		g_addr_cycle = 4;
+		printk("is 8 Bit\n");
+	}
 
-	pageno = 1000 * 64;
+	pageno = 497 * 64;
 	memset(buffer, 0, PAGE_SIZE_L + SPARE_SIZE_L);
 	nfc_ms_read_l(pageno, buffer);
-	pageno = 1000 * 64 + 1;
+
+	pageno = 497 * 64 + 24;
 	memset(buffer, 0, PAGE_SIZE_L + SPARE_SIZE_L);
 	nfc_ms_read_l(pageno, buffer);
-	nfc_erase_block(pageno);
 
-	memset(buffer, 0xff, PAGE_SIZE_L + SPARE_SIZE_L);
+	/*memset(buffer, 0xff, PAGE_SIZE_L + SPARE_SIZE_L);
 	for (idx = 0; idx < 256; idx++) {
 		buffer[idx + 0] = idx;
 		buffer[idx + 256] = idx;
@@ -1703,44 +1583,20 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	}
 	for (idx = 1; idx < SPARE_SIZE_L; idx++)
 		buffer[PAGE_SIZE_L + idx] = idx;
-	
-	pageno = 1000 * 64;
+
+	pageno = 4000 * 64;
 	nfc_ms_write_l(pageno, buffer);
-	pageno = 1000 * 64 + 1;
+
+	pageno = 4000 * 64 + 1;
 	nfc_ms_write_l(pageno, buffer);
-	
-	pageno = 1000 * 64 + 1;
-	memset(buffer, 0, PAGE_SIZE_L + SPARE_SIZE_L);
-	nfc_ms_read_l(pageno, buffer);
-	pageno = 1000 * 64;
+
+	pageno = 4000 * 64 + 1;
 	memset(buffer, 0, PAGE_SIZE_L + SPARE_SIZE_L);
 	nfc_ms_read_l(pageno, buffer);
 
-#if 0	
-	searchlen = sizeof(searchdata);
-	printk("searchlen = %d\n", searchlen);
-	for (pageno = 0; pageno < (2048 * 64); pageno++) {
-		memset(buffer, 0xff, PAGE_SIZE_L + SPARE_SIZE_L);
-		//printk(".");
-		nfc_ms_read_l(pageno, buffer);
-		/*if (pageno == 100) {
-			buffer[15] = 0x11;buffer[16] = 0x22;buffer[17] = 0xf3;
-		}
-		if (pageno == 131008) {
-			buffer[279] = 0x11;buffer[280] = 0x22;buffer[281] = 0xf3;
-		}*/
-		isfind = memlookfor(buffer, searchdata, searchlen);
-		if (isfind > 0) {
-			printk("\n\nIs finded! pageno = 0x%08x   idx = %d\n\nbuffer :\n", pageno, isfind);
-			for (idx = 0; idx < (PAGE_SIZE_L + SPARE_SIZE_L); idx++) {
-				if ((idx % 16) == 0)
-					printk("\n");				
-				printk("0x%02x,", buffer[idx]);
-			}
-			printk("\n\n");
-		}
-	}
-#endif
+	pageno = 4000 * 64;
+	memset(buffer, 0, PAGE_SIZE_L + SPARE_SIZE_L);
+	nfc_ms_read_l(pageno, buffer);*/
 	
 	printk("\nRun nand test is ended\n");	
 
@@ -1748,12 +1604,13 @@ static int sprd_nand_probe(struct platform_device *pdev)
 #endif
 
 	info = kmalloc(sizeof(*info), GFP_KERNEL);
-	//info->clk = clk_get(&pdev->dev, "nand"); /* nand clock */
-	//clk_enable(info->clk);
 
 	memset(info, 0 , sizeof(*info));
 	platform_set_drvdata(pdev, info);/* platform_device.device.driver_data IS info */
 	info->platform = plat; /* nand timing */
+	//info->clk = clk_get(&pdev->dev, "nand"); /* nand clock */
+	//clk_enable(info->clk);
+	info->pdev = pdev;
 
 	sprd_mtd = kmalloc(sizeof(struct mtd_info) + sizeof(struct nand_chip), GFP_KERNEL);
 	this = (struct nand_chip *)(&sprd_mtd[1]);
@@ -1769,12 +1626,10 @@ static int sprd_nand_probe(struct platform_device *pdev)
 		sprd_config_nand_pins16();
 		this->options |= NAND_BUSWIDTH_16;
 		g_buswidth = 1;
-		g_addr_cycle = 5;
-		//printk("is 16 Bit\n");	
+		g_addr_cycle = 5;	
 	} else {
 		g_buswidth = 0;
 		g_addr_cycle = 4;
-		//printk("is 8 Bit\n");
 	}
 	this->cmd_ctrl = sprd_nand_hwcontrol;
 	this->dev_ready = sprd_nand_devready;
@@ -1784,11 +1639,18 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	this->ecc.calculate = sprd_nand_calculate_ecc;
 	this->ecc.correct = sprd_nand_correct_data;
 	this->ecc.hwctl = sprd_nand_enable_hwecc;
+#ifdef USE_DMA_MODE
+	this->write_buf = sprd_nand_write_buf;
+	this->read_buf = sprd_nand_read_buf;
+	this->read_word = sprd_nand_read_word;
+	this->read_byte = sprd_nand_read_byte;
+	sprd_request_dma(DMA_NLC, sprd_nand_dma_irq, info);
+	init_waitqueue_head(&wait_queue);
+#endif
 	this->ecc.mode = NAND_ECC_HW;
 	this->ecc.size = 2048;//512;
 	this->ecc.bytes = 16;//3
 	this->chip_delay = 20;
-	this->IO_ADDR_W = this->IO_ADDR_R = io_wr_port;	
 	this->priv = info;
 	/* scan to find existance of the device */
 	nand_scan(sprd_mtd, 1);	
@@ -1817,7 +1679,6 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	cpufreq_register_notifier(&info->freq_transition, CPUFREQ_TRANSITION_NOTIFIER);
 	cpufreq_register_notifier(&info->freq_policy, CPUFREQ_POLICY_NOTIFIER);
 #endif
-
 	return 0;
 release:
 	nand_release(sprd_mtd);
@@ -1829,6 +1690,7 @@ static int sprd_nand_remove(struct platform_device *pdev)
 {
 	struct sprd_nand_info *info = platform_get_drvdata(pdev);
 
+	sprd_free_dma(DMA_NLC);
 	platform_set_drvdata(pdev, NULL);
 	if (info == NULL)
 		return 0;
@@ -1842,6 +1704,9 @@ static int sprd_nand_remove(struct platform_device *pdev)
 	del_mtd_device(sprd_mtd);
 	kfree(sprd_mtd);
 	//clk_disable(info->clk);
+#ifdef USE_DMA_MODE
+	sprd_free_dma(DMA_NLC);
+#endif
 	kfree(info);	
 
 	return 0;
@@ -1860,7 +1725,7 @@ static void set_nfm_voltage(nfm_voltage_e voltage)
  */
 static int nand_freq_transition(struct notifier_block *nb, unsigned long val, void *data)
 {
-	struct sprd_nand_info *info = container_of(nb, struct sprd_nand_info, freq_transition);
+	//struct sprd_nand_info *info = container_of(nb, struct sprd_nand_info, freq_transition);
 	struct cpufreq_freqs *freq = data;
 
 	if (min_freq > freq->old)
@@ -1881,13 +1746,13 @@ static int nand_freq_transition(struct notifier_block *nb, unsigned long val, vo
 			set_nfm_voltage(NFM_VOLTAGE_3000MV);
 		} else if (freq->old == max_freq) {
 			/* fastest -> slow, adjust NFC param */
-			set_nfc_param(0);
+			set_nfc_param(100);
 		}
 		break;
 
 	case CPUFREQ_POSTCHANGE:
 		if (freq->new == max_freq) {
-			set_nfc_param(80);
+			set_nfc_param(100);
 		} else if (freq->old == max_freq) {
 			set_nfm_voltage(NFM_VOLTAGE_2650MV);
 		}		
@@ -1900,7 +1765,7 @@ static int nand_freq_transition(struct notifier_block *nb, unsigned long val, vo
 
 static int nand_freq_policy(struct notifier_block *nb, unsigned long val, void *data)
 {
-	struct sprd_nand_info *info = container_of(nb, struct sprd_nand_info, freq_policy);
+	//struct sprd_nand_info *info = container_of(nb, struct sprd_nand_info, freq_policy);
 	struct cpufreq_policy *policy = data;
 
 	//printk("min = %d  max = %d\n", policy->min, policy->max);
