@@ -56,10 +56,10 @@
 #define NF_PARA_96M        	(0x7ac25)      //trwl = 2  trwh = 0
 #define NF_PARA_100M    	(0x7ad25)      //trwl = 2  trwh = 0
 #define NF_PARA_DEFAULT		(0x7ad77)
-//#define ORIGINAL_NAND_TIMING	(0x7bd07)
+#define ORIGINAL_NAND_TIMING	(0x7bd07)
 //#define ORIGINAL_NAND_TIMING	(0x7ad05)
 //#define ORIGINAL_NAND_TIMING	(0x5ad05)
-#define ORIGINAL_NAND_TIMING	(0x38d05)
+//#define ORIGINAL_NAND_TIMING	(0x38d05)
 #define NF_TIMEOUT_VAL 		(0x1000000)
 
 #define PAGE_SIZE_S         512
@@ -328,7 +328,7 @@ static void set_nfc_param(unsigned long ahb_clk)
         default:
 		ahb_clk = ahb_clk * 1000000;
 		tmp = (1000000000 >> 20) / (ahb_clk >> 20);
-        	cycle = 10/* 20 */ /* 50 */ / tmp;
+        	cycle = 50 / tmp; /* 10 */ /* 20 */ /* 50 */
 		REG_NFC_PARA = ORIGINAL_NAND_TIMING | (cycle << 4);
     	}
 
