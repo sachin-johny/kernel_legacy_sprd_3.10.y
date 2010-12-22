@@ -31,6 +31,7 @@
 #include <linux/mm.h>
 
 #include "sc8800g_rrm.h"
+#include "sc8800g_lcdc_manager.h"
 
 /* #define  RRM_DEBUG  */
 #ifdef RRM_DEBUG
@@ -205,6 +206,12 @@ int rrm_refresh(int id, void (*callback)(void* data), void *data)
 	unsigned long flags;
 	struct rr r = {callback, data};
 
+	/* acquire lcdc first */
+	if(lm_acquire(id)) {
+		printk(KERN_ERR "lm_acquire failed!\n");
+		return -1;
+	}
+
 	spin_lock_irqsave(&rrm.lock, flags);
 
 	if (rrm.frame_state == FS_BUSY) {
@@ -240,6 +247,10 @@ void rrm_interrupt(struct rrmanager *rrm)
 	for(i=0; i< rrm->layer_num; i++) {
 		RRM_PRINT("RRM[%s] callback[%d]:%x\n", __FUNCTION__,
 				i, rrm->exec->executing[i].callback);
+		/* FIXME: assume all requests have data */
+		if (rrm->exec->executing[i].data == NULL)
+			lm_release(i);
+
 		if (rrm->exec->executing[i].callback != NULL) {
 			rrm->exec->executing[i].callback(
 					rrm->exec->executing[i].data);
@@ -268,11 +279,15 @@ void rrm_interrupt(struct rrmanager *rrm)
 	}
 }
 
+/* TEMP */
+extern int enable_layer(int id);
+extern int disable_layer(int id);
+
 int rrm_layer_init(int id, int buf_num, void (*set_layer)(void *data))
 {
 	unsigned long flags;
 
-	if(id >= LID_MAX)
+	if(id >= LID_OSD2) /* FIXME: hardcoded layer usage */
 		return -1;
 
 	if (rrm.que == NULL) {
@@ -282,6 +297,12 @@ int rrm_layer_init(int id, int buf_num, void (*set_layer)(void *data))
 
 	spin_lock_irqsave(&rrm.lock, flags);
 
+	if (lm_register_layer(id, LMODE_DISPLAY, enable_layer, disable_layer)){
+		printk(KERN_ERR "lm_regsiter_layer failed!\n");
+		return -1;
+	}
+	lm_enable_layer(id);
+
 	if (rrm.que[id] != NULL)
 		rrq_release(rrm.que[id]);
 
@@ -289,12 +310,19 @@ int rrm_layer_init(int id, int buf_num, void (*set_layer)(void *data))
 
 	rrm.exec->set_layer[id] = set_layer;
 
+	spin_unlock_irqrestore(&rrm.lock, flags);
+
 	return 0;
 }
 EXPORT_SYMBOL(rrm_layer_init);
 
 int rrm_layer_exit(int id)
 {
+	lm_disable_layer(id);
+	if (lm_unregister_layer(id)){
+		printk(KERN_ERR "lm_regsiter_layer failed!\n");
+		return -1;
+	}
 	return 0;
 }
 EXPORT_SYMBOL(rrm_layer_exit);
@@ -304,7 +332,7 @@ struct rrmanager* rrm_init(void (*hw_refresh)(void *p), void *para)
         int i;
 
         rrm.frame_state = FS_IDLE;
-        rrm.layer_num = LID_MAX;
+        rrm.layer_num = LID_OSD2; /* FIXME: hardcoded layer usage */
 
         if (rrm.que == NULL)
                 rrm.que = kzalloc(sizeof(void*) * rrm.layer_num, GFP_KERNEL);

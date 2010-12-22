@@ -6,6 +6,6 @@
 
 #obj-$(CONFIG_MACH_BIGPHONE) := sc8800s_lcm0_fb.o
 #obj-$(CONFIG_MACH_BIGPHONE) += sc8800s_lcd_r61581.o
-obj-y:= sc8800g_fb.o sc8800g_rrm.o
+obj-y:= sc8800g_fb.o sc8800g_rrm.o sc8800g_lcdc_manager.o
 obj-$(CONFIG_MACH_G2PHONE)+=sc8800g_lcd_ili9328.o
 obj-$(CONFIG_MACH_OPENPHONE)+=sc8800g_lcd_hx8357.o

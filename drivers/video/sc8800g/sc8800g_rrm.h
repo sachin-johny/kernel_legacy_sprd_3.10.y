@@ -22,11 +22,6 @@
 #include <linux/semaphore.h>
 #include <linux/spinlock.h>
 
-#define LID_VIDEO 0
-#define LID_FB    1
-#define LID_MAX   2
-
-
 /* 
  * refresh request data structures 
  */
