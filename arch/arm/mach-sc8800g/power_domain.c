@@ -1,5 +1,13 @@
-
-
+/*
+ *    Copyright (C)  2010 Spreadtrum Inc.
+ *
+ *    power domain framework for SC8800G2.
+ *
+ *    Wang Liwei.   <levee.wang@spreadtrum.com>
+ *
+ *
+ *
+ */
 
 
 #include <linux/kernel.h>

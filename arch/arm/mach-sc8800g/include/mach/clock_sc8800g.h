@@ -1,9 +1,10 @@
 /*
- *
- *
- *
- *
- */
+  *  Copyright (C) 2010 Spreadtrum Inc.
+  *
+  *   Wang Liwei.  <levee.wang@spreadtrum.com>
+  *
+  *
+  */
 
 #ifndef __ARCH_ARM_SC8800G2_CLOCK_SC8800G2_H
 #define __ARCH_ARM_SC8800G2_CLOCK_SC8800G2_H
@@ -21,7 +22,3 @@ int sc88xx_clksel_rournd_rate_clkr(struct clk *clk, unsigned long target_rate,
 					const struct clksel_rate **clkrp, u32 *valid_rate);
 long sc88xx_clksel_round_rate(struct clk *clk, unsigned long target_rate);
 #endif
-
-
-
-

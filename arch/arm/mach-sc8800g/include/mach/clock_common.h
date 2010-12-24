@@ -31,26 +31,64 @@
 #define 	GEN5		GR_CLK_GEN5
 #define		PLLMN_CTRL	GR_MPLL_MN
 #define		CLK_DLY		GR_CLK_DLY
-#define		PCTL		GR_PCTL
+#define		PCTRL		GR_PCTL
 #define		CLK_EN		GR_CLK_EN
 //#define		AHB_CTL0	AHB_CTL0
 
 
 /* clock enable bit. */
 #define		CCIR_MCLK_EN_SHIFT	14
+#define		CLK_CCIR_EN_SHIFT	2
 #define		CLK_DCAM_EN_SHIFT	1
-#define		CLK_VSP_EN_SHIFT	0
+#define		CLK_VSP_EN_SHIFT	13
+#define		CLK_LCDC_EN_SHIFT	3
+#define		CLK_SDIO_EN_SHIFT	4
+#define		CLK_UART0_EN_SHIFT	20
+#define		CLK_UART1_EN_SHIFT	21
+#define		CLK_UART2_EN_SHIFT	22
+#define		CLK_SPI_EN_SHIFT	17
+#define		CLK_IIS_EN_SHIFT	12
+#define		CLK_ADI_M_EN_SHIFT	29
+#define		CLK_AUX0_EN_SHIFT	10
+#define		CLK_AUX1_EN_SHIFT	11
+#define		CLK_PWM0_EN_SHIFT	21
+#define		CLK_PWM1_EN_SHIFT	22
+#define		CLK_PWM2_EN_SHIFT	23
+#define		CLK_PWM3_EN_SHIFT	24
+#define		CLK_USB_REF_EN_SHIFT	5
+
 
 /* clock source mask. */
 #define		CCIR_MCLK_CLKSEL_MASK 	(0x3UL << 18)
 #define		CLK_DCAM_CLKSEL_MASK 	(0x3UL << 4)
 #define		CLK_VSP_CLKSEL_MASK 	(0x3UL << 2)
-
-
+#define		CLK_LCDC_CLKSEL_MASK 	(0x3UL << 6)
+#define		CLK_SDIO_CLKSEL_MASK 	(0x3UL << 17)
+#define		CLK_UART0_CLKSEL_MASK 	(0x3UL << 20)
+#define		CLK_UART1_CLKSEL_MASK 	(0x3UL << 22)
+#define		CLK_UART2_CLKSEL_MASK 	(0x3UL << 24)
+#define		CLK_SPI_CLKSEL_MASK 	(0x3UL << 26)
+#define		CLK_IIS_CLKSEL_MASK 	(0x3UL << 8)
+#define		CLK_ADI_M_CLKSEL_MASK 	(0x1UL << 28)
+#define		CLK_AUX0_CLKSEL_MASK 	(0x3UL << 10)
+#define		CLK_AUX1_CLKSEL_MASK 	(0x3UL << 12)
+#define		CLK_PWM0_CLKSEL_MASK 	(0x1UL << 25)
+#define		CLK_PWM1_CLKSEL_MASK 	(0x1UL << 26)
+#define		CLK_PWM2_CLKSEL_MASK 	(0x1UL << 27)
+#define		CLK_PWM3_CLKSEL_MASK 	(0x1UL << 28)
+#define		CLK_USB_REF_CLKSEL_MASK 	(0x1UL << 0)
 
 
 /* clock divisor mask */
 #define		CCIR_MCLK_CLKDIV_MASK	(0x3UL << 24)
+#define		CLK_LCDC_CLKDIV_MASK	(0x7UL << 0)
+#define		CLK_UART0_CLKDIV_MASK	(0x7UL << 0)
+#define		CLK_UART1_CLKDIV_MASK	(0x7UL << 3)
+#define		CLK_UART2_CLKDIV_MASK	(0x7UL << 6)
+#define		CLK_SPI_CLKDIV_MASK		(0x7UL << 21)
+#define		CLK_IIS_CLKDIV_MASK		(0x7UL << 24)
+#define		CLK_AUX0_CLKDIV_MASK	(0x3fUL << 0)
+#define		CLK_AUX1_CLKDIV_MASK	(0x3fUL << 22)
 
 
 

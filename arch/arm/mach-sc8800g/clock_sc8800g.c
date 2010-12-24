@@ -26,7 +26,6 @@
 #include <mach/regs_ahb.h>
 
 
-
 struct sc88xx_clk {
 	u32 cpu;
 	struct clk_lookup lk;
@@ -124,6 +123,15 @@ static struct clk ext_26m = {
 	.name = "ext_26m",
 	.ops = &clkops_null,
 	.rate = 26000000,
+	.flags = RATE_FIXED,
+	.clkdm_name = "ext_clkdm",
+};
+
+static struct clk iis_pad = {
+	.name = "iis_pad",
+	.ops = &clkops_null,
+	.rate = 0,
+	.set_rate = NULL,
 	.flags = RATE_FIXED,
 	.clkdm_name = "ext_clkdm",
 };
@@ -290,7 +298,7 @@ static struct clk clk_6m500k = {
 
 
 /* for source-selectable clock. */
-static const struct clksel_rate ccir_mclk_rates_clk_48m[] = {
+static const struct clksel_rate rates_clk_48m_4div[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
 		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
@@ -298,7 +306,7 @@ static const struct clksel_rate ccir_mclk_rates_clk_48m[] = {
 		{.div = 0},
 };
 
-static const struct clksel_rate ccir_mclk_rates_clk_76m800k[] = {
+static const struct clksel_rate rates_clk_76m800k_4div[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
 		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
@@ -306,7 +314,7 @@ static const struct clksel_rate ccir_mclk_rates_clk_76m800k[] = {
 		{.div = 0},
 };
 
-static const struct clksel_rate ccir_mclk_rates_ext_26m[] = {
+static const struct clksel_rate rates_ext_26m_4div[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
 		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
@@ -315,10 +323,10 @@ static const struct clksel_rate ccir_mclk_rates_ext_26m[] = {
 };
 
 static const struct clksel ccir_mclk_clksel[] = {
-		{.parent = &clk_48m,		.val = 0,	.rates = ccir_mclk_rates_clk_48m},
-		{.parent = &clk_76m800k,	.val = 1,	.rates = ccir_mclk_rates_clk_76m800k},
-		{.parent = &ext_26m,		.val = 2,	.rates = ccir_mclk_rates_ext_26m},
-		{.parent = &ext_26m,		.val = 3,	.rates = ccir_mclk_rates_ext_26m},
+		{.parent = &clk_48m,		.val = 0,	.rates = rates_clk_48m_4div},
+		{.parent = &clk_76m800k,	.val = 1,	.rates = rates_clk_76m800k_4div},
+		{.parent = &ext_26m,		.val = 2,	.rates = rates_ext_26m_4div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_ext_26m_4div},
 		{.parent = NULL}
 };
 
@@ -351,34 +359,64 @@ static struct clk clk_ccir = {
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = NULL,
 	.clkdm_name = "top_module",
+
+	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_bit = CLK_CCIR_EN_SHIFT,
 };
 
 
-static const struct clksel_rate clk_dcam_rates_clk_96m[] = {
+static const struct clksel_rate rates_clk_96m_nodiv[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 0},
 };
 
-static const struct clksel_rate clk_dcam_rates_clk_64m[] = {
+static const struct clksel_rate rates_clk_76m800k_nodiv[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 0},
 };
 
-static const struct clksel_rate clk_dcam_rates_clk_48m[] = {
+static const struct clksel_rate rates_clk_64m_nodiv[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 0},
 };
 
-static const struct clksel_rate clk_dcam_rates_clk_26m[] = {
+static const struct clksel_rate rates_clk_51m200k_nodiv[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 0},
 };
+
+
+static const struct clksel_rate rates_clk_48m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_26m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_24m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_12m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_32k_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
 
 static const struct clksel clk_dcam_clksel[] = {
-		{.parent = &clk_96m,		.val = 0,	.rates = clk_dcam_rates_clk_96m},
-		{.parent = &clk_64m,		.val = 1,	.rates = clk_dcam_rates_clk_64m},
-		{.parent = &clk_48m,		.val = 2,	.rates = clk_dcam_rates_clk_48m},
-		{.parent = &ext_26m,		.val = 3,	.rates = clk_dcam_rates_clk_26m},
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
+		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_64m_nodiv},
+		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_nodiv},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_nodiv},
 		{.parent = NULL}
 };
 
@@ -409,10 +447,10 @@ static struct clk clk_dcam = {
 };
 
 static const struct clksel clk_vsp_clksel[] = {
-		{.parent = &clk_96m,		.val = 0,	.rates = clk_dcam_rates_clk_96m},
-		{.parent = &clk_64m,		.val = 1,	.rates = clk_dcam_rates_clk_64m},
-		{.parent = &clk_48m,		.val = 2,	.rates = clk_dcam_rates_clk_48m},
-		{.parent = &ext_26m,		.val = 3,	.rates = clk_dcam_rates_clk_26m},
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
+		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_64m_nodiv},
+		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_nodiv},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_nodiv},
 		{.parent = NULL}
 };
 
@@ -430,7 +468,7 @@ static struct clk clk_vsp = {
 
 	.round_rate = &sc88xx_clksel_round_rate,
 
-	.clksel = clk_dcam_clksel,
+	.clksel = clk_vsp_clksel,
 	.clksel_reg = IOMEM(PLL_SCR),
 	.clksel_mask = CLK_VSP_CLKSEL_MASK,
 
@@ -441,6 +479,896 @@ static struct clk clk_vsp = {
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
+
+static const struct clksel_rate rates_clk_192m_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_153m600k_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_128m_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+
+static const struct clksel_rate rates_clk_96m_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_64m_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_51m200k_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_48m_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_26m_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_12m_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_iis_clk_pad_8div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel clk_lcdc_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_8div},
+		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_64m_8div},
+		{.parent = &clk_12m,		.val = 2,	.rates = rates_clk_12m_8div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_lcdc = {
+	.name = "clk_lcdc",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_lcdc_clksel,
+	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_mask = CLK_LCDC_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_bit = CLK_LCDC_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(GEN4),
+	.clkdiv_mask = CLK_LCDC_CLKDIV_MASK,
+};
+
+static const struct clksel clk_sdio_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
+		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_64m_nodiv},
+		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_nodiv},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_sdio = {
+	.name = "clk_sdio",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_sdio_clksel,
+	.clksel_reg = IOMEM(GEN5),
+	.clksel_mask = CLK_SDIO_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_bit = CLK_SDIO_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
+
+static const struct clksel clk_uart0_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_8div},
+		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_51m200k_8div},
+		{.parent = &clk_12m,		.val = 2,	.rates = rates_clk_48m_8div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_uart0 = {
+	.name = "clk_uart0",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_uart0_clksel,
+	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_mask = CLK_UART0_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(GEN0),
+	.enable_bit = CLK_UART0_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(GEN5),
+	.clkdiv_mask = CLK_UART0_CLKDIV_MASK,
+};
+
+static const struct clksel clk_uart1_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_8div},
+		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_51m200k_8div},
+		{.parent = &clk_12m,		.val = 2,	.rates = rates_clk_48m_8div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_uart1 = {
+	.name = "clk_uart1",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_uart1_clksel,
+	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_mask = CLK_UART1_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(GEN0),
+	.enable_bit = CLK_UART1_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(GEN5),
+	.clkdiv_mask = CLK_UART1_CLKDIV_MASK,
+};
+
+static const struct clksel clk_uart2_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_8div},
+		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_51m200k_8div},
+		{.parent = &clk_12m,		.val = 2,	.rates = rates_clk_48m_8div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_uart2 = {
+	.name = "clk_uart2",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_uart2_clksel,
+	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_mask = CLK_UART2_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(GEN0),
+	.enable_bit = CLK_UART2_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(GEN5),
+	.clkdiv_mask = CLK_UART2_CLKDIV_MASK,
+};
+
+
+static const struct clksel clk_spi_clksel[] = {
+		{.parent = &l3_192m,		.val = 0,	.rates = rates_clk_192m_8div},
+		{.parent = &l3_153m600k,	.val = 1,	.rates = rates_clk_153m600k_8div},
+		{.parent = &clk_96m,		.val = 2,	.rates = rates_clk_96m_8div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_spi = {
+	.name = "clk_spi",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &l3_192m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_spi_clksel,
+	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_mask = CLK_SPI_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(GEN0),
+	.enable_bit = CLK_SPI_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(GEN2),
+	.clkdiv_mask = CLK_SPI_CLKDIV_MASK,
+};
+
+
+static const struct clksel clk_iis_clksel[] = {
+		{.parent = &clk_128m,		.val = 0,	.rates = rates_clk_128m_8div},
+		{.parent = &clk_51m200k,	.val = 1,	.rates = rates_clk_51m200k_8div},
+		{.parent = &iis_pad,		.val = 2,	.rates = rates_clk_iis_clk_pad_8div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_iis = {
+	.name = "clk_iis",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_128m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_iis_clksel,
+	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_mask = CLK_IIS_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(GEN0),
+	.enable_bit = CLK_IIS_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(GEN2),
+	.clkdiv_mask = CLK_IIS_CLKDIV_MASK,
+};
+
+static const struct clksel clk_adi_m_clksel[] = {
+		{.parent = &clk_76m800k,		.val = 0,	.rates = rates_clk_76m800k_nodiv},
+		{.parent = &clk_51m200k,		.val = 1,	.rates = rates_clk_51m200k_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_adi_m = {
+	.name = "clk_adi_m",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_adi_m_clksel,
+	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_mask = CLK_ADI_M_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(CLK_DLY),
+	.enable_bit = CLK_ADI_M_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
+
+static const struct clksel_rate rates_clk_96m_64div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 9, .val = 8, .flags = RATE_IN_SC8800G2},
+		{.div = 10, .val = 9, .flags = RATE_IN_SC8800G2},
+		{.div = 11, .val = 10, .flags = RATE_IN_SC8800G2},
+		{.div = 12, .val = 11, .flags = RATE_IN_SC8800G2},
+		{.div = 13, .val = 12, .flags = RATE_IN_SC8800G2},
+		{.div = 14, .val = 13, .flags = RATE_IN_SC8800G2},
+		{.div = 15, .val = 14, .flags = RATE_IN_SC8800G2},
+		{.div = 16, .val = 15, .flags = RATE_IN_SC8800G2},
+		{.div = 17, .val = 16, .flags = RATE_IN_SC8800G2},
+		{.div = 18, .val = 17, .flags = RATE_IN_SC8800G2},
+		{.div = 19, .val = 18, .flags = RATE_IN_SC8800G2},
+		{.div = 20, .val = 19, .flags = RATE_IN_SC8800G2},
+		{.div = 21, .val = 20, .flags = RATE_IN_SC8800G2},
+		{.div = 22, .val = 21, .flags = RATE_IN_SC8800G2},
+		{.div = 23, .val = 22, .flags = RATE_IN_SC8800G2},
+		{.div = 24, .val = 23, .flags = RATE_IN_SC8800G2},
+		{.div = 25, .val = 24, .flags = RATE_IN_SC8800G2},
+		{.div = 26, .val = 25, .flags = RATE_IN_SC8800G2},
+		{.div = 27, .val = 26, .flags = RATE_IN_SC8800G2},
+		{.div = 28, .val = 27, .flags = RATE_IN_SC8800G2},
+		{.div = 29, .val = 28, .flags = RATE_IN_SC8800G2},
+		{.div = 30, .val = 29, .flags = RATE_IN_SC8800G2},
+		{.div = 31, .val = 30, .flags = RATE_IN_SC8800G2},
+		{.div = 32, .val = 31, .flags = RATE_IN_SC8800G2},
+		{.div = 33, .val = 32, .flags = RATE_IN_SC8800G2},
+		{.div = 34, .val = 33, .flags = RATE_IN_SC8800G2},
+		{.div = 35, .val = 34, .flags = RATE_IN_SC8800G2},
+		{.div = 36, .val = 35, .flags = RATE_IN_SC8800G2},
+		{.div = 37, .val = 36, .flags = RATE_IN_SC8800G2},
+		{.div = 38, .val = 37, .flags = RATE_IN_SC8800G2},
+		{.div = 39, .val = 38, .flags = RATE_IN_SC8800G2},
+		{.div = 40, .val = 39, .flags = RATE_IN_SC8800G2},
+		{.div = 41, .val = 40, .flags = RATE_IN_SC8800G2},
+		{.div = 42, .val = 41, .flags = RATE_IN_SC8800G2},
+		{.div = 43, .val = 42, .flags = RATE_IN_SC8800G2},
+		{.div = 44, .val = 43, .flags = RATE_IN_SC8800G2},
+		{.div = 45, .val = 44, .flags = RATE_IN_SC8800G2},
+		{.div = 46, .val = 45, .flags = RATE_IN_SC8800G2},
+		{.div = 47, .val = 46, .flags = RATE_IN_SC8800G2},
+		{.div = 48, .val = 47, .flags = RATE_IN_SC8800G2},
+		{.div = 49, .val = 48, .flags = RATE_IN_SC8800G2},
+		{.div = 50, .val = 49, .flags = RATE_IN_SC8800G2},
+		{.div = 51, .val = 50, .flags = RATE_IN_SC8800G2},
+		{.div = 52, .val = 51, .flags = RATE_IN_SC8800G2},
+		{.div = 53, .val = 52, .flags = RATE_IN_SC8800G2},
+		{.div = 54, .val = 53, .flags = RATE_IN_SC8800G2},
+		{.div = 55, .val = 54, .flags = RATE_IN_SC8800G2},
+		{.div = 56, .val = 55, .flags = RATE_IN_SC8800G2},
+		{.div = 57, .val = 56, .flags = RATE_IN_SC8800G2},
+		{.div = 58, .val = 57, .flags = RATE_IN_SC8800G2},
+		{.div = 59, .val = 58, .flags = RATE_IN_SC8800G2},
+		{.div = 60, .val = 59, .flags = RATE_IN_SC8800G2},
+		{.div = 61, .val = 60, .flags = RATE_IN_SC8800G2},
+		{.div = 62, .val = 61, .flags = RATE_IN_SC8800G2},
+		{.div = 63, .val = 62, .flags = RATE_IN_SC8800G2},
+		{.div = 64, .val = 63, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_76m800k_64div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 9, .val = 8, .flags = RATE_IN_SC8800G2},
+		{.div = 10, .val = 9, .flags = RATE_IN_SC8800G2},
+		{.div = 11, .val = 10, .flags = RATE_IN_SC8800G2},
+		{.div = 12, .val = 11, .flags = RATE_IN_SC8800G2},
+		{.div = 13, .val = 12, .flags = RATE_IN_SC8800G2},
+		{.div = 14, .val = 13, .flags = RATE_IN_SC8800G2},
+		{.div = 15, .val = 14, .flags = RATE_IN_SC8800G2},
+		{.div = 16, .val = 15, .flags = RATE_IN_SC8800G2},
+		{.div = 17, .val = 16, .flags = RATE_IN_SC8800G2},
+		{.div = 18, .val = 17, .flags = RATE_IN_SC8800G2},
+		{.div = 19, .val = 18, .flags = RATE_IN_SC8800G2},
+		{.div = 20, .val = 19, .flags = RATE_IN_SC8800G2},
+		{.div = 21, .val = 20, .flags = RATE_IN_SC8800G2},
+		{.div = 22, .val = 21, .flags = RATE_IN_SC8800G2},
+		{.div = 23, .val = 22, .flags = RATE_IN_SC8800G2},
+		{.div = 24, .val = 23, .flags = RATE_IN_SC8800G2},
+		{.div = 25, .val = 24, .flags = RATE_IN_SC8800G2},
+		{.div = 26, .val = 25, .flags = RATE_IN_SC8800G2},
+		{.div = 27, .val = 26, .flags = RATE_IN_SC8800G2},
+		{.div = 28, .val = 27, .flags = RATE_IN_SC8800G2},
+		{.div = 29, .val = 28, .flags = RATE_IN_SC8800G2},
+		{.div = 30, .val = 29, .flags = RATE_IN_SC8800G2},
+		{.div = 31, .val = 30, .flags = RATE_IN_SC8800G2},
+		{.div = 32, .val = 31, .flags = RATE_IN_SC8800G2},
+		{.div = 33, .val = 32, .flags = RATE_IN_SC8800G2},
+		{.div = 34, .val = 33, .flags = RATE_IN_SC8800G2},
+		{.div = 35, .val = 34, .flags = RATE_IN_SC8800G2},
+		{.div = 36, .val = 35, .flags = RATE_IN_SC8800G2},
+		{.div = 37, .val = 36, .flags = RATE_IN_SC8800G2},
+		{.div = 38, .val = 37, .flags = RATE_IN_SC8800G2},
+		{.div = 39, .val = 38, .flags = RATE_IN_SC8800G2},
+		{.div = 40, .val = 39, .flags = RATE_IN_SC8800G2},
+		{.div = 41, .val = 40, .flags = RATE_IN_SC8800G2},
+		{.div = 42, .val = 41, .flags = RATE_IN_SC8800G2},
+		{.div = 43, .val = 42, .flags = RATE_IN_SC8800G2},
+		{.div = 44, .val = 43, .flags = RATE_IN_SC8800G2},
+		{.div = 45, .val = 44, .flags = RATE_IN_SC8800G2},
+		{.div = 46, .val = 45, .flags = RATE_IN_SC8800G2},
+		{.div = 47, .val = 46, .flags = RATE_IN_SC8800G2},
+		{.div = 48, .val = 47, .flags = RATE_IN_SC8800G2},
+		{.div = 49, .val = 48, .flags = RATE_IN_SC8800G2},
+		{.div = 50, .val = 49, .flags = RATE_IN_SC8800G2},
+		{.div = 51, .val = 50, .flags = RATE_IN_SC8800G2},
+		{.div = 52, .val = 51, .flags = RATE_IN_SC8800G2},
+		{.div = 53, .val = 52, .flags = RATE_IN_SC8800G2},
+		{.div = 54, .val = 53, .flags = RATE_IN_SC8800G2},
+		{.div = 55, .val = 54, .flags = RATE_IN_SC8800G2},
+		{.div = 56, .val = 55, .flags = RATE_IN_SC8800G2},
+		{.div = 57, .val = 56, .flags = RATE_IN_SC8800G2},
+		{.div = 58, .val = 57, .flags = RATE_IN_SC8800G2},
+		{.div = 59, .val = 58, .flags = RATE_IN_SC8800G2},
+		{.div = 60, .val = 59, .flags = RATE_IN_SC8800G2},
+		{.div = 61, .val = 60, .flags = RATE_IN_SC8800G2},
+		{.div = 62, .val = 61, .flags = RATE_IN_SC8800G2},
+		{.div = 63, .val = 62, .flags = RATE_IN_SC8800G2},
+		{.div = 64, .val = 63, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_32k_64div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 9, .val = 8, .flags = RATE_IN_SC8800G2},
+		{.div = 10, .val = 9, .flags = RATE_IN_SC8800G2},
+		{.div = 11, .val = 10, .flags = RATE_IN_SC8800G2},
+		{.div = 12, .val = 11, .flags = RATE_IN_SC8800G2},
+		{.div = 13, .val = 12, .flags = RATE_IN_SC8800G2},
+		{.div = 14, .val = 13, .flags = RATE_IN_SC8800G2},
+		{.div = 15, .val = 14, .flags = RATE_IN_SC8800G2},
+		{.div = 16, .val = 15, .flags = RATE_IN_SC8800G2},
+		{.div = 17, .val = 16, .flags = RATE_IN_SC8800G2},
+		{.div = 18, .val = 17, .flags = RATE_IN_SC8800G2},
+		{.div = 19, .val = 18, .flags = RATE_IN_SC8800G2},
+		{.div = 20, .val = 19, .flags = RATE_IN_SC8800G2},
+		{.div = 21, .val = 20, .flags = RATE_IN_SC8800G2},
+		{.div = 22, .val = 21, .flags = RATE_IN_SC8800G2},
+		{.div = 23, .val = 22, .flags = RATE_IN_SC8800G2},
+		{.div = 24, .val = 23, .flags = RATE_IN_SC8800G2},
+		{.div = 25, .val = 24, .flags = RATE_IN_SC8800G2},
+		{.div = 26, .val = 25, .flags = RATE_IN_SC8800G2},
+		{.div = 27, .val = 26, .flags = RATE_IN_SC8800G2},
+		{.div = 28, .val = 27, .flags = RATE_IN_SC8800G2},
+		{.div = 29, .val = 28, .flags = RATE_IN_SC8800G2},
+		{.div = 30, .val = 29, .flags = RATE_IN_SC8800G2},
+		{.div = 31, .val = 30, .flags = RATE_IN_SC8800G2},
+		{.div = 32, .val = 31, .flags = RATE_IN_SC8800G2},
+		{.div = 33, .val = 32, .flags = RATE_IN_SC8800G2},
+		{.div = 34, .val = 33, .flags = RATE_IN_SC8800G2},
+		{.div = 35, .val = 34, .flags = RATE_IN_SC8800G2},
+		{.div = 36, .val = 35, .flags = RATE_IN_SC8800G2},
+		{.div = 37, .val = 36, .flags = RATE_IN_SC8800G2},
+		{.div = 38, .val = 37, .flags = RATE_IN_SC8800G2},
+		{.div = 39, .val = 38, .flags = RATE_IN_SC8800G2},
+		{.div = 40, .val = 39, .flags = RATE_IN_SC8800G2},
+		{.div = 41, .val = 40, .flags = RATE_IN_SC8800G2},
+		{.div = 42, .val = 41, .flags = RATE_IN_SC8800G2},
+		{.div = 43, .val = 42, .flags = RATE_IN_SC8800G2},
+		{.div = 44, .val = 43, .flags = RATE_IN_SC8800G2},
+		{.div = 45, .val = 44, .flags = RATE_IN_SC8800G2},
+		{.div = 46, .val = 45, .flags = RATE_IN_SC8800G2},
+		{.div = 47, .val = 46, .flags = RATE_IN_SC8800G2},
+		{.div = 48, .val = 47, .flags = RATE_IN_SC8800G2},
+		{.div = 49, .val = 48, .flags = RATE_IN_SC8800G2},
+		{.div = 50, .val = 49, .flags = RATE_IN_SC8800G2},
+		{.div = 51, .val = 50, .flags = RATE_IN_SC8800G2},
+		{.div = 52, .val = 51, .flags = RATE_IN_SC8800G2},
+		{.div = 53, .val = 52, .flags = RATE_IN_SC8800G2},
+		{.div = 54, .val = 53, .flags = RATE_IN_SC8800G2},
+		{.div = 55, .val = 54, .flags = RATE_IN_SC8800G2},
+		{.div = 56, .val = 55, .flags = RATE_IN_SC8800G2},
+		{.div = 57, .val = 56, .flags = RATE_IN_SC8800G2},
+		{.div = 58, .val = 57, .flags = RATE_IN_SC8800G2},
+		{.div = 59, .val = 58, .flags = RATE_IN_SC8800G2},
+		{.div = 60, .val = 59, .flags = RATE_IN_SC8800G2},
+		{.div = 61, .val = 60, .flags = RATE_IN_SC8800G2},
+		{.div = 62, .val = 61, .flags = RATE_IN_SC8800G2},
+		{.div = 63, .val = 62, .flags = RATE_IN_SC8800G2},
+		{.div = 64, .val = 63, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_26m_64div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 5, .val = 4, .flags = RATE_IN_SC8800G2},
+		{.div = 6, .val = 5, .flags = RATE_IN_SC8800G2},
+		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
+		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
+		{.div = 9, .val = 8, .flags = RATE_IN_SC8800G2},
+		{.div = 10, .val = 9, .flags = RATE_IN_SC8800G2},
+		{.div = 11, .val = 10, .flags = RATE_IN_SC8800G2},
+		{.div = 12, .val = 11, .flags = RATE_IN_SC8800G2},
+		{.div = 13, .val = 12, .flags = RATE_IN_SC8800G2},
+		{.div = 14, .val = 13, .flags = RATE_IN_SC8800G2},
+		{.div = 15, .val = 14, .flags = RATE_IN_SC8800G2},
+		{.div = 16, .val = 15, .flags = RATE_IN_SC8800G2},
+		{.div = 17, .val = 16, .flags = RATE_IN_SC8800G2},
+		{.div = 18, .val = 17, .flags = RATE_IN_SC8800G2},
+		{.div = 19, .val = 18, .flags = RATE_IN_SC8800G2},
+		{.div = 20, .val = 19, .flags = RATE_IN_SC8800G2},
+		{.div = 21, .val = 20, .flags = RATE_IN_SC8800G2},
+		{.div = 22, .val = 21, .flags = RATE_IN_SC8800G2},
+		{.div = 23, .val = 22, .flags = RATE_IN_SC8800G2},
+		{.div = 24, .val = 23, .flags = RATE_IN_SC8800G2},
+		{.div = 25, .val = 24, .flags = RATE_IN_SC8800G2},
+		{.div = 26, .val = 25, .flags = RATE_IN_SC8800G2},
+		{.div = 27, .val = 26, .flags = RATE_IN_SC8800G2},
+		{.div = 28, .val = 27, .flags = RATE_IN_SC8800G2},
+		{.div = 29, .val = 28, .flags = RATE_IN_SC8800G2},
+		{.div = 30, .val = 29, .flags = RATE_IN_SC8800G2},
+		{.div = 31, .val = 30, .flags = RATE_IN_SC8800G2},
+		{.div = 32, .val = 31, .flags = RATE_IN_SC8800G2},
+		{.div = 33, .val = 32, .flags = RATE_IN_SC8800G2},
+		{.div = 34, .val = 33, .flags = RATE_IN_SC8800G2},
+		{.div = 35, .val = 34, .flags = RATE_IN_SC8800G2},
+		{.div = 36, .val = 35, .flags = RATE_IN_SC8800G2},
+		{.div = 37, .val = 36, .flags = RATE_IN_SC8800G2},
+		{.div = 38, .val = 37, .flags = RATE_IN_SC8800G2},
+		{.div = 39, .val = 38, .flags = RATE_IN_SC8800G2},
+		{.div = 40, .val = 39, .flags = RATE_IN_SC8800G2},
+		{.div = 41, .val = 40, .flags = RATE_IN_SC8800G2},
+		{.div = 42, .val = 41, .flags = RATE_IN_SC8800G2},
+		{.div = 43, .val = 42, .flags = RATE_IN_SC8800G2},
+		{.div = 44, .val = 43, .flags = RATE_IN_SC8800G2},
+		{.div = 45, .val = 44, .flags = RATE_IN_SC8800G2},
+		{.div = 46, .val = 45, .flags = RATE_IN_SC8800G2},
+		{.div = 47, .val = 46, .flags = RATE_IN_SC8800G2},
+		{.div = 48, .val = 47, .flags = RATE_IN_SC8800G2},
+		{.div = 49, .val = 48, .flags = RATE_IN_SC8800G2},
+		{.div = 50, .val = 49, .flags = RATE_IN_SC8800G2},
+		{.div = 51, .val = 50, .flags = RATE_IN_SC8800G2},
+		{.div = 52, .val = 51, .flags = RATE_IN_SC8800G2},
+		{.div = 53, .val = 52, .flags = RATE_IN_SC8800G2},
+		{.div = 54, .val = 53, .flags = RATE_IN_SC8800G2},
+		{.div = 55, .val = 54, .flags = RATE_IN_SC8800G2},
+		{.div = 56, .val = 55, .flags = RATE_IN_SC8800G2},
+		{.div = 57, .val = 56, .flags = RATE_IN_SC8800G2},
+		{.div = 58, .val = 57, .flags = RATE_IN_SC8800G2},
+		{.div = 59, .val = 58, .flags = RATE_IN_SC8800G2},
+		{.div = 60, .val = 59, .flags = RATE_IN_SC8800G2},
+		{.div = 61, .val = 60, .flags = RATE_IN_SC8800G2},
+		{.div = 62, .val = 61, .flags = RATE_IN_SC8800G2},
+		{.div = 63, .val = 62, .flags = RATE_IN_SC8800G2},
+		{.div = 64, .val = 63, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel clk_aux0_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_64div},
+		{.parent = &clk_76m800k,	.val = 1,	.rates = rates_clk_76m800k_64div},
+		{.parent = &ext_32k,		.val = 2,	.rates = rates_clk_32k_64div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_64div},
+		{.parent = NULL}
+};
+
+static struct clk clk_aux0 = {
+	.name = "clk_aux0",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_128m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_aux0_clksel,
+	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_mask = CLK_AUX0_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(GEN1),
+	.enable_bit = CLK_AUX0_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(GEN1),
+	.clkdiv_mask = CLK_AUX0_CLKDIV_MASK,
+};
+
+
+static const struct clksel clk_aux1_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_64div},
+		{.parent = &clk_76m800k,	.val = 1,	.rates = rates_clk_76m800k_64div},
+		{.parent = &ext_32k,		.val = 2,	.rates = rates_clk_32k_64div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_64div},
+		{.parent = NULL}
+};
+
+static struct clk clk_aux1 = {
+	.name = "clk_aux1",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_128m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_aux1_clksel,
+	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_mask = CLK_AUX1_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(GEN1),
+	.enable_bit = CLK_AUX1_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(PCTRL),
+	.clkdiv_mask = CLK_AUX1_CLKDIV_MASK,
+};
+
+
+static const struct clksel clk_pwm0_clksel[] = {
+		{.parent = &ext_32k,		.val = 0,	.rates = rates_clk_32k_nodiv},
+		{.parent = &ext_26m,		.val = 1,	.rates = rates_clk_26m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_pwm0 = {
+	.name = "clk_pwm0",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &ext_32k,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_pwm0_clksel,
+	.clksel_reg = IOMEM(CLK_EN),
+	.clksel_mask = CLK_PWM0_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(CLK_EN),
+	.enable_bit = CLK_PWM0_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
+static const struct clksel clk_pwm1_clksel[] = {
+		{.parent = &ext_32k,		.val = 0,	.rates = rates_clk_32k_nodiv},
+		{.parent = &ext_26m,		.val = 1,	.rates = rates_clk_26m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_pwm1 = {
+	.name = "clk_pwm1",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &ext_32k,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_pwm1_clksel,
+	.clksel_reg = IOMEM(CLK_EN),
+	.clksel_mask = CLK_PWM1_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(CLK_EN),
+	.enable_bit = CLK_PWM1_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
+static const struct clksel clk_pwm2_clksel[] = {
+		{.parent = &ext_32k,		.val = 0,	.rates = rates_clk_32k_nodiv},
+		{.parent = &ext_26m,		.val = 1,	.rates = rates_clk_26m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_pwm2 = {
+	.name = "clk_pwm2",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &ext_32k,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_pwm2_clksel,
+	.clksel_reg = IOMEM(CLK_EN),
+	.clksel_mask = CLK_PWM2_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(CLK_EN),
+	.enable_bit = CLK_PWM2_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
+static const struct clksel clk_pwm3_clksel[] = {
+		{.parent = &ext_32k,		.val = 0,	.rates = rates_clk_32k_nodiv},
+		{.parent = &ext_26m,		.val = 1,	.rates = rates_clk_26m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_pwm3 = {
+	.name = "clk_pwm3",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &ext_32k,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_pwm3_clksel,
+	.clksel_reg = IOMEM(CLK_EN),
+	.clksel_mask = CLK_PWM3_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(CLK_EN),
+	.enable_bit = CLK_PWM3_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
+static const struct clksel clk_usb_ref_clksel[] = {
+		{.parent = &clk_12m,		.val = 0,	.rates = rates_clk_12m_nodiv},
+		{.parent = &clk_24m,		.val = 1,	.rates = rates_clk_24m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_usb_ref = {
+	.name = "clk_usb_ref",
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_12m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_usb_ref_clksel,
+	.clksel_reg = IOMEM(AHB_CTL3),
+	.clksel_mask = CLK_USB_REF_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_bit = CLK_USB_REF_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
 
 static struct sc88xx_clk sc8800g2_clks[] = {
 	/* 1. first level: external input clock. */
@@ -482,6 +1410,21 @@ static struct sc88xx_clk sc8800g2_clks[] = {
 	CLK(NULL, "clk_ccir", &clk_ccir, CK_SC8800G2),
 	CLK(NULL, "clk_dcam", &clk_dcam, CK_SC8800G2),
 	CLK(NULL, "clk_vsp", &clk_vsp, CK_SC8800G2),
+	CLK(NULL, "clk_lcdc", &clk_lcdc, CK_SC8800G2),
+	CLK(NULL, "clk_sdio", &clk_sdio, CK_SC8800G2),
+	CLK(NULL, "clk_uart0", &clk_uart0, CK_SC8800G2),
+	CLK(NULL, "clk_uart1", &clk_uart1, CK_SC8800G2),
+	CLK(NULL, "clk_uart2", &clk_uart2, CK_SC8800G2),
+	CLK(NULL, "clk_spi", &clk_spi, CK_SC8800G2),
+	CLK(NULL, "clk_iis", &clk_iis, CK_SC8800G2),
+	CLK(NULL, "clk_adi_m", &clk_adi_m, CK_SC8800G2),
+	CLK(NULL, "clk_aux0", &clk_aux0, CK_SC8800G2),
+	CLK(NULL, "clk_aux1", &clk_aux1, CK_SC8800G2),
+	CLK(NULL, "clk_pwm0", &clk_pwm0, CK_SC8800G2),
+	CLK(NULL, "clk_pwm1", &clk_pwm1, CK_SC8800G2),
+	CLK(NULL, "clk_pwm2", &clk_pwm2, CK_SC8800G2),
+	CLK(NULL, "clk_pwm3", &clk_pwm3, CK_SC8800G2),
+	CLK(NULL, "clk_usb_ref", &clk_usb_ref, CK_SC8800G2),
 };
 
 static void _sc88xx_clk_commit(struct clk *clk)
