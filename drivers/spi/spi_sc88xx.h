@@ -81,7 +81,7 @@
         u32 count = 0; \
         volatile u32 vnop_read; \
         u8 i; \
-        static u32 const count_max = 32*4*10; \
+        static u32 const count_max = 32*4*100; \
         for (i = 0; i < 2 && count < count_max; i++) { \
             count = 0; \
             /* wait few clocks to soft fix the spi module gaps bug: 2*spi_clk+pclk */ \
@@ -98,9 +98,9 @@
         if (rx_done) { \
             sprd_dma_stop(DMA_SPI_RX); \
             spi_writel(0x0000, SPI_CTL4); /* stop only rx */ \
-            /* But when i add follow 2 lines, only rx mode will not work [luther.ge]*/ \
-            /* spi_writel(1, SPI_FIFO_RST);*/ /* spi rx功能使用的话,必须执行一次reset fifo,否则dma在rx传输中*/ \
-            /* spi_writel(0, SPI_FIFO_RST);*/ /* DMA会时常停止工作,通过读取1次SPI_TXD寄存器,DMA才可以恢复工作*/ \
+            /* But when i add following 2 lines, only rx mode not work correctly [luther.ge]*/ \
+            /* spi_writel(1, SPI_FIFO_RST); spi rx功能使用的话,必须执行一次reset fifo,否则dma在rx传输中*/ \
+            /* spi_writel(0, SPI_FIFO_RST); DMA会时常停止工作,通过读取1次SPI_TXD寄存器,DMA才可以恢复工作*/ \
         } \
     } while (0)
 

@@ -30,7 +30,10 @@
 // lock is held, spi irq is disabled
 static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
 {
-    if (sprd_data->cspi_trans == 0) return -ENODATA;
+    if (sprd_data->cspi_trans == 0) return 0; /* when both tx & rx mode starts, first tx irq enters, 
+                                               * then rx irq enters -- this time tx 
+                                               * had set sprd_data->cspi_trans to 0, so return 0 [luther.ge]
+                                               */
 
     spi_do_reset(sprd_data->cspi_trans->tx_dma,
                  sprd_data->cspi_trans->rx_dma); // spi hardwrare module has a bug, we must read busy bit twice to soft fix
