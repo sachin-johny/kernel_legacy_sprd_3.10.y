@@ -1643,12 +1643,21 @@ int sc88xx_clksel_rournd_rate_clkr(struct clk *clk, unsigned long target_rate,
 	u32 last_div = 0;
 	unsigned long test_rate;
 
-	if ((!clk->clksel_reg) || (!clk->clksel_mask))
-		return -EINVAL;
 
 	clks = sc88xx_get_clksel_by_parent(clk, clk->parent);
 	if (!clks)
 		return -EINVAL;
+
+	if ((!clk->clksel_reg) || (!clk->clksel_mask)) {
+		if (target_rate != clk->parent->rate)
+			return -EINVAL;
+		else {
+			*clkrp = clks->rates;
+			*valid_rate = clk->parent->rate;
+			return clk->parent->rate;
+		}
+	}
+
 
 	for (clkr = clks->rates; clkr->div; clkr++) {
 		if (clkr->div <= last_div) {
