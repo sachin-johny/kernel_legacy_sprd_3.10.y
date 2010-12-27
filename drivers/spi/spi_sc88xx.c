@@ -32,6 +32,9 @@ static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
 {
     if (sprd_data->cspi_trans == 0) return -ENODATA;
 
+    spi_do_reset(sprd_data->cspi_trans->tx_dma,
+                 sprd_data->cspi_trans->rx_dma); // spi hardwrare module has a bug, we must read busy bit twice to soft fix
+
     if (sprd_data->cspi_trans_num >= sprd_data->cspi_trans->len) {
         sprd_data->cspi_msg->actual_length += sprd_data->cspi_trans_num;
 #if SPRD_SPI_DEBUG
@@ -166,7 +169,6 @@ static inline void cs_activate(struct sprd_spi_data *sprd_data, struct spi_devic
 
         spi_writel(sprd_ctrl_data->spi_clkd, SPI_CLKD);
         spi_writel(sprd_ctrl_data->spi_ctl0, SPI_CTL0);
-        spi_writel(sprd_ctrl_data->spi_ctl3, SPI_CTL3);
 
         __raw_bits_or((sprd_ctrl_data->clk_spi_and_div & 0xffff) << 21, GR_GEN2);
         __raw_bits_or((sprd_ctrl_data->clk_spi_and_div >> 16) << 26, GR_CLK_DLY);
@@ -302,10 +304,11 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
         case 4: sprd_ctrl_data->data_width_order = 2; break;
     }
 
-    sprd_ctrl_data->spi_ctl3 = sprd_ctrl_data->data_width/*0x0001*/;
     sprd_ctrl_data->data_max = sprd_ctrl_data->data_width * SPRD_SPI_DMA_BLOCK_MAX;
 
-    spi_write(SPI_CTL2,  6, 0x01, 0x01); // Enable SPI_DMA_EN
+    spi_writel(0x01 | (0x00 << 8), SPI_CTL3); // only rx watermark for dma
+    spi_writel(0x01 | (0x00 << 8), SPI_CTL6); // tx watermark for dma
+    spi_write_reg(SPI_CTL2,  6, 0x01, 0x01); // Enable SPI_DMA_EN
 
     return 0;
 }
@@ -316,7 +319,7 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
     struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
     sprd_dma_desc *dma_desc;
     int flag, len, offset;
-    int blocks;
+    int blocks = 1;
 
     offset = sprd_data->cspi_trans_num;
 
@@ -407,7 +410,10 @@ static int sprd_spi_setup(struct spi_device *spi)
     } else {
         spi_clkd = 0xffff;
     }
-    if (spi_clkd < 0) spi_clkd = 0;
+    if (spi_clkd < 0) {
+        printk(KERN_WARNING "Warning: %s your spclk %d is so big!\n", __func__, spi->max_speed_hz);
+        spi_clkd = 0;
+    }
 
     /* chipselect must have been muxed as GPIO (e.g. in board setup) 
      * and we assume cs_gpio real gpio number not exceeding 0xffff
@@ -518,8 +524,8 @@ static int sprd_spi_setup(struct spi_device *spi)
             0, ddst, 0);
         sprd_dma_setup(&ctrl);
 
-        spi_write(SPI_CTL1, 12, 0x02, 0x03); // Only Enable SPI transmit mode
-        spi_write(SPI_CTL2,  6, 0x01, 0x01); // Enable SPI_DMA_EN
+        spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); // Only Enable SPI transmit mode
+        spi_write_reg(SPI_CTL2,  6, 0x01, 0x01); // Enable SPI_DMA_EN
 
         cs_activate(sprd_data, spi);
 
@@ -627,6 +633,15 @@ if (flags & 0x80) {
         dma_addr_t dma_phy = sprd_data->buffer_dma;
 
     do {
+#if 1
+        stack_data[0] = 0xff;
+        stack_data[1] = 0x55;
+        spi_write(spi, stack_data, 2);
+        memset(&stack_data[32], 0x88, 4);
+        spi_read(spi, &stack_data[32], 2);
+        printk("[%02x %02x %02x]\n", stack_data[32], stack_data[33], stack_data[34]);
+        m = m; kdata = kdata; dma_data = dma_data; dma_phy = dma_phy; t[0] = t[0];
+#else
         memset(stack_data, 0x05, sizeof stack_data);
         memset(kdata, 0x15, 512);
         memset(dma_data, 0x55, SPRD_SPI_BUFFER_SIZE);
@@ -656,6 +671,7 @@ if (flags & 0x80) {
         spi_message_add_tail(&t[0], &m);
         spi_sync(spi, &m);
         msleep(500);
+#endif
     } while (1);
         kfree(kdata);
     }

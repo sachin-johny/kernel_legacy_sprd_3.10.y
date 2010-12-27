@@ -63,7 +63,7 @@
 #define spi_bits_and(value, reg) \
     __raw_bits_and(value, (unsigned int)sprd_data->regs + reg)
 
-#define spi_write(reg, shift, val, mask) \
+#define spi_write_reg(reg, shift, val, mask) \
 { \
     unsigned long flags; \
     u32 tmp; \
@@ -76,29 +76,53 @@
     raw_local_irq_restore(flags); \
 }
 
+#define spi_do_reset(tx_done, rx_done) \
+    do { \
+        u32 count = 0; \
+        volatile u32 vnop_read; \
+        u8 i; \
+        static u32 const count_max = 32*4*10; \
+        for (i = 0; i < 2 && count < count_max; i++) { \
+            count = 0; \
+            /* wait few clocks to soft fix the spi module gaps bug: 2*spi_clk+pclk */ \
+            if (i) { vnop_read = spi_readl(SPI_STS2); vnop_read = vnop_read; } \
+            while ((spi_readl(SPI_STS2) & (SPI_TX_FIFO_REALLY_EMPTY | SPI_TX_BUSY)) \
+                                       != (SPI_TX_FIFO_REALLY_EMPTY)) { \
+                if (count++ > count_max) break; \
+            } \
+            /* printk("[%d] spi busy wait for %d\n", i, count); */ \
+        } \
+        if (count >= count_max) \
+            printk(KERN_EMERG "[0x%08x] spi bus is so busy!!!\n", spi_readl(SPI_STS2)); \
+        if (tx_done) sprd_dma_stop(DMA_SPI_TX); \
+        if (rx_done) { \
+            sprd_dma_stop(DMA_SPI_RX); \
+            spi_writel(0x0000, SPI_CTL4); /* stop only rx */ \
+            /* But when i add follow 2 lines, only rx mode will not work [luther.ge]*/ \
+            /* spi_writel(1, SPI_FIFO_RST);*/ /* spi rx功能使用的话,必须执行一次reset fifo,否则dma在rx传输中*/ \
+            /* spi_writel(0, SPI_FIFO_RST);*/ /* DMA会时常停止工作,通过读取1次SPI_TXD寄存器,DMA才可以恢复工作*/ \
+        } \
+    } while (0)
+
 #define spi_start() \
     do { \
-        spi_write(SPI_CTL1, 12, 0x03, 0x03); /* Enable SPI transmit and receive both mode */\
-        spi_writel(SPI_FIFO_RST, 1); /* spi rx功能使用的话,必须执行一次reset fifo,否则dma在rx传输中*/\
-        spi_writel(SPI_FIFO_RST, 0); /* DMA会时常停止工作,通过读取1次SPI_TXD寄存器,DMA才可以恢复工作*/\
+        spi_write_reg(SPI_CTL1, 12, 0x03, 0x03); /* Enable SPI transmit and receive both mode */\
         sprd_dma_start2(DMA_SPI_TX, DMA_SPI_RX); \
     } while (0)
 
 #define spi_start_tx() \
     do { \
-        spi_write(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */\
+        spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */\
         sprd_dma_start(DMA_SPI_TX); \
     } while (0)
 
 #define spi_start_rx(blocks) \
     do { \
         /* 实验发现,SPI_CTL4的bit9,在每次置1之前,必须首先清0, 新一次的rx传输才会发生[luther.ge] */ \
-        spi_writel(0x0000, SPI_CTL4); \
-        spi_write(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */\
-        spi_writel(SPI_FIFO_RST, 1); /* spi rx功能使用的话,必须执行一次reset fifo,否则dma在rx传输中*/\
-        spi_writel(SPI_FIFO_RST, 0); /* DMA会时常停止工作,通过读取1次SPI_TXD寄存器,DMA才可以恢复工作*/\
+        /* spi_writel(0x0000, SPI_CTL4); I place it in spi_do_reset() */ \
+        spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */\
         sprd_dma_start(DMA_SPI_RX); \
-        /* spi_write(SPI_CTL4,  9, 0x01, 0x01); */ /* start rx spiclk, must do it last */\
+        /* spi_write_reg(SPI_CTL4,  9, 0x01, 0x01); */ /* start rx spiclk, must do it last */\
         spi_writel((1 << 9) | blocks, SPI_CTL4); \
     } while (0)
 
@@ -134,7 +158,6 @@ struct sprd_spi_controller_data {
     u32 clk_spi_and_div;
     u32 spi_clkd;
     u32 spi_ctl0;
-    u32 spi_ctl3;
     u32 data_width; /* 1bit,2bit,...,8bits,...,16bits,...,32bits */
     u32 data_width_order;
     u32 data_max;
