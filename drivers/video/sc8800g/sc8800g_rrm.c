@@ -248,7 +248,7 @@ void rrm_interrupt(struct rrmanager *rrm)
 		RRM_PRINT("RRM[%s] callback[%d]:%x\n", __FUNCTION__,
 				i, rrm->exec->executing[i].callback);
 		/* FIXME: assume all requests have data */
-		if (rrm->exec->executing[i].data == NULL)
+		if (rrm->exec->executing[i].data != NULL)
 			lm_release(i);
 
 		if (rrm->exec->executing[i].callback != NULL) {

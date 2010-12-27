@@ -204,6 +204,11 @@ static struct platform_device sprd_serial_device = {
         .resource       = sprd_serial_resources,
 };
 
+static struct platform_device sprd_2d_device = {
+	.name	= "sc8800g_2d",
+	.id	= -1,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_kpad_device,
 	&sprd_nand_device,
@@ -213,7 +218,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_kp_bl_device,
 	&sprd_lcd_bl_device,
 	&sprd_serial_device, 
-    &sprd_tp_device,
+	&sprd_tp_device,
+	&sprd_2d_device,
 };
 
 void __init sprd_add_devices(void)

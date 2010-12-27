@@ -47,14 +47,17 @@ module_param(lm_debug, int, 0644);
 	printk(KERN_DEBUG "LM: " fmt , ## arg); } while (0)
 #endif
 
-#define  LM_DEBUG
+//#define  LM_DEBUG
 #ifdef LM_DEBUG
 #define LM_PRINT printk
 #else
 #define LM_PRINT(...)
 #endif
 
+/* TEMP
 static struct lcdc_manager lm;
+*/
+struct lcdc_manager lm;
 
 /* should be called with lm.lock held */
 static int enter_mode(int mode)
@@ -63,13 +66,17 @@ static int enter_mode(int mode)
 		/* need to do something to switch to the new mode */
 		int i;
 		for (i=0 ; i< lm.layer_num; i++) {
-			if (!(lm.linfo[i].status & L_REGISTERED))
+			if (!(lm.linfo[i].status & L_REGISTERED)){
+LM_PRINT("@fool2, entermode layer[%d] not registered\n", i);
 				continue;
+			}
 			if (lm.linfo[i].mode == mode &&
 				(lm.linfo[i].status & L_ENABLED)) {
+LM_PRINT("@fool2, entermode enable layer[%d]\n", i);
 				if(lm.linfo[i].enable)
 					lm.linfo[i].enable(i);
 			} else {
+LM_PRINT("@fool2, entermode disable layer[%d]\n", i);
 				if(lm.linfo[i].disable)
 					lm.linfo[i].disable(i);
 			}
@@ -83,7 +90,8 @@ static int enter_mode(int mode)
 int lm_acquire(int id)
 {
 	unsigned long flags;
-
+ 
+LM_PRINT("@fool2, lm_acquire, id = %d\n", id);
 	if (id >= lm.layer_num || id < 0) {
 		printk(KERN_ERR "LM: invalid layer id!\n");
 		return -1;
@@ -100,6 +108,8 @@ int lm_acquire(int id)
 	if (unlikely(lm.ref_cnt != 0 && lm.mode != lm.linfo[id].mode)) {
 		/* lcdc is busy working in another mode */
 __again:
+LM_PRINT("@fool2(line %d) lm.ref_cnt = %d, lm.mode = %d\n",
+__LINE__, lm.ref_cnt, lm.mode);
 		lm.linfo[id].status |= L_WAIT;
 		spin_unlock_irqrestore(&lm.lock, flags);
 		down(&lm.linfo[id].wait);
@@ -114,6 +124,8 @@ __again:
 
 	lm.ref_cnt++;
 
+LM_PRINT("@fool2(line %d) lm.ref_cnt = %d, lm.mode = %d\n",
+__LINE__, lm.ref_cnt, lm.mode);
 	spin_unlock_irqrestore(&lm.lock, flags);
 
 	return 0;
@@ -123,6 +135,7 @@ int lm_release(int id)
 {
 	unsigned long flags;
 
+LM_PRINT("@fool2, lm_release, id = %d\n", id);
 	if (id >= lm.layer_num || id < 0) {
 		printk(KERN_ERR "LM: invalid layer id!\n");
 		return -1;
@@ -138,6 +151,9 @@ int lm_release(int id)
 		return -1;
 	}
 
+LM_PRINT("@fool2(line %d) lm.ref_cnt = %d, lm.mode = %d\n",
+__LINE__, lm.ref_cnt, lm.mode);
+
 	if (lm.ref_cnt == 0) {
 		int i;
 		for (i=0 ; i< lm.layer_num; i++) {
@@ -145,6 +161,7 @@ int lm_release(int id)
 			if ((lm.linfo[i].status & L_WAIT)) {
 				up(&lm.linfo[i].wait);
 				lm.linfo[i].status &= ~L_WAIT;
+LM_PRINT("@fool2, wakeup layer[%d]\n", i);
 			}
 		}
 	}
@@ -214,7 +231,7 @@ struct lcdc_manager * lm_init(int num_of_layers)
 	lm.layer_num = num_of_layers;
 	lm.linfo = (struct layer_info*)kzalloc(sizeof(struct layer_info) * num_of_layers, GFP_KERNEL);
 	spin_lock_init(&lm.lock);
-	LM_DEBUG("lcdc manager initialized!\n");
+	LM_PRINT("lcdc manager initialized!\n");
 
 	return &lm;
 }
@@ -294,12 +311,21 @@ unsigned int lreg_addr[LID_MAX] =
 
 int enable_layer(int id)
 {
+	LM_PRINT("@fool2, enable_layer[%d] %x\n", 
+		id, *(unsigned int*)lreg_addr[id]);
 	__raw_bits_or(1<<0, lreg_addr[id]);
-	
+	LM_PRINT("@fool2, enable_layer[%d] %x\n", 
+		id, *(unsigned int*)lreg_addr[id]);
+	return 0;
 }
 
 int disable_layer(int id)
 {
+	LM_PRINT("@fool2, disable_layer[%d] %x\n", 
+		id, *(unsigned int*)lreg_addr[id]);
 	__raw_bits_and(~(1<<0), lreg_addr[id]);
+	LM_PRINT("@fool2, disable_layer[%d] %x\n", 
+		id, *(unsigned int*)lreg_addr[id]);
+	return 0;
 	
 }

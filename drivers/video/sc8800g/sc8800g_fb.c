@@ -102,6 +102,8 @@
 #define BITS_PER_PIXEL 16
 
 #include "sc8800g_rrm.h"
+#include "sc8800g_lcdc_manager.h" /* TEMP */
+#include "sc8800g_copybit_lcdc.h" /* TEMP */
 
 struct sc8800fb_info {
 	struct fb_info *fb;
@@ -151,6 +153,8 @@ static struct ops_mcu lcm_mcu_ops = {
 	.send_data = lcm_send_data,
 };
 
+extern struct lcdc_manager lm; /* TEMP */
+extern struct semaphore copybit_wait; /* TEMP */
 static irqreturn_t lcdc_isr(int irq, void *data)
 {
 	uint32_t val ;
@@ -158,8 +162,12 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 
 	val = __raw_readl(LCDC_IRQ_STATUS);
 	if (val & (1<<0)){      /* lcdc done */
+		FB_PRINT("--> lcdc_isr lm.mode=%d\n", lm.mode);
 			__raw_bits_or((1<<0), LCDC_IRQ_CLR);
+			if(lm.mode == LMODE_DISPLAY) /* TEMP */
 			rrm_interrupt(fb->rrm);
+			else
+				up(&copybit_wait);
 	}
 
 	return IRQ_HANDLED;
@@ -312,7 +320,7 @@ static void real_refresh(void *para)
 
 static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	rrm_refresh(LID_FB, NULL, info);
+	rrm_refresh(LID_OSD1, NULL, info);
 
 	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
 	FB_PRINT("@fool2[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_SIZE));
@@ -869,6 +877,8 @@ static int sc8800fb_probe(struct platform_device *pdev)
 
 	FB_PRINT("@fool2[%s]\n", __FUNCTION__);
 	printk("sc8800g_fb initialize!\n");
+
+	lm_init(4); /* TEMP */
 	
 	fb = framebuffer_alloc(sizeof(struct sc8800fb_info), &pdev->dev);
 	if (!fb)
@@ -877,7 +887,7 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	sc8800fb->fb = fb;
 	sc8800fb->ops = &lcm_mcu_ops;
 	sc8800fb->rrm = rrm_init(real_refresh, (void*)sc8800fb);
-	rrm_layer_init(LID_FB, 2, real_set_layer);
+	rrm_layer_init(LID_OSD1, 2, real_set_layer);
 
 	ret = mount_panel(sc8800fb, &lcd_panel);
 	if (ret) {
@@ -898,6 +908,8 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	}
 
 	hw_init(sc8800fb);
+
+	copybit_lcdc_init(); /* TEMP */
 
 	/* FIXME: put the BL stuff to where it belongs. */
 	set_backlight(50);
