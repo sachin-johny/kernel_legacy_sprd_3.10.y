@@ -156,6 +156,19 @@ sprd_spi_interrupt(int irq, void *dev_id)
 #if SPRD_SPI_DEBUG
     // lprintf("spi irq [ %d ]\n", irq);
 #endif
+    if (sprd_data->cspi_trans &&
+        sprd_data->cspi_trans->tx_dma && 
+        sprd_data->cspi_trans->rx_dma) {
+        if (++sprd_data->tx_rx_finish < 2) {
+            // printk("ignore tx_rx first irq\n");
+            spin_unlock(&sprd_data->lock);
+#if !SPRD_SPI_DMA_MODE
+            return IRQ_HANDLED;
+#endif
+        }
+        sprd_data->tx_rx_finish = 0;
+        // printk("tx_rx irq ok\n");
+    }
     if (sprd_spi_do_transfer(sprd_data) < 0)
         printk(KERN_ERR "error : %s\n", __func__);
     spin_unlock(&sprd_data->lock);

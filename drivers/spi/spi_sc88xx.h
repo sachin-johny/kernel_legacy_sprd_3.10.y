@@ -93,7 +93,9 @@
             /* printk("[%d] spi busy wait for %d\n", i, count); */ \
         } \
         if (count >= count_max) \
-            printk(KERN_EMERG "[0x%08x] spi bus is so busy!!!\n", spi_readl(SPI_STS2)); \
+            printk(KERN_EMERG "[0x%08x,0x%08x,0x%08x,0x%08x] spi bus is so busy!!!\n", \
+                                spi_readl(SPI_STS1), spi_readl(SPI_STS2), \
+                                spi_readl(SPI_STS3), spi_readl(SPI_STS4)); \
         if (tx_done) sprd_dma_stop(DMA_SPI_TX); \
         if (rx_done) { \
             sprd_dma_stop(DMA_SPI_RX); \
@@ -148,6 +150,7 @@ struct sprd_spi_data {
     int irq;
     struct platform_device *pdev;
     void __iomem *regs;
+    int tx_rx_finish;
 
     u8 stopping;
     u8 cs_null;
