@@ -914,6 +914,20 @@ __must_check int sprd_alloc_gpio_irq(unsigned gpio)
 
 EXPORT_SYMBOL(sprd_alloc_gpio_irq);
 
+void sprd_free_gpio_irq(int irq)
+{
+	int i;
+
+    for (i = 0; i < NR_GPIO_IRQS; i++) {
+        if (gpio_irq_table[i].irq_num == irq) {
+            set_irq_chip_data(irq, NULL);
+            gpio_irq_table[i].gpio_id = GPIO_INVALID_ID;
+            return;
+        }
+    }
+}
+EXPORT_SYMBOL(sprd_free_gpio_irq);
+
 __init void sprd_gpio_init(void)
 {
 	//enable gpio bank 0~10, that is, all 176 gpio
