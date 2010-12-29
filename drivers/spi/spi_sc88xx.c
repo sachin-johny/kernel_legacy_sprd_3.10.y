@@ -322,7 +322,8 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
 
     sprd_ctrl_data->data_max = sprd_ctrl_data->data_width * SPRD_SPI_DMA_BLOCK_MAX;
 
-    spi_writel(0x01 | (0x00 << 8), SPI_CTL3); // only rx watermark for dma
+    // only rx watermark for dma, 0x02 means slave device must send at least 2 bytes
+    spi_writel(0x02 | (0x00 << 8), SPI_CTL3);
     spi_writel(0x01 | (0x00 << 8), SPI_CTL6); // tx watermark for dma
     spi_write_reg(SPI_CTL2,  6, 0x01, 0x01); // Enable SPI_DMA_EN
 
