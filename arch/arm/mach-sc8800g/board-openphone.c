@@ -158,6 +158,21 @@ static struct platform_device sprd_spi_controller_device = {
 	.num_resources	= ARRAY_SIZE(spi_resources),
 };
 
+#define GPIO_OUTPUT_DEFAUT_VALUE_HIGH   (1 << 31)
+struct gpio_desc {
+    unsigned long mfp;
+    int io;
+    const char *desc;
+};
+
+static struct gpio_desc gpio_func_cfg[] = {
+    {
+        MFP_CFG_X(RFCTL9    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io
+        99 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "wifi power"
+    },
+};
+
 static unsigned long spi_func_cfg[] = {
 	MFP_CFG_X(SPI_CLK   , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 	MFP_CFG_X(SPI_DI    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
@@ -175,20 +190,37 @@ static unsigned long spi_func_cfg[] = {
 
 static void sprd_spi_init(void)
 {
-    int cs_gpio;
+    int gpio, value;
+    struct gpio_desc *gd;
     int i, nr_chip = ARRAY_SIZE(openhone_spi_devices);
     struct spi_board_info *chip = openhone_spi_devices;
+
+    for (i = 0; i < ARRAY_SIZE(gpio_func_cfg); i++) {
+        gd = &gpio_func_cfg[i];
+        sprd_mfp_config(&gd->mfp, 1);
+        gpio = gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH;
+        value = !!(gd->io & GPIO_OUTPUT_DEFAUT_VALUE_HIGH);
+        if (gpio_request(gpio, gd->desc))
+            printk(KERN_WARNING "%s : [%s] gpio %d request failed!\n", __func__, gd->desc, gpio);
+        if (gd->mfp & MFP_IO_OE) {
+            gpio_direction_output(gpio, value);
+        } else if (gd->mfp & MFP_IO_IE) {
+            gpio_direction_input(gpio);
+        } else {
+            printk(KERN_WARNING "%s : not support gpio mode!\n", __func__);
+        }
+    }
 
     sprd_mfp_config(spi_func_cfg, ARRAY_SIZE(spi_func_cfg));
 
     for (i = 0; i < nr_chip; i++) {
-        cs_gpio = spi_cs_gpio[chip[i].chip_select];
+        gpio = spi_cs_gpio[chip[i].chip_select];
 #if 0
         // we do it in sprd_spi_setup func
-        gpio_request(cs_gpio, chip[i].modalias);
-        gpio_direction_output(cs_gpio, !(chip[i].mode & SPI_CS_HIGH));
+        gpio_request(gpio, chip[i].modalias);
+        gpio_direction_output(gpio, !(chip[i].mode & SPI_CS_HIGH));
 #endif
-        chip[i].controller_data = (void*)cs_gpio;
+        chip[i].controller_data = (void*)gpio;
     }
 
     spi_register_board_info(chip, nr_chip);
