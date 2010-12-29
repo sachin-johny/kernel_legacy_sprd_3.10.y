@@ -171,6 +171,21 @@ static struct gpio_desc gpio_func_cfg[] = {
         99 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi power"
     },
+    {
+        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        139 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "wifi wake"
+    },
+    {
+        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        140 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "wifi reset"
+    },
+    {
+        MFP_CFG_X(RFCTL0    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
+        90 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "BT reset"
+    },
 };
 
 static unsigned long spi_func_cfg[] = {
