@@ -96,13 +96,15 @@
             printk(KERN_EMERG "[0x%08x,0x%08x,0x%08x,0x%08x] spi bus is so busy!!!\n", \
                                 spi_readl(SPI_STS1), spi_readl(SPI_STS2), \
                                 spi_readl(SPI_STS3), spi_readl(SPI_STS4)); \
+        spi_dma_stop(); /* Must Disable SPI_DMA_EN first */ \
         if (tx_done) sprd_dma_stop(DMA_SPI_TX); \
         if (rx_done) { \
             sprd_dma_stop(DMA_SPI_RX); \
             spi_writel(0x0000, SPI_CTL4); /* stop only rx */ \
             /* But when i add following 2 lines, only rx mode not work correctly [luther.ge]*/ \
-            /* spi_writel(1, SPI_FIFO_RST); spi rx功能使用的话,必须执行一次reset fifo,否则dma在rx传输中*/ \
-            /* spi_writel(0, SPI_FIFO_RST); DMA会时常停止工作,通过读取1次SPI_TXD寄存器,DMA才可以恢复工作*/ \
+            /* But after i add SPI_CTL2 DMA bit 6 disable & enable control, everything is ok */ \
+            spi_writel(1, SPI_FIFO_RST); /* spi rx功能使用的话,必须执行一次reset fifo,否则dma在rx传输中*/ \
+            spi_writel(0, SPI_FIFO_RST); /* DMA会时常停止工作,通过读取1次SPI_TXD寄存器,DMA才可以恢复工作*/ \
         } \
     } while (0)
 
@@ -126,6 +128,16 @@
         sprd_dma_start(DMA_SPI_RX); \
         /* spi_write_reg(SPI_CTL4,  9, 0x01, 0x01); */ /* start rx spiclk, must do it last */\
         spi_writel((1 << 9) | blocks, SPI_CTL4); \
+    } while (0)
+
+#define spi_dma_start() \
+    do { \
+        spi_write_reg(SPI_CTL2,  6, 0x01, 0x01); \
+    } while (0)
+
+#define spi_dma_stop() \
+    do { \
+        spi_write_reg(SPI_CTL2,  6, 0x00, 0x01); \
     } while (0)
 
 #if 1
