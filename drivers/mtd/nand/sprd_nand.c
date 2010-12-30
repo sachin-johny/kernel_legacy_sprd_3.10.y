@@ -68,7 +68,7 @@
 #define SPARE_SIZE_L        64
 
 #define USE_DMA_MODE			1
-#define DMA_NLC                         (0)
+#define DMA_NLC                         (22)
 wait_queue_head_t	wait_queue;
 sprd_dma_ctrl ctrl;
 sprd_dma_desc dma_desc;

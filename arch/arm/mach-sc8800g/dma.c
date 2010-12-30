@@ -179,8 +179,8 @@ void sprd_dma_setup_cfg(sprd_dma_ctrl *ctrl,
             u32 tlen)
 {
     sprd_dma_desc *dma_desc = ctrl->dma_desc;
-    int autodma_burst_step_src = 0;
-    int autodma_burst_step_dst = 0;
+    int autodma_burst_step_src = autodma_burst_mod_src&0x1FFFFFF;
+    int autodma_burst_step_dst = autodma_burst_mod_dst&0x1FFFFFF;
     int autodma_width;
     int pmod = 0, sbm = 0, dbm = 0;
     int width = 0;
