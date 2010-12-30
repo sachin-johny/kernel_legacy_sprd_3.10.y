@@ -223,23 +223,21 @@ static void tp_init(void)
     ANA_REG_AND ( TPC_CTRL, ~TPC_TPC_MODE_BIT);
 
     //500KHz
-    //ANA_REG_MSK_OR (TPC_CTRL, (0x0D<< TPC_PRESCALE_OFFSET), TPC_PRESCALE_MSK);//prescale
-    //1MHz
-    ANA_REG_MSK_OR (TPC_CTRL, (0xA << TPC_PRESCALE_OFFSET), TPC_PRESCALE_MSK);//prescale
+    ANA_REG_MSK_OR (TPC_CTRL, (0x0D<< TPC_PRESCALE_OFFSET), TPC_PRESCALE_MSK);//prescale
 
     //Config ADC channel
     ADC_SetScale (ADC_SCALE_3V);
 
     //Config TPC sample properity
     ANA_REG_SET (TPC_SAMPLE_CTRL0,
-                (0x64 << TPC_SAMPLE_INTERVAL_OFFSET) | (0x64 <<TPC_POINT_INTERVAL_OFFSET));//(0x80 << 8) | 0x14
+                (0x10 << TPC_SAMPLE_INTERVAL_OFFSET) | (0x30 <<TPC_POINT_INTERVAL_OFFSET));//(0x80 << 8) | 0x14
     ANA_REG_SET (TPC_SAMPLE_CTRL1,
                  (0x200 << TPC_DATA_INTERVAL_OFFSET) | (4 <<TPC_SAMPLE_NUM_OFFSET));// (4 << 12)| 0x400
 
     //Config TPC filter properity
     //Config TPC debounce properity
     ANA_REG_SET (TPC_BOUNCE_CTRL,
-                 TPC_DEBOUNCE_EN_BIT | (30 << TPC_DEBOUNCE_NUM_OFFSET));
+                 TPC_DEBOUNCE_EN_BIT | (5 << TPC_DEBOUNCE_NUM_OFFSET));
     //Config TPC buffer length
     ANA_REG_MSK_OR (TPC_BUF_CTRL, (TPC_BUF_LENGTH << TPC_BUF_LENGTH_OFFSET), TPC_BUF_LENGTH_MSK);
     //Clear TPC interrupt
@@ -376,7 +374,7 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
     else if (int_status & TPC_DONE_IRQ_MSK_BIT)
     {
             TP_PRINT("DONE\n");
-            trace_printk("DONE\n");
+            //trace_printk("DONE\n");
             //Clear done interrupt*/
             CLEAR_TPC_INT (TPC_DONE_IRQ_MSK_BIT);
 

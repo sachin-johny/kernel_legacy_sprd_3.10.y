@@ -29,6 +29,8 @@
 #include <asm/io.h>
 #include <asm/irq.h>
 #include <mach/hardware.h>
+#include <mach/mfp.h>
+#include <mach/io.h>
 
 //#ifdef CONFIG_ARCH_SC8800S
 #define CONFIG_TS0710_MUX_UART
@@ -289,7 +291,7 @@ static inline void  serialsc8800_tx_chars(int irq,void *dev_id)
 	struct uart_port *port=dev_id;
 	struct circ_buf *xmit=&port->state->xmit;
 	int count;
-	
+
 	if(port->x_char){
 		serial_out(port,ARM_UART_TXD,port->x_char);
 		port->icount.tx++;
@@ -358,6 +360,27 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void serialsc8800_pin_config(void)
+{
+     unsigned long serial_func_cfg[] = {
+        MFP_CFG_X(U0CTS, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+        MFP_CFG_X(U0RTS, AF1, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+     };
+
+     sprd_mfp_config(serial_func_cfg, ARRAY_SIZE(serial_func_cfg));
+     
+     __raw_bits_or((1<<22),SPRD_GREG_BASE+0x8);
+     __raw_bits_or((1<<6),SPRD_GREG_BASE+0x28);
+   /* 
+     printk("UOTXD=0x%x\n",__raw_readl(SPRD_CPC_BASE+0x128));
+     printk("UORXD=0x%x\n",__raw_readl(SPRD_CPC_BASE+0x12c));
+     printk("UOCTS=0x%x\n",__raw_readl(SPRD_CPC_BASE+0x130));
+     printk("UORTS=0x%x\n",__raw_readl(SPRD_CPC_BASE+0x134));
+     printk("GEN0=0x%x\n",__raw_readl(SPRD_GREG_BASE+0x8));
+     printk("PIN_CTL=0x%x\n",__raw_readl(SPRD_GREG_BASE+0x28));
+   */
+}
+
 static int serialsc8800_startup(struct uart_port *port)
 {
 	int ret=0;
@@ -378,6 +401,8 @@ static int serialsc8800_startup(struct uart_port *port)
 		}
 	}
 #endif
+    if(port->line == 2)
+        serialsc8800_pin_config();
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
  	*/
@@ -800,18 +825,19 @@ console_initcall(serialsc8800_console_init);
 #endif
 
 static struct uart_driver serialsc8800_reg = {
-	.owner = THIS_MODULE,
-	.driver_name = "serial_sc8800",
-	.dev_name = SP_TTY_NAME,
-	.major = SP_TTY_MAJOR,
-	.minor = SP_TTY_MINOR_START,
-	.nr = UART_NR,
-	.cons = SC8800_CONSOLE,
+        .owner = THIS_MODULE,
+        .driver_name = "serial_sc8800",
+        .dev_name = SP_TTY_NAME,
+        .major = SP_TTY_MAJOR,
+        .minor = SP_TTY_MINOR_START,
+        .nr = UART_NR,
+        .cons = SC8800_CONSOLE,
 };
+
 static int serialsc8800_probe(struct platform_device *dev)
 {
 	int ret,i;
-	
+    
 	serialsc8800_setup_ports();
 	ret = uart_register_driver(&serialsc8800_reg);
 	if(ret ==0)
@@ -826,12 +852,14 @@ static int serialsc8800_probe(struct platform_device *dev)
 		uart_add_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
 	return 0;
 }
-static void serialsc8800_remove(struct platform_device *dev)
+static int serialsc8800_remove(struct platform_device *dev)
 {
 	int i;
 	for(i=0;i<UART_NR;i++)
 		uart_remove_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
 	uart_unregister_driver(&serialsc8800_reg);
+
+    return 0;
 }
 static struct platform_driver serialsc8800_driver = {
 	.probe = serialsc8800_probe,
