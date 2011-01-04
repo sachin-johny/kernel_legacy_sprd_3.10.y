@@ -39,6 +39,15 @@
 #include <mach/regs_ana.h>
 #include <mach/regs_cpc.h>
 
+void sprd_bb26m_clk_enable(int on) {
+    if (on) {
+        ANA_REG_OR(ANA_LED_CTL, 1 << 14);
+    } else {
+        ANA_REG_AND(ANA_LED_CTL, ~(1 << 14));
+    }
+}
+EXPORT_SYMBOL(sprd_bb26m_clk_enable);
+
 /* pmem area definition */
 #define SPRD_PMEM_BASE          ((256-8-8)*1024*1024)
 #define SPRD_PMEM_SIZE          (8*1024*1024)
@@ -158,36 +167,6 @@ static struct platform_device sprd_spi_controller_device = {
 	.num_resources	= ARRAY_SIZE(spi_resources),
 };
 
-#define GPIO_OUTPUT_DEFAUT_VALUE_HIGH   (1 << 31)
-struct gpio_desc {
-    unsigned long mfp;
-    int io;
-    const char *desc;
-};
-
-static struct gpio_desc gpio_func_cfg[] = {
-    {
-        MFP_CFG_X(RFCTL9    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io
-        99 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        "wifi power"
-    },
-    {
-        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-        139 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        "wifi wake"
-    },
-    {
-        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-        140 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        "wifi reset"
-    },
-    {
-        MFP_CFG_X(RFCTL0    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
-        90 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        "BT reset"
-    },
-};
-
 static unsigned long spi_func_cfg[] = {
 	MFP_CFG_X(SPI_CLK   , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 	MFP_CFG_X(SPI_DI    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
@@ -205,26 +184,9 @@ static unsigned long spi_func_cfg[] = {
 
 static void sprd_spi_init(void)
 {
-    int gpio, value;
-    struct gpio_desc *gd;
+    int gpio;
     int i, nr_chip = ARRAY_SIZE(openhone_spi_devices);
     struct spi_board_info *chip = openhone_spi_devices;
-
-    for (i = 0; i < ARRAY_SIZE(gpio_func_cfg); i++) {
-        gd = &gpio_func_cfg[i];
-        sprd_mfp_config(&gd->mfp, 1);
-        gpio = gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH;
-        value = !!(gd->io & GPIO_OUTPUT_DEFAUT_VALUE_HIGH);
-        if (gpio_request(gpio, gd->desc))
-            printk(KERN_WARNING "%s : [%s] gpio %d request failed!\n", __func__, gd->desc, gpio);
-        if (gd->mfp & MFP_IO_OE) {
-            gpio_direction_output(gpio, value);
-        } else if (gd->mfp & MFP_IO_IE) {
-            gpio_direction_input(gpio);
-        } else {
-            printk(KERN_WARNING "%s : not support gpio mode!\n", __func__);
-        }
-    }
 
     sprd_mfp_config(spi_func_cfg, ARRAY_SIZE(spi_func_cfg));
 
@@ -253,6 +215,60 @@ static struct platform_device *devices[] __initdata = {
 #endif
 };
 
+#define GPIO_OUTPUT_DEFAUT_VALUE_HIGH   (1 << 31)
+struct gpio_desc {
+    unsigned long mfp;
+    int io;
+    const char *desc;
+};
+
+static struct gpio_desc sprd_gpio_cfg[] = {
+#if defined(CONFIG_SPI_SC88XX) || defined(CONFIG_SPI_SC88XX_MODULE)
+    {
+        MFP_CFG_X(RFCTL9    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io
+        99 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "wifi power"
+    },
+    {
+        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        139 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "wifi wake"
+    },
+    {
+        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        140 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "wifi reset"
+    },
+    {
+        MFP_CFG_X(RFCTL0    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
+        90 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "BT reset"
+    },
+#endif
+};
+
+static void sprd_gpio_create(void)
+{
+    int gpio, value;
+    struct gpio_desc *gd;
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(sprd_gpio_cfg); i++) {
+        gd = &sprd_gpio_cfg[i];
+        sprd_mfp_config(&gd->mfp, 1);
+        gpio = gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH;
+        value = !!(gd->io & GPIO_OUTPUT_DEFAUT_VALUE_HIGH);
+        if (gpio_request(gpio, gd->desc))
+            printk(KERN_WARNING "%s : [%s] gpio %d request failed!\n", __func__, gd->desc, gpio);
+        if (gd->mfp & MFP_IO_OE) {
+            gpio_direction_output(gpio, value);
+        } else if (gd->mfp & MFP_IO_IE) {
+            gpio_direction_input(gpio);
+        } else {
+            printk(KERN_WARNING "%s : not support gpio mode!\n", __func__);
+        }
+    }
+}
 
 extern struct sys_timer sprd_timer;
 
@@ -277,6 +293,7 @@ static void __init openphone_init(void)
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
 	sprd_gpio_init();
+    sprd_gpio_create();
 	sprd_add_sdio_device();
 	sprd_add_otg_device();
 	sprd_gadget_init();
