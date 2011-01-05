@@ -407,21 +407,16 @@ static char *usb_functions_all[] = {
 };
 
 static struct android_usb_product usb_products[] = {
-//	#ifdef SPRD_PRODUCT_ADB
 	{
 		.product_id	= SPRD_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(usb_functions_adb),
 		.functions	= usb_functions_adb,
 	},
-//	#endif
-//	#ifdef SPRD_PRODUCT_UMS
 	{
 		.product_id	= SPRD_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(usb_functions_ums),
 		.functions	= usb_functions_ums,
 	},
-//	#endif
-
 	{
 		.product_id	= SPRD_ADB_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
@@ -460,6 +455,7 @@ static struct platform_device androidusb_device = {
 	},
 };
 
+#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 static struct usb_mass_storage_platform_data usbms_plat = {
 	.vendor			= "Spreadtrum",
 	.product		= "Bigphone",
@@ -473,12 +469,33 @@ static struct platform_device usb_mass_storage_device = {
 		.platform_data = &usbms_plat,
 	},
 };
+#endif
+
+#ifdef CONFIG_USB_ANDROID_RNDIS
+static struct usb_ether_platform_data rndis_pdata = {
+       .ethaddr   = {0x02, 0x89,0xfb,0xab,0x1b,0xcd},
+       .vendorID  = 0x22B8,
+       .vendorDescr  = "Spreadtrum",
+};
+
+static struct platform_device rndis_device = {
+       .name = "rndis",
+       .id   = -1,
+       .dev  = {
+               .platform_data = &rndis_pdata,
+       },
+};
+#endif
 
 void __init sprd_gadget_init(void)
 {
-	#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
+#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	platform_device_register(&usb_mass_storage_device);
-	#endif
+#endif
+#ifdef CONFIG_USB_ANDROID_RNDIS
+	platform_device_register(&rndis_device);
+#endif
+
 	platform_device_register(&androidusb_device);
 }
 static unsigned long dcam_func_cfg[] __initdata = {	
