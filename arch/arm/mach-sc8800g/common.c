@@ -209,6 +209,16 @@ static struct platform_device sprd_2d_device = {
 	.id	= -1,
 };
 
+static struct platform_device sprd_scale_device = {
+	.name	= "sc8800g_scale",
+	.id	= -1,
+};
+
+static struct platform_device sprd_rotation_device = {
+	.name	= "sc8800g_rotation",
+	.id	= -1,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_kpad_device,
 	&sprd_nand_device,
@@ -220,6 +230,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device, 
 	&sprd_tp_device,
 	&sprd_2d_device,
+	&sprd_scale_device,
+	&sprd_rotation_device,	
 };
 
 void __init sprd_add_devices(void)

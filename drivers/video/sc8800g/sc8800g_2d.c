@@ -21,6 +21,8 @@
 #include <mach/dma.h>
 #include <linux/delay.h>
 
+#include "sc8800g_copybit_scale.h"
+#include "sc8800g_copybit_rotation.h"
 #include "sc8800g_copybit_lcdc.h"
 
 #define SC8800G_2D_MINOR MISC_DYNAMIC_MINOR
@@ -187,6 +189,16 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
         }
 
 	if(dma_copy_ret){
+		if (do_copybit_scale(params)) {
+			mutex_unlock(lock);
+			return -EFAULT;
+		}
+	
+		if (do_copybit_rotation(params)) {
+			mutex_unlock(lock);
+			return -EFAULT;
+		}
+		
 		if (do_copybit_lcdc(params)) {
 			mutex_unlock(lock);
 			return -EFAULT;
