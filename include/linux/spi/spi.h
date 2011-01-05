@@ -551,6 +551,7 @@ extern int spi_async(struct spi_device *spi, struct spi_message *message);
  */
 
 extern int spi_sync(struct spi_device *spi, struct spi_message *message);
+int spi_sync2(struct spi_device *spi, struct spi_message *message);
 
 /**
  * spi_write - SPI synchronous write

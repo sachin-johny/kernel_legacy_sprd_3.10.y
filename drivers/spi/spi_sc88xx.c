@@ -702,6 +702,28 @@ if (flags & 0x80) {
     return 0;
 }
 
+static void spi_complete2(void *arg)
+{
+    *((int *)arg) = 1;
+}
+
+int spi_sync2(struct spi_device *spi, struct spi_message *message)
+{
+    volatile int done = 0;
+    int status;
+
+    message->complete = spi_complete2;
+    message->context = (void*)&done;
+    status = spi_async(spi, message);
+    if (status == 0) {
+        while (!done);
+        status = message->status;
+    }
+    message->context = NULL;
+    return status;
+}
+EXPORT_SYMBOL_GPL(spi_sync2);
+
 static void sprd_spi_cleanup(struct spi_device *spi)
 {
     struct sprd_spi_data *sprd_data = spi_master_get_devdata(spi->master);

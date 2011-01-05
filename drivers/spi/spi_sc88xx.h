@@ -201,4 +201,34 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
                         struct spi_device *spi, struct sprd_spi_data *sprd_data);
 static int sprd_spi_dma_map_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans);
 static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans);
+
+int spi_sync2(struct spi_device *spi, struct spi_message *message);
+
+static inline int
+spi_write2(struct spi_device *spi, const u8 *buf, size_t len)
+{
+    struct spi_transfer t = {
+        .tx_buf     = buf,
+        .len        = len,
+    };
+    struct spi_message	m;
+
+    spi_message_init(&m);
+    spi_message_add_tail(&t, &m);
+    return spi_sync2(spi, &m);
+}
+
+static inline int
+spi_read2(struct spi_device *spi, u8 *buf, size_t len)
+{
+    struct spi_transfer t = {
+        .rx_buf     = buf,
+        .len        = len,
+    };
+    struct spi_message	m;
+
+    spi_message_init(&m);
+    spi_message_add_tail(&t, &m);
+    return spi_sync2(spi, &m);
+}
 #endif
