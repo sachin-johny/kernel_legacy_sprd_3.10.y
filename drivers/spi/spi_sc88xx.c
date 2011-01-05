@@ -52,7 +52,8 @@ static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
             list_del(&sprd_data->cspi_msg->queue);
             sprd_data->cspi_msg->status = 0; // msg tranfsered successfully
             spin_unlock(&sprd_data->lock);
-            sprd_data->cspi_msg->complete(sprd_data->cspi_msg->context);
+            if (sprd_data->cspi_msg->complete) // spi_sync call
+                sprd_data->cspi_msg->complete(sprd_data->cspi_msg->context);
             spin_lock(&sprd_data->lock);
             sprd_data->cspi_trans = 0;
             if (list_empty(&sprd_data->queue)) {
