@@ -104,6 +104,11 @@
 #include "sc8800g_rrm.h"
 #include "sc8800g_lcdc_manager.h" /* TEMP */
 #include "sc8800g_copybit_lcdc.h" /* TEMP */
+/* TEMP, software make-up for lcdc's 4-byte-align only limitation */
+unsigned int fb_pa;
+unsigned int fb_va;
+unsigned int fb_va_cached;
+/* TEMP, end */
 
 struct sc8800fb_info {
 	struct fb_info *fb;
@@ -275,6 +280,14 @@ static int setup_fbmem(struct sc8800fb_info *sc8800fb, struct platform_device *p
 	sc8800fb->fb->fix.smem_len = len;
 	sc8800fb->fb->screen_base = (char*)addr;
 
+	/* TEMP, software make-up for lcdc's 4-byte-align only limitation */
+	fb_pa = sc8800fb->fb->fix.smem_start;
+	fb_va_cached = sc8800fb->fb->screen_base;
+	fb_va = (unsigned int)ioremap(sc8800fb->fb->fix.smem_start, 
+		sc8800fb->fb->fix.smem_len);
+	printk("sc8800g_fb fb_va=0x%x\n", fb_va, sc8800fb->fb->fix.smem_len);
+	/* TEMP, end */
+	
 	return 0;
 }
 static int sc8800fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
@@ -705,8 +718,8 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 	//misc_setup();
 	
 	//select LCD clock source	
-	__raw_bits_and(~(1<<7), GR_PLL_SRC);    //pll_src=64M
-	__raw_bits_or((1<<6), GR_PLL_SRC);  
+	__raw_bits_and(~(1<<6), GR_PLL_SRC);    //pll_src=96M
+	__raw_bits_and(~(1<<7), GR_PLL_SRC);
 	
 	//set LCD divdior
 	__raw_bits_and(~(1<<0), GR_GEN4);  //div=0
