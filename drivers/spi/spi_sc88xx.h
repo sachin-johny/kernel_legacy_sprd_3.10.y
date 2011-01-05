@@ -81,7 +81,7 @@
         u32 count = 0; \
         volatile u32 vnop_read; \
         u8 i; \
-        static u32 const count_max = 32*4*100; \
+        static u32 const count_max = 32*8*1000; \
         for (i = 0; i < 2 && count < count_max; i++) { \
             count = 0; \
             /* wait few clocks to soft fix the spi module gaps bug: 2*spi_clk+pclk */ \
