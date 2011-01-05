@@ -38,21 +38,11 @@ static  int  condition;
 #define LCD_WIDTH  320
 #define LCD_HEIGHT 480
 /* FIXME */
-static unsigned int buf_ptr;
-unsigned int pmem_ptr;
-
-#define GET_VA(base) (base-PMEM_BASE_PHY_ADDR+pmem_ptr)
-#endif
-
-
-#define SOFT_RGBA2ARGB
-#ifdef SOFT_RGBA2ARGB
-/* FIXME */
 unsigned int buf_ptr;
 unsigned int buf_ptr_pa;
 unsigned int pmem_ptr;
 
-#define GET_VA(base) (base-0x0f000000+pmem_ptr)
+#define GET_VA(base) (base-PMEM_BASE_PHY_ADDR+pmem_ptr)
 #endif
 
 int sc8800g_2d_open(struct inode *inode, struct file *file)
@@ -260,13 +250,7 @@ int sc8800g_2d_probe(struct platform_device *pdev)
 	buf_ptr = __get_free_pages(GFP_ATOMIC, get_order(LCD_WIDTH*LCD_HEIGHT*4));
 	pmem_ptr = (unsigned int)ioremap_cached(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
 	printk("sc8800g_2d alloc buf @ 0x%x\n", buf_ptr);
-#endif
-
-#ifdef SOFT_RGBA2ARGB
-	/* FIXME: hard-coded size and address */
-	buf_ptr = __get_free_pages(GFP_ATOMIC, get_order(320*480*4));
-	pmem_ptr = (unsigned int)ioremap_cached(0x0f000000, 0x800000);
-	printk("sc8800g_2d alloc buf @ 0x%x\n", buf_ptr);
+	buf_ptr_pa = __pa(buf_ptr);
 #endif
 
 	printk(KERN_ALERT" sc8800g_2d_probe Success\n");
