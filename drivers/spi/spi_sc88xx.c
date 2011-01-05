@@ -160,6 +160,7 @@ sprd_spi_interrupt(int irq, void *dev_id)
     if (sprd_data->cspi_trans &&
         sprd_data->cspi_trans->tx_dma && 
         sprd_data->cspi_trans->rx_dma) {
+        sprd_dma_stop(irq);
         if (++sprd_data->tx_rx_finish < 2) {
             // printk("ignore tx_rx first irq\n");
             spin_unlock(&sprd_data->lock);
@@ -351,18 +352,14 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
     }
 
     if (flag & 0x01) {
-        if (unlikely(flag & 0x02)) {
-            // tx both
-            len = dlen;
-        } else {
-            // only rx
-            dlen -= offset;
-            len = dlen > sprd_ctrl_data->data_max ? sprd_ctrl_data->data_max : dlen;
-            if (likely(sprd_ctrl_data->data_width != 3)) {
-                blocks = len >> sprd_ctrl_data->data_width_order;
-            } else blocks = len / sprd_ctrl_data->data_width;
-            // blocks = len / sprd_ctrl_data->data_width; // for 1byte 2bytes 3bytes 4bytes
-        }
+        // only rx or tx both
+        dlen -= offset;
+        len = dlen > sprd_ctrl_data->data_max ? sprd_ctrl_data->data_max : dlen;
+        if (likely(sprd_ctrl_data->data_width != 3)) {
+            blocks = len >> sprd_ctrl_data->data_width_order;
+        } else blocks = len / sprd_ctrl_data->data_width;
+        // blocks = len / sprd_ctrl_data->data_width; // for 1byte 2bytes 3bytes 4bytes
+
         dma_desc = &sprd_ctrl_data->dma_desc_rx;
         dma_desc->tlen = len;
         dma_desc->ddst = dptr + offset;
@@ -371,7 +368,7 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
     }
 
     if (flag & 0x02) {
-        len = slen;
+        if ((flag & 0x01) == 0) len = slen; // only tx
         dma_desc = &sprd_ctrl_data->dma_desc_tx;
         dma_desc->tlen = len;
         dma_desc->dsrc = sptr + offset;
