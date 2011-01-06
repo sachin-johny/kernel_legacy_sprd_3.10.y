@@ -124,7 +124,12 @@ static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
             printk(KERN_WARNING "spi dma msg\n");
         }
 #endif
-
+#if SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX
+        if (!trans->tx_dma && trans->rx_dma) {
+            trans->tx_buf = SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR;
+            trans->tx_dma = sprd_data->buffer_dma;
+        }
+#endif
         if (!(trans->tx_dma || trans->rx_dma) || !trans->len)
             return -ENOMEM;
 	}
@@ -253,7 +258,11 @@ static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct 
 {
     struct device *dev = &sprd_data->pdev->dev;
 
-    if (trans->tx_dma)
+    if (trans->tx_dma 
+#if SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX
+        && (trans->tx_buf != SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR)
+#endif
+       )
         dma_unmap_single(dev, trans->tx_dma, trans->len, DMA_TO_DEVICE);
 
     if (trans->rx_dma)
@@ -373,7 +382,10 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
         dma_desc = &sprd_ctrl_data->dma_desc_tx;
         dma_desc->tlen = len;
         dma_desc->dsrc = sptr + offset;
-
+#if SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX
+        if (sprd_data->cspi_trans->tx_buf == SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR)
+            dma_desc->dsrc = sptr;
+#endif
         sprd_dma_update(DMA_SPI_TX, dma_desc); // use const ch_id value to speed up code exec [luther.ge]
     }
 #if SPRD_SPI_DEBUG
@@ -386,6 +398,9 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
          * 8个测试线程才能正常的操作spclk分别为8M和500K的2个slot [luther.ge]
          * 但是如果单独启动slot0的4个线程或者单独启动slot1的4个线程都不会出现该问题
          * 只要8个线程同时启动就会出现上面的问题.
+         *
+         * 当打开SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX之后,该udelay(300us)可以取消[luther.ge]
+         *
          */
 //        udelay(300);
         // chip_select = spi->chip_select;
@@ -588,6 +603,8 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
                                         &sprd_data->buffer_dma, GFP_KERNEL);
     if (!sprd_data->buffer)
         goto out_free;
+
+    memset(sprd_data->buffer, 0, SPRD_SPI_BUFFER_SIZE);
 
     spin_lock_init(&sprd_data->lock);
     INIT_LIST_HEAD(&sprd_data->queue);

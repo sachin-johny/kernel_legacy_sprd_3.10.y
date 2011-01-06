@@ -149,9 +149,16 @@
 #endif
 
 #define SPRD_SPI_DMA_MODE 1
+/* 
+ * 如果存在tx和rx同时收发模式,那么only rx将出现dma自动停止,读取SPI_TXD, rx watermark次数之后
+ * dma自动恢复,为了解决该bug,我们采取only rx时,tx空数据的方式[luther.ge]
+ */
+#define SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX 1
+#define SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR ((void*)1)
 struct sprd_spi_data {
-#define SPRD_SPI_BUFFER_SIZE PAGE_SIZE
 #define SPRD_SPI_DMA_BLOCK_MAX  (0x1ff) /* ctrl4-[0:8] */
+// SPRD_SPI_BUFFER_SIZE最小应该是SPRD_SPI_DMA_BLOCK_MAX的4倍(32bits)
+#define SPRD_SPI_BUFFER_SIZE (PAGE_SIZE<(SPRD_SPI_DMA_BLOCK_MAX+1)*4 ? (SPRD_SPI_DMA_BLOCK_MAX+1)*4:PAGE_SIZE) 
     spinlock_t lock;
     struct list_head queue;
     struct spi_message *cspi_msg;
