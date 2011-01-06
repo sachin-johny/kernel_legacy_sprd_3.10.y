@@ -53,7 +53,12 @@ static struct mutex *lock;
 #define SCALE_PATH_ADDR_INVALIDE(addr)                   (NULL != (addr)) 
 #define SCALE_PATH_YUV_ADDR_INVALIDE(y,u,v)              (SCALE_PATH_ADDR_INVALIDE(y) && SCALE_PATH_ADDR_INVALIDE(u) && SCALE_PATH_ADDR_INVALIDE(v))
 
+//#define SCALE_DEBUG
+#ifdef SCALE_DEBUG
 #define SCALE_PRINT printk
+#else
+#define SCALE_PRINT(...)
+#endif
 
 LOCAL ISP_MODULE_T           s_isp_mod;
 uint32_t g_base_addr = ISP_AHB_SLAVE_ADDR;
@@ -71,7 +76,7 @@ typedef enum
 struct semaphore g_sem;
 static int g_scale_num = 0;//store the time opened.
 static uint32_t g_share_irq = 0xFF; //for share irq handler function
-#if 0 //for debug
+#if 1 //for debug
 void get_scale_reg(void)
 {
   uint32_t i, value;
@@ -529,7 +534,7 @@ LOCAL int32_t _SCALE_DriverStart(void)
    
             _SCALE_DriverAutoCopy();
 
-	    //get_scale_reg();
+	    get_scale_reg();
 
             _paod(REV_PATH_CFG, BIT_0);
    	
@@ -1211,7 +1216,7 @@ static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, un
 		break;		
 	case SCALE_IOC_DONE:
 		_SCALE_DriverIODone();
-		//get_scale_reg();
+		get_scale_reg();
 		break;
 	default:
 		break;

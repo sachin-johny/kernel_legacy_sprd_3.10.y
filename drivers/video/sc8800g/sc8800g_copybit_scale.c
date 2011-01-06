@@ -29,7 +29,7 @@
 #include "sc8800g_copybit_scale.h"
 
 
-#define COPYBIT_SCALE_DEBUG
+//#define COPYBIT_SCALE_DEBUG
 #ifdef COPYBIT_SCALE_DEBUG
 #define SCALE_PRINT printk
 #else
@@ -67,6 +67,9 @@ static SCALE_DATA_FORMAT_E get_input_data_format(uint32_t format)
 		case S2D_YUV_420:
 			in_fmt = SCALE_DATA_YUV420;
 			break;
+		case S2D_YUV_420_3P:
+			in_fmt = SCALE_DATA_YUV420_3FRAME;
+			break;			
 		case S2D_YUV_400:
 			in_fmt = SCALE_DATA_YUV400;
 			break;		
@@ -97,6 +100,7 @@ static SCALE_DATA_FORMAT_E get_output_data_format(uint32_t format)
 			break;	
 		case S2D_YUV_422:
 		case S2D_YUV_420:
+		case S2D_YUV_420_3P:
 		case S2D_YUV_400:
 		case S2D_ARGB_8888:
 		case S2D_BGRA_8888:
@@ -168,8 +172,31 @@ static int get_param(SCALE_PARAM_T *scale_param, struct s2d_blit_req * req)
 	scale_param->in_rect.y = req->src_rect.y;
 	scale_param->in_rect.h = req->src_rect.h;	
 	scale_param->in_addr.yaddr = req->src.base;
-	scale_param->in_addr.uaddr = scale_param->in_addr.yaddr + scale_param->in_size.w * scale_param->in_size.h;
-	scale_param->in_addr.vaddr = scale_param->in_addr.uaddr;	
+	if(scale_param->in_fmt < SCALE_DATA_RGB565)
+	{
+		if(SCALE_DATA_YUV420_3FRAME == scale_param->in_fmt)
+		{
+			scale_param->in_addr.uaddr = scale_param->in_addr.yaddr + scale_param->in_size.w * scale_param->in_size.h;
+			scale_param->in_addr.vaddr = scale_param->in_addr.uaddr + ( (scale_param->in_size.w * scale_param->in_size.h / 4 + 0xFF) & (~0xFF));
+		}
+		else
+		{
+			scale_param->in_addr.uaddr = scale_param->in_addr.yaddr + scale_param->in_size.w * scale_param->in_size.h;
+			scale_param->in_addr.vaddr = scale_param->in_addr.uaddr;	
+		}
+	}
+	else
+	{
+		scale_param->in_addr.uaddr = 0;
+		scale_param->in_addr.vaddr = 0;
+	}
+	//check input buffer address: must be aligned by 64 words.
+	if((scale_param->in_addr.yaddr & 0xFF) || (scale_param->in_addr.uaddr & 0xFF) || (scale_param->in_addr.vaddr & 0xFF))
+	{
+		SCALE_PRINT("the input buffer addresses are not aligned by 64 words.Y addr: 0x%x, U addr: 0x%x, V addr: 0x%x.\n",  
+			scale_param->in_addr.yaddr, scale_param->in_addr.uaddr, scale_param->in_addr.vaddr);
+		return -1;
+	}
 
 	scale_param->out_fmt = get_output_data_format(req->dst.format);	
 	if(SCALE_DATA_MAX == scale_param->out_fmt)
@@ -317,15 +344,27 @@ static int do_scale(SCALE_PARAM_T *scale_param)
 
 int do_copybit_scale(struct s2d_blit_req * req)
 {
-	SCALE_PARAM_T scale_params;		
+	SCALE_PARAM_T scale_params;
+	uint32_t dst_rect_w, dst_rect_h;
 
-	if((req->src.format == req->dst.format) && (req->src_rect.w == req->dst_rect.w) &&(req->src_rect.h == req->dst_rect.h))
+	if((S2D_ROT_90 & req->flags) || (S2D_ROT_270 & req->flags))
+	{
+		dst_rect_w = req->dst_rect.h;
+		dst_rect_h = req->dst_rect.w;	
+	}
+	else
+	{
+		dst_rect_w = req->dst_rect.w;
+		dst_rect_h = req->dst_rect.h;
+	}
+
+	if((req->src.format == req->dst.format) && (req->src_rect.w == dst_rect_w) &&(req->src_rect.h == dst_rect_h))
 	{		
 		return 0;
 	}
 	else
 	{
-		if((S2D_YUV_422 != req->src.format) && (S2D_YUV_420 != req->src.format) && (S2D_RGB_565 != req->src.format))
+		if((S2D_YUV_422 != req->src.format) && (S2D_YUV_420 != req->src.format) && (S2D_YUV_420_3P!= req->src.format) && (S2D_RGB_565 != req->src.format))
 		{
 			return 0;
 		}

@@ -28,7 +28,7 @@
 #include <mach/hardware.h>
 #include "sc8800g_copybit_rotation.h"
 
-#define COPYBIT_ROTATION_DEBUG
+//#define COPYBIT_ROTATION_DEBUG
 #ifdef COPYBIT_ROTATION_DEBUG
 #define ROT_PRINT printk
 #else
@@ -117,9 +117,6 @@ static int update_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 {
 	uint32_t a, b;
 
-	req->src.base = rot_param->dst_addr.y_addr;
-	req->src_rect.w = req->dst_rect.w;
-	req->src_rect.h = req->dst_rect.h;
 	switch(rot_param->rotation_dir)
 	{
 		case ROTATION_90:
@@ -145,6 +142,9 @@ static int update_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 		default:
 			return -1;
 	}	
+	req->src.base = rot_param->dst_addr.y_addr;
+	req->src_rect.w = req->dst_rect.w;
+	req->src_rect.h = req->dst_rect.h;	
 
 	return 0;
 }
@@ -162,7 +162,7 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 		return 0;
 	}
 	
-	ROT_PRINT("src.format 0x%x\n"
+	ROT_PRINT("before rotation:src.format 0x%x\n"
 	       "src.width  %d\n"
 	       "src.height %d\n"
 	       "src.base   0x%x\n"
@@ -203,7 +203,7 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 		return -1;
 	}
 
-	ROT_PRINT("src.format 0x%x\n"
+	ROT_PRINT("after rotation: src.format 0x%x\n"
 	       "src.width  %d\n"
 	       "src.height %d\n"
 	       "src.base   0x%x\n"
