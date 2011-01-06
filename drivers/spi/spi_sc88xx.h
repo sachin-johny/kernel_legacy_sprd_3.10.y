@@ -81,7 +81,7 @@
         u32 count = 0; \
         volatile u32 vnop_read; \
         u8 i; \
-        static u32 const count_max = 32*8*1000; \
+        static u32 const count_max = 32*16*1000; \
         for (i = 0; i < 2 && count < count_max; i++) { \
             count = 0; \
             /* wait few clocks to soft fix the spi module gaps bug: 2*spi_clk+pclk */ \
@@ -90,6 +90,8 @@
                                        != (SPI_TX_FIFO_REALLY_EMPTY)) { \
                 if (count++ > count_max) break; \
             } \
+            if (count > (count_max / 4)) \
+                printk(KERN_EMERG "spi spin_lock() wait is so big [%d]%d", i, count); \
             /* printk("[%d] spi busy wait for %d\n", i, count); */ \
         } \
         if (count >= count_max) \

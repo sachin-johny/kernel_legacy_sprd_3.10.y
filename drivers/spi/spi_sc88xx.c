@@ -336,6 +336,7 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
 static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
                         struct spi_device *spi, struct sprd_spi_data *sprd_data)
 {
+    // static int chip_select = -1;
     struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
     sprd_dma_desc *dma_desc;
     int flag, len, offset;
@@ -378,6 +379,18 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
 #if SPRD_SPI_DEBUG
     printk(KERN_WARNING "sending[%02x][%d]...\n", flag, len);
 #endif
+
+    /* if (spi->chip_select != chip_select) */ {
+        /* when slot0,slot1,...,slotx,同时启动spi_dummy.c的8个测试线程的时,
+         * dma传输会时常自动停止,必须在每次启动时加入如下300us延时
+         * 8个测试线程才能正常的操作spclk分别为8M和500K的2个slot [luther.ge]
+         * 但是如果单独启动slot0的4个线程或者单独启动slot1的4个线程都不会出现该问题
+         * 只要8个线程同时启动就会出现上面的问题.
+         */
+//        udelay(300);
+        // chip_select = spi->chip_select;
+    }
+
     if (flag == 0xff)
         spi_start();
     else if (flag & 0x01)
@@ -486,215 +499,6 @@ static int sprd_spi_setup(struct spi_device *spi)
     sprd_ctrl_data->spi_ctl0 = spi_ctl0;
 
     sprd_spi_setup_dma(sprd_data, spi);
-
-#if SPRD_SPI_DEBUG
-    lprintf("\n[%s]\n"
-            "clk_spi_and_div = 0x%08x\n"
-            "spi_clkd = 0x%08x\n"
-            "spi_ctl0 = 0x%08x\n"
-            "\n"
-            ,spi->modalias
-            ,sprd_ctrl_data->clk_spi_and_div
-            ,sprd_ctrl_data->spi_clkd
-            ,sprd_ctrl_data->spi_ctl0
-            );
-#if 0   //---------------------------
-    {
-        int i, data;
-        cs_activate(sprd_data, spi);
-
-        for (i = 0; i < 0xfffffff; i++) {
-            // printk("[%d]=0x%08x\n", i, spi_readl(SPI_STS2));
-            while (spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL);
-            spi_writel(0x55, SPI_TXD);
-            data = spi_readl(SPI_TXD) & 0xff;
-            if (data != 0xff)
-                printk("[in]0x%02x\n", data);
-        }
-    }
-#elif 0 //---------------------------
-    {
-        sprd_dma_desc dma_desc;
-        sprd_dma_ctrl ctrl = {.dma_desc = &dma_desc};
-        int width;
-        u32 tlen = 1; // SPRD_SPI_BUFFER_SIZE;
-        // tlen should be width integer multiples, such as, 1,2,4bytes [luther.ge]
-        // mode 4bits, 10bits, 25bits and so on, todo...
-        u32 dsrc = sprd_data->buffer_dma;
-        u32 ddst = SPRD_SPI_PHYS + SPI_TXD;
-        u8 *data = sprd_data->buffer;;
-        int i;
-        memset(sprd_data->buffer, 0x15, SPRD_SPI_BUFFER_SIZE);
-
-        width = (sprd_ctrl_data->spi_ctl0 >> 2) & 0x1f;
-        if (width == 0) width = 32;
-
-        printk("width=%d\n", width);
-
-        sprd_dma_setup_cfg(&ctrl,
-            DMA_SPI_TX,
-            DMA_NORMAL,
-            TRANS_DONE_EN,
-            DMA_INCREASE, DMA_NOCHANGE,
-            SRC_BURST_MODE_SINGLE, SRC_BURST_MODE_SINGLE,
-            16, // 16 bytes DMA burst size
-            width, width,
-            0, ddst, 0);
-        sprd_dma_setup(&ctrl);
-
-        spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); // Only Enable SPI transmit mode
-        spi_write_reg(SPI_CTL2,  6, 0x01, 0x01); // Enable SPI_DMA_EN
-
-        cs_activate(sprd_data, spi);
-
-#if 1
-        for (i = 0; i < 2; i++) {
-#else
-        for (i = 0; i < 0xfffffff; i++) {
-#endif
-            printk("enter\n");
-
-#if 0
-            data[1] = i & 0x01;
-            data[0] = data[1] ? 0x0a:0xfa;
-#endif
-            sprd_dma_tlen(DMA_SPI_TX, tlen);
-            sprd_dma_dsrc(DMA_SPI_TX, dsrc);
-
-            sprd_dma_start(DMA_SPI_TX);
-#if 0
-            while (!(__raw_readl(DMA_INT_RAW) & (1 << DMA_SPI_TX)));
-            __raw_writel(1 << DMA_SPI_TX, DMA_TRANSF_INT_CLR);
-#else
-            msleep(1);
-#endif
-        }
-        lprintf("Done.\n");
-    }
-#elif 0  //---------------------------
-    {
-        int i, j, n, ni, no, flags, oflen;
-        u32 optr = sprd_data->buffer_dma;
-        u32 iptr = optr + 100;
-        u8 *optrv= sprd_data->buffer;
-        u8 *iptrv= optrv + 100;
-        memset(sprd_data->buffer, 0x15, SPRD_SPI_BUFFER_SIZE);
-
-        sprd_spi_setup_dma(sprd_data, spi);
-
-        cs_activate(sprd_data, spi);
-
-        oflen = 0;// 1023;
-        flags = 7 | 0x80;
-
-#if 1
-        for (i = 0; i < 2; i++) {
-#else
-        for (i = 0; i < 0x7fffffff; i++) {
-#endif
-
-if (flags & 0x1) {
-            no = (i % 5) + 1 + oflen;
-            printk("enter only tx %d\n", no);
-            memset(optrv, 0x15, no + 1);
-            sprd_dma_update_spi(optr, no, 0, 0, spi, sprd_data);
-            msleep(10);
-}
-
-if (flags & 0x2) {
-            ni = (i % 5) + 1 + oflen;
-            printk("enter only rx %d\n", ni);
-            memset(iptrv, 0x88, ni + 1);
-            n = sprd_dma_update_spi(0, no, iptr, ni, spi, sprd_data);
-            msleep(10);
-
-            for (j = 0; j <= n; j++) {
-                printk("%02X ", iptrv[j]);
-                if ((j & 0x1f) == 0x1f)
-                    printk("\n");
-            }
-            if (j & 0x1f)
-                printk("\n");
-}
-
-if (flags & 0x4) {
-            no = ni = (i % 5) + 1 + oflen;
-            printk("enter tx rx both %d\n", ni);
-            memset(optrv, 0x15, no + 1);
-            memset(iptrv, 0x88, ni + 1);
-            n = sprd_dma_update_spi(optr, no, iptr, ni, spi, sprd_data);
-            msleep(10);
-
-            for (j = 0; j <= n; j++) {
-                printk("%02X ", iptrv[j]);
-                if ((j & 0x1f) == 0x1f)
-                    printk("\n");
-            }
-            if (j & 0x1f)
-                printk("\n");
-}
-
-if (flags & 0x80) {
-            msleep(500);
-}
-
-        }
-        lprintf("Done.\n");
-    }
-#elif 0  //---------------------------
-    {
-        struct spi_transfer t[1];
-        struct spi_message m;
-        u8 stack_data[64];
-        u8 *kdata = kmalloc(512, GFP_KERNEL);
-        u8 *dma_data = sprd_data->buffer;
-        dma_addr_t dma_phy = sprd_data->buffer_dma;
-
-    do {
-#if 1
-        stack_data[0] = 0xff;
-        stack_data[1] = 0x55;
-        spi_write(spi, stack_data, 2);
-        memset(&stack_data[32], 0x88, 4);
-        spi_read(spi, &stack_data[32], 2);
-        printk("[%02x %02x %02x]\n", stack_data[32], stack_data[33], stack_data[34]);
-        m = m; kdata = kdata; dma_data = dma_data; dma_phy = dma_phy; t[0] = t[0];
-#else
-        memset(stack_data, 0x05, sizeof stack_data);
-        memset(kdata, 0x15, 512);
-        memset(dma_data, 0x55, SPRD_SPI_BUFFER_SIZE);
-
-        spi_message_init(&m);
-        memset(t, 0, sizeof t);
-        t[0].tx_buf = stack_data;
-        t[0].len = sizeof stack_data;
-        spi_message_add_tail(&t[0], &m);
-        spi_sync(spi, &m);
-        msleep(500);
-
-        spi_message_init(&m);
-        memset(t, 0, sizeof t);
-        t[0].tx_buf = kdata;
-        t[0].len = 512;
-        spi_message_add_tail(&t[0], &m);
-        spi_sync(spi, &m);
-        msleep(500);
-
-        spi_message_init(&m);
-        m.is_dma_mapped = 1;
-        memset(t, 0, sizeof t);
-        t[0].tx_dma = dma_phy;
-        // t[0].rx_dma = dma_phy;
-        t[0].len = SPRD_SPI_BUFFER_SIZE;
-        spi_message_add_tail(&t[0], &m);
-        spi_sync(spi, &m);
-        msleep(500);
-#endif
-    } while (1);
-        kfree(kdata);
-    }
-#endif
-#endif
 
     return 0;
 }
