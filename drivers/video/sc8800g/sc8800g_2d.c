@@ -34,7 +34,7 @@ static  int  condition;
 #define SOFT_RGBA2ARGB
 #ifdef SOFT_RGBA2ARGB
 #define PMEM_BASE_PHY_ADDR 0x0f000000
-#define PMEM_SIZE  0x800000
+#define PMEM_SIZE  0x800000*2
 #define LCD_WIDTH  320
 #define LCD_HEIGHT 480
 /* FIXME */
