@@ -233,4 +233,66 @@ spi_read2(struct spi_device *spi, u8 *buf, size_t len)
     spi_message_add_tail(&t, &m);
     return spi_sync2(spi, &m);
 }
+
+static inline int
+spi_write_read(struct spi_device *spi, u8 *buf_tx, u8 *buf_rx, size_t len)
+{
+    struct spi_transfer t = {
+        .tx_buf     = buf_tx,
+        .rx_buf     = buf_rx,
+        .len        = len,
+    };
+    struct spi_message	m;
+
+    spi_message_init(&m);
+    spi_message_add_tail(&t, &m);
+    return spi_sync(spi, &m);
+}
+
+static inline int
+spi_dma_write(struct spi_device *spi, dma_addr_t dma_addr, size_t len)
+{
+    struct spi_transfer t = {
+        .tx_dma     = dma_addr,
+        .len        = len,
+    };
+    struct spi_message	m;
+
+    spi_message_init(&m);
+    m.is_dma_mapped = 1;
+    spi_message_add_tail(&t, &m);
+    return spi_sync(spi, &m);
+}
+
+static inline int
+spi_dma_read(struct spi_device *spi, dma_addr_t dma_addr, size_t len)
+{
+    struct spi_transfer t = {
+        .rx_dma     = dma_addr,
+        .len        = len,
+    };
+    struct spi_message	m;
+
+    spi_message_init(&m);
+    m.is_dma_mapped = 1;
+    spi_message_add_tail(&t, &m);
+    return spi_sync(spi, &m);
+}
+
+
+static inline int
+spi_dma_write_read(struct spi_device *spi, dma_addr_t dma_addr_tx, dma_addr_t dma_addr_rx, size_t len)
+{
+    struct spi_transfer t = {
+        .tx_dma     = dma_addr_tx,
+        .rx_dma     = dma_addr_rx,
+        .len        = len,
+    };
+    struct spi_message	m;
+
+    spi_message_init(&m);
+    m.is_dma_mapped = 1;
+    spi_message_add_tail(&t, &m);
+    return spi_sync(spi, &m);
+}
 #endif
