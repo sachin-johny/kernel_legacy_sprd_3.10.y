@@ -49,7 +49,7 @@ void clk_print_all(void)
 	struct clk *p;
 
 	list_for_each_entry(p, &clocks, node) {
-		printk("clock: [%s], parent = [%s], usecount = %d, rate = %ld",
+		printk("clock: [%s], parent = [%s], usecount = %d, rate = %ld.\n",
 				p->name, p->parent ? p->parent->name : "NULL",
 				p->usecount, p->rate);
 	}
@@ -68,8 +68,11 @@ void sc88xx_init_clksel_parent(struct clk *clk)
 	const struct clksel *clks;
 	u32 r, found = 0;
 
-	if (!clk->clksel)
+	if (!clk->clksel_reg || !clk->clksel_mask) {
+		printk("clock[%s]: parent can't be changed!\n", clk->name);
 		return;
+	}
+
 	r = __raw_readl(clk->clksel_reg) & clk->clksel_mask;
 	r >>= __ffs(clk->clksel_mask);
 
@@ -79,6 +82,9 @@ void sc88xx_init_clksel_parent(struct clk *clk)
 				printk("clock: set [%s]'s parent from [%s] to [%s]\n",
 					clk->name, clk->parent->name, clks->parent->name);
 				clk_reparent(clk, clks->parent);
+				if (clk->recalc)
+					clk->rate = clk->recalc(clk);
+				propagate_rate(clk);
 			}
 		}
 		found = 1;
@@ -116,6 +122,7 @@ int clk_register(struct clk *clk)
 		list_add(&clk->sibling, &root_clks);
 
 	/* clock list. */
+	// printk("####: clk_register(): register clock [%s].", clk->name);
 	list_add(&clk->node, &clocks);
 
 	if (clk->init)
@@ -241,6 +248,49 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 
 }
 EXPORT_SYMBOL(clk_set_rate);
+
+int clk_set_divisor(struct clk *clk, int divisor)
+{
+	unsigned long flags;
+	unsigned long ret = -EINVAL;
+
+	if ((NULL == clk) || IS_ERR(clk))
+		return ret;
+
+	spin_lock_irqsave(&clockfw_lock, flags);
+	if (arch_clock->clk_set_divisor)
+			ret = arch_clock->clk_set_divisor(clk, divisor);
+	if (0 == ret) {
+		if (clk->recalc)
+			clk->rate = clk->recalc(clk);
+		propagate_rate(clk);
+	}
+
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+
+	return ret;
+
+}
+EXPORT_SYMBOL(clk_set_divisor);
+
+int clk_get_divisor(struct clk *clk)
+{
+	unsigned long flags;
+	unsigned long ret = -EINVAL;
+
+	if ((NULL == clk) || IS_ERR(clk))
+		return ret;
+
+	spin_lock_irqsave(&clockfw_lock, flags);
+	if (arch_clock->clk_get_divisor)
+			ret = arch_clock->clk_get_divisor(clk);
+	spin_unlock_irqrestore(&clockfw_lock, flags);
+
+	return ret;
+
+}
+EXPORT_SYMBOL(clk_get_divisor);
+
 
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {

@@ -86,9 +86,9 @@
 #define		CLK_UART1_CLKDIV_MASK	(0x7UL << 3)
 #define		CLK_UART2_CLKDIV_MASK	(0x7UL << 6)
 #define		CLK_SPI_CLKDIV_MASK		(0x7UL << 21)
-#define		CLK_IIS_CLKDIV_MASK		(0x7UL << 24)
-#define		CLK_AUX0_CLKDIV_MASK	(0x3fUL << 0)
-#define		CLK_AUX1_CLKDIV_MASK	(0x3fUL << 22)
+#define		CLK_IIS_CLKDIV_MASK		(0xffUL << 24)
+#define		CLK_AUX0_CLKDIV_MASK	(0xffUL << 0)
+#define		CLK_AUX1_CLKDIV_MASK	(0xffUL << 22)
 
 
 
@@ -121,7 +121,7 @@ struct clk {
 	struct list_head		children;
 	struct list_head		sibling;
 	unsigned long 			rate;
-	__u32				flags;
+	u32				flags;
 	long			(*round_rate)(struct clk *, unsigned long);
 	void				(*init)(struct clk *);
 	u32					usecount;
@@ -130,7 +130,6 @@ struct clk {
 	const char			*clkdm_name;
 
 
-	u8					fixed_div;
 	void __iomem		*clksel_reg;
 	u32					clksel_mask;
 	const struct clksel	*clksel;
@@ -140,6 +139,9 @@ struct clk {
 
 	void __iomem		*clkdiv_reg;
 	u32					clkdiv_mask;
+	int 				divisor;
+	int					(*set_divisor)(struct clk *clk, int divisor);
+	int					(*get_divisor)(struct clk *clk);
 };
 
 
@@ -147,6 +149,8 @@ struct clk_functions {
 	int		(*clk_enable)(struct clk *clk);
 	void	(*clk_disable)(struct clk *clk);
 	int		(*clk_set_rate)(struct clk *clk, unsigned long rate);
+	int		(*clk_set_divisor)(struct clk *clk, int divisor);
+	int		(*clk_get_divisor)(struct clk *clk);
 	int		(*clk_set_parent)(struct clk *clk, struct clk *parent);
 	long	(*clk_round_rate)(struct clk *clk, unsigned long rate);
 	void	(*clk_allow_idle)(struct clk *clk);
@@ -166,6 +170,9 @@ void clk_enable_init_clocks(void);
 void recalculate_root_clocks(void);
 void sc88xx_init_clksel_parent(struct clk *clk);
 void clk_reparent(struct clk *child, struct clk *parent);
+void clk_print_all(void);
+int	clk_set_divisor(struct clk *clk, int divisor);
+int	clk_get_divisor(struct clk *clk);
 
 #endif
 

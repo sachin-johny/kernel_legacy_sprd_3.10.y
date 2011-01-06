@@ -1,5 +1,5 @@
 /*
- * sc8800s standby mode
+ * sc8800g standby mode
  *
  * Author: Wang Liwei 
  *
@@ -11,8 +11,8 @@
 
 		.text
 
-#ifdef CONFIG_ARCH_SC8800S
-ENTRY(sc8800s_cpu_standby)
+#ifdef CONFIG_ARCH_SC8800G
+ENTRY(sc8800g_cpu_standby)
     mov r0, #0
     mcr p15, 0, r0, c7, c0, 4
     nop
