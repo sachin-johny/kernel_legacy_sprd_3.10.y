@@ -86,6 +86,7 @@ obj-$(CONFIG_SOC_CAMERA_TW9910)		+= tw9910.o
 
 obj-$(CONFIG_FB_SC8800G)		+= sprd_scale/
 obj-$(CONFIG_FB_SC8800G)		+= sprd_rotation/
+obj-$(CONFIG_FB_SC8800G)		+= sprd_vsp/
 
 # And now the v4l2 drivers:
 
