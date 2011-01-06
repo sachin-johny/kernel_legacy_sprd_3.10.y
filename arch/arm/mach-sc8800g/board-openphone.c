@@ -48,7 +48,7 @@
 #define SPRD_PMEM_BASE          ((256-8-8)*1024*1024)
 #define SPRD_PMEM_SIZE          (8*1024*1024)
 #define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
-#define SPRD_PMEM_ADSP_SIZE     (8*1024*1024)
+#define SPRD_PMEM_ADSP_SIZE     (6*1024*1024)
 
 static struct resource example_resources[] = {
 	[0] = {

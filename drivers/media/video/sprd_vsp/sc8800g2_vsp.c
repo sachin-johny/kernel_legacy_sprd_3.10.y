@@ -32,14 +32,16 @@
 #include <linux/mm.h>
 #include <linux/miscdevice.h>
 
+
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 
 #define VSP_MINOR MISC_DYNAMIC_MINOR
+#define VSP_TIMEOUT_MS 1000
 
 #define VSP_SC8800G2
 //#define VSP_SC8800H5 
-#define  VSP_DEBUG
+//#define  VSP_DEBUG
 #ifdef VSP_DEBUG
 #define VSP_PRINT printk
 #else
@@ -54,8 +56,9 @@
 #define BIT_24 (1<<24)
 #define BIT_25 (1<<25)
 #define BIT_26 (1<<26)
+#define DEFAULT_FREQ_DIV 0x4
 
-/* sc8800s reg offset macros */
+
 #define AHB_CTL0                (SPRD_AHB_BASE + 0x200)
 #define AHB_SOFT_RST            (SPRD_AHB_BASE + 0x210)
 
@@ -69,7 +72,6 @@
 #define SPRD_VSP_PHYS SPRD_MEA_PHYS
 #define SPRD_VSP_SIZE 0x13000   //76k
 
-#define DEFAULT_FREQ_DIV 0x4
 
 #define SC8800G_VSP_IOCTL_MAGIC 'm'
 #define VSP_CONFIG_FREQ _IOW(SC8800G_VSP_IOCTL_MAGIC, 1, unsigned int)
@@ -78,18 +80,13 @@
 #define VSP_DISABLE     _IO(SC8800G_VSP_IOCTL_MAGIC, 4)
 #define VSP_ACQUAIRE    _IO(SC8800G_VSP_IOCTL_MAGIC, 5)
 #define VSP_RELEASE     _IO(SC8800G_VSP_IOCTL_MAGIC, 6)
-/*
-#define VSP_CONFIG_FREQ (('k'<<8)|0)
-#define VSP_GET_FREQ    (('k'<<8)|1)
-#define VSP_ENABLE      (('k'<<8)|2)
-#define VSP_DISABLE     (('k'<<8)|3)
-#define VSP_ACQUAIRE    (('k'<<8)|4)
-#define VSP_RELEASE     (('k'<<8)|5)
-*/
+
 
 struct vsp_dev
 {
-    unsigned int freq_div; 
+    unsigned int freq_div;
+    wait_queue_head_t	wait_queue;
+    int  condition;  
     struct semaphore sem;
 };
 
@@ -98,6 +95,7 @@ static struct vsp_dev dev;
 static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	uint32_t reg_value; 
+        int ret;
 	switch(cmd)
 	{
 	    case VSP_CONFIG_FREQ:
@@ -155,15 +153,23 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 	    break;	
 	    case VSP_ACQUAIRE:
 		VSP_PRINT("vsp ioctl VSP_ACQUAIRE begin\n");
-		if(down_interruptible(&dev.sem))
-		{
+		ret = wait_event_interruptible_timeout(dev.wait_queue, dev.condition,msecs_to_jiffies(VSP_TIMEOUT_MS));
+		if (ret == 0){
+		    printk("KERN_ERR vsp error timeout\n");
+		    dev.condition = 1;
+		    return -ETIMEDOUT;
+		}
+		if(ret == -ERESTARTSYS){
+		    printk("KERN_ERR vsp error -ERESTARTSYS\n");
 		    return -ERESTARTSYS;
 		}
+		dev.condition = 0;
 		VSP_PRINT("vsp ioctl VSP_ACQUAIRE end\n");
 	    break;	
 	    case VSP_RELEASE:
 		VSP_PRINT("vsp ioctl VSP_RELEASE\n");
-		up(&dev.sem);
+		dev.condition = 1;
+		wake_up_interruptible(&dev.wait_queue);
 	    break;	    
 	    default:
 		return -EINVAL;
@@ -205,7 +211,8 @@ static int vsp_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-        init_MUTEX(&dev.sem);
+	init_waitqueue_head(&dev.wait_queue);
+	dev.condition = 1;
 #ifdef VSP_SC8800H5
 	dev.freq_div = DEFAULT_FREQ_DIV;
 #endif
@@ -242,7 +249,6 @@ static int __init vsp_init(void)
 		printk("platform device vsp drv register Failed \n");
 		return -1;
 	}
-        printk("IO %x,%x,%x,%x,%x,%x\n",VSP_CONFIG_FREQ,VSP_GET_FREQ,VSP_ENABLE,VSP_DISABLE,VSP_ACQUAIRE,VSP_RELEASE);
 	return 0;
 }
 
@@ -250,7 +256,6 @@ static void vsp_exit(void)
 {
 	printk(KERN_INFO "vsp_exit called !\n");
 	platform_driver_unregister(&vsp_driver);
-	mutex_destroy(&dev.sem);
 }
 
 module_init(vsp_init);
