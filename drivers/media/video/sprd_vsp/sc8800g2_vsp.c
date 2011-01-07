@@ -82,8 +82,7 @@
 #define VSP_RELEASE     _IO(SC8800G_VSP_IOCTL_MAGIC, 6)
 
 
-struct vsp_dev
-{
+struct vsp_dev{
     unsigned int freq_div;
     wait_queue_head_t	wait_queue;
     int  condition;  
@@ -96,8 +95,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 {
 	uint32_t reg_value; 
         int ret;
-	switch(cmd)
-	{
+	switch(cmd){
 	    case VSP_CONFIG_FREQ:
 	        get_user(dev.freq_div,(int __user *)arg);
 		VSP_PRINT("vsp ioctl VSP_CONFIG_FREQ %d\n",dev.freq_div);
@@ -169,7 +167,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 	    case VSP_RELEASE:
 		VSP_PRINT("vsp ioctl VSP_RELEASE\n");
 		dev.condition = 1;
-		wake_up_interruptible(&dev.wait_queue);
+		wake_up_interruptible_nr(&dev.wait_queue,1);
 	    break;	    
 	    default:
 		return -EINVAL;
