@@ -312,7 +312,10 @@ static inline int set_fetch(struct s2d_img *img, struct s2d_rect *rect,
  * what operation the software need to do
  */
 static int para_check(struct s2d_blit_req * req)
-{
+{ 
+    if (req->src_rect.w == 1)
+         return SOFTWARE_BLEND_ALL;
+
 	if(req->dst_rect.x & 1) { /* dst_rect odd start */
 		if (req->src.format == S2D_RGB_565 && !(req->src_rect.x &1))
 			return SOFTWARE_BLEND_ALL;
