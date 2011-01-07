@@ -523,13 +523,17 @@ LOCAL int32_t _SCALE_DriverStart(void)
 
             rtn = _SCALE_DriverPath2TrimAndScaling();            
 	    ISP_RTN_IF_ERR(rtn);
-            _SCALE_DriverIrqEnable(ISP_IRQ_REVIEW_DONE_BIT);		
-
-            _SCALE_DriverSetMasterEndianness(ISP_MASTER_READ, 0);
+            _SCALE_DriverIrqEnable(ISP_IRQ_REVIEW_DONE_BIT);	
+            
+	    //wxz20110107:the rgb565 endian type from android is ISP_MASTER_ENDIANNESS_HALFBIG
+	    if(ISP_DATA_RGB565 == p_path2->input_format)	
+	             _SCALE_DriverSetMasterEndianness(ISP_MASTER_READ,1);
+	    else
+  		     _SCALE_DriverSetMasterEndianness(ISP_MASTER_READ,0);            
             SCALE_PRINT("ISP_DRV: ISP_DriverStart , p_path2->input_format %d ,p_path2->output_format %d.\n",
                           p_path2->input_format,
                           p_path2->output_format);
-	    //wxz20110107:update the endian for LCDC display in copybit function.     
+	    //wxz20110107:update the endian for LCDC display in copybit function. The blending needs the ISP_MASTER_ENDIANNESS_HALFBIG endian type of rgb565.     
 	    if(ISP_DATA_RGB565 == p_path2->output_format)	
 	             _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,1);
 	    else
