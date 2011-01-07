@@ -202,9 +202,17 @@ static int get_param(SCALE_PARAM_T *scale_param, struct s2d_blit_req * req)
 	if(SCALE_DATA_MAX == scale_param->out_fmt)
 		return -1;
 
-	scale_param->out_addr.yaddr = SCALE_OUTPUT_BUF;	
-	scale_param->out_addr.uaddr = scale_param->out_addr.yaddr + scale_param->out_size.w * scale_param->out_size.h;
-	scale_param->out_addr.vaddr = scale_param->out_addr.uaddr;	
+	scale_param->out_addr.yaddr = SCALE_OUTPUT_BUF;		
+	if(SCALE_DATA_RGB565 == scale_param->out_fmt)
+	{
+		scale_param->out_addr.uaddr = 0;
+		scale_param->out_addr.vaddr = 0;
+	}
+	else
+	{
+		scale_param->out_addr.uaddr = scale_param->out_addr.yaddr + scale_param->out_size.w * scale_param->out_size.h;
+		scale_param->out_addr.vaddr = scale_param->out_addr.uaddr;	
+	}
 
 	if((req->flags & S2D_ROT_90) || (req->flags & S2D_ROT_270))
 	{
@@ -340,13 +348,41 @@ static int do_scale(SCALE_PARAM_T *scale_param)
 
 	return 0;
 }
+#if 0
+static void set_layer_cb(struct s2d_blit_req* req)
+{
+#define LCDC_Y2R_CONTRAST           (SPRD_LCDC_BASE + 0x0114)
+#define LCDC_Y2R_SATURATION         (SPRD_LCDC_BASE + 0x0118)
+#define LCDC_OSD1_CTRL                    (SPRD_LCDC_BASE + 0x0040)
+#define LCDC_OSD1_ALPHA                     (SPRD_LCDC_BASE + 0x0058)
+#define LCDC_IMG_CTRL                    (SPRD_LCDC_BASE + 0x0020)
+#define LCDC_IMG_Y_BASE_ADDR         (SPRD_LCDC_BASE + 0x0024)
+#define LCDC_IMG_UV_BASE_ADDR            (SPRD_LCDC_BASE + 0x0028)
+#define LCDC_IMG_SIZE_XY             (SPRD_LCDC_BASE + 0x002c)
+#define LCDC_IMG_PITCH                   (SPRD_LCDC_BASE + 0x0030)
+#define LCDC_IMG_DISP_XY             (SPRD_LCDC_BASE + 0x0034)
 
+       __raw_bits_or((1<<2), LCDC_OSD1_CTRL);//block alpha
+        __raw_writel(0x5F,LCDC_OSD1_ALPHA);
 
+        //__raw_writel(0x23,LCDC_IMG_CTRL);
+        __raw_writel(0x12B,LCDC_IMG_CTRL);
+
+        __raw_writel(64,LCDC_Y2R_CONTRAST);
+        __raw_writel(64,LCDC_Y2R_SATURATION);
+
+        __raw_writel(req->src.base >> 2,LCDC_IMG_Y_BASE_ADDR);
+        __raw_writel((req->src.base+req->src.width *req->src.height)>>2,LCDC_IMG_UV_BASE_ADDR);
+        __raw_writel((req->src.height<<16)|req->src.width,LCDC_IMG_SIZE_XY);
+        __raw_writel(req->src.width,LCDC_IMG_PITCH);
+        __raw_writel(0x0,LCDC_IMG_DISP_XY);
+}
+#endif
 int do_copybit_scale(struct s2d_blit_req * req)
 {
 	SCALE_PARAM_T scale_params;
 	uint32_t dst_rect_w, dst_rect_h;
-
+	
 	if((S2D_ROT_90 & req->flags) || (S2D_ROT_270 & req->flags))
 	{
 		dst_rect_w = req->dst_rect.h;
@@ -364,7 +400,7 @@ int do_copybit_scale(struct s2d_blit_req * req)
 	}
 	else
 	{
-		if((S2D_YUV_422 != req->src.format) && (S2D_YUV_420 != req->src.format) && (S2D_YUV_420_3P!= req->src.format) && (S2D_RGB_565 != req->src.format))
+		if((S2D_YUV_422 != req->src.format) && (S2D_YUV_420 != req->src.format) && (S2D_YUV_400 != req->src.format) && (S2D_YUV_420_3P!= req->src.format) && (S2D_RGB_565 != req->src.format))
 		{
 			return 0;
 		}
@@ -447,6 +483,6 @@ int do_copybit_scale(struct s2d_blit_req * req)
 	       req->dst_rect.w, req->dst_rect.h,
 	       req->flags
 	       );
-	
+
 	return 0;	
 }

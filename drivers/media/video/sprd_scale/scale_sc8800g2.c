@@ -76,7 +76,7 @@ typedef enum
 struct semaphore g_sem;
 static int g_scale_num = 0;//store the time opened.
 static uint32_t g_share_irq = 0xFF; //for share irq handler function
-#if 1 //for debug
+#ifdef SCALE_DEBUG //for debug
 void get_scale_reg(void)
 {
   uint32_t i, value;
@@ -526,15 +526,19 @@ LOCAL int32_t _SCALE_DriverStart(void)
             _SCALE_DriverIrqEnable(ISP_IRQ_REVIEW_DONE_BIT);		
 
             _SCALE_DriverSetMasterEndianness(ISP_MASTER_READ, 0);
-            SCALE_TRACE("ISP_DRV: ISP_DriverStart , p_path2->input_format %d ,p_path2->output_format %d.\n",
+            SCALE_PRINT("ISP_DRV: ISP_DriverStart , p_path2->input_format %d ,p_path2->output_format %d.\n",
                           p_path2->input_format,
                           p_path2->output_format);
-
-             _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,0);
+	    //wxz20110107:update the endian for LCDC display in copybit function.     
+	    if(ISP_DATA_RGB565 == p_path2->output_format)	
+	             _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,1);
+	    else
+  		     _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,0);
    
             _SCALE_DriverAutoCopy();
-
+#ifdef SCALE_DEBUG
 	    get_scale_reg();
+#endif
 
             _paod(REV_PATH_CFG, BIT_0);
    	
@@ -683,7 +687,7 @@ PUBLIC int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
             }
 		
 		_SCALE_DriverSetExtSrcFrameAddr(&p_path->input_frame);  //for review, scale,slice scale
-            
+            SCALE_PRINT("###SCALE: input buffer address: y: 0x%x, u: 0x%x, v: 0x%x.\n", p_addr.yaddr, p_addr.uaddr, p_addr.vaddr);
             break;
         }
         case ISP_PATH_OUTPUT_SIZE:
@@ -919,7 +923,7 @@ int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void* param)
             }
 		
 		_SCALE_DriverSetExtSrcFrameAddr(&p_path->input_frame);  //for review, scale,slice scale
-            
+            SCALE_PRINT("###SCALE: input buffer address: y: 0x%x, u: 0x%x, v: 0x%x.\n", p_addr.yaddr, p_addr.uaddr, p_addr.vaddr);
             break;
         }
         case ISP_PATH_OUTPUT_SIZE:
@@ -1216,7 +1220,9 @@ static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, un
 		break;		
 	case SCALE_IOC_DONE:
 		_SCALE_DriverIODone();
-		get_scale_reg();
+#ifdef SCALE_DEBUG
+	    get_scale_reg();
+#endif
 		break;
 	default:
 		break;

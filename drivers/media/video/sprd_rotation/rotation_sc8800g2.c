@@ -86,7 +86,7 @@ static int rotation_check_param(ROTATION_PARAM_T* param_ptr)
         ||(param_ptr->dst_addr.uv_addr&ALGIN_FOUR)
         ||(param_ptr->dst_addr.v_addr&ALGIN_FOUR))
     {
-        RTT_PRINT("Rotation: the add not algin.\n");
+        RTT_PRINT("Rotation: the addr not algin.\n");
 	return -1;
     }
 
@@ -238,7 +238,7 @@ static void rotation_enable (void)
 
     return ;
 }
-#if 0 //for debug
+#ifdef ROTATION_DEBUG //for debug
 static void get_rotation_reg(void)
 {
   uint32_t i, value;
@@ -274,7 +274,9 @@ static void rotation_done(void)
     rotation_set_UV_mode(s->uv_mode);	
     rotation_enable();
     RTT_PRINT("ok to rotation_done.\n");	
-    //get_rotation_reg();
+#ifdef ROTATION_DEBUG	
+    get_rotation_reg();
+#endif
 }
 static int rotation_set_UV_param(void)
 {

@@ -55,8 +55,10 @@ static ROTATION_DATA_FORMAT_E get_data_format(uint32_t format)
 		case S2D_RGB_565:
 			out_fmt = ROTATION_RGB565;
 			break;	
-		case S2D_ARGB_8888:
 		case S2D_BGRA_8888:
+			out_fmt = ROTATION_RGB888;
+			break;
+		case S2D_ARGB_8888:		
 		case S2D_ARGB_666:
 		case S2D_ARGB_1555:
 		case S2D_GREY:
@@ -104,11 +106,21 @@ static int get_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 	rot_param->img_size.h = req->src.height;
 	rot_param->rotation_dir = get_rotation_dir(req->flags);
 	rot_param->src_addr.y_addr = req->src.base;
-	rot_param->src_addr.uv_addr = rot_param->src_addr.y_addr + rot_param->img_size.w * rot_param->img_size.h;
-	rot_param->src_addr.v_addr = rot_param->src_addr.uv_addr;
 	rot_param->dst_addr.y_addr =  ROT_OUTPUT_BUF;
-	rot_param->dst_addr.uv_addr = rot_param->dst_addr.y_addr + rot_param->img_size.w * rot_param->img_size.h;
-	rot_param->dst_addr.v_addr = rot_param->dst_addr.uv_addr;	
+	if(rot_param->data_format < ROTATION_YUV400) //for YUV422 and YUV420
+	{
+		rot_param->src_addr.uv_addr = rot_param->src_addr.y_addr + rot_param->img_size.w * rot_param->img_size.h;
+		rot_param->src_addr.v_addr = rot_param->src_addr.uv_addr;
+		rot_param->dst_addr.uv_addr = rot_param->dst_addr.y_addr + rot_param->img_size.w * rot_param->img_size.h;
+		rot_param->dst_addr.v_addr = rot_param->dst_addr.uv_addr;	
+	}
+	else
+	{
+		rot_param->src_addr.uv_addr = 0;
+		rot_param->src_addr.v_addr = 0;
+		rot_param->dst_addr.uv_addr = 0;
+		rot_param->dst_addr.v_addr = 0;	
+	}
 	
 	return 0;
 }
@@ -221,7 +233,8 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 	       req->dst_rect.x, req->dst_rect.y, 
 	       req->dst_rect.w, req->dst_rect.h,
 	       req->flags
-	       );	
+	       );
+	
 	return 0;	
 }
 
