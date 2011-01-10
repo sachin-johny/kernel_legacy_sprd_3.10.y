@@ -363,10 +363,11 @@ static void set_layer_cb(struct s2d_blit_req* req)
 #define LCDC_IMG_DISP_XY             (SPRD_LCDC_BASE + 0x0034)
 
        __raw_bits_or((1<<2), LCDC_OSD1_CTRL);//block alpha
-        __raw_writel(0x5F,LCDC_OSD1_ALPHA);
+        __raw_writel(0x3F,LCDC_OSD1_ALPHA);
 
         //__raw_writel(0x23,LCDC_IMG_CTRL);
-        __raw_writel(0x12B,LCDC_IMG_CTRL);
+        __raw_writel(0x14B,LCDC_IMG_CTRL);
+        //__raw_writel(0x2B,LCDC_IMG_CTRL);
 
         __raw_writel(64,LCDC_Y2R_CONTRAST);
         __raw_writel(64,LCDC_Y2R_SATURATION);
@@ -427,7 +428,7 @@ int do_copybit_scale(struct s2d_blit_req * req)
 	       req->dst_rect.w, req->dst_rect.h,
 	       req->flags
 	       );
-	
+
 	if(0 != check_param(req)) /* to fulfill the alignment restriction */
 	{
 		return -1;
@@ -483,6 +484,14 @@ int do_copybit_scale(struct s2d_blit_req * req)
 	       req->dst_rect.w, req->dst_rect.h,
 	       req->flags
 	       );
+
+#if 0
+	if(S2D_RGB_565 == req->src.format)
+	{
+		set_layer_cb(req);
+		SCALE_PRINT("set_layer_cb X.\n");
+	}
+#endif
 
 	return 0;	
 }
