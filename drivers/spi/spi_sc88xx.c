@@ -630,6 +630,15 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
     msleep(1);
     __raw_bits_and(~SWRST_SPI_RST, GR_SOFT_RST);
     spi_writel(0, SPI_INT_EN);
+    // clk source selected to 96M
+    __raw_bits_and(~(0x03 << 26), GR_CLK_DLY);
+    // __raw_bits_or(2 << 26, GR_CLK_DLY);
+    /*
+     * clk_spi_div sets to 1, so clk_spi=96M/2=48M,
+     * and clk_spi is SPI_CTL5 interval base clock.[luther.ge]
+     */
+    __raw_bits_and(~(0x07 << 21), GR_GEN2);
+    // __raw_bits_or(1 << 21, GR_GEN2);
 
     sprd_data->cs_null = 1;
 
