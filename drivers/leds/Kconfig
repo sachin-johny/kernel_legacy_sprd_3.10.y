@@ -230,13 +230,25 @@ config LEDS_WM8350
 
 config LEDS_SC8800S_KB
 	tristate "LED Support for SC8800S keyboard backlight"
-	depends on LEDS_CLASS
+	depends on LEDS_CLASS && ARCH_SC8800S
 	help
 	  This option enables support.
 
 config LEDS_SC8800S_LCD
 	tristate "LED Support for SC8800S LCD backlight"
-	depends on LEDS_CLASS
+	depends on LEDS_CLASS && ARCH_SC8800S
+	help
+	  This option enables support.
+
+config LEDS_SC8800G_KB
+	tristate "LED Support for SC8800G keyboard backlight"
+	depends on LEDS_CLASS && ARCH_SC8800G
+	help
+	  This option enables support.
+
+config LEDS_SC8800G_LCD
+	tristate "LED Support for SC8800G LCD backlight"
+	depends on LEDS_CLASS && ARCH_SC8800G
 	help
 	  This option enables support.
 

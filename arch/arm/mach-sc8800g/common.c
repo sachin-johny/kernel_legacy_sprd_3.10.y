@@ -148,13 +148,13 @@ static struct platform_device sprd_battery_device = {
 
 /* keypad backlight */
 static struct platform_device sprd_kp_bl_device = {
-	.name           = "keyboard-backlight",
+	    .name           = "keyboard-backlight",
         .id             =  -1,
 };
 
 /* lcd backlight */
 static struct platform_device sprd_lcd_bl_device = {
-	.name           = "lcd-backlight",
+	    .name           = "lcd-backlight",
         .id             =  -1,
 };
 
