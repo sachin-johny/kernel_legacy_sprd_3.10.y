@@ -91,9 +91,9 @@ static inline int check_param(struct s2d_blit_req * req)
 	//only need to check for the rgb565
 	if(S2D_RGB_565 == req->src.format)
 	{
-		if((req->src.width & 0x1) || (req->src.height & 0x1))
+		if(req->src.width & 0x1) 
 		{
-			ROT_PRINT("the source width or height is not aligned by 2. width: %d, height: %d.\n", req->src.width, req->src.height);
+			ROT_PRINT("the source width is not aligned by 2. width: %d.\n", req->src.width);
 			return -1;
 		}
 	}
@@ -121,6 +121,14 @@ static int get_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 		rot_param->dst_addr.uv_addr = 0;
 		rot_param->dst_addr.v_addr = 0;	
 	}
+
+	//wxz20110113: handle the height which is not aligned by 2. 
+	if(req->src.height & 0x1)
+	{
+		rot_param->img_size.h += 1;
+		ROT_PRINT("Modify the source height. old h: %d, new h: %d.\n", req->src.height, rot_param->img_size.h);
+	}
+	
 	
 	return 0;
 }
@@ -138,8 +146,19 @@ static int update_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 			b = req->src_rect.x;
 			req->src_rect.x = a;
 			req->src_rect.y = b;
+			//wxz20110113: handle for height.
+			if(req->dst.width & 0x1)
+			{
+				req->src_rect.x += 1;
+			}
 			break;
 		case ROTATION_180:
+			//wxz20110113: handle for height.
+			if(req->dst.height & 0x1)
+			{
+				req->src.height = rot_param->img_size.h;
+				req->src_rect.y += 1;
+			}
 			break;
 		case ROTATION_270:
 			req->src.width = rot_param->img_size.h;
@@ -148,6 +167,11 @@ static int update_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 			b = rot_param->img_size.w - req->src_rect.x - req->src_rect.w;
 			req->src_rect.x = a;
 			req->src_rect.y = b;
+			//wxz20110113: handle for height.
+			if(req->dst.width & 0x1)
+			{
+				req->src_rect.x -= 1;
+			}			
 			break;	
 		case ROTATION_MIRROR:
 			break;	
