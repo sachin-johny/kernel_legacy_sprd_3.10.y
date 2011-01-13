@@ -32,9 +32,7 @@
 #include <mach/mfp.h>
 #include <mach/io.h>
 
-//#ifdef CONFIG_ARCH_SC8800S
-#define CONFIG_TS0710_MUX_UART
-//#endif
+//#define CONFIG_TS0710_MUX_UART
 
 /*
  * port type,it ought to be defined in serial_core.h,
@@ -406,10 +404,7 @@ static int serialsc8800_startup(struct uart_port *port)
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
  	*/
-	if(port->line == 0)
-		serial_out(port,ARM_UART_CTL2,0x801);
-	else
-		serial_out(port,ARM_UART_CTL2,0x801);
+	serial_out(port,ARM_UART_CTL2,0x801);
 		
 	/*
  	*clear rx fifo
