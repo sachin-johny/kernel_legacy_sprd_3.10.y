@@ -49,11 +49,6 @@ static struct platform_device sprd_nand_device = {
 	.resource	= sprd_nand_resources,
 };
 
-static struct platform_device sprd_smd_device = {
-	.name	= "sprd_smd",
-	.id	= -1,
-};
-
 static struct resource sprd_dcam_resources[] = {
 	{
 		.start	= SPRD_ISP_BASE,
@@ -364,9 +359,11 @@ void __init sprd_add_otg_device(void)
 }
 
 /*Android USB Function */
-#define SPRD_VENDOR_ID		0x22B8
-#define SPRD_PRODUCT_ID		0x41D9
-#define SPRD_ADB_PRODUCT_ID		0x41DB
+//#define SPRD_VENDOR_ID		0x22B8
+//#define SPRD_PRODUCT_ID		0x41D9
+#define SPRD_VENDOR_ID		0x0BB4
+#define SPRD_PRODUCT_ID		0x0C01
+#define SPRD_ADB_PRODUCT_ID		0x0C02
 #define SPRD_RNDIS_PRODUCT_ID		0x41E4
 #define SPRD_RNDIS_ADB_PRODUCT_ID		0x41E5
 
@@ -445,7 +442,7 @@ static struct android_usb_platform_data andusb_plat = {
 	.vendor_id			= SPRD_VENDOR_ID,
 	.product_id			= SPRD_PRODUCT_ID,
 	.manufacturer_name	= "Spreadtrum",
-	.product_name		= "Spreadtrum Bigphone",
+	.product_name		= "Spreadtrum openphone",
 	.serial_number		= device_serial,
 	.num_products = ARRAY_SIZE(usb_products),
 	.products = usb_products,
@@ -464,7 +461,7 @@ static struct platform_device androidusb_device = {
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 static struct usb_mass_storage_platform_data usbms_plat = {
 	.vendor			= "Spreadtrum",
-	.product		= "Bigphone",
+	.product		= "openphone",
 	.release		= 1,
 };
 

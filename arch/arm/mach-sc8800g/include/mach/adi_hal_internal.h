@@ -56,7 +56,6 @@ void ADI_init (void);
         unsigned short adi_tmp_val;\
 	local_irq_save(flags);\
 	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
-	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
         adi_tmp_val &= (unsigned short)(value); \
         ADI_Analogdie_reg_write(reg_addr, adi_tmp_val); \
 	local_irq_restore(flags);\

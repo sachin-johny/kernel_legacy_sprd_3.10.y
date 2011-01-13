@@ -843,7 +843,7 @@ static  int gpio_get_int_status(unsigned int gpio)
 static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	int i;
-
+	pr_info("gpio demux handler\r\n");
 	for (i = 0; i < NR_GPIO_IRQS; i++) {
 		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID) {
 		            continue;
@@ -917,14 +917,17 @@ EXPORT_SYMBOL(sprd_alloc_gpio_irq);
 void sprd_free_gpio_irq(int irq)
 {
 	int i;
+	unsigned long flags;
 
-    for (i = 0; i < NR_GPIO_IRQS; i++) {
-        if (gpio_irq_table[i].irq_num == irq) {
-            set_irq_chip_data(irq, NULL);
-            gpio_irq_table[i].gpio_id = GPIO_INVALID_ID;
-            return;
-        }
-    }
+	local_irq_save(flags);
+	for (i = 0; i < NR_GPIO_IRQS; i++) {
+		if (gpio_irq_table[i].irq_num == irq) {
+			set_irq_chip_data(irq, NULL);
+			gpio_irq_table[i].gpio_id = GPIO_INVALID_ID;
+			break;
+        	}
+	}
+	local_irq_restore(flags);
 }
 EXPORT_SYMBOL(sprd_free_gpio_irq);
 
