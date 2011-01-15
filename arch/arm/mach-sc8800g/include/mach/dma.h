@@ -224,6 +224,8 @@ enum {
 #define DMA_DECREASE         ( 1 )
 #define DMA_NOCHANGE         ( 0xff )
 
+#define DMA_CFG_BLOCK_LEN_MAX (0xffff)
+
 typedef struct sprd_dma_desc {
 	volatile u32 cfg;
 	volatile u32 tlen; // Total transfer length, in bytes 

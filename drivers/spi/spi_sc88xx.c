@@ -274,7 +274,7 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
     int i, ch_id;
     u32 dsrc, ddst;
     int width;
-    int autodma_src, autodma_dst;
+    int autodma_src, autodma_dst, autodma_burst_mod_src, autodma_burst_mod_dst;
     struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
     sprd_dma_ctrl ctrl;// = {.dma_desc = &sprd_ctrl_data->dma_desc};
 
@@ -286,10 +286,14 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
             ctrl.dma_desc = &sprd_ctrl_data->dma_desc_rx;
             autodma_src = DMA_NOCHANGE;
             autodma_dst = DMA_INCREASE;
+            autodma_burst_mod_src = SRC_BURST_MODE_SINGLE;
+            autodma_burst_mod_dst = SRC_BURST_MODE_4;
         } else {
             ctrl.dma_desc = &sprd_ctrl_data->dma_desc_tx;
             autodma_src = DMA_INCREASE;
             autodma_dst = DMA_NOCHANGE;
+            autodma_burst_mod_src = SRC_BURST_MODE_4;
+            autodma_burst_mod_dst = SRC_BURST_MODE_SINGLE;
         }
 
         width = (sprd_ctrl_data->spi_ctl0 >> 2) & 0x1f;
@@ -312,8 +316,8 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
                 DMA_NORMAL,
                 TRANS_DONE_EN,
                 autodma_src, autodma_dst,
-                SRC_BURST_MODE_SINGLE, SRC_BURST_MODE_SINGLE,
-                16, // 16 bytes DMA burst size
+                autodma_burst_mod_src, autodma_burst_mod_dst, // SRC_BURST_MODE_SINGLE, SRC_BURST_MODE_SINGLE,
+                SPRD_SPI_BURST_SIZE_DEFAULT, // 16 bytes DMA burst size
                 width, width,
                 dsrc, ddst, 0);
          sprd_dma_setup(&ctrl);
@@ -336,7 +340,9 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
     // only rx watermark for dma, 0x02 means slave device must send at least 2 bytes
     // when i set 0x01 to SPI_CTL3, Atheros 16 bits data read is wrong,
     // after i change 0x01 to 0x02, everything is ok
+#if !SPRD_SPI_RX_WATERMARK_BUG_FIX
     spi_writel(0x02 | (0x00 << 8), SPI_CTL3);
+#endif
     spi_writel(0x01 | (0x00 << 8), SPI_CTL6); // tx watermark for dma
 
     return 0;
@@ -364,16 +370,25 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
     if (flag & 0x01) {
         // only rx or tx both
         dlen -= offset;
+#if SPRD_SPI_RX_WATERMARK_BUG_FIX
+        len = dlen;
+    {
+        int water_mark;
+        water_mark = len > SPRD_SPI_RX_WATERMARK_MAX ? SPRD_SPI_RX_WATERMARK_MAX:len;
+        spi_writel(water_mark | (water_mark << 8), SPI_CTL3);
+    }
+#else
         len = dlen > sprd_ctrl_data->data_max ? sprd_ctrl_data->data_max : dlen;
         if (likely(sprd_ctrl_data->data_width != 3)) {
             blocks = len >> sprd_ctrl_data->data_width_order;
         } else blocks = len / sprd_ctrl_data->data_width;
         // blocks = len / sprd_ctrl_data->data_width; // for 1byte 2bytes 3bytes 4bytes
-
+#endif
         dma_desc = &sprd_ctrl_data->dma_desc_rx;
         dma_desc->tlen = len;
         dma_desc->ddst = dptr + offset;
 
+        sprd_spi_update_burst_size();
         sprd_dma_update(DMA_SPI_RX, dma_desc); // use const ch_id value to speed up code exec [luther.ge]
     }
 
@@ -386,6 +401,7 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
         if (sprd_data->cspi_trans->tx_buf == SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR)
             dma_desc->dsrc = sptr;
 #endif
+        sprd_spi_update_burst_size();
         sprd_dma_update(DMA_SPI_TX, dma_desc); // use const ch_id value to speed up code exec [luther.ge]
     }
 #if SPRD_SPI_DEBUG
@@ -604,7 +620,7 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
     if (!sprd_data->buffer)
         goto out_free;
 
-    memset(sprd_data->buffer, 0, SPRD_SPI_BUFFER_SIZE);
+    memset(sprd_data->buffer, 0x55, SPRD_SPI_BUFFER_SIZE);
 
     spin_lock_init(&sprd_data->lock);
     INIT_LIST_HEAD(&sprd_data->queue);

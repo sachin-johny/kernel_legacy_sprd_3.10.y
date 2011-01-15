@@ -155,10 +155,20 @@
  */
 #define SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX 1
 #define SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR ((void*)1)
+#define SPRD_SPI_RX_WATERMARK_BUG_FIX 1
+#define SPRD_SPI_RX_WATERMARK_MAX  0x1f
+
+#define SPRD_SPI_BURST_SIZE_DEFAULT (1024*8) // 选择8k是一个实验结果,如果为16k,32k,audio play将受到莫名的影响
+#define sprd_spi_update_burst_size() \
+    dma_desc->cfg &= ~DMA_CFG_BLOCK_LEN_MAX; \
+    dma_desc->cfg |= len > SPRD_SPI_BURST_SIZE_DEFAULT ? SPRD_SPI_BURST_SIZE_DEFAULT:len; \
+    /* if dma cfg register block_len region is so big, audio will be influenced */
+    /* dma_desc->cfg |= len > (DMA_CFG_BLOCK_LEN_MAX & ~0x03) ? SPRD_SPI_BURST_SIZE_DEFAULT:len */
+
 struct sprd_spi_data {
 #define SPRD_SPI_DMA_BLOCK_MAX  (0x1ff) /* ctrl4-[0:8] */
 // SPRD_SPI_BUFFER_SIZE最小应该是SPRD_SPI_DMA_BLOCK_MAX的4倍(32bits)
-#define SPRD_SPI_BUFFER_SIZE (PAGE_SIZE<(SPRD_SPI_DMA_BLOCK_MAX+1)*4 ? (SPRD_SPI_DMA_BLOCK_MAX+1)*4:PAGE_SIZE) 
+#define SPRD_SPI_BUFFER_SIZE (SPRD_SPI_BURST_SIZE_DEFAULT<(SPRD_SPI_DMA_BLOCK_MAX+1)*4 ? (SPRD_SPI_DMA_BLOCK_MAX+1)*4:SPRD_SPI_BURST_SIZE_DEFAULT) 
     spinlock_t lock;
     struct list_head queue;
     struct spi_message *cspi_msg;

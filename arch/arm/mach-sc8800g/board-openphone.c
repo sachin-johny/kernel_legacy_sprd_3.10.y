@@ -116,7 +116,7 @@ static struct spi_board_info openhone_spi_devices[] = {
     {
         .modalias       = "spidev", // "spidev" --> spidev_spi
         .chip_select    = 0,
-        .max_speed_hz   = 48 * 1000 * 1000,
+        .max_speed_hz   = 24 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
     {
@@ -128,7 +128,7 @@ static struct spi_board_info openhone_spi_devices[] = {
     {
         .modalias       = "spi_slot0", // "spidev" --> spidev_spi
         .chip_select    = 2,
-        .max_speed_hz   = 48 * 1000 * 1000,
+        .max_speed_hz   = 24 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
     {
