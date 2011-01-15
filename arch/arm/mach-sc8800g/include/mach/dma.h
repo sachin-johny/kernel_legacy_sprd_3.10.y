@@ -200,9 +200,11 @@ enum {
 #define DMA_SDATA_WIDTH8  (0 << 26)
 #define DMA_SDATA_WIDTH16 (1 << 26)
 #define DMA_SDATA_WIDTH32 (2 << 26)
+#define DMA_SDATA_WIDTH_MASK (0x03 << 26)
 #define DMA_DDATA_WIDTH8  (0 << 24)
 #define DMA_DDATA_WIDTH16 (1 << 24)
 #define DMA_DDATA_WIDTH32 (2 << 24)
+#define DMA_DDATA_WIDTH_MASK (0x03 << 24)
 #define DMA_REQMODE_NORMAL (0 << 22)
 #define DMA_REQMODE_TRANS  (1 << 22)
 #define DMA_REQMODE_LIST   (2 << 22)
@@ -216,6 +218,8 @@ enum {
 #define SRC_BURST_MODE_4   (3 << 28)
 #define SRC_BURST_MODE_8   (5 << 28)
 #define SRC_BURST_MODE_15  (7 << 28)
+#define DMA_BURST_STEP_DIR_BIT (1 << 25)
+#define DMA_BURST_STEP_ABS_SIZE_MASK (0x1FFFFFF)
 
 #define DMA_SOFT_WAITTIME   0x0f
 #define DMA_HARD_WAITTIME   0x0f

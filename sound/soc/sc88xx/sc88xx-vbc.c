@@ -70,54 +70,35 @@ struct vbc_extra {
 
 static void sc88xx_vbc_dma_params(struct sprd_pcm_dma_params *dma, struct vbc_extra *extra)
 {
-    int autodma_src;
-    int autodma_dst;
     int autodma_burst_mod_src = SRC_BURST_MODE_4;
     int autodma_burst_mod_dst = SRC_BURST_MODE_4;
     int autodma_burst_step_src = 0;
     int autodma_burst_step_dst = 0;
-    int autodma_width;
     int tlen = 0;
-    int pmod = 0, sbm = 0, dbm = 0;
+    int pmod = 0;
     int width = extra->width;
 
     // VB_CR2
     // Only 16-bit word length audio data is supported in SC8800H5, either ADC or DAC
     if (dma->aaf & (AUDIO_VBDA0 | AUDIO_VBDA1)) {
         // play
-        autodma_src = DMA_INCREASE;
-        autodma_dst = DMA_NOCHANGE;
         autodma_burst_mod_dst = SRC_BURST_MODE_SINGLE;
         if (width == 32) width = DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH16;
         else if (width == 16) width = DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
         else width = /*DMA_SDATA_WIDTH8*/DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
     } else if (dma->aaf & (AUDIO_VBAD0 | AUDIO_VBAD1)) {
         // capture
-        autodma_src = DMA_NOCHANGE;
-        autodma_dst = DMA_INCREASE;
         autodma_burst_mod_src = SRC_BURST_MODE_SINGLE;
         if (width == 32) width = DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH32;
         else if (width == 16) width = DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
         else width = /*DMA_SDATA_WIDTH8*/DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
     } else {
         // other codec
-        autodma_src = DMA_NOCHANGE;
-        autodma_dst = DMA_NOCHANGE;
         if (width == 32) width = DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH32;
         else if (width == 16) width = DMA_SDATA_WIDTH16 | DMA_DDATA_WIDTH16;
         else width = DMA_SDATA_WIDTH8 | DMA_DDATA_WIDTH8;
     }
 
-    if (autodma_src != DMA_NOCHANGE) {
-        autodma_width = 1 << ((width >> 26) & 0x03); // bit0 means byte, bit1=half, bit2=word
-        pmod |= (autodma_src << 31) | (autodma_width << 16);
-        sbm  = (autodma_src << 25) | autodma_burst_step_src;
-    }
-    if (autodma_dst != DMA_NOCHANGE) {
-        autodma_width = 1 << ((width >> 24) & 0x03); // bit0 means byte, bit1=half, bit2=word
-        pmod |= (autodma_dst << 15) | (autodma_width << 0);
-        dbm  = (autodma_dst << 25) | autodma_burst_step_dst;
-    }
     dma->name = "";
 #if !SC88XX_PCM_DMA_SG_CIRCLE
     dma->cfg = DMA_LIT_ENDIAN | width | DMA_REQMODE_TRANS;
@@ -126,8 +107,8 @@ static void sc88xx_vbc_dma_params(struct sprd_pcm_dma_params *dma, struct vbc_ex
 #endif
     dma->tlen = tlen;
     dma->pmod = pmod;
-    dma->sbm = sbm | autodma_burst_mod_src;
-    dma->dbm = dbm | autodma_burst_mod_dst;
+    dma->sbm = autodma_burst_step_src | autodma_burst_mod_src;
+    dma->dbm = autodma_burst_step_dst | autodma_burst_mod_dst;
 }
 
 static int sc88xx_vbc_hw_params(struct snd_pcm_substream *substream,

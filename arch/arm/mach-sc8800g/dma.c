@@ -179,10 +179,9 @@ void sprd_dma_setup_cfg(sprd_dma_ctrl *ctrl,
             u32 tlen)
 {
     sprd_dma_desc *dma_desc = ctrl->dma_desc;
-    int autodma_burst_step_src = autodma_burst_mod_src&0x1FFFFFF;
-    int autodma_burst_step_dst = autodma_burst_mod_dst&0x1FFFFFF;
-    int autodma_width;
-    int pmod = 0, sbm = 0, dbm = 0;
+    int autodma_burst_step_src = autodma_burst_mod_src & DMA_BURST_STEP_ABS_SIZE_MASK;
+    int autodma_burst_step_dst = autodma_burst_mod_dst & DMA_BURST_STEP_ABS_SIZE_MASK;
+    int pmod = 0; // src & dst element postm next block offset value is forced to 0 [luther.ge]
     int width = 0;
 
     ctrl->ch_id = ch_id;
@@ -198,23 +197,22 @@ void sprd_dma_setup_cfg(sprd_dma_ctrl *ctrl,
     else width |= DMA_DDATA_WIDTH8;
 
     if (autodma_src != DMA_NOCHANGE) {
-        autodma_width = 1 << ((width >> 26) & 0x03); // bit0 means byte, bit1=half, bit2=word
-        pmod |= (autodma_src << 31) | (autodma_width << 16);
-        sbm  = (autodma_src << 25) | autodma_burst_step_src;
+        autodma_burst_step_src |= autodma_src << 25; // inc or dec direction bit for burst dma
+        // pmod |= autodma_src << 31; // inc or dec direction bit for block dma
     }
     if (autodma_dst != DMA_NOCHANGE) {
-        autodma_width = 1 << ((width >> 24) & 0x03); // bit0 means byte, bit1=half, bit2=word
-        pmod |= (autodma_dst << 15) | (autodma_width << 0);
-        dbm  = (autodma_dst << 25) | autodma_burst_step_dst;
+        autodma_burst_step_src |= autodma_dst << 25; // inc or dec direction bit for burst dma
+        // pmod |= autodma_dst << 15; // inc or dec direction bit for block dma
     }
+
     dma_desc->cfg = DMA_LIT_ENDIAN | width | DMA_REQMODE_TRANS | burst_size;
     dma_desc->tlen = tlen;
     dma_desc->dsrc = dsrc;
     dma_desc->ddst = ddst;
     dma_desc->llptr = 0;
     dma_desc->pmod = pmod;
-    dma_desc->sbm = sbm | autodma_burst_mod_src;
-    dma_desc->dbm = dbm | autodma_burst_mod_dst;
+    dma_desc->sbm = autodma_burst_step_src | (autodma_burst_mod_src & ~DMA_BURST_STEP_ABS_SIZE_MASK);
+    dma_desc->dbm = autodma_burst_step_dst | (autodma_burst_mod_dst & ~DMA_BURST_STEP_ABS_SIZE_MASK);
 }
 EXPORT_SYMBOL_GPL(sprd_dma_setup_cfg);
 
