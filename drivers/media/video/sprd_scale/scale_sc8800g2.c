@@ -29,6 +29,7 @@
 #include <asm/io.h>
 #include <linux/file.h>
 
+#include "../sprd_dcam/dcam_power_sc8800g2.h"
 #include "scale_sc8800g2.h"
 #include "scale_reg_sc8800g2.h"
 #include "scale_sc8800g_scalecoeff_h.h"
@@ -60,7 +61,7 @@ static struct mutex *lock;
 #define SCALE_PRINT(...)
 #endif
 
-LOCAL ISP_MODULE_T           s_isp_mod;
+ISP_MODULE_T           s_scale_mod;
 uint32_t g_base_addr = ISP_AHB_SLAVE_ADDR;
 SCALE_MODE_E g_scale_mode = SCALE_MODE_SCALE;
 
@@ -74,6 +75,7 @@ typedef enum
 #define IRQ_LINE_DCAM 27 //26 //irq line number in system
 #define NR_DCAM_ISRS 12
 struct semaphore g_sem;
+struct semaphore g_sem_cnt;
 static int g_scale_num = 0;//store the time opened.
 static uint32_t g_share_irq = 0xFF; //for share irq handler function
 #ifdef SCALE_DEBUG //for debug
@@ -97,13 +99,13 @@ LOCAL void _SCALE_DriverSetExtSrcFrameAddr(ISP_FRAME_T *p_frame) //for review, s
     _pawd(FRM_ADDR_0, (p_frame->yaddr >> 8) & 0x3FFFF);
     _pawd(FRM_ADDR_H, (p_frame->yaddr>> (32 - ISP_PATH_FRAME_HIGH_BITS)) & 0x7F);
 	
-    if(s_isp_mod.isp_path2.input_format == ISP_DATA_YUV422 || 
-       s_isp_mod.isp_path2.input_format == ISP_DATA_YUV420 || 
-       s_isp_mod.isp_path2.input_format == ISP_DATA_YUV420_3FRAME) 
+    if(s_scale_mod.isp_path2.input_format == ISP_DATA_YUV422 ||       
+       s_scale_mod.isp_path2.input_format == ISP_DATA_YUV420 || 
+       s_scale_mod.isp_path2.input_format == ISP_DATA_YUV420_3FRAME) 
     {
     	_pawd(FRM_ADDR_1, (p_frame->uaddr >> 8) & 0x3FFFF);
 		
-        if(s_isp_mod.isp_path2.input_format == ISP_DATA_YUV420_3FRAME)
+        if(s_scale_mod.isp_path2.input_format == ISP_DATA_YUV420_3FRAME)
         {
     		_pawd(FRM_ADDR_2, (p_frame->vaddr >> 8) & 0x3FFFF);
 
@@ -116,8 +118,8 @@ LOCAL void _SCALE_DriverSetExtDstFrameAddr(ISP_FRAME_T *p_frame)  //for review, 
     _pawd(FRM_ADDR_4, (p_frame->yaddr >> 8) & 0x3FFFF);
     _pawd(FRM_ADDR_H, (p_frame->yaddr>> (32 - ISP_PATH_FRAME_HIGH_BITS)) & 0x7F);
 	
-    if(s_isp_mod.isp_path2.output_format == ISP_DATA_YUV422 || 
-       s_isp_mod.isp_path2.output_format == ISP_DATA_YUV420) 
+    if(s_scale_mod.isp_path2.output_format == ISP_DATA_YUV422 || 	
+       s_scale_mod.isp_path2.output_format == ISP_DATA_YUV420) 
     {
     	_pawd(FRM_ADDR_5, (p_frame->uaddr >> 8) & 0x3FFFF);
     }
@@ -142,7 +144,7 @@ LOCAL uint32_t _SCALE_DriverGetSubSampleFactor(uint32_t* src_width,
 LOCAL int32_t _SCALE_DriverCalcSC2Size(void)
 {
     uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
-    ISP_PATH_DESCRIPTION_T    *p_path = &s_isp_mod.isp_path2;
+    ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
 	
     if(p_path->input_rect.w * ISP_PATH_SC_COEFF_MAX < p_path->output_size.w ||		
        p_path->input_rect.h * ISP_PATH_SC_COEFF_MAX < p_path->output_size.h) 
@@ -160,7 +162,7 @@ LOCAL int32_t _SCALE_DriverCalcSC2Size(void)
                                                                   p_path->output_size.w,
                                                                   p_path->output_size.h);
 		
-        if(((s_isp_mod.isp_mode == ISP_MODE_MPEG || ISP_MODE_PREVIEW_EX == s_isp_mod.isp_mode) &&
+        if(((s_scale_mod.isp_mode == ISP_MODE_MPEG || ISP_MODE_PREVIEW_EX == s_scale_mod.isp_mode) &&
             p_path->sub_sample_factor > ISP_PATH_SUB_SAMPLE_FACTOR_BASE ) ||  // in mpeg or preview_ex mode, path2 do deci by 1/2
             p_path->sub_sample_factor > (ISP_PATH_SUB_SAMPLE_MAX + ISP_PATH_SUB_SAMPLE_FACTOR_BASE))
         {
@@ -235,7 +237,7 @@ LOCAL uint32_t _SCALE_DriverCalcScaleCoeff(uint32_t input_width,
 LOCAL int32_t _SCALE_DriverSetSC2Coeff(void)
 {
     uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
-    ISP_PATH_DESCRIPTION_T    *p_path = &s_isp_mod.isp_path2;
+    ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
     uint32_t                    v_coeff = 0,h_coeff= 0;
     uint32_t                    i = 0;
     uint32_t                    *p_v_coeff_ptr = SCALE_NULL;
@@ -276,7 +278,7 @@ LOCAL int32_t _SCALE_DriverSetSC2Coeff(void)
         }
         _paad(REV_PATH_CFG, ~(0xF << 14));
 	_paod(REV_PATH_CFG, ((*p_v_coeff_ptr) & 0x0F) << 14);
-        p_path->v_scale_coeff = v_coeff; 
+        p_path->v_scale_coeff = v_coeff; 		
     }
     _paad(DCAM_CFG, ~BIT_4);//ISP_CLK_DOMAIN_DCAM
     return rtn;
@@ -286,7 +288,7 @@ LOCAL int32_t _SCALE_DriverSetSC2Coeff(void)
 LOCAL int32_t _SCALE_DriverPath2TrimAndScaling(void)
 {
     uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
-    ISP_PATH_DESCRIPTION_T    *p_path = &s_isp_mod.isp_path2;
+    ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
     /*trim config*/
     if(p_path->input_size.w != p_path->input_rect.w || 
        p_path->input_size.h != p_path->input_rect.h)
@@ -388,7 +390,7 @@ LOCAL int32_t _SCALE_DriverSetMasterEndianness(
 
 }
 
-#if 0
+
 LOCAL void _SCALE_DriverForceCopy(void)
 {
     _paod(DCAM_PATH_CFG, BIT_10);
@@ -396,18 +398,14 @@ LOCAL void _SCALE_DriverForceCopy(void)
     _paad(DCAM_PATH_CFG, ~BIT_10);  
     
 }
-#endif
+#if 0
 LOCAL uint32_t _SCALE_DriverAutoCopy(void)
 {
 	_paod(DCAM_PATH_CFG, BIT_11);
 
     return ISP_DRV_RTN_SUCCESS;
 }
-
-uint32_t _SCALE_GetUserCount(void)
-{
-	return 0;
-}
+#endif
 
 LOCAL void _SCALE_DriverIramSwitch(uint32_t base_addr,uint32_t isp_or_arm)
 {
@@ -450,10 +448,10 @@ LOCAL int32_t _SCALE_DriverModuleDisable(uint32_t ahb_ctrl_addr) // must be AHB 
 
 LOCAL  void   _SCALE_DriverScalingCoeffReset(void)
 {
-    s_isp_mod.isp_path1.h_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
-    s_isp_mod.isp_path1.v_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
-    s_isp_mod.isp_path2.h_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
-    s_isp_mod.isp_path2.v_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;	    
+    s_scale_mod.isp_path1.h_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
+    s_scale_mod.isp_path1.v_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
+    s_scale_mod.isp_path2.h_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
+    s_scale_mod.isp_path2.v_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;	    
 }
 LOCAL int32_t _SCALE_DriverSoftReset(uint32_t ahb_ctrl_addr)
 {
@@ -519,7 +517,7 @@ LOCAL void _SCALE_DriverDeinit(void)
 LOCAL int32_t _SCALE_DriverStart(void)
 {
     uint32_t rtn = ISP_DRV_RTN_SUCCESS;
-    ISP_PATH_DESCRIPTION_T    *p_path2 = &s_isp_mod.isp_path2;
+    ISP_PATH_DESCRIPTION_T    *p_path2 = &s_scale_mod.isp_path2;
 
             rtn = _SCALE_DriverPath2TrimAndScaling();            
 	    ISP_RTN_IF_ERR(rtn);
@@ -529,17 +527,17 @@ LOCAL int32_t _SCALE_DriverStart(void)
 	    if(ISP_DATA_RGB565 == p_path2->input_format)	
 	             _SCALE_DriverSetMasterEndianness(ISP_MASTER_READ,1);
 	    else
-  		     _SCALE_DriverSetMasterEndianness(ISP_MASTER_READ,0);            
+			_SCALE_DriverSetMasterEndianness(ISP_MASTER_READ,0);            
             SCALE_PRINT("ISP_DRV: ISP_DriverStart , p_path2->input_format %d ,p_path2->output_format %d.\n",
                           p_path2->input_format,
                           p_path2->output_format);
 	    //wxz20110107:update the endian for LCDC display in copybit function. The blending needs the ISP_MASTER_ENDIANNESS_HALFBIG endian type of rgb565.     
-	    if(ISP_DATA_RGB565 == p_path2->output_format)	
-	             _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,1);
+	    if((ISP_DATA_RGB565 == p_path2->output_format) ||(ISP_DATA_YUV422 == p_path2->input_format))
+	             _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,1);		
 	    else
-  		     _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,0);
-   
-            _SCALE_DriverAutoCopy();
+  		     _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,0);   		
+            
+            _SCALE_DriverForceCopy();
 #ifdef SCALE_DEBUG
 	    get_scale_reg();
 #endif
@@ -565,7 +563,8 @@ LOCAL int32_t _SCALE_DriverStop(void)
 {
     uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
 
-     if( 0 == _SCALE_GetUserCount())
+	dcam_dec_user_count();
+     if( 0 == dcam_get_user_count())
      {
      	_SCALE_DriverDeinit();
      }
@@ -589,9 +588,45 @@ LOCAL int32_t _SCALE_DriverSetMode(void)
    
     return rtn;
 }
+#if 0
+static void set_layer_cb(uint32_t base)
+{
+#define LCDC_Y2R_CONTRAST           (SPRD_LCDC_BASE + 0x0114)
+#define LCDC_Y2R_SATURATION         (SPRD_LCDC_BASE + 0x0118)
+#define LCDC_OSD1_CTRL                    (SPRD_LCDC_BASE + 0x0040)
+#define LCDC_OSD1_ALPHA                     (SPRD_LCDC_BASE + 0x0058)
+#define LCDC_IMG_CTRL                    (SPRD_LCDC_BASE + 0x0020)
+#define LCDC_IMG_Y_BASE_ADDR         (SPRD_LCDC_BASE + 0x0024)
+#define LCDC_IMG_UV_BASE_ADDR            (SPRD_LCDC_BASE + 0x0028)
+#define LCDC_IMG_SIZE_XY             (SPRD_LCDC_BASE + 0x002c)
+#define LCDC_IMG_PITCH                   (SPRD_LCDC_BASE + 0x0030)
+#define LCDC_IMG_DISP_XY             (SPRD_LCDC_BASE + 0x0034)
 
+       __raw_bits_or((1<<2), LCDC_OSD1_CTRL);//block alpha
+        __raw_writel(0xF,LCDC_OSD1_ALPHA);
+
+        //__raw_writel(0x23,LCDC_IMG_CTRL);
+        //__raw_writel(0x14B,LCDC_IMG_CTRL);
+        //__raw_writel(0xA1,LCDC_IMG_CTRL);
+        __raw_writel(0x23,LCDC_IMG_CTRL);
+
+        __raw_writel(64,LCDC_Y2R_CONTRAST);
+        __raw_writel(64,LCDC_Y2R_SATURATION);
+
+        __raw_writel(base >> 2,LCDC_IMG_Y_BASE_ADDR);
+        __raw_writel((base+640*480)>>2,LCDC_IMG_UV_BASE_ADDR);
+        __raw_writel((480<<16)|640,LCDC_IMG_SIZE_XY);
+        __raw_writel(640,LCDC_IMG_PITCH);
+        __raw_writel(0x0,LCDC_IMG_DISP_XY);
+	printk("set_layer_cb: A1base : 0x%x.\n", base);
+}
+#endif
 LOCAL void  _SCALE_ISRPath2Done(void)
-{      
+{  
+#if 0
+	set_layer_cb(0xF800000);
+	SCALE_PRINT("###_SCALE_ISRPath2Done: set_layer_cb.\n");
+#endif 
     up(&g_sem);
     SCALE_PRINT("###SCALE: path2 done IRQ.\n");
 	
@@ -601,7 +636,7 @@ LOCAL void  _SCALE_ISRPath2Done(void)
 PUBLIC int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
 {
     uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
-    ISP_PATH_DESCRIPTION_T    *p_path = &s_isp_mod.isp_path2;
+    ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
         
     switch(id)
     {
@@ -719,7 +754,7 @@ PUBLIC int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
         {
             uint32_t format = *(uint32_t*)param;
             
-            if(format != ISP_DATA_YUV422 && 
+            if(format != ISP_DATA_YUV422 && 		
                format != ISP_DATA_YUV420 && 
                format != ISP_DATA_RGB565)
             {
@@ -837,7 +872,7 @@ PUBLIC int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
 int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void* param)
 {
     uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
-    ISP_PATH_DESCRIPTION_T    *p_path = &s_isp_mod.isp_path2;
+    ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
            
     switch(id)
     {
@@ -955,7 +990,7 @@ int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void* param)
         {
             uint32_t format = *(uint32_t*)param;
             
-            if(format != ISP_DATA_YUV422 && 
+            if(format != ISP_DATA_YUV422 && 		
                format != ISP_DATA_YUV420 && 
                format != ISP_DATA_RGB565)
             {
@@ -1071,11 +1106,11 @@ typedef void (*isr_func_t)(void);
 
 void _SCALE_DriverEnableInt(void)
 {
-  _paod(INT_IRQ_EN, 1UL << 27);
+  _paod(SCL_INT_IRQ_EN, 1UL << 27);
 }
 void _SCALE_DriverDisableInt(void)
 {
-  _paod(INT_IRQ_DISABLE, 1UL << 27);
+  _paod(SCL_INT_IRQ_DISABLE, 1UL << 27);
 }
 LOCAL  uint32_t _SCALE_DriverReadIrqLine(void)
 {
@@ -1153,11 +1188,12 @@ PUBLIC void _SCALE_DriverUnRegisterIRQ(void)
   //_SCALE_DriverDisableInt();
 
   //unregister_interrupt(IRQ_LINE_DCAM);
-  free_irq(IRQ_LINE_DCAM, &g_share_irq);//wxz:???
+  free_irq(IRQ_LINE_DCAM, &g_share_irq);
 }
 
 int _SCALE_DriverIOInit(void)
 {
+	down(&g_sem_cnt);
 	if(0 < g_scale_num)
 	{
 		SCALE_PRINT("###scale: fail to open device.\n");
@@ -1165,21 +1201,25 @@ int _SCALE_DriverIOInit(void)
 	}
 
 	init_MUTEX(&g_sem);
-	g_scale_num++;
+	memset(&s_scale_mod, 0, sizeof(ISP_MODULE_T));
 
-	if( 0 == _SCALE_GetUserCount())
+	g_scale_num++;
+	
+	if( 0 == dcam_get_user_count())
      	{
      		_SCALE_DriverInit();
      	}
+	dcam_inc_user_count();
 
 	return 0;
 }
 
 int SCALE_open (struct inode *node, struct file *pf)
-{
-     	_SCALE_DriverIOInit();
-
-	return 0;
+{	
+     	if(0 == _SCALE_DriverIOInit())
+		return 0;
+	else
+		return -1;
 }
 
 int _SCALE_DriverIODeinit (void)
@@ -1187,6 +1227,8 @@ int _SCALE_DriverIODeinit (void)
 	_SCALE_DriverStop();
 	_SCALE_DriverUnRegisterIRQ();
 	g_scale_num--;
+
+	up(&g_sem_cnt);
 
 	return 0;
 }
@@ -1207,10 +1249,11 @@ int _SCALE_DriverIODone(void)
 	_SCALE_DriverStart();
 	down(&g_sem);
 	down_interruptible(&g_sem);
-	up(&g_sem);
-
+	up(&g_sem);	
+	
 	return 0;	
 }
+
 static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, unsigned long param)
 {	
 	switch(cmd)
@@ -1224,9 +1267,6 @@ static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, un
 		break;		
 	case SCALE_IOC_DONE:
 		_SCALE_DriverIODone();
-#ifdef SCALE_DEBUG
-	    get_scale_reg();
-#endif
 		break;
 	default:
 		break;
@@ -1301,6 +1341,8 @@ int __init scale_init(void)
 		printk("platform device register Failed \n");
 		return -1;
 	}
+
+	init_MUTEX(&g_sem_cnt);	
 
 	return 0;
 }

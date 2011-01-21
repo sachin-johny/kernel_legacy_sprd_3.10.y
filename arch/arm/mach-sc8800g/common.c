@@ -62,7 +62,7 @@ static struct resource sprd_dcam_resources[] = {
 	},
 };
 static struct platform_device sprd_dcam_device = {
-	.name		= "sc8800-dcam",
+	.name		= "sc8800g-dcam",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(sprd_dcam_resources),
 	.resource	= sprd_dcam_resources,
