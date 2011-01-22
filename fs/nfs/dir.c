@@ -1947,6 +1947,9 @@ int nfs_permission(struct inode *inode, int mask)
 {
 	struct rpc_cred *cred;
 	int res = 0;
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	struct translate_cred tcred;
+#endif
 
 	nfs_inc_stats(inode, NFSIOS_VFSACCESS);
 
@@ -1979,12 +1982,20 @@ force_lookup:
 	if (!NFS_PROTO(inode)->access)
 		goto out_notsup;
 
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	rpc_translate_cred(&tcred,
+			   NFS_CLIENT(inode)->cl_rootuid,
+			   NFS_CLIENT(inode)->cl_rootgid);
+#endif
 	cred = rpc_lookup_cred();
 	if (!IS_ERR(cred)) {
 		res = nfs_do_access(inode, cred, mask);
 		put_rpccred(cred);
 	} else
 		res = PTR_ERR(cred);
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	rpc_restore_translated_cred(&tcred);
+#endif
 out:
 	if (!res && (mask & MAY_EXEC) && !execute_ok(inode))
 		res = -EACCES;

@@ -179,6 +179,9 @@ static inline int valid_user_regs(struct pt_regs *regs)
 	if (!(elf_hwcap & HWCAP_26BIT))
 		regs->ARM_cpsr |= USR_MODE;
 
+#ifdef CONFIG_NKERNEL
+	regs->ARM_cpsr |= (__VEX_IRQ_FLAG << NK_VPSR_SHIFT);
+#endif
 	return 0;
 }
 

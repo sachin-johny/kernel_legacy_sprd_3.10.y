@@ -22,6 +22,10 @@
 #include <asm/ptrace.h>
 #include <asm/types.h>
 
+#ifdef CONFIG_NKERNEL
+#include <asm/nkern.h>
+#endif
+
 #ifdef __KERNEL__
 #define STACK_TOP	((current->personality & ADDR_LIMIT_32BIT) ? \
 			 TASK_SIZE : TASK_SIZE_26)
@@ -60,6 +64,8 @@ struct thread_struct {
 #define nommu_start_thread(regs) regs->ARM_r10 = current->mm->start_data
 #endif
 
+#ifndef CONFIG_NKERNEL
+
 #define start_thread(regs,pc,sp)					\
 ({									\
 	unsigned long *stack = (unsigned long *)sp;			\
@@ -79,6 +85,31 @@ struct thread_struct {
 	regs->ARM_r0 = stack[0];	/* r0 (argc) */			\
 	nommu_start_thread(regs);					\
 })
+
+#else
+
+#define start_thread(regs,pc,sp)					\
+({									\
+	unsigned long *stack = (unsigned long *)sp;			\
+	set_fs(USER_DS);						\
+	memset(regs->uregs, 0, sizeof(regs->uregs));			\
+	if (current->personality & ADDR_LIMIT_32BIT)			\
+		regs->ARM_cpsr = USR_MODE;				\
+	else								\
+		regs->ARM_cpsr = USR26_MODE;				\
+	if (elf_hwcap & HWCAP_THUMB && pc & 1)				\
+		regs->ARM_cpsr |= PSR_T_BIT;				\
+	regs->ARM_cpsr |= PSR_ENDSTATE;					\
+	regs->ARM_cpsr |= (__VEX_IRQ_FLAG << NK_VPSR_SHIFT);		\
+	regs->ARM_pc = pc & ~1;		/* pc */			\
+	regs->ARM_sp = sp;		/* sp */			\
+	regs->ARM_r2 = stack[2];	/* r2 (envp) */			\
+	regs->ARM_r1 = stack[1];	/* r1 (argv) */			\
+	regs->ARM_r0 = stack[0];	/* r0 (argc) */			\
+	nommu_start_thread(regs);					\
+})
+#endif /* CONFIG_NKERNEL */
+
 
 /* Forward declaration, a strange C thing */
 struct task_struct;

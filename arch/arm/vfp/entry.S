@@ -17,9 +17,31 @@
  */
 #include <asm/thread_info.h>
 #include <asm/vfpmacros.h>
+
 #include "../kernel/entry-header.S"
 
 ENTRY(do_vfp)
+#ifdef CONFIG_NKERNEL
+#ifdef CONFIG_SMP
+	get_os_ctx r1
+#else
+	ldr	r1, .os_ctx		@ get os ctx
+	ldr	r1, [r1]
+#endif
+	ldr	r3, [r1, #ctx_vfp_owned_off]	@ check if we already own vfp
+	cmp	r3, #0
+	bne	1f
+
+	sub	r2, r2, #4		@ vfp was disabled so
+	str	r2, [ sp, #S_PC ]	@ bounce exception
+
+
+	ldr	r3, [r1, #ctx_vfp_get]	@ if we don't have just acquire
+	mov	r0, r1
+	mov	lr, r9			@ restore vfp context
+	mov	pc, r3			@ and re-issue the instruction
+1:
+#endif
 #ifdef CONFIG_PREEMPT
 	ldr	r4, [r10, #TI_PREEMPT]	@ get preempt count
 	add	r11, r4, #1		@ increment it
@@ -45,6 +67,11 @@ ENDPROC(vfp_null_entry)
 	.align	2
 .LCvfp:
 	.word	vfp_vector
+
+#if defined(CONFIG_NKERNEL) && !defined(CONFIG_SMP)
+.os_ctx:
+	.word	os_ctx
+#endif
 
 @ This code is called if the VFP does not exist. It needs to flag the
 @ failure to the VFP initialisation code.

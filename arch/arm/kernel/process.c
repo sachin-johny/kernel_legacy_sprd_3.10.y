@@ -134,6 +134,21 @@ static void default_idle(void)
 void (*pm_idle)(void) = default_idle;
 EXPORT_SYMBOL(pm_idle);
 
+#ifdef CONFIG_NKERNEL
+
+static inline void nkidle(void)
+{
+	if (!need_resched()) {
+		hw_local_irq_disable();
+		if (!raw_local_irq_pending())
+			(void)os_ctx->idle(os_ctx);
+		hw_local_irq_enable();
+	}
+	local_irq_enable();
+}
+
+#endif
+
 /*
  * The idle thread, has rather strange semantics for calling pm_idle,
  * but this is what x86 does and we need to do the same, so that
@@ -160,7 +175,11 @@ void cpu_idle(void)
 				cpu_relax();
 			} else {
 				stop_critical_timings();
+#ifndef CONFIG_NKERNEL
 				pm_idle();
+#else
+				nkidle();
+#endif
 				start_critical_timings();
 				/*
 				 * This will eventually be removed - pm_idle
@@ -191,18 +210,36 @@ __setup("reboot=", reboot_setup);
 
 void machine_halt(void)
 {
+#ifdef CONFIG_NKERNEL
+	while (1) {
+	    os_ctx->stop(os_ctx, os_ctx->id);
+	}
+#endif
 }
 
 
 void machine_power_off(void)
 {
+#ifndef CONFIG_NKERNEL
 	if (pm_power_off)
 		pm_power_off();
+#else
+	while (1) {
+	    os_ctx->stop(os_ctx, os_ctx->id);
+	}
+
+#endif
 }
 
 void machine_restart(char *cmd)
 {
+#ifndef CONFIG_NKERNEL
 	arm_pm_restart(reboot_mode, cmd);
+#else
+	while (1) {
+	    os_ctx->restart(os_ctx, os_ctx->id);
+	}
+#endif
 }
 
 /*

@@ -158,8 +158,14 @@ static int __init timer_init_sysfs(void)
 
 device_initcall(timer_init_sysfs);
 
+#ifdef CONFIG_NKERNEL
+
+extern int              nk_use_htimer;
+extern struct sys_timer nk_vtick_timer;
+
+#endif
+
 void __init time_init(void)
 {
 	system_timer->init();
 }
-

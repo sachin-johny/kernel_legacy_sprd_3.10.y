@@ -100,6 +100,11 @@ struct nfs_parsed_mount_data {
 	} nfs_server;
 
 	struct security_mnt_opts lsm_opts;
+
+#ifdef CONFIG_ROOT_NFS_UID
+	int		rootuid;		/* 7 */
+	int		rootgid;		/* 7 */
+#endif /* CONFIG_ROOT_NFS_UID */
 };
 
 /* mount_clnt.c */

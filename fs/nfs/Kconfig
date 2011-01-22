@@ -100,3 +100,67 @@ config NFS_FSCACHE
 	help
 	  Say Y here if you want NFS data to be cached locally on disc through
 	  the general filesystem cache manager
+
+config ROOT_NFS_UID
+	bool "Root uid/gid translation for NFS client (read only)"
+	depends on ROOT_NFS && EXPERIMENTAL
+	default y
+	help
+	  This feature enhances the management of the root filesystem when
+          mounted via NFS. It provides root ID translation on the NFS client
+          side, for client read requests related to the root filesystem.
+
+          If enabled, this feature allows the NFS client which performs read
+          operations on the root filesystem, to see files which belong to a
+          given (non-root) user on the NFS server, as files owned by the root
+          user.
+
+          Files which belong to a Linux root filesystem must be owned by the
+          root user so that the Linux system can be used (to support commands
+          based on the setuid bit, for instance). When the Linux root file-
+          -system is installed on a NFS server, a simple solution consists in
+          giving all files of this root filesystem to the root user. But it
+          requires to have root permissions on the NFS server. With the
+          CONFIG_ROOT_NFS_UID feature, files of the root filesystem can belong
+          to a non-root user on the NFS server and be seen as owned by the
+          root user on the client machine. This way, root permissions are
+          not required on the NFS server.
+
+          The CONFIG_ROOT_NFS_UID feature enables root ID translation for
+          client read requests only. Root ID translation for client write
+          requests (that is when the NFS client performs write operations on
+          the root filesystem) is achieved by the CONFIG_ROOT_NFS_UID_WRITE
+          feature.
+
+config ROOT_NFS_UID_WRITE
+	bool "Root uid/gid translation for NFS client (read/write)"
+	depends on ROOT_NFS_UID
+	default y
+	help
+          This feature enhances the management of the root filesystem when
+          mounted via NFS. It provides root ID translation on the NFS client
+          side, for client write requests related to the root filesystem.
+
+          If enabled, this feature allows the NFS client which performs write
+          operations on the root filesystem in the name of the root user, to
+          actually perform these operations on the NFS server in the name of
+          a given (non-root) user.
+
+          There are usually two approaches to configure the NFS server to
+          handle NFS client requests with root permissions. The first
+          configuration consists in disabling the root squashing to allow
+          other machines to have root permissions on the NFS server. The
+          second solution is to configure the root squashing to map the root
+          user to a different user on the NFS server. Both solutions require to
+          have root permissions on the NFS server to modify its configuration.
+          Moreover, the first solution causes a potential security hole. With
+          the CONFIG_ROOT_NFS_UID_WRITE feature, it is possible to perform the
+          mapping of the root user to a different user on the NFS client side.
+          Thus, it is not required to modify the NFS server configuration.
+
+          Configuring both CONFIG_ROOT_NFS_UID and CONFIG_ROOT_NFS_UID_WRITE
+          options allow the root user of the NFS client system to handle
+          existing and new files in the root filesystem as owned by root,
+          whereas these files actually belong to foo on the NFS server.
+          Moreover, it does not require changing the configuration of the
+          NFS server and to have root permissions on it.

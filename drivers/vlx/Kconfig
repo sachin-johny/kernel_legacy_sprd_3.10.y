@@ -1,0 +1,20 @@
+
+if NKERNEL_DDI
+
+menu "VLX virtual device support"
+
+config NKERNEL_VETH
+        tristate "VLX Virtual Ethernet driver"
+        depends on NETDEVICES
+        default n
+        help
+          VLX virtual Ethernet driver.
+          This driver emulates Ethernet communication with a back-end driver
+          running in another partition.
+
+          To compile this driver as a module, choose M here: the
+          module will be called veth.
+
+endmenu
+
+endif

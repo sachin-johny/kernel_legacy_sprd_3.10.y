@@ -30,6 +30,19 @@
 
 #include "mm.h"
 
+#ifdef CONFIG_NKERNEL
+#include <nk/nk.h>
+
+#undef NK_DEBUG
+
+#ifdef NK_DEBUG
+#define	PRINTNK(x)	printnk x
+#else
+#define	PRINTNK(x)
+#endif
+
+#endif
+
 static unsigned long phys_initrd_start __initdata = 0;
 static unsigned long phys_initrd_size __initdata = 0;
 
@@ -48,6 +61,8 @@ static int __init early_initrd(char *p)
 	return 0;
 }
 early_param("initrd", early_initrd);
+
+#endif
 
 static int __init parse_tag_initrd(const struct tag *tag)
 {
@@ -231,6 +246,7 @@ static void __init bootmem_init_node(int node, struct meminfo *mi,
 	pg_data_t *pgdat;
 	int i;
 
+#ifndef CONFIG_NKERNEL
 	/*
 	 * Allocate the bootmem bitmap page.
 	 */
@@ -398,6 +414,10 @@ void __init bootmem_init(void)
 		/*
 		 * Reserve any special node zero regions.
 		 */
+#ifdef CONFIG_NKERNEL
+		if (node == 0)
+			nk_reserve_bootmem();
+#endif
 		if (node == 0)
 			reserve_node_zero(NODE_DATA(node));
 
@@ -464,6 +484,16 @@ free_memmap(int node, unsigned long start_pfn, unsigned long end_pfn)
 {
 	struct page *start_pg, *end_pg;
 	unsigned long pg, pgend;
+
+	/*
+	 * Generally page allocator works under the assumption that the
+	 * mem_map array is contiguous and valid out to MAX_ORDER_NR_PAGES
+	 * block of pages, ie. that if we have validated any page within
+	 * this MAX_ORDER_NR_PAGES block we need not check any other.
+	 * We should round memmap holes down to satisfy the above requirement.
+	 */
+	start_pfn = ALIGN(start_pfn, MAX_ORDER_NR_PAGES);
+	end_pfn = end_pfn & ~(MAX_ORDER_NR_PAGES - 1);
 
 	/*
 	 * Convert start_pfn/end_pfn to a struct page pointer.
@@ -685,10 +715,12 @@ void free_initmem(void)
 				    "TCM link");
 #endif
 
+#if !defined(CONFIG_NKERNEL) || !defined(CONFIG_PM) || !defined(CONFIG_SMP)
 	if (!machine_is_integrator() && !machine_is_cintegrator())
 		totalram_pages += free_area(__phys_to_pfn(__pa(__init_begin)),
 					    __phys_to_pfn(__pa(__init_end)),
 					    "init");
+#endif
 }
 
 #ifdef CONFIG_BLK_DEV_INITRD

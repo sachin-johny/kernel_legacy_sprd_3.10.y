@@ -19,6 +19,8 @@ jiffies = jiffies_64 + 4;
 
 SECTIONS
 {
+#ifndef CONFIG_NKERNEL
+
 #ifdef CONFIG_XIP_KERNEL
 	. = XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR);
 #else
@@ -104,7 +106,14 @@ SECTIONS
 
 	RO_DATA(PAGE_SIZE)
 
+#ifdef CONFIG_NKERNEL
+	.end_of_text : {
+		*(.end_of_text)
+		_etext = .;
+	}
+#else
 	_etext = .;			/* End of text and rodata section */
+#endif
 
 #ifdef CONFIG_ARM_UNWIND
 	/*
@@ -123,6 +132,15 @@ SECTIONS
 	}
 #endif
 
+#ifdef CONFIG_NKERNEL
+	.text_data_barrier : {
+		*(.text_data_barrier)
+		__data_loc = .;
+	}
+
+	.data : {
+#else
+
 #ifdef CONFIG_XIP_KERNEL
 	__data_loc = ALIGN(4);		/* location in binary */
 	. = PAGE_OFFSET + TEXT_OFFSET;
@@ -132,6 +150,7 @@ SECTIONS
 #endif
 
 	.data : AT(__data_loc) {
+#endif
 		_data = .;		/* address in memory */
 		_sdata = .;
 

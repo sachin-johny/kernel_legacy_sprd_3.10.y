@@ -49,6 +49,7 @@ modules.builtin
 #
 !.gitignore
 !.mailmap
+!Makefile.bin
 
 #
 # Generated include files

@@ -346,13 +346,29 @@ nfs_fhget(struct super_block *sb, struct nfs_fh *fh, struct nfs_fattr *fattr)
 		else if (nfs_server_capable(inode, NFS_CAP_NLINK))
 			nfsi->cache_validity |= NFS_INO_INVALID_ATTR;
 		if (fattr->valid & NFS_ATTR_FATTR_OWNER)
+#ifdef CONFIG_ROOT_NFS_UID
+			if ((fattr->uid) &&
+			    (fattr->uid == (uid_t) (NFS_CLIENT(inode)->cl_rootuid)))
+				inode->i_uid = 0;
+			else
+				inode->i_uid = fattr->uid;
+#else
 			inode->i_uid = fattr->uid;
+#endif
 		else if (nfs_server_capable(inode, NFS_CAP_OWNER))
 			nfsi->cache_validity |= NFS_INO_INVALID_ATTR
 				| NFS_INO_INVALID_ACCESS
 				| NFS_INO_INVALID_ACL;
 		if (fattr->valid & NFS_ATTR_FATTR_GROUP)
+#ifdef CONFIG_ROOT_NFS_UID
+			if ((fattr->gid) &&
+			    (fattr->gid == (gid_t) (NFS_CLIENT(inode)->cl_rootgid)))
+				inode->i_gid = 0;
+			else
+				inode->i_gid = fattr->gid;
+#else
 			inode->i_gid = fattr->gid;
+#endif
 		else if (nfs_server_capable(inode, NFS_CAP_OWNER_GROUP))
 			nfsi->cache_validity |= NFS_INO_INVALID_ATTR
 				| NFS_INO_INVALID_ACCESS
@@ -659,18 +675,38 @@ int nfs_open(struct inode *inode, struct file *filp)
 {
 	struct nfs_open_context *ctx;
 	struct rpc_cred *cred;
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	struct translate_cred tcred;
+
+	rpc_translate_cred(&tcred,
+			   NFS_CLIENT(inode)->cl_rootuid,
+			   NFS_CLIENT(inode)->cl_rootgid);
+#endif
 
 	cred = rpc_lookup_cred();
 	if (IS_ERR(cred))
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	{
+		rpc_restore_translated_cred(&tcred);
 		return PTR_ERR(cred);
 	ctx = alloc_nfs_open_context(&filp->f_path, cred);
 	put_rpccred(cred);
 	if (ctx == NULL)
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	{
+		rpc_restore_translated_cred(&tcred);
 		return -ENOMEM;
+	}
+#else
+		return -ENOMEM;
+#endif
 	ctx->mode = filp->f_mode;
 	nfs_file_set_open_context(filp, ctx);
 	put_nfs_open_context(ctx);
 	nfs_fscache_set_inode_cookie(inode, filp);
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	rpc_restore_translated_cred(&tcred);
+#endif
 	return 0;
 }
 
@@ -1243,10 +1279,25 @@ static int nfs_update_inode(struct inode *inode, struct nfs_fattr *fattr)
 				| NFS_INO_REVAL_FORCED);
 
 	if (fattr->valid & NFS_ATTR_FATTR_OWNER) {
+#ifdef CONFIG_ROOT_NFS_UID
+		{
+			uid_t uid;
+			if ((fattr->uid) &&
+			    (fattr->uid == (uid_t) (NFS_CLIENT(inode)->cl_rootuid)))
+				uid = 0;
+			else
+				uid = fattr->uid;
+			if (inode->i_uid != uid) {
+				invalid |= NFS_INO_INVALID_ATTR|NFS_INO_INVALID_ACCESS|NFS_INO_INVALID_ACL;
+				inode->i_uid = uid;
+			}
+		}
+#else
 		if (inode->i_uid != fattr->uid) {
 			invalid |= NFS_INO_INVALID_ATTR|NFS_INO_INVALID_ACCESS|NFS_INO_INVALID_ACL;
 			inode->i_uid = fattr->uid;
 		}
+#endif
 	} else if (server->caps & NFS_CAP_OWNER)
 		invalid |= save_cache_validity & (NFS_INO_INVALID_ATTR
 				| NFS_INO_INVALID_ACCESS
@@ -1254,10 +1305,25 @@ static int nfs_update_inode(struct inode *inode, struct nfs_fattr *fattr)
 				| NFS_INO_REVAL_FORCED);
 
 	if (fattr->valid & NFS_ATTR_FATTR_GROUP) {
+#ifdef CONFIG_ROOT_NFS_UID
+		{
+			gid_t gid;
+			if ((fattr->gid) &&
+			    (fattr->gid == (gid_t) (NFS_CLIENT(inode)->cl_rootgid)))
+				gid = 0;
+			else
+				gid = fattr->gid;
+			if (inode->i_gid != gid) {
+				invalid |= NFS_INO_INVALID_ATTR|NFS_INO_INVALID_ACCESS|NFS_INO_INVALID_ACL;
+				inode->i_gid = gid;
+			}
+		}
+#else
 		if (inode->i_gid != fattr->gid) {
 			invalid |= NFS_INO_INVALID_ATTR|NFS_INO_INVALID_ACCESS|NFS_INO_INVALID_ACL;
 			inode->i_gid = fattr->gid;
 		}
+#endif
 	} else if (server->caps & NFS_CAP_OWNER_GROUP)
 		invalid |= save_cache_validity & (NFS_INO_INVALID_ATTR
 				| NFS_INO_INVALID_ACCESS

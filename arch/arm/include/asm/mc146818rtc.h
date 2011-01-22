@@ -5,7 +5,7 @@
 #define _ASM_MC146818RTC_H
 
 #include <linux/io.h>
-#include <mach/irqs.h>
+#include <asm/irq.h>
 
 #ifndef RTC_PORT
 #define RTC_PORT(x)	(0x70 + (x))

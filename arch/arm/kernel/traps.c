@@ -31,6 +31,10 @@
 #include <asm/traps.h>
 #include <asm/unwind.h>
 
+#ifdef CONFIG_NKERNEL
+#include <asm/nkern.h>
+#endif
+
 #include "ptrace.h"
 #include "signal.h"
 
@@ -522,8 +526,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		thread->tp_value = regs->ARM_r0;
 #if defined(CONFIG_HAS_TLS_REG)
 		asm ("mcr p15, 0, %0, c13, c0, 3" : : "r" (regs->ARM_r0) );
-//#elif !defined(CONFIG_TLS_REG_EMUL)
-#endif
+#elif !defined(CONFIG_TLS_REG_EMUL)
 		/*
 		 * User space must never try to access this directly.
 		 * Expect your app to break eventually if you do so.
@@ -531,7 +534,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		 * (see entry-armv.S for details)
 		 */
 		*((unsigned int *)0xffff0ff0) = regs->ARM_r0;
-//#endif
+#endif
 		return 0;
 
 #ifdef CONFIG_NEEDS_SYSCALL_FOR_CMPXCHG
@@ -741,6 +744,19 @@ void abort(void)
 }
 EXPORT_SYMBOL(abort);
 
+
+#ifdef CONFIG_NKERNEL
+
+extern void vector_und(void);
+extern void vector_swi(void);
+extern void vector_pabt(void);
+extern void vector_dabt(void);
+extern void vector_fiq(void);
+extern void vector_irq(void);
+
+#endif
+
+
 void __init trap_init(void)
 {
 	return;
@@ -749,6 +765,7 @@ void __init trap_init(void)
 void __init early_trap_init(void)
 {
 	unsigned long vectors = CONFIG_VECTORS_BASE;
+#ifndef CONFIG_NKERNEL
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
 	extern char __kuser_helper_start[], __kuser_helper_end[];
@@ -761,6 +778,20 @@ void __init early_trap_init(void)
 	 */
 	memcpy((void *)vectors, __vectors_start, __vectors_end - __vectors_start);
 	memcpy((void *)vectors + 0x200, __stubs_start, __stubs_end - __stubs_start);
+#else
+	extern char __kuser_helper_start[], __kuser_helper_end[];
+	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
+
+	os_ctx->os_vectors[NK_UNDEF_INSTR_VECTOR/4]    = vector_und;
+	os_ctx->os_vectors[NK_SYSTEM_CALL_VECTOR/4]    = vector_swi;
+	os_ctx->os_vectors[NK_PREFETCH_ABORT_VECTOR/4] = vector_pabt;
+	os_ctx->os_vectors[NK_DATA_ABORT_VECTOR/4]     = vector_dabt;
+	os_ctx->os_vectors[NK_FIQ_VECTOR/4]            = vector_fiq;
+	os_ctx->os_vectors[NK_IIRQ_VECTOR/4]           = vector_irq;
+	os_ctx->os_vectors[NK_XIRQ_VECTOR/4]           = vector_irq;
+
+	os_ctx->ready(os_ctx);
+#endif
 	memcpy((void *)vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
 
 	/*
@@ -773,5 +804,16 @@ void __init early_trap_init(void)
 	       sizeof(syscall_restart_code));
 
 	flush_icache_range(vectors, vectors + PAGE_SIZE);
+
 	modify_domain(DOMAIN_USER, DOMAIN_CLIENT);
 }
+
+
+#ifdef CONFIG_NKERNEL
+
+EXPORT_SYMBOL(_save_flags);
+EXPORT_SYMBOL(_irq_save);
+EXPORT_SYMBOL(_irq_set);
+EXPORT_SYMBOL(_irq_restore);
+
+#endif

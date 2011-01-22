@@ -206,6 +206,9 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 
 	power_supply_changed(psy);
 
+#ifdef CONFIG_VBATTERY_BACKEND
+	blocking_notifier_call_chain(&vbattery_be_notifier_list, 0, psy);
+#endif
 	goto success;
 
 create_triggers_failed:

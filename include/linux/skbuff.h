@@ -196,6 +196,9 @@ struct skb_shared_info {
 	unsigned short  gso_type;
 	__be32          ip6_frag_id;
 	union skb_shared_tx tx_flags;
+#ifdef CONFIG_SKB_DESTRUCTOR
+	unsigned int    len; /* Subtract from this shinfo to find skb->head */
+#endif
 	struct sk_buff	*frag_list;
 	struct skb_shared_hwtstamps hwtstamps;
 
@@ -208,6 +211,12 @@ struct skb_shared_info {
 	/* Intermediate layers must ensure that destructor_arg
 	 * remains valid until skb destructor */
 	void *		destructor_arg;
+#ifdef CONFIG_SKB_DESTRUCTOR
+	struct skb_shared_info *orig;
+	/* This is responsible for kfree() of header. */
+	void		(*destructor)(struct skb_shared_info *, void *);
+	void		*cookie;
+#endif
 };
 
 /* We divide dataref into two halves.  The higher 16 bits hold references
@@ -492,6 +501,9 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
 extern void kfree_skb(struct sk_buff *skb);
 extern void consume_skb(struct sk_buff *skb);
 extern void	       __kfree_skb(struct sk_buff *skb);
+#ifdef CONFIG_SKB_DESTRUCTOR
+extern struct sk_buff *___alloc_skb( gfp_t priority, int node);
+#endif
 extern struct sk_buff *__alloc_skb(unsigned int size,
 				   gfp_t priority, int fclone, int node);
 static inline struct sk_buff *alloc_skb(unsigned int size,
@@ -1124,6 +1136,13 @@ extern void skb_add_rx_frag(struct sk_buff *skb, int i, struct page *page,
 #define SKB_PAGE_ASSERT(skb) 	BUG_ON(skb_shinfo(skb)->nr_frags)
 #define SKB_FRAG_ASSERT(skb) 	BUG_ON(skb_has_frags(skb))
 #define SKB_LINEAR_ASSERT(skb)  BUG_ON(skb_is_nonlinear(skb))
+
+#ifdef CONFIG_SKB_DESTRUCTOR
+static inline unsigned char *skb_shinfo_to_head(struct skb_shared_info *shinfo)
+{
+	return (unsigned char *)shinfo - shinfo->len;
+}
+#endif
 
 #ifdef NET_SKBUFF_DATA_USES_OFFSET
 static inline unsigned char *skb_tail_pointer(const struct sk_buff *skb)

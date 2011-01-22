@@ -2269,6 +2269,13 @@ static int nfs_get_sb(struct file_system_type *fs_type,
 	if (error)
 		goto error_splat_root;
 
+#ifdef CONFIG_ROOT_NFS_UID
+	if (server->flags & NFS_MOUNT_AUTO_ROOTUID) {
+		server->client->cl_rootuid = mntroot->d_inode->i_uid;
+		server->client->cl_rootgid = mntroot->d_inode->i_gid;
+	}
+#endif
+
 	s->s_flags |= MS_ACTIVE;
 	mnt->mnt_sb = s;
 	mnt->mnt_root = mntroot;
@@ -2383,6 +2390,13 @@ static int nfs_xdev_get_sb(struct file_system_type *fs_type, int flags,
 		error = -ESTALE;
 		goto error_splat_super;
 	}
+
+#ifdef CONFIG_ROOT_NFS_UID
+	if (server->flags & NFS_MOUNT_AUTO_ROOTUID) {
+		server->client->cl_rootuid = mntroot->d_inode->i_uid;
+		server->client->cl_rootgid = mntroot->d_inode->i_gid;
+	}
+#endif
 
 	s->s_flags |= MS_ACTIVE;
 	mnt->mnt_sb = s;

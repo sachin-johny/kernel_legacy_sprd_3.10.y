@@ -7,6 +7,18 @@
 #define irq_canonicalize(i)	(i)
 #endif
 
+#ifdef CONFIG_NKERNEL
+
+#ifndef NR_IRQS
+.error	"NR_IRQS must be defined in <mach/irqs.h>"
+#endif
+
+#include <asm/nk/f_nk.h>
+#undef	NR_IRQS
+#define NR_IRQS	NK_XIRQ_LIMIT
+
+#endif
+
 /*
  * Use this value to indicate lack of interrupt
  * capability
@@ -26,4 +38,3 @@ void init_IRQ(void);
 #endif
 
 #endif
-

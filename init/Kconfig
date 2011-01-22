@@ -771,6 +771,20 @@ source "usr/Kconfig"
 
 endif
 
+config INIT_DEV
+	bool "Create an initial device repository (/dev)"
+	depends on !DEVTMPFS
+	default n
+	help
+	  Mount /dev as a memory filesystem and create basic devices such as
+	  /dev/console and /dev/null before starting the init process.
+	  It allows to create a bootstrap writable device repository which
+	  will be fully populated by udev during the normal boot procedure.
+	  On embedded platforms, it avoids to have a two-steps boot procedure
+	  (such as initramfs).
+
+	  If unsure, say N.
+
 config CC_OPTIMIZE_FOR_SIZE
 	bool "Optimize for size"
 	default y

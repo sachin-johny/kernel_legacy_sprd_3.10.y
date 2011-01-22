@@ -10,7 +10,7 @@
  */
 #if __LINUX_ARM_ARCH__ >= 6
 
-#define raw_local_irq_save(x)					\
+#define hw_local_irq_save(x)					\
 	({							\
 	__asm__ __volatile__(					\
 	"mrs	%0, cpsr		@ local_irq_save\n"	\
@@ -18,8 +18,8 @@
 	: "=r" (x) : : "memory", "cc");				\
 	})
 
-#define raw_local_irq_enable()  __asm__("cpsie i	@ __sti" : : : "memory", "cc")
-#define raw_local_irq_disable() __asm__("cpsid i	@ __cli" : : : "memory", "cc")
+#define hw_local_irq_enable()  __asm__("cpsie i	@ __sti" : : : "memory", "cc")
+#define hw_local_irq_disable() __asm__("cpsid i	@ __cli" : : : "memory", "cc")
 #define local_fiq_enable()  __asm__("cpsie f	@ __stf" : : : "memory", "cc")
 #define local_fiq_disable() __asm__("cpsid f	@ __clf" : : : "memory", "cc")
 
@@ -28,7 +28,7 @@
 /*
  * Save the current interrupt enable state & disable IRQs
  */
-#define raw_local_irq_save(x)					\
+#define hw_local_irq_save(x)					\
 	({							\
 		unsigned long temp;				\
 		(void) (&temp == &x);				\
@@ -44,7 +44,7 @@
 /*
  * Enable IRQs
  */
-#define raw_local_irq_enable()					\
+#define hw_local_irq_enable()					\
 	({							\
 		unsigned long temp;				\
 	__asm__ __volatile__(					\
@@ -59,7 +59,7 @@
 /*
  * Disable IRQs
  */
-#define raw_local_irq_disable()					\
+#define hw_local_irq_disable()					\
 	({							\
 		unsigned long temp;				\
 	__asm__ __volatile__(					\
@@ -106,7 +106,7 @@
 /*
  * Save the current interrupt enable state.
  */
-#define raw_local_save_flags(x)					\
+#define hw_local_save_flags(x)					\
 	({							\
 	__asm__ __volatile__(					\
 	"mrs	%0, cpsr		@ local_save_flags"	\
@@ -116,17 +116,55 @@
 /*
  * restore saved IRQ & FIQ state
  */
-#define raw_local_irq_restore(x)				\
+#define hw_local_irq_restore(x)				\
 	__asm__ __volatile__(					\
 	"msr	cpsr_c, %0		@ local_irq_restore\n"	\
 	:							\
 	: "r" (x)						\
 	: "memory", "cc")
 
+#ifndef CONFIG_NKERNEL
+
+#define raw_local_irq_save(x)		hw_local_irq_save(x)
+#define raw_local_irq_enable()		hw_local_irq_enable()
+#define raw_local_irq_disable()		hw_local_irq_disable()
+#define raw_local_save_flags(x)		hw_local_save_flags(x)
+#define raw_local_irq_restore(x)	hw_local_irq_restore(x)
+
+#else
+
+unsigned int _irq_save(void);
+unsigned int _irq_set(void);
+unsigned int _save_flags(void);
+unsigned int _irq_restore(unsigned int);
+unsigned int _irq_pending(void);
+
+#define raw_local_irq_save(X)   (X = _irq_save())
+
+#define raw_local_irq_enable()  (void) _irq_set()
+#define raw_local_irq_disable() (void) _irq_save()
+
+#define raw_local_save_flags(X) (X  = _save_flags())
+#define raw_local_irq_restore(X) _irq_restore(X)
+#define raw_local_irq_pending()  _irq_pending()
+
+#endif /* CONFIG_NKERNEL */
+
+#ifndef CONFIG_NKERNEL
+
 #define raw_irqs_disabled_flags(flags)	\
 ({					\
 	(int)((flags) & PSR_I_BIT);	\
 })
+
+#else
+
+#define raw_irqs_disabled_flags(flags)	\
+({					\
+	!((flags) & __VEX_IRQ_FLAG);	\
+})
+
+#endif /* CONFIG_NKERNEL */
 
 #endif
 #endif

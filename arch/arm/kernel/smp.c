@@ -248,6 +248,10 @@ void __ref cpu_die(void)
 }
 #endif /* CONFIG_HOTPLUG_CPU */
 
+#if defined(CONFIG_NKERNEL) && defined(CONFIG_VFP) && defined(CONFIG_PM)
+extern int vfp_pm_cpu_resume (void);
+#endif
+
 /*
  * This is the secondary CPU boot entry.  We're using this CPUs
  * idle thread stack, but a set of temporary page tables.
@@ -272,6 +276,9 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	local_flush_tlb_all();
 
 	cpu_init();
+#if defined(CONFIG_NKERNEL) && defined(CONFIG_PM)
+	if (!preempt_count())
+#endif
 	preempt_disable();
 
 	/*
@@ -294,6 +301,10 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	calibrate_delay();
 
 	smp_store_cpu_info(cpu);
+
+#if defined(CONFIG_NKERNEL) && defined(CONFIG_VFP) && defined(CONFIG_PM)
+	vfp_pm_cpu_resume();
+#endif
 
 	/*
 	 * OK, now it's safe to let the boot CPU continue
@@ -410,6 +421,21 @@ static void ipi_timer(void)
 }
 
 #ifdef CONFIG_LOCAL_TIMERS
+
+#ifdef CONFIG_NKERNEL
+
+    irqreturn_t
+nk_do_local_timer (int irq, void* dev_id)
+{
+    struct clock_event_device *evt = dev_id;
+    int cpu = smp_processor_id();
+    irq_stat[cpu].local_timer_irqs++;
+    evt->event_handler(evt);
+    return IRQ_HANDLED;
+}
+
+#else
+
 asmlinkage void __exception do_local_timer(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
@@ -422,6 +448,8 @@ asmlinkage void __exception do_local_timer(struct pt_regs *regs)
 
 	set_irq_regs(old_regs);
 }
+
+#endif
 #endif
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
@@ -490,6 +518,71 @@ static void ipi_cpu_stop(unsigned int cpu)
  *
  *  Bit 0 - Inter-processor function call
  */
+
+#ifdef CONFIG_NKERNEL
+
+    irqreturn_t
+nk_do_IPI (int xirq, void* dev_id)
+{
+	unsigned int cpu = smp_processor_id();
+	struct ipi_data *ipi = &per_cpu(ipi_data, cpu);
+
+	ipi->ipi_count++;
+
+	for (;;) {
+		unsigned long msgs;
+
+		spin_lock(&ipi->lock);
+		msgs = ipi->bits;
+		ipi->bits = 0;
+		spin_unlock(&ipi->lock);
+
+		if (!msgs)
+			break;
+
+		do {
+			unsigned nextmsg;
+
+			nextmsg = msgs & -msgs;
+			msgs &= ~nextmsg;
+			nextmsg = ffz(~nextmsg);
+
+			switch (nextmsg) {
+			case IPI_TIMER:
+				ipi_timer();
+				break;
+
+			case IPI_RESCHEDULE:
+				/*
+				 * nothing more to do - eveything is
+				 * done on the interrupt return path
+				 */
+				break;
+
+			case IPI_CALL_FUNC:
+				generic_smp_call_function_interrupt();
+				break;
+
+			case IPI_CALL_FUNC_SINGLE:
+				generic_smp_call_function_single_interrupt();
+				break;
+
+			case IPI_CPU_STOP:
+				ipi_cpu_stop(cpu);
+				break;
+
+			default:
+				printk(KERN_CRIT "CPU%u: Unknown IPI message 0x%x\n",
+				       cpu, nextmsg);
+				break;
+			}
+		} while (msgs);
+	}
+        return IRQ_HANDLED;
+}
+
+#else
+
 asmlinkage void __exception do_IPI(struct pt_regs *regs)
 {
 	unsigned int cpu = smp_processor_id();
@@ -550,6 +643,8 @@ asmlinkage void __exception do_IPI(struct pt_regs *regs)
 
 	set_irq_regs(old_regs);
 }
+
+#endif
 
 void smp_send_reschedule(int cpu)
 {

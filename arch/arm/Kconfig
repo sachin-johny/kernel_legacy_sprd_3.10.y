@@ -5,6 +5,14 @@
 
 mainmenu "Linux Kernel Configuration"
 
+config NKERNEL
+	bool "VLX virtualizer support"
+	default y
+
+config NKERNEL_DDI
+	bool "VLX virtual driver support"
+	default y
+
 config ARM
 	bool
 	default y
@@ -820,6 +828,12 @@ config ARCH_SC8800G
 	help
 	  Support for Spreadtrum sc8800g based systems.
 
+
+config ARCH_ARM_OSWARE
+	bool "Generic ARM OSware Machine"
+	help
+	  This enables support for a basic and generic machine that runs
+          on top of ARM OSware.
 
 endchoice
 

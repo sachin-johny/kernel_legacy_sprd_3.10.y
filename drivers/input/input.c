@@ -738,6 +738,17 @@ static const struct input_device_id *input_match_device(struct input_handler *ha
 
 	for (id = handler->id_table; id->flags || id->driver_info; id++) {
 
+#ifdef CONFIG_NKERNEL_DDI
+		/*
+		 * back-end        <-> virtual-device = fail ( in evdev_connect )
+		 * back-end        <-> normal-device  = ok
+		 * normal handlers <-> normal-device  = fail
+		 * normal handler  <-> virtual-device = ok
+		 */
+		if ((id->bustype != BUS_VIRTUAL) && (dev->id.bustype != BUS_VIRTUAL)
+                    && (nkops.nk_vlink_lookup("vevent", 0)))
+			continue;
+#endif
 		if (id->flags & INPUT_DEVICE_ID_MATCH_BUS)
 			if (id->bustype != dev->id.bustype)
 				continue;

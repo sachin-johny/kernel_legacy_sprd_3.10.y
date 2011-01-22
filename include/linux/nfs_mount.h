@@ -43,6 +43,10 @@ struct nfs_mount_data {
 	struct nfs3_fh	root;			/* 4 */
 	int		pseudoflavor;		/* 5 */
 	char		context[NFS_MAX_CONTEXT_LEN + 1];	/* 6 */
+#ifdef CONFIG_ROOT_NFS_UID
+	int             rootuid;                /* 7 */
+	int             rootgid;                /* 7 */
+#endif /* CONFIG_ROOT_NFS_UID */
 };
 
 /* bits in the flags field visible to user space */
@@ -63,6 +67,9 @@ struct nfs_mount_data {
 #define NFS_MOUNT_SECFLAVOUR	0x2000	/* 5 */
 #define NFS_MOUNT_NORDIRPLUS	0x4000	/* 5 */
 #define NFS_MOUNT_UNSHARED	0x8000	/* 5 */
+#ifdef CONFIG_ROOT_NFS_UID
+#define NFS_MOUNT_AUTO_ROOTUID	0x1000  /* 7 */
+#endif /* CONFIG_ROOT_NFS_UID */
 #define NFS_MOUNT_FLAGMASK	0xFFFF
 
 /* The following are for internal use only */

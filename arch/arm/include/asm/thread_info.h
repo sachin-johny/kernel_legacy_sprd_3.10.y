@@ -68,6 +68,26 @@ struct thread_info {
 	struct restart_block	restart_block;
 };
 
+#ifdef CONFIG_NKERNEL
+
+#define INIT_THREAD_INFO(tsk)						\
+{									\
+	.task		= &tsk,						\
+	.exec_domain	= &default_exec_domain,				\
+	.flags		= 0,						\
+	.preempt_count	= INIT_PREEMPT_COUNT,				\
+	.addr_limit	= KERNEL_DS,					\
+	.cpu_domain	= domain_val(DOMAIN_USER, DOMAIN_MANAGER) |	\
+			  domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) |	\
+			  domain_val(DOMAIN_IO, DOMAIN_CLIENT) |	\
+			  domain_val(DOMAIN_NKVEC, DOMAIN_CLIENT),	\
+	.restart_block	= {						\
+		.fn	= do_no_restart_syscall,			\
+	},								\
+}
+
+#else
+
 #define INIT_THREAD_INFO(tsk)						\
 {									\
 	.task		= &tsk,						\
@@ -82,6 +102,8 @@ struct thread_info {
 		.fn	= do_no_restart_syscall,			\
 	},								\
 }
+
+#endif
 
 #define init_thread_info	(init_thread_union.thread_info)
 #define init_stack		(init_thread_union.stack)

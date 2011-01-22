@@ -22,6 +22,10 @@
 #include <asm/thread_info.h>
 #include <asm/system.h>
 
+#ifdef CONFIG_NKERNEL
+#include <asm/nkern.h>
+#endif
+
 #if (PHYS_OFFSET & 0x001fffff)
 #error "PHYS_OFFSET must be at an even 2MiB boundary!"
 #endif
@@ -29,6 +33,7 @@
 #define KERNEL_RAM_VADDR	(PAGE_OFFSET + TEXT_OFFSET)
 #define KERNEL_RAM_PADDR	(PHYS_OFFSET + TEXT_OFFSET)
 
+#ifndef CONFIG_NKERNEL
 
 /*
  * swapper_pg_dir is the virtual address of the initial page table.
@@ -47,6 +52,43 @@
 	.macro	pgtbl, rd
 	ldr	\rd, =(KERNEL_RAM_PADDR - 0x4000)
 	.endm
+
+#else /* CONFIG_NKERNEL */
+/*
+ * We put .filler section as the first section in the kernel
+ * in order to simplify memory allocation and linking in the
+ * nanokernel environment. The original code uses 16K memory
+ * area right before stext. We explicitly allocate this area.
+ */
+		.section ".filler", #alloc, #write
+		.align	14
+		.skip	0x4000
+		.globl	swapper_pg_dir
+swapper_pg_dir:	.skip	0x4000
+
+/*
+ * Initially vmlinux is linked as a relocatable file in the
+ * nanokernel environment, later it is relinked by mkimage
+ * as an absolute file. Because of that ALIGN  directives
+ * in vmlinux.lds script have no effect. We declare all
+ * sections with nontrivial alignment here, in order to
+ * guarantee their alignment.
+ */
+		.section "__ex_table", #alloc
+		.align	5
+
+		.section ".end_of_text", #alloc
+		.align	2
+
+		.section ".text_data_barrier", #alloc
+		.align	13
+
+		.section ".data.init_task", #alloc
+		.align	13
+
+		.section ".data.cacheline_aligned", #alloc
+		.align	5
+#endif /* CONFIG_NKERNEL */
 
 #ifdef CONFIG_XIP_KERNEL
 #define KERNEL_START	XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR)
@@ -91,6 +133,29 @@ ENTRY(stext)
 	
 	setmode	PSR_F_BIT | PSR_I_BIT | SVC_MODE, r9 @ ensure svc mode
 						@ and irqs disabled
+#else
+	mov	r12, sp				@ save os_ctx in r12 (unused)
+@
+@	set an initial sp and store os_ctx at its location,
+@	so printnk will work until setting sp to __switch_data
+@	below. note that __mmap_switched will erase bss,
+@	so stack contents and os_ctx pointer will be lost.
+@	__mmap_switched reinitializes sp and os_ctx pointer
+@	after bss erasing.
+@
+	ldr	sp, __switch_data + 36		@ set an initial sp
+#ifndef CONFIG_SMP
+	ldr	r9, _os_ctx			@ store os_ctx pointer
+	str	r12, [r9]			@ at its location
+#endif
+#ifdef CONFIG_MACH_ARM_OSWARE
+	ldr	r1, _mach_type			@ set arch_id to ARM_OSWARE
+#else
+	ldr	r1, [r12, #ctx_arch_id_off]	@ load arch_id from os_ctx
+#endif
+	mov	r0, #0				@ clear r0 to fulfill
+						@ boot requirements
+#endif /* CONFIG_NKERNEL */
 	mrc	p15, 0, r9, c0, c0		@ get processor id
 	bl	__lookup_processor_type		@ r5=procinfo r9=cpuid
 	movs	r10, r5				@ invalid processor (r5=0)?
@@ -112,11 +177,16 @@ ENTRY(stext)
 						@ mmu has been enabled
 	adr	lr, BSYM(__enable_mmu)		@ return (PIC) address
  ARM(	add	pc, r10, #PROCINFO_INITFUNC	)
+#ifdef CONFIG_NKERNEL
+ THUMB ( .error "not supported yet - r12 is not free if CONFIG_NKERNEL" )
+#else
  THUMB(	add	r12, r10, #PROCINFO_INITFUNC	)
  THUMB(	mov	pc, r12				)
+#endif
 ENDPROC(stext)
 
 #if defined(CONFIG_SMP)
+
 ENTRY(secondary_startup)
 	/*
 	 * Common entry point for secondary CPUs.
@@ -125,7 +195,9 @@ ENTRY(secondary_startup)
 	 * the processor type - there is no need to check the machine type
 	 * as it has already been validated by the primary processor.
 	 */
+#ifndef CONFIG_NKERNEL
 	setmode	PSR_F_BIT | PSR_I_BIT | SVC_MODE, r9
+#endif
 	mrc	p15, 0, r9, c0, c0		@ get processor id
 	bl	__lookup_processor_type
 	movs	r10, r5				@ invalid processor?
@@ -189,8 +261,18 @@ __enable_mmu:
 		      domain_val(DOMAIN_KERNEL, DOMAIN_MANAGER) | \
 		      domain_val(DOMAIN_TABLE, DOMAIN_MANAGER) | \
 		      domain_val(DOMAIN_IO, DOMAIN_CLIENT))
+#ifdef CONFIG_NKERNEL
+	orr	r5, r5, #(domain_val(DOMAIN_NKVEC, DOMAIN_CLIENT))
+#endif
 	mcr	p15, 0, r5, c3, c0, 0		@ load domain access register
+#ifndef CONFIG_NKERNEL
 	mcr	p15, 0, r4, c2, c0, 0		@ load page table pointer
+#else
+	/*
+	 * we still use initial translation tree
+	 * provided by nano-kernel
+	 */
+#endif
 	b	__turn_mmu_on
 ENDPROC(__enable_mmu)
 
@@ -230,6 +312,7 @@ ENDPROC(__turn_mmu_on)
  *  r4 = physical page table address
  */
 __create_page_tables:
+#ifndef CONFIG_NKERNEL
 	pgtbl	r4				@ page table address
 
 	/*
@@ -342,6 +425,7 @@ __create_page_tables:
 	str	r3, [r0]
 #endif
 #endif
+#endif	/* CONFIG_NKERNEL */
 	mov	pc, lr
 ENDPROC(__create_page_tables)
 	.ltorg

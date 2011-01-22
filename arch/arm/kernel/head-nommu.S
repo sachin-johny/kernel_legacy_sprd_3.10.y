@@ -20,6 +20,35 @@
 #include <asm/thread_info.h>
 #include <asm/system.h>
 
+#ifdef CONFIG_NKERNEL
+#include <asm/nkern.h>
+#endif
+
+#ifdef CONFIG_NKERNEL
+/*
+ * Initially vmlinux is linked as a relocatable file in the
+ * nanokernel environment, later it is relinked by mkimage
+ * as an absolute file. Because of that ALIGN  directives
+ * in vmlinux.lds script have no effect. We declare all
+ * sections with nontrivial alignment here, in order to
+ * guarantee their alignment.
+ */
+		.section "__ex_table", #alloc
+		.align	5
+
+		.section ".end_of_text", #alloc
+		.align	2
+
+		.section ".text_data_barrier", #alloc
+		.align	13
+
+		.section ".data.init_task", #alloc
+		.align	13
+
+		.section ".data.cacheline_aligned", #alloc
+		.align	5
+#endif /* CONFIG_NKERNEL */
+
 /*
  * Kernel startup entry point.
  * ---------------------------
@@ -34,8 +63,31 @@
  */
 	__HEAD
 ENTRY(stext)
+#ifndef CONFIG_NKERNEL
 	setmode	PSR_F_BIT | PSR_I_BIT | SVC_MODE, r9 @ ensure svc mode
 						@ and irqs disabled
+#else
+	mov	r12, sp				@ save os_ctx in r12 (unused)
+@
+@	set an initial sp and store os_ctx at its location,
+@	so printnk will work until setting sp to __switch_data
+@	below. note that __mmap_switched will erase bss,
+@	so stack contents and os_ctx pointer will be lost.
+@	__mmap_switched reinitializes sp and os_ctx pointer
+@	after bss erasing.
+@
+	ldr	sp, __switch_data + 36		@ set an initial sp
+	ldr	r9, _os_ctx			@ store os_ctx pointer
+	str	r12, [r9]			@ at its location
+#ifdef CONFIG_MACH_ARM_OSWARE
+	ldr	r1, _mach_type			@ set arch_id to ARM_OSWARE
+#else
+	ldr	r1, [r12, #ctx_arch_id_off]	@ load arch_id from os_ctx
+#endif
+	mov	r0, #0				@ clear r0 to fulfill
+						@ boot requirements
+#endif /* CONFIG_NKERNEL */
+
 #ifndef CONFIG_CPU_CP15
 	ldr	r9, =CONFIG_PROCESSOR_ID
 #else
@@ -52,8 +104,12 @@ ENTRY(stext)
 						@ the initialization is done
 	adr	lr, BSYM(__after_proc_init)	@ return (PIC) address
  ARM(	add	pc, r10, #PROCINFO_INITFUNC	)
+#ifdef CONFIG_NKERNEL
+ THUMB ( .error "not supported yet - r12 is not free if CONFIG_NKERNEL" )
+#else
  THUMB(	add	r12, r10, #PROCINFO_INITFUNC	)
  THUMB(	mov	pc, r12				)
+#endif
 ENDPROC(stext)
 
 /*

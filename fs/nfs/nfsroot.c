@@ -123,11 +123,17 @@ enum {
 	/* Options that take integer arguments */
 	Opt_port, Opt_rsize, Opt_wsize, Opt_timeo, Opt_retrans, Opt_acregmin,
 	Opt_acregmax, Opt_acdirmin, Opt_acdirmax,
+#ifdef CONFIG_ROOT_NFS_UID
+	Opt_rootuid, Opt_rootgid,
+#endif
 	/* Options that take no arguments */
 	Opt_soft, Opt_hard, Opt_intr,
 	Opt_nointr, Opt_posix, Opt_noposix, Opt_cto, Opt_nocto, Opt_ac, 
 	Opt_noac, Opt_lock, Opt_nolock, Opt_v2, Opt_v3, Opt_udp, Opt_tcp,
 	Opt_acl, Opt_noacl,
+#ifdef CONFIG_ROOT_NFS_UID
+	Opt_auto_uid,
+#endif
 	/* Error token */
 	Opt_err
 };
@@ -142,6 +148,10 @@ static const match_table_t tokens __initconst = {
 	{Opt_acregmax, "acregmax=%u"},
 	{Opt_acdirmin, "acdirmin=%u"},
 	{Opt_acdirmax, "acdirmax=%u"},
+#ifdef CONFIG_ROOT_NFS_UID
+	{Opt_rootuid, "rootuid=%u"},
+	{Opt_rootgid, "rootgid=%u"},
+#endif
 	{Opt_soft, "soft"},
 	{Opt_hard, "hard"},
 	{Opt_intr, "intr"},
@@ -164,6 +174,9 @@ static const match_table_t tokens __initconst = {
 	{Opt_tcp, "tcp"},
 	{Opt_acl, "acl"},
 	{Opt_noacl, "noacl"},
+#ifdef CONFIG_ROOT_NFS_UID
+	{Opt_auto_uid, "auto_uid"},
+#endif
 	{Opt_err, NULL}
 	
 };
@@ -224,6 +237,14 @@ static int __init root_nfs_parse(char *name, char *buf)
 			case Opt_acdirmax:
 				nfs_data.acdirmax = option;
 				break;
+#ifdef CONFIG_ROOT_NFS_UID
+			case Opt_rootuid:
+				nfs_data.rootuid = option;
+				break;
+			case Opt_rootgid:
+				nfs_data.rootgid = option;
+				break;
+#endif
 			case Opt_soft:
 				nfs_data.flags |= NFS_MOUNT_SOFT;
 				break;
@@ -275,6 +296,11 @@ static int __init root_nfs_parse(char *name, char *buf)
 			case Opt_noacl:
 				nfs_data.flags |= NFS_MOUNT_NOACL;
 				break;
+#ifdef CONFIG_ROOT_NFS_UID
+			case Opt_auto_uid:
+				nfs_data.flags |= NFS_MOUNT_AUTO_ROOTUID;
+				break;
+#endif
 			default:
 				printk(KERN_WARNING "Root-NFS: unknown "
 					"option: %s\n", p);
@@ -304,6 +330,10 @@ static int __init root_nfs_name(char *name)
 	nfs_data.acregmax = NFS_DEF_ACREGMAX;
 	nfs_data.acdirmin = NFS_DEF_ACDIRMIN;
 	nfs_data.acdirmax = NFS_DEF_ACDIRMAX;
+#ifdef CONFIG_ROOT_NFS_UID
+	nfs_data.rootuid  = 0;
+	nfs_data.rootgid  = 0;
+#endif
 	strcpy(buf, NFS_ROOT);
 
 	/* Process options received from the remote server */
@@ -351,6 +381,10 @@ static void __init root_nfs_print(void)
 	printk(KERN_NOTICE "Root-NFS:     acreg (min,max) = (%d,%d), acdir (min,max) = (%d,%d)\n",
 		nfs_data.acregmin, nfs_data.acregmax,
 		nfs_data.acdirmin, nfs_data.acdirmax);
+#ifdef CONFIG_ROOT_NFS_UID
+	printk(KERN_NOTICE "Root-NFS:     rootuid = %d, rootgid =%d\n",
+		nfs_data.rootuid, nfs_data.rootgid);
+#endif
 	printk(KERN_NOTICE "Root-NFS:     nfsd port = %d, mountd port = %d, flags = %08x\n",
 		nfs_port, mount_port, nfs_data.flags);
 }

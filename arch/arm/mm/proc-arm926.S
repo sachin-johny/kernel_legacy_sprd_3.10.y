@@ -397,9 +397,17 @@ ENTRY(cpu_arm926_set_pte_ext)
 
 	.type	__arm926_setup, #function
 __arm926_setup:
+#ifndef CONFIG_NKERNEL
 	mov	r0, #0
 	mcr	p15, 0, r0, c7, c7		@ invalidate I,D caches on v4
 	mcr	p15, 0, r0, c7, c10, 4		@ drain write buffer on v4
+#else
+	nop
+1:	mrc	p15, 0, r15, c7, c14, 3 	@ test,clean,invalidate D cache
+	bne	1b
+	mov	r0, #0
+	mcr	p15, 0, r0, c7, c10, 4		@ drain write buffer on v4
+#endif
 #ifdef CONFIG_MMU
 	mcr	p15, 0, r0, c8, c7		@ invalidate I,D TLBs on v4
 #endif

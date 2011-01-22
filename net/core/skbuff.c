@@ -152,6 +152,29 @@ static void skb_under_panic(struct sk_buff *skb, int sz, void *here)
  *
  */
 
+#ifdef CONFIG_SKB_DESTRUCTOR
+/**
+ *	___alloc_skb	-	allocate sk_buff structure
+ *	@gfp_mask: allocation mask
+ *	@node: numa node to allocate memory on
+ *
+ *	Allocate a new &sk_buff.
+ *	The return is the buffer. On a failure the return is %NULL.
+ *
+ *	Buffers may only be allocated from interrupts using a @gfp_mask of
+ *	%GFP_ATOMIC.
+ */
+struct sk_buff *___alloc_skb(gfp_t gfp_mask, int node)
+{
+	struct sk_buff *skb;
+
+	/* Get the HEAD */
+	skb = kmem_cache_alloc_node(skbuff_head_cache, gfp_mask & ~__GFP_DMA, node);
+	return skb;
+}
+EXPORT_SYMBOL(___alloc_skb);
+#endif
+
 /**
  *	__alloc_skb	-	allocate a network buffer
  *	@size: size to allocate
@@ -213,6 +236,13 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	memset(shinfo, 0, offsetof(struct skb_shared_info, dataref));
 	atomic_set(&shinfo->dataref, 1);
 
+#ifdef CONFIG_SKB_DESTRUCTOR
+	shinfo->destructor = NULL;
+	shinfo->cookie     = NULL;
+	shinfo->orig = NULL;
+	shinfo->len = skb_end_pointer(skb) - skb->head;
+#endif
+ 
 	if (fclone) {
 		struct sk_buff *child = skb + 1;
 		atomic_t *fclone_ref = (atomic_t *) (child + 1);
@@ -329,6 +359,56 @@ static void skb_clone_fraglist(struct sk_buff *skb)
 		skb_get(list);
 }
 
+#ifdef CONFIG_SKB_DESTRUCTOR
+static void shinfo_put(struct skb_shared_info *shinfo, bool nohdr)
+ {
+	struct skb_shared_info *orig;
+
+	do {
+		if (atomic_sub_return(nohdr ? (1 << SKB_DATAREF_SHIFT) + 1 : 1,
+				      &shinfo->dataref))
+			return;
+
+		if (shinfo->nr_frags) {
+ 			int i;
+			for (i = 0; i < shinfo->nr_frags; i++)
+				put_page(shinfo->frags[i].page);
+ 		}
+		if (shinfo->frag_list)
+			skb_drop_list(&shinfo->frag_list);
+		orig = shinfo->orig;
+		if (shinfo->destructor)
+			shinfo->destructor(shinfo, shinfo->cookie);
+		else
+			kfree(skb_shinfo_to_head(shinfo));
+
+		/* We hold a payload reference to our parent. */
+		nohdr = true;
+	} while ((shinfo = orig) != NULL);
+}
+
+static void skb_release_data(struct sk_buff *skb)
+{
+	/* NOTE ON COMMENTED LIVE BELOW:
+	 * ___skb_alloc allocate on head cache pool
+	 * so we don't need. Yet this should be
+	 * investigated more thoroughly.
+	 */
+	//if (!skb->cloned)
+		shinfo_put(skb_shinfo(skb), skb->nohdr);
+}
+ 
+/* Now hold reference to older data, if has a destructor (recursively). */
+static void skb_ref_data_parent(struct sk_buff *parent,
+				struct skb_shared_info *shinfo)
+{
+	struct skb_shared_info *pshinfo = skb_shinfo(parent);
+	if (pshinfo->destructor || pshinfo->orig) {
+		shinfo->orig = pshinfo;
+		atomic_add((1 << SKB_DATAREF_SHIFT) + 1, &pshinfo->dataref);
+	}
+}
+#else
 static void skb_release_data(struct sk_buff *skb)
 {
 	if (!skb->cloned ||
@@ -346,6 +426,7 @@ static void skb_release_data(struct sk_buff *skb)
 		kfree(skb->head);
 	}
 }
+#endif
 
 /*
  *	Free an skbuff by memory without cleaning the state.
@@ -757,6 +838,9 @@ struct sk_buff *pskb_copy(struct sk_buff *skb, gfp_t gfp_mask)
 			get_page(skb_shinfo(n)->frags[i].page);
 		}
 		skb_shinfo(n)->nr_frags = i;
+#ifdef CONFIG_SKB_DESTRUCTOR
+		skb_ref_data_parent(skb, skb_shinfo(n));
+#endif
 	}
 
 	if (skb_has_frags(skb)) {
@@ -825,6 +909,9 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 	if (skb_has_frags(skb))
 		skb_clone_fraglist(skb);
 
+#ifdef CONFIG_SKB_DESTRUCTOR
+	skb_ref_data_parent(skb, (void *)(data + size));
+#endif
 	skb_release_data(skb);
 
 	off = (data + nhead) - skb->head;
@@ -850,6 +937,9 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 	skb->hdr_len  = 0;
 	skb->nohdr    = 0;
 	atomic_set(&skb_shinfo(skb)->dataref, 1);
+#ifdef CONFIG_SKB_DESTRUCTOR
+	skb_shinfo(skb)->len = skb_end_pointer(skb) - skb->head;
+#endif
 	return 0;
 
 nodata:
@@ -2084,6 +2174,10 @@ void skb_split(struct sk_buff *skb, struct sk_buff *skb1, const u32 len)
 		skb_split_inside_header(skb, skb1, len, pos);
 	else		/* Second chunk has no header, nothing to copy. */
 		skb_split_no_header(skb, skb1, len, pos);
+
+#ifdef CONFIG_SKB_DESTRUCTOR
+	skb_ref_data_parent(skb, skb_shinfo(skb1));
+#endif
 }
 EXPORT_SYMBOL(skb_split);
 
@@ -2646,6 +2740,10 @@ skip_fraglist:
 		nskb->data_len = len - hsize;
 		nskb->len += nskb->data_len;
 		nskb->truesize += nskb->data_len;
+
+#ifdef CONFIG_SKB_DESTRUCTOR
+		skb_ref_data_parent(skb, skb_shinfo(nskb));
+#endif
 	} while ((offset += len) < skb->len);
 
 	return segs;

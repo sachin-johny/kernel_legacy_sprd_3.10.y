@@ -624,6 +624,10 @@ static int nfs_create_rpc_client(struct nfs_client *clp,
 				__func__, PTR_ERR(clnt));
 		return PTR_ERR(clnt);
 	}
+#ifdef CONFIG_ROOT_NFS_UID
+	clnt->cl_rootuid = (uid_t) 0;
+	clnt->cl_rootgid = (gid_t) 0;
+#endif
 
 	clp->cl_rpcclient = clnt;
 	return 0;
@@ -765,6 +769,10 @@ static int nfs_init_client(struct nfs_client *clp,
 				      0, data->flags & NFS_MOUNT_NORESVPORT);
 	if (error < 0)
 		goto error;
+#ifdef CONFIG_ROOT_NFS_UID
+	clp->cl_rpcclient->cl_rootuid = (uid_t) data->rootuid;
+	clp->cl_rpcclient->cl_rootgid = (gid_t) data->rootgid;
+#endif
 	nfs_mark_client_ready(clp, NFS_CS_READY);
 	return 0;
 

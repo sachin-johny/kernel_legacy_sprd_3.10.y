@@ -87,7 +87,7 @@ ENTRY(cpu_v6_dcache_clean_area)
 	mov	pc, lr
 
 /*
- *	cpu_arm926_switch_mm(pgd_phys, tsk)
+ *	cpu_v6_switch_mm(pgd_phys, tsk)
  *
  *	Set the translation table base pointer to be pgd_phys
  *
@@ -100,7 +100,13 @@ ENTRY(cpu_v6_switch_mm)
 #ifdef CONFIG_MMU
 	mov	r2, #0
 	ldr	r1, [r1, #MM_CONTEXT_ID]	@ get mm->context.id
+#ifndef CONFIG_NKERNEL
 	orr	r0, r0, #TTB_FLAGS
+#else
+	ldr	r3, =ttb_flags
+	ldr	r3, [r3]
+	orr	r0, r0, r3
+#endif
 	mcr	p15, 0, r2, c7, c5, 6		@ flush BTAC/BTB
 	mcr	p15, 0, r2, c7, c10, 4		@ drain write buffer
 	mcr	p15, 0, r0, c2, c0, 0		@ set TTB 0
@@ -158,12 +164,12 @@ cpu_pj4_name:
  *	- cache type register is implemented
  */
 __v6_setup:
-#ifdef CONFIG_SMP
+#ifndef CONFIG_NKERNEL
+#ifdef  CONFIG_SMP
 	mrc	p15, 0, r0, c1, c0, 1		@ Enable SMP/nAMP mode
 	orr	r0, r0, #0x20
 	mcr	p15, 0, r0, c1, c0, 1
 #endif
-
 	mov	r0, #0
 	mcr	p15, 0, r0, c7, c14, 0		@ clean+invalidate D cache
 	mcr	p15, 0, r0, c7, c5, 0		@ invalidate I cache
@@ -175,6 +181,7 @@ __v6_setup:
 	orr	r4, r4, #TTB_FLAGS
 	mcr	p15, 0, r4, c2, c0, 1		@ load TTB1
 #endif /* CONFIG_MMU */
+#endif
 	adr	r5, v6_crval
 	ldmia	r5, {r5, r6}
 #ifdef CONFIG_CPU_ENDIAN_BE8

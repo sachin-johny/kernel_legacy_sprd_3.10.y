@@ -29,6 +29,23 @@ __switch_data:
 	.long	cr_alignment			@ r7
 	.long	init_thread_union + THREAD_START_SP @ sp
 
+
+#ifdef CONFIG_NKERNEL
+#ifndef CONFIG_SMP
+		.global	_os_ctx
+_os_ctx:	.long	os_ctx
+_irq_ena_off:	.long	__VEX_IRQ_CTX_ENA
+_irq_enabled:	.long	__irq_enabled
+#ifndef CONFIG_XIP_KERNEL
+_irq_enabled1:	.long	__irq_enabled_common
+#endif
+#endif
+#ifdef CONFIG_MACH_ARM_OSWARE
+#include <asm/mach-types.h>
+_mach_type:	.long	MACH_TYPE_ARM_OSWARE
+#endif
+#endif
+
 /*
  * The following fragment of code is executed with the MMU on in MMU mode,
  * and uses absolute addresses; this is not position independent.
@@ -52,6 +69,21 @@ __mmap_switched:
 1:	cmp	r6, r7
 	strcc	fp, [r6],#4
 	bcc	1b
+
+#ifdef CONFIG_NKERNEL
+#ifndef CONFIG_SMP
+	ldr	r4, _os_ctx			@ save pointer to os_ctx
+	str	r12, [r4]
+	ldr	r4, _irq_ena_off
+	add	r12, r12, r4
+	ldr	r4, _irq_enabled
+	str	r12, [r4]
+#ifndef CONFIG_XIP_KERNEL
+	ldr	r4, _irq_enabled1
+	str	r12, [r4]
+#endif
+#endif
+#endif
 
  ARM(	ldmia	r3, {r4, r5, r6, r7, sp})
  THUMB(	ldmia	r3, {r4, r5, r6, r7}	)
@@ -248,6 +280,12 @@ ENDPROC(lookup_machine_type)
  *  r5, r6 corrupted
  */
 __vet_atags:
+#ifdef CONFIG_NKERNEL
+	/*
+	 * nanokernel already verified tags.
+	 * setup.c will look in OS context for them.
+	 */
+#else
 	tst	r2, #0x3			@ aligned?
 	bne	1f
 
@@ -261,7 +299,7 @@ __vet_atags:
 	bne	1f
 
 	mov	pc, lr				@ atag pointer is ok
-
+#endif
 1:	mov	r2, #0
 	mov	pc, lr
 ENDPROC(__vet_atags)

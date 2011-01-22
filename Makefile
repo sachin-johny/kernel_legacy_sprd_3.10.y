@@ -482,6 +482,11 @@ drivers-y	:= drivers/ sound/ firmware/
 net-y		:= net/
 libs-y		:= lib/
 core-y		:= usr/
+
+ifeq (nkernel/Makefile,$(wildcard nkernel/Makefile))
+core-y		+= nkernel/
+endif
+
 endif # KBUILD_EXTMOD
 
 ifeq ($(dot-config),1)

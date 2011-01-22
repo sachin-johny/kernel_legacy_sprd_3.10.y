@@ -791,6 +791,9 @@ EXPORT_SYMBOL_GPL(rpc_free);
  */
 static void rpc_init_task(struct rpc_task *task, const struct rpc_task_setup *task_setup_data)
 {
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+        struct translate_cred tcred;
+#endif
 	memset(task, 0, sizeof(*task));
 	atomic_set(&task->tk_count, 1);
 	task->tk_flags  = task_setup_data->flags;
@@ -810,6 +813,11 @@ static void rpc_init_task(struct rpc_task *task, const struct rpc_task_setup *ta
 
 	task->tk_client = task_setup_data->rpc_client;
 	if (task->tk_client != NULL) {
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+            rpc_translate_cred(&tcred,
+                           task->tk_client->cl_rootuid,
+                           task->tk_client->cl_rootgid);
+#endif            
 		kref_get(&task->tk_client->cl_kref);
 		if (task->tk_client->cl_softrtry)
 			task->tk_flags |= RPC_TASK_SOFT;
@@ -828,6 +836,10 @@ static void rpc_init_task(struct rpc_task *task, const struct rpc_task_setup *ta
 			rpc_call_start(task);
 	}
 
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+        if (task->tk_client != NULL)
+            rpc_restore_translated_cred(&tcred);
+#endif            
 	/* starting timestamp */
 	task->tk_start = ktime_get();
 

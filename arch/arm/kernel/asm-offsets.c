@@ -19,6 +19,10 @@
 #include <asm/procinfo.h>
 #include <linux/kbuild.h>
 
+#ifdef CONFIG_NKERNEL
+#include <asm/nk/f_nk.h>
+#endif
+
 /*
  * Make sure that the compiler and target are compatible.
  */

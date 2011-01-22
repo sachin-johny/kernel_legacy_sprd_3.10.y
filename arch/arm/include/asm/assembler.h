@@ -124,6 +124,16 @@
 	asm_trace_hardirqs_on
 	enable_irq_notrace
 	.endm
+
+#ifdef CONFIG_NKERNEL
+/*
+ * we have analysed the use of these two macros. There are mostly used to
+ * implement atomic operations. And it is simpler to let them as is.
+ * mach-* files should be carefully analyzed, because they use sometimes
+ * those macros too.
+ */
+#endif
+
 /*
  * Save the current IRQ state and disable IRQs.  Note that this macro
  * assumes FIQs are enabled, and that the processor is in SVC mode.

@@ -101,6 +101,8 @@ extern int __get_user_1(void *);
 extern int __get_user_2(void *);
 extern int __get_user_4(void *);
 
+#ifndef CONFIG_NKERNEL
+
 #define __get_user_x(__r2,__p,__e,__s,__i...)				\
 	   __asm__ __volatile__ (					\
 		__asmeq("%0", "r0") __asmeq("%1", "r2")			\
@@ -108,6 +110,16 @@ extern int __get_user_4(void *);
 		: "=&r" (__e), "=r" (__r2)				\
 		: "0" (__p)						\
 		: __i, "cc")
+#else
+
+#define __get_user_x(__r2,__p,__e,__s,__i...)				\
+	   __asm__ __volatile__ (					\
+		__asmeq("%0", "r0") __asmeq("%1", "r2")			\
+		"blx %3"						\
+		: "=&r" (__e), "=r" (__r2)				\
+		: "0" (__p), "r" (__get_user_ ## __s)			\
+		: __i, "cc")
+#endif
 
 #define get_user(x,p)							\
 	({								\
@@ -135,6 +147,8 @@ extern int __put_user_2(void *, unsigned int);
 extern int __put_user_4(void *, unsigned int);
 extern int __put_user_8(void *, unsigned long long);
 
+#ifndef CONFIG_NKERNEL
+
 #define __put_user_x(__r2,__p,__e,__s)					\
 	   __asm__ __volatile__ (					\
 		__asmeq("%0", "r0") __asmeq("%2", "r2")			\
@@ -142,6 +156,17 @@ extern int __put_user_8(void *, unsigned long long);
 		: "=&r" (__e)						\
 		: "0" (__p), "r" (__r2)					\
 		: "ip", "lr", "cc")
+#else
+#define __put_user_x(__r2,__p,__e,__s)					\
+        __asm__ __volatile__ 						\
+        (								\
+                __asmeq("%0", "r0") __asmeq("%2", "r2")			\
+                "blx %3"						\
+                : "=&r" (__e)						\
+                : "0" (__p), "r" (__r2), "r" (__put_user_ ## __s)	\
+                : "ip", "lr", "cc"					\
+        )
+#endif
 
 #define put_user(x,p)							\
 	({								\

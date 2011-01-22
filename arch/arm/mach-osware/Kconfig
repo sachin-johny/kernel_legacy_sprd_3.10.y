@@ -1,0 +1,33 @@
+comment "Generic ARM OSware Machine Options"
+	depends on ARCH_ARM_OSWARE
+
+config MACH_ARM_OSWARE
+	bool
+	depends on ARCH_ARM_OSWARE
+	default y
+
+config MACH_ARM_OSWARE_CORTEX_AX
+	bool "CPU is Cortex A8/A9"
+	depends on MACH_ARM_OSWARE && CPU_V7
+	default y
+
+config RAM_PHYS
+        hex "Physical RAM base address"
+	depends on MACH_ARM_OSWARE
+        default "0"
+        help
+          The physical start address of the RAM area.
+
+config ONE_SHOT_TIMER
+	bool "Use new one shot virtual timer"
+	depends on MACH_ARM_OSWARE
+	default no
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+
+config HZ
+        int "Tick frequency"
+	depends on MACH_ARM_OSWARE && !ONE_SHOT_TIMER
+        default "100"
+        help
+          The frequency of the system tick.

@@ -28,6 +28,8 @@
 #define __xh "r1"
 #endif
 
+#if 0
+
 #define __do_div_asm(n, base)					\
 ({								\
 	register unsigned int __base      asm("r4") = base;	\
@@ -45,6 +47,28 @@
 	n = __res;						\
 	__rem;							\
 })
+
+#else
+
+/* XXX Workaround gcc 3.3.4 bug (PR 15089) */
+#define  __do_div_asm(n, base)					\
+({								\
+	register unsigned long long __n   asm("r0") = n;	\
+	register unsigned long long __res asm("r2");		\
+	register unsigned int __rem       asm(__xh);		\
+	asm(	__asmeq("%0", __xh)				\
+		__asmeq("%1", "r2")				\
+		__asmeq("%2", "r0")				\
+		"mov	r4, %3	\n\t"				\
+		"bl	__do_div64"				\
+		: "=r" (__rem), "=r" (__res)			\
+		: "r" (__n), "r" (base)				\
+		: "r4", "ip", "lr", "cc");			\
+	n = __res;						\
+	__rem;							\
+})
+
+#endif
 
 #if __GNUC__ < 4
 

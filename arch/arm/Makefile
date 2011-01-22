@@ -10,7 +10,9 @@
 #
 # Copyright (C) 1995-2001 by Russell King
 
-LDFLAGS_vmlinux	:=-p --no-undefined -X
+RELOC-$(CONFIG_NKERNEL) := -r
+
+LDFLAGS_vmlinux	:=$(RELOC-y) -p --no-undefined -X
 ifeq ($(CONFIG_CPU_ENDIAN_BE8),y)
 LDFLAGS_vmlinux	+= --be8
 endif
@@ -43,6 +45,10 @@ KBUILD_CPPFLAGS	+= -mlittle-endian
 AS		+= -EL
 LD		+= -EL
 endif
+
+LONG_CALLS-$(CONFIG_NKERNEL) := -mlong-calls
+
+CFLAGS_MODULE += $(LONG_CALLS-y)
 
 comma = ,
 
@@ -159,6 +165,7 @@ machine-$(CONFIG_ARCH_OMAP2)		:= omap2
 machine-$(CONFIG_ARCH_OMAP3)		:= omap2
 machine-$(CONFIG_ARCH_OMAP4)		:= omap2
 machine-$(CONFIG_ARCH_ORION5X)		:= orion5x
+machine-$(CONFIG_ARCH_ARM_OSWARE)	:= osware
 machine-$(CONFIG_ARCH_PNX4008)		:= pnx4008
 machine-$(CONFIG_ARCH_PXA)		:= pxa
 machine-$(CONFIG_ARCH_REALVIEW)		:= realview
@@ -244,6 +251,7 @@ core-y				+= $(machdirs) $(platdirs)
 core-$(CONFIG_FPE_NWFPE)	+= arch/arm/nwfpe/
 core-$(CONFIG_FPE_FASTFPE)	+= $(FASTFPE_OBJ)
 core-$(CONFIG_VFP)		+= arch/arm/vfp/
+core-$(CONFIG_NKERNEL)		+= arch/arm/nkernel/
 
 drivers-$(CONFIG_OPROFILE)      += arch/arm/oprofile/
 
@@ -254,6 +262,10 @@ ifeq ($(CONFIG_XIP_KERNEL),y)
 KBUILD_IMAGE := xipImage
 else
 KBUILD_IMAGE := zImage
+endif
+
+ifeq ($(CONFIG_NKERNEL),y)
+KBUILD_IMAGE := vmlinux
 endif
 
 all:	$(KBUILD_IMAGE)

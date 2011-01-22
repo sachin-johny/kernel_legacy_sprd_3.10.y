@@ -11,7 +11,8 @@
 # Copyright (C) 1995-2002 Russell King
 #
 
-MKIMAGE         := $(srctree)/scripts/mkuboot.sh
+MKIMAGE_UBOOT   := $(srctree)/scripts/mkuboot.sh
+MKIMAGE_RRLOAD  := false
 
 ifneq ($(MACHINE),)
 include $(srctree)/$(MACHINE)/Makefile.boot
@@ -27,7 +28,7 @@ INITRD_PHYS := $(initrd_phys-y)
 
 export ZRELADDR INITRD_PHYS PARAMS_PHYS
 
-targets := Image zImage xipImage bootpImage uImage
+targets := Image zImage xipImage bootpImage uImage uzImage rrzImage
 
 ifeq ($(CONFIG_XIP_KERNEL),y)
 
@@ -60,7 +61,7 @@ $(obj)/zImage:	$(obj)/compressed/vmlinux FORCE
 endif
 
 quiet_cmd_uimage = UIMAGE  $@
-      cmd_uimage = $(CONFIG_SHELL) $(MKIMAGE) -A arm -O linux -T kernel \
+      cmd_uimage = $(CONFIG_SHELL) $(MKIMAGE_UBOOT) -A arm -O linux -T kernel \
 		   -C none -a $(LOADADDR) -e $(STARTADDR) \
 		   -n 'Linux-$(KERNELRELEASE)' -d $< $@
 
@@ -77,8 +78,23 @@ else
 $(obj)/uImage: STARTADDR=$(LOADADDR)
 endif
 
-$(obj)/uImage:	$(obj)/zImage FORCE
+$(obj)/uImage:	$(obj)/Image FORCE
 	$(call if_changed,uimage)
+	@echo '  Image $@ is ready'
+
+quiet_cmd_uzimage = UZIMAGE  $@
+      cmd_uzimage = $(cmd_uimage)
+
+$(obj)/uzImage:	$(obj)/zImage FORCE
+	$(call if_changed,uzimage)
+	@echo '  Image $@ is ready'
+
+quiet_cmd_rrzimage = RRZIMAGE  $@
+      cmd_rrzimage = $(MKIMAGE_RRLOAD) \
+                     --LAddr $(ZRELADDR) --EAddr $(ZRELADDR) $< $@
+
+$(obj)/rrzImage:  $(obj)/compressed/vmlinux FORCE
+	$(call if_changed,rrzimage)
 	@echo '  Image $@ is ready'
 
 $(obj)/bootp/bootp: $(obj)/zImage initrd FORCE

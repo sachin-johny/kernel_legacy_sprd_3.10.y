@@ -6,6 +6,86 @@
 #include <asm/errno.h>
 #include <asm/thread_info.h>
 
+#ifdef CONFIG_NKERNEL
+
+#include <asm/nkern.h>
+
+	.macro	get_os_ctx, reg
+#ifdef CONFIG_SMP
+	mrc	p15, 0, \reg, c13, c0, 4		@ read TLS register
+#else
+#ifdef CONFIG_XIP_KERNEL
+	ldr	\reg, _os_ctx
+	ldr	\reg, [\reg]
+#else
+	ldr	\reg, os_ctx
+#endif
+#endif
+	.endm
+
+	/*
+	 * __irq_enabled__ must be defined locally in the includer file
+	 */
+	.macro	get_irq_enabled, reg
+#ifdef CONFIG_SMP
+	get_os_ctx \reg
+	add	   \reg, \reg, #__VEX_IRQ_CTX_ENA
+#else
+#ifdef CONFIG_XIP_KERNEL
+	ldr	\reg, ___irq_enabled
+	ldr	\reg, [\reg]
+#else
+	ldr	\reg, __irq_enabled__
+#endif
+#endif
+	.endm
+
+#define	DASH #
+
+#define	__NK_SIRQ_SAVE_SVC(rcpsr, rwork) 			 \
+	get_irq_enabled	rwork					;\
+	ldrb	rwork, [rwork]					;\
+	orr	rcpsr, rcpsr, rwork, lsl DASH NK_VPSR_SHIFT
+
+#ifdef CONFIG_SMP
+
+#define	NK_SIRQ_SAVE_SVC(rcpsr, rwork) 	 \
+	cpsid	i			;\
+	__NK_SIRQ_SAVE_SVC(rcpsr, rwork);\
+	cpsie	i
+
+#else
+
+#define	NK_SIRQ_SAVE_SVC(rcpsr, rwork) 	\
+	__NK_SIRQ_SAVE_SVC(rcpsr, rwork)
+
+#endif
+
+#define	NK_SIRQ_RESTORE(rcpsr, rwork1, rwork2)		 \
+	mov	rwork1, rcpsr, lsr DASH NK_VPSR_SHIFT		;\
+	get_irq_enabled	rwork2					;\
+	strb	rwork1, [rwork2]				;\
+	ldrb	rwork2, [rwork2, DASH __VEX_IRQ_CTX_E2P]	;\
+	tst	rwork1, rwork2
+
+#define	NK_SIRQ_SAVE_USR(rcpsr) 				 \
+	orr	rcpsr, rcpsr, DASH (__VEX_IRQ_FLAG << NK_VPSR_SHIFT)
+
+#define	NK_SIRQ_RESTORE_SVC(rcpsr, rwork1, rwork2) 		 \
+	NK_SIRQ_RESTORE(rcpsr, rwork1, rwork2)			;\
+	bne	__irq_svc_handler
+
+#define	NK_SIRQ_RESTORE_USR_SLOW(rcpsr, rwork1, rwork2)		 \
+	NK_SIRQ_RESTORE(rcpsr, rwork1, rwork2)			;\
+	bne	__irq_usr_handler
+
+#define	NK_SIRQ_RESTORE_USR_FAST(rcpsr, rwork1, rwork2)		 \
+	NK_SIRQ_RESTORE(rcpsr, rwork1, rwork2)			;\
+	strne	r0, [sp, #S_R0+S_OFF]!				;\
+	bne	__irq_usr_handler
+
+#endif /* CONFIG_NKERNEL */
+
 @ Bad Abort numbers
 @ -----------------
 @
@@ -90,6 +170,13 @@
 
 	.macro	restore_user_regs, fast = 0, offset = 0
 	ldr	r1, [sp, #\offset + S_PSR]	@ get calling cpsr
+#if CONFIG_NKERNEL
+	.if	\fast
+	NK_SIRQ_RESTORE_USR_FAST(r1, r2, r3)
+	.else
+	NK_SIRQ_RESTORE_USR_SLOW(r1, r2, r3)
+	.endif
+#endif
 	ldr	lr, [sp, #\offset + S_PC]!	@ get pc
 	msr	spsr_cxsf, r1			@ save in spsr_svc
 #if defined(CONFIG_CPU_32v6K)
@@ -138,6 +225,13 @@
 	mov	r2, sp
 	load_user_sp_lr r2, r3, \offset + S_SP	@ calling sp, lr
 	ldr	r1, [sp, #\offset + S_PSR]	@ get calling cpsr
+#if CONFIG_NKERNEL
+	.if	\fast
+	NK_SIRQ_RESTORE_USR_FAST(r1, r2, r3)
+	.else
+	NK_SIRQ_RESTORE_USR_SLOW(r1, r2, r3)
+	.endif
+#endif
 	ldr	lr, [sp, #\offset + S_PC]	@ get pc
 	add	sp, sp, #\offset + S_SP
 	msr	spsr_cxsf, r1			@ save in spsr_svc

@@ -40,6 +40,10 @@
 
 #include <asm/uaccess.h>
 
+#ifdef CONFIG_NKERNEL
+#include <nk/nkern.h>
+#endif
+
 /*
  * for_each_console() allows you to iterate on each console
  */
@@ -55,8 +59,14 @@ void asmlinkage __attribute__((weak)) early_printk(const char *fmt, ...)
 
 #define __LOG_BUF_LEN	(1 << CONFIG_LOG_BUF_SHIFT)
 
-#ifdef        CONFIG_DEBUG_LL
+#ifdef CONFIG_DEBUG_LL
 extern void printascii(char *);
+#endif
+
+#ifndef CONFIG_DEBUG_LL
+#if defined(CONFIG_NKERNEL)
+#define VCONS_PRINT_ERR
+#endif
 #endif
 
 /* printk's without a loglevel use this.. */
@@ -803,7 +813,6 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 #ifdef	CONFIG_DEBUG_LL
 	printascii(printk_buf);
 #endif
-
 	p = printk_buf;
 
 	/* Do we have a loglevel in the string? */
@@ -863,6 +872,14 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 		}
 
 		emit_log_char(*p);
+#ifdef VCONS_PRINT_ERR
+		if ((!console_drivers) && (current_log_level <= 3)) {
+			char cbuf[2];
+			cbuf[0] = *p;
+			cbuf[1] = '\0';
+			printnk(cbuf);
+		}
+#endif
 		if (*p == '\n')
 			new_text_line = 1;
 	}

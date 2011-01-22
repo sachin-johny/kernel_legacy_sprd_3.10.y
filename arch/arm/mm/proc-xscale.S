@@ -514,8 +514,14 @@ ENTRY(cpu_xscale_set_pte_ext)
 
 	.type	__xscale_setup, #function
 __xscale_setup:
+#ifndef CONFIG_NKERNEL
 	mcr	p15, 0, ip, c7, c7, 0		@ invalidate I, D caches & BTB
 	mcr	p15, 0, ip, c7, c10, 4		@ Drain Write (& Fill) Buffer
+#else
+	clean_d_cache r0, r5
+	mov	r0, #0
+	mcr	p15, 0, r0, c7, c10, 4		@ Drain Write (& Fill) Buffer
+#endif
 	mcr	p15, 0, ip, c8, c7, 0		@ invalidate I, D TLBs
 	mov	r0, #1 << 6			@ cp6 for IOP3xx and Bulverde
 	orr	r0, r0, #1 << 13		@ Its undefined whether this
@@ -966,4 +972,3 @@ __pxa270_proc_info:
 	.long	xscale_mc_user_fns
 	.long	xscale_cache_fns
 	.size	__pxa270_proc_info, . - __pxa270_proc_info
-

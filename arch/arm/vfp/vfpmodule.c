@@ -363,6 +363,28 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 	preempt_enable();
 }
 
+#ifdef CONFIG_NKERNEL
+static void vfp_enable(void *unused)
+{
+	unsigned long	flags;
+	u32 		access;
+
+	if ((os_ctx->cpu_cap & NK_HWCAP_VFP) == 0) {
+	    return; 
+	}
+
+	hw_local_irq_save(flags);
+	/*
+	 * if we have to acquire vfp
+	 */
+	if (!os_ctx->vfp_owned) {
+	    os_ctx->vfp_get(os_ctx);
+	}
+	access = get_copro_access();
+	set_copro_access(access | CPACC_FULL(10) | CPACC_FULL(11));
+	hw_local_irq_restore(flags);
+}
+#else
 static void vfp_enable(void *unused)
 {
 	u32 access = get_copro_access();
@@ -372,6 +394,7 @@ static void vfp_enable(void *unused)
 	 */
 	set_copro_access(access | CPACC_FULL(10) | CPACC_FULL(11));
 }
+#endif
 
 #ifdef CONFIG_PM
 #include <linux/sysdev.h>
@@ -423,6 +446,13 @@ static void vfp_pm_init(void)
 	sysdev_register(&vfp_pm_sysdev);
 }
 
+#ifdef CONFIG_NKERNEL
+    void
+vfp_pm_cpu_resume (void)
+{
+    (void)vfp_pm_resume(&vfp_pm_sysdev);
+}
+#endif
 
 #else
 static inline void vfp_pm_init(void) { }

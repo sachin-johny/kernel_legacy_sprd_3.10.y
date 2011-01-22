@@ -33,7 +33,19 @@
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
 
+#ifdef    CONFIG_NKERNEL
+
+#include <nk/nkern.h>
+
+#define CONFIG_NKERNEL_NO_SHARED_IRQ
+
+#endif /* CONFIG_NKERNEL */
+
+#ifndef    CONFIG_NKERNEL
+
 static DEFINE_SPINLOCK(irq_controller_lock);
+
+#endif /* CONFIG_NKERNEL */
 
 struct gic_chip_data {
 	unsigned int irq_offset;
@@ -65,6 +77,7 @@ static inline unsigned int gic_irq(unsigned int irq)
 	return irq - gic_data->irq_offset;
 }
 
+#ifndef   CONFIG_NKERNEL
 /*
  * Routines to acknowledge, disable and enable interrupts
  *
@@ -175,9 +188,107 @@ void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
 	set_irq_chained_handler(irq, gic_handle_cascade_irq);
 }
 
+#else  /* CONFIG_NKERNEL */
+
+extern NkDevXPic*   nkxpic;		/* virtual XPIC device */
+extern NkOsId       nkxpic_owner;	/* owner of the virtual XPIC device */
+extern NkOsMask     nkosmask;		/* my OS mask */
+
+extern void __nk_xirq_startup  (NkXIrq xirq);
+extern void __nk_xirq_shutdown (NkXIrq xirq);
+
+    static void
+gic_unmask_irq(unsigned int irq)
+{
+	u32 mask = 1 << (irq % 32);
+
+	writel(mask, gic_dist_base(irq) + GIC_DIST_ENABLE_SET + (gic_irq(irq) / 32) * 4);
+}
+
+    static unsigned int
+nk_startup_irq (unsigned int irq)
+{
+	__nk_xirq_startup(irq);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[irq].os_enabled  = nkosmask;
+#else
+	nkxpic->irq[irq].os_enabled |= nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+
+	return 0;
+}
+
+    static void
+nk_shutdown_irq (unsigned int irq)
+{
+	__nk_xirq_shutdown(irq);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[irq].os_enabled  = 0;
+#else
+	nkxpic->irq[irq].os_enabled &= ~nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+}
+
+    static void
+nk_mask_ack_irq (unsigned int irq)
+{
+    /*
+     * mask_ack() is called only from handle_level_irq.
+     * in our case this job is already done by vpic
+     *
+     * we do not define mask(), because it is called
+     * only from interrupt migration code. No migration
+     * for us because we do not have set_affinity().
+     */
+}
+
+    static void
+nk_ack_irq (unsigned int irq)
+{
+    /*
+     * ack might be called by some stupid drivers
+     * for cascaded interrupt controllers
+     */
+}
+
+    static void
+nk_unmask_irq (unsigned int irq)
+{
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	gic_unmask_irq(irq);
+#else
+	nkops.nk_xirq_trigger(irq, nkxpic_owner);
+#endif
+}
+
+#ifdef CONFIG_SMP
+static int nk_set_cpu(unsigned int irq, const struct cpumask *mask)
+{
+        nkops.nk_xirq_affinity(irq, cpumask_bits(mask)[0]);
+	return 0;
+}
+#endif
+
+static struct irq_chip nk_gic_chip = {
+	.name		= "GIC",
+	.mask_ack	= nk_mask_ack_irq,
+	.ack		= nk_ack_irq,
+	.unmask		= nk_unmask_irq,
+	.startup	= nk_startup_irq,
+	.shutdown	= nk_shutdown_irq,
+#ifdef CONFIG_SMP
+	.set_affinity	= nk_set_cpu,
+#endif
+};
+
+#endif /* CONFIG_NKERNEL */
+
 void __init gic_dist_init(unsigned int gic_nr, void __iomem *base,
 			  unsigned int irq_start)
 {
+#ifndef   CONFIG_NKERNEL
 	unsigned int max_irq, i;
 	u32 cpumask = 1 << smp_processor_id();
 
@@ -241,6 +352,37 @@ void __init gic_dist_init(unsigned int gic_nr, void __iomem *base,
 	}
 
 	writel(1, base + GIC_DIST_CTRL);
+#else  /* CONFIG_NKERNEL */
+	unsigned int max_irq, i;
+
+	gic_data[gic_nr].dist_base = base;
+	gic_data[gic_nr].irq_offset = (irq_start - 1) & ~31;
+
+	/*
+	 * Find out how many interrupts are supported.
+	 */
+	max_irq = readl(base + GIC_DIST_CTR) & 0x1f;
+	max_irq = (max_irq + 1) * 32;
+
+	/*
+	 * The GIC only supports up to 1020 interrupt sources.
+	 * Limit this to either the architected maximum, or the
+	 * platform maximum.
+	 */
+	if (max_irq > max(1020, NR_IRQS))
+		max_irq = max(1020, NR_IRQS);
+
+	/*
+	 * Setup the Linux IRQ subsystem.
+	 */
+	for (i = irq_start; i < gic_data[gic_nr].irq_offset + max_irq; i++) {
+		set_irq_chip(i, &nk_gic_chip);
+		set_irq_chip_data(i, &gic_data[gic_nr]);
+		set_irq_handler(i, handle_level_irq);
+		set_irq_flags(i, IRQF_VALID);
+	}
+
+#endif /* CONFIG_NKERNEL */
 }
 
 void __cpuinit gic_cpu_init(unsigned int gic_nr, void __iomem *base)
@@ -248,12 +390,15 @@ void __cpuinit gic_cpu_init(unsigned int gic_nr, void __iomem *base)
 	if (gic_nr >= MAX_GIC_NR)
 		BUG();
 
+#ifndef CONFIG_NKERNEL
 	gic_data[gic_nr].cpu_base = base;
 
 	writel(0xf0, base + GIC_CPU_PRIMASK);
 	writel(1, base + GIC_CPU_CTRL);
+#endif
 }
 
+#ifndef CONFIG_NKERNEL
 #ifdef CONFIG_SMP
 void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 {
@@ -263,3 +408,4 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	writel(map << 16 | irq, gic_data[0].dist_base + GIC_DIST_SOFTINT);
 }
 #endif
+#endif /* CONFIG_NKERNEL */

@@ -108,7 +108,13 @@ ENTRY(cpu_v7_switch_mm)
 #ifdef CONFIG_MMU
 	mov	r2, #0
 	ldr	r1, [r1, #MM_CONTEXT_ID]	@ get mm->context.id
+#ifndef CONFIG_NKERNEL
 	orr	r0, r0, #TTB_FLAGS
+#else
+	ldr	r3, =ttb_flags
+	ldr	r3, [r3]
+	orr	r0, r0, r3
+#endif
 #ifdef CONFIG_ARM_ERRATA_430973
 	mcr	p15, 0, r2, c7, c5, 6		@ flush BTAC/BTB
 #endif
@@ -132,6 +138,7 @@ ENDPROC(cpu_v7_switch_mm)
  *	- pte   - PTE value to store
  *	- ext	- value for extended PTE bits
  */
+#ifndef CONFIG_NKERNEL
 ENTRY(cpu_v7_set_pte_ext)
 #ifdef CONFIG_MMU
  ARM(	str	r1, [r0], #-2048	)	@ linux version
@@ -168,6 +175,22 @@ ENTRY(cpu_v7_set_pte_ext)
 	mov	pc, lr
 ENDPROC(cpu_v7_set_pte_ext)
 
+#else
+
+/*
+ * we use old armv6 code if CONFIG_NKERNEL is defined. TEX remapping
+ * is not supprted yet
+ */
+	armv6_mt_table cpu_v7
+
+ENTRY(cpu_v7_set_pte_ext)
+#ifdef CONFIG_MMU
+	armv6_set_pte_ext cpu_v7
+#endif
+	mov	pc, lr
+
+#endif
+
 cpu_v7_name:
 	.ascii	"ARMv7 Processor"
 	.align
@@ -190,17 +213,27 @@ cpu_v7_name:
  *	- cache type register is implemented
  */
 __v7_setup:
+#ifndef CONFIG_NKERNEL
 #ifdef CONFIG_SMP
 	mrc	p15, 0, r0, c1, c0, 1
 	tst	r0, #(1 << 6)			@ SMP/nAMP mode enabled?
 	orreq	r0, r0, #(1 << 6) | (1 << 0)	@ Enable SMP/nAMP mode and
 	mcreq	p15, 0, r0, c1, c0, 1		@ TLB ops broadcasting
 #endif
+#endif
+#ifndef CONFIG_NKERNEL
 	adr	r12, __v7_setup_stack		@ the local stack
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
 	bl	v7_flush_dcache_all
 	ldmia	r12, {r0-r5, r7, r9, r11, lr}
-
+#else
+	adr	r10, __v7_setup_stack		@ the local stack
+	stmia	r10, {r0-r5, r7, r9, r11, lr}
+	bl	v7_flush_dcache_all
+	adr	r10, __v7_setup_stack		@ the local stack
+	ldmia	r10, {r0-r5, r7, r9, r11, lr}
+#endif
+#ifndef CONFIG_NKERNEL
 	mrc	p15, 0, r0, c0, c0, 0		@ read main ID register
 	and	r10, r0, #0xff000000		@ ARM?
 	teq	r10, #0x41000000
@@ -229,8 +262,11 @@ __v7_setup:
 	orreq	r10, r10, #(1 << 22)		@ set the Write Allocate disable bit
 	mcreq	p15, 1, r10, c9, c0, 2		@ write the L2 cache aux ctrl register
 #endif
+#endif
 
-2:	mov	r10, #0
+2:
+#ifndef CONFIG_NKERNEL
+	mov	r10, #0
 #ifdef HARVARD_CACHE
 	mcr	p15, 0, r10, c7, c5, 0		@ I+BTB cache invalidate
 #endif
@@ -275,6 +311,7 @@ __v7_setup:
 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
 	mcr	p15, 0, r6, c10, c2, 1		@ write NMRR
 #endif
+#endif
 	adr	r5, v7_crval
 	ldmia	r5, {r5, r6}
 #ifdef CONFIG_CPU_ENDIAN_BE8
@@ -295,7 +332,11 @@ ENDPROC(__v7_setup)
 	 */
 	.type	v7_crval, #object
 v7_crval:
+#ifndef CONFIG_NKERNEL
 	crval	clear=0x0120c302, mmuset=0x10c03c7d, ucset=0x00c01c7c
+#else
+	crval	clear=0x0120c302, mmuset=0x00c03c7d, ucset=0x00c01c7c
+#endif
 
 __v7_setup_stack:
 	.space	4 * 11				@ 11 registers

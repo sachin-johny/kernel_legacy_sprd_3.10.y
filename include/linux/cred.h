@@ -357,6 +357,20 @@ static inline void put_cred(const struct cred *_cred)
 #define current_user_ns()	(current_cred_xxx(user)->user_ns)
 #define current_security()	(current_cred_xxx(security))
 
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+
+#define current_cred_set_xxx(id,new_id)		\
+do {						\
+	struct cred *__cred;			\
+	__cred = (struct cred *) current->cred;	\
+	__cred->id = new_id;			\
+} while(0)
+
+#define current_set_fsuid(x) 	current_cred_set_xxx(fsuid,x)
+#define current_set_fsgid(x) 	current_cred_set_xxx(fsgid,x)
+
+#endif
+
 #define current_uid_gid(_uid, _gid)		\
 do {						\
 	const struct cred *__cred;		\
