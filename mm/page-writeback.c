@@ -925,7 +925,20 @@ continue_unlock:
 					goto continue_unlock;
 			}
 
-			BUG_ON(PageWriteback(page));
+            // BUG_ON(PageWriteback(page));
+            /*
+             * To avoid the android 2.2 arm-eabi-gcc 4.40 toolchain's bug,
+             * so you can compile the kernel properly [luther.ge]
+             */
+            if (__builtin_expect(!!(PageWriteback(page)), 0)) {
+                printk(KERN_CRIT"kernel BUG at %s:%d!\n", __FILE__, __LINE__);
+                *(int *)0 = 0;
+
+                /* Avoid "noreturn function does return" */
+                // for (;;);
+                asm volatile ("b .");
+            }
+
 			if (!clear_page_dirty_for_io(page))
 				goto continue_unlock;
 
