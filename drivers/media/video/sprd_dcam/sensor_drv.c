@@ -1236,6 +1236,28 @@ LOCAL void Sensor_SetExportInfo(SENSOR_EXP_INFO_T * exp_info_ptr)
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
+int Sensor_WriteReg_Array(uint16_t reg_addr, uint16_t value, struct i2c_adapter *adpter)
+{
+	uint8_t buf_w[3];
+	uint32_t ret = -1;
+	struct i2c_msg msg_w;
+		
+	buf_w[0]= reg_addr >> 8;
+	buf_w[1]= reg_addr & 0xFF;
+	buf_w[2]= (uint8_t)value;
+	msg_w.addr = s_sensor_info_ptr->salve_i2c_addr_w; 
+	msg_w.flags = 0;
+	msg_w.buf = buf_w;
+	msg_w.len = 3;
+        ret = i2c_transfer(adpter, &msg_w, 1);
+	if(ret!=1)
+        {
+            printk("#DCAM: write sensor reg fai, ret: %x \n", ret);
+            return -1;
+        }
+	
+	return 0;
+}
 int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
 {
 	struct i2c_adapter *adpter = DCAM_NULL;
@@ -1265,7 +1287,6 @@ int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
         }
 
 	i2c_put_adapter(adpter);
-
 	adpter = DCAM_NULL;
 
 	return 0;
@@ -1304,7 +1325,6 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
         }
 
 	i2c_put_adapter(adpter);
-
 	value = buf_r;
 	adpter = DCAM_NULL;
 
@@ -1447,6 +1467,7 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg_tab_info_ptr	)
 {
     uint32_t i;
+	struct i2c_adapter *adpter = DCAM_NULL;
 
 /*    SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d start time = %d",\
 //                    sensor_reg_tab_info_ptr->reg_count,\
@@ -1455,14 +1476,22 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
     SENSOR_ASSERT(PNULL != (void*)sensor_reg_tab_info_ptr);
     SENSOR_ASSERT(PNULL != (void *)sensor_reg_tab_info_ptr->sensor_reg_tab_ptr);
 */
+  	adpter = i2c_get_adapter(0);
+        if (DCAM_NULL == adpter)
+        {
+            SENSOR_PRINT("#DCAM: get i2c adapter NULL\n");
+            return -1;
+        }
+		
     for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
     {
-        ImgSensor_GetMutex();
-        Sensor_WriteReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, \
-                        sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
-        ImgSensor_PutMutex();
+        //ImgSensor_GetMutex();
+        Sensor_WriteReg_Array(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, \
+                        sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value, adpter);
+        //ImgSensor_PutMutex();
     }	
-
+	i2c_put_adapter(adpter);
+	adpter = DCAM_NULL;
 //    SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> end time = %d", SCI_GetTickCount());
 
     return SENSOR_SUCCESS;
@@ -1632,6 +1661,7 @@ PUBLIC BOOLEAN Sensor_Init(void)
         SENSOR_PRINT("SENSOR: Sensor_Init is done\n");        
         return SENSOR_TRUE;
     }
+
     //Clean the information of img sensor
     //nsor_SetCurId(SENSOR_ID_MAX); 
     _Sensor_CleanInformation();
@@ -1862,7 +1892,7 @@ PUBLIC ERR_SENSOR_E Sensor_Open(void)
         s_sensor_mode[SENSOR_SUB]=SENSOR_MODE_MAX;
         return SENSOR_OP_STATUS_ERR;
     }
-  
+
     if(Sensor_IsOpen())
     {
     	SENSOR_PRINT("SENSOR: Sensor_Open -> sensor has open");
@@ -2174,6 +2204,7 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
             _Sensor_IicHandlerRelease();
         }
     }
+
     s_sensor_init = SENSOR_FALSE;//wxz:???
     s_atv_open=SENSOR_FALSE;
     s_sensor_open=SENSOR_FALSE;

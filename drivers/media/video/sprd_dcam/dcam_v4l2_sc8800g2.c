@@ -1234,8 +1234,7 @@ static int close(struct file *file)
 	dprintk(dev, 1, "close called (minor=%d, users=%d)\n",
 		minor, dev->users);
 	
-	//close sensor
-        //sensor_close();
+	//close sensor       
         Sensor_Close();
 #if DCAM_V4L2_DEBUG
 	DCAM_V4L2_PRINT("###DCAM: OK to close sensor.\n");
