@@ -109,7 +109,7 @@
 #define CL_PRINT(...)
 #endif
 
-#define SYNC_BLIT
+//#define SYNC_BLIT
 
 /* TEMP, software make-up for lcdc's 4-byte-align only limitation */
 struct semaphore copybit_wait;
