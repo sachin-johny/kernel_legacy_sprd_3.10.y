@@ -39,7 +39,8 @@
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
-
+#include <mach/bits.h>
+#include <mach/io.h>
 /*offset*/
 #define I2C_CTL                 		0x0000
 #define I2C_CMD                 		0x0004
@@ -151,14 +152,46 @@ static inline void sc8800_i2c_enable_irq(struct sc8800_i2c *i2c)
  *
  * put the start bit & slave address of a message onto the bus 
 */
+#define PIN_SIM_CONFIG  0
+#define PIN_LCD_CONFIG  1
+#define PIN_IIC_CONFIG1 2
+#define PIN_IIC_CONFIG2 3
 
 static void sc8800_i2c_message_start(struct sc8800_i2c *i2c, struct i2c_msg *msg)
 {
-	unsigned int cmd = (msg->addr & 0x7f) << 1;
+    unsigned int cmd;
+    uint16_t addr;
+
+    addr = msg->addr;
+    printk("I2C:addr=0x%x\n",addr);
+    switch ((addr & 0xC000) >> 14){
+        case PIN_SIM_CONFIG:
+            //also need config ldo fix me!!!!
+            __raw_bits_and(~(BIT_4 | BIT_3),SPRD_GREG_BASE+0x0028);
+            break;
+        case PIN_LCD_CONFIG:
+            __raw_bits_or(BIT_3,SPRD_GREG_BASE+0x0028);
+            __raw_bits_and(~BIT_4,SPRD_GREG_BASE+0x0028);
+            break;
+        case PIN_IIC_CONFIG1:
+            __raw_bits_or(BIT_4,SPRD_GREG_BASE+0x0028);
+            __raw_bits_and(~BIT_3,SPRD_GREG_BASE+0x0028);
+            break;
+        case PIN_IIC_CONFIG2:
+            __raw_bits_or(BIT_3|BIT_4,SPRD_GREG_BASE+0x0028);
+            break;
+        default:
+            printk("i2c pad switch error!!!");
+            break;
+    }
+    cmd = __raw_readl(SPRD_GREG_BASE+0x0028);
+    printk("I2C cmd=0x%x\n",cmd);
+
+    cmd = (msg->addr & 0x7f) << 1;
 
 	if (msg->flags & I2C_M_RD) 
 		cmd |= 0x1;
-	
+    
 	cmd=(cmd<<8) | I2C_CMD_START | I2C_CMD_WRITE;
 	__raw_writel(cmd, i2c->membase + I2C_CMD);
 	ndelay(50);
@@ -583,15 +616,18 @@ static void sc8800_i2c_init(struct sc8800_i2c *i2c)
 	unsigned int tmp;
 	struct sc8800_platform_i2c *pdata;
 	
-	__raw_writel(0x10,SPRD_CPC_BASE+0x0098); //chip pin control SCL_reg:select SCL
-	__raw_writel(0x10,SPRD_CPC_BASE+0x009c);  //chip pin control SDA_reg:select SDA
-	
+//     __raw_bits_or(BIT_3,SPRD_GREG_BASE+0x0028);
+//     __raw_bits_and(~BIT_4,SPRD_GREG_BASE+0x0028);
+             	
+     __raw_bits_or(BIT_4,SPRD_CPC_BASE+0x0304);
+     __raw_bits_and(~BIT_5,SPRD_CPC_BASE+0x0304);
+
+     __raw_bits_or(BIT_4,SPRD_CPC_BASE+0x0308);
+     __raw_bits_and(~BIT_5,SPRD_CPC_BASE+0x0308);
+
 	tmp=__raw_readl(SPRD_GREG_BASE+0x0008); //global reg:i2c_en
 	tmp|=(0x1<<4);
 	__raw_writel(tmp,SPRD_GREG_BASE+0x0008);
-	tmp=__raw_readl(SPRD_GREG_BASE+0x005c); 
-	tmp|=(0x1<<3);
-	__raw_writel(tmp,SPRD_GREG_BASE+0x005c);
 
 	__raw_writel(0x1,i2c->membase+I2C_RST);  //reset i2c module
 	
@@ -690,8 +726,10 @@ static int sc8800_i2c_probe(struct platform_device *pdev)
 		printk("I2C:request_irq failed!\n");
 		goto err_irq;
 	}
+    
+    i2c->adap.nr =1;
 
-	ret = i2c_add_adapter(&i2c->adap);
+	ret = i2c_add_numbered_adapter(&i2c->adap);
 	if (ret < 0){ 
 		printk("I2C:add_adapter failed!\n");
 		goto err_adap;

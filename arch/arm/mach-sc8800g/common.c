@@ -33,6 +33,13 @@
 #include <mach/regs_ahb.h>
 #include <mach/regs_global.h>
 #include <mach/ldo.h>
+#include <linux/i2c.h>
+#ifdef CONFIG_SENSORS_MMC31XX
+#include <linux/mmc31xx.h>
+#endif
+#ifdef CONFIG_SENSORS_MXC622X
+#include <linux/mxc622x.h>
+#endif
 
 static struct resource sprd_nand_resources[] = {
 	[0] = {
@@ -47,6 +54,11 @@ static struct platform_device sprd_nand_device = {
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(sprd_nand_resources),
 	.resource	= sprd_nand_resources,
+};
+
+static struct platform_device sprd_smd_device = {
+	.name	= "sprd_smd",
+	.id	= -1,
 };
 
 static struct resource sprd_dcam_resources[] = {
@@ -79,6 +91,20 @@ static struct resource sprd_i2c_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
+//i2c pad:  the high two bit of the addr is the pad control bit 
+static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
+#ifdef CONFIG_SENSORS_MMC31XX
+    {
+        I2C_BOARD_INFO(MMC31XX_I2C_NAME, MMC31XX_I2C_ADDR | 0x4000),
+    },
+#endif
+#ifdef CONFIG_SENSORS_MXC622X
+    {
+        I2C_BOARD_INFO(MXC622X_I2C_NAME,MXC622X_I2C_ADDR|0x4000),
+    },
+#endif
+};
+
 static struct platform_device sprd_i2c_device = {
 	.name		= "sc8800-i2c",
 	.id		= 0,
@@ -143,13 +169,13 @@ static struct platform_device sprd_battery_device = {
 
 /* keypad backlight */
 static struct platform_device sprd_kp_bl_device = {
-	    .name           = "keyboard-backlight",
+	.name           = "keyboard-backlight",
         .id             =  -1,
 };
 
 /* lcd backlight */
 static struct platform_device sprd_lcd_bl_device = {
-	    .name           = "lcd-backlight",
+	.name           = "lcd-backlight",
         .id             =  -1,
 };
 
@@ -237,8 +263,9 @@ static struct platform_device *devices[] __initdata = {
 
 void __init sprd_add_devices(void)
 {
+    i2c_register_board_info(1,openphone_i2c_boardinfo,ARRAY_SIZE(openphone_i2c_boardinfo)); 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
-}
+};
 
 #define SPRD_SDIO_SLOT0_BASE SPRD_SDIO_BASE
 static struct resource sprd_sdio_resource[] = {
@@ -359,11 +386,9 @@ void __init sprd_add_otg_device(void)
 }
 
 /*Android USB Function */
-//#define SPRD_VENDOR_ID		0x22B8
-//#define SPRD_PRODUCT_ID		0x41D9
-#define SPRD_VENDOR_ID		0x0BB4
-#define SPRD_PRODUCT_ID		0x0C01
-#define SPRD_ADB_PRODUCT_ID		0x0C02
+#define SPRD_VENDOR_ID		0x22B8
+#define SPRD_PRODUCT_ID		0x41D9
+#define SPRD_ADB_PRODUCT_ID		0x41DB
 #define SPRD_RNDIS_PRODUCT_ID		0x41E4
 #define SPRD_RNDIS_ADB_PRODUCT_ID		0x41E5
 
@@ -442,7 +467,7 @@ static struct android_usb_platform_data andusb_plat = {
 	.vendor_id			= SPRD_VENDOR_ID,
 	.product_id			= SPRD_PRODUCT_ID,
 	.manufacturer_name	= "Spreadtrum",
-	.product_name		= "Spreadtrum openphone",
+	.product_name		= "Spreadtrum Bigphone",
 	.serial_number		= device_serial,
 	.num_products = ARRAY_SIZE(usb_products),
 	.products = usb_products,
@@ -461,7 +486,7 @@ static struct platform_device androidusb_device = {
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 static struct usb_mass_storage_platform_data usbms_plat = {
 	.vendor			= "Spreadtrum",
-	.product		= "openphone",
+	.product		= "Bigphone",
 	.release		= 1,
 };
 
