@@ -36,7 +36,7 @@
 #define     SDIO_BASE_CLK_16M       16000000        // 16 MHz
 #define     SDIO_BASE_CLK_8M        8000000         // 8  MHz
 
-#define SDIO_MAX_CLK  SDIO_BASE_CLK_48M  //40Mhz
+#define SDIO_MAX_CLK  SDIO_BASE_CLK_96M  //40Mhz
 
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
@@ -64,13 +64,13 @@ static void sdhci_sprd_set_base_clock(unsigned int clock)
 
 	if (clock > SDIO_MAX_CLK)
 		clock = SDIO_MAX_CLK;
-	
-	
+
+
 	local_irq_save(flags);
-	
+
     //Select the clk source of SDIO
 	__raw_bits_and(~(BIT_17|BIT_18), GR_CLK_GEN5);
-	
+
 	if (clock >= SDIO_BASE_CLK_96M) {
 		//default is 96M
 		;
@@ -81,7 +81,7 @@ static void sdhci_sprd_set_base_clock(unsigned int clock)
 	} else {
 		__raw_bits_or((3<<17), GR_CLK_GEN5);
 	}
-	
+
 	local_irq_restore(flags);
 	pr_info("after set sd clk, CLK_GEN5:%x\r\n",
 		__raw_readl(GR_CLK_GEN5));
@@ -123,11 +123,11 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, host);
 
 	host->ioaddr = (void __iomem *)res->start;
-	
+
 	host->hw_name = "Spread SDIO host";
 	host->ops = &sdhci_sprd_ops;
 	/*
-		SC8800G don't have timeout value and cann't find card 
+		SC8800G don't have timeout value and cann't find card
 		insert, write protection...
 		too sad
 	*/
@@ -138,7 +138,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->irq = irq;
 
 	sdhci_sprd_set_base_clock(SDIO_MAX_CLK);
-	
+
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");

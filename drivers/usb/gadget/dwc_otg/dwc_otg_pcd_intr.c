@@ -40,9 +40,9 @@
 
 //#define PRINT_CFI_DMA_DESCS
 
-#define DEBUG_EP0
+//#define DEBUG_EP0
 
-#define VERBOSE
+//#define VERBOSE
 
 /**
  * This function updates OTG.
@@ -106,7 +106,7 @@ static inline void print_ep0_state(dwc_otg_pcd_t * pcd)
 		dwc_strcpy(str, "EP0_INVALID");
 	}
 
-	trace_printk("%s(%d)\n", str, pcd->ep0state);
+	//trace_printk("%s(%d)\n", str, pcd->ep0state);
 #endif
 }
 
@@ -257,7 +257,7 @@ int32_t dwc_otg_pcd_handle_sof_intr(dwc_otg_pcd_t * pcd)
 
 	gintsts_data_t gintsts;
 
-	trace_printk( "SOF\n");
+	//trace_printk( "SOF\n");
 
 	/* Clear interrupt */
 	gintsts.d32 = 0;
@@ -305,18 +305,18 @@ int32_t dwc_otg_pcd_handle_rx_status_q_level_intr(dwc_otg_pcd_t * pcd)
 	status.d32 = dwc_read_reg32(&global_regs->grxstsp);
 
 #ifdef DEBUG
-	trace_printk( "EP:%d BCnt:%d DPID:%s "
-		    "pktsts:%x Frame:%d(0x%0x)\n",
-		    status.b.epnum, status.b.bcnt,
-		    dpid_str[status.b.dpid],
-		    status.b.pktsts, status.b.fn, status.b.fn);
+	//trace_printk( "EP:%d BCnt:%d DPID:%s "
+	//	    "pktsts:%x Frame:%d(0x%0x)\n",
+	//	    status.b.epnum, status.b.bcnt,
+	//	    dpid_str[status.b.dpid],
+	//	    status.b.pktsts, status.b.fn, status.b.fn);
 #endif	
 	/* Get pointer to EP structure */
 	ep = get_out_ep(pcd, status.b.epnum);
 
 	switch (status.b.pktsts) {
 	case DWC_DSTS_GOUT_NAK:
-		trace_printk( "Global OUT NAK\n");
+		//trace_printk( "Global OUT NAK\n");
 		break;
 	case DWC_STS_DATA_UPDT:
 		trace_printk( "OUT Data Packet\n");
@@ -330,11 +330,11 @@ int32_t dwc_otg_pcd_handle_rx_status_q_level_intr(dwc_otg_pcd_t * pcd)
 		}
 		break;
 	case DWC_STS_XFER_COMP:
-		trace_printk( "OUT Complete\n");
+		//trace_printk( "OUT Complete\n");
 		break;
 	case DWC_DSTS_SETUP_COMP:
 #ifdef DEBUG_EP0
-		trace_printk( "Setup Complete\n");
+		//trace_printk( "Setup Complete\n");
 #endif
 		break;
 	case DWC_DSTS_SETUP_UPDT:
@@ -1058,8 +1058,8 @@ int32_t dwc_otg_pcd_handle_isoc_out_packet_dropped_intr(dwc_otg_pcd_t * pcd)
 	gintmsk_data_t intr_mask = {.d32 = 0 };
 	gintsts_data_t gintsts;
 
-	trace_printk("INTERRUPT Handler not implemented for %s\n",
-		   "ISOC Out Dropped");
+	//trace_printk("INTERRUPT Handler not implemented for %s\n",
+	//	   "ISOC Out Dropped");
 
 	intr_mask.b.isooutdrop = 1;
 	dwc_modify_reg32(&GET_CORE_IF(pcd)->core_global_regs->gintmsk,
@@ -1083,7 +1083,7 @@ int32_t dwc_otg_pcd_handle_end_periodic_frame_intr(dwc_otg_pcd_t * pcd)
 {
 	gintmsk_data_t intr_mask = {.d32 = 0 };
 	gintsts_data_t gintsts;
-	trace_printk("INTERRUPT Handler not implemented for %s\n", "EOP");
+	//trace_printk("INTERRUPT Handler not implemented for %s\n", "EOP");
 
 	intr_mask.b.eopframe = 1;
 	dwc_modify_reg32(&GET_CORE_IF(pcd)->core_global_regs->gintmsk,
@@ -1110,7 +1110,7 @@ int32_t dwc_otg_pcd_handle_end_periodic_frame_intr(dwc_otg_pcd_t * pcd)
 int32_t dwc_otg_pcd_handle_ep_mismatch_intr(dwc_otg_core_if_t * core_if)
 {
 	gintsts_data_t gintsts;
-	trace_printk( "%s(%p)\n", __func__, core_if);
+	//trace_printk( "%s(%p)\n", __func__, core_if);
 
 	/* Clear interrupt */
 	gintsts.d32 = 0;
@@ -1206,7 +1206,7 @@ static inline void do_setup_in_status_phase(dwc_otg_pcd_t * pcd)
 	pcd->ep0state = EP0_IN_STATUS_PHASE;
 
 	/* Prepare for more SETUP Packets */
-	trace_printk( "EP0 IN ZLP\n");
+	//trace_printk( "EP0 IN ZLP\n");
 	ep0->dwc_ep.xfer_len = 0;
 	ep0->dwc_ep.xfer_count = 0;
 	ep0->dwc_ep.is_in = 1;
@@ -1225,12 +1225,12 @@ static inline void do_setup_out_status_phase(dwc_otg_pcd_t * pcd)
 {
 	dwc_otg_pcd_ep_t *ep0 = &pcd->ep0;
 	if (pcd->ep0state == EP0_STALL) {
-		trace_printk( "EP0 STALLED\n");
+		//trace_printk( "EP0 STALLED\n");
 		return;
 	}
 	pcd->ep0state = EP0_OUT_STATUS_PHASE;
 
-	trace_printk( "EP0 OUT ZLP\n");
+	//trace_printk( "EP0 OUT ZLP\n");
 	ep0->dwc_ep.xfer_len = 0;
 	ep0->dwc_ep.xfer_count = 0;
 	ep0->dwc_ep.is_in = 0;

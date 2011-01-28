@@ -261,7 +261,7 @@ int __init gser_bind_config(struct usb_configuration *c, u8 port_num)
 {
 	struct f_gser	*gser;
 	int		status;
-
+	char buf[30] = {0};
 	/* REVISIT might want instance-specific strings to help
 	 * distinguish instances ...
 	 */
@@ -281,6 +281,8 @@ int __init gser_bind_config(struct usb_configuration *c, u8 port_num)
 
 	gser->port_num = port_num;
 
+//	sprintf(buf, "gser%d", port_num);
+//	gser->port.func.name = buf;
 	gser->port.func.name = "gser";
 	gser->port.func.strings = gser_strings;
 	gser->port.func.bind = gser_bind;

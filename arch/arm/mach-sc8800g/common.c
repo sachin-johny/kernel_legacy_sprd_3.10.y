@@ -348,23 +348,20 @@ static void usb_enable_module(int en)
 	if (en){
 		__raw_bits_or(BIT_6, AHB_CTL3);
 		__raw_bits_and(~BIT_9, GR_CLK_GEN5);
+		__raw_bits_or(BIT_5, AHB_CTL0);
 	}else {
 		__raw_bits_and(~BIT_6, AHB_CTL3);
 		__raw_bits_or(BIT_9, GR_CLK_GEN5);
 		__raw_bits_and(~BIT_5, AHB_CTL0);
 	}
 }
-static void usb_connect(void)
+static void usb_startup(void)
 {
 	usb_enable_module(1);
 	msleep(10);
 	usb_ldo_switch(0);
-
 	__raw_bits_and(~BIT_1, AHB_CTL3);
 	__raw_bits_and(~BIT_2, AHB_CTL3);
-
-	__raw_bits_or(BIT_5, AHB_CTL0);
-
 	usb_ldo_switch(1);
 	__raw_bits_or(BIT_6, AHB_CTL3);
 
@@ -374,14 +371,33 @@ static void usb_connect(void)
 	__raw_bits_and(~BIT_7, AHB_SOFT_RST);
 	msleep(30);
 }
+
+void udc_enable(void)
+{
+	usb_enable_module(1);
+	usb_ldo_switch(1);
+
+	//soft rest udc module
+	__raw_bits_or(BIT_7, AHB_SOFT_RST);
+	msleep(10);
+	__raw_bits_and(~BIT_7, AHB_SOFT_RST);
+	msleep(30);
+}
+EXPORT_SYMBOL(udc_enable);
+
+void udc_disable(void)
+{
+	usb_enable_module(0);
+	usb_ldo_switch(0);
+}
+EXPORT_SYMBOL(udc_disable);
+
 void __init sprd_add_otg_device(void)
 {
 	__raw_bits_or(BIT_8, USB_PHY_CTRL);
-	usb_connect();
-	if (LDO_IsLDOOn(LDO_LDO_USB)){
-		pr_info("usb ldo is on\r\n");
-	}else
-		pr_info("usb ldo is off\r\n");
+	__raw_bits_and(~BIT_1, AHB_CTL3);
+	__raw_bits_and(~BIT_2, AHB_CTL3);
+	usb_startup();
 	platform_device_register(&sprd_otg_device);
 }
 
@@ -391,6 +407,7 @@ void __init sprd_add_otg_device(void)
 #define SPRD_VENDOR_ID		0x0BB4
 #define SPRD_PRODUCT_ID		0x0C01
 #define SPRD_ADB_PRODUCT_ID		0x0C02
+//#define SPRD_ADB_PRODUCT_ID             0x41DB
 #define SPRD_RNDIS_PRODUCT_ID		0x41E4
 #define SPRD_RNDIS_ADB_PRODUCT_ID		0x41E5
 

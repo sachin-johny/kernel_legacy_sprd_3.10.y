@@ -71,6 +71,7 @@
 #include <asm/io.h>
 # include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
+#include <mach/board.h>
 
 #include "dwc_otg_driver.h"
 #include "dwc_otg_pcd_if.h"
@@ -272,8 +273,8 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 		return -ESHUTDOWN;
 	}
 
-	trace_printk( "%s queue req %p, len %d buf %p\n",
-		    usb_ep->name, usb_req, usb_req->length, usb_req->buf);
+	//trace_printk( "%s queue req %p, len %d buf %p\n",
+	//	    usb_ep->name, usb_req, usb_req->length, usb_req->buf);
 
 	usb_req->status = -EINPROGRESS;
 	usb_req->actual = 0;
@@ -293,7 +294,7 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
  */
 static int ep_dequeue(struct usb_ep *usb_ep, struct usb_request *usb_req)
 {
-	trace_printk("%s(%p,%p)\n", __func__, usb_ep, usb_req);
+	//trace_printk("%s(%p,%p)\n", __func__, usb_ep, usb_req);
 
 	if (!usb_ep || !usb_req) {
 		DWC_WARN("bad argument\n");
@@ -551,12 +552,21 @@ static int wakeup(struct usb_gadget *gadget)
 	return 0;
 }
 
+static int pullup(struct usb_gadget *gadget, int is_on)
+{
+	if(is_on)
+		udc_enable();
+	else
+		udc_disable();
+	return 0;
+}
 static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 	.get_frame = get_frame_number,
 	.wakeup = wakeup,
 #ifdef CONFIG_USB_DWC_OTG_LPM
 	.lpm_support = test_lpm_enabled,
 #endif
+	.pullup	= pullup,
 	// current versions must always be self-powered
 };
 
@@ -569,7 +579,7 @@ static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 							*)bytes);
 	}
 
-	trace_printk("setup res:%d\r\n", retval);
+	//trace_printk("setup res:%d\r\n", retval);
 	//sword
 	//if (retval == -ENOTSUPP) {
 	if (retval == -EOPNOTSUPP) {
@@ -995,9 +1005,9 @@ struct platform_device *_dev
 	 * Free the IRQ
 	 */
 	//free_irq(_dev->irq, pcd);
-	dwc_otg_pcd_remove(otg_dev->pcd);
+	dwc_otg_pcd_remove(pcd);
 	free_wrapper(gadget_wrapper);
-	otg_dev->pcd = 0;
+	pcd = 0;
 }
 
 /**
