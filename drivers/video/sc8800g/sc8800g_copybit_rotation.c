@@ -74,12 +74,13 @@ static ROTATION_DATA_FORMAT_E get_data_format(uint32_t format)
 static ROTATION_DIR_E get_rotation_dir(uint32_t flags)
 {
 	ROTATION_DIR_E rot_dir = ROTATION_DIR_MAX;
+	uint32_t rot_tmp = flags & 0x7;
 
-	if(flags & S2D_ROT_90)
+	if(S2D_ROT_90 == rot_tmp)
 		rot_dir = ROTATION_90;
-	else if(flags & S2D_ROT_180)
+	else if(S2D_ROT_180 == rot_tmp)
 		rot_dir = ROTATION_180;
-	else if(flags & S2D_ROT_270)
+	else if(S2D_ROT_270 == rot_tmp)
 		rot_dir = ROTATION_270;
 	else
 		rot_dir = ROTATION_DIR_MAX;
@@ -162,8 +163,8 @@ static int update_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 			break;
 		case ROTATION_270:
 			req->src.width = rot_param->img_size.h;
-			req->src.height = rot_param->img_size.w;
-			a = rot_param->img_size.h - req->src_rect.y - req->src_rect.h;
+			req->src.height = rot_param->img_size.w;			
+			a = req->src_rect.y;
 			b = rot_param->img_size.w - req->src_rect.x - req->src_rect.w;
 			req->src_rect.x = a;
 			req->src_rect.y = b;
