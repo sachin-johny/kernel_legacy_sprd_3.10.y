@@ -242,6 +242,7 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 
 	if (timeout == 0){
 		printk("I2C:timeout\n");
+		__raw_writel(0x1,i2c->membase+I2C_RST);  //reset i2c module
 		ret = -ENXIO;
 	}else if (ret != num){
 		printk("incomplete xfer (%d)\n", ret);
@@ -545,7 +546,6 @@ static irqreturn_t sc8800_i2c_irq(unsigned int irq, void *dev_id)
 	struct sc8800_i2c *i2c;
 	unsigned int cmd;
 	int ret;
-
 	i2c = (struct sc8800_i2c *)dev_id;
 
 	if (i2c->state == STATE_IDLE) {
@@ -585,7 +585,6 @@ static irqreturn_t sc8800_i2c_irq(unsigned int irq, void *dev_id)
 	ret=sc8800_i2c_irq_nextbyte(i2c,cmd);
 	if(ret!=0)
 		printk("I2C irq:error\n");
-
  out:
 	return IRQ_HANDLED;
 }
