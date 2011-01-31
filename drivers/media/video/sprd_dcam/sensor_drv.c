@@ -75,6 +75,7 @@
 /**---------------------------------------------------------------------------*
  **                         Global Variables                                  *
  **---------------------------------------------------------------------------*/
+ #define SET_SENSOR_ADDR(addr)  (0x8000|(addr))
  //save value for register
 //#define LOCAL_VAR_DEF uint32_t reg_val;
 #define REG_SETBIT(_reg_addr, _bit_mask, _bit_set) ANA_REG_MSK_OR(_reg_addr, _bit_set, _bit_mask);
@@ -1245,7 +1246,7 @@ int Sensor_WriteReg_Array(uint16_t reg_addr, uint16_t value, struct i2c_adapter 
 	buf_w[0]= reg_addr >> 8;
 	buf_w[1]= reg_addr & 0xFF;
 	buf_w[2]= (uint8_t)value;
-	msg_w.addr = s_sensor_info_ptr->salve_i2c_addr_w; 
+	msg_w.addr = SET_SENSOR_ADDR(s_sensor_info_ptr->salve_i2c_addr_w); 
 	msg_w.flags = 0;
 	msg_w.buf = buf_w;
 	msg_w.len = 3;
@@ -1265,7 +1266,7 @@ int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
 	uint32_t ret = -1;
 	struct i2c_msg msg_w;
 
-	adpter = i2c_get_adapter(0);
+	adpter = i2c_get_adapter(1);
         if (DCAM_NULL == adpter)
         {
             printk("#DCAM: get i2c adapter NULL\n");
@@ -1275,7 +1276,7 @@ int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
 	buf_w[0]= reg_addr >> 8;
 	buf_w[1]= reg_addr & 0xFF;
 	buf_w[2]= (uint8_t)value;
-	msg_w.addr = s_sensor_info_ptr->salve_i2c_addr_w; 
+	msg_w.addr = SET_SENSOR_ADDR(s_sensor_info_ptr->salve_i2c_addr_w); 
 	msg_w.flags = 0;
 	msg_w.buf = buf_w;
 	msg_w.len = 3;
@@ -1300,7 +1301,7 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 	uint16_t value = 0;
 	struct i2c_msg msg_r[2];
 
-	adpter = i2c_get_adapter(0);
+	adpter = i2c_get_adapter(1);
         if (DCAM_NULL == adpter)
         {
             printk("#DCAM: get i2c adapter NULL\n");
@@ -1309,11 +1310,11 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 		
 	buf_w[0]= reg_addr >> 8;
 	buf_w[1]= reg_addr & 0xFF;
-	msg_r[0].addr = s_sensor_info_ptr->salve_i2c_addr_w; //OV2655_I2C_ADDR_W;
+	msg_r[0].addr = SET_SENSOR_ADDR(s_sensor_info_ptr->salve_i2c_addr_w); //OV2655_I2C_ADDR_W;
 	msg_r[0].flags = 0;
 	msg_r[0].buf = buf_w;
 	msg_r[0].len = 2;
-	msg_r[1].addr = s_sensor_info_ptr->salve_i2c_addr_r; //OV2655_I2C_ADDR_R;
+	msg_r[1].addr = SET_SENSOR_ADDR(s_sensor_info_ptr->salve_i2c_addr_r); //OV2655_I2C_ADDR_R;
 	msg_r[1].flags = I2C_M_RD;
 	msg_r[1].buf = &buf_r;
 	msg_r[1].len = 1;
@@ -1476,7 +1477,7 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
     SENSOR_ASSERT(PNULL != (void*)sensor_reg_tab_info_ptr);
     SENSOR_ASSERT(PNULL != (void *)sensor_reg_tab_info_ptr->sensor_reg_tab_ptr);
 */
-  	adpter = i2c_get_adapter(0);
+  	adpter = i2c_get_adapter(1);
         if (DCAM_NULL == adpter)
         {
             SENSOR_PRINT("#DCAM: get i2c adapter NULL\n");

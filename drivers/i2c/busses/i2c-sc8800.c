@@ -163,7 +163,6 @@ static void sc8800_i2c_message_start(struct sc8800_i2c *i2c, struct i2c_msg *msg
     uint16_t addr;
 
     addr = msg->addr;
-    printk("I2C:addr=0x%x\n",addr);
     switch ((addr & 0xC000) >> 14){
         case PIN_SIM_CONFIG:
             //also need config ldo fix me!!!!
@@ -185,7 +184,6 @@ static void sc8800_i2c_message_start(struct sc8800_i2c *i2c, struct i2c_msg *msg
             break;
     }
     cmd = __raw_readl(SPRD_GREG_BASE+0x0028);
-    printk("I2C cmd=0x%x\n",cmd);
 
     cmd = (msg->addr & 0x7f) << 1;
 
