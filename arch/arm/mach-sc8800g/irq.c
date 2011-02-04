@@ -35,6 +35,7 @@
 #define CONFIG_NKERNEL_NO_SHARED_IRQ
 
 extern void nk_ddi_init(void);
+static struct irq_chip nk_sprd_irq_chip;
 
 #endif
 
@@ -136,7 +137,6 @@ static struct irq_chip sprd_muxed_ana_chip = {
 	.disable	= sprd_disable_ana_irq,
 	.enable     = sprd_enable_ana_irq,
 };
-
 #endif /* CONFIG_NKERNEL */
 
 static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
@@ -153,6 +153,9 @@ static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 			generic_handle_irq(irq_ana);
 		}
 	}
+#ifdef CONFIG_NKERNEL
+	nk_sprd_irq_chip.unmask(IRQ_ANA_INT);
+#endif
 
 }
 
