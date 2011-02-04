@@ -26,8 +26,10 @@ obj-y			:= console.o ddi.o perfmon.o
 obj-$(CONFIG_PROC_FS)	+= proc.o nktags.o
 obj-$(CONFIG_SMP)	+= smp.o
 
+ifeq ($(CONFIG_ARCH_SC8800G),n)
 ifeq ($(CONFIG_GENERIC_CLOCKEVENTS),y)
 obj-y += vtimer.o
 else
 obj-y += vtick.o
+endif
 endif

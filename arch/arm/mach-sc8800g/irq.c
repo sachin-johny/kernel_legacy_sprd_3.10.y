@@ -28,6 +28,16 @@
 #include <mach/bits.h>
 #include <mach/adi_hal_internal.h>
 
+#ifdef CONFIG_NKERNEL
+
+#include <nk/nkern.h>
+
+#define CONFIG_NKERNEL_NO_SHARED_IRQ
+
+extern void nk_ddi_init(void);
+
+#endif
+
 #define INTCV_REG(off) (SPRD_INTCV_BASE + (off))
 
 //#define INTCV_FIQ_STS     INTCV_REG(0x0000)
@@ -43,6 +53,8 @@
 #define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
 #define ANA_INT_EN                	(SPRD_MISC_BASE + 0x380 + 0x08)
 #define ANA_INT_STATUS_SYNC      (SPRD_MISC_BASE + 0x380 + 0x0C)
+
+#ifndef CONFIG_NKERNEL
 
 static void sprd_irq_ack(unsigned int irq)
 {
@@ -125,6 +137,8 @@ static struct irq_chip sprd_muxed_ana_chip = {
 	.enable     = sprd_enable_ana_irq,
 };
 
+#endif /* CONFIG_NKERNEL */
+
 static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	uint32_t irq_ana;
@@ -142,12 +156,136 @@ static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 
 }
 
+#ifdef CONFIG_NKERNEL
+
+extern NkDevXPic*   nkxpic;		/* virtual XPIC device */
+extern NkOsId       nkxpic_owner;	/* owner of the virtual XPIC device */
+extern NkOsMask     nkosmask;		/* my OS mask */
+
+extern void __nk_xirq_startup  (NkXIrq xirq);
+extern void __nk_xirq_shutdown (NkXIrq xirq);
+
+    static unsigned int
+nk_sprd_startup_irq (unsigned int irq)
+{
+	__nk_xirq_startup(irq);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[irq].os_enabled  = nkosmask;
+#else
+	nkxpic->irq[irq].os_enabled |= nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+
+	return 0;
+}
+
+    static void
+nk_sprd_shutdown_irq (unsigned int irq)
+{
+	__nk_xirq_shutdown(irq);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[irq].os_enabled  = 0;
+#else
+	nkxpic->irq[irq].os_enabled &= ~nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+}
+
+    static void
+nk_sprd_mask_ack_irq (unsigned int irq)
+{
+    /*
+     * mask_ack() is called only from handle_level_irq.
+     * in our case this job is already done by vpic
+     *
+     * we do not define mask(), because it is called
+     * only from interrupt migration code. No migration
+     * for us because we do not have set_affinity().
+     */
+}
+
+    static void
+nk_sprd_ack_irq (unsigned int irq)
+{
+    /*
+     * ack might be called by some stupid drivers
+     * for cascaded interrupt controllers
+     */
+}
+
+    static void
+nk_sprd_unmask_irq (unsigned int irq)
+{
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	__raw_writel(1 << (irq & 31), INTCV_INT_EN);
+#else
+	nkops.nk_xirq_trigger(irq, nkxpic_owner);
+#endif
+}
+
+static struct irq_chip nk_sprd_irq_chip = {
+	.name		= "sprd",
+	.mask_ack	= nk_sprd_mask_ack_irq,
+	.ack		= nk_sprd_ack_irq,
+	.unmask		= nk_sprd_unmask_irq,
+	.startup	= nk_sprd_startup_irq,
+	.shutdown	= nk_sprd_shutdown_irq,
+};
+
+    static void
+nk_sprd_ack_ana_irq(unsigned int irq)
+{
+	/* nothing to do... */
+}
+
+    static void
+nk_sprd_mask_ana_irq(unsigned int irq)
+{
+	/* nothing to do... */
+}
+
+    static void
+nk_sprd_unmask_ana_irq(unsigned int irq)
+{
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	ANA_REG_OR(ANA_INT_EN,1 << (irq % 32));
+#else
+	nkops.nk_xirq_trigger(irq, nkxpic_owner);
+#endif
+}
+
+static void nk_sprd_disable_ana_irq(unsigned int irq)
+{
+}
+
+static void nk_sprd_enable_ana_irq(unsigned int irq)
+{
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	ANA_REG_OR(ANA_INT_EN,1 << (irq % 32));
+#else
+	nkops.nk_xirq_trigger(irq, nkxpic_owner);
+#endif
+}
+
+static struct irq_chip nk_sprd_muxed_ana_chip = {
+	.name		= "ANA",
+	.ack		= nk_sprd_ack_ana_irq,
+	.mask		= nk_sprd_mask_ana_irq,
+	.unmask		= nk_sprd_unmask_ana_irq,
+	.disable	= nk_sprd_disable_ana_irq,
+	.enable         = nk_sprd_enable_ana_irq,
+};
+
+#endif /* CONFIG_NKERNEL */
+
 void __init sprd_init_irq(void)
 {
 	unsigned n;
 
 	/* enable INTCV write operation */
 	//__raw_writel(1, INTCV_PROTECT);
+
+#ifndef CONFIG_NKERNEL
 
 	for (n = 0; n < NR_SPRD_IRQS; n++) {
 		set_irq_chip(n, &sprd_irq_chip);
@@ -160,6 +298,22 @@ void __init sprd_init_irq(void)
 		set_irq_flags(n, IRQF_VALID );//| IRQF_PROBE);
 		set_irq_handler(n,handle_level_irq);
 	}
+#else  /* CONFIG_NKERNEL */
+
+	nk_ddi_init();
+	for (n = 0; n < NR_SPRD_IRQS; n++) {
+		set_irq_chip(n, &nk_sprd_irq_chip);
+		set_irq_handler(n, handle_level_irq);
+		set_irq_flags(n, IRQF_VALID);
+	}
+
+	for (n = IRQ_ANA_ADC_INT; n < IRQ_ANA_ADC_INT+ NR_ANA_IRQS; n++) {
+		set_irq_chip(n, &nk_sprd_muxed_ana_chip);
+		set_irq_flags(n, IRQF_VALID );//| IRQF_PROBE);
+		set_irq_handler(n,handle_level_irq);
+	}
+#endif /* CONFIG_NKERNEL */
 
 	set_irq_chained_handler(IRQ_ANA_INT, sprd_ana_demux_handler);
+
 }
