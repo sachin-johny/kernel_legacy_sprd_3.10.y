@@ -283,6 +283,7 @@ static int mmc31xx_probe(struct i2c_client *client, const struct i2c_device_id *
     
     if (mmc31xx_i2c_tx_data(data, 2) < 0) {
 	  	/* assume SET always success */
+	goto out_deregister;
     }
     
     /* wait external capacitor charging done for next SET/RESET */
@@ -388,8 +389,7 @@ static int __init mmc31xx_init(void)
 #endif
     
 #if 1
-    printk("mmc31xx_init\n");
-	pr_info("mmc31xx  my driver: init\n");
+	printk("mmc31xx_init\n");
 
 	if(i2c_add_driver(&mmc31xx_i2c_driver))
 	{

@@ -241,7 +241,9 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 	 * noisy when doing an i2cdetect */
 
 	if (timeout == 0){
-		printk("I2C:timeout\n");
+		printk("I2C:timeout\n");        
+		sc8800_i2c_disable_irq(i2c);
+		sc8800_clr_irq(i2c);
 		__raw_writel(0x1,i2c->membase+I2C_RST);  //reset i2c module
 		ret = -ENXIO;
 	}else if (ret != num){
