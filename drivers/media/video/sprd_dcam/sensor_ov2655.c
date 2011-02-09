@@ -1312,8 +1312,7 @@ LOCAL uint32_t OV2655_BeforeSnapshot(uint32_t param)
     uint32_t  preview_mode = (param >= SENSOR_MODE_PREVIEW_TWO) ? \
                             SENSOR_MODE_PREVIEW_TWO:SENSOR_MODE_PREVIEW_ONE;
     
-	OV2655_CalculateExposureGain(preview_mode, param);
-	//msleep(50);//wxz:???
+	OV2655_CalculateExposureGain(preview_mode, param);	
 	return 0;
 }
 
@@ -1866,5 +1865,6 @@ LOCAL uint32_t OV2655_GetExifInfo(uint32_t param)
 }
 
 //#endif /* FEA_HS_OV_2655 yangbin  2009.9.9 */
+
 
 

@@ -35,6 +35,7 @@
 #include "sensor_cfg.h"
 #include "dcam_reg_sc8800g2.h"
 #include <mach/adi_hal_internal.h>
+#include <linux/dcam_sensor.h>
 
 /*#include "sc_reg.h"
 #include "i2c_api.h"
@@ -75,7 +76,7 @@
 /**---------------------------------------------------------------------------*
  **                         Global Variables                                  *
  **---------------------------------------------------------------------------*/
- #define SET_SENSOR_ADDR(addr)  (0x8000|(addr))
+// #define SET_SENSOR_ADDR(addr)  (0x8000|(addr))
  //save value for register
 //#define LOCAL_VAR_DEF uint32_t reg_val;
 #define REG_SETBIT(_reg_addr, _bit_mask, _bit_set) ANA_REG_MSK_OR(_reg_addr, _bit_set, _bit_mask);
@@ -223,6 +224,27 @@ LOCAL SENSOR_REGISTER_INFO_T s_sensor_register_info={0x00};
 LOCAL SENSOR_REGISTER_INFO_T_PTR s_sensor_register_info_ptr=&s_sensor_register_info;
 
 
+//wxz20110208: define for I2C driver.
+static struct i2c_client *this_client = NULL;
+static int g_is_main_sensor = 0;
+static int g_is_register_sensor = 0;
+#define SENSOR_DEV_NAME	SENSOR_MAIN_I2C_NAME //"sensor"
+
+static const struct i2c_device_id sensor_main_id[] = {
+	{ SENSOR_MAIN_I2C_NAME, 0 },
+	{ }
+};
+static const struct i2c_device_id sensor_sub_id[] = {
+	{ SENSOR_SUB_I2C_NAME, 0 },
+	{ }
+};
+static unsigned short sensor_main_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
+static const unsigned short *const sensor_main_forces[] = { sensor_main_force, NULL };
+static struct i2c_client_address_data sensor_main_addr_data = { .forces = sensor_main_forces,};
+static unsigned short sensor_sub_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
+static const unsigned short *const sensor_sub_forces[] = { sensor_sub_force, NULL };
+static struct i2c_client_address_data sensor_sub_addr_data = { .forces = sensor_sub_forces,};
+
 /**---------------------------------------------------------------------------*
  **                         Constant Variables                                *
  **---------------------------------------------------------------------------*/
@@ -232,7 +254,49 @@ LOCAL SENSOR_REGISTER_INFO_T_PTR s_sensor_register_info_ptr=&s_sensor_register_i
  **---------------------------------------------------------------------------*/
  #define SENSOR_INHERIT 0
  #define SENSOR_WAIT_FOREVER 0
- 
+
+ static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *id)
+{
+	int res = 0;
+	SENSOR_PRINT("SENSOR:sensor_probe E.\n");
+	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
+		SENSOR_PRINT("SENSOR: %s: functionality check failed\n", __FUNCTION__);
+		res = -ENODEV;
+		goto out;
+	}
+	this_client = client;	
+
+	msleep(20);
+	
+	return 0;
+out:
+	return res;
+}
+static int sensor_remove(struct i2c_client *client)
+{
+	//do nothing.
+	return 0;
+}
+static int sensor_detect(struct i2c_client *client, int kind, struct i2c_board_info *info) 
+{    
+	//strcpy(info->type, SENSOR_DEV_NAME);
+	strcpy(info->type, client->name);
+	
+	return 0;
+}
+
+static struct i2c_driver sensor_i2c_driver = {
+    .driver = {
+        .owner = THIS_MODULE, 
+        //.name  = SENSOR_DEV_NAME,
+    },
+	.probe      = sensor_probe,
+	.remove     = sensor_remove,
+	.detect     = sensor_detect,
+	//.id_table = sensor_main_id,
+	//.address_data = &sensor_main_addr_data,
+};
+
 SENSOR_MUTEX_PTR SENSOR_CreateMutex(const char *name_ptr, uint32_t priority_inherit)
 {
 	return (SENSOR_MUTEX_PTR)1;
@@ -499,6 +563,7 @@ SENSOR_PRINT("SENSOR: Sensor_Reset E \n");
     	SENSOR_Sleep(20);
 	gpio_direction_output(SENSOR_RST_CTL,1);
 	SENSOR_Sleep(100);
+	//SENSOR_Sleep(10);
 	SENSOR_PRINT("SENSOR: Sensor_Reset X \n");	
 	/*BOOLEAN 				reset_pulse_level;
 	uint32_t					reset_pulse_width;
@@ -1237,6 +1302,7 @@ LOCAL void Sensor_SetExportInfo(SENSOR_EXP_INFO_T * exp_info_ptr)
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
+/*
 int Sensor_WriteReg_Array(uint16_t reg_addr, uint16_t value, struct i2c_adapter *adpter)
 {
 	uint8_t buf_w[3];
@@ -1259,6 +1325,57 @@ int Sensor_WriteReg_Array(uint16_t reg_addr, uint16_t value, struct i2c_adapter 
 	
 	return 0;
 }
+*/
+int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
+{
+	uint8_t buf_w[3];
+	uint32_t ret = -1;
+	struct i2c_msg msg_w;
+	
+	buf_w[0]= reg_addr >> 8;
+	buf_w[1]= reg_addr & 0xFF;
+	buf_w[2]= (uint8_t)value;
+	msg_w.addr = this_client->addr; 
+	msg_w.flags = 0;
+	msg_w.buf = buf_w;
+	msg_w.len = 3;
+        ret = i2c_transfer(this_client->adapter, &msg_w, 1);
+	if(ret!=1)
+        {
+            printk("#DCAM: write sensor reg fai, ret: %x \n", ret);
+            return -1;
+        }
+
+	return 0;
+}
+uint16_t Sensor_ReadReg(uint16_t reg_addr)
+{
+	uint8_t buf_w[2];
+	uint8_t buf_r;
+	uint32_t ret = -1;
+	uint16_t value = 0;
+	struct i2c_msg msg_r[2];
+
+	buf_w[0]= reg_addr >> 8;
+	buf_w[1]= reg_addr & 0xFF;
+	msg_r[0].addr = this_client->addr; 
+	msg_r[0].flags = 0;
+	msg_r[0].buf = buf_w;
+	msg_r[0].len = 2;
+	msg_r[1].addr = this_client->addr; 
+	msg_r[1].flags = I2C_M_RD;
+	msg_r[1].buf = &buf_r;
+	msg_r[1].len = 1;
+        ret = i2c_transfer(this_client->adapter, msg_r, 2);
+	if(ret!=2)
+        {
+            printk("#sensor: read sensor reg fail, ret: %x \n", ret);
+            return -1;
+        }
+	value = buf_r;
+	return value;
+}
+/*
 int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
 {
 	struct i2c_adapter *adpter = DCAM_NULL;
@@ -1331,7 +1448,7 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 
 	return value;
 }
-/*PUBLIC void Sensor_WriteReg( uint16_t  subaddr, uint16_t data )
+PUBLIC void Sensor_WriteReg( uint16_t  subaddr, uint16_t data )
 {
     int32_t i2c_handle_sensor;
     I2C_DEV dev;
@@ -1468,7 +1585,7 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg_tab_info_ptr	)
 {
     uint32_t i;
-	struct i2c_adapter *adpter = DCAM_NULL;
+	SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor E.\n");
 
 /*    SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d start time = %d",\
 //                    sensor_reg_tab_info_ptr->reg_count,\
@@ -1477,23 +1594,16 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
     SENSOR_ASSERT(PNULL != (void*)sensor_reg_tab_info_ptr);
     SENSOR_ASSERT(PNULL != (void *)sensor_reg_tab_info_ptr->sensor_reg_tab_ptr);
 */
-  	adpter = i2c_get_adapter(1);
-        if (DCAM_NULL == adpter)
-        {
-            SENSOR_PRINT("#DCAM: get i2c adapter NULL\n");
-            return -1;
-        }
 		
     for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
     {
         //ImgSensor_GetMutex();
-        Sensor_WriteReg_Array(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, \
-                        sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value, adpter);
+        Sensor_WriteReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
         //ImgSensor_PutMutex();
     }	
-	i2c_put_adapter(adpter);
-	adpter = DCAM_NULL;
+
 //    SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> end time = %d", SCI_GetTickCount());
+SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor X.\n");
 
     return SENSOR_SUCCESS;
 }
@@ -1532,13 +1642,55 @@ LOCAL void _Sensor_CleanInformation(void)
 //  Author:         Tim.Zhu
 //  Note:           
 /*****************************************************************************/
-LOCAL void _Sensor_SetId(SENSOR_ID_E sensor_id)
+LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 {
     SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
     
     sensor_register_info_ptr->cur_id=sensor_id;
-    
-    return ;
+	if(1 == g_is_register_sensor)
+	{
+		if((SENSOR_MAIN == sensor_id) && (1 == g_is_main_sensor))
+			return SENSOR_SUCCESS;
+		if((SENSOR_SUB == sensor_id) && (0 == g_is_main_sensor))
+			return SENSOR_SUCCESS;
+	}
+	if((SENSOR_MAIN == sensor_id) || (SENSOR_SUB == sensor_id))
+     	{
+     		if(SENSOR_MAIN == sensor_id)
+	        {
+	        	sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
+			sensor_i2c_driver.id_table = sensor_main_id;
+			sensor_i2c_driver.address_data = &sensor_main_addr_data;
+			if((1== g_is_register_sensor) && (0 == g_is_main_sensor))
+			{
+				i2c_del_driver(&sensor_i2c_driver);
+			}
+			g_is_main_sensor = 1;		
+        	}
+        	else  if(SENSOR_SUB == sensor_id)
+        	{
+        		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
+			sensor_i2c_driver.id_table = sensor_sub_id;
+			sensor_i2c_driver.address_data = &sensor_sub_addr_data;     
+			if((1== g_is_register_sensor) && (1 == g_is_main_sensor))
+			{
+				i2c_del_driver(&sensor_i2c_driver);
+			}
+			g_is_main_sensor = 0;			
+        	}
+	
+	 	if(i2c_add_driver(&sensor_i2c_driver))
+		{
+			SENSOR_PRINT("SENSOR: add I2C driver error\n");
+			return SENSOR_FALSE;
+		}  
+		else
+		{
+			SENSOR_PRINT("SENSOR: add I2C driver OK.\n");
+			g_is_register_sensor = 1;
+		}
+	}
+    return SENSOR_SUCCESS;
 }
 
 /*****************************************************************************/
@@ -1638,6 +1790,8 @@ PUBLIC SENSOR_REGISTER_INFO_T_PTR Sensor_GetRegisterInfo(void)
     return s_sensor_register_info_ptr;
 }
 
+
+
 /*****************************************************************************/
 //  Description:    This function is used to initialize Sensor function    
 //  Author:         Liangwen.Zhen
@@ -1666,6 +1820,23 @@ PUBLIC BOOLEAN Sensor_Init(void)
     //Clean the information of img sensor
     //nsor_SetCurId(SENSOR_ID_MAX); 
     _Sensor_CleanInformation();
+	
+      /* if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
+        {
+		sensor_i2c_driver.id_table = sensor_main_id;
+		sensor_i2c_driver.address_data = &sensor_main_addr_data;
+        }
+        else
+        {
+		sensor_i2c_driver.id_table = sensor_sub_id;
+		sensor_i2c_driver.address_data = &sensor_sub_addr_data;      
+        }	
+	if(i2c_add_driver(&sensor_i2c_driver))
+	{
+		SENSOR_PRINT("SENSOR: add I2C driver error\n");
+		return SENSOR_FALSE;
+	} */
+          	
     if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
     {
         // main img sensor
@@ -1760,7 +1931,7 @@ PUBLIC BOOLEAN Sensor_Init(void)
         }
 
         if(PNULL!=s_sensor_list_ptr[SENSOR_MAIN])
-        {
+        {     
             s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_MAIN];
             Sensor_SetExportInfo(&s_sensor_exp_info);
             _Sensor_SetId(SENSOR_MAIN);
@@ -1770,7 +1941,7 @@ PUBLIC BOOLEAN Sensor_Init(void)
             SENSOR_PRINT("SENSOR: Sensor_Init Main Success \n");
         }
         else if(PNULL!=s_sensor_list_ptr[SENSOR_SUB])
-        {
+        {      
             s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_SUB];
             Sensor_SetExportInfo(&s_sensor_exp_info);
             _Sensor_SetId(SENSOR_SUB);
@@ -2190,7 +2361,24 @@ PUBLIC SENSOR_EXP_INFO_T* Sensor_GetInfo( void )
 PUBLIC ERR_SENSOR_E Sensor_Close(void) 
 {
     SENSOR_PRINT("SENSOR: Sensor_close");
-
+       
+        if(1== g_is_register_sensor) 
+	{
+		if (1 == g_is_main_sensor)
+        	{
+			//sensor_i2c_driver.id_table = sensor_main_id;
+			sensor_i2c_driver.address_data = &sensor_main_addr_data;		
+       		}
+        	else 
+        	{
+			//sensor_i2c_driver.id_table = sensor_sub_id;
+			sensor_i2c_driver.address_data = &sensor_sub_addr_data;    
+        	}   	
+		i2c_del_driver(&sensor_i2c_driver);
+		g_is_register_sensor = 0;
+		g_is_main_sensor = 0;
+        }
+	
     if(Sensor_IsInit())
     {
         if(Sensor_IsOpen())
@@ -2206,7 +2394,7 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
         }
     }
 
-    s_sensor_init = SENSOR_FALSE;//wxz:???
+    s_sensor_init = SENSOR_FALSE;
     s_atv_open=SENSOR_FALSE;
     s_sensor_open=SENSOR_FALSE;
     s_sensor_mode[SENSOR_MAIN]=SENSOR_MODE_MAX;	

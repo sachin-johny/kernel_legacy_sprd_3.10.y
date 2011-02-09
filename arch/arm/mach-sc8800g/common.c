@@ -42,6 +42,7 @@
 #ifdef CONFIG_SENSORS_MXC622X
 #include <linux/mxc622x.h>
 #endif
+#include <linux/dcam_sensor.h>
 
 static struct resource sprd_nand_resources[] = {
 	[0] = {
@@ -88,6 +89,13 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
         I2C_BOARD_INFO(MXC622X_I2C_NAME,MXC622X_I2C_ADDR|0x4000),
     },
 #endif
+    {
+        I2C_BOARD_INFO(SENSOR_MAIN_I2C_NAME,SENSOR_MAIN_I2C_ADDR|0x8000),
+    },
+   {
+        I2C_BOARD_INFO(SENSOR_SUB_I2C_NAME,SENSOR_SUB_I2C_ADDR|0x8000),
+    },  
+  
 };
 
 
