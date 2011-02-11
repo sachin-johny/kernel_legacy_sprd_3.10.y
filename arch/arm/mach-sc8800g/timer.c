@@ -21,6 +21,8 @@
 #include <linux/irq.h>
 #include <linux/timex.h>
 #include <linux/clockchips.h>
+
+
 #include <linux/io.h>
 
 #include <asm/mach/time.h>
@@ -50,9 +52,10 @@
 
 #define GPTIMER_MAX_DELTA 0x7fffff /* 23-bit counter */
 #define GPTIMER_MIN_DELTA 33        /* about 122us */ //sword
+#ifndef CONFIG_NKERNEL
 /*
  * we use one of the 2 general-purpose timers as the clock event device. 
- * timer0 is chosen as default.
+ * timer1 is chosen as default.
  */
 static irqreturn_t sprd_gptimer_interrupt(int irq, void *dev_id)
 {
@@ -175,6 +178,133 @@ static void __init sprd_timer_init(void)
 	clockevents_register_device(&sprd_gptimer);
 	setup_irq(IRQ_TIMER0_INT, &sprd_gptimer_irq);
 }
+#else
+/*
+ * we use one of the 2 general-purpose timers as the clock event device. 
+ * timer1 is chosen as default.
+ */
+static irqreturn_t sprd_gptimer_interrupt(int irq, void *dev_id)
+{
+	struct clock_event_device *evt = dev_id;
+
+	/* clear interrupt */
+	__raw_bits_or((1<<3), TIMER1_CLEAR);
+
+	evt->event_handler(evt);
+	return IRQ_HANDLED;
+}
+
+static int
+sprd_gptimer_set_next_event(unsigned long cycles, struct clock_event_device *c)
+{
+	//pr_info("cycle :%d\r\n", cycles);
+
+	/*busy wait for timer loading finished*/
+	while(__raw_readl(TIMER1_CLEAR) & (1<<4));
+
+	__raw_writel(0, TIMER1_CONTROL);	
+
+	//__raw_writel(0x7fffff, TIMER1_CLEAR);
+	
+	__raw_writel((1<<7), TIMER1_CONTROL); //sword
+
+	__raw_writel(1, TIMER1_CLEAR);
+	
+	__raw_writel(cycles, TIMER1_LOAD);
+
+	return cycles <= GPTIMER_MIN_DELTA ? -ETIME : 0;
+}
+
+static void
+sprd_gptimer_set_mode(enum clock_event_mode mode, struct clock_event_device *c)
+{
+	switch (mode) {
+	case CLOCK_EVT_MODE_ONESHOT:
+		//__raw_writel((1<<7), TIMER1_CONTROL);
+		//__raw_bits_and(~(1 << 6), TIMER1_CONTROL);
+		break;
+	case CLOCK_EVT_MODE_SHUTDOWN:
+		__raw_writel(0, TIMER1_CONTROL);
+		break;
+	case CLOCK_EVT_MODE_PERIODIC:
+		//__raw_bits_or((1 << 6), TIMER1_CONTROL);
+	case CLOCK_EVT_MODE_RESUME:
+	case CLOCK_EVT_MODE_UNUSED:
+		break;
+	}
+}
+
+static struct clock_event_device sprd_gptimer = {
+	.name		= "timer1",
+	.features	= CLOCK_EVT_FEAT_ONESHOT,
+	.shift		= 32,
+	.rating		= 200,
+	/*.cpumask	= CPU_MASK_CPU0, */
+	.set_next_event	= sprd_gptimer_set_next_event,
+	.set_mode	= sprd_gptimer_set_mode,
+};
+
+static struct irqaction sprd_gptimer_irq = {
+	.name		= "timer1",
+	.flags		= IRQF_DISABLED | IRQF_TIMER | IRQF_IRQPOLL,
+	.handler	= sprd_gptimer_interrupt,
+	.dev_id		= &sprd_gptimer,
+};
+
+/*
+ * we use the system counter as the clock source.
+ */
+static cycle_t sprd_syscnt_read(struct clocksource *cs)
+{
+	return __raw_readl(SYSCNT_COUNT);
+}
+
+static struct clocksource sprd_syscnt = {
+	.name		= "syscnt",
+	.rating		= 200,
+	.read		= sprd_syscnt_read,
+	.mask		= CLOCKSOURCE_MASK(32),
+	.shift		= 8,
+	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
+};
+
+unsigned long long sched_clock(void)
+{
+	return clocksource_cyc2ns(sprd_syscnt.read(&sprd_syscnt),
+				  sprd_syscnt.mult, sprd_syscnt.shift);
+}
+static void __init sprd_timer_init(void)
+{
+	/* enable timer1 */
+	__raw_bits_or((1 << 2), GREG_GEN1);
+        
+	/* init timer1 */
+	__raw_writel((1<<3), TIMER1_CLEAR);
+	__raw_writel(0, TIMER1_CONTROL); //sword
+	//tmp = __raw_readl(TIMER1_CLEAR);
+	//tmp |= 1;
+	//__raw_writel(tmp,TIMER1_CLEAR); //sword
+
+	/* enable system counter */
+	__raw_bits_or((1 << 19), GREG_GEN1); /* ? */
+
+	sprd_gptimer.mult =
+		div_sc(GPTIMER_FREQ, NSEC_PER_SEC, sprd_gptimer.shift);
+	sprd_gptimer.max_delta_ns =
+		clockevent_delta2ns(GPTIMER_MAX_DELTA, &sprd_gptimer);
+	sprd_gptimer.min_delta_ns =
+		clockevent_delta2ns(GPTIMER_MIN_DELTA, &sprd_gptimer) + 1;
+	sprd_gptimer.cpumask = cpumask_of(0);
+
+	sprd_syscnt.mult =
+		clocksource_hz2mult(SYSCNT_FREQ, sprd_syscnt.shift);
+
+	pr_info("min_delta_ns:%d\n", sprd_gptimer.min_delta_ns);
+	clocksource_register(&sprd_syscnt);
+	clockevents_register_device(&sprd_gptimer);
+	setup_irq(IRQ_TIMER1_INT, &sprd_gptimer_irq);
+}
+#endif
 
 #ifdef CONFIG_PM
 /* TODO: ... */
