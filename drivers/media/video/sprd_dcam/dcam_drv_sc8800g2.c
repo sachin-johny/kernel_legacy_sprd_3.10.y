@@ -857,12 +857,14 @@ PUBLIC int32_t ISP_DriverSetMode(uint32_t base_addr, ISP_MODE_E mode)
     {
         case ISP_MODE_PREVIEW:
             _paod(DCAM_CFG, BIT_0);
-            _paad(DCAM_CFG, ~(BIT_1 | BIT_2)); 	  
+            //_paad(DCAM_CFG, ~(BIT_1 | BIT_2)); 	  
+            _paad(DCAM_CFG, ~BIT_1); 	  
 	    _paod(DCAM_PATH_CFG, BIT_1);//DCAM_CAP_MODE_MULTIPLE
         break;
         case ISP_MODE_CAPTURE:
             _paod(DCAM_CFG, BIT_0);
-            _paad(DCAM_CFG, ~(BIT_1 | BIT_2));		
+            //_paad(DCAM_CFG, ~(BIT_1 | BIT_2));		
+            _paad(DCAM_CFG, ~BIT_1); 	
             _paad(DCAM_PATH_CFG, ~BIT_1);//DCAM_CAP_MODE_SINGLE
             break;
         default:
