@@ -43,13 +43,13 @@
 #include <mach/clock_common.h>
 #include <mach/clock_sc8800g.h>
 
-
+#if 0
 /* pmem area definition */
-#define SPRD_PMEM_BASE          ((256-8-8)*1024*1024)
+#define SPRD_PMEM_BASE          ((256-4-8-8)*1024*1024)
 #define SPRD_PMEM_SIZE          (8*1024*1024)
 #define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
 #define SPRD_PMEM_ADSP_SIZE     (6*1024*1024)
-
+#endif
 static struct resource example_resources[] = {
 	[0] = {
 		.start	= 0x9C004300,
@@ -116,7 +116,7 @@ static struct spi_board_info openhone_spi_devices[] = {
     {
         .modalias       = "spidev", // "spidev" --> spidev_spi
         .chip_select    = 0,
-        .max_speed_hz   = 24 * 1000 * 1000,
+        .max_speed_hz   = 48 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
     {
@@ -128,7 +128,7 @@ static struct spi_board_info openhone_spi_devices[] = {
     {
         .modalias       = "spi_slot0", // "spidev" --> spidev_spi
         .chip_select    = 2,
-        .max_speed_hz   = 24 * 1000 * 1000,
+        .max_speed_hz   = 48 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
     {
@@ -278,7 +278,7 @@ static void __init chip_init(void)
 static void __init openphone_init(void)
 {
 	chip_init();
-	ADI_init();
+//	ADI_init();
 	LDO_Init();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
@@ -305,11 +305,10 @@ openphone_fixup(struct machine_desc *desc, struct tag *tag,
 {
 #ifdef CONFIG_BLK_DEV_INITRD
 
-	/*
-	phys_initrd_start = 0x3000000;
- 	phys_initrd_size = 4*1024*1024;
-	*/
-    
+/*	
+	phys_initrd_start = 0x04b00000;
+ 	phys_initrd_size = 2*1024*1024;
+*/
 #endif
 }
 

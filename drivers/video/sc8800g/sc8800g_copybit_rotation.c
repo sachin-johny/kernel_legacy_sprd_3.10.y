@@ -35,7 +35,7 @@
 #define ROT_PRINT(...)
 #endif
 
-#define ROT_OUTPUT_BUF 0x0FE00000
+#define ROT_OUTPUT_BUF (0x0FE00000-0x400000)
 
 static ROTATION_DATA_FORMAT_E get_data_format(uint32_t format)
 {

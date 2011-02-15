@@ -36,7 +36,7 @@
 #define SCALE_PRINT(...)
 #endif
 
-#define SCALE_OUTPUT_BUF 0x0FF00000
+#define SCALE_OUTPUT_BUF (0x0FF00000-0x400000)
 
 typedef struct scale_param
 {

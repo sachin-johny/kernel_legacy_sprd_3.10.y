@@ -34,6 +34,7 @@
 #include "sc8800g_lcdc_manager.h"
 #include "sc8800g_copybit_lcdc.h"
 #include <mach/hardware.h>
+#include <mach/board.h>
 
 #define LCDC_OSD2_CTRL          (SPRD_LCDC_BASE + 0x0070)
 #define LCDC_OSD2_BASE_ADDR     (SPRD_LCDC_BASE + 0x0074)
@@ -122,11 +123,11 @@ extern unsigned int fb_va_cached;
 extern unsigned int buf_ptr;    /* va of temp buffer */
 extern unsigned int buf_ptr_pa; /* pa of temp buffer */
 
-#define GET_VA(base) ((base>=0x0f000000)?(base-0x0f000000+pmem_ptr): \
+#define GET_VA(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr): \
 	((base >= buf_ptr_pa && base <= buf_ptr_pa+320*480*4)?       \
 	(base - buf_ptr_pa + buf_ptr):(base-fb_pa+fb_va)))
 
-#define GET_VA_CACHED(base) ((base>=0x0f000000)?(base-0x0f000000+pmem_ptr): \
+#define GET_VA_CACHED(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr): \
 	((base >= buf_ptr_pa && base <= buf_ptr_pa+320*480*4)?       \
 	(base - buf_ptr_pa + buf_ptr):(base-fb_pa+fb_va_cached)))
 /* TEMP, end */
