@@ -29,10 +29,25 @@
 #include <mach/regs_adi.h>
 #include <mach/adi_hal_internal.h>
 
-#define CHIP_REG_OR(reg_addr, value)    (*(volatile unsigned int *)(reg_addr) |= (unsigned int)(value))
-#define CHIP_REG_AND(reg_addr, value)   (*(volatile unsigned int *)(reg_addr) &= (unsigned int)(value))
+#define CHIP_REG_OR(reg_addr, value)   do{ \
+                                             unsigned long flags;   \
+                                             hw_local_irq_save(flags);  \
+                                             (*(volatile unsigned int *)(reg_addr) |= (unsigned int)(value));   \
+                                             hw_local_irq_restore(flags);   \
+                                       }while(0)       
+#define CHIP_REG_AND(reg_addr, value)   do{ \
+                                             unsigned long flags;   \
+                                             hw_local_irq_save(flags);  \
+                                             (*(volatile unsigned int *)(reg_addr) &= (unsigned int)(value)); \
+                                             hw_local_irq_restore(flags);   \
+                                       }while(0)
 #define CHIP_REG_GET(reg_addr)          (*(volatile unsigned int *)(reg_addr))
-#define CHIP_REG_SET(reg_addr, value)   (*(volatile unsigned int *)(reg_addr)  = (unsigned int)(value))
+#define CHIP_REG_SET(reg_addr, value)   do{ \
+                                             unsigned long flags;   \
+                                             hw_local_irq_save(flags);  \
+                                             (*(volatile unsigned int *)(reg_addr)  = (unsigned int)(value)) ;   \
+                                             hw_local_irq_restore(flags);   \
+                                       }while(0)
 
 #define SCI_ASSERT(condition) BUG_ON(!(condition))  
 #define SCI_PASSERT(condition, format...)  \
@@ -60,7 +75,7 @@ unsigned short ADI_Analogdie_reg_read (unsigned int addr)
     unsigned int adi_rd_data;
 	unsigned long flags;
 
-	local_irq_save(flags);
+	hw_local_irq_save(flags);
    // SCI_DisableIRQ();
    // SCI_DisableFIQ();
 
@@ -83,7 +98,7 @@ unsigned short ADI_Analogdie_reg_read (unsigned int addr)
     //read operation complete
     //SCI_RestoreFIQ();
     //SCI_RestoreIRQ();
-	local_irq_restore(flags);
+	hw_local_irq_restore(flags);
 	
     return ( (unsigned short) (adi_rd_data & 0x0000FFFF));
 
