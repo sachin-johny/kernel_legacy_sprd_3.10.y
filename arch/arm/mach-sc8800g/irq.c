@@ -252,7 +252,6 @@ nk_sprd_unmask_ana_irq(unsigned int irq)
 {
 #ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
 	ANA_REG_OR(ANA_INT_EN,1 << (irq % 32));
-	__raw_writel(1 << (IRQ_ANA_INT), INTCV_INT_EN);
 #else
 	nkops.nk_xirq_trigger(irq, nkxpic_owner);
 #endif
@@ -278,8 +277,6 @@ static struct irq_chip nk_sprd_muxed_ana_chip = {
 	.unmask		= nk_sprd_unmask_ana_irq,
 	.disable	= nk_sprd_disable_ana_irq,
 	.enable         = nk_sprd_enable_ana_irq,
-	.startup	= nk_sprd_startup_irq,
-	.shutdown	= nk_sprd_shutdown_irq,
 };
 
 #endif /* CONFIG_NKERNEL */
@@ -320,8 +317,6 @@ void __init sprd_init_irq(void)
 	}
 #endif /* CONFIG_NKERNEL */
 
-	/*
 	set_irq_chained_handler(IRQ_ANA_INT, sprd_ana_demux_handler);
-	*/
 
 }
