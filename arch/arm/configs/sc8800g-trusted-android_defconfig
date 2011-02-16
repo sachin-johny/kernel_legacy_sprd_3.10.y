@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.32-virtuallogix
-# Mon Jan 31 12:57:13 2011
+# Linux kernel version: 2.6.32-sprd-redbend
+# Wed Feb 16 08:41:11 2011
 #
 CONFIG_NKERNEL=y
 CONFIG_NKERNEL_DDI=y
@@ -210,6 +210,7 @@ CONFIG_MMU=y
 # CONFIG_ARCH_BCMRING is not set
 # CONFIG_ARCH_SC8800S is not set
 CONFIG_ARCH_SC8800G=y
+# CONFIG_ARCH_ARM_OSWARE is not set
 CONFIG_ARCH_SUPPORTS_BIG_ENDIAN=y
 
 #
@@ -218,6 +219,7 @@ CONFIG_ARCH_SUPPORTS_BIG_ENDIAN=y
 # CONFIG_MACH_G2PHONE is not set
 CONFIG_MACH_OPENPHONE=y
 # CONFIG_SC8800G_IDLE is not set
+CONFIG_HZ=100
 
 #
 # Processor Type
@@ -266,7 +268,6 @@ CONFIG_PAGE_OFFSET=0xC0000000
 CONFIG_PREEMPT_NONE=y
 # CONFIG_PREEMPT_VOLUNTARY is not set
 # CONFIG_PREEMPT is not set
-CONFIG_HZ=100
 CONFIG_AEABI=y
 # CONFIG_OABI_COMPAT is not set
 # CONFIG_ARCH_SPARSEMEM_DEFAULT is not set
