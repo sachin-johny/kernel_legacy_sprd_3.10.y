@@ -71,14 +71,14 @@ struct NkPort {
 	NkXIrqId		xid;
 };
 
-#define MAX_PORT 2
+#define MAX_PORT 4
 struct NkPort serial_port[MAX_PORT];
 
 static struct tty_driver     serial_driver;
 static struct tty_operations serial_ops;
-static struct tty_struct*    serial_table[2];
-static struct ktermios*      serial_termios[2];
-static struct ktermios*      serial_termios_locked[2];
+static struct tty_struct*    serial_table[MAX_PORT];
+static struct ktermios*      serial_termios[MAX_PORT];
+static struct ktermios*      serial_termios_locked[MAX_PORT];
 
 static int use_only_console_output;
 
@@ -539,7 +539,7 @@ serial_init (void)
 /* GMv    serial_driver.devfs_name      = SERIAL_NK_NAME; */
     serial_driver.major           = SERIAL_NK_MAJOR;
     serial_driver.minor_start     = SERIAL_NK_MINOR;
-    serial_driver.num             = 2;
+    serial_driver.num             = MAX_PORT;
     serial_driver.type            = TTY_DRIVER_TYPE_SERIAL;
     serial_driver.subtype         = SERIAL_TYPE_NORMAL;
     serial_driver.init_termios    = tty_std_termios;
