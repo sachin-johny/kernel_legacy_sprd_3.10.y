@@ -38,11 +38,31 @@
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>
 #include <mach/regs_cpc.h>
+#include <asm/setup.h>
 
 #include <linux/clk.h>
 #include <mach/clock_common.h>
 #include <mach/clock_sc8800g.h>
 
+extern void nk_ddi_init(void);
+
+/*
+ * Generic OSware timer.
+ */
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+extern struct sys_timer nk_vtick_timer;
+#else
+extern struct sys_timer osware_timer;
+
+#endif
+
+/*
+ * IRQ Initialization.
+ */
+static void __init osware_init_irq(void)
+{
+    nk_ddi_init();
+}
 #if 0
 /* pmem area definition */
 #define SPRD_PMEM_BASE          ((256-4-8-8)*1024*1024)
@@ -319,7 +339,16 @@ MACHINE_START(OPENPHONE, "SPRDOP")
 
 	.map_io         = openphone_map_io,
 	.init_irq       = openphone_init_irq,
+	//.init_irq       = osware_init_irq,
 	.init_machine   = openphone_init,
-	.timer          = &sprd_timer,
+
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+	.timer		= &nk_vtick_timer,
+#else
+	.timer		= &osware_timer,
+#endif
+
+
+	//.timer          = &sprd_timer,
 	.fixup          = openphone_fixup,
 MACHINE_END

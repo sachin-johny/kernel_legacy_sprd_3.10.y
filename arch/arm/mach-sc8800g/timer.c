@@ -28,7 +28,8 @@
 #include <asm/mach/time.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
-
+#include <nk/nkern.h>
+    
 #define TIMER_REG(off) (SPRD_TIMER_BASE + (off))
 #define TIMER0_LOAD     TIMER_REG(0x0000)
 #define TIMER0_VALUE    TIMER_REG(0x0004)
@@ -142,11 +143,14 @@ static struct clocksource sprd_syscnt = {
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
+#ifndef CONFIG_NKERNEL    
 unsigned long long sched_clock(void)
 {
 	return clocksource_cyc2ns(sprd_syscnt.read(&sprd_syscnt),
 				  sprd_syscnt.mult, sprd_syscnt.shift);
 }
+#endif
+
 static void __init sprd_timer_init(void)
 {
 	/* enable timer0 */
@@ -267,12 +271,13 @@ static struct clocksource sprd_syscnt = {
 	.shift		= 8,
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
-
+/*
 unsigned long long sched_clock(void)
 {
 	return clocksource_cyc2ns(sprd_syscnt.read(&sprd_syscnt),
 				  sprd_syscnt.mult, sprd_syscnt.shift);
 }
+*/
 static void __init sprd_timer_init(void)
 {
 	/* enable timer1 */
