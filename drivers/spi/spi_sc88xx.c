@@ -18,6 +18,8 @@
 #include <linux/err.h>
 #include <linux/interrupt.h>
 #include <linux/spi/spi.h>
+#include <linux/sched.h>
+#include <linux/kthread.h>
 
 #include <asm/io.h>
 #include <mach/board.h>
@@ -30,6 +32,11 @@
 // lock is held, spi irq is disabled
 static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
 {
+    int len;
+    unsigned long flags;
+
+    sprd_data->dma_started = 0;
+
     if (sprd_data->cspi_trans == 0) return 0; /* when both tx & rx mode starts, first tx irq enters, 
                                                * then rx irq enters -- this time tx 
                                                * had set sprd_data->cspi_trans to 0, so return 0 [luther.ge]
@@ -38,6 +45,18 @@ static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
     spi_do_reset(sprd_data->cspi_trans->tx_dma,
                  sprd_data->cspi_trans->rx_dma); // spi hardwrare module has a bug, we must read busy bit twice to soft fix
 
+    if (sprd_data->cspi_trans->rx_buf) {
+        if (!sprd_data->cspi_msg->is_dma_mapped && sprd_data->cspi_trans_num) {
+            if (sprd_data->cspi_trans_num == sprd_data->cspi_trans_len)
+                sprd_data->rx_ptr = sprd_data->cspi_trans->rx_buf;
+
+            memcpy(sprd_data->rx_ptr, sprd_data->rx_buffer, sprd_data->cspi_trans_len);
+
+            if (sprd_data->cspi_trans_num < sprd_data->cspi_trans->len)
+                sprd_data->rx_ptr += sprd_data->cspi_trans_len;
+        }
+    }
+
     if (sprd_data->cspi_trans_num >= sprd_data->cspi_trans->len) {
         sprd_data->cspi_msg->actual_length += sprd_data->cspi_trans_num;
 #if SPRD_SPI_DEBUG
@@ -45,16 +64,25 @@ static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
 #endif
         if (!sprd_data->cspi_msg->is_dma_mapped)
             sprd_spi_dma_unmap_transfer(sprd_data, sprd_data->cspi_trans);
+
+        local_irq_save(flags);
+
         if (sprd_data->cspi_msg->transfers.prev != &sprd_data->cspi_trans->transfer_list) {
             grab_subsibling(sprd_data);
         } else {
             cs_deactivate(sprd_data, sprd_data->cspi); // all msg sibling data trans done
             list_del(&sprd_data->cspi_msg->queue);
             sprd_data->cspi_msg->status = 0; // msg tranfsered successfully
+
+            local_irq_restore(flags);
+
             spin_unlock(&sprd_data->lock);
             if (sprd_data->cspi_msg->complete) // spi_sync call
                 sprd_data->cspi_msg->complete(sprd_data->cspi_msg->context);
             spin_lock(&sprd_data->lock);
+
+            local_irq_save(flags);
+
             sprd_data->cspi_trans = 0;
             if (list_empty(&sprd_data->queue)) {
                 // no spi data on queue to transfer
@@ -62,10 +90,13 @@ static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
 #if SPRD_SPI_DEBUG
                 printk(KERN_WARNING "spi msg queue done.\n");
 #endif
+                local_irq_restore(flags);
                 return 0;
             }
             grab_sibling(sprd_data);
         }
+
+        local_irq_restore(flags);
     }
 #if SPRD_SPI_DEBUG
     else {
@@ -83,12 +114,121 @@ static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
     }
 */
     cs_activate(sprd_data, sprd_data->cspi_msg->spi);
-    sprd_data->cspi_trans_num += sprd_dma_update_spi(sprd_data->cspi_trans->tx_dma,
+    len = sprd_dma_update_spi(sprd_data->cspi_trans->tx_dma,
                                             sprd_data->cspi_trans->len,
                                             sprd_data->cspi_trans->rx_dma,
                                             sprd_data->cspi_trans->len,
                                             sprd_data->cspi,
                                             sprd_data);
+    if (!sprd_data->cspi_msg->is_dma_mapped) {
+        if (sprd_data->cspi_trans->tx_dma
+#if SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX
+            && (sprd_data->cspi_trans->tx_buf != SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR)
+#endif
+        ) {
+            memcpy(sprd_data->tx_buffer, (u8 *)sprd_data->cspi_trans->tx_buf + sprd_data->cspi_trans_num, len);
+        }
+    }
+#if SPRD_SPI_DEBUG
+    else {
+        printk("spi-dma-transfer=%d\n", sprd_data->cspi_trans->len);
+    }
+#endif
+
+    sprd_data->cspi_trans_len = len;
+    sprd_data->cspi_trans_num += len;
+    sprd_data->dma_started = 1;
+    spi_dma_start(); // Must Enable SPI_DMA_EN last
+
+    return 0;
+}
+
+static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+{
+    int i, timeout;
+    u8 *data;
+#define MYLOCAL_TIMEOUT 0xf0000
+    struct sprd_spi_data *sprd_data = cookie;
+    struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+
+    if (data_in) {
+        int block, tlen, j, block_bytes;
+
+        spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */
+
+        if (likely(sprd_ctrl_data->data_width != 3)) {
+            block_bytes = SPRD_SPI_DMA_BLOCK_MAX << sprd_ctrl_data->data_width_order;
+        } else block_bytes = SPRD_SPI_DMA_BLOCK_MAX * 3;
+
+        for (i = 0, tlen = len; tlen;) {
+            if (tlen > block_bytes) {
+                block = SPRD_SPI_DMA_BLOCK_MAX;
+                tlen -= block_bytes;
+            } else {
+                if (likely(sprd_ctrl_data->data_width != 3))
+                    block = tlen >> sprd_ctrl_data->data_width_order;
+                else block = tlen / sprd_ctrl_data->data_width;
+                tlen = 0;
+            }
+
+            spi_writel(0x0000, SPI_CTL4); /* stop only rx */
+            spi_writel((1 << 9) | block, SPI_CTL4);
+
+            for (j = 0; j < block; j++) {
+                for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+                if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
+                data = (u8*)data_in + i;
+                switch (sprd_ctrl_data->data_width) {
+                    case 1: ( (u8*)data)[0] = spi_readl(SPI_TXD); i += 1; break;
+                    case 2: ((u16*)data)[0] = spi_readl(SPI_TXD); i += 2; break;
+                    case 4: ((u32*)data)[0] = spi_readl(SPI_TXD); i += 4; break;
+                }
+            }
+        }
+    }
+    if (data_out) {
+        spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */
+        for (i = 0; i < len;) {
+            for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
+            if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
+            data = (u8*)data_out + i;
+            switch (sprd_ctrl_data->data_width) {
+                case 1: spi_writel(( (u8*)data)[0], SPI_TXD); i += 1; break;
+                case 2: spi_writel(((u16*)data)[0], SPI_TXD); i += 2; break;
+                case 4: spi_writel(((u32*)data)[0], SPI_TXD); i += 4; break;
+            }
+        }
+        for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
+        // for (i = 0; i < 5; i++);
+        for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
+    }
+    return 0;
+}
+
+static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_message *msg)
+{
+    struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
+    struct sprd_spi_data *sprd_data = spi_master_get_devdata(spi->master);
+    struct spi_transfer *cspi_trans; // = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
+
+down(&sprd_data->process_sem_direct);
+
+    cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
+    do {
+        cs_activate(sprd_data, spi);
+        msg->status = sprd_spi_direct_transfer(cspi_trans->rx_buf, cspi_trans->tx_buf, cspi_trans->len, sprd_data, sprd_ctrl_data);
+        if (msg->status < 0) break;
+        msg->actual_length += cspi_trans->len;
+        if (msg->transfers.prev == &cspi_trans->transfer_list) break;
+        cspi_trans = list_entry(cspi_trans->transfer_list.next, struct spi_transfer, transfer_list);
+    } while (1);
+    cs_deactivate(sprd_data, spi);
+
+up(&sprd_data->process_sem_direct);
+
+    msg->complete(msg->context);
 
     return 0;
 }
@@ -99,6 +239,12 @@ static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
     struct spi_transfer *trans;
     unsigned long flags;
     int ret = 0;
+
+// we use direct transfer function for linux kernel default spi api
+
+    if (msg->complete != spi_complete2)
+        return sprd_spi_direct_transfer_compact(spi, msg);
+
 
     sprd_data = spi_master_get_devdata(spi->master);
 
@@ -127,7 +273,7 @@ static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
 #if SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX
         if (!trans->tx_dma && trans->rx_dma) {
             trans->tx_buf = SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR;
-            trans->tx_dma = sprd_data->buffer_dma;
+            trans->tx_dma = sprd_data->tx_buffer_dma;
         }
 #endif
         if (!(trans->tx_dma || trans->rx_dma) || !trans->len)
@@ -137,13 +283,17 @@ static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
 	msg->status = -EINPROGRESS;
 	msg->actual_length = 0;
 
+down(&sprd_data->process_sem_direct);
+
     spin_lock_irqsave(&sprd_data->lock, flags);
     list_add_tail(&msg->queue, &sprd_data->queue);
     if (sprd_data->cspi_trans == 0) {
         grab_sibling(sprd_data);
-        ret = sprd_spi_do_transfer(sprd_data);
+        up(&sprd_data->process_sem); // ret = sprd_spi_do_transfer(sprd_data);
     }
     spin_unlock_irqrestore(&sprd_data->lock, flags);
+
+up(&sprd_data->process_sem_direct);
 
     return ret;
 }
@@ -160,7 +310,7 @@ sprd_spi_interrupt(int irq, void *dev_id)
 
     spin_lock(&sprd_data->lock);
 #if SPRD_SPI_DEBUG
-    // lprintf("spi irq [ %d ]\n", irq);
+    lprintf("spi irq [ %d ]\n", irq);
 #endif
     if (sprd_data->cspi_trans &&
         sprd_data->cspi_trans->tx_dma && 
@@ -176,8 +326,12 @@ sprd_spi_interrupt(int irq, void *dev_id)
         sprd_data->tx_rx_finish = 0;
         // printk("tx_rx irq ok\n");
     }
+    up(&sprd_data->process_sem);
+    up(&sprd_data->process_sem_direct);
+/*
     if (sprd_spi_do_transfer(sprd_data) < 0)
         printk(KERN_ERR "error : %s\n", __func__);
+*/
     spin_unlock(&sprd_data->lock);
 
 #if !SPRD_SPI_DMA_MODE
@@ -229,9 +383,11 @@ static inline void cs_deactivate(struct sprd_spi_data *sprd_data, struct spi_dev
  */
 static int sprd_spi_dma_map_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans)
 {
-    struct device *dev = &sprd_data->pdev->dev;
+//  struct device *dev = &sprd_data->pdev->dev;
 
-    trans->tx_dma = trans->rx_dma = 0;
+    if (trans->tx_buf) trans->tx_dma = sprd_data->tx_buffer_dma;
+    if (trans->rx_buf) trans->rx_dma = sprd_data->rx_buffer_dma;
+/*
     if (trans->tx_buf) {
         trans->tx_dma = dma_map_single(dev,
                 (void *) trans->tx_buf, trans->len,
@@ -251,11 +407,13 @@ static int sprd_spi_dma_map_transfer(struct sprd_spi_data *sprd_data, struct spi
             return -ENOMEM;
         }
     }
+*/
     return 0;
 }
 
 static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans)
 {
+/*
     struct device *dev = &sprd_data->pdev->dev;
 
     if (trans->tx_dma 
@@ -267,6 +425,7 @@ static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct 
 
     if (trans->rx_dma)
         dma_unmap_single(dev, trans->rx_dma, trans->len, DMA_FROM_DEVICE);
+*/
 }
 
 static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device *spi)
@@ -357,6 +516,20 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
     int flag, len, offset;
     int blocks = 1;
 
+#if 1
+{
+    static int max_in, max_out;
+    if (dptr && sprd_data->cspi_trans->len > max_in) {
+        max_in = sprd_data->cspi_trans->len;
+        printk("===================== %s --> max in =%d %s=====================\n", __func__, max_in, sprd_data->cspi_msg->is_dma_mapped ? "DMA":"");
+    }
+    if (sprd_data->cspi_trans->len > max_out) {
+        max_out = sprd_data->cspi_trans->len;
+        printk("===================== %s --> max out =%d %s=====================\n", __func__, max_out, sprd_data->cspi_msg->is_dma_mapped ? "DMA":"");
+    }
+}
+#endif
+
     offset = sprd_data->cspi_trans_num;
 
     if (unlikely(sptr && dptr))
@@ -372,6 +545,7 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
         dlen -= offset;
 #if SPRD_SPI_RX_WATERMARK_BUG_FIX
         len = dlen;
+        if (len > sprd_data->rt_max) len = sprd_data->rt_max;
     {
         int water_mark;
         water_mark = len > SPRD_SPI_RX_WATERMARK_MAX ? SPRD_SPI_RX_WATERMARK_MAX:len;
@@ -386,7 +560,7 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
 #endif
         dma_desc = &sprd_ctrl_data->dma_desc_rx;
         dma_desc->tlen = len;
-        dma_desc->ddst = dptr + offset;
+        dma_desc->ddst = dptr; // + offset;
 
         sprd_spi_update_burst_size();
         sprd_dma_update(DMA_SPI_RX, dma_desc); // use const ch_id value to speed up code exec [luther.ge]
@@ -394,9 +568,10 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
 
     if (flag & 0x02) {
         if ((flag & 0x01) == 0) len = slen; // only tx
+        if (len > sprd_data->rt_max) len = sprd_data->rt_max;
         dma_desc = &sprd_ctrl_data->dma_desc_tx;
         dma_desc->tlen = len;
-        dma_desc->dsrc = sptr + offset;
+        dma_desc->dsrc = sptr; // + offset;
 #if SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX
         if (sprd_data->cspi_trans->tx_buf == SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR)
             dma_desc->dsrc = sptr;
@@ -428,9 +603,28 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
         spi_start_rx(blocks);
     else spi_start_tx();
 
-    spi_dma_start(); // Must Enable SPI_DMA_EN last
+//  spi_dma_start(); // Must Enable SPI_DMA_EN last
 
     return len;
+}
+
+static int spi_kthread(void *args)
+{
+    struct sprd_spi_data *sprd_data = args;
+
+    while (!kthread_should_stop()) {
+        down_interruptible(&sprd_data->process_sem);
+
+        down(&sprd_data->process_sem_direct);
+
+        if (sprd_spi_do_transfer(sprd_data) < 0)
+            printk(KERN_ERR "error : %s\n", __func__);
+
+        if (!sprd_data->dma_started)
+            up(&sprd_data->process_sem_direct);
+    }
+
+    return 0;
 }
 
 static int sprd_spi_setup(struct spi_device *spi)
@@ -536,19 +730,20 @@ static int sprd_spi_setup(struct spi_device *spi)
 
 static void spi_complete2(void *arg)
 {
-    *((int *)arg) = 1;
+    up(arg); //*/ *((int *)arg) = 1;
 }
 
 int spi_sync2(struct spi_device *spi, struct spi_message *message)
 {
-    volatile int done = 0;
+    struct semaphore sem; //*/ volatile int done = 0;
     int status;
 
+    init_MUTEX_LOCKED(&sem); //*/
     message->complete = spi_complete2;
-    message->context = (void*)&done;
+    message->context = (void*)&sem; //*/ (void*)&done;
     status = spi_async(spi, message);
     if (status == 0) {
-        while (!done);
+        down(&sem); //*/ while (!done);
         status = message->status;
     }
     message->context = NULL;
@@ -617,6 +812,23 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
      */
     sprd_data->buffer = dma_alloc_coherent(&pdev->dev, SPRD_SPI_BUFFER_SIZE,
                                         &sprd_data->buffer_dma, GFP_KERNEL);
+    sprd_data->tx_buffer = (u8*)sprd_data->buffer;
+    sprd_data->rx_buffer = (u8*)sprd_data->buffer + SPRD_SPI_BUFFER_SIZE/2;
+    sprd_data->tx_buffer_dma = sprd_data->buffer_dma;
+    sprd_data->rx_buffer_dma = sprd_data->buffer_dma + SPRD_SPI_BUFFER_SIZE/2;
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+
+
+
+    sprd_data->rt_max = SPRD_SPI_RX_WATERMARK_MAX; // SPRD_SPI_BUFFER_SIZE/2;
+
+
+
+
+
+    //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     if (!sprd_data->buffer)
         goto out_free;
 
@@ -662,6 +874,13 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
     if (ret)
         goto out_reset_hw;
 
+    init_MUTEX(&sprd_data->process_sem_direct);
+    init_MUTEX_LOCKED(&sprd_data->process_sem);
+    sprd_data->spi_kthread = kthread_create(spi_kthread, sprd_data, "spi_kthread");
+    if (IS_ERR(sprd_data->spi_kthread)) goto out_reset_hw;
+
+    wake_up_process(sprd_data->spi_kthread);
+
     return 0;
 
 out_reset_hw:
@@ -690,6 +909,8 @@ static int __exit sprd_spi_remove(struct platform_device *pdev)
     spin_lock_irq(&sprd_data->lock);
     sprd_data->stopping = 1;
     spin_unlock_irq(&sprd_data->lock);
+
+    if (!IS_ERR(sprd_data->spi_kthread)) kthread_stop(sprd_data->spi_kthread);
 
     /* Terminate remaining queued transfers */
     list_for_each_entry(msg, &sprd_data->queue, queue) {

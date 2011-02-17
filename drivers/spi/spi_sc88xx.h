@@ -174,9 +174,16 @@ struct sprd_spi_data {
     struct spi_message *cspi_msg;
     struct spi_transfer	*cspi_trans;
     int cspi_trans_num;
+    int cspi_trans_len;
     struct spi_device *cspi;
     void *buffer;
+    void *tx_buffer;
+    void *rx_buffer;
+    int rt_max;
+    u8 *rx_ptr;
     dma_addr_t buffer_dma;
+    dma_addr_t tx_buffer_dma;
+    dma_addr_t rx_buffer_dma;
 
     int irq;
     struct platform_device *pdev;
@@ -185,6 +192,11 @@ struct sprd_spi_data {
 
     u8 stopping;
     u8 cs_null;
+
+    struct task_struct *spi_kthread;
+    struct semaphore process_sem;
+    struct semaphore process_sem_direct;
+    int dma_started;
 };
 
 struct sprd_spi_controller_data {
@@ -220,5 +232,6 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
                         struct spi_device *spi, struct sprd_spi_data *sprd_data);
 static int sprd_spi_dma_map_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans);
 static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans);
+static void spi_complete2(void *arg);
 
 #endif
