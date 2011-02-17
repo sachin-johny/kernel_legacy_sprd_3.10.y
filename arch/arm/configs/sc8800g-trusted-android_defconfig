@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32-sprd-redbend
-# Wed Feb 16 08:41:11 2011
+# Thu Feb 17 13:26:42 2011
 #
 CONFIG_NKERNEL=y
 CONFIG_NKERNEL_DDI=y
@@ -1189,12 +1189,12 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER=y
 #
 # File systems
 #
-CONFIG_EXT2_FS=y
-CONFIG_EXT2_FS_XATTR=y
-CONFIG_EXT2_FS_POSIX_ACL=y
-CONFIG_EXT2_FS_SECURITY=y
-# CONFIG_EXT2_FS_XIP is not set
-# CONFIG_EXT3_FS is not set
+# CONFIG_EXT2_FS is not set
+CONFIG_EXT3_FS=y
+# CONFIG_EXT3_DEFAULTS_TO_ORDERED is not set
+CONFIG_EXT3_FS_XATTR=y
+# CONFIG_EXT3_FS_POSIX_ACL is not set
+# CONFIG_EXT3_FS_SECURITY is not set
 # CONFIG_EXT4_FS is not set
 CONFIG_FS_MBCACHE=y
 # CONFIG_REISERFS_FS is not set
