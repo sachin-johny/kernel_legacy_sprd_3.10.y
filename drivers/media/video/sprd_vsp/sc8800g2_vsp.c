@@ -31,7 +31,7 @@
 #include <linux/cdev.h>
 #include <linux/mm.h>
 #include <linux/miscdevice.h>
-
+#include <linux/sched.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -90,6 +90,18 @@ struct vsp_dev{
 };
 
 static struct vsp_dev dev;
+
+static inline int rt_policy(int policy)
+{
+	if (unlikely(policy == SCHED_FIFO) || unlikely(policy == SCHED_RR))
+		return 1;
+	return 0;
+}
+
+static inline int task_has_rt_policy(struct task_struct *p)
+{
+	return rt_policy(p->policy);
+}
 
 static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -162,6 +174,19 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		    return -ERESTARTSYS;
 		}
 		dev.condition = 0;
+
+		if (!task_has_rt_policy(current)) {
+		    struct sched_param schedpar;
+		    int ret;
+		    struct cred *new = prepare_creds();
+		    cap_raise(new->cap_effective, CAP_SYS_NICE);
+		    commit_creds(new);
+		    schedpar.sched_priority = 1;
+		    ret = sched_setscheduler(current,SCHED_RR,&schedpar);
+		    if(ret!=0)
+		        printk("vsp change pri fail a\n");
+		}
+
 		VSP_PRINT("vsp ioctl VSP_ACQUAIRE end\n");
 	    break;	
 	    case VSP_RELEASE:
