@@ -566,7 +566,7 @@ static void TS0710_SIG2APLOGD(void)
 
 static int basic_write(ts0710_con * ts0710, __u8 * buf, int len)
 {
-	int res;
+	int res, send;
 	UNUSED_PARAM(ts0710);
 
 	buf[0] = TS0710_BASIC_FLAG;
@@ -574,11 +574,11 @@ static int basic_write(ts0710_con * ts0710, __u8 * buf, int len)
 
 	if ((COMM_FOR_MUX_DRIVER == 0) || (COMM_FOR_MUX_TTY == 0)) {
 		TS0710_PRINTK
-		    ("MUX basic_write: (COMM_FOR_MUX_DRIVER == 0) || (COMM_FOR_MUX_TTY == 0)\n");
+			("MUX basic_write: (COMM_FOR_MUX_DRIVER == 0) || (COMM_FOR_MUX_TTY == 0)\n");
 
 #ifndef USB_FOR_MUX
 		TS0710_PRINTK
-		    ("MUX basic_write: tapisrv might be down!!! (serial_for_mux_driver == 0) || (serial_for_mux_tty == 0)\n");
+			("MUX basic_write: tapisrv might be down!!! (serial_for_mux_driver == 0) || (serial_for_mux_tty == 0)\n");
 		TS0710_SIG2APLOGD();
 #endif
 
@@ -587,13 +587,18 @@ static int basic_write(ts0710_con * ts0710, __u8 * buf, int len)
 
 	TS0710_LOGSTR_FRAME(1, buf, len + 2);
 	TS0710_DEBUGHEX(buf, len + 2);
-//	printk("\nMUX W\n");
-	res = COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, buf, len + 2);
-	if (res != len + 2) {
+	//	printk("\nMUX W\n");
+	send =0;
+	while (send < len+2) {
+		res = COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, buf+send, len + 2-send);
+		send=send+res;
+	}
+	/*	if (res != len + 2) {
+
 		TS0710_PRINTK("MUX basic_write: Write Error!\n");
 		return -1;
-	}
-
+		}
+		*/
 	return len + 2;
 }
 
