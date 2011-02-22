@@ -410,12 +410,12 @@ void __init sprd_add_otg_device(void)
 }
 
 /*Android USB Function */
-//#define SPRD_VENDOR_ID		0x22B8
-//#define SPRD_PRODUCT_ID		0x41D9
-#define SPRD_VENDOR_ID		0x0BB4
-#define SPRD_PRODUCT_ID		0x0C01
-#define SPRD_ADB_PRODUCT_ID		0x0C02
-//#define SPRD_ADB_PRODUCT_ID             0x41DB
+#define SPRD_VENDOR_ID		0x22B8
+#define SPRD_PRODUCT_ID		0x41D9
+//#define SPRD_VENDOR_ID		0x0BB4
+//#define SPRD_PRODUCT_ID		0x0C01
+//#define SPRD_ADB_PRODUCT_ID		0x0C02
+#define SPRD_ADB_PRODUCT_ID             0x41DB
 #define SPRD_RNDIS_PRODUCT_ID		0x41E4
 #define SPRD_RNDIS_ADB_PRODUCT_ID		0x41E5
 
@@ -446,6 +446,11 @@ static char *usb_functions_rndis_adb[] = {
 	"adb",
 };
 
+static char *usb_functions_modem_adb[] = {
+	"modem",
+	"adb",
+};
+
 static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	"rndis",
@@ -459,6 +464,9 @@ static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_ACM
 	"acm",
 #endif
+#ifdef CONFIG_USB_ANDROID_MODEM
+	"modem",
+#endif
 };
 
 static struct android_usb_product usb_products[] = {
@@ -471,6 +479,12 @@ static struct android_usb_product usb_products[] = {
 		.product_id	= SPRD_PRODUCT_ID,
 		.num_functions	= ARRAY_SIZE(usb_functions_ums),
 		.functions	= usb_functions_ums,
+	},
+	{
+		//.product_id	= SPRD_PRODUCT_ID,
+		.product_id	= 0x41da,
+		.num_functions	= ARRAY_SIZE(usb_functions_modem_adb),
+		.functions	= usb_functions_modem_adb,
 	},
 	{
 		.product_id	= SPRD_ADB_PRODUCT_ID,

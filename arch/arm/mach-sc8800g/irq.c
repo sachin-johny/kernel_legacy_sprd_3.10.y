@@ -145,11 +145,16 @@ static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 	uint32_t status;
 	int i;
 
+	desc->chip->mask(irq);
+	if(desc->chip->ack)
+		desc->chip->ack(irq);
+
 	status=ANA_REG_GET(ANA_INT_STATUS);
 
 	for (i = 0; i < NR_ANA_IRQS; i++) {
 		if ((status >> i) & 0x1) {
 			irq_ana = IRQ_ANA_INT_START + i;
+			pr_info("ana irq\r\n");
 			generic_handle_irq(irq_ana);
 		}
 	}

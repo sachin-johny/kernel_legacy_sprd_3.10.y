@@ -100,7 +100,6 @@ static unsigned long pwr_gpio_cfg =
 	MFP_ANA_CFG_X(PBINT, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
 
 static unsigned pwr_gpio = 163;
-#define IRQ_POWERON 38
 
 static irqreturn_t
 power_button_handler(int irq, void *dev)
@@ -161,6 +160,53 @@ static int pwr_gpio_int_test(void)
 	return 0;
 }
 
+static unsigned long sdcard_detect_gpio_cfg =
+        MFP_CFG_X(RFCTL11, AF3, DS1, F_PULL_UP,S_PULL_NONE, IO_Z);
+
+static	int sd_gpio;
+static irqreturn_t
+sdcard_detect_handler(int irq, void *dev)
+{
+        int value;
+	
+	if(gpio_get_value(sd_gpio)){
+		pr_info("sdcard plug out\r\n");
+		set_irq_type(irq, IRQF_TRIGGER_LOW);
+	} else {
+		pr_info("sdcard plug in\r\n");
+		set_irq_type(irq, IRQF_TRIGGER_HIGH);
+	}
+	return IRQ_HANDLED;
+}
+
+static int sdcard_gpio_int_test(void)
+{
+        int err;
+        int irq;
+
+        sprd_mfp_config(&sdcard_detect_gpio_cfg, 1);
+        sd_gpio = 101;//mfp_to_gpio(MFP_CFG_TO_PIN(bl_gpio_cfg));
+
+        err = gpio_request(sd_gpio, "sdcard detect");
+        if (err) {
+                pr_warning("cannot alloc gpio for power button\r\n");
+                return err;
+        }
+        gpio_direction_input(sd_gpio);
+        pr_info("sdcard button gpio is:%d state%d\r\n", sd_gpio, gpio_get_value(sd_gpio));
+
+        irq = sprd_alloc_gpio_irq(sd_gpio);
+        if (irq < 0)
+                return -1;
+
+        err = request_threaded_irq(irq,NULL, sdcard_detect_handler, IRQF_TRIGGER_LOW
+                 | IRQF_ONESHOT, "sdcard detect irq", NULL);
+	if (err) {
+		pr_warning("cannot alloc irq for sdcard detect, err %d\r\n", err);
+		return err;
+	}
+	return 0;
+}
 static int creat_vibrator_sysfs_file(void)
 {
 	int err;
@@ -194,6 +240,7 @@ static int creat_vibrator_sysfs_file(void)
 #endif
 	pwr_gpio_int_test();
 	spics1_gpio_test();
+	sdcard_gpio_int_test();
 	return 0;
 }
 
