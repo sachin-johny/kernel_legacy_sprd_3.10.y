@@ -26,6 +26,7 @@
 
 #include <mach/rotation_sc8800g2.h>
 #include <mach/hardware.h>
+#include <mach/board.h>
 #include "sc8800g_copybit_rotation.h"
 
 //#define COPYBIT_ROTATION_DEBUG
@@ -35,7 +36,7 @@
 #define ROT_PRINT(...)
 #endif
 
-#define ROT_OUTPUT_BUF (0x0FE00000-0x400000)
+#define ROT_OUTPUT_BUF SPRD_ROT_MEM_BASE
 
 static ROTATION_DATA_FORMAT_E get_data_format(uint32_t format)
 {

@@ -26,6 +26,7 @@
 
 #include <mach/scale_sc8800g2.h>
 #include <mach/hardware.h>
+#include <mach/board.h>
 #include "sc8800g_copybit_scale.h"
 
 
@@ -36,7 +37,7 @@
 #define SCALE_PRINT(...)
 #endif
 
-#define SCALE_OUTPUT_BUF (0x0FF00000-0x400000)
+#define SCALE_OUTPUT_BUF SPRD_SCALE_MEM_BASE
 
 typedef struct scale_param
 {

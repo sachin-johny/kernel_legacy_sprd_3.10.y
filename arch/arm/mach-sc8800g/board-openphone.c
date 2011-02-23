@@ -43,13 +43,6 @@
 #include <mach/clock_common.h>
 #include <mach/clock_sc8800g.h>
 
-#if 0
-/* pmem area definition */
-#define SPRD_PMEM_BASE          ((256-4-8-8)*1024*1024)
-#define SPRD_PMEM_SIZE          (8*1024*1024)
-#define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
-#define SPRD_PMEM_ADSP_SIZE     (6*1024*1024)
-#endif
 static struct resource example_resources[] = {
 	[0] = {
 		.start	= 0x9C004300,
