@@ -28,7 +28,8 @@
 #include "sin_cos.h"
 #include "gen_scale_coef.h"
 #include <linux/mm.h>
-#include <asm/div64.h>
+#include <linux/math64.h>
+//#include <asm/div64.h>
 
 /**---------------------------------------------------------------------------*
  **                         Macros                                            *
@@ -111,6 +112,29 @@ static void *_Allocate(uint32_t size, uint32_t align_shift, GSC_MEM_POOL *pool_p
       
 }
 
+static int64_t div64_s64_s64(int64_t dividend, int64_t divisor)
+{
+	int8_t sign = 1;
+	int64_t dividend_tmp = dividend;
+	int64_t divisor_tmp = divisor;
+	int64_t ret = 0;
+	
+        if((dividend >> 63) & 0x1)
+	{
+		sign *= -1;
+		dividend_tmp = dividend * (-1);
+	}
+	if((divisor >> 63) & 0x1)
+	{
+		sign *= -1;
+		divisor_tmp = divisor * (-1);
+	}
+	ret = div64_u64(dividend_tmp, divisor_tmp);
+	ret *= sign;		
+
+	return ret;
+}
+
 static void normalize_inter(int64_t *data,int16_t *int_data, uint8_t ilen)
 {
 	uint8_t	it				;    
@@ -140,10 +164,9 @@ static void normalize_inter(int64_t *data,int16_t *int_data, uint8_t ilen)
     {
 	    for (it = 0; it < ilen; it++)
 	    {
-            //tmp_d = (tmp_data[it] * (int64_t)256) / tmp_sum_val;
-            tmp_d = tmp_data[it] * (int64_t)256;
-		do_div(tmp_d, tmp_sum_val);
-		    int_data[it] = (uint16_t)tmp_d;
+            	//tmp_d = (tmp_data[it] * (int64_t)256) / tmp_sum_val;
+            	tmp_d = div64_s64_s64(tmp_data[it] * (int64_t)256, tmp_sum_val);
+		int_data[it] = (uint16_t)tmp_d;
 	    }
     }  
 }
@@ -226,31 +249,32 @@ static int16_t CalYmodelCoef(int16_t coef_lenght,		/*lint !e578 */
 
 	mid_i           = coef_lenght >> 1;
 	//filter[mid_i] = (int64_t)((int64_t)N << GSC_FIX) / (int64_t)MAX(M,N);
-	filter[mid_i] = (int64_t)((int64_t)N << GSC_FIX) ;
-	do_div(filter[mid_i], (int64_t)MAX(M,N));
+	filter[mid_i] = div64_s64_s64((int64_t)((int64_t)N << GSC_FIX), (int64_t)MAX(M,N));
 	for (i = 0; i < mid_i; i++)
 	{                   
-        //int64_t angle_x = (int64_t)ARC_32_COEF / (int64_t)MAX(M,N) * (int64_t)(i + 1) * (int64_t)N / (int64_t)8;        
-        int64_t angle_x =  ARC_32_COEF;
-	do_div(angle_x,  (int64_t)MAX(M,N) * (int64_t)(i + 1) * (int64_t)N * (int64_t)8);	
-        //int64_t angle_y = (int64_t)ARC_32_COEF / (int64_t)(M * N) * (int64_t)(i + 1) * (int64_t)N / (int64_t)8;
-        int64_t angle_y =  ARC_32_COEF;  
-       do_div(angle_y, (int64_t)MAX(M,N) * (int64_t)(i + 1) * (int64_t)N * (int64_t)8);		
+        //int64_t angle_x = (int64_t)ARC_32_COEF / (int64_t)MAX(M,N) * (int64_t)(i + 1) * (int64_t)N / (int64_t)8; 
+	/*int64_t angle_x = div64_s64_s64((int64_t)ARC_32_COEF, (int64_t)MAX(M,N));	
+	angle_x *= (i + 1) * N;
+	angle_x = div64_s64_s64(angle_x,  (int64_t)8);*/
+	int64_t angle_x = div64_s64_s64((int64_t)ARC_32_COEF*(int64_t)(i + 1) * (int64_t)N, (int64_t)MAX(M,N)*(int64_t)8);
+	//int64_t angle_y = (int64_t)ARC_32_COEF / (int64_t)(M*N) * (int64_t)(i + 1) * (int64_t)N / (int64_t)8; 
+	/*int64_t angle_y =  div64_s64_s64((int64_t)ARC_32_COEF, (int64_t)(M * N )); 
+	angle_y *= (i + 1) * N;
+	angle_y = div64_s64_s64(angle_y,  (int64_t)8);*/
+	int64_t angle_y =  div64_s64_s64((int64_t)ARC_32_COEF*(int64_t)(i + 1) * (int64_t)N, (int64_t)(M * N)*(int64_t)8); 
+	
         int32_t value_x = sin_32((int32_t)angle_x);
         int32_t value_y = sin_32((int32_t)angle_y);
 
-        //filter[mid_i + i + 1] = ((int64_t)value_x * (int64_t)(1 << GSC_FIX))/ (int64_t)((int64_t)M * (int64_t)value_y);                
-        filter[mid_i + i + 1] = ((int64_t)value_x * (int64_t)(1 << GSC_FIX)); 
-	do_div(filter[mid_i + i + 1], (int64_t)M * (int64_t)value_y);
-        filter[mid_i - (i + 1)] = filter[mid_i + i + 1];        
+        //filter[mid_i + i + 1] = ((int64_t)value_x * (int64_t)(1 << GSC_FIX))/ (int64_t)((int64_t)M * (int64_t)value_y);
+	filter[mid_i + i + 1] = div64_s64_s64((int64_t)((int64_t)value_x * (int64_t)(1 << GSC_FIX)), (int64_t)((int64_t)M * (int64_t)value_y));
+        filter[mid_i - (i + 1)] = filter[mid_i + i + 1]; 
 	}
     
 	for (i = -1; i < mid_i; i++)
 	{ 	
         //int32_t angle_32 = (int32_t)((int64_t)2 * (int64_t)(mid_i - i - 1) *  (int64_t)2147483648 / (int64_t)coef_lenght);
-        int64_t tmp = (int64_t)2 * (int64_t)(mid_i - i - 1) *  (int64_t)2147483648;	
-	do_div(tmp, (int64_t)coef_lenght);
-        int32_t angle_32 = (int32_t)tmp;
+        int32_t angle_32 = (int32_t)div64_s64_s64((int64_t)((int64_t)2 * (int64_t)(mid_i - i - 1) *  (int64_t)2147483648), (int64_t)coef_lenght);;
         int64_t     a = (int64_t)9059697;//(int64_t)(0.54 * (double)(1 << FIX));     
         int64_t     b = (int64_t)7717519;//(int64_t)(0.46 * (double)(1 << GSC_FIX));    
         int64_t     t = a - ((b * cos_32(angle_32)) >> 30);
@@ -309,10 +333,11 @@ static int16_t CalY_ScalingCoef(int16_t	tap	,		/*lint !e578 */
 {
 	
 	uint16_t coef_lenght;
-   	
-	coef_lenght = (int16_t)(tap * 8);
+	
+	coef_lenght = (uint16_t)(tap * 8);
     SCI_MEMSET(y_coef_data_ptr, 0, coef_lenght * sizeof(int16_t));
 	CalYmodelCoef(coef_lenght, y_coef_data_ptr, I, D, pool_ptr);	
+
 	return coef_lenght;
 }
 
@@ -341,20 +366,19 @@ static int16_t CalUV_ScalingCoef(int16_t	tap	,		/*lint !e578 */
 
 	if ((dir == 1))  // x direction
 	{
-		uv_coef_lenght = (int16_t) (tap * 8);
+		uv_coef_lenght = (int16_t) (tap * 8);		
 		CalYmodelCoef(uv_coef_lenght, uv_coef_data_ptr, I, D, pool_ptr);
 	}
 	else  // y direction
 	{
 		if (D > I)
-        {
-            uv_coef_lenght = (int16_t) (tap * 8);
-        }			
+        	{
+            		uv_coef_lenght = (int16_t) (tap * 8);
+        	}			
 		else
-        {
-            uv_coef_lenght = (int16_t) (4 * 8);
-        }
-			
+        	{
+            		uv_coef_lenght = (int16_t) (4 * 8);
+       	 	}
 		CalYmodelCoef(uv_coef_lenght, uv_coef_data_ptr, I, D, pool_ptr);
 	}
 
@@ -585,17 +609,15 @@ static void CalcVerEdgeCoef(int16_t *coeff_ptr, int16_t D, int16_t I, int16_t ta
 	int32_t   l;	
 	int16_t	i, j;
 
-	int16_t	*coeff_arr[COEF_ARR_ROWS] = {NULL};
+	int16_t	*coeff_arr[COEF_ARR_ROWS];// = {NULL};
 
     for (i=0; i<COEF_ARR_ROWS; i++)
     {
         coeff_arr[i] = coeff_ptr;
         coeff_ptr += COEF_ARR_COLUMNS;
     }	
-	
 	for (j=0; j<=8; j++)
 		phase_temp[j] = j * I / 8;
-
 	for (i=0; i<I; i++)
 	{
 		//spec_tap = i % 2;
@@ -606,7 +628,7 @@ static void CalcVerEdgeCoef(int16_t *coeff_ptr, int16_t D, int16_t I, int16_t ta
             acc -= I;
             i_sample_cnt++;
         }
-		
+
         for (j=0; j <8; j++)
         {
             if (acc >= phase_temp[j] && acc < phase_temp[j + 1])
@@ -616,22 +638,24 @@ static void CalcVerEdgeCoef(int16_t *coeff_ptr, int16_t D, int16_t I, int16_t ta
             }
         }
 
-		for (j=1 - tap/2; j<=tap/2; j++)
-		{
+	{
+		int32_t j;
+		for(j = (1 - tap / 2); j <= (tap / 2); j++)
+		{			
 			l = i_sample_cnt + j;
 			if(l <= 0)
 			{
-				coeff_arr[8][spec_tap] += coeff_arr[phase][j+tap/2-1];
+				coeff_arr[8][spec_tap] += coeff_arr[phase][j+tap/2-1];				
 			}
 			else
 			{
 				if(l >= D - 1)
 				{
-					coeff_arr[8][spec_tap + 2] += coeff_arr[phase][j+tap/2-1];
+					coeff_arr[8][spec_tap + 2] += coeff_arr[phase][j+tap/2-1];					
 				}
 			}
 		}
-		
+	}
 		acc += D;
 	}
 }
@@ -683,7 +707,7 @@ uint8_t GenScaleCoeff(int16_t	i_w, int16_t i_h, int16_t o_w,  int16_t o_h,
 	int16_t   coef_len				= 0;	
 	uint8_t	is_scaling_up			= FALSE;
 	uint16_t	tap						= 8;  
-    
+	    
     GSC_MEM_POOL    pool            = {0};
 
     if ((i_w == o_w) && (i_h == o_h))

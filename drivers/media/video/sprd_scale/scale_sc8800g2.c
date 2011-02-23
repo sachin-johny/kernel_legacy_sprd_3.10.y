@@ -264,7 +264,8 @@ int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
     uint32_t *pTmpBuf     = SCI_NULL;
     uint32_t *pHCoeff     = SCI_NULL;	
     uint32_t *pVCoeff     = SCI_NULL;
-	
+
+
 	if(ISP_PATH1 != idxScx && ISP_PATH2 != idxScx)
 	    return ISP_DRV_RTN_PARA_ERR;
     
@@ -315,7 +316,7 @@ int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
         SCALE_PRINT("ISP_DRV: _ISP_DriverGenScxCoeff GenScaleCoeff error!");    
         SCI_ASSERT(0);
     }
-    
+	
 	if(ISP_PATH1 == idxScx)
 	{    
         do
@@ -349,13 +350,12 @@ int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
         
     for( i = 0; i < ISP_SCALE_COEFF_H_NUM; i++)
     {
-        *(volatile uint32_t*)HScaleAddr = *pHCoeff;
+       // *(volatile uint32_t*)HScaleAddr = *pHCoeff;
+	_pawd(HScaleAddr, *pHCoeff);
 
 #ifdef ISP_DRV_SCALE_COEFF_DBG
-        SCALE_PRINT("ISP_DRV: _ISP_DriverGenScxCoeff H[%d] = 0x%x", i, 
-            *pHCoeff);
-        SCALE_PRINT("ISP_DRV: _ISP_DriverGenScxCoeff H[%d] = 0x%x", i, 
-            *(volatile uint32_t*)HScaleAddr);        
+        SCALE_PRINT("ISP_DRV: Coeff H[%d] = 0x%x.\n", i, 
+            *pHCoeff); 
 #endif
 
         HScaleAddr += 4;
@@ -364,13 +364,12 @@ int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
     
     for( i=0 ;i < ISP_SCALE_COEFF_V_NUM; i++)
     {
-        *(volatile uint32_t*)VScaleAddr = *pVCoeff;
+        //*(volatile uint32_t*)VScaleAddr = *pVCoeff;
+        _pawd(VScaleAddr, *pVCoeff);
         
 #ifdef ISP_DRV_SCALE_COEFF_DBG
-        SCALE_PRINT("ISP_DRV: _ISP_DriverGenScxCoeff V[%d] = 0x%x", i, 
+        SCALE_PRINT("ISP_DRV: Coeff V[%d] = 0x%x.\n", i, 
             *pVCoeff);
-        SCALE_PRINT("ISP_DRV: _ISP_DriverGenScxCoeff V[%d] = 0x%x", i, 
-            *(volatile uint32_t*)VScaleAddr);
 #endif
 
         VScaleAddr += 4;
