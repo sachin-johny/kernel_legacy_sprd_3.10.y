@@ -22,9 +22,12 @@
 #include <linux/leds.h>
 
 #include <linux/mmc/host.h>
+#include <linux/gpio.h>
+#include <linux/irq.h>
 #include <mach/ldo.h>
 
 #include "sdhci.h"
+#include "sprdmci.h"
 
 #define DRIVER_NAME "sdhci"
 
@@ -114,8 +117,26 @@ static void sdhci_mask_irqs(struct sdhci_host *host, u32 irqs)
 	sdhci_clear_set_irqs(host, irqs, 0);
 }
 
+int sdcard_present(struct sdhci_host *host)
+{
+	int gpio;
+	struct sprd_host_data *host_data;
+	int irq;
+
+        host_data = sdhci_priv(host);
+        irq = host_data->detect_irq;
+	gpio = irq_to_gpio(irq);
+
+	if (gpio_get_value(gpio))
+		return 0;
+	else
+		return 1;
+}
+
+//static int detect_irq = 37;
 static void sdhci_set_card_detection(struct sdhci_host *host, bool enable)
 {
+/*
 	u32 irqs = SDHCI_INT_CARD_REMOVE | SDHCI_INT_CARD_INSERT;
 
 	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
@@ -125,6 +146,20 @@ static void sdhci_set_card_detection(struct sdhci_host *host, bool enable)
 		sdhci_unmask_irqs(host, irqs);
 	else
 		sdhci_mask_irqs(host, irqs);
+*/
+	int irq;
+	struct sprd_host_data *host_data;
+
+	host_data = sdhci_priv(host);
+	irq = host_data->detect_irq;
+	if(!enable) {
+		set_irq_type(irq,IRQF_TRIGGER_NONE);
+		return;
+	}
+	if(sdcard_present(host))
+		set_irq_type(irq,IRQF_TRIGGER_HIGH);
+	 else
+		set_irq_type(irq,IRQF_TRIGGER_LOW);
 }
 
 static void sdhci_enable_card_detection(struct sdhci_host *host)
@@ -1234,7 +1269,8 @@ static void sdhci_tasklet_card(unsigned long param)
 
 	spin_lock_irqsave(&host->lock, flags);
 
-	if (!(sdhci_readl(host, SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT)) {
+	//if (!(sdhci_readl(host, SDHCI_PRESENT_STATE) & SDHCI_CARD_PRESENT)) {
+	if (!(sdcard_present(host))) {
 		if (host->mrq) {
 			printk(KERN_ERR "%s: Card removed during transfer!\n",
 				mmc_hostname(host->mmc));
@@ -1541,12 +1577,13 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 	DBG("*** %s got interrupt: 0x%08x\n",
 		mmc_hostname(host->mmc), intmask);
 
+/*
 	if (intmask & (SDHCI_INT_CARD_INSERT | SDHCI_INT_CARD_REMOVE)) {
 		sdhci_writel(host, intmask & (SDHCI_INT_CARD_INSERT |
 			SDHCI_INT_CARD_REMOVE), SDHCI_INT_STATUS);
 		tasklet_schedule(&host->card_tasklet);
 	}
-
+*/
 	intmask &= ~(SDHCI_INT_CARD_INSERT | SDHCI_INT_CARD_REMOVE);
 
 	if (intmask & SDHCI_INT_CMD_MASK) {
@@ -1601,6 +1638,22 @@ out:
 	return result;
 }
 
+static irqreturn_t sd_detect_irq(int irq, void *dev_id)
+{
+	struct sdhci_host* host = dev_id;
+	/*
+	deshaking for gpio stable
+	*/
+	msleep(200);
+
+	if (sdcard_present(host))
+		set_irq_type(irq,IRQF_TRIGGER_HIGH);
+	else
+		set_irq_type(irq,IRQF_TRIGGER_LOW);
+
+	tasklet_schedule(&host->card_tasklet);
+	return IRQ_HANDLED;
+}
 /*****************************************************************************\
  *                                                                           *
  * Suspend/resume                                                            *
@@ -1686,6 +1739,8 @@ int sdhci_add_host(struct sdhci_host *host)
 {
 	struct mmc_host *mmc;
 	unsigned int caps;
+	struct sprd_host_data *host_data;
+	int detect_irq;
 	int ret;
 
 	WARN_ON(host == NULL);
@@ -1907,6 +1962,17 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (ret)
 		goto untasklet;
 
+	host_data = sdhci_priv(host);
+	detect_irq = host_data->detect_irq;
+	if (sdcard_present(host)){
+		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
+			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "sd card detect", host);
+	} else {
+		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
+			IRQF_TRIGGER_LOW | IRQF_ONESHOT, "sd card detect", host);
+	}
+	if (ret)
+		goto untasklet;
 	sdhci_init(host);
 
 #ifdef CONFIG_MMC_DEBUG
@@ -1943,6 +2009,7 @@ int sdhci_add_host(struct sdhci_host *host)
 reset:
 	sdhci_reset(host, SDHCI_RESET_ALL);
 	free_irq(host->irq, host);
+	free_irq(detect_irq, host);
 #endif
 untasklet:
 	tasklet_kill(&host->card_tasklet);
@@ -1956,6 +2023,7 @@ EXPORT_SYMBOL_GPL(sdhci_add_host);
 void sdhci_remove_host(struct sdhci_host *host, int dead)
 {
 	unsigned long flags;
+	struct sprd_host_data *host_data;
 
 	if (dead) {
 		spin_lock_irqsave(&host->lock, flags);
@@ -1985,6 +2053,9 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 		sdhci_reset(host, SDHCI_RESET_ALL);
 
 	free_irq(host->irq, host);
+
+	host_data = sdhci_priv(host);
+	free_irq(host_data->detect_irq, host);
 
 	del_timer_sync(&host->timer);
 

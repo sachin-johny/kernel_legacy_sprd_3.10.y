@@ -17,9 +17,11 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/mmc/host.h>
+#include <linux/gpio.h>
 
 #include <mach/regs_global.h>
 #include "sdhci.h"
+#include "sprdmci.h"
 
 
 
@@ -98,7 +100,9 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct sdhci_host *host;
 	struct resource *res;
-	int ret, irq;
+	int sd_detect_gpio;
+	int ret, irq, detect_irq;
+	struct sprd_host_data *host_data;
 
 
 	irq = platform_get_irq(pdev, 0);
@@ -106,7 +110,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		dev_err(dev, "no irq specified\n");
 		return irq;
 	}
-	pr_debug("sdio irq:%d \r\n", irq);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
@@ -114,7 +117,9 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	host = sdhci_alloc_host(dev, 0);
+	host = sdhci_alloc_host(dev, sizeof(struct sprd_host_data));
+	host_data = sdhci_priv(host);
+
 	if (IS_ERR(host)) {
 		dev_err(dev, "sdhci_alloc_host() failed\n");
 		return PTR_ERR(host);
@@ -136,6 +141,16 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		SDHCI_QUIRK_BROKEN_CARD_DETECTION|\
 		SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
 	host->irq = irq;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	sd_detect_gpio = res ? res->start : -1;
+
+	detect_irq = sprd_alloc_gpio_irq(sd_detect_gpio);
+        if (detect_irq < 0){
+		dev_err(dev, "cannot alloc detect irq\n");
+                return -1;
+	}
+	host_data->detect_irq = detect_irq;
 
 	sdhci_sprd_set_base_clock(SDIO_MAX_CLK);
 

@@ -428,6 +428,21 @@ static int sprd_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 	return gpio_irq_table[i].irq_num;
 }
 
+int irq_to_gpio(unsigned long irq)
+{
+	 int i;
+
+        for (i = 0; i < NR_GPIO_IRQS; i++) {
+                if (gpio_irq_table[i].irq_num == irq)
+                        break;
+        }
+
+        if (i >= NR_GPIO_IRQS)
+                return -1;
+        return gpio_irq_table[i].gpio_id;
+}
+EXPORT_SYMBOL(irq_to_gpio);
+
 static struct gpio_chip sprd_gpio_chip = {
 	.label		  = "sc8800s-gpio",
 	.direction_input  = sprd_gpio_direction_input,
@@ -736,7 +751,7 @@ void gpio_enable_gpi_interupt (struct gpio_info *info)
 
 //EXPORT_SYMBOL(gpio_enable_gpi_interupt);
 
-void sprd_ack_gpio_irq(unsigned int irq)
+static void sprd_ack_gpio_irq(unsigned int irq)
 {
 	int gpio;
  	struct gpio_irq_map *map= get_irq_chip_data(irq);
@@ -752,9 +767,8 @@ void sprd_ack_gpio_irq(unsigned int irq)
 	__get_gpio_base_info (gpio, &gpio_info);
 	__gpio_clear_irq_status(&gpio_info);
 }
-EXPORT_SYMBOL(sprd_ack_gpio_irq);
 
-void sprd_mask_gpio_irq(unsigned int irq)
+static void sprd_mask_gpio_irq(unsigned int irq)
 {
 	unsigned gpio;
 	struct gpio_irq_map *map= get_irq_chip_data(irq);
@@ -771,9 +785,8 @@ void sprd_mask_gpio_irq(unsigned int irq)
 	__gpio_disable_irq (&gpio_info);
 }
 
-EXPORT_SYMBOL(sprd_mask_gpio_irq);
 
-void sprd_unmask_gpio_irq(unsigned int irq)
+static void sprd_unmask_gpio_irq(unsigned int irq)
 {
 	unsigned gpio;
 	struct gpio_info gpio_info;
@@ -843,7 +856,7 @@ static  int gpio_get_int_status(unsigned int gpio)
 static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	int i;
-	// pr_info("gpio demux handler\r\n");
+
 	for (i = 0; i < NR_GPIO_IRQS; i++) {
 		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID) {
 		            continue;
@@ -906,6 +919,7 @@ __must_check int sprd_alloc_gpio_irq(unsigned gpio)
 
 	set_irq_chip_data(irq, &gpio_irq_table[i]);
 	local_irq_restore(flags);
+	__gpio_clear_irq_status(&gpio_info);
 	if (gpio_info.gpio_type == GPIO_SECTION_GPI)
 	       __gpio_trig_detect (&gpio_info);
 

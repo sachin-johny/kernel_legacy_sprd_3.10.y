@@ -24,6 +24,7 @@
 #include <asm/io.h>
 #include <asm/setup.h>
 #include <linux/usb/android_composite.h>
+#include <linux/gpio.h>
 
 #include <mach/hardware.h>
 #include <mach/board.h>
@@ -276,6 +277,8 @@ void __init sprd_add_devices(void)
 }
 
 #define SPRD_SDIO_SLOT0_BASE SPRD_SDIO_BASE
+
+#define SD_DETECT_GPIO	101
 static struct resource sprd_sdio_resource[] = {
 	[0] = {
 		.start = SPRD_SDIO_SLOT0_BASE,
@@ -283,6 +286,11 @@ static struct resource sprd_sdio_resource[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
+		.start = SD_DETECT_GPIO,
+		.end   = SD_DETECT_GPIO,
+		.flags = IORESOURCE_MEM,
+	},
+	[2] = {
 		.start = IRQ_SDIO_INT,
 		.end   = IRQ_SDIO_INT,
 		.flags = IORESOURCE_IRQ,
@@ -305,13 +313,18 @@ static unsigned long sdio_func_cfg[] __initdata = {
 	MFP_CFG_X(SD_D3, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
 };
 
+static unsigned long sdcard_detect_gpio_cfg =
+        MFP_CFG_X(RFCTL11, AF3, DS1, F_PULL_UP,S_PULL_NONE, IO_Z);
+
 static void sprd_config_sdio_pins(void)
 {
 	sprd_mfp_config(sdio_func_cfg, ARRAY_SIZE(sdio_func_cfg));
+	sprd_mfp_config(&sdcard_detect_gpio_cfg, 1);
 }
 
 void __init sprd_add_sdio_device(void)
 {
+	int err;
 	/* Enable SDIO Module */
 	__raw_bits_or(BIT_4, AHB_CTL0);
 	/* reset sdio module*/
@@ -319,6 +332,13 @@ void __init sprd_add_sdio_device(void)
 	__raw_bits_and(~BIT_12, AHB_SOFT_RST);
 
 	sprd_config_sdio_pins();
+	err = gpio_request(SD_DETECT_GPIO, "sdcard detect");
+	if (err) {
+		pr_warning("cannot alloc gpio for sdcard detect\r\n");
+		return;
+	}
+	gpio_direction_input(SD_DETECT_GPIO);
+
 	platform_device_register(&sprd_sdio_device);
 }
 

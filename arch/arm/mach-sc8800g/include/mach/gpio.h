@@ -25,9 +25,9 @@
 #define gpio_set_value __gpio_set_value
 #define gpio_to_irq  __gpio_to_irq
 
-extern __must_check int sprd_gpio_irq_register(int gpio_id, unsigned int irq);
 extern __must_check int sprd_alloc_gpio_irq(unsigned gpio);
-void sprd_free_gpio_irq(int irq);
+extern int irq_to_gpio(unsigned long irq);
+extern void sprd_free_gpio_irq(int irq);
 #include <asm-generic/gpio.h>
 
 extern void __init sprd_gpio_init(void);
