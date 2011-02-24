@@ -57,7 +57,9 @@
 #define CON_PRINT(...)
 #endif
 
+# ifdef CONFIG_ARCH_SC8800G
 #define CONFIG_TS0710_MUX_UART
+# endif /* CONFIG_ARCH_SC8800G */
 
 #define SERIAL_NK_NAME	  "ttyNK"
 #define SERIAL_NK_MAJOR	  220 /* GMv 254 */
@@ -69,7 +71,14 @@
 #define	SERIAL_NK_TIMEOUT	(HZ/10)	/* ten times per second */
 #define	SERIAL_NK_RXLIMIT	256	/* no more than 256 characters */
 typedef struct NkPort NkPort;
-#define MAX_BUF			32
+#define MAX_BUF			128
+
+typedef struct {
+    volatile int	reader;
+    volatile int	writer;
+    int			size;
+    char		buffer[MAX_BUF];
+} Fifo;
 
 
 #ifdef CONFIG_TS0710_MUX_UART
@@ -86,21 +95,23 @@ void (*serial_mux_sender)(void) = NULL;
 #endif
 
 struct NkPort {
-	struct timer_list	timer;
-	unsigned int		poss;    
-	char			buf[MAX_BUF];
-	volatile char		stoprx;    
-	volatile char		stoptx;    
-	unsigned short		count;
-	unsigned short		sz;
-	NkOsId			id;
-	int			(*poll)(NkPort*, int*);
-	spinlock_t		lock;
-	struct tty_struct*	tty;
-	int			wcount;
-	int			ewcount;
-	NkDevVlink*		vlink;
-	NkXIrqId		xid;
+    struct timer_list	timer;
+    unsigned int	poss;    
+    char		buf[MAX_BUF];
+    volatile char	stoprx;    
+    volatile char	stoptx;    
+    unsigned short	count;
+    unsigned short	sz;
+    NkOsId		id;
+    int			(*write_room)(NkPort*);
+    void		(*flush_input)(NkPort*);
+    int			(*write)(NkPort*, const u_char* buf, int count);
+    Fifo*		rxfifo;
+    Fifo*		txfifo;
+    spinlock_t		lock;
+    struct tty_struct*	tty;
+    NkDevVlink*		vlink;
+    NkXIrqId		xid;
 };
 
 #define MAX_PORT 4
@@ -112,28 +123,121 @@ static struct tty_struct*    serial_table[MAX_PORT];
 static struct ktermios*      serial_termios[MAX_PORT];
 static struct ktermios*      serial_termios_locked[MAX_PORT];
 
-static int use_only_console_output;
+/*
+ * the console driver is in three configurations :
+ *	1/ to display console history with /dev/ttyNK1
+ *	2/ with vlink based console driver (allowing to be notified with interrupt)
+ *	3/ with traditional console driver with input based on timeout
+ *
+ * To use the driver in this various configurations, one use some `port ops'
+ *      1/ The hist_ops for the history
+ *	2/ The vcons_ops for the vlink based driver
+ *	3/ The cons_ops for the traditional driver
+ */
+
+
+/*
+ * history related ops
+ */
+
+    static int 
+hist_write_room(NkPort* port)
+{
+    return 0x1000;
+}
+
+    static int
+hist_poll(NkPort* port, int* pc)
+{
+    int c;
+    unsigned long flags;
+
+    for (;;) {
+	hw_local_irq_save(flags);
+	c = os_ctx->hgetc(os_ctx, port->poss);
+	hw_local_irq_restore(flags);
+	if (c) {
+	    break;
+	}
+	port->poss++;
+    }
+
+    if (c > 0) {
+	port->poss++;
+	*pc = c;
+    }
+
+    return c;
+}
+
 
     static void
-nk_serial_console_init(char *cmdline)
+hist_flush_input(NkPort* port)
 {
-    char *options;
-    options = strstr(cmdline, "console="SERIAL_NK_NAME);
-    if (!options) {
-	use_only_console_output = 1;
-    } else {
-	use_only_console_output = 0;
+    unsigned int		size = SERIAL_NK_RXLIMIT;
+    int				c;
+    struct tty_struct*		tty  = port->tty;
+
+    while (!port->stoprx && size && hist_poll(port, &c) > 0 ) {
+	tty_insert_flip_char(tty, c, TTY_NORMAL);
+	size--;
+    }
+
+    if (size < SERIAL_NK_RXLIMIT) {
+	tty_flip_buffer_push(tty);
     }
 }
 
-    static int
-nk_poll_null(NkPort* port, int* c)
+    int
+hist_write(NkPort* port, const u_char* buf, int count)
 {
-    return 0;
+    return count;
+}
+
+
+    static void
+hist_timeout(unsigned long data)
+{
+    struct tty_struct*	tty  = (struct tty_struct*)data;
+    NkPort*          port = NKPORT(tty);
+
+    hist_flush_input(port);
+
+    port->timer.expires = jiffies + SERIAL_NK_TIMEOUT;
+    add_timer(&(port->timer));
 }
 
     static int
-nk_poll(NkPort* port, int* c)
+hist_open(NkPort* port) 
+{
+    port->write_room = hist_write_room;
+    port->flush_input = hist_flush_input;
+    port->write = hist_write;
+
+    init_timer(&port->timer);
+    port->timer.data     = (unsigned long)port->tty;
+    port->timer.function = hist_timeout;
+    port->timer.expires  = jiffies + SERIAL_NK_TIMEOUT;
+    add_timer(&port->timer);
+
+    return 0;
+}
+
+    static void
+hist_close(NkPort* port)
+{
+    if (port->timer.data) {
+	del_timer(&(port->timer));
+    }
+    port->tty = 0;
+}
+
+
+/*
+ * traditional console ops
+ */
+    static int
+cons_poll(NkPort* port, int* c)
 {
     int res;
     char ch;
@@ -145,186 +249,413 @@ nk_poll(NkPort* port, int* c)
     return res;
 }
 
-    static int
-nk_poll_hist(NkPort* port, int* pc)
-{
-    int c;
-    unsigned long flags;
-
-    for (;;) {
-	hw_local_irq_save(flags);
-    	c = os_ctx->hgetc(os_ctx, port->poss);
-	hw_local_irq_restore(flags);
-	if (c) {
-	    break;
-	}
-	port->poss++;
-    }
-	    
-    if (c > 0) {
-	port->poss++;
-	*pc = c;
-    }
-
-    return c;
-}
-
-    void
-printnk (const char* fmt, ...)
-{
-    va_list args;
-    int     size;
-    char    buf[256];
-
-    va_start(args, fmt);
-    size = vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
-
-    if (size >= sizeof(buf)) {
-	size = sizeof(buf)-1;
-    }
-
-    os_ctx->cops.write_msg(os_ctx->id, buf, size);
-}
-
 #define ROOM(port)  (MAX_BUF - (port)->sz - 1)
 
+    static int
+cons_write_room (NkPort* port)
+{
+    return ROOM(port);
+}
+
+    static void
+cons_flush_input(NkPort* port)
+{
+    unsigned int		size = SERIAL_NK_RXLIMIT;
+    int				c;
+    struct tty_struct*		tty  = port->tty;
+
+    while (!port->stoprx && size && cons_poll(port, &c) > 0 ) {
+	tty_insert_flip_char(tty, c, TTY_NORMAL);
+	size--;
+    }
+
+    if (size < SERIAL_NK_RXLIMIT) {
+	tty_flip_buffer_push(tty);
+    }
+}
+    static int
+cons_flush_chars (NkPort*	port)
+{
+    if (port->sz) {
+	int		sz;
+	sz = os_ctx->cops.write(port->id, port->buf , port->sz);
+	if (sz > 0) {
+	    port->sz -= sz;
+	    if (port->sz) {
+		memcpy(port->buf, port->buf + sz, port->sz);
+	    }
+	}
+    }
+    return port->sz;
+}
+
+    static int
+cons_write (NkPort*	port, const u_char* buf, int count)
+{
+    int				res = 0;
+    unsigned long		flags;
+
+    spin_lock_irqsave(&port->lock, flags);
+    if (cons_flush_chars(port) == 0) {
+	res = os_ctx->cops.write(port->id, buf, count);
+    } 
+
+    if ( res < count ) {
+	int		room = ROOM(port);
+
+	if ( (count - res) < room  ) {
+	    room = count - res;	
+	}
+
+	memcpy(port->buf + port->sz, buf + res, room); 
+	port->sz += room;
+	res += room;
+
+    }
+    spin_unlock_irqrestore(&port->lock, flags);
+    return res;
+}
+
+    static void
+cons_timeout (unsigned long data)
+{
+    struct tty_struct*	tty  = (struct tty_struct*)data;
+    NkPort*          	port = NKPORT(tty);
+    unsigned long	flags;
+
+    cons_flush_input(port);
+
+    spin_lock_irqsave(&port->lock, flags);
+    if (port->sz) {
+	cons_flush_chars(port);
+	tty_wakeup(port->tty);
+    }
+    spin_unlock_irqrestore(&port->lock, flags);
+
+    port->timer.expires = jiffies + SERIAL_NK_TIMEOUT;
+    add_timer(&(port->timer));
+}
+
+    static int 
+cons_open(NkPort*	port)
+{
+
+    port->flush_input = cons_flush_input;
+    port->write = cons_write;
+    port->write_room = cons_write_room;
+
+    os_ctx->cops.open(port->id);
+
+    /*
+     * no vlink found so use timer to poll character and restart output
+     */
+    init_timer(&port->timer);
+    port->timer.data     = (unsigned long)port->tty;
+    port->timer.function = cons_timeout;
+    port->timer.expires  = jiffies + SERIAL_NK_TIMEOUT;
+    add_timer(&port->timer);
+
+    return 0;
+}
+
+    static int
+cons_close(NkPort* port)
+{
+    unsigned long		flags;
+    port->tty = 0;
+    if (port->timer.data) {
+	del_timer(&(port->timer));
+    }
+
+    spin_lock_irqsave(&port->lock, flags);
+    cons_flush_input(port);
+    cons_flush_chars(port);
+    spin_unlock_irqrestore(&port->lock, flags);
+    os_ctx->cops.close(port->id);
+    return 0;
+}
+
+
+
+/*
+ * vlink related console ops
+ */
+
+    static inline int
+vcons_rxfifo_count(NkPort* port)
+{
+    return port->rxfifo->writer - port->rxfifo->reader;
+}
+
+
+    static inline int
+vcons_write_room(NkPort* port)
+{
+    Fifo*	fifo = port->txfifo;
+    return fifo->size - (fifo->writer - fifo->reader);
+}
+
+    static int
+vcons_write(NkPort*	     	   port, 
+	    const u_char*      buf,
+	    int                count)
+{
+    int				res;
+    unsigned long		flags;
+
+    spin_lock_irqsave(&port->lock, flags);
+    res = os_ctx->cops.write(port->id, buf, count);
+    spin_unlock_irqrestore(&port->lock, flags);
+
+    return res;
+}
+
+    static void
+vcons_rx_intr (NkPort* port)
+{
+    unsigned int		size;
+    int				i;
+#ifdef CONFIG_TS0710_MUX_UART
+    int				dispatch = 0;
+#endif
+
+    while ((size = vcons_rxfifo_count(port))) {
+	if (port->count == 0) {
+	    return;
+	}
+
+	if (port->stoprx) {
+	    break;
+	}
+
+#ifdef CONFIG_TS0710_MUX_UART
+	if ( ( 3 == NKLINE(port->tty)) && cmux_opened() ) {
+	    int 		num;
+	    unsigned long	flags;  
+	    num =0; 	
+		
+	    hw_local_irq_save(flags);
+
+	    if  ( (num = os_ctx->cops.read(port->id, port->buf, size)) ) {
+		mux_ringbuffer_write(&rbuf, port->buf, num);
+	    }
+
+	    dispatch = 1;
+	    hw_local_irq_restore(flags);
+
+	    CON_TRACE("func[%s]:rev_num=%d\n",__FUNCTION__,num);
+	    continue;
+	}
+#endif
+
+	/* ask how many characters we can read */
+	size = tty_buffer_request_room(port->tty, size);
+	if (size == 0) {
+	    return;
+	}
+	
+	size = os_ctx->cops.read(port->id, port->buf, size);
+	for (i = 0; i < size; i++) {
+	    tty_insert_flip_char(port->tty, port->buf[i], TTY_NORMAL);
+	}
+    }
+
+#ifdef CONFIG_TS0710_MUX_UART
+    if (dispatch) {
+	  unsigned long flags;   
+
+	  hw_local_irq_save(flags);
+	  if (serial_mux_dispatcher && is_cmux_mode()) {
+	      serial_mux_dispatcher(port->tty);
+	  }
+	  hw_local_irq_restore(flags);
+
+    } else
+#endif
+
+    tty_schedule_flip(port->tty);
+}
+
+    static void
+vcons_tx_intr (NkPort* port)
+{
+    unsigned long		flags;
+    
+
+    spin_lock_irqsave(&port->lock, flags);
+    if (vcons_write_room(port)) {
+	tty_wakeup(port->tty);
+    }
+    spin_unlock_irqrestore(&port->lock, flags);
+
+#ifdef CONFIG_TS0710_MUX_UART
+    int				line;
+    line = NKLINE(port->tty);
+    if ((3==line) && cmux_opened()){
+	CON_PRINT("func[%s]:serial_mux_sender\n",__FUNCTION__);
+	if(serial_mux_sender){
+	    serial_mux_sender();	
+	}	
+    }
+#endif
+
+}
+
+    static void 
+vcons_intr(void* data, NkXIrq irq)
+{
+    NkPort*	port = (NkPort*) data;
+    vcons_rx_intr(port);
+    vcons_tx_intr(port);
+}
+
+
+/*
+ * lookup a vlink for this tty
+ */
+    NkDevVlink* 
+vcons_lookup(struct tty_struct* tty)
+{
+    NkPhAddr	plink = 0;
+    NkDevVlink*	vlink;
+    /* lookup vcons for the given tty */
+    while ((plink = nkops.nk_vlink_lookup("vcons", plink))) {
+	vlink = (NkDevVlink*) nkops.nk_ptov(plink);
+
+	if (vlink->s_id == nkops.nk_id_get()) {
+
+	    int   minor = 0;
+	    if (vlink->s_info) {
+		char*	resinfo;
+		char*   info;
+		int	t;
+
+		info = (char*) nkops.nk_ptov(vlink->s_info);
+
+		t = simple_strtoul(info, &resinfo, 0);
+		if (resinfo != info) {
+		    minor = t;	
+		}
+	    }
+
+	    if (vlink->link == nkops.nk_id_get() && 
+		(tty->index != 0)) {
+		/* this should never occurs */
+		continue;
+	    }
+
+	    if (minor == tty->index) {
+		return vlink;
+	    }
+	}
+    }
+    return 0;
+}
+
+    static int
+vcons_open(NkPort*	port, NkDevVlink* vlink)
+{
+    NkXIrq		irq;
+    NkPhAddr	paddr;
+    NkPhAddr	plink;
+
+    /* vlink physical address */
+    plink = nkops.nk_vtop(vlink);
+
+    /* save the vlink */
+    port->vlink = vlink;
+
+    /* initialize port ops for vlink based driver */
+    port->flush_input = vcons_rx_intr;
+    port->write = vcons_write;
+    port->write_room = vcons_write_room;
+
+    /* 
+     * if link is null, we use os id as channel number
+     * otherwise one use the underlying link number as channel number
+     */
+    if (vlink->link != 0) {
+	port->id = vlink->link;
+    }
+
+    /*
+     * alloc a cross interrupt so as to be notified when a character
+     * has been received
+     */
+    irq = nkops.nk_pxirq_alloc(plink, 1, vlink->s_id, 1);
+    if (!irq) {
+	return -ENOMEM;
+    }
+
+    /*
+     * allocate  transmit fifo
+     */
+    paddr = nkops.nk_pdev_alloc(plink, 1, sizeof(Fifo));
+    if (!paddr) {
+	return -ENOMEM;
+    }
+
+    port->txfifo = nkops.nk_ptov(paddr);
+    if (port->txfifo == 0) {
+	return -ENOMEM;
+    }
+
+    /*
+     * allocate  the rx fifo
+     */
+    paddr = nkops.nk_pdev_alloc(plink, 2, sizeof(Fifo));
+    if (!paddr) {
+	return -ENOMEM;
+    }
+
+    port->rxfifo = nkops.nk_ptov(paddr);
+    if (port->rxfifo == 0) {
+	return -ENOMEM;
+    }
+
+    os_ctx->cops.open(vlink->link);
+
+    port->xid = nkops.nk_xirq_attach(irq, 
+				     vcons_intr, 
+				     port);
+    if (port->xid == 0) {
+	return -ENOMEM;
+    }
+
+#ifdef DEBUG
+    printk("Open ttyNK<%d> portid %x", line, port->id);
+    printk("vlink %p vlink->link %x\n", vlink, vlink->link);
+#endif
+    return 0;
+
+}
+
+
+    static int
+vcons_close(NkPort* port)
+{
+    /* mask xirq */
+    if (port->xid) {
+	nkops.nk_xirq_detach(port->xid);
+	port->xid = 0;
+    }
+
+    port->tty = 0;
+    os_ctx->cops.close(port->vlink->link);
+    return 0;
+}
+
+
+
+/*
+ * Here is the implementation of the generic tty driver interface
+ */
 
     static int
 serial_write_room (struct tty_struct* tty)
 {
-    return ROOM(NKPORT(tty));
-}
-
-	static inline int
-_write(const u_char* buf, int size, int chan)
-{
-	int			res;
-
-	res = os_ctx->cops.write(chan, buf , size);
-
-	return res;
-}
-
-	static int
-_flush_chars (struct tty_struct *tty)
-{
-	NkPort*		port = NKPORT(tty);
-	if (port->sz) {
-		int		sz;
-		sz = _write(port->buf, port->sz, port->id);
-		if (sz > 0) {
-			port->sz -= sz;
-			if (port->sz) {
-				memcpy(port->buf, port->buf + sz, port->sz);
-			}
-		}
-	}
-	return port->sz;
-}
-
-	static void
-_flush_input(NkPort* port)
-{
-	int		res;
-	char		ch[16];
-	/* flush input buffers */
-	do {
-		res = os_ctx->cops.read(port->id, ch, sizeof(ch));
-	} while (res > 0);
-}
-	
-#ifdef CONFIG_TS0710_MUX_UART
-#define RX_NUM_MAX    2048
-static char rev[RX_NUM_MAX*10];
-#endif
-	static void
-serial_rx_intr (void* data, NkXIrq irq)
-{
-	NkPort*          	port = (NkPort*) data;
-	unsigned int		size = SERIAL_NK_RXLIMIT;
-	int			c;
-#ifdef CONFIG_TS0710_MUX_UART
-	int line,num;
-    unsigned long flags;  
-#endif
-	
-    if (port->count == 0) {
-		_flush_input(port);
-		return;
-	}
-	
-#ifdef CONFIG_TS0710_MUX_UART
-	line = NKLINE(port->tty);
-	if ((3==line)&& cmux_opened()){
-		num =0; 	
-	    //printk("\nSR<");
-        hw_local_irq_save(flags);
-		//while (!port->stoprx && size && port->poll(port, &c) > 0 ) {
-		while (!port->stoprx && (num=os_ctx->cops.read(port->id, rev, RX_NUM_MAX))){
-            //printk("%x",c);
-		    mux_ringbuffer_write(&rbuf, rev, num);
-		}
-        //printk("func[%s]:rev_num=%d\n",__FUNCTION__,num);
-		//printk("\n%dSR>",num);
-		if (serial_mux_dispatcher && is_cmux_mode())
-			serial_mux_dispatcher(port->tty);
-        hw_local_irq_restore(flags);
-        CON_TRACE("func[%s]:rev_num=%d\n",__FUNCTION__,num);
-		return;
-	}
-	else {
-#endif
-    CON_PRINT("func[%s]:rx<\n",__FUNCTION__);
-	while (!port->stoprx && size && port->poll(port, &c) > 0 ) {
-		tty_insert_flip_char(port->tty, c, TTY_NORMAL);
-        CON_PRINT("%x",c);
-		size--;
-	}
-    CON_PRINT("func[%s]:rx>\n",__FUNCTION__);
-
-	if (size < SERIAL_NK_RXLIMIT) {
-		tty_flip_buffer_push(port->tty);
-	}
-#ifdef CONFIG_TS0710_MUX_UART
-	}
-#endif
-}
-
-	static void
-serial_tx_intr (void* data, NkXIrq irq)
-{
-	NkPort*          	port = (NkPort*) data;
-	unsigned long		flags;
-    int line;
-
-	spin_lock_irqsave(&port->lock, flags);
-	if (port->sz) {
-        //printk("func[%s]:tx_buf=0x%x\n",__FUNCTION__,port->buf);
-		if (_flush_chars(port->tty) == 0 )
-		    tty_wakeup(port->tty);
-	}
-	spin_unlock_irqrestore(&port->lock, flags);
-
-#ifdef CONFIG_TS0710_MUX_UART
-	line = NKLINE(port->tty);
-	if ((3==line)&& cmux_opened()){
-        CON_PRINT("func[%s]:serial_mux_sender\n",__FUNCTION__);
-		if(serial_mux_sender){
-			serial_mux_sender();	
-		}	
-	}
-#endif
-
-}
-
-	static void 
-serial_intr(void* data, NkXIrq irq)
-{
-    
-  CON_PRINT("func[%s]: irq=%d\n",__FUNCTION__,irq);
-	serial_rx_intr(data, irq);
-	serial_tx_intr(data, irq);
+    NkPort*	port = NKPORT(tty);
+    return port->write_room(port);
 }
 
     static void
@@ -343,9 +674,8 @@ serial_unthrottle (struct tty_struct* tty)
 {
     NkPort*		port = NKPORT(tty);
     port->stoprx = 0;
-    serial_rx_intr(port, 0);	
+    port->flush_input(port);
 }
-
 
     static int
 serial_write (struct tty_struct* tty,
@@ -353,66 +683,7 @@ serial_write (struct tty_struct* tty,
 	      int                count)
 {
     NkPort*			port = NKPORT(tty);
-    int			res = 0;
-    unsigned long		flags;
-    
-    u_char* buffer;
-    int num;
-   
-    buffer=buf;
-    num=count;
-  
-    if(3 == NKLINE(tty)){
-        CON_TRACE("func[%s]: count=%d\n",__FUNCTION__,count);
-    }
-   
-    if(3 == NKLINE(tty)){
-        CON_TRACE("func[%s]: write<0x",__FUNCTION__);
-        while(num > 0){
-            CON_TRACE("%x",*buffer);
-            buffer++;
-            num--;
-        }
-        CON_TRACE(">\n");
-    }
-    if (NKLINE(tty) == 1) {
-	return count;
-    }
-
-    spin_lock_irqsave(&port->lock, flags);
-    if (_flush_chars(tty) == 0) {
-            if(3 == NKLINE(tty)){
-                    CON_TRACE("func[%s]: gonna do _write()\n",__FUNCTION__);
-            } 
-            res = _write(buf, count, port->id);
-    }
-    if ( res < count ) {
-	int		room = ROOM(port);
-
-	if ( (count - res) < room  ) {
-	    room = count - res;	
-	}
-
-	memcpy(port->buf + port->sz, buf + res, room); 
-	port->sz += room;
-	res += room;
-
-    }
-    spin_unlock_irqrestore(&port->lock, flags);
-#if 0
-#ifdef CONFIG_TS0710_MUX_UART
-    if(3 == NKLINE(tty) && cmux_opened()){
-        CON_PRINT("func[%s]:serial_mux_sender\n",__FUNCTION__);
-		if(serial_mux_sender){
-			serial_mux_sender();	
-		}	
-	}
-#endif
-#endif
-    if(3 == NKLINE(tty)){
-        CON_TRACE("func[%s]: res=%d\n",__FUNCTION__,res);
-    }
-    return res;
+    return port->write(port, buf, count);
 }
 
 
@@ -450,48 +721,12 @@ serial_start(struct tty_struct* tty)
     NKPORT(tty)->stoptx = 0;
 }
 
-
-    static void
-serial_timeout (unsigned long data)
-{
-    struct tty_struct*	tty  = (struct tty_struct*)data;
-    unsigned int		size = SERIAL_NK_RXLIMIT;
-    int			c;
-    unsigned long		flags;
-
-    NkPort*          port = NKPORT(tty);
-
-    if(3 == NKLINE(tty))
-        CON_PRINT("func[%s]\n",__FUNCTION__);
-    while (!port->stoprx && size && port->poll(port, &c) > 0 ) {
-	tty_insert_flip_char(tty, c, TTY_NORMAL);
-	size--;
-    }
-    if (size < SERIAL_NK_RXLIMIT) {
-	tty_flip_buffer_push(tty);
-    }
-
-    spin_lock_irqsave(&port->lock, flags);
-    if (port->sz) {
-	_flush_chars(port->tty);
-	tty_wakeup(port->tty);
-    }
-    spin_unlock_irqrestore(&port->lock, flags);
-
-
-    port->timer.expires = jiffies + SERIAL_NK_TIMEOUT;
-    add_timer(&(port->timer));
-}
-
-
     static int
 serial_open (struct tty_struct* tty, struct file* filp)
 {
     int			line;
     NkPort* 		port;
-    NkPhAddr		plink = 0;
     NkDevVlink*		vlink;
-    int			irq;
 
     line = NKLINE(tty);
     port = line + serial_port;
@@ -523,163 +758,75 @@ serial_open (struct tty_struct* tty, struct file* filp)
 
     port->id		= os_ctx->id;
     tty->driver_data	= port;
-    port->stoptx		= 0;
-    port->stoprx		= 0;
+    port->stoptx	= 0;
+    port->stoprx	= 0;
     port->sz		= 0;
     port->poss		= 0;
     port->tty		= tty;
-    port->wcount		= 0;
-    port->ewcount		= 0;
     port->vlink		= 0;
     port->xid		= 0;
+    port->timer.data 	= 0;
 
     spin_lock_init(&port->lock);
 
-    if (use_only_console_output) {
-	port->poll = nk_poll_null;
-	return 0;
-    }
-
-    port->poll		 = nk_poll;
+    /*
+     * console specific initialization.
+     */
     if (line == 1) {
-	port->poll = nk_poll_hist;
-    }
-    port->timer.data = 0;
-
-
-    while ((plink = nkops.nk_vlink_lookup("vcons", plink))) {
-    CON_PRINT("func[%s]:plink was found\n",__FUNCTION__);
-	vlink = (NkDevVlink*) nkops.nk_ptov(plink);
-
-	if (vlink->s_id == nkops.nk_id_get()) {
-	    
-        int   minor = 0;
-	    if (vlink->s_info) {
-		char*	resinfo;
-		char*   info;
-		int	t;
-
-		info = (char*) nkops.nk_ptov(vlink->s_info);
-
-		t = simple_strtoul(info, &resinfo, 0);
-		if (resinfo != info) {
-		    minor = t;	
-		}
-	    }
-
-	    if (vlink->link == nkops.nk_id_get() && 
-		(tty->index != 0)) {
-		    /* this should never occurs */
-		continue;
-	    }
-
-	    if (minor == tty->index) {
-		goto found_vlink;
-	    }
+	/* history initialization */
+	return hist_open(port);
+    } else {
+	/* use vcons driver if possible */
+	vlink = vcons_lookup(tty);
+	if (vlink) {
+	    return vcons_open(port, vlink);
+	} else {
+	    return cons_open(port);
 	}
     }
-    
-    CON_PRINT("func[%s]:vlink was not found\n",__FUNCTION__);
-	/*
-	 * no vlink found so use timer to poll character and restart output
-	 */
-	init_timer(&port->timer);
-	port->timer.data     = (unsigned long)tty;
-	port->timer.function = serial_timeout;
-	port->timer.expires  = jiffies + SERIAL_NK_TIMEOUT;
-	add_timer(&port->timer);
-
-	return 0;
-
-found_vlink:
-    
-    CON_PRINT("func[%s]:vlink was found\n",__FUNCTION__);
-	/* found a vlink for this tty device */
-	port->vlink = vlink;
-
-	/* 
-	 * if link is null, we use os id as channel number
-	 * otherwise one use the underlying link number as channel number
-	 */
-	if (vlink->link != 0) {
-		port->id = vlink->link;
-	}
-
-	irq = nkops.nk_pxirq_alloc(plink, 1, vlink->s_id, 1);
-	if (!irq) {
-		return -ENOMEM;
-	}
-
-	os_ctx->cops.open(vlink->link);
-
-	port->xid = nkops.nk_xirq_attach(irq, 
-					 serial_intr, 
-					 port);
-	if (port->xid == 0) {
-		return -ENOMEM;
-	}
-
-#ifdef DEBUG
-	printk("Open ttyNK<%d> portid %x", line, port->id);
-	printk("vlink %p vlink->link %x\n", vlink, vlink->link);
-#endif
-	return 0;
 }
 
-	static void
+    static void
 serial_close (struct tty_struct* tty, struct file* filp)
 { 
-	NkPort* port = (NkPort*)tty->driver_data;
-
+    NkPort* port = (NkPort*)tty->driver_data;
 #ifdef CONFIG_TS0710_MUX_UART
 	int line = NKLINE(tty);
 	if (line == 3) {
 		serial_mux_guard--;
 	}
 #endif
-	
-	port->count--;
-	if (port->count == 0) {
-		unsigned long	flags;
 
-		os_ctx->cops.close(port->id);
+    port->count--;
+    if (port->count == 0) {
 
-		/* mask xirq */
-		if (port->xid) {
-		    nkops.nk_xirq_detach(port->xid);
-		    port->xid = 0;
-		}
-
-		port->tty = 0;
-		if (port->timer.data) {
-			del_timer(&(port->timer));
-		}
-
-		spin_lock_irqsave(&port->lock, flags);
-		_flush_input(port);
-		_flush_chars(tty);
-		spin_unlock_irqrestore(&port->lock, flags);
+	if (NKLINE(tty) == 1) {
+	    hist_close(port);
+	} else if (port->vlink) {
+	    vcons_close(port);
+	} else {
+	    cons_close(port);
+	}
 
 #ifdef DEBUG
-		printk("Closing ttyNK<%d> 0x%x 0x%x \n", 
-		       tty->index, port->ewcount, port->wcount);
+	printk("Closing ttyNK<%d>\n", tty->index);
 #endif
-	}
+    }
 }
 
-   static void
+    static void
 serial_wait_until_sent (struct tty_struct* tty, int timeout)
 {
 }
 
-	static int __init
+    static int __init
 serial_init (void)
 {
     serial_driver.owner           = THIS_MODULE;
     serial_driver.magic           = TTY_DRIVER_MAGIC;
     serial_driver.driver_name     = "nkconsole";
     serial_driver.name            = SERIAL_NK_NAME;
-/* GMv    serial_driver.devfs_name      = SERIAL_NK_NAME; */
+    /* GMv    serial_driver.devfs_name      = SERIAL_NK_NAME; */
     serial_driver.major           = SERIAL_NK_MAJOR;
     serial_driver.minor_start     = SERIAL_NK_MINOR;
     serial_driver.num             = MAX_PORT;
@@ -694,23 +841,24 @@ serial_init (void)
     serial_driver.termios_locked  = serial_termios_locked;
     serial_driver.ops             = &serial_ops;
 
-    serial_ops.open            = serial_open;
-    serial_ops.close           = serial_close;
-    serial_ops.write           = serial_write;
-    serial_ops.write_room      = serial_write_room;
-    serial_ops.chars_in_buffer = serial_chars_in_buffer;
-    serial_ops.flush_buffer    = serial_flush_buffer;
-    serial_ops.throttle        = serial_throttle;
-    serial_ops.unthrottle      = serial_unthrottle;
-    serial_ops.send_xchar      = serial_send_xchar;
-    serial_ops.set_termios     = serial_set_termios;
-    serial_ops.stop            = serial_stop;
-    serial_ops.start           = serial_start;
-    serial_ops.wait_until_sent = serial_wait_until_sent;
+    serial_ops.open            	  = serial_open;
+    serial_ops.close           	  = serial_close;
+    serial_ops.write           	  = serial_write;
+    serial_ops.write_room      	  = serial_write_room;
+    serial_ops.chars_in_buffer 	  = serial_chars_in_buffer;
+    serial_ops.flush_buffer    	  = serial_flush_buffer;
+    serial_ops.throttle        	  = serial_throttle;
+    serial_ops.unthrottle      	  = serial_unthrottle;
+    serial_ops.send_xchar      	  = serial_send_xchar;
+    serial_ops.set_termios     	  = serial_set_termios;
+    serial_ops.stop            	  = serial_stop;
+    serial_ops.start           	  = serial_start;
+    serial_ops.wait_until_sent 	  = serial_wait_until_sent;
 
     if (tty_register_driver(&serial_driver)) {
-    	printk(KERN_ERR "Couldn't register NK console driver\n");
+	printk(KERN_ERR "Couldn't register NK console driver\n");
     }
+
 #ifdef CONFIG_TS0710_MUX_UART
 	serial_for_mux_driver = &serial_driver;
 	printk("=========serial_for_mux_driver=%p========\n",serial_for_mux_driver);
@@ -718,6 +866,7 @@ serial_init (void)
 	serial_mux_guard = 0;
 #endif
 	return 0;
+
 }
 
     static void __exit
@@ -733,6 +882,25 @@ serial_fini(void)
 
     local_irq_restore(flags);
 }
+
+    void
+printnk (const char* fmt, ...)
+{
+    va_list args;
+    int     size;
+    char    buf[256];
+
+    va_start(args, fmt);
+    size = vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    if (size >= sizeof(buf)) {
+	size = sizeof(buf)-1;
+    }
+
+    os_ctx->cops.write_msg(os_ctx->id, buf, size);
+}
+
 
     static int
 nk_console_setup (struct console* c, char* unused)
@@ -766,7 +934,6 @@ static struct console nkcons =
     void __init
 nk_console_init (void)
 {
-    nk_serial_console_init(boot_command_line);
     register_console(&nkcons);
 }
 
