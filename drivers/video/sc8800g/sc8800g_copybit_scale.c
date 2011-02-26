@@ -139,13 +139,13 @@ static int get_param(SCALE_PARAM_T *scale_param, struct s2d_blit_req * req)
 	scale_param->in_rect.x = req->src_rect.x;
 	if((req->src_rect.x + req->src_rect.w) & 0x3)
 	{
-		scale_param->in_rect.w = scale_param->in_rect.w + (3 - ((req->src_rect.x + req->src_rect.w) & (0x3)));	
+		scale_param->in_rect.w = scale_param->in_rect.w + (4 - ((req->src_rect.x + req->src_rect.w) & (0x3)));	
 		if((scale_param->in_rect.x + scale_param->in_rect.w) > req->src.width)
 		{
 			SCALE_PRINT("the in_rect.w is over.\n");
 			return -1;
 		}		
-		scale_param->out_size.w = scale_param->out_size.w +  (3 -( (req->src_rect.x + req->src_rect.w) & 0x3)) * scale_size;
+		scale_param->out_size.w = scale_param->out_size.w +  (4 -( (req->src_rect.x + req->src_rect.w) & 0x3)) * scale_size;
 	}
 	if(req->src_rect.x & 0x3)
 	{			

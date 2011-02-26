@@ -254,7 +254,7 @@ LOCAL uint32_t _SCALE_DriverCalcScaleCoeff(uint32_t input_width,
 #endif //ISP_DRV_SCALE_COEFF_TABLE_EN
 
 #ifndef ISP_DRV_SCALE_COEFF_TABLE_EN
-int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
+static int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
 {  
     ISP_PATH_DESCRIPTION_T *p_path = SCI_NULL;
     uint32_t i = 0;

@@ -20,6 +20,25 @@
 #include "dcam_sc8800g_scalecoeff_h.h"
 #include "dcam_sc8800g_scalecoeff_v.h"
 
+#ifdef ISP_DRV_SCALE_COEFF_TABLE_EN
+#include "scale_sc8800g_scalecoeff_h.h"
+#include "scale_sc8800g_scalecoeff_v.h"
+#else
+#include "gen_scale_coef.h"
+//#define ISP_DRV_SCALE_COEFF_DBG
+//#define ISP_DRV_SCALE_COEFF_TABLE_EN
+#define ISP_PATH1 1 
+#define ISP_PATH2 2
+#define ISP_DRV_SCALE_COEFF_BUF_SIZE        (8*1024)
+#define ISP_DRV_SCALE_COEFF_TMP_SIZE        (6*1024)
+#define ISP_DRV_SCALE_COEFF_COEF_SIZE       (1*1024)
+#define SCI_NULL 0 
+#define SCI_MEMSET  memset
+#define SCI_MEMCPY	memcpy
+#define SCI_ASSERT(...) 
+#define SCI_PASSERT(condition, format...)
+#endif
+
 #define SA_SHIRQ IRQF_SHARED
 #define IRQ_LINE_DCAM 27 //irq line number in system
 #define NR_DCAM_ISRS 12
@@ -205,13 +224,14 @@ LOCAL void    _ISP_DriverForceCopy(uint32_t base_addr);
 LOCAL int32_t   _ISP_DriverSetMasterEndianness(uint32_t base_addr, uint32_t master_sel, uint32_t is_rgb565);
 LOCAL int32_t   _ISP_DriverSetPath1NextFrameAddr(uint32_t base_addr, BOOLEAN b_first_frame);
 #endif
+#ifdef ISP_DRV_SCALE_COEFF_TABLE_EN
 LOCAL uint32_t  _ISP_DriverCalcScaleCoeff(uint32_t input_width, 
                                         uint32_t input_height, 
                                         uint32_t output_width, 
                                         uint32_t output_height,
                                         uint32_t *p_h_coeff,
                                         uint32_t *p_v_coeff);
-
+#endif 
 LOCAL int32_t   _ISP_DriverPath1TrimAndScaling(uint32_t base_addr);
 
 
@@ -1202,8 +1222,188 @@ LOCAL int32_t _ISP_DriverCalcSC1Size(void)
     }
     return rtn;
 }
+
+#ifndef ISP_DRV_SCALE_COEFF_TABLE_EN
+static int32_t _ISP_DriverGenScxCoeff(uint32_t base_addr, uint32_t idxScx)
+{  
+    ISP_PATH_DESCRIPTION_T *p_path = SCI_NULL;
+    uint32_t i = 0;
+    uint32_t HScaleAddr   = 0;
+    uint32_t VScaleAddr   = 0;	
+
+    uint32_t *pTmpBuf     = SCI_NULL;
+    uint32_t *pHCoeff     = SCI_NULL;	
+    uint32_t *pVCoeff     = SCI_NULL;
+
+
+	if(ISP_PATH1 != idxScx && ISP_PATH2 != idxScx)
+	    return ISP_DRV_RTN_PARA_ERR;
+    
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+    DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff Entry");
+#endif
+
+	if(ISP_PATH1 == idxScx)
+	{
+	    p_path = &s_isp_mod.isp_path1;
+
+        HScaleAddr   = base_addr + ISP_SCALE1_H_TAB_OFFSET;
+        VScaleAddr   = base_addr + ISP_SCALE1_V_TAB_OFFSET;        
+    }
+    else 
+    {
+        p_path = &s_isp_mod.isp_path2;
+        
+        HScaleAddr   = base_addr + ISP_SCALE2_H_TAB_OFFSET;
+        VScaleAddr   = base_addr + ISP_SCALE2_V_TAB_OFFSET;  
+    }
+    
+    pTmpBuf = (uint32_t *)kmalloc(ISP_DRV_SCALE_COEFF_BUF_SIZE, GFP_KERNEL);
+    SCI_ASSERT(SCI_NULL != pTmpBuf);
+    SCI_MEMSET(pTmpBuf, 0, ISP_DRV_SCALE_COEFF_BUF_SIZE);
+    
+    pHCoeff = pTmpBuf;
+    pVCoeff = pTmpBuf + (ISP_DRV_SCALE_COEFF_COEF_SIZE/4);
+
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+    DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff i_w/i_h/o_w/o_h = {%d, %d, %d, %d,}",
+        (int16_t)p_path->sc_input_size.w,
+        (int16_t)p_path->sc_input_size.h,
+        (int16_t)p_path->output_size.w,
+        (int16_t)p_path->output_size.h
+        );    
+#endif
+
+    if(!(GenScaleCoeff((int16_t)p_path->sc_input_size.w, 
+        (int16_t)p_path->sc_input_size.h, 
+        (int16_t)p_path->output_size.w,  
+        (int16_t)p_path->output_size.h, 
+		pHCoeff, 
+		pVCoeff, 
+		pTmpBuf + (ISP_DRV_SCALE_COEFF_COEF_SIZE/4*2), 
+		ISP_DRV_SCALE_COEFF_TMP_SIZE)))
+    {
+        DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff GenScaleCoeff error!");    
+        SCI_ASSERT(0);
+    }
+	
+	if(ISP_PATH1 == idxScx)
+	{    
+        do
+        {   
+            //pIspReg->dcam_cfg_u.mBits.path1_clk_switch = ISP_CLK_DOMAIN_AHB;		
+		_paod(DCAM_CFG, BIT_3);//ISP_CLK_DOMAIN_AHB
+        //}while(!(pIspReg->dcam_cfg_u.mBits.path1_clk_status));
+        }while(!((_pard(DCAM_CFG) >> 5) & 0x1));
+
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+        DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff Domain = 0x%x", 
+            //pIspReg->dcam_cfg_u.mBits.path1_clk_switch);
+            _pard(DCAM_CFG) >> 3) & 0x1);
+#endif
+    }
+    else 
+    {
+        do
+        {
+            //pIspReg->dcam_cfg_u.mBits.path2_clk_switch = ISP_CLK_DOMAIN_AHB;     
+		_paod(DCAM_CFG, BIT_4);//ISP_CLK_DOMAIN_AHB
+        //}while(!(pIspReg->dcam_cfg_u.mBits.path2_clk_status));
+        }while(!((_pard(DCAM_CFG) >> 6) & 0x1));
+
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+        DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff Domain = 0x%x", 
+            //pIspReg->dcam_cfg_u.mBits.path1_clk_switch);
+            _pard(DCAM_CFG) >> 4) & 0x1);
+#endif
+    }   
+        
+    for( i = 0; i < ISP_SCALE_COEFF_H_NUM; i++)
+    {
+       // *(volatile uint32_t*)HScaleAddr = *pHCoeff;
+	_pawd(HScaleAddr, *pHCoeff);
+
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+        DCAM_TRACE("ISP_DRV: Coeff H[%d] = 0x%x.\n", i, 
+            *pHCoeff); 
+#endif
+
+        HScaleAddr += 4;
+        pHCoeff++;
+    }    
+    
+    for( i=0 ;i < ISP_SCALE_COEFF_V_NUM; i++)
+    {
+        //*(volatile uint32_t*)VScaleAddr = *pVCoeff;
+        _pawd(VScaleAddr, *pVCoeff);
+        
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+        DCAM_TRACE("ISP_DRV: Coeff V[%d] = 0x%x.\n", i, 
+            *pVCoeff);
+#endif
+
+        VScaleAddr += 4;
+        pVCoeff++;
+    }
+
+    if(ISP_PATH1 == idxScx)
+    {
+    	//pIspReg->dcam_path_cfg_u.mBits.ver_down_tap = (*pVCoeff) & 0x0F;
+    	_paad(DCAM_PATH_CFG, ~0xF0);
+	_paod(DCAM_PATH_CFG, ( (*pVCoeff) & 0x0F) << 4);
+    }
+    else
+    {
+    	//pIspReg->review_path_cfg_u.mBits.ver_down_tap = (*pVCoeff) & 0x0F;
+    	_paad(REV_PATH_CFG, ~(0xF << 14));
+	_paod(REV_PATH_CFG, ((*pVCoeff) & 0x0F) << 14);
+    }
+
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+    DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff V[%d] = 0x%x", i, 
+        (*pVCoeff) & 0x0F);
+    DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff V[%d] = 0x%x", i, 
+        //pIspReg->dcam_path_cfg_u.mBits.ver_down_tap);
+        (_pard(DCAM_PATH_CFG) >> 4) & 0xF);
+#endif
+    
+    if(ISP_PATH1 == idxScx)        
+    {
+       // pIspReg->dcam_cfg_u.mBits.path1_clk_switch = ISP_CLK_DOMAIN_DCAM;	
+	_paad(DCAM_CFG, ~BIT_3);
+
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+        DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff Domain = 0x%x", 
+            //pIspReg->dcam_cfg_u.mBits.path1_clk_switch);
+            (_pard(DCAM_CFG) >> 3) & 0x1);
+#endif
+    }
+    else
+    {
+        //pIspReg->dcam_cfg_u.mBits.path2_clk_switch = ISP_CLK_DOMAIN_DCAM;	
+        _paad(DCAM_CFG, ~BIT_4);
+
+#ifdef ISP_DRV_SCALE_COEFF_DBG
+        DCAM_TRACE("ISP_DRV: _ISP_DriverGenScxCoeff Domain = 0x%x", 
+            //pIspReg->dcam_cfg_u.mBits.path2_clk_switch);
+            (_pard(DCAM_CFG) >> 4) & 0x1);
+#endif
+    }
+    
+    //if(pTmpBuf)
+    {
+        kfree(pTmpBuf);
+        pTmpBuf = SCI_NULL;
+    }
+    
+    return ISP_DRV_RTN_SUCCESS;
+}
+
+#endif //not define ISP_DRV_SCALE_COEFF_TABLE_EN
+
 LOCAL int32_t _ISP_DriverSetSC1Coeff(uint32_t base_addr)
 {
+#ifdef ISP_DRV_SCALE_COEFF_TABLE_EN
     ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;
     ISP_PATH_DESCRIPTION_T    *p_path = &s_isp_mod.isp_path1;
     uint32_t                    v_coeff = 0,h_coeff= 0;
@@ -1252,6 +1452,9 @@ LOCAL int32_t _ISP_DriverSetSC1Coeff(uint32_t base_addr)
     
     	_paad(DCAM_CFG, ~BIT_3);
     return rtn;
+#else
+	return _ISP_DriverGenScxCoeff(base_addr,  ISP_PATH1);
+#endif
 	
 }
 #if 0
@@ -1309,6 +1512,8 @@ LOCAL int32_t _ISP_DriverSetMasterEndianness(uint32_t base_addr,
 }
 
 #endif
+
+#ifdef ISP_DRV_SCALE_COEFF_TABLE_EN
 LOCAL uint32_t _ISP_DriverCalcScaleCoeff(uint32_t input_width, 
                                        uint32_t input_height, 
                                        uint32_t output_width, 
@@ -1357,6 +1562,7 @@ LOCAL uint32_t _ISP_DriverCalcScaleCoeff(uint32_t input_width,
     return rtn;	
     
 }
+#endif //ISP_DRV_SCALE_COEFF_TABLE_EN
 
 //////////////////
 typedef void (*isr_func_t)(void);
