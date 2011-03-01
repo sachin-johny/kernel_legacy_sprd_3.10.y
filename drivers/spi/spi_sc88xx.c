@@ -27,6 +27,7 @@
 
 #include "spi_sc88xx.h"
 #define SPRD_SPI_DEBUG  0
+#define SPRD_SPI_DEBUG_DATA 0
 #define SPRD_SPI_CS_GPIO 1 /* you should also modify the spi_func_cfg[] */
 
 // lock is held, spi irq is disabled
@@ -143,6 +144,15 @@ static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
     return 0;
 }
 
+// ok value
+// 20
+// 50
+// 500
+// 
+// faild value
+// 2
+// 10
+#define ONLY4TEST_UDELAY  20 // 500
 static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
 {
     int i, timeout;
@@ -150,11 +160,17 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
 #define MYLOCAL_TIMEOUT 0xf0000
     struct sprd_spi_data *sprd_data = cookie;
     struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+#if SPRD_SPI_DEBUG_DATA
+printk("new ");
+#endif
 
     if (data_in) {
         int block, tlen, j, block_bytes;
 
         spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */
+#if SPRD_SPI_DEBUG_DATA
+printk("[in] ");
+#endif
 
         if (likely(sprd_ctrl_data->data_width != 3)) {
             block_bytes = SPRD_SPI_DMA_BLOCK_MAX << sprd_ctrl_data->data_width_order;
@@ -183,10 +199,23 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
                     case 2: ((u16*)data)[0] = spi_readl(SPI_TXD); i += 2; break;
                     case 4: ((u32*)data)[0] = spi_readl(SPI_TXD); i += 4; break;
                 }
+                // udelay(ONLY4TEST_UDELAY);
+#if SPRD_SPI_DEBUG_DATA
+printk("%02x ", ((u8*)data)[0]);
+if ((j & 0x0f) == 0x0f)
+    printk("\n");
+#endif
             }
+#if SPRD_SPI_DEBUG_DATA
+if ((j & 0x0f) != 0x0f)
+    printk("\n");
+#endif
         }
     }
     if (data_out) {
+#if SPRD_SPI_DEBUG_DATA
+printk("[out] ");
+#endif
         spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */
         for (i = 0; i < len;) {
             for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
@@ -197,7 +226,17 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
                 case 2: spi_writel(((u16*)data)[0], SPI_TXD); i += 2; break;
                 case 4: spi_writel(((u32*)data)[0], SPI_TXD); i += 4; break;
             }
+            // udelay(ONLY4TEST_UDELAY);
+#if SPRD_SPI_DEBUG_DATA
+printk("%02x ", ((u8*)data)[0]);
+    if ((i & 0x0f) == 0x0f)
+        printk("\n");
+#endif
         }
+#if SPRD_SPI_DEBUG_DATA
+if ((i & 0x0f) != 0x0f)
+        printk("\n");
+#endif
         for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
         if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
         // for (i = 0; i < 5; i++);

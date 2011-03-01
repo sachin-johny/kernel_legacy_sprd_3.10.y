@@ -180,9 +180,14 @@ static struct gpio_desc gpio_func_cfg[] = {
         "wifi reset"
     },
     {
-        MFP_CFG_X(RFCTL0    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
+        MFP_CFG_X(RFCTL0 , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
         90 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "BT reset"
+    },
+    {
+        MFP_CFG_X(U0RTS  , AF3, DS1, F_PULL_DOWN, S_PULL_UP, IO_OE), // BT_RTS
+        42,
+        "BT RTS"
     },
 };
 
@@ -199,6 +204,11 @@ static unsigned long spi_func_cfg[] = {
     MFP_CFG_X(SPI_CSN0  , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 	MFP_CFG_X(SPI_CSN1  , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 #endif
+};
+
+static unsigned long bt_func_cfg[] = {
+    MFP_CFG_X(U0RTS     , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+    MFP_CFG_X(U0CTS     , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 };
 
 static void sprd_spi_init(void)
@@ -225,6 +235,7 @@ static void sprd_spi_init(void)
     }
 
     sprd_mfp_config(spi_func_cfg, ARRAY_SIZE(spi_func_cfg));
+    // sprd_mfp_config(bt_func_cfg, ARRAY_SIZE(bt_func_cfg));
 
     for (i = 0; i < nr_chip; i++) {
         gpio = spi_cs_gpio[chip[i].chip_select];

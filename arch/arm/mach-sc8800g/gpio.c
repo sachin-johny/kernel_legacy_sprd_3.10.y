@@ -879,8 +879,8 @@ static void sprd_gpio_irq_init(void)
 		set_irq_flags(irq, IRQF_VALID | IRQF_PROBE);
 	}
 
-	set_irq_chained_handler(IRQ_GPIO_INT, sprd_gpio_demux_handler);
-	set_irq_chained_handler(IRQ_ANA_GPIO_INT, sprd_gpio_demux_handler);
+//	set_irq_chained_handler(IRQ_GPIO_INT, sprd_gpio_demux_handler);
+//	set_irq_chained_handler(IRQ_ANA_GPIO_INT, sprd_gpio_demux_handler);
 }
 
 /*
