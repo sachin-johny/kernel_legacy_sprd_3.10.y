@@ -323,6 +323,10 @@ cons_timeout (unsigned long data)
     NkPort*          	port = NKPORT(tty);
     unsigned long	flags;
 
+    if (port->count == 0) {
+        return;
+    }
+
     cons_flush_input(port);
 
     spin_lock_irqsave(&port->lock, flags);
