@@ -588,6 +588,7 @@ static irqreturn_t sc8800_i2c_irq(unsigned int irq, void *dev_id)
 	if(ret!=0)
 		printk("I2C irq:error\n");
  out:
+ 	sc8800_clr_irq(i2c);
 	return IRQ_HANDLED;
 }
 

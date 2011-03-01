@@ -219,8 +219,8 @@ static const unsigned int sprd_keymap[] = {
         KEYVAL(6, 5, 65/*KEY_HELP*/), //! -> no implement
         KEYVAL(6, 6, 66/*KEY_SLASH*/), // /
         KEYVAL(6, 7, 67/*KEY_CALENDAR*/), //calendar -> no implement
-	// 7 row
-        KEYVAL(7, 0, 70/*KEY_HELP*/), //big black key -> no implement
+	// 7 row 
+	KEYVAL(7, 0, 30/*KEY_MENU*/), //ok //yunlong.wang add for ofn key detect 20110218
         KEYVAL(7, 1, 71/*KEY_HELP*/), //poweron / power off -> no implement
 #endif
 };
