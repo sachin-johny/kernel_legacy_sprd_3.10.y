@@ -633,6 +633,8 @@ PUBLIC int Sensor_WriteReg( uint16_t  subaddr, uint16_t data );
 //  Note:           
 /*****************************************************************************/
 PUBLIC uint16_t Sensor_ReadReg(uint16_t subaddr);
+PUBLIC int32_t Sensor_WriteReg_8bits(uint8_t reg_addr, uint8_t value);
+PUBLIC int32_t Sensor_ReadReg_8bits(uint8_t reg_addr, uint8_t *reg_val);
 
 #if 0
 PUBLIC void Sensor_WriteReg2( uint8_t  subaddr, uint8_t data );

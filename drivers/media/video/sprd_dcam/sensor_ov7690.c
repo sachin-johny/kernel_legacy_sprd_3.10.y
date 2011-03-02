@@ -234,12 +234,11 @@ LOCAL uint32_t set_ov7690_ev(uint32_t level);
 LOCAL SENSOR_REG_TAB_INFO_T s_OV7690_resolution_Tab_YUV[]=
 {	
 	// COMMON INIT
-	
-	
-	// YUV422 PREVIEW 1
 	{ ADDR_AND_LEN_OF_ARRAY(OV7690_YUV_640X480),		640,	480,	24 ,0},
+	//{ ADDR_AND_LEN_OF_ARRAY(OV7690_YUV_640X480),		0,	0,	24 ,SENSOR_IMAGE_FORMAT_YUV422},
 	// YUV422 PREVIEW 1
     	{ NULL, 0, 640, 480, 24, 0},
+    	//{ ADDR_AND_LEN_OF_ARRAY(OV7690_YUV_640X480),		640,	480,	24 ,SENSOR_IMAGE_FORMAT_YUV422},
 
 	{ PNULL,		0,			0,		0,	0,							0 },
 	{ PNULL,		0,			0,		0,	0,							0 },
@@ -357,8 +356,9 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_OV7690_ioctl_func_tab =
 	
 	// while balance mode
 	0,
-		
-	7,								// bit[0:7]: count of step in brightness, contrast, sharpness, saturation
+
+	0x77777,
+	//7,								// bit[0:7]: count of step in brightness, contrast, sharpness, saturation
 									// bit[8:31] reseved
 	
 	SENSOR_LOW_PULSE_RESET,			// reset pulse level
@@ -407,7 +407,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_OV7690_ioctl_func_tab =
 LOCAL void OV7690_WriteReg( uint8_t  subaddr, uint8_t data )
 {
 	
-	#ifndef	_USE_DSP_I2C_
+	/*#ifndef	_USE_DSP_I2C_
 		//uint8_t cmd[2];
 		//cmd[0]	=	subaddr;
 		//cmd[1]	=	data;
@@ -416,9 +416,10 @@ LOCAL void OV7690_WriteReg( uint8_t  subaddr, uint8_t data )
 		//I2C_WriteCmdArr(OV7690_I2C_ADDR_W, cmd, 2, DCAM_TRUE);
 	#else
 		DSENSOR_IICWrite((uint16_t)subaddr, (uint16_t)data);
-	#endif
+	#endif*/
+	Sensor_WriteReg_8bits( subaddr, data);
 
-	DCAM_TRACE("SENSOR: OV7690_WriteReg reg/value(%x,%x) !!", subaddr, data);
+	SENSOR_TRACE("SENSOR: OV7690_WriteReg reg/value(%x,%x) !!\n", subaddr, data);
 
 }
 
@@ -426,15 +427,16 @@ LOCAL uint8_t OV7690_ReadReg( uint8_t  subaddr)
 {
 	uint8_t value = 0;
 	
-	#ifndef	_USE_DSP_I2C_
+	/*#ifndef	_USE_DSP_I2C_
 		//I2C_WriteCmdArr(OV7690_I2C_ADDR_W, &subaddr, 1, DCAM_TRUE);
 		//I2C_ReadCmd(OV7690_I2C_ADDR_R, &value, DCAM_TRUE);
 		value = Sensor_ReadReg(subaddr);
 	#else
 		value = (uint16_t)DSENSOR_IICRead((uint16_t)subaddr);
-	#endif
+	#endif*/
+	Sensor_ReadReg_8bits(subaddr, &value);
 	
-    DCAM_TRACE("SENSOR: OV7690_ReadReg reg/value(%x,%x) !!", subaddr, value);
+    SENSOR_TRACE("SENSOR: OV7690_ReadReg reg/value(%x,%x) !!\n", subaddr, value);
 	return value;
 }
 
@@ -448,7 +450,7 @@ LOCAL uint32_t OV7690_Identify(uint32_t param)
 #define OV7690_VER_ADDR		0x0B	
 
 	uint32_t i;
-	uint32_t nLoop;
+	//uint32_t nLoop;
 	uint8_t ret;
 	uint32_t err_cnt = 0;
 	uint8_t reg[2] 	= {0x0A, 0x0B};
@@ -456,20 +458,22 @@ LOCAL uint32_t OV7690_Identify(uint32_t param)
 
 	for(i = 0; i<2; )
 	{
-		nLoop = 1000;
+		//nLoop = 1000;
 		ret = OV7690_ReadReg(reg[i]);
 		if( ret != value[i])
 		{
 			err_cnt++;
 			if(err_cnt>3)
 			{
+				SENSOR_TRACE("Fail to OV7690_Identify: ret: %d, value[%d]: %d.\n", ret, i, value[i]);
 				return DCAM_FAIL;
 			}
 			else
 			{
 				//Masked by frank.yang,DCAM_Sleep() will cause a  Assert when called in boot precedure
 				//DCAM_Sleep(10);
-				while(nLoop--);
+				//while(nLoop--);
+				msleep(10);
 				continue;
 			}
 		}
@@ -477,9 +481,9 @@ LOCAL uint32_t OV7690_Identify(uint32_t param)
 		i++;
 	}
 
-	DCAM_TRACE("OV7690_Identify: it is OV7690");
+	SENSOR_TRACE("OV7690_Identify: it is OV7690.\n");
 	
-	return (uint32_t)DCAM_SUCCESS;
+	return 0;
 }
 #if 0
 LOCAL uint32_t _OV7690_Power_On(uint32_t power_on)
@@ -515,7 +519,7 @@ LOCAL uint32_t _OV7690_Power_On(uint32_t power_on)
         Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);        
     }
 
-    DCAM_TRACE("SENSOR: _OV7690_Power_On(1:on, 0:off): %d", power_on);    
+    SENSOR_TRACE("SENSOR: _OV7690_Power_On(1:on, 0:off): %d", power_on);    
     
     return DCAM_SUCCESS;
 }
@@ -538,7 +542,7 @@ LOCAL uint32_t set_OV7690_ae_enable(uint32_t enable)
             OV7690_WriteReg(OV7690_AE_ENABLE,ae_value);
         }
 
-	DCAM_TRACE("set_ae_enable: enable = %d", enable);
+	SENSOR_TRACE("set_ae_enable: enable = %d", enable);
 
 	return 0;
 }
@@ -571,7 +575,7 @@ LOCAL uint32_t set_OV7690_ae_awb_enable(uint32_t ae_enable, uint32_t awb_enable)
 
         OV7690_WriteReg(OV7690_AE_ENABLE,ae_value);
 
-        DCAM_TRACE("set_ae_awb_enable: ae=%d awb=%d", ae_enable, awb_enable);
+        SENSOR_TRACE("set_ae_awb_enable: ae=%d awb=%d", ae_enable, awb_enable);
 
 	return 0;
 }
@@ -582,7 +586,7 @@ LOCAL uint32_t set_OV7690_hmirror_enable(uint32_t enable)
 {
  
 
-	DCAM_TRACE("set_OV7690_hmirror_enable: enable = %d", enable);
+	SENSOR_TRACE("set_OV7690_hmirror_enable: enable = %d", enable);
 		
 
 	return 0;
@@ -594,7 +598,7 @@ LOCAL uint32_t set_OV7690_hmirror_enable(uint32_t enable)
 LOCAL uint32_t set_OV7690_vmirror_enable(uint32_t enable)
 {
 
-	DCAM_TRACE("set_OV7690_vmirror_enable: enable = %d", enable);
+	SENSOR_TRACE("set_OV7690_vmirror_enable: enable = %d", enable);
 	
 
 	return 0;
@@ -628,12 +632,12 @@ LOCAL uint32_t OV7690_set_brightness(uint32_t level)
     SENSOR_ASSERT(level < 7);
 	SENSOR_ASSERT(PNULL != sensor_reg_ptr);
 
-    DCAM_TRACE("OV7690_set_brightness: level = %d", level);
+    SENSOR_TRACE("OV7690_set_brightness: level = %d", level);
 
     
     temp = OV7690_ReadReg(0x0c);
     
-    DCAM_TRACE("OV7690_set_brightness: 0x0c = %d", temp);    
+    SENSOR_TRACE("OV7690_set_brightness: 0x0c = %d", temp);    
     
     temp = OV7690_ReadReg(0x81);
     temp |= 0x33;
@@ -752,7 +756,7 @@ LOCAL uint32_t OV7690_set_contrast(uint32_t level)
     SENSOR_ASSERT(level < 7 );
     SENSOR_ASSERT(PNULL != sensor_reg_ptr);
 
-    DCAM_TRACE("OV7690_set_contrast: level = %d", level);
+    SENSOR_TRACE("OV7690_set_contrast: level = %d", level);
     
     temp = OV7690_ReadReg(0x81);
     temp |= 0x33;
@@ -886,7 +890,7 @@ LOCAL uint32_t OV7690_set_saturation(uint32_t level)
 
 LOCAL uint32_t set_OV7690_preview_mode(uint32_t preview_mode)
 {
-	DCAM_TRACE("set_OV7690_preview_mode: preview_mode = %d", preview_mode);
+	SENSOR_TRACE("set_OV7690_preview_mode: preview_mode = %d", preview_mode);
 	s_preview_mode = preview_mode;
 	
 	switch (preview_mode)
@@ -1120,7 +1124,7 @@ LOCAL uint32_t OV7690_set_image_effect(uint32_t effect_type)
         default:
             break;
     }	
-	DCAM_TRACE("OV7690_set_image_effect: effect_type = %d", effect_type);
+	SENSOR_TRACE("OV7690_set_image_effect: effect_type = %d", effect_type);
 
 	return 0;
 }
@@ -1130,7 +1134,7 @@ LOCAL uint32_t OV7690_After_Snapshot(uint32_t param)
 #if 1 // xujun delete 080724
 #define PLL_ADDR    0x11
 
-    DCAM_TRACE("OV7690_BeforeSnapshot: OV7690_After_Snapshot ");  
+    SENSOR_TRACE("OV7690_BeforeSnapshot: OV7690_After_Snapshot ");  
 
     set_OV7690_ae_awb_enable(0x01, 0x01);
 
@@ -1160,7 +1164,7 @@ LOCAL uint32_t OV7690_BeforeSnapshot(uint32_t param)
     uint16_t exposal=0x00;
     uint16_t dummy_line=0x00;
 
-    DCAM_TRACE("OV7690_BeforeSnapshot: OV7690_BeforeSnapshot ");  
+    SENSOR_TRACE("OV7690_BeforeSnapshot: OV7690_BeforeSnapshot ");  
 
 	if(DCAMERA_ENVIRONMENT_MAX == s_preview_mode)
 		return 0;
@@ -1321,7 +1325,7 @@ LOCAL uint32_t OV7690_set_work_mode(uint32_t mode)
 		Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
 	}
 
-	DCAM_TRACE("OV7690_set_work_mode: mode = %d", mode);
+	SENSOR_TRACE("OV7690_set_work_mode: mode = %d", mode);
 	return 0;
 }
 
@@ -1415,7 +1419,7 @@ LOCAL uint32_t OV7690_set_whitebalance_mode(uint32_t mode )
 		Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
 	}
 
-	DCAM_TRACE("OV7690_set_whitebalance_mode: mode = %d", mode);
+	SENSOR_TRACE("OV7690_set_whitebalance_mode: mode = %d", mode);
 	return 0;
 
 }
@@ -1529,7 +1533,7 @@ LOCAL uint32_t set_ov7690_video_mode(uint32_t mode)
 
     DCAM_Sleep(150);
 
-    DCAM_TRACE("SENSOR: set_ov7690_video_mode: mode = %d", mode);
+    SENSOR_TRACE("SENSOR: set_ov7690_video_mode: mode = %d", mode);
     return 0;
 }
  const SENSOR_REG_T ov7690_ev_tab[][4]=
@@ -1556,7 +1560,7 @@ LOCAL uint32_t set_ov7690_ev(uint32_t level)
         Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
     }
     
-    DCAM_TRACE("SENSOR: set_ov7690_ev: level = %d", level);
+    SENSOR_TRACE("SENSOR: set_ov7690_ev: level = %d", level);
 
     return 0;
 }

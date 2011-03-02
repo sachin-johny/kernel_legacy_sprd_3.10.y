@@ -34,6 +34,7 @@
 #include "sensor_drv.h"
 #include "sensor_cfg.h"
 #include "dcam_reg_sc8800g2.h"
+#include "dcam_power_sc8800g2.h"
 #include <mach/adi_hal_internal.h>
 #include <linux/dcam_sensor.h>
 
@@ -1129,7 +1130,10 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
         }
         case SENSOR_SUB:
         {
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> sub\n");           
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> sub: power_down %d\n", power_down);     
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); // *(volatile uint32_t*)0x8C000344 );          
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));//*(volatile uint32_t*)0x8C000348 );    
+
             //*(volatile uint32_t*)AHB_REG_BASE |=  (BIT_1|BIT_2);//ccir and dcam enable
             _paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
             if(power_down == 0)
@@ -1138,8 +1142,7 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
 		_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));		
               	SENSOR_Sleep(10);
                 //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
-		_paod(CAP_CNTRL,  BIT_11);	
-               
+		_paod(CAP_CNTRL,  BIT_11); 
             }
             else
             {
@@ -1329,7 +1332,7 @@ int Sensor_WriteReg_Array(uint16_t reg_addr, uint16_t value, struct i2c_adapter 
 int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
 {
 	uint8_t buf_w[3];
-	uint32_t ret = -1;
+	int32_t ret = -1;
 	struct i2c_msg msg_w;
 	
 	buf_w[0]= reg_addr >> 8;
@@ -1352,7 +1355,7 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 {
 	uint8_t buf_w[2];
 	uint8_t buf_r;
-	uint32_t ret = -1;
+	int32_t ret = -1;
 	uint16_t value = 0;
 	struct i2c_msg msg_r[2];
 
@@ -1374,6 +1377,65 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
         }
 	value = buf_r;
 	return value;
+}
+int32_t Sensor_WriteReg_8bits(uint8_t reg_addr, uint8_t value)
+{
+	uint8_t buf_w[2];
+	int32_t ret = -1;
+	struct i2c_msg msg_w;
+
+	if(reg_addr >= 0xFF)
+	{		
+		msleep(value);
+		SENSOR_PRINT("Sensor_WriteReg_8bits wait %d ms.\n", value);
+		return 0;
+	}
+	
+	buf_w[0]= reg_addr;
+	buf_w[1]= value;
+	msg_w.addr = this_client->addr; 
+	msg_w.flags = 0;
+	msg_w.buf = buf_w;
+	msg_w.len = 2;
+        ret = i2c_transfer(this_client->adapter, &msg_w, 1);
+	if(ret!=1)
+        {
+            printk("#DCAM: write sensor reg fai, ret: %x \n", ret);
+            return -1;
+        }
+#if 0
+{
+	uint8_t val;
+	Sensor_ReadReg_8bits(reg_addr, &val);
+	printk("sub sensor: addr: 0x%x, val: 0x%x, old value: 0x%x.\n", reg_addr, val, value);
+}
+#endif
+	return 0;
+}
+int32_t Sensor_ReadReg_8bits(uint8_t reg_addr, uint8_t *reg_val)
+{
+	uint8_t buf_w[1];
+	uint8_t buf_r;
+	int32_t ret = -1;	
+	struct i2c_msg msg_r[2];
+
+	buf_w[0]= reg_addr;
+	msg_r[0].addr = this_client->addr; 
+	msg_r[0].flags = 0;
+	msg_r[0].buf = buf_w;
+	msg_r[0].len = 1;
+	msg_r[1].addr = this_client->addr; 
+	msg_r[1].flags = I2C_M_RD;
+	msg_r[1].buf = &buf_r;
+	msg_r[1].len = 1;
+        ret = i2c_transfer(this_client->adapter, msg_r, 2);
+	if(ret!=2)
+        {
+            printk("#sensor: read sensor reg fail, ret: %x \n", ret);
+            return -1;
+        }
+	*reg_val = buf_r;
+	return ret;
 }
 /*
 int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
@@ -1565,12 +1627,12 @@ PUBLIC void Sensor_WriteReg( uint16_t  subaddr, uint16_t data )
         }  
 
         i2c_handle_sensor=RE_I2C_HANDLER();
-        SENSOR_TRACE("lh:Sensor_ReadReg: handle=%d", i2c_handle_sensor);
+        SENSOR_PRINT("lh:Sensor_ReadReg: handle=%d", i2c_handle_sensor);
         I2C_HAL_Read(i2c_handle_sensor, cmd, &cmd[0], r_cmd_num);
 
         ret_val = (r_cmd_num == 1)?(uint16)cmd[0]:(uint16)((cmd[0] << 8) + cmd[1]);  
 
-        SENSOR_TRACE("read reg %04x, val %04x", subaddr, ret_val);
+        SENSOR_PRINT("read reg %04x, val %04x", subaddr, ret_val);
     }
 
     return  ret_val;
@@ -1598,7 +1660,11 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
     for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
     {
         //ImgSensor_GetMutex();
-        Sensor_WriteReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
+        if(1 == g_is_main_sensor)
+	        Sensor_WriteReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
+	else
+		Sensor_WriteReg_8bits(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
+		
         //ImgSensor_PutMutex();
     }	
 
@@ -1744,7 +1810,7 @@ PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id)
 {
     SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
 
-    SENSOR_TRACE("Sensor_SetCurId : %d", sensor_id);	
+    SENSOR_PRINT("Sensor_SetCurId : %d.\n", sensor_id);	
     if(sensor_id >= SENSOR_ID_MAX)
     {
         _Sensor_CleanInformation();
@@ -1758,14 +1824,25 @@ PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id)
     {
         if(Sensor_IsOpen())
         {
-            _Sensor_SetAllPowerDown();
-            _Sensor_IicHandlerRelease();
-            s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
-            Sensor_SetExportInfo(&s_sensor_exp_info);
-            _Sensor_SetId(sensor_id);
-            _Sensor_IicHandlerInit();
-            Sensor_PowerDown(SENSOR_FALSE);
-            SENSOR_Sleep(20);
+        	if(0 == dcam_get_user_count())//dcam isn't opend.
+        	{
+          	    _Sensor_SetAllPowerDown();
+	            _Sensor_IicHandlerRelease();
+        	    s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
+	            Sensor_SetExportInfo(&s_sensor_exp_info);
+        	    _Sensor_SetId(sensor_id);
+	            _Sensor_IicHandlerInit();
+        	    Sensor_PowerDown(SENSOR_FALSE);
+        	}
+		else
+		{
+			 s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
+		         Sensor_SetExportInfo(&s_sensor_exp_info);
+        		_Sensor_SetId(sensor_id);
+			_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));	//main sensor powerdown, sub snesor not; and reset sensor.
+			_paod(CAP_CNTRL,  BIT_11|BIT_12);	
+            		SENSOR_Sleep(20);	
+		}
         }
         else
         {
@@ -2119,7 +2196,7 @@ PUBLIC ERR_SENSOR_E Sensor_Open(void)
                         }
                     }
 
-                    Sensor_PowerDown(SENSOR_TRUE);                    
+                    Sensor_PowerDown(SENSOR_TRUE);           
                     _Sensor_IicHandlerRelease();
 
                     /*the end ,recorver the main sensor as current sensor*/
@@ -2127,7 +2204,7 @@ PUBLIC ERR_SENSOR_E Sensor_Open(void)
                     Sensor_SetExportInfo(&s_sensor_exp_info);            
                     _Sensor_SetId(SENSOR_MAIN);
                     Sensor_PowerDown(SENSOR_FALSE);
-                    _Sensor_IicHandlerInit();  
+                    _Sensor_IicHandlerInit(); 
 
                 }
 

@@ -362,7 +362,6 @@ struct dcam_fh {
 	int			   input; 	/* Input Number on bars */
 };
 
-
 static int init_sensor_parameters(void)
 {
 	uint32_t i,width;
@@ -700,6 +699,18 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	dev->streamparm.parm.capture.readbuffers = streamparm->parm.capture.readbuffers;
 	for(i = 0; i < 4; i++)
 		dev->streamparm.parm.capture.reserved[i] = streamparm->parm.capture.reserved[i];
+
+	if(1 == streamparm->parm.raw_data[0])
+	{
+		if(0 == streamparm->parm.raw_data[1])
+		{
+			Sensor_SetCurId(SENSOR_MAIN);
+		}
+		else if(1 == streamparm->parm.raw_data[1])
+		{
+			Sensor_SetCurId(SENSOR_SUB);
+		}			
+	}	
 	DCAM_V4L2_PRINT("###V4L2: vidioc_s_parm X.\n");
 	return 0;
 }
@@ -800,7 +811,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	
 	init_dcam_parameters(priv);//wxz:???
 	init_sensor_parameters();
-	
 	if(0 != (ret = videobuf_streamon(&fh->vb_vidq)))
 	{
 		DCAM_V4L2_PRINT("###DCAM_V4L2: Fail to videobuf_streamon.\n");
@@ -1198,18 +1208,16 @@ static int open(struct file *file)
 #endif
 
 	//open sensor
-        //sensor_open();
         Sensor_Open();
 	DCAM_V4L2_PRINT("###DCAM: OK to open sensor.\n");
 
 	//open dcam
         dcam_open();
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");
-
 	dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
 	dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
 	dcam_callback_fun_register(DCAM_CB_PATH1_DONE,dcam_cb_ISRPath1Done);
-	
+
 	return 0;
 }
 

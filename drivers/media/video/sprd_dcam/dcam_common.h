@@ -44,6 +44,13 @@
 #define DCAM_TRACE(...)
 #endif
 
+//#define SENSOR_DEBUG
+#ifdef SENSOR_DEBUG
+#define SENSOR_TRACE printk
+#else
+#define SENSOR_TRACE(...)
+#endif
+
 #define BOOLEAN char
 #define PNULL  ((void *)0)
 #define PUBLIC 
@@ -70,7 +77,6 @@ typedef void *DCAM_TIMER_PTR;
 //for sensor
 #define SENSOR_SUCCESS 0
 #define SENSOR_FAIL 1
-#define SENSOR_TRACE printk
 #define SENSOR_FALSE 0
 #define SENSOR_TRUE 1
 #define SENSOR_ASSERT(a) do{}while(!(a));
