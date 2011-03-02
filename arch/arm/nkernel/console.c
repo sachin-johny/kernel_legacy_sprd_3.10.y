@@ -366,7 +366,6 @@ cons_open(NkPort*	port)
 cons_close(NkPort* port)
 {
     unsigned long		flags;
-    port->tty = 0;
     if (port->timer.data) {
 	del_timer(&(port->timer));
     }
@@ -376,6 +375,9 @@ cons_close(NkPort* port)
     cons_flush_chars(port);
     spin_unlock_irqrestore(&port->lock, flags);
     os_ctx->cops.close(port->id);
+
+    port->tty = 0;
+
     return 0;
 }
 
