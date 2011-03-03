@@ -865,6 +865,7 @@ static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 		  	generic_handle_irq(gpio_irq_table[i].irq_num);
 		}
 	}
+    desc->chip->unmask(irq);
 }
 static void sprd_gpio_irq_init(void)
 {
@@ -879,8 +880,8 @@ static void sprd_gpio_irq_init(void)
 		set_irq_flags(irq, IRQF_VALID | IRQF_PROBE);
 	}
 
-//	set_irq_chained_handler(IRQ_GPIO_INT, sprd_gpio_demux_handler);
-//	set_irq_chained_handler(IRQ_ANA_GPIO_INT, sprd_gpio_demux_handler);
+	set_irq_chained_handler(IRQ_GPIO_INT, sprd_gpio_demux_handler);
+	set_irq_chained_handler(IRQ_ANA_GPIO_INT, sprd_gpio_demux_handler);
 }
 
 /*
@@ -888,42 +889,42 @@ static void sprd_gpio_irq_init(void)
 */
 __must_check int sprd_alloc_gpio_irq(unsigned gpio)
 {
-	int irq;
-	int i;
-	struct gpio_info gpio_info;
-	unsigned long flags;
+        int irq;
+        int i;
+        struct gpio_info gpio_info;
+        unsigned long flags;
 
-	__get_gpio_base_info (gpio, &gpio_info);
+        __get_gpio_base_info (gpio, &gpio_info);
 
-	// find a free record
-	for (i = 0; i< NR_GPIO_IRQS; i++) {
-		if (gpio_irq_table[i].gpio_id == gpio) {
-			pr_warning("irq for GPIO_%d has been alloc !\n", gpio);
-		   	return -1;
-		}
-	}
+        // find a free record
+        for (i = 0; i< NR_GPIO_IRQS; i++) {
+                if (gpio_irq_table[i].gpio_id == gpio) {
+                        pr_warning("irq for GPIO_%d has been alloc !\n", gpio);
+                        return -1;
+                }
+        }
 
-	for(i = 0; i < NR_GPIO_IRQS; i++) {
-		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID)
-			break;
-	}
+        for(i = 0; i < NR_GPIO_IRQS; i++) {
+                if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID)
+                        break;
+        }
 
-	if (i >= NR_GPIO_IRQS) {
-		// No free item in the table.
-		return -1;
-	}
-	local_irq_save(flags);
-	irq = GPIO_IRQ_START + i;
-	 gpio_irq_table[i].gpio_id = gpio;
-	 gpio_irq_table[i].irq_num = irq;
+        if (i >= NR_GPIO_IRQS) {
+                // No free item in the table.
+                return -1;
+        }
+        local_irq_save(flags);
+        irq = GPIO_IRQ_START + i;
+        gpio_irq_table[i].gpio_id = gpio;
+        gpio_irq_table[i].irq_num = irq;
 
-	set_irq_chip_data(irq, &gpio_irq_table[i]);
-	local_irq_restore(flags);
-	__gpio_clear_irq_status(&gpio_info);
-	if (gpio_info.gpio_type == GPIO_SECTION_GPI)
-	       __gpio_trig_detect (&gpio_info);
+        set_irq_chip_data(irq, &gpio_irq_table[i]);
+        local_irq_restore(flags);
+        __gpio_clear_irq_status(&gpio_info);
+        if (gpio_info.gpio_type == GPIO_SECTION_GPI)
+                __gpio_trig_detect (&gpio_info);
 
-	return irq;
+        return irq;
 }
 
 EXPORT_SYMBOL(sprd_alloc_gpio_irq);
@@ -944,6 +945,23 @@ void sprd_free_gpio_irq(int irq)
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL(sprd_free_gpio_irq);
+
+void sprd_clear_all_irqs(void)
+{
+        int gpio;
+        struct gpio_info gpio_info;
+
+        for (gpio = 0; gpio < GPIO_MAX_PIN_NUM; gpio++) {
+                __get_gpio_base_info(gpio, &gpio_info);
+                if ((gpio_info.gpio_type != GPIO_SECTION_GPI) &&
+                                (gpio_info.gpio_type != GPIO_SECTION_GPIO) ) {
+                        continue;
+                }
+                __gpio_clear_irq_status(&gpio_info);
+        }
+
+}
+
 
 __init void sprd_gpio_init(void)
 {

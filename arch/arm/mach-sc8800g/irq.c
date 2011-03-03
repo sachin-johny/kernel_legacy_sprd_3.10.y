@@ -153,7 +153,6 @@ static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 	for (i = 0; i < NR_ANA_IRQS; i++) {
 		if ((status >> i) & 0x1) {
 			irq_ana = IRQ_ANA_INT_START + i;
-			pr_info("ana irq\r\n");
 			generic_handle_irq(irq_ana);
 		}
 	}
@@ -236,6 +235,39 @@ static struct irq_chip nk_sprd_irq_chip = {
 	.shutdown	= nk_shutdown_irq,
 };
 
+    static unsigned int
+nk_startup_ana_irq (unsigned int irq)
+{
+    unsigned int base_irq = IRQ_ANA_INT;
+
+    pr_info("startup irq:%d do nothing\r\n", irq);
+#if 0
+	__nk_xirq_startup(base_irq);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[base_irq].os_enabled  = nkosmask;
+#else
+	nkxpic->irq[base_irq].os_enabled |= nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+#endif
+	return 0;
+}
+
+    static void
+nk_shutdown_ana_irq (unsigned int irq)
+{
+    unsigned int base_irq = IRQ_ANA_INT;
+    pr_info("shut down irq:%d\r\n", irq);
+#if 0
+	__nk_xirq_shutdown(base_irq);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[base_irq].os_enabled  = 0;
+#else
+	nkxpic->irq[base_irq].os_enabled &= ~nkosmask;
+#endif
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+}
     static void
 nk_sprd_ack_ana_irq(unsigned int irq)
 {
@@ -266,8 +298,30 @@ static struct irq_chip nk_sprd_muxed_ana_chip = {
 	.enable         = nk_sprd_enable_ana_irq,
 };
 
+static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
+{
+	uint32_t irq_ana;
+	uint32_t status;
+	int i;
+
+	status=ANA_REG_GET(ANA_INT_STATUS);
+
+/*
+    pr_info("ana_irq :sts:%x, raw %x\r\n",status,
+        ANA_REG_GET(ANA_INT_RAW));
+*/
+	for (i = 0; i < NR_ANA_IRQS; i++) {
+		if ((status >> i) & 0x1) {
+			irq_ana = IRQ_ANA_INT_START + i;
+			generic_handle_irq(irq_ana);
+		}
+	}
+    desc->chip->unmask(irq);
+    //nk_sprd_irq_chip.unmask(irq);
+}
 #endif /* CONFIG_NKERNEL */
 
+void sprd_clear_all_irqs(void);
 void __init sprd_init_irq(void)
 {
 	unsigned n;
@@ -305,6 +359,7 @@ void __init sprd_init_irq(void)
 		set_irq_handler(n,handle_level_irq);
 	}
 #endif /* CONFIG_NKERNEL */
+    sprd_clear_all_irqs();
 
 	set_irq_chained_handler(IRQ_ANA_INT, sprd_ana_demux_handler);
 
