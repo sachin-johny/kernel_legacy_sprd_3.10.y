@@ -35,6 +35,26 @@ void __init sprd_add_sdio_device(void);
 void __init sprd_add_otg_device(void);
 void __init sprd_gadget_init(void);
 void __init sprd_add_dcam_device(void);
+
+/* pmem area definition */
+/*
+ *  8M - 2D
+ *  6M - Camara/video codec
+ *  1M - Rotation
+ *  1M - scaling
+ */
+#define SPRD_PMEM_SIZE          (8*1024*1024)
+#define SPRD_PMEM_ADSP_SIZE     (6*1024*1024)
+#define SPRD_ROT_MEM_SIZE       (1*1024*1024)
+#define SPRD_SCALE_MEM_SIZE     (1*1024*1024)
+#define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
+                                SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE)
+
+#define SPRD_PMEM_BASE          ((256*1024*1024)-SPRD_IO_MEM_SIZE)
+#define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
+#define SPRD_ROT_MEM_BASE       (SPRD_PMEM_ADSP_BASE+SPRD_PMEM_ADSP_SIZE)
+#define SPRD_SCALE_MEM_BASE     (SPRD_ROT_MEM_BASE+SPRD_ROT_MEM_SIZE)
+
 void udc_enable(void);
 void udc_disable(void);
 #endif
