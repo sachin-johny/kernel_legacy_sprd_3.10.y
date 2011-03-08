@@ -62,7 +62,6 @@ static int __init early_initrd(char *p)
 }
 early_param("initrd", early_initrd);
 
-#endif
 
 static int __init parse_tag_initrd(const struct tag *tag)
 {
