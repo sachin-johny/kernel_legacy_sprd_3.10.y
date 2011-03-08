@@ -24,7 +24,7 @@
 #include <asm/nkern.h>
 #endif
 
-#ifdef CONFIG_NKERNEL
+#ifdef CONFIG_RELOCATABLE_KERNEL
 /*
  * Initially vmlinux is linked as a relocatable file in the
  * nanokernel environment, later it is relinked by mkimage
@@ -47,7 +47,7 @@
 
 		.section ".data.cacheline_aligned", #alloc
 		.align	5
-#endif /* CONFIG_NKERNEL */
+#endif /* CONFIG_RELOCATABLE_KERNEL */
 
 /*
  * Kernel startup entry point.

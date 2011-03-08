@@ -10,9 +10,10 @@
 #
 # Copyright (C) 1995-2001 by Russell King
 
-RELOC-$(CONFIG_NKERNEL) := -r
+RELOC-$(CONFIG_RELOCATABLE_KERNEL) := -r
 
 LDFLAGS_vmlinux	:=$(RELOC-y) -p --no-undefined -X
+
 ifeq ($(CONFIG_CPU_ENDIAN_BE8),y)
 LDFLAGS_vmlinux	+= --be8
 endif
@@ -114,7 +115,8 @@ CHECKFLAGS	+= -D__arm__
 
 #Default value
 head-y		:= arch/arm/kernel/head$(MMUEXT).o arch/arm/kernel/init_task.o
-textofs-y	:= 0x00008000
+
+textofs-y	:= $(CONFIG_TEXT_OFFSET)
 textofs-$(CONFIG_ARCH_CLPS711X) := 0x00028000
 # We don't want the htc bootloader to corrupt kernel during resume
 textofs-$(CONFIG_PM_H1940)      := 0x00108000

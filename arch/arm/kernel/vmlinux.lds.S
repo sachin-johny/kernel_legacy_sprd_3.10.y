@@ -19,7 +19,7 @@ jiffies = jiffies_64 + 4;
 
 SECTIONS
 {
-#ifndef CONFIG_NKERNEL
+#ifndef CONFIG_RELOCATABLE_KERNEL
 
 #ifdef CONFIG_XIP_KERNEL
 	. = XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR);
@@ -106,7 +106,7 @@ SECTIONS
 
 	RO_DATA(PAGE_SIZE)
 
-#ifdef CONFIG_NKERNEL
+#ifdef CONFIG_RELOCATABLE_KERNEL
 	.end_of_text : {
 		*(.end_of_text)
 		_etext = .;
@@ -132,7 +132,7 @@ SECTIONS
 	}
 #endif
 
-#ifdef CONFIG_NKERNEL
+#ifdef CONFIG_RELOCATABLE_KERNEL
 	.text_data_barrier : {
 		*(.text_data_barrier)
 		__data_loc = .;

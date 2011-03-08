@@ -13,6 +13,14 @@ config NKERNEL_DDI
 	bool "VLX virtual driver support"
 	default y
 
+config TEXT_OFFSET
+	hex  "Text offset configuration"
+	default 0x00008000 
+
+config RELOCATABLE_KERNEL
+	bool "Build relocatable linux kernel"
+	default	y  if NKERNEL
+
 config ARM
 	bool
 	default y

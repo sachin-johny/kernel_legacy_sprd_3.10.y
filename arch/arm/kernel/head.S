@@ -33,7 +33,8 @@
 #define KERNEL_RAM_VADDR	(PAGE_OFFSET + TEXT_OFFSET)
 #define KERNEL_RAM_PADDR	(PHYS_OFFSET + TEXT_OFFSET)
 
-#ifndef CONFIG_NKERNEL
+
+#ifndef CONFIG_RELOCATABLE_KERNEL
 
 /*
  * swapper_pg_dir is the virtual address of the initial page table.
@@ -54,17 +55,9 @@
 	.endm
 
 #else /* CONFIG_NKERNEL */
-/*
- * We put .filler section as the first section in the kernel
- * in order to simplify memory allocation and linking in the
- * nanokernel environment. The original code uses 16K memory
- * area right before stext. We explicitly allocate this area.
- */
-		.section ".filler", #alloc, #write
-		.align	14
-		.skip	0x4000
+
 		.globl	swapper_pg_dir
-swapper_pg_dir:	.skip	0x4000
+		.equ	swapper_pg_dir, stext - 0x4000
 
 /*
  * Initially vmlinux is linked as a relocatable file in the
