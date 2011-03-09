@@ -100,6 +100,7 @@ struct NkPort {
     char		buf[MAX_BUF];
     volatile char	stoprx;    
     volatile char	stoptx;    
+    volatile char	wakeup;
     unsigned short	count;
     unsigned short	sz;
     NkOsId		id;
@@ -411,6 +412,9 @@ vcons_write(NkPort*	     	   port,
 
     spin_lock_irqsave(&port->lock, flags);
     res = os_ctx->cops.write(port->id, buf, count);
+    if (res < count) {
+	port->wakeup = 1;
+    }
     spin_unlock_irqrestore(&port->lock, flags);
 
     return res;
@@ -421,8 +425,10 @@ vcons_rx_intr (NkPort* port)
 {
     unsigned int		size;
     int				i;
+    int				count = 0;
+
 #ifdef CONFIG_TS0710_MUX_UART
-    int				dispatch = 0;
+    int				line = NKLINE(port->tty);
 #endif
 
     while ((size = vcons_rxfifo_count(port))) {
@@ -435,7 +441,7 @@ vcons_rx_intr (NkPort* port)
 	}
 
 #ifdef CONFIG_TS0710_MUX_UART
-	if ( ( 3 == NKLINE(port->tty)) && cmux_opened() ) {
+	if ( ( 3 == line ) && cmux_opened() ) {
 	    int 		num;
 	    unsigned long	flags;  
 	    num =0; 	
@@ -446,7 +452,7 @@ vcons_rx_intr (NkPort* port)
 		mux_ringbuffer_write(&rbuf, port->buf, num);
 	    }
 
-	    dispatch = 1;
+	    count += num;
 	    hw_local_irq_restore(flags);
 
 	    CON_TRACE("func[%s]:rev_num=%d\n",__FUNCTION__,num);
@@ -461,25 +467,27 @@ vcons_rx_intr (NkPort* port)
 	}
 	
 	size = os_ctx->cops.read(port->id, port->buf, size);
+	count += size;
 	for (i = 0; i < size; i++) {
 	    tty_insert_flip_char(port->tty, port->buf[i], TTY_NORMAL);
 	}
     }
 
+    if (count > 0) {
 #ifdef CONFIG_TS0710_MUX_UART
-    if (dispatch) {
-	  unsigned long flags;   
+	if (line == 3) {
+	    unsigned long flags;   
 
-	  hw_local_irq_save(flags);
-	  if (serial_mux_dispatcher && is_cmux_mode()) {
-	      serial_mux_dispatcher(port->tty);
-	  }
-	  hw_local_irq_restore(flags);
-
-    } else
+	    hw_local_irq_save(flags);
+	    if (serial_mux_dispatcher && is_cmux_mode()) {
+		serial_mux_dispatcher(port->tty);
+	    }
+	    hw_local_irq_restore(flags);
+	    return;
+	} 
 #endif
-
-    tty_schedule_flip(port->tty);
+	tty_schedule_flip(port->tty);
+    }
 }
 
     static void
@@ -490,7 +498,11 @@ vcons_tx_intr (NkPort* port)
 
     spin_lock_irqsave(&port->lock, flags);
     if (vcons_write_room(port)) {
-	tty_wakeup(port->tty);
+	if (port->wakeup) {
+	    /* restart tty when some space has been freed */
+	    port->wakeup = 0;
+	    tty_wakeup(port->tty);
+	}
     }
     spin_unlock_irqrestore(&port->lock, flags);
 
@@ -577,12 +589,9 @@ vcons_open(NkPort*	port, NkDevVlink* vlink)
     port->write_room = vcons_write_room;
 
     /* 
-     * if link is null, we use os id as channel number
      * otherwise one use the underlying link number as channel number
      */
-    if (vlink->link != 0) {
-	port->id = vlink->link;
-    }
+    port->id = vlink->link;
 
     /*
      * alloc a cross interrupt so as to be notified when a character
@@ -629,7 +638,7 @@ vcons_open(NkPort*	port, NkDevVlink* vlink)
     }
 
 #ifdef DEBUG
-    printk("Open ttyNK<%d> portid %x", line, port->id);
+    printk("Open ttyNK<%d> portid %x irq %x", NKLINE(port->tty), port->id, irq);
     printk("vlink %p vlink->link %x\n", vlink, vlink->link);
 #endif
     return 0;
@@ -766,6 +775,7 @@ serial_open (struct tty_struct* tty, struct file* filp)
     tty->driver_data	= port;
     port->stoptx	= 0;
     port->stoprx	= 0;
+    port->wakeup	= 0;
     port->sz		= 0;
     port->poss		= 0;
     port->tty		= tty;
