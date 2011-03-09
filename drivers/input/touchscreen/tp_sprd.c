@@ -577,7 +577,7 @@ static int __init sprd_tp_probe(struct platform_device *pdev)
 	tp_init();
 
 	TP_PRINT("before enter request_irq\n");
-	ret = request_irq(tp->irq,tp_irq, IRQF_DISABLED, "touch_screen", tp);
+	ret = request_irq(tp->irq,tp_irq, 0, "touch_screen", tp);
 	if (ret != 0) {
 		printk("func[%s]: Could not allocate tp IRQ!\n",__FUNCTION__);
 		ret =  -EIO;

@@ -207,6 +207,19 @@ static int sdcard_gpio_int_test(void)
 	}
 	return 0;
 }
+
+static irqreturn_t
+share_irq_handler(int irq, void *dev)
+{
+     pr_info("share irq, nothing to do\n");
+     return IRQ_HANDLED;
+}
+
+void share_irq_test(void)
+{
+     int err;
+     err = request_irq(26, share_irq_handler, 0, "share irq", NULL);
+}
 static int creat_vibrator_sysfs_file(void)
 {
 	int err;
@@ -240,7 +253,8 @@ static int creat_vibrator_sysfs_file(void)
 #endif
 	pwr_gpio_int_test();
 	spics1_gpio_test();
-	sdcard_gpio_int_test();
+    share_irq_test();
+//	sdcard_gpio_int_test();
 	return 0;
 }
 

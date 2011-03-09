@@ -478,14 +478,14 @@ static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_ADB
 	"adb",
 #endif
+#ifdef CONFIG_USB_ANDROID_MODEM
+	"modem",
+#endif
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	"usb_mass_storage",
 #endif
 #ifdef CONFIG_USB_ANDROID_ACM
 	"acm",
-#endif
-#ifdef CONFIG_USB_ANDROID_MODEM
-	"modem",
 #endif
 };
 
@@ -502,7 +502,7 @@ static struct android_usb_product usb_products[] = {
 	},
 	{
 		//.product_id	= SPRD_PRODUCT_ID,
-		.product_id	= 0x41da,
+		.product_id	= 0x4D00,
 		.num_functions	= ARRAY_SIZE(usb_functions_modem_adb),
 		.functions	= usb_functions_modem_adb,
 	},
@@ -525,7 +525,8 @@ static struct android_usb_product usb_products[] = {
 
 /* standard android USB platform data */
 static struct android_usb_platform_data andusb_plat = {
-	.vendor_id			= SPRD_VENDOR_ID,
+	//.vendor_id			= SPRD_VENDOR_ID,
+	.vendor_id			= 0x1782,
 	.product_id			= SPRD_PRODUCT_ID,
 	.manufacturer_name	= "Spreadtrum",
 	.product_name		= "Spreadtrum openphone",
