@@ -93,6 +93,13 @@
 #define VIBR_PD_RST             BIT_11
 #define VIBR_V_SHIFT            12
 #define VIBR_V_MSK              (0x07 << VIBR_V_SHIFT)
+#define	OTP_ENABLE			(0x1UL << 8)
+#define	OTP_ENABLE_RST		(0x1UL << 9)
+#define	VIBR_PD				(0x1UL << 10)
+#define	FSM_AFCPD_EN		(0x1UL << 15)
+
+
+
 
 ///ANA_CHGR_CTL0
 #define CHGR_USB_CHG_SHIFT              4
@@ -131,6 +138,19 @@
 ///ANA_ADIE_CHIP_ID
 #define ANA_G1_CHIP_ID          ((unsigned short)0)
 #define ANA_G2_CHIP_ID          ((unsigned short)1)
+
+
+/**************************************** 
+  * add bit definitions used by power management. 
+  *
+  *  Wang liwei. 2011-01-18
+  *
+  ****************************************/
+
+/* bit definitions for register ANA_LDO_SLP */
+#define	FSM_RF0_BP_EN		(0x1UL << 0)
+#define	FSM_RF1_BP_EN		(0x1UL << 1)
+#define	FSM_LDOPA_BP_EN		(0x1UL << 15)
 
 
 #endif //_ANALOG_REG_V3_H_

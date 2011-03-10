@@ -20,18 +20,35 @@
 #include <asm/io.h>
 #include <mach/regs_ahb.h>
 
+/*
+#define CONFIG_PM_SC8800G_TEST_MODE 0
+*/
+
 extern void sc8800g_cpu_standby(void);
 #ifdef        CONFIG_DEBUG_LL
 extern void printascii(char *);
 #endif
 
 
+#ifdef CONFIG_PM_SC8800G_TEST_MODE
+extern void	prepare_deep_sleep(void);
+extern void	force_dsp_sleep(void);
+#endif
+
+
 int sc8800g_pm_enter(suspend_state_t state)
 {
-	/* *** go zzz *** */
+
+	/* *** go zzz *** */	
 	local_fiq_disable();
-       sc8800g_cpu_standby();
+
+#ifdef CONFIG_PM_SC8800G_TEST_MODE
+	prepare_deep_sleep();
+#endif
+	printk("######: zzzzzz now!\n");
+	sc8800g_cpu_standby();
 	local_fiq_enable();
+
 	return 0;
 }
 
@@ -76,6 +93,12 @@ static int __init sc8800g_pm_init(void)
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&sc8800g_pm_ops);
 #endif /* CONFIG_SUSPEND */
+
+
+/* download mini DSP code and make DSP sleep for ever, for test only. */
+#ifdef CONFIG_PM_SC8800G_TEST_MODE
+	force_dsp_sleep();
+#endif
 	return 0;
 }
 

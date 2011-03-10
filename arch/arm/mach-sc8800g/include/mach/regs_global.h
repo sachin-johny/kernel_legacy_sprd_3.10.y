@@ -187,6 +187,37 @@
 // POWER CTL1
 #define POWCTL1_CONFIG                  0x7FFFF903
 
+
+
+/**************************************** 
+  * add bit definitions used by power management. 
+  *
+  *  Wang liwei. 2011-01-18
+  *
+  ****************************************/
+
+/* bits definition for CLK_EN. */
+#define	MCU_XTLEN_AUTOPD_EN	(0x1UL << 18)
+#define	APB_PERI_FRC_CLP	(0x1UL << 19)
+
+/* bits definition for GR_STC_STATE. */
+
+#define	GR_EMC_STOP			(0x1UL << 0)
+#define	GR_MCU_STOP		(0x1UL << 1)
+#define	GR_DSP_STOP			(0x1UL << 2)
+
+
+/* bits definition for GR_CLK_DLY. */
+#define	GR_EMC_STOP_CH5	(0x1UL << 4)
+#define	GR_EMC_STOP_CH4	(0x1UL << 5)
+#define	GR_EMC_STOP_CH3	(0x1UL << 6)
+
+#define	DSP_DEEP_STOP		(0x1UL << 9)
+#define	DSP_SYS_STOP		(0x1UL << 10)
+#define	DSP_AHB_STOP		(0x1UL << 11)
+#define	DSP_MTX_STOP		(0x1UL << 12)
+#define	DSP_CORE_STOP		(0x1UL << 13)
+
 #endif //_SC8800G_REG_GLOBAL_H_
 // End
 

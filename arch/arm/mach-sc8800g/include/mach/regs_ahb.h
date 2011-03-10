@@ -90,6 +90,49 @@
 #define USB_DM_PULLDOWN_BIT     BIT_21
 
 
+/**************************************** 
+  * add bit definitions used by power management. 
+  *
+  *  Wang liwei. 2011-01-18
+  *
+  ****************************************/
+
+/* bit definitions for register DSP_BOOT_EN */
+#define	DSP_BOOT_ENABLE		(0x1UL << 0)
+
+/* bit definitions for register DSP_RST */
+#define	DSP_RESET		(0x1UL << 0)
+
+/* bit definitions for register AHB_PAUSE */
+#define	MCU_SYS_SLEEP_EN		(0x1UL << 1)
+#define	MCU_DEEP_SLEEP_EN		(0x1UL << 2)
+
+
+/* bit definitions for register AHB_STS */
+#define	EMC_STOP_CH0			(0x1UL << 0)
+#define	EMC_STOP_CH1			(0x1UL << 1)
+#define	EMC_STOP_CH2			(0x1UL << 2)
+#define	EMC_STOP_CH3			(0x1UL << 3)
+#define	EMC_STOP_CH4			(0x1UL << 4)
+#define	EMC_STOP_CH5			(0x1UL << 5)
+#define	EMC_STOP_CH6			(0x1UL << 6)
+#define	EMC_STOP_CH7			(0x1UL << 7)
+#define	EMC_STOP_CH8			(0x1UL << 8)
+
+#define	ARMMTX_STOP_CH0		(0x1UL << 12)
+#define	ARMMTX_STOP_CH1		(0x1UL << 13)
+#define	ARMMTX_STOP_CH2		(0x1UL << 14)
+
+#define	AHB_STS_EMC_STOP		(0x1UL << 16)
+#define	AHB_STS_EMC_SLEEP		(0x1UL << 17)
+#define	DMA_BUSY		(0x1UL << 18)
+#define	DSP_MAHB_SLEEP_EN		(0x1UL << 19)
+#define	APB_PRI_EN		(0x1UL << 20)
+
+
+/*******************************************
+  *
+  *******************************************/
 
 #endif 
 

@@ -56,10 +56,25 @@ void ADI_init (void);
         unsigned short adi_tmp_val;\
 	local_irq_save(flags);\
 	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
+	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
         adi_tmp_val &= (unsigned short)(value); \
         ADI_Analogdie_reg_write(reg_addr, adi_tmp_val); \
 	local_irq_restore(flags);\
     }while(0)
+
+/* clear a bit. */
+#define ANA_REG_BIC(reg_addr, value)    \
+    do{\
+	unsigned long flags; \
+        unsigned short adi_tmp_val;\
+	local_irq_save(flags);\
+	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
+	adi_tmp_val = ADI_Analogdie_reg_read(reg_addr); \
+        adi_tmp_val &= (unsigned short)(~value); \
+        ADI_Analogdie_reg_write(reg_addr, adi_tmp_val); \
+	local_irq_restore(flags);\
+    }while(0)
+
 
 #define ANA_REG_SET(reg_addr, value)    ADI_Analogdie_reg_write(reg_addr, (unsigned short)(value))
 
