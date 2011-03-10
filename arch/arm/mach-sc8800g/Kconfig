@@ -25,4 +25,10 @@ config SC8800G_IDLE
 	default n
 	bool "Idle Support for SC8800G"
 
+config SC8800G_VIBRATOR
+    depends on ARCH_SC8800G
+    select ANDROID_TIMED_OUTPUT
+    default n
+    bool "vibrator for SC8800G"
+
 endif
