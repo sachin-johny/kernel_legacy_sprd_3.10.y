@@ -2,7 +2,7 @@ obj-y += io.o idle.o irq.o timer.o gpio.o gpio_phy.o\
 	mfp_sprd.o \
 	dma.o ldo.o adi_drv.o \
 	rfkill_dummy.o gpio_set.o
-#	ts0710_mux.o mux_buffer.o \
+obj-$(CONFIG_TS0710_MUX_UART)+= ts0710_mux.o mux_buffer.o 
 # Common code for board init
 obj-y += common.o clock_common.o clock_sc8800g.o power_domain.o clock_test.o
 
