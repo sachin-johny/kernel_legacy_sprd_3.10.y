@@ -369,7 +369,7 @@ PUBLIC int32_t ISP_DriverStart(uint32_t base_addr)
           
             _paod(DCAM_PATH_CFG, BIT_0);
 		DCAM_TRACE("###dcam: DCAM_PATH_CFG: %x.\n", _pard(DCAM_PATH_CFG));
-    
+
     return rtn;
 }
 
@@ -750,7 +750,7 @@ PUBLIC int32_t ISP_DriverPath1Config(uint32_t base_addr, ISP_CFG_ID_E id, void* 
                 p_path->output_size.w = p_size->w;
                 p_path->output_size.h = p_size->h;				
             }
-		DCAM_TRACE("###dcam: output size w: %d, h: %d.\n", p_size->w, p_size->h);
+		DCAM_TRACE("###dcam: output size w: %d, h: %d, reg DCAM_DES_SIZE: 0x %x.\n", p_size->w, p_size->h, _pard(DCAM_DES_SIZE));
             break;
         }  
         case ISP_PATH_OUTPUT_FORMAT:
@@ -886,6 +886,7 @@ PUBLIC int32_t ISP_DriverSetMode(uint32_t base_addr, ISP_MODE_E mode)
             //_paad(DCAM_CFG, ~(BIT_1 | BIT_2));		
             _paad(DCAM_CFG, ~BIT_1); 	
             _paad(DCAM_PATH_CFG, ~BIT_1);//DCAM_CAP_MODE_SINGLE
+            //_paod(DCAM_PATH_CFG, BIT_1);
             break;
         default:
             rtn = ISP_DRV_RTN_MODE_ERR;
@@ -1036,12 +1037,12 @@ LOCAL void  _ISP_ISRPath1Done(uint32_t base_addr)
  
     frame_curr->width = p_path->output_size.w;
     frame_curr->height = p_path->output_size.h;        	
-    
+        
     if(user_func)
     {
         (*user_func)((void*)frame_curr);
     }
-	
+    
     return ;
 }
 
@@ -1053,6 +1054,7 @@ LOCAL void  _ISP_ISRCapFifoOverflow(uint32_t base_addr)
     {
         (*user_func)(NULL);
     }
+	
     return ;
 }
 

@@ -51,6 +51,12 @@
 #define SCI_ASSERT(...) 
 #define SCI_PASSERT(condition, format...)
 #endif
+#include <mach/dma.h>
+#include <linux/sched.h>
+
+
+static wait_queue_head_t	wait_queue;
+static  int  condition; 
 
 typedef enum
 {
@@ -1455,6 +1461,73 @@ int _SCALE_DriverIODone(void)
 	return 0;	
 }
 
+static void _SCALE_DriverDMAIrq(int dma_ch, void *dev_id)
+{
+        condition = 1;
+	wake_up_interruptible(&wait_queue);
+	SCALE_PRINT("_SCALE_DriverDMAIrq() X.\n");
+}
+static int _SCALE_DriverColorConvertByDMA(uint32_t width, uint32_t height, uint32_t input_addr, uint32_t output_addr)
+{
+	sprd_dma_ctrl ctrl;
+	sprd_dma_desc dma_desc;
+	uint32_t byte_per_pixel = 1;
+	uint32_t src_img_postm = width * byte_per_pixel;
+	uint32_t dst_img_postm = 0;
+	uint32_t src_addr = input_addr;
+	uint32_t dst_addr = output_addr;
+	uint32_t block_len = width * byte_per_pixel;
+	uint32_t total_len = width * height * byte_per_pixel / 2;
+        int32_t ret = 0;
+
+       SCALE_PRINT("[pid:%d]  6 %d,%d,%x,%x\n", current->pid,width,height,input_addr,output_addr);
+
+	while(1){		
+		ret  = sprd_request_dma(DMA_SOFT0, _SCALE_DriverDMAIrq, &g_scale_mode);
+        	if(ret){
+        		SCALE_PRINT("SCALE: request dma fail.ret : %d.\n", ret);
+        		msleep(10);
+        	}
+		else{
+			break;
+		}			
+	}
+	condition = 0;
+	memset(&ctrl, 0, sizeof(sprd_dma_ctrl));
+	memset(&dma_desc, 0, sizeof(sprd_dma_desc));
+	ctrl.dma_desc = &dma_desc;	
+	sprd_dma_setup_cfg(&ctrl,
+                DMA_SOFT0,
+                DMA_NORMAL,
+                TRANS_DONE_EN,
+                DMA_INCREASE, DMA_INCREASE,
+                SRC_BURST_MODE_8|src_img_postm, SRC_BURST_MODE_8|dst_img_postm,
+                block_len,
+                byte_per_pixel*8, byte_per_pixel*8,
+                src_addr, dst_addr, total_len);
+	 sprd_dma_setup(&ctrl); 
+	 sprd_dma_start(DMA_SOFT0);
+	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);	
+
+	 if(wait_event_interruptible(wait_queue, condition)){
+	 	ret =  -EFAULT;
+	 }
+	 sprd_dma_stop(DMA_SOFT0);
+	 sprd_free_dma(DMA_SOFT0);
+	 return ret;
+}
+static int _SCALE_DriverYUV422TYUV420(SCALE_YUV422_YUV420_T *yuv_config)
+{
+	uint32_t width = yuv_config->width;
+	uint32_t height = yuv_config->height;
+	uint32_t src_addr = yuv_config->src_addr;
+	uint32_t dst_addr = yuv_config->dst_addr;
+
+	_SCALE_DriverRegisterIRQ();
+
+	return _SCALE_DriverColorConvertByDMA(width, height, src_addr, dst_addr);
+}
+
 static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, unsigned long param)
 {	
 	switch(cmd)
@@ -1469,6 +1542,13 @@ static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, un
 	case SCALE_IOC_DONE:
 		_SCALE_DriverIODone();
 		break;
+	case SCALE_IOC_YUV422_YUV420:
+		{			
+			SCALE_YUV422_YUV420_T yuv_config;			
+			copy_from_user(&yuv_config, (SCALE_YUV422_YUV420_T *)param, sizeof(SCALE_YUV422_YUV420_T));			
+			_SCALE_DriverYUV422TYUV420(&yuv_config);
+		}
+		break;			
 	default:
 		break;
 	}
@@ -1510,6 +1590,7 @@ int scale_probe(struct platform_device *pdev)
 		return -1;
 
 	mutex_init(lock);
+	init_waitqueue_head(&wait_queue);
 
 	printk(KERN_ALERT" scale_probe Success\n");
 

@@ -222,7 +222,7 @@ int dcam_parameter_init(DCAM_INIT_PARAM_T *init_param)
   g_dcam_param.skip_frame = init_param->skip_frame;
   g_dcam_param.first_buf_addr = init_param->first_buf_addr;
   DCAM_TRACE("###dcam: dcam_parameter_init mode: %d, format: %d, yuv_pattern: %d. \n",g_dcam_param.mode,g_dcam_param.format,g_dcam_param.yuv_pattern);      
- DCAM_TRACE("###dcam: dcam_parameter_init disp x: %d, input_rect:w: %d, h:%d\n",g_dcam_param.display_rect.x,g_dcam_param.input_rect.w,g_dcam_param.input_rect.h);   
+ DCAM_TRACE("###dcam: dcam_parameter_init disp w: %d, disp h: %d, input_rect:w: %d, h:%d\n",g_dcam_param.display_rect.w,g_dcam_param.display_rect.h,g_dcam_param.input_rect.w,g_dcam_param.input_rect.h);   
   DCAM_TRACE("###dcam: dcam_parameter_init end. \n");
   return 0;  
 }
@@ -459,6 +459,9 @@ DCAM_TRACE("ISP_SERVICE:ISP_DriverCapConfig.\n");
     }
   
     ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr);
+#if 1    
+    get_dcam_reg();
+#endif  	
     rtn_drv = ISP_DriverStart(s->module_addr);
 exit:
 
@@ -625,9 +628,11 @@ LOCAL void _ISP_ServiceStartJpeg(void)
     ISP_RTN_IF_ERR(rtn_drv);
 
     ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr); //wxz:???
+#if 1    
+    get_dcam_reg();
+#endif    
     rtn_drv = ISP_DriverStart(s->module_addr);
     ISP_RTN_IF_ERR(rtn_drv);
-
 
 exit:
 
@@ -791,3 +796,4 @@ PUBLIC uint32_t dcam_set_buffer_address(uint32_t address)
 
 	 return ISP_DriverSetBufferAddress(s->module_addr, address);
 }
+

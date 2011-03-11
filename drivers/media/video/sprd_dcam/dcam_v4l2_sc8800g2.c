@@ -70,6 +70,7 @@ typedef struct dcam_info
 	SENSOR_MODE_E snapshot_m;
 	//Dcam
 	DCAM_SIZE_T0 input_size;
+	DCAM_MODE_TYPE_E mode;
 }DCAM_INFO_T;
 
 uint32_t g_cur_buf_addr = 0; //store the buffer address which is hte next buffer DQbufed.
@@ -386,7 +387,10 @@ static int init_sensor_parameters(void)
 	if(SENSOR_IMAGE_FORMAT_RAW != sensor_info_ptr->image_format)
 		Sensor_Ioctl(SENSOR_IOCTL_BEFORE_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
 	DCAM_V4L2_PRINT("###V4L2: snapshot_m: %d, preview_m: %d.\n", g_dcam_info.snapshot_m, g_dcam_info.preview_m);
-	Sensor_SetMode(g_dcam_info.preview_m);
+	if(g_dcam_info.preview_m != g_dcam_info.snapshot_m)
+		Sensor_SetMode(g_dcam_info.snapshot_m);//wxz:????
+	else if(g_dcam_info.snapshot_m < SENSOR_MODE_SNAPSHOT_ONE_FIRST) 
+		Sensor_SetMode(g_dcam_info.preview_m);
 	return 0;
 }
 
@@ -407,6 +411,41 @@ static int vidioc_querycap(struct file *file, void  *priv,
 	return 0;
 }
 
+static int vidioc_cropcap(struct file *file, void  *priv,
+					struct v4l2_cropcap *cc)
+{
+	struct dcam_fh *fh = priv;
+	struct dcam_dev *dev = fh->dev;
+
+	if (cc->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	cc->bounds.left = 0;
+	cc->bounds.top = 0;
+	cc->bounds.width = 640;
+	cc->bounds.height = 480;
+
+	cc->defrect = cc->bounds;
+
+	cc->pixelaspect.numerator = 54;
+	cc->pixelaspect.denominator = 59;
+
+	return 0;
+}
+
+static int vidioc_s_crop(struct file *file, void  *priv,
+					struct v4l2_crop *crop)
+{
+	struct dcam_fh *fh = priv;
+	struct dcam_dev *dev = fh->dev;
+
+	if (crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+		return -EINVAL;
+
+	DCAM_V4L2_PRINT("###V4L2: vidioc_s_crop left: %d, top: %d, width: %d,height: %d.\n", crop->c.left, crop->c.top, crop->c.width, crop->c.height);
+
+	return 0;
+}
 static int vidioc_enum_fmt_vid_cap(struct file *file, void  *priv,
 					struct v4l2_fmtdesc *f)
 {
@@ -748,8 +787,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh  *fh = priv;
 
-	DCAM_V4L2_PRINT("###v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x.\n", file->f_flags, O_NONBLOCK);
-
+	DCAM_V4L2_PRINT("###v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n", file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));
 }
 
@@ -772,15 +810,36 @@ static void init_dcam_parameters(void *priv)
     init_param.format = DCAM_DATA_YUV422; //for output format of sensor.
     init_param.yuv_pattern = YUV_YUYV;    
     init_param.display_rgb_type = RGB_565;
-    init_param.input_size.w = fh->width;
-    init_param.input_size.h = fh->height;
+    //init_param.input_size.w = fh->width;
+    //init_param.input_size.h = fh->height;
+    if((fh->width < 640) && (fh->height < 480))
+    	{
+	    	init_param.input_size.w = 640;
+		init_param.input_size.h = 480;
+    	}
+	else
+	{
+		init_param.input_size.w = fh->width;
+		init_param.input_size.h = fh->height;
+	}
+		
     init_param.polarity.hsync = 1;
     init_param.polarity.vsync = 0;// //1
     init_param.polarity.pclk = 0;
     init_param.input_rect.x = 0;
     init_param.input_rect.y = 0;
-    init_param.input_rect.w = fh->width;
-    init_param.input_rect.h = fh->height;
+   // init_param.input_rect.w = fh->width;
+    //init_param.input_rect.h = fh->height;
+    if((fh->width < 640) && (fh->height < 480))
+    	{
+	    	init_param.input_rect.w = 640;
+		init_param.input_rect.h = 480;
+    	}
+	else
+	{
+		init_param.input_rect.w = fh->width;
+		init_param.input_rect.h = fh->height;
+	}    
     init_param.display_rect.x = 0;
     init_param.display_rect.y = 0;
     init_param.display_rect.w = fh->width;
@@ -793,8 +852,11 @@ static void init_dcam_parameters(void *priv)
     init_param.rotation = DCAM_ROTATION_0;
     init_param.first_buf_addr = g_first_buf_addr;
 
-	g_dcam_info.input_size.w = fh->width;
-	g_dcam_info.input_size.h = fh->height;
+//	g_dcam_info.input_size.w = fh->width;
+//	g_dcam_info.input_size.h = fh->height;
+	g_dcam_info.input_size.w =init_param.input_size.w;
+	g_dcam_info.input_size.h = init_param.input_size.h;
+	g_dcam_info.mode = init_param.mode;
 	 	dcam_parameter_init(&init_param);
 	 }
 }
@@ -816,7 +878,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		DCAM_V4L2_PRINT("###DCAM_V4L2: Fail to videobuf_streamon.\n");
 		return ret;
 	}
-
 	 dcam_start();
 
 #if DCAM_V4L2_DEBUG
@@ -950,8 +1011,9 @@ static void set_layer_cb(uint32_t base)
 	struct dcam_dmaqueue *dma_q = &dev->vidq;
 
 	unsigned long flags = 0;
-
+	DCAM_V4L2_PRINT("###V4L2: path1_done_buffer.\n");	
 	spin_lock_irqsave(&dev->slock, flags);
+
 	if (list_empty(&dma_q->active)) {
 		DCAM_V4L2_PRINT("###V4L2: path1_done_buffer: No active queue to serve\n");
 		goto unlock;
@@ -963,7 +1025,16 @@ static void set_layer_cb(uint32_t base)
 	/* Nobody is waiting on this buffer, return */
 	if (!waitqueue_active(&buf->vb.done))
 	{
-		//DCAM_V4L2_PRINT("###V4L2: path1_done_buffer: Nobody is waiting on this buffer\n");
+		DCAM_V4L2_PRINT("###V4L2: path1_done_buffer: Nobody is waiting on this buffer\n");	
+		if(3 == g_dcam_info.mode)
+		{		
+			list_del(&buf->vb.queue);
+			buf->vb.field_count++;
+			do_gettimeofday(&buf->vb.ts);
+			buf->vb.state = VIDEOBUF_DONE;
+			wake_up(&buf->vb.done); 
+			DCAM_V4L2_PRINT("###V4L2:g_dcam_info wake_up.\n");
+		}
 		goto unlock;
 	}
 	DCAM_V4L2_PRINT("###V4L2: before set_next_buffer :filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));
@@ -1273,6 +1344,8 @@ static const struct v4l2_ioctl_ops dcam_ioctl_ops = {
 	.vidioc_g_parm        = vidioc_g_parm,
 	.vidioc_s_parm        = vidioc_s_parm,	
 	.vidioc_querycap      = vidioc_querycap,
+	.vidioc_cropcap  = vidioc_cropcap,
+	.vidioc_s_crop = vidioc_s_crop,
 	.vidioc_enum_fmt_vid_cap  = vidioc_enum_fmt_vid_cap,
 	.vidioc_g_fmt_vid_cap     = vidioc_g_fmt_vid_cap,
 	.vidioc_try_fmt_vid_cap   = vidioc_try_fmt_vid_cap,
