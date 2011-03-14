@@ -1225,6 +1225,12 @@ CONFIG_ANDROID_LOW_MEMORY_KILLER=y
 # Qualcomm MSM Camera And Video
 #
 
+# cmmb demod drivers
+CONFIG_INNOCMMB=y
+CONFIG_INNOCMMB_DEBUG=y
+CONFIG_INNOCMMB_PLAT_DEVKIT8000=y
+
+
 #
 # Camera Sensor Selection
 #

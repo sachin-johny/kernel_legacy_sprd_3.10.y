@@ -113,9 +113,9 @@ static struct spi_board_info openhone_spi_devices[] = {
         .mode           = SPI_CPOL | SPI_CPHA,
     },
     {
-        .modalias       = "spidev", // "spidev" --> spidev_spi
+        .modalias       = "cmmb-dev", // "spidev" --> spidev_spi
         .chip_select    = 1,
-        .max_speed_hz   = 0.5 * 1000 * 1000,
+        .max_speed_hz   = 8 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
     {

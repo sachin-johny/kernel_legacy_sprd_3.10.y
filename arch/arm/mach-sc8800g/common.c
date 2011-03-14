@@ -254,6 +254,11 @@ static struct platform_device sprd_vsp_device = {
 	.id	= -1,
 };
 
+static struct platform_device inno_demod_device = {
+	.name   = "inno-demod",
+	.id     = -1,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_kpad_device,
 	&sprd_nand_device,
@@ -267,7 +272,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_2d_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
-	&sprd_vsp_device,	
+	&sprd_vsp_device,
+	&inno_demod_device,
 };
 
 void __init sprd_add_devices(void)
