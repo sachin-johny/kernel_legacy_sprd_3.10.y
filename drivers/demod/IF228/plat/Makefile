@@ -1,0 +1,6 @@
+obj-$(CONFIG_INNOCMMB_PLAT_DEVKIT8000) += inno_plat.o
+
+ifdef CONFIG_INNOCMMB_DEBUG
+EXTRA_CFLAGS += -DDEBUG
+endif
+EXTRA_CFLAGS += -I$(src)/../include 

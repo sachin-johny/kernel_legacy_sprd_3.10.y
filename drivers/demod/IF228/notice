@@ -1,0 +1,108 @@
+Source arch
+-----------
+cmmb_driver/core : this folder include all core control logic codes,such as irq handler,
+                   jobs management,demod control,sysfs debug interface and so on
+cmmb_driver/plat : this folder include a demo code for devkit8000 board,platform developer should rewrite it
+cmmb_driver/lgx  : logic channel driver source codes are all in this folder,also uam is placed in it now
+
+
+How to make and install 
+-----------------------
+module mode:
+        First of all,you need confirm if cross-complie tools is what you want and kernel dir is refer to your current kernel folder
+        1.Edit cmmb_driver/Makefile-module:
+                CROSS_COMPILE : your cross-compile tools
+                KDIR          : your current kernel folder
+        2.type make -f Makefile-module under cmmb_driver folder
+        3.copy 
+                cmmb_driver/plat/inno_plat.ko
+                cmmb_driver/core/inno_core.ko,
+                cmmb_driver/lgx/inno_lgx.ko
+                inno_demod_fw.bin
+          to your target board
+        4.copy inno_demod_fw.bin to lib/firmware folder if udev is used,android system should be copied to /system/etc/firmware
+        5.insmod inno_plat.ko
+        6.insmod inno_core.ko
+        7.insmod inno_lgx.ko
+        Now /dev/innoctl,/dev/innouam0,/dev/innolg0,/dev/innolg1...should be presented
+
+builtin mode:
+        when you want to add this driver to your kernel, you need do following actions:
+        1.copy innocmmb folder to driver folder of your kernel source tree
+        2.add innocmmb/Kconfig to your Kconfig tree
+        3.add innocmmb folder to your Makefile tree
+        4.make menuconfig to enable innocmmb driver
+
+sysfs
+-----
+This give you a mothed to control or see some info from driver on the console
+
+/sys/class/innodemod/power : 
+        echo 1 > /sys/class/innodemod/power will power on demod hardware,also firmware is downloaded at this time
+        echo 0 > /sys/class/innodemod/power will power off demod hardware
+
+/sys/class/innodemod/freq  : 
+        echo 20 > /sys/class/innodemod/freq will change current frequency to 20 dot
+        cat /sys/class/innodemod/freq will show you current frequency demod used
+
+/sys/class/innodemod/sys_status: 
+        cat /sys/class/innodemod/sys_status will show you system status info, include sync status ,ldpc and so on
+
+/sys/class/innodemod/ch_cnt: 
+        cat /sys/class/innodemod/ch_cnt will show you how much logic channel device driver exported
+
+/sys/class/innodemod/ch_conf: 
+        echo [channel num 0-7] [start timeslot] [timeslot count] [demod conf] > /sys/class/innodemod/ch_conf
+        will change the channel setting for timeslot and demod config
+        cat /sys/class/innodemod/ch_conf will show you config of all channels
+
+/sys/class/innodemod/fw_version:
+        cat /sys/class/innodemod/fw_version will show you current firmware version
+
+/sys/class/innodemod/chip_id: 
+        cat /sys/class/innodemod/chip_id will show you chip id
+
+/sys/class/innodemod/err_info:
+        cat /sys/class/innodemod/err_info will show you error infomation 
+
+porting
+-------
+step1: implement platform layer
+        /**
+        * struct inno_platform
+        * @power : power control callback function
+        * @spi_transfer : spi transfer callback function,
+        *                here we employ struct spi_message as the parameter which is defined by <linux/spi/spi.h>
+        * @irq_handler : platform layer should call this func if irq occur
+        */
+        struct inno_platform {
+                void (*power)(unsigned char on);
+                int (*spi_transfer)(struct spi_message *msg);
+                irq_handler_t irq_handler;
+        };
+        int inno_platform_init(struct inno_platform *plat);
+
+        struct inno_platform must be initialized in inno_platform_init,current plat folder include a sample for devkit8000
+
+step2: Add platform_device named "inno-demod":
+                for example:
+                static struct platform_device inno_demod = {
+                        .name   = "inno-demod",
+                        .id     = -1,
+                };
+                platform_device_register(&inno_demod);
+                sample code is in cmmb_driver/core/test
+
+step3: irq handler: irq register should be done by platform layer,irq_handler should be called if an irq occur
+                for example:
+                        #include "inno_spi_platform.h"
+
+                        int inno_platform_init(struct inno_platform *plat) { 
+                                plat.power = xxx_plat_power;
+                                plat.spi_transfer = xxx_plat_spi_transfer;
+                                request_irq(OMAP_GPIO_IRQ(134), plat->irq_handler, IRQF_TRIGGER_FALLING, "demod", NULL);
+                                return 0;
+                        }
+
+                sample code is in cmmb_driver/plat/inno_plat.c
+
