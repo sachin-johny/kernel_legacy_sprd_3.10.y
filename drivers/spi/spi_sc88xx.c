@@ -362,12 +362,16 @@ static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_m
     struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
     struct sprd_spi_data *sprd_data = spi_master_get_devdata(spi->master);
     struct spi_transfer *cspi_trans; // = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
+    unsigned int cs_change = 1;
 
 down(&sprd_data->process_sem_direct);
 
     cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
     do {
-        cs_activate(sprd_data, spi);
+       if (cs_change){
+            cs_activate(sprd_data, spi);
+            cs_change = cspi_trans->cs_change;
+        }
         switch (sprd_ctrl_data->tmod) {
             case SPI_TMOD_CSR:
                 msg->status = sprd_spi_direct_transfer_main(
@@ -380,7 +384,12 @@ down(&sprd_data->process_sem_direct);
                         cspi_trans->len, sprd_data, sprd_ctrl_data);
             break;
         }
-        if (msg->status < 0) break;
+        if (cs_change)
+        {
+            cs_deactivate(sprd_data, spi);
+        }
+
+       if (msg->status < 0) break;
         msg->actual_length += cspi_trans->len;
         if (msg->transfers.prev == &cspi_trans->transfer_list) break;
         cspi_trans = list_entry(cspi_trans->transfer_list.next, struct spi_transfer, transfer_list);
