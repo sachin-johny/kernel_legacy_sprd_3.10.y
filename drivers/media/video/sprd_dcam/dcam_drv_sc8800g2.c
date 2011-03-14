@@ -17,16 +17,15 @@
  */
  
 #include "dcam_drv_sc8800g2.h"
-#include "dcam_sc8800g_scalecoeff_h.h"
-#include "dcam_sc8800g_scalecoeff_v.h"
+
+//#define ISP_DRV_SCALE_COEFF_TABLE_EN
 
 #ifdef ISP_DRV_SCALE_COEFF_TABLE_EN
-#include "scale_sc8800g_scalecoeff_h.h"
-#include "scale_sc8800g_scalecoeff_v.h"
+#include "dcam_sc8800g_scalecoeff_h.h"
+#include "dcam_sc8800g_scalecoeff_v.h"
 #else
 #include "gen_scale_coef.h"
 //#define ISP_DRV_SCALE_COEFF_DBG
-//#define ISP_DRV_SCALE_COEFF_TABLE_EN
 #define ISP_PATH1 1 
 #define ISP_PATH2 2
 #define ISP_DRV_SCALE_COEFF_BUF_SIZE        (8*1024)
@@ -387,6 +386,7 @@ PUBLIC int32_t ISP_DriverStop(uint32_t base_addr)
         case ISP_MODE_VT:
         case ISP_MODE_PREVIEW_EX:
             _paad(DCAM_PATH_CFG, ~BIT_0);
+	    msleep(20);//wait the dcam stop
         break;      
         default:
             rtn = ISP_DRV_RTN_MODE_ERR; 

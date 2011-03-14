@@ -459,10 +459,13 @@ DCAM_TRACE("ISP_SERVICE:ISP_DriverCapConfig.\n");
     }
   
     ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr);
-#if 1    
+#if 0    
     get_dcam_reg();
 #endif  	
     rtn_drv = ISP_DriverStart(s->module_addr);
+#if 0    
+    get_dcam_reg();
+#endif  
 exit:
 
     if(rtn_drv)
@@ -628,7 +631,7 @@ LOCAL void _ISP_ServiceStartJpeg(void)
     ISP_RTN_IF_ERR(rtn_drv);
 
     ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr); //wxz:???
-#if 1    
+#if 0    
     get_dcam_reg();
 #endif    
     rtn_drv = ISP_DriverStart(s->module_addr);

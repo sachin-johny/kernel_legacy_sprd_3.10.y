@@ -810,14 +810,12 @@ static void init_dcam_parameters(void *priv)
     init_param.format = DCAM_DATA_YUV422; //for output format of sensor.
     init_param.yuv_pattern = YUV_YUYV;    
     init_param.display_rgb_type = RGB_565;
-    //init_param.input_size.w = fh->width;
-    //init_param.input_size.h = fh->height;
-    if((fh->width < 640) && (fh->height < 480))
+    /*if((fh->width < 640) && (fh->height < 480))
     	{
 	    	init_param.input_size.w = 640;
 		init_param.input_size.h = 480;
     	}
-	else
+	else*/
 	{
 		init_param.input_size.w = fh->width;
 		init_param.input_size.h = fh->height;
@@ -828,14 +826,12 @@ static void init_dcam_parameters(void *priv)
     init_param.polarity.pclk = 0;
     init_param.input_rect.x = 0;
     init_param.input_rect.y = 0;
-   // init_param.input_rect.w = fh->width;
-    //init_param.input_rect.h = fh->height;
-    if((fh->width < 640) && (fh->height < 480))
+   /*if((fh->width < 640) && (fh->height < 480))
     	{
 	    	init_param.input_rect.w = 640;
 		init_param.input_rect.h = 480;
     	}
-	else
+	else*/
 	{
 		init_param.input_rect.w = fh->width;
 		init_param.input_rect.h = fh->height;
