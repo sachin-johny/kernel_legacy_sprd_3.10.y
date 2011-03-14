@@ -164,28 +164,52 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
 printk("new ");
 #endif
 
-    if (data_in) {
-        int block, tlen, j, block_bytes;
+#ifdef CSPI_HACK
+static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+{
+  int i,j,timeout, block;
+  int tlen = 0;
+  int block_bytes = 128;
+  unsigned char* data;
+
+#define MYLOCAL_TIMEOUT 0xff0000
+  struct sprd_spi_data *sprd_data = cookie;
+  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+
+  data = (unsigned char *)data_in;
+  /* Enable rx only */
+  spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); 
+
+  for (i = 0, tlen = len; tlen;i++) {
+    if (tlen > block_bytes) {
+      block = block_bytes;
+      tlen -= block_bytes;
+    } else {
+      block = tlen;
+      tlen = 0;
+    }
+    
+    spi_writel(0x0000, SPI_CTL4); /* stop only rx */
+    spi_writel((1 << 9) | block, SPI_CTL4);
+    
+    for (j = 0; j < block; j++) {
+      /* wait for rx fifo not empty */
+      for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+      /* Read the data */
+      data[i*block_bytes+j] = spi_readl(SPI_TXD);
+    }
+  }
+  return 0;
+}
+#endif
 
         spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */
 #if SPRD_SPI_DEBUG_DATA
 printk("[in] ");
 #endif
 
-        if (likely(sprd_ctrl_data->data_width != 3)) {
-            block_bytes = SPRD_SPI_DMA_BLOCK_MAX << sprd_ctrl_data->data_width_order;
-        } else block_bytes = SPRD_SPI_DMA_BLOCK_MAX * 3;
-
-        for (i = 0, tlen = len; tlen;) {
-            if (tlen > block_bytes) {
-                block = SPRD_SPI_DMA_BLOCK_MAX;
-                tlen -= block_bytes;
-            } else {
-                if (likely(sprd_ctrl_data->data_width != 3))
-                    block = tlen >> sprd_ctrl_data->data_width_order;
-                else block = tlen / sprd_ctrl_data->data_width;
-                tlen = 0;
-            }
+  struct sprd_spi_data *sprd_data = cookie;
+  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
 
             spi_writel(0x0000, SPI_CTL4); /* stop only rx */
             spi_writel((1 << 9) | block, SPI_CTL4);
@@ -243,33 +267,125 @@ if ((i & 0x0f) != 0x0f)
         for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
         if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
     }
-    return 0;
+#endif
+  return 0;
 }
+
+
+static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+{
+  int i, timeout;
+  u8 *data;
+#ifdef CSR_CSPI
+  unsigned char *cmd;
+  int write_len=0;
+  int read_len=0;
+#endif
+
+#define MYLOCAL_TIMEOUT 0xff0000
+  struct sprd_spi_data *sprd_data = cookie;
+  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+    
+  if (data_out) {
+    spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */
+    for (i = 0; i < len;) {
+      for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
+      if (timeout >= MYLOCAL_TIMEOUT){
+	printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL)\n");
+	return  -ENOPROTOOPT;
+      }
+      data = (u8*)data_out + i;
+      switch (sprd_ctrl_data->data_width) {
+      case 1: spi_writel(( (u8*)data)[0], SPI_TXD); i += 1; break;
+      case 2: spi_writel(((u16*)data)[0], SPI_TXD); i += 2; break;
+      case 4: spi_writel(((u32*)data)[0], SPI_TXD); i += 4; break;
+      }
+    }
+    for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+    if (timeout >= MYLOCAL_TIMEOUT){
+      printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
+      return -ENOPROTOOPT;
+    }
+    // for (i = 0; i < 5; i++);
+    for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+    if (timeout >= MYLOCAL_TIMEOUT){
+      printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
+      return -ENOPROTOOPT;
+    }
+  }
+
+  if (data_in) {
+    int block, tlen, j, block_bytes;
+
+    spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */
+
+    if (likely(sprd_ctrl_data->data_width != 3)) {
+      block_bytes = SPRD_SPI_DMA_BLOCK_MAX << sprd_ctrl_data->data_width_order;
+    } else block_bytes = SPRD_SPI_DMA_BLOCK_MAX * 3;
+
+    for (i = 0, tlen = len; tlen;) {
+      if (tlen > block_bytes) {
+	block = SPRD_SPI_DMA_BLOCK_MAX;
+	tlen -= block_bytes;
+      } else {
+	if (likely(sprd_ctrl_data->data_width != 3))
+	  block = tlen >> sprd_ctrl_data->data_width_order;
+	else block = tlen / sprd_ctrl_data->data_width;
+	tlen = 0;
+      }
+
+      spi_writel(0x0000, SPI_CTL4); /* stop only rx */
+      spi_writel((1 << 9) | block, SPI_CTL4);
+
+      for (j = 0; j < block; j++) {
+	for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+	if (timeout >= MYLOCAL_TIMEOUT){
+	  printk("Timeout spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY)\n");
+	  return  -ENOPROTOOPT;
+	}
+	data = (u8*)data_in + i;
+	switch (sprd_ctrl_data->data_width) {
+	case 1: ( (u8*)data)[0] = spi_readl(SPI_TXD); i += 1; break;
+	case 2: ((u16*)data)[0] = spi_readl(SPI_TXD); i += 2; break;
+	case 4: ((u32*)data)[0] = spi_readl(SPI_TXD); i += 4; break;
+	}
+      }
+    }
+  }
+
+  return 0;
+}
+
 
 static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_message *msg)
 {
-    struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
-    struct sprd_spi_data *sprd_data = spi_master_get_devdata(spi->master);
-    struct spi_transfer *cspi_trans; // = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
+  struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
+  struct sprd_spi_data *sprd_data = spi_master_get_devdata(spi->master);
+  struct spi_transfer *cspi_trans; // = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
 
-down(&sprd_data->process_sem_direct);
+  int write_len;
+  int read_len;
+  unsigned char cmd;
+  down(&sprd_data->process_sem_direct);
 
-    cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
-    do {
-        cs_activate(sprd_data, spi);
-        msg->status = sprd_spi_direct_transfer(cspi_trans->rx_buf, cspi_trans->tx_buf, cspi_trans->len, sprd_data, sprd_ctrl_data);
-        if (msg->status < 0) break;
-        msg->actual_length += cspi_trans->len;
-        if (msg->transfers.prev == &cspi_trans->transfer_list) break;
-        cspi_trans = list_entry(cspi_trans->transfer_list.next, struct spi_transfer, transfer_list);
-    } while (1);
-    cs_deactivate(sprd_data, spi);
+  cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
+  
 
-up(&sprd_data->process_sem_direct);
+  do {
+    cs_activate(sprd_data, spi);
+    msg->status = sprd_spi_direct_transfer_main(cspi_trans->rx_buf, cspi_trans->tx_buf, cspi_trans->len, sprd_data, sprd_ctrl_data);
+    if (msg->status < 0) break;
+    msg->actual_length += cspi_trans->len;
+    if (msg->transfers.prev == &cspi_trans->transfer_list) break;
+    cspi_trans = list_entry(cspi_trans->transfer_list.next, struct spi_transfer, transfer_list);
+  } while (1);
+  cs_deactivate(sprd_data, spi);
 
-    msg->complete(msg->context);
+  up(&sprd_data->process_sem_direct);
 
-    return 0;
+  msg->complete(msg->context);
+
+  return 0;
 }
 
 static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
@@ -278,12 +394,14 @@ static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
     struct spi_transfer *trans;
     unsigned long flags;
     int ret = 0;
+    unsigned char *cmd;
 
-// we use direct transfer function for linux kernel default spi api
 
+    // we use direct transfer function for linux kernel default spi api
+#if 1    
     if (msg->complete != spi_complete2)
-        return sprd_spi_direct_transfer_compact(spi, msg);
-
+      return sprd_spi_direct_transfer_compact(spi, msg);
+#endif
 
     sprd_data = spi_master_get_devdata(spi->master);
 
@@ -295,30 +413,30 @@ static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
 
 	list_for_each_entry(trans, &msg->transfers, transfer_list) {
 		/* FIXME implement these protocol options!! */
-		if (trans->bits_per_word || trans->speed_hz) {
-			dev_dbg(&spi->dev, "no protocol options yet\n");
-			return -ENOPROTOOPT;
-		}
-
-		if (!msg->is_dma_mapped) {
-			if (sprd_spi_dma_map_transfer(sprd_data, trans) < 0)
-				return -ENOMEM;
-		}
+	  if (trans->bits_per_word || trans->speed_hz) {
+	    dev_dbg(&spi->dev, "no protocol options yet\n");
+	    return -ENOPROTOOPT;
+	  }
+	  
+	  if (!msg->is_dma_mapped) {
+	    if (sprd_spi_dma_map_transfer(sprd_data, trans) < 0)
+	      return -ENOMEM;
+	  }
 #if SPRD_SPI_DEBUG
-        else {
+	  else {
             printk(KERN_WARNING "spi dma msg\n");
-        }
+	  }
 #endif
 #if SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX
-        if (!trans->tx_dma && trans->rx_dma) {
+	  if (!trans->tx_dma && trans->rx_dma) {
             trans->tx_buf = SPRD_SPI_ONLY_RX_AND_TXRX_BUG_FIX_IGNORE_ADDR;
             trans->tx_dma = sprd_data->tx_buffer_dma;
-        }
+	  }
 #endif
-        if (!(trans->tx_dma || trans->rx_dma) || !trans->len)
+	  if (!(trans->tx_dma || trans->rx_dma) || !trans->len)
             return -ENOMEM;
 	}
-
+	
 	msg->status = -EINPROGRESS;
 	msg->actual_length = 0;
 

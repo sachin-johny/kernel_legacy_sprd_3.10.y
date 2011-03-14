@@ -130,6 +130,12 @@ static struct spi_board_info openhone_spi_devices[] = {
         .max_speed_hz   = 0.5 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
+  {
+    .modalias       = "spi_slot1", // "spidev" --> spidev_spi
+    .chip_select    = 3,
+    .max_speed_hz   = 0.5 * 1000 * 1000,
+    .mode           = SPI_CPOL | SPI_CPHA,
+    },*/
 };
 
 static u64 spi_dmamask = DMA_BIT_MASK(32);
