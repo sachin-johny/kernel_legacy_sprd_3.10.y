@@ -147,5 +147,4 @@ int dcam_stop(void);
 PUBLIC uint32_t dcam_callback_fun_register(DCAM_CB_ID_E cb_id,
                                       CALLBACK_FUNC_PTR user_func);
 PUBLIC uint32_t dcam_set_buffer_address(uint32_t address);
-void tmp_autocopy(void);
 #endif //_DCAM_SC8800G2_H_
