@@ -1,3 +1,87 @@
+#
+# Makefile for the input core drivers.
+#
+
+# Each configuration option enables a list of files.
+
+#VLX virtual event
+obj-$(CONFIG_INPUT_VEVDEV_BE)	+= vevdev-be.o
+obj-$(CONFIG_INPUT_VEVDEV_FE)	+= vevdev-fe.o
+
+#VLX virtual lcd
+obj-$(CONFIG_FB_VLCD_BACKEND)     += vlcd-be.o
+obj-$(CONFIG_FB_VLCD_FRONTEND)    += vlcd-fe.o
+
+#VLX virtual audio
+obj-$(CONFIG_SND_VAUDIO_BE)	+= vaudio-be.o
+obj-$(CONFIG_SND_VAUDIO_FE)	+= vaudio-fe.o
+
+#VLX virtual video
+obj-$(CONFIG_VVIDEO_BE)		+= vvideo-be.o
+obj-$(CONFIG_VVIDEO_BE_HW)	+= vvideo-be-hw.o
+obj-$(CONFIG_VVIDEO_FE)		+= vvideo-fe.o vvideo-util.o
+
+#VLX virtual watchdog
+obj-$(CONFIG_VWDT_FRONTEND)       += vwatchdog-sf.o
+obj-$(CONFIG_VWDT_BACKEND)        += vwatchdog-sb.o
+
+obj-$(CONFIG_VUART_FRONTEND)	  += osware-vuart.o
 
 #VLX virtual ethernet
 obj-$(CONFIG_NKERNEL_VETH)	+= veth.o
+
+#VLX virtual block device
+obj-$(CONFIG_VBD_FE)            += vlx-vbd-fe.o
+obj-$(CONFIG_VBD_BE)            += vlx-vbd-be.o
+
+#VLX virtual block device v.2
+obj-$(CONFIG_VBD2_FE)           += vlx-vbd2-fe.o
+
+#VLX virtual pipe
+obj-$(CONFIG_VPIPE)		+= vpipe.o
+
+#VLX virtual user land pipe
+obj-$(CONFIG_VUPIPE)		+= vupipe.o
+
+#VLX virtual stream
+obj-$(CONFIG_VBPIPE)		+= vbpipe.o
+
+#VLX virtual memory technology device
+obj-$(CONFIG_VMQ)		+= vlx-vmq.o
+obj-$(CONFIG_VMTD_FE)		+= vmtd-fe.o
+obj-$(CONFIG_VMTD_BE)		+= vmtd-be.o
+
+#VLX VRPC communication
+obj-$(CONFIG_VLX_VRPC) += vrpc.o
+
+#VLX virtual battery backend
+obj-$(CONFIG_VBATTERY_BACKEND)  += vbattery-be.o
+
+#VLX virtual battery frontend
+obj-$(CONFIG_VBATTERY_FRONTEND) += vbattery-fe.o
+
+#VLX virtual shared memory
+obj-$(CONFIG_VSHM) += vshm.o
+
+#VLX virtual pmem backend
+obj-$(CONFIG_VPMEM_BACKEND)  += vpmem.o vpmem-be.o
+
+#VLX virtual pmem frontend
+obj-$(CONFIG_VPMEM_FRONTEND) += vpmem.o vpmem-fe.o
+
+#VLX virtual blitter backend
+obj-$(CONFIG_VBLITTER_BACKEND)  += vblitter-be.o vblitter-soft.o
+
+#VLX virtual blitter frontend
+obj-$(CONFIG_VBLITTER_FRONTEND) += vblitter-fe.o
+
+#VLX virtual cross-interrupt benchmark driver
+obj-$(CONFIG_XIRQ_BENCH)	+= xirq-bench.o
+
+#VLX Monitoring interface
+obj-$(CONFIG_VLX_MONITORING) += perfmonitor.o
+
+
+#VLX Information
+obj-$(CONFIG_VINFO)		+= vinfo.o
+

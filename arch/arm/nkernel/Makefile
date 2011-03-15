@@ -34,3 +34,5 @@ obj-y += vtick.o
 endif
 endif
 
+g_vlog-objs := vlog.o
+obj-$(CONFIG_MODEM_VLOG) += g_vlog.o

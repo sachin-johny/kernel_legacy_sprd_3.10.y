@@ -531,8 +531,8 @@ static struct android_usb_product usb_products[] = {
 
 /* standard android USB platform data */
 static struct android_usb_platform_data andusb_plat = {
-	//.vendor_id			= SPRD_VENDOR_ID,
-	.vendor_id			= 0x1782,
+	.vendor_id			= SPRD_VENDOR_ID,
+	//.vendor_id			= 0x1782,
 	.product_id			= SPRD_PRODUCT_ID,
 	.manufacturer_name	= "Spreadtrum",
 	.product_name		= "Spreadtrum openphone",
