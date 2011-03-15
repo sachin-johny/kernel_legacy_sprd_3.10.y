@@ -209,6 +209,8 @@ struct sprd_spi_controller_data {
     u32 data_max;
     sprd_dma_desc dma_desc_rx;
     sprd_dma_desc dma_desc_tx;
+#define SPI_TMOD_CSR    (1)
+    u32 tmod; // tranfer mod
 };
 
 #define grab_sibling(sprd_data) \

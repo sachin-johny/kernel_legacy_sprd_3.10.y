@@ -173,8 +173,8 @@ static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int 
   unsigned char* data;
 
 #define MYLOCAL_TIMEOUT 0xff0000
-  struct sprd_spi_data *sprd_data = cookie;
-  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+    struct sprd_spi_data *sprd_data = cookie;
+    // struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
 
   data = (unsigned char *)data_in;
   /* Enable rx only */
@@ -209,7 +209,7 @@ printk("[in] ");
 #endif
 
   struct sprd_spi_data *sprd_data = cookie;
-  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+  // struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
 
             spi_writel(0x0000, SPI_CTL4); /* stop only rx */
             spi_writel((1 << 9) | block, SPI_CTL4);
@@ -359,33 +359,39 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
 
 static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_message *msg)
 {
-  struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
-  struct sprd_spi_data *sprd_data = spi_master_get_devdata(spi->master);
-  struct spi_transfer *cspi_trans; // = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
+    struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
+    struct sprd_spi_data *sprd_data = spi_master_get_devdata(spi->master);
+    struct spi_transfer *cspi_trans; // = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
 
-  int write_len;
-  int read_len;
-  unsigned char cmd;
-  down(&sprd_data->process_sem_direct);
+down(&sprd_data->process_sem_direct);
 
-  cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
-  
+    cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
+    do {
+        cs_activate(sprd_data, spi);
+        switch (sprd_ctrl_data->tmod) {
+            case SPI_TMOD_CSR:
+                msg->status = sprd_spi_direct_transfer_main(
+                        cspi_trans->rx_buf, cspi_trans->tx_buf,
+                        cspi_trans->len, sprd_data, sprd_ctrl_data);
+            break;
+            default:
+                msg->status = sprd_spi_direct_transfer(
+                        cspi_trans->rx_buf, cspi_trans->tx_buf,
+                        cspi_trans->len, sprd_data, sprd_ctrl_data);
+            break;
+        }
+        if (msg->status < 0) break;
+        msg->actual_length += cspi_trans->len;
+        if (msg->transfers.prev == &cspi_trans->transfer_list) break;
+        cspi_trans = list_entry(cspi_trans->transfer_list.next, struct spi_transfer, transfer_list);
+    } while (1);
+    cs_deactivate(sprd_data, spi);
 
-  do {
-    cs_activate(sprd_data, spi);
-    msg->status = sprd_spi_direct_transfer_main(cspi_trans->rx_buf, cspi_trans->tx_buf, cspi_trans->len, sprd_data, sprd_ctrl_data);
-    if (msg->status < 0) break;
-    msg->actual_length += cspi_trans->len;
-    if (msg->transfers.prev == &cspi_trans->transfer_list) break;
-    cspi_trans = list_entry(cspi_trans->transfer_list.next, struct spi_transfer, transfer_list);
-  } while (1);
-  cs_deactivate(sprd_data, spi);
+up(&sprd_data->process_sem_direct);
 
-  up(&sprd_data->process_sem_direct);
+    msg->complete(msg->context);
 
-  msg->complete(msg->context);
-
-  return 0;
+    return 0;
 }
 
 static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
@@ -394,8 +400,6 @@ static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
     struct spi_transfer *trans;
     unsigned long flags;
     int ret = 0;
-    unsigned char *cmd;
-
 
     // we use direct transfer function for linux kernel default spi api
 #if 1    
@@ -454,6 +458,13 @@ up(&sprd_data->process_sem_direct);
 
     return ret;
 }
+
+void sprd_spi_tmod(struct spi_device *spi, u32 transfer_mod)
+{
+    struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
+    sprd_ctrl_data->tmod = transfer_mod;
+}
+EXPORT_SYMBOL_GPL(sprd_spi_tmod);
 
 #if SPRD_SPI_DMA_MODE
 static void
