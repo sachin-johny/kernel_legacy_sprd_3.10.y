@@ -34,8 +34,10 @@ static void *tx_dummy;
 #define IF20x_PWR_DN_DELAY         1 // 1ms
 #define IF20x_RST_DELAY                 20 //10ms
 
+#define SPI_TMOD_DEMOD  (2)
 
 extern __must_check int sprd_alloc_gpio_irq(unsigned gpio);
+extern void sprd_spi_tmod(struct spi_device *spi, u32 transfer_mod);
 
 
 static void inno_platform_power(unsigned char on)
@@ -211,6 +213,9 @@ static int spi_probe(struct spi_device *spi)
 	 g_spi->chip_select = 1;
 	 g_spi->mode = 0;
 	 g_spi->max_speed_hz = 8000000;
+
+        sprd_spi_tmod(g_spi, SPI_TMOD_DEMOD);
+    
 //        plat_gpio_init();
         
 //        irq_handler = NULL;

@@ -210,6 +210,7 @@ struct sprd_spi_controller_data {
     sprd_dma_desc dma_desc_rx;
     sprd_dma_desc dma_desc_tx;
 #define SPI_TMOD_CSR    (1)
+#define SPI_TMOD_DEMOD  (2)
     u32 tmod; // tranfer mod
 };
 
