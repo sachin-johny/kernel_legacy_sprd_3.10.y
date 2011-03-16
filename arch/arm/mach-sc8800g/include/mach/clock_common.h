@@ -8,17 +8,7 @@
 #ifndef __ARCH_ARM_SC8800G2_CLOCK_COMMON_H
 #define __ARCH_ARM_SC8800G2_CLOCK_COMMON_H
 
-
-
-/* clock flags. */
-#define RATE_FIXED		(1 << 1)	/* Fixed clock rate */
-#define CONFIG_PARTICIPANT	(1 << 10)	/* Fundamental clock */
-#define ENABLE_ON_INIT	(0x1UL << 11)	/* enable on framework init. */
-#define INVERT_ENABLE           (1 << 12)       /* 0 enables, 1 disables */
-
-/* clksel flags. */
-#define RATE_IN_SC8800G2	(0x1UL << 0)
-
+#include <mach/clock_stub.h>
 
 
 /* control registers. */
@@ -142,6 +132,7 @@ struct clk {
 	int 				divisor;
 	int					(*set_divisor)(struct clk *clk, int divisor);
 	int					(*get_divisor)(struct clk *clk);
+	struct clock_stub 	*pstub;
 };
 
 

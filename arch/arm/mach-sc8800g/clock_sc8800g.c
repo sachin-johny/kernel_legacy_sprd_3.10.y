@@ -25,6 +25,11 @@
 #include <mach/regs_global.h>
 #include <mach/regs_ahb.h>
 
+
+/* switch for VLX solution. */
+#define	VM_VLX_SUPPORT	1
+
+
 struct sc88xx_clk {
 	u32 cpu;
 	struct clk_lookup lk;
@@ -1736,9 +1741,69 @@ static struct clk_functions sc8800g2_clk_functions = {
 };
 
 
+#ifdef	VM_VLX_SUPPORT
+#include <nk/nkern.h>
+
+const char vlink_name[] = "vclock_framework";
+
+#endif
+
+
+void *alloc_share_memory(unsigned int size, unsigned int res_id)
+{
+#ifdef	VM_VLX_SUPPORT
+
+
+    NkPhAddr    plink;
+    NkDevVlink* vlink;
+    NkPhAddr     paddr;
+
+    void *pmem = NULL;
+
+	
+    plink   = 0;
+
+	plink = nkops.nk_vlink_lookup(vlink_name, plink);
+	if (0 == plink) {
+		printk("Can't find the vlink [%s]!\n", vlink_name);
+		return NULL;
+	}
+	vlink = nkops.nk_ptov(plink);
+
+
+    /* Allocate persistent shared memory */
+    paddr  = nkops.nk_pmem_alloc(nkops.nk_vtop(vlink), res_id, size);
+	
+    if (paddr == 0) {
+	printk("OS#%d->OS#%d link=%d server pmem alloc failed.\n",
+		  vlink->c_id, vlink->s_id, vlink->link);
+	return NULL;
+    }
+
+    pmem = (void *) nkops.nk_mem_map(paddr, size);
+    if (pmem == 0) {
+	printk("error while mapping\n");
+    }
+    return pmem;
+	
+#else
+	/* empty for now. */
+	return NULL;
+#endif
+
+}
+
+struct clock_stub *pstub;
+char (*pname)[MAX_CLOCK_NAME_LEN];
+
+
+
 int __init sc8800g2_clock_init(void)
  {
 	struct sc88xx_clk *c;
+	unsigned int array_size;
+	int index = 0;
+
 
 
 	rates_init();
@@ -1757,6 +1822,62 @@ int __init sc8800g2_clock_init(void)
 	clk_enable_init_clocks();
 	printk("###: sc8800g2_clock_init() is done.\n");
 	clk_print_all();
+
+	/* allocate memory for shared clock information. */
+	array_size = ARRAY_SIZE(sc8800g2_clks) + 1;
+	pstub = (struct clock_stub *)alloc_share_memory(array_size * 
+		sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
+	if (NULL == pstub) {
+		printk("Clock Framework: alloc_share_memory() failed!\n");
+		return -ENOMEM;
+	}
+	memset(pstub, 0x00, array_size * sizeof(struct clock_stub));
+
+	/* allocate memory for clock name. */
+	pname = alloc_share_memory(CLOCK_NUM * MAX_CLOCK_NAME_LEN, 
+				RES_CLOCK_NAME_MEM);
+	if (NULL == pname) {
+		printk("Clock Framework: alloc_share_memory() failed!\n");
+		return -ENOMEM;
+	}
+
+	memset(pstub, 0x00, CLOCK_NUM * MAX_CLOCK_NAME_LEN);
+	index = 0;
+	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
+		c->lk.clk->pstub = &pstub[index];
+		pstub[index].name = pname[index];
+		pstub[index].flags = c->lk.clk->flags;
+		pstub[index].usecount = c->lk.clk->usecount;
+		strncpy(pname[index], c->lk.clk->name, (MAX_CLOCK_NAME_LEN - 1));
+		index++;
+	}
+
+	/* make sour list has a termination mark. */
+	pstub[index].name = NULL;
+
+
+
+	for (	c = sc8800g2_clks, index = 0; index < CLOCK_NUM; index++) {
+		printk("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+			index, &pstub[index], pstub[index].name, pstub[index].flags, 
+			pstub[index].usecount);
+
+		if (index < ARRAY_SIZE(sc8800g2_clks))  {
+			printk("clock[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+				index, c[index].lk.clk, c[index].lk.clk->name, c[index].lk.clk->flags, 
+				c[index].lk.clk->usecount);
+			printk("clock->pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+				index, c[index].lk.clk, c[index].lk.clk->pstub->name, 
+				c[index].lk.clk->pstub->flags, 
+				c[index].lk.clk->pstub->usecount);
+		}
+
+		printk("pname[%d] [addr = %p] [name = %s]\n", 
+			index, (char *)&pname[index], (char *)&pname[index]);
+		
+	}
+
+	
 	return 0;
  }
 
