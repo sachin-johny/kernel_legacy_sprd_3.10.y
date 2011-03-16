@@ -286,33 +286,6 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
   struct sprd_spi_data *sprd_data = cookie;
   struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
     
-  if (data_out) {
-    spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */
-    for (i = 0; i < len;) {
-      for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
-      if (timeout >= MYLOCAL_TIMEOUT){
-	printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL)\n");
-	return  -ENOPROTOOPT;
-      }
-      data = (u8*)data_out + i;
-      switch (sprd_ctrl_data->data_width) {
-      case 1: spi_writel(( (u8*)data)[0], SPI_TXD); i += 1; break;
-      case 2: spi_writel(((u16*)data)[0], SPI_TXD); i += 2; break;
-      case 4: spi_writel(((u32*)data)[0], SPI_TXD); i += 4; break;
-      }
-    }
-    for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
-    if (timeout >= MYLOCAL_TIMEOUT){
-      printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
-      return -ENOPROTOOPT;
-    }
-    // for (i = 0; i < 5; i++);
-    for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
-    if (timeout >= MYLOCAL_TIMEOUT){
-      printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
-      return -ENOPROTOOPT;
-    }
-  }
 
   if (data_in) {
     int block, tlen, j, block_bytes;
@@ -353,6 +326,34 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
     }
   }
 
+  if (data_out) {
+    spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */
+    for (i = 0; i < len;) {
+      for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
+      if (timeout >= MYLOCAL_TIMEOUT){
+	printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL)\n");
+	return  -ENOPROTOOPT;
+      }
+      data = (u8*)data_out + i;
+      switch (sprd_ctrl_data->data_width) {
+      case 1: spi_writel(( (u8*)data)[0], SPI_TXD); i += 1; break;
+      case 2: spi_writel(((u16*)data)[0], SPI_TXD); i += 2; break;
+      case 4: spi_writel(((u32*)data)[0], SPI_TXD); i += 4; break;
+      }
+    }
+    for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+    if (timeout >= MYLOCAL_TIMEOUT){
+      printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
+      return -ENOPROTOOPT;
+    }
+    // for (i = 0; i < 5; i++);
+    for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+    if (timeout >= MYLOCAL_TIMEOUT){
+      printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
+      return -ENOPROTOOPT;
+    }
+  }
+
   return 0;
 }
 
@@ -364,19 +365,31 @@ static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_m
     struct spi_transfer *cspi_trans; // = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
     unsigned int cs_change = 1;
 
-down(&sprd_data->process_sem_direct);
+    down(&sprd_data->process_sem_direct);
 
     cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
+    cs_activate(sprd_data, spi);
+
     do {
-       if (cs_change){
-            cs_activate(sprd_data, spi);
-            cs_change = cspi_trans->cs_change;
-        }
-        switch (sprd_ctrl_data->tmod) {
+       switch (sprd_ctrl_data->tmod) {
             case SPI_TMOD_CSR:
                 msg->status = sprd_spi_direct_transfer_main(
                         cspi_trans->rx_buf, cspi_trans->tx_buf,
                         cspi_trans->len, sprd_data, sprd_ctrl_data);
+            break;
+            case SPI_TMOD_DEMOD:
+                if (cs_change) {
+                    cs_activate(sprd_data, spi);
+                    cs_change = cspi_trans->cs_change;
+                }
+
+                 msg->status = sprd_spi_direct_transfer(
+                        cspi_trans->rx_buf, cspi_trans->tx_buf,
+                        cspi_trans->len, sprd_data, sprd_ctrl_data);
+                
+                if (cs_change) {
+                    cs_deactivate(sprd_data, spi);
+                }
             break;
             default:
                 msg->status = sprd_spi_direct_transfer(
@@ -384,11 +397,6 @@ down(&sprd_data->process_sem_direct);
                         cspi_trans->len, sprd_data, sprd_ctrl_data);
             break;
         }
-        if (cs_change)
-        {
-            cs_deactivate(sprd_data, spi);
-        }
-
        if (msg->status < 0) break;
         msg->actual_length += cspi_trans->len;
         if (msg->transfers.prev == &cspi_trans->transfer_list) break;
@@ -396,7 +404,7 @@ down(&sprd_data->process_sem_direct);
     } while (1);
     cs_deactivate(sprd_data, spi);
 
-up(&sprd_data->process_sem_direct);
+    up(&sprd_data->process_sem_direct);
 
     msg->complete(msg->context);
 
