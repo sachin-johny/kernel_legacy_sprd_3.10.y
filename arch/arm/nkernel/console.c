@@ -399,7 +399,10 @@ vcons_rxfifo_count(NkPort* port)
 vcons_write_room(NkPort* port)
 {
     Fifo*	fifo = port->txfifo;
-    return fifo->size - (fifo->writer - fifo->reader);
+    int		res;
+    res = fifo->size - (fifo->writer - fifo->reader);
+
+    return res;
 }
 
     static int
@@ -412,8 +415,8 @@ vcons_write(NkPort*	     	   port,
 
     spin_lock_irqsave(&port->lock, flags);
     res = os_ctx->cops.write(port->id, buf, count);
-    if (res < count) {
-	port->wakeup = 1;
+    if (vcons_write_room(port) > 0) {
+	tty_wakeup(port->tty);
     }
     spin_unlock_irqrestore(&port->lock, flags);
 
@@ -497,12 +500,11 @@ vcons_tx_intr (NkPort* port)
     
 
     spin_lock_irqsave(&port->lock, flags);
+
     if (vcons_write_room(port)) {
-	if (port->wakeup) {
 	    /* restart tty when some space has been freed */
-	    port->wakeup = 0;
+	if (!port->stoptx) 
 	    tty_wakeup(port->tty);
-	}
     }
     spin_unlock_irqrestore(&port->lock, flags);
 
@@ -705,7 +707,17 @@ serial_write (struct tty_struct* tty,
     static int
 serial_chars_in_buffer (struct tty_struct* tty)
 {
-    return NKPORT(tty)->sz;
+    int		res;
+    NkPort*	port = NKPORT(tty);
+
+    if (port->vlink) {
+	Fifo*	fifo = port->txfifo;
+	res = fifo->writer - fifo->reader;
+    } else {
+	res = NKPORT(tty)->sz;
+    }
+
+    return res;
 }
 
     static void
@@ -714,7 +726,9 @@ serial_flush_buffer (struct tty_struct* tty)
     unsigned long	flags;
     NkPort*		port = NKPORT(tty);
     spin_lock_irqsave(&port->lock, flags);
-    NKPORT(tty)->sz = 0; 
+    if (!port->vlink) {
+	NKPORT(tty)->sz = 0; 
+    }
     spin_unlock_irqrestore(&port->lock, flags);
     tty_wakeup(tty);
 }
