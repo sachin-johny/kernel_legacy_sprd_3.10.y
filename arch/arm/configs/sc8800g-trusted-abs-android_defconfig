@@ -1128,14 +1128,42 @@ CONFIG_DMADEVICES=y
 #
 # TI VLYNQ
 #
+CONFIG_STAGING=y
+# CONFIG_STAGING_EXCLUDE_BUILD is not set
+# CONFIG_ECHO is not set
 
 #
 # VLX virtual device support
 #
+# CONFIG_INPUT_VEVDEV_BE is not set
+# CONFIG_INPUT_VEVDEV_FE is not set
+# CONFIG_FB_VLCD_BACKEND is not set
+# CONFIG_FB_VLCD_FRONTEND is not set
+# CONFIG_SND_VAUDIO_BE is not set
+CONFIG_SND_VAUDIO_FE=y
+# CONFIG_VWDT_FRONTEND is not set
+# CONFIG_VWDT_BACKEND is not set
 # CONFIG_NKERNEL_VETH is not set
-CONFIG_STAGING=y
-# CONFIG_STAGING_EXCLUDE_BUILD is not set
-# CONFIG_ECHO is not set
+# CONFIG_VBD_BE is not set
+# CONFIG_VBD_FE is not set
+# CONFIG_VBD2_FE is not set
+# CONFIG_VUART_FRONTEND is not set
+# CONFIG_VPIPE is not set
+# CONFIG_VUPIPE is not set
+# CONFIG_VBPIPE is not set
+# CONFIG_VMQ is not set
+# CONFIG_VLX_VRPC is not set
+# CONFIG_VBATTERY_FRONTEND is not set
+# CONFIG_VBATTERY_BACKEND is not set
+# CONFIG_VPMEM_FRONTEND is not set
+# CONFIG_VPMEM_BACKEND is not set
+# CONFIG_VBLITTER_FRONTEND is not set
+# CONFIG_VLX_MONITORING is not set
+# CONFIG_VVIDEO_BE is not set
+# CONFIG_VVIDEO_FE is not set
+# CONFIG_VSHM is not set
+# CONFIG_XIRQ_BENCH is not set
+CONFIG_VINFO=y
 
 #
 # Android
