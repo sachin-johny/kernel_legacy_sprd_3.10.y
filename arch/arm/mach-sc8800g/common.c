@@ -437,7 +437,8 @@ void __init sprd_add_otg_device(void)
 
 /*Android USB Function */
 #define SPRD_VENDOR_ID		0x22B8
-#define SPRD_PRODUCT_ID		0x41D9
+//#define SPRD_VENDOR_ID		0x0525
+#define SPRD_PRODUCT_ID		0x41D0
 //#define SPRD_VENDOR_ID		0x0BB4
 //#define SPRD_PRODUCT_ID		0x0C01
 //#define SPRD_ADB_PRODUCT_ID		0x0C02
@@ -457,6 +458,9 @@ static char *usb_functions_ums[] = {
 static char *usb_functions_adb[] = {
 	"adb",
 };
+static char *usb_functions_gser[] = {
+	"gser",
+};
 
 static char *usb_functions_ums_adb[] = {
 	"usb_mass_storage",
@@ -472,11 +476,16 @@ static char *usb_functions_rndis_adb[] = {
 	"adb",
 };
 
-static char *usb_functions_modem_adb[] = {
-	"modem",
+static char *usb_functions_gser_adb[] = {
 	"adb",
+	"gser",
 };
 
+static char *usb_functions_gser_adb_ums[] = {
+	"adb",
+	"gser",
+	"usb_mass_storage",
+};
 static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	"rndis",
@@ -484,14 +493,11 @@ static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_ADB
 	"adb",
 #endif
-#ifdef CONFIG_USB_ANDROID_MODEM
-	"modem",
+#ifdef CONFIG_USB_ANDROID_GSERIAL
+	"gser",
 #endif
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	"usb_mass_storage",
-#endif
-#ifdef CONFIG_USB_ANDROID_ACM
-	"acm",
 #endif
 };
 
@@ -507,10 +513,21 @@ static struct android_usb_product usb_products[] = {
 		.functions	= usb_functions_ums,
 	},
 	{
+		.product_id	= 0xa4a6,
+		.num_functions	= ARRAY_SIZE(usb_functions_gser),
+		.functions	= usb_functions_gser,
+	},
+	{
 		//.product_id	= SPRD_PRODUCT_ID,
-		.product_id	= 0x4D00,
-		.num_functions	= ARRAY_SIZE(usb_functions_modem_adb),
-		.functions	= usb_functions_modem_adb,
+		.product_id	= 0x5D02,
+		.num_functions	= ARRAY_SIZE(usb_functions_gser_adb),
+		.functions	= usb_functions_gser_adb,
+	},
+	{
+		//.product_id	= SPRD_PRODUCT_ID,
+		.product_id	= 0x5D03,
+		.num_functions	= ARRAY_SIZE(usb_functions_gser_adb_ums),
+		.functions	= usb_functions_gser_adb_ums,
 	},
 	{
 		.product_id	= SPRD_ADB_PRODUCT_ID,
@@ -532,7 +549,7 @@ static struct android_usb_product usb_products[] = {
 /* standard android USB platform data */
 static struct android_usb_platform_data andusb_plat = {
 	.vendor_id			= SPRD_VENDOR_ID,
-	//.vendor_id			= 0x1782,
+//	.vendor_id			= 0x1782,
 	.product_id			= SPRD_PRODUCT_ID,
 	.manufacturer_name	= "Spreadtrum",
 	.product_name		= "Spreadtrum openphone",

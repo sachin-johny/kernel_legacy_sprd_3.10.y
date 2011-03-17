@@ -13,6 +13,7 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/device.h>
+#include <linux/usb/android_composite.h>
 
 #include "u_serial.h"
 #include "gadget_chips.h"
@@ -138,11 +139,11 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		gserial_disconnect(&gser->port);
 	} else {
 		DBG(cdev, "activate generic ttyGS%d\n", gser->port_num);
-		gser->port.in_desc = ep_choose(cdev->gadget,
-				gser->hs.in, gser->fs.in);
-		gser->port.out_desc = ep_choose(cdev->gadget,
-				gser->hs.out, gser->fs.out);
 	}
+	gser->port.in_desc = ep_choose(cdev->gadget,
+			gser->hs.in, gser->fs.in);
+	gser->port.out_desc = ep_choose(cdev->gadget,
+			gser->hs.out, gser->fs.out);
 	gserial_connect(&gser->port, gser->port_num);
 	return 0;
 }
@@ -261,7 +262,6 @@ int __init gser_bind_config(struct usb_configuration *c, u8 port_num)
 {
 	struct f_gser	*gser;
 	int		status;
-	char buf[30] = {0};
 	/* REVISIT might want instance-specific strings to help
 	 * distinguish instances ...
 	 */
@@ -295,3 +295,29 @@ int __init gser_bind_config(struct usb_configuration *c, u8 port_num)
 		kfree(gser);
 	return status;
 }
+
+#ifdef CONFIG_USB_ANDROID_GSERIAL
+
+int gserial_function_bind_config(struct usb_configuration *c)
+{
+        int ret = gser_bind_config(c, 0);
+        if (ret == 0)
+                gserial_setup(c->cdev->gadget, 1);
+        return ret;
+}
+
+static struct android_usb_function gserial_function = {
+        .name = "gser",
+        .bind_config = gserial_function_bind_config,
+};
+
+static int __init init(void)
+{
+        printk(KERN_INFO "f_serial init\n");
+        android_register_function(&gserial_function);
+        return 0;
+}
+module_init(init);
+
+#endif /* CONFIG_USB_ANDROID_ACM */
+
