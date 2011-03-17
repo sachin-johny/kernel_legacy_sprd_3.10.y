@@ -53,9 +53,15 @@ mkdir -p ${BUILD_LINUX_DIR}
 cd ${LINUX_SRC}
 if [ ! -f ${LINUX_CONFIG} -o ${LINUX_DEF_CONFIG} -nt ${LINUX_CONFIG} ]
 then
+    echo "  with default config:"
+    echo "     ${LINUX_DEF_CONFIG}"
+    echo
     cp ${LINUX_DEF_CONFIG} ${LINUX_CONFIG}
+    make ARCH=arm CROSS_COMPILE=${ANDROID_ARM_TOOLCHAIN}/bin/arm-eabi- sc8800g-trusted-abs-android_defconfig
+else
+    echo "  with current config"
+    echo
 fi
-make ARCH=arm CROSS_COMPILE=${ANDROID_ARM_TOOLCHAIN}/bin/arm-eabi- sc8800g-trusted-abs-android_defconfig
 #make -j2 -f Makefile ARCH=arm EXTRAVERSION=-sprd-redbend CROSS_COMPILE=${ANDROID_ARM_TOOLCHAIN}/bin/arm-eabi- CONFIG_DEBUG_SECTION_MISMATCH=y O=${BUILD_LINUX_DIR} Image
 make -j2 -f Makefile ARCH=arm EXTRAVERSION=-sprd-redbend CROSS_COMPILE=${ANDROID_ARM_TOOLCHAIN}/bin/arm-eabi- CONFIG_DEBUG_SECTION_MISMATCH=y Image
 
