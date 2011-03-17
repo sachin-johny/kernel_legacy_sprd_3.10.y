@@ -14,6 +14,7 @@
 //#include <mach/mux.h>
 //#include <mach/control.h>
 #include <linux/delay.h>
+#includde "inno_comm.h"
 #include "inno_spi_platform.h"
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>

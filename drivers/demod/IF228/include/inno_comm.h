@@ -25,6 +25,16 @@
 
 #include "inno_demod.h"
 
+/*  ignore kernel msg level of pr_debug, pr_err. we need call printk in format
+ "printk("message....")" */
+#ifdef DEBUG
+#undef pr_debug
+#undef pr_err
+
+#define pr_debug    printk
+#define pr_err         printk
+#endif
+
 int inno_get_intr_ch(unsigned long *ch_bit);
 int inno_lgx_fetch_data(struct lgx_device *lgx);
 int inno_comm_init(void);
