@@ -323,7 +323,7 @@ config XIRQ_BENCH
 
 config VINFO
         tristate "VLX internal information driver"
-        default n 
+        default y
         help
           VLX information driver creates information files in
 	  /proc/nk to show internal system information.
