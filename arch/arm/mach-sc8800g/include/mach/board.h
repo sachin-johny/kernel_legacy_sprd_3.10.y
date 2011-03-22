@@ -44,9 +44,9 @@ void __init sprd_add_dcam_device(void);
  *  1M - scaling
  */
 #define SPRD_PMEM_SIZE          (8*1024*1024)
-#define SPRD_PMEM_ADSP_SIZE     (6*1024*1024)
-#define SPRD_ROT_MEM_SIZE       (1*1024*1024)
-#define SPRD_SCALE_MEM_SIZE     (1*1024*1024)
+#define SPRD_PMEM_ADSP_SIZE     (7*1024*1024)
+#define SPRD_ROT_MEM_SIZE       (1024*512)
+#define SPRD_SCALE_MEM_SIZE    (1024*512)
 #define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
                                 SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE)
 

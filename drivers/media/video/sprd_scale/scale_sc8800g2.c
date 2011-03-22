@@ -728,6 +728,7 @@ LOCAL int32_t _SCALE_DriverStart(void)
 
             rtn = _SCALE_DriverPath2TrimAndScaling();            
 	    ISP_RTN_IF_ERR(rtn);
+
             _SCALE_DriverIrqEnable(ISP_IRQ_REVIEW_DONE_BIT);	
             
 	    //wxz20110107:the rgb565 endian type from android is ISP_MASTER_ENDIANNESS_HALFBIG
@@ -775,11 +776,11 @@ LOCAL int32_t _SCALE_DriverStop(void)
      {
      	_SCALE_DriverDeinit();
      }
-       
+
       _paad(REV_PATH_CFG, ~BIT_0);  
 
-    _SCALE_DriverIrqDisable(ISP_IRQ_LINE_MASK);
-    _SCALE_DriverIrqClear(ISP_IRQ_LINE_MASK);
+    _SCALE_DriverIrqDisable(ISP_IRQ_SCL_LINE_MASK);
+    _SCALE_DriverIrqClear(ISP_IRQ_SCL_LINE_MASK);
 
 	SCALE_PRINT("###scale: DriverStop is OK.\n"); 
 
@@ -1343,7 +1344,7 @@ LOCAL void _SCALE_DriverISRRoot(void)
     uint32_t                      irq_line, irq_status;
     uint32_t                      i;
 
-    irq_line = ISP_IRQ_LINE_MASK & _SCALE_DriverReadIrqLine();
+    irq_line = ISP_IRQ_SCL_LINE_MASK & _SCALE_DriverReadIrqLine();
     irq_status = irq_line;
 
     for(i = 0; i < ISP_IRQ_NUMBER; i++)
@@ -1460,7 +1461,21 @@ int _SCALE_DriverIODone(void)
 	
 	return 0;	
 }
-
+void get_DMA_regs(void)
+{
+	uint32_t i, value;
+	
+	for(i = 0; i <= 0xC4; i+=4)
+	{
+		value = _pard(DMA_REG_BASE + i);
+		SCALE_PRINT("DMA reg: 0x%x : 0x%x.\n", DMA_REG_BASE + i, value);
+	}
+	for(i = 0; i <= 0x1C; i+=4)
+	{
+		value = _pard(DMA_CHx_CTL_BASE + i);
+		SCALE_PRINT("DMA reg: 0x%x : 0x%x.\n", DMA_CHx_CTL_BASE + i, value);
+	}
+}
 static void _SCALE_DriverDMAIrq(int dma_ch, void *dev_id)
 {
         condition = 1;
@@ -1480,7 +1495,7 @@ static int _SCALE_DriverColorConvertByDMA(uint32_t width, uint32_t height, uint3
 	uint32_t total_len = width * height * byte_per_pixel / 2;
         int32_t ret = 0;
 
-       SCALE_PRINT("[pid:%d]  6 %d,%d,%x,%x\n", current->pid,width,height,input_addr,output_addr);
+       SCALE_PRINT("[pid:%d]   %d,%d,%x,%x\n", current->pid,width,height,input_addr,output_addr);
 
 	while(1){		
 		ret  = sprd_request_dma(DMA_SOFT0, _SCALE_DriverDMAIrq, &g_scale_mode);
@@ -1495,7 +1510,7 @@ static int _SCALE_DriverColorConvertByDMA(uint32_t width, uint32_t height, uint3
 	condition = 0;
 	memset(&ctrl, 0, sizeof(sprd_dma_ctrl));
 	memset(&dma_desc, 0, sizeof(sprd_dma_desc));
-	ctrl.dma_desc = &dma_desc;	
+	ctrl.dma_desc = &dma_desc;		
 	sprd_dma_setup_cfg(&ctrl,
                 DMA_SOFT0,
                 DMA_NORMAL,
@@ -1504,14 +1519,15 @@ static int _SCALE_DriverColorConvertByDMA(uint32_t width, uint32_t height, uint3
                 SRC_BURST_MODE_8|src_img_postm, SRC_BURST_MODE_8|dst_img_postm,
                 block_len,
                 byte_per_pixel*8, byte_per_pixel*8,
-                src_addr, dst_addr, total_len);
+                src_addr, dst_addr, total_len);	
+	ctrl.dma_desc->cfg |= (0x2 << 28);//for 0xABCD->0xBADC
 	 sprd_dma_setup(&ctrl); 
-	 sprd_dma_start(DMA_SOFT0);
+	 sprd_dma_start(DMA_SOFT0);	 
 	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);	
-
 	 if(wait_event_interruptible(wait_queue, condition)){
 	 	ret =  -EFAULT;
 	 }
+	 
 	 sprd_dma_stop(DMA_SOFT0);
 	 sprd_free_dma(DMA_SOFT0);
 	 return ret;

@@ -856,6 +856,7 @@ static void init_dcam_parameters(void *priv)
 	 	dcam_parameter_init(&init_param);
 	 }
 }
+
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct dcam_fh  *fh = priv;
@@ -869,6 +870,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	
 	init_dcam_parameters(priv);//wxz:???
 	init_sensor_parameters();
+
 	if(0 != (ret = videobuf_streamon(&fh->vb_vidq)))
 	{
 		DCAM_V4L2_PRINT("###DCAM_V4L2: Fail to videobuf_streamon.\n");
@@ -1023,7 +1025,7 @@ static void set_layer_cb(uint32_t base)
 	{
 		DCAM_V4L2_PRINT("###V4L2: path1_done_buffer: Nobody is waiting on this buffer\n");	
 		if(3 == g_dcam_info.mode)
-		{		
+		{			
 			list_del(&buf->vb.queue);
 			buf->vb.field_count++;
 			do_gettimeofday(&buf->vb.ts);

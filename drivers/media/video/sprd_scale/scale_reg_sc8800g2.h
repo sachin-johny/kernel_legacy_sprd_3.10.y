@@ -238,7 +238,7 @@ typedef void *DCAM_TIMER_PTR;
 #define ISP_SCALE2_H_TAB_OFFSET                        0x400
 #define ISP_SCALE2_V_TAB_OFFSET                        0x4F0
 
-#define ISP_IRQ_LINE_MASK                              0x200UL //0x000003FFUL
+#define ISP_IRQ_SCL_LINE_MASK                              0x200UL //0x000003FFUL
 #define ISP_IRQ_SENSOR_SOF_BIT                         BIT_0
 #define ISP_IRQ_SENSOR_EOF_BIT                         BIT_1
 #define ISP_IRQ_CAP_SOF_BIT                            BIT_2

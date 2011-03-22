@@ -358,13 +358,15 @@ PUBLIC int32_t ISP_DriverStart(uint32_t base_addr)
             ISP_DRV_RTN_IF_ERR;
            DCAM_TRACE("###DCAM: _ISP_DriverPath1TrimAndScaling ok.\n");
 
+	   _ISP_DriverIrqClear(base_addr,ISP_IRQ_LINE_MASK);
             _ISP_DriverIrqEnable(base_addr, ISP_IRQ_LINE_MASK);
     		DCAM_TRACE("###DCAM: int mask:%x", _pard(DCAM_INT_MASK));
 	   //dcam output endian must be half word. 
 	    _pawd(ENDIAN_SEL, 0x8);
-            
+
+         
             _ISP_DriverAutoCopy(base_addr);
-            //_ISP_DriverForceCopy(base_addr);
+            //_ISP_DriverForceCopy(base_addr);			
           
             _paod(DCAM_PATH_CFG, BIT_0);
 		DCAM_TRACE("###dcam: DCAM_PATH_CFG: %x.\n", _pard(DCAM_PATH_CFG));
@@ -377,23 +379,40 @@ PUBLIC int32_t ISP_DriverStop(uint32_t base_addr)
     ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;
     
     ISP_CHECK_PARAM_ZERO_POINTER(base_addr);   
-        
+
+	_ISP_DriverIrqDisable(base_addr,ISP_IRQ_LINE_MASK);
+	
     switch(s_isp_mod.isp_mode)
     {
-        case ISP_MODE_CAPTURE:
-        case ISP_MODE_PREVIEW:
+        case ISP_MODE_CAPTURE: 			
         case ISP_MODE_MPEG:
         case ISP_MODE_VT:
         case ISP_MODE_PREVIEW_EX:
             _paad(DCAM_PATH_CFG, ~BIT_0);
 	    msleep(20);//wait the dcam stop
-        break;      
+        break;  
+	case ISP_MODE_PREVIEW:
+	    {
+		uint32_t count,value;
+		    _paad(DCAM_PATH_CFG, ~BIT_0);
+		    msleep(20);//wait the dcam stop	
+		    for(count = 0; count < 100; count++)
+		    	{
+		    		value = _pard(DCAM_INT_RAW);
+				if(value & 0x10){
+					DCAM_TRACE("ISP_DriverStop wait the last interrupt.\n");
+					break;
+				}
+				msleep(1);
+		    	}
+	    }
+	break;
         default:
             rtn = ISP_DRV_RTN_MODE_ERR; 
         break;
     }
 
-    _ISP_DriverIrqDisable(base_addr,ISP_IRQ_LINE_MASK);
+    //_ISP_DriverIrqDisable(base_addr,ISP_IRQ_LINE_MASK);
     _ISP_DriverIrqClear(base_addr,ISP_IRQ_LINE_MASK);
 
     return rtn;
@@ -967,6 +986,7 @@ LOCAL void _ISP_DriverISRRoot(uint32_t base_addr)
     uint32_t                      i;
 
     irq_line = ISP_IRQ_LINE_MASK & _ISP_DriverReadIrqLine(base_addr);
+	
     irq_status = irq_line;
     for(i = 0; i < ISP_IRQ_NUMBER; i++)
     {
