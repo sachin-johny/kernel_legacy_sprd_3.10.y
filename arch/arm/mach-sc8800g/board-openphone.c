@@ -138,6 +138,15 @@ static struct spi_board_info openhone_spi_devices[] = {
     },*/
 };
 
+static struct spi_board_info openhone_spi_devices4wifi[] = {
+    {
+    .modalias       = "spi_slot0", // "spidev" --> spidev_spi
+    .chip_select    = 2,
+    .max_speed_hz   = 24 * 1000 * 1000,
+    .mode           = SPI_CPOL | SPI_CPHA,
+    },
+};
+
 static u64 spi_dmamask = DMA_BIT_MASK(32);
 static struct resource spi_resources[] = {
     [0] = {
@@ -212,10 +221,35 @@ static unsigned long spi_func_cfg[] = {
 #endif
 };
 
+#if 0
 static unsigned long bt_func_cfg[] = {
     MFP_CFG_X(U0RTS     , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
     MFP_CFG_X(U0CTS     , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 };
+#endif
+
+struct spi_device *sprd_spi_wifi_device_register(int master_bus_num, struct spi_board_info *chip)
+{
+    int i, gpio;
+
+    if (master_bus_num < 0)
+        master_bus_num = 0;
+
+    if (!spi_busnum_to_master(master_bus_num)) {
+        printk(KERN_WARNING "%s: no [ %d ] spi master\n", __func__, master_bus_num);
+        return NULL;
+    }
+    if (chip == NULL)
+        chip = openhone_spi_devices4wifi;
+
+    for (i = 0; i < 1; i++) {
+        gpio = spi_cs_gpio[chip[i].chip_select];
+        chip[i].controller_data = (void*)gpio;
+    }
+
+    return spi_new_device(spi_busnum_to_master(master_bus_num), chip);
+}
+EXPORT_SYMBOL_GPL(sprd_spi_wifi_device_register);
 
 static void sprd_spi_init(void)
 {
@@ -278,7 +312,7 @@ static void __init openphone_init_irq(void)
 	sprd_init_irq();
 }
 
-int __init LDO_Init();
+int __init LDO_Init(void);
 static void __init chip_init(void)
 {
     ANA_REG_SET(ANA_ADIE_CHIP_ID,0);
