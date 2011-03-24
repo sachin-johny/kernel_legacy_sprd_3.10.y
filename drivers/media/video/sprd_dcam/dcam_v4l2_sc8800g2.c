@@ -235,6 +235,33 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.step          = 0x1,
 		.default_value = 0,
 		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	}, {
+		.id            = V4L2_CID_DO_WHITE_BALANCE,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "whitebalance",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	}, {
+		.id            = V4L2_CID_COLORFX,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "coloreffect",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	}, {
+		.id            = V4L2_CID_COLOR_KILLER,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "scenemode",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
 	}
 };
 
@@ -422,8 +449,8 @@ static int vidioc_cropcap(struct file *file, void  *priv,
 
 	cc->bounds.left = 0;
 	cc->bounds.top = 0;
-	cc->bounds.width = 640;
-	cc->bounds.height = 480;
+	cc->bounds.width = 2560;
+	cc->bounds.height = 2048;
 
 	cc->defrect = cc->bounds;
 
@@ -686,6 +713,27 @@ static int vidioc_g_ctrl(struct file *file, void *priv,
 
 	return -EINVAL;
 }
+static int vidioc_handle_ctrl(struct v4l2_control *ctrl)	
+{
+	DCAM_V4L2_PRINT("vidioc_handle_ctrl, id: %d, value: %d.\n", ctrl->id, ctrl->value);
+	
+	switch(ctrl->id)
+	{
+		case V4L2_CID_DO_WHITE_BALANCE:
+			Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, (uint32_t)ctrl->value);
+			break;
+		case V4L2_CID_COLORFX:
+			Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT, (uint32_t)ctrl->value);
+			break;
+		case V4L2_CID_COLOR_KILLER:  //for scene mode			
+			Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)ctrl->value);
+			break;				
+		default:
+			break;
+	}
+	
+	return 0;
+}
 static int vidioc_s_ctrl(struct file *file, void *priv,
 				struct v4l2_control *ctrl)
 {
@@ -700,6 +748,7 @@ static int vidioc_s_ctrl(struct file *file, void *priv,
 				return -ERANGE;
 			}
 			dev->qctl_regs[i] = ctrl->value;
+			vidioc_handle_ctrl(ctrl);
 			return 0;
 		}
 	return -EINVAL;
