@@ -970,6 +970,9 @@ vaudio_snd_probe (void)
     int            cur_stream;
     int            i, j;
     const NkOsId   my_id = nkops.nk_id_get();
+    char*          resinfo;
+    char*          info;
+    int            slot;
 #ifdef VAUDIO_CONFIG_NK_PMEM
     NkPhAddr       ring_buf_p;
     int            ring_size;
@@ -987,6 +990,11 @@ vaudio_snd_probe (void)
     }
     if (!plink) {
 	return -ENODEV;
+    }
+    info = (char*) nkops.nk_ptov(vlink->c_info);
+    slot = simple_strtoul(info, &resinfo, 0);
+    if (resinfo == info) {
+        slot = -1;	
     }
 	/*
 	 * Perform initialization of NK virtual audio device.
@@ -1012,14 +1020,14 @@ vaudio_snd_probe (void)
 	/* Register the sound-card */
 #if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,29)
     {
-	int err = snd_card_create (-1, NULL /*id*/, THIS_MODULE,
+	int err = snd_card_create (slot, NULL /*id*/, THIS_MODULE,
 				   sizeof *vaudio, &vaudio_card);
 	if (err) {
 	    return err;
 	}
     }
 #else
-    vaudio_card = snd_card_new (-1, NULL /*id*/, THIS_MODULE, sizeof *vaudio);
+    vaudio_card = snd_card_new (slot, NULL /*id*/, THIS_MODULE, sizeof *vaudio);
     if (!vaudio_card) {
 	return -ENOMEM;
     }
