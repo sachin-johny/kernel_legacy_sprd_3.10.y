@@ -436,7 +436,7 @@ void __init sprd_add_otg_device(void)
 }
 
 /*Android USB Function */
-#define SPRD_VENDOR_ID		0x22B8
+#define SPRD_VENDOR_ID		0x1782
 //#define SPRD_VENDOR_ID		0x0525
 #define SPRD_PRODUCT_ID		0x41D0
 //#define SPRD_VENDOR_ID		0x0BB4
@@ -460,6 +460,10 @@ static char *usb_functions_adb[] = {
 };
 static char *usb_functions_gser[] = {
 	"gser",
+};
+static char *usb_functions_gser_ums[] = {
+	"gser",
+	"usb_mass_storage",
 };
 
 static char *usb_functions_ums_adb[] = {
@@ -493,11 +497,11 @@ static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_ADB
 	"adb",
 #endif
-#ifdef CONFIG_USB_ANDROID_GSERIAL
-	"gser",
-#endif
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	"usb_mass_storage",
+#endif
+#ifdef CONFIG_USB_ANDROID_GSERIAL
+	"gser",
 #endif
 };
 
@@ -518,6 +522,11 @@ static struct android_usb_product usb_products[] = {
 		.functions	= usb_functions_gser,
 	},
 	{
+		.product_id	= 0x5D01,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
+		.functions	= usb_functions_ums_adb,
+	},
+	{
 		//.product_id	= SPRD_PRODUCT_ID,
 		.product_id	= 0x5D02,
 		.num_functions	= ARRAY_SIZE(usb_functions_gser_adb),
@@ -525,14 +534,9 @@ static struct android_usb_product usb_products[] = {
 	},
 	{
 		//.product_id	= SPRD_PRODUCT_ID,
-		.product_id	= 0x5D03,
-		.num_functions	= ARRAY_SIZE(usb_functions_gser_adb_ums),
-		.functions	= usb_functions_gser_adb_ums,
-	},
-	{
-		.product_id	= SPRD_ADB_PRODUCT_ID,
-		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
-		.functions	= usb_functions_ums_adb,
+		.product_id	= 0x5D07,
+		.num_functions	= ARRAY_SIZE(usb_functions_gser_ums),
+		.functions	= usb_functions_gser_ums,
 	},
 	{
 		.product_id	= SPRD_RNDIS_PRODUCT_ID,

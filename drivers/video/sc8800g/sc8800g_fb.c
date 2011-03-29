@@ -183,7 +183,7 @@ static void set_pins(void)
 	__raw_writel(0x1fff00, SPRD_CPC_BASE);
 
 	/*LCDC pin config*/
-    static unsigned long lcd_func_cfg[] __initdata= {
+    static unsigned long lcd_func_cfg[] = {
 
     MFP_CFG_X(LCD_CSN1,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_CSN1
     MFP_CFG_X(LCD_RSTN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_RSTN
