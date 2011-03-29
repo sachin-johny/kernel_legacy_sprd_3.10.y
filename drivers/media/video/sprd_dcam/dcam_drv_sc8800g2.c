@@ -170,7 +170,7 @@ typedef struct _isp_path_desc_tag
     ISP_FRAME_T              *p_output_frame_cur;
     uint32_t                   output_frame_count;    
     uint32_t                   output_format;
-    uint32_t                   output_frame_flag;
+    uint32_t                   output_frame_flag;   
     ISP_FRAME_T              swap_frame;
     ISP_FRAME_T              line_frame;	
     uint32_t                   scale_en;

@@ -79,6 +79,7 @@ struct dcam_fh *g_fh = NULL; //store the fh pointer for ISR callback function
 static uint32_t g_is_first_frame = 1; //store the flag for the first frame
 struct dcam_buffer *g_dcam_buf_ptr = NULL;
 DCAM_INFO_T g_dcam_info; //store the dcam and sensor config info
+uint32_t g_zoom_level = 0; //zoom level: 0: 1x, 1: 2x, 2: 3x, 3: 4x
 
 #define DCAM_MODULE_NAME "dcam"
 #define WAKE_NUMERATOR 30
@@ -257,6 +258,15 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.id            = V4L2_CID_COLOR_KILLER,
 		.type          = V4L2_CTRL_TYPE_INTEGER,
 		.name          = "scenemode",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	}, {
+		.id            = V4L2_CID_ZOOM_ABSOLUTE,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "zoom",
 		.minimum       = 0,
 		.maximum       = 255,
 		.step          = 0x1,
@@ -727,7 +737,11 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			break;
 		case V4L2_CID_COLOR_KILLER:  //for scene mode			
 			Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)ctrl->value);
-			break;				
+			break;	
+		case V4L2_CID_ZOOM_ABSOLUTE:
+			g_zoom_level = (uint32_t)ctrl->value;
+			DCAM_V4L2_PRINT("g_zoom_level=%d.\n", g_zoom_level);
+			break;			
 		default:
 			break;
 	}
@@ -839,6 +853,54 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	DCAM_V4L2_PRINT("###v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n", file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));
 }
+#if 0
+
+
+static void init_dcam_parameters(void *priv)
+{
+	struct dcam_fh  *fh = priv;
+	struct dcam_dev *dev = fh->dev;
+	DCAM_TRIM_RECT_T trim_rect;
+	DCAM_INIT_PARAM_T init_param;
+	printk("wwwww.init_dcam_parameters.\n");
+	camera_zoom_picture_size(fh->width, fh->height, &trim_rect, g_zoom_level);
+		
+	 if(1 == dev->streamparm.parm.capture.capturemode)
+	 {
+	 	 init_param.mode = 3; // 0:DCAM_MODE 1:PREVIEW; 2:mpeg; 3:jpeg	
+	 }
+	 else 
+	 {
+	 	 init_param.mode = 1;
+	 } 	 
+  	 init_param.format = DCAM_DATA_YUV422; //for output format of sensor.
+    	init_param.yuv_pattern = YUV_YUYV;    
+    	init_param.display_rgb_type = RGB_565;
+	init_param.input_size.w = trim_rect.w;
+	init_param.input_size.h = trim_rect.h;
+	init_param.input_rect.x = trim_rect.x;
+         init_param.input_rect.y = trim_rect.y;
+	init_param.input_rect.w = trim_rect.w;
+	init_param.input_rect.h = trim_rect.h;			
+   	 init_param.display_rect.x = 0;
+   	 init_param.display_rect.y = 0;
+   	 init_param.display_rect.w = trim_rect.w;
+   	 init_param.display_rect.h = trim_rect.h; 
+    	init_param.encoder_rect.x = 0;
+    	init_param.encoder_rect.y = 0;
+   	 init_param.encoder_rect.w = trim_rect.w;
+   	init_param.encoder_rect.h = trim_rect.h;
+    	init_param.polarity.hsync = 1;
+    	init_param.polarity.vsync = 0;// //1
+    	init_param.polarity.pclk = 0;	
+   	 init_param.skip_frame = 0;
+   	 init_param.rotation = DCAM_ROTATION_0;
+   	 init_param.first_buf_addr = g_first_buf_addr;
+	g_dcam_info.input_size.w =fh->width;
+	g_dcam_info.mode = init_param.mode;
+	
+	dcam_parameter_init(&init_param);
+}
 
 static void init_dcam_parameters(void *priv)
 {
@@ -906,6 +968,134 @@ static void init_dcam_parameters(void *priv)
 	 }
 }
 
+#endif
+
+#define DCAM_PIXEL_ALIGNED 16
+#define DCAM_W_H_ALIGNED(x) ((x + DCAM_PIXEL_ALIGNED - 1) & ~(DCAM_PIXEL_ALIGNED - 1))
+
+typedef struct dcam_trim_rect{
+	uint32_t x;
+	uint32_t y;
+	uint32_t w;
+	uint32_t h;
+}DCAM_TRIM_RECT_T;
+
+void zoom_picture_size(uint32_t in_w, uint32_t in_h, DCAM_TRIM_RECT_T *trim_rect, uint32_t zoom_level)
+{
+	uint32_t trim_w, trim_h;
+
+	switch(zoom_level)
+	{
+		case 0:
+			trim_w = 0;
+			trim_h = 0;
+			break;
+		case 1:
+			trim_w = in_w >> 2;  // 1/4
+			trim_h = in_h >> 2; // 1/4
+			break;
+		case 2:
+			trim_w = in_w / 3; // 1/3
+			trim_h = in_h / 3; // 1/3
+			break;			
+		case 3:
+			trim_w = in_w * 3 >> 3;  // 3/8
+			trim_h = in_h * 3 >> 3; // 3/8
+			break;
+		default:
+			trim_w = 0;
+			trim_h = 0;
+			break;			
+	}
+
+	trim_rect->x = (trim_w + 3) & ~3;
+	trim_rect->y = (trim_h + 3) & ~3;	
+	trim_rect->w = DCAM_W_H_ALIGNED(in_w - (trim_rect->x << 1) );
+	trim_rect->h = DCAM_W_H_ALIGNED(in_h - (trim_rect->y << 1));
+	DCAM_V4L2_PRINT("v4l2 trim_rect{x,y,w,h} --{%d, %d, %d, %d}, in_w: %d, in_h: %d, zoom_level: %d.\n", trim_rect->x, trim_rect->y, trim_rect->w, trim_rect->h,in_w, in_h, zoom_level);
+}
+
+static void init_dcam_parameters(void *priv)
+{
+	struct dcam_fh  *fh = priv;
+	struct dcam_dev *dev = fh->dev;
+	 //init dcam
+	 {
+	 DCAM_INIT_PARAM_T init_param;
+	 if(1 == dev->streamparm.parm.capture.capturemode)
+	 {
+	 	 init_param.mode = 3;//1//:DCAM_MODE 1:PREVIEW; 2:mpeg; 3:jpeg	 	
+	 }
+	 else 
+	 {
+	 	 init_param.mode = 1;//1	 	 	 	 
+	 }   
+	 DCAM_V4L2_PRINT("###v4l2: fh->fmt->fourcc: %d, init_param.mode: %d.\n", fh->fmt->fourcc, init_param.mode);
+    init_param.format = DCAM_DATA_YUV422; //for output format of sensor.
+    init_param.yuv_pattern = YUV_YUYV;    
+    init_param.display_rgb_type = RGB_565;
+    if((fh->width < 640) && (fh->height < 480))
+    	{
+	    	init_param.input_size.w = 640;
+		init_param.input_size.h = 480;
+    	}
+	else
+	{
+		init_param.input_size.w = fh->width;
+		init_param.input_size.h = fh->height;
+	}
+		
+    init_param.polarity.hsync = 1;
+    init_param.polarity.vsync = 0;// //1
+    init_param.polarity.pclk = 0;
+   
+   if((fh->width < 640) && (fh->height < 480))
+    	{    	
+		init_param.input_rect.x = (640 - fh->width) >> 1 ;
+		init_param.input_rect.y = (480 - fh->height) >> 1;
+    	}
+	else
+	{
+		init_param.input_rect.x = 0;
+		init_param.input_rect.y = 0;
+	}
+	init_param.input_rect.w = fh->width;
+	init_param.input_rect.h = fh->height;	
+    init_param.display_rect.x = 0;
+    init_param.display_rect.y = 0;
+    init_param.display_rect.w = fh->width;
+    init_param.display_rect.h = fh->height; 
+    init_param.encoder_rect.x = 0;
+    init_param.encoder_rect.y = 0;
+    init_param.encoder_rect.w = fh->width;
+   init_param.encoder_rect.h = fh->height;
+	//if do zoom, need to modify the input_rect and encoder_rect
+	if((0 != g_zoom_level) && (3 == init_param.mode))
+	{
+		DCAM_TRIM_RECT_T trim_rect;
+		zoom_picture_size(fh->width, fh->height,  &trim_rect, g_zoom_level);
+		init_param.input_rect.x += trim_rect.x;
+		init_param.input_rect.y  += trim_rect.y;
+		init_param.input_rect.w = trim_rect.w;
+		init_param.input_rect.h = trim_rect.h;	
+		init_param.encoder_rect.x = 0;
+    		init_param.encoder_rect.y = 0;
+    		init_param.encoder_rect.w = trim_rect.w;
+   		init_param.encoder_rect.h = trim_rect.h;		
+	}
+   
+    init_param.skip_frame = 0;
+    init_param.rotation = DCAM_ROTATION_0;
+    init_param.first_buf_addr = g_first_buf_addr;
+
+//	g_dcam_info.input_size.w = fh->width;
+//	g_dcam_info.input_size.h = fh->height;
+	g_dcam_info.input_size.w =init_param.input_size.w;
+	g_dcam_info.input_size.h = init_param.input_size.h;
+	g_dcam_info.mode = init_param.mode;
+	 	dcam_parameter_init(&init_param);
+	 }
+}
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct dcam_fh  *fh = priv;

@@ -335,12 +335,14 @@ typedef struct _isp_path_desc_tag
     ISP_SIZE_T               sc_input_size;
     ISP_SIZE_T               output_size;
     ISP_FRAME_T              input_frame;
+    ISP_FRAME_T              output_frame;	
     uint32_t                   input_format;
     ISP_FRAME_T              *p_output_frame_head;
     ISP_FRAME_T              *p_output_frame_cur;
     uint32_t                   output_frame_count;    
     uint32_t                   output_format;
     uint32_t                   output_frame_flag;
+     uint32_t 		    output_frame_endian;
     ISP_FRAME_T              swap_frame;
     ISP_FRAME_T              line_frame;	
     uint32_t                   scale_en;
@@ -348,6 +350,10 @@ typedef struct _isp_path_desc_tag
     uint32_t                   sub_sample_factor;
     uint32_t                   sub_sample_mode;	
     uint32_t                   slice_en;
+    uint32_t                   slice_height;	
+    uint32_t                   slice_count;		
+    uint32_t                   slice_line_count;	
+    uint32_t                   is_last_slice;	
     uint32_t                   h_scale_coeff;
     uint32_t                   v_scale_coeff;    
 }ISP_PATH_DESCRIPTION_T;
@@ -487,6 +493,7 @@ typedef enum
     ISP_PATH_IS_SCALE_EN,
     ISP_PATH_SLICE_OUT_HEIGHT,
     ISP_PATH_MODE,
+    ISP_PATH_OUTPUT_ENDIAN,
     ISP_CFG_ID_E_MAX
 } ISP_CFG_ID_E;
 
