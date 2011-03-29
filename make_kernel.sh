@@ -13,7 +13,8 @@ BASE_DIR="${ANDROID_TOP_BASE}/out/target/product/hsdroid"
 cd ${ANDROID_TOP_BASE}
 
 # make -f vendor/sprd/hsdroid/kernel.mk
-make -f vendor/sprd/hsdroid/kernel.mk EXTRAVERSION=-sprd-redbend CONFIG_DEBUG_SECTION_MISMATCH=y
+make -f vendor/sprd/hsdroid/kernel.mk EXTRAVERSION=-sprd-redbend CONFIG_DEBUG_SECTION_MISMATCH=y \
+    KERNEL_CONFIG=sc8800g-trusted-abs-android_defconfig
 
 acp -fpt ${BASE_DIR}/obj/KERNEL/arch/arm/boot/Image ${BASE_DIR}/kernel
 
