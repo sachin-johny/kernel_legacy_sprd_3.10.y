@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Tue Mar 29 10:31:02 2011
+# Tue Mar 29 19:05:14 2011
 #
 CONFIG_NKERNEL=y
 CONFIG_NKERNEL_DDI=y
@@ -1220,7 +1220,7 @@ CONFIG_SND_VAUDIO_FE=y
 CONFIG_NKERNEL_VETH=y
 CONFIG_NKERNEL_VETH_RING_SIZE=64
 # CONFIG_VBD_BE is not set
-# CONFIG_VBD_FE is not set
+CONFIG_VBD_FE=y
 # CONFIG_VBD2_FE is not set
 # CONFIG_VUART_FRONTEND is not set
 # CONFIG_VPIPE is not set
