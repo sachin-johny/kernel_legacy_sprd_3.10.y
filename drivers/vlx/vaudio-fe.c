@@ -1020,14 +1020,14 @@ vaudio_snd_probe (void)
 	/* Register the sound-card */
 #if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,29)
     {
-	int err = snd_card_create (slot, NULL /*id*/, THIS_MODULE,
+	int err = snd_card_create (slot, "VAUDIO", THIS_MODULE,
 				   sizeof *vaudio, &vaudio_card);
 	if (err) {
 	    return err;
 	}
     }
 #else
-    vaudio_card = snd_card_new (slot, NULL /*id*/, THIS_MODULE, sizeof *vaudio);
+    vaudio_card = snd_card_new (slot, "VAUDIO", THIS_MODULE, sizeof *vaudio);
     if (!vaudio_card) {
 	return -ENOMEM;
     }
