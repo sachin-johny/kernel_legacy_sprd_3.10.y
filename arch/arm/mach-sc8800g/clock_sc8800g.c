@@ -76,12 +76,12 @@ static int sc88xx_clk_enable_generic(struct clk *clk)
 	u32 v;
 
 	if (unlikely(clk->enable_reg == NULL)) {
-		printk("clock: clock [%s]'s enable_reg is NULL\n", clk->name);
+		printk("clock: clock [%s]'s enable_reg is NULL\n", clk->pstub->name);
 		return -EINVAL;
 	}
 
 	v = __raw_readl(clk->enable_reg);
-	if (clk->flags & INVERT_ENABLE)
+	if (clk->pstub->flags & INVERT_ENABLE)
 		v &= ~(0x1UL << clk->enable_bit);
 	else
 		v |= (0x1UL << clk->enable_bit);
@@ -97,12 +97,12 @@ static void sc88xx_clk_disable_generic(struct clk *clk)
 	u32 v;
 
 	if (unlikely(clk->enable_reg == NULL)) {
-		printk("clock: clock [%s]'s enable_reg is NULL\n", clk->name);
+		printk("clock: clock [%s]'s enable_reg is NULL\n", clk->pstub->name);
 		return;
 	}
 
 	v = __raw_readl(clk->enable_reg);
-	if (clk->flags & INVERT_ENABLE)
+	if (clk->pstub->flags & INVERT_ENABLE)
 		v |= (0x1UL << clk->enable_bit);
 	else
 		v &= ~(0x1UL << clk->enable_bit);
@@ -1341,7 +1341,7 @@ static void _sc88xx_clk_disable(struct clk *clk)
 }
 static void sc88xx_clk_disable(struct clk *clk)
 {
-	if ((clk->usecount > 0) && !(--clk->usecount)) {
+	if ((clk->pstub->usecount > 0) && !(--clk->pstub->usecount)) {
 		_sc88xx_clk_disable(clk);
 		if (clk->parent)
 			sc88xx_clk_disable(clk->parent);
@@ -1352,7 +1352,7 @@ static int sc88xx_clk_enable(struct clk *clk)
 {
 	int ret = 0;
 
-	if (clk->usecount++ == 0) {
+	if (clk->pstub->usecount++ == 0) {
 		if (clk->parent) {
 			ret = sc88xx_clk_enable(clk->parent);
 			if (ret)
@@ -1367,7 +1367,7 @@ static int sc88xx_clk_enable(struct clk *clk)
 	}
 	return ret;
 err:
-	clk->usecount--;
+	clk->pstub->usecount--;
 	return ret;
 }
 
@@ -1390,9 +1390,9 @@ static long	sc88xx_clk_round_rate(struct clk *clk, unsigned long rate)
 	if (clk->round_rate)
 		return clk->round_rate(clk, rate);
 
-	if (clk->flags & RATE_FIXED)
+	if (clk->pstub->flags & RATE_FIXED)
 		printk(KERN_ERR "clock: generic omap2_clk_round_rate called "
-		       "on fixed-rate clock %s\n", clk->name);
+		       "on fixed-rate clock %s\n", clk->pstub->name);
 
 	return clk->rate;
 
@@ -1401,7 +1401,7 @@ static long	sc88xx_clk_round_rate(struct clk *clk, unsigned long rate)
 static int sc88xx_clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int ret = -EINVAL;
-	if (clk->flags & CONFIG_PARTICIPANT)
+	if (clk->pstub->flags & CONFIG_PARTICIPANT)
 		return -EINVAL;
 
 	if (clk->set_rate)
@@ -1415,7 +1415,7 @@ static const struct clksel *sc88xx_get_clksel_by_parent(struct clk *clk,
 	const struct clksel *clks;
 
 	if (!clk->parent) {
-		printk("clock[%s]: parent is NULL, can't get parent!\n", clk->name);
+		printk("clock[%s]: parent is NULL, can't get parent!\n", clk->pstub->name);
 		return NULL;
 	}
 
@@ -1431,7 +1431,7 @@ static const struct clksel *sc88xx_get_clksel_by_parent(struct clk *clk,
 
 	if (!clks->parent) {
 		printk("clock: Can't find parent clock [%s] for clock [%s].\n",
-				src_clk->name, clk->name);
+				src_clk->pstub->name, clk->pstub->name);
 		return NULL;
 	}
 	return clks;
@@ -1443,18 +1443,19 @@ static int sc88xx_clk_set_parent(struct clk *clk, struct clk *new_parent)
 	const struct clksel *clks;
 
 
-	if (clk->flags & CONFIG_PARTICIPANT)
+	if (clk->pstub->flags & CONFIG_PARTICIPANT)
 		return -EINVAL;
 
 	if (!clk->clksel_reg || !clk->clksel_mask) {
-		printk("clock[%s]: no clksel_reg, parent can't be changed!\n", clk->name);
+		printk("clock[%s]: no clksel_reg, parent can't be changed!\n", clk->pstub->name);
 		return -EINVAL;
 	}
 
 	//printk("get parent [%s]\n", new_parent->name);
 	clks = sc88xx_get_clksel_by_parent(clk, new_parent);
 	if (!clks) {
-		printk("clock[%s]: Can't find parent [%s]!\n", clk->name, new_parent->name);
+		printk("clock[%s]: Can't find parent [%s]!\n", clk->pstub->name, 
+					new_parent->pstub->name);
 		return -EPERM;
 	}
 
@@ -1507,7 +1508,7 @@ unsigned long sc88xx_recalc_generic(struct clk *clk)
 
 	clks = sc88xx_get_clksel_by_parent(clk, clk->parent);
 	if (!clks) {
-		printk("clock: can't find parent for clock [%s].\n", clk->name);
+		printk("clock: can't find parent for clock [%s].\n", clk->pstub->name);
 		return 0;
 	}
 
@@ -1529,11 +1530,10 @@ unsigned long sc88xx_recalc_generic(struct clk *clk)
 		if (!clkr->div) {
 			pr_err("clock[%s]: can't find divisor, parent = [%s], "
 					"v = %08x\n",
-					clk->name, clks->parent->name, v);
+					clk->pstub->name, clks->parent->pstub->name, v);
 			for (clkr = clks->rates; clkr->div; clkr++) {
 				printk("clock[%s]: divisor = %d val = %d\n",
-						clk->name, clkr->div, clkr->val);
-
+						clk->pstub->name, clkr->div, clkr->val);
 			}
 
 			return 0;
@@ -1570,7 +1570,7 @@ int sc88xx_clksel_rournd_rate_clkr(struct clk *clk, unsigned long target_rate,
 	for (clkr = clks->rates; clkr->div; clkr++) {
 		if (clkr->div <= last_div) {
 			pr_err("clock: clksel_rate table doesn't include item for clock [%s].\n",
-					clk->name);
+					clk->pstub->name);
 			return -EINVAL;
 		}
 
@@ -1583,7 +1583,7 @@ int sc88xx_clksel_rournd_rate_clkr(struct clk *clk, unsigned long target_rate,
 
 	if (!clkr->div) {
 		pr_err("clock: can't find divisor for clock [%s], rate = %ld\n",
-				clk->name, target_rate);
+				clk->pstub->name, target_rate);
 		return -EINVAL;
 	}
 	*clkrp = clkr;
@@ -1600,7 +1600,7 @@ static struct clksel_rate *sc88xx_get_clksel_rate_by_divisor(struct clk *clk,
 
 	clks = sc88xx_get_clksel_by_parent(clk, clk->parent);
 	if (!clks) {
-		printk("clock: can't find parent for clock [%s].\n", clk->name);
+		printk("clock: can't find parent for clock [%s].\n", clk->pstub->name);
 		return 0;
 	}
 
@@ -1612,7 +1612,7 @@ static struct clksel_rate *sc88xx_get_clksel_rate_by_divisor(struct clk *clk,
 	if (!clkr->div) {
 		pr_err("clock[%s]: can't find divisor, parent = [%s], "
 				"divisor = %08x\n",
-				clk->name, clks->parent->name, divisor);
+				clk->pstub->name, clks->parent->pstub->name, divisor);
 		/*
 		for (clkr = clks->rates; clkr->div; clkr++) {
 			printk("clock[%s]: divisor = %d val = %d\n",
@@ -1635,7 +1635,7 @@ int sc88xx_set_rate_generic(struct clk *clk, unsigned long rate)
 	int ret = -EINVAL;
 
 	if ((!clk->clkdiv_reg) || (!clk->clkdiv_mask)) {
-		printk("clock[%s]: no divisor, rate can't be changed!\n", clk->name);
+		printk("clock[%s]: no divisor, rate can't be changed!\n", clk->pstub->name);
 		return -EINVAL;
 	}
 
@@ -1668,7 +1668,7 @@ static int sc88xx_set_divisor_generic(struct clk *clk, int divisor)
 
 	clkr = sc88xx_get_clksel_rate_by_divisor(clk, divisor);
 	if (!clkr) {
-		printk("clock[%s]: Can't find divisor[%d]!\n", clk->name, divisor);
+		printk("clock[%s]: Can't find divisor[%d]!\n", clk->pstub->name, divisor);
 		return -EINVAL;
 	}
 	else {
@@ -1696,7 +1696,7 @@ static int sc88xx_clk_set_divisor(struct clk *clk, int divisor)
 	int ret = -EINVAL;
 
 	if ((!clk->clkdiv_reg) || (!clk->clkdiv_mask)) {
-		printk("clock[%s]: no divisor, divisor can't be changed!\n", clk->name);
+		printk("clock[%s]: no divisor, divisor can't be changed!\n", clk->pstub->name);
 		return -EINVAL;
 	}
 
@@ -1804,6 +1804,58 @@ int __init sc8800g2_clock_init(void)
 	unsigned int array_size;
 	int index = 0;
 
+	/* allocate memory for shared clock information. */
+	array_size = ARRAY_SIZE(sc8800g2_clks) + 1;
+	pstub = (struct clock_stub *)alloc_share_memory(array_size * 
+		sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
+	if (NULL == pstub) {
+		printk("Clock Framework: alloc_share_memory() failed!\n");
+		return -ENOMEM;
+	}
+	memset(pstub, 0x00, array_size * sizeof(struct clock_stub));
+
+	/* allocate memory for clock name. */
+	pname = alloc_share_memory(CLOCK_NUM * MAX_CLOCK_NAME_LEN, 
+				RES_CLOCK_NAME_MEM);
+	if (NULL == pname) {
+		printk("Clock Framework: alloc_share_memory() failed!\n");
+		return -ENOMEM;
+	}
+
+
+	/* initialize parameters stored in pmem. */
+	memset(pstub, 0x00, CLOCK_NUM * MAX_CLOCK_NAME_LEN);
+	index = 0;
+	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
+		c->lk.clk->pstub = &pstub[index];
+		pstub[index].name = pname[index];
+		pstub[index].flags = c->lk.clk->flags;
+		pstub[index].usecount = c->lk.clk->usecount;
+		strncpy(pname[index], c->lk.clk->name, (MAX_CLOCK_NAME_LEN - 1));
+		index++;
+	}
+
+	/* make sure list has a termination mark. */
+	pstub[index].name = NULL;
+
+	for (	c = sc8800g2_clks, index = 0; index < CLOCK_NUM; index++) {
+		printk("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+			index, &pstub[index], pstub[index].name, pstub[index].flags, 
+			pstub[index].usecount);
+
+		if (index < ARRAY_SIZE(sc8800g2_clks))  {
+			printk("clock[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+				index, c[index].lk.clk, c[index].lk.clk->name, c[index].lk.clk->flags, 
+				c[index].lk.clk->usecount);
+			printk("clock->pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+				index, c[index].lk.clk, c[index].lk.clk->pstub->name, 
+				c[index].lk.clk->pstub->flags, 
+				c[index].lk.clk->pstub->usecount);
+		}
+
+		printk("pname[%d] [addr = %p] [name = %s]\n", 
+			index, (char *)&pname[index], (char *)&pname[index]);
+	}
 
 
 	rates_init();
@@ -1823,61 +1875,6 @@ int __init sc8800g2_clock_init(void)
 	printk("###: sc8800g2_clock_init() is done.\n");
 	clk_print_all();
 
-	/* allocate memory for shared clock information. */
-	array_size = ARRAY_SIZE(sc8800g2_clks) + 1;
-	pstub = (struct clock_stub *)alloc_share_memory(array_size * 
-		sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
-	if (NULL == pstub) {
-		printk("Clock Framework: alloc_share_memory() failed!\n");
-		return -ENOMEM;
-	}
-	memset(pstub, 0x00, array_size * sizeof(struct clock_stub));
-
-	/* allocate memory for clock name. */
-	pname = alloc_share_memory(CLOCK_NUM * MAX_CLOCK_NAME_LEN, 
-				RES_CLOCK_NAME_MEM);
-	if (NULL == pname) {
-		printk("Clock Framework: alloc_share_memory() failed!\n");
-		return -ENOMEM;
-	}
-
-	memset(pstub, 0x00, CLOCK_NUM * MAX_CLOCK_NAME_LEN);
-	index = 0;
-	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
-		c->lk.clk->pstub = &pstub[index];
-		pstub[index].name = pname[index];
-		pstub[index].flags = c->lk.clk->flags;
-		pstub[index].usecount = c->lk.clk->usecount;
-		strncpy(pname[index], c->lk.clk->name, (MAX_CLOCK_NAME_LEN - 1));
-		index++;
-	}
-
-	/* make sour list has a termination mark. */
-	pstub[index].name = NULL;
-
-
-
-	for (	c = sc8800g2_clks, index = 0; index < CLOCK_NUM; index++) {
-		printk("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
-			index, &pstub[index], pstub[index].name, pstub[index].flags, 
-			pstub[index].usecount);
-
-		if (index < ARRAY_SIZE(sc8800g2_clks))  {
-			printk("clock[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
-				index, c[index].lk.clk, c[index].lk.clk->name, c[index].lk.clk->flags, 
-				c[index].lk.clk->usecount);
-			printk("clock->pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
-				index, c[index].lk.clk, c[index].lk.clk->pstub->name, 
-				c[index].lk.clk->pstub->flags, 
-				c[index].lk.clk->pstub->usecount);
-		}
-
-		printk("pname[%d] [addr = %p] [name = %s]\n", 
-			index, (char *)&pname[index], (char *)&pname[index]);
-		
-	}
-
-	
 	return 0;
  }
 

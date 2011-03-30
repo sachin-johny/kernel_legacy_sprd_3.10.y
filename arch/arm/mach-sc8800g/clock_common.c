@@ -22,6 +22,7 @@
 
 
 #include <mach/clock_common.h>
+#include <mach/spinlock_hw_vlx.h>
 
 static LIST_HEAD(clocks);
 static DEFINE_MUTEX(clocks_mutex);
@@ -43,17 +44,17 @@ static struct clk_functions *arch_clock;
  *
  *
  ---------------------------------------------------------*/
-
 void clk_print_all(void)
 {
 	struct clk *p;
 
 	list_for_each_entry(p, &clocks, node) {
 		printk("clock: [%s], parent = [%s], usecount = %d, rate = %ld.\n",
-				p->name, p->parent ? p->parent->name : "NULL",
-				p->usecount, p->rate);
+				p->pstub->name, p->parent ? (const char *)p->parent->pstub->name  : "NULL",
+				p->pstub->usecount, p->rate);
 	}
 }
+
 
 void clk_reparent(struct clk *child, struct clk *parent)
 {
@@ -69,7 +70,7 @@ void sc88xx_init_clksel_parent(struct clk *clk)
 	u32 r, found = 0;
 
 	if (!clk->clksel_reg || !clk->clksel_mask) {
-		printk("clock[%s]: parent can't be changed!\n", clk->name);
+		printk("clock[%s]: parent can't be changed!\n", clk->pstub->name);
 		return;
 	}
 
@@ -79,8 +80,8 @@ void sc88xx_init_clksel_parent(struct clk *clk)
 	for (clks = clk->clksel; clks->parent && !found; clks++) {
 		if (clks->val == r) {
 			if (clk->parent != clks->parent) {
-				printk("clock: set [%s]'s parent from [%s] to [%s]\n",
-					clk->name, clk->parent->name, clks->parent->name);
+				printk("clock: set [%s]'s parent from [%s] to [%s].\n",
+					clk->pstub->name, clk->parent->pstub->name, clks->parent->pstub->name);
 				clk_reparent(clk, clks->parent);
 				if (clk->recalc)
 					clk->rate = clk->recalc(clk);
@@ -90,7 +91,7 @@ void sc88xx_init_clksel_parent(struct clk *clk)
 		found = 1;
 	}
 	if (!found)
-		printk("clock: Can find parent for clock [%s]\n", clk->name);
+		printk("clock: Can find parent for clock [%s].\n", clk->pstub->name);
 }
 
 
@@ -99,7 +100,7 @@ void clk_enable_init_clocks(void)
 	struct clk *clkp;
 
 	list_for_each_entry(clkp, &clocks, node) {
-		if (clkp->flags & ENABLE_ON_INIT)
+		if (clkp->pstub->flags & ENABLE_ON_INIT)
 			clk_enable(clkp);
 	}
 }
@@ -200,9 +201,9 @@ unsigned long clk_get_rate(struct clk *clk)
 	if ((NULL == clk) || IS_ERR(clk))
 		return ret;
 
-	spin_lock_irqsave(&clockfw_lock, flags);
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
 	ret = clk->rate;
-	spin_unlock_irqrestore(&clockfw_lock, flags);
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
 }
@@ -216,10 +217,10 @@ long clk_round_rate(struct clk *clk, unsigned long rate)
 	if ((NULL == clk) || IS_ERR(clk))
 		return ret;
 
-	spin_lock_irqsave(&clockfw_lock, flags);
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
 	if (arch_clock->clk_round_rate)
 			ret = arch_clock->clk_round_rate(clk, rate);
-	spin_unlock_irqrestore(&clockfw_lock, flags);
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
 }
@@ -233,7 +234,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	if ((NULL == clk) || IS_ERR(clk))
 		return ret;
 
-	spin_lock_irqsave(&clockfw_lock, flags);
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
 	if (arch_clock->clk_set_rate)
 			ret = arch_clock->clk_set_rate(clk, rate);
 	if (0 == ret) {
@@ -242,7 +243,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 		propagate_rate(clk);
 	}
 
-	spin_unlock_irqrestore(&clockfw_lock, flags);
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
 
@@ -257,7 +258,7 @@ int clk_set_divisor(struct clk *clk, int divisor)
 	if ((NULL == clk) || IS_ERR(clk))
 		return ret;
 
-	spin_lock_irqsave(&clockfw_lock, flags);
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
 	if (arch_clock->clk_set_divisor)
 			ret = arch_clock->clk_set_divisor(clk, divisor);
 	if (0 == ret) {
@@ -266,7 +267,7 @@ int clk_set_divisor(struct clk *clk, int divisor)
 		propagate_rate(clk);
 	}
 
-	spin_unlock_irqrestore(&clockfw_lock, flags);
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
 
@@ -281,10 +282,10 @@ int clk_get_divisor(struct clk *clk)
 	if ((NULL == clk) || IS_ERR(clk))
 		return ret;
 
-	spin_lock_irqsave(&clockfw_lock, flags);
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
 	if (arch_clock->clk_get_divisor)
 			ret = arch_clock->clk_get_divisor(clk);
-	spin_unlock_irqrestore(&clockfw_lock, flags);
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
 
@@ -303,8 +304,8 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	if ((NULL == parent) || IS_ERR(parent))
 		return ret;
 
-	spin_lock_irqsave(&clockfw_lock, flags);
-	if (0 == clk->usecount) {
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
+	if (0 == clk->pstub->usecount) {
 		if (arch_clock->clk_set_parent)
 			ret = arch_clock->clk_set_parent(clk, parent);
 		if (0 == ret) {
@@ -316,7 +317,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	else
 		ret = -EBUSY;
 
-	spin_unlock_irqrestore(&clockfw_lock, flags);
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
 
@@ -331,6 +332,12 @@ struct clk *clk_get_parent(struct clk *clk)
 EXPORT_SYMBOL(clk_get_parent);
 
 
+/* 
+     only clk_enable() & clk_disable() need to 
+     really disable interrupt, other ones only
+     need to disable vpic.
+*/
+
 int clk_enable(struct clk *clk)
 {
 	unsigned long flags;
@@ -339,10 +346,10 @@ int clk_enable(struct clk *clk)
 	if ((NULL == clk) || IS_ERR(clk))
 		return -EINVAL;
 
-	spin_lock_irqsave(&clockfw_lock, flags);
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
 	if (arch_clock->clk_enable)
 		ret = arch_clock->clk_enable(clk);
-	spin_unlock_irqrestore(&clockfw_lock, flags);
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 
 	return ret;
 }
@@ -356,18 +363,17 @@ void clk_disable(struct clk *clk)
 	if ((NULL == clk) || IS_ERR(clk))
 		return;
 
-	spin_lock_irqsave(&clockfw_lock, flags);
-	if (clk->usecount == 0) {
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
+	if (clk->pstub->usecount == 0) {
 		printk("Trying to disable clock [%s] with 0 usecount\n",
-				clk->name);
+				clk->pstub->name);
 		WARN_ON(1);
 		goto out;
 	}
 	if (arch_clock->clk_disable)
 		arch_clock->clk_disable(clk);
-
 out:
-	spin_unlock_irqrestore(&clockfw_lock, flags);
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 }
 EXPORT_SYMBOL(clk_disable);
 

@@ -103,35 +103,46 @@ struct clkops {
 };
 
 struct clk {
-	struct list_head 		node;
+	struct list_head 	node;
 	const struct clkops 	*ops;
-	const char  			*name;
-	int 					id;
-	struct clk				*parent;
-	struct list_head		children;
-	struct list_head		sibling;
-	unsigned long 			rate;
+
+
+	/************************/
+	/* members moved to pmem. 
+	     for many reasons, not all infomation can
+	     be shared between OSes, for exmaple, callback 
+	     function pointer, different virtrual address for same
+	     I/O address, so we only share neccessary ones.
+	*/
+	
+	const char  		*name;
 	u32				flags;
-	long			(*round_rate)(struct clk *, unsigned long);
+	u32				usecount;
+	/************************/
+
+
+	int 				id;
+	struct clk			*parent;
+	struct list_head	children;
+	struct list_head	sibling;
+	unsigned long 		rate;
+	long				(*round_rate)(struct clk *, unsigned long);
 	void				(*init)(struct clk *);
-	u32					usecount;
 	unsigned long		(*recalc)(struct clk *);
 	int 				(*set_rate)(struct clk *, unsigned long);
-	const char			*clkdm_name;
-
-
+	const char		*clkdm_name;
 	void __iomem		*clksel_reg;
-	u32					clksel_mask;
+	u32				clksel_mask;
 	const struct clksel	*clksel;
 
 	void __iomem		*enable_reg;
-	u32					enable_bit;
+	u32				enable_bit;
 
 	void __iomem		*clkdiv_reg;
-	u32					clkdiv_mask;
+	u32				clkdiv_mask;
 	int 				divisor;
-	int					(*set_divisor)(struct clk *clk, int divisor);
-	int					(*get_divisor)(struct clk *clk);
+	int				(*set_divisor)(struct clk *clk, int divisor);
+	int				(*get_divisor)(struct clk *clk);
 	struct clock_stub 	*pstub;
 };
 
