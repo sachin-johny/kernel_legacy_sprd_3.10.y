@@ -386,7 +386,7 @@ static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_m
                  msg->status = sprd_spi_direct_transfer(
                         cspi_trans->rx_buf, cspi_trans->tx_buf,
                         cspi_trans->len, sprd_data, sprd_ctrl_data);
-                
+
                 if (cs_change) {
                     cs_deactivate(sprd_data, spi);
                 }
@@ -478,8 +478,10 @@ up(&sprd_data->process_sem_direct);
 
 void sprd_spi_tmod(struct spi_device *spi, u32 transfer_mod)
 {
-    struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
-    sprd_ctrl_data->tmod = transfer_mod;
+    if (spi) {
+        struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
+        sprd_ctrl_data->tmod = transfer_mod;
+    }
 }
 EXPORT_SYMBOL_GPL(sprd_spi_tmod);
 

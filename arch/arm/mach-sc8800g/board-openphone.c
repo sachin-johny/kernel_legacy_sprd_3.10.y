@@ -98,11 +98,21 @@ struct platform_device android_pmem_adsp_device = {
 #include <linux/dma-mapping.h>
 #include <mach/irqs.h>
 #include <mach/mfp.h>
+
+#define SPRD_3RDPARTY_SPI_MASTER_BUS_NUM    0
+#define SPRD_3RDPARTY_SPI_MASTER_CS0_GPIO   32
+#define SPRD_3RDPARTY_SPI_MASTER_CS1_GPIO   33
+#define SPRD_3RDPARTY_SPI_MASTER_CS2_GPIO   32
+#define SPRD_3RDPARTY_SPI_MASTER_CS3_GPIO   33
+
+#define SPRD_3RDPARTY_SPI_WIFI_CS   2
+#define SPRD_3RDPARTY_SPI_CMMB_CS   3
+
 static int spi_cs_gpio[] = {
-    [0] = 32, // cs = 0 , GPIO32 == SPI_CSN0
-    [1] = 33, // cs = 1 , GPIO33 == SPI_CSN1
-    [2] = 32, // to cs0
-    [3] = 33, // to cs1
+    [0] = SPRD_3RDPARTY_SPI_MASTER_CS0_GPIO, // cs = 0 , GPIO32 == SPI_CSN0
+    [1] = SPRD_3RDPARTY_SPI_MASTER_CS1_GPIO, // cs = 1 , GPIO33 == SPI_CSN1
+    [2] = SPRD_3RDPARTY_SPI_MASTER_CS2_GPIO, // to cs0
+    [3] = SPRD_3RDPARTY_SPI_MASTER_CS3_GPIO, // to cs1
 };
 
 static struct spi_board_info openhone_spi_devices[] = {
@@ -130,20 +140,23 @@ static struct spi_board_info openhone_spi_devices[] = {
         .max_speed_hz   = 0.5 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
-  {
-    .modalias       = "spi_slot1", // "spidev" --> spidev_spi
-    .chip_select    = 3,
-    .max_speed_hz   = 0.5 * 1000 * 1000,
-    .mode           = SPI_CPOL | SPI_CPHA,
-    },*/
 };
 
 static struct spi_board_info openhone_spi_devices4wifi[] = {
     {
-    .modalias       = "spi_slot0", // "spidev" --> spidev_spi
-    .chip_select    = 2,
-    .max_speed_hz   = 24 * 1000 * 1000,
-    .mode           = SPI_CPOL | SPI_CPHA,
+        .modalias       = "spi_slot0", // "spidev" --> spidev_spi
+        .chip_select    = SPRD_3RDPARTY_SPI_WIFI_CS,
+        .max_speed_hz   = 24 * 1000 * 1000,
+        .mode           = SPI_CPOL | SPI_CPHA,
+    },
+};
+
+static struct spi_board_info openhone_spi_devices4cmmb[] = {
+    {
+        .modalias       = "cmmb-dev", // "spidev" --> spidev_spi
+        .chip_select    = SPRD_3RDPARTY_SPI_CMMB_CS,
+        .max_speed_hz   = 8 * 1000 * 1000,
+        .mode           = SPI_CPOL | SPI_CPHA,
     },
 };
 
@@ -178,30 +191,66 @@ struct gpio_desc {
     const char *desc;
 };
 
+#define SPRD_3RDPARTY_GPIO_WIFI_POWER       106
+#define SPRD_3RDPARTY_GPIO_WIFI_RESET       140
+#define SPRD_3RDPARTY_GPIO_WIFI_PWD         99
+#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        139
+#define SPRD_3RDPARTY_GPIO_WIFI_IRQ         141
+#define SPRD_3RDPARTY_GPIO_BT_POWER         -1
+#define SPRD_3RDPARTY_GPIO_BT_RESET         90
+#define SPRD_3RDPARTY_GPIO_BT_RTS           42
+#define SPRD_3RDPARTY_GPIO_CMMB_POWER       135
+#define SPRD_3RDPARTY_GPIO_CMMB_RESET       94
+#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
+
+int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
+int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
+int sprd_3rdparty_gpio_wifi_pwd   = SPRD_3RDPARTY_GPIO_WIFI_PWD;
+int sprd_3rdparty_gpio_wifi_wake  = SPRD_3RDPARTY_GPIO_WIFI_WAKE;
+int sprd_3rdparty_gpio_wifi_irq   = SPRD_3RDPARTY_GPIO_WIFI_IRQ;
+int sprd_3rdparty_gpio_bt_power   = SPRD_3RDPARTY_GPIO_BT_POWER;
+int sprd_3rdparty_gpio_bt_reset   = SPRD_3RDPARTY_GPIO_BT_RESET;
+int sprd_3rdparty_gpio_bt_rts     = SPRD_3RDPARTY_GPIO_BT_RTS;
+int sprd_3rdparty_gpio_cmmb_power = SPRD_3RDPARTY_GPIO_CMMB_POWER;
+int sprd_3rdparty_gpio_cmmb_reset = SPRD_3RDPARTY_GPIO_CMMB_RESET;
+int sprd_3rdparty_gpio_cmmb_irq   = SPRD_3RDPARTY_GPIO_CMMB_IRQ;
+
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_pwd);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_wake);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_power);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_reset);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_rts);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_power);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_reset);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
+
 static struct gpio_desc gpio_func_cfg[] = {
     {
         MFP_CFG_X(RFCTL9    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io
-        99 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        "wifi power"
+        SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "wifi pwd"
     },
     {
         MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-        139 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi wake"
     },
     {
         MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-        140 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        SPRD_3RDPARTY_GPIO_WIFI_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi reset"
     },
     {
         MFP_CFG_X(RFCTL0 , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
-        90 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        SPRD_3RDPARTY_GPIO_BT_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "BT reset"
     },
     {
         MFP_CFG_X(U0RTS  , AF3, DS1, F_PULL_DOWN, S_PULL_UP, IO_OE), // BT_RTS
-        42,
+        SPRD_3RDPARTY_GPIO_BT_RTS,
         "BT RTS"
     },
 };
@@ -228,28 +277,55 @@ static unsigned long bt_func_cfg[] = {
 };
 #endif
 
-struct spi_device *sprd_spi_wifi_device_register(int master_bus_num, struct spi_board_info *chip)
+static struct spi_device *sprd_spi_device_register(int master_bus_num, struct spi_board_info *chip, int type)
 {
     int i, gpio;
 
     if (master_bus_num < 0)
-        master_bus_num = 0;
+        master_bus_num = SPRD_3RDPARTY_SPI_MASTER_BUS_NUM;
 
     if (!spi_busnum_to_master(master_bus_num)) {
         printk(KERN_WARNING "%s: no [ %d ] spi master\n", __func__, master_bus_num);
         return NULL;
     }
-    if (chip == NULL)
-        chip = openhone_spi_devices4wifi;
+
+    if (chip == NULL) {
+        switch (type) {
+            case SPRD_3RDPARTY_SPI_WIFI_CS: chip = openhone_spi_devices4wifi; break;
+            case SPRD_3RDPARTY_SPI_CMMB_CS: chip = openhone_spi_devices4cmmb; break;
+        }
+    }
 
     for (i = 0; i < 1; i++) {
+        if (chip[i].chip_select == -1 || chip[i].chip_select > 64) {
+            switch (type) {
+                case SPRD_3RDPARTY_SPI_WIFI_CS: chip[i].chip_select = SPRD_3RDPARTY_SPI_WIFI_CS; break;
+                case SPRD_3RDPARTY_SPI_CMMB_CS: chip[i].chip_select = SPRD_3RDPARTY_SPI_CMMB_CS; break;
+            }
+        }
+
+        // if (chip[i].irq < 0 || chip[i].irq > INT_MAX) {
+            chip[i].irq = IRQ_SPI_INT;
+        // }
+
         gpio = spi_cs_gpio[chip[i].chip_select];
         chip[i].controller_data = (void*)gpio;
     }
 
     return spi_new_device(spi_busnum_to_master(master_bus_num), chip);
 }
+
+struct spi_device *sprd_spi_wifi_device_register(int master_bus_num, struct spi_board_info *chip)
+{
+    return sprd_spi_device_register(master_bus_num, chip, SPRD_3RDPARTY_SPI_WIFI_CS);
+}
 EXPORT_SYMBOL_GPL(sprd_spi_wifi_device_register);
+
+struct spi_device *sprd_spi_cmmb_device_register(int master_bus_num, struct spi_board_info *chip)
+{
+    return sprd_spi_device_register(master_bus_num, chip, SPRD_3RDPARTY_SPI_CMMB_CS);
+}
+EXPORT_SYMBOL_GPL(sprd_spi_cmmb_device_register);
 
 static void sprd_spi_init(void)
 {

@@ -25,9 +25,13 @@ static struct spi_device *g_spi = NULL;
 static int       demod_irq = 0xff;
 static void *tx_dummy;
 
-#define IF20x_RESET_GPIO     94
-#define IF20x_POWER_GPIO   135
-#define IF20x_INT_GPIO   93       
+extern int sprd_3rdparty_gpio_cmmb_power;
+extern int sprd_3rdparty_gpio_cmmb_reset;
+extern int sprd_3rdparty_gpio_cmmb_irq;
+
+#define IF20x_RESET_GPIO    sprd_3rdparty_gpio_cmmb_reset
+#define IF20x_POWER_GPIO    sprd_3rdparty_gpio_cmmb_power
+#define IF20x_INT_GPIO      sprd_3rdparty_gpio_cmmb_irq
 
 //#define IRQ_IF20x_GPIO_INT  __gpio_to_irq(IF20x_INT_GPIO)
 
@@ -203,20 +207,11 @@ static void plat_gpio_free(void)
 
 #endif
 
-
 static int spi_probe(struct spi_device *spi)
 {
         int ret = 0;
         pr_debug("%s %s\n",__FILE__, __func__);
 
-        g_spi = spi;
-		
-	 g_spi->chip_select = 1;
-	 g_spi->mode = 0;
-	 g_spi->max_speed_hz = 8000000;
-
-        sprd_spi_tmod(g_spi, SPI_TMOD_DEMOD);
-    
 //        plat_gpio_init();
         
 //        irq_handler = NULL;
@@ -246,17 +241,30 @@ static struct spi_driver spi_driver = {
         },
 };
 
+static struct spi_board_info sprd_spi_board_info[] = {
+    {
+        .modalias       = "cmmb-dev",
+        .chip_select    = -1, // use kernel default cs for this module
+        .max_speed_hz   = 8 * 1000 * 1000,
+        .mode           = 0,
+    },
+};
+
+extern struct spi_device *sprd_spi_cmmb_device_register(int master_bus_num, struct spi_board_info *chip);
 static int __init inno_plat_init(void)
 {
-        pr_debug("%s\n",__func__);
-        spi_register_driver(&spi_driver);
-        return 0;
+    g_spi = sprd_spi_cmmb_device_register(-1, sprd_spi_board_info);
+    sprd_spi_tmod(g_spi, SPI_TMOD_DEMOD);
+
+    pr_debug("%s\n",__func__);
+    spi_register_driver(&spi_driver);
+    return 0;
 }
 static void __exit inno_plat_exit(void)
 {
-        free_irq(demod_irq, NULL);
-        spi_unregister_driver(&spi_driver);
-        pr_debug("%s\n",__func__);
+    free_irq(demod_irq, NULL);
+    spi_unregister_driver(&spi_driver);
+    pr_debug("%s\n",__func__);
 }
 
 module_init(inno_plat_init);
