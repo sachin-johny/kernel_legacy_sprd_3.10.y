@@ -2802,7 +2802,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			char *buff = buffer;
 			int i = 0;
 			memset(buffer, 0, 256);
-			mux_ringbuffer_empty(&rbuf);   //kewang
+			mux_ringbuffer_flush(&rbuf);   //kewang
 			COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "at\r",
 						   strlen("at\r"));
 			//wait for response "OK \r"
@@ -2846,7 +2846,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			printk("\n cmux receive>\n");
 			//empty ringbuffer
 			cmux_mode = 1;
-			mux_ringbuffer_empty(&rbuf);
+			mux_ringbuffer_flush(&rbuf);
 
 		}
 #endif
