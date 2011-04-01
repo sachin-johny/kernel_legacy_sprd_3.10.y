@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
+#include <linux/pm.h>
 
 #include <mach/regs_global.h>
 #include <mach/bits.h>
@@ -439,8 +440,43 @@ int __init LDO_Init(void)
 
 	//deepsleep init set for ldo
 	LDO_DeepSleepInit();
+    pm_power_off = LDO_TurnOffAllLDO;
 	
 	return LDO_ERR_OK;
+}
+/*****************************************************************************/
+//  Description: turn off system core ldo
+//  Global resource dependence:
+//  Author: Mingwei.Zhang
+//  Note:
+/*****************************************************************************/
+static void LDO_TurnOffCoreLDO (void)
+{
+    ANA_REG_SET (ANA_LDO_PD_SET, ANA_LDO_PD_SET_MSK);   /// turn off system core ldo
+}
+
+/*****************************************************************************/
+//  Description: turn off all module ldo befor system core ldo
+//  Global resource dependence:
+//  Author: Mingwei.Zhang
+//  Note:
+/*****************************************************************************/
+
+static void LDO_TurnOffAllModuleLDO (void)
+{
+    ANA_REG_SET (ANA_LDO_PD_CTL, ANA_LDO_PD_CTL_MSK);               ///turn off all module ldo
+    ANA_REG_MSK_OR (ANA_PA_CTL, LDO_PA_SET, (LDO_PA_SET|LDO_PA_RST)); ///PA poweroff
+}
+/*****************************************************************************/
+//  Description:  Shut down all LDO when system poweroff
+//  Global resource dependence:
+//  Author: Mingwei.Zhang
+//  Note:
+/*****************************************************************************/
+void LDO_TurnOffAllLDO (void)
+{
+    LDO_TurnOffAllModuleLDO();
+    LDO_TurnOffCoreLDO();
 }
 
 //arch_initcall(LDO_Init);

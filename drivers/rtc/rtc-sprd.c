@@ -78,6 +78,10 @@ static inline void sprd_rtc_set_alarm_sec(unsigned long secs)
 	hour = temp%24;
 	temp = (temp - hour)/24;
 	day = temp;
+    printk("\n RTC ***** rtc set alarm sec %u\n", sec);
+    printk("\n RTC ***** rtc set alarm min %u\n", min);
+    printk("\n RTC ***** rtc set alarm hour %u\n", hour);
+    printk("\n RTC ***** rtc set alarm day %u\n", day);
 
 	ANA_REG_SET(ANA_RTC_SEC_ALM, sec);
 	ANA_REG_SET(ANA_RTC_MIN_ALM, min);
@@ -103,7 +107,9 @@ static int sprd_rtc_set_alarm(struct device *dev,
 {
 	unsigned long secs;
 	unsigned temp;
+    printk("\n RTC ***** rtc set alarm\n");
 	rtc_tm_to_time(&alrm->time, &secs);
+    printk("\n RTC ***** rtc set alarm time:%u \n", secs);
 	sprd_rtc_set_alarm_sec(secs);
 
 	ANA_REG_SET(ANA_RTC_INT_CLR, RTC_ALARM_BIT);

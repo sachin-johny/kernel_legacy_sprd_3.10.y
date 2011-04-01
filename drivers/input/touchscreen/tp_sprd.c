@@ -176,7 +176,7 @@ static void ADC_Init(void)
     ANA_REG_OR (ADC_CTRL, ADC_EN_BIT);//ADC module enable
 
 }
- void ADC_SetScale (uint32_t scale)
+static void ADC_SetScale (uint32_t scale)
 {
     if (scale == ADC_SCALE_1V2)
     {
@@ -189,7 +189,7 @@ static void ADC_Init(void)
         ANA_REG_OR (ADC_CS, ADC_SCALE_BIT);
     }
 }
- void ADC_SetCs (uint32_t source)
+static void ADC_SetCs (uint32_t source)
 {
     SCI_PASSERT( (source < ADC_CH_MAX_NUM), ("error: source =%d",source));
     ANA_REG_MSK_OR (ADC_CS, source, ADC_CS_BIT_MSK);
