@@ -31,6 +31,7 @@
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
 #include <mach/bits.h>
+#include <linux/irq.h>
 
 //#define CHG_DEBUG
 #ifdef CHG_DEBUG
@@ -45,7 +46,6 @@ struct sprd_battery_data {
 	spinlock_t lock;
 
     struct timer_list battery_timer;
-//    struct timer_list charge_timer;
 
     uint32_t capacity;
     uint32_t charging;
@@ -171,28 +171,6 @@ static enum power_supply_property sprd_ac_props[] = {
 static enum power_supply_property sprd_usb_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
-#if 0
-static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
-{
-	unsigned long irq_flags;
-	struct sprd_battery_data *data = dev_id;
-	uint32_t status;
-
-	spin_lock_irqsave(&data->lock, irq_flags);
-
-	/* read status flags, which will clear the interrupt */
-	status = GOLDFISH_BATTERY_READ(data, BATTERY_INT_STATUS);
-	status &= BATTERY_INT_MASK;
-
-	if (status & BATTERY_STATUS_CHANGED)
-		power_supply_changed(&data->battery);
-	if (status & AC_STATUS_CHANGED)
-		power_supply_changed(&data->ac);
-
-	spin_unlock_irqrestore(&data->lock, irq_flags);
-	return status ? IRQ_HANDLED : IRQ_NONE;
-}
-#endif
 static ssize_t sprd_set_caliberate(struct device *dev,
                                      struct device_attribute *attr,
                                       const char *buf, size_t count);
@@ -386,12 +364,28 @@ static unsigned long chg_gpio_cfg =
     MFP_ANA_CFG_X(CHIP_RSTN, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
 
 #define USB_CONNECT_GPIO 162
-static int usb_connected(void)
+static inline int usb_connected(void)
 {
     return gpio_get_value(USB_CONNECT_GPIO)&BIT_2? 1:0;
 }
+static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
+{
+	unsigned long irq_flags;
+	struct sprd_battery_data *data = dev_id;
+	uint32_t status;
+    uint32_t charger_status;
+    DEBUG("charger plug interrupt happen\n");
 
-static int ac_connected(void)
+	spin_lock_irqsave(&data->lock, irq_flags);
+
+    charger_status = usb_connected();
+    data->usb_online = charger_status;
+    set_irq_type(irq, charger_status? IRQ_TYPE_LEVEL_LOW:IRQ_TYPE_LEVEL_HIGH);
+	spin_unlock_irqrestore(&data->lock, irq_flags);
+	return IRQ_HANDLED;
+}
+
+static inline int ac_connected(void)
 {
     return 0;
 }
@@ -408,7 +402,9 @@ static void battery_handler(unsigned long data)
     uint32_t vprog_value;
     uint32_t vchg_value;
     int usb_online= 0;
+    static int pre_usb_online = 0;
     int ac_online = 0;
+    static int pre_ac_online = 0;
     int ac_notify = 0;
     int usb_notify = 0;
     int battery_notify = 0;
@@ -416,7 +412,7 @@ static void battery_handler(unsigned long data)
     
     
     struct sprd_battery_data * battery_data = (struct sprd_battery_data *)data;
-    usb_online = usb_connected();
+    usb_online = battery_data->usb_online;
     ac_online = ac_connected();
     adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
     DEBUG("vbat %d\n", adc_value);
@@ -439,13 +435,13 @@ static void battery_handler(unsigned long data)
         usb_online = 0;
     }
 
-    if(battery_data->ac_online != ac_online){
-        battery_data->ac_online = ac_online;
+    if(pre_ac_online != ac_online){
+        pre_ac_online = ac_online;
         ac_notify = 1;
     }
 
-    if(battery_data->usb_online != usb_online){
-        battery_data->usb_online = usb_online;
+    if(pre_usb_online != usb_online){
+        pre_usb_online = usb_online;
         usb_notify = 1;
     }
 
@@ -592,11 +588,23 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err_no_irq;
 	}
+#endif
+    sprd_mfp_config(&chg_gpio_cfg, 1);
+    ret = gpio_request(USB_CONNECT_GPIO, "charger_plug");
+    if(ret)
+      goto err_alloc_gpio;
+    gpio_direction_input(USB_CONNECT_GPIO);
+    ret = sprd_alloc_gpio_irq(USB_CONNECT_GPIO);
+    if(ret < 0)
+      goto err_alloc_gpio_irq;
+    else
+      data->irq = ret;
+      
+    set_irq_type(data->irq, IRQ_TYPE_LEVEL_LOW); //set usb plug irq lowlevel
 
 	ret = request_irq(data->irq, sprd_battery_interrupt, IRQF_SHARED, pdev->name, data);
 	if (ret)
 		goto err_request_irq_failed;
-#endif
 	ret = power_supply_register(&pdev->dev, &data->usb);
 	if (ret)
 		goto err_usb_failed;
@@ -611,9 +619,6 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, data);
 	battery_data = data;
-    sprd_mfp_config(&chg_gpio_cfg, 1);
-    gpio_request(USB_CONNECT_GPIO, "usb_online");
-    gpio_direction_input(USB_CONNECT_GPIO);
     CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
     ADC_Init();
 
@@ -628,9 +633,12 @@ err_battery_failed:
 err_ac_failed:
     power_supply_unregister(&data->usb);
 err_usb_failed:
-//	free_irq(data->irq, data);
-//err_request_irq_failed:
-//err_no_irq:
+	free_irq(data->irq, data);
+err_request_irq_failed:
+    sprd_free_gpio_irq(data->irq);
+err_alloc_gpio_irq:
+    gpio_free(USB_CONNECT_GPIO);
+err_alloc_gpio:
 	kfree(data);
 err_data_alloc_failed:
 	return ret;
@@ -647,7 +655,7 @@ static int sprd_battery_remove(struct platform_device *pdev)
     gpio_free(USB_CONNECT_GPIO);
 
     del_timer_sync(&data->battery_timer);
-	//free_irq(data->irq, data);
+	free_irq(data->irq, data);
 	kfree(data);
 	battery_data = NULL;
 	return 0;
