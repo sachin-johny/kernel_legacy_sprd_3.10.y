@@ -19,6 +19,8 @@
  
 #define GPIO_MAX_PIN_NUM 	176
 
+#define CHARGER_DETECT_GPIO 162
+
 #define ARCH_NR_GPIOS	GPIO_MAX_PIN_NUM
 
 #define gpio_get_value __gpio_get_value

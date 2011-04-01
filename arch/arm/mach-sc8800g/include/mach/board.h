@@ -35,6 +35,7 @@ void __init sprd_add_sdio_device(void);
 void __init sprd_add_otg_device(void);
 void __init sprd_gadget_init(void);
 void __init sprd_add_dcam_device(void);
+void __init sprd_charger_init(void);
 
 /* pmem area definition */
 /*

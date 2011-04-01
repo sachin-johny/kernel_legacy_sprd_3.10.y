@@ -409,6 +409,7 @@ static void __init openphone_init(void)
 	sprd_gadget_init();
 	sprd_add_dcam_device();
     sprd_spi_init();
+    sprd_charger_init();
 }
 
 static void __init openphone_map_io(void)

@@ -645,3 +645,15 @@ void __init sprd_add_dcam_device(void)
 	sprd_config_dcam_pins();
 	platform_device_register(&sprd_dcam_device);
 }
+static unsigned long charger_detect_cfg =
+    MFP_ANA_CFG_X(CHIP_RSTN, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
+void __init sprd_charger_init(void)
+{
+    int ret;
+    sprd_mfp_config(&charger_detect_cfg, 1);
+    gpio_request(CHARGER_DETECT_GPIO, "usb_plug");
+    gpio_direction_input(CHARGER_DETECT_GPIO);
+    ret = sprd_alloc_gpio_irq(CHARGER_DETECT_GPIO);
+    if(ret)
+      pr_warning("cant alloc gpio irq %d\n", CHARGER_DETECT_GPIO);
+}

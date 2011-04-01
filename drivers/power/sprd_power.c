@@ -360,13 +360,9 @@ static int sprd_remove_caliberate_attr(struct device *dev)
     return 0;
 }
 
-static unsigned long chg_gpio_cfg =
-    MFP_ANA_CFG_X(CHIP_RSTN, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
-
-#define USB_CONNECT_GPIO 162
 static inline int usb_connected(void)
 {
-    return gpio_get_value(USB_CONNECT_GPIO)&BIT_2? 1:0;
+    return gpio_get_value(CHARGER_DETECT_GPIO)&BIT_2? 1:0;
 }
 static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 {
@@ -589,19 +585,10 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		goto err_no_irq;
 	}
 #endif
-    sprd_mfp_config(&chg_gpio_cfg, 1);
-    ret = gpio_request(USB_CONNECT_GPIO, "charger_plug");
-    if(ret)
-      goto err_alloc_gpio;
-    gpio_direction_input(USB_CONNECT_GPIO);
-    ret = sprd_alloc_gpio_irq(USB_CONNECT_GPIO);
-    if(ret < 0)
-      goto err_alloc_gpio_irq;
-    else
-      data->irq = ret;
-      
-    set_irq_type(data->irq, IRQ_TYPE_LEVEL_LOW); //set usb plug irq lowlevel
+    ret = gpio_to_irq(CHARGER_DETECT_GPIO);
+    data->irq = ret;      
 
+    set_irq_type(data->irq, IRQ_TYPE_LEVEL_LOW); //set usb plug irq lowlevel
 	ret = request_irq(data->irq, sprd_battery_interrupt, IRQF_SHARED, pdev->name, data);
 	if (ret)
 		goto err_request_irq_failed;
@@ -635,10 +622,6 @@ err_ac_failed:
 err_usb_failed:
 	free_irq(data->irq, data);
 err_request_irq_failed:
-    sprd_free_gpio_irq(data->irq);
-err_alloc_gpio_irq:
-    gpio_free(USB_CONNECT_GPIO);
-err_alloc_gpio:
 	kfree(data);
 err_data_alloc_failed:
 	return ret;
@@ -652,7 +635,7 @@ static int sprd_battery_remove(struct platform_device *pdev)
 	power_supply_unregister(&data->battery);
 	power_supply_unregister(&data->ac);
 	power_supply_unregister(&data->usb);
-    gpio_free(USB_CONNECT_GPIO);
+    gpio_free(CHARGER_DETECT_GPIO);
 
     del_timer_sync(&data->battery_timer);
 	free_irq(data->irq, data);
