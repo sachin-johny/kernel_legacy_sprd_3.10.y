@@ -31,6 +31,7 @@
 #include <linux/pm.h>
 #include <linux/sysctl.h>
 #include <linux/proc_fs.h>
+#include <linux/gpio.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
@@ -39,7 +40,13 @@
 #include "regs_kpd_sc8800g.h"
 #include <mach/regs_cpc.h>
 
+#ifdef CONFIG_MACH_OPENPHONE
 #define DRV_NAME        	"sprd-keypad"
+#endif
+
+#ifdef CONFIG_MACH_SP6810A
+#define DRV_NAME        	"sprd-keypad"
+#endif
 
 #define INT_MASK_STS            (SPRD_INTCV_BASE + 0x0000)
 #define INT_RAW_STS            	(SPRD_INTCV_BASE + 0x0004)
@@ -57,7 +64,6 @@
 #define REG_PIN_CTL_REG          	(*((volatile unsigned int *)PIN_CTL_REG))
 #define REG_PIN_KEYIN5_REG          	(*((volatile unsigned int *)PIN_KEYIN5_REG))
 #define REG_PIN_KEYIN6_REG          	(*((volatile unsigned int *)PIN_KEYIN6_REG))
-
 
 
 #define GR_GEN0                 (SPRD_GREG_BASE + 0x0008)
@@ -122,8 +128,13 @@
 #define CFG_COL_POLARITY    (0xFF00 & KPDPOLARITY_COL)
 #define CFG_CLK_DIV         1
 
+#ifdef CONFIG_MACH_SP6810A
+#define HOME_KEY_GPIO		28
+#define VOLUP_KEY_GPIO		25
+#endif
+
 static const unsigned int sprd_keymap[] = {
-#ifdef CONFIG_MACH_G2PHONE
+#if defined(CONFIG_MACH_G2PHONE)
         // 0 row
 	KEYVAL(0, 0, KEY_BACK),
         KEYVAL(0, 1, KEY_RIGHT),
@@ -155,7 +166,7 @@ static const unsigned int sprd_keymap[] = {
         KEYVAL(4, 3, KEY_KPASTERISK), //is *
         KEYVAL(4, 4, KEY_0),
 #endif
-#ifdef CONFIG_MACH_OPENPHONE
+#if defined(CONFIG_MACH_OPENPHONE)
         // 0 row
 	KEYVAL(0, 0, 00/*KEY_SEND*/), //dial up 1
         KEYVAL(0, 1, 01/*KEY_R*/), //R
@@ -223,6 +234,38 @@ static const unsigned int sprd_keymap[] = {
 	KEYVAL(7, 0, 30/*KEY_MENU*/), //ok //yunlong.wang add for ofn key detect 20110218
         KEYVAL(7, 1, 71/*KEY_HELP*/), //poweron / power off -> no implement
 #endif
+#if defined(CONFIG_MACH_SP6810A)
+        // 0 row
+	KEYVAL(0, 0, 00/*KEY_SEND*/), //dial up 1
+        KEYVAL(0, 1, 01/*KEY_R*/), //R
+        KEYVAL(0, 2, 02/*KEY_F*/), //F
+        KEYVAL(0, 3, 03/*KEY_V*/), //V
+        KEYVAL(0, 4, 04/*KEY_LEFT*/), //left
+        // 1 row
+        KEYVAL(1, 0, 10/*KEY_SEND*/), //dial up 2 -> no implement
+	KEYVAL(1, 1, 11/*KEY_T*/), //T
+        KEYVAL(1, 2, 12/*KEY_G*/), //G
+	KEYVAL(1, 3, 13/*KEY_B*/), //B
+        KEYVAL(1, 4, 14/*KEY_RIGHT*/), //right
+       // 2 row
+        KEYVAL(2, 0, 20/*KEY_END*/), //hang up
+        KEYVAL(2, 1, 21/*KEY_Y*/), //Y
+        KEYVAL(2, 2, 22/*KEY_H*/), //H
+        KEYVAL(2, 3, 23/*KEY_N*/), //N
+        KEYVAL(2, 4, 24/*KEY_UP*/), //UP
+       // 3 row
+        KEYVAL(3, 0, 30/*KEY_MENU*/), //ok
+        KEYVAL(3, 1, 31/*KEY_U*/), //U
+        KEYVAL(3, 2, 32/*KEY_J*/), //J
+        KEYVAL(3, 3, 33/*KEY_M*/), //M
+        KEYVAL(3, 4, 34/*KEY_DOWN*/), //down
+	// 4 row
+        KEYVAL(4, 0, 40/*KEY_VOLUMEDOWN*/), //V-
+        KEYVAL(4, 1, 41/*KEY_VOLUMEUP*/), //V+
+        KEYVAL(4, 2, 42/*KEY_DELETE*/), //DEL
+        KEYVAL(4, 3, 43/*KEY_HELP*/), //char ctrl -> no implement
+        KEYVAL(4, 4, 44/*KEY_LEFTALT*/), //ALT
+#endif
 };
 
 
@@ -235,6 +278,10 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .rows                   = 8,
         .cols                   = 8,
 #endif
+#ifdef CONFIG_MACH_SP6810A
+        .rows                   = 5,
+        .cols                   = 5,
+#endif
         .keymap                 = sprd_keymap,
         .keymapsize             = ARRAY_SIZE(sprd_keymap),
         .repeat                 = 0,
@@ -243,7 +290,8 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .keyup_test_interval    = 50, /* 50 ms (50ms) */
 };
 
-static unsigned long keypad_func_cfg[] = {
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+static unsigned long keypad_func_cfg[] = { 
 	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
 	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
 	MFP_CFG_X(KEYOUT2, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
@@ -261,6 +309,22 @@ static unsigned long keypad_func_cfg[] = {
 	MFP_CFG_X(KEYIN6,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
 	MFP_CFG_X(KEYIN7,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
 };
+#elif defined(CONFIG_MACH_SP6810A)
+static unsigned long keypad_func_cfg[] = {
+	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT2, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT3, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT4, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT5, AF3, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN0,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN1,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN2,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN3,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN4,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN5,  AF3, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+};
+#endif
 
 static void sprd_config_keypad_pins(void)
 {
@@ -283,8 +347,14 @@ typedef struct kpd_key_tag
     unsigned long timer_id;
 } kpd_key_t;
 
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM];
 kpd_key_t s_key[MAX_MUL_KEY_NUM];
+#elif defined(CONFIG_MACH_SP6810A)
+struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM + 2];
+kpd_key_t s_key[MAX_MUL_KEY_NUM + 2];
+#endif
+
 struct sprd_kpad_t *sprd_kpad;
 
 void clear_key(kpd_key_t *key_ptr)
@@ -385,7 +455,6 @@ unsigned long handle_key(unsigned short key_code, kpd_key_t *key_ptr)
             		if (IS_KEY_VALID(key_code)) {
                 		/* Can't be TB_KPD_INVALID_KEY */
                 		if (key_code == TB_KPD_INVALID_KEY) {
-					printk("assert error : %s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
 					status = TB_KPD_INVALID_KEY;
 					return status;
 				}          
@@ -529,6 +598,111 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
         return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_MACH_SP6810A
+static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
+{
+    int ret, gpio;
+	unsigned short  key_code = 0;
+	kpd_key_t *key_ptr = NULL;
+	unsigned long found = 0, status; 
+	unsigned long s_int_status;
+	unsigned long s_key_status;
+	
+    msleep(20);
+	gpio = irq_to_gpio(irq);
+	
+	if (gpio == HOME_KEY_GPIO) {
+		ret = gpio_get_value(gpio);
+		if (ret) {
+			//printk("The Pin is HIGH\n");
+			s_int_status =0x00000080;
+			s_key_status =0x21777777;
+		} else {
+			//printk("The Pin is LOW\n");
+			s_int_status =0x00000008;
+			s_key_status =0xa1777777;
+		}
+
+		if ((s_int_status & KPD_PRESS_INT3) || (s_int_status & KPD_LONG_KEY_INT3)) {
+	       		key_code = (s_key_status  & (KPD4_ROW_CNT | KPD4_COL_CNT)) >> 24;
+			/* if key_code is stored, don't seat the code again */
+	    		key_ptr = &s_key[MAX_MUL_KEY_NUM];
+    			if (key_ptr->key_code == key_code) {
+	    			handle_key(key_code, key_ptr);	    	
+	    			found = 1;
+    			}
+	   		if (!found) {
+				/* the key_code is fresh, try to find a seat other than exceed the seat limit */
+				key_ptr = &s_key[MAX_MUL_KEY_NUM];
+				status = handle_key(key_code, key_ptr);
+			}
+		} else if (s_int_status & KPD_RELEASE_INT3) {
+			if (TB_KPD_RELEASED == s_key[MAX_MUL_KEY_NUM].state) {
+				clear_key(&s_key[MAX_MUL_KEY_NUM]);
+			}
+		}
+	}//if (gpio == HOME_KEY_GPIO)
+
+
+	if (gpio == VOLUP_KEY_GPIO) {
+		ret = gpio_get_value(gpio);
+		if (ret) {
+			//printk("The Pin is HIGH\n");
+			s_int_status =0x00000080;
+			s_key_status =0x20777777;
+		} else {
+			//printk("The Pin is LOW\n");
+			s_int_status =0x00000008;
+			s_key_status =0xa0777777;
+		}
+
+		if ((s_int_status & KPD_PRESS_INT3) || (s_int_status & KPD_LONG_KEY_INT3)) {
+	       		key_code = (s_key_status  & (KPD4_ROW_CNT | KPD4_COL_CNT)) >> 24;
+			/* if key_code is stored, don't seat the code again */
+	    		key_ptr = &s_key[MAX_MUL_KEY_NUM + 1];
+    			if (key_ptr->key_code == key_code) {
+	    			handle_key(key_code, key_ptr);	    	
+	    			found = 1;
+    			}
+	   		if (!found) {
+				/* the key_code is fresh, try to find a seat other than exceed the seat limit */
+				key_ptr = &s_key[MAX_MUL_KEY_NUM + 1];
+				status = handle_key(key_code, key_ptr);
+			}
+		} else if (s_int_status & KPD_RELEASE_INT3) {
+			if (TB_KPD_RELEASED == s_key[MAX_MUL_KEY_NUM + 1].state) {
+				clear_key(&s_key[MAX_MUL_KEY_NUM + 1]);
+			}
+		}
+	}//if (gpio == VOLUP_KEY_GPIO)
+
+
+        return IRQ_HANDLED;
+}
+
+static void gpio_key_init(unsigned long gpio, const char *label)
+{
+	unsigned long err, irq, ret;
+
+	err = gpio_request(gpio, label);
+	if (err)
+		printk("can not alloc gpio for %s Key\n", label);
+	else
+		printk("alloc gpio for %s Key\n", label);
+
+	gpio_direction_input(gpio);
+	irq = sprd_alloc_gpio_irq(gpio);
+	ret = request_threaded_irq(irq, NULL, sprd_gpio_isr, IRQF_TRIGGER_LOW | IRQF_ONESHOT, label, NULL);
+	ret = gpio_get_value(gpio);
+	if (ret) {
+		printk("The Pin is HIGH, so set low level trigger. irq = %ld\n", irq);
+		set_irq_type(irq, IRQF_TRIGGER_LOW);
+	} else {
+		printk("The Pin is LOW, HOME pin configuration is wrong\n");
+	}
+}
+#endif
+
 static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 {
         struct sprd_kpad_platform_data *pdata;
@@ -581,7 +755,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         REG_KPD_POLARITY = CFG_ROW_POLARITY | CFG_COL_POLARITY;
         REG_KPD_CLK_DIV_CNT = CFG_CLK_DIV & KPDCLK0_CLK_DIV0;
 	REG_KPD_LONG_KEY_CNT = 0xc;
-	REG_KPD_DEBOUNCE_CNT = 0x5;//0x8;0x13
+	REG_KPD_DEBOUNCE_CNT = 0x5;
 
 	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20) | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) << 16)) & (KPDCTL_ROW | KPDCTL_COL));
 	REG_KPD_CTRL = 0x7 | key_type;
@@ -599,9 +773,12 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         }
 
         sprd_kpad->input = input;
-
         input->name = pdev->name;
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
         input->phys = "sprd-keypad/input0";
+#elif defined(CONFIG_MACH_SP6810A)
+        input->phys = "sprd-keypad/input0";
+#endif
         input->dev.parent = &pdev->dev;
 	input_set_drvdata(input, sprd_kpad);
 
@@ -638,7 +815,11 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         }
 
         device_init_wakeup(&pdev->dev, 1);
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
+#elif defined(CONFIG_MACH_SP6810A)
+	for (i = 0; i < (MAX_MUL_KEY_NUM + 2); i++) {
+#endif
 		/* clear Key state */
 		clear_key(&s_key[i]);
 		/* create a timer to check if key is released */
@@ -649,6 +830,12 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	REG_KPD_INT_EN = KPD_INT_ALL;
 	REG_INT_EN |= 1 << IRQ_KPD_INT;
 	//print_kpad();
+
+#if defined(CONFIG_MACH_SP6810A)
+	gpio_key_init(HOME_KEY_GPIO, "home");
+	gpio_key_init(VOLUP_KEY_GPIO, "volup");
+#endif
+
 
 	return 0;
 
@@ -670,7 +857,11 @@ static int __devexit sprd_kpad_remove(struct platform_device *pdev)
         //struct sprd_kpad_platform_data *pdata = pdev->dev.platform_data;
         struct sprd_kpad_t *sprd_kpad = platform_get_drvdata(pdev);
 
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++)
+#elif defined(CONFIG_MACH_SP6810A)
+	for (i = 0; i < (MAX_MUL_KEY_NUM + 2); i++)
+#endif
         	del_timer_sync(&s_kpd_timer[i]);
 
         free_irq(sprd_kpad->irq, pdev);
