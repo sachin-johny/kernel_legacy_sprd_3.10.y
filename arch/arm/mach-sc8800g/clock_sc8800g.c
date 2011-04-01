@@ -28,6 +28,9 @@
 
 /* switch for VLX solution. */
 #define	VM_VLX_SUPPORT	1
+#define CLK_FW_ERR(x...)     printk(x)
+#define CLK_FW_INFO(x...)    printk(x)
+
 
 
 struct sc88xx_clk {
@@ -76,7 +79,7 @@ static int sc88xx_clk_enable_generic(struct clk *clk)
 	u32 v;
 
 	if (unlikely(clk->enable_reg == NULL)) {
-		printk("clock: clock [%s]'s enable_reg is NULL\n", clk->pstub->name);
+		CLK_FW_ERR("clock: clock [%s]'s enable_reg is NULL\n", clk->pstub->name);
 		return -EINVAL;
 	}
 
@@ -97,7 +100,7 @@ static void sc88xx_clk_disable_generic(struct clk *clk)
 	u32 v;
 
 	if (unlikely(clk->enable_reg == NULL)) {
-		printk("clock: clock [%s]'s enable_reg is NULL\n", clk->pstub->name);
+		CLK_FW_ERR("clock: clock [%s]'s enable_reg is NULL\n", clk->pstub->name);
 		return;
 	}
 
@@ -1391,7 +1394,7 @@ static long	sc88xx_clk_round_rate(struct clk *clk, unsigned long rate)
 		return clk->round_rate(clk, rate);
 
 	if (clk->pstub->flags & RATE_FIXED)
-		printk(KERN_ERR "clock: generic omap2_clk_round_rate called "
+		CLK_FW_ERR(KERN_ERR "clock: generic omap2_clk_round_rate called "
 		       "on fixed-rate clock %s\n", clk->pstub->name);
 
 	return clk->rate;
@@ -1415,7 +1418,7 @@ static const struct clksel *sc88xx_get_clksel_by_parent(struct clk *clk,
 	const struct clksel *clks;
 
 	if (!clk->parent) {
-		printk("clock[%s]: parent is NULL, can't get parent!\n", clk->pstub->name);
+		CLK_FW_ERR("clock[%s]: parent is NULL, can't get parent!\n", clk->pstub->name);
 		return NULL;
 	}
 
@@ -1430,7 +1433,7 @@ static const struct clksel *sc88xx_get_clksel_by_parent(struct clk *clk,
 	}
 
 	if (!clks->parent) {
-		printk("clock: Can't find parent clock [%s] for clock [%s].\n",
+		CLK_FW_ERR("clock: Can't find parent clock [%s] for clock [%s].\n",
 				src_clk->pstub->name, clk->pstub->name);
 		return NULL;
 	}
@@ -1447,27 +1450,27 @@ static int sc88xx_clk_set_parent(struct clk *clk, struct clk *new_parent)
 		return -EINVAL;
 
 	if (!clk->clksel_reg || !clk->clksel_mask) {
-		printk("clock[%s]: no clksel_reg, parent can't be changed!\n", clk->pstub->name);
+		CLK_FW_ERR("clock[%s]: no clksel_reg, parent can't be changed!\n", clk->pstub->name);
 		return -EINVAL;
 	}
 
-	//printk("get parent [%s]\n", new_parent->name);
+	//CLK_FW_ERR("get parent [%s]\n", new_parent->name);
 	clks = sc88xx_get_clksel_by_parent(clk, new_parent);
 	if (!clks) {
-		printk("clock[%s]: Can't find parent [%s]!\n", clk->pstub->name, 
+		CLK_FW_ERR("clock[%s]: Can't find parent [%s]!\n", clk->pstub->name, 
 					new_parent->pstub->name);
 		return -EPERM;
 	}
 
 	field_val = clks->val;
-	//printk("name = [%s], clks->val = %08x\n", clks->parent->name, clks->val);
+	//CLK_FW_ERR("name = [%s], clks->val = %08x\n", clks->parent->name, clks->val);
 
 	WARN_ON(clk->clksel_mask == 0);
 
 	v = __raw_readl(clk->clksel_reg);
 	v &= (~clk->clksel_mask);
 	v |= (field_val << __ffs(clk->clksel_mask));
-	//printk("field_val = %08x, v = %08x\n", field_val, v);
+	//CLK_FW_ERR("field_val = %08x, v = %08x\n", field_val, v);
 	__raw_writel(v, clk->clksel_reg);
 	v = __raw_readl(clk->clksel_reg);
 
@@ -1508,7 +1511,7 @@ unsigned long sc88xx_recalc_generic(struct clk *clk)
 
 	clks = sc88xx_get_clksel_by_parent(clk, clk->parent);
 	if (!clks) {
-		printk("clock: can't find parent for clock [%s].\n", clk->pstub->name);
+		CLK_FW_ERR("clock: can't find parent for clock [%s].\n", clk->pstub->name);
 		return 0;
 	}
 
@@ -1532,7 +1535,7 @@ unsigned long sc88xx_recalc_generic(struct clk *clk)
 					"v = %08x\n",
 					clk->pstub->name, clks->parent->pstub->name, v);
 			for (clkr = clks->rates; clkr->div; clkr++) {
-				printk("clock[%s]: divisor = %d val = %d\n",
+				CLK_FW_ERR("clock[%s]: divisor = %d val = %d\n",
 						clk->pstub->name, clkr->div, clkr->val);
 			}
 
@@ -1600,7 +1603,7 @@ static struct clksel_rate *sc88xx_get_clksel_rate_by_divisor(struct clk *clk,
 
 	clks = sc88xx_get_clksel_by_parent(clk, clk->parent);
 	if (!clks) {
-		printk("clock: can't find parent for clock [%s].\n", clk->pstub->name);
+		CLK_FW_ERR("clock: can't find parent for clock [%s].\n", clk->pstub->name);
 		return 0;
 	}
 
@@ -1615,7 +1618,7 @@ static struct clksel_rate *sc88xx_get_clksel_rate_by_divisor(struct clk *clk,
 				clk->pstub->name, clks->parent->pstub->name, divisor);
 		/*
 		for (clkr = clks->rates; clkr->div; clkr++) {
-			printk("clock[%s]: divisor = %d val = %d\n",
+			CLK_FW_ERR("clock[%s]: divisor = %d val = %d\n",
 					clk->name, clkr->div, clkr->val);
 
 		}
@@ -1635,7 +1638,7 @@ int sc88xx_set_rate_generic(struct clk *clk, unsigned long rate)
 	int ret = -EINVAL;
 
 	if ((!clk->clkdiv_reg) || (!clk->clkdiv_mask)) {
-		printk("clock[%s]: no divisor, rate can't be changed!\n", clk->pstub->name);
+		CLK_FW_ERR("clock[%s]: no divisor, rate can't be changed!\n", clk->pstub->name);
 		return -EINVAL;
 	}
 
@@ -1668,7 +1671,7 @@ static int sc88xx_set_divisor_generic(struct clk *clk, int divisor)
 
 	clkr = sc88xx_get_clksel_rate_by_divisor(clk, divisor);
 	if (!clkr) {
-		printk("clock[%s]: Can't find divisor[%d]!\n", clk->pstub->name, divisor);
+		CLK_FW_ERR("clock[%s]: Can't find divisor[%d]!\n", clk->pstub->name, divisor);
 		return -EINVAL;
 	}
 	else {
@@ -1696,7 +1699,7 @@ static int sc88xx_clk_set_divisor(struct clk *clk, int divisor)
 	int ret = -EINVAL;
 
 	if ((!clk->clkdiv_reg) || (!clk->clkdiv_mask)) {
-		printk("clock[%s]: no divisor, divisor can't be changed!\n", clk->pstub->name);
+		CLK_FW_ERR("clock[%s]: no divisor, divisor can't be changed!\n", clk->pstub->name);
 		return -EINVAL;
 	}
 
@@ -1742,47 +1745,51 @@ static struct clk_functions sc8800g2_clk_functions = {
 
 
 #ifdef	VM_VLX_SUPPORT
-#include <nk/nkern.h>
 
-const char vlink_name[] = "vclock_framework";
+#include <nk/nkern.h>
+const char vlink_name_clk_fw[] = "vclock_framework";
+NkPhAddr    plink_clk_fw;
+NkDevVlink* vlink_clk_fw;
+
+int is_stub = 1;
 
 #endif
+
+static int clk_fw_vlink_init(void)
+{
+    plink_clk_fw = 0;
+    while ((plink_clk_fw = nkops.nk_vlink_lookup(vlink_name_clk_fw, plink_clk_fw))) {
+		if (0 == plink_clk_fw) {
+			CLK_FW_ERR("#####: Can't find the vlink [%s]!\n", vlink_name_clk_fw);
+			return -ENOMEM;
+		}
+	    vlink_clk_fw = nkops.nk_ptov(plink_clk_fw);
+        CLK_FW_ERR("#####: clock-framework: vlink info: s_id = %d, c_id = %d.\n",
+            vlink_clk_fw->s_id, vlink_clk_fw->c_id);
+    }
+    return 0;
+}
 
 
 void *alloc_share_memory(unsigned int size, unsigned int res_id)
 {
 #ifdef	VM_VLX_SUPPORT
-
-
-    NkPhAddr    plink;
-    NkDevVlink* vlink;
     NkPhAddr     paddr;
-
     void *pmem = NULL;
-
 	
-    plink   = 0;
-
-	plink = nkops.nk_vlink_lookup(vlink_name, plink);
-	if (0 == plink) {
-		printk("Can't find the vlink [%s]!\n", vlink_name);
-		return NULL;
-	}
-	vlink = nkops.nk_ptov(plink);
-
 
     /* Allocate persistent shared memory */
-    paddr  = nkops.nk_pmem_alloc(nkops.nk_vtop(vlink), res_id, size);
+    paddr  = nkops.nk_pmem_alloc(nkops.nk_vtop(vlink_clk_fw), res_id, size);
 	
     if (paddr == 0) {
-	printk("OS#%d->OS#%d link=%d server pmem alloc failed.\n",
-		  vlink->c_id, vlink->s_id, vlink->link);
-	return NULL;
+        CLK_FW_ERR("OS#%d->OS#%d link=%d server pmem alloc failed.\n",
+	        vlink_clk_fw->c_id, vlink_clk_fw->s_id, vlink_clk_fw->link);
+        return NULL;
     }
 
     pmem = (void *) nkops.nk_mem_map(paddr, size);
     if (pmem == 0) {
-	printk("error while mapping\n");
+	CLK_FW_ERR("error while mapping\n");
     }
     return pmem;
 	
@@ -1796,66 +1803,76 @@ void *alloc_share_memory(unsigned int size, unsigned int res_id)
 struct clock_stub *pstub;
 char (*pname)[MAX_CLOCK_NAME_LEN];
 
-
-
 int __init sc8800g2_clock_init(void)
  {
 	struct sc88xx_clk *c;
 	unsigned int array_size;
 	int index = 0;
+    int ret;
+
+    ret = clk_fw_vlink_init();
+    if (ret) {
+        CLK_FW_ERR("######: clock-framework: vlink initialization failed!\n");
+        return -ENOMEM;
+    }
+
+    CLK_FW_ERR("#####: OS[%d] run as %s.\n", nkops.nk_id_get(), 
+            is_stub ? "Stub" : "Non-Stub");
 
 	/* allocate memory for shared clock information. */
 	array_size = ARRAY_SIZE(sc8800g2_clks) + 1;
 	pstub = (struct clock_stub *)alloc_share_memory(CLOCK_NUM * 
 		sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
 	if (NULL == pstub) {
-		printk("Clock Framework: alloc_share_memory() failed!\n");
+		CLK_FW_ERR("Clock Framework: alloc_share_memory() failed!\n");
 		return -ENOMEM;
 	}
-	memset(pstub, 0x00, CLOCK_NUM * sizeof(struct clock_stub));
 
 	/* allocate memory for clock name. */
 	pname = alloc_share_memory(CLOCK_NUM * MAX_CLOCK_NAME_LEN, 
 				RES_CLOCK_NAME_MEM);
 	if (NULL == pname) {
-		printk("Clock Framework: alloc_share_memory() failed!\n");
+		CLK_FW_ERR("Clock Framework: alloc_share_memory() failed!\n");
 		return -ENOMEM;
 	}
-	memset(pname, '\0', CLOCK_NUM * MAX_CLOCK_NAME_LEN);
-
-	/* initialize parameters stored in pmem. */
-	index = 0;
-	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
-		c->lk.clk->pstub = &pstub[index];
-		pstub[index].name = pname[index];
-		pstub[index].flags = c->lk.clk->flags;
-		pstub[index].usecount = c->lk.clk->usecount;
-		strncpy(pname[index], c->lk.clk->name, (MAX_CLOCK_NAME_LEN - 1));
-		index++;
-	}
-
-	/* make sure list has a termination mark. */
-	pstub[index].name = NULL;
-
-	for (	c = sc8800g2_clks, index = 0; index < CLOCK_NUM; index++) {
-		printk("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
-			index, &pstub[index], pstub[index].name, pstub[index].flags, 
-			pstub[index].usecount);
-
-		if (index < ARRAY_SIZE(sc8800g2_clks))  {
-			printk("clock[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
-				index, c[index].lk.clk, c[index].lk.clk->name, c[index].lk.clk->flags, 
-				c[index].lk.clk->usecount);
-			printk("clock->pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
-				index, c[index].lk.clk, c[index].lk.clk->pstub->name, 
-				c[index].lk.clk->pstub->flags, 
-				c[index].lk.clk->pstub->usecount);
+	
+	if (is_stub) {	
+		memset(pname, '\0', CLOCK_NUM * MAX_CLOCK_NAME_LEN);
+		memset(pstub, 0x00, CLOCK_NUM * sizeof(struct clock_stub));
+	
+		/* initialize parameters stored in pmem. */
+		index = 0;
+		for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
+			c->lk.clk->pstub = &pstub[index];
+			pstub[index].name = pname[index];
+			pstub[index].flags = c->lk.clk->flags;
+			pstub[index].usecount = c->lk.clk->usecount;
+			strncpy(pname[index], c->lk.clk->name, (MAX_CLOCK_NAME_LEN - 1));
+			index++;
 		}
-
-		printk("pname[%d] [addr = %p] [name = %s]\n", 
-			index, (char *)&pname[index], (char *)&pname[index]);
-	}
-
+	
+		/* make sure list has a termination mark. */
+		pstub[index].name = NULL;
+	
+		for (	c = sc8800g2_clks, index = 0; index < CLOCK_NUM; index++) {
+			CLK_FW_ERR("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+				index, &pstub[index], pstub[index].name, pstub[index].flags, 
+				pstub[index].usecount);
+	
+			if (index < ARRAY_SIZE(sc8800g2_clks))  {
+				CLK_FW_ERR("clock[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+					index, c[index].lk.clk, c[index].lk.clk->name, c[index].lk.clk->flags, 
+					c[index].lk.clk->usecount);
+				CLK_FW_ERR("clock->pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+					index, c[index].lk.clk, c[index].lk.clk->pstub->name, 
+					c[index].lk.clk->pstub->flags, 
+					c[index].lk.clk->pstub->usecount);
+			}
+	
+			CLK_FW_ERR("pname[%d] [addr = %p] [name = %s]\n", 
+				index, (char *)&pname[index], (char *)&pname[index]);
+		}
+    }
 
 	rates_init();
 	
@@ -1871,7 +1888,7 @@ int __init sc8800g2_clock_init(void)
 	recalculate_root_clocks();
 
 	clk_enable_init_clocks();
-	printk("###: sc8800g2_clock_init() is done.\n");
+	CLK_FW_ERR("###: sc8800g2_clock_init() is done.\n");
 	clk_print_all();
 
 	return 0;
