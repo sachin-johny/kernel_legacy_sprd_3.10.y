@@ -4,21 +4,29 @@ config ARCH_SUPPORTS_BIG_ENDIAN
 	bool
 	default y
 
-comment "SC8800G Board Type"
-	depends on ARCH_SC8800G
+choice
+    prompt "SC8800G Board Type"
+	default MACH_OPENPHONE
 
 config MACH_G2PHONE
 	depends on ARCH_SC8800G
-	default y
 	bool "G2 PHONE"
 	help
 	  Support for the SC8800G based G2 phone
+
 config MACH_OPENPHONE
 	depends on ARCH_SC8800G
-	default n
 	bool "OpenPhone Board"
 	help
 	  Support for the SC8800G based openphone
+
+config MACH_SP6810A
+	depends on ARCH_SC8800G
+	bool "SP6810A Phone"
+	help
+	  Support for the SP6810A Phone
+
+endchoice
 
 config SC8800G_IDLE
 	depends on ARCH_SC8800G
