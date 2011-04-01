@@ -1806,13 +1806,13 @@ int __init sc8800g2_clock_init(void)
 
 	/* allocate memory for shared clock information. */
 	array_size = ARRAY_SIZE(sc8800g2_clks) + 1;
-	pstub = (struct clock_stub *)alloc_share_memory(array_size * 
+	pstub = (struct clock_stub *)alloc_share_memory(CLOCK_NUM * 
 		sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
 	if (NULL == pstub) {
 		printk("Clock Framework: alloc_share_memory() failed!\n");
 		return -ENOMEM;
 	}
-	memset(pstub, 0x00, array_size * sizeof(struct clock_stub));
+	memset(pstub, 0x00, CLOCK_NUM * sizeof(struct clock_stub));
 
 	/* allocate memory for clock name. */
 	pname = alloc_share_memory(CLOCK_NUM * MAX_CLOCK_NAME_LEN, 
@@ -1821,10 +1821,9 @@ int __init sc8800g2_clock_init(void)
 		printk("Clock Framework: alloc_share_memory() failed!\n");
 		return -ENOMEM;
 	}
-
+	memset(pname, '\0', CLOCK_NUM * MAX_CLOCK_NAME_LEN);
 
 	/* initialize parameters stored in pmem. */
-	memset(pstub, 0x00, CLOCK_NUM * MAX_CLOCK_NAME_LEN);
 	index = 0;
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 		c->lk.clk->pstub = &pstub[index];
