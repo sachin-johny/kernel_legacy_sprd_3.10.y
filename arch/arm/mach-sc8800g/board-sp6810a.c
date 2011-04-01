@@ -217,7 +217,12 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
-        MFP_CFG_X(RFCTL9    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io
+        MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io
+        SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        "wifi power"
+    },
+    {
+        MFP_CFG_X(RFCTL9, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_pwd_io
         SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi pwd"
     },
