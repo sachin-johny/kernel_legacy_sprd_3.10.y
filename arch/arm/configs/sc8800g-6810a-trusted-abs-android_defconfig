@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Fri Apr  1 10:30:38 2011
+# Fri Apr  1 15:44:50 2011
 #
 CONFIG_NKERNEL=y
 CONFIG_NKERNEL_DDI=y
@@ -214,10 +214,6 @@ CONFIG_MMU=y
 CONFIG_ARCH_SC8800G=y
 # CONFIG_ARCH_ARM_OSWARE is not set
 CONFIG_ARCH_SUPPORTS_BIG_ENDIAN=y
-
-#
-# SC8800G Board Type
-#
 # CONFIG_MACH_G2PHONE is not set
 # CONFIG_MACH_OPENPHONE is not set
 CONFIG_MACH_SP6810A=y
@@ -753,6 +749,7 @@ CONFIG_I2C_BOARDINFO=y
 CONFIG_I2C_COMPAT=y
 # CONFIG_I2C_CHARDEV is not set
 CONFIG_I2C_HELPER_AUTO=y
+CONFIG_I2C_ALGOBIT=y
 
 #
 # I2C Hardware Bus support
@@ -761,7 +758,7 @@ CONFIG_I2C_HELPER_AUTO=y
 #
 # I2C system bus drivers (mostly embedded / system-on-chip)
 #
-# CONFIG_I2C_GPIO is not set
+CONFIG_I2C_GPIO=y
 # CONFIG_I2C_OCORES is not set
 # CONFIG_I2C_SIMTEC is not set
 CONFIG_I2C_SC8800=y
