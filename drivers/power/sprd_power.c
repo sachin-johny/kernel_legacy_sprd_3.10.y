@@ -387,7 +387,7 @@ static inline int ac_connected(void)
 }
 
 static CHG_SWITPOINT_E now_hw_switch_point;
-static bool charge_pluse = false;
+static bool charge_pluse = true;
 
 static void battery_handler(unsigned long data)
 {
@@ -405,6 +405,7 @@ static void battery_handler(unsigned long data)
     int usb_notify = 0;
     int battery_notify = 0;
     unsigned long flag;
+    static int pluse_charging = 0;
     
     
     struct sprd_battery_data * battery_data = (struct sprd_battery_data *)data;
@@ -451,6 +452,7 @@ static void battery_handler(unsigned long data)
         battery_data->charging = 1;
         CHG_SetAdapterMode(CHG_USB_ADAPTER);
         CHG_SetUSBChargeCurrent(CHG_USB_400MA);
+        CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
         CHG_TurnOn();
         CHG_SetRecharge();
         battery_notify = 1;
@@ -461,6 +463,7 @@ static void battery_handler(unsigned long data)
         battery_data->charging = 1;
         CHG_SetAdapterMode(CHG_NORMAL_ADAPTER);
         CHG_SetNormalChargeCurrent(CHG_NOR_800MA);
+        CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
         CHG_TurnOn();
         CHG_SetRecharge();
         battery_notify = 1;
@@ -468,33 +471,37 @@ static void battery_handler(unsigned long data)
 
     if(battery_data->charging){
         if(ac_online || usb_online){
-            if(adc_value < battery_data->precharge_end) {
-            //if(adc_value < PREVCHGEND) {
-                if(vprog_value < battery_data->hw_switch_point){
-                //if(vprog_value < CHGMNG_SWITCH_CV_VPROG){
-                    now_hw_switch_point = CHG_UpdateSwitchoverPoint(true);
-                }
-            }else {
-                if(vprog_value >= battery_data->charge_stop_point){
-                //if(vprog_value >= CHGMNG_STOP_VPROG){
-                    if(charge_pluse){
-                      CHG_SetRecharge();
-                      charge_pluse = false;
-                    }else{
-                        CHG_ShutDown();
-                        charge_pluse = true;
+            if(!pluse_charging ){
+                if(adc_value < battery_data->precharge_end) {
+                    if(vprog_value < battery_data->hw_switch_point){
+                        now_hw_switch_point = CHG_UpdateSwitchoverPoint(true);
                     }
                 }else{
+                    pluse_charging = 1;
+                }
+            }else {
+                if(charge_pluse){
+                    charge_pluse = false;
                     CHG_ShutDown();
                     CHG_StopRecharge();
-                    battery_data->charging = 0;
-                    battery_notify = 1;
+                    if(vprog_value < battery_data->charge_stop_point){
+                        charge_pluse = true;
+                        pluse_charging = 0;
+                        battery_data->charging = 0;
+                        battery_notify = 1;
+                    }
+                }else{
+                    charge_pluse = true;
+                    CHG_TurnOn();
+                    CHG_SetRecharge();
                 }
             }
         }else{
             CHG_ShutDown();
             CHG_StopRecharge();
             battery_data->charging = 0;
+            pluse_charging = 0;
+            charge_pluse = true;
             battery_notify = 1;
             
         }
