@@ -45,7 +45,7 @@
 #endif
 
 #ifdef CONFIG_MACH_SP6810A
-#define DRV_NAME        	"sprd-keypad"
+#define DRV_NAME        	"sprd-keypad6810"
 #endif
 
 #define INT_MASK_STS            (SPRD_INTCV_BASE + 0x0000)
@@ -777,7 +777,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 #if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
         input->phys = "sprd-keypad/input0";
 #elif defined(CONFIG_MACH_SP6810A)
-        input->phys = "sprd-keypad/input0";
+        input->phys = "sprd-keypad6810/input0";
 #endif
         input->dev.parent = &pdev->dev;
 	input_set_drvdata(input, sprd_kpad);
