@@ -13,4 +13,4 @@ obj-y+= sc8800g_copybit_rotation.o
 obj-y+= sc8800g_2d.o
 obj-$(CONFIG_MACH_G2PHONE)+=sc8800g_lcd_ili9328.o
 obj-$(CONFIG_MACH_OPENPHONE)+=sc8800g_lcd_hx8357.o
-obj-$(CONFIG_MACH_SP6810A)+=sc8800g_lcd_hx8357.o
+obj-$(CONFIG_MACH_SP6810A)+=sc8800g_lcd_rm68040.o

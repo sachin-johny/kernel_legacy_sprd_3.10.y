@@ -42,6 +42,11 @@
 #include <linux/clk.h>
 #include <mach/clock_common.h>
 #include <mach/clock_sc8800g.h>
+#include <mach/mfp.h>
+
+#include <linux/i2c.h>
+#include <linux/i2c-gpio.h>
+#include <linux/dcam_sensor.h>
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -92,6 +97,35 @@ struct platform_device android_pmem_adsp_device = {
        .dev = { .platform_data = &android_pmem_adsp_pdata },
 };
 #endif
+
+//i2c pad:  the high two bit of the addr is the pad control bit
+static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
+    {
+        I2C_BOARD_INFO(SENSOR_MAIN_I2C_NAME,SENSOR_MAIN_I2C_ADDR|0x8000),
+    },
+   {
+        I2C_BOARD_INFO(SENSOR_SUB_I2C_NAME,SENSOR_SUB_I2C_ADDR|0x8000),
+    },
+};
+
+static unsigned long i2c_gpio_pin_cfg[] = {
+	MFP_CFG_X(GPIO143, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
+	MFP_CFG_X(GPIO144, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),	
+};
+
+static struct i2c_gpio_platform_data pdata = {
+	.sda_pin		= 143,
+	.sda_is_open_drain	= 0,
+	.scl_pin		= 144,
+	.scl_is_open_drain	= 0,
+	.udelay			= 2,		/* ~100 kHz */
+};
+
+static struct platform_device i2c_gpio_device_data = {
+	.name			= "i2c-gpio",
+	.id			= -1,
+	.dev.platform_data	= &pdata,
+};
 
 #if defined(CONFIG_SPI_SC88XX) || defined(CONFIG_SPI_SC88XX_MODULE)
 #include <linux/spi/spi.h>
@@ -190,6 +224,9 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_CMMB_POWER       135
 #define SPRD_3RDPARTY_GPIO_CMMB_RESET       94
 #define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
+#define SPRD_3RDPARTY_GPIO_TP_PWR             (-1)   //not used
+#define SPRD_3RDPARTY_GPIO_TP_RST              26
+#define SPRD_3RDPARTY_GPIO_TP_IRQ              27
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
@@ -202,6 +239,9 @@ int sprd_3rdparty_gpio_bt_rts     = SPRD_3RDPARTY_GPIO_BT_RTS;
 int sprd_3rdparty_gpio_cmmb_power = SPRD_3RDPARTY_GPIO_CMMB_POWER;
 int sprd_3rdparty_gpio_cmmb_reset = SPRD_3RDPARTY_GPIO_CMMB_RESET;
 int sprd_3rdparty_gpio_cmmb_irq   = SPRD_3RDPARTY_GPIO_CMMB_IRQ;
+int sprd_3rdparty_gpio_tp_pwr   = SPRD_3RDPARTY_GPIO_TP_PWR;
+int sprd_3rdparty_gpio_tp_rst   = SPRD_3RDPARTY_GPIO_TP_RST;
+int sprd_3rdparty_gpio_tp_irq   = SPRD_3RDPARTY_GPIO_TP_IRQ;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -214,6 +254,9 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_rts);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_reset);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_pwr);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
@@ -265,6 +308,16 @@ static struct gpio_desc gpio_func_cfg[] = {
         MFP_CFG_X(RFCTL3 , AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE), // cmmb interrupt
         SPRD_3RDPARTY_GPIO_CMMB_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "demod int"
+    },
+   {
+	MFP_CFG_X(KEYOUT6, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	SPRD_3RDPARTY_GPIO_TP_RST,
+	"mtp reset"
+    },
+    {
+	MFP_CFG_X(KEYOUT7, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+	SPRD_3RDPARTY_GPIO_TP_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	"mtp irq"
     }
 };
 
@@ -409,11 +462,22 @@ static void __init chip_init(void)
     __raw_writel(0x1fff00, PIN_CTL_REG);
 }
 
+void __init i2c_gpio_device_set(struct i2c_board_info *devices, int nr_devices)
+{
+
+	sprd_mfp_config(i2c_gpio_pin_cfg, ARRAY_SIZE(i2c_gpio_pin_cfg));
+	//i2c_register_board_info(0, devices, nr_devices);
+	platform_device_register(&i2c_gpio_device_data);
+
+	i2c_register_board_info(1,openphone_i2c_boardinfo,ARRAY_SIZE(openphone_i2c_boardinfo));
+}
+
 static void __init openphone_init(void)
 {
 	chip_init();
 //	ADI_init();
 	LDO_Init();
+	i2c_gpio_device_set(NULL,0);
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
 	sprd_gpio_init();
