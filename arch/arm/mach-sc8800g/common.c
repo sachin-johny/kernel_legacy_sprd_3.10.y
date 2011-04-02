@@ -35,16 +35,6 @@
 #include <mach/regs_global.h>
 #include <mach/ldo.h>
 
-#include <linux/i2c.h>
-
-#ifdef CONFIG_SENSORS_MMC31XX
-#include <linux/mmc31xx.h>
-#endif
-#ifdef CONFIG_SENSORS_MXC622X
-#include <linux/mxc622x.h>
-#endif
-#include <linux/dcam_sensor.h>
-
 static struct resource sprd_nand_resources[] = {
 	[0] = {
 		.start	= 7,
@@ -78,29 +68,6 @@ static struct platform_device sprd_dcam_device = {
 	.num_resources	= ARRAY_SIZE(sprd_dcam_resources),
 	.resource	= sprd_dcam_resources,
 };
-//i2c pad:  the high two bit of the addr is the pad control bit 
-static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
-#ifdef CONFIG_SENSORS_MMC31XX
-    {
-        I2C_BOARD_INFO(MMC31XX_I2C_NAME, MMC31XX_I2C_ADDR | 0x4000),
-    },
-#endif
-#ifdef CONFIG_SENSORS_MXC622X
-    {
-        I2C_BOARD_INFO(MXC622X_I2C_NAME,MXC622X_I2C_ADDR|0x4000),
-    },
-#endif
-    {
-        I2C_BOARD_INFO(SENSOR_MAIN_I2C_NAME,SENSOR_MAIN_I2C_ADDR|0x8000),
-    },
-   {
-        I2C_BOARD_INFO(SENSOR_SUB_I2C_NAME,SENSOR_SUB_I2C_ADDR|0x8000),
-    },  
-  
-};
-
-
-
 
 static struct resource sprd_i2c_resources[] = {
 	{
@@ -278,7 +245,6 @@ static struct platform_device *devices[] __initdata = {
 
 void __init sprd_add_devices(void)
 {
-    i2c_register_board_info(1,openphone_i2c_boardinfo,ARRAY_SIZE(openphone_i2c_boardinfo));        
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 

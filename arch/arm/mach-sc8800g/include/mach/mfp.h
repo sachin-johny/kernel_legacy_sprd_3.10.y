@@ -233,12 +233,10 @@
 #define PIN_GPIO138_REG_OFFS                          (0x03CC)
 #define PIN_GPIO139_REG_OFFS                          (0x03D0)
 #define PIN_GPIO140_REG_OFFS                          (0x03D4)
-#define PIN_OPTION2_REG_OFFS                          (0x03D8)
-#define PIN_OPTION3_REG_OFFS                          (0x03DC)
-#define PIN_GPIO141_REG_OFFS                          (0x03E0)
-#define PIN_GPIO142_REG_OFFS                          (0x03E4)
-#define PIN_GPIO143_REG_OFFS                          (0x03E8)
-#define PIN_GPIO144_REG_OFFS                          (0x03EC)
+#define PIN_GPIO141_REG_OFFS                          (0x03D8)
+#define PIN_GPIO142_REG_OFFS                          (0x03DC)
+#define PIN_GPIO143_REG_OFFS                          (0x03E0)
+#define PIN_GPIO144_REG_OFFS                          (0x03E4)
 
 /*----------Analog Die Pin Control Register----------*/
 
