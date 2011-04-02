@@ -265,7 +265,7 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 #ifdef  USE_DMA_UNALIGN
 	{
 		unsigned char * rx_align_buf;
-		rx_align_buf = kmalloc(size, GFP_KERNEL);
+		rx_align_buf = kmalloc(size, gfp_flags);
 		if(!rx_align_buf){
 			DBG(dev, "no rx align buf\n");
 			goto enomem;
@@ -610,7 +610,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 #ifdef USE_DMA_UNALIGN
 	{
-		unsigned char *tx_align_buf = kmalloc(length, GFP_KERNEL);
+		unsigned char *tx_align_buf = kmalloc(length, GFP_ATOMIC);
 		if(!tx_align_buf) {
 			pr_warning("cannot alloc mem for tx\r\n");
 			return NETDEV_TX_BUSY;
