@@ -13,5 +13,5 @@ done
 ANDROID_3RDPARTY_BASE=$(get_pwd_abs 3rdparty/common/build.3rdparty.common.sh)/3rdparty
 [ -e ${ANDROID_3RDPARTY_BASE} ] && {
 cd ${ANDROID_3RDPARTY_BASE}
-./build.products.sh "$1" bootimage
+./build.products.sh "$1" bootimage $2 $3 $4 $5 $6
 }
