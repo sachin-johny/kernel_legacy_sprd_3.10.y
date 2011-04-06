@@ -882,6 +882,8 @@ static void setup_rrm_test(struct fb_info *fb)
 }
 #endif
 
+#define ANA_INT_EN (SPRD_MISC_BASE+0x380+0x08)
+
 static int sc8800fb_probe(struct platform_device *pdev)
 {
 	struct fb_info *fb;
@@ -931,9 +933,10 @@ static int sc8800fb_probe(struct platform_device *pdev)
 if(1){ /* in-kernel test code */
 	struct fb_info test_info;
 	int size = sc8800fb->fb->var.xres * sc8800fb->fb->var.yres *2;
+    short adie_chip_id = ANA_REG_GET(ANA_ADIE_CHIP_ID);
 	
 	/* set color */
-	if (1) {
+	if (adie_chip_id == 0) {
 		unsigned short *ptr=(unsigned short*)sc8800fb->fb->screen_base;
 		int len = size/2 /3 ; /* 1/3 frame pixels */
 		int offset;
@@ -951,7 +954,16 @@ if(1){ /* in-kernel test code */
 			(* (volatile unsigned short *)(ptr++))= 0x07e0; 
 		for(offset=0;offset< len;offset++)
 			(* (volatile unsigned short *)(ptr++))= 0x001f; 
-	}
+    } else {
+		unsigned short *ptr=(unsigned short*)sc8800fb->fb->screen_base;
+		int len = size ; /* 1/3 frame pixels */
+		int offset;
+
+		for(offset=0;offset< len;offset++)
+			(* (volatile unsigned short *)(ptr++))= 0xf800; //red 
+
+        ANA_REG_OR(ANA_INT_EN, 0x1f);
+    }
 
 	/* pan display */
 	test_info = *sc8800fb->fb;
