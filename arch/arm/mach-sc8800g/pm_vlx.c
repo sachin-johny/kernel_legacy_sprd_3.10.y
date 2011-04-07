@@ -46,7 +46,10 @@ int sc8800g_pm_enter(suspend_state_t state)
 	prepare_deep_sleep();
 #endif
 	printk("Linux: nk_idle()\n");
+	hw_local_irq_disable();
 	(void)os_ctx->idle(os_ctx);
+	hw_local_irq_enable();
+
 	local_fiq_enable();
 
 	return 0;
