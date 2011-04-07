@@ -656,6 +656,7 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
 //  Note:           
 /*****************************************************************************/
 PUBLIC BOOLEAN Sensor_Init(void);
+PUBLIC BOOLEAN Sensor_Init_Param(void);
 
 /*****************************************************************************/
 //  Description:    This function is used to check if sensor has been init    

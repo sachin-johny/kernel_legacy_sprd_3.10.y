@@ -45,6 +45,8 @@ extern   "C"
  **                         Macro Definition                                   *
  **---------------------------------------------------------------------------*/
 #define SENSOR_IMAGE_FORMAT_DEFAULT			SENSOR_IMAGE_FORMAT_MAX
+
+
 /**---------------------------------------------------------------------------*
  **                         extend Variables and function                     *
  **---------------------------------------------------------------------------*/
@@ -60,7 +62,8 @@ extern SENSOR_INFO_T g_OV3640_yuv_info;
 extern SENSOR_INFO_T g_mt9m112_yuv_info;
 extern SENSOR_INFO_T g_OV9660_yuv_info;
 extern SENSOR_INFO_T g_OV7690_yuv_info;
-
+extern SENSOR_INFO_T g_GT2005_yuv_info;
+extern SENSOR_INFO_T g_GC0309_yuv_info;
 /**---------------------------------------------------------------------------*
  **                         analog tv                                         *
  **---------------------------------------------------------------------------*/
@@ -74,31 +77,31 @@ LOCAL SENSOR_IMAGE_FORMAT s_sensor_image_format = SENSOR_IMAGE_FORMAT_DEFAULT;
 /**---------------------------------------------------------------------------*
  **                         Constant Variables                                *
  **---------------------------------------------------------------------------*/
+#ifdef PLATFORM_6810
 const SENSOR_INFO_T* main_sensor_infor_tab[]=
-{     
-    //&g_OV2640_yuv_info,
-    &g_OV2655_yuv_info,           
-    //&g_OV9655_yuv_info,
-    //&g_OV7670_yuv_info,
-    //&g_SIV100A_yuv_info,
-    //&g_SIV100B_yuv_info,
-    //&g_OV3640_yuv_info,
-    //&g_mt9m112_yuv_info,
-    //&g_GC0306_yuv_info,
-    //&g_OV9660_yuv_info,
-    //&g_OV7675_yuv_info,
+{
+    &g_GT2005_yuv_info,
     PNULL
 };
 
 const SENSOR_INFO_T* sub_sensor_infor_tab[]=
 {
-    //&g_OV7670_yuv_info,
-    //&g_SIV100A_yuv_info,
-    //&g_SIV100B_yuv_info,
-    //&g_GC0306_yuv_info,
+    &g_GC0309_yuv_info,
+    PNULL
+};
+#else
+const SENSOR_INFO_T* main_sensor_infor_tab[]=
+{ 
+    &g_OV2655_yuv_info,
+    PNULL
+};
+
+const SENSOR_INFO_T* sub_sensor_infor_tab[]=
+{
     &g_OV7690_yuv_info,
     PNULL
 };
+#endif
 
 const SENSOR_INFO_T* atv_infor_tab[]=
 {

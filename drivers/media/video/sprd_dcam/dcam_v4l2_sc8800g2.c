@@ -400,6 +400,7 @@ struct dcam_fh {
 	int			   input; 	/* Input Number on bars */
 };
 
+
 static int init_sensor_parameters(void)
 {
 	uint32_t i,width;
@@ -451,8 +452,8 @@ static int vidioc_querycap(struct file *file, void  *priv,
 static int vidioc_cropcap(struct file *file, void  *priv,
 					struct v4l2_cropcap *cc)
 {
-	struct dcam_fh *fh = priv;
-	struct dcam_dev *dev = fh->dev;
+	//struct dcam_fh *fh = priv;
+	//struct dcam_dev *dev = fh->dev;
 
 	if (cc->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
@@ -473,8 +474,8 @@ static int vidioc_cropcap(struct file *file, void  *priv,
 static int vidioc_s_crop(struct file *file, void  *priv,
 					struct v4l2_crop *crop)
 {
-	struct dcam_fh *fh = priv;
-	struct dcam_dev *dev = fh->dev;
+	//struct dcam_fh *fh = priv;
+	//struct dcam_dev *dev = fh->dev;
 
 	if (crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
@@ -812,7 +813,10 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 		{
 			Sensor_SetCurId(SENSOR_SUB);
 		}			
-	}	
+	}
+	else{
+		Sensor_SetCurId(SENSOR_MAIN);
+	}
 	DCAM_V4L2_PRINT("###V4L2: vidioc_s_parm X.\n");
 	return 0;
 }
@@ -836,7 +840,7 @@ static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh *fh = priv;
-	
+
 	if(1 == g_is_first_frame)
 	{
 		g_first_buf_addr = p->m.userptr;
@@ -1106,7 +1110,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -EINVAL;
 	if (i != fh->type)
 		return -EINVAL;
-	
 	init_dcam_parameters(priv);//wxz:???
 	init_sensor_parameters();
 
@@ -1506,19 +1509,23 @@ static int open(struct file *file)
 			sizeof(struct dcam_buffer), fh);
 
 	g_fh = fh;
-	//start_thread_for_v4l2(fh);
 
 	Sensor_SetSensorType(SENSOR_TYPE_IMG_SENSOR);
-	if(0 == Sensor_IsInit())
-		Sensor_Init();
-#if DCAM_V4L2_DEBUG
+	Sensor_SetCurId(SENSOR_MAIN);
+	if(0 == Sensor_IsInit()){		
+		if(1 != Sensor_Init()){
+			DCAM_V4L2_PRINT("###DCAM: Fail to init sensor.\n");
+			return -1;
+		}
+	}
 	DCAM_V4L2_PRINT("###DCAM: OK to init sensor.\n");
-#endif
-
 	//open sensor
-        Sensor_Open();
-	DCAM_V4L2_PRINT("###DCAM: OK to open sensor.\n");
-
+        if(0 != Sensor_Open()){
+		DCAM_V4L2_PRINT("###DCAM: fail to open sensor.\n");
+		return -1;
+        }
+		
+	DCAM_V4L2_PRINT("###DCAM: OK to open sensor.\n");	
 	//open dcam
         dcam_open();
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");
@@ -1741,7 +1748,7 @@ int dcam_probe(struct platform_device *pdev)
 
 	mutex_init(lock);
 
-	printk(KERN_ALERT" dcam_probe Success\n");
+	printk(KERN_ALERT "dcam_probe Success.\n");
 
 	return 0;
 }

@@ -74,6 +74,7 @@
 #define SENSOR_LOW_EIGHT_BIT     0xff
 #define SENSOR_HIGN_SIXTEEN_BIT  0xffff0000
 #define SENSOR_LOW_SIXTEEN_BIT  0xffff
+
 /**---------------------------------------------------------------------------*
  **                         Global Variables                                  *
  **---------------------------------------------------------------------------*/
@@ -239,10 +240,13 @@ static const struct i2c_device_id sensor_sub_id[] = {
 	{ SENSOR_SUB_I2C_NAME, 0 },
 	{ }
 };
-static unsigned short sensor_main_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
+//static unsigned short sensor_main_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
+static unsigned short sensor_main_force[] = {2, SENSOR_MAIN_I2C_ADDR_CFG, I2C_CLIENT_END, I2C_CLIENT_END};
 static const unsigned short *const sensor_main_forces[] = { sensor_main_force, NULL };
 static struct i2c_client_address_data sensor_main_addr_data = { .forces = sensor_main_forces,};
-static unsigned short sensor_sub_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
+//static unsigned short sensor_sub_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
+//static unsigned short sensor_sub_force[] = {2, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
+static unsigned short sensor_sub_force[] = {2, SENSOR_SUB_I2C_ADDR_CFG, I2C_CLIENT_END, I2C_CLIENT_END};
 static const unsigned short *const sensor_sub_forces[] = { sensor_sub_force, NULL };
 static struct i2c_client_address_data sensor_sub_addr_data = { .forces = sensor_sub_forces,};
 
@@ -264,8 +268,18 @@ static struct i2c_client_address_data sensor_sub_addr_data = { .forces = sensor_
 		SENSOR_PRINT("SENSOR: %s: functionality check failed\n", __FUNCTION__);
 		res = -ENODEV;
 		goto out;
-	}
+	}	
 	this_client = client;	
+	if(SENSOR_MAIN == Sensor_GetCurId()){
+		if(SENSOR_MAIN_I2C_ADDR_CFG != (this_client->addr & (~0xFF))) {
+			this_client->addr = (this_client->addr & (~0xFF)) | SENSOR_MAIN_I2C_ADDR_CFG; 
+		}
+	}
+	else{ //for SENSOR_SUB	
+		if(SENSOR_SUB_I2C_ADDR_CFG != (this_client->addr & (~0xFF))) {
+			this_client->addr = (this_client->addr & (~0xFF)) | SENSOR_SUB_I2C_ADDR_CFG; 
+		}
+	}
 
 	msleep(20);
 	
@@ -520,6 +534,13 @@ PUBLIC SENSOR_TYPE_E _Sensor_GetSensorType(void)
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
+PUBLIC void Sensor_Reset(uint32_t level)
+{
+	gpio_request(77,"ccirrst");
+	gpio_direction_output(77,level);
+}
+
+#if 0
 PUBLIC void Sensor_Reset(void)
 {
 #define SENSOR_RST_CTL 77
@@ -596,6 +617,7 @@ SENSOR_PRINT("SENSOR: Sensor_Reset E \n");
 	}*/
 
 }
+#endif
 
 /*****************************************************************************/
 //  Description:    This function is used to power on sensor and select xclk    
@@ -866,7 +888,7 @@ PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd
     else
     {
         SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on dvdd, sensor_id %d, VoltLevel %d\n",
-                     Sensor_GetCurId(),ldo_volt_level); 
+        Sensor_GetCurId(),ldo_volt_level); 
 
         LDO_TurnOnLDO(LDO_LDO_CAMD0);    
         LDO_SetVoltLevel(LDO_LDO_CAMD0, ldo_volt_level);      
@@ -880,172 +902,8 @@ PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd
 //  Author:         Liangwen.Zhen
 //  Note:           SENSOR_TRUE: POWER ON; SENSOR_FALSE: POWER OFF
 /*****************************************************************************/
-#if 0
-#define AHB_CTL0        (SPRD_AHB_BASE + 0x200)
-#define DCAM_CAP_CTL    (SPRD_ISP_BASE + 0x100)
-static void sensor_power_down(void)
-{
-    __raw_bits_and(~(1<<4 | 1<<5),(SPRD_CPC_BASE+0x344));//ccir and dcam enable
-    __raw_bits_or((1<<1 | 1<<2),AHB_CTL0);//ccir and dcam enable
-    
-    __raw_bits_and(~(1<<11 | 1<<12),DCAM_CAP_CTL);
-    msleep(10);
-    __raw_bits_or(1<<11, DCAM_CAP_CTL);
-
-    __raw_bits_and(~(1<<1 | 1<<2),AHB_CTL0);//ccir and dcam disable
-
-}
-
-
-static int ldo_set_volt_level(LDO_CTL_PTR ctl)
-{
-   //LOCAL_VAR_DEF
-   SET_LEVEL(ctl->level_reg_b0, 0 , 0, ctl->b0, ctl->b0_rst, ctl->b1, ctl->b1_rst); 
-    
-   return 0;   
-}
-static int ldo_turn_on_ldo(LDO_CTL_PTR ctl)
-{
-   //LOCAL_VAR_DEF
-   REG_SETCLRBIT (ctl->bp_reg, ctl->bp_rst, ctl->bp); 
-   return 0;   
-}
-
-static void  sensor_set_voltage(void)
-{
-    LDO_CTL_T ctl;
-
-    //CAMA
-    ctl.level_reg_b0= (SPRD_MISC_BASE+0x0480+0x1c);
-    ctl.b0= (1<<8);
-    ctl.b0_rst= (1<<9);
-    ctl.b1= (1<<10);
-    ctl.b1_rst= (1<<11);
-    ctl.bp_reg= (SPRD_MISC_BASE+0x0480+0x10);
-    ctl.bp_rst= (1<<13);
-    ctl.bp= (1<<12);
-    ldo_set_volt_level(&ctl);
-    ldo_turn_on_ldo(&ctl);
-    //CAMD1
-    ctl.level_reg_b0= (SPRD_MISC_BASE+0x0480+0x1c);
-    ctl.b0= (1<<4);
-    ctl.b0_rst= (1<<5);
-    ctl.b1= (1<<6);
-    ctl.b1_rst= (1<<7);
-    ctl.bp_reg= (SPRD_MISC_BASE+0x0480+0x10);
-    ctl.bp_rst= (1<<11);
-    ctl.bp= (1<<10);
-    ldo_set_volt_level(&ctl);
-    ldo_turn_on_ldo(&ctl);
-   
-    __raw_bits_or((1<<1)|(1<<2),AHB_CTL0); //ccir and dcam enable
-    __raw_bits_or((1<<13)|(1<<12),DCAM_CAP_CTL);//set two sensor all in PowerDown mode
-    __raw_bits_and(~(1<<1|1<<2),AHB_CTL0); //ccir and dcam disable
-    
-    //CAMD0
-    ctl.level_reg_b0= (SPRD_MISC_BASE+0x0480+0x1c);
-    ctl.b0= (1<<0);
-    ctl.b0_rst= (1<<1);
-    ctl.b1= (1<<2);
-    ctl.b1_rst= (1<<3);
-    ctl.bp_reg= (SPRD_MISC_BASE+0x0480+0x10);
-    ctl.bp_rst= (1<<9);
-    ctl.bp= (1<<8);
-    ldo_set_volt_level(&ctl);
-    ldo_turn_on_ldo(&ctl);
-
-
-} 
-
-static int scan_i2c_init(void)
-{
-#define I2C_ADAPTER_MAX_NUM 10
-    int i, j, ret, n;
-	static struct i2c_adapter * ap[I2C_ADAPTER_MAX_NUM];
-static int i2c_adapter_num;
-
-    sensor_set_voltage();
-
-    sensor_power_down();
-    
-    sensor_setmclk();
-
-	static unsigned long cam_gpio_cfg[] __initdata = {
-		MFP_CFG_X(CCIRPD1,AF3,DS1,F_PULL_NONE,S_PULL_NONE,IO_OE),
-		MFP_CFG_X(CCIRPD0,AF3,DS1,F_PULL_NONE,S_PULL_NONE,IO_OE),
-		MFP_CFG_X(CCIRRST,AF3,DS1,F_PULL_NONE,S_PULL_NONE,IO_OE),
-	};	
-	
-    sprd_mfp_config(cam_gpio_cfg,3);
- 
-	gpio_request(78,"ccir_pd1");
-	gpio_request(79,"ccir_pd0");
-	gpio_request(77,"ccir_rst");
-	
-	gpio_direction_output(78,0);
-	gpio_direction_output(79,0);
-	gpio_direction_output(77,1);
-    msleep(10);
-	gpio_direction_output(77,0);
-    msleep(20);
-	gpio_direction_output(77,1);
-	msleep(100);
-	
-
-    i2c_adapter_num = 0;
-
-    for (i = 0; i < I2C_ADAPTER_MAX_NUM; i++) {
-        ap[i] = i2c_get_adapter(i);
-        if (ap[i] == NULL)
-            break;
-        i2c_adapter_num++;
-        printk("Probeing adapter %d...\n", i);
-	for(j=0;j<0xff;j++){
-	unsigned char buf_w[3];
-	buf_w[0]=0x30;
-	buf_w[1]=12;
-	buf_w[2]=0x80;
-	struct i2c_msg msg_w={
-			     .addr=0x30,
-			     .flags=0,
-			     .buf=buf_w,
-			     .len=3 };
-        ret = i2c_transfer(ap[i],&msg_w,1);
-	if(ret!=1)
-	{
-	    printk("write failed\n");
-	    continue;
-	}
-	unsigned char buf_r;
-	struct i2c_msg msg_r[2]={
-			     {.addr=0x30,
-			     .flags=0,
-			     .buf=buf_w,
-			     .len=2 },
-
-			     {.addr=0x30,
-			     .flags=I2C_M_RD,
-			     .buf=&buf_r,
-			     .len=1 }
-			};
-	
-        ret = i2c_transfer(ap[i],msg_r,2);
-        if (ret!=2){
-		printk("read failed\n");
-             	continue;
-	}
-	printk("buf_r=0x%x\n",buf_r);
-	ndelay(10);
-   }
-  }
-
-    return -EISNAM;
-}
-
-#endif //0
 LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 {
-//scan_i2c_init();
     BOOLEAN 				power_down;		
     SENSOR_AVDD_VAL_E		dvdd_val;
     SENSOR_AVDD_VAL_E		avdd_val;
@@ -1060,15 +918,19 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 
     SENSOR_PRINT("SENSOR: Sensor_PowerOn -> power_on = %d, power_down_level = %d, avdd_val = %d\n",power_on,power_down,avdd_val);   
 
-    // call user func
-    if(PNULL != power_func)
-    {
-        power_func(power_on);
-    }  
-    else
-    {
         if(power_on)
-        {				
+         {				
+            // Open power
+            Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val); 
+            // Reset sensor
+            Sensor_Reset(1);	
+	    msleep(5);
+            // NOT in power down mode(maybe also open DVDD and DOVDD)
+            Sensor_PowerDown(!power_down);           
+            // Open Mclk in default frequency
+            Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
+	}			
+       /*{				
             // Open power
             Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val); 
             // NOT in power down mode(maybe also open DVDD and DOVDD)
@@ -1076,25 +938,148 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
             // Open Mclk in default frequency
             Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
             // Reset sensor
-            Sensor_Reset();	
-        }
+            //Sensor_Reset();
+            Sensor_Reset(1);
+	    msleep(5);
+        }*/
         else
         {
+            // Power down sensor and maybe close DVDD, DOVDD
+            Sensor_PowerDown(power_down);
+	    Sensor_Reset(0);
+            Sensor_SetMCLK(SENSOR_DISABLE_MCLK);			 
+            Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);	
+        }   			
+        /*{
             // Power down sensor and maybe close DVDD, DOVDD
             Sensor_PowerDown(power_down);
 
             Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);
             // Close Mclk
             Sensor_SetMCLK(SENSOR_DISABLE_MCLK);		
-        }
-    }    
+        }  */
 }
+
 
 /*****************************************************************************/
 //  Description:    This function is used to power down sensor     
 //  Author:         Tim.zhu
 //  Note:           
 /*****************************************************************************/
+#ifdef PLATFORM_6810
+PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
+{
+	SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_level);          
+        SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); // *(volatile uint32_t*)0x8C000344 );          
+        SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));//*(volatile uint32_t*)0x8C000348 );    
+
+    switch(Sensor_GetCurId())
+    {
+        case SENSOR_MAIN:
+        {
+		_paod(PIN_CTL_CCIRPD1,  (BIT_4|BIT_5));
+		gpio_request(78,"ccirpd1");
+		if(0 == power_level){
+			gpio_direction_output(78,0);
+		}
+		else{
+			gpio_direction_output(78,1);
+		}      
+           	 break;
+        }
+        case SENSOR_SUB:
+        {
+		_paod(PIN_CTL_CCIRPD0,  (BIT_4|BIT_5));
+		gpio_request(79,"ccirpd0");
+		if(0 == power_level){
+			gpio_direction_output(79,0);
+		}
+		else{
+			gpio_direction_output(79,1);
+		}
+           	break;
+        }
+        default :
+            break;            
+    }
+
+    return SENSOR_SUCCESS;
+}
+#else 
+PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
+{
+    switch(Sensor_GetCurId())
+    {
+        case SENSOR_MAIN:
+	{
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_down);          
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); 
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
+            
+            //*(volatile uint32_t*)0x8C000344 &=  ~(BIT_4|BIT_5);//ccir and dcam enable
+            _paad(PIN_CTL_CCIRPD1,  ~(BIT_4|BIT_5));
+           // *(volatile uint32_t*)AHB_REG_BASE |=  (BIT_1|BIT_2);//ccir and dcam enable
+            _paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
+            if(power_down == 0)
+            {
+                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) &= ~(BIT_11|BIT_12);
+		_paad(CAP_CNTRL,  ~(BIT_11|BIT_12));
+              	SENSOR_Sleep(10);
+                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
+                _paod(CAP_CNTRL,  BIT_11);
+               
+            }
+            else
+            {
+                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_12;
+		_paod(CAP_CNTRL,  BIT_12);
+            }
+
+            //*(volatile uint32_t*)AHB_REG_BASE &= ~(BIT_1|BIT_2);//ccir and dcam disable
+            _paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));            
+            break;
+        }
+        case SENSOR_SUB:
+        {
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> sub: power_down %d\n", power_down);     
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); // *(volatile uint32_t*)0x8C000344 );          
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));//*(volatile uint32_t*)0x8C000348 );    
+   
+            //*(volatile uint32_t*)AHB_REG_BASE |=  (BIT_1|BIT_2);//ccir and dcam enable
+            _paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
+            if(power_down == 0)
+            {
+               // *(volatile uint32_t*)(DCAM_BASE + 0x0100) &= ~(BIT_11|BIT_13);
+		_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));		
+              	SENSOR_Sleep(10);
+                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
+		_paod(CAP_CNTRL,  BIT_11); 
+		SENSOR_PRINT("sub power down. 0: CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
+            }
+            else
+            {
+               // *(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_13;
+		_paod(CAP_CNTRL,  BIT_13);
+		SENSOR_PRINT("sub power down. 1 : CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
+            }
+
+            //*(volatile uint32_t*)AHB_REG_BASE &= ~(BIT_1|BIT_2);//ccir and dcam disable
+            _paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));
+
+            break;
+        }
+        case SENSOR_ATV:
+        {
+            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> atv");
+            break;
+        }
+        default :
+            break;            
+    }
+
+    return SENSOR_SUCCESS;
+}
+#if 0
 PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
 {
     switch(Sensor_GetCurId())
@@ -1133,7 +1118,7 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
             SENSOR_PRINT("SENSOR: Sensor_PowerDown -> sub: power_down %d\n", power_down);     
             SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); // *(volatile uint32_t*)0x8C000344 );          
             SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));//*(volatile uint32_t*)0x8C000348 );    
-
+   
             //*(volatile uint32_t*)AHB_REG_BASE |=  (BIT_1|BIT_2);//ccir and dcam enable
             _paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
             if(power_down == 0)
@@ -1143,11 +1128,13 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
               	SENSOR_Sleep(10);
                 //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
 		_paod(CAP_CNTRL,  BIT_11); 
+		printk("sub power down. 0: CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
             }
             else
             {
                // *(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_13;
 		_paod(CAP_CNTRL,  BIT_13);
+		printk("sub power down. 1 : CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
             }
 
             //*(volatile uint32_t*)AHB_REG_BASE &= ~(BIT_1|BIT_2);//ccir and dcam disable
@@ -1166,6 +1153,9 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
 
     return SENSOR_SUCCESS;
 }
+#endif
+
+#endif
 /*****************************************************************************/
 //  Description:    This function is used to reset img sensor     
 //  Author:         Tim.zhu
@@ -1345,7 +1335,7 @@ int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
         ret = i2c_transfer(this_client->adapter, &msg_w, 1);
 	if(ret!=1)
         {
-            printk("#DCAM: write sensor reg fai, ret: %x \n", ret);
+            printk("#DCAM: write sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
             return -1;
         }
 
@@ -1372,7 +1362,7 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
         ret = i2c_transfer(this_client->adapter, msg_r, 2);
 	if(ret!=2)
         {
-            printk("#sensor: read sensor reg fail, ret: %x \n", ret);
+            printk("#DCAM: read sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
             return -1;
         }
 	value = buf_r;
@@ -1400,16 +1390,9 @@ int32_t Sensor_WriteReg_8bits(uint8_t reg_addr, uint8_t value)
         ret = i2c_transfer(this_client->adapter, &msg_w, 1);
 	if(ret!=1)
         {
-            printk("#DCAM: write sensor reg fai, ret: %x \n", ret);
+            printk("#DCAM: write sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
             return -1;
         }
-#if 0
-{
-	uint8_t val;
-	Sensor_ReadReg_8bits(reg_addr, &val);
-	printk("sub sensor: addr: 0x%x, val: 0x%x, old value: 0x%x.\n", reg_addr, val, value);
-}
-#endif
 	return 0;
 }
 int32_t Sensor_ReadReg_8bits(uint8_t reg_addr, uint8_t *reg_val)
@@ -1431,7 +1414,7 @@ int32_t Sensor_ReadReg_8bits(uint8_t reg_addr, uint8_t *reg_val)
         ret = i2c_transfer(this_client->adapter, msg_r, 2);
 	if(ret!=2)
         {
-            printk("#sensor: read sensor reg fail, ret: %x \n", ret);
+            printk("#sensor: read sensor reg fail, ret: %d, I2C r addr: 0x%x \n", ret, this_client->addr);
             return -1;
         }
 	*reg_val = buf_r;
@@ -1647,15 +1630,17 @@ PUBLIC void Sensor_WriteReg( uint16_t  subaddr, uint16_t data )
 PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg_tab_info_ptr	)
 {
     uint32_t i;
+	struct timeval  time1, time2;
 	SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor E.\n");
 
-/*    SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d start time = %d",\
+/*   SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d start time = %d",\
 //                    sensor_reg_tab_info_ptr->reg_count,\
-    SCI_GetTickCount());
+    GetTickCount());
 
     SENSOR_ASSERT(PNULL != (void*)sensor_reg_tab_info_ptr);
     SENSOR_ASSERT(PNULL != (void *)sensor_reg_tab_info_ptr->sensor_reg_tab_ptr);
 */
+	do_gettimeofday(&time1);
 		
     for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
     {
@@ -1667,8 +1652,12 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
 		
         //ImgSensor_PutMutex();
     }	
+	do_gettimeofday(&time2);
+	SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d.\n",sensor_reg_tab_info_ptr->reg_count);
+	SENSOR_PRINT("SENSOR use new time sec: %ld, usec: %ld.\n", time1.tv_sec, time1.tv_usec);
+	SENSOR_PRINT("SENSOR use old time sec: %ld, usec: %ld.\n", time2.tv_sec, time2.tv_usec);
 
-//    SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> end time = %d", SCI_GetTickCount());
+    //SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> end time = %d", GetTickCount());
 SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor X.\n");
 
     return SENSOR_SUCCESS;
@@ -1691,8 +1680,8 @@ LOCAL void _Sensor_CleanInformation(void)
     s_sensor_init=SENSOR_FALSE;
     s_sensor_open=SENSOR_FALSE; 
 
-    s_atv_init=SENSOR_FALSE;
-    s_atv_open=SENSOR_FALSE;
+   // s_atv_init=SENSOR_FALSE;
+   // s_atv_open=SENSOR_FALSE;
 	
 
     SENSOR_MEMSET(s_sensor_list_ptr, 0x00, SENSOR_ID_MAX * sizeof(s_sensor_list_ptr[0]));    
@@ -1758,6 +1747,7 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 	}
     return SENSOR_SUCCESS;
 }
+
 
 /*****************************************************************************/
 //  Description:    This function is used to get currect sensor id
@@ -1832,7 +1822,8 @@ PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id)
 	            Sensor_SetExportInfo(&s_sensor_exp_info);
         	    _Sensor_SetId(sensor_id);
 	            _Sensor_IicHandlerInit();
-        	    Sensor_PowerDown(SENSOR_FALSE);
+        	    //Sensor_PowerDown(SENSOR_FALSE);
+        	    Sensor_PowerOn(SENSOR_TRUE); //wxz:???
         	}
 		else
 		{
@@ -1866,8 +1857,6 @@ PUBLIC SENSOR_REGISTER_INFO_T_PTR Sensor_GetRegisterInfo(void)
 {
     return s_sensor_register_info_ptr;
 }
-
-
 
 /*****************************************************************************/
 //  Description:    This function is used to initialize Sensor function    
@@ -2007,6 +1996,10 @@ PUBLIC BOOLEAN Sensor_Init(void)
 
         }
 
+
+		
+			
+
         if(PNULL!=s_sensor_list_ptr[SENSOR_MAIN])
         {     
             s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_MAIN];
@@ -2093,17 +2086,22 @@ PUBLIC BOOLEAN Sensor_Init(void)
             s_atv_open=SENSOR_FALSE;
             SENSOR_PRINT("SENSOR: Sensor_Init Fail not ATV err\n");
         }
-
     }
 
     return ret_val;	
 }
+
 
 /*****************************************************************************/
 //  Description:    This function is used to check if sensor has been init    
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
+PUBLIC BOOLEAN Sensor_IsInit(void)
+{
+	return s_sensor_init;
+}
+#if 0
 PUBLIC BOOLEAN Sensor_IsInit(void)
 {
     if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
@@ -2117,7 +2115,7 @@ PUBLIC BOOLEAN Sensor_IsInit(void)
 
     return SENSOR_FALSE;
 }
-
+#endif
 /*****************************************************************************/
 //  Description:    This function is used to Open sensor function    
 //  Author:         Liangwen.Zhen
@@ -2203,11 +2201,11 @@ PUBLIC ERR_SENSOR_E Sensor_Open(void)
                     s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_MAIN];
                     Sensor_SetExportInfo(&s_sensor_exp_info);            
                     _Sensor_SetId(SENSOR_MAIN);
-                    Sensor_PowerDown(SENSOR_FALSE);
+  		    Sensor_PowerOn(SENSOR_TRUE); //wxz:???
+                    //Sensor_PowerDown(SENSOR_FALSE);
                     _Sensor_IicHandlerInit(); 
 
                 }
-
                 Sensor_SetMode(SENSOR_MODE_COMMON_INIT);
             }
             else if(SENSOR_SUB==cur_sensor_id && 
@@ -2316,6 +2314,7 @@ PUBLIC ERR_SENSOR_E Sensor_Open(void)
 return SENSOR_SUCCESS;
 }
 
+
 /*****************************************************************************/
 //  Description:    This function is used to set sensor work-mode    
 //  Author:         Liangwen.Zhen
@@ -2366,6 +2365,7 @@ PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 	return SENSOR_SUCCESS;
 }
 
+
 /*****************************************************************************/
 //  Description:    This function is used to control sensor    
 //  Author:         Liangwen.Zhen
@@ -2384,13 +2384,13 @@ PUBLIC uint32_t Sensor_Ioctl(uint32_t cmd, uint32_t arg)
 
     if(!Sensor_IsInit())
     {
-        SENSOR_PRINT("SENSOR: Sensor_Ioctl -> sensor has not init");
+        SENSOR_PRINT("SENSOR: Sensor_Ioctl -> sensor has not init.\n");
         return SENSOR_OP_STATUS_ERR;
     }
 
     if(SENSOR_IOCTL_CUS_FUNC_1 > cmd) 
     {
-        SENSOR_PRINT("SENSOR: Sensor_Ioctl - > can't access internal command !");
+        SENSOR_PRINT("SENSOR: Sensor_Ioctl - > can't access internal command !\n");
         return SENSOR_SUCCESS;	
     }
     func_tab_ptr = s_sensor_info_ptr->ioctl_func_tab_ptr;
@@ -2407,7 +2407,7 @@ PUBLIC uint32_t Sensor_Ioctl(uint32_t cmd, uint32_t arg)
     }
     else
     {
-        SENSOR_PRINT("SENSOR: Sensor_Ioctl -> the ioctl function has not register err!");
+        SENSOR_PRINT("SENSOR: Sensor_Ioctl -> the ioctl function has not register err!\n");
     }
 
     return ret_value;	
@@ -2472,7 +2472,7 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
     }
 
     s_sensor_init = SENSOR_FALSE;
-    s_atv_open=SENSOR_FALSE;
+    //s_atv_open=SENSOR_FALSE;
     s_sensor_open=SENSOR_FALSE;
     s_sensor_mode[SENSOR_MAIN]=SENSOR_MODE_MAX;	
     s_sensor_mode[SENSOR_SUB]=SENSOR_MODE_MAX;	
