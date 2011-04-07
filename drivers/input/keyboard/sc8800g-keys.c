@@ -40,6 +40,11 @@
 #include "regs_kpd_sc8800g.h"
 #include <mach/regs_cpc.h>
 
+#include <mach/regs_ana.h>
+#include <mach/regs_gpio.h>
+#include <mach/adi_hal_internal.h>
+
+
 #ifdef CONFIG_MACH_OPENPHONE
 #define DRV_NAME        	"sprd-keypad"
 #endif
@@ -131,6 +136,10 @@
 #ifdef CONFIG_MACH_SP6810A
 #define HOME_KEY_GPIO		28
 #define VOLUP_KEY_GPIO		25
+#define PBINT_GPI		163
+
+#define ANA_GPIO_IRQ        	BIT_1
+#define ANA_INT_EN              (SPRD_MISC_BASE + 0x380 + 0x08)
 #endif
 
 static const unsigned int sprd_keymap[] = {
@@ -236,7 +245,7 @@ static const unsigned int sprd_keymap[] = {
 #endif
 #if defined(CONFIG_MACH_SP6810A)
         // 0 row
-	KEYVAL(0, 0, 00/*KEY_SEND*/), //dial up 1
+	KEYVAL(0, 0, 24/*KEY_SEND*/), // 00 is changed to 24
         KEYVAL(0, 1, 01/*KEY_R*/), //R
         KEYVAL(0, 2, 02/*KEY_F*/), //F
         KEYVAL(0, 3, 03/*KEY_V*/), //V
@@ -323,6 +332,7 @@ static unsigned long keypad_func_cfg[] = {
 	MFP_CFG_X(KEYIN3,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
 	MFP_CFG_X(KEYIN4,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
 	MFP_CFG_X(KEYIN5,  AF3, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_ANA_CFG_X(PBINT, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE),
 };
 #endif
 
@@ -351,8 +361,8 @@ typedef struct kpd_key_tag
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM];
 kpd_key_t s_key[MAX_MUL_KEY_NUM];
 #elif defined(CONFIG_MACH_SP6810A)
-struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM + 2];
-kpd_key_t s_key[MAX_MUL_KEY_NUM + 2];
+struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM + 3];
+kpd_key_t s_key[MAX_MUL_KEY_NUM + 3];
 #endif
 
 struct sprd_kpad_t *sprd_kpad;
@@ -536,7 +546,7 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
     			}
     		}
 	   	if (!found) {
-			/* the key_code is fresh, try to find a seat other than exceed the seat limit */	        	   	
+			/* the key_code is fresh, try to find a seat other than exceed the seat limit */
 			for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
 				key_ptr = &s_key[i];
 				status = handle_key(key_code, key_ptr);
@@ -608,9 +618,11 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	unsigned long s_int_status;
 	unsigned long s_key_status;
 	
-    msleep(20);
+    	msleep(20);
 	gpio = irq_to_gpio(irq);
 	
+	//printk("%s %d  gpio = %d\n", __FUNCTION__, __LINE__, gpio);
+
 	if (gpio == HOME_KEY_GPIO) {
 		ret = gpio_get_value(gpio);
 		if (ret) {
@@ -675,6 +687,38 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 			}
 		}
 	}//if (gpio == VOLUP_KEY_GPIO)
+
+	if (gpio == PBINT_GPI) {
+		ret = gpio_get_value(gpio);
+		if (ret) {
+			//printk("The Pin is HIGH\n");
+			s_int_status =0x00000080;
+			s_key_status =0x11777777;
+		} else {
+			//printk("The Pin is LOW\n");
+			s_int_status =0x00000008;
+			s_key_status =0x91777777;
+		}
+
+		if ((s_int_status & KPD_PRESS_INT3) || (s_int_status & KPD_LONG_KEY_INT3)) {
+	       		key_code = (s_key_status  & (KPD4_ROW_CNT | KPD4_COL_CNT)) >> 24;
+			/* if key_code is stored, don't seat the code again */
+	    		key_ptr = &s_key[MAX_MUL_KEY_NUM + 2];
+    			if (key_ptr->key_code == key_code) {
+	    			handle_key(key_code, key_ptr);	    	
+	    			found = 1;
+    			}
+	   		if (!found) {
+				/* the key_code is fresh, try to find a seat other than exceed the seat limit */
+				key_ptr = &s_key[MAX_MUL_KEY_NUM + 2];
+				status = handle_key(key_code, key_ptr);
+			}
+		} else if (s_int_status & KPD_RELEASE_INT3) {
+			if (TB_KPD_RELEASED == s_key[MAX_MUL_KEY_NUM + 2].state) {
+				clear_key(&s_key[MAX_MUL_KEY_NUM + 2]);
+			}
+		}
+	}//if (gpio == PBINT_GPI)
 
 
         return IRQ_HANDLED;
@@ -818,7 +862,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 #if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
 #elif defined(CONFIG_MACH_SP6810A)
-	for (i = 0; i < (MAX_MUL_KEY_NUM + 2); i++) {
+	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++) {
 #endif
 		/* clear Key state */
 		clear_key(&s_key[i]);
@@ -834,8 +878,9 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 #if defined(CONFIG_MACH_SP6810A)
 	gpio_key_init(HOME_KEY_GPIO, "home");
 	gpio_key_init(VOLUP_KEY_GPIO, "volup");
+	gpio_key_init(PBINT_GPI, "poweronoff");	
+	ANA_REG_OR(ANA_INT_EN, ANA_GPIO_IRQ);
 #endif
-
 
 	return 0;
 
@@ -860,7 +905,7 @@ static int __devexit sprd_kpad_remove(struct platform_device *pdev)
 #if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++)
 #elif defined(CONFIG_MACH_SP6810A)
-	for (i = 0; i < (MAX_MUL_KEY_NUM + 2); i++)
+	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++)
 #endif
         	del_timer_sync(&s_kpd_timer[i]);
 
