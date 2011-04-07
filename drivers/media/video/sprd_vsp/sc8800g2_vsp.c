@@ -103,6 +103,37 @@ static inline int task_has_rt_policy(struct task_struct *p)
 	return rt_policy(p->policy);
 }
 
+
+#define __wait_event_interruptible_timeout_exclusive(wq, condition, ret)		\
+do {									\
+	DEFINE_WAIT(__wait);						\
+									\
+	for (;;) {							\
+		prepare_to_wait_exclusive(&wq, &__wait, TASK_INTERRUPTIBLE);	\
+		if (condition)						\
+			break;						\
+		if (!signal_pending(current)) {				\
+			ret = schedule_timeout(ret);			\
+			if (!ret)					\
+				break;					\
+			continue;					\
+		}							\
+		ret = -ERESTARTSYS;					\
+		break;							\
+	}								\
+	finish_wait(&wq, &__wait);					\
+} while (0)
+
+#define wait_event_interruptible_timeout_exclusive(wq, condition, timeout)	\
+({									\
+	long __ret = timeout;						\
+	if (!(condition))						\
+		__wait_event_interruptible_timeout_exclusive(wq, condition, __ret); \
+	__ret;								\
+})
+
+
+	
 static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	uint32_t reg_value; 
@@ -163,7 +194,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 	    break;	
 	    case VSP_ACQUAIRE:
 		VSP_PRINT("vsp ioctl VSP_ACQUAIRE begin\n");
-		ret = wait_event_interruptible_timeout(dev.wait_queue, dev.condition,msecs_to_jiffies(VSP_TIMEOUT_MS));
+		ret = wait_event_interruptible_timeout_exclusive(dev.wait_queue, dev.condition,msecs_to_jiffies(VSP_TIMEOUT_MS));
 		if (ret == 0){
 		    printk("KERN_ERR vsp error timeout\n");
 		    dev.condition = 1;
