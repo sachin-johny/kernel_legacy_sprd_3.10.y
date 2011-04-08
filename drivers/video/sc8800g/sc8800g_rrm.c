@@ -107,7 +107,7 @@ static struct rrqueue * rrq_init(int buf_num)
 		return NULL;
 	}
 
-	rrq = kzalloc(sizeof(struct rrqueue),GFP_KERNEL);
+	rrq = kzalloc(sizeof(struct rrqueue),GFP_NOWAIT);
 
 	if(!rrq) {
 		printk(KERN_ERR "RRM[%d]: no memory!\n", __LINE__);
@@ -117,7 +117,7 @@ static struct rrqueue * rrq_init(int buf_num)
 	rrq->depth = buf_num;
 	rrq->available = buf_num;
 
-	rrq->q_ptr = kzalloc(sizeof(struct rr) * rrq->depth, GFP_KERNEL);
+	rrq->q_ptr = kzalloc(sizeof(struct rr) * rrq->depth, GFP_NOWAIT);
 	if(!rrq->q_ptr) {
 		printk(KERN_ERR "RRM[%d]: no memory!\n", __LINE__);
 		goto _rrq_init_err;
