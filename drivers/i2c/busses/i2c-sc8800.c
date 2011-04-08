@@ -253,7 +253,7 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 
 	/* ensure the stop has been through the bus */
 
-	msleep(5);
+	//msleep(5);
 
  out:    //kewang
 	return ret;
