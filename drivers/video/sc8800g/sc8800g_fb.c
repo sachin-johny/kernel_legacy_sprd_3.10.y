@@ -177,6 +177,36 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+
+/*LCDC pin config*/
+static unsigned long lcd_func_cfg[] = {
+	MFP_CFG_X(LCD_CSN1,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_CSN1
+	MFP_CFG_X(LCD_RSTN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_RSTN
+	MFP_CFG_X(LCD_CD,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_CD
+	MFP_CFG_X(LCD_D0,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[0]
+	MFP_CFG_X(LCD_D1,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[1]
+	MFP_CFG_X(LCD_D2,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[2]
+	MFP_CFG_X(LCD_D3,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[3]
+	MFP_CFG_X(LCD_D4,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[4]
+	MFP_CFG_X(LCD_D5,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[5]
+	MFP_CFG_X(LCD_D6,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[6]
+	MFP_CFG_X(LCD_D7,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[7]
+	MFP_CFG_X(LCD_D8,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[8]
+	MFP_CFG_X(LCD_WRN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_WRN
+	MFP_CFG_X(LCD_RDN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_RDN
+	MFP_CFG_X(LCD_CSN0,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_CSN0	
+	MFP_CFG_X(LCD_D9,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[9]
+	MFP_CFG_X(LCD_D10,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[10]
+	MFP_CFG_X(LCD_D11,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[11]
+	MFP_CFG_X(LCD_D12,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[12]
+	MFP_CFG_X(LCD_D13,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[13]
+	MFP_CFG_X(LCD_D14,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[14]
+	MFP_CFG_X(LCD_D15,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[15]
+	MFP_CFG_X(LCD_D16,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_D[16]
+	MFP_CFG_X(LCD_D17,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_D[17]
+	MFP_CFG_X(LCD_FMARK,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_FMARK
+};
+
 static void set_pins(void)
 {	
 
@@ -215,7 +245,8 @@ static void set_pins(void)
 
     sprd_mfp_config(lcd_func_cfg,ARRAY_SIZE(lcd_func_cfg));
 }
-static uint32_t panel_reset(void)
+
+static int32_t panel_reset(struct lcd_spec *self)
 {
 	//panel reset
 	__raw_writel(0x1, LCM_RSTN);	
@@ -225,12 +256,13 @@ static uint32_t panel_reset(void)
 	__raw_writel(0x1, LCM_RSTN);
 	mdelay(0x10);
 
-    return 0;
+	return 0;
 }
+
 static void lcdc_mcu_init(void)
 {
 	//panel reset
-	panel_reset();
+	panel_reset(&lcd_panel);
 	
 	//LCDC module enable
 	__raw_bits_or(1<<0, LCDC_CTRL);
@@ -282,10 +314,10 @@ static int setup_fbmem(struct sc8800fb_info *sc8800fb, struct platform_device *p
 
 	/* TEMP, software make-up for lcdc's 4-byte-align only limitation */
 	fb_pa = sc8800fb->fb->fix.smem_start;
-	fb_va_cached = sc8800fb->fb->screen_base;
+	fb_va_cached = (unsigned int)sc8800fb->fb->screen_base;
 	fb_va = (unsigned int)ioremap(sc8800fb->fb->fix.smem_start, 
 		sc8800fb->fb->fix.smem_len);
-	printk("sc8800g_fb fb_va=0x%x\n", fb_va, sc8800fb->fb->fix.smem_len);
+	printk("sc8800g_fb fb_va=0x%x, size=%d\n", fb_va, sc8800fb->fb->fix.smem_len);
 	/* TEMP, end */
 	
 	return 0;
