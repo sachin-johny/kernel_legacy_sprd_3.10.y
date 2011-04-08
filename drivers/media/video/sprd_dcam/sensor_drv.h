@@ -633,7 +633,7 @@ PUBLIC int Sensor_WriteReg( uint16_t  subaddr, uint16_t data );
 //  Note:           
 /*****************************************************************************/
 PUBLIC uint16_t Sensor_ReadReg(uint16_t subaddr);
-PUBLIC int32_t Sensor_WriteReg_8bits(uint8_t reg_addr, uint8_t value);
+PUBLIC int32_t Sensor_WriteReg_8bits(uint16_t reg_addr, uint8_t value);
 PUBLIC int32_t Sensor_ReadReg_8bits(uint8_t reg_addr, uint8_t *reg_val);
 
 #if 0
@@ -655,8 +655,8 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
-PUBLIC BOOLEAN Sensor_Init(void);
-PUBLIC BOOLEAN Sensor_Init_Param(void);
+//PUBLIC BOOLEAN Sensor_Init(void);
+PUBLIC uint32_t Sensor_Init(uint32_t sensor_id);
 
 /*****************************************************************************/
 //  Description:    This function is used to check if sensor has been init    
@@ -670,7 +670,7 @@ PUBLIC BOOLEAN Sensor_IsInit(void);
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
-PUBLIC ERR_SENSOR_E Sensor_Open(void);
+//PUBLIC ERR_SENSOR_E Sensor_Open(void);
 
 /*****************************************************************************/
 //  Description:    This function is used to set work-mode    

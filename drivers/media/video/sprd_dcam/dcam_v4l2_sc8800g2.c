@@ -787,11 +787,34 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	DCAM_V4L2_PRINT("###V4L2: vidioc_g_parm X.\n");
 	return 0;
 }
+static int v4l2_sensor_init(uint32_t sensor_id)
+{
+	//init sensor
+	if(SENSOR_TRUE != Sensor_IsInit()){		
+		if(SENSOR_SUCCESS != Sensor_Init(sensor_id)){
+			DCAM_V4L2_PRINT("###DCAM: Fail to init sensor.\n");
+			return -1;
+		}
+	}
+	DCAM_V4L2_PRINT("###DCAM: OK to init sensor.\n");
+	/*
+	//open sensor
+        if(0 != Sensor_Open()){
+		DCAM_V4L2_PRINT("###DCAM: fail to open sensor.\n");
+		return -1;
+        }		
+	DCAM_V4L2_PRINT("###DCAM: OK to open sensor.\n");	
+	*/
+
+	return 0;
+}
 static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *streamparm)
 {	
 	struct dcam_fh *fh = priv;
 	struct dcam_dev *dev = fh->dev;
 	int i;
+	uint32_t sensor_id = 0;
+	
 	DCAM_V4L2_PRINT("###V4L2: vidioc_s_parm E.\n");
 	dev->streamparm.type = streamparm->type;
 	dev->streamparm.parm.capture.capability = streamparm->parm.capture.capability;
@@ -807,16 +830,24 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	{
 		if(0 == streamparm->parm.raw_data[1])
 		{
-			Sensor_SetCurId(SENSOR_MAIN);
+			//Sensor_SetCurId(SENSOR_MAIN);
+			sensor_id = 0;
 		}
 		else if(1 == streamparm->parm.raw_data[1])
 		{
-			Sensor_SetCurId(SENSOR_SUB);
+			//Sensor_SetCurId(SENSOR_SUB);
+			sensor_id = 1;
 		}			
 	}
 	else{
-		Sensor_SetCurId(SENSOR_MAIN);
+		//Sensor_SetCurId(SENSOR_MAIN);
+		sensor_id = 0;
 	}
+	if(0 != v4l2_sensor_init(sensor_id)){
+		DCAM_V4L2_PRINT("###V4L2: fail to sensor_init.\n");
+		return -1;
+	}
+
 	DCAM_V4L2_PRINT("###V4L2: vidioc_s_parm X.\n");
 	return 0;
 }
@@ -1510,6 +1541,7 @@ static int open(struct file *file)
 
 	g_fh = fh;
 
+/*
 	Sensor_SetSensorType(SENSOR_TYPE_IMG_SENSOR);
 	Sensor_SetCurId(SENSOR_MAIN);
 	if(0 == Sensor_IsInit()){		
@@ -1526,6 +1558,7 @@ static int open(struct file *file)
         }
 		
 	DCAM_V4L2_PRINT("###DCAM: OK to open sensor.\n");	
+	*/
 	//open dcam
         dcam_open();
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");

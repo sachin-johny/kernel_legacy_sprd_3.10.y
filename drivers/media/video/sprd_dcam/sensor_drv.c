@@ -30,6 +30,7 @@
 #else
 #define SENSOR_PRINT(...)  
 #endif
+#include <linux/delay.h>
 
 #include "sensor_drv.h"
 #include "sensor_cfg.h"
@@ -217,8 +218,8 @@ LOCAL uint32_t s_sensor_mclk=0;
 //LOCAL uint8_t s_sensor_probe_index=0;
 LOCAL BOOLEAN s_sensor_init=SENSOR_FALSE;  
 LOCAL BOOLEAN s_sensor_open=SENSOR_FALSE;
-LOCAL BOOLEAN s_atv_init=SENSOR_FALSE;
-LOCAL BOOLEAN s_atv_open=SENSOR_FALSE;
+//LOCAL BOOLEAN s_atv_init=SENSOR_FALSE;
+//LOCAL BOOLEAN s_atv_open=SENSOR_FALSE;
 LOCAL SENSOR_TYPE_E s_sensor_type=SENSOR_TYPE_NONE;
 LOCAL SENSOR_MODE_E s_sensor_mode[SENSOR_ID_MAX]={SENSOR_MODE_MAX,SENSOR_MODE_MAX,SENSOR_MODE_MAX};
 LOCAL SENSOR_MUTEX_PTR	s_imgsensor_mutex_ptr=PNULL;
@@ -280,8 +281,8 @@ static struct i2c_client_address_data sensor_sub_addr_data = { .forces = sensor_
 			this_client->addr = (this_client->addr & (~0xFF)) | SENSOR_SUB_I2C_ADDR_CFG; 
 		}
 	}
-
-	msleep(20);
+	
+	mdelay(20);
 	
 	return 0;
 out:
@@ -923,8 +924,8 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
             // Open power
             Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val); 
             // Reset sensor
-            Sensor_Reset(1);	
-	    msleep(5);
+            Sensor_Reset(1);		    
+	    mdelay(5);
             // NOT in power down mode(maybe also open DVDD and DOVDD)
             Sensor_PowerDown(!power_down);           
             // Open Mclk in default frequency
@@ -1024,7 +1025,8 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
             {
                 //*(volatile uint32_t*)(DCAM_BASE + 0x0100) &= ~(BIT_11|BIT_12);
 		_paad(CAP_CNTRL,  ~(BIT_11|BIT_12));
-              	SENSOR_Sleep(10);
+              	//SENSOR_Sleep(10);
+              	mdelay(10);
                 //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
                 _paod(CAP_CNTRL,  BIT_11);
                
@@ -1051,7 +1053,8 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
             {
                // *(volatile uint32_t*)(DCAM_BASE + 0x0100) &= ~(BIT_11|BIT_13);
 		_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));		
-              	SENSOR_Sleep(10);
+              	//SENSOR_Sleep(10);
+              	mdelay(10);
                 //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
 		_paod(CAP_CNTRL,  BIT_11); 
 		SENSOR_PRINT("sub power down. 0: CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
@@ -1324,6 +1327,13 @@ int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
 	uint8_t buf_w[3];
 	int32_t ret = -1;
 	struct i2c_msg msg_w;
+
+	if(0xFFFF == reg_addr) //for delay some msecond
+	{		
+		mdelay(value);
+		SENSOR_PRINT("Sensor_WriteReg wait %d ms.\n", value);
+		return 0;
+	}	
 	
 	buf_w[0]= reg_addr >> 8;
 	buf_w[1]= reg_addr & 0xFF;
@@ -1368,20 +1378,20 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 	value = buf_r;
 	return value;
 }
-int32_t Sensor_WriteReg_8bits(uint8_t reg_addr, uint8_t value)
+int32_t Sensor_WriteReg_8bits(uint16_t reg_addr, uint8_t value)
 {
 	uint8_t buf_w[2];
 	int32_t ret = -1;
 	struct i2c_msg msg_w;
 
-	if(reg_addr >= 0xFF)
+	if(0xFFFF == reg_addr) //for delay some msecond
 	{		
-		msleep(value);
+		mdelay(value);
 		SENSOR_PRINT("Sensor_WriteReg_8bits wait %d ms.\n", value);
 		return 0;
 	}
 	
-	buf_w[0]= reg_addr;
+	buf_w[0]= (uint8_t)reg_addr;
 	buf_w[1]= value;
 	msg_w.addr = this_client->addr; 
 	msg_w.flags = 0;
@@ -1653,7 +1663,7 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
         //ImgSensor_PutMutex();
     }	
 	do_gettimeofday(&time2);
-	SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d.\n",sensor_reg_tab_info_ptr->reg_count);
+	SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d, g_is_main_sensor: %d.\n",sensor_reg_tab_info_ptr->reg_count, g_is_main_sensor);
 	SENSOR_PRINT("SENSOR use new time sec: %ld, usec: %ld.\n", time1.tv_sec, time1.tv_usec);
 	SENSOR_PRINT("SENSOR use old time sec: %ld, usec: %ld.\n", time2.tv_sec, time2.tv_usec);
 
@@ -1737,7 +1747,7 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 	 	if(i2c_add_driver(&sensor_i2c_driver))
 		{
 			SENSOR_PRINT("SENSOR: add I2C driver error\n");
-			return SENSOR_FALSE;
+			return SENSOR_FAIL;
 		}  
 		else
 		{
@@ -1766,7 +1776,7 @@ PUBLIC SENSOR_ID_E Sensor_GetCurId(void)
 //  Author:         Tim.Zhu
 //  Note:           
 /*****************************************************************************/
-LOCAL uint32_t _Sensor_SetAllPowerDown(void)
+/*LOCAL uint32_t _Sensor_SetAllPowerDown(void)
 {
     uint8_t cur_sensor_id=0x00;
     uint8_t sensor_id=0x00;
@@ -1789,6 +1799,7 @@ LOCAL uint32_t _Sensor_SetAllPowerDown(void)
 
     return SENSOR_SUCCESS;
 }
+*/
 
 /*****************************************************************************/
 //  Description:    This function is used to set currect sensor id and set sensor
@@ -1796,7 +1807,19 @@ LOCAL uint32_t _Sensor_SetAllPowerDown(void)
 //  Author:         Tim.Zhu
 //  Note:           
 /*****************************************************************************/
-PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id)
+PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id){	
+	SENSOR_PRINT("Sensor_SetCurId : %d.\n", sensor_id);
+	if(sensor_id >= SENSOR_ID_MAX){
+        	_Sensor_CleanInformation();
+	        return SENSOR_FAIL;
+	}	
+	if(SENSOR_SUCCESS != _Sensor_SetId(sensor_id)){
+		SENSOR_PRINT("SENSOR: Fail to Sensor_SetCurId.\n");
+		return SENSOR_FAIL;
+	}
+	return SENSOR_SUCCESS;
+}
+/*PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id)
 {
     SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
 
@@ -1848,6 +1871,8 @@ PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id)
     return SENSOR_SUCCESS;
 }
 
+*/
+
 /*****************************************************************************/
 //  Description:    This function is used to get info of register sensor     
 //  Author:         Tim.Zhu
@@ -1863,6 +1888,62 @@ PUBLIC SENSOR_REGISTER_INFO_T_PTR Sensor_GetRegisterInfo(void)
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
+PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
+{
+    	uint32_t ret_val=SENSOR_FAIL;   
+    	SENSOR_INFO_T* sensor_info_ptr=PNULL;
+    	SENSOR_INFO_T** sensor_info_tab_ptr=PNULL;   
+    	uint8_t sensor_index = 0x0;
+    	uint32_t valid_tab_index_max=0x00;
+    	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
+
+    	SENSOR_PRINT("SENSOR: Sensor_Init, sensor_id: %d.\n", sensor_id);
+
+   	 if(Sensor_IsInit())
+    	{
+       	 	SENSOR_PRINT("SENSOR: Sensor_Init is done\n");        
+       		 return SENSOR_SUCCESS;
+    	}
+
+    	_Sensor_CleanInformation();
+	
+	SENSOR_PRINT("SENSOR: Sensor_Init Identify \n");
+        _Sensor_SetId(sensor_id);
+        sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
+        valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
+	for(sensor_index=0x00; sensor_index<valid_tab_index_max;sensor_index++){  
+            	sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
+            	if(DCAM_NULL==sensor_info_ptr)
+            	{
+                	SENSOR_PRINT("SENSOR: Sensor_Init  %d info is null", sensor_index);
+                	continue ;
+            	}
+            	s_sensor_info_ptr = sensor_info_ptr;
+            	Sensor_PowerOn(SENSOR_TRUE);
+
+            	if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify){
+                	 if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)){
+                		s_sensor_list_ptr[sensor_id]=s_sensor_info_ptr; 
+                    		sensor_register_info_ptr->is_register[sensor_id]=SENSOR_TRUE;
+                    		sensor_register_info_ptr->img_sensor_num++;                    		
+			        s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
+            			Sensor_SetExportInfo(&s_sensor_exp_info);
+			        s_sensor_init = SENSOR_TRUE;
+            			ret_val=SENSOR_SUCCESS;
+            			SENSOR_PRINT("SENSOR: Sensor_Init  Success \n");			
+                    		break ;
+			}
+		}
+	}
+	
+	if(SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT)){
+		ret_val=SENSOR_FAIL;
+	}
+	
+	return ret_val;	
+}	
+
+#if 0
 PUBLIC BOOLEAN Sensor_Init(void)
 {
 //scan_i2c_init();
@@ -2091,7 +2172,7 @@ PUBLIC BOOLEAN Sensor_Init(void)
     return ret_val;	
 }
 
-
+#endif //sensor_init
 /*****************************************************************************/
 //  Description:    This function is used to check if sensor has been init    
 //  Author:         Liangwen.Zhen
@@ -2121,6 +2202,7 @@ PUBLIC BOOLEAN Sensor_IsInit(void)
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
+#if 0
 PUBLIC ERR_SENSOR_E Sensor_Open(void)
 {
     //I2C_DEV  dev={0x00};
@@ -2313,6 +2395,7 @@ PUBLIC ERR_SENSOR_E Sensor_Open(void)
     
 return SENSOR_SUCCESS;
 }
+#endif
 
 
 /*****************************************************************************/
@@ -2322,13 +2405,48 @@ return SENSOR_SUCCESS;
 /*****************************************************************************/
 PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 {
+    	uint32_t mclk;
+
+        SENSOR_PRINT("SENSOR: Sensor_SetMode -> mode = %d.\n", mode);        
+        if(SENSOR_FALSE == Sensor_IsInit()){	          
+		SENSOR_PRINT("SENSOR: Sensor_SetResolution -> sensor has not init");
+            	return SENSOR_OP_STATUS_ERR;
+        }	
+        
+        if(s_sensor_mode[Sensor_GetCurId()] == mode){
+            	SENSOR_PRINT("SENSOR: The sensor mode as before");	 
+            	return SENSOR_SUCCESS;
+        }
+
+        if(PNULL != s_sensor_info_ptr->resolution_tab_info_ptr[mode].sensor_reg_tab_ptr){		
+            // set mclk
+            mclk = s_sensor_info_ptr->resolution_tab_info_ptr[mode].xclk_to_sensor;		
+            Sensor_SetMCLK(mclk);
+
+            // set image format
+            s_sensor_exp_info.image_format = s_sensor_exp_info.sensor_mode_info[mode].image_format;
+
+            // send register value to sensor
+            Sensor_SendRegTabToSensor(&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
+
+            s_sensor_mode[Sensor_GetCurId()]=mode;
+        }
+        else{
+            SENSOR_PRINT("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
+        }
+
+	return SENSOR_SUCCESS;
+}
+#if 0
+PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
+{
     uint32_t mclk;
 
     if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
     {
         SENSOR_PRINT("SENSOR: Sensor_SetMode -> mode = %d.\n", mode);
         
-        if(!Sensor_IsInit())
+        if(SENSOR_FALSE == Sensor_IsInit())
         {
             SENSOR_PRINT("SENSOR: Sensor_SetResolution -> sensor has not init");
             return SENSOR_OP_STATUS_ERR;
@@ -2364,6 +2482,7 @@ PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 
 	return SENSOR_SUCCESS;
 }
+#endif
 
 
 /*****************************************************************************/
@@ -2484,6 +2603,10 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
+PUBLIC BOOLEAN  Sensor_IsOpen(void){
+	return s_sensor_open;
+}
+/*
 PUBLIC BOOLEAN  Sensor_IsOpen(void) 
 {
     if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
@@ -2497,7 +2620,7 @@ PUBLIC BOOLEAN  Sensor_IsOpen(void)
 
     return SENSOR_FALSE;
         
-}
+}*/
 
 /*****************************************************************************/
 //  Description:    This function is used to set sensor type (img sensor or atv)   
