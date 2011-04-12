@@ -784,6 +784,8 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	streamparm->parm.capture.readbuffers = dev->streamparm.parm.capture.readbuffers;
 	for(i = 0; i < 4; i++)
 		streamparm->parm.capture.reserved[i] = dev->streamparm.parm.capture.reserved[i];
+	streamparm->parm.raw_data[0] = dev->streamparm.parm.raw_data[0];
+	streamparm->parm.raw_data[1] = dev->streamparm.parm.raw_data[1];
 	DCAM_V4L2_PRINT("###V4L2: vidioc_g_parm X.\n");
 	return 0;
 }

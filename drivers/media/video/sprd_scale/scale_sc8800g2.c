@@ -819,9 +819,11 @@ LOCAL int32_t _SCALE_DriverStop(void)
 
     _SCALE_DriverIrqDisable(ISP_IRQ_SCL_LINE_MASK);
     _SCALE_DriverIrqClear(ISP_IRQ_SCL_LINE_MASK);
-
+	//wxz20110412: set little endian to the write endian. Make sure the write endian is the little endian.
+	_SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,0);
+	
 	SCALE_PRINT("###scale: DriverStop is OK.\n"); 
-
+	
     return rtn;
 }
 
@@ -1783,7 +1785,7 @@ static int _SCALE_DriverColorConvertByDMA(uint32_t width, uint32_t height, uint3
                 block_len,
                 byte_per_pixel*8, byte_per_pixel*8,
                 src_addr, dst_addr, total_len);	
-	ctrl.dma_desc->cfg |= (0x2 << 28);//for 0xABCD->0xBADC
+	//ctrl.dma_desc->cfg |= (0x2 << 28);//for 0xABCD->0xBADC //wxz:20110412: delete it. Becase change the write endian from half word to little endian.
 	 sprd_dma_setup(&ctrl); 
 	 sprd_dma_start(DMA_SOFT0);	 
 	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);	
