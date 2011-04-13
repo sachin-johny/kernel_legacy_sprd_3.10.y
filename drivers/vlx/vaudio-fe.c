@@ -1174,5 +1174,5 @@ vaudio_init (void)
     return 0;
 }
 
-late_initcall(vaudio_init);
+module_init(vaudio_init);
 module_exit(vaudio_exit);
