@@ -1800,8 +1800,12 @@ void *alloc_share_memory(unsigned int size, unsigned int res_id)
 
 }
 
+struct clock_stub *pstub_start;
+char (*pname_start)[MAX_CLOCK_NAME_LEN];
+
 struct clock_stub *pstub;
 char (*pname)[MAX_CLOCK_NAME_LEN];
+
 
 int __init sc8800g2_clock_init(void)
  {
@@ -1821,25 +1825,33 @@ int __init sc8800g2_clock_init(void)
 
 	/* allocate memory for shared clock information. */
 	array_size = ARRAY_SIZE(sc8800g2_clks) + 1;
-	pstub = (struct clock_stub *)alloc_share_memory(CLOCK_NUM * 
+	pstub_start= (struct clock_stub *)alloc_share_memory(CLOCK_NUM * 
 		sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
-	if (NULL == pstub) {
+	if (NULL == pstub_start) {
 		CLK_FW_ERR("Clock Framework: alloc_share_memory() failed!\n");
 		return -ENOMEM;
 	}
 
 	/* allocate memory for clock name. */
-	pname = alloc_share_memory(CLOCK_NUM * MAX_CLOCK_NAME_LEN, 
+	pname_start = alloc_share_memory(CLOCK_NUM * MAX_CLOCK_NAME_LEN, 
 				RES_CLOCK_NAME_MEM);
-	if (NULL == pname) {
+	if (NULL == pname_start) {
 		CLK_FW_ERR("Clock Framework: alloc_share_memory() failed!\n");
 		return -ENOMEM;
 	}
-	
+
+        /* find first available block. */
+        for (index = 0, pstub = pstub_start, pname = pname_start; 
+                         NULL != pstub->name; 
+                         pstub++, pname++, index++) {
+            continue;
+        }
+	CLK_FW_INFO("######: first available block at: %d\n", index);
 	if (is_stub) {	
+               /*
 		memset(pname, '\0', CLOCK_NUM * MAX_CLOCK_NAME_LEN);
 		memset(pstub, 0x00, CLOCK_NUM * sizeof(struct clock_stub));
-	
+	       */
 		/* initialize parameters stored in pmem. */
 		index = 0;
 		for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
@@ -1890,6 +1902,14 @@ int __init sc8800g2_clock_init(void)
 	clk_enable_init_clocks();
 	CLK_FW_ERR("###: sc8800g2_clock_init() is done.\n");
 	clk_print_all();
+
+       /* show all clocks, both linux side and RTOS side. */
+        for (index = 0, pstub = pstub_start; index < CLOCK_NUM; index++) {
+		CLK_FW_ERR("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+			index, &pstub[index], pstub[index].name, pstub[index].flags, 
+			pstub[index].usecount);
+        }
+
 
 	return 0;
  }
