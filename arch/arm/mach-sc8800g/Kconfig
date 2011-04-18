@@ -26,6 +26,12 @@ config MACH_SP6810A
 	help
 	  Support for the SP6810A Phone
 
+config MACH_SP8805GA
+	depends on ARCH_SC8800G
+	bool "SP8805GA Phone"
+	help
+	  Support for the SP8805GA Phone
+
 endchoice
 
 config SC8800G_IDLE

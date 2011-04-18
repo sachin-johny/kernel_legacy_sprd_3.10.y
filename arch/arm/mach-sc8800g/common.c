@@ -126,6 +126,8 @@ static struct platform_device sprd_kpad_device = {
         .name           = "sprd-keypad",
 #elif defined(CONFIG_MACH_SP6810A)
         .name           = "sprd-keypad6810",
+#elif defined(CONFIG_MACH_SP8805GA)
+        .name           = "sprd-keypad",
 #endif
         .id             = -1,
         .num_resources  = ARRAY_SIZE(sprd_kpad_resources),

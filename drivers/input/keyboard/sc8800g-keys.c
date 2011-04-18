@@ -53,6 +53,10 @@
 #define DRV_NAME        	"sprd-keypad6810"
 #endif
 
+#ifdef CONFIG_MACH_SP8805GA
+#define DRV_NAME        	"sprd-keypad"
+#endif
+
 #define INT_MASK_STS            (SPRD_INTCV_BASE + 0x0000)
 #define INT_RAW_STS            	(SPRD_INTCV_BASE + 0x0004)
 #define INT_EN                  (SPRD_INTCV_BASE + 0x0008)
@@ -299,7 +303,8 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .keyup_test_interval    = 50, /* 50 ms (50ms) */
 };
 
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) ||\
+    defined(CONFIG_MACH_SP8805GA)
 static unsigned long keypad_func_cfg[] = { 
 	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
 	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
@@ -357,7 +362,8 @@ typedef struct kpd_key_tag
     unsigned long timer_id;
 } kpd_key_t;
 
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) ||\
+    defined(CONFIG_MACH_SP8805GA)
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM];
 kpd_key_t s_key[MAX_MUL_KEY_NUM];
 #elif defined(CONFIG_MACH_SP6810A)
@@ -859,7 +865,8 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         }
 
         device_init_wakeup(&pdev->dev, 1);
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) ||\
+    defined(CONFIG_MACH_SP8805GA)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
 #elif defined(CONFIG_MACH_SP6810A)
 	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++) {
@@ -902,7 +909,8 @@ static int __devexit sprd_kpad_remove(struct platform_device *pdev)
         //struct sprd_kpad_platform_data *pdata = pdev->dev.platform_data;
         struct sprd_kpad_t *sprd_kpad = platform_get_drvdata(pdev);
 
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) ||\
+    defined(CONFIG_MACH_SP8805GA)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++)
 #elif defined(CONFIG_MACH_SP6810A)
 	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++)
