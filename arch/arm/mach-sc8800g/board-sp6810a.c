@@ -216,7 +216,7 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_WIFI_POWER       106
 #define SPRD_3RDPARTY_GPIO_WIFI_RESET       140
 #define SPRD_3RDPARTY_GPIO_WIFI_PWD         99
-#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        139
+#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        101
 #define SPRD_3RDPARTY_GPIO_WIFI_IRQ         141
 #define SPRD_3RDPARTY_GPIO_BT_POWER         -1
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
@@ -227,6 +227,8 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_TP_PWR             (-1)   //not used
 #define SPRD_3RDPARTY_GPIO_TP_RST              26
 #define SPRD_3RDPARTY_GPIO_TP_IRQ              27
+#define SPRD_3RDPARTY_GPIO_PROXIMITY_TRANS	 139
+#define SPRD_3RDPARTY_GPIO_PROXIMITY_RECV	 142
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
@@ -242,6 +244,8 @@ int sprd_3rdparty_gpio_cmmb_irq   = SPRD_3RDPARTY_GPIO_CMMB_IRQ;
 int sprd_3rdparty_gpio_tp_pwr   = SPRD_3RDPARTY_GPIO_TP_PWR;
 int sprd_3rdparty_gpio_tp_rst   = SPRD_3RDPARTY_GPIO_TP_RST;
 int sprd_3rdparty_gpio_tp_irq   = SPRD_3RDPARTY_GPIO_TP_IRQ;
+int sprd_3rdparty_gpio_proximity_trans  = SPRD_3RDPARTY_GPIO_PROXIMITY_TRANS;
+int sprd_3rdparty_gpio_proximity_recv   = SPRD_3RDPARTY_GPIO_PROXIMITY_RECV;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -257,6 +261,8 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_pwr);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_proximity_trans);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_proximity_recv);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
@@ -270,7 +276,7 @@ static struct gpio_desc gpio_func_cfg[] = {
         "wifi pwd"
     },
     {
-        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        MFP_CFG_X(RFCTL11, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
         SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi wake"
     },
@@ -318,6 +324,16 @@ static struct gpio_desc gpio_func_cfg[] = {
 	MFP_CFG_X(KEYOUT7, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
 	SPRD_3RDPARTY_GPIO_TP_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
 	"mtp irq"
+    },
+    {
+	MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),	//proximity transmit port
+	SPRD_3RDPARTY_GPIO_PROXIMITY_TRANS,
+	"proximity trans"
+    },
+    {
+	MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),	//proximity
+	SPRD_3RDPARTY_GPIO_PROXIMITY_RECV,
+	"proximity recv"
     }
 };
 

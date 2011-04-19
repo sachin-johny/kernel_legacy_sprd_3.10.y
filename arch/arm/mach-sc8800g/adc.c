@@ -5,6 +5,7 @@
 #include <mach/adc_drvapi.h>
 #include <mach/adi_hal_internal.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 
 void ADC_Init(void)
 {
@@ -74,3 +75,6 @@ uint32_t ADC_GetValue(adc_channel id, bool scale)
     local_irq_restore(irq_flag);
     return result;
 }
+
+EXPORT_SYMBOL_GPL(ADC_Init);
+EXPORT_SYMBOL_GPL(ADC_GetValue);
