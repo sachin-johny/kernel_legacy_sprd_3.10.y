@@ -191,10 +191,10 @@ static void vbc_buffer_clear_all(void)
     vbc_access_buf(false);
 }
 
-/* static void vbc_codec_mute(void)
+static void vbc_codec_mute(void)
 {
     vbc_reg_VBCR1_set(DAC_MUTE, 1); // mute
-} */
+}
 
 static void vbc_codec_unmute(void)
 {
@@ -279,6 +279,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
 {
     vbc_set_mainclk_to12M();
     vbc_set_ctrl2arm();
+    vbc_codec_mute();
     vbc_ready2go();
 
     vbc_set_AD_DA_fifo_frame_num(VBC_FIFO_FRAME_NUM, VBC_FIFO_FRAME_NUM);
@@ -419,8 +420,16 @@ EXPORT_SYMBOL_GPL(flush_vbc_cache);
 static int vbc_startup(struct snd_pcm_substream *substream,
     struct snd_soc_dai *dai)
 {
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        vbc_buffer_clear_all();
+    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+        // After phone call, we should reset all codec releated registers
+        // because in phone call state dsp will control codec, and set all registers
+        // so we should reset all registers again in linux side,
+        // otherwise android media will not work
+        // if you want record after phone call, please play some thing first [luther.ge]
+        vbc_reset(dai->codec);
+        vbc_reset(dai->codec);
+        // vbc_buffer_clear_all();
+    }
 //  vbc_codec_unmute();
     return 0;
 }
