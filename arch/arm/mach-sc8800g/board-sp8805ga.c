@@ -106,25 +106,9 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
    {
         I2C_BOARD_INFO(SENSOR_SUB_I2C_NAME,SENSOR_SUB_I2C_ADDR|0x8000),
     },
-};
-
-static unsigned long i2c_gpio_pin_cfg[] = {
-	MFP_CFG_X(GPIO143, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
-	MFP_CFG_X(GPIO144, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),	
-};
-
-static struct i2c_gpio_platform_data pdata = {
-	.sda_pin		= 143,
-	.sda_is_open_drain	= 0,
-	.scl_pin		= 144,
-	.scl_is_open_drain	= 0,
-	.udelay			= 2,		/* ~100 kHz */
-};
-
-static struct platform_device i2c_gpio_device_data = {
-	.name			= "i2c-gpio",
-	.id			= -1,
-	.dev.platform_data	= &pdata,
+   {
+        I2C_BOARD_INFO("ssd2531",0x5c|0xc000),
+    },    
 };
 
 #if defined(CONFIG_SPI_SC88XX) || defined(CONFIG_SPI_SC88XX_MODULE)
@@ -225,8 +209,8 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_CMMB_RESET       94
 #define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
 #define SPRD_3RDPARTY_GPIO_TP_PWR             (-1)   //not used
-#define SPRD_3RDPARTY_GPIO_TP_RST              26
-#define SPRD_3RDPARTY_GPIO_TP_IRQ              27
+#define SPRD_3RDPARTY_GPIO_TP_RST              27
+#define SPRD_3RDPARTY_GPIO_TP_IRQ              26
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
@@ -310,12 +294,12 @@ static struct gpio_desc gpio_func_cfg[] = {
         "demod int"
     },
    {
-	MFP_CFG_X(KEYOUT6, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	MFP_CFG_X(KEYOUT7, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 	SPRD_3RDPARTY_GPIO_TP_RST,
 	"mtp reset"
     },
     {
-	MFP_CFG_X(KEYOUT7, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+	MFP_CFG_X(KEYOUT6, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
 	SPRD_3RDPARTY_GPIO_TP_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
 	"mtp irq"
     }
@@ -437,8 +421,16 @@ static void sprd_spi_init(void)
 static void sprd_spi_init(void) {}
 #endif
 
+static struct platform_device ssd2531_device = {
+	.name 	= "pnx-ssd2531",
+	.id	            = 0,
+	//.num_resources  = ARRAY_SIZE(ssd2531_device),
+	//.resource       = ssd2531_device,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&example_device,
+	&ssd2531_device,
 #ifdef CONFIG_ANDROID_PMEM
 	&android_pmem_device,
 	&android_pmem_adsp_device,
@@ -462,13 +454,18 @@ static void __init chip_init(void)
     __raw_writel(0x1fff00, PIN_CTL_REG);
 }
 
+static unsigned long i2c_func_cfg[] __initdata = {
+	MFP_CFG_X(GPIO143, AF1, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(GPIO144, AF1, DS3, F_PULL_UP,  S_PULL_NONE, IO_Z),
+};
+
+static void sprd_config_i2c_pins(void)
+{
+	sprd_mfp_config(i2c_func_cfg, ARRAY_SIZE(i2c_func_cfg));
+}
 void __init i2c_gpio_device_set(struct i2c_board_info *devices, int nr_devices)
 {
-
-	sprd_mfp_config(i2c_gpio_pin_cfg, ARRAY_SIZE(i2c_gpio_pin_cfg));
-	//i2c_register_board_info(0, devices, nr_devices);
-	platform_device_register(&i2c_gpio_device_data);
-
+	sprd_config_i2c_pins();
 	i2c_register_board_info(1,openphone_i2c_boardinfo,ARRAY_SIZE(openphone_i2c_boardinfo));
 }
 
