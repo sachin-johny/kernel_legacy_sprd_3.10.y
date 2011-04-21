@@ -20,8 +20,10 @@
 
 
 /* which level the clock belongs to, AHB or APB. */
-#define	CLOCK_ON_AHB	(0x1UL << 20)
-#define	CLOCK_ON_APB	(0x1UL << 20)
+#define	DEVICE_AHB	(0x1UL << 20)
+#define	DEVICE_APB	(0x1UL << 21)
+#define	DEVICE_VIR	(0x1UL << 22)
+
 
 
 #define	CLOCK_NUM		128

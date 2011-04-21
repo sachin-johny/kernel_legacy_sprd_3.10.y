@@ -86,6 +86,9 @@
 #define GEN0_TMR_RTC_EN                 BIT_28
 //reserved
 
+/* GR_PCTL */
+#define MCU_MPLL_EN    (0x1UL << 1)
+
 /*
   the GEN1 register bit
 */
@@ -185,7 +188,10 @@
 #define CLK_PWM3_SEL                        BIT_28
 
 // POWER CTL1
+/*
 #define POWCTL1_CONFIG                  0x7FFFF903
+*/
+#define POWCTL1_CONFIG 0x00000001e  // isolation number 1ms:30cycles
 
 
 

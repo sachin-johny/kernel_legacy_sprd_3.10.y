@@ -104,8 +104,10 @@
 #define	DSP_RESET		(0x1UL << 0)
 
 /* bit definitions for register AHB_PAUSE */
+#define	MCU_CORE_SLEEP		(0x1UL << 0)
 #define	MCU_SYS_SLEEP_EN		(0x1UL << 1)
 #define	MCU_DEEP_SLEEP_EN		(0x1UL << 2)
+#define	APB_SLEEP		(0x1UL << 3)
 
 
 /* bit definitions for register AHB_STS */

@@ -19,39 +19,57 @@
 
 #include <asm/io.h>
 #include <mach/regs_ahb.h>
+#include <mach/test.h>
+
 
 /*
 #define CONFIG_PM_SC8800G_TEST_MODE 0
 */
 
 extern void sc8800g_cpu_standby(void);
-#ifdef        CONFIG_DEBUG_LL
-extern void printascii(char *);
-#endif
+
+extern int prepare_deep_sleep(void);
 
 
-#ifdef CONFIG_PM_SC8800G_TEST_MODE
-extern void	prepare_deep_sleep(void);
-extern void	force_dsp_sleep(void);
-#endif
-
+extern int prepare_deep_sleep(void);
+extern int sc8800g_prepare_deep_sleep(void);
+extern int sc8800g_enter_deepsleep(void);
 
 int sc8800g_pm_enter(suspend_state_t state)
 {
-
+    int ret_val;
+    u32 t0, t1;
+/*
+    t0 = get_sys_cnt();
+    printascii("####: t0 = ");
+    printhex8(t0);
+    printascii("\r\n");
+*/
 	/* *** go zzz *** */	
 	local_fiq_disable();
 
-#ifdef CONFIG_PM_SC8800G_TEST_MODE
-	prepare_deep_sleep();
-#endif
-	printk("Linux: nk_idle()\n");
+    
+	//printascii("######: Linux: nk_idle()\n");
 	hw_local_irq_disable();
-	(void)os_ctx->idle(os_ctx);
+    
+
+	ret_val = os_ctx->idle(os_ctx);
+    if (0 == ret_val) {
+        
+        //printascii("####: goto deep sleep now......\n");
+        sc8800g_enter_deepsleep();
+       
+    }
+
 	hw_local_irq_enable();
 
 	local_fiq_enable();
-
+/*
+       t1 = get_sys_cnt();
+    printascii("####: t1 = ");
+    printhex8(t1);
+    printascii("\r\n");
+*/
 	return 0;
 }
 
@@ -93,16 +111,14 @@ EXPORT_SYMBOL_GPL(sc8800g_enter_sleep);
 
 static int __init sc8800g_pm_init(void)
 {
+/* prepare for deep sleep */
+    sc8800g_prepare_deep_sleep();
+
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&sc8800g_pm_ops);
 #endif /* CONFIG_SUSPEND */
 
-
-/* download mini DSP code and make DSP sleep for ever, for test only. */
-#ifdef CONFIG_PM_SC8800G_TEST_MODE
-	force_dsp_sleep();
-#endif
-	return 0;
+    return 0;
 }
 
 device_initcall(sc8800g_pm_init);

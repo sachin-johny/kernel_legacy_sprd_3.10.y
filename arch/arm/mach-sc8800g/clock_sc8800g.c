@@ -1824,7 +1824,7 @@ int __init sc8800g2_clock_init(void)
             is_stub ? "Stub" : "Non-Stub");
 
 	/* allocate memory for shared clock information. */
-	array_size = ARRAY_SIZE(sc8800g2_clks) + 1;
+	array_size = ARRAY_SIZE(sc8800g2_clks);
 	pstub_start= (struct clock_stub *)alloc_share_memory(CLOCK_NUM * 
 		sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
 	if (NULL == pstub_start) {
@@ -1865,8 +1865,8 @@ int __init sc8800g2_clock_init(void)
 	
 		/* make sure list has a termination mark. */
 		pstub[index].name = NULL;
-	
-		for (	c = sc8800g2_clks, index = 0; index < CLOCK_NUM; index++) {
+	/*
+		for (	c = sc8800g2_clks, index = 0; index < array_size; index++) {
 			CLK_FW_ERR("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
 				index, &pstub[index], pstub[index].name, pstub[index].flags, 
 				pstub[index].usecount);
@@ -1884,6 +1884,7 @@ int __init sc8800g2_clock_init(void)
 			CLK_FW_ERR("pname[%d] [addr = %p] [name = %s]\n", 
 				index, (char *)&pname[index], (char *)&pname[index]);
 		}
+        */
     }
 
 	rates_init();
@@ -1903,15 +1904,38 @@ int __init sc8800g2_clock_init(void)
 	CLK_FW_ERR("###: sc8800g2_clock_init() is done.\n");
 	clk_print_all();
 
-       /* show all clocks, both linux side and RTOS side. */
-        for (index = 0, pstub = pstub_start; index < CLOCK_NUM; index++) {
-		CLK_FW_ERR("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
-			index, &pstub[index], pstub[index].name, pstub[index].flags, 
-			pstub[index].usecount);
-        }
-
+    /* show all clocks, both linux side and RTOS side. */
+    for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
+	    CLK_FW_INFO("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
+		index, &pstub[index], pstub[index].name, pstub[index].flags, 
+		pstub[index].usecount);
+    }
 
 	return 0;
  }
 
+int sc8800g_get_clock_status(void)
+{
+    int index = 0;
+    
+    int status = 0;
+    
+    /* check all clocks, both linux side and RTOS side. */
+    for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
+	    if (pstub->usecount) {
+	        CLK_FW_INFO("###: clock[%s] is active now, [flags = %08x] [usecount = %d].\n", 
+		    pstub[index].name, pstub[index].flags, pstub[index].usecount);
+		    
+		    status |= pstub[index].flags;
+		    
+		    if (pstub->flags & DEVICE_AHB) {
+		        CLK_FW_INFO("###: clcok[%s] is on AHB.", pstub[index].name);
+		    }
+		    if (pstub->flags & DEVICE_APB) {
+		        CLK_FW_INFO("###: clcok[%s] is on APB.", pstub[index].name);
+		    }
+	    }
+    }
+    return status;
+}
 
