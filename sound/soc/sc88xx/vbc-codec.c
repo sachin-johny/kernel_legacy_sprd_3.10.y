@@ -32,7 +32,8 @@
 
 #include "sc88xx-asoc.h"
 
-#define POWER_OFF_ON_STANDBY 0
+#define POWER_OFF_ON_STANDBY    0
+#define VBC_CODEC_RESET    0xffff
 /*
   ALSA SOC usually puts the device in standby mode when it's not used
   for sometime. If you define POWER_OFF_ON_STANDBY the driver will
@@ -62,6 +63,17 @@ static const struct soc_enum vbc_mic12_enum =
         MICSEL,
         2,
         vbc_mic_sel);
+
+static const char *vbc_codec_reset_enum_sel[] = {
+    "false",
+    "true",
+};
+
+static const struct soc_enum vbc_codec_reset_enum =
+    SOC_ENUM_SINGLE(VBC_CODEC_RESET,
+        0,
+        2,
+        vbc_codec_reset_enum_sel);
 
 #define VBC_PCM_CTRL(name) \
     SOC_SINGLE(name" Playback Switch", VBCR1, DAC_MUTE, 1, 1), \
@@ -94,6 +106,8 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE_TLV("Headset Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Capture
     SOC_SINGLE_TLV("Capture Capture Volume", VBCGR10, 4, 0x0f, 0, adc_tlv),
+    // reset codec
+    SOC_ENUM("Reset Codec", vbc_codec_reset_enum),
 };
 
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
@@ -350,8 +364,28 @@ static int vbc_reset(struct snd_soc_codec *codec)
     return 0;
 }
 
+static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, int dir)
+{
+    // printk("vbc_soft_ctrl value[%d]=%04x\n", dir, reg);
+    switch (reg) {
+        case VBC_CODEC_RESET:
+            // After phone call, we should reset all codec related registers
+            // because in phone call state dsp will control codec, and set all registers
+            // so we should reset all registers again in linux side,
+            // otherwise android media will not work [luther.ge]
+            // if (val & (1 << VBC_CODEC_SOFT_RESET))
+            if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
+            vbc_reset(codec);
+            vbc_reset(codec);
+            return 0;
+        default: return -1;
+    }
+}
+
 static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 {
+    int ret = vbc_soft_ctrl(codec, reg, 0);
+    if (ret >=0) return ret;
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
     reg |= ARM_VB_BASE2;
 #ifdef CONFIG_ARCH_SC8800S
@@ -363,6 +397,8 @@ static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 
 static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int val)
 {
+    int ret = vbc_soft_ctrl(codec, reg, 1);
+    if (ret >=0) return ret;
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
     reg |= ARM_VB_BASE2;
 #ifdef CONFIG_ARCH_SC8800S
@@ -421,14 +457,7 @@ static int vbc_startup(struct snd_pcm_substream *substream,
     struct snd_soc_dai *dai)
 {
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-        // After phone call, we should reset all codec releated registers
-        // because in phone call state dsp will control codec, and set all registers
-        // so we should reset all registers again in linux side,
-        // otherwise android media will not work
-        // if you want record after phone call, please play some thing first [luther.ge]
-        vbc_reset(dai->codec);
-        vbc_reset(dai->codec);
-        // vbc_buffer_clear_all();
+        vbc_buffer_clear_all();
     }
 //  vbc_codec_unmute();
     return 0;
