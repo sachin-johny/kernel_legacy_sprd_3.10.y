@@ -322,16 +322,16 @@ static struct gpio_desc gpio_func_cfg[] = {
     },
     {
 	MFP_CFG_X(KEYOUT7, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
-	SPRD_3RDPARTY_GPIO_TP_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	SPRD_3RDPARTY_GPIO_TP_IRQ,
 	"mtp irq"
     },
     {
-	MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),	//proximity transmit port
+	MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	//proximity transmit port
 	SPRD_3RDPARTY_GPIO_PROXIMITY_TRANS,
 	"proximity trans"
     },
     {
-	MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),	//proximity
+	MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	//proximity
 	SPRD_3RDPARTY_GPIO_PROXIMITY_RECV,
 	"proximity recv"
     }
