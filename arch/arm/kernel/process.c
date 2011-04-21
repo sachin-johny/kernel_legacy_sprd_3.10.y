@@ -178,7 +178,9 @@ void cpu_idle(void)
 #ifndef CONFIG_NKERNEL
 				pm_idle();
 #else
+
 				nkidle();
+
 #endif
 				start_critical_timings();
 				/*
