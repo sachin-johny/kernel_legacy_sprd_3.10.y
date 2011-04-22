@@ -198,14 +198,14 @@ struct gpio_desc {
 };
 
 #define SPRD_3RDPARTY_GPIO_WIFI_POWER       106
-#define SPRD_3RDPARTY_GPIO_WIFI_RESET       140
+#define SPRD_3RDPARTY_GPIO_WIFI_RESET       135
 #define SPRD_3RDPARTY_GPIO_WIFI_PWD         99
-#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        139
-#define SPRD_3RDPARTY_GPIO_WIFI_IRQ         141
+#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        142
+#define SPRD_3RDPARTY_GPIO_WIFI_IRQ         136
 #define SPRD_3RDPARTY_GPIO_BT_POWER         -1
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
 #define SPRD_3RDPARTY_GPIO_BT_RTS           42
-#define SPRD_3RDPARTY_GPIO_CMMB_POWER       135
+#define SPRD_3RDPARTY_GPIO_CMMB_POWER       140
 #define SPRD_3RDPARTY_GPIO_CMMB_RESET       94
 #define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
 #define SPRD_3RDPARTY_GPIO_TP_PWR             (-1)   //not used
@@ -254,12 +254,12 @@ static struct gpio_desc gpio_func_cfg[] = {
         "wifi pwd"
     },
     {
-        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-        SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+        SPRD_3RDPARTY_GPIO_WIFI_WAKE,
         "wifi wake"
     },
     {
-        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        MFP_CFG_X(GPIO135, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
         SPRD_3RDPARTY_GPIO_WIFI_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi reset"
     },
@@ -274,12 +274,12 @@ static struct gpio_desc gpio_func_cfg[] = {
         "BT RTS"
     },
     {
-        MFP_CFG_X(GPIO141, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+        MFP_CFG_X(GPIO136, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
         SPRD_3RDPARTY_GPIO_WIFI_IRQ,
         "Wi-Fi IRQ"
     },
     {
-        MFP_CFG_X(GPIO135, AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE), // cmmb power
+        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE), // cmmb power
         SPRD_3RDPARTY_GPIO_CMMB_POWER,
         "demod power"
     },
@@ -376,6 +376,39 @@ struct spi_device *sprd_spi_cmmb_device_register(int master_bus_num, struct spi_
     return sprd_spi_device_register(master_bus_num, chip, SPRD_3RDPARTY_SPI_CMMB_CS);
 }
 EXPORT_SYMBOL_GPL(sprd_spi_cmmb_device_register);
+
+int sprd_spi_cs_hook(int cs_gpio, int dir)
+{
+    #define cmmb_wifi_spi_sw_gpio   137
+    static int first_dynamic_create = 1;
+
+    if (first_dynamic_create) {
+        static struct gpio_desc gpio_func_cfg[] = {
+            {
+                MFP_CFG_X(GPIO137, AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE), // cmmb power
+                cmmb_wifi_spi_sw_gpio,
+                "cmmb_wifi_spi_sw_gpio"
+            },
+        };
+        first_dynamic_create = 0;
+        sprd_mfp_config(&gpio_func_cfg[0].mfp, 1);// ARRAY_SIZE(gpio_func_cfg));
+        if (gpio_request(cmmb_wifi_spi_sw_gpio, gpio_func_cfg[0].desc))
+            printk(KERN_WARNING "%s : [%s] gpio %d request failed!\n",
+                   __func__, gpio_func_cfg[0].desc, cmmb_wifi_spi_sw_gpio);
+        gpio_direction_output(cmmb_wifi_spi_sw_gpio, 0);
+    }
+
+    if (cs_gpio == spi_cs_gpio[SPRD_3RDPARTY_SPI_WIFI_CS]) {
+        if (dir > 0) __gpio_set_value(cmmb_wifi_spi_sw_gpio, 0);
+        // cs_gpio = spi_cs_gpio[0]; // sp8805ga-borad always return cs0 gpio
+    } else if (cs_gpio == spi_cs_gpio[SPRD_3RDPARTY_SPI_CMMB_CS]) {
+        if (dir > 0) __gpio_set_value(cmmb_wifi_spi_sw_gpio, 1);
+        // cs_gpio = spi_cs_gpio[0]; // sp8805ga-borad always return cs0 gpio
+    }
+
+    return cs_gpio;
+}
+EXPORT_SYMBOL_GPL(sprd_spi_cs_hook);
 
 static void sprd_spi_init(void)
 {
