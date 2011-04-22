@@ -526,6 +526,7 @@ sprd_spi_interrupt(int irq, void *dev_id)
 #endif
 }
 
+extern int sprd_spi_cs_hook(int cs_gpio, int dir);
 static inline void cs_activate(struct sprd_spi_data *sprd_data, struct spi_device *spi)
 {
     if (sprd_data->cs_null) {
@@ -538,9 +539,8 @@ static inline void cs_activate(struct sprd_spi_data *sprd_data, struct spi_devic
         __raw_bits_or((sprd_ctrl_data->clk_spi_and_div >> 16) << 26, GR_CLK_DLY);
 
 #if SPRD_SPI_CS_GPIO
-         __gpio_set_value(sprd_ctrl_data->cs_gpio, spi->mode & SPI_CS_HIGH);
+        __gpio_set_value(sprd_spi_cs_hook(sprd_ctrl_data->cs_gpio, 1), spi->mode & SPI_CS_HIGH);
 #endif
-
         sprd_data->cspi = spi;
 
         sprd_data->cs_null = 0;
@@ -552,8 +552,7 @@ static inline void cs_deactivate(struct sprd_spi_data *sprd_data, struct spi_dev
 #if SPRD_SPI_CS_GPIO
     if (spi) {
         struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
-        u32 cs_gpio = sprd_ctrl_data->cs_gpio;
-        __gpio_set_value(cs_gpio, !(spi->mode & SPI_CS_HIGH));
+        __gpio_set_value(sprd_spi_cs_hook(sprd_ctrl_data->cs_gpio, -1), !(spi->mode & SPI_CS_HIGH));
     }
 #else
     spi_bits_or(0x0F << 8, SPI_CTL0);
