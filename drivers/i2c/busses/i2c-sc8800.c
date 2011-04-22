@@ -163,6 +163,7 @@ static void sc8800_i2c_message_start(struct sc8800_i2c *i2c, struct i2c_msg *msg
     uint16_t addr;
 
     addr = msg->addr;
+
     switch ((addr & 0xC000) >> 14){
         case PIN_SIM_CONFIG:
             //also need config ldo fix me!!!!
@@ -303,6 +304,15 @@ static inline void sc8800_i2c_complete(struct sc8800_i2c *i2c, int ret)
 
 	wake_up(&i2c->wait);
 }
+
+static inline void sc8800_i2c_stop_only(struct sc8800_i2c *i2c, int ret)
+{
+	i2c->state = STATE_STOP;
+
+	sc8800_i2c_complete(i2c, ret);
+	sc8800_i2c_disable_irq(i2c);
+}
+
 #if 1
 static inline void sc8800_i2c_stop(struct sc8800_i2c *i2c, int ret)
 {
@@ -462,12 +472,13 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 			
 		} else {
 			/* send stop */
-			//printk("I2C write finished\n");   //comment by kewang 
+			//printk("I2C write finished \n");   //comment by kewang 
 		
 			//i2c->state =STATE_STOP;
 			//sc8800_i2c_complete(i2c,0);
 			//sc8800_i2c_disable_irq(i2c);
-			sc8800_i2c_stop(i2c,0);
+			//sc8800_i2c_stop(i2c,0);
+			sc8800_i2c_stop_only(i2c,0);
 		}
 		break;
 
