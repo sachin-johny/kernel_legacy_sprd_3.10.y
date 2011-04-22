@@ -206,8 +206,8 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
 #define SPRD_3RDPARTY_GPIO_BT_RTS           42
 #define SPRD_3RDPARTY_GPIO_CMMB_POWER       140
-#define SPRD_3RDPARTY_GPIO_CMMB_RESET       94
-#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
+#define SPRD_3RDPARTY_GPIO_CMMB_RESET       138
+#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         139
 #define SPRD_3RDPARTY_GPIO_TP_PWR             (-1)   //not used
 #define SPRD_3RDPARTY_GPIO_TP_RST              27
 #define SPRD_3RDPARTY_GPIO_TP_IRQ              26
