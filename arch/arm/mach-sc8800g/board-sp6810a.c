@@ -409,6 +409,12 @@ struct spi_device *sprd_spi_cmmb_device_register(int master_bus_num, struct spi_
 }
 EXPORT_SYMBOL_GPL(sprd_spi_cmmb_device_register);
 
+int sprd_spi_cs_hook(int cs_gpio, int dir)
+{
+    return cs_gpio;
+}
+EXPORT_SYMBOL_GPL(sprd_spi_cs_hook);
+
 static void sprd_spi_init(void)
 {
     int gpio, value;
