@@ -284,12 +284,12 @@ static struct gpio_desc gpio_func_cfg[] = {
         "demod power"
     },
     {
-        MFP_CFG_X(RFCTL4 , AF3, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE), // cmmb reset
+        MFP_CFG_X(GPIO138, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE), // cmmb reset
         SPRD_3RDPARTY_GPIO_CMMB_RESET,
         "demod reset"
     },
     {
-        MFP_CFG_X(RFCTL3 , AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE), // cmmb interrupt
+        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE), // cmmb interrupt
         SPRD_3RDPARTY_GPIO_CMMB_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "demod int"
     },
