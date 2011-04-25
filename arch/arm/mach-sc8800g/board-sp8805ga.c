@@ -98,7 +98,11 @@ struct platform_device android_pmem_adsp_device = {
 };
 #endif
 
+#define MMC328X_I2C_NAME		"mmc328x"
+#define MMC328X_I2C_ADDR		 0x30
+
 //i2c pad:  the high two bit of the addr is the pad control bit
+
 static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
     {
         I2C_BOARD_INFO(SENSOR_MAIN_I2C_NAME,SENSOR_MAIN_I2C_ADDR|0x8000),
@@ -108,7 +112,10 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
     },
    {
         I2C_BOARD_INFO("ssd2531",0x5c|0xc000),
-    },    
+    },  
+    {
+        I2C_BOARD_INFO(MMC328X_I2C_NAME, MMC328X_I2C_ADDR|0xC000),
+    }  
 };
 
 #if defined(CONFIG_SPI_SC88XX) || defined(CONFIG_SPI_SC88XX_MODULE)
