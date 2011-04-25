@@ -218,6 +218,7 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_TP_PWR             (-1)   //not used
 #define SPRD_3RDPARTY_GPIO_TP_RST              27
 #define SPRD_3RDPARTY_GPIO_TP_IRQ              26
+#define SPRD_3RDPARTY_GPIO_PLS_IRQ             28	//proximity&light sensor
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
@@ -233,6 +234,7 @@ int sprd_3rdparty_gpio_cmmb_irq   = SPRD_3RDPARTY_GPIO_CMMB_IRQ;
 int sprd_3rdparty_gpio_tp_pwr   = SPRD_3RDPARTY_GPIO_TP_PWR;
 int sprd_3rdparty_gpio_tp_rst   = SPRD_3RDPARTY_GPIO_TP_RST;
 int sprd_3rdparty_gpio_tp_irq   = SPRD_3RDPARTY_GPIO_TP_IRQ;
+int sprd_3rdparty_gpio_pls_irq	=SPRD_3RDPARTY_GPIO_PLS_IRQ;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -248,6 +250,7 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_pwr);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_pls_irq);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
@@ -309,7 +312,13 @@ static struct gpio_desc gpio_func_cfg[] = {
 	MFP_CFG_X(KEYOUT6, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
 	SPRD_3RDPARTY_GPIO_TP_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
 	"mtp irq"
+    },
+    {
+	MFP_CFG_X(KEYIN5, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+	SPRD_3RDPARTY_GPIO_PLS_IRQ,
+	"pls irq"
     }
+
 };
 
 static unsigned long spi_func_cfg[] = {
