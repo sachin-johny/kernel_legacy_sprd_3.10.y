@@ -364,7 +364,7 @@ static void usb_enable_module(int en)
 static void usb_startup(void)
 {
 	usb_enable_module(1);
-	msleep(10);
+	mdelay(10);
 	usb_ldo_switch(0);
 	__raw_bits_and(~BIT_1, AHB_CTL3);
 	__raw_bits_and(~BIT_2, AHB_CTL3);
@@ -373,9 +373,9 @@ static void usb_startup(void)
 
 
 	__raw_bits_or(BIT_7, AHB_SOFT_RST);
-	msleep(10);
+	mdelay(10);
 	__raw_bits_and(~BIT_7, AHB_SOFT_RST);
-	msleep(30);
+	mdelay(30);
 }
 
 void udc_enable(void)
@@ -385,9 +385,9 @@ void udc_enable(void)
 
 	//soft rest udc module
 	__raw_bits_or(BIT_7, AHB_SOFT_RST);
-	msleep(10);
+	mdelay(10);
 	__raw_bits_and(~BIT_7, AHB_SOFT_RST);
-	msleep(30);
+	mdelay(30);
 }
 EXPORT_SYMBOL(udc_enable);
 
@@ -410,12 +410,12 @@ void __init sprd_add_otg_device(void)
 /*Android USB Function */
 #define SPRD_VENDOR_ID		0x1782
 //#define SPRD_VENDOR_ID		0x0525
-#define SPRD_PRODUCT_ID		0x41D0
+#define SPRD_PRODUCT_ID		0x5D00
 //#define SPRD_VENDOR_ID		0x0BB4
 //#define SPRD_PRODUCT_ID		0x0C01
 //#define SPRD_ADB_PRODUCT_ID		0x0C02
 #define SPRD_ADB_PRODUCT_ID             0x41DB
-#define SPRD_RNDIS_PRODUCT_ID		0x41E4
+#define SPRD_RNDIS_PRODUCT_ID		0x5D04
 #define SPRD_RNDIS_ADB_PRODUCT_ID		0x41E5
 
 //#define SPRD_PRODUCT_ADB
@@ -462,6 +462,7 @@ static char *usb_functions_gser_adb_ums[] = {
 	"gser",
 	"usb_mass_storage",
 };
+
 static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	"rndis",
@@ -469,11 +470,11 @@ static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_ADB
 	"adb",
 #endif
-#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
-	"usb_mass_storage",
-#endif
 #ifdef CONFIG_USB_ANDROID_GSERIAL
 	"gser",
+#endif
+#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
+	"usb_mass_storage",
 #endif
 };
 
@@ -503,6 +504,12 @@ static struct android_usb_product usb_products[] = {
 		.product_id	= 0x5D02,
 		.num_functions	= ARRAY_SIZE(usb_functions_gser_adb),
 		.functions	= usb_functions_gser_adb,
+	},
+	{
+		//.product_id	= SPRD_PRODUCT_ID,
+		.product_id	= 0x5D03,
+		.num_functions	= ARRAY_SIZE(usb_functions_gser_adb_ums),
+		.functions	= usb_functions_gser_adb_ums,
 	},
 	{
 		//.product_id	= SPRD_PRODUCT_ID,
@@ -548,6 +555,7 @@ static struct platform_device androidusb_device = {
 static struct usb_mass_storage_platform_data usbms_plat = {
 	.vendor			= "Spreadtrum",
 	.product		= "openphone",
+    .nluns = 1,
 	.release		= 1,
 };
 
@@ -619,13 +627,15 @@ void __init sprd_add_dcam_device(void)
 }
 static unsigned long charger_detect_cfg =
     MFP_ANA_CFG_X(CHIP_RSTN, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
+
 void __init sprd_charger_init(void)
 {
     int ret;
+
     sprd_mfp_config(&charger_detect_cfg, 1);
-    gpio_request(CHARGER_DETECT_GPIO, "usb_plug");
+    gpio_request(CHARGER_DETECT_GPIO, "charger detect");
     gpio_direction_input(CHARGER_DETECT_GPIO);
     ret = sprd_alloc_gpio_irq(CHARGER_DETECT_GPIO);
-    if(ret)
-      pr_warning("cant alloc gpio irq %d\n", CHARGER_DETECT_GPIO);
+    if (ret < 0)
+            pr_warning("cant alloc gpio irq %d\n", CHARGER_DETECT_GPIO);
 }

@@ -557,6 +557,7 @@ static void __gpio_clear_irq_status (struct gpio_info *info)
 	value &= ~ (1 << info->bit_num);
 	value |= 1 << info->bit_num;
 	gpio_reg_set(reg_addr, info->die, value);
+    local_irq_restore(flags);
 }
 
 static int __gpio_get_int_status (struct gpio_info *info)

@@ -595,11 +595,12 @@ static int sprd_battery_probe(struct platform_device *pdev)
     ret = gpio_to_irq(CHARGER_DETECT_GPIO);
     data->irq = ret;      
 
-    set_irq_type(data->irq, IRQ_TYPE_LEVEL_LOW); //set usb plug irq lowlevel
-	ret = request_irq(data->irq, sprd_battery_interrupt, IRQF_SHARED, pdev->name, data);
+	ret = request_irq(data->irq, sprd_battery_interrupt, IRQF_SHARED |
+                        IRQF_TRIGGER_HIGH, pdev->name, data);
 	if (ret)
 		goto err_request_irq_failed;
-	ret = power_supply_register(&pdev->dev, &data->usb);
+
+    ret = power_supply_register(&pdev->dev, &data->usb);
 	if (ret)
 		goto err_usb_failed;
 

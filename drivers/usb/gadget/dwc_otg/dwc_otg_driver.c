@@ -712,7 +712,7 @@ static int dwc_otg_driver_probe(
 	 * Enable the global interrupt after all the interrupt
 	 * handlers are installed.
 	 */
-	dwc_otg_enable_global_interrupts(dwc_otg_device->core_if);
+	//dwc_otg_enable_global_interrupts(dwc_otg_device->core_if);
 
 	return 0;
 

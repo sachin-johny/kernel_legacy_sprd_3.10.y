@@ -453,6 +453,10 @@ static int adb_enable_open(struct inode *ip, struct file *fp)
 
 	printk(KERN_INFO "enabling adb\n");
 	android_enable_function(&_adb_dev->function, 1);
+    {
+    void enable_gpio_detect_irq(void);
+        enable_gpio_detect_irq();
+    }
 
 	return 0;
 }
