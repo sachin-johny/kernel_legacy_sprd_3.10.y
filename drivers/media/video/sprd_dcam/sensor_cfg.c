@@ -62,6 +62,7 @@ extern SENSOR_INFO_T g_OV3640_yuv_info;
 extern SENSOR_INFO_T g_mt9m112_yuv_info;
 extern SENSOR_INFO_T g_OV9660_yuv_info;
 extern SENSOR_INFO_T g_OV7690_yuv_info;
+extern SENSOR_INFO_T g_OV7675_yuv_info;
 extern SENSOR_INFO_T g_GT2005_yuv_info;
 extern SENSOR_INFO_T g_GC0309_yuv_info;
 /**---------------------------------------------------------------------------*
@@ -77,7 +78,7 @@ LOCAL SENSOR_IMAGE_FORMAT s_sensor_image_format = SENSOR_IMAGE_FORMAT_DEFAULT;
 /**---------------------------------------------------------------------------*
  **                         Constant Variables                                *
  **---------------------------------------------------------------------------*/
-#ifdef PLATFORM_6810
+#ifdef CONFIG_MACH_SP6810A
 const SENSOR_INFO_T* main_sensor_infor_tab[]=
 {
     &g_GT2005_yuv_info,
@@ -87,6 +88,18 @@ const SENSOR_INFO_T* main_sensor_infor_tab[]=
 const SENSOR_INFO_T* sub_sensor_infor_tab[]=
 {
     &g_GC0309_yuv_info,
+    PNULL
+};
+#elif CONFIG_MACH_SP8805GA
+const SENSOR_INFO_T* main_sensor_infor_tab[]=
+{
+    &g_OV2655_yuv_info,
+    PNULL
+};
+
+const SENSOR_INFO_T* sub_sensor_infor_tab[]=
+{
+    &g_OV7675_yuv_info,
     PNULL
 };
 #else
