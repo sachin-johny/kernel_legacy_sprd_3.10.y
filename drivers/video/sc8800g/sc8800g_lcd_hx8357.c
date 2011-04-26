@@ -253,12 +253,57 @@ static int32_t hx8357_set_direction(struct lcd_spec *self, uint16_t direction)
 	
 	return 0;
 }
-
+static int32_t hx8357_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
+{
+	if(is_sleep) {
+		self->info.mcu->ops->send_cmd_data(0x00FF, 0x00);//Select Command Page 0
+		// Display off Setting
+		self->info.mcu->ops->send_cmd_data(0x0028, 0x38); // GON=1, DTE=1, D[1:0]=10
+		mdelay(40);  //delay	
+		self->info.mcu->ops->send_cmd_data(0x0028, 0x04); // GON=0, DTE=0, D[1:0]=01
+		// Power off Setting
+		self->info.mcu->ops->send_cmd_data(0x001F, 0x90); // Stop VCOMG
+		// GAS_EN=1, VCOMG=0, PON=1, DK=0, XDK=0, DDVDH_TRI=0, STB=0
+		mdelay(5);  //delay	
+		self->info.mcu->ops->send_cmd_data(0x001F, 0x88);// Stop step-up circuit
+		// GAS_EN=1, VCOMG=1, PON=0, DK=1, XDK=1, DDVDH_TRI=0, STB=0
+		self->info.mcu->ops->send_cmd_data(0x001C, 0x00);// AP=000
+		self->info.mcu->ops->send_cmd_data(0x001F, 0x89);// Enter Standby mode
+		//GAS_EN=1, VCOMG=0, PON=0, DK=1, XDK=0, DDVDH_TRI=0, STB=1
+		self->info.mcu->ops->send_cmd_data(0x0019, 0x00);//OSC_EN=0, Stop to Oscillate
+	}
+	else {
+		self->info.mcu->ops->send_cmd_data(0x00FF, 0x00);//Select Command Page 0
+		self->info.mcu->ops->send_cmd_data(0x0019, 0x01);//OSC_EN=1, Start to Oscillate
+		mdelay(5);  //delay
+		self->info.mcu->ops->send_cmd_data(0x001F, 0x88);
+		//GAS_EN=1, VCOMG=0, PON=0, DK=1, XDK=0, DDVDH_TRI=0, STB=0
+		// Power on Setting
+		self->info.mcu->ops->send_cmd_data(0x001C, 0x03);// AP=011
+		self->info.mcu->ops->send_cmd_data(0x001F, 0x80);// Exit standby mode and Step-up circuit 1 enable
+		// GAS_EN=1, VCOMG=0, PON=0, DK=0, XDK=0, DDVDH_TRI=0, STB=0
+		mdelay(5);  //delay
+		self->info.mcu->ops->send_cmd_data(0x001F, 0x90);// Step-up circuit 2 enable
+		// GAS_EN=1, VCOMG=0, PON=1, DK=0, XDK=0, DDVDH_TRI=0, STB=0
+		mdelay(5);  //delay
+		self->info.mcu->ops->send_cmd_data(0x001F, 0xD4);
+		// GAS_EN=1, VCOMG=1, PON=1, DK=0, XDK=1, DDVDH_TRI=0, STB=0
+		mdelay(5);  //delay
+		// Display on Setting
+		self->info.mcu->ops->send_cmd_data(0x0028, 0x08);// GON=0, DTE=0, D[1:0]=01
+		mdelay(40);  //delay
+		self->info.mcu->ops->send_cmd_data(0x0028, 0x38);// GON=1, DTE=1, D[1:0]=10
+		mdelay(40);  //delay
+		self->info.mcu->ops->send_cmd_data(0x0028, 0x3C);// GON=1, DTE=1, D[1:0]=11
+	}
+	return 0;
+}
 static struct lcd_operations lcd_hx8357_operations = {
 	.lcd_init = hx8357_init,
 	.lcd_set_window = hx8357_set_window,
 	.lcd_invalidate = hx8357_invalidate,
 	.lcd_set_direction = hx8357_set_direction,
+	.lcd_enter_sleep = hx8357_enter_sleep,
 };
 
 static struct timing_mcu lcd_hx8357_timing = {

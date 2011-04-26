@@ -960,7 +960,7 @@ static int sc8800fb_probe(struct platform_device *pdev)
 
 	/* FIXME: put the BL stuff to where it belongs. */
 	set_backlight(50);
-
+	platform_set_drvdata(pdev, sc8800fb);
 	
 if(1){ /* in-kernel test code */
 	struct fb_info test_info;
@@ -1011,9 +1011,22 @@ if(1){ /* in-kernel test code */
 
 	return 0;
 }
-
+static int sc8800fb_suspend(struct platform_device *pdev,pm_message_t state)
+{
+	struct sc8800fb_info *sc8800fb=platform_get_drvdata(pdev);
+	sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,1);
+	return 0;
+}
+static int sc8800fb_resume(struct platform_device *pdev)
+{
+	struct sc8800fb_info *sc8800fb=platform_get_drvdata(pdev);
+	sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
+	return 0;
+}
 static struct platform_driver sc8800fb_driver = {
 	.probe = sc8800fb_probe,
+	.suspend = sc8800fb_suspend,
+	.resume = sc8800fb_resume,
 	.driver = {
 		.name = "sc8800fb",
 		.owner = THIS_MODULE,
