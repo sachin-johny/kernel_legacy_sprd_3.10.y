@@ -28,9 +28,13 @@
 #include <linux/delay.h>
 #include <asm/io.h>
 #include <asm/irq.h>
+#include <linux/clk.h>
+#include <asm/clkdev.h>
+#include <linux/err.h>
 #include <mach/hardware.h>
 #include <mach/mfp.h>
 #include <mach/io.h>
+#include <mach/clock_common.h>
 
 //#define CONFIG_TS0710_MUX_UART
 
@@ -43,6 +47,9 @@
 #define SP_TTY_NAME	"ttyS"
 #define SP_TTY_MINOR_START	64
 #define SP_TTY_MAJOR	TTY_MAJOR
+
+#define UART_CLK	26000000
+
 /*offset*/
 #define ARM_UART_TXD	0x0000
 #define ARM_UART_RXD	0x0004
@@ -646,7 +653,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL0_BASE,
 		.mapbase = SPRD_SERIAL0_BASE,
-		.uartclk =26000000,
+		.uartclk =UART_CLK,
 		.irq =IRQ_UART0,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -657,7 +664,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL1_BASE,
 		.mapbase = SPRD_SERIAL1_BASE,
-		.uartclk =26000000,
+		.uartclk =UART_CLK,
 		.irq =IRQ_UART1,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -668,7 +675,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL2_BASE,
 		.mapbase = SPRD_SERIAL2_BASE,
-		.uartclk =26000000,
+		.uartclk =UART_CLK,
 		.irq =IRQ_UART2,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -685,7 +692,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL0_BASE,
 		.mapbase = SPRD_SERIAL0_BASE,
-		.uartclk =26000000,
+		.uartclk =UART_CLK,
 		.irq =IRQ_UART0_1,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -696,7 +703,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL1_BASE,
 		.mapbase = SPRD_SERIAL1_BASE,
-		.uartclk =26000000,
+		.uartclk =UART_CLK,
 		.irq =IRQ_UART0_1,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -707,7 +714,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL2_BASE,
 		.mapbase = SPRD_SERIAL2_BASE,
-		.uartclk =26000000,
+		.uartclk =UART_CLK,
 		.irq =IRQ_UART2_3,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -718,7 +725,7 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL3_BASE,
 		.mapbase = SPRD_SERIAL3_BASE,
-		.uartclk =26000000,
+		.uartclk =UART_CLK,
 		.irq =IRQ_UART2_3,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -734,10 +741,64 @@ static struct uart_port serialsc8800_ports[] = {
 static void serialsc8800_setup_ports(void)
 {
 	unsigned int i;
-	for(i=0;i<UART_NR;i++)
-		serialsc8800_ports[i].uartclk=26000000;
+	
+	for(i=0;i<UART_NR;i++)		
+		serialsc8800_ports[i].uartclk=UART_CLK;
 }
-
+struct clk *serial_clk[UART_NR];
+static int clk_startup(void)
+{
+	unsigned int i;
+	struct clk *clk;
+	struct clk *clk_parent;
+	char clk_name[10];
+	int ret;
+    unsigned int div;
+	
+	for(i=0;i<UART_NR;i++){
+		sprintf(clk_name,"clk_uart%d",i);
+		clk = clk_get(NULL, clk_name);
+		if (IS_ERR(clk)) {
+			printk("clock[%s]: failed to get clock by clk_get()!\n",
+					clk_name);
+			return -EINVAL;
+		}
+		clk_parent = clk_get(NULL, "ext_26m");		
+		if (IS_ERR(clk_parent)) {
+			printk("clock[%s]: failed to get parent [%s] by clk_get()!\n",
+					clk_name, "clk_26m");
+			return -EINVAL;
+		}		
+		ret= clk_set_parent(clk, clk_parent);
+		if (ret) {
+			printk("clock[%s]: clk_set_parent() failed!\n", clk_name);
+			return -EINVAL;
+		}
+		div=1;
+		ret = clk_set_divisor(clk, div);
+		if (ret) {
+			printk("clock[%s]: clk_set_divisor() failed!\n", clk_name);
+			return -EINVAL;
+		}
+		ret = clk_enable(clk);
+		if (ret) {
+			printk("clock[%s]: clk_enable() failed!\n", clk_name);
+			return -EINVAL;
+		}
+        serial_clk[i]= clk;
+	}
+	return 0;
+}
+static int clk_shutdown(void)
+{
+	unsigned int i;
+	
+    for(i=0;i<UART_NR;i++){
+		clk_disable(serial_clk[i]);
+		clk_put(serial_clk[i]);
+	}
+	return 0;
+}
 #ifdef CONFIG_SERIAL_SPRD_CONSOLE
 static inline void wait_for_xmitr(struct uart_port *port)
 {
@@ -832,8 +893,13 @@ static struct uart_driver serialsc8800_reg = {
 static int serialsc8800_probe(struct platform_device *dev)
 {
 	int ret,i;
-    
-	serialsc8800_setup_ports();
+	
+    ret = clk_startup();
+	if (ret) {
+		printk("func[%s]: serial set clock failed!\n", __FUNCTION__);
+		return ret;
+	}	
+	serialsc8800_setup_ports();	
 	ret = uart_register_driver(&serialsc8800_reg);
 	if(ret ==0)
 		printk("serialsc8800_init:enter uart_add_one_port\n");
@@ -849,11 +915,16 @@ static int serialsc8800_probe(struct platform_device *dev)
 }
 static int serialsc8800_remove(struct platform_device *dev)
 {
-	int i;
-	for(i=0;i<UART_NR;i++)
+	int i,ret;
+	
+    for(i=0;i<UART_NR;i++)
 		uart_remove_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
 	uart_unregister_driver(&serialsc8800_reg);
-
+    ret = clk_shutdown();
+	if (ret) {
+		printk("func[%s]: serial shutdown clock failed!\n", __FUNCTION__);
+		return ret;
+	}
     return 0;
 }
 static struct platform_driver serialsc8800_driver = {
