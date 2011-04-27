@@ -36,6 +36,8 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 
+#include <mach/clock_common.h>
+
 #define VSP_MINOR MISC_DYNAMIC_MINOR
 #define VSP_TIMEOUT_MS 1000
 
@@ -87,9 +89,30 @@ struct vsp_dev{
     wait_queue_head_t	wait_queue;
     int  condition;  
     struct semaphore sem;
+    struct clk *vsp_clk; 
 };
 
 static struct vsp_dev dev;
+
+static char * vsp_get_clk_src_name(unsigned int clk_src)
+{
+        char *src_name;
+	switch(clk_src){
+		case VSP_96MHz:
+			src_name =  "clk_96m";
+			break;
+		case VSP_64MHz:
+			src_name =  "clk_64m";			
+			break;
+		case VSP_48MHz:
+			src_name =  "clk_48m";			
+			break;
+		default:
+			src_name =  "clk_26m";				
+			break;
+	}	
+	return src_name;
+}
 
 static inline int rt_policy(int policy)
 {
@@ -138,9 +161,28 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 {
 	uint32_t reg_value; 
         int ret;
+	struct clk *clk_parent;
+	char *name_parent;
+	int ret_val;	
+	
 	switch(cmd){
 	    case VSP_CONFIG_FREQ:
 	        get_user(dev.freq_div,(int __user *)arg);
+		//force disable clk
+		clk_disable(dev.vsp_clk);
+		//select new parent clk	
+		name_parent =vsp_get_clk_src_name(dev.freq_div);
+		clk_parent = clk_get(NULL, name_parent);
+		if (!clk_parent) {
+			printk("clock[%s]: failed to get parent [%s] by clk_get()!\n",
+				dev.vsp_clk->name, name_parent);
+			return -EINVAL;
+		}
+		ret_val = clk_set_parent(dev.vsp_clk, clk_parent);
+		if (ret_val) {
+			printk("clock[%s]: clk_set_parent() failed!", dev.vsp_clk->name);
+			return -EINVAL;
+		}			
 		VSP_PRINT("vsp ioctl VSP_CONFIG_FREQ %d\n",dev.freq_div);
 	    break;
 	    case VSP_GET_FREQ:
@@ -170,18 +212,23 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		VSP_PRINT("vsp ioctl VSP_ENABLE e\n");
 #endif
 #ifdef VSP_SC8800G2
+#if 0
 		reg_value = __raw_readl(AHB_CTL0);
 		reg_value |= (1<<13);
 		__raw_writel(reg_value,AHB_CTL0);
-		
-		reg_value = __raw_readl(AHB_SOFT_RST);
-		__raw_writel(reg_value|(1<<15),AHB_SOFT_RST);
-		__raw_writel(reg_value|(0<<15),AHB_SOFT_RST);	
 
 	        reg_value = __raw_readl(SPRD_GREG_PLL_SCR);
 		reg_value &= ~0xc;
 		reg_value |= (dev.freq_div<<2);
 		__raw_writel(reg_value,SPRD_GREG_PLL_SCR);
+#endif
+		ret = clk_enable(dev.vsp_clk);
+		if(ret){
+			printk("clock[%s]:clk_enable() failed!\n",dev.vsp_clk->name);
+		}
+		reg_value = __raw_readl(AHB_SOFT_RST);
+		__raw_writel(reg_value|(1<<15),AHB_SOFT_RST);
+		__raw_writel(reg_value|(0<<15),AHB_SOFT_RST);	
 #endif
 
 #ifdef VSP_DEBUG
@@ -189,7 +236,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 #endif
 	    break;
 	    case VSP_DISABLE:
-		//todo
+	        clk_disable(dev.vsp_clk);
 		VSP_PRINT("vsp ioctl VSP_DISABLE\n");
 	    break;	
 	    case VSP_ACQUAIRE:
@@ -258,6 +305,10 @@ static struct miscdevice vsp_dev = {
 
 static int vsp_probe(struct platform_device *pdev)
 {
+	struct clk *clk_parent;
+	char *name_parent;
+	int ret_val;
+	
 	int ret = misc_register(&vsp_dev);
 	if (ret) {
 		printk (KERN_ERR "cannot register miscdev on minor=%d (%d)\n",
@@ -266,22 +317,42 @@ static int vsp_probe(struct platform_device *pdev)
 	}
 
 	init_waitqueue_head(&dev.wait_queue);
-	dev.condition = 1;
+	dev.condition = 1;	
 #ifdef VSP_SC8800H5
 	dev.freq_div = DEFAULT_FREQ_DIV;
 #endif
 #ifdef VSP_SC8800G2
 	dev.freq_div = VSP_96MHz;
 #endif
+	dev.vsp_clk = clk_get(NULL,"clk_vsp");
+	if (IS_ERR(dev.vsp_clk)) {
+		printk("###: Failed : Can't get clock [%s}!\n","clk_vsp");
+		printk("###: vsp_clk =  %p\n",dev.vsp_clk);
+		return -EINVAL;
+	}
+	name_parent =vsp_get_clk_src_name(dev.freq_div);
+	clk_parent = clk_get(NULL, name_parent);
+	if (!clk_parent) {
+		printk("clock[%s]: failed to get parent in probe[%s] by clk_get()!\n",
+				dev.vsp_clk->name, name_parent);
+		return -EINVAL;
+	}
+
+	ret_val = clk_set_parent(dev.vsp_clk, clk_parent);
+	if (ret_val) {
+		printk("clock[%s]: clk_set_parent() failed in probe!", dev.vsp_clk->name);
+		return -EINVAL;
+	}	
 	return 0;
 }
 
-static int vsp_remove(struct platform_device *dev)
+static int vsp_remove(struct platform_device *pdev)
 {
 	printk(KERN_INFO "vsp_remove called !\n");
 
 	misc_deregister(&vsp_dev);
 
+	clk_put(dev.vsp_clk);
 	printk(KERN_INFO "vsp_remove Success !\n");
 	return 0;
 }
