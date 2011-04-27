@@ -354,7 +354,7 @@ static void usb_enable_module(int en)
 	if (en){
 		__raw_bits_or(BIT_6, AHB_CTL3);
 		__raw_bits_and(~BIT_9, GR_CLK_GEN5);
-		__raw_bits_or(BIT_5, AHB_CTL0);
+	//	__raw_bits_or(BIT_5, AHB_CTL0);
 	}else {
 		__raw_bits_and(~BIT_6, AHB_CTL3);
 		__raw_bits_or(BIT_9, GR_CLK_GEN5);
@@ -372,28 +372,23 @@ static void usb_startup(void)
 	__raw_bits_or(BIT_6, AHB_CTL3);
 
 
+	//__raw_bits_or(BIT_6|BIT_7, AHB_SOFT_RST);
 	__raw_bits_or(BIT_7, AHB_SOFT_RST);
+	mdelay(5);
+	//__raw_bits_and(~(BIT_6 | BIT_7), AHB_SOFT_RST);
+	__raw_bits_and(~(BIT_7), AHB_SOFT_RST);
+   __raw_bits_or(BIT_5, AHB_CTL0);
 	mdelay(10);
-	__raw_bits_and(~BIT_7, AHB_SOFT_RST);
-	mdelay(30);
 }
 
 void udc_enable(void)
 {
-	usb_enable_module(1);
-	usb_ldo_switch(1);
-
-	//soft rest udc module
-	__raw_bits_or(BIT_7, AHB_SOFT_RST);
-	mdelay(10);
-	__raw_bits_and(~BIT_7, AHB_SOFT_RST);
-	mdelay(30);
+     usb_startup();
 }
 EXPORT_SYMBOL(udc_enable);
 
 void udc_disable(void)
 {
-	usb_enable_module(0);
 	usb_ldo_switch(0);
 }
 EXPORT_SYMBOL(udc_disable);
