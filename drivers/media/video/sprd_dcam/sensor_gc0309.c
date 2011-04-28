@@ -394,7 +394,7 @@ SENSOR_REG_T gc0309_YUV_640X480[]=
 	{0xba,0x00}, 
 	{0xbb,0x00}, 
 
-	{0x14,0x10},  // Mirror UpsideDown 
+	{0x14,0x11},  // Mirror UpsideDown 
 
     {SENSOR_WRITE_DELAY, 200},//delay 20ms
 

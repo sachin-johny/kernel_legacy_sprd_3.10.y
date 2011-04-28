@@ -620,7 +620,7 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 		*/
 
 	//-------------H_V_Switch(Normal)---------------//
-			{0x0101 , 0x03},
+			{0x0101 , 0x00},
 			
 	 /*GC0309_H_V_Switch,
 
