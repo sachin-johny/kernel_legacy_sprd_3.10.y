@@ -330,7 +330,8 @@ static struct gpio_desc gpio_func_cfg[] = {
 	SPRD_3RDPARTY_GPIO_PLS_IRQ,
 	"pls irq"
     },
-	MFP_CFG_X(KEYIN6, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+    {
+        MFP_CFG_X(KEYIN6, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
 	SPRD_3RDPARTY_GPIO_GINT1_IRQ,
 	"gint1"
     },
