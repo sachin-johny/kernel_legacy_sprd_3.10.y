@@ -67,12 +67,43 @@
 #define REG_INT_EN              (*((volatile unsigned int *)INT_EN))
 #define REG_INT_DIS          	(*((volatile unsigned int *)INT_DIS))
 
+#define PIN_KEYOUT0_REG					(SPRD_CPC_BASE + 0x00C0)
+#define PIN_KEYOUT1_REG					(SPRD_CPC_BASE + 0x00C4)
+#define PIN_KEYOUT2_REG					(SPRD_CPC_BASE + 0x00C8)
+#define PIN_KEYOUT3_REG					(SPRD_CPC_BASE + 0x00CC)
+#define PIN_KEYOUT4_REG					(SPRD_CPC_BASE + 0x00D0)
+#define PIN_KEYOUT5_REG					(SPRD_CPC_BASE + 0x00D4)
+#define PIN_KEYOUT6_REG					(SPRD_CPC_BASE + 0x00D8)
+#define PIN_KEYOUT7_REG					(SPRD_CPC_BASE + 0x00DC)
 
+#define PIN_KEYIN0_REG					(SPRD_CPC_BASE + 0x00E0)
+#define PIN_KEYIN1_REG					(SPRD_CPC_BASE + 0x00E4)
+#define PIN_KEYIN2_REG					(SPRD_CPC_BASE + 0x00E8)
+#define PIN_KEYIN3_REG					(SPRD_CPC_BASE + 0x00EC)
+#define PIN_KEYIN4_REG					(SPRD_CPC_BASE + 0x00F0)
 #define PIN_KEYIN5_REG					(SPRD_CPC_BASE + 0x00F4)
 #define PIN_KEYIN6_REG					(SPRD_CPC_BASE + 0x00F8)
+#define PIN_KEYIN7_REG					(SPRD_CPC_BASE + 0x00FC)
+
 #define REG_PIN_CTL_REG          	(*((volatile unsigned int *)PIN_CTL_REG))
+
+#define REG_PIN_KEYOUT0_REG          	(*((volatile unsigned int *)PIN_KEYOUT0_REG))
+#define REG_PIN_KEYOUT1_REG          	(*((volatile unsigned int *)PIN_KEYOUT1_REG))
+#define REG_PIN_KEYOUT2_REG          	(*((volatile unsigned int *)PIN_KEYOUT2_REG))
+#define REG_PIN_KEYOUT3_REG          	(*((volatile unsigned int *)PIN_KEYOUT3_REG))
+#define REG_PIN_KEYOUT4_REG          	(*((volatile unsigned int *)PIN_KEYOUT4_REG))
+#define REG_PIN_KEYOUT5_REG          	(*((volatile unsigned int *)PIN_KEYOUT5_REG))
+#define REG_PIN_KEYOUT6_REG          	(*((volatile unsigned int *)PIN_KEYOUT6_REG))
+#define REG_PIN_KEYOUT7_REG          	(*((volatile unsigned int *)PIN_KEYOUT7_REG))
+
+#define REG_PIN_KEYIN0_REG          	(*((volatile unsigned int *)PIN_KEYIN0_REG))
+#define REG_PIN_KEYIN1_REG          	(*((volatile unsigned int *)PIN_KEYIN1_REG))
+#define REG_PIN_KEYIN2_REG          	(*((volatile unsigned int *)PIN_KEYIN2_REG))
+#define REG_PIN_KEYIN3_REG          	(*((volatile unsigned int *)PIN_KEYIN3_REG))
+#define REG_PIN_KEYIN4_REG          	(*((volatile unsigned int *)PIN_KEYIN4_REG))
 #define REG_PIN_KEYIN5_REG          	(*((volatile unsigned int *)PIN_KEYIN5_REG))
 #define REG_PIN_KEYIN6_REG          	(*((volatile unsigned int *)PIN_KEYIN6_REG))
+#define REG_PIN_KEYIN7_REG          	(*((volatile unsigned int *)PIN_KEYIN7_REG))
 
 
 #define GR_GEN0                 (SPRD_GREG_BASE + 0x0008)
@@ -141,7 +172,7 @@
 #define CFG_COL_POLARITY    (0xFF00 & KPDPOLARITY_COL)
 #define CFG_CLK_DIV         1
 
-#ifdef CONFIG_MACH_SP6810A
+#if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
 #define HOME_KEY_GPIO		28
 #define VOLUP_KEY_GPIO		25
 #define PBINT_GPI		163
@@ -253,7 +284,7 @@ static const unsigned int sprd_keymap[] = {
 #endif
 #if defined(CONFIG_MACH_SP8805GA)
         // 0 row
-	KEYVAL(0, 0, 00/*KEY_SEND*/), //dial up 1
+	KEYVAL(0, 0, 22/*KEY_SEND*/), //dial up 1
         KEYVAL(0, 1, 01/*KEY_R*/), //R
         // 1 row
         KEYVAL(1, 0, 10/*KEY_SEND*/), //dial up 2 -> no implement
@@ -390,11 +421,10 @@ typedef struct kpd_key_tag
     unsigned long timer_id;
 } kpd_key_t;
 
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) ||\
-    defined(CONFIG_MACH_SP8805GA)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM];
 kpd_key_t s_key[MAX_MUL_KEY_NUM];
-#elif defined(CONFIG_MACH_SP6810A)
+#elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM + 3];
 kpd_key_t s_key[MAX_MUL_KEY_NUM + 3];
 #endif
@@ -435,7 +465,12 @@ static inline void sprd_keycodecpy(unsigned short *keycode,
 
 static void print_kpad(void)
 {
+	static int count = 0;
+
+	count ++;
+	printk("\n\ncount = %d\n\n", count);
 	printk("\n\nREG_INT_MASK_STS = 0x%08x\n", REG_INT_MASK_STS);
+	printk("REG_GR_SOFT_RST = 0x%08x\n", REG_GR_SOFT_RST);
 	printk("REG_INT_RAW_STS = 0x%08x\n", REG_INT_RAW_STS);
 	printk("REG_INT_EN = 0x%08x\n", REG_INT_EN);
 	printk("REG_INT_DIS = 0x%08x\n", REG_INT_DIS);
@@ -453,8 +488,27 @@ static void print_kpad(void)
 	printk("REG_KPD_KEY_STATUS = 0x%08x\n", REG_KPD_KEY_STATUS);
 	printk("REG_KPD_SLEEP_STATUS = 0x%08x\n", REG_KPD_SLEEP_STATUS);
 	printk("REG_PIN_CTL_REG = 0x%08x\n", REG_PIN_CTL_REG);
+
+	printk("REG_KPD_DEBUG_STATUS1 = 0x%08x\n", REG_KPD_DEBUG_STATUS1);
+	printk("REG_KPD_DEBUG_STATUS2 = 0x%08x\n", REG_KPD_DEBUG_STATUS2);
+
+	printk("REG_PIN_KEYOUT0_REG = 0x%08x\n", REG_PIN_KEYOUT0_REG);
+	printk("REG_PIN_KEYOUT1_REG = 0x%08x\n", REG_PIN_KEYOUT1_REG);
+	printk("REG_PIN_KEYOUT2_REG = 0x%08x\n", REG_PIN_KEYOUT2_REG);
+	printk("REG_PIN_KEYOUT3_REG = 0x%08x\n", REG_PIN_KEYOUT3_REG);
+	printk("REG_PIN_KEYOUT4_REG = 0x%08x\n", REG_PIN_KEYOUT4_REG);
+	printk("REG_PIN_KEYOUT5_REG = 0x%08x\n", REG_PIN_KEYOUT5_REG);
+	printk("REG_PIN_KEYOUT6_REG = 0x%08x\n", REG_PIN_KEYOUT6_REG);
+	printk("REG_PIN_KEYOUT7_REG = 0x%08x\n", REG_PIN_KEYOUT7_REG);
+
+	printk("REG_PIN_KEYIN0_REG = 0x%08x\n", REG_PIN_KEYIN0_REG);
+	printk("REG_PIN_KEYIN1_REG = 0x%08x\n", REG_PIN_KEYIN1_REG);
+	printk("REG_PIN_KEYIN2_REG = 0x%08x\n", REG_PIN_KEYIN2_REG);
+	printk("REG_PIN_KEYIN3_REG = 0x%08x\n", REG_PIN_KEYIN3_REG);
+	printk("REG_PIN_KEYIN4_REG = 0x%08x\n", REG_PIN_KEYIN4_REG);
 	printk("REG_PIN_KEYIN5_REG = 0x%08x\n", REG_PIN_KEYIN5_REG);
 	printk("REG_PIN_KEYIN6_REG = 0x%08x\n", REG_PIN_KEYIN6_REG);
+	printk("REG_PIN_KEYIN7_REG = 0x%08x\n", REG_PIN_KEYIN7_REG);
 }
 
 void change_state(kpd_key_t *key_ptr)
@@ -644,7 +698,7 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
         return IRQ_HANDLED;
 }
 
-#ifdef CONFIG_MACH_SP6810A
+#if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
 static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 {
     int ret, gpio;
@@ -831,7 +885,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	REG_GR_SOFT_RST |= 0x2;
 	mdelay(10);
 	REG_GR_SOFT_RST &= ~0x2;
-
+#if 0
 	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20) | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) << 16)) & (KPDCTL_ROW | KPDCTL_COL));
 	REG_KPD_CTRL = 0x6 | key_type;
 
@@ -843,6 +897,17 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         REG_KPD_CLK_DIV_CNT = CFG_CLK_DIV & KPDCLK0_CLK_DIV0;
 	REG_KPD_LONG_KEY_CNT = 0xc;
 	REG_KPD_DEBOUNCE_CNT = 0x5;
+#else
+	REG_KPD_CTRL = 0x4;
+        REG_INT_DIS = (1 << IRQ_KPD_INT);
+        REG_GR_GEN0 |= BIT_8 | BIT_26;
+        sprd_config_keypad_pins();
+        REG_KPD_INT_CLR = 0xfff;
+        REG_KPD_POLARITY = 0xffff;
+        REG_KPD_CLK_DIV_CNT = 0x1;
+	REG_KPD_LONG_KEY_CNT = 0xc;
+	REG_KPD_DEBOUNCE_CNT = 0x5;
+#endif
 
         error = request_irq(sprd_kpad->irq, sprd_kpad_isr, 0, DRV_NAME, pdev);
         if (error) {
@@ -901,10 +966,9 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         }
 
         device_init_wakeup(&pdev->dev, 1);
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) ||\
-    defined(CONFIG_MACH_SP8805GA)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
-#elif defined(CONFIG_MACH_SP6810A)
+#elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
 	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++) {
 #endif
 		/* clear Key state */
@@ -914,12 +978,18 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 		s_key[i].timer_id = i;						        
 	}
 
+#if 0
 	REG_KPD_INT_EN = KPD_INT_ALL;
 	REG_INT_EN |= 1 << IRQ_KPD_INT;
 	REG_KPD_CTRL |= 0x1;
-	print_kpad();
+#else
+	REG_KPD_INT_EN = 0xfff;
+	REG_INT_EN |= 1 << IRQ_KPD_INT;
+	REG_KPD_CTRL = 0x5;
+#endif
+	//print_kpad();
 
-#if defined(CONFIG_MACH_SP6810A)
+#if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
 	gpio_key_init(HOME_KEY_GPIO, "home");
 	gpio_key_init(VOLUP_KEY_GPIO, "volup");
 	gpio_key_init(PBINT_GPI, "poweronoff");	
@@ -946,10 +1016,9 @@ static int __devexit sprd_kpad_remove(struct platform_device *pdev)
         //struct sprd_kpad_platform_data *pdata = pdev->dev.platform_data;
         struct sprd_kpad_t *sprd_kpad = platform_get_drvdata(pdev);
 
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) ||\
-    defined(CONFIG_MACH_SP8805GA)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++)
-#elif defined(CONFIG_MACH_SP6810A)
+#elif defined(CONFIG_MACH_SP6810A)  || defined(CONFIG_MACH_SP8805GA)
 	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++)
 #endif
         	del_timer_sync(&s_kpd_timer[i]);
