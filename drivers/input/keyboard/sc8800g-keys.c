@@ -989,9 +989,14 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 #endif
 	//print_kpad();
 
-#if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
+#if defined(CONFIG_MACH_SP6810A)
 	gpio_key_init(HOME_KEY_GPIO, "home");
 	gpio_key_init(VOLUP_KEY_GPIO, "volup");
+	gpio_key_init(PBINT_GPI, "poweronoff");	
+	ANA_REG_OR(ANA_INT_EN, ANA_GPIO_IRQ);
+#endif
+
+#if defined(CONFIG_MACH_SP8805GA)
 	gpio_key_init(PBINT_GPI, "poweronoff");	
 	ANA_REG_OR(ANA_INT_EN, ANA_GPIO_IRQ);
 #endif
