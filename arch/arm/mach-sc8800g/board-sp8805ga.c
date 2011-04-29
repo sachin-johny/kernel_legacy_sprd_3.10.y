@@ -101,6 +101,9 @@ struct platform_device android_pmem_adsp_device = {
 #define MMC328X_I2C_NAME		"mmc328x"
 #define MMC328X_I2C_ADDR		 0x30
 
+#define ADXL346X_I2C_NAME               "adxl34x"
+#define ADXL346X_I2C_ADDR                0x53
+
 //i2c pad:  the high two bit of the addr is the pad control bit
 
 static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
@@ -115,7 +118,10 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
     },  
     {
         I2C_BOARD_INFO(MMC328X_I2C_NAME, MMC328X_I2C_ADDR|0xC000),
-    }  
+    },  
+    { 
+        I2C_BOARD_INFO(ADXL346X_I2C_NAME, ADXL346X_I2C_ADDR|0xC000)
+    }
 };
 
 #if defined(CONFIG_SPI_SC88XX) || defined(CONFIG_SPI_SC88XX_MODULE)
@@ -219,6 +225,8 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_TP_RST              27
 #define SPRD_3RDPARTY_GPIO_TP_IRQ              26
 #define SPRD_3RDPARTY_GPIO_PLS_IRQ             28	//proximity&light sensor
+#define SPRD_3RDPARTY_GPIO_GINT1_IRQ              0
+#define SPRD_3RDPARTY_GPIO_GINT2_IRQ              1
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
@@ -235,6 +243,8 @@ int sprd_3rdparty_gpio_tp_pwr   = SPRD_3RDPARTY_GPIO_TP_PWR;
 int sprd_3rdparty_gpio_tp_rst   = SPRD_3RDPARTY_GPIO_TP_RST;
 int sprd_3rdparty_gpio_tp_irq   = SPRD_3RDPARTY_GPIO_TP_IRQ;
 int sprd_3rdparty_gpio_pls_irq	=SPRD_3RDPARTY_GPIO_PLS_IRQ;
+int sprd_3rdparty_gpio_gint1_irq   = SPRD_3RDPARTY_GPIO_GINT1_IRQ ;
+int sprd_3rdparty_gpio_gint2_irq   = SPRD_3RDPARTY_GPIO_GINT2_IRQ ;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -251,6 +261,8 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_pwr);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_pls_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gint1_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gint2_irq);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
@@ -317,6 +329,15 @@ static struct gpio_desc gpio_func_cfg[] = {
 	MFP_CFG_X(KEYIN5, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
 	SPRD_3RDPARTY_GPIO_PLS_IRQ,
 	"pls irq"
+    },
+	MFP_CFG_X(KEYIN6, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+	SPRD_3RDPARTY_GPIO_GINT1_IRQ,
+	"gint1"
+    },
+    {
+	MFP_CFG_X(KEYIN7, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+	SPRD_3RDPARTY_GPIO_GINT2_IRQ,
+	"gint2"
     }
 
 };
