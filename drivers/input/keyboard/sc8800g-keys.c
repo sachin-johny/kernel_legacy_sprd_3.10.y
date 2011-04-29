@@ -54,7 +54,7 @@
 #endif
 
 #ifdef CONFIG_MACH_SP8805GA
-#define DRV_NAME        	"sprd-keypad"
+#define DRV_NAME        	"sprd-keypad8805ga"
 #endif
 
 #define INT_MASK_STS            (SPRD_INTCV_BASE + 0x0000)
@@ -126,10 +126,14 @@
 #define KPD4_COL_CNT                    0x7000000
 #define KPD4_ROW_CNT                    0x70000000
 
-//The corresponding bit of KPD_POLARITY register.
-#define KPDPOLARITY_ROW                 (0x00FF)    // Internal row output xor with this 
-// value to generate row output.
-#define KPDPOLARITY_COL                 (0xFF00)    // Column input xor with this value to
+#ifdef CONFIG_MACH_SP8805GA
+#define KPDPOLARITY_ROW                 (0x0000)
+#define KPDPOLARITY_COL                 (0x0000)
+#else
+#define KPDPOLARITY_ROW                 (0x00FF)
+#define KPDPOLARITY_COL                 (0xFF00)
+#endif
+
 #define KPDCLK0_CLK_DIV0                0xFFFF      //Clock dividor [15:0]
 #define KPDCLK1_TIME_CNT                0xFFB0      //Time out counter value
 
@@ -247,6 +251,14 @@ static const unsigned int sprd_keymap[] = {
 	KEYVAL(7, 0, 30/*KEY_MENU*/), //ok //yunlong.wang add for ofn key detect 20110218
         KEYVAL(7, 1, 71/*KEY_HELP*/), //poweron / power off -> no implement
 #endif
+#if defined(CONFIG_MACH_SP8805GA)
+        // 0 row
+	KEYVAL(0, 0, 00/*KEY_SEND*/), //dial up 1
+        KEYVAL(0, 1, 01/*KEY_R*/), //R
+        // 1 row
+        KEYVAL(1, 0, 10/*KEY_SEND*/), //dial up 2 -> no implement
+	KEYVAL(1, 1, 11/*KEY_T*/), //T
+#endif
 #if defined(CONFIG_MACH_SP6810A)
         // 0 row
 	KEYVAL(0, 0, 24/*KEY_SEND*/), // 00 is changed to 24
@@ -291,6 +303,10 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .rows                   = 8,
         .cols                   = 8,
 #endif
+#ifdef CONFIG_MACH_SP8805GA
+        .rows                   = 4,
+        .cols                   = 3,
+#endif
 #ifdef CONFIG_MACH_SP6810A
         .rows                   = 5,
         .cols                   = 5,
@@ -303,8 +319,7 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .keyup_test_interval    = 50, /* 50 ms (50ms) */
 };
 
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) ||\
-    defined(CONFIG_MACH_SP8805GA)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 static unsigned long keypad_func_cfg[] = { 
 	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
 	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
@@ -338,6 +353,19 @@ static unsigned long keypad_func_cfg[] = {
 	MFP_CFG_X(KEYIN4,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
 	MFP_CFG_X(KEYIN5,  AF3, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
 	MFP_ANA_CFG_X(PBINT, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE),
+};
+#elif defined(CONFIG_MACH_SP8805GA)
+static unsigned long keypad_func_cfg[] = {
+	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT2, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT3, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYOUT4, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
+	MFP_CFG_X(KEYIN0,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN1,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN2,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN3,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
+	MFP_CFG_X(KEYIN4,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
 };
 #endif
 
@@ -536,9 +564,11 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 	unsigned long found = 0, status; 
 	unsigned long s_int_status = REG_KPD_INT_RAW_STATUS;
 	unsigned long s_key_status = REG_KPD_KEY_STATUS;
+	//unsigned long debug1 = REG_KPD_DEBUG_STATUS1;
+	//unsigned long debug2 = REG_KPD_DEBUG_STATUS2;
 
 	REG_KPD_INT_CLR |= KPD_INT_ALL;
-	
+	//printk("int_status = 0x%08x  key_status = 0x%08x  debug1 = 0x%08x  debug2 = 0x%08x\n", s_int_status, s_key_status, debug1, debug2);
 	/* check the type of INT */    
     	if ((s_int_status & KPD_PRESS_INT0) || (s_int_status & KPD_LONG_KEY_INT0)) {
         	key_code = (s_key_status  & (KPD1_ROW_CNT | KPD1_COL_CNT));
@@ -798,6 +828,13 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         }
 	
         /* init sprd keypad controller */
+	REG_GR_SOFT_RST |= 0x2;
+	mdelay(10);
+	REG_GR_SOFT_RST &= ~0x2;
+
+	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20) | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) << 16)) & (KPDCTL_ROW | KPDCTL_COL));
+	REG_KPD_CTRL = 0x6 | key_type;
+
         REG_INT_DIS = (1 << IRQ_KPD_INT);
         REG_GR_GEN0 |= BIT_8 | BIT_26;
         sprd_config_keypad_pins();
@@ -806,9 +843,6 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         REG_KPD_CLK_DIV_CNT = CFG_CLK_DIV & KPDCLK0_CLK_DIV0;
 	REG_KPD_LONG_KEY_CNT = 0xc;
 	REG_KPD_DEBOUNCE_CNT = 0x5;
-
-	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20) | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) << 16)) & (KPDCTL_ROW | KPDCTL_COL));
-	REG_KPD_CTRL = 0x7 | key_type;
 
         error = request_irq(sprd_kpad->irq, sprd_kpad_isr, 0, DRV_NAME, pdev);
         if (error) {
@@ -828,6 +862,8 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         input->phys = "sprd-keypad/input0";
 #elif defined(CONFIG_MACH_SP6810A)
         input->phys = "sprd-keypad6810/input0";
+#elif defined(CONFIG_MACH_SP8805GA)
+        input->phys = "sprd-keypad8805ga/input0";
 #endif
         input->dev.parent = &pdev->dev;
 	input_set_drvdata(input, sprd_kpad);
@@ -880,7 +916,8 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 
 	REG_KPD_INT_EN = KPD_INT_ALL;
 	REG_INT_EN |= 1 << IRQ_KPD_INT;
-	//print_kpad();
+	REG_KPD_CTRL |= 0x1;
+	print_kpad();
 
 #if defined(CONFIG_MACH_SP6810A)
 	gpio_key_init(HOME_KEY_GPIO, "home");

@@ -935,6 +935,7 @@ static unsigned long sprd_nand_readid(struct mtd_info *mtd)
 }
 
 static int sprd_nand_devready(struct mtd_info *mtd)
+
 {
 	unsigned long status = 0;
         unsigned long cmd = NAND_CMD_STATUS | (0x1 << 31);
@@ -1042,7 +1043,8 @@ static int sprd_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_ch
 		pecc_val[3] = REG_NFC_PAGEECC3;
 		memset(io_wr_port, 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
 		nand_copy((unsigned char *)NFC_SBUF, io_wr_port, mtd->oobsize);
-	}	
+	}	
+
 	sprd_ecc_mode = NAND_ECC_NONE;
 
 	return 0;

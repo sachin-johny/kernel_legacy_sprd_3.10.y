@@ -17,6 +17,7 @@
 #define _SC8800S_REG_KPD_H_
 
 #include <mach/hardware.h>
+#include <mach/regs_global.h>
 #include <mach/bits.h>
 
 #define KPD_REG_BASE                    SPRD_KPD_BASE
@@ -36,6 +37,11 @@
 #define KPD_KEY_STATUS                	(KPD_REG_BASE + 0x002C)
 #define KPD_SLEEP_STATUS                (KPD_REG_BASE + 0x0030)
 
+#define KPD_DEBUG_STATUS1               (KPD_REG_BASE + 0x0034)
+#define KPD_DEBUG_STATUS2               (KPD_REG_BASE + 0x0038)
+
+#define REG_GR_SOFT_RST			(*((volatile unsigned int *)(GR_SOFT_RST)))
+
 #define REG_KPD_CTRL                    (*((volatile unsigned int *)(KPD_CTRL)))
 #define REG_KPD_INT_EN                  (*((volatile unsigned int *)(KPD_INT_EN)))
 #define REG_KPD_INT_RAW_STATUS          (*((volatile unsigned int *)(KPD_INT_RAW_STATUS)))
@@ -50,5 +56,8 @@
 #define REG_KPD_CLK_DIV_CNT         	(*((volatile unsigned int *)(KPD_CLK_DIV_CNT)))
 #define REG_KPD_KEY_STATUS         	(*((volatile unsigned int *)(KPD_KEY_STATUS)))
 #define REG_KPD_SLEEP_STATUS         	(*((volatile unsigned int *)(KPD_SLEEP_STATUS)))
+
+#define REG_KPD_DEBUG_STATUS1         	(*((volatile unsigned int *)(KPD_DEBUG_STATUS1)))
+#define REG_KPD_DEBUG_STATUS2         	(*((volatile unsigned int *)(KPD_DEBUG_STATUS2)))
 
 #endif
