@@ -105,6 +105,7 @@
 #include "sc8800g_lcdc_manager.h" /* TEMP */
 #include "sc8800g_copybit_lcdc.h" /* TEMP */
 /* TEMP, software make-up for lcdc's 4-byte-align only limitation */
+unsigned int fb_len;
 unsigned int fb_pa;
 unsigned int fb_va;
 unsigned int fb_va_cached;
@@ -313,6 +314,7 @@ static int setup_fbmem(struct sc8800fb_info *sc8800fb, struct platform_device *p
 	sc8800fb->fb->screen_base = (char*)addr;
 
 	/* TEMP, software make-up for lcdc's 4-byte-align only limitation */
+	fb_len = len;
 	fb_pa = sc8800fb->fb->fix.smem_start;
 	fb_va_cached = (unsigned int)sc8800fb->fb->screen_base;
 	fb_va = (unsigned int)ioremap(sc8800fb->fb->fix.smem_start, 

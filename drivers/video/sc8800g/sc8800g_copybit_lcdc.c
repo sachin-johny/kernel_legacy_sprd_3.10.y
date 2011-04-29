@@ -116,6 +116,7 @@
 struct semaphore copybit_wait;
 extern unsigned int pmem_ptr;
 
+extern unsigned int fb_len;
 extern unsigned int fb_pa;
 extern unsigned int fb_va;
 extern unsigned int fb_va_cached;
@@ -124,11 +125,11 @@ extern unsigned int buf_ptr;    /* va of temp buffer */
 extern unsigned int buf_ptr_pa; /* pa of temp buffer */
 
 #define GET_VA(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr): \
-	((base >= buf_ptr_pa && base <= buf_ptr_pa+320*480*4)?       \
+	((base >= buf_ptr_pa && base <= buf_ptr_pa+fb_len)?       \
 	(base - buf_ptr_pa + buf_ptr):(base-fb_pa+fb_va)))
 
 #define GET_VA_CACHED(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr): \
-	((base >= buf_ptr_pa && base <= buf_ptr_pa+320*480*4)?       \
+	((base >= buf_ptr_pa && base <= buf_ptr_pa+fb_len)?       \
 	(base - buf_ptr_pa + buf_ptr):(base-fb_pa+fb_va_cached)))
 /* TEMP, end */
 
