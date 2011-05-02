@@ -157,13 +157,8 @@
 #define KPD4_COL_CNT                    0x7000000
 #define KPD4_ROW_CNT                    0x70000000
 
-#ifdef CONFIG_MACH_SP8805GA
-#define KPDPOLARITY_ROW                 (0x0000)
-#define KPDPOLARITY_COL                 (0x0000)
-#else
 #define KPDPOLARITY_ROW                 (0x00FF)
 #define KPDPOLARITY_COL                 (0xFF00)
-#endif
 
 #define KPDCLK0_CLK_DIV0                0xFFFF      //Clock dividor [15:0]
 #define KPDCLK1_TIME_CNT                0xFFB0      //Time out counter value
@@ -885,10 +880,10 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	REG_GR_SOFT_RST |= 0x2;
 	mdelay(10);
 	REG_GR_SOFT_RST &= ~0x2;
-#if 0
-	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20) | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) << 16)) & (KPDCTL_ROW | KPDCTL_COL));
-	REG_KPD_CTRL = 0x6 | key_type;
 
+	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20) | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) << 16)) & (KPDCTL_ROW | KPDCTL_COL));
+
+	REG_KPD_CTRL = 0x6 | key_type;
         REG_INT_DIS = (1 << IRQ_KPD_INT);
         REG_GR_GEN0 |= BIT_8 | BIT_26;
         sprd_config_keypad_pins();
@@ -897,17 +892,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         REG_KPD_CLK_DIV_CNT = CFG_CLK_DIV & KPDCLK0_CLK_DIV0;
 	REG_KPD_LONG_KEY_CNT = 0xc;
 	REG_KPD_DEBOUNCE_CNT = 0x5;
-#else
-	REG_KPD_CTRL = 0x4;
-        REG_INT_DIS = (1 << IRQ_KPD_INT);
-        REG_GR_GEN0 |= BIT_8 | BIT_26;
-        sprd_config_keypad_pins();
-        REG_KPD_INT_CLR = 0xfff;
-        REG_KPD_POLARITY = 0xffff;
-        REG_KPD_CLK_DIV_CNT = 0x1;
-	REG_KPD_LONG_KEY_CNT = 0xc;
-	REG_KPD_DEBOUNCE_CNT = 0x5;
-#endif
+
 
         error = request_irq(sprd_kpad->irq, sprd_kpad_isr, 0, DRV_NAME, pdev);
         if (error) {
@@ -978,15 +963,10 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 		s_key[i].timer_id = i;						        
 	}
 
-#if 0
 	REG_KPD_INT_EN = KPD_INT_ALL;
 	REG_INT_EN |= 1 << IRQ_KPD_INT;
 	REG_KPD_CTRL |= 0x1;
-#else
-	REG_KPD_INT_EN = 0xfff;
-	REG_INT_EN |= 1 << IRQ_KPD_INT;
-	REG_KPD_CTRL = 0x5;
-#endif
+
 	//print_kpad();
 
 #if defined(CONFIG_MACH_SP6810A)
