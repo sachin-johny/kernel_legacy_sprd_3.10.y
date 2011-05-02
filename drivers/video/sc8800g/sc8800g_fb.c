@@ -122,7 +122,7 @@ struct sc8800fb_info {
 static int32_t lcm_send_cmd (uint32_t cmd)
 {
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(__raw_readl(LCM_STATUS) & 0x1);
+	while(__raw_readl(LCM_STATUS) & 0x2);
 
 	__raw_writel(cmd, LCM_CD0);
 
@@ -132,12 +132,12 @@ static int32_t lcm_send_cmd (uint32_t cmd)
 static int32_t lcm_send_cmd_data (uint32_t cmd, uint32_t data)
 {
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(__raw_readl(LCM_STATUS) & 0x1);
+	while(__raw_readl(LCM_STATUS) & 0x2);
 
 	__raw_writel(cmd, LCM_CD0);
 
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(__raw_readl(LCM_STATUS) & 0x1);
+	while(__raw_readl(LCM_STATUS) & 0x2);
 
 	__raw_writel(data, LCM_DATA0);
 
@@ -147,7 +147,7 @@ static int32_t lcm_send_cmd_data (uint32_t cmd, uint32_t data)
 static int32_t lcm_send_data (uint32_t data)
 {
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(__raw_readl(LCM_STATUS) & 0x1);
+	while(__raw_readl(LCM_STATUS) & 0x2);
 
 	__raw_writel(data, LCM_DATA0);
 
