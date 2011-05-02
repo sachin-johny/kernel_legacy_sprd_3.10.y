@@ -47,8 +47,8 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
     .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
 #endif
     .periods_min        = 128,
-    .periods_max        = 18*PAGE_SIZE/(2*sizeof(sprd_dma_desc)), // DA0, DA1 sg are combined
-    .buffer_bytes_max	= 6 * 128 * 1024,
+    .periods_max        = /*18*/2*PAGE_SIZE/(2*sizeof(sprd_dma_desc)), // DA0, DA1 sg are combined
+    .buffer_bytes_max	= /*6 **/128 * 1024,
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,
 };
 
@@ -90,7 +90,7 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	if (!rtd)
 		goto out;
 	rtd->dma_desc_array =
-		dma_alloc_writecombine(substream->pcm->card->dev, 18*PAGE_SIZE,
+		dma_alloc_writecombine(substream->pcm->card->dev, 2*PAGE_SIZE,
 				       &rtd->dma_desc_array_phys, GFP_KERNEL);
 	if (!rtd->dma_desc_array)
 		goto err1;
@@ -109,7 +109,7 @@ int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd = runtime->private_data;
 
-	dma_free_writecombine(substream->pcm->card->dev, 18*PAGE_SIZE,
+	dma_free_writecombine(substream->pcm->card->dev, 2*PAGE_SIZE,
 			      rtd->dma_desc_array, rtd->dma_desc_array_phys);
 	kfree(rtd);
 
