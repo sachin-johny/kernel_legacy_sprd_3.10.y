@@ -237,11 +237,37 @@ static int32_t r61581_set_direction(struct lcd_spec *self, uint16_t direction)
 	return 0;
 }
 
+static int32_t r61581_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
+{
+	if ( is_sleep ){
+		self->info.mcu->ops->send_cmd(0x0028);
+		self->info.mcu->ops->send_cmd(0x0010);
+		mdelay(150);
+	}
+	else{
+		self->info.mcu->ops->send_cmd(0xFF);
+		self->info.mcu->ops->send_cmd(0xFF);
+		self->info.mcu->ops->send_cmd(0xFF);
+		self->info.mcu->ops->send_cmd(0xFF);
+		self->info.mcu->ops->send_cmd(0xFF);
+		self->info.mcu->ops->send_cmd(0xFF);
+		mdelay(15);
+
+		self->info.mcu->ops->send_cmd(0x29);
+		mdelay(60);
+
+		self->info.mcu->ops->send_cmd(0x11);
+		mdelay(60);
+	}
+	return 0;
+}
+
 static struct lcd_operations lcd_r61581_operations = {
 	.lcd_init = r61581_init,
 	.lcd_set_window = r61581_set_window,
 	.lcd_invalidate = r61581_invalidate,
 	.lcd_set_direction = r61581_set_direction,
+	.lcd_enter_sleep = r61581_enter_sleep,
 };
 
 static struct timing_mcu lcd_r61581_timing = {

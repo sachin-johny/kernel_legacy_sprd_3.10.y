@@ -243,11 +243,24 @@ static int32_t rm68040_set_direction(struct lcd_spec *self, uint16_t direction)
 	return 0;
 }
 
+static int32_t rm68040_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
+{
+	if(is_sleep) {
+		self->info.mcu->ops->send_cmd(0x10);
+	}
+	else{
+		self->info.mcu->ops->send_cmd(0x11);
+		mdelay(120);
+	}
+	return 0;
+}
+
 static struct lcd_operations lcd_rm68040_operations = {
 	.lcd_init = rm68040_init,
 	.lcd_set_window = rm68040_set_window,
 	.lcd_invalidate = rm68040_invalidate,
 	.lcd_set_direction = rm68040_set_direction,
+	.lcd_enter_sleep = rm68040_enter_sleep,
 };
 
 static struct timing_mcu lcd_rm68040_timing = {
