@@ -49,12 +49,15 @@ static irqreturn_t sprd_dma_irq(int irq, void *dev_id)
 
 int sprd_request_dma(int ch_id, void (*irq_handler)(int, void *), void *data)
 {
+    unsigned long flags;
+    local_irq_save(flags);
     if (sprd_irq_handlers[ch_id].handler) {
         printk(KERN_WARNING "%s: dma channel %d is busy\n", __func__, ch_id);
         return -EBUSY;
     }
     sprd_irq_handlers[ch_id].handler = irq_handler;
     sprd_irq_handlers[ch_id].dev_id = data;
+    local_irq_restore(flags);
     return 0;
 }
 EXPORT_SYMBOL_GPL(sprd_request_dma);
