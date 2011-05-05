@@ -116,13 +116,14 @@ static inline void ring_push_data(VEthRingDesc *ring, nku8_f* src, unsigned int 
     dst = ((nku8_f*) ring) + RING_DESC_SIZE;
     dst += (ring->p_idx & (RING_INDEX_MASK)) * SLOT_DESC_SIZE;
 
-    ring->p_idx++;
-
     sd = (VEthSlotDesc*) dst;
     sd->len = len;
     VETH_DBG("ring_push_data: %08x -> %08x\n",
               (unsigned int)src, (unsigned int)sd->data);
     memcpy(sd->data + SLOT_HLEN_PAD, src, len);
+    
+    ring->p_idx++;
+   
 }
 
 static inline unsigned int ring_pull_data(VEthRingDesc *ring, nku8_f* dst)
@@ -137,15 +138,16 @@ static inline unsigned int ring_pull_data(VEthRingDesc *ring, nku8_f* dst)
     src = ((nku8_f*) ring) + RING_DESC_SIZE;
     src += (ring->c_idx & (RING_INDEX_MASK)) * SLOT_DESC_SIZE;
 
-    ring->c_idx++;
-    ring->freed_idx++;
-
     sd = (VEthSlotDesc*) src;
     len = sd->len;
     VETH_DBG("ring_pull_data: %08x <- %08x\n",
               (unsigned int)dst, (unsigned int)sd->data);
     memcpy(dst, sd->data + SLOT_HLEN_PAD, len);
 
+    ring->c_idx++;
+    ring->freed_idx++;
+
+  
     return len;
 }
 
@@ -450,7 +452,8 @@ static void veth_rx_hdl(void* cookie, NkXIrq xirq)
 #ifdef CONFIG_SKB_DESTRUCTOR
 	skb  = veth_alloc_skb(link);
 #else
-	skb  = dev_alloc_skb(ETH_FRAME_LEN); // over allocate (1514)
+	skb  = dev_alloc_skb(ETH_FRAME_LEN + SLOT_HLEN_PAD); // over allocate (1514)
+    	skb_reserve(skb, SLOT_HLEN_PAD);
 	len = ring_pull_data(rx_ring, skb->data);
 	skb_put(skb, len);
 #endif
