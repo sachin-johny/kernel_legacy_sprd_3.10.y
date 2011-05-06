@@ -739,6 +739,12 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		case V4L2_CID_COLOR_KILLER:  //for scene mode			
 			Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)ctrl->value);
 			break;	
+		case V4L2_CID_BRIGHTNESS:  		
+			Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)ctrl->value);
+			break;		
+		case V4L2_CID_CONTRAST:  		
+			Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, (uint32_t)ctrl->value);
+			break;				
 		case V4L2_CID_ZOOM_ABSOLUTE:
 			g_zoom_level = (uint32_t)ctrl->value;
 			DCAM_V4L2_PRINT("g_zoom_level=%d.\n", g_zoom_level);

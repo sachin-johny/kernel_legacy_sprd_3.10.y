@@ -217,7 +217,7 @@ LOCAL SENSOR_EXP_INFO_T s_sensor_exp_info;//={0x00};
 LOCAL uint32_t s_sensor_mclk=0;
 //LOCAL uint8_t s_sensor_probe_index=0;
 LOCAL BOOLEAN s_sensor_init=SENSOR_FALSE;  
-LOCAL BOOLEAN s_sensor_open=SENSOR_FALSE;
+//LOCAL BOOLEAN s_sensor_open=SENSOR_FALSE;
 //LOCAL BOOLEAN s_atv_init=SENSOR_FALSE;
 //LOCAL BOOLEAN s_atv_open=SENSOR_FALSE;
 LOCAL SENSOR_TYPE_E s_sensor_type=SENSOR_TYPE_NONE;
@@ -1688,7 +1688,7 @@ LOCAL void _Sensor_CleanInformation(void)
     s_sensor_info_ptr = SENSOR_MALLOC(SENSOR_ID_MAX * sizeof(s_sensor_list_ptr[0]), GFP_KERNEL);
 
     s_sensor_init=SENSOR_FALSE;
-    s_sensor_open=SENSOR_FALSE; 
+    //s_sensor_open=SENSOR_FALSE; 
 
    // s_atv_init=SENSOR_FALSE;
    // s_atv_open=SENSOR_FALSE;
@@ -2575,9 +2575,10 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
 		g_is_main_sensor = 0;
         }
 	
-    if(Sensor_IsInit())
+    if(SENSOR_TRUE == Sensor_IsInit())
     {
-        if(Sensor_IsOpen())
+    	Sensor_PowerOn(SENSOR_FALSE);
+        /*if(Sensor_IsOpen())
         {
             if(SENSOR_TYPE_ATV==_Sensor_GetSensorType())
             {
@@ -2587,12 +2588,12 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
             }
             Sensor_PowerOn(SENSOR_FALSE);
             _Sensor_IicHandlerRelease();
-        }
+        }*/
     }
 
     s_sensor_init = SENSOR_FALSE;
     //s_atv_open=SENSOR_FALSE;
-    s_sensor_open=SENSOR_FALSE;
+    //s_sensor_open=SENSOR_FALSE;
     s_sensor_mode[SENSOR_MAIN]=SENSOR_MODE_MAX;	
     s_sensor_mode[SENSOR_SUB]=SENSOR_MODE_MAX;	
     return SENSOR_SUCCESS;
@@ -2603,10 +2604,10 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
-PUBLIC BOOLEAN  Sensor_IsOpen(void){
+/*PUBLIC BOOLEAN  Sensor_IsOpen(void){
 	return s_sensor_open;
 }
-/*
+
 PUBLIC BOOLEAN  Sensor_IsOpen(void) 
 {
     if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())

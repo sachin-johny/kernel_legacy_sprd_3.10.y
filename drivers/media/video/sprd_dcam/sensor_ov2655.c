@@ -298,7 +298,8 @@ SENSOR_REG_T ov2655_YUV_COMMON[]=
 		                
 		                
 		{0x3069, 0x86}, 
-		{0x307c, 0x13}, //0x12//flip and mirror
+		//{0x307c, 0x13}, //0x12//flip and mirror
+		{0x307c, 0x12},
 		{0x3087, 0x02}, 
 		                
 		                
