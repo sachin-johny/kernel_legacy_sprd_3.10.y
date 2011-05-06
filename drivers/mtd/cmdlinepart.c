@@ -41,7 +41,7 @@
 
 
 /* test cmdline partion function */
-//#define CMDLINE_PARTS_TEST 1
+#define CMDLINE_PARTS_TEST 1
 
 /* special size referring to all the remaining space in a partition */
 #define SIZE_REMAINING UINT_MAX
@@ -62,14 +62,14 @@ static char *cmdline;
 static int cmdline_parsed = 0;
 
 #ifdef CMDLINE_PARTS_TEST
-//static char sprd_nand_parts[] = "mtdparts=sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(RECOVERY),222m(SYSTEM),222m(DATA)";
-//static char sprd_nand_parts[] = "sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(RECOVERY),62m(SYSTEM),50m(DATA)";
 #ifdef CONFIG_MACH_HISENSE
 static char sprd_nand_parts[] = "sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(RECOVERY),62m(SYSTEM),1m(TEST),49m(DATA)";
 #endif
 #ifdef CONFIG_MACH_BIGPHONE
 static char sprd_nand_parts[] = "sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(RECOVERY),100m(SYSTEM),140m(DATA)";
-//static char sprd_nand_parts[] = "sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(RECOVERY),10m(SYSTEM1),10m(SYSTEM2),10m(SYSTEM3),10m(SYSTEM4),10m(SYSTEM5),10m(SYSTEM6),10m(SYSTEM7),10m(SYSTEM8),10m(SYSTEM9),10m(SYSTEM10),140m(DATA)";
+#endif
+#ifdef CONFIG_MACH_OPENPHONE
+static char sprd_nand_parts[] = "sprd-nand:384k@256k(2ndbl),128k(params),256k(vmjaluna),6272k(modem),7680k(kernel),5120k(dsp),1280k(fixnv),2560k(runtimenv),6400k(recovery),100m(system),200m(userdata),2m(cache),256k(misc)";
 #endif
 #endif
 
@@ -326,7 +326,6 @@ static int parse_cmdline_partitions(struct mtd_info *master,
 
 #ifdef CMDLINE_PARTS_TEST
 	cmdline = sprd_nand_parts;
-	//printk("\nsprd_nand_parts=%s\n", sprd_nand_parts);
 #endif
 	/* parse command line */
 	if (!cmdline_parsed)

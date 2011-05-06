@@ -986,6 +986,7 @@ _guests_init (int count, BankDesc* bd)
     nku32_f   all_banks_empty = -1; /* Maximum 32 OS's */
     int       count_tmp = count;
     BankDesc* bd_tmp    = bd;
+#ifdef LATER
 
     while (count_tmp--) {
         NkOsId id = BANK_OS_ID(bd_tmp->type);
@@ -994,6 +995,9 @@ _guests_init (int count, BankDesc* bd)
         }
         bd_tmp++;
     }
+#else
+    all_banks_empty = 1 << 2;
+#endif
 
     while (count--) {
         NkOsId  id = BANK_OS_ID(bd->type);
