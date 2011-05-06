@@ -127,6 +127,11 @@ static struct platform_device i2c_gpio_device_data = {
 	.dev.platform_data	= &pdata,
 };
 
+static unsigned long gps_pin_cfg[] = {
+	MFP_CFG_X(LCD_CSN1, AF2, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
+};
+
+
 #if defined(CONFIG_SPI_SC88XX) || defined(CONFIG_SPI_SC88XX_MODULE)
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
@@ -229,6 +234,10 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_TP_IRQ              27
 #define SPRD_3RDPARTY_GPIO_PROXIMITY_TRANS	 139
 #define SPRD_3RDPARTY_GPIO_PROXIMITY_RECV	 142
+#define SPRD_3RDPARTY_GPIO_GPS_PWR	           40
+#define SPRD_3RDPARTY_GPIO_GPS_ONOFF	    (-1)
+#define SPRD_3RDPARTY_GPIO_GPS_RST	           60
+
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
@@ -246,6 +255,9 @@ int sprd_3rdparty_gpio_tp_rst   = SPRD_3RDPARTY_GPIO_TP_RST;
 int sprd_3rdparty_gpio_tp_irq   = SPRD_3RDPARTY_GPIO_TP_IRQ;
 int sprd_3rdparty_gpio_proximity_trans  = SPRD_3RDPARTY_GPIO_PROXIMITY_TRANS;
 int sprd_3rdparty_gpio_proximity_recv   = SPRD_3RDPARTY_GPIO_PROXIMITY_RECV;
+int sprd_3rdparty_gpio_gps_pwr   = SPRD_3RDPARTY_GPIO_GPS_PWR;
+int sprd_3rdparty_gpio_gps_rst   = SPRD_3RDPARTY_GPIO_GPS_RST;
+int sprd_3rdparty_gpio_gps_onoff   = SPRD_3RDPARTY_GPIO_GPS_ONOFF;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -263,6 +275,9 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_proximity_trans);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_proximity_recv);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_pwr);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_rst);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_onoff);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
@@ -334,7 +349,18 @@ static struct gpio_desc gpio_func_cfg[] = {
 	MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	//proximity
 	SPRD_3RDPARTY_GPIO_PROXIMITY_RECV,
 	"proximity recv"
+    },
+    {
+	MFP_CFG_X(EMRST_N, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	SPRD_3RDPARTY_GPIO_GPS_PWR|GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	"gps  pwr"
+    },
+    {
+	MFP_CFG_X(EMCS_N3, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	SPRD_3RDPARTY_GPIO_GPS_RST,
+	"gps  reset"
     }
+
 };
 
 static unsigned long spi_func_cfg[] = {
@@ -493,9 +519,14 @@ void __init i2c_gpio_device_set(struct i2c_board_info *devices, int nr_devices)
 
 	i2c_register_board_info(1,openphone_i2c_boardinfo,ARRAY_SIZE(openphone_i2c_boardinfo));
 }
+void __init gps_hw_config(void)
+{
+	sprd_mfp_config(gps_pin_cfg, ARRAY_SIZE(gps_pin_cfg));
+}
 
 static void __init openphone_init(void)
 {
+	int tmp = 0;
 	chip_init();
 //	ADI_init();
 	LDO_Init();
@@ -507,8 +538,9 @@ static void __init openphone_init(void)
 	sprd_add_otg_device();
 	sprd_gadget_init();
 	sprd_add_dcam_device();
-    sprd_spi_init();
-    sprd_charger_init();
+	sprd_spi_init();
+	sprd_charger_init();
+	gps_hw_config();
 }
 
 static void __init openphone_map_io(void)
