@@ -964,7 +964,7 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	set_backlight(50);
 	platform_set_drvdata(pdev, sc8800fb);
 	
-if(1){ /* in-kernel test code */
+if(0){ /* in-kernel test code */
 	struct fb_info test_info;
 	int size = sc8800fb->fb->var.xres * sc8800fb->fb->var.yres *2;
     short adie_chip_id = ANA_REG_GET(ANA_ADIE_CHIP_ID);
