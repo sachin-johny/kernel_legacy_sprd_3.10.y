@@ -1006,6 +1006,9 @@ if(0){ /* in-kernel test code */
 	real_pan_display(&sc8800fb->fb->var, &test_info);
 #endif
 }
+    short adie_chip_id = ANA_REG_GET(ANA_ADIE_CHIP_ID);
+	if (adie_chip_id != 0) 
+        ANA_REG_OR(ANA_INT_EN, 0x1f);
 
 #ifdef TEST_RRM
 	setup_rrm_test(fb);
