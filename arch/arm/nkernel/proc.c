@@ -509,7 +509,6 @@ _nk_proc_ept_write (struct file* file,
     return size;
 }
 
-
    static int
 _nk_proc_sts_open (struct inode* inode,
 	       struct file*  file)

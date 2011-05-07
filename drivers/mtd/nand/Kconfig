@@ -198,7 +198,7 @@ config MTD_NAND_PPCHAMELEONEVB
 
 config MTD_NAND_SPRD
 	tristate "NAND Flash support for SpreadTrum phone board"
-	depends on MACH_G2PHONE || MACH_BIGPHONE || MACH_OPENPHONE
+	depends on MACH_G2PHONE || MACH_BIGPHONE || MACH_OPENPHONE || MACH_SP8805GA || MACH_SP6810A
 	help
 	  This enables the NAND flash controller on the sc8800s and sc8800g
 
