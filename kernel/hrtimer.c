@@ -50,6 +50,7 @@
 
 #include <trace/events/timer.h>
 
+#include <mach/test.h>
 /*
  * The timer bases:
  *
@@ -1253,6 +1254,8 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 	ktime_t expires_next, now, entry_time, delta;
 	int i, retries = 0;
 
+	//printk("hrtimer_interrupt()!\n");
+	timer_int_counter++;
 	BUG_ON(!cpu_base->hres_active);
 	cpu_base->nr_events++;
 	dev->next_event.tv64 = KTIME_MAX;

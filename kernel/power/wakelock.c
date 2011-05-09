@@ -31,7 +31,7 @@ enum {
 	DEBUG_EXPIRE = 1U << 3,
 	DEBUG_WAKE_LOCK = 1U << 4,
 };
-//static int debug_mask = DEBUG_EXIT_SUSPEND | DEBUG_WAKEUP;
+//static int debug_mask = (DEBUG_EXIT_SUSPEND | DEBUG_WAKEUP | DEBUG_SUSPEND | DEBUG_EXPIRE | DEBUG_WAKE_LOCK);
 static int debug_mask = 0;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
@@ -54,6 +54,11 @@ static struct wake_lock unknown_wakeup;
 static struct wake_lock deleted_wake_locks;
 static ktime_t last_sleep_time_update;
 static int wait_for_wakeup;
+
+
+static void suspend(struct work_struct *work);
+
+static DECLARE_WORK(suspend_work, suspend);
 
 int get_expired_time(struct wake_lock *lock, ktime_t *expire_time)
 {
@@ -256,9 +261,56 @@ long has_wake_lock(int type)
 	ret = has_wake_lock_locked(type);
 	if (ret && (debug_mask & DEBUG_SUSPEND) && type == WAKE_LOCK_SUSPEND)
 		print_active_locks(type);
+	print_active_locks(type);
 	spin_unlock_irqrestore(&list_lock, irqflags);
 	return ret;
 }
+
+/* check & show some info for debug. */
+long has_wake_lock_info(int type)
+{
+	long ret;
+	unsigned long irqflags;
+	spin_lock_irqsave(&list_lock, irqflags);
+	ret = has_wake_lock_locked(type);
+	if (ret  && (type == WAKE_LOCK_SUSPEND))
+		print_active_locks(type);
+	else
+		printk("##: No active wakelock.\n");
+	spin_unlock_irqrestore(&list_lock, irqflags);
+	return ret;
+}
+
+/* check if the system can goto deep sleep. 
+     
+	return 0 if system can goto deep sleep,
+	other values if can't.
+
+*/
+long has_wake_lock_for_suspend(int type)
+{
+	long ret = -1;
+	unsigned long irqflags;
+
+	struct wake_lock *lock, *n;
+	long max_timeout = 0;
+	int active_lock_num = 0;
+	int has_unknown_wakelock = 0;
+
+	spin_lock_irqsave(&list_lock, irqflags);
+
+	BUG_ON(type >= WAKE_LOCK_TYPE_COUNT);
+	list_for_each_entry_safe(lock, n, &active_wake_locks[type], link) {
+		active_lock_num++;
+		if (lock == &unknown_wakeup) has_unknown_wakelock = 1;
+	}
+	spin_unlock_irqrestore(&list_lock, irqflags);
+	if (0 == active_lock_num) ret = 0;
+	else	if (has_unknown_wakelock && (1 == active_lock_num)) ret = 0;
+	return ret;
+}
+
+int sc8800g_pm_enter(suspend_state_t state);
 
 static void suspend(struct work_struct *work)
 {
@@ -272,7 +324,10 @@ static void suspend(struct work_struct *work)
 	}
 
 	entry_event_num = current_event_num;
+#if 0
+	/*
 	sys_sync();
+	*/
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("suspend: enter suspend\n");
 	ret = pm_suspend(requested_suspend_state);
@@ -286,18 +341,21 @@ static void suspend(struct work_struct *work)
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 	}
+#endif
+
+	sc8800g_pm_enter(PM_SUSPEND_MEM);
 	if (current_event_num == entry_event_num) {
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_info("suspend: pm_suspend returned with no event\n");
 		wake_lock_timeout(&unknown_wakeup, HZ / 2);
 	}
 }
-static DECLARE_WORK(suspend_work, suspend);
 
 static void expire_wake_locks(unsigned long data)
 {
 	long has_lock;
 	unsigned long irqflags;
+	//printk("expire_timer()!\n");
 	if (debug_mask & DEBUG_EXPIRE)
 		pr_info("expire_wake_locks: start\n");
 	spin_lock_irqsave(&list_lock, irqflags);
@@ -503,8 +561,11 @@ void wake_unlock(struct wake_lock *lock)
 				if (debug_mask & DEBUG_EXPIRE)
 					pr_info("wake_unlock: %s, stop expire "
 						"timer\n", lock->name);
-			if (has_lock == 0)
+			if (has_lock == 0) {
+				/* removed by Wang liwei. */
+				printk("##: start queue!\n");
 				queue_work(suspend_work_queue, &suspend_work);
+			}
 		}
 		if (lock == &main_wake_lock) {
 			if (debug_mask & DEBUG_SUSPEND)

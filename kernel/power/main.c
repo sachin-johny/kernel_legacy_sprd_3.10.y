@@ -172,10 +172,6 @@ static ssize_t state_show(struct kobject *kobj, struct kobj_attribute *attr,
 static ssize_t state_store(struct kobject *kobj, struct kobj_attribute *attr,
 			   const char *buf, size_t n)
 {
-char tmp[20];
-memset(tmp,0,20);
-strncpy(tmp,buf,n);
-printk("jim power set state=%s",tmp);
 #ifdef CONFIG_SUSPEND
 #ifdef CONFIG_EARLYSUSPEND
 	suspend_state_t state = PM_SUSPEND_ON;
@@ -202,10 +198,12 @@ printk("jim power set state=%s",tmp);
 		if (*s && len == strlen(*s) && !strncmp(buf, *s, len))
 			break;
 	}
+	printk("##: enter %s\n", pm_states[state]);
 	if (state < PM_SUSPEND_MAX && *s)
 #ifdef CONFIG_EARLYSUSPEND
 		if (state == PM_SUSPEND_ON || valid_state(state)) {
 			error = 0;
+			printk("##: entering request_suspend_state()...\n");
 			request_suspend_state(state);
 		}
 #else
@@ -214,6 +212,7 @@ printk("jim power set state=%s",tmp);
 #endif
 
  Exit:
+	printk("##: state_store() returns back.\n");
 	return error ? error : n;
 }
 

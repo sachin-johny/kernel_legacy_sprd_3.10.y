@@ -134,20 +134,6 @@ static void default_idle(void)
 void (*pm_idle)(void) = default_idle;
 EXPORT_SYMBOL(pm_idle);
 
-#ifdef CONFIG_NKERNEL
-
-static inline void nkidle(void)
-{
-	if (!need_resched()) {
-		hw_local_irq_disable();
-		if (!raw_local_irq_pending())
-			(void)os_ctx->idle(os_ctx);
-		hw_local_irq_enable();
-	}
-	local_irq_enable();
-}
-
-#endif
 
 /*
  * The idle thread, has rather strange semantics for calling pm_idle,
@@ -175,12 +161,16 @@ void cpu_idle(void)
 				cpu_relax();
 			} else {
 				stop_critical_timings();
+				pm_idle();
+
+#if 0
 #ifndef CONFIG_NKERNEL
 				pm_idle();
 #else
 
 				nkidle();
 
+#endif
 #endif
 				start_critical_timings();
 				/*

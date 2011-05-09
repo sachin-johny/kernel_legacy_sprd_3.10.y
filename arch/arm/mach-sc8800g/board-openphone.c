@@ -442,11 +442,13 @@ static void __init chip_init(void)
     __raw_writel(0x1fff00, PIN_CTL_REG);
 }
 
+extern void sc8800g_pin_map_init(void);
 static void __init openphone_init(void)
 {
 	chip_init();
 //	ADI_init();
 	LDO_Init();
+    sc8800g_pin_map_init();
 	i2c_register_board_info(1,openphone_i2c_boardinfo,ARRAY_SIZE(openphone_i2c_boardinfo));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();

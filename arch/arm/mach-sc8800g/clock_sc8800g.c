@@ -1902,14 +1902,17 @@ int __init sc8800g2_clock_init(void)
 
 	clk_enable_init_clocks();
 	CLK_FW_ERR("###: sc8800g2_clock_init() is done.\n");
+       /*
 	clk_print_all();
-
+        */
     /* show all clocks, both linux side and RTOS side. */
+     /*
     for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
 	    CLK_FW_INFO("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
 		index, &pstub[index], pstub[index].name, pstub[index].flags, 
 		pstub[index].usecount);
     }
+     */
 
 	return 0;
  }

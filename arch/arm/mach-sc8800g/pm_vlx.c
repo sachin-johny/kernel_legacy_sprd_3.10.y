@@ -33,18 +33,12 @@ extern int prepare_deep_sleep(void);
 
 extern int prepare_deep_sleep(void);
 extern int sc8800g_prepare_deep_sleep(void);
-extern int sc8800g_enter_deepsleep(void);
+extern int sc8800g_enter_deepsleep(int);
 
 int sc8800g_pm_enter(suspend_state_t state)
 {
     int ret_val;
-    u32 t0, t1;
-/*
-    t0 = get_sys_cnt();
-    printascii("####: t0 = ");
-    printhex8(t0);
-    printascii("\r\n");
-*/
+
 	/* *** go zzz *** */	
 	local_fiq_disable();
 
@@ -56,20 +50,13 @@ int sc8800g_pm_enter(suspend_state_t state)
 	ret_val = os_ctx->idle(os_ctx);
     if (0 == ret_val) {
         
-        //printascii("####: goto deep sleep now......\n");
-        sc8800g_enter_deepsleep();
+        sc8800g_enter_deepsleep(0);
        
     }
 
 	hw_local_irq_enable();
 
 	local_fiq_enable();
-/*
-       t1 = get_sys_cnt();
-    printascii("####: t1 = ");
-    printhex8(t1);
-    printascii("\r\n");
-*/
 	return 0;
 }
 

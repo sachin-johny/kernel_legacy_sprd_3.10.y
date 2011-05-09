@@ -17,9 +17,10 @@
 		
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-
+/*
 ENTRY(arch_idle)
 #ifdef CONFIG_SC8800G_IDLE
 
 #endif
 	mov     pc, lr
+*/

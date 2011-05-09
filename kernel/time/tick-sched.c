@@ -23,7 +23,7 @@
 #include <linux/module.h>
 
 #include <asm/irq_regs.h>
-
+#include <mach/test.h>
 #include "tick-internal.h"
 
 /*
@@ -731,6 +731,7 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 	ktime_t now = ktime_get();
 	int cpu = smp_processor_id();
 
+	tick_sched_timer_counter++;
 #ifdef CONFIG_NO_HZ
 	/*
 	 * Check if the do_timer duty was dropped. We don't care about

@@ -14,8 +14,21 @@
  */
 
 #include <mach/hardware.h>
-
-void arch_idle(void);
+#include <mach/test.h>
+static inline void arch_idle(void)
+{
+/*
+    u32 t0, t1, delta;
+    idle_loops++;
+    t0 = get_sys_cnt();
+*/
+    cpu_do_idle();
+/*
+    t1 = get_sys_cnt();
+    delta = t1 - t0;
+    idle_time += delta;
+*/
+}
 
 static inline void arch_reset(char mode, const char *cmd)
 {

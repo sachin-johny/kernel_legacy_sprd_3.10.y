@@ -180,6 +180,9 @@ static void __init sprd_timer_init(void)
 	setup_irq(IRQ_TIMER0_INT, &sprd_gptimer_irq);
 }
 #else
+
+#include <mach/test.h>
+
 /*
  * we use one of the 2 general-purpose timers as the clock event device. 
  * timer1 is chosen as default.
@@ -199,6 +202,12 @@ static int
 sprd_gptimer_set_next_event(unsigned long cycles, struct clock_event_device *c)
 {
 	//pr_info("cycle :%d\r\n", cycles);
+/*
+	if (get_sys_cnt() > 100000) {
+		if (cycles < 3000) cycles = 3000;
+		//printk("cycles = %d\n", cycles);
+	}
+*/
 
 	/*busy wait for timer loading finished*/
 	while(__raw_readl(TIMER1_CLEAR) & (1<<4));
@@ -225,7 +234,7 @@ sprd_gptimer_set_mode(enum clock_event_mode mode, struct clock_event_device *c)
 		//__raw_bits_and(~(1 << 6), TIMER1_CONTROL);
 		break;
 	case CLOCK_EVT_MODE_SHUTDOWN:
-		__raw_writel(0, TIMER1_CONTROL);
+		//__raw_writel(0, TIMER1_CONTROL);
 		break;
 	case CLOCK_EVT_MODE_PERIODIC:
 		//__raw_bits_or((1 << 6), TIMER1_CONTROL);
@@ -257,7 +266,14 @@ static struct irqaction sprd_gptimer_irq = {
  */
 static cycle_t sprd_syscnt_read(struct clocksource *cs)
 {
-	return __raw_readl(SYSCNT_COUNT);
+	u32 val1, val2;
+	val1 = __raw_readl(SYSCNT_COUNT);
+	val2 = __raw_readl(SYSCNT_COUNT);
+	while(val2 != val1) {
+		val1 = val2;
+		val2 = __raw_readl(SYSCNT_COUNT);
+	}
+	return val2;
 }
 
 static struct clocksource sprd_syscnt = {

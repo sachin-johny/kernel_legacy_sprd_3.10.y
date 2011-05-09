@@ -30,16 +30,45 @@
 #define SYSCNT_FREQ	1000
 
 
+#define SLEEP_MODE_ARM_CORE 0
+#define SLEEP_MODE_MCU 1
+#define SLEEP_MODE_DEEP 2
+
+/*********************************/
+/* for debug only. */
+extern u16 val_short;
+/* for saving global registers. */
+extern u32 ahb_ctl0, gen0, gen_clk_en, busclk_alm, irq_flags;
+extern u32 val;
+extern u32 sleep_mode;
+extern u32 idle_time;
+extern int idle_loops;
+extern u32 timer_int_counter;
+extern u32 tick_sched_timer_counter;
+
+/*********************************/
+
+
 #ifdef        CONFIG_DEBUG_LL
 extern void printascii(char *);
 extern void printch(char);
 extern void printhex8(int);
 #endif
 
+extern u32 sc8800g_read_cp15_c1(void);
+extern u32 sc8800g_read_cp15_c2(void);
+extern u32 sc8800g_read_cp15_c3(void);
 
 
 static u32 inline get_sys_cnt(void)
 {
-	return __raw_readl(SYSCNT_COUNT);
+	u32 val1, val2;
+	val1 = __raw_readl(SYSCNT_COUNT);
+	val2 = __raw_readl(SYSCNT_COUNT);
+	while(val2 != val1) {
+		val1 = val2;
+		val2 = __raw_readl(SYSCNT_COUNT);
+	}
+	return val2;
 }
 

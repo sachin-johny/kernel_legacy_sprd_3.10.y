@@ -191,8 +191,8 @@
 /*
 #define POWCTL1_CONFIG                  0x7FFFF903
 */
-#define POWCTL1_CONFIG 0x00000001e  // isolation number 1ms:30cycles
-
+//#define POWCTL1_CONFIG 0x00000001e  // isolation number 1ms:30cycles
+#define POWCTL1_CONFIG                  0x0423F91E  // isolation number 1ms:30cycles
 
 
 /**************************************** 

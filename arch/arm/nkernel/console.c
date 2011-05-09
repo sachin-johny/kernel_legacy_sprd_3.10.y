@@ -68,7 +68,7 @@
 #define	NKLINE(tty)	((tty)->index)
 #define	NKPORT(tty) ( (NkPort*)((tty)->driver_data))
 
-#define	SERIAL_NK_TIMEOUT	(HZ/10)	/* ten times per second */
+#define	SERIAL_NK_TIMEOUT	(HZ)	/* ten times per second */
 #define	SERIAL_NK_RXLIMIT	256	/* no more than 256 characters */
 typedef struct NkPort NkPort;
 #define MAX_BUF			128
