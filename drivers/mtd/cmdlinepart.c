@@ -68,14 +68,8 @@ static char sprd_nand_parts[] = "sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(
 #ifdef CONFIG_MACH_BIGPHONE
 static char sprd_nand_parts[] = "sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(RECOVERY),100m(SYSTEM),140m(DATA)";
 #endif
-#ifdef CONFIG_MACH_OPENPHONE
+#if defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP6810A)
 static char sprd_nand_parts[] = "sprd-nand:384k@256k(2ndbl),128k(params),512k(vmjaluna),6016k(modem),7680k(kernel),5120k(dsp),1280k(fixnv),2560k(runtimenv),6400k(recovery),100m(system),198m(userdata),1m(boot_logo),1m(fastboot_logo),2m(cache),256k(misc)";
-#endif
-#ifdef CONFIG_MACH_SP8805GA
-static char sprd_nand_parts[] = "sprd-nand:384k@256k(2ndbl),128k(params),512k(vmjaluna),6016k(modem),7680k(kernel),5120k(dsp),1280k(fixnv),2560k(runtimenv),6400k(recovery),100m(system),200m(userdata),2m(cache),256k(misc)";
-#endif
-#ifdef CONFIG_MACH_SP6810A
-static char sprd_nand_parts[] = "sprd-nand:384k@256k(2ndbl),128k(params),512k(vmjaluna),6016k(modem),7680k(kernel),5120k(dsp),1280k(fixnv),2560k(runtimenv),6400k(recovery),100m(system),200m(userdata),2m(cache),256k(misc)";
 #endif
 #endif
 
