@@ -18,6 +18,10 @@
 #include <linux/uaccess.h>
 
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
+
 
 static int __devinit omap_wdt_probe(struct platform_device *pdev)
 {
@@ -78,9 +82,37 @@ static struct platform_driver omap_wdt_driver = {
 	},
 };
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+
+    struct early_suspend early_suspend;
+static void sc8800g2_wdt_suspend (struct early_suspend* es)
+{
+    printk("###: sc8800g2_wdt_suspend()!\n");
+    printk("###: sc8800g2_wdt_suspend()!\n");
+    printk("###: sc8800g2_wdt_suspend()!\n");
+}
+
+static void sc8800g2_wdt_resume (struct early_suspend* es)
+{
+    printk("###: sc8800g2_wdt_resume()!\n");
+    printk("###: sc8800g2_wdt_resume()!\n");
+    printk("###: sc8800g2_wdt_resume()!\n");
+}
+
+
+#endif
+
 static int __init omap_wdt_init(void)
 {
 	printk("######: omap_wdt_init()\n");
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	early_suspend.suspend = sc8800g2_wdt_suspend;
+	early_suspend.resume  = sc8800g2_wdt_resume;
+	early_suspend.level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	register_early_suspend(&early_suspend);
+#endif
+
 
 	return platform_driver_register(&omap_wdt_driver);
 }
