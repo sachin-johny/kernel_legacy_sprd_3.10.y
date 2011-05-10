@@ -393,13 +393,28 @@ void udc_disable(void)
 }
 EXPORT_SYMBOL(udc_disable);
 
+static int calibration_mode = false;
+static int __init calibration_start(char *str)
+{
+        if(str)
+                pr_info("modem calibrtion:%s\n", str);
+        calibration_mode = true;
+        return 1;
+}
+__setup("calibration=", calibration_start);
+
 void __init sprd_add_otg_device(void)
 {
-	__raw_bits_or(BIT_8, USB_PHY_CTRL);
-	__raw_bits_and(~BIT_1, AHB_CTL3);
-	__raw_bits_and(~BIT_2, AHB_CTL3);
-	usb_startup();
-	platform_device_register(&sprd_otg_device);
+        /*
+         * if in calibrtaion mode, we do nothing, modem will handle everything
+         */
+        if (calibration_mode)
+                return;
+        __raw_bits_or(BIT_8, USB_PHY_CTRL);
+        __raw_bits_and(~BIT_1, AHB_CTL3);
+        __raw_bits_and(~BIT_2, AHB_CTL3);
+        usb_startup();
+        platform_device_register(&sprd_otg_device);
 }
 
 /*Android USB Function */

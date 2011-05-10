@@ -40,9 +40,9 @@
 
 //#define PRINT_CFI_DMA_DESCS
 
-//#define DEBUG_EP0
+#define DEBUG_EP0
 
-//#define VERBOSE
+#define VERBOSE
 
 /**
  * This function updates OTG.

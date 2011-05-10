@@ -601,6 +601,7 @@ static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 							*)bytes);
 	}
 
+    trace_printk("setup res val: %d\n", retval);
 	//sword
 	//if (retval == -ENOTSUPP) {
 	if (retval == -EOPNOTSUPP) {
@@ -797,9 +798,9 @@ void gadget_add_eps(struct gadget_wrapper *d)
 
 		"ep0",
 		"ep1in",
-//		"ep2in",
+		"ep2in",
 		"ep3in",
-//		"ep4in",
+		"ep4in",
 		"ep5in",
 		"ep6in",
 		"ep7in",
@@ -811,11 +812,11 @@ void gadget_add_eps(struct gadget_wrapper *d)
 		"ep13in",
 		"ep14in",
 		"ep15in",
-//		"ep1out",
+		"ep1out",
 		"ep2out",
-//		"ep3out",
+		"ep3out",
 		"ep4out",
-//		"ep5out",
+		"ep5out",
 		"ep6out",
 		"ep7out",
 		"ep8out",
@@ -1042,10 +1043,6 @@ int pcd_init(
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
     udc_disable();
     gadget_wrapper->enabled = 0;
-     {
-     extern void sprd_clear_all_irqs(void );
-     sprd_clear_all_irqs();
-     }
     //enable_irq(plug_irq);
 	return retval;
 }
@@ -1053,8 +1050,19 @@ int pcd_init(
 void enable_gpio_detect_irq(void)
 {
     int plug_irq;
+    unsigned long flags;
+    static int open_flag = 0;
+
+    local_irq_save(flags);
+    if (open_flag) {
+        goto out;
+    }
     plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
     enable_irq(plug_irq);
+    open_flag = 1;
+out:
+    local_irq_restore(flags);
+    return;
 }
 /**
  * Cleanup the PCD.
