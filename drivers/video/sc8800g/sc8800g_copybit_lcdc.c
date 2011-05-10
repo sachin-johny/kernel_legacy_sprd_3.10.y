@@ -315,11 +315,12 @@ static inline int set_fetch(struct s2d_img *img, struct s2d_rect *rect,
  */
 static int para_check(struct s2d_blit_req * req)
 { 
-    if (req->src_rect.w == 1)
-         return SOFTWARE_BLEND_ALL;
+	if (req->src_rect.w == 1)
+		return SOFTWARE_BLEND_ALL;
 
-	if(req->dst_rect.x & 1) { /* dst_rect odd start */
-		if (req->src.format == S2D_RGB_565 && !(req->src_rect.x &1))
+	if (req->dst_rect.x & 1) { /* dst_rect odd start */
+		if ((req->src.format == S2D_RGB_565 && !(req->src_rect.x &1))
+				|| req->src_rect.w == 2)
 			return SOFTWARE_BLEND_ALL;
 
 		if (req->dst_rect.w & 1) { /* dst_rect odd width */
@@ -396,7 +397,7 @@ static inline void blend32_left(struct s2d_blit_req * req)
 	unsigned short r, g, b;
 	int tmpd;
 	int i;
-	static int tag = 0; /* TEMP */
+	//static int tag = 0; /* TEMP */
 
 	src = (unsigned char*)GET_VA(req->src.base);
 	src += (req->src_rect.y * req->src.width +
