@@ -397,11 +397,11 @@ static int calibration_mode = false;
 static int __init calibration_start(char *str)
 {
         if(str)
-                pr_info("modem calibrtion:%s\n", str);
+                pr_info("modem calibartion:%s\n", str);
         calibration_mode = true;
         return 1;
 }
-__setup("calibration=", calibration_start);
+__setup("calibration_mode=", calibration_start);
 
 void __init sprd_add_otg_device(void)
 {
