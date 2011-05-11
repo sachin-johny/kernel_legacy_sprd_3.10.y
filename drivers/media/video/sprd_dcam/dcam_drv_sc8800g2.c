@@ -197,6 +197,8 @@ ISP_FRAME_T            s_path1_frame[ISP_PATH1_FRAME_COUNT_MAX];
 ISP_FRAME_T            s_path2_frame[ISP_PATH2_FRAME_COUNT_MAX];
 ISP_MODULE_T           s_isp_mod;
 
+uint32_t g_is_stop = 0;
+
 LOCAL void    _ISP_DrvierModuleReset(uint32_t base_addr);
 LOCAL uint32_t  _ISP_DriverReadIrqLine(uint32_t base_addr);
 LOCAL void    _ISP_DriverIrqClear(uint32_t base_addr,uint32_t mask);
@@ -349,6 +351,8 @@ PUBLIC int32_t ISP_DriverSetClk(uint32_t pll_src_addr,ISP_CLK_SEL_E clk_sel)
 PUBLIC int32_t ISP_DriverStart(uint32_t base_addr)
 {
     ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;	
+
+    g_is_stop = 0;
     
     ISP_CHECK_PARAM_ZERO_POINTER(base_addr);   
 
@@ -379,6 +383,9 @@ PUBLIC int32_t ISP_DriverStart(uint32_t base_addr)
 PUBLIC int32_t ISP_DriverStop(uint32_t base_addr)
 {
     ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;
+
+    if(1 == g_is_stop)
+		return rtn;
     
     ISP_CHECK_PARAM_ZERO_POINTER(base_addr);   
 
@@ -395,18 +402,22 @@ PUBLIC int32_t ISP_DriverStop(uint32_t base_addr)
         break;  
 	case ISP_MODE_PREVIEW:
 	    {
-		uint32_t count,value;
+		uint32_t count,value;		
 		    _paad(DCAM_PATH_CFG, ~BIT_0);
-		    msleep(20);//wait the dcam stop	
+
+		    g_is_stop = 1;
+		    //msleep(20);//wait the dcam stop	
+		    
 		    for(count = 0; count < 100; count++)
 		    	{
 		    		value = _pard(DCAM_INT_RAW);
+				printk("ISP_DriverStop wait the last interrupt.value: 0x%x, count: %d\n", value, count);
 				if(value & 0x10){
-					DCAM_TRACE("ISP_DriverStop wait the last interrupt.\n");
+					DCAM_TRACE("ISP_DriverStop wait the last interrupt.\n");					
 					break;
-				}
-				msleep(1);
-		    	}
+				}				
+				msleep(20);
+		    	}			
 	    }
 	break;
         default:
@@ -414,9 +425,8 @@ PUBLIC int32_t ISP_DriverStop(uint32_t base_addr)
         break;
     }
 
-    //_ISP_DriverIrqDisable(base_addr,ISP_IRQ_LINE_MASK);
     _ISP_DriverIrqClear(base_addr,ISP_IRQ_LINE_MASK);
-
+    
     return rtn;
 }
 
@@ -1000,8 +1010,8 @@ LOCAL void _ISP_DriverISRRoot(uint32_t base_addr)
         if(!irq_line)
             break;
     }
-    _ISP_DriverIrqClear(base_addr,irq_status);
-	
+    
+    	_ISP_DriverIrqClear(base_addr,irq_status);	
 }
 
 
