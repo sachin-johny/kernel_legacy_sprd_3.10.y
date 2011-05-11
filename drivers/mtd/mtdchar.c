@@ -249,6 +249,23 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 	return total_retlen;
 } /* mtd_read */
 
+#ifdef NV_RDWR
+void array_value(unsigned char *array, int len)
+{
+	int aaa;
+	
+	printk("\n\n[");
+
+	for (aaa = 0; aaa < len; aaa ++) {
+		if ((aaa % 16) == 0)
+			printk("\n");
+		printk(" %02x", array[aaa]);
+	}
+
+	printk("]\n\n");
+}
+#endif
+
 static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count,loff_t *ppos)
 {
 	struct mtd_file_info *mfi = file->private_data;
@@ -260,7 +277,6 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 	int len;
 
 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write\n");
-
 	if (*ppos == mtd->size)
 		return -ENOSPC;
 
@@ -269,6 +285,23 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 
 	if (!count)
 		return 0;
+
+#ifdef NV_RDWR
+	if ((nv_rdwr_flag == 1) && (nv_file == file)) {
+		if (copy_from_user((nv_databuf + nv_pos), buf, count)) {
+			printk("\n\ncopy nv data error\n\n");
+			return -EFAULT;
+		}
+
+		/*if (count >= 16)
+			array_value((nv_databuf + nv_pos), 16);
+		else 
+			array_value((nv_databuf + nv_pos), count);*/
+
+		nv_pos += count;
+		return count;
+	}
+#endif
 
 	if (count > MAX_KMALLOC_SIZE)
 		kbuf=kmalloc(MAX_KMALLOC_SIZE, GFP_KERNEL);
@@ -290,18 +323,15 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			return -EFAULT;
 		}
 		
-		printk("mfi->mode = %d\n", mfi->mode);
 		switch (mfi->mode) {
 		case MTD_MODE_OTP_FACTORY:
 			ret = -EROFS;
-			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			break;
 		case MTD_MODE_OTP_USER:
 			if (!mtd->write_user_prot_reg) {
 				ret = -EOPNOTSUPP;
 				break;
 			}
-			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			ret = mtd->write_user_prot_reg(mtd, *ppos, len, &retlen, kbuf);
 			break;
 
@@ -313,14 +343,12 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			ops.datbuf = kbuf;
 			ops.oobbuf = NULL;
 			ops.len = len;
-			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			ret = mtd->write_oob(mtd, *ppos, &ops);
 			retlen = ops.retlen;
 			break;
 		}
 
 		default:
-			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			ret = (*(mtd->write))(mtd, *ppos, len, &retlen, kbuf);
 		}
 		if (!ret) {
@@ -535,7 +563,6 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 
 		if(!(file->f_mode & FMODE_WRITE))
 			return -EPERM;
-		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
 		erase=kzalloc(sizeof(struct erase_info),GFP_KERNEL);
 		if (!erase)
 			ret = -ENOMEM;
@@ -600,7 +627,7 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 	{
 		struct mtd_oob_buf buf;
 		struct mtd_oob_buf __user *buf_user = argp;
-		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
+
 		/* NOTE: writes return length to buf_user->length */
 		if (copy_from_user(&buf, argp, sizeof(buf)))
 			ret = -EFAULT;
@@ -897,10 +924,138 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		break;
 	}
 
+#ifdef NV_RDWR
+	case MEMNVWRSTART:
+	{
+		struct mtd_oob_ops ops;
+		unsigned long total, bad_flag;
+		unsigned long offs;
+
+		memset(&ops, 0, sizeof(ops));
+		memset(&nv_oobbuf, 0, sizeof(nv_oobbuf));
+		if (copy_from_user(&nv_oobbuf, argp, sizeof(nv_oobbuf))) {
+			printk("\n\ncopy nv header error\n\n");
+			ret = -EFAULT;
+		} else {
+			/*if (nv_oobbuf.ptr[0] == '0')
+				nvtype = 0;
+			else
+				nvtype = 1;
+			printk("start = %d  length = %d   type = %c   nvtype = %d\n", nv_oobbuf.start, nv_oobbuf.length, nv_oobbuf.ptr[0], nvtype);*/
+			nvtype = 1;
+		}
+
+		nv_databuf = kmalloc(MAX_NV_SIZE, GFP_KERNEL);
+		if (!nv_databuf) {
+			printk("\n\ncan not allocate nv data buffer\n\n");
+			return -ENOMEM;
+		}
+		memset(nv_databuf, 0xff, MAX_NV_SIZE);
+		printk("\nread data from nv mtd paration to nv data buffer. \n\n");
+
+		total = 0;
+		offs = 0;
+		while (total < MAX_NV_SIZE) {
+			bad_flag = mtd->block_isbad(mtd, offs);
+			if (bad_flag) {
+				offs += (128 * 1024);
+				continue;
+			}
+
+			if (nvtype == 0)
+				ops.len = 64 * 1024;
+			else
+				ops.len = 128 * 1024;
+
+			ops.datbuf = nv_databuf + total;
+			ops.oobbuf = NULL;
+			ops.mode = MTD_OOB_AUTO;
+			mtd->read_oob(mtd, total, &ops);
+			total += (128 * 1024);
+			offs += (128 * 1024);
+		}
+
+		array_value(nv_databuf, 64);
+		nv_file = file;
+		nv_rdwr_flag = 1;
+		nv_pos = nv_oobbuf.start;
+		
+		break;
+	}
+
+	case MEMNVWREND:
+	{
+		struct mtd_oob_ops ops;
+		unsigned long total, bad_flag;
+		unsigned long offs;
+		struct erase_info erase;
+		wait_queue_head_t waitq;
+
+		array_value((nv_databuf + nv_oobbuf.start), 64);
+		printk("write to nand nv partition.  offset : %d\n", nv_oobbuf.start);
+		
+		total = 0;
+		offs = 0;
+		while (total < MAX_NV_SIZE) {
+			bad_flag = mtd->block_isbad(mtd, offs);
+			//printk("bad_flag = %d\n", bad_flag);
+			if (bad_flag) {
+				offs += (128 * 1024);
+				continue;
+			}
+			
+			DECLARE_WAITQUEUE(wait, current);
+			init_waitqueue_head(&waitq);
+
+			erase.addr = offs;
+			erase.len = (128 * 1024);
+			erase.mtd = mtd;
+			erase.callback = mtdchar_erase_callback;
+			erase.priv = (unsigned long)&waitq;
+
+			ret = mtd->erase(mtd, &erase);
+			if (!ret) {
+				set_current_state(TASK_UNINTERRUPTIBLE);
+				add_wait_queue(&waitq, &wait);
+				if (erase.state != MTD_ERASE_DONE &&
+				    erase.state != MTD_ERASE_FAILED)
+					schedule();
+				remove_wait_queue(&waitq, &wait);
+				set_current_state(TASK_RUNNING);
+				ret = (erase.state == MTD_ERASE_FAILED)?-EIO:0;
+			}
+
+			if (nvtype == 0)
+				ops.len = 64 * 1024;
+			else
+				ops.len = 128 * 1024;
+			ops.datbuf = nv_databuf + total;
+			ops.oobbuf = NULL;
+			ops.mode = MTD_OOB_AUTO;
+			mtd->write_oob(mtd, total, &ops);
+			total += (128 * 1024);
+			offs += (128 * 1024);
+		}
+
+		nv_file = NULL;
+		nv_rdwr_flag = 0;
+		nv_pos = 0;
+		nvtype = 0;
+		memset(&nv_oobbuf, 0, sizeof(nv_oobbuf));
+		if (nv_databuf) {
+			memset(nv_databuf, 0xff, MAX_NV_SIZE);
+			kfree(nv_databuf);
+			nv_databuf = NULL;
+		}
+		
+		break;
+	}
+#endif
+
 	default:
 		ret = -ENOTTY;
 	}
-	printk("ret = %d\n", ret);
+
 	return ret;
 } /* memory_ioctl */
 

@@ -119,6 +119,9 @@ struct otp_info {
 #define MEMWRITEOOB64		_IOWR('M', 21, struct mtd_oob_buf64)
 #define MEMREADOOB64		_IOWR('M', 22, struct mtd_oob_buf64)
 #define MEMWRITEPAGEOOB         _IOWR('M', 23, struct mtd_pageoob_buf)
+#define MEMNVWRSTART		_IOWR('M', 24, struct mtd_oob_buf)
+#define MEMNVWREND		_IOWR('M', 25, struct mtd_oob_buf)
+
 
 /*
  * Obsolete legacy interface. Keep it in order not to break userspace
