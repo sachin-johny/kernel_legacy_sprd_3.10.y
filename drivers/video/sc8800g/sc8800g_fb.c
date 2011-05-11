@@ -35,7 +35,10 @@
 #include <mach/regs_ana.h>
 #include <mach/mfp.h>
 #include "sc8800g_lcd.h"
-
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
+    
 //#define TEST_RRM /* enable rrm test */
 //#define  FB_DEBUG 
 #ifdef FB_DEBUG
@@ -117,6 +120,9 @@ struct sc8800fb_info {
 	struct ops_mcu *ops;
 	struct lcd_spec *panel;
 	struct rrmanager *rrm;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend early_suspend;
+#endif
 };
 
 static int32_t lcm_send_cmd (uint32_t cmd)
@@ -748,18 +754,18 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 		return;
 
 	set_pins();
-	
+
 	//misc_setup();
-	
+
 	//select LCD clock source	
 	__raw_bits_and(~(1<<6), GR_PLL_SRC);    //pll_src=96M
 	__raw_bits_and(~(1<<7), GR_PLL_SRC);
-	
+
 	//set LCD divdior
 	__raw_bits_and(~(1<<0), GR_GEN4);  //div=0
 	__raw_bits_and(~(1<<1), GR_GEN4); 
 	__raw_bits_and(~(1<<2), GR_GEN4);  
-	
+
 	//enable LCD clock
 	__raw_bits_or(1<<3, AHB_CTL0); 
 
@@ -777,10 +783,10 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 
 	/* enable LCDC_DONE IRQ */
 	__raw_bits_or((1<<0), LCDC_IRQ_EN);
-	
+
 	/* init lcdc mcu mode using default configuration */
 	lcdc_mcu_init();
-	
+
 	//__raw_bits_or((1<<0), LCDC_DAC_CONTROL_REG); /*close tv_out */
 
 	/* set lcdc-lcd interface parameters */
@@ -916,6 +922,25 @@ static void setup_rrm_test(struct fb_info *fb)
 }
 #endif
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void sc8800fb_early_suspend (struct early_suspend* es)
+{
+	struct sc8800fb_info *sc8800fb = container_of(es, struct sc8800fb_info, early_suspend);
+	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
+		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,1);
+	}
+
+}
+
+static void sc8800fb_early_resume (struct early_suspend* es)
+{
+	struct sc8800fb_info *sc8800fb = container_of(es, struct sc8800fb_info, early_suspend);
+	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
+		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
+	}
+}
+#endif
+
 #define ANA_INT_EN (SPRD_MISC_BASE+0x380+0x08)
 
 static int sc8800fb_probe(struct platform_device *pdev)
@@ -928,7 +953,7 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	printk("sc8800g_fb initialize!\n");
 
 	lm_init(4); /* TEMP */
-	
+
 	fb = framebuffer_alloc(sizeof(struct sc8800fb_info), &pdev->dev);
 	if (!fb)
 		return -ENOMEM;
@@ -963,52 +988,57 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	/* FIXME: put the BL stuff to where it belongs. */
 	set_backlight(50);
 	platform_set_drvdata(pdev, sc8800fb);
-	
-if(0){ /* in-kernel test code */
-	struct fb_info test_info;
-	int size = sc8800fb->fb->var.xres * sc8800fb->fb->var.yres *2;
-    short adie_chip_id = ANA_REG_GET(ANA_ADIE_CHIP_ID);
-	
-	/* set color */
-	if (adie_chip_id == 0) {
-		unsigned short *ptr=(unsigned short*)sc8800fb->fb->screen_base;
-		int len = size/2 /3 ; /* 1/3 frame pixels */
-		int offset;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	sc8800fb->early_suspend.suspend = sc8800fb_early_suspend;
+	sc8800fb->early_suspend.resume  = sc8800fb_early_resume;
+	sc8800fb->early_suspend.level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	register_early_suspend(&sc8800fb->early_suspend);
+#endif
+	if(0){ /* in-kernel test code */
+		struct fb_info test_info;
+		int size = sc8800fb->fb->var.xres * sc8800fb->fb->var.yres *2;
+		short adie_chip_id = ANA_REG_GET(ANA_ADIE_CHIP_ID);
 
-		for(offset=0;offset< len;offset++)
-			(* (volatile unsigned short *)(ptr++))= 0xf800; //red 
-		for(offset=0;offset< len;offset++)
-			(* (volatile unsigned short *)(ptr++))= 0x07e0; //green
-		for(offset=0;offset< len;offset++)
-			(* (volatile unsigned short *)(ptr++))= 0x001f; //blue
-		/* now, the second frame */
-		for(offset=0;offset< len;offset++)
-			(* (volatile unsigned short *)(ptr++))= 0xf800; 
-		for(offset=0;offset< len;offset++)
-			(* (volatile unsigned short *)(ptr++))= 0x07e0; 
-		for(offset=0;offset< len;offset++)
-			(* (volatile unsigned short *)(ptr++))= 0x001f; 
-    } else {
-		unsigned short *ptr=(unsigned short*)sc8800fb->fb->screen_base;
-		int len = size ; /* 1/3 frame pixels */
-		int offset;
+		/* set color */
+		if (adie_chip_id == 0) {
+			unsigned short *ptr=(unsigned short*)sc8800fb->fb->screen_base;
+			int len = size/2 /3 ; /* 1/3 frame pixels */
+			int offset;
 
-		for(offset=0;offset< len;offset++)
-			(* (volatile unsigned short *)(ptr++))= 0xf800; //red 
+			for(offset=0;offset< len;offset++)
+				(* (volatile unsigned short *)(ptr++))= 0xf800; //red 
+			for(offset=0;offset< len;offset++)
+				(* (volatile unsigned short *)(ptr++))= 0x07e0; //green
+			for(offset=0;offset< len;offset++)
+				(* (volatile unsigned short *)(ptr++))= 0x001f; //blue
+			/* now, the second frame */
+			for(offset=0;offset< len;offset++)
+				(* (volatile unsigned short *)(ptr++))= 0xf800; 
+			for(offset=0;offset< len;offset++)
+				(* (volatile unsigned short *)(ptr++))= 0x07e0; 
+			for(offset=0;offset< len;offset++)
+				(* (volatile unsigned short *)(ptr++))= 0x001f; 
+		} else {
+			unsigned short *ptr=(unsigned short*)sc8800fb->fb->screen_base;
+			int len = size ; /* 1/3 frame pixels */
+			int offset;
 
-        ANA_REG_OR(ANA_INT_EN, 0x1f);
-    }
+			for(offset=0;offset< len;offset++)
+				(* (volatile unsigned short *)(ptr++))= 0xf800; //red 
 
-	/* pan display */
-	test_info = *sc8800fb->fb;
+			ANA_REG_OR(ANA_INT_EN, 0x1f);
+		}
+
+		/* pan display */
+		test_info = *sc8800fb->fb;
 
 #ifndef TEST_RRM
-	real_pan_display(&sc8800fb->fb->var, &test_info);
+		real_pan_display(&sc8800fb->fb->var, &test_info);
 #endif
-}
-    short adie_chip_id = ANA_REG_GET(ANA_ADIE_CHIP_ID);
+	}
+	short adie_chip_id = ANA_REG_GET(ANA_ADIE_CHIP_ID);
 	if (adie_chip_id != 0) 
-        ANA_REG_OR(ANA_INT_EN, 0x1f);
+		ANA_REG_OR(ANA_INT_EN, 0x1f);
 
 #ifdef TEST_RRM
 	setup_rrm_test(fb);
@@ -1018,14 +1048,16 @@ if(0){ /* in-kernel test code */
 }
 static int sc8800fb_suspend(struct platform_device *pdev,pm_message_t state)
 {
-	struct sc8800fb_info *sc8800fb=platform_get_drvdata(pdev);
-	sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,1);
+	struct sc8800fb_info *sc8800fb = platform_get_drvdata(pdev);
+	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL)
+		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,1);
 	return 0;
 }
 static int sc8800fb_resume(struct platform_device *pdev)
 {
-	struct sc8800fb_info *sc8800fb=platform_get_drvdata(pdev);
-	sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
+	struct sc8800fb_info *sc8800fb = platform_get_drvdata(pdev);
+	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL)
+		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
 	return 0;
 }
 static struct platform_driver sc8800fb_driver = {
@@ -1037,7 +1069,6 @@ static struct platform_driver sc8800fb_driver = {
 		.owner = THIS_MODULE,
 	},
 };
-
 static int __init sc8800fb_init(void)
 {
 	FB_PRINT("@fool2[%s]\n", __FUNCTION__);
@@ -1045,5 +1076,4 @@ static int __init sc8800fb_init(void)
 }
 
 module_init(sc8800fb_init);
-
 
