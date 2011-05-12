@@ -240,6 +240,7 @@ typedef enum
 /*****************************************************************************/
  void LDO_DeepSleepInit(void);
  void LDO_TurnOffAllLDO(void);
+ void CHIP_TurnOffPower(void);
 
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *

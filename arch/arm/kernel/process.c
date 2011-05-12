@@ -212,10 +212,9 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
-#ifndef CONFIG_NKERNEL
 	if (pm_power_off)
 		pm_power_off();
-#else
+#if 0 
 	while (1) {
 	    os_ctx->stop(os_ctx, os_ctx->id);
 	}

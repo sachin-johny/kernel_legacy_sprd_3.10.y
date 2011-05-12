@@ -26,6 +26,7 @@
 #include <mach/bits.h>
 #include <mach/ldo.h>
 #include <mach/regs_ana.h>
+#include <mach/regs_int.h>
 
 #define LDO_INVALID_REG	0xFFFFFFFF
 #define LDO_INVALID_BIT		0xFFFFFFFF
@@ -440,7 +441,7 @@ int __init LDO_Init(void)
 
 	//deepsleep init set for ldo
 	LDO_DeepSleepInit();
-    pm_power_off = LDO_TurnOffAllLDO;
+    pm_power_off = CHIP_TurnOffPower;
 	
 	return LDO_ERR_OK;
 }
@@ -477,6 +478,15 @@ void LDO_TurnOffAllLDO (void)
 {
     LDO_TurnOffAllModuleLDO();
     LDO_TurnOffCoreLDO();
+}
+
+void CHIP_TurnOffPower(void)
+{
+#define CHIP_REG_AND(reg_addr, value)   (*(volatile unsigned int *)(reg_addr) &= (unsigned int)(value))
+    CHIP_REG_AND(GR_GEN0, ~(GEN0_SIM0_EN|GEN0_SIM1_EN));
+    *(volatile uint32_t *)INT_FIQ_DISABLE = 0xffffffff;
+    *(volatile uint32_t *)INT_IRQ_DISABLE = 0xffffffff;
+    LDO_TurnOffAllLDO();
 }
 
 //arch_initcall(LDO_Init);
