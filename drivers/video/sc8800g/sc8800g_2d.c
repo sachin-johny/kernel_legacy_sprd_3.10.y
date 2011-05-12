@@ -43,9 +43,9 @@ unsigned int buf_ptr;
 unsigned int buf_ptr_pa;
 unsigned int pmem_ptr;
 
-/*
-#define COPYBIT_2D_DEBUG
-*/
+
+//#define COPYBIT_2D_DEBUG
+
 #ifdef COPYBIT_2D_DEBUG
 #define C2D_PRINT printk
 #else
@@ -58,7 +58,7 @@ unsigned int pmem_ptr;
 int sc8800g_2d_open(struct inode *inode, struct file *file)
 {
 	struct s2d_blit_req *params;
-    printk("VMALLOC_START=0x%x,VMALLOC_END=0x%x,PAGE_OFFSET=0x%x\n",VMALLOC_START,VMALLOC_END,PAGE_OFFSET);
+    //printk("VMALLOC_START=0x%x,VMALLOC_END=0x%x,PAGE_OFFSET=0x%x\n",VMALLOC_START,VMALLOC_END,PAGE_OFFSET);
 	params = (struct s2d_blit_req *)kmalloc(
 			sizeof(struct s2d_blit_req), GFP_KERNEL);
 
@@ -112,7 +112,7 @@ static int do_copybit_dma_copy(struct s2d_blit_req * req,uint32_t byte_per_pixel
 	uint32_t total_len = req->dst_rect.w*req->dst_rect.h*byte_per_pixel;
 	uint32_t ret = 0;
 
-	C2D_PRINT("[pid:%d] do_copybit_dma_copy() %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
+	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
 
 	ret  = sprd_request_dma(DMA_SOFT0, sprd_2d_dma_irq, req);
 	if(ret){
@@ -134,11 +134,11 @@ static int do_copybit_dma_copy(struct s2d_blit_req * req,uint32_t byte_per_pixel
 	sprd_dma_setup(&ctrl);
 	sprd_dma_start(DMA_SOFT0);
 	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);	 
-	C2D_PRINT("[pid:%d] do_copybit_dma_copy() before %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
+	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() before %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
 	if(wait_event_interruptible(wait_queue, condition)){
 		ret =  -EFAULT;
 	}
-	C2D_PRINT("[pid:%d] do_copybit_dma_copy() after %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
+	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() after %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
 	//mdelay(100);
 	sprd_dma_stop(DMA_SOFT0);
 	sprd_free_dma(DMA_SOFT0);
@@ -202,21 +202,24 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 		dma_copy_ret = do_copybit_dma_copy(params,2);
 	}
 
-	if(dma_copy_ret){
-		C2D_PRINT("[pid:%d] sc8800g_2d_ioctl()\n", current->pid);
-		if (do_copybit_scale(params)) {
-			mutex_unlock(lock);
-			return -EFAULT;
-		}
-
-		if (do_copybit_rotation(params)) {
-			mutex_unlock(lock);
-			return -EFAULT;
-		}
-
-		if (do_copybit_lcdc(params)) {
-			mutex_unlock(lock);
-			return -EFAULT;
+	if(dma_copy_ret){			
+		if(params->do_flags & (BIT_0 | BIT_1)) {
+			if (do_copybit_scale(params)) {
+				mutex_unlock(lock);
+				return -EFAULT;
+			}			
+		}		
+		if(params->do_flags & BIT_2) {
+			if (do_copybit_rotation(params)) {
+				mutex_unlock(lock);
+				return -EFAULT;
+			}			
+		}		
+		if(params->do_flags & BIT_3) {			
+			if (do_copybit_lcdc(params)) {
+				mutex_unlock(lock);
+				return -EFAULT;
+			}			
 		}
 	}
 	mutex_unlock(lock);

@@ -61,7 +61,8 @@ struct s2d_blit_req {
  struct s2d_rect src_rect;
  struct s2d_rect dst_rect;
  uint32_t alpha;
- uint32_t flags;
+ uint32_t flags; 
+ uint32_t do_flags; //flag for scale, rotation and blending to do. 
 };
 
 struct s2d_blit_req_list {

@@ -108,7 +108,14 @@ static int get_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 	rot_param->img_size.h = req->src.height;
 	rot_param->rotation_dir = get_rotation_dir(req->flags);
 	rot_param->src_addr.y_addr = req->src.base;
-	rot_param->dst_addr.y_addr =  ROT_OUTPUT_BUF;
+	if(req->do_flags & 0x8){//if do blending
+		rot_param->dst_addr.y_addr =  ROT_OUTPUT_BUF;		
+	}
+	else{ //if not od blending
+		rot_param->dst_addr.y_addr = req->dst.base;
+		ROT_PRINT("###copybit do rotation but not do blending, req->do_flags: %d.\n", req->do_flags);
+	}	
+	
 	if(rot_param->data_format < ROTATION_YUV400) //for YUV422 and YUV420
 	{
 		rot_param->src_addr.uv_addr = rot_param->src_addr.y_addr + rot_param->img_size.w * rot_param->img_size.h;
@@ -123,14 +130,24 @@ static int get_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 		rot_param->dst_addr.uv_addr = 0;
 		rot_param->dst_addr.v_addr = 0;	
 	}
-
-	//wxz20110113: handle the height which is not aligned by 2. 
-	if(req->src.height & 0x1)
-	{
-		rot_param->img_size.h += 1;
-		ROT_PRINT("Modify the source height. old h: %d, new h: %d.\n", req->src.height, rot_param->img_size.h);
-	}
 	
+	if(req->src.height & 0x1)
+       {
+               rot_param->img_size.h += 1;
+               ROT_PRINT("Modify the source height. old h: %d, new h: %d.\n", req->src.height, rot_param->img_size.h);
+	}
+
+	//wxz20110113: handle the height which is not aligned by 4 bytes.
+	/*
+	if(ROTATION_RGB565 == rot_param->data_format){
+		rot_param->img_size.h = (rot_param->img_size.h + 1) / 2 * 2;
+		ROT_PRINT("Modify the source height. old h: %d, new h: %d.\n", req->src.height, rot_param->img_size.h);		
+	}
+	else if((ROTATION_YUV420 == rot_param->data_format) ||
+		(ROTATION_YUV422 == rot_param->data_format)){		
+		rot_param->img_size.h = (rot_param->img_size.h + 3) / 4 * 4;
+		ROT_PRINT("Modify the source height. old h: %d, new h: %d.\n", req->src.height, rot_param->img_size.h);			
+	}*/	
 	
 	return 0;
 }
@@ -210,14 +227,16 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 	       "dst.height %d\n"
 	       "dst.base   0x%x\n"
 	       "dst_rect   x %d, y %d, w %d, h %d\n"
-	       "flag: %d\n",
+	       "flag: %d\n"
+	       "do_flag: %d\n",	       
 	       req->src.format, req->src.width, req->src.height, req->src.base,
 	       req->src_rect.x, req->src_rect.y, 
 	       req->src_rect.w, req->src_rect.h, 
 	       req->dst.format, req->dst.width, req->dst.height, req->dst.base,
 	       req->dst_rect.x, req->dst_rect.y, 
 	       req->dst_rect.w, req->dst_rect.h,
-	       req->flags
+	       req->flags,
+	       req->do_flags
 	       );
 	
 	if(0 != check_param(req)) /* to fulfill the alignment restriction */
@@ -251,14 +270,16 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 	       "dst.height %d\n"
 	       "dst.base   0x%x\n"
 	       "dst_rect   x %d, y %d, w %d, h %d\n"
-	       "flag: %d\n",
+	       "flag: %d\n"
+	       "do_flag: %d\n",
 	       req->src.format, req->src.width, req->src.height, req->src.base,
 	       req->src_rect.x, req->src_rect.y, 
 	       req->src_rect.w, req->src_rect.h, 
 	       req->dst.format, req->dst.width, req->dst.height, req->dst.base,
 	       req->dst_rect.x, req->dst_rect.y, 
 	       req->dst_rect.w, req->dst_rect.h,
-	       req->flags
+	       req->flags,
+	       req->do_flags
 	       );
 	
 	return 0;	

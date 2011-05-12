@@ -153,10 +153,11 @@ static int get_param(SCALE_PARAM_T *scale_param, struct s2d_blit_req * req)
 		scale_param->in_rect.w += req->src_rect.x & (0x3);		
 		scale_param->out_size.w += (req->src_rect.x & (0x3)) * scale_size;
 	}
-	if(scale_param->out_size.w & (0x3))
+	if(scale_param->out_size.w & (0x3))  
 	{		
 		scale_param->out_size.w = (scale_param->out_size.w + 3) / 4 * 4;
 	}
+		
 	if(req->dst_rect.h & (0x1))
 	{		
 		scale_param->out_size.h = req->dst_rect.h + 1;
@@ -165,7 +166,36 @@ static int get_param(SCALE_PARAM_T *scale_param, struct s2d_blit_req * req)
 	{
 		scale_param->out_size.h = req->dst_rect.h;
 	}	
-	
+	/*if(req->do_flags & 0x4) {//do rotation, must be make the output height aligned by 4 bytes
+		if(req->do_flags & 0x2){ //do format
+			if(S2D_RGB_565 == req->dst.format){
+				scale_param->out_size.h = (req->dst_rect.h + 1) / 2 * 2;
+			}
+			else if((S2D_YUV_420 == req->dst.format) ||
+				(S2D_YUV_422 == req->dst.format)){
+				scale_param->out_size.h = (req->dst_rect.h + 3) / 4 * 4;
+			}
+			else{
+				scale_param->out_size.h = req->dst_rect.h;
+			}
+		}
+		else{
+			if(S2D_RGB_565 == req->src.format){
+				scale_param->out_size.h = (req->dst_rect.h + 1) / 2 * 2;
+			}
+			else if((S2D_YUV_420 == req->src.format) ||
+				(S2D_YUV_422 == req->src.format)){
+				scale_param->out_size.h = (req->dst_rect.h + 3) / 4 * 4;
+			}
+			else{
+				scale_param->out_size.h = req->dst_rect.h;
+			}			
+		}
+	}
+	else{
+		scale_param->out_size.h = req->dst_rect.h;
+	}
+	*/
 	scale_param->in_fmt = get_input_data_format(req->src.format);
 	if(SCALE_DATA_MAX == scale_param->in_fmt)
 		return -1;
@@ -203,7 +233,14 @@ static int get_param(SCALE_PARAM_T *scale_param, struct s2d_blit_req * req)
 	if(SCALE_DATA_MAX == scale_param->out_fmt)
 		return -1;
 
-	scale_param->out_addr.yaddr = SCALE_OUTPUT_BUF;		
+	if(req->do_flags & 0xC){ //if do rotation or blending
+		scale_param->out_addr.yaddr = SCALE_OUTPUT_BUF;		
+	}
+	else{//if not do rotation and blending
+		scale_param->out_addr.yaddr = req->dst.base;
+		SCALE_PRINT("###copybit do scale but not do rotation and blending.req->do_flags: %d.\n", req->do_flags);
+	}
+
 	if(SCALE_DATA_RGB565 == scale_param->out_fmt)
 	{
 		scale_param->out_addr.uaddr = 0;
@@ -420,14 +457,16 @@ int do_copybit_scale(struct s2d_blit_req * req)
 	       "dst.height %d\n"
 	       "dst.base   0x%x\n"
 	       "dst_rect   x %d, y %d, w %d, h %d\n"
-	       "flags: %d\n",
+	       "flags: %d\n"	       
+	       "do_flags: %d\n",
 	       req->src.format, req->src.width, req->src.height, req->src.base,
 	       req->src_rect.x, req->src_rect.y, 
 	       req->src_rect.w, req->src_rect.h, 
 	       req->dst.format, req->dst.width, req->dst.height, req->dst.base,
 	       req->dst_rect.x, req->dst_rect.y, 
 	       req->dst_rect.w, req->dst_rect.h,
-	       req->flags
+	       req->flags,
+	       req->do_flags
 	       );
 
 	if(0 != check_param(req)) /* to fulfill the alignment restriction */
@@ -476,14 +515,16 @@ int do_copybit_scale(struct s2d_blit_req * req)
 	       "dst.height %d\n"
 	       "dst.base   0x%x\n"
 	       "dst_rect   x %d, y %d, w %d, h %d\n"
-	       "flags: %d\n",
+	       "flags: %d\n"	       
+	       "do_flags: %d\n",
 	       req->src.format, req->src.width, req->src.height, req->src.base,
 	       req->src_rect.x, req->src_rect.y, 
 	       req->src_rect.w, req->src_rect.h, 
 	       req->dst.format, req->dst.width, req->dst.height, req->dst.base,
 	       req->dst_rect.x, req->dst_rect.y, 
 	       req->dst_rect.w, req->dst_rect.h,
-	       req->flags
+	       req->flags,
+	       req->do_flags
 	       );
 
 #if 0
