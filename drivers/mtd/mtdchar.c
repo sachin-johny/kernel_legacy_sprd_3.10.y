@@ -293,12 +293,8 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			return -EFAULT;
 		}
 
-		/*if (count >= 16)
-			array_value((nv_databuf + nv_pos), 16);
-		else 
-			array_value((nv_databuf + nv_pos), count);*/
-
 		nv_pos += count;
+
 		return count;
 	}
 #endif
@@ -934,28 +930,33 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		memset(&ops, 0, sizeof(ops));
 		memset(&nv_oobbuf, 0, sizeof(nv_oobbuf));
 		if (copy_from_user(&nv_oobbuf, argp, sizeof(nv_oobbuf))) {
-			printk("\n\ncopy nv header error\n\n");
+			printk("\ncopy nv header error\n");
 			ret = -EFAULT;
 		} else {
-			/*if (nv_oobbuf.ptr[0] == '0')
+			if (nv_oobbuf.ptr[0] == '0') {
+				/* fix nv */
 				nvtype = 0;
-			else
+				real_nv_size = MAX_FIXNV_SIZE;
+			} else {
+				/* runtime nv */
 				nvtype = 1;
-			printk("start = %d  length = %d   type = %c   nvtype = %d\n", nv_oobbuf.start, nv_oobbuf.length, nv_oobbuf.ptr[0], nvtype);*/
-			nvtype = 1;
+				real_nv_size = MAX_RUNTIMENV_SIZE;
+			}
 		}
 
-		nv_databuf = kmalloc(MAX_NV_SIZE, GFP_KERNEL);
+		printk("start = %d  length = %d nvtype = %d  real_nv_size = 0x%08x\n", nv_oobbuf.start, nv_oobbuf.length, nvtype, real_nv_size);
+		nv_databuf = kmalloc(real_nv_size, GFP_KERNEL);
 		if (!nv_databuf) {
-			printk("\n\ncan not allocate nv data buffer\n\n");
+			printk("\ncan not allocate nv data buffer\n");
 			return -ENOMEM;
 		}
-		memset(nv_databuf, 0xff, MAX_NV_SIZE);
-		printk("\nread data from nv mtd paration to nv data buffer. \n\n");
+
+		memset(nv_databuf, 0xff, real_nv_size);
+		printk("\nread data from nv mtd paration to nv data buffer.\n");
 
 		total = 0;
 		offs = 0;
-		while (total < MAX_NV_SIZE) {
+		while (total < real_nv_size) {
 			bad_flag = mtd->block_isbad(mtd, offs);
 			if (bad_flag) {
 				offs += (128 * 1024);
@@ -971,7 +972,10 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 			ops.oobbuf = NULL;
 			ops.mode = MTD_OOB_AUTO;
 			mtd->read_oob(mtd, total, &ops);
-			total += (128 * 1024);
+			if (nvtype == 0)
+				total += (64 * 1024);
+			else
+				total += (128 * 1024);
 			offs += (128 * 1024);
 		}
 
@@ -996,7 +1000,7 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		
 		total = 0;
 		offs = 0;
-		while (total < MAX_NV_SIZE) {
+		while (total < real_nv_size) {
 			bad_flag = mtd->block_isbad(mtd, offs);
 			//printk("bad_flag = %d\n", bad_flag);
 			if (bad_flag) {
@@ -1033,7 +1037,10 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 			ops.oobbuf = NULL;
 			ops.mode = MTD_OOB_AUTO;
 			mtd->write_oob(mtd, total, &ops);
-			total += (128 * 1024);
+			if (nvtype == 0)
+				total += (64 * 1024);
+			else
+				total += (128 * 1024);
 			offs += (128 * 1024);
 		}
 
@@ -1043,10 +1050,11 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		nvtype = 0;
 		memset(&nv_oobbuf, 0, sizeof(nv_oobbuf));
 		if (nv_databuf) {
-			memset(nv_databuf, 0xff, MAX_NV_SIZE);
+			memset(nv_databuf, 0xff, real_nv_size);
 			kfree(nv_databuf);
 			nv_databuf = NULL;
 		}
+		real_nv_size = 0;
 		
 		break;
 	}
