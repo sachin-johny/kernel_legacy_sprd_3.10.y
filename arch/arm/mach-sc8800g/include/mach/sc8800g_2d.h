@@ -67,7 +67,7 @@ struct s2d_blit_req {
 
 struct s2d_blit_req_list {
  uint32_t count;
- struct s2d_blit_req req[];
+ struct s2d_blit_req req[10];
 };
 
 #endif

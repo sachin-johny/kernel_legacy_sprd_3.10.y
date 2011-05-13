@@ -57,19 +57,19 @@ unsigned int pmem_ptr;
 
 int sc8800g_2d_open(struct inode *inode, struct file *file)
 {
-	struct s2d_blit_req *params;
+	struct s2d_blit_req_list *params;
     //printk("VMALLOC_START=0x%x,VMALLOC_END=0x%x,PAGE_OFFSET=0x%x\n",VMALLOC_START,VMALLOC_END,PAGE_OFFSET);
-	params = (struct s2d_blit_req *)kmalloc(
-			sizeof(struct s2d_blit_req), GFP_KERNEL);
+	params = (struct s2d_blit_req_list *)kmalloc(
+			sizeof(struct s2d_blit_req_list), GFP_KERNEL);
 
 	if(params == NULL) {
 		printk(KERN_ERR "Instance memory allocation was failed\n");
 		return -1;
 	}
 
-	memset(params, 0, sizeof(struct s2d_blit_req));
+	memset(params, 0, sizeof(struct s2d_blit_req_list));
 
-	file->private_data = (struct s2d_blit_req *)params;
+	file->private_data = (struct s2d_blit_req_list *)params;
 
 	printk("[pid:%d] sc8800g_2d_open()\n", current->pid);
 
@@ -79,9 +79,9 @@ int sc8800g_2d_open(struct inode *inode, struct file *file)
 
 int sc8800g_2d_release(struct inode *inode, struct file *file)
 {
-	struct s2d_blit_req *params;
+	struct s2d_blit_req_list *params;
 
-	params = (struct s2d_blit_req *)file->private_data;
+	params = (struct s2d_blit_req_list *)file->private_data;
 	if (params == NULL) {
 		printk(KERN_ERR "Can't release sc8800g_2d !!\n");
 		return -1;
@@ -144,7 +144,7 @@ static int do_copybit_dma_copy(struct s2d_blit_req * req,uint32_t byte_per_pixel
 	sprd_free_dma(DMA_SOFT0);
 	return ret;
 }
-
+#if 0
 static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct s2d_blit_req *params;
@@ -224,6 +224,98 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 	}
 	mutex_unlock(lock);
 
+	return 0;
+}
+#endif
+static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg){
+	struct s2d_blit_req_list *parameters;
+	int dma_copy_ret = -1, num = 0;
+	parameters = (struct s2d_blit_req_list*)file->private_data;
+	if (copy_from_user(parameters, 
+				(struct s2d_blit_req_list*)arg, sizeof(struct s2d_blit_req_list)))
+		return -EFAULT;
+	C2D_PRINT("sc8800g_2d_ioctl: count: %d.\n", parameters->count);
+
+	//printk("[pid:%d] sc8800g_2d_ioctl()\n", current->pid);
+	mutex_lock(lock);
+
+	if (cmd != SC8800G_2D_BLIT) {
+		mutex_unlock(lock);
+		printk(KERN_ERR "sc8800g_2d: unknown ioctl cmd\n");
+		return -EFAULT;
+	}
+
+	for(num = 0; num < parameters->count; num++){
+		struct s2d_blit_req *params;
+		params = &parameters->req[num];
+
+	C2D_PRINT("sc8800g_2d_ioctl num: %d, do_flags: %d,alpha:%d, flags: %d, dst:{%d, %d,%d,0x%x}, src:{%d,%d,%d,0x%x}, dst_rect:{%d, %d, %d,%d}, src_rect:{%d,%d,%d,%d}\n",
+		num,params->do_flags,params->alpha, params->flags,
+		params->dst.width, params->dst.height,params->dst.format,params->dst.base,
+		params->src.width, params->src.height,params->src.format,params->src.base,
+		params->dst_rect.x, params->dst_rect.y, params->dst_rect.w, params->dst_rect.h,
+		params->src_rect.x, params->src_rect.y, params->src_rect.w, params->src_rect.h);
+				
+#ifdef SOFT_RGBA2ARGB
+		/* we assume RGBA8888 format data is from pmem */
+		if ((params->src.format == S2D_BGRA_8888) &&(params->dst.format != S2D_BGRA_8888)){
+			/* it's RGBA actually, so we need to change it first */
+			int i, j;
+			unsigned int *src, *src_base, *dst;
+
+			src_base = (unsigned int *)GET_VA(params->src.base);
+			src_base += params->src_rect.y * params->src.width + 
+				params->src_rect.x;
+			dst = (unsigned int *)buf_ptr;
+
+			for (i = params->src_rect.h; i!=0; i--) {
+				src = src_base;
+				for (j = params->src_rect.w; j!=0; j--) {
+					*dst++ = ((*src)<<8) | ((*src)>>24);
+					src++;
+				}
+				src_base += params->src.width;
+			}
+
+			clean_dcache_area((unsigned int *)buf_ptr, 
+					(unsigned int)dst - buf_ptr);
+
+			params->src.width = params->src_rect.w;
+			params->src.height = params->src_rect.h;
+			//params->src.format = S2D_ARGB_8888;
+			params->src.base = __pa(buf_ptr);
+			params->src_rect.x = 0;
+			params->src_rect.y = 0;
+		}
+#endif	
+		if((params->alpha==0xff)&&(params->src.format==S2D_RGB_565)&&(params->dst.format==S2D_RGB_565)\
+				&&(params->src_rect.w==params->dst_rect.w)&&(params->src_rect.h==params->dst_rect.h))
+		{
+			dma_copy_ret = do_copybit_dma_copy(params,2);
+		}
+		
+		if(dma_copy_ret){			
+			if(params->do_flags & (BIT_0 | BIT_1)) {
+				if (do_copybit_scale(params)) {
+					mutex_unlock(lock);
+					return -EFAULT;
+				}			
+			}		
+			if(params->do_flags & BIT_2) {
+				if (do_copybit_rotation(params)) {
+					mutex_unlock(lock);
+					return -EFAULT;
+				}			
+			}		
+			if(params->do_flags & BIT_3) {
+				if (do_copybit_lcdc(params)) {
+					mutex_unlock(lock);
+					return -EFAULT;
+				}			
+			}
+		}
+	}
+	mutex_unlock(lock);
 	return 0;
 }
 
