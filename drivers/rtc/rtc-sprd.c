@@ -109,7 +109,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 	unsigned temp;
     printk("\n RTC ***** rtc set alarm\n");
 	rtc_tm_to_time(&alrm->time, &secs);
-    printk("\n RTC ***** rtc set alarm time:%u \n", secs);
+    printk("\n RTC ***** rtc set alarm time:%lu \n", secs);
 	sprd_rtc_set_alarm_sec(secs);
 
 	ANA_REG_SET(ANA_RTC_INT_CLR, RTC_ALARM_BIT);
@@ -127,6 +127,10 @@ static int sprd_rtc_read_time(struct device *dev,
 	struct rtc_time *tm)
 {
 	unsigned long secs = sprd_rtc_get_sec();
+    if(secs > 0x7f000000){
+        secs = 0;
+        sprd_rtc_set_sec(0);
+    }
 	rtc_time_to_tm(secs, tm);
 	return 0;
 }
@@ -156,26 +160,6 @@ static int sprd_rtc_proc(struct device *dev, struct seq_file *seq)
 	return 0;
 }
 
-static int sprd_rtc_ioctl(struct device *dev, unsigned int cmd,
-	unsigned long arg)
-{
-	/* We do support interrupts, they're generated
-	 * using the sysfs interface.
-	 */
-	switch (cmd) {
-	case RTC_PIE_ON:
-	case RTC_PIE_OFF:
-	case RTC_UIE_ON:
-	case RTC_UIE_OFF:
-	case RTC_AIE_ON:
-	case RTC_AIE_OFF:
-		return 0;
-
-	default:
-		return -ENOIOCTLCMD;
-	}
-}
-
 static const struct rtc_class_ops sprd_rtc_ops = {
 	.proc = sprd_rtc_proc,
 	.read_time = sprd_rtc_read_time,
@@ -189,11 +173,11 @@ static const struct rtc_class_ops sprd_rtc_ops = {
 static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
 	int err;
-	unsigned temp;
+    struct rtc_device * rtc = NULL;
 	ANA_REG_AND(ANA_RTC_INT_EN, ~(RTC_INT_ALL_MSK)); // disable all interrupt
 	ANA_REG_OR(ANA_AGEN, AGEN_RTC_EN | AGEN_RTC_RTC_EN); //enable rtc device
 	CLEAR_RTC_INT(RTC_INT_ALL_MSK);
-	struct rtc_device *rtc = rtc_device_register("sprd_rtc", &plat_dev->dev,
+	rtc = rtc_device_register("sprd_rtc", &plat_dev->dev,
 						&sprd_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc)) {
 		err = PTR_ERR(rtc);
@@ -203,10 +187,6 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 	platform_set_drvdata(plat_dev, rtc);
 
 	return 0;
-
-err:
-	rtc_device_unregister(rtc);
-	return err;
 }
 
 static int __devexit sprd_rtc_remove(struct platform_device *plat_dev)
