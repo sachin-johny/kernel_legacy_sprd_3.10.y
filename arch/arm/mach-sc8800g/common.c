@@ -373,12 +373,12 @@ static void usb_startup(void)
 
 
 	//__raw_bits_or(BIT_6|BIT_7, AHB_SOFT_RST);
-	__raw_bits_or(BIT_7, AHB_SOFT_RST);
-	mdelay(5);
+	//__raw_bits_or(BIT_7, AHB_SOFT_RST);
+	//mdelay(5);
 	//__raw_bits_and(~(BIT_6 | BIT_7), AHB_SOFT_RST);
-	__raw_bits_and(~(BIT_7), AHB_SOFT_RST);
+	//__raw_bits_and(~(BIT_7), AHB_SOFT_RST);
    __raw_bits_or(BIT_5, AHB_CTL0);
-	mdelay(10);
+	mdelay(5);
 }
 
 void udc_enable(void)

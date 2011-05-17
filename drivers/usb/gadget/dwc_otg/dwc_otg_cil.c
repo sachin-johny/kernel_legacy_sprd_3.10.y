@@ -3592,6 +3592,27 @@ void dwc_otg_flush_rx_fifo(dwc_otg_core_if_t * core_if)
 	dwc_udelay(1);
 }
 
+void dwc_otg_dev_soft_disconnect(dwc_otg_core_if_t * core_if)
+{
+	dwc_otg_dev_if_t *dev_regs = core_if->dev_if;
+	dwc_otg_device_global_regs_t *dev_global_regs = dev_regs->dev_global_regs;
+	volatile dctl_data_t dctl = {.d32 = 0 };
+
+	dctl.b.sftdiscon = 1;
+	DWC_DEBUGPL(DBG_CILV,"disconnect dctl %x\r\n", dctl.d32);
+	dwc_write_reg32(&dev_global_regs->dctl, dctl.d32);
+}
+
+void dwc_otg_dev_soft_connect(dwc_otg_core_if_t * core_if)
+{
+	dwc_otg_dev_if_t *dev_regs = core_if->dev_if;
+	dwc_otg_device_global_regs_t *dev_global_regs = dev_regs->dev_global_regs;
+	volatile dctl_data_t dctl = {.d32 = 0 };
+
+	dctl.b.sftdiscon = 0;
+	DWC_DEBUGPL(DBG_CILV, "connect dctl %x\r\n", dctl.d32);
+	dwc_write_reg32(&dev_global_regs->dctl, dctl.d32);
+}
 /**
  * Do core a soft reset of the core.  Be careful with this because it
  * resets all the internal state machines of the core.

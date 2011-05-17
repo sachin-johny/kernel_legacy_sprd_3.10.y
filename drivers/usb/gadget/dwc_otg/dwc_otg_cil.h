@@ -908,6 +908,8 @@ extern void dwc_otg_read_packet(dwc_otg_core_if_t * core_if,
 extern void dwc_otg_flush_tx_fifo(dwc_otg_core_if_t * _core_if, const int _num);
 extern void dwc_otg_flush_rx_fifo(dwc_otg_core_if_t * _core_if);
 extern void dwc_otg_core_reset(dwc_otg_core_if_t * _core_if);
+extern void dwc_otg_dev_soft_connect(dwc_otg_core_if_t * core_if);
+extern void dwc_otg_dev_soft_disconnect(dwc_otg_core_if_t * core_if);
 
 /**
  * This function returns the Core Interrupt register.

@@ -64,6 +64,7 @@
 #include <linux/string.h>
 #include <linux/dma-mapping.h>
 #include <linux/version.h>
+#include <linux/timer.h>
 
 #include <linux/platform_device.h>
 
@@ -556,6 +557,7 @@ static int wakeup(struct usb_gadget *gadget)
 }
 
 extern void dwc_otg_pcd_stop(dwc_otg_pcd_t *pcd);
+
 static int pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct gadget_wrapper *d;
@@ -566,20 +568,17 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 	} else {
 		d = container_of(gadget, struct gadget_wrapper, gadget);
 	}
-
     local_irq_save(flags);
     if (!d->enabled || !d->vbus){
             is_on = 0;
     }
-	if(is_on) {
-        udc_enable();
-        dwc_otg_core_init(GET_CORE_IF(d->pcd));
-        dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
-        dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
-    } else {
-        udc_disable();
-    }
     local_irq_restore(flags);
+	if(is_on) {
+        dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
+    } else {
+        dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
+        dwc_otg_pcd_stop(d->pcd);
+    }
 	return 0;
 }
 static const struct usb_gadget_ops dwc_otg_pcd_ops = {
@@ -967,26 +966,56 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 {
         dwc_otg_pcd_t *pcd = dev_id;
 	    struct gadget_wrapper *d;
+        int value = 0;
 
         d = gadget_wrapper;
         if (d->driver == NULL) {
             pr_info("too early, no gadget drive\n");
             return IRQ_HANDLED;
         }
-        d->vbus = gpio_get_value(CHARGER_DETECT_GPIO);
-        if (gpio_get_value(CHARGER_DETECT_GPIO)){
-            //pr_info("usb detect plug in\n");
+        value = gpio_get_value(CHARGER_DETECT_GPIO);
+
+        if (value){
+            pr_info("usb detect plug in\n");
             set_irq_type(irq, IRQF_TRIGGER_LOW);
-            pullup(&d->gadget, 1);
         } else {
-            //pr_info("usb detect plug out\n");
+            pr_info("usb detect plug out\n");
             set_irq_type(irq, IRQF_TRIGGER_HIGH);
+        }
+        if (value == d->vbus){
+                pr_info("bus power don't change\n");
+                return IRQ_HANDLED;
+        }
+        d->vbus = value;
+        if (value){
+            pr_info("usb detect plug in,vbus pull up\n");
+            udc_enable();
+            dwc_otg_core_init(GET_CORE_IF(d->pcd));
+            dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
+            dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
+        } else {
+            pr_info("usb detect plug out,vbus pull down\n");
             dwc_otg_pcd_stop(pcd);
-            pullup(&d->gadget, 0);
+            udc_disable();
         }
 
         return IRQ_HANDLED;
 }
+
+static void enumeration_enable(unsigned long data)
+{
+    int plug_irq;
+	struct gadget_wrapper *d;
+
+    pr_info("enable usb enumeration\n");
+    d = gadget_wrapper;
+    plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
+    dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
+    enable_irq(plug_irq);
+
+    return;
+}
+
 /**
  * This function initialized the PCD portion of the driver.
  *
@@ -1036,34 +1065,21 @@ int pcd_init(
         gpio_set_hw_debounce(CHARGER_DETECT_GPIO, 200);
         pr_info("usb detect irq:%d gpio level %d\n", plug_irq,
                gpio_get_value(CHARGER_DETECT_GPIO));
+        gadget_wrapper->vbus = gpio_get_value(CHARGER_DETECT_GPIO);
         set_irq_flags(plug_irq, IRQF_VALID|IRQF_NOAUTOEN);
         retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED |
                 IRQF_TRIGGER_HIGH, "usb detect", otg_dev->pcd);
     }
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
-    udc_disable();
+    if (!gadget_wrapper->vbus){
+            pr_info("vbus is not power now \n");
+            udc_disable();
+    }
     gadget_wrapper->enabled = 0;
     //enable_irq(plug_irq);
 	return retval;
 }
 
-void enable_gpio_detect_irq(void)
-{
-    int plug_irq;
-    unsigned long flags;
-    static int open_flag = 0;
-
-    local_irq_save(flags);
-    if (open_flag) {
-        goto out;
-    }
-    plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
-    enable_irq(plug_irq);
-    open_flag = 1;
-out:
-    local_irq_restore(flags);
-    return;
-}
 /**
  * Cleanup the PCD.
  */
@@ -1137,6 +1153,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 		    driver->driver.name);
 
     //enable_gpio_detect_irq();
+    enumeration_enable(0);
 	return 0;
 }
 
