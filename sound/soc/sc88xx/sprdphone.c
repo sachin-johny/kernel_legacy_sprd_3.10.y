@@ -40,28 +40,59 @@ static const struct snd_soc_dapm_route audio_map[] = {
     
 };
 
-#ifdef CONFIG_ARCH_SC8800S
+#if     defined(CONFIG_ARCH_SC8800S)             || \
+        defined(CONFIG_MACH_OPENPHONE)           || \
+        defined(CONFIG_MACH_SP6810A)
+#if     defined(CONFIG_ARCH_SC8800S)
 static ulong gpio_amplifier = MFP_CFG_X(LCD_RSTN, GPIO, DS0, PULL_NONE/* PULL_UP */, IO_OE);
 static u32 speaker_gpio = 102; // mfp_to_gpio(MFP_CFG_TO_PIN(gpio_amplifier));
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif   defined(CONFIG_MACH_OPENPHONE)           || \
+        defined(CONFIG_MACH_SP6810A)
 static ulong gpio_amplifier = MFP_CFG_X(RFCTL6, AF3, DS2, F_PULL_DOWN, S_PULL_DOWN, IO_OE);
-static u32 speaker_gpio = 96;  // GPIO_PROD_SPEAKER_PA_EN_ID 
+static u32 speaker_gpio = 96;  // GPIO_PROD_SPEAKER_PA_EN_ID
 #endif
-static inline void vbc_gpio_amplifier_enable(int enable)
+static inline void local_amplifier_init(void)
+{
+    sprd_mfp_config(&gpio_amplifier, 1);
+    if (gpio_request(speaker_gpio, "speaker amplifier")) {
+        printk(KERN_ERR "speaker amplifier gpio request fail!\n");
+    }
+}
+
+static inline void local_amplifier_enable(int enable)
 {
     gpio_direction_output(speaker_gpio, !!enable);
+}
+#elif   defined(CONFIG_MACH_SP8805GA)
+static inline void local_amplifier_init(void)
+{
+
+}
+
+static inline void local_amplifier_enable(int enable)
+{
+    if (enable) {
+     // ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1aa9); //classAb
+        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x5A5A); //classD
+    } else {
+        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1555);
+    }
+}
+#else
+#error "not define this CONFIG_MACH_xxxxx"
+#endif
+static inline void vbc_amplifier_enable(int enable)
+{
+    local_amplifier_enable(enable);
 }
 
 static int sprdphone_vbc_init(struct snd_soc_codec *codec)
 {
-    sprd_mfp_config(&gpio_amplifier, 1);
-	if (gpio_request(speaker_gpio, "speaker amplifier")) {
-	    printk(KERN_ERR "speaker amplifier gpio request fail!\n");
-    }
-    vbc_gpio_amplifier_enable(false);
+    local_amplifier_init();
+    vbc_amplifier_enable(false);
 
     snd_soc_dapm_new_controls(codec, sprdphone_dapm_widgets,
-				  ARRAY_SIZE(sprdphone_dapm_widgets));
+                              ARRAY_SIZE(sprdphone_dapm_widgets));
 
     snd_soc_dapm_add_routes(codec, audio_map, ARRAY_SIZE(audio_map));
 
@@ -79,7 +110,7 @@ static int sprdphone_startup(struct snd_pcm_substream *substream)
 static void sprdphone_shutdown(struct snd_pcm_substream *substream)
 {
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        vbc_gpio_amplifier_enable(false);
+        vbc_amplifier_enable(false);
 }
 
 static int sprdphone_prepare(struct snd_pcm_substream *substream)
@@ -88,10 +119,10 @@ static int sprdphone_prepare(struct snd_pcm_substream *substream)
 }
 
 static int sprdphone_hw_params(struct snd_pcm_substream *substream,
-					struct snd_pcm_hw_params *params)
+                               struct snd_pcm_hw_params *params)
 {
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        vbc_gpio_amplifier_enable(true);
+        vbc_amplifier_enable(true);
     return 0;
 }
 
@@ -102,10 +133,10 @@ static int sprdphone_hw_free(struct snd_pcm_substream *substream)
 }
 
 static struct snd_soc_ops sprdphone_ops = {
-	.startup = sprdphone_startup,
+    .startup = sprdphone_startup,
     .prepare = sprdphone_prepare,
-	.shutdown = sprdphone_shutdown,
-	.hw_params = sprdphone_hw_params,
+    .shutdown = sprdphone_shutdown,
+    .hw_params = sprdphone_hw_params,
     .hw_free = sprdphone_hw_free,
 };
 
@@ -121,15 +152,15 @@ static struct snd_soc_dai_link sprdphone_dai[] = {
 };
 
 static struct snd_soc_card snd_soc_card_sprdphone = {
-	.name		= "sprdphone",
-	.platform	= &sc88xx_soc_platform,
-	.dai_link	= sprdphone_dai,
-	.num_links	= ARRAY_SIZE(sprdphone_dai),
+    .name        = "sprdphone",
+    .platform    = &sc88xx_soc_platform,
+    .dai_link    = sprdphone_dai,
+    .num_links    = ARRAY_SIZE(sprdphone_dai),
 };
 
 static struct snd_soc_device sprdphone_snd_devdata = {
-	.card		= &snd_soc_card_sprdphone,
-	.codec_dev	= &vbc_codec,
+    .card        = &snd_soc_card_sprdphone,
+    .codec_dev    = &vbc_codec,
 };
 
 static int __init sprdphone_init(void)
