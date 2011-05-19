@@ -133,7 +133,6 @@ int sdcard_present(struct sdhci_host *host)
 		return 1;
 }
 
-//static int detect_irq = 37;
 static void sdhci_set_card_detection(struct sdhci_host *host, bool enable)
 {
 /*
@@ -1963,6 +1962,7 @@ int sdhci_add_host(struct sdhci_host *host)
 		goto untasklet;
 
 	host_data = sdhci_priv(host);
+	/*
 	detect_irq = host_data->detect_irq;
 	if (sdcard_present(host)){
 		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
@@ -1973,6 +1973,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	}
 	if (ret)
 		goto untasklet;
+	*/
 	sdhci_init(host);
 
 #ifdef CONFIG_MMC_DEBUG
