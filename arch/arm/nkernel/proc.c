@@ -328,6 +328,34 @@ _nk_proc_bank_open (struct inode* inode,
     return err;
 }
 
+    static loff_t
+_nk_proc_bank_lseek (struct file* file,
+		     loff_t       off,
+		     int          whence)
+{
+    loff_t new;
+    GuestBank* gb  = file->private_data;
+    int        err = 0;
+
+    if (!gb) {
+	return -EINVAL;
+    }
+
+    switch (whence) {
+	case 0:	 new = off; break;
+	case 1:	 new = file->f_pos + off; break;
+	case 2:	 new = gb->cfgSize + off; break;
+	default: return -EINVAL;
+    }
+
+    if (new > gb->cfgSize) {
+	return -EINVAL;
+    }
+
+    return (file->f_pos = new);
+}
+
+
     static int
 _nk_proc_bank_release (struct inode* inode,
 	          struct file*  file)
@@ -386,6 +414,7 @@ _nk_proc_bank_write (struct file* file,
 {
     GuestBank* gb = (GuestBank*)file->private_data;
     void*      dst;
+    printk("Writing nk_proc_bank_write\n");
 
     if ((*ppos + size) > gb->cfgSize) {
         return -EFBIG;
@@ -509,6 +538,7 @@ _nk_proc_ept_write (struct file* file,
     return size;
 }
 
+
    static int
 _nk_proc_sts_open (struct inode* inode,
 	       struct file*  file)
@@ -522,6 +552,26 @@ _nk_proc_sts_open (struct inode* inode,
     file->private_data = (void*)dg;
     return 0;
 }
+
+
+    static loff_t
+_nk_proc_sts_lseek (struct file* file,
+	        loff_t       off,
+	        int          whence)
+{
+    loff_t new;
+    DynGuest*    dg = (DynGuest*)file->private_data;
+
+    switch (whence) {
+	case 0:	 new = off; break;
+	case 1:	 new = file->f_pos + off; break;
+	case 2:	 new = 28 + off; break;
+	default: return -EINVAL;
+    }
+
+    return (file->f_pos = new);
+}
+
 
     static int
 _nk_proc_sts_release (struct inode* inode,
@@ -540,16 +590,20 @@ _nk_proc_sts_read (struct file* file,
     char         pbuf[28];
     unsigned int len;
 
-    if (*ppos || !count) {
+    if (!count) {
         return 0;
     }
 
-    sprintf(pbuf, "%s started, %s suspended\n", dg->started?"":"not", dg->suspended?"":"not");
+    sprintf(pbuf, "%s started, %s suspended\n", dg->started? "  ":"not", dg->suspended? "   ":"not");
 
     len   = strlen(pbuf);
+    if (*ppos > len) {
+	return 0;
+    }
+    len = len - *ppos;
     count = (len > count) ? count : len;
 
-     if (copy_to_user(buf, pbuf, count)) {
+     if (copy_to_user(buf + *ppos, pbuf, count)) {
         printk("NK -- error: can't copy to user provided buffer\n");
         return -EFAULT;
     }
@@ -850,7 +904,7 @@ static struct file_operations _nkevent_proc_fops = {
 static struct file_operations _nkbank_proc_fops = {
     open:    _nk_proc_bank_open,
     release: _nk_proc_bank_release,
-    llseek:  _nk_proc_lseek,
+    llseek:  _nk_proc_bank_lseek,
     read:    _nk_proc_bank_read,
     write:   _nk_proc_bank_write,
 };
@@ -874,7 +928,7 @@ static struct file_operations _nkept_proc_fops = {
 static struct file_operations _nksts_proc_fops = {
     open:    _nk_proc_sts_open,
     release: _nk_proc_sts_release,
-    llseek:  _nk_proc_lseek,
+    llseek:  _nk_proc_sts_lseek,
     read:    _nk_proc_sts_read,
     write:   _nk_proc_sts_write,
 };
@@ -985,11 +1039,11 @@ _guests_init (int count, BankDesc* bd)
     nku32_f   all_banks_empty = -1; /* Maximum 32 OS's */
     int       count_tmp = count;
     BankDesc* bd_tmp    = bd;
-#ifdef LATER
 
+#ifdef L
     while (count_tmp--) {
         NkOsId id = BANK_OS_ID(bd_tmp->type);
-        if (bd_tmp->size || (id = BANK_OS_ID(BANK_OS_SHARED))) {
+        if (/*bd_tmp->size ||*/ (id = BANK_OS_ID(BANK_OS_SHARED))) {
             all_banks_empty &= ~(1 << id);
         }
         bd_tmp++;

@@ -166,8 +166,6 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 	char *kbuf;
 
 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_read\n");
-	//printk("%s  %d\n", __FUNCTION__, __LINE__);
-	//printk("*ppos = 0x%016Lx  count = 0x%08x\n", (unsigned long long)*ppos, (unsigned long)count);
 	if (*ppos + count > mtd->size)
 		count = mtd->size - *ppos;
 
@@ -207,7 +205,6 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 			ops.datbuf = kbuf;
 			ops.oobbuf = NULL;
 			ops.len = len;
-			printk("%s  %d\n", __FUNCTION__, __LINE__);
 			ret = mtd->read_oob(mtd, *ppos, &ops);
 			retlen = ops.retlen;
 			break;
@@ -249,23 +246,6 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 	return total_retlen;
 } /* mtd_read */
 
-#ifdef NV_RDWR
-void array_value(unsigned char *array, int len)
-{
-	int aaa;
-	
-	printk("\n\n[");
-
-	for (aaa = 0; aaa < len; aaa ++) {
-		if ((aaa % 16) == 0)
-			printk("\n");
-		printk(" %02x", array[aaa]);
-	}
-
-	printk("]\n\n");
-}
-#endif
-
 static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count,loff_t *ppos)
 {
 	struct mtd_file_info *mfi = file->private_data;
@@ -294,7 +274,6 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 		}
 
 		nv_pos += count;
-
 		return count;
 	}
 #endif
@@ -944,7 +923,6 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 			}
 		}
 
-		printk("start = %d  length = %d nvtype = %d  real_nv_size = 0x%08x\n", nv_oobbuf.start, nv_oobbuf.length, nvtype, real_nv_size);
 		nv_databuf = kmalloc(real_nv_size, GFP_KERNEL);
 		if (!nv_databuf) {
 			printk("\ncan not allocate nv data buffer\n");
@@ -952,7 +930,6 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		}
 
 		memset(nv_databuf, 0xff, real_nv_size);
-		printk("\nread data from nv mtd paration to nv data buffer.\n");
 
 		total = 0;
 		offs = 0;
@@ -979,7 +956,6 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 			offs += (128 * 1024);
 		}
 
-		array_value(nv_databuf, 64);
 		nv_file = file;
 		nv_rdwr_flag = 1;
 		nv_pos = nv_oobbuf.start;
@@ -995,14 +971,10 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		struct erase_info erase;
 		wait_queue_head_t waitq;
 
-		array_value((nv_databuf + nv_oobbuf.start), 64);
-		printk("write to nand nv partition.  offset : %d\n", nv_oobbuf.start);
-		
 		total = 0;
 		offs = 0;
 		while (total < real_nv_size) {
 			bad_flag = mtd->block_isbad(mtd, offs);
-			//printk("bad_flag = %d\n", bad_flag);
 			if (bad_flag) {
 				offs += (128 * 1024);
 				continue;
