@@ -402,7 +402,7 @@ static int __init calibration_start(char *str)
         calibration_mode = true;
         return 1;
 }
-__setup("calibration_mode=", calibration_start);
+__setup("calibration=", calibration_start);
 
 void __init sprd_add_otg_device(void)
 {
