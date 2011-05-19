@@ -85,7 +85,7 @@
 #include <mach/ts0710_mux.h>
 #include <mach/mux_buffer.h>
 
-#define CONFIG_TS0710_MUX_UART
+//#define CONFIG_TS0710_MUX_UART
 
 #define TS0710MUX_GPRS_SESSION_MAX 3
 #define TS0710MUX_MAJOR 250
@@ -168,7 +168,7 @@ struct mux_ringbuffer rbuf;
 
 
 static __u8 tty2dlci[NR_MUXS] =
-    { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ,14,15,16};
+    { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ,14,15};
 typedef struct {
 	__u8 cmdtty;
 	__u8 datatty;
@@ -187,12 +187,11 @@ static dlci_tty dlci2tty[] = {
 	{8, 8},			/* DLCI 9 */
 	{9, 9},			/* DLCI 10 */
 	{10, 10},		/* DLCI 11 */
-	{11, 11},		/* DLCI 11 */
-	{12, 12},		/* DLCI 12 */
-	{13, 13},
-	{14, 14},		/* DLCI 12 */
-	{15, 15}
-};				/* DLCI 13 */
+	{11, 11},		/* DLCI 12 */
+	{12, 12},		/* DLCI 13 */
+	{13, 13},		/* DLCI 14 */
+	{14, 14},		/* DLCI 15 */
+};
 typedef struct {
 	volatile __u8 buf[TS0710MUX_SEND_BUF_SIZE];
 	volatile __u8 *frame;
@@ -293,7 +292,9 @@ static volatile short int mux_tty[NR_MUXS];
 static int send_ua(ts0710_con * ts0710, __u8 dlci);
 static int send_dm(ts0710_con * ts0710, __u8 dlci);
 static int send_sabm(ts0710_con * ts0710, __u8 dlci);
+#if 0  /*Close here just for rmove building warnings*/
 static int send_disc(ts0710_con * ts0710, __u8 dlci);
+#endif
 static void queue_uih(mux_send_struct * send_info, __u16 len,
 		      ts0710_con * ts0710, __u8 dlci);
 static int send_pn_msg(ts0710_con * ts0710, __u8 prior, __u32 frame_size,
@@ -609,7 +610,9 @@ static int basic_write(ts0710_con * ts0710, __u8 * buf, int len)
 static __u32 crc_check(__u8 * data, __u32 length, __u8 check_sum)
 {
 	__u8 fcs = 0xff;
+#ifdef TS0710DEBUG
 	__u32 len=length;
+#endif 
 	length=length-1;
 	while (length--) {
 		fcs = crctable[fcs ^ *data++];
@@ -785,7 +788,7 @@ static int send_sabm(ts0710_con * ts0710, __u8 dlci)
 
 	return basic_write(ts0710, buf, sizeof(short_frame) + FCS_SIZE);
 }
-
+#if 0  /*close here just for remove building warnings*/
 static int send_disc(ts0710_con * ts0710, __u8 dlci)
 {
 	__u8 buf[sizeof(short_frame) + FCS_SIZE + FLAG_SIZE];
@@ -805,7 +808,7 @@ static int send_disc(ts0710_con * ts0710, __u8 dlci)
 
 	return basic_write(ts0710, buf, sizeof(short_frame) + FCS_SIZE);
 }
-
+#endif
 static void queue_uih(mux_send_struct * send_info, __u16 len,
 		      ts0710_con * ts0710, __u8 dlci)
 {
@@ -1679,9 +1682,6 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 			mux_recv_struct *recv_info;
 			int recv_room;
 			mux_recv_packet *recv_packet, *recv_packet2;
-			char *tmp;
-			int i;
-
 			TS0710_DEBUG("UIH on channel %d\n", dlci);
 
 			if (uih_len > ts0710->dlci[dlci].mtu) {
@@ -1744,111 +1744,7 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 #ifdef TS0710DEBUG
 					t = jiffies;
 #endif
-#if 0
-					/*kewang begin*/
-					tmp= (char *)uih_data_start;
-					switch (tty_idx){
-					/*case 0:
-						printk("\n<0RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 1:
-						printk("\n<1RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;*/
-					case 2:
-						printk("\n<2RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 3:
-						printk("\n<3RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 4:
-						printk("\n<4RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					/*case 5:
-						printk("\n<5RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 6:
-						printk("\n<6RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 7:
-						printk("\n<7RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 8:
-						printk("\n<8RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 9:
-						printk("\n<9RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 10:
-						printk("\n<10RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;
-					case 11:
-						printk("\n<11RV:");
-						for(i=0;i<uih_len;i++){
-							printk("%x",*tmp);
-							tmp++;
-						}
-						printk(">\n");
-						break;*/
-					default:
-						break;
-					}
-					/*kewang end*/
-#endif
+
 					(tty->ldisc->ops->receive_buf) (tty,
 								  uih_data_start,
 								  NULL,
@@ -1947,11 +1843,33 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 static void ts0710_close_channel(__u8 dlci)
 {
 	ts0710_con *ts0710 = &ts0710_connection;
+#if 0
 	int try;
 	unsigned long t;
-
+#endif
 	TS0710_DEBUG("ts0710_disc_command on channel %d\n", dlci);
-	return;
+
+	if ((ts0710->dlci[dlci].state == DISCONNECTED)
+	    || (ts0710->dlci[dlci].state == REJECTED)) {
+		return;
+	} else {
+		if (ts0710->dlci[dlci].state != DISCONNECTED) {
+			if (dlci == 0) {	/* Control Channel */
+				__u8 j;
+
+				for (j = 0; j < TS0710_MAX_CHN; j++) 
+					ts0710->dlci[j].state = DISCONNECTED;
+				ts0710->be_testing = 0;
+				ts0710_reset_con();
+
+			} else {	/* Other Channel */
+				ts0710->dlci[dlci].state = DISCONNECTED;
+				ts0710_reset_dlci(dlci);
+			}
+		}
+	}
+#if 0   /* If Open here, Plsease open send_disc() function first!*/
+		
 	if ((ts0710->dlci[dlci].state == DISCONNECTED)
 	    || (ts0710->dlci[dlci].state == REJECTED)) {
 		return;
@@ -1980,7 +1898,6 @@ static void ts0710_close_channel(__u8 dlci)
 				continue;
 			}
 		}
-
 		if (ts0710->dlci[dlci].state != DISCONNECTED) {
 			if (dlci == 0) {	/* Control Channel */
 				ts0710_upon_disconnect();
@@ -1992,6 +1909,7 @@ static void ts0710_close_channel(__u8 dlci)
 			}
 		}
 	}
+#endif 
 }
 
 int ts0710_open_channel(__u8 dlci)
@@ -2000,7 +1918,7 @@ int ts0710_open_channel(__u8 dlci)
 	int try;
 	int retval;
 	unsigned long t;
-
+	
 	retval = -ENODEV;
 	if (dlci == 0) {	// control channel
 		if ((ts0710->dlci[0].state == CONNECTED)
@@ -2147,7 +2065,6 @@ int ts0710_open_channel(__u8 dlci)
 			TS0710_PRINTK("MUX DLCI:%d state is invalid!\n", dlci);
 			return retval;
 		} else {
-			
 			ts0710->dlci[dlci].state = CONNECTING;
 			ts0710->dlci[dlci].initiator = 1;
 			if (ts0710->dlci[dlci].state == CONNECTING) {
@@ -2367,9 +2284,9 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 	if ((mux_tty[cmdtty] == 0) && (mux_tty[datatty] == 0)) {
 		if (dlci == 1) {
 			ts0710_close_channel(0);
-			TS0710_PRINTK
-			    ("MUX mux_close: tapisrv might be down!!! Close DLCI 1\n");
+			TS0710_PRINTK("MUX mux_close: tapisrv might be down!!! Close DLCI 1\n");
 			TS0710_SIG2APLOGD();
+			cmux_mode = 0;
 		}
 		ts0710_close_channel(dlci);
 	}
@@ -2762,8 +2679,9 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 	__u8 datatty;
 	mux_send_struct *send_info;
 	mux_recv_struct *recv_info;
-	printk("==============test============\r\n");
-	//while(1);
+	
+	printk("MUX: mux[%d] opened!\n",tty->index);
+	
 	UNUSED_PARAM(filp);
 	
 	retval = -ENODEV;
@@ -2845,9 +2763,8 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			msleep(2000);
 			printk("\n cmux receive>\n");
 			//empty ringbuffer
-			cmux_mode = 1;
 			mux_ringbuffer_flush(&rbuf);
-
+			cmux_mode = 1;
 		}
 #endif
 
@@ -2879,7 +2796,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 		mux_send_info_flags[line] = 1;
 		TS0710_DEBUG("Allocate mux_send_info for /dev/mux%d", line);
 	}
-
+	
 	if (mux_recv_info_flags[line] == 0) {
 		recv_info =
 		    (mux_recv_struct *) kmalloc(sizeof(mux_recv_struct),
@@ -3017,7 +2934,7 @@ int mux_set_thread_pro(int pro)
 
 static void receive_worker(struct work_struct *private_)
 {
-	struct tty_struct *tty = COMM_FOR_MUX_TTY;
+	//struct tty_struct *tty = COMM_FOR_MUX_TTY;
 	int count;
 	static unsigned char tbuf[TS0710MUX_MAX_BUF_SIZE];
 	static unsigned char *tbuf_ptr = &tbuf[0];
@@ -3032,9 +2949,7 @@ static void receive_worker(struct work_struct *private_)
 	__u8 *uih_data_start;
 	__u32 uih_len;
 	/*For BP UART problem End */
-
 	UNUSED_PARAM(private_);
-
 
 
 	count = mux_ringbuffer_avail(&rbuf);
@@ -3480,7 +3395,7 @@ void mux_sender(void)
 		if ((send_info)
 		    && (send_info->filled)
 		    && (send_info->length <=
-			(TS0710MUX_SERIAL_BUF_SIZE - chars))) {
+			(TS0710MUX_SERIAL_BUF_SIZE - chars)) && (cmux_mode==1) ) {
 
 			mux_sched_send();
 		}
@@ -3495,8 +3410,6 @@ static void send_worker(struct work_struct *private_)
 	int chars;
 	struct tty_struct *tty;
 	__u8 dlci;
-	int i;
-	char * tmp;
 
 	UNUSED_PARAM(private_);
 
@@ -3539,19 +3452,6 @@ static void send_worker(struct work_struct *private_)
 		chars = mux_chars_in_serial_buffer(COMM_FOR_MUX_TTY);
 		if (send_info->length <= (TS0710MUX_SERIAL_BUF_SIZE - chars)) {
 			TS0710_DEBUG("Send queued UIH for /dev/mux%d", j);
-#if 0
-			/*kewang begin*/
-			tmp= (char *)send_info->frame;
-			if(j==2){
-				printk("\n<SD:");
-				for(i=0;i<send_info->length;i++){
-					printk("%x",*tmp);
-					tmp++;
-				}
-			printk(">\n");
-			}
-			/*kewang end*/
-#endif
 			basic_write(ts0710, (__u8 *) send_info->frame,
 				    send_info->length);
 			send_info->length = 0;
