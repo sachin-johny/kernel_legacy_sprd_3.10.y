@@ -41,13 +41,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 };
 
 #if     defined(CONFIG_ARCH_SC8800S)             || \
-        defined(CONFIG_MACH_OPENPHONE)           || \
         defined(CONFIG_MACH_SP6810A)
 #if     defined(CONFIG_ARCH_SC8800S)
 static ulong gpio_amplifier = MFP_CFG_X(LCD_RSTN, GPIO, DS0, PULL_NONE/* PULL_UP */, IO_OE);
 static u32 speaker_gpio = 102; // mfp_to_gpio(MFP_CFG_TO_PIN(gpio_amplifier));
-#elif   defined(CONFIG_MACH_OPENPHONE)           || \
-        defined(CONFIG_MACH_SP6810A)
+#elif   defined(CONFIG_MACH_SP6810A)
 static ulong gpio_amplifier = MFP_CFG_X(RFCTL6, AF3, DS2, F_PULL_DOWN, S_PULL_DOWN, IO_OE);
 static u32 speaker_gpio = 96;  // GPIO_PROD_SPEAKER_PA_EN_ID
 #endif
@@ -63,7 +61,8 @@ static inline void local_amplifier_enable(int enable)
 {
     gpio_direction_output(speaker_gpio, !!enable);
 }
-#elif   defined(CONFIG_MACH_SP8805GA)
+#elif   defined(CONFIG_MACH_SP8805GA)           || \
+        defined(CONFIG_MACH_OPENPHONE)
 static inline void local_amplifier_init(void)
 {
 
@@ -155,12 +154,12 @@ static struct snd_soc_card snd_soc_card_sprdphone = {
     .name        = "sprdphone",
     .platform    = &sc88xx_soc_platform,
     .dai_link    = sprdphone_dai,
-    .num_links    = ARRAY_SIZE(sprdphone_dai),
+    .num_links   = ARRAY_SIZE(sprdphone_dai),
 };
 
 static struct snd_soc_device sprdphone_snd_devdata = {
     .card        = &snd_soc_card_sprdphone,
-    .codec_dev    = &vbc_codec,
+    .codec_dev   = &vbc_codec,
 };
 
 static int __init sprdphone_init(void)
