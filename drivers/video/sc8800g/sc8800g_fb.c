@@ -288,7 +288,7 @@ static void lcdc_mcu_init(void)
 	FB_PRINT("@fool2[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_BG_COLOR));
 
 	/* dithering enable*/
-	//__raw_bits_or(1<<4, LCDC_CTRL);   
+	__raw_bits_or(1<<4, LCDC_CTRL);   
 	
 }
 static int mount_panel(struct sc8800fb_info *sc8800fb, struct lcd_spec *panel)
