@@ -732,7 +732,8 @@ PUBLIC BOOLEAN Sensor_SetResetLevel(BOOLEAN plus_level);
 //  Author:         Liangwen.Zhen
 //  Note:           1.Unit: MHz 2. if mclk equal 0, close main clock to sensor
 /*****************************************************************************/
-PUBLIC void Sensor_SetMCLK(uint32_t mclk);
+//PUBLIC void Sensor_SetMCLK(uint32_t mclk);
+PUBLIC int Sensor_SetMCLK(uint32_t mclk);
 
 /*****************************************************************************/
 //  Description:    This function is used to power on sensor and select xclk    

@@ -24,28 +24,24 @@
  **---------------------------------------------------------------------------*/
 
 //#define DEBUG_SENSOR_DRV
-
 #ifdef DEBUG_SENSOR_DRV
 #define SENSOR_PRINT   printk
 #else
 #define SENSOR_PRINT(...)  
 #endif
-#include <linux/delay.h>
+#define SENSOR_PRINT_ERR printk
 
+#include <linux/delay.h>
 #include "sensor_drv.h"
 #include "sensor_cfg.h"
 #include "dcam_reg_sc8800g2.h"
 #include "dcam_power_sc8800g2.h"
 #include <mach/adi_hal_internal.h>
 #include <linux/dcam_sensor.h>
+#include <mach/clock_common.h>
+#include <linux/clk.h>
+#include <linux/err.h>
 
-/*#include "sc_reg.h"
-#include "i2c_api.h"
-#include "os_api.h"
-#include "chip.h"
-#include "ref_outport.h"
-#include "ldo_drv.h"
-#include "gpio_prod_api.h" */
 
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
@@ -225,7 +221,8 @@ LOCAL SENSOR_MODE_E s_sensor_mode[SENSOR_ID_MAX]={SENSOR_MODE_MAX,SENSOR_MODE_MA
 LOCAL SENSOR_MUTEX_PTR	s_imgsensor_mutex_ptr=PNULL;
 LOCAL SENSOR_REGISTER_INFO_T s_sensor_register_info={0x00};
 LOCAL SENSOR_REGISTER_INFO_T_PTR s_sensor_register_info_ptr=&s_sensor_register_info;
-
+struct clk *s_ccir_clk = NULL;//for power manager
+struct clk *s_ccir_enable_clk = NULL;//for power manager
 
 //wxz20110208: define for I2C driver.
 static struct i2c_client *this_client = NULL;
@@ -625,24 +622,115 @@ SENSOR_PRINT("SENSOR: Sensor_Reset E \n");
 //  Author:         Liangwen.Zhen
 //  Note:           1.Unit: MHz 2. if mclk equal 0, close main clock to sensor
 /*****************************************************************************/
-/*static void sensor_setmclk(void)
+#if 1 //for Power manager
+int Sensor_SetMCLK(uint32_t mclk)
 {
-    uint32_t divd;
-    __raw_bits_and(~(1<<14),(SPRD_GREG_BASE+ 0x08));//first disable MCLK
-    
-    __raw_bits_and(~(1<<18 | 1<<19),(SPRD_GREG_BASE+ 0x70));// bit19, bit18 ,  00 48M,01  76.8M, 1x, 26M
-    
-    __raw_bits_and(~(1<<24 | 1<<25),(SPRD_GREG_BASE+ 0x1c));// CCIR divide factor  
+    uint32_t divd = 0;
+    char *name_parent = NULL;
+    struct clk *clk_parent = NULL;
+    int ret;    
+	
+    SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %dMHz, clk = %dMHz\n", s_sensor_mclk, mclk);
 
-    divd=48/12-1;
+    if((0 != mclk) && (s_sensor_mclk != mclk))
+    {
+    	if(s_ccir_clk){
+		clk_disable(s_ccir_clk);		
+		SENSOR_PRINT("###sensor s_ccir_clk clk_disable ok.\n");
+    	}
+	else{
+	    	s_ccir_clk = clk_get(NULL, "ccir_mclk");
+		if(IS_ERR(s_ccir_clk)){
+			SENSOR_PRINT_ERR("###: Failed: Can't get clock [ccir_mclk]!\n");
+			SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n", s_ccir_clk);
+		}
+		else{
+			SENSOR_PRINT("###sensor s_ccir_clk clk_get ok.\n");
+		}	
+	}
+        if(mclk > SENSOR_MAX_MCLK)
+        {
+            mclk = SENSOR_MAX_MCLK;
+        }
+	name_parent = "clk_48m";	
+	clk_parent = clk_get(NULL, name_parent);
+	if(!clk_parent){
+		SENSOR_PRINT_ERR("###:clock[%s]: failed to get parent [%s] by clk_get()!\n", s_ccir_clk->name, name_parent);
+		return -EINVAL;
+	}
 
-    divd = divd <<24;
+	ret = clk_set_parent(s_ccir_clk, clk_parent);
+	if(ret){
+		SENSOR_PRINT_ERR("###:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n", s_ccir_clk->name, clk_parent->name, s_ccir_clk->usecount);
+		return -EINVAL;
+	}
+        divd = SENSOR_MAX_MCLK / mclk;      
+	ret = clk_set_divisor(s_ccir_clk, divd);
+	if(ret){
+		SENSOR_PRINT_ERR("###:clock[%s]: clk_set_divisor failed!\n", s_ccir_clk->name);
+		return -EINVAL;
+	}
+	ret = clk_enable(s_ccir_clk);
+	if(ret){
+		SENSOR_PRINT_ERR("###:clock[%s]: clk_enable() failed!\n", s_ccir_clk->name);
+	}
+	else{
+		SENSOR_PRINT("###sensor s_ccir_clk clk_enable ok.\n");
+	}
+     
+       // CCIR CLK Enable
+    	if(NULL == s_ccir_enable_clk){
+	    	s_ccir_enable_clk = clk_get(NULL, "clk_ccir");
+		if(IS_ERR(s_ccir_enable_clk)){
+			SENSOR_PRINT_ERR("###: Failed: Can't get clock [clk_ccir]!\n");
+			SENSOR_PRINT_ERR("###: s_ccir_enable_clk = %p.\n", s_ccir_enable_clk);
+			return -EINVAL;
+		} 
+		else{
+			SENSOR_PRINT("###sensor s_ccir_enable_clk clk_get ok.\n");
+		}	
+		ret = clk_enable(s_ccir_enable_clk);
+		if(ret){
+			SENSOR_PRINT_ERR("###:clock[%s]: clk_enable() failed!\n", s_ccir_enable_clk->name);
+		}
+		else{
+			SENSOR_PRINT("###sensor s_ccir_enable_clk clk_enable ok.\n");
+		}
+	}	
+        
+        s_sensor_mclk = mclk;
+        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d Hz, divd = %d\n", s_sensor_mclk, divd);
+    }
+    else if(0 == mclk)
+    { 
+	if(s_ccir_clk){
+		clk_disable(s_ccir_clk);
+		SENSOR_PRINT("###sensor s_ccir_clk clk_disable ok.\n");
+		clk_put(s_ccir_clk);		
+		SENSOR_PRINT("###sensor s_ccir_clk clk_put ok.\n");
+		s_ccir_clk = NULL;
+	}
+	// CCIR CLK disable
+	if(s_ccir_enable_clk){
+		clk_disable(s_ccir_enable_clk);
+		SENSOR_PRINT("###sensor s_ccir_enable_clk clk_disable ok.\n");
+		clk_put(s_ccir_enable_clk);		
+		SENSOR_PRINT("###sensor s_ccir_enable_clk clk_put ok.\n");
+		s_ccir_enable_clk = NULL;
+	}	
 
-    __raw_bits_or(divd,(SPRD_GREG_BASE + 0x1c));// CCIR divide factor
-    
-    __raw_bits_or(1<<14,(SPRD_GREG_BASE + 0x08)); // CCIR CLK Enable
-                                                                                                                       
-}*/
+        s_sensor_mclk = 0;
+        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> Disable MCLK !!!");
+    }
+    else
+    {
+        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> Do nothing !! ");
+    }
+    SENSOR_PRINT("SENSOR: Sensor_SetMCLK X\n");
+
+    return 0;
+}
+#else
 PUBLIC void Sensor_SetMCLK(uint32_t mclk)
 {
     uint32_t divd = 0;
@@ -698,6 +786,8 @@ PUBLIC void Sensor_SetMCLK(uint32_t mclk)
     }
     SENSOR_PRINT("SENSOR: Sensor_SetMCLK X\n");
 }
+#endif
+
 
 /*****************************************************************************/
 //  Description:    This function is used to set AVDD

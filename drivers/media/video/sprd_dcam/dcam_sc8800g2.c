@@ -18,6 +18,9 @@
 #include "dcam_sc8800g2.h"
 #include "dcam_power_sc8800g2.h"
 #include "sensor_drv.h"
+#include <mach/clock_common.h>
+#include <linux/clk.h>
+#include <linux/err.h>
 
 #define ISP_ALIGNED_PIXELS 4
 
@@ -182,6 +185,7 @@ typedef struct _isp_service_t
 
 ////////////////////
 
+
 #define FREQ_INDEX_ISP_HIGH 7
 #define FREQ_INDEX_ISP_LOW 6
 
@@ -190,8 +194,48 @@ typedef struct _isp_service_t
 
 LOCAL ISP_SERVICE_T          s_isp_service;// = {0};
 CALLBACK_FUNC_PTR g_dcam_cb[DCAM_CB_NUMBER];
+struct clk *g_dcam_clk = NULL; //for power manager
+uint32_t g_is_first_mclk = 1;
 
+static int dcam_set_mclk(void){
+    	char *name_parent = NULL;
+    	struct clk *clk_parent = NULL;
+	int ret;
+	
+	DCAM_TRACE("###dcam 00 g_dcam_clk->parent->usecount: %d.\n", g_dcam_clk->parent->usecount);
+	if(1 == g_is_first_mclk){
+		g_is_first_mclk = 0;
+	}
+	else{
+		clk_disable(g_dcam_clk);
+		DCAM_TRACE("###dcam g_dcam_clk clk_disable ok.\n");
+	}
+	name_parent = "clk_64m";
+	clk_parent = clk_get_parent(g_dcam_clk);
+	DCAM_TRACE("###dcam:clock[%s]: parent_name: %s.\n", g_dcam_clk->name, clk_parent->name);
+	if(strcmp(name_parent, clk_parent->name)){//need to wait the parent
+		clk_parent = clk_get(NULL, name_parent);
+		if(!clk_parent){
+			DCAM_TRACE_ERR("###dcam:clock[%s]: failed to get parent [%s] by clk_get()!\n", g_dcam_clk->name, name_parent);
+			return -EINVAL;
+		}
 
+		ret = clk_set_parent(g_dcam_clk, clk_parent);
+		if(ret){
+			DCAM_TRACE_ERR("###dcam:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n", g_dcam_clk->name, clk_parent->name, g_dcam_clk->usecount);
+			return -EINVAL;
+		}		
+	}
+	
+	ret = clk_enable(g_dcam_clk);
+	if(ret){
+		DCAM_TRACE_ERR("###dcam:clock[%s]: clk_enable() failed!\n", g_dcam_clk->name);
+	}
+	else{
+		DCAM_TRACE("###dcam g_dcam_clk clk_enable ok.\n");
+	}	
+	return 0;	
+}
 int dcam_parameter_init(DCAM_INIT_PARAM_T *init_param)
 {
   //uint32 i;
@@ -360,9 +404,13 @@ LOCAL void _ISP_ServiceStartPreview(void)
     ISP_RTN_IF_ERR(rtn_drv);
     DCAM_TRACE("ISP_SERVICE:ISP_DriverModuleInit.\n");
     
-    rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_48M);
-    ISP_RTN_IF_ERR(rtn_drv);
-    DCAM_TRACE("ISP_SERVICE:ISP_DriverSetClk.\n");
+    //rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_48M);
+    //ISP_RTN_IF_ERR(rtn_drv);
+    //DCAM_TRACE("ISP_SERVICE:ISP_DriverSetClk.\n");
+	if(0 != dcam_set_mclk()){
+		DCAM_TRACE_ERR("ISP_SERVICE: fail to set dcam mclk.\n");
+		return;
+	}	
 	
         rtn_drv = ISP_DriverSetMode(s->module_addr, ISP_MODE_PREVIEW);
 		DCAM_TRACE("ISP_SERVICE:ISP_MODE_PREVIEW.\n");
@@ -514,6 +562,16 @@ void get_dcam_reg(void)
 int dcam_open(void)
 {  
 DCAM_TRACE("dcam_open E.\n");
+	g_dcam_clk = clk_get(NULL, "clk_dcam");
+	g_is_first_mclk = 1;
+	if(IS_ERR(g_dcam_clk)){
+		DCAM_TRACE_ERR("###dcam: Failed: Can't get clock [clk_dcam]!\n");
+		DCAM_TRACE_ERR("###dcam: g_dcam_clk = %p.\n", g_dcam_clk);
+	}
+	else{		
+		DCAM_TRACE("###dcam g_dcam_clk clk_get ok.g_dcam_clk->parent->usecount: %d.\n", g_dcam_clk->parent->usecount);
+	}
+	
 	_ISP_ServiceOpen();	
 	 //register dcam IRQ
 	 ISP_DriverRegisterIRQ();
@@ -522,6 +580,13 @@ DCAM_TRACE("dcam_open X.\n");
 }
 int dcam_close(void)
 {  
+	if(g_dcam_clk){
+		clk_disable(g_dcam_clk);
+		DCAM_TRACE("###dcam g_dcam_clk clk_disable ok.\n");
+		clk_put(g_dcam_clk);
+		DCAM_TRACE("###dcam g_dcam_clk clk_put ok.\n");		
+		g_dcam_clk = NULL;
+	}
 	 //unregister dcam IRQ
 	 ISP_DriverUnRegisterIRQ();
 	 _ISP_ServiceClose();
@@ -542,8 +607,12 @@ LOCAL void _ISP_ServiceStartJpeg(void)
     ISP_RTN_IF_ERR(rtn_drv);
 	
 
-    rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_64M);
-    ISP_RTN_IF_ERR(rtn_drv);
+   //rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_64M);
+    //ISP_RTN_IF_ERR(rtn_drv);
+	if(0 != dcam_set_mclk()){
+		DCAM_TRACE_ERR("ISP_SERVICE: fail to set dcam mclk.\n");
+		return;
+	}
 
     rtn_drv = ISP_DriverSetMode(s->module_addr,
                                 ISP_MODE_CAPTURE);
@@ -743,9 +812,13 @@ int dcam_start(void)
 	{
 		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ISP); //switch IRAM to isp
 		ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);  
-		ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_48M);
+		//ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_48M);	
 	        DCAM_TRACE("###dcam: _ISP_ServiceOpen softreset and set clk.\n");
 	}
+	if(0 != dcam_set_mclk()){
+		DCAM_TRACE_ERR("ISP_SERVICE: fail to set dcam mclk.\n");
+		return DCAM_FAIL;
+	}	
 	dcam_inc_user_count();
 	
    DCAM_TRACE("dcam: dcam_start start. \n"); 

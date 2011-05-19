@@ -28,6 +28,9 @@
 #include <linux/miscdevice.h>
 #include <asm/io.h>
 #include <linux/file.h>
+#include <mach/clock_common.h>
+#include <linux/clk.h>
+#include <linux/err.h>
 
 #include "../sprd_dcam/dcam_power_sc8800g2.h"
 #include "scale_sc8800g2.h"
@@ -88,6 +91,7 @@ static struct mutex *lock;
 #else
 #define SCALE_PRINT(...)
 #endif
+#define SCALE_PRINT_ERR printk
 
 ISP_MODULE_T           s_scale_mod;
 uint32_t g_base_addr = ISP_AHB_SLAVE_ADDR;
@@ -120,6 +124,42 @@ struct semaphore g_sem_cnt;
 static int g_scale_num = 0;//store the time opened.
 static uint32_t g_share_irq = 0xFF; //for share irq handler function
 ZOOM_DMA_BUF g_zoom_dma_buf;	//use it when the zoom buf address is not aligned by 64 words.
+
+struct clk *g_scale_clk = NULL; //for power manager
+
+
+static int _SCALE_DriverSetMclk(void){
+    	char *name_parent = NULL;
+    	struct clk *clk_parent = NULL;
+	int ret;
+
+	name_parent = "clk_64m";
+	clk_parent = clk_get_parent(g_scale_clk);
+	SCALE_PRINT("###scale:clock[%s]: parent_name: %s.\n", g_scale_clk->name, clk_parent->name);
+	if(strcmp(name_parent, clk_parent->name)){//need to wait the parent
+		clk_parent = clk_get(NULL, name_parent);
+		if(!clk_parent){
+			SCALE_PRINT_ERR("###scale:clock[%s]: failed to get parent [%s] by clk_get()!\n", g_scale_clk->name, name_parent);
+			return -EINVAL;
+		}
+
+		ret = clk_set_parent(g_scale_clk, clk_parent);
+		if(ret){
+			SCALE_PRINT_ERR("###scale:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n", g_scale_clk->name, clk_parent->name, g_scale_clk->usecount);
+			return -EINVAL;
+		}		
+	}
+	ret = clk_enable(g_scale_clk);
+	if(ret){
+		SCALE_PRINT_ERR("###scale:clock[%s]: clk_enable() failed!\n", g_scale_clk->name);
+	}
+	else{
+		SCALE_PRINT("###scale g_scale_clk clk_enable ok.\n");
+	}	
+
+	return 0;	
+}
+
 #ifdef SCALE_DEBUG //for debug
 void get_scale_reg(void)
 {
@@ -695,7 +735,7 @@ LOCAL int32_t _SCALE_DriverSoftReset(uint32_t ahb_ctrl_addr)
 
     return rtn;
 }
-
+#if 0
 LOCAL int32_t _SCALE_DriverSetClk(uint32_t pll_src_addr,SCALE_CLK_SEL_E clk_sel)
 {
     ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;	
@@ -721,6 +761,7 @@ LOCAL int32_t _SCALE_DriverSetClk(uint32_t pll_src_addr,SCALE_CLK_SEL_E clk_sel)
     return rtn;
     
 }
+#endif
 
 uint32_t _SCALE_DriverInit(void)
 {
@@ -731,8 +772,8 @@ uint32_t _SCALE_DriverInit(void)
 	 rtn_drv = _SCALE_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
     ISP_RTN_IF_ERR(rtn_drv);
 	
-    rtn_drv = _SCALE_DriverSetClk(ARM_GLOBAL_PLL_SCR, SCALE_CLK_48M);
-    ISP_RTN_IF_ERR(rtn_drv);
+    //rtn_drv = _SCALE_DriverSetClk(ARM_GLOBAL_PLL_SCR, SCALE_CLK_48M);
+    //ISP_RTN_IF_ERR(rtn_drv);
 
 	return rtn_drv;
 	
@@ -1594,7 +1635,7 @@ LOCAL void _SCALE_DriverISRRoot(void)
 {
     uint32_t                      irq_line, irq_status;
     uint32_t                      i;
-	ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
+	//ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
 
     irq_line = ISP_IRQ_SCL_LINE_MASK & _SCALE_DriverReadIrqLine();
     irq_status = irq_line;
@@ -1672,11 +1713,24 @@ int _SCALE_DriverIOInit(void)
 
 	g_scale_num++;
 	
+	g_scale_clk = clk_get(NULL, "clk_dcam");
+	if(IS_ERR(g_scale_clk)){
+		SCALE_PRINT_ERR("###scale: Failed: Can't get clock [clk_dcam]!\n");
+		SCALE_PRINT_ERR("###scale: g_scale_clk = %p.\n", g_scale_clk);
+	}
+	else{
+		SCALE_PRINT("###scale g_scale_clk clk_get ok.g_dcam_clk->parent->usecount: %d.\n", g_scale_clk->parent->usecount);
+	}	
+	
 	if( 0 == dcam_get_user_count())
      	{
      		_SCALE_DriverInit();
 		SCALE_PRINT("###scale:_SCALE_DriverInit.\n");
      	}
+	if(0 != _SCALE_DriverSetMclk()){
+		SCALE_PRINT_ERR("###scale  Failed to _SCALE_DriverSetMclk!\n");
+		return -1;
+	}
 	dcam_inc_user_count();
 
 	return 0;
@@ -1697,7 +1751,14 @@ int _SCALE_DriverIODeinit (void)
 	g_scale_num--;
 
 	up(&g_sem_cnt);
-
+	
+	if(g_scale_clk){
+		clk_disable(g_scale_clk);
+		SCALE_PRINT("###scale g_scale_clk clk_disable ok.\n");
+		clk_put(g_scale_clk);
+		SCALE_PRINT("###scale g_dcam_clk clk_put ok.\n");
+		g_scale_clk = NULL;
+	}
 	return 0;
 }
 

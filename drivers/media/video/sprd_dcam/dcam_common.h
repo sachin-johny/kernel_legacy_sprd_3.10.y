@@ -43,6 +43,7 @@
 #else
 #define DCAM_TRACE(...)
 #endif
+#define DCAM_TRACE_ERR printk
 
 //#define SENSOR_DEBUG
 #ifdef SENSOR_DEBUG
