@@ -557,7 +557,26 @@ static int dwc_otg_driver_remove(
 	platform_set_drvdata(_dev, 0);
 	return 0;
 }
-
+#ifdef CONFIG_PM
+extern int usb_cable_is_connected(void);
+static int dwc_otg_suspend(struct platform_device *dev, pm_message_t state)
+{
+	pr_info("%s\n", __func__);
+	if (usb_cable_is_connected()){
+		pr_info("cable connect\n");
+		return 1;
+	}
+	return 0;
+}
+static int dwc_otg_resume(struct platform_device *dev)
+{
+	pr_info("%s\n", __func__);
+	return 0;
+}
+#else
+#define dwc_otg_suspend	NULL
+#define dwc_otg_resume	NULL
+#endif
 /**
  * This function is called when an lm_device is bound to a
  * dwc_otg_driver. It creates the driver components required to
@@ -733,13 +752,15 @@ fail:
  * unregistered with the bus driver.
  */
 static struct platform_driver dwc_otg_driver = {
-        .driver		= {
-			.name =         "dwc_otg",
-			.owner = 	THIS_MODULE,
-        },
+	.driver		= {
+		.name =         "dwc_otg",
+		.owner = 	THIS_MODULE,
+	},
 
 	.probe =        dwc_otg_driver_probe,
-       .remove =       dwc_otg_driver_remove,
+	.remove =       dwc_otg_driver_remove,
+	.suspend =	dwc_otg_suspend,
+	.resume =	dwc_otg_resume,
 
 };
 /**

@@ -1016,6 +1016,13 @@ static void enumeration_enable(unsigned long data)
     return;
 }
 
+int usb_cable_is_connected(void)
+{
+	int value;
+
+        value = gpio_get_value(CHARGER_DETECT_GPIO);
+	return value ? true : false;
+}
 /**
  * This function initialized the PCD portion of the driver.
  *
@@ -1066,7 +1073,6 @@ int pcd_init(
         pr_info("usb detect irq:%d gpio level %d\n", plug_irq,
                gpio_get_value(CHARGER_DETECT_GPIO));
         gadget_wrapper->vbus = gpio_get_value(CHARGER_DETECT_GPIO);
-        set_irq_flags(plug_irq, IRQF_VALID|IRQF_NOAUTOEN);
         retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED |
                 IRQF_TRIGGER_HIGH, "usb detect", otg_dev->pcd);
     }

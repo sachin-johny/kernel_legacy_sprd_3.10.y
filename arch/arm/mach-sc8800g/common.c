@@ -25,6 +25,7 @@
 #include <asm/setup.h>
 #include <linux/usb/android_composite.h>
 #include <linux/gpio.h>
+#include <linux/irq.h>
 
 #include <mach/hardware.h>
 #include <mach/board.h>
@@ -640,12 +641,15 @@ static unsigned long charger_detect_cfg =
 
 void __init sprd_charger_init(void)
 {
-    int ret;
+	int irq;
 
-    sprd_mfp_config(&charger_detect_cfg, 1);
-    gpio_request(CHARGER_DETECT_GPIO, "charger detect");
-    gpio_direction_input(CHARGER_DETECT_GPIO);
-    ret = sprd_alloc_gpio_irq(CHARGER_DETECT_GPIO);
-    if (ret < 0)
-            pr_warning("cant alloc gpio irq %d\n", CHARGER_DETECT_GPIO);
+	sprd_mfp_config(&charger_detect_cfg, 1);
+	gpio_request(CHARGER_DETECT_GPIO, "charger detect");
+	gpio_direction_input(CHARGER_DETECT_GPIO);
+	irq = sprd_alloc_gpio_irq(CHARGER_DETECT_GPIO);
+	if (irq < 0){
+		pr_warning("cant alloc gpio irq %d\n", CHARGER_DETECT_GPIO);
+		return;
+	}
+	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
 }
