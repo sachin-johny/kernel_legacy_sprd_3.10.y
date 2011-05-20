@@ -99,6 +99,11 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_DOUBLE_TLV("Earpiece Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
     SOC_SINGLE_TLV("Earpiece Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
     SOC_SINGLE_TLV("Earpiece Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    // Bypass
+    SOC_SINGLE("BypassFM Playback Switch", VBCR1, BYPASS, 1, 0),
+    SOC_DOUBLE_R_TLV("BypassFM Playback Volume", VBCGR2, VBCGR3, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("BypassFM Left Playback Volume", VBCGR2, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("BypassFM Right Playback Volume",VBCGR3, 0, 0x0f, 1, dac_tlv),
     // Headset
     SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
     SOC_DOUBLE_TLV("Headset Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
