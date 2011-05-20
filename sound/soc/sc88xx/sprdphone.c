@@ -85,6 +85,57 @@ static inline void vbc_amplifier_enable(int enable)
     local_amplifier_enable(enable);
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND // ___xxxabcxxx___
+#include <linux/earlysuspend.h>
+static struct early_suspend early_suspend;
+static void learly_suspend(struct early_suspend *es)
+{
+    printk("audio %s\n", __func__);
+    vbc_amplifier_enable(false);
+}
+
+static void learly_resume(struct early_suspend *es)
+{
+    printk("audio %s\n", __func__);
+    vbc_amplifier_enable(true);
+}
+
+static void pm_init()
+{
+    early_suspend.suspend = learly_suspend;
+    early_suspend.resume = learly_resume;
+    early_suspend.level = INT_MAX;
+    register_early_suspend(&early_suspend);
+}
+
+static void pm_exit()
+{
+    unregister_early_suspend(&early_suspend);
+}
+#else
+static void pm_init(void) {}
+static void pm_exit(void) {}
+#endif
+
+#ifdef CONFIG_PM
+int sndcard_suspend(struct platform_device *pdev, pm_message_t state)
+{
+    printk("audio ==> %s\n", __func__);
+    vbc_amplifier_enable(false);
+    return 0;
+}
+
+int sndcard_resume(struct platform_device *pdev)
+{
+    printk("audio ==> %s\n", __func__);
+    vbc_amplifier_enable(true);
+    return 0;
+}
+#else
+#define sndcard_suspend NULL
+#define sndcard_resume  NULL
+#endif
+
 static int sprdphone_vbc_init(struct snd_soc_codec *codec)
 {
     local_amplifier_init();
@@ -155,6 +206,8 @@ static struct snd_soc_card snd_soc_card_sprdphone = {
     .platform    = &sc88xx_soc_platform,
     .dai_link    = sprdphone_dai,
     .num_links   = ARRAY_SIZE(sprdphone_dai),
+    .suspend_pre = sndcard_suspend,
+    .resume_post = sndcard_resume,
 };
 
 static struct snd_soc_device sprdphone_snd_devdata = {
@@ -176,13 +229,15 @@ static int __init sprdphone_init(void)
 
     if (ret)
         platform_device_put(sprdphone_snd_device);
+    else pm_init();
 
     return ret;
 }
 
 static void __exit sprdphone_exit(void)
 {
-    platform_device_unregister(sprdphone_snd_device);     
+    platform_device_unregister(sprdphone_snd_device);
+    pm_exit();
 }
 
 module_init(sprdphone_init);
