@@ -46,7 +46,7 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
     .period_bytes_min	= VBC_FIFO_FRAME_NUM*2*2, // 16bits, stereo-2-channels
     .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
 #endif
-    .periods_min        = 128,
+    .periods_min        = 2,
     .periods_max        = /*18*/2*PAGE_SIZE/(2*sizeof(sprd_dma_desc)), // DA0, DA1 sg are combined
     .buffer_bytes_max	= /*6 **/128 * 1024,
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,

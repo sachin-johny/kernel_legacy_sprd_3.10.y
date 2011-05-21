@@ -80,27 +80,29 @@ static inline void local_amplifier_enable(int enable)
 #else
 #error "not define this CONFIG_MACH_xxxxx"
 #endif
-static inline void vbc_amplifier_enable(int enable)
+inline void vbc_amplifier_enable(int enable)
 {
+    printk("audio ==> trun %s PA\n", enable ? "on":"off");
     local_amplifier_enable(enable);
 }
+EXPORT_SYMBOL_GPL(vbc_amplifier_enable);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND // ___xxxabcxxx___
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 static struct early_suspend early_suspend;
 static void learly_suspend(struct early_suspend *es)
 {
-    printk("audio %s\n", __func__);
+    // printk("audio %s\n", __func__);
     vbc_amplifier_enable(false);
 }
 
 static void learly_resume(struct early_suspend *es)
 {
-    printk("audio %s\n", __func__);
-    vbc_amplifier_enable(true);
+    // printk("audio %s\n", __func__);
+    // vbc_amplifier_enable(true);
 }
 
-static void pm_init()
+static void android_pm_init(void)
 {
     early_suspend.suspend = learly_suspend;
     early_suspend.resume = learly_resume;
@@ -108,13 +110,13 @@ static void pm_init()
     register_early_suspend(&early_suspend);
 }
 
-static void pm_exit()
+static void android_pm_exit(void)
 {
     unregister_early_suspend(&early_suspend);
 }
 #else
-static void pm_init(void) {}
-static void pm_exit(void) {}
+static void android_pm_init(void) {}
+static void android_pm_exit(void) {}
 #endif
 
 #ifdef CONFIG_PM
@@ -128,7 +130,7 @@ int sndcard_suspend(struct platform_device *pdev, pm_message_t state)
 int sndcard_resume(struct platform_device *pdev)
 {
     printk("audio ==> %s\n", __func__);
-    vbc_amplifier_enable(true);
+    // vbc_amplifier_enable(true);
     return 0;
 }
 #else
@@ -154,6 +156,8 @@ static int sprdphone_vbc_init(struct snd_soc_codec *codec)
 
 static int sprdphone_startup(struct snd_pcm_substream *substream)
 {
+//    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+//        vbc_amplifier_enable(true);
     return 0;
 }
 
@@ -168,23 +172,41 @@ static int sprdphone_prepare(struct snd_pcm_substream *substream)
     return 0;
 }
 
+static int sprdphone_trigger(struct snd_pcm_substream *substream, int cmd)
+{
+#if 0
+    switch (cmd) {
+        case SNDRV_PCM_TRIGGER_START:
+            // if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+                vbc_amplifier_enable(true);
+            break;
+        case SNDRV_PCM_TRIGGER_STOP:
+            // if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+                vbc_amplifier_enable(false);
+            break;
+	}
+#endif
+    return 0;
+}
+
 static int sprdphone_hw_params(struct snd_pcm_substream *substream,
                                struct snd_pcm_hw_params *params)
 {
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        vbc_amplifier_enable(true);
     return 0;
 }
 
 static int sprdphone_hw_free(struct snd_pcm_substream *substream)
 {
     flush_vbc_cache(substream);
+//    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+//        vbc_amplifier_enable(false);
     return 0;
 }
 
 static struct snd_soc_ops sprdphone_ops = {
     .startup = sprdphone_startup,
     .prepare = sprdphone_prepare,
+    .trigger = sprdphone_trigger,
     .shutdown = sprdphone_shutdown,
     .hw_params = sprdphone_hw_params,
     .hw_free = sprdphone_hw_free,
@@ -229,7 +251,7 @@ static int __init sprdphone_init(void)
 
     if (ret)
         platform_device_put(sprdphone_snd_device);
-    else pm_init();
+    else android_pm_init();
 
     return ret;
 }
@@ -237,7 +259,7 @@ static int __init sprdphone_init(void)
 static void __exit sprdphone_exit(void)
 {
     platform_device_unregister(sprdphone_snd_device);
-    pm_exit();
+    android_pm_exit();
 }
 
 module_init(sprdphone_init);

@@ -259,29 +259,31 @@ static inline int adi_write(u32 data, u32 addr)
         return 0; \
     }
 #endif
-static inline void vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
+static inline u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
 {
 #ifdef CONFIG_ARCH_SC8800S
     unsigned long flags;
-    u32 tmp;
+    u32 tmp, ret;
     raw_local_irq_save(flags);
-    tmp = __raw_readl(reg);
+    ret = tmp = __raw_readl(reg);
     tmp &= ~(mask<<shift);
     tmp |= val << shift;
     __raw_writel(tmp, reg);
     raw_local_irq_restore(flags);
 #elif defined(CONFIG_ARCH_SC8800G)
     unsigned long flags;
-    u32 tmp;
+    u32 tmp, ret;
     raw_local_irq_save(flags);
     if (not_in_adi_range(reg)) tmp = __raw_readl(reg);
     else tmp = __raw_adi_read(reg);
+    ret = tmp;
     tmp &= ~(mask<<shift);
     tmp |= val << shift;
     if (not_in_adi_range(reg)) __raw_writel(tmp, reg);
     else __raw_adi_write(tmp, reg);
     raw_local_irq_restore(flags);
 #endif
+    return ret;
 }
 //--------------------------
 extern struct snd_soc_codec_device vbc_codec;

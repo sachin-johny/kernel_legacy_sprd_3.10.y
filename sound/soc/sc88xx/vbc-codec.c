@@ -445,6 +445,7 @@ void flush_vbc_cache(struct snd_pcm_substream *substream)
 //  vbc_codec_mute();
     /* clear dma cache buffer */
     memset((void*)runtime->dma_area, 0, runtime->dma_bytes);
+    printk("flush audio cache buffer...\n");
     if (cpu_codec_dma_chain_operate_ready(substream)) {
         vbc_dma_start(substream); // we must restart dma
         start_cpu_dma(substream);
@@ -509,15 +510,18 @@ static int vbc_set_dai_clkdiv(struct snd_soc_dai *codec_dai, int div_id, int div
     return 0;
 }
 
+extern inline void vbc_amplifier_enable(int enable);
 static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
 	int ret = 0;
 
 	switch (cmd) {
         case SNDRV_PCM_TRIGGER_START:
+            vbc_amplifier_enable(true);
             vbc_dma_start(substream);
             break;
         case SNDRV_PCM_TRIGGER_STOP:
+            vbc_amplifier_enable(false);
         case SNDRV_PCM_TRIGGER_SUSPEND:
         case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
             vbc_dma_stop(substream); // Stop DMA transfer
@@ -583,6 +587,71 @@ static struct snd_soc_dai_ops vbc_dai_ops = {
 	.set_fmt    = vbc_set_dai_fmt,
 	.set_tristate = vbc_set_dai_tristate,
 };
+
+#if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_PM)
+static u32 VBPMR2_value = -1;
+#endif
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+static struct early_suspend early_suspend;
+static void learly_suspend(struct early_suspend *es)
+{
+//    if (VBPMR2_value == -1) {
+//        VBPMR2_value = vbc_reg_write(VBPMR2, 0, -1, -1);
+//    }
+//    printk("%s VBPMR2=0x%08x\n", __func__, VBPMR2_value);
+}
+
+static void learly_resume(struct early_suspend *es)
+{
+//    if (VBPMR2_value != -1) {
+//        vbc_reg_write(VBPMR2, 0, VBPMR2_value, -1);
+//        VBPMR2_value = -1;
+//    }
+//    printk("%s VBPMR2=0x%08x\n", __func__, VBPMR2_value);
+}
+
+static void android_pm_init(void)
+{
+    early_suspend.suspend = learly_suspend;
+    early_suspend.resume = learly_resume;
+    early_suspend.level = INT_MAX;
+    register_early_suspend(&early_suspend);
+}
+
+static void android_pm_exit(void)
+{
+    unregister_early_suspend(&early_suspend);
+}
+#else
+static void android_pm_init(void) {}
+static void android_pm_exit(void) {}
+#endif
+
+#ifdef CONFIG_PM
+int vbc_suspend(struct platform_device *pdev, pm_message_t state)
+{
+    if (VBPMR2_value == -1) {
+        VBPMR2_value = vbc_reg_write(VBPMR2, 0, -1, -1);
+    }
+    printk("%s VBPMR2=0x%08x\n", __func__, VBPMR2_value);
+    return 0;
+}
+
+int vbc_resume(struct platform_device *pdev)
+{
+    if (VBPMR2_value != -1) {
+        vbc_reg_write(VBPMR2, 0, VBPMR2_value, -1);
+        VBPMR2_value = -1;
+    }
+    printk("%s VBPMR2=0x%08x\n", __func__, VBPMR2_value);
+    return 0;
+}
+#else
+#define vbc_suspend NULL
+#define vbc_resume  NULL
+#endif
 
 #define VBC_PCM_RATES (SNDRV_PCM_RATE_8000  |	\
 			  SNDRV_PCM_RATE_11025 |	\
@@ -657,6 +726,7 @@ static int vbc_probe(struct platform_device *pdev)
 	ret = snd_soc_init_card(socdev);
 	if (ret < 0)
 		goto card_err;
+    android_pm_init();
 	return 0;
 
 card_err:
@@ -682,17 +752,8 @@ static int vbc_remove(struct platform_device *pdev)
 	snd_soc_dapm_free(socdev);
 	snd_soc_free_pcms(socdev);
 	kfree(codec);
+    android_pm_exit();
 	return 0;
-}
-
-static int vbc_suspend(struct platform_device *pdev, pm_message_t state)
-{
-    return 0;
-}
-
-static int vbc_resume(struct platform_device *pdev)
-{
-    return 0;
 }
 
 struct snd_soc_codec_device vbc_codec= {
