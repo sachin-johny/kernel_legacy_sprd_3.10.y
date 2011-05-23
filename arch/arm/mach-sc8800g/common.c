@@ -26,6 +26,7 @@
 #include <linux/usb/android_composite.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
+#include <linux/clk.h>
 
 #include <mach/hardware.h>
 #include <mach/board.h>
@@ -350,16 +351,18 @@ void    usb_ldo_switch(int flag)
             LDO_TurnOffLDO(LDO_LDO_USB);
         }
 }
+
+struct clk *usb_clk;
 static void usb_enable_module(int en)
 {
 	if (en){
 		__raw_bits_or(BIT_6, AHB_CTL3);
 		__raw_bits_and(~BIT_9, GR_CLK_GEN5);
-	//	__raw_bits_or(BIT_5, AHB_CTL0);
+		//	__raw_bits_or(BIT_5, AHB_CTL0);
 	}else {
 		__raw_bits_and(~BIT_6, AHB_CTL3);
 		__raw_bits_or(BIT_9, GR_CLK_GEN5);
-		__raw_bits_and(~BIT_5, AHB_CTL0);
+		clk_disable(usb_clk);
 	}
 }
 static void usb_startup(void)
@@ -378,18 +381,20 @@ static void usb_startup(void)
 	//mdelay(5);
 	//__raw_bits_and(~(BIT_6 | BIT_7), AHB_SOFT_RST);
 	//__raw_bits_and(~(BIT_7), AHB_SOFT_RST);
-   __raw_bits_or(BIT_5, AHB_CTL0);
+	//   __raw_bits_or(BIT_5, AHB_CTL0);
+	clk_enable(usb_clk);
 	mdelay(5);
 }
 
 void udc_enable(void)
 {
-     usb_startup();
+	usb_startup();
 }
 EXPORT_SYMBOL(udc_enable);
 
 void udc_disable(void)
 {
+	clk_disable(usb_clk);
 	usb_ldo_switch(0);
 }
 EXPORT_SYMBOL(udc_disable);
@@ -414,6 +419,12 @@ void __init sprd_add_otg_device(void)
         __raw_bits_or(BIT_8, USB_PHY_CTRL);
         __raw_bits_and(~BIT_1, AHB_CTL3);
         __raw_bits_and(~BIT_2, AHB_CTL3);
+
+	usb_clk = clk_get(NULL, "clk_usb_ref");
+	if (IS_ERR(usb_clk)) {
+		pr_warning("cannot get clock for usb\n");
+		return;
+	}
         usb_startup();
         platform_device_register(&sprd_otg_device);
 }
