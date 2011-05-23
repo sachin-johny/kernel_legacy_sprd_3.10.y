@@ -34,6 +34,12 @@
 
 #define POWER_OFF_ON_STANDBY    0
 #define VBC_CODEC_RESET    0xffff
+#define VBC_CODEC_POWER    0xfffe
+#define VBC_CODEC_POWER_ON_OUT  (1 << 0)
+#define VBC_CODEC_POWER_ON_IN   (1 << 1)
+#define VBC_CODEC_POWER_OFF_OUT (1 << 2)
+#define VBC_CODEC_POWER_OFF_IN  (1 << 3)
+#define VBC_CODEC_SPEAKER_PA 0xfffd
 /*
   ALSA SOC usually puts the device in standby mode when it's not used
   for sometime. If you define POWER_OFF_ON_STANDBY the driver will
@@ -91,6 +97,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Speaker
     /* SOC_SINGLE("Speaker Playback Switch", VBCR1, xxx, 1, 1), */
+    SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
     SOC_DOUBLE_TLV("Speaker Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
     SOC_SINGLE_TLV("Speaker Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
     SOC_SINGLE_TLV("Speaker Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
@@ -113,6 +120,12 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE_TLV("Capture Capture Volume", VBCGR10, 4, 0x0f, 0, adc_tlv),
     // reset codec
     SOC_ENUM("Reset Codec", vbc_codec_reset_enum),
+    // codec power
+    //     poweron   poweroff
+    // bit 0    1     2     3   4 ... 31
+    //     out  in    out   in
+    // value 1 is valid, value 0 is invalid
+    SOC_SINGLE("Power Codec", VBC_CODEC_POWER, 0, UINT_MAX, 0),
 };
 
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
@@ -339,7 +352,8 @@ static int vbc_reset(struct snd_soc_codec *codec)
 
     // vbc_reg_write(VBPMR1, 1, 0x02, 0x7f); // power on all units, except SB_BTL
     vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
-    vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
+//  vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
+    vbc_reg_VBPMR1_set(SB_ADC, 1); // Power down ADC
     vbc_reg_VBPMR1_set(SB_MIX, 0);
     vbc_reg_VBPMR1_set(SB_LOUT, 0);
     vbc_reg_VBPMR1_set(SB_OUT, 0); // Power on DAC OUT
@@ -369,7 +383,69 @@ static int vbc_reset(struct snd_soc_codec *codec)
     return 0;
 }
 
-static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, int dir)
+extern inline int vbc_amplifier_enabled(void);
+extern inline void vbc_amplifier_enable(int enable, const char *prename);
+static DEFINE_MUTEX(vbc_power_lock);
+static void vbc_power_down(unsigned int value)
+{
+    mutex_lock(&vbc_power_lock);
+        if (value == SNDRV_PCM_STREAM_PLAYBACK &&
+            !vbc_reg_read(VBPMR1, SB_DAC, 1)) {
+            vbc_amplifier_enable(false, "vbc_power_down playback");
+            vbc_codec_mute();
+            vbc_reg_VBPMR1_set(SB_BTL, 1); // power down earphone
+            vbc_reg_VBPMR1_set(SB_MIX, 1);
+            vbc_reg_VBPMR1_set(SB_OUT, 1); // Power down DAC OUT
+            vbc_reg_VBPMR1_set(SB_LOUT, 1);
+            vbc_reg_VBPMR1_set(SB_DAC, 1); // Power down DAC
+        }
+        if (value == SNDRV_PCM_STREAM_CAPTURE &&
+            !vbc_reg_read(VBPMR1, SB_ADC, 1)) {
+            vbc_reg_VBPMR1_set(SB_ADC, 1); // Power down ADC
+            vbc_reg_VBCR1_set(SB_MICBIAS, 1); // power down mic
+        }
+        if (vbc_reg_read(VBPMR1, SB_ADC, 1) &&
+            vbc_reg_read(VBPMR1, SB_DAC, 1)) {
+            vbc_reg_VBPMR2_set(SB_SLEEP, 1); // SB enter sleep mode
+            vbc_reg_VBPMR2_set(SB, 1); // Power down sb
+            printk("....................... audio full power down .......................\n");
+        }
+    mutex_unlock(&vbc_power_lock);
+    printk("audio %s\n", __func__);
+}
+
+static void vbc_power_on(unsigned int value)
+{
+    mutex_lock(&vbc_power_lock);
+        if (value == SNDRV_PCM_STREAM_PLAYBACK &&
+            vbc_reg_read(VBPMR1, SB_DAC, 1)) {
+            vbc_amplifier_enable(false, "vbc_power_on playback");
+            vbc_codec_mute();
+            vbc_reg_VBPMR2_set(SB, 0); // Power on sb
+            msleep(100);
+            vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
+            msleep(100);
+            vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
+            vbc_reg_VBPMR1_set(SB_LOUT, 0);
+            vbc_reg_VBPMR1_set(SB_OUT, 0); // Power on DAC OUT
+            vbc_reg_VBPMR1_set(SB_MIX, 0);
+            vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
+            msleep(300);
+            vbc_codec_unmute();
+            vbc_amplifier_enable(true, "vbc_power_on playback");
+        }
+        if (value == SNDRV_PCM_STREAM_CAPTURE &&
+            vbc_reg_read(VBPMR1, SB_ADC, 1)) {
+            vbc_reg_VBPMR2_set(SB, 0); // Power on sb
+            vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
+            vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
+            vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
+        }
+    mutex_unlock(&vbc_power_lock);
+    printk("audio %s\n", __func__);
+}
+
+static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned int value, int dir)
 {
     // printk("vbc_soft_ctrl value[%d]=%04x\n", dir, reg);
     switch (reg) {
@@ -380,16 +456,39 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, int dir)
             // otherwise android media will not work [luther.ge]
             // if (val & (1 << VBC_CODEC_SOFT_RESET))
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
+            vbc_amplifier_enable(false, "vbc_soft_ctrl");
             vbc_reset(codec);
             vbc_reset(codec);
             return 0;
+        case VBC_CODEC_POWER:
+            if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
+            printk("vbc power to 0x%08x\n", value);
+            if (value & VBC_CODEC_POWER_ON_OUT) {
+                vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK);
+            }
+            if (value & VBC_CODEC_POWER_ON_IN) {
+                vbc_power_on(SNDRV_PCM_STREAM_CAPTURE);
+            }
+            if (value & VBC_CODEC_POWER_OFF_OUT) {
+                vbc_power_down(SNDRV_PCM_STREAM_PLAYBACK);
+            }
+            if (value & VBC_CODEC_POWER_OFF_IN) {
+                vbc_power_down(SNDRV_PCM_STREAM_CAPTURE);
+            }
+            return value;
+        case VBC_CODEC_SPEAKER_PA:
+            if (dir) {
+                vbc_amplifier_enable(value & 0x01, "vbc_soft_ctrl");
+            }
+            value = vbc_amplifier_enabled();
+            return value;
         default: return -1;
     }
 }
 
 static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 {
-    int ret = vbc_soft_ctrl(codec, reg, 0);
+    int ret = vbc_soft_ctrl(codec, reg, 0, 0);
     if (ret >=0) return ret;
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
     reg |= ARM_VB_BASE2;
@@ -402,7 +501,7 @@ static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 
 static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int val)
 {
-    int ret = vbc_soft_ctrl(codec, reg, 1);
+    int ret = vbc_soft_ctrl(codec, reg, val, 1);
     if (ret >=0) return ret;
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
     reg |= ARM_VB_BASE2;
@@ -445,7 +544,7 @@ void flush_vbc_cache(struct snd_pcm_substream *substream)
 //  vbc_codec_mute();
     /* clear dma cache buffer */
     memset((void*)runtime->dma_area, 0, runtime->dma_bytes);
-    printk("flush audio cache buffer...\n");
+    printk("audio flush cache buffer...\n");
     if (cpu_codec_dma_chain_operate_ready(substream)) {
         vbc_dma_start(substream); // we must restart dma
         start_cpu_dma(substream);
@@ -510,18 +609,17 @@ static int vbc_set_dai_clkdiv(struct snd_soc_dai *codec_dai, int div_id, int div
     return 0;
 }
 
-extern inline void vbc_amplifier_enable(int enable);
 static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
 	int ret = 0;
 
 	switch (cmd) {
         case SNDRV_PCM_TRIGGER_START:
-            vbc_amplifier_enable(true);
+            vbc_power_on(substream->stream);
             vbc_dma_start(substream);
             break;
         case SNDRV_PCM_TRIGGER_STOP:
-            vbc_amplifier_enable(false);
+            vbc_power_down(substream->stream);
         case SNDRV_PCM_TRIGGER_SUSPEND:
         case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
             vbc_dma_stop(substream); // Stop DMA transfer
@@ -588,28 +686,17 @@ static struct snd_soc_dai_ops vbc_dai_ops = {
 	.set_tristate = vbc_set_dai_tristate,
 };
 
-#if defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_PM)
-static u32 VBPMR2_value = -1;
-#endif
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 static struct early_suspend early_suspend;
 static void learly_suspend(struct early_suspend *es)
 {
-//    if (VBPMR2_value == -1) {
-//        VBPMR2_value = vbc_reg_write(VBPMR2, 0, -1, -1);
-//    }
-//    printk("%s VBPMR2=0x%08x\n", __func__, VBPMR2_value);
+    // vbc_power_down();
 }
 
 static void learly_resume(struct early_suspend *es)
 {
-//    if (VBPMR2_value != -1) {
-//        vbc_reg_write(VBPMR2, 0, VBPMR2_value, -1);
-//        VBPMR2_value = -1;
-//    }
-//    printk("%s VBPMR2=0x%08x\n", __func__, VBPMR2_value);
+    // vbc_power_on();
 }
 
 static void android_pm_init(void)
@@ -629,23 +716,48 @@ static void android_pm_init(void) {}
 static void android_pm_exit(void) {}
 #endif
 
+#if 1
+#include <mach/pm_devices.h>
+static struct sprd_pm_suspend sprd_suspend;
+static int lsprd_suspend(struct platform_device *pdev, pm_message_t state)
+{
+    // vbc_power_down();
+    return 0;
+}
+
+static int lsprd_resume(struct platform_device *pdev)
+{
+    // vbc_power_on();
+    return 0;
+}
+
+static void android_sprd_pm_init(void)
+{
+    sprd_suspend.suspend = lsprd_suspend;
+    sprd_suspend.resume  = lsprd_resume;
+    sprd_suspend.level   = INT_MAX;
+    register_sprd_pm_suspend(&sprd_suspend);
+}
+
+static void android_sprd_pm_exit(void)
+{
+    unregister_sprd_pm_suspend(&sprd_suspend);
+}
+#else
+static void android_sprd_pm_init(void) {}
+static void android_sprd_pm_exit(void) {}
+#endif
+
 #ifdef CONFIG_PM
 int vbc_suspend(struct platform_device *pdev, pm_message_t state)
 {
-    if (VBPMR2_value == -1) {
-        VBPMR2_value = vbc_reg_write(VBPMR2, 0, -1, -1);
-    }
-    printk("%s VBPMR2=0x%08x\n", __func__, VBPMR2_value);
+    // vbc_power_down();
     return 0;
 }
 
 int vbc_resume(struct platform_device *pdev)
 {
-    if (VBPMR2_value != -1) {
-        vbc_reg_write(VBPMR2, 0, VBPMR2_value, -1);
-        VBPMR2_value = -1;
-    }
-    printk("%s VBPMR2=0x%08x\n", __func__, VBPMR2_value);
+    // vbc_power_on();
     return 0;
 }
 #else
@@ -727,6 +839,7 @@ static int vbc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto card_err;
     android_pm_init();
+    android_sprd_pm_init();
 	return 0;
 
 card_err:
@@ -753,6 +866,7 @@ static int vbc_remove(struct platform_device *pdev)
 	snd_soc_free_pcms(socdev);
 	kfree(codec);
     android_pm_exit();
+    android_sprd_pm_exit();
 	return 0;
 }
 
