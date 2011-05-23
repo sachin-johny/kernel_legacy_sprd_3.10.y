@@ -3,6 +3,14 @@
 #define _PM_DEVICES_H
 
 #include <linux/list.h>
+#include <linux/platform_device.h>
+
+
+#define SUSPEND_NONE 0
+#define SUSPEND_ENTER 1
+#define SUSPEND_CANCEL 2
+#define SUSPEND_DONE 3
+
 
 /* The sprd_pm_suspend structure defines suspend and resume hooks to be called
  * when system enter and exit deep sleep, and a level to control the order. 
@@ -17,12 +25,14 @@ enum {
 struct sprd_pm_suspend {
 	struct list_head link;
 	int level;
-	int (*suspend)(struct sprd_pm_suspend *h);
-	int (*resume)(struct sprd_pm_suspend *h);
+	struct platform_device *pdev;
+	int (*suspend)(struct platform_device *pdev, pm_message_t state);
+	int (*resume)(struct platform_device *pdev);
 };
 
-void register_sprd_pm_suspend(struct sprd_pm_suspend *handler);
-void unregister_sprd_pm_suspend(struct sprd_pm_suspend *handler);
+extern void register_sprd_pm_suspend(struct sprd_pm_suspend *handler);
+extern void unregister_sprd_pm_suspend(struct sprd_pm_suspend *handler);
+extern int sprd_pm_suspend_canceled(void);
 
 #endif
 

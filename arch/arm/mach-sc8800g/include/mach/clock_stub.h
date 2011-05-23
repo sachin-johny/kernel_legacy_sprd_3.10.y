@@ -23,7 +23,7 @@
 #define	DEVICE_AHB	(0x1UL << 20)
 #define	DEVICE_APB	(0x1UL << 21)
 #define	DEVICE_VIR	(0x1UL << 22)
-
+#define    DEVICE_AWAKE (0x1UL << 23)
 
 
 #define	CLOCK_NUM		128

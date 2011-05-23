@@ -135,7 +135,7 @@ void (*pm_idle)(void) = default_idle;
 EXPORT_SYMBOL(pm_idle);
 
 int sprd_pm_suspend_check_enter(void);
-int sprd_pm_resume(void);
+int sprd_pm_resume_check(void);
 
 
 /*
@@ -194,7 +194,7 @@ void cpu_idle(void)
 		}
 
 		/* as short as possible. */
-		sprd_pm_resume();
+		sprd_pm_resume_check();
 
 		leds_event(led_idle_end);
 		tick_nohz_restart_sched_tick();

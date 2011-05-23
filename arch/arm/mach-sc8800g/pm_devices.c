@@ -3,10 +3,12 @@
 #include <linux/workqueue.h>
 #include <mach/pm_devices.h>
 #include <linux/wakelock.h>
+#include <linux/pm.h>
 
 static DEFINE_MUTEX(sprd_pm_suspend_lock);
 static LIST_HEAD(sprd_pm_suspend_handlers);
 
+int suspend_status = SUSPEND_NONE;
 long has_wake_lock_for_suspend(int type);
 
 
@@ -41,7 +43,7 @@ int sprd_pm_suspend(void)
 
 	list_for_each_entry(pos, &sprd_pm_suspend_handlers, link) {
 		if (pos->suspend != NULL)
-			error |= pos->suspend(pos);
+			error |= pos->suspend(pos->pdev, PMSG_SUSPEND);
 	}
 
 	return error;
@@ -53,17 +55,46 @@ int sprd_pm_resume(void)
 
 	list_for_each_entry_reverse(pos, &sprd_pm_suspend_handlers, link)
 		if (pos->resume != NULL)
-			pos->resume(pos);
+			pos->resume(pos->pdev);
 	return 0;
 }
 
 int sprd_pm_suspend_check_enter(void)
 {
+	int error = 0;
+	suspend_status = SUSPEND_NONE;
 	if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND)) {
-		sprd_pm_suspend();
+		error = sprd_pm_suspend();
+		suspend_status = SUSPEND_ENTER;
+		if (error) {
+			suspend_status = SUSPEND_CANCEL;
+		}
+		else {
+			suspend_status = SUSPEND_DONE;
+		}
 	}
 
-	return 0;
+	return error;
 }
 
+int sprd_pm_resume_check(void)
+{
+	switch(suspend_status) {
+		case SUSPEND_NONE:
+			break;
+		case SUSPEND_ENTER:
+		case SUSPEND_CANCEL:
+		case SUSPEND_DONE:
+			sprd_pm_resume();
+			break;
+		default:
+			printk("##: unknown suspend_status value!\n");
+			break;
+	}
+}
+
+int sprd_pm_suspend_canceled(void)
+{
+	return (SUSPEND_CANCEL == suspend_status);
+}
 

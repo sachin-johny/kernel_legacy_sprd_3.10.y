@@ -767,7 +767,9 @@ static const struct clksel clk_uart0_clksel[] = {
 
 static struct clk clk_uart0 = {
 	.name = "clk_uart0",
+	/*
 	.flags = DEVICE_APB,
+	*/
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -801,7 +803,9 @@ static const struct clksel clk_uart1_clksel[] = {
 
 static struct clk clk_uart1 = {
 	.name = "clk_uart1",
+/*
 	.flags = DEVICE_APB,
+*/
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -835,7 +839,9 @@ static const struct clksel clk_uart2_clksel[] = {
 
 static struct clk clk_uart2 = {
 	.name = "clk_uart2",
+/*
 	.flags = DEVICE_APB,
+*/
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -1248,7 +1254,7 @@ static const struct clksel clk_usb_ref_clksel[] = {
 
 static struct clk clk_usb_ref = {
 	.name = "clk_usb_ref",
-	.flags = DEVICE_AHB,
+	.flags = DEVICE_AWAKE | DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_12m,
 	.clkdm_name = "peripheral",
@@ -1925,7 +1931,7 @@ int __init sc8800g2_clock_init(void)
 	clk_print_all();
         */
     /* show all clocks, both linux side and RTOS side. */
-     /*
+    /*
     for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
 	    CLK_FW_INFO("pstub[%d]: [addr = %p] [name = %s] [flags = %08x] [usecount = %d]\n", 
 		index, &pstub[index], pstub[index].name, pstub[index].flags, 
@@ -1944,18 +1950,30 @@ int sc8800g_get_clock_status(void)
     
     /* check all clocks, both linux side and RTOS side. */
     for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
-	    if (pstub->usecount) {
+	    if (pstub[index].usecount) {
+		/*
 	        CLK_FW_INFO("###: clock[%s] is active now, [flags = %08x] [usecount = %d].\n", 
 		    pstub[index].name, pstub[index].flags, pstub[index].usecount);
-		    
+		*/
 		    status |= pstub[index].flags;
 		    
-		    if (pstub->flags & DEVICE_AHB) {
-		        CLK_FW_INFO("###: clcok[%s] is on AHB.", pstub[index].name);
+		    if (pstub[index].flags & DEVICE_AHB) {
+			/*
+		        CLK_FW_INFO("###: clcok[%s] is on AHB.\n", pstub[index].name);
+			*/
 		    }
-		    if (pstub->flags & DEVICE_APB) {
-		        CLK_FW_INFO("###: clcok[%s] is on APB.", pstub[index].name);
+		    if (pstub[index].flags & DEVICE_APB) {
+			/*
+		        CLK_FW_INFO("###: clcok[%s] is on APB.\n", pstub[index].name);
+			*/
 		    }
+		    if (pstub[index].flags & DEVICE_AWAKE) {
+			/*
+		        CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", pstub[index].name);
+			*/
+		    }
+
+
 	    }
     }
     return status;

@@ -16,6 +16,7 @@
 #include <linux/bitops.h>
 #include <linux/io.h>
 #include <linux/uaccess.h>
+#include <linux/clk.h>
 
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -104,13 +105,14 @@ static void sc8800g2_wdt_resume (struct early_suspend* es)
 
 
 struct sprd_pm_suspend sprd_suspend;
-static int sc8800g2_sprd_suspend (struct sprd_pm_suspend* h)
+
+static int sc8800g2_sprd_suspend (struct platform_device *pdev, pm_message_t state)
 {
     //printk("###: sprd: sc8800g2_wdt_suspend()!\n");
 	return 0;
 }
 
-static int sc8800g2_sprd_resume (struct sprd_pm_suspend* h)
+static int sc8800g2_sprd_resume (struct platform_device *pdev)
 {
     //printk("###: sprd: sc8800g2_wdt_resume()!\n");
 	return 0;
@@ -120,6 +122,8 @@ static int sc8800g2_sprd_resume (struct sprd_pm_suspend* h)
 
 static int __init omap_wdt_init(void)
 {
+	struct clk *clk_usb;
+
 	printk("######: omap_wdt_init()\n");
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -131,10 +135,26 @@ static int __init omap_wdt_init(void)
 
 	sprd_suspend.suspend = sc8800g2_sprd_suspend;
 	sprd_suspend.resume  = sc8800g2_sprd_resume;
+	/* !!!!!!! please set this parameter correctly. */
+	sprd_suspend.pdev = NULL;
 	sprd_suspend.level   = SPRD_PM_SUSPEND_LEVEL0;
 	register_sprd_pm_suspend(&sprd_suspend);
+/*
+	clk_usb = clk_get(NULL, "clk_usb_ref");
+	if (IS_ERR(clk_usb)) {
+		printk("##: can't get clk[usb]!\n");
+		printk("##: can't get clk[usb]!\n");
+		printk("##: can't get clk[usb]!\n");
+	}
+	else {
+		printk("##: get clk[usb] successfully!\n");
+		printk("##: get clk[usb] successfully!\n");
+		printk("##: get clk[usb] successfully!\n");
+	}
 
+	clk_enable(clk_usb);
 
+*/
 	return platform_driver_register(&omap_wdt_driver);
 }
 

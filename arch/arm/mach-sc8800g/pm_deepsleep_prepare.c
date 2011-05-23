@@ -44,7 +44,7 @@
 #include <mach/clock_sc8800g.h>
 #include <mach/spinlock_hw_vlx.h>
 #include <linux/suspend.h>
-
+#include <mach/pm_devices.h>
 #include <mach/test.h>
 
 typedef unsigned int uint32;
@@ -53,8 +53,6 @@ typedef unsigned int uint32;
 extern void printascii(char *);
 #endif
 
-extern int sprd_pm_suspend(void);
-extern int sprd_pm_resume(void);
 
 
 extern long has_wake_lock_info(int type);
@@ -1467,18 +1465,21 @@ static int print_thread(void *pdata)
 	printk("##: getnstimeofday() = %lld.\n", timespec_to_ns(&now_ts_pm));
 */
  	//print_pm_message();
-		
+	printk("##: show clock info:\n");
+	sc8800g_get_clock_status();
+	
 /*
 	verify_dsp_deep_sleep_by_value(gr_stc_state);
 	verify_ahb_sts_by_value(ahb_sts);
 */
 	/* detect GPIO. */
+	/*
 	for (i = 0; i < 10; i++) {
 		val = __raw_readl(SPRD_GPIO_BASE + GPIO_IE + 0x80 * i);
-		//printk("##: GPIO_IE = %08x\n", val);
+		printk("##: GPIO_IE = %08x\n", val);
 		__raw_writel(0x0, SPRD_GPIO_BASE + GPIO_IE + 0x80 * i);
 	}
-
+	*/
 
 	    if (has_wake_lock_info(WAKE_LOCK_SUSPEND)) {
 			printk("##: Some locks are being holded.\n");
@@ -1650,9 +1651,10 @@ int sc8800g_enter_deepsleep(int inidle)
         RESTORE_GLOBAL_REG;
         udelay(20);
 	printk("Retrun for SLEEP_MODE_MCU...\n");
+/*
         printk("IRQ_STS = %08x, %s\n", 
 		__raw_readl(INT_IRQ_STS), inidle ? "idle" : "wakelock_suspend");
-
+*/
     }
     else {
 	//__raw_writel(0, TIMER1_CONTROL);
@@ -1771,7 +1773,8 @@ static void nkidle(void)
 		if (!raw_local_irq_pending()) {
 			val = os_ctx->idle(os_ctx);
 			if (0 == val) {
-				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND)) {
+				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND) && 
+					(!sprd_pm_suspend_canceled())) {
 					sc8800g_enter_deepsleep(1);
 				}
 				else {
