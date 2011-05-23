@@ -45,6 +45,10 @@ extern u32 idle_time;
 extern int idle_loops;
 extern u32 timer_int_counter;
 extern u32 tick_sched_timer_counter;
+extern u32 interrupt_counter;
+extern u32 schedu_counter;
+
+extern struct timespec now_ts_pm;
 
 /*********************************/
 
@@ -58,7 +62,12 @@ extern void printhex8(int);
 extern u32 sc8800g_read_cp15_c1(void);
 extern u32 sc8800g_read_cp15_c2(void);
 extern u32 sc8800g_read_cp15_c3(void);
+extern u32 sc8800g_read_cpsr(void);
+extern void add_pm_message(u32 when, char *msg, u32 val0, 
+                                              u32 val1, u32 val2);
 
+extern void add_pm_message_val64(u32 when, char *msg, u32 val0, 
+                                              u32 val1, u32 val2, u64 val64);
 
 static u32 inline get_sys_cnt(void)
 {

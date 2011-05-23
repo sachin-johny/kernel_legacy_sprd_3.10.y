@@ -134,6 +134,9 @@ static void default_idle(void)
 void (*pm_idle)(void) = default_idle;
 EXPORT_SYMBOL(pm_idle);
 
+int sprd_pm_suspend_check_enter(void);
+int sprd_pm_resume(void);
+
 
 /*
  * The idle thread, has rather strange semantics for calling pm_idle,
@@ -147,9 +150,17 @@ void cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
+		schedu_counter++;
+		add_pm_message(get_sys_cnt(), "cpu_idle: 1111--enter.", 0, 0, 0);
+
+		/* give a chance for device's suspend routine. */
+		sprd_pm_suspend_check_enter();
+
 		tick_nohz_stop_sched_tick(1);
 		leds_event(led_idle_start);
 		while (!need_resched()) {
+			add_pm_message(get_sys_cnt(), "cpu_idle: 2222--enter.", 0, 0, 0);
+
 #ifdef CONFIG_HOTPLUG_CPU
 			if (cpu_is_offline(smp_processor_id()))
 				cpu_die();
@@ -167,9 +178,7 @@ void cpu_idle(void)
 #ifndef CONFIG_NKERNEL
 				pm_idle();
 #else
-
 				nkidle();
-
 #endif
 #endif
 				start_critical_timings();
@@ -181,12 +190,18 @@ void cpu_idle(void)
 				WARN_ON(irqs_disabled());
 				local_irq_enable();
 			}
+			add_pm_message(get_sys_cnt(), "cpu_idle: 2222--leave.", 0, 0, 0);
 		}
+
+		/* as short as possible. */
+		sprd_pm_resume();
+
 		leds_event(led_idle_end);
 		tick_nohz_restart_sched_tick();
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();
+		add_pm_message(get_sys_cnt(), "cpu_idle: 1111--leave.", 0, 0, 0);
 	}
 }
 

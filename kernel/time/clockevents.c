@@ -19,6 +19,7 @@
 #include <linux/smp.h>
 #include <linux/sysdev.h>
 #include <linux/tick.h>
+#include <mach/test.h>
 
 #include "tick-internal.h"
 
@@ -112,7 +113,11 @@ int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
 		return -ETIME;
 	}
 
+	add_pm_message_val64(get_sys_cnt(), "clockevent.c, expires:", 0, 0, 0, ktime_to_ns(expires));
+	add_pm_message_val64(get_sys_cnt(), "clockevent.c, now:", 0, 0, 0, ktime_to_ns(now));
+
 	delta = ktime_to_ns(ktime_sub(expires, now));
+	add_pm_message_val64(get_sys_cnt(), "clockevent.c1:", 0, 0, 0, delta);
 
 	if (delta <= 0)
 		return -ETIME;
@@ -129,6 +134,11 @@ int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
 
 	clc = delta * dev->mult;
 	clc >>= dev->shift;
+
+	if (get_sys_cnt() > (100000)) {
+		//printk("##: clockevent.c: delta = %Lu clc = %Lu.\n", delta, clc);
+		add_pm_message_val64(get_sys_cnt(), "clockevent.c2:", 0, clc, 0, delta);
+	}
 
 	return dev->set_next_event((unsigned long) clc, dev);
 }

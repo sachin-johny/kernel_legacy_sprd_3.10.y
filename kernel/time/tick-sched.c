@@ -337,8 +337,10 @@ void tick_nohz_stop_sched_tick(int inidle)
 	 * Do not stop the tick, if we are only one off
 	 * or if the cpu is required for rcu
 	 */
-	if (!ts->tick_stopped && delta_jiffies == 1)
+	if (!ts->tick_stopped && delta_jiffies == 1) {
 		goto out;
+		add_pm_message_val64(get_sys_cnt(), "xxxx_needs_cpu2: ", 0, delta_jiffies, 0, time_delta);
+	}
 
 	/* Schedule the tick, if we are at least one jiffie off */
 	if ((long)delta_jiffies >= 1) {
@@ -384,6 +386,8 @@ void tick_nohz_stop_sched_tick(int inidle)
 			time_delta = min_t(u64, time_delta,
 					   tick_period.tv64 * delta_jiffies);
 		}
+		add_pm_message_val64(get_sys_cnt(), "now = ", 0, delta_jiffies, 0, ktime_to_ns(ktime_get()));
+		add_pm_message_val64(get_sys_cnt(), "expire1 = ", 0, delta_jiffies, 0, ktime_to_ns(expires));
 
 		if (time_delta < KTIME_MAX)
 			expires = ktime_add_ns(last_update, time_delta);
@@ -429,19 +433,23 @@ void tick_nohz_stop_sched_tick(int inidle)
 		 * in this case we simply stop the tick timer.
 		 */
 		 if (unlikely(expires.tv64 == KTIME_MAX)) {
+			add_pm_message(get_sys_cnt(), "expire = KTIME_MAX", 0, 0, 0);
 			if (ts->nohz_mode == NOHZ_MODE_HIGHRES)
 				hrtimer_cancel(&ts->sched_timer);
 			goto out;
 		}
 
 		if (ts->nohz_mode == NOHZ_MODE_HIGHRES) {
+			add_pm_message_val64(get_sys_cnt(), "start hrtimer: ", 0, 0, 0, ktime_to_ns(expires));
 			hrtimer_start(&ts->sched_timer, expires,
 				      HRTIMER_MODE_ABS_PINNED);
 			/* Check, if the timer was already in the past */
 			if (hrtimer_active(&ts->sched_timer))
 				goto out;
-		} else if (!tick_program_event(expires, 0))
+		} else if (!tick_program_event(expires, 0)) {
+				add_pm_message(get_sys_cnt(), "????????: ", 0, 0, 0);
 				goto out;
+		}
 		/*
 		 * We are past the event already. So we crossed a
 		 * jiffie boundary. Update jiffies and raise the
@@ -788,6 +796,10 @@ void tick_setup_sched_timer(void)
 	 */
 	hrtimer_init(&ts->sched_timer, CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
 	ts->sched_timer.function = tick_sched_timer;
+
+	printk("******: ts->sched_timer = %p\n", &ts->sched_timer);
+	printk("******: ts->sched_timer = %p\n", &ts->sched_timer);
+	printk("******: ts->sched_timer = %p\n", &ts->sched_timer);
 
 	/* Get the next period (per cpu) */
 	hrtimer_set_expires(&ts->sched_timer, tick_init_jiffy_update());

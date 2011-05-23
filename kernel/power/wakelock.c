@@ -19,6 +19,9 @@
 #include <linux/suspend.h>
 #include <linux/syscalls.h> /* sys_sync */
 #include <linux/wakelock.h>
+#include <linux/io.h>
+#include <mach/test.h>
+
 #ifdef CONFIG_WAKELOCK_STAT
 #include <linux/proc_fs.h>
 #endif
@@ -311,11 +314,15 @@ long has_wake_lock_for_suspend(int type)
 }
 
 int sc8800g_pm_enter(suspend_state_t state);
+extern int sprd_pm_suspend(void);
+extern int sprd_pm_resume(void);
 
 static void suspend(struct work_struct *work)
 {
 	int ret;
 	int entry_event_num;
+
+	add_pm_message(get_sys_cnt(), "suspend--enter: ", 0, 0, 0);
 
 	if (has_wake_lock(WAKE_LOCK_SUSPEND)) {
 		if (debug_mask & DEBUG_SUSPEND)
@@ -343,12 +350,18 @@ static void suspend(struct work_struct *work)
 	}
 #endif
 
+	if (sprd_pm_suspend()) {
+		printk("##: sprd_pm_suspend() doesn't allow deep sleep!\n");
+	}
 	sc8800g_pm_enter(PM_SUSPEND_MEM);
+	sprd_pm_resume();
+
 	if (current_event_num == entry_event_num) {
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_info("suspend: pm_suspend returned with no event\n");
-		wake_lock_timeout(&unknown_wakeup, HZ / 2);
+		wake_lock_timeout(&unknown_wakeup, 3 * HZ);
 	}
+	add_pm_message(get_sys_cnt(), "suspend--leave: ", 0, 0, 0);
 }
 
 static void expire_wake_locks(unsigned long data)
@@ -364,8 +377,10 @@ static void expire_wake_locks(unsigned long data)
 	has_lock = has_wake_lock_locked(WAKE_LOCK_SUSPEND);
 	if (debug_mask & DEBUG_EXPIRE)
 		pr_info("expire_wake_locks: done, has_lock %ld\n", has_lock);
+	/*
 	if (has_lock == 0)
 		queue_work(suspend_work_queue, &suspend_work);
+	*/
 	spin_unlock_irqrestore(&list_lock, irqflags);
 }
 static DEFINE_TIMER(expire_timer, expire_wake_locks, 0, 0);
@@ -516,8 +531,10 @@ static void wake_lock_internal(
 				if (debug_mask & DEBUG_EXPIRE)
 					pr_info("wake_lock: %s, stop expire timer\n",
 						lock->name);
+			/*
 			if (expire_in == 0)
 				queue_work(suspend_work_queue, &suspend_work);
+			*/
 		}
 	}
 	spin_unlock_irqrestore(&list_lock, irqflags);
@@ -563,8 +580,10 @@ void wake_unlock(struct wake_lock *lock)
 						"timer\n", lock->name);
 			if (has_lock == 0) {
 				/* removed by Wang liwei. */
+				/*
 				printk("##: start queue!\n");
 				queue_work(suspend_work_queue, &suspend_work);
+				*/
 			}
 		}
 		if (lock == &main_wake_lock) {

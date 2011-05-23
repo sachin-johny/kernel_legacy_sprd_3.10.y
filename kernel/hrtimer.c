@@ -516,11 +516,11 @@ hrtimer_force_reprogram(struct hrtimer_cpu_base *cpu_base, int skip_equal)
 	int i;
 	struct hrtimer_clock_base *base = cpu_base->clock_base;
 	ktime_t expires, expires_next;
+		struct hrtimer *timer;
 
 	expires_next.tv64 = KTIME_MAX;
 
 	for (i = 0; i < HRTIMER_MAX_CLOCK_BASES; i++, base++) {
-		struct hrtimer *timer;
 
 		if (!base->first)
 			continue;
@@ -542,8 +542,11 @@ hrtimer_force_reprogram(struct hrtimer_cpu_base *cpu_base, int skip_equal)
 
 	cpu_base->expires_next.tv64 = expires_next.tv64;
 
-	if (cpu_base->expires_next.tv64 != KTIME_MAX)
+	if (cpu_base->expires_next.tv64 != KTIME_MAX)  {
+		add_pm_message_val64(get_sys_cnt(), "hrtimer_force_reprogram, new timer =  ", 
+				timer, 0, 0, ktime_to_ns(cpu_base->expires_next));
 		tick_program_event(cpu_base->expires_next, 1);
+	}
 }
 
 /*
@@ -561,6 +564,9 @@ static int hrtimer_reprogram(struct hrtimer *timer,
 	struct hrtimer_cpu_base *cpu_base = &__get_cpu_var(hrtimer_bases);
 	ktime_t expires = ktime_sub(hrtimer_get_expires(timer), base->offset);
 	int res;
+	add_pm_message_val64(get_sys_cnt(), "base->offset: ", 0, 0, 0, ktime_to_ns(base->offset));
+
+	add_pm_message_val64(get_sys_cnt(), "hrtimer_reprogram: ", 0, 0, 0, ktime_to_ns(expires));
 
 	WARN_ON_ONCE(hrtimer_get_expires_tv64(timer) < 0);
 
@@ -741,19 +747,6 @@ static int hrtimer_switch_to_hres(void)
 
 #else
 
-static inline int hrtimer_hres_active(void) { return 0; }
-static inline int hrtimer_is_hres_enabled(void) { return 0; }
-static inline int hrtimer_switch_to_hres(void) { return 0; }
-static inline void
-hrtimer_force_reprogram(struct hrtimer_cpu_base *base, int skip_equal) { }
-static inline int hrtimer_enqueue_reprogram(struct hrtimer *timer,
-					    struct hrtimer_clock_base *base,
-					    int wakeup)
-{
-	return 0;
-}
-static inline void hrtimer_init_hres(struct hrtimer_cpu_base *base) { }
-static inline void hrtimer_init_timer_hres(struct hrtimer *timer) { }
 
 #endif /* CONFIG_HIGH_RES_TIMERS */
 
@@ -920,8 +913,10 @@ static void __remove_hrtimer(struct hrtimer *timer,
 
 			expires = ktime_sub(hrtimer_get_expires(timer),
 					    base->offset);
-			if (base->cpu_base->expires_next.tv64 == expires.tv64)
+			if (base->cpu_base->expires_next.tv64 == expires.tv64) {
+				add_pm_message(get_sys_cnt(), "__remove_hrtimer: reprogram, timer =", timer, 0, 0);
 				hrtimer_force_reprogram(base->cpu_base, 1);
+			}
 		}
 #endif
 	}
@@ -999,8 +994,13 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 	 *
 	 * XXX send_remote_softirq() ?
 	 */
-	if (leftmost && new_base->cpu_base == &__get_cpu_var(hrtimer_bases))
+	if (leftmost && new_base->cpu_base == &__get_cpu_var(hrtimer_bases)) {
+		add_pm_message(get_sys_cnt(), "leftmost && ", 0, 0, 0);
 		hrtimer_enqueue_reprogram(timer, new_base, wakeup);
+	}
+	else {
+		add_pm_message(get_sys_cnt(), "not leftmost", 0, 0, 0);
+	}
 
 	unlock_hrtimer_base(timer, &flags);
 
@@ -1038,6 +1038,8 @@ EXPORT_SYMBOL_GPL(hrtimer_start_range_ns);
 int
 hrtimer_start(struct hrtimer *timer, ktime_t tim, const enum hrtimer_mode mode)
 {
+	add_pm_message(get_sys_cnt(), "hrtimer_start(): ", timer, 0, 0);
+
 	return __hrtimer_start_range_ns(timer, tim, 0, mode, 1);
 }
 EXPORT_SYMBOL_GPL(hrtimer_start);

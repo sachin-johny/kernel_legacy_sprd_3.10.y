@@ -46,6 +46,7 @@
 #include <asm/mach/irq.h>
 #include <asm/pgtable-hwdef.h>
 
+#include <mach/test.h>
 /*
  * This driver provides the generic NKDDI to NK specific drivers
  */
@@ -1619,6 +1620,11 @@ nk_do_xirq (struct pt_regs* regs)
 	    break;
 	}
 
+	if (get_sys_cnt() > (100000)) {
+		//printk("##: xirq = %d.\n", xirq);
+		add_pm_message(get_sys_cnt(), "xirq = ", xirq, 0, 0);
+	}
+	interrupt_counter++;
 	nk_do_IRQ(xirq, regs);
     }
 

@@ -372,6 +372,7 @@ static const struct clksel ccir_mclk_clksel[] = {
 
 static struct clk ccir_mclk = {
 	.name = "ccir_mclk",
+	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_48m,
 	.clkdm_name = "top_module",
@@ -408,6 +409,7 @@ static const struct clksel clk_ccir_clksel[] = {
 
 static struct clk clk_ccir = {
 	.name = "clk_ccir",
+	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_ccir_pad,
 	.clkdm_name = "peripheral",
@@ -501,6 +503,7 @@ static const struct clksel clk_dcam_clksel[] = {
 
 static struct clk clk_dcam = {
 	.name = "clk_dcam",
+	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -536,6 +539,7 @@ static const struct clksel clk_vsp_clksel[] = {
 
 static struct clk clk_vsp = {
 	.name = "clk_vsp",
+	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -692,6 +696,7 @@ static const struct clksel clk_lcdc_clksel[] = {
 
 static struct clk clk_lcdc = {
 	.name = "clk_lcdc",
+	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -725,6 +730,7 @@ static const struct clksel clk_sdio_clksel[] = {
 
 static struct clk clk_sdio = {
 	.name = "clk_sdio",
+	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -761,6 +767,7 @@ static const struct clksel clk_uart0_clksel[] = {
 
 static struct clk clk_uart0 = {
 	.name = "clk_uart0",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -794,6 +801,7 @@ static const struct clksel clk_uart1_clksel[] = {
 
 static struct clk clk_uart1 = {
 	.name = "clk_uart1",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -827,6 +835,7 @@ static const struct clksel clk_uart2_clksel[] = {
 
 static struct clk clk_uart2 = {
 	.name = "clk_uart2",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -861,6 +870,7 @@ static const struct clksel clk_spi_clksel[] = {
 
 static struct clk clk_spi = {
 	.name = "clk_spi",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &l3_192m,
 	.clkdm_name = "peripheral",
@@ -892,6 +902,7 @@ static const struct clksel clk_adi_m_clksel[] = {
 
 static struct clk clk_adi_m = {
 	.name = "clk_adi_m",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_76m800k,
 	.clkdm_name = "peripheral",
@@ -999,6 +1010,7 @@ static const struct clksel clk_aux0_clksel[] = {
 
 static struct clk clk_aux0 = {
 	.name = "clk_aux0",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -1033,6 +1045,7 @@ static const struct clksel clk_aux1_clksel[] = {
 
 static struct clk clk_aux1 = {
 	.name = "clk_aux1",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
@@ -1067,6 +1080,7 @@ static const struct clksel clk_iis_clksel[] = {
 
 static struct clk clk_iis = {
 	.name = "clk_iis",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_128m,
 	.clkdm_name = "peripheral",
@@ -1098,6 +1112,7 @@ static const struct clksel clk_pwm0_clksel[] = {
 
 static struct clk clk_pwm0 = {
 	.name = "clk_pwm0",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &ext_32k,
 	.clkdm_name = "peripheral",
@@ -1131,6 +1146,7 @@ static const struct clksel clk_pwm1_clksel[] = {
 
 static struct clk clk_pwm1 = {
 	.name = "clk_pwm1",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &ext_32k,
 	.clkdm_name = "peripheral",
@@ -1164,6 +1180,7 @@ static const struct clksel clk_pwm2_clksel[] = {
 
 static struct clk clk_pwm2 = {
 	.name = "clk_pwm2",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &ext_32k,
 	.clkdm_name = "peripheral",
@@ -1197,6 +1214,7 @@ static const struct clksel clk_pwm3_clksel[] = {
 
 static struct clk clk_pwm3 = {
 	.name = "clk_pwm3",
+	.flags = DEVICE_APB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &ext_32k,
 	.clkdm_name = "peripheral",
@@ -1230,6 +1248,7 @@ static const struct clksel clk_usb_ref_clksel[] = {
 
 static struct clk clk_usb_ref = {
 	.name = "clk_usb_ref",
+	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_12m,
 	.clkdm_name = "peripheral",

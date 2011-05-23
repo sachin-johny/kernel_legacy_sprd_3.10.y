@@ -22,6 +22,8 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#include <mach/pm_devices.h>
+
 
 static int __devinit omap_wdt_probe(struct platform_device *pdev)
 {
@@ -53,14 +55,14 @@ static int __devexit omap_wdt_remove(struct platform_device *pdev)
 static int omap_wdt_suspend(struct platform_device *pdev, pm_message_t state)
 {
 
-	printk("######: omap_wdt_suspend()\n");
+	printk("######: pm: omap_wdt_suspend()\n");
 
 	return 0;
 }
 
 static int omap_wdt_resume(struct platform_device *pdev)
 {
-	printk("######: omap_wdt_resumes()\n");
+	printk("######: pm: omap_wdt_resumes()\n");
 
 	return 0;
 }
@@ -87,20 +89,34 @@ static struct platform_driver omap_wdt_driver = {
     struct early_suspend early_suspend;
 static void sc8800g2_wdt_suspend (struct early_suspend* es)
 {
-    printk("###: sc8800g2_wdt_suspend()!\n");
-    printk("###: sc8800g2_wdt_suspend()!\n");
-    printk("###: sc8800g2_wdt_suspend()!\n");
+    printk("###: early: sc8800g2_wdt_suspend()!\n");
+    printk("###: early: sc8800g2_wdt_suspend()!\n");
+    printk("###: early: sc8800g2_wdt_suspend()!\n");
 }
 
 static void sc8800g2_wdt_resume (struct early_suspend* es)
 {
-    printk("###: sc8800g2_wdt_resume()!\n");
-    printk("###: sc8800g2_wdt_resume()!\n");
-    printk("###: sc8800g2_wdt_resume()!\n");
+    printk("###: early: sc8800g2_wdt_resume()!\n");
+    printk("###: early: sc8800g2_wdt_resume()!\n");
+    printk("###: early: sc8800g2_wdt_resume()!\n");
+}
+#endif
+
+
+struct sprd_pm_suspend sprd_suspend;
+static int sc8800g2_sprd_suspend (struct sprd_pm_suspend* h)
+{
+    //printk("###: sprd: sc8800g2_wdt_suspend()!\n");
+	return 0;
+}
+
+static int sc8800g2_sprd_resume (struct sprd_pm_suspend* h)
+{
+    //printk("###: sprd: sc8800g2_wdt_resume()!\n");
+	return 0;
 }
 
 
-#endif
 
 static int __init omap_wdt_init(void)
 {
@@ -112,6 +128,11 @@ static int __init omap_wdt_init(void)
 	early_suspend.level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
 	register_early_suspend(&early_suspend);
 #endif
+
+	sprd_suspend.suspend = sc8800g2_sprd_suspend;
+	sprd_suspend.resume  = sc8800g2_sprd_resume;
+	sprd_suspend.level   = SPRD_PM_SUSPEND_LEVEL0;
+	register_sprd_pm_suspend(&sprd_suspend);
 
 
 	return platform_driver_register(&omap_wdt_driver);

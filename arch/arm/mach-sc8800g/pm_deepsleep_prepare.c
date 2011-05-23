@@ -33,9 +33,12 @@
 #include <mach/regs_global.h>
 #include <mach/regs_ahb.h>
 #include <mach/regs_ana.h>
+#include <mach/regs_gpio.h>
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_emc.h>
 #include <mach/regs_int.h>
+#include <mach/dma.h>
+
 
 #include <mach/clock_common.h>
 #include <mach/clock_sc8800g.h>
@@ -49,6 +52,10 @@ typedef unsigned int uint32;
 #ifdef        CONFIG_DEBUG_LL
 extern void printascii(char *);
 #endif
+
+extern int sprd_pm_suspend(void);
+extern int sprd_pm_resume(void);
+
 
 extern long has_wake_lock_info(int type);
 extern long has_wake_lock_for_suspend(int type);
@@ -103,43 +110,168 @@ int thread_loops = 0;
 int idle_loops = 0;
 u32 timer_int_counter = 0;
 u32	tick_sched_timer_counter = 0;
+u32 interrupt_counter = 0;
+u32 schedu_counter = 0;
+u32 gr_stc_state = 0;
+u32 ahb_sts = 0;
+u32 gr_clk_dly = 0;
+u32 dma_sts = 0;
+u32 irq_sts = 0;
+u32 fiq_sts = 0;
+struct timespec now_ts_pm;
 
-#define MESSAGE_MAX 1024
+
+/*
+#define SPRD_PM_MESSAGE 1
+*/
+#define MESSAGE_MAX 2048
 
 struct pm_message_sc8800g2 {
+    u32 time_stamp;
     char *msg;
-    uint32 val;
+    u32 val0;
+    u32 val1;
+    u32 val2;
+    u64 val64;
 };
 
 static struct pm_message_sc8800g2 messages[MESSAGE_MAX];
 static int pm_message_pos = 0;
+static volatile int pm_message_stop = 0;
 static void init_pm_message(void)
 {
+#ifdef SPRD_PM_MESSAGE
     int i;
     for (i = 0; i < MESSAGE_MAX; i++) {
+            messages[i].time_stamp = 0;
             messages[i].msg = NULL;
-            messages[i].val = 0;
+            messages[i].val0 = 0;
+            messages[i].val1 = 0;
+            messages[i].val2 = 0;
+            messages[i].val64 = 0;
     }
+#endif
 }
-void add_pm_message(char *msg, uint32 val)
+void add_pm_message_legacy(char *msg, uint32 val)
 {
-    if (pm_message_pos >= 1024) pm_message_pos = 0;
+#ifdef SPRD_PM_MESSAGE
+    if (pm_message_pos >= MESSAGE_MAX) pm_message_pos = 0;
     messages[pm_message_pos].msg = msg;
-    messages[pm_message_pos].val = val;
+    messages[pm_message_pos].val0 = val;
     pm_message_pos++;
+#endif
+
 }
-void print_pm_message(void)
+void print_pm_message_legacy(void)
 {
+#ifdef SPRD_PM_MESSAGE
+
     int i;
     for (i = 0; i < MESSAGE_MAX; i++) {
             if ( messages[i].msg != NULL)  {
                 printk("######: [%d] %s = %08x. ######\n", 
-                    i, messages[i].msg, messages[i].val);
+                    i, messages[i].msg, messages[i].val0);
             }
     }
+#endif
+
 }
 
+
+void add_pm_message(u32 when, char *msg, u32 val0, 
+                                              u32 val1, u32 val2)
+{
+#ifdef SPRD_PM_MESSAGE
+
+    if (pm_message_stop || (sleep_counter <= 0)) return;
+    if (pm_message_pos >= MESSAGE_MAX) pm_message_pos = 0;
+    messages[pm_message_pos].time_stamp = when;
+    messages[pm_message_pos].msg = msg;
+    messages[pm_message_pos].val0 = val0;
+    messages[pm_message_pos].val1 = val1;
+    messages[pm_message_pos].val2 = val2;
+    messages[pm_message_pos].val64 = 0;
+    pm_message_pos++;
+/*
+	printk("**********: add_pm_message: pm_message_pos = %d, msg = %s\n", 
+		pm_message_pos, msg);
+*/
+#endif
+
+}
+
+void add_pm_message_val64(u32 when, char *msg, u32 val0, 
+                                              u32 val1, u32 val2, u64 val64)
+{
+#ifdef SPRD_PM_MESSAGE
+
+    if (pm_message_stop || (sleep_counter <= 0)) return;
+    if (pm_message_pos >= MESSAGE_MAX) pm_message_pos = 0;
+    messages[pm_message_pos].time_stamp = when;
+    messages[pm_message_pos].msg = msg;
+    messages[pm_message_pos].val0 = val0;
+    messages[pm_message_pos].val1 = val1;
+    messages[pm_message_pos].val2 = val2;
+    messages[pm_message_pos].val64 = val64;
+
+    pm_message_pos++;
+#endif
+
+}
+
+void print_pm_message(void)
+{
+#ifdef SPRD_PM_MESSAGE
+
+    int i;
+    for (i = 0; i < MESSAGE_MAX; i++) {
+            if ( messages[i].msg != NULL)  {
+                printk("##: [%d] [%d] %s: %ld, %ld, %ld, %Lu. \n", 
+                    i, messages[i].time_stamp, messages[i].msg, messages[i].val0, 
+                      messages[i].val1, messages[i].val2, messages[i].val64);
+            }
+    }
+#endif
+
+}
+
+void stop_pm_message(void)
+{
+#ifdef SPRD_PM_MESSAGE
+
+	pm_message_stop= 1;
+#endif
+
+}
+
+void start_pm_message(void)
+{
+#ifdef SPRD_PM_MESSAGE
+
+	pm_message_stop= 0;
+#endif
+
+}
+
+#define hw_raw_irqs_disabled_flags(flags)	\
+({					\
+	(int)((flags) & PSR_I_BIT);	\
+})
+
+
+
+#define hw_irqs_disabled()						\
+({								\
+	unsigned long _flags;					\
+								\
+	hw_local_save_flags(_flags);				\
+	hw_raw_irqs_disabled_flags(_flags);			\
+})
+
+
 static DEFINE_SPINLOCK(deepsleep_lock);
+
+
 
 
 void sc8800g2_delay(void);
@@ -466,6 +598,236 @@ static int verify_ahb_sts(void)
 
 	return ret_val;
 }
+
+
+
+static int verify_dsp_deep_sleep_by_value(u32 val1, u32 val2)
+{
+	int ret_val = 0;
+
+	printk("####: check register: GR_STC_STATE for DSP\n");
+	printk("######: GR_STC_STATE =%08x\n", val1);
+	if (GR_DSP_STOP & val1) {
+		printk("#####: GR_STC_STATE[DSP_STOP] is set!\n");
+	}
+	else {
+		printk("#####: GR_STC_STATE[DSP_STOP] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	printk("####: check register: GR_CLK_DLY for DSP\n");
+	printk("######: GR_CLK_DLY =%08x\n", val2);
+
+	if (DSP_DEEP_STOP & val2) {
+		printk("#####: GR_CLK_DLY[DSP_DEEP_STOP] is set!\n");
+	}
+	else {
+		printk("#####: GR_CLK_DLY[DSP_DEEP_STOP] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (DSP_SYS_STOP & val2) {
+		printk("#####: GR_CLK_DLY[DSP_SYS_STOP] is set!\n");
+	}
+	else {
+		printk("#####: GR_CLK_DLY[DSP_SYS_STOP] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (DSP_AHB_STOP & val2) {
+		printk("#####: GR_CLK_DLY[DSP_AHB_STOP] is set!\n");
+	}
+	else {
+		printk("#####: GR_CLK_DLY[DSP_AHB_STOP] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+
+	if (DSP_MTX_STOP & val2) {
+		printk("#####: GR_CLK_DLY[DSP_MTX_STOP] is set!\n");
+	}
+	else {
+		printk("#####: GR_CLK_DLY[DSP_MTX_STOP] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (DSP_CORE_STOP & val2) {
+		printk("#####: GR_CLK_DLY[DSP_CORE_STOP] is set!\n");
+	}
+	else {
+		printk("#####: GR_CLK_DLY[DSP_CORE_STOP] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+
+	if (GR_EMC_STOP_CH5 & val2) {
+		printk("#####: GR_CLK_DLY[GR_EMC_STOP_CH5] is set!\n");
+	}
+	else {
+		printk("#####: GR_CLK_DLY[GR_EMC_STOP_CH5] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (GR_EMC_STOP_CH4 & val2) {
+		printk("#####: GR_CLK_DLY[GR_EMC_STOP_CH4] is set!\n");
+	}
+	else {
+		printk("#####: GR_CLK_DLY[GR_EMC_STOP_CH4] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (GR_EMC_STOP_CH3 & val2) {
+		printk("#####: GR_CLK_DLY[GR_EMC_STOP_CH3] is set!\n");
+	}
+	else {
+		printk("#####: GR_CLK_DLY[GR_EMC_STOP_CH3] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	return ret_val;
+}
+
+
+static int verify_ahb_sts_by_value(u32 val)
+{
+	int ret_val = 0;
+
+	printk("####: check register: AHB_STS for ARM\n");
+	printk("######: AHB_STS =%08x\n", val);
+
+	if (EMC_STOP_CH0 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH0] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH0] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+
+	if (EMC_STOP_CH1 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH1] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH1] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (EMC_STOP_CH2 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH2] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH2] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (EMC_STOP_CH3 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH3] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH3] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (EMC_STOP_CH4 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH4] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH4] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (EMC_STOP_CH5 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH5] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH5] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (EMC_STOP_CH6 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH6] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH6] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (EMC_STOP_CH7 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH7] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH7] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (EMC_STOP_CH8 & val) {
+		printk("#####: AHB_STS[EMC_STOP_CH8] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[EMC_STOP_CH8] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (ARMMTX_STOP_CH0 & val) {
+		printk("#####: AHB_STS[ARMMTX_STOP_CH0] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[ARMMTX_STOP_CH0] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (ARMMTX_STOP_CH1 & val) {
+		printk("#####: AHB_STS[ARMMTX_STOP_CH1] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[ARMMTX_STOP_CH1] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+	if (ARMMTX_STOP_CH2 & val) {
+		printk("#####: AHB_STS[ARMMTX_STOP_CH2] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[ARMMTX_STOP_CH2] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+
+	if (AHB_STS_EMC_STOP & val) {
+		printk("#####: AHB_STS[AHB_STS_EMC_STOP] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[AHB_STS_EMC_STOP] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (AHB_STS_EMC_SLEEP & val) {
+		printk("#####: AHB_STS[AHB_STS_EMC_SLEEP] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[AHB_STS_EMC_SLEEP] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (DMA_BUSY & val) {
+		printk("#####: AHB_STS[DMA_BUSY] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[DMA_BUSY] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (DSP_MAHB_SLEEP_EN & val) {
+		printk("#####: AHB_STS[DSP_MAHB_SLEEP_EN] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[DSP_MAHB_SLEEP_EN] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	if (APB_PRI_EN & val) {
+		printk("#####: AHB_STS[APB_PRI_EN] is set!\n");
+	}
+	else {
+		printk("#####: AHB_STS[APB_PRI_EN] is NOT set!\n");
+		ret_val = -EINVAL;
+	}
+
+	return ret_val;
+}
+
+
 
 
 int force_dsp_sleep(void)
@@ -1040,20 +1402,33 @@ static struct wake_lock messages_wakelock;
 
 u32 timer_int_counter0 = 0, timer_int_counter1 = 0;
 u32 tick_sched_timer_counter0 = 0, tick_sched_timer_counter1 = 0;
+u32 sleep_counter0 = 0, sleep_counter1 = 0;
+u32 interrupt_counter0 = 0, interrupt_counter1 = 0;
+u32 schedu_counter0 = 0, schedu_counter1 = 0;
+
 #define THREAD_INTERVAL 30
+
 static int print_thread(void *pdata)
 {
+	int i;
+	u32 val;
     while(1) {
            wake_lock(&messages_wakelock);
+	add_pm_message(get_sys_cnt(), "************* print_thread start. *************", 0, 0, 0); 
+	stop_pm_message();
+
            uptime = get_sys_cnt();
 /*
 	printk("###: c1 = %08x.\n", sc8800g_read_cp15_c1());
 	printk("###: c2 = %08x.\n", sc8800g_read_cp15_c2());
 	printk("###: c3 = %08x.\n", sc8800g_read_cp15_c3());
 */
+	sleep_counter0 = sleep_counter1;
+	sleep_counter1 = sleep_counter;
+
            printk("##: thread_loops = %d, idle_loops = %d\n", ++thread_loops, idle_loops);           
-	    printk("##: mode = %d, sleep_counter = %d.\n", sleep_mode, sleep_counter);
-           printk("##: idle_loops = %d.\n", idle_loops);           
+	    printk("##: mode = %d, sleep_counter = %d freq = %d/s.\n", 	sleep_mode, 
+		sleep_counter, (sleep_counter1 - sleep_counter0) / THREAD_INTERVAL);
 	    printk("##[%d]: uptime = %d, sleep_time = %d, idle_time = %d.\n", 
                 (sleep_time * 100) /uptime, uptime, sleep_time, idle_time);
 
@@ -1067,15 +1442,51 @@ static int print_thread(void *pdata)
 	printk("****: tick_sched_timer_counter = %d events/s\n", 
 		(tick_sched_timer_counter1 - tick_sched_timer_counter0) / THREAD_INTERVAL);
 
-		//sc8800g_enter_deepsleep_internal();
-            
-           //print_pm_message();
+	interrupt_counter0 = interrupt_counter1;
+	interrupt_counter1 = interrupt_counter;
+	printk("****: interrupt_counter = %d events/s\n", 
+		(interrupt_counter1 - interrupt_counter0) / THREAD_INTERVAL);
+
+	schedu_counter0 = schedu_counter1;
+	schedu_counter1 = schedu_counter;
+	printk("****: schedu_counter = %d events/s\n", 
+		(schedu_counter1 - schedu_counter0) / THREAD_INTERVAL);
+
+	//sc8800g_enter_deepsleep_internal();
+  
+/*       
+	printk("#######  print_thread() ##########\n");
+	printk("##: xtime = %lld.\n", timespec_to_ns(&xtime));
+	printk("##: wall_to_monotonic = %lld.\n", timespec_to_ns(&wall_to_monotonic));
+	getboottime(&now_ts_pm);
+	printk("##: getboottime() = %lld.\n", timespec_to_ns(&now_ts_pm));
+	getrawmonotonic(&now_ts_pm);
+	printk("##: getrawmonotonic() = %lld.\n", timespec_to_ns(&now_ts_pm));
+	printk("##: ktime_get() = %lld.\n", ktime_to_ns(ktime_get()));
+	getnstimeofday(&now_ts_pm);
+	printk("##: getnstimeofday() = %lld.\n", timespec_to_ns(&now_ts_pm));
+*/
+ 	//print_pm_message();
+		
+/*
+	verify_dsp_deep_sleep_by_value(gr_stc_state);
+	verify_ahb_sts_by_value(ahb_sts);
+*/
+	/* detect GPIO. */
+	for (i = 0; i < 10; i++) {
+		val = __raw_readl(SPRD_GPIO_BASE + GPIO_IE + 0x80 * i);
+		//printk("##: GPIO_IE = %08x\n", val);
+		__raw_writel(0x0, SPRD_GPIO_BASE + GPIO_IE + 0x80 * i);
+	}
+
+
 	    if (has_wake_lock_info(WAKE_LOCK_SUSPEND)) {
 			printk("##: Some locks are being holded.\n");
 	    }
            mdelay(100);
+	start_pm_message();
+	add_pm_message(get_sys_cnt(), "**** print_thread stop. *****", 0, 0, 0); 
            wake_unlock(&messages_wakelock);
-
            set_current_state(TASK_INTERRUPTIBLE);
            schedule_timeout(THREAD_INTERVAL * HZ);
     }
@@ -1135,21 +1546,54 @@ static void disable_ahb_module (void)
     __raw_writel(val, AHB_CTL0);
 }
 
+
+struct workqueue_struct *deep_sleep_work_queue;
+static void deep_sleep_suspend(struct work_struct *work);
+
+static DECLARE_WORK(deep_sleep_wrok, deep_sleep_suspend);
+static void deep_sleep_suspend(struct work_struct *work)
+{
+	verify_dsp_deep_sleep_by_value(gr_stc_state, gr_clk_dly);
+	verify_ahb_sts_by_value(ahb_sts);
+}
+
+#define IRQ_GPIO (0x1UL << 8)
+
 int sc8800g_enter_deepsleep(int inidle)
 {
     int status;
     u32 t0, t1, delta;
     int ret = 0;
+    u32 val;
+    int i;
+	unsigned long flags;
+
+
 
     REG_LOCAL_VALUE_DEF;
 
     sleep_counter++;
-    
-    status = sc8800g_get_clock_status();
+
+
 /*
-	printk("##: sc8800g_enter_deepsleep -- %s.\n", 
-		inidle ? "idle" : "pm_suspend");
+	if (sprd_pm_suspend()) {
+		printk("##: sprd_pm_suspend() doesn't allow deep sleep!\n");
+		ret = -1;
+		goto pm_resume;
+	}
 */
+	if (!hw_irqs_disabled())  {
+		flags = sc8800g_read_cpsr();
+		printk("##: Error(%s): IRQ is enabled(%08x)!\n", 
+			inidle ? "idle" : "wakelock_suspend", flags);
+	}
+
+	/*	
+	__raw_writel(IRQ_GPIO, INT_IRQ_DISABLE);
+	__raw_writel(IRQ_GPIO, INT_FIQ_DISABLE);
+	*/ 
+    status = sc8800g_get_clock_status();
+
 /*
     t0 = get_sys_cnt();
     sc8800g_cpu_standby();
@@ -1165,7 +1609,30 @@ int sc8800g_enter_deepsleep(int inidle)
     delta = t1 - t0;
     sleep_time += delta;
 */
+/*
+	val = __raw_readl(EMC_CFG0);
+	if (!(val & RF_AUTO_SLEEP_ENABLE)) 
+            printk("#####: EMC_CFG0 doesn't set RF_AUTO_SLEEP_ENABLE!\ns");
 
+	for (i = 0; i < 6; i++) {
+		val = __raw_readl(EMC_CFG0_CHANNELS_BASE + i * 4);
+		if (!(val & RF_AUTO_SLEEP_ENABLE_CHX)) {
+                      printk("######: channel[%d] dosen't set RF_AUTO_SLEEP_ENABLE_CHX!\n", i);
+               }
+	}
+
+	for (i = 6; i < 9; i++) {
+		val = __raw_readl(EMC_CFG0_CHANNELS_BASE + i * 4);
+		if (val & RF_AUTO_SLEEP_ENABLE_CHX) {
+                      printk("######: channel[%d] does set RF_AUTO_SLEEP_ENABLE_CHX!\n", i);
+               }
+	}
+
+
+	val = __raw_readl(EMC_DCFG2);
+	if (val & DRF_AUTO_SLEEP_MODE) printk("#####: EMC_DCFG2 does set DRF_AUTO_SLEEP_MODE!\n");
+	if (!(val & DRF_REF_CNT_RST)) printk("####: EMC_DCFG2 doesn't set DRF_REF_CNT_RST!\n");
+*/
 	sc8800g_save_pll();
 
     if (status & DEVICE_AHB)  {
@@ -1182,8 +1649,19 @@ int sc8800g_enter_deepsleep(int inidle)
        ret =  sc8800g_cpu_standby_prefetch();
         RESTORE_GLOBAL_REG;
         udelay(20);
+	printk("Retrun for SLEEP_MODE_MCU...\n");
+        printk("IRQ_STS = %08x, %s\n", 
+		__raw_readl(INT_IRQ_STS), inidle ? "idle" : "wakelock_suspend");
+
     }
     else {
+	//__raw_writel(0, TIMER1_CONTROL);
+	add_pm_message(get_sys_cnt(), "deepsleep_enter: inidle = ", inidle, 0, 0);
+/*
+        printk("IRQ_STS = %08x, %s\n", 
+		__raw_readl(INT_IRQ_STS), inidle ? "idle" : "pm_suspend");
+*/
+
         wait_until_uart1_tx_done();
         sleep_mode = SLEEP_MODE_DEEP;
         SAVE_GLOBAL_REG;
@@ -1204,14 +1682,35 @@ int sc8800g_enter_deepsleep(int inidle)
         add_pm_message("ANA_ANA_CTL0", ANA_REG_GET(ANA_ANA_CTL0));
         add_pm_message("ANA_LDO_SLP", ANA_REG_GET(ANA_LDO_SLP));
 */
+
+	gr_stc_state = __raw_readl(GR_STC_STATE);
+	ahb_sts = __raw_readl(AHB_STS);
+	gr_clk_dly = __raw_readl(GR_CLK_DLY);
+	dma_sts = __raw_readl(DMA_TRANS_STS);
+	irq_sts = __raw_readl(INT_IRQ_STS);
+	fiq_sts = __raw_readl(INT_FIQ_STS);
+
+	if (0 != irq_sts) 
+		add_pm_message(get_sys_cnt(), "Going to deep sleep with pending irq: INT_IRQ_STS = ", 
+				irq_sts, 0, 0);
+		
+	if (0 != fiq_sts) 
+		add_pm_message(get_sys_cnt(), "Going to deep sleep with pending fiq: INT_FIQ_STS = ", 
+				fiq_sts, 0, 0);
+		
+
+	//queue_work(deep_sleep_work_queue, &deep_sleep_wrok);
+
+
         t0 = get_sys_cnt();
         //enable_mcu_sleep();
-        ret = sc8800g_cpu_standby_prefetch();
+       ret = sc8800g_cpu_standby_prefetch();
         RESTORE_GLOBAL_REG;
-        udelay(20);
         t1 = get_sys_cnt();
         delta = t1 - t0;
         sleep_time += delta;
+        udelay(20);
+
 	if (ret) {
 		printk("##: bad return value.\n");
 		printk("##: bad return value.\n");
@@ -1219,22 +1718,43 @@ int sc8800g_enter_deepsleep(int inidle)
 	}
 
 	sc8800g_restore_pll();
+	irq_sts = __raw_readl(INT_IRQ_STS);
+	fiq_sts = __raw_readl(INT_FIQ_STS);
+
+	if (0 == irq_sts) {
+		add_pm_message(get_sys_cnt(), "deepsleep_exit: ### WITHOUT TRIGGER IRQ ###: ", 
+				irq_sts, 0, 0);
+	}
+	else {
+		add_pm_message(get_sys_cnt(), "deepsleep_exit: INT_IRQ_STS = ", 
+				irq_sts, 0, 0);
+	}
+
+	if (0 != fiq_sts) {
+		add_pm_message(get_sys_cnt(), "deepsleep_exit: INT_FIQ_STS = ", 
+				fiq_sts, 0, 0);
+	}
+
+/*		
+	add_pm_message(dma_sts,  " dma_sts, ahb_sts, gr_stc_state, gr_clk_dly", 
+			ahb_sts, gr_stc_state, gr_clk_dly);
+*/
 /*
-        printascii("##: delta = ");
-        printhex8(delta);
-        printascii("\r\n");
-
-        printascii("##: IRQ_STS = ");
-        printhex8(__raw_readl(INT_IRQ_STS));
-        printascii("\r\n");
-
-        printascii("##: INT_FIQ_STS = ");
-        printhex8(__raw_readl(INT_FIQ_STS));
-        printascii("\r\n");
+	printk("ahb_sts = %08x\n", ahb_sts);
+	printk("gr_stc_state = %08x\n", gr_stc_state);
+	printk("gr_clk_dly = %08x\n", gr_clk_dly);
+	printk("dma_sts = %08x\n", dma_sts);
+*/
+/*
+        printk("IRQ_STS = %08x, %s\n", 
+		__raw_readl(INT_IRQ_STS), inidle ? "idle" : "pm_suspend");
 */
    }
-
-    return 0;
+/*
+pm_resume:
+	sprd_pm_resume();
+*/
+    return ret;
 }
 EXPORT_SYMBOL(sc8800g_enter_deepsleep);
 
@@ -1244,6 +1764,7 @@ static void nkidle(void)
 {
       int val;
     u32 t0, t1, delta;
+	add_pm_message(get_sys_cnt(), "nkidle: 1111--enter.", 0, 0, 0);
 
 	if (!need_resched()) {
 		hw_local_irq_disable();
@@ -1257,20 +1778,16 @@ static void nkidle(void)
 				    idle_loops++;
 				    t0 = get_sys_cnt();
 				    sc8800g_cpu_standby();
-					/*
-					if (get_sys_cnt() > 150000) printk("irq_sts = %08x\n", 
-					                            __raw_readl(INT_IRQ_STS));
-					*/
 				    t1 = get_sys_cnt();
 				    delta = t1 - t0;
 				    idle_time += delta;
 				}
-
 			}
 		}
 		hw_local_irq_enable();
 	}
 	local_irq_enable();
+	add_pm_message(get_sys_cnt(), "nkidle: 1111--leave.", 0, 0, 0);
 }
 
 #endif
@@ -1279,16 +1796,6 @@ static void nkidle(void)
 
 static void deep_sleep_timeout(unsigned long data);
 static DEFINE_TIMER(deep_sleep_timer, deep_sleep_timeout, 0, 0);
-
-
-struct workqueue_struct *deep_sleep_work_queue;
-static void deep_sleep_suspend(struct work_struct *work);
-
-static DECLARE_WORK(deep_sleep_wrok, deep_sleep_suspend);
-static void deep_sleep_suspend(struct work_struct *work)
-{
-	printk("##: deep_sleep_suspend()!\n");
-}
 
 
 static void deep_sleep_timeout(unsigned long data)
@@ -1347,7 +1854,7 @@ int sc8800g_prepare_deep_sleep(void)
 		if (!(val & RF_AUTO_SLEEP_ENABLE_CHX)) {
                       printk("######: channel[%d] dosen't set RF_AUTO_SLEEP_ENABLE_CHX!\n", i);
                }
-		__raw_writel(val, EMC_CFG0_CHANNELS_BASE + i * 4);
+		//__raw_writel(val, EMC_CFG0_CHANNELS_BASE + i * 4);
 	}
 
 	for (i = 6; i < 9; i++) {
@@ -1355,14 +1862,14 @@ int sc8800g_prepare_deep_sleep(void)
 		if (val & RF_AUTO_SLEEP_ENABLE_CHX) {
                       printk("######: channel[%d] does set RF_AUTO_SLEEP_ENABLE_CHX!\n", i);
                }
-		__raw_writel(val, EMC_CFG0_CHANNELS_BASE + i * 4);
+		//__raw_writel(val, EMC_CFG0_CHANNELS_BASE + i * 4);
 	}
 
 
 	val = __raw_readl(EMC_DCFG2);
 	if (val & DRF_AUTO_SLEEP_MODE) printk("#####: EMC_DCFG2 does set DRF_AUTO_SLEEP_MODE!\n");
 	if (!(val & DRF_REF_CNT_RST)) printk("####: EMC_DCFG2 doesn't set DRF_REF_CNT_RST!\n");
-	__raw_writel(val, EMC_DCFG2);
+	//__raw_writel(val, EMC_DCFG2);
 
 
     /* AHB_PAUSE */
@@ -1458,22 +1965,22 @@ map_iram_identically();
 		printk("Can't crate test thread!\n");
 	}
 	wake_lock_init(&messages_wakelock, WAKE_LOCK_SUSPEND,
-			"messages_wakelock");
+			"pm_message_wakelock");
        init_pm_message();
 
 
     pm_idle = nkidle;
 /*
 	mod_timer(&deep_sleep_timer, jiffies + DEEP_SLEEP_INTERVAL);
-
+*/
 	deep_sleep_work_queue = create_singlethread_workqueue("deep_sleep");
 	if (deep_sleep_work_queue == NULL) {
 		printk("##: Can't create workqueue!\n");
 	}
+/*
 		queue_work(deep_sleep_work_queue, &deep_sleep_wrok);
 */
     return 0;
 }
 EXPORT_SYMBOL(sc8800g_prepare_deep_sleep);
-
 

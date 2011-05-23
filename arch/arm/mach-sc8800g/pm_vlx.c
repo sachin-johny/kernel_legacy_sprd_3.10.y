@@ -14,7 +14,7 @@
 #include <linux/suspend.h>
 #include <linux/errno.h>
 #include <linux/delay.h>
-
+#include <linux/wakelock.h>
 #include <mach/pm.h>
 
 #include <asm/io.h>
@@ -37,27 +37,26 @@ extern int sc8800g_enter_deepsleep(int);
 
 int sc8800g_pm_enter(suspend_state_t state)
 {
-    int ret_val;
+	int ret_val = 0;
 
-	/* *** go zzz *** */	
+	local_irq_disable();
 	local_fiq_disable();
-
-    
-	//printascii("######: Linux: nk_idle()\n");
 	hw_local_irq_disable();
-    
 
+	if (has_wake_lock(WAKE_LOCK_SUSPEND)) {
+		printk("##: sc8800g_pm_enter(): suspend: abort suspend\n");
+		ret_val = -1;
+		goto out;
+	}
 	ret_val = os_ctx->idle(os_ctx);
-    if (0 == ret_val) {
-        
-        sc8800g_enter_deepsleep(0);
-       
-    }
-
+	if (0 == ret_val) {
+		sc8800g_enter_deepsleep(0);
+	}
+out:
 	hw_local_irq_enable();
-
 	local_fiq_enable();
-	return 0;
+	local_irq_enable();
+	return ret_val;
 }
 
 EXPORT_SYMBOL_GPL(sc8800g_pm_enter);

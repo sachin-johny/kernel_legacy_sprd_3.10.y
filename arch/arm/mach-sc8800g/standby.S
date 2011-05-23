@@ -276,6 +276,10 @@ ENTRY(sc8800g_read_cp15_c3)
      mrc p15, 0, r0, c3, c0, 0
      mov pc, lr
 
+ENTRY(sc8800g_read_cpsr)
+     mrs r0, cpsr
+     mov pc, lr
+
 
 ENTRY(sc8800g_cpu_standby_end)
     
