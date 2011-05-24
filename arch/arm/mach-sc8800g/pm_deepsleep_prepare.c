@@ -1575,7 +1575,6 @@ int sc8800g_enter_deepsleep(int inidle)
 
     sleep_counter++;
 
-
 /*
 	if (sprd_pm_suspend()) {
 		printk("##: sprd_pm_suspend() doesn't allow deep sleep!\n");
@@ -1639,6 +1638,7 @@ int sc8800g_enter_deepsleep(int inidle)
     if (status & DEVICE_AHB)  {
         sleep_mode = SLEEP_MODE_ARM_CORE;
         sc8800g_cpu_standby();
+	sc8800g_restore_pll();
     }
     else if (status & DEVICE_APB) {
         wait_until_uart1_tx_done();
@@ -1650,11 +1650,7 @@ int sc8800g_enter_deepsleep(int inidle)
        ret =  sc8800g_cpu_standby_prefetch();
         RESTORE_GLOBAL_REG;
         udelay(20);
-	printk("Retrun for SLEEP_MODE_MCU...\n");
-/*
-        printk("IRQ_STS = %08x, %s\n", 
-		__raw_readl(INT_IRQ_STS), inidle ? "idle" : "wakelock_suspend");
-*/
+	sc8800g_restore_pll();
     }
     else {
 	//__raw_writel(0, TIMER1_CONTROL);
