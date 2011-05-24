@@ -24,20 +24,80 @@
 
 static struct platform_device *sprd0 = NULL;
 
+static inline unsigned get_sec(void)
+{
+    unsigned sec, sec_bak;
+    sec = ANA_REG_GET(ANA_RTC_SEC_CNT) & RTC_SEC_MASK;
+    do{
+        sec_bak = ANA_REG_GET(ANA_RTC_SEC_CNT) & RTC_SEC_MASK;
+        if(sec_bak == sec)
+          break;
+        else
+          sec = sec_bak;
+    }while(1);
+
+    return sec;
+}
+static inline unsigned get_min(void)
+{
+    unsigned min, min_bak;
+    min = ANA_REG_GET(ANA_RTC_MIN_CNT) & RTC_MIN_MASK;
+    do{
+        min_bak = ANA_REG_GET(ANA_RTC_MIN_CNT) & RTC_MIN_MASK;
+        if(min_bak == min)
+          break;
+        else
+          min = min_bak;
+    }while(1);
+
+    return min;
+}
+static inline unsigned get_hour(void)
+{
+    unsigned hour, hour_bak;
+    hour = ANA_REG_GET(ANA_RTC_HOUR_CNT) & RTC_HOUR_MASK;
+    do{
+        hour_bak = ANA_REG_GET(ANA_RTC_HOUR_CNT) & RTC_HOUR_MASK;
+        if(hour_bak == hour)
+          break;
+        else
+          hour = hour_bak;
+    }while(1);
+
+    return hour;
+}
+static inline unsigned get_day(void)
+{
+    unsigned day, day_bak;
+    day = ANA_REG_GET(ANA_RTC_DAY_CNT) & RTC_DAY_MASK;
+    do{
+        day_bak = ANA_REG_GET(ANA_RTC_DAY_CNT) & RTC_DAY_MASK;
+        if(day == day_bak)
+          break;
+        else
+          day = day_bak;
+    }while(1);
+    
+    return day;
+}
+
 static inline unsigned long sprd_rtc_get_sec(void)
 {
 	unsigned sec, min, hour, day;
-	day = ANA_REG_GET(ANA_RTC_DAY_CNT) & RTC_DAY_MASK;
-	hour = ANA_REG_GET(ANA_RTC_HOUR_CNT) & RTC_HOUR_MASK;
-	min = ANA_REG_GET(ANA_RTC_MIN_CNT) & RTC_MIN_MASK;
-	sec = ANA_REG_GET(ANA_RTC_SEC_CNT) & RTC_SEC_MASK;
+
+    sec = get_sec();
+    min = get_min();
+    hour = get_hour();
+    day = get_day();
 
 	return ((((day*24) + hour)*60 + min)*60 + sec);
 }
 static inline void sprd_rtc_set_sec(unsigned long secs)
 {
 	unsigned sec, min, hour, day;
+    unsigned set_mask = 0, int_rsts;
 	unsigned long temp;
+
 	sec = secs % 60;
 	temp = (secs - sec)/60;
 	min = temp%60;
@@ -45,14 +105,37 @@ static inline void sprd_rtc_set_sec(unsigned long secs)
 	hour = temp%24;
 	temp = (temp - hour)/24;
 	day = temp;
-	
-	ANA_REG_SET(ANA_RTC_SEC_UPDATE, sec);
-	ANA_REG_SET(ANA_RTC_MIN_UPDATE, min);
-	ANA_REG_SET(ANA_RTC_HOUR_UPDATE, hour);
-	ANA_REG_SET(ANA_RTC_DAY_UPDATE, day);
-	//while(ANA_REG_GET(ANA_RTC_INT_RSTS)&(RTC_UPD_TIME_MASK) != RTC_UPD_TIME_MASK);
-	//ANA_REG_AND(ANA_RTC_INT_EN, ~(RTC_INT_ALL_MSK)); // disable all interrupt
-	
+
+
+    ANA_REG_AND(ANA_RTC_INT_EN, RTC_UPD_TIME_MASK);
+    ANA_REG_AND(ANA_RTC_INT_CLR, RTC_UPD_TIME_MASK);
+
+    if(sec != get_sec()){
+        ANA_REG_SET(ANA_RTC_SEC_UPDATE, sec);
+        set_mask |= RTC_SEC_ACK_BIT;
+    }
+    if(min != get_min()){
+        ANA_REG_SET(ANA_RTC_MIN_UPDATE, min);
+        set_mask |= RTC_MIN_ACK_BIT;
+    }
+    if(hour != get_hour()){
+        ANA_REG_SET(ANA_RTC_HOUR_UPDATE, hour);
+        set_mask |= RTC_HOUR_ACK_BIT;
+    }
+    if(day != get_day()){
+        ANA_REG_SET(ANA_RTC_DAY_UPDATE, day);
+        set_mask |= RTC_DAY_ACK_BIT;
+    }
+
+    //wait till all update done
+    do{
+        int_rsts = ANA_REG_GET(ANA_RTC_INT_RSTS) & RTC_UPD_TIME_MASK;
+
+        if(set_mask == int_rsts)
+          break;
+    }while(1);
+    ANA_REG_SET(ANA_RTC_INT_CLR, RTC_UPD_TIME_MASK);
+
 
 	return;
 }
