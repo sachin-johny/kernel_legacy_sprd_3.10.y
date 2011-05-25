@@ -931,6 +931,13 @@ config USB_ANDROID_GSERIAL
 	  Provides general serial function for android gadget driver.
 	  and modem print log by this serial
 
+config USB_ANDROID_VSERIAL
+	boolean "Android gadget vendor serial function"
+	depends on USB_ANDROID
+	help
+	  Provides SPRD vendor serial function for android gadget driver.
+	  and modem print log by this serial
+
 config USB_CDC_COMPOSITE
 	tristate "CDC Composite Device (Ethernet and ACM)"
 	depends on NET

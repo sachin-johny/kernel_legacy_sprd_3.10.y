@@ -479,6 +479,11 @@ static char *usb_functions_gser_adb[] = {
 	"gser",
 };
 
+static char *usb_functions_vser_adb[] = {
+	"adb",
+	"vser",
+};
+
 static char *usb_functions_gser_adb_ums[] = {
 	"adb",
 	"gser",
@@ -491,6 +496,9 @@ static char *usb_functions_all[] = {
 #endif
 #ifdef CONFIG_USB_ANDROID_ADB
 	"adb",
+#endif
+#ifdef CONFIG_USB_ANDROID_VSERIAL
+	"vser",
 #endif
 #ifdef CONFIG_USB_ANDROID_GSERIAL
 	"gser",
@@ -520,6 +528,12 @@ static struct android_usb_product usb_products[] = {
 		.product_id	= 0x5D01,
 		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
 		.functions	= usb_functions_ums_adb,
+	},
+	{
+		//.product_id	= SPRD_PRODUCT_ID,
+		.product_id	= 0x5D02,
+		.num_functions	= ARRAY_SIZE(usb_functions_vser_adb),
+		.functions	= usb_functions_vser_adb,
 	},
 	{
 		//.product_id	= SPRD_PRODUCT_ID,
