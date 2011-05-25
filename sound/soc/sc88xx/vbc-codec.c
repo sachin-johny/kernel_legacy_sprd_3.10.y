@@ -719,13 +719,13 @@ static void android_pm_exit(void) {}
 #if 1
 #include <mach/pm_devices.h>
 static struct sprd_pm_suspend sprd_suspend;
-static int lsprd_suspend(struct platform_device *pdev, pm_message_t state)
+static int lsprd_suspend(struct device *pdev, pm_message_t state)
 {
     // vbc_power_down();
     return 0;
 }
 
-static int lsprd_resume(struct platform_device *pdev)
+static int lsprd_resume(struct device *pdev)
 {
     // vbc_power_on();
     return 0;

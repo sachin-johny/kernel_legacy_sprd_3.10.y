@@ -145,14 +145,14 @@ static void android_pm_exit(void) {}
 #if 1
 #include <mach/pm_devices.h>
 static struct sprd_pm_suspend sprd_suspend;
-static int lsprd_suspend(struct platform_device *pdev, pm_message_t state)
+static int lsprd_suspend(struct device *pdev, pm_message_t state)
 {
 //    printk("audio %s\n", __func__);
 //    vbc_amplifier_enable(false, "lsprd_suspend");
     return 0;
 }
 
-static int lsprd_resume(struct platform_device *pdev)
+static int lsprd_resume(struct device *pdev)
 {
 //    printk("audio %s\n", __func__);
 //    vbc_amplifier_enable(true, "lsprd_resume");

@@ -3,7 +3,7 @@
 #define _PM_DEVICES_H
 
 #include <linux/list.h>
-#include <linux/platform_device.h>
+#include <linux/device.h>
 
 
 #define SUSPEND_NONE 0
@@ -25,9 +25,9 @@ enum {
 struct sprd_pm_suspend {
 	struct list_head link;
 	int level;
-	struct platform_device *pdev;
-	int (*suspend)(struct platform_device *pdev, pm_message_t state);
-	int (*resume)(struct platform_device *pdev);
+	struct device *pdev;
+	int (*suspend)(struct device *pdev, pm_message_t state);
+	int (*resume)(struct device *pdev);
 };
 
 extern void register_sprd_pm_suspend(struct sprd_pm_suspend *handler);
