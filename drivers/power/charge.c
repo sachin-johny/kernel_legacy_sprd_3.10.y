@@ -229,7 +229,27 @@ static uint32_t g_charge_low_adc = 0;
     return voltage;
 }
 
+#define VOL_BUF_SIZE 10
+uint32_t vol_buf[VOL_BUF_SIZE];
+void put_vol_value(uint32_t voltage)
+{
+    int i;
+    for(i=0;i<VOL_BUF_SIZE -1;i++){
+        vol_buf[i] = vol_buf[i+1];
+    }
+    
+    vol_buf[VOL_BUF_SIZE-1] = voltage;
+}
 
+uint32_t get_vol_value(void)
+{
+    unsigned long sum=0;
+    int i;
+    for(i=0; i < VOL_BUF_SIZE; i++)
+      sum += vol_buf[i];
+
+    return sum/VOL_BUF_SIZE;
+}
 /*****************************************************************************/
 //  Description:    Convert ADCVoltage to percentrum.
 //  Author:         Benjamin.Wang
@@ -250,6 +270,9 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage)
     s68 = (3<= (voltage_capacity_table[8]-voltage_capacity_table[6])) ? ( (voltage_capacity_table[8]-voltage_capacity_table[6]) /3) :0;
     s80 = (3<= (voltage_capacity_table[10]-voltage_capacity_table[8])) ? ( (voltage_capacity_table[10]-voltage_capacity_table[8]) /3) :0;
     sg10 = 0;
+
+    put_vol_value(voltage);
+    voltage = get_vol_value();
 
     if (
         (

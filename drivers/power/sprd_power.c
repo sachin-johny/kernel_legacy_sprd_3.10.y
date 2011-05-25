@@ -541,7 +541,6 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
     data->capacity = 100;
     data->ac_online = 0;
-    data->usb_online = 0;
     data->charging = 0;
 
     data->over_voltage = CHARGE_OVER_VOLTAGE;
