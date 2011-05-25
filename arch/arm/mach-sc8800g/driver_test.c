@@ -24,7 +24,7 @@
 #endif
 
 #include <mach/pm_devices.h>
-
+#include <mach/test.h>
 
 static int __devinit omap_wdt_probe(struct platform_device *pdev)
 {
@@ -108,7 +108,11 @@ struct sprd_pm_suspend sprd_suspend;
 
 static int sc8800g2_sprd_suspend (struct platform_device *pdev, pm_message_t state)
 {
-    //printk("###: sprd: sc8800g2_wdt_suspend()!\n");
+	/*
+    printk("###: sprd: sc8800g2_wdt_suspend()!\n");
+	if (get_sys_cnt() > 300000)	return -1;
+	else return 0;
+	*/
 	return 0;
 }
 

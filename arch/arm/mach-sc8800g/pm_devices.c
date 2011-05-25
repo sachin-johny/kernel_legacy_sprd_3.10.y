@@ -68,6 +68,7 @@ int sprd_pm_suspend_check_enter(void)
 		suspend_status = SUSPEND_ENTER;
 		if (error) {
 			suspend_status = SUSPEND_CANCEL;
+			printk("##: pm_suspend is canceled by devices!\n");
 		}
 		else {
 			suspend_status = SUSPEND_DONE;
@@ -91,6 +92,7 @@ int sprd_pm_resume_check(void)
 			printk("##: unknown suspend_status value!\n");
 			break;
 	}
+	return 0;
 }
 
 int sprd_pm_suspend_canceled(void)

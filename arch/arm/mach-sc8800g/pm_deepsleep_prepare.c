@@ -6,6 +6,31 @@
   */
 
 
+/*
+modules:
+
+pin map,
+ldo control,
+
+
+wifi,  UNIFIxxxx
+bt(gpio_42, gpio_90),  BCxxxx
+atv(remove, hw),
+gps(allen) , /system/lib/libgsd4t.so, on/off <--> uart2.rxd,
+
+
+fm(aijun, 2011-05-24),
+
+
+
+lcdc(ok),
+g-sensor(ok),
+m-sensor(ok),
+ctp -- mtp(ok),
+proximity(ok),
+ */
+
+
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -1638,9 +1663,7 @@ int sc8800g_enter_deepsleep(int inidle)
     if (status & DEVICE_AHB)  {
         sleep_mode = SLEEP_MODE_ARM_CORE;
         sc8800g_cpu_standby();
-	/*
 	sc8800g_restore_pll();
-	*/
     }
     else if (status & DEVICE_APB) {
         wait_until_uart1_tx_done();
@@ -1652,9 +1675,7 @@ int sc8800g_enter_deepsleep(int inidle)
        ret =  sc8800g_cpu_standby_prefetch();
         RESTORE_GLOBAL_REG;
         udelay(20);
-	/*
 	sc8800g_restore_pll();
-	*/
     }
     else {
 	//__raw_writel(0, TIMER1_CONTROL);
