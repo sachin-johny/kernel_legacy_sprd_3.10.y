@@ -10,19 +10,18 @@
 modules:
 
 pin map,
-ldo control,
 
 
 wifi,  UNIFIxxxx
 bt(gpio_42, gpio_90),  BCxxxx
-atv(remove, hw),
 gps(allen) , /system/lib/libgsd4t.so, on/off <--> uart2.rxd,
 
 
 fm(aijun, 2011-05-24),
 
 
-
+ldo control,
+atv(remove, hw),
 lcdc(ok),
 g-sensor(ok),
 m-sensor(ok),
@@ -1575,6 +1574,31 @@ static void disable_ahb_module (void)
 }
 
 
+int supsend_ldo_turnoff(void)
+{
+	u32 val = 0;
+/*
+    ANA_REG_SET(ANA_LDO_PD_SET, 
+		BIT_5 | BIT_9);
+*/
+	val = ANA_REG_GET(ANA_LDO_SLP);
+	if ( val != 0xa7fb) {
+		printk("##: ANA_LDO_SLP: wrong vaule[%08x].\n", val);
+	}
+
+    ANA_REG_SET(ANA_LDO_PD_CTL, 
+		BIT_0 | BIT_2 | BIT_6 | BIT_8 | BIT_10 | BIT_12 | BIT_14);
+
+	return 0;
+}
+
+int supsend_ldo_turnon(void)
+{
+
+	return 0;
+}
+
+
 struct workqueue_struct *deep_sleep_work_queue;
 static void deep_sleep_suspend(struct work_struct *work);
 
@@ -1681,6 +1705,8 @@ int sc8800g_enter_deepsleep(int inidle)
     }
     else {
 	//__raw_writel(0, TIMER1_CONTROL);
+	supsend_ldo_turnoff();
+
 	add_pm_message(get_sys_cnt(), "deepsleep_enter: inidle = ", inidle, 0, 0);
 /*
         printk("IRQ_STS = %08x, %s\n", 
@@ -1735,6 +1761,7 @@ int sc8800g_enter_deepsleep(int inidle)
         delta = t1 - t0;
         sleep_time += delta;
         udelay(20);
+	supsend_ldo_turnon();
 
 	if (ret) {
 		printk("##: bad return value.\n");

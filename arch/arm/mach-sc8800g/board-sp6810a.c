@@ -524,12 +524,14 @@ void __init gps_hw_config(void)
 	sprd_mfp_config(gps_pin_cfg, ARRAY_SIZE(gps_pin_cfg));
 }
 
+extern void sc8800g_pin_map_init(void);
 static void __init openphone_init(void)
 {
 	int tmp = 0;
 	chip_init();
 //	ADI_init();
 	LDO_Init();
+	sc8800g_pin_map_init();
 	i2c_gpio_device_set(NULL,0);
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
