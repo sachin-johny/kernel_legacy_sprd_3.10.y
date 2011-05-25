@@ -155,9 +155,9 @@ static inline void vbc_reg_VBAICR_set(u8 mode)
     vbc_reg_write(VBAICR, 0, mode, 0x0F);
 }
 
-static inline void vbc_reg_VBCR1_set(u32 type, u32 val)
+static inline int vbc_reg_VBCR1_set(u32 type, u32 val)
 {
-    vbc_reg_write(VBCR1, type, val, 1);
+    return vbc_reg_write(VBCR1, type, val, 1);
 }
 
 static void vbc_reg_VBCR2_set(u32 type, u32 val)
@@ -307,11 +307,113 @@ static inline void vbc_ready2go(void)
     msleep(2);
 }
 
+extern inline int vbc_amplifier_enabled(void);
+extern inline void vbc_amplifier_enable(int enable, const char *prename);
+static DEFINE_MUTEX(vbc_power_lock);
+void vbc_power_down(unsigned int value)
+{
+    mutex_lock(&vbc_power_lock);
+    {
+        int do_sb_power = 0;
+        if ((vbc_reg_read(VBPMR1, SB_ADC, 1)
+             && (value == SNDRV_PCM_STREAM_PLAYBACK && !vbc_reg_read(VBPMR1, SB_DAC, 1))) ||
+            (vbc_reg_read(VBPMR1, SB_DAC, 1)
+             && (value == SNDRV_PCM_STREAM_CAPTURE && !vbc_reg_read(VBPMR1, SB_ADC, 1)))) {
+            do_sb_power = 1;
+        }
+
+        if (value == SNDRV_PCM_STREAM_PLAYBACK &&
+            !vbc_reg_read(VBPMR1, SB_DAC, 1)) {
+
+            msleep(100); // avoid quick switch from power on to off
+            vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
+            vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
+            vbc_amplifier_enable(false, "vbc_power_down"); // Mute speaker
+            vbc_codec_mute();
+            msleep(50);
+
+            vbc_reg_VBPMR1_set(SB_OUT, 1); // Power down DAC OUT
+            vbc_reg_VBCR1_set(MONO, 1); // mono DAC channel
+            vbc_reg_VBPMR1_set(SB_BTL, 1); // power down earphone
+            msleep(100);
+
+            vbc_reg_VBPMR1_set(SB_DAC, 1); // Power down DAC
+            vbc_reg_VBPMR1_set(SB_LOUT, 1);
+            vbc_reg_VBPMR1_set(SB_MIX, 1);
+        }
+        if (value == SNDRV_PCM_STREAM_CAPTURE &&
+            !vbc_reg_read(VBPMR1, SB_ADC, 1)) {
+            vbc_reg_VBPMR1_set(SB_ADC, 1); // Power down ADC
+            vbc_reg_VBCR1_set(SB_MICBIAS, 1); // power down mic
+        }
+        if (do_sb_power)/* vbc_reg_read(VBPMR1, SB_ADC, 1) && vbc_reg_read(VBPMR1, SB_DAC, 1) */ {
+            vbc_reg_VBPMR2_set(SB_SLEEP, 1); // SB enter sleep mode
+            vbc_reg_VBPMR2_set(SB, 1); // Power down sb
+            msleep(100); // avoid quick switch from power off to on
+            printk("....................... audio full power down .......................\n");
+        }
+    }
+    mutex_unlock(&vbc_power_lock);
+    printk("audio %s\n", __func__);
+}
+EXPORT_SYMBOL_GPL(vbc_power_down);
+
+void vbc_power_on(unsigned int value)
+{
+    mutex_lock(&vbc_power_lock);
+    {
+        if (value == SNDRV_PCM_STREAM_PLAYBACK/* &&
+            vbc_reg_read(VBPMR1, SB_DAC, 1)*/) {
+            int forced = 1;
+            int earpiece_muted, headset_muted, speaker_muted;
+
+            vbc_reg_VBPMR2_set(SB, 0); // Power on sb
+            vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
+
+            vbc_codec_mute();
+            earpiece_muted = vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
+            headset_muted = vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
+            speaker_muted = vbc_amplifier_enabled(); // Mute speaker
+            msleep(50);
+
+            vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
+            msleep(50);
+            vbc_reg_VBPMR1_set(SB_LOUT, 0);
+            msleep(50);
+            vbc_reg_VBPMR1_set(SB_MIX, 0);
+            msleep(50);
+
+            vbc_reg_VBPMR1_set(SB_OUT, 0); // Power on DAC OUT
+            msleep(50);
+            vbc_reg_VBCR1_set(MONO, 0); // stereo DAC left & right channel
+            vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
+            msleep(100);
+
+            vbc_codec_unmute();
+            if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
+            if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
+            if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on"); // unMute speaker
+        }
+        if (value == SNDRV_PCM_STREAM_CAPTURE &&
+            vbc_reg_read(VBPMR1, SB_ADC, 1)) {
+            vbc_reg_VBPMR2_set(SB, 0); // Power on sb
+            vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
+            vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
+            vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
+        }
+    }
+    mutex_unlock(&vbc_power_lock);
+    printk("audio %s\n", __func__);
+}
+EXPORT_SYMBOL_GPL(vbc_power_on);
+
 static int vbc_reset(struct snd_soc_codec *codec)
 {
     vbc_set_mainclk_to12M();
     vbc_set_ctrl2arm();
+#if 0
     vbc_codec_mute();
+#endif
     vbc_ready2go();
 
     vbc_set_AD_DA_fifo_frame_num(VBC_FIFO_FRAME_NUM, VBC_FIFO_FRAME_NUM);
@@ -329,7 +431,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
 
     vbc_reg_VBCR2_set(DAC_ADWL, DAC_DATA_WIDTH_16_bit); // DAC data sample depth 16bits
     vbc_reg_VBCR2_set(ADC_ADWL, ADC_DATA_WIDTH_16_bit); // ADC data sample depth 16bits
-    vbc_reg_VBCR2_set(MICSEL, MICROPHONE2); // route microphone 2 to ADC module
+    vbc_reg_VBCR2_set(MICSEL, MICROPHONE1); // route microphone 1 to ADC module
 
     vbc_reg_write(VBCCR2, 4, VBC_RATE_8000, 0xf); // 8K sample DAC
     vbc_reg_write(VBCCR2, 0, VBC_RATE_8000, 0xf); // 8K sample ADC
@@ -337,6 +439,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
     vbc_reg_write(VBCGR1, 0, 0x00, 0xff); // DAC Gain
     vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
     vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
+#if 0
     msleep(1);
 
     vbc_reg_VBPMR2_set(SB, 0); // Power on sb
@@ -345,11 +448,13 @@ static int vbc_reset(struct snd_soc_codec *codec)
 
     vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
     msleep(1);
-
     vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
+#else
+    vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK);
+#endif
     vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
     vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
-
+#if 0
     // vbc_reg_write(VBPMR1, 1, 0x02, 0x7f); // power on all units, except SB_BTL
     vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
 //  vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
@@ -379,70 +484,9 @@ static int vbc_reset(struct snd_soc_codec *codec)
     vbc_reg_write(DAHPCTL, 8, 1, 1); // headphone 24bits output to sound more appealing
 #endif
     vbc_codec_unmute(); // don't mute
+#endif
 
     return 0;
-}
-
-extern inline int vbc_amplifier_enabled(void);
-extern inline void vbc_amplifier_enable(int enable, const char *prename);
-static DEFINE_MUTEX(vbc_power_lock);
-static void vbc_power_down(unsigned int value)
-{
-    mutex_lock(&vbc_power_lock);
-        if (value == SNDRV_PCM_STREAM_PLAYBACK &&
-            !vbc_reg_read(VBPMR1, SB_DAC, 1)) {
-            vbc_amplifier_enable(false, "vbc_power_down playback");
-            vbc_codec_mute();
-            vbc_reg_VBPMR1_set(SB_BTL, 1); // power down earphone
-            vbc_reg_VBPMR1_set(SB_MIX, 1);
-            vbc_reg_VBPMR1_set(SB_OUT, 1); // Power down DAC OUT
-            vbc_reg_VBPMR1_set(SB_LOUT, 1);
-            vbc_reg_VBPMR1_set(SB_DAC, 1); // Power down DAC
-        }
-        if (value == SNDRV_PCM_STREAM_CAPTURE &&
-            !vbc_reg_read(VBPMR1, SB_ADC, 1)) {
-            vbc_reg_VBPMR1_set(SB_ADC, 1); // Power down ADC
-            vbc_reg_VBCR1_set(SB_MICBIAS, 1); // power down mic
-        }
-        if (vbc_reg_read(VBPMR1, SB_ADC, 1) &&
-            vbc_reg_read(VBPMR1, SB_DAC, 1)) {
-            vbc_reg_VBPMR2_set(SB_SLEEP, 1); // SB enter sleep mode
-            vbc_reg_VBPMR2_set(SB, 1); // Power down sb
-            printk("....................... audio full power down .......................\n");
-        }
-    mutex_unlock(&vbc_power_lock);
-    printk("audio %s\n", __func__);
-}
-
-static void vbc_power_on(unsigned int value)
-{
-    mutex_lock(&vbc_power_lock);
-        if (value == SNDRV_PCM_STREAM_PLAYBACK &&
-            vbc_reg_read(VBPMR1, SB_DAC, 1)) {
-            vbc_amplifier_enable(false, "vbc_power_on playback");
-            vbc_codec_mute();
-            vbc_reg_VBPMR2_set(SB, 0); // Power on sb
-            msleep(100);
-            vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
-            msleep(100);
-            vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
-            vbc_reg_VBPMR1_set(SB_LOUT, 0);
-            vbc_reg_VBPMR1_set(SB_OUT, 0); // Power on DAC OUT
-            vbc_reg_VBPMR1_set(SB_MIX, 0);
-            vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
-            msleep(300);
-            vbc_codec_unmute();
-            vbc_amplifier_enable(true, "vbc_power_on playback");
-        }
-        if (value == SNDRV_PCM_STREAM_CAPTURE &&
-            vbc_reg_read(VBPMR1, SB_ADC, 1)) {
-            vbc_reg_VBPMR2_set(SB, 0); // Power on sb
-            vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
-            vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
-            vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
-        }
-    mutex_unlock(&vbc_power_lock);
-    printk("audio %s\n", __func__);
 }
 
 static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned int value, int dir)
@@ -458,7 +502,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
             vbc_amplifier_enable(false, "vbc_soft_ctrl");
             vbc_reset(codec);
-            vbc_reset(codec);
+            // vbc_reset(codec);
             return 0;
         case VBC_CODEC_POWER:
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
@@ -571,13 +615,20 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 static int vbc_prepare(struct snd_pcm_substream *substream,
     struct snd_soc_dai *dai)
 {
+    // printk("vbc_prepare......\n");
+    // vbc_power_on(substream->stream);
     return 0;
 }
 
 static void vbc_shutdown(struct snd_pcm_substream *substream,
     struct snd_soc_dai *dai)
 {
-    
+    printk("vbc_shutdown......\n");
+    vbc_power_down(substream->stream);
+#if 0
+    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+        vbc_amplifier_enable(false, "sprdphone_shutdown");
+#endif
 }
 
 #if POWER_OFF_ON_STANDBY
@@ -619,7 +670,7 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
             vbc_dma_start(substream);
             break;
         case SNDRV_PCM_TRIGGER_STOP:
-            vbc_power_down(substream->stream);
+            // vbc_power_down(substream->stream);
         case SNDRV_PCM_TRIGGER_SUSPEND:
         case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
             vbc_dma_stop(substream); // Stop DMA transfer
@@ -674,11 +725,18 @@ static int vbc_pcm_hw_params(struct snd_pcm_substream *substream,
     return 0;
 }
 
+int vbc_hw_free(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
+{
+    flush_vbc_cache(substream);
+    return 0;
+}
+
 static struct snd_soc_dai_ops vbc_dai_ops = {
     .startup    = vbc_startup,
     .prepare    = vbc_prepare,
     .trigger    = vbc_trigger,
 	.hw_params  = vbc_pcm_hw_params,
+    .hw_free    = vbc_hw_free,
     .shutdown   = vbc_shutdown,
 	.set_clkdiv = vbc_set_dai_clkdiv,
 	.set_pll    = vbc_set_dai_pll,
@@ -765,6 +823,76 @@ int vbc_resume(struct platform_device *pdev)
 #define vbc_resume  NULL
 #endif
 
+#if     defined(CONFIG_ARCH_SC8800S)             || \
+        defined(CONFIG_MACH_SP6810A)
+#if     defined(CONFIG_ARCH_SC8800S)
+static ulong gpio_amplifier = MFP_CFG_X(LCD_RSTN, GPIO, DS0, PULL_NONE/* PULL_UP */, IO_OE);
+static u32 speaker_gpio = 102; // mfp_to_gpio(MFP_CFG_TO_PIN(gpio_amplifier));
+#elif   defined(CONFIG_MACH_SP6810A)
+static ulong gpio_amplifier = MFP_CFG_X(RFCTL6, AF3, DS2, F_PULL_DOWN, S_PULL_DOWN, IO_OE);
+static u32 speaker_gpio = 96;  // GPIO_PROD_SPEAKER_PA_EN_ID
+#endif
+static inline void local_amplifier_init(void)
+{
+    sprd_mfp_config(&gpio_amplifier, 1);
+    if (gpio_request(speaker_gpio, "speaker amplifier")) {
+        printk(KERN_ERR "speaker amplifier gpio request fail!\n");
+    }
+}
+
+static inline void local_amplifier_enable(int enable)
+{
+    gpio_direction_output(speaker_gpio, !!enable);
+}
+
+static inline int local_amplifier_enabled(void)
+{
+    if (gpio_get_value(speaker_gpio)) {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+#elif   defined(CONFIG_MACH_SP8805GA)           || \
+        defined(CONFIG_MACH_OPENPHONE)
+static inline void local_amplifier_init(void)
+{
+
+}
+
+static inline void local_amplifier_enable(int enable)
+{
+    if (enable) {
+     // ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1aa9); //classAb
+        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x5A5A); //classD
+    } else {
+        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1555);
+    }
+}
+
+static inline int local_amplifier_enabled(void)
+{
+    u32 value = ADI_Analogdie_reg_read(ANA_PA_CTL);
+    switch (value) {
+        case 0x5A5A: return 1;
+        default : return 0;
+    }
+}
+#else
+#error "not define this CONFIG_MACH_xxxxx"
+#endif
+inline void vbc_amplifier_enable(int enable, const char *prename)
+{
+    printk("audio %s ==> trun %s PA\n", prename, enable ? "on":"off");
+    local_amplifier_enable(enable);
+}
+EXPORT_SYMBOL_GPL(vbc_amplifier_enable);
+inline int vbc_amplifier_enabled(void)
+{
+    return local_amplifier_enabled();
+}
+EXPORT_SYMBOL_GPL(vbc_amplifier_enabled);
+
 #define VBC_PCM_RATES (SNDRV_PCM_RATE_8000  |	\
 			  SNDRV_PCM_RATE_11025 |	\
 			  SNDRV_PCM_RATE_16000 |	\
@@ -826,8 +954,10 @@ static int vbc_probe(struct platform_device *pdev)
 		goto pcm_err;
 
 	vbc_reset(codec);
+#if 0
     /* vbc_reset() must be initialized twice, or the noise when playing audio */
     vbc_reset(codec);
+#endif
 
 #if POWER_OFF_ON_STANDBY
 	vbc_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
@@ -880,6 +1010,8 @@ EXPORT_SYMBOL_GPL(vbc_codec);
 
 static int vbc_init(void)
 {
+    local_amplifier_init();
+    vbc_amplifier_enable(false, "vbc_init");
     return snd_soc_register_dais(vbc_dai, ARRAY_SIZE(vbc_dai));
 }
 

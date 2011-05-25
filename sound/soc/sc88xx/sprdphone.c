@@ -40,76 +40,6 @@ static const struct snd_soc_dapm_route audio_map[] = {
     
 };
 
-#if     defined(CONFIG_ARCH_SC8800S)             || \
-        defined(CONFIG_MACH_SP6810A)
-#if     defined(CONFIG_ARCH_SC8800S)
-static ulong gpio_amplifier = MFP_CFG_X(LCD_RSTN, GPIO, DS0, PULL_NONE/* PULL_UP */, IO_OE);
-static u32 speaker_gpio = 102; // mfp_to_gpio(MFP_CFG_TO_PIN(gpio_amplifier));
-#elif   defined(CONFIG_MACH_SP6810A)
-static ulong gpio_amplifier = MFP_CFG_X(RFCTL6, AF3, DS2, F_PULL_DOWN, S_PULL_DOWN, IO_OE);
-static u32 speaker_gpio = 96;  // GPIO_PROD_SPEAKER_PA_EN_ID
-#endif
-static inline void local_amplifier_init(void)
-{
-    sprd_mfp_config(&gpio_amplifier, 1);
-    if (gpio_request(speaker_gpio, "speaker amplifier")) {
-        printk(KERN_ERR "speaker amplifier gpio request fail!\n");
-    }
-}
-
-static inline void local_amplifier_enable(int enable)
-{
-    gpio_direction_output(speaker_gpio, !!enable);
-}
-
-static inline int local_amplifier_enabled(void)
-{
-    if (gpio_get_value(speaker_gpio)) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-#elif   defined(CONFIG_MACH_SP8805GA)           || \
-        defined(CONFIG_MACH_OPENPHONE)
-static inline void local_amplifier_init(void)
-{
-
-}
-
-static inline void local_amplifier_enable(int enable)
-{
-    if (enable) {
-     // ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1aa9); //classAb
-        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x5A5A); //classD
-    } else {
-        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1555);
-    }
-}
-
-static inline int local_amplifier_enabled(void)
-{
-    u32 value = ADI_Analogdie_reg_read(ANA_PA_CTL);
-    switch (value) {
-        case 0x5A5A: return 1;
-        default : return 0;
-    }
-}
-#else
-#error "not define this CONFIG_MACH_xxxxx"
-#endif
-inline void vbc_amplifier_enable(int enable, const char *prename)
-{
-    printk("audio %s ==> trun %s PA\n", prename, enable ? "on":"off");
-    local_amplifier_enable(enable);
-}
-EXPORT_SYMBOL_GPL(vbc_amplifier_enable);
-inline int vbc_amplifier_enabled(void)
-{
-    return local_amplifier_enabled();
-}
-EXPORT_SYMBOL_GPL(vbc_amplifier_enabled);
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 static struct early_suspend early_suspend;
@@ -197,9 +127,6 @@ int sndcard_resume(struct platform_device *pdev)
 
 static int sprdphone_vbc_init(struct snd_soc_codec *codec)
 {
-    local_amplifier_init();
-    vbc_amplifier_enable(false, "sprdphone_vbc_init");
-
     snd_soc_dapm_new_controls(codec, sprdphone_dapm_widgets,
                               ARRAY_SIZE(sprdphone_dapm_widgets));
 
@@ -213,16 +140,11 @@ static int sprdphone_vbc_init(struct snd_soc_codec *codec)
 
 static int sprdphone_startup(struct snd_pcm_substream *substream)
 {
-//    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-//        vbc_amplifier_enable(true, "sprdphone_startup");
     return 0;
 }
 
 static void sprdphone_shutdown(struct snd_pcm_substream *substream)
-{
-    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        vbc_amplifier_enable(false, "sprdphone_shutdown");
-}
+{ }
 
 static int sprdphone_prepare(struct snd_pcm_substream *substream)
 {
@@ -231,18 +153,6 @@ static int sprdphone_prepare(struct snd_pcm_substream *substream)
 
 static int sprdphone_trigger(struct snd_pcm_substream *substream, int cmd)
 {
-#if 0
-    switch (cmd) {
-        case SNDRV_PCM_TRIGGER_START:
-            // if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-                vbc_amplifier_enable(true, "sprdphone_trigger");
-            break;
-        case SNDRV_PCM_TRIGGER_STOP:
-            // if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-                vbc_amplifier_enable(false, "sprdphone_trigger");
-            break;
-	}
-#endif
     return 0;
 }
 
@@ -254,9 +164,6 @@ static int sprdphone_hw_params(struct snd_pcm_substream *substream,
 
 static int sprdphone_hw_free(struct snd_pcm_substream *substream)
 {
-    flush_vbc_cache(substream);
-//    if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-//        vbc_amplifier_enable(false, "sprdphone_hw_free");
     return 0;
 }
 

@@ -266,7 +266,7 @@ static inline u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
     u32 tmp, ret;
     raw_local_irq_save(flags);
     ret = tmp = __raw_readl(reg);
-    tmp &= ~(mask<<shift);
+    tmp &= ~(mask << shift);
     tmp |= val << shift;
     __raw_writel(tmp, reg);
     raw_local_irq_restore(flags);
@@ -277,13 +277,13 @@ static inline u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
     if (not_in_adi_range(reg)) tmp = __raw_readl(reg);
     else tmp = __raw_adi_read(reg);
     ret = tmp;
-    tmp &= ~(mask<<shift);
+    tmp &= ~(mask << shift);
     tmp |= val << shift;
     if (not_in_adi_range(reg)) __raw_writel(tmp, reg);
     else __raw_adi_write(tmp, reg);
     raw_local_irq_restore(flags);
 #endif
-    return ret;
+    return ret & (mask << shift);
 }
 
 static inline u32 vbc_reg_read(u32 reg, u8 shift, u32 mask)
@@ -293,7 +293,7 @@ static inline u32 vbc_reg_read(u32 reg, u8 shift, u32 mask)
     u32 tmp;
     raw_local_irq_save(flags);
     tmp = __raw_readl(reg);
-    tmp &= mask<<shift;
+    // tmp &= mask << shift;
     // tmp |= val << shift;
     // __raw_writel(tmp, reg);
     raw_local_irq_restore(flags);
@@ -303,13 +303,13 @@ static inline u32 vbc_reg_read(u32 reg, u8 shift, u32 mask)
     raw_local_irq_save(flags);
     if (not_in_adi_range(reg)) tmp = __raw_readl(reg);
     else tmp = __raw_adi_read(reg);
-    tmp &= mask<<shift;
+    // tmp &= ~(mask << shift);
     // tmp |= val << shift;
     // if (not_in_adi_range(reg)) __raw_writel(tmp, reg);
     // else __raw_adi_write(tmp, reg);
     raw_local_irq_restore(flags);
 #endif
-    return tmp;
+    return tmp & (mask << shift);
 }
 //--------------------------
 extern struct snd_soc_codec_device vbc_codec;
