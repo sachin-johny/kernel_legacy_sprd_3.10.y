@@ -991,10 +991,14 @@ vaudio_snd_probe (void)
     if (!plink) {
 	return -ENODEV;
     }
-    info = (char*) nkops.nk_ptov(vlink->c_info);
-    slot = simple_strtoul(info, &resinfo, 0);
-    if (resinfo == info) {
-        slot = -1;	
+    if (vlink->c_info != 0) {
+	info = (char*) nkops.nk_ptov(vlink->c_info);
+	slot = simple_strtoul(info, &resinfo, 0);
+        if (resinfo == info) {
+	    slot = -1;	
+	}
+    } else {
+	slot = -1;
     }
 	/*
 	 * Perform initialization of NK virtual audio device.
