@@ -651,7 +651,11 @@ vcons_open(NkPort*	port, NkDevVlink* vlink)
     static int
 vcons_close(NkPort* port)
 {
-    /* mask xirq */
+#ifdef DEBUG
+    printk("Close ttyNK<%d> portid %x", NKLINE(port->tty), port->id);
+    printk("vlink %p vlink->link %x\n", vlink, vlink->link);
+#endif
+     /* mask xirq */
     if (port->xid) {
 	nkops.nk_xirq_detach(port->xid);
 	port->xid = 0;
