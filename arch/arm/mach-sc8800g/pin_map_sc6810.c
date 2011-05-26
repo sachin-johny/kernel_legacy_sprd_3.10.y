@@ -45,49 +45,55 @@ const PM_PINFUNC_T pm_func[]=
 {
 //  | Pin Register        |   DS    | Func PU/PD | Func Select  | Slp PU/PD | Sleep OE/IE | 
     {PIN_CTL_REG,        ( 0x1fff00) },
+/*
+    {PIN_TD_TXPD,        ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    
+    {PIN_TD_RXPD,        ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    
+    {PIN_GSM_TXPD,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    
+    {PIN_GSM_RXPD,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    
+*/
     {PIN_SIMCLK0_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    
     {PIN_SIMDA0_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x18A    
     {PIN_SIMRST0_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    
     {PIN_SIMCLK1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101 NC   
     {PIN_SIMDA1_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x18A NC   
     {PIN_SIMRST1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101 NC
-    {PIN_SD0_CLK_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100 SD/SDIO   
-    {PIN_SD_CMD_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
+    {PIN_SD0_CLK_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100 SD/SDIO   
+    {PIN_SD_CMD_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
     {PIN_SD_D0_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
     {PIN_SD_D1_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
     {PIN_SD_D2_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
     {PIN_SD_D3_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
-    {PIN_SD1_CLK_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100 NC
+    {PIN_SD1_CLK_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100 NC
     {PIN_KEYOUT0_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
     {PIN_KEYOUT1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
     {PIN_KEYOUT2_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
     {PIN_KEYOUT3_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
     {PIN_KEYOUT4_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
-    {PIN_KEYOUT5_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100  NC 
-    {PIN_KEYOUT6_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100  GPIO26 TEST POINT  
-    {PIN_KEYOUT7_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_2   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100  fm_32k   
+    {PIN_KEYOUT5_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_I_EN ) },    // 0x100  NC 
+    {PIN_KEYOUT6_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100  GPIO26 TEST POINT  
+    {PIN_KEYOUT7_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_2   | PIN_SPU_EN | PIN_I_EN ) },    // 0x100  NC   wangfuqiang for FM_CLK :CLK_AUX1
     {PIN_KEYIN0_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
     {PIN_KEYIN1_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
     {PIN_KEYIN2_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
     {PIN_KEYIN3_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
     {PIN_KEYIN4_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
-    {PIN_KEYIN5_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC  
-    {PIN_KEYIN6_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC
-    {PIN_KEYIN7_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC 
-    {PIN_SPI_DI_REG,     ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x18A  CMMB WIFI SPIDO  
-    {PIN_SPI_CLK_REG,    ( PIN_DS_3 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_O_EN ) },    // 0x106  SPICLK  
-    {PIN_SPI_DO_REG,     ( PIN_DS_3 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_O_EN ) },    // 0x10A  CMMB WIFI SPIDI  
-    {PIN_SPI_CSN0_REG,   ( PIN_DS_3 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_O_EN ) },    // 0x10A  SPI CS0: WIFI  
-    {PIN_SPI_CSN1_REG,   ( PIN_DS_3 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x106  SPI CS1: CMMB  
-    {PIN_MTDO_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x101  JTAG  
-    {PIN_MTDI_REG,       ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x18A  JTAG  
-    {PIN_MTCK_REG,       ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x18A  JTAG  
-    {PIN_MTMS_REG,       ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x18A  JTAG  
-    {PIN_MTRST_N_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x146  JTAG  
-    {PIN_U0TXD_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100  BT UART RX  
+    {PIN_KEYIN5_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC  
+    {PIN_KEYIN6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC
+    {PIN_KEYIN7_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC 
+    {PIN_SPI_DI_REG,     ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x18A  NC    wangfuqiang CMMB/WIFI SPI
+    {PIN_SPI_CLK_REG,    ( PIN_DS_3 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x106  NC    wangfuqiang CMMB/WIFI SPI
+    {PIN_SPI_DO_REG,     ( PIN_DS_3 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x10A  NC    wangfuqiang CMMB/WIFI SPI
+    {PIN_SPI_CSN0_REG,   ( PIN_DS_3 | PIN_FPX_EN | PIN_FUNC_3| PIN_SPU_EN | PIN_Z_EN ) },    // 0x10A  NC    wangfuqiang WIFI SPI CS
+    {PIN_SPI_CSN1_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3 | PIN_SPD_EN | PIN_Z_EN ) },    // 0x106  CMMB SPI CS 
+    {PIN_MTDO_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_I_EN ) },    // 0x101  JTAG  
+    {PIN_MTDI_REG,       ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_I_EN ) },    // 0x18A  JTAG  
+    {PIN_MTCK_REG,       ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_I_EN ) },    // 0x18A  JTAG  
+    {PIN_MTMS_REG,       ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_I_EN ) },    // 0x18A  JTAG  
+    {PIN_MTRST_N_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_I_EN ) },    // 0x146  JTAG  
+    {PIN_U0TXD_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100  BT UART RX  
     {PIN_U0RXD_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  BT UART TX  
-    {PIN_U0CTS_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180  GPIO41  
-    {PIN_U0RTS_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100  GPIO42  bb core dcdc en (NC)
+    {PIN_U0CTS_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  GPIO41  
+    {PIN_U0RTS_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100  GPIO42  bb core dcdc en (NC)
     {PIN_U1TXD_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100  U1TXD  
     {PIN_U1RXD_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  U1RXD  
     {PIN_NFWPN_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   NF WP = 0
@@ -113,7 +119,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_NFD13_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    NF DATA
     {PIN_NFD14_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    NF DATA
     {PIN_NFD15_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    NF DATA
-    {PIN_EMRST_N_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    EMRST(NC)
+    {PIN_EMRST_N_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    EMRST(NC)
     {PIN_EMA0_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMA1_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMA2_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
@@ -175,9 +181,9 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_EMCAS_N_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   CAS = 0
     {PIN_EMWE_N_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100   WE  = 1
     {PIN_EMCS_N0_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   CS = 0
-    {PIN_EMCS_N1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    NC
-    {PIN_EMCS_N2_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    NC
-    {PIN_EMCS_N3_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    NC
+    {PIN_EMCS_N1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    NC
+    {PIN_EMCS_N2_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    NC
+    {PIN_EMCS_N3_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    NC
     {PIN_EMBA0_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMBA1_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMCKE0_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   CKE  = 0
@@ -203,9 +209,9 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_LCD_D13_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D14_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D15_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_LCD_D16_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_1   | PIN_SPU_EN | PIN_Z_EN ) },    // i2c SCL, port 2 (logic id = 1)
-    {PIN_LCD_D17_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_1   | PIN_SPU_EN | PIN_Z_EN ) },    // i2c SDA
-    {PIN_LCD_FMARK_REG,  ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x180    
+    {PIN_LCD_D16_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   GPIO63 FM SCL
+    {PIN_LCD_D17_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   GPIO64 FM SDA
+    {PIN_LCD_FMARK_REG,  ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180   NC 
     {PIN_CCIRMCLK_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRCK_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRHS_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
@@ -217,13 +223,13 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_CCIRD4_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRD5_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRD6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
-    {PIN_CCIRD7_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
-    {PIN_CCIRRST_REG ,   ( PIN_O_EN | PIN_SPX_EN | PIN_FUNC_3   | PIN_FPD_EN | PIN_DS_0) },    //  CAMERA_Reset
-    {PIN_CCIRPD1_REG,    ( PIN_O_EN | PIN_SPX_EN | PIN_FUNC_3   | PIN_FPD_EN | PIN_DS_0) },    // 0x100    CAMERA PD
-    {PIN_CCIRPD0_REG,    ( PIN_O_EN | PIN_SPX_EN | PIN_FUNC_3   | PIN_FPD_EN | PIN_DS_0) },    // 0x100    CAMERA PD
+    {PIN_CCIRD7_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown
+    {PIN_CCIRRST_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    CAMERA RST
+    {PIN_CCIRPD1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    CAMERA PD
+    {PIN_CCIRPD0_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    CAMERA PD
     {PIN_SCL_REG,        ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x180    
     {PIN_SDA_REG,        ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x180    
-    {PIN_CLK_AUX0_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x106   CLKAUX0, 32KHz for FM
+    {PIN_CLK_AUX0_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x106   NC  wangfuqiang CMMB 26MHz :CLK AUX0
     {PIN_IISDI_REG,      ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x156   BT PCM_IN
     {PIN_IISDO_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x11A   BT PCM_OUT
     {PIN_IISCLK_REG,     ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x15A   BT PCM_CLK 
@@ -231,45 +237,53 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_IISMCK_REG,     ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_2   | PIN_SPD_EN | PIN_I_EN ) },    // 0x156    BTXTLEN = 0 
     {PIN_RFSDA0_REG,     ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x140   QS3200 SPI SDA 
     {PIN_RFSCK0_REG,     ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x140   QS3200 SPI SCK 
-    {PIN_RFSEN0_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x180   QS3200 SPI LE 
+    {PIN_RFSEN0_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x180   QS3200 SPI LE 
     {PIN_RFCTL0_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100   GPIO90 BT RSTN /////PULL DOWN FOR TEST ONLY , BT DRAIN 4mA FROM VBAT
     {PIN_RFCTL1_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   TD PA MD1
     {PIN_RFCTL2_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   GSM PA MODE 
-    {PIN_RFCTL3_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_I_EN ) },    // 0x100   GPIO93 CMMB_INT 
-    {PIN_RFCTL4_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   GPIO94 CMMB_RSTN    
+    {PIN_RFCTL3_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_I_EN ) },    // 0x100   NC
+    {PIN_RFCTL4_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   NC
     {PIN_RFCTL5_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   TD PA EN
-    {PIN_RFCTL6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   SPK PA EN
+    {PIN_RFCTL6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   GPIO96 SPK PA EN
     {PIN_RFCTL7_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC3
     {PIN_RFCTL8_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   TD PA VMOD0
-    {PIN_RFCTL9_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   NC
+    {PIN_RFCTL9_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100   GPIO99 CMMB power on
     {PIN_RFCTL10_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   GSM PA TXEN
-    {PIN_RFCTL11_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   GPIO101 TEST POINT
+    {PIN_RFCTL11_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x100   GPIO101 TEST POINT
     {PIN_RFCTL12_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   PA BANDSEL 
     {PIN_RFCTL13_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC1
     {PIN_RFCTL14_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC2 
     {PIN_RFCTL15_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC4 
     {PIN_XTL_EN_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x101   GPIO106_WIFI/BT LOD EN
     {PIN_PTEST_REG,      ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    PULL DOWN TO GROUND EXTERNALLY
+/*
+    {ANA_PIN_GSM_RXPD,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_I_EN ) },    // 0x101    
+    {ANA_PIN_GSM_TXPD,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_I_EN ) },    // 0x101    
+    {ANA_PIN_TD_RXPD,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_I_EN ) },    // 0x101    
+    {ANA_PIN_TD_TXPD,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_I_EN ) },    // 0x101    
+*/
+
     {ANA_PIN_CHIP_RSTN_REG,(PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN)},     //           TEST POINT
     {ANA_PIN_PBINT_REG, (PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN)},
-    {ANA_PIN_TP_XL_REG, (PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN)},
+    {ANA_PIN_TP_XL_REG, (PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN)},
     {ANA_PIN_TP_XR_REG, (PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN)},
     {ANA_PIN_TP_YU_REG, (PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN)},
     {ANA_PIN_TP_YD_REG, (PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN)},
-    {PIN_GPIO135_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_O_EN ) },    // 0x100   CMMB Power   
-    {PIN_GPIO136_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_GPIO137_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_GPIO138_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_GPIO139_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_GPIO140_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    
-    {PIN_GPIO141_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_I_EN ) },    // 0x100    
-    {PIN_GPIO142_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_GPIO143_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_GPIO144_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    
+
+    {PIN_GPIO135_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    WIFI reset
+    {PIN_GPIO136_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    WIFI SPI int
+    {PIN_GPIO137_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_I_EN ) },    // 0x100    CMMB/WIFI SPI switch
+    {PIN_GPIO138_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    CMMB reset
+    {PIN_GPIO139_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    heming CMMB IRQ
+    {PIN_GPIO140_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    TPIC int
+    {PIN_GPIO141_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x100    HP detect
+    {PIN_GPIO142_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    WIFI wakeup BB
+    {PIN_GPIO143_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    TPIC SCL
+    {PIN_GPIO144_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    TPIC SDA
+
     {0xffffffff, 0xffffffFF}              
 };
- 
-   
+    
     
 const PM_PINFUNC_T pm_default_global_map[]=
 {
@@ -308,7 +322,6 @@ const PM_GPIO_CTL_T  pm_gpio_default_map[]=
 #define ANA_IS_ANA_REG(addr) (SPRD_MISC_BASE == (addr & 0xfffff000))
 void sc8800g_pin_map_init(void)
 {
-#if 0
     int i = 0;
 
 	printk("##: Doing pin map!\n");
@@ -347,7 +360,6 @@ void sc8800g_pin_map_init(void)
         i++;
     }
     printk("####: pin_map is done!\n");
-#endif
 }
 
 

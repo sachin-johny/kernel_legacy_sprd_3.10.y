@@ -108,7 +108,7 @@ struct sprd_pm_suspend sprd_suspend;
 
 static int sc8800g2_sprd_suspend (struct platform_device *pdev, pm_message_t state)
 {
-    printk("###: sprd: sc8800g2_wdt_suspend()!\n");
+   // printk("###: sprd: sc8800g2_wdt_suspend()!\n");
 	/*
 	if (get_sys_cnt() > 300000)	return -1;
 	else return 0;
@@ -118,7 +118,7 @@ static int sc8800g2_sprd_suspend (struct platform_device *pdev, pm_message_t sta
 
 static int sc8800g2_sprd_resume (struct platform_device *pdev)
 {
-    printk("###: sprd: sc8800g2_wdt_resume()!\n");
+    //printk("###: sprd: sc8800g2_wdt_resume()!\n");
 	return 0;
 }
 
