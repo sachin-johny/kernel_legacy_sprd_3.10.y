@@ -49,9 +49,14 @@
 #include <asm/nk/nktags.h>
 #include <nk/bconf.h>
 
-#define SMALL_BUFF	10
-#define BIG_BUFF	(SMALL_BUFF + NK_COMMAND_LINE_SIZE)
+#define SMALL_BUFF      10
+#define BIG_BUFF        (SMALL_BUFF + NK_COMMAND_LINE_SIZE)
 #define BANK_BUFF_SIZE  43
+#ifdef DEBUG
+#define TRACE(...) printk(__VA_ARGS__)
+#else
+#define TRACE(...)
+#endif
 
 typedef struct GuestBank {
     struct DynGuest*       parent;
@@ -130,7 +135,7 @@ _fixup_guest_tags (DynGuest* dg, AtagClass ac)
         while (gb) {
             if (BANK_TYPE(gb->type) == BANK_TYPE_RAMDISK) {
                 tmp_tag = add_ram_disk_tag(dg->tags,
-					   nkops.nk_vtop((void*)gb->vstart),
+                                           nkops.nk_vtop((void*)gb->vstart),
                                            gb->size, NK_TAG_LIST_SIZE);
             }
             gb = gb->next;
@@ -203,7 +208,7 @@ _inum2gbank (unsigned int inum)
 
    static int
 _nk_proc_cmd_open (struct inode* inode,
-	       struct file*  file)
+               struct file*  file)
 {
     DynGuest* dg = _inum2dg((unsigned int)inode->i_ino, ITYPE_CMD);
     int       err;
@@ -228,7 +233,7 @@ _nk_proc_cmd_open (struct inode* inode,
 
     static int
 _nk_proc_cmd_release (struct inode* inode,
-	          struct file*  file)
+                  struct file*  file)
 {
     DynGuest* dg = file->private_data;
     int       err;
@@ -249,9 +254,9 @@ _nk_proc_cmd_release (struct inode* inode,
 
     static ssize_t
 _nk_proc_cmd_read (struct file* file,
-	       char*        buf,
-	       size_t       count,
-	       loff_t*      ppos)
+               char*        buf,
+               size_t       count,
+               loff_t*      ppos)
 {
     DynGuest* dg = (DynGuest*)file->private_data;
     size_t    csize = strlen(dg->cmd);
@@ -280,9 +285,9 @@ _nk_proc_cmd_read (struct file* file,
 
     static ssize_t
 _nk_proc_cmd_write (struct file* file,
-	               const char*  ubuf,
-	               size_t       size,
-	               loff_t*      ppos)
+                       const char*  ubuf,
+                       size_t       size,
+                       loff_t*      ppos)
 {
     DynGuest* dg = (DynGuest*)file->private_data;
 
@@ -306,7 +311,7 @@ _nk_proc_cmd_write (struct file* file,
 
    static int
 _nk_proc_bank_open (struct inode* inode,
-	       struct file*  file)
+               struct file*  file)
 {
     GuestBank*  gb  = _inum2gbank((unsigned int)inode->i_ino);
     int         err;
@@ -358,7 +363,7 @@ _nk_proc_bank_lseek (struct file* file,
 
     static int
 _nk_proc_bank_release (struct inode* inode,
-	          struct file*  file)
+                  struct file*  file)
 {
     GuestBank* gb  = file->private_data;
     int        err = 0;
@@ -381,9 +386,9 @@ _nk_proc_bank_release (struct inode* inode,
 
     static ssize_t
 _nk_proc_bank_read (struct file* file,
-	       char*        buf,
-	       size_t       count,
-	       loff_t*      ppos)
+               char*        buf,
+               size_t       count,
+               loff_t*      ppos)
 {
     GuestBank* gb = (GuestBank*)file->private_data;
     char       pbuf[BANK_BUFF_SIZE];
@@ -392,7 +397,7 @@ _nk_proc_bank_read (struct file* file,
         return 0;
     }
 
-    snprintf(pbuf, BANK_BUFF_SIZE,"virtual start: 0x%08x size:0x%08x\n", gb->vstart, gb->cfgSize);  
+    snprintf(pbuf, BANK_BUFF_SIZE,"virtual start: 0x%08x size:0x%08x\n", gb->vstart, gb->cfgSize);
     if (count > (BANK_BUFF_SIZE -1)) {
         count = BANK_BUFF_SIZE -1;
     }
@@ -408,13 +413,16 @@ _nk_proc_bank_read (struct file* file,
 
     static ssize_t
 _nk_proc_bank_write (struct file* file,
-	               const char*  ubuf,
-	               size_t       size,
-	               loff_t*      ppos)
+                       const char*  ubuf,
+                       size_t       size,
+                       loff_t*      ppos)
 {
     GuestBank* gb = (GuestBank*)file->private_data;
     void*      dst;
     printk("Writing nk_proc_bank_write\n");
+
+    TRACE("Writing nk_proc_bank_write pos:%llx buf:%x size:%x\n", 
+           *ppos,ubuf,size);
 
     if ((*ppos + size) > gb->cfgSize) {
         return -EFBIG;
@@ -441,7 +449,7 @@ _nk_proc_bank_write (struct file* file,
 
    static int
 _nk_proc_ept_open (struct inode* inode,
-	       struct file*  file)
+               struct file*  file)
 {
     DynGuest* dg = _inum2dg((unsigned int)inode->i_ino, ITYPE_EPT);
     int       err;
@@ -466,7 +474,7 @@ _nk_proc_ept_open (struct inode* inode,
 
     static int
 _nk_proc_ept_release (struct inode* inode,
-	          struct file*  file)
+                  struct file*  file)
 {
     DynGuest* dg = file->private_data;
 
@@ -479,9 +487,9 @@ _nk_proc_ept_release (struct inode* inode,
 
     static ssize_t
 _nk_proc_ept_read (struct file* file,
-	       char*        buf,
-	       size_t       count,
-	       loff_t*      ppos)
+               char*        buf,
+               size_t       count,
+               loff_t*      ppos)
 {
     DynGuest* dg = (DynGuest*)file->private_data;
     char      pbuf[12];
@@ -508,9 +516,9 @@ _nk_proc_ept_read (struct file* file,
 
     static ssize_t
 _nk_proc_ept_write (struct file* file,
-	               const char*  ubuf,
-	               size_t       size,
-	               loff_t*      ppos)
+                       const char*  ubuf,
+                       size_t       size,
+                       loff_t*      ppos)
 {
     DynGuest*     dg = (DynGuest*)file->private_data;
     char          pbuf[11];
@@ -541,7 +549,7 @@ _nk_proc_ept_write (struct file* file,
 
    static int
 _nk_proc_sts_open (struct inode* inode,
-	       struct file*  file)
+               struct file*  file)
 {
     DynGuest* dg = _inum2dg((unsigned int)inode->i_ino, ITYPE_STS);
 
@@ -575,16 +583,16 @@ _nk_proc_sts_lseek (struct file* file,
 
     static int
 _nk_proc_sts_release (struct inode* inode,
-	          struct file*  file)
+                  struct file*  file)
 {
     return 0;
 }
 
     static ssize_t
 _nk_proc_sts_read (struct file* file,
-	       char*        buf,
-	       size_t       count,
-	       loff_t*      ppos)
+               char*        buf,
+               size_t       count,
+               loff_t*      ppos)
 {
     DynGuest*    dg = (DynGuest*)file->private_data;
     char         pbuf[28];
@@ -615,43 +623,43 @@ _nk_proc_sts_read (struct file* file,
 
     static ssize_t
 _nk_proc_sts_write (struct file* file,
-	               const char*  ubuf,
-	               size_t       size,
-	               loff_t*      ppos)
+                       const char*  ubuf,
+                       size_t       size,
+                       loff_t*      ppos)
 {
     return -EFAULT;
 }
 
     static int
 _nk_proc_open (struct inode* inode,
-	       struct file*  file)
+               struct file*  file)
 {
     return 0;
 }
 
     static int
 _nk_proc_release (struct inode* inode,
-	          struct file*  file)
+                  struct file*  file)
 {
     return 0;
 }
 
     static loff_t
 _nk_proc_lseek (struct file* file,
-	        loff_t       off,
-	        int          whence)
+                loff_t       off,
+                int          whence)
 {
     loff_t new;
 
     switch (whence) {
-	case 0:	 new = off; break;
-	case 1:	 new = file->f_pos + off; break;
-	case 2:	 new = 1 + off; break;
-	default: return -EINVAL;
+        case 0:  new = off; break;
+        case 1:  new = file->f_pos + off; break;
+        case 2:  new = 1 + off; break;
+        default: return -EINVAL;
     }
 
     if (new) {
-	return -EINVAL;
+        return -EINVAL;
     }
 
     return (file->f_pos = new);
@@ -659,9 +667,9 @@ _nk_proc_lseek (struct file* file,
 
     static ssize_t
 _nk_proc_read (struct file* file,
-	       char*        buf,
-	       size_t       count,
-	       loff_t*      ppos)
+               char*        buf,
+               size_t       count,
+               loff_t*      ppos)
 {
     return 0;
 }
@@ -672,7 +680,7 @@ _nk_proc_copyin(char* sbuf, const char* ubuf, size_t size, size_t limit)
     if (size > (limit - 1)) size = limit - 1;
 
     if (copy_from_user(sbuf, ubuf, size)) {
-	    return -EFAULT;
+            return -EFAULT;
     }
 
     sbuf[size] = 0;
@@ -686,14 +694,14 @@ _nk_proc_getid (const char* buf, NkOsId* os_id)
     for (;;) {
         char digit;
 
-	digit = *buf;
+        digit = *buf;
 
-	if ((digit < '0') || ('9' < digit)) {
-	    break;
-	}
+        if ((digit < '0') || ('9' < digit)) {
+            break;
+        }
 
-	buf++;
-	id = (id * 10) + (digit - '0');
+        buf++;
+        id = (id * 10) + (digit - '0');
     }
 
     *os_id = id;
@@ -702,9 +710,9 @@ _nk_proc_getid (const char* buf, NkOsId* os_id)
 
     static ssize_t
 _nkrestart_proc_write (struct file* file,
-	               const char*  ubuf,
-	               size_t       size,
-	               loff_t*      ppos)
+                       const char*  ubuf,
+                       size_t       size,
+                       loff_t*      ppos)
 {
     NkOsId    id;
     int       res;
@@ -712,12 +720,12 @@ _nkrestart_proc_write (struct file* file,
     char      sbuf[SMALL_BUFF];
 
     if (*ppos || !size) {
-	return 0;
+        return 0;
     }
 
     res = _nk_proc_copyin(sbuf, ubuf, size, SMALL_BUFF);
     if (res < 0) {
-	return res;
+        return res;
     }
 
     _nk_proc_getid(sbuf, &id);
@@ -744,9 +752,9 @@ _nkrestart_proc_write (struct file* file,
 
     static ssize_t
 _nkstop_proc_write (struct file* file,
-	            const char*  ubuf,
-	            size_t       size,
-	            loff_t*      ppos)
+                    const char*  ubuf,
+                    size_t       size,
+                    loff_t*      ppos)
 {
     NkOsId    id;
     int       res;
@@ -754,12 +762,12 @@ _nkstop_proc_write (struct file* file,
     char      sbuf[SMALL_BUFF];
 
     if (*ppos || !size) {
-	return 0;
+        return 0;
     }
 
     res = _nk_proc_copyin(sbuf, ubuf, size, SMALL_BUFF);
     if (res < 0) {
-	return res;
+        return res;
     }
 
     _nk_proc_getid(sbuf, &id);
@@ -786,22 +794,22 @@ _nkstop_proc_write (struct file* file,
 
     static ssize_t
 _nkresume_proc_write (struct file* file,
-	              const char*  ubuf,
-	              size_t       size,
+                      const char*  ubuf,
+                      size_t       size,
                       loff_t*      ppos)
 {
     NkOsId    id;
     int       res;
-    DynGuest* dg; 
+    DynGuest* dg;
     char      sbuf[SMALL_BUFF];
 
     if (*ppos || !size) {
-	return 0;
+        return 0;
     }
 
     res = _nk_proc_copyin(sbuf, ubuf, size, SMALL_BUFF);
     if (res < 0) {
-	return res;
+        return res;
     }
 
     _nk_proc_getid(sbuf, &id);
@@ -838,8 +846,8 @@ EXPORT_SYMBOL(focus_unregister_client);
 
     static ssize_t
 _nkevent_proc_write (struct file* file,
-	              const char*  ubuf,
-	              size_t       size,
+                      const char*  ubuf,
+                      size_t       size,
                       loff_t*      ppos)
 {
     NkOsId id;
@@ -863,7 +871,7 @@ _nkevent_proc_write (struct file* file,
 }
 
     void
-nk_change_focus(NkOsId id) 
+nk_change_focus(NkOsId id)
 {
     blocking_notifier_call_chain(&focus_notifier_list, id, 0);
 }
@@ -935,14 +943,14 @@ static struct file_operations _nksts_proc_fops = {
 
     static  struct proc_dir_entry*
 _nk_proc_create (struct proc_dir_entry*  parent,
-		 const char*             name,
-	         struct file_operations* fops)
+                 const char*             name,
+                 struct file_operations* fops)
 {
     struct proc_dir_entry* file;
     file = create_proc_entry(name, (S_IFREG|S_IRUGO|S_IWUSR), parent);
     if (!file) {
-	printk("NK --error: create_proc_entry(%s) failed\n", name);
-	return NULL;
+        printk("NK --error: create_proc_entry(%s) failed\n", name);
+        return NULL;
     }
 
     file->proc_fops = fops;
@@ -1031,12 +1039,12 @@ _bank_create (DynGuest* dg, BankDesc* bd)
     return 1;
 }
 
+static nku32_f   all_banks_empty = -1; /* Maximum 32 OS's */
     static int
 _guests_init (int count, BankDesc* bd)
 {
     spin_lock_init((&glock));
 
-    nku32_f   all_banks_empty = -1; /* Maximum 32 OS's */
     int       count_tmp = count;
     BankDesc* bd_tmp    = bd;
 
@@ -1075,6 +1083,21 @@ _guests_init (int count, BankDesc* bd)
     return 1;
 }
 
+
+static int __init bank_setup(char* str)
+{
+    char*		res;
+    unsigned long	cnt;
+
+    cnt = simple_strtoul(str, &res, 0);
+    if (str != res) {
+	all_banks_empty = cnt;
+    }
+    return 1;
+}
+
+__setup("show-guest-banks=", bank_setup);
+
     static int
 _guests_proc_init (void)
 {
@@ -1097,7 +1120,7 @@ _guests_proc_init (void)
         dg->sfile  = _nk_proc_create(dg->dir, "status",  &_nksts_proc_fops);
 
         while (gb) {
-            gb->file = _nk_proc_create(dg->dir, gb->name, &_nkbank_proc_fops);            
+            gb->file = _nk_proc_create(dg->dir, gb->name, &_nkbank_proc_fops);
             gb = gb->next;
         }
 
@@ -1214,10 +1237,10 @@ _nkcontrol_module_exit (void)
     }
 
     if (nk) {
-	remove_proc_entry("restart", nk);
-	remove_proc_entry("stop",    nk);
-	remove_proc_entry("resume",  nk);
-	remove_proc_entry("focus",   nk);
+        remove_proc_entry("restart", nk);
+        remove_proc_entry("stop",    nk);
+        remove_proc_entry("resume",  nk);
+        remove_proc_entry("focus",   nk);
         _guests_release();
         remove_proc_entry("nk", NULL);
     }
