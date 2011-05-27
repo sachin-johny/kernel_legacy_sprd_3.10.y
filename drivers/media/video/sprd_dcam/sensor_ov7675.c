@@ -280,7 +280,8 @@ LOCAL uint32_t s_preview_mode;
     {0x79, 0x26},                                  
     {0x2d, 0x00},                                  
     {0x2e, 0x00}, 
-   
+    //wxz20110527: config the driver capabitlity to 1x.
+    {0x09, 0x00}
 };
 
  LOCAL const SENSOR_REG_T ov7675_YUV_MOTION_320X240[]=
