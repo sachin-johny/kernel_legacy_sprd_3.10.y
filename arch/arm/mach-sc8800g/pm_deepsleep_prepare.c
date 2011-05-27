@@ -959,6 +959,7 @@ static void adi_init(void)
 
 }
 
+#ifdef CONFIG_PM
 int prepare_deep_sleep(void)
 {
 	u32 val;
@@ -1219,6 +1220,7 @@ int prepare_deep_sleep(void)
 }
 
 EXPORT_SYMBOL(prepare_deep_sleep);
+#endif
 
 
 
@@ -1398,6 +1400,7 @@ static void map_restore(void)
     flush_pmd_entry(pmd_saved);
 }
 
+#ifdef CONFIG_PM
 void sc8800g_enter_deepsleep_internal(void)
 {
 	unsigned long flags;
@@ -1406,8 +1409,7 @@ void sc8800g_enter_deepsleep_internal(void)
 	hw_spin_unlock_irqrestore(&deepsleep_lock, flags);
 
 }
-
-
+#endif
 
 
 static int enable_mcu_sleep(void)
@@ -1780,6 +1782,7 @@ pm_resume:
     return ret;
 }
 EXPORT_SYMBOL(sc8800g_enter_deepsleep);
+#endif
 
 
 #ifdef CONFIG_NKERNEL
@@ -1816,6 +1819,7 @@ static void nkidle(void)
 
 #endif
 
+#ifdef CONFIG_PM
 #define DEEP_SLEEP_INTERVAL (HZ)
 
 static void deep_sleep_timeout(unsigned long data);
@@ -2007,4 +2011,5 @@ map_iram_identically();
     return 0;
 }
 EXPORT_SYMBOL(sc8800g_prepare_deep_sleep);
+#endif
 
