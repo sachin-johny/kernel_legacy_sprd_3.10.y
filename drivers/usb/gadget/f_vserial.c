@@ -54,11 +54,13 @@ struct vser_dev {
 	struct usb_ep *ep_out;
 
 	int online;
-	int error;
+	int rd_error;
+	int wr_error;
 
 	atomic_t read_excl;
 	atomic_t write_excl;
 	atomic_t open_excl;
+	int open_count;
 
 	struct list_head tx_idle;
 
@@ -204,7 +206,7 @@ static void vser_complete_in(struct usb_ep *ep, struct usb_request *req)
 	struct vser_dev *dev = _vser_dev;
 
 	if (req->status != 0)
-		dev->error = 1;
+		dev->wr_error = 1;
 
 	req_put(dev, &dev->tx_idle, req);
 
@@ -217,7 +219,7 @@ static void vser_complete_out(struct usb_ep *ep, struct usb_request *req)
 
 	dev->rx_done = 1;
 	if (req->status != 0)
-		dev->error = 1;
+		dev->rd_error = 1;
 
 	wake_up(&dev->read_wq);
 }
@@ -291,16 +293,16 @@ static ssize_t vser_read(struct file *fp, char __user *buf,
 		return -EBUSY;
 
 	/* we will block until we're online */
-	while (!(dev->online || dev->error)) {
+	while (!(dev->online || dev->rd_error)) {
 		DBG(cdev, "vser_read: waiting for online state\n");
 		ret = wait_event_interruptible(dev->read_wq,
-				(dev->online || dev->error));
+				(dev->online || dev->rd_error));
 		if (ret < 0) {
 			_unlock(&dev->read_excl);
 			return ret;
 		}
 	}
-	if (dev->error) {
+	if (dev->rd_error) {
 		r = -EIO;
 		goto done;
 	}
@@ -314,7 +316,7 @@ requeue_req:
 	if (ret < 0) {
 		DBG(cdev, "vser_read: failed to queue req %p (%d)\n", req, ret);
 		r = -EIO;
-		dev->error = 1;
+		dev->rd_error = 1;
 		goto done;
 	} else {
 		DBG(cdev, "rx %p queue\n", req);
@@ -323,17 +325,18 @@ requeue_req:
 	/* wait for a request to complete */
 	ret = wait_event_interruptible(dev->read_wq, dev->rx_done);
 	if (ret < 0) {
-		dev->error = 1;
+		dev->rd_error = 1;
 		r = ret;
 		goto done;
 	}
-	if (!dev->error) {
+	if (!dev->rd_error) {
 		/* If we got a 0-len packet, throw it back and try again. */
 		if (req->actual == 0)
 			goto requeue_req;
 
 		DBG(cdev, "rx %p %d\n", req, req->actual);
 		xfer = (req->actual < count) ? req->actual : count;
+		r = xfer;
 		if (copy_to_user(buf, req->buf, xfer))
 			r = -EFAULT;
 	} else
@@ -360,18 +363,18 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 		return -EBUSY;
 
 	/* we will block until we're online */
-	while (!(dev->online || dev->error)) {
+	while (!(dev->online || dev->wr_error)) {
 		DBG(cdev, "vser_write: waiting for online state\n");
 		ret = wait_event_interruptible(dev->write_wq,
-				(dev->online || dev->error));
+				(dev->online || dev->wr_error));
 		if (ret < 0) {
 			_unlock(&dev->write_excl);
 			return ret;
 		}
 	}
 	while (count > 0) {
-		if (dev->error) {
-			DBG(cdev, "vser_write dev->error\n");
+		if (dev->wr_error) {
+			DBG(cdev, "vser_write dev->wr_error\n");
 			r = -EIO;
 			break;
 		}
@@ -379,7 +382,7 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 		/* get an idle tx request to use */
 		req = 0;
 		ret = wait_event_interruptible(dev->write_wq,
-			((req = req_get(dev, &dev->tx_idle)) || dev->error));
+			((req = req_get(dev, &dev->tx_idle)) || dev->wr_error));
 
 		if (ret < 0) {
 			r = ret;
@@ -400,7 +403,7 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 			ret = usb_ep_queue(dev->ep_in, req, GFP_ATOMIC);
 			if (ret < 0) {
 				DBG(cdev, "vser_write: xfer error %d\n", ret);
-				dev->error = 1;
+				dev->wr_error = 1;
 				r = -EIO;
 				break;
 			}
@@ -423,22 +426,41 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 
 static int vser_open(struct inode *ip, struct file *fp)
 {
-	printk(KERN_INFO "vser_open\n");
+	struct vser_dev *dev = _vser_dev;
+
+	/*
 	if (_lock(&_vser_dev->open_excl))
 		return -EBUSY;
+	*/
+	spin_lock_irq(&dev->lock);
+	fp->private_data = dev;
 
-	fp->private_data = _vser_dev;
-
+	dev->open_count++;
+	if (dev->open_count > 2){
+		dev->open_count--;
+		pr_warning("too many user open vser\n");
+		spin_unlock_irq(&dev->lock);
+		return -EBUSY;
+	}
 	/* clear the error latch */
-	_vser_dev->error = 0;
+	dev->wr_error = 0;
+	dev->rd_error = 0;
 
+	spin_unlock_irq(&dev->lock);
+	printk(KERN_INFO "vser_open %d times\n", dev->open_count);
 	return 0;
 }
 
 static int vser_release(struct inode *ip, struct file *fp)
 {
-	printk(KERN_INFO "vser_release\n");
-	_unlock(&_vser_dev->open_excl);
+	struct vser_dev *dev = _vser_dev;
+
+	printk(KERN_INFO "vser_release %d\n", dev->open_count);
+
+	spin_lock_irq(&dev->lock);
+	dev->open_count--;
+	spin_unlock_irq(&dev->lock);
+	//_unlock(&_vser_dev->open_excl);
 	return 0;
 }
 
@@ -508,7 +530,8 @@ vser_function_unbind(struct usb_configuration *c, struct usb_function *f)
 		vser_request_free(req, dev->ep_in);
 
 	dev->online = 0;
-	dev->error = 1;
+	dev->wr_error = 1;
+	dev->rd_error = 1;
 	spin_unlock_irq(&dev->lock);
 
 	misc_deregister(&vser_device);
@@ -554,7 +577,8 @@ static void vser_function_disable(struct usb_function *f)
 
 	DBG(cdev, "vser_function_disable\n");
 	dev->online = 0;
-	dev->error = 1;
+	dev->wr_error = 1;
+	dev->rd_error = 1;
 	usb_ep_disable(dev->ep_in);
 	usb_ep_disable(dev->ep_out);
 
@@ -634,7 +658,8 @@ static int vser_bind_config(struct usb_configuration *c)
 
 	atomic_set(&dev->open_excl, 0);
 	atomic_set(&dev->read_excl, 0);
-	atomic_set(&dev->write_excl, 0);
+	atomic_set(&dev ->write_excl, 0);
+	dev->open_count = 0;
 
 	INIT_LIST_HEAD(&dev->tx_idle);
 
