@@ -310,9 +310,22 @@ static inline void vbc_ready2go(void)
 extern inline int vbc_amplifier_enabled(void);
 extern inline void vbc_amplifier_enable(int enable, const char *prename);
 static DEFINE_MUTEX(vbc_power_lock);
+static volatile int earpiece_muted = 1, headset_muted = 1, speaker_muted = 1;
+void vbc_write_callback(unsigned int reg, unsigned int val)
+{
+    if (reg == VBCR1) {
+       headset_muted  = !!(val & (1 << HP_DIS));
+       earpiece_muted = !!(val & (1 << BTL_MUTE));
+       printk("[headset_muted =%d]\n"
+              "[earpiece_muted=%d]\n"
+              "[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
+    }
+}
+
 void vbc_power_down(unsigned int value)
 {
     mutex_lock(&vbc_power_lock);
+    printk("audio %s\n", __func__);
     {
         int do_sb_power = 0;
         if ((vbc_reg_read(VBPMR1, SB_ADC, 1)
@@ -326,6 +339,11 @@ void vbc_power_down(unsigned int value)
             !vbc_reg_read(VBPMR1, SB_DAC, 1)) {
 
             msleep(100); // avoid quick switch from power on to off
+            /*
+            earpiece_muted= vbc_reg_read(VBCR1, BTL_MUTE, 1);
+            headset_muted = vbc_reg_read(VBCR1, HP_DIS, 1);
+            speaker_muted = vbc_amplifier_enabled();
+            */
             vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
             vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
             vbc_amplifier_enable(false, "vbc_power_down"); // Mute speaker
@@ -354,26 +372,25 @@ void vbc_power_down(unsigned int value)
         }
     }
     mutex_unlock(&vbc_power_lock);
-    printk("audio %s\n", __func__);
 }
 EXPORT_SYMBOL_GPL(vbc_power_down);
 
 void vbc_power_on(unsigned int value)
 {
     mutex_lock(&vbc_power_lock);
+    printk("audio %s\n", __func__);
     {
         if (value == SNDRV_PCM_STREAM_PLAYBACK/* &&
             vbc_reg_read(VBPMR1, SB_DAC, 1)*/) {
-            int forced = 1;
-            int earpiece_muted, headset_muted, speaker_muted;
+            int forced = 0;
 
             vbc_reg_VBPMR2_set(SB, 0); // Power on sb
             vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
 
             vbc_codec_mute();
-            earpiece_muted = vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
-            headset_muted = vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-            speaker_muted = vbc_amplifier_enabled(); // Mute speaker
+            /* earpiece_muted = */ vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
+            /* headset_muted =  */ vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
+            /* speaker_muted =  */ // vbc_amplifier_enabled(); // Mute speaker
             msleep(50);
 
             vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
@@ -389,6 +406,9 @@ void vbc_power_on(unsigned int value)
             vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
             msleep(100);
 
+            printk("[headset_muted =%d]\n"
+                   "[earpiece_muted=%d]\n"
+                   "[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
             vbc_codec_unmute();
             if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
@@ -403,7 +423,6 @@ void vbc_power_on(unsigned int value)
         }
     }
     mutex_unlock(&vbc_power_lock);
-    printk("audio %s\n", __func__);
 }
 EXPORT_SYMBOL_GPL(vbc_power_on);
 
@@ -549,6 +568,7 @@ static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int
     if (ret >=0) return ret;
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
     reg |= ARM_VB_BASE2;
+    vbc_write_callback(reg, val);
 #ifdef CONFIG_ARCH_SC8800S
     __raw_writel(val, reg);
 #elif defined(CONFIG_ARCH_SC8800G)
@@ -884,6 +904,10 @@ static inline int local_amplifier_enabled(void)
 inline void vbc_amplifier_enable(int enable, const char *prename)
 {
     printk("audio %s ==> trun %s PA\n", prename, enable ? "on":"off");
+    speaker_muted = !enable;
+    printk("[headset_muted =%d]\n"
+           "[earpiece_muted=%d]\n"
+           "[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
     local_amplifier_enable(enable);
 }
 EXPORT_SYMBOL_GPL(vbc_amplifier_enable);
