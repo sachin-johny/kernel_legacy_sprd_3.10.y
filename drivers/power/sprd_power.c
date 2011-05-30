@@ -55,6 +55,7 @@ struct sprd_battery_data {
     uint32_t precharge_start;
     uint32_t precharge_end;
     uint32_t over_voltage;
+    uint32_t over_current;
     uint32_t hw_switch_point;
     uint32_t charge_stop_point;
 
@@ -188,6 +189,7 @@ static struct device_attribute sprd_caliberate[]={
     SPRD_CALIBERATE_ATTR(precharge_start),
     SPRD_CALIBERATE_ATTR(precharge_end),
     SPRD_CALIBERATE_ATTR(over_voltage),
+    SPRD_CALIBERATE_ATTR(over_current),
     SPRD_CALIBERATE_ATTR(hw_switch_point),
     SPRD_CALIBERATE_ATTR(charge_stop_point),
     SPRD_CALIBERATE_ATTR(capacity_0),
@@ -201,6 +203,7 @@ static enum {
     PRECHARGE_START = 0,
     PRECHARGE_END,
     OVER_VOLTAGE,
+    OVER_CURRENT,
     HW_SWITCH_POINT,
     CHARGE_STOP_POINT,
     CAPACITY_0,
@@ -237,6 +240,9 @@ static ssize_t sprd_set_caliberate(struct device *dev,
         break;
     case OVER_VOLTAGE:
         battery_data->over_voltage = set_value;
+        break;
+    case OVER_CURRENT:
+        battery_data->over_current = set_value;
         break;
     case HW_SWITCH_POINT:
         battery_data->hw_switch_point = set_value;
@@ -291,6 +297,10 @@ static ssize_t sprd_show_caliberate(struct device *dev,
     case OVER_VOLTAGE:
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
                     battery_data->over_voltage);
+        break;
+    case OVER_CURRENT:
+        i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+                    battery_data->over_current);
         break;
     case HW_SWITCH_POINT:
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
@@ -386,6 +396,68 @@ static inline int ac_connected(void)
     return 0;
 }
 
+#define _BUF_SIZE 10
+uint32_t vchg_buf[_BUF_SIZE];
+uint32_t vprog_buf[_BUF_SIZE];
+uint32_t vbat_buf[_BUF_SIZE];
+void put_vchg_value(uint32_t vchg)
+{
+    int i;
+    for(i=0;i<_BUF_SIZE -1;i++){
+        vchg_buf[i] = vchg_buf[i+1];
+    }
+
+    vchg_buf[_BUF_SIZE-1] = vchg;
+}
+
+uint32_t get_vchg_value(void)
+{
+    unsigned long sum=0;
+    int i;
+    for(i=0; i < _BUF_SIZE; i++)
+      sum += vchg_buf[i];
+
+    return sum/_BUF_SIZE;
+}
+void put_vprog_value(uint32_t vprog)
+{
+    int i;
+    for(i=0;i<_BUF_SIZE -1;i++){
+        vprog_buf[i] = vprog_buf[i+1];
+    }
+
+    vprog_buf[_BUF_SIZE-1] = vprog;
+}
+
+uint32_t get_vprog_value(void)
+{
+    unsigned long sum=0;
+    int i;
+    for(i=0; i < _BUF_SIZE; i++)
+      sum += vprog_buf[i];
+
+    return sum/_BUF_SIZE;
+}
+void put_vbat_value(uint32_t vbat)
+{
+    int i;
+    for(i=0;i<_BUF_SIZE -1;i++){
+        vbat_buf[i] = vbat_buf[i+1];
+    }
+
+    vbat_buf[_BUF_SIZE-1] = vbat;
+}
+
+uint32_t get_vbat_value(void)
+{
+    unsigned long sum=0;
+    int i;
+    for(i=0; i < _BUF_SIZE; i++)
+      sum += vbat_buf[i];
+
+    return sum/_BUF_SIZE;
+}
+
 static CHG_SWITPOINT_E now_hw_switch_point;
 static bool charge_pluse = true;
 
@@ -412,9 +484,17 @@ static void battery_handler(unsigned long data)
     usb_online = battery_data->usb_online;
     ac_online = ac_connected();
     adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+    put_vbat_value(adc_value);
+    adc_value = get_vbat_value();
     DEBUG("vbat %d\n", adc_value);
+
     vprog_value = ADC_GetValue(ADC_CHANNEL_PROG, false);
+    put_vprog_value(vprog_value);
+    vprog_value = get_vprog_value();
     DEBUG("vprog %d\n", vprog_value);
+
+    put_vchg_value(vchg_value);
+    vchg_value = get_vchg_value();
     vchg_value = ADC_GetValue(ADC_CHANNEL_VCHG, false);
     DEBUG("vchg %d\n", vchg_value);
     voltage = CHGMNG_AdcvalueToVoltage(adc_value);
@@ -425,7 +505,7 @@ static void battery_handler(unsigned long data)
     capacity = CHGMNG_VoltageToPercentum(adc_value);
     DEBUG("capacity %d\n", capacity);
     DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
-    if(vchg_value > battery_data->over_voltage){
+    if(vchg_value > battery_data->over_voltage && vprog_value > battery_data->over_current){
     //if(vchg_value > CHARGE_OVER_VOLTAGE){
         printk("charger voltage too high\n");
         ac_online = 0;
@@ -544,6 +624,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
     data->charging = 0;
 
     data->over_voltage = CHARGE_OVER_VOLTAGE;
+    data->over_current= CHARGE_OVER_CURRENT;
     data->precharge_start = PREVRECHARGE;
     data->precharge_end = PREVCHGEND;
     data->hw_switch_point = CHGMNG_SWITCH_CV_VPROG;

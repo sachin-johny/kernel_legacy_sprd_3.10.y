@@ -126,7 +126,8 @@ extern   "C"
 #define CHARGER_CURRENT_2       2
 #define CHARGER_CURRENT_3       3
 
-#define CHARGE_OVER_VOLTAGE 330
+#define CHARGE_OVER_VOLTAGE 509
+#define CHARGE_OVER_CURRENT 200
 
 /**---------------------------------------------------------------------------*
  **                         Data Structures                                   *
