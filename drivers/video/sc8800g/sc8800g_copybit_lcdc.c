@@ -488,6 +488,42 @@ if(tag == 0) { /* TEMP */
 	tag = 0; /* TEMP */
 }
 
+static inline void blend32_all(struct s2d_blit_req * req)
+{
+	char *src; /* BGRA */
+	unsigned int *src_base; /* BGRA */
+	unsigned short *dst, *dst_base;
+	unsigned short r, g, b;
+	unsigned short tmpd;
+	int i, j;
+
+	src_base = (unsigned int*)GET_VA(req->src.base);
+	src_base += req->src_rect.y * req->src.width + req->src_rect.x;
+	dst_base = (unsigned short*)GET_VA_CACHED(req->dst.base);
+	dst_base += req->dst_rect.y * req->dst.width + req->dst_rect.x;
+
+	for (i = req->dst_rect.h; i!= 0; i--) {
+		dst = dst_base;
+		src = (unsigned char *)src_base;
+		for (j = req->dst_rect.w; j != 0; j--) {
+			tmpd = *dst;
+
+			r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)>>8;
+			g = (((src[2]>>2)- ((tmpd>>5)&0x3f)) * src[0] + 
+					((tmpd>>5)&0x3f)*255)>>8;
+			b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)>>8;
+
+			*dst = (r<<11|g<<5|b);
+
+			dst++;
+			src+=4;
+		}
+		dst_base += req->dst.width;
+		src_base += req->src.width;
+	}
+	CL_PRINT("blend32_all: dst@0x%x, src@0x%x, {%d,%d}\n", 
+		dst_base, src_base, req->dst_rect.w, req->dst_rect.h);
+}
 			
 /* the blend_xxx serial works for RGB565 to RGB565 with layer alpha */
 static inline void blend_left(struct s2d_blit_req * req)
@@ -620,11 +656,14 @@ int do_copybit_lcdc(struct s2d_blit_req * req)
 	if (ret == SOFTWARE_BLEND_ALL) {
 		/* software blend all */
 		CL_PRINT("========SOFTWARE_BLEND_ALL!!! \n");
-		blend_all(req);
-
+		if (req->src.format == S2D_BGRA_8888)
+			blend32_all(req);
+		else
+			blend_all(req);
 
 		return err;
 	}
+
 	if (ret != 0)
 		CL_PRINT("========Software Blend Needed (%d)!!! \n", ret);
 
