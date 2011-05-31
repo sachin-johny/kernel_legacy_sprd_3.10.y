@@ -328,6 +328,7 @@ void vbc_power_down(unsigned int value)
     printk("audio %s\n", __func__);
     {
         int do_sb_power = 0;
+        // int VBCGR1_value;
         if ((vbc_reg_read(VBPMR1, SB_ADC, 1)
              && (value == SNDRV_PCM_STREAM_PLAYBACK && !vbc_reg_read(VBPMR1, SB_DAC, 1))) ||
             (vbc_reg_read(VBPMR1, SB_DAC, 1)
@@ -337,7 +338,7 @@ void vbc_power_down(unsigned int value)
 
         if (value == SNDRV_PCM_STREAM_PLAYBACK &&
             !vbc_reg_read(VBPMR1, SB_DAC, 1)) {
-
+            // VBCGR1_value = vbc_reg_write(VBCGR1, 0, 0xff, 0xff); // DAC Gain
             msleep(100); // avoid quick switch from power on to off
             /*
             earpiece_muted= vbc_reg_read(VBCR1, BTL_MUTE, 1);
@@ -358,6 +359,8 @@ void vbc_power_down(unsigned int value)
             vbc_reg_VBPMR1_set(SB_DAC, 1); // Power down DAC
             vbc_reg_VBPMR1_set(SB_LOUT, 1);
             vbc_reg_VBPMR1_set(SB_MIX, 1);
+            // msleep(50);
+            // vbc_reg_write(VBCGR1, 0, VBCGR1_value, 0xff); // DAC Gain
         }
         if (value == SNDRV_PCM_STREAM_CAPTURE &&
             !vbc_reg_read(VBPMR1, SB_ADC, 1)) {
@@ -383,14 +386,16 @@ void vbc_power_on(unsigned int value)
         if (value == SNDRV_PCM_STREAM_PLAYBACK/* &&
             vbc_reg_read(VBPMR1, SB_DAC, 1)*/) {
             int forced = 0;
+            // int VBCGR1_value;
 
+            // VBCGR1_value = vbc_reg_write(VBCGR1, 0, 0xff, 0xff); // DAC Gain
             vbc_reg_VBPMR2_set(SB, 0); // Power on sb
             vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
 
             vbc_codec_mute();
             /* earpiece_muted = */ vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
             /* headset_muted =  */ vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-            /* speaker_muted =  */ // vbc_amplifier_enabled(); // Mute speaker
+            /* speaker_muted =  */ vbc_amplifier_enable(false, "vbc_power_on"); // Mute speaker
             msleep(50);
 
             vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
@@ -413,6 +418,7 @@ void vbc_power_on(unsigned int value)
             if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
             if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on"); // unMute speaker
+            // vbc_reg_write(VBCGR1, 0, VBCGR1_value, 0xff); // DAC Gain
         }
         if (value == SNDRV_PCM_STREAM_CAPTURE &&
             vbc_reg_read(VBPMR1, SB_ADC, 1)) {
@@ -614,7 +620,7 @@ void flush_vbc_cache(struct snd_pcm_substream *substream)
         start_cpu_dma(substream);
         /* must wait all dma cache chain filled by 0 data */
 //      lprintf("Filling all dma chain cache audio data to 0\n");
-        msleep(100);
+        msleep(20);
 //      lprintf("done!\n");
         stop_cpu_dma(substream);
         vbc_dma_stop(substream);
@@ -644,7 +650,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
     struct snd_soc_dai *dai)
 {
     printk("vbc_shutdown......\n");
-    vbc_power_down(substream->stream);
+    // vbc_power_down(substream->stream);
 #if 0
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
         vbc_amplifier_enable(false, "sprdphone_shutdown");
