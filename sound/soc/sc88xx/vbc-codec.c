@@ -414,14 +414,16 @@ void vbc_power_on(unsigned int value)
             vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
             msleep(100);
 
-            printk("[headset_muted =%d]\n"
-                   "[earpiece_muted=%d]\n"
-                   "[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
             vbc_codec_unmute();
             if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
             if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on"); // unMute speaker
             // vbc_reg_write(VBCGR1, 0, VBCGR1_value, 0xff); // DAC Gain
+            if (speaker_muted && forced) {
+                printk("[headset_muted =%d]\n"
+                       "[earpiece_muted=%d]\n"
+                       "[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
+            }
         }
         if (value == SNDRV_PCM_STREAM_CAPTURE &&
             vbc_reg_read(VBPMR1, SB_ADC, 1)) {
@@ -551,10 +553,10 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             return value;
         case VBC_CODEC_SPEAKER_PA:
             if (dir) {
-                speaker_muted = (value & 0x01) ? 0:1;
                 vbc_amplifier_enable(value & 0x01, "vbc_soft_ctrl");
             }
             value = vbc_amplifier_enabled();
+            speaker_muted = value ? 0:1;
             return value;
         default: return -1;
     }
