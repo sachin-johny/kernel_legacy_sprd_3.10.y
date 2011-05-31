@@ -336,8 +336,9 @@ void vbc_power_down(unsigned int value)
             do_sb_power = 1;
         }
 
-        if (value == SNDRV_PCM_STREAM_PLAYBACK &&
-            !vbc_reg_read(VBPMR1, SB_DAC, 1)) {
+        if ((value == -1) ||
+            (value == SNDRV_PCM_STREAM_PLAYBACK &&
+            !vbc_reg_read(VBPMR1, SB_DAC, 1))) {
             // VBCGR1_value = vbc_reg_write(VBCGR1, 0, 0xff, 0xff); // DAC Gain
             msleep(100); // avoid quick switch from power on to off
             /*
@@ -362,12 +363,14 @@ void vbc_power_down(unsigned int value)
             // msleep(50);
             // vbc_reg_write(VBCGR1, 0, VBCGR1_value, 0xff); // DAC Gain
         }
-        if (value == SNDRV_PCM_STREAM_CAPTURE &&
-            !vbc_reg_read(VBPMR1, SB_ADC, 1)) {
+        if ((value == -1) ||
+            (value == SNDRV_PCM_STREAM_CAPTURE &&
+            !vbc_reg_read(VBPMR1, SB_ADC, 1))) {
             vbc_reg_VBPMR1_set(SB_ADC, 1); // Power down ADC
             vbc_reg_VBCR1_set(SB_MICBIAS, 1); // power down mic
         }
-        if (do_sb_power)/* vbc_reg_read(VBPMR1, SB_ADC, 1) && vbc_reg_read(VBPMR1, SB_DAC, 1) */ {
+        if ((value == -1) ||
+            do_sb_power)/* vbc_reg_read(VBPMR1, SB_ADC, 1) && vbc_reg_read(VBPMR1, SB_DAC, 1) */ {
             vbc_reg_VBPMR2_set(SB_SLEEP, 1); // SB enter sleep mode
             vbc_reg_VBPMR2_set(SB, 1); // Power down sb
             msleep(100); // avoid quick switch from power off to on
@@ -475,7 +478,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
     msleep(1);
     vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
 #else
-    vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK);
+    // vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK);
 #endif
     vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
     vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
@@ -525,6 +528,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             // otherwise android media will not work [luther.ge]
             // if (val & (1 << VBC_CODEC_SOFT_RESET))
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
+            speaker_muted = true;
             vbc_amplifier_enable(false, "vbc_soft_ctrl");
             vbc_reset(codec);
             // vbc_reset(codec);
@@ -547,6 +551,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             return value;
         case VBC_CODEC_SPEAKER_PA:
             if (dir) {
+                speaker_muted = (value & 0x01) ? 0:1;
                 vbc_amplifier_enable(value & 0x01, "vbc_soft_ctrl");
             }
             value = vbc_amplifier_enabled();
@@ -910,7 +915,6 @@ static inline int local_amplifier_enabled(void)
 inline void vbc_amplifier_enable(int enable, const char *prename)
 {
     printk("audio %s ==> trun %s PA\n", prename, enable ? "on":"off");
-    speaker_muted = !enable;
     printk("[headset_muted =%d]\n"
            "[earpiece_muted=%d]\n"
            "[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
@@ -984,6 +988,10 @@ static int vbc_probe(struct platform_device *pdev)
 		goto pcm_err;
 
 	vbc_reset(codec);
+    vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
+    vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
+    vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
+    vbc_power_down(-1);
 #if 0
     /* vbc_reset() must be initialized twice, or the noise when playing audio */
     vbc_reset(codec);
@@ -1041,7 +1049,6 @@ EXPORT_SYMBOL_GPL(vbc_codec);
 static int vbc_init(void)
 {
     local_amplifier_init();
-    vbc_amplifier_enable(false, "vbc_init");
     return snd_soc_register_dais(vbc_dai, ARRAY_SIZE(vbc_dai));
 }
 
