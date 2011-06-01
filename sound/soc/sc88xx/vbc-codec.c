@@ -332,13 +332,15 @@ void vbc_power_down(unsigned int value)
         if ((vbc_reg_read(VBPMR1, SB_ADC, 1)
              && (value == SNDRV_PCM_STREAM_PLAYBACK && !vbc_reg_read(VBPMR1, SB_DAC, 1))) ||
             (vbc_reg_read(VBPMR1, SB_DAC, 1)
-             && (value == SNDRV_PCM_STREAM_CAPTURE && !vbc_reg_read(VBPMR1, SB_ADC, 1)))) {
+             && (value == SNDRV_PCM_STREAM_CAPTURE && !vbc_reg_read(VBPMR1, SB_ADC, 1))) ||
+            (vbc_reg_read(VBPMR1, SB_ADC, 1) && vbc_reg_read(VBPMR1, SB_DAC, 1))) {
             do_sb_power = 1;
         }
 
         if ((value == -1) ||
             (value == SNDRV_PCM_STREAM_PLAYBACK &&
-            !vbc_reg_read(VBPMR1, SB_DAC, 1))) {
+            (!vbc_reg_read(VBPMR1, SB_DAC, 1) ||
+            !earpiece_muted || !headset_muted || !speaker_muted))) {
             // VBCGR1_value = vbc_reg_write(VBCGR1, 0, 0xff, 0xff); // DAC Gain
             msleep(100); // avoid quick switch from power on to off
             /*
@@ -530,10 +532,13 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             // otherwise android media will not work [luther.ge]
             // if (val & (1 << VBC_CODEC_SOFT_RESET))
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
-            speaker_muted = true;
-            vbc_amplifier_enable(false, "vbc_soft_ctrl");
+            // speaker_muted = true;
             vbc_reset(codec);
+            vbc_power_down(-1);
             // vbc_reset(codec);
+            if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
+            if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
+            if (!speaker_muted) vbc_amplifier_enable(true, "vbc_soft_ctrl"); // unMute speaker
             return 0;
         case VBC_CODEC_POWER:
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
@@ -553,7 +558,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             return value;
         case VBC_CODEC_SPEAKER_PA:
             if (dir) {
-                vbc_amplifier_enable(value & 0x01, "vbc_soft_ctrl");
+                vbc_amplifier_enable(value & 0x01, "vbc_soft_ctrl2");
             }
             value = vbc_amplifier_enabled();
             speaker_muted = value ? 0:1;
