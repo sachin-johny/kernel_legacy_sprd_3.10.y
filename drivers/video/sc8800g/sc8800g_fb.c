@@ -123,6 +123,7 @@ struct sc8800fb_info {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
+	uint32_t state; /* fb state: 1-up, 0-down */
 };
 
 static int32_t lcm_send_cmd (uint32_t cmd)
@@ -373,6 +374,20 @@ static void real_refresh(void *para)
 
 static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
+	struct sc8800fb_info *sc8800fb = info->par;
+
+	preempt_disable();
+	/* resume before any refresh */
+	if (!sc8800fb->state ) {
+		printk("--------REFRESH Before RESUME---------\n");
+		sc8800fb->state = 1;
+		preempt_enable();
+		if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
+			sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
+		}
+	}
+	preempt_enable();
+
 	rrm_refresh(LID_OSD1, NULL, info);
 
 	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
@@ -380,8 +395,8 @@ static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	FB_PRINT("@fool2[%s] LCDC_LCM_START: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCM_START));
 	FB_PRINT("@fool2[%s] LCDC_LCM_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCM_SIZE));
 	FB_PRINT("@fool2[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_BG_COLOR));
-	
-    FB_PRINT("@fool2[%s] LCDC_OSD1_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_CTRL));
+
+	FB_PRINT("@fool2[%s] LCDC_OSD1_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_CTRL));
 	FB_PRINT("@fool2[%s] LCDC_OSD1_BASE_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_BASE_ADDR));
 	FB_PRINT("@fool2[%s] LCDC_OSD1_ALPHA_BASE_ADDR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_ALPHA_BASE_ADDR));
 	FB_PRINT("@fool2[%s] LCDC_OSD1_SIZE_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_SIZE_XY));
@@ -396,7 +411,7 @@ static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	FB_PRINT("@fool2[%s] LCM_PARAMETER1: 0x%x\n", __FUNCTION__, __raw_readl(LCM_PARAMETER1));
 	FB_PRINT("@fool2[%s] LCM_IFMODE: 0x%x\n", __FUNCTION__, __raw_readl(LCM_IFMODE));
 	FB_PRINT("@fool2[%s] LCM_RGBMODE: 0x%x\n", __FUNCTION__, __raw_readl(LCM_RGBMODE));
-    return 0;
+	return 0;
 }
 
 static struct fb_ops sc8800fb_ops = {
@@ -926,6 +941,7 @@ static void setup_rrm_test(struct fb_info *fb)
 static void sc8800fb_early_suspend (struct early_suspend* es)
 {
 	struct sc8800fb_info *sc8800fb = container_of(es, struct sc8800fb_info, early_suspend);
+	sc8800fb->state = 0; /* we are down */
 	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,1);
 	}
@@ -935,6 +951,14 @@ static void sc8800fb_early_suspend (struct early_suspend* es)
 static void sc8800fb_early_resume (struct early_suspend* es)
 {
 	struct sc8800fb_info *sc8800fb = container_of(es, struct sc8800fb_info, early_suspend);
+	preempt_disable();
+	if (sc8800fb->state) { /* to avoid multiple resumes */
+		preempt_enable();
+		return;
+	} else {
+		sc8800fb->state = 1; /* we are up */
+		preempt_enable();
+	}
 	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
 	}
@@ -984,6 +1008,8 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	hw_init(sc8800fb);
 
 	copybit_lcdc_init(); /* TEMP */
+
+	sc8800fb->state = 1; /* up, ok to work */
 
 	/* FIXME: put the BL stuff to where it belongs. */
 	set_backlight(50);
