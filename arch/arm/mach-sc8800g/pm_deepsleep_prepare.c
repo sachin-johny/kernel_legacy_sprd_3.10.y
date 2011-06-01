@@ -17,7 +17,7 @@ bt(gpio_42, gpio_90),  BCxxxx
 gps(allen) , /system/lib/libgsd4t.so, on/off <--> uart2.rxd,
 
 
-fm(aijun, 2011-05-24),
+fm(aijun, 2011-05-24),  -20mA(2011-05-31)
 
 
 ldo control,
@@ -143,9 +143,9 @@ u32 fiq_sts = 0;
 struct timespec now_ts_pm;
 
 
-/*
+
 #define SPRD_PM_MESSAGE 1
-*/
+
 #define MESSAGE_MAX 2048
 
 struct pm_message_sc8800g2 {
@@ -315,7 +315,7 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 #define AHB_CTL0_MASK   (AHB_CTL0_DCAM_EN|AHB_CTL0_CCIR_EN|AHB_CTL0_LCDC_EN|    \
                          AHB_CTL0_SDIO_EN|AHB_CTL0_DMA_EN|     \
                          AHB_CTL0_BM0_EN |AHB_CTL0_NFC_EN|AHB_CTL0_BM1_EN|       \
-                         AHB_CTL0_VSP_EN|AHB_CTL0_ROT_EN)
+                         AHB_CTL0_VSP_EN|AHB_CTL0_ROT_EN | AHB_CTL0_USBD_EN)
 
 #define GR_CLK_EN_MASK CLK_EN_MASK
 #define GR_GEN0_MASK GEN0_MASK
@@ -1490,7 +1490,7 @@ static int print_thread(void *pdata)
 	getnstimeofday(&now_ts_pm);
 	printk("##: getnstimeofday() = %lld.\n", timespec_to_ns(&now_ts_pm));
 */
- 	//print_pm_message();
+ 	print_pm_message();
 	printk("##: show clock info:\n");
 	sc8800g_get_clock_status();
 	
@@ -1506,6 +1506,7 @@ static int print_thread(void *pdata)
 		__raw_writel(0x0, SPRD_GPIO_BASE + GPIO_IE + 0x80 * i);
 	}
 	*/
+	
 
 	    if (has_wake_lock_info(WAKE_LOCK_SUSPEND)) {
 			printk("##: Some locks are being holded.\n");
@@ -1581,14 +1582,17 @@ int supsend_ldo_turnoff(void)
     ANA_REG_SET(ANA_LDO_PD_SET, 
 		BIT_5 | BIT_9);
 */
+
 	val = ANA_REG_GET(ANA_LDO_SLP);
 	if ( val != 0xa7fb) {
 		printk("##: ANA_LDO_SLP: wrong vaule[%08x].\n", val);
 	}
 
     ANA_REG_SET(ANA_LDO_PD_CTL, 
-		BIT_0 | BIT_2 | BIT_6 | BIT_8 | BIT_10 | BIT_12 | BIT_14);
+		(BIT_0 | BIT_2 | BIT_6 | BIT_8 | BIT_10 | BIT_12 | BIT_14) & ~BIT_1 );
 
+	val = ANA_REG_GET(ANA_LDO_PD_CTL);
+	if ((val & 0x03) != 0x01) printk("##: USB LDO was wrong!\n");
 	return 0;
 }
 
@@ -1598,6 +1602,28 @@ int supsend_ldo_turnon(void)
 	return 0;
 }
 
+void gpio_for_suespend(void);
+
+int supsend_gpio_save(void)
+{
+	u32 val = 0;
+	gpio_for_suespend();
+	val = __raw_readl(SPRD_GPIO_BASE);
+	//if (val & BIT_2) printk("GPI_2 is set!\n");
+
+	/* GPIO 101*/
+	val = __raw_readl(SPRD_GPIO_BASE + 0x0300);
+	//if (val & BIT_5) printk("GPI_101 is set!\n");
+
+
+	return 0;
+}
+
+int supsend_gpio_restore(void)
+{
+
+	return 0;
+}
 
 struct workqueue_struct *deep_sleep_work_queue;
 static void deep_sleep_suspend(struct work_struct *work);
@@ -1624,7 +1650,6 @@ int sc8800g_enter_deepsleep(int inidle)
 
     REG_LOCAL_VALUE_DEF;
 
-    sleep_counter++;
 
 /*
 	if (sprd_pm_suspend()) {
@@ -1704,8 +1729,11 @@ int sc8800g_enter_deepsleep(int inidle)
 	sc8800g_restore_pll();
     }
     else {
+	sleep_counter++;
 	//__raw_writel(0, TIMER1_CONTROL);
+
 	supsend_ldo_turnoff();
+	supsend_gpio_save();
 
 	add_pm_message(get_sys_cnt(), "deepsleep_enter: inidle = ", inidle, 0, 0);
 /*
@@ -1720,23 +1748,12 @@ int sc8800g_enter_deepsleep(int inidle)
         disable_apb_module();
         disable_ahb_module();
 
-/* 
-        add_pm_message("AHB_CTL0", __raw_readl(AHB_CTL0));
-        add_pm_message("AHB_CTL1", __raw_readl(AHB_CTL1));
-        add_pm_message("AHB_PAUSE", __raw_readl(AHB_PAUSE));
-        add_pm_message("GR_GEN0", __raw_readl(GR_GEN0));
-        add_pm_message("GR_PCTL", __raw_readl(GR_PCTL));
-        add_pm_message("GR_BUSCLK", __raw_readl(GR_BUSCLK));
-        add_pm_message("GR_POWCTL0", __raw_readl(GR_POWCTL0));
-        add_pm_message("GR_POWCTL1", __raw_readl(GR_POWCTL1));
-        add_pm_message("GR_CLK_EN", __raw_readl(GR_CLK_EN));
-        add_pm_message("ANA_ANA_CTL0", ANA_REG_GET(ANA_ANA_CTL0));
-        add_pm_message("ANA_LDO_SLP", ANA_REG_GET(ANA_LDO_SLP));
-*/
 
 	gr_stc_state = __raw_readl(GR_STC_STATE);
 	ahb_sts = __raw_readl(AHB_STS);
 	gr_clk_dly = __raw_readl(GR_CLK_DLY);
+
+
 	dma_sts = __raw_readl(DMA_TRANS_STS);
 	irq_sts = __raw_readl(INT_IRQ_STS);
 	fiq_sts = __raw_readl(INT_FIQ_STS);
@@ -1753,6 +1770,24 @@ int sc8800g_enter_deepsleep(int inidle)
 	//queue_work(deep_sleep_work_queue, &deep_sleep_wrok);
 
 
+        add_pm_message(get_sys_cnt(), "AHB_CTL0", __raw_readl(AHB_CTL0), 0, 0);
+        add_pm_message(get_sys_cnt(), "AHB_CTL1", __raw_readl(AHB_CTL1), 0, 0);
+        add_pm_message(get_sys_cnt(), "AHB_PAUSE", __raw_readl(AHB_PAUSE), 0, 0);
+        add_pm_message(get_sys_cnt(), "GR_GEN0", __raw_readl(GR_GEN0), 0, 0);
+        add_pm_message(get_sys_cnt(), "GR_PCTL", __raw_readl(GR_PCTL), 0, 0);
+        add_pm_message(get_sys_cnt(), "GR_BUSCLK", __raw_readl(GR_BUSCLK), 0, 0);
+        add_pm_message(get_sys_cnt(), "GR_POWCTL0", __raw_readl(GR_POWCTL0), 0, 0);
+        add_pm_message(get_sys_cnt(), "GR_POWCTL1", __raw_readl(GR_POWCTL1), 0, 0);
+        add_pm_message(get_sys_cnt(), "GR_CLK_EN", __raw_readl(GR_CLK_EN), 0, 0);
+        add_pm_message(get_sys_cnt(), "ANA_ANA_CTL0", ANA_REG_GET(ANA_ANA_CTL0), 0, 0);
+        add_pm_message(get_sys_cnt(), "ANA_LDO_SLP", ANA_REG_GET(ANA_LDO_SLP), 0, 0);
+        add_pm_message(get_sys_cnt(), "ANA_LDO_PD_SET", ANA_REG_GET(ANA_LDO_PD_SET), 0, 0);
+        add_pm_message(get_sys_cnt(), "ANA_LDO_PD_CTL", ANA_REG_GET(ANA_LDO_PD_CTL), 0, 0);
+        add_pm_message(get_sys_cnt(), "ANA_PLLWAIT", ANA_REG_GET(ANA_PLLWAIT), 0, 0);
+        add_pm_message(get_sys_cnt(), "ANA_LDO_PD_RST", ANA_REG_GET(ANA_LDO_PD_RST), 0, 0);
+        add_pm_message(get_sys_cnt(), "ANA_DCDC_CTRL_DS", ANA_REG_GET(ANA_DCDC_CTRL_DS), 0, 0);
+
+
         t0 = get_sys_cnt();
         //enable_mcu_sleep();
        ret = sc8800g_cpu_standby_prefetch();
@@ -1762,6 +1797,7 @@ int sc8800g_enter_deepsleep(int inidle)
         sleep_time += delta;
         udelay(20);
 	supsend_ldo_turnon();
+	supsend_gpio_restore();
 
 	if (ret) {
 		printk("##: bad return value.\n");
