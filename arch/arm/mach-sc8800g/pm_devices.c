@@ -12,7 +12,7 @@ int suspend_status = SUSPEND_NONE;
 long has_wake_lock_for_suspend(int type);
 
 
-void register_sprd_pm_suspend(struct sprd_pm_suspend *handler)
+void register_sprd_pm_suspend_func(struct sprd_pm_suspend *handler)
 {
 	struct list_head *pos;
 
@@ -26,15 +26,13 @@ void register_sprd_pm_suspend(struct sprd_pm_suspend *handler)
 	list_add_tail(&handler->link, pos);
 	mutex_unlock(&sprd_pm_suspend_lock);
 }
-EXPORT_SYMBOL(register_sprd_pm_suspend);
 
-void unregister_sprd_pm_suspend(struct sprd_pm_suspend *handler)
+void unregister_sprd_pm_suspend_func(struct sprd_pm_suspend *handler)
 {
 	mutex_lock(&sprd_pm_suspend_lock);
 	list_del(&handler->link);
 	mutex_unlock(&sprd_pm_suspend_lock);
 }
-EXPORT_SYMBOL(unregister_sprd_pm_suspend);
 
 int sprd_pm_suspend(void)
 {

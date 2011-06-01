@@ -28,10 +28,26 @@ struct sprd_pm_suspend {
 	struct device *pdev;
 	int (*suspend)(struct device *pdev, pm_message_t state);
 	int (*resume)(struct device *pdev);
+	/* for debugging. */
+	char *file;
+	int line;
+	
 };
 
-extern void register_sprd_pm_suspend(struct sprd_pm_suspend *handler);
-extern void unregister_sprd_pm_suspend(struct sprd_pm_suspend *handler);
+
+#define register_sprd_pm_suspend(handler)	do {		\
+		struct sprd_pm_suspend *h = handler;	\
+		h->file = __FILE__;		\
+		h->line = __LINE__;	\
+		register_sprd_pm_suspend_func(h);     \
+} while (0)
+
+#define unregister_sprd_pm_suspend(handler)	do {		\
+		unregister_sprd_pm_suspend_func(handler);     \
+} while (0)
+
+extern void register_sprd_pm_suspend_func(struct sprd_pm_suspend *handler);
+extern void unregister_sprd_pm_suspend_func(struct sprd_pm_suspend *handler);
 extern int sprd_pm_suspend_canceled(void);
 
 #endif
