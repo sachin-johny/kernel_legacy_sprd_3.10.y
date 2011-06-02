@@ -29,6 +29,17 @@ ctp -- mtp(ok),
 proximity(ok),
  */
 
+/**
+1. wifi, bt;
+2. fm;
+3. dsp, enable deep sleep in nvitem.
+
+
+4. gps ?????
+5. m-sensor, g-sensor; for now, disable them.
+6. audio PA. GPIO96, low.
+
+*/
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -145,6 +156,9 @@ struct timespec now_ts_pm;
 
 
 #define SPRD_PM_MESSAGE 1
+/*
+#define CHECK_DSP_SLEEP_STATUS 1
+*/
 
 #define MESSAGE_MAX 2048
 
@@ -390,6 +404,49 @@ out:
 	return;
 }
 
+
+
+static int is_dsp_sleep(void)
+{
+	u32 val;
+	int ret_val = 0;
+
+	/*
+	printk("####: check register: GR_STC_STATE for DSP\n");
+	*/
+	val = __raw_readl(GR_STC_STATE);
+	/*
+	printk("######: GR_STC_STATE =%08x\n", val);
+	*/
+	if (GR_DSP_STOP & val) {
+		/*
+		printk("#####: GR_STC_STATE[DSP_STOP] is set!\n");
+		*/
+	}
+	else {
+		//printk("#####: GR_STC_STATE[DSP_STOP] is NOT set!\n");
+		ret_val = -1;
+	}
+#if 0
+	/*
+	printk("####: check register: GR_CLK_DLY for DSP\n");
+	*/
+	val = __raw_readl(GR_CLK_DLY);
+	/*
+	printk("######: GR_CLK_DLY =%08x\n", val);
+	*/
+	if (DSP_DEEP_STOP & val) {
+		//printk("#####: GR_CLK_DLY[DSP_DEEP_STOP] is set!\n");
+	}
+	else {
+		//printk("#####: GR_CLK_DLY[DSP_DEEP_STOP] is NOT set!\n");
+		ret_val = -2;
+	}
+#endif
+	return ret_val;
+}
+
+
 static int verify_dsp_deep_sleep(void)
 {
 	u32 val;
@@ -620,6 +677,8 @@ static int verify_ahb_sts(void)
 
 	return ret_val;
 }
+
+
 
 
 
@@ -1441,6 +1500,13 @@ static int print_thread(void *pdata)
 	add_pm_message(get_sys_cnt(), "************* print_thread start. *************", 0, 0, 0); 
 	stop_pm_message();
 
+#ifdef CHECK_DSP_SLEEP_STATUS	
+	u32 start_time;
+	u32 stop_time;
+	int dsp_status;
+	u32 checking_counter = 0;
+#endif
+
            uptime = get_sys_cnt();
 /*
 	printk("###: c1 = %08x.\n", sc8800g_read_cp15_c1());
@@ -1490,7 +1556,7 @@ static int print_thread(void *pdata)
 	getnstimeofday(&now_ts_pm);
 	printk("##: getnstimeofday() = %lld.\n", timespec_to_ns(&now_ts_pm));
 */
- 	print_pm_message();
+ 	//print_pm_message();
 	printk("##: show clock info:\n");
 	sc8800g_get_clock_status();
 	
@@ -1498,6 +1564,33 @@ static int print_thread(void *pdata)
 	verify_dsp_deep_sleep_by_value(gr_stc_state);
 	verify_ahb_sts_by_value(ahb_sts);
 */
+
+#ifdef CHECK_DSP_SLEEP_STATUS	
+
+	/* chcecking DSP. */
+
+	if (sleep_counter > 100) {
+		start_time = get_sys_cnt();
+		stop_time = get_sys_cnt();
+		while((stop_time - start_time) < (1000 * 60 * 1)) {
+			checking_counter++;
+			val = __raw_readl(GR_STC_STATE);
+			printk("##: checking DSP status[%d] GR_STC_STATE = %08x\n", 
+					checking_counter, val);
+			dsp_status = is_dsp_sleep();
+			if (0 == dsp_status) {
+				printk("##: DSP is in sleep status.\n");
+				printk("##: DSP is in sleep status.\n");
+				printk("##: DSP is in sleep status.\n");
+				printk("##: DSP is in sleep status.\n");
+				break;
+			}
+			udelay(300);
+			stop_time = get_sys_cnt();
+		}
+	}
+
+#endif
 	/* detect GPIO. */
 	/*
 	for (i = 0; i < 10; i++) {
@@ -1593,6 +1686,12 @@ int supsend_ldo_turnoff(void)
 
 	val = ANA_REG_GET(ANA_LDO_PD_CTL);
 	if ((val & 0x03) != 0x01) printk("##: USB LDO was wrong!\n");
+
+	val = ANA_REG_GET(ANA_ANA_CTL0);
+	if (!(val & FSM_AFCPD_EN)) printk("##: FSM_AFCPD_EN was not enabled!\n");
+
+	is_dsp_sleep();
+
 	return 0;
 }
 
@@ -1613,8 +1712,10 @@ int supsend_gpio_save(void)
 
 	/* GPIO 101*/
 	val = __raw_readl(SPRD_GPIO_BASE + 0x0300);
-	//if (val & BIT_5) printk("GPI_101 is set!\n");
+	val &= ~BIT_0;
+	__raw_writel(val, SPRD_GPIO_BASE + 0x0300);
 
+	//if (val & BIT_5) printk("GPI_101 is set!\n");
 
 	return 0;
 }
@@ -1748,11 +1849,11 @@ int sc8800g_enter_deepsleep(int inidle)
         disable_apb_module();
         disable_ahb_module();
 
-
+/*
 	gr_stc_state = __raw_readl(GR_STC_STATE);
 	ahb_sts = __raw_readl(AHB_STS);
 	gr_clk_dly = __raw_readl(GR_CLK_DLY);
-
+*/
 
 	dma_sts = __raw_readl(DMA_TRANS_STS);
 	irq_sts = __raw_readl(INT_IRQ_STS);
@@ -1769,7 +1870,7 @@ int sc8800g_enter_deepsleep(int inidle)
 
 	//queue_work(deep_sleep_work_queue, &deep_sleep_wrok);
 
-
+/*
         add_pm_message(get_sys_cnt(), "AHB_CTL0", __raw_readl(AHB_CTL0), 0, 0);
         add_pm_message(get_sys_cnt(), "AHB_CTL1", __raw_readl(AHB_CTL1), 0, 0);
         add_pm_message(get_sys_cnt(), "AHB_PAUSE", __raw_readl(AHB_PAUSE), 0, 0);
@@ -1786,7 +1887,7 @@ int sc8800g_enter_deepsleep(int inidle)
         add_pm_message(get_sys_cnt(), "ANA_PLLWAIT", ANA_REG_GET(ANA_PLLWAIT), 0, 0);
         add_pm_message(get_sys_cnt(), "ANA_LDO_PD_RST", ANA_REG_GET(ANA_LDO_PD_RST), 0, 0);
         add_pm_message(get_sys_cnt(), "ANA_DCDC_CTRL_DS", ANA_REG_GET(ANA_DCDC_CTRL_DS), 0, 0);
-
+*/
 
         t0 = get_sys_cnt();
         //enable_mcu_sleep();
@@ -1856,6 +1957,7 @@ static void nkidle(void)
 	add_pm_message(get_sys_cnt(), "nkidle: 1111--enter.", 0, 0, 0);
 
 	if (!need_resched()) {
+restart:
 		hw_local_irq_disable();
 		if (!raw_local_irq_pending()) {
 			val = os_ctx->idle(os_ctx);
@@ -1878,6 +1980,11 @@ static void nkidle(void)
 	}
 	local_irq_enable();
 	add_pm_message(get_sys_cnt(), "nkidle: 1111--leave.", 0, 0, 0);
+/*	
+	if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND)) {
+		goto restart;
+	}
+*/
 }
 
 #endif
