@@ -69,10 +69,11 @@ extern   "C"
 #define CHGMNG_VOLTAGE_40          CHG_VOLTAGE_3V6//718        // 3.7V
 // When higher than this, the capacity that report to client is 20%
 // and notify client that need charge.
-#define CHGMNG_VOLTAGE_20          CHGMNG_VOLTAGE_WARNING
+#define CHGMNG_VOLTAGE_20          CHG_VOLTAGE_3V4
+#define CHGMNG_VOLTAGE_10          CHG_VOLTAGE_3V2
 // When higher than this, the capacity that report to client is 0%
 // and notify client that need power off.
-#define CHGMNG_VOLTAGE_0           CHGMNG_VOLTAGE_SHUTDOWN
+#define CHGMNG_VOLTAGE_0           CHG_VOLTAGE_3V1
 
 #define CHARGER_NORMAL_TYPE    0
 #define CHARGER_NK_TYPE        1

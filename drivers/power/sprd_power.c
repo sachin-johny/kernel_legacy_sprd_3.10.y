@@ -193,6 +193,7 @@ static struct device_attribute sprd_caliberate[]={
     SPRD_CALIBERATE_ATTR(hw_switch_point),
     SPRD_CALIBERATE_ATTR(charge_stop_point),
     SPRD_CALIBERATE_ATTR(capacity_0),
+    SPRD_CALIBERATE_ATTR(capacity_10),
     SPRD_CALIBERATE_ATTR(capacity_20),
     SPRD_CALIBERATE_ATTR(capacity_40),
     SPRD_CALIBERATE_ATTR(capacity_60),
@@ -207,6 +208,7 @@ static enum {
     HW_SWITCH_POINT,
     CHARGE_STOP_POINT,
     CAPACITY_0,
+    CAPACITY_10,
     CAPACITY_20,
     CAPACITY_40,
     CAPACITY_60,
@@ -253,20 +255,23 @@ static ssize_t sprd_set_caliberate(struct device *dev,
     case CAPACITY_0:
         voltage_capacity_table[0] = set_value;
         break;
-    case CAPACITY_20:
+    case CAPACITY_10:
         voltage_capacity_table[2] = set_value;
         break;
-    case CAPACITY_40:
+    case CAPACITY_20:
         voltage_capacity_table[4] = set_value;
         break;
-    case CAPACITY_60:
+    case CAPACITY_40:
         voltage_capacity_table[6] = set_value;
         break;
-    case CAPACITY_80:
+    case CAPACITY_60:
         voltage_capacity_table[8] = set_value;
         break;
-    case CAPACITY_100:
+    case CAPACITY_80:
         voltage_capacity_table[10] = set_value;
+        break;
+    case CAPACITY_100:
+        voltage_capacity_table[12] = set_value;
         break;
     default:
         count = -EINVAL;
@@ -314,25 +319,29 @@ static ssize_t sprd_show_caliberate(struct device *dev,
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
                     voltage_capacity_table[0]);
         break;
-    case CAPACITY_20:
+    case CAPACITY_10:
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
                     voltage_capacity_table[2]);
         break;
-    case CAPACITY_40:
+    case CAPACITY_20:
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
                     voltage_capacity_table[4]);
         break;
-    case CAPACITY_60:
+    case CAPACITY_40:
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
                     voltage_capacity_table[6]);
         break;
-    case CAPACITY_80:
+    case CAPACITY_60:
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
                     voltage_capacity_table[8]);
         break;
-    case CAPACITY_100:
+    case CAPACITY_80:
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
                     voltage_capacity_table[10]);
+        break;
+    case CAPACITY_100:
+        i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+                    voltage_capacity_table[12]);
         break;
     default:
         i = -EINVAL;

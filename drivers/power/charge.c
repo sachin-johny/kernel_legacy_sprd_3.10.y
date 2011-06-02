@@ -77,6 +77,8 @@ uint16_t voltage_capacity_table[16] =
 {
     0,
     0,
+    CHGMNG_VOLTAGE_10,
+    10,
     CHGMNG_VOLTAGE_20,
     20,
     CHGMNG_VOLTAGE_40,
@@ -87,8 +89,6 @@ uint16_t voltage_capacity_table[16] =
     80,
     CHGMNG_VOLTAGE_100,
     100,
-    0xffff,
-    0xffff,
     0xffff,
     0xffff
 };
@@ -262,13 +262,13 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage)
     /*---------------------V2--------------------------V4-------------------------V6-------------------------V8-------------------------V10--------------------*/
 
     static uint32_t percentum = 0;
-    uint16_t sl2,s24,s46,s68,s80,sg10;
+    uint16_t s12,s24,s46,s68,s80,sg10;
 
-    sl2 = 0;
-    s24 = (3<= (voltage_capacity_table[4]-voltage_capacity_table[2])) ? ( (voltage_capacity_table[4]-voltage_capacity_table[2]) /3) :0;
-    s46 = (3<= (voltage_capacity_table[6]-voltage_capacity_table[4])) ? ( (voltage_capacity_table[6]-voltage_capacity_table[4]) /3) :0;
-    s68 = (3<= (voltage_capacity_table[8]-voltage_capacity_table[6])) ? ( (voltage_capacity_table[8]-voltage_capacity_table[6]) /3) :0;
-    s80 = (3<= (voltage_capacity_table[10]-voltage_capacity_table[8])) ? ( (voltage_capacity_table[10]-voltage_capacity_table[8]) /3) :0;
+    s12 = (3<= (voltage_capacity_table[4]-voltage_capacity_table[2])) ? ( (voltage_capacity_table[4]-voltage_capacity_table[2]) /3) :0;
+    s24 = (3<= (voltage_capacity_table[6]-voltage_capacity_table[4])) ? ( (voltage_capacity_table[6]-voltage_capacity_table[4]) /3) :0;
+    s46 = (3<= (voltage_capacity_table[8]-voltage_capacity_table[6])) ? ( (voltage_capacity_table[8]-voltage_capacity_table[6]) /3) :0;
+    s68 = (3<= (voltage_capacity_table[10]-voltage_capacity_table[8])) ? ( (voltage_capacity_table[10]-voltage_capacity_table[8]) /3) :0;
+    s80 = (3<= (voltage_capacity_table[12]-voltage_capacity_table[10])) ? ( (voltage_capacity_table[12]-voltage_capacity_table[10]) /3) :0;
     sg10 = 0;
 
     put_vol_value(voltage);
@@ -277,35 +277,40 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage)
     if (
         (
             ! (
-                ( (voltage <voltage_capacity_table[10]+sg10) && (voltage >voltage_capacity_table[10]-s80))
-                || ( (voltage <voltage_capacity_table[8]+s80) && (voltage >voltage_capacity_table[8]-s68))
-                || ( (voltage <voltage_capacity_table[6]+s68) && (voltage >voltage_capacity_table[6]-s46))
-                || ( (voltage <voltage_capacity_table[4]+s46) && (voltage >voltage_capacity_table[4]-s24))
-                || ( (voltage <voltage_capacity_table[2]+s24) && (voltage >voltage_capacity_table[2]-sl2))
+                ( (voltage <voltage_capacity_table[12]+sg10) && (voltage >voltage_capacity_table[12]-s80))
+                || ( (voltage <voltage_capacity_table[10]+s80) && (voltage >voltage_capacity_table[10]-s68))
+                || ( (voltage <voltage_capacity_table[8]+s68) && (voltage >voltage_capacity_table[8]-s46))
+                || ( (voltage <voltage_capacity_table[6]+s46) && (voltage >voltage_capacity_table[6]-s24))
+                || ( (voltage <voltage_capacity_table[4]+s24) && (voltage >voltage_capacity_table[4]-s12))
+                || ( (voltage <voltage_capacity_table[2]+s12) && (voltage >voltage_capacity_table[2]-s12))
             )
         )
         || (0 == percentum)   //&& 0
     )
     {
-        if (voltage >= voltage_capacity_table[10])
+        if (voltage >= voltage_capacity_table[12])
         {
             percentum = 100;
         }
-        else if (voltage >= voltage_capacity_table[8])
+        else if (voltage >= voltage_capacity_table[10])
         {
             percentum = 80;
         }
-        else if (voltage >= voltage_capacity_table[6])
+        else if (voltage >= voltage_capacity_table[8])
         {
             percentum = 60;
         }
-        else if (voltage >= voltage_capacity_table[4])
+        else if (voltage >= voltage_capacity_table[6])
         {
             percentum = 40;
         }
-        else if (voltage >= voltage_capacity_table[2])
+        else if (voltage >= voltage_capacity_table[4])
         {
             percentum = 20;
+        }
+        else if (voltage >= voltage_capacity_table[2])
+        {
+            percentum = 10;
         }
         else
         {
@@ -313,14 +318,6 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage)
         }
     }
 
-    /*
-    CHGMNG_PRINT(("CHGMNG:%d,s24:%d",voltage_capacity_table[2],s24));
-    CHGMNG_PRINT(("CHGMNG:%d,s46:%d",voltage_capacity_table[4],s46));
-    CHGMNG_PRINT(("CHGMNG:%d,s68:%d",voltage_capacity_table[6],s68));
-    CHGMNG_PRINT(("CHGMNG:%d,s80:%d",voltage_capacity_table[8],s80));
-    CHGMNG_PRINT(("CHGMNG:%d",voltage_capacity_table[10]));
-    CHGMNG_PRINT(("CHGMNG:voltage = %d,percentum = %d",voltage,percentum));
-    */
     return percentum;
 }
 
