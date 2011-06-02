@@ -376,17 +376,11 @@ static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	struct sc8800fb_info *sc8800fb = info->par;
 
-	preempt_disable();
-	/* resume before any refresh */
+	/* drop this frame if the hw is not ready */
 	if (!sc8800fb->state ) {
-		printk("--------REFRESH Before RESUME---------\n");
-		sc8800fb->state = 1;
-		preempt_enable();
-		if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
-			sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
-		}
+		FB_PRINT("--------REFRESH Before RESUME---------\n");
+		return 0;
 	}
-	preempt_enable();
 
 	rrm_refresh(LID_OSD1, NULL, info);
 
@@ -951,13 +945,10 @@ static void sc8800fb_early_suspend (struct early_suspend* es)
 static void sc8800fb_early_resume (struct early_suspend* es)
 {
 	struct sc8800fb_info *sc8800fb = container_of(es, struct sc8800fb_info, early_suspend);
-	preempt_disable();
 	if (sc8800fb->state) { /* to avoid multiple resumes */
-		preempt_enable();
 		return;
 	} else {
 		sc8800fb->state = 1; /* we are up */
-		preempt_enable();
 	}
 	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
