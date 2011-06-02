@@ -27,12 +27,15 @@ void register_sprd_pm_suspend_func(struct sprd_pm_suspend *handler)
 	mutex_unlock(&sprd_pm_suspend_lock);
 }
 
+EXPORT_SYMBOL(register_sprd_pm_suspend_func);
+
 void unregister_sprd_pm_suspend_func(struct sprd_pm_suspend *handler)
 {
 	mutex_lock(&sprd_pm_suspend_lock);
 	list_del(&handler->link);
 	mutex_unlock(&sprd_pm_suspend_lock);
 }
+EXPORT_SYMBOL(unregister_sprd_pm_suspend_func);
 
 int sprd_pm_suspend(void)
 {
