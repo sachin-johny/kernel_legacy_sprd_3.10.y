@@ -40,11 +40,17 @@ EXPORT_SYMBOL(unregister_sprd_pm_suspend_func);
 int sprd_pm_suspend(void)
 {
 	int error = 0;
+	int ret_val = 0;
 	struct sprd_pm_suspend *pos;
 
 	list_for_each_entry(pos, &sprd_pm_suspend_handlers, link) {
-		if (pos->suspend != NULL)
-			error |= pos->suspend(pos->pdev, PMSG_SUSPEND);
+		if (pos->suspend != NULL) {
+			ret_val = pos->suspend(pos->pdev, PMSG_SUSPEND);
+			if (ret_val) {
+				printk("##: suspend is blocked by %s.\n", pos->file);
+			}
+			error |= ret_val;
+		}
 	}
 
 	return error;
@@ -69,7 +75,6 @@ int sprd_pm_suspend_check_enter(void)
 		suspend_status = SUSPEND_ENTER;
 		if (error) {
 			suspend_status = SUSPEND_CANCEL;
-			printk("##: pm_suspend is canceled by devices!\n");
 		}
 		else {
 			suspend_status = SUSPEND_DONE;

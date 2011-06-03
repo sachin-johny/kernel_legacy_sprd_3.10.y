@@ -161,6 +161,8 @@ struct timespec now_ts_pm;
 
 
 #define SPRD_PM_MESSAGE 1
+
+
 /*
 #define CHECK_DSP_SLEEP_STATUS 1
 */
@@ -1686,9 +1688,10 @@ int supsend_ldo_turnoff(void)
 		printk("##: ANA_LDO_SLP: wrong vaule[%08x].\n", val);
 	}
 
+/*
     ANA_REG_SET(ANA_LDO_PD_CTL, 
 		(BIT_0 | BIT_2 | BIT_6 | BIT_8 | BIT_10 | BIT_12 | BIT_14) & ~BIT_1 );
-
+*/
 	val = ANA_REG_GET(ANA_LDO_PD_CTL);
 	if ((val & 0x03) != 0x01) printk("##: USB LDO was wrong!\n");
 
