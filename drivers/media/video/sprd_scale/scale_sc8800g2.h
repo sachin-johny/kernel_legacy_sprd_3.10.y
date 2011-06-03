@@ -76,7 +76,8 @@ typedef enum
     SCALE_PATH_IS_SCALE_EN,
     SCALE_PATH_SLICE_OUT_HEIGHT,
     SCALE_PATH_MODE,
-    SCALE_PATH_ENDIAN,
+    SCALE_PATH_INPUT_ENDIAN,
+    SCALE_PATH_OUTPUT_ENDIAN,    
     SCALE_CFG_ID_E_MAX
 } SCALE_CFG_ID_E;
 
@@ -93,12 +94,20 @@ typedef struct yuv422_yuv420
 	uint32_t src_addr;
 	uint32_t dst_addr;
 }SCALE_YUV422_YUV420_T;
+typedef struct yuv420_endian	
+{
+	uint32_t width;
+	uint32_t height;
+	uint32_t src_addr;
+	uint32_t dst_addr;
+}SCALE_YUV420_ENDIAN_T;
 
 #define SCALE_IOC_MAGIC 'S'
 
 #define SCALE_IOC_CONFIG _IOW(SCALE_IOC_MAGIC, 0, SCALE_CONFIG_T)
 #define SCALE_IOC_DONE _IOW(SCALE_IOC_MAGIC, 1, uint32_t)
 #define SCALE_IOC_YUV422_YUV420 _IOW(SCALE_IOC_MAGIC, 2, SCALE_YUV422_YUV420_T)
+#define SCALE_IOC_YUV420_ENDIAN _IOW(SCALE_IOC_MAGIC, 3, SCALE_YUV420_ENDIAN_T)
 
 int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void* param);
 int _SCALE_DriverIODone(void);

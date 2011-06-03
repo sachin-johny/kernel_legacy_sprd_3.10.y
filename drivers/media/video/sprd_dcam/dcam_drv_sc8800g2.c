@@ -365,11 +365,9 @@ PUBLIC int32_t ISP_DriverStart(uint32_t base_addr)
 	   _ISP_DriverIrqClear(base_addr,ISP_IRQ_LINE_MASK);
             _ISP_DriverIrqEnable(base_addr, ISP_IRQ_LINE_MASK);
     		DCAM_TRACE("###DCAM: int mask:%x", _pard(DCAM_INT_MASK));
-	   //wxz20110412: set litten endian to dcam output endian. Before the endian is half word.
-	    //_pawd(ENDIAN_SEL, 0x8);
+	   //wxz20110602: set half word endian to dcam output endian. 
 	    _paad(ENDIAN_SEL, ~(BIT_2 | BIT_3));	    
-	    _paod(ENDIAN_SEL, 0x1 << 2);
-
+	    _paod(ENDIAN_SEL, 0x2 << 2);
          
             _ISP_DriverAutoCopy(base_addr);
             //_ISP_DriverForceCopy(base_addr);			
@@ -1074,7 +1072,7 @@ LOCAL void  _ISP_ISRPath1Done(uint32_t base_addr)
     {
         (*user_func)((void*)frame_curr);
     }
-    
+   
     return ;
 }
 

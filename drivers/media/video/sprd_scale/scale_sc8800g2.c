@@ -62,6 +62,8 @@ static wait_queue_head_t	wait_queue;
 static  int  condition; 
 static wait_queue_head_t	wait_queue_zoom;
 static  int  condition_zoom; 
+static wait_queue_head_t	wait_queue_endian;
+static  int  condition_endian; 
 
 struct tasklet_struct my_tasklet;
 
@@ -795,8 +797,8 @@ LOCAL int32_t _SCALE_DriverStart(void)
 
             _SCALE_DriverIrqEnable(ISP_IRQ_REVIEW_DONE_BIT);	
             
-	    //wxz20110107:the rgb565 endian type from android is ISP_MASTER_ENDIANNESS_HALFBIG
-	    if(ISP_DATA_RGB565 == p_path2->input_format)	
+	    //wxz20110107:the rgb565 endian type from android is ISP_MASTER_ENDIANNESS_HALFBIG	   
+	    if((ISP_DATA_RGB565 == p_path2->input_format) || (1 == p_path2->input_frame_endian))
 	             _SCALE_DriverSetMasterEndianness(ISP_MASTER_READ,1);
 	    else
 			_SCALE_DriverSetMasterEndianness(ISP_MASTER_READ,0);            
@@ -804,11 +806,12 @@ LOCAL int32_t _SCALE_DriverStart(void)
                           p_path2->input_format,
                           p_path2->output_format);
 	    //wxz20110107:update the endian for LCDC display in copybit function. The blending needs the ISP_MASTER_ENDIANNESS_HALFBIG endian type of rgb565.     
-	    //if((ISP_DATA_RGB565 == p_path2->output_format) ||(ISP_DATA_YUV422 == p_path2->input_format))	    
-	    if((ISP_DATA_RGB565 == p_path2->output_format) ||((ISP_DATA_YUV422 == p_path2->input_format) && (1 != p_path2->output_frame_endian)))
+	  if((ISP_DATA_RGB565 == p_path2->output_format) ||(1 == p_path2->output_frame_endian))
 	             _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,1);		
 	    else
-  		     _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,0);   
+  		     _SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,0);  	 
+
+	SCALE_PRINT("####ENDIAN_SEL: 0x%x, in : %d, out: %d.\n", _pard(ENDIAN_SEL), p_path2->input_frame_endian, p_path2->output_frame_endian);
 
 	if(1 == p_path2->slice_en){
 		if(p_path2->slice_height < p_path2->output_size.h){
@@ -860,8 +863,6 @@ LOCAL int32_t _SCALE_DriverStop(void)
 
     _SCALE_DriverIrqDisable(ISP_IRQ_SCL_LINE_MASK);
     _SCALE_DriverIrqClear(ISP_IRQ_SCL_LINE_MASK);
-	//wxz20110412: set little endian to the write endian. Make sure the write endian is the little endian.
-	_SCALE_DriverSetMasterEndianness(ISP_MASTER_WRITE,0);
 	
 	SCALE_PRINT("###scale: DriverStop is OK.\n"); 
 	
@@ -924,6 +925,13 @@ static void _SCALE_DriverDMAZoomIrq(int dma_ch, void *dev_id)
 	wake_up_interruptible(&wait_queue_zoom);
 	SCALE_PRINT("_SCALE_DriverDMAZoomIrq() X.\n");
 }
+static void _SCALE_DriverDMAEndianIrq(int dma_ch, void *dev_id)
+{
+        condition_endian = 1;
+	SCALE_PRINT("_SCALE_DriverDMAEndianIrq() E.\n");	
+	wake_up_interruptible(&wait_queue_endian);
+	SCALE_PRINT("_SCALE_DriverDMAEndianIrq() X.\n");
+}
 static int _SCALE_DriverZoomByDMA(uint32_t width, uint32_t height, uint32_t input_addr, uint32_t output_addr)
 {
 	sprd_dma_ctrl ctrl;
@@ -942,8 +950,8 @@ static int _SCALE_DriverZoomByDMA(uint32_t width, uint32_t height, uint32_t inpu
 	while(1){		
 		ret  = sprd_request_dma(DMA_SOFT0, _SCALE_DriverDMAZoomIrq, &s_scale_mod);
         	if(ret){
-        		SCALE_PRINT("SCALE: request dma fail.ret : %d.\n", ret);
-        		msleep(10);
+        		printk("ZoomByDMA SCALE: request dma fail.ret : %d.\n", ret);
+        		msleep(5);        		
         	}
 		else{
 			SCALE_PRINT("SCALE: request dma OK.\n");
@@ -963,8 +971,9 @@ static int _SCALE_DriverZoomByDMA(uint32_t width, uint32_t height, uint32_t inpu
                 block_len,
                 byte_per_pixel*8, byte_per_pixel*8,
                 src_addr, dst_addr, total_len);
-	//ctrl.dma_desc->cfg |= (0x2 << 28);//for 0xABCD->0xBADC
-	 sprd_dma_setup(&ctrl); 
+	ctrl.dma_desc->cfg |= (0x3 << 28);
+	SCALE_PRINT("ZoomByDMA ctrl.dma_desc->cfg: 0x%x.\n", ctrl.dma_desc->cfg);
+	sprd_dma_setup(&ctrl); 
 	 sprd_dma_start(DMA_SOFT0);	 
 	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);
 	 if(wait_event_interruptible(wait_queue_zoom, condition_zoom)){
@@ -1065,6 +1074,7 @@ void _SCALE_ContinueSlice(long unsigned int data)
 	_SCALE_DriverPath2TrimAndScaling();   
 	_SCALE_DriverForceCopy();
 	//get_scale_reg();
+	SCALE_PRINT("####_SCALE_ContinueSlice ENDIAN_SEL: 0x%x.\n", _pard(ENDIAN_SEL));
 	_paod(REV_PATH_CFG, BIT_0);	
 	//return 0;
 }
@@ -1353,6 +1363,12 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
 		p_path->output_frame_endian = endian;
 		break;
 	}
+	case ISP_PATH_INPUT_ENDIAN:
+	{
+		uint32_t endian = *(uint32_t*)param;
+		p_path->input_frame_endian = endian;
+		break;
+	}	
         default:
 
             rtn = ISP_DRV_RTN_PARA_ERR;
@@ -1593,6 +1609,18 @@ int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void* param)
         case ISP_PATH_DITHER_EN:
             _paod(REV_PATH_CFG, BIT_8);
             break;
+	case ISP_PATH_OUTPUT_ENDIAN:
+	{
+		uint32_t endian = *(uint32_t*)param;
+		p_path->output_frame_endian = endian;
+		break;
+	}
+	case ISP_PATH_INPUT_ENDIAN:
+	{
+		uint32_t endian = *(uint32_t*)param;
+		p_path->input_frame_endian = endian;
+		break;
+	}				
         default:
             rtn = ISP_DRV_RTN_PARA_ERR;
             break;
@@ -1826,8 +1854,8 @@ static int _SCALE_DriverColorConvertByDMA(uint32_t width, uint32_t height, uint3
 	while(1){		
 		ret  = sprd_request_dma(DMA_SOFT0, _SCALE_DriverDMAIrq, &g_scale_mode);
         	if(ret){
-        		SCALE_PRINT("SCALE: request dma fail.ret : %d.\n", ret);
-        		msleep(10);
+        		printk("ColorConvertByDMA SCALE: request dma fail.ret : %d.\n", ret);
+        		msleep(5); 
         	}
 		else{
 			break;
@@ -1845,8 +1873,9 @@ static int _SCALE_DriverColorConvertByDMA(uint32_t width, uint32_t height, uint3
                 SRC_BURST_MODE_8|src_img_postm, SRC_BURST_MODE_8|dst_img_postm,
                 block_len,
                 byte_per_pixel*8, byte_per_pixel*8,
-                src_addr, dst_addr, total_len);	
-	//ctrl.dma_desc->cfg |= (0x2 << 28);//for 0xABCD->0xBADC //wxz:20110412: delete it. Becase change the write endian from half word to little endian.
+                src_addr, dst_addr, total_len);		
+	ctrl.dma_desc->cfg |= (0x1 << 28);
+	SCALE_PRINT("ColorConvertByDMA ctrl.dma_desc->cfg: 0x%x.\n", ctrl.dma_desc->cfg);
 	 sprd_dma_setup(&ctrl); 
 	 sprd_dma_start(DMA_SOFT0);	 
 	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);	
@@ -1868,6 +1897,68 @@ static int _SCALE_DriverYUV422TYUV420(SCALE_YUV422_YUV420_T *yuv_config)
 	_SCALE_DriverRegisterIRQ();
 
 	return _SCALE_DriverColorConvertByDMA(width, height, src_addr, dst_addr);
+}
+static int _SCALE_DriverConvertEndianByDMA(uint32_t width, uint32_t height, uint32_t input_addr, uint32_t output_addr)
+{
+	sprd_dma_ctrl ctrl;
+	sprd_dma_desc dma_desc;
+	uint32_t byte_per_pixel = 1;
+	uint32_t src_img_postm = 0;
+	uint32_t dst_img_postm = 0;
+	uint32_t src_addr = input_addr;
+	uint32_t dst_addr = output_addr;
+	uint32_t block_len = width * byte_per_pixel;
+	uint32_t total_len = width * height * byte_per_pixel * 3 /2;
+        int32_t ret = 0;
+
+       SCALE_PRINT("convert endian [pid:%d]   %d,%d,%x,%x\n", current->pid,width,height,input_addr,output_addr);
+
+	while(1){		
+		ret  = sprd_request_dma(DMA_SOFT0, _SCALE_DriverDMAEndianIrq, &s_scale_mod);
+        	if(ret){
+        		printk("SCALE: convert endian request dma fail.ret : %d.\n", ret);
+        		msleep(5); 
+        	}
+		else{
+			SCALE_PRINT("SCALE: convert endian request dma OK.\n");
+			break;
+		}			
+	}
+	condition_endian = 0;
+	memset(&ctrl, 0, sizeof(sprd_dma_ctrl));
+	memset(&dma_desc, 0, sizeof(sprd_dma_desc));
+	ctrl.dma_desc = &dma_desc;	
+	sprd_dma_setup_cfg(&ctrl,
+                DMA_SOFT0,
+                DMA_NORMAL,
+                TRANS_DONE_EN,
+                DMA_INCREASE, DMA_INCREASE,
+                SRC_BURST_MODE_8|src_img_postm, SRC_BURST_MODE_8|dst_img_postm,
+                block_len,
+                byte_per_pixel*8, byte_per_pixel*8,
+                src_addr, dst_addr, total_len);
+	ctrl.dma_desc->cfg |= (0x2 << 28);
+	SCALE_PRINT("EndianByDMA ctrl.dma_desc->cfg: 0x%x.\n", ctrl.dma_desc->cfg);
+	sprd_dma_setup(&ctrl); 
+	 sprd_dma_start(DMA_SOFT0);	 
+	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);
+	 if(wait_event_interruptible(wait_queue_endian, condition_endian)){
+	 	ret =  -EFAULT;
+	 }
+	 sprd_dma_stop(DMA_SOFT0);
+	 sprd_free_dma(DMA_SOFT0);
+	 return ret;
+}
+static int _SCALE_DriverEndianHalf2Little(SCALE_YUV420_ENDIAN_T *yuv_config)
+{
+	uint32_t width = yuv_config->width;
+	uint32_t height = yuv_config->height;
+	uint32_t src_addr = yuv_config->src_addr;
+	uint32_t dst_addr = yuv_config->dst_addr;
+
+	_SCALE_DriverRegisterIRQ();
+
+	return _SCALE_DriverConvertEndianByDMA(width, height, src_addr, dst_addr);
 }
 
 static void _SCALE_DriverDMAIrq(int dma_ch, void *dev_id)
@@ -1957,7 +2048,14 @@ static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, un
 			copy_from_user(&yuv_config, (SCALE_YUV422_YUV420_T *)param, sizeof(SCALE_YUV422_YUV420_T));			
 			_SCALE_DriverYUV422TYUV420(&yuv_config);
 		}
-		break;			
+		break;	
+	case SCALE_IOC_YUV420_ENDIAN:
+		{			
+			SCALE_YUV420_ENDIAN_T yuv_config;			
+			copy_from_user(&yuv_config, (SCALE_YUV420_ENDIAN_T *)param, sizeof(SCALE_YUV420_ENDIAN_T));			
+			_SCALE_DriverEndianHalf2Little(&yuv_config);
+		}
+		break;		
 	default:
 		break;
 	}
@@ -2001,6 +2099,7 @@ int scale_probe(struct platform_device *pdev)
 	mutex_init(lock);
 	init_waitqueue_head(&wait_queue);
 	init_waitqueue_head(&wait_queue_zoom);
+	init_waitqueue_head(&wait_queue_endian);
 	SCALE_PRINT("###scale: init wait_queue_zoom.\n");
 
 	printk(KERN_ALERT" scale_probe Success\n");

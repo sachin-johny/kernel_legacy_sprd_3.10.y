@@ -342,7 +342,8 @@ typedef struct _isp_path_desc_tag
     uint32_t                   output_frame_count;    
     uint32_t                   output_format;
     uint32_t                   output_frame_flag;
-     uint32_t 		    output_frame_endian;
+    uint32_t 		    output_frame_endian;
+    uint32_t 		    input_frame_endian;
     ISP_FRAME_T              swap_frame;
     ISP_FRAME_T              line_frame;	
     uint32_t                   scale_en;
@@ -493,6 +494,7 @@ typedef enum
     ISP_PATH_IS_SCALE_EN,
     ISP_PATH_SLICE_OUT_HEIGHT,
     ISP_PATH_MODE,
+    ISP_PATH_INPUT_ENDIAN,    
     ISP_PATH_OUTPUT_ENDIAN,
     ISP_CFG_ID_E_MAX
 } ISP_CFG_ID_E;
