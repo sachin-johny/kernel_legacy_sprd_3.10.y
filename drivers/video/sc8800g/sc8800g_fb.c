@@ -123,7 +123,6 @@ struct sc8800fb_info {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
-	uint32_t state; /* fb state: 1-up, 0-down */
 };
 
 static int32_t lcm_send_cmd (uint32_t cmd)
@@ -375,12 +374,6 @@ static void real_refresh(void *para)
 static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	struct sc8800fb_info *sc8800fb = info->par;
-
-	/* drop this frame if the hw is not ready */
-	if (!sc8800fb->state ) {
-		FB_PRINT("--------REFRESH Before RESUME---------\n");
-		return 0;
-	}
 
 	rrm_refresh(LID_OSD1, NULL, info);
 
@@ -935,7 +928,6 @@ static void setup_rrm_test(struct fb_info *fb)
 static void sc8800fb_early_suspend (struct early_suspend* es)
 {
 	struct sc8800fb_info *sc8800fb = container_of(es, struct sc8800fb_info, early_suspend);
-	sc8800fb->state = 0; /* we are down */
 	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,1);
 	}
@@ -945,11 +937,6 @@ static void sc8800fb_early_suspend (struct early_suspend* es)
 static void sc8800fb_early_resume (struct early_suspend* es)
 {
 	struct sc8800fb_info *sc8800fb = container_of(es, struct sc8800fb_info, early_suspend);
-	if (sc8800fb->state) { /* to avoid multiple resumes */
-		return;
-	} else {
-		sc8800fb->state = 1; /* we are up */
-	}
 	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
 	}
@@ -1000,15 +987,13 @@ static int sc8800fb_probe(struct platform_device *pdev)
 
 	copybit_lcdc_init(); /* TEMP */
 
-	sc8800fb->state = 1; /* up, ok to work */
-
 	/* FIXME: put the BL stuff to where it belongs. */
 	set_backlight(50);
 	platform_set_drvdata(pdev, sc8800fb);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	sc8800fb->early_suspend.suspend = sc8800fb_early_suspend;
 	sc8800fb->early_suspend.resume  = sc8800fb_early_resume;
-	sc8800fb->early_suspend.level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	sc8800fb->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	register_early_suspend(&sc8800fb->early_suspend);
 #endif
 	if(0){ /* in-kernel test code */
