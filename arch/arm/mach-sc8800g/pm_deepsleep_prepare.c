@@ -41,6 +41,11 @@ proximity(ok),
 
 */
 
+/*
+1. camera, TP, WIFI, BT, FM, audio PA, are totally ok.
+2. GPS, G-sensor, M-sensor need to be checked, totally 1.4mA.
+*/
+
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>

@@ -243,7 +243,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_RFCTL2_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   GSM PA MODE 
     {PIN_RFCTL3_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_I_EN ) },    // 0x100   NC
     {PIN_RFCTL4_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   NC
-    {PIN_RFCTL5_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   TD PA EN
+    {PIN_RFCTL5_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100   TD PA EN
     {PIN_RFCTL6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   GPIO96 SPK PA EN
     {PIN_RFCTL7_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC3
     {PIN_RFCTL8_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   TD PA VMOD0
@@ -280,7 +280,6 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_GPIO142_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    WIFI wakeup BB
     {PIN_GPIO143_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    TPIC SCL
     {PIN_GPIO144_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    TPIC SDA
-    {PIN_RFCTL6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_O_EN ) },    // audio PA.
     {0xffffffff, 0xffffffFF}              
 };
     
@@ -380,15 +379,6 @@ const PM_PINFUNC_T pm_func_suspend[]=
 {
 //  | Pin Register        |   DS    | Func PU/PD | Func Select  | Slp PU/PD | Sleep OE/IE | 
     {PIN_CTL_REG,        ( 0x1fff00) },
-    {PIN_LCD_CSN1_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_2 | PIN_SPX_EN | PIN_O_EN ) },    // 0x100  NC 
-    {PIN_CLK_AUX0_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3 | PIN_SPD_EN | PIN_I_EN ) },    // 0x106   NC  wangfuqiang CMMB 26MHz :CLK AUX0
-    {PIN_IISMCK_REG,     ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_I_EN ) },    // 0x156    BTXTLEN = 0 
-    {PIN_RFCTL11_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_I_EN ) },    // 0x100   GPIO101 TEST POINT
-    {PIN_RFCTL12_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   PA BANDSEL 
-    {PIN_RFCTL13_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC1
-    {PIN_RFCTL15_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC4 
-    {PIN_GPIO135_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    WIFI reset
-
     {0xffffffff, 0xffffffFF}              
 };
     
