@@ -10,7 +10,7 @@ obj-y += common.o clock_common.o clock_sc8800g.o power_domain.o clock_test.o \
 obj-$(CONFIG_MACH_G2PHONE) += board-g2phone.o
 obj-$(CONFIG_MACH_OPENPHONE) += board-openphone.o pin_map_openphone.o
 obj-$(CONFIG_MACH_SP6810A) += board-sp6810a.o pin_map_sc6810.o
-obj-$(CONFIG_MACH_SP8805GA) += board-sp8805ga.o
+obj-$(CONFIG_MACH_SP8805GA) += board-sp8805ga.o pin_map_sc8805.o
 
 obj-$(CONFIG_PM)		+= pm_vlx.o standby.o pm_devices.o
 obj-$(CONFIG_CPU_FREQ_SC8800G) += cpufreq-sc8800g.o
