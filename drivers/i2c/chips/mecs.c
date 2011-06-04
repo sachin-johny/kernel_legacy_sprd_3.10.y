@@ -28,6 +28,7 @@
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/freezer.h>
+#include <linux/poll.h>
 #include <asm/uaccess.h>
 
 #include "mecs.h"
@@ -41,8 +42,10 @@ static int ecs_ctrl_open(struct inode *inode, struct file *file);
 static int ecs_ctrl_release(struct inode *inode, struct file *file);
 static int ecs_ctrl_ioctl(struct inode *inode, struct file *file, 
 	unsigned int cmd, unsigned long arg);
+static unsigned int ecs_ctrl_poll(struct file *file, poll_table *wait);
 
 static DECLARE_WAIT_QUEUE_HEAD(open_wq);
+static DECLARE_WAIT_QUEUE_HEAD(poll_wq);
 
 static atomic_t	open_count;
 static atomic_t	open_flag;
@@ -62,6 +65,7 @@ static struct file_operations ecs_ctrl_fops = {
 	.open		= ecs_ctrl_open,
 	.release	= ecs_ctrl_release,
 	.ioctl		= ecs_ctrl_ioctl,
+        .poll           = ecs_ctrl_poll,
 };
 
 static struct miscdevice ecs_ctrl_device = {
@@ -104,6 +108,31 @@ static int ecs_ctrl_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
+
+static unsigned int ecs_ctrl_poll(struct file *file, poll_table *wait)
+{
+    unsigned int mask = 0;
+    
+    poll_wait(file, &poll_wq, wait);
+
+    if (atomic_read(&a_flag) || 
+        atomic_read(&m_flag) || 
+        atomic_read(&o_flag) ) {
+        mask = POLLIN|POLLRDNORM;
+    }
+
+    return mask;
+}
+
+
+static void ecs_ctrl_poll_wakeup(int flag)
+{
+    if (flag) {
+        wake_up_interruptible(&poll_wq);
+    }
+}
+
+
 static int ecs_ctrl_ioctl(struct inode *inode, struct file *file, 
 	unsigned int cmd, unsigned long arg)
 {
@@ -133,6 +162,9 @@ static int ecs_ctrl_ioctl(struct inode *inode, struct file *file,
 		if (flag < 0 || flag > 1)
 			return -EINVAL;
 		atomic_set(&a_flag, flag);
+
+        ecs_ctrl_poll_wakeup(flag);
+
 		break;
 	case ECOMPASS_IOC_GET_AFLAG:
 		flag = atomic_read(&a_flag);
@@ -145,6 +177,9 @@ static int ecs_ctrl_ioctl(struct inode *inode, struct file *file,
 		if (flag < 0 || flag > 1)
 			return -EINVAL;
 		atomic_set(&m_flag, flag);
+
+        ecs_ctrl_poll_wakeup(flag);
+
 		break;
 	case ECOMPASS_IOC_GET_MFLAG:
 		flag = atomic_read(&m_flag);
@@ -157,6 +192,9 @@ static int ecs_ctrl_ioctl(struct inode *inode, struct file *file,
 		if (flag < 0 || flag > 1)
 			return -EINVAL;
 		atomic_set(&o_flag, flag);
+
+        ecs_ctrl_poll_wakeup(flag);
+
 		break;
 	case ECOMPASS_IOC_GET_OFLAG:
 		flag = atomic_read(&o_flag);
