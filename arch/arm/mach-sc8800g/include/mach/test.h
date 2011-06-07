@@ -34,6 +34,11 @@
 #define SLEEP_MODE_MCU 1
 #define SLEEP_MODE_DEEP 2
 
+#define 	SPRD_HARD_INTERRUPT_NUM 32
+#define	SPRD_IRQ_NUM			1024
+
+#define	SPRD_THREADS_ARRAY_SIZE	2048
+
 /*********************************/
 /* for debug only. */
 extern u16 val_short;
@@ -68,6 +73,10 @@ extern void add_pm_message(u32 when, char *msg, u32 val0,
 
 extern void add_pm_message_val64(u32 when, char *msg, u32 val0, 
                                               u32 val1, u32 val2, u64 val64);
+extern void parse_sprd_hard_irq(u32 val);
+extern void inc_sprd_irq(int irq);
+extern void show_sprd_irq_info(void);
+extern void inc_sprd_thread_counts(int thread);
 
 static u32 inline get_sys_cnt(void)
 {

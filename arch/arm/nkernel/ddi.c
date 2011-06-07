@@ -1625,6 +1625,7 @@ nk_do_xirq (struct pt_regs* regs)
 		add_pm_message(get_sys_cnt(), "xirq = ", xirq, 0, 0);
 	}
 	interrupt_counter++;
+	inc_sprd_irq(xirq);
 	nk_do_IRQ(xirq, regs);
     }
 

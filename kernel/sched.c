@@ -77,6 +77,8 @@
 #include <asm/tlb.h>
 #include <asm/irq_regs.h>
 
+#include <mach/test.h>
+
 #include "sched_cpupri.h"
 
 #define CREATE_TRACE_POINTS
@@ -3625,6 +3627,8 @@ need_resched_nonpreemptible:
 		rq->nr_switches++;
 		rq->curr = next;
 		++*switch_count;
+
+		inc_sprd_thread_counts(next->pid);		
 
 		context_switch(rq, prev, next); /* unlocks the rq */
 		/*

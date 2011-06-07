@@ -159,6 +159,84 @@ u32 fiq_sts = 0;
 struct timespec now_ts_pm;
 
 
+/* interrupt statistic. */
+u32 sprd_hard_irq[SPRD_HARD_INTERRUPT_NUM]= {0, };
+u32 sprd_irqs[SPRD_IRQ_NUM] = {0, };
+void irq_statistic_reset(void)
+{
+	int i;
+	for(i = 0; i < SPRD_HARD_INTERRUPT_NUM; i++) sprd_hard_irq[i] = 0;
+	for(i = 0; i < SPRD_IRQ_NUM; i++) sprd_irqs[i] = 0;
+}
+
+void parse_sprd_hard_irq(u32 val)
+{
+	int i;
+	for (i = 0; i < SPRD_HARD_INTERRUPT_NUM; i++) {
+		if (test_and_clear_bit(i, &val)) sprd_hard_irq[i]++;
+	}
+}
+
+void inc_sprd_irq(int irq)
+{
+	if (irq >= SPRD_IRQ_NUM) {
+		printk("## bad irq number %!\n", irq);
+	}
+	else {
+		sprd_irqs[irq]++;
+	}
+}
+
+void show_sprd_irq_info(void)
+{
+	int i;
+	printk("#### irq info. ######\n");
+
+	for(i = 0; i < SPRD_HARD_INTERRUPT_NUM; i++)  {
+		if (sprd_hard_irq[i] > 0) 
+			printk("##: sprd_hard_irq[%d] = %d.\n", 
+				i, sprd_hard_irq[i]);
+	}
+	for(i = 0; i < SPRD_IRQ_NUM; i++)  {
+		if (sprd_irqs[i] > 0)
+			printk("##: sprd_irqs[%d] = %d.\n", 
+				i, sprd_irqs[i]);
+	}
+}
+
+
+/* thead statistic. */
+u32 sprd_threads[SPRD_THREADS_ARRAY_SIZE]= {0, };
+void threads_statistic_reset(void)
+{
+	int i;
+	for(i = 0; i < SPRD_THREADS_ARRAY_SIZE; i++) sprd_threads[i] = 0;
+}
+
+
+void inc_sprd_thread_counts(int thread)
+{
+	if (thread >= SPRD_THREADS_ARRAY_SIZE) {
+		printk("## Thread index [%d] is larger than array size [%d]!\n", 
+			thread, SPRD_THREADS_ARRAY_SIZE);
+	}
+	else {
+		sprd_threads[thread]++;
+	}
+}
+
+void show_sprd_thread_info(void)
+{
+	int i;
+	printk("#### thread info. ######\n");
+
+	for(i = 0; i < SPRD_THREADS_ARRAY_SIZE; i++)  {
+		if (sprd_threads[i] > 0) 
+			printk("##: sprd_threads[%d] = %d.\n", 
+				i, sprd_threads[i]);
+	}
+}
+
 
 #define SPRD_PM_MESSAGE 1
 
@@ -1549,6 +1627,13 @@ static int print_thread(void *pdata)
 	printk("****: schedu_counter = %d events/s\n", 
 		(schedu_counter1 - schedu_counter0) / THREAD_INTERVAL);
 
+	show_sprd_irq_info();
+	irq_statistic_reset();
+
+	show_sprd_thread_info();
+	threads_statistic_reset();
+
+
 	//sc8800g_enter_deepsleep_internal();
   
 /*       
@@ -1822,7 +1907,11 @@ int sc8800g_enter_deepsleep(int inidle)
 
     if (status & DEVICE_AHB)  {
         sleep_mode = SLEEP_MODE_ARM_CORE;
-        sc8800g_cpu_standby();
+	t0 = get_sys_cnt();
+	sc8800g_cpu_standby();
+	t1 = get_sys_cnt();
+	delta = t1 - t0;
+	idle_time += delta;
 	sc8800g_restore_pll();
     }
     else if (status & DEVICE_APB) {
@@ -1832,8 +1921,12 @@ int sc8800g_enter_deepsleep(int inidle)
         disable_audio_module();
         disable_ahb_module();
         //enable_mcu_sleep();
+       t0 = get_sys_cnt();
        ret =  sc8800g_cpu_standby_prefetch();
         RESTORE_GLOBAL_REG;
+        t1 = get_sys_cnt();
+        delta = t1 - t0;
+        sleep_time += delta;
         udelay(20);
 	sc8800g_restore_pll();
     }
@@ -1917,6 +2010,8 @@ int sc8800g_enter_deepsleep(int inidle)
 	sc8800g_restore_pll();
 	irq_sts = __raw_readl(INT_IRQ_STS);
 	fiq_sts = __raw_readl(INT_FIQ_STS);
+	parse_sprd_hard_irq(irq_sts);
+
 
 	if (0 == irq_sts) {
 		add_pm_message(get_sys_cnt(), "deepsleep_exit: ### WITHOUT TRIGGER IRQ ###: ", 
