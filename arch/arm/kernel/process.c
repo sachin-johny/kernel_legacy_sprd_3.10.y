@@ -239,9 +239,8 @@ void machine_power_off(void)
 
 void machine_restart(char *cmd)
 {
-#ifndef CONFIG_NKERNEL
 	arm_pm_restart(reboot_mode, cmd);
-#else
+#if 0
 	while (1) {
 	    os_ctx->restart(os_ctx, os_ctx->id);
 	}
