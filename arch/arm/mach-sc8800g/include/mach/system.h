@@ -30,7 +30,28 @@ static inline void arch_idle(void)
 */
 }
 
+#define ANA_WDG_LOAD_TIMEOUT_NUM    (10000)
+
+#define WDG_LOAD_TIMER_VALUE(value) \
+        do{\
+                    uint32_t   cnt          =  0;\
+                    ANA_REG_SET( WDG_LOAD_HIGH, (uint16_t)(((value) >> 16 ) & 0xffff));\
+                    ANA_REG_SET( WDG_LOAD_LOW , (uint16_t)((value)  & 0xffff) );\
+                    while((ANA_REG_GET(WDG_INT_RAW) & WDG_LD_BUSY_BIT) && ( cnt < ANA_WDG_LOAD_TIMEOUT_NUM )) cnt++;\
+                }while(0)
+
+#define HWRST_STATUS_RECOVERY (0x20)
 static inline void arch_reset(char mode, const char *cmd)
 {
 	/* our chip reset code */
+    if(!(strncmp(cmd, "recovery", 8))){
+       ANA_REG_SET(ANA_HWRST_STATUS, HWRST_STATUS_RECOVERY);
+    }
+    // turn on watch dog clock
+    ANA_REG_OR(ANA_AGEN, AGEN_WDG_EN | AGEN_RTC_ARCH_EN | AGEN_RTC_WDG_EN);
+    ANA_REG_SET (WDG_LOCK, WDG_UNLOCK_KEY);
+    ANA_REG_AND (WDG_CTRL, (~WDG_INT_EN_BIT));
+    WDG_LOAD_TIMER_VALUE(0x50);
+    ANA_REG_OR (WDG_CTRL, WDG_CNT_EN_BIT);
+    ANA_REG_SET (WDG_LOCK, (~WDG_UNLOCK_KEY));
 }
