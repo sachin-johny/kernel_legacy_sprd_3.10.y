@@ -441,6 +441,29 @@ EXPORT_SYMBOL_GPL(vbc_power_on);
 
 static int vbc_reset(struct snd_soc_codec *codec)
 {
+    // 1. dial phone number
+    // 2. modem will set DSP control audio codec
+    // 3. DSP control audio codec
+    // 4. in call
+    // 5. AT+ATH to quit call
+    // 6. DSP will release audio chain
+    // 7. modem will set ARM control audio codec
+    // 8. android will reset audio codec to ARM & setting android alsa himself needed audio parameters
+    //
+    // The problem occures in step 7 & 8, if 8 first occures, pop sound will be created, and
+    // alsa DMA can't be work, AudioFlinger will can't obtainBuffer from alsa driver [luther.ge]
+    {
+        // vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
+        // fix above problem
+        while (!(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC)) {
+            printk("vbc waiting DSP release audio codec ......\n");
+            msleep(100);
+        }
+        printk("vbc waiting modem stable setting audio codec ...... start ......\n");
+        msleep(200);
+        printk("vbc waiting modem stable setting audio codec ...... done ......\n");
+        // atomic_read
+    }
     vbc_set_mainclk_to12M();
     vbc_set_ctrl2arm();
 #if 0
