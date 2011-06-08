@@ -23,7 +23,6 @@
 #include <linux/debugfs.h>
 #include <linux/interrupt.h>
 #include <linux/mm.h>
-
 #include <mach/scale_sc8800g2.h>
 #include <mach/hardware.h>
 #include <mach/board.h>
@@ -233,7 +232,8 @@ static int get_param(SCALE_PARAM_T *scale_param, struct s2d_blit_req * req)
 	if(SCALE_DATA_MAX == scale_param->out_fmt)
 		return -1;
 
-	if(req->do_flags & 0xC){ //if do rotation or blending
+	//if(req->do_flags & 0xC){ //if do rotation or blending
+	if(req->do_flags & 0x6){ //if do rotation or blending
 		scale_param->out_addr.yaddr = SCALE_OUTPUT_BUF;		
 	}
 	else{//if not do rotation and blending
@@ -386,6 +386,7 @@ static int do_scale(SCALE_PARAM_T *scale_param)
 
 	return 0;
 }
+
 #if 0
 static void set_layer_cb(struct s2d_blit_req* req)
 {
@@ -433,15 +434,18 @@ int do_copybit_scale(struct s2d_blit_req * req)
 		dst_rect_h = req->dst_rect.h;
 	}
 
-	if((req->src.format == req->dst.format) && (req->src_rect.w == dst_rect_w) &&(req->src_rect.h == dst_rect_h))
-	{		
-		return 0;
+	if((req->src.format == req->dst.format) && (req->src_rect.w == dst_rect_w) &&(req->src_rect.h == dst_rect_h) &&
+		(req->src.width == req->src_rect.w) && (req->src.height == req->src_rect.h)) //do scale for 1:1
+	{	
+		SCALE_PRINT("###########fail to do scale because 1.##########\n");
+		return -1;
 	}
 	else
 	{
 		if((S2D_YUV_422 != req->src.format) && (S2D_YUV_420 != req->src.format) && (S2D_YUV_400 != req->src.format) && (S2D_YUV_420_3P!= req->src.format) && (S2D_RGB_565 != req->src.format))
 		{
-			return 0;
+			SCALE_PRINT("###########fail to do scale because 1.##########\n");			
+			return -1;
 		}
 		else
 			SCALE_PRINT("###########need to scale##########\n");
@@ -471,11 +475,13 @@ int do_copybit_scale(struct s2d_blit_req * req)
 
 	if(0 != check_param(req)) /* to fulfill the alignment restriction */
 	{
+		SCALE_PRINT("###########fail to do scale in check_param().##########\n");
 		return -1;
 	}
 
 	if(0 != get_param(&scale_params, req))
 	{
+		SCALE_PRINT("###########fail to do scale in get_param().##########\n");
 		return -1;
 	}
 	
@@ -493,15 +499,16 @@ int do_copybit_scale(struct s2d_blit_req * req)
 	       scale_params.in_rect.w, scale_params.in_rect.h, 
 	       scale_params.out_fmt, scale_params.out_size.w, scale_params.out_size.h, scale_params.out_addr.yaddr
 	       );	
-	
+
 	if(0 != do_scale(&scale_params))
 	{
-		SCALE_PRINT("Fail to do_scale.\n");
+		SCALE_PRINT("###########fail to do scale in do_scale().##########\n");
 		return -1;
 	}
 
 	if(0 != update_param(&scale_params, req)) //for debug
 	{
+		SCALE_PRINT("###########fail to do scale in update_param().##########\n");
 		return -1;
 	}
 

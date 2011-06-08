@@ -108,7 +108,8 @@ static int get_param(ROTATION_PARAM_T *rot_param, struct s2d_blit_req * req)
 	rot_param->img_size.h = req->src.height;
 	rot_param->rotation_dir = get_rotation_dir(req->flags);
 	rot_param->src_addr.y_addr = req->src.base;
-	if(req->do_flags & 0x8){//if do blending
+	//if(req->do_flags & 0x8){//if do blending
+	if(req->do_flags & 0x4){//if do blending
 		rot_param->dst_addr.y_addr =  ROT_OUTPUT_BUF;		
 	}
 	else{ //if not od blending
@@ -213,7 +214,8 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 		ROT_PRINT("###need to do rotation###\n");		
 	}
 	else
-	{		
+	{	
+		ROT_PRINT("Don't need to do rotation.\n");
 		return 0;
 	}
 	
@@ -241,11 +243,13 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 	
 	if(0 != check_param(req)) /* to fulfill the alignment restriction */
 	{
+		ROT_PRINT("Fail to do_rotation in check_param().\n");
 		return -1;
 	}
 
 	if(0 != get_param(&rot_params, req))
 	{
+		ROT_PRINT("Fail to do_rotation in get_param().\n");
 		return -1;
 	}
 	
@@ -257,9 +261,10 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 
 	if(0 != update_param(&rot_params, req)) 
 	{
+		ROT_PRINT("Fail to do_rotation in update_param().\n");
 		return -1;
 	}
-
+	
 	ROT_PRINT("after rotation: src.format 0x%x\n"
 	       "src.width  %d\n"
 	       "src.height %d\n"

@@ -31,6 +31,8 @@
 #include <mach/clock_common.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <mach/dma.h>
+#include <linux/sched.h>
 
 #include "../sprd_dcam/dcam_power_sc8800g2.h"
 #include "scale_sc8800g2.h"
@@ -54,9 +56,6 @@
 #define SCI_ASSERT(...) 
 #define SCI_PASSERT(condition, format...)
 #endif
-#include <mach/dma.h>
-#include <linux/sched.h>
-
 
 static wait_queue_head_t	wait_queue;
 static  int  condition; 

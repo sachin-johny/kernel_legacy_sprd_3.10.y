@@ -26,11 +26,14 @@
 #include "sc8800g_copybit_rotation.h"
 #include "sc8800g_copybit_lcdc.h"
 
+#define CROP_OUTPUT_BUF SPRD_SCALE_MEM_BASE
 #define SC8800G_2D_MINOR MISC_DYNAMIC_MINOR
 
 static struct mutex *lock;
 static wait_queue_head_t	wait_queue;
 static  int  condition; 
+static wait_queue_head_t	wait_queue_crop;
+static  int  condition_crop; 
 
 #define SOFT_RGBA2ARGB
 #ifdef SOFT_RGBA2ARGB
@@ -227,6 +230,100 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 	return 0;
 }
 #endif
+
+static void sprd_2d_crop_dma_irq(int dma_ch, void *dev_id)
+{
+       // printk("[] sprd_2d_dma_irq()\n");
+        condition_crop = 1;
+	wake_up_interruptible(&wait_queue_crop);
+}
+
+static int crop_by_dma(struct s2d_blit_req * req,uint32_t byte_per_pixel)
+{
+	sprd_dma_ctrl ctrl;
+	sprd_dma_desc dma_desc;
+	uint32_t src_img_postm = 0;//(req->src.width-req->src_rect.w)*byte_per_pixel;
+	uint32_t dst_img_postm = 0;//( req->dst.width-req->dst_rect.w)*byte_per_pixel;
+	uint32_t src_addr = 0;//req->src.base + (req->src_rect.y*req->src.width + req->src_rect.x)*byte_per_pixel;
+	uint32_t dst_addr = CROP_OUTPUT_BUF;//req->dst.base + (req->dst_rect.y*req->dst.width + req->dst_rect.x)*byte_per_pixel;
+	uint32_t block_len =0;// req->dst_rect.w*byte_per_pixel;
+	uint32_t total_len = 0;//req->dst_rect.w*req->dst_rect.h*byte_per_pixel;
+	uint32_t ret = 0, temp_w, temp_h;
+
+	temp_w = req->src_rect.w;
+	temp_h = req->src_rect.h;
+	if(S2D_RGB_565 == req->src.format){
+		if(req->src_rect.w & 0x1)
+			temp_w = req->src_rect.w + 1;
+		if(req->src_rect.h & 0x1)
+			temp_h = req->src_rect.h + 1;
+	}
+	src_img_postm = (req->src.width-temp_w)*byte_per_pixel;
+	src_addr = req->src.base + (req->src_rect.y* req->src.width+ req->src_rect.x)*byte_per_pixel;
+	block_len = temp_w*byte_per_pixel;
+	total_len = temp_w * temp_h * byte_per_pixel;
+
+	C2D_PRINT("[pid:%d] crop_by_dma() %d,%d,%d,%d\n", current->pid,req->src_rect.x,req->src_rect.y,temp_w,temp_h);
+	C2D_PRINT("crop_by_dma() %d,%d,%d,%d\n",src_img_postm,src_addr,block_len,total_len);
+
+	ret  = sprd_request_dma(DMA_SOFT0, sprd_2d_crop_dma_irq, req);
+	if(ret){
+		return -EFAULT;
+	}
+	condition_crop = 0;
+	memset(&ctrl, 0, sizeof(sprd_dma_ctrl));
+	memset(&dma_desc, 0, sizeof(sprd_dma_desc));
+	ctrl.dma_desc = &dma_desc;
+	sprd_dma_setup_cfg(&ctrl,
+			DMA_SOFT0,
+			DMA_NORMAL,
+			TRANS_DONE_EN,
+			DMA_INCREASE, DMA_INCREASE,
+			SRC_BURST_MODE_8|src_img_postm, SRC_BURST_MODE_8|dst_img_postm,
+			block_len,
+			byte_per_pixel*8, byte_per_pixel*8,
+			src_addr, dst_addr, total_len);
+	sprd_dma_setup(&ctrl);
+	sprd_dma_start(DMA_SOFT0);
+	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);
+	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() before %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
+	if(wait_event_interruptible(wait_queue_crop, condition_crop)){
+		ret =  -EFAULT;
+	}
+	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() after %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
+	//mdelay(100);
+	sprd_dma_stop(DMA_SOFT0);
+	sprd_free_dma(DMA_SOFT0);
+
+	req->src.base = CROP_OUTPUT_BUF;
+	req->src.width = temp_w;
+	req->src.height = temp_h;
+	req->src_rect.x = 0;
+	req->src_rect.y = 0;
+
+	return ret;
+}
+
+//wxz20110607: crop the rect data from scr image for the rotation.
+static int do_copybit_crop_by_dma(struct s2d_blit_req * req)
+{
+	uint32_t byte_per_pixel = 2;
+	
+	switch(req->src.format){
+		case S2D_RGB_565:
+			byte_per_pixel = 2;
+			break;
+		case S2D_BGRA_8888:
+			byte_per_pixel = 4;
+			break;
+		default:
+			C2D_PRINT("do_copybit_crop_by_dma: not support the color format. format: %d.\n", req->src.format);
+			return -1;
+	}
+
+	return crop_by_dma(req, byte_per_pixel);	
+}
+
 static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg){
 	struct s2d_blit_req_list *parameters;
 	int dma_copy_ret = -1, num = 0;
@@ -285,29 +382,39 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 			//params->src.format = S2D_ARGB_8888;
 			params->src.base = __pa(buf_ptr);
 			params->src_rect.x = 0;
-			params->src_rect.y = 0;
+			params->src_rect.y = 0;			
 		}
 #endif	
 		if((params->alpha==0xff)&&(params->src.format==S2D_RGB_565)&&(params->dst.format==S2D_RGB_565)\
-				&&(params->src_rect.w==params->dst_rect.w)&&(params->src_rect.h==params->dst_rect.h))
+				&&(params->src_rect.w==params->dst_rect.w)&&(params->src_rect.h==params->dst_rect.h)\
+				&&(0 == (params->do_flags & BIT_1)))
 		{
 			dma_copy_ret = do_copybit_dma_copy(params,2);
 		}
 		
 		if(dma_copy_ret){			
-			if(params->do_flags & (BIT_0 | BIT_1)) {
+			//if(params->do_flags & (BIT_0 | BIT_1)) {
+			if(params->do_flags & BIT_0) {
 				if (do_copybit_scale(params)) {
 					mutex_unlock(lock);
 					return -EFAULT;
 				}			
-			}		
-			if(params->do_flags & BIT_2) {
+			}
+			else if(params->do_flags & BIT_3){
+				if (do_copybit_crop_by_dma(params)) {
+					mutex_unlock(lock);
+					return -EFAULT;
+				}				
+			}
+			//if(params->do_flags & BIT_2) {
+			if(params->do_flags & BIT_1) {
 				if (do_copybit_rotation(params)) {
 					mutex_unlock(lock);
 					return -EFAULT;
 				}			
 			}		
-			if(params->do_flags & BIT_3) {
+			//if(params->do_flags & BIT_3) {
+			if(params->do_flags & BIT_2) {
 				if (do_copybit_lcdc(params)) {
 					mutex_unlock(lock);
 					return -EFAULT;
@@ -352,6 +459,7 @@ int sc8800g_2d_probe(struct platform_device *pdev)
 
 	mutex_init(lock);
 	init_waitqueue_head(&wait_queue);
+	init_waitqueue_head(&wait_queue_crop);
 
 #ifdef SOFT_RGBA2ARGB
 	/* FIXME: hard-coded size and address */
