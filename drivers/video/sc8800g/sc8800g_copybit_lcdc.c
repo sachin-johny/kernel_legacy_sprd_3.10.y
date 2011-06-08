@@ -29,6 +29,7 @@
 #include <linux/debugfs.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
+#include <linux/string.h>
 #include <linux/mm.h>
 
 #include "sc8800g_lcdc_manager.h"
@@ -384,6 +385,24 @@ static inline void copy_right(struct s2d_blit_req * req)
 	CL_PRINT("copy_right: dst@0x%x, src@0x%x\n", dst, src);
 	for (i = req->dst_rect.h; i!= 0; i--) {
 		*dst = *src;
+		dst += req->dst.width;
+		src += req->src.width;
+	}
+}
+
+/* we need this for efficiency/accuracy reason */
+static inline void copy_all(struct s2d_blit_req * req)
+{
+	unsigned short *src, *dst;
+	int i;
+	src = (unsigned short*)GET_VA(req->src.base);
+	src += req->src_rect.y * req->src.width + req->src_rect.x;
+	dst = (unsigned short*)GET_VA(req->dst.base);
+	dst += req->dst_rect.y * req->dst.width + req->dst_rect.x;
+
+	CL_PRINT("copy_all: dst@0x%x, src@0x%x\n", dst, src);
+	for (i = req->dst_rect.h; i!= 0; i--) {
+		memcpy(dst, src, req->dst_rect.w*2);
 		dst += req->dst.width;
 		src += req->src.width;
 	}
