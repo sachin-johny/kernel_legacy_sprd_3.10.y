@@ -237,6 +237,8 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_GPS_PWR	           40
 #define SPRD_3RDPARTY_GPIO_GPS_ONOFF	    (-1)
 #define SPRD_3RDPARTY_GPIO_GPS_RST	           60
+#define SPRD_3RDPARTY_GPIO_GINT1_IRQ              0
+#define SPRD_3RDPARTY_GPIO_GINT2_IRQ              1
 
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
@@ -258,6 +260,8 @@ int sprd_3rdparty_gpio_proximity_recv   = SPRD_3RDPARTY_GPIO_PROXIMITY_RECV;
 int sprd_3rdparty_gpio_gps_pwr   = SPRD_3RDPARTY_GPIO_GPS_PWR;
 int sprd_3rdparty_gpio_gps_rst   = SPRD_3RDPARTY_GPIO_GPS_RST;
 int sprd_3rdparty_gpio_gps_onoff   = SPRD_3RDPARTY_GPIO_GPS_ONOFF;
+int sprd_3rdparty_gpio_gint1_irq   = SPRD_3RDPARTY_GPIO_GINT1_IRQ ;
+int sprd_3rdparty_gpio_gint2_irq   = SPRD_3RDPARTY_GPIO_GINT2_IRQ ;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -278,6 +282,8 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_proximity_recv);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_pwr);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_onoff);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gint1_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gint2_irq);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
@@ -359,7 +365,17 @@ static struct gpio_desc gpio_func_cfg[] = {
 	MFP_CFG_X(EMCS_N3, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 	SPRD_3RDPARTY_GPIO_GPS_RST,
 	"gps  reset"
-    }
+    },
+    {
+    MFP_CFG_X(KEYIN6, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),
+    SPRD_3RDPARTY_GPIO_GINT1_IRQ,
+    "gint1"
+    },
+    {
+	MFP_CFG_X(KEYIN7, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),
+	SPRD_3RDPARTY_GPIO_GINT2_IRQ,
+	"gint2"
+    },
 
 };
 
