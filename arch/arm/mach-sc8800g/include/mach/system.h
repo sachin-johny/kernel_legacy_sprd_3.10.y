@@ -41,11 +41,16 @@ static inline void arch_idle(void)
                 }while(0)
 
 #define HWRST_STATUS_RECOVERY (0x20)
+#define HWRST_STATUS_NORMAL (0X40)
 static inline void arch_reset(char mode, const char *cmd)
 {
 	/* our chip reset code */
+    volatile int i;
+    for(i=0xffff; i>0;i--);
     if(!(strncmp(cmd, "recovery", 8))){
        ANA_REG_SET(ANA_HWRST_STATUS, HWRST_STATUS_RECOVERY);
+    }else{
+        ANA_REG_SET(ANA_HWRST_STATUS, HWRST_STATUS_NORMAL);
     }
     // turn on watch dog clock
     ANA_REG_OR(ANA_AGEN, AGEN_WDG_EN | AGEN_RTC_ARCH_EN | AGEN_RTC_WDG_EN);
