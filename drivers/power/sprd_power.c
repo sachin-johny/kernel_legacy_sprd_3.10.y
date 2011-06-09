@@ -32,8 +32,11 @@
 #include <linux/gpio.h>
 #include <mach/bits.h>
 #include <linux/irq.h>
+#include <linux/wakelock.h>
 
 //#define CHG_DEBUG
+#define BATTERY_USE_WAKE_LOCK
+#define BATTERY_WAKE_LOCK_LENGTH (10*HZ)
 #ifdef CHG_DEBUG
 #define DEBUG(_fmt...) printk(_fmt)
 #else
@@ -62,6 +65,10 @@ struct sprd_battery_data {
 	struct power_supply battery;
 	struct power_supply ac;
 	struct power_supply usb;
+#ifdef BATTERY_USE_WAKE_LOCK
+    struct wake_lock charge_wake_lock;
+    struct wake_lock update_wake_lock;
+#endif
 };
 
 /* temporary variable used between sprd_battery_probe() and sprd_battery_open() */
@@ -395,6 +402,9 @@ static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 
     charger_status = usb_connected();
     data->usb_online = charger_status;
+#ifdef BATTERY_USE_WAKE_LOCK
+        wake_lock_timeout(&(data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
+#endif
     set_irq_type(irq, charger_status? IRQ_TYPE_LEVEL_LOW:IRQ_TYPE_LEVEL_HIGH);
 	spin_unlock_irqrestore(&data->lock, irq_flags);
 	return IRQ_HANDLED;
@@ -600,12 +610,21 @@ static void battery_handler(unsigned long data)
     DEBUG("usb online %d, ac online %d\n", usb_online, ac_online);
     DEBUG("capacity %d\n", capacity);
     if(battery_notify){
+#ifdef BATTERY_USE_WAKE_LOCK
+        wake_lock_timeout(&(battery_data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
+#endif
         power_supply_changed(&battery_data->battery);
     }
     if(usb_notify){
+#ifdef BATTERY_USE_WAKE_LOCK
+        wake_lock_timeout(&(battery_data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
+#endif
         power_supply_changed(&battery_data->usb);
     }
     if(ac_notify){
+#ifdef BATTERY_USE_WAKE_LOCK
+        wake_lock_timeout(&(battery_data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
+#endif
         power_supply_changed(&battery_data->ac);
     }
     mod_timer(&battery_data->battery_timer, jiffies + HZ);
@@ -681,6 +700,10 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		goto err_no_irq;
 	}
 #endif
+#ifdef BATTERY_USE_WAKE_LOCK
+    wake_lock_init(&(data->charge_wake_lock), WAKE_LOCK_SUSPEND, "charge_wake_lock");
+    wake_lock_init(&(data->update_wake_lock), WAKE_LOCK_SUSPEND, "update_wake_lock");
+#endif
     ret = gpio_to_irq(CHARGER_DETECT_GPIO);
     data->irq = ret;      
 
@@ -736,6 +759,10 @@ static int sprd_battery_remove(struct platform_device *pdev)
 
     del_timer_sync(&data->battery_timer);
 	free_irq(data->irq, data);
+#ifdef BATTERY_USE_WAKE_LOCK
+    wake_lock_destroy(&(data->charge_wake_lock));
+    wake_lock_destroy(&(data->update_wake_lock));
+#endif
 	kfree(data);
 	battery_data = NULL;
 	return 0;
