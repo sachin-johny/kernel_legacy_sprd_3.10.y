@@ -95,6 +95,26 @@ static struct sdhci_ops sdhci_sprd_ops = {
 //	.set_clock		= sdhci_sprd_set_clock,
 };
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static pm_message_t pm;
+
+static void sdhci_sprd_early_suspend(struct early_suspend *es)
+{
+       struct sdhci_host *host = container_of(es, struct sdhci_host, early_suspend);
+       sdhci_suspend_host(host, pm);       
+       
+       return;
+}
+
+static void sdhci_sprd_early_resume(struct early_suspend *es)
+{
+       struct sdhci_host *host = container_of(es, struct sdhci_host, early_suspend);
+       sdhci_resume_host(host);       
+       
+       return;
+}
+#endif
+
 static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -154,6 +174,16 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	sdhci_sprd_set_base_clock(SDIO_MAX_CLK);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+        host->early_suspend.suspend = sdhci_sprd_early_suspend; 
+        host->early_suspend.resume  = sdhci_sprd_early_resume; 
+        host->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB;
+        register_early_suspend( &(host->early_suspend) ); 
+	host->active = 0;
+	host->suspended = 0;
+	host->resumed = 0;
+#endif
+
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");
@@ -170,8 +200,14 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 static int __devexit sdhci_sprd_remove(struct platform_device *pdev)
 {
+#if 0	
+#ifdef CONFIG_HAS_EARLYSUSPEND	
+	unregister_early_suspend( &(host->early_suspend) ); 
+#endif
+#endif	
 	return 0;
 }
+
 
 #ifdef CONFIG_PM
 

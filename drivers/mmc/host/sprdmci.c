@@ -22,9 +22,13 @@
 #include <linux/leds.h>
 
 #include <linux/mmc/host.h>
+#include <linux/mmc/card.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <mach/ldo.h>
+
+
+#include <linux/wakelock.h>
 
 #include "sdhci.h"
 #include "sprdmci.h"
@@ -40,6 +44,10 @@
 #endif
 
 static unsigned int debug_quirks = 0;
+
+static struct wake_lock sdhci_detect_lock;
+static struct wake_lock sdhci_suspend_lock;
+
 
 static void sdhci_prepare_data(struct sdhci_host *, struct mmc_data *);
 static void sdhci_finish_data(struct sdhci_host *);
@@ -1117,8 +1125,14 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	struct sdhci_host *host;
 	bool present;
 	unsigned long flags;
-
+	
 	host = mmc_priv(mmc);
+
+        wake_lock(&sdhci_suspend_lock);
+        host->active = 1;
+	if( host->suspended == 1 ){
+		sdhci_resume_host(host);
+        }
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -1154,6 +1168,8 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	u8 ctrl;
 
 	host = mmc_priv(mmc);
+
+        wake_lock(&sdhci_suspend_lock);
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -1200,6 +1216,8 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 out:
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
+        
+	wake_unlock(&sdhci_suspend_lock);
 }
 
 static int sdhci_get_ro(struct mmc_host *mmc)
@@ -1285,6 +1303,8 @@ static void sdhci_tasklet_card(unsigned long param)
 	}
 
 	spin_unlock_irqrestore(&host->lock, flags);
+
+        wake_lock_timeout(&sdhci_detect_lock, 5*HZ);
 
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
 }
@@ -1375,6 +1395,9 @@ static void sdhci_tasklet_finish(unsigned long param)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_request_done(host->mmc, mrq);
+        host->active = 0;
+
+	wake_unlock(&sdhci_suspend_lock);
 }
 
 static void sdhci_timeout_timer(unsigned long data)
@@ -1658,12 +1681,13 @@ static irqreturn_t sd_detect_irq(int irq, void *dev_id)
  * Suspend/resume                                                            *
  *                                                                           *
 \*****************************************************************************/
-
 #ifdef CONFIG_PM
 
 int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 {
 	int ret;
+        if( host->active == 1 )
+		return -1;
 
 	sdhci_disable_card_detection(host);
 
@@ -1673,6 +1697,9 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 
 	free_irq(host->irq, host);
 
+        host->suspended = 1;
+        host->resumed = 0;
+
 	return 0;
 }
 
@@ -1681,6 +1708,11 @@ EXPORT_SYMBOL_GPL(sdhci_suspend_host);
 int sdhci_resume_host(struct sdhci_host *host)
 {
 	int ret;
+
+        host->suspended = 0;
+
+        if(host->resumed == 1)
+		return -1;
 
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
 		if (host->ops->enable_dma)
@@ -1700,6 +1732,8 @@ int sdhci_resume_host(struct sdhci_host *host)
 		return ret;
 
 	sdhci_enable_card_detection(host);
+         
+        host->resumed = 1;
 
 	return 0;
 }
@@ -2091,11 +2125,16 @@ static int __init sdhci_drv_init(void)
 		": Secure Digital Host Controller Interface driver\n");
 	printk(KERN_INFO DRIVER_NAME ": Copyright(c) Pierre Ossman\n");
 
+        wake_lock_init(&sdhci_detect_lock, WAKE_LOCK_SUSPEND, "mmc_pm_detect");
+        wake_lock_init(&sdhci_suspend_lock, WAKE_LOCK_SUSPEND, "mmc_pm_suspend");
+
 	return 0;
 }
 
 static void __exit sdhci_drv_exit(void)
 {
+        wake_lock_destroy(&sdhci_detect_lock);
+        wake_lock_destroy(&sdhci_suspend_lock);
 }
 
 module_init(sdhci_drv_init);
