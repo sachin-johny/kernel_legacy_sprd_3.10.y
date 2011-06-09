@@ -6,6 +6,8 @@
 #include <mach/adi_hal_internal.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/io.h>
+#include <mach/test.h>
 
 void ADC_Init(void)
 {
@@ -48,7 +50,9 @@ uint32_t ADC_GetValue(adc_channel id, bool scale)
 {
     uint32_t result;
     unsigned long irq_flag;
-    local_irq_save(irq_flag);
+    uint32_t cur_tick, next_tick;
+
+    hw_local_irq_save(irq_flag);
 
     // clear int 
     ANA_REG_OR(ADC_INT_CLR, ADC_IRQ_CLR_BIT);
@@ -62,9 +66,20 @@ uint32_t ADC_GetValue(adc_channel id, bool scale)
     //run ADC soft channel
     ANA_REG_OR(ADC_CTRL, SW_CH_ON_BIT);
 
+    cur_tick = next_tick = get_sys_cnt();
+
     //wait adc complete
     while(!(ANA_REG_GET(ADC_INT_SRC)&ADC_IRQ_RAW_BIT)){
-        //just wait
+	    //just wait
+	    if((next_tick - cur_tick) > 1) {
+		    uint16_t adc_ctrl = ANA_REG_GET(ADC_CTRL);
+		    ADC_Init();
+		    ANA_REG_OR(ADC_CTRL, (adc_ctrl&ADC_TPC_CH_ON_BIT));
+		    hw_local_irq_restore(irq_flag);
+		    printk("WARNING: ADC_GetValue timeout....\n");
+		    return ADC_GetValue(id, scale);  
+	    }
+	    next_tick = get_sys_cnt();
     }
 
     result = ANA_REG_GET(ADC_DAT) & ADC_DATA_MSK; // get adc value
@@ -72,7 +87,7 @@ uint32_t ADC_GetValue(adc_channel id, bool scale)
     ADC_SetCs(TPC_CHANNEL_X);             // set tpc channel x back
     ANA_REG_OR(ADC_INT_CLR, ADC_IRQ_CLR_BIT); // clear irq of this time
 
-    local_irq_restore(irq_flag);
+    hw_local_irq_restore(irq_flag);
     return result;
 }
 
