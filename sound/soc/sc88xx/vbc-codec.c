@@ -388,8 +388,13 @@ void vbc_power_on(unsigned int value)
     mutex_lock(&vbc_power_lock);
     printk("audio %s\n", __func__);
     {
-        if (value == SNDRV_PCM_STREAM_PLAYBACK/* &&
-            vbc_reg_read(VBPMR1, SB_DAC, 1)*/) {
+        if (value == SNDRV_PCM_STREAM_PLAYBACK &&
+            (vbc_reg_read(VBPMR1, SB_DAC, 1) ||
+             vbc_reg_read(VBPMR1, SB_LOUT, 1)||
+             vbc_reg_read(VBPMR1, SB_OUT, 1) ||
+             vbc_reg_read(VBPMR1, SB_MIX, 1) ||
+             vbc_reg_read(VBPMR2, SB, 1)     ||
+             vbc_reg_read(VBPMR2, SB_SLEEP, 1))) {
             int forced = 0;
             // int VBCGR1_value;
 
