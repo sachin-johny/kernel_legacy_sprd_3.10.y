@@ -51,7 +51,7 @@ extern   "C"
 #endif
 
 void ADC_Init (void);
-uint32_t ADC_GetValue(adc_channel adcSource, bool scale);
+int32_t ADC_GetValue(adc_channel adcSource, bool scale);
 
 #ifdef __cplusplus
 }

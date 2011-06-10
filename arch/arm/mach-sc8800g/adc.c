@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/io.h>
 #include <mach/test.h>
+#include <linux/delay.h>
 
 void ADC_Init(void)
 {
@@ -46,11 +47,11 @@ void ADC_ConfigTPC(uint8_t x, uint8_t y)
     ANA_REG_MSK_OR(ADC_TPC_CH_CTRL, x|y<<ADC_TPC_Y_CH_OFFSET, ADC_TPC_X_CH_MSK|ADC_TPC_Y_CH_MSK);
 }
 
-uint32_t ADC_GetValue(adc_channel id, bool scale)
+int32_t ADC_GetValue(adc_channel id, bool scale)
 {
     uint32_t result;
     unsigned long irq_flag;
-    uint32_t cur_tick, next_tick;
+    uint32_t count;
 
     hw_local_irq_save(irq_flag);
 
@@ -66,20 +67,17 @@ uint32_t ADC_GetValue(adc_channel id, bool scale)
     //run ADC soft channel
     ANA_REG_OR(ADC_CTRL, SW_CH_ON_BIT);
 
-    cur_tick = next_tick = get_sys_cnt();
+    count = 12;
 
     //wait adc complete
-    while(!(ANA_REG_GET(ADC_INT_SRC)&ADC_IRQ_RAW_BIT)){
-	    //just wait
-	    if((next_tick - cur_tick) > 1) {
-		    uint16_t adc_ctrl = ANA_REG_GET(ADC_CTRL);
-		    ADC_Init();
-		    ANA_REG_OR(ADC_CTRL, (adc_ctrl&ADC_TPC_CH_ON_BIT));
-		    hw_local_irq_restore(irq_flag);
-		    printk("WARNING: ADC_GetValue timeout....\n");
-		    return ADC_GetValue(id, scale);  
-	    }
-	    next_tick = get_sys_cnt();
+    while(!(ANA_REG_GET(ADC_INT_SRC)&ADC_IRQ_RAW_BIT) && count){
+        udelay(50);
+        count--;
+    }
+    if (count == 0) {
+        hw_local_irq_restore(irq_flag);
+        pr_warning("WARNING: ADC_GetValue timeout....\n");
+        return -EAGAIN;
     }
 
     result = ANA_REG_GET(ADC_DAT) & ADC_DATA_MSK; // get adc value
@@ -90,6 +88,5 @@ uint32_t ADC_GetValue(adc_channel id, bool scale)
     hw_local_irq_restore(irq_flag);
     return result;
 }
-
 EXPORT_SYMBOL_GPL(ADC_Init);
 EXPORT_SYMBOL_GPL(ADC_GetValue);

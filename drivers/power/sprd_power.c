@@ -485,9 +485,9 @@ static void battery_handler(unsigned long data)
     uint32_t battery;
     uint32_t voltage;
     uint32_t capacity;
-    uint32_t adc_value;
-    uint32_t vprog_value;
-    uint32_t vchg_value;
+    int32_t adc_value;
+    int32_t vprog_value;
+    int32_t vchg_value;
     int usb_online= 0;
     static int pre_usb_online = 0;
     int ac_online = 0;
@@ -503,18 +503,24 @@ static void battery_handler(unsigned long data)
     usb_online = battery_data->usb_online;
     ac_online = ac_connected();
     adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+    if(adc_value < 0)
+      return;
     put_vbat_value(adc_value);
     adc_value = get_vbat_value();
     DEBUG("vbat %d\n", adc_value);
 
     vprog_value = ADC_GetValue(ADC_CHANNEL_PROG, false);
+    if(vprog_value < 0)
+      return;
     put_vprog_value(vprog_value);
     vprog_value = get_vprog_value();
     DEBUG("vprog %d\n", vprog_value);
 
+    vchg_value = ADC_GetValue(ADC_CHANNEL_VCHG, false);
+    if(vchg_value < 0)
+      return;
     put_vchg_value(vchg_value);
     vchg_value = get_vchg_value();
-    vchg_value = ADC_GetValue(ADC_CHANNEL_VCHG, false);
     DEBUG("vchg %d\n", vchg_value);
     voltage = CHGMNG_AdcvalueToVoltage(adc_value);
     DEBUG("voltage %d\n", voltage);
