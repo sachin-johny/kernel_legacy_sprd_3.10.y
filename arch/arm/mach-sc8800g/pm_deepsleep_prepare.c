@@ -217,8 +217,10 @@ void threads_statistic_reset(void)
 void inc_sprd_thread_counts(int thread)
 {
 	if (thread >= SPRD_THREADS_ARRAY_SIZE) {
+		/*
 		printk("## Thread index [%d] is larger than array size [%d]!\n", 
 			thread, SPRD_THREADS_ARRAY_SIZE);
+		*/
 	}
 	else {
 		sprd_threads[thread]++;
