@@ -954,7 +954,7 @@ PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd
             ldo_volt_level = LDO_VOLT_LEVEL1;    
             break;
             
-        case SENSOR_AVDD_3000MV:
+        case SENSOR_AVDD_1500MV:
             ldo_volt_level = LDO_VOLT_LEVEL2;    
             break;
             
