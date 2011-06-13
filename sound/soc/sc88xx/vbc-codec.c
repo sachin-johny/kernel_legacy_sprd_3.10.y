@@ -125,7 +125,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     // bit 0    1     2     3   4 ... 31
     //     out  in    out   in
     // value 1 is valid, value 0 is invalid
-    SOC_SINGLE("Power Codec", VBC_CODEC_POWER, 0, UINT_MAX, 0),
+    SOC_SINGLE("Power Codec", VBC_CODEC_POWER, 0, 31, 0),
 };
 
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
@@ -350,7 +350,7 @@ void vbc_power_down(unsigned int value)
             */
             vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
             vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-            vbc_amplifier_enable(false, "vbc_power_down"); // Mute speaker
+            vbc_amplifier_enable(false, "vbc_power_down playback"); // Mute speaker
             vbc_codec_mute();
             msleep(50);
 
@@ -368,6 +368,7 @@ void vbc_power_down(unsigned int value)
         if ((value == -1) ||
             (value == SNDRV_PCM_STREAM_CAPTURE &&
             !vbc_reg_read(VBPMR1, SB_ADC, 1))) {
+            printk("vbc_power_down capture\n");
             vbc_reg_VBPMR1_set(SB_ADC, 1); // Power down ADC
             vbc_reg_VBCR1_set(SB_MICBIAS, 1); // power down mic
         }
@@ -405,7 +406,7 @@ void vbc_power_on(unsigned int value)
             vbc_codec_mute();
             /* earpiece_muted = */ vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
             /* headset_muted =  */ vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-            /* speaker_muted =  */ vbc_amplifier_enable(false, "vbc_power_on"); // Mute speaker
+            /* speaker_muted =  */ vbc_amplifier_enable(false, "vbc_power_on playback"); // Mute speaker
             msleep(50);
 
             vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
@@ -424,7 +425,7 @@ void vbc_power_on(unsigned int value)
             vbc_codec_unmute();
             if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
-            if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on"); // unMute speaker
+            if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
             // vbc_reg_write(VBCGR1, 0, VBCGR1_value, 0xff); // DAC Gain
             if (speaker_muted && forced) {
                 printk("[headset_muted =%d]\n"
@@ -434,6 +435,7 @@ void vbc_power_on(unsigned int value)
         }
         if (value == SNDRV_PCM_STREAM_CAPTURE &&
             vbc_reg_read(VBPMR1, SB_ADC, 1)) {
+            printk("vbc_power_on capture\n");
             vbc_reg_VBPMR2_set(SB, 0); // Power on sb
             vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
             vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
