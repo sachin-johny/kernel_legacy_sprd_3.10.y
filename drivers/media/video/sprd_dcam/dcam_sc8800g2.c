@@ -762,6 +762,8 @@ LOCAL void ISP_ServiceSetParameters(void)
 	sensor_info = *Sensor_GetInfo();
 	s->cap_input_image_format = sensor_info.image_format;
 	s->cap_input_image_pattern = sensor_info.image_pattern;
+	s->capture_skip_frame_num = sensor_info.capture_skip_num;
+	s->preview_skip_frame_num = sensor_info.preview_skip_num;	
 	s->hsync_polarity = sensor_info.hsync_polarity;
 	s->vsync_polarity = sensor_info.vsync_polarity;
 	s->pclk_polarity = sensor_info.pclk_polarity;
