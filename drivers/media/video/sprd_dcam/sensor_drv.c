@@ -884,38 +884,66 @@ LOCAL uint32_t LDO_SetVoltLevel(LDO_ID_E ldo_id, LDO_VOLT_LEVEL_E volt_level)
 
 	return SENSOR_SUCCESS;		
 }
-PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val, SENSOR_AVDD_VAL_E iodd_val)
+PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val, SENSOR_AVDD_VAL_E iovdd_val)
 {
-    uint32_t ldo_volt_level = LDO_VOLT_LEVEL0;
+    uint32_t ldo_dvdd_level = LDO_VOLT_LEVEL0;
+    uint32_t ldo_avdd_level = LDO_VOLT_LEVEL0;
+    uint32_t ldo_iovdd_level = LDO_VOLT_LEVEL0;
+
+    SENSOR_PRINT("Sensor_SetVoltage: %d, %d, %d.\n", dvdd_val, avdd_val,  iovdd_val);
 
     switch(avdd_val)
     {            
         case SENSOR_AVDD_2800MV:
-            ldo_volt_level = LDO_VOLT_LEVEL0;    
+            ldo_avdd_level = LDO_VOLT_LEVEL0;    
             break;
             
-        case SENSOR_AVDD_3000MV:
-            ldo_volt_level = LDO_VOLT_LEVEL1;    
-            break;
-            
-        case SENSOR_AVDD_2500MV:
-            ldo_volt_level = LDO_VOLT_LEVEL2;    
+        case SENSOR_AVDD_3300MV:
+            ldo_avdd_level = LDO_VOLT_LEVEL1;    
             break;
             
         case SENSOR_AVDD_1800MV:
-            ldo_volt_level = LDO_VOLT_LEVEL3;    
+            ldo_avdd_level = LDO_VOLT_LEVEL2;    
+            break;
+            
+        case SENSOR_AVDD_1200MV:
+            ldo_avdd_level = LDO_VOLT_LEVEL3;    
             break;  
             
         case SENSOR_AVDD_CLOSED:
         case SENSOR_AVDD_UNUSED:
         default:
-            ldo_volt_level = LDO_VOLT_LEVEL_MAX;   
+            ldo_avdd_level = LDO_VOLT_LEVEL_MAX;   
+            break;
+    } 
+    switch(iovdd_val)
+    {            
+        case SENSOR_AVDD_2800MV:
+            ldo_iovdd_level = LDO_VOLT_LEVEL0;    
+            break;
+            
+        case SENSOR_AVDD_3000MV:
+            ldo_iovdd_level = LDO_VOLT_LEVEL1;    
+            break;
+            
+        case SENSOR_AVDD_2500MV:
+            ldo_iovdd_level = LDO_VOLT_LEVEL2;    
+            break;
+            
+        case SENSOR_AVDD_1800MV:
+            ldo_iovdd_level = LDO_VOLT_LEVEL3;    
+            break;  
+            
+        case SENSOR_AVDD_CLOSED:
+        case SENSOR_AVDD_UNUSED:
+        default:
+            ldo_iovdd_level = LDO_VOLT_LEVEL_MAX;   
             break;
     } 
    
-    if(LDO_VOLT_LEVEL_MAX == ldo_volt_level)
+    if((LDO_VOLT_LEVEL_MAX == ldo_iovdd_level) || (LDO_VOLT_LEVEL_MAX == ldo_avdd_level))
     {
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off avdd\n"); 
+        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off avdd, iodd\n"); 
     
         LDO_TurnOffLDO(LDO_LDO_CAMA);        
         LDO_TurnOffLDO(LDO_LDO_CAMD1);            
@@ -929,11 +957,11 @@ PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd
     }
     else
     {
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on avdd, VoltLevel %d\n",ldo_volt_level); 
+        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on avdd, iodd VoltLevel %d, avdd VoltLevel %d\n",ldo_iovdd_level, ldo_avdd_level); 
     
-        LDO_SetVoltLevel(LDO_LDO_CAMA, ldo_volt_level);      
-        LDO_TurnOnLDO(LDO_LDO_CAMA);  
-        LDO_SetVoltLevel(LDO_LDO_CAMD1, 0);      
+        LDO_SetVoltLevel(LDO_LDO_CAMA, ldo_iovdd_level);      
+        LDO_TurnOnLDO(LDO_LDO_CAMA); 
+        LDO_SetVoltLevel(LDO_LDO_CAMD1, ldo_avdd_level);
         LDO_TurnOnLDO(LDO_LDO_CAMD1);  
 
        // *(volatile uint32_t*)AHB_GLOBAL_REG_CTL0 |=  (BIT_1|BIT_2);
@@ -947,29 +975,29 @@ PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd
     switch(dvdd_val)
     {
         case SENSOR_AVDD_1800MV:
-            ldo_volt_level = LDO_VOLT_LEVEL0;    
+            ldo_dvdd_level = LDO_VOLT_LEVEL0;    
             break;
             
         case SENSOR_AVDD_2800MV:
-            ldo_volt_level = LDO_VOLT_LEVEL1;    
+            ldo_dvdd_level = LDO_VOLT_LEVEL1;    
             break;
             
         case SENSOR_AVDD_1500MV:
-            ldo_volt_level = LDO_VOLT_LEVEL2;    
+            ldo_dvdd_level = LDO_VOLT_LEVEL2;    
             break;
             
         case SENSOR_AVDD_1300MV:
-            ldo_volt_level = LDO_VOLT_LEVEL3;    
+            ldo_dvdd_level = LDO_VOLT_LEVEL3;    
             break;  
             
         case SENSOR_AVDD_CLOSED:
         case SENSOR_AVDD_UNUSED:
         default:
-            ldo_volt_level = LDO_VOLT_LEVEL_MAX;           
+            ldo_dvdd_level = LDO_VOLT_LEVEL_MAX;           
             break;
     } 
     
-    if(LDO_VOLT_LEVEL_MAX == ldo_volt_level)
+    if(LDO_VOLT_LEVEL_MAX == ldo_dvdd_level)
     {
         SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off dvdd, sensor_id %d\n",
                      Sensor_GetCurId()); 
@@ -978,11 +1006,11 @@ PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd
     }
     else
     {
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on dvdd, sensor_id %d, VoltLevel %d\n",
-        Sensor_GetCurId(),ldo_volt_level); 
+        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on dvdd, sensor_id %d, dvdd VoltLevel %d\n",
+        Sensor_GetCurId(),ldo_dvdd_level); 
 
         LDO_TurnOnLDO(LDO_LDO_CAMD0);    
-        LDO_SetVoltLevel(LDO_LDO_CAMD0, ldo_volt_level);      
+        LDO_SetVoltLevel(LDO_LDO_CAMD0, ldo_dvdd_level);      
     }  
     
     return ;

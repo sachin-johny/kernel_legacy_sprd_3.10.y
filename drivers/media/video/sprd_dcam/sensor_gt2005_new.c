@@ -845,7 +845,7 @@ PUBLIC SENSOR_INFO_T g_GT2005_yuv_info =
 	{{0x0000, 0x51},						// supply two code to identify sensor.
 	{0x0001, 0x38}},						// for Example: index = 0-> Device id, index = 1 -> version id											
 											
-	SENSOR_AVDD_2800MV,			// voltage of avdd	
+	SENSOR_AVDD_1800MV,			// voltage of avdd	
 	
 	1600,							// max width of source image
 	1200,							// max height of source image
