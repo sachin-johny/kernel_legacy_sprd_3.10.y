@@ -400,6 +400,7 @@ struct nand_chip {
 #ifdef CONFIG_MTD_NAND_SPRD
 	unsigned long  (*nfc_readid)(struct mtd_info *mtd);
 	unsigned long  (*nfc_wr_oob)(struct mtd_info *mtd);
+	char  		flashname[100];
 #endif
 
 	int		chip_delay;

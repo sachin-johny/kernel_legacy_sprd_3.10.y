@@ -46,6 +46,7 @@
 #include <linux/interrupt.h>
 #include <linux/bitops.h>
 #include <linux/leds.h>
+#include <linux/wakelock.h>
 #include <asm/io.h>
 #include <linux/swab.h>
 
@@ -53,6 +54,8 @@
 #ifdef CONFIG_MTD_PARTITIONS
 #include <linux/mtd/partitions.h>
 #endif
+
+static struct wake_lock nand_wake_lock;
 
 /* Define default oob placement schemes for large and small page devices */
 static struct nand_ecclayout nand_oob_8 = {
@@ -215,6 +218,10 @@ static void nand_release_device(struct mtd_info *mtd)
 	chip->state = FL_READY;
 	wake_up(&chip->controller->wq);
 	spin_unlock(&chip->controller->lock);
+
+#ifdef CONFIG_MTD_NAND_SPRD
+	wake_unlock(&nand_wake_lock);
+#endif
 }
 
 /**
@@ -476,6 +483,7 @@ static int nand_default_block_markbad(struct mtd_info *mtd, loff_t ofs)
 	struct nand_chip *chip = mtd->priv;
 	uint8_t buf[2] = { 0, 0 };
 	int block, ret;
+	mtd_oob_mode_t sprd_mode;
 
 	if (chip->options & NAND_BB_LAST_PAGE)
 		ofs += mtd->erasesize - mtd->writesize;
@@ -499,7 +507,20 @@ static int nand_default_block_markbad(struct mtd_info *mtd, loff_t ofs)
 		chip->ops.oobbuf = buf;
 		chip->ops.ooboffs = chip->badblockpos & ~0x01;
 
+#if 0
+		/* when ops.mode is MTD_OOB_AUTO, there is error */		
+		sprd_mode = chip->ops.mode;
+		if (chip->ops.mode == MTD_OOB_AUTO)
+			chip->ops.mode = MTD_OOB_RAW;
+#endif
+		if (chip->ops.mode == MTD_OOB_AUTO)
+			printk("\n%s %s %d  mark bad block\n", __FILE__, __FUNCTION__, __LINE__);
 		ret = nand_do_write_oob(mtd, ofs, &chip->ops);
+#if 0
+		/* restore old mode */
+		chip->ops.mode = sprd_mode;
+#endif
+
 		nand_release_device(mtd);
 	}
 	if (!ret)
@@ -854,6 +875,11 @@ static void panic_nand_get_device(struct nand_chip *chip,
 static int
 nand_get_device(struct nand_chip *chip, struct mtd_info *mtd, int new_state)
 {
+#ifdef CONFIG_MTD_NAND_SPRD
+	if (new_state != FL_PM_SUSPENDED)
+		wake_lock(&nand_wake_lock);
+#endif
+
 	spinlock_t *lock = &chip->controller->lock;
 	wait_queue_head_t *wq = &chip->controller->wq;
 	DECLARE_WAITQUEUE(wait, current);
@@ -3142,6 +3168,13 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	if (mtd->writesize > 512 && chip->cmdfunc == nand_command)
 		chip->cmdfunc = nand_command_lp;
 
+#ifdef CONFIG_MTD_NAND_SPRD
+
+	sprintf(chip->flashname, "NAND device: Manufacturer ID:"
+	       " 0x%02x, Chip ID: 0x%02x (%s %s)\n", *maf_id, dev_id,
+	       nand_manuf_ids[maf_idx].name, type->name);
+#endif
+
 	printk(KERN_INFO "NAND device: Manufacturer ID:"
 	       " 0x%02x, Chip ID: 0x%02x (%s %s)\n", *maf_id, dev_id,
 	       nand_manuf_ids[maf_idx].name, type->name);
@@ -3540,6 +3573,7 @@ EXPORT_SYMBOL_GPL(nand_release);
 
 static int __init nand_base_init(void)
 {
+	wake_lock_init(&nand_wake_lock, WAKE_LOCK_SUSPEND, "nand_work");
 	led_trigger_register_simple("nand-disk", &nand_led_trigger);
 	return 0;
 }
@@ -3547,6 +3581,7 @@ static int __init nand_base_init(void)
 static void __exit nand_base_exit(void)
 {
 	led_trigger_unregister_simple(nand_led_trigger);
+	wake_lock_destroy(&nand_wake_lock);
 }
 
 module_init(nand_base_init);

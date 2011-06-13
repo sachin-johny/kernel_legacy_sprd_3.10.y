@@ -650,6 +650,18 @@ static inline int mtd_proc_info(char *buf, struct mtd_info *this)
 		       this->erasesize, this->name);
 }
 
+#ifdef CONFIG_MTD_NAND_SPRD
+struct mtd_part {
+	struct mtd_info mtd;
+	struct mtd_info *master;
+	uint64_t offset;
+	struct list_head list;
+};
+
+#define PART(x)  ((struct mtd_part *)(x))
+
+#endif
+
 static int mtd_read_proc (char *page, char **start, off_t off, int count,
 			  int *eof, void *data_unused)
 {
@@ -657,8 +669,18 @@ static int mtd_read_proc (char *page, char **start, off_t off, int count,
 	int len, l;
         off_t   begin = 0;
 
+#ifdef CONFIG_MTD_NAND_SPRD
+	struct mtd_info *this = mtd_table[i];
+	struct mtd_part *part = PART(this);
+	struct mtd_info *master = part->master;
+	struct nand_chip *chipinfo = master->priv;
+#endif
+
 	mutex_lock(&mtd_table_mutex);
 
+#ifdef CONFIG_MTD_NAND_SPRD
+	len = sprintf(page, "%sdev:    size   erasesize  name\n", chipinfo->flashname);
+#else
 	len = sprintf(page, "dev:    size   erasesize  name\n");
 	mtd_for_each_device(mtd) {
 		l = mtd_proc_info(page + len, mtd);
