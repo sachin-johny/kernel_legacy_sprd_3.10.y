@@ -35,6 +35,7 @@
 #include <mach/mfp.h>
 #include <mach/io.h>
 #include <mach/clock_common.h>
+#include <mach/gpio.h>
 
 //#define CONFIG_TS0710_MUX_UART
 
@@ -390,6 +391,10 @@ static int serialsc8800_startup(struct uart_port *port)
 {
 	int ret=0;
 	unsigned int ien;
+
+	int u2rxd_id = 41;
+	int u2txd_id =42;
+
 	//port->uartclk=26000000;
 
 #ifdef CONFIG_TS0710_MUX_UART
@@ -407,6 +412,9 @@ static int serialsc8800_startup(struct uart_port *port)
 	}
 #endif
     if(port->line == 2)
+	gpio_free(u2rxd_id);
+	gpio_free(u2txd_id);
+
         serialsc8800_pin_config();
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
@@ -461,6 +469,16 @@ static void serialsc8800_shutdown(struct uart_port *port)
 	serial_out(port,ARM_UART_IEN,0x0);
 	serial_out(port,ARM_UART_ICLR,0xffffffff);
 	free_irq(port->irq,port);
+
+	if(port->line == 2){
+		sprd_mfp_config(serial_func_cfg, ARRAY_SIZE(serial_func_cfg));
+		if ( gpio_request(u2rxd_id,"u2rxd"))
+			printk("gpio request 41 fail\n");
+		if ( gpio_request(u2txd_id,"u2txd"))
+			printk("gpio request 42 fail\n");
+		gpio_direction_input(u2rxd_id);
+		gpio_direction_input(u2txd_id);
+	}
 }
 static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *termios,struct ktermios *old)
 {	
