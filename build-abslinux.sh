@@ -33,22 +33,6 @@ BOOTIMG=${ANDROID_DIR}/out/target/product/hsdroid/boot.img
 INITRD_DIR=${ANDROID_DIR}/out/target/product/hsdroid
 INITRD_IMG=${INITRD_DIR}/ramdisk.img
 
-if [ ! -f "${MKBOOTIMG}" ]; then
-    echo "Missing host tool: ${MKBOOTIMG}"
-    echo "Please build your android project first"
-    exit 1
-fi
-
-if [ ! -d ${INITRD_DIR} ]
-then
-    echo "Missing component Linux initrd: ${INITRD_DIR}"
-    exit -1
-fi
-if [ ! -f ${INITRD_IMG} ]
-then
-    echo "Missing component Linux initrd image: ${INITRD_IMG}"
-    exit 1
-fi
 #----------------------------------------------------------------------------
 # Build related variables
 #----------------------------------------------------------------------------
@@ -118,6 +102,25 @@ function build_bootimg()
     echo
     echo "Building boot.img"
     echo
+
+    if [ ! -f "${MKBOOTIMG}" ]; then
+        echo "Missing host tool: ${MKBOOTIMG}"
+        echo "Please build your android project first"
+        exit 1
+    fi
+
+    if [ ! -d ${INITRD_DIR} ]
+    then
+        echo "Missing component Linux initrd: ${INITRD_DIR}"
+        exit -1
+    fi
+
+    if [ ! -f ${INITRD_IMG} ]
+    then
+        echo "Missing component Linux initrd image: ${INITRD_IMG}"
+        exit 1
+    fi
+
     echo "  CMDLINE: ${CMDLINE}"
     ${MKBOOTIMG} --kernel ${KERNELIMG} --ramdisk ${INITRD_IMG} -o ${BOOTIMG} --cmdline "${CMDLINE}"
     cp ${BOOTIMG} .
