@@ -1731,7 +1731,7 @@ int _SCALE_DriverIOInit(void)
 	down(&g_sem_cnt);
 	if(0 < g_scale_num)
 	{
-		SCALE_PRINT("###scale: fail to open device.\n");
+		SCALE_PRINT_ERR("###scale: fail to open device.g_scale_num: %d.\n",g_scale_num);
 		return -1;
 	}
 

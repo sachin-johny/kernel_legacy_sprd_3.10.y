@@ -700,7 +700,7 @@ LOCAL void _ISP_ServiceStartJpeg(void)
     ISP_RTN_IF_ERR(rtn_drv);
 
     ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr); //wxz:???
-#if 0    
+#if 0   
     get_dcam_reg();
 #endif    
     rtn_drv = ISP_DriverStart(s->module_addr);
@@ -762,8 +762,6 @@ LOCAL void ISP_ServiceSetParameters(void)
 	sensor_info = *Sensor_GetInfo();
 	s->cap_input_image_format = sensor_info.image_format;
 	s->cap_input_image_pattern = sensor_info.image_pattern;
-	s->capture_skip_frame_num = sensor_info.capture_skip_num;
-	s->preview_skip_frame_num = sensor_info.preview_skip_num;	
 	s->hsync_polarity = sensor_info.hsync_polarity;
 	s->vsync_polarity = sensor_info.vsync_polarity;
 	s->pclk_polarity = sensor_info.pclk_polarity;
@@ -777,9 +775,10 @@ LOCAL void ISP_ServiceSetParameters(void)
 	s->cap_input_range.h = g_dcam_param.input_rect.h;
 	s->cap_output_size.w = s->cap_input_range.w;
 	s->cap_output_size.h = s->cap_input_range.h;
+	s->capture_skip_frame_num = sensor_info.capture_skip_num;
 	s->encoder_size.w = g_dcam_param.encoder_rect.w;
 	s->encoder_size.h = g_dcam_param.encoder_rect.h;
-	s->preview_deci_frame_num = 0;
+	//s->preview_deci_frame_num = 0;
 	if((ISP_ROTATION_90 == g_dcam_param.rotation) || (ISP_ROTATION_270 == g_dcam_param.rotation))
 	{
 		dst_img_size.w = g_dcam_param.display_rect.h;
@@ -794,13 +793,20 @@ LOCAL void ISP_ServiceSetParameters(void)
 	s->cap_img_dec.x_factor = _ISP_ServiceGetXYDeciFactor(&s->cap_output_size.w, &s->cap_output_size.h,
 								dst_img_size.w * coeff, dst_img_size.h * coeff);	
 	s->cap_img_dec.y_factor = s->cap_img_dec.x_factor;
-	s->cap_img_dec.x_mode = ISP_CAP_IMG_DEC_MODE_DIRECT;
-	s->input_size.w = s->cap_output_size.w;
+	s->cap_img_dec.x_mode = ISP_CAP_IMG_DEC_MODE_AVERAGE;
+	/*s->input_size.w = s->cap_output_size.w;
 	s->input_size.h = s->cap_output_size.h;
 	s->input_range.x = 0;
 	s->input_range.y = 0;
 	s->input_range.w = s->cap_output_size.w;
-	s->input_range.h = s->cap_output_size.h;
+	s->input_range.h = s->cap_output_size.h;*/
+	s->input_size.w = g_dcam_param.input_size.w;
+	s->input_size.h = g_dcam_param.input_size.h;
+	s->input_range.x = g_dcam_param.input_rect.x;
+	s->input_range.y = g_dcam_param.input_rect.y;
+	s->input_range.w = g_dcam_param.input_rect.w;
+	s->input_range.h = g_dcam_param.input_rect.h;
+	
 	s->display_range.x = g_dcam_param.display_rect.x;
 	s->display_range.y = g_dcam_param.display_rect.y;
 	s->display_range.w = g_dcam_param.display_rect.w;

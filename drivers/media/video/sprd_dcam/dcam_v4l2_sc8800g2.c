@@ -1092,7 +1092,7 @@ static void init_dcam_parameters(void *priv)
     init_param.polarity.vsync = 0;// //1
     init_param.polarity.pclk = 0;
    
-   if((fh->width < 640) && (fh->height < 480))
+   /*if((fh->width < 640) && (fh->height < 480))
     	{    	
 		init_param.input_rect.x = (640 - fh->width) >> 1 ;
 		init_param.input_rect.y = (480 - fh->height) >> 1;
@@ -1103,7 +1103,11 @@ static void init_dcam_parameters(void *priv)
 		init_param.input_rect.y = 0;
 	}
 	init_param.input_rect.w = fh->width;
-	init_param.input_rect.h = fh->height;	
+	init_param.input_rect.h = fh->height;*/	
+	init_param.input_rect.x = 0;
+	init_param.input_rect.y = 0;
+	init_param.input_rect.w = init_param.input_size.w;
+	init_param.input_rect.h = init_param.input_size.h;
     init_param.display_rect.x = 0;
     init_param.display_rect.y = 0;
     init_param.display_rect.w = fh->width;
