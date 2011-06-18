@@ -1302,6 +1302,10 @@ static void set_layer_cb(uint32_t base)
 		goto unlock;
 	}
 
+	if(NULL == dma_q->active.next){
+		DCAM_V4L2_PRINT("###V4L2: path1_done_buffer: the active.next is NULL.\n");
+		goto unlock;
+	}
 	buf = list_entry(dma_q->active.next,
 			 struct dcam_buffer, vb.queue);
 
