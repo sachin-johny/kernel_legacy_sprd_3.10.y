@@ -73,6 +73,9 @@ struct sprd_battery_data {
 
 /* temporary variable used between sprd_battery_probe() and sprd_battery_open() */
 static struct sprd_battery_data *battery_data;
+static int timer_freq;
+static int timer_freq_flag;
+static int timer_freq_cnt;
 
 
 static int sprd_ac_get_property(struct power_supply *psy,
@@ -233,7 +236,7 @@ static ssize_t sprd_set_caliberate(struct device *dev,
     const ptrdiff_t off = attr - sprd_caliberate;
     set_value = simple_strtoul(buf, NULL, 10);
     if(set_value > 1000){
-        pr_err("set value %d too big\n", set_value);
+        pr_err("set value %lu too big\n", set_value);
         return 0;
     }
     DEBUG("set value %d\n", set_value);
@@ -394,7 +397,6 @@ static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 {
 	unsigned long irq_flags;
 	struct sprd_battery_data *data = dev_id;
-	uint32_t status;
     uint32_t charger_status;
     DEBUG("charger plug interrupt happen\n");
 
@@ -402,6 +404,13 @@ static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 
     charger_status = usb_connected();
     data->usb_online = charger_status;
+    if(charger_status){
+        timer_freq = HZ/5;
+        timer_freq_flag = 1;
+        mod_timer(&data->battery_timer, jiffies + timer_freq);
+    }else{
+        timer_freq = 10*HZ;
+    }
 #ifdef BATTERY_USE_WAKE_LOCK
         wake_lock_timeout(&(data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
 #endif
@@ -482,7 +491,6 @@ static bool charge_pluse = true;
 
 static void battery_handler(unsigned long data)
 {
-    uint32_t battery;
     uint32_t voltage;
     uint32_t capacity;
     int32_t adc_value;
@@ -612,29 +620,32 @@ static void battery_handler(unsigned long data)
         }
     }
 
+    if(timer_freq_flag == 0){
+        timer_freq_cnt --;
+        if(timer_freq_cnt < 0){
+            timer_freq_flag = 1;
+            timer_freq = 10*HZ;
+        }
+    }
+
     spin_unlock_irqrestore(&battery_data->lock, flag);
     DEBUG("usb online %d, ac online %d\n", usb_online, ac_online);
     DEBUG("capacity %d\n", capacity);
     if(battery_notify){
-#ifdef BATTERY_USE_WAKE_LOCK
-        wake_lock_timeout(&(battery_data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
-#endif
         power_supply_changed(&battery_data->battery);
     }
     if(usb_notify){
-#ifdef BATTERY_USE_WAKE_LOCK
-        wake_lock_timeout(&(battery_data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
-#endif
         power_supply_changed(&battery_data->usb);
     }
     if(ac_notify){
+        power_supply_changed(&battery_data->ac);
+    }
+    if(battery_notify || usb_notify || ac_notify){
 #ifdef BATTERY_USE_WAKE_LOCK
         wake_lock_timeout(&(battery_data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
 #endif
-        power_supply_changed(&battery_data->ac);
     }
-    mod_timer(&battery_data->battery_timer, jiffies + HZ);
-
+    mod_timer(&battery_data->battery_timer, jiffies + timer_freq);
 }
 static char * supply_list[]={
     "battery",
@@ -643,7 +654,6 @@ static char * supply_list[]={
 static int sprd_battery_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct resource *r;
 	struct sprd_battery_data *data;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
@@ -689,6 +699,17 @@ static int sprd_battery_probe(struct platform_device *pdev)
     init_timer(&data->battery_timer);
     data->battery_timer.function = battery_handler;
     data->battery_timer.data = (unsigned long)data;
+
+    timer_freq = HZ/5;
+    timer_freq_cnt = 20;
+    if(usb_connected()){
+        data->usb_online = 1;
+        timer_freq_flag = 1;
+    }
+    else{
+        data->usb_online = 0;
+        timer_freq_flag = 0;
+    }
 
 #if 0
 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
@@ -737,7 +758,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
     sprd_creat_caliberate_attr(data->battery.dev);
 
-    mod_timer(&data->battery_timer, jiffies + HZ);
+    mod_timer(&data->battery_timer, jiffies + timer_freq);
 
 	return 0;
 
