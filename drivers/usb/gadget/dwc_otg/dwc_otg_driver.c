@@ -558,14 +558,9 @@ static int dwc_otg_driver_remove(
 	return 0;
 }
 #ifdef CONFIG_PM
-extern int usb_cable_is_connected(void);
 static int dwc_otg_suspend(struct platform_device *dev, pm_message_t state)
 {
 	pr_info("%s\n", __func__);
-	if (usb_cable_is_connected()){
-		pr_info("cable connect\n");
-		return 1;
-	}
 	return 0;
 }
 static int dwc_otg_resume(struct platform_device *dev)

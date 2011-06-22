@@ -92,8 +92,8 @@ static struct gadget_wrapper {
 	struct usb_ep in_ep[16];
 	struct usb_ep out_ep[16];
 
-    int enabled;
-    int vbus;
+	int enabled;
+	int vbus;
 } *gadget_wrapper;
 
 /* Display the contents of the buffer */
@@ -561,24 +561,24 @@ extern void dwc_otg_pcd_stop(dwc_otg_pcd_t *pcd);
 static int pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct gadget_wrapper *d;
-    unsigned long flags;
+	unsigned long flags;
 
-	if (gadget == 0) {
+	if (gadget == 0)
 		return -ENODEV;
-	} else {
+	else
 		d = container_of(gadget, struct gadget_wrapper, gadget);
+
+	local_irq_save(flags);
+	if (!d->enabled || !d->vbus){
+		is_on = 0;
 	}
-    local_irq_save(flags);
-    if (!d->enabled || !d->vbus){
-            is_on = 0;
-    }
-    local_irq_restore(flags);
+	local_irq_restore(flags);
 	if(is_on) {
-        dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
-    } else {
-        dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
-        dwc_otg_pcd_stop(d->pcd);
-    }
+		dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
+	} else {
+		dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
+		dwc_otg_pcd_stop(d->pcd);
+	}
 	return 0;
 }
 static const struct usb_gadget_ops dwc_otg_pcd_ops = {
@@ -596,11 +596,11 @@ static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 	int retval = -DWC_E_NOT_SUPPORTED;
 	if (gadget_wrapper->driver && gadget_wrapper->driver->setup) {
 		retval = gadget_wrapper->driver->setup(&gadget_wrapper->gadget,
-						       (struct usb_ctrlrequest
-							*)bytes);
+				(struct usb_ctrlrequest
+				 *)bytes);
 	}
 
-    trace_printk("setup res val: %d\n", retval);
+	trace_printk("setup res val: %d\n", retval);
 	//sword
 	//if (retval == -ENOTSUPP) {
 	if (retval == -EOPNOTSUPP) {
@@ -964,56 +964,56 @@ static void free_wrapper(struct gadget_wrapper *d)
 }
 static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 {
-        dwc_otg_pcd_t *pcd = dev_id;
-	    struct gadget_wrapper *d;
-        int value = 0;
+	dwc_otg_pcd_t *pcd = dev_id;
+	struct gadget_wrapper *d;
+	int value = 0;
 
-        d = gadget_wrapper;
-        if (d->driver == NULL) {
-            pr_info("too early, no gadget drive\n");
-            return IRQ_HANDLED;
-        }
-        value = gpio_get_value(CHARGER_DETECT_GPIO);
+	d = gadget_wrapper;
+	if (d->driver == NULL) {
+		pr_info("too early, no gadget drive\n");
+		return IRQ_HANDLED;
+	}
+	value = gpio_get_value(CHARGER_DETECT_GPIO);
 
-        if (value){
-            pr_info("usb detect plug in\n");
-            set_irq_type(irq, IRQF_TRIGGER_LOW);
-        } else {
-            pr_info("usb detect plug out\n");
-            set_irq_type(irq, IRQF_TRIGGER_HIGH);
-        }
-        if (value == d->vbus){
-                pr_info("bus power don't change\n");
-                return IRQ_HANDLED;
-        }
-        d->vbus = value;
-        if (value){
-            pr_info("usb detect plug in,vbus pull up\n");
-            udc_enable();
-            dwc_otg_core_init(GET_CORE_IF(d->pcd));
-            dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
-            dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
-        } else {
-            pr_info("usb detect plug out,vbus pull down\n");
-            dwc_otg_pcd_stop(pcd);
-            udc_disable();
-        }
+	if (value){
+		pr_info("usb detect plug in\n");
+		set_irq_type(irq, IRQF_TRIGGER_LOW);
+	} else {
+		pr_info("usb detect plug out\n");
+		set_irq_type(irq, IRQF_TRIGGER_HIGH);
+	}
+	if (value == d->vbus){
+		pr_info("bus power don't change\n");
+		return IRQ_HANDLED;
+	}
+	d->vbus = value;
+	if (value){
+		pr_info("usb detect plug in,vbus pull up\n");
+		udc_enable();
+		dwc_otg_core_init(GET_CORE_IF(d->pcd));
+		dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
+		dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
+	} else {
+		pr_info("usb detect plug out,vbus pull down\n");
+		dwc_otg_pcd_stop(pcd);
+		udc_disable();
+	}
 
-        return IRQ_HANDLED;
+	return IRQ_HANDLED;
 }
 
 static void enumeration_enable(unsigned long data)
 {
-    int plug_irq;
+	int plug_irq;
 	struct gadget_wrapper *d;
 
-    pr_info("enable usb enumeration\n");
-    d = gadget_wrapper;
-    plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
-    dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
-    enable_irq(plug_irq);
+	pr_info("enable usb enumeration\n");
+	d = gadget_wrapper;
+	plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
+	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
+	enable_irq(plug_irq);
 
-    return;
+	return;
 }
 
 int usb_cable_is_connected(void)
@@ -1032,10 +1032,10 @@ int pcd_init(
 	struct platform_device *_dev
 	)
 {
-       dwc_otg_device_t *otg_dev = platform_get_drvdata(_dev);
+	dwc_otg_device_t *otg_dev = platform_get_drvdata(_dev);
 	int retval = 0;
 	int irq;
-    int plug_irq;
+	int plug_irq;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
 
@@ -1059,30 +1059,30 @@ int pcd_init(
 	irq = platform_get_irq(_dev, 0);
 	DWC_DEBUGPL(DBG_ANY, "registering handler for irq%d\n", irq);
 	retval = request_irq(irq, dwc_otg_pcd_irq,
-			     0, gadget_wrapper->gadget.name,
-			     otg_dev->pcd);
-			     //SA_SHIRQ, gadget_wrapper->gadget.name,
+			0, gadget_wrapper->gadget.name,
+			otg_dev->pcd);
+	//SA_SHIRQ, gadget_wrapper->gadget.name,
 	if (retval != 0) {
 		DWC_ERROR("request of irq%d failed\n", irq);
 		free_wrapper(gadget_wrapper);
 		return -EBUSY;
 	}
-    {
-        plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
-        gpio_set_hw_debounce(CHARGER_DETECT_GPIO, 200);
-        pr_info("usb detect irq:%d gpio level %d\n", plug_irq,
-               gpio_get_value(CHARGER_DETECT_GPIO));
-        gadget_wrapper->vbus = gpio_get_value(CHARGER_DETECT_GPIO);
-        retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED |
-                IRQF_TRIGGER_HIGH, "usb detect", otg_dev->pcd);
-    }
+	{
+		plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
+		gpio_set_hw_debounce(CHARGER_DETECT_GPIO, 200);
+		pr_info("usb detect irq:%d gpio level %d\n", plug_irq,
+				gpio_get_value(CHARGER_DETECT_GPIO));
+		gadget_wrapper->vbus = gpio_get_value(CHARGER_DETECT_GPIO);
+		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED |
+				IRQF_TRIGGER_HIGH, "usb detect", otg_dev->pcd);
+	}
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
-    if (!gadget_wrapper->vbus){
-            pr_info("vbus is not power now \n");
-            udc_disable();
-    }
-    gadget_wrapper->enabled = 0;
-    //enable_irq(plug_irq);
+	if (!gadget_wrapper->vbus){
+		pr_info("vbus is not power now \n");
+		udc_disable();
+	}
+	gadget_wrapper->enabled = 0;
+	//enable_irq(plug_irq);
 	return retval;
 }
 
@@ -1093,7 +1093,7 @@ void pcd_remove(
 struct platform_device *_dev
 	)
 {
-       dwc_otg_device_t *otg_dev = platform_get_drvdata(_dev);
+	dwc_otg_device_t *otg_dev = platform_get_drvdata(_dev);
 	dwc_otg_pcd_t *pcd = otg_dev->pcd;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
@@ -1122,12 +1122,12 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	int retval;
 
 	DWC_DEBUGPL(DBG_PCD, "registering gadget driver '%s'\n",
-		    driver->driver.name);
-    pr_info("%s\n", __func__);
+			driver->driver.name);
+	pr_info("%s\n", __func__);
 	if (!driver || driver->speed == USB_SPEED_UNKNOWN ||
-	    !driver->bind ||
-	    !driver->disconnect || !driver->setup) {
-	    //!driver->unbind || !driver->disconnect || !driver->setup) {
+			!driver->bind ||
+			!driver->disconnect || !driver->setup) {
+		//!driver->unbind || !driver->disconnect || !driver->setup) {
 		DWC_DEBUGPL(DBG_PCDV, "EINVAL\n");
 		return -EINVAL;
 	}
@@ -1146,20 +1146,20 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 
 	DWC_DEBUGPL(DBG_PCD, "bind to driver %s\n", driver->driver.name);
 	retval = driver->bind(&gadget_wrapper->gadget);
-    gadget_wrapper->enabled = 1;
+	gadget_wrapper->enabled = 1;
 	if (retval) {
 		DWC_ERROR("bind to driver %s --> error %d\n",
-			  driver->driver.name, retval);
+				driver->driver.name, retval);
 		gadget_wrapper->driver = 0;
 		gadget_wrapper->gadget.dev.driver = 0;
-        gadget_wrapper->enabled = 0;
+		gadget_wrapper->enabled = 0;
 		return retval;
 	}
 	DWC_DEBUGPL(DBG_ANY, "registered gadget driver '%s'\n",
-		    driver->driver.name);
+			driver->driver.name);
 
-    //enable_gpio_detect_irq();
-    enumeration_enable(0);
+	//enable_gpio_detect_irq();
+	enumeration_enable(0);
 	return 0;
 }
 
@@ -1176,18 +1176,18 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 
 	if (gadget_wrapper == 0) {
 		DWC_DEBUGPL(DBG_ANY, "%s Return(%d): s_pcd==0\n", __func__,
-			    -ENODEV);
+				-ENODEV);
 		return -ENODEV;
 	}
 	if (driver == 0 || driver != gadget_wrapper->driver) {
 		DWC_DEBUGPL(DBG_ANY, "%s Return(%d): driver?\n", __func__,
-			    -EINVAL);
+				-EINVAL);
 		return -EINVAL;
 	}
 
 	driver->unbind(&gadget_wrapper->gadget);
 	gadget_wrapper->driver = 0;
-    gadget_wrapper->enabled = 0;
+	gadget_wrapper->enabled = 0;
 
 	DWC_DEBUGPL(DBG_ANY, "unregistered driver '%s'\n", driver->driver.name);
 	return 0;
