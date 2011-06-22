@@ -915,11 +915,11 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 			if (nv_oobbuf.ptr[0] == '0') {
 				/* fix nv */
 				nvtype = 0;
-				real_nv_size = MAX_FIXNV_SIZE;
+				real_nv_size = FIXNV_SIZE;
 			} else {
 				/* runtime nv */
 				nvtype = 1;
-				real_nv_size = MAX_RUNTIMENV_SIZE;
+				real_nv_size = RUNTIMENV_SIZE;
 			}
 		}
 
@@ -936,24 +936,24 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		while (total < real_nv_size) {
 			bad_flag = mtd->block_isbad(mtd, offs);
 			if (bad_flag) {
-				offs += (128 * 1024);
+				offs += NAND_BLOCK_SIZE;
 				continue;
 			}
 
 			if (nvtype == 0)
-				ops.len = 64 * 1024;
+				ops.len = FIXNV_SIZE;
 			else
-				ops.len = 128 * 1024;
+				ops.len = NAND_BLOCK_SIZE;
 
 			ops.datbuf = nv_databuf + total;
 			ops.oobbuf = NULL;
 			ops.mode = MTD_OOB_AUTO;
 			mtd->read_oob(mtd, total, &ops);
 			if (nvtype == 0)
-				total += (64 * 1024);
+				total += FIXNV_SIZE;
 			else
-				total += (128 * 1024);
-			offs += (128 * 1024);
+				total += NAND_BLOCK_SIZE;
+			offs += NAND_BLOCK_SIZE;
 		}
 
 		nv_file = file;
@@ -976,7 +976,7 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 		while (total < real_nv_size) {
 			bad_flag = mtd->block_isbad(mtd, offs);
 			if (bad_flag) {
-				offs += (128 * 1024);
+				offs += NAND_BLOCK_SIZE;
 				continue;
 			}
 			
@@ -984,7 +984,7 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 			init_waitqueue_head(&waitq);
 
 			erase.addr = offs;
-			erase.len = (128 * 1024);
+			erase.len = NAND_BLOCK_SIZE;
 			erase.mtd = mtd;
 			erase.callback = mtdchar_erase_callback;
 			erase.priv = (unsigned long)&waitq;
@@ -1002,18 +1002,18 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 			}
 
 			if (nvtype == 0)
-				ops.len = 64 * 1024;
+				ops.len = FIXNV_SIZE;
 			else
-				ops.len = 128 * 1024;
+				ops.len = NAND_BLOCK_SIZE;
 			ops.datbuf = nv_databuf + total;
 			ops.oobbuf = NULL;
 			ops.mode = MTD_OOB_AUTO;
 			mtd->write_oob(mtd, total, &ops);
 			if (nvtype == 0)
-				total += (64 * 1024);
+				total += (FIXNV_SIZE);
 			else
-				total += (128 * 1024);
-			offs += (128 * 1024);
+				total += NAND_BLOCK_SIZE;
+			offs += NAND_BLOCK_SIZE;
 		}
 
 		nv_file = NULL;
