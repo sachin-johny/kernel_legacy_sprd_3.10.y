@@ -91,11 +91,16 @@ static struct gadget_wrapper {
 	struct usb_ep ep0;
 	struct usb_ep in_ep[16];
 	struct usb_ep out_ep[16];
-
+	/*
+	 * this timer is used for checking cable type, usb or ac adapter.
+	 */
+	struct timer_list cable_timer;
+	int udc_poweron;
 	int enabled;
 	int vbus;
 } *gadget_wrapper;
 
+#define CABLE_TIMEOUT	HZ
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
 
@@ -962,6 +967,7 @@ static void free_wrapper(struct gadget_wrapper *d)
 	device_unregister(&d->gadget.dev);
 	dwc_free(d);
 }
+
 static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 {
 	dwc_otg_pcd_t *pcd = dev_id;
@@ -978,6 +984,7 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	if (value){
 		pr_info("usb detect plug in\n");
 		set_irq_type(irq, IRQF_TRIGGER_LOW);
+		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
 	} else {
 		pr_info("usb detect plug out\n");
 		set_irq_type(irq, IRQF_TRIGGER_HIGH);
@@ -990,13 +997,17 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	if (value){
 		pr_info("usb detect plug in,vbus pull up\n");
 		udc_enable();
+		d->udc_poweron = 1;
 		dwc_otg_core_init(GET_CORE_IF(d->pcd));
 		dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
 		dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
+		del_timer(&d->cable_timer);
 		dwc_otg_pcd_stop(pcd);
-		udc_disable();
+		if (d->udc_poweron)
+			udc_disable();
+		d->udc_poweron = 0;
 	}
 
 	return IRQ_HANDLED;
@@ -1016,12 +1027,36 @@ static void enumeration_enable(unsigned long data)
 	return;
 }
 
-int usb_cable_is_connected(void)
+int cable_is_usb(void)
 {
 	int value;
+	struct gadget_wrapper *d = gadget_wrapper;
 
-        value = gpio_get_value(CHARGER_DETECT_GPIO);
-	return value ? true : false;
+	value = d->pcd->ep0state;
+	return value != EP0_DISCONNECT;
+}
+
+/*
+ * this function will check the cable type, if it is
+ * ac adapter calbe, we disable udc for lowering the
+ * power.
+ */
+static void cable_detect_handler(unsigned long data)
+{
+	struct gadget_wrapper *d = (struct gadget_wrapper *)data;
+	unsigned long flags;
+
+	if (cable_is_usb())
+		return;
+
+	pr_info("cable is ac adapter\n");
+	local_irq_save(flags);
+	if (d->udc_poweron){
+		udc_disable();
+		d->udc_poweron = 0;
+	}
+	local_irq_restore(flags);
+	return;
 }
 /**
  * This function initialized the PCD portion of the driver.
@@ -1067,6 +1102,15 @@ int pcd_init(
 		free_wrapper(gadget_wrapper);
 		return -EBUSY;
 	}
+	gadget_wrapper->udc_poweron = 0;
+	/*
+	 * initialize a timer for checking cable type.
+	 */
+	setup_timer(&gadget_wrapper->cable_timer, cable_detect_handler,
+			(unsigned long)gadget_wrapper);
+	/*
+	 * setup usb cable detect interupt
+	 */
 	{
 		plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
 		gpio_set_hw_debounce(CHARGER_DETECT_GPIO, 200);
