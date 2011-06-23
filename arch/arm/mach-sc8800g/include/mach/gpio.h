@@ -17,7 +17,7 @@
 #include <linux/init.h>
 
  
-#define GPIO_MAX_PIN_NUM 	176
+#define GPIO_MAX_PIN_NUM 	205
 
 #define CHARGER_DETECT_GPIO 162
 

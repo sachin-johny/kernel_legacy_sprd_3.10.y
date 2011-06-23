@@ -37,6 +37,7 @@ const static unsigned long pin_gpio_map[MFP_PIN_MAX] = {
 /*
 	we cann't find a easy way to map pin to gpio, so drop it.
 */
+
 unsigned long mfp_to_gpio(int pin)
 {
 	BUG_ON(1);
@@ -47,24 +48,30 @@ static  int __mfp_validate(unsigned long c)
 	return 1;
 }
 
-static unsigned long __mfp_get_pin_reg(int pin_offset)
+static unsigned long __mfp_get_pin_reg(int c)
 {
-	if (!(pin_offset & A_DIE_PIN)) {
+	int pin_offset;
+	if (!(c& A_DIE_PIN)) {
+		pin_offset = MFP_CFG_TO_REG_OFFS(c);
 		return (unsigned long)PIN_CTL_BASE + pin_offset;
 	} else {
-		pin_offset &= ~A_DIE_PIN;
+		c &= ~A_DIE_PIN;
+		pin_offset = MFP_CFG_TO_REG_OFFS(c);
 		return (unsigned long)ANA_PIN_CTL_BASE + pin_offset;
 	}
 }
 
 #ifdef DEBUG
 #define MFP_DBG(fmt...) pr_debug(fmt)
-static unsigned long __mfp_get_physical(int pin_offset)
+static unsigned long __mfp_get_physical(int c)
 {
-	if (!(pin_offset & A_DIE_PIN)) {
+	int pin_offset;
+	if (!(c & A_DIE_PIN)) {
+		pin_offset = MFP_CFG_TO_REG_OFFS(c);
 		return (unsigned long)SPRD_CPC_PHYS + pin_offset;
 	} else {
-		pin_offset &= ~A_DIE_PIN;
+		c &= ~A_DIE_PIN;
+		pin_offset = MFP_CFG_TO_REG_OFFS(c);
 		return (unsigned long)SPRD_MISC_PHYS + 0x180 + pin_offset;
 	}
 }
@@ -77,13 +84,11 @@ static int __mfp_config_pin(unsigned long c)
 	unsigned long flags;
 	unsigned long pin_reg;
 	unsigned long pin_cfg;
-	int pin_offset;
 
-	pin_offset = MFP_CFG_TO_REG_OFFS(c);
-	pin_reg = __mfp_get_pin_reg(pin_offset);
+	pin_reg = __mfp_get_pin_reg(c);
 
 	MFP_DBG("register is :0x%x, old config is %x\r\n",
-		__mfp_get_physical(pin_offset),
+		__mfp_get_physical(c),
 		__raw_readl(pin_reg));
 
 	local_irq_save(flags);
