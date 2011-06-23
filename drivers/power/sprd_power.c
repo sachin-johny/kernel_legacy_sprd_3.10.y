@@ -393,6 +393,7 @@ static inline int usb_connected(void)
 {
     return gpio_get_value(CHARGER_DETECT_GPIO)&BIT_2? 1:0;
 }
+extern int charger_is_adapter(void);
 static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 {
 	unsigned long irq_flags;
@@ -403,12 +404,21 @@ static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 	spin_lock_irqsave(&data->lock, irq_flags);
 
     charger_status = usb_connected();
-    data->usb_online = charger_status;
     if(charger_status){
+        if(charger_is_adapter()){
+            data->ac_online = 1;
+            data->usb_online = 0;
+        }
+        else{
+            data->usb_online = 1;
+            data->ac_online = 0;
+        }
         timer_freq = HZ/5;
         timer_freq_flag = 1;
         mod_timer(&data->battery_timer, jiffies + timer_freq);
     }else{
+        data->ac_online = 0;
+        data->usb_online = 0;
         timer_freq = 10*HZ;
     }
 #ifdef BATTERY_USE_WAKE_LOCK
@@ -417,11 +427,6 @@ static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
     set_irq_type(irq, charger_status? IRQ_TYPE_LEVEL_LOW:IRQ_TYPE_LEVEL_HIGH);
 	spin_unlock_irqrestore(&data->lock, irq_flags);
 	return IRQ_HANDLED;
-}
-
-static inline int ac_connected(void)
-{
-    return 0;
 }
 
 #define _BUF_SIZE 10
@@ -509,7 +514,7 @@ static void battery_handler(unsigned long data)
     
     struct sprd_battery_data * battery_data = (struct sprd_battery_data *)data;
     usb_online = battery_data->usb_online;
-    ac_online = ac_connected();
+    ac_online = battery_data->ac_online;
     adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
     if(adc_value < 0)
       return;
@@ -564,7 +569,7 @@ static void battery_handler(unsigned long data)
     //if(usb_online && (adc_value < PREVRECHARGE) && !battery_data->charging){
         battery_data->charging = 1;
         CHG_SetAdapterMode(CHG_USB_ADAPTER);
-        CHG_SetUSBChargeCurrent(CHG_USB_400MA);
+        CHG_SetUSBChargeCurrent(CHG_USB_300MA);
         CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
         CHG_TurnOn();
         CHG_SetRecharge();
@@ -575,7 +580,7 @@ static void battery_handler(unsigned long data)
     //if(ac_online && (adc_value < PREVRECHARGE) && !battery_data->charging){
         battery_data->charging = 1;
         CHG_SetAdapterMode(CHG_NORMAL_ADAPTER);
-        CHG_SetNormalChargeCurrent(CHG_NOR_800MA);
+        CHG_SetNormalChargeCurrent(CHG_NOR_500MA);
         CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
         CHG_TurnOn();
         CHG_SetRecharge();
@@ -664,7 +669,6 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	spin_lock_init(&data->lock);
 
     data->capacity = 100;
-    data->ac_online = 0;
     data->charging = 0;
 
     data->over_voltage = CHARGE_OVER_VOLTAGE;
@@ -703,11 +707,18 @@ static int sprd_battery_probe(struct platform_device *pdev)
     timer_freq = HZ/5;
     timer_freq_cnt = 20;
     if(usb_connected()){
-        data->usb_online = 1;
+        if(charger_is_adapter()){
+            data->ac_online = 1;
+            data->usb_online = 0;
+        }
+        else{
+            data->usb_online = 1;
+            data->ac_online = 0;
+        }
         timer_freq_flag = 1;
-    }
-    else{
+    }else{
         data->usb_online = 0;
+        data->ac_online = 0;
         timer_freq_flag = 0;
     }
 

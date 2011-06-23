@@ -21,6 +21,9 @@
 
 #define CHARGER_DETECT_GPIO 162
 
+#define USB_DM_GPIO 145
+#define USB_DP_GPIO 146
+
 #define ARCH_NR_GPIOS	GPIO_MAX_PIN_NUM
 
 #define gpio_get_value __gpio_get_value
