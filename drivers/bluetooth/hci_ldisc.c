@@ -354,8 +354,8 @@ static void hci_uart_tty_receive(struct tty_struct *tty, const u8 *data, char *f
 {
 	struct hci_uart *hu = (void *)tty->disc_data;
 
-    /* check proto NULL first, because HCI_UART_PROTO_SET check is not atomic */
-	if (!hu || tty != hu->tty || !hu->proto)
+	/* check proto/hdev, coz HCI_UART_PROTO_SET can't guarantee this */
+	if (!hu || tty != hu->tty || !hu->proto || !hu->hdev )
 		return;
 
 	if (!test_bit(HCI_UART_PROTO_SET, &hu->flags))
