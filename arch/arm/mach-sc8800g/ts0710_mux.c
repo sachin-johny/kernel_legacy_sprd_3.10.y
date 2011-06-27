@@ -2278,6 +2278,8 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 	if (mux_tty[line] > 0)
 		mux_tty[line]--;
 
+	mux_opened--;
+
 	dlci = tty2dlci[line];
 	cmdtty = dlci2tty[dlci].cmdtty;
 	datatty = dlci2tty[dlci].datatty;
