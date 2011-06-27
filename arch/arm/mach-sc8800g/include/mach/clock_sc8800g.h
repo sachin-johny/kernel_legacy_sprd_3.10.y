@@ -19,4 +19,6 @@ int __init sc8800g2_clock_init(void);
 int sc88xx_set_rate_generic(struct clk *clk, unsigned long rate);
 unsigned long sc88xx_recalc_generic(struct clk *clk);
 int sc8800g_get_clock_status(void);
+int sc8800g_get_clock_info(void);
+
 #endif

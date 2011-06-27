@@ -1972,10 +1972,36 @@ int sc8800g_get_clock_status(void)
 		        CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", pstub[index].name);
 			*/
 		    }
-
-
 	    }
     }
     return status;
 }
+
+int sc8800g_get_clock_info(void)
+{
+    int index = 0;
+    
+    int status = 0;
+    
+    /* check all clocks, both linux side and RTOS side. */
+    for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
+	    if (pstub[index].usecount) {
+	        CLK_FW_INFO("###: clock[%s] is active now, [flags = %08x] [usecount = %d].\n", 
+		    pstub[index].name, pstub[index].flags, pstub[index].usecount);
+		    status |= pstub[index].flags;
+		    
+		    if (pstub[index].flags & DEVICE_AHB) {
+		        CLK_FW_INFO("###: clcok[%s] is on AHB.\n", pstub[index].name);
+		    }
+		    if (pstub[index].flags & DEVICE_APB) {
+		        CLK_FW_INFO("###: clcok[%s] is on APB.\n", pstub[index].name);
+		    }
+		    if (pstub[index].flags & DEVICE_AWAKE) {
+		        CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", pstub[index].name);
+		    }
+	    }
+    }
+    return status;
+}
+
 

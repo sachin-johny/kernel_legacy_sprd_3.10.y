@@ -66,6 +66,7 @@ proximity(ok),
 #include <linux/wakelock.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
+#include <linux/proc_fs.h>
 #include <asm/cacheflush.h>
 #include <asm/cputype.h>
 #include <asm/tlbflush.h>
@@ -157,6 +158,12 @@ u32 dma_sts = 0;
 u32 irq_sts = 0;
 u32 fiq_sts = 0;
 struct timespec now_ts_pm;
+
+/* for /proc/xxx interfaces. */
+static struct proc_dir_entry* sprd_proc_entry;
+
+
+
 
 
 /* interrupt statistic. */
@@ -764,9 +771,6 @@ static int verify_ahb_sts(void)
 
 	return ret_val;
 }
-
-
-
 
 
 static int verify_dsp_deep_sleep_by_value(u32 val1, u32 val2)
@@ -1578,6 +1582,16 @@ u32 schedu_counter0 = 0, schedu_counter1 = 0;
 
 #define THREAD_INTERVAL 30
 
+int sprd_irq_info_enable = 0;
+int sprd_thread_info_enable = 0;
+int sprd_statistic_info_enable = 0;
+int sprd_pm_message_enable = 0;
+int sprd_clock_info_enable = 0;
+
+
+
+
+
 static int print_thread(void *pdata)
 {
 	int i;
@@ -1595,45 +1609,53 @@ static int print_thread(void *pdata)
 #endif
 
            uptime = get_sys_cnt();
-/*
+
+#ifdef SPRD_COPROCESSOR_INFO
 	printk("###: c1 = %08x.\n", sc8800g_read_cp15_c1());
 	printk("###: c2 = %08x.\n", sc8800g_read_cp15_c2());
 	printk("###: c3 = %08x.\n", sc8800g_read_cp15_c3());
-*/
-	sleep_counter0 = sleep_counter1;
-	sleep_counter1 = sleep_counter;
+#endif
 
-           printk("##: thread_loops = %d, idle_loops = %d\n", ++thread_loops, idle_loops);           
-	    printk("##: mode = %d, sleep_counter = %d freq = %d/s.\n", 	sleep_mode, 
-		sleep_counter, (sleep_counter1 - sleep_counter0) / THREAD_INTERVAL);
-	    printk("##[%d]: uptime = %d, sleep_time = %d, idle_time = %d.\n", 
-                (sleep_time * 100) /uptime, uptime, sleep_time, idle_time);
+	if (sprd_statistic_info_enable) {
+		sleep_counter0 = sleep_counter1;
+		sleep_counter1 = sleep_counter;
 
-	timer_int_counter0 = timer_int_counter1;
-	timer_int_counter1 = timer_int_counter;
-	printk("****: timer_interrupt = %d events/s\n", 
-		(timer_int_counter1 - timer_int_counter0) / THREAD_INTERVAL);
+	           printk("##: thread_loops = %d, idle_loops = %d\n", ++thread_loops, idle_loops);           
+		    printk("##: mode = %d, sleep_counter = %d freq = %d/s.\n", 	sleep_mode, 
+			sleep_counter, (sleep_counter1 - sleep_counter0) / THREAD_INTERVAL);
+		    printk("##[%d]: uptime = %d, sleep_time = %d, idle_time = %d.\n", 
+	                (sleep_time * 100) /uptime, uptime, sleep_time, idle_time);
 
-	tick_sched_timer_counter0 = tick_sched_timer_counter1;
-	tick_sched_timer_counter1 = tick_sched_timer_counter;
-	printk("****: tick_sched_timer_counter = %d events/s\n", 
-		(tick_sched_timer_counter1 - tick_sched_timer_counter0) / THREAD_INTERVAL);
+		timer_int_counter0 = timer_int_counter1;
+		timer_int_counter1 = timer_int_counter;
+		printk("****: timer_interrupt = %d events/s\n", 
+			(timer_int_counter1 - timer_int_counter0) / THREAD_INTERVAL);
 
-	interrupt_counter0 = interrupt_counter1;
-	interrupt_counter1 = interrupt_counter;
-	printk("****: interrupt_counter = %d events/s\n", 
-		(interrupt_counter1 - interrupt_counter0) / THREAD_INTERVAL);
+		tick_sched_timer_counter0 = tick_sched_timer_counter1;
+		tick_sched_timer_counter1 = tick_sched_timer_counter;
+		printk("****: tick_sched_timer_counter = %d events/s\n", 
+			(tick_sched_timer_counter1 - tick_sched_timer_counter0) / THREAD_INTERVAL);
 
-	schedu_counter0 = schedu_counter1;
-	schedu_counter1 = schedu_counter;
-	printk("****: schedu_counter = %d events/s\n", 
-		(schedu_counter1 - schedu_counter0) / THREAD_INTERVAL);
+		interrupt_counter0 = interrupt_counter1;
+		interrupt_counter1 = interrupt_counter;
+		printk("****: interrupt_counter = %d events/s\n", 
+			(interrupt_counter1 - interrupt_counter0) / THREAD_INTERVAL);
 
-	show_sprd_irq_info();
-	irq_statistic_reset();
+		schedu_counter0 = schedu_counter1;
+		schedu_counter1 = schedu_counter;
+		printk("****: schedu_counter = %d events/s\n", 
+			(schedu_counter1 - schedu_counter0) / THREAD_INTERVAL);
 
-	show_sprd_thread_info();
-	threads_statistic_reset();
+	}
+	if (sprd_irq_info_enable) {
+		show_sprd_irq_info();
+		irq_statistic_reset();
+	}
+
+	if (sprd_thread_info_enable) {
+		show_sprd_thread_info();
+		threads_statistic_reset();
+	}
 
 
 	//sc8800g_enter_deepsleep_internal();
@@ -1650,10 +1672,13 @@ static int print_thread(void *pdata)
 	getnstimeofday(&now_ts_pm);
 	printk("##: getnstimeofday() = %lld.\n", timespec_to_ns(&now_ts_pm));
 */
- 	//print_pm_message();
-	printk("##: show clock info:\n");
-	sc8800g_get_clock_status();
-	
+	if (sprd_pm_message_enable) print_pm_message();
+
+	if (sprd_clock_info_enable) {
+		printk("##: show clock info:\n");
+		sc8800g_get_clock_status();
+	}
+
 /*
 	verify_dsp_deep_sleep_by_value(gr_stc_state);
 	verify_ahb_sts_by_value(ahb_sts);
@@ -2100,12 +2125,91 @@ restart:
 static void deep_sleep_timeout(unsigned long data);
 static DEFINE_TIMER(deep_sleep_timer, deep_sleep_timeout, 0, 0);
 
+static int sprd_irq_info_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_irq_info_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_irq_info_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_irq_info_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_irq_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	return 0;
+}
+
+static struct file_operations _irq_info_proc_fops = {
+    open:    sprd_irq_info_open,
+    release: sprd_irq_info_release,
+    llseek:  sprd_irq_info_lseek,
+    read:    sprd_irq_info_read,
+    write:   sprd_irq_info_write,
+};
+
+static int sprd_thread_info_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_thread_info_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_thread_info_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_thread_info_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_thread_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	return 0;
+}
+
+static struct file_operations _thread_info_proc_fops = {
+    open:    sprd_thread_info_open,
+    release: sprd_thread_info_release,
+    llseek:  sprd_thread_info_lseek,
+    read:    sprd_thread_info_read,
+    write:   sprd_thread_info_write,
+};
+
 
 static void deep_sleep_timeout(unsigned long data)
 {
 	printk("###: deep_sleep_timeout()!\n");
 	queue_work(deep_sleep_work_queue, &deep_sleep_wrok);
 	mod_timer(&deep_sleep_timer, jiffies + DEEP_SLEEP_INTERVAL);
+}
+
+static  struct proc_dir_entry*
+sprd_proc_create (struct proc_dir_entry*  parent,
+                 const char*             name,
+                 struct file_operations* fops)
+{
+    struct proc_dir_entry* file;
+    file = create_proc_entry(name, (S_IFREG|S_IRUGO|S_IWUSR), parent);
+    if (!file) {
+        printk("##: Error: create_proc_entry(%s) failed\n", name);
+        return NULL;
+    }
+
+    file->proc_fops = fops;
+
+    return file;
 }
 
 
@@ -2198,9 +2302,9 @@ int sc8800g_prepare_deep_sleep(void)
     /* enable XTL auto power down. */
     val = __raw_readl(GR_CLK_EN);
     val |= MCU_XTLEN_AUTOPD_EN;
-/*
+	/*
     val &= ~BIT_17;		//must do, I don't know reason.
-*/
+	*/
    __raw_writel(val, GR_CLK_EN);
 
     /* disable pwm[3:0]*/
@@ -2256,9 +2360,9 @@ int sc8800g_prepare_deep_sleep(void)
         to make it visible, mayde not necessary.
     */
     flush_cache_all();
-/*
-map_iram_identically();
-*/
+	/*
+	map_iram_identically();
+	*/
     pint = (u32 *)iram_start;
     /*
     for (i = 0; i <64; i++) printk("pint[%d] = %08x\n", i, pint[i]);
@@ -2273,16 +2377,34 @@ map_iram_identically();
 
 
     pm_idle = nkidle;
-/*
+	/*
 	mod_timer(&deep_sleep_timer, jiffies + DEEP_SLEEP_INTERVAL);
-*/
+	*/
 	deep_sleep_work_queue = create_singlethread_workqueue("deep_sleep");
 	if (deep_sleep_work_queue == NULL) {
 		printk("##: Can't create workqueue!\n");
 	}
-/*
+		/*
 		queue_work(deep_sleep_work_queue, &deep_sleep_wrok);
-*/
+		*/
+
+
+
+    sprd_proc_entry = proc_mkdir("sprd_sleep_info", NULL);
+    if (!sprd_proc_entry) {
+        printk("##: proc_mkdir(/proc/sprd_sleep_info) failed\n");
+        return 0;
+    }
+    sprd_proc_create(sprd_proc_entry, "irq_info", &_irq_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "thread_info", &_thread_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "statistic_info", &_thread_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "pm_message", &_thread_info_proc_fops);
+
+
+    sprd_proc_create(sprd_proc_entry, "check_dsp_status", &_thread_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "timer_info", &_thread_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "clock_info", &_thread_info_proc_fops);
+
     return 0;
 }
 EXPORT_SYMBOL(sc8800g_prepare_deep_sleep);
