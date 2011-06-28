@@ -1587,6 +1587,7 @@ int sprd_thread_info_enable = 0;
 int sprd_statistic_info_enable = 0;
 int sprd_pm_message_enable = 0;
 int sprd_clock_info_enable = 0;
+int sprd_check_dsp_enable = 0;
 
 
 
@@ -1600,13 +1601,6 @@ static int print_thread(void *pdata)
            wake_lock(&messages_wakelock);
 	add_pm_message(get_sys_cnt(), "************* print_thread start. *************", 0, 0, 0); 
 	stop_pm_message();
-
-#ifdef CHECK_DSP_SLEEP_STATUS	
-	u32 start_time;
-	u32 stop_time;
-	int dsp_status;
-	u32 checking_counter = 0;
-#endif
 
            uptime = get_sys_cnt();
 
@@ -1684,32 +1678,36 @@ static int print_thread(void *pdata)
 	verify_ahb_sts_by_value(ahb_sts);
 */
 
-#ifdef CHECK_DSP_SLEEP_STATUS	
-
 	/* chcecking DSP. */
+	if (sprd_check_dsp_enable) {
 
-	if (sleep_counter > 100) {
-		start_time = get_sys_cnt();
-		stop_time = get_sys_cnt();
-		while((stop_time - start_time) < (1000 * 60 * 1)) {
-			checking_counter++;
-			val = __raw_readl(GR_STC_STATE);
-			printk("##: checking DSP status[%d] GR_STC_STATE = %08x\n", 
-					checking_counter, val);
-			dsp_status = is_dsp_sleep();
-			if (0 == dsp_status) {
-				printk("##: DSP is in sleep status.\n");
-				printk("##: DSP is in sleep status.\n");
-				printk("##: DSP is in sleep status.\n");
-				printk("##: DSP is in sleep status.\n");
-				break;
-			}
-			udelay(300);
+	u32 start_time;
+	u32 stop_time;
+	int dsp_status;
+	u32 checking_counter = 0;
+
+		if (sleep_counter > 100) {
+			start_time = get_sys_cnt();
 			stop_time = get_sys_cnt();
+			while((stop_time - start_time) < (1000 * 60 * 1)) {
+				checking_counter++;
+				val = __raw_readl(GR_STC_STATE);
+				printk("##: checking DSP status[%d] GR_STC_STATE = %08x\n", 
+						checking_counter, val);
+				dsp_status = is_dsp_sleep();
+				if (0 == dsp_status) {
+					printk("##: DSP is in sleep status.\n");
+					printk("##: DSP is in sleep status.\n");
+					printk("##: DSP is in sleep status.\n");
+					printk("##: DSP is in sleep status.\n");
+					break;
+				}
+				udelay(300);
+				stop_time = get_sys_cnt();
+			}
 		}
 	}
 
-#endif
 	/* detect GPIO. */
 	/*
 	for (i = 0; i < 10; i++) {
@@ -2399,8 +2397,6 @@ int sc8800g_prepare_deep_sleep(void)
     sprd_proc_create(sprd_proc_entry, "thread_info", &_thread_info_proc_fops);
     sprd_proc_create(sprd_proc_entry, "statistic_info", &_thread_info_proc_fops);
     sprd_proc_create(sprd_proc_entry, "pm_message", &_thread_info_proc_fops);
-
-
     sprd_proc_create(sprd_proc_entry, "check_dsp_status", &_thread_info_proc_fops);
     sprd_proc_create(sprd_proc_entry, "timer_info", &_thread_info_proc_fops);
     sprd_proc_create(sprd_proc_entry, "clock_info", &_thread_info_proc_fops);
