@@ -161,8 +161,7 @@ struct timespec now_ts_pm;
 
 /* for /proc/xxx interfaces. */
 static struct proc_dir_entry* sprd_proc_entry;
-
-
+static DEFINE_MUTEX(sprd_proc_info_mutex);
 
 
 
@@ -1571,6 +1570,9 @@ static int enable_mcu_sleep(void)
     return 0;
 }
 
+void timer_stats_reset(void);
+void timer_stats_print(void);
+
 
 static struct wake_lock messages_wakelock;
 
@@ -1585,12 +1587,11 @@ u32 schedu_counter0 = 0, schedu_counter1 = 0;
 int sprd_irq_info_enable = 0;
 int sprd_thread_info_enable = 0;
 int sprd_statistic_info_enable = 0;
-int sprd_pm_message_enable = 0;
 int sprd_clock_info_enable = 0;
+int sprd_timer_info_enable = 0;
 int sprd_check_dsp_enable = 0;
 
-
-
+int sprd_pm_message_enable = 0;
 
 
 static int print_thread(void *pdata)
@@ -1672,6 +1673,11 @@ static int print_thread(void *pdata)
 		printk("##: show clock info:\n");
 		sc8800g_get_clock_status();
 	}
+	if (sprd_timer_info_enable){
+		timer_stats_print();
+		timer_stats_reset();
+	}
+
 
 /*
 	verify_dsp_deep_sleep_by_value(gr_stc_state);
@@ -2080,18 +2086,36 @@ EXPORT_SYMBOL(sc8800g_enter_deepsleep);
 #ifdef CONFIG_NKERNEL
 static void nkidle(void)
 {
-      int val;
-    u32 t0, t1, delta;
+	int val;
+	u32 t0, t1, delta;
+	u32 interrupt_counter_local = 0;
+	u32 interrupted = 0;
+
 	add_pm_message(get_sys_cnt(), "nkidle: 1111--enter.", 0, 0, 0);
 
 	if (!need_resched()) {
-restart:
+entrance:
 		hw_local_irq_disable();
+
+		/* check interrupt number. */
+		/*
+		if (interrupt_counter_local != interrupt_counter) {
+			interrupted = 1;
+		}
+		*/
+
+
 		if (!raw_local_irq_pending()) {
 			val = os_ctx->idle(os_ctx);
 			if (0 == val) {
 				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND) && 
 					(!sprd_pm_suspend_canceled())) {
+
+					/*  stop system timer. */
+					/*
+					__raw_writel(0, TIMER1_CONTROL);
+					*/
+
 					sc8800g_enter_deepsleep(1);
 				}
 				else {
@@ -2104,15 +2128,29 @@ restart:
 				}
 			}
 		}
+
 		hw_local_irq_enable();
 	}
+
+	/* save old interrupt_counter value. */
+	/*
+	interrupt_counter_local = interrupt_counter;
+	*/
+
 	local_irq_enable();
 	add_pm_message(get_sys_cnt(), "nkidle: 1111--leave.", 0, 0, 0);
-/*	
-	if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND)) {
-		goto restart;
+
+	/* check timer here. */	
+
+
+
+	/* check wakelock and interrupts. */
+	/*
+	if ((!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND)) && (!interrupted)) {
+		local_irq_disable();
+		goto entrance;
 	}
-*/
+	*/
 }
 
 #endif
@@ -2143,7 +2181,29 @@ static ssize_t sprd_irq_info_read (struct file* file, char* buf, size_t count, l
 
 static ssize_t sprd_irq_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
 {
-	return 0;
+
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_irq_info_enable = 0;
+		break;
+	case '1':
+		sprd_irq_info_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
 }
 
 static struct file_operations _irq_info_proc_fops = {
@@ -2174,7 +2234,28 @@ static ssize_t sprd_thread_info_read (struct file* file, char* buf, size_t count
 
 static ssize_t sprd_thread_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
 {
-	return 0;
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_thread_info_enable = 0;
+		break;
+	case '1':
+		sprd_thread_info_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
 }
 
 static struct file_operations _thread_info_proc_fops = {
@@ -2183,6 +2264,112 @@ static struct file_operations _thread_info_proc_fops = {
     llseek:  sprd_thread_info_lseek,
     read:    sprd_thread_info_read,
     write:   sprd_thread_info_write,
+};
+
+
+static int sprd_statistic_info_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_statistic_info_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_statistic_info_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_statistic_info_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_statistic_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_statistic_info_enable = 0;
+		break;
+	case '1':
+		sprd_statistic_info_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _statistic_info_proc_fops = {
+    open:    sprd_statistic_info_open,
+    release: sprd_statistic_info_release,
+    llseek:  sprd_statistic_info_lseek,
+    read:    sprd_statistic_info_read,
+    write:   sprd_statistic_info_write,
+};
+
+
+static int sprd_timer_info_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_timer_info_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_timer_info_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_timer_info_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_timer_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_timer_info_enable = 0;
+		break;
+	case '1':
+		sprd_timer_info_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _timer_info_proc_fops = {
+    open:    sprd_timer_info_open,
+    release: sprd_timer_info_release,
+    llseek:  sprd_timer_info_lseek,
+    read:    sprd_timer_info_read,
+    write:   sprd_timer_info_write,
 };
 
 
@@ -2395,11 +2582,12 @@ int sc8800g_prepare_deep_sleep(void)
     }
     sprd_proc_create(sprd_proc_entry, "irq_info", &_irq_info_proc_fops);
     sprd_proc_create(sprd_proc_entry, "thread_info", &_thread_info_proc_fops);
-    sprd_proc_create(sprd_proc_entry, "statistic_info", &_thread_info_proc_fops);
-    sprd_proc_create(sprd_proc_entry, "pm_message", &_thread_info_proc_fops);
-    sprd_proc_create(sprd_proc_entry, "check_dsp_status", &_thread_info_proc_fops);
-    sprd_proc_create(sprd_proc_entry, "timer_info", &_thread_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "statistic_info", &_statistic_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "timer_info", &_timer_info_proc_fops);
     sprd_proc_create(sprd_proc_entry, "clock_info", &_thread_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "check_dsp_status", &_thread_info_proc_fops);
+
+    sprd_proc_create(sprd_proc_entry, "pm_message", &_thread_info_proc_fops);
 
     return 0;
 }

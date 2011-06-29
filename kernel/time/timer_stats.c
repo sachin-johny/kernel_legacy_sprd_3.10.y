@@ -405,6 +405,98 @@ static const struct file_operations tstats_fops = {
 	.release	= single_release,
 };
 
+
+static void printk_name_offset(unsigned long addr)
+{
+	char symname[KSYM_NAME_LEN];
+
+	if (lookup_symbol_name(addr, symname) < 0)
+		printk("<%p>", (void *)addr);
+	else
+		printk("%s", symname);
+}
+
+
+
+void timer_stats_reset(void)
+{
+	/* disable. */
+		if (timer_stats_active) {
+			timer_stats_active = 0;
+			time_stop = ktime_get();
+			sync_access();
+		}
+
+	/* enable */
+		if (!timer_stats_active) {
+			reset_entries();
+			time_start = ktime_get();
+			smp_mb();
+			timer_stats_active = 1;
+		}
+}
+
+
+void timer_stats_print(void)
+{
+	struct timespec period;
+	struct entry *entry;
+	unsigned long ms;
+	long events = 0;
+	ktime_t time;
+	int i;
+
+	mutex_lock(&show_mutex);
+	/*
+	 * If still active then calculate up to now:
+	 */
+	if (timer_stats_active)
+		time_stop = ktime_get();
+
+	time = ktime_sub(time_stop, time_start);
+
+	period = ktime_to_timespec(time);
+	ms = period.tv_nsec / 1000000;
+
+	printk("Timer Stats Version: v0.2\n");
+	printk("Sample period: %ld.%03ld s\n", period.tv_sec, ms);
+	if (atomic_read(&overflow_count))
+		printk("Overflow: %d entries\n",
+			atomic_read(&overflow_count));
+
+	for (i = 0; i < nr_entries; i++) {
+		entry = entries + i;
+ 		if (entry->timer_flag & TIMER_STATS_FLAG_DEFERRABLE) {
+			printk("%4luD, %5d %-16s ",
+				entry->count, entry->pid, entry->comm);
+		} else {
+			printk(" %4lu, %5d %-16s ",
+				entry->count, entry->pid, entry->comm);
+		}
+
+		printk_name_offset( (unsigned long)entry->start_func);
+		printk(" (");
+		printk_name_offset( (unsigned long)entry->expire_func);
+		printk(")\n");
+
+		events += entry->count;
+	}
+
+	ms += period.tv_sec * 1000;
+	if (!ms)
+		ms = 1;
+
+	if (events && period.tv_sec)
+		printk("%ld total events, %ld.%03ld events/sec\n",
+			   events, events * 1000 / ms,
+			   (events * 1000000 / ms) % 1000);
+	else
+		printk("%ld total events\n", events);
+
+	mutex_unlock(&show_mutex);
+}
+
+
 void __init init_timer_stats(void)
 {
 	int cpu;

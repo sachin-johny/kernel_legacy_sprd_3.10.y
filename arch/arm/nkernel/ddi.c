@@ -1620,8 +1620,10 @@ nk_do_xirq (struct pt_regs* regs)
 	    break;
 	}
 
-	if (get_sys_cnt() > (100000)) {
-		//printk("##: xirq = %d.\n", xirq);
+	if (get_sys_cnt() > (120000)) {
+		/*
+		printk("##: xirq = %d.\n", xirq);
+		*/
 		add_pm_message(get_sys_cnt(), "xirq = ", xirq, 0, 0);
 	}
 	interrupt_counter++;
