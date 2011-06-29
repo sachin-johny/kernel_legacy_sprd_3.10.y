@@ -88,7 +88,7 @@ static void __get_gpio_base_info (u32 gpio_id, struct gpio_info *info)
 
 
 
-static void __gpio_set_dir (struct gpio_info * info, int dir)
+static int __gpio_set_dir (struct gpio_info * info, int dir)
 {
 	int value = !!dir;
 	u32 reg_addr = 0;
@@ -101,21 +101,21 @@ static void __gpio_set_dir (struct gpio_info * info, int dir)
 		if (dir) {
 		    WARN(1, "cannot set dir output with GPI");
 		}
-		return;
+		return -EINVAL;
 
 	case GPIO_SECTION_GPO:
 		if (!dir) {
 		WARN(1, "cannot set dir input with GPO");
 		}
-		return;
+		return -EINVAL;
 
 	case GPIO_SECTION_GPIO:
 		reg_addr += GPIO_DIR;
 		break;
 	case GPIO_SECTION_INVALID:
 	default:
-		    WARN(1, " the GPIO_ID is Invalid in this chip");
-		    return;
+		WARN(1, " the GPIO_ID is Invalid in this chip");
+		return -1;
 	}
 
 	local_irq_save(flags);
@@ -125,9 +125,11 @@ static void __gpio_set_dir (struct gpio_info * info, int dir)
 		value |= 1 << info->bit_num;
 	else
 		value &= ~(1 << info->bit_num);
-       gpio_reg_set(reg_addr, info->die, value);
+	gpio_reg_set(reg_addr, info->die, value);
 
 	local_irq_restore(flags);
+
+	return 0;
 }
 
 /*
@@ -313,9 +315,14 @@ static int sprd_gpio_direction_output(struct gpio_chip *chip,
 {
 	unsigned gpio_id = offset;
 	struct gpio_info gpio_info;
+	int res;
 
 	__get_gpio_base_info (gpio_id, &gpio_info);
-	__gpio_set_dir(&gpio_info, 1);
+	res = __gpio_set_dir(&gpio_info, 1);
+	if (res < 0){
+		pr_warning("GPIO: cannot set direction for %d\n", gpio_id);
+		return -EINVAL;
+	}
 	__gpio_set_pin_data(&gpio_info, value);
 	return 0;
 }
@@ -324,9 +331,14 @@ static int sprd_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
 	unsigned gpio_id = offset;
 	struct gpio_info gpio_info;
+	int res;
 
-       __get_gpio_base_info (gpio_id, &gpio_info);
-	__gpio_set_dir(&gpio_info, 0);
+	__get_gpio_base_info (gpio_id, &gpio_info);
+	res = __gpio_set_dir(&gpio_info, 0);
+	if (res < 0){
+		pr_warning("GPIO: cannot set direction for %d\n", gpio_id);
+		return -EINVAL;
+	}
 	return 0;
 }
 
