@@ -100,7 +100,7 @@ static struct gadget_wrapper {
 	int vbus;
 } *gadget_wrapper;
 
-#define CABLE_TIMEOUT	HZ
+#define CABLE_TIMEOUT	(HZ*15)
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
 
