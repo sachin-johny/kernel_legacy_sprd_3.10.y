@@ -1671,7 +1671,7 @@ static int print_thread(void *pdata)
 
 	if (sprd_clock_info_enable) {
 		printk("##: show clock info:\n");
-		sc8800g_get_clock_status();
+		sc8800g_get_clock_info();
 	}
 	if (sprd_timer_info_enable){
 		timer_stats_print();
@@ -2373,6 +2373,112 @@ static struct file_operations _timer_info_proc_fops = {
 };
 
 
+static int sprd_dsp_info_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_dsp_info_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_dsp_info_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_dsp_info_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_dsp_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_check_dsp_enable = 0;
+		break;
+	case '1':
+		sprd_check_dsp_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _dsp_info_proc_fops = {
+    open:    sprd_dsp_info_open,
+    release: sprd_dsp_info_release,
+    llseek:  sprd_dsp_info_lseek,
+    read:    sprd_dsp_info_read,
+    write:   sprd_dsp_info_write,
+};
+
+static int sprd_clock_info_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_clock_info_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_clock_info_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_clock_info_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_clock_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_clock_info_enable = 0;
+		break;
+	case '1':
+		sprd_clock_info_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _clock_info_proc_fops = {
+    open:    sprd_clock_info_open,
+    release: sprd_clock_info_release,
+    llseek:  sprd_clock_info_lseek,
+    read:    sprd_clock_info_read,
+    write:   sprd_clock_info_write,
+};
+
+
+
 static void deep_sleep_timeout(unsigned long data)
 {
 	printk("###: deep_sleep_timeout()!\n");
@@ -2584,8 +2690,9 @@ int sc8800g_prepare_deep_sleep(void)
     sprd_proc_create(sprd_proc_entry, "thread_info", &_thread_info_proc_fops);
     sprd_proc_create(sprd_proc_entry, "statistic_info", &_statistic_info_proc_fops);
     sprd_proc_create(sprd_proc_entry, "timer_info", &_timer_info_proc_fops);
-    sprd_proc_create(sprd_proc_entry, "clock_info", &_thread_info_proc_fops);
-    sprd_proc_create(sprd_proc_entry, "check_dsp_status", &_thread_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "check_dsp_status", &_dsp_info_proc_fops);
+    sprd_proc_create(sprd_proc_entry, "clock_info", &_clock_info_proc_fops);
+
 
     sprd_proc_create(sprd_proc_entry, "pm_message", &_thread_info_proc_fops);
 
