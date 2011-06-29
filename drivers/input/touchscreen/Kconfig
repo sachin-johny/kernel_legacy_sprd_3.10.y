@@ -580,7 +580,7 @@ config TOUCHSCREEN_TSC2007
 
 config TOUCHSCREEN_SC8800G
 	tristate "SPRD SC8800G touchscreen driver"
-	depends on ARCH_SC8800G
+	depends on ARCH_SC8800G && MACH_OPENPHONE
 	help
 	  Say Y here if you have a sprd touchscreen.
 

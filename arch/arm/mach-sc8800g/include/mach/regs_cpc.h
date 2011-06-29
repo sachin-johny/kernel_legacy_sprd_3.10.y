@@ -256,12 +256,12 @@
 /*----------Analog Die Pin Control Register----------*/
 
 
-#define ANA_PIN_CHIP_RSTN_REG           ANA_REG_ADDR(0x008C)
-#define ANA_PIN_PBINT_REG               ANA_REG_ADDR(0x0094)
-#define ANA_PIN_TP_XL_REG               ANA_REG_ADDR(0x0098)
-#define ANA_PIN_TP_XR_REG               ANA_REG_ADDR(0x009C)
-#define ANA_PIN_TP_YU_REG               ANA_REG_ADDR(0x00A0)
-#define ANA_PIN_TP_YD_REG               ANA_REG_ADDR(0x00A4)
+#define ANA_PIN_CHIP_RSTN_REG		ANA_REG_ADDR(0x008C)
+#define ANA_PIN_PBINT_REG			ANA_REG_ADDR(0x0094)
+#define ANA_PIN_TP_XL_REG			ANA_REG_ADDR(0x0098)
+#define ANA_PIN_TP_XR_REG			ANA_REG_ADDR(0x009C)
+#define ANA_PIN_TP_YU_REG			ANA_REG_ADDR(0x00A0)
+#define ANA_PIN_TP_YD_REG			ANA_REG_ADDR(0x00A4)
 
 /* Pinmap ctrl register Bit field value
 --------------------------------------------------------------------------------------------------------------------------
