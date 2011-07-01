@@ -484,9 +484,9 @@ static char *usb_functions_vser_adb[] = {
 	"vser",
 };
 
-static char *usb_functions_gser_adb_ums[] = {
+static char *usb_functions_vser_adb_ums[] = {
 	"adb",
-	"gser",
+	"vser",
 	"usb_mass_storage",
 };
 
@@ -544,8 +544,8 @@ static struct android_usb_product usb_products[] = {
 	{
 		//.product_id	= SPRD_PRODUCT_ID,
 		.product_id	= 0x5D03,
-		.num_functions	= ARRAY_SIZE(usb_functions_gser_adb_ums),
-		.functions	= usb_functions_gser_adb_ums,
+		.num_functions	= ARRAY_SIZE(usb_functions_vser_adb_ums),
+		.functions	= usb_functions_vser_adb_ums,
 	},
 	{
 		//.product_id	= SPRD_PRODUCT_ID,
