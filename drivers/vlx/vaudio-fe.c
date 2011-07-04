@@ -118,7 +118,7 @@ static DECLARE_COMPLETION(vaudio_thread_completion);
 static pid_t              vaudio_thread_id;
 static struct semaphore   vaudio_thread_sem;
 static bool		  vaudio_thread_aborted;
-static bool		  vaudio_thread_init_now;
+static unsigned char	  vaudio_thread_init_now;
 
 #ifdef VAUDIO_CONFIG_NK_PMEM
     static int
@@ -554,12 +554,19 @@ vaudio_snd_card_pcm (NkVaudio vaudio, int device)
 }
 
 static void vaudio_sysconf_trigger(NkVaudio dev);
+static struct snd_card* vaudio_card;
 
     static void
 vaudio_snd_free (struct snd_card* card)
 {
     const NkVaudio chip = card->private_data;
     int            i, j;
+
+    if (vaudio_card == 0) {
+	WTRACE("Trying to free `veaudio' twice\n");
+	return;
+    }
+    vaudio_card = 0;
 
     ADEBUG();
     for (i = 0; i < NK_VAUDIO_DEV_MAX; i++) {
@@ -582,7 +589,6 @@ vaudio_snd_free (struct snd_card* card)
     }
     chip->vlink->c_state = NK_DEV_VLINK_OFF;
     vaudio_sysconf_trigger(chip);
-    snd_card_free(card);
 }
 
     /*
@@ -872,6 +878,8 @@ nodev:
     return err;
 }
 
+static NkVaudio	   vaudio;	/* Pointer to struct _NkVaudio */
+static int vaudio_snd_probe (void);
     static int
 vaudio_thread (void* data)
 {
@@ -880,10 +888,20 @@ vaudio_thread (void* data)
 #else
     daemonize("vaudio-fe");
 #endif
+    data = (void*) vaudio;
     while (!vaudio_thread_aborted) {
 	down (&vaudio_thread_sem);
-	if (vaudio_thread_init_now) {
-	    vaudio_thread_init_now = 0;
+
+	if ( (vaudio_thread_init_now & 2) ) {
+	    vaudio_thread_init_now &= ~2;
+	    snd_card_free(vaudio_card);
+	    if (vaudio_snd_probe() < 0) {
+		ETRACE ("virtual audio ALSA card initialization failed\n");
+	    }
+	}
+
+	if ( (vaudio_thread_init_now & 1) && vaudio_card == 0) {
+	    vaudio_thread_init_now &= ~1;
 	    vaudio_snd_init_card(data);
 	}
     }
@@ -922,7 +940,7 @@ vaudio_handshake (NkVaudio dev)
     case NK_DEV_VLINK_RESET:
 	if (peer_state != NK_DEV_VLINK_OFF) {
 	    *my_state = NK_DEV_VLINK_ON;
-	    vaudio_thread_init_now = 1;
+	    vaudio_thread_init_now |= 1;
 	    up(&vaudio_thread_sem);
 	    vaudio_sysconf_trigger(dev);
 	}
@@ -931,6 +949,8 @@ vaudio_handshake (NkVaudio dev)
     case NK_DEV_VLINK_ON:
 	if (peer_state == NK_DEV_VLINK_OFF) {
 	    *my_state = NK_DEV_VLINK_OFF;
+	    vaudio_thread_init_now |= 2;
+	    up(&vaudio_thread_sem);
 	    vaudio_sysconf_trigger(dev);
 	}
 	break;
@@ -948,13 +968,12 @@ vaudio_sysconf_intr (void* cookie, NkXIrq xirq)
 
     /* Module init & exit */
 
-static struct snd_card* vaudio_card;
 
     /*
      *  Initializes ALSA sound-card structure.
      */
 
-    static int __init
+    static int 
 vaudio_snd_probe (void)
 {
     NkPhAddr	   pdev;
@@ -963,7 +982,6 @@ vaudio_snd_probe (void)
     NkXIrq         cxirq;
     NkXIrq         pxirq;
     NkVaudioMixer* mixer;
-    NkVaudio	   vaudio;	/* Pointer to struct _NkVaudio */
     const size_t   pdev_size = sizeof(NkDevRing) + sizeof(NkVaudioHw) +
 			       sizeof(NkVaudioCtrl) +
 			       NK_VAUDIO_RING_DESC_NB * sizeof(NkRingDesc);
@@ -1042,13 +1060,12 @@ vaudio_snd_probe (void)
 	 */
     vaudio = vaudio_card->private_data;
     vaudio_card->private_free = vaudio_snd_free;
-    sema_init(&vaudio_thread_sem, 0);
     vaudio->card    = vaudio_card;
     vaudio->vlink   = vlink;
     vaudio->sysconf_xid = nkops.nk_xirq_attach(NK_XIRQ_SYSCONF,
 					       vaudio_sysconf_intr, vaudio);
     if (!vaudio->sysconf_xid) {
-	vaudio_snd_free(vaudio_card);
+	snd_card_free(vaudio_card);
 	return -EINVAL;
     }
     sema_init(&vaudio->mixer_sem, 0);
@@ -1060,7 +1077,7 @@ vaudio_snd_probe (void)
     ring_buf_p = nkops.nk_pmem_alloc(plink, 0,
 				     NK_VAUDIO_STREAMS_NB * ring_size);
     if (ring_buf_p == 0) {
-	vaudio_snd_free(vaudio_card);
+	snd_card_free(vaudio_card);
 	return -ENOMEM;
     }
 #endif
@@ -1087,7 +1104,7 @@ vaudio_snd_probe (void)
 	    vaudio->s[i][j].ring_xid = nkops.nk_xirq_attach(ring->pxirq,
 					vaudio_intr_data, &vaudio->s[i][j]);
 	    if (!vaudio->s[i][j].ring_xid) {
-		vaudio_snd_free(vaudio_card);
+		snd_card_free(vaudio_card);
 		return -EINVAL;
 	    }
 		/*
@@ -1107,7 +1124,7 @@ vaudio_snd_probe (void)
 						       vaudio_intr_ctrl,
 						       &vaudio->s[i][j]);
 	    if (!vaudio->s[i][j].ctrl_xid) {
-		vaudio_snd_free(vaudio_card);
+		snd_card_free(vaudio_card);
 		return -EINVAL;
 	    }
 		/*
@@ -1140,13 +1157,8 @@ vaudio_snd_probe (void)
     vaudio->mixer_xid = nkops.nk_xirq_attach(mixer->pxirq,
 					     vaudio_intr_mixer, vaudio);
     if (!vaudio->mixer_xid) {
-	vaudio_snd_free(vaudio_card);
+	snd_card_free(vaudio_card);
 	return -EINVAL;
-    }
-    vaudio_thread_id = kernel_thread(vaudio_thread, vaudio, 0);
-    if (vaudio_thread_id < 0) {
-	vaudio_snd_free(vaudio_card);
-	return vaudio_thread_id;
     }
 	/*
 	 * Perform handshake until both links are ready.
@@ -1163,7 +1175,6 @@ vaudio_exit (void)
     up (&vaudio_thread_sem);
     wait_for_completion (&vaudio_thread_completion);
 
-    vaudio_snd_free(vaudio_card);
     snd_card_free(vaudio_card);
 }
 
@@ -1171,6 +1182,13 @@ vaudio_exit (void)
 vaudio_init (void)
 {
     ADEBUG();
+    sema_init(&vaudio_thread_sem, 0);
+    vaudio_thread_id = kernel_thread(vaudio_thread, 0, 0);
+    if (vaudio_thread_id < 0) {
+	printk("Vaudio failure \n");
+	return vaudio_thread_id;
+    }
+
     if (vaudio_snd_probe() < 0) {
 	ETRACE ("virtual audio ALSA card initialization failed\n");
 	return -ENODEV;
