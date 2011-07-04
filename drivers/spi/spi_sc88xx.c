@@ -169,7 +169,8 @@ static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int 
 {
   int i,j,timeout, block;
   int tlen = 0;
-  int block_bytes = 128;
+  int block_bytes = 128; //MAX 128
+  int saferx = 1;//2;
   unsigned char* data;
 
 #define MYLOCAL_TIMEOUT 0xff0000
@@ -192,11 +193,20 @@ static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int 
     spi_writel(0x0000, SPI_CTL4); /* stop only rx */
     spi_writel((1 << 9) | block, SPI_CTL4);
     
-    for (j = 0; j < block; j++) {
+    for (j = 0; j < block/saferx; j++) {
+      /* wait for rx fifo not empty */
+      int k;
+      for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+      /* Read the data */
+      for(k=0;k<saferx;k++)
+	data[i*block_bytes+j*saferx+k] = spi_readl(SPI_TXD);
+    }
+
+    for (j = 0; j < block%saferx; j++) {
       /* wait for rx fifo not empty */
       for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
       /* Read the data */
-      data[i*block_bytes+j] = spi_readl(SPI_TXD);
+      data[i*block_bytes+(block/saferx)*saferx + j] = spi_readl(SPI_TXD);
     }
   }
   return 0;
@@ -209,7 +219,6 @@ printk("[in] ");
 #endif
 
   struct sprd_spi_data *sprd_data = cookie;
-  // struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
 
             spi_writel(0x0000, SPI_CTL4); /* stop only rx */
             spi_writel((1 << 9) | block, SPI_CTL4);
