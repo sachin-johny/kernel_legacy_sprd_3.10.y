@@ -416,7 +416,8 @@ vcons_write(NkPort*	     	   port,
     spin_lock_irqsave(&port->lock, flags);
     res = os_ctx->cops.write(port->id, buf, count);
     if (vcons_write_room(port) > 0) {
-	tty_wakeup(port->tty);
+	if (port->tty) 
+	    tty_wakeup(port->tty);
     }
     spin_unlock_irqrestore(&port->lock, flags);
 
