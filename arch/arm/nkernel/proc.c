@@ -419,7 +419,6 @@ _nk_proc_bank_write (struct file* file,
 {
     GuestBank* gb = (GuestBank*)file->private_data;
     void*      dst;
-    printk("Writing nk_proc_bank_write\n");
 
     TRACE("Writing nk_proc_bank_write pos:%llx buf:%x size:%x\n", 
            *ppos,ubuf,size);
