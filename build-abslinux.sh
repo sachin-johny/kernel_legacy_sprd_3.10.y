@@ -25,9 +25,8 @@ BUILD_DIR=${INSTALL_DIR}
 #----------------------------------------------------------------------------
 
 ANDROID_DIR=$(gettop)
-ANDROID_ARM_TOOLCHAIN=${ANDROID_DIR}/prebuilt/linux-x86/toolchain/arm-eabi-4.3.1
+ANDROID_ARM_TOOLCHAIN=${ANDROID_DIR}/prebuilt/linux-x86/toolchain/arm-eabi-4.4.0
 LINUX_SRC=${INSTALL_DIR}
-CMDLINE_FILE=${ANDROID_DIR}/vendor/sprd/hsdroid/AndroidBoard.mk
 MKBOOTIMG=${ANDROID_DIR}/out/host/linux-x86/bin/mkbootimg
 BOOTIMG=${ANDROID_DIR}/out/target/product/hsdroid/boot.img
 INITRD_DIR=${ANDROID_DIR}/out/target/product/hsdroid
@@ -39,7 +38,6 @@ INITRD_IMG=${INITRD_DIR}/ramdisk.img
 
 BUILD_LINUX_DIR=${BUILD_DIR}
 LINUX_CONFIG=${BUILD_LINUX_DIR}/.config
-CMDLINE=`cat ${CMDLINE_FILE}  |sed -n '/BOARD_KERNEL_CMDLINE/p' |cut -c24-`
 KERNELIMG=${BUILD_LINUX_DIR}/arch/arm/boot/Image
 
 #----------------------------------------------------------------------------
@@ -246,6 +244,14 @@ then
     echo "unsupported machine name..."
     exit 1
 fi
+
+if [ "$selection" = "openphone" ]
+then
+    CMDLINE_FILE=${ANDROID_DIR}/3rdparty/products/$selection/AndroidBoard.mk
+else
+    CMDLINE_FILE=${ANDROID_DIR}/3rdparty/products/sp$selection/AndroidBoard.mk
+fi
+CMDLINE=`cat ${CMDLINE_FILE}  |sed -n '/BOARD_KERNEL_CMDLINE/p' |cut -c24-`
 
 build_kernel
 build_bootimg
