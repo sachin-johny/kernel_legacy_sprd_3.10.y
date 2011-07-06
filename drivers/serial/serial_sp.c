@@ -416,6 +416,7 @@ static int serialsc8800_startup(struct uart_port *port)
 	gpio_free(u2txd_id);
 
         serialsc8800_pin_config();
+	}
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
  	*/
