@@ -16,6 +16,7 @@
 #include <mach/regs_rtc.h>
 #include <mach/regs_ana.h>
 #include <mach/adi_hal_internal.h>
+#include <mach/irqs.h>
 
 #define CLEAR_RTC_INT(mask) \
 	do{ ANA_REG_SET(ANA_RTC_INT_CLR, mask); \
@@ -92,6 +93,7 @@ static inline unsigned long sprd_rtc_get_sec(void)
 
 	return ((((day*24) + hour)*60 + min)*60 + sec);
 }
+static inline void sprd_rtc_set_alarm_sec(unsigned long secs);
 static inline void sprd_rtc_set_sec(unsigned long secs)
 {
 	unsigned sec, min, hour, day;
@@ -107,8 +109,7 @@ static inline void sprd_rtc_set_sec(unsigned long secs)
 	day = temp;
 
 
-    ANA_REG_AND(ANA_RTC_INT_EN, RTC_UPD_TIME_MASK);
-    ANA_REG_AND(ANA_RTC_INT_CLR, RTC_UPD_TIME_MASK);
+    ANA_REG_AND(ANA_RTC_INT_CLR, ~(RTC_UPD_TIME_MASK));
 
     if(sec != get_sec()){
         ANA_REG_SET(ANA_RTC_SEC_UPDATE, sec);
@@ -128,14 +129,14 @@ static inline void sprd_rtc_set_sec(unsigned long secs)
     }
 
     //wait till all update done
+
     do{
         int_rsts = ANA_REG_GET(ANA_RTC_INT_RSTS) & RTC_UPD_TIME_MASK;
 
         if(set_mask == int_rsts)
           break;
     }while(1);
-    ANA_REG_SET(ANA_RTC_INT_CLR, RTC_UPD_TIME_MASK);
-
+    ANA_REG_AND(ANA_RTC_INT_CLR, ~(RTC_UPD_TIME_MASK));
 
 	return;
 }
@@ -161,10 +162,6 @@ static inline void sprd_rtc_set_alarm_sec(unsigned long secs)
 	hour = temp%24;
 	temp = (temp - hour)/24;
 	day = temp;
-    printk("\n RTC ***** rtc set alarm sec %u\n", sec);
-    printk("\n RTC ***** rtc set alarm min %u\n", min);
-    printk("\n RTC ***** rtc set alarm hour %u\n", hour);
-    printk("\n RTC ***** rtc set alarm day %u\n", day);
 
 	ANA_REG_SET(ANA_RTC_SEC_ALM, sec);
 	ANA_REG_SET(ANA_RTC_MIN_ALM, min);
@@ -190,10 +187,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 {
 	unsigned long secs;
 	unsigned temp;
-    printk("\n RTC ***** rtc set alarm\n");
 	rtc_tm_to_time(&alrm->time, &secs);
-    printk("\n RTC ***** rtc set alarm time:%lu \n", secs);
-	sprd_rtc_set_alarm_sec(secs);
 
 	ANA_REG_SET(ANA_RTC_INT_CLR, RTC_ALARM_BIT);
 
@@ -201,7 +195,11 @@ static int sprd_rtc_set_alarm(struct device *dev,
 		temp = ANA_REG_GET(ANA_RTC_INT_EN);
 		temp |= RTC_ALARM_BIT;
 		ANA_REG_SET(ANA_RTC_INT_EN, temp);
-	}
+
+        sprd_rtc_set_alarm_sec(secs);
+	}else{
+        ANA_REG_AND(ANA_RTC_INT_EN, ~(RTC_ALARM_BIT));
+    }
 
 	return 0;
 }
@@ -252,6 +250,12 @@ static const struct rtc_class_ops sprd_rtc_ops = {
 	.set_mmss = sprd_rtc_set_mmss,
 //	.ioctl = sprd_rtc_ioctl,
 };
+static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
+{
+    printk(" RTC ***** interrupt happen\n");
+    CLEAR_RTC_INT(RTC_INT_ALL_MSK);
+    return 0;
+}
 
 static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
@@ -266,6 +270,13 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		err = PTR_ERR(rtc);
 		return err;
 	}
+
+    err = request_irq(IRQ_ANA_RTC_INT, rtc_interrupt_handler, 0, "sprd_rtc", NULL);
+    if(err != 0){
+        printk(" rtc irq request error:%d \n", err);
+        rtc_device_unregister(rtc);
+        return err;
+    }
 
 	platform_set_drvdata(plat_dev, rtc);
 

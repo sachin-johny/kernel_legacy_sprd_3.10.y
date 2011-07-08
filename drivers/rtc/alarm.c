@@ -460,6 +460,77 @@ static int alarm_resume(struct platform_device *pdev)
 
 	return 0;
 }
+static int alarm_shutdown(struct platform_device *pdev)
+{
+	int                 err = 0;
+	unsigned long       flags;
+	struct rtc_wkalrm   rtc_alarm;
+	struct rtc_time     rtc_current_rtc_time;
+	unsigned long       rtc_current_time;
+	unsigned long       rtc_alarm_time;
+	struct timespec     rtc_current_timespec;
+	struct timespec     rtc_delta;
+	struct alarm_queue *wakeup_queue = NULL;
+	struct alarm_queue *tmp_queue = NULL;
+
+	pr_alarm(SUSPEND, "alarm_suspend(%p)\n", pdev);
+
+	spin_lock_irqsave(&alarm_slock, flags);
+	suspended = true;
+	spin_unlock_irqrestore(&alarm_slock, flags);
+
+	hrtimer_cancel(&alarms[ANDROID_ALARM_RTC_WAKEUP].timer);
+	hrtimer_cancel(&alarms[
+			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK].timer);
+
+	tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
+	if (tmp_queue->first)
+		wakeup_queue = tmp_queue;
+	tmp_queue = &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
+	if (tmp_queue->first && (!wakeup_queue ||
+				hrtimer_get_expires(&tmp_queue->timer).tv64 <
+				hrtimer_get_expires(&wakeup_queue->timer).tv64))
+		wakeup_queue = tmp_queue;
+	if (wakeup_queue) {
+		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
+		rtc_current_timespec.tv_nsec = 0;
+		rtc_tm_to_time(&rtc_current_rtc_time,
+			       &rtc_current_timespec.tv_sec);
+		save_time_delta(&rtc_delta, &rtc_current_timespec);
+
+		rtc_alarm_time = timespec_sub(ktime_to_timespec(
+			hrtimer_get_expires(&wakeup_queue->timer)),
+			rtc_delta).tv_sec;
+
+        rtc_alarm_time -= 60;
+		rtc_time_to_tm(rtc_alarm_time, &rtc_alarm.time);
+		rtc_alarm.enabled = 1;
+		rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
+		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
+		rtc_tm_to_time(&rtc_current_rtc_time, &rtc_current_time);
+		pr_alarm(SUSPEND,
+			"rtc alarm set at %ld, now %ld, rtc delta %ld.%09ld\n",
+			rtc_alarm_time, rtc_current_time,
+			rtc_delta.tv_sec, rtc_delta.tv_nsec);
+		if (rtc_current_time + 1 >= rtc_alarm_time) {
+			pr_alarm(SUSPEND, "alarm about to go off\n");
+			memset(&rtc_alarm, 0, sizeof(rtc_alarm));
+			rtc_alarm.enabled = 0;
+			rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
+
+			spin_lock_irqsave(&alarm_slock, flags);
+			suspended = false;
+			wake_lock_timeout(&alarm_rtc_wake_lock, 2 * HZ);
+			update_timer_locked(&alarms[ANDROID_ALARM_RTC_WAKEUP],
+									false);
+			update_timer_locked(&alarms[
+				ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP], false);
+			err = -EBUSY;
+			spin_unlock_irqrestore(&alarm_slock, flags);
+		}
+	}
+	return err;
+}
 
 static struct rtc_task alarm_rtc_task = {
 	.func = alarm_triggered_func
@@ -520,6 +591,7 @@ static struct class_interface rtc_alarm_interface = {
 static struct platform_driver alarm_driver = {
 	.suspend = alarm_suspend,
 	.resume = alarm_resume,
+    .shutdown = alarm_shutdown,
 	.driver = {
 		.name = "alarm"
 	}
