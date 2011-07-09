@@ -38,24 +38,41 @@ extern int sc8800g_enter_deepsleep(int);
 int sc8800g_pm_enter(suspend_state_t state)
 {
 	int ret_val = 0;
+	u32 suspend_start, suspend_end, suspend_time;
+	unsigned long flags;
 
-	local_irq_disable();
-	local_fiq_disable();
-	hw_local_irq_disable();
+	suspend_start = suspend_end = get_sys_cnt();
+	suspend_time = suspend_end - suspend_start;
+	/*
+	irq has been disabled,
+	so we check irq status here safely.
+	 */
+	while((0 == sprd_suspend_interval) ||
+		  (suspend_time < sprd_suspend_interval)) {
+		hw_local_irq_disable();
 
-	if (has_wake_lock(WAKE_LOCK_SUSPEND)) {
-		printk("##: sc8800g_pm_enter(): suspend: abort suspend\n");
-		ret_val = -1;
-		goto out;
+		local_irq_save(flags);
+		if (raw_local_irq_pending()) {
+			/*
+			printk("*******: pm_enter(), irq pending! *****\n");
+			*/
+			local_irq_restore(flags);
+			hw_local_irq_enable();
+			break;
+		}
+		local_irq_restore(flags);
+		WARN_ONCE(!irqs_disabled(),
+			"#####: Interrupts enabled in pm_enter()!\n");
+	
+		ret_val = os_ctx->idle(os_ctx);
+		if (0 == ret_val) {
+			sc8800g_enter_deepsleep(0);
+		}
+		suspend_end = get_sys_cnt();
+		suspend_time = suspend_end - suspend_start;
+
+		hw_local_irq_enable();
 	}
-	ret_val = os_ctx->idle(os_ctx);
-	if (0 == ret_val) {
-		sc8800g_enter_deepsleep(0);
-	}
-out:
-	hw_local_irq_enable();
-	local_fiq_enable();
-	local_irq_enable();
 	return ret_val;
 }
 

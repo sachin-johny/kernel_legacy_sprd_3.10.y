@@ -543,8 +543,6 @@ hrtimer_force_reprogram(struct hrtimer_cpu_base *cpu_base, int skip_equal)
 	cpu_base->expires_next.tv64 = expires_next.tv64;
 
 	if (cpu_base->expires_next.tv64 != KTIME_MAX)  {
-		add_pm_message_val64(get_sys_cnt(), "hrtimer_force_reprogram, new timer =  ", 
-				timer, 0, 0, ktime_to_ns(cpu_base->expires_next));
 		tick_program_event(cpu_base->expires_next, 1);
 	}
 }
@@ -564,9 +562,6 @@ static int hrtimer_reprogram(struct hrtimer *timer,
 	struct hrtimer_cpu_base *cpu_base = &__get_cpu_var(hrtimer_bases);
 	ktime_t expires = ktime_sub(hrtimer_get_expires(timer), base->offset);
 	int res;
-	add_pm_message_val64(get_sys_cnt(), "base->offset: ", 0, 0, 0, ktime_to_ns(base->offset));
-
-	add_pm_message_val64(get_sys_cnt(), "hrtimer_reprogram: ", 0, 0, 0, ktime_to_ns(expires));
 
 	WARN_ON_ONCE(hrtimer_get_expires_tv64(timer) < 0);
 
@@ -914,7 +909,6 @@ static void __remove_hrtimer(struct hrtimer *timer,
 			expires = ktime_sub(hrtimer_get_expires(timer),
 					    base->offset);
 			if (base->cpu_base->expires_next.tv64 == expires.tv64) {
-				add_pm_message(get_sys_cnt(), "__remove_hrtimer: reprogram, timer =", timer, 0, 0);
 				hrtimer_force_reprogram(base->cpu_base, 1);
 			}
 		}
@@ -995,11 +989,9 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 	 * XXX send_remote_softirq() ?
 	 */
 	if (leftmost && new_base->cpu_base == &__get_cpu_var(hrtimer_bases)) {
-		add_pm_message(get_sys_cnt(), "leftmost && ", 0, 0, 0);
 		hrtimer_enqueue_reprogram(timer, new_base, wakeup);
 	}
 	else {
-		add_pm_message(get_sys_cnt(), "not leftmost", 0, 0, 0);
 	}
 
 	unlock_hrtimer_base(timer, &flags);
@@ -1038,8 +1030,6 @@ EXPORT_SYMBOL_GPL(hrtimer_start_range_ns);
 int
 hrtimer_start(struct hrtimer *timer, ktime_t tim, const enum hrtimer_mode mode)
 {
-	add_pm_message(get_sys_cnt(), "hrtimer_start(): ", timer, 0, 0);
-
 	return __hrtimer_start_range_ns(timer, tim, 0, mode, 1);
 }
 EXPORT_SYMBOL_GPL(hrtimer_start);

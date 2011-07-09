@@ -136,6 +136,7 @@ EXPORT_SYMBOL(pm_idle);
 
 int sprd_pm_suspend_check_enter(void);
 int sprd_pm_resume_check(void);
+void nkidle_original(void);
 
 
 /*
@@ -173,13 +174,13 @@ void cpu_idle(void)
 			} else {
 				stop_critical_timings();
 				pm_idle();
-
 #if 0
 #ifndef CONFIG_NKERNEL
 				pm_idle();
 #else
-				nkidle();
+				nkidle_original();
 #endif
+
 #endif
 				start_critical_timings();
 				/*

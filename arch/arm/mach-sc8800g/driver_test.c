@@ -17,7 +17,7 @@
 #include <linux/io.h>
 #include <linux/uaccess.h>
 #include <linux/clk.h>
-
+#include <linux/hrtimer.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
@@ -25,6 +25,60 @@
 
 #include <mach/pm_devices.h>
 #include <mach/test.h>
+
+
+#define DEEP_SLEEP_INTERVAL (6 * HZ)
+#define DEEP_SLEEP_INTERVAL2 (8 * HZ)
+
+static void deep_sleep_timeout(unsigned long data);
+static DEFINE_TIMER(deep_sleep_timer, deep_sleep_timeout, 0, 0);
+static void deep_sleep_timeout2(unsigned long data);
+static DEFINE_TIMER(deep_sleep_timer2, deep_sleep_timeout2, 0, 0);
+
+
+
+static u32 sleep_time_local1 = 0, sleep_time_local2 = 0;
+extern u32 sleep_time;
+static void deep_sleep_timeout(unsigned long data)
+{
+	struct timespec now;
+
+	getnstimeofday(&now);
+
+
+	sleep_time_local1 = sleep_time_local2;
+	sleep_time_local2 = sleep_time;
+
+	printk("## [deep_sleep_timeout : %lld] ## : jiffies = %lu, sleep_time = %u.\n", 
+		ktime_to_ns(ktime_get()), jiffies, (sleep_time_local2 - sleep_time_local1));
+	printk("[## [deep_sleep_timeout : gettimeofday() = %lld ].\n", 
+		timespec_to_ns(&now));
+	printk("##: wall_to_monotonic = %lld.\n", timespec_to_ns(&wall_to_monotonic));
+
+	mod_timer(&deep_sleep_timer, jiffies + DEEP_SLEEP_INTERVAL);
+}
+
+
+static void deep_sleep_timeout2(unsigned long data)
+{
+	struct timespec now;
+
+	getnstimeofday(&now);
+
+
+	sleep_time_local1 = sleep_time_local2;
+	sleep_time_local2 = sleep_time;
+
+	printk("## [deep_sleep_timeout2 : %lld] ## : jiffies = %lu, sleep_time = %u.\n", 
+		ktime_to_ns(ktime_get()), jiffies, (sleep_time_local2 - sleep_time_local1));
+	printk("[## [deep_sleep_timeout2 : gettimeofday() = %lld ].\n", 
+		timespec_to_ns(&now));
+	printk("##: wall_to_monotonic = %lld.\n", timespec_to_ns(&wall_to_monotonic));
+
+	mod_timer(&deep_sleep_timer2, jiffies + DEEP_SLEEP_INTERVAL2);
+}
+
+
 
 static int __devinit omap_wdt_probe(struct platform_device *pdev)
 {
@@ -106,7 +160,7 @@ static void sc8800g2_wdt_resume (struct early_suspend* es)
 
 struct sprd_pm_suspend sprd_suspend;
 
-static int sc8800g2_sprd_suspend (struct platform_device *pdev, pm_message_t state)
+static int sc8800g2_sprd_suspend (struct device *pdev, pm_message_t state)
 {
    // printk("###: sprd: sc8800g2_wdt_suspend()!\n");
 	/*
@@ -116,7 +170,7 @@ static int sc8800g2_sprd_suspend (struct platform_device *pdev, pm_message_t sta
 	return 0;
 }
 
-static int sc8800g2_sprd_resume (struct platform_device *pdev)
+static int sc8800g2_sprd_resume (struct device *pdev)
 {
     //printk("###: sprd: sc8800g2_wdt_resume()!\n");
 	return 0;
@@ -126,9 +180,15 @@ static int sc8800g2_sprd_resume (struct platform_device *pdev)
 
 static int __init omap_wdt_init(void)
 {
+	/*
 	struct clk *clk_usb;
-
+	*/
 	printk("######: omap_wdt_init()\n");
+
+/*
+	mod_timer(&deep_sleep_timer, jiffies + DEEP_SLEEP_INTERVAL);
+	mod_timer(&deep_sleep_timer2, jiffies + DEEP_SLEEP_INTERVAL2);
+*/
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	early_suspend.suspend = sc8800g2_wdt_suspend;
@@ -169,7 +229,3 @@ static void __exit omap_wdt_exit(void)
 
 module_init(omap_wdt_init);
 module_exit(omap_wdt_exit);
-
-
-
-

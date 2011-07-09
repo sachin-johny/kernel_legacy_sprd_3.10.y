@@ -560,12 +560,16 @@ static int dwc_otg_driver_remove(
 #ifdef CONFIG_PM
 static int dwc_otg_suspend(struct platform_device *dev, pm_message_t state)
 {
+	/*
 	pr_info("%s\n", __func__);
+	*/
 	return 0;
 }
 static int dwc_otg_resume(struct platform_device *dev)
 {
+	/*
 	pr_info("%s\n", __func__);
+	*/
 	return 0;
 }
 #else

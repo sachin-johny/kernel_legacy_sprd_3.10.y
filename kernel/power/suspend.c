@@ -274,11 +274,11 @@ int enter_state(suspend_state_t state)
 	if (!mutex_trylock(&pm_mutex))
 		return -EBUSY;
 
-	//printk(KERN_INFO "PM: Syncing filesystems ... ");
+	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
-	//printk("done.\n");
+	printk("done.\n");
 
-	//pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
+	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare();
 	if (error)
 		goto Unlock;
@@ -286,12 +286,12 @@ int enter_state(suspend_state_t state)
 	if (suspend_test(TEST_FREEZER))
 		goto Finish;
 
-	//pr_debug("PM: Entering %s sleep\n", pm_states[state]);
+	pr_debug("PM: Entering %s sleep\n", pm_states[state]);
 	error = suspend_devices_and_enter(state);
 
  Finish:
 
-//	pr_debug("PM: Finishing wakeup.\n");
+	pr_debug("PM: Finishing wakeup.\n");
 	suspend_finish();
  Unlock:
 	mutex_unlock(&pm_mutex);

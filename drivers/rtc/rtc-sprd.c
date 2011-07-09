@@ -162,7 +162,6 @@ static inline void sprd_rtc_set_alarm_sec(unsigned long secs)
 	hour = temp%24;
 	temp = (temp - hour)/24;
 	day = temp;
-
 	ANA_REG_SET(ANA_RTC_SEC_ALM, sec);
 	ANA_REG_SET(ANA_RTC_MIN_ALM, min);
 	ANA_REG_SET(ANA_RTC_HOUR_ALM, hour);

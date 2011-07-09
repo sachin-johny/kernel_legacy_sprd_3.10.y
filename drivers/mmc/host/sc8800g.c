@@ -214,16 +214,18 @@ static int __devexit sdhci_sprd_remove(struct platform_device *pdev)
 static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
-
+/*
 	sdhci_suspend_host(host, pm);
+*/
 	return 0;
 }
 
 static int sdhci_sprd_resume(struct platform_device *dev)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
-
+/*
 	sdhci_resume_host(host);
+*/
 	return 0;
 }
 

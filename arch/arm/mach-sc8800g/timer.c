@@ -190,6 +190,11 @@ static void __init sprd_timer_init(void)
 static irqreturn_t sprd_gptimer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
+	/*
+	if (get_sys_cnt() > 150000) {
+		printk("##: timer interrupt!\n");
+	}
+	*/
 
 	/* clear interrupt */
 	__raw_bits_or((1<<3), TIMER1_CLEAR);
@@ -201,14 +206,11 @@ static irqreturn_t sprd_gptimer_interrupt(int irq, void *dev_id)
 static int
 sprd_gptimer_set_next_event(unsigned long cycles, struct clock_event_device *c)
 {
-	//pr_info("cycle :%d\r\n", cycles);
-/*
-	if (get_sys_cnt() > 100000) {
-		if (cycles < 3000) cycles = 3000;
-		//printk("cycles = %d\n", cycles);
+	/*
+	if (get_sys_cnt() > 150000) {
+		printk("cycles = %d\n", cycles);
 	}
-*/
-
+	*/
 	/*busy wait for timer loading finished*/
 	while(__raw_readl(TIMER1_CLEAR) & (1<<4));
 
@@ -225,24 +227,9 @@ sprd_gptimer_set_next_event(unsigned long cycles, struct clock_event_device *c)
 	return cycles <= GPTIMER_MIN_DELTA ? -ETIME : 0;
 }
 
-static void
-sprd_gptimer_set_mode(enum clock_event_mode mode, struct clock_event_device *c)
-{
-	switch (mode) {
-	case CLOCK_EVT_MODE_ONESHOT:
-		//__raw_writel((1<<7), TIMER1_CONTROL);
-		//__raw_bits_and(~(1 << 6), TIMER1_CONTROL);
-		break;
-	case CLOCK_EVT_MODE_SHUTDOWN:
-		//__raw_writel(0, TIMER1_CONTROL);
-		break;
-	case CLOCK_EVT_MODE_PERIODIC:
-		//__raw_bits_or((1 << 6), TIMER1_CONTROL);
-	case CLOCK_EVT_MODE_RESUME:
-	case CLOCK_EVT_MODE_UNUSED:
-		break;
-	}
-}
+
+
+static void sprd_gptimer_set_mode(enum clock_event_mode mode, struct clock_event_device *c);
 
 static struct clock_event_device sprd_gptimer = {
 	.name		= "timer1",
@@ -253,6 +240,32 @@ static struct clock_event_device sprd_gptimer = {
 	.set_next_event	= sprd_gptimer_set_next_event,
 	.set_mode	= sprd_gptimer_set_mode,
 };
+
+static void
+sprd_gptimer_set_mode(enum clock_event_mode mode, struct clock_event_device *c)
+{
+	switch (mode) {
+	case CLOCK_EVT_MODE_ONESHOT:
+		//__raw_writel((1<<7), TIMER1_CONTROL);
+		//__raw_bits_and(~(1 << 6), TIMER1_CONTROL);
+		break;
+	case CLOCK_EVT_MODE_SHUTDOWN:
+		__raw_writel(0, TIMER1_CONTROL);
+		break;
+	case CLOCK_EVT_MODE_PERIODIC:
+		//__raw_bits_or((1 << 6), TIMER1_CONTROL);
+	case CLOCK_EVT_MODE_RESUME:
+		/*
+		printk("## timer resume!\n");
+		sprd_gptimer_set_next_event(1, &sprd_gptimer);
+		udelay(2);
+		break;
+		*/
+	case CLOCK_EVT_MODE_UNUSED:
+		break;
+	}
+}
+
 
 static struct irqaction sprd_gptimer_irq = {
 	.name		= "timer1",
@@ -290,6 +303,16 @@ unsigned long long sched_clock(void)
 	return clocksource_cyc2ns(sprd_syscnt.read(&sprd_syscnt),
 				  sprd_syscnt.mult, sprd_syscnt.shift);
 }
+
+void read_persistent_clock(struct timespec *ts)
+{
+
+	u32 msecs = sprd_syscnt_read(&sprd_syscnt);
+	ts->tv_sec = msecs / 1000;
+	ts->tv_nsec = (msecs % 1000) * 1000 * 1000;
+	//printk("##read_persistent_clock(): ts = %lld\n", timespec_to_ns(ts));
+}
+
 
 static void __init sprd_timer_init(void)
 {

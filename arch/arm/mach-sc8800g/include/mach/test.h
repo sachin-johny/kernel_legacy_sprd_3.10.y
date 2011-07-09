@@ -39,6 +39,12 @@
 
 #define	SPRD_THREADS_ARRAY_SIZE	2048
 
+
+#define IRQ_FOR_DSP_MASK (BIT_5 | BIT_15 | BIT_16)
+#define IRQ_FOR_DSP 1
+#define IRQ_FOR_ARM 2
+
+
 /*********************************/
 /* for debug only. */
 extern u16 val_short;
@@ -52,8 +58,11 @@ extern u32 timer_int_counter;
 extern u32 tick_sched_timer_counter;
 extern u32 interrupt_counter;
 extern u32 schedu_counter;
+extern u32 sleep_time_inidle;
 
 extern struct timespec now_ts_pm;
+extern int sprd_suspend_enable;
+extern u32 sprd_suspend_interval;
 
 /*********************************/
 
@@ -73,10 +82,11 @@ extern void add_pm_message(u32 when, char *msg, u32 val0,
 
 extern void add_pm_message_val64(u32 when, char *msg, u32 val0, 
                                               u32 val1, u32 val2, u64 val64);
-extern void parse_sprd_hard_irq(u32 val);
+extern void parse_sprd_hard_irq(unsigned long val);
 extern void inc_sprd_irq(int irq);
 extern void show_sprd_irq_info(void);
 extern void inc_sprd_thread_counts(int thread);
+extern int sprd_irq_for_arm(u32 val);
 
 static u32 inline get_sys_cnt(void)
 {
