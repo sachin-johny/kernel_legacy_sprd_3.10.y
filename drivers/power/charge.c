@@ -209,6 +209,7 @@ static uint32_t g_charge_low_adc = 0;
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
+#if 0
  uint16_t CHGMNG_AdcvalueToVoltage (uint32_t adcvalue)
 {
     uint16_t i;
@@ -233,6 +234,12 @@ static uint32_t g_charge_low_adc = 0;
 
     return voltage;
 }
+#else
+uint16_t CHGMNG_AdcvalueToVoltage (uint32_t adcvalue)
+{
+    return (4200 - 3000) * (adcvalue-voltage_capacity_table[0]) / (voltage_capacity_table[12] - voltage_capacity_table[0]) + 3000;
+}
+#endif
 
 #define VOL_BUF_SIZE 10
 uint32_t vol_buf[VOL_BUF_SIZE];
