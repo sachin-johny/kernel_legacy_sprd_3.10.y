@@ -53,6 +53,7 @@ int sprd_request_dma(int ch_id, void (*irq_handler)(int, void *), void *data)
     local_irq_save(flags);
     if (sprd_irq_handlers[ch_id].handler) {
         printk(KERN_WARNING "%s: dma channel %d is busy\n", __func__, ch_id);
+	local_irq_restore(flags);
         return -EBUSY;
     }
     sprd_irq_handlers[ch_id].handler = irq_handler;
