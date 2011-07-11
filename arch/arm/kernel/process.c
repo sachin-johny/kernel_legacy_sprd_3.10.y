@@ -154,8 +154,13 @@ void cpu_idle(void)
 		schedu_counter++;
 		add_pm_message(get_sys_cnt(), "cpu_idle: 1111--enter.", 0, 0, 0);
 
-		/* give a chance for device's suspend routine. */
+		/* 
+			give a chance for device's suspend routine. 
+			preempt is disabled, so can call the routine without taking any risk.
+		*/
+		/*
 		sprd_pm_suspend_check_enter();
+		*/
 
 		tick_nohz_stop_sched_tick(1);
 		leds_event(led_idle_start);
@@ -195,8 +200,9 @@ void cpu_idle(void)
 		}
 
 		/* as short as possible. */
+		/*
 		sprd_pm_resume_check();
-
+		*/
 		leds_event(led_idle_end);
 		tick_nohz_restart_sched_tick();
 		preempt_enable_no_resched();

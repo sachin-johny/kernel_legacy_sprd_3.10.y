@@ -1421,6 +1421,10 @@ int sc8800g_enter_deepsleep(int inidle)
 EXPORT_SYMBOL(sc8800g_enter_deepsleep);
 #endif
 
+int sprd_pm_suspend_check_enter(void);
+int sprd_pm_resume_check(void);
+
+
 #ifdef CONFIG_NKERNEL
 static void nkidle(void)
 {
@@ -1437,6 +1441,7 @@ static void nkidle(void)
 				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND) && 
 					(!sprd_pm_suspend_canceled())) {
 					sc8800g_enter_deepsleep(1);
+					sprd_pm_resume_check();
 				}
 				else {
 				    idle_loops++;

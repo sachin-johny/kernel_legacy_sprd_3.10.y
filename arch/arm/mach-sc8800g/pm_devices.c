@@ -103,6 +103,7 @@ int sprd_pm_resume_check(void)
 
 int sprd_pm_suspend_canceled(void)
 {
+	sprd_pm_suspend_check_enter();
 	return (SUSPEND_CANCEL == suspend_status);
 }
 
