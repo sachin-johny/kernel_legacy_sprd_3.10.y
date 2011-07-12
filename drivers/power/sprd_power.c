@@ -57,7 +57,9 @@ struct sprd_battery_data {
 
     uint32_t capacity;
     uint32_t voltage;
+#ifndef CONFIG_MACH_SP8805GA
     int temp;
+#endif
     uint32_t charging;
     uint32_t ac_online;
     uint32_t usb_online;
@@ -171,9 +173,11 @@ static int sprd_battery_get_property(struct power_supply *psy,
     case POWER_SUPPLY_PROP_VOLTAGE_NOW:
         val->intval = data->voltage*1000;
         break;
+#ifndef CONFIG_MACH_SP8805GA
     case POWER_SUPPLY_PROP_TEMP:
         val->intval = data->temp;
         break;
+#endif
 	default:
 		ret = -EINVAL;
 		break;
@@ -189,7 +193,9 @@ static enum power_supply_property sprd_battery_props[] = {
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+#ifndef CONFIG_MACH_SP8805GA
     POWER_SUPPLY_PROP_TEMP,
+#endif
 };
 
 static enum power_supply_property sprd_ac_props[] = {
@@ -616,6 +622,7 @@ static void battery_handler(unsigned long data)
     vprog_value = get_vprog_value();
     DEBUG("vprog %d\n", vprog_value);
 
+#ifndef CONFIG_MACH_SP8805GA
     temp_value = ADC_GetValue(ADC_CHANNEL_TEMP, false);
     if(temp_value < 0)
       return;
@@ -626,6 +633,7 @@ static void battery_handler(unsigned long data)
     temp = CHGMNG_AdcvalueToTemp(temp_value);
 
     DEBUG("temp: %d\n", temp);
+#endif
 
     //update capity;
     //notify user space
@@ -634,6 +642,7 @@ static void battery_handler(unsigned long data)
     DEBUG("capacity %d\n", capacity);
     DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
 
+#ifndef CONFIG_MACH_SP8805GA
     if(abs(battery_data->temp - temp)>2){
         battery_data->temp = temp;
         battery_notify =1;
@@ -645,6 +654,7 @@ static void battery_handler(unsigned long data)
         ac_online = 0;
         usb_online = 0;
     }
+#endif
 
     if(pre_ac_online != ac_online){
         pre_ac_online = ac_online;
