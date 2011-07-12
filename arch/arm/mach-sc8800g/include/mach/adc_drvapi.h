@@ -41,7 +41,11 @@ typedef enum
     ADC_MAX
 } adc_channel;
 
+#ifdef CONFIG_MACH_SP6810A
 #define ADC_CHANNEL_TEMP 0
+#else
+#define ADC_CHANNEL_TEMP 1
+#endif
 #define ADC_CHANNEL_VBAT 5
 #define ADC_CHANNEL_PROG 4
 #define ADC_CHANNEL_VCHG 6
