@@ -131,6 +131,10 @@ extern   "C"
 #define CHARGE_OVER_VOLTAGE 509
 #define CHARGE_OVER_CURRENT 200
 
+#define VOL_TO_CUR_PARAM 576
+#define VOL_DIV_P1 268
+#define VOL_DIV_P2 1000
+
 /**---------------------------------------------------------------------------*
  **                         Data Structures                                   *
  **---------------------------------------------------------------------------*/
@@ -740,7 +744,7 @@ uint32_t CHG_UpdateSwitchoverPoint (bool up_or_down);
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
- uint16_t CHGMNG_AdcvalueToVoltage (uint32_t adcvalue);
+ uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue);
 
 /*****************************************************************************/
 //  Description:    This function is used to get VBAT ADC value.
@@ -859,14 +863,16 @@ uint32_t CHG_UpdateSwitchoverPoint (bool up_or_down);
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
- void CHG_SetUSBChargeCurrent (CHG_USB_CHARGE_CURRENT_E current);
+void CHG_SetUSBChargeCurrent (CHG_USB_CHARGE_CURRENT_E current);
 
 /*****************************************************************************/
 //  Description:    This function is used to set adapter charge current.
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
- void CHG_SetNormalChargeCurrent (CHG_NOR_CHARGE_CURRENT_E current);
+void CHG_SetNormalChargeCurrent (CHG_NOR_CHARGE_CURRENT_E current);
+int CHGMNG_AdcvalueToTemp(uint16_t adcvalue);
+uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type);
 
 
 #ifdef __cplusplus

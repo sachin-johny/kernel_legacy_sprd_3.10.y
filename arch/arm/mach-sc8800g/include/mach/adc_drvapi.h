@@ -41,6 +41,7 @@ typedef enum
     ADC_MAX
 } adc_channel;
 
+#define ADC_CHANNEL_TEMP 0
 #define ADC_CHANNEL_VBAT 5
 #define ADC_CHANNEL_PROG 4
 #define ADC_CHANNEL_VCHG 6

@@ -97,6 +97,35 @@ uint16_t voltage_capacity_table[16] =
     0xffff,
     0xffff
 };
+
+int32_t temp_adc_table[][2] = 
+{
+    {  900,      0x4E  },//mv
+    {  850,      0x59  },
+    {  800,      0x67  },
+    {  750,      0x77  },
+    {  700,      0x89  },
+    {  650,      0x9E  },
+    {  600,      0xB8  },
+    {  550,      0xD4 },
+    {  500,      0xF3  },
+    {  450,      0x119},
+    {  400,      0x13F},
+    {  350,      0x16B},
+    {  300,      0x199},
+    {  250,      0x1CA},
+    {  200,      0x1FD},
+    {  150,      0x22F},
+    {  100,      0x260},
+    {   50,      0x291},
+    {   0,      0x2BD},
+    {  -50,      0x2E5},
+    { -100,      0x308},
+    { -150,      0x324},
+    { -200,      0x33F},
+    { -250,      0x354},
+    { -300,      0x364}
+};
 /*CHGMNG_IDLE state use*/
 
 /* recent_message_flag: Record the recent message which has been send before client registes.*/
@@ -179,6 +208,50 @@ static uint32_t g_charge_low_adc = 0;
     return result;
 }
 
+uint32_t CHG_GetTempADCResult(void)
+{
+    uint32_t result = (uint32_t) (-1);
+    result = ADC_GetValue(ADC_CHANNEL_TEMP, SCI_FALSE);
+    return result;
+}
+
+int CHGMNG_AdcvalueToTemp(uint16_t adcvalue)
+{
+    int table_size = ARRAY_SIZE(temp_adc_table);
+    int index;
+    int result;
+    int first, second;
+
+    for(index = 0; index < table_size; index++){
+        if(index == 0 && adcvalue < temp_adc_table[0][1])
+          break;
+        if(index == table_size - 1 && adcvalue>=temp_adc_table[index][1])
+          break;
+
+        if(adcvalue>=temp_adc_table[index][1] && adcvalue<temp_adc_table[index+1][1])
+          break;
+    }
+
+    if(index == 0){
+        first = 0;
+        second = 1;
+    }else if(index == table_size-1){
+        first = table_size - 2;
+        second = table_size -1;
+    }else{
+        first = index;
+        second = index +1;
+    }
+
+    result = (adcvalue - temp_adc_table[first][1])*(temp_adc_table[first][0] - temp_adc_table[second][0])/(temp_adc_table[first][1] - temp_adc_table[second][1]) + temp_adc_table[first][0];
+    return result;
+}
+
+uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type)
+{
+    return (((uint32_t)voltage*cur_type*VOL_DIV_P1)/VOL_TO_CUR_PARAM)/VOL_DIV_P2;
+}
+
 /*****************************************************************************/
 //  Description:    This function is used to convert voltage value to ADC value.
 //  Author:         Benjamin.Wang
@@ -235,9 +308,9 @@ static uint32_t g_charge_low_adc = 0;
     return voltage;
 }
 #else
-uint16_t CHGMNG_AdcvalueToVoltage (uint32_t adcvalue)
+uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue)
 {
-    return (4200 - 3000) * (adcvalue-voltage_capacity_table[0]) / (voltage_capacity_table[12] - voltage_capacity_table[0]) + 3000;
+    return (int32_t)(4200 - 3000) * (adcvalue-voltage_capacity_table[0]) / (voltage_capacity_table[12] - voltage_capacity_table[0]) + 3000;
 }
 #endif
 
