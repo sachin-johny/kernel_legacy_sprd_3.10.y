@@ -266,9 +266,19 @@ static int crop_by_dma(struct s2d_blit_req * req,uint32_t byte_per_pixel)
 	C2D_PRINT("[pid:%d] crop_by_dma() %d,%d,%d,%d\n", current->pid,req->src_rect.x,req->src_rect.y,temp_w,temp_h);
 	C2D_PRINT("crop_by_dma() %d,%d,%d,%d\n",src_img_postm,src_addr,block_len,total_len);
 
-	ret  = sprd_request_dma(DMA_SOFT0, sprd_2d_crop_dma_irq, req);
+	/*ret  = sprd_request_dma(DMA_SOFT0, sprd_2d_crop_dma_irq, req);
 	if(ret){
 		return -EFAULT;
+	}*/
+	while(1){		
+		ret  = sprd_request_dma(DMA_SOFT0, sprd_2d_crop_dma_irq, req);
+        	if(ret){
+        		printk("copybit crop_by_dma: request dma fail.ret : %d.\n", ret);
+        		msleep(5); 
+        	}
+		else{
+			break;
+		}			
 	}
 	condition_crop = 0;
 	memset(&ctrl, 0, sizeof(sprd_dma_ctrl));
@@ -289,6 +299,7 @@ static int crop_by_dma(struct s2d_blit_req * req,uint32_t byte_per_pixel)
 	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() before %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
 	if(wait_event_interruptible(wait_queue_crop, condition_crop)){
 		ret =  -EFAULT;
+        	printk("copybit crop_by_dma: wait_event_interruptible fail.ret : %d.\n", ret);
 	}
 	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() after %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
 	//mdelay(100);
@@ -330,7 +341,7 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 	parameters = (struct s2d_blit_req_list*)file->private_data;
 	if (copy_from_user(parameters, 
 				(struct s2d_blit_req_list*)arg, sizeof(struct s2d_blit_req_list)))
-		return -EFAULT;
+		return -2;
 	C2D_PRINT("sc8800g_2d_ioctl: count: %d.\n", parameters->count);
 
 	//printk("[pid:%d] sc8800g_2d_ioctl()\n", current->pid);
@@ -339,7 +350,7 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 	if (cmd != SC8800G_2D_BLIT) {
 		mutex_unlock(lock);
 		printk(KERN_ERR "sc8800g_2d: unknown ioctl cmd\n");
-		return -EFAULT;
+		return -3;
 	}
 
 	for(num = 0; num < parameters->count; num++){
@@ -397,27 +408,27 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 			if(params->do_flags & BIT_0) {
 				if (do_copybit_scale(params)) {
 					mutex_unlock(lock);
-					return -EFAULT;
+					return -4;
 				}			
 			}
 			else if(params->do_flags & BIT_3){
 				if (do_copybit_crop_by_dma(params)) {
 					mutex_unlock(lock);
-					return -EFAULT;
+					return -5;
 				}				
 			}
 			//if(params->do_flags & BIT_2) {
 			if(params->do_flags & BIT_1) {
 				if (do_copybit_rotation(params)) {
 					mutex_unlock(lock);
-					return -EFAULT;
+					return -6;
 				}			
 			}		
 			//if(params->do_flags & BIT_3) {
 			if(params->do_flags & BIT_2) {
 				if (do_copybit_lcdc(params)) {
 					mutex_unlock(lock);
-					return -EFAULT;
+					return -7;
 				}			
 			}
 		}

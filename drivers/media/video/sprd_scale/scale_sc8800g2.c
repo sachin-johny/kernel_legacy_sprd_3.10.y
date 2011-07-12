@@ -134,7 +134,8 @@ static int _SCALE_DriverSetMclk(void){
     	struct clk *clk_parent = NULL;
 	int ret;
 
-	name_parent = "clk_64m";
+	//name_parent = "clk_64m";
+	name_parent = "clk_96m";
 	clk_parent = clk_get_parent(g_scale_clk);
 	SCALE_PRINT("###scale:clock[%s]: parent_name: %s.\n", g_scale_clk->name, clk_parent->name);
 	if(strcmp(name_parent, clk_parent->name)){//need to wait the parent

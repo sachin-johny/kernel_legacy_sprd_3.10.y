@@ -75,11 +75,13 @@ typedef struct dcam_info
 
 uint32_t g_cur_buf_addr = 0; //store the buffer address which is hte next buffer DQbufed.
 uint32_t g_first_buf_addr = 0; //store the first buffer address
+uint32_t g_last_buf = 0xFFFFFFFF;//record the last buffer for dcam driver
 struct dcam_fh *g_fh = NULL; //store the fh pointer for ISR callback function
 static uint32_t g_is_first_frame = 1; //store the flag for the first frame
-struct dcam_buffer *g_dcam_buf_ptr = NULL;
+//struct dcam_buffer *g_dcam_buf_ptr = NULL;
 DCAM_INFO_T g_dcam_info; //store the dcam and sensor config info
 uint32_t g_zoom_level = 0; //zoom level: 0: 1x, 1: 2x, 2: 3x, 3: 4x
+uint32_t g_is_first_irq = 1; 
 
 #define DCAM_MODULE_NAME "dcam"
 #define WAKE_NUMERATOR 30
@@ -286,6 +288,7 @@ struct dcam_fmt {
 	char  *name;
 	u32   fourcc;          /* v4l2 format id */
 	int   depth;
+	int flag; // 0:qbuf; 1: set driver 
 };
 
 static struct dcam_fmt formats[] = {
@@ -886,6 +889,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		g_is_first_frame = 0;
 		DCAM_V4L2_PRINT("###V4L2: g_first_buf_addr: %x.\n", g_first_buf_addr);
 	}
+	//printk("###V4L2: vidioc_qbuf addr: %x.\n", p->m.userptr);
 	return (videobuf_qbuf(&fh->vb_vidq, p));
 }
 
@@ -895,6 +899,9 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	DCAM_V4L2_PRINT("###v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n", file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));
+	//videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK);
+	//printk("###V4L2: vidioc_ddddqbuf addr: %x.\n", p->m.userptr);
+	//return 0;
 }
 #if 0
 
@@ -1161,6 +1168,8 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		DCAM_V4L2_PRINT("###DCAM_V4L2: Fail to videobuf_streamon.\n");
 		return ret;
 	}
+	g_is_first_irq = 1;
+	g_last_buf = 0xFFFFFFFF;
 	 dcam_start();
 
 #if DCAM_V4L2_DEBUG
@@ -1221,12 +1230,28 @@ static void set_next_buffer(struct dcam_fh *fh)
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&dma_q->active)) {
-		DCAM_V4L2_PRINT("###V4L2: set_next_buffer:No active queue to serve\n");
+		printk("###V4L2: set_next_buffer:No active queue to serve\n");
 		goto unlock;
 	}
-
-	buf = list_entry(dma_q->active.next->next,
+	
+	if(NULL == dma_q->active.next){
+		printk("###V4L2: set_next_buffer: the dma_q->active.next is NULL.\n");
+		goto unlock;
+	}
+	buf = list_entry(dma_q->active.next,
 			 struct dcam_buffer, vb.queue);
+	if(0xFFFFFFFF == g_last_buf){ //the first buffer set to driver already.
+		buf->fmt->flag = 1;
+		g_last_buf = 0;
+	}	
+	if((1 == buf->fmt->flag) || (g_last_buf == buf->vb.baddr)){		
+		if(NULL == dma_q->active.next->next){
+			printk("###V4L2: set_next_buffer: the dma_q->active.next->next is NULL.\n");
+			goto unlock;
+		}
+		buf = list_entry(dma_q->active.next->next,
+				 struct dcam_buffer, vb.queue);
+	}
 
 	/* Nobody is waiting on this buffer, return */
 	//if (!waitqueue_active(&buf->vb.done))
@@ -1237,18 +1262,21 @@ static void set_next_buffer(struct dcam_fh *fh)
 	//do_gettimeofday(&buf->vb.ts);
 
 	/* Fill buffer */
-	if(0 != buf->vb.baddr)
-		dcam_set_buffer_address(buf->vb.baddr);
+	if(0 != buf->vb.baddr){
+		buf->fmt->flag = 1;
+		g_last_buf = buf->vb.baddr;		
+		dcam_set_buffer_address(buf->vb.baddr);		
+	}
 	else
 	{
-		DCAM_V4L2_PRINT("###V4L2: fail: set_next_buffer filled buffer is 0.\n");
+		printk("###V4L2: fail: set_next_buffer filled buffer is 0.\n");
 		goto unlock;
 	}
 	
 	DCAM_V4L2_PRINT("###V4L2: set_next_buffer filled buffer %x.\n", (uint32_t)buf->vb.baddr);
 
 	//wake_up(&buf->vb.done);
-	g_dcam_buf_ptr = buf;
+	//g_dcam_buf_ptr = buf;
 	
 unlock:
 	spin_unlock_irqrestore(&dev->slock, flags);
@@ -1292,25 +1320,34 @@ static void set_layer_cb(uint32_t base)
 	struct dcam_buffer *buf;
 	struct dcam_dev *dev = fh->dev;
 	struct dcam_dmaqueue *dma_q = &dev->vidq;
+	
 
 	unsigned long flags = 0;
 	DCAM_V4L2_PRINT("###V4L2: path1_done_buffer.\n");	
 	spin_lock_irqsave(&dev->slock, flags);
-
 	if (list_empty(&dma_q->active)) {
-		DCAM_V4L2_PRINT("###V4L2: path1_done_buffer: No active queue to serve\n");
+		printk("###V4L2: path1_done_buffer: No active queue to serve\n");
 		goto unlock;
 	}
 
 	if(NULL == dma_q->active.next){
-		DCAM_V4L2_PRINT("###V4L2: path1_done_buffer: the active.next is NULL.\n");
+		printk("###V4L2: path1_done_buffer: the active.next is NULL.\n");
 		goto unlock;
 	}
 	buf = list_entry(dma_q->active.next,
 			 struct dcam_buffer, vb.queue);
+	if(1 != g_is_first_irq){
+		if(g_first_buf_addr != (uint32_t)buf->vb.baddr){			
+			printk("###V4L2: path1_done_buffer: Fail to this entry. last addr: %x, buf addr: %x\n", g_first_buf_addr, (uint32_t)buf->vb.baddr);
+			goto unlock;
+		}		
+	}
+	else{
+		g_is_first_irq = 0;		
+	}
 
 	/* Nobody is waiting on this buffer, return */
-	if (!waitqueue_active(&buf->vb.done))
+	/*if (!waitqueue_active(&buf->vb.done))
 	{
 		DCAM_V4L2_PRINT("###V4L2: path1_done_buffer: Nobody is waiting on this buffer\n");	
 		if(3 == g_dcam_info.mode)
@@ -1323,12 +1360,12 @@ static void set_layer_cb(uint32_t base)
 			DCAM_V4L2_PRINT("###V4L2:g_dcam_info wake_up.\n");
 		}
 		goto unlock;
-	}
-	DCAM_V4L2_PRINT("###V4L2: before set_next_buffer :filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));
+	}*/
+	//printk("###V4L2: before set_next_buffer :filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));
 #if 0
 	set_layer_cb(buf->vb.baddr);
 #endif
-	set_next_buffer(g_fh);//wxz:???
+	//set_next_buffer(g_fh);//wxz:???
 
 	list_del(&buf->vb.queue);
 
@@ -1345,17 +1382,18 @@ static void set_layer_cb(uint32_t base)
         //is_first_frame = 0;
         //g_dcam_buf_ptr = buf;
 	wake_up(&buf->vb.done); 
-	
 unlock:
 	spin_unlock_irqrestore(&dev->slock, flags);
+	g_first_buf_addr = g_last_buf;
 	return;
 }
 
 void dcam_cb_ISRSensorSOF(void)
-{	
+{
 }
 void dcam_cb_ISRCapEOF(void)
 {
+	set_next_buffer(g_fh);
 }
 void dcam_cb_ISRPath1Done(void)
 {	
@@ -1440,7 +1478,7 @@ buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 	buf->fmt       = fh->fmt;
 	buf->vb.width  = fh->width;
 	buf->vb.height = fh->height;
-	buf->vb.field  = field;
+	buf->vb.field  = field;	
 
 	precalculate_bars(fh);
 
@@ -1478,6 +1516,7 @@ buffer_queue(struct videobuf_queue *vq, struct videobuf_buffer *vb)
 	dprintk(dev, 1, "%s\n", __func__);
 
 	buf->vb.state = VIDEOBUF_QUEUED;
+	buf->fmt->flag = 0;
 	list_add_tail(&buf->vb.queue, &vidq->active);
 }
 

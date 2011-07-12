@@ -210,7 +210,8 @@ static int dcam_set_mclk(void){
 		clk_disable(g_dcam_clk);
 		DCAM_TRACE("###dcam g_dcam_clk clk_disable ok.\n");
 	}
-	name_parent = "clk_64m";
+	//name_parent = "clk_64m";
+	name_parent = "clk_96m";
 	clk_parent = clk_get_parent(g_dcam_clk);
 	DCAM_TRACE("###dcam:clock[%s]: parent_name: %s.\n", g_dcam_clk->name, clk_parent->name);
 	if(strcmp(name_parent, clk_parent->name)){//need to wait the parent
