@@ -426,6 +426,54 @@ kpd_key_t s_key[MAX_MUL_KEY_NUM + 3];
 
 struct sprd_kpad_t *sprd_kpad;
 
+
+//yunlong.wang add for key emulator
+static unsigned char g_keycode;
+static ssize_t sprd_kpad_store_emulate(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
+static ssize_t sprd_kpad_show_emulate(struct device* cd,struct device_attribute *attr, char* buf);
+static DEVICE_ATTR(emulate, S_IRUGO | S_IWUSR, sprd_kpad_show_emulate, sprd_kpad_store_emulate);
+ 
+static ssize_t sprd_kpad_show_emulate(struct device* cd,struct device_attribute *attr, char* buf)
+{
+	ssize_t ret = 0;
+
+	sprintf(buf, "%d\n",g_keycode);
+	ret = strlen(buf) + 1;
+	
+	return ret;
+}
+
+static ssize_t sprd_kpad_store_emulate(struct device* cd, struct device_attribute *attr,const char* buf, size_t len)
+{
+	unsigned long keycode = simple_strtoul(buf, NULL, 10);
+	g_keycode = keycode;
+	
+	input_report_key(sprd_kpad->input, g_keycode, 1);
+	input_sync(sprd_kpad->input);
+	printk("%dD\n", g_keycode);
+
+	mdelay(10);
+
+	input_report_key(sprd_kpad->input, g_keycode, 0);
+	input_sync(sprd_kpad->input);	
+	printk("%dU\n", g_keycode);
+		
+	return len;
+}
+
+static int sprd_kpad_create_sysfs(struct platform_device *pdev)
+{
+	int err;
+	struct device *dev = &(pdev->dev);
+	
+	err = device_create_file(dev, &dev_attr_emulate);
+
+	return err;
+}
+
+//yunlong.wang add END
+
+
 void clear_key(kpd_key_t *key_ptr)
 {
 	key_ptr->key_code   = TB_KPD_INVALID_KEY;
@@ -980,6 +1028,8 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	gpio_key_init(PBINT_GPI, "poweronoff");	
 	ANA_REG_OR(ANA_INT_EN, ANA_GPIO_IRQ);
 #endif
+
+	sprd_kpad_create_sysfs(pdev);
 
 	return 0;
 
