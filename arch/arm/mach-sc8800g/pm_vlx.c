@@ -22,9 +22,18 @@
 #include <mach/test.h>
 
 
-/*
-#define CONFIG_PM_SC8800G_TEST_MODE 0
-*/
+#define ANA_INT_STATUS             (SPRD_MISC_BASE +0x380+ 0x00)
+#define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
+#define ANA_INT_EN                     (SPRD_MISC_BASE + 0x380 + 0x08)
+#define ANA_INT_STATUS_SYNC      (SPRD_MISC_BASE + 0x380 + 0x0C)
+#define ANA_GPIO_IE            (SPRD_MISC_BASE + 0x600 + 0x18)
+#define ANA_GPIO_IEV           (SPRD_MISC_BASE + 0x600 + 0x14)
+#define ANA_GPIO_RIS           (SPRD_MISC_BASE + 0x600 + 0x1c)
+
+
+#define WKAEUP_SRC_KEAPAD  BIT_10
+#define WAKEUP_SRC_PB		BIT_3
+#define WAKEUP_SRC_CHG		BIT_2
 
 extern void sc8800g_cpu_standby(void);
 
@@ -35,6 +44,85 @@ extern int prepare_deep_sleep(void);
 extern int sc8800g_prepare_deep_sleep(void);
 extern int sc8800g_enter_deepsleep(int);
 
+static u32 irq_enable = 0;
+static u32 ana_gpio_irq_enable = 0;
+
+
+int sc8800g_set_wakeup_src(void)
+{
+	u32 wakeup_src = 0;
+	u32 val;
+#ifdef CONFIG_MACH_SP6810A
+	wakeup_src = (WKAEUP_SRC_KEAPAD |
+				WAKEUP_SRC_PB |
+				WAKEUP_SRC_CHG);
+	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
+		val = __raw_readl(INT_IRQ_EN);
+		irq_enable = val;
+		val |= WKAEUP_SRC_KEAPAD;
+		__raw_writel(val, INT_IRQ_EN);
+	}
+	if (WAKEUP_SRC_PB & wakeup_src) {
+		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
+		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_PB);
+	}
+
+	if (WAKEUP_SRC_CHG & wakeup_src) {
+		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
+		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_CHG);
+	}
+#endif
+
+#ifdef CONFIG_MACH_SP8805A
+	wakeup_src = (WKAEUP_SRC_KEAPAD |);
+	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
+		val = __raw_readl(INT_IRQ_EN);
+		irq_enable = val;
+		val |= WKAEUP_SRC_KEAPAD;
+		__raw_writel(val, INT_IRQ_EN);
+	}
+	if (WAKEUP_SRC_PB & wakeup_src) {
+		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
+		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_PB);
+	}
+
+	if (WAKEUP_SRC_CHG & wakeup_src) {
+		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
+		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_CHG);
+	}
+#endif
+
+#ifdef CONFIG_MACH_OPENPHONE
+	wakeup_src = (WKAEUP_SRC_KEAPAD);
+	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
+		val = __raw_readl(INT_IRQ_EN);
+		irq_enable = val;
+		val |= WKAEUP_SRC_KEAPAD;
+		__raw_writel(val, INT_IRQ_EN);
+	}
+	if (WAKEUP_SRC_PB & wakeup_src) {
+		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
+		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_PB);
+	}
+
+	if (WAKEUP_SRC_CHG & wakeup_src) {
+		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
+		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_CHG);
+	}
+
+#endif
+
+	return 0;
+}
+
+int sc8800g_unset_wakeup_src(void)
+{
+	/*
+	__raw_writel(irq_enable, INT_IRQ_EN);
+	*/
+	return 0;
+}
+
 int sc8800g_pm_enter(suspend_state_t state)
 {
 	int ret_val = 0;
@@ -43,6 +131,8 @@ int sc8800g_pm_enter(suspend_state_t state)
 
 	suspend_start = suspend_end = get_sys_cnt();
 	suspend_time = suspend_end - suspend_start;
+	sc8800g_set_wakeup_src();
+
 	/*
 	irq has been disabled,
 	so we check irq status here safely.
@@ -73,6 +163,8 @@ int sc8800g_pm_enter(suspend_state_t state)
 
 		hw_local_irq_enable();
 	}
+
+	sc8800g_unset_wakeup_src();
 	return ret_val;
 }
 

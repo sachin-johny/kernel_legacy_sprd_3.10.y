@@ -1168,21 +1168,14 @@ static void disable_ahb_module (void)
 
 int supsend_ldo_turnoff(void)
 {
+#if 0
 	u32 val = 0;
-/*
-    ANA_REG_SET(ANA_LDO_PD_SET, 
-		BIT_5 | BIT_9);
-*/
-
+ 
 	val = ANA_REG_GET(ANA_LDO_SLP);
 	if ( val != 0xa7fb) {
 		printk("##: ANA_LDO_SLP: wrong vaule[%08x].\n", val);
 	}
 
-/*
-    ANA_REG_SET(ANA_LDO_PD_CTL, 
-		(BIT_0 | BIT_2 | BIT_6 | BIT_8 | BIT_10 | BIT_12 | BIT_14) & ~BIT_1 );
-*/
 	val = ANA_REG_GET(ANA_LDO_PD_CTL);
 	if ((val & 0x03) != 0x01) printk("##: USB LDO was wrong!\n");
 
@@ -1190,7 +1183,7 @@ int supsend_ldo_turnoff(void)
 	if (!(val & FSM_AFCPD_EN)) printk("##: FSM_AFCPD_EN was not enabled!\n");
 
 	is_dsp_sleep();
-
+#endif
 	return 0;
 }
 
@@ -1206,15 +1199,13 @@ int supsend_gpio_save(void)
 {
 	u32 val = 0;
 	gpio_for_suespend();
-	val = __raw_readl(SPRD_GPIO_BASE);
-	//if (val & BIT_2) printk("GPI_2 is set!\n");
 
-	/* GPIO 101*/
+#ifdef CONFIG_MACH_SP6810A
+	/* GPIO 96, shutdown audio PA. */
 	val = __raw_readl(SPRD_GPIO_BASE + 0x0300);
 	val &= ~BIT_0;
 	__raw_writel(val, SPRD_GPIO_BASE + 0x0300);
-
-	//if (val & BIT_5) printk("GPI_101 is set!\n");
+#endif
 
 	return 0;
 }

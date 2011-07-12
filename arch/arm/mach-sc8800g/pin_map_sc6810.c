@@ -293,34 +293,6 @@ const PM_PINFUNC_T pm_default_global_map[]=
     {0xffffffff, 0xffffffff}
 };
 
-const PM_GPIO_CTL_T  pm_gpio_default_map[]=
-{
-    {33,      0,     PM_OUTPUT,      PM_LEVEL    }, //Prevent CMMB current leakage 
-    {163,     1,     PM_INPUT,       PM_LEVEL    }, //power button        
-    {102,     1,     PM_OUTPUT,      PM_LEVEL    }, //LCD_RST
-    {90,      0,     PM_OUTPUT,      PM_NO_INT   }, //BT_RESET
-#ifdef DEMOD_HW_SIANO    
-    {93,      0,     PM_INPUT,       PM_RISING_EDGE},//PM_RISING_EDGE    }, //sian2186 demod int
-#endif
-#ifdef DEMOD_HW_INNOFIDEI
-    {93,      1,     PM_INPUT,       PM_FALLING_EDGE},//PM_RISING_EDGE    }, //if228 demod int
-#endif
-    {94,      0,     PM_OUTPUT,      PM_LEVEL    }, //if228 demod reset            
-    {140,     0,     PM_OUTPUT,      PM_NO_INT   }, //WIFI RESET
-	{106,     1,     PM_OUTPUT,      PM_NO_INT   }, //WIFI LDO POWER
-    {135,     0,     PM_OUTPUT,      PM_LEVEL    }, //Add Temp For G1 ROMCODE Usb LDO Problem  
-	{141,     1,     PM_INPUT,       PM_LEVEL	 }, //WIFI spi int
-    {79,      1,     PM_OUTPUT,      PM_NO_INT	 }, //img sensor(postpositive sensor) powerdown
-    {78,      1,     PM_OUTPUT,      PM_NO_INT	 }, //img sensor(preositive sensor) powerdown
-    {77,      0,     PM_OUTPUT,      PM_NO_INT   },  // img sensor reset    
-    {165,     1,     PM_INPUT,       PM_LEVEL	 }, //HEADSET_DETECT
-    {164,     0,     PM_INPUT,       PM_LEVEL	 }, //HEADSET_BUTTON
-    {145,     0,     PM_INPUT,       PM_NO_INT	 }, //GPIO_PROD_USB_DETECT_ID
-    {146,     0,     PM_INPUT,       PM_NO_INT	 }, //USB_DP
-    {162,     0,     PM_INPUT,       PM_LEVEL	 }, //CHARGE_PLUG_DETECT
-   
-    {0xffff,  0, 	 PM_INVALID_DIR, PM_INVALID_INT  }
-};
 
 #define ANA_IS_ANA_REG(addr) (SPRD_MISC_BASE == (addr & 0xfffff000))
 void sc8800g_pin_map_init(void)
@@ -392,34 +364,6 @@ const PM_PINFUNC_T pm_default_global_map_suspend[]=
     {0xffffffff, 0xffffffff}
 };
 
-const PM_GPIO_CTL_T  pm_gpio_default_map_suspend[]=
-{
-    {33,      0,     PM_OUTPUT,      PM_LEVEL    }, //Prevent CMMB current leakage 
-    {163,     1,     PM_INPUT,       PM_LEVEL    }, //power button        
-    {102,     1,     PM_OUTPUT,      PM_LEVEL    }, //LCD_RST
-    {90,      0,     PM_OUTPUT,      PM_NO_INT   }, //BT_RESET
-#ifdef DEMOD_HW_SIANO    
-    {93,      0,     PM_INPUT,       PM_RISING_EDGE},//PM_RISING_EDGE    }, //sian2186 demod int
-#endif
-#ifdef DEMOD_HW_INNOFIDEI
-    {93,      1,     PM_INPUT,       PM_FALLING_EDGE},//PM_RISING_EDGE    }, //if228 demod int
-#endif
-    {94,      0,     PM_OUTPUT,      PM_LEVEL    }, //if228 demod reset            
-    {140,     0,     PM_OUTPUT,      PM_NO_INT   }, //WIFI RESET
-	{106,     1,     PM_OUTPUT,      PM_NO_INT   }, //WIFI LDO POWER
-    {135,     0,     PM_OUTPUT,      PM_LEVEL    }, //Add Temp For G1 ROMCODE Usb LDO Problem  
-	{141,     1,     PM_INPUT,       PM_LEVEL	 }, //WIFI spi int
-    {79,      1,     PM_OUTPUT,      PM_NO_INT	 }, //img sensor(postpositive sensor) powerdown
-    {78,      1,     PM_OUTPUT,      PM_NO_INT	 }, //img sensor(preositive sensor) powerdown
-    {77,      0,     PM_OUTPUT,      PM_NO_INT   },  // img sensor reset    
-    {165,     1,     PM_INPUT,       PM_LEVEL	 }, //HEADSET_DETECT
-    {164,     0,     PM_INPUT,       PM_LEVEL	 }, //HEADSET_BUTTON
-    {145,     0,     PM_INPUT,       PM_NO_INT	 }, //GPIO_PROD_USB_DETECT_ID
-    {146,     0,     PM_INPUT,       PM_NO_INT	 }, //USB_DP
-    {162,     0,     PM_INPUT,       PM_LEVEL	 }, //CHARGE_PLUG_DETECT
-   
-    {0xffff,  0, 	 PM_INVALID_DIR, PM_INVALID_INT  }
-};
 
 void gpio_for_suespend(void)
 {
@@ -461,7 +405,6 @@ void gpio_for_suespend(void)
         CHIP_REG_SET (pm_default_global_map_suspend[i].addr, pm_default_global_map_suspend[i].value);
         i++;
     }
-    //printk("####: gpio_for_suespend() is done!\n");
 }
 EXPORT_SYMBOL_GPL(gpio_for_suespend);
 
