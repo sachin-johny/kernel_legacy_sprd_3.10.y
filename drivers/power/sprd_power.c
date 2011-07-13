@@ -489,14 +489,17 @@ static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
         timer_freq_flag = 1;
         mod_timer(&data->battery_timer, jiffies + timer_freq);
         mod_timer(&data->charge_voltage_timer, jiffies + HZ/10);
+#ifdef BATTERY_USE_WAKE_LOCK
+        wake_lock(&(data->charge_wake_lock));
+#endif
     }else{
         data->ac_online = 0;
         data->usb_online = 0;
         timer_freq = 10*HZ;
-    }
 #ifdef BATTERY_USE_WAKE_LOCK
-        wake_lock_timeout(&(data->update_wake_lock), BATTERY_WAKE_LOCK_LENGTH);
+        wake_unlock(&(data->charge_wake_lock));
 #endif
+    }
     set_irq_type(irq, charger_status? IRQ_TYPE_LEVEL_LOW:IRQ_TYPE_LEVEL_HIGH);
 	spin_unlock_irqrestore(&data->lock, irq_flags);
 	return IRQ_HANDLED;
@@ -894,6 +897,11 @@ static int sprd_battery_probe(struct platform_device *pdev)
     data->charge_voltage_timer.function = charge_voltage_handler;
     data->charge_voltage_timer.data = (unsigned long)data;
 
+#ifdef BATTERY_USE_WAKE_LOCK
+    wake_lock_init(&(data->charge_wake_lock), WAKE_LOCK_SUSPEND, "charge_wake_lock");
+    wake_lock_init(&(data->update_wake_lock), WAKE_LOCK_SUSPEND, "update_wake_lock");
+#endif
+
     timer_freq = HZ/4;
     timer_freq_cnt = 20;
     if(usb_connected()){
@@ -907,6 +915,9 @@ static int sprd_battery_probe(struct platform_device *pdev)
         }
         timer_freq_flag = 1;
         mod_timer(&data->charge_voltage_timer, HZ/10);
+#ifdef BATTERY_USE_WAKE_LOCK
+        wake_lock(&(data->charge_wake_lock));
+#endif
     }else{
         data->usb_online = 0;
         data->ac_online = 0;
@@ -928,10 +939,6 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		ret = -ENODEV;
 		goto err_no_irq;
 	}
-#endif
-#ifdef BATTERY_USE_WAKE_LOCK
-    wake_lock_init(&(data->charge_wake_lock), WAKE_LOCK_SUSPEND, "charge_wake_lock");
-    wake_lock_init(&(data->update_wake_lock), WAKE_LOCK_SUSPEND, "update_wake_lock");
 #endif
     ret = gpio_to_irq(CHARGER_DETECT_GPIO);
     data->irq = ret;      
