@@ -220,15 +220,15 @@ struct gpio_desc {
 
 #define SPRD_3RDPARTY_GPIO_WIFI_POWER       106
 #define SPRD_3RDPARTY_GPIO_WIFI_RESET       140
-#define SPRD_3RDPARTY_GPIO_WIFI_PWD         99
+#define SPRD_3RDPARTY_GPIO_WIFI_PWD         94
 #define SPRD_3RDPARTY_GPIO_WIFI_WAKE        101
 #define SPRD_3RDPARTY_GPIO_WIFI_IRQ         141
 #define SPRD_3RDPARTY_GPIO_BT_POWER         -1
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
 #define SPRD_3RDPARTY_GPIO_BT_RTS           42
-#define SPRD_3RDPARTY_GPIO_CMMB_POWER       135
-#define SPRD_3RDPARTY_GPIO_CMMB_RESET       94
-#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
+#define SPRD_3RDPARTY_GPIO_CMMB_POWER       -1 // 135
+#define SPRD_3RDPARTY_GPIO_CMMB_RESET       -1 // 94
+#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         -1 // 93
 #define SPRD_3RDPARTY_GPIO_TP_PWR             (-1)   //not used
 #define SPRD_3RDPARTY_GPIO_TP_RST              26
 #define SPRD_3RDPARTY_GPIO_TP_IRQ              27
@@ -292,7 +292,7 @@ static struct gpio_desc gpio_func_cfg[] = {
         "wifi power"
     },
     {
-        MFP_CFG_X(RFCTL9, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_pwd_io
+        MFP_CFG_X(RFCTL4, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_pwd_io
         SPRD_3RDPARTY_GPIO_WIFI_PWD, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi pwd"
     },
@@ -322,21 +322,6 @@ static struct gpio_desc gpio_func_cfg[] = {
         "Wi-Fi IRQ"
     },
     {
-        MFP_CFG_X(GPIO135, AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE), // cmmb power
-        SPRD_3RDPARTY_GPIO_CMMB_POWER,
-        "demod power"
-    },
-    {
-        MFP_CFG_X(RFCTL4 , AF3, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE), // cmmb reset
-        SPRD_3RDPARTY_GPIO_CMMB_RESET,
-        "demod reset"
-    },
-    {
-        MFP_CFG_X(RFCTL3 , AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE), // cmmb interrupt
-        SPRD_3RDPARTY_GPIO_CMMB_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        "demod int"
-    },
-   {
 	MFP_CFG_X(KEYOUT6, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 	SPRD_3RDPARTY_GPIO_TP_RST,
 	"mtp reset"
@@ -543,7 +528,6 @@ void __init gps_hw_config(void)
 extern void sc8800g_pin_map_init(void);
 static void __init openphone_init(void)
 {
-	int tmp = 0;
 	chip_init();
 //	ADI_init();
 	LDO_Init();
