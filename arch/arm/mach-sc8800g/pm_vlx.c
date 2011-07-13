@@ -43,6 +43,7 @@ extern int prepare_deep_sleep(void);
 extern int prepare_deep_sleep(void);
 extern int sc8800g_prepare_deep_sleep(void);
 extern int sc8800g_enter_deepsleep(int);
+int battery_updata(void);
 
 static u32 irq_enable = 0;
 static u32 ana_gpio_irq_enable = 0;
@@ -123,14 +124,28 @@ int sc8800g_unset_wakeup_src(void)
 	return 0;
 }
 
+#define BATTERY_CHECK_INTERVAL 10000
+static int sprd_check_battery(void)
+{
+	int ret_val = 0;
+	if (battery_updata()) {
+		ret_val = 1;
+	}
+	return ret_val;
+}
 int sc8800g_pm_enter(suspend_state_t state)
 {
 	int ret_val = 0;
 	u32 suspend_start, suspend_end, suspend_time;
 	unsigned long flags;
 
+	/* for battery checking. */
+	u32 battery_check_start;
+
 	suspend_start = suspend_end = get_sys_cnt();
 	suspend_time = suspend_end - suspend_start;
+
+	battery_check_start = suspend_start;
 	sc8800g_set_wakeup_src();
 
 	/*
@@ -162,6 +177,14 @@ int sc8800g_pm_enter(suspend_state_t state)
 		suspend_time = suspend_end - suspend_start;
 
 		hw_local_irq_enable();
+
+		if ((suspend_end -  battery_check_start) > BATTERY_CHECK_INTERVAL) {
+			battery_check_start = suspend_end;
+			if (sprd_check_battery()) {
+				printk("###: battery low!\n");
+				break;
+			}
+		}
 	}
 
 	sc8800g_unset_wakeup_src();
