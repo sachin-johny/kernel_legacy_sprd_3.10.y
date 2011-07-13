@@ -173,7 +173,7 @@ static struct spi_board_info openhone_spi_devices4wifi[] = {
     {
         .modalias       = "spi_slot0", // "spidev" --> spidev_spi
         .chip_select    = SPRD_3RDPARTY_SPI_WIFI_CS,
-        .max_speed_hz   = 24 * 1000 * 1000,
+        .max_speed_hz   = 32 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
 };
