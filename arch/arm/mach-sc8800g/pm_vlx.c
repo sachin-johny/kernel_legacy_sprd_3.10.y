@@ -124,7 +124,7 @@ int sc8800g_unset_wakeup_src(void)
 	return 0;
 }
 
-#define BATTERY_CHECK_INTERVAL 10000
+#define BATTERY_CHECK_INTERVAL 30000
 static int sprd_check_battery(void)
 {
 	int ret_val = 0;
@@ -181,7 +181,9 @@ int sc8800g_pm_enter(suspend_state_t state)
 		if ((suspend_end -  battery_check_start) > BATTERY_CHECK_INTERVAL) {
 			battery_check_start = suspend_end;
 			if (sprd_check_battery()) {
+				/*
 				printk("###: battery low!\n");
+				*/
 				break;
 			}
 		}
