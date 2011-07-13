@@ -57,7 +57,7 @@ struct sprd_battery_data {
 
     uint32_t capacity;
     uint32_t voltage;
-#ifndef CONFIG_MACH_SP8805GA
+#if 0 
     int temp;
 #endif
     uint32_t charging;
@@ -173,7 +173,7 @@ static int sprd_battery_get_property(struct power_supply *psy,
     case POWER_SUPPLY_PROP_VOLTAGE_NOW:
         val->intval = data->voltage*1000;
         break;
-#ifndef CONFIG_MACH_SP8805GA
+#if 0
     case POWER_SUPPLY_PROP_TEMP:
         val->intval = data->temp;
         break;
@@ -193,7 +193,7 @@ static enum power_supply_property sprd_battery_props[] = {
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-#ifndef CONFIG_MACH_SP8805GA
+#if 0
     POWER_SUPPLY_PROP_TEMP,
 #endif
 };
@@ -625,12 +625,12 @@ static void battery_handler(unsigned long data)
     vprog_value = get_vprog_value();
     DEBUG("vprog %d\n", vprog_value);
 
-#ifndef CONFIG_MACH_SP8805GA
+#if 0
     temp_value = ADC_GetValue(ADC_CHANNEL_TEMP, false);
     if(temp_value < 0)
       return;
-    put_temp_value(temp_value);
-    temp_value = get_temp_value();
+    //put_temp_value(temp_value);
+    //temp_value = get_temp_value();
     DEBUG("temp_value 0x%x\n", temp_value);
 
     temp = CHGMNG_AdcvalueToTemp(temp_value);
@@ -645,13 +645,14 @@ static void battery_handler(unsigned long data)
     DEBUG("capacity %d\n", capacity);
     DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
 
-#ifndef CONFIG_MACH_SP8805GA
+#if 0
     if(abs(battery_data->temp - temp)>2){
         battery_data->temp = temp;
         battery_notify =1;
     }
 
     if(temp > 450 || temp < 0){
+        printk("battery temperature out of 45~0\n");
         battery_data->usb_online = 0;
         battery_data->ac_online = 0;
         ac_online = 0;
