@@ -74,8 +74,8 @@ int sc8800g_set_wakeup_src(void)
 	}
 #endif
 
-#ifdef CONFIG_MACH_SP8805A
-	wakeup_src = (WKAEUP_SRC_KEAPAD |);
+#ifdef CONFIG_MACH_SP8805GA
+	wakeup_src = (WKAEUP_SRC_KEAPAD | WAKEUP_SRC_CHG);
 	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
 		val = __raw_readl(INT_IRQ_EN);
 		irq_enable = val;
