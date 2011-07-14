@@ -366,6 +366,218 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
   return 0;
 }
 
+/* the following codes is specially for atheros driver */
+#define ATH_HACK
+
+#define _doSWAP32(x)		\
+		((((x) & 0x000000FF) << 24) | \
+		(((x) & 0x0000FF00) << 8)  | \
+		(((x) & 0x00FF0000) >> 8)  | \
+		(((x) & 0xFF000000) >> 24))
+		
+#define _doSWAP16(x)		\
+		((((x) & 0x00FF) << 8) | \
+		(((x) & 0xFF00) >> 8) )
+
+#ifdef USE_SPI_WM_IRQ
+static char* g_buffer = NULL;
+static int g_leftlen = 0;
+struct semaphore spi_complete_sem;
+#endif
+
+static int sprd_spi_direct_transfer_ath_spec(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+{
+  int i, timeout;
+  u8 *data;
+  int data_width = 0;
+
+#ifdef ATH_HACK
+#define USE_RX_SWAP
+#define MYLOCAL_TIMEOUT 0xff0000
+  struct sprd_spi_data *sprd_data = cookie;
+  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+  u32    spi_ctl0 = sprd_ctrl_data->spi_ctl0;
+
+  if(data_in){
+#ifdef USE_RX_SWAP
+      spi_ctl0 &= ~(0x1F << 2);
+      if (len%4 == 0){
+          spi_writel(spi_ctl0, SPI_CTL0);
+          sprd_ctrl_data->data_width = 4;
+          sprd_ctrl_data->data_width_order = 2;
+      }else if ((len % 2) == 0){
+          spi_ctl0 |= (0x10 << 2);
+          spi_writel(spi_ctl0, SPI_CTL0);
+          sprd_ctrl_data->data_width = 2;
+          sprd_ctrl_data->data_width_order = 1;
+      }
+      else
+#endif
+     {
+        spi_writel(sprd_ctrl_data->spi_ctl0, SPI_CTL0);
+        sprd_ctrl_data->data_width = 1;
+        sprd_ctrl_data->data_width_order = 0;
+     }
+  }
+  
+  if (data_in) {
+    int block, tlen, j, block_bytes;
+	u32 tmpData = 0;
+ 
+    spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */
+
+    if (likely(sprd_ctrl_data->data_width != 3)) {
+      block_bytes = SPRD_SPI_DMA_BLOCK_MAX << sprd_ctrl_data->data_width_order;
+    } else block_bytes = SPRD_SPI_DMA_BLOCK_MAX * 3;
+
+    for (i = 0, tlen = len; tlen;) {
+      if (tlen > block_bytes) {
+    	block = SPRD_SPI_DMA_BLOCK_MAX;
+    	tlen -= block_bytes;
+      } else {
+    	if (likely(sprd_ctrl_data->data_width != 3))
+    	  block = tlen >> sprd_ctrl_data->data_width_order;
+    	else 
+          block = tlen / sprd_ctrl_data->data_width;
+    	tlen = 0;
+      }
+	  
+      spi_writel(0x0000, SPI_CTL4); /* stop only rx */
+      spi_writel((1 << 9) | block, SPI_CTL4);
+
+      for (j = 0; j < block; j++) {
+		for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+		if (timeout >= MYLOCAL_TIMEOUT){
+		  printk("Timeout spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY)\n");
+		  return  -ENOPROTOOPT;
+		}
+		data = (u8*)data_in + i;
+		switch (sprd_ctrl_data->data_width) {
+		case 1: ( (u8*)data)[0] = spi_readl(SPI_TXD); i += 1; break;
+#ifndef USE_RX_SWAP
+		case 2: ((u16*)data)[0] = (spi_readl(SPI_TXD)); i += 2; break;
+		case 4: ((u32*)data)[0] = (spi_readl(SPI_TXD)); i += 4; break;
+#else
+		case 2: 
+			{
+				tmpData = spi_readl(SPI_TXD);
+				((u16*)data)[0] = _doSWAP16(tmpData); 
+				i += 2; 
+				break;
+			}
+		case 4:
+			{
+				tmpData = spi_readl(SPI_TXD);
+				((u32*)data)[0] = _doSWAP32(tmpData); 				 
+				i += 4; 
+				break;
+			}
+#endif
+		}
+      }
+    }
+  }
+
+  if (data_out) {
+    u32 orgLen = 0;
+    u32 len2 = 0;
+    u32 size = 0;
+
+    spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); 
+	
+    orgLen = 4 - (((u32)data_out) % 4);
+    if (orgLen < 4 && orgLen > 0)
+    {
+        spi_writel(sprd_ctrl_data->spi_ctl0, SPI_CTL0);      
+        for (i = 0; (i < orgLen) && (i < len);){
+            for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
+            if (timeout >= MYLOCAL_TIMEOUT){     
+                printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL)\n");
+                return  -ENOPROTOOPT;
+            }
+
+            data = (u8*)data_out + i;
+            spi_writel(( (u8*)data)[0], SPI_TXD); 
+            i += 1;           
+        }
+
+        for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
+           return -ENOPROTOOPT;
+        }
+        
+        for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
+           return -ENOPROTOOPT;
+        }
+
+        data_out = (u8*)data_out + i;
+        
+        if (len >= orgLen){
+            len -= orgLen;
+        }else{
+            len = 0;
+        }    
+    }
+
+    size = len & 0x3;
+    len2 = len - size;
+    
+    spi_ctl0 &= ~(0x1F << 2); 
+    spi_writel(spi_ctl0, SPI_CTL0);
+    
+    for (i = 0; i < len2;) {
+        for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){     
+            printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL)\n");
+            return  -ENOPROTOOPT;
+        }
+        data = (u8*)data_out + i;	                  
+		spi_writel(_doSWAP32(((u32*)data)[0]), SPI_TXD); 
+        i += 4; 
+       
+    }
+    if (len2 > 0)
+    {
+        for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
+           return -ENOPROTOOPT;
+        }
+        for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
+           return -ENOPROTOOPT;
+        }    
+    }    
+    data_out = (u8*)data_out + i;
+    if (size){
+        spi_writel(sprd_ctrl_data->spi_ctl0, SPI_CTL0);
+        
+        for (i = 0; i < size;){
+            data = (u8*)data_out + i;
+            spi_writel(( (u8*)data)[0], SPI_TXD); 
+            i += 1;           
+        }
+
+        for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
+           return -ENOPROTOOPT;
+        }
+        
+        for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
+           return -ENOPROTOOPT;
+        }
+    }
+  }
+#endif
+  return 0;
+}
 
 static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_message *msg)
 {
@@ -400,6 +612,11 @@ static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_m
                     cs_deactivate(sprd_data, spi);
                 }
             break;
+			case SPI_TMOD_ATH:
+				msg->status = sprd_spi_direct_transfer_ath_spec(
+                        cspi_trans->rx_buf, cspi_trans->tx_buf,
+                        cspi_trans->len, sprd_data, sprd_ctrl_data);
+			break;
             default:
                 msg->status = sprd_spi_direct_transfer(
                         cspi_trans->rx_buf, cspi_trans->tx_buf,
@@ -699,6 +916,14 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
 #endif
     spi_writel(0x01 | (0x00 << 8), SPI_CTL6); // tx watermark for dma
 
+    if(sprd_ctrl_data != NULL && sprd_ctrl_data->tmod == SPI_TMOD_ATH){
+#ifdef ATH_HACK
+		spi_writel(0x10 | (0x00 << 8), SPI_CTL6);
+		sprd_ctrl_data->clk_spi_and_div = 0x20000;
+		sprd_ctrl_data->spi_clkd		= 0;
+#endif
+    }
+    
     return 0;
 }
 
