@@ -369,7 +369,7 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 static void serialsc8800_pin_config(void)
 {
      unsigned long serial_func_cfg[] = {
-        MFP_CFG_X(U0CTS, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+        MFP_CFG_X(U0CTS, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_Z),
         MFP_CFG_X(U0RTS, AF1, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
      };
 
@@ -391,10 +391,7 @@ static int serialsc8800_startup(struct uart_port *port)
 {
 	int ret=0;
 	unsigned int ien;
-
-	int u2rxd_id = 41;
-	int u2txd_id =42;
-
+	
 	//port->uartclk=26000000;
 
 #ifdef CONFIG_TS0710_MUX_UART
@@ -463,23 +460,14 @@ static void serialsc8800_shutdown(struct uart_port *port)
 {
 #ifdef CONFIG_TS0710_MUX_UART
 	if (port->line == 0) {
-		serial_mux_guard--;
+		serial_mux_Sguard--;
 	}
 #endif
 
 	serial_out(port,ARM_UART_IEN,0x0);
 	serial_out(port,ARM_UART_ICLR,0xffffffff);
 	free_irq(port->irq,port);
-
-	if(port->line == 2){
-		sprd_mfp_config(serial_func_cfg, ARRAY_SIZE(serial_func_cfg));
-		if ( gpio_request(u2rxd_id,"u2rxd"))
-			printk("gpio request 41 fail\n");
-		if ( gpio_request(u2txd_id,"u2txd"))
-			printk("gpio request 42 fail\n");
-		gpio_direction_input(u2rxd_id);
-		gpio_direction_input(u2txd_id);
-	}
+	
 }
 static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *termios,struct ktermios *old)
 {	
