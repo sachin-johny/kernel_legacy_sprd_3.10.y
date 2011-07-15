@@ -416,7 +416,15 @@ void __init sprd_add_otg_device(void)
          */
         if (calibration_mode)
                 return;
-        __raw_bits_or(BIT_8, USB_PHY_CTRL);
+	/*
+	 * config usb phy controller
+	 */
+	__raw_bits_or(BIT_8, USB_PHY_CTRL);
+	__raw_bits_or(BIT_17, USB_PHY_CTRL);
+	__raw_bits_and(~BIT_16, USB_PHY_CTRL);
+	__raw_bits_and(~(BIT_13 | BIT_12), USB_PHY_CTRL);
+	__raw_bits_or(BIT_15 | BIT_14, USB_PHY_CTRL);
+
         __raw_bits_and(~BIT_1, AHB_CTL3);
         __raw_bits_and(~BIT_2, AHB_CTL3);
 
