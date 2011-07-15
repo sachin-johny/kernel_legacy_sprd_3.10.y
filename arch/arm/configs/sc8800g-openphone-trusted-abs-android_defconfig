@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Wed Jun 22 11:03:20 2011
+# Fri Jul 15 20:42:25 2011
 #
 CONFIG_NKERNEL=y
 CONFIG_NKERNEL_DDI=y
@@ -615,8 +615,6 @@ CONFIG_WIRELESS_EXT_SYSFS=y
 CONFIG_LIB80211=y
 # CONFIG_LIB80211_DEBUG is not set
 # CONFIG_MAC80211 is not set
-# CONFIG_MAC80211_RC_DEFAULT_PID is not set
-# CONFIG_MAC80211_RC_DEFAULT_MINSTREL is not set
 # CONFIG_WIMAX is not set
 CONFIG_RFKILL=y
 CONFIG_RFKILL_PM=y
@@ -996,7 +994,7 @@ CONFIG_SPI_SPIDEV=y
 CONFIG_ARCH_REQUIRE_GPIOLIB=y
 CONFIG_GPIOLIB=y
 # CONFIG_DEBUG_GPIO is not set
-# CONFIG_GPIO_SYSFS is not set
+CONFIG_GPIO_SYSFS=y
 
 #
 # Memory mapped GPIO expanders:
