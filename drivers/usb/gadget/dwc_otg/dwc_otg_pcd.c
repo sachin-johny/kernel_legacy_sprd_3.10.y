@@ -75,6 +75,19 @@ static dwc_otg_pcd_ep_t *get_ep_from_handle(dwc_otg_pcd_t * pcd, void *handle)
 	return NULL;
 }
 
+static void noinline dump_log(char * buf, int len, int direction)
+{
+#ifdef DEBUG
+	int i = 0;
+
+	trace_printk("**log_buf :%s data...\r\n", (direction ? "in" : "out"));
+	if (len > 64)
+		len = 64;
+	for (i = 0; i < len; i++)	{
+		trace_printk("%2x\r\n", *((unsigned char*)buf+i) );
+	}
+#endif
+}
 /**
 * This function completes a request.  It call's the request call back.
 */
@@ -83,7 +96,7 @@ void dwc_otg_request_done(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req,
 {
 	unsigned stopped = ep->stopped;
 
-	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, ep);
+	DWC_DEBUGPL(DBG_PCDV, "%s(ep%p num %d %p)\n", __func__, ep, ep->dwc_ep.num, req);
 	DWC_CIRCLEQ_REMOVE_INIT(&ep->queue, req, queue_entry);
 
 	/* don't modify queue heads during completion callback */
@@ -97,6 +110,9 @@ void dwc_otg_request_done(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req,
 		req->mapped = 0;
 	}
 
+	if (!ep->dwc_ep.is_in) {
+		dump_log(req->buf, req->actual, 0);
+	}
 	ep->pcd->fops->complete(ep->pcd, ep->priv, req->priv, status,
 				req->actual);
 	DWC_SPINLOCK(ep->pcd->lock);
@@ -1509,17 +1525,6 @@ int dwc_otg_pcd_ep_disable(dwc_otg_pcd_t * pcd, void *ep_handle)
 	return 0;
 
 }
-static void noinline dump_log(char * buf, int len, int direction)
-{
-	int i = 0;
-
-	trace_printk("**log_buf :%s data...\r\n", (direction ? "sent" : "received"));
-	if (len > 64)
-		len = 64;
-	for (i = 0; i < len; i++)	{
-		trace_printk("%2x\r\n", *((unsigned char*)buf+i) );
-	}
-}
 
 int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 			 uint8_t * buf, dwc_dma_t dma_buf, uint32_t buflen,
@@ -1554,7 +1559,9 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 		}
 	}
 
-	//dump_log(buf, buflen, ep->dwc_ep.is_in);
+	if (ep->dwc_ep.is_in) {
+		dump_log(buf, buflen, 1);
+	}
 	req->dma = dma_map_single(NULL,
 				buf,
 				buflen,

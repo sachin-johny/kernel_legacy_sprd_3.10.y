@@ -411,11 +411,11 @@ __setup("calibration=", calibration_start);
 
 void __init sprd_add_otg_device(void)
 {
-        /*
-         * if in calibrtaion mode, we do nothing, modem will handle everything
-         */
-        if (calibration_mode)
-                return;
+	/*
+	 * if in calibrtaion mode, we do nothing, modem will handle everything
+	 */
+	if (calibration_mode)
+		return;
 	/*
 	 * config usb phy controller
 	 */
@@ -425,16 +425,16 @@ void __init sprd_add_otg_device(void)
 	__raw_bits_and(~(BIT_13 | BIT_12), USB_PHY_CTRL);
 	__raw_bits_or(BIT_15 | BIT_14, USB_PHY_CTRL);
 
-        __raw_bits_and(~BIT_1, AHB_CTL3);
-        __raw_bits_and(~BIT_2, AHB_CTL3);
+	__raw_bits_and(~BIT_1, AHB_CTL3);
+	__raw_bits_and(~BIT_2, AHB_CTL3);
 
 	usb_clk = clk_get(NULL, "clk_usb_ref");
 	if (IS_ERR(usb_clk)) {
 		pr_warning("cannot get clock for usb\n");
 		return;
 	}
-        usb_startup();
-        platform_device_register(&sprd_otg_device);
+	usb_startup();
+	platform_device_register(&sprd_otg_device);
 }
 
 /*Android USB Function */
@@ -482,25 +482,35 @@ static char *usb_functions_rndis_adb[] = {
 	"adb",
 };
 
-static char *usb_functions_gser_adb[] = {
-	"adb",
-	"gser",
-};
-
 static char *usb_functions_vser_adb[] = {
 	"adb",
 	"vser",
 };
 
 static char *usb_functions_vser_adb_ums[] = {
+	"usb_mass_storage",
 	"adb",
 	"vser",
+};
+
+static char *usb_functions_adb_vser_gser[] = {
+	"adb",
+	"vser",
+	"gser",
+};
+
+static char *usb_functions_ums_vser_gser[] = {
 	"usb_mass_storage",
+	"vser",
+	"gser",
 };
 
 static char *usb_functions_all[] = {
 #ifdef CONFIG_USB_ANDROID_RNDIS
 	"rndis",
+#endif
+#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
+	"usb_mass_storage",
 #endif
 #ifdef CONFIG_USB_ANDROID_ADB
 	"adb",
@@ -510,9 +520,6 @@ static char *usb_functions_all[] = {
 #endif
 #ifdef CONFIG_USB_ANDROID_GSERIAL
 	"gser",
-#endif
-#ifdef CONFIG_USB_ANDROID_MASS_STORAGE
-	"usb_mass_storage",
 #endif
 };
 
@@ -545,12 +552,6 @@ static struct android_usb_product usb_products[] = {
 	},
 	{
 		//.product_id	= SPRD_PRODUCT_ID,
-		.product_id	= 0x5D02,
-		.num_functions	= ARRAY_SIZE(usb_functions_gser_adb),
-		.functions	= usb_functions_gser_adb,
-	},
-	{
-		//.product_id	= SPRD_PRODUCT_ID,
 		.product_id	= 0x5D03,
 		.num_functions	= ARRAY_SIZE(usb_functions_vser_adb_ums),
 		.functions	= usb_functions_vser_adb_ums,
@@ -560,6 +561,16 @@ static struct android_usb_product usb_products[] = {
 		.product_id	= 0x5D07,
 		.num_functions	= ARRAY_SIZE(usb_functions_gser_ums),
 		.functions	= usb_functions_gser_ums,
+	},
+	{
+		.product_id	= 0x5D08,
+		.num_functions	= ARRAY_SIZE(usb_functions_adb_vser_gser),
+		.functions	= usb_functions_adb_vser_gser,
+	},
+	{
+		.product_id	= 0x5D09,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums_vser_gser),
+		.functions	= usb_functions_ums_vser_gser,
 	},
 	{
 		.product_id	= SPRD_RNDIS_PRODUCT_ID,
@@ -598,9 +609,9 @@ static struct platform_device androidusb_device = {
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 static struct usb_mass_storage_platform_data usbms_plat = {
 	.vendor			= "Spreadtrum",
-	.product		= "openphone",
-    .nluns = 1,
-	.release		= 1,
+	.product		= "phone",
+	.nluns 			= 1,
+	.release		= 0x0200,
 };
 
 static struct platform_device usb_mass_storage_device = {

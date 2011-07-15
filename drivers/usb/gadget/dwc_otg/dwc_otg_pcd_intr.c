@@ -1942,7 +1942,6 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 		return;
 	}
 
-	trace_printk( "Requests %d\n", ep->pcd->request_pending);
 
 	if (ep->dwc_ep.is_in) {
 		deptsiz.d32 = dwc_read_reg32(&in_ep_regs->dieptsiz);
@@ -2849,11 +2848,9 @@ static void handle_ep0(dwc_otg_pcd_t * pcd)
 	uint32_t byte_count;
 
 #ifdef DEBUG_EP0
-	trace_printk( "%s()\n", __func__);
 	print_ep0_state(pcd);
 #endif
 
-//      trace_printk("HANDLE EP0\n");
 
 	switch (pcd->ep0state) {
 	case EP0_DISCONNECT:
@@ -2899,15 +2896,12 @@ static void handle_ep0(dwc_otg_pcd_t * pcd)
 		if (ep0->dwc_ep.xfer_count < ep0->dwc_ep.total_len) {
 			dwc_otg_ep0_continue_transfer(GET_CORE_IF(pcd),
 						      &ep0->dwc_ep);
-			trace_printk( "CONTINUE TRANSFER\n");
 		} else if (ep0->dwc_ep.sent_zlp) {
 			dwc_otg_ep0_continue_transfer(GET_CORE_IF(pcd),
 						      &ep0->dwc_ep);
 			ep0->dwc_ep.sent_zlp = 0;
-			trace_printk( "CONTINUE TRANSFER\n");
 		} else {
 			ep0_complete_request(ep0);
-			trace_printk( "COMPLETE TRANSFER\n");
 		}
 		break;
 	case EP0_OUT_DATA_PHASE:
@@ -2936,21 +2930,17 @@ static void handle_ep0(dwc_otg_pcd_t * pcd)
 		if (ep0->dwc_ep.xfer_count < ep0->dwc_ep.total_len) {
 			dwc_otg_ep0_continue_transfer(GET_CORE_IF(pcd),
 						      &ep0->dwc_ep);
-			trace_printk( "CONTINUE TRANSFER\n");
 		} else if (ep0->dwc_ep.sent_zlp) {
 			dwc_otg_ep0_continue_transfer(GET_CORE_IF(pcd),
 						      &ep0->dwc_ep);
 			ep0->dwc_ep.sent_zlp = 0;
-			trace_printk( "CONTINUE TRANSFER\n");
 		} else {
 			ep0_complete_request(ep0);
-			trace_printk( "COMPLETE TRANSFER\n");
 		}
 		break;
 
 	case EP0_IN_STATUS_PHASE:
 	case EP0_OUT_STATUS_PHASE:
-		trace_printk( "CASE: EP0_STATUS\n");
 		ep0_complete_request(ep0);
 		pcd->ep0state = EP0_IDLE;
 		ep0->stopped = 1;
@@ -3539,7 +3529,6 @@ do { \
 	dwc_otg_pcd_ep_t *ep;
 	dwc_ep_t *dwc_ep;
 
-	//trace_printk( "%s()\n", __func__);
 
 	/* Read in the device interrupt bits */
 	ep_intr = dwc_otg_read_dev_all_out_ep_intr(core_if);
@@ -3990,9 +3979,6 @@ int32_t dwc_otg_pcd_handle_intr(dwc_otg_pcd_t * pcd)
 		DWC_SPINLOCK(pcd->lock);
 
 		gintr_status.d32 = dwc_otg_read_core_intr(core_if);
-
-		trace_printk("gintsts&gintmsk=%08x\r\n",
-			   gintr_status.d32);
 
 		if (gintr_status.b.sofintr) {
 			retval |= dwc_otg_pcd_handle_sof_intr(pcd);

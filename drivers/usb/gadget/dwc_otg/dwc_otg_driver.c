@@ -142,13 +142,12 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 	.dma_desc_enable = 0,
 	.dma_burst_size = -1,
 	.speed = -1,
-	//.speed = 1,
 	.host_support_fs_ls_low_power = -1,
 	.host_ls_low_power_phy_clk = -1,
 	.enable_dynamic_fifo = -1,
 	.data_fifo_size = -1,
-	.dev_rx_fifo_size = -1,
-	.dev_nperio_tx_fifo_size = -1,
+	.dev_rx_fifo_size = 0x114,
+	.dev_nperio_tx_fifo_size = 0x10,
 	.dev_perio_tx_fifo_size = {
 				   /* dev_perio_tx_fifo_size_1 */
 				   -1,
@@ -185,12 +184,12 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 	.en_multiple_tx_fifo = -1,
 	.dev_tx_fifo_size = {
 			     /* dev_tx_fifo_size */
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
+			     0x80,
+			     0x80,
+			     0x80,
+			     0x80,
+			     0x80,
+			     0x80,
 			     -1,
 			     -1,
 			     -1,
@@ -560,16 +559,12 @@ static int dwc_otg_driver_remove(
 #ifdef CONFIG_PM
 static int dwc_otg_suspend(struct platform_device *dev, pm_message_t state)
 {
-	/*
 	pr_info("%s\n", __func__);
-	*/
 	return 0;
 }
 static int dwc_otg_resume(struct platform_device *dev)
 {
-	/*
 	pr_info("%s\n", __func__);
-	*/
 	return 0;
 }
 #else
