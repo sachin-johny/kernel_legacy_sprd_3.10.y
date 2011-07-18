@@ -26,16 +26,28 @@
 #include <mach/pm_devices.h>
 #include <mach/test.h>
 
+#include <linux/sched.h>
+#include <linux/proc_fs.h>
+#include <linux/fs.h>
+#include <mach/regs_ahb.h>
+#include <mach/regs_ana.h>
+#include <mach/bits.h>
+
 
 #define DEEP_SLEEP_INTERVAL (6 * HZ)
 #define DEEP_SLEEP_INTERVAL2 (8 * HZ)
+
+//#define CURRENT_PROC
 
 static void deep_sleep_timeout(unsigned long data);
 static DEFINE_TIMER(deep_sleep_timer, deep_sleep_timeout, 0, 0);
 static void deep_sleep_timeout2(unsigned long data);
 static DEFINE_TIMER(deep_sleep_timer2, deep_sleep_timeout2, 0, 0);
 
-
+//#ifdef CURRENT_PROC
+static struct proc_dir_entry *current_proc_entry;
+static DEFINE_MUTEX(current_mutex);
+//#endif
 
 static u32 sleep_time_local1 = 0, sleep_time_local2 = 0;
 extern u32 sleep_time;
@@ -78,13 +90,243 @@ static void deep_sleep_timeout2(unsigned long data)
 	mod_timer(&deep_sleep_timer2, jiffies + DEEP_SLEEP_INTERVAL2);
 }
 
+/***
+ * * added by wong, 02/07/11
+ * * print the value of relevent registers when calling
+***/
+static void test_current_thread(void *pdata)
+{
+    while(1){
+        printk("*********** AHB_CTL0:0X%x ***********\n", __raw_readl(AHB_CTL0) );
+	printk("*********** GEN0:0X%x ***********\n", __raw_readl(GR_GEN0) );
+	printk("*********** BUSCLK:0X%x ***********\n", __raw_readl(GR_BUSCLK) );
+	printk("*********** CLK_EN0:0X%x ***********\n", __raw_readl(GR_CLK_EN) );
+	printk("*********** ANA_LDO_PD_SET:0X%x ***********\n", __raw_readl(ANA_LDO_PD_SET) );
+	printk("*********** ANA_LDO_PD_CTL:0X%x ***********\n", __raw_readl(ANA_LDO_PD_CTL) );
+        printk("*********** ANA_ANA_CTL0:0X%x ***********\n", __raw_readl(ANA_ANA_CTL0) );
+	printk("*********** ANA_PA_CTL:0X%x ***********\n", __raw_readl(ANA_PA_CTL) );
+	printk("=== === === === ==== ==== ==== === === ===\n");
+	printk("=== === === === ==== ==== ==== === === ===\n");
 
+
+	set_current_state(TASK_INTERRUPTIBLE);
+	schedule_timeout(5*HZ);
+    }
+}
+
+static void disable_usb_clk(void){
+        printk("**** disable_usb_clk ****\n");
+	__raw_bits_and(~BIT_5, AHB_CTL0);
+        __raw_bits_and(~BIT_9, GR_CLK_GEN5);//disable USB LDO 
+	printk( "**** after disable_usb_clk, AHB_CTL0:%08x ****\n", __raw_readl(AHB_CTL0) );
+
+	return;
+}
+
+static void disable_sdio_clk(void){
+        printk("**** disable_sdio_clk ****\n");
+	__raw_bits_and(~BIT_4, AHB_CTL0);
+	__raw_bits_and(~BIT_11, AHB_CTL0);//disable bus monitor1 clk
+	__raw_bits_and(~BIT_7, AHB_CTL0);//disable bus monitor0 clk
+       // ANA_REG_SET(ANA_LDO_PD_SET, BIT_2);//power down SDIO LDO
+	printk( "**** after disable sdio clk, AHB_CTL0:%08x ****\n", __raw_readl(AHB_CTL0) );
+
+	return;
+}
+
+static void disable_rotation_clk(void){
+        printk("**** disable_rotation_clk ****\n");
+	__raw_bits_and(~BIT_14, AHB_CTL0);
+	printk( "**** after disable rotaion clk, AHB_CTL0:%08x ****\n", __raw_readl(AHB_CTL0) );
+
+	return;
+}
+
+static void disable_vibrator_clk(void){
+        printk("**** disable_vibrator_clk ****\n");
+        ANA_REG_SET(ANA_ANA_CTL0, BIT_10);//power down vibrator
+	printk( "**** after disable vibrator clk, ANA_ANA_CTL0:%08x ****\n", ANA_REG_GET(ANA_ANA_CTL0) );
+
+	return;
+}
+
+static void disable_dcam_ldo(void){
+        printk("**** disable_dcam_ldo ****\n");
+        ANA_REG_SET(ANA_LDO_PD_SET, BIT_8);//power down CAMD0 LDO
+        ANA_REG_SET(ANA_LDO_PD_SET, BIT_10);//power down CAMD1 LDO
+        ANA_REG_SET(ANA_LDO_PD_SET, BIT_12);//power down CAMA LDO
+        return;
+}
+
+static void enable_all_clk(void){
+        printk("**** enable_all_clk ****\n");
+	__raw_bits_and(BIT_4, AHB_CTL0);//sdio
+	__raw_bits_and(BIT_5, AHB_CTL0);//usb
+	__raw_bits_and(BIT_14, AHB_CTL0);//rotation
+        ANA_REG_SET(ANA_ANA_CTL0, ~BIT_10);//power on vibrator
+         
+}
+
+static void disable_td_subsystem(void){
+        printk("**** disable_td_subsystem ****\n");
+        __raw_bits_or(BIT_0, GR_CLK_EN);//power down TD subsystem
+}
+
+static void disable_pwm_clk(void){
+        printk("**** disable_pwm_clk ****\n");
+        __raw_bits_and(~BIT_21, GR_CLK_EN);//pwm0
+        __raw_bits_and(~BIT_22, GR_CLK_EN);//pwm1
+        __raw_bits_and(~BIT_23, GR_CLK_EN);//pwm2
+        __raw_bits_and(~BIT_24, GR_CLK_EN);//pwm3
+}
+
+static void disable_uart_clk(void){
+	printk("***** disable uart clk ****\n");
+        __raw_bits_and(~BIT_4, GR_GEN0);//I2c
+        __raw_bits_and(~BIT_14, GR_GEN0);//ccir
+        __raw_bits_and(~BIT_15, GR_GEN0);//EPT
+        __raw_bits_and(~BIT_20, GR_GEN0);//UART0
+        __raw_bits_and(~BIT_21, GR_GEN0);//UART1
+        __raw_bits_and(~BIT_22, GR_GEN0);//UART2
+
+        return;
+}
+static void disable_nand_controller_clk(void){
+       printk("**** disable_nand_controller_clk ****\n");
+       __raw_bits_and(~BIT_8, AHB_CTL0);//I2c
+
+       return;
+}
+
+static int current_info_open(struct inode* inode, struct file* file){
+        return 0;
+}
+
+static int current_info_release(struct inode* inode, struct file* file){
+        return 0;
+}
+
+static loff_t current_info_llseek(struct file* file, loff_t off, int whence){
+        return 0;
+}
+
+static ssize_t current_info_read(struct file* file, char* buf, size_t count, loff_t* ppos){
+        return 0;
+}
+
+static ssize_t current_info_write(struct file* file, const char* buf, size_t size, loff_t* ppos){
+        
+	char cmd[3];
+        
+        
+	if(*ppos){
+	     printk("============= *ppos=%d ================\n", *ppos);
+	     return -EINVAL;
+        }
+        
+	if(copy_from_user(cmd, buf, size)){
+	     printk("=========== copy_from_user failed ==========\n");
+             return -EFAULT;
+        }
+	cmd[size] = '\0';
+	printk("========== cmd[0]:%c ================\n", cmd[0]);
+	mutex_lock(&current_mutex);
+        //switch(cmd[0]){
+        switch(*cmd){
+	     case 'u':
+	          disable_usb_clk();
+		  break;
+	     case 's':
+	          disable_sdio_clk();
+		  break;
+	     case 'r':
+	          disable_rotation_clk();
+		  break;
+	     case 'v':
+	          disable_vibrator_clk();
+		  break;
+	     case 'a':
+	          enable_all_clk();
+		  break;
+	     case 'c':
+	          disable_dcam_ldo();
+		  break;
+	     case 't':
+	          disable_td_subsystem();
+		  break;
+	     case 'p':
+	          disable_pwm_clk();
+		  break;
+	     case 'e':
+	          disable_uart_clk();
+		  break;
+	     case 'n':
+	          disable_nand_controller_clk();
+		  break;
+	     default :
+	          printk("!!!! invalid command !!!!!");
+        }		   
+
+	mutex_unlock(&current_mutex);
+	return size;
+}
+#if 0
+static struct file_operations current_info_fops = {
+	.open = current_info_open,
+	.release = current_info_release,
+	.llseek = current_info_llseek,
+	.read = current_info_read,
+	.write = current_info_write,
+};
+#endif
+static struct file_operations current_info_fops = {
+        open : current_info_open,
+	release : current_info_release,
+	llseek : current_info_llseek,
+	read : current_info_read,
+	write : current_info_write,
+};
+
+
+static struct proc_dir_entry*  
+current_proc_create(struct proc_dir_entry* parent, char* name, struct file_operations* fops){
+        struct proc_dir_entry *proc;
+	proc = create_proc_entry(name, S_IFREG|S_IRUGO|S_IWUSR, parent);
+	if(!proc){
+	   printk("!!!! create_proc_entry failed !!!!\n");
+	   return NULL;
+        }
+
+	proc->proc_fops = fops;
+	return proc;
+}
+
+static void current_proc_mkdir(unsigned long data){
+        printk("************************************\n");
+	printk("**** create current proc file *******\n");
+	current_proc_entry = proc_mkdir("current_info", NULL);
+        if(!current_proc_entry){
+            printk("!!!!!! proc_mkdir current_info failed !!!!\n");
+            return;            
+        }
+	
+        current_proc_create(current_proc_entry, "current_info", &current_info_fops);
+	return;
+
+
+}
 
 static int __devinit omap_wdt_probe(struct platform_device *pdev)
 {
 	printk("######: omap_wdt_probe()\n");
+	printk("######: omap_wdt_probe()\n");
+	printk("######: omap_wdt_probe()\n");
+	printk("######: omap_wdt_probe()\n");
+	printk("######: omap_wdt_probe()\n");
 
 	return 0;
+
+        
 }
 
 static void omap_wdt_shutdown(struct platform_device *pdev)
@@ -219,6 +461,43 @@ static int __init omap_wdt_init(void)
 	clk_enable(clk_usb);
 
 */
+/***********************
+ * added by wong, 02/07/11 
+ *
+ * ********************/
+#if 0
+        pid_t test_thread;
+        test_thread = kernel_thread(test_current_thread, NULL, 0);
+        if(test_thread<0)
+	    printk("!!!!! test_current_thread isn't allowed to be created !!!\n");
+#endif
+/***********************
+ * added by wong, 11/07/11 
+ * disable some clk
+ * ********************/
+        unsigned int ahb_ctl0_val;
+	ahb_ctl0_val = __raw_readl(AHB_CTL0);
+	printk("wong, ***** AHB_CTL0:%08x ****", ahb_ctl0_val);
+        //ahb_ctl0_val &= ~BIT_1;//disable dcam clk
+        //ahb_ctl0_val &= ~BIT_4;//disable sdio clk
+        ahb_ctl0_val &= ~BIT_5;//disable usb clk
+        //ahb_ctl0_val &= ~BIT_14;//disable rotation clk
+        //__raw_writel(ahb_ctl0_val, AHB_CTL0);
+#if 0
+
+        __raw_bits_and(~BIT_9, GR_CLK_GEN5);//disable USB LDO 
+
+        ANA_REG_SET(ANA_LDO_PD_SET, BIT_2);//power down SDIO LDO
+        ANA_REG_SET(ANA_LDO_PD_SET, BIT_8);//power down CAMD0 LDO
+        ANA_REG_SET(ANA_LDO_PD_SET, BIT_10);//power down CAMD1 LDO
+
+        ANA_REG_SET(ANA_ANA_CTL0, BIT_10);//power down vibrator
+
+        //__raw_bits_or(BIT0, GR_CLK_EN);//power down TD subsystem
+#endif
+//disable some clk and ldo
+
+	current_proc_mkdir(1);
 	return platform_driver_register(&omap_wdt_driver);
 }
 
