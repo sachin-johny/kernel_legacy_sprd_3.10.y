@@ -217,7 +217,7 @@ static struct usb_request *dwc_otg_pcd_alloc_request(struct usb_ep *ep,
 		return 0;
 	}
 	memset(usb_req, 0, sizeof(*usb_req));
-	usb_req->dma = DWC_INVALID_DMA_ADDR;
+	usb_req->dma = DMA_ADDR_INVALID;
 
 	return usb_req;
 }

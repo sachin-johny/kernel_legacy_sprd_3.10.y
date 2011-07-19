@@ -65,6 +65,7 @@ struct cfiobject;
  */
 #define GET_CORE_IF( _pcd ) (_pcd->core_if)
 
+#define DMA_ADDR_INVALID        (~(dma_addr_t)0)
 /**
  * States of EP0.
  */

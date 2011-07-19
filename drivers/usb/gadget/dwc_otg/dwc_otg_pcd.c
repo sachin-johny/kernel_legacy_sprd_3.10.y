@@ -57,8 +57,6 @@
 extern int init_cfi(cfiobject_t * cfiobj);
 #endif
 
-#define	DMA_ADDR_INVALID	(~(dma_addr_t)0)
-
 static dwc_otg_pcd_ep_t *get_ep_from_handle(dwc_otg_pcd_t * pcd, void *handle)
 {
 	int i;
@@ -103,11 +101,18 @@ void dwc_otg_request_done(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req,
 	ep->stopped = 1;
 	DWC_SPINUNLOCK(ep->pcd->lock);
 	//sword
-	if (req->mapped) {
-		dma_unmap_single(NULL, req->dma, req->length,
-			(ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-		req->dma = DMA_ADDR_INVALID;
-		req->mapped = 0;
+	if (GET_CORE_IF(ep->pcd)->dma_enable){
+		if (req->mapped) {
+			dma_unmap_single(NULL, req->dma, req->length,
+					(ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+					 DMA_FROM_DEVICE);
+			req->dma = DMA_ADDR_INVALID;
+			req->mapped = 0;
+		} else {
+			dma_sync_single_for_cpu(NULL, req->dma, req->length,
+					(ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+					DMA_FROM_DEVICE);
+		}
 	}
 
 	if (!ep->dwc_ep.is_in) {
@@ -1430,7 +1435,6 @@ int dwc_otg_pcd_ep_enable(dwc_otg_pcd_t * pcd,
 			 */
 			ep->dwc_ep.tx_fifo_num =
 			    assign_tx_fifo(GET_CORE_IF(pcd));
-
 		}
 	}
 	/* Set initial data PID. */
@@ -1562,11 +1566,22 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 	if (ep->dwc_ep.is_in) {
 		dump_log(buf, buflen, 1);
 	}
-	req->dma = dma_map_single(NULL,
+
+	if (GET_CORE_IF(pcd)->dma_enable){
+		if (dma_buf == DMA_ADDR_INVALID){
+			req->dma = dma_map_single(NULL,
 				buf,
 				buflen,
-				ep->dwc_ep.is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-	req->mapped = 1;
+				ep->dwc_ep.is_in ? DMA_TO_DEVICE :
+				DMA_FROM_DEVICE);
+			req->mapped = 1;
+		} else {
+			dma_sync_single_for_device(NULL, req->dma, req->length,
+				(ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+				DMA_FROM_DEVICE);
+			req->mapped = 0;
+		}
+	}
 
 	dma_buf = req->dma;
 	req->buf = buf;

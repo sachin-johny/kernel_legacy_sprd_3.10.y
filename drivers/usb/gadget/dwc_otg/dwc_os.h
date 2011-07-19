@@ -390,7 +390,7 @@ extern int DWC_HMAC_SHA256(uint8_t *message, uint32_t messagelen, uint8_t *key, 
 #define DWC_PAGE_OFFSET(addr) (((uint32_t)addr) & 0xfff)
 #define DWC_PAGE_ALIGNED(addr) ((((uint32_t)addr) & 0xfff) == 0)
 
-#define DWC_INVALID_DMA_ADDR 0x0
+//#define DWC_INVALID_DMA_ADDR 0x0
 
 typedef uint32_t dwc_dma_t;
 
