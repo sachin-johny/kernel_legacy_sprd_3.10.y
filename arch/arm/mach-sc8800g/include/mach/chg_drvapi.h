@@ -100,8 +100,8 @@ extern   "C"
 #define CHARGING_DETECT_INTERVAL 1000
 #define CHARGING_TOUT 18000
 #define CHGMNG_SHUTDOWN_VPROG 100
-#define CHGMNG_STOP_VPROG 320//160//100//0x70              // Isense stop point
-#define CHGMNG_SWITCH_CV_VPROG 200//200//100//0x70              // Isense stop point
+#define CHGMNG_STOP_VPROG 100//0x70              // Isense stop point
+#define CHGMNG_SWITCH_CV_VPROG 150//100//0x70              // Isense stop point
 #define CHARGE_VBAT_STATISTIC_BUFFERSIZE 16
 #define CHARGE_VPROG_STATISTIC_BUFFERSIZE 5
 #define CHGMNG_PLUST_TIMES  3
