@@ -221,7 +221,7 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_WIFI_IRQ         136
 #define SPRD_3RDPARTY_GPIO_BT_POWER         -1
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
-#define SPRD_3RDPARTY_GPIO_BT_RTS           42
+#define SPRD_3RDPARTY_GPIO_BT_RTS           -1
 #define SPRD_3RDPARTY_GPIO_CMMB_POWER       140
 #define SPRD_3RDPARTY_GPIO_CMMB_RESET       138
 #define SPRD_3RDPARTY_GPIO_CMMB_IRQ         139
@@ -302,11 +302,6 @@ static struct gpio_desc gpio_func_cfg[] = {
         MFP_CFG_X(RFCTL0 , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
         SPRD_3RDPARTY_GPIO_BT_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "BT reset"
-    },
-    {
-        MFP_CFG_X(U0RTS  , AF3, DS1, F_PULL_DOWN, S_PULL_UP, IO_OE), // BT_RTS
-        SPRD_3RDPARTY_GPIO_BT_RTS,
-        "BT RTS"
     },
     {
         MFP_CFG_X(GPIO136, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),

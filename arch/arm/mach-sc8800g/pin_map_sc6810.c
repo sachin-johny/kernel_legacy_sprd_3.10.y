@@ -92,8 +92,8 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_MTRST_N_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_I_EN ) },    // 0x146  JTAG  
     {PIN_U0TXD_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100  BT UART RX  
     {PIN_U0RXD_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  BT UART TX  
-    {PIN_U0CTS_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  GPIO41  
-    {PIN_U0RTS_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100  GPIO42  bb core dcdc en (NC)
+    {PIN_U0CTS_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_1 | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180  GPIO41  
+    {PIN_U0RTS_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_1   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100  GPIO42  bb core dcdc en (NC)
     {PIN_U1TXD_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100  U1TXD  
     {PIN_U1RXD_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  U1RXD  
     {PIN_NFWPN_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   NF WP = 0
