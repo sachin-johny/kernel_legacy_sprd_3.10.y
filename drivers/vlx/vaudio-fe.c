@@ -163,6 +163,17 @@ vaudio_pcm_lib_malloc_pages (struct snd_pcm_substream* substream, size_t size)
     return 1;
 }
 
+void vaudio_pcm_lib_preallocate_free_for_all(struct snd_pcm *pcm)
+{
+	struct snd_pcm_substream *substream;
+	int stream;
+
+	for (stream = 0; stream < 2; stream++)
+		for (substream = pcm->streams[stream].substream; substream; substream = substream->next)
+		    substream->dma_buffer.area = NULL;
+}
+
+
     static int
 vaudio_pcm_lib_free_pages (struct snd_pcm_substream* substream)
 {
@@ -529,6 +540,7 @@ vaudio_snd_card_pcm (NkVaudio vaudio, int device)
 
 	/* Set up initial buffer with continuous allocation */
 #ifdef VAUDIO_CONFIG_NK_PMEM
+    pcm->private_free = vaudio_pcm_lib_preallocate_free_for_all;
     vaudio_pcm_lib_preallocate_pages_for_all(pcm,
 					  SNDRV_DMA_TYPE_CONTINUOUS,
 					  snd_dma_continuous_data
@@ -900,7 +912,7 @@ vaudio_thread (void* data)
 	    }
 	}
 
-	if ( (vaudio_thread_init_now & 1) && vaudio_card == 0) {
+	if ( (vaudio_thread_init_now & 1) ) {
 	    vaudio_thread_init_now &= ~1;
 	    vaudio_snd_init_card(data);
 	}
@@ -1185,7 +1197,7 @@ vaudio_init (void)
     sema_init(&vaudio_thread_sem, 0);
     vaudio_thread_id = kernel_thread(vaudio_thread, 0, 0);
     if (vaudio_thread_id < 0) {
-	printk("Vaudio failure \n");
+	ETRACE ("virtual audio kernel thread creation failure \n");
 	return vaudio_thread_id;
     }
 
