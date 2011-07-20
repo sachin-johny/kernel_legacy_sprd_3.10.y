@@ -618,7 +618,7 @@ static void battery_handler(unsigned long data)
     DEBUG("vbat %d\n", adc_value);
 
     voltage = CHGMNG_AdcvalueToVoltage(adc_value);
-    voltage = (voltage /100)*100;
+    voltage = (voltage /10)*10;
 
     if(charge_pluse){
         vprog_value = ADC_GetValue(ADC_CHANNEL_PROG, false);

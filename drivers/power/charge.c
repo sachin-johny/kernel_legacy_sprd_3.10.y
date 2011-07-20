@@ -335,6 +335,14 @@ uint32_t get_vol_value(void)
 
     return sum/VOL_BUF_SIZE;
 }
+
+void update_vol_value(uint32_t voltage)
+{
+    int i;
+    for(i=0;i<VOL_BUF_SIZE;i++){
+        vol_buf[i] = voltage;
+    }
+}
 /*****************************************************************************/
 //  Description:    Convert ADCVoltage to percentrum.
 //  Author:         Benjamin.Wang
@@ -346,6 +354,7 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage)
     /*-------0%----|-----------------|---20%--|-----------------|---40%--|-----------------|---60%--|-----------------|--80%---|-----------------|----100%-----*/
     /*---------------------V2--------------------------V4-------------------------V6-------------------------V8-------------------------V10--------------------*/
 
+    static uint32_t init_done = 0;
     static uint32_t percentum = 0;
     uint16_t s12,s24,s46,s68,s80,sg10;
 
@@ -356,8 +365,13 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage)
     s80 = (3<= (voltage_capacity_table[12]-voltage_capacity_table[10])) ? ( (voltage_capacity_table[12]-voltage_capacity_table[10]) /3) :0;
     sg10 = 0;
 
-    put_vol_value(voltage);
-    voltage = get_vol_value();
+    if(init_done == 0){
+        update_vol_value(voltage);
+        init_done = 1;
+    }else{
+        put_vol_value(voltage);
+        voltage = get_vol_value();
+    }
 
     if (
         (
