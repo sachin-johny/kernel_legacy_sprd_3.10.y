@@ -109,7 +109,7 @@ static inline void sprd_rtc_set_sec(unsigned long secs)
 	day = temp;
 
 
-    ANA_REG_AND(ANA_RTC_INT_CLR, ~(RTC_UPD_TIME_MASK));
+    ANA_REG_OR(ANA_RTC_INT_CLR, RTC_UPD_TIME_MASK);
 
     if(sec != get_sec()){
         ANA_REG_SET(ANA_RTC_SEC_UPDATE, sec);
@@ -133,10 +133,10 @@ static inline void sprd_rtc_set_sec(unsigned long secs)
     do{
         int_rsts = ANA_REG_GET(ANA_RTC_INT_RSTS) & RTC_UPD_TIME_MASK;
 
-        if((set_mask & (~int_rsts)) == 0)
+        if(set_mask == int_rsts)
           break;
     }while(1);
-    ANA_REG_AND(ANA_RTC_INT_CLR, ~(set_mask));
+    ANA_REG_OR(ANA_RTC_INT_CLR, RTC_UPD_TIME_MASK);
 
 	return;
 }
