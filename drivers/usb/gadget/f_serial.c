@@ -325,7 +325,6 @@ int __init gser_bind_config(struct usb_configuration *c, u8 port_num)
 	gser->port.func.set_alt = gser_set_alt;
 	gser->port.func.disable = gser_disable;
 	gser->port.func.setup = gser_setup;
-	gser->port.func.disabled = 1;
 
 	status = usb_add_function(c, &gser->port.func);
 	if (status)
