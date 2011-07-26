@@ -78,24 +78,44 @@ static CHGMNG_VBATTABLE_T vbat_table =         //vbat table. It can be calibrate
     0xFFFF // 0xffff
 };
 
-uint16_t voltage_capacity_table[16] =
+uint16_t adc_voltage_table[2][2] =
 {
-    0,
-    0,
-    CHGMNG_VOLTAGE_10,
-    10,
-    CHGMNG_VOLTAGE_20,
-    20,
-    CHGMNG_VOLTAGE_40,
-    40,
-    CHGMNG_VOLTAGE_60,
-    60,
-    CHGMNG_VOLTAGE_80,
-    80,
-    CHGMNG_VOLTAGE_100,
-    100,
-    0xffff,
-    0xffff
+    {0x356, 0x1068},
+    {0x2db, 0xe10},
+};
+uint16_t voltage_capacity_table[][2] = 
+{
+    {4220,  105},
+    {4160,  100},
+    {4150,  99},
+    {4140,  97},
+    {4120,  95},
+    {4100,  92},
+    {4080,  90},
+    {4050,  87},
+    {4030,  85},
+    {3970,  80},
+    {3930,  75},
+    {3900,  70},
+    {3870,  65},
+    {3840,  60},
+    {3810,  55},
+    {3790,  50},
+    {3770,  45},
+    {3765,  42},
+    {3760,  40},
+    {3740,  35},
+    {3730,  30},
+    {3720,  25},
+    {3710,  20},
+    {3690,  15},
+    {3660,  12},
+    {3650,  10},
+    {3640,  8},
+    {3630,  5},
+    {3610,  3},
+    {3590,  1},
+    {3580,  0},
 };
 
 int32_t temp_adc_table[][2] = 
@@ -310,111 +330,68 @@ uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type)
 #else
 uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue)
 {
-    return (int32_t)(4200 - 3000) * (adcvalue-voltage_capacity_table[0]) / (voltage_capacity_table[12] - voltage_capacity_table[0]) + 3000;
+    return (int32_t)(adc_voltage_table[0][1]- adc_voltage_table[1][1]) * (adcvalue - adc_voltage_table[0][0]) / (adc_voltage_table[0][0] - adc_voltage_table[1][0]) + adc_voltage_table[0][1];
 }
 #endif
 
-#define VOL_BUF_SIZE 10
-uint32_t vol_buf[VOL_BUF_SIZE];
-void put_vol_value(uint32_t voltage)
-{
-    int i;
-    for(i=0;i<VOL_BUF_SIZE -1;i++){
-        vol_buf[i] = vol_buf[i+1];
-    }
-    
-    vol_buf[VOL_BUF_SIZE-1] = voltage;
-}
-
-uint32_t get_vol_value(void)
-{
-    unsigned long sum=0;
-    int i;
-    for(i=0; i < VOL_BUF_SIZE; i++)
-      sum += vol_buf[i];
-
-    return sum/VOL_BUF_SIZE;
-}
-
-void update_vol_value(uint32_t voltage)
-{
-    int i;
-    for(i=0;i<VOL_BUF_SIZE;i++){
-        vol_buf[i] = voltage;
-    }
-}
 /*****************************************************************************/
 //  Description:    Convert ADCVoltage to percentrum.
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
-uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage)
+uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging)
 {
-    /*-------------|---sL2--|---s24--|--------|---s24--|---s46--|--------|---s46--|---s68--|--------|---s68--|--s80---|--------|---s80--|--sG10--|-------------*/
-    /*-------0%----|-----------------|---20%--|-----------------|---40%--|-----------------|---60%--|-----------------|--80%---|-----------------|----100%-----*/
-    /*---------------------V2--------------------------V4-------------------------V6-------------------------V8-------------------------V10--------------------*/
+    uint16_t percentum;
+    int32_t temp;
+    //find the position
+    uint16_t table_size = ARRAY_SIZE(voltage_capacity_table);
+    int pos = 0;
+    static uint16_t pre_percentum = 0xffff;
+    if(is_charging){
+        voltage = voltage;
+        for(pos = table_size-1; pos > 0; pos--){
+            if(voltage < voltage_capacity_table[pos][0])
+              break;
+        }
+        if(pos == table_size-1) {
+          percentum = 0;
+        }else{
+            temp = voltage_capacity_table[pos][1]-voltage_capacity_table[pos+1][1];
+            temp = temp * (voltage - voltage_capacity_table[pos][0]);
+            temp = temp / (voltage_capacity_table[pos][0] - voltage_capacity_table[pos+1][0]);
+            temp = temp + voltage_capacity_table[pos][1];
+            percentum = temp;
+        }
 
-    static uint32_t init_done = 0;
-    static uint32_t percentum = 0;
-    uint16_t s12,s24,s46,s68,s80,sg10;
-
-    s12 = (3<= (voltage_capacity_table[4]-voltage_capacity_table[2])) ? ( (voltage_capacity_table[4]-voltage_capacity_table[2]) /3) :0;
-    s24 = (3<= (voltage_capacity_table[6]-voltage_capacity_table[4])) ? ( (voltage_capacity_table[6]-voltage_capacity_table[4]) /3) :0;
-    s46 = (3<= (voltage_capacity_table[8]-voltage_capacity_table[6])) ? ( (voltage_capacity_table[8]-voltage_capacity_table[6]) /3) :0;
-    s68 = (3<= (voltage_capacity_table[10]-voltage_capacity_table[8])) ? ( (voltage_capacity_table[10]-voltage_capacity_table[8]) /3) :0;
-    s80 = (3<= (voltage_capacity_table[12]-voltage_capacity_table[10])) ? ( (voltage_capacity_table[12]-voltage_capacity_table[10]) /3) :0;
-    sg10 = 0;
-
-    if(init_done == 0){
-        update_vol_value(voltage);
-        init_done = 1;
-    }else{
-        put_vol_value(voltage);
-        voltage = get_vol_value();
-    }
-
-    if (
-        (
-            ! (
-                ( (voltage <voltage_capacity_table[12]+sg10) && (voltage >voltage_capacity_table[12]-s80))
-                || ( (voltage <voltage_capacity_table[10]+s80) && (voltage >voltage_capacity_table[10]-s68))
-                || ( (voltage <voltage_capacity_table[8]+s68) && (voltage >voltage_capacity_table[8]-s46))
-                || ( (voltage <voltage_capacity_table[6]+s46) && (voltage >voltage_capacity_table[6]-s24))
-                || ( (voltage <voltage_capacity_table[4]+s24) && (voltage >voltage_capacity_table[4]-s12))
-                || ( (voltage <voltage_capacity_table[2]+s12) && (voltage >voltage_capacity_table[2]-s12))
-            )
-        )
-        || (0 == percentum)   //&& 0
-    )
-    {
-        if (voltage >= voltage_capacity_table[12])
-        {
-            percentum = 100;
-        }
-        else if (voltage >= voltage_capacity_table[10])
-        {
-            percentum = 80;
-        }
-        else if (voltage >= voltage_capacity_table[8])
-        {
-            percentum = 60;
-        }
-        else if (voltage >= voltage_capacity_table[6])
-        {
-            percentum = 40;
-        }
-        else if (voltage >= voltage_capacity_table[4])
-        {
-            percentum = 20;
-        }
-        else if (voltage >= voltage_capacity_table[2])
-        {
-            percentum = 10;
-        }
+        if(pre_percentum == 0xffff)
+          pre_percentum = percentum;
+        else if(pre_percentum > percentum)
+          percentum = pre_percentum;
         else
-        {
-            percentum = 0;
+          pre_percentum = percentum;
+
+    }else{
+        for(pos = 0; pos < table_size-1; pos++){
+            if(voltage > voltage_capacity_table[pos][0])
+              break;
         }
+        if(pos == 0) {
+          percentum = 100;
+        }else{
+            temp = voltage_capacity_table[pos][1]-voltage_capacity_table[pos-1][1];
+            temp = temp*(voltage - voltage_capacity_table[pos][0]);
+            temp = temp/(voltage_capacity_table[pos][0] - voltage_capacity_table[pos-1][0]);
+            temp = temp + voltage_capacity_table[pos][1];
+            percentum = temp;
+        }
+
+        if(pre_percentum == 0xffff)
+          pre_percentum = percentum;
+        else if(pre_percentum < percentum)
+          percentum = pre_percentum;
+        else
+          pre_percentum = percentum;
+
     }
 
     return percentum;

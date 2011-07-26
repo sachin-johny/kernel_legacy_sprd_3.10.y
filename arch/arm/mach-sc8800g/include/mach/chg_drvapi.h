@@ -81,9 +81,9 @@ extern   "C"
 
 #define CHGMNG_MAX_VCHG     0x3FF
 
-#define PREVRECHARGE        CHG_VOLTAGE_TEMP_4V1//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
+#define PREVRECHARGE        4100//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
 // restart the charge process.
-#define PREVCHGEND      (CHG_VOLTAGE_4V2 + 4)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
+#define PREVCHGEND      (4220+ 4)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
 #define CHGMNG_SAFTY_CUTOFF_POINT 960//837   // 4.33V. When the battery voltage is higher than this value, we will stop charging forcibly.
 
 #define BUSYSTATE       1   //when the phone is staying in busy state(for example, talking, play games or play music, etc.),we will stop
@@ -100,8 +100,8 @@ extern   "C"
 #define CHARGING_DETECT_INTERVAL 1000
 #define CHARGING_TOUT 18000
 #define CHGMNG_SHUTDOWN_VPROG 100
-#define CHGMNG_STOP_VPROG 100//0x70              // Isense stop point
-#define CHGMNG_SWITCH_CV_VPROG 150//100//0x70              // Isense stop point
+#define CHGMNG_STOP_VPROG 80//0x70              // Isense stop point
+#define CHGMNG_SWITCH_CV_VPROG 170//100//0x70              // Isense stop point
 #define CHARGE_VBAT_STATISTIC_BUFFERSIZE 16
 #define CHARGE_VPROG_STATISTIC_BUFFERSIZE 5
 #define CHGMNG_PLUST_TIMES  3
@@ -564,7 +564,7 @@ uint32_t CHR_CheckBatteryStaus (void);
 //  Note:
 /*****************************************************************************/
  void CHGMNG_SetChargeEndVoltage (uint16_t value);
-uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage);
+uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging);
 
 /*****************************************************************************/
 //  Description:    This function gets the charge safty voltage.
