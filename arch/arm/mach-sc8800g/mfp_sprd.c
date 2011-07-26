@@ -20,6 +20,7 @@
 #include <linux/kernel.h>
 #include <asm/io.h>
 #include <mach/mfp.h>
+#include <mach/adi_hal_internal.h>
 #include <mach/regs_cpc.h>
 
 /*
@@ -61,6 +62,8 @@ static unsigned long __mfp_get_pin_reg(int c)
 	}
 }
 
+#define pin_is_a_die(c)	(c & A_DIE_PIN)
+
 #ifdef DEBUG
 #define MFP_DBG(fmt...) pr_debug(fmt)
 static unsigned long __mfp_get_physical(int c)
@@ -84,15 +87,21 @@ static int __mfp_config_pin(unsigned long c)
 	unsigned long flags;
 	unsigned long pin_reg;
 	unsigned long pin_cfg;
+	int pin_area;
 
 	pin_reg = __mfp_get_pin_reg(c);
+	pin_area = pin_is_a_die(c);
 
 	MFP_DBG("register is :0x%x, old config is %x\r\n",
 		__mfp_get_physical(c),
+		pin_area == A_DIE_PIN ? ANA_REG_GET(pin_reg) :
 		__raw_readl(pin_reg));
 
 	local_irq_save(flags);
-	pin_cfg =__raw_readl(pin_reg);
+	if (pin_area == A_DIE_PIN)
+		pin_cfg = ANA_REG_GET(pin_reg);
+	else
+		pin_cfg =__raw_readl(pin_reg);
 	if (c & MFP_IO_SET) {
 		pin_cfg = (pin_cfg & ~MFP_IO_MASK) | (c & MFP_IO_MASK);
 	}
@@ -113,15 +122,16 @@ static int __mfp_config_pin(unsigned long c)
 		pin_cfg = (pin_cfg & ~MFP_DS_MASK) | (c & MFP_DS_MASK);
 	}
 
-	__raw_writel(pin_cfg, pin_reg);
+	if (pin_area == A_DIE_PIN)
+		ANA_REG_SET(pin_reg, pin_cfg);
+	else
+		__raw_writel(pin_cfg, pin_reg);
 	local_irq_restore(flags);
 
 	MFP_DBG("new config is :%x\r\n", (int)pin_cfg);
 
 	return 0;
 }
-
-static unsigned long spi_cs1_gpio_cfg = MFP_CFG_X(SPI_CSN0, GPIO, DS1, F_PULL_NONE, S_PULL_DOWN, IO_NONE);
 
 void sprd_mfp_config(unsigned long *mfp_cfgs, int num)
 {
