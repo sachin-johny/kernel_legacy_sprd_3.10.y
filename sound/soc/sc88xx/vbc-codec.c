@@ -40,6 +40,7 @@
 #define VBC_CODEC_POWER_OFF_OUT (1 << 2)
 #define VBC_CODEC_POWER_OFF_IN  (1 << 3)
 #define VBC_CODEC_SPEAKER_PA 0xfffd
+#define VBC_CODEC_DSP      0xfffc
 /*
   ALSA SOC usually puts the device in standby mode when it's not used
   for sometime. If you define POWER_OFF_ON_STANDBY the driver will
@@ -128,6 +129,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     //     out  in    out   in
     // value 1 is valid, value 0 is invalid
     SOC_SINGLE("Power Codec", VBC_CODEC_POWER, 0, 31, 0),
+    SOC_SINGLE("InCall", VBC_CODEC_DSP, 0, 1, 0),
 };
 
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
@@ -588,6 +590,8 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
                 vbc_power_down(SNDRV_PCM_STREAM_CAPTURE);
             }
             return value;
+        case VBC_CODEC_DSP:
+            return !(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC);
         case VBC_CODEC_SPEAKER_PA:
             if (dir) {
                 vbc_amplifier_enable(value & 0x01, "vbc_soft_ctrl2");
