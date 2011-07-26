@@ -94,8 +94,7 @@ static void deep_sleep_timeout2(unsigned long data)
  * * added by wong, 02/07/11
  * * print the value of relevent registers when calling
 ***/
-static void test_current_thread(void *pdata)
-{
+static void test_current_thread(void *pdata){
     while(1){
         printk("*********** AHB_CTL0:0X%x ***********\n", __raw_readl(AHB_CTL0) );
 	printk("*********** GEN0:0X%x ***********\n", __raw_readl(GR_GEN0) );
@@ -114,6 +113,27 @@ static void test_current_thread(void *pdata)
     }
 }
 
+/***********************
+ * added by wong, 12/07/11 
+ * disable some clk
+ * ********************/
+static void display_clks(void){
+        printk("**** display various clocks ***********");
+	printk("=== === === === ==== ==== ==== === === ===\n");
+	printk("=== === === === ==== ==== ==== === === ===\n");
+        printk("*********** AHB_CTL0:0X%x ***********\n", __raw_readl(AHB_CTL0) );
+	printk("*********** GEN0:0X%x ***********\n", __raw_readl(GR_GEN0) );
+	printk("*********** BUSCLK:0X%x ***********\n", __raw_readl(GR_BUSCLK) );
+	printk("*********** CLK_EN0:0X%x ***********\n", __raw_readl(GR_CLK_EN) );
+	printk("*********** ANA_LDO_PD_SET:0X%x ***********\n", __raw_readl(ANA_LDO_PD_SET) );
+	printk("*********** ANA_LDO_PD_CTL:0X%x ***********\n", __raw_readl(ANA_LDO_PD_CTL) );
+        printk("*********** ANA_ANA_CTL0:0X%x ***********\n", __raw_readl(ANA_ANA_CTL0) );
+	printk("*********** ANA_PA_CTL:0X%x ***********\n", __raw_readl(ANA_PA_CTL) );
+	printk("*********** GR_STC_STATE:0X%x ***********\n", __raw_readl(GR_STC_STATE) );
+	printk("*********** GR_CLK_DLY:0X%x ***********\n", __raw_readl(GR_CLK_DLY) );
+	printk("=== === === === ==== ==== ==== === === ===\n");
+	printk("=== === === === ==== ==== ==== === === ===\n");
+}
 static void disable_usb_clk(void){
         printk("**** disable_usb_clk ****\n");
 	__raw_bits_and(~BIT_5, AHB_CTL0);
@@ -182,7 +202,7 @@ static void disable_pwm_clk(void){
 
 static void disable_uart_clk(void){
 	printk("***** disable uart clk ****\n");
-        __raw_bits_and(~BIT_4, GR_GEN0);//I2c
+        //__raw_bits_and(~BIT_4, GR_GEN0);//I2c
         __raw_bits_and(~BIT_14, GR_GEN0);//ccir
         __raw_bits_and(~BIT_15, GR_GEN0);//EPT
         __raw_bits_and(~BIT_20, GR_GEN0);//UART0
@@ -191,9 +211,17 @@ static void disable_uart_clk(void){
 
         return;
 }
-static void disable_nand_controller_clk(void){
-       printk("**** disable_nand_controller_clk ****\n");
-       __raw_bits_and(~BIT_8, AHB_CTL0);//I2c
+static void disable_lcdc_clk(void){
+       printk("**** disable_lcdc_clk ****\n");
+       __raw_bits_and(~BIT_3, AHB_CTL0);//lcd controller
+
+       return;
+}
+
+static void disable_monitors_clk(void){
+       printk("**** disable_monitors_clk ****\n");
+       __raw_bits_and(~BIT_7, AHB_CTL0);//bus moniter0
+       __raw_bits_and(~BIT_11, AHB_CTL0);//bus moniter1
 
        return;
 }
@@ -260,8 +288,14 @@ static ssize_t current_info_write(struct file* file, const char* buf, size_t siz
 	     case 'e':
 	          disable_uart_clk();
 		  break;
-	     case 'n':
-	          disable_nand_controller_clk();
+	     case 'd':
+	          display_clks();
+		  break;
+	     case 'l':
+	          disable_lcdc_clk();
+		  break;
+	     case 'm':
+	          disable_monitors_clk();
 		  break;
 	     default :
 	          printk("!!!! invalid command !!!!!");
@@ -466,36 +500,11 @@ static int __init omap_wdt_init(void)
  *
  * ********************/
 #if 0
-        pid_t test_thread;
-        test_thread = kernel_thread(test_current_thread, NULL, 0);
-        if(test_thread<0)
+        pid_t current_test_thread;
+        current_test_thread = kernel_thread(test_current_thread, NULL, 0);
+        if(current_test_thread<0)
 	    printk("!!!!! test_current_thread isn't allowed to be created !!!\n");
 #endif
-/***********************
- * added by wong, 11/07/11 
- * disable some clk
- * ********************/
-        unsigned int ahb_ctl0_val;
-	ahb_ctl0_val = __raw_readl(AHB_CTL0);
-	printk("wong, ***** AHB_CTL0:%08x ****", ahb_ctl0_val);
-        //ahb_ctl0_val &= ~BIT_1;//disable dcam clk
-        //ahb_ctl0_val &= ~BIT_4;//disable sdio clk
-        ahb_ctl0_val &= ~BIT_5;//disable usb clk
-        //ahb_ctl0_val &= ~BIT_14;//disable rotation clk
-        //__raw_writel(ahb_ctl0_val, AHB_CTL0);
-#if 0
-
-        __raw_bits_and(~BIT_9, GR_CLK_GEN5);//disable USB LDO 
-
-        ANA_REG_SET(ANA_LDO_PD_SET, BIT_2);//power down SDIO LDO
-        ANA_REG_SET(ANA_LDO_PD_SET, BIT_8);//power down CAMD0 LDO
-        ANA_REG_SET(ANA_LDO_PD_SET, BIT_10);//power down CAMD1 LDO
-
-        ANA_REG_SET(ANA_ANA_CTL0, BIT_10);//power down vibrator
-
-        //__raw_bits_or(BIT0, GR_CLK_EN);//power down TD subsystem
-#endif
-//disable some clk and ldo
 
 	current_proc_mkdir(1);
 	return platform_driver_register(&omap_wdt_driver);
