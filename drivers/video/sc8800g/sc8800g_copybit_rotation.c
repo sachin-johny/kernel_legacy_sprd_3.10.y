@@ -252,10 +252,21 @@ int do_copybit_rotation(struct s2d_blit_req * req)
 		ROT_PRINT("Fail to do_rotation in get_param().\n");
 		return -1;
 	}
+	if(0 != rotation_IOinit())
+	{
+		ROT_PRINT("Fail to rotation_IOinit.\n");
+		return -1;
+	}
 	
 	if(0 != rotation_start(&rot_params))
 	{
 		ROT_PRINT("Fail to do_rotation.\n");
+		return -1;
+	}
+	
+	if(0 != rotation_IOdeinit())
+	{
+		ROT_PRINT("Fail to rotation_IOdeinit.\n");
 		return -1;
 	}
 

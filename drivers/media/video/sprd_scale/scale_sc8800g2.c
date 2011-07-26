@@ -169,12 +169,12 @@ void get_scale_reg(void)
   for(i = 0; i < 29; i++)
   {
     value = _pard(DCAM_REG_BASE + i * 4);
-    SCALE_PRINT("SCALE reg:0x%x, 0x%x.\n", DCAM_REG_BASE + i * 4, value);
+    printk("SCALE reg:0x%x, 0x%x.\n", DCAM_REG_BASE + i * 4, value);
    }
    for(i = 0; i < 9; i++)
    {
    	value = _pard(DCAM_REG_BASE + 0x0100 + i * 4);
-        SCALE_PRINT("SCALE reg:0x%x, 0x%x.\n", DCAM_REG_BASE + 0x0100 + i * 4, value);
+        printk("SCALE reg:0x%x, 0x%x.\n", DCAM_REG_BASE + 0x0100 + i * 4, value);
    }
 }
 #endif
@@ -576,8 +576,8 @@ LOCAL int32_t _SCALE_DriverPath2TrimAndScaling(void)
         if(p_path->sub_sample_en)
         {
             _paod(REV_PATH_CFG, BIT_2);
-            _paad(REV_PATH_CFG, ~(BIT_6 | BIT_7));
-	    _paod(REV_PATH_CFG, (p_path->sub_sample_mode & 0x3) << 6);	
+            _paad(REV_PATH_CFG, ~(BIT_9 | BIT_10));//wxz20110726: modify the sub sample mode bits.
+	    	_paod(REV_PATH_CFG, (p_path->sub_sample_mode & 0x3) << 9);	
         }
         else
         {
@@ -825,7 +825,7 @@ LOCAL int32_t _SCALE_DriverStart(void)
 	}
             
             _SCALE_DriverForceCopy();
-#if 0
+#if 0 
 	    get_scale_reg();
 #endif
 
@@ -1111,7 +1111,7 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
     	}
         case ISP_PATH_INPUT_FORMAT:
         {
-            uint32_t format = *(uint32_t*)param;
+            uint32_t format = (ISP_DATA_FORMAT_E)*(uint32_t*)param;
             
             if(format > ISP_DATA_RGB888)
             {
@@ -1216,7 +1216,7 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
         }  
         case ISP_PATH_OUTPUT_FORMAT:
         {
-            uint32_t format = *(uint32_t*)param;
+            uint32_t format = (ISP_DATA_FORMAT_E)*(uint32_t*)param;
             
             if(format != ISP_DATA_YUV422 && 		
                format != ISP_DATA_YUV420 && 
@@ -1394,7 +1394,7 @@ int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void* param)
     	}
         case ISP_PATH_INPUT_FORMAT:
         {
-            uint32_t format = *(uint32_t*)param;
+            uint32_t format = (ISP_DATA_FORMAT_E)*(uint32_t*)param;
             
             if(format > ISP_DATA_RGB888)
             {
@@ -1499,7 +1499,7 @@ int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void* param)
         }  
         case ISP_PATH_OUTPUT_FORMAT:
         {
-            uint32_t format = *(uint32_t*)param;
+            uint32_t format = (ISP_DATA_FORMAT_E)*(uint32_t*)param;
             
             if(format != ISP_DATA_YUV422 && 		
                format != ISP_DATA_YUV420 && 
@@ -1874,7 +1874,7 @@ static int _SCALE_DriverColorConvertByDMA(uint32_t width, uint32_t height, uint3
                 block_len,
                 byte_per_pixel*8, byte_per_pixel*8,
                 src_addr, dst_addr, total_len);		
-	ctrl.dma_desc->cfg |= (0x1 << 28);
+	//ctrl.dma_desc->cfg |= (0x1 << 28);
 	SCALE_PRINT("ColorConvertByDMA ctrl.dma_desc->cfg: 0x%x.\n", ctrl.dma_desc->cfg);
 	 sprd_dma_setup(&ctrl); 
 	 sprd_dma_start(DMA_SOFT0);	 

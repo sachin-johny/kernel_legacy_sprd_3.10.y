@@ -61,6 +61,8 @@ typedef struct _rotation_tag
 }ROTATION_PARAM_T, *ROTATION_PARAM_T_PTR;
 
 int rotation_start(ROTATION_PARAM_T* param_ptr);
+int rotation_IOinit(void);
+int rotation_IOdeinit(void);
 
 #define SC8800G_ROTATION_IOCTL_MAGIC 'm'
 #define SC8800G_ROTATION_DONE _IOW(SC8800G_ROTATION_IOCTL_MAGIC, 1, unsigned int)

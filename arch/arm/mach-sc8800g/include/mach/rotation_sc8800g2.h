@@ -1,3 +1,20 @@
+/*
+* drivers/media/video/sprd_rotation/rotation_sc8800g2.h
+ * Rotation driver based on sc8800g
+ *
+ * Copyright (C) 2010 Spreadtrum 
+ * 
+ * Author: Xiaozhe wang <xiaozhe.wang@spreadtrum.com>
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
 #ifndef _ROTATION_SC8800G2_H_
 #define _ROTATION_SC8800G2_H_
 
@@ -44,6 +61,8 @@ typedef struct _rotation_tag
 }ROTATION_PARAM_T, *ROTATION_PARAM_T_PTR;
 
 int rotation_start(ROTATION_PARAM_T* param_ptr);
+int rotation_IOinit(void);
+int rotation_IOdeinit(void);
 
 #define SC8800G_ROTATION_IOCTL_MAGIC 'm'
 #define SC8800G_ROTATION_DONE _IOW(SC8800G_ROTATION_IOCTL_MAGIC, 1, unsigned int)

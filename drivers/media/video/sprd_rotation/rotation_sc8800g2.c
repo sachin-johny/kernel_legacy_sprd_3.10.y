@@ -70,6 +70,7 @@ typedef void (*ROTATION_IRQ_FUNC) (uint32_t);
 static struct mutex *lock;
 static wait_queue_head_t	wait_queue;
 static  int  condition; 
+struct semaphore g_sem_rot;
 
 static int rotation_check_param(ROTATION_PARAM_T* param_ptr)
 {
@@ -377,10 +378,23 @@ int rotation_start(ROTATION_PARAM_T* param_ptr)
 	
     return 0;    
 }
+int rotation_IOinit(void)
+{
+	down(&g_sem_rot);
+	return 0;
+}
+int rotation_IOdeinit(void)
+{
+	up(&g_sem_rot);
+	return 0;
+}
 
 int rotation_open (struct inode *node, struct file *file)
 {
 	ROTATION_PARAM_T *params;
+	
+	rotation_IOinit();
+
 	params = (ROTATION_PARAM_T *)kmalloc(
 			sizeof(ROTATION_PARAM_T), GFP_KERNEL);
 
@@ -410,6 +424,8 @@ int rotation_release (struct inode *node, struct file *file)
 	kfree(params);
 
 	RTT_PRINT("[pid:%d] rotation_release()\n", current->pid);
+
+	rotation_IOdeinit();
 	
 	return 0;
 }
@@ -472,7 +488,7 @@ int rotation_probe(struct platform_device *pdev)
 		return -1;
 
 	mutex_init(lock);
-
+	
 	init_waitqueue_head(&wait_queue);
 
 	printk(KERN_ALERT" rotation_probe Success\n");
@@ -507,6 +523,7 @@ int __init rotation_init(void)
 		printk("platform device register Failed \n");
 		return -1;
 	}
+	init_MUTEX(&g_sem_rot);	
 
 	return 0;
 }

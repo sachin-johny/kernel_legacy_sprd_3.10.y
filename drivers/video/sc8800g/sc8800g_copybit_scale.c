@@ -329,6 +329,18 @@ static int do_scale(SCALE_PARAM_T *scale_param)
 		SCALE_PRINT("Fail to SCALE_IOC_CONFIG: id=%d", scale_config.id);
 		return -1;
 	}
+	if(SCALE_DATA_RGB565 != scale_param->in_fmt)
+	{
+		uint32_t enable = 1;
+		//enable dithering function
+		scale_config.id = SCALE_PATH_DITHER_EN;
+		scale_config.param = &enable;
+		if(0 != _SCALE_DriverIOPathConfig(scale_config.id, scale_config.param))	
+		{
+			SCALE_PRINT("Fail to SCALE_IOC_CONFIG: id=%d", scale_config.id);
+			return -1;
+		}		
+	}
 	//set input size
 	scale_config.id = SCALE_PATH_INPUT_SIZE; 
 	scale_config.param = &scale_param->in_size;
@@ -345,13 +357,37 @@ static int do_scale(SCALE_PARAM_T *scale_param)
 		SCALE_PRINT("Fail to SCALE_IOC_CONFIG: id=%d", scale_config.id);
 		return -1;
 	}	
-	//set input size
+	//set input rect
 	scale_config.id = SCALE_PATH_INPUT_RECT;
 	scale_config.param = &scale_param->in_rect;
 	if(0 != _SCALE_DriverIOPathConfig(scale_config.id, scale_config.param))	
 	{
 		SCALE_PRINT("Fail to SCALE_IOC_CONFIG: id=%d", scale_config.id);
 		return -1;
+	}
+	//wxz20110723: add the sub sample mode if the scale down is in [1/8, 1/4).
+	if(((scale_param->in_rect.w > scale_param->out_size.w * 4) && 
+		(scale_param->in_rect.w <= scale_param->out_size.w * 8)) ||
+		((scale_param->in_rect.h > scale_param->out_size.h * 4) && 
+		(scale_param->in_rect.h <= scale_param->out_size.h * 8)))
+	{
+		//set sub sample mode
+		uint32_t mode = 0; //0: 1/2 1:1/4 2:1/8 3:1/16
+		uint32_t enable = 1;
+		scale_config.id = SCALE_PATH_SUB_SAMPLE_EN;
+		scale_config.param = &enable;
+		if(0 != _SCALE_DriverIOPathConfig(scale_config.id, scale_config.param))	
+		{
+			SCALE_PRINT("Fail to SCALE_IOC_CONFIG: id=%d", scale_config.id);
+			return -1;
+		}
+		scale_config.id = SCALE_PATH_SUB_SAMPLE_MOD;
+		scale_config.param = &mode;
+		if(0 != _SCALE_DriverIOPathConfig(scale_config.id, scale_config.param))	
+		{
+			SCALE_PRINT("Fail to SCALE_IOC_CONFIG: id=%d", scale_config.id);
+			return -1;
+		}
 	}
 	//set input address
 	scale_config.id = SCALE_PATH_INPUT_ADDR;

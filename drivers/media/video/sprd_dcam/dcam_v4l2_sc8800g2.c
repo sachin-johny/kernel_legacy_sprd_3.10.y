@@ -892,11 +892,40 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//printk("###V4L2: vidioc_qbuf addr: %x.\n", p->m.userptr);
 	return (videobuf_qbuf(&fh->vb_vidq, p));
 }
+/*
+static inline int rt_policy(int policy)
+{
+	if (unlikely(policy == SCHED_FIFO) || unlikely(policy == SCHED_RR))
+		return 1;
+	return 0;
+}
 
+static inline int task_has_rt_policy(struct task_struct *p)
+{
+	return rt_policy(p->policy);
+}
+*/
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh  *fh = priv;
-
+	/*
+	//wxz20110725: adjust the priority of the thread.
+	static int flag = 0; 
+	if(flag == 0){
+		flag = 1;
+		printk("###wxz: adjust the priority to 2.\n");
+	if (!task_has_rt_policy(current)) {
+		    struct sched_param schedpar;
+		    int ret;
+		    struct cred *new = prepare_creds();
+		    cap_raise(new->cap_effective, CAP_SYS_NICE);
+		    commit_creds(new);
+		    schedpar.sched_priority = 2;
+		    ret = sched_setscheduler(current,SCHED_RR,&schedpar);
+		    if(ret!=0)
+		        printk("vsp change pri fail a\n");
+	}
+	}*/
 	DCAM_V4L2_PRINT("###v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n", file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));
 	//videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK);
