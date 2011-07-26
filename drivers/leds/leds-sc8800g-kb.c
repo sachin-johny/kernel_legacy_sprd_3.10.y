@@ -138,7 +138,12 @@ static int sprd_kb_led_probe(struct platform_device *pdev)
 
 	led->cdev.brightness_set = sprd_led_set;
 	led->cdev.default_trigger = "heartbeat";
+#if 0
+	/* Because android operate "/sys/class/leds/button-backlight/brightnes", but Our led-sc8800g-kb.c driver register "keyboard-backlight", so Richard.Feng change "set_light_buttons" into "set_light_keyboard" */
 	led->cdev.name = "keyboard-backlight";
+#else
+	led->cdev.name = "button-backlight";
+#endif
 	led->cdev.brightness_get = NULL;
 	led->cdev.flags |= LED_CORE_SUSPENDRESUME;
 	led->enabled = 0;
