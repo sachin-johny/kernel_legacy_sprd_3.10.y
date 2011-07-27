@@ -29,11 +29,17 @@
 
 
 #include <linux/wakelock.h>
+#include <mach/regs_ahb.h>
+#include <mach/regs_ana.h>
+#include <mach/regs_global.h>
+#include <linux/bitops.h>
+#include <mach/bits.h>
 
 #include "sdhci.h"
 #include "sprdmci.h"
 
 #define DRIVER_NAME "sdhci"
+#define KERN_DEBUG " "
 
 #define DBG(f, x...) \
 	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
@@ -47,7 +53,7 @@ static unsigned int debug_quirks = 0;
 
 static struct wake_lock sdhci_detect_lock;
 static struct wake_lock sdhci_suspend_lock;
-
+static struct wake_lock sdhci_resume_lock;//wong
 
 static void sdhci_prepare_data(struct sdhci_host *, struct mmc_data *);
 static void sdhci_finish_data(struct sdhci_host *);
@@ -1127,12 +1133,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	unsigned long flags;
 	
 	host = mmc_priv(mmc);
-
         wake_lock(&sdhci_suspend_lock);
-        host->active = 1;
-	if( host->suspended == 1 ){
-		sdhci_resume_host(host);
-        }
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -1316,7 +1317,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	struct mmc_request *mrq;
 
 	host = (struct sdhci_host*)param;
-
+	
 	spin_lock_irqsave(&host->lock, flags);
 
 	del_timer(&host->timer);
@@ -1395,7 +1396,6 @@ static void sdhci_tasklet_finish(unsigned long param)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_request_done(host->mmc, mrq);
-        host->active = 0;
 
 	wake_unlock(&sdhci_suspend_lock);
 }
@@ -1456,6 +1456,7 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		host->cmd->error = -EILSEQ;
 
 	if (host->cmd->error) {
+		printk("!!!!! error in sending cmd:%d !!!!!!!!!!!\n", host->cmd->opcode);
 		tasklet_schedule(&host->finish_tasklet);
 		return;
 	}
@@ -1484,6 +1485,7 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (intmask & SDHCI_INT_RESPONSE)
 		sdhci_finish_command(host);
+	
 }
 
 #ifdef DEBUG
@@ -1686,19 +1688,17 @@ static irqreturn_t sd_detect_irq(int irq, void *dev_id)
 int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 {
 	int ret;
-        if( host->active == 1 )
-		return -1;
 
 	sdhci_disable_card_detection(host);
 
 	ret = mmc_suspend_host(host->mmc, state);
-	if (ret)
+	if (ret){
+		printk("=== sd card suspend error:%d ===\n", ret);
 		return ret;
-
-	free_irq(host->irq, host);
-
-        host->suspended = 1;
-        host->resumed = 0;
+        }
+        __raw_bits_and(~BIT_3, ANA_LDO_PD_CTL);//power down SDIO_LDO
+        __raw_bits_or(BIT_2, ANA_LDO_PD_CTL);//power down SDIO_LDO
+	//free_irq(host->irq, host);
 
 	return 0;
 }
@@ -1708,33 +1708,33 @@ EXPORT_SYMBOL_GPL(sdhci_suspend_host);
 int sdhci_resume_host(struct sdhci_host *host)
 {
 	int ret;
-
-        host->suspended = 0;
-
-        if(host->resumed == 1)
-		return -1;
+      
+        __raw_bits_and(~BIT_2, ANA_LDO_PD_CTL);//power on SDIO_LDO
+        __raw_bits_or(BIT_3, ANA_LDO_PD_CTL);//power on SDIO_LDO
 
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
 		if (host->ops->enable_dma)
 			host->ops->enable_dma(host);
 	}
 
-	ret = request_irq(host->irq, sdhci_irq, IRQF_SHARED,
-			  mmc_hostname(host->mmc), host);
-	if (ret)
-		return ret;
+	//ret = request_irq(host->irq, sdhci_irq, IRQF_SHARED,
+	//		  mmc_hostname(host->mmc), host);	
+	//if (ret)
+	//	return ret;
 
 	sdhci_init(host);
 	mmiowb();
-
+        
+	wake_lock(&sdhci_resume_lock);//for swapfile
 	ret = mmc_resume_host(host->mmc);
-	if (ret)
+	if (ret){
+		printk("=== sd card resume error:%d ===\n", ret);
 		return ret;
+	}
+	wake_unlock(&sdhci_resume_lock);//for swapfile
 
 	sdhci_enable_card_detection(host);
-         
-        host->resumed = 1;
-
+	
 	return 0;
 }
 
@@ -2127,6 +2127,7 @@ static int __init sdhci_drv_init(void)
 
         wake_lock_init(&sdhci_detect_lock, WAKE_LOCK_SUSPEND, "mmc_pm_detect");
         wake_lock_init(&sdhci_suspend_lock, WAKE_LOCK_SUSPEND, "mmc_pm_suspend");
+        wake_lock_init(&sdhci_resume_lock, WAKE_LOCK_SUSPEND, "mmc_pm_resume");//for swapfile
 
 	return 0;
 }
@@ -2135,6 +2136,7 @@ static void __exit sdhci_drv_exit(void)
 {
         wake_lock_destroy(&sdhci_detect_lock);
         wake_lock_destroy(&sdhci_suspend_lock);
+        wake_lock_destroy(&sdhci_resume_lock);//for swapfile
 }
 
 module_init(sdhci_drv_init);

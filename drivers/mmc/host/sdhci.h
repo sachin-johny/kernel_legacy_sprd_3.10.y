@@ -16,9 +16,6 @@
 #include <linux/types.h>
 #include <linux/io.h>
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-#include <linux/earlysuspend.h>
-#endif
 
 
 /*
@@ -297,12 +294,6 @@ struct sdhci_host {
 
 	struct timer_list	timer;		/* Timer for timeouts */
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-        struct early_suspend    early_suspend;  /* PM */ 
-	volatile int            suspended;      /* Be suspended */
-	volatile int            resumed;        /* Be resumed */
-	volatile int            active;         /* Data transferring*/  
-#endif               
 
 	unsigned long		private[0] ____cacheline_aligned;
 };
