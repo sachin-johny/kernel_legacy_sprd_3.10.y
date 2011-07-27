@@ -251,10 +251,6 @@ static ssize_t sprd_set_caliberate(struct device *dev,
     
     const ptrdiff_t off = attr - sprd_caliberate;
     set_value = simple_strtoul(buf, NULL, 10);
-    if(set_value > 1000){
-        pr_err("set value %lu too big\n", set_value);
-        return 0;
-    }
     DEBUG("set value %d\n", set_value);
 
 //use the global battery_data
@@ -586,8 +582,8 @@ static void battery_handler(unsigned long data)
 
         battery_data->charging = 1;
         CHG_SetAdapterMode(CHG_USB_ADAPTER);
-        CHG_SetUSBChargeCurrent(CHG_USB_300MA);
-        battery_data->cur_type = 300;
+        CHG_SetUSBChargeCurrent(CHG_USB_400MA);
+        battery_data->cur_type = 400;
         CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
         CHG_TurnOn();
         battery_notify = 1;
@@ -599,8 +595,8 @@ static void battery_handler(unsigned long data)
 
         battery_data->charging = 1;
         CHG_SetAdapterMode(CHG_NORMAL_ADAPTER);
-        CHG_SetNormalChargeCurrent(CHG_NOR_1000MA);
-        battery_data->cur_type = 1000;
+        CHG_SetNormalChargeCurrent(CHG_NOR_600MA);
+        battery_data->cur_type = 600;
         CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
         CHG_TurnOn();
         battery_notify = 1;
@@ -753,7 +749,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
     data->capacity = 100;
     data->charging = 0;
-    data->cur_type = 300;
+    data->cur_type = 400;
 
     data->over_voltage = CHARGE_OVER_VOLTAGE;
     data->over_current= CHARGE_OVER_CURRENT;
