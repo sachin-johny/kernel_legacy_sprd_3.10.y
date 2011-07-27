@@ -920,7 +920,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		    struct cred *new = prepare_creds();
 		    cap_raise(new->cap_effective, CAP_SYS_NICE);
 		    commit_creds(new);
-		    schedpar.sched_priority = 2;
+		    schedpar.sched_priority = 4;
 		    ret = sched_setscheduler(current,SCHED_RR,&schedpar);
 		    if(ret!=0)
 		        printk("vsp change pri fail a\n");
@@ -1140,10 +1140,18 @@ static void init_dcam_parameters(void *priv)
 	}
 	init_param.input_rect.w = fh->width;
 	init_param.input_rect.h = fh->height;*/	
-	init_param.input_rect.x = 0;
-	init_param.input_rect.y = 0;
-	init_param.input_rect.w = init_param.input_size.w;
-	init_param.input_rect.h = init_param.input_size.h;
+	if((144 == fh->width) && (176 == fh->height)){
+		init_param.input_rect.x = 0;
+		init_param.input_rect.y = 0;
+		init_param.input_rect.w = 144;
+		init_param.input_rect.h = 176;
+	}
+	else{
+		init_param.input_rect.x = 0;
+		init_param.input_rect.y = 0;
+		init_param.input_rect.w = init_param.input_size.w;
+		init_param.input_rect.h = init_param.input_size.h;
+	}
     init_param.display_rect.x = 0;
     init_param.display_rect.y = 0;
     init_param.display_rect.w = fh->width;
@@ -1366,8 +1374,9 @@ static void set_layer_cb(uint32_t base)
 	buf = list_entry(dma_q->active.next,
 			 struct dcam_buffer, vb.queue);
 	if(1 != g_is_first_irq){
-		if(g_first_buf_addr != (uint32_t)buf->vb.baddr){			
-			printk("###V4L2: path1_done_buffer: Fail to this entry. last addr: %x, buf addr: %x\n", g_first_buf_addr, (uint32_t)buf->vb.baddr);
+		if((g_first_buf_addr != (uint32_t)buf->vb.baddr) ||
+			(g_first_buf_addr == g_last_buf)){ //wxz20110727: if the next buf is last buffer, do not wake up the buffer.
+			printk("###V4L2: path1_done_buffer: Fail to this entry. last addr: %x, buf addr: %x, g_last_buf: %x\n", g_first_buf_addr, (uint32_t)buf->vb.baddr, g_last_buf);
 			goto unlock;
 		}		
 	}
