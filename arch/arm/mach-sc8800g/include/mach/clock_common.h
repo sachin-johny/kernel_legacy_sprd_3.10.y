@@ -159,7 +159,7 @@ struct clk_functions {
 	void	(*clk_deny_idle)(struct clk *clk);
 	void	(*clk_disable_unused)(struct clk *clk);
 #ifdef CONFIG_CPU_FREQ
-	void	(*clk_init_cpufreq_table)(struct cpufreq_frequency_table **);
+	//void	(*clk_init_cpufreq_table)(struct cpufreq_frequency_table **);
 #endif
 };
 

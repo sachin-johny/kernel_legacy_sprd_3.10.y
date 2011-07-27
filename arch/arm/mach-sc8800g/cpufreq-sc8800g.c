@@ -14,12 +14,20 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regs_ahb.h>
 
+#define USE_FAKE_CPUFREQ		1
+
+#ifdef USE_FAKE_CPUFREQ
+#define MIN_FREQ					(120000)
+#define MAX_FREQ					(600000)
+#else
 #define REG_AHB_ARM_CLK					(*((volatile unsigned int *)(AHB_ARM_CLK)))
 #define REG_CHIP_ID					(*((volatile unsigned int *)(CHIP_ID)))
 
 #define MIN_FREQ					(26000)
 #define MAX_FREQ					(400000)
-#define FREQ_TABLE_ENTRY				(6) 
+#endif
+
+#define FREQ_TABLE_ENTRY				(6)
 
 typedef enum
 {
@@ -101,6 +109,9 @@ EXPORT_SYMBOL(clk_set_flags);
 /* return is : Kz */
 static unsigned long get_mcu_clk(void)
 {
+#ifdef USE_FAKE_CPUFREQ
+	return (MAX_FREQ * 1000);	
+#else
 	int clk_mcu_sel, clk_mcu;
 	clk_mcu_sel = (REG_AHB_ARM_CLK >> 23) & 0x3;
 	switch (clk_mcu_sel) {
@@ -121,11 +132,15 @@ static unsigned long get_mcu_clk(void)
     	}
 
 	return clk_mcu;
+#endif
 }
 
 /* return is : Hz */
 static unsigned long get_ahb_clk(void)
 {
+#ifdef USE_FAKE_CPUFREQ
+	return (get_mcu_clk() / 4);
+#else
 	unsigned long ahb_div = REG_AHB_ARM_CLK;
     	
 	ahb_div = (ahb_div >> 4) & 7;
@@ -137,12 +152,19 @@ static unsigned long get_ahb_clk(void)
         	ahb_div = ahb_div << 1;
 
     	return (get_mcu_clk() / ahb_div);
+#endif
 
 }
 
 /* return is arm clock : Hz */
 static unsigned long clk_get_rate(void)
 {
+#ifdef USE_FAKE_CPUFREQ
+	unsigned long arm_clk;
+	
+	arm_clk = get_mcu_clk();
+	return arm_clk;
+#else
 	unsigned long arm_div, arm_clk;
 
     	arm_div = 1;
@@ -153,11 +175,15 @@ static unsigned long clk_get_rate(void)
 	arm_clk = arm_clk / arm_div;
 
 	return arm_clk;
+#endif
 }
 
 /* rate is arm clock : Hz */
 static int clk_set_rate(unsigned long rate)
 {
+#ifdef USE_FAKE_CPUFREQ
+	return rate;
+#else
 	unsigned long clk, sel, i;
 	
 	clk = REG_AHB_ARM_CLK;
@@ -188,6 +214,7 @@ static int clk_set_rate(unsigned long rate)
 	for (i = 0; i < 100; i++);
 	
 	return rate;
+#endif
 }
 
 /*static void set_armcore_voltage(armcore_voltage_e core_voltage)
@@ -273,7 +300,7 @@ static int __init sc8800g_cpufreq_driver_init(struct cpufreq_policy *policy)
 		return -ENODEV;
 	}
 
-	policy->cur = clk_get_rate() / 1000;
+	policy->cur = clk_get_rate() / 1000; /* current cpu frequency : KHz*/
 	policy->cpuinfo.transition_latency = 1 * 1000 * 1000;
 
 #ifdef CONFIG_CPU_FREQ_STAT_DETAILS
@@ -322,7 +349,7 @@ static int __init sc8800g_cpufreq_init(void)
 		sc8800g_freq_table[cnt].frequency = CPUFREQ_TABLE_END;
 	}
 
-	if (arm_clk <= MIN_FREQ) {
+	if (arm_clk < MIN_FREQ) {
 		printk("arm clock is too low, cpufreq is not needed.\n");
 		return 0;
 	}
@@ -331,13 +358,28 @@ static int __init sc8800g_cpufreq_init(void)
 		return 0;
 	}
 
-	sc8800g_freq_table[0].frequency = 400000;
-	sc8800g_freq_table[1].frequency = 153600;
-	sc8800g_freq_table[2].frequency = 64000;
-	sc8800g_freq_table[3].frequency = 26000;
-	clk = 3;
+	clk = 0;
+#ifdef USE_FAKE_CPUFREQ
+	sc8800g_freq_table[clk].frequency = 600000;
+	clk ++;
+	sc8800g_freq_table[clk].frequency = 400000;
+	clk ++;
+	sc8800g_freq_table[clk].frequency = 200000;
+	clk ++;
+	sc8800g_freq_table[clk].frequency = 120000;
+	clk ++;
+#else
+	sc8800g_freq_table[clk].frequency = 400000;
+	clk ++;
+	sc8800g_freq_table[clk].frequency = 153600;
+	clk ++;
+	sc8800g_freq_table[clk].frequency = 64000;
+	clk ++;
+	sc8800g_freq_table[clk].frequency = 26000;
+	clk ++;
+#endif
 
-	for (cnt = 0; cnt <= clk; cnt ++)
+	for (cnt = 0; cnt < clk; cnt ++)
 		printk("sc8800g_freq_table[%d].frequency = %d\n", cnt, sc8800g_freq_table[cnt].frequency);
 
 	return cpufreq_register_driver(&sc8800g_cpufreq_driver);

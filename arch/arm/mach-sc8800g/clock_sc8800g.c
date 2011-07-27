@@ -1515,10 +1515,10 @@ static void sc88xx_clk_disable_unused(struct clk *clk)
 }
 
 #ifdef CONFIG_CPU_FREQ
-static void	sc88xx_clk_init_cpufreq_table(struct cpufreq_frequency_table **)
+/*static void	sc88xx_clk_init_cpufreq_table(struct cpufreq_frequency_table **)
 {
 
-}
+}*/
 #endif
 
 unsigned long sc88xx_recalc_generic(struct clk *clk)
@@ -1764,7 +1764,7 @@ static struct clk_functions sc8800g2_clk_functions = {
 	.clk_set_parent		= sc88xx_clk_set_parent,
 	.clk_disable_unused	= sc88xx_clk_disable_unused,
 #ifdef CONFIG_CPU_FREQ
-	.clk_init_cpufreq_table	= sc88xx_clk_init_cpufreq_freq,
+	//.clk_init_cpufreq_table	= sc88xx_clk_init_cpufreq_freq,
 #endif
 };
 
