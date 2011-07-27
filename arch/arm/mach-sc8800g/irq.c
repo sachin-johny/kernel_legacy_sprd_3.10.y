@@ -222,6 +222,28 @@ nk_sprd_unmask_irq (unsigned int irq)
 #endif
 }
 
+static void sprd_irq_mask(unsigned int irq)
+{
+	__raw_writel(1 << (irq & 31), INTCV_INT_EN_CLR);
+}
+
+static void sprd_irq_unmask(unsigned int irq)
+{
+	__raw_writel(1 << (irq & 31), INTCV_INT_EN);
+}
+
+    static void
+nk_disable_irq (unsigned int irq)
+{
+	sprd_irq_mask(irq);
+}
+
+    static void
+nk_enable_irq (unsigned int irq)
+{
+	sprd_irq_unmask(irq);
+}
+
 static struct irq_chip nk_sprd_irq_chip = {
 	.name		= "sprd",
 	.mask_ack	= nk_sprd_mask_ack_irq,
@@ -229,6 +251,8 @@ static struct irq_chip nk_sprd_irq_chip = {
 	.unmask		= nk_sprd_unmask_irq,
 	.startup	= nk_startup_irq,
 	.shutdown	= nk_shutdown_irq,
+	.disable	= nk_disable_irq,
+	.enable		= nk_enable_irq,
 };
 
     static void
