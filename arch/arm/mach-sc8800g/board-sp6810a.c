@@ -138,6 +138,9 @@ static unsigned long gps_pin_cfg[] = {
 #include <mach/irqs.h>
 #include <mach/mfp.h>
 
+#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL      32 * 1000 * 1000
+#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH        32 * 1000 * 1000
+
 #define SPRD_3RDPARTY_SPI_MASTER_BUS_NUM    0
 #define SPRD_3RDPARTY_SPI_MASTER_CS0_GPIO   32
 #define SPRD_3RDPARTY_SPI_MASTER_CS1_GPIO   33
@@ -173,7 +176,7 @@ static struct spi_board_info openhone_spi_devices4wifi[] = {
     {
         .modalias       = "spi_slot0", // "spidev" --> spidev_spi
         .chip_select    = SPRD_3RDPARTY_SPI_WIFI_CS,
-        .max_speed_hz   = 32 * 1000 * 1000,
+        .max_speed_hz   = SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
 };
@@ -240,7 +243,6 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_GINT1_IRQ              0
 #define SPRD_3RDPARTY_GPIO_GINT2_IRQ              1
 
-
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
 int sprd_3rdparty_gpio_wifi_pwd   = SPRD_3RDPARTY_GPIO_WIFI_PWD;
@@ -263,6 +265,9 @@ int sprd_3rdparty_gpio_gps_onoff   = SPRD_3RDPARTY_GPIO_GPS_ONOFF;
 int sprd_3rdparty_gpio_gint1_irq   = SPRD_3RDPARTY_GPIO_GINT1_IRQ ;
 int sprd_3rdparty_gpio_gint2_irq   = SPRD_3RDPARTY_GPIO_GINT2_IRQ ;
 
+int sprd_3rdparty_clock_wifi_freq_speed_normal = SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL;
+int sprd_3rdparty_clock_wifi_freq_speed_high = SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH;
+
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_pwd);
@@ -284,6 +289,9 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_onoff);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gint1_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gint2_irq);
+
+EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_normal);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_high);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {

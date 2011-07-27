@@ -130,6 +130,9 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
 #include <mach/irqs.h>
 #include <mach/mfp.h>
 
+#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL      32 * 1000 * 1000
+#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH        32 * 1000 * 1000
+
 #define SPRD_3RDPARTY_SPI_MASTER_BUS_NUM    0
 #define SPRD_3RDPARTY_SPI_MASTER_CS0_GPIO   32
 #define SPRD_3RDPARTY_SPI_MASTER_CS1_GPIO   33
@@ -177,7 +180,7 @@ static struct spi_board_info openhone_spi_devices4wifi[] = {
     {
         .modalias       = "spi_slot0", // "spidev" --> spidev_spi
         .chip_select    = SPRD_3RDPARTY_SPI_WIFI_CS,
-        .max_speed_hz   = 32 * 1000 * 1000,
+        .max_speed_hz   = SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
 };
@@ -252,6 +255,9 @@ int sprd_3rdparty_gpio_tp_pwr   = SPRD_3RDPARTY_GPIO_TP_PWR;
 int sprd_3rdparty_gpio_tp_rst   = SPRD_3RDPARTY_GPIO_TP_RST;
 int sprd_3rdparty_gpio_tp_irq   = SPRD_3RDPARTY_GPIO_TP_IRQ;
 
+int sprd_3rdparty_clock_wifi_freq_speed_normal = SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL;
+int sprd_3rdparty_clock_wifi_freq_speed_high = SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH;
+
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_pwd);
@@ -266,6 +272,9 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_pwr);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
+
+EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_normal);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_high);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
