@@ -564,7 +564,7 @@ uint32_t CHR_CheckBatteryStaus (void);
 //  Note:
 /*****************************************************************************/
  void CHGMNG_SetChargeEndVoltage (uint16_t value);
-uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging);
+uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int update);
 
 /*****************************************************************************/
 //  Description:    This function gets the charge safty voltage.

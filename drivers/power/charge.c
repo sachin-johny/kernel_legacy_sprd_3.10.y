@@ -357,7 +357,7 @@ uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue)
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
-uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging)
+uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int update)
 {
     uint16_t percentum;
     int32_t temp;
@@ -365,6 +365,12 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging)
     uint16_t table_size;
     int pos = 0;
     static uint16_t pre_percentum = 0xffff;
+
+    if(update){
+        pre_percentum = 0xffff;
+        return 0;
+    }
+
     if(is_charging){
         table_size = ARRAY_SIZE(charging_voltage_capacity_table);
         for(pos = table_size-1; pos > 0; pos--){

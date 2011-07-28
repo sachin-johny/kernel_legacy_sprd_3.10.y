@@ -267,6 +267,7 @@ static ssize_t sprd_set_caliberate(struct device *dev,
     case BATTERY_1:
         adc_voltage_table[1][1]=set_value&0xffff;
         adc_voltage_table[1][0]=(set_value>>16)&0xffff;
+        CHGMNG_VoltageToPercentum(0, 0, 0);
         break;
     default:
         count = -EINVAL;
@@ -505,6 +506,8 @@ static void battery_handler(unsigned long data)
     adc_value = get_vbat_value();
     DEBUG("vbat %d\n", adc_value);
 
+    spin_lock_irqsave(&battery_data->lock, flag);
+
     voltage = CHGMNG_AdcvalueToVoltage(adc_value);
     voltage = (voltage /10)*10;
 
@@ -535,9 +538,8 @@ static void battery_handler(unsigned long data)
     DEBUG("temp: %d\n", temp);
 #endif
 
-    spin_lock_irqsave(&battery_data->lock, flag);
     timer_freq = battery_data->timer_freq;
-    capacity = CHGMNG_VoltageToPercentum(voltage, battery_data->charging);
+    capacity = CHGMNG_VoltageToPercentum(voltage, battery_data->charging, 0);
     DEBUG("capacity %d\n", capacity);
     DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
 
@@ -712,12 +714,12 @@ int battery_updata(void){
     if(adc_value < 0)
       return 0;
     voltage = CHGMNG_AdcvalueToVoltage(adc_value);
-    capacity = CHGMNG_VoltageToPercentum(voltage, 0);
+    capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0);
     DEBUG("battery_update: capacity %d\n", capacity);
     if(pre_capacity == 0xffffffff){
         adc_value = get_vbat_value();
         voltage = CHGMNG_AdcvalueToVoltage(adc_value);
-        pre_capacity = CHGMNG_VoltageToPercentum(voltage, 0);
+        pre_capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0);
     }
 
     if(pre_capacity != capacity){
@@ -893,7 +895,7 @@ static int sprd_battery_resume(struct platform_device *pdev)
     if(adc_value < 0)
       return 0;
     voltage_value = CHGMNG_AdcvalueToVoltage(adc_value);
-    capacity = CHGMNG_VoltageToPercentum(voltage_value, battery_data->charging);
+    capacity = CHGMNG_VoltageToPercentum(voltage_value, battery_data->charging, 0);
     DEBUG("%s capacity %d pre_capacity %d\n", __func__, capacity, data->capacity);
     if(data->capacity != capacity){
         data->capacity = capacity;
