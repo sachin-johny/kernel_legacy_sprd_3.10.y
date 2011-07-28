@@ -118,6 +118,20 @@ uint16_t voltage_capacity_table[][2] =
     {3580,  0},
 };
 
+uint16_t charging_voltage_capacity_table[][2]={
+    {4220, 100},
+    {4200,  90},
+    {4160,  70},
+    {4100,  60},
+    {4020,  50},
+    {3970,  40},
+    {3920,  30},
+    {3880,  20},
+    {3860,  15},
+    {3830,   5},
+    {3760,   0},
+};
+
 int32_t temp_adc_table[][2] = 
 {
     {  900,      0x4E  },//mv
@@ -330,7 +344,11 @@ uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type)
 #else
 uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue)
 {
-    return (int32_t)(adc_voltage_table[0][1]- adc_voltage_table[1][1]) * (adcvalue - adc_voltage_table[0][0]) / (adc_voltage_table[0][0] - adc_voltage_table[1][0]) + adc_voltage_table[0][1];
+    int32_t temp;
+    temp = adc_voltage_table[0][1] - adc_voltage_table[1][1];
+    temp = temp * (adcvalue - adc_voltage_table[0][0]);
+    temp = temp / (adc_voltage_table[0][0] - adc_voltage_table[1][0]);
+    return temp + adc_voltage_table[0][1];
 }
 #endif
 
@@ -344,22 +362,22 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging)
     uint16_t percentum;
     int32_t temp;
     //find the position
-    uint16_t table_size = ARRAY_SIZE(voltage_capacity_table);
+    uint16_t table_size;
     int pos = 0;
     static uint16_t pre_percentum = 0xffff;
     if(is_charging){
-        voltage = voltage;
+        table_size = ARRAY_SIZE(charging_voltage_capacity_table);
         for(pos = table_size-1; pos > 0; pos--){
-            if(voltage < voltage_capacity_table[pos][0])
+            if(voltage < charging_voltage_capacity_table[pos][0])
               break;
         }
         if(pos == table_size-1) {
           percentum = 0;
         }else{
-            temp = voltage_capacity_table[pos][1]-voltage_capacity_table[pos+1][1];
-            temp = temp * (voltage - voltage_capacity_table[pos][0]);
-            temp = temp / (voltage_capacity_table[pos][0] - voltage_capacity_table[pos+1][0]);
-            temp = temp + voltage_capacity_table[pos][1];
+            temp = charging_voltage_capacity_table[pos][1]-charging_voltage_capacity_table[pos+1][1];
+            temp = temp * (voltage - charging_voltage_capacity_table[pos][0]);
+            temp = temp / (charging_voltage_capacity_table[pos][0] - charging_voltage_capacity_table[pos+1][0]);
+            temp = temp + charging_voltage_capacity_table[pos][1];
             percentum = temp;
         }
 
@@ -371,6 +389,7 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging)
           pre_percentum = percentum;
 
     }else{
+        table_size = ARRAY_SIZE(voltage_capacity_table);
         for(pos = 0; pos < table_size-1; pos++){
             if(voltage > voltage_capacity_table[pos][0])
               break;
