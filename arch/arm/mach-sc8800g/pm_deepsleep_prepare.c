@@ -2021,7 +2021,7 @@ int sc8800g_prepare_deep_sleep(void)
    __raw_writel(val, GR_CLK_EN);
 
     //ANA_REG_OR(ANA_LDO_SLP, (FSM_RF0_BP_EN | FSM_RF1_BP_EN));
-    ANA_REG_SET(ANA_LDO_SLP, 0xa7fb);
+    ANA_REG_SET(ANA_LDO_SLP, 0xa4f3);
 
 
     /* ANA_ANA_CTL0 */
@@ -2070,10 +2070,12 @@ int sc8800g_prepare_deep_sleep(void)
 	map_iram_identically();
 	*/
 	pint = (u32 *)iram_start;
+
 	pid_number = kernel_thread(print_thread, NULL, 0);
 	if (pid_number < 0) {
 		printk("Can't crate test thread!\n");
 	}
+
 	wake_lock_init(&messages_wakelock, WAKE_LOCK_SUSPEND,
 			"pm_message_wakelock");
        init_pm_message();
