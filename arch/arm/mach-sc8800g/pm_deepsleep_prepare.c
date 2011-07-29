@@ -945,6 +945,8 @@ int sprd_statistic_info_enable = 0;
 int sprd_clock_info_enable = 0;
 int sprd_timer_info_enable = 0;
 int sprd_check_dsp_enable = 0;
+int sprd_check_gpio_enable = 0;
+
 
 int sprd_pm_message_enable = 0;
 static u32 time0 = 0, time1 = 0, time_duration;
@@ -1198,7 +1200,10 @@ void gpio_for_suespend(void);
 int supsend_gpio_save(void)
 {
 	u32 val = 0;
-	gpio_for_suespend();
+
+	if (sprd_check_gpio_enable) {
+		gpio_for_suespend();
+	}
 
 #ifdef CONFIG_MACH_SP6810A
 	/* GPIO 96, shutdown audio PA. */
@@ -1483,6 +1488,60 @@ void nkidle_original(void)
 
 static void deep_sleep_timeout(unsigned long data);
 static DEFINE_TIMER(deep_sleep_timer, deep_sleep_timeout, 0, 0);
+
+static int sprd_gpio_info_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_gpio_info_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_gpio_info_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_gpio_info_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_gpio_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_check_gpio_enable = 0;
+		break;
+	case '1':
+		sprd_check_gpio_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _gpio_info_proc_fops = {
+    open:    sprd_gpio_info_open,
+    release: sprd_gpio_info_release,
+    llseek:  sprd_gpio_info_lseek,
+    read:    sprd_gpio_info_read,
+    write:   sprd_gpio_info_write,
+};
+
 
 static int sprd_irq_info_open (struct inode* inode, struct file*  file)
 {
@@ -2098,6 +2157,8 @@ int sc8800g_prepare_deep_sleep(void)
         printk("##: proc_mkdir(/proc/sprd_sleep_info) failed\n");
         return 0;
     }
+
+	sprd_proc_create(sprd_proc_entry, "gpio_info", &_gpio_info_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "irq_info", &_irq_info_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "thread_info", &_thread_info_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "statistic_info", &_statistic_info_proc_fops);
