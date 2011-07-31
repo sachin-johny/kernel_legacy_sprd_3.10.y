@@ -306,6 +306,73 @@ const PM_GPIO_CTL_T  pm_gpio_default_map[]=
 };
 
 #define ANA_IS_ANA_REG(addr) (SPRD_MISC_BASE == (addr & 0xfffff000))
+
+/*
+	functions for comparing pin config register.
+ */
+#define MAX_PIN_NUM 512
+u32 pin_reg_val[MAX_PIN_NUM];
+
+void sc8800g_value_init(void)
+{
+    int i = 0;
+    CHIP_REG_OR ( (GR_GEN0), (GEN0_PIN_EN));
+    ANA_REG_OR (ANA_AGEN, (AGEN_PINREG_EN)); // enable gpio base romcode
+    for(;;) {
+        if (pm_func[i].addr == PM_INVALID_VAL) {
+            break;
+        }
+
+        if (!ANA_IS_ANA_REG(pm_func[i].addr)) {
+		pin_reg_val[i] = CHIP_REG_GET (pm_func[i].addr);
+        }
+        else {
+		pin_reg_val[i] = ANA_REG_GET (pm_func[i].addr);
+        }
+        i++;
+    }
+    printk("####: sc8800g_value_init() is done!\n");
+}
+
+void sc8800g_value_compare(void)
+{
+    int i = 0;
+	u32 val = 0;
+    CHIP_REG_OR ( (GR_GEN0), (GEN0_PIN_EN));
+    ANA_REG_OR (ANA_AGEN, (AGEN_PINREG_EN)); // enable gpio base romcode
+    for(;;) {
+        if (pm_func[i].addr == PM_INVALID_VAL) {
+            break;
+        }
+
+        if (!ANA_IS_ANA_REG(pm_func[i].addr)) {
+		val = CHIP_REG_GET (pm_func[i].addr);
+		if (pin_reg_val[i] != val) {
+			printk("##: Values are different[%08x]: want[%08x], but[%08x]!\n", 
+				pm_func[i].addr, pin_reg_val[i], val);
+			/*
+			CHIP_REG_SET (pm_func[i].addr ,pm_func[i].value);
+			*/
+		}
+        }
+        else {
+		val = ANA_REG_GET (pm_func[i].addr);
+		if (pin_reg_val[i] != val) {
+			printk("##: Values are different[%08x]: want[%08x], but[%08x]!\n", 
+				pm_func[i].addr, pin_reg_val[i], val);
+			/*
+			ANA_REG_SET (pm_func[i].addr ,pm_func[i].value);
+			*/
+		}
+        }
+        i++;
+    }
+    /*
+    printk("####: sc8800g_value_compare() is done!\n");
+    */
+}
+
+
 void sc8800g_pin_map_init(void)
 {
     int i = 0;
@@ -345,6 +412,7 @@ void sc8800g_pin_map_init(void)
         CHIP_REG_SET (pm_default_global_map[i].addr, pm_default_global_map[i].value);
         i++;
     }
+    sc8800g_value_init();
     printk("####: pin_map is done!\n");
 }
 EXPORT_SYMBOL_GPL(sc8800g_pin_map_init);
@@ -444,9 +512,34 @@ void gpio_for_suespend(void)
         CHIP_REG_SET (pm_default_global_map_suspend[i].addr, pm_default_global_map_suspend[i].value);
         i++;
     }
-    //printk("####: gpio_for_suespend() is done!\n");
+    /* compare register's value. */
+    sc8800g_value_compare();
 }
 EXPORT_SYMBOL_GPL(gpio_for_suespend);
 
+void gpio_dump_registers(void)
+{
+    int i = 0;
+	u32 val = 0;
+    CHIP_REG_OR ( (GR_GEN0), (GEN0_PIN_EN));
+    ANA_REG_OR (ANA_AGEN, (AGEN_PINREG_EN)); // enable gpio base romcode
+    for(;;) {
+        if (pm_func[i].addr == PM_INVALID_VAL) {
+            break;
+        }
+
+        if (!ANA_IS_ANA_REG(pm_func[i].addr)) {
+		val = CHIP_REG_GET (pm_func[i].addr);
+		printk("reg[%08x] = %08x.\n", pm_func[i].addr, val);
+        }
+        else {
+		val = ANA_REG_GET (pm_func[i].addr);
+		printk("reg[%08x] = %08x.\n", pm_func[i].addr, val);
+        }
+        i++;
+    }
+    printk("####: gpio_dump_registers() is done!\n");
+}
+EXPORT_SYMBOL_GPL(gpio_dump_registers);
 
 
