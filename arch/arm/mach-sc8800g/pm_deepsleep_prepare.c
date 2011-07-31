@@ -946,7 +946,7 @@ int sprd_clock_info_enable = 0;
 int sprd_timer_info_enable = 0;
 int sprd_check_dsp_enable = 0;
 int sprd_check_gpio_enable = 0;
-
+int sprd_dump_gpio_registers = 0;
 
 int sprd_pm_message_enable = 0;
 static u32 time0 = 0, time1 = 0, time_duration;
@@ -1196,6 +1196,7 @@ int supsend_ldo_turnon(void)
 }
 
 void gpio_for_suespend(void);
+void gpio_dump_registers(void);
 
 int supsend_gpio_save(void)
 {
@@ -1203,6 +1204,10 @@ int supsend_gpio_save(void)
 
 	if (sprd_check_gpio_enable) {
 		gpio_for_suespend();
+	}
+
+	if (sprd_dump_gpio_registers) {
+		gpio_dump_registers();
 	}
 
 #ifdef CONFIG_MACH_SP6810A
@@ -1488,6 +1493,62 @@ void nkidle_original(void)
 
 static void deep_sleep_timeout(unsigned long data);
 static DEFINE_TIMER(deep_sleep_timer, deep_sleep_timeout, 0, 0);
+
+
+static int sprd_dump_gpio_registers_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_dump_gpio_registers_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_dump_gpio_registers_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_dump_gpio_registers_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_dump_gpio_registers_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_dump_gpio_registers = 0;
+		break;
+	case '1':
+		sprd_dump_gpio_registers = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _dump_gpio_registers_proc_fops = {
+    open:    sprd_dump_gpio_registers_open,
+    release: sprd_dump_gpio_registers_release,
+    llseek:  sprd_dump_gpio_registers_lseek,
+    read:    sprd_dump_gpio_registers_read,
+    write:   sprd_dump_gpio_registers_write,
+};
+
+
 
 static int sprd_gpio_info_open (struct inode* inode, struct file*  file)
 {
@@ -2157,7 +2218,7 @@ int sc8800g_prepare_deep_sleep(void)
         printk("##: proc_mkdir(/proc/sprd_sleep_info) failed\n");
         return 0;
     }
-
+	sprd_proc_create(sprd_proc_entry, "dump_gpio_registers", &_dump_gpio_registers_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "gpio_info", &_gpio_info_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "irq_info", &_irq_info_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "thread_info", &_thread_info_proc_fops);

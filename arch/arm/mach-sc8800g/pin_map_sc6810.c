@@ -478,3 +478,29 @@ void gpio_for_suespend(void)
 EXPORT_SYMBOL_GPL(gpio_for_suespend);
 
 
+void gpio_dump_registers(void)
+{
+    int i = 0;
+	u32 val = 0;
+    CHIP_REG_OR ( (GR_GEN0), (GEN0_PIN_EN));
+    ANA_REG_OR (ANA_AGEN, (AGEN_PINREG_EN)); // enable gpio base romcode
+    for(;;) {
+        if (pm_func[i].addr == PM_INVALID_VAL) {
+            break;
+        }
+
+        if (!ANA_IS_ANA_REG(pm_func[i].addr)) {
+		val = CHIP_REG_GET (pm_func[i].addr);
+		printk("reg[%08x] = %08x.\n", pm_func[i].addr, val);
+        }
+        else {
+		val = ANA_REG_GET (pm_func[i].addr);
+		printk("reg[%08x] = %08x.\n", pm_func[i].addr, val);
+        }
+        i++;
+    }
+    printk("####: gpio_dump_registers() is done!\n");
+}
+EXPORT_SYMBOL_GPL(gpio_dump_registers);
+
+
