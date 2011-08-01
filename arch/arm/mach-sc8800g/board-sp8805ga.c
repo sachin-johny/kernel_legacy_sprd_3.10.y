@@ -288,22 +288,22 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_high);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
-        MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io - also Bluetooth power
+        MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE), // wifi_power_io - also Bluetooth power
         SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi power"
     },
     {
-        MFP_CFG_X(RFCTL9, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_pwd_io
+        MFP_CFG_X(RFCTL9, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_Z), // wifi_pwd_io
         SPRD_3RDPARTY_GPIO_WIFI_PWD, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi pwd"
     },
     {
-        MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_UP, S_PULL_NONE, IO_Z),
         SPRD_3RDPARTY_GPIO_WIFI_WAKE,
         "wifi wake"
     },
     {
-        MFP_CFG_X(GPIO135, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        MFP_CFG_X(GPIO135, AF0, DS1, F_PULL_UP, S_PULL_NONE, IO_OE),
         SPRD_3RDPARTY_GPIO_WIFI_RESET, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi reset"
     },
@@ -313,12 +313,12 @@ static struct gpio_desc gpio_func_cfg[] = {
         "BT reset"
     },
     {
-        MFP_CFG_X(GPIO136, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+        MFP_CFG_X(GPIO136, AF0, DS1, F_PULL_UP, S_PULL_NONE, IO_IE),
         SPRD_3RDPARTY_GPIO_WIFI_IRQ,
         "Wi-Fi IRQ"
     },
     {
-        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE), // cmmb power
+        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE), // cmmb power
         SPRD_3RDPARTY_GPIO_CMMB_POWER,
         "demod power"
     },
@@ -328,7 +328,7 @@ static struct gpio_desc gpio_func_cfg[] = {
         "demod reset"
     },
     {
-        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE), // cmmb interrupt
+        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_IE), // cmmb interrupt
         SPRD_3RDPARTY_GPIO_CMMB_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "demod int"
     },
@@ -348,12 +348,12 @@ static struct gpio_desc gpio_func_cfg[] = {
 	"pls irq"
     },
     {
-        MFP_CFG_X(KEYIN6, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+        MFP_CFG_X(KEYIN6, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_IE),
 	SPRD_3RDPARTY_GPIO_GINT1_IRQ,
 	"gint1"
     },
     {
-	MFP_CFG_X(KEYIN7, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+	MFP_CFG_X(KEYIN7, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_IE),
 	SPRD_3RDPARTY_GPIO_GINT2_IRQ,
 	"gint2"
     },
@@ -363,25 +363,25 @@ static struct gpio_desc gpio_func_cfg[] = {
 	"gps  pwr"
     },
     {
-	MFP_CFG_X(EMCS_N2, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	MFP_CFG_X(EMCS_N2, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE),
 	SPRD_3RDPARTY_GPIO_GPS_RST,
 	"gps  reset"
     },
     {
-	MFP_CFG_X(EMCS_N3, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	MFP_CFG_X(EMCS_N3, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE),
 	SPRD_3RDPARTY_GPIO_GPS_ONOFF,
 	"gps  onoff"
     }
 };
 
 static unsigned long spi_func_cfg[] = {
-	MFP_CFG_X(SPI_CLK   , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SPI_DI    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SPI_DO    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+	MFP_CFG_X(SPI_CLK   , AF0, DS1, F_PULL_UP, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(SPI_DI    , AF0, DS1, F_PULL_UP, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(SPI_DO    , AF0, DS1, F_PULL_UP, S_PULL_NONE, IO_Z),
 #if 1
     /* configure cs pin to normal gpio */
-	MFP_CFG_X(SPI_CSN0  , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-	MFP_CFG_X(SPI_CSN1  , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	MFP_CFG_X(SPI_CSN0  , AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_Z),
+	MFP_CFG_X(SPI_CSN1  , AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_Z),
 #else
     /* configure cs pin to spi csx */ 
     MFP_CFG_X(SPI_CSN0  , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
@@ -454,7 +454,7 @@ int sprd_spi_cs_hook(int cs_gpio, int dir)
     if (first_dynamic_create) {
         static struct gpio_desc gpio_func_cfg[] = {
             {
-                MFP_CFG_X(GPIO137, AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE), // cmmb power
+                MFP_CFG_X(GPIO137, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE), // cmmb power
                 cmmb_wifi_spi_sw_gpio,
                 "cmmb_wifi_spi_sw_gpio"
             },
@@ -583,11 +583,14 @@ void __init gps_hw_config(void)
 	__raw_bits_or(BIT_10,SPRD_GREG_BASE+0x0018);
 }
 
+extern void sc8800g_pin_map_init(void);
+
 static void __init openphone_init(void)
 {
 	chip_init();
 //	ADI_init();
 	LDO_Init();
+	sc8800g_pin_map_init();
 	i2c_gpio_device_set(NULL,0);
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
