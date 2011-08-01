@@ -233,6 +233,7 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 	sc8800_i2c_message_start(i2c, msgs);
 	
 	spin_unlock_irqrestore(&i2c->lock,flags);
+
 	//timeout = wait_event_timeout(i2c->wait, i2c->msg_num == 0, 1);	//10mSec
 	//if (i2c->msg_num != 0)
 	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ * 5);
@@ -253,7 +254,6 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 	}
 
 	/* ensure the stop has been through the bus */
-
 	//msleep(5);
 
  out:    //kewang
@@ -541,9 +541,11 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 
 	/* acknowlegde the IRQ and get back on with the work */
  out_icr:
+#if 0
 	cmd=__raw_readl(i2c->membase+I2C_CMD);
 	cmd |=I2C_CMD_INT_ACK;   //clear interrupt
 	__raw_writel(cmd,i2c->membase+I2C_CMD);
+#endif
  out:	
 	spin_unlock_irqrestore(&i2c->lock,flags);
 	
@@ -561,12 +563,10 @@ static irqreturn_t sc8800_i2c_irq(unsigned int irq, void *dev_id)
 	int ret;
 	i2c = (struct sc8800_i2c *)dev_id;
 
+    sc8800_clr_irq(i2c);
+        
 	if (i2c->state == STATE_IDLE) {
 		printk( "I2c irq: error i2c->state == IDLE\n");
-		cmd=__raw_readl(i2c->membase+I2C_CMD);
-		cmd |=I2C_CMD_INT_ACK;   //clear interrupt
-		__raw_writel(cmd,i2c->membase+I2C_CMD);	
-		
 		goto out;
 	}	
 	
@@ -599,7 +599,6 @@ static irqreturn_t sc8800_i2c_irq(unsigned int irq, void *dev_id)
 	if(ret!=0)
 		printk("I2C irq:error\n");
  out:
- 	sc8800_clr_irq(i2c);
 	return IRQ_HANDLED;
 }
 
@@ -656,7 +655,6 @@ static void sc8800_i2c_init(struct sc8800_i2c *i2c)
 	__raw_writel(tmp|I2C_CTL_EN,i2c->membase+I2C_CTL); //enable i2c module
 
 	sc8800_clr_irq(i2c);  //clear i2c interrupt
-	
 }
 //#define res_len(r)		((r)->end - (r)->start + 1)
 /* sc8800_i2c_probe
