@@ -273,12 +273,12 @@ int __raw_adi_write(u32 data, u32 addr)
 EXPORT_SYMBOL_GPL(__raw_adi_write);
 
 // adi_analogdie ANA_REG_MSK_OR
-/* static void __raw_adi_and(u32 value, u32 addr)
+static void __raw_adi_and(u32 value, u32 addr)
 {
     enter_critical();
     __raw_adi_write(__raw_adi_read(addr) & value, addr);
     exit_critical();
-} */
+}
 
 static void __raw_adi_or(u32 value, u32 addr)
 {
@@ -287,6 +287,39 @@ static void __raw_adi_or(u32 value, u32 addr)
     exit_critical();
 }
 #endif
+
+static void vbc_ldo_on(bool on)
+{
+    int do_on_off = 0;
+    if (on) {
+#ifdef CONFIG_ARCH_SC8800S
+        if (!(__raw_readl(GR_LDO_CTL0) & (1 << 17))) {
+            __raw_bits_or(1 << 17, GR_LDO_CTL0); // LDO_VB_PO
+            do_on_off = 1;
+        }
+#elif defined(CONFIG_ARCH_SC8800G)
+        if (!(__raw_adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
+            __raw_adi_or(1 << 15, ANA_LDO_PD_CTL);
+            do_on_off = 1;
+        }
+#endif
+    } else {
+#ifdef CONFIG_ARCH_SC8800S
+        if ((__raw_readl(GR_LDO_CTL0) & (1 << 17))) {
+            __raw_bits_and(~(1 << 17), GR_LDO_CTL0); // LDO_VB_PO
+            do_on_off = 1;
+        }
+#elif defined(CONFIG_ARCH_SC8800G)
+        if ((__raw_adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
+            __raw_adi_and(~(1 << 15), ANA_LDO_PD_CTL);
+            do_on_off = 1;
+        }
+#endif
+    }
+    if (do_on_off) {
+        printk("+++++++++++++ audio set ldo to %s +++++++++++++\n", on ? "on" : "off");
+    }
+}
 
 static void vbc_set_mainclk_to12M(void)
 {
@@ -329,7 +362,7 @@ void vbc_write_callback(unsigned int reg, unsigned int val)
 void vbc_power_down(unsigned int value)
 {
     mutex_lock(&vbc_power_lock);
-    printk("audio %s\n", __func__);
+    // printk("audio %s\n", __func__);
     {
         int do_sb_power = 0;
         // int VBCGR1_value;
@@ -381,6 +414,7 @@ void vbc_power_down(unsigned int value)
             vbc_reg_VBPMR2_set(SB_SLEEP, 1); // SB enter sleep mode
             vbc_reg_VBPMR2_set(SB, 1); // Power down sb
             msleep(100); // avoid quick switch from power off to on
+            vbc_ldo_on(0);
             printk("....................... audio full power down .......................\n");
         }
     }
@@ -391,7 +425,8 @@ EXPORT_SYMBOL_GPL(vbc_power_down);
 void vbc_power_on(unsigned int value)
 {
     mutex_lock(&vbc_power_lock);
-    printk("audio %s\n", __func__);
+    vbc_ldo_on(1);
+    // printk("audio %s\n", __func__);
     {
         if (value == SNDRV_PCM_STREAM_PLAYBACK &&
             (vbc_reg_read(VBPMR1, SB_DAC, 1) ||
