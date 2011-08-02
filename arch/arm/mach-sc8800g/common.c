@@ -654,3 +654,17 @@ void __init sprd_charger_init(void)
 	}
 	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
 }
+
+/* because nkernel knows the size of "SDRAM_SIZE", and the high end memory
+ * will be assigned to linux normally, so we use nk_highest_addr (the highest
+ * vaddr assigned to linux) to make a guess of the SDRAM_SIZE */
+extern unsigned long nk_highest_addr;
+unsigned long get_sdram_plimit(void)
+{
+
+	if ((nk_highest_addr & ~(0xc0000000)) >= 0x8000000)
+		return 0x10000000; /* 256MB */
+	else
+		return 0x8000000;  /* 128MB */
+}
+

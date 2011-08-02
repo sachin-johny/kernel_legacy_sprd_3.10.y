@@ -71,7 +71,6 @@ static struct platform_device example_device = {
 #ifdef CONFIG_ANDROID_PMEM
 static struct android_pmem_platform_data android_pmem_pdata = {
        .name = "pmem",
-       .start = SPRD_PMEM_BASE,
        .size = SPRD_PMEM_SIZE,
        .no_allocator = 0,
        .cached = 1,
@@ -79,7 +78,6 @@ static struct android_pmem_platform_data android_pmem_pdata = {
 
 static struct android_pmem_platform_data android_pmem_adsp_pdata = {
        .name = "pmem_adsp",
-       .start = SPRD_PMEM_ADSP_BASE,
        .size = SPRD_PMEM_ADSP_SIZE,
        .no_allocator = 0,
        .cached = 1,
@@ -528,9 +526,16 @@ void __init gps_hw_config(void)
 	sprd_mfp_config(gps_pin_cfg, ARRAY_SIZE(gps_pin_cfg));
 }
 
+unsigned long sdram_plimit;
 extern void sc8800g_pin_map_init(void);
 static void __init openphone_init(void)
 {
+	sdram_plimit = get_sdram_plimit();
+#ifdef CONFIG_ANDROID_PMEM
+	android_pmem_pdata.start = SPRD_PMEM_BASE;
+	android_pmem_adsp_pdata.start = SPRD_PMEM_ADSP_BASE;
+#endif
+	pr_info("sdram_plimit: 0x%x\n", sdram_plimit);
 	chip_init();
 //	ADI_init();
 	LDO_Init();

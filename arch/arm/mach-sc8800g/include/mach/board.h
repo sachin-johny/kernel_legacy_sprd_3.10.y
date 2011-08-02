@@ -44,6 +44,8 @@ void __init sprd_charger_init(void);
  *  1M - Rotation
  *  1M - scaling
  */
+extern unsigned long sdram_plimit;
+unsigned long get_sdram_plimit(void);
 #define SPRD_PMEM_SIZE          (8*1024*1024)
 #define SPRD_PMEM_ADSP_SIZE   (8*1024*1024)//  (7*1024*1024)
 #define SPRD_ROT_MEM_SIZE       (1024*512)
@@ -51,7 +53,7 @@ void __init sprd_charger_init(void);
 #define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
                                 SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE)
 
-#define SPRD_PMEM_BASE          ((256*1024*1024)-SPRD_IO_MEM_SIZE)
+#define SPRD_PMEM_BASE          ((sdram_plimit)-SPRD_IO_MEM_SIZE)
 #define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
 #define SPRD_ROT_MEM_BASE       (SPRD_PMEM_ADSP_BASE+SPRD_PMEM_ADSP_SIZE)
 #define SPRD_SCALE_MEM_BASE     (SPRD_ROT_MEM_BASE+SPRD_ROT_MEM_SIZE)
