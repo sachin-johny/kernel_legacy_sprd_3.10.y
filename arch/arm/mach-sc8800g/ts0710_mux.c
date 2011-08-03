@@ -2728,6 +2728,9 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			if(mux_mode == 1)
 				COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "AT+SMMSWAP=0\r",
 						strlen("AT+SMMSWAP=0\r"));
+			else
+				COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "at\r",
+						   strlen("at\r"));
 			//wait for response "OK \r"
 			printk("\n cmux receive:<\n");
 			msleep(1000);
