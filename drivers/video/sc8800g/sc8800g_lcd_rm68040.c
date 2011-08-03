@@ -201,9 +201,21 @@ static int32_t rm68040_invalidate(struct lcd_spec *self)
 	LCD_PRINT("rm68040_invalidate\n");
 
 	return self->ops->lcd_set_window(self, 0, 0, 
-			self->width-1, self->height-1);
+			self->width, self->height);
 	
 }
+
+static int32_t rm68040_invalidate_rect(struct lcd_spec *self,
+				uint16_t left, uint16_t top,
+				uint16_t right, uint16_t bottom)
+{
+	LCD_PRINT("rm68040_invalidate\n");
+
+	return self->ops->lcd_set_window(self, left, top, 
+			right, bottom);
+	
+}
+
 
 static int32_t rm68040_set_direction(struct lcd_spec *self, uint16_t direction)
 {
@@ -255,12 +267,19 @@ static int32_t rm68040_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 	return 0;
 }
 
+static bool rm68040_is_invalidaterect(void)
+{
+	return true;
+}
+
 static struct lcd_operations lcd_rm68040_operations = {
 	.lcd_init = rm68040_init,
 	.lcd_set_window = rm68040_set_window,
-	.lcd_invalidate = rm68040_invalidate,
+	.lcd_invalidate = rm68040_invalidate,	
+	.lcd_invalidate_rect = rm68040_invalidate_rect,
 	.lcd_set_direction = rm68040_set_direction,
 	.lcd_enter_sleep = rm68040_enter_sleep,
+	.lcd_is_invalidaterect = rm68040_is_invalidaterect,
 };
 
 static struct timing_mcu lcd_rm68040_timing = {

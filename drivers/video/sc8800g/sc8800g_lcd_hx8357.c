@@ -298,12 +298,19 @@ static int32_t hx8357_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 	}
 	return 0;
 }
+
+static bool hx8357_is_invalidaterect(void)
+{
+	return false;
+}
+
 static struct lcd_operations lcd_hx8357_operations = {
 	.lcd_init = hx8357_init,
 	.lcd_set_window = hx8357_set_window,
 	.lcd_invalidate = hx8357_invalidate,
 	.lcd_set_direction = hx8357_set_direction,
 	.lcd_enter_sleep = hx8357_enter_sleep,
+	.lcd_is_invalidaterect = hx8357_is_invalidaterect,
 };
 
 static struct timing_mcu lcd_hx8357_timing = {

@@ -262,12 +262,18 @@ static int32_t r61581_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 	return 0;
 }
 
+static bool r65181_is_invalidaterect(void)
+{
+	return false;
+}
+
 static struct lcd_operations lcd_r61581_operations = {
 	.lcd_init = r61581_init,
 	.lcd_set_window = r61581_set_window,
 	.lcd_invalidate = r61581_invalidate,
 	.lcd_set_direction = r61581_set_direction,
 	.lcd_enter_sleep = r61581_enter_sleep,
+	.lcd_is_invalidaterect = r65181_is_invalidaterect,
 };
 
 static struct timing_mcu lcd_r61581_timing = {

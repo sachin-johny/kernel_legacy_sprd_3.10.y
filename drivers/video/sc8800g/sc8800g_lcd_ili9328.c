@@ -210,11 +210,17 @@ static int32_t ili9328_set_direction(struct lcd_spec *self, uint16_t direction)
 	return 0;
 }
 
+static bool ili9328_is_invalidaterect(void)
+{
+	return false;
+}
+
 static struct lcd_operations lcd_ili9328_operations = {
 	.lcd_init = ili9328_init,
 	.lcd_set_window = ili9328_set_window,
 	.lcd_invalidate = ili9328_invalidate,
 	.lcd_set_direction = ili9328_set_direction,
+	.lcd_is_invalidaterect = ili9328_is_invalidaterect,
 };
 
 static struct timing_mcu lcd_ili9328_timing = {

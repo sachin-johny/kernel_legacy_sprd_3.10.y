@@ -60,6 +60,7 @@ struct lcd_operations {
 				uint16_t right, uint16_t bottom,
 				uint16_t angle);
 	int32_t (*lcd_set_direction)(struct lcd_spec *self, uint16_t direction);
+	bool (*lcd_is_invalidaterect)(void);
 };
 
 /* RGB LCD specific properties */

@@ -347,11 +347,23 @@ static void real_set_layer(void *data)
 {
 	struct fb_info *info = (struct fb_info *)data;
 	uint32_t reg_val;
+	uint32_t x,y;
 
 	/* image layer base */
 	reg_val = (info->var.yoffset == 0)?info->fix.smem_start:
 		(info->fix.smem_start+ info->fix.smem_len/2);
 	reg_val = (reg_val>>2) & 0x3fffffff;
+
+	//this is for further Optimization
+	if(info->var.reserved[0] == 0x6f766572)
+	{	
+		x = info->var.reserved[1] & 0xfffe;//make align
+		y = info->var.reserved[1] >>16;
+
+		reg_val += (x+y*info->var.xres)>>1;
+	}
+	//this is for further Optimization
+	
 	__raw_writel(reg_val, LCDC_OSD1_BASE_ADDR);
 }
 
@@ -360,22 +372,63 @@ static void real_refresh(void *para)
 	struct sc8800fb_info *sc8800fb = (struct sc8800fb_info *)para;
 	uint32_t reg_val;
 	struct fb_info *info = sc8800fb->fb;
+	uint16_t left,top,width,height;
 
-	sc8800fb->panel->ops->lcd_invalidate(sc8800fb->panel);
+	if(info->var.reserved[0] == 0x6f766572)
+	{	
+		info->var.reserved[2] = (info->var.reserved[2] + ( info->var.reserved[1] & 1) +1) & 0xfffffffe;//make align
+		info->var.reserved[1] &= 0xfffffffe;//make align
 
-	reg_val = info->var.xres * info->var.yres;
+		//never use for more further Optimization
+		//__raw_writel(info->var.reserved[1], LCDC_LCM_START);	
+		__raw_writel(info->var.reserved[2], LCDC_LCM_SIZE);
+
+		//this is for further Optimization
+		//never use for more further Optimization
+		//__raw_writel(info->var.reserved[1], LCDC_OSD1_DISP_XY);	
+		__raw_writel(info->var.reserved[2], LCDC_OSD1_SIZE_XY);
+		//this is for further Optimization
+
+		//this is for more further Optimization
+		__raw_writel(info->var.reserved[2], LCDC_DISP_SIZE);
+		//this is for more further Optimization
+		
+		left = info->var.reserved[1] & 0xffff;
+		top = info->var.reserved[1] >>16;
+		width = info->var.reserved[2] & 0xffff;
+		height = info->var.reserved[2] >>16;
+
+		sc8800fb->panel->ops->lcd_invalidate_rect(sc8800fb->panel,left,top,left+width-1,top+height-1);
+	}
+	else
+	{
+		left = 0;
+		top = 0;
+		width = info->var.xres;
+		height = info->var.yres;
+		sc8800fb->panel->ops->lcd_invalidate(sc8800fb->panel);
+	}
+
+	reg_val = width * height;
 	reg_val |= (1<<20); /* for device 0 */
 	reg_val &=~ ((1<<26)|(1<<27) | (1<<28)); /* FIXME: hardcoded cs 1 */
 	__raw_writel(reg_val, LCM_CTRL);
-
 	__raw_bits_or((1<<3), LCDC_CTRL); /* start refresh */
+}
+
+static void real_display_callback(void * data)
+{
+	uint32_t reg_val;
+	struct fb_info* info  = (struct fb_info*)data;
+	//this is for more further Optimization
+	reg_val = ( info->var.xres & 0x3ff) | (( info->var.yres & 0x3ff )<<16);
+	__raw_writel(reg_val, LCDC_DISP_SIZE);
+	//this is for more further Optimization
 }
 
 static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	struct sc8800fb_info *sc8800fb = info->par;
-
-	rrm_refresh(LID_OSD1, NULL, info);
+	rrm_refresh(LID_OSD1, real_display_callback, info);
 
 	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
 	FB_PRINT("@fool2[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_SIZE));
@@ -425,6 +478,14 @@ static void setup_fb_info(struct sc8800fb_info *sc8800fb)
 	fb->fix.type = FB_TYPE_PACKED_PIXELS;
 	fb->fix.visual = FB_VISUAL_TRUECOLOR;
 	fb->fix.line_length = sc8800fb->panel->width * 16/8;
+	if(sc8800fb->panel->ops->lcd_is_invalidaterect != 0)
+	{
+		if(sc8800fb->panel->ops->lcd_is_invalidaterect())
+		{
+			fb->fix.reserved[0] = 0x6f76;
+			fb->fix.reserved[1] = 0x6572;
+		}
+	}
 
 	fb->var.xres = sc8800fb->panel->width;
 	fb->var.yres = sc8800fb->panel->height;
@@ -583,7 +644,7 @@ static inline int set_lcdsize( struct fb_info *info)
 	uint32_t reg_val;
 	
 	//reg_val = ( info->var.xres & 0x3ff) | (( info->var.yres & 0x3ff )<<16);
-	reg_val = ( 640 & 0x3ff) | (( 640 & 0x3ff )<<16);
+	reg_val = ( info->var.xres & 0x3ff) | (( info->var.yres & 0x3ff )<<16);
 	__raw_writel(reg_val, LCDC_DISP_SIZE);
 	
 	FB_PRINT("@fool2[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_SIZE));
