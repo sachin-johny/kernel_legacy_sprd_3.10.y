@@ -267,7 +267,7 @@ static ssize_t sprd_set_caliberate(struct device *dev,
     case BATTERY_1:
         adc_voltage_table[1][1]=set_value&0xffff;
         adc_voltage_table[1][0]=(set_value>>16)&0xffff;
-        CHGMNG_VoltageToPercentum(0, 0, 0);
+        CHGMNG_VoltageToPercentum(0, 0, 1);
         break;
     default:
         count = -EINVAL;
