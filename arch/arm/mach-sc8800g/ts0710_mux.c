@@ -3532,7 +3532,7 @@ static int mux_proc_read(char *page, char **start, off_t off, int count,
 		*eof=1;
 		return 0;
 	}
-	len = sprintf(page, "%d", mux_mode);
+	len = sprintf(page, "%d\n", mux_mode);
 	return len;
 }
 
