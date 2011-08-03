@@ -283,6 +283,8 @@ static DECLARE_DELAYED_WORK(mux_post_receive_work, post_recv_worker);
 static struct tty_struct **mux_table;
 static volatile short int mux_tty[NR_MUXS];
 
+static int mux_mode = 0;
+
 #ifdef min
 #undef min
 #define min(a,b)    ( (a)<(b) ? (a):(b) )
@@ -2723,8 +2725,9 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			int i = 0;
 			memset(buffer, 0, 256);
 			mux_ringbuffer_flush(&rbuf);   //kewang
-			COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "at\r",
-						   strlen("at\r"));
+			if(mux_mode == 1)
+				COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "AT+SMMSWAP=0\r",
+						strlen("AT+SMMSWAP=0\r"));
 			//wait for response "OK \r"
 			printk("\n cmux receive:<\n");
 			msleep(1000);
@@ -3518,8 +3521,52 @@ static void send_worker(struct work_struct *private_)
 		}
 	}			/* End for() loop */
 }
+static int mux_proc_read(char *page, char **start, off_t off, int count, 
+	int *eof, void *data)
+{
+	int len;
+	if(off >0){
+		*eof=1;
+		return 0;
+	}
+	len = sprintf(page, "%d", mux_mode);
+	return len;
+}
 
+static int mux_proc_write(struct file *filp, const char __user *buf, 
+	unsigned long len, void *data)
+{
+	char mux_buf[len+1];
+	int val;
 
+	memset(mux_buf, 0, len+1);
+	if(len > 0) {
+		if (copy_from_user(mux_buf, buf, len))
+			return -EFAULT;
+		val = simple_strtoul(mux_buf, NULL, 10);
+		mux_mode = val;	
+	}
+	return len;
+}
+
+static int mux_create_proc(void)
+{
+	struct proc_dir_entry *mux_entry;
+
+	mux_entry = create_proc_entry("mux_mode", 0666, NULL);  //creat /proc/mux_mode
+	if (!mux_entry) {
+		printk(KERN_INFO"Can not create mux proc entry\n");
+		return -ENOMEM;
+	}
+	mux_entry->read_proc = mux_proc_read;
+	mux_entry->write_proc = mux_proc_write;
+	return 0;
+}
+
+static void mux_remove_proc(void)
+{
+	remove_proc_entry("mux_mode", NULL);  //remove /proc/mux_mode
+}
 
 static const struct tty_operations tty_ops = {
 	.open = mux_open,
@@ -3605,6 +3652,8 @@ static int __init mux_init(void)
 	COMM_MUX_DISPATCHER = mux_dispatcher;
 	COMM_MUX_SENDER = mux_sender;
 
+	if(mux_create_proc())
+		printk("create mux proc interface failed!\n");
 
 	return 0;
 }
@@ -3642,6 +3691,8 @@ static void __exit mux_exit(void)
 
 	if (tty_unregister_driver(&mux_driver))
 		panic("Couldn't unregister mux driver");
+
+	mux_remove_proc();
 }
 
 module_init(mux_init);
