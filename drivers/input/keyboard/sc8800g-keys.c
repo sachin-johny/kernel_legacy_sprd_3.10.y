@@ -111,6 +111,8 @@
 
 #define KPD_ROW_MIN_NUM         4  /* when config keypad type, the value of */
 #define KPD_COL_MIN_NUM         3  /* when config keypad type, the value of */
+#define KPD_ROW_MAX_NUM         8  /* when config keypad type, the value of */
+#define KPD_COL_MAX_NUM         8  /* when config keypad type, the value of */
 
 #define KPDCTL_ROW              (0xf << 16)  /* enable bit for rows(row4 --- row7) */
 #define KPDCTL_COL              (0x1f << 20)  /* enable bit for cols(col3 --- col4) */
@@ -929,6 +931,25 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	mdelay(10);
 	REG_GR_SOFT_RST &= ~0x2;
 
+
+	//add by overlord .we should check when set cols & rows because custom maybe do sth wrong
+	if(unlikely( pdata->cols < KPD_COL_MIN_NUM))
+	{
+		pdata->cols = KPD_COL_MIN_NUM;
+	}
+	else if(unlikely(pdata->cols > KPD_COL_MAX_NUM))
+	{
+		pdata->cols = KPD_COL_MAX_NUM;
+	}
+	if(unlikely(pdata->rows < KPD_ROW_MIN_NUM))
+	{
+		pdata->rows = KPD_ROW_MIN_NUM;
+	}
+	else if(unlikely(pdata->rows > KPD_ROW_MAX_NUM))
+	{
+		pdata->rows = KPD_ROW_MAX_NUM;
+	}
+	//add by overlord .we should check when set cols & rows because custom maybe do sth wrong
 	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20) | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) << 16)) & (KPDCTL_ROW | KPDCTL_COL));
 
 	REG_KPD_CTRL = 0x6 | key_type;
