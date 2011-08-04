@@ -77,7 +77,8 @@ enum sc8800_i2c_state {
 	STATE_START,
 	STATE_READ,
 	STATE_WRITE,
-	STATE_STOP
+	STATE_STOP,
+	STATE_ADDR_BYTE2
 };
 struct sc8800_i2c {
 	spinlock_t		lock;
@@ -159,41 +160,50 @@ static inline void sc8800_i2c_enable_irq(struct sc8800_i2c *i2c)
 
 static void sc8800_i2c_message_start(struct sc8800_i2c *i2c, struct i2c_msg *msg)
 {
-    unsigned int cmd;
-    uint16_t addr;
+	unsigned int cmd;
+	uint16_t addr;
+	
+	switch ((msg->addr & 0xC000) >> 14){
+		case PIN_SIM_CONFIG:
+		    __raw_bits_and(~(BIT_4 | BIT_3),SPRD_GREG_BASE+0x0028);
+		    break;
+		case PIN_LCD_CONFIG:
+		    __raw_bits_or(BIT_3,SPRD_GREG_BASE+0x0028);
+		    __raw_bits_and(~BIT_4,SPRD_GREG_BASE+0x0028);
+		    break;
+		case PIN_IIC_CONFIG1:
+		    __raw_bits_or(BIT_4,SPRD_GREG_BASE+0x0028);
+		    __raw_bits_and(~BIT_3,SPRD_GREG_BASE+0x0028);
+		    break;
+		case PIN_IIC_CONFIG2:
+		    __raw_bits_or(BIT_3|BIT_4,SPRD_GREG_BASE+0x0028);
+		    break;
+		default:
+		    printk("i2c pad switch error!!!");
+		    break;
+	}
+	
+	if (msg->flags & I2C_M_TEN) {
+		addr = 0xf0 | (((msg->addr >> 8) & 0x03)<<1);
+		cmd=addr;
 
-    addr = msg->addr;
-
-    switch ((addr & 0xC000) >> 14){
-        case PIN_SIM_CONFIG:
-            //also need config ldo fix me!!!!
-            __raw_bits_and(~(BIT_4 | BIT_3),SPRD_GREG_BASE+0x0028);
-            break;
-        case PIN_LCD_CONFIG:
-            __raw_bits_or(BIT_3,SPRD_GREG_BASE+0x0028);
-            __raw_bits_and(~BIT_4,SPRD_GREG_BASE+0x0028);
-            break;
-        case PIN_IIC_CONFIG1:
-            __raw_bits_or(BIT_4,SPRD_GREG_BASE+0x0028);
-            __raw_bits_and(~BIT_3,SPRD_GREG_BASE+0x0028);
-            break;
-        case PIN_IIC_CONFIG2:
-            __raw_bits_or(BIT_3|BIT_4,SPRD_GREG_BASE+0x0028);
-            break;
-        default:
-            printk("i2c pad switch error!!!");
-            break;
-    }
-    cmd = __raw_readl(SPRD_GREG_BASE+0x0028);
-
-    cmd = (msg->addr & 0x7f) << 1;
+		if (msg->flags & I2C_M_RD){
+			i2c->state = STATE_START;
+		}
+		else{
+			i2c->state = STATE_ADDR_BYTE2;
+		}
+	}
+	else
+	{
+	    cmd = (msg->addr & 0x7f) << 1;
+	}
 
 	if (msg->flags & I2C_M_RD) 
 		cmd |= 0x1;
     
 	cmd=(cmd<<8) | I2C_CMD_START | I2C_CMD_WRITE;
 	__raw_writel(cmd, i2c->membase + I2C_CMD);
-	ndelay(50);
 }
 /* sc8800_i2c_doxfer
  *
@@ -395,7 +405,12 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 		printk( "sc8800_i2c_irq_nextbyte error: called in STATE_STOP\n");		
 		sc8800_i2c_disable_irq(i2c);		
 		goto out_icr;
-
+	case STATE_ADDR_BYTE2:
+		cmd =((i2c->msg->addr & 0xff)<<8) | I2C_CMD_WRITE;
+		//printk("i2c w second addr----=0x%x\n",cmd);
+		__raw_writel(cmd,i2c->membase+I2C_CMD);
+		i2c->state = STATE_START;
+		break;
 	case STATE_START:
 		/* last thing we did was send a start condition on the
 		 * bus, or started a new i2c message
@@ -457,8 +472,6 @@ static int sc8800_i2c_irq_nextbyte(struct sc8800_i2c *i2c,unsigned int cmd_reg)
 			 * data to the register causes the first bit
 			 * to appear on SDA, and SCL will change as
 			 * soon as the interrupt is acknowledged */
-
-			ndelay(50);
 
 		} else if (!is_lastmsg(i2c)) {
 			/* we need to go to the next i2c message */
@@ -625,15 +638,6 @@ static void sc8800_i2c_init(struct sc8800_i2c *i2c)
 {
 	unsigned int tmp;
 	struct sc8800_platform_i2c *pdata;
-	
-//     __raw_bits_or(BIT_3,SPRD_GREG_BASE+0x0028);
-//     __raw_bits_and(~BIT_4,SPRD_GREG_BASE+0x0028);
-             	
-     __raw_bits_or(BIT_4,SPRD_CPC_BASE+0x0304);
-     __raw_bits_and(~BIT_5,SPRD_CPC_BASE+0x0304);
-
-     __raw_bits_or(BIT_4,SPRD_CPC_BASE+0x0308);
-     __raw_bits_and(~BIT_5,SPRD_CPC_BASE+0x0308);
 
 	tmp=__raw_readl(SPRD_GREG_BASE+0x0008); //global reg:i2c_en
 	tmp|=(0x1<<4);

@@ -203,8 +203,8 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_LCD_D13_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D14_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D15_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_LCD_D16_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF   | PIN_SPX_EN | PIN_Z_EN ) },    // i2c SCL, port 2 (logic id = 1)
-    {PIN_LCD_D17_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF   | PIN_SPX_EN | PIN_Z_EN ) },    // i2c SDA
+    {PIN_LCD_D16_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 
+    {PIN_LCD_D17_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 
     {PIN_LCD_FMARK_REG,  ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180    
     {PIN_CCIRMCLK_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRCK_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 

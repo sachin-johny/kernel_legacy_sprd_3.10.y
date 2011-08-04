@@ -209,8 +209,8 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_LCD_D13_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D14_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D15_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_LCD_D16_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   GPIO63 FM SCL
-    {PIN_LCD_D17_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   GPIO64 FM SDA
+    {PIN_LCD_D16_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   
+    {PIN_LCD_D17_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   
     {PIN_LCD_FMARK_REG,  ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180   NC 
     {PIN_CCIRMCLK_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRCK_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
