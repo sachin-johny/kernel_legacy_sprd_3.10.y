@@ -485,6 +485,11 @@ void vbc_power_on(unsigned int value)
 }
 EXPORT_SYMBOL_GPL(vbc_power_on);
 
+static inline int mode_incall(void)
+{
+    return !(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC);
+}
+
 static int vbc_reset(struct snd_soc_codec *codec)
 {
     // 1. dial phone number
@@ -501,7 +506,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
     {
         // vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
         // fix above problem
-        while (!(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC)) {
+        while (mode_incall()) {
             printk("vbc waiting DSP release audio codec ......\n");
             msleep(100);
         }
@@ -626,7 +631,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             }
             return value;
         case VBC_CODEC_DSP:
-            return !(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC);
+            return mode_incall();
         case VBC_CODEC_SPEAKER_PA:
             if (dir) {
                 vbc_amplifier_enable(value & 0x01, "vbc_soft_ctrl2");
@@ -1005,6 +1010,33 @@ inline int vbc_amplifier_enabled(void)
 }
 EXPORT_SYMBOL_GPL(vbc_amplifier_enabled);
 
+ssize_t modem_status_show(struct class *class, char *buf);
+ssize_t modem_status_store(struct class *class, const char *buf, size_t count);
+static struct class_attribute modem_class_attrs[] = { // drivers/gpio/gpiolib.c
+	__ATTR(status, 0766, modem_status_show, modem_status_store),
+	// __ATTR(unexport, 0200, NULL, unexport_store),
+	__ATTR_NULL,
+};
+
+struct class modem_class = {
+    .name           = "modem",
+    .owner          = THIS_MODULE,
+    .class_attrs    = modem_class_attrs,
+};
+
+ssize_t modem_status_show(struct class *class, char *buf)
+{
+    char *base = buf;
+    buf += sprintf(buf, "incall:");
+    buf += sprintf(buf, "%d\n", mode_incall());
+    return buf - base;
+}
+
+ssize_t modem_status_store(struct class *class, const char *buf, size_t count)
+{
+    return count;
+}
+
 #define VBC_PCM_RATES (SNDRV_PCM_RATE_8000  |	\
 			  SNDRV_PCM_RATE_11025 |	\
 			  SNDRV_PCM_RATE_16000 |	\
@@ -1086,6 +1118,7 @@ static int vbc_probe(struct platform_device *pdev)
 		goto card_err;
     android_pm_init();
     android_sprd_pm_init();
+    class_register(&modem_class);
 	return 0;
 
 card_err:
@@ -1104,6 +1137,7 @@ static int vbc_remove(struct platform_device *pdev)
 
 	if (codec == NULL)
 		return 0;
+    class_unregister(&modem_class);
 #if POWER_OFF_ON_STANDBY
     vbc_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 	vbc_set_bias_level(codec, SND_SOC_BIAS_OFF);
