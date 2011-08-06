@@ -655,7 +655,10 @@ static int stream_next_buffer(struct videobuf_queue *q,
 		goto done;
 
 	buf = list_entry(q->stream.next, struct videobuf_buffer, stream);
+	//wxz20110806: add the unlock and lock function. Because the QBUF need the lock when the waiton.
+	mutex_unlock(&q->vb_lock);
 	retval = videobuf_waiton(buf, nonblocking, 1);
+	mutex_lock(&q->vb_lock);
 	if (retval < 0)
 		goto done;
 
