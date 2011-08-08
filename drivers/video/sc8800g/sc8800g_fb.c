@@ -421,7 +421,7 @@ static void real_display_callback(void * data)
 	uint32_t reg_val;
 	struct fb_info* info  = (struct fb_info*)data;
 	//this is for more further Optimization
-	reg_val = ( info->var.xres & 0x3ff) | (( info->var.yres & 0x3ff )<<16);
+	reg_val = ( 640 & 0x3ff) | (( 640 & 0x3ff )<<16);
 	__raw_writel(reg_val, LCDC_DISP_SIZE);
 	//this is for more further Optimization
 }
@@ -644,7 +644,7 @@ static inline int set_lcdsize( struct fb_info *info)
 	uint32_t reg_val;
 	
 	//reg_val = ( info->var.xres & 0x3ff) | (( info->var.yres & 0x3ff )<<16);
-	reg_val = ( info->var.xres & 0x3ff) | (( info->var.yres & 0x3ff )<<16);
+	reg_val = ( 640 & 0x3ff) | (( 640 & 0x3ff )<<16);
 	__raw_writel(reg_val, LCDC_DISP_SIZE);
 	
 	FB_PRINT("@fool2[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_SIZE));
