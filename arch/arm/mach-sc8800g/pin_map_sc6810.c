@@ -69,7 +69,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_KEYOUT2_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
     {PIN_KEYOUT3_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
     {PIN_KEYOUT4_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
-    {PIN_KEYOUT5_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_I_EN ) },    // 0x100  NC 
+    {PIN_KEYOUT5_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x100  GPIO KEY 
     {PIN_KEYOUT6_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_O_EN ) },    // 0x100  TP RESET  
     {PIN_KEYOUT7_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x100  TP INT
     {PIN_KEYIN0_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
@@ -77,7 +77,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_KEYIN2_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
     {PIN_KEYIN3_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
     {PIN_KEYIN4_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x180   KEY IN 
-    {PIN_KEYIN5_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC  
+    {PIN_KEYIN5_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  GPIO KEY
     {PIN_KEYIN6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC
     {PIN_KEYIN7_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_I_EN ) },    // 0x180  NC 
     {PIN_SPI_DI_REG,     ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x18A  NC    wangfuqiang CMMB/WIFI SPI

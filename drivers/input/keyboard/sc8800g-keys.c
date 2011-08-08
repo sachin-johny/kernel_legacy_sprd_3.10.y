@@ -67,23 +67,7 @@
 #define REG_INT_EN              (*((volatile unsigned int *)INT_EN))
 #define REG_INT_DIS          	(*((volatile unsigned int *)INT_DIS))
 
-#define PIN_KEYOUT0_REG					(SPRD_CPC_BASE + 0x00C0)
-#define PIN_KEYOUT1_REG					(SPRD_CPC_BASE + 0x00C4)
-#define PIN_KEYOUT2_REG					(SPRD_CPC_BASE + 0x00C8)
-#define PIN_KEYOUT3_REG					(SPRD_CPC_BASE + 0x00CC)
-#define PIN_KEYOUT4_REG					(SPRD_CPC_BASE + 0x00D0)
-#define PIN_KEYOUT5_REG					(SPRD_CPC_BASE + 0x00D4)
-#define PIN_KEYOUT6_REG					(SPRD_CPC_BASE + 0x00D8)
-#define PIN_KEYOUT7_REG					(SPRD_CPC_BASE + 0x00DC)
 
-#define PIN_KEYIN0_REG					(SPRD_CPC_BASE + 0x00E0)
-#define PIN_KEYIN1_REG					(SPRD_CPC_BASE + 0x00E4)
-#define PIN_KEYIN2_REG					(SPRD_CPC_BASE + 0x00E8)
-#define PIN_KEYIN3_REG					(SPRD_CPC_BASE + 0x00EC)
-#define PIN_KEYIN4_REG					(SPRD_CPC_BASE + 0x00F0)
-#define PIN_KEYIN5_REG					(SPRD_CPC_BASE + 0x00F4)
-#define PIN_KEYIN6_REG					(SPRD_CPC_BASE + 0x00F8)
-#define PIN_KEYIN7_REG					(SPRD_CPC_BASE + 0x00FC)
 
 #define REG_PIN_CTL_REG          	(*((volatile unsigned int *)PIN_CTL_REG))
 
@@ -105,8 +89,6 @@
 #define REG_PIN_KEYIN6_REG          	(*((volatile unsigned int *)PIN_KEYIN6_REG))
 #define REG_PIN_KEYIN7_REG          	(*((volatile unsigned int *)PIN_KEYIN7_REG))
 
-
-#define GR_GEN0                 (SPRD_GREG_BASE + 0x0008)
 #define REG_GR_GEN0             (*((volatile unsigned int *)GR_GEN0))
 
 #define KPD_ROW_MIN_NUM         4  /* when config keypad type, the value of */
@@ -346,61 +328,6 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .coldrive_time          = 1000, /* ns (1ms) */
         .keyup_test_interval    = 50, /* 50 ms (50ms) */
 };
-
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
-static unsigned long keypad_func_cfg[] = { 
-	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT2, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT3, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT4, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT5, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT6, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT7, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYIN0,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN1,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN2,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN3,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN4,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN5,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN6,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN7,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-};
-#elif defined(CONFIG_MACH_SP6810A)
-static unsigned long keypad_func_cfg[] = {
-	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT2, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT3, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT4, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT5, AF3, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN0,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN1,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN2,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN3,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN4,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN5,  AF3, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_ANA_CFG_X(PBINT, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE),
-};
-#elif defined(CONFIG_MACH_SP8805GA)
-static unsigned long keypad_func_cfg[] = {
-	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT2, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT3, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYOUT4, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
-	MFP_CFG_X(KEYIN0,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN1,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN2,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN3,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-	MFP_CFG_X(KEYIN4,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_IE),
-};
-#endif
-
-static void sprd_config_keypad_pins(void)
-{
-	sprd_mfp_config(keypad_func_cfg, ARRAY_SIZE(keypad_func_cfg));
-}
 
 struct sprd_kpad_t {
         struct input_dev *input;
@@ -746,7 +673,7 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 #if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
 static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 {
-    int ret, gpio;
+    	int ret, gpio;
 	unsigned short  key_code = 0;
 	kpd_key_t *key_ptr = NULL;
 	unsigned long found = 0, status; 
@@ -955,7 +882,6 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	REG_KPD_CTRL = 0x6 | key_type;
         REG_INT_DIS = (1 << IRQ_KPD_INT);
         REG_GR_GEN0 |= BIT_8 | BIT_26;
-        sprd_config_keypad_pins();
         REG_KPD_INT_CLR = KPD_INT_ALL;
         REG_KPD_POLARITY = CFG_ROW_POLARITY | CFG_COL_POLARITY;
         REG_KPD_CLK_DIV_CNT = CFG_CLK_DIV & KPDCLK0_CLK_DIV0;
