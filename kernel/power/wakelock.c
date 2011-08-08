@@ -308,8 +308,12 @@ long has_wake_lock_for_suspend(int type)
 		if (lock == &unknown_wakeup) has_unknown_wakelock = 1;
 	}
 	spin_unlock_irqrestore(&list_lock, irqflags);
+	/*
 	if (0 == active_lock_num) ret = 0;
 	else	if (has_unknown_wakelock && (1 == active_lock_num)) ret = 0;
+	*/
+	if (has_unknown_wakelock && (1 == active_lock_num)) ret = 0;
+
 	return ret;
 }
 

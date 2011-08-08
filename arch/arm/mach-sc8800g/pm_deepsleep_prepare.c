@@ -1432,8 +1432,6 @@ static void nkidle(void)
 	int val;
 	u32 t0, t1, delta;
 
-	add_pm_message(get_sys_cnt(), "nkidle: 1111--enter.", 0, 0, 0);
-
 	if (!need_resched()) {
 		hw_local_irq_disable();
 		if (!raw_local_irq_pending()) {
@@ -1442,7 +1440,6 @@ static void nkidle(void)
 				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND) && 
 					(!sprd_pm_suspend_canceled())) {
 					sc8800g_enter_deepsleep(1);
-					sprd_pm_resume_check();
 				}
 				else {
 				    idle_loops++;
@@ -1458,9 +1455,7 @@ static void nkidle(void)
 		hw_local_irq_enable();
 	}
 	local_irq_enable();
-	add_pm_message(get_sys_cnt(), "nkidle: 1111--leave.", 0, 0, 0);
 }
-
 
 void nkidle_original(void)
 {
