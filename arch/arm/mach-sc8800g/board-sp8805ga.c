@@ -128,8 +128,8 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
 #include <mach/irqs.h>
 #include <mach/mfp.h>
 
-#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL      20 * 1000 * 1000
-#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH        20 * 1000 * 1000
+#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL      24 * 1000 * 1000
+#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH        24 * 1000 * 1000
 
 #define SPRD_3RDPARTY_SPI_MASTER_BUS_NUM    0
 #define SPRD_3RDPARTY_SPI_MASTER_CS0_GPIO   32
