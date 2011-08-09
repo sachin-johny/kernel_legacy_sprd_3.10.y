@@ -107,7 +107,7 @@
 #define TB_KPD_INVALID_KEY      (0x0FFFF)
 
 #define CHECK_TIMER_EXPIRE      (15)//ms
-#define AVOID_QUIVER_MIN_COUNT  (2)
+#define AVOID_QUIVER_MIN_COUNT  (1)
 
 /* check if this key is the same as the previous one */
 #define IS_KEY_VALID(_key)      ((_key == key_ptr->key_code) ? 1 : 0)
@@ -516,10 +516,11 @@ unsigned long handle_key(unsigned short key_code, kpd_key_t *key_ptr)
 	case TB_KPD_RELEASED:
         	/* check if it is the first INT of a key */
         	if (key_ptr->count == 0) {
-            		/* Always discard the first key val */
-           		key_ptr->key_code   = TB_KPD_INVALID_KEY;
-            		/* Add count of INT to avoid dead loop */
+			key_ptr->key_code = key_code;
+			key_ptr->time_stamp = jiffies;
             		key_ptr->count ++;
+                    	key_ptr->count ++;
+                        change_state(key_ptr);
         	} else { //if (key_ptr->count == 0)
             		/* Check if this key is the same as the previous key, if same, handle it, else ignore the previous key */
             		if (IS_KEY_VALID(key_code)) {
@@ -680,11 +681,10 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	unsigned long s_int_status;
 	unsigned long s_key_status;
 	
-    	msleep(20);
+    	//msleep(20);
 	gpio = irq_to_gpio(irq);
 	
 	//printk("%s %d  gpio = %d\n", __FUNCTION__, __LINE__, gpio);
-
 	if (gpio == HOME_KEY_GPIO) {
 		ret = gpio_get_value(gpio);
 		if (ret) {
@@ -738,6 +738,7 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	    			handle_key(key_code, key_ptr);	    	
 	    			found = 1;
     			}
+			
 	   		if (!found) {
 				/* the key_code is fresh, try to find a seat other than exceed the seat limit */
 				key_ptr = &s_key[MAX_MUL_KEY_NUM + 1];
@@ -770,6 +771,7 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	    			handle_key(key_code, key_ptr);	    	
 	    			found = 1;
     			}
+
 	   		if (!found) {
 				/* the key_code is fresh, try to find a seat other than exceed the seat limit */
 				key_ptr = &s_key[MAX_MUL_KEY_NUM + 2];
