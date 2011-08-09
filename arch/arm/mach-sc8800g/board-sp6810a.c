@@ -215,7 +215,7 @@ static struct platform_device sprd_spi_controller_device = {
 #define GPIO_OUTPUT_DEFAUT_VALUE_HIGH   (1 << 31)
 #define GPIO_DIRECTION_OUTPUT  (1 << 30)
 #define GPIO_DIRECTION_INPUT  (1 << 29)
-
+#define GPIO_INDEX_MAX		(0xffff)
 
 /* move configuration code into pin map file. */
 #define GPIO_DESC_MFP_OBSOLETE 0x0
@@ -440,7 +440,7 @@ static void sprd_spi_init(void)
         /*
         sprd_mfp_config(&gd->mfp, 1);
         */
-        gpio = gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH;
+        gpio = (gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH) & GPIO_INDEX_MAX;
         value = !!(gd->io & GPIO_OUTPUT_DEFAUT_VALUE_HIGH);
         if (gpio_request(gpio, gd->desc))
             printk(KERN_WARNING "%s : [%s] gpio %d request failed!\n", __func__, gd->desc, gpio);
