@@ -299,6 +299,7 @@ static void vbc_ldo_on(bool on)
         }
 #elif defined(CONFIG_ARCH_SC8800G)
         if (!(__raw_adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
+            __raw_adi_and(~(1 << 14), ANA_LDO_PD_CTL);
             __raw_adi_or(1 << 15, ANA_LDO_PD_CTL);
             do_on_off = 1;
         }
@@ -312,6 +313,7 @@ static void vbc_ldo_on(bool on)
 #elif defined(CONFIG_ARCH_SC8800G)
         if ((__raw_adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
             __raw_adi_and(~(1 << 15), ANA_LDO_PD_CTL);
+            __raw_adi_or((1 << 14), ANA_LDO_PD_CTL);
             do_on_off = 1;
         }
 #endif
@@ -966,6 +968,7 @@ static inline void local_amplifier_init(void)
 
 static inline void local_amplifier_enable(int enable)
 {
+    local_cpu_pa_control(enable);
     gpio_direction_output(speaker_gpio, !!enable);
 }
 
