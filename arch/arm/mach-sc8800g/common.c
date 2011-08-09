@@ -598,7 +598,7 @@ void __init sprd_gadget_init(void)
 
 	platform_device_register(&androidusb_device);
 }
-static unsigned long dcam_func_cfg[] __initdata = {	
+/*static unsigned long dcam_func_cfg[] __initdata = {	
 	MFP_CFG_X(CCIRMCLK, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRCK, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRHS, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
@@ -619,13 +619,13 @@ static void sprd_config_dcam_pins(void)
 {
 	sprd_mfp_config(dcam_func_cfg, ARRAY_SIZE(dcam_func_cfg));
 	
-}
+}*/
 void __init sprd_add_dcam_device(void)
 {
 	// Enable DCAM Module 
 	__raw_bits_or(BIT_26, AHB_CTL0);//wxz: H5:0x20900200[26]
 
-	sprd_config_dcam_pins();
+	//sprd_config_dcam_pins();
 	platform_device_register(&sprd_dcam_device);
 }
 static unsigned long charger_detect_cfg =

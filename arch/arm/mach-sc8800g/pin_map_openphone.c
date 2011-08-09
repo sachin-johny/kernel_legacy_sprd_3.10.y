@@ -219,8 +219,10 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_CCIRD6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRD7_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRRST_REG ,   ( PIN_O_EN | PIN_SPX_EN | PIN_FUNC_3   | PIN_FPD_EN | PIN_DS_0) },    //  CAMERA_Reset
-    {PIN_CCIRPD1_REG,    ( PIN_O_EN | PIN_SPX_EN | PIN_FUNC_3   | PIN_FPD_EN | PIN_DS_0) },    // 0x100    CAMERA PD
-    {PIN_CCIRPD0_REG,    ( PIN_O_EN | PIN_SPX_EN | PIN_FUNC_3   | PIN_FPD_EN | PIN_DS_0) },    // 0x100    CAMERA PD
+    //{PIN_CCIRPD1_REG,    ( PIN_O_EN | PIN_SPX_EN | PIN_FUNC_3   | PIN_FPD_EN | PIN_DS_0) },    // 0x100    CAMERA PD
+    {PIN_CCIRPD1_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
+    //{PIN_CCIRPD0_REG,    ( PIN_O_EN | PIN_SPX_EN | PIN_FUNC_3   | PIN_FPD_EN | PIN_DS_0) },    // 0x100    CAMERA PD
+    {PIN_CCIRPD0_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_SCL_REG,        ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x180    
     {PIN_SDA_REG,        ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x180    
     {PIN_CLK_AUX0_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x106   CLKAUX0, 32KHz for FM

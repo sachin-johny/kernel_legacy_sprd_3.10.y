@@ -534,7 +534,7 @@ PUBLIC SENSOR_TYPE_E _Sensor_GetSensorType(void)
 /*****************************************************************************/
 PUBLIC void Sensor_Reset(uint32_t level)
 {
-	gpio_request(77,"ccirrst");
+	//gpio_request(77,"ccirrst");
 	gpio_direction_output(77,level);
 }
 
@@ -1097,7 +1097,7 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
         case SENSOR_MAIN:
         {
 		_paod(PIN_CTL_CCIRPD1,  (BIT_4|BIT_5));
-		gpio_request(78,"ccirpd1");
+		//gpio_request(78,"ccirpd1");
 		if(0 == power_level){
 			gpio_direction_output(78,0);
 		}
@@ -1109,7 +1109,7 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
         case SENSOR_SUB:
         {
 		_paod(PIN_CTL_CCIRPD0,  (BIT_4|BIT_5));
-		gpio_request(79,"ccirpd0");
+		//gpio_request(79,"ccirpd0");
 		if(0 == power_level){
 			gpio_direction_output(79,0);
 		}
