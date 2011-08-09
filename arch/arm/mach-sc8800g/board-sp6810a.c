@@ -300,99 +300,77 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_high);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
-        MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io - also Bluetooth power
+        GPIO_DESC_MFP_OBSOLETE, // wifi_power_io - also Bluetooth power
         SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_OUTPUT,
         "wifi power"
     },
     {
-        MFP_CFG_X(RFCTL4, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_pwd_io
+        GPIO_DESC_MFP_OBSOLETE, // wifi_pwd_io
         SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_DIRECTION_OUTPUT, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi pwd"
     },
     {
-        MFP_CFG_X(RFCTL11, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        GPIO_DESC_MFP_OBSOLETE,
         SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_DIRECTION_OUTPUT, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi wake"
     },
     {
-        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        GPIO_DESC_MFP_OBSOLETE,
         SPRD_3RDPARTY_GPIO_WIFI_RESET | GPIO_DIRECTION_OUTPUT, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi reset"
     },
     {
-        MFP_CFG_X(RFCTL0 , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
+        GPIO_DESC_MFP_OBSOLETE, // BT_RESET
         SPRD_3RDPARTY_GPIO_BT_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_OUTPUT,
         "BT reset"
     },
     {
-        MFP_CFG_X(GPIO141, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+        GPIO_DESC_MFP_OBSOLETE,
         SPRD_3RDPARTY_GPIO_WIFI_IRQ | GPIO_DIRECTION_INPUT,
         "Wi-Fi IRQ"
     },
     {
-	MFP_CFG_X(KEYOUT6, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	GPIO_DESC_MFP_OBSOLETE,
 	SPRD_3RDPARTY_GPIO_TP_RST | GPIO_DIRECTION_OUTPUT,
 	"mtp reset"
     },
     {
-	MFP_CFG_X(KEYOUT7, GPIO, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+	GPIO_DESC_MFP_OBSOLETE,
 	SPRD_3RDPARTY_GPIO_TP_IRQ | GPIO_DIRECTION_INPUT,
 	"mtp irq"
     },
     {
-	MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	//proximity transmit port
+	GPIO_DESC_MFP_OBSOLETE,	//proximity transmit port
 	SPRD_3RDPARTY_GPIO_PROXIMITY_TRANS | GPIO_DIRECTION_OUTPUT,
 	"proximity trans"
     },
     {
-	MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	//proximity
+	GPIO_DESC_MFP_OBSOLETE,	//proximity
 	SPRD_3RDPARTY_GPIO_PROXIMITY_RECV | GPIO_DIRECTION_OUTPUT,
 	"proximity recv"
     },
     {
-	MFP_CFG_X(EMRST_N, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	GPIO_DESC_MFP_OBSOLETE,
 	SPRD_3RDPARTY_GPIO_GPS_PWR|GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_OUTPUT,
 	"gps  pwr"
     },
     {
-	MFP_CFG_X(EMCS_N3, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	GPIO_DESC_MFP_OBSOLETE,
 	SPRD_3RDPARTY_GPIO_GPS_RST | GPIO_DIRECTION_OUTPUT,
 	"gps  reset"
     },
     {
-    MFP_CFG_X(KEYIN6, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),
+    GPIO_DESC_MFP_OBSOLETE,
     SPRD_3RDPARTY_GPIO_GINT1_IRQ | GPIO_DIRECTION_INPUT,
     "gint1"
     },
     {
-	MFP_CFG_X(KEYIN7, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),
+	GPIO_DESC_MFP_OBSOLETE,
 	SPRD_3RDPARTY_GPIO_GINT2_IRQ | GPIO_DIRECTION_INPUT,
 	"gint2"
     },
 
 };
-
-static unsigned long spi_func_cfg[] = {
-	MFP_CFG_X(SPI_CLK   , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SPI_DI    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SPI_DO    , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-#if 1
-    /* configure cs pin to normal gpio */
-	MFP_CFG_X(SPI_CSN0  , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-	MFP_CFG_X(SPI_CSN1  , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-#else
-    /* configure cs pin to spi csx */ 
-    MFP_CFG_X(SPI_CSN0  , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SPI_CSN1  , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-#endif
-};
-
-#if 0
-static unsigned long bt_func_cfg[] = {
-    MFP_CFG_X(U0RTS     , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-    MFP_CFG_X(U0CTS     , AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-};
-#endif
 
 static struct spi_device *sprd_spi_device_register(int master_bus_num, struct spi_board_info *chip, int type)
 {
