@@ -937,6 +937,16 @@ int vbc_resume(struct platform_device *pdev)
 #define vbc_resume  NULL
 #endif
 
+#define local_cpu_pa_control(x) \
+do { \
+    if (x) { \
+        /* ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1aa9); //classAb */ \
+        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x5A5A); /* classD */ \
+    } else { \
+        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1555); \
+    } \
+} while (0)
+
 #if     defined(CONFIG_ARCH_SC8800S)             || \
         defined(CONFIG_MACH_SP6810A)
 #if     defined(CONFIG_ARCH_SC8800S)
@@ -976,12 +986,7 @@ static inline void local_amplifier_init(void)
 
 static inline void local_amplifier_enable(int enable)
 {
-    if (enable) {
-     // ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1aa9); //classAb
-        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x5A5A); //classD
-    } else {
-        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1555);
-    }
+    local_cpu_pa_control(enable);
 }
 
 static inline int local_amplifier_enabled(void)
@@ -1098,6 +1103,7 @@ static int vbc_probe(struct platform_device *pdev)
 		goto pcm_err;
 
 	vbc_reset(codec);
+    local_cpu_pa_control(false); // Turn off classD cpu PA
     vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
     vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
     vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
