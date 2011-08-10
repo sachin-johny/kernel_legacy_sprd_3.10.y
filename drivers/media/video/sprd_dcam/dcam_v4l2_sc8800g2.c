@@ -849,6 +849,8 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 			//Sensor_SetCurId(SENSOR_SUB);
 			sensor_id = 1;
 		}			
+		dev->streamparm.parm.raw_data[0] = streamparm->parm.raw_data[0];
+		dev->streamparm.parm.raw_data[1] = streamparm->parm.raw_data[1];
 	}
 	else{
 		//Sensor_SetCurId(SENSOR_MAIN);
@@ -856,7 +858,16 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	}
 	if(0 != v4l2_sensor_init(sensor_id)){
 		DCAM_V4L2_PRINT("###V4L2: fail to sensor_init.\n");
-		return -1;
+		printk("###V4L2: fail to sensor_init, sensor id: %d; to init another sensor.\n", sensor_id);
+		sensor_id = sensor_id == 0 ? 1 : 0;
+		if(0 != v4l2_sensor_init(sensor_id)){
+			printk("###V4L2: fail to sensor_init, sensor id: %d; two sensor are fail.\n", sensor_id);
+			return -1;
+		}
+		if(1 == streamparm->parm.raw_data[0]){
+			dev->streamparm.parm.raw_data[1] = sensor_id;			
+			printk("###V4L2: the old sensor fail, to change another sensor: %d.", sensor_id);
+		}		
 	}
 
 	DCAM_V4L2_PRINT("###V4L2: vidioc_s_parm X.\n");
@@ -892,7 +903,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//printk("###V4L2: vidioc_qbuf addr: %x.\n", p->m.userptr);
 	return (videobuf_qbuf(&fh->vb_vidq, p));
 }
-/*
+
 static inline int rt_policy(int policy)
 {
 	if (unlikely(policy == SCHED_FIFO) || unlikely(policy == SCHED_RR))
@@ -904,11 +915,11 @@ static inline int task_has_rt_policy(struct task_struct *p)
 {
 	return rt_policy(p->policy);
 }
-*/
+
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh  *fh = priv;
-	/*
+	
 	//wxz20110725: adjust the priority of the thread.
 	static int flag = 0; 
 	if(flag == 0){
@@ -920,12 +931,12 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		    struct cred *new = prepare_creds();
 		    cap_raise(new->cap_effective, CAP_SYS_NICE);
 		    commit_creds(new);
-		    schedpar.sched_priority = 4;
+		    schedpar.sched_priority = 22;
 		    ret = sched_setscheduler(current,SCHED_RR,&schedpar);
 		    if(ret!=0)
 		        printk("vsp change pri fail a\n");
 	}
-	}*/
+	}
 	DCAM_V4L2_PRINT("###v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n", file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));
 	//videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK);
