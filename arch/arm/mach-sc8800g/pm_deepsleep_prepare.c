@@ -433,34 +433,38 @@ extern int sc8800g_cpu_standby_prefetch(void);
 #define UART_STS1 (SPRD_SERIAL1_BASE + 0x0c)
 
 #define UART_TRANSFER_REALLY_OVER (0x1UL << 15)
+
+
 static void wait_until_uart1_tx_done(void)
 {
     u32 tx_fifo_val;
-    /*
-    u32 really_over = 0;
-	*/
+	u32 really_done = 0;
+
 	/* fifo depth = 128. */
-	u32 timeout = 150;	
+	u32 timeout = 200;	
 	    tx_fifo_val = __raw_readl(UART_STS1);
 	    tx_fifo_val >>= 8;
 	    tx_fifo_val &= 0xff;
 	while(tx_fifo_val != 0) {
+		/*
 		WARN_ON(0 >= timeout);
+		*/
 		if (timeout <= 0) break;
-		udelay(90);
+		udelay(100);
 	    tx_fifo_val = __raw_readl(UART_STS1);
 	    tx_fifo_val >>= 8;
 	    tx_fifo_val &= 0xff;
 		timeout--;
 	}
-	udelay(90);
-/*
-    do {
-        really_over = __raw_readl(UART_STS0);
-    }while (!(UART_TRANSFER_REALLY_OVER * really_over));
-out:
-*/
-	return;
+
+	timeout = 30;
+	really_done = __raw_readl(UART_STS0);
+	while(!(really_done & UART_TRANSFER_REALLY_OVER)) {
+		if (timeout <= 0) break;
+		udelay(100);
+		really_done = __raw_readl(UART_STS0);
+		timeout--;
+	}
 }
 
 
@@ -947,6 +951,9 @@ int sprd_timer_info_enable = 0;
 int sprd_check_dsp_enable = 0;
 int sprd_check_gpio_enable = 0;
 int sprd_dump_gpio_registers = 0;
+int sprd_wait_until_uart_tx_fifo_empty = 0;
+
+
 
 int sprd_pm_message_enable = 0;
 static u32 time0 = 0, time1 = 0, time_duration;
@@ -1306,7 +1313,7 @@ int sc8800g_enter_deepsleep(int inidle)
 		sc8800g_restore_pll();
     }
     else if (status & DEVICE_APB) {
-        wait_until_uart1_tx_done();
+	if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
         sleep_mode = SLEEP_MODE_MCU;
         SAVE_GLOBAL_REG;
         disable_audio_module();
@@ -1335,7 +1342,7 @@ int sc8800g_enter_deepsleep(int inidle)
 		__raw_readl(INT_IRQ_STS), inidle ? "idle" : "pm_suspend");
 		*/
 		
-		wait_until_uart1_tx_done();
+		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
 		sleep_mode = SLEEP_MODE_DEEP;
 		SAVE_GLOBAL_REG;
 		disable_audio_module();
@@ -1488,6 +1495,62 @@ void nkidle_original(void)
 
 static void deep_sleep_timeout(unsigned long data);
 static DEFINE_TIMER(deep_sleep_timer, deep_sleep_timeout, 0, 0);
+
+
+static int wait_uart_done_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int wait_uart_done_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t wait_uart_done_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t wait_uart_done_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t wait_uart_done_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_wait_until_uart_tx_fifo_empty = 0;
+		break;
+	case '1':
+		sprd_wait_until_uart_tx_fifo_empty = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _wait_uart_done_proc_fops = {
+    open:    wait_uart_done_open,
+    release: wait_uart_done_release,
+    llseek:  wait_uart_done_lseek,
+    read:    wait_uart_done_read,
+    write:   wait_uart_done_write,
+};
+
+
 
 
 static int sprd_dump_gpio_registers_open (struct inode* inode, struct file*  file)
@@ -2213,6 +2276,7 @@ int sc8800g_prepare_deep_sleep(void)
         printk("##: proc_mkdir(/proc/sprd_sleep_info) failed\n");
         return 0;
     }
+	sprd_proc_create(sprd_proc_entry, "wait_uart_done", &_wait_uart_done_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "dump_gpio_registers", &_dump_gpio_registers_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "gpio_info", &_gpio_info_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "irq_info", &_irq_info_proc_fops);

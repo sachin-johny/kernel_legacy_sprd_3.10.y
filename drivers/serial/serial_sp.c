@@ -368,13 +368,6 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 
 static void serialsc8800_pin_config(void)
 {
-     unsigned long serial_func_cfg[] = {
-        MFP_CFG_X(U0CTS, AF1, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-        MFP_CFG_X(U0RTS, AF1, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-     };
-
-     sprd_mfp_config(serial_func_cfg, ARRAY_SIZE(serial_func_cfg));
-
      __raw_bits_or((1<<22),SPRD_GREG_BASE+0x8);
      __raw_bits_or((1<<6),SPRD_GREG_BASE+0x28);
 }

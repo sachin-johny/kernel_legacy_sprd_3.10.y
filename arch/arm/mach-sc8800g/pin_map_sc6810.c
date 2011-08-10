@@ -56,13 +56,13 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_SIMRST0_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    
     {PIN_SIMCLK1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x101 NC   
     {PIN_SIMDA1_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x18A NC   
-    {PIN_SIMRST1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x101 NC
-    {PIN_SD0_CLK_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100 SD/SDIO   
-    {PIN_SD_CMD_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
-    {PIN_SD_D0_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
-    {PIN_SD_D1_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
-    {PIN_SD_D2_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
-    {PIN_SD_D3_REG,      ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
+    {PIN_SIMRST1_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x101 NC
+    {PIN_SD0_CLK_REG,    ( PIN_DS_3 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100 SD/SDIO   
+    {PIN_SD_CMD_REG,     ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
+    {PIN_SD_D0_REG,       ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
+    {PIN_SD_D1_REG,       ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
+    {PIN_SD_D2_REG,       ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
+    {PIN_SD_D3_REG,       ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180 SD/SDIO
     {PIN_SD1_CLK_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100 NC
     {PIN_KEYOUT0_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
     {PIN_KEYOUT1_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x100    KEY OUT
@@ -188,6 +188,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_EMBA1_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMCKE0_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   CKE  = 0
     {PIN_LCD_CSN1_REG,   ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_2 | PIN_SPU_EN | PIN_O_EN ) },    // 0x100  NC 
+
     {PIN_LCD_RSTN_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_CD_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D0_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
@@ -209,9 +210,12 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_LCD_D13_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D14_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D15_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
+    {PIN_LCD_FMARK_REG,  ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180   NC 
+
     {PIN_LCD_D16_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   
     {PIN_LCD_D17_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   
-    {PIN_LCD_FMARK_REG,  ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x180   NC 
+
+
     {PIN_CCIRMCLK_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRCK_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_CCIRHS_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
@@ -249,7 +253,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_RFCTL8_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   TD PA VMOD0
     {PIN_RFCTL9_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100   GPIO99 CMMB power on
     {PIN_RFCTL10_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   GSM PA TXEN
-    {PIN_RFCTL11_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_O_EN ) },    // 0x100   GPIO101 TEST POINT
+    {PIN_RFCTL11_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   GPIO101 TEST POINT
     {PIN_RFCTL12_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   PA BANDSEL 
     {PIN_RFCTL13_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC1
     {PIN_RFCTL14_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC2 
@@ -357,9 +361,7 @@ void sc8800g_value_compare(void)
         }
         i++;
     }
-    /*
     printk("####: sc8800g_value_compare() is done!\n");
-    */
 }
 
 void sc8800g_pin_map_init(void)

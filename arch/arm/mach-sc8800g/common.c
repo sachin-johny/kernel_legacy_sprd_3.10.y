@@ -284,22 +284,9 @@ struct platform_device sprd_sdio_device = {
 	.resource	= sprd_sdio_resource,
 };
 
-static unsigned long sdio_func_cfg[] __initdata = {
-	MFP_CFG_X(SD0_CLK, AF0, DS3, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(SD_CMD, AF0, DS3, F_PULL_UP,  S_PULL_NONE, IO_Z),
-	MFP_CFG_X(SD_D0, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(SD_D1, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(SD_D2, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(SD_D3, AF0, DS3, F_PULL_UP, S_PULL_NONE, IO_Z),
-};
-
-static unsigned long sdcard_detect_gpio_cfg =
-        MFP_CFG_X(RFCTL11, AF3, DS1, F_PULL_UP,S_PULL_NONE, IO_Z);
 
 static void sprd_config_sdio_pins(void)
 {
-	sprd_mfp_config(sdio_func_cfg, ARRAY_SIZE(sdio_func_cfg));
-	sprd_mfp_config(&sdcard_detect_gpio_cfg, 1);
 }
 
 void __init sprd_add_sdio_device(void)
@@ -607,18 +594,9 @@ void __init sprd_add_dcam_device(void)
 	//sprd_config_dcam_pins();
 	platform_device_register(&sprd_dcam_device);
 }
-static unsigned long charger_detect_cfg =
-    MFP_ANA_CFG_X(CHIP_RSTN, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
-    //MFP_ANA_CFG_X(CHIP_RSTN, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
-    //MFP_ANA_CFG_X(CHIP_RSTN, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
-
-
 void __init sprd_charger_init(void)
 {
 	int irq;
-
-	//sprd_mfp_config(charger_detect_cfg, ARRAY_SIZE(charge_detect_cfg));
-	sprd_mfp_config(&charger_detect_cfg, 1);
 	gpio_request(CHARGER_DETECT_GPIO, "charger detect");
 	gpio_request(USB_DP_GPIO, "charger detect");
 	gpio_request(USB_DM_GPIO, "charger detect");
