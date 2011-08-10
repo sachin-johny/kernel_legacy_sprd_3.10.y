@@ -187,7 +187,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_EMBA0_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMBA1_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMCKE0_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   CKE  = 0
-    {PIN_LCD_CSN1_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_2 | PIN_SPX_EN | PIN_O_EN ) },    // 0x100  NC 
+    {PIN_LCD_CSN1_REG,   ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_2 | PIN_SPU_EN | PIN_O_EN ) },    // 0x100  NC 
     {PIN_LCD_RSTN_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_CD_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_LCD_D0_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
@@ -244,7 +244,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_RFCTL3_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_I_EN ) },    // 0x100   NC
     {PIN_RFCTL4_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_O_EN ) },    // 0x100   NC
     {PIN_RFCTL5_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   TD PA EN
-    {PIN_RFCTL6_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_O_EN ) },    // 0x100   GPIO96 SPK PA EN
+    {PIN_RFCTL6_REG,     ( PIN_DS_2 | PIN_FPD_EN | PIN_FUNC_3   | PIN_SPD_EN | PIN_O_EN ) },    // 0x100   GPIO96 SPK PA EN
     {PIN_RFCTL7_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   RF SWITCH VC3
     {PIN_RFCTL8_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100   TD PA VMOD0
     {PIN_RFCTL9_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100   GPIO99 CMMB power on
@@ -282,8 +282,8 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_GPIO140_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_O_EN ) },    // 0x100    TPIC int
     {PIN_GPIO141_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x100    HP detect
     {PIN_GPIO142_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_O_EN ) },    // 0x100    Proximity Recv pin
-    {PIN_GPIO143_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    TPIC SCL
-    {PIN_GPIO144_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x100    TPIC SDA
+    {PIN_GPIO143_REG,    ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_O_EN ) },    // 0x100    TPIC SCL
+    {PIN_GPIO144_REG,    ( PIN_DS_3 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_O_EN ) },    // 0x100    TPIC SDA
     {0xffffffff, 0xffffffFF}              
 };
     

@@ -106,11 +106,6 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
     },
 };
 
-static unsigned long i2c_gpio_pin_cfg[] = {
-	MFP_CFG_X(GPIO143, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
-	MFP_CFG_X(GPIO144, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),	
-};
-
 static struct i2c_gpio_platform_data pdata = {
 	.sda_pin		= 143,
 	.sda_is_open_drain	= 0,
@@ -124,11 +119,6 @@ static struct platform_device i2c_gpio_device_data = {
 	.id			= -1,
 	.dev.platform_data	= &pdata,
 };
-
-static unsigned long gps_pin_cfg[] = {
-	MFP_CFG_X(LCD_CSN1, AF2, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
-};
-
 
 #if defined(CONFIG_SPI_SC88XX) || defined(CONFIG_SPI_SC88XX_MODULE)
 #include <linux/spi/spi.h>
@@ -505,7 +495,6 @@ static void __init chip_init(void)
 void __init i2c_gpio_device_set(struct i2c_board_info *devices, int nr_devices)
 {
 
-	sprd_mfp_config(i2c_gpio_pin_cfg, ARRAY_SIZE(i2c_gpio_pin_cfg));
 	//i2c_register_board_info(0, devices, nr_devices);
 	platform_device_register(&i2c_gpio_device_data);
 
@@ -513,7 +502,6 @@ void __init i2c_gpio_device_set(struct i2c_board_info *devices, int nr_devices)
 }
 void __init gps_hw_config(void)
 {
-	sprd_mfp_config(gps_pin_cfg, ARRAY_SIZE(gps_pin_cfg));
 }
 
 unsigned long sdram_plimit;

@@ -952,15 +952,12 @@ do { \
 #if     defined(CONFIG_ARCH_SC8800S)             || \
         defined(CONFIG_MACH_SP6810A)
 #if     defined(CONFIG_ARCH_SC8800S)
-static ulong gpio_amplifier = MFP_CFG_X(LCD_RSTN, GPIO, DS0, PULL_NONE/* PULL_UP */, IO_OE);
 static u32 speaker_gpio = 102; // mfp_to_gpio(MFP_CFG_TO_PIN(gpio_amplifier));
 #elif   defined(CONFIG_MACH_SP6810A)
-static ulong gpio_amplifier = MFP_CFG_X(RFCTL6, AF3, DS2, F_PULL_DOWN, S_PULL_DOWN, IO_OE);
 static u32 speaker_gpio = 96;  // GPIO_PROD_SPEAKER_PA_EN_ID
 #endif
 static inline void local_amplifier_init(void)
 {
-    sprd_mfp_config(&gpio_amplifier, 1);
     if (gpio_request(speaker_gpio, "speaker amplifier")) {
         printk(KERN_ERR "speaker amplifier gpio request fail!\n");
     }

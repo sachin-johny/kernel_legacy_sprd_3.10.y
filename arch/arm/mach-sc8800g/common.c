@@ -598,28 +598,7 @@ void __init sprd_gadget_init(void)
 
 	platform_device_register(&androidusb_device);
 }
-/*static unsigned long dcam_func_cfg[] __initdata = {	
-	MFP_CFG_X(CCIRMCLK, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRCK, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRHS, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRVS, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD2, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD3, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD4, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD5, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD6, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD7, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),	
-	MFP_CFG_X(CCIRRST, AF3, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRPD1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRPD0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-};
-static void sprd_config_dcam_pins(void)
-{
-	sprd_mfp_config(dcam_func_cfg, ARRAY_SIZE(dcam_func_cfg));
-	
-}*/
+
 void __init sprd_add_dcam_device(void)
 {
 	// Enable DCAM Module 
