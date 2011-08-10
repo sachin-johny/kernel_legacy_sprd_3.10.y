@@ -251,6 +251,19 @@ static inline int set_capture(struct s2d_img *img, struct s2d_rect *rect)
 	return 0;
 }
 
+
+static inline void set_plane(uint32_t w ,uint32_t h)
+{
+	CL_PRINT("lcdc set_plane w=%d h=%d \n",w,h);
+	CL_PRINT("lcdc set_plane reg+%x \n",(w&0x3ff)|((h&0x3ff)<<16));
+	__raw_writel((w&0x3ff)|((h&0x3ff)<<16), LCDC_DISP_SIZE);
+}
+static inline void restore_plane()
+{
+	__raw_writel((640&0x3ff)|((640&0x3ff)<<16), LCDC_DISP_SIZE);
+}
+
+
 /* not working for image/OSD1 layer */
 static inline int set_fetch(struct s2d_img *img, struct s2d_rect *rect, 
 			unsigned int reg)
@@ -709,6 +722,14 @@ int do_copybit_lcdc(struct s2d_blit_req * req)
 			goto __out1;
 		}
 
+		/* we trust dst rect and src rect is equal */
+		if((req->dst_rect.w == req->src_rect.w)&&(req->dst_rect.h == req->src_rect.h)){
+			set_plane(req->dst_rect.w,req->dst_rect.h);
+		}
+		else	{
+			goto __out1;
+		}
+
 		/* just do it... */
 		do_capture();
 
@@ -728,6 +749,7 @@ int do_copybit_lcdc(struct s2d_blit_req * req)
 		}
 
 		finish_capture();
+		restore_plane();
 
 #ifdef SYNC_BLIT
 		/* enable lcdc done irq */
@@ -773,6 +795,14 @@ __out1:
 		}
 		CL_PRINT("%s [%d]\n", __FILE__, __LINE__);
 
+		/* we trust dst rect and src rect is equal */
+		if((req->dst_rect.w == req->src_rect.w)&&(req->dst_rect.h == req->src_rect.h)){
+			set_plane(req->dst_rect.w,req->dst_rect.h);
+		}
+		else	{
+			goto __out2;
+		}
+
 		/* just do it... */
 		do_capture();
 		//finish_capture();
@@ -804,6 +834,7 @@ __out1:
 		}
 
 		finish_capture();
+		restore_plane();
 
 #ifdef SYNC_BLIT
 		/* enable lcdc done irq */
