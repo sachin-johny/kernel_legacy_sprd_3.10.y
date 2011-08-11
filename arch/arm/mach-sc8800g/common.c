@@ -284,7 +284,6 @@ struct platform_device sprd_sdio_device = {
 	.resource	= sprd_sdio_resource,
 };
 
-
 static void sprd_config_sdio_pins(void)
 {
 }
@@ -298,7 +297,9 @@ void __init sprd_add_sdio_device(void)
 	__raw_bits_or(BIT_12, AHB_SOFT_RST);
 	__raw_bits_and(~BIT_12, AHB_SOFT_RST);
 
-	sprd_config_sdio_pins();
+        //Initialize sdio pin in file pin_map_sc8805.c
+	//sprd_config_sdio_pins();
+	//
 	err = gpio_request(SD_DETECT_GPIO, "sdcard detect");
 	if (err) {
 		pr_warning("cannot alloc gpio for sdcard detect\r\n");
