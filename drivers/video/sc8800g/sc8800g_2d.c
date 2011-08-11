@@ -43,8 +43,10 @@ static  int  condition_crop;
 #define LCD_HEIGHT 480
 /* FIXME */
 unsigned int buf_ptr;
+unsigned int buf_ptr_cached;
 unsigned int buf_ptr_pa;
 unsigned int pmem_ptr;
+unsigned int pmem_ptr_cached;
 
 
 //#define COPYBIT_2D_DEBUG
@@ -374,7 +376,7 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 			src_base = (unsigned int *)GET_VA(params->src.base);
 			src_base += params->src_rect.y * params->src.width + 
 				params->src_rect.x;
-			dst = (unsigned int *)buf_ptr;
+			dst = (unsigned int *)buf_ptr_cached;
 
 			for (i = params->src_rect.h; i!=0; i--) {
 				src = src_base;
@@ -385,13 +387,13 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 				src_base += params->src.width;
 			}
 
-			clean_dcache_area((unsigned int *)buf_ptr, 
-					(unsigned int)dst - buf_ptr);
+			clean_dcache_area((unsigned int *)buf_ptr_cached, 
+					(unsigned int)dst - buf_ptr_cached);
 
 			params->src.width = params->src_rect.w;
 			params->src.height = params->src_rect.h;
 			//params->src.format = S2D_ARGB_8888;
-			params->src.base = __pa(buf_ptr);
+			params->src.base = __pa(buf_ptr_cached);
 			params->src_rect.x = 0;
 			params->src_rect.y = 0;			
 		}
@@ -452,6 +454,10 @@ static struct miscdevice sc8800g_2d_dev = {
 };
 
 
+extern unsigned int fb_pa;
+extern unsigned int fb_va;
+extern unsigned int fb_va_cached;
+
 int sc8800g_2d_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -474,10 +480,12 @@ int sc8800g_2d_probe(struct platform_device *pdev)
 
 #ifdef SOFT_RGBA2ARGB
 	/* FIXME: hard-coded size and address */
-	buf_ptr = __get_free_pages(GFP_ATOMIC, get_order(LCD_WIDTH*LCD_HEIGHT*4));
-	pmem_ptr = (unsigned int)ioremap_cached(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
+	buf_ptr_cached = __get_free_pages(GFP_ATOMIC, get_order(LCD_WIDTH*LCD_HEIGHT*4));
+	buf_ptr_pa = __pa(buf_ptr_cached);
+	buf_ptr = (unsigned int)ioremap(buf_ptr_pa, LCD_WIDTH*LCD_HEIGHT*4);
+	pmem_ptr = (unsigned int)ioremap(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
+	pmem_ptr_cached = (unsigned int)ioremap_cached(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
 	printk("sc8800g_2d alloc buf @ 0x%x\n", buf_ptr);
-	buf_ptr_pa = __pa(buf_ptr);
 #endif
 
 	printk(KERN_ALERT" sc8800g_2d_probe Success\n");
@@ -493,8 +501,10 @@ static int sc8800g_2d_remove(struct platform_device *dev)
 	misc_deregister(&sc8800g_2d_dev);
 
 #ifdef SOFT_RGBA2ARGB
-	free_pages(buf_ptr, get_order(LCD_WIDTH*LCD_HEIGHT*4));
-	iounmap((void*)PMEM_BASE_PHY_ADDR);
+	free_pages(buf_ptr_cached, get_order(LCD_WIDTH*LCD_HEIGHT*4));
+	iounmap((void*)buf_ptr);
+	iounmap((void*)pmem_ptr);
+	iounmap((void*)pmem_ptr_cached);
 #endif
 
 	printk(KERN_INFO "sc8800g_2d_remove Success !\n");

@@ -31,6 +31,7 @@
 #include <linux/interrupt.h>
 #include <linux/string.h>
 #include <linux/mm.h>
+#include <asm/cacheflush.h>
 
 #include "sc8800g_lcdc_manager.h"
 #include "sc8800g_copybit_lcdc.h"
@@ -116,6 +117,7 @@
 /* TEMP, software make-up for lcdc's 4-byte-align only limitation */
 struct semaphore copybit_wait;
 extern unsigned int pmem_ptr;
+extern unsigned int pmem_ptr_cached;
 
 extern unsigned int fb_len;
 extern unsigned int fb_pa;
@@ -123,15 +125,16 @@ extern unsigned int fb_va;
 extern unsigned int fb_va_cached;
 
 extern unsigned int buf_ptr;    /* va of temp buffer */
+extern unsigned int buf_ptr_cached;
 extern unsigned int buf_ptr_pa; /* pa of temp buffer */
 
 #define GET_VA(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr): \
 	((base >= buf_ptr_pa && base <= buf_ptr_pa+fb_len)?       \
 	(base - buf_ptr_pa + buf_ptr):(base-fb_pa+fb_va)))
 
-#define GET_VA_CACHED(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr): \
+#define GET_VA_CACHED(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr_cached): \
 	((base >= buf_ptr_pa && base <= buf_ptr_pa+fb_len)?       \
-	(base - buf_ptr_pa + buf_ptr):(base-fb_pa+fb_va_cached)))
+	(base - buf_ptr_pa + buf_ptr_cached):(base-fb_pa+fb_va_cached)))
 /* TEMP, end */
 
 /* software blending area flags */
@@ -332,6 +335,9 @@ static int para_check(struct s2d_blit_req * req)
 	if (req->src_rect.w == 1)
 		return SOFTWARE_BLEND_ALL;
 
+	if ((req->src.width & 1) || (req->dst.width &1)) /* odd pitch */
+		return SOFTWARE_BLEND_ALL;
+
 	if (req->dst_rect.x & 1) { /* dst_rect odd start */
 		if ((req->src.format == S2D_RGB_565 && !(req->src_rect.x &1))
 				|| req->src_rect.w == 2)
@@ -406,12 +412,13 @@ static inline void copy_right(struct s2d_blit_req * req)
 /* we need this for efficiency/accuracy reason */
 static inline void copy_all(struct s2d_blit_req * req)
 {
-	unsigned short *src, *dst;
+	unsigned short *src, *dst, *dst_tmp;
 	int i;
-	src = (unsigned short*)GET_VA(req->src.base);
+	src = (unsigned short*)GET_VA_CACHED(req->src.base);
 	src += req->src_rect.y * req->src.width + req->src_rect.x;
-	dst = (unsigned short*)GET_VA(req->dst.base);
+	dst = (unsigned short*)GET_VA_CACHED(req->dst.base);
 	dst += req->dst_rect.y * req->dst.width + req->dst_rect.x;
+	dst_tmp = dst;
 
 	CL_PRINT("copy_all: dst@0x%x, src@0x%x\n", dst, src);
 	for (i = req->dst_rect.h; i!= 0; i--) {
@@ -419,6 +426,7 @@ static inline void copy_all(struct s2d_blit_req * req)
 		dst += req->dst.width;
 		src += req->src.width;
 	}
+	clean_dcache_area(dst_tmp, (unsigned int)dst - (unsigned int)dst_tmp);
 }
 
 /* the blend32_xxx serial works for BGRA8888 to RGB565 */
@@ -524,15 +532,16 @@ static inline void blend32_all(struct s2d_blit_req * req)
 {
 	char *src; /* BGRA */
 	unsigned int *src_base; /* BGRA */
-	unsigned short *dst, *dst_base;
+	unsigned short *dst, *dst_base, *dst_base_tmp;
 	unsigned short r, g, b;
 	unsigned short tmpd;
 	int i, j;
 
-	src_base = (unsigned int*)GET_VA(req->src.base);
+	src_base = (unsigned int*)GET_VA_CACHED(req->src.base);
 	src_base += req->src_rect.y * req->src.width + req->src_rect.x;
 	dst_base = (unsigned short*)GET_VA_CACHED(req->dst.base);
 	dst_base += req->dst_rect.y * req->dst.width + req->dst_rect.x;
+	dst_base_tmp = dst_base;
 
 	for (i = req->dst_rect.h; i!= 0; i--) {
 		dst = dst_base;
@@ -553,6 +562,8 @@ static inline void blend32_all(struct s2d_blit_req * req)
 		dst_base += req->dst.width;
 		src_base += req->src.width;
 	}
+	clean_dcache_area(dst_base_tmp, (unsigned int)dst - (unsigned int)dst_base_tmp);
+
 	CL_PRINT("blend32_all: dst@0x%x, src@0x%x, {%d,%d}\n", 
 		dst_base, src_base, req->dst_rect.w, req->dst_rect.h);
 }
@@ -619,15 +630,16 @@ static inline void blend_right(struct s2d_blit_req * req)
 static inline void blend_all(struct s2d_blit_req * req)
 {
 	unsigned short *src, *dst;
-	unsigned short *src_base, *dst_base;
+	unsigned short *src_base, *dst_base, *dst_base_tmp;
 	unsigned short r, g, b;
 	int tmps, tmpd;
 	int i, j;
 
-	src_base = (unsigned short*)GET_VA(req->src.base);
+	src_base = (unsigned short*)GET_VA_CACHED(req->src.base);
 	src_base += req->src_rect.y * req->src.width + req->src_rect.x;
 	dst_base = (unsigned short*)GET_VA_CACHED(req->dst.base);
 	dst_base += req->dst_rect.y * req->dst.width + req->dst_rect.x;
+	dst_base_tmp = dst_base;
 
 	CL_PRINT("blend_all: dst@0x%x, src@0x%x\n", dst_base, src_base);
 
@@ -652,6 +664,7 @@ static inline void blend_all(struct s2d_blit_req * req)
 		dst_base += req->dst.width;
 		src_base += req->src.width;
 	}
+	clean_dcache_area(dst_base_tmp, (unsigned int)dst - (unsigned int)dst_base_tmp);
 }
 
 /* 
