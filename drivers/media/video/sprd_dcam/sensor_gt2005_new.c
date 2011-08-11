@@ -135,7 +135,7 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	{0x020D , 0xE2},
 	{0x020E , 0xB0},
 	{0x020F , 0x08},
-	{0x0210 , 0xD6},
+	{0x0210 , 0xF6},
 	{0x0211 , 0x00},
 	{0x0212 , 0x20},
 	{0x0213 , 0x81},
@@ -251,7 +251,7 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	{0x0312 , 0x98},
 	//{0x0313 , 0x38}, //30 fps
 	//{0x0313 , 0x1e}, //22 fps
-	{0x0313 , 0x1d}, //18 fps
+	{0x0313 , 0x35}, //18 fps
 	//{0x0314 , 0x76}, //30 fps
 	//{0x0314 , 0x2f}, //22 fps
 	{0x0314 , 0x35}, //18 fps
@@ -311,7 +311,7 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	{0x0408 , 0x44},
 	{0x0409 , 0x1F},
 	{0x040A , 0x00},
-	{0x040B , 0xF6},
+	{0x040B , 0x33},
 	{0x040C , 0xE0},
 	{0x040D , 0x00},
 	{0x040E , 0x00},
@@ -868,8 +868,8 @@ PUBLIC SENSOR_INFO_T g_GT2005_yuv_info =
 	PNULL,							// extend information about sensor	
 	SENSOR_AVDD_2800MV,                    // iovdd
 	SENSOR_AVDD_1500MV,                    // dvdd
-	1,                     // skip frame num before preview 
-	3,                     // skip frame num before capture		
+	3,                     // kip frame num before preview 
+	4,                     // skip frame num before capture		
     	0,                     // deci frame num during preview;		
     	0,                     // deci frame num during video preview;
     	0,                     // threshold enable
@@ -970,7 +970,8 @@ LOCAL uint32_t Set_GT2005_Preview_Mode(uint32_t preview_mode)
 		}
 		case DCAMERA_ENVIRONMENT_NIGHT:
 		{
-			Sensor_WriteReg(0x0312, 0x98);	// 1/3 Frame rate	
+			//Sensor_WriteReg(0x0312, 0x98);	// 1/3 Frame rate	
+			Sensor_WriteReg(0x0312, 0x28);	// 1/3 Frame rate	
 			break;
 		}
 		default:
@@ -1033,7 +1034,7 @@ SENSOR_REG_T GT2005_brightness_tab[][2]=
 	{{0x0201 , 0xa0},{0xff , 0xff}},
 	{{0x0201 , 0xc0},{0xff , 0xff}},
 	{{0x0201 , 0xd0},{0xff , 0xff}},
-	{{0x0201 , 0x00},{0xff , 0xff}},
+	{{0x0201 , 0x08},{0xff , 0xff}},
 	{{0x0201 , 0x20},{0xff , 0xff}},
 	{{0x0201 , 0x40},{0xff , 0xff}},
 	{{0x0201 , 0x60},{0xff , 0xff}}
@@ -1157,14 +1158,14 @@ LOCAL uint32_t Set_GT2005_Ev(uint32_t level)
 LOCAL uint32_t Set_GT2005_Anti_Flicker(uint32_t mode)
 { 
 	//PLL Setting 15FPS Under 19.5MHz PCLK
-	Sensor_WriteReg(0x0116 , 0x02);
-	Sensor_WriteReg(0x0118 , 0x68);
+	Sensor_WriteReg(0x0116 , 0x01);
+	Sensor_WriteReg(0x0118 , 0x34);
 	Sensor_WriteReg(0x0119 , 0x01);
 	Sensor_WriteReg(0x011a , 0x04);	
 	Sensor_WriteReg(0x011B , 0x00);
 
-	Sensor_WriteReg(0x0313 , 0x38); 
-	Sensor_WriteReg(0x0314 , 0x76);
+	Sensor_WriteReg(0x0313 , 0x34); 
+	Sensor_WriteReg(0x0314 , 0x3b);
 
 	switch(mode)
 	{
@@ -1343,20 +1344,55 @@ LOCAL void    GT2005_Set_Shutter(void)
 	Sensor_WriteReg(0x0307 , AGain_shutter&0xff);      
 	Sensor_WriteReg(0x0306 , (AGain_shutter>>8)&0xff); //AG
 
-	Sensor_WriteReg(0x0308,  (DGain_shutter>>2)&0xff);   //DG
+	Sensor_WriteReg(0x0308,  DGain_shutter&0xff);   //DG
 	
 }
 
+LOCAL uint32_t GT2005_Before_Snapshot(uint32_t sensor_snapshot_mode)
+{
+	Sensor_SetMode(sensor_snapshot_mode);
+        switch(sensor_snapshot_mode)
+        {
 
+                case SENSOR_MODE_PREVIEW_ONE:    //VGA
+                        SENSOR_TRACE("Capture VGA Size");
+                break;
+
+                case SENSOR_MODE_SNAPSHOT_ONE_FIRST:    // 1.3 M
+                case SENSOR_MODE_SNAPSHOT_ONE_SECOND:    // 2 M
+              {   
+                        SENSOR_TRACE("Capture 1.3M&2M Size");
+
+                        Sensor_WriteReg(0x0202 , 0x50);
+                        Sensor_WriteReg(0x020B , 0x75);
+                        Sensor_WriteReg(0x020C , 0x95);
+                        Sensor_WriteReg(0x040B , 0x11);
+                        //Sensor_WriteReg(0x011D , 0x02);
+                        //Sensor_WriteReg(0x011E , 0x00);
+                        GT2005_Set_Shutter      ();
+                //      msleep(1000);
+                        break;
+                }
+
+                        
+                default:
+                        break;
+        }
+
+        SENSOR_TRACE("SENSOR_GT2005: Before Snapshot");
+
+        return 0;
+}
+/*
 LOCAL uint32_t GT2005_Before_Snapshot(uint32_t param)
 {
 	Sensor_WriteReg(0x0300 , 0xc1);
 	GT2005_Set_Shutter();
 	Sensor_SetMode(param);
+	msleep(100);
 	SENSOR_TRACE("SENSOR_GT2005: Before Snapshot");
-
 	return 0;
-}
+}*/
 
 
 LOCAL uint32_t GT2005_After_Snapshot(uint32_t para)
