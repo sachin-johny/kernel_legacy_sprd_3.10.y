@@ -437,7 +437,6 @@ static inline void blend32_left(struct s2d_blit_req * req)
 	unsigned short r, g, b;
 	int tmpd;
 	int i;
-	//static int tag = 0; /* TEMP */
 
 	src = (unsigned char*)GET_VA(req->src.base);
 	src += (req->src_rect.y * req->src.width +
@@ -449,16 +448,6 @@ static inline void blend32_left(struct s2d_blit_req * req)
 	CL_PRINT("blend32_left: dst@0x%x, src@0x%x\n", dst, src);
 	for (i = req->dst_rect.h; i!= 0; i--) {
 		tmpd = *dst;
-#if 0
-if(tag == 0){ /* TEMP */
-	CL_PRINT("--- *dst:0x%08x (r:%x, g:%x, b:%x ---\n", 
-		*dst, (*dst)>>11, ((*dst)<<5)>>10, (*dst) &0x1f);
-	CL_PRINT("--- *dst:0x%08x (r:%x, g:%x, b:%x ---\n", 
-		*dst, (*dst)>>11, ((*dst)>>5)&0x3f, (*dst) &0x1f);
-	CL_PRINT("--- *src:0x%08x (a:%x, r:%x, g:%x, b:%x) ---\n", 
-		*(unsigned int*)src, src[0], src[1], src[2], src[3]);
-}
-#endif
 
 		r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)>>8;
 		g = (((src[2]>>2)- ((tmpd>>5)&0x3f)) * src[0] + 
@@ -466,13 +455,6 @@ if(tag == 0){ /* TEMP */
 		b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)>>8;
 
 		*dst = (r<<11|g<<5|b);
-
-#if 0
-if(tag == 0) { /* TEMP */
-	CL_PRINT("--- *dst(result):0x%x (r:%x, g:%x, b:%x) ---\n", *dst,r,g,b);
-	tag = 1;
-}
-#endif
 
 		dst += req->dst.width;
 		src += req->src.width*4;
@@ -486,7 +468,6 @@ static inline void blend32_right(struct s2d_blit_req * req)
 	unsigned short r, g, b;
 	int tmpd;
 	int i;
-	static int tag = 0; /* TEMP */
 
 	src = (unsigned char*)GET_VA(req->src.base);
 	src += (req->src_rect.y * req->src.width +
@@ -498,34 +479,17 @@ static inline void blend32_right(struct s2d_blit_req * req)
 	CL_PRINT("blend32_right: dst@0x%x, src@0x%x\n", dst, src);
 	for (i = req->dst_rect.h; i!= 0; i--) {
 		tmpd = *dst;
-#if 0
-if(tag == 0){ /* TEMP */
-	CL_PRINT("--- *dst:0x%08x (r:%x, g:%x, b:%x ---\n", 
-		*dst, (*dst)>>11, ((*dst)<<5)>>10, (*dst) &0x1f);
-	CL_PRINT("--- *dst:0x%08x (r:%x, g:%x, b:%x ---\n", 
-		*dst, (*dst)>>11, ((*dst)>>5)&0x3f, (*dst) &0x1f);
-	CL_PRINT("--- *src:0x%08x (a:%x, r:%x, g:%x, b:%x) ---\n", 
-		*(unsigned int*)src, src[0], src[1], src[2], src[3]);
-}
-#endif
 
 		r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)>>8;
-		//g = (((src[1]>>2)- ((tmpd<<5)>>10)) * src[3] + ((tmpd<<5)>>10)*255)>>8;
 		g = (((src[2]>>2)- ((tmpd>>5)&0x3f)) * src[0] + 
 			((tmpd>>5)&0x3f)*255)>>8;
 		b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)>>8;
 
 		*dst = (r<<11|g<<5|b);
-#if 0
-if(tag == 0) { /* TEMP */
-	CL_PRINT("--- *dst(result):0x%x (r:%x, g:%x, b:%x) ---\n", *dst,r,g,b);
-	tag = 1;
-}
-#endif
+
 		dst += req->dst.width;
 		src += req->src.width*4;
 	}
-	tag = 0; /* TEMP */
 }
 
 static inline void blend32_all(struct s2d_blit_req * req)
@@ -617,7 +581,6 @@ static inline void blend_right(struct s2d_blit_req * req)
 		tmps = *src;
 
 		r = (((tmps>>11)- (tmpd>>11)) * req->alpha + (tmpd>>11)*255)>>8;
-		//g = ((((tmps<<5)>>10)- ((tmpd<<5)>>10)) * req->alpha + ((tmpd<<5)>>10)*255)>>8;
 		g = ((((tmps>>5)&0x3f)-((tmpd>>5)&0x3f))*req->alpha+((tmpd>>5)&0x3f)*255)>>8;
 		b = (((tmps&0x1f)- (tmpd&0x1f)) * req->alpha + (tmpd&0x1f)*255)>>8;
 		*dst = (r<<11|g<<5|b);
@@ -670,31 +633,23 @@ static inline void blend_all(struct s2d_blit_req * req)
 /* 
  * We assume:
  * 1. the src_rect.w&h must be the same as dest_rect.w&h
- * 2. there's no RGB565 to RGBA8888 blit 
- * 3. dst is always fb, which is always RGB565
+ * 2. src is either RGB565 or ARGB8888
+ * 3. dst is always RGB565
  */
 int do_copybit_lcdc(struct s2d_blit_req * req)
 {
 	int err = 0;
 	int ret;
 
-	CL_PRINT("src.format %d\n"
-			"src.width  %d\n"
-			"src.height %d\n"
-			"src.base   0x%x\n"
-			"src_rect   x %d, y %d, w %d, h %d\n"
-			"dst.format %d\n"
-			"dst.width  %d\n"
-			"dst.height %d\n"
-			"dst.base   0x%x\n"
-			"dst_rect   x %d, y %d, w %d, h %d\n",
-			req->src.format, req->src.width, req->src.height, req->src.base,
-			req->src_rect.x, req->src_rect.y, 
-			req->src_rect.w, req->src_rect.h, 
-			req->dst.format, req->dst.width, req->dst.height, req->dst.base,
-			req->dst_rect.x, req->dst_rect.y, 
-			req->dst_rect.w, req->dst_rect.h 
-		);
+	CL_PRINT("src={w=%d,h=%d,f=%d,b=%x,rect={%d,%d,%d,%d}}\n"
+		"dst={w=%d,h=%d,f=%d,b=%x,rect={%d,%d,%d,%d}}\n"
+		"alpha=%d\n",
+	req->src.width, req->src.height, req->src.format, req->src.base,
+	req->src_rect.x, req->src_rect.y, req->src_rect.w, req->src_rect.h, 
+	req->dst.width, req->dst.height, req->dst.format, req->dst.base,
+	req->dst_rect.x, req->dst_rect.y, req->dst_rect.w, req->dst_rect.h,
+	req->alpha
+	);
 
 	ret = para_check(req); /* to fulfill the alignment restriction */
 
