@@ -340,7 +340,18 @@ void android_enable_function(struct usb_function *f, int enable)
 			}
 		}
 #endif
-
+		/*
+		 * if anyone of vser and gser is enabled, we enable them simutanously.
+		 */
+		if (!strcmp(f->name, "vser") || (!strcmp(f->name, "gser"))) {
+			struct usb_function		*func;
+			list_for_each_entry(func, &android_config_driver.functions, list) {
+				if ( !strcmp(func->name, "vser")
+					|| !strcmp(func->name, "gser")) {
+					usb_function_set_enabled(func, enable);
+				}
+			}
+		}
 		product_id = get_product_id(dev);
 		device_desc.idProduct = __constant_cpu_to_le16(product_id);
 		if (dev->cdev)

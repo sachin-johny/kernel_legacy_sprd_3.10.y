@@ -1102,7 +1102,7 @@ int pcd_init(
 		free_wrapper(gadget_wrapper);
 		return -EBUSY;
 	}
-	gadget_wrapper->udc_poweron = 0;
+	gadget_wrapper->udc_poweron = 1;
 	/*
 	 * initialize a timer for checking cable type.
 	 */
@@ -1123,6 +1123,7 @@ int pcd_init(
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
 	if (!gadget_wrapper->vbus){
 		pr_info("vbus is not power now \n");
+		gadget_wrapper->udc_poweron = 0;
 		udc_disable();
 	}
 	gadget_wrapper->enabled = 0;
