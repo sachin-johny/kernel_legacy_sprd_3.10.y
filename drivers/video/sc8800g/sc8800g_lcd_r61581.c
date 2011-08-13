@@ -199,6 +199,17 @@ static int32_t r61581_invalidate(struct lcd_spec *self)
 	
 }
 
+static int32_t r61581_invalidate_rect(struct lcd_spec *self,
+				uint16_t left, uint16_t top,
+				uint16_t right, uint16_t bottom)
+{
+	LCD_PRINT("r61581_invalidate_rect %d %d %d %d\n",left,top,right,bottom);
+
+	return self->ops->lcd_set_window(self, left, top, 
+			right, bottom);
+}
+
+
 static int32_t r61581_set_direction(struct lcd_spec *self, uint16_t direction)
 {
 	LCD_PRINT("r61581_set_direction\n");
@@ -264,13 +275,14 @@ static int32_t r61581_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 
 static bool r65181_is_invalidaterect(void)
 {
-	return false;
+	return true;
 }
 
 static struct lcd_operations lcd_r61581_operations = {
 	.lcd_init = r61581_init,
 	.lcd_set_window = r61581_set_window,
 	.lcd_invalidate = r61581_invalidate,
+	.lcd_invalidate_rect = r61581_invalidate_rect,
 	.lcd_set_direction = r61581_set_direction,
 	.lcd_enter_sleep = r61581_enter_sleep,
 	.lcd_is_invalidaterect = r65181_is_invalidaterect,
