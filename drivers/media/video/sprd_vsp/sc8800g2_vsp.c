@@ -252,7 +252,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		    return -ERESTARTSYS;
 		}
 		dev.condition = 0;
-
+/*
 		if (!task_has_rt_policy(current)) {
 		    struct sched_param schedpar;
 		    int ret;
@@ -264,7 +264,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		    if(ret!=0)
 		        printk("vsp change pri fail a\n");
 		}
-
+*/
 		VSP_PRINT("vsp ioctl VSP_ACQUAIRE end\n");
 	    break;	
 	    case VSP_RELEASE:
