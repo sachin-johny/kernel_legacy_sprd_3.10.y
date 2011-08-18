@@ -966,7 +966,7 @@ static inline void local_amplifier_init(void)
 static inline void local_amplifier_enable(int enable)
 {
     local_cpu_pa_control(enable);
-    gpio_direction_output(speaker_gpio, !!enable);
+    gpio_direction_output(speaker_gpio, !!enable); msleep(20);
 }
 
 static inline int local_amplifier_enabled(void)
