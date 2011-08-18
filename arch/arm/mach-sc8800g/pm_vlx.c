@@ -44,6 +44,7 @@ extern int prepare_deep_sleep(void);
 extern int sc8800g_prepare_deep_sleep(void);
 extern int sc8800g_enter_deepsleep(int);
 int battery_updata(void);
+void battery_sleep(void);
 
 static u32 irq_enable = 0;
 static u32 ana_gpio_irq_enable = 0;
@@ -181,6 +182,10 @@ int sc8800g_pm_enter(suspend_state_t state)
 		suspend_time = suspend_end - suspend_start;
 
 		hw_local_irq_enable();
+
+        /* check charger status. */
+        battery_sleep();
+
 
 		if ((suspend_end -  battery_check_start) > BATTERY_CHECK_INTERVAL) {
 			battery_check_start = suspend_end;
