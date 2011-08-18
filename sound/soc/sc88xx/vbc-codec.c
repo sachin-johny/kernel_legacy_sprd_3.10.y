@@ -1202,14 +1202,49 @@ struct snd_soc_codec_device vbc_codec= {
 };
 EXPORT_SYMBOL_GPL(vbc_codec);
 
+#define VBC_VTIMER_TEST 0
+#define VBC_VTIMER_ROUND_JIFFIES (msecs_to_jiffies(20))
+#if VBC_VTIMER_TEST
+#include <linux/timer.h>
+static struct timer_list lutimer;
+static void lutimer_handler(unsigned long data)
+{
+    printk("vbc timer enter\n");
+    udelay(2*1000); udelay(2*1000); udelay(2*1000); udelay(2*1000); udelay(2*1000);
+    printk("vbc timer exit\n");
+    mod_timer(&lutimer, jiffies + VBC_VTIMER_ROUND_JIFFIES);
+}
+
+static int lutimer_init(void)
+{
+    init_timer(&lutimer);
+    lutimer.expires = round_jiffies(jiffies + VBC_VTIMER_ROUND_JIFFIES);
+    lutimer.data = 0;
+    lutimer.function = &lutimer_handler;
+    add_timer(&lutimer);
+    return 0;
+}
+
+static void lutimer_exit(void)
+{
+    del_timer_sync(&lutimer);
+}
+#endif
+
 static int vbc_init(void)
 {
+    #if VBC_VTIMER_TEST
+    lutimer_init();
+    #endif
     local_amplifier_init();
     return snd_soc_register_dais(vbc_dai, ARRAY_SIZE(vbc_dai));
 }
 
 static void vbc_exit(void)
 {
+    #if VBC_VTIMER_TEST
+    lutimer_exit();
+    #endif
     snd_soc_unregister_dais(vbc_dai, ARRAY_SIZE(vbc_dai));
 }
 
