@@ -487,8 +487,11 @@ static int sc88xx_pcm_hw_free(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd);
 int sc88xx_pcm_prepare(struct snd_pcm_substream *substream)
 {
+    // From __pxa2xx_pcm_prepare clear DMA or power down
+    sc88xx_pcm_trigger(substream, SNDRV_PCM_TRIGGER_STOP); // stop DMA
     return 0;
 }
 
