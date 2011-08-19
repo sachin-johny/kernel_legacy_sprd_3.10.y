@@ -572,8 +572,8 @@ static void sprd_spi_init(void)
     
 
     // sprd_mfp_config(bt_func_cfg, ARRAY_SIZE(bt_func_cfg));
-    ANA_REG_OR (ANA_LED_CTL, BIT_14); // also enable 26MHz clock for bt when RF chip dsp code sleep
-
+    //ANA_REG_OR (ANA_LED_CTL, BIT_14); // also enable 26MHz clock for bt when RF chip dsp code sleep //w
+    
     for (i = 0; i < nr_chip; i++) {
         gpio = spi_cs_gpio[chip[i].chip_select];
 #if 0
