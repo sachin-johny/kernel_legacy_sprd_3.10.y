@@ -536,7 +536,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_GC0309_ioctl_func_tab =
 	{{0x00, 0xa0},						// supply two code to identify sensor.
 	{0x00, 0xa0}},						// for Example: index = 0-> Device id, index = 1 -> version id	
 									
-	SENSOR_AVDD_2800MV,				// voltage of avdd	
+	SENSOR_AVDD_1800MV,				// voltage of avdd	
 
 	640,							// max width of source image
 	480,							// max height of source image
@@ -552,7 +552,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_GC0309_ioctl_func_tab =
 	PNULL,							// information and table about Rawrgb sensor
 	PNULL,							// extend information about sensor	
     SENSOR_AVDD_2800MV,                     // iovdd
-	SENSOR_AVDD_1800MV,                      // dvdd
+	SENSOR_AVDD_1500MV,                      // dvdd
 	3,
 	0,
 	0,

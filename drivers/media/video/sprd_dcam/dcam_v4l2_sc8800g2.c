@@ -71,6 +71,7 @@ typedef struct dcam_info
 	//Dcam
 	DCAM_SIZE_T0 input_size;
 	DCAM_MODE_TYPE_E mode;
+	uint32_t orientation; //wxz20110815: 0: default, landscape; 1: portrait
 }DCAM_INFO_T;
 
 uint32_t g_cur_buf_addr = 0; //store the buffer address which is hte next buffer DQbufed.
@@ -795,6 +796,7 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 		streamparm->parm.capture.reserved[i] = dev->streamparm.parm.capture.reserved[i];
 	streamparm->parm.raw_data[0] = dev->streamparm.parm.raw_data[0];
 	streamparm->parm.raw_data[1] = dev->streamparm.parm.raw_data[1];
+	streamparm->parm.raw_data[2] = dev->streamparm.parm.raw_data[2];//wxz20110815: the orientation info
 	DCAM_V4L2_PRINT("###V4L2: vidioc_g_parm X.\n");
 	return 0;
 }
@@ -855,6 +857,12 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	else{
 		//Sensor_SetCurId(SENSOR_MAIN);
 		sensor_id = 0;
+	}
+	if(1 == streamparm->parm.raw_data[2]){
+		g_dcam_info.orientation = 1;	
+	}
+	else{
+		g_dcam_info.orientation = 0;	
 	}
 	if(0 != v4l2_sensor_init(sensor_id)){
 		DCAM_V4L2_PRINT("###V4L2: fail to sensor_init.\n");
@@ -1060,8 +1068,8 @@ static void init_dcam_parameters(void *priv)
 
 #endif
 
-#define DCAM_PIXEL_ALIGNED 16
-#define DCAM_W_H_ALIGNED(x) ((x + DCAM_PIXEL_ALIGNED - 1) & ~(DCAM_PIXEL_ALIGNED - 1))
+#define DCAM_PIXEL_ALIGNED 4 //16
+#define DCAM_W_H_ALIGNED(x) (((x) + DCAM_PIXEL_ALIGNED - 1) & ~(DCAM_PIXEL_ALIGNED - 1))
 
 typedef struct dcam_trim_rect{
 	uint32_t x;
@@ -1102,6 +1110,15 @@ void zoom_picture_size(uint32_t in_w, uint32_t in_h, DCAM_TRIM_RECT_T *trim_rect
 	trim_rect->y = (trim_h + 3) & ~3;	
 	trim_rect->w = DCAM_W_H_ALIGNED(in_w - (trim_rect->x << 1) );
 	trim_rect->h = DCAM_W_H_ALIGNED(in_h - (trim_rect->y << 1));
+	//wxz20110728: the sccale range must be in [4, 1/4]. There need to handle the scale factor when the zoom level is 3.
+        if(3 == zoom_level){
+                if(trim_rect->w < (in_w >> 2)){
+                        trim_rect->w = DCAM_W_H_ALIGNED(in_w >> 2);
+                }
+                if(trim_rect->h < (in_h >> 2)){
+                        trim_rect->h = DCAM_W_H_ALIGNED(in_h >> 2);
+                }
+        }
 	DCAM_V4L2_PRINT("v4l2 trim_rect{x,y,w,h} --{%d, %d, %d, %d}, in_w: %d, in_h: %d, zoom_level: %d.\n", trim_rect->x, trim_rect->y, trim_rect->w, trim_rect->h,in_w, in_h, zoom_level);
 }
 
@@ -1151,43 +1168,51 @@ static void init_dcam_parameters(void *priv)
 	}
 	init_param.input_rect.w = fh->width;
 	init_param.input_rect.h = fh->height;*/	
-	if((144 == fh->width) && (176 == fh->height)){ //wxz20110727: handle the 144x176 for VT.
-		init_param.input_size.w = 320;
-		init_param.input_size.h = 480;
+	if(1 == g_dcam_info.orientation){
+		init_param.input_size.w = (((init_param.input_size.h * 3 >> 2) + 3) >> 2) << 2; //wxz20110815: the w = h*3/4;
 		init_param.input_rect.x = 0;
 		init_param.input_rect.y = 0;
 		init_param.input_rect.w = init_param.input_size.w;
 		init_param.input_rect.h = init_param.input_size.h;
+    		init_param.display_rect.w = fh->height;
+		init_param.display_rect.h = fh->width; 
+    		init_param.encoder_rect.w = fh->height;
+   		init_param.encoder_rect.h = fh->width;
 	}
 	else{
 		init_param.input_rect.x = 0;
 		init_param.input_rect.y = 0;
 		init_param.input_rect.w = init_param.input_size.w;
 		init_param.input_rect.h = init_param.input_size.h;
+    		init_param.display_rect.w = fh->width;
+    		init_param.display_rect.h = fh->height; 
+    		init_param.encoder_rect.w = fh->width;
+   		init_param.encoder_rect.h = fh->height;
 	}
     init_param.display_rect.x = 0;
     init_param.display_rect.y = 0;
-    init_param.display_rect.w = fh->width;
-    init_param.display_rect.h = fh->height; 
     init_param.encoder_rect.x = 0;
     init_param.encoder_rect.y = 0;
-    init_param.encoder_rect.w = fh->width;
-   init_param.encoder_rect.h = fh->height;
 	//if do zoom, need to modify the input_rect and encoder_rect
 	if((0 != g_zoom_level) && (3 == init_param.mode))
 	{
 		DCAM_TRIM_RECT_T trim_rect;
-		zoom_picture_size(fh->width, fh->height,  &trim_rect, g_zoom_level);
+		zoom_picture_size(init_param.input_size.w, init_param.input_size.h,  &trim_rect, g_zoom_level);
 		init_param.input_rect.x += trim_rect.x;
 		init_param.input_rect.y  += trim_rect.y;
 		init_param.input_rect.w = trim_rect.w;
 		init_param.input_rect.h = trim_rect.h;	
 		init_param.encoder_rect.x = 0;
     		init_param.encoder_rect.y = 0;
-    		init_param.encoder_rect.w = trim_rect.w;
-   		init_param.encoder_rect.h = trim_rect.h;		
+		if(1 == g_dcam_info.orientation){
+			init_param.input_size.w = fh->width;
+                }
+	    	init_param.encoder_rect.w = trim_rect.w;
+   		init_param.encoder_rect.h = trim_rect.h;	
+		
+		DCAM_V4L2_PRINT("#########wxz: size: w: %d, h: %d, rect: x: %d, y: %d, w: %d, h: %d, enc: w: %d, h: %d.\n", 
+			init_param.input_size.w, init_param.input_size.h, init_param.input_rect.x, init_param.input_rect.y, init_param.input_rect.w, init_param.input_rect.h, init_param.encoder_rect.w, init_param.encoder_rect.h);
 	}
-   
     init_param.skip_frame = 0;
     init_param.rotation = DCAM_ROTATION_0;
     init_param.first_buf_addr = g_first_buf_addr;
@@ -1472,8 +1497,7 @@ buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned int *size)
 	while (*size * *count > vid_limit * 1024 * 1024)
 		(*count)--;
 
-	dprintk(dev, 1, "%s, count=%d, size=%d\n", __func__,
-		*count, *size);
+	//dprintk(dev, 1, "%s, count=%d, size=%d\n", __func__,	*count, *size);
 
 	return 0;
 }
@@ -1483,13 +1507,13 @@ static void free_buffer(struct videobuf_queue *vq, struct dcam_buffer *buf)
 	struct dcam_fh  *fh = vq->priv_data;
 	struct dcam_dev *dev  = fh->dev;
 
-	dprintk(dev, 1, "%s, state: %i\n", __func__, buf->vb.state);
+	//dprintk(dev, 1, "%s, state: %i\n", __func__, buf->vb.state);
 
 	if (in_interrupt())
 		BUG();
         
 	videobuf_vmalloc_free(&buf->vb);
-	dprintk(dev, 1, "free_buffer: freed\n");
+	//dprintk(dev, 1, "free_buffer: freed\n");
 	buf->vb.state = VIDEOBUF_NEEDS_INIT;
 }
 
@@ -1505,7 +1529,7 @@ buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 	//unsigned int addr;
 	DCAM_V4L2_PRINT("###DCAM_V4L2:buffer_prepare  w: %d, h: %d, baddr: %lx, bsize: %d.\n ",fh->width,fh->height, buf->vb.baddr, buf->vb.bsize);
         DCAM_V4L2_PRINT("###DCAM_V4L2:buffer_prepare  start.  fh->fmt:%d\n", (int) fh->fmt);
-	dprintk(dev, 1, "%s, field=%d\n", __func__, field);
+	//dprintk(dev, 1, "%s, field=%d\n", __func__, field);
 
 	BUG_ON(NULL == fh->fmt);
 
@@ -1564,7 +1588,7 @@ buffer_queue(struct videobuf_queue *vq, struct videobuf_buffer *vb)
 	struct dcam_dev       *dev  = fh->dev;
 	struct dcam_dmaqueue *vidq = &dev->vidq;
 
-	dprintk(dev, 1, "%s\n", __func__);
+	//dprintk(dev, 1, "%s\n", __func__);
 
 	buf->vb.state = VIDEOBUF_QUEUED;
 	buf->fmt->flag = 0;
@@ -1578,7 +1602,7 @@ static void buffer_release(struct videobuf_queue *vq,
 	struct dcam_fh       *fh   = vq->priv_data;
 	struct dcam_dev      *dev  = (struct dcam_dev *)fh->dev;
 
-	dprintk(dev, 1, "%s\n", __func__);
+	//dprintk(dev, 1, "%s\n", __func__);
 
 	free_buffer(vq, buf);
 }
