@@ -911,7 +911,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//printk("###V4L2: vidioc_qbuf addr: %x.\n", p->m.userptr);
 	return (videobuf_qbuf(&fh->vb_vidq, p));
 }
-
+/*
 static inline int rt_policy(int policy)
 {
 	if (unlikely(policy == SCHED_FIFO) || unlikely(policy == SCHED_RR))
@@ -923,11 +923,11 @@ static inline int task_has_rt_policy(struct task_struct *p)
 {
 	return rt_policy(p->policy);
 }
-
+*/
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh  *fh = priv;
-	
+	/*
 	//wxz20110725: adjust the priority of the thread.
 	static int flag = 0; 
 	if(flag == 0){
@@ -944,7 +944,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		    if(ret!=0)
 		        printk("vsp change pri fail a\n");
 	}
-	}
+	}*/
 	DCAM_V4L2_PRINT("###v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n", file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));
 	//videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK);
@@ -1169,8 +1169,9 @@ static void init_dcam_parameters(void *priv)
 	init_param.input_rect.w = fh->width;
 	init_param.input_rect.h = fh->height;*/	
 	if(1 == g_dcam_info.orientation){
+		uint32_t tmp = init_param.input_size.w;
 		init_param.input_size.w = (((init_param.input_size.h * 3 >> 2) + 3) >> 2) << 2; //wxz20110815: the w = h*3/4;
-		init_param.input_rect.x = 0;
+		init_param.input_rect.x = ((((tmp - init_param.input_size.w) >> 1) + 3) >> 2) << 2;
 		init_param.input_rect.y = 0;
 		init_param.input_rect.w = init_param.input_size.w;
 		init_param.input_rect.h = init_param.input_size.h;
@@ -1199,7 +1200,7 @@ static void init_dcam_parameters(void *priv)
 		DCAM_TRIM_RECT_T trim_rect;
 		zoom_picture_size(init_param.input_size.w, init_param.input_size.h,  &trim_rect, g_zoom_level);
 		init_param.input_rect.x += trim_rect.x;
-		init_param.input_rect.y  += trim_rect.y;
+		init_param.input_rect.y += trim_rect.y;
 		init_param.input_rect.w = trim_rect.w;
 		init_param.input_rect.h = trim_rect.h;	
 		init_param.encoder_rect.x = 0;
