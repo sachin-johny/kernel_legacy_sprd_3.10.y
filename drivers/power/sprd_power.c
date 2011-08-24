@@ -57,6 +57,7 @@ struct sprd_battery_data {
     struct timer_list battery_timer;
     struct timer_list charge_voltage_timer;
     int timer_freq;
+    int in_precharge;
 
     uint32_t capacity;
     uint32_t voltage;
@@ -490,6 +491,7 @@ static void battery_handler(unsigned long data)
     int timer_freq;
     
     
+    spin_lock_irqsave(&battery_data->lock, flag);
     struct sprd_battery_data * battery_data = (struct sprd_battery_data *)data;
     usb_online = battery_data->usb_online;
     ac_online = battery_data->ac_online;
@@ -506,9 +508,8 @@ static void battery_handler(unsigned long data)
     adc_value = get_vbat_value();
     DEBUG("vbat %d\n", adc_value);
 
-    spin_lock_irqsave(&battery_data->lock, flag);
-
     voltage = CHGMNG_AdcvalueToVoltage(adc_value);
+    DEBUG("voltage %d\n", voltage);
 
     if(charge_pluse){
         vprog_value = ADC_GetValue(ADC_CHANNEL_PROG, false);
@@ -559,11 +560,53 @@ static void battery_handler(unsigned long data)
     if(pre_ac_online != ac_online){
         pre_ac_online = ac_online;
         ac_notify = 1;
+        if(ac_online){
+            pluse_charge_cnt = CHGMNG_PLUST_TIMES;
+            hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
+
+            battery_data->charging = 1;
+            CHG_SetAdapterMode(CHG_USB_ADAPTER);
+            CHG_SetUSBChargeCurrent(CHG_USB_400MA);
+            battery_data->cur_type = 400;
+            CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
+            CHG_TurnOn();
+            battery_notify = 1;
+            battery_data->in_precharge = 0;
+        }else{
+            CHG_ShutDown();
+            CHG_StopRecharge();
+            battery_data->charging = 0;
+            pluse_charging = 0;
+            charge_pluse = true;
+            battery_notify = 1;
+            battery_data->in_precharge = 0;
+        }
     }
 
     if(pre_usb_online != usb_online){
         pre_usb_online = usb_online;
         usb_notify = 1;
+        if(usb_online){
+            pluse_charge_cnt = CHGMNG_PLUST_TIMES;
+            hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
+
+            battery_data->charging = 1;
+            CHG_SetAdapterMode(CHG_USB_ADAPTER);
+            CHG_SetUSBChargeCurrent(CHG_USB_400MA);
+            battery_data->cur_type = 400;
+            CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
+            CHG_TurnOn();
+            battery_notify = 1;
+            battery_data->in_precharge = 0;
+        }else{
+            CHG_ShutDown();
+            CHG_StopRecharge();
+            battery_data->charging = 0;
+            pluse_charging = 0;
+            charge_pluse = true;
+            battery_notify = 1;
+            battery_data->in_precharge = 0;
+        }
     }
 
     if(battery_data->capacity != capacity){
@@ -576,7 +619,8 @@ static void battery_handler(unsigned long data)
         battery_notify = 1;
     }
 
-    if(usb_online && (voltage < battery_data->precharge_start) && !battery_data->charging){
+    if((battery_data->in_precharge == 1) && usb_online && (voltage < battery_data->precharge_start) \
+                && !battery_data->charging){
         pluse_charge_cnt = CHGMNG_PLUST_TIMES;
         hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
 
@@ -587,9 +631,11 @@ static void battery_handler(unsigned long data)
         CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
         CHG_TurnOn();
         battery_notify = 1;
+        battery_data->in_precharge = 0;
     }
 
-    if(ac_online && (voltage < battery_data->precharge_start) && !battery_data->charging){
+    if((battery_data->in_precharge == 1) && ac_online && (voltage < battery_data->precharge_start) \
+                && !battery_data->charging){
         pluse_charge_cnt = CHGMNG_PLUST_TIMES;
         hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
 
@@ -600,60 +646,52 @@ static void battery_handler(unsigned long data)
         CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
         CHG_TurnOn();
         battery_notify = 1;
+        battery_data->in_precharge = 0;
     }
 
     if(battery_data->charging){
-        if(ac_online || usb_online){
-            if(!pluse_charging ){
-                if(voltage < battery_data->precharge_end) {
-                    hw_switch_update_cnt --;
-                    if(hw_switch_update_cnt <= 0){
-                        if(vprog_value < battery_data->cur_type){
-                            now_hw_switch_point = CHG_UpdateSwitchoverPoint(true);
-                            DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
-                        }
-                        hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
+        if(!pluse_charging ){
+            if(voltage < battery_data->precharge_end) {
+                hw_switch_update_cnt --;
+                if(hw_switch_update_cnt <= 0){
+                    if(vprog_value < battery_data->cur_type){
+                        now_hw_switch_point = CHG_UpdateSwitchoverPoint(true);
+                        DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
                     }
-                }else{
-                    if(vprog_value > battery_data->cur_type/5){
-                        pluse_charging = 1;
-                    }else{
-                        charge_pluse = true;
-                        pluse_charging = 0;
-                        battery_data->charging = 0;
-                        battery_notify = 1;
-                        CHG_ShutDown();
-                        CHG_StopRecharge();
-                    }
+                    hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
                 }
-                CHG_SetRecharge();
-            }else {
-                if(charge_pluse){
-                    pluse_charge_cnt --;
-                    if(pluse_charge_cnt == 0){
-                        charge_pluse = false;
-                        CHG_ShutDown();
-                        pluse_charge_cnt = CHGMNG_PLUST_TIMES;
-                    }
+            }else{
+                if(vprog_value > battery_data->cur_type/5){
+                    pluse_charging = 1;
                 }else{
                     charge_pluse = true;
-                    CHG_SetRecharge();
                     pluse_charging = 0;
+                    battery_data->charging = 0;
+                    battery_notify = 1;
+                    CHG_ShutDown();
+                    CHG_StopRecharge();
+                    battery_data->in_precharge = 1;
                 }
             }
-        }else{
-            CHG_ShutDown();
-            CHG_StopRecharge();
-            battery_data->charging = 0;
-            pluse_charging = 0;
-            charge_pluse = true;
-            battery_notify = 1;
+            CHG_SetRecharge();
+        }else {
+            if(charge_pluse){
+                pluse_charge_cnt --;
+                if(pluse_charge_cnt == 0){
+                    charge_pluse = false;
+                    CHG_ShutDown();
+                    pluse_charge_cnt = CHGMNG_PLUST_TIMES;
+                }
+            }else{
+                charge_pluse = true;
+                CHG_SetRecharge();
+                pluse_charging = 0;
+            }
         }
     }
 
     spin_unlock_irqrestore(&battery_data->lock, flag);
     DEBUG("usb online %d, ac online %d\n", usb_online, ac_online);
-    DEBUG("capacity %d\n", capacity);
     if(battery_notify){
         power_supply_changed(&battery_data->battery);
     }
@@ -712,6 +750,7 @@ void battery_sleep(void)
     int32_t temp_value;
     unsigned long flag;
     static int loop_cnt = 0;
+    static int protect = 0;
 
     CHG_SWITPOINT_E now_hw_switch_point;
     
@@ -719,7 +758,7 @@ void battery_sleep(void)
     // use global battery_data
     //struct sprd_battery_data * battery_data = (struct sprd_battery_data *)data;
 
-    if(battery_data->usb_online || battery_data->ac_online){
+    if((protect == 0) && (battery_data->usb_online || battery_data->ac_online)){
 
         if(charge_pluse){
             vprog_value = ADC_GetValue(ADC_CHANNEL_PROG, false);
@@ -795,7 +834,8 @@ void battery_sleep(void)
             }
 #endif
 
-            if(battery_data->usb_online && (voltage < battery_data->precharge_start) && !battery_data->charging){
+            if((battery_data->in_precharge == 0) && battery_data->usb_online && \
+                        (voltage < battery_data->precharge_start) && !battery_data->charging){
                 pluse_charge_cnt = CHGMNG_PLUST_TIMES;
                 hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
 
@@ -805,9 +845,11 @@ void battery_sleep(void)
                 battery_data->cur_type = 400;
                 CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
                 CHG_TurnOn();
+                battery_data->in_precharge = 1;
             }
 
-            if(battery_data->ac_online && (voltage < battery_data->precharge_start) && !battery_data->charging){
+            if((battery_data->in_precharge == 0) && battery_data->ac_online && \
+                        (voltage < battery_data->precharge_start) && !battery_data->charging){
                 pluse_charge_cnt = CHGMNG_PLUST_TIMES;
                 hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
 
@@ -817,6 +859,7 @@ void battery_sleep(void)
                 battery_data->cur_type = 600;
                 CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
                 CHG_TurnOn();
+                battery_data->in_precharge = 1;
             }
 
             if(battery_data->charging){
@@ -839,6 +882,7 @@ void battery_sleep(void)
                             battery_data->charging = 0;
                             CHG_ShutDown();
                             CHG_StopRecharge();
+                            battery_data->in_precharge = 0;
                         }
                     }
                     CHG_SetRecharge();
@@ -858,6 +902,14 @@ void battery_sleep(void)
                 }
             }
         }
+    }else{
+        charge_pluse = true;
+        pluse_charging = 0;
+        battery_data->charging = 0;
+        CHG_ShutDown();
+        CHG_StopRecharge();
+        battery_data->in_precharge = 0;
+        protect = 1;
     }
 }
 

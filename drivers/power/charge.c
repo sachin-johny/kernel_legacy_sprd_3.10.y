@@ -363,6 +363,8 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int updat
         }
         if(pos == table_size-1) {
           percentum = 0;
+        }else if(pos == 0){
+            percentum = 100;
         }else{
             temp = charging_voltage_capacity_table[pos][1]-charging_voltage_capacity_table[pos+1][1];
             temp = temp * (voltage - charging_voltage_capacity_table[pos][0]);
@@ -386,6 +388,8 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int updat
         }
         if(pos == 0) {
           percentum = 100;
+        }else if(pos == table_size -1){
+            percentum = 0;
         }else{
             temp = voltage_capacity_table[pos][1]-voltage_capacity_table[pos-1][1];
             temp = temp*(voltage - voltage_capacity_table[pos][0]);
