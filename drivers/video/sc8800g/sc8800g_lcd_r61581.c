@@ -304,7 +304,7 @@ static struct info_mcu lcd_r61581_info = {
 	.ops = NULL,
 };
 
-struct lcd_spec lcd_panel = {
+struct lcd_spec lcd_panel_r61581 = {
 	.width = 320,
 	.height = 480,
 	.mode = LCD_MODE_MCU,

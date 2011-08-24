@@ -239,7 +239,7 @@ static struct info_mcu lcd_ili9328_info = {
 	.ops = NULL,
 };
 
-struct lcd_spec lcd_panel = {
+struct lcd_spec lcd_panel_ili9328 = {
 	.width = 240,
 	.height = 320,
 	.mode = LCD_MODE_MCU,

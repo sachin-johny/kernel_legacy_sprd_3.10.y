@@ -272,6 +272,27 @@ static bool rm68040_is_invalidaterect(void)
 	return true;
 }
 
+static uint32_t rm68040_readid(struct lcd_spec *self)
+{
+	uint32_t dummy;
+	self->info.mcu->ops->send_cmd(0xBF);
+
+	self->info.mcu->ops->read_data();
+	self->info.mcu->ops->read_data();
+	self->info.mcu->ops->read_data();
+	dummy = (self->info.mcu->ops->read_data())&0xff;
+	dummy <<= 8;
+	dummy |= (self->info.mcu->ops->read_data())&0xff;
+	if(self->info.mcu->ops->read_data() == 0xff)
+	{
+		return dummy;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 static struct lcd_operations lcd_rm68040_operations = {
 	.lcd_init = rm68040_init,
 	.lcd_set_window = rm68040_set_window,
@@ -280,6 +301,7 @@ static struct lcd_operations lcd_rm68040_operations = {
 	.lcd_set_direction = rm68040_set_direction,
 	.lcd_enter_sleep = rm68040_enter_sleep,
 	.lcd_is_invalidaterect = rm68040_is_invalidaterect,
+	.lcd_readid = rm68040_readid,
 };
 
 static struct timing_mcu lcd_rm68040_timing = {
@@ -308,7 +330,7 @@ static struct info_mcu lcd_rm68040_info = {
 	.ops = NULL,
 };
 
-struct lcd_spec lcd_panel = {
+struct lcd_spec lcd_panel_rm68040 = {
 	.width = 320,
 	.height = 480,
 	.mode = LCD_MODE_MCU,
