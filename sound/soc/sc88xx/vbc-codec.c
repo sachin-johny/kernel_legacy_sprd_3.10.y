@@ -368,7 +368,7 @@ void vbc_power_down(unsigned int value)
     // printk("audio %s\n", __func__);
     {
         int do_sb_power = 0;
-        use_delay = !headset_muted;
+        use_delay = 1; // !headset_muted;
         // int VBCGR1_value;
         if ((vbc_reg_read(VBPMR1, SB_ADC, 1)
              && (value == SNDRV_PCM_STREAM_PLAYBACK && !vbc_reg_read(VBPMR1, SB_DAC, 1))) ||
@@ -433,7 +433,7 @@ void vbc_power_on(unsigned int value)
     vbc_ldo_on(1);
     // printk("audio %s\n", __func__);
     {
-        use_delay = !headset_muted;
+        use_delay = 1; // !headset_muted;
         if (value == SNDRV_PCM_STREAM_PLAYBACK &&
             (vbc_reg_read(VBPMR1, SB_DAC, 1) ||
              vbc_reg_read(VBPMR1, SB_LOUT, 1)||
