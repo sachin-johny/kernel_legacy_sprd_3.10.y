@@ -681,7 +681,7 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	unsigned long s_int_status;
 	unsigned long s_key_status;
 	
-    	//msleep(20);
+    	msleep(20);
 	gpio = irq_to_gpio(irq);
 	
 	//printk("%s %d  gpio = %d\n", __FUNCTION__, __LINE__, gpio);
