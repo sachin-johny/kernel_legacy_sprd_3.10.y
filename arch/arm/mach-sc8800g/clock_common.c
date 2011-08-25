@@ -376,6 +376,27 @@ out:
 	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
 }
 EXPORT_SYMBOL(clk_disable);
+void clk_disable_force(struct clk *clk)
+{
+	unsigned long flags;
 
+	if ((NULL == clk) || IS_ERR(clk))
+		return;
+
+	hw_spin_lock_irqsave(&clockfw_lock, flags);
+	if (clk->pstub->usecount == 0) {
+		printk("Trying to disable clock [%s] with 0 usecount\n",
+				clk->pstub->name);
+		WARN_ON(1);
+		goto out;
+	}
+
+	clk->pstub->usecount = 1; 
+	if (arch_clock->clk_disable)
+		arch_clock->clk_disable(clk);
+out:
+	hw_spin_unlock_irqrestore(&clockfw_lock, flags);
+}
+EXPORT_SYMBOL(clk_disable_force);
 
 

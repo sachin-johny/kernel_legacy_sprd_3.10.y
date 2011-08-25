@@ -65,6 +65,13 @@ int clk_enable(struct clk *clk);
 void clk_disable(struct clk *clk);
 
 /**
+ * clk_disable_force - stop clock forcely.
+ * @clk: clock source
+ *
+ */
+void clk_disable_force(struct clk *clk);
+
+/**
  * clk_get_rate - obtain the current clock rate (in Hz) for a clock source.
  *		  This is only valid once the clock source has been enabled.
  * @clk: clock source
