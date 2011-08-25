@@ -661,7 +661,7 @@ static void battery_handler(unsigned long data)
                     hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
                 }
             }else{
-                if(vprog_value > battery_data->cur_type/5){
+                if(vprog_value > battery_data->cur_type/10){
                     pluse_charging = 1;
                 }else{
                     charge_pluse = true;
@@ -713,6 +713,7 @@ static void charge_voltage_handler(unsigned long data)
 {
     int32_t vprog_value;
     int32_t vchg_value;
+    uint32_t voltage;
     struct sprd_battery_data * battery_data = (struct sprd_battery_data *)data;
 
     vprog_value = ADC_GetValue(ADC_CHANNEL_PROG, false);
@@ -723,9 +724,10 @@ static void charge_voltage_handler(unsigned long data)
     vchg_value = ADC_GetValue(ADC_CHANNEL_VCHG, false);
     if(vchg_value < 0)
       return;
+    voltage = CHGMNG_AdcvalueToVoltage(vchg_value);
     //DEBUG("%s: vchg %d\n", __func__, vchg_value);
 
-    if(vchg_value > battery_data->over_voltage && vprog_value > battery_data->over_current){
+    if(voltage > battery_data->over_voltage && vprog_value > battery_data->over_current){
         CHG_ShutDown();
         CHG_StopRecharge();
         printk("charger voltage too high\n");
@@ -742,6 +744,7 @@ static void charge_voltage_handler(unsigned long data)
 void battery_sleep(void)
 {
     uint32_t voltage;
+    uint32_t vchg_voltage;
     uint32_t capacity;
     int temp;
     int32_t adc_value;
@@ -776,9 +779,10 @@ void battery_sleep(void)
         vchg_value = ADC_GetValue(ADC_CHANNEL_VCHG, false);
         if(vchg_value < 0)
           return;
+        vchg_voltage = CHGMNG_AdcvalueToVoltage(vchg_value);
         //DEBUG("%s: vchg %d\n", __func__, vchg_value);
 
-        if(vchg_value > battery_data->over_voltage && vprog_value > battery_data->over_current){
+        if(vchg_voltage> battery_data->over_voltage && vprog_value > battery_data->over_current){
             CHG_ShutDown();
             CHG_StopRecharge();
             printk("charger voltage too high\n");
@@ -874,7 +878,7 @@ void battery_sleep(void)
                             hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
                         }
                     }else{
-                        if(vprog_value > battery_data->cur_type/5){
+                        if(vprog_value > battery_data->cur_type/10){
                             pluse_charging = 1;
                         }else{
                             charge_pluse = true;

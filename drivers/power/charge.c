@@ -267,7 +267,8 @@ int CHGMNG_AdcvalueToTemp(uint16_t adcvalue)
 
 uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type)
 {
-    return (((uint32_t)voltage*cur_type*VOL_DIV_P1)/VOL_TO_CUR_PARAM)/VOL_DIV_P2;
+    //return (((uint32_t)voltage*cur_type*VOL_DIV_P1)/VOL_TO_CUR_PARAM)/VOL_DIV_P2;
+    return ((uint32_t)voltage*VOL_DIV_P1)/VOL_DIV_P2;
 }
 
 /*****************************************************************************/
