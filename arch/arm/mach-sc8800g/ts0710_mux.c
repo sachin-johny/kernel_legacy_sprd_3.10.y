@@ -2756,13 +2756,18 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 
 				} else {
 					msleep(2000);
-					COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "at\r",
-						   strlen("at\r"));
+					if(mux_mode == 1)
+						COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "AT+SMMSWAP=0\r",
+								strlen("AT+SMMSWAP=0\r"));
+					else
+						COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, "at\r",
+								strlen("at\r"));
 					i++;
-				}	
-				if (i > 50) {
+				}
+				if (i > 5) {
 					printk("\n wrong modem state !!!!\n");
-					break;
+					retval = -ENODEV;
+					goto out;
 				}
 			}
 			COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY,
