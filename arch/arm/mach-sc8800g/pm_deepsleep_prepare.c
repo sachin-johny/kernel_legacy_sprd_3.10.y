@@ -952,6 +952,7 @@ int sprd_check_dsp_enable = 0;
 int sprd_check_gpio_enable = 0;
 int sprd_dump_gpio_registers = 0;
 int sprd_wait_until_uart_tx_fifo_empty = 0;
+int sprd_sleep_mode_info = 0;
 
 
 
@@ -1305,6 +1306,9 @@ int sc8800g_enter_deepsleep(int inidle)
 
     if (status & DEVICE_AHB)  {
 		sleep_mode = SLEEP_MODE_ARM_CORE;
+		if (sprd_sleep_mode_info) printk("## sleep[ARM_CORE].\n");
+		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
+
 		t0 = get_sys_cnt();
 		sc8800g_cpu_standby();
 		t1 = get_sys_cnt();
@@ -1313,8 +1317,10 @@ int sc8800g_enter_deepsleep(int inidle)
 		sc8800g_restore_pll();
     }
     else if (status & DEVICE_APB) {
-	if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
         sleep_mode = SLEEP_MODE_MCU;
+	if (sprd_sleep_mode_info) printk("## sleep[MCU].\n");
+	if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
+
         SAVE_GLOBAL_REG;
         disable_audio_module();
         disable_ahb_module();
@@ -1331,6 +1337,10 @@ int sc8800g_enter_deepsleep(int inidle)
 		sc8800g_restore_pll();
     }
     else {
+		sleep_mode = SLEEP_MODE_DEEP;
+		if (sprd_sleep_mode_info) printk("## sleep[DEEP].\n");
+		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
+
 		sleep_counter++;
 	
 		supsend_ldo_turnoff();
@@ -1341,9 +1351,7 @@ int sc8800g_enter_deepsleep(int inidle)
 		printk("IRQ_STS = %08x, %s\n", 
 		__raw_readl(INT_IRQ_STS), inidle ? "idle" : "pm_suspend");
 		*/
-		
-		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
-		sleep_mode = SLEEP_MODE_DEEP;
+
 		SAVE_GLOBAL_REG;
 		disable_audio_module();
 		disable_apb_module();
@@ -1495,6 +1503,65 @@ void nkidle_original(void)
 
 static void deep_sleep_timeout(unsigned long data);
 static DEFINE_TIMER(deep_sleep_timer, deep_sleep_timeout, 0, 0);
+
+static int sleep_mode_info_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sleep_mode_info_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sleep_mode_info_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sleep_mode_info_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sleep_mode_info_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_sleep_mode_info = 0;
+		break;
+	case '1':
+		sprd_sleep_mode_info = 1;
+		/* to display message completely. */
+		sprd_wait_until_uart_tx_fifo_empty = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _sleep_mode_info_proc_fops = {
+    open:    sleep_mode_info_open,
+    release: sleep_mode_info_release,
+    llseek:  sleep_mode_info_lseek,
+    read:    sleep_mode_info_read,
+    write:   sleep_mode_info_write,
+};
+
+
+
+
 
 
 static int wait_uart_done_open (struct inode* inode, struct file*  file)
@@ -2276,6 +2343,9 @@ int sc8800g_prepare_deep_sleep(void)
         printk("##: proc_mkdir(/proc/sprd_sleep_info) failed\n");
         return 0;
     }
+
+	sprd_proc_create(sprd_proc_entry, "sleep_mode_info", &_sleep_mode_info_proc_fops);
+
 	sprd_proc_create(sprd_proc_entry, "wait_uart_done", &_wait_uart_done_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "dump_gpio_registers", &_dump_gpio_registers_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "gpio_info", &_gpio_info_proc_fops);
