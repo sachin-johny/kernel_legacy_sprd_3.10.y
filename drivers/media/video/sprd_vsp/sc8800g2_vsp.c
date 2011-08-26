@@ -236,7 +236,8 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 #endif
 	    break;
 	    case VSP_DISABLE:
-	        clk_disable(dev.vsp_clk);
+	       //clk_disable(dev.vsp_clk);
+	       clk_disable_force(dev.vsp_clk);
 		VSP_PRINT("vsp ioctl VSP_DISABLE\n");
 	    break;	
 	    case VSP_ACQUAIRE:
