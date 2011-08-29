@@ -81,7 +81,7 @@ extern   "C"
 
 #define CHGMNG_MAX_VCHG     0x3FF
 
-#define PREVRECHARGE        3900//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
+#define PREVRECHARGE        4000//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
 // restart the charge process.
 #define PREVCHGEND      (4220+ 4)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
 #define CHGMNG_SAFTY_CUTOFF_POINT 960//837   // 4.33V. When the battery voltage is higher than this value, we will stop charging forcibly.
@@ -131,12 +131,13 @@ extern   "C"
 #define CHARGE_OVER_VOLTAGE 6500 
 #define CHARGE_OVER_CURRENT 200
 
-//#define VOL_TO_CUR_PARAM 576
-//#define VOL_DIV_P1 268
-//#define VOL_DIV_P2 1000
-#define VOL_DIV_P1 220
-#define VOL_DIV_P2 540
+#define VOL_TO_CUR_PARAM 576
+#define VOL_DIV_P1 268
+#define VOL_DIV_P2 1000
 
+#define CC_CV_VOLTAGE 4000
+#define CV_REF_CURRENT 4
+#define CV_STOP_CURRENT 10
 
 /**---------------------------------------------------------------------------*
  **                         Data Structures                                   *
