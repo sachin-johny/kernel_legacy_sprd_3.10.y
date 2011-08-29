@@ -134,7 +134,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_EMA11_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMA12_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMA13_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
-    {PIN_EMCKE1_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
+    {PIN_EMCKE1_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3 | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMD0_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMD1_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
     {PIN_EMD2_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x100    
