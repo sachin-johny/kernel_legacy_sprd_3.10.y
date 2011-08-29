@@ -71,7 +71,7 @@
 #define SENSOR_LOW_EIGHT_BIT     0xff
 #define SENSOR_HIGN_SIXTEEN_BIT  0xffff0000
 #define SENSOR_LOW_SIXTEEN_BIT  0xffff
-
+#define SENSOR_I2C_OP_TRY_NUM   4
 /**---------------------------------------------------------------------------*
  **                         Global Variables                                  *
  **---------------------------------------------------------------------------*/
@@ -1419,62 +1419,148 @@ int Sensor_WriteReg_Array(uint16_t reg_addr, uint16_t value, struct i2c_adapter 
 	return 0;
 }
 */
-int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
+
+int Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 {
-	uint8_t buf_w[3];
-	int32_t ret = -1;
+	uint8_t cmd[4] = {0};
+	uint32_t index=0, i=0;
+	uint32_t cmd_num = 0;
 	struct i2c_msg msg_w;
+	int32_t ret = -1;
+	SENSOR_IOCTL_FUNC_PTR 	write_reg_func;
 
-	if(0xFFFF == reg_addr) //for delay some msecond
-	{		
-		mdelay(value);
-		SENSOR_PRINT("Sensor_WriteReg wait %d ms.\n", value);
-		return 0;
-	}	
-	
-	buf_w[0]= reg_addr >> 8;
-	buf_w[1]= reg_addr & 0xFF;
-	buf_w[2]= (uint8_t)value;
-	msg_w.addr = this_client->addr; 
-	msg_w.flags = 0;
-	msg_w.buf = buf_w;
-	msg_w.len = 3;
-        ret = i2c_transfer(this_client->adapter, &msg_w, 1);
-	if(ret!=1)
-        {
-            printk("#DCAM: write sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
-            return -1;
-        }
+	write_reg_func = s_sensor_info_ptr->ioctl_func_tab_ptr->write_reg;
 
+	if(PNULL != write_reg_func)
+	{
+		if(SENSOR_OP_SUCCESS != write_reg_func((subaddr << BIT_4) + data))
+		{
+			SENSOR_PRINT("SENSOR: IIC write : reg:0x%04x, val:0x%04x error\n", subaddr, data);
+		}
+	}
+	else
+	{
+		if(SENSOR_I2C_REG_16BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_REG_16BIT) )
+		{
+			cmd[cmd_num++] = (uint8_t)((subaddr >> BIT_3)&SENSOR_LOW_EIGHT_BIT);
+			index++;
+			cmd[cmd_num++] = (uint8_t)(subaddr & SENSOR_LOW_EIGHT_BIT);		    	
+			index++;
+		}
+		else
+		{
+			cmd[cmd_num++] = (uint8_t)subaddr;	
+			index++;
+		}
+
+		if(SENSOR_I2C_VAL_16BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_VAL_16BIT))
+		{
+			cmd[cmd_num++] = (uint8_t)((data >> BIT_3)&SENSOR_LOW_EIGHT_BIT);
+			index++;		
+			cmd[cmd_num++] = (uint8_t)(data & SENSOR_LOW_EIGHT_BIT);	    		    	
+			index++;		
+		}
+		else
+		{
+			cmd[cmd_num++] = (uint8_t)data;
+			index++;		
+		}
+
+		if(SENSOR_WRITE_DELAY != subaddr)
+		{	
+			for(i = 0; i < SENSOR_I2C_OP_TRY_NUM; i++)   
+			{
+				msg_w.addr = this_client->addr; 
+				msg_w.flags = 0;
+				msg_w.buf = cmd;
+				msg_w.len = index;
+				ret = i2c_transfer(this_client->adapter, &msg_w, 1);
+				if(ret!=1)
+				{
+					printk("SENSOR: write sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
+					return -1;
+				}
+				else
+				{
+					printk("SENSOR: IIC write reg OK! 0x%04x, val:0x%04x ", subaddr, data);
+					break;
+				}
+			}           
+		}
+		else
+		{
+			msleep(data);
+			printk("SENSOR: IIC write Delay %d ms", data);	    	
+		}
+	}
 	return 0;
 }
 uint16_t Sensor_ReadReg(uint16_t reg_addr)
 {
-	uint8_t buf_w[2];
-	uint8_t buf_r;
+	uint32_t  i=0;	
+	uint8_t cmd[2] = {0};    
+	uint16_t ret_val;
+	uint16_t w_cmd_num = 0;
+	uint16_t r_cmd_num = 0;
+	uint8_t buf_r[2] = {0};
 	int32_t ret = -1;
-	uint16_t value = 0;
 	struct i2c_msg msg_r[2];
+	SENSOR_IOCTL_FUNC_PTR 	read_reg_func;
 
-	buf_w[0]= reg_addr >> 8;
-	buf_w[1]= reg_addr & 0xFF;
-	msg_r[0].addr = this_client->addr; 
-	msg_r[0].flags = 0;
-	msg_r[0].buf = buf_w;
-	msg_r[0].len = 2;
-	msg_r[1].addr = this_client->addr; 
-	msg_r[1].flags = I2C_M_RD;
-	msg_r[1].buf = &buf_r;
-	msg_r[1].len = 1;
-        ret = i2c_transfer(this_client->adapter, msg_r, 2);
-	if(ret!=2)
-        {
-            printk("#DCAM: read sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
-            return -1;
-        }
-	value = buf_r;
-	return value;
+	read_reg_func = s_sensor_info_ptr->ioctl_func_tab_ptr->read_reg;
+
+	if(PNULL != read_reg_func)
+	{
+		ret_val = (uint16_t)read_reg_func((uint32_t)(reg_addr & SENSOR_LOW_SIXTEEN_BIT));
+	}
+	else
+	{
+		if(SENSOR_I2C_REG_16BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_REG_16BIT))
+		{
+			cmd[w_cmd_num++] = (uint8_t)((reg_addr >>BIT_3)&SENSOR_LOW_EIGHT_BIT);				
+			cmd[w_cmd_num++] = (uint8_t)(reg_addr & SENSOR_LOW_EIGHT_BIT);			
+		}
+		else
+		{
+			cmd[w_cmd_num++] = (uint8_t)reg_addr;		
+		}
+
+		if(SENSOR_I2C_VAL_16BIT==(s_sensor_info_ptr->reg_addr_value_bits & SENSOR_I2C_VAL_16BIT) )
+		{
+			r_cmd_num = SENSOR_CMD_BITS_16;
+		}
+		else
+		{
+			r_cmd_num = SENSOR_CMD_BITS_8; 	
+		}  
+
+		for(i = 0; i < SENSOR_I2C_OP_TRY_NUM; i++)   
+		{
+			msg_r[0].addr = this_client->addr; 
+			msg_r[0].flags = 0;
+			msg_r[0].buf = cmd;
+			msg_r[0].len = w_cmd_num;
+			msg_r[1].addr = this_client->addr; 
+			msg_r[1].flags = I2C_M_RD;
+			msg_r[1].buf = buf_r;
+			msg_r[1].len = r_cmd_num;
+			ret = i2c_transfer(this_client->adapter, msg_r, 2);
+			if(ret!=2)
+			{
+				printk("SENSOR: read sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
+				msleep(20);
+				ret_val = 0xFFFF;
+			}
+			else
+			{			
+				ret_val = (r_cmd_num == 1)?(uint16_t)buf_r[0]:(uint16_t)((buf_r[0] << 8) + buf_r[1]);  
+				break;
+			}
+		}
+	}
+	return  ret_val;
 }
+
 int32_t Sensor_WriteReg_8bits(uint16_t reg_addr, uint8_t value)
 {
 	uint8_t buf_w[2];
@@ -1740,22 +1826,15 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
 	struct timeval  time1, time2;
 	SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor E.\n");
 
-/*   SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d start time = %d",\
-//                    sensor_reg_tab_info_ptr->reg_count,\
-    GetTickCount());
-
-    SENSOR_ASSERT(PNULL != (void*)sensor_reg_tab_info_ptr);
-    SENSOR_ASSERT(PNULL != (void *)sensor_reg_tab_info_ptr->sensor_reg_tab_ptr);
-*/
 	do_gettimeofday(&time1);
 		
     for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
     {
         //ImgSensor_GetMutex();
-        if(1 == g_is_main_sensor)
+//        if(1 == g_is_main_sensor)
 	        Sensor_WriteReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
-	else
-		Sensor_WriteReg_8bits(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
+	//else
+//		Sensor_WriteReg_8bits(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
 		
         //ImgSensor_PutMutex();
     }	
@@ -1869,36 +1948,6 @@ PUBLIC SENSOR_ID_E Sensor_GetCurId(void)
 }
 
 /*****************************************************************************/
-//  Description:    This function is used to set all sensor power down
-//  Author:         Tim.Zhu
-//  Note:           
-/*****************************************************************************/
-/*LOCAL uint32_t _Sensor_SetAllPowerDown(void)
-{
-    uint8_t cur_sensor_id=0x00;
-    uint8_t sensor_id=0x00;
-
-    cur_sensor_id=Sensor_GetCurId();
-
-    for(sensor_id=0x00; sensor_id<SENSOR_ID_MAX; sensor_id++)
-    {
-        if(DCAM_NULL == s_sensor_list_ptr[sensor_id])
-        {
-            continue;
-        }
-        
-        _Sensor_SetId((SENSOR_ID_E)sensor_id);
-
-        Sensor_PowerDown(SENSOR_TRUE);
-    }
-
-    _Sensor_SetId((SENSOR_ID_E)cur_sensor_id);
-
-    return SENSOR_SUCCESS;
-}
-*/
-
-/*****************************************************************************/
 //  Description:    This function is used to set currect sensor id and set sensor
 //                  information
 //  Author:         Tim.Zhu
@@ -1916,59 +1965,6 @@ PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id){
 	}
 	return SENSOR_SUCCESS;
 }
-/*PUBLIC uint32_t Sensor_SetCurId(SENSOR_ID_E sensor_id)
-{
-    SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
-
-    SENSOR_PRINT("Sensor_SetCurId : %d.\n", sensor_id);	
-    if(sensor_id >= SENSOR_ID_MAX)
-    {
-        _Sensor_CleanInformation();
-        return SENSOR_OP_PARAM_ERR;
-    }
-    if(SENSOR_FALSE==sensor_register_info_ptr->is_register[sensor_id])
-    {
-        return SENSOR_OP_PARAM_ERR;
-    }
-    if(sensor_register_info_ptr->cur_id != sensor_id)
-    {
-        if(Sensor_IsOpen())
-        {
-        	if(0 == dcam_get_user_count())//dcam isn't opend.
-        	{
-          	    _Sensor_SetAllPowerDown();
-	            _Sensor_IicHandlerRelease();
-        	    s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
-	            Sensor_SetExportInfo(&s_sensor_exp_info);
-        	    _Sensor_SetId(sensor_id);
-	            _Sensor_IicHandlerInit();
-        	    //Sensor_PowerDown(SENSOR_FALSE);
-        	    Sensor_PowerOn(SENSOR_TRUE); //wxz:???
-        	}
-		else
-		{
-			 s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
-		         Sensor_SetExportInfo(&s_sensor_exp_info);
-        		_Sensor_SetId(sensor_id);
-			_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));	//main sensor powerdown, sub snesor not; and reset sensor.
-			_paod(CAP_CNTRL,  BIT_11|BIT_12);	
-            		SENSOR_Sleep(20);	
-		}
-        }
-        else
-        {
-            s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
-            Sensor_SetExportInfo(&s_sensor_exp_info);
-            _Sensor_SetId(sensor_id);
-        }
-       
-    }
-    SENSOR_PRINT("SENSOR:Sensor_SetCurId id:%d, num:%d, ptr: 0x%x, ptr: 0x%x", sensor_id, sensor_register_info_ptr->img_sensor_num,(uint32_t)s_sensor_list_ptr, (uint32_t)s_sensor_info_ptr);            
-    
-    return SENSOR_SUCCESS;
-}
-
-*/
 
 /*****************************************************************************/
 //  Description:    This function is used to get info of register sensor     
@@ -2040,236 +2036,6 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 	return ret_val;	
 }	
 
-#if 0
-PUBLIC BOOLEAN Sensor_Init(void)
-{
-//scan_i2c_init();
-
-    BOOLEAN ret_val=SENSOR_FALSE;   
-    SENSOR_INFO_T* sensor_info_ptr=PNULL;
-    SENSOR_INFO_T** sensor_info_tab_ptr=PNULL;
-    //I2C_DEV  dev={0x00};
-    uint8_t sensor_index = 0x0;
-    uint32_t valid_tab_index_max=0x00;
-    SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
-
-    SENSOR_PRINT("SENSOR: Sensor_Init \n");
-
-    if(Sensor_IsInit())
-    {
-        SENSOR_PRINT("SENSOR: Sensor_Init is done\n");        
-        return SENSOR_TRUE;
-    }
-
-    //Clean the information of img sensor
-    //nsor_SetCurId(SENSOR_ID_MAX); 
-    _Sensor_CleanInformation();
-	
-      /* if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
-        {
-		sensor_i2c_driver.id_table = sensor_main_id;
-		sensor_i2c_driver.address_data = &sensor_main_addr_data;
-        }
-        else
-        {
-		sensor_i2c_driver.id_table = sensor_sub_id;
-		sensor_i2c_driver.address_data = &sensor_sub_addr_data;      
-        }	
-	if(i2c_add_driver(&sensor_i2c_driver))
-	{
-		SENSOR_PRINT("SENSOR: add I2C driver error\n");
-		return SENSOR_FALSE;
-	} */
-          	
-    if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
-    {
-        // main img sensor
-        SENSOR_PRINT("SENSOR: Sensor_Init Main Identify \n");
-        _Sensor_SetId(SENSOR_MAIN);
-        sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(SENSOR_MAIN);
-        valid_tab_index_max=Sensor_GetInforTabLenght(SENSOR_MAIN)-SENSOR_ONE_I2C;
-
-        for(sensor_index=0x00; sensor_index<valid_tab_index_max;sensor_index++)
-        {  
-            sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
-
-            if(DCAM_NULL==sensor_info_ptr)
-            {
-                SENSOR_PRINT("SENSOR: Sensor_Init main %d info is null", sensor_index);
-                continue ;
-            }
-
-            s_sensor_info_ptr = sensor_info_ptr;
-
-            _Sensor_IicHandlerInit();
-
-            Sensor_PowerOn(SENSOR_TRUE);
-
-            if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
-            {
-                ImgSensor_GetMutex();
-                if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
-                {
-                    s_sensor_list_ptr[SENSOR_MAIN]=s_sensor_info_ptr; 
-                    sensor_register_info_ptr->is_register[SENSOR_MAIN]=SENSOR_TRUE;
-                    sensor_register_info_ptr->img_sensor_num++;
-                    ImgSensor_PutMutex();
-                    Sensor_PowerOn(SENSOR_FALSE);
-                    _Sensor_IicHandlerRelease();
-		    SENSOR_PRINT("SENSOR: _Sensor_IicHandlerRelease SENSOR_MAIN break. \n");
-                    break ;
-                }
-                ImgSensor_PutMutex();
-            }
-
-            _Sensor_IicHandlerRelease();
-
-            Sensor_PowerOn(SENSOR_FALSE);
-        }
-
-        // sub img sensor
-        SENSOR_PRINT("SENSOR: Sensor_Init Sub Identify \n");
-
-        _Sensor_SetId(SENSOR_SUB);
-
-        sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(SENSOR_SUB);
-        valid_tab_index_max=Sensor_GetInforTabLenght(SENSOR_SUB)-SENSOR_ONE_I2C;
-
-        for(sensor_index=0x00; sensor_index<valid_tab_index_max;sensor_index++)
-        {  
-            sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
-
-            if(DCAM_NULL==sensor_info_ptr)
-            {
-                SENSOR_PRINT("SENSOR: Sensor_Init sub %d info is null", sensor_index);
-                continue ;
-            }
-
-            s_sensor_info_ptr=sensor_info_ptr;
-
-            _Sensor_IicHandlerInit();
-
-            Sensor_PowerOn(SENSOR_TRUE);
-            
-            if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
-            {
-                ImgSensor_GetMutex();
-                if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
-                {
-                    s_sensor_list_ptr[SENSOR_SUB]=s_sensor_info_ptr; 
-                    sensor_register_info_ptr->is_register[SENSOR_SUB]=SENSOR_TRUE;
-                    sensor_register_info_ptr->img_sensor_num++;
-                    ImgSensor_PutMutex();
-                    Sensor_PowerOn(SENSOR_FALSE);
-                    _Sensor_IicHandlerRelease();
-                   SENSOR_PRINT("SENSOR: _Sensor_IicHandlerRelease SENSOR_SUB break. \n");
-                    break ;
-                }
-                ImgSensor_PutMutex();
-            }
-
-            _Sensor_IicHandlerRelease();
-
-            Sensor_PowerOn(SENSOR_FALSE);
-
-        }
-
-
-		
-			
-
-        if(PNULL!=s_sensor_list_ptr[SENSOR_MAIN])
-        {     
-            s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_MAIN];
-            Sensor_SetExportInfo(&s_sensor_exp_info);
-            _Sensor_SetId(SENSOR_MAIN);
-
-            s_sensor_init = SENSOR_TRUE;
-            ret_val=SENSOR_TRUE;
-            SENSOR_PRINT("SENSOR: Sensor_Init Main Success \n");
-        }
-        else if(PNULL!=s_sensor_list_ptr[SENSOR_SUB])
-        {      
-            s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_SUB];
-            Sensor_SetExportInfo(&s_sensor_exp_info);
-            _Sensor_SetId(SENSOR_SUB);
-            
-            s_sensor_init = SENSOR_TRUE;
-            ret_val=SENSOR_TRUE;
-            SENSOR_PRINT("SENSOR: Sensor_Init Sub Success \n");
-        }    
-        else
-        {
-            _Sensor_SetId(SENSOR_ID_MAX);
-            s_sensor_init = SENSOR_FALSE;
-            SENSOR_PRINT("SENSOR: Sensor_Init Fail No Sensor err \n");
-        }
-    }
-    else if(SENSOR_TYPE_ATV==_Sensor_GetSensorType())
-    {
-        sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(SENSOR_ATV);
-        valid_tab_index_max=Sensor_GetInforTabLenght(SENSOR_ATV)-0x01;
-
-        for(sensor_index=0x00; sensor_index<valid_tab_index_max;sensor_index++)
-        {  
-            sensor_info_ptr=sensor_info_tab_ptr[sensor_index];
-
-            if(DCAM_NULL==sensor_info_ptr)
-            {
-                SENSOR_PRINT("SENSOR: Sensor_Init atv %d info is null", sensor_index);            
-                continue ;
-            }
-
-            s_sensor_info_ptr=sensor_info_ptr;
-
-            _Sensor_IicHandlerInit();
-
-            Sensor_PowerOn(SENSOR_TRUE);
-            
-            if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
-            {
-                ImgSensor_GetMutex();
-                if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(0x00))
-                {
-                    s_sensor_list_ptr[SENSOR_ATV]=s_sensor_info_ptr; 
-                    sensor_register_info_ptr->is_register[SENSOR_ATV]=SENSOR_TRUE;
-                    ImgSensor_PutMutex();
-                    Sensor_PowerOn(SENSOR_FALSE);
-                    _Sensor_IicHandlerRelease();
-                    break ;
-                }
-                ImgSensor_PutMutex();
-            }
-
-            _Sensor_IicHandlerRelease();
-
-            Sensor_PowerOn(SENSOR_FALSE);
-
-        }
-
-        if(SENSOR_TRUE==sensor_register_info_ptr->is_register[SENSOR_ATV])
-        {
-            s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_ATV];
-            Sensor_SetExportInfo(&s_sensor_exp_info);
-            _Sensor_SetId(SENSOR_ATV);
-            s_atv_init=SENSOR_TRUE;
-            s_atv_open=SENSOR_FALSE;
-            ret_val=SENSOR_TRUE;
-            SENSOR_PRINT("SENSOR: Sensor_Init ATV Success \n");
-        }
-        else
-        {
-            _Sensor_SetId(SENSOR_ID_MAX);
-            s_atv_init=SENSOR_FALSE;
-            s_atv_open=SENSOR_FALSE;
-            SENSOR_PRINT("SENSOR: Sensor_Init Fail not ATV err\n");
-        }
-    }
-
-    return ret_val;	
-}
-
-#endif //sensor_init
 /*****************************************************************************/
 //  Description:    This function is used to check if sensor has been init    
 //  Author:         Liangwen.Zhen
@@ -2279,221 +2045,6 @@ PUBLIC BOOLEAN Sensor_IsInit(void)
 {
 	return s_sensor_init;
 }
-#if 0
-PUBLIC BOOLEAN Sensor_IsInit(void)
-{
-    if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
-    {
-	    return s_sensor_init;
-    }
-    else if(SENSOR_TYPE_ATV==_Sensor_GetSensorType())
-    {
-	    return s_atv_init;
-    }
-
-    return SENSOR_FALSE;
-}
-#endif
-/*****************************************************************************/
-//  Description:    This function is used to Open sensor function    
-//  Author:         Liangwen.Zhen
-//  Note:           
-/*****************************************************************************/
-#if 0
-PUBLIC ERR_SENSOR_E Sensor_Open(void)
-{
-    //I2C_DEV  dev={0x00};
-    SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=Sensor_GetRegisterInfo();
-    SENSOR_ID_E cur_sensor_id=SENSOR_ID_MAX;
-    
-
-	SENSOR_PRINT("SENSOR: Sensor_Open sensor type: %d id: %d.\n", _Sensor_GetSensorType(), Sensor_GetCurId());
-
-    if(!Sensor_IsInit())
-    {
-        SENSOR_PRINT("SENSOR: Sensor_Open -> sensor has not init");
-        s_atv_open=SENSOR_FALSE;
-        s_sensor_open=SENSOR_FALSE;
-        s_sensor_mode[SENSOR_MAIN]=SENSOR_MODE_MAX;
-        s_sensor_mode[SENSOR_SUB]=SENSOR_MODE_MAX;
-        return SENSOR_OP_STATUS_ERR;
-    }
-
-    if(Sensor_IsOpen())
-    {
-    	SENSOR_PRINT("SENSOR: Sensor_Open -> sensor has open");
-    }
-    else
-    {       
-        if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
-        {
-            cur_sensor_id=Sensor_GetCurId();
-
-            if(SENSOR_MAIN==cur_sensor_id && 
-               SENSOR_TRUE==sensor_register_info_ptr->is_register[SENSOR_MAIN])
-            {
-                s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_MAIN];
-                Sensor_SetExportInfo(&s_sensor_exp_info);
-                _Sensor_SetId(SENSOR_MAIN);
-                _Sensor_IicHandlerInit();  
-                Sensor_PowerOn(SENSOR_TRUE);
-
-                if(PNULL!=s_sensor_info_ptr->ioctl_func_tab_ptr->identify)
-                {
-                    if(SENSOR_SUCCESS!=s_sensor_info_ptr->ioctl_func_tab_ptr->identify(0x00))
-                    {
-                        Sensor_PowerDown(SENSOR_TRUE);
-                        _Sensor_IicHandlerRelease();
-                        return SENSOR_OP_ERR;
-                    }
-                }
-
-                if(SENSOR_TRUE==sensor_register_info_ptr->is_register[SENSOR_SUB])
-                {
-                    /* Sub sensor exist*/
-                    
-                    /* First, put the main sensor into power down,
-                       to avoid any disturber from main sensor while initilize the sub sensor */
-                       
-                    Sensor_PowerDown(SENSOR_TRUE);
-                    _Sensor_IicHandlerRelease();
-                    
-                    /*then initilize the sub sensor,and put it into power down*/
-                    s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_SUB];
-                    Sensor_SetExportInfo(&s_sensor_exp_info);            
-                    _Sensor_SetId(SENSOR_SUB);
-                    _Sensor_IicHandlerInit();  
-                    Sensor_PowerOn(SENSOR_TRUE);
-
-                    if(PNULL!=s_sensor_info_ptr->ioctl_func_tab_ptr->identify)
-                    {
-                        if(SENSOR_SUCCESS==s_sensor_info_ptr->ioctl_func_tab_ptr->identify(0x00))
-                        {
-                            Sensor_SetMode(SENSOR_MODE_COMMON_INIT);
-                        }
-                    }
-
-                    Sensor_PowerDown(SENSOR_TRUE);           
-                    _Sensor_IicHandlerRelease();
-
-                    /*the end ,recorver the main sensor as current sensor*/
-                    s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_MAIN];
-                    Sensor_SetExportInfo(&s_sensor_exp_info);            
-                    _Sensor_SetId(SENSOR_MAIN);
-  		    Sensor_PowerOn(SENSOR_TRUE); //wxz:???
-                    //Sensor_PowerDown(SENSOR_FALSE);
-                    _Sensor_IicHandlerInit(); 
-
-                }
-                Sensor_SetMode(SENSOR_MODE_COMMON_INIT);
-            }
-            else if(SENSOR_SUB==cur_sensor_id && 
-                    SENSOR_TRUE==sensor_register_info_ptr->is_register[SENSOR_SUB])
-            {
-                s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_SUB];
-                Sensor_SetExportInfo(&s_sensor_exp_info);            
-                _Sensor_SetId(SENSOR_SUB);
-                _Sensor_IicHandlerInit();  
-                Sensor_PowerOn(SENSOR_TRUE);
-
-                if(PNULL!=s_sensor_info_ptr->ioctl_func_tab_ptr->identify)
-                {
-                    if(SENSOR_SUCCESS!=s_sensor_info_ptr->ioctl_func_tab_ptr->identify(0x00))
-                    {
-                        Sensor_PowerDown(SENSOR_TRUE);
-                        _Sensor_IicHandlerRelease();
-                        return SENSOR_OP_ERR;
-                    }
-                }
-            
-                if(SENSOR_TRUE==sensor_register_info_ptr->is_register[SENSOR_MAIN])
-                {
-                    /* Main sensor exist*/
-                    
-                    /* First, put the sub sensor into power down,
-                       to avoid any disturber from sub sensor while initilize the main sensor */
-                
-                    Sensor_PowerDown(SENSOR_TRUE);
-                    _Sensor_IicHandlerRelease();
-
-                    /*then initilize the main sensor,and put it into power down*/
-                    s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_MAIN];
-                    Sensor_SetExportInfo(&s_sensor_exp_info);
-                    _Sensor_SetId(SENSOR_MAIN);
-                    _Sensor_IicHandlerInit();  
-                    Sensor_PowerOn(SENSOR_TRUE);
-
-                    if(PNULL!=s_sensor_info_ptr->ioctl_func_tab_ptr->identify)
-                    {
-                        if(SENSOR_SUCCESS==s_sensor_info_ptr->ioctl_func_tab_ptr->identify(0x00))
-                        {
-                            Sensor_SetMode(SENSOR_MODE_COMMON_INIT);
-                        }
-                    }
-
-                    Sensor_PowerDown(SENSOR_TRUE);
-                    _Sensor_IicHandlerRelease();
-
-                    /*the end ,recorver the sub sensor as current sensor*/
-                    s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_SUB];
-                    Sensor_SetExportInfo(&s_sensor_exp_info);
-                    _Sensor_SetId(SENSOR_SUB);
-                    Sensor_PowerDown(SENSOR_FALSE);
-                    _Sensor_IicHandlerInit();                       
-                }
-
-                Sensor_SetMode(SENSOR_MODE_COMMON_INIT);
-            }
-
-            s_sensor_open=SENSOR_TRUE;
-
-        }
-        else if(SENSOR_TYPE_ATV==_Sensor_GetSensorType())
-        {
-            if(SENSOR_ATV!=Sensor_GetCurId())
-            {
-                s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_ATV];
-                Sensor_SetExportInfo(&s_sensor_exp_info);
-                _Sensor_SetId(SENSOR_ATV);
-            }
-
-            _Sensor_IicHandlerInit();
-            
-            //open atv
-            if(DCAM_NULL!=s_sensor_info_ptr->ioctl_func_tab_ptr->cus_func_1)
-            {
-                uint32_t param=0x00;     
-
-                Sensor_PowerOn(SENSOR_TRUE);
-
-                if(PNULL!=s_sensor_info_ptr->ioctl_func_tab_ptr->identify)
-                {
-                    if(SENSOR_SUCCESS!=s_sensor_info_ptr->ioctl_func_tab_ptr->identify(0x00))
-                    {
-                        Sensor_PowerDown(SENSOR_TRUE);
-                        _Sensor_IicHandlerRelease();
-                        return SENSOR_OP_ERR;
-                    }
-                }
-
-                param=(ATV_CMD_CHIP_INIT<<BIT_4)&SENSOR_HIGN_SIXTEEN_BIT;  
-                if(SENSOR_SUCCESS!=s_sensor_info_ptr->ioctl_func_tab_ptr->cus_func_1(param))
-                {
-                    s_atv_open=SENSOR_FALSE;
-                    Sensor_PowerOn(SENSOR_FALSE);
-                    return SENSOR_OP_ERR;
-                }
-            }
-
-            s_atv_open=SENSOR_TRUE;
-            
-       }        
-  }
-    
-return SENSOR_SUCCESS;
-}
-#endif
-
 
 /*****************************************************************************/
 //  Description:    This function is used to set sensor work-mode    
@@ -2534,54 +2085,6 @@ PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 
 	return SENSOR_SUCCESS;
 }
-#if 0
-PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
-{
-    uint32_t mclk;
-
-    if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
-    {
-        SENSOR_PRINT("SENSOR: Sensor_SetMode -> mode = %d.\n", mode);
-        
-        if(SENSOR_FALSE == Sensor_IsInit())
-        {
-            SENSOR_PRINT("SENSOR: Sensor_SetResolution -> sensor has not init");
-            return SENSOR_OP_STATUS_ERR;
-        }	
-        
-        if(s_sensor_mode[Sensor_GetCurId()] == mode)
-        {
-            SENSOR_PRINT("SENSOR: The sensor mode as before");	 
-            return SENSOR_SUCCESS;
-        }
-
-
-        if(PNULL != s_sensor_info_ptr->resolution_tab_info_ptr[mode].sensor_reg_tab_ptr)
-        {		
-            // set mclk
-            mclk = s_sensor_info_ptr->resolution_tab_info_ptr[mode].xclk_to_sensor;		
-            Sensor_SetMCLK(mclk);
-
-            // set image format
-            s_sensor_exp_info.image_format = s_sensor_exp_info.sensor_mode_info[mode].image_format;
-
-            // send register value to sensor
-            Sensor_SendRegTabToSensor(&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
-
-            s_sensor_mode[Sensor_GetCurId()]=mode;
-        }
-        else
-        {
-            SENSOR_PRINT("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
-        }
-
-    }
-
-	return SENSOR_SUCCESS;
-}
-#endif
-
-
 /*****************************************************************************/
 //  Description:    This function is used to control sensor    
 //  Author:         Liangwen.Zhen
@@ -2674,51 +2177,14 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
 	
     if(SENSOR_TRUE == Sensor_IsInit())
     {
-    	Sensor_PowerOn(SENSOR_FALSE);
-        /*if(Sensor_IsOpen())
-        {
-            if(SENSOR_TYPE_ATV==_Sensor_GetSensorType())
-            {
-                uint32_t param=0x00;
-                param=(ATV_CMD_CLOSE<<BIT_4)&SENSOR_HIGN_SIXTEEN_BIT;
-                s_sensor_info_ptr->ioctl_func_tab_ptr->cus_func_1(param);
-            }
-            Sensor_PowerOn(SENSOR_FALSE);
-            _Sensor_IicHandlerRelease();
-        }*/
+    	Sensor_PowerOn(SENSOR_FALSE);       
     }
 
-    s_sensor_init = SENSOR_FALSE;
-    //s_atv_open=SENSOR_FALSE;
-    //s_sensor_open=SENSOR_FALSE;
+    s_sensor_init = SENSOR_FALSE;   
     s_sensor_mode[SENSOR_MAIN]=SENSOR_MODE_MAX;	
     s_sensor_mode[SENSOR_SUB]=SENSOR_MODE_MAX;	
     return SENSOR_SUCCESS;
 }
-
-/*****************************************************************************/
-//  Description:    This function is used to Close sensor function    
-//  Author:         Liangwen.Zhen
-//  Note:           
-/*****************************************************************************/
-/*PUBLIC BOOLEAN  Sensor_IsOpen(void){
-	return s_sensor_open;
-}
-
-PUBLIC BOOLEAN  Sensor_IsOpen(void) 
-{
-    if(SENSOR_TYPE_IMG_SENSOR==_Sensor_GetSensorType())
-    {
-	    return s_sensor_open;
-    }
-    else if(SENSOR_TYPE_ATV==_Sensor_GetSensorType())
-    {
-	    return s_atv_open;
-    }
-
-    return SENSOR_FALSE;
-        
-}*/
 
 /*****************************************************************************/
 //  Description:    This function is used to set sensor type (img sensor or atv)   
@@ -2735,395 +2201,6 @@ PUBLIC uint32_t RE_I2C_HANDLER(void)
 {
     return s_sensor_info_ptr->i2c_dev_handler;
 }
-
-/*****************************************************************************/
-//  Description:    This function is used to get sensor exif info    
-//  Author:         Tim.Zhu
-//  Note:           
-/*****************************************************************************/
-/*PUBLIC uint32_t Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd ,uint32_t param)
-{
-    SENSOR_EXP_INFO_T_PTR sensor_info_ptr=Sensor_GetInfo();
-    EXIF_SPEC_PIC_TAKING_COND_T* sensor_exif_info_ptr=PNULL;
-
-    if(PNULL!=sensor_info_ptr->ioctl_func_ptr->get_exif)
-    {
-        sensor_exif_info_ptr=(EXIF_SPEC_PIC_TAKING_COND_T*)sensor_info_ptr->ioctl_func_ptr->get_exif(0x00);
-    }
-    else
-    {
-        return SCI_ERROR;
-    }
-
-    switch(cmd)
-    {
-        case SENSOR_EXIF_CTRL_EXPOSURETIME:
-        {
-            SENSOR_MODE_E img_sensor_mode=s_sensor_mode[Sensor_GetCurId()];
-            uint32_t exposureline_time=sensor_info_ptr->sensor_mode_info[img_sensor_mode].line_time;
-            uint32_t exposureline_num=param;
-            uint32_t exposure_time=0x00;
-
-            exposure_time=exposureline_time*exposureline_num;
-
-            sensor_exif_info_ptr->valid.ExposureTime=1;
-
-            if(0x00==exposure_time)
-            {
-                sensor_exif_info_ptr->valid.ExposureTime=0;
-            }
-            else if(1000000>=exposure_time)
-            {
-                sensor_exif_info_ptr->ExposureTime.numerator=0x01;
-                sensor_exif_info_ptr->ExposureTime.denominator=1000000/exposure_time;
-            }
-            else
-            {
-                uint32_t second=0x00;
-                do
-                {
-                    second++;
-                    exposure_time-=1000000;
-                    if(1000000>=exposure_time)
-                    {
-                        break;
-                    }
-                }while(1);//lint !e506
-
-                sensor_exif_info_ptr->ExposureTime.denominator=1000000/exposure_time;
-                sensor_exif_info_ptr->ExposureTime.numerator=sensor_exif_info_ptr->ExposureTime.denominator*second;
-            }
-            break;
-        }
-        case SENSOR_EXIF_CTRL_FNUMBER:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_EXPOSUREPROGRAM:
-        {
-            break;
-        }	
-        case SENSOR_EXIF_CTRL_SPECTRALSENSITIVITY:
-        {
-            break;
-        }	
-        case SENSOR_EXIF_CTRL_ISOSPEEDRATINGS:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_OECF:
-        {
-            break;
-        }	
-        case SENSOR_EXIF_CTRL_SHUTTERSPEEDVALUE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_APERTUREVALUE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_BRIGHTNESSVALUE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_EXPOSUREBIASVALUE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_MAXAPERTUREVALUE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SUBJECTDISTANCE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_METERINGMODE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_LIGHTSOURCE:
-        {
-            sensor_exif_info_ptr->valid.LightSource=1;
-            switch(param)
-            {
-                case 0:
-                {
-                    sensor_exif_info_ptr->LightSource=0x00;
-                    break;
-                }
-                case 1:
-                {
-                    sensor_exif_info_ptr->LightSource=0x03;
-                    break;
-                }
-                case 2:
-                {
-                    sensor_exif_info_ptr->LightSource=0x0f;
-                    break;
-                }
-                case 3:
-                {
-                    sensor_exif_info_ptr->LightSource=0x0e;
-                    break;
-                }
-                case 4:
-                {
-                    sensor_exif_info_ptr->LightSource=0x03;
-                    break;
-                }
-                case 5:
-                {
-                    sensor_exif_info_ptr->LightSource=0x01;
-                    break;
-                }
-                case 6:
-                {
-                    sensor_exif_info_ptr->LightSource=0x0a;
-                    break;
-                }
-                default :
-                {
-                    sensor_exif_info_ptr->LightSource=0xff;
-                    break;
-                }
-            }
-            break;
-        }	
-        case SENSOR_EXIF_CTRL_FLASH:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_FOCALLENGTH:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SUBJECTAREA:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_FLASHENERGY:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SPATIALFREQUENCYRESPONSE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_FOCALPLANEXRESOLUTION:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_FOCALPLANEYRESOLUTION:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_FOCALPLANERESOLUTIONUNIT:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SUBJECTLOCATION:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_EXPOSUREINDEX:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SENSINGMETHOD:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_FILESOURCE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SCENETYPE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_CFAPATTERN:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_CUSTOMRENDERED:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_EXPOSUREMODE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_WHITEBALANCE:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_DIGITALZOOMRATIO:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_FOCALLENGTHIN35MMFILM:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SCENECAPTURETYPE:
-        {
-            sensor_exif_info_ptr->valid.SceneCaptureType=1;
-            switch(param)
-            {
-                case 0:
-                {
-                    sensor_exif_info_ptr->SceneCaptureType=0x00;
-                    break;
-                }
-                case 1:
-                {
-                    sensor_exif_info_ptr->SceneCaptureType=0x03;
-                    break;
-                }
-                default :
-                {
-                    sensor_exif_info_ptr->LightSource=0xff;
-                    break;
-                }
-            }
-            break;
-        }	
-        case SENSOR_EXIF_CTRL_GAINCONTROL:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_CONTRAST:
-        {
-            sensor_exif_info_ptr->valid.Contrast=1;
-            switch(param)
-            {
-                case 0:
-                case 1:
-                case 2:
-                {
-                    sensor_exif_info_ptr->Contrast=0x01;
-                    break;
-                }
-                case 3:
-                {
-                    sensor_exif_info_ptr->Contrast=0x00;
-                    break;
-                }
-                case 4:
-                case 5:
-                case 6:
-                {
-                    sensor_exif_info_ptr->Contrast=0x02;
-                    break;
-                }
-                default :
-                {
-                    sensor_exif_info_ptr->Contrast=0xff;
-                    break;
-                }
-            }
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SATURATION:
-        {
-            sensor_exif_info_ptr->valid.Saturation=1;
-            switch(param)
-            {
-                case 0:
-                case 1:
-                case 2:
-                {
-                    sensor_exif_info_ptr->Saturation=0x01;
-                    break;
-                }
-                case 3:
-                {
-                    sensor_exif_info_ptr->Saturation=0x00;
-                    break;
-                }
-                case 4:
-                case 5:
-                case 6:
-                {
-                    sensor_exif_info_ptr->Saturation=0x02;
-                    break;
-                }
-                default :
-                {
-                    sensor_exif_info_ptr->Saturation=0xff;
-                    break;
-                }
-            }
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SHARPNESS:
-        {
-            sensor_exif_info_ptr->valid.Sharpness=1;
-            switch(param)
-            {
-                case 0:
-                case 1:
-                case 2:
-                {
-                    sensor_exif_info_ptr->Sharpness=0x01;
-                    break;
-                }
-                case 3:
-                {
-                    sensor_exif_info_ptr->Sharpness=0x00;
-                    break;
-                }
-                case 4:
-                case 5:
-                case 6:
-                {
-                    sensor_exif_info_ptr->Sharpness=0x02;
-                    break;
-                }
-                default :
-                {
-                    sensor_exif_info_ptr->Sharpness=0xff;
-                    break;
-                }
-            }
-            break;
-        }
-        case SENSOR_EXIF_CTRL_DEVICESETTINGDESCRIPTION:
-        {
-            break;
-        }
-        case SENSOR_EXIF_CTRL_SUBJECTDISTANCERANGE:
-        {
-            break;
-        }
-        default :
-            break;
-    }
-
-    return SENSOR_SUCCESS;
-}
-*/
-
-/*****************************************************************************/
-//  Description:    This function is used to get sensor exif info    
-//  Author:         Tim.Zhu
-//  Note:           
-/*****************************************************************************/
-/*PUBLIC EXIF_SPEC_PIC_TAKING_COND_T* Sensor_GetSensorExifInfo(void)
-{
-    SENSOR_EXP_INFO_T_PTR sensor_info_ptr=Sensor_GetInfo();
-    EXIF_SPEC_PIC_TAKING_COND_T* sensor_exif_info_ptr=PNULL;
-
-    if(PNULL!=sensor_info_ptr->ioctl_func_ptr->get_exif)
-    {
-        sensor_exif_info_ptr=(EXIF_SPEC_PIC_TAKING_COND_T*)sensor_info_ptr->ioctl_func_ptr->get_exif(0x00);
-    }
-
-    return sensor_exif_info_ptr;
-}
-*/
 
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
