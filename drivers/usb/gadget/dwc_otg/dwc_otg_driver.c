@@ -92,6 +92,15 @@ extern void hcd_remove(
 	struct platform_device *_dev
         );
 
+extern void dwc_udc_startup(
+	void
+	);
+extern void dwc_udc_shutdown(
+	void
+	);
+extern int dwc_udc_state(
+	void
+	);
 /*-------------------------------------------------------------------------*/
 /* Encapsulate the module parameter settings */
 
@@ -247,6 +256,35 @@ static ssize_t dbg_level_store(struct device_driver *drv, const char *buf,
 
 static DRIVER_ATTR(debuglevel, S_IRUGO | S_IWUSR, dbg_level_show,
 		   dbg_level_store);
+
+
+/**
+ * This function shows the usb controller's power state
+ */
+static ssize_t dwc_udc_power_show(struct device_driver *drv, char *buf)
+{
+	return sprintf(buf, "%s\n", dwc_udc_state() ? "on" : "off");
+}
+
+/**
+ * This function setting the usb controller's power
+ */
+static ssize_t dbg_udc_power_set(struct device_driver *drv, const char *buf,
+			       size_t count)
+{
+	int power;
+	power = simple_strtoul(buf, NULL, 16);
+	if (power) {
+		dwc_udc_startup();
+	} else {
+		dwc_udc_shutdown();
+	}
+	return count;
+}
+
+static DRIVER_ATTR(udcpower, S_IRUGO | S_IWUSR, dwc_udc_power_show,
+		   dbg_udc_power_set);
+
 
 /**
  * This function is called during module intialization
@@ -783,7 +821,7 @@ static int __init dwc_otg_driver_init(void)
 
 	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_version);
 	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_debuglevel);
-
+	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_udcpower);
 	return retval;
 }
 
@@ -802,6 +840,7 @@ static void __exit dwc_otg_driver_cleanup(void)
 
 	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_debuglevel);
 	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_version);
+	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_udcpower);
 	platform_driver_unregister(&dwc_otg_driver);
 
 	printk(KERN_INFO "%s module removed\n", dwc_driver_name);

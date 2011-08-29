@@ -42,7 +42,7 @@
 
 #define DEBUG_EP0
 
-#define VERBOSE
+//#define VERBOSE
 
 /**
  * This function updates OTG.
@@ -1926,10 +1926,10 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 	uint32_t byte_count = 0;
 	int is_last = 0;
 	int i;
-
+#ifdef VERBOSE
 	trace_printk( "() %d-%s\n", ep->dwc_ep.num,
 		    (ep->dwc_ep.is_in ? "IN" : "OUT"));
-
+#endif
 	/* Get any pending requests */
 	if (!DWC_CIRCLEQ_EMPTY(&ep->queue)) {
 		req = DWC_CIRCLEQ_FIRST(&ep->queue);
@@ -1957,7 +1957,7 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 					ep->dwc_ep.xfer_buff += byte_count;
 					ep->dwc_ep.dma_addr += byte_count;
 					ep->dwc_ep.xfer_count += byte_count;
-
+#ifdef VERBOSE
 					trace_printk(
 						    "%d-%s len=%d  xfersize=%d pktcnt=%d\n",
 						    ep->dwc_ep.num,
@@ -1966,6 +1966,7 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 						    ep->dwc_ep.xfer_len,
 						    deptsiz.b.xfersize,
 						    deptsiz.b.pktcnt);
+#endif
 
 					if (ep->dwc_ep.xfer_len <
 					    ep->dwc_ep.total_len) {
@@ -2190,13 +2191,14 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 				is_last = 1;
 			}
 		}
-
+#ifdef VERBOSE
 		trace_printk(
 			    "addr %p,	 %d-%s len=%d cnt=%d xsize=%d pktcnt=%d\n",
 			    &out_ep_regs->doeptsiz, ep->dwc_ep.num,
 			    ep->dwc_ep.is_in ? "IN" : "OUT",
 			    ep->dwc_ep.xfer_len, ep->dwc_ep.xfer_count,
 			    deptsiz.b.xfersize, deptsiz.b.pktcnt);
+#endif
 	}
 
 	/* Complete the request */
@@ -3281,7 +3283,7 @@ do { \
 			empty_msk =
 			    dwc_read_reg32(&dev_if->dev_global_regs->
 					   dtknqr4_fifoemptymsk);
-
+#ifdef VERBOSE
 			trace_printk(
 				    "IN EP INTERRUPT - %d\nepmty_msk - %8x  diepctl - %8x\n",
 				    epnum, empty_msk, depctl.d32);
@@ -3290,13 +3292,11 @@ do { \
 				    "EP%d-%s: type=%d, mps=%d\n",
 				    dwc_ep->num, (dwc_ep->is_in ? "IN" : "OUT"),
 				    dwc_ep->type, dwc_ep->maxpacket);
+#endif
 
 			diepint.d32 =
 			    dwc_otg_read_dev_in_ep_intr(core_if, dwc_ep);
 
-			trace_printk(
-				    "EP %d Interrupt Register - 0x%x\n", epnum,
-				    diepint.d32);
 			/* Transfer complete */
 			if (diepint.b.xfercompl) {
 				/* Disable the NP Tx FIFO Empty
@@ -3539,7 +3539,7 @@ do { \
 			ep = get_out_ep(pcd, epnum);
 			dwc_ep = &ep->dwc_ep;
 
-#ifdef VERBOSE
+#if defined(VERBOSE)
 			trace_printk(
 				    "EP%d-%s: type=%d, mps=%d\n",
 				    dwc_ep->num, (dwc_ep->is_in ? "IN" : "OUT"),

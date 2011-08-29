@@ -55,15 +55,10 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/device.h>
-#include <linux/errno.h>
-#include <linux/list.h>
 #include <linux/interrupt.h>
-#include <linux/string.h>
 #include <linux/dma-mapping.h>
-#include <linux/version.h>
 #include <linux/timer.h>
 
 #include <linux/platform_device.h>
@@ -74,6 +69,7 @@
 #include <linux/usb/gadget.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
+#include <linux/wakelock.h>
 #include <mach/board.h>
 
 #include "dwc_otg_driver.h"
@@ -95,10 +91,16 @@ static struct gadget_wrapper {
 	 * this timer is used for checking cable type, usb or ac adapter.
 	 */
 	struct timer_list cable_timer;
-	int udc_poweron;
+	struct workqueue_struct *detect_wq;
+	struct work_struct detect_work;
+
+	int udc_startup;
 	int enabled;
 	int vbus;
 } *gadget_wrapper;
+
+static struct wake_lock usb_wake_lock;
+static DEFINE_SPINLOCK(udc_lock);
 
 #define CABLE_TIMEOUT	(HZ*15)
 /* Display the contents of the buffer */
@@ -283,8 +285,8 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 		return -ESHUTDOWN;
 	}
 
-	trace_printk( "%s queue req %p, len %d buf %p\n",
-		    usb_ep->name, usb_req, usb_req->length, usb_req->buf);
+	//trace_printk( "%s queue req %p, len %d buf %p\n",
+	//	    usb_ep->name, usb_req, usb_req->length, usb_req->buf);
 
 	usb_req->status = -EINPROGRESS;
 	usb_req->actual = 0;
@@ -574,7 +576,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		d = container_of(gadget, struct gadget_wrapper, gadget);
 
 	local_irq_save(flags);
-	if (!d->enabled || !d->vbus){
+	if (!d->enabled || !d->udc_startup){
 		is_on = 0;
 	}
 	local_irq_restore(flags);
@@ -968,9 +970,92 @@ static void free_wrapper(struct gadget_wrapper *d)
 	dwc_free(d);
 }
 
+static void __udc_startup(void)
+{
+	struct gadget_wrapper *d;
+
+	d = gadget_wrapper;
+
+	if (!d->udc_startup) {
+		wake_lock(&usb_wake_lock);
+		udc_enable();
+		dwc_otg_core_init(GET_CORE_IF(d->pcd));
+		dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
+		dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
+		d->udc_startup = 1;
+	}
+}
+
+static void __udc_shutdown(void)
+{
+	struct gadget_wrapper *d;
+
+	d = gadget_wrapper;
+
+	if (d->udc_startup) {
+		dwc_otg_pcd_stop(d->pcd);
+		udc_disable();
+		d->udc_startup = 0;
+		wake_unlock(&usb_wake_lock);
+	}
+}
+
+static int cable_is_connected(void);
+
+void dwc_udc_startup(void)
+{
+	//if usb cable  not connect, do nothing
+	if (!cable_is_connected()) {
+		pr_warning("usb cable is not connect\n");
+		return;
+	}
+	//udc not startup, startup udc and get a wacklock
+	spin_lock(&udc_lock);
+	__udc_startup();
+	spin_unlock(&udc_lock);
+}
+
+void dwc_udc_shutdown(void)
+{
+	spin_lock(&udc_lock);
+	__udc_shutdown();
+	spin_unlock(&udc_lock);
+}
+
+int dwc_udc_state(void)
+{
+	struct gadget_wrapper *d;
+
+	d = gadget_wrapper;
+	return d->udc_startup;
+}
+
+static void usb_detect_works(struct work_struct *work)
+{
+	struct gadget_wrapper *d;
+	unsigned long flags;
+	int plug_in;
+
+	d = gadget_wrapper;
+
+	local_irq_save(flags);
+	plug_in = d->vbus;
+	local_irq_restore(flags);
+
+	spin_lock(&udc_lock);
+	if (plug_in){
+		pr_info("usb detect plug in,vbus pull up\n");
+		__udc_startup();
+	} else {
+		pr_info("usb detect plug out,vbus pull down\n");
+		del_timer(&d->cable_timer);
+		__udc_shutdown();
+	}
+	spin_unlock(&udc_lock);
+
+}
 static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 {
-	dwc_otg_pcd_t *pcd = dev_id;
 	struct gadget_wrapper *d;
 	int value = 0;
 
@@ -982,38 +1067,25 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	value = gpio_get_value(CHARGER_DETECT_GPIO);
 
 	if (value){
-		pr_info("usb detect plug in\n");
+		pr_debug("usb detect plug in\n");
 		set_irq_type(irq, IRQF_TRIGGER_LOW);
 		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
 	} else {
-		pr_info("usb detect plug out\n");
+		pr_debug("usb detect plug out\n");
 		set_irq_type(irq, IRQF_TRIGGER_HIGH);
 	}
 	if (value == d->vbus){
 		pr_info("bus power don't change\n");
+		spin_unlock(&udc_lock);
 		return IRQ_HANDLED;
 	}
 	d->vbus = value;
-	if (value){
-		pr_info("usb detect plug in,vbus pull up\n");
-		udc_enable();
-		d->udc_poweron = 1;
-		dwc_otg_core_init(GET_CORE_IF(d->pcd));
-		dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
-		dwc_otg_core_dev_init(GET_CORE_IF(d->pcd));
-	} else {
-		pr_info("usb detect plug out,vbus pull down\n");
-		del_timer(&d->cable_timer);
-		dwc_otg_pcd_stop(pcd);
-		if (d->udc_poweron)
-			udc_disable();
-		d->udc_poweron = 0;
-	}
 
+	queue_work(d->detect_wq, &d->detect_work);
 	return IRQ_HANDLED;
 }
 
-static void enumeration_enable(unsigned long data)
+static void enumeration_enable(void)
 {
 	int plug_irq;
 	struct gadget_wrapper *d;
@@ -1025,6 +1097,11 @@ static void enumeration_enable(unsigned long data)
 	enable_irq(plug_irq);
 
 	return;
+}
+
+static int cable_is_connected(void)
+{
+	return gpio_get_value(CHARGER_DETECT_GPIO) ? 1 : 0;
 }
 
 int cable_is_usb(void)
@@ -1043,19 +1120,12 @@ int cable_is_usb(void)
  */
 static void cable_detect_handler(unsigned long data)
 {
-	struct gadget_wrapper *d = (struct gadget_wrapper *)data;
-	unsigned long flags;
 
 	if (cable_is_usb())
 		return;
 
 	pr_info("cable is ac adapter\n");
-	local_irq_save(flags);
-	if (d->udc_poweron){
-		udc_disable();
-		d->udc_poweron = 0;
-	}
-	local_irq_restore(flags);
+	__udc_shutdown();
 	return;
 }
 /**
@@ -1074,6 +1144,8 @@ int pcd_init(
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
 
+	wake_lock_init(&usb_wake_lock, WAKE_LOCK_SUSPEND, "usb_work");
+	wake_lock(&usb_wake_lock);
 	otg_dev->pcd = dwc_otg_pcd_init(otg_dev->core_if);
 
 	if (!otg_dev->pcd) {
@@ -1102,7 +1174,6 @@ int pcd_init(
 		free_wrapper(gadget_wrapper);
 		return -EBUSY;
 	}
-	gadget_wrapper->udc_poweron = 1;
 	/*
 	 * initialize a timer for checking cable type.
 	 */
@@ -1114,20 +1185,29 @@ int pcd_init(
 	{
 		plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
 		gpio_set_hw_debounce(CHARGER_DETECT_GPIO, 200);
-		pr_info("usb detect irq:%d gpio level %d\n", plug_irq,
+		pr_debug("usb detect irq:%d gpio level %d\n", plug_irq,
 				gpio_get_value(CHARGER_DETECT_GPIO));
 		gadget_wrapper->vbus = gpio_get_value(CHARGER_DETECT_GPIO);
 		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED |
 				IRQF_TRIGGER_HIGH, "usb detect", otg_dev->pcd);
 	}
+
+	INIT_WORK(&gadget_wrapper->detect_work, usb_detect_works);
+	gadget_wrapper->detect_wq = create_singlethread_workqueue("usb detect wq");
+
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
+	gadget_wrapper->udc_startup = 1;
+
+	/*
+	 * dwc driver is ok, check if the cable is insert, if no,
+	 * shutdown udc for saving power.
+	 */
 	if (!gadget_wrapper->vbus){
-		pr_info("vbus is not power now \n");
-		gadget_wrapper->udc_poweron = 0;
-		udc_disable();
+		pr_debug("vbus is not power now \n");
+		__udc_shutdown();
 	}
 	gadget_wrapper->enabled = 0;
-	//enable_irq(plug_irq);
+
 	return retval;
 }
 
@@ -1149,6 +1229,8 @@ struct platform_device *_dev
 	//free_irq(_dev->irq, pcd);
 	dwc_otg_pcd_remove(pcd);
 	free_wrapper(gadget_wrapper);
+	destroy_workqueue(gadget_wrapper->detect_wq);
+	wake_lock_destroy(&usb_wake_lock);
 	pcd = 0;
 }
 
@@ -1204,7 +1286,7 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 			driver->driver.name);
 
 	//enable_gpio_detect_irq();
-	enumeration_enable(0);
+	enumeration_enable();
 	return 0;
 }
 
