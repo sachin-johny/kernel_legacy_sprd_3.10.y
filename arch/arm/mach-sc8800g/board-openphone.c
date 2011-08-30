@@ -53,6 +53,11 @@
 #endif
 #include <linux/dcam_sensor.h>
 
+//move pin configuration to pin_map_openphone.c
+#define GPIO_DIRECTION_OUTPUT (1<<30)
+#define GPIO_DIRECTION_INPUT  (1<<29)
+#define GPIO_DESC_MFP_OBSOLETE (0x0)
+#define GPIO_INDEX_MAX (0xffff)
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -276,33 +281,51 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_high);
 
 static struct gpio_desc gpio_func_cfg[] = {
     {
-        MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io - also Bluetooth power
-        SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        "wifi power"
+       //MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_power_io - also Bluetooth power
+       //SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+       
+        GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_OUTPUT,
+	"wifi power"
     },
     {
-        MFP_CFG_X(RFCTL9    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_pwd_io
-        SPRD_3RDPARTY_GPIO_WIFI_PWD, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+       // MFP_CFG_X(RFCTL9    , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // wifi_pwd_io
+        //SPRD_3RDPARTY_GPIO_WIFI_PWD, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        
+	GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_DIRECTION_OUTPUT, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi pwd"
     },
     {
-        MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-        SPRD_3RDPARTY_GPIO_WIFI_WAKE, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        //MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        //SPRD_3RDPARTY_GPIO_WIFI_WAKE, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	
+	GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_DIRECTION_OUTPUT, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi wake"
     },
     {
-        MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-        SPRD_3RDPARTY_GPIO_WIFI_RESET, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        //MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        //SPRD_3RDPARTY_GPIO_WIFI_RESET, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	
+	GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_WIFI_RESET | GPIO_DIRECTION_OUTPUT, // | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         "wifi reset"
     },
     {
-        MFP_CFG_X(RFCTL0 , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
-        SPRD_3RDPARTY_GPIO_BT_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        //MFP_CFG_X(RFCTL0 , AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE), // BT_RESET
+        //SPRD_3RDPARTY_GPIO_BT_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	
+	GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_BT_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_OUTPUT,
         "BT reset"
     },
     {
-        MFP_CFG_X(U0RTS  , AF3, DS1, F_PULL_DOWN, S_PULL_UP, IO_OE), // BT_RTS
-        SPRD_3RDPARTY_GPIO_BT_RTS,
+        //MFP_CFG_X(U0RTS  , AF3, DS1, F_PULL_DOWN, S_PULL_UP, IO_OE), // BT_RTS
+        //SPRD_3RDPARTY_GPIO_BT_RTS,
+	
+	GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_BT_RTS | GPIO_DIRECTION_OUTPUT,
         "BT RTS"
     },
 };
@@ -394,21 +417,29 @@ static void sprd_spi_init(void)
 
     for (i = 0; i < ARRAY_SIZE(gpio_func_cfg); i++) {
         gd = &gpio_func_cfg[i];
-        sprd_mfp_config(&gd->mfp, 1);
-        gpio = gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH;
+
+//move gpio configuration to pin_map_openphone.c
+        //sprd_mfp_config(&gd->mfp, 1);
+
+        
+	gpio = (gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH) & GPIO_INDEX_MAX;
         value = !!(gd->io & GPIO_OUTPUT_DEFAUT_VALUE_HIGH);
         if (gpio_request(gpio, gd->desc))
             printk(KERN_WARNING "%s : [%s] gpio %d request failed!\n", __func__, gd->desc, gpio);
-        if (gd->mfp & MFP_IO_OE) {
+        //if (gd->mfp & MFP_IO_OE) {
+        if (gd->mfp & GPIO_DIRECTION_OUTPUT) {
             gpio_direction_output(gpio, value);
-        } else if (gd->mfp & MFP_IO_IE) {
+        //} else if (gd->mfp & MFP_IO_IE) {
+        } else if (gd->mfp & GPIO_DIRECTION_INPUT) {
             gpio_direction_input(gpio);
         } else {
-            printk(KERN_WARNING "%s : not support gpio mode!\n", __func__);
+            //printk(KERN_WARNING "%s : not support gpio mode!\n", __func__);
+            printk(KERN_WARNING "%s : not support gpio direction!\n", __func__);
         }
     }
 
-    sprd_mfp_config(spi_func_cfg, ARRAY_SIZE(spi_func_cfg));
+    //initialize SPI pin_map to pin_map_openphone.c
+    //sprd_mfp_config(spi_func_cfg, ARRAY_SIZE(spi_func_cfg));
     // sprd_mfp_config(bt_func_cfg, ARRAY_SIZE(bt_func_cfg));
     ANA_REG_OR (ANA_LED_CTL, BIT_14); // also enable 26MHz clock for bt when RF chip dsp code sleep
 
