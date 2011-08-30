@@ -17,6 +17,7 @@
 #include <mach/regs_ana.h>
 #include <mach/adi_hal_internal.h>
 #include <mach/irqs.h>
+#include <linux/delay.h>
 
 #define CLEAR_RTC_INT(mask) \
 	do{ ANA_REG_SET(ANA_RTC_INT_CLR, mask); \
@@ -199,6 +200,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 	}else{
         ANA_REG_AND(ANA_RTC_INT_EN, ~(RTC_ALARM_BIT));
     }
+    msleep(150);
 
 	return 0;
 }
