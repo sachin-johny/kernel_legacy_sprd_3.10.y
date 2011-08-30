@@ -1068,7 +1068,7 @@ static void init_dcam_parameters(void *priv)
 
 #endif
 
-#define DCAM_PIXEL_ALIGNED 4 //16
+#define DCAM_PIXEL_ALIGNED 16
 #define DCAM_W_H_ALIGNED(x) (((x) + DCAM_PIXEL_ALIGNED - 1) & ~(DCAM_PIXEL_ALIGNED - 1))
 
 typedef struct dcam_trim_rect{
