@@ -39,6 +39,7 @@
 #define VBC_CODEC_POWER_ON_IN   (1 << 1)
 #define VBC_CODEC_POWER_OFF_OUT (1 << 2)
 #define VBC_CODEC_POWER_OFF_IN  (1 << 3)
+#define VBC_CODEC_POWER_ON_OUT_MUTE_DAC (1 << 4)
 #define VBC_CODEC_SPEAKER_PA 0xfffd
 #define VBC_CODEC_DSP      0xfffc
 /*
@@ -227,14 +228,14 @@ static void vbc_buffer_clear_all(void)
     vbc_access_buf(false);
 }
 
-static void vbc_codec_mute(void)
+static int vbc_codec_mute(void)
 {
-    vbc_reg_VBCR1_set(DAC_MUTE, 1); // mute
+    return vbc_reg_VBCR1_set(DAC_MUTE, 1); // mute
 }
 
-static void vbc_codec_unmute(void)
+static int vbc_codec_unmute(void)
 {
-    vbc_reg_VBCR1_set(DAC_MUTE, 0); // don't mute
+    return vbc_reg_VBCR1_set(DAC_MUTE, 0); // don't mute
 }
 
 static void vbc_set_ctrl2arm(void)
@@ -429,7 +430,10 @@ EXPORT_SYMBOL_GPL(vbc_power_down);
 void vbc_power_on(unsigned int value)
 {
     int use_delay;
+    int mute_dac;
     mutex_lock(&vbc_power_lock);
+    mute_dac = !!(value & VBC_CODEC_POWER_ON_OUT_MUTE_DAC);
+    value &= ~VBC_CODEC_POWER_ON_OUT_MUTE_DAC;
     vbc_ldo_on(1);
     // printk("audio %s\n", __func__);
     {
@@ -470,7 +474,7 @@ void vbc_power_on(unsigned int value)
             if (use_delay) msleep(100);
             else msleep(95); // to avoid low sound in head early pcm data
 
-            vbc_codec_unmute();
+            if (!mute_dac) vbc_codec_unmute();
             if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
             if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
@@ -628,7 +632,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
             printk("vbc power to 0x%08x\n", value);
             if (value & VBC_CODEC_POWER_ON_OUT) {
-                vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK);
+                vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK | (value & VBC_CODEC_POWER_ON_OUT_MUTE_DAC));
             }
             if (value & VBC_CODEC_POWER_ON_IN) {
                 vbc_power_on(SNDRV_PCM_STREAM_CAPTURE);
