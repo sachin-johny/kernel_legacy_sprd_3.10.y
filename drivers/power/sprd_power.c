@@ -844,7 +844,7 @@ void battery_sleep(void)
             }
 #endif
 
-            if((battery_data->in_precharge == 0) && battery_data->usb_online && \
+            if((battery_data->in_precharge == 1) && battery_data->usb_online && \
                         (voltage < battery_data->precharge_start) && !battery_data->charging){
                 pluse_charge_cnt = CHGMNG_PLUST_TIMES;
                 hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
@@ -855,10 +855,10 @@ void battery_sleep(void)
                 battery_data->cur_type = 400;
                 CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
                 CHG_TurnOn();
-                battery_data->in_precharge = 1;
+                battery_data->in_precharge = 0;
             }
 
-            if((battery_data->in_precharge == 0) && battery_data->ac_online && \
+            if((battery_data->in_precharge == 1) && battery_data->ac_online && \
                         (voltage < battery_data->precharge_start) && !battery_data->charging){
                 pluse_charge_cnt = CHGMNG_PLUST_TIMES;
                 hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
@@ -869,7 +869,7 @@ void battery_sleep(void)
                 battery_data->cur_type = 600;
                 CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
                 CHG_TurnOn();
-                battery_data->in_precharge = 1;
+                battery_data->in_precharge = 0;
             }
 
             if(battery_data->charging){
@@ -896,7 +896,7 @@ void battery_sleep(void)
                             battery_data->charging = 0;
                             CHG_ShutDown();
                             CHG_StopRecharge();
-                            battery_data->in_precharge = 0;
+                            battery_data->in_precharge = 1;
                         }
                     }
                     CHG_SetRecharge();
