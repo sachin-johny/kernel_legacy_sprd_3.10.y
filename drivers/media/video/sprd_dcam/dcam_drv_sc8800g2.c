@@ -347,6 +347,32 @@ PUBLIC int32_t ISP_DriverSetClk(uint32_t pll_src_addr,ISP_CLK_SEL_E clk_sel)
 
     return rtn;
 }
+#if 0
+LOCAL void _ISP_GetReg(void)
+{
+	printk("[DCAM:DCAM_CFG:0x%x]\n",_pard(DCAM_CFG));
+	printk("[DCAM:DCAM_PATH_CFG:0x%x\n]",_pard(DCAM_PATH_CFG));
+	printk("[DCAM:DCAM_SRC_SIZE:0x%x]\n",_pard(DCAM_SRC_SIZE));
+	printk("[DCAM:DCAM_DES_SIZE:0x%x]\n",_pard(DCAM_DES_SIZE));
+	printk("[DCAM:DCAM_TRIM_START:0x%x]\n",_pard(DCAM_TRIM_START));
+	printk("[DCAM:DCAM_TRIM_SIZE:0x%x]\n",_pard(DCAM_TRIM_SIZE));
+	printk("[DCAM:DCAM_INT_STS:0x%x]\n",_pard(DCAM_INT_STS));
+	printk("[DCAM:DCAM_INT_MASK:0x%x]\n",_pard(DCAM_INT_MASK));
+	printk("[DCAM:DCAM_INT_CLR:0x%x]\n",_pard(DCAM_INT_CLR));
+	printk("[DCAM:DCAM_INT_RAW:0x%x]\n",_pard(DCAM_INT_RAW));
+	printk("[DCAM:ENDIAN_SEL:0x%x]\n",_pard(ENDIAN_SEL));
+	printk("[DCAM:DCAM_ADDR_7:0x%x]\n",_pard(DCAM_ADDR_7));
+	printk("[DCAM:DCAM_ADDR_8:0x%x]\n",_pard(DCAM_ADDR_8));
+//	printk("[DCAM:CAP_CTRL:0x%x]\n",_pard(CAP_CTRL));
+	printk("[DCAM:CAP_FRM_CNT:0x%x]\n",_pard(CAP_FRM_CNT));
+	printk("[DCAM:CAP_START:0x%x]\n",_pard(CAP_START));
+	printk("[DCAM:CAP_END:0x%x]\n",_pard(CAP_END));
+	printk("[DCAM:CAP_IMAGE_DECI:0x%x]\n",_pard(CAP_IMAGE_DECI));
+//	printk("[DCAM:CAP_JPG_CTL:0x%x]\n",_pard(CAP_JPG_CTL));	
+	printk("[DCAM:CAP_JPG_FRM_SIZE:0x%x]\n",_pard(CAP_JPG_FRM_SIZE));	
+		
+}
+#endif
 
 PUBLIC int32_t ISP_DriverStart(uint32_t base_addr)
 {
@@ -371,7 +397,7 @@ PUBLIC int32_t ISP_DriverStart(uint32_t base_addr)
          
             _ISP_DriverAutoCopy(base_addr);
             //_ISP_DriverForceCopy(base_addr);			
-          
+    //      _ISP_GetReg();
             _paod(DCAM_PATH_CFG, BIT_0);
 		DCAM_TRACE("###dcam: DCAM_PATH_CFG: %x.\n", _pard(DCAM_PATH_CFG));
 

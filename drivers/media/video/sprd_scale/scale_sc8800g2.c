@@ -764,7 +764,6 @@ LOCAL int32_t _SCALE_DriverSetClk(uint32_t pll_src_addr,SCALE_CLK_SEL_E clk_sel)
     
 }
 #endif
-
 uint32_t _SCALE_DriverInit(void)
 {
 	int32_t rtn_drv = ISP_DRV_RTN_SUCCESS;
@@ -774,7 +773,7 @@ uint32_t _SCALE_DriverInit(void)
 	 rtn_drv = _SCALE_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
     ISP_RTN_IF_ERR(rtn_drv);
 	
-    //rtn_drv = _SCALE_DriverSetClk(ARM_GLOBAL_PLL_SCR, SCALE_CLK_48M);
+   // rtn_drv = _SCALE_DriverSetClk(ARM_GLOBAL_PLL_SCR, SCALE_CLK_48M);
     //ISP_RTN_IF_ERR(rtn_drv);
 
 	return rtn_drv;
@@ -862,7 +861,7 @@ LOCAL int32_t _SCALE_DriverStop(void)
 	memset(&s_scale_mod, 0, sizeof(ISP_MODULE_T));
 
     _SCALE_DriverIrqDisable(ISP_IRQ_SCL_LINE_MASK);
-    _SCALE_DriverIrqClear(ISP_IRQ_SCL_LINE_MASK);
+    _SCALE_DriverIrqClear(ISP_IRQ_SCL_LINE_MASK);	
 	
 	SCALE_PRINT("###scale: DriverStop is OK.\n"); 
 	
@@ -1033,13 +1032,20 @@ void _SCALE_ContinueSlice(long unsigned int data)
 	//for YUV422
 	//note: these addresses must be aligned by 64 words.
 	next_frame.yaddr = p_path->input_frame.yaddr + p_path->slice_count * p_path->slice_height * p_path->input_size.w;
-	next_frame.uaddr = p_path->input_frame.uaddr + p_path->slice_count * p_path->slice_height * p_path->input_size.w;
+	if( p_path->input_format ==ISP_DATA_YUV422)
+	{
+		next_frame.uaddr = p_path->input_frame.uaddr + p_path->slice_count * p_path->slice_height * p_path->input_size.w;
+	}
+	else
+	{
+		next_frame.uaddr = p_path->input_frame.uaddr + (p_path->slice_count * p_path->slice_height * p_path->input_size.w)/2;
+	}
 	next_frame.vaddr = next_frame.uaddr;
 	_SCALE_DriverSetExtSrcFrameAddr(&next_frame);
 	SCALE_PRINT("###SCALE: input addr: y: 0x%x, u: 0x%x, in w: %d, slice hei: %d.\n", p_path->input_frame.yaddr, p_path->input_frame.uaddr, p_path->input_size.w, p_path->slice_height);
 	SCALE_PRINT("###SCALE: count: %d, next slice input buffer address: y: 0x%x, u: 0x%x, v: 0x%x.\n", p_path->slice_count, next_frame.yaddr, next_frame.uaddr, next_frame.vaddr);
-	next_frame.yaddr = p_path->output_frame.yaddr + p_path->slice_line_count * p_path->output_size.w;
-	next_frame.uaddr = p_path->output_frame.uaddr + p_path->slice_line_count * p_path->output_size.w;
+	next_frame.yaddr = p_path->output_frame.yaddr + p_path->slice_line_count * p_path->output_size.w;	
+	next_frame.uaddr = p_path->output_frame.uaddr + p_path->slice_line_count * p_path->output_size.w;	
 	//to check the address if they are aligned by 64 wods
 	if((next_frame.yaddr & 0xFF) || (next_frame.uaddr & 0xFF))
 	{
@@ -1073,7 +1079,7 @@ void _SCALE_ContinueSlice(long unsigned int data)
 	//_SCALE_DriverIrqClear(BIT_9);
 	_SCALE_DriverPath2TrimAndScaling();   
 	_SCALE_DriverForceCopy();
-	//get_scale_reg();
+//	get_scale_reg();
 	SCALE_PRINT("####_SCALE_ContinueSlice ENDIAN_SEL: 0x%x.\n", _pard(ENDIAN_SEL));
 	_paod(REV_PATH_CFG, BIT_0);	
 	//return 0;
@@ -1753,7 +1759,7 @@ int _SCALE_DriverIOInit(void)
 	if( 0 == dcam_get_user_count())
      	{
      		_SCALE_DriverInit();
-		SCALE_PRINT("###scale:_SCALE_DriverInit.\n");
+		SCALE_PRINT_ERR("###scale:_SCALE_DriverInit.\n");
      	}
 	if(0 != _SCALE_DriverSetMclk()){
 		SCALE_PRINT_ERR("###scale  Failed to _SCALE_DriverSetMclk!\n");

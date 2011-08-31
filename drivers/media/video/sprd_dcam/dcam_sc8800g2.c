@@ -801,12 +801,13 @@ LOCAL void ISP_ServiceSetParameters(void)
 	s->input_range.y = 0;
 	s->input_range.w = s->cap_output_size.w;
 	s->input_range.h = s->cap_output_size.h;*/
-	s->input_size.w = g_dcam_param.input_size.w;
-	s->input_size.h = g_dcam_param.input_size.h;
-	s->input_range.x = g_dcam_param.input_rect.x;
-	s->input_range.y = g_dcam_param.input_rect.y;
-	s->input_range.w = g_dcam_param.input_rect.w;
-	s->input_range.h = g_dcam_param.input_rect.h;
+	s->input_size.w = s->cap_output_size.w;
+	s->input_size.h = s->cap_output_size.h;
+	
+	s->input_range.x = 0;
+	s->input_range.y = 0;
+	s->input_range.w = s->input_size.w;
+	s->input_range.h = s->input_size.h;
 	
 	s->display_range.x = g_dcam_param.display_rect.x;
 	s->display_range.y = g_dcam_param.display_rect.y;
