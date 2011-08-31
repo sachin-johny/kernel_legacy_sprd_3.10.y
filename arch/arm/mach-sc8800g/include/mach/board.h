@@ -47,7 +47,7 @@ void __init sprd_charger_init(void);
 extern unsigned long sdram_plimit;
 unsigned long get_sdram_plimit(void);
 #define SPRD_PMEM_SIZE          (8*1024*1024)
-#define SPRD_PMEM_ADSP_SIZE   (16*1024*1024)//  (7*1024*1024) 
+#define SPRD_PMEM_ADSP_SIZE   (8*1024*1024)//  (7*1024*1024) 
 #define SPRD_ROT_MEM_SIZE       (1024*512)
 #define SPRD_SCALE_MEM_SIZE    (1024*512)
 #define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
