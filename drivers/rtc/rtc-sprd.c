@@ -241,8 +241,37 @@ static int sprd_rtc_proc(struct device *dev, struct seq_file *seq)
 
 	return 0;
 }
+static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
+{
+    struct rtc_device * rdev = dev_id;
+    printk(" RTC ***** interrupt happen\n");
+    rtc_update_irq(rdev, 1, RTC_AF | RTC_IRQF);
+    CLEAR_RTC_INT(RTC_INT_ALL_MSK);
+    return IRQ_HANDLED;
+}
+
+static int sprd_rtc_open(struct device *dev)
+{
+    struct platform_device *pdev = to_platform_device(dev);
+    struct rtc_device * rtc_dev = platform_get_drvdata(pdev);
+    int ret;
+    unsigned temp;
+
+
+    ret = request_irq(IRQ_ANA_RTC_INT, rtc_interrupt_handler, 0, "sprd_rtc", rtc_dev);
+    if(ret){
+        printk("RTC regist irq error\n");
+        return ret;
+    }
+    /* enable rtc interrupt */
+    temp = ANA_REG_GET(ANA_RTC_INT_EN);
+    temp |= RTC_ALARM_BIT;
+    ANA_REG_SET(ANA_RTC_INT_EN, temp);
+    return ret;
+}
 
 static const struct rtc_class_ops sprd_rtc_ops = {
+    .open = sprd_rtc_open,
 	.proc = sprd_rtc_proc,
 	.read_time = sprd_rtc_read_time,
 	.read_alarm = sprd_rtc_read_alarm,
@@ -251,12 +280,6 @@ static const struct rtc_class_ops sprd_rtc_ops = {
 	.set_mmss = sprd_rtc_set_mmss,
 //	.ioctl = sprd_rtc_ioctl,
 };
-static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
-{
-    printk(" RTC ***** interrupt happen\n");
-    CLEAR_RTC_INT(RTC_INT_ALL_MSK);
-    return 0;
-}
 
 static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
@@ -271,13 +294,6 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		err = PTR_ERR(rtc);
 		return err;
 	}
-
-    err = request_irq(IRQ_ANA_RTC_INT, rtc_interrupt_handler, 0, "sprd_rtc", NULL);
-    if(err != 0){
-        printk(" rtc irq request error:%d \n", err);
-        rtc_device_unregister(rtc);
-        return err;
-    }
 
 	platform_set_drvdata(plat_dev, rtc);
 
