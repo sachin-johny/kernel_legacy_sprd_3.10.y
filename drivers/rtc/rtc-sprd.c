@@ -214,6 +214,7 @@ static int sprd_rtc_read_time(struct device *dev,
         sprd_rtc_set_sec(0);
     }
 	rtc_time_to_tm(secs, tm);
+        sprd_rtc_set_alarm_sec(secs+100);
 	return 0;
 }
 
@@ -258,11 +259,11 @@ static int sprd_rtc_open(struct device *dev)
     unsigned temp;
 
 
-    ret = request_irq(IRQ_ANA_RTC_INT, rtc_interrupt_handler, 0, "sprd_rtc", rtc_dev);
-    if(ret){
-        printk("RTC regist irq error\n");
-        return ret;
-    }
+    //ret = request_irq(IRQ_ANA_RTC_INT, rtc_interrupt_handler, 0, "sprd_rtc", rtc_dev);
+    //if(ret){
+    //    printk("RTC regist irq error\n");
+    //    return ret;
+    //}
     /* enable rtc interrupt */
     temp = ANA_REG_GET(ANA_RTC_INT_EN);
     temp |= RTC_ALARM_BIT;
@@ -294,6 +295,13 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		err = PTR_ERR(rtc);
 		return err;
 	}
+    err = request_irq(IRQ_ANA_RTC_INT, rtc_interrupt_handler, 0, "sprd_rtc", rtc);
+    if(err != 0){
+        printk(" rtc irq request error:%d \n", err);
+        rtc_device_unregister(rtc);
+        return err;
+    }
+
 
 	platform_set_drvdata(plat_dev, rtc);
 
