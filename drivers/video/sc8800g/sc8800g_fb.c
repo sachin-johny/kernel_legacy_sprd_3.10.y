@@ -1109,7 +1109,6 @@ __setup("lcd_id=", calibration_start);
 static int find_adapt_from_uboot()
 {
 	int i;
-	//overlord del this
 	if(lcd_id_from_uboot != 0)
 	{
 		for(i = 0;i<(sizeof(lcd_panel))/(sizeof(lcd_panel[0]));i++)
@@ -1218,12 +1217,15 @@ static int sc8800fb_probe(struct platform_device *pdev)
 #endif
 #ifdef CONFIG_MACH_SP8805GA
 	lcd_adapt = 0;
+	sc8800fb->need_reinit = 0;
 #endif
 #ifdef CONFIG_MACH_OPENPHONE
 	lcd_adapt = 2;
+	sc8800fb->need_reinit = 0;
 #endif
 #ifdef CONFIG_MACH_G2PHONE
 	lcd_adapt = 3;
+	sc8800fb->need_reinit = 0;
 #endif
 
 	ret = mount_panel(sc8800fb, lcd_panel[lcd_adapt].panel);
