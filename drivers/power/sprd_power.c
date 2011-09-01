@@ -655,13 +655,12 @@ static void battery_handler(unsigned long data)
             if(voltage < battery_data->precharge_end) {
                 hw_switch_update_cnt --;
                 if(hw_switch_update_cnt <= 0){
-                    if(voltage <= CC_CV_VOLTAGE)
-                      current_ref = battery_data->cur_type;
-                    else
-                      current_ref = battery_data->cur_type/CV_REF_CURRENT;
-                    if(vprog_current < current_ref){
-                        now_hw_switch_point = CHG_UpdateSwitchoverPoint(true);
-                        DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
+                    if(voltage <= CC_CV_VOLTAGE){
+                        current_ref = battery_data->cur_type;
+                        if(vprog_current < current_ref){
+                            now_hw_switch_point = CHG_UpdateSwitchoverPoint(true);
+                            DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
+                        }
                     }
                     hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
                 }
@@ -877,13 +876,12 @@ void battery_sleep(void)
                     if(voltage < battery_data->precharge_end) {
                         hw_switch_update_cnt --;
                         if(hw_switch_update_cnt <= 0){
-                            if(voltage <= CC_CV_VOLTAGE)
-                              current_ref = battery_data->cur_type;
-                            else
-                              current_ref = battery_data->cur_type/CV_REF_CURRENT;
-                            if(vprog_current < current_ref){
-                                now_hw_switch_point = CHG_UpdateSwitchoverPoint(true);
-                                DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
+                            if(voltage <= CC_CV_VOLTAGE){
+                                current_ref = battery_data->cur_type;
+                                if(vprog_current < current_ref){
+                                    now_hw_switch_point = CHG_UpdateSwitchoverPoint(true);
+                                    DEBUG("now_hw_switch_point %d\n", now_hw_switch_point);
+                                }
                             }
                             hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
                         }

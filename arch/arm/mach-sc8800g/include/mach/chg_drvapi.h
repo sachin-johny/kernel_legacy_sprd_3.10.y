@@ -83,7 +83,7 @@ extern   "C"
 
 #define PREVRECHARGE        4000//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
 // restart the charge process.
-#define PREVCHGEND      (4220+ 4)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
+#define PREVCHGEND      (4220)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
 #define CHGMNG_SAFTY_CUTOFF_POINT 960//837   // 4.33V. When the battery voltage is higher than this value, we will stop charging forcibly.
 
 #define BUSYSTATE       1   //when the phone is staying in busy state(for example, talking, play games or play music, etc.),we will stop
@@ -135,7 +135,7 @@ extern   "C"
 #define VOL_DIV_P1 268
 #define VOL_DIV_P2 1000
 
-#define CC_CV_VOLTAGE 4000
+#define CC_CV_VOLTAGE PREVCHGEND
 #define CV_REF_CURRENT 4
 #define CV_STOP_CURRENT 10
 
