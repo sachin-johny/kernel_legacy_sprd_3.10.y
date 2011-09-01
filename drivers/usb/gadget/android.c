@@ -400,9 +400,31 @@ static struct platform_driver android_platform_driver = {
 	.probe = android_probe,
 };
 
+/*
+ * this attribute used for changing usb serial number
+ */
+static ssize_t serial_number_show(struct device_driver *drv, char *buf)
+{
+	return sprintf(buf, "%s", strings_dev[STRING_SERIAL_IDX].s);
+}
+
+static ssize_t serial_number_store(struct device_driver *drv, const char *buf,
+		size_t count)
+{
+	static char serial[30];
+
+	strncpy(serial, buf, 30 - 1);
+	strings_dev[STRING_SERIAL_IDX].s = serial;
+	return count;
+}
+
+static DRIVER_ATTR(serialnumber, S_IRUGO | S_IWUSR, serial_number_show,
+		serial_number_store);
+
 static int __init init(void)
 {
 	struct android_dev *dev;
+	int ret;
 
 	printk(KERN_INFO "android init\n");
 
@@ -414,13 +436,22 @@ static int __init init(void)
 	dev->product_id = PRODUCT_ID;
 	_android_dev = dev;
 
-	return platform_driver_register(&android_platform_driver);
+	ret = platform_driver_register(&android_platform_driver);
+	if (ret < 0) {
+		pr_warning("%s, ret: %d", __func__, ret);
+		return ret;
+	}
+	driver_create_file(&android_platform_driver.driver, &driver_attr_serialnumber);
+	return 0;
+
 }
 module_init(init);
 
 static void __exit cleanup(void)
 {
 	usb_composite_unregister(&android_usb_driver);
+	driver_remove_file(&android_platform_driver.driver,
+			&driver_attr_serialnumber);
 	platform_driver_unregister(&android_platform_driver);
 	kfree(_android_dev);
 	_android_dev = NULL;
