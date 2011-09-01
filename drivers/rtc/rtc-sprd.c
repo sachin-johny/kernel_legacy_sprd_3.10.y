@@ -214,7 +214,6 @@ static int sprd_rtc_read_time(struct device *dev,
         sprd_rtc_set_sec(0);
     }
 	rtc_time_to_tm(secs, tm);
-        sprd_rtc_set_alarm_sec(secs+100);
 	return 0;
 }
 
