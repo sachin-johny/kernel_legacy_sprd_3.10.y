@@ -117,12 +117,14 @@ unsigned int fb_va_cached;
 struct sc8800fb_info {
 	struct fb_info *fb;
 	uint32_t cap;
+	uint32_t need_reinit;
 	struct ops_mcu *ops;
 	struct lcd_spec *panel;
 	struct rrmanager *rrm;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
+
 };
 
 
@@ -831,21 +833,24 @@ static void hw_early_init(struct sc8800fb_info *sc8800fb)
 
 	set_pins();
 	//select LCD clock source	
-	__raw_bits_and(~(1<<6), GR_PLL_SRC);    //pll_src=96M
-	__raw_bits_and(~(1<<7), GR_PLL_SRC);
+	//__raw_bits_and(~(1<<6), GR_PLL_SRC);    //pll_src=96M
+	//__raw_bits_and(~(1<<7), GR_PLL_SRC);
 
 	//set LCD divdior
-	__raw_bits_and(~(1<<0), GR_GEN4);  //div=0
-	__raw_bits_and(~(1<<1), GR_GEN4); 
-	__raw_bits_and(~(1<<2), GR_GEN4);  
+	//__raw_bits_and(~(1<<0), GR_GEN4);  //div=0
+	//__raw_bits_and(~(1<<1), GR_GEN4); 
+	//__raw_bits_and(~(1<<2), GR_GEN4);  
 
 	//enable LCD clock
-	__raw_bits_or(1<<3, AHB_CTL0); 
+	//__raw_bits_or(1<<3, AHB_CTL0); 
 
 	//LCD soft reset
-	__raw_bits_or(1<<3, AHB_SOFT_RST);
-	mdelay(10);	
-	__raw_bits_and(~(1<<3), AHB_SOFT_RST); 
+	//__raw_bits_or(1<<3, AHB_SOFT_RST);
+	//mdelay(10);	
+	//__raw_bits_and(~(1<<3), AHB_SOFT_RST); 
+
+	__raw_bits_and(~(1<<0), LCDC_IRQ_EN);
+	__raw_bits_or((1<<0), LCDC_IRQ_CLR);
 
 	/* register isr */
 	ret = request_irq(IRQ_LCDC_INT, lcdc_isr, IRQF_DISABLED, "LCDC", sc8800fb);
@@ -855,7 +860,7 @@ static void hw_early_init(struct sc8800fb_info *sc8800fb)
 	}
 
 	/* enable LCDC_DONE IRQ */
-	__raw_bits_or((1<<0), LCDC_IRQ_EN);
+	//__raw_bits_or((1<<0), LCDC_IRQ_EN);
 
 	/* init lcdc mcu mode using default configuration */
 	lcdc_mcu_init(sc8800fb);
@@ -908,7 +913,10 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 
 	
 	//panel reset
-	panel_reset(sc8800fb->panel);
+	if(sc8800fb->need_reinit)
+	{
+	    panel_reset(sc8800fb->panel);
+	}
 
 	/* set lcdc-lcd interface parameters */
 	lcdc_lcm_configure(sc8800fb);
@@ -923,15 +931,18 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 
 	set_lcdc_layers(&sc8800fb->fb->var, sc8800fb->fb); 
 #endif
-
 }
 
 static void hw_later_init(struct sc8800fb_info *sc8800fb)
 {
 	/* init mounted lcd panel */
-	sc8800fb->panel->ops->lcd_init(sc8800fb->panel);
+	if(sc8800fb->need_reinit)
+	{
+	    sc8800fb->panel->ops->lcd_init(sc8800fb->panel);
+	}
 
 	set_lcdc_layers(&sc8800fb->fb->var, sc8800fb->fb); 
+	__raw_bits_or((1<<0), LCDC_IRQ_EN);
 }
 
 
@@ -1098,6 +1109,7 @@ __setup("lcd_id=", calibration_start);
 static int find_adapt_from_uboot()
 {
 	int i;
+	//overlord del this
 	if(lcd_id_from_uboot != 0)
 	{
 		for(i = 0;i<(sizeof(lcd_panel))/(sizeof(lcd_panel[0]));i++)
@@ -1183,7 +1195,9 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	sc8800fb->rrm = rrm_init(real_refresh, (void*)sc8800fb);
 	rrm_layer_init(LID_OSD1, 2, real_set_layer);
 
+
 	//we maybe readid ,so hardware should be init
+	sc8800fb->need_reinit = 1;
 	hw_early_init(sc8800fb);
 
 //make sure we have no wrong on 8805 or openphone .cause have no chance to test on every plateform
@@ -1192,6 +1206,10 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	if(lcd_adapt == -1)
 	{
 		lcd_adapt = find_adapt_from_readid(sc8800fb);
+	}
+	else
+	{
+		sc8800fb->need_reinit = 0;
 	}
 	if(lcd_adapt == -1)
 	{
@@ -1228,6 +1246,7 @@ static int sc8800fb_probe(struct platform_device *pdev)
 
 	hw_init(sc8800fb);
 	hw_later_init(sc8800fb);
+
 
 	copybit_lcdc_init(); /* TEMP */
 
