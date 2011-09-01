@@ -30,6 +30,7 @@
 #define SENSOR_PRINT(...)  
 #endif
 #define SENSOR_PRINT_ERR printk
+#define SENSOR_PRINT_HIGH printk
 
 #include <linux/delay.h>
 #include "sensor_drv.h"
@@ -72,6 +73,8 @@
 #define SENSOR_HIGN_SIXTEEN_BIT  0xffff0000
 #define SENSOR_LOW_SIXTEEN_BIT  0xffff
 #define SENSOR_I2C_OP_TRY_NUM   4
+#define SCI_TRUE 1 
+#define SCI_FALSE 0
 /**---------------------------------------------------------------------------*
  **                         Global Variables                                  *
  **---------------------------------------------------------------------------*/
@@ -270,15 +273,15 @@ static struct i2c_client_address_data sensor_sub_addr_data = { .forces = sensor_
 	this_client = client;	
 	if(SENSOR_MAIN == Sensor_GetCurId()){
 		if(SENSOR_MAIN_I2C_ADDR_CFG != (this_client->addr & (~0xFF))) {
-			this_client->addr = (this_client->addr & (~0xFF)) | SENSOR_MAIN_I2C_ADDR_CFG; 
+			this_client->addr = (this_client->addr & (~0xFF)) | (sensor_main_force[1]&0xFF); 
 		}
 	}
 	else{ //for SENSOR_SUB	
 		if(SENSOR_SUB_I2C_ADDR_CFG != (this_client->addr & (~0xFF))) {
-			this_client->addr = (this_client->addr & (~0xFF)) | SENSOR_SUB_I2C_ADDR_CFG; 
+			this_client->addr = (this_client->addr & (~0xFF)) | (sensor_sub_force[1]&0xFF); 
 		}
 	}
-	
+	printk("sensor_probe,this_client->addr =0x%x\n",this_client->addr );
 	mdelay(20);
 	
 	return 0;
@@ -418,104 +421,6 @@ PUBLIC void ImgSensor_PutMutex(void)
     SENSOR_ASSERT( ret == SENSOR_SUCCESS );
 }
 
-/*****************************************************************************/
-//  Description:    This function is used to get sensor type    
-//  Author:         Tim.zhu
-//  Note:           
-/*****************************************************************************/
-PUBLIC int32_t _Sensor_IicHandlerInit(void) 
-{
-    int32_t dev_handler=0;
-   /* I2C_DEV  dev={0x00};
-
-    if(!((SENSOR_I2C_NULL_HANDLE==s_sensor_info_ptr->i2c_dev_handler)
-        ||(NULL==s_sensor_info_ptr->i2c_dev_handler)))
-    {
-        return s_sensor_info_ptr->i2c_dev_handler;
-    }
-    
-    dev.id=SENSOR_I2C_PORT_0;
-
-    if(SENSOR_I2C_FREQ_20==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_FREQ_20))
-    {
-        dev.freq=(20*1000);
-    }
-    else if(SENSOR_I2C_FREQ_50==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_FREQ_50))
-    {
-        dev.freq=(50*1000);
-    }   
-    else if(SENSOR_I2C_FREQ_200==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_FREQ_200))
-    {
-        dev.freq=(200*1000);
-    } 
-    else
-    {
-        dev.freq=SENSOR_I2C_FREQ;
-    }
-    
-    dev.slave_addr=s_sensor_info_ptr->salve_i2c_addr_w;
-
-    if(SENSOR_I2C_CUSTOM==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_CUSTOM))
-    {
-        dev.reg_addr_num=SENSOR_ZERO_I2C;
-    }
-    else if(SENSOR_I2C_REG_16BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_REG_16BIT))
-    {
-        dev.reg_addr_num=SENSOR_ADDR_BITS_16;
-    }        
-    else
-    {
-        dev.reg_addr_num=SENSOR_ADDR_BITS_8;
-    }
-
-    if(SENSOR_I2C_NOACK_BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_NOACK_BIT))
-    {
-        dev.check_ack=SENSOR_I2C_ACK_FALSE;
-    }      
-    else
-    {
-        dev.check_ack=SENSOR_I2C_ACK_TRUE;
-    }
-
-    if(SENSOR_I2C_STOP_BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_STOP_BIT))
-    {
-        dev.no_stop=SENSOR_I2C_STOP;
-    }
-    else
-    {
-        dev.no_stop=SENSOR_I2C_NOSTOP;
-    }
-
-    dev_handler=I2C_HAL_Open(&dev);
-
-    if(dev_handler==SENSOR_I2C_NULL_HANDLE)
-    {
-        SENSOR_PRINT("SENSOR_handler creat err first");
-    }
-
-    s_sensor_info_ptr->i2c_dev_handler=dev_handler;
-
-    */
-    return dev_handler;
-}
-
-/*****************************************************************************/
-//  Description:    This function is used to get sensor type    
-//  Author:         Tim.zhu
-//  Note:           
-/*****************************************************************************/
-PUBLIC void _Sensor_IicHandlerRelease(void) 
-{
-   /* if(SENSOR_ZERO_I2C!=I2C_HAL_Close(s_sensor_info_ptr->i2c_dev_handler))	
-    {
-        SENSOR_PRINT ("SENSOR: I2C_no_close");
-    }
-    else
-    {
-        s_sensor_info_ptr->i2c_dev_handler=SENSOR_I2C_NULL_HANDLE;
-        SENSOR_PRINT ("SENSOR: I2C_close s_sensor_info_ptr->i2c_dev_handler=%d ",s_sensor_info_ptr->i2c_dev_handler);
-    }*/
-}
 
 /*****************************************************************************/
 //  Description:    This function is used to get sensor type    
@@ -534,8 +439,20 @@ PUBLIC SENSOR_TYPE_E _Sensor_GetSensorType(void)
 /*****************************************************************************/
 PUBLIC void Sensor_Reset(uint32_t level)
 {
-	gpio_request(77,"ccirrst");
-	gpio_direction_output(77,level);
+	int err = 0xff;
+	err = gpio_request(77,"ccirrst");
+	if (err) {
+		printk("Sensor_Reset failed requesting err=%d\n", err);
+		return ;
+	}
+
+	gpio_direction_output(77,!level);	
+	
+	gpio_set_value(77, !level);
+	msleep(20);
+	gpio_set_value(77,level);
+	msleep(100);
+	gpio_set_value(77,!level);		
 }
 
 #if 0
@@ -862,137 +779,115 @@ LOCAL uint32_t LDO_SetVoltLevel(LDO_ID_E ldo_id, LDO_VOLT_LEVEL_E volt_level)
 //PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val, SENSOR_AVDD_VAL_E iovdd_val)
 PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E camd0_val, SENSOR_AVDD_VAL_E camd1_val, SENSOR_AVDD_VAL_E cama_val)
 {
-    uint32_t ldo_camd0_level = LDO_VOLT_LEVEL0;
-    uint32_t ldo_camd1_level = LDO_VOLT_LEVEL0;
-    uint32_t ldo_cama_level = LDO_VOLT_LEVEL0;
+	uint32_t ldo_camd0_level = LDO_VOLT_LEVEL0;
+	uint32_t ldo_camd1_level = LDO_VOLT_LEVEL0;
+	uint32_t ldo_cama_level = LDO_VOLT_LEVEL0;
 
-    //SENSOR_PRINT("Sensor_SetVoltage: %d, %d, %d.\n", dvdd_val, avdd_val,  iovdd_val);
-    SENSOR_PRINT("Sensor_SetVoltage: %d, %d, %d.\n", camd0_val, camd1_val,  cama_val);
+	SENSOR_PRINT("Sensor_SetVoltage: %d, %d, %d.\n", camd0_val, camd1_val,  cama_val);
 
-    switch(camd1_val)
-    {            
-        case SENSOR_AVDD_2800MV:
-            ldo_camd1_level = LDO_VOLT_LEVEL0;    
-            break;
-            
-        case SENSOR_AVDD_3300MV:
-            ldo_camd1_level = LDO_VOLT_LEVEL1;    
-            break;
-            
-        case SENSOR_AVDD_1800MV:
-            ldo_camd1_level = LDO_VOLT_LEVEL2;    
-            break;
-            
-        case SENSOR_AVDD_1200MV:
-            ldo_camd1_level = LDO_VOLT_LEVEL3;    
-            break;  
-            
-        case SENSOR_AVDD_CLOSED:
-        case SENSOR_AVDD_UNUSED:
-        default:
-            ldo_camd1_level = LDO_VOLT_LEVEL_MAX;   
-            break;
-    } 
-    switch(cama_val)
-    {            
-        case SENSOR_AVDD_2800MV:
-            ldo_cama_level = LDO_VOLT_LEVEL0;    
-            break;
-            
-        case SENSOR_AVDD_3000MV:
-            ldo_cama_level = LDO_VOLT_LEVEL1;    
-            break;
-            
-        case SENSOR_AVDD_2500MV:
-            ldo_cama_level = LDO_VOLT_LEVEL2;    
-            break;
-            
-        case SENSOR_AVDD_1800MV:
-            ldo_cama_level = LDO_VOLT_LEVEL3;    
-            break;  
-            
-        case SENSOR_AVDD_CLOSED:
-        case SENSOR_AVDD_UNUSED:
-        default:
-            ldo_cama_level = LDO_VOLT_LEVEL_MAX;   
-            break;
-    } 
+	switch(camd1_val)
+	{            
+		case SENSOR_AVDD_2800MV:
+			ldo_camd1_level = LDO_VOLT_LEVEL0;    
+			break;
+
+		case SENSOR_AVDD_3300MV:
+			ldo_camd1_level = LDO_VOLT_LEVEL1;    
+			break;
+
+		case SENSOR_AVDD_1800MV:
+			ldo_camd1_level = LDO_VOLT_LEVEL2;    
+			break;
+
+		case SENSOR_AVDD_1200MV:
+			ldo_camd1_level = LDO_VOLT_LEVEL3;    
+			break;  
+
+		case SENSOR_AVDD_CLOSED:
+		case SENSOR_AVDD_UNUSED:
+		default:
+			ldo_camd1_level = LDO_VOLT_LEVEL_MAX;   
+			break;
+	} 
+	switch(cama_val)
+	{            
+		case SENSOR_AVDD_2800MV:
+			ldo_cama_level = LDO_VOLT_LEVEL0;    
+			break;
+
+		case SENSOR_AVDD_3000MV:
+			ldo_cama_level = LDO_VOLT_LEVEL1;    
+			break;
+
+		case SENSOR_AVDD_2500MV:
+			ldo_cama_level = LDO_VOLT_LEVEL2;    
+			break;
+
+		case SENSOR_AVDD_1800MV:
+			ldo_cama_level = LDO_VOLT_LEVEL3;    
+			break;  
+
+		case SENSOR_AVDD_CLOSED:
+		case SENSOR_AVDD_UNUSED:
+		default:
+			ldo_cama_level = LDO_VOLT_LEVEL_MAX;   
+			break;
+	} 
    
-    if((LDO_VOLT_LEVEL_MAX == ldo_cama_level) || (LDO_VOLT_LEVEL_MAX == ldo_camd1_level))
-    {
-        //SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off avdd, iodd\n"); 
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off camd1, cama\n"); 
+	if((LDO_VOLT_LEVEL_MAX == ldo_cama_level) || (LDO_VOLT_LEVEL_MAX == ldo_camd1_level))
+	{
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off camd1, cama\n"); 
+		LDO_TurnOffLDO(LDO_LDO_CAMA);        
+		LDO_TurnOffLDO(LDO_LDO_CAMD1);            
+	}
+	else
+	{	
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on camd1 and cama, cama VoltLevel %d, camd1 VoltLevel %d\n",ldo_cama_level, ldo_camd1_level); 
+
+		LDO_SetVoltLevel(LDO_LDO_CAMA, ldo_cama_level);      
+		LDO_TurnOnLDO(LDO_LDO_CAMA); 
+		LDO_SetVoltLevel(LDO_LDO_CAMD1, ldo_camd1_level);
+		LDO_TurnOnLDO(LDO_LDO_CAMD1);  
+	}
+
+	switch(camd0_val)
+	{
+		case SENSOR_AVDD_1800MV:
+			ldo_camd0_level = LDO_VOLT_LEVEL0;    
+			break;
+
+		case SENSOR_AVDD_2800MV:
+			ldo_camd0_level = LDO_VOLT_LEVEL1;    
+			break;
+
+		case SENSOR_AVDD_1500MV:
+			ldo_camd0_level = LDO_VOLT_LEVEL2;    
+			break;
+
+		case SENSOR_AVDD_1300MV:
+			ldo_camd0_level = LDO_VOLT_LEVEL3;    
+			break;  
+
+		case SENSOR_AVDD_CLOSED:
+		case SENSOR_AVDD_UNUSED:
+		default:
+			ldo_camd0_level = LDO_VOLT_LEVEL_MAX;           
+			break;
+	} 
     
-        LDO_TurnOffLDO(LDO_LDO_CAMA);        
-        LDO_TurnOffLDO(LDO_LDO_CAMD1);            
+	if(LDO_VOLT_LEVEL_MAX == ldo_camd0_level)
+	{
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off camd0, sensor_id %d\n", Sensor_GetCurId()); 
+		LDO_TurnOffLDO(LDO_LDO_CAMD0);
+	}
+	else
+	{
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on camd0, sensor_id %d, camd0 VoltLevel %d\n",Sensor_GetCurId(),ldo_camd0_level); 
+		LDO_TurnOnLDO(LDO_LDO_CAMD0);    
+		LDO_SetVoltLevel(LDO_LDO_CAMD0, ldo_camd0_level);      
+	}  
 
-        //*(volatile uint32_t*)AHB_GLOBAL_REG_CTL0 |=  (BIT_1|BIT_2);//ccir and dcam enable	
-        //*(volatile uint32_t*)CAP_CNTRL &= ~(BIT_13 | BIT_12); //set two sensor all in PowerDown mode
-       // *(volatile uint32_t*)AHB_GLOBAL_REG_CTL0 &= ~(BIT_1|BIT_2);//ccir and dcam disable
-        _paod( AHB_GLOBAL_REG_CTL0, BIT_1|BIT_2);//ccir and dcam enable
-	_paad(CAP_CNTRL, ~(BIT_13 | BIT_12)); //set two sensor all in PowerDown mode
-	_paad(AHB_GLOBAL_REG_CTL0, ~(BIT_1|BIT_2));//ccir and dcam disable        
-    }
-    else
-    {
-        //SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on avdd, iodd VoltLevel %d, avdd VoltLevel %d\n",ldo_iovdd_level, ldo_avdd_level); 
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on camd1 and cama, cama VoltLevel %d, camd1 VoltLevel %d\n",ldo_cama_level, ldo_camd1_level); 
-    
-        LDO_SetVoltLevel(LDO_LDO_CAMA, ldo_cama_level);      
-        LDO_TurnOnLDO(LDO_LDO_CAMA); 
-        LDO_SetVoltLevel(LDO_LDO_CAMD1, ldo_camd1_level);
-        LDO_TurnOnLDO(LDO_LDO_CAMD1);  
-
-       // *(volatile uint32_t*)AHB_GLOBAL_REG_CTL0 |=  (BIT_1|BIT_2);
-        //*(volatile uint32_t*)CAP_CNTRL |= BIT_13 | BIT_12;
-        //*(volatile uint32_t*)AHB_GLOBAL_REG_CTL0 &= ~(BIT_1|BIT_2);
-        _paod(AHB_GLOBAL_REG_CTL0, BIT_1|BIT_2);//ccir and dcam enable
-	_paod(CAP_CNTRL, BIT_13 | BIT_12); //set two sensor all in PowerDown mode
-	_paad(AHB_GLOBAL_REG_CTL0, ~(BIT_1|BIT_2));//ccir and dcam disable
-    }
-
-    switch(camd0_val)
-    {
-        case SENSOR_AVDD_1800MV:
-            ldo_camd0_level = LDO_VOLT_LEVEL0;    
-            break;
-            
-        case SENSOR_AVDD_2800MV:
-            ldo_camd0_level = LDO_VOLT_LEVEL1;    
-            break;
-            
-        case SENSOR_AVDD_1500MV:
-            ldo_camd0_level = LDO_VOLT_LEVEL2;    
-            break;
-            
-        case SENSOR_AVDD_1300MV:
-            ldo_camd0_level = LDO_VOLT_LEVEL3;    
-            break;  
-            
-        case SENSOR_AVDD_CLOSED:
-        case SENSOR_AVDD_UNUSED:
-        default:
-            ldo_camd0_level = LDO_VOLT_LEVEL_MAX;           
-            break;
-    } 
-    
-    if(LDO_VOLT_LEVEL_MAX == ldo_camd0_level)
-    {
-        //SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off dvdd, sensor_id %d\n", Sensor_GetCurId()); 
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off camd0, sensor_id %d\n", Sensor_GetCurId()); 
-
-        LDO_TurnOffLDO(LDO_LDO_CAMD0);
-    }
-    else
-    {
-        //SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on dvdd, sensor_id %d, dvdd VoltLevel %d\n",Sensor_GetCurId(),ldo_dvdd_level); 
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on camd0, sensor_id %d, camd0 VoltLevel %d\n",Sensor_GetCurId(),ldo_camd0_level); 
-
-        LDO_TurnOnLDO(LDO_LDO_CAMD0);    
-        LDO_SetVoltLevel(LDO_LDO_CAMD0, ldo_camd0_level);      
-    }  
-    
-    return ;
+	return ;
 }
 
 /*****************************************************************************/
@@ -1002,62 +897,41 @@ PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E camd0_val, SENSOR_AVDD_VAL_E cam
 /*****************************************************************************/
 LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 {
-    BOOLEAN 				power_down;		
-    SENSOR_AVDD_VAL_E		dvdd_val;
-    SENSOR_AVDD_VAL_E		avdd_val;
-    SENSOR_AVDD_VAL_E		iovdd_val;    
-    SENSOR_IOCTL_FUNC_PTR	power_func;
+	BOOLEAN 				power_down;		
+	SENSOR_AVDD_VAL_E		dvdd_val;
+	SENSOR_AVDD_VAL_E		avdd_val;
+	SENSOR_AVDD_VAL_E		iovdd_val;    
+	SENSOR_IOCTL_FUNC_PTR	power_func;
+	uint32_t                                     rst_lvl = s_sensor_info_ptr->reset_pulse_level;
 
-    power_down = (BOOLEAN)s_sensor_info_ptr->power_down_level;
-    dvdd_val   = s_sensor_info_ptr->dvdd_val;
-    avdd_val   = s_sensor_info_ptr->avdd_val;
-    iovdd_val   = s_sensor_info_ptr->iovdd_val;
-    power_func = s_sensor_info_ptr->ioctl_func_tab_ptr->power;
+	power_down = (BOOLEAN)s_sensor_info_ptr->power_down_level;
+	dvdd_val   = s_sensor_info_ptr->dvdd_val;
+	avdd_val   = s_sensor_info_ptr->avdd_val;
+	iovdd_val   = s_sensor_info_ptr->iovdd_val;
+	power_func = s_sensor_info_ptr->ioctl_func_tab_ptr->power;
 
-    SENSOR_PRINT("SENSOR: Sensor_PowerOn -> power_on = %d, power_down_level = %d, avdd_val = %d\n",power_on,power_down,avdd_val);   
+	SENSOR_PRINT("SENSOR: Sensor_PowerOn -> power_on = %d, power_down_level = %d, avdd_val = %d\n",power_on,power_down,avdd_val);   
 
-        if(power_on)
-         {				
-            // Open power
-            Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val); 
-            // Reset sensor
-            Sensor_Reset(1);		    
-	    mdelay(5);
-            // NOT in power down mode(maybe also open DVDD and DOVDD)
-            Sensor_PowerDown(!power_down);           
-            // Open Mclk in default frequency
-            Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
-	}			
-       /*{				
-            // Open power
-            Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val); 
-            // NOT in power down mode(maybe also open DVDD and DOVDD)
-            Sensor_PowerDown(!power_down);           
-            // Open Mclk in default frequency
-            Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
-            // Reset sensor
-            //Sensor_Reset();
-            Sensor_Reset(1);
-	    msleep(5);
-        }*/
-        else
-        {
-            // Power down sensor and maybe close DVDD, DOVDD
-            Sensor_PowerDown(power_down);
-	    Sensor_Reset(0);
-            Sensor_SetMCLK(SENSOR_DISABLE_MCLK);			 
-            Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);	
-        }   			
-        /*{
-            // Power down sensor and maybe close DVDD, DOVDD
-            Sensor_PowerDown(power_down);
-
-            Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);
-            // Close Mclk
-            Sensor_SetMCLK(SENSOR_DISABLE_MCLK);		
-        }  */
+	if(power_on)
+	{				
+		// Open power
+		Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val); 
+		// Reset sensor		
+		Sensor_Reset(rst_lvl);		
+		Sensor_PowerDown(!power_down);		
+		msleep(10);
+		Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
+	}
+	else
+	{
+		// Power down sensor and maybe close DVDD, DOVDD
+		Sensor_PowerDown(power_down);
+		msleep(20);
+		Sensor_SetMCLK(SENSOR_DISABLE_MCLK);			 
+		Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);	
+	}   			
+       
 }
-
 
 /*****************************************************************************/
 //  Description:    This function is used to power down sensor     
@@ -1068,192 +942,104 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
 {
 	SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_level);          
-        SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); // *(volatile uint32_t*)0x8C000344 );          
-        SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));//*(volatile uint32_t*)0x8C000348 );    
+	SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); 
+	SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
 
-    switch(Sensor_GetCurId())
-    {
-        case SENSOR_MAIN:
-        {
-		_paod(PIN_CTL_CCIRPD1,  (BIT_4|BIT_5));
-		gpio_request(78,"ccirpd1");
-		if(0 == power_level){
-			gpio_direction_output(78,0);
+	switch(Sensor_GetCurId())
+	{
+		case SENSOR_MAIN:
+		{
+			_paod(PIN_CTL_CCIRPD1,  (BIT_4|BIT_5));
+			gpio_request(78,"ccirpd1");
+			if(0 == power_level)
+			{
+				gpio_direction_output(78,0);
+			}
+			else
+			{
+				gpio_direction_output(78,1);
+			}      
+			break;
 		}
-		else{
-			gpio_direction_output(78,1);
-		}      
-           	 break;
-        }
-        case SENSOR_SUB:
-        {
-		_paod(PIN_CTL_CCIRPD0,  (BIT_4|BIT_5));
-		gpio_request(79,"ccirpd0");
-		if(0 == power_level){
-			gpio_direction_output(79,0);
+		case SENSOR_SUB:
+		{
+			_paod(PIN_CTL_CCIRPD0,  (BIT_4|BIT_5));
+			gpio_request(79,"ccirpd0");
+			if(0 == power_level)
+			{
+				gpio_direction_output(79,0);
+			}
+			else
+			{
+				gpio_direction_output(79,1);
+			}
+			break;
 		}
-		else{
-			gpio_direction_output(79,1);
-		}
-           	break;
-        }
-        default :
-            break;            
-    }
+		default :
+		break;            
+	}
 
-    return SENSOR_SUCCESS;
+	return SENSOR_SUCCESS;
 }
 #else 
 PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
 {
-    switch(Sensor_GetCurId())
-    {
-        case SENSOR_MAIN:
+	switch(Sensor_GetCurId())
 	{
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_down);          
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); 
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
-            
-            //*(volatile uint32_t*)0x8C000344 &=  ~(BIT_4|BIT_5);//ccir and dcam enable
-            _paad(PIN_CTL_CCIRPD1,  ~(BIT_4|BIT_5));
-           // *(volatile uint32_t*)AHB_REG_BASE |=  (BIT_1|BIT_2);//ccir and dcam enable
-            _paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
-            if(power_down == 0)
-            {
-                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) &= ~(BIT_11|BIT_12);
-		_paad(CAP_CNTRL,  ~(BIT_11|BIT_12));
-              	//SENSOR_Sleep(10);
-              	mdelay(10);
-                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
-                _paod(CAP_CNTRL,  BIT_11);
-               
-            }
-            else
-            {
-                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_12;
-		_paod(CAP_CNTRL,  BIT_12);
-            }
+		case SENSOR_MAIN:
+		{
+			SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_down);          
+			SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); 
+			SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
 
-            //*(volatile uint32_t*)AHB_REG_BASE &= ~(BIT_1|BIT_2);//ccir and dcam disable
-            _paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));            
-            break;
-        }
-        case SENSOR_SUB:
-        {
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> sub: power_down %d\n", power_down);     
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); // *(volatile uint32_t*)0x8C000344 );          
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));//*(volatile uint32_t*)0x8C000348 );    
-   
-            //*(volatile uint32_t*)AHB_REG_BASE |=  (BIT_1|BIT_2);//ccir and dcam enable
-            _paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
-            if(power_down == 0)
-            {
-               // *(volatile uint32_t*)(DCAM_BASE + 0x0100) &= ~(BIT_11|BIT_13);
-		_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));		
-              	//SENSOR_Sleep(10);
-              	mdelay(10);
-                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
-		_paod(CAP_CNTRL,  BIT_11); 
-		SENSOR_PRINT("sub power down. 0: CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
-            }
-            else
-            {
-               // *(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_13;
-		_paod(CAP_CNTRL,  BIT_13);
-		SENSOR_PRINT("sub power down. 1 : CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
-            }
+			_paad(PIN_CTL_CCIRPD1,  ~(BIT_4|BIT_5));
+			_paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
+			if(power_down == 0)
+			{
+				_paad(CAP_CNTRL,  ~(BIT_11|BIT_12));			
+				mdelay(10);			
+				_paod(CAP_CNTRL,  BIT_11);
+			}
+			else
+			{			
+				_paod(CAP_CNTRL,  BIT_12);
+			}			
+			_paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));            
+			break;
+		}
+		case SENSOR_SUB:
+		{
+			SENSOR_PRINT("SENSOR: Sensor_PowerDown -> sub: power_down %d\n", power_down);     
+			SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1));       
+			SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
 
-            //*(volatile uint32_t*)AHB_REG_BASE &= ~(BIT_1|BIT_2);//ccir and dcam disable
-            _paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));
+			_paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
+			if(power_down == 0)
+			{
+				_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));		
+				mdelay(10);
+				_paod(CAP_CNTRL,  BIT_11); 
+				SENSOR_PRINT("sub power down. 0: CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
+			}
+			else
+			{			
+				_paod(CAP_CNTRL,  BIT_13);
+				SENSOR_PRINT("sub power down. 1 : CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
+			}
+			_paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));
+			break;
+		}
+		case SENSOR_ATV:
+		{
+			SENSOR_PRINT("SENSOR: Sensor_PowerDown -> atv");
+			break;
+		}
+		default :
+			break;            
+	}
 
-            break;
-        }
-        case SENSOR_ATV:
-        {
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> atv");
-            break;
-        }
-        default :
-            break;            
-    }
-
-    return SENSOR_SUCCESS;
+	return SENSOR_SUCCESS;
 }
-#if 0
-PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
-{
-    switch(Sensor_GetCurId())
-    {
-        case SENSOR_MAIN:
-        {
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_down);          
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); // *(volatile uint32_t*)0x8C000344 );          
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));//*(volatile uint32_t*)0x8C000348 );    
-            
-            //*(volatile uint32_t*)0x8C000344 &=  ~(BIT_4|BIT_5);//ccir and dcam enable
-            _paad(PIN_CTL_CCIRPD1,  ~(BIT_4|BIT_5));
-           // *(volatile uint32_t*)AHB_REG_BASE |=  (BIT_1|BIT_2);//ccir and dcam enable
-            _paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
-            if(power_down == 0)
-            {
-                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) &= ~(BIT_11|BIT_12);
-		_paad(CAP_CNTRL,  ~(BIT_11|BIT_12));
-              	SENSOR_Sleep(10);
-                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
-                _paod(CAP_CNTRL,  BIT_11);
-               
-            }
-            else
-            {
-                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_12;
-		_paod(CAP_CNTRL,  BIT_12);
-            }
-
-            //*(volatile uint32_t*)AHB_REG_BASE &= ~(BIT_1|BIT_2);//ccir and dcam disable
-            _paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));            
-            break;
-        }
-        case SENSOR_SUB:
-        {
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> sub: power_down %d\n", power_down);     
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); // *(volatile uint32_t*)0x8C000344 );          
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));//*(volatile uint32_t*)0x8C000348 );    
-   
-            //*(volatile uint32_t*)AHB_REG_BASE |=  (BIT_1|BIT_2);//ccir and dcam enable
-            _paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
-            if(power_down == 0)
-            {
-               // *(volatile uint32_t*)(DCAM_BASE + 0x0100) &= ~(BIT_11|BIT_13);
-		_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));		
-              	SENSOR_Sleep(10);
-                //*(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_11;
-		_paod(CAP_CNTRL,  BIT_11); 
-		printk("sub power down. 0: CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
-            }
-            else
-            {
-               // *(volatile uint32_t*)(DCAM_BASE + 0x0100) |= BIT_13;
-		_paod(CAP_CNTRL,  BIT_13);
-		printk("sub power down. 1 : CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
-            }
-
-            //*(volatile uint32_t*)AHB_REG_BASE &= ~(BIT_1|BIT_2);//ccir and dcam disable
-            _paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));
-
-            break;
-        }
-        case SENSOR_ATV:
-        {
-            SENSOR_PRINT("SENSOR: Sensor_PowerDown -> atv");
-            break;
-        }
-        default :
-            break;            
-    }
-
-    return SENSOR_SUCCESS;
-}
-#endif
 
 #endif
 /*****************************************************************************/
@@ -1278,147 +1064,100 @@ PUBLIC BOOLEAN Sensor_SetResetLevel(BOOLEAN plus_level)
 }
 
 /*****************************************************************************/
-//  Description:    This function is used to check sensor parameter      
-//  Author:         Liangwen.Zhen
-//  Note:           
-/*****************************************************************************/
-/*LOCAL BOOLEAN Sensor_CheckSensorInfo(SENSOR_INFO_T * info_ptr)
-{
-	if(info_ptr->name)
-	{
-		SENSOR_PRINT("SENSOR: Sensor_CheckSensorInfo -> sensor name = %s", info_ptr->name);		
-	}
-	
-	return SENSOR_TRUE;
-}*/
-
-/*****************************************************************************/
 //  Description:    This function is used to power on/off sensor     
 //  Author:         Liangwen.Zhen
 //  Note:           SENSOR_TRUE: POWER ON; SENSOR_FALSE: POWER OFF
 /*****************************************************************************/
 LOCAL void Sensor_SetExportInfo(SENSOR_EXP_INFO_T * exp_info_ptr)
 {
-    SENSOR_REG_TAB_INFO_T* resolution_info_ptr = PNULL;
-    SENSOR_TRIM_T_PTR resolution_trim_ptr = PNULL;
-    SENSOR_INFO_T* sensor_info_ptr = s_sensor_info_ptr;
-    uint32_t i = 0;
+	SENSOR_REG_TAB_INFO_T* resolution_info_ptr = PNULL;
+	SENSOR_TRIM_T_PTR resolution_trim_ptr = PNULL;
+	SENSOR_INFO_T* sensor_info_ptr = s_sensor_info_ptr;
+	uint32_t i = 0;
 
-    SENSOR_PRINT("SENSOR: Sensor_SetExportInfo.\n");	
+	SENSOR_PRINT("SENSOR: Sensor_SetExportInfo.\n");	
 
-    SENSOR_MEMSET(exp_info_ptr, 0x00, sizeof(SENSOR_EXP_INFO_T));
-    exp_info_ptr->image_format = sensor_info_ptr->image_format;
-    exp_info_ptr->image_pattern = sensor_info_ptr->image_pattern;	
+	SENSOR_MEMSET(exp_info_ptr, 0x00, sizeof(SENSOR_EXP_INFO_T));
+	exp_info_ptr->image_format = sensor_info_ptr->image_format;
+	exp_info_ptr->image_pattern = sensor_info_ptr->image_pattern;	
 
-    exp_info_ptr->pclk_polarity = (sensor_info_ptr->hw_signal_polarity & 0x01) ;  //the high 3bit will be the phase(delay sel)
-    exp_info_ptr->vsync_polarity = ((sensor_info_ptr->hw_signal_polarity >> 2) & 0x1);
-    exp_info_ptr->hsync_polarity = ((sensor_info_ptr->hw_signal_polarity >> 4) & 0x1);
-    exp_info_ptr->pclk_delay = ((sensor_info_ptr->hw_signal_polarity >> 5) & 0x07);
-    
-    exp_info_ptr->source_width_max = sensor_info_ptr->source_width_max;
-    exp_info_ptr->source_height_max = sensor_info_ptr->source_height_max;	
+	exp_info_ptr->pclk_polarity = (sensor_info_ptr->hw_signal_polarity & 0x01) ;  //the high 3bit will be the phase(delay sel)
+	exp_info_ptr->vsync_polarity = ((sensor_info_ptr->hw_signal_polarity >> 2) & 0x1);
+	exp_info_ptr->hsync_polarity = ((sensor_info_ptr->hw_signal_polarity >> 4) & 0x1);
+	exp_info_ptr->pclk_delay = ((sensor_info_ptr->hw_signal_polarity >> 5) & 0x07);
 
-    exp_info_ptr->environment_mode = sensor_info_ptr->environment_mode;
-    exp_info_ptr->image_effect = sensor_info_ptr->image_effect;	
-    exp_info_ptr->wb_mode = sensor_info_ptr->wb_mode;
-    exp_info_ptr->step_count = sensor_info_ptr->step_count;
+	exp_info_ptr->source_width_max = sensor_info_ptr->source_width_max;
+	exp_info_ptr->source_height_max = sensor_info_ptr->source_height_max;	
 
-    exp_info_ptr->ext_info_ptr = sensor_info_ptr->ext_info_ptr;
+	exp_info_ptr->environment_mode = sensor_info_ptr->environment_mode;
+	exp_info_ptr->image_effect = sensor_info_ptr->image_effect;	
+	exp_info_ptr->wb_mode = sensor_info_ptr->wb_mode;
+	exp_info_ptr->step_count = sensor_info_ptr->step_count;
 
-    exp_info_ptr->preview_skip_num = sensor_info_ptr->preview_skip_num;
-    exp_info_ptr->capture_skip_num = sensor_info_ptr->capture_skip_num;    
-    exp_info_ptr->preview_deci_num = sensor_info_ptr->preview_deci_num;  
-    exp_info_ptr->video_preview_deci_num = sensor_info_ptr->video_preview_deci_num; 
+	exp_info_ptr->ext_info_ptr = sensor_info_ptr->ext_info_ptr;
 
-    exp_info_ptr->threshold_eb = sensor_info_ptr->threshold_eb;
-    exp_info_ptr->threshold_mode = sensor_info_ptr->threshold_mode;    
-    exp_info_ptr->threshold_start = sensor_info_ptr->threshold_start;  
-    exp_info_ptr->threshold_end = sensor_info_ptr->threshold_end; 
+	exp_info_ptr->preview_skip_num = sensor_info_ptr->preview_skip_num;
+	exp_info_ptr->capture_skip_num = sensor_info_ptr->capture_skip_num;    
+	exp_info_ptr->preview_deci_num = sensor_info_ptr->preview_deci_num;  
+	exp_info_ptr->video_preview_deci_num = sensor_info_ptr->video_preview_deci_num; 
 
-    exp_info_ptr->ioctl_func_ptr=sensor_info_ptr->ioctl_func_tab_ptr;
-    if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->get_trim)
-    {
-        resolution_trim_ptr=(SENSOR_TRIM_T_PTR)sensor_info_ptr->ioctl_func_tab_ptr->get_trim(0x00);
-    }
-    for(i=SENSOR_MODE_COMMON_INIT; i<SENSOR_MODE_MAX; i++)
-    {
-        resolution_info_ptr = &(sensor_info_ptr->resolution_tab_info_ptr[i]);
-        if((PNULL!= resolution_info_ptr->sensor_reg_tab_ptr)||((0x00!=resolution_info_ptr->width)&&(0x00!=resolution_info_ptr->width)))
-        {
-            exp_info_ptr->sensor_mode_info[i].mode=i;
-            exp_info_ptr->sensor_mode_info[i].width=resolution_info_ptr->width;
-            exp_info_ptr->sensor_mode_info[i].height=resolution_info_ptr->height;
-            if((PNULL!=resolution_trim_ptr)
-                &&(0x00!=resolution_trim_ptr[i].trim_width)
-                &&(0x00!=resolution_trim_ptr[i].trim_height))
-            {
-                exp_info_ptr->sensor_mode_info[i].trim_start_x=resolution_trim_ptr[i].trim_start_x;
-                exp_info_ptr->sensor_mode_info[i].trim_start_y=resolution_trim_ptr[i].trim_start_y;
-                exp_info_ptr->sensor_mode_info[i].trim_width=resolution_trim_ptr[i].trim_width;
-                exp_info_ptr->sensor_mode_info[i].trim_height=resolution_trim_ptr[i].trim_height;
-		exp_info_ptr->sensor_mode_info[i].line_time=resolution_trim_ptr[i].line_time;
-            }
-            else
-            {
-                exp_info_ptr->sensor_mode_info[i].trim_start_x=0x00;
-                exp_info_ptr->sensor_mode_info[i].trim_start_y=0x00;
-                exp_info_ptr->sensor_mode_info[i].trim_width=resolution_info_ptr->width;
-                exp_info_ptr->sensor_mode_info[i].trim_height=resolution_info_ptr->height;		
-            }
-            //exp_info_ptr->sensor_mode_info[i].line_time=resolution_trim_ptr[i].line_time;
-            if(SENSOR_IMAGE_FORMAT_MAX != sensor_info_ptr->image_format)
-            {
-                exp_info_ptr->sensor_mode_info[i].image_format = sensor_info_ptr->image_format;
-            }
-            else
-            {
-                exp_info_ptr->sensor_mode_info[i].image_format = resolution_info_ptr->image_format;
-            }
-            SENSOR_PRINT("SENSOR: SENSOR mode Info > mode = %d, width = %d, height = %d, format = %d.\n",\
-                            i, resolution_info_ptr->width, resolution_info_ptr->height, exp_info_ptr->sensor_mode_info[i].image_format);
-        }
-        else
-        {
-            exp_info_ptr->sensor_mode_info[i].mode = SENSOR_MODE_MAX;
-        }
-    }
+	exp_info_ptr->threshold_eb = sensor_info_ptr->threshold_eb;
+	exp_info_ptr->threshold_mode = sensor_info_ptr->threshold_mode;    
+	exp_info_ptr->threshold_start = sensor_info_ptr->threshold_start;  
+	exp_info_ptr->threshold_end = sensor_info_ptr->threshold_end; 
+
+	exp_info_ptr->ioctl_func_ptr=sensor_info_ptr->ioctl_func_tab_ptr;
+	if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->get_trim)
+	{
+		resolution_trim_ptr=(SENSOR_TRIM_T_PTR)sensor_info_ptr->ioctl_func_tab_ptr->get_trim(0x00);
+	}
+	for(i=SENSOR_MODE_COMMON_INIT; i<SENSOR_MODE_MAX; i++)
+	{
+		resolution_info_ptr = &(sensor_info_ptr->resolution_tab_info_ptr[i]);
+		if((PNULL!= resolution_info_ptr->sensor_reg_tab_ptr)||((0x00!=resolution_info_ptr->width)&&(0x00!=resolution_info_ptr->width)))
+		{
+			exp_info_ptr->sensor_mode_info[i].mode=i;
+			exp_info_ptr->sensor_mode_info[i].width=resolution_info_ptr->width;
+			exp_info_ptr->sensor_mode_info[i].height=resolution_info_ptr->height;
+			if((PNULL!=resolution_trim_ptr)
+			&&(0x00!=resolution_trim_ptr[i].trim_width)
+			&&(0x00!=resolution_trim_ptr[i].trim_height))
+			{
+				exp_info_ptr->sensor_mode_info[i].trim_start_x=resolution_trim_ptr[i].trim_start_x;
+				exp_info_ptr->sensor_mode_info[i].trim_start_y=resolution_trim_ptr[i].trim_start_y;
+				exp_info_ptr->sensor_mode_info[i].trim_width=resolution_trim_ptr[i].trim_width;
+				exp_info_ptr->sensor_mode_info[i].trim_height=resolution_trim_ptr[i].trim_height;
+				exp_info_ptr->sensor_mode_info[i].line_time=resolution_trim_ptr[i].line_time;
+			}
+			else
+			{
+				exp_info_ptr->sensor_mode_info[i].trim_start_x=0x00;
+				exp_info_ptr->sensor_mode_info[i].trim_start_y=0x00;
+				exp_info_ptr->sensor_mode_info[i].trim_width=resolution_info_ptr->width;
+				exp_info_ptr->sensor_mode_info[i].trim_height=resolution_info_ptr->height;		
+			}
+			//exp_info_ptr->sensor_mode_info[i].line_time=resolution_trim_ptr[i].line_time;
+			if(SENSOR_IMAGE_FORMAT_MAX != sensor_info_ptr->image_format)
+			{
+			exp_info_ptr->sensor_mode_info[i].image_format = sensor_info_ptr->image_format;
+			}
+			else
+			{
+			exp_info_ptr->sensor_mode_info[i].image_format = resolution_info_ptr->image_format;
+			}
+			SENSOR_PRINT("SENSOR: SENSOR mode Info > mode = %d, width = %d, height = %d, format = %d.\n",\
+			i, resolution_info_ptr->width, resolution_info_ptr->height, exp_info_ptr->sensor_mode_info[i].image_format);
+		}
+		else
+		{
+			exp_info_ptr->sensor_mode_info[i].mode = SENSOR_MODE_MAX;
+		}
+	}
 }
 
 /**---------------------------------------------------------------------------*
  **                         Function Definitions                              *
  **---------------------------------------------------------------------------*/
-
-//------ To Sensor Module
- 
-/*****************************************************************************/
-//  Description:    This function is used to write value to sensor register    
-//  Author:         Liangwen.Zhen
-//  Note:           
-/*****************************************************************************/
-/*
-int Sensor_WriteReg_Array(uint16_t reg_addr, uint16_t value, struct i2c_adapter *adpter)
-{
-	uint8_t buf_w[3];
-	uint32_t ret = -1;
-	struct i2c_msg msg_w;
-		
-	buf_w[0]= reg_addr >> 8;
-	buf_w[1]= reg_addr & 0xFF;
-	buf_w[2]= (uint8_t)value;
-	msg_w.addr = SET_SENSOR_ADDR(s_sensor_info_ptr->salve_i2c_addr_w); 
-	msg_w.flags = 0;
-	msg_w.buf = buf_w;
-	msg_w.len = 3;
-        ret = i2c_transfer(adpter, &msg_w, 1);
-	if(ret!=1)
-        {
-            printk("#DCAM: write sensor reg fai, ret: %x \n", ret);
-            return -1;
-        }
-	
-	return 0;
-}
-*/
 
 int Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 {
@@ -1428,6 +1167,8 @@ int Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 	struct i2c_msg msg_w;
 	int32_t ret = -1;
 	SENSOR_IOCTL_FUNC_PTR 	write_reg_func;
+
+	SENSOR_PRINT("this_client->addr=0x%x\n",this_client->addr);
 
 	write_reg_func = s_sensor_info_ptr->ioctl_func_tab_ptr->write_reg;
 
@@ -1477,7 +1218,7 @@ int Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 				ret = i2c_transfer(this_client->adapter, &msg_w, 1);
 				if(ret!=1)
 				{
-					printk("SENSOR: write sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
+					SENSOR_PRINT_ERR("SENSOR: write sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
 					return -1;
 				}
 				else
@@ -1490,7 +1231,7 @@ int Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 		else
 		{
 			msleep(data);
-			printk("SENSOR: IIC write Delay %d ms", data);	    	
+			SENSOR_PRINT("SENSOR: IIC write Delay %d ms", data);	    	
 		}
 	}
 	return 0;
@@ -1506,6 +1247,8 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 	int32_t ret = -1;
 	struct i2c_msg msg_r[2];
 	SENSOR_IOCTL_FUNC_PTR 	read_reg_func;
+
+	SENSOR_PRINT("Read:this_client->addr=0x%x\n",this_client->addr);
 
 	read_reg_func = s_sensor_info_ptr->ioctl_func_tab_ptr->read_reg;
 
@@ -1547,7 +1290,7 @@ uint16_t Sensor_ReadReg(uint16_t reg_addr)
 			ret = i2c_transfer(this_client->adapter, msg_r, 2);
 			if(ret!=2)
 			{
-				printk("SENSOR: read sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
+				SENSOR_PRINT_ERR("SENSOR: read sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
 				msleep(20);
 				ret_val = 0xFFFF;
 			}
@@ -1583,7 +1326,7 @@ int32_t Sensor_WriteReg_8bits(uint16_t reg_addr, uint8_t value)
         ret = i2c_transfer(this_client->adapter, &msg_w, 1);
 	if(ret!=1)
         {
-            printk("#DCAM: write sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
+            SENSOR_PRINT_ERR("#DCAM: write sensor reg fai, ret : %d, I2C w addr: 0x%x, \n", ret, this_client->addr);
             return -1;
         }
 	return 0;
@@ -1607,213 +1350,12 @@ int32_t Sensor_ReadReg_8bits(uint8_t reg_addr, uint8_t *reg_val)
         ret = i2c_transfer(this_client->adapter, msg_r, 2);
 	if(ret!=2)
         {
-            printk("#sensor: read sensor reg fail, ret: %d, I2C r addr: 0x%x \n", ret, this_client->addr);
+            SENSOR_PRINT_ERR("#sensor: read sensor reg fail, ret: %d, I2C r addr: 0x%x \n", ret, this_client->addr);
             return -1;
         }
 	*reg_val = buf_r;
 	return ret;
 }
-/*
-int Sensor_WriteReg(uint16_t reg_addr, uint16_t value)
-{
-	struct i2c_adapter *adpter = DCAM_NULL;
-	uint8_t buf_w[3];
-	uint32_t ret = -1;
-	struct i2c_msg msg_w;
-
-	adpter = i2c_get_adapter(1);
-        if (DCAM_NULL == adpter)
-        {
-            printk("#DCAM: get i2c adapter NULL\n");
-            return -1;
-        }
-		
-	buf_w[0]= reg_addr >> 8;
-	buf_w[1]= reg_addr & 0xFF;
-	buf_w[2]= (uint8_t)value;
-	msg_w.addr = SET_SENSOR_ADDR(s_sensor_info_ptr->salve_i2c_addr_w); 
-	msg_w.flags = 0;
-	msg_w.buf = buf_w;
-	msg_w.len = 3;
-        ret = i2c_transfer(adpter, &msg_w, 1);
-	if(ret!=1)
-        {
-            printk("#DCAM: write sensor reg fai, ret: %x \n", ret);
-            return -1;
-        }
-
-	i2c_put_adapter(adpter);
-	adpter = DCAM_NULL;
-
-	return 0;
-}
-uint16_t Sensor_ReadReg(uint16_t reg_addr)
-{
-	static struct i2c_adapter *adpter = DCAM_NULL;
-	uint8_t buf_w[2];
-	uint8_t buf_r;
-	uint32_t ret = -1;
-	uint16_t value = 0;
-	struct i2c_msg msg_r[2];
-
-	adpter = i2c_get_adapter(1);
-        if (DCAM_NULL == adpter)
-        {
-            printk("#DCAM: get i2c adapter NULL\n");
-            return -1;
-        }
-		
-	buf_w[0]= reg_addr >> 8;
-	buf_w[1]= reg_addr & 0xFF;
-	msg_r[0].addr = SET_SENSOR_ADDR(s_sensor_info_ptr->salve_i2c_addr_w); //OV2655_I2C_ADDR_W;
-	msg_r[0].flags = 0;
-	msg_r[0].buf = buf_w;
-	msg_r[0].len = 2;
-	msg_r[1].addr = SET_SENSOR_ADDR(s_sensor_info_ptr->salve_i2c_addr_r); //OV2655_I2C_ADDR_R;
-	msg_r[1].flags = I2C_M_RD;
-	msg_r[1].buf = &buf_r;
-	msg_r[1].len = 1;
-        ret = i2c_transfer(adpter, msg_r, 2);
-	if(ret!=2)
-        {
-            printk("#DCAM: read sensor reg fail, ret: %x \n", ret);
-            return -1;
-        }
-
-	i2c_put_adapter(adpter);
-	value = buf_r;
-	adpter = DCAM_NULL;
-
-	return value;
-}
-PUBLIC void Sensor_WriteReg( uint16_t  subaddr, uint16_t data )
-{
-    int32_t i2c_handle_sensor;
-    I2C_DEV dev;
-    uint8_t  cmd[4] = {0};
-    uint8_t  cmd_add[4] = {0};
-    uint32_t index=0;
-    uint8_t  bytes=0;
-    uint8_t  addr_w;
-    uint8_t  addr_r;
-    uint32_t cmd_num = 0;
-    SENSOR_IOCTL_FUNC_PTR 	write_reg_func;
-
-    write_reg_func = s_sensor_info_ptr->ioctl_func_tab_ptr->write_reg;
-
-    if(PNULL != write_reg_func)
-    {
-        if(SENSOR_SUCCESS != write_reg_func((subaddr << BIT_4) + data))
-        {
-            SENSOR_PRINT("SENSOR: Sensor_WriteReg reg/value(%x,%x) Error !!", subaddr, data);
-        }
-    }
-    else
-    {
-        if(SENSOR_I2C_REG_16BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_REG_16BIT) )
-        {
-            cmd[cmd_num++] = (uint8_t)((subaddr >> BIT_3)&SENSOR_LOW_EIGHT_BIT);
-            index++;
-            cmd[cmd_num++] = (uint8_t)(subaddr & SENSOR_LOW_EIGHT_BIT);		    	
-            index++;
-        }
-        else
-        {
-            cmd[cmd_num++] = (uint8_t)subaddr;	
-            index++;
-        }
-
-        if(SENSOR_I2C_VAL_16BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_VAL_16BIT))
-        {
-            cmd[cmd_num++] = (uint8_t)((data >> BIT_3)&SENSOR_LOW_EIGHT_BIT);
-            cmd[cmd_num++] = (uint8_t)(data & SENSOR_LOW_EIGHT_BIT);	    		    	
-        }
-        else
-        {
-            cmd[cmd_num++] = (uint8_t)data;
-        }
-
-        if(SENSOR_WRITE_DELAY != subaddr)
-        {
-            i2c_handle_sensor=RE_I2C_HANDLER();
-            I2C_HAL_Write(i2c_handle_sensor, cmd, &cmd[index], cmd_num-index);
-            SENSOR_PRINT("write reg: %04x, val: %04x,", subaddr, data);
-        }
-        else
-        {
-            if(data > 0x80)
-            {
-                SENSOR_Sleep(data);
-            }
-            else
-            {
-                OS_TickDelay(data);
-            }
-            SENSOR_PRINT("SENSOR: Delay %d ms", data);	    	
-        }
-    }
-
-}
-*/
-
-/*****************************************************************************/
-//  Description:    This function is used to read value from sensor register     
-//  Author:         Liangwen.Zhen
-//  Note:           
-/*****************************************************************************/
-/*PUBLIC uint16_t Sensor_ReadReg(uint16_t subaddr)
-{
-    int32_t i2c_handle_sensor;
-    I2C_DEV dev;
-    uint8_t  cmd[2] = {0};    
-    uint8_t  addr_w;
-    uint8_t  addr_r;
-    uint16_t ret_val;
-    uint16_t w_cmd_num = 0;
-    uint16_t r_cmd_num = 0;
-    SENSOR_IOCTL_FUNC_PTR 	read_reg_func;
-
-    read_reg_func = s_sensor_info_ptr->ioctl_func_tab_ptr->read_reg;
-
-    if(PNULL != read_reg_func)
-    {
-        ret_val = (uint16)read_reg_func((uint32_t)(subaddr & SENSOR_LOW_SIXTEEN_BIT));
-    }
-    else
-    {
-        if(SENSOR_I2C_REG_16BIT==(s_sensor_info_ptr->reg_addr_value_bits&SENSOR_I2C_REG_16BIT))
-        {
-            cmd[w_cmd_num++] = (uint8_t)((subaddr >>BIT_3)&SENSOR_LOW_EIGHT_BIT);
-            cmd[w_cmd_num++] = (uint8_t)(subaddr & SENSOR_LOW_EIGHT_BIT);
-        }
-        else
-        {
-            cmd[w_cmd_num++] = (uint8_t)subaddr;
-        }
-
-        dev.reg_addr_num = w_cmd_num;
-
-        if(SENSOR_I2C_VAL_16BIT==(s_sensor_info_ptr->reg_addr_value_bits & SENSOR_I2C_VAL_16BIT) )
-        {
-            r_cmd_num = SENSOR_CMD_BITS_16;
-        }
-        else
-        {
-            r_cmd_num = SENSOR_CMD_BITS_8; 	
-        }  
-
-        i2c_handle_sensor=RE_I2C_HANDLER();
-        SENSOR_PRINT("lh:Sensor_ReadReg: handle=%d", i2c_handle_sensor);
-        I2C_HAL_Read(i2c_handle_sensor, cmd, &cmd[0], r_cmd_num);
-
-        ret_val = (r_cmd_num == 1)?(uint16)cmd[0]:(uint16)((cmd[0] << 8) + cmd[1]);  
-
-        SENSOR_PRINT("read reg %04x, val %04x", subaddr, ret_val);
-    }
-
-    return  ret_val;
-}
-*/
 
 /*****************************************************************************/
 //  Description:    This function is used to send a table of register to sensor    
@@ -1822,31 +1364,25 @@ PUBLIC void Sensor_WriteReg( uint16_t  subaddr, uint16_t data )
 /*****************************************************************************/
 PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg_tab_info_ptr	)
 {
-    uint32_t i;
+	uint32_t i;
 	struct timeval  time1, time2;
 	SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor E.\n");
 
 	do_gettimeofday(&time1);
-		
-    for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
-    {
-        //ImgSensor_GetMutex();
-//        if(1 == g_is_main_sensor)
-	        Sensor_WriteReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
-	//else
-//		Sensor_WriteReg_8bits(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
-		
-        //ImgSensor_PutMutex();
-    }	
+
+	for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
+	{
+		//ImgSensor_GetMutex();
+		Sensor_WriteReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
+	}	
 	do_gettimeofday(&time2);
 	SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d, g_is_main_sensor: %d.\n",sensor_reg_tab_info_ptr->reg_count, g_is_main_sensor);
 	SENSOR_PRINT("SENSOR use new time sec: %ld, usec: %ld.\n", time1.tv_sec, time1.tv_usec);
 	SENSOR_PRINT("SENSOR use old time sec: %ld, usec: %ld.\n", time2.tv_sec, time2.tv_usec);
+    
+	SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor X.\n");
 
-    //SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> end time = %d", GetTickCount());
-SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor X.\n");
-
-    return SENSOR_SUCCESS;
+	return SENSOR_SUCCESS;
 }
 
 //------ To Digital Camera Module
@@ -1858,24 +1394,16 @@ SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor X.\n");
 /*****************************************************************************/
 LOCAL void _Sensor_CleanInformation(void)
 {
-    SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
+	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
 
-    //s_sensor_info_ptr=PNULL;
-    s_sensor_info_ptr = SENSOR_MALLOC(SENSOR_ID_MAX * sizeof(s_sensor_list_ptr[0]), GFP_KERNEL);
+	s_sensor_info_ptr=PNULL;
+	s_sensor_init=SENSOR_FALSE;
 
-    s_sensor_init=SENSOR_FALSE;
-    //s_sensor_open=SENSOR_FALSE; 
+	SENSOR_MEMSET(&s_sensor_exp_info, 0x00, sizeof(s_sensor_exp_info));
 
-   // s_atv_init=SENSOR_FALSE;
-   // s_atv_open=SENSOR_FALSE;
-	
+	sensor_register_info_ptr->cur_id=SENSOR_ID_MAX; 
 
-    SENSOR_MEMSET(s_sensor_list_ptr, 0x00, SENSOR_ID_MAX * sizeof(s_sensor_list_ptr[0]));    
-    SENSOR_MEMSET(&s_sensor_exp_info, 0x00, sizeof(s_sensor_exp_info));
-    SENSOR_MEMSET(sensor_register_info_ptr, 0x00, sizeof(s_sensor_register_info_ptr));  
-    sensor_register_info_ptr->cur_id=SENSOR_ID_MAX; 
-
-    return ;
+	return ;
 }
 
 /*****************************************************************************/
@@ -1885,9 +1413,13 @@ LOCAL void _Sensor_CleanInformation(void)
 /*****************************************************************************/
 LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 {
-    SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
-    
-    sensor_register_info_ptr->cur_id=sensor_id;
+	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
+
+	sensor_register_info_ptr->cur_id=sensor_id;
+	
+	SENSOR_PRINT_HIGH("_Sensor_SetId:sensor_id=%d,g_is_register_sensor=%d,g_is_main_sensor=%d \n",
+		                                     sensor_id,g_is_register_sensor,g_is_main_sensor);
+	
 	if(1 == g_is_register_sensor)
 	{
 		if((SENSOR_MAIN == sensor_id) && (1 == g_is_main_sensor))
@@ -1896,44 +1428,52 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 			return SENSOR_SUCCESS;
 	}
 	if((SENSOR_MAIN == sensor_id) || (SENSOR_SUB == sensor_id))
-     	{
-     		if(SENSOR_MAIN == sensor_id)
-	        {
-	        	sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
+	{
+		if(SENSOR_SUB == sensor_id)
+		{
+			sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 			sensor_i2c_driver.id_table = sensor_main_id;
 			sensor_i2c_driver.address_data = &sensor_main_addr_data;
-			if((1== g_is_register_sensor) && (0 == g_is_main_sensor))
-			{
-				i2c_del_driver(&sensor_i2c_driver);
-			}
-			g_is_main_sensor = 1;		
-        	}
-        	else  if(SENSOR_SUB == sensor_id)
-        	{
-        		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
-			sensor_i2c_driver.id_table = sensor_sub_id;
-			sensor_i2c_driver.address_data = &sensor_sub_addr_data;     
 			if((1== g_is_register_sensor) && (1 == g_is_main_sensor))
 			{
 				i2c_del_driver(&sensor_i2c_driver);
 			}
-			g_is_main_sensor = 0;			
-        	}
-	
+			g_is_main_sensor = 0;		
+			sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
+			sensor_i2c_driver.id_table = sensor_sub_id;
+			sensor_i2c_driver.address_data = &sensor_sub_addr_data;
+	    	}
+	    	else  if(SENSOR_MAIN == sensor_id)
+	    	{
+	    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
+			sensor_i2c_driver.id_table = sensor_sub_id;
+			sensor_i2c_driver.address_data = &sensor_sub_addr_data;     
+			if((1== g_is_register_sensor) && (0 == g_is_main_sensor))
+			{
+				i2c_del_driver(&sensor_i2c_driver);
+			}
+			g_is_main_sensor = 1;	
+			sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
+			sensor_i2c_driver.id_table = sensor_main_id;
+			sensor_i2c_driver.address_data = &sensor_main_addr_data;
+			
+	    	}
+		
 	 	if(i2c_add_driver(&sensor_i2c_driver))
 		{
-			SENSOR_PRINT("SENSOR: add I2C driver error\n");
+			SENSOR_PRINT_HIGH("SENSOR: add I2C driver error\n");
+			msleep(20);
 			return SENSOR_FAIL;
 		}  
 		else
 		{
-			SENSOR_PRINT("SENSOR: add I2C driver OK.\n");
+			SENSOR_PRINT_HIGH("SENSOR: add I2C driver OK.\n");
 			g_is_register_sensor = 1;
 		}
 	}
-    return SENSOR_SUCCESS;
+	msleep(20);
+	return SENSOR_SUCCESS;
 }
-
 
 /*****************************************************************************/
 //  Description:    This function is used to get currect sensor id
@@ -1943,6 +1483,8 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 PUBLIC SENSOR_ID_E Sensor_GetCurId(void)
 {
     SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
+
+     printk("Sensor_GetCurId,sensor_id =%d",sensor_register_info_ptr->cur_id);	
 
     return (SENSOR_ID_E)sensor_register_info_ptr->cur_id;
 }
@@ -1975,6 +1517,204 @@ PUBLIC SENSOR_REGISTER_INFO_T_PTR Sensor_GetRegisterInfo(void)
 {
     return s_sensor_register_info_ptr;
 }
+/*****************************************************************************/
+//  Description:    This function is used to set currect sensor id    
+//  Author:         Tim.Zhu
+//  Note:           
+/*****************************************************************************/
+LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
+{	
+          SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
+	sensor_register_info_ptr->cur_id=sensor_id;	
+
+	if(0 == g_is_register_sensor)
+	{
+		if((SENSOR_MAIN == sensor_id) || (SENSOR_SUB == sensor_id))
+		{		
+			if(SENSOR_MAIN == sensor_id)
+			{			
+				printk("_Sensor_I2CInit,sensor_main_force[1] =%d \n",sensor_main_force[1] );
+				sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
+				sensor_i2c_driver.id_table = sensor_main_id;
+				sensor_i2c_driver.address_data = &sensor_main_addr_data;
+					
+		    	}
+		    	else  if(SENSOR_SUB == sensor_id)
+		    	{		    
+				printk("_Sensor_I2CInit,sensor_sub_force[1] =%d \n",sensor_sub_force[1] );
+		    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
+				sensor_i2c_driver.id_table = sensor_sub_id;
+				sensor_i2c_driver.address_data = &sensor_sub_addr_data;     				
+		    	}
+
+		 	if(i2c_add_driver(&sensor_i2c_driver))
+			{
+				SENSOR_PRINT_ERR("SENSOR: add I2C driver error\n");
+				return SENSOR_FAIL;
+			}  
+			else
+			{
+				SENSOR_PRINT_ERR("SENSOR: add I2C driver OK.\n");	
+				g_is_register_sensor = 1;	
+			}
+		}
+	}
+	else
+	{
+		SENSOR_PRINT_ERR("Sensor: Init I2c  %d fail!\n",sensor_id);
+	}
+	SENSOR_PRINT_ERR("_Sensor_I2CInit,sensor_id=%d,g_is_register_sensor=%d\n",sensor_id,g_is_register_sensor);
+	return SENSOR_SUCCESS;
+}
+
+/*****************************************************************************/
+//  Description:    This function is used to set currect sensor id    
+//  Author:         Tim.Zhu
+//  Note:           
+/*****************************************************************************/
+LOCAL int _Sensor_I2CDeInit(SENSOR_ID_E sensor_id)
+{	
+	if(1 == g_is_register_sensor)
+	{
+		if((SENSOR_MAIN == sensor_id) || (SENSOR_SUB == sensor_id))
+		{
+			if(SENSOR_MAIN == sensor_id)
+			{
+				sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
+				sensor_i2c_driver.id_table = sensor_main_id;
+				sensor_i2c_driver.address_data = &sensor_main_addr_data;
+
+				i2c_del_driver(&sensor_i2c_driver);		
+				g_is_register_sensor = 0;
+				SENSOR_PRINT("SENSOR: delete  I2C  %d driver OK.\n",sensor_id);
+		    	}
+		    	else  if(SENSOR_SUB == sensor_id)
+		    	{
+		    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
+				sensor_i2c_driver.id_table = sensor_sub_id;
+				sensor_i2c_driver.address_data = &sensor_sub_addr_data;     		
+				i2c_del_driver(&sensor_i2c_driver);	
+				g_is_register_sensor = 0;
+				SENSOR_PRINT("SENSOR: delete  I2C  %d driver OK.\n",sensor_id);
+		    	}	 	
+		}
+	}
+	else
+	{
+		SENSOR_PRINT("SENSOR: delete  I2C  %d driver OK.\n",SENSOR_ID_MAX);
+	}
+	return SENSOR_SUCCESS;
+}
+
+/*****************************************************************************
+//  Description:    This function is handle the power up issue of appointed sensor    
+//  Author:         xi.zhang
+//  Global;         SENSOR_INFO_T* s_sensor_info_ptr
+                    SENSOR_INFO_T* s_sensor_list_ptr
+                    SENSOR_REGISTER_INFO_T_PTR s_sensor_register_info_ptr
+//  Note:           
+*****************************************************************************/
+LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
+{
+	uint32_t sensor_index = 0;
+	SENSOR_INFO_T** sensor_info_tab_ptr = PNULL;
+	uint32_t valid_tab_index_max = 0x00;
+	SENSOR_INFO_T* sensor_info_ptr=PNULL;
+
+	SENSOR_PRINT_HIGH("SENSOR: sensor identifing %d", sensor_id);
+
+	//if already identified
+	if(SCI_TRUE == s_sensor_register_info_ptr->is_register[sensor_id])
+	{
+		SENSOR_PRINT("SENSOR: sensor identified");
+		return;
+	}	    
+
+	sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
+	valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
+	_Sensor_I2CInit(sensor_id);
+		  
+          //search the sensor in the table
+	for(sensor_index=0x00; sensor_index<valid_tab_index_max;sensor_index++)
+	{  
+		sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
+
+		if(NULL==sensor_info_ptr)
+		{
+			SENSOR_PRINT_ERR("SENSOR: %d info of Sensor_Init table %d is null", sensor_index, (uint)sensor_id);
+			continue ;
+		}
+		s_sensor_info_ptr = sensor_info_ptr;		
+		Sensor_PowerOn(SCI_TRUE);
+
+		if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
+		{
+			ImgSensor_GetMutex();		
+			
+			this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
+			
+			if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
+			{			         
+				s_sensor_list_ptr[sensor_id]=sensor_info_ptr; 
+				s_sensor_register_info_ptr->is_register[sensor_id]=SCI_TRUE;
+				s_sensor_register_info_ptr->img_sensor_num++;
+				ImgSensor_PutMutex();
+				Sensor_PowerOn(SCI_FALSE);			
+				SENSOR_PRINT_HIGH("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d\n",
+					                                     sensor_id,s_sensor_register_info_ptr->img_sensor_num);
+				break ;
+			}
+			ImgSensor_PutMutex();
+		}
+		Sensor_PowerOn(SCI_FALSE);	
+	}
+         _Sensor_I2CDeInit(sensor_id);
+	if(SCI_TRUE == s_sensor_register_info_ptr->is_register[sensor_id])
+	{
+		SENSOR_PRINT_HIGH("SENSOR TYPE of %d indentify OK",(uint32_t)sensor_id);
+	}
+	else
+	{
+		SENSOR_PRINT_HIGH("SENSOR TYPE of %d indentify FAILURE",(uint32_t)sensor_id);
+	}
+
+}
+
+LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
+{
+	uint32_t i = 0;
+	uint32_t ret_val=SENSOR_FAIL;   
+    	SENSOR_INFO_T* sensor_info_ptr=PNULL;
+    	SENSOR_INFO_T** sensor_info_tab_ptr=PNULL;   
+    	uint8_t sensor_index = 0x0;
+    	uint32_t valid_tab_index_max=0x00;
+    	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
+
+	for( i=0 ; i<=SENSOR_SUB ; i++)
+	{
+		if(i == sensor_id)
+		{
+			continue;
+		}
+		if(SENSOR_TRUE == sensor_register_info_ptr->is_register[i])
+		{
+	   		_Sensor_SetId(i);
+			
+			 s_sensor_info_ptr=s_sensor_list_ptr[i];
+
+			this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
+
+			Sensor_PowerOn(SENSOR_TRUE);
+
+			Sensor_SetExportInfo(&s_sensor_exp_info);
+
+			Sensor_PowerDown((BOOLEAN)s_sensor_info_ptr->power_down_level);
+
+			SENSOR_PRINT_HIGH("SENSOR: Sensor_sleep of id %d",i);
+		}
+	}
+		
+}
 
 /*****************************************************************************/
 //  Description:    This function is used to initialize Sensor function    
@@ -1999,39 +1739,39 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
     	}
 
     	_Sensor_CleanInformation();
+
+	_Sensor_Identify(SENSOR_MAIN);
+
+	msleep(20);
+
+	_Sensor_Identify(SENSOR_SUB);
 	
 	SENSOR_PRINT("SENSOR: Sensor_Init Identify \n");
-        _Sensor_SetId(sensor_id);
-        sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
-        valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
-	for(sensor_index=0x00; sensor_index<valid_tab_index_max;sensor_index++){  
-            	sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
-            	if(DCAM_NULL==sensor_info_ptr)
-            	{
-                	SENSOR_PRINT("SENSOR: Sensor_Init  %d info is null", sensor_index);
-                	continue ;
-            	}
-            	s_sensor_info_ptr = sensor_info_ptr;
-            	Sensor_PowerOn(SENSOR_TRUE);
 
-            	if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify){
-                	 if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)){
-                		s_sensor_list_ptr[sensor_id]=s_sensor_info_ptr; 
-                    		sensor_register_info_ptr->is_register[sensor_id]=SENSOR_TRUE;
-                    		sensor_register_info_ptr->img_sensor_num++;                    		
-			        s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
-            			Sensor_SetExportInfo(&s_sensor_exp_info);
-			        s_sensor_init = SENSOR_TRUE;
-            			ret_val=SENSOR_SUCCESS;
-            			SENSOR_PRINT("SENSOR: Sensor_Init  Success \n");			
-                    		break ;
-			}
-		}
+	if(SENSOR_TRUE == sensor_register_info_ptr->is_register[sensor_id])
+	{
+		msleep(20);
+		_Sensor_SetStatus(sensor_id);		
+        		_Sensor_SetId(sensor_id);
+		s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
+		Sensor_SetExportInfo(&s_sensor_exp_info);
+		s_sensor_init = SENSOR_TRUE;
+		Sensor_PowerOn(SENSOR_TRUE);
+		this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
+		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n",sensor_id,this_client->addr);
+		ret_val=SENSOR_SUCCESS;		
+		if(SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT))
+		{
+			SENSOR_PRINT_ERR("Sensor set init mode error!\n");
+			ret_val=SENSOR_FAIL;
+		}	
+		s_sensor_init = SENSOR_TRUE;
+		SENSOR_PRINT("SENSOR: Sensor_Init  Success \n");					
 	}
-	
-	if(SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT)){
-		ret_val=SENSOR_FAIL;
-	}
+	else
+	{
+		SENSOR_PRINT_ERR("Sensor identify fail,sensor_id = %d",sensor_id);
+	}      
 	
 	return ret_val;	
 }	
@@ -2156,34 +1896,34 @@ PUBLIC SENSOR_EXP_INFO_T* Sensor_GetInfo( void )
 /*****************************************************************************/
 PUBLIC ERR_SENSOR_E Sensor_Close(void) 
 {
-    SENSOR_PRINT("SENSOR: Sensor_close");
-       
-        if(1== g_is_register_sensor) 
+	SENSOR_PRINT("SENSOR: Sensor_close");
+
+	if(1== g_is_register_sensor) 
 	{
 		if (1 == g_is_main_sensor)
-        	{
+		{
 			//sensor_i2c_driver.id_table = sensor_main_id;
 			sensor_i2c_driver.address_data = &sensor_main_addr_data;		
-       		}
-        	else 
-        	{
+		}
+		else 
+		{
 			//sensor_i2c_driver.id_table = sensor_sub_id;
 			sensor_i2c_driver.address_data = &sensor_sub_addr_data;    
-        	}   	
-		i2c_del_driver(&sensor_i2c_driver);
-		g_is_register_sensor = 0;
-		g_is_main_sensor = 0;
-        }
-	
-    if(SENSOR_TRUE == Sensor_IsInit())
-    {
-    	Sensor_PowerOn(SENSOR_FALSE);       
-    }
+		}   	
+			i2c_del_driver(&sensor_i2c_driver);
+			g_is_register_sensor = 0;
+			g_is_main_sensor = 0;
+	}
 
-    s_sensor_init = SENSOR_FALSE;   
-    s_sensor_mode[SENSOR_MAIN]=SENSOR_MODE_MAX;	
-    s_sensor_mode[SENSOR_SUB]=SENSOR_MODE_MAX;	
-    return SENSOR_SUCCESS;
+	if(SENSOR_TRUE == Sensor_IsInit())
+	{
+		Sensor_PowerOn(SENSOR_FALSE);       
+	}
+
+	s_sensor_init = SENSOR_FALSE;   
+	s_sensor_mode[SENSOR_MAIN]=SENSOR_MODE_MAX;	
+	s_sensor_mode[SENSOR_SUB]=SENSOR_MODE_MAX;	
+	return SENSOR_SUCCESS;
 }
 
 /*****************************************************************************/
@@ -2193,13 +1933,9 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
 /*****************************************************************************/
 PUBLIC uint32_t Sensor_SetSensorType(SENSOR_TYPE_E sensor_type)
 {
-    s_sensor_type=sensor_type;
+	s_sensor_type=sensor_type;
 
-    return SENSOR_SUCCESS;
-}
-PUBLIC uint32_t RE_I2C_HANDLER(void)
-{
-    return s_sensor_info_ptr->i2c_dev_handler;
+	return SENSOR_SUCCESS;
 }
 
 /**---------------------------------------------------------------------------*

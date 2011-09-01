@@ -587,7 +587,7 @@ LOCAL uint8_t GC0309_ReadReg( uint8_t  subaddr)
 	//I2C_WriteCmdArrNoStop(GC0309_I2C_ADDR_W, &subaddr, 1,SENSOR_TRUE);
 	//I2C_ReadCmd(GC0309_I2C_ADDR_R, &value, SENSOR_TRUE);
 	//value =Sensor_ReadReg_8bits( subaddr);
-	Sensor_ReadReg_8bits( subaddr, &value);
+	value = Sensor_ReadReg( subaddr);
 	#else
 		value = (uint16_t)DSENSOR_IICRead((uint16_t)subaddr);
 	#endif

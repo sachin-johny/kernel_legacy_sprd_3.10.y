@@ -674,7 +674,7 @@ LOCAL uint8_t OV7675_ReadReg( uint8_t  subaddr)
 {
 	uint8_t value = 0;	
 
-	Sensor_ReadReg_8bits(subaddr, &value);
+	value = Sensor_ReadReg(subaddr);
 	
     //SENSOR_TRACE("SENSOR: OV7675_ReadReg reg/value(%x,%x) !!\n", subaddr, value);
 	return value;
