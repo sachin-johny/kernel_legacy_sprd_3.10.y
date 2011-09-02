@@ -1489,8 +1489,12 @@ buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned int *size)
 		*size = fh->width*fh->height*4;
 	else if(V4L2_PIX_FMT_RGB565X == fh->fmt->fourcc)
 		*size = fh->width*fh->height*2;
-	else //if(V4L2_PIX_FMT_YVU420 == fh->fmt->fourcc)
+	else if(V4L2_PIX_FMT_YUV420 == fh->fmt->fourcc)
 		*size = fh->width*fh->height * 3 / 2;	
+	else if(V4L2_PIX_FMT_YUV422P == fh->fmt->fourcc)
+		*size = fh->width*fh->height * 2;
+	else	
+		*size = fh->width*fh->height * 2;
 
 	if (0 == *count)
 		*count = 32;
@@ -1545,8 +1549,13 @@ buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 		buf->vb.size = fh->width*fh->height*4;
 	else if(V4L2_PIX_FMT_RGB565X == fh->fmt->fourcc)
 		buf->vb.size = fh->width*fh->height*2;
-	else //if(V4L2_PIX_FMT_YVU420 == fh->fmt->fourcc)
+	else if(V4L2_PIX_FMT_YUV420 == fh->fmt->fourcc)
 		buf->vb.size = fh->width*fh->height * 3 / 2;	
+	else if(V4L2_PIX_FMT_YUV422P == fh->fmt->fourcc)
+		buf->vb.size = fh->width*fh->height * 2;
+	else	
+		buf->vb.size = fh->width*fh->height * 2;
+
 	if (0 != buf->vb.baddr  &&  buf->vb.bsize < buf->vb.size)
 		return -EINVAL;
 
