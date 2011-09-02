@@ -502,7 +502,7 @@ static int alarm_shutdown(struct platform_device *pdev)
 			hrtimer_get_expires(&wakeup_queue->timer)),
 			rtc_delta).tv_sec;
 
-        rtc_alarm_time -= 40;
+        rtc_alarm_time -= 120;
 		rtc_time_to_tm(rtc_alarm_time, &rtc_alarm.time);
 		rtc_alarm.enabled = 1;
 		rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
