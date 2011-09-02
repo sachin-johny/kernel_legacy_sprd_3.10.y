@@ -462,8 +462,6 @@ int charger_is_adapter(void)
 		CHIP_REG_AND(USB_PHY_CTRL,(~USB_DM_PULLDOWN_BIT));
 	}
 
-	CHIP_REG_AND(USB_PHY_CTRL,(~(USB_DM_PULLDOWN_BIT|USB_DP_PULLDOWN_BIT)));
-	CHIP_REG_OR(USB_PHY_CTRL, USB_DM_PULLUP_BIT);
     local_irq_restore(irq_flag);
 	return ret; 
 }
