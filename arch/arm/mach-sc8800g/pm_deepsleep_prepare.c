@@ -1077,14 +1077,16 @@ static int print_thread(void *pdata)
 	int dsp_status;
 	u32 checking_counter = 0;
 
-		if (sleep_counter > 100) {
+		if (sleep_counter >= 0) {
 			start_time = get_sys_cnt();
 			stop_time = get_sys_cnt();
 			while((stop_time - start_time) < (1000 * 60 * 1)) {
 				checking_counter++;
 				val = __raw_readl(GR_STC_STATE);
+				/*
 				printk("##: checking DSP status[%d] GR_STC_STATE = %08x\n", 
 						checking_counter, val);
+				*/
 				dsp_status = is_dsp_sleep();
 				if (0 == dsp_status) {
 					printk("##: DSP is in sleep status.\n");
@@ -1092,6 +1094,12 @@ static int print_thread(void *pdata)
 					printk("##: DSP is in sleep status.\n");
 					printk("##: DSP is in sleep status.\n");
 					break;
+				}
+				else {
+					printk("@@: DSP is NOT in sleep status.\n");
+					printk("@@: DSP is NOT in sleep status.\n");
+					printk("@@: DSP is NOT in sleep status.\n");
+					printk("@@: DSP is NOT in sleep status.\n");
 				}
 				udelay(300);
 				stop_time = get_sys_cnt();
@@ -1246,12 +1254,15 @@ static void deep_sleep_suspend(struct work_struct *work)
 
 #define IRQ_GPIO (0x1UL << 8)
 
+int in_calibration(void);
+
 #ifdef CONFIG_PM
 int sc8800g_enter_deepsleep(int inidle)
 {
     int status;
     u32 t0, t1, delta;
     int ret = 0;
+    int calibration_enable = 0;
 	unsigned long flags;
 
     REG_LOCAL_VALUE_DEF;
@@ -1268,6 +1279,14 @@ int sc8800g_enter_deepsleep(int inidle)
 	__raw_writel(IRQ_GPIO, INT_FIQ_DISABLE);
 	*/ 
     status = sc8800g_get_clock_status();
+    /*
+        In calibration mode, enter deep sleep mode anyway
+        without taking care of clock status.
+    */
+    calibration_enable = in_calibration();
+    if (sprd_sleep_mode_info) {
+        if (calibration_enable) printk("##: In Calibration mode!\n");
+    }
 
 /*
     t0 = get_sys_cnt();
@@ -1304,7 +1323,7 @@ int sc8800g_enter_deepsleep(int inidle)
 
 	sc8800g_save_pll();
 
-    if (status & DEVICE_AHB)  {
+    if ((status & DEVICE_AHB) && (!calibration_enable))  {
 		sleep_mode = SLEEP_MODE_ARM_CORE;
 		if (sprd_sleep_mode_info) printk("## sleep[ARM_CORE].\n");
 		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
@@ -1316,7 +1335,7 @@ int sc8800g_enter_deepsleep(int inidle)
 		idle_time += delta;
 		sc8800g_restore_pll();
     }
-    else if (status & DEVICE_APB) {
+    else if ((status & DEVICE_APB) && (!calibration_enable)) {
         sleep_mode = SLEEP_MODE_MCU;
 	if (sprd_sleep_mode_info) printk("## sleep[MCU].\n");
 	if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
@@ -1331,10 +1350,10 @@ int sc8800g_enter_deepsleep(int inidle)
         t1 = get_sys_cnt();
         delta = t1 - t0;
         sleep_time += delta;
-		/*
+        /*
         udelay(20);
-		*/
-		sc8800g_restore_pll();
+        */
+        sc8800g_restore_pll();
     }
     else {
 		sleep_mode = SLEEP_MODE_DEEP;

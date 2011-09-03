@@ -397,6 +397,14 @@ static int __init calibration_start(char *str)
 }
 __setup("calibration=", calibration_start);
 
+
+int in_calibration(void)
+{
+     return (calibration_mode == true);
+}
+EXPORT_SYMBOL(in_calibration);
+
+
 void __init sprd_add_otg_device(void)
 {
 	/*
