@@ -20,7 +20,8 @@
 #include <mach/regs_ana.h>
 #include <mach/bits.h>
 
-#ifndef  TP_DEBUG
+//#define TP_DEBUG
+#ifdef  TP_DEBUG
 #define TP_PRINT  printk
 #else
 #define TP_PRINT(...)
@@ -129,10 +130,6 @@
         while(ANA_REG_GET(TPC_INT_RAW) & msk);    \
     }while(0)
 
-#define X_MIN	0
-#define X_MAX	0x3ff
-#define Y_MIN	0
-#define Y_MAX	0x3ff
 
 #define TPC_CHANNEL_X       2
 #define TPC_CHANNEL_Y       3
@@ -141,9 +138,16 @@
 #define SCI_TRUE	1
 #define SCI_FALSE	0
 
+/* fit touch panel to LCD size */
 #define TP_LCD_WIDTH    320
 #define TP_LCD_HEIGHT   480
 
+#define X_MIN	0
+#define X_MAX	TP_LCD_WIDTH//0x3ff
+#define Y_MIN	0
+#define Y_MAX	TP_LCD_HEIGHT//0x3ff
+
+/*
 int a= 35337;
 int b= -305;
 int c= -8622664;
@@ -151,13 +155,7 @@ int d= -105;
 int e= 43086;
 int f= -8445728;
 int g= 65536;
-
-int a2=0;
-int b2=0;
-int c2=0;
-int d2=0;
-int e2=0;
-int f2=0;
+*/
 
 typedef union
 {
@@ -325,7 +323,8 @@ static int tp_fetch_data (TPC_DATA_U *tp_data)
         
         TP_PRINT("x=%d,y=%d\n",cur_data.data.x,cur_data.data.y);
 
-        if(cur_data.data.x <= X_MIN || cur_data.data.y >= Y_MAX)
+        if(cur_data.data.x <= X_MIN || cur_data.data.x >= X_MAX || 
+            cur_data.data.y <= Y_MIN || cur_data.data.y >= Y_MAX)
                 return SCI_FALSE;
             
         if (pre_data.dwValue != 0)
@@ -425,16 +424,6 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
                           xl=(xl+20)*3;
                           yl=(yl+15)*2;
 
-                          if (0){
-                              int tx = xl, ty = yl;
-                              TP_PRINT("Calibrate ph1\n");
-
-                              if(0 != a2+b2+c2+d2+e2+f2) {
-                                  xl=(a2*tx+b2*ty+c2)/g;
-                                  yl=(d2*tx+e2*ty+f2)/g;
-                              TP_PRINT("Calibrate ph2\n");
-                              }
-                          }
                         }
                         #endif
                         xl = tp->tp_data.data.x;
@@ -454,12 +443,10 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
                         input_report_abs(tp->input, ABS_X, xd);
                         input_report_abs(tp->input, ABS_Y, yd);
                         
-                        TP_PRINT("TP cal mode: x = %d, y = %d\n", xd, yd);
+                        //TP_PRINT("TP cal mode: x = %d, y = %d\n", xd, yd);
                     }
 
-                    TP_PRINT("%d %d %d %d%d %d %d\n", a, b, c, d, e, f, g);
-                    
-                    TP_PRINT("xd=%d,yd=%d\n",xd,yd);
+                    //TP_PRINT("xd=%d,yd=%d\n",xd,yd);
                     TP_PRINT("xl=%d,yl=%d\n",xl,yl);
                     input_report_abs(tp->input, ABS_PRESSURE,1);
                     input_report_key(tp->input, BTN_TOUCH, 1);
@@ -554,7 +541,6 @@ static void tp_remove_proc(void)
 	remove_proc_entry("tp_info", NULL);  //remove /proc/tp_info
 
 }
-#endif
 
 static ssize_t tp_sysfs_show(struct device *dev,
 			struct device_attribute *attr,
@@ -573,7 +559,7 @@ static ssize_t tp_sysfs_store(struct device *dev,
 	int num;
 	char *endp,*startp;
 
-	startp = endp = buf;
+	startp = endp = (char*)buf;
 	
 	num=0;
 	while(*startp && num < 7){
@@ -597,6 +583,7 @@ static ssize_t tp_sysfs_store(struct device *dev,
 }
 
 static DEVICE_ATTR(tp, 0666, tp_sysfs_show, tp_sysfs_store); 
+#endif
 
 
 static ssize_t cal_mode_sysfs_store(struct device *dev,
@@ -606,7 +593,7 @@ static ssize_t cal_mode_sysfs_store(struct device *dev,
 	char *endp,*startp;
     uint8_t cal_en = 0;
     
-	startp = endp = buf;
+	startp = endp = (char*)buf;
 	
     cal_en = simple_strtol(startp, &endp, 10);
     if (cal_en > 2) return size;
@@ -679,7 +666,7 @@ static ssize_t cal_coef_sysfs_store(struct device *dev,
 	int num;
 	char *endp,*startp;
 
-	startp = endp = buf;
+	startp = endp = (char*)buf;
 	
 	num=0;
 	while(*startp && num < 4){
@@ -770,10 +757,11 @@ static int __init sprd_tp_probe(struct platform_device *pdev)
 #if 0
 	if(tp_create_proc())
 		printk("create touch panel proc file failed!\n");
-#endif
+
  	if(device_create_file(&tp->input->dev, &dev_attr_tp)) {
  		printk("create touch panel sysfs file tp failed!\n");
  	}
+#endif
  	if(device_create_file(&tp->input->dev, &dev_attr_cal_mode)) {
  		printk("create touch panel sysfs file cal_mode failed!\n");
  	}
@@ -812,8 +800,11 @@ static int sprd_tp_remove(struct platform_device *pdev)
 	kfree(tp);
 #if 0
 	tp_remove_proc();
-#endif
 	device_remove_file(&tp->input->dev, &dev_attr_tp);
+#endif
+	device_remove_file(&tp->input->dev, &dev_attr_cal_mode);
+	device_remove_file(&tp->input->dev, &dev_attr_cal_data);
+	device_remove_file(&tp->input->dev, &dev_attr_cal_coef);
 
 	return 0;
 }
