@@ -143,9 +143,9 @@
 #define TP_LCD_HEIGHT   480
 
 #define X_MIN	0
-#define X_MAX	TP_LCD_WIDTH//0x3ff
+#define X_MAX	0x3ff
 #define Y_MIN	0
-#define Y_MAX	TP_LCD_HEIGHT//0x3ff
+#define Y_MAX	0x3ff
 
 /*
 int a= 35337;
