@@ -35,6 +35,7 @@
 #include <mach/gpio.h>
 #include <linux/gpio.h>
 #include <mach/bits.h>
+#include <mach/board.h>
 
 #define SCI_FALSE false
 #define SCI_TRUE true
@@ -437,6 +438,7 @@ int charger_is_adapter(void)
     unsigned long irq_flag=0;
     
     local_irq_save(irq_flag);
+    udc_enable();
 	CHIP_REG_AND(USB_PHY_CTRL,(~(USB_DM_PULLDOWN_BIT|USB_DP_PULLDOWN_BIT)));
 
 	//Identify USB charger
@@ -457,13 +459,52 @@ int charger_is_adapter(void)
 		}
 		else
 		{
-            ret = 0; //usb host
+            ret = 1; //non standard adapter
 		}
 		CHIP_REG_AND(USB_PHY_CTRL,(~USB_DM_PULLDOWN_BIT));
 	}
 
+    udc_disable();
     local_irq_restore(irq_flag);
 	return ret; 
+}
+#define VPROG_RESULT_NUM 10
+#define VBAT_RESULT_DELAY 10
+int32_t CHG_GetVirtualVprog (void)
+{
+    int i, temp;
+    volatile int j;
+    int32_t vprog_result[VPROG_RESULT_NUM];
+
+    for (i = 0; i < VPROG_RESULT_NUM; )
+    {
+        vprog_result[i] =
+            ADC_GetValue (ADC_CHANNEL_PROG, false);
+        if(vprog_result[i]<0)
+          continue;
+
+        i++;
+        //loop for delay
+        for (j = VBAT_RESULT_DELAY - 1; j >= 0; j--)
+        {
+            ;
+        }
+    }
+
+    for (j=1; j<=VPROG_RESULT_NUM-1; j++)
+    {
+        for (i=0; i<VPROG_RESULT_NUM -j; i++)
+        {
+            if (vprog_result[i] > vprog_result[i+1])
+            {
+                temp = vprog_result[i];
+                vprog_result[i] = vprog_result[i+1];
+                vprog_result[i+1] = temp;
+            }
+        }
+    }
+
+    return vprog_result[VPROG_RESULT_NUM/2];
 }
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *

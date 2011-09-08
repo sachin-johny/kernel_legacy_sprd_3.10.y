@@ -96,7 +96,7 @@ extern   "C"
 #define VBAT_STATISTIC_PERIOD 2000
 #define VBAT_STATISTIC_BUFFERSIZE 150
 
-#define CHGMNG_DEFAULT_SWITPOINT CHG_SWITPOINT_1          // power up default point
+#define CHGMNG_DEFAULT_SWITPOINT CHG_SWITPOINT_16          // power up default point
 #define CHARGING_DETECT_INTERVAL 1000
 #define CHARGING_TOUT 18000
 #define CHGMNG_SHUTDOWN_VPROG 100
@@ -131,13 +131,18 @@ extern   "C"
 #define CHARGE_OVER_VOLTAGE 6500 
 #define CHARGE_OVER_CURRENT 200
 
-#define VOL_TO_CUR_PARAM 576
-#define VOL_DIV_P1 268
+//#define VOL_TO_CUR_PARAM (576 * 3)
+//#define VOL_DIV_P1 (268 * 4)
+#define VOL_TO_CUR_PARAM (576)
+#define VOL_DIV_P1 (268)
 #define VOL_DIV_P2 1000
 
-#define CC_CV_VOLTAGE PREVCHGEND
+#define CC_CV_VOLTAGE 4200
 #define CV_REF_CURRENT 4
-#define CV_STOP_CURRENT 10
+#define CV_STOP_CURRENT 3
+
+#define OVP_ADC_VALUE 0x198
+#define OVP_ADC_RECV_VALUE 0x170
 
 /**---------------------------------------------------------------------------*
  **                         Data Structures                                   *
@@ -877,6 +882,8 @@ void CHG_SetUSBChargeCurrent (CHG_USB_CHARGE_CURRENT_E current);
 void CHG_SetNormalChargeCurrent (CHG_NOR_CHARGE_CURRENT_E current);
 int CHGMNG_AdcvalueToTemp(uint16_t adcvalue);
 uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type);
+extern int charger_is_adapter(void);
+extern int32_t CHG_GetVirtualVprog (void);
 
 
 #ifdef __cplusplus
