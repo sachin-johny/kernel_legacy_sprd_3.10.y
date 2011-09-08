@@ -41,7 +41,8 @@
 #define VBC_CODEC_POWER_OFF_OUT (1 << 2)
 #define VBC_CODEC_POWER_OFF_IN  (1 << 3)
 #define VBC_CODEC_POWER_ON_OUT_MUTE_DAC (1 << 4)
-#define VBC_CODEC_POWER_DOWN_FORCE (1 << 30)
+#define VBC_CODEC_POWER_ON_FORCE        (1 << 29)
+#define VBC_CODEC_POWER_DOWN_FORCE      (1 << 30)
 #define VBC_CODEC_SPEAKER_PA 0xfffd
 #define VBC_CODEC_DSP      0xfffc
 /*
@@ -420,6 +421,7 @@ void vbc_power_down(unsigned int value)
             vbc_amplifier_enable(false, "vbc_power_down playback"); // Mute speaker
             vbc_codec_mute();
             if (use_delay) msleep(50);
+            vbc_reg_VBCR1_set(DACSEL, 0); // not route DAC to mixer
 
             vbc_reg_VBPMR1_set(SB_OUT, 1); // Power down DAC OUT
             vbc_reg_VBCR1_set(MONO, 1); // mono DAC channel
@@ -468,20 +470,24 @@ void vbc_power_on(unsigned int value)
 {
     int use_delay;
     int mute_dac;
+    int power_on_force;
     mutex_lock(&vbc_power_lock);
     mute_dac = !!(value & VBC_CODEC_POWER_ON_OUT_MUTE_DAC);
     value &= ~VBC_CODEC_POWER_ON_OUT_MUTE_DAC;
+    power_on_force = !!(value & VBC_CODEC_POWER_ON_FORCE);
+    value &= ~VBC_CODEC_POWER_ON_FORCE;
     vbc_ldo_on(1);
     // printk("audio %s\n", __func__);
     {
         use_delay = 1; // !headset_muted;
-        if (value == SNDRV_PCM_STREAM_PLAYBACK &&
+        if (power_on_force ||
+            (value == SNDRV_PCM_STREAM_PLAYBACK &&
             (vbc_reg_read(VBPMR1, SB_DAC, 1) ||
              vbc_reg_read(VBPMR1, SB_LOUT, 1)||
              vbc_reg_read(VBPMR1, SB_OUT, 1) ||
              vbc_reg_read(VBPMR1, SB_MIX, 1) ||
              vbc_reg_read(VBPMR2, SB, 1)     ||
-             vbc_reg_read(VBPMR2, SB_SLEEP, 1))) {
+             vbc_reg_read(VBPMR2, SB_SLEEP, 1)))) {
             int forced = 0;
             // int VBCGR1_value;
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
@@ -498,6 +504,7 @@ void vbc_power_on(unsigned int value)
             if (use_delay) msleep(50);
             else msleep(35);
 
+            vbc_reg_VBCR1_set(DACSEL, 1); // route DAC to mixer
             vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
             if (use_delay) msleep(50);
             vbc_reg_VBPMR1_set(SB_LOUT, 0);
@@ -518,12 +525,6 @@ void vbc_power_on(unsigned int value)
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
             if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
             // vbc_reg_write(VBCGR1, 0, VBCGR1_value, 0xff); // DAC Gain
-            if (speaker_muted && forced) {
-                printk("[use_delay     =%d]\n"
-                       "[headset_muted =%d]\n"
-                       "[earpiece_muted=%d]\n"
-                       "[speaker_muted =%d]\n",use_delay, headset_muted, earpiece_muted, speaker_muted);
-            }
         }
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
         else {
@@ -532,11 +533,11 @@ void vbc_power_on(unsigned int value)
                 if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
                 if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
                 if (!speaker_muted) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
-//              if (speaker_muted && earpiece_muted && headset_muted)
-//                  printk("---- vbc mute all pa ----\n");
-//              else
-//                  printk("---- vbc unmute %s%s%spa ----\n", speaker_muted ? "":"Speaker ",
-//                         earpiece_muted ? "":"Earpiece ",headset_muted ? "":"Headset ");
+            //  if (speaker_muted && earpiece_muted && headset_muted)
+            //      printk("---- vbc mute all pa ----\n");
+            //  else
+            //      printk("---- vbc unmute %s%s%spa ----\n", speaker_muted ? "":"Speaker ",
+            //             earpiece_muted ? "":"Earpiece ",headset_muted ? "":"Headset ");
             }
         }
 #endif
@@ -558,7 +559,7 @@ static inline int mode_incall(void)
     return !(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC);
 }
 
-static int vbc_reset(struct snd_soc_codec *codec)
+static int vbc_reset(struct snd_soc_codec *codec, int poweron)
 {
     // 1. dial phone number
     // 2. modem will set DSP control audio codec
@@ -585,6 +586,7 @@ static int vbc_reset(struct snd_soc_codec *codec)
     }
     vbc_set_mainclk_to12M();
     vbc_set_ctrl2arm();
+    if (poweron) vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE);
 #if 0
     vbc_codec_mute();
 #endif
@@ -628,6 +630,8 @@ static int vbc_reset(struct snd_soc_codec *codec)
 #endif
     vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
     vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
+    vbc_reg_VBPMR1_set(SB_ADC, 1); // Power down ADC
+    vbc_reg_VBCR1_set(SB_MICBIAS, 1); // power down mic
 #if 0
     // vbc_reg_write(VBPMR1, 1, 0x02, 0x7f); // power on all units, except SB_BTL
     vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
@@ -675,17 +679,11 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             // if (val & (1 << VBC_CODEC_SOFT_RESET))
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
             // speaker_muted = true;
-            vbc_reset(codec);
-#if !VBC_DYNAMIC_POWER_MANAGEMENT
+#if VBC_DYNAMIC_POWER_MANAGEMENT
+            vbc_reset(codec, 0);
             vbc_power_down(-1);
 #else
-            vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK);
-
-            vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
-            vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-            vbc_amplifier_enable(false, "vbc_power_down playback"); // Mute speaker
-            vbc_codec_mute();
-            printk("---- vbc mute8 all pa ----\n");
+            vbc_reset(codec, 1);
 #endif
             // vbc_reset(codec);
             if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
@@ -1009,14 +1007,14 @@ static void android_sprd_pm_exit(void) {}
 int vbc_suspend(struct platform_device *pdev, pm_message_t state)
 {
     printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
-    vbc_power_down(VBC_CODEC_POWER_DOWN_FORCE);
+    vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
     return 0;
 }
 
 int vbc_resume(struct platform_device *pdev)
 {
     printk("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
-    vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK);
+    vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE);
     return 0;
 }
 #else
@@ -1232,12 +1230,12 @@ static int vbc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto pcm_err;
 
-	vbc_reset(codec);
+	vbc_reset(codec, 0);
     local_cpu_pa_control(false); // Turn off classD cpu PA
     vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
     vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
     vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-    vbc_power_down(-1);
+    vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
 #if 0
     /* vbc_reset() must be initialized twice, or the noise when playing audio */
     vbc_reset(codec);
