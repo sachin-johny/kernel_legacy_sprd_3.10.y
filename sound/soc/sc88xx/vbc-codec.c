@@ -136,6 +136,64 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE("InCall", VBC_CODEC_DSP, 0, 1, 0),
 };
 
+int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, const char *prefix)
+{
+    int i;
+    u32 ivaddr;
+    u32 vaddr;
+    char *bufb = buf;
+    char *maxp = buf + max;
+    paddr += offset;
+    vaddr = (u32)ioremap(paddr, nword << 2);
+    /* print a serial of reg in a formated way */
+    if (buf) {
+        if (prefix) buf += snprintf(buf, maxp - buf, "%s", prefix);
+        else buf += snprintf(buf, maxp - buf, "%s",
+                            "  ADDRESS  |   VALUE\n"
+                            "-----------+-----------\n");
+    } else {
+        if (prefix) printk("%s", prefix);
+        else printk("%s",
+                    "  ADDRESS  |   VALUE\n"
+                    "-----------+-----------\n");
+    }
+    for (i = 0; i < nword; i++) {
+        if (paddr < (SPRD_ADI_PHYS + ANA_REG_ADDR_START - SPRD_ADI_BASE) ||
+            paddr > (SPRD_ADI_PHYS + ANA_REG_ADDR_START - SPRD_ADI_BASE + ANA_REG_ADDR_END - ANA_REG_ADDR_START))
+            ivaddr = vaddr;
+        else ivaddr = ANA_REG_ADDR_START + paddr - (SPRD_ADI_PHYS + ANA_REG_ADDR_START - SPRD_ADI_BASE);
+        if (buf) {
+            buf += snprintf(buf, maxp - buf,
+                            "0x%08x |     0x%04x\n",
+                            paddr, vbc_reg_read(ivaddr, 0, UINT_MAX));
+        } else       printk("0x%08x |     0x%04x\n",
+                            paddr, vbc_reg_read(ivaddr, 0, UINT_MAX));
+        paddr += 4;
+        vaddr += 4;
+    }
+
+    return bufb - buf;
+}
+static void vbc_dump_regs(u32 cmd, char *buf, int max)
+{
+    char *bufb, *buft;
+    static char buf2[1024*64];
+    if (!buf) {
+        buf = buf2;
+        max = sizeof buf2;
+    }
+    bufb = buf;
+    buft = bufb + max;
+    switch (cmd) {
+        case 0: {
+            buf += print_cpu_regs(SPRD_VB_PHYS , 0, 107, 0, buft - buf, "vbc_dump_regs VBDA0 - HPCOEF42\n");
+            buf += print_cpu_regs(SPRD_ADI_PHYS, 0x0100, 22, 0, buft - buf, "VBAICR - VBTR2\n");
+            // printk("%s", bufb);
+        }
+        default: break;
+    }
+}
+
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
     
 };
@@ -546,6 +604,9 @@ void vbc_power_on(unsigned int value)
             printk("vbc_power_on capture\n");
             vbc_reg_VBPMR2_set(SB, 0); // Power on sb
             vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
+
+            vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
+            vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
             vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
             vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
         }
@@ -1109,10 +1170,13 @@ ssize_t modem_status_show(struct class *class, char *buf);
 ssize_t modem_status_store(struct class *class, const char *buf, size_t count);
 ssize_t android_mode_show(struct class *class, char *buf);
 ssize_t android_mode_store(struct class *class, const char *buf, size_t count);
+ssize_t vbc_regs_show(struct class *class, char *buf);
+ssize_t vbc_regs_store(struct class *class, const char *buf, size_t count);
 // /sys/class/modem/*
 static struct class_attribute modem_class_attrs[] = { // drivers/gpio/gpiolib.c
 	__ATTR(status, 0766, modem_status_show, modem_status_store),
     __ATTR(mode, 0766, android_mode_show, android_mode_store),
+    __ATTR(regs, 0766, vbc_regs_show, vbc_regs_store),
 	// __ATTR(unexport, 0200, NULL, unexport_store),
 	__ATTR_NULL,
 };
@@ -1167,6 +1231,17 @@ ssize_t android_mode_store(struct class *class, const char *buf, size_t count)
     if (android_mode < 0 || android_mode >= MODE_MAX)
         android_mode = MODE_NORMAL;
     local_fiq_enable();
+    return count;
+}
+
+ssize_t vbc_regs_show(struct class *class, char *buf)
+{
+    vbc_dump_regs(0, 0, 0);
+    return 0;
+}
+
+ssize_t vbc_regs_store(struct class *class, const char *buf, size_t count)
+{
     return count;
 }
 
