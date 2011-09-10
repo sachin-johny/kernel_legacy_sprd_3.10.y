@@ -25,6 +25,7 @@
 	}while(0)
 
 static struct platform_device *sprd0 = NULL;
+static unsigned long sec_2011_to_1970;
 
 static inline unsigned get_sec(void)
 {
@@ -174,6 +175,7 @@ static int sprd_rtc_read_alarm(struct device *dev,
 	struct rtc_wkalrm *alrm)
 {
 	unsigned long secs = sprd_rtc_get_alarm_sec();
+    secs = secs + sec_2011_to_1970;
 	rtc_time_to_tm(secs, &alrm->time);
 
 	alrm->enabled = !!(ANA_REG_GET(ANA_RTC_INT_EN) & RTC_ALARM_BIT);
@@ -188,6 +190,8 @@ static int sprd_rtc_set_alarm(struct device *dev,
 	unsigned long secs;
 	unsigned temp;
 	rtc_tm_to_time(&alrm->time, &secs);
+    if(secs < sec_2011_to_1970)
+      return -1;
 
 	ANA_REG_SET(ANA_RTC_INT_CLR, RTC_ALARM_BIT);
 
@@ -196,6 +200,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 		temp |= RTC_ALARM_BIT;
 		ANA_REG_SET(ANA_RTC_INT_EN, temp);
 
+        secs = secs - sec_2011_to_1970;
         sprd_rtc_set_alarm_sec(secs);
 	}else{
         ANA_REG_AND(ANA_RTC_INT_EN, ~(RTC_ALARM_BIT));
@@ -213,6 +218,7 @@ static int sprd_rtc_read_time(struct device *dev,
         secs = 0;
         sprd_rtc_set_sec(0);
     }
+    secs = secs + sec_2011_to_1970;
 	rtc_time_to_tm(secs, tm);
 	return 0;
 }
@@ -222,12 +228,18 @@ static int sprd_rtc_set_time(struct device *dev,
 {
 	unsigned long secs;
 	rtc_tm_to_time(tm, &secs);
+    if(secs < sec_2011_to_1970)
+      return -1;
+    secs = secs - sec_2011_to_1970;
 	sprd_rtc_set_sec(secs);
 	return 0;
 }
 
 static int sprd_rtc_set_mmss(struct device *dev, unsigned long secs)
 {
+    if(secs < sec_2011_to_1970)
+      return -1;
+    secs = secs - sec_2011_to_1970;
 	sprd_rtc_set_sec(secs);
 	return 0;
 }
@@ -339,6 +351,8 @@ static int __init sprd_rtc_init(void)
 
 	if ((err = platform_device_add(sprd0)))
 		goto exit_free_sprd0;
+
+    sec_2011_to_1970 = mktime(2011, 1, 1, 0, 0, 0);
 
 	return 0;
 
