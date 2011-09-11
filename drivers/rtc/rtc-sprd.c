@@ -214,11 +214,11 @@ static int sprd_rtc_read_time(struct device *dev,
 	struct rtc_time *tm)
 {
 	unsigned long secs = sprd_rtc_get_sec();
+    secs = secs + sec_2011_to_1970;
     if(secs > 0x7f000000){
-        secs = 0;
+        secs = sec_2011_to_1970;
         sprd_rtc_set_sec(0);
     }
-    secs = secs + sec_2011_to_1970;
 	rtc_time_to_tm(secs, tm);
 	return 0;
 }
