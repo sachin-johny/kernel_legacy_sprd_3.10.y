@@ -429,23 +429,15 @@ void __init sprd_add_otg_device(void)
 		pr_warning("cannot get clock for usb\n");
 		return;
 	}
-	usb_startup();
+
 	platform_device_register(&sprd_otg_device);
 }
 
 /*Android USB Function */
 #define SPRD_VENDOR_ID		0x1782
-//#define SPRD_VENDOR_ID		0x0525
 #define SPRD_PRODUCT_ID		0x5D00
-//#define SPRD_VENDOR_ID		0x0BB4
-//#define SPRD_PRODUCT_ID		0x0C01
-//#define SPRD_ADB_PRODUCT_ID		0x0C02
-#define SPRD_ADB_PRODUCT_ID             0x41DB
 #define SPRD_RNDIS_PRODUCT_ID		0x5D20
 #define SPRD_RNDIS_ADB_PRODUCT_ID		0x5D21
-
-//#define SPRD_PRODUCT_ADB
-//#define SPRD_PRODUCT_UMS
 
 static char device_serial[] = "19761202";
 

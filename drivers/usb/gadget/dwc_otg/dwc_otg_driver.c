@@ -63,6 +63,7 @@
 # include <linux/irq.h>
 
 #include <asm/io.h>
+#include <mach/board.h>
 
 
 #include "dwc_os.h"
@@ -666,6 +667,7 @@ static int dwc_otg_driver_probe(
 
 	dev_dbg(&_dev->dev, "dwc_otg_device=0x%p\n", dwc_otg_device);
 
+	udc_enable();
 	dwc_otg_device->core_if = dwc_otg_cil_init(dwc_otg_device->base);
 	if (!dwc_otg_device->core_if) {
 		dev_err(&_dev->dev, "CIL initialization failed!\n");
