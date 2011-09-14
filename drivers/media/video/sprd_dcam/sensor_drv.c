@@ -42,7 +42,7 @@
 #include <mach/clock_common.h>
 #include <linux/clk.h>
 #include <linux/err.h>
-
+#include <mach/ldo.h>
 
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
@@ -78,6 +78,7 @@
 /**---------------------------------------------------------------------------*
  **                         Global Variables                                  *
  **---------------------------------------------------------------------------*/
+#if 0
 // #define SET_SENSOR_ADDR(addr)  (0x8000|(addr))
  //save value for register
 //#define LOCAL_VAR_DEF uint32_t reg_val;
@@ -144,6 +145,7 @@
 		) \
 }*/
 //#define CHIP_REG_OR(reg_addr, value) (*(volatile uint32_t *)(reg_addr) |= (uint32_t)(value))
+
 #define LDO_USB_PD BIT_9
 typedef enum
 {
@@ -206,7 +208,7 @@ static LDO_CTL_T g_ldo_ctl_tab[] =
 		DCAM_NULL, DCAM_NULL, DCAM_NULL,DCAM_NULL, LDO_VOLT_LEVEL_MAX, DCAM_NULL
 	}
 };
-
+#endif 
 /**---------------------------------------------------------------------------*
  **                         Local Variables                                   *
  **---------------------------------------------------------------------------*/
@@ -680,6 +682,7 @@ PUBLIC void Sensor_SetMCLK(uint32_t mclk)
 }
 #endif
 
+#if 0
 
 /*****************************************************************************/
 //  Description:    This function is used to set AVDD
@@ -776,6 +779,7 @@ LOCAL uint32_t LDO_SetVoltLevel(LDO_ID_E ldo_id, LDO_VOLT_LEVEL_E volt_level)
 
 	return SENSOR_SUCCESS;		
 }
+#endif
 //PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val, SENSOR_AVDD_VAL_E iovdd_val)
 PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E camd0_val, SENSOR_AVDD_VAL_E camd1_val, SENSOR_AVDD_VAL_E cama_val)
 {
@@ -1522,7 +1526,7 @@ PUBLIC SENSOR_REGISTER_INFO_T_PTR Sensor_GetRegisterInfo(void)
 //  Author:         Tim.Zhu
 //  Note:           
 /*****************************************************************************/
-LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
+LOCAL int  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 {	
           SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
 	sensor_register_info_ptr->cur_id=sensor_id;	
@@ -1683,11 +1687,11 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 {
 	uint32_t i = 0;
-	uint32_t ret_val=SENSOR_FAIL;   
-    	SENSOR_INFO_T* sensor_info_ptr=PNULL;
-    	SENSOR_INFO_T** sensor_info_tab_ptr=PNULL;   
-    	uint8_t sensor_index = 0x0;
-    	uint32_t valid_tab_index_max=0x00;
+	//uint32_t ret_val=SENSOR_FAIL;   
+    	//SENSOR_INFO_T* sensor_info_ptr=PNULL;
+    	//SENSOR_INFO_T** sensor_info_tab_ptr=PNULL;   
+    	//uint8_t sensor_index = 0x0;
+    	//uint32_t valid_tab_index_max=0x00;
     	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
 
 	for( i=0 ; i<=SENSOR_SUB ; i++)
@@ -1724,10 +1728,10 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 {
     	uint32_t ret_val=SENSOR_FAIL;   
-    	SENSOR_INFO_T* sensor_info_ptr=PNULL;
-    	SENSOR_INFO_T** sensor_info_tab_ptr=PNULL;   
-    	uint8_t sensor_index = 0x0;
-    	uint32_t valid_tab_index_max=0x00;
+    	//SENSOR_INFO_T* sensor_info_ptr=PNULL;
+    	//SENSOR_INFO_T** sensor_info_tab_ptr=PNULL;   
+    	//uint8_t sensor_index = 0x0;
+    	//uint32_t valid_tab_index_max=0x00;
     	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
 
     	SENSOR_PRINT("SENSOR: Sensor_Init, sensor_id: %d.\n", sensor_id);
