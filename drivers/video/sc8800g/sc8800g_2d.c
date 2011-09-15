@@ -373,6 +373,9 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 			int i, j;
 			unsigned int *src, *src_base, *dst;
 
+			/* FIXME: work around for pmem flush failure */
+			flush_cache_all();
+
 			src_base = (unsigned int *)GET_VA(params->src.base);
 			src_base += params->src_rect.y * params->src.width + 
 				params->src_rect.x;
