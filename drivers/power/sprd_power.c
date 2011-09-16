@@ -577,7 +577,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
     if(battery_data->charging || loop_cnt == 0){
         if(battery_data->charging && charge_pluse){
             CHG_ShutDown();
-            mdelay(100);
+            //mdelay(100); //wxz20110916: the delay is not need.
             adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
             CHG_TurnOn();
         }else{
