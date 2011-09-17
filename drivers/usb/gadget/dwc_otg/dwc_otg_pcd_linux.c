@@ -71,6 +71,7 @@
 #include <linux/irq.h>
 #include <linux/wakelock.h>
 #include <mach/board.h>
+#include <mach/usb.h>
 
 #include "dwc_otg_driver.h"
 #include "dwc_otg_pcd_if.h"
@@ -99,10 +100,14 @@ static struct gadget_wrapper {
 	int vbus;
 } *gadget_wrapper;
 
+enum {
+	PLUG_IN,
+	PLUG_OUT
+};
 static struct wake_lock usb_wake_lock;
 static DEFINE_SPINLOCK(udc_lock);
 
-#define CABLE_TIMEOUT	(HZ*15)
+#define CABLE_TIMEOUT	(HZ*2)
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
 
@@ -1030,6 +1035,36 @@ int dwc_udc_state(void)
 	return d->udc_startup;
 }
 
+static struct usb_hotplug_callback *hotplug_cb;
+static void hotplug_callback(int event, int usb_cable)
+{
+	switch (event) {
+	case PLUG_IN:
+		if (hotplug_cb && hotplug_cb->plugin)
+			hotplug_cb->plugin(usb_cable, hotplug_cb->data);
+		break;
+	case PLUG_OUT:
+		if (hotplug_cb && hotplug_cb->plugout)
+			hotplug_cb->plugout(usb_cable, hotplug_cb->data);
+		break;
+	default:
+		pr_warning("hotplug envent error %d\n", event);
+		break;
+	}
+	return;
+}
+
+static int need_notify = 0;
+
+static int cable_is_usb(void)
+{
+	int value;
+	struct gadget_wrapper *d = gadget_wrapper;
+
+	value = d->pcd->ep0state;
+	return value != EP0_DISCONNECT;
+}
+
 static void usb_detect_works(struct work_struct *work)
 {
 	struct gadget_wrapper *d;
@@ -1046,14 +1081,20 @@ static void usb_detect_works(struct work_struct *work)
 	if (plug_in){
 		pr_info("usb detect plug in,vbus pull up\n");
 		__udc_startup();
+		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
 		del_timer(&d->cable_timer);
 		__udc_shutdown();
+		if (need_notify) {
+			hotplug_callback(PLUG_OUT, cable_is_usb());
+			need_notify = 0;
+		}
 	}
 	spin_unlock(&udc_lock);
 
 }
+
 static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 {
 	struct gadget_wrapper *d;
@@ -1069,19 +1110,14 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	if (value){
 		pr_debug("usb detect plug in\n");
 		set_irq_type(irq, IRQF_TRIGGER_LOW);
-		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
 	} else {
 		pr_debug("usb detect plug out\n");
 		set_irq_type(irq, IRQF_TRIGGER_HIGH);
 	}
-	if (value == d->vbus){
-		pr_info("bus power don't change\n");
-		spin_unlock(&udc_lock);
-		return IRQ_HANDLED;
-	}
-	d->vbus = value;
 
+	d->vbus = value;
 	queue_work(d->detect_wq, &d->detect_work);
+
 	return IRQ_HANDLED;
 }
 
@@ -1104,15 +1140,6 @@ static int cable_is_connected(void)
 	return gpio_get_value(CHARGER_DETECT_GPIO) ? 1 : 0;
 }
 
-int cable_is_usb(void)
-{
-	int value;
-	struct gadget_wrapper *d = gadget_wrapper;
-
-	value = d->pcd->ep0state;
-	return value != EP0_DISCONNECT;
-}
-
 /*
  * this function will check the cable type, if it is
  * ac adapter calbe, we disable udc for lowering the
@@ -1120,12 +1147,18 @@ int cable_is_usb(void)
  */
 static void cable_detect_handler(unsigned long data)
 {
+	int usb_cable;
+	usb_cable = cable_is_usb();
 
-	if (cable_is_usb())
-		return;
+	hotplug_callback(PLUG_IN, usb_cable);
 
-	pr_info("cable is ac adapter\n");
-	__udc_shutdown();
+	spin_lock(&udc_lock);
+	need_notify = 1;
+	if (!usb_cable) {
+		pr_info("cable is ac adapter\n");
+		__udc_shutdown();
+	}
+	spin_unlock(&udc_lock);
 	return;
 }
 /**
@@ -1321,6 +1354,19 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 }
 
 EXPORT_SYMBOL(usb_gadget_unregister_driver);
+
+int usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
+{
+	int ret = 0;
+	if (cb){
+		hotplug_cb = cb;
+	} else {
+		pr_warning("%s, error\n", __func__);
+		ret = -EINVAL;
+	}
+	return ret;
+}
+EXPORT_SYMBOL(usb_register_hotplug_callback);
 
 #endif				/* DWC_HOST_ONLY */
 
