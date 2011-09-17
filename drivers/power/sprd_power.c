@@ -34,6 +34,7 @@
 #include <linux/irq.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
+#include <mach/usb.h>
 
 //#define CHG_DEBUG
 //#define BATTERY_USE_WAKE_LOCK
@@ -89,6 +90,19 @@ struct sprd_battery_data {
 
 /* temporary variable used between sprd_battery_probe() and sprd_battery_open() */
 static struct sprd_battery_data *battery_data;
+
+static int plugin_callback(int usb_cable, void *data);
+static int plugout_callback(int usb_cable, void *data);
+/*
+ * we need usb module to detect
+ * 1, plug in/out
+ * 2, whether it is usb cable
+ */
+static struct usb_hotplug_callback power_cb = {
+	.plugin = plugin_callback,
+	.plugout = plugout_callback,
+	.data = NULL,
+};
 
 
 static int sprd_ac_get_property(struct power_supply *psy,
@@ -396,6 +410,60 @@ static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static int plugin_callback(int usb_cable, void *data)
+{
+	struct sprd_battery_data *d = battery_data;
+	unsigned long irq_flags;
+
+	DEBUG("charger plugin interrupt happen\n");
+	if ( !d ) {
+		pr_warning("batttery_data is NULL!!\n");
+		return 1;
+	}
+
+	spin_lock_irqsave(&d->lock, irq_flags);
+
+	d->ac_online = 0;
+	d->usb_online = 0;
+
+	if (usb_cable) {
+		d->usb_online = 1;
+	} else {
+		if(charger_is_adapter()){
+			d->ac_online = 1;
+		} else {
+			pr_warning("unknown charger!\n");
+		}
+	}
+
+	spin_unlock_irqrestore(&d->lock, irq_flags);
+	DEBUG("interrupt happen: usb:%d, ac:%d\n", d->usb_online, d->ac_online);
+
+	return 0;
+}
+
+static int plugout_callback(int usb_cable, void *data)
+{
+	struct sprd_battery_data *d = battery_data;
+	unsigned long irq_flags;
+
+	DEBUG("charger plugout interrupt happen\n");
+	if ( !d ) {
+		pr_warning("batttery_data is NULL!!\n");
+		return 1;
+	}
+
+	spin_lock_irqsave(&d->lock, irq_flags);
+
+	d->ac_online = 0;
+	d->usb_online = 0;
+
+	spin_unlock_irqrestore(&d->lock, irq_flags);
+	DEBUG("interrupt happen: usb:%d, ac:%d\n", d->usb_online, d->ac_online);
+
+	return 0;
+}
+
 #define _BUF_SIZE 10
 #define _VPROG_BUF_SIZE 8
 uint32_t temp_buf[_BUF_SIZE];
@@ -577,7 +645,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
     if(battery_data->charging || loop_cnt == 0){
         if(battery_data->charging && charge_pluse){
             CHG_ShutDown();
-            //mdelay(100); //wxz20110916: the delay is not need.
+            //mdelay(100);
             adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
             CHG_TurnOn();
         }else{
@@ -794,7 +862,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct sprd_battery_data *data;
-    int adc_value;
+	int adc_value;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -803,19 +871,19 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	}
 	spin_lock_init(&data->lock);
 
-    data->capacity = 100;
-    data->charging = 0;
-    data->cur_type = 400;
+	data->capacity = 100;
+	data->charging = 0;
+	data->cur_type = 400;
 
-    data->over_voltage = OVP_ADC_VALUE;
-    data->over_voltage_recovery = OVP_ADC_RECV_VALUE;
-    data->over_voltage_flag = 0;
-    data->over_current= CHARGE_OVER_CURRENT;
-    data->precharge_start = PREVRECHARGE;
-    data->precharge_end = PREVCHGEND;
-    data->hw_switch_point = CHGMNG_SWITCH_CV_VPROG;
-    data->charge_stop_point = CHGMNG_STOP_VPROG;
-    
+	data->over_voltage = OVP_ADC_VALUE;
+	data->over_voltage_recovery = OVP_ADC_RECV_VALUE;
+	data->over_voltage_flag = 0;
+	data->over_current= CHARGE_OVER_CURRENT;
+	data->precharge_start = PREVRECHARGE;
+	data->precharge_end = PREVCHGEND;
+	data->hw_switch_point = CHGMNG_SWITCH_CV_VPROG;
+	data->charge_stop_point = CHGMNG_STOP_VPROG;
+
 	data->battery.properties = sprd_battery_props;
 	data->battery.num_properties = ARRAY_SIZE(sprd_battery_props);
 	data->battery.get_property = sprd_battery_get_property;
@@ -827,61 +895,43 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	data->ac.get_property = sprd_ac_get_property;
 	data->ac.name = "ac";
 	data->ac.type = POWER_SUPPLY_TYPE_MAINS;
-    data->ac.supplied_to = supply_list;
-    data->ac.num_supplicants = ARRAY_SIZE(supply_list);
+	data->ac.supplied_to = supply_list;
+	data->ac.num_supplicants = ARRAY_SIZE(supply_list);
 
 	data->usb.properties = sprd_usb_props;
 	data->usb.num_properties = ARRAY_SIZE(sprd_usb_props);
 	data->usb.get_property = sprd_usb_get_property;
 	data->usb.name = "usb";
 	data->usb.type = POWER_SUPPLY_TYPE_USB;
-    data->usb.supplied_to = supply_list;
-    data->usb.num_supplicants = ARRAY_SIZE(supply_list);
+	data->usb.supplied_to = supply_list;
+	data->usb.num_supplicants = ARRAY_SIZE(supply_list);
 
-    init_timer(&data->battery_timer);
-    data->battery_timer.function = battery_handler;
-    data->battery_timer.data = (unsigned long)data;
+	init_timer(&data->battery_timer);
+	data->battery_timer.function = battery_handler;
+	data->battery_timer.data = (unsigned long)data;
 
-    adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
-    if(adc_value < 0)
-      adc_value = 0;
-    update_vbat_value(adc_value);
-    update_vprog_value(0);
-    memset(vprog_buf, 0, sizeof(vprog_buf));
-    memset(temp_buf, 0, sizeof(temp_buf));
+	adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+	if(adc_value < 0)
+		adc_value = 0;
+	update_vbat_value(adc_value);
+	update_vprog_value(0);
+	memset(vprog_buf, 0, sizeof(vprog_buf));
+	memset(temp_buf, 0, sizeof(temp_buf));
 
 #ifdef BATTERY_USE_WAKE_LOCK
-    wake_lock_init(&(data->charge_wake_lock), WAKE_LOCK_SUSPEND, "charge_wake_lock");
-    wake_lock_init(&(data->update_wake_lock), WAKE_LOCK_SUSPEND, "update_wake_lock");
+	wake_lock_init(&(data->charge_wake_lock), WAKE_LOCK_SUSPEND, "charge_wake_lock");
+	wake_lock_init(&(data->update_wake_lock), WAKE_LOCK_SUSPEND, "update_wake_lock");
 #endif
 
-    data->timer_freq = HZ/10;
-    if(usb_connected()){
-        if(charger_is_adapter()){
-            data->ac_online = 1;
-            data->usb_online = 0;
-        }
-        else{
-            data->usb_online = 1;
-            data->ac_online = 0;
-        }
-#ifdef BATTERY_USE_WAKE_LOCK
-        wake_lock(&(data->charge_wake_lock));
-#endif
-    }else{
-        data->usb_online = 0;
-        data->ac_online = 0;
-    }
+	data->timer_freq = HZ/10;
+	data->usb_online = 0;
+	data->ac_online = 0;
 
-    ret = gpio_to_irq(CHARGER_DETECT_GPIO);
-    data->irq = ret;      
-
-	ret = request_irq(data->irq, sprd_battery_interrupt, IRQF_SHARED |
-                        IRQF_TRIGGER_HIGH, pdev->name, data);
+	ret = usb_register_hotplug_callback(&power_cb);
 	if (ret)
 		goto err_request_irq_failed;
 
-    ret = power_supply_register(&pdev->dev, &data->usb);
+	ret = power_supply_register(&pdev->dev, &data->usb);
 	if (ret)
 		goto err_usb_failed;
 
@@ -895,20 +945,20 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, data);
 	battery_data = data;
-    CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
-    now_hw_switch_point = CHGMNG_DEFAULT_SWITPOINT;
-    ADC_Init();
+	CHG_SetSwitchoverPoint (CHGMNG_DEFAULT_SWITPOINT);
+	now_hw_switch_point = CHGMNG_DEFAULT_SWITPOINT;
+	ADC_Init();
 
-    sprd_creat_caliberate_attr(data->battery.dev);
+	sprd_creat_caliberate_attr(data->battery.dev);
 
-    mod_timer(&data->battery_timer, jiffies + data->timer_freq);
+	mod_timer(&data->battery_timer, jiffies + data->timer_freq);
 
 	return 0;
 
 err_battery_failed:
 	power_supply_unregister(&data->ac);
 err_ac_failed:
-    power_supply_unregister(&data->usb);
+	power_supply_unregister(&data->usb);
 err_usb_failed:
 	free_irq(data->irq, data);
 err_request_irq_failed:

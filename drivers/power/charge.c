@@ -438,7 +438,7 @@ int charger_is_adapter(void)
     unsigned long irq_flag=0;
     
     local_irq_save(irq_flag);
-    //udc_enable();
+
 	CHIP_REG_AND(USB_PHY_CTRL,(~(USB_DM_PULLDOWN_BIT|USB_DP_PULLDOWN_BIT)));
 
 	//Identify USB charger
@@ -464,7 +464,6 @@ int charger_is_adapter(void)
 		CHIP_REG_AND(USB_PHY_CTRL,(~USB_DM_PULLDOWN_BIT));
 	}
 
-    //udc_disable();
     local_irq_restore(irq_flag);
 	return ret; 
 }
