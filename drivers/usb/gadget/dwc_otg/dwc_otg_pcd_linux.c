@@ -107,7 +107,12 @@ enum {
 static struct wake_lock usb_wake_lock;
 static DEFINE_SPINLOCK(udc_lock);
 
-#define CABLE_TIMEOUT	(HZ*2)
+#define CABLE_TIMEOUT		(HZ*2)
+#define CABLE_TIMEOUT_FACTORY	(HZ*15)
+static int cable_timeout = CABLE_TIMEOUT;
+
+extern int in_factory_mode(void);
+
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
 
@@ -1081,7 +1086,7 @@ static void usb_detect_works(struct work_struct *work)
 	if (plug_in){
 		pr_info("usb detect plug in,vbus pull up\n");
 		__udc_startup();
-		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
+		mod_timer(&d->cable_timer, jiffies + cable_timeout);
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
 		del_timer(&d->cable_timer);
@@ -1176,6 +1181,9 @@ int pcd_init(
 	int plug_irq;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
+
+	if (in_factory_mode())
+		cable_timeout = CABLE_TIMEOUT_FACTORY;
 
 	wake_lock_init(&usb_wake_lock, WAKE_LOCK_SUSPEND, "usb_work");
 	wake_lock(&usb_wake_lock);

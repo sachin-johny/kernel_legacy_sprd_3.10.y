@@ -397,13 +397,27 @@ static int __init calibration_start(char *str)
 }
 __setup("calibration=", calibration_start);
 
-
 int in_calibration(void)
 {
      return (calibration_mode == true);
 }
 EXPORT_SYMBOL(in_calibration);
 
+static int factory_mode = false;
+static int __init factory_start(char *str)
+{
+        if(str)
+                pr_info("factory mode!\n");
+        factory_mode = true;
+        return 1;
+}
+__setup("factory", factory_start);
+
+int in_factory_mode(void)
+{
+	return (factory_mode == true);
+}
+EXPORT_SYMBOL(in_factory_mode);
 
 void __init sprd_add_otg_device(void)
 {
