@@ -99,15 +99,17 @@ static int __gpio_set_dir (struct gpio_info * info, int dir)
 	switch (info->gpio_type) {
 	case GPIO_SECTION_GPI:
 		if (dir) {
-		    WARN(1, "cannot set dir output with GPI");
+			WARN(1, "cannot set dir output with GPI");
+			return -EINVAL;
 		}
-		return -EINVAL;
+		return 0;
 
 	case GPIO_SECTION_GPO:
 		if (!dir) {
-		WARN(1, "cannot set dir input with GPO");
+			WARN(1, "cannot set dir input with GPO");
+			return -EINVAL;
 		}
-		return -EINVAL;
+		return 0;
 
 	case GPIO_SECTION_GPIO:
 		reg_addr += GPIO_DIR;
