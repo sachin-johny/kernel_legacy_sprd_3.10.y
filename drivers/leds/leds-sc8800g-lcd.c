@@ -159,12 +159,11 @@ static int sprd_lcd_led_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_led;
 		
-	/* backlight on */
-	//FIXME
+	/* backlight on : richard feng delete the following line */
 
-	led->value = LED_FULL;
+	/*led->value = LED_FULL;
 	led->enabled = 0;
-	schedule_work(&led->work);
+	schedule_work(&led->work);*/
 
 	return 0;
 

@@ -1253,7 +1253,8 @@ static int sc8800fb_probe(struct platform_device *pdev)
 	copybit_lcdc_init(); /* TEMP */
 
 	/* FIXME: put the BL stuff to where it belongs. */
-	set_backlight(50);
+	/* richard feng delete the following line */
+    /* set_backlight(50);*/
 	platform_set_drvdata(pdev, sc8800fb);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	sc8800fb->early_suspend.suspend = sc8800fb_early_suspend;
