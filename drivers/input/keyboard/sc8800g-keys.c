@@ -106,7 +106,7 @@
 #define TB_KPD_PRESSED          (TB_KPD_CONST_BASE + 1)
 #define TB_KPD_INVALID_KEY      (0x0FFFF)
 
-#define CHECK_TIMER_EXPIRE      (15)//ms
+#define CHECK_TIMER_EXPIRE      (5)//ms
 #define AVOID_QUIVER_MIN_COUNT  (1)
 
 /* check if this key is the same as the previous one */
