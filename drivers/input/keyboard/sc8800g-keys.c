@@ -106,7 +106,9 @@
 #define TB_KPD_PRESSED          (TB_KPD_CONST_BASE + 1)
 #define TB_KPD_INVALID_KEY      (0x0FFFF)
 
+#define POWRER_KEY_VAL           11
 #define CHECK_TIMER_EXPIRE      (5)//ms
+#define CHECK_POWER_TIMER_EXPIRE (15)//ms
 #define AVOID_QUIVER_MIN_COUNT  (1)
 
 /* check if this key is the same as the previous one */
@@ -491,9 +493,14 @@ void change_state(kpd_key_t *key_ptr)
 		/* Change state from TB_KPD_RELEASED to TB_KPD_PRESSED */
         	key_ptr->state  = TB_KPD_PRESSED;
         	key_ptr->count  = 1;
-		mod_timer(&s_kpd_timer[key_ptr->timer_id], jiffies + CHECK_TIMER_EXPIRE);
 		rowcol = SCAN2KEYVAl(key_ptr->key_code);
 		key = sprd_kpad_find_key(sprd_kpad, sprd_kpad->input, rowcol);
+        if ( key != POWRER_KEY_VAL){
+		    mod_timer(&s_kpd_timer[key_ptr->timer_id], jiffies + CHECK_TIMER_EXPIRE);
+        }
+        else{
+		    mod_timer(&s_kpd_timer[key_ptr->timer_id], jiffies + CHECK_POWER_TIMER_EXPIRE);
+        }
         	input_report_key(sprd_kpad->input, key, 1);
         	input_sync(sprd_kpad->input);
 		printk("%dD\n", key);
@@ -570,6 +577,7 @@ unsigned long handle_key(unsigned short key_code, kpd_key_t *key_ptr)
 
 static void sprd_kpad_timer(unsigned long data)
 {
+	unsigned short rowcol, key;
 	kpd_key_t *key_ptr = (kpd_key_t *)data;
 	
 	/* Check if the key is released, if the state is TB_KPD_PRESSED and count is 0, it means the key is released */
@@ -577,9 +585,16 @@ static void sprd_kpad_timer(unsigned long data)
         	if (key_ptr->count == 0) {
             		change_state(key_ptr);
         	} else {
-            		key_ptr->count = 0;
-			mod_timer(&s_kpd_timer[key_ptr->timer_id], jiffies + CHECK_TIMER_EXPIRE);
-		}
+           		key_ptr->count = 0;
+                rowcol = SCAN2KEYVAl(key_ptr->key_code);
+                key = sprd_kpad_find_key(sprd_kpad, sprd_kpad->input, rowcol);
+                if ( key != POWRER_KEY_VAL ){
+		            mod_timer(&s_kpd_timer[key_ptr->timer_id], jiffies + CHECK_TIMER_EXPIRE);
+                }
+                else{
+		            mod_timer(&s_kpd_timer[key_ptr->timer_id], jiffies + CHECK_POWER_TIMER_EXPIRE);
+                }
+	    	}
     	}
 }
 
