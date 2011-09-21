@@ -203,9 +203,6 @@ static void defer_kevent(struct eth_dev *dev, int flag)
 
 static void rx_complete(struct usb_ep *ep, struct usb_request *req);
 
-
-#define USE_DMA_UNALIGN
-
 static int
 rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 {
@@ -253,6 +250,11 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	 * but on at least one, checksumming fails otherwise.  Note:
 	 * RNDIS headers involve variable numbers of LE32 values.
 	 */
+	/*
+	 * RX: Do not move data by IP_ALIGN:
+	 * if your DMA controller cannot handle it
+	 */
+	if (!gadget_dma32(dev->gadget))
 	skb_reserve(skb, NET_IP_ALIGN);
 
 	req->buf = skb->data;
@@ -260,19 +262,6 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	req->complete = rx_complete;
 	req->context = skb;
 
-	//sword
-	//we cannot use unalign buf
-#ifdef  USE_DMA_UNALIGN
-	{
-		unsigned char * rx_align_buf;
-		rx_align_buf = kmalloc(size, gfp_flags);
-		if(!rx_align_buf){
-			DBG(dev, "no rx align buf\n");
-			goto enomem;
-		}
-		req->buf = rx_align_buf;
-	}
-#endif
 	retval = usb_ep_queue(out, req, gfp_flags);
 	if (retval == -ENOMEM)
 enomem:
@@ -298,11 +287,13 @@ static void rx_complete(struct usb_ep *ep, struct usb_request *req)
 
 	/* normal completion */
 	case 0:
-		//sword
-#ifdef USE_DMA_UNALIGN
-		memcpy(skb->data, req->buf, req->actual);
-#endif
 		skb_put(skb, req->actual);
+		if (gadget_dma32(dev->gadget) && NET_IP_ALIGN) {
+			u8 *data = skb->data;
+			size_t len = skb_headlen(skb);
+			skb_reserve(skb, NET_IP_ALIGN);
+			memmove(skb->data, data, len);
+		}
 
 		if (dev->unwrap) {
 			unsigned long	flags;
@@ -371,10 +362,6 @@ quiesce:
 		break;
 	}
 
-	//sword
-#ifdef USE_DMA_UNALIGN
-	kfree(req->buf);
-#endif
 	if (skb)
 		dev_kfree_skb_any(skb);
 	if (!netif_running(dev->net)) {
@@ -431,7 +418,6 @@ static int alloc_requests(struct eth_dev *dev, struct gether *link, unsigned n)
 {
 	int	status;
 
-	DBG(dev, "%s\r\n", __func__);
 	spin_lock(&dev->req_lock);
 	status = prealloc(&dev->tx_reqs, link->in_ep, n);
 	if (status < 0)
@@ -500,10 +486,6 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	case 0:
 		dev->net->stats.tx_bytes += skb->len;
 	}
-	//sword
-#ifdef USE_DMA_UNALIGN
-	kfree(req->buf);
-#endif
 	dev->net->stats.tx_packets++;
 
 	spin_lock(&dev->req_lock);
@@ -604,21 +586,28 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 		length = skb->len;
 	}
+
+	/*
+	 * Align data to 32bit if the dma controller requires it
+	 */
+	if (gadget_dma32(dev->gadget)) {
+		unsigned long align = (unsigned long)skb->data & 3;
+		if (WARN_ON(skb_headroom(skb) < align)) {
+			dev_kfree_skb_any(skb);
+			goto drop;
+		} else if (align) {
+			u8 *data = skb->data;
+			size_t len = skb_headlen(skb);
+			skb->data -= align;
+			memmove(skb->data, data, len);
+			skb_set_tail_pointer(skb, len);
+		}
+	}
+
 	req->buf = skb->data;
 	req->context = skb;
 	req->complete = tx_complete;
 
-#ifdef USE_DMA_UNALIGN
-	{
-		unsigned char *tx_align_buf = kmalloc(length, GFP_ATOMIC);
-		if(!tx_align_buf) {
-			pr_warning("cannot alloc mem for tx\r\n");
-			return NETDEV_TX_BUSY;
-		}
-		memcpy(tx_align_buf, skb->data, length);
-		req->buf = tx_align_buf;
-	}
-#endif
 	/* use zlp framing on tx for strict CDC-Ether conformance,
 	 * though any robust network rx path ignores extra padding.
 	 * and some hardware doesn't like to write zlps.
