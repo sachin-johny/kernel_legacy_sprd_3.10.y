@@ -417,20 +417,16 @@ static void sprd_spi_init(void)
 
     for (i = 0; i < ARRAY_SIZE(gpio_func_cfg); i++) {
         gd = &gpio_func_cfg[i];
-
-//move gpio configuration to pin_map_openphone.c
-        //sprd_mfp_config(&gd->mfp, 1);
-
-        
-	gpio = (gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH) & GPIO_INDEX_MAX;
+        /*
+        sprd_mfp_config(&gd->mfp, 1);
+        */
+        gpio = (gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH) & GPIO_INDEX_MAX;
         value = !!(gd->io & GPIO_OUTPUT_DEFAUT_VALUE_HIGH);
         if (gpio_request(gpio, gd->desc))
             printk(KERN_WARNING "%s : [%s] gpio %d request failed!\n", __func__, gd->desc, gpio);
-        //if (gd->mfp & MFP_IO_OE) {
-        if (gd->mfp & GPIO_DIRECTION_OUTPUT) {
+        if (gd->io & GPIO_DIRECTION_OUTPUT){
             gpio_direction_output(gpio, value);
-        //} else if (gd->mfp & MFP_IO_IE) {
-        } else if (gd->mfp & GPIO_DIRECTION_INPUT) {
+        } else if (gd->io & GPIO_DIRECTION_INPUT) {
             gpio_direction_input(gpio);
         } else {
             //printk(KERN_WARNING "%s : not support gpio mode!\n", __func__);
