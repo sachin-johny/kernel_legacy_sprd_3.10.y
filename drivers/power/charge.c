@@ -95,7 +95,7 @@ uint16_t voltage_capacity_table[][2] =
 };
 
 uint16_t charging_voltage_capacity_table[][2]={
-    {4000,  100},
+    {4210,  100},
     {3900,  80},
     {3700,  60},
     {3650,  20},
