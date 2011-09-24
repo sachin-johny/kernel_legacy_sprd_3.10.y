@@ -337,6 +337,14 @@ static int do_copybit_crop_by_dma(struct s2d_blit_req * req)
 	return crop_by_dma(req, byte_per_pixel);	
 }
 
+static inline void clean_cache_all(void)
+{
+	__asm__ __volatile__(
+"1:		mrc	p15, 0, r15, c7, c10, 3 \n\t"
+		"bne	1b\n\t"
+	::);
+}
+
 static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg){
 	struct s2d_blit_req_list *parameters;
 	int dma_copy_ret = -1, num = 0;
@@ -355,6 +363,10 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 		return -3;
 	}
 
+	/* FIXME: work around for pmem flush failure */
+	if (parameters->req[0].src.base >= PMEM_BASE_PHY_ADDR)
+		clean_cache_all();
+
 	for(num = 0; num < parameters->count; num++){
 		struct s2d_blit_req *params;
 		params = &parameters->req[num];
@@ -372,9 +384,6 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 			/* it's RGBA actually, so we need to change it first */
 			int i, j;
 			unsigned int *src, *src_base, *dst;
-
-			/* FIXME: work around for pmem flush failure */
-			flush_cache_all();
 
 			src_base = (unsigned int *)GET_VA(params->src.base);
 			src_base += params->src_rect.y * params->src.width + 
