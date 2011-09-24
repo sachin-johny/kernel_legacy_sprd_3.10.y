@@ -81,9 +81,10 @@ extern   "C"
 
 #define CHGMNG_MAX_VCHG     0x3FF
 
-#define PREVRECHARGE        4000//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
+#define PREVRECHARGE        4160//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
 // restart the charge process.
-#define PREVCHGEND      (4220)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
+#define CHGMNG_OVER_CHARGE (4260)
+#define PREVCHGEND      (4210)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
 #define CHGMNG_SAFTY_CUTOFF_POINT 960//837   // 4.33V. When the battery voltage is higher than this value, we will stop charging forcibly.
 
 #define BUSYSTATE       1   //when the phone is staying in busy state(for example, talking, play games or play music, etc.),we will stop
@@ -96,7 +97,7 @@ extern   "C"
 #define VBAT_STATISTIC_PERIOD 2000
 #define VBAT_STATISTIC_BUFFERSIZE 150
 
-#define CHGMNG_DEFAULT_SWITPOINT CHG_SWITPOINT_16          // power up default point
+#define CHGMNG_DEFAULT_SWITPOINT CHG_SWITPOINT_20          // power up default point
 #define CHARGING_DETECT_INTERVAL 1000
 #define CHARGING_TOUT 18000
 #define CHGMNG_SHUTDOWN_VPROG 100
@@ -139,7 +140,8 @@ extern   "C"
 
 #define CC_CV_VOLTAGE 4200
 #define CV_REF_CURRENT 4
-#define CV_STOP_CURRENT 3
+#define CV_STOP_CURRENT 5
+#define PLUSE_CURRENT 4
 
 #define OVP_ADC_VALUE 0x198
 #define OVP_ADC_RECV_VALUE 0x170
