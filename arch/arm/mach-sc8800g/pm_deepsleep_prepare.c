@@ -1253,16 +1253,18 @@ static void deep_sleep_suspend(struct work_struct *work)
 }
 
 #define IRQ_GPIO (0x1UL << 8)
-
+/*
 int in_calibration(void);
-
+*/
 #ifdef CONFIG_PM
 int sc8800g_enter_deepsleep(int inidle)
 {
     int status;
     u32 t0, t1, delta;
     int ret = 0;
+    /*
     int calibration_enable = 0;
+    */
 	unsigned long flags;
 
     REG_LOCAL_VALUE_DEF;
@@ -1283,11 +1285,12 @@ int sc8800g_enter_deepsleep(int inidle)
         In calibration mode, enter deep sleep mode anyway
         without taking care of clock status.
     */
+    /*
     calibration_enable = in_calibration();
     if (sprd_sleep_mode_info) {
         if (calibration_enable) printk("##: In Calibration mode!\n");
     }
-
+    */
 /*
     t0 = get_sys_cnt();
     sc8800g_cpu_standby();
@@ -1323,7 +1326,7 @@ int sc8800g_enter_deepsleep(int inidle)
 
 	sc8800g_save_pll();
 
-    if ((status & DEVICE_AHB) && (!calibration_enable))  {
+    if (status & DEVICE_AHB)  {
 		sleep_mode = SLEEP_MODE_ARM_CORE;
 		if (sprd_sleep_mode_info) printk("## sleep[ARM_CORE].\n");
 		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
@@ -1335,7 +1338,7 @@ int sc8800g_enter_deepsleep(int inidle)
 		idle_time += delta;
 		sc8800g_restore_pll();
     }
-    else if ((status & DEVICE_APB) && (!calibration_enable)) {
+    else if (status & DEVICE_APB) {
         sleep_mode = SLEEP_MODE_MCU;
 	if (sprd_sleep_mode_info) printk("## sleep[MCU].\n");
 	if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
