@@ -42,6 +42,7 @@ static inline void arch_idle(void)
 
 #define HWRST_STATUS_RECOVERY (0x20)
 #define HWRST_STATUS_NORMAL (0X40)
+#define HWRST_STATUS_ALARM (0X50)
 static inline void arch_reset(char mode, const char *cmd)
 {
 	/* our chip reset code */
@@ -49,6 +50,8 @@ static inline void arch_reset(char mode, const char *cmd)
     for(i=0xffff; i>0;i--);
     if(!(strncmp(cmd, "recovery", 8))){
        ANA_REG_SET(ANA_HWRST_STATUS, HWRST_STATUS_RECOVERY);
+	}else if(!strncmp(cmd, "alarm", 5)){
+       ANA_REG_SET(ANA_HWRST_STATUS, HWRST_STATUS_ALARM);
     }else{
         ANA_REG_SET(ANA_HWRST_STATUS, HWRST_STATUS_NORMAL);
     }
