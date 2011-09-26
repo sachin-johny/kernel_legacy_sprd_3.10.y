@@ -36,6 +36,9 @@
 #include <mach/io.h>
 #include <mach/clock_common.h>
 #include <mach/gpio.h>
+/* wakelock UART0 for BT */
+#include <linux/wakelock.h>  
+#include <mach/regs_int.h>    
 
 //#define CONFIG_TS0710_MUX_UART
 
@@ -67,6 +70,7 @@
 /*UART IRQ num*/
 #ifdef CONFIG_ARCH_SC8800G
 
+#define IRQ_WAKEUP 	0    // Wakeup IRQ for BT
 #define IRQ_UART0	2
 #define IRQ_UART1	3
 #define IRQ_UART2	4
@@ -142,6 +146,8 @@ extern int is_cmux_mode(void);
 void (*serial_mux_dispatcher)(struct tty_struct *tty) = NULL;
 void (*serial_mux_sender)(void) = NULL;
 #endif
+
+static struct wake_lock uart_rx_lock;  // UART0  RX  IRQ 
 
 static inline unsigned int serial_in(struct uart_port *port,int offset)
 {
@@ -366,9 +372,26 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 	return IRQ_HANDLED;
 }
 
+/*
+ *this handles the interrupt from rx0 wakeup
+ */
+static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
+{
+	// set and then clear BIT_15
+	u32 val;
+	val = __raw_readl(INT_UINT_CTL);	
+	val |= BIT_15;
+	__raw_writel(val, INT_UINT_CTL);
+	val &= ~ BIT_15;
+	__raw_writel(val, INT_UINT_CTL);
+
+	return IRQ_HANDLED;
+}
+
 static void serialsc8800_pin_config(void)
 {
      __raw_bits_or((1<<22),SPRD_GREG_BASE+0x8);
+     __raw_bits_or((1<<20),SPRD_GREG_BASE+0x8); // UART0
      __raw_bits_or((1<<6),SPRD_GREG_BASE+0x28);
 }
 
@@ -424,6 +447,18 @@ static int serialsc8800_startup(struct uart_port *port)
  	*/ 
 #ifdef CONFIG_ARCH_SC8800G
 	ret = request_irq(port->irq,serialsc8800_interrupt_chars,IRQF_DISABLED,"serial",port);
+	{
+		int ret2 = 0;
+
+		if (!port->line) {
+			ret2 = request_irq(IRQ_WAKEUP,wakeup_rx_interrupt,IRQF_SHARED,"wakeup_rx",port);
+			if(ret2)
+			{
+		 		printk("fail to request wakeup irq\n");
+				free_irq(IRQ_WAKEUP,NULL);
+			}
+		}
+	}
 #endif
 #ifdef CONFIG_ARCH_SC8800S
 	ret = request_irq(port->irq,serialsc8800_interrupt_chars,IRQF_SHARED,"serial",port);
@@ -452,6 +487,10 @@ static void serialsc8800_shutdown(struct uart_port *port)
 	serial_out(port,ARM_UART_IEN,0x0);
 	serial_out(port,ARM_UART_ICLR,0xffffffff);
 	free_irq(port->irq,port);
+
+	if (!port->line) {
+		free_irq(IRQ_WAKEUP,port);
+	}
 	
 }
 static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *termios,struct ktermios *old)
@@ -919,9 +958,22 @@ static int serialsc8800_remove(struct platform_device *dev)
 	}
     return 0;
 }
+static int serialsc8800_suspend(struct platform_device *dev, pm_message_t state)
+{		
+	return 0;
+}
+
+static int serialsc8800_resume(struct platform_device *dev)
+{
+    wake_lock_timeout(&uart_rx_lock, 300);	//3s
+    return 0;
+}
+
 static struct platform_driver serialsc8800_driver = {
 	.probe = serialsc8800_probe,
 	.remove = serialsc8800_remove,
+	.suspend = serialsc8800_suspend,
+	.resume = serialsc8800_resume,
 	.driver = {
 		.name = "serial_sp",
 		.owner = THIS_MODULE,
@@ -930,7 +982,7 @@ static struct platform_driver serialsc8800_driver = {
 static int __init serialsc8800_init(void)
 {
 	printk(KERN_INFO"Serial:sc8800s driver $Revision:1.0 $\n");
-
+	wake_lock_init(&uart_rx_lock, WAKE_LOCK_SUSPEND, "uart_rx_lock"); 	
 	return platform_driver_register(&serialsc8800_driver);
 }
 static void __exit serialsc8800_exit(void)

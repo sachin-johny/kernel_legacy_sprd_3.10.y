@@ -199,6 +199,11 @@ static struct resource sprd_serial_resources[] = {
                 .end = IRQ_SER2_INT,
 		.name = "serial_res5",
                 .flags = IORESOURCE_IRQ,
+        },
+	[6] = {		
+                .start = IRQ_SLEEP_INT,
+                .end = IRQ_SLEEP_INT,
+                .flags = IORESOURCE_IRQ,
         }
 };
 

@@ -31,7 +31,8 @@
 #define ANA_GPIO_RIS           (SPRD_MISC_BASE + 0x600 + 0x1c)
 
 
-#define WKAEUP_SRC_KEAPAD  BIT_10
+#define WKAEUP_SRC_KEAPAD   BIT_10
+#define WKAEUP_SRC_RX0      BIT_0
 #define WAKEUP_SRC_PB		BIT_3
 #define WAKEUP_SRC_CHG		BIT_2
 
@@ -56,6 +57,7 @@ int sc8800g_set_wakeup_src(void)
 	u32 val;
 #ifdef CONFIG_MACH_SP6810A
 	wakeup_src = (WKAEUP_SRC_KEAPAD |
+				WKAEUP_SRC_RX0 |
 				WAKEUP_SRC_PB |
 				WAKEUP_SRC_CHG);
 	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
@@ -64,6 +66,18 @@ int sc8800g_set_wakeup_src(void)
 		val |= WKAEUP_SRC_KEAPAD;
 		__raw_writel(val, INT_IRQ_EN);
 	}
+		 
+	//enable UART0 Wake up Source  for  BT	
+	if (WKAEUP_SRC_RX0 & wakeup_src) {
+		val = __raw_readl(INT_IRQ_EN);
+		val |= (BIT_0 | BIT_2);
+		__raw_writel(val, INT_IRQ_EN);
+		
+		val = __raw_readl(INT_UINT_CTL);	
+		val |= BIT_0 | BIT_16;
+		__raw_writel(val, INT_UINT_CTL);
+	}
+
 	if (WAKEUP_SRC_PB & wakeup_src) {
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_PB);
@@ -77,6 +91,7 @@ int sc8800g_set_wakeup_src(void)
 
 #ifdef CONFIG_MACH_SP8805GA
 	wakeup_src = (WKAEUP_SRC_KEAPAD | 
+				WKAEUP_SRC_RX0 |
 				 WAKEUP_SRC_CHG | 
 				 WAKEUP_SRC_PB);
 	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
@@ -84,6 +99,17 @@ int sc8800g_set_wakeup_src(void)
 		irq_enable = val;
 		val |= WKAEUP_SRC_KEAPAD;
 		__raw_writel(val, INT_IRQ_EN);
+	}
+
+	//enable UART0 Wake up Source  for  BT	
+	if (WKAEUP_SRC_RX0 & wakeup_src) {
+		val = __raw_readl(INT_IRQ_EN);
+		val |= (BIT_0 | BIT_2);
+		__raw_writel(val, INT_IRQ_EN);
+		
+		val = __raw_readl(INT_UINT_CTL);	
+		val |= BIT_0 | BIT_16;
+		__raw_writel(val, INT_UINT_CTL);
 	}
 	if (WAKEUP_SRC_PB & wakeup_src) {
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
@@ -98,6 +124,7 @@ int sc8800g_set_wakeup_src(void)
 
 #ifdef CONFIG_MACH_OPENPHONE
 	wakeup_src = (WKAEUP_SRC_KEAPAD |
+				WKAEUP_SRC_RX0 |
 				WAKEUP_SRC_CHG |
 				 WAKEUP_SRC_PB);
 	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
@@ -105,6 +132,17 @@ int sc8800g_set_wakeup_src(void)
 		irq_enable = val;
 		val |= WKAEUP_SRC_KEAPAD;
 		__raw_writel(val, INT_IRQ_EN);
+	}
+
+	//enable UART0 Wake up Source  for  BT	
+	if (WKAEUP_SRC_RX0 & wakeup_src) {
+		val = __raw_readl(INT_IRQ_EN);
+		val |= (BIT_0 | BIT_2);
+		__raw_writel(val, INT_IRQ_EN);
+		
+		val = __raw_readl(INT_UINT_CTL);	
+		val |= BIT_0 | BIT_16;
+		__raw_writel(val, INT_UINT_CTL);
 	}
 	if (WAKEUP_SRC_PB & wakeup_src) {
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
