@@ -2933,12 +2933,18 @@ static int send_ack(ts0710_con * ts0710, __u8 seq_num)
 
 int mux_set_thread_pro(int pro)
 {
-	struct sched_param s = {.sched_priority = MAX_RT_PRIO - pro };
+	int ret;
+	struct sched_param s;
 
 	/* just for this write, set us real-time */
 	if (!task_has_rt_policy(current)) {
-// kewang		cap_raise(current->replacement_session_keyring->cap_effective, CAP_SYS_NICE); //kewang add
-		sched_setscheduler(current, SCHED_RR, &s);
+		struct cred *new = prepare_creds();
+		cap_raise(new->cap_effective, CAP_SYS_NICE);
+		commit_creds(new);
+		s.sched_priority = MAX_RT_PRIO - pro;
+		ret = sched_setscheduler(current, SCHED_RR, &s);
+		if(ret!=0)
+			printk("MUX: set priority failed!\n");
 	}
 	return 0;
 }
