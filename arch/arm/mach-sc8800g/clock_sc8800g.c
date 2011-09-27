@@ -1967,6 +1967,11 @@ int sc8800g_get_clock_status(void)
 		        CLK_FW_INFO("###: clcok[%s] is on APB.\n", pstub[index].name);
 			*/
 		    }
+		    if (pstub[index].flags & DEVICE_VIR) {
+			/*
+		        CLK_FW_INFO("###: clcok[%s] is on VIR.\n", pstub[index].name);
+			*/
+		    }
 		    if (pstub[index].flags & DEVICE_AWAKE) {
 			/*
 		        CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", pstub[index].name);
@@ -1995,6 +2000,9 @@ int sc8800g_get_clock_info(void)
 		    }
 		    if (pstub[index].flags & DEVICE_APB) {
 		        CLK_FW_INFO("###: clcok[%s] is on APB.\n", pstub[index].name);
+		    }
+		    if (pstub[index].flags & DEVICE_VIR) {
+		        CLK_FW_INFO("###: clcok[%s] is on VIR.\n", pstub[index].name);
 		    }
 		    if (pstub[index].flags & DEVICE_AWAKE) {
 		        CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", pstub[index].name);
