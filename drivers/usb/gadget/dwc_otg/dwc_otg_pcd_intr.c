@@ -591,6 +591,7 @@ void dwc_otg_pcd_stop(dwc_otg_pcd_t * pcd)
 	/* don't disconnect drivers more than once */
 	if (pcd->ep0state == EP0_DISCONNECT) {
 		trace_printk("%s() Already Disconnected\n", __func__);
+		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 		return;
 	}
 	pcd->ep0state = EP0_DISCONNECT;
