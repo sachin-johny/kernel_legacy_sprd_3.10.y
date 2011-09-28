@@ -1253,14 +1253,18 @@ static void deep_sleep_suspend(struct work_struct *work)
 }
 
 #define IRQ_GPIO (0x1UL << 8)
+/*
 int in_calibration(void);
+*/
 #ifdef CONFIG_PM
 int sc8800g_enter_deepsleep(int inidle)
 {
     int status;
     u32 t0, t1, delta;
     int ret = 0;
+/*
     int calibration_enable = 0;
+*/
 	unsigned long flags;
 
     REG_LOCAL_VALUE_DEF;
@@ -1277,10 +1281,12 @@ int sc8800g_enter_deepsleep(int inidle)
 	__raw_writel(IRQ_GPIO, INT_FIQ_DISABLE);
 	*/ 
     status = sc8800g_get_clock_status();
+/*
     calibration_enable = in_calibration();
     if (sprd_sleep_mode_info) {
         if (calibration_enable) printk("##: In Calibration mode!\n");
     }
+*/
 /*
     t0 = get_sys_cnt();
     sc8800g_cpu_standby();
@@ -1313,14 +1319,14 @@ int sc8800g_enter_deepsleep(int inidle)
 	if (val & DRF_AUTO_SLEEP_MODE) printk("#####: EMC_DCFG2 does set DRF_AUTO_SLEEP_MODE!\n");
 	if (!(val & DRF_REF_CNT_RST)) printk("####: EMC_DCFG2 doesn't set DRF_REF_CNT_RST!\n");
 #endif
-
+/*
     if (calibration_enable && (status & DEVICE_TEYP_MASK)) {
 	 if (sprd_sleep_mode_info) {
 	        printk("## sleep[Calibration].\n");
 	 }
         return 0;
     }
-
+*/
 	sc8800g_save_pll();
 
     if (status & DEVICE_AHB)  {

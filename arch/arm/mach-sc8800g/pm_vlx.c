@@ -20,7 +20,8 @@
 #include <asm/io.h>
 #include <mach/regs_ahb.h>
 #include <mach/test.h>
-
+#include <mach/clock_common.h>
+#include <mach/clock_sc8800g.h>
 
 #define ANA_INT_STATUS             (SPRD_MISC_BASE +0x380+ 0x00)
 #define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
@@ -176,15 +177,25 @@ static int sprd_check_battery(void)
 	}
 	return ret_val;
 }
+int in_calibration(void);
 int sc8800g_pm_enter(suspend_state_t state)
 {
 	int ret_val = 0;
 	u32 suspend_start, suspend_end, suspend_time;
 	unsigned long flags;
-
+    int calibration_enable = 0;
 	/* for battery checking. */
 	u32 battery_check_start;
+    int status;
+    	
+    calibration_enable = in_calibration();
+    /*
+    if (calibration_enable) printk("##: In Calibration mode!\n");
+    */
+    status = sc8800g_get_clock_status();
 
+    if (calibration_enable && (status & DEVICE_AHB)) return 0;
+    
 	suspend_start = suspend_end = get_sys_cnt();
 	suspend_time = suspend_end - suspend_start;
 
