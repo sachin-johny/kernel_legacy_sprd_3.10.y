@@ -170,22 +170,28 @@ static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int 
   int i,j,timeout, block;
   int tlen = 0;
   int block_bytes = 128; //MAX 128
-  int saferx = min(len,8);
+  int saferx = 4;
   unsigned char* data;
 
 #define MYLOCAL_TIMEOUT 0xff0000
+    struct sprd_spi_data *sprd_data = cookie;
+    struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+    u32 spi_ctl0 = sprd_ctrl_data->spi_ctl0;
 
-  struct sprd_spi_data *sprd_data = cookie;
-  // struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
-  
   data = (unsigned char *)data_in;
 
   /* Set rx watermark */
   spi_writel(saferx, SPI_CTL3);
 
+  /* Set 32 bit mode */
+#ifdef RX32
+  spi_ctl0 &= ~(0x1f<<2);
+  spi_writel(spi_ctl0,SPI_CTL0);
+#endif
+
   /* Enable rx only */
-  spi_write_reg(SPI_CTL1, 12, 0x01, 0x03);
-  
+  spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); 
+
   for (i = 0, tlen = len; tlen;i++) {
     if (tlen > block_bytes) {
       block = block_bytes;
@@ -197,33 +203,40 @@ static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int 
     
     spi_writel(0x0000, SPI_CTL4); /* stop only rx */
     spi_writel((1 << 9) | block, SPI_CTL4);
-
+    
     for (j = 0; j < block/saferx; j++) {
+      /* wait for rx fifo not empty */
       int k;
-      
+      u32 tmp;
       /* wait for rx fifo above watermark */
       for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_RX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
-#if SPRD_SPI_DEBUG
-      if(timeout==MYLOCAL_TIMEOUT)printk("SPI: rx timeout: %i\n", timeout);
-#endif
       
       /* Read the data */
+#ifndef RX32
       for(k=0;k<saferx;k++)
+      {
 	data[i*block_bytes+j*saferx+k] = spi_readl(SPI_TXD);
-    }
-    
-    for (j = 0; j < block%saferx; j++) {
-      /* wait for rx fifo above watermark */
-      for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
-#if SPRD_SPI_DEBUG
-      if(timeout==MYLOCAL_TIMEOUT) printk("SPI: rx timeout, frag\n");
+	
+      }
+#else
+      tmp = spi_readl(SPI_TXD);
+      ((u32*)data)[i*block_bytes+2*j] = _doSWAP32(tmp);
 #endif
+
+    }
+#ifdef RX32
+    if(block%saferx)
+    spi_writel(sprd_ctrl_data->spi_ctl0,SPI_CTL0);
+#endif
+    for (j = 0; j < block%saferx; j++) {
+      /* wait for rx fifo not empty */
+      for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+      /* Read the data */
       data[i*block_bytes+(block/saferx)*saferx + j] = spi_readl(SPI_TXD);
     }
   }
-  
+  spi_writel(sprd_ctrl_data->spi_ctl0,SPI_CTL0);
   spi_writel(0x01 | (0x00 << 8), SPI_CTL3);
-
   return 0;
 }
 #endif
