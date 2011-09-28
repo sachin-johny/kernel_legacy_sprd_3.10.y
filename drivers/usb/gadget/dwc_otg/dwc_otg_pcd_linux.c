@@ -70,6 +70,7 @@
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/wakelock.h>
+#include <linux/switch.h>
 #include <mach/board.h>
 #include <mach/usb.h>
 
@@ -95,6 +96,7 @@ static struct gadget_wrapper {
 	struct workqueue_struct *detect_wq;
 	struct work_struct detect_work;
 
+	struct switch_dev sdev;
 	int udc_startup;
 	int enabled;
 	int vbus;
@@ -1097,7 +1099,7 @@ static void usb_detect_works(struct work_struct *work)
 		}
 	}
 	spin_unlock(&udc_lock);
-
+	switch_set_state(&d->sdev, !!plug_in);
 }
 
 static irqreturn_t usb_detect_handler(int irq, void *dev_id)
@@ -1235,6 +1237,16 @@ int pcd_init(
 
 	INIT_WORK(&gadget_wrapper->detect_work, usb_detect_works);
 	gadget_wrapper->detect_wq = create_singlethread_workqueue("usb detect wq");
+	/*
+	 * register a switch device for sending pnp message,
+	 * for the user app need be notified immediately
+	 * when plug in & plug out happen;
+	 */
+	gadget_wrapper->sdev.name = "charger_cable";
+	retval = switch_dev_register(&gadget_wrapper->sdev);
+	if (retval){
+		pr_warning("register switch dev error:%s\n", __func__);
+	}
 
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
 	gadget_wrapper->udc_startup = 1;
@@ -1269,9 +1281,10 @@ struct platform_device *_dev
 	 */
 	//free_irq(_dev->irq, pcd);
 	dwc_otg_pcd_remove(pcd);
-	free_wrapper(gadget_wrapper);
 	destroy_workqueue(gadget_wrapper->detect_wq);
 	wake_lock_destroy(&usb_wake_lock);
+	switch_dev_unregister(&gadget_wrapper->sdev);
+	free_wrapper(gadget_wrapper);
 	pcd = 0;
 }
 
