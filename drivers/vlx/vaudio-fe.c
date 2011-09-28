@@ -119,6 +119,146 @@ static pid_t              vaudio_thread_id;
 static struct semaphore   vaudio_thread_sem;
 static bool		  vaudio_thread_aborted;
 static unsigned char	  vaudio_thread_init_now;
+#define VAUDIO_PROC_SYNC    1
+#define VAUDIO_VTIMER_ROUND_JIFFIES (msecs_to_jiffies(200))
+
+#if VAUDIO_PROC_SYNC
+static int vaudio_snd_card_close(struct snd_pcm_substream* substream);
+static int vaudio_snd_trigger(struct snd_pcm_substream* substream, int cmd);
+static DEFINE_MUTEX(vaudio_proc_sync_lock);
+static struct vaudio_stream *vrs; // vaudio_record_stream;
+static volatile int vaudio_sync_force_close;
+
+#include <linux/timer.h>
+static struct timer_list lutimer;
+#if 1
+static void lutimer_handler(unsigned long data)
+{
+    struct vaudio_stream *s = vrs;
+    struct snd_pcm_runtime *runtime = s->stream->runtime;
+    int periods_avail = runtime->periods - snd_pcm_capture_avail(runtime) / runtime->period_size;
+    printk("vaudio dummy capture data flushing\n");
+    memset(s->stream->dma_buffer.area, 0, NK_VAUDIO_MAX_RING_SIZE);
+    while (periods_avail-- > 2) {
+        s->hwptr_done++;
+        s->hwptr_done %= runtime->periods;
+        snd_pcm_period_elapsed(s->stream);
+        s->periods_avail = 2;
+    }
+    mod_timer(&lutimer, jiffies + VAUDIO_VTIMER_ROUND_JIFFIES);
+}
+
+static unsigned long round_jiffies_common(unsigned long j, int cpu,
+		bool force_up)
+{
+	int rem;
+	unsigned long original = j;
+
+	/*
+	 * We don't want all cpus firing their timers at once hitting the
+	 * same lock or cachelines, so we skew each extra cpu with an extra
+	 * 3 jiffies. This 3 jiffies came originally from the mm/ code which
+	 * already did this.
+	 * The skew is done by adding 3*cpunr, then round, then subtract this
+	 * extra offset again.
+	 */
+	j += cpu * 3;
+
+	rem = j % HZ;
+
+	/*
+	 * If the target jiffie is just after a whole second (which can happen
+	 * due to delays of the timer irq, long irq off times etc etc) then
+	 * we should round down to the whole second, not up. Use 1/4th second
+	 * as cutoff for this rounding as an extreme upper bound for this.
+	 * But never round down if @force_up is set.
+	 */
+	if (rem < HZ/4 && !force_up) /* round down */
+		j = j - rem;
+	else /* round up */
+		j = j - rem + HZ;
+
+	/* now that we have rounded, subtract the extra skew again */
+	j -= cpu * 3;
+
+	if (j <= jiffies) /* rounding ate our timeout entirely; */
+		return original;
+	return j;
+}
+
+static unsigned long round_jiffies2(unsigned long j)
+{
+	return round_jiffies_common(j, raw_smp_processor_id(), false);
+}
+
+static int lutimer_init(void)
+{
+    init_timer(&lutimer);
+    lutimer.expires = round_jiffies2(jiffies + VAUDIO_VTIMER_ROUND_JIFFIES);
+    lutimer.data = 1;
+    lutimer.function = &lutimer_handler;
+    add_timer(&lutimer);
+    return 0;
+}
+#endif
+
+static void lutimer_exit(void)
+{
+    if (lutimer.data) {
+        del_timer_sync(&lutimer);
+        lutimer.data = 0;
+    }
+}
+#include <linux/proc_fs.h>
+static int
+vaudio_proc_read(char *page, char **start, off_t offset,
+               int count, int *eof, void *data)
+{
+    char *p = page;
+    char *endp = page + count;
+
+    mutex_lock(&vaudio_proc_sync_lock);
+    p += snprintf(p, endp - p, "%d", vrs ? 1 : 0);
+    mutex_unlock(&vaudio_proc_sync_lock);
+
+    return (p - page);
+}
+
+static int
+vaudio_proc_write(struct file *f, const char *buf, unsigned long len, void *data)
+{
+    mutex_lock(&vaudio_proc_sync_lock);
+    if (vrs) {
+        if (vaudio_sync_force_close == 0) {
+            vaudio_sync_force_close = 1;
+            lutimer_init();
+            // snd_pcm_stop(vrs->stream, SNDRV_PCM_STATE_XRUN);
+        }
+    }
+    mutex_unlock(&vaudio_proc_sync_lock);
+    return len;
+}
+
+static struct proc_dir_entry *vaudio_proc = NULL;
+static void vaudio_proc_create(const char *name)
+{
+    vaudio_proc = proc_mkdir("vaudio", NULL);
+    if (vaudio_proc) {
+        struct proc_dir_entry *r;
+        r = create_proc_entry(name, 0777, vaudio_proc);
+        r->read_proc = vaudio_proc_read;
+        r->write_proc = vaudio_proc_write;
+    }
+}
+
+static void vaudio_proc_delete(const char *name)
+{
+    if (vaudio_proc) {
+        remove_proc_entry(name, vaudio_proc);
+        remove_proc_entry("vaudio", NULL);
+    }
+}
+#endif
 
 #ifdef VAUDIO_CONFIG_NK_PMEM
     static int
@@ -226,7 +366,15 @@ vaudio_intr_data (void* cookie, NkXIrq xirq)
     const nku32_f mask   = ring->imask;
     const nku32_f nresp  = ring->iresp;
     bool	 trigger = 0;
-
+#if VAUDIO_PROC_SYNC
+    if (vaudio_sync_force_close &&
+        s->stream->pcm->device == 0 &&
+        s->stream->pstr->stream == SNDRV_PCM_STREAM_CAPTURE) {
+        while (vaudio_send_data(s) >= 0);
+        // memset(s->stream->dma_buffer.area, 0, NK_VAUDIO_MAX_RING_SIZE);
+        return;
+    }
+#endif
     (void) xirq;
     if (s->active) {
 	struct snd_pcm_runtime* runtime = s->stream->runtime;
@@ -431,6 +579,13 @@ vaudio_snd_card_open (struct snd_pcm_substream* substream)
     ctrl->command     = NK_VAUDIO_COMMAND_OPEN;
     nkops.nk_xirq_trigger(ctrl->cxirq, vlink->s_id);
     down(&s->ctrl_sem);
+#if VAUDIO_PROC_SYNC
+    if (dev == 0 && stream_id == SNDRV_PCM_STREAM_CAPTURE) {
+        mutex_lock(&vaudio_proc_sync_lock);
+        vrs = s;
+        mutex_unlock(&vaudio_proc_sync_lock);
+    }
+#endif
     return ctrl->status;
 }
 
@@ -442,7 +597,15 @@ vaudio_snd_card_close (struct snd_pcm_substream* substream)
     const int             stream_id = substream->pstr->stream;
     struct vaudio_stream* s = &chip->s[dev][stream_id];
     NkVaudioCtrl*         ctrl = s->ctrl;
-
+#if VAUDIO_PROC_SYNC
+    mutex_lock(&vaudio_proc_sync_lock);
+    if (dev == 0 && stream_id == SNDRV_PCM_STREAM_CAPTURE && vaudio_sync_force_close) {
+        lutimer_exit();
+        vrs = NULL;
+        vaudio_sync_force_close = 0;
+    }
+    mutex_unlock(&vaudio_proc_sync_lock);
+#endif
     ADEBUG();
     s->stream = NULL;
     ctrl->session_type = NK_VAUDIO_SS_TYPE_INVAL;
@@ -1183,6 +1346,9 @@ vaudio_snd_probe (void)
 vaudio_exit (void)
 {
     ADEBUG();
+#if VAUDIO_PROC_SYNC
+    vaudio_proc_delete("close");
+#endif
     vaudio_thread_aborted = 1;
     up (&vaudio_thread_sem);
     wait_for_completion (&vaudio_thread_completion);
@@ -1205,6 +1371,9 @@ vaudio_init (void)
 	ETRACE ("virtual audio ALSA card initialization failed\n");
 	return -ENODEV;
     }
+#if VAUDIO_PROC_SYNC
+    vaudio_proc_create("close");
+#endif
     return 0;
 }
 
