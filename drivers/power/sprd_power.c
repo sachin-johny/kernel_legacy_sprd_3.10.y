@@ -39,7 +39,7 @@
 #include <mach/regs_ana.h>
 #include <mach/adi_hal_internal.h>
 
-//#define CHG_DEBUG
+#define CHG_DEBUG
 //#define BATTERY_USE_WAKE_LOCK
 #define BATTERY_WAKE_LOCK_LENGTH (10*HZ)
 #ifdef CHG_DEBUG
@@ -896,6 +896,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	int ret;
 	struct sprd_battery_data *data;
 	int adc_value;
+    int i;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -942,10 +943,19 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	data->battery_timer.function = battery_handler;
 	data->battery_timer.data = (unsigned long)data;
 
-	adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
-	if(adc_value < 0)
-		adc_value = 0;
-	update_vbat_value(adc_value);
+    for(i=0;i<_BUF_SIZE;i++){
+retry_adc:
+        adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+        if(adc_value < 0){
+            DEBUG("ADC read error\n");
+            msleep(100);
+            goto retry_adc;
+            //adc_value = 0;
+        }else{
+            put_vbat_value(adc_value);
+        }
+    }
+	//update_vbat_value(adc_value);
 	update_vprog_value(0);
 	memset(vprog_buf, 0, sizeof(vprog_buf));
 	memset(temp_buf, 0, sizeof(temp_buf));
