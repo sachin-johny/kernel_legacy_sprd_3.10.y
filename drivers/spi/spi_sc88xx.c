@@ -615,7 +615,10 @@ static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_m
     unsigned int cs_change = 1;
 
     down(&sprd_data->process_sem_direct);
-
+    
+    if (list_empty(&msg->transfers)) {
+        return -EINVAL;
+    }
     cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
     cs_activate(sprd_data, spi);
 
