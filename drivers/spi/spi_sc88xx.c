@@ -220,7 +220,7 @@ static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int 
       }
 #else
       tmp = spi_readl(SPI_TXD);
-      ((u32*)data)[i*block_bytes+2*j] = _doSWAP32(tmp);
+      ((u32*)data)[i*block_bytes+j] = _doSWAP32(tmp);
 #endif
 
     }
@@ -615,10 +615,7 @@ static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_m
     unsigned int cs_change = 1;
 
     down(&sprd_data->process_sem_direct);
-    
-    if (list_empty(&msg->transfers)) {
-        return -EINVAL;
-    }
+
     cspi_trans = list_entry(msg->transfers.next, struct spi_transfer, transfer_list);
     cs_activate(sprd_data, spi);
 
