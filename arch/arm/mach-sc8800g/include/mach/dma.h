@@ -114,8 +114,35 @@
 #define DMA_USB_EP3_BASE                (DMA_REG_BASE + 0x06C0)//UID:0x1B
 #define DMA_USB_EP4_BASE                (DMA_REG_BASE + 0x06E0)//UID:0x1C
 
-#define DMA_CH_NUM                      31
-#define DMA_UID_NUM                     29
+#define DMA_CH_NUM                      31//original, why 31?
+#define DMA_UID_NUM                     29//original, why 29?
+ 
+#define DMA_UID_MIN                 0 //wong
+#define DMA_UID_MAX                 32 //wong
+#define DMA_CHN_MIN                 0 //wong
+#define DMA_CHN_MAX                 31 //wong
+#define DMA_CHN_NUM                 32 //wong
+#define DMA_MAX_PRI                     3//wong
+#define DMA_MIN_PRI                     0//wong
+#define ON                              1//wong
+#define OFF                             0//wong
+#define DMA_CHN_HARDWARE_START 4
+#define DMA_CHN_HARDWARE_END   31 
+#define DMA_CHN_SOFTWARE_START 0
+#define DMA_CHN_SOFTWARE_END   3
+#define SRC_ELEM_POSTM_SHIFT  16
+#define CFG_BLK_LEN_MASK      0xffff
+#define SRC_ELEM_POSTM_MASK   0xffff
+#define DST_ELEM_POSTM_MASK   0xffff
+#define SRC_BLK_POSTM_MASK   0x3ffffff
+#define DST_BLK_POSTM_MASK   0x3ffffff
+#define SOFTLIST_REQ_PTR_MASK  0xffff
+#define SOFTLIST_REQ_PTR_SHIFT 16
+#define SOFTLIST_CNT_MASK      0xffff
+#define DMA_UID_MASK           0x1f
+#define DMA_UID_SHIFT_STP      8
+#define DMA_UID_UNIT           4
+//wong
 
 //Chanel x dma contral regisers address ;
 #define DMA_CH_CFG0                     (0x0000)
@@ -144,6 +171,7 @@
 
 // DMA user id
 #define DMA_SOFT0                       0x00
+#define DMA_UID_SOFTWARE                0x00//wong
 #define DMA_UART0_TX                    0x01
 #define DMA_UART0_RX                    0x02
 #define DMA_UART1_TX                    0x03
@@ -177,20 +205,28 @@
 #define DMA_VB_AD1_BIT                  (1 << DMA_VB_AD1)
 
 // DMA_LISTDONE_INT_EN, DMA_BURST_INT_EN, DMA_TRANSF_INT_EN
+typedef enum{
+    LINKLIST_DONE,
+    BLOCK_DONE,
+    TRANSACTION_DONE,
+}dma_done_type;
+//wong
+
 enum {
     INT_NONE = 0x00,
     LLIST_DONE_EN = 0x01,
     BURST_DONE_EN = 0x02,
     TRANS_DONE_EN = 0x04,
 };
-enum {
+//enum {
+typedef enum {
     // For dma mode
     DMA_WRAP        = (1 << 0),
     DMA_NORMAL      = (1 << 1),
     DMA_LINKLIST    = (1 << 2),
     DMA_SOFTLIST    = (1 << 3),
-    
-};
+//};    
+}dma_work_mode;
 // DMA_CFG
 #define DMA_PAUSE_REQ   (1 << 8)
 // CH_CFG0
@@ -221,6 +257,19 @@ enum {
 #define DMA_BURST_STEP_DIR_BIT (1 << 25)
 #define DMA_BURST_STEP_ABS_SIZE_MASK (0x1FFFFFF)
 
+
+//wong
+#define DMA_UN_SWT_MODE (0<<28)
+#define DMA_FULL_SWT_MODE (1<<28)
+#define DMA_SWT_MODE0 (2<<28)
+#define DMA_SWT_MODE1 (3<<28)
+#define BURST_MODE_SINGLE (0 << 28)
+#define BURST_MODE_ANY (1 << 28)
+#define BURST_MODE_4   (3 << 28)
+#define BURST_MODE_8   (5 << 28)
+#define BURST_MODE_16  (7 << 28)
+//wong
+
 #define DMA_SOFT_WAITTIME   0x0f
 #define DMA_HARD_WAITTIME   0x0f
 
@@ -240,6 +289,41 @@ typedef struct sprd_dma_desc {
     volatile u32 sbm;  // src burst mode
     volatile u32 dbm;  // dst burst mode
 } sprd_dma_desc;
+
+//wong
+struct sprd_dma_channel_desc{
+   u32 cfg_swt_mode_sel;//
+   u32 cfg_src_data_width;
+   u32 cfg_dst_data_width;
+   u32 cfg_req_mode_sel;//request mode
+   u32 cfg_src_wrap_en;
+   u32 cfg_dst_wrap_en;
+   u32 cfg_blk_len;
+   u32 total_len;
+   u32 src_addr;
+   u32 dst_addr;
+   u32 llist_ptr;//linklist mode only, must be 8 words boundary
+   u32 src_elem_postm;
+   u32 dst_elem_postm;
+   u32 src_burst_mode;
+   u32 src_blk_postm;
+   u32 dst_burst_mode;
+   u32 dst_blk_postm;
+};
+
+struct sprd_dma_softlist_desc{
+   u32 softlist_size;
+   u32 softlist_cnt_incr;
+   u32 softlist_req_ptr;
+   u32 softlist_cnt;
+   u32 softlist_base_addr;
+};
+
+struct sprd_dma_wrap_addr{
+   u32 wrap_start_addr;
+   u32 wrap_end_addr;	
+};
+//wong
 
 typedef struct sprd_dma_ctrl {
     int interrupt_type;
@@ -316,8 +400,21 @@ static inline void sprd_dma_update(const int ch_id, sprd_dma_desc *dma_desc)
 
 int sprd_request_dma(int ch_id, void (*irq_handler)(int, void *), void *data);
 void sprd_free_dma(int ch_id);
+
 void sprd_dma_setup(sprd_dma_ctrl *ctrl);
 int sprd_irq_handler_ready(int ch_id);
+
+int sprd_dma_request(u32 uid, void (*irq_handler)(int, void *), void *data);//wong
+void sprd_dma_free(u32 uid);//wong
+void sprd_dma_channel_config(u32 chn, dma_work_mode work_mode, struct sprd_dma_channel_desc *dma_cfg);//wong
+void sprd_dma_softlist_config(struct sprd_dma_softlist_desc *softlist_desc);//wong
+void sprd_dma_wrap_addr_config(struct sprd_dma_wrap_addr *wrap_addr);//wong
+void sprd_dma_set_irq_type(u32 chn, dma_done_type irq_type, u32 on_off);//wong
+void sprd_dma_set_chn_pri(u32 chn, u32 pri);//wong
+void sprd_dma_channel_start(u32 chn_id);//wong
+void sprd_dma_channel_stop(u32 chn_id);//wong
+void sprd_dma_check_channel(void);//wong
+
 void sprd_dma_setup_cfg(sprd_dma_ctrl *ctrl,
             int ch_id,
             int dma_modes,
