@@ -48,7 +48,8 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
 #endif
     .periods_min        = 64,
     .periods_max        = /*18*/4*PAGE_SIZE/(2*sizeof(sprd_dma_desc)), // DA0, DA1 sg are combined
-    .buffer_bytes_max	= /*6 **/256 * 1024,
+#define PCM_DUMMY_DATA_RESERVED_BYTES (PAGE_SIZE)
+    .buffer_bytes_max	= /*6 **/256 * 1024 - PCM_DUMMY_DATA_RESERVED_BYTES,
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,
 };
 
@@ -119,20 +120,30 @@ int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 #if !SC88XX_PCM_DMA_SG_CIRCLE
 static void grab_next_sg_data(struct snd_pcm_substream *substream)
 {
-    struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
+    struct snd_pcm_runtime *runtime = substream->runtime;
+    struct sc88xx_runtime_data *rtd = runtime->private_data;
     sprd_dma_desc *dma_desc0 = NULL, *dma_desc1 = NULL;
     int chs = rtd->dma_channel;
 
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-        if (chs & DMA_VB_DA0_BIT) {
-            if (++rtd->ch0_idx > rtd->ch_max)
-                rtd->ch0_idx = 0;
-            dma_desc0 = rtd->dma_desc_array + rtd->ch0_idx;
-        }
-        if (chs & DMA_VB_DA1_BIT) {
-            if (++rtd->ch1_idx > rtd->ch_max)
-                rtd->ch1_idx = 0;
-            dma_desc1 = rtd->dma_desc_array1 + rtd->ch1_idx;
+        if (likely(!snd_pcm_playback_empty(substream))) {
+            if (chs & DMA_VB_DA0_BIT) {
+                if (++rtd->ch0_idx > rtd->ch_max)
+                    rtd->ch0_idx = 0;
+                dma_desc0 = rtd->dma_desc_array + rtd->ch0_idx;
+            }
+            if (chs & DMA_VB_DA1_BIT) {
+                if (++rtd->ch1_idx > rtd->ch_max)
+                    rtd->ch1_idx = 0;
+                dma_desc1 = rtd->dma_desc_array1 + rtd->ch1_idx;
+            }
+        } else {
+            printk("$$$$$$$$$$$$ vbc pcm data empty --> %ld:%ld so flush 0 pcm data to hardware $$$$$$$$$$$$\n",
+                   snd_pcm_playback_avail(runtime), runtime->buffer_size);
+            if (chs & DMA_VB_DA0_BIT)
+                dma_desc0 = rtd->dma_desc_array_dummy_pcm[0];
+            if (chs & DMA_VB_DA1_BIT)
+                dma_desc1 = rtd->dma_desc_array_dummy_pcm[1];
         }
         if (dma_desc0) {
             __raw_writel(dma_desc0->tlen , DMA_VB_DA0_BASE + 0x04);
@@ -266,7 +277,8 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	size_t totsize = params_buffer_bytes(params);
 	size_t period = params_period_bytes(params);
 	sprd_dma_desc *dma_desc,*dma_desc1;
-	dma_addr_t dma_buff_phys, dma_buff_phys1,next_desc_phys, next_desc_phys1;
+	dma_addr_t dma_buff_phys, dma_buff_phys1, dma_buff_phys_base, dma_buff_phys1_base, next_desc_phys, next_desc_phys1;
+    unsigned char *dma_buff_cpu_base, *dma_buff_cpu1_base;
     int ret;
     int burst_size = sc88xx_pcm_hardware.fifo_size; // sc88xx_pcm_hardware.period_bytes_min / 2; // VBC_FIFO_FRAME_NUM / 2;
 
@@ -312,9 +324,11 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
     rtd->dma_da_ad_1_offset = (totsize / params_channels(params)) * (params_channels(params)-1);
 
     /* channel 1 dma start addr */
-	dma_buff_phys = runtime->dma_addr;
+	dma_buff_phys_base = dma_buff_phys = runtime->dma_addr;
+    dma_buff_cpu_base = runtime->dma_area;
     /* channel 2 dma start addr */
-    dma_buff_phys1= dma_buff_phys + rtd->dma_da_ad_1_offset;
+    dma_buff_phys1_base = dma_buff_phys1= dma_buff_phys + rtd->dma_da_ad_1_offset;
+    dma_buff_cpu1_base= dma_buff_cpu_base + rtd->dma_da_ad_1_offset;
     /* one channel occupied bytes in one period */
     rtd->pcm_1channel_data_width = period / params_channels(params);
 
@@ -452,6 +466,15 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
                ,dma_desc1->dbm 
         );
 #endif
+        if (totsize == 0) {
+            rtd->dma_desc_array_dummy_pcm[0] = dma_desc--;
+            rtd->dma_desc_array_dummy_pcm[1] = dma_desc1--;
+            memset(dma_buff_cpu_base + dma_buff_phys - dma_buff_phys_base, 0, rtd->pcm_1channel_data_width);
+            memset(dma_buff_cpu1_base+ dma_buff_phys1- dma_buff_phys1_base,0, rtd->pcm_1channel_data_width);
+            // rtd->dma_desc_array_phys_dummy_pcm[0] = dma_buff_phys;
+            // rtd->dma_desc_array_phys_dummy_pcm[1] = dma_buff_phys1;
+            break;
+        }
 		if (period > totsize)
 			period = totsize;
 
@@ -459,7 +482,8 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
         dma_desc1++;
 		dma_buff_phys += rtd->pcm_1channel_data_width;
         dma_buff_phys1+= rtd->pcm_1channel_data_width;
-	} while (totsize -= period);
+        totsize -= period;
+	} while (1/*totsize -= period*/);
 	dma_desc[-1].llptr = rtd->dma_desc_array_phys;
     dma_desc1[-1].llptr = rtd->dma_desc_array_phys1;
 #if !SC88XX_PCM_DMA_SG_CIRCLE
@@ -672,7 +696,7 @@ int sc88xx_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 	buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	buf->dev.dev = pcm->card->dev;
 	buf->private_data = NULL;
-	buf->area = dma_alloc_writecombine(pcm->card->dev, size,
+	buf->area = dma_alloc_writecombine(pcm->card->dev, size + PCM_DUMMY_DATA_RESERVED_BYTES,
 					   &buf->addr, GFP_KERNEL);
 	if (!buf->area)
 		return -ENOMEM;
@@ -721,7 +745,7 @@ static void sc88xx_pcm_free_dma_buffers(struct snd_pcm *pcm)
 		buf = &substream->dma_buffer;
 		if (!buf->area)
 			continue;
-		dma_free_writecombine(pcm->card->dev, buf->bytes,
+		dma_free_writecombine(pcm->card->dev, buf->bytes + PCM_DUMMY_DATA_RESERVED_BYTES,
 				      buf->area, buf->addr);
 		buf->area = NULL;
 	}

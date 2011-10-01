@@ -72,6 +72,8 @@ struct sc88xx_runtime_data {
 	dma_addr_t dma_desc_array_phys;
     sprd_dma_desc *dma_desc_array1;
 	dma_addr_t dma_desc_array_phys1;
+    sprd_dma_desc *dma_desc_array_dummy_pcm[2];
+    // dma_addr_t dma_desc_array_phys_dummy_pcm[2];
 #if !SC88XX_PCM_DMA_SG_CIRCLE
     int ch_max;
     int ch0_idx;
