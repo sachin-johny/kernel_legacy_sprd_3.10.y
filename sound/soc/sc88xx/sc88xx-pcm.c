@@ -467,8 +467,8 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
         );
 #endif
         if (totsize == 0) {
-            rtd->dma_desc_array_dummy_pcm[0] = dma_desc--;
-            rtd->dma_desc_array_dummy_pcm[1] = dma_desc1--;
+            rtd->dma_desc_array_dummy_pcm[0] = dma_desc;
+            rtd->dma_desc_array_dummy_pcm[1] = dma_desc1;
             memset(dma_buff_cpu_base + dma_buff_phys - dma_buff_phys_base, 0, rtd->pcm_1channel_data_width);
             memset(dma_buff_cpu1_base+ dma_buff_phys1- dma_buff_phys1_base,0, rtd->pcm_1channel_data_width);
             // rtd->dma_desc_array_phys_dummy_pcm[0] = dma_buff_phys;
