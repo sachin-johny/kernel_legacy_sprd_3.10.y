@@ -648,7 +648,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
     }
 
     if(battery_data->charging || loop_cnt == 0){
-        if(battery_data->charging){
+        if(battery_data->charging && battery_data->capacity>95){
 			if(!pluse_charging){
 				CHG_ShutDown();
 				adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
