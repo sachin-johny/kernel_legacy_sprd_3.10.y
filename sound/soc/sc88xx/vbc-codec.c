@@ -832,13 +832,14 @@ static inline void vbc_dma_stop(struct snd_pcm_substream *substream)
 
 void flush_vbc_cache(struct snd_pcm_substream *substream)
 {
+#if 1
     struct snd_pcm_runtime *runtime = substream->runtime;
     // we could not stop vbc_dma_buffer immediately, because audio data still in cache
     if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK)
         return;
 //  vbc_codec_mute();
     /* clear dma cache buffer */
-    memset((void*)runtime->dma_area, 0, runtime->dma_bytes);
+    memset((void*)runtime->dma_area, GAP_DATA_CHAR, runtime->dma_bytes);
     printk("audio flush cache buffer...\n");
     if (cpu_codec_dma_chain_operate_ready(substream)) {
         vbc_dma_start(substream); // we must restart dma
@@ -850,6 +851,7 @@ void flush_vbc_cache(struct snd_pcm_substream *substream)
         stop_cpu_dma(substream);
         vbc_dma_stop(substream);
     }
+#endif
 }
 EXPORT_SYMBOL_GPL(flush_vbc_cache);
 
