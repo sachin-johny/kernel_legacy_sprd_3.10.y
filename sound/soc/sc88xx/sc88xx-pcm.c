@@ -40,14 +40,16 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
 // this should be an alsa bug [luther.ge]
     .formats        = VBC_PCM_FORMATS,
 #if !SC88XX_PCM_DMA_SG_CIRCLE
+#define PCM_DMA_SG_DESC_RESERVED   (2*4)
     .period_bytes_min	= VBC_FIFO_FRAME_NUM*2*2, // 16bits, stereo-2-channels
     .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
 #else
+#define PCM_DMA_SG_DESC_RESERVED   (0)
     .period_bytes_min	= VBC_FIFO_FRAME_NUM*2*2, // 16bits, stereo-2-channels
     .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
 #endif
     .periods_min        = 64,
-    .periods_max        = /*18*/4*PAGE_SIZE/(2*sizeof(sprd_dma_desc)), // DA0, DA1 sg are combined
+    .periods_max        = /*18*/4*PAGE_SIZE/(2*sizeof(sprd_dma_desc)) - PCM_DMA_SG_DESC_RESERVED, // DA0, DA1 sg are combined
 #define PCM_DUMMY_DATA_RESERVED_BYTES (0)// PAGE_SIZE)
     .buffer_bytes_max	= /*6 **/256 * 1024 - PCM_DUMMY_DATA_RESERVED_BYTES,
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,
@@ -198,11 +200,11 @@ static void grab_next_sg_data(struct snd_pcm_substream *substream)
         }
         if (dma_desc0) {
             __raw_writel(dma_desc0->tlen , DMA_VB_AD0_BASE + 0x04);
-            __raw_writel(dma_desc0->dsrc , DMA_VB_AD0_BASE + 0x08);
+            __raw_writel(dma_desc0->ddst , DMA_VB_AD0_BASE + 0x0C);
         }
         if (dma_desc1) {
             __raw_writel(dma_desc1->tlen , DMA_VB_AD1_BASE + 0x04);
-            __raw_writel(dma_desc1->dsrc , DMA_VB_AD1_BASE + 0x08);
+            __raw_writel(dma_desc1->ddst , DMA_VB_AD1_BASE + 0x0C);
         }
     }
 }
@@ -312,6 +314,7 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	dma_addr_t dma_buff_phys, dma_buff_phys1, dma_buff_phys_base, dma_buff_phys1_base, next_desc_phys, next_desc_phys1;
     unsigned char *dma_buff_cpu_base, *dma_buff_cpu1_base;
     int ret;
+    int period_offset;
     int burst_size = sc88xx_pcm_hardware.fifo_size; // sc88xx_pcm_hardware.period_bytes_min / 2; // VBC_FIFO_FRAME_NUM / 2;
 
 	if (!dma)
@@ -348,10 +351,11 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	runtime->dma_bytes = totsize;
 
+    period_offset = sc88xx_pcm_hardware.periods_max + PCM_DMA_SG_DESC_RESERVED / 2;
 	dma_desc = rtd->dma_desc_array;
-    dma_desc1= rtd->dma_desc_array1 = rtd->dma_desc_array + sc88xx_pcm_hardware.periods_max;
+    dma_desc1= rtd->dma_desc_array1 = rtd->dma_desc_array + period_offset;
 	next_desc_phys = rtd->dma_desc_array_phys;
-    next_desc_phys1= rtd->dma_desc_array_phys1 = rtd->dma_desc_array_phys + sc88xx_pcm_hardware.periods_max * sizeof(sprd_dma_desc);
+    next_desc_phys1= rtd->dma_desc_array_phys1 = rtd->dma_desc_array_phys + period_offset * sizeof(sprd_dma_desc);
 
     rtd->dma_da_ad_1_offset = (totsize / params_channels(params)) * (params_channels(params)-1);
 
@@ -498,6 +502,7 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
                ,dma_desc1->dbm 
         );
 #endif
+#if !SC88XX_PCM_DMA_SG_CIRCLE
         if (totsize == 0) {
             sprd_dma_desc *tdma_desc, *tdma_desc1;
             dma_addr_t tdma_buff_phys, tdma_buff_phys1;
@@ -533,6 +538,7 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
             rtd->dma_phys_dummy_pcm[1] = tdma_buff_phys1;
             break;
         }
+#endif
 		if (period > totsize)
 			period = totsize;
 
@@ -540,8 +546,13 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
         dma_desc1++;
 		dma_buff_phys += rtd->pcm_1channel_data_width;
         dma_buff_phys1+= rtd->pcm_1channel_data_width;
+#if !SC88XX_PCM_DMA_SG_CIRCLE
         totsize -= period;
+        if (!totsize && substream->stream == SNDRV_PCM_STREAM_CAPTURE) break;
 	} while (1/*totsize -= period*/);
+#else
+    } while (totsize -= period);
+#endif
 	dma_desc[-1].llptr = rtd->dma_desc_array_phys;
     dma_desc1[-1].llptr = rtd->dma_desc_array_phys1;
 #if !SC88XX_PCM_DMA_SG_CIRCLE
@@ -675,7 +686,10 @@ sc88xx_pcm_pointer(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd = runtime->private_data;
-    dma_addr_t ptr = 0, ptr_top;
+    dma_addr_t ptr = 0;
+#if !SC88XX_PCM_DMA_SG_CIRCLE
+    dma_addr_t ptr_top;
+#endif
     snd_pcm_uframes_t x;
     int free_data_height = 0;
     u32 data_base = 0;
@@ -693,20 +707,26 @@ sc88xx_pcm_pointer(struct snd_pcm_substream *substream)
         data_base = runtime->dma_addr; // use channel 1 dma addr
         if (!(rtd->dma_channel & (DMA_VB_AD0_BIT | DMA_VB_DA0_BIT))) {
             data_base += rtd->dma_da_ad_1_offset; // skip to channle 2 dma addr
+#if !SC88XX_PCM_DMA_SG_CIRCLE
             ptr_top = rtd->dma_phys_dummy_pcm[1];
         } else {
             ptr_top = rtd->dma_phys_dummy_pcm[0];
+#endif
         }
         ch_base = DMA_CHx_CTL_BASE + (__builtin_ctz(rtd->dma_channel) * 0x20);
 
         ptr = __raw_readl(ch_base + offset); // read data pointer register
 
-        if (ptr <= ptr_top) {
+#if !SC88XX_PCM_DMA_SG_CIRCLE
+        if (ptr <= ptr_top || substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
             rtd->free_data_height = free_data_height = (ptr - data_base) * channels; // Each channel data transfer is symmetrical
         } else {
             // printk("audio dma pointer over highest value, so keep the pointer\n");
             free_data_height = rtd->free_data_height;
         }
+#else
+        free_data_height = (ptr - data_base) * channels; // Each channel data transfer is symmetrical
+#endif
     }
     // From sound/soc/s3c24xx/s3c24xx-pcm.c
 	/* we seem to be getting the odd error from the pcm library due
@@ -715,11 +735,12 @@ sc88xx_pcm_pointer(struct snd_pcm_substream *substream)
 	 * callled... (todo - fix )
 	 */
 
-	if (free_data_height >= snd_pcm_lib_buffer_bytes(substream)) {
-		if (free_data_height == snd_pcm_lib_buffer_bytes(substream)) {
-			rtd->free_data_height = free_data_height = 0;
-        }
-	}
+	// if (free_data_height >= snd_pcm_lib_buffer_bytes(substream)) {
+	// 	if (free_data_height == snd_pcm_lib_buffer_bytes(substream)) {
+	// 		rtd->free_data_height = free_data_height = 0;
+    //     }
+	// }
+
 	x = bytes_to_frames(runtime, free_data_height);
 
 	if (x == runtime->buffer_size)

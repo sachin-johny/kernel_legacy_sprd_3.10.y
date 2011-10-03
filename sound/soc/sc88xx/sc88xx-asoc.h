@@ -38,7 +38,7 @@
 
 #define lprintf(msg...) printk(KERN_EMERG "glx : %s() --> ", __func__);printk(msg)
 
-#define SC88XX_PCM_DMA_SG_CIRCLE    0
+#define SC88XX_PCM_DMA_SG_CIRCLE    1
 #define SC88XX_VBC_DMA_COMBINE      1 
 #define VBC_PCM_FORMATS             (SNDRV_PCM_FMTBIT_S16_LE) // | SNDRV_PCM_FMTBIT_S8)
 extern void start_cpu_dma(struct snd_pcm_substream *substream);
@@ -73,12 +73,12 @@ struct sc88xx_runtime_data {
     sprd_dma_desc *dma_desc_array1;
 	dma_addr_t dma_desc_array_phys1;
     sprd_dma_desc *dma_desc_array_dummy_pcm[2];
-    int free_data_height;
 #define GAP_DATA_CHAR 0
+#if !SC88XX_PCM_DMA_SG_CIRCLE
+    int free_data_height;
     int gap_data_width;
     dma_addr_t dma_phys_dummy_pcm[2];
     unsigned char *dma_cpu_dummy_pcm[2];
-#if !SC88XX_PCM_DMA_SG_CIRCLE
     int ch_max;
     int ch0_idx;
     int ch1_idx;
