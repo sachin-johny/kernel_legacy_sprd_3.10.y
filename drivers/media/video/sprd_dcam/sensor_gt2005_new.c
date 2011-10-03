@@ -87,7 +87,7 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	{0x0108 , 0x1C},
 	{0x0109 , 0x01},
 	{0x010A , 0x00},
-	{0x010B , 0x00},
+	{0x010B , 0x0B},
 	{0x010C , 0x00},
 	{0x010D , 0x08},
 	{0x010E , 0x00},
@@ -102,12 +102,12 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	{0x0117 , 0x00},
 	//{0x0118 , 0x68}, //30 fps
 	//{0x0118 , 0x4c}, //22 fps
-	{0x0118 , 0x40}, //18 fps
+	{0x0118 , 0x34}, //18 fps
 	{0x0119 , 0x01},
 	{0x011A , 0x04},
 	{0x011B , 0x00},
 	{0x011C , 0x01},
-	{0x011D , 0x01},
+	{0x011D , 0x02},
 	{0x011E , 0x00},
 	{0x011F , 0x00},
 	{0x0120 , 0x1C},
@@ -251,10 +251,10 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	{0x0312 , 0x98},
 	//{0x0313 , 0x38}, //30 fps
 	//{0x0313 , 0x1e}, //22 fps
-	{0x0313 , 0x35}, //18 fps
+	{0x0313 , 0x34}, //18 fps
 	//{0x0314 , 0x76}, //30 fps
 	//{0x0314 , 0x2f}, //22 fps
-	{0x0314 , 0x35}, //18 fps
+	{0x0314 , 0x3B}, //18 fps
 	{0x0315 , 0x16},
 	{0x0316 , 0x26},
 	{0x0317 , 0x02},
@@ -672,14 +672,14 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	    		{0x0101 , 0x03},
 	*/		    
 	//-------------H_V_Select End--------------//
-
+/*
        {0x0109 , 0x00},
 	{0x010A , 0x04},
 	{0x010B , 0x0B},
 	{0x0110 , 0x02},
 	{0x0111 , 0x80},
 	{0x0112 , 0x01},
-	{0x0113 , 0xE0},
+	{0x0113 , 0xE0},*/
 
 
        {SENSOR_WRITE_DELAY, 200},
@@ -692,7 +692,7 @@ SENSOR_REG_T GT2005_YUV_1600X1200[] =
 
 	{0x0109 , 0x01},
 	{0x010A , 0x00},
-	{0x010B , 0x00},
+	{0x010B , 0x0B},
 	{0x0110 , 0x06},
 	{0x0111 , 0x40},
 	{0x0112 , 0x04},
@@ -1158,7 +1158,7 @@ LOCAL uint32_t Set_GT2005_Ev(uint32_t level)
 LOCAL uint32_t Set_GT2005_Anti_Flicker(uint32_t mode)
 { 
 	//PLL Setting 15FPS Under 19.5MHz PCLK
-	Sensor_WriteReg(0x0116 , 0x01);
+	Sensor_WriteReg(0x0116 , 0x02);
 	Sensor_WriteReg(0x0118 , 0x34);
 	Sensor_WriteReg(0x0119 , 0x01);
 	Sensor_WriteReg(0x011a , 0x04);	
@@ -1319,22 +1319,30 @@ LOCAL uint32_t Set_GT2005_AWB(uint32_t mode)
 	return 0;
 }*/
 
-
+uint16_t shutter = 0;
 
 LOCAL void    GT2005_Set_Shutter(void)
 {
-	uint16_t shutter,AGain_shutter,DGain_shutter;
+	uint16_t AGain_shutter,DGain_shutter;
 
 	//Sensor_WriteReg(0x020B , 0x28);
 	//Sensor_WriteReg(0x020C , 0x44);
 	//Sensor_WriteReg(0x040B , 0x44);
-
+	
 	Sensor_WriteReg(0x0300 , 0xc1);
 
 	shutter = (Sensor_ReadReg(0x0012)<<8 )|( Sensor_ReadReg(0x0013));    
 	AGain_shutter = (Sensor_ReadReg(0x0014)<<8 )|( Sensor_ReadReg(0x0015));
 	DGain_shutter = (Sensor_ReadReg(0x0016)<<8 )|( Sensor_ReadReg(0x0017));
-	Sensor_WriteReg(0x0300 , 0x41); //close ALC
+	Sensor_WriteReg(0x0300 , 0x01); //close ALC
+	
+	if((0x25E != shutter) || (0x5F != AGain_shutter))
+		printk("#########wxz: shutter: %x, ashut:%x, dshut: %d.\n", shutter, AGain_shutter, DGain_shutter);
+
+	shutter = 0x25E;
+	AGain_shutter = 0x5F;
+	DGain_shutter = 0x0;
+
 
 	//shutter = shutter / 2; 
 
@@ -1350,6 +1358,9 @@ LOCAL void    GT2005_Set_Shutter(void)
 
 LOCAL uint32_t GT2005_Before_Snapshot(uint32_t sensor_snapshot_mode)
 {
+
+	//shutter = (Sensor_ReadReg(0x0012)<<8 )|( Sensor_ReadReg(0x0013));    
+
 	Sensor_SetMode(sensor_snapshot_mode);
         switch(sensor_snapshot_mode)
         {
@@ -1367,9 +1378,9 @@ LOCAL uint32_t GT2005_Before_Snapshot(uint32_t sensor_snapshot_mode)
                         Sensor_WriteReg(0x020B , 0x75);
                         Sensor_WriteReg(0x020C , 0x95);
                         Sensor_WriteReg(0x040B , 0x11);
-                        //Sensor_WriteReg(0x011D , 0x02);
-                        //Sensor_WriteReg(0x011E , 0x00);
-                        GT2005_Set_Shutter      ();
+                        Sensor_WriteReg(0x011D , 0x02);
+                        Sensor_WriteReg(0x011E , 0x00);
+                        GT2005_Set_Shutter();
                 //      msleep(1000);
                         break;
                 }
@@ -1400,7 +1411,7 @@ LOCAL uint32_t GT2005_After_Snapshot(uint32_t para)
 	//GT2005_WriteReg(0x0119 , 0x01);
 	//GT2005_WriteReg(0x0300 , 0x81);	
 	Sensor_WriteReg(0x0300 , 0x81);
-	//msleep(100);
+	msleep(100);
 	GT2005_Change_Image_Format(SENSOR_IMAGE_FORMAT_YUV422);
 	
 	SENSOR_TRACE("SENSOR_GT2005: After Snapshot");
@@ -1442,6 +1453,7 @@ LOCAL uint32_t GT2005_Change_Image_Format(uint32_t param)
 //__align(4) const SENSOR_REG_T GT2005_video_mode_nor_tab[][8]=
 SENSOR_REG_T GT2005_video_mode_nor_tab[][8]=
 {
+/*
     // normal mode 
     {{0xff,0xff},{0xff,0xff},{0xff,0xff},{0xff,0xff},{0xff,0xff},{0xff,0xff},{0xff,0xff},{0xff,0xff}},    
     //vodeo mode     10fps Under 13MHz MCLK
@@ -1449,6 +1461,7 @@ SENSOR_REG_T GT2005_video_mode_nor_tab[][8]=
     {{0x0116 , 0x02},{0x0118 , 0x40},{0x0119 , 0x01},{0x011a , 0x04},{0x011B , 0x00},{0x0313 , 0x1D}, {0x0314 , 0x35}, {0xff , 0xff}},
     // UPCC  mode	  10fps Under 13MHz MCLK
     {{0x0116 , 0x01},{0x0118 , 0x45},{0x0119 , 0x02},{0x011a , 0x04},{0x011B , 0x02},{0x0313 , 0x32}, {0x0314 , 0xCE}, {0xff , 0xff}}
+	*/
 };    
 
 
