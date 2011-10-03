@@ -591,6 +591,9 @@ int sc88xx_pcm_prepare(struct snd_pcm_substream *substream)
     return 0;
 }
 
+#if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
+extern inline void vbc_dma_start(struct snd_pcm_substream *substream);
+#endif
 int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
@@ -662,7 +665,17 @@ int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
                 ret = 0;
             }
             ret = 0;
+#if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
+            // between start_cpu_dma & vbc_dma_start,
+            // absolutely not permit to have any time gap,
+            // otherwise noise current sound will appear.[luther.ge-2010.10.03]
+            printk("vbc & cpu dma both start here!\n");
+            vbc_dma_start(substream);
+            // msleep(2000);
             start_cpu_dma(substream); // Start DMA transfer
+#else
+            start_cpu_dma(substream); // Start DMA transfer
+#endif
             break;
         case SNDRV_PCM_TRIGGER_STOP:
             stop_cpu_dma(substream); // Stop DMA transfer

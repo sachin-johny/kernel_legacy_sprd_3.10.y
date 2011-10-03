@@ -820,10 +820,11 @@ static void vbc_dma_control(int chs, bool on)
         vbc_reg_VBDABUFFDTA_set(VBAD1DMA_EN, on); // DAM read ADC1 data buffer enable/disable
 }
 
-static inline void vbc_dma_start(struct snd_pcm_substream *substream)
+inline void vbc_dma_start(struct snd_pcm_substream *substream)
 {
     vbc_dma_control(audio_playback_capture_channel(substream), 1);
 }
+EXPORT_SYMBOL_GPL(vbc_dma_start);
 
 static inline void vbc_dma_stop(struct snd_pcm_substream *substream)
 {
@@ -923,20 +924,44 @@ static int vbc_set_dai_clkdiv(struct snd_soc_dai *codec_dai, int div_id, int div
 static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
 	int ret = 0;
+#if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
+    static int dac_muted = 0;
+#endif
 
 	switch (cmd) {
         case SNDRV_PCM_TRIGGER_START:
+#if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
+            if (!dac_muted) {
+                printk("vbc hardware nosie current unmute dac now!\n");
+                vbc_codec_unmute();
+            }
+#endif
             vbc_power_on(substream->stream);
+#if !VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
             vbc_dma_start(substream);
+#endif
             break;
         case SNDRV_PCM_TRIGGER_STOP:
             // vbc_power_down(substream->stream);
         case SNDRV_PCM_TRIGGER_SUSPEND:
         case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+#if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
+            // must mute here, otherwise noise current sound will appear
+            dac_muted = !!vbc_reg_read(VBCR1, DAC_MUTE, 1);
+            if (!dac_muted) {
+                vbc_codec_mute();
+                printk("vbc hardware nosie current mute dac now!\n");
+            }
+#endif
             vbc_dma_stop(substream); // Stop DMA transfer
             break;
         case SNDRV_PCM_TRIGGER_RESUME:
         case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+#if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
+            if (!dac_muted) {
+                vbc_codec_unmute();
+            }
+#endif
             vbc_dma_start(substream);
             break;
         default:

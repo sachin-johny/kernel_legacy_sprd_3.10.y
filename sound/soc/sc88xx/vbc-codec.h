@@ -26,6 +26,7 @@
 #include <mach/regs_int.h>
 
 #define VBC_FIFO_FRAME_NUM      160
+#define VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX 1
 
 #define VBC_RATE_8000   (10)
 #define VBC_RATE_9600   ( 9)
