@@ -261,7 +261,7 @@ static inline void set_plane(uint32_t w ,uint32_t h)
 	CL_PRINT("lcdc set_plane reg+%x \n",(w&0x3ff)|((h&0x3ff)<<16));
 	__raw_writel((w&0x3ff)|((h&0x3ff)<<16), LCDC_DISP_SIZE);
 }
-static inline void restore_plane()
+static inline void restore_plane(void)
 {
 	__raw_writel((640&0x3ff)|((640&0x3ff)<<16), LCDC_DISP_SIZE);
 }
@@ -449,10 +449,10 @@ static inline void blend32_left(struct s2d_blit_req * req)
 	for (i = req->dst_rect.h; i!= 0; i--) {
 		tmpd = *dst;
 
-		r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)>>8;
+		r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)/255;
 		g = (((src[2]>>2)- ((tmpd>>5)&0x3f)) * src[0] + 
-			((tmpd>>5)&0x3f)*255)>>8;
-		b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)>>8;
+			((tmpd>>5)&0x3f)*255)/255;
+		b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)/255;
 
 		*dst = (r<<11|g<<5|b);
 
@@ -480,10 +480,10 @@ static inline void blend32_right(struct s2d_blit_req * req)
 	for (i = req->dst_rect.h; i!= 0; i--) {
 		tmpd = *dst;
 
-		r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)>>8;
+		r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)/255;
 		g = (((src[2]>>2)- ((tmpd>>5)&0x3f)) * src[0] + 
-			((tmpd>>5)&0x3f)*255)>>8;
-		b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)>>8;
+			((tmpd>>5)&0x3f)*255)/255;
+		b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)/255;
 
 		*dst = (r<<11|g<<5|b);
 
@@ -513,10 +513,10 @@ static inline void blend32_all(struct s2d_blit_req * req)
 		for (j = req->dst_rect.w; j != 0; j--) {
 			tmpd = *dst;
 
-			r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)>>8;
+			r = (((src[1]>>3)- (tmpd>>11)) * src[0] + (tmpd>>11)*255)/255;
 			g = (((src[2]>>2)- ((tmpd>>5)&0x3f)) * src[0] + 
-					((tmpd>>5)&0x3f)*255)>>8;
-			b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)>>8;
+					((tmpd>>5)&0x3f)*255)/255;
+			b = (((src[3]>>3)- (tmpd&0x1f)) * src[0] + (tmpd&0x1f)*255)/255;
 
 			*dst = (r<<11|g<<5|b);
 
@@ -551,9 +551,11 @@ static inline void blend_left(struct s2d_blit_req * req)
 		tmpd = *dst;
 		tmps = *src;
 
-		r = (((tmps>>11)- (tmpd>>11)) * req->alpha + (tmpd>>11)*255)>>8;
-		g = ((((tmps>>5)&0x3f)-((tmpd>>5)&0x3f))*req->alpha+((tmpd>>5)&0x3f)*255)>>8;
-		b = (((tmps&0x1f)- (tmpd&0x1f)) * req->alpha + (tmpd&0x1f)*255)>>8;
+		r = (((tmps>>11)-(tmpd>>11)) * req->alpha + (tmpd>>11)*255)/255;
+		g = ((((tmps>>5)&0x3f)-((tmpd>>5)&0x3f))*req->alpha+
+				((tmpd>>5)&0x3f)*255)/255;
+		b = (((tmps&0x1f)- (tmpd&0x1f)) * req->alpha + 
+				(tmpd&0x1f)*255)/255;
 		*dst = (r<<11|g<<5|b);
 		dst += req->dst.width;
 		src += req->src.width;
@@ -580,9 +582,11 @@ static inline void blend_right(struct s2d_blit_req * req)
 		tmpd = *dst;
 		tmps = *src;
 
-		r = (((tmps>>11)- (tmpd>>11)) * req->alpha + (tmpd>>11)*255)>>8;
-		g = ((((tmps>>5)&0x3f)-((tmpd>>5)&0x3f))*req->alpha+((tmpd>>5)&0x3f)*255)>>8;
-		b = (((tmps&0x1f)- (tmpd&0x1f)) * req->alpha + (tmpd&0x1f)*255)>>8;
+		r = (((tmps>>11)-(tmpd>>11)) * req->alpha + (tmpd>>11)*255)/255;
+		g = ((((tmps>>5)&0x3f)-((tmpd>>5)&0x3f))*req->alpha+
+				((tmpd>>5)&0x3f)*255)/255;
+		b = (((tmps&0x1f)- (tmpd&0x1f)) * req->alpha +
+				(tmpd&0x1f)*255)/255;
 		*dst = (r<<11|g<<5|b);
 
 		dst += req->dst.width;
@@ -614,11 +618,11 @@ static inline void blend_all(struct s2d_blit_req * req)
 			tmps = *src;
 
 			r = (((tmps>>11)- (tmpd>>11)) * req->alpha + 
-				(tmpd>>11)*255)>>8;
+				(tmpd>>11)*255)/255;
 			g = ((((tmps>>5)&0x3f)-((tmpd>>5)&0x3f))*req->alpha+
-				((tmpd>>5)&0x3f)*255)>>8;
+				((tmpd>>5)&0x3f)*255)/255;
 			b = (((tmps&0x1f)- (tmpd&0x1f)) * req->alpha + 
-				(tmpd&0x1f)*255)>>8;
+				(tmpd&0x1f)*255)/255;
 			*dst = (r<<11|g<<5|b);
 
 			dst++;
