@@ -85,12 +85,14 @@
 #endif
 
 /*UART FIFO watermark*/
-#define SP_TX_FIFO	8
-#define SP_RX_FIFO	1	
+#define SP_TX_FIFO	0x40//8
+#define SP_RX_FIFO	0x40//1	
 /*UART IEN*/
 #define UART_IEN_RX_FIFO_FULL	(0x1<<0)
 #define UART_IEN_TX_FIFO_EMPTY	(0x1<<1)
 #define UART_IEN_BREAK_DETECT	(0x1<<7)
+#define UART_IEN_TIMEOUT     	(0x1<<13)
+
 /*data length*/
 #define UART_DATA_BIT	(0x3<<2)
 #define UART_DATA_5BIT	(0x0<<2)
@@ -119,6 +121,7 @@
 #define UART_STS_RX_FIFO_FULL	(0x1<<0)
 #define UART_STS_TX_FIFO_EMPTY	(0x1<<1)
 #define UART_STS_BREAK_DETECT	(0x1<<7)
+#define UART_STS_TIMEOUT     	(0x1<<13)
 /*baud rate*/
 #define BAUD_1200_26M	0x54A0
 #define BAUD_2400_26M	0x2A50
@@ -131,6 +134,13 @@
 #define BAUD_230400_26M	0x0071
 #define BAUD_460800_26M	0x0038
 #define BAUD_921600_26M	0x001C
+#define BAUD_1000000_26M 0x001A
+#define BAUD_1152000_26M 0x0016
+#define BAUD_1500000_26M 0x0011
+#define BAUD_2000000_26M 0x000D
+#define BAUD_2500000_26M 0x000B
+#define BAUD_3000000_26M 0x0009
+
 extern void printascii(const char *);
 
 #ifdef CONFIG_TS0710_MUX_UART
@@ -352,7 +362,7 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 		if(!(serial_in(port,ARM_UART_STS0) & serial_in(port,ARM_UART_IEN))){
 			break;
 		}
-		if(serial_in(port,ARM_UART_STS0) & (UART_STS_RX_FIFO_FULL | UART_STS_BREAK_DETECT)){
+		if(serial_in(port,ARM_UART_STS0) & (UART_STS_RX_FIFO_FULL | UART_STS_BREAK_DETECT| UART_STS_TIMEOUT )){
 #if 0
 			if(0==port->line){
 			//	printk("kewang:STS0=%x,STS1=%x,STS2=%x\r\n",serial_in(port,ARM_UART_STS0),serial_in(port,ARM_UART_STS1),serial_in(port,ARM_UART_STS2));
@@ -398,7 +408,7 @@ static void serialsc8800_pin_config(void)
 static int serialsc8800_startup(struct uart_port *port)
 {
 	int ret=0;
-	unsigned int ien;
+	unsigned int ien,ctrl1;
 	
 	//port->uartclk=26000000;
 
@@ -425,8 +435,9 @@ static int serialsc8800_startup(struct uart_port *port)
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
  	*/
-	serial_out(port,ARM_UART_CTL2,0x801);
+	//serial_out(port,ARM_UART_CTL2,0x801);
 		
+	serial_out(port,ARM_UART_CTL2,((SP_TX_FIFO<<8)|SP_RX_FIFO));
 	/*
  	*clear rx fifo
  	*/ 
@@ -468,11 +479,16 @@ static int serialsc8800_startup(struct uart_port *port)
  		printk("fail to request serial irq\n");
 		free_irq(port->irq,port);
 	}
+
+    ctrl1=serial_in(port,ARM_UART_CTL1);
+    ctrl1 |= 0x3e00|SP_RX_FIFO;
+	serial_out(port,ARM_UART_CTL1,ctrl1);	
+
 	/*
  	*enable interrupt
  	*/ 
 	ien=serial_in(port,ARM_UART_IEN);
-	ien |= UART_IEN_RX_FIFO_FULL | UART_IEN_TX_FIFO_EMPTY | UART_IEN_BREAK_DETECT;
+	ien |= UART_IEN_RX_FIFO_FULL | UART_IEN_TX_FIFO_EMPTY | UART_IEN_BREAK_DETECT| UART_IEN_TIMEOUT;
 	serial_out(port,ARM_UART_IEN,ien);	
 	return 0;
 }
@@ -503,7 +519,7 @@ static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *ter
 	/*
  	*ask the core to calculate the divisor for us
  	*/
-	baud = uart_get_baud_rate(port,termios,old,1200,921600);
+	baud = uart_get_baud_rate(port,termios,old,1200,3000000);
 	printk("baud=%d\r\n",baud);
 	//quot = uart_get_divisor(port,baud);
 	switch (baud){
@@ -537,6 +553,24 @@ static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *ter
 	case 921600:
 		quot=BAUD_921600_26M;
 		break;
+    case 1000000:
+        quot=BAUD_1000000_26M;
+        break;
+    case 1152000:
+        quot=BAUD_1152000_26M;
+        break;
+    case 1500000:
+        quot=BAUD_1500000_26M;
+        break;
+    case 2000000:
+        quot=BAUD_2000000_26M;
+        break;
+    case 2500000:
+        quot=BAUD_2500000_26M;
+        break;
+    case 3000000:
+        quot=BAUD_3000000_26M;
+        break;
 	default:
 	case 115200:
 		quot=BAUD_115200_26M;
@@ -630,6 +664,7 @@ static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *ter
 	serial_out(port,ARM_UART_CLKD0,quot&0xffff);//clock divider bit0~bit15	 
 	serial_out(port,ARM_UART_CLKD1,(quot&0x1f0000)>>16);	 //clock divider bit16~bit20
 	serial_out(port,ARM_UART_CTL0,lcr);
+    fc |= 0x3e00|SP_RX_FIFO;
 	serial_out(port,ARM_UART_CTL1,fc);
 		 
 	spin_unlock_irqrestore(&port->lock,flags);
