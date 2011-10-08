@@ -58,6 +58,20 @@ unsigned long get_sdram_plimit(void);
 #define SPRD_ROT_MEM_BASE       (SPRD_PMEM_ADSP_BASE+SPRD_PMEM_ADSP_SIZE)
 #define SPRD_SCALE_MEM_BASE     (SPRD_ROT_MEM_BASE+SPRD_ROT_MEM_SIZE)
 
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+# define RAM_CONSOLE_SIZE    0x20000
+# define RAM_CONSOLE_START   (SPRD_PMEM_BASE - RAM_CONSOLE_SIZE)
+#endif
+
 void udc_enable(void); 
 void udc_disable(void);
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+int __init sprd_ramconsole_init(void);
+void sprd_ramconsole_reserve_sdram(void);
+#else
+static inline int sprd_ramconsole_init(void) {return 0;}
+static inline void sprd_ramconsole_reserve_sdram(void){}
 #endif
+
+#endif
+

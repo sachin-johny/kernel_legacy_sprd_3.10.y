@@ -485,16 +485,15 @@ unsigned long sdram_plimit;
 extern void sc8800g_pin_map_init(void);
 static void __init openphone_init(void)
 {
-	sdram_plimit = get_sdram_plimit();
 #ifdef CONFIG_ANDROID_PMEM
 	android_pmem_pdata.start = SPRD_PMEM_BASE;
 	android_pmem_adsp_pdata.start = SPRD_PMEM_ADSP_BASE;
 #endif
 	pr_info("sdram_plimit: 0x%x\n", sdram_plimit);
 	chip_init();
-//	ADI_init();
+	//	ADI_init();
 	LDO_Init();
-    sc8800g_pin_map_init();
+	sc8800g_pin_map_init();
 	i2c_register_board_info(1,openphone_i2c_boardinfo,ARRAY_SIZE(openphone_i2c_boardinfo));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
@@ -503,13 +502,16 @@ static void __init openphone_init(void)
 	sprd_add_otg_device();
 	sprd_gadget_init();
 	sprd_add_dcam_device();
-    sprd_spi_init();
-    sprd_charger_init();
+	sprd_spi_init();
+	sprd_charger_init();
+	sprd_ramconsole_init();
 }
 
 static void __init openphone_map_io(void)
 {
+	sdram_plimit = get_sdram_plimit();
 	sprd_map_common_io();
+	sprd_ramconsole_reserve_sdram();
 }
 
 extern unsigned long phys_initrd_start;

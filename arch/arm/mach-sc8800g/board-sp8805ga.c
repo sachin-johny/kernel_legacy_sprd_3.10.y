@@ -657,7 +657,6 @@ unsigned long sdram_plimit;
 extern void sc8800g_pin_map_init(void);
 static void __init openphone_init(void)
 {
-	sdram_plimit = get_sdram_plimit();
 #ifdef CONFIG_ANDROID_PMEM
 	android_pmem_pdata.start = SPRD_PMEM_BASE;
 	android_pmem_adsp_pdata.start = SPRD_PMEM_ADSP_BASE;
@@ -678,11 +677,14 @@ static void __init openphone_init(void)
 	sprd_spi_init();
 	sprd_charger_init();
 	gps_hw_config();
+	sprd_ramconsole_init();
 }
 
 static void __init openphone_map_io(void)
 {
+	sdram_plimit = get_sdram_plimit();
 	sprd_map_common_io();
+	sprd_ramconsole_reserve_sdram();
 }
 
 extern unsigned long phys_initrd_start;

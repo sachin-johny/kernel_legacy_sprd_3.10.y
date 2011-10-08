@@ -27,6 +27,7 @@
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/clk.h>
+#include <linux/bootmem.h>
 
 #include <mach/hardware.h>
 #include <mach/board.h>
@@ -288,10 +289,6 @@ struct platform_device sprd_sdio_device = {
 	.num_resources	= ARRAY_SIZE(sprd_sdio_resource),
 	.resource	= sprd_sdio_resource,
 };
-
-static void sprd_config_sdio_pins(void)
-{
-}
 
 void __init sprd_add_sdio_device(void)
 {
@@ -644,4 +641,49 @@ unsigned long get_sdram_plimit(void)
 	else
 		return 0x8000000;  /* 128MB */
 }
+
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+
+static struct platform_device *ram_console;
+
+int __init sprd_ramconsole_init(void)
+{
+	struct resource res = { .flags = IORESOURCE_MEM };
+	int err;
+
+	if (!(ram_console = platform_device_alloc("ram_console", 0))) {
+		pr_err("ram console Failed to allocate device \n");
+		err = -ENOMEM;
+		goto exit;
+	}
+
+	res.start = RAM_CONSOLE_START;
+	res.end = (RAM_CONSOLE_START + RAM_CONSOLE_SIZE - 1);
+	pr_info("alloc resouce for ramconsole: start:%x, size:%d\n",
+		res.start, RAM_CONSOLE_SIZE);
+	if ((err = platform_device_add_resources(ram_console, &res, 1))) {
+		pr_err("ram console:Failed to add device resource "
+				"(err = %d).\n", err);
+		goto exit_device_put;
+	}
+
+	if ((err = platform_device_add(ram_console))) {
+		pr_err("ram console: Failed to add device (err = %d).\n",
+				err);
+		goto exit_device_put;
+	}
+
+	return 0;
+exit_device_put:
+	platform_device_put(ram_console);
+	ram_console= NULL;
+exit:
+	return err;
+}
+
+void sprd_ramconsole_reserve_sdram(void)
+{
+        reserve_bootmem(RAM_CONSOLE_START, RAM_CONSOLE_SIZE, 0);
+}
+#endif
 
