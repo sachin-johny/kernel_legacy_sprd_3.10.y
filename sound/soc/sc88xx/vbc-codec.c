@@ -936,7 +936,9 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
                 vbc_codec_unmute();
             }
 #endif
+            #if VBC_DYNAMIC_POWER_MANAGEMENT
             vbc_power_on(substream->stream);
+            #endif
 #if !VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
             vbc_dma_start(substream);
 #endif
@@ -1337,7 +1339,11 @@ static int vbc_probe(struct platform_device *pdev)
     vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
     vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
     vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
+#if VBC_DYNAMIC_POWER_MANAGEMENT
     vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
+#else
+    vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE);
+#endif
 #if 0
     /* vbc_reset() must be initialized twice, or the noise when playing audio */
     vbc_reset(codec);
