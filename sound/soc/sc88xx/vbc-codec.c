@@ -524,6 +524,23 @@ void vbc_power_down(unsigned int value)
 }
 EXPORT_SYMBOL_GPL(vbc_power_down);
 
+#if !VBC_DYNAMIC_POWER_MANAGEMENT
+void vbc_power_on_playback(bool ldo)
+{
+    // Following code has risk [luther.ge]
+    // mutex_lock(&vbc_power_lock);
+    ldo = ldo;
+    if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
+    if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
+    if (!speaker_muted) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
+    //  if (speaker_muted && earpiece_muted && headset_muted)
+    //      printk("---- vbc mute all pa ----\n");
+    //  else
+    //      printk("---- vbc unmute %s%s%spa ----\n", speaker_muted ? "":"Speaker ",
+    //             earpiece_muted ? "":"Earpiece ",headset_muted ? "":"Headset ");
+    // mutex_unlock(&vbc_power_lock);
+}
+
 void vbc_power_on_capture(bool ldo)
 {
     // Following code has risk [luther.ge]
@@ -541,6 +558,7 @@ void vbc_power_on_capture(bool ldo)
     }
     // mutex_unlock(&vbc_power_lock);
 }
+#endif
 
 void vbc_power_on(unsigned int value)
 {
@@ -604,17 +622,8 @@ void vbc_power_on(unsigned int value)
         }
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
         else {
-            if (value == SNDRV_PCM_STREAM_PLAYBACK) {
-                if (!mute_dac) vbc_codec_unmute();
-                if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
-                if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
-                if (!speaker_muted) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
-            //  if (speaker_muted && earpiece_muted && headset_muted)
-            //      printk("---- vbc mute all pa ----\n");
-            //  else
-            //      printk("---- vbc unmute %s%s%spa ----\n", speaker_muted ? "":"Speaker ",
-            //             earpiece_muted ? "":"Earpiece ",headset_muted ? "":"Headset ");
-            }
+            if (value == SNDRV_PCM_STREAM_PLAYBACK)
+                vbc_power_on_playback(0);
         }
 #endif
         if (value == SNDRV_PCM_STREAM_CAPTURE)
@@ -940,7 +949,7 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
 	switch (cmd) {
         case SNDRV_PCM_TRIGGER_START:
 #if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
-            if (!dac_muted) {
+            if (!dac_muted && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
                 printk("vbc hardware nosie current unmute dac now!\n");
                 vbc_codec_unmute();
             }
@@ -948,7 +957,9 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
             #if VBC_DYNAMIC_POWER_MANAGEMENT
             vbc_power_on(substream->stream);
             #else
-            if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+            if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+                vbc_power_on_playback(1);
+            else if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
                 vbc_power_on_capture(1);
             #endif
 #if !VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
@@ -960,11 +971,13 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
         case SNDRV_PCM_TRIGGER_SUSPEND:
         case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 #if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
-            // must mute here, otherwise noise current sound will appear
-            dac_muted = !!vbc_reg_read(VBCR1, DAC_MUTE, 1);
-            if (!dac_muted) {
-                vbc_codec_mute();
-                printk("vbc hardware nosie current mute dac now!\n");
+            if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+                // must mute here, otherwise noise current sound will appear
+                dac_muted = !!vbc_reg_read(VBCR1, DAC_MUTE, 1);
+                if (!dac_muted) {
+                    vbc_codec_mute();
+                    printk("vbc hardware nosie current mute dac now!\n");
+                }
             }
 #endif
             vbc_dma_stop(substream); // Stop DMA transfer
@@ -972,7 +985,7 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
         case SNDRV_PCM_TRIGGER_RESUME:
         case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 #if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
-            if (!dac_muted) {
+            if (!dac_muted && substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
                 vbc_codec_unmute();
             }
 #endif
