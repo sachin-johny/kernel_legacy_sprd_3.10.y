@@ -648,7 +648,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
     }
 
     if(battery_data->charging || loop_cnt == 0){
-        if(battery_data->charging && battery_data->capacity>95){
+        if(battery_data->charging && battery_data->capacity>90){
 			if(!pluse_charging){
 				CHG_ShutDown();
 				adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
@@ -1040,9 +1040,9 @@ static int sprd_battery_resume(struct platform_device *pdev)
     if(adc_value < 0)
       return 0;
     voltage_value = CHGMNG_AdcvalueToVoltage(adc_value);
-    capacity = CHGMNG_VoltageToPercentum(voltage_value, battery_data->charging, 1);
     capacity = CHGMNG_VoltageToPercentum(voltage_value, battery_data->charging, 0);
     DEBUG("%s capacity %d pre_capacity %d\n", __func__, capacity, data->capacity);
+    capacity = (data->capacity + capacity)/2;
 	data->capacity = capacity;
 	power_supply_changed(&battery_data->battery);
     return 0;

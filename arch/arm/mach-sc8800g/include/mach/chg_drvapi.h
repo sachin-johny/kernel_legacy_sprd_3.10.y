@@ -884,8 +884,8 @@ void CHG_SetUSBChargeCurrent (CHG_USB_CHARGE_CURRENT_E current);
 void CHG_SetNormalChargeCurrent (CHG_NOR_CHARGE_CURRENT_E current);
 int CHGMNG_AdcvalueToTemp(uint16_t adcvalue);
 uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type);
-extern int charger_is_adapter(void);
-extern int32_t CHG_GetVirtualVprog (void);
+int charger_is_adapter(void);
+int32_t CHG_GetVirtualVprog (void);
 
 
 #ifdef __cplusplus
