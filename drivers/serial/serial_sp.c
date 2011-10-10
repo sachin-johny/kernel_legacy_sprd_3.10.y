@@ -302,7 +302,7 @@ static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 		status=serial_in(port,ARM_UART_STS1);
 		lsr=serial_in(port,ARM_UART_STS0);
 	}
-	tty->low_latency = 1;
+	//tty->low_latency = 1;
 	tty_flip_buffer_push(tty);
 #ifdef CONFIG_TS0710_MUX_UART
 	}
