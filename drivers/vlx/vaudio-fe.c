@@ -134,18 +134,22 @@ static struct timer_list lutimer;
 #if 1
 static void lutimer_handler(unsigned long data)
 {
-    struct vaudio_stream *s = vrs;
-    struct snd_pcm_runtime *runtime = s->stream->runtime;
-    int periods_avail = runtime->periods - snd_pcm_capture_avail(runtime) / runtime->period_size;
-    printk("vaudio dummy capture data flushing\n");
-    memset(s->stream->dma_buffer.area, 0, NK_VAUDIO_MAX_RING_SIZE);
-    while (periods_avail-- > 2) {
-        s->hwptr_done++;
-        s->hwptr_done %= runtime->periods;
-        snd_pcm_period_elapsed(s->stream);
-        s->periods_avail = 2;
+    if (vaudio_sync_force_close && vrs && vrs->stream) {
+        struct vaudio_stream *s = vrs;
+        struct snd_pcm_runtime *runtime = s->stream->runtime;
+        int periods_avail = runtime->periods - snd_pcm_capture_avail(runtime) / runtime->period_size;
+        printk("vaudio dummy capture data flushing\n");
+        memset(s->stream->dma_buffer.area, 0, NK_VAUDIO_MAX_RING_SIZE);
+        while (periods_avail-- > 2) {
+            s->hwptr_done++;
+            s->hwptr_done %= runtime->periods;
+            snd_pcm_period_elapsed(s->stream);
+            s->periods_avail = 2;
+        }
+        mod_timer(&lutimer, jiffies + VAUDIO_VTIMER_ROUND_JIFFIES);
+    } else {
+        printk("vaudio dummy capture exit automatically[%d]...\n", vaudio_sync_force_close);
     }
-    mod_timer(&lutimer, jiffies + VAUDIO_VTIMER_ROUND_JIFFIES);
 }
 
 static unsigned long round_jiffies_common(unsigned long j, int cpu,
@@ -205,6 +209,7 @@ static int lutimer_init(void)
 static void lutimer_exit(void)
 {
     if (lutimer.data) {
+        printk("vaudio dummy capture exit forced...\n");
         del_timer_sync(&lutimer);
         lutimer.data = 0;
     }
@@ -228,13 +233,13 @@ static int
 vaudio_proc_write(struct file *f, const char *buf, unsigned long len, void *data)
 {
     mutex_lock(&vaudio_proc_sync_lock);
-    if (vrs) {
+    if (vrs && vrs->stream) {
         if (vaudio_sync_force_close == 0) {
             vaudio_sync_force_close = 1;
             lutimer_init();
             // snd_pcm_stop(vrs->stream, SNDRV_PCM_STATE_XRUN);
         }
-    }
+    } else printk("vaudio capture doesn't open yet!\n");
     mutex_unlock(&vaudio_proc_sync_lock);
     return len;
 }
@@ -580,7 +585,7 @@ vaudio_snd_card_open (struct snd_pcm_substream* substream)
     nkops.nk_xirq_trigger(ctrl->cxirq, vlink->s_id);
     down(&s->ctrl_sem);
 #if VAUDIO_PROC_SYNC
-    if (dev == 0 && stream_id == SNDRV_PCM_STREAM_CAPTURE) {
+    if (/*dev == 0 && */stream_id == SNDRV_PCM_STREAM_CAPTURE) {
         mutex_lock(&vaudio_proc_sync_lock);
         vrs = s;
         mutex_unlock(&vaudio_proc_sync_lock);
@@ -599,10 +604,10 @@ vaudio_snd_card_close (struct snd_pcm_substream* substream)
     NkVaudioCtrl*         ctrl = s->ctrl;
 #if VAUDIO_PROC_SYNC
     mutex_lock(&vaudio_proc_sync_lock);
-    if (dev == 0 && stream_id == SNDRV_PCM_STREAM_CAPTURE && vaudio_sync_force_close) {
+    if (/*dev == 0 && */stream_id == SNDRV_PCM_STREAM_CAPTURE) {
+        vaudio_sync_force_close = 0;
         lutimer_exit();
         vrs = NULL;
-        vaudio_sync_force_close = 0;
     }
     mutex_unlock(&vaudio_proc_sync_lock);
 #endif
