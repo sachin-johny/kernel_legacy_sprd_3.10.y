@@ -524,6 +524,24 @@ void vbc_power_down(unsigned int value)
 }
 EXPORT_SYMBOL_GPL(vbc_power_down);
 
+void vbc_power_on_capture(bool ldo)
+{
+    // Following code has risk [luther.ge]
+    // mutex_lock(&vbc_power_lock);
+    if (vbc_reg_read(VBPMR1, SB_ADC, 1)) {
+        if (ldo) vbc_ldo_on(1);
+        printk("vbc_power_on capture\n");
+        vbc_reg_VBPMR2_set(SB, 0); // Power on sb
+        vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
+
+        vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
+        vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
+        vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
+        vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
+    }
+    // mutex_unlock(&vbc_power_lock);
+}
+
 void vbc_power_on(unsigned int value)
 {
     int use_delay;
@@ -599,17 +617,8 @@ void vbc_power_on(unsigned int value)
             }
         }
 #endif
-        if (value == SNDRV_PCM_STREAM_CAPTURE &&
-            vbc_reg_read(VBPMR1, SB_ADC, 1)) {
-            printk("vbc_power_on capture\n");
-            vbc_reg_VBPMR2_set(SB, 0); // Power on sb
-            vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
-
-            vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
-            vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
-            vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
-            vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
-        }
+        if (value == SNDRV_PCM_STREAM_CAPTURE)
+            vbc_power_on_capture(0);
     }
     mutex_unlock(&vbc_power_lock);
 }
@@ -938,6 +947,9 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
 #endif
             #if VBC_DYNAMIC_POWER_MANAGEMENT
             vbc_power_on(substream->stream);
+            #else
+            if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
+                vbc_power_on_capture(1);
             #endif
 #if !VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
             vbc_dma_start(substream);
