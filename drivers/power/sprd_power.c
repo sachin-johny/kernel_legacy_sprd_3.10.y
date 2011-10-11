@@ -896,7 +896,9 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	int ret;
 	struct sprd_battery_data *data;
 	int adc_value;
+    int voltage_value;
     int i;
+    int charger_present;
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -905,7 +907,6 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	}
 	spin_lock_init(&data->lock);
 
-    data->capacity = 100;
     data->charging = 0;
     data->cur_type = 400;
 
@@ -955,6 +956,13 @@ retry_adc:
             put_vbat_value(adc_value);
         }
     }
+    adc_value = get_vbat_value();
+    printk("charge: adc value in probe 0x%x\n", adc_value);
+    voltage_value = CHGMNG_AdcvalueToVoltage(adc_value);
+    charger_present = usb_connected();
+    printk("charge: charger present %d\n", charger_present);
+    data->capacity = CHGMNG_VoltageToPercentum(voltage_value, charger_present, 0);
+    printk("charge: capacity value in probe %d\n", data->capacity);
 	//update_vbat_value(adc_value);
 	update_vprog_value(0);
 	memset(vprog_buf, 0, sizeof(vprog_buf));
