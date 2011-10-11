@@ -20,6 +20,7 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/wakelock.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
@@ -189,6 +190,7 @@ typedef struct ExDev {
     WAIT_QUEUE	 wait;		/* waiting queue for all ops */
     int		 count;		/* usage counter */
     unsigned int flags;         /* device behaviour semantic */ 
+    struct wake_lock wake_lock; /* lock to keep android system awake */
 } ExDev;
 
 #define EMPTY_WAIT_ONLY   0x1  /* The read wait only on empty buffer */
@@ -384,6 +386,8 @@ ex_xirq_hdl (void* cookie, NkXIrq xirq)
     ExDev*       ex_dev = (ExDev*)cookie;
 
     wake_up_interruptible(&ex_dev->wait);
+
+    wake_lock_timeout(&ex_dev->wake_lock, 5 * HZ);
 }
 
     /*
@@ -472,6 +476,7 @@ ex_open (struct inode* inode, struct file* file)
 {
     unsigned int minor   = iminor(inode);
     ExDev*       ex_dev;
+    char         wl_name[10];
 
 	/*
 	 * Check for "legal" minor
@@ -531,6 +536,13 @@ ex_open (struct inode* inode, struct file* file)
 	    mutex_unlock(&ex_dev->olock);
 	    return -EINTR;
     }
+
+	/*
+	 * init wake_lock for this vbpipe
+	 */
+    sprintf(wl_name, "vbpipe%d", minor);
+    wake_lock_init(&ex_dev->wake_lock, WAKE_LOCK_SUSPEND, wl_name);
+
 #ifdef TRACE_SYSCONF
     printk(VBPIPE_MSG "ex_open for minor=%d is ok\n", minor);
 #endif
@@ -588,6 +600,8 @@ ex_release (struct inode* inode, struct file* file)
 	printk(VBPIPE_MSG "ex_release for minor=%d is ok\n", minor);
 #endif
     }
+
+    wake_lock_destroy(&ex_dev->wake_lock);
 
     mutex_unlock(&ex_dev->olock);
 
@@ -748,6 +762,9 @@ ex_read (struct file* file, char __user* buf,
     printk(VBPIPE_MSG "ex_read from minor=%d completed done=%d\n",
 		       minor, done);
 #endif
+
+    if (RING_C_ROOM(sring) == 0)
+        wake_unlock(&ex_dev->wake_lock);
 
     mutex_unlock(&ex_dev->rlock);
 
