@@ -547,17 +547,17 @@ void get_dcam_reg(void)
   for(i = 0; i < 29; i++)
   {
     value = _pard(DCAM_REG_BASE + i * 4);
-    DCAM_TRACE("DCAM reg:0x%x, 0x%x.\n", DCAM_REG_BASE + i * 4, value);
+    printk("DCAM reg:0x%x, 0x%x.\n", DCAM_REG_BASE + i * 4, value);
   }
   for(i = 0; i < 9; i++)
   {
     value = _pard(DCAM_REG_BASE + 0x0100 + i * 4);
-    DCAM_TRACE("DCAM reg:0x%x, 0x%x.\n", DCAM_REG_BASE + 0x0100 + i * 4, value);
+    printk("DCAM reg:0x%x, 0x%x.\n", DCAM_REG_BASE + 0x0100 + i * 4, value);
   }
   for(i = 0; i < 20; i++)
   {
     value = _pard(AHB_BASE + 0x200 + i * 4);
-    DCAM_TRACE("DCAM AHB reg:0x%x, 0x%x.\n", AHB_BASE + 0x0200 + i * 4, value);
+    printk("DCAM AHB reg:0x%x, 0x%x.\n", AHB_BASE + 0x0200 + i * 4, value);
   }
 }
 int dcam_open(void)

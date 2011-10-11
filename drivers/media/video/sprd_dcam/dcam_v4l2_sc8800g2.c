@@ -93,9 +93,13 @@ uint32_t g_is_first_irq = 1;
 #define DCAM_RELEASE 0
 #define DCAM_VERSION \
 	KERNEL_VERSION(DCAM_MAJOR_VERSION, DCAM_MINOR_VERSION, DCAM_RELEASE)
-
+#ifdef CONFIG_CAMERA_2M
 #define norm_maxw() 1600
 #define norm_maxh() 1200
+#else
+#define norm_maxw() 2048
+#define norm_maxh() 1536
+#endif
 
 MODULE_DESCRIPTION("Video Technology Magazine Virtual Video Capture Board");
 MODULE_AUTHOR("Mauro Carvalho Chehab, Ted Walther and John Sokol");

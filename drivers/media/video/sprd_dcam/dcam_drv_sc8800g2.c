@@ -65,7 +65,7 @@ typedef void (*ISP_ISR_PTR)(uint32_t base_addr);
 #define ISP_CAP_FRAME_DECI_FACTOR_MAX                  0x10
 #define ISP_CAP_X_DECI_FACTOR_MAX                      0x10
 #define ISP_CAP_Y_DECI_FACTOR_MAX                      0x10
-#define ISP_CAP_FRAME_WIDTH_MAX                        4092
+#define ISP_CAP_FRAME_WIDTH_MAX                        8192 //13bits for register
 #define ISP_CAP_FRAME_HEIGHT_MAX                       4092
 #define ISP_CAP_JPEG_DROP_NUM_MIN                      0x01 
 #define ISP_CAP_JPEG_DROP_NUM_MAX                      0x10 

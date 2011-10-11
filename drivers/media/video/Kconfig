@@ -575,6 +575,8 @@ config VIDEO_DCAM_SPRD
 	help
 	  Support digital camera for SPRD
 
+source "drivers/media/video/sprd_dcam/Kconfig"
+
 config VIDEO_OVERLAY_SPRD
 	tristate "SPRD OVERLAY driver"
 	select VIDEOBUF_VMALLOC
