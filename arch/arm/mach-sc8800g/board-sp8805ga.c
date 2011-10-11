@@ -241,7 +241,7 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_GPS_PWR	           25
 #define SPRD_3RDPARTY_GPIO_GPS_ONOFF	    60
 #define SPRD_3RDPARTY_GPIO_GPS_RST	           59
-
+#define SPRD_3RDPARTY_GPIO_FLASH_LED	           93
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
 int sprd_3rdparty_gpio_wifi_pwd   = SPRD_3RDPARTY_GPIO_WIFI_PWD;
@@ -291,6 +291,17 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_normal);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_high);
 
 static struct gpio_desc gpio_func_cfg[] = {
+
+   {
+        //MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE), // wifi_power_io - also Bluetooth power
+	//SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+        
+	GPIO_DESC_MFP_OBSOLETE,
+	SPRD_3RDPARTY_GPIO_FLASH_LED| GPIO_DIRECTION_OUTPUT,
+        "flash led"
+    },
+
+
     {
         //MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE), // wifi_power_io - also Bluetooth power
 	//SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,

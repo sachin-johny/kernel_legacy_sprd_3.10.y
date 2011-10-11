@@ -164,6 +164,11 @@ static struct platform_device sprd_lcd_bl_device = {
         .id             =  -1,
 };
 
+/* Flashled backlight */
+static struct platform_device sprd_FlashLed_device = {
+	    .name           = "flash-led",
+        .id             =  -1,
+};
 static struct resource sprd_serial_resources[] = {
         [0] = {
 		.start = SPRD_SERIAL0_BASE,
@@ -248,6 +253,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_battery_device,
 	&sprd_kp_bl_device,
 	&sprd_lcd_bl_device,
+	&sprd_FlashLed_device,
 	&sprd_serial_device, 
 	&sprd_tp_device,
 	&sprd_2d_device,

@@ -34,6 +34,7 @@ obj-$(CONFIG_LEDS_SC8800S_KB)		+= leds-sc8800s-kb.o
 obj-$(CONFIG_LEDS_SC8800S_LCD)		+= leds-sc8800s-lcd.o
 obj-$(CONFIG_LEDS_SC8800G_KB)		+= leds-sc8800g-kb.o
 obj-$(CONFIG_LEDS_SC8800G_LCD)		+= leds-sc8800g-lcd.o
+obj-$(CONFIG_LEDS_SC8800G_LCD)		+= leds-sc8800g-flashled.o
 obj-$(CONFIG_LEDS_PWM)			+= leds-pwm.o
 obj-$(CONFIG_LEDS_REGULATOR)		+= leds-regulator.o
 obj-$(CONFIG_LEDS_INTEL_SS4200)		+= leds-ss4200.o
