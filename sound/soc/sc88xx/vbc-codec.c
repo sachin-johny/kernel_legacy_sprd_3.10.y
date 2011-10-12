@@ -638,8 +638,9 @@ static inline int mode_incall(void)
     return !(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC);
 }
 
-static int vbc_reset(struct snd_soc_codec *codec, int poweron)
+static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 {
+    printk("vbc reset start...\n");
     // 1. dial phone number
     // 2. modem will set DSP control audio codec
     // 3. DSP control audio codec
@@ -651,7 +652,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron)
     //
     // The problem occures in step 7 & 8, if 8 first occures, pop sound will be created, and
     // alsa DMA can't be work, AudioFlinger will can't obtainBuffer from alsa driver [luther.ge]
-    {
+    if (check_incall) {
         // vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
         // fix above problem
         while (mode_incall()) {
@@ -742,7 +743,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron)
 #endif
     vbc_codec_unmute(); // don't mute
 #endif
-
+    printk("vbc reset finish...\n");
     return 0;
 }
 
@@ -759,10 +760,10 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
             // speaker_muted = true;
 #if VBC_DYNAMIC_POWER_MANAGEMENT
-            vbc_reset(codec, 0);
+            vbc_reset(codec, 0, 1);
             vbc_power_down(-1);
 #else
-            vbc_reset(codec, 1);
+            vbc_reset(codec, 1, 1);
 #endif
             // vbc_reset(codec);
             if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
@@ -1128,8 +1129,15 @@ int vbc_suspend(struct platform_device *pdev, pm_message_t state)
 
 int vbc_resume(struct platform_device *pdev)
 {
+    struct snd_soc_device *socdev = platform_get_drvdata(pdev);
+    struct snd_soc_codec *codec = socdev->card->codec;
     printk("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
+#if 1
+    vbc_reset(codec, 1, 0);
+#else
+    if (codec) vbc_reset(codec, 0, 0);
     vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE);
+#endif
     return 0;
 }
 #else
@@ -1359,7 +1367,7 @@ static int vbc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto pcm_err;
 
-	vbc_reset(codec, 0);
+	vbc_reset(codec, 0, 0);
     local_cpu_pa_control(false); // Turn off classD cpu PA
     vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
     vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
