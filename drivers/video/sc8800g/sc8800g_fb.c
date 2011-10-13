@@ -1092,10 +1092,10 @@ static uint32_t lcd_id_from_uboot = 0;
 
 static int __init calibration_start(char *str)
 {
-	if(str)
+	if((str[0]=='I')&&(str[1]=='D'))
 	{
-		lcd_id_from_uboot = (((uint32_t)(str[0]))&0xff)<<8;
-		lcd_id_from_uboot |= ((uint32_t)(str[1]))&0xff;
+		lcd_id_from_uboot = (((uint32_t)(str[2]))&0xff)<<8;
+		lcd_id_from_uboot |= ((uint32_t)(str[3]))&0xff;
 	}
 	else
 	{
