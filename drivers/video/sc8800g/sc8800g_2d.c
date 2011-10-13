@@ -345,9 +345,17 @@ static inline void clean_cache_all(void)
 	::);
 }
 
+extern void format_convert(unsigned int *src,unsigned int *dst,unsigned int num);
+extern void format_convert_with_crop(unsigned int *src,unsigned int *dst,unsigned int *parm);
+extern void format_convert_with_crop_non_8w(unsigned int *src,unsigned int *dst,unsigned int *parm);
+
 static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg){
 	struct s2d_blit_req_list *parameters;
 	int dma_copy_ret = -1, num = 0;
+	struct s2d_blit_req *params;
+	int i, j;
+	unsigned int *src, *src_base, *dst;
+	unsigned int param[4] ={0};
 	parameters = (struct s2d_blit_req_list*)file->private_data;
 	if (copy_from_user(parameters, 
 				(struct s2d_blit_req_list*)arg, sizeof(struct s2d_blit_req_list)))
@@ -368,7 +376,7 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 		clean_cache_all();
 
 	for(num = 0; num < parameters->count; num++){
-		struct s2d_blit_req *params;
+		
 		params = &parameters->req[num];
 
 	C2D_PRINT("sc8800g_2d_ioctl num: %d, do_flags: %d,alpha:%d, flags: %d, dst:{%d, %d,%d,0x%x}, src:{%d,%d,%d,0x%x}, dst_rect:{%d, %d, %d,%d}, src_rect:{%d,%d,%d,%d}\n",
@@ -382,26 +390,58 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 		/* we assume RGBA8888 format data is from pmem */
 		if ((params->src.format == S2D_BGRA_8888) &&(params->dst.format != S2D_BGRA_8888)){
 			/* it's RGBA actually, so we need to change it first */
-			int i, j;
-			unsigned int *src, *src_base, *dst;
+
+			/* FIXME: work around for pmem flush failure */
+			flush_cache_all();
+
 
 			src_base = (unsigned int *)GET_VA(params->src.base);
 			src_base += params->src_rect.y * params->src.width + 
 				params->src_rect.x;
 			dst = (unsigned int *)buf_ptr_cached;
 
-			for (i = params->src_rect.h; i!=0; i--) {
-				src = src_base;
-				for (j = params->src_rect.w; j!=0; j--) {
-					*dst++ = ((*src)<<8) | ((*src)>>24);
-					src++;
+			if(params->src_rect.w&0x7)
+			{						
+				if(params->src_rect.w>8)
+				{
+					param[0] = (params->src.width-params->src_rect.w)<<2;
+					param[1] = params->src_rect.w-(params->src_rect.w&0x7);
+					param[2] = params->src_rect.w&0x7;
+					param[3] = params->src_rect.h;
+					src = src_base;					
+					format_convert_with_crop_non_8w(src,dst,&param[0]);
+					dst += params->src_rect.w*params->src_rect.h;
 				}
-				src_base += params->src.width;
-			}
+				else
+				{
+					for (i = params->src_rect.h; i!=0; i--) {
+					src = src_base;
+					for (j = params->src_rect.w; j!=0; j--) {
+						*dst++ = ((*src)<<8) | ((*src)>>24);
+						src++;
+					}
+					src_base += params->src.width;
+					}
+				}
 
+			}
+			else if(params->src.width==params->src_rect.w)
+			{					
+				src = src_base;	
+			         format_convert(src,dst,params->src_rect.w*params->src_rect.h);
+				dst += params->src_rect.w*params->src_rect.h;
+			}
+			else
+			{				
+				param[0] = params->src.width;
+				param[1] = params->src_rect.w;
+				param[2] = params->src_rect.h;
+				src = src_base;	
+				format_convert_with_crop(src,dst,&param[0]);
+				dst += params->src_rect.w*params->src_rect.h;
+			}
 			clean_dcache_area((unsigned int *)buf_ptr_cached, 
 					(unsigned int)dst - buf_ptr_cached);
-
 			params->src.width = params->src_rect.w;
 			params->src.height = params->src_rect.h;
 			//params->src.format = S2D_ARGB_8888;
@@ -445,7 +485,7 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 					return -7;
 				}			
 			}
-		}
+		}	
 	}
 	mutex_unlock(lock);
 	return 0;
