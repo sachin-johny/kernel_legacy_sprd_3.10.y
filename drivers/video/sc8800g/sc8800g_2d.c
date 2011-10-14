@@ -390,11 +390,6 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 		/* we assume RGBA8888 format data is from pmem */
 		if ((params->src.format == S2D_BGRA_8888) &&(params->dst.format != S2D_BGRA_8888)){
 			/* it's RGBA actually, so we need to change it first */
-
-			/* FIXME: work around for pmem flush failure */
-			flush_cache_all();
-
-
 			src_base = (unsigned int *)GET_VA(params->src.base);
 			src_base += params->src_rect.y * params->src.width + 
 				params->src_rect.x;
