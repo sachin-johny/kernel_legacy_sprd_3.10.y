@@ -283,7 +283,7 @@ static struct i2c_client_address_data sensor_sub_addr_data = { .forces = sensor_
 			this_client->addr = (this_client->addr & (~0xFF)) | (sensor_sub_force[1]&0xFF); 
 		}
 	}
-	printk("sensor_probe,this_client->addr =0x%x\n",this_client->addr );
+	SENSOR_PRINT("sensor_probe,this_client->addr =0x%x\n",this_client->addr );
 	mdelay(20);
 	
 	return 0;
@@ -1227,7 +1227,7 @@ int Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 				}
 				else
 				{
-					printk("SENSOR: IIC write reg OK! 0x%04x, val:0x%04x ", subaddr, data);
+					//printk("SENSOR: IIC write reg OK! 0x%04x, val:0x%04x ", subaddr, data);
 					break;
 				}
 			}           
@@ -1488,7 +1488,7 @@ PUBLIC SENSOR_ID_E Sensor_GetCurId(void)
 {
     SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
 
-     printk("Sensor_GetCurId,sensor_id =%d",sensor_register_info_ptr->cur_id);	
+     SENSOR_PRINT("Sensor_GetCurId,sensor_id =%d",sensor_register_info_ptr->cur_id);	
 
     return (SENSOR_ID_E)sensor_register_info_ptr->cur_id;
 }
@@ -1537,7 +1537,7 @@ LOCAL int  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 		{		
 			if(SENSOR_MAIN == sensor_id)
 			{			
-				printk("_Sensor_I2CInit,sensor_main_force[1] =%d \n",sensor_main_force[1] );
+				SENSOR_PRINT("_Sensor_I2CInit,sensor_main_force[1] =%d \n",sensor_main_force[1] );
 				sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_main_id;
 				sensor_i2c_driver.address_data = &sensor_main_addr_data;
@@ -1545,7 +1545,7 @@ LOCAL int  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 		    	}
 		    	else  if(SENSOR_SUB == sensor_id)
 		    	{		    
-				printk("_Sensor_I2CInit,sensor_sub_force[1] =%d \n",sensor_sub_force[1] );
+				SENSOR_PRINT("_Sensor_I2CInit,sensor_sub_force[1] =%d \n",sensor_sub_force[1] );
 		    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_sub_id;
 				sensor_i2c_driver.address_data = &sensor_sub_addr_data;     				
@@ -1762,7 +1762,7 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 		s_sensor_init = SENSOR_TRUE;
 		Sensor_PowerOn(SENSOR_TRUE);
 		this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
-		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n",sensor_id,this_client->addr);
+		SENSOR_PRINT("Sensor_Init:sensor_id :%d,addr=0x%x\n",sensor_id,this_client->addr);
 		ret_val=SENSOR_SUCCESS;		
 		if(SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT))
 		{

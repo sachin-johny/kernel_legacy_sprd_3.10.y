@@ -1759,7 +1759,7 @@ int _SCALE_DriverIOInit(void)
 	if( 0 == dcam_get_user_count())
      	{
      		_SCALE_DriverInit();
-		SCALE_PRINT_ERR("###scale:_SCALE_DriverInit.\n");
+		//SCALE_PRINT_ERR("###scale:_SCALE_DriverInit.\n");
      	}
 	if(0 != _SCALE_DriverSetMclk()){
 		SCALE_PRINT_ERR("###scale  Failed to _SCALE_DriverSetMclk!\n");

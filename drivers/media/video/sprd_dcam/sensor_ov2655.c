@@ -614,8 +614,8 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_OV2655_ioctl_func_tab =
 	PNULL,				// extend information about sensor
 	SENSOR_AVDD_2800MV,                     // iovdd
 	SENSOR_AVDD_1300MV,                      // dvdd
-	0,                     // skip frame num before preview 
-	0,                     // skip frame num before capture		
+	4,                     // skip frame num before preview 
+	3,                     // skip frame num before capture		
     0,                     // deci frame num during preview;		
     0,                     // deci frame num during video preview;
     0,                     // threshold enable

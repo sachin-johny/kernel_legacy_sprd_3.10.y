@@ -389,6 +389,30 @@ LOCAL void _ISP_ServiceOnPath1(void *p)
     get_dcam_reg();
 #endif
 }
+LOCAL void _ISP_ServiceOnCAPBufOF(void *p)
+{
+	CALLBACK_FUNC_PTR cb_fun = g_dcam_cb[DCAM_CB_CAP_FIFO_OF];
+	if(cb_fun)
+		(*cb_fun)();
+}
+LOCAL void _ISP_ServiceOnSensorLineErr(void *p)
+{
+	CALLBACK_FUNC_PTR cb_fun = g_dcam_cb[DCAM_CB_SENSOR_LINE_ERR];
+	if(cb_fun)
+		(*cb_fun)();
+}
+LOCAL void _ISP_ServiceOnSensorFrameErr(void *p)
+{
+	CALLBACK_FUNC_PTR cb_fun = g_dcam_cb[DCAM_CB_SENSOR_FRAME_ERR];
+	if(cb_fun)
+		(*cb_fun)();
+}
+LOCAL void _ISP_ServiceOnJpegBufOF(void *p)
+{
+	CALLBACK_FUNC_PTR cb_fun = g_dcam_cb[DCAM_CB_JPEG_BUF_OF];
+	if(cb_fun)
+		(*cb_fun)();
+}
 
 
 
@@ -504,6 +528,18 @@ DCAM_TRACE("ISP_SERVICE:ISP_DriverCapConfig.\n");
         rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
                                            ISP_IRQ_NOTICE_PATH1_DONE,
                                            _ISP_ServiceOnPath1);
+        ISP_RTN_IF_ERR(rtn_drv);
+        rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+                                           ISP_IRQ_NOTICE_CAP_FIFO_OF,
+                                           _ISP_ServiceOnCAPBufOF);
+        ISP_RTN_IF_ERR(rtn_drv);	
+        rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+                                           ISP_IRQ_NOTICE_SENSOR_LINE_ERR,
+                                           _ISP_ServiceOnSensorLineErr);
+        ISP_RTN_IF_ERR(rtn_drv);	
+        rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+                                           ISP_IRQ_NOTICE_SENSOR_FRAME_ERR,
+                                           _ISP_ServiceOnSensorFrameErr);
         ISP_RTN_IF_ERR(rtn_drv);
     }
   
@@ -698,6 +734,10 @@ LOCAL void _ISP_ServiceStartJpeg(void)
     rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
                                        ISP_IRQ_NOTICE_PATH1_DONE,
                                        _ISP_ServiceOnPath1);
+    ISP_RTN_IF_ERR(rtn_drv);
+    rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+                                       ISP_IRQ_NOTICE_JPEG_BUF_OF,
+                                       _ISP_ServiceOnJpegBufOF);
     ISP_RTN_IF_ERR(rtn_drv);
 
     ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr); //wxz:???

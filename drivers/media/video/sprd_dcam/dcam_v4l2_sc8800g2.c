@@ -83,6 +83,7 @@ static uint32_t g_is_first_frame = 1; //store the flag for the first frame
 DCAM_INFO_T g_dcam_info; //store the dcam and sensor config info
 uint32_t g_zoom_level = 0; //zoom level: 0: 1x, 1: 2x, 2: 3x, 3: 4x
 uint32_t g_is_first_irq = 1; 
+uint32_t g_dcam_err_work = 0; //wxz20111015: 0: dcam no error; 1: dcam occur error, but it can work.
 
 #define DCAM_MODULE_NAME "dcam"
 #define WAKE_NUMERATOR 30
@@ -1249,6 +1250,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return ret;
 	}
 	g_is_first_irq = 1;
+	g_dcam_err_work = 0;
 	g_last_buf = 0xFFFFFFFF;
 	 dcam_start();
 
@@ -1307,6 +1309,12 @@ static void set_next_buffer(struct dcam_fh *fh)
 	struct dcam_dmaqueue *dma_q = &dev->vidq;
 
 	unsigned long flags = 0;
+	
+	if(1 == g_dcam_err_work){
+		dcam_set_buffer_address(g_last_buf);
+		g_dcam_err_work = 0;
+		return;
+	}
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&dma_q->active)) {
@@ -1479,6 +1487,22 @@ void dcam_cb_ISRCapEOF(void)
 void dcam_cb_ISRPath1Done(void)
 {	
 	path1_done_buffer(g_fh);
+}
+void dcam_cb_ISRCapFifoOF(void)
+{	
+	g_dcam_err_work = 1;
+}
+void dcam_cb_ISRSensorLineErr(void)
+{	
+	g_dcam_err_work = 1;
+}
+void dcam_cb_ISRSensorFrameErr(void)
+{	
+	g_dcam_err_work = 1;
+}
+void dcam_cb_ISRJpegBufOF(void)
+{	
+	g_dcam_err_work = 1;
 }
 /* ------------------------------------------------------------------
 	Videobuf operations
@@ -1709,6 +1733,10 @@ static int open(struct file *file)
 	dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
 	dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
 	dcam_callback_fun_register(DCAM_CB_PATH1_DONE,dcam_cb_ISRPath1Done);
+	dcam_callback_fun_register(DCAM_CB_CAP_FIFO_OF,dcam_cb_ISRCapFifoOF);	
+	dcam_callback_fun_register(DCAM_CB_SENSOR_LINE_ERR,dcam_cb_ISRSensorLineErr);	
+	dcam_callback_fun_register(DCAM_CB_SENSOR_FRAME_ERR,dcam_cb_ISRSensorFrameErr);	
+	dcam_callback_fun_register(DCAM_CB_JPEG_BUF_OF,dcam_cb_ISRJpegBufOF);
 
 	return 0;
 }
