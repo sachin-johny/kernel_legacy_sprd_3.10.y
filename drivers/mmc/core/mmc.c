@@ -268,7 +268,6 @@ static int mmc_read_ext_csd(struct mmc_card *card)
 
 out:
 	kfree(ext_csd);
-
 	return err;
 }
 
@@ -323,6 +322,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	int err;
 	u32 cid[4];
 	unsigned int max_dtr;
+        int card_not_mbbms = 1;//for mbbms mmc card, wong
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
@@ -392,7 +392,19 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
 
-	if (!oldcard) {
+         /**  
+	  *   NOTE: spreadtrum, wong
+	  *   For some kinds of mmc cards(at least one I found, MBBMS), data transfer errors occured after 
+	  * resume!!! We decide to add a variable "card_not_mbbms" below, so the MBBMS mmc cards
+	  * resume process is same to card initialization. errors died!!
+	  **/
+
+	if(oldcard){
+	     card_not_mbbms = strncmp(mmc_card_name(oldcard), "MBBMS", strlen("MBBMS"));
+	}
+	//original code, wong
+	//if (!oldcard) {
+	if ((!oldcard) || (!card_not_mbbms)){
 		/*
 		 * Fetch CSD from card.
 		 */
@@ -417,7 +429,9 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			goto free_card;
 	}
 
-	if (!oldcard) {
+	//original code, wong
+	//if (!oldcard) {
+	if ((!oldcard) || (!card_not_mbbms)){
 		/*
 		 * Fetch and process extended CSD.
 		 */
@@ -425,7 +439,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (err)
 			goto free_card;
 	}
-
+	
 	/*
 	 * Activate high speed (if supported)
 	 */
@@ -490,8 +504,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			mmc_set_bus_width(card->host, bus_width);
 		}
 	}
-
-	if (!oldcard)
+        
+	//original code, wong
+	//if (!oldcard)//ok case
+	if ((!oldcard) || (!card_not_mbbms))
 		host->card = card;
 
 	return 0;
@@ -511,7 +527,6 @@ static void mmc_remove(struct mmc_host *host)
 {
 	BUG_ON(!host);
 	BUG_ON(!host->card);
-
 	mmc_remove_card(host->card);
 	host->card = NULL;
 }
@@ -573,7 +588,6 @@ static int mmc_resume(struct mmc_host *host)
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
-
 	mmc_claim_host(host);
 	err = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
