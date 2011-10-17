@@ -81,19 +81,19 @@ LOCAL SENSOR_IMAGE_FORMAT s_sensor_image_format = SENSOR_IMAGE_FORMAT_DEFAULT;
 #ifdef CONFIG_MACH_SP6810A
 const SENSOR_INFO_T* main_sensor_infor_tab[]=
 {
-	&g_OV2655_yuv_info,
-	&g_OV7675_yuv_info,	
-	&g_GC0309_yuv_info,
+	//&g_OV2655_yuv_info,
+	//&g_OV7675_yuv_info,	
+	//&g_GC0309_yuv_info,
 	&g_GT2005_yuv_info,
 	PNULL
 };
 
 const SENSOR_INFO_T* sub_sensor_infor_tab[]=
 {
-	&g_OV2655_yuv_info,
-	&g_OV7675_yuv_info,	
+	//&g_OV2655_yuv_info,
+	//&g_OV7675_yuv_info,	
 	&g_GC0309_yuv_info,
-	&g_GT2005_yuv_info,
+	//&g_GT2005_yuv_info,
 	PNULL
 };
 #elif CONFIG_MACH_SP8805GA

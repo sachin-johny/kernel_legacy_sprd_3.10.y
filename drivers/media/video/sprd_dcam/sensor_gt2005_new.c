@@ -107,7 +107,7 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	{0x011A , 0x04},
 	{0x011B , 0x00},
 	{0x011C , 0x01},
-	{0x011D , 0x02},
+	{0x011D , 0x01},
 	{0x011E , 0x00},
 	{0x011F , 0x00},
 	{0x0120 , 0x1C},
@@ -1065,7 +1065,7 @@ SENSOR_REG_T GT2005_contrast_tab[][2]=
 	{{0x0200 , 0x00},{0xff , 0xff}},
 	{{0x0200 , 0x20},{0xff , 0xff}},
 	{{0x0200 , 0x40},{0xff , 0xff}},
-	{{0x0200 , 0x60},{0xff , 0xff}}
+	{{0x0200 , 0x70},{0xff , 0xff}}
 };
 
 LOCAL uint32_t Set_GT2005_Contrast(uint32_t level)
@@ -1334,16 +1334,8 @@ LOCAL void    GT2005_Set_Shutter(void)
 	shutter = (Sensor_ReadReg(0x0012)<<8 )|( Sensor_ReadReg(0x0013));    
 	AGain_shutter = (Sensor_ReadReg(0x0014)<<8 )|( Sensor_ReadReg(0x0015));
 	DGain_shutter = (Sensor_ReadReg(0x0016)<<8 )|( Sensor_ReadReg(0x0017));
-	Sensor_WriteReg(0x0300 , 0x01); //close ALC
+	Sensor_WriteReg(0x0300 , 0x41); //close ALC
 	
-	if((0x25E != shutter) || (0x5F != AGain_shutter))
-		printk("#########wxz: shutter: %x, ashut:%x, dshut: %d.\n", shutter, AGain_shutter, DGain_shutter);
-
-	shutter = 0x25E;
-	AGain_shutter = 0x5F;
-	DGain_shutter = 0x0;
-
-
 	//shutter = shutter / 2; 
 
 	Sensor_WriteReg(0x0305 , shutter&0xff);           
@@ -1353,6 +1345,7 @@ LOCAL void    GT2005_Set_Shutter(void)
 	Sensor_WriteReg(0x0306 , (AGain_shutter>>8)&0xff); //AG
 
 	Sensor_WriteReg(0x0308,  DGain_shutter&0xff);   //DG
+	//Sensor_WriteReg(0x0119,  0x02);   //DG
 	
 }
 
@@ -1422,7 +1415,7 @@ LOCAL uint32_t GT2005_After_Snapshot(uint32_t para)
 LOCAL uint32_t GT2005_Change_Image_Format(uint32_t param)
 {
 	SENSOR_REG_TAB_INFO_T st_jpeg_reg_table_info = { ADDR_AND_LEN_OF_ARRAY(GT2005_JPEG_MODE), 0,0,0, 0};
-	SENSOR_REG_TAB_INFO_T st_yuv422_reg_table_info = { ADDR_AND_LEN_OF_ARRAY(GT2005_YUV_COMMON),0,0,0,0};
+	SENSOR_REG_TAB_INFO_T st_yuv422_reg_table_info = { ADDR_AND_LEN_OF_ARRAY(GT2005_YUV_640X480/*GT2005_YUV_COMMON*/),0,0,0,0};
 	uint32_t ret_val = SENSOR_FAIL;
 
 	switch(param)

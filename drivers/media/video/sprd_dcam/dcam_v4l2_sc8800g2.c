@@ -1279,6 +1279,13 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		return ret;
 	}
 	g_is_first_frame = 1; //store the nex first frame.
+	
+	//stop sensor
+	//wxz:20111017:call after_snapshot after capture. 
+	if((g_dcam_info.snapshot_m < SENSOR_MODE_PREVIEW_TWO)
+		&& (g_dcam_info.snapshot_m > SENSOR_MODE_PREVIEW_ONE)){
+		Sensor_Ioctl(SENSOR_IOCTL_AFTER_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
+	}
 
        //stop dcam
       dcam_stop();
