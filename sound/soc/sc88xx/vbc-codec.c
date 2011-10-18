@@ -615,9 +615,11 @@ void vbc_power_on(unsigned int value)
             else msleep(95); // to avoid low sound in head early pcm data
 
             if (!mute_dac) vbc_codec_unmute();
+#if VBC_DYNAMIC_POWER_MANAGEMENT
             if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
             if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
+#endif
             // vbc_reg_write(VBCGR1, 0, VBCGR1_value, 0xff); // DAC Gain
         }
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
