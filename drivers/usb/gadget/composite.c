@@ -1286,6 +1286,7 @@ composite_uevent(struct device *dev, struct kobj_uevent_env *env)
 	return 0;
 }
 
+#if 0
 static int
 composite_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
@@ -1302,6 +1303,7 @@ composite_uevent(struct device *dev, struct kobj_uevent_env *env)
 		return -ENOMEM;
 	return 0;
 }
+#endif
 
 /*-------------------------------------------------------------------------*/
 

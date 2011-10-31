@@ -111,6 +111,7 @@
  */
 	__HEAD
 ENTRY(stext)
+#ifndef CONFIG_NKERNEL
 #ifndef __ARMEB__
 	stmfd sp!,{r0-r12}
 
@@ -123,7 +124,7 @@ ENTRY(stext)
 
 	ldmfd sp!,{r0-r12}
 #endif
-	
+
 	setmode	PSR_F_BIT | PSR_I_BIT | SVC_MODE, r9 @ ensure svc mode
 						@ and irqs disabled
 #else

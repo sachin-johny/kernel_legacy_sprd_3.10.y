@@ -10,6 +10,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/ptrace.h>
+#include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/timer.h>
 #include <linux/major.h>
@@ -24,6 +25,7 @@
 #include <linux/gfp.h>
 
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
 
 #include "mtdcore.h"
 /*
@@ -70,7 +72,10 @@ static DEFINE_IDR(mtd_idr);
 /* These are exported solely for the purpose of mtd_blkdevs.c. You
    should not use them for _anything_ else */
 DEFINE_MUTEX(mtd_table_mutex);
+struct mtd_info *mtd_table[MAX_MTD_DEVICES];
+
 EXPORT_SYMBOL_GPL(mtd_table_mutex);
+EXPORT_SYMBOL_GPL(mtd_table);
 
 struct mtd_info *__mtd_next_device(int i)
 {
@@ -665,8 +670,8 @@ struct mtd_part {
 static int mtd_read_proc (char *page, char **start, off_t off, int count,
 			  int *eof, void *data_unused)
 {
-	struct mtd_info *mtd;
-	int len, l;
+	//struct mtd_info *mtd;
+	int len, l, i=0;
         off_t   begin = 0;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -682,8 +687,12 @@ static int mtd_read_proc (char *page, char **start, off_t off, int count,
 	len = sprintf(page, "%sdev:    size   erasesize  name\n", chipinfo->flashname);
 #else
 	len = sprintf(page, "dev:    size   erasesize  name\n");
-	mtd_for_each_device(mtd) {
-		l = mtd_proc_info(page + len, mtd);
+#endif
+	//mtd_for_each_device(mtd) {
+	for (i=0; i< MAX_MTD_DEVICES; i++) {
+	
+		//l = mtd_proc_info(page + len, mtd);
+		l = mtd_proc_info(page + len, i);
                 len += l;
                 if (len+begin > off+count)
                         goto done;

@@ -136,6 +136,19 @@
 #define	gadget_is_r8a66597(g)	0
 #endif
 
+#ifdef CONFIG_USB_GADGET_SC8800H
+#define	gadget_is_sprd(g)	!strcmp("sc8800_udc", (g)->name)
+#else
+#define	gadget_is_sprd(g)	0
+#endif
+
+#ifdef CONFIG_USB_GADGET_SC8800G
+#define	gadget_is_sprd_otg(g)	!strcmp("dwc_otg", (g)->name)
+#else
+#define	gadget_is_sprd_otg(g)	0
+#endif
+
+
 #ifdef CONFIG_USB_S3C_HSOTG
 #define gadget_is_s3c_hsotg(g)    (!strcmp("s3c-hsotg", (g)->name))
 #else
@@ -198,7 +211,7 @@ static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
 		return 0x24;
 	else if (gadget_is_r8a66597(gadget))
 		return 0x25;
-	else if (gadget_is_s3c_hsotg(gadget))
+	else if (gadget_is_s3c_hsotg(gadget) || gadget_is_sprd(gadget))
 		return 0x26;
 	else if (gadget_is_sprd_otg(gadget))
 		return 0x27;

@@ -18,6 +18,8 @@
  
 #include "dcam_drv_sc8800g2.h"
 
+#include <linux/slab.h>
+
 //#define ISP_DRV_SCALE_COEFF_TABLE_EN
 
 #ifdef ISP_DRV_SCALE_COEFF_TABLE_EN

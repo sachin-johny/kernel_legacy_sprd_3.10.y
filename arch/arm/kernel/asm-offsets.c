@@ -121,5 +121,26 @@ int main(void)
   DEFINE(DMA_BIDIRECTIONAL,	DMA_BIDIRECTIONAL);
   DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
   DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);
+
+#ifdef CONFIG_NKERNEL
+  DEFINE(ctx_arch_id_off,	offsetof(NkOsCtx, arch_id));
+  DEFINE(ctx_pending_off,	offsetof(NkOsCtx, pending));
+  DEFINE(ctx_enabled_off,	offsetof(NkOsCtx, enabled));
+  DEFINE(ctx_regs_r10_off,	offsetof(NkOsCtx, regs[10]));
+  DEFINE(ctx_cpsr_off,		offsetof(NkOsCtx, cpsr));
+  DEFINE(ctx_vfp_owned_off,	offsetof(NkOsCtx, vfp_owned));
+  DEFINE(ctx_vfp_get,		offsetof(NkOsCtx, vfp_get));
+#ifdef CONFIG_SMP
+  DEFINE(ctx_vcpuid_off,	offsetof(NkOsCtx, vcpuid));
+  DEFINE(ctx_current_vcpu_off,	offsetof(NkOsCtx, current_vcpu));
+  DEFINE(ctx_sp_irq_off,	offsetof(NkOsCtx, sp_irq));
+  DEFINE(ctx_sp_abt_off,	offsetof(NkOsCtx, sp_abt));
+  DEFINE(ctx_sp_und_off,	offsetof(NkOsCtx, sp_und));
+  DEFINE(ctx_vcpu_yield_off,	offsetof(NkOsCtx, vcpu_yield));
+  DEFINE(ctx_smp_yield_off,	offsetof(NkOsCtx, smp_yield));
+#endif
+#endif
+
+
   return 0; 
 }

@@ -1270,6 +1270,7 @@ void __init paging_init(struct machine_desc *mdesc)
 	sanity_check_meminfo();
 #ifndef CONFIG_NKERNEL
 	prepare_page_table();
+#endif
 	map_lowmem();
 	bootmem_init();
 	devicemaps_init(mdesc);

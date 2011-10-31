@@ -15,6 +15,10 @@
 
 #include <mach/hardware.h>
 #include <mach/test.h>
+#include <mach/regs_wdg.h>
+#include <mach/adi_hal_internal.h>
+#include <mach/regs_ana.h>
+#include <mach/regs_adi.h>
 static inline void arch_idle(void)
 {
 /*

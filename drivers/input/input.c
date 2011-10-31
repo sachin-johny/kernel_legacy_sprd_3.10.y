@@ -730,13 +730,18 @@ EXPORT_SYMBOL(input_set_keycode);
 		if (i != BITS_TO_LONGS(max)) \
 			continue;
 
-static const struct input_device_id *input_match_device(struct input_handler *handler,
+#ifdef CONFIG_NKERNEL_DDI
+#include <nk/nkern.h>
+#endif
+
+static const struct input_device_id *input_match_device(const struct input_device_id *id,
 							struct input_dev *dev)
 {
-	const struct input_device_id *id;
+	//const struct input_device_id *id;
 	int i;
 
-	for (id = handler->id_table; id->flags || id->driver_info; id++) {
+	//for (id = handler->id_table; id->flags || id->driver_info; id++) {
+	for (; id->flags || id->driver_info; id++) {
 
 #ifdef CONFIG_NKERNEL_DDI
 		/*
@@ -775,7 +780,7 @@ static const struct input_device_id *input_match_device(struct input_handler *ha
 		MATCH_BIT(ffbit,  FF_MAX);
 		MATCH_BIT(swbit,  SW_MAX);
 
-		if (!handler->match || handler->match(handler, dev))
+		//if (!handler->match || handler->match(handler, dev))
 			return id;
 	}
 

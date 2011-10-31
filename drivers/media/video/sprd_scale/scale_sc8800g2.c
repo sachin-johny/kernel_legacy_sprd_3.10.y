@@ -34,6 +34,8 @@
 #include <mach/dma.h>
 #include <linux/sched.h>
 
+#include <linux/slab.h>
+
 #include "../sprd_dcam/dcam_power_sc8800g2.h"
 #include "scale_sc8800g2.h"
 #include "scale_reg_sc8800g2.h"
@@ -1966,7 +1968,7 @@ static int _SCALE_DriverEndianHalf2Little(SCALE_YUV420_ENDIAN_T *yuv_config)
 
 	return _SCALE_DriverConvertEndianByDMA(width, height, src_addr, dst_addr);
 }
-
+#if 0
 static void _SCALE_DriverDMAIrq(int dma_ch, void *dev_id)
 {
         condition = 1;
@@ -2033,7 +2035,7 @@ static int _SCALE_DriverYUV422TYUV420(SCALE_YUV422_YUV420_T *yuv_config)
 
 	return _SCALE_DriverColorConvertByDMA(width, height, src_addr, dst_addr);
 }
-
+#endif
 static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, unsigned long param)
 {	
 	switch(cmd)

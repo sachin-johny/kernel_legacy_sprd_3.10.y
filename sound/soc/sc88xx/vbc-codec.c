@@ -45,6 +45,9 @@
 #define VBC_CODEC_POWER_DOWN_FORCE      (1 << 30)
 #define VBC_CODEC_SPEAKER_PA 0xfffd
 #define VBC_CODEC_DSP      0xfffc
+
+extern int snd_soc_init_card(struct snd_soc_device *socdev);
+
 /*
   ALSA SOC usually puts the device in standby mode when it's not used
   for sometime. If you define POWER_OFF_ON_STANDBY the driver will
@@ -1185,8 +1188,9 @@ static inline int local_amplifier_enabled(void)
         return 0;
     }
 }
-#elif   defined(CONFIG_MACH_SP8805GA)           || \
-        defined(CONFIG_MACH_OPENPHONE)
+//#elif   defined(CONFIG_MACH_SP8805GA)           || \
+//        defined(CONFIG_MACH_OPENPHONE)
+#else
 static inline void local_amplifier_init(void)
 {
 
@@ -1205,8 +1209,8 @@ static inline int local_amplifier_enabled(void)
         default : return 0;
     }
 }
-#else
-#error "not define this CONFIG_MACH_xxxxx"
+//#else
+//#error "not define this CONFIG_MACH_xxxxx"
 #endif
 inline void vbc_amplifier_enable(int enable, const char *prename)
 {

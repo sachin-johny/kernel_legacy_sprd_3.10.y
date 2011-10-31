@@ -300,6 +300,7 @@ static void nand_select_chip(struct mtd_info *mtd, int chipnr)
  */
 static void nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
 {
+    int i;
 	struct nand_chip *chip = mtd->priv;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -320,6 +321,7 @@ static void nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
  */
 static void nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 {
+    int i;
 	struct nand_chip *chip = mtd->priv;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -359,6 +361,7 @@ static int nand_verify_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
  */
 static void nand_write_buf16(struct mtd_info *mtd, const uint8_t *buf, int len)
 {
+    int i;
 	struct nand_chip *chip = mtd->priv;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -382,6 +385,7 @@ static void nand_write_buf16(struct mtd_info *mtd, const uint8_t *buf, int len)
  */
 static void nand_read_buf16(struct mtd_info *mtd, uint8_t *buf, int len)
 {
+    int i;
 	struct nand_chip *chip = mtd->priv;
 
 #ifdef CONFIG_MTD_NAND_SPRD
@@ -3013,6 +3017,7 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 #ifdef CONFIG_MTD_NAND_SPRD
         chip->cmdfunc(mtd, NAND_CMD_READID, -1, -1);
         flash_id = chip->nfc_readid(mtd);
+#endif
 
         /* Read manufacturer and device IDs */
 

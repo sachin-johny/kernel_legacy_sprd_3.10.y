@@ -28,6 +28,8 @@
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>
 
+#include <linux/slab.h>
+
 
 /* sprd keypad backlight */
 struct sprd_lcd_led {

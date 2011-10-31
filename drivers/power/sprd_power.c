@@ -39,6 +39,8 @@
 #include <mach/regs_ana.h>
 #include <mach/adi_hal_internal.h>
 
+#include <linux/slab.h>
+
 // #define CHG_DEBUG
 //#define BATTERY_USE_WAKE_LOCK
 #define BATTERY_WAKE_LOCK_LENGTH (10*HZ)

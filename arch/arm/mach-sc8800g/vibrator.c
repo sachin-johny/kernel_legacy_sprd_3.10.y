@@ -20,6 +20,8 @@
 #include <../../../drivers/staging/android/timed_output.h>
 #include <linux/sched.h>
 
+#include <linux/interrupt.h>
+
 #include <mach/regs_ana.h>
 #include <mach/adi_hal_internal.h>
 
@@ -84,6 +86,13 @@ static enum hrtimer_restart vibrator_timer_func(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
+static struct timed_output_dev sprd_vibrator = {
+	.name = "vibrator",
+	.get_time = vibrator_get_time,
+	.enable = vibrator_enable,
+};
+
+#if 0
 static irqreturn_t
 share_irq_handler(int irq, void *dev)
 {
@@ -133,6 +142,7 @@ static int creat_vibrator_sysfs_file(void)
 //	sdcard_gpio_int_test();
 	return 0;
 }
+#endif
 
 void __init sprd_init_vibrator(void)
 {

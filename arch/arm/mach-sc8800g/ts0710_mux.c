@@ -85,7 +85,7 @@
 #include <mach/ts0710_mux.h>
 #include <mach/mux_buffer.h>
 
-//#define CONFIG_TS0710_MUX_UART
+#define CONFIG_TS0710_MUX_UART
 
 #define TS0710MUX_GPRS_SESSION_MAX 3
 #define TS0710MUX_MAJOR 250

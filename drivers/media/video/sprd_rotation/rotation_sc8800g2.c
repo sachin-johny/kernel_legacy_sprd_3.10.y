@@ -33,6 +33,8 @@
 #include "rotation_sc8800g2.h"
 #include "rotation_reg_sc8800g2.h"
 
+#include <linux/slab.h>
+
 //#define ROTATION_DEBUG
 #ifdef ROTATION_DEBUG
 #define RTT_PRINT printk

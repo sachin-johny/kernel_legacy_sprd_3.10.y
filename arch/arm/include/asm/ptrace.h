@@ -128,6 +128,11 @@ struct pt_regs {
 
 #ifdef __KERNEL__
 
+#ifdef CONFIG_NKERNEL
+#include <asm/nkern.h>
+#endif
+
+
 #define arch_has_single_step()	(1)
 
 #define user_mode(regs)	\

@@ -47,6 +47,8 @@
 #include <asm/pgtable-hwdef.h>
 
 #include <mach/test.h>
+
+#include <linux/slab.h>
 /*
  * This driver provides the generic NKDDI to NK specific drivers
  */

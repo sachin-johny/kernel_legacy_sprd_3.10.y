@@ -27,6 +27,13 @@ SECTIONS
 	. = PAGE_OFFSET + TEXT_OFFSET;
 #endif
 
+#endif
+	.text.head : {
+		_stext = .;
+		_sinittext = .;
+		*(.text.head)
+	}
+
 	.init : {			/* Init code and data		*/
 		_stext = .;
 		_sinittext = .;
@@ -50,6 +57,35 @@ SECTIONS
 		SECURITY_INITCALL
 		INIT_RAM_FS
 
+		. = ALIGN(16);
+		__setup_start = .;
+			*(.init.setup)
+		__setup_end = .;
+		__early_begin = .;
+			*(.early_param.init)
+		__early_end = .;
+		__initcall_start = .;
+			INITCALLS
+		__initcall_end = .;
+		__con_initcall_start = .;
+			*(.con_initcall.init)
+		__con_initcall_end = .;
+		__security_initcall_start = .;
+			*(.security_initcall.init)
+		__security_initcall_end = .;
+#ifdef CONFIG_BLK_DEV_INITRD
+		. = ALIGN(32);
+		__initramfs_start = .;
+			usr/built-in.o(.init.ramfs)
+		__initramfs_end = .;
+#endif
+		. = ALIGN(PAGE_SIZE);
+		__per_cpu_load = .;
+		__per_cpu_start = .;
+			*(.data.percpu.page_aligned)
+			*(.data.percpu)
+			*(.data.percpu.shared_aligned)
+		__per_cpu_end = .;
 #ifndef CONFIG_XIP_KERNEL
 		__init_begin = _stext;
 		INIT_DATA
@@ -68,6 +104,11 @@ SECTIONS
 	 * unwind sections get included.
 	 */
 	/DISCARD/ : {
+		EXIT_TEXT
+		EXIT_DATA
+		*(.note.gnu.build-id)
+		*(.exitcall.exit)
+		*(.discard)
 		*(.ARM.exidx.exit.text)
 		*(.ARM.extab.exit.text)
 #ifndef CONFIG_HOTPLUG_CPU

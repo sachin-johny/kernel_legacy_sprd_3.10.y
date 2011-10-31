@@ -57,6 +57,10 @@
 #define DRV_NAME        	"sprd-keypad8805ga"
 #endif
 
+#ifndef DRV_NAME
+#define DRV_NAME "sprd-keypad8805ga"
+#endif
+
 #define INT_MASK_STS            (SPRD_INTCV_BASE + 0x0000)
 #define INT_RAW_STS            	(SPRD_INTCV_BASE + 0x0004)
 #define INT_EN                  (SPRD_INTCV_BASE + 0x0008)
@@ -351,6 +355,9 @@ typedef struct kpd_key_tag
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM];
 kpd_key_t s_key[MAX_MUL_KEY_NUM];
 #elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
+struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM + 3];
+kpd_key_t s_key[MAX_MUL_KEY_NUM + 3];
+#else
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM + 3];
 kpd_key_t s_key[MAX_MUL_KEY_NUM + 3];
 #endif
@@ -973,7 +980,9 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 		/* create a timer to check if key is released */
 		setup_timer(&s_kpd_timer[i], sprd_kpad_timer, (unsigned long) &s_key[i]);
 		s_key[i].timer_id = i;						        
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA)
 	}
+#endif
 
 	REG_KPD_INT_EN = KPD_INT_ALL;
 	REG_INT_EN |= 1 << IRQ_KPD_INT;

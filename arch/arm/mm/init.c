@@ -237,6 +237,57 @@ static int __init check_initrd(struct meminfo *mi)
 	return initrd_node;
 }
 
+#ifndef CONFIG_NKERNEL
+static inline void map_memory_bank(struct membank *bank)
+{
+#ifdef CONFIG_MMU
+	struct map_desc map;
+
+	map.pfn = bank_pfn_start(bank);
+	map.virtual = __phys_to_virt(bank_phys_start(bank));
+	map.length = bank_phys_size(bank);
+	map.type = MT_MEMORY;
+
+	create_mapping(&map);
+#endif
+}
+#endif
+
+#ifdef CONFIG_NKERNEL
+
+extern NkMapDesc nk_maps[];
+extern int       nk_maps_max;
+
+extern int nk_direct_dma;
+
+static void __init nk_reserve_bootmem (void)
+{
+	pg_data_t* pgdat = NODE_DATA(0);
+	NkMapDesc* map;
+	NkMapDesc* map_limit = &nk_maps[nk_maps_max];
+
+	if (!nk_direct_dma) {
+		return;
+	}
+
+	for (map  = &nk_maps[0]; map < map_limit; map++) {
+
+		if ((map->mem_type  == NK_MD_RAM)  &&
+		    (map->mem_owner != os_ctx->id) &&
+		    ((void*)map->vstart == __va(map->pstart))) {
+
+			NkPhAddr start = map->pstart;
+			NkPhSize size  = map->plimit - map->pstart + 1;
+
+			PRINTNK(("reserve_bootmem: 0x%08lx 0x%08lx\n",
+				start, size));
+			reserve_bootmem_node(pgdat, start, size, BOOTMEM_DEFAULT);
+		}
+	}
+}
+
+#endif /* CONFIG_NKERNEL */
+
 static void __init bootmem_init_node(int node, struct meminfo *mi,
 	unsigned long start_pfn, unsigned long end_pfn)
 {
@@ -246,6 +297,17 @@ static void __init bootmem_init_node(int node, struct meminfo *mi,
 	int i;
 
 #ifndef CONFIG_NKERNEL
+	/*
+	 * Map the memory banks for this node.
+	 */
+	for_each_nodebank(i, mi, node) {
+		struct membank *bank = &mi->bank[i];
+
+		if (!bank->highmem)
+			map_memory_bank(bank);
+	}
+#endif
+
 	/*
 	 * Allocate the bootmem bitmap page.
 	 */

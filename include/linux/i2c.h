@@ -172,6 +172,7 @@ struct i2c_driver {
 	/* Device detection callback for automatic device creation */
 	int (*detect)(struct i2c_client *, struct i2c_board_info *);
 	const unsigned short *address_list;
+	const struct i2c_client_address_data *address_data;
 	struct list_head clients;
 };
 #define to_i2c_driver(d) container_of(d, struct i2c_driver, driver)
@@ -404,6 +405,17 @@ static inline void i2c_unlock_adapter(struct i2c_adapter *adapter)
 #define I2C_CLASS_TV_DIGITAL	(1<<2)	/* dvb cards */
 #define I2C_CLASS_DDC		(1<<3)	/* DDC bus on graphics adapters */
 #define I2C_CLASS_SPD		(1<<7)	/* SPD EEPROMs and similar */
+
+/* i2c_client_address_data is the struct for holding default client
+ * addresses for a driver and for the parameters supplied on the
+ * command line
+ */
+struct i2c_client_address_data {
+	const unsigned short *normal_i2c;
+	const unsigned short *probe;
+	const unsigned short *ignore;
+	const unsigned short * const *forces;
+};
 
 /* Internal numbers to terminate lists */
 #define I2C_CLIENT_END		0xfffeU

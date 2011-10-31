@@ -31,6 +31,8 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 
+#include <linux/slab.h>
+
 /* sprd keypad backlight */
 struct sprd_flash_led {
 	struct platform_device *pdev;
