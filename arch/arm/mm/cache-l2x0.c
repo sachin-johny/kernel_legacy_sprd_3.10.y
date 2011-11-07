@@ -2,6 +2,7 @@
  * arch/arm/mm/cache-l2x0.c - L210/L220 cache controller support
  *
  * Copyright (C) 2007 ARM Limited
+ * Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -98,21 +99,37 @@ static inline void l2x0_flush_line(unsigned long addr)
 static void l2x0_cache_sync(void)
 {
 	unsigned long flags;
-
+#ifdef CONFIG_NKERNEL
+	unsigned long hw_flags;
+#endif
 	spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_save(hw_flags);	/* prevent from OS preemption */
+#endif
 	cache_sync();
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_restore(hw_flags);
+#endif
 	spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
 static inline void l2x0_inv_all(void)
 {
 	unsigned long flags;
-
+#ifdef CONFIG_NKERNEL
+	unsigned long hw_flags;
+#endif
 	/* invalidate all ways */
 	spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_save(hw_flags);	/* prevent from OS preemption */
+#endif
 	writel_relaxed(l2x0_way_mask, l2x0_base + L2X0_INV_WAY);
 	cache_wait(l2x0_base + L2X0_INV_WAY, l2x0_way_mask);
 	cache_sync();
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_restore(hw_flags);
+#endif
 	spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
@@ -120,8 +137,13 @@ static void l2x0_inv_range(unsigned long start, unsigned long end)
 {
 	void __iomem *base = l2x0_base;
 	unsigned long flags;
-
+#ifdef CONFIG_NKERNEL
+	unsigned long hw_flags;
+#endif
 	spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_save(hw_flags);	/* prevent from OS preemption */
+#endif
 	if (start & (CACHE_LINE_SIZE - 1)) {
 		start &= ~(CACHE_LINE_SIZE - 1);
 		debug_writel(0x03);
@@ -146,12 +168,21 @@ static void l2x0_inv_range(unsigned long start, unsigned long end)
 		}
 
 		if (blk_end < end) {
+#ifdef CONFIG_NKERNEL
+			hw_local_irq_restore(hw_flags);
+#endif
 			spin_unlock_irqrestore(&l2x0_lock, flags);
 			spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+			hw_local_irq_save(hw_flags);
+#endif
 		}
 	}
 	cache_wait(base + L2X0_INV_LINE_PA, 1);
 	cache_sync();
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_restore(hw_flags);
+#endif
 	spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
@@ -159,8 +190,13 @@ static void l2x0_clean_range(unsigned long start, unsigned long end)
 {
 	void __iomem *base = l2x0_base;
 	unsigned long flags;
-
+#ifdef CONFIG_NKERNEL
+	unsigned long hw_flags;
+#endif
 	spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_save(hw_flags);	/* prevent from OS preemption */
+#endif
 	start &= ~(CACHE_LINE_SIZE - 1);
 	while (start < end) {
 		unsigned long blk_end = start + min(end - start, 4096UL);
@@ -171,12 +207,21 @@ static void l2x0_clean_range(unsigned long start, unsigned long end)
 		}
 
 		if (blk_end < end) {
+#ifdef CONFIG_NKERNEL
+			hw_local_irq_restore(hw_flags);
+#endif
 			spin_unlock_irqrestore(&l2x0_lock, flags);
 			spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+			hw_local_irq_save(hw_flags);
+#endif
 		}
 	}
 	cache_wait(base + L2X0_CLEAN_LINE_PA, 1);
 	cache_sync();
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_restore(hw_flags);
+#endif
 	spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
@@ -184,8 +229,13 @@ static void l2x0_flush_range(unsigned long start, unsigned long end)
 {
 	void __iomem *base = l2x0_base;
 	unsigned long flags;
-
+#ifdef CONFIG_NKERNEL
+	unsigned long hw_flags;
+#endif
 	spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_save(hw_flags);	/* prevent from OS preemption */
+#endif
 	start &= ~(CACHE_LINE_SIZE - 1);
 	while (start < end) {
 		unsigned long blk_end = start + min(end - start, 4096UL);
@@ -198,12 +248,21 @@ static void l2x0_flush_range(unsigned long start, unsigned long end)
 		debug_writel(0x00);
 
 		if (blk_end < end) {
+#ifdef CONFIG_NKERNEL
+			hw_local_irq_restore(hw_flags);
+#endif
 			spin_unlock_irqrestore(&l2x0_lock, flags);
 			spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+			hw_local_irq_save(hw_flags);
+#endif
 		}
 	}
 	cache_wait(base + L2X0_CLEAN_INV_LINE_PA, 1);
 	cache_sync();
+#ifdef CONFIG_NKERNEL
+	hw_local_irq_restore(hw_flags);
+#endif
 	spin_unlock_irqrestore(&l2x0_lock, flags);
 }
 
@@ -251,6 +310,10 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	 */
 	if (!(readl_relaxed(l2x0_base + L2X0_CTRL) & 1)) {
 
+#ifdef CONFIG_NKERNEL
+		printk(KERN_CRIT "l2x0 controller should be enabled\n");
+		BUG();
+#endif
 		/* l2x0 controller is disabled */
 		writel_relaxed(aux, l2x0_base + L2X0_AUX_CTRL);
 

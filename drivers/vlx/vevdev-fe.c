@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/version.h>
+#include <linux/slab.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 #include <nk/nkern.h>
@@ -135,6 +136,7 @@ static void vdev_get_config(VIdev* videv, const char *name, struct input_dev *de
         else  if (strcmp(name, VMS_NAME) == 0) {		/* Virtual Mouse */
 		dev->evbit[0]   |=  BIT_MASK(EV_KEY) | BIT_MASK(EV_REL);
 		dev->keybit[BIT_WORD(BTN_LEFT)] |= BIT_MASK(BTN_LEFT);
+		dev->keybit[BIT_WORD(BTN_RIGHT)] |= BIT_MASK(BTN_RIGHT);
 		dev->relbit[0]  =  BIT_MASK(REL_X) | BIT_MASK(REL_Y);
     	}
 	else {
@@ -350,6 +352,19 @@ vdev_init (Vdev* dev)
 
     inputdev->name = vname;
     inputdev->id.bustype = BUS_VIRTUAL;
+
+	//
+	// The VKBD attributes have to set at registration time
+	// in order to match the VT consol keyboard (drivers/char/keyboard.c)
+	//
+    if (!strcmp(vname, VKP_NAME)) {
+	int i;
+        __set_bit(EV_KEY, inputdev->evbit);
+	for (i = 0; i < KEY_CNT; i++) {
+	    __set_bit(i, inputdev->keybit);
+	}  
+    }
+
     dev->inputdev = inputdev;
 
     if (input_register_device(dev->inputdev)) {

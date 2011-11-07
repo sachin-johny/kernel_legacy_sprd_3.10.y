@@ -58,7 +58,7 @@
 #endif
 
 # ifdef CONFIG_ARCH_SC8800G
-#define CONFIG_TS0710_MUX_UART
+//#define CONFIG_TS0710_MUX_UART
 # endif /* CONFIG_ARCH_SC8800G */
 
 #define SERIAL_NK_NAME	  "ttyNK"
@@ -765,6 +765,7 @@ serial_open (struct tty_struct* tty, struct file* filp)
     line = NKLINE(tty);
     port = line + serial_port;
 	
+    printk("serial_open tty addr = 0x%x, filp = 0x%x, port = 0x%x\n", tty, filp,port);
 #ifdef CONFIG_TS0710_MUX_UART
 	if(line == 3){
 
@@ -832,6 +833,7 @@ serial_close (struct tty_struct* tty, struct file* filp)
 	}
 #endif
 
+    printk("serial_close tty addr = 0x%x, filp = 0x%x, port->count=0x%x\n", tty, filp, port->count);
     port->count--;
     if (port->count == 0) {
 

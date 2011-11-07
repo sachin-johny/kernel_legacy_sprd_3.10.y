@@ -1,12 +1,23 @@
 /*
  ****************************************************************
  *
- *  Component:	vtimer front-end  Driver
+ *  Component: VLX vtimer frontend driver
  *
- *  Copyright (C) 2009, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  *  Contributor(s):
- *    Thomas Charleux <thomas.charleux@virtuallogix.com>
+ *    Thomas Charleux (thomas.charleux@redbend.com)
  *
  ****************************************************************
  */
@@ -411,23 +422,12 @@ vtimer_clockevent_init (void)
 
     clockevents_register_device(&vtimer_clockevent);
 
-    vtimer_ready = 1;
-
     TRACE("initialized\n");
 }
 
 struct sys_timer nk_vtick_timer = {
     .init = vtimer_clockevent_init,
 };
-
-    unsigned long long
-sched_clock(void)
-{
-	if (vtimer_ready)
-		return ktime_to_ns(ktime_get());
-	else
-		return 0;
-}
 
     /*
      * Read time source
@@ -464,9 +464,25 @@ vtimer_clocksource_init (void)
 
     if (clocksource_register(&vtimer_clocksource)) {
 	ETRACE("Failed to register the clock source\n");
+    } else {
+	/* 
+	 * Now sched_clock() can use our clock source
+	 */
+	vtimer_ready = 1;
     }
 
     return 0;
+}
+
+    unsigned long long
+sched_clock(void)
+{
+    if (vtimer_ready)
+	return clocksource_cyc2ns(vtimer_clocksource.read(&vtimer_clocksource),
+				  vtimer_clocksource.mult,
+				  vtimer_clocksource.shift);
+    else
+	return 0;
 }
 
 arch_initcall(vtimer_clocksource_init);

@@ -2,6 +2,7 @@
  *  arch/arm/include/asm/processor.h
  *
  *  Copyright (C) 1995-1999 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -122,10 +123,14 @@ extern void release_thread(struct task_struct *);
 
 unsigned long get_wchan(struct task_struct *p);
 
+#if defined(CONFIG_NKERNEL) && defined(CONFIG_SMP)
+#define cpu_relax()			do { VCPU()->smp_relax(); } while (0);
+#else
 #if __LINUX_ARM_ARCH__ == 6
 #define cpu_relax()			smp_mb()
 #else
 #define cpu_relax()			barrier()
+#endif
 #endif
 
 /*

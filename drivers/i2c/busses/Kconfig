@@ -613,6 +613,13 @@ config I2C_XILINX
 	  This driver can also be built as a module.  If so, the module
 	  will be called xilinx_i2c.
 
+config I2C_SC8800
+	tristate "SC8800 I2C Driver"
+	depends on ( ARCH_SC8800S || ARCH_SC8800G )
+	help
+	  Say Y here to include support for I2C controller in the
+	  Spreadtrum SC8800 based System-on-Chip devices.
+
 comment "External I2C/SMBus adapter drivers"
 
 config I2C_PARPORT

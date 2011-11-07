@@ -1,15 +1,21 @@
 /*
  ****************************************************************
  *
- *  Copyright (C) 2002-2009, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
- * This program is free software;  you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
  *
- * Contributor(s):
- *	Vladimir Grouzdev <vladimir.grouzdev@vlx.com>
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ *  Contributor(s):
+ *    Vladimir Grouzdev (vladimir.grouzdev@redbend.com)
  *
  ****************************************************************
  */
@@ -47,6 +53,7 @@ extern void vector_pabt(void);
 extern void vector_dabt(void);
 extern void vector_fiq(void);
 extern void vector_irq(void);
+extern void vector_iswi(void);
 
 static NkOsId           _myid;
 static NkXIrq           _ipi_base;
@@ -231,13 +238,30 @@ platform_secondary_init (unsigned int cpu)
 
     nk_ddi_cpu_init();
 
-    vcpu->os_vectors[NK_UNDEF_INSTR_VECTOR/4]    = vector_und;
-    vcpu->os_vectors[NK_SYSTEM_CALL_VECTOR/4]    = vector_swi;
-    vcpu->os_vectors[NK_PREFETCH_ABORT_VECTOR/4] = vector_pabt;
-    vcpu->os_vectors[NK_DATA_ABORT_VECTOR/4]     = vector_dabt;
-    vcpu->os_vectors[NK_FIQ_VECTOR/4]            = vector_fiq;
-    vcpu->os_vectors[NK_IIRQ_VECTOR/4]           = vector_irq;
-    vcpu->os_vectors[NK_XIRQ_VECTOR/4]           = vector_irq;
+	/*
+	 * Normally both SWI and UNDEF vectors are initialized by
+	 * NK to the nk_panic entry point, except when the TLB
+	 * lockdown is disabled. In this mode, the same
+	 * (read-only) vectors page is shared by all physical processors
+	 * and therefore the SWI vector points to a NK internal
+	 * entry point. We use such heuristics in order to connect
+	 * the indirect SWI and prefetch abort vectors rather than the
+	 * direct ones.
+	 */
+    if (vcpu->os_vectors[NK_SYSTEM_CALL_VECTOR/4] == 
+	vcpu->os_vectors[NK_UNDEF_INSTR_VECTOR/4]) {
+        vcpu->os_vectors[NK_SYSTEM_CALL_VECTOR/4]    = vector_swi;
+        vcpu->os_vectors[NK_PREFETCH_ABORT_VECTOR/4] = vector_pabt;
+    } else {
+        vcpu->os_vectors[NK_ISWI_VECTOR/4]           = vector_iswi;
+        vcpu->os_vectors[NK_IPABORT_VECTOR/4]        = vector_pabt;
+    }
+
+    vcpu->os_vectors[NK_UNDEF_INSTR_VECTOR/4] = vector_und;
+    vcpu->os_vectors[NK_DATA_ABORT_VECTOR/4]  = vector_dabt;
+    vcpu->os_vectors[NK_FIQ_VECTOR/4]         = vector_fiq;
+    vcpu->os_vectors[NK_IIRQ_VECTOR/4]        = vector_irq;
+    vcpu->os_vectors[NK_XIRQ_VECTOR/4]        = vector_irq;
 
     vcpu->ready(vcpu);
 

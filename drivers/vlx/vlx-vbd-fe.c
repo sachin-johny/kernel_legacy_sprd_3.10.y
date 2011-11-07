@@ -437,6 +437,7 @@ vbd_get_vbd_info (vbd_t* vbd, RDiskProbe* disk_info)
     vbd->rsp_valid = 0;
     if (status == RDISK_STATUS_ERROR) {
         ETRACE("Could not probe disks (%d)\n", status);
+	free_page ((unsigned long) buf);
         return -1;
     }
     if ((nr = status) > VBD_MAX_VBDS) {
@@ -661,7 +662,11 @@ vbd_get_gendisk (vbd_t* vbd, vbd_major_info_t* mi,
 
 #if defined CONFIG_ARM && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 	    /* limit max hw read size to 128 (255 loopback limitation) */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
 	blk_queue_max_sectors(gd->queue, 128);
+#else
+	blk_queue_max_hw_sectors(gd->queue, 128);
+#endif
 #else
 	blk_queue_max_sectors(gd->queue,
 	      VBD_BLKIF_MAX_SEGMENTS_PER_REQUEST(vbd) * (PAGE_SIZE/512));
@@ -670,10 +675,15 @@ vbd_get_gendisk (vbd_t* vbd, vbd_major_info_t* mi,
 	blk_queue_segment_boundary(gd->queue, PAGE_SIZE - 1);
 	blk_queue_max_segment_size(gd->queue, PAGE_SIZE);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
 	blk_queue_max_phys_segments(gd->queue,
 		    VBD_BLKIF_MAX_SEGMENTS_PER_REQUEST(vbd));
 	blk_queue_max_hw_segments(gd->queue,
 		    VBD_BLKIF_MAX_SEGMENTS_PER_REQUEST(vbd));
+#else
+	blk_queue_max_segments(gd->queue,
+		    VBD_BLKIF_MAX_SEGMENTS_PER_REQUEST(vbd));
+#endif
 
 	blk_queue_dma_alignment(gd->queue, 511);
 

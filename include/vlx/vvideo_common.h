@@ -22,6 +22,7 @@
 #define VVIDEO_REQ_RELEASE 2
 #define VVIDEO_REQ_IOCTL   3
 #define VVIDEO_REQ_MMAP    4
+#define VVIDEO_REQ_MUNMAP  5
 
 #define VVIDEO_REQ_PENDING  0x12345678
 
@@ -44,6 +45,12 @@ typedef struct VVideoMMap {
 } VVideoMMap;
 
 
+typedef struct VVideoMUnmap {
+    unsigned long pgoff;
+    unsigned long size;
+} VVideoMUnmap;
+
+
 typedef struct VVideoOpen {
     int minor;
 } VVideoOpen;
@@ -62,6 +69,7 @@ typedef struct VVideoRequest {
 	VVideoRelease release;
 	VVideoIoctl   ioctl;
 	VVideoMMap    mmap;
+	VVideoMUnmap  munmap;
     } u;
 } VVideoRequest;
 

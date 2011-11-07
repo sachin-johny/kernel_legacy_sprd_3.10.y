@@ -1,16 +1,18 @@
 /*
  ****************************************************************
  *
- *  Component:	VirtualLogix VBPIPE
+ *  Component:	VLX VBPIPE
  *
- *  Copyright (C) 2008-2009, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2008-2011, Red Bend Software. All Rights Reserved.
  *
  *  Contributor(s):
- *    Guennadi Maslov (guennadi.maslov@virtuallogix.com)
+ *    Guennadi Maslov (guennadi.maslov@redbend.com)
+ *    Adam Mirowski (adam.mirowski@redbend.com)
  *
  ****************************************************************
  */
 
+#include <linux/version.h>
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -20,9 +22,12 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
-#include <linux/wakelock.h>
+#include <linux/slab.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
+#include <asm/ioctls.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include <nk/nkern.h>
 
@@ -58,7 +63,7 @@ MODULE_LICENSE("GPL");
      * structure. It is placed in the "shared" persistent memory (pmem)
      * and visible from "both sides".
      *
-     * There is no synchronization between OS'es and VLX can switch
+     * There is no synchronization between OSes and VLX can switch
      * to another OS at any moment. Because of that several fields
      * of ExRing data structure have "volatile" attribute. Those
      * fields can be changed by peer driver at any moment so we
@@ -126,7 +131,7 @@ typedef struct ExRing {
      *		      in a circular ring we have for the consumer
      */
 #define RING_P_ROOM(rng,size)	((size) - ((rng)->c_idx - (rng)->s_idx))
-#define RING_P_CROOM(ex_dev)	((ex_dev)->c_size - (ex_dev)->c_pos) 
+#define RING_P_CROOM(ex_dev)	((ex_dev)->c_size - (ex_dev)->c_pos)
 #define RING_C_ROOM(rng)	((rng)->c_idx - (rng)->s_idx)
 #define RING_C_CROOM(ex_dev)	((ex_dev)->s_size - (ex_dev)->s_pos)
 
@@ -145,7 +150,7 @@ typedef struct ExRing {
      * ring (ring is used by "server" link).
      *
      * We keep cross interrupt handler identifiers (as returned by
-     * nk_xirq_attch() function), so we can detach those handlers.
+     * nk_xirq_attach() function), so we can detach those handlers.
      *
      * The "enable" field is used to say that the device is in a good
      * shape and has all resources allocated.
@@ -169,7 +174,8 @@ typedef struct ExRing {
      * for the same communication device.
      */
 typedef struct ExDev {
-    int		enabled;	/* flag: device has all resources allocated */
+    _Bool	 enabled;	/* flag: device has all resources allocated */
+    _Bool	 defined;	/* this array entry is defined */
     NkDevVlink*  s_link;	/* server link */
     ExRing*	 s_ring;	/* server circular ring */
     int		 s_size;	/* size of server circular ring */
@@ -189,11 +195,17 @@ typedef struct ExDev {
     MUTEX	 wlock;		/* mutual exclusion lock for read ops */
     WAIT_QUEUE	 wait;		/* waiting queue for all ops */
     int		 count;		/* usage counter */
-    unsigned int flags;         /* device behaviour semantic */ 
-    struct wake_lock wake_lock; /* lock to keep android system awake */
+    unsigned int flags;         /* device behavior semantic */
+    int		 required_minor;/* minor will not depend on cmdline pos */
+	/* Statistics */
+    unsigned	 opens;
+    unsigned	 reads;
+    unsigned	 writes;
+    unsigned long long read_bytes;
+    unsigned long long written_bytes;
 } ExDev;
 
-#define EMPTY_WAIT_ONLY   0x1  /* The read wait only on empty buffer */
+#define WAIT_ONLY_ON_EMPTY   0x1  /* The read waits only on empty buffer */
 
     /*
      * a few "driver wide" global variables
@@ -203,6 +215,7 @@ static ExDev*   ex_devs;	/* pointer to array of device descriptors */
 static NkXIrqId ex_sysconf_id;  /* xirq id for sysconf handler */
 static int	ex_chrdev;	/* flag - character devices are registered */
 static struct class* ex_class;	/* "vbpipe" device class pointer */
+static _Bool	ex_proc_exists;	/* whether /proc/nk/vbpipe has been created */
 
     /*
      * Initialize our own variables in ExRing data structure
@@ -272,7 +285,7 @@ ex_sysconf_trigger(ExDev* ex_dev)
      * for which link (server or client) we perform
      * a handshake.
      *
-     * it is recommened to "reuse" this function in
+     * it is recommended to "reuse" this function in
      * "your" drivers, because it implements correct
      * state transitions. There is no much freedom here.
      */
@@ -386,8 +399,6 @@ ex_xirq_hdl (void* cookie, NkXIrq xirq)
     ExDev*       ex_dev = (ExDev*)cookie;
 
     wake_up_interruptible(&ex_dev->wait);
-
-    wake_lock_timeout(&ex_dev->wake_lock, 5 * HZ);
 }
 
     /*
@@ -476,7 +487,6 @@ ex_open (struct inode* inode, struct file* file)
 {
     unsigned int minor   = iminor(inode);
     ExDev*       ex_dev;
-    char         wl_name[10];
 
 	/*
 	 * Check for "legal" minor
@@ -536,12 +546,7 @@ ex_open (struct inode* inode, struct file* file)
 	    mutex_unlock(&ex_dev->olock);
 	    return -EINTR;
     }
-
-	/*
-	 * init wake_lock for this vbpipe
-	 */
-    sprintf(wl_name, "vbpipe%d", minor);
-    wake_lock_init(&ex_dev->wake_lock, WAKE_LOCK_SUSPEND, wl_name);
+    ++ex_dev->opens;
 
 #ifdef TRACE_SYSCONF
     printk(VBPIPE_MSG "ex_open for minor=%d is ok\n", minor);
@@ -557,7 +562,7 @@ ex_open (struct inode* inode, struct file* file)
      *
      * for the last close it shuts link down.
      *
-     * Note that read/write operatiion can detect
+     * Note that read/write operation can detect
      * that something is wrong with peer driver
      * (it went to NK_DEV_OFF state). They will exit
      * with -EPIPE error code in this case,
@@ -601,8 +606,6 @@ ex_release (struct inode* inode, struct file* file)
 #endif
     }
 
-    wake_lock_destroy(&ex_dev->wake_lock);
-
     mutex_unlock(&ex_dev->olock);
 
     return 0;
@@ -620,14 +623,14 @@ ex_release (struct inode* inode, struct file* file)
      *
      * it wait until there is something to read in the
      * circular buffer.
-     * 
+     *
      * when awaken it checks the peer state and
      * exits with less then required bytes if it is not NK_DEV_VLINK_ON
      *
      * if communication link is ok it reads
-     * as many characters as possible and wait again untill
-     * all <count> bytes will be transferred.
-     * 
+     * as many characters as possible and wait again until
+     * all <count> bytes have been transferred.
+     *
      * it sends a cross interrupt to peer if
      * circular buffer was full, so peer driver
      * can put more characters in the circular buffer
@@ -640,6 +643,7 @@ ex_read (struct file* file, char __user* buf,
     ExDev*       ex_dev  = &ex_devs[minor];
     NkDevVlink*  slink   = ex_dev->s_link;
     ExRing*	 sring   = ex_dev->s_ring;
+    _Bool	 xirq_needed = 0;
     ssize_t	 done;
     size_t	 cnt;
     size_t	 room;
@@ -653,7 +657,6 @@ ex_read (struct file* file, char __user* buf,
     if (mutex_lock_interruptible(&ex_dev->rlock)) {
 	return -EINTR;
     }
-
 	/*
 	 * Main read loop, we need to transfer all <count> bytes
 	 */
@@ -667,7 +670,7 @@ ex_read (struct file* file, char __user* buf,
 	if ((file->f_flags & O_NONBLOCK) &&
 	    (RING_C_ROOM(sring) == 0)) {
 		/*
-		 * retrun -EAGAIN if we have read nothing;
+		 * return -EAGAIN if we have read nothing;
 		 * return 0 if client side is not ok
 		 */
 	    if ((done == 0) && (slink->c_state == NK_DEV_VLINK_ON)) {
@@ -676,14 +679,22 @@ ex_read (struct file* file, char __user* buf,
 	    break;
 	}
             /*
-             * The EMPTY_WAIT_ONLY  read policy return to user the
-             * chars available in the buffer and wait otherwise
+             * The WAIT_ONLY_ON_EMPTY read policy returns to user the
+             * chars available in the buffer and waits otherwise.
              */
-        if (!(done && (ex_dev->flags & EMPTY_WAIT_ONLY))) {
+        if (!(done && (ex_dev->flags & WAIT_ONLY_ON_EMPTY))) {
                 /*
                  * wait until there is something to read
                  * exit if something is wrong.
                  */
+	    if (xirq_needed && RING_C_ROOM(sring) == 0) {
+		xirq_needed = 0;
+#ifdef TRACE_XIRQ
+		printk(VBPIPE_MSG "PARTIAL ex_read xirq send OS#%d->OS#%d %d\n",
+				   slink->s_id, slink->c_id, cnt);
+#endif
+		nkops.nk_xirq_trigger(ex_dev->s_c_xirq, slink->c_id);
+	    }
             sring->s_wait = 1;
 
             if (wait_event_interruptible(ex_dev->wait,
@@ -721,8 +732,8 @@ ex_read (struct file* file, char __user* buf,
 	    /*
 	     * exit if no more bytes to read. This can happens in two
              * cases: if link->c_state != NK_DEV_VLINK_ON or when
-             * EMPTY_WAIT_ONLY policy was specified for device and
-             * there's no chars left to read.
+             * WAIT_ONLY_ON_EMPTY policy was specified for device and
+             * there are no chars left to read.
 	     */
 	if (cnt == 0) {
 	    break;
@@ -752,20 +763,28 @@ ex_read (struct file* file, char __user* buf,
 	if (RING_P_ROOM(sring, ex_dev->s_size) == cnt &&
 	    sring->c_wait == 1) {
 #ifdef TRACE_XIRQ
-	    printk(VBPIPE_MSG "ex_read xirq send OS#%d->OS#%d %d\n",
+	    printk(VBPIPE_MSG "NEEDED ex_read xirq send OS#%d->OS#%d %d\n",
 			       slink->s_id, slink->c_id, cnt);
 #endif
-	    nkops.nk_xirq_trigger(ex_dev->s_c_xirq, slink->c_id);
+	    xirq_needed = 1;
 	}
+    }
+    if (xirq_needed) {
+#ifdef TRACE_XIRQ
+	printk(VBPIPE_MSG "FINAL ex_read xirq send OS#%d->OS#%d %d\n",
+			   slink->s_id, slink->c_id, cnt);
+#endif
+	nkops.nk_xirq_trigger(ex_dev->s_c_xirq, slink->c_id);
     }
 #ifdef TRACE_XIRQ
     printk(VBPIPE_MSG "ex_read from minor=%d completed done=%d\n",
 		       minor, done);
 #endif
 
-    if (RING_C_ROOM(sring) == 0)
-        wake_unlock(&ex_dev->wake_lock);
-
+    if (done >= 0) {
+	++ex_dev->reads;
+	ex_dev->read_bytes += done;
+    }
     mutex_unlock(&ex_dev->rlock);
 
     return done;
@@ -779,16 +798,16 @@ ex_read (struct file* file, char __user* buf,
      *
      * it will return -EPIPE if the reader is not ok
      *
-     * it wait until there is a room to write in the
+     * it waits until there is room to write in the
      * circular buffer.
-     * 
+     *
      * when awaken it checks the peer state and
      * exits if it is not NK_DEV_VLINK_ON
      *
      * if communication link is ok it writes
      * as many characters as possible and wait again
-     * until all <count> bytes will be transferred.
-     * 
+     * until all <count> bytes have been transferred.
+     *
      * it sends a cross interrupt to peer if
      * circular buffer was empty, so peer driver
      * can get more characters from the circular buffer
@@ -801,6 +820,7 @@ ex_write (struct file* file, const char __user* buf,
     ExDev*       ex_dev  = &ex_devs[minor];
     NkDevVlink*  clink   = ex_dev->c_link;
     ExRing*	 cring   = ex_dev->c_ring;
+    _Bool	 xirq_needed = 0;
     ssize_t	 done;
     size_t	 cnt;
     size_t	 room;
@@ -854,6 +874,14 @@ ex_write (struct file* file, const char __user* buf,
 	     * wait until we can write
 	     * exit if something is wrong.
 	     */
+	if (xirq_needed && RING_P_ROOM(cring, ex_dev->c_size) == 0) {
+	    xirq_needed = 0;
+#ifdef TRACE_XIRQ
+	    printk(VBPIPE_MSG "PARTIAL ex_write xirq send OS#%d->OS#%d %d\n",
+			       clink->c_id, clink->s_id, cnt);
+#endif
+	    nkops.nk_xirq_trigger(ex_dev->c_s_xirq, clink->s_id);
+	}
 	cring->c_wait = 1;
 
 	if (wait_event_interruptible(ex_dev->wait,
@@ -888,7 +916,7 @@ ex_write (struct file* file, const char __user* buf,
 	     * exit if we have a problem
 	     */
 	if (copy_from_user(&cring->ring[ex_dev->c_pos], buf, cnt)) {
-	    done= -EFAULT;
+	    done = -EFAULT;
 	    break;
 	}
 	    /*
@@ -902,24 +930,34 @@ ex_write (struct file* file, const char __user* buf,
 	if (ex_dev->c_pos == ex_dev->c_size) {
 	    ex_dev->c_pos = 0;
 	}
-
 	    /*
 	     * Notify the peer if buffer was empty
 	     */
 	if (RING_C_ROOM(cring) == cnt &&
 	    cring->s_wait == 1) {
 #ifdef TRACE_XIRQ
-	    printk(VBPIPE_MSG "ex_write xirq send OS#%d->OS#%d %d\n",
+	    printk(VBPIPE_MSG "NEEDED ex_write xirq send OS#%d->OS#%d %d\n",
 			       clink->c_id, clink->s_id, cnt);
 #endif
-	    nkops.nk_xirq_trigger(ex_dev->c_s_xirq, clink->s_id);
+	    xirq_needed = 1;
 	}
+    }
+    if (xirq_needed) {
+#ifdef TRACE_XIRQ
+	printk(VBPIPE_MSG "FINAL ex_write xirq send OS#%d->OS#%d %d\n",
+			   clink->c_id, clink->s_id, cnt);
+#endif
+	nkops.nk_xirq_trigger(ex_dev->c_s_xirq, clink->s_id);
     }
 
 #ifdef TRACE_XIRQ
     printk(VBPIPE_MSG "ex_write to minor=%d completed done=%d\n",
 		       minor, done);
 #endif
+    if (done >= 0) {
+	++ex_dev->writes;
+	ex_dev->written_bytes += done;
+    }
 
     mutex_unlock(&ex_dev->wlock);
 
@@ -947,12 +985,33 @@ ex_poll(struct file* file, poll_table* wait)
     if (RING_C_ROOM(sring) != 0) {
 	res |= (POLLIN | POLLRDNORM);
     }
-
     if (RING_P_ROOM(cring, ex_dev->c_size) != 0) {
 	res |= (POLLOUT | POLLWRNORM);
     }
-
     return res;
+}
+
+    /*
+     * ex_ioctl currently only allows to see how many
+     * bytes there are available for reading.
+     * Just like Linux pipes, no error is generated
+     * after the write end of the vbpipe has been closed.
+     */
+    static int
+ex_ioctl (struct inode* inode, struct file* file, unsigned int cmd,
+	  unsigned long addr)
+{
+    unsigned int minor  = iminor(file->f_path.dentry->d_inode);
+    ExDev*	 ex_dev = &ex_devs[minor];
+
+    switch (cmd) {
+    case FIONREAD:
+	return put_user(RING_C_ROOM(ex_dev->s_ring), (int*) addr);
+
+    default:
+	break;
+    }
+    return -ENOIOCTLCMD;
 }
 
     /*
@@ -969,7 +1028,102 @@ static const struct file_operations ex_fops = {
     .release	= ex_release,
     .poll	= ex_poll,
     .llseek	= no_llseek,
+    .ioctl	= ex_ioctl,
 };
+
+    /*
+     * Management of /proc/nk/vbpipe
+     */
+#define VLX_SERVICES_PROC_NK
+#include "vlx-services.c"
+
+    static char
+ex_link_state (const int state)
+{
+    switch (state) {
+    case NK_DEV_VLINK_ON:	return 'O';
+    case NK_DEV_VLINK_RESET:	return 'R';
+    case NK_DEV_VLINK_OFF:	return 'F';
+    default:			break;
+    }
+    return '?';
+}
+
+    static int
+ex_seq_proc_show (struct seq_file* seq, void* v)
+{
+    ExDev* ex_dev;
+    int    minor;
+
+    seq_printf (seq,
+	"Mi Pr Id EaU Stat Size Opns Reads ReadBytes- Wrtes WriteBytes\n");
+    for (minor = 0, ex_dev = ex_devs; minor < ex_dev_num; ++minor, ++ex_dev) {
+	if (!ex_dev->defined) continue;
+	seq_printf (seq, "%2d %2d %2d %c%c%1d %c%c%c%c %4x %4d %5d %10lld "
+		    "%5d %10lld\n",
+		    minor, ex_dev->s_link->c_id, ex_dev->s_link->link,
+		    ex_dev->enabled ? 'E' : '.',
+		    ex_dev->flags & WAIT_ONLY_ON_EMPTY ? 'a' : '.',
+		    ex_dev->count,
+		    ex_link_state (ex_dev->c_link->c_state),
+		    ex_link_state (ex_dev->c_link->s_state),
+		    ex_link_state (ex_dev->s_link->c_state),
+		    ex_link_state (ex_dev->s_link->s_state),
+		    ex_dev->s_size, ex_dev->opens, ex_dev->reads,
+		    ex_dev->read_bytes, ex_dev->writes, ex_dev->written_bytes);
+    }
+    return 0;
+}
+
+    static int
+ex_proc_open (struct inode* inode, struct file* file)
+{
+    return single_open (file, ex_seq_proc_show, PDE (inode)->data);
+}
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,15)
+static struct file_operations ex_proc_fops =
+#else
+static const struct file_operations ex_proc_fops =
+#endif
+{
+    .owner	= THIS_MODULE,
+    .open	= ex_proc_open,
+    .read	= seq_read,
+    .llseek	= seq_lseek,
+    .release	= single_release,
+};
+
+    static int __init
+ex_proc_init (void)
+{
+    struct proc_dir_entry* nk = vlx_proc_nk_lookup();
+    struct proc_dir_entry* ent;
+
+    if (!nk) {
+	printk (KERN_ERR "Did not find /proc/nk\n");
+	return -EAGAIN;
+    }
+    ent = create_proc_entry ("vbpipe", 0, nk);
+    if (!ent) {
+	printk (KERN_ERR "Could not create /proc/nk/vbpipe\n");
+	return -ENOMEM;
+    }
+    ent->proc_fops = &ex_proc_fops;
+    ent->data      = NULL;
+    ex_proc_exists = 1;
+    return 0;
+}
+
+    static void
+ex_proc_exit (void)
+{
+    struct proc_dir_entry* nk = vlx_proc_nk_lookup();
+
+    if (nk && ex_proc_exists) {
+	remove_proc_entry ("vbpipe", nk);
+    }
+}
 
     /*
      * ex_dev_ring_alloc() is a helper function to
@@ -988,8 +1142,8 @@ ex_dev_ring_alloc(NkDevVlink* vlink, ExRing** p_ring, int size)
 
     pring = nkops.nk_pmem_alloc(plink, 0, sz);
     if (pring == 0) {
-	printk(VBPIPE_ERR "OS#%d<-OS#%d link=%d ring alloc failed\n",
-			   vlink->s_id, vlink->c_id, vlink->link);
+	printk(VBPIPE_ERR "OS#%d<-OS#%d link=%d ring alloc failed (%d bytes)\n",
+			   vlink->s_id, vlink->c_id, vlink->link, sz);
 	return -ENOMEM;
     }
 
@@ -1053,8 +1207,11 @@ ex_dev_init (ExDev* ex_dev, int minor)
 {
     NkDevVlink* slink = ex_dev->s_link;
     NkDevVlink* clink = ex_dev->c_link;
-
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     struct device* cls_dev;
+#else
+    struct class_device* cls_dev;
+#endif
 
 	/*
 	 * Allocate communication rings for client and server links
@@ -1079,7 +1236,11 @@ ex_dev_init (ExDev* ex_dev, int minor)
 	/*
 	 * create a class device
 	 */
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     cls_dev = device_create(ex_class, NULL, MKDEV(VBPIPE_MAJOR, minor),
+#else
+    cls_dev = class_device_create(ex_class, NULL, MKDEV(VBPIPE_MAJOR, minor),
+#endif
 			    NULL, "vbpipe%d", minor);
     if (IS_ERR(cls_dev)) {
 	printk(VBPIPE_ERR "OS#%d<-OS#%d link=%d class device create failed"
@@ -1104,7 +1265,7 @@ ex_dev_init (ExDev* ex_dev, int minor)
 
     /*
      * ex_dev_destroy() function is called to free devices
-     * resources and destry a device instance during driver
+     * resources and destroy a device instance during driver
      * exit phase (see ex_vlink_module_exit()).
      *
      * actually in our example it only destroys "class device"
@@ -1117,7 +1278,11 @@ ex_dev_destroy (ExDev* ex_dev, int minor)
 	/*
 	 * Destroy class device
 	 */
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     device_destroy(ex_class, MKDEV(VBPIPE_MAJOR, minor));
+#else
+    class_device_destroy(ex_class, MKDEV(VBPIPE_MAJOR, minor));
+#endif
 }
 
     /*
@@ -1140,6 +1305,8 @@ ex_dev_destroy (ExDev* ex_dev, int minor)
     static void
 ex_vlink_module_cleanup (void)
 {
+    ex_proc_exit();
+
 	/*
 	 * Detach sysconfig handler
 	 */
@@ -1179,31 +1346,33 @@ ex_vlink_module_cleanup (void)
      * Set device specific parameters for device
      */
     static void
-exdev_set_pars (ExDev* ex_dev, unsigned int size, int policy, int server)
+exdev_set_pars (ExDev* ex_dev, unsigned int size, int policy, _Bool server,
+		int required_minor)
 {
+    if (!ex_dev) return;	/* Sizing phase */
     if (size < sizeof(ExRing)) {
         size = DEF_RING_SIZE;
     }
-        
     size = size - sizeof(ExRing) + MIN_RING_SIZE;
 
     if (server) {
 	ex_dev->s_size = size;
         if (policy) {
-            ex_dev->flags |= EMPTY_WAIT_ONLY;
+            ex_dev->flags |= WAIT_ONLY_ON_EMPTY;
         }
     } else {
 	ex_dev->c_size = size;
     }
-    
+    ex_dev->required_minor = required_minor;
+    ex_dev->defined = 1;
 }
     /*
-     * Convertion from character string to integer number
+     * Conversion from character string to integer number
      */
     static char*
 ex_a2ui (char* s, unsigned int* i)
 {
-    unsigned int xi = 0;    
+    unsigned int xi = 0;
     char         c  = *s;
 
     while (('0' <= c) && (c <= '9')) {
@@ -1224,68 +1393,73 @@ ex_a2ui (char* s, unsigned int* i)
     return s;
 }
 
+     static void
+ex_syntax_error (NkDevVlink* vlink, const char* location)
+{
+    printk(VBPIPE_ERR "id %d OS%d<-OS%d syntax error: %s\n",
+	   vlink->link, vlink->s_id, vlink->c_id, location);
+}
+
     /*
      * Parse device specific parameters:
-     * size of communication memory in our case
-     * and read policy
+     * read policy, size of communication memory, required minor
+     *	vdev=(vbpipe,<id>|[a][;[<size>][;<minor>]])
      */
+
     static void
-ex_param(NkDevVlink* vlink, ExDev* ex_dev, int server)
+ex_param(NkDevVlink* vlink, ExDev* ex_dev, _Bool server, int* required_minor)
 {
     unsigned int size = DEF_RING_SIZE;
     int          read_policy = 0;
     char*        s;
-    char*        e;
-    char*        t;
 
-    if (vlink->s_info != 0) {
-	 t = s = nkops.nk_ptov(vlink->s_info);
+#define EX_NOT_END(ch)	((ch) != ';' && (ch) != '\0')
 
-        if (*s == 'a') {
-            s++;
-            read_policy = 1;
-            
-            if ((*s != ';') && (*s != 0)) {
-                printk(VBPIPE_INFO "OS#%d<-OS#%d read policy syntax error:"
-                       " <%s>\n", vlink->s_id, vlink->c_id, t);
-                exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server);
-                return;
-            }
-  
-            if (*s == ';'){
-                s++;
-            } 
-        }
-            
-	e = ex_a2ui(s, &size);
-
-	if ((*e != 0) && (*e != ';')) {
-            printk(VBPIPE_INFO "OS#%d<-OS#%d buffer length syntax error:"
-                   " <%s>\n", vlink->s_id, vlink->c_id, t);
-            exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server);
-            return;
-
-        }
-
-        if (*e == ';') {
-            if (*(++e) == 'a' && (!read_policy)) {
-                read_policy = 1;
-                if (*(++e) != 0) {
-                    printk(VBPIPE_INFO "OS#%d<-OS#%d read policy syntax error:"
-                           " <%s>\n", vlink->s_id, vlink->c_id, t);
-                    exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server);
-                    return;   
-                }
-            } else {
-                printk(VBPIPE_INFO "OS#%d<-OS#%d read policy syntax error:"
-                           " <%s>\n", vlink->s_id, vlink->c_id, t);
-                exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server);
-                return;
-            }
-        }    
+    *required_minor = -1;	/* none */
+    if (!vlink->s_info) {
+	exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server, -1);
+	return;
     }
+    s = nkops.nk_ptov(vlink->s_info);
 
-    exdev_set_pars(ex_dev, size, read_policy, server);
+    if (EX_NOT_END (*s)) {
+	if (*s != 'a') {
+	    ex_syntax_error (vlink, s);
+	    exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server, -1);
+	    return;
+	}
+	read_policy = 1;
+	++s;
+	if (EX_NOT_END (*s)) {
+	    ex_syntax_error (vlink, s);
+	    exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server, -1);
+	    return;
+	}
+    }
+    if (*s) ++s;
+    if (EX_NOT_END (*s)) {
+	char* e = ex_a2ui(s, &size);
+
+	if (EX_NOT_END (*e)) {
+	    ex_syntax_error (vlink, e);
+	    exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server, -1);
+	    return;
+	}
+	s = e;
+    }
+    if (*s) ++s;
+    if (EX_NOT_END (*s)) {
+	char* e;
+	unsigned long val = simple_strtoul (s, &e, 0);
+
+	if (EX_NOT_END (*e)) {
+	    ex_syntax_error (vlink, e);
+	    exdev_set_pars(ex_dev, DEF_RING_SIZE, 0, server, -1);
+	    return;
+	}
+	*required_minor = (int) val;
+    }
+    exdev_set_pars(ex_dev, size, read_policy, server, *required_minor);
 }
 
     /*
@@ -1293,7 +1467,7 @@ ex_param(NkDevVlink* vlink, ExDev* ex_dev, int server)
      * called by linux driver framework. It initializes
      * our driver.
      *
-     * It finds how many deveces will be managed by this driver.
+     * It finds how many devices will be managed by this driver.
      *
      * It registers them as a character devices
      *
@@ -1305,7 +1479,7 @@ ex_param(NkDevVlink* vlink, ExDev* ex_dev, int server)
      * and "assign" them minors *sequentially*.
      *
      * For each "server" link it finds corresponding "client"
-     * link (link in oppesite direction), then initialize
+     * link (link in opposite direction), then initialize
      * a device instance.
      *
      * Finally it attaches a sysconfig handler
@@ -1316,7 +1490,7 @@ vbpipe_module_init (void)
     NkPhAddr    plink;
     NkDevVlink* vlink;
     ExDev*	ex_dev;
-    int 	ret;
+    int		ret;
     int		i;
     NkOsId      my_id = nkops.nk_id_get();
 
@@ -1349,8 +1523,6 @@ vbpipe_module_init (void)
     } else {
 	ex_chrdev = 1;
     }
-
-    
 	/*
          * Create "vbpipe" device class
 	 */
@@ -1363,6 +1535,20 @@ vbpipe_module_init (void)
 	return ret;
     }
 	/*
+	 * Find highest requested minor number to size the array.
+	 */
+    while ((plink = nkops.nk_vlink_lookup("vbpipe", plink))) {
+	vlink = nkops.nk_ptov(plink);
+	if (vlink->s_id == my_id) {
+	    int required_minor;
+
+	    ex_param(vlink, NULL, 1, &required_minor);
+	    if (required_minor >= ex_dev_num) {
+		ex_dev_num = required_minor + 1;
+	    }
+	}
+    }
+	/*
 	 * Allocate memory for all device descriptors
 	 */
     ex_devs = (ExDev*)kzalloc(sizeof(ExDev) * ex_dev_num, GFP_KERNEL);
@@ -1373,17 +1559,34 @@ vbpipe_module_init (void)
     }
 	/*
 	 * Find all server links for this OS,
-	 * assing minors to them sequentially
+	 * assign unoccupied minors to them sequentially
+	 * or give them required minors if configured so,
 	 * and parse parameters if any
 	 */
-    ex_dev = ex_devs;
     plink  = 0;
-
     while ((plink = nkops.nk_vlink_lookup("vbpipe", plink))) {
 	vlink = nkops.nk_ptov(plink);
 	if (vlink->s_id == my_id) {
+	    int required_minor;
+
+	    ex_param(vlink, NULL, 1, &required_minor);
+	    if (required_minor < 0) continue;
+	    ex_devs [required_minor].s_link = vlink;
+	    ex_param(vlink, ex_devs + required_minor, 1, &required_minor);
+	}
+    }
+    ex_dev = ex_devs;
+    plink  = 0;
+    while ((plink = nkops.nk_vlink_lookup("vbpipe", plink))) {
+	vlink = nkops.nk_ptov(plink);
+	if (vlink->s_id == my_id) {
+	    int required_minor;
+
+	    ex_param(vlink, NULL, 1, &required_minor);
+	    if (required_minor >= 0) continue;
+	    while (ex_dev->defined) ++ex_dev;
 	    ex_dev->s_link = vlink;
-	    ex_param(vlink, ex_dev, 1);
+	    ex_param(vlink, ex_dev, 1, &required_minor);
 	    ex_dev += 1;
 	}
     }
@@ -1402,19 +1605,21 @@ vbpipe_module_init (void)
 	plink             = 0;
 	ret		  = 0;
 
+	if (!ex_dev->defined) continue;
 	while ((plink = nkops.nk_vlink_lookup("vbpipe", plink))) {
 	    vlink = nkops.nk_ptov(plink);
 	    if (      (vlink != slink)       &&
 		(vlink->c_id == slink->s_id) &&
 		(vlink->s_id == slink->c_id) &&
 		(vlink->link == slink->link)) {
+		int required_minor;
 
 		ex_dev->c_link = vlink;
 
-		ex_param(vlink, ex_dev, 0);
+		ex_param(vlink, ex_dev, 0, &required_minor);
 		ex_dev_init(ex_dev, i);
 
-		ret 	       = 1;
+		ret = 1;
 		break;
 	    }
 	}
@@ -1441,7 +1646,7 @@ vbpipe_module_init (void)
         printk(VBPIPE_ERR "can't attach sysconf handler\n");
 	return -ENOMEM;
     }
-    
+    ex_proc_init();
     printk(VBPIPE_INFO "module loaded\n");
 
     return 0;

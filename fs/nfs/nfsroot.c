@@ -1,5 +1,6 @@
 /*
  *  Copyright (C) 1995, 1996  Gero Kuhlmann <gero@gkminix.han.de>
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  Allow an NFS filesystem to be mounted as root. The way this works is:
  *     (1) Use the IP autoconfig mechanism to set local IP addresses and routes.

@@ -998,6 +998,7 @@ vmtd_process_msg (vmq_link_t* link, NkDevMtdMsg* msg, char* data_area,
 /*----- Module thread -----*/
 
 #define VLX_SERVICES_THREADS
+#define VLX_SERVICES_PROC_NK
 #include "vlx-services.c"
 
 static struct semaphore vmtd_sem;
@@ -1227,7 +1228,7 @@ vmtd_parse_options (const char* s_info, NkOsMask* mtd_visible)
     return mtd_names;
 }
 
-/*----- Support for /proc/vmtd-be -----*/
+/*----- Support for /proc/nk/vmtd-be -----*/
 
 static const char* vmtd_type_names[] = {NK_DEV_MTD_NAMES};
 
@@ -1391,8 +1392,8 @@ vmtd_exit (void)
 	 *  Always returns 0.
 	 */
     unregister_mtd_user (&vmtd_notifier);
-    if (vmtd_proc)     remove_proc_entry ("vmtd-be",     NULL);
-    if (vmtd_proc_ext) remove_proc_entry ("vmtd-be.ext", NULL);
+    if (vmtd_proc)     remove_proc_entry ("vmtd-be",     vlx_proc_nk_lookup());
+    if (vmtd_proc_ext) remove_proc_entry ("vmtd-be.ext", vlx_proc_nk_lookup());
 }
 
     static _Bool
@@ -1444,19 +1445,23 @@ vmtd_init (void)
 
     DTRACE ("\n");
     sema_init (&vmtd_sem, 0);	/* Before it is signaled */
-    vmtd_proc     = create_proc_read_entry ("vmtd-be",     0, NULL,
+    vmtd_proc     = create_proc_read_entry ("vmtd-be", 0,
+					    vlx_proc_nk_lookup(),
 					    vmtd_read_proc, NULL);
-    vmtd_proc_ext = create_proc_read_entry ("vmtd-be.ext", 0, NULL,
+    vmtd_proc_ext = create_proc_read_entry ("vmtd-be.ext", 0,
+					    vlx_proc_nk_lookup(),
 					    vmtd_read_proc, (void*) 1);
 	/*
 	 *  Get MTDs first, so that frontend immediately gets the full list.
 	 *  Calls vmtd_notifier_add() for all MTDs.
 	 */
     register_mtd_user (&vmtd_notifier);	/* void */
-    diag = vmq_links_init (&vmtd_links, "vmtd", &vmtd_callbacks,
-			   &vmtd_tx_config, &vmtd_rx_config);
+    diag = vmq_links_init_ex (&vmtd_links, "vmtd", &vmtd_callbacks,
+			      &vmtd_tx_config, &vmtd_rx_config, NULL, false);
     if (diag) goto error;
     if (vmq_links_iterate (vmtd_links, vmtd_init_link, &diag)) goto error;
+    diag = vmq_links_start (vmtd_links);
+    if (diag) goto error;
     diag = vlx_thread_start (&vmtd_thread_desc, vmtd_thread, vmtd_links,
     			     "vmtd-be");
     if (diag) goto error;

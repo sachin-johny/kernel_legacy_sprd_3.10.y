@@ -22,6 +22,8 @@
 #include <linux/poll.h>
 #include <linux/sched.h>	/* TASK_INTERRUPTIBLE */
 #include <linux/wait.h>
+#include <linux/slab.h>
+#include <linux/sched.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
@@ -53,6 +55,7 @@ typedef struct VVideoDev {
     VVideoRelease*       req_release;
     VVideoIoctl*         req_ioctl;
     VVideoMMap*          req_mmap;
+    VVideoMUnmap*        req_munmap;
     NkXIrqId             xid;
     NkXIrq	         s_xirq;		/* server side xirq */
     NkXIrq	         c_xirq;		/* client side xirq */
@@ -147,8 +150,9 @@ vvideo_handshake (VVideoDev* vvideo_dev)
 	    break;
 	case NK_DEV_VLINK_ON:
 	    if (peer_state == NK_DEV_VLINK_OFF) {
-		*my_state = NK_DEV_VLINK_RESET;
-		vvideo_sysconf_trigger(vvideo_dev);
+		vvideo_dev->req->req    = VVIDEO_REQ_NONE;
+	        vvideo_dev->req->result = VVIDEO_REQ_PENDING;
+	        wake_up_interruptible(&vvideo_dev->wait);
 	    }
 	    break;
     }
@@ -302,7 +306,7 @@ vvideo_open (VVideoDev* vvideo_dev)
 	vvideo_dev->private_data = private_data;
     }
 
-    /* 
+    /*
      * Give real minor to Front-end. This minor is unique and will be used
      * to identify the right video buffer set in the vshm area.
      */
@@ -310,7 +314,7 @@ vvideo_open (VVideoDev* vvideo_dev)
 
 out:
     VVIDEO_LOG("vvideo_open: minor %d DONE, err %d\n", vvideo_dev->minor, err);
-      
+
     return err;
 }
 
@@ -320,7 +324,9 @@ vvideo_release (VVideoDev* vvideo_dev)
 {
     VVideoRelease* vvideo_req_release = vvideo_dev->req_release;
     int err;
-    
+
+    (void) vvideo_req_release;
+
     VVIDEO_LOG("vvideo_release: minor %d\n", vvideo_dev->minor);
 
     if (vvideo_dev->private_data == NULL) {
@@ -356,7 +362,7 @@ vvideo_ioctl (VVideoDev* vvideo_dev)
 
 	if (is_ext_ctrls) {
 	    struct v4l2_ext_controls* p = (struct v4l2_ext_controls*) vvideo_req_ioctl->arg;
-	    p->controls = (void*)vvideo_req_ioctl->ext;
+	    p->controls = (struct v4l2_ext_control*) vvideo_req_ioctl->ext;
 	}
 
 	arg = vvideo_req_ioctl->arg;
@@ -388,6 +394,24 @@ vvideo_mmap (VVideoDev* vvideo_dev)
 
     VVIDEO_LOG("vvideo_mmap: minor %d, pgoff %08lx, offset %lu DONE, bus_addr %lx, err %d\n",
       vvideo_dev->minor, vvideo_req_mmap->pgoff, vvideo_req_mmap->pgoff << PAGE_SHIFT, bus_addr, err);
+
+    return err;
+}
+
+
+    static int
+vvideo_munmap (VVideoDev* vvideo_dev)
+{
+    VVideoMUnmap* vvideo_req_munmap = vvideo_dev->req_munmap;
+    int err;
+
+    VVIDEO_LOG("vvideo_munmap: minor %d, pgoff %08lx, offset %lu, size %lu\n",
+      vvideo_dev->minor, vvideo_req_munmap->pgoff, vvideo_req_munmap->pgoff << PAGE_SHIFT, vvideo_req_munmap->size);
+
+    err = vvideo_hw_ops->munmap(vvideo_dev->private_data, vvideo_req_munmap->pgoff, vvideo_req_munmap->size);
+
+    VVIDEO_LOG("vvideo_munmap: minor %d, pgoff %08lx, offset %lu, size %lu DONE, err %d\n",
+      vvideo_dev->minor, vvideo_req_munmap->pgoff, vvideo_req_munmap->pgoff << PAGE_SHIFT, vvideo_req_munmap->size, err);
 
     return err;
 }
@@ -429,9 +453,10 @@ vvideo_req_posted (VVideoDev* vvideo_dev)
     static int
 vvideo_thread (void* data)
 {
-    VVideoDev*     vvideo_dev = data;
+    VVideoDev*     vvideo_dev = (VVideoDev*) data;
     VVideoRequest* vvideo_req = vvideo_dev->req;
     int err = 0;
+    int open = 0;
 
     daemonize("vvideo_d");
     allow_signal(SIGTERM);
@@ -449,8 +474,21 @@ vvideo_thread (void* data)
 	VVIDEO_LOG("vvideo_thread: minor %d, req %d, result %x\n",
 	  vvideo_dev->minor, vvideo_req->req, vvideo_req->result);
 
+        if ((vvideo_dev->vlink->s_state == NK_DEV_VLINK_ON) &&
+	    (vvideo_dev->vlink->c_state == NK_DEV_VLINK_OFF)) {
+	    VVIDEO_LOG("vvideo_thread: >>> restart (open %d) <<<\n", open);
+	    if (open) {
+	        vvideo_release(vvideo_dev);
+	        open = 0;
+	    }
+	    vvideo_dev->vlink->s_state = NK_DEV_VLINK_RESET;
+	    vvideo_req->req            = VVIDEO_REQ_NONE;
+	    vvideo_req->result         = 0;
+	    vvideo_sysconf_trigger(vvideo_dev);
+	}
+
 	if (vvideo_req->req == VVIDEO_REQ_NONE) {
-	    VVIDEO_LOG("vvideo_thread: minor %d, no req, ignoring\n", 
+	    VVIDEO_LOG("vvideo_thread: minor %d, no req, ignoring\n",
 	      vvideo_dev->minor);
 	    continue;
 	}
@@ -459,10 +497,14 @@ vvideo_thread (void* data)
 
 	case VVIDEO_REQ_OPEN:
 	    err = vvideo_open(vvideo_dev);
+	    if (!err) {
+		open = 1;
+	    }
 	    break;
 
 	case VVIDEO_REQ_RELEASE:
-	    err = vvideo_release(vvideo_dev);
+	    err  = vvideo_release(vvideo_dev);
+	    open = 0;
 	    break;
 
 	case VVIDEO_REQ_IOCTL:
@@ -471,6 +513,10 @@ vvideo_thread (void* data)
 
 	case VVIDEO_REQ_MMAP:
 	    err = vvideo_mmap(vvideo_dev);
+	    break;
+
+	case VVIDEO_REQ_MUNMAP:
+	    err = vvideo_munmap(vvideo_dev);
 	    break;
 
 	default:
@@ -524,6 +570,7 @@ vvideo_dev_req_alloc (VVideoDev* vvideo_dev)
     vvideo_dev->req_release = &vvideo_dev->req->u.release;
     vvideo_dev->req_ioctl   = &vvideo_dev->req->u.ioctl;
     vvideo_dev->req_mmap    = &vvideo_dev->req->u.mmap;
+    vvideo_dev->req_munmap  = &vvideo_dev->req->u.munmap;
 
     VVIDEO_LOG("vvideo_dev_req_alloc: minor %d, plink %lx, pdev %lx, size %lu DONE -> desc %p, req %p\n",
       vvideo_dev->minor, (unsigned long)vvideo_dev->plink, (unsigned long)pdev, size, vvideo_dev->desc, vvideo_dev->req);
@@ -766,10 +813,10 @@ vvideo_module_init (void)
     vvideo_dev_num = 0;
     plink          = 0;
 
-    while ((plink = nkops.nk_vlink_lookup("vvideo", plink))) {
-	vlink = nkops.nk_ptov(plink);
+    while ((plink = nkops.nk_vlink_lookup("vvideo", plink)) != 0) {
+	vlink = (NkDevVlink*) nkops.nk_ptov(plink);
 
-	// My server link? 
+	// My server link?
 	if (vlink->s_id == my_id) {
 	    vvideo_dev_num++;
 	}
@@ -801,11 +848,11 @@ vvideo_module_init (void)
     plink  = 0;
     minor  = VVIDEO_MINOR_BASE;
 
-    while ((plink = nkops.nk_vlink_lookup("vvideo", plink))) {
+    while ((plink = nkops.nk_vlink_lookup("vvideo", plink)) != 0) {
 
-	vlink = nkops.nk_ptov(plink);
+	vlink = (NkDevVlink*) nkops.nk_ptov(plink);
 
-	// My server link? 
+	// My server link?
 	if (vlink->s_id == my_id) {
 
 	    vvideo_dev->plink = plink;

@@ -9,12 +9,6 @@
 #ifndef _VLCD_BACKEND_H_
 #define _VLCD_BACKEND_H_
 
-#ifdef _VLCD_BACKEND_C_
-#define EXTERN
-#else
-#define EXTERN extern
-#endif
-
 #include <linux/platform_device.h>
 #include <vlx/vlcd_common.h>
 
@@ -40,7 +34,6 @@
 #define VLCD_BSTATE_INITIALIZED     2 
 
 #define VLCD_BMAX_HW_DEV_SUP        2
-#define VLCD_BMAX_HW_DEV_SUP_INIT   { NULL, NULL }
 
 
 /*
@@ -67,6 +60,17 @@ typedef struct _vlcd_frontend_device {
     nku8_f get_focus;
     /* Next frontend device in list. */
     struct _vlcd_frontend_device* next_frontend_device;
+
+    /*
+     * VOGL extension
+     */
+
+    /* Description of the frontend framebuffer. */
+    struct fb_info* fbInfo;
+    /* 
+     * Boolean that indicates if the frontend framebuffer is registered or not.
+     */
+    int fbRegistered;
 } vlcd_frontend_device_t;
 
 typedef struct _vlcd_hwOps vlcd_hw_ops_t;
@@ -113,6 +117,11 @@ struct _vlcd_hwOps
 };
 
 /*
+ * Called by the native driver to retrieve driver specific information
+ */
+void* vlcd_b_get_hw_data (nku8_f hw_device_id);
+
+/*
  * Called by native driver when it is initialized.
  */
 int vlcd_b_hw_initialized(void* hw_data, vlcd_hw_ops_t* hw_ops, nku8_f hw_device_id);
@@ -122,19 +131,4 @@ int vlcd_b_hw_initialized(void* hw_data, vlcd_hw_ops_t* hw_ops, nku8_f hw_device
  */
 void vlcd_b_switch_screen(nku8_f frontend_os_id, nku8_f hw_device_id);
 
-
-EXTERN vlcd_b_driver_t vlcd_b_driver;
-EXTERN vlcd_hw_ops_t* vlcd_hw_ops[VLCD_BMAX_HW_DEV_SUP]
-#ifdef _VLCD_BACKEND_C_
-        = VLCD_BMAX_HW_DEV_SUP_INIT
-#endif
-        ;
-
-EXTERN void* vlcd_hw_data[VLCD_BMAX_HW_DEV_SUP]
-#ifdef _VLCD_BACKEND_C_
-        = VLCD_BMAX_HW_DEV_SUP_INIT
-#endif
-        ;
-
-#undef EXTERN
 #endif /* _VLCD_BACKEND_H_ */

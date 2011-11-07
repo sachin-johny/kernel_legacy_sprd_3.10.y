@@ -1,7 +1,12 @@
 /*
  ****************************************************************
  *
- * Copyright (C) 2010 VirtualLogix inc. All Rights Reserved.
+ *  Component:	VirtualLogix VRPC driver interface
+ *
+ *  Copyright (C) 2010-2011, VirtualLogix. All Rights Reserved.
+ *
+ *  Contributor(s):
+ *    Vladimir Grouzdev <vladimir.grouzdev@virtuallogix.com>
  *
  ****************************************************************
  */

@@ -37,6 +37,12 @@
 #include <vlx/vlcd_common.h>
 #endif
 
+/*----- Local configuration -----*/
+
+#if 0
+#define VINFO_MEMINFO
+#endif
+
 /*----- Debugging macros -----*/
 
 #ifdef  DEBUG
@@ -138,7 +144,7 @@ vinfo_tags (struct seq_file* seq)
 #ifdef CONFIG_XEN
     NkTagHeader *t = (NkTagHeader*) xen_start_info->arch.tags;
 #else
-    NkTagHeader* t = (NkTagHeader*) &os_ctx->tags;
+    NkTagHeader* t = (NkTagHeader*) os_ctx->taglist;
 #endif
 
     if (t->tag != ATAG_CORE) {
@@ -684,6 +690,7 @@ vinfo_checkpages (struct seq_file* seq)
 
 /*----- /proc/nk/meminfo -----*/
 
+#ifdef VINFO_MEMINFO
     static void
 vinfo_print_pfn_ranges (struct seq_file* seq)
 {
@@ -772,14 +779,37 @@ vinfo_meminfo (struct seq_file* seq)
     }
     vinfo_print_pfn_ranges (seq);
 }
+#endif	/* VINFO_MEMINFO */
+
+/*----- /proc/nk/id -----*/
+
+    static void
+vinfo_id (struct seq_file* seq)
+{
+    seq_printf (seq, "%d", nkops.nk_id_get());
+}
+
+/*----- /proc/nk/last -----*/
+
+    static void
+vinfo_last (struct seq_file* seq)
+{
+    seq_printf (seq, "%d", nkops.nk_last_id_get());
+}
+
+/*----- /proc/nk/state -----*/
+
+    static void
+vinfo_state (struct seq_file* seq)
+{
+    seq_printf (seq, "%d", nkops.nk_running_ids_get());
+}
 
 /*----- Common /proc/nk code -----*/
 
     static int
 vinfo_proc_show (struct seq_file* seq, void* v)
 {
-    ASSERT (seq->private == vinfo_tags || seq->private == vinfo_vdevs ||
-	    seq->private == vinfo_meminfo || seq->private == vinfo_checkpages);
     ((void (*)(struct seq_file*)) seq->private) (seq);
     return  0;
 }
@@ -787,10 +817,6 @@ vinfo_proc_show (struct seq_file* seq, void* v)
     static int
 vinfo_proc_open (struct inode *inode, struct file *file)
 {
-    ASSERT (PDE(inode)->data == vinfo_tags ||
-	    PDE(inode)->data == vinfo_vdevs ||
-	    PDE(inode)->data == vinfo_meminfo ||
-	    PDE(inode)->data == vinfo_checkpages);
     return single_open(file, vinfo_proc_show, PDE(inode)->data);
 }
 
@@ -810,94 +836,69 @@ static const struct file_operations vinfo_proc_fops =
     /* On ARM, /proc/nk is created, but no proc_root_nk symbol is offered */
 
 #ifdef CONFIG_ARM
-    static int
-vinfo_dir_match (struct proc_dir_entry* dir, const char* name)
-{
-    const unsigned namelen = strlen(name);
-
-    if (!dir->low_ino) {
-	return 0;
-    }
-    if (dir->namelen != namelen) {
-	return 0;
-    }
-    return !memcmp(name, dir->name, namelen);
-}
-
-    /*
-     *  Starting with kernel 2.6.27, proc_root is no more exported
-     *  and no more present in proc_fs.h, but the VLX-specific kernel
-     *  still offers it.
-     */
-extern struct proc_dir_entry proc_root;
-
-    static struct proc_dir_entry*
-vinfo_proc_nk_lookup (void)
-{
-    struct proc_dir_entry* dir = proc_root.subdir;
-
-    while (dir && !vinfo_dir_match(dir, "nk")) {
-	dir = dir->next;
-    }
-    return dir;
-}
+#define VLX_SERVICES_PROC_NK
+#include "vlx-services.c"
 #else
 extern struct proc_dir_entry* proc_root_nk;
-#define vinfo_proc_nk_lookup() proc_root_nk
+#define vlx_proc_nk_lookup() proc_root_nk
 #endif
+
+static struct {
+    const char* name;
+    void (*func) (struct seq_file* seq);
+} vinfo_files[] = {
+#ifdef VINFO_MEMINFO
+    {"meminfo",    vinfo_meminfo},
+#endif
+    {"checkpages", vinfo_checkpages},
+    {"tags",       vinfo_tags},
+    {"vdevs",      vinfo_vdevs},
+    {"id",         vinfo_id},
+    {"last",       vinfo_last},
+    {"state",      vinfo_state}
+};
+
+#define VINFO_MAX	(sizeof vinfo_files / sizeof vinfo_files [0])
+
+    static void
+vinfo_cleanup (unsigned until)
+{
+    struct proc_dir_entry* nk = vlx_proc_nk_lookup();
+    unsigned i;
+
+    if (!nk) return;
+    for (i = 0; i < until; ++i) {
+	remove_proc_entry (vinfo_files [i].name, nk);
+    }
+}
 
     static int __init
 vinfo_proc_init (void)
 {
-    struct proc_dir_entry* nk_ent = vinfo_proc_nk_lookup();
-    struct proc_dir_entry* ent;
+    struct proc_dir_entry* nk_ent = vlx_proc_nk_lookup();
+    int i;
 
     if (!nk_ent) {
 	return -EAGAIN;
     }
-    ent = create_proc_entry("meminfo", 0 /*mode_t*/, nk_ent);
-    if (!ent) {
-	return -ENOMEM;
-    }
-    ent->proc_fops = &vinfo_proc_fops;
-    ent->data = vinfo_meminfo;
+    for (i = 0; i < (int) VINFO_MAX; ++i) {
+	struct proc_dir_entry* ent;
 
-    ent = create_proc_entry("checkpages", 0 /*mode_t*/, nk_ent);
-    if (!ent) {
-	return -ENOMEM;
+	ent = create_proc_entry (vinfo_files[i].name, 0 /*mode_t*/, nk_ent);
+	if (!ent) {
+	    vinfo_cleanup (i - 1);
+	    return -ENOMEM;
+	}
+	ent->proc_fops = &vinfo_proc_fops;
+	ent->data = vinfo_files [i].func;
     }
-    ent->proc_fops = &vinfo_proc_fops;
-    ent->data = vinfo_checkpages;
-
-    ent = create_proc_entry("tags", 0 /*mode_t*/, nk_ent);
-    if (!ent) {
-	return -ENOMEM;
-    }
-    ent->proc_fops = &vinfo_proc_fops;
-    ent->data = vinfo_tags;
-
-    ent = create_proc_entry("vdevs", 0 /*mode_t*/, nk_ent);
-    if (!ent) {
-	remove_proc_entry ("tags", nk_ent);
-	return -ENOMEM;
-    }
-    ent->proc_fops = &vinfo_proc_fops;
-    ent->data = vinfo_vdevs;
-
     return 0;
 }
 
     static void __exit
 vinfo_proc_exit (void)
 {
-    struct proc_dir_entry* nk = vinfo_proc_nk_lookup();
-
-    if (nk) {
-	remove_proc_entry ("vdevs", nk);
-	remove_proc_entry ("tags", nk);
-	remove_proc_entry ("checkpages", nk);
-	remove_proc_entry ("meminfo", nk);
-    }
+    vinfo_cleanup (VINFO_MAX);
 }
 
 MODULE_DESCRIPTION("VirtualLogix VLX information driver");

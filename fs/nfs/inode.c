@@ -2,6 +2,7 @@
  *  linux/fs/nfs/inode.c
  *
  *  Copyright (C) 1992  Rick Sladkey
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  nfs inode and superblock handling functions
  *
@@ -442,6 +443,12 @@ nfs_setattr(struct dentry *dentry, struct iattr *attr)
 	 */
 	if ((attr->ia_valid & (ATTR_MODE|ATTR_UID|ATTR_GID)) != 0)
 		nfs_inode_return_delegation(inode);
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	if (attr->ia_uid == 0)
+		attr->ia_uid = NFS_CLIENT(inode)->cl_rootuid;
+	if (attr->ia_gid == 0)
+		attr->ia_gid = NFS_CLIENT(inode)->cl_rootgid;
+#endif
 	error = NFS_PROTO(inode)->setattr(dentry, fattr, attr);
 	if (error == 0)
 		nfs_refresh_inode(inode, fattr);
@@ -689,6 +696,10 @@ int nfs_open(struct inode *inode, struct file *filp)
 	{
 		rpc_restore_translated_cred(&tcred);
 		return PTR_ERR(cred);
+	}
+#else
+		return PTR_ERR(cred);
+#endif
 	ctx = alloc_nfs_open_context(&filp->f_path, cred);
 	put_rpccred(cred);
 	if (ctx == NULL)

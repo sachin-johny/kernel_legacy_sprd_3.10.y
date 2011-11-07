@@ -1,6 +1,19 @@
 /* ld script to make ARM Linux kernel
  * taken from the i386 version by Russell King
  * Written by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
+ *
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <asm-generic/vmlinux.lds.h>
@@ -11,10 +24,12 @@
 OUTPUT_ARCH(arm)
 ENTRY(stext)
 
+#ifndef CONFIG_NKERNEL
 #ifndef __ARMEB__
 jiffies = jiffies_64;
 #else
 jiffies = jiffies_64 + 4;
+#endif
 #endif
 
 SECTIONS
@@ -27,13 +42,9 @@ SECTIONS
 	. = PAGE_OFFSET + TEXT_OFFSET;
 #endif
 
+#else
+	.filler : { *(.filler) }
 #endif
-	.text.head : {
-		_stext = .;
-		_sinittext = .;
-		*(.text.head)
-	}
-
 	.init : {			/* Init code and data		*/
 		_stext = .;
 		_sinittext = .;
@@ -57,35 +68,6 @@ SECTIONS
 		SECURITY_INITCALL
 		INIT_RAM_FS
 
-		. = ALIGN(16);
-		__setup_start = .;
-			*(.init.setup)
-		__setup_end = .;
-		__early_begin = .;
-			*(.early_param.init)
-		__early_end = .;
-		__initcall_start = .;
-			INITCALLS
-		__initcall_end = .;
-		__con_initcall_start = .;
-			*(.con_initcall.init)
-		__con_initcall_end = .;
-		__security_initcall_start = .;
-			*(.security_initcall.init)
-		__security_initcall_end = .;
-#ifdef CONFIG_BLK_DEV_INITRD
-		. = ALIGN(32);
-		__initramfs_start = .;
-			usr/built-in.o(.init.ramfs)
-		__initramfs_end = .;
-#endif
-		. = ALIGN(PAGE_SIZE);
-		__per_cpu_load = .;
-		__per_cpu_start = .;
-			*(.data.percpu.page_aligned)
-			*(.data.percpu)
-			*(.data.percpu.shared_aligned)
-		__per_cpu_end = .;
 #ifndef CONFIG_XIP_KERNEL
 		__init_begin = _stext;
 		INIT_DATA
@@ -95,8 +77,15 @@ SECTIONS
 	PERCPU(PAGE_SIZE)
 
 #ifndef CONFIG_XIP_KERNEL
+#ifndef CONFIG_NKERNEL
 	. = ALIGN(PAGE_SIZE);
 	__init_end = .;
+#else
+	.end_of_init : {
+		*(.end_of_init)
+		__init_end = .;
+	}
+#endif
 #endif
 
 	/*
@@ -104,11 +93,6 @@ SECTIONS
 	 * unwind sections get included.
 	 */
 	/DISCARD/ : {
-		EXIT_TEXT
-		EXIT_DATA
-		*(.note.gnu.build-id)
-		*(.exitcall.exit)
-		*(.discard)
 		*(.ARM.exidx.exit.text)
 		*(.ARM.extab.exit.text)
 #ifndef CONFIG_HOTPLUG_CPU
@@ -119,6 +103,7 @@ SECTIONS
 		*(.ARM.exidx.devexit.text)
 		*(.ARM.extab.devexit.text)
 #endif
+		*(.note.gnu.build-id)
 #ifndef CONFIG_MMU
 		*(.fixup)
 		*(__ex_table)
@@ -289,9 +274,18 @@ SECTIONS
 	}
 #endif
 
+#ifndef CONFIG_RELOCATABLE_KERNEL
 	BSS_SECTION(0, 0, 0)
 	_end = .;
-
+#else
+	.bss : {
+		__bss_start = .;	/* BSS				*/
+		*(.bss)
+		*(COMMON)
+		__bss_stop = .;
+		_end = .;
+	}
+#endif
 	STABS_DEBUG
 	.comment 0 : { *(.comment) }
 

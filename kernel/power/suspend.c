@@ -290,7 +290,6 @@ int enter_state(suspend_state_t state)
 	error = suspend_devices_and_enter(state);
 
  Finish:
-
 	pr_debug("PM: Finishing wakeup.\n");
 	suspend_finish();
  Unlock:

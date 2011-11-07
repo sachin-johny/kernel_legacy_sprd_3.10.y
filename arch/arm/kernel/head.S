@@ -4,6 +4,7 @@
  *  Copyright (C) 1994-2002 Russell King
  *  Copyright (c) 2003 ARM Limited
  *  All Rights Reserved
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -54,7 +55,7 @@
 	ldr	\rd, =(KERNEL_RAM_PADDR - 0x4000)
 	.endm
 
-#else /* CONFIG_NKERNEL */
+#else /* CONFIG_RELOCATABLE_NKERNEL */
 
 		.globl	swapper_pg_dir
 		.equ	swapper_pg_dir, stext - 0x4000
@@ -63,9 +64,9 @@
  * Initially vmlinux is linked as a relocatable file in the
  * nanokernel environment, later it is relinked by mkimage
  * as an absolute file. Because of that ALIGN  directives
- * in vmlinux.lds script have no effect. We declare all
- * sections with nontrivial alignment here, in order to
- * guarantee their alignment.
+ * outside of any section in vmlinux.lds script have no effect.
+ * We declare all sections with nontrivial alignment here,
+ * in order to guarantee their alignment.
  */
 		.section "__ex_table", #alloc
 		.align	5
@@ -73,15 +74,18 @@
 		.section ".end_of_text", #alloc
 		.align	2
 
+		.section ".end_of_init", #alloc
+		.align	12
+
 		.section ".text_data_barrier", #alloc
 		.align	13
 
-		.section ".data.init_task", #alloc
+		.section ".data..init_task", #alloc
 		.align	13
 
-		.section ".data.cacheline_aligned", #alloc
+		.section ".data..cacheline_aligned", #alloc
 		.align	5
-#endif /* CONFIG_NKERNEL */
+#endif /* CONFIG_RELOCATABLE_NKERNEL */
 
 #ifdef CONFIG_XIP_KERNEL
 #define KERNEL_START	XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR)
@@ -112,19 +116,6 @@
 	__HEAD
 ENTRY(stext)
 #ifndef CONFIG_NKERNEL
-#ifndef __ARMEB__
-	stmfd sp!,{r0-r12}
-
-	mrc p15,0,r0,c1,c0,0
-	bic r0,r0,#0x80		@little-endian operation
-	bic r0,r0,#0x01		@MMU disable
-	ldr r1,=0x1004		@DCache/ICache disable
-	bic r0,r0,r1		
-	mcr p15,0,r0,c1,c0,0
-
-	ldmfd sp!,{r0-r12}
-#endif
-
 	setmode	PSR_F_BIT | PSR_I_BIT | SVC_MODE, r9 @ ensure svc mode
 						@ and irqs disabled
 #else

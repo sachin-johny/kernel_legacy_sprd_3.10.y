@@ -1,22 +1,23 @@
 /*
  ****************************************************************
  *
- * Component = Nano-Kernel vtick back-end  Driver
+ *  Component: VLX vtick frontend driver
  *
- * Copyright (C) 2002-2005 Jaluna SA.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
- * This program is free software;  you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
  *
- * #ident  "@(#)vtick.c 1.1     07/10/18 VirtualLogix"
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * Contributor(s):
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  ****************************************************************
  */
-
 
 #include <linux/init.h>
 #include <linux/interrupt.h>

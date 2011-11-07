@@ -2,6 +2,7 @@
  *  linux/arch/arm/mm/init.c
  *
  *  Copyright (C) 1995-2005 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -45,6 +46,7 @@
 
 static unsigned long phys_initrd_start __initdata = 0;
 static unsigned long phys_initrd_size __initdata = 0;
+
 
 static int __init early_initrd(char *p)
 {
@@ -237,22 +239,6 @@ static int __init check_initrd(struct meminfo *mi)
 	return initrd_node;
 }
 
-#ifndef CONFIG_NKERNEL
-static inline void map_memory_bank(struct membank *bank)
-{
-#ifdef CONFIG_MMU
-	struct map_desc map;
-
-	map.pfn = bank_pfn_start(bank);
-	map.virtual = __phys_to_virt(bank_phys_start(bank));
-	map.length = bank_phys_size(bank);
-	map.type = MT_MEMORY;
-
-	create_mapping(&map);
-#endif
-}
-#endif
-
 #ifdef CONFIG_NKERNEL
 
 extern NkMapDesc nk_maps[];
@@ -295,18 +281,6 @@ static void __init bootmem_init_node(int node, struct meminfo *mi,
 	unsigned int boot_pages;
 	pg_data_t *pgdat;
 	int i;
-
-#ifndef CONFIG_NKERNEL
-	/*
-	 * Map the memory banks for this node.
-	 */
-	for_each_nodebank(i, mi, node) {
-		struct membank *bank = &mi->bank[i];
-
-		if (!bank->highmem)
-			map_memory_bank(bank);
-	}
-#endif
 
 	/*
 	 * Allocate the bootmem bitmap page.

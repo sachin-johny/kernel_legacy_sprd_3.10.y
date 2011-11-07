@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1994-2002 Russell King
  *  Copyright (C) 2003-2006 Hyok S. Choi
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,15 +30,18 @@
  * Initially vmlinux is linked as a relocatable file in the
  * nanokernel environment, later it is relinked by mkimage
  * as an absolute file. Because of that ALIGN  directives
- * in vmlinux.lds script have no effect. We declare all
- * sections with nontrivial alignment here, in order to
- * guarantee their alignment.
+ * outside of any section in vmlinux.lds script have no effect.
+ * We declare all sections with nontrivial alignment here,
+ * in order to guarantee their alignment.
  */
 		.section "__ex_table", #alloc
 		.align	5
 
 		.section ".end_of_text", #alloc
 		.align	2
+
+		.section ".end_of_init", #alloc
+		.align	12
 
 		.section ".text_data_barrier", #alloc
 		.align	13

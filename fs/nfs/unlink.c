@@ -1,6 +1,8 @@
 /*
  *  linux/fs/nfs/unlink.c
  *
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
  * nfs sillydelete handling
  *
  */

@@ -2,6 +2,7 @@
  *  linux/arch/arm/mm/mmu.c
  *
  *  Copyright (C) 1995-2005 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1223,6 +1224,8 @@ static void __init kmap_init(void)
 #endif
 }
 
+#ifndef CONFIG_NKERNEL
+
 static inline void map_memory_bank(struct membank *bank)
 {
 	struct map_desc map;
@@ -1249,6 +1252,8 @@ static void __init map_lowmem(void)
 	}
 }
 
+#endif /* !CONFIG_NKERNEL */
+
 static int __init meminfo_cmp(const void *_a, const void *_b)
 {
 	const struct membank *a = _a, *b = _b;
@@ -1270,8 +1275,8 @@ void __init paging_init(struct machine_desc *mdesc)
 	sanity_check_meminfo();
 #ifndef CONFIG_NKERNEL
 	prepare_page_table();
-#endif
 	map_lowmem();
+#endif
 	bootmem_init();
 	devicemaps_init(mdesc);
 	kmap_init();

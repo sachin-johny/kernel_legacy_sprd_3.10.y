@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1996-2000 Russell King - Converted to ARM.
  *  Original Copyright (C) 1995  Linus Torvalds
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -136,8 +137,20 @@ EXPORT_SYMBOL(pm_idle);
 
 int sprd_pm_suspend_check_enter(void);
 int sprd_pm_resume_check(void);
-void nkidle_original(void);
+#ifdef CONFIG_NKERNEL
 
+static inline void nkidle(void)
+{
+	if (!need_resched()) {
+		hw_local_irq_disable();
+		if (!raw_local_irq_pending())
+			(void)os_ctx->idle(os_ctx);
+		hw_local_irq_enable();
+	}
+	local_irq_enable();
+}
+
+#endif
 
 /*
  * The idle thread, has rather strange semantics for calling pm_idle,
@@ -168,13 +181,10 @@ void cpu_idle(void)
 			} else {
 				stop_critical_timings();
 				pm_idle();
-#if 0
 #ifndef CONFIG_NKERNEL
 				pm_idle();
 #else
-				nkidle_original();
-#endif
-
+				nkidle();
 #endif
 				start_critical_timings();
 				/*
@@ -186,7 +196,6 @@ void cpu_idle(void)
 				local_irq_enable();
 			}
 		}
-
 		leds_event(led_idle_end);
 		tick_nohz_restart_sched_tick();
 		preempt_enable_no_resched();
@@ -217,9 +226,10 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
+#ifndef CONFIG_NKERNEL
 	if (pm_power_off)
 		pm_power_off();
-#if 0 
+#else
 	while (1) {
 	    os_ctx->stop(os_ctx, os_ctx->id);
 	}
@@ -229,8 +239,9 @@ void machine_power_off(void)
 
 void machine_restart(char *cmd)
 {
+#ifndef CONFIG_NKERNEL
 	arm_pm_restart(reboot_mode, cmd);
-#if 0
+#else
 	while (1) {
 	    os_ctx->restart(os_ctx, os_ctx->id);
 	}
@@ -467,7 +478,11 @@ asm(	".pushsection .text\n"
 #ifdef CONFIG_TRACE_IRQFLAGS
 "	bl	trace_hardirqs_on\n"
 #endif
+#ifndef CONFIG_NKERNEL
 "	msr	cpsr_c, r7\n"
+#else
+"	bl	_irq_set\n"	/* enable interrupt */
+#endif
 "	mov	r0, r4\n"
 "	mov	lr, r6\n"
 "	mov	pc, r5\n"
@@ -505,7 +520,18 @@ pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
 	regs.ARM_r6 = (unsigned long)kernel_thread_exit;
 	regs.ARM_r7 = SVC_MODE | PSR_ENDSTATE | PSR_ISETSTATE;
 	regs.ARM_pc = (unsigned long)kernel_thread_helper;
+#ifndef CONFIG_NKERNEL
 	regs.ARM_cpsr = regs.ARM_r7 | PSR_I_BIT;
+#else
+	/*
+	 * ARM_cpsr - interrupts are masked in software
+	 * ARM_r7   - interrupts are unmasked in software
+	 * ARM_r7 is not used actually we cal _irq_set()
+	 * to unmask interrupts.
+	 */
+	regs.ARM_cpsr = regs.ARM_r7;
+	regs.ARM_r7  |= (__VEX_IRQ_FLAG << NK_VPSR_SHIFT);
+#endif
 
 	return do_fork(flags|CLONE_VM|CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
 }

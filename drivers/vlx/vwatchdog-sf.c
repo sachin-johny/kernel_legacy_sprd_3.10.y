@@ -22,7 +22,6 @@
 
 #include <linux/version.h>   /* LINUX_VERSION_CODE */
 #include <linux/module.h>
-#include <linux/autoconf.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/fs.h>

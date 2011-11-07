@@ -1107,7 +1107,7 @@ unlock:
 fail:
 	/* failures here can mean systems won't boot... */
 	if (status)
-		pr_err("gpiochip_add: gpios %d..%d (%s) failed to register\n",
+		pr_err("gpiochip_add: gpios %d..%d (%s) not registered\n",
 			chip->base, chip->base + chip->ngpio - 1,
 			chip->label ? : "generic");
 	return status;

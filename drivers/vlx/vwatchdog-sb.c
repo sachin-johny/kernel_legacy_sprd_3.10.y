@@ -20,6 +20,7 @@
 #include <linux/init.h>
 #include <linux/timer.h>
 #include <linux/interrupt.h>    // tasklet ...
+#include <linux/slab.h>
 #include <nk/nkern.h>
 
 MODULE_DESCRIPTION("VirtualLogix VLX Virtual Watchdog driver - secondary backend");
@@ -664,7 +665,9 @@ nk_wdt_restart_time_setup (char* opt)
 __setup("nk_wdt_nr=", nk_wdt_nr_setup);
 __setup("nk_wdt_policy=", nk_wdt_restart_time_setup);
 #else
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 extern char saved_command_line[];
+#endif
 #endif
 
 	static int

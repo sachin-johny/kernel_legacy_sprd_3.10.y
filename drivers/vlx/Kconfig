@@ -133,6 +133,16 @@ config VBD_BE
           To compile this driver as a module, choose M here: the
           module will be called vlx-vbd-be.
 
+config VBD2_BE
+        tristate "Virtual block device v.2 backend interface"
+        default n
+	select VMQ
+        help
+          Virtual Block Device v.2 backend
+
+          To compile this driver as a module, choose M here: the
+          module will be called vlx-vbd2-be.
+
 config VBD_FE
         tristate "Virtual block device frontend interface"
         default n
@@ -153,12 +163,14 @@ config VBD2_FE
           module will be called vlx-vbd2-fe.
 endif
 
+if 0
 config VUART_FRONTEND
         tristate "Virtual UART frontend driver for VLX based Linux"
         depends on ARM
         default n
         help
          UART frontend driver for Linux running on top of VLX
+endif
 
 config VPIPE
         tristate "Virtual pipe for inter OS communication"
@@ -222,7 +234,7 @@ config VLX_VRPC
 	default n
 
 config VBATTERY_FRONTEND
-        bool "Virtual battery frontend interface"
+        tristate "Virtual battery frontend interface"
         depends on POWER_SUPPLY
         default n
         select VLX_VRPC
@@ -230,7 +242,7 @@ config VBATTERY_FRONTEND
           Virtual battery frontend interface
 
 config VBATTERY_BACKEND
-        bool "Virtual battery backend interface"
+        tristate "Virtual battery backend interface"
         depends on POWER_SUPPLY
         default n
         select VLX_VRPC
@@ -306,6 +318,24 @@ config VVIDEO_FE
           To compile this driver as a module, choose M here: the
           module will be called vvideo-fe.
 
+config VRTC_FE
+	tristate "Virtual Real Time Clock frontend interface"
+	select RTC_CLASS
+	select VLX_VRPC
+	default n
+	help
+	  To compile this driver as a module, choose M here: the
+	  module will be called vrtc-fe.
+
+config VRTC_BE
+	tristate "Virtual Real Time Clock backend interface"
+	select RTC_CLASS
+	select VLX_VRPC
+	default n
+	help
+	  To compile this driver as a module, choose M here: the
+	  module will be called vrtc-be.
+
 config VSHM
         tristate "Virtual shared memory interface"
         default n 
@@ -314,6 +344,48 @@ config VSHM
 
           To compile this driver as a module, choose M here: the
           module will be called vshm.
+
+config VOGL_FE
+	tristate "Virtual OpenGL ES frontend infrastructure"
+	default n
+	select VRPQ_FE
+	help
+	  Kernel-level support for the VLX virtual OpenGL ES frontend
+          infrastructure. Choose this option if you want to enable the
+	  VRPQ and the VGRALLOC frontend drivers.
+	  VRPQ (Virtual Remote Procedure Queue) is the VOpenGL ES transport
+          layer. It enables user-land components to execute remote procedures
+          on a virtualized platform.
+          VGRALLOC (Virtual Graphics Memory Allocator) enables to manage
+	  the graphics memory on a virtualized platform.
+
+config VOGL_BE
+	tristate "Virtual OpenGL ES backend infrastructure"
+	default n
+	select VRPQ_BE
+	help
+	  Kernel-level support for the VLX virtual OpenGL ES backend
+          infrastructure. Choose this option if you want to enable the
+	  VRPQ and the VGRALLOC backend drivers.
+	  VRPQ (Virtual Remote Procedure Queue) is the VOpenGL ES transport
+          layer. It enables user-land components to execute remote procedures
+          on a virtualized platform.
+          VGRALLOC (Virtual Graphics Memory Allocator) enables to manage
+	  the graphics memory on a virtualized platform.
+
+config VRPQ_FE
+	tristate
+
+config VRPQ_BE
+	tristate
+
+config VRPQ_PROFILE
+        bool "VRPQ (Virtual Remote Procedure Queue) profiling support"
+        default n
+	depends on VRPQ_FE || VRPQ_BE
+        help
+          Enable statistics collect in the VRPQ (Virtual Remote Procedure
+          Queue) layer.
 
 config XIRQ_BENCH
 	tristate "Virtual driver used to benchmark INTER-OS communication"
@@ -330,6 +402,16 @@ config VINFO
 
           To compile this driver as a module, choose M here: the
           module will be called vinfo.
+
+config VLX_UMP
+        tristate "User Mode virtual driver Proxy driver"
+        default m
+        help
+	  Driver providing support for backend drivers in user mode,
+	  that is running as processes.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called vlx-ump.
 
 endmenu
 

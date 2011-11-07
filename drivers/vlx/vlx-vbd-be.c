@@ -3460,40 +3460,11 @@ static const struct file_operations vbd_proc_fops =
     /* On ARM, /proc/nk is created, but no proc_root_nk symbol is offered */
 
 #ifdef CONFIG_ARM
-    static int
-vbd_dir_match (struct proc_dir_entry* dir, const char* name)
-{
-    const unsigned namelen = strlen(name);
-
-    if (!dir->low_ino) {
-	return 0;
-    }
-    if (dir->namelen != namelen) {
-	return 0;
-    }
-    return !memcmp(name, dir->name, namelen);
-}
-
-    /*
-     *  Starting with kernel 2.6.27, proc_root is no more exported
-     *  and no more present in proc_fs.h, but the VLX-specific kernel
-     *  still offers it.
-     */
-extern struct proc_dir_entry proc_root;
-
-    static struct proc_dir_entry*
-vbd_proc_nk_lookup (void)
-{
-    struct proc_dir_entry* dir = proc_root.subdir;
-
-    while (dir && !vbd_dir_match(dir, "nk")) {
-	dir = dir->next;
-    }
-    return dir;
-}
+#define VLX_SERVICES_PROC_NK
+#include "vlx-services.c"
 #else
 extern struct proc_dir_entry* proc_root_nk;
-#define vbd_proc_nk_lookup() proc_root_nk
+#define vlx_proc_nk_lookup() proc_root_nk
 #endif
 
 #ifdef VBD_ATAPI
@@ -3517,7 +3488,7 @@ static struct file_operations vbd_atapi_data_proc_fops = {
     static int __init
 vbd_proc_init (void)
 {
-    struct proc_dir_entry* nk_ent = vbd_proc_nk_lookup();
+    struct proc_dir_entry* nk_ent = vlx_proc_nk_lookup();
     struct proc_dir_entry* ent;
 
     if (!nk_ent) {
@@ -3535,7 +3506,7 @@ vbd_proc_init (void)
     static void __exit
 vbd_proc_exit (void)
 {
-    struct proc_dir_entry* nk = vbd_proc_nk_lookup();
+    struct proc_dir_entry* nk = vlx_proc_nk_lookup();
 
     if (nk) {
 	remove_proc_entry ("vbd-be", nk);
@@ -3546,7 +3517,7 @@ vbd_proc_exit (void)
     static _Bool __init
 vbd_atapi_init (VbdVdisk* vd)
 {
-    struct proc_dir_entry* nk_ent = vbd_proc_nk_lookup();
+    struct proc_dir_entry* nk_ent = vlx_proc_nk_lookup();
     struct proc_dir_entry* ent;
     int                    major, minor;
     atapi_t*               atapi;
@@ -3589,7 +3560,7 @@ vbd_atapi_init (VbdVdisk* vd)
     static void __exit
 vbd_atapi_exit (VbdVdisk* vd)
 {
-    struct proc_dir_entry* nk_ent = vbd_proc_nk_lookup();
+    struct proc_dir_entry* nk_ent = vlx_proc_nk_lookup();
 
     if (vd->atapi && nk_ent) {
 	remove_proc_entry (vd->atapi->ctrl_name, nk_ent);

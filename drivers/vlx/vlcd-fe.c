@@ -130,6 +130,7 @@ typedef struct vlcd_device {
 #endif
     unsigned int flip_buffer_max; /* maximum number of flip buffers */
     unsigned int refresh_hz;	  /* VLCD refresh rate */
+    int          registerID;      /* frame buffer registration ID */
 } vlcd_device_t;
 
 static long _refresh_jiffies;
@@ -200,17 +201,6 @@ vlcd_dev_es_resume (struct early_suspend* es)
     vlcd_dev_switch_off (vlcd_dev, 0);
 }
 #endif	/* CONFIG_HAS_EARLYSUSPEND */
-
-    static nku32_f
-vlcd_get_line_length (const int xres_virtual, const int bpp)
-{
-    u_long length;
-
-    length = xres_virtual * bpp;
-    length = (length + 31) & ~31;
-    length >>= 3;
-    return (length);
-}
 
     /*
      * Make handshake with backend. Returns:
@@ -303,16 +293,27 @@ vlcd_dev_end_init (vlcd_device_t* vlcd_dev)
 	    /* Allocate DMA zone */
         max_zone_size = 0;
         for (i = 0; i< VLCD_MAX_CONF_NUMBER; i++) {
-            max_zone_size = VLCD_MAX(max_zone_size,
-                                        pconf[i].xres * pconf[i].yres *
-                                        ((pconf[i].color_conf.bpp+7)/8));
-        }
+            max_zone_size = VLCD_MAX(max_zone_size, pconf[i].yres *
+				  (vlcd_get_line_length(var->xres_virtual,
+						        var->bits_per_pixel)));
+	}
+	max_zone_size = PAGE_ALIGN(max_zone_size);
+
 	for (i = vlcd_dev->flip_buffer_max; i > 0; i--) {
 	    conf->dma_zone_size = i * max_zone_size;
 
             DTRACE("dma_size %i\n", conf->dma_zone_size);
-            vaddr = dma_alloc_writecombine(NULL, conf->dma_zone_size,
-					   &(conf->dma_zone_paddr), GFP_KERNEL);
+
+	    if (conf->dma_zone_size < 4 * 1024 * 1024) {
+                vaddr = dma_alloc_writecombine(NULL, conf->dma_zone_size,
+					       &(conf->dma_zone_paddr), GFP_KERNEL);
+	    } else {
+	        conf->dma_zone_paddr = nkops.nk_pmem_alloc(
+		    nkops.nk_vtop(vlcd_dev->vlink), 0, conf->dma_zone_size);
+		vaddr = conf->dma_zone_paddr ?
+		    nkops.nk_mem_map(conf->dma_zone_paddr, conf->dma_zone_size) : NULL;
+	    }
+
             if (vaddr == NULL) {
 		if (i > 1) {
 		    WFTRACE("DMA alloc failed of %d buffers\n", i);
@@ -323,10 +324,11 @@ vlcd_dev_end_init (vlcd_device_t* vlcd_dev)
 			(unsigned long)(conf->dma_zone_size),
 			vlcd_dev->vlink->link);
                 return -ENOMEM;
-            } else {
-                DTRACE("dma_alloc OK. paddr 0x%x, vaddr 0x%lx\n",
-			conf->dma_zone_paddr, (unsigned long)vaddr);
-            }
+	    }
+
+	    DTRACE("dma_alloc OK. paddr 0x%x, vaddr 0x%lx size=0x%lX\n",
+	      conf->dma_zone_paddr, (unsigned long)vaddr, max_zone_size);
+
             fix->smem_len     = conf->dma_zone_size;
             fix->smem_start   = conf->dma_zone_paddr;
             info->screen_base = vaddr;
@@ -377,9 +379,13 @@ vlcd_dev_end_init (vlcd_device_t* vlcd_dev)
     vlcd_dev_send_event (vlcd_dev, VLCD_EVT_INIT);
 
     vlcd_dev->is_init = 1;
-    retval = register_framebuffer(info);
+#ifdef CONFIG_FB_VLCD_BACKEND
+    retval = vlcdRegisterFB(info, vlcd_dev->vlink->link);
+#else
+    retval = vlcdRegisterFB(info, vlcd_dev->registerID);
+#endif
     if (retval < 0) {
-	EFTRACE("register_framebuffer() failed %d\n", retval);
+	EFTRACE("vlcdRegisterFB() failed %d\n", retval);
     }
     return retval;
 }
@@ -472,6 +478,16 @@ vlcd_fb_open (struct fb_info* info, int user)
 
     static int
 vlcd_fb_release (struct fb_info* info, int user)
+{
+    vlcd_device_t* vlcd_dev = info->par;
+
+    (void) vlcd_dev;
+    DTRACE("link %i\n", vlcd_dev->vlink->link);
+    return 0;
+}
+
+    static int
+vlcd_fb_blank (int blank, struct fb_info* info)
 {
     vlcd_device_t* vlcd_dev = info->par;
 
@@ -859,6 +875,7 @@ vlcd_fb_ioctl (struct fb_info* info, unsigned int cmd, unsigned long arg)
 static struct fb_ops vlcd_fb_ops = {
     .fb_open        = vlcd_fb_open,
     .fb_release     = vlcd_fb_release,
+    .fb_blank       = vlcd_fb_blank,
     .fb_check_var   = vlcd_fb_check_var,
     .fb_set_par     = vlcd_fb_set_par,
     .fb_setcolreg   = vlcd_fb_setcolreg,
@@ -1177,6 +1194,7 @@ vlcd_drv_register (vlcd_driver_t* vlcd_drv)
     int retval;
     vlcd_device_t* vlcd_dev;
     vlcd_device_t* next;
+    int            registerID = 0;
 
 	/*
 	 * We go through the list many times to do the framebuffer register
@@ -1184,6 +1202,7 @@ vlcd_drv_register (vlcd_driver_t* vlcd_drv)
 	 */
     vlcd_dev = vlcd_dev_get_first (vlcd_drv->dev_list);
     while (vlcd_dev) {
+	vlcd_dev->registerID = registerID++;
         next = vlcd_dev_get_next (vlcd_drv->dev_list, vlcd_dev);
 	    /* Do device initialization */
         retval = vlcd_dev_init (NULL, vlcd_dev);
@@ -1233,10 +1252,16 @@ vlcd_drv_unregister (vlcd_driver_t* vlcd_drv)
             kfree(vlcd_dev->fbinfo->pseudo_palette);
             fb_dealloc_cmap(&vlcd_dev->fbinfo->cmap);
             if (vlcd_dev->fbinfo->fix.smem_len != 0) {
-                dma_free_writecombine(NULL,
-                                       vlcd_dev->fbinfo->fix.smem_len,
-                                       vlcd_dev->fbinfo->screen_base,
-                                       vlcd_dev->fbinfo->fix.smem_start);
+		if (vlcd_dev->fbinfo->fix.smem_len < 4 * 1024 * 1024) {
+                    dma_free_writecombine(NULL,
+				          vlcd_dev->fbinfo->fix.smem_len,
+				          vlcd_dev->fbinfo->screen_base,
+				          vlcd_dev->fbinfo->fix.smem_start);
+		} else {
+		    nkops.nk_mem_unmap(vlcd_dev->fbinfo->screen_base,
+				       vlcd_dev->fbinfo->fix.smem_start,
+				       vlcd_dev->fbinfo->fix.smem_len);
+		}
             }
             framebuffer_release(vlcd_dev->fbinfo);
             vlcd_dev->fbinfo = NULL;

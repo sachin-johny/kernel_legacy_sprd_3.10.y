@@ -50,7 +50,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/timer.h>
 
+#ifndef CONFIG_NKERNEL
 u64 jiffies_64 __cacheline_aligned_in_smp = INITIAL_JIFFIES;
+#else
+extern u64 jiffies_64;
+#endif
 
 EXPORT_SYMBOL(jiffies_64);
 

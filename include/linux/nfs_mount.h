@@ -5,6 +5,7 @@
  *  linux/include/linux/nfs_mount.h
  *
  *  Copyright (C) 1992  Rick Sladkey
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  structure passed from user-space to kernel-space during an nfs mount
  */

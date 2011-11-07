@@ -14,6 +14,8 @@
 #ifndef VLCD_COMMON_H
 #define VLCD_COMMON_H
 
+#include <linux/fb.h>
+
 #include <nk/nkern.h>
 
     /* Trace macros are still used by VLX code in native drivers */
@@ -123,5 +125,73 @@ typedef struct {
         /* Display region to update */
     vlcd_rect_t rect;
 } NkDevVlcd;
+
+    static inline nku32_f
+vlcd_get_line_length (const int xres_virtual, const int bpp)
+{
+    u_long length;
+
+    length = xres_virtual * bpp;
+    length = (length + 31) & ~31;
+    length >>= 3;
+    return (length);
+}
+
+#ifdef CONFIG_FB_VLCD_BACKEND
+#include <linux/mutex.h>
+/*
+ * Ensure only one thread executes vlcdRegisterFB. vlcdRegisterFB is actually
+ * called by two different threads:
+ * - The init thread which executes the initialization routines of both native
+ *   and vlcd backend drivers.
+ * - The thread created by the vlcd frontend driver.
+ */
+extern struct mutex vlcdMutex;
+#define VLCD_MUTEX_LOCK()   mutex_lock  (&vlcdMutex)
+#define VLCD_MUTEX_UNLOCK() mutex_unlock(&vlcdMutex)
+#else
+#define VLCD_MUTEX_LOCK()
+#define VLCD_MUTEX_UNLOCK()
+#endif
+
+    /*
+     * Registers a frame buffer device in a specific slot (provided by fbIdx).
+     * 
+     * Returns negative errno on error, or zero for success.
+     */
+    static inline int
+vlcdRegisterFB (struct fb_info* fbInfo, int fbIdx)
+{
+    int            ret;
+    int            i;
+    struct fb_info reservedFB;
+
+    VLCD_MUTEX_LOCK();
+
+    if (registered_fb[fbIdx]) {
+	VLCD_MUTEX_UNLOCK();
+	return -EEXIST;
+    }
+
+    memset(&reservedFB, 0, sizeof(reservedFB));
+
+    for (i = 0; i < fbIdx; i++) {
+	if (!registered_fb[i]) {
+	    registered_fb[i] = &reservedFB;
+	}
+    }
+    
+    ret = register_framebuffer(fbInfo);
+    
+    for (i = 0; i < fbIdx; i++) {
+	if (registered_fb[i] == &reservedFB) {
+	    registered_fb[i] = NULL;
+	}
+    }
+
+    VLCD_MUTEX_UNLOCK();
+
+    return ret;
+}
 
 #endif /* VLCD_COMMON_H */

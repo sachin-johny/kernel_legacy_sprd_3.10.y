@@ -103,7 +103,8 @@ vshm_init (void)
 	    vshm_len = len_option;
     vshm_pmem = nkops.nk_pmem_alloc(plink, 0, vshm_len);
     if (!vshm_pmem) {
-	printk(KERN_CRIT "VSHM: nk_pmem_alloc() failed for link %d\n", vlink->link);
+	printk(KERN_CRIT "VSHM: nk_pmem_alloc(%d) failed for link %d\n",
+	       vshm_len, vlink->link);
 	return -ENOMEM;
     }
 

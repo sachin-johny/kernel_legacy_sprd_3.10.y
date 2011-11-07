@@ -81,7 +81,7 @@ vblitter_get_format_bpp (unsigned int fmt)
 
     return vblitter_format_bpp[ fmt ];
 }
-
+EXPORT_SYMBOL(vblitter_get_format_bpp);
 
     const char*
 vblitter_get_format_str (unsigned int fmt)

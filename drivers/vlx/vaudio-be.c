@@ -24,6 +24,7 @@
 
 #include <linux/module.h>
 #include <linux/version.h>
+#include <linux/slab.h>
 #if LINUX_VERSION_CODE < KERNEL_VERSION (2,6,27)
 #include <sound/driver.h>
 #endif
@@ -518,56 +519,44 @@ vaudio_stream_open (AudioStream* audio_stream, const bool focused)
     mutex_lock(&vaudio_hardware_stream_lock);
     audio_stream->opened = 1;
     audio_stream->session = NULL;
+    if (focused) {
 	/*
 	 * Try to open a hardware session.
 	 */
-    hw_session = vaudio_get_hardware_session(did, sid);
-    if (hw_session == NULL) {
+        hw_session = vaudio_get_hardware_session(did, sid);
+        if (hw_session == NULL) {
 	    /*
 	     * Create a unique hardware session.
 	     */
-	hw_session = vaudio_sw.audio.open(sid,
+	    hw_session = vaudio_sw.audio.open(sid,
 					  &vaudio_sw.dma_callbacks[did][sid]);
-	vaudio_set_hardware_session(did, sid, hw_session);
-    }
-    if (hw_session == NULL) {
-	audio_stream->opened = 0;
-	status = NK_VAUDIO_STATUS_ERROR;
-    } else if (focused) {
-	vaudio_sw.dma_callbacks[did][sid] = audio_stream;
-	audio_stream->session = hw_session;
+	    vaudio_set_hardware_session(did, sid, hw_session);
+	    if (hw_session) {
+		vaudio_sw.dma_callbacks[did][sid] = audio_stream;
+		audio_stream->session = hw_session;
+	    }
+	}
     }
     mutex_unlock(&vaudio_hardware_stream_lock);
     return status;
 }
 
     static void
-vaudio_stream_close (AudioStream* audio_stream)
+vaudio_stream_close (AudioStream* audio_stream, const bool focused)
 {
-    int k;
-    bool can_close_hw_session = 1;
     const int did = audio_stream->dev;
     const int sid = audio_stream->stream_id;
 
-    mutex_lock(&vaudio_hardware_stream_lock);
     audio_stream->session = NULL;
     audio_stream->opened = 0;
-    for (k = NK_OS_PRIM; k < OS_MAX; k++) {
-	if (vaudio_sw.s[k][did][sid].opened) {
-		/*
-		 * We still have opened audio streams
-		 * so we don't close the hardware session.
-		 */
-	    can_close_hw_session = 0;
-	    break;
-	}
-    }
-    if (can_close_hw_session) {
-	void* hw_session = vaudio_get_hardware_session(did, sid);
+    mutex_lock(&vaudio_hardware_stream_lock);
+    if (focused) {
+        void* hw_session = vaudio_get_hardware_session(did, sid);
 	    /* We suppose here that DMA transfers are correctly stopped */
 	if (hw_session) {
 	    vaudio_sw.audio.close(hw_session);
-	}
+        }
+	vaudio_set_hardware_session(did, sid, NULL);
     }
     mutex_unlock(&vaudio_hardware_stream_lock);
 }
@@ -613,7 +602,7 @@ vaudio_thread (void* data)
 	    AudioStream* s = &vaudio_sw.s[osid][did][sid];
 
 	    if (s->opened) {
-		vaudio_stream_close(s);
+		vaudio_stream_close(s, (osid == vaudio_sw.owner));
 	    }
 	    nkops.nk_atomic_clear (&vaudio_sw.pending_close, 1 << j);
 	    vaudio_event_ack(vaudio_sw.vaudio[osid], s->stream,
@@ -679,9 +668,6 @@ vaudio_thread (void* data)
 	    }
 	    s->started = 1;
 	    nkops.nk_atomic_clear (&vaudio_sw.pending_start, 1 << j);
-	    vaudio_event_ack(vaudio_sw.vaudio[osid], s->stream,
-			     NK_VAUDIO_STREAM_START, 0,
-			     NK_VAUDIO_STATUS_OK);
 	}
 	while (vaudio_sw.pending_stop) {
 	    const nku32_f j = nkops.nk_mask2bit (vaudio_sw.pending_stop);
@@ -710,6 +696,14 @@ vaudio_thread (void* data)
     return 0;
 }
 
+/*
+ * Process to do when switching focus:
+ *  - Stop activities (dma or timers) of 'from' and 'to' VMs.
+ *  - Close opened hardware streams of 'from' VM.
+ *  - Apply mixers settings
+ *  - Open hardware streams of 'to' VM.
+ *  - Switch streams
+ */
     static void
 vaudio_switch_focused_streams (const NkOsId from, const NkOsId to)
 {
@@ -719,6 +713,7 @@ vaudio_switch_focused_streams (const NkOsId from, const NkOsId to)
     NkPhAddr        addr;
     nku32_f         size;
     int             delay;
+    void*           hw_session;
 
     for (j = 0; j < DEV_MAX; j++) {
         for (k = 0; k < STREAM_MAX; k++) {
@@ -730,12 +725,18 @@ vaudio_switch_focused_streams (const NkOsId from, const NkOsId to)
 		 * Stop "owner's" DMA transfer, if any.
 		 */
 	    if (sfrom->started) {
-		vaudio_sw.audio.stop_dma(sfrom->session);
+		if (sfrom->session) {
+		    vaudio_sw.audio.stop_dma(sfrom->session);
+		}
+		else {
+		    del_timer(&sfrom->timer_play);
+		}
 		while (sfrom->pending_dmas) {
 		    vaudio_ring_put(sfrom->stream, NK_VAUDIO_STATUS_OK);
 		    sfrom->pending_dmas--;
 		}
-	    }
+            }
+
 		/*
 		 * Stop "to's" timers, if any.
 		 */
@@ -747,6 +748,48 @@ vaudio_switch_focused_streams (const NkOsId from, const NkOsId to)
 		}
 	    }
 	    spin_unlock_irqrestore(&vaudio_sw.lock, flags);
+
+		/*
+		 * Close hardware stream
+		 */
+            if (sfrom->opened) {
+	        hw_session = vaudio_get_hardware_session(j, k);
+	            /* We suppose here that DMA transfers are correctly stopped */
+	        if (hw_session) {
+	            vaudio_sw.audio.close(hw_session);
+	        }
+	        vaudio_set_hardware_session(j, k, NULL);
+	    }
+	}
+    }
+
+	/*
+	 * Apply new owner's volume configuration
+	 * then switch to new owner.
+	 */
+    for (i = 0; i < vaudio_sw.mix_nb; i++) {
+        vaudio_sw.audio.mixer_put(i, &vaudio_sw.mix_val[to][i]);
+    }
+
+    for (j = 0; j < DEV_MAX; j++) {
+        for (k = 0; k < STREAM_MAX; k++) {
+	    AudioStream* sfrom = &vaudio_sw.s[from][j][k];
+	    AudioStream* sto = &vaudio_sw.s[to][j][k];
+
+	    if (sto->opened) {
+	        /*
+	         * Try to open a hardware session.
+	         */
+               hw_session = vaudio_get_hardware_session(j, k);
+               if (hw_session == NULL) {
+	            /*
+	             * Create a unique hardware session.
+	             */
+	            hw_session = vaudio_sw.audio.open(k,
+					  &vaudio_sw.dma_callbacks[j][k]);
+	            vaudio_set_hardware_session(j, k, hw_session);
+	        }
+            }
 		/*
 		 * Switch hardware sessions.
 		 */
@@ -754,15 +797,8 @@ vaudio_switch_focused_streams (const NkOsId from, const NkOsId to)
 	    vaudio_sw.dma_callbacks[j][k] = sto;
 	    sto->session = vaudio_get_hardware_session(j, k);
 	    sfrom->session = NULL;
-		/*
-		 * Apply new owner's configuration (sample and volume)
-		 * then switch to new owner.
-		 */
-	    for (i = 0; i < vaudio_sw.mix_nb; i++) {
-	        vaudio_sw.audio.mixer_put(i, &vaudio_sw.mix_val[to][i]);
-	    }
 	    evt = &sto->set_rate;
-	    if (evt->channels) {
+	    if (sto->session && evt && evt->channels) {
 		(void)vaudio_sw.audio.set_sample(sto->session, evt->channels,
 						 evt->format, evt->rate,
 						 evt->period, evt->periods,
@@ -958,7 +994,7 @@ vaudio_init (void)
 	    cur_pcm_hw++;
 	}
     }
-    vaudio_sw.owner  = nkops.nk_id_get();
+    vaudio_sw.owner = nkops.nk_id_get();
     for (osid = NK_OS_PRIM; osid < OS_MAX; osid++) {
 	if (!vaudio_configured (osid)) continue;
 	DTRACE ("creating vaudio (os=%d)\n", osid);

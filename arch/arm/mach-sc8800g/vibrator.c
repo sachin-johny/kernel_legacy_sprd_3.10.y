@@ -20,8 +20,6 @@
 #include <../../../drivers/staging/android/timed_output.h>
 #include <linux/sched.h>
 
-#include <linux/interrupt.h>
-
 #include <mach/regs_ana.h>
 #include <mach/adi_hal_internal.h>
 
@@ -91,58 +89,6 @@ static struct timed_output_dev sprd_vibrator = {
 	.get_time = vibrator_get_time,
 	.enable = vibrator_enable,
 };
-
-#if 0
-static irqreturn_t
-share_irq_handler(int irq, void *dev)
-{
-     pr_info("share irq, nothing to do\n");
-     return IRQ_HANDLED;
-}
-
-void share_irq_test(void)
-{
-     int err;
-     err = request_irq(26, share_irq_handler, 0, "share irq", NULL);
-}
-static int creat_vibrator_sysfs_file(void)
-{
-	int err;
-
-
-	err = class_register(&output_class);
-	if (err)
-	{
-		printk(KERN_ERR "timed_output: unable to register timed_output class\n");
-		return err;
-	}
-
-	vibrator_dev = device_create(&output_class, NULL, 0, NULL, "%s", "vibrator");
-	err = device_create_file(vibrator_dev, &dev_attr_enable);
-	if (err) {
-		device_unregister(vibrator_dev);
-		return err;
-	}
-#if 0
-	sprd_mfp_config(&vib_gpio_cfg, 1);
-	vib_gpio = mfp_to_gpio(MFP_CFG_TO_PIN(vib_gpio_cfg));
-	pr_info("vibrator gpio is:%d\r\n", vib_gpio);
-
-	err = gpio_request(vib_gpio, "vibrator");
-	if (err) {
-		pr_warning("cannot alloc gpio for vibrator\r\n");
-		return err;
-	}
-	gpio_direction_output(vib_gpio, 0);
-	//bl_gpio_test();
-#endif
-	pwr_gpio_int_test();
-	spics1_gpio_test();
-    share_irq_test();
-//	sdcard_gpio_int_test();
-	return 0;
-}
-#endif
 
 void __init sprd_init_vibrator(void)
 {

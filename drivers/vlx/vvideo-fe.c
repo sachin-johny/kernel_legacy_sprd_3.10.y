@@ -22,6 +22,7 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/slab.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
@@ -73,6 +74,7 @@ typedef struct VVideoDev {
     VVideoRelease*       req_release;
     VVideoIoctl*         req_ioctl;
     VVideoMMap*          req_mmap;
+    VVideoMUnmap*        req_munmap;
     NkXIrqId             xid;
     NkXIrq	         s_xirq;		/* server side xirq */
     NkXIrq	         c_xirq;		/* client side xirq */
@@ -920,22 +922,36 @@ vvideo_vm_open (struct vm_area_struct* vma)
 }
 
 
+static int vvideo_munmap (VVideoDev* vvideo_dev, unsigned long pgoff, unsigned long size);
+
 static void
 vvideo_vm_close (struct vm_area_struct *vma)
 {
     VVideoDev*    vvideo_dev = (VVideoDev*) vma->vm_private_data;
     VVideoBuffer* buffer     = vvideo_dev->buffer;
-    int i;
+    unsigned long pgoff;
+    unsigned long size;
+    int           i;
 
-    VVIDEO_LOG(VVIDEO_MSG "vvideo_vm_close [vma=%08lx-%08lx], offset %lx\n",
-      vma->vm_start, vma->vm_end, vma->vm_pgoff << PAGE_SHIFT);
+    size = vma->vm_end - vma->vm_start;
+
+    VVIDEO_LOG(VVIDEO_MSG "vvideo_vm_close [vma=%08lx-%08lx], size %lu\n",
+      vma->vm_start, vma->vm_end, size);
 
     for (i = 0; i < VVIDEO_BUFFER_MAX; i++, buffer++) {
 	if (buffer->vaddr == vma->vm_start) {
 
-	    VVIDEO_LOG("vvideo_vm_close: erasing info about buffer %08lx: size %lu, offset %lu, minor %u\n",
-	      buffer->vaddr, buffer->size, buffer->offset, vvideo_dev->minor);
+	    pgoff = buffer->offset >> PAGE_SHIFT;
 
+	    VVIDEO_LOG(VVIDEO_MSG "vvideo_vm_close [vma=%08lx-%08lx], -> paddr %lx, offset %lu, pgoff %lx\n",
+	      vma->vm_start, vma->vm_end, buffer->paddr, buffer->offset, pgoff);
+
+	    vvideo_munmap(vvideo_dev, pgoff, size);
+
+	    VVIDEO_LOG("vvideo_vm_close: erasing info about buffer %08lx: paddr %lx, size %lu, offset %lu, minor %u\n",
+	      buffer->paddr, buffer->vaddr, buffer->size, buffer->offset, vvideo_dev->minor);
+
+	    buffer->paddr  = 0;
 	    buffer->vaddr  = 0;
 	    buffer->size   = 0;
 	    buffer->offset = 0;
@@ -1061,6 +1077,35 @@ out:
 }
 
 
+    static int
+vvideo_munmap (VVideoDev* vvideo_dev, unsigned long pgoff, unsigned long size)
+{
+    VVideoMUnmap* vvideo_req_munmap = NULL;
+    int           err               = 0;
+
+    vvideo_req_munmap = vvideo_dev->req_munmap;
+
+    if (mutex_lock_interruptible(&vvideo_dev->lock)) {
+	return -EINTR;
+    }
+
+    VVIDEO_LOG("vvideo_munmap: minor %d, pgoff %lx, offset %lu, size %lu\n",
+      vvideo_dev->minor, pgoff, pgoff << PAGE_SHIFT, size);
+
+    vvideo_req_munmap->pgoff = pgoff;
+    vvideo_req_munmap->size  = size;
+
+    err = vvideo_post(vvideo_dev, VVIDEO_REQ_MUNMAP);
+
+    VVIDEO_LOG("vvideo_munmap: minor %d, pgoff %lx, offset %lu, size %lu DONE, err %d\n",
+      vvideo_dev->minor, pgoff, pgoff << PAGE_SHIFT, size, err);
+
+    mutex_unlock(&vvideo_dev->lock);
+
+    return err;
+}
+
+
     /*
      * this data structure will we passed as a parameter
      * to linux character device framework and inform it
@@ -1109,6 +1154,7 @@ vvideo_dev_req_alloc (VVideoDev* vvideo_dev)
     vvideo_dev->req_release = &vvideo_dev->req->u.release;
     vvideo_dev->req_ioctl   = &vvideo_dev->req->u.ioctl;
     vvideo_dev->req_mmap    = &vvideo_dev->req->u.mmap;
+    vvideo_dev->req_munmap  = &vvideo_dev->req->u.munmap;
 
     memset(vvideo_dev->req, 0x00, sizeof(VVideoRequest));
 

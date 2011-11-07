@@ -946,6 +946,8 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	data->battery_timer.function = battery_handler;
 	data->battery_timer.data = (unsigned long)data;
 
+    ADC_Init();
+
     for(i=0;i<_BUF_SIZE;i++){
 retry_adc:
         adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
@@ -998,8 +1000,6 @@ retry_adc:
 	platform_set_drvdata(pdev, data);
 	battery_data = data;
 	data->hw_switch_point = CHGMNG_DEFAULT_SWITPOINT;
-
-    ADC_Init();
 
 	sprd_creat_caliberate_attr(data->battery.dev);
 

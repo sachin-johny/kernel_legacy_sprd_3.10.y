@@ -3,7 +3,7 @@
  *
  * Component = VLX Virtual Block Device v.2 frontend driver
  *
- * Copyright (C) 2005-2010 VirtualLogix.
+ * Copyright (C) 2005-2011, VirtualLogix.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -125,30 +125,39 @@
 #include <linux/semaphore.h>
 #endif
 #include <linux/init.h>		/* module_init() in 2.6.0 and before */
-
+#include <linux/loop.h>		/* LOOP_CLR_FD ioctl */
 #include <nk/nkern.h>
-#include <nk/rdisk.h>
+#include <vlx/vbd2_common.h>
 #include "vlx-vmq.h"
+#include "vlx-vipc.h"
 
 /*----- Local configuration -----*/
 
-#if 1
+#if 0
 #define VBD_DEBUG
 #endif
 
-#if 1
+#if 0
+#define VBD_ASSERTS
+#endif
+
+#if 0
+    /* For 2.4 only */
 #define VBD_DEBUG_NOISY
 #endif
 
-#if 1
+#if 0
+    /* For 2.4 only */
 #define VBD_DEBUG_STATS
 #endif
 
-#if 1
+#if 0
+    /* For 2.4 only */
 #define VBD_DEBUG_REQUESTS
 #endif
 
-#if 1
+#if 0
+    /* For 2.4 only */
 #define VBD_DEBUG_OBSOLETE
 #endif
 
@@ -185,17 +194,20 @@
 #define TRACE(_f, _a...)  printk (KERN_INFO    "VBD2-FE: " _f, ## _a)
 #define WTRACE(_f, _a...) printk (KERN_WARNING "VBD2-FE: " _f, ## _a)
 #define ETRACE(_f, _a...) printk (KERN_ERR     "VBD2-FE: " _f, ## _a)
+#define XTRACE(_f, _a...)
 
 #ifdef	VBD_DEBUG
 #define DTRACE(_f, _a...) \
 	do {printk (KERN_ALERT "%s: " _f, __func__, ## _a);} while (0)
-#define XTRACE(_f, _a...) DTRACE (_f,  ## _a)
 #define VBD_CATCHIF(cond,action)	if (cond) action;
-#define VBD_ASSERT(c)	do {if (!(c)) BUG();} while (0)
 #else
 #define DTRACE(_f, _a...) ((void)0)
-#define XTRACE(_f, _a...) ((void)0)
 #define VBD_CATCHIF(cond,action)
+#endif
+
+#ifdef VBD_ASSERTS
+#define VBD_ASSERT(c)	do {if (!(c)) BUG();} while (0)
+#else
 #define VBD_ASSERT(c)
 #endif
 
@@ -213,28 +225,37 @@ kzalloc (size_t size, unsigned flags)
 }
 #endif
 
+#ifndef container_of
+#define container_of(ptr, type, member) \
+	((type*)((char*)(ptr)-(unsigned long)(&((type*) 0)->member)))
+#endif
+
 /*----- Data types -----*/
 
 typedef struct {
+    const char*	name;
     int		partn_shift;
     int		devs_per_major;
-    const char*	name;
-} vbd_type_info_t;
+} vbd_type_t;
 
    /*
     * We have one of these per vbd, whether ide, scsi or 'other'.
     * They hang in private_data off the gendisk structure.
     */
 typedef struct {
-    int				major;
-    int				usage;
-    const vbd_type_info_t*	type;
-    int				index;
-} vbd_major_info_t;
+    int			major;
+    int			usage;
+    const vbd_type_t*	type;
+    int			index;
+    int			major_idx;	/* Position of entry in array */
+} vbd_major_t;
 
-typedef struct vbd_disk_info {
-    int				xd_device;
-    vbd_major_info_t*		mi;
+typedef struct vbd_link_t vbd_link_t;
+
+typedef struct vbd_disk_t {
+    vbd2_devid_t		xd_devid;	/* Portable representation */
+    vbd2_genid_t		xd_genid;
+    vbd_major_t*		major;
     struct gendisk*		gd;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
     struct request_queue*	gd_queue;
@@ -242,241 +263,237 @@ typedef struct vbd_disk_info {
     _Bool			is_part;
     devfs_handle_t		devfs_handle;
 #endif
-    int				device;
-    struct vbd_disk_info*	next;
-} vbd_disk_info_t;
+    dev_t			device;		/* Local representation */
+    struct vbd_disk_t*		next;
+    int				usage;
+    _Bool			is_zombie;
+    vbd_link_t*			vbd;
+    _Bool			still_valid;	/* For syncing with backend */
+    char			name [24];
+} vbd_disk_t;
 
 /*----- Const data -----*/
 
-    static const vbd_type_info_t
-vbd_ide_type = {
-    .partn_shift = 6,
-	 /* XXXcl todo blksize_size [major]  = 1024; */
-    .devs_per_major = 2,
-	/* XXXcl todo read_ahead [major] = 8; from drivers/ide/ide-probe.c */
-    .name = "hd"
-};
-
-    static const vbd_type_info_t
-vbd_scsi_type = {
-    .partn_shift = 4,
-	/* XXXcl todo blksize_size [major]  = 1024; XXX 512; */
-    .devs_per_major = 16,
-	/* XXXcl todo read_ahead [major]    = 0; XXX 8; -- guessing */
-    .name = "sd"
-};
-
-    static const vbd_type_info_t
-vbd_vbd_type = {
-    .partn_shift = 4,
-	/* XXXcl todo blksize_size [major]  = 512; */
-	/* XXXcl todo read_ahead [major]    = 8; */
-    .name = "xvd"
-};
-
-    static const vbd_type_info_t
-vbd_fd_type = {
-    .partn_shift = 0,
-    .devs_per_major = 1,
-    .name = "fd"
-};
-
+static const vbd_type_t vbd_type_ide  = {"hd",  6,  2};
+static const vbd_type_t vbd_type_scsi = {"sd",  4, 16};
+static const vbd_type_t vbd_type_vbd  = {"xvd", 4,  0};
+static const vbd_type_t vbd_type_fd   = {"fd",  0,  1};
 #ifdef MMC_BLOCK_MAJOR
-    static vbd_type_info_t
-vbd_mmc_type = {
-    .partn_shift = 3,
-    .devs_per_major = 256 >> 3,
-    .name = "mmc"
-};
+static const vbd_type_t vbd_type_mmc  = {"mmc", 3, 256 >> 3};
 #endif
 
 /*----- Data -----*/
 
-    static vbd_major_info_t*
-vbd_major_info [VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS +
-		VBD_NUM_VBD_MAJORS + VBD_NUM_FD_MAJORS + VBD_NUM_MMC_MAJORS];
+typedef struct vbd_fe_t vbd_fe_t;
 
-#define VBD_MAJOR_XEN(dev)	((dev) >> 8)
-#define VBD_MINOR_XEN(dev)	((dev) & 0xff)
-
-typedef enum {
-    VBD_LINK_STATE_CLOSED,
-    VBD_LINK_STATE_DISCONNECTED,
-    VBD_LINK_STATE_CONNECTED
-} vbd_link_state_t;
-
-static const char vbd_link_state [3] [4] = {"Clo", "Dis", "Con"};
-
-typedef struct vbd_link_t {
+struct vbd_link_t {
+    vbd_fe_t*		fe;
     vmq_link_t*		link;
-    u32			msg_max;
-    int			ndisks;		/* number of disks */
-    vbd_disk_info_t*	disks;
-    RDiskProbe*		probe_info;	/* disk info */
-    vbd_link_state_t	state;
+    unsigned		msg_max;
+    unsigned		segs_per_req_max;
+    vbd_disk_t*		disks;
     spinlock_t		io_lock;
-    struct semaphore	probe_sem;
-    RDiskResp		probe_resp;
-} vbd_link_t;
+    vmq_xx_config_t	xx_config;
+    vipc_ctx_t		vipc_ctx;
+    _Bool		is_up;
+    _Bool		changes;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+    unsigned*		data_offsets;
+#endif
+};
+
+    static inline void
+vbd_disk_init (vbd_disk_t* di, vbd2_devid_t xd_devid, vbd2_genid_t xd_genid,
+	       vbd_major_t* major, struct gendisk* gd, dev_t device,
+	       vbd_link_t* vbd)
+{
+    di->xd_devid = xd_devid;
+    di->xd_genid = xd_genid;
+    di->major    = major;
+    di->gd       = gd;
+    di->device   = device;
+    di->vbd      = vbd;
+    snprintf (di->name, sizeof di->name, "(%d,%d:%d)",
+	      VBD2_DEVID_MAJOR (xd_devid), VBD2_DEVID_MINOR (xd_devid),
+	      xd_genid);
+    di->still_valid = true;
+	/* Prepend to the list of disks */
+    di->next     = vbd->disks;
+    vbd->disks   = di;
+}
 
 #define VBD_LINK_FOR_ALL_DISKS(_di,_vbd) \
     for ((_di) = (_vbd)->disks; (_di); (_di) = (_di)->next)
 
-static volatile _Bool	vbd_wait_flag;
-static RDiskDevId	vbd_wait_id;
-
-#define	VBD_LINK_MAX_SEGMENTS_PER_REQUEST(vbd) \
-    (((vbd)->msg_max - sizeof (RDiskReqHeader)) / sizeof (RDiskBuffer))
+    /*
+     * _26 and _24 functions are specific to one release of Linux
+     * and are only called from specific code. So they exist in one
+     * copy.
+     * _2x functions have different implementations according
+     * to the release of Linux, but are called from shared code.
+     * So they exist in 2 copies.
+     * Functions without _2 are generic.
+     */
 
     /* We plug the I/O ring if the driver is suspended or out of msgs */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-static int  vbd_blkif_open    (struct block_device* bdev, fmode_t fmode);
-static int  vbd_blkif_release (struct gendisk* gd, fmode_t fmode);
+static int  vbd_blkif_open_2x (struct block_device* bdev, fmode_t fmode);
+static int  vbd_blkif_release_2x (struct gendisk* gd, fmode_t fmode);
 static int  vbd_blkif_ioctl   (struct block_device* bdev, fmode_t fmode,
 			       unsigned command, unsigned long argument);
 #else
-static int  vbd_blkif_open    (struct inode* inode, struct file* filep);
-static int  vbd_blkif_release (struct inode* inode, struct file* filep);
+static int  vbd_blkif_open_2x (struct inode* inode, struct file* filep);
+static int  vbd_blkif_release_2x (struct inode* inode, struct file* filep);
 static int  vbd_blkif_ioctl   (struct inode* inode, struct file* filep,
 			       unsigned command, unsigned long argument);
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,15)
-static int  vbd_blkif_getgeo  (struct block_device*, struct hd_geometry*);
+static int  vbd_blkif_getgeo_26  (struct block_device*, struct hd_geometry*);
 #endif
 
-static void vbd_do_blkif_request (struct request_queue* rq);
+    /* Cannot be defined as "const" */
 
     static struct block_device_operations
 vbd_block_fops = {
     .owner   = THIS_MODULE,
-    .open    = vbd_blkif_open,
-    .release = vbd_blkif_release,
+    .open    = vbd_blkif_open_2x,
+    .release = vbd_blkif_release_2x,
     .ioctl   = vbd_blkif_ioctl,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,15)
-    .getgeo  = vbd_blkif_getgeo
+    .getgeo  = vbd_blkif_getgeo_26
+#endif
+};
+
+#define VLX_SERVICES_THREADS
+#define VLX_SERVICES_PROC_NK
+#include "vlx-services.c"
+
+#define VBD_ARRAY_ELEMS(a)	(sizeof (a) / sizeof (a) [0])
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+typedef struct {
+    int blksize_size  [256];
+    int hardsect_size [256];
+    int max_sectors   [256];
+} vbd_onemajor_t;
+#endif
+
+struct vbd_fe_t {
+    vbd_major_t*	majors [VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS
+				+ VBD_NUM_VBD_MAJORS + VBD_NUM_FD_MAJORS
+				+ VBD_NUM_MMC_MAJORS];
+    volatile _Bool	must_wait;
+    vbd2_devid_t	wait_devid;
+    struct semaphore	thread_sem;
+    _Bool		is_thread_aborted;
+    _Bool		is_sysconf;
+    vlx_thread_t	thread_desc;
+    struct proc_dir_entry* proc;
+    vmq_links_t*	links;
+    _Bool		changes;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	/* The below are for the generic drivers/block/ll_rw_block.c code */
+    vbd_onemajor_t	ide;
+    vbd_onemajor_t	scsi;
+    vbd_onemajor_t	vbd;
+    vbd_onemajor_t	fd;
+#ifdef MMC_BLOCK_MAJOR
+    vbd_onemajor_t	mmc;
+#endif
+
+#ifdef VBD_DEBUG_STATS
+    struct {
+	int sectors_per_buffer_head [8];
+	int new_bh_same_page [2];
+	int len_histo [1024];  /* Histogram of bhs, segments or sectors */
+	int was_already_pending;
+	int was_not_not_yet_pending;
+	int was_pending_at_irq;
+	int not_pending_at_irq;
+	int ring_not_full;
+    } stats;
+#endif
 #endif
 };
 
 /*----- Functions -----*/
 
-    /* Called from vbd_link_get_disk_info() only */
+#define vbd_kfree_and_clear(ptr) \
+	do {kfree (ptr); (ptr) = NULL;} while (0)
 
-    static int
-vbd_link_probe_send (vbd_link_t* const vbd, const NkPhAddr paddr)
+#define	VBD_LINK_MAX_DEVIDS_PER_PROBE(vbd) \
+    (((vbd)->msg_max - sizeof (vbd2_req_header_t)) / sizeof (vbd2_probe_t))
+
+    /* Only called from vbd_link_init_device() <- vbd_link_acquire_disks() */
+
+    static vbd_major_t*
+vbd_fe_get_major (vbd_fe_t* fe, const vbd2_devid_t xd_devid, int* const minor)
 {
-    RDiskReqHeader* rreq;
-    int diag;
-
-    diag = vmq_msg_allocate (vbd->link, 0 /*data_len*/, (void**) &rreq,
-			     NULL /*data_offset*/);
-    if (diag) return diag;
-    rreq->op         = RDISK_OP_PROBE;
-    rreq->sector [0] = 0;
-    rreq->sector [1] = 0;
-    rreq->devid      = 0;
-    rreq->cookie     = 0;
-    rreq->count      = 1;
-    RDISK_FIRST_BUF (rreq) [0] = RDISK_BUFFER (paddr, 0, 7);
-    vmq_msg_send (vbd->link, rreq);
-    return 0;
-}
-
-    /* Called from vbd_link_acquire_disks() only */
-
-    static int
-vbd_link_get_disk_info (vbd_link_t* const vbd, RDiskProbe* const disk_info)
-{
-	//XXX: We should use pmem, either a call descriptor or a data buffer
-    RDiskProbe* buf = (RDiskProbe*) __get_free_page (GFP_KERNEL);
-    RDiskStatus status;
-    int         count;
-
-    count = vbd_link_probe_send (vbd, virt_to_phys (buf));
-    if (count) return count;
-    down (&vbd->probe_sem);
-    status = vbd->probe_resp.status;
-    if (status == RDISK_STATUS_ERROR) {
-	ETRACE ("Could not probe disks (%d)\n", status);
-	return -1;
-    }
-    if ((count = status) > VBD_LINK_MAX_DISKS) {
-	count = VBD_LINK_MAX_DISKS;
-    }
-    TRACE ("%d virtual disk(s) detected\n", count);
-    memcpy (disk_info, buf, count * sizeof (RDiskProbe));
-    free_page ((unsigned long) buf);
-    return count;
-}
-
-    /* Called from vbd_init_device() only */
-
-    static vbd_major_info_t*
-vbd_get_major_info (const int xd_device, int* const minor)
-{
-    const int xd_major = VBD_MAJOR_XEN (xd_device);
-    const int xd_minor = VBD_MINOR_XEN (xd_device);
-    int mi_idx, new_major;
-    vbd_major_info_t* mi;
+    const int		xd_major = VBD2_DEVID_MAJOR (xd_devid);
+    const int		xd_minor = VBD2_DEVID_MINOR (xd_devid);
+    int			major_idx, new_major;
+    vbd_major_t*	major;
 
     *minor = xd_minor;
-
     switch (xd_major) {
-    case IDE0_MAJOR: mi_idx = 0; new_major = IDE0_MAJOR; break;
-    case IDE1_MAJOR: mi_idx = 1; new_major = IDE1_MAJOR; break;
-    case IDE2_MAJOR: mi_idx = 2; new_major = IDE2_MAJOR; break;
-    case IDE3_MAJOR: mi_idx = 3; new_major = IDE3_MAJOR; break;
-    case IDE4_MAJOR: mi_idx = 4; new_major = IDE4_MAJOR; break;
-    case IDE5_MAJOR: mi_idx = 5; new_major = IDE5_MAJOR; break;
-    case IDE6_MAJOR: mi_idx = 6; new_major = IDE6_MAJOR; break;
-    case IDE7_MAJOR: mi_idx = 7; new_major = IDE7_MAJOR; break;
-    case IDE8_MAJOR: mi_idx = 8; new_major = IDE8_MAJOR; break;
-    case IDE9_MAJOR: mi_idx = 9; new_major = IDE9_MAJOR; break;
-    case SCSI_DISK0_MAJOR: mi_idx = 10; new_major = SCSI_DISK0_MAJOR;break;
+    case IDE0_MAJOR: major_idx = 0; new_major = IDE0_MAJOR; break;
+    case IDE1_MAJOR: major_idx = 1; new_major = IDE1_MAJOR; break;
+    case IDE2_MAJOR: major_idx = 2; new_major = IDE2_MAJOR; break;
+    case IDE3_MAJOR: major_idx = 3; new_major = IDE3_MAJOR; break;
+    case IDE4_MAJOR: major_idx = 4; new_major = IDE4_MAJOR; break;
+    case IDE5_MAJOR: major_idx = 5; new_major = IDE5_MAJOR; break;
+    case IDE6_MAJOR: major_idx = 6; new_major = IDE6_MAJOR; break;
+    case IDE7_MAJOR: major_idx = 7; new_major = IDE7_MAJOR; break;
+    case IDE8_MAJOR: major_idx = 8; new_major = IDE8_MAJOR; break;
+    case IDE9_MAJOR: major_idx = 9; new_major = IDE9_MAJOR; break;
+    case SCSI_DISK0_MAJOR: major_idx = 10; new_major = SCSI_DISK0_MAJOR; break;
     case SCSI_DISK1_MAJOR ... SCSI_DISK7_MAJOR:
-	mi_idx = 11 + xd_major - SCSI_DISK1_MAJOR;
+	major_idx = 11 + xd_major - SCSI_DISK1_MAJOR;
 	new_major = SCSI_DISK1_MAJOR + xd_major - SCSI_DISK1_MAJOR;
 	break;
-    case SCSI_CDROM_MAJOR: mi_idx = 18; new_major = SCSI_CDROM_MAJOR;
+    case SCSI_CDROM_MAJOR: major_idx = 18; new_major = SCSI_CDROM_MAJOR;
 	break;
-    case FLOPPY_MAJOR: mi_idx = 19; new_major = FLOPPY_MAJOR; break;
+    case FLOPPY_MAJOR: major_idx = 19; new_major = FLOPPY_MAJOR; break;
 #ifdef MMC_BLOCK_MAJOR
-    case MMC_BLOCK_MAJOR: mi_idx = 20; new_major = MMC_BLOCK_MAJOR; break;
-    default: mi_idx = 21; new_major = 0;/* XXXcl notyet */ break;
+    case MMC_BLOCK_MAJOR: major_idx = 20; new_major = MMC_BLOCK_MAJOR; break;
+    default: major_idx = 21; new_major = 0; break;
 #else
-    default: mi_idx = 20; new_major = 0;/* XXXcl notyet */ break;
+    default: major_idx = 20; new_major = 0; break;
 #endif
     }
-    if (vbd_major_info [mi_idx]) {
-	return vbd_major_info [mi_idx];
+    if (fe->majors [major_idx]) {
+	return fe->majors [major_idx];
     }
-    mi = vbd_major_info [mi_idx] = kzalloc (sizeof *mi, GFP_KERNEL);
-    if (!mi) {
+    major = fe->majors [major_idx] = kzalloc (sizeof *major, GFP_KERNEL);
+    if (!major) {
+	ETRACE ("out of memory for major descriptor\n");
 	return NULL;
     }
-    switch (mi_idx) {
+    switch (major_idx) {
     case 0 ... VBD_NUM_IDE_MAJORS - 1:
-	mi->type = &vbd_ide_type;
-	mi->index = mi_idx;
+	major->type = &vbd_type_ide;
+	major->index = major_idx;
 	break;
 
     case VBD_NUM_IDE_MAJORS ...  VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS - 1:
-	mi->type = &vbd_scsi_type;
-	mi->index = mi_idx - VBD_NUM_IDE_MAJORS;
+	major->type = &vbd_type_scsi;
+	major->index = major_idx - VBD_NUM_IDE_MAJORS;
 	break;
 
     case VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS ...
 	    VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS + VBD_NUM_FD_MAJORS - 1:
-	mi->type = &vbd_fd_type;
-	mi->index = mi_idx - (VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS);
+	major->type = &vbd_type_fd;
+	major->index = major_idx - (VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS);
 	break;
 
 #ifdef MMC_BLOCK_MAJOR
     case VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS + VBD_NUM_FD_MAJORS ...
 	    VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS + VBD_NUM_FD_MAJORS +
 	    VBD_NUM_MMC_MAJORS - 1:
-	mi->type = &vbd_mmc_type;
-	mi->index = mi_idx -
+	major->type = &vbd_type_mmc;
+	major->index = major_idx -
 		(VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS + VBD_NUM_FD_MAJORS);
 	break;
 #endif
@@ -484,101 +501,108 @@ vbd_get_major_info (const int xd_device, int* const minor)
 	    VBD_NUM_MMC_MAJORS ...
 	    VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS + VBD_NUM_FD_MAJORS +
 	    VBD_NUM_MMC_MAJORS + VBD_NUM_VBD_MAJORS - 1:
-	mi->type = &vbd_vbd_type;
-	mi->index = mi_idx -
+	major->type = &vbd_type_vbd;
+	major->index = major_idx -
 		(VBD_NUM_IDE_MAJORS + VBD_NUM_SCSI_MAJORS +
 		 VBD_NUM_FD_MAJORS + VBD_NUM_MMC_MAJORS);
 	break;
     }
-    mi->major = new_major;
-    if (register_blkdev (mi->major, mi->type->name
+    major->major = new_major;
+    major->major_idx = major_idx;
+
+    if (register_blkdev (major->major, major->type->name
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 			 , &vbd_block_fops
 #endif
 			 )) {
 	ETRACE ("Cannot get major %d with name %s\n",
-		mi->major, mi->type->name);
+		major->major, major->type->name);
 	goto out;
     }
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,13)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-    devfs_mk_dir (mi->type->name);
+    devfs_mk_dir (major->type->name);
 #endif
 #endif
-    return mi;
+    return major;
 
 out:
-    kfree (vbd_major_info [mi_idx]);
-    vbd_major_info [mi_idx] = NULL;
+    vbd_kfree_and_clear (fe->majors [major_idx]);
     return NULL;
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-    static struct gendisk*
-vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
-		 const int xd_minor, RDiskProbe* const xd)
-{
-    struct gendisk*        gd;
-    vbd_disk_info_t*       di;
-    int                    part;
+static void vbd_rq_do_blkif_request_26 (struct request_queue*);
 
-    di = kzalloc (sizeof (vbd_disk_info_t), GFP_KERNEL);
+    static struct gendisk*
+vbd_link_get_gendisk_2x (vbd_link_t* const vbd, vbd_major_t* const major,
+			 const int xd_minor,
+			 const vbd2_probe_t* const disk_probe)
+{
+    struct gendisk*	gd;
+    vbd_disk_t*		di;
+    int			part;
+
+    di = kzalloc (sizeof *di, GFP_KERNEL);
     if (!di) {
+	ETRACE ("out of memory for disk descriptor\n");
 	return NULL;
     }
 	/* Construct an appropriate gendisk structure */
-    part = xd_minor & ((1 << mi->type->partn_shift) - 1);
+    part = xd_minor & ((1 << major->type->partn_shift) - 1);
     if (part) {
 	    /* VBD partitions are not expected to contain sub-partitions */
-	DTRACE ("xd_minor=%d -> alloc_disk(%d)\n", xd_minor, 1);
+	DTRACE ("xd_minor %d -> alloc_disk(%d)\n", xd_minor, 1);
 	gd = alloc_disk (1);
     } else {
 	    /* VBD disks can contain sub-partitions */
-	DTRACE ("xd_minor=%d -> alloc_disk(%d)\n",
-		xd_minor, 1 << mi->type->partn_shift);
-	gd = alloc_disk (1 << mi->type->partn_shift);
+	DTRACE ("xd_minor %d -> alloc_disk(%d)\n",
+		xd_minor, 1 << major->type->partn_shift);
+	gd = alloc_disk (1 << major->type->partn_shift);
     }
-    if (!gd) goto out;
-
-    gd->major        = mi->major;
+    if (!gd) {
+	ETRACE ("could not alloc disk\n");
+	goto out;
+    }
+    gd->major        = major->major;
     gd->first_minor  = xd_minor;
     gd->fops         = &vbd_block_fops;
     gd->private_data = di;
     if (part) {
 #ifdef MMC_BLOCK_MAJOR
-	if (mi->major == MMC_BLOCK_MAJOR) {
+	if (major->major == MMC_BLOCK_MAJOR) {
 	    sprintf (gd->disk_name, "mmcblk%dp%d",
-		     xd_minor >> mi->type->partn_shift, part);
+		     xd_minor >> major->type->partn_shift, part);
 	} else
 #endif
 	{
-	    sprintf (gd->disk_name, "%s%c%d", mi->type->name,
-		     'a' + (mi->index << 1) +
-		     (xd_minor >> mi->type->partn_shift), part);
+	    sprintf (gd->disk_name, "%s%c%d", major->type->name,
+		     'a' + (major->index << 1) +
+		     (xd_minor >> major->type->partn_shift), part);
 	}
     } else {
 	    /* Floppy disk special naming rules */
-	if (!strcmp (mi->type->name, "fd")) {
-	    sprintf (gd->disk_name, "%s%c", mi->type->name, '0');
+	if (!strcmp (major->type->name, "fd")) {
+	    sprintf (gd->disk_name, "%s%c", major->type->name, '0');
 #ifdef MMC_BLOCK_MAJOR
-	} else if (mi->major == MMC_BLOCK_MAJOR) {
+	} else if (major->major == MMC_BLOCK_MAJOR) {
 	    sprintf (gd->disk_name, "mmcblk%d",
-		     xd_minor >> mi->type->partn_shift);
+		     xd_minor >> major->type->partn_shift);
 #endif
 	} else {
-	    sprintf (gd->disk_name, "%s%c", mi->type->name,
-		     'a' + (mi->index << 1) +
-		     (xd_minor >> mi->type->partn_shift));
+	    sprintf (gd->disk_name, "%s%c", major->type->name,
+		     'a' + (major->index << 1) +
+		     (xd_minor >> major->type->partn_shift));
 	}
     }
-    if (xd->size [0]) {
-	set_capacity (gd, xd->size [0]);	/* VG_FIXME: size [1] ??? */
+    if (disk_probe->sectors) {
+	set_capacity (gd, disk_probe->sectors);
     } else {
 	set_capacity (gd, 0xffffffffL);
     }
-    DTRACE ("%s: gd=0x%p, di=0x%p, major=%d first minor=%d\n",
+    DTRACE ("%s: gd %p di %p major %d first minor %d\n",
 	    gd->disk_name, gd, di, gd->major, gd->first_minor);
-    gd->queue = blk_init_queue (vbd_do_blkif_request, &vbd->io_lock);
+    gd->queue = blk_init_queue (vbd_rq_do_blkif_request_26, &vbd->io_lock);
     if (!gd->queue) goto out;
 
     gd->queue->queuedata = vbd;
@@ -588,7 +612,7 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
     elevator_init (gd->queue, &elevator_noop);
 #endif
 	/*
-	 * Turn off barking 'headactive' mode. We dequeue buffer
+	 * Turn off 'headactive' mode. We dequeue buffer
 	 * heads as soon as we pass them to the back-end driver.
 	 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)
@@ -603,37 +627,37 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 
 #if defined CONFIG_ARM && LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 	/* Limit max hw read size to 128 (255 loopback limitation) */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
     blk_queue_max_sectors (gd->queue, 128);
 #else
-    blk_queue_max_sectors (gd->queue,
-	  VBD_LINK_MAX_SEGMENTS_PER_REQUEST (vbd) * (PAGE_SIZE/512));
+    blk_queue_max_hw_sectors (gd->queue, 128);
+#endif
+#else
+    blk_queue_max_sectors (gd->queue, vbd->segs_per_req_max * (PAGE_SIZE/512));
 #endif
 
     blk_queue_segment_boundary (gd->queue, PAGE_SIZE - 1);
     blk_queue_max_segment_size (gd->queue, PAGE_SIZE);
 
-    blk_queue_max_phys_segments (gd->queue,
-		VBD_LINK_MAX_SEGMENTS_PER_REQUEST (vbd));
-    blk_queue_max_hw_segments (gd->queue,
-		VBD_LINK_MAX_SEGMENTS_PER_REQUEST (vbd));
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,34)
+    blk_queue_max_phys_segments (gd->queue, vbd->segs_per_req_max);
+    blk_queue_max_hw_segments (gd->queue, vbd->segs_per_req_max);
+#else
+    blk_queue_max_segments (gd->queue, vbd->segs_per_req_max);
+#endif
 
     blk_queue_dma_alignment (gd->queue, 511);
 
-    di->mi        = mi;
-    di->xd_device = xd->devid;
-    di->gd        = gd;
-    di->device    = MKDEV (mi->major, xd_minor);
-    di->next      = vbd->disks;
-    vbd->disks    = di;
+    vbd_disk_init (di, disk_probe->devid, disk_probe->genid, major, gd,
+		   MKDEV (major->major, xd_minor), vbd);
     add_disk (gd);
     return gd;
 
 out:
-    if (gd) del_gendisk (gd);
+    if (gd) del_gendisk (gd);	/* void */
     kfree (di);
     return NULL;
 }
-
 #else	/* 2.4.x */
 
     /*
@@ -646,67 +670,57 @@ out:
      */
 #define GENHD_FL_VIRT_PARTNS	4	/* Are unit partitions virtual? */
 
-    /* The below are for the generic drivers/block/ll_rw_block.c code */
-static int vbd_ide_blksize_size [256];
-static int vbd_ide_hardsect_size [256];
-static int vbd_ide_max_sectors [256];
-static int vbd_scsi_blksize_size [256];
-static int vbd_scsi_hardsect_size [256];
-static int vbd_scsi_max_sectors [256];
-static int vbd_vbd_blksize_size [256];
-static int vbd_vbd_hardsect_size [256];
-static int vbd_vbd_max_sectors [256];
-static int vbd_fd_blksize_size [256];
-static int vbd_fd_hardsect_size [256];
-static int vbd_fd_max_sectors [256];
-#ifdef MMC_BLOCK_MAJOR
-static int vbd_mmc_blksize_size [256];
-static int vbd_mmc_hardsect_size [256];
-static int vbd_mmc_max_sectors [256];
-#endif
-
 #define VBD_FD_DISK_MAJOR(M) ((M) == FLOPPY_MAJOR)
 #ifdef MMC_BLOCK_MAJOR
 #define VBD_MMC_DISK_MAJOR(M) ((M) == MMC_BLOCK_MAJOR)
 #endif
 
-    static struct gendisk*
-vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
-		 const int xd_minor, RDiskProbe* const xd)
-{
-    const int device = xd->devid;
-    const int major  = MAJOR (device);
-    const int minor  = MINOR (device);
-    const int is_ide = IDE_DISK_MAJOR (major);
-    const int is_scsi= SCSI_BLK_MAJOR (major);
-    const int is_fd  = VBD_FD_DISK_MAJOR (major);
-#ifdef MMC_BLOCK_MAJOR
-    const int is_mmc  = VBD_MMC_DISK_MAJOR (major);
-#endif
-    struct gendisk* gd;
-    vbd_disk_info_t* di;
-    unsigned long capacity;
-    int partno;
-    int max_part;
-    unsigned char buf [64];
+static void vbd_rq_do_blkif_request_24 (struct request_queue*);
 
-    XTRACE ("dev=0x%x\n", device);
-    max_part = 1 << mi->type->partn_shift;
+    /* Linux 2.4 only */
+
+    static struct gendisk*
+vbd_link_get_gendisk_2x (vbd_link_t* const vbd, vbd_major_t* const major,
+			 const int xd_minor,
+			 const vbd2_probe_t* const disk_probe)
+{
+    vbd_fe_t*		fe = vbd->fe;
+    const int		fe_major  = VBD2_DEVID_MAJOR (disk_probe->devid);
+    const int		minor  = VBD2_DEVID_MINOR (disk_probe->devid);
+    const int		device = MKDEV (fe_major, minor);
+    const _Bool		is_ide = IDE_DISK_MAJOR (fe_major);
+    const _Bool		is_scsi= SCSI_BLK_MAJOR (fe_major);
+    const _Bool		is_fd  = VBD_FD_DISK_MAJOR (fe_major);
+#ifdef MMC_BLOCK_MAJOR
+    const _Bool		is_mmc  = VBD_MMC_DISK_MAJOR (fe_major);
+#endif
+    struct gendisk*	gd;
+    vbd_disk_t*		di;
+    unsigned long	capacity;
+    int			partno;
+    int			max_part;
+    unsigned char	buf [64];
+
+    DTRACE ("dev 0x%x\n", device);
+    max_part = 1 << major->type->partn_shift;
 
 	/* Construct an appropriate gendisk structure */
     if ((gd = get_gendisk (device)) == NULL) {
 	gd = kzalloc (sizeof *gd, GFP_KERNEL);
-	XTRACE ("gd=0x%p\n", gd);
-	if (!gd) goto out;
-	gd->major       = mi->major;
+	DTRACE ("gd %p\n", gd);
+	if (!gd) {
+	    ETRACE ("could not alloc memory for gendisk\n");
+	    goto out;
+	}
+	gd->major       = major->major;
 	    /*
 	     * major_name is used by devfs as a directory to automatically
 	     * create partition devices (and discs/disc? symlink).
 	     */
-	gd->major_name  = mi->type->name;
+	gd->major_name  = major->type->name;
 	gd->max_p       = max_part;
-	gd->minor_shift = mi->type->partn_shift;
-	gd->nr_real     = mi->type->devs_per_major;
+	gd->minor_shift = major->type->partn_shift;
+	gd->nr_real     = major->type->devs_per_major;
 	gd->next        = NULL;
 	gd->fops        = &vbd_block_fops;
 	    /*
@@ -730,7 +744,7 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 	if (!gd->part) goto out;
 	    /* VBD private data (disk info) */
 	gd->real_devices = kzalloc (max_part * gd->nr_real *
-				    sizeof (vbd_disk_info_t), GFP_KERNEL);
+				    sizeof (vbd_disk_t), GFP_KERNEL);
 	if (!gd->real_devices) goto out;
 
 	gd->flags = kzalloc (gd->nr_real * sizeof *gd->flags, GFP_KERNEL);
@@ -744,39 +758,39 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 	    if (!gd->kobj) goto out;
 
 	    for (unit = 0; unit < gd->nr_real; ++unit) {
-		sprintf (gd->kobj [unit].name, "%s%c", mi->type->name,
-			 'a' + (mi->index * gd->nr_real) +
-			 (xd_minor >> mi->type->partn_shift));
+		sprintf (gd->kobj [unit].name, "%s%c", major->type->name,
+			 'a' + (major->index * gd->nr_real) +
+			 (xd_minor >> major->type->partn_shift));
 	    }
 	}
 #endif
 	if (is_ide) {
-	    blksize_size [major]  = vbd_ide_blksize_size;
-	    hardsect_size [major] = vbd_ide_hardsect_size;
-	    max_sectors [major]   = vbd_ide_max_sectors;
-	    read_ahead [major]    = 8; /* From drivers/ide/ide-probe.c */
+	    blksize_size  [fe_major] = fe->ide.blksize_size;
+	    hardsect_size [fe_major] = fe->ide.hardsect_size;
+	    max_sectors   [fe_major] = fe->ide.max_sectors;
+	    read_ahead    [fe_major] = 8; /* From drivers/ide/ide-probe.c */
 	} else if (is_scsi) {
-	    blksize_size [major]  = vbd_scsi_blksize_size;
-	    hardsect_size [major] = vbd_scsi_hardsect_size;
-	    max_sectors [major]   = vbd_scsi_max_sectors;
-	    read_ahead [major]    = 0; /* XXX 8; -- guessing */
+	    blksize_size  [fe_major] = fe->scsi.blksize_size;
+	    hardsect_size [fe_major] = fe->scsi.hardsect_size;
+	    max_sectors   [fe_major] = fe->scsi.max_sectors;
+	    read_ahead    [fe_major] = 0;
 	} else if (is_fd) {
-	    blksize_size [major]  = vbd_fd_blksize_size;
-	    hardsect_size [major] = vbd_fd_hardsect_size;
-	    max_sectors [major]   = vbd_fd_max_sectors;
-	    read_ahead [major]    = 0;
+	    blksize_size  [fe_major] = fe->fd.blksize_size;
+	    hardsect_size [fe_major] = fe->fd.hardsect_size;
+	    max_sectors   [fe_major] = fe->fd.max_sectors;
+	    read_ahead    [fe_major] = 0;
 #ifdef MMC_BLOCK_MAJOR
 	} else if (is_mmc) {
-	    blksize_size [major]  = vbd_mmc_blksize_size;
-	    hardsect_size [major] = vbd_mmc_hardsect_size;
-	    max_sectors [major]   = vbd_mmc_max_sectors;
-	    read_ahead [major]    = 0;
+	    blksize_size  [fe_major] = fe->mmc.blksize_size;
+	    hardsect_size [fe_major] = fe->mmc.hardsect_size;
+	    max_sectors   [fe_major] = fe->mmc.max_sectors;
+	    read_ahead    [fe_major] = 0;
 #endif
 	} else {
-	    blksize_size [major]  = vbd_vbd_blksize_size;
-	    hardsect_size [major] = vbd_vbd_hardsect_size;
-	    max_sectors [major]   = vbd_vbd_max_sectors;
-	    read_ahead [major]    = 8;
+	    blksize_size  [fe_major] = fe->vbd.blksize_size;
+	    hardsect_size [fe_major] = fe->vbd.hardsect_size;
+	    max_sectors   [fe_major] = fe->vbd.max_sectors;
+	    read_ahead    [fe_major] = 8;
 	}
 	{
 		/* Make sure Linux does not make single-segment requests */
@@ -784,15 +798,14 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 
 	    for (minor2 = 0; minor2 < 256; ++minor2) {
 		    /* Maximum number of sectors per request */
-		max_sectors [major] [minor2] =
-		    VBD_LINK_MAX_SEGMENTS_PER_REQUEST (vbd) * (PAGE_SIZE/512);
+		max_sectors [fe_major] [minor2] =
+		    vbd->segs_per_req_max * (PAGE_SIZE/512);
 
 #ifndef VBD_MV_CGE_31
 		    /*
 		     * On RHEL3, we can get a "too many segments in req (128)"
 		     * panic on filesystems with 1KB blocks (BugId 4676706).
-		     * 128 is VBD_LINK_MAX_SEGMENTS_PER_REQUEST.
-		     * Observation shows
+		     * 128 is vbd->segs_per_req_max. Observation shows
 		     * that Linux uses a different memory page and a different
 		     * buffer head for every block in the request, that there
 		     * can be more buffer heads than 128, and that after
@@ -807,52 +820,49 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 		     * I/O request is performed as a long list of sector-sized
 		     * buffer heads.
 		     */
-		max_sectors [major] [minor2] /= (PAGE_SIZE/1024);
+		max_sectors [fe_major] [minor2] /= (PAGE_SIZE/1024);
 #endif
 	    }
-	    TRACE ("max_sectors for major %d is %d\n", major,
-		   max_sectors [major][0]);
+	    TRACE ("max_sectors for major %d is %d\n", fe_major,
+		   max_sectors [fe_major][0]);
 	}
 	add_gendisk (gd);
 
-	blk_size [major] = gd->sizes;
-	((struct request_queue*) BLK_DEFAULT_QUEUE (major))->queuedata = vbd;
-	blk_init_queue (BLK_DEFAULT_QUEUE (major), vbd_do_blkif_request);
+	blk_size [fe_major] = gd->sizes;
+	((struct request_queue*) BLK_DEFAULT_QUEUE (fe_major))->queuedata = vbd;
+	blk_init_queue (BLK_DEFAULT_QUEUE (fe_major), vbd_rq_do_blkif_request_24);
 
 #ifdef VBD_DEBUG_OBSOLETE
 #ifndef VBD_MV_CGE_31
     {
-	int new_max_segments = VBD_LINK_MAX_SEGMENTS_PER_REQUEST (vbd) - 10;
+	int new_max_segments = vbd->segs_per_req_max - 10;
 
-	TRACE ("Changing max_segments for major %d from %d to %d\n", major,
-	       (BLK_DEFAULT_QUEUE (major))->max_segments, new_max_segments);
-	(BLK_DEFAULT_QUEUE (major))->max_segments = new_max_segments;
+	TRACE ("Changing max_segments for major %d from %d to %d\n", fe_major,
+	       (BLK_DEFAULT_QUEUE (fe_major))->max_segments, new_max_segments);
+	(BLK_DEFAULT_QUEUE (fe_major))->max_segments = new_max_segments;
     }
 #endif
 #endif
 	    /*
-	     * Turn off barking 'headactive' mode. We dequeue buffer
+	     * Turn off 'headactive' mode. We dequeue buffer
 	     * heads as soon as we pass them to the back-end driver.
 	     */
-	blk_queue_headactive (BLK_DEFAULT_QUEUE (major), 0);
+	blk_queue_headactive (BLK_DEFAULT_QUEUE (fe_major), 0);
     }
     partno = minor & (max_part-1);
 	/* Private data */
-    di = (vbd_disk_info_t*) gd->real_devices + minor;
-    XTRACE ("di=0x%p mi=0x%p\n", di, mi);
-    di->mi        = mi;
-    di->xd_device = xd->devid;
-    di->gd_queue  = BLK_DEFAULT_QUEUE (major);
-    di->gd        = gd;
-    di->device    = MKDEV (mi->major, minor);
-    di->next      = vbd->disks;
-    vbd->disks    = di;
+    di = (vbd_disk_t*) gd->real_devices + minor;
+    DTRACE ("disk %p major %p\n", di, major);
 
-    if (xd->info & RDISK_FLAG_RO) {
+    vbd_disk_init (di, disk_probe->devid, disk_probe->genid, major, gd,
+		   MKDEV (major->major, minor), vbd);
+    di->gd_queue  = BLK_DEFAULT_QUEUE (fe_major);
+
+    if (disk_probe->info & VBD2_FLAG_RO) {
 	set_device_ro (device, 1);
     }
-    if (xd->size [0]) {
-	capacity = xd->size [0];	/* VG_FIXME: size [1] ??? */
+    if (disk_probe->sectors) {
+	capacity = disk_probe->sectors;
     } else {
 	capacity = 0xffffffff;
     }
@@ -889,15 +899,18 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 	gd->flags [minor >> gd->minor_shift] |= GENHD_FL_VIRT_PARTNS;
 	DTRACE ("devfs_register(%s)\n", disk_name (gd, minor, buf));
 	di->devfs_handle = devfs_register (NULL, disk_name (gd, minor, buf),
-					   0, major, minor,
+					   0, fe_major, minor,
 					   S_IFBLK|S_IRUSR|S_IWUSR|S_IRGRP,
 					   &vbd_block_fops, di);
     } else {
-	char short_name [8];
+	vbd2_info_t	disk_probe_info = disk_probe->info;
+	char		short_name [8];
+
 	    /* Get disk short name. Must be done before register_disk() */
 	if (is_fd) {
 	    sprintf (short_name, "%s%c", gd->major_name, '0' + minor);
-	    xd->info = (xd->info & ~RDISK_TYPE_MASK) | RDISK_TYPE_FLOPPY;
+	    disk_probe_info =
+		(disk_probe_info & ~VBD2_TYPE_MASK) | VBD2_TYPE_FLOPPY;
 	} else {
 	    (void) disk_name (gd, minor, short_name);
 	}
@@ -906,39 +919,39 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 	gd->part [minor].nr_sects = capacity;
 	gd->sizes [minor] = capacity >> (BLOCK_SIZE_BITS-9);
 	    /* Some final fix-ups depending on the device type */
-	switch (RDISK_TYPE (xd->info)) {
-	case RDISK_TYPE_CDROM:
-	case RDISK_TYPE_FLOPPY:
-	case RDISK_TYPE_TAPE:
+	switch (VBD2_TYPE (disk_probe_info)) {
+	case VBD2_TYPE_CDROM:
+	case VBD2_TYPE_FLOPPY:
+	case VBD2_TYPE_TAPE:
 	    gd->flags [minor >> gd->minor_shift] |= GENHD_FL_REMOVABLE;
 	    WTRACE ("Skipping partition check on %s /dev/%s\n",
-		    RDISK_TYPE (xd->info)==RDISK_TYPE_CDROM ? "cdrom" :
-		   (RDISK_TYPE (xd->info)==RDISK_TYPE_TAPE ? "tape" :
+		    VBD2_TYPE (disk_probe_info)==VBD2_TYPE_CDROM ? "cdrom" :
+		   (VBD2_TYPE (disk_probe_info)==VBD2_TYPE_TAPE ? "tape" :
 		    "floppy"), short_name);
 	    break;
 
-	case RDISK_TYPE_DISK:
+	case VBD2_TYPE_DISK:
 		/* Only check partitions on real discs (not virtual) */
 	    if (gd->flags [minor >> gd->minor_shift] & GENHD_FL_VIRT_PARTNS) {
 		WTRACE ("Skipping partition check on virtual /dev/%s\n",
 			disk_name (gd, MINOR (device), buf));
 		break;
 	    }
-	    XTRACE ("register_disk: 0x%x %d %ld %d(%d %d %d %d)\n",
+	    DTRACE ("register_disk: 0x%x %d %ld %d(%d %d %d %d)\n",
 		    device,gd->max_p,capacity,
-		    (mi->index * gd->nr_real) + (minor >> gd->minor_shift),
-		    mi->index, gd->nr_real, minor, gd->minor_shift);
+		    (major->index * gd->nr_real) + (minor >> gd->minor_shift),
+		    major->index, gd->nr_real, minor, gd->minor_shift);
 
 	    register_disk (gd, device, gd->max_p, &vbd_block_fops, capacity
 #ifdef VBD_MV_CGE_31
-			  ,(mi->index * gd->nr_real) + (minor >>gd->minor_shift)
+		      ,(major->index * gd->nr_real) + (minor >>gd->minor_shift)
 #endif
 			  );
 		/*
 		 * register_disk() has checked for internal disk partitions
 		 * and initialized gd->part[] accordingly.
 		 * For each valid partition:
-		 * - we duplicate the disk_info (di) structure created for the
+		 * - we duplicate the disk (di) structure created for the
 		 *   disk (minor 0)
 		 * - we update the copy to indicate it is a "partition"
 		 *   in particular the copy (p_di) is not linked into the
@@ -955,15 +968,15 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 		char symlink [8];
 
 		for (i = max_part - 1; i > 0; i--) {
-		    vbd_disk_info_t*  p_di;
-		    int               p_min = MINOR (dev + i);
+		    vbd_disk_t*	p_di;
+		    const int	p_min = MINOR (dev + i);
 
 		    if (gd->part [p_min].nr_sects) {
 			DTRACE ("part %s: di %d -> %d\n",
 				disk_name (gd, p_min, buf), minor, p_min);
-			p_di  = (vbd_disk_info_t*)(gd->real_devices) + p_min;
+			p_di  = (vbd_disk_t*) gd->real_devices + p_min;
 			*p_di = *di;
-			p_di->device  = MKDEV (mi->major, p_min);
+			p_di->device  = MKDEV (major->major, p_min);
 			p_di->is_part = 1;  /* Set "partition" flag */
 			p_di->next    = di; /* Point to parent disk di */
 			    /*
@@ -987,7 +1000,7 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 	    break;
 
 	default:
-	    WTRACE ("unknown device type %d\n", RDISK_TYPE (xd->info));
+	    WTRACE ("unknown device type %d\n", VBD2_TYPE (disk_probe_info));
 	    break;
 	}
     }
@@ -995,7 +1008,7 @@ vbd_get_gendisk (vbd_link_t* const vbd, vbd_major_info_t* const mi,
 
 out:
     if (gd) {
-	del_gendisk (gd);
+	del_gendisk (gd);	/* void */
 	kfree (gd->sizes);
 	kfree (gd->part);
 	kfree (gd->real_devices);
@@ -1010,33 +1023,35 @@ out:
 #endif	/* 2.4.x */
 
     /*
-     * vbd_init_device - initialize a VBD device
-     * @disk:              a RDiskProbe describing the VBD
+     * Initialize a VBD device.
+     * Only from vbd_link_acquire_disks() <- vbd_cb_link_on()
      *
-     * Takes a RDiskProbe* that describes a VBD the guest has access to.
+     * Takes a vbd2_probe_t* that describes a VBD the guest has access to.
      * Performs appropriate initialization and registration of the device.
      *
      * Care needs to be taken when making re-entrant calls to ensure that
-     * corruption does not occur.  Also, devices that are in use should not have
-     * their details updated.  This is the caller's responsibility.
+     * corruption does not occur. Also, devices that are in use should not have
+     * their details updated. This is the caller's responsibility.
      */
     static int
-vbd_init_device (vbd_link_t* const vbd, RDiskProbe* const xd)
+vbd_link_init_device (vbd_link_t* const vbd,
+		      const vbd2_probe_t* const disk_probe)
 {
-    int err = -ENOMEM;
-    struct block_device* bd;
-    struct gendisk* gd;
-    vbd_major_info_t* mi;
-    int device;
-    int minor;
+    vbd_fe_t*		fe = vbd->fe;
+    int			err = -ENOMEM;
+    struct block_device* bdev;
+    struct gendisk*	gd;
+    vbd_major_t*	major;
+    dev_t		device;
+    int			minor;
 
-    XTRACE ("\n");
-    mi = vbd_get_major_info (xd->devid, &minor);
-    if (mi == NULL) {
+    DTRACE ("entered\n");
+    major = vbd_fe_get_major (fe, disk_probe->devid, &minor);
+    if (!major) {
 	return -EPERM;
     }
-    device = MKDEV (mi->major, minor);
-    if ((bd = bdget (device)) == NULL) {
+    device = MKDEV (major->major, minor);
+    if ((bdev = bdget (device)) == NULL) {
 	return -EPERM;
     }
 	/*
@@ -1044,155 +1059,405 @@ vbd_init_device (vbd_link_t* const vbd, RDiskProbe* const xd)
 	 * is protected by the per-block-device semaphore.
 	 */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-    down (&bd->bd_sem);
+    down (&bdev->bd_sem);
 #endif
-    gd = vbd_get_gendisk (vbd, mi, minor, xd);
-    if (!gd || !mi) {
+    gd = vbd_link_get_gendisk_2x (vbd, major, minor, disk_probe);
+    if (!gd || !major) {
 	err = -EPERM;
 	goto out;
     }
-    mi->usage++;
+    major->usage++;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-    if (xd->info & RDISK_FLAG_RO) {
+    if (disk_probe->info & VBD2_FLAG_RO) {
 	set_disk_ro (gd, 1);
     }
 	/* Some final fix-ups depending on the device type */
-    switch (RDISK_TYPE (xd->info)) {
-    case RDISK_TYPE_CDROM:
+    switch (VBD2_TYPE (disk_probe->info)) {
+    case VBD2_TYPE_CDROM:
 	gd->flags |= GENHD_FL_REMOVABLE | GENHD_FL_CD;
 	/* FALLTHROUGH */
-    case RDISK_TYPE_FLOPPY:
-    case RDISK_TYPE_TAPE:
+    case VBD2_TYPE_FLOPPY:
+    case VBD2_TYPE_TAPE:
 	gd->flags |= GENHD_FL_REMOVABLE;
 	break;
 
-    case RDISK_TYPE_DISK:
+    case VBD2_TYPE_DISK:
+#ifdef MMC_BLOCK_MAJOR
+	if (major->major == MMC_BLOCK_MAJOR) {
+	    DTRACE ("Marking MMC as removable\n");
+	    gd->flags |= GENHD_FL_REMOVABLE;
+	}
+#endif
 	break;
 
     default:
-	ETRACE ("unknown device type %d\n", RDISK_TYPE (xd->info));
+	ETRACE ("unknown device type %d\n", VBD2_TYPE (disk_probe->info));
 	break;
     }
 #endif
-    if (vbd_wait_flag && vbd_wait_id == xd->devid) {
-	vbd_wait_flag = 0;
+    if (fe->must_wait && fe->wait_devid == disk_probe->devid) {
+	fe->must_wait = false;
     }
     err = 0;
 out:
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-    up (&bd->bd_sem);
+    up (&bdev->bd_sem);
 #endif
-    bdput (bd);
+    bdput (bdev);	/* void */
     return err;
 }
 
-    static void
-vbd_destroy_device (vbd_disk_info_t* const di)
+    void
+vbd_disk_del_gendisk (vbd_disk_t* const di)
 {
-    vbd_major_info_t* mi = di->mi;
-    struct block_device* bd;
+    struct block_device* bdev = bdget (di->device);
 
-    XTRACE ("\n");
-    bd = bdget (di->device);
-    if (bd) {
+    if (bdev) {
 	if (di->gd) {
+		/* gd->queue must still be valid here */
+	    del_gendisk (di->gd);	/* void */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
 	    if (di->gd->queue) {
-		blk_cleanup_queue (di->gd->queue);
+		blk_cleanup_queue (di->gd->queue);	/* void */
 	    }
 #else
 	    if (di->gd_queue) {
-		blk_cleanup_queue (di->gd_queue);
+		blk_cleanup_queue (di->gd_queue);	/* void */
 	    }
 #endif
-	    del_gendisk (di->gd);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-	    put_disk (di->gd);
+	    put_disk (di->gd);	/* kobject cleanup */
 #endif
+	    di->gd = NULL;	/* Lost the gendisk logically */
+	} else {
+	    DTRACE ("di->gd null for %x\n", di->device);
 	}
-	bdput (bd);
+	bdput (bdev);	/* void */
+    } else {
+	DTRACE ("bdget(%x) failed\n", di->device);
     }
-    if (!(--(mi->usage))) {
+}
+
+    /* From vbd_link_delete_disks() <- vbd_link_free() <- vbd_exit() */
+    /* From vbd_link_delete_disks() <- vbd_cb_link_off_completed() */
+
+    static void
+vbd_disk_destroy (vbd_disk_t* const di, vbd_link_t* vbd)
+{
+    vbd_major_t*	major = di->major;
+
+	/* di->usage should be 0 here and major->usage 1 */
+    DTRACE ("%s: disk-usage %d major-usage %d\n",
+	    di->name, di->usage, major->usage);
+    vbd_disk_del_gendisk (di);
+
+    if (!--major->usage) {
+	DTRACE ("unregistering major %d\n", major->major);
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,13)
-	devfs_remove (mi->type->name);
+	devfs_remove (major->type->name);
 #endif
 #else
 	devfs_unregister (di->devfs_handle);
 #endif
-	unregister_blkdev (mi->major, mi->type->name);
-	kfree (mi);
+	unregister_blkdev (major->major, major->type->name);
+	    /* kfree(major) is not enough, must also clear pointer in table */
+	vbd_kfree_and_clear (vbd->fe->majors [major->major_idx]);
     }
+#ifdef VBD_DEBUG
+    memset (di, 0x77, sizeof *di);
+#endif
     kfree (di);
 }
 
-    /* Called from vbd_link_init() only */
-
-    static int
-vbd_link_acquire_disks (vbd_link_t* vbd)
-{
-    XTRACE ("\n");
-    vbd->probe_info = kmalloc (VBD_LINK_MAX_DISKS * sizeof (RDiskProbe),
-			       GFP_KERNEL);
-    if (!vbd->probe_info) {
-	ETRACE ("kmalloc(%lld) failure\n",
-	        (u64) (VBD_LINK_MAX_DISKS * sizeof (RDiskProbe)));
-	return -EAGAIN;
-    }
-    vbd->ndisks = vbd_link_get_disk_info (vbd, vbd->probe_info);
-    if (vbd->ndisks < 0) {
-	DTRACE ("vbd_link_get_disk_info failed\n");
-	kfree (vbd->probe_info);
-	vbd->probe_info = NULL;
-	vbd->ndisks = 0;
-    } else {
-	int i;
-
-	for (i = 0; i < vbd->ndisks; i++) {
-	    int err = vbd_init_device (vbd, vbd->probe_info + i);
-	    if (err) {
-		ETRACE ("device (%d,%d) creation failure %d\n",
-			VBD_MAJOR_XEN (vbd->probe_info [i].devid),
-			VBD_MINOR_XEN (vbd->probe_info [i].devid), err);
-	    } else {
-		DTRACE ("device (%d,%d) created\n",
-			VBD_MAJOR_XEN (vbd->probe_info [i].devid),
-			VBD_MINOR_XEN (vbd->probe_info [i].devid));
-	    }
-	}
-    }
-    return 0;
-}
+#define VBD_DISK_ITERATE_NEXT	0
+#define VBD_DISK_ITERATE_DELETE	1
+#define VBD_DISK_ITERATE_STOP	2
 
     static void
-vbd_link_down (vbd_link_t* vbd)
+vbd_link_disks_iterate (vbd_link_t* vbd, int (*func) (vbd_disk_t*, void*),
+			void* cookie)
+{
+    vbd_disk_t* prev = NULL;
+    vbd_disk_t* di = vbd->disks;
+
+    while (di) {
+	const int diag = func (di, cookie);
+
+	if (diag & VBD_DISK_ITERATE_DELETE) {
+	    vbd_disk_t* next;
+
+	    if (prev) {
+		prev->next = next = di->next;
+	    } else {
+		vbd->disks = next = di->next;
+	    }
+	    vbd_disk_destroy (di, vbd);	/* void */
+	    di = next;	/* prev stays the same */
+	} else {
+	    prev = di;
+	    di = di->next;
+	}
+	if (diag & VBD_DISK_ITERATE_STOP) break;
+    }
+}
+
+typedef struct {
+    const vbd2_probe_t*	probe;
+    _Bool		have_it;
+} vbd_disk_match_t;
+
+    /*
+     * Also deletes obsolete disks, if unused, so we
+     * can immediately replace them with new ones.
+     */
+
+    static int
+vbd_disk_match (vbd_disk_t* di, void* cookie)
+{
+    vbd_disk_match_t* m = cookie;
+
+    if (di->xd_devid != m->probe->devid) return VBD_DISK_ITERATE_NEXT;
+    if (di->xd_genid == m->probe->genid && !di->is_zombie) {
+	di->still_valid = true;
+	m->have_it = true;
+	return VBD_DISK_ITERATE_STOP;
+    }
+    DTRACE ("%s: obsolete, disk-usage %d\n", di->name, di->usage);
+    if (di->usage) {
+	di->is_zombie = true;		/* Cannot delete it yet */
+	vbd_disk_del_gendisk (di);
+	m->have_it = true;		/* Do not add, rescan when disk gone */
+	return VBD_DISK_ITERATE_STOP;
+    }
+	/* m->have_it remains as "false", ie. disk not found */
+    return VBD_DISK_ITERATE_DELETE | VBD_DISK_ITERATE_STOP;
+}
+
+    static _Bool
+vbd_link_find_disk (vbd_link_t* vbd, const vbd2_probe_t* const probe)
+{
+    vbd_disk_match_t match;
+
+    match.probe   = probe;
+    match.have_it = false;
+    vbd_link_disks_iterate (vbd, vbd_disk_match, &match);
+    return match.have_it;
+}
+
+    static int
+vbd_disk_delete (vbd_disk_t* di, void* cookie)
+{
+    DTRACE ("%s: disk-usage %d major-usage %d\n",
+	    di->name, di->usage, di->major->usage);
+    if (di->usage) {
+	DTRACE ("%s: still busy\n", di->name);
+	di->is_zombie = true;
+	vbd_disk_del_gendisk (di);
+	return VBD_DISK_ITERATE_NEXT;
+    }
+    DTRACE ("%s: can delete\n", di->name);
+    return VBD_DISK_ITERATE_DELETE;
+}
+
+    static int
+vbd_disk_can_delete (vbd_disk_t* di, void* cookie)
+{
+    if (di->still_valid) return VBD_DISK_ITERATE_NEXT;
+    return vbd_disk_delete (di, cookie);
+}
+
+    /* Called from vbd_cb_link_on() and vbd_link_changes() <- vbd_thread() */
+
+    static void
+vbd_link_acquire_disks (vbd_link_t* vbd)
+{
+    const unsigned	max_per_probe = VBD_LINK_MAX_DEVIDS_PER_PROBE (vbd);
+    unsigned		offset = 0;
+    int			count;
+
+    DTRACE ("entered\n");
+    {
+	vbd_disk_t* di;
+
+	VBD_LINK_FOR_ALL_DISKS (di, vbd) di->still_valid = false;
+    }
+    do {
+	vbd2_probe_link_t*	pl;
+	int			i, diag;
+
+	diag = vmq_msg_allocate (vbd->link, 0 /*data_len*/, (void**) &pl,
+				 NULL /*data_offset*/);
+	if (diag) {
+	    ETRACE ("failed to alloc msg for disk acquisition (%d)\n", diag);
+	    break;
+	}
+	memset (pl, 0, sizeof *pl);
+	pl->common.op     = VBD2_OP_PROBE;
+	pl->common.count  = max_per_probe;
+	pl->common.sector = offset;
+	{
+	    nku64_f* reply = vipc_ctx_call (&vbd->vipc_ctx, &pl->common.cookie);
+
+	    if (!reply) {
+		ETRACE ("disk acquisition failed\n");
+		break;
+	    }
+	    pl = container_of (reply, vbd2_probe_link_t, common.cookie);
+	}
+	if (pl->common.count == VBD2_STATUS_ERROR) {
+	    ETRACE ("Could not probe disks (%d)\n", pl->common.count);
+	    vmq_return_msg_free (vbd->link, pl);
+	    break;
+	}
+	count = pl->common.count;
+	for (i = 0; i < count; i++) {
+	    vbd2_probe_t* probe = pl->probe + i;
+
+	    if (vbd_link_find_disk (vbd, probe)) {
+		DTRACE ("already had (%d,%d:%d)\n",
+			VBD2_DEVID_MAJOR (probe->devid),
+			VBD2_DEVID_MINOR (probe->devid), probe->genid);
+		continue;
+	    }
+	    diag = vbd_link_init_device (vbd, probe);
+	    if (diag) {
+		ETRACE ("device (%d,%d:%d) creation failure (%d)\n",
+			VBD2_DEVID_MAJOR (probe->devid),
+			VBD2_DEVID_MINOR (probe->devid), probe->genid, diag);
+	    } else {
+		TRACE ("device (%d,%d:%d) created, %lld sectors\n",
+		       VBD2_DEVID_MAJOR (probe->devid),
+		       VBD2_DEVID_MINOR (probe->devid), probe->genid,
+		       probe->sectors);
+	    }
+	}
+	offset += count;
+	vmq_return_msg_free (vbd->link, pl);
+    } while (count == max_per_probe);
+    TRACE ("%d virtual disk(s) detected\n", offset);
+    DTRACE ("deleting obsolete disks\n");
+    vbd_link_disks_iterate (vbd, vbd_disk_can_delete, NULL);
+}
+
+    /* Called from: vbd_link_free() <- vbd_exit() */
+    /* Also from: vbd_cb_link_off_completed() */
+
+    static void
+vbd_link_delete_disks (vbd_link_t* vbd)
 {
     DTRACE ("\n");
-    while (vbd->disks) {
-	vbd_disk_info_t* di = vbd->disks;
-	vbd->disks = di->next;
-	vbd_destroy_device (di);
-    }
-    kfree (vbd->probe_info);
-    vbd->probe_info = NULL;
+    vbd_link_disks_iterate (vbd, vbd_disk_delete, NULL);
 }
 
     static void
 vbd_update (void)
 {
-    XTRACE ("\n");
+    XTRACE ("entered\n");
+}
+
+static const char vbd_op_names[VBD2_OP_MAX][13] = {VBD2_OP_NAMES};
+
+    static int
+vbd_disk_open_release (vbd_disk_t* di, const vbd2_op_t op)
+{
+    vbd_link_t* vbd = di->vbd;
+    vbd2_req_header_t* rreq;
+    nku64_f* reply;
+    int diag;
+
+    diag = vmq_msg_allocate (vbd->link, 0 /*data_len*/, (void**) &rreq,
+			     NULL /*data_offset*/);
+    if (diag) {
+	ETRACE ("%s: %s failed to alloc msg (%d)\n", di->name,
+		vbd_op_names [op], diag);
+	return diag;
+    }
+    memset (rreq, 0, sizeof *rreq);
+    rreq->op    = op;
+    rreq->devid = di->xd_devid;
+    rreq->genid = di->xd_genid;
+
+    reply = vipc_ctx_call (&vbd->vipc_ctx, &rreq->cookie);
+    if (!reply) {
+	ETRACE ("%s: %s IPC call failed\n", di->name, vbd_op_names [op]);
+	return -ESTALE;
+    }
+    rreq = container_of (reply, vbd2_resp_t, cookie);
+    if (rreq->count) {	/* status */
+	ETRACE ("%s: %s failed (%d)\n", di->name,
+		vbd_op_names [op], rreq->count);
+	vmq_return_msg_free (vbd->link, rreq);
+	return -EINVAL;
+    }
+    vmq_return_msg_free (vbd->link, rreq);
+    return 0;
+}
+
+    /* Called from Linux thru vbd_disk_open() and vbd_disk_release() */
+
+    static int
+vbd_disk_drop (vbd_disk_t* di, int diag)
+{
+    DTRACE ("%s: disk-usage %d major-usage %d\n",
+	    di->name, di->usage, di->major->usage);
+    if (!--di->usage && di->is_zombie) {
+	vbd_fe_t* fe = di->vbd->fe;
+
+	DTRACE ("awakening thread\n");
+	di->vbd->changes = true;
+	fe->changes = true;
+	up (&fe->thread_sem);
+    }
+    if (!--di->major->usage) {
+	vbd_update();
+    }
+    return diag;
+}
+
+    static int
+vbd_disk_open (vbd_disk_t* di)
+{
+	/* Update of usage count is protected by per-device semaphore */
+    di->major->usage++;
+    di->usage++;
+    if (di->usage == 1) {
+	int diag = vbd_disk_open_release (di, VBD2_OP_OPEN);
+	if (diag) return vbd_disk_drop (di, diag);
+    }
+    DTRACE ("%s: disk-usage %d major-usage %d\n",
+	    di->name, di->usage, di->major->usage);
+    return 0;
+}
+
+    static int
+vbd_disk_release (vbd_disk_t* di)
+{
+    DTRACE ("%s: disk-usage %d major-usage %d\n",
+	    di->name, di->usage, di->major->usage);
+	/*
+	 * When usage drops to zero it may allow more VBD updates to occur.
+	 * Update of usage count is protected by a per-device semaphore.
+	 */
+    if (di->usage == 1) {
+	int diag = vbd_disk_open_release (di, VBD2_OP_CLOSE);
+	if (diag) {
+	    WTRACE ("%s: ignoring error, releasing disk.\n", di->name);
+	}
+    }
+    return vbd_disk_drop (di, 0);
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
 
     /*
      * "kick" means "resume" here.
-     * Only called from the function below.
+     * Only called from vbd_link_kick_pending_request_queues_2x()
      */
 
     static inline void
-vbd_kick_pending_request_queue (struct request_queue* rq)
+vbd_rq_kick_pending_26 (struct request_queue* rq)
 {
     if (rq && test_bit (QUEUE_FLAG_STOPPED, &rq->queue_flags)) {
 	blk_start_queue (rq);
@@ -1200,25 +1465,25 @@ vbd_kick_pending_request_queue (struct request_queue* rq)
     }
 }
 
-    /* Called from interrupt handler only, under vbd->io_lock */
+    /* Called from vbd_link_return_msg(), under vbd->io_lock */
 
     static void
-vbd_kick_pending_request_queues (vbd_link_t* vbd)
+vbd_link_kick_pending_request_queues_2x (vbd_link_t* vbd)
 {
-    vbd_disk_info_t* di;
+    vbd_disk_t* di;
 
     VBD_LINK_FOR_ALL_DISKS (di, vbd) {
 	if (di->gd) {
-	    vbd_kick_pending_request_queue (di->gd->queue);
+	    vbd_rq_kick_pending_26 (di->gd->queue);
 	}
     }
 }
 
     static int
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-vbd_blkif_open (struct block_device* bdev, fmode_t fmode)
+vbd_blkif_open_2x (struct block_device* bdev, fmode_t fmode)
 #else
-vbd_blkif_open (struct inode* inode, struct file* filep)
+vbd_blkif_open_2x (struct inode* inode, struct file* filep)
 #endif
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
@@ -1226,68 +1491,50 @@ vbd_blkif_open (struct inode* inode, struct file* filep)
 #else
     struct gendisk* gd = inode->i_bdev->bd_disk;
 #endif
-    vbd_disk_info_t* di = (vbd_disk_info_t*) gd->private_data;
+    vbd_disk_t* di = (vbd_disk_t*) gd->private_data;
 
-    DTRACE ("gd=0x%p, di=0x%p", gd, di);
-	/* Update of usage count is protected by per-device semaphore */
-    di->mi->usage++;
-    return 0;
+    DTRACE ("%s\n", di->name);
+    return vbd_disk_open (di);
 }
 
     static int
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-vbd_blkif_release (struct gendisk* gd, fmode_t fmode)
+vbd_blkif_release_2x (struct gendisk* gd, fmode_t fmode)
 #else
-vbd_blkif_release (struct inode* inode, struct file* filep)
+vbd_blkif_release_2x (struct inode* inode, struct file* filep)
 #endif
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
     struct gendisk* gd = inode->i_bdev->bd_disk;
 #endif
-    vbd_disk_info_t* di = (vbd_disk_info_t*) gd->private_data;
-	/*
-	 * When usage drops to zero it may allow more VBD updates to occur.
-	 * Update of usage count is protected by a per-device semaphore.
-	 */
-    if (--di->mi->usage == 0) {
-	vbd_update();
-    }
-    return 0;
+    vbd_disk_t* di = (vbd_disk_t*) gd->private_data;
+
+    DTRACE ("%s\n", di->name);
+    return vbd_disk_release (di);
 }
 
 #else	/* 2.4.x kernel versions */
 
-#ifdef VBD_DEBUG_STATS
-struct {
-    int sectors_per_buffer_head [8];
-    int new_bh_same_page [2];
-    int len_histo [1024];  /* Histogram of buffer_heads, segments or sectors */
-    int was_already_pending;
-    int was_not_not_yet_pending;
-    int was_pending_at_irq;
-    int not_pending_at_irq;
-    int ring_not_full;
-} vbd_stats;
-#endif
-
-#define VBD_ARRAY_ELEMS(a)	(sizeof (a) / sizeof (a) [0])
-
     /*
+     * Linux 2.4 only.
      * "kick" means "resume" here.
-     * Called from interrupt handler only, under vbd->io_lock.
+     * Called from vbd_link_return_msg(), under vbd->io_lock.
      */
 
     static void
-vbd_kick_pending_request_queues (vbd_link_t* vbd)
+vbd_link_kick_pending_request_queues_2x (vbd_link_t* vbd)
 {
+#ifdef VBD_DEBUG_STATS
+    vbd_fe_t*	fe = vbd->fe;
+#endif
 #ifdef VBD_DEBUG_NOISY
     static long next_jiffies;
 #endif
-    vbd_disk_info_t* di;
+    vbd_disk_t* di;
 
     VBD_LINK_FOR_ALL_DISKS (di, vbd) {
 	    /*
-	     *  req_is_pending was set in previous vbd_do_blkif_request()
+	     *  req_is_pending was set in previous vbd_rq_do_blkif_request_2...
 	     *  and means that FIFO was full.
 	     *  "di" can only be a real disk here, or maybe a standalone
 	     *  partition. Indeed, di's for partitions are not put on the
@@ -1299,9 +1546,9 @@ vbd_kick_pending_request_queues (vbd_link_t* vbd)
 #ifdef VBD_DEBUG_STATS
 	if (MAJOR (di->device) == 8) {
 	    if (di->req_is_pending) {
-		++vbd_stats.was_pending_at_irq;
+		++fe->stats.was_pending_at_irq;
 	    } else {
-		++vbd_stats.not_pending_at_irq;
+		++fe->stats.not_pending_at_irq;
 	    }
 	}
 #endif
@@ -1311,8 +1558,8 @@ vbd_kick_pending_request_queues (vbd_link_t* vbd)
 	    const int major = MAJOR (di->device);
 	    const struct request_queue* q = BLK_DEFAULT_QUEUE (major);
 
-	    WTRACE ("%s: di=0x%p dev %x pend %d\n", __FUNCTION__, di,
-		    di->xd_device, di->req_is_pending);
+	    WTRACE ("%s: di %p dev %s pend %d\n", __FUNCTION__, di,
+		    di->name, di->req_is_pending);
 	    VBD_ASSERT (q->queuedata == vbd);
 
 #if LINUX_VERSION_CODE == KERNEL_VERSION(2,4,18)
@@ -1334,47 +1581,47 @@ vbd_kick_pending_request_queues (vbd_link_t* vbd)
 	    next_jiffies = jiffies + 10 * HZ;
 #ifdef VBD_DEBUG_STATS
 	    printk ("AlrPend %d notyet %d pend@irq %d not %d !full %d\n",
-		    vbd_stats.was_already_pending,
-		    vbd_stats.was_not_not_yet_pending,
-		    vbd_stats.was_pending_at_irq,
-		    vbd_stats.not_pending_at_irq,
-		    vbd_stats.ring_not_full);
+		    fe->stats.was_already_pending,
+		    fe->stats.was_not_not_yet_pending,
+		    fe->stats.was_pending_at_irq,
+		    fe->stats.not_pending_at_irq,
+		    fe->stats.ring_not_full);
 	    printk ("Sectors per buf/head: %d %d %d %d  %d %d %d %d ",
-		    vbd_stats.sectors_per_buffer_head [0],
-		    vbd_stats.sectors_per_buffer_head [1],
-		    vbd_stats.sectors_per_buffer_head [2],
-		    vbd_stats.sectors_per_buffer_head [3],
-		    vbd_stats.sectors_per_buffer_head [4],
-		    vbd_stats.sectors_per_buffer_head [5],
-		    vbd_stats.sectors_per_buffer_head [6],
-		    vbd_stats.sectors_per_buffer_head [7]);
+		    fe->stats.sectors_per_buffer_head [0],
+		    fe->stats.sectors_per_buffer_head [1],
+		    fe->stats.sectors_per_buffer_head [2],
+		    fe->stats.sectors_per_buffer_head [3],
+		    fe->stats.sectors_per_buffer_head [4],
+		    fe->stats.sectors_per_buffer_head [5],
+		    fe->stats.sectors_per_buffer_head [6],
+		    fe->stats.sectors_per_buffer_head [7]);
 	    printk (" SamePage %d %d\n",
-		    vbd_stats.new_bh_same_page [0],
-		    vbd_stats.new_bh_same_page [1]);
+		    fe->stats.new_bh_same_page [0],
+		    fe->stats.new_bh_same_page [1]);
 	    {
 		int i;
 
-		for (i = 0; i < VBD_ARRAY_ELEMS (vbd_stats.len_histo);
+		for (i = 0; i < VBD_ARRAY_ELEMS (fe->stats.len_histo);
 		     i += 16) {
 		    printk ("len_histo(%3d): %d %d %d %d  %d %d %d %d  "
 			    "%d %d %d %d  %d %d %d %d\n", i,
-			vbd_stats.len_histo [i+ 0], vbd_stats.len_histo [i+ 1],
-			vbd_stats.len_histo [i+ 2], vbd_stats.len_histo [i+ 3],
-			vbd_stats.len_histo [i+ 4], vbd_stats.len_histo [i+ 5],
-			vbd_stats.len_histo [i+ 6], vbd_stats.len_histo [i+ 7],
-			vbd_stats.len_histo [i+ 8], vbd_stats.len_histo [i+ 9],
-			vbd_stats.len_histo [i+10], vbd_stats.len_histo [i+11],
-			vbd_stats.len_histo [i+12], vbd_stats.len_histo [i+13],
-			vbd_stats.len_histo [i+14], vbd_stats.len_histo [i+15]);
+			fe->stats.len_histo [i+ 0], fe->stats.len_histo [i+ 1],
+			fe->stats.len_histo [i+ 2], fe->stats.len_histo [i+ 3],
+			fe->stats.len_histo [i+ 4], fe->stats.len_histo [i+ 5],
+			fe->stats.len_histo [i+ 6], fe->stats.len_histo [i+ 7],
+			fe->stats.len_histo [i+ 8], fe->stats.len_histo [i+ 9],
+			fe->stats.len_histo [i+10], fe->stats.len_histo [i+11],
+			fe->stats.len_histo [i+12], fe->stats.len_histo [i+13],
+			fe->stats.len_histo [i+14], fe->stats.len_histo [i+15]);
 		}
 	    }
 #endif /* VBD_DEBUG_STATS */
 	    {
-		static _Bool already_done;
+		static _Bool is_already_done;
 		int minor;
 
-		if (!already_done) {
-		    already_done = 1;
+		if (!is_already_done) {
+		    is_already_done = 1;
 
 		    printk ("blk_size:");
 		    for (minor = 0; minor < 256 && blk_size [8]; ++minor) {
@@ -1410,9 +1657,9 @@ vbd_kick_pending_request_queues (vbd_link_t* vbd)
 	}
 #endif /* VBD_DEBUG_NOISY */
 	if (di->gd && di->req_is_pending && di->gd_queue) {
-	    XTRACE ("di=0x%p\n", di);
+	    DTRACE ("di %p\n", di);
 	    di->req_is_pending = 0;
-	    vbd_do_blkif_request (di->gd_queue);
+	    vbd_rq_do_blkif_request_24 (di->gd_queue);
 	}
     }
 }
@@ -1420,47 +1667,36 @@ vbd_kick_pending_request_queues (vbd_link_t* vbd)
     /* Linux 2.4 only */
 
     static int
-vbd_blkif_open (struct inode* inode, struct file* filep)
+vbd_blkif_open_2x (struct inode* inode, struct file* filep)
 {
     struct gendisk*	gd = get_gendisk (inode->i_rdev);
-    vbd_disk_info_t*	di;
+    vbd_disk_t*		di;
 
     (void) filep;
-    XTRACE ("i_rdev %x gd %p\n", inode->i_rdev, gd);
+    DTRACE ("i_rdev %x gd %p\n", inode->i_rdev, gd);
     VBD_ASSERT (gd);
-    di = (vbd_disk_info_t*) gd->real_devices + MINOR (inode->i_rdev);
+    di = (vbd_disk_t*) gd->real_devices + MINOR (inode->i_rdev);
     VBD_ASSERT (di);
 	/* We get a NULL here on RHEL3 when non-existing minor is opened */
-    if (!di->mi) {
+    if (!di->major) {
 	WTRACE ("Open of non-existing device %x\n", inode->i_rdev);
 	return -ENODEV;
     }
-	/* Update of usage count is protected by per-device semaphore */
-    di->mi->usage++;
-    return 0;
+    return vbd_disk_open (di);
 }
 
     /* Linux 2.4 only */
 
     static int
-vbd_blkif_release (struct inode* inode, struct file* filep)
+vbd_blkif_release_2x (struct inode* inode, struct file* filep)
 {
     struct gendisk*	gd = get_gendisk (inode->i_rdev);
-    vbd_disk_info_t*	di;
 
     (void) filep;
-    XTRACE ("gd=0x%p\n", gd);
+    DTRACE ("gd %p\n", gd);
     VBD_ASSERT (gd);
-    di = (vbd_disk_info_t*) gd->real_devices + MINOR (inode->i_rdev);
-    XTRACE ("di=0x%p\n", di);
-	/*
-	 * When usage drops to zero it may allow more VBD updates to occur.
-	 * Update of usage count is protected by a per-device semaphore.
-	 */
-    if (--di->mi->usage == 0) {
-	vbd_update();
-    }
-    return 0;
+    return vbd_disk_release
+	((vbd_disk_t*) gd->real_devices + MINOR (inode->i_rdev));
 }
 #endif	/* 2.4.x */
 
@@ -1474,10 +1710,10 @@ vbd_blkif_ioctl (
 		 unsigned command, unsigned long argument)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-    XTRACE ("command: 0x%x, argument: 0x%lx, dev: 0x%04x\n",
+    DTRACE ("command 0x%x argument 0x%lx dev 0x%04x\n",
 	    command, (long) argument, bdev->bd_inode->i_rdev);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-    XTRACE ("command: 0x%x, argument: 0x%lx, dev: 0x%04x\n",
+    DTRACE ("command 0x%x argument 0x%lx dev 0x%04x\n",
 	    command, (long) argument, inode->i_rdev);
 #else
     const kdev_t dev = inode->i_rdev;
@@ -1485,7 +1721,7 @@ vbd_blkif_ioctl (
     const int minor = MINOR (dev);
     const struct hd_struct* part = &gd->part [minor];
 
-    XTRACE ("command: 0x%x, argument: 0x%lx, dev: 0x%04x\n",
+    DTRACE ("command 0x%x argument 0x%lx dev 0x%04x\n",
 	    command, (long) argument, inode->i_rdev);
 #endif
 
@@ -1580,8 +1816,13 @@ vbd_blkif_ioctl (
     }
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0) */
 
+    case LOOP_CLR_FD:
+	    /* We get this at ext2/ext3 umount time */
+	DTRACE ("LOOP_CLR_FD not supported\n");
+	return -ENOSYS;
+
     default:
-	DTRACE ("ioctl %08x not supported\n", command);
+	ETRACE ("ioctl 0x%x not supported\n", command);
 	return -ENOSYS;
     }
     return 0;
@@ -1600,11 +1841,48 @@ vbd_blkif_ioctl (
      */
 
     static int
-vbd_blkif_getgeo (struct block_device* bdev, struct hd_geometry* geo)
+vbd_blkif_getgeo_26 (struct block_device* bdev, struct hd_geometry* geo)
 {
-    struct gendisk* gd = bdev->bd_disk;
-    sector_t sectors = get_capacity (gd);
+    struct gendisk*	gd = bdev->bd_disk;
+    vbd_disk_t*		di = gd->private_data;
+    vbd_link_t*		vbd = di->vbd;
+    sector_t		sectors = get_capacity (gd);
+    vbd2_get_geo_t*	rreq;
+    nku64_f*		reply;
+    int			diag;
 
+    diag = vmq_msg_allocate (vbd->link, 0 /*data_len*/, (void**) &rreq,
+			     NULL /*data_offset*/);
+    if (diag) {
+	WTRACE ("%s: %s failed to alloc msg (%d)\n", di->name,
+		vbd_op_names [VBD2_OP_GETGEO], diag);
+	goto use_hardcoded;
+    }
+    memset (rreq, 0, sizeof *rreq);
+    rreq->common.op    = VBD2_OP_GETGEO;
+    rreq->common.devid = di->xd_devid;
+    rreq->common.genid = di->xd_genid;
+
+    reply = vipc_ctx_call (&vbd->vipc_ctx, &rreq->common.cookie);
+    if (!reply) {
+	WTRACE ("%x: %s IPC call failed\n", di->xd_devid,
+		vbd_op_names [VBD2_OP_GETGEO]);
+	goto use_hardcoded;
+    }
+    rreq = container_of (reply, vbd2_get_geo_t, common.cookie);
+    if (rreq->common.count) {	/* status */
+	WTRACE ("%s: %s request failed (%d)\n", di->name,
+		vbd_op_names [VBD2_OP_GETGEO], rreq->common.count);
+	vmq_return_msg_free (vbd->link, rreq);
+	goto use_hardcoded;
+    }
+    geo->heads     = rreq->heads;
+    geo->sectors   = rreq->sects_per_track;
+    geo->cylinders = rreq->cylinders;
+    vmq_return_msg_free (vbd->link, rreq);
+    return 0;
+
+use_hardcoded:
 	/* geo->start was set by caller blkdev_ioctl() in block/ioctl.c */
 #ifdef MMC_BLOCK_MAJOR
     if (gd->major == MMC_BLOCK_MAJOR) {
@@ -1631,29 +1909,74 @@ vbd_blkif_getgeo (struct block_device* bdev, struct hd_geometry* geo)
 }
 #endif
 
+    static void
+vbd_request_end (struct request* req, const _Bool is_error)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
+	/* __blk_end_request() is no more GPL */
+    __blk_end_request (req, is_error ? -EIO : 0, blk_rq_bytes (req));
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
+	/*
+	 * Should call:
+	 * __blk_end_request(req, is_error ? -EIO : 0,
+	 *                   req->hard_nr_sectors << 9);
+	 * but it is EXPORT_SYMBOL_GPL
+	 */
+    req->hard_cur_sectors = req->hard_nr_sectors;
+    end_request (req, !is_error);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
+    end_dequeued_request (req, !is_error);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+    if (unlikely (end_that_request_first (req, !is_error,
+		  req->hard_nr_sectors))) {
+	BUG();
+    }
+#else
+	/*
+	 *  This loop is necessary on 2.4 if we have
+	 *  several buffer_head structures linked from
+	 *  req->bh.
+	 */
+    while (end_that_request_first (req, !is_error, "VBD2"));
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
+	/* Nothing to do */
+#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,15)
+    end_that_request_last (req, !is_error);
+#elif LINUX_VERSION_CODE == KERNEL_VERSION(2,6,15)
+	/*
+	 * This is a work around in order to distinguish between a
+	 * vanilla Linux kernel 2.6.15 and a patched FC5 kernel.
+	 */
+#if defined MODULES_ARE_ELF32 || defined MODULES_ARE_ELF64
+    end_that_request_last (req, !is_error);
+#else
+    end_that_request_last (req);
+#endif
+#else
+    end_that_request_last (req);
+#endif
+}
+
     /*
      * Request block io.
-     * Called from vbd_do_blkif_request() only.
+     * Called from vbd_rq_do_blkif_request_2x() only.
      *
      * id: for guest use only.
-     * operation: RDISK_OP_{READ,WRITE,PROBE}
+     * operation: VBD2_OP_{READ,WRITE,PROBE}
      * buffer: buffer to read/write into. This should be a
      * virtual address in the guest os.
      */
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
     static int
-vbd_link_queue_request (vbd_link_t* vbd, struct request* req,
-			RDiskReqHeader* rreq)
+vbd_link_queue_request_26 (vbd_link_t* vbd, struct request* req,
+			   vbd2_req_header_t* rreq, const unsigned data_offset)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
-	/* blk_rq_pos() is an inline function returning req->__sector */
-    const sector_t	req_sector = blk_rq_pos (req);
-#else
-    const sector_t	req_sector = req->sector;
-#endif
-    struct gendisk*	gd = req->rq_disk;
-    vbd_disk_info_t*	di = (vbd_disk_info_t*) gd->private_data;
+    const vbd_disk_t*	di = (vbd_disk_t*) req->rq_disk->private_data;
+    char*		vshared = vmq_tx_data_area  (vbd->link) + data_offset;
+    unsigned long	pshared = vmq_ptx_data_area (vbd->link) + data_offset;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
     struct req_iterator iter;
 #else
@@ -1661,28 +1984,31 @@ vbd_link_queue_request (vbd_link_t* vbd, struct request* req,
     int                 idx;
 #endif
     struct bio_vec*     bvec;
-    struct page*        page;
-    unsigned long       paddr;
-    unsigned int        fsect, lsect, pfsect, plsect;
-    u32		        count;
+    struct page*        page = NULL;
+    unsigned long       paddr = 0;	/* page phys addr */
+    void*		vaddr = NULL;	/* page virt addr */
+    unsigned int        pfsect = 0, plsect = 0;
+    u32		        count = 0;
 
-    if (unlikely (vbd->state != VBD_LINK_STATE_CONNECTED)) {
+    DTRACE ("vmq_tx_data_area %p data_offset %x vshared/pshared %p/%lx\n",
+	    vmq_tx_data_area (vbd->link), data_offset, vshared, pshared);
+
+    if (unlikely (!vbd->is_up)) {
+	DTRACE ("not connected\n");
 	return 1;
     }
-    rreq->cookie    = (unsigned long) req;
-    rreq->op        = rq_data_dir (req) ? RDISK_OP_WRITE : RDISK_OP_READ;
-    XTRACE ("%c %0llx\n", rq_data_dir (req) ? 'w' : 'r',
-	    (unsigned long long) req_sector);
+    rreq->cookie = (unsigned long) req;
+    rreq->op     = rq_data_dir (req) ? VBD2_OP_WRITE : VBD2_OP_READ;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
+	/* blk_rq_pos() is an inline function returning req->__sector */
+    rreq->sector = blk_rq_pos (req);
+#else
+    rreq->sector = req->sector;
+#endif
+    rreq->devid  = di->xd_devid;
+    rreq->genid  = di->xd_genid;
 
-    rreq->sector [0] = (RDiskSector) req_sector;
-    rreq->sector [1] = (RDiskSector)(((u64) req_sector) >> 32);
-    rreq->devid      = di->xd_device;
-
-    page   = 0;
-    count  = 0;
-    paddr  = 0;
-    plsect = 0;
-    pfsect = 0;
+    DTRACE ("%s, sector 0x%llx\n", vbd_op_names [rreq->op], rreq->sector);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
     rq_for_each_segment (bvec, req, iter)
@@ -1691,33 +2017,139 @@ vbd_link_queue_request (vbd_link_t* vbd, struct request* req,
 	bio_for_each_segment (bvec, bio, idx)
 #endif
 	{
-	    fsect = bvec->bv_offset >> 9;
-	    lsect = fsect + (bvec->bv_len >> 9) - 1;
+	    const unsigned fsect = bvec->bv_offset >> 9;
+	    const unsigned lsect = fsect + (bvec->bv_len >> 9) - 1;
+
 	    if (unlikely (lsect > 7)) {
 		BUG();
 	    }
 	    if ((page == bvec->bv_page) && (fsect == (plsect+1))) {
+		    /* Extend the previously set segment */
+		DTRACE ("extend\n");
 		plsect = lsect;
-		RDISK_FIRST_BUF (rreq) [count-1] =
-		    RDISK_BUFFER (paddr, pfsect, plsect);
+		if (vbd->xx_config.data_count) {
+		    DTRACE ("count %d vshared/pshared %p/%lx "
+			    "pfsect/plsect %d/%d\n", count-1, vshared
+			    - PAGE_SIZE, pshared - PAGE_SIZE, pfsect, plsect); 
+		    if (rq_data_dir (req)) {	/* Disk write */
+			DTRACE ("paddr/vaddr %lx/%p bv_offset/len %x/%x\n",
+				paddr, vaddr, bvec->bv_offset, bvec->bv_len);
+			memcpy (vshared - PAGE_SIZE + bvec->bv_offset,
+				vaddr + bvec->bv_offset, bvec->bv_len);
+		    }
+		    VBD2_FIRST_BUF (rreq) [count-1] =
+			VBD2_BUFFER (pshared - PAGE_SIZE, pfsect, plsect);
+		} else {
+		    VBD2_FIRST_BUF (rreq) [count-1] =
+			VBD2_BUFFER (paddr, pfsect, plsect);
+		}
 	    } else {
-		if (unlikely (count==VBD_LINK_MAX_SEGMENTS_PER_REQUEST (vbd))) {
+		if (unlikely (count == vbd->segs_per_req_max)) {
 		    BUG();
 	        }
 		page   = bvec->bv_page;
 		paddr  = page_to_phys (page);
 		pfsect = fsect;
 		plsect = lsect;
-		RDISK_FIRST_BUF (rreq) [count++] =
-		    RDISK_BUFFER (paddr, pfsect, plsect);
+
+		if (vbd->xx_config.data_count) {
+			/* We do not try to compact the requests */
+		    DTRACE ("count %d vshared/pshared %p/%lx "
+			    "pfsect/plsect %d/%d\n", count, vshared, pshared,
+			    pfsect, plsect);
+		    if (rq_data_dir (req)) {	/* Disk write */
+			vaddr = phys_to_virt (paddr);
+			DTRACE ("paddr/vaddr %lx/%p bv_offset/len %x/%x\n",
+				paddr, vaddr, bvec->bv_offset, bvec->bv_len);
+			memcpy (vshared + bvec->bv_offset,
+				vaddr   + bvec->bv_offset, bvec->bv_len);
+		    }
+		    VBD2_FIRST_BUF (rreq) [count++] =
+			VBD2_BUFFER (pshared, pfsect, plsect);
+		    vshared += PAGE_SIZE;
+		    pshared += PAGE_SIZE;
+		} else {
+		    DTRACE ("count %d paddr %lx pfsect %d plsect %d\n",
+			    count, paddr, pfsect, plsect);
+		    VBD2_FIRST_BUF (rreq) [count++] =
+			VBD2_BUFFER (paddr, pfsect, plsect);
+		}
 	    }
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
 	}
 #endif
     }
-    rreq->count = (RDiskCount) count;
-    vmq_msg_send (vbd->link, rreq);
+    rreq->count = (vbd2_count_t) count;
+    if (vbd->xx_config.data_count) {
+	const unsigned slot = vmq_msg_slot (vbd->link, rreq);
+
+	VBD_ASSERT (vbd->data_offsets [slot] == 0xFFFFFFFF);
+	vbd->data_offsets [slot] = data_offset;
+    }
+    vmq_msg_send_async (vbd->link, rreq);
     return 0;
+}
+
+    static void
+vbd_link_copy_back_26 (vbd_link_t* vbd, struct request* req,
+		       const vbd2_req_header_t* rreq)
+{
+    const unsigned	data_offset =
+			    vbd->data_offsets [vmq_msg_slot (vbd->link, rreq)];
+    char*		vshared = vmq_tx_data_area  (vbd->link) + data_offset;
+    unsigned long	pshared = vmq_ptx_data_area (vbd->link) + data_offset;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+    struct req_iterator iter;
+#else
+    struct bio*         bio;
+    int                 idx;
+#endif
+    struct bio_vec*     bvec;
+    struct page*        page = NULL;
+    unsigned long       paddr = 0;	/* page phys addr */
+    void*		vaddr = NULL;	/* page virt addr */
+    unsigned int        pfsect = 0, plsect = 0;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
+    rq_for_each_segment (bvec, req, iter)
+#else
+    rq_for_each_bio (bio, req) {
+	bio_for_each_segment (bvec, bio, idx)
+#endif
+	{
+	    const unsigned fsect = bvec->bv_offset >> 9;
+	    const unsigned lsect = fsect + (bvec->bv_len >> 9) - 1;
+
+	    if ((page == bvec->bv_page) && (fsect == (plsect+1))) {
+		    /* Extend the previously set segment */
+		DTRACE ("EXTEND vshared/pshared %p/%lx pfsect/plsect %d/%d\n",
+			vshared - PAGE_SIZE, pshared - PAGE_SIZE,
+			pfsect, plsect); 
+		DTRACE ("paddr/vaddr %lx/%p bv_offset/len %x/%x\n",
+			paddr, vaddr, bvec->bv_offset, bvec->bv_len);
+		plsect = lsect;
+		memcpy (vaddr               + bvec->bv_offset,
+			vshared - PAGE_SIZE + bvec->bv_offset, bvec->bv_len);
+	    } else {
+		page   = bvec->bv_page;
+		paddr  = page_to_phys (page);
+		pfsect = fsect;
+		plsect = lsect;
+
+		vaddr = phys_to_virt (paddr);
+		DTRACE ("paddr %lx vaddr %p bv_offset %x bv_len %x\n",
+			paddr, vaddr, bvec->bv_offset, bvec->bv_len);
+		DTRACE ("pshared %lx pfsect %d plsect %d\n",
+			pshared, pfsect, plsect);
+		memcpy (vaddr   + bvec->bv_offset,
+			vshared + bvec->bv_offset, bvec->bv_len);
+		vshared += PAGE_SIZE;
+		pshared += PAGE_SIZE;
+	    }
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
+	}
+#endif
+    }
 }
 
     /*
@@ -1726,19 +2158,21 @@ vbd_link_queue_request (vbd_link_t* vbd, struct request* req,
      * Called from the kernel only.
      */
     static void
-vbd_do_blkif_request (struct request_queue* rq)
+vbd_rq_do_blkif_request_26 (struct request_queue* rq)
 {
-    struct request* req;
     vbd_link_t*     vbd = rq->queuedata;
+    struct request* req;
 
-    DTRACE ("entered, vbd=0x%p\n", vbd);
+    DTRACE ("link %d\n", vmq_peer_osid (vbd->link));
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
     while ((req = blk_peek_request (rq)) != NULL)
 #else
     while ((req = elv_next_request (rq)) != NULL)
 #endif
     {
-	RDiskReqHeader* rreq;
+	const vbd_disk_t*	di = req->rq_disk->private_data;
+	vbd2_req_header_t*	rreq;
+	unsigned		data_offset;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,31)
 	if (!blk_fs_request (req)) {
@@ -1746,46 +2180,73 @@ vbd_do_blkif_request (struct request_queue* rq)
 	    continue;
 	}
 #endif
-	if (vmq_msg_allocate_ex (vbd->link, 0 /*data_len*/, (void**) &rreq,
-				 NULL /*data_offset*/, 1 /*nonblocking*/)) {
-	    blk_stop_queue (rq);
-	    break;
+	if (di->is_zombie || !vbd->is_up) {
+	    DTRACE ("disk zombie %d is_up %d\n", di->is_zombie, vbd->is_up);
+	    rreq = NULL;
+	} else {
+	    int diag = vmq_msg_allocate_ex
+		(vbd->link, vbd->xx_config.data_count ? PAGE_SIZE : 0,
+		 (void**) &rreq, vbd->xx_config.data_count ? &data_offset :
+		 NULL, 1 /*nonblocking*/);
+	    if (diag) {
+		DTRACE ("failed to alloc msg (%d)\n", diag);
+		if (diag == -ESTALE) {
+		    rreq = NULL;
+		} else {
+		    blk_stop_queue (rq);
+		    break;
+		}
+	    }
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
 	blk_start_request (req);
 
 	if (!blk_fs_request (req)) {
+	    DTRACE ("ending with -EIO\n");
 	    __blk_end_request_all (req, -EIO);
-	    vmq_return_msg_free (vbd->link, rreq);
+	    if (rreq) {
+		vmq_return_msg_free (vbd->link, rreq);
+		if (vbd->xx_config.data_count) {
+		    vmq_data_free (vbd->link, data_offset);
+		}
+	    }
 	    continue;
 	}
-	DTRACE ("%p: cmd %p, sec %llx, (%u/%u) buffer:%p [%s]\n",
+	DTRACE ("%p: cmd %p sec %llx (%u/%u) buffer %p [%s]\n",
 		req, req->cmd, (u64) blk_rq_pos (req),
 		blk_rq_cur_sectors (req), blk_rq_sectors (req),
 		req->buffer, rq_data_dir (req) ? "write" : "read");
 #else
-	DTRACE ("%p: cmd %p, sec %llx, (%u/%li) buffer:%p [%s]\n",
+	DTRACE ("%p: cmd %p sec %llx (%u/%li) buffer %p [%s]\n",
 		req, req->cmd, (u64) req->sector, req->current_nr_sectors,
 		req->nr_sectors, req->buffer,
 		rq_data_dir (req) ? "write" : "read");
 
 	blkdev_dequeue_request (req);
 #endif
-	if (vbd_link_queue_request (vbd, req, rreq)) {
-	    ETRACE ("Badness in %s at %s:%d\n",
-		    __FUNCTION__, __FILE__, __LINE__);
+	if (!rreq) {
+	    DTRACE ("ending with error\n");
+	    vbd_request_end (req, true);
+	    continue;
+	}
+	if (vbd_link_queue_request_26 (vbd, req, rreq, data_offset)) {
+	    ETRACE ("%s at %s:%d\n", __FUNCTION__, __FILE__, __LINE__);
 	    blk_stop_queue (rq);
 	    vmq_return_msg_free (vbd->link, rreq);
+	    if (vbd->xx_config.data_count) {
+		vmq_data_free (vbd->link, data_offset);
+	    }
 	    break;
 	}
     }
+    vmq_msg_send_flush (vbd->link);
 }
 
 #else /* 2.4.x */
 
 #ifdef VBD_DEBUG_REQUESTS
     static void
-vbd_print_struct_request (const struct request* req)
+vbd_print_struct_request_24 (const struct request* req)
 {
     int			count = 0;
     unsigned long	paddr = 0;
@@ -1829,15 +2290,18 @@ vbd_print_struct_request (const struct request* req)
 
     /*
      * Linux 2.4 only.
-     * Called from vbd_do_blkif_request() only.
+     * Called from vbd_rq_do_blkif_request_24() only.
      */
 
     static int
-vbd_link_queue_request (vbd_link_t* vbd, const struct request* req,
-			RDiskReqHeader*	rreq)
+vbd_link_queue_request_24 (vbd_link_t* vbd, const struct request* req,
+			   vbd2_req_header_t* rreq)
 {
+#ifdef VBD_DEBUG_STATS
+    vbd_fe_t*			fe = vbd->fe;
+#endif
     const struct gendisk*	gd;
-    const vbd_disk_info_t*	di;
+    const vbd_disk_t*		di;
     const struct buffer_head*	bh;
     unsigned long		page;
     unsigned long		paddr;
@@ -1853,24 +2317,25 @@ vbd_link_queue_request (vbd_link_t* vbd, const struct request* req,
     unsigned long		bh_sector;
 #endif
 
-    XTRACE ("vbd=0x%p\n", vbd);
-    if (unlikely (vbd->state != VBD_LINK_STATE_CONNECTED)) {
+    DTRACE ("vbd %p\n", vbd);
+    if (unlikely (!vbd->is_up)) {
+	DTRACE ("not connected\n");
 	return 1;
     }
     if (unlikely (!req->bh)) {
 	return 1;
     }
     gd = get_gendisk (req->rq_dev);
-    di = (vbd_disk_info_t*) gd->real_devices + MINOR (req->rq_dev);
+    di = (vbd_disk_t*) gd->real_devices + MINOR (req->rq_dev);
     VBD_ASSERT (di->gd == gd);
 
     rreq->cookie     = (unsigned long) req;
-    rreq->op         = req->cmd == WRITE ? RDISK_OP_WRITE : RDISK_OP_READ;
+    rreq->op         = req->cmd == WRITE ? VBD2_OP_WRITE : VBD2_OP_READ;
     VBD_ASSERT (req->sector == req->bh->b_rsector);
-    rreq->sector [0] = (RDiskSector)(req->bh->b_rsector +
-				     gd->part [MINOR (req->rq_dev)].start_sect);
-    rreq->sector [1] = 0;
-    rreq->devid      = di->xd_device;
+    rreq->sector     = req->bh->b_rsector +
+		       gd->part [MINOR (req->rq_dev)].start_sect;
+    rreq->devid      = di->xd_devid;
+    rreq->genid      = di->xd_genid;
 
     page   = 0;
     count  = 0;
@@ -1903,23 +2368,23 @@ vbd_link_queue_request (vbd_link_t* vbd, const struct request* req,
 #endif
 #ifdef VBD_DEBUG_STATS
 	VBD_ASSERT (lsect-fsect <= 7 && lsect-fsect >= 0);
-	++vbd_stats.sectors_per_buffer_head [lsect-fsect];
+	++fe->stats.sectors_per_buffer_head [lsect-fsect];
 #endif
 	b_paddr &= PAGE_MASK;
 	if ((page == b_paddr) && (fsect == (plsect+1))) {
 		/* New buffer header is in same page, continuing old one */
 	    plsect = lsect;
-	    RDISK_FIRST_BUF (rreq) [count-1] =
-		RDISK_BUFFER (paddr, pfsect, plsect);
+	    VBD2_FIRST_BUF (rreq) [count-1] =
+		VBD2_BUFFER (paddr, pfsect, plsect);
 
 #ifdef VBD_DEBUG_STATS
-	    ++vbd_stats.new_bh_same_page [0];
+	    ++fe->stats.new_bh_same_page [0];
 #endif
 	} else {
-	    if (unlikely (count == VBD_LINK_MAX_SEGMENTS_PER_REQUEST (vbd))) {
+	    if (unlikely (count == vbd->segs_per_req_max)) {
 		ETRACE ("too many segments in req (%d)\n", count);
 #ifdef VBD_DEBUG_REQUESTS
-		vbd_print_struct_request (req);
+		vbd_print_struct_request_24 (req);
 #endif
 		BUG();
 	    }
@@ -1927,10 +2392,10 @@ vbd_link_queue_request (vbd_link_t* vbd, const struct request* req,
 	    paddr  = page;
 	    pfsect = fsect;
 	    plsect = lsect;
-	    RDISK_FIRST_BUF (rreq) [count++] =
-		RDISK_BUFFER (paddr, pfsect, plsect);
+	    VBD2_FIRST_BUF (rreq) [count++] =
+		VBD2_BUFFER (paddr, pfsect, plsect);
 #ifdef VBD_DEBUG_STATS
-	    ++vbd_stats.new_bh_same_page [1];
+	    ++fe->stats.new_bh_same_page [1];
 #endif
 	}
 #ifdef VBD_DEBUG
@@ -1938,53 +2403,56 @@ vbd_link_queue_request (vbd_link_t* vbd, const struct request* req,
 #endif
 	bh = bh->b_reqnext;
     }
-    rreq->count = (RDiskCount) count;
+    rreq->count = (vbd2_count_t) count;
 
 #ifdef VBD_DEBUG_STATS
 #ifdef VBD_DEBUG_HISTO_BHS
-    if (histo_bhs >= VBD_ARRAY_ELEMS (vbd_stats.len_histo)) {
-	histo_bhs  = VBD_ARRAY_ELEMS (vbd_stats.len_histo) - 1;
+    if (histo_bhs >= VBD_ARRAY_ELEMS (fe->stats.len_histo)) {
+	histo_bhs  = VBD_ARRAY_ELEMS (fe->stats.len_histo) - 1;
     }
-    ++vbd_stats.len_histo [histo_bhs];
+    ++fe->stats.len_histo [histo_bhs];
 #elif defined VBD_DEBUG_HISTO_SECTORS
-    if (histo_sectors >= VBD_ARRAY_ELEMS (vbd_stats.len_histo)) {
-	histo_sectors  = VBD_ARRAY_ELEMS (vbd_stats.len_histo) - 1;
+    if (histo_sectors >= VBD_ARRAY_ELEMS (fe->stats.len_histo)) {
+	histo_sectors  = VBD_ARRAY_ELEMS (fe->stats.len_histo) - 1;
     }
-    ++vbd_stats.len_histo [histo_sectors];
+    ++fe->stats.len_histo [histo_sectors];
 #elif defined VBD_DEBUG_HISTO_SEGMENTS
 	/* Only modify "count" after it has been used, above */
-    if (count >= VBD_ARRAY_ELEMS (vbd_stats.len_histo)) {
-	count  = VBD_ARRAY_ELEMS (vbd_stats.len_histo) - 1;
+    if (count >= VBD_ARRAY_ELEMS (fe->stats.len_histo)) {
+	count  = VBD_ARRAY_ELEMS (fe->stats.len_histo) - 1;
     }
-    ++vbd_stats.len_histo [count];
+    ++fe->stats.len_histo [count];
 #endif
 #endif
-    vmq_msg_send (vbd->link, rreq);
+    vmq_msg_send_async (vbd->link, rreq);
     return 0;
 }
 
     /*
      *  Linux 2.4 only.
      *  Called by the kernel, and also specifically on 2.4,
-     *  from vbd_kick_pending_request_queues(), after some place
+     *  from vbd_link_kick_pending_request_queues_2x(), after some place
      *  has just been made in a full FIFO.
      */
 
     static void
-vbd_do_blkif_request (struct request_queue *rq)
+vbd_rq_do_blkif_request_24 (struct request_queue* rq)
 {
-    vbd_link_t*     vbd = rq->queuedata;
-    struct request* req;
+    vbd_link_t*		vbd = rq->queuedata;
+#ifdef VBD_DEBUG_STATS
+    vbd_fe_t*		fe = vbd->fe;
+#endif
+    struct request*	req;
 
-    DTRACE ("entered, vbd=0x%p\n", vbd);
+    DTRACE ("entered, vbd %p\n", vbd);
     while (!rq->plugged && !list_empty (&rq->queue_head) &&
 	   (req = blkdev_entry_next_request (&rq->queue_head)) != NULL) {
-	RDiskReqHeader*	rreq;
+	vbd2_req_header_t*	rreq;
 
 	VBD_CATCHIF (rq != BLK_DEFAULT_QUEUE (MAJOR (req->rq_dev)),
 	    WTRACE("<Non-def-queue:%d:%d>", MAJOR (req->rq_dev),
 		  MINOR (req->rq_dev)));
-	VBD_CATCHIF (((vbd_disk_info_t*) get_gendisk(req->rq_dev)->real_devices
+	VBD_CATCHIF (((vbd_disk_t*) get_gendisk(req->rq_dev)->real_devices
 	    + MINOR (req->rq_dev))->gd_queue !=
 	    BLK_DEFAULT_QUEUE (MAJOR (req->rq_dev)),
 	    WTRACE ("<Bad-gd_queue:%d:%d>", MAJOR (req->rq_dev),
@@ -1993,18 +2461,18 @@ vbd_do_blkif_request (struct request_queue *rq)
 	if (vmq_msg_allocate_ex (vbd->link, 0 /*data_len*/, (void**) &rreq,
 			         NULL /*data_offset*/, 1 /*nonblocking*/)) {
 	    struct gendisk*	gd = get_gendisk (req->rq_dev);
-	    vbd_disk_info_t*	di;
+	    vbd_disk_t*		di;
 
 	    VBD_ASSERT (gd);
-	    di = (vbd_disk_info_t*) gd->real_devices + MINOR (req->rq_dev);
+	    di = (vbd_disk_t*) gd->real_devices + MINOR (req->rq_dev);
 
 	    if (di->is_part) {
 		    /* We come here when accessing /dev/sdaX */
 #ifdef VBD_DEBUG_STATS
 		if (di->next->req_is_pending) {
-		    ++vbd_stats.was_already_pending;
+		    ++fe->stats.was_already_pending;
 		} else {
-		    ++vbd_stats.was_not_not_yet_pending;
+		    ++fe->stats.was_not_not_yet_pending;
 		}
 #endif
 		di->next->req_is_pending = 1;
@@ -2012,13 +2480,13 @@ vbd_do_blkif_request (struct request_queue *rq)
 		    /* We come here when accessing /dev/sda */
 		di->req_is_pending = 1;
 	    }
-	    XTRACE ("ring full! (di=0x%p)\n", di);
+	    DTRACE ("ring full! (di %p)\n", di);
 	    break;
 	}
 #ifdef VBD_DEBUG_STATS
-	++vbd_stats.ring_not_full;
+	++fe->stats.ring_not_full;
 #endif
-	DTRACE ("%p: cmd %x, sec %llx, (%lu/%li) buffer:%p [%s]\n",
+	DTRACE ("%p: cmd %x sec %llx (%lu/%li) buffer %p [%s]\n",
 		req, req->cmd, (u64) req->sector, req->current_nr_sectors,
 		req->nr_sectors, req->buffer,
 		req->cmd == WRITE ? "write" : "read");
@@ -2026,125 +2494,119 @@ vbd_do_blkif_request (struct request_queue *rq)
 		    (req->cmd == WRITE));
 
 	blkdev_dequeue_request (req);
-	if (vbd_link_queue_request (vbd, req, rreq)) {
-	    ETRACE ("Badness in %s at %s:%d\n",
-		    __FUNCTION__, __FILE__, __LINE__);
+	if (vbd_link_queue_request_24 (vbd, req, rreq)) {
+	    ETRACE ("%s at %s:%d\n", __FUNCTION__, __FILE__, __LINE__);
 	    vmq_return_msg_free (vbd->link, rreq);
 	    break;
 	}
     }
+    vmq_msg_send_flush (vbd->link);
 }
 #endif	/* 2.4.x */
 
+#define VBD_LINK(link) \
+    (*(vbd_link_t**) &((vmq_link_public_t*) (link))->priv)
+
+    /* Only called by vbd_cb_return_notify() */
+
     static void
-vbd_link_return_msg (vbd_link_t* vbd, RDiskResp* resp)
+vbd_link_return_msg (vbd_link_t* vbd, vbd2_resp_t* resp)
 {
     struct request*	req  = (struct request*)(unsigned long) resp->cookie;
     unsigned long	flags;
 
-    XTRACE ("\n");
+    DTRACE ("entered\n");
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+    if (vbd->xx_config.data_count && resp->op == VBD2_OP_READ &&
+	    resp->count == VBD2_STATUS_OK) {
+	vbd_link_copy_back_26 (vbd, req, resp);
+    }
+#endif
     spin_lock_irqsave (&vbd->io_lock, flags);
     switch (resp->op) {
-    case RDISK_OP_READ:
-    case RDISK_OP_WRITE: {
-	const int error = resp ->status != RDISK_STATUS_OK;
-
-	VBD_CATCHIF (error,
-		 ETRACE ("Bad return from blkdev data request: %x\n",
-			 resp->status));
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,31)
-	    /* __blk_end_request() is no more GPL */
-	__blk_end_request (req, error ? -EIO : 0, blk_rq_bytes (req));
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,28)
-	    /*
-	     * Should call:
-	     * __blk_end_request(req, error ? -EIO : 0,
-	     *                   req->hard_nr_sectors << 9);
-	     * but it is EXPORT_SYMBOL_GPL
-	     */
-	req->hard_cur_sectors = req->hard_nr_sectors;
-	end_request (req, !error);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
-	end_dequeued_request (req, !error);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-	if (unlikely (end_that_request_first (req, !error,
-		      req->hard_nr_sectors))) {
-	    BUG();
-	}
-#else
-	    /*
-	     *  This loop is necessary on 2.4 if we have
-	     *  several buffer_head structures linked from
-	     *  req->bh.
-	     */
-	while (end_that_request_first (req, !error, "VBD2"));
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,25)
-	    /* Nothing to do */
-#elif LINUX_VERSION_CODE > KERNEL_VERSION(2,6,15)
-	end_that_request_last (req, !error);
-#elif LINUX_VERSION_CODE == KERNEL_VERSION(2,6,15)
-	    /*
-	     * This is a work around in order to distinguish between a
-	     * vanilla Linux kernel 2.6.15 and a patched FC5 kernel.
-	     */
-#if defined MODULES_ARE_ELF32 || defined MODULES_ARE_ELF64
-	end_that_request_last (req, !error);
-#else
-	end_that_request_last (req);
-#endif
-#else
-	end_that_request_last (req);
-#endif
+    case VBD2_OP_READ:
+    case VBD2_OP_WRITE:
+	VBD_CATCHIF (resp->count != VBD2_STATUS_OK,
+		     ETRACE ("Bad return from %s: %x\n",
+			     vbd_op_names [resp->op], resp->count));
+	vbd_request_end (req, resp->count != VBD2_STATUS_OK);
 	break;
-    }
-    case RDISK_OP_PROBE:
-	DTRACE ("response to probe received\n");
-	memcpy (&vbd->probe_resp, resp, sizeof *resp);
-	up (&vbd->probe_sem);
+
+    case VBD2_OP_PROBE:
+    case VBD2_OP_OPEN:
+    case VBD2_OP_CLOSE:
+    case VBD2_OP_GETGEO:
+	DTRACE ("response to %s received\n", vbd_op_names [resp->op]);
+	if (!vipc_ctx_process_reply (&VBD_LINK (vbd)->vipc_ctx,
+				     &resp->cookie)) {
+	    resp = NULL;	/* Will be freed by caller */
+	}
 	break;
 
     default:
-	BUG();
+	WTRACE ("Unexpected response code %d\n", resp->op);
+	break;
     }
-    vbd_kick_pending_request_queues (vbd);
+    vbd_link_kick_pending_request_queues_2x (vbd);
     spin_unlock_irqrestore (&vbd->io_lock, flags);
-    vmq_return_msg_free (vbd->link, resp);
+    if (resp) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+	if (vbd->xx_config.data_count) {
+	    const unsigned slot = vmq_msg_slot (vbd->link, resp);
+
+	    vmq_data_free (vbd->link, vbd->data_offsets [slot]);
+	    vbd->data_offsets [slot] = 0xFFFFFFFF;
+	}
+#endif
+	vmq_return_msg_free (vbd->link, resp);
+    }
 }
 
 /*----- Module thread -----*/
 
-#define VLX_SERVICES_THREADS
-#include "vlx-services.c"
-
-static struct semaphore	vbd_sem;		/* Thread semaphore */
-static _Bool		vbd_thread_aborted;
-static _Bool		vbd_sysconf;
-static vlx_thread_t	vbd_thread_desc;
-
     static void
-vbd_thread_aborted_notify (void)
+vbd_thread_aborted_notify (vbd_fe_t* fe)
 {
-    vbd_thread_aborted = true;
-    up (&vbd_sem);
+    fe->is_thread_aborted = true;
+    up (&fe->thread_sem);
+}
+
+    static _Bool
+vbd_link_changes (vmq_link_t* link, void* unused_cookie)
+{
+    vbd_link_t* vbd = VBD_LINK (link);
+
+    (void) unused_cookie;
+    if (vbd->changes) {
+	vbd->changes = false;
+	vbd_link_acquire_disks (vbd);
+    }
+    return false;
 }
 
     static int
 vbd_thread (void* arg)
 {
+    vbd_fe_t* fe = arg;
+
     DTRACE ("started\n");
-    while (!vbd_thread_aborted) {
-	int diag = down_interruptible (&vbd_sem);
+    while (!fe->is_thread_aborted) {
+	int diag = down_interruptible (&fe->thread_sem);
+
 	(void) diag;
-	DTRACE ("%s %s\n",
-		vbd_thread_aborted  ? "thread-aborted"  : "",
-		vbd_sysconf         ? "sysconf"         : "");
-	if (vbd_thread_aborted) break;
-	if (vbd_sysconf) {
-	    vbd_sysconf = false;
-	    vmq_links_sysconf (arg);
+	DTRACE ("wakeup%s%s%s\n",
+		fe->is_thread_aborted ? " thread-aborted"  : "",
+		fe->changes           ? " changes"         : "",
+		fe->is_sysconf        ? " sysconf"         : "");
+	if (fe->is_thread_aborted) break;
+	if (fe->is_sysconf) {
+	    fe->is_sysconf = false;
+	    vmq_links_sysconf (fe->links);
+	}
+	if (fe->changes) {
+	    fe->changes = false;
+	    vmq_links_iterate (fe->links, vbd_link_changes, NULL);
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,11)
 	    /* Check if freeze signal has been received */
@@ -2157,8 +2619,9 @@ vbd_thread (void* arg)
 
 /*----- VMQ event handlers (callbacks) -----*/
 
-#define VBD_LINK(link) \
-    (*(vbd_link_t**) &((vmq_link_public_t*) (link))->priv)
+    /*
+     *  Callback from vlx-vmq.c in the context of vbd_thread().
+     */
 
     static void
 vbd_cb_link_on (vmq_link_t* link)
@@ -2166,11 +2629,8 @@ vbd_cb_link_on (vmq_link_t* link)
     vbd_link_t* vbd = VBD_LINK (link);
 
     DTRACE ("link on (local <-> OS %d).\n", vmq_peer_osid (link));
-    if (vbd->state != VBD_LINK_STATE_CONNECTED) {
-	if (!vbd_link_acquire_disks (vbd)) {
-	    vbd->state = VBD_LINK_STATE_CONNECTED;
-	}
-    }
+    vbd->is_up = true;
+    vbd_link_acquire_disks (vbd);
 }
 
     /*
@@ -2183,31 +2643,90 @@ vbd_cb_link_off (vmq_link_t* link)
     vbd_link_t* vbd = VBD_LINK (link);
 
     DTRACE ("link %d\n", vmq_peer_osid (link));
-    vbd->state = VBD_LINK_STATE_DISCONNECTED;
+    vbd->is_up = false;
 	/*
 	 *  Mark deleted to make all future invocations
 	 *  fail, until the client decides to close device
 	 *  finally.
+	 *  XXX: we need to abort current async disk ops too.
 	 */
-#if 0
     vipc_ctx_abort_calls (&VBD_LINK (link)->vipc_ctx);
-#endif
 }
+
+    /*
+     *  Callback from vlx-vmq.c in the context of vbd_thread().
+     */
 
     static void
 vbd_cb_link_off_completed (vmq_link_t* link)
 {
+    vbd_link_t* vbd = VBD_LINK (link);
+
+    DTRACE ("entered\n");
+	/*
+	 * Called before link_off if no buffers used,
+	 * so make sure the state is current.
+	 */
+    vbd->is_up = false;
+    vbd_link_delete_disks (vbd);
 }
+
+#define VBD_LINKS(links) \
+    ((vbd_fe_t*) ((vmq_links_public*) (links))->priv)
+#undef VBD_LINKS
+#define VBD_LINKS(links) (*(vbd_fe_t**) (links))
 
     static void
 vbd_cb_sysconf_notify (vmq_links_t* links)
 {
-    (void) links;
-    vbd_sysconf = true;
-    up (&vbd_sem);
+    vbd_fe_t* fe = VBD_LINKS (links);
+
+    DTRACE ("entered\n");
+    fe->is_sysconf = true;
+    up (&fe->thread_sem);
 }
 
-    /* No vbd_cb_receive_notify() yet */
+    /* Executes in interrupt context */
+    /* Called from vbd_link_receive_msg() only */
+
+    static inline void
+vbd_link_changes_notify (vmq_link_t* link)
+{
+    vbd_link_t*	vbd = VBD_LINK (link);
+    vbd_fe_t*	fe  = vbd->fe;
+
+    vbd->changes = true;
+    fe->changes = true;
+    up (&fe->thread_sem);
+}
+
+    /* Executes in interrupt context */
+
+    static void
+vbd_link_receive_msg (vmq_link_t* link, vbd2_msg_t* async)
+{
+    DTRACE ("%s link %d cookie %llx\n",
+	    vbd_op_names [async->req.op % VBD2_OP_MAX],
+	    vmq_peer_osid (link), async->req.cookie);
+    if (async->req.op == VBD2_OP_CHANGES) {
+	vbd_link_changes_notify (link);
+    } else {
+	ETRACE ("Got invalid op %d cookie %llx\n", async->req.op,
+		async->req.cookie);
+    }
+    vmq_msg_free (link, async);
+}
+
+    static void
+vbd_cb_receive_notify (vmq_link_t* link)
+{
+    void*  msg;
+
+    DTRACE ("got async from %d\n", vmq_peer_osid (link));
+    while (!vmq_msg_receive (link, &msg)) {
+	vbd_link_receive_msg (link, (vbd2_msg_t*) msg);
+    }
+}
 
     static void
 vbd_cb_return_notify (vmq_link_t* link)
@@ -2215,14 +2734,11 @@ vbd_cb_return_notify (vmq_link_t* link)
     void*  msg;
 
     while (!vmq_return_msg_receive (link, &msg)) {
-	vbd_link_return_msg (VBD_LINK (link), (RDiskResp*) msg);
+	vbd_link_return_msg (VBD_LINK (link), (vbd2_resp_t*) msg);
     }
 }
 
-/*----- Support for /proc/vbd2-fe -----*/
-
-static struct proc_dir_entry*	vbd_proc;
-static vmq_links_t*		vbd_links;
+/*----- Support for /proc/nk/vbd2-fe -----*/
 
 typedef struct {
     char* page;
@@ -2232,13 +2748,41 @@ typedef struct {
     static _Bool
 vbd_link_proc (vmq_link_t* link, void* cookie)
 {
-    vbd_link_t* vbd = VBD_LINK (link);
-    vbd_proc_t* ctx = cookie;
+    vbd_link_t*	vbd = VBD_LINK (link);
+    vbd_proc_t*	ctx = cookie;
+    vbd_disk_t*	di;
 
     ctx->len += sprintf (ctx->page + ctx->len,
-			 "Peer %d MsgMax %d Disks %d State %s\n",
-			 vmq_peer_osid (link), vbd->msg_max, vbd->ndisks,
-			 vbd_link_state [vbd->state]);
+			 "BE Rq MsgMax SegRqM MaxProbe IsUp DB\n");
+    ctx->len += sprintf (ctx->page + ctx->len, "%2d %2d %6d %6d %8d %4d %s\n",
+			 vmq_peer_osid (link), vbd->xx_config.msg_count,
+			 vbd->msg_max, vbd->segs_per_req_max,
+			 VBD_LINK_MAX_DEVIDS_PER_PROBE (vbd), vbd->is_up,
+			 vbd->xx_config.data_count ? "On" : "No");
+
+    if (!vbd->disks) return false;
+    ctx->len += sprintf (ctx->page + ctx->len,
+			 "Disk--- Xdev----- Name Device- Usage Zombie\n");
+    VBD_LINK_FOR_ALL_DISKS(di,vbd) {
+	const char* disk_name2;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+	char buf [64];
+#endif
+
+	if (di->gd) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+	    disk_name2 = di->gd->disk_name;
+#else
+	    disk_name2 = disk_name (di->gd, MINOR (di->device), buf),
+#endif
+	} else {
+	    disk_name2 = "*******";
+	}
+	ctx->len += sprintf (ctx->page + ctx->len, "%7s %9s %4s %7x %5d %6s\n",
+			     disk_name2,
+			     di->name, di->major->type->name, di->device,
+			     di->usage, di->is_zombie ? "yes" : "no");
+    }
     return false;
 }
 
@@ -2246,14 +2790,25 @@ vbd_link_proc (vmq_link_t* link, void* cookie)
 vbd_read_proc (char* page, char** start, off_t off, int count, int* eof,
 	       void* data)
 {
-    vbd_proc_t	ctx;
+    vbd_fe_t*	fe = data;
     off_t	begin = 0;
+    vbd_proc_t	ctx;
+    int		i;
 
-    (void) data;
-    ctx.len = sprintf (page, "Legend\n");
+    ctx.len = sprintf (page,
+	"Major Usage Index MajorIdx TypeName PartShift Devs/Major\n");
+    for (i = 0; i < VBD_ARRAY_ELEMS (fe->majors); ++i) {
+	vbd_major_t* major = fe->majors [i];
 
+	if (!major) continue;
+	ctx.len += sprintf (page + ctx.len, "%5d %5d %5d %8d %8s %9d %10d\n",
+			    major->major, major->usage, major->index,
+			    major->major_idx, major->type->name,
+			    major->type->partn_shift,
+			    major->type->devs_per_major);
+    }
     ctx.page = page;
-    vmq_links_iterate (vbd_links, vbd_link_proc, &ctx);
+    vmq_links_iterate (fe->links, vbd_link_proc, &ctx);
     page = ctx.page;
 
     if (ctx.len + begin > off + count)
@@ -2270,6 +2825,8 @@ done:
 }
 
 /*----- Initialization and exit -----*/
+
+static vbd_fe_t vbd_fe;
 
     static int __init
 vbd_wait (char* start)
@@ -2290,8 +2847,8 @@ vbd_wait (char* start)
     if (end == start || *end != ')') {
 	return 0;
     }
-    vbd_wait_flag = 1;
-    vbd_wait_id   = (vmajor << 8) | vminor;
+    vbd_fe.must_wait = 1;
+    vbd_fe.wait_devid   = (vmajor << 8) | vminor;
     return 1;
 }
 
@@ -2305,114 +2862,82 @@ extern char* vlx_command_line;
 #endif
 #endif
 
-    static int __init
+    static void* __init
 vbd_vlink_syntax (const char* opt)
 {
     ETRACE ("Syntax error near '%s'\n", opt);
-    return -EINVAL;
+    return NULL;
 }
 
-#define	VBD_DESC_SIZE(segs_per_req) \
-    (sizeof (RDiskReqHeader) + sizeof (RDiskBuffer) * (segs_per_req))
-
-typedef union {
-    RDiskReqHeader req;
-    RDiskResp      resp;
-    RDiskProbe	   probe;
-} NkDevVbdMsg;
-
-    static int
-vbd_cb_get_tx_config (vmq_links_t* links, const char* start,
-		      vmq_xx_config_t* tx_config)
-{
-    long msg_count = VBD_LINK_DEFAULT_MSG_COUNT;
-    long segs_per_req = VBD_LINK_MAX_SEGS_PER_REQ;
-	/*
-	 * vdev=(vbd,<linkid>|[<elem>][,[<segs_per_req>]])
-	 */
-    if (start) {
-	if (*start && *start != ',') {
-	    char* end;
-
-	    msg_count = simple_strtoul (start, &end, 0);
-	    if (end == start) return vbd_vlink_syntax (end);
-	    start = end;
-	    if (msg_count > 0) {
-		    /* Round down to highest power of 2 */
-		msg_count = nkops.nk_bit2mask (nkops.nk_mask2bit (msg_count));
-	    } else {
-		msg_count = VBD_LINK_DEFAULT_MSG_COUNT;
-	    }
-	}
-	if (*start == ',') {
-	    ++start;
-	    if (*start) {
-		char* end;
-
-		segs_per_req = simple_strtoul (start, &end, 0);
-		if (end == start) return vbd_vlink_syntax (end);
-		start = end;
-		if (segs_per_req <= 0 ||
-		    segs_per_req > VBD_LINK_MAX_SEGS_PER_REQ) {
-		    segs_per_req = VBD_LINK_MAX_SEGS_PER_REQ;
-		}
-	    }
-	}
-	if (*start) {
-	    return vbd_vlink_syntax (start);
-	}
-    }
-    memset (tx_config, 0, sizeof *tx_config);
-    tx_config->msg_count = msg_count;
-    tx_config->msg_max   = VBD_DESC_SIZE (segs_per_req);
-    return 0;
-}
-
-    /* Called from vbd_init() only */
+#include "vlx-vbd2-common.c"
 
     static _Bool
 vbd_link_init (vmq_link_t* link, void* cookie)
 {
-    vbd_link_t* vbd = kzalloc (sizeof *vbd, GFP_KERNEL);
+    vbd_link_t* vbd = VBD_LINK (link);
+    vbd_fe_t*	fe = cookie;
 
-    if (!vbd) {
-	*(int*) cookie = -ENOMEM;
-	return true;
-    }
-    VBD_LINK (link) = vbd;
+    VBD_ASSERT (vbd);
+    vbd->fe      = fe;
     vbd->link    = link;
     vbd->msg_max = vmq_msg_max (link);
+	/* disks = NULL */
     vbd->io_lock = SPIN_LOCK_UNLOCKED;
-    vbd->state   = VBD_LINK_STATE_CLOSED;
-    sema_init (&vbd->probe_sem, 0);
+	/* xx_config initialized by vbd_cb_get_xx_config() */
+    vipc_ctx_init (&vbd->vipc_ctx, link);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+    if (vbd->xx_config.data_count) {
+	if (vmq_ptx_data_area (vbd->link) % PAGE_SIZE) {
+	    ETRACE ("data area is not page aligned\n");
+	    return true;
+	}
+	vbd->data_offsets = kmalloc
+	    (sizeof (unsigned) * vbd->xx_config.data_count, GFP_KERNEL);
+	if (!vbd->data_offsets) {
+	    ETRACE ("Out of memory for data offsets array\n");
+	    return true;
+	}
+	memset (vbd->data_offsets, 0xFF,
+		sizeof (unsigned) * vbd->xx_config.data_count);
+    }
+#endif
     return false;
 }
+
+    /* Only called from vbd_exit() */
 
     static _Bool
 vbd_link_free (vmq_link_t* link, void* cookie)
 {
+    vbd_link_t* vbd = VBD_LINK (link);
+
     (void) cookie;
-    vbd_link_down (VBD_LINK (link));
-    kfree (VBD_LINK (link));
+    vbd_link_delete_disks (vbd);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+    vbd_kfree_and_clear (vbd->data_offsets);
+#endif
+    vbd_kfree_and_clear (vbd);
     return false;
 }
 
 #define VBD_FIELD(name,value)	value
 
-static const vmq_callbacks_t vbd_callbacks = {
+    static const vmq_callbacks_t
+vbd_callbacks = {
     VBD_FIELD (link_on,			vbd_cb_link_on),
     VBD_FIELD (link_off,		vbd_cb_link_off),
     VBD_FIELD (link_off_completed,	vbd_cb_link_off_completed),
     VBD_FIELD (sysconf_notify,		vbd_cb_sysconf_notify),
-    VBD_FIELD (receive_notify,		NULL),
+    VBD_FIELD (receive_notify,		vbd_cb_receive_notify),
     VBD_FIELD (return_notify,		vbd_cb_return_notify),
-    VBD_FIELD (get_tx_config,		vbd_cb_get_tx_config)
+    VBD_FIELD (get_tx_config,		vbd_cb_get_xx_config),
+    VBD_FIELD (get_rx_config,		NULL)
 };
 
     static const vmq_xx_config_t
 vbd_rx_config = {
     VBD_FIELD (msg_count,	4),
-    VBD_FIELD (msg_max,		sizeof (NkDevVbdMsg)),
+    VBD_FIELD (msg_max,		sizeof (vbd2_msg_t)),
     VBD_FIELD (data_count,	0),
     VBD_FIELD (data_max,	0)
 };
@@ -2422,28 +2947,31 @@ vbd_rx_config = {
     static void
 vbd_exit (void)
 {
-    DTRACE ("\n");
-    if (vbd_links) {
-	vmq_links_abort (vbd_links);
+    vbd_fe_t* fe = &vbd_fe;
+
+    DTRACE ("exiting\n");
+    if (fe->links) {
+	vmq_links_abort (fe->links);
     }
-    vbd_thread_aborted_notify();
-    vlx_thread_join (&vbd_thread_desc);
-    if (vbd_links) {
-	vmq_links_iterate (vbd_links, vbd_link_free, NULL);
-	vmq_links_finish (vbd_links);
-	vbd_links = NULL;
+    vbd_thread_aborted_notify (fe);
+    vlx_thread_join (&fe->thread_desc);
+    if (fe->links) {
+	vmq_links_iterate (fe->links, vbd_link_free, NULL);
+	vmq_links_finish (fe->links);
+	fe->links = NULL;
     }
-    if (vbd_proc) {
-	remove_proc_entry ("vbd2-fe", NULL);
+    if (fe->proc) {
+	remove_proc_entry ("vbd2-fe", vlx_proc_nk_lookup());
     }
 }
 
     static int __init
 vbd_init (void)
 {
-    int diag;
+    vbd_fe_t*	fe = &vbd_fe;
+    int		diag;
 
-    DTRACE ("\n");
+    DTRACE ("initializing\n");
 #ifdef MODULE
     {
 	char* cmdline;
@@ -2454,19 +2982,24 @@ vbd_init (void)
 	}
     }
 #endif
-    vbd_proc = create_proc_read_entry ("vbd2-fe", 0, NULL, vbd_read_proc, NULL);
-    sema_init (&vbd_sem, 0);	/* Before it is signaled */
-    diag = vmq_links_init (&vbd_links, "vbd2", &vbd_callbacks,
-			   NULL /*tx_config*/, &vbd_rx_config);
+    fe->proc = create_proc_read_entry ("vbd2-fe", 0, vlx_proc_nk_lookup(),
+				       vbd_read_proc, fe);
+    sema_init (&fe->thread_sem, 0);	/* Before it is signaled */
+    diag = vmq_links_init_ex (&fe->links, "vbd2", &vbd_callbacks,
+			      NULL /*tx_config*/, &vbd_rx_config, fe, true);
     if (diag) goto error;
-    if (vmq_links_iterate (vbd_links, vbd_link_init, &diag)) goto error;
-    diag = vlx_thread_start (&vbd_thread_desc, vbd_thread, vbd_links,
-			     "vbd2-fe");
+    if (vmq_links_iterate (fe->links, vbd_link_init, fe)) {
+	diag = -ENOMEM;
+	goto error;
+    }
+    diag = vmq_links_start (fe->links);
+    if (diag) goto error;
+    diag = vlx_thread_start (&fe->thread_desc, vbd_thread, fe, "vbd2-fe");
     if (diag) {
 	ETRACE ("thread start failure\n");
 	goto error;
     }
-    while (vbd_wait_flag) {	/* Waiting for the virtual disk */
+    while (fe->must_wait) {	/* Waiting for the virtual disk */
 	set_current_state (TASK_INTERRUPTIBLE);
 	schedule_timeout (1);
     }
@@ -2479,7 +3012,7 @@ error:
     return diag;
 }
 
-module_init (vbd_init);
+late_initcall (vbd_init);
 module_exit (vbd_exit);
 
 /*----- Module description -----*/

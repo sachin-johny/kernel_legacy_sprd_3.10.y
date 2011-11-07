@@ -22,6 +22,8 @@
 #include <mach/board.h>
 #include <linux/delay.h>
 
+#include <linux/slab.h>
+
 #include "sc8800g_copybit_scale.h"
 #include "sc8800g_copybit_rotation.h"
 #include "sc8800g_copybit_lcdc.h"

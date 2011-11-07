@@ -1,12 +1,23 @@
 /*
  ****************************************************************
  *
- * Copyright (C) 2003, Jaluna SA. All Rights Reserved.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
- * #ident  "@(#)nktags.c 1.3     08/02/07 VirtualLogix"
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
  *
- * Contributor(s):
- *	Guennadi Maslov <guennadi.maslov@jaluna.com>
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ *  #ident  "@(#)nktags.c 1.3     08/02/07 Red Bend"
+ *
+ *  Contributor(s):
+ *    Guennadi Maslov (guennadi.maslov@redbend.com)
  *
  ****************************************************************
  */

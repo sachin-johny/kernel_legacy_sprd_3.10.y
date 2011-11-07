@@ -11,6 +11,7 @@
  ****************************************************************
  */
 
+#include <linux/version.h>
 #include <linux/device.h>
 #include <linux/fs.h>
 #include <linux/init.h>
@@ -20,6 +21,8 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
+#include <linux/sched.h>
+#include <linux/slab.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
@@ -946,8 +949,8 @@ ex_dev_ring_alloc(ExDev* ex_dev)
 
     pring = nkops.nk_pmem_alloc(plink, 0, sz);
     if (pring == 0) {
-	printk(VPIPE_ERR "OS#%d<-OS#%d link=%d ring alloc failed\n",
-			  vlink->s_id, vlink->c_id, vlink->link);
+	printk(VPIPE_ERR "OS#%d<-OS#%d link=%d ring alloc failed (%d bytes)\n",
+			  vlink->s_id, vlink->c_id, vlink->link, sz);
 	return -ENOMEM;
     }
 
@@ -1017,8 +1020,11 @@ ex_dev_init (ExDev* ex_dev, int minor)
 {
     NkDevVlink* vlink = ex_dev->vlink;
     NkOsId      my_id = nkops.nk_id_get();
-
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     struct device* cls_dev;
+#else
+    struct class_device* cls_dev;
+#endif
 
 	/*
 	 * Set "server" flag
@@ -1045,7 +1051,11 @@ ex_dev_init (ExDev* ex_dev, int minor)
 	/*
 	 * create a class device
 	 */
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     cls_dev = device_create(ex_class, NULL, MKDEV(VPIPE_MAJOR, minor),
+#else
+    cls_dev = class_device_create(ex_class, NULL, MKDEV(VPIPE_MAJOR, minor),
+#endif
 			    NULL, "vpipe%d", minor);
     if (IS_ERR(cls_dev)) {
 	printk(VPIPE_ERR "OS#%d<-OS#%d link=%d class device create failed"
@@ -1081,7 +1091,11 @@ ex_dev_destroy (ExDev* ex_dev, int minor)
 	/*
 	 * Destroy class device
 	 */
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     device_destroy(ex_class, MKDEV(VPIPE_MAJOR, minor));
+#else
+    class_device_destroy(ex_class, MKDEV(VPIPE_MAJOR, minor));
+#endif
 }
 
     /*

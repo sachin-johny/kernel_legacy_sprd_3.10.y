@@ -3,7 +3,7 @@
  *
  *  Component:	VirtualLogix VMQ driver interface
  *
- *  Copyright (C) 2009-2010, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2009-2011, VirtualLogix. All Rights Reserved.
  *
  *  Contributor(s):
  *    Adam Mirowski <adam.mirowski@virtuallogix.com>
@@ -13,6 +13,8 @@
 
 #ifndef VLX_VMQ_H
 #define VLX_VMQ_H
+
+#include <nk/nkern.h>
 
 #if LINUX_VERSION_CODE <= KERNEL_VERSION (2,6,18)
 #define false	0
@@ -27,11 +29,17 @@ typedef struct {
     NkOsId	local_osid;
     NkOsId	peer_osid;
     char*	rx_s_info;
+    char*	tx_s_info;
     char*	rx_data_area;
     char*	tx_data_area;
     unsigned	data_max;
     unsigned	msg_max;
+    NkPhAddr	ptx_data_area;
 } vmq_link_public_t;
+
+typedef struct {
+    void*	priv;		/* Must be first */
+} vmq_links_public_t;
 
     /* Link control callbacks */
 
@@ -42,6 +50,8 @@ typedef struct {
     unsigned	data_max;
 } vmq_xx_config_t;
 
+#define VMQ_XX_CONFIG_IGNORE_VLINK	((vmq_xx_config_t*) 1)
+
 typedef struct {
     void (*link_on)		(vmq_link_t*);
     void (*link_off)		(vmq_link_t*);
@@ -49,8 +59,10 @@ typedef struct {
     void (*sysconf_notify)	(vmq_links_t*);
     void (*receive_notify)	(vmq_link_t*);
     void (*return_notify)	(vmq_link_t*);
-    int  (*get_tx_config)	(vmq_links_t*, const char* s_info,
-				 vmq_xx_config_t*);
+    const vmq_xx_config_t*
+	 (*get_tx_config)	(vmq_link_t*, const char* tx_s_info);
+    const vmq_xx_config_t*
+	 (*get_rx_config)	(vmq_link_t*, const char* rx_s_info);
 } vmq_callbacks_t;
 
 #ifndef __must_check
@@ -66,21 +78,33 @@ signed	vmq_msg_allocate_ex	(vmq_link_t*, unsigned data_len, void** msg,
 				 unsigned* data_offset, _Bool nonblocking)
 				 __must_check;
 void	vmq_msg_send		(vmq_link_t*, void* msg);
+void	vmq_msg_send_async	(vmq_link_t*, void* msg);
+void	vmq_msg_send_flush	(vmq_link_t*);
 signed	vmq_msg_receive		(vmq_link_t*, void** msg) __must_check;
 void	vmq_msg_free		(vmq_link_t*, void* msg);
 void	vmq_msg_return		(vmq_link_t*, void* msg);
-_Bool	vmq_data_offset_ok	(vmq_link_t*, unsigned data_offset);
+unsigned
+	vmq_msg_slot		(vmq_link_t*, const void* msg) __must_check;
+_Bool	vmq_data_offset_ok	(vmq_link_t*, unsigned data_offset)
+				 __must_check;
 void	vmq_data_free		(vmq_link_t*, unsigned data_offset);
 signed	vmq_return_msg_receive	(vmq_link_t* link, void** msg)
 				 __must_check;
 void	vmq_return_msg_free	(vmq_link_t* link, void* msg);
 
     /* Link control functions */
-signed	vmq_links_init		(vmq_links_t**, const char* vlink_name,
+static signed
+	vmq_links_init		(vmq_links_t**, const char* vlink_name,
 				 const vmq_callbacks_t*,
 				 const vmq_xx_config_t* tx_config,
 				 const vmq_xx_config_t* rx_config)
 				 __must_check;
+signed	vmq_links_init_ex	(vmq_links_t**, const char* vlink_name,
+				 const vmq_callbacks_t*,
+				 const vmq_xx_config_t* tx_config,
+				 const vmq_xx_config_t* rx_config, void* priv,
+				 _Bool is_frontend) __must_check;
+signed	vmq_links_start		(vmq_links_t* links);
 void	vmq_links_finish	(vmq_links_t*);
 _Bool	vmq_links_iterate	(vmq_links_t*, _Bool (*func)(vmq_link_t*,
 				 void*), void* cookie);
@@ -95,6 +119,16 @@ vmq_msg_allocate (vmq_link_t* link, unsigned data_len, void** msg,
 				0 /*!nonblocking*/);
 }
 
+    static inline signed
+vmq_links_init (vmq_links_t** links, const char* vlink_name,
+		const vmq_callbacks_t* callbacks,
+		const vmq_xx_config_t* tx_config,
+		const vmq_xx_config_t* rx_config)
+{
+    return vmq_links_init_ex (links, vlink_name, callbacks, tx_config,
+			      rx_config, 0, false);
+}
+
     static inline NkOsId
 vmq_peer_osid (const vmq_link_t* link)
 {
@@ -102,9 +136,17 @@ vmq_peer_osid (const vmq_link_t* link)
 }
 
     static inline const char*
-vmq_link_s_info (const vmq_link_t* link)
+vmq_link_rx_s_info (const vmq_link_t* link)
 {
     return ((vmq_link_public_t*) link)->rx_s_info;
+}
+
+#define vmq_link_s_info	vmq_link_rx_s_info
+
+    static inline const char*
+vmq_link_tx_s_info (const vmq_link_t* link)
+{
+    return ((vmq_link_public_t*) link)->tx_s_info;
 }
 
     static inline char*
@@ -129,6 +171,12 @@ vmq_data_max (const vmq_link_t* link)
 vmq_msg_max (const vmq_link_t* link)
 {
     return ((vmq_link_public_t*) link)->msg_max;
+}
+
+    static inline NkPhAddr
+vmq_ptx_data_area (const vmq_link_t* link)
+{
+    return ((vmq_link_public_t*) link)->ptx_data_area;
 }
 
 #endif

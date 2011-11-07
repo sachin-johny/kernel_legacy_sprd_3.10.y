@@ -143,18 +143,20 @@
 
 extern void printascii(const char *);
 
+#if 0
 #ifdef CONFIG_TS0710_MUX_UART
 //static struct tty_struct serial_tty;
 extern struct mux_ringbuffer rbuf;
-struct tty_driver *serial_for_mux_driver = NULL;
+extern struct tty_driver *serial_for_mux_driver;
 static int serial_mux_guard = 0;
-struct tty_struct *serial_for_mux_tty = NULL;
+extern struct tty_struct *serial_for_mux_tty;
 extern ssize_t mux_ringbuffer_write(struct mux_ringbuffer *rbuf, const u8 *buf, size_t len);
 extern ssize_t mux_ringbuffer_free(struct mux_ringbuffer *rbuf);
 extern int cmux_opened(void);
 extern int is_cmux_mode(void);
-void (*serial_mux_dispatcher)(struct tty_struct *tty) = NULL;
-void (*serial_mux_sender)(void) = NULL;
+extern void (*serial_mux_dispatcher)(struct tty_struct *tty);
+extern void (*serial_mux_sender)(void);
+#endif
 #endif
 
 static struct wake_lock uart_rx_lock;  // UART0  RX  IRQ 
@@ -239,6 +241,7 @@ static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 	struct tty_struct *tty=port->state->port.tty;
 	unsigned int status,ch,flag,lsr,max_count=2048;
 	unsigned int count,st=0;
+#if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	if ((0==port->line)&& cmux_opened()){
 		count =0; 	
@@ -256,6 +259,7 @@ static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 		return;
 	}
 	else {
+#endif
 #endif	
 	status=serial_in(port,ARM_UART_STS1);
 	lsr=serial_in(port,ARM_UART_STS0);
@@ -304,8 +308,10 @@ static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 	}
 	//tty->low_latency = 1;
 	tty_flip_buffer_push(tty);
+#if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	}
+#endif
 #endif
 }
 static inline void  serialsc8800_tx_chars(int irq,void *dev_id)
@@ -340,12 +346,14 @@ static inline void  serialsc8800_tx_chars(int irq,void *dev_id)
 		serialsc8800_stop_tx(port);	
 	}
 
+#if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	if ((0==port->line)&& cmux_opened()){
 		if(serial_mux_sender){
 			serial_mux_sender();	
 		}	
 	}
+#endif
 #endif
 
 }
@@ -400,6 +408,13 @@ static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 
 static void serialsc8800_pin_config(void)
 {
+     unsigned long serial_func_cfg[] = {
+        MFP_CFG_X(U0CTS, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+        MFP_CFG_X(U0RTS, AF1, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+     };
+
+     sprd_mfp_config(serial_func_cfg, ARRAY_SIZE(serial_func_cfg));
+     
      __raw_bits_or((1<<22),SPRD_GREG_BASE+0x8);
      __raw_bits_or((1<<20),SPRD_GREG_BASE+0x8); // UART0
      __raw_bits_or((1<<6),SPRD_GREG_BASE+0x28);
@@ -411,7 +426,7 @@ static int serialsc8800_startup(struct uart_port *port)
 	unsigned int ien,ctrl1;
 	
 	//port->uartclk=26000000;
-
+#if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	if(port->line == 0){
 
@@ -426,17 +441,14 @@ static int serialsc8800_startup(struct uart_port *port)
 		}
 	}
 #endif
-    if(port->line == 2)
-	gpio_free(u2rxd_id);
-	gpio_free(u2txd_id);
-
-        serialsc8800_pin_config();
+#endif
+    //if(port->line == 2)
+	{
+        serialsc8800_pin_config(); //fixme don't know who change u0cts pin in 88
 	}
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
  	*/
-	//serial_out(port,ARM_UART_CTL2,0x801);
-		
 	serial_out(port,ARM_UART_CTL2,((SP_TX_FIFO<<8)|SP_RX_FIFO));
 	/*
  	*clear rx fifo
@@ -494,10 +506,12 @@ static int serialsc8800_startup(struct uart_port *port)
 }
 static void serialsc8800_shutdown(struct uart_port *port)
 {
+#if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	if (port->line == 0) {
-		serial_mux_Sguard--;
+		serial_mux_guard--;
 	}
+#endif
 #endif
 
 	serial_out(port,ARM_UART_IEN,0x0);
@@ -969,11 +983,13 @@ static int serialsc8800_probe(struct platform_device *dev)
 	ret = uart_register_driver(&serialsc8800_reg);
 	if(ret ==0)
 		printk("serialsc8800_init:enter uart_add_one_port\n");
+#if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	serial_for_mux_driver = serialsc8800_reg.tty_driver;
 	printk("=========serial_for_mux_driver=%p========\r\n",serial_for_mux_driver);
 	//serial_for_mux_tty = &serial_tty;
 	serial_mux_guard = 0;
+#endif
 #endif
 	for(i=0;i<UART_NR;i++)
 		uart_add_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);

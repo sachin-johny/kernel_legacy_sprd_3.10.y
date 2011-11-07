@@ -2,6 +2,7 @@
  * The input core
  *
  * Copyright (c) 1999-2002 Vojtech Pavlik
+ * Copyright (C) 2011, Red Bend Ltd.
  */
 
 /*
@@ -734,25 +735,37 @@ EXPORT_SYMBOL(input_set_keycode);
 #include <nk/nkern.h>
 #endif
 
-static const struct input_device_id *input_match_device(const struct input_device_id *id,
+static const struct input_device_id *input_match_device(struct input_handler *handler,
 							struct input_dev *dev)
 {
-	//const struct input_device_id *id;
+	const struct input_device_id *id;
 	int i;
 
-	//for (id = handler->id_table; id->flags || id->driver_info; id++) {
-	for (; id->flags || id->driver_info; id++) {
+	for (id = handler->id_table; id->flags || id->driver_info; id++) {
 
 #ifdef CONFIG_NKERNEL_DDI
-		/*
-		 * back-end        <-> virtual-device = fail ( in evdev_connect )
-		 * back-end        <-> normal-device  = ok
-		 * normal handlers <-> normal-device  = fail
-		 * normal handler  <-> virtual-device = ok
-		 */
-		if ((id->bustype != BUS_VIRTUAL) && (dev->id.bustype != BUS_VIRTUAL)
-                    && (nkops.nk_vlink_lookup("vevent", 0)))
+		/* We hide normal device if a back-end virtualize it */
+		if ((id->bustype != BUS_VIRTUAL) && (dev->id.bustype != BUS_VIRTUAL)) {
+			NkPhAddr    plink = 0;
+			NkDevVlink* vlink = NULL;
+			char*       vname = NULL;
+			int  vdriver_match = 0;
+
+			while ((plink = nkops.nk_vlink_lookup("vevent", plink))) {
+				vlink = nkops.nk_ptov(plink);
+				if (!vlink->s_info)
+					continue;
+
+				vname = nkops.nk_ptov(vlink->s_info);
+				if (strcmp(vname, dev->name) == 0) {
+					vdriver_match = 1;
+					break;
+				}
+		}
+
+		if (vdriver_match == 1)
 			continue;
+		}
 #endif
 		if (id->flags & INPUT_DEVICE_ID_MATCH_BUS)
 			if (id->bustype != dev->id.bustype)
@@ -780,7 +793,7 @@ static const struct input_device_id *input_match_device(const struct input_devic
 		MATCH_BIT(ffbit,  FF_MAX);
 		MATCH_BIT(swbit,  SW_MAX);
 
-		//if (!handler->match || handler->match(handler, dev))
+		if (!handler->match || handler->match(handler, dev))
 			return id;
 	}
 

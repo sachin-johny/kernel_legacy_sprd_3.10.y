@@ -131,6 +131,8 @@ obj-$(CONFIG_FB_CARMINE)          += carminefb.o
 obj-$(CONFIG_FB_MB862XX)	  += mb862xx/
 obj-$(CONFIG_FB_MSM)              += msm/
 obj-$(CONFIG_FB_NUC900)           += nuc900fb.o
+obj-$(CONFIG_FB_SC8800S)          += sc8800s/
+obj-$(CONFIG_FB_SC8800G)          += sc8800g/
 
 # Platform or fallback drivers go here
 obj-$(CONFIG_FB_UVESA)            += uvesafb.o

@@ -20,8 +20,9 @@ typedef struct vvideo_hw_ops_t {
     int (*release)(void* private_data);
     int (*ioctl)  (void* private_data, unsigned int cmd, void* arg);
     int (*mmap)   (void* private_data, unsigned long pgoff, unsigned long* bus_addr);
+    int (*munmap) (void* private_data, unsigned long pgoff, unsigned long size);
 } vvideo_hw_ops_t;
 
-#define VVIDEO_HW_OPS_VERSION 2
+#define VVIDEO_HW_OPS_VERSION 3
 
 #endif /* _VVIDEO_BE_H_ */

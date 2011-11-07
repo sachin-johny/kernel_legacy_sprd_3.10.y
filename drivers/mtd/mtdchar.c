@@ -166,6 +166,7 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 	char *kbuf;
 
 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_read\n");
+
 	if (*ppos + count > mtd->size)
 		count = mtd->size - *ppos;
 
@@ -205,6 +206,7 @@ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t
 			ops.datbuf = kbuf;
 			ops.oobbuf = NULL;
 			ops.len = len;
+
 			ret = mtd->read_oob(mtd, *ppos, &ops);
 			retlen = ops.retlen;
 			break;
@@ -257,6 +259,7 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 	int len;
 
 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_write\n");
+
 	if (*ppos == mtd->size)
 		return -ENOSPC;
 
@@ -297,7 +300,7 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			kfree(kbuf);
 			return -EFAULT;
 		}
-		
+
 		switch (mfi->mode) {
 		case MTD_MODE_OTP_FACTORY:
 			ret = -EROFS;
@@ -318,6 +321,7 @@ static ssize_t mtd_write(struct file *file, const char __user *buf, size_t count
 			ops.datbuf = kbuf;
 			ops.oobbuf = NULL;
 			ops.len = len;
+
 			ret = mtd->write_oob(mtd, *ppos, &ops);
 			retlen = ops.retlen;
 			break;
@@ -538,6 +542,7 @@ static int mtd_ioctl(struct file *file, u_int cmd, u_long arg)
 
 		if(!(file->f_mode & FMODE_WRITE))
 			return -EPERM;
+
 		erase=kzalloc(sizeof(struct erase_info),GFP_KERNEL);
 		if (!erase)
 			ret = -ENOMEM;

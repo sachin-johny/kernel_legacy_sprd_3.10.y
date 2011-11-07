@@ -1,14 +1,25 @@
 /*
  ****************************************************************
  *
- * Copyright (C) 2003-2009, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
- * #ident  "@(#)f_nk.h 1.97     09/12/24 VirtualLogix"
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
  *
- * Contributor(s):
- *	Vladimir Grouzdev <vladimir.grouzdev@virtuallogix.com>
- *	Guennadi Maslov   <guennadi.maslov@virtuallogix.com>
- *	Sebastien Laborie <sebastien.laborie@virtuallogix.com>
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ *  #ident  "@(#)f_nk.h 1.97     09/12/24 Red Bend"
+ *
+ *  Contributor(s):
+ *    Vladimir Grouzdev (vladimir.grouzdev@redbend.com)
+ *    Guennadi Maslov (guennadi.maslov@redbend.com)
+ *    Sebastien Laborie (sebastien.laborie@redbend.com)
  *
  ****************************************************************
  */
@@ -38,6 +49,8 @@
 #define NK_XIRQ_VECTOR		 0x24	/* cross IRQ vector */
 #define NK_IIRQ_VECTOR		 0x28	/* indirect IRQ vector */
 #define NK_DIRQ_VECTOR		 0x2c	/* direct IRQ vector */
+#define NK_ISWI_VECTOR		 0x30	/* indirect SWI vector */
+#define NK_IPABORT_VECTOR	 0x34	/* indirect prefetch abort vector */
 
 	/*
 	 * Virtual exceptions
@@ -86,7 +99,7 @@
 #define NK_PRIO_LOWEST		 255
 #define NK_PRIO_HIGHEST		 0
 
-#define NK_PRIO_SEC_SLEEP	 NK_PRIO_LOWEST
+#define NK_PRIO_SEC_SLEEP	 (NK_PRIO_LOWEST + 2)
 #define NK_PRIO_SEC_IDLE	 (NK_PRIO_SEC_SLEEP - 1)
 #define NK_PRIO_PRIM_SLEEP	 (NK_PRIO_SEC_IDLE - 1)
 #define NK_PRIO_PRIM_IDLE	 (NK_PRIO_PRIM_SLEEP - 1)

@@ -2,6 +2,7 @@
  *  arch/arm/include/asm/ptrace.h
  *
  *  Copyright (C) 1996-2003 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -128,12 +129,11 @@ struct pt_regs {
 
 #ifdef __KERNEL__
 
+#define arch_has_single_step()	(1)
+
 #ifdef CONFIG_NKERNEL
 #include <asm/nkern.h>
 #endif
-
-
-#define arch_has_single_step()	(1)
 
 #define user_mode(regs)	\
 	(((regs)->ARM_cpsr & 0xf) == 0)

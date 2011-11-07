@@ -2,6 +2,7 @@
  *  linux/fs/nfs/dir.c
  *
  *  Copyright (C) 1992  Rick Sladkey
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  nfs directory handling functions
  *

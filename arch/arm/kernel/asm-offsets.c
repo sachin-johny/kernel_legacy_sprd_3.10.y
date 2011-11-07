@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1995-2003 Russell King
  *               2001-2002 Keith Owens
- *     
+ * Copyright (C) 2011, Red Bend Ltd.
+ *
  * Generate definitions needed by assembly language modules.
  * This code generates raw asm output which is post-processed to extract
  * and format the required data.
@@ -117,12 +118,12 @@ int main(void)
 #ifdef MULTI_PABORT
   DEFINE(PROCESSOR_PABT_FUNC,	offsetof(struct processor, _prefetch_abort));
 #endif
-  BLANK();
   DEFINE(DMA_BIDIRECTIONAL,	DMA_BIDIRECTIONAL);
   DEFINE(DMA_TO_DEVICE,		DMA_TO_DEVICE);
   DEFINE(DMA_FROM_DEVICE,	DMA_FROM_DEVICE);
 
 #ifdef CONFIG_NKERNEL
+  BLANK();
   DEFINE(ctx_arch_id_off,	offsetof(NkOsCtx, arch_id));
   DEFINE(ctx_pending_off,	offsetof(NkOsCtx, pending));
   DEFINE(ctx_enabled_off,	offsetof(NkOsCtx, enabled));
@@ -131,6 +132,7 @@ int main(void)
   DEFINE(ctx_vfp_owned_off,	offsetof(NkOsCtx, vfp_owned));
   DEFINE(ctx_vfp_get,		offsetof(NkOsCtx, vfp_get));
 #ifdef CONFIG_SMP
+  BLANK();
   DEFINE(ctx_vcpuid_off,	offsetof(NkOsCtx, vcpuid));
   DEFINE(ctx_current_vcpu_off,	offsetof(NkOsCtx, current_vcpu));
   DEFINE(ctx_sp_irq_off,	offsetof(NkOsCtx, sp_irq));
@@ -140,7 +142,6 @@ int main(void)
   DEFINE(ctx_smp_yield_off,	offsetof(NkOsCtx, smp_yield));
 #endif
 #endif
-
 
   return 0; 
 }

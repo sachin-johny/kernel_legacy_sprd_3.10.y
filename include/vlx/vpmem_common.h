@@ -7,6 +7,7 @@
  *
  *  Contributor(s):
  *   Christophe Lizzi (Christophe.Lizzi@virtuallogix.com)
+ *   Vladimir Grouzdev (Vladimir.Grouzdev@virtuallogix.com)
  *
  ****************************************************************
  */
@@ -23,6 +24,19 @@
 #include <nk/nkdev.h>
 #include <nk/nk.h>
 
+#define VPMEM_DEFAULT_SIZE   (1024*1024)
+
+#define VPMEM_VLINK_NAME     "vpmem"
+
+#ifndef VPMEM_DRV_NAME
+#define VPMEM_DRV_NAME       "vpmem"
+#endif
+
+typedef struct vpmem_shdev_t {	// shared vpmem device
+    nku32_f base;		// vpmem physical base address
+    nku32_f size;		// vpmem size 
+} vpmem_shdev_t;
+
 typedef struct vpmem_dev {
     unsigned int                      id;
     NkPhAddr                          plink;
@@ -32,41 +46,59 @@ typedef struct vpmem_dev {
     unsigned int                      pmem_size;
     NkPhAddr                          pmem_phys;
     unsigned char*                    pmem_base;
+    struct vpmem_dev*                 next;
 
-#ifdef CONFIG_VPMEM_FRONTEND
+#if defined CONFIG_VPMEM_FRONTEND || defined CONFIG_VPMEM_FRONTEND_MODULE
     struct platform_device            plat_dev;
     struct android_pmem_platform_data plat_data;
 #endif
 
 } vpmem_dev_t;
 
-#define VPMEM_DEV_MAX        16
-
-#define VPMEM_DEFAULT_SIZE   (1024*1024)
-
-#define VPMEM_VLINK_NAME     "vpmem"
-
-#ifndef VPMEM_DRV_NAME
-#define VPMEM_DRV_NAME       "vpmem"
-#endif
-
 #ifdef VPMEM_DEBUG
-#define DTRACE(fmt, args...)    printk(VPMEM_DRV_NAME ": %s: " fmt, __func__, ## args)
+#define DTRACE(fmt, args...)    \
+	printk(VPMEM_DRV_NAME ": %s: " fmt, __func__, ## args)
 #else
-#define DTRACE(fmt, args...)    do {} while (0)
+#define DTRACE(fmt, args...)    \
+	do {} while (0)
 #endif
 
-#define DTRACE1(fmt, args...)   printk(VPMEM_DRV_NAME ": %s: " fmt, __func__, ## args) // always enabled
-#define DTRACE0(fmt, args...)   do {} while (0)                                        // always disabled
+        // always enabled
+#define DTRACE1(fmt, args...)   \
+	printk(VPMEM_DRV_NAME ": %s: " fmt, __func__, ## args)
 
-#define ETRACE(fmt, args...)    printk(VPMEM_DRV_NAME ": ERROR: %s: " fmt, __func__, ## args)
+        // always disabled
+#define DTRACE0(fmt, args...)   \
+	do {} while (0)
 
-int          __init vpmem_module_init (int is_client);
-int          __init vpmem_dev_init    (vpmem_dev_t* vpmem);
-int          __init vpmem_info_name   (char* info, char* name, int maxlen);
-unsigned int __init vpmem_info_size   (char* info);
+#define ETRACE(fmt, args...)    \
+	printk(VPMEM_DRV_NAME ": ERROR: %s: " fmt, __func__, ## args)
 
-void         __exit vpmem_module_exit (void);
-int          __exit vpmem_dev_exit    (vpmem_dev_t* vpmem);
+    typedef int
+vpmem_dev_init_t (vpmem_dev_t* vpmem);
+
+    typedef void
+vpmem_dev_exit_t (vpmem_dev_t* vpmem);
+
+    extern int
+vpmem_module_init (int is_client, vpmem_dev_init_t dev_init);
+
+    extern void
+vpmem_module_exit (vpmem_dev_exit_t dev_exit);
+
+    extern int
+vpmem_info_name (char* info, char* name, int maxlen);
+
+    extern unsigned int
+vpmem_info_size (char* info);
+
+    extern unsigned int
+vpmem_info_base (char* info);
+
+    extern unsigned int
+vpmem_info_id (char* info);
+
+    vpmem_dev_t*
+vpmem_dev_peer (vpmem_dev_t* vpmem);
 
 #endif // _VPMEM_COMMON_H_

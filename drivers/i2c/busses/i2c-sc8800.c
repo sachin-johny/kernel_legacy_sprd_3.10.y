@@ -33,6 +33,7 @@
 #include <linux/err.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/slab.h>
 
 #include <asm/irq.h>
 #include <asm/io.h>
@@ -243,7 +244,6 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 	sc8800_i2c_message_start(i2c, msgs);
 	
 	spin_unlock_irqrestore(&i2c->lock,flags);
-
 	//timeout = wait_event_timeout(i2c->wait, i2c->msg_num == 0, 1);	//10mSec
 	//if (i2c->msg_num != 0)
 	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ * 5);
@@ -264,6 +264,7 @@ static int sc8800_i2c_doxfer(struct sc8800_i2c *i2c, struct i2c_msg *msgs, int n
 	}
 
 	/* ensure the stop has been through the bus */
+
 	//msleep(5);
 
  out:    //kewang

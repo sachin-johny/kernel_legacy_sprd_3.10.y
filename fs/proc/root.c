@@ -2,6 +2,7 @@
  *  linux/fs/proc/root.c
  *
  *  Copyright (C) 1991, 1992 Linus Torvalds
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  proc root directory handling functions
  */
@@ -203,6 +204,7 @@ struct proc_dir_entry proc_root = {
 	.proc_fops	= &proc_root_operations,
 	.parent		= &proc_root,
 };
+EXPORT_SYMBOL(proc_root);
 
 int pid_ns_prepare_proc(struct pid_namespace *ns)
 {

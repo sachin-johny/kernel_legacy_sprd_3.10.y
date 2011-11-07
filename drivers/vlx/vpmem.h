@@ -16,7 +16,7 @@
 
 // vpmem API for use by the other virtual drivers
 
-typedef unsigned long vpmem_handle_t;
+typedef void* vpmem_handle_t;
 
 vpmem_handle_t vpmem_lookup (char* name);
 unsigned char* vpmem_map    (vpmem_handle_t handle);

@@ -9,7 +9,7 @@ obj-$(CONFIG_INPUT_VEVDEV_BE)	+= vevdev-be.o
 obj-$(CONFIG_INPUT_VEVDEV_FE)	+= vevdev-fe.o
 
 #VLX virtual lcd
-obj-$(CONFIG_FB_VLCD_BACKEND)     += vlcd-be.o
+obj-$(CONFIG_FB_VLCD_BACKEND)     += vlcd-be.o vlcd-vogl.o
 obj-$(CONFIG_FB_VLCD_FRONTEND)    += vlcd-fe.o
 
 #VLX virtual audio
@@ -20,6 +20,12 @@ obj-$(CONFIG_SND_VAUDIO_FE)	+= vaudio-fe.o
 obj-$(CONFIG_VVIDEO_BE)		+= vvideo-be.o
 obj-$(CONFIG_VVIDEO_BE_HW)	+= vvideo-be-hw.o
 obj-$(CONFIG_VVIDEO_FE)		+= vvideo-fe.o vvideo-util.o
+
+#VLX virtual Real Time Clock frontend
+obj-$(CONFIG_VRTC_FE)		+= vrtc-fe.o
+
+#VLX virtual Real Time Clock backend
+obj-$(CONFIG_VRTC_BE)		+= vrtc-be.o
 
 #VLX virtual watchdog
 obj-$(CONFIG_VWDT_FRONTEND)       += vwatchdog-sf.o
@@ -35,7 +41,8 @@ obj-$(CONFIG_VBD_FE)            += vlx-vbd-fe.o
 obj-$(CONFIG_VBD_BE)            += vlx-vbd-be.o
 
 #VLX virtual block device v.2
-obj-$(CONFIG_VBD2_FE)           += vlx-vbd2-fe.o
+obj-$(CONFIG_VBD2_FE)           += vlx-vbd2-fe.o vlx-vipc.o
+obj-$(CONFIG_VBD2_BE)           += vlx-vbd2-be.o
 
 #VLX virtual pipe
 obj-$(CONFIG_VPIPE)		+= vpipe.o
@@ -48,7 +55,7 @@ obj-$(CONFIG_VBPIPE)		+= vbpipe.o
 
 #VLX virtual memory technology device
 obj-$(CONFIG_VMQ)		+= vlx-vmq.o
-obj-$(CONFIG_VMTD_FE)		+= vmtd-fe.o
+obj-$(CONFIG_VMTD_FE)		+= vmtd-fe.o vlx-vipc.o
 obj-$(CONFIG_VMTD_BE)		+= vmtd-be.o
 
 #VLX VRPC communication
@@ -75,6 +82,18 @@ obj-$(CONFIG_VBLITTER_BACKEND)  += vblitter-be.o vblitter-soft.o
 #VLX virtual blitter frontend
 obj-$(CONFIG_VBLITTER_FRONTEND) += vblitter-fe.o
 
+#VLX VRPQ frontend driver
+obj-$(CONFIG_VRPQ_FE)  += vrpq-common.o vrpq-fe.o 
+
+#VLX VRPQ backend driver
+obj-$(CONFIG_VRPQ_BE)  += vrpq-common.o vrpq-be.o
+
+#VLX VOGL frontend driver
+obj-$(CONFIG_VOGL_FE)  += vlink-lib.o vogl-fe.o 
+
+#VLX VOGL backend driver
+obj-$(CONFIG_VOGL_BE)  += vlink-lib.o vogl-be.o
+
 #VLX virtual cross-interrupt benchmark driver
 obj-$(CONFIG_XIRQ_BENCH)	+= xirq-bench.o
 
@@ -84,4 +103,7 @@ obj-$(CONFIG_VLX_MONITORING) += perfmonitor.o
 
 #VLX Information
 obj-$(CONFIG_VINFO)		+= vinfo.o
+
+#VLX user mode virtual driver proxy driver
+obj-$(CONFIG_VLX_UMP)		+= vlx-ump.o
 

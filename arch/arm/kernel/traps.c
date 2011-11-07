@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1995-2009 Russell King
  *  Fragments that appear the same as linux/arch/i386/kernel/traps.c (C) Linus Torvalds
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -526,7 +527,8 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		thread->tp_value = regs->ARM_r0;
 #if defined(CONFIG_HAS_TLS_REG)
 		asm ("mcr p15, 0, %0, c13, c0, 3" : : "r" (regs->ARM_r0) );
-#elif !defined(CONFIG_TLS_REG_EMUL)
+//#elif !defined(CONFIG_TLS_REG_EMUL)
+#endif
 		/*
 		 * User space must never try to access this directly.
 		 * Expect your app to break eventually if you do so.
@@ -534,7 +536,7 @@ asmlinkage int arm_syscall(int no, struct pt_regs *regs)
 		 * (see entry-armv.S for details)
 		 */
 		*((unsigned int *)0xffff0ff0) = regs->ARM_r0;
-#endif
+//#endif
 		return 0;
 
 #ifdef CONFIG_NEEDS_SYSCALL_FOR_CMPXCHG
@@ -753,6 +755,7 @@ extern void vector_pabt(void);
 extern void vector_dabt(void);
 extern void vector_fiq(void);
 extern void vector_irq(void);
+extern void vector_iswi(void);
 
 #endif
 
@@ -782,9 +785,26 @@ void __init early_trap_init(void)
 	extern char __kuser_helper_start[], __kuser_helper_end[];
 	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
 
+	    /*
+	     * Normally both SWI and UNDEF vectors are initialized by
+	     * NK to the nk_panic entry point, except when the TLB
+	     * lockdown is disabled. In this mode, the same
+	     * (read-only) vectors page is shared by all physical processors
+	     * and therefore the SWI vector points to a NK internal
+	     * entry point. We use such heuristics in order to connect
+	     * the indirect SWI and prefetch abort vectors rather than the
+	     * direct ones.
+	     */
+	if (os_ctx->os_vectors[NK_SYSTEM_CALL_VECTOR/4] == 
+	    os_ctx->os_vectors[NK_UNDEF_INSTR_VECTOR/4]) {
+            os_ctx->os_vectors[NK_SYSTEM_CALL_VECTOR/4]    = vector_swi;
+            os_ctx->os_vectors[NK_PREFETCH_ABORT_VECTOR/4] = vector_pabt;
+	} else {
+            os_ctx->os_vectors[NK_ISWI_VECTOR/4]           = vector_iswi;
+            os_ctx->os_vectors[NK_IPABORT_VECTOR/4]        = vector_pabt;
+	}
+
 	os_ctx->os_vectors[NK_UNDEF_INSTR_VECTOR/4]    = vector_und;
-	os_ctx->os_vectors[NK_SYSTEM_CALL_VECTOR/4]    = vector_swi;
-	os_ctx->os_vectors[NK_PREFETCH_ABORT_VECTOR/4] = vector_pabt;
 	os_ctx->os_vectors[NK_DATA_ABORT_VECTOR/4]     = vector_dabt;
 	os_ctx->os_vectors[NK_FIQ_VECTOR/4]            = vector_fiq;
 	os_ctx->os_vectors[NK_IIRQ_VECTOR/4]           = vector_irq;

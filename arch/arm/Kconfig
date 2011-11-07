@@ -1,4 +1,19 @@
 #
+#  Copyright (C) 2011, Red Bend Ltd.
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License Version 2
+#  as published by the Free Software Foundation.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+#  You should have received a copy of the GNU General Public License Version 2
+#  along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+#
 # For a description of the syntax of this configuration file,
 # see Documentation/kbuild/kconfig-language.txt.
 #
@@ -13,6 +28,9 @@ config NKERNEL_DDI
 	bool "VLX virtual driver support"
 	default y
 
+config NKERNEL_DYNAMIC_GUEST_LOADING
+	bool "VLX dynamic guest loading support"
+	default n
 config TEXT_OFFSET
 	hex  "Text offset configuration"
 	default 0x00008000 
@@ -20,6 +38,7 @@ config TEXT_OFFSET
 config RELOCATABLE_KERNEL
 	bool "Build relocatable linux kernel"
 	default	y  if NKERNEL
+
 
 config ARM
 	bool
@@ -818,6 +837,7 @@ config ARCH_SC8800S
 	select GENERIC_TIME
 	select GENERIC_CLOCKEVENTS
 	select ARCH_REQUIRE_GPIOLIB
+        select COMMON_CLKDEV
 #	select HAVE_DYNAMIC_FTRACE
 #	select HAVE_FUNCTION_GRAPH_TRACER	
 	help
@@ -830,7 +850,7 @@ config ARCH_SC8800G
 	select GENERIC_TIME
 	select GENERIC_CLOCKEVENTS
 	select ARCH_REQUIRE_GPIOLIB
-    select COMMON_CLKDEV
+        select COMMON_CLKDEV
 #	select HAVE_DYNAMIC_FTRACE
 #	select HAVE_FUNCTION_GRAPH_TRACER	
 	help
@@ -917,6 +937,8 @@ source "arch/arm/mach-omap2/Kconfig"
 
 source "arch/arm/mach-orion5x/Kconfig"
 
+source "arch/arm/mach-osware/Kconfig"
+
 source "arch/arm/mach-pxa/Kconfig"
 source "arch/arm/plat-pxa/Kconfig"
 
@@ -969,7 +991,7 @@ source "arch/arm/mach-w90x900/Kconfig"
 
 #source "arch/arm/mach-bcmring/Kconfig"
 
-source "arch/arm/mach-osware/Kconfig"
+source "arch/arm/mach-sc8800s/Kconfig"
 
 source "arch/arm/mach-sc8800g/Kconfig"
 
@@ -992,6 +1014,9 @@ config PLAT_VERSATILE
 	bool
 
 config ARM_TIMER_SP804
+	bool
+
+config MACH_NE1TB
 	bool
 
 source arch/arm/mm/Kconfig
@@ -1128,7 +1153,7 @@ config ISA_DMA_API
 	bool
 
 config PCI
-	bool "PCI support" if ARCH_INTEGRATOR_AP || ARCH_VERSATILE_PB || ARCH_IXP4XX || ARCH_KS8695 || MACH_ARMCORE
+	bool "PCI support" if ARCH_INTEGRATOR_AP || ARCH_VERSATILE_PB || ARCH_IXP4XX || ARCH_KS8695 || MACH_ARMCORE || ARCH_NE1
 	help
 	  Find out whether you have a PCI motherboard. PCI is the name of a
 	  bus system, i.e. the way the CPU talks to the other stuff inside
@@ -1168,10 +1193,13 @@ config SMP
 	bool "Symmetric Multi-Processing (EXPERIMENTAL)"
 	depends on EXPERIMENTAL && (REALVIEW_EB_ARM11MP || REALVIEW_EB_A9MP ||\
 		 MACH_REALVIEW_PB11MP || MACH_REALVIEW_PBX || ARCH_OMAP4 ||\
-		 ARCH_U8500 || ARCH_VEXPRESS_CA9X4 || MACH_ARM_OSWARE)
+		 ARCH_U8500 || ARCH_VEXPRESS_CA9X4 ||\
+		 MACH_ARM_OSWARE || ARCH_NE1)
 	depends on GENERIC_CLOCKEVENTS
 	select USE_GENERIC_SMP_HELPERS
-	select HAVE_ARM_SCU if (ARCH_REALVIEW || ARCH_OMAP4 || ARCH_U8500 || ARCH_VEXPRESS_CA9X4) && !NKERNEL
+	select HAVE_ARM_SCU if (ARCH_REALVIEW || ARCH_OMAP4 ||\
+		ARCH_U8500 || ARCH_VEXPRESS_CA9X4) \
+		&& !NKERNEL
 	help
 	  This enables support for systems with more than one CPU. If you have
 	  a system with only one CPU, like most personal computers, say N. If
@@ -1241,9 +1269,11 @@ config LOCAL_TIMERS
 	bool "Use local timer interrupts"
 	depends on SMP && (REALVIEW_EB_ARM11MP || MACH_REALVIEW_PB11MP || \
 		REALVIEW_EB_A9MP || MACH_REALVIEW_PBX || ARCH_OMAP4 || \
-		ARCH_U8500 || MACH_ARM_OSWARE)
+		ARCH_U8500 || \
+		MACH_ARM_OSWARE || ARCH_NE1)
 	default y
-	select HAVE_ARM_TWD if (ARCH_REALVIEW || ARCH_OMAP4 || ARCH_U8500) && !NKERNEL
+	select HAVE_ARM_TWD if (ARCH_REALVIEW || ARCH_OMAP4 || ARCH_U8500) \
+		&& !NKERNEL
 	help
 	  Enable support for local timers on SMP platforms, rather then the
 	  legacy IPI broadcast method.  Local timers allows the system
@@ -1309,6 +1339,7 @@ config OABI_COMPAT
 
 config ARCH_HAS_HOLES_MEMORYMODEL
 	bool
+	default y if NKERNEL
 
 # Discontigmem is deprecated
 config ARCH_DISCONTIGMEM_ENABLE
@@ -1592,6 +1623,10 @@ config CPU_FREQ_SC8800S
 config CPU_FREQ_SC8800G
 	bool "CPUfreq support for Spreadtrum SC8800G CPUs"
 	depends on CPU_FREQ && ARCH_SC8800G
+
+config CPU_FREQ_SC8810
+	bool "CPUfreq support for Spreadtrum SC8810 CPUs"
+	depends on CPU_FREQ && ARCH_SC8810
 
 config CPU_FREQ_S3C64XX
 	bool "CPUfreq support for Samsung S3C64XX CPUs"

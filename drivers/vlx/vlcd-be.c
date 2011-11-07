@@ -21,8 +21,10 @@
 #define _VLCD_BACKEND_C_
 
 #include <linux/fb.h>
+#include <linux/slab.h>
 
 #include <vlx/vlcd_backend.h>
+#include "vlcd-vogl.h"
 
 /*----- Tracing -----*/
 
@@ -32,8 +34,10 @@
 
 #ifdef VLCD_DEBUG
 #define DTRACE(format, args...)	TRACE ("%s: " format, __func__, ## args)
+#define VLCD_ASSERT(c)		BUG_ON (!(c))
 #else
 #define DTRACE(format, args...)	do {} while(0)
+#define VLCD_ASSERT(c)
 #endif
 
 /*----- Driver -----*/
@@ -47,6 +51,17 @@ void vlcd_b_handshake(vlcd_b_driver_t* vlcd_drv,
 #define VLCD_FOR_ALL_FRONTEND_DEVICES(dev, drv) \
     for ((dev) = (drv)->frontend_device_list; (dev); \
 	 (dev) = (dev)->next_frontend_device)
+
+static vlcd_b_driver_t vlcd_b_driver;
+
+/*
+ * This mutex is used to synchronize the registration of the different frame
+ * buffer info structures. Three drivers (native, vlcd backend, vlcd frontend)
+ * register these structures from two threads (the init thread and the thread
+ * created by the vlcd frontend driver).
+ */
+DEFINE_MUTEX(vlcdMutex);
+EXPORT_SYMBOL(vlcdMutex);
 
 static int xirq_thread(void* cookie)
 {
@@ -129,6 +144,10 @@ void vlcd_evt_frontend_init(vlcd_b_driver_t* vlcd_drv,
 {
     NkDevVlcd* shared = fdev->common;
     if (fdev->state == VLCD_FSTATE_UNINITIALIZED) {
+	if (voglEnabled()) {
+	    voglUpdateFB(fdev);
+	}
+
         if (fdev->get_focus) {
             vlcd_drv->hw_ops[fdev->vlink->link]->set_dma_zone(vlcd_drv, fdev->vlink->link,
                             shared->current_conf.dma_zone_size,
@@ -325,8 +344,6 @@ int vlcd_create(vlcd_b_driver_t* vlcd_drv)
 	}
         if (vlink->s_id == my_os_id) {
 	    NkPhAddr data;
-	    vlcd_drv->hw_ops[vlink->link]  = vlcd_hw_ops[vlink->link];  /* might be NULL. */
-	    vlcd_drv->hw_data[vlink->link] = vlcd_hw_data[vlink->link];  /* might be NULL. */
 
             /* Allocate shared data if not already allocated. */
             data = nkops.nk_pdev_alloc(plink, 0, sizeof(NkDevVlcd));
@@ -391,6 +408,17 @@ int vlcd_create(vlcd_b_driver_t* vlcd_drv)
             } else {
                 fdev->get_focus = 0;
             }
+
+	    fdev->fbInfo       = NULL;
+	    fdev->fbRegistered = 0;
+	    if (voglEnabled() && vlcd_drv->hw_ops[vlink->link]) {
+		VLCD_ASSERT(vlcd_drv->hw_data[vlink->link]);
+		ret = voglInitFB(fdev);
+		if (ret) {
+		    voglCleanupFB(fdev);
+		}
+	    }
+
             /* Add in list. */
             if (last == NULL) {
                 vlcd_drv->frontend_device_list = fdev;
@@ -438,6 +466,9 @@ error0:
     fdev = vlcd_drv->frontend_device_list;
     while (fdev != NULL) {
         nkops.nk_xirq_detach(fdev->xid);
+	if (voglEnabled()) {
+	    voglCleanupFB(fdev);
+	}
         last = fdev->next_frontend_device;
         kfree(fdev);
         fdev = last;
@@ -460,6 +491,9 @@ void vlcd_release(vlcd_b_driver_t* vlcd_drv)
     while(fdev != NULL)
     {
         nkops.nk_xirq_detach(fdev->xid);
+	if (voglEnabled()) {
+	    voglCleanupFB(fdev);
+	}
         last = fdev->next_frontend_device;
         kfree(fdev);
         fdev = last;
@@ -467,13 +501,24 @@ void vlcd_release(vlcd_b_driver_t* vlcd_drv)
 }
 #endif
 
+    /*
+     * Called by the hw driver to retrieve driver specific information
+     */
+    void*
+vlcd_b_get_hw_data (nku8_f hw_device_id)
+{
+    return vlcd_b_driver.hw_data[hw_device_id];
+}
+
 /* Callback called by hw driver when init done */
 int vlcd_b_hw_initialized(void* hw_data, vlcd_hw_ops_t* hw_ops, nku8_f hw_device_id)
 {
-    NkOsId      my_os_id = nkops.nk_id_get();
-    NkPhAddr    plink;
-    NkDevVlink* vlink;
-    int         found_link = 0;
+    NkOsId                  my_os_id = nkops.nk_id_get();
+    NkPhAddr                plink;
+    NkDevVlink*             vlink;
+    int                     found_link = 0;
+    int                     ret;
+    vlcd_frontend_device_t* fdev;
 
     plink = 0;
     while ((plink = nkops.nk_vlink_lookup("vlcd", plink))) {
@@ -490,15 +535,32 @@ int vlcd_b_hw_initialized(void* hw_data, vlcd_hw_ops_t* hw_ops, nku8_f hw_device
 	EFTRACE ("no vlink for device %d\n", hw_device_id);
 	return -ENODEV;
     }
+    
+    vlcd_b_driver.hw_data[hw_device_id] = hw_data;
 
-    vlcd_hw_data[hw_device_id] = hw_data;
-    vlcd_hw_ops[hw_device_id]  = hw_ops;
+    if (voglEnabled()) {
+	hw_ops->get_possible_config(&vlcd_b_driver, hw_device_id,
+				    voglPConf[hw_device_id]);
+    }
 
     /* Continue all handshakes (if they are started) */
     if (vlcd_b_driver.state[hw_device_id] == VLCD_BSTATE_INITIALIZING) {
-        vlcd_b_driver.hw_ops[hw_device_id]  = hw_ops;
-        vlcd_b_driver.hw_data[hw_device_id] = hw_data;
+	if (voglEnabled()) {
+	    VLCD_FOR_ALL_FRONTEND_DEVICES (fdev, &vlcd_b_driver) {
+		if (fdev->vlink->link == hw_device_id) {
+		    ret = voglInitFB(fdev);
+		    if (ret) {
+			voglCleanupFB(fdev);
+		    }
+		}
+	    }
+	}
+
+	vlcd_b_driver.hw_ops[hw_device_id] = hw_ops;
+
         vlcd_b_handshakes(&vlcd_b_driver, hw_device_id);
+    } else {
+	vlcd_b_driver.hw_ops[hw_device_id] = hw_ops;
     }
     DTRACE ("done for device %d\n", hw_device_id);
     return 0;

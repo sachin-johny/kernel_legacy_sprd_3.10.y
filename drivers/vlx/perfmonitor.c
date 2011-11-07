@@ -953,7 +953,7 @@ typedef struct ProcData {
 
 static ProcData proc_data;
 
-static char* num_dir_names[32] = {
+static const char num_dir_names[32][3] = {
 "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
 "10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
 "20", "21", "22", "23", "24", "25", "26", "27", "28", "29",
@@ -979,27 +979,8 @@ _nk_proc_create (struct proc_dir_entry* parent,
 	return 0;
 }
 
-	static int
-_dir_match (struct proc_dir_entry* dir, char* name)
-{
-	int namelen = strlen(name);
-	if (!dir->low_ino) {
-		return 0;
-	}
-	if (dir->namelen != namelen) {
-		return 0;
-	}
-	return !memcmp(name, dir->name, namelen);
-}
-
-	static struct proc_dir_entry*
-_nk_proc_lookup (char* name, struct proc_dir_entry* dir)
-{
-	while (dir && !_dir_match(dir, name)) {
-		dir = dir->next;
-	}
-	return dir;
-}
+#define VLX_SERVICES_PROC_NK
+#include "vlx-services.c"
 
 /*
  * Create /proc/nk/cpu/#/pmon/... sub-tree
@@ -1013,7 +994,7 @@ _nk_perfmon_tree_create (struct proc_dir_entry* parent)
 		/*
 		 * Create /proc/nk/cpu directory
 		 */
-	if (!_nk_proc_lookup("cpu", parent->subdir)) {
+	if (!vlx_proc_dir_lookup (parent->subdir, "cpu")) {
 		proc_data.cpu = proc_mkdir("cpu", parent);
 		if (!proc_data.cpu) {
 			printk(ERR "proc_mkdir(/proc/nk/cpu) failed\n");
@@ -1022,7 +1003,8 @@ _nk_perfmon_tree_create (struct proc_dir_entry* parent)
 	}
 
 	for (cpu = 0 ; cpu < max_phys_cpus ; cpu++) {
-		if (_nk_proc_lookup(num_dir_names[cpu], proc_data.cpu->subdir)) {
+		if (vlx_proc_dir_lookup (proc_data.cpu->subdir,
+					 num_dir_names[cpu])) {
 			continue;        /* This cpu already exists ! */
 		}
 
@@ -1039,7 +1021,7 @@ _nk_perfmon_tree_create (struct proc_dir_entry* parent)
 		/*
 		 * Create /proc/nk/cpu/#/pmon directory
 		 */
-		if (!_nk_proc_lookup("pmon", proc_data.cpunum[cpu])) {
+		if (!vlx_proc_dir_lookup (proc_data.cpunum[cpu], "pmon")) {
 			proc_data.cpu_pmon[cpu] = proc_mkdir("pmon", proc_data.cpunum[cpu]);
 			if (!proc_data.cpu_pmon[cpu]) {
 				printk(ERR "proc_mkdir(/proc/nk/cpu/%d/pmon) failed\n", cpu);
@@ -1089,7 +1071,7 @@ _nk_perfmon_tree_remove (struct proc_dir_entry* parent)
 {
 	int cpu;
 
-	if (!_nk_proc_lookup("cpu", parent->subdir)) {
+	if (!vlx_proc_dir_lookup (parent->subdir, "cpu")) {
 		return;
 	}
 
@@ -1137,8 +1119,8 @@ _nk_perfmon_tree_remove (struct proc_dir_entry* parent)
 	static void
 _perfmon_module_exit (void)
 {
-	struct proc_dir_entry* nk;
-	nk = _nk_proc_lookup("nk", proc_root.subdir);
+	struct proc_dir_entry* nk = vlx_proc_nk_lookup();
+
 	if (nk) {
 		/*
 		* Try to remove all "pmon" entries
@@ -1174,13 +1156,12 @@ max_phys_cpus_get (void)
 	static int
 _perfmon_module_init (void)
 {
-	struct proc_dir_entry* nk;
+	struct proc_dir_entry* nk = vlx_proc_nk_lookup();
 
 	max_phys_cpus = max_phys_cpus_get();
 
 	//TRACE("MAX PHYS CPUS=%d", _max_phys_cpus);
 
-	nk = _nk_proc_lookup("nk", proc_root.subdir);
 	if (!nk) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,26)
 		nk = proc_mkdir("nk", &proc_root);

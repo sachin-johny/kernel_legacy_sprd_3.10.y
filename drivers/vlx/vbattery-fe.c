@@ -3,12 +3,13 @@
  *
  *  Component:	VirtualLogix VBattery Frontend Interface
  *
- *  Copyright (C) 2010, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2010-2011, VirtualLogix. All Rights Reserved.
  *
  *  Contributor(s):
  *    Emre Eraltan (emre.eraltan@virtuallogix.com)
  *    Vladimir Grouzdev <vladimir.grouzdev@virtuallogix.com>
  *    Adam Mirowski <adam.mirowski@virtuallogix.com>
+ *    Christophe Lizzi (christophe.lizzi@virtuallogix.com)
  *
  ****************************************************************
  */
@@ -68,9 +69,15 @@ typedef struct vbat_t {
     void*                   data;
     vrpc_size_t             msize;
     vbat_vprop_t*           vprops;
-    struct mutex            mutex;
+    struct mutex            prop_mutex;
+    struct mutex            call_mutex;
     struct delayed_work     work;
+    vbat_mode_t             poll;
+    NkXIrq                  cxirq;
+    NkXIrqId                cxid;
 } vbat_t;
+
+static void _vbat_ready (void* cookie);
 
 static unsigned int cache_time = 5000;
 module_param(cache_time, uint, 0644);
@@ -160,6 +167,9 @@ _vbat_call (vbat_t* vbat, const nku32_f cmd, const nku32_f arg)
     vbat_req_t*    req  = vbat->data;
     vrpc_size_t    size;
 
+    if (mutex_lock_interruptible(&vbat->call_mutex)) {
+	return 0;
+    }
     DFTRACE ("cmd %s arg %x\n", vbat_cmd_name [cmd], arg);
     for (;;) {
         req->cmd = cmd;
@@ -169,9 +179,35 @@ _vbat_call (vbat_t* vbat, const nku32_f cmd, const nku32_f arg)
 	    break;
 	}
 	vrpc_close(vrpc);
-	vrpc_client_open(vrpc, 0, 0);
+	if (vrpc_client_open(vrpc, 0, 0)) {
+	    BUG();
+	}
     }
+    mutex_unlock(&vbat->call_mutex);
     return size;
+}
+
+    /* Not exported */
+
+    static int
+_vbat_set_mode (vbat_t* vbat)
+{
+    vbat_res_t* res = vbat->data;
+    vrpc_size_t size;
+
+    TRACE("requesting %s mode\n", vbat->poll ? "polling" : "interrupt");
+    size = _vbat_call(vbat, VBAT_CMD_SET_MODE, (nku32_f) vbat->poll);
+    if (size != sizeof(vbat_res_t) ) {
+	return -EFAULT;
+    }
+    DTRACE("requested mode %u -> res %u, value %u\n",
+	   vbat->poll, res->res, res->value);
+    if (res->res) {
+	DTRACE ("%s mode not supported by the back-end\n",
+	  vbat->poll ? "polling" : "interrupt");
+	return res->res;
+    }
+    return 0;
 }
 
     /* Not exported */
@@ -317,7 +353,25 @@ _vbat_work (struct work_struct* work)
 
     DFTRACE("name %s\n", vbat->psy.name);
     power_supply_changed(&vbat->psy);
-    schedule_delayed_work(&vbat->work, VBAT_POLLING_PERIOD);
+	/*
+	 * When operating in polling mode, we have to periodically
+	 * ask the BE for power supply changes.
+	 */
+    if (vbat->poll != VBAT_MODE_INTR) {
+	schedule_delayed_work(&vbat->work, VBAT_POLLING_PERIOD);
+    }
+}
+
+    /* interrupt signalling a power supply change */
+
+    static void
+_vbat_cxirq_handler (void* cookie, NkXIrq xirq)
+{
+    vbat_t* vbat = (vbat_t*) cookie;
+
+    DTRACE("received 'power supply change' xirq from BE\n");
+    schedule_delayed_work(&vbat->work, 0);
+    (void) xirq;
 }
 
     /* Not exported */
@@ -326,8 +380,11 @@ _vbat_work (struct work_struct* work)
 _psy_prop_is_string (const enum power_supply_property property)
 {
     return (property == POWER_SUPPLY_PROP_MODEL_NAME) ||
-	   (property == POWER_SUPPLY_PROP_MANUFACTURER) ||
-	   (property == POWER_SUPPLY_PROP_SERIAL_NUMBER);
+	   (property == POWER_SUPPLY_PROP_MANUFACTURER)
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
+	   || (property == POWER_SUPPLY_PROP_SERIAL_NUMBER)
+#endif
+	   ;
 }
 
     /* Not exported */
@@ -383,9 +440,9 @@ _vbat_get_property (struct power_supply*		psy,
 {
     vbat_t* vbat = (vbat_t*)psy;
     int     res;
-    mutex_lock(&vbat->mutex);
+    mutex_lock(&vbat->prop_mutex);
     res = __vbat_get_property(vbat, property, val);
-    mutex_unlock(&vbat->mutex);
+    mutex_unlock(&vbat->prop_mutex);
 
     return res;
 }
@@ -453,7 +510,7 @@ _vbat_register (vbat_t* vbat)
 	res = _vbat_get_vprop_vid (vbat, i, &vproperty);
 	if (res) {
 	    ETRACE("unable to get the vproperty ID %d: %d\n", i, res);
-	    return res;
+	    continue;
 	}
 	property = vbat_vproperty2property (vproperty);
 	if ((int) property < 0) {
@@ -466,8 +523,7 @@ _vbat_register (vbat_t* vbat)
 		vbat_power_supply_property_name [vproperty], property);
 	psy->properties [psy->num_properties++] = property;
     }
-
-    mutex_init(&vbat->mutex);
+    mutex_init(&vbat->prop_mutex);
 
     INIT_DELAYED_WORK(&vbat->work, _vbat_work);
 
@@ -487,11 +543,21 @@ _vbat_register (vbat_t* vbat)
     vbat_device = vbat;
 #endif
 
-    schedule_delayed_work(&vbat->work, VBAT_POLLING_PERIOD);
-
+    if (_vbat_set_mode(vbat)) {
+	ETRACE("couldn't set mode %u; falling back to polling mode\n",
+	       vbat->poll);
+	vbat->poll = VBAT_MODE_POLL;
+    }
+    TRACE("operating in %s mode\n", vbat->poll ? "polling" : "interrupt");
+	/*
+	 * When operating in polling mode, we have to periodically
+	 * ask the BE for power supply changes.
+	 */
+    if (vbat->poll != VBAT_MODE_INTR) {
+	schedule_delayed_work(&vbat->work, VBAT_POLLING_PERIOD);
+    }
     TRACE("Virtual Power Supply Device: %s  Type: %d  Properties: %d\n",
 	  psy->name, psy->type, psy->num_properties);
-
     return 0;
 }
 
@@ -524,6 +590,25 @@ _vbat_ready (void* cookie)
 
     /* Not exported */
 
+    static void
+_vbat_info (vbat_t* vbat)
+{
+    const char* info = vrpc_info(vbat->vrpc);
+    if (info) {
+	if (strstr(info, "poll")) {
+	    vbat->poll = VBAT_MODE_POLL;
+	}
+	else
+	if (strstr(info, "intr")) {
+	    vbat->poll = VBAT_MODE_INTR;
+	}
+    }
+
+    DTRACE("info %s -> poll %u\n", info, vbat->poll);
+}
+
+    /* Not exported */
+
     static int
 #ifdef VBATTERY_PLATFORM_DEVICE
 _vbat_create (struct platform_device* pdev, struct vrpc_t* vrpc)
@@ -532,9 +617,12 @@ _vbat_create (struct vrpc_t* vrpc)
 #endif
 {
     vbat_t* vbat = kzalloc(sizeof(vbat_t), GFP_KERNEL);
+    int     res;
+
     if (!vbat) {
 	return -ENOMEM;
     }
+    mutex_init(&vbat->call_mutex);
 
 #ifdef VBATTERY_PLATFORM_DEVICE
     vbat->pdev  = pdev;
@@ -542,6 +630,7 @@ _vbat_create (struct vrpc_t* vrpc)
     vbat->vrpc  = vrpc;
     vbat->msize = vrpc_maxsize(vrpc);
     vbat->data  = vrpc_data(vrpc);
+    vbat->poll  = VBAT_MODE_POLL;
 
     if (vbat->msize < sizeof(vbat_req_t)) {
 	return -EINVAL;
@@ -549,8 +638,32 @@ _vbat_create (struct vrpc_t* vrpc)
     if (vbat->msize < sizeof(vbat_res_t)) {
 	return -EINVAL;
     }
+    res = vrpc_client_open(vrpc, _vbat_ready, vbat);
+    if (res) {
+	return res;
+    }
+    _vbat_info(vbat);
 
-    return vrpc_client_open(vrpc, _vbat_ready, vbat);
+    if (vbat->poll == VBAT_MODE_INTR) {
+	const NkPhAddr    plink = vrpc_plink(vbat->vrpc);
+	const NkDevVlink* vlink = vrpc_vlink(vbat->vrpc);
+	const NkOsId      c_id  = vlink->c_id;
+
+	vbat->cxirq = nkops.nk_pxirq_alloc(plink, VRPC_PXIRQ_BASE, c_id, 1);
+	if (vbat->cxirq == 0) {
+	    ETRACE("could not allocate cross interrupt; "
+		   "falling back to polling mode\n");
+	    vbat->poll = VBAT_MODE_POLL;
+	}
+	vbat->cxid = nkops.nk_xirq_attach(vbat->cxirq,
+	  _vbat_cxirq_handler, vbat);
+	if (!vbat->cxid) {
+	    ETRACE("could not attach cross interrupt %d; "
+		   "falling back to polling mode\n", vbat->cxirq);
+	    vbat->poll = VBAT_MODE_POLL;
+	}
+    }
+    return 0;
 }
 
     /* Callback from Linux */
@@ -645,7 +758,13 @@ _vbat_exit (void)
 
 MODULE_DESCRIPTION("Virtual battery frontend driver on top of VLX");
 MODULE_AUTHOR("Vladimir Grouzdev <vladimir.grouzdev@vlx.com> - VirtualLogix");
+
+#ifdef MODULE
+    /* power_supply_unregister() is GPL */
+MODULE_LICENSE("GPL");
+#else
 MODULE_LICENSE("Proprietary");
+#endif
 
 module_init(_vbat_init);
 module_exit(_vbat_exit);

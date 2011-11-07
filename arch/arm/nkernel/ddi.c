@@ -1,22 +1,27 @@
 /*
  ****************************************************************
  *
- * Component = Nano-Kernel Device Driver Interface (NK DDI)
+ *  Component: VLX nano-kernel device driver interface (NK DDI)
  *
- * Copyright (C) 2002-2005 Jaluna SA.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
- * This program is free software;  you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
  *
- * #ident  "@(#)ddi.c 1.7     08/07/04 VirtualLogix"
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * Contributor(s):
- *	Vladimir Grouzdev <vladimir.grouzdev@jaluna.com>
- *	Guennadi Maslov <guennadi.maslov@jaluna.com>
- *      Chi Dat Truong <chidat.truong@jaluna.com>
- *      Eric Lescouet <eric@lescouet.org>
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ *  Contributor(s):
+ *    Vladimir Grouzdev (vladimir.grouzdev@redbend.com)
+ *    Guennadi Maslov (guennadi.maslov@redbend.com)
+ *    Chi Dat Truong (chidat.truong@redbend.com)
+ *    Eric Lescouet (eric.lescouet@redbend.com)
+ *    Adam Mirowski (adam.mirowski@redbend.com)
  *
  ****************************************************************
  */
@@ -27,15 +32,19 @@
  * ether primary or secondary role.
  */
 
-#include <linux/kernel.h>
-#include <linux/spinlock.h>
-#include <linux/module.h>
-#include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/interrupt.h>
+#include <linux/module.h>
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/kallsyms.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+
+#include <asm/pgtable-hwdef.h>
 #include <asm/bitops.h>
 
 #include <nk/nkern.h>
-
 #include <asm/nkern.h>
 
 #include <asm/page.h>
@@ -1332,6 +1341,9 @@ typedef struct XIrqWrapper {
     NkXIrq        xirq;
     NkXIrqHandler handler;
     void*         cookie;
+#ifdef CONFIG_KALLSYMS
+    char	  caller [KSYM_SYMBOL_LEN];
+#endif
 } XIrqWrapper;
 
     static irqreturn_t
@@ -1348,10 +1360,17 @@ xirq_handler (int irq, void* cookie)
 _nk_xirq_attach (NkXIrq        xirq,
 		 NkXIrqHandler hdl,
 		 void*         cookie,
-		 int           masked)
+		 int           masked
+#ifdef CONFIG_KALLSYMS
+		 , void*	       caller
+#endif
+		 )
 {
     XIrqWrapper* wrapper;
     int          res;
+#ifdef CONFIG_KALLSYMS
+    char*        wrapper_ptr;
+#endif
 
         /*
 	 * Check for a valid xirq number
@@ -1371,12 +1390,33 @@ _nk_xirq_attach (NkXIrq        xirq,
     wrapper->xirq    = xirq;
     wrapper->handler = hdl;
     wrapper->cookie  = cookie;
+#ifdef CONFIG_KALLSYMS
+	/*
+	 * The initialisation of wrapper->caller is theoretically
+	 * useless before calling sprint_symbol(), but failing to do
+	 * something useless like that before or after the call to
+	 * sprint_symbol() in kernel 2.6.32 running in VM3 leads to
+	 * a system-wide deadlock. Maybe the symbol search overflows
+	 * the stack? The first time we are called is from kernel_init().
+	 */
+    *wrapper->caller = '\0';
+    sprint_symbol (wrapper->caller, (unsigned long) caller);
+    wrapper_ptr = strchr(wrapper->caller, '/');
+    if (wrapper_ptr != NULL)
+        *wrapper_ptr = '\\';
+#endif
+
         /*
 	 * Wrap to Linux IRQ handling ...
 	 */
     res = request_irq(xirq, xirq_handler,
 		      (masked ? (IRQF_DISABLED | IRQF_SHARED) : IRQF_SHARED),
-		      "NK xirq", wrapper);
+#ifdef CONFIG_KALLSYMS
+		      wrapper->caller,
+#else
+		      "NK xirq",
+#endif
+		      wrapper);
     if (res) {
         printnk("xirq_attach: request_irq(%d) failed (%d)\n", xirq, res);
 	kfree(wrapper);
@@ -1396,7 +1436,11 @@ nk_xirq_attach (NkXIrq        xirq,
 		NkXIrqHandler hdl,
 		void*         cookie)
 {
-    return _nk_xirq_attach(xirq, hdl, cookie, 0);
+    return _nk_xirq_attach(xirq, hdl, cookie, 0
+#ifdef CONFIG_KALLSYMS
+			   , __builtin_return_address(0)
+#endif
+			   );
 }
 
     /*
@@ -1408,7 +1452,11 @@ nk_xirq_attach_masked (NkXIrq        xirq,
 		       NkXIrqHandler hdl,
 		       void*         cookie)
 {
-    return _nk_xirq_attach(xirq, hdl, cookie, 1);
+    return _nk_xirq_attach(xirq, hdl, cookie, 1
+#ifdef CONFIG_KALLSYMS
+			   , __builtin_return_address(0)
+#endif
+			   );
 }
 
 
@@ -1622,6 +1670,7 @@ nk_do_xirq (struct pt_regs* regs)
 	    break;
 	}
 
+#ifdef OLD
 	if (get_sys_cnt() > (120000)) {
 		/*
 		if (xirq > 36)  {
@@ -1633,6 +1682,7 @@ nk_do_xirq (struct pt_regs* regs)
 	}
 	interrupt_counter++;
 	inc_sprd_irq(xirq);
+#endif
 	nk_do_IRQ(xirq, regs);
     }
 

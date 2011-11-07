@@ -1477,8 +1477,8 @@ static void nkidle(void)
 		if (!raw_local_irq_pending()) {
 			val = os_ctx->idle(os_ctx);
 			if (0 == val) {
-				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND) && 
-					(!sprd_pm_suspend_canceled())) {
+#ifdef CONFIG_PM
+				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND)) {
 					sc8800g_enter_deepsleep(1);
 				}
 				else {
@@ -1489,6 +1489,7 @@ static void nkidle(void)
 				    delta = t1 - t0;
 				    idle_time += delta;
 				}
+#endif
 			}
 		}
 

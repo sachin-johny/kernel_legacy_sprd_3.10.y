@@ -1,20 +1,21 @@
 /*
  ****************************************************************
  *
- * Component = NKERNEL
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
- * Copyright (C) 2003, VirtualLogix. All Rights Reserved.
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
  *
- * Use of this product is contingent on the existence of an executed license
- * agreement between VirtualLogix or one of its sublicensee, and your
- * organization, which specifies this software's terms of use. This software
- * is here defined as VirtualLogix Intellectual Property for the purposes
- * of determining terms of use as defined within the license agreement.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  *
- * #ident  "@(#)bconf_f.h 1.3     07/02/01 VirtualLogix"
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
- * Contributor(s):
- *   Guennadi Maslov <guennadi.maslov@virtuallogix.com>
+ *  Contributor(s):
+ *    Guennadi Maslov (guennadi.maslov@redbend.com)
  *
  ****************************************************************
  */

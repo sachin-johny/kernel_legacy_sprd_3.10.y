@@ -924,6 +924,20 @@ config USB_ANDROID_RNDIS_WCEIS
          If you enable this option, the device is no longer CDC ethernet
          compatible.
 
+config USB_ANDROID_ACCESSORY
+	boolean "Android USB accessory function"
+	depends on USB_ANDROID
+	help
+	  Provides Android USB Accessory support for android gadget driver.
+
+config USB_ANDROID_MODEM
+	boolean "Android gadget MODEM function"
+	depends on USB_ANDROID
+	help
+	  Provides function for modem tools communicate with PC, this
+	  function handled by modem, and kernel ignore the interrupt for
+	  this function and endpoints.
+
 config USB_ANDROID_GSERIAL
 	boolean "Android gadget general serial function"
 	depends on USB_ANDROID

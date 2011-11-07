@@ -71,7 +71,9 @@ _vblitter_call (int cmd, vblit_blit_req_list_t* arg)
 	}
 
 	vrpc_close(vrpc);
-	vrpc_client_open(vrpc, 0, 0);
+	if (vrpc_client_open(vrpc, 0, 0)) {
+	    BUG();
+	}
     }
 
     return size;
@@ -321,8 +323,13 @@ _vblitter_exit (void)
 MODULE_DESCRIPTION("VLX virtual blitter frontend driver");
 MODULE_AUTHOR("Vladimir Grouzdev <vladimir.grouzdev@virtuallogix.com> - VirtualLogix");
 MODULE_AUTHOR("Christian Jacquemot <Christian.Jacquemot@virtuallogix.com> - VirtualLogix");
-MODULE_LICENSE("Proprietary");
 
+#ifdef MODULE
+    /* device_create() is GPL-only */
+MODULE_LICENSE("GPL");
+#else
+MODULE_LICENSE("Proprietary");
+#endif
 
 module_init(_vblitter_init);
 module_exit(_vblitter_exit);

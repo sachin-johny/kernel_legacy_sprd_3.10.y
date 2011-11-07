@@ -3,6 +3,7 @@
  *
  *	Authors:	Alan Cox <alan@lxorguk.ukuu.org.uk>
  *			Florian La Roche <rzsfl@rz.uni-sb.de>
+ *	Copyright (C) 2011, Red Bend Ltd.
  *
  *	Fixes:
  *		Alan Cox	:	Fixed the worst of the load

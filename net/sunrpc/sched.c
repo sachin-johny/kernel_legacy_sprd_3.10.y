@@ -7,6 +7,7 @@
  *
  * TCP NFS related read + write fixes
  * (C) 1999 Dave Airlie, University of Limerick, Ireland <airlied@linux.ie>
+ * Copyright (C) 2011, Red Bend Ltd.
  */
 
 #include <linux/module.h>

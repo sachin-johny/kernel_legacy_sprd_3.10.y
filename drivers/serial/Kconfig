@@ -1432,6 +1432,31 @@ config SERIAL_BFIN_SPORT
 	  To compile this driver as a module, choose M here: the
 	  module will be called bfin_sport_uart.
 
+config SERIAL_SPRD
+	bool "Spreadtrum on-chip serial port support"
+	depends on ARM && ( ARCH_SC8800S || ARCH_SC8800G )
+	select SERIAL_CORE
+
+config SERIAL_SPRD_CONSOLE
+	bool "Spreadtrum serial console support"
+	depends on SERIAL_SPRD=y
+	select SERIAL_CORE_CONSOLE
+
+config TS0710_MUX_UART 
+	bool "Spreadtrum CMUX driver switch"
+	depends on SERIAL_SPRD
+    default n
+
+config SERIAL_SPRD_CONSOLE
+	bool "Spreadtrum serial console support"
+	depends on SERIAL_SC8810=y
+	select SERIAL_CORE_CONSOLE
+
+config TS0710_MUX_UART 
+	bool "Spreadtrum CMUX driver switch"
+	depends on SERIAL_SC8810
+    default n
+
 config SERIAL_BFIN_SPORT_CONSOLE
 	bool "Console on Blackfin sport emulated uart"
 	depends on SERIAL_BFIN_SPORT=y

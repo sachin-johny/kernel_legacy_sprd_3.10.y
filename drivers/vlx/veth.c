@@ -1,16 +1,26 @@
 /*
  ****************************************************************
  *
- *  Component:  VirtualLogix VLX Virtual Ethernet
+ *  Component: VLX virtual ethernet driver
  *
- *  Copyright (C) 2008, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
  *  Contributor(s):
- *    Christophe Augier (christophe.augier@virtuallogix.com)
- *    Pascal Piovesan   (pascal.piovesan@virtuallogix.com)
+ *    Christophe Augier (christophe.augier@redbend.com)
+ *    Pascal Piovesan (pascal.piovesan@redbend.com)
+ *    Adam Mirowski (adam.mirowski@redbend.com)
  *
- ****************************************************************
- * #ident  "@(#)veth.c 1.2     09/03/17 VirtualLogix"
  ****************************************************************
  */
 
@@ -96,7 +106,7 @@ typedef struct VEthSlotDesc {
 #define PMEM_SIZE	    (RING_DESC_SIZE + DESC_SIZE + DATA_SIZE)
 
 # define RING_P_ROOM(rng)     (RING_SIZE - ((rng)->p_idx - (rng)->freed_idx))
-# define RING_IS_FULL(rng)    (((rng)->p_idx - (rng)->freed_idx) == RING_SIZE)
+# define RING_IS_FULL(rng)    (((rng)->p_idx - (rng)->freed_idx) >= RING_SIZE)
 # define RING_IS_EMPTY(rng)   ((rng)->p_idx == (rng)->freed_idx)
 
 #define RING_C_ROOM(rng)     ((rng)->p_idx - (rng)->c_idx)
@@ -121,9 +131,8 @@ static inline void ring_push_data(VEthRingDesc *ring, nku8_f* src, unsigned int 
     VETH_DBG("ring_push_data: %08x -> %08x\n",
               (unsigned int)src, (unsigned int)sd->data);
     memcpy(sd->data + SLOT_HLEN_PAD, src, len);
-    
+
     ring->p_idx++;
-   
 }
 
 static inline unsigned int ring_pull_data(VEthRingDesc *ring, nku8_f* dst)
@@ -147,7 +156,6 @@ static inline unsigned int ring_pull_data(VEthRingDesc *ring, nku8_f* dst)
     ring->c_idx++;
     ring->freed_idx++;
 
-  
     return len;
 }
 
@@ -332,27 +340,29 @@ static void veth_set_multicast_list (struct net_device *dev)
  * and when the last skb referencing this buffer is freed, we can free the buffer
  */
 
-static void veth_free_skb(struct skb_shared_info *shinfo, void* cookie)
+static void veth_free_buffer(void* data, VEthLink* link)
 {
-    VEthLink*     link;
     VEthSlotDesc* sd;
-    VEthRingDesc *rx_ring;
+    VEthRingDesc* rx_ring = link->rx_ring;
     nku8_f* 	  sptr;
 
-    link    = (VEthLink*)cookie;
-    rx_ring = link->rx_ring;
     VETH_DBG("veth_free_skb %d %d %d\n",
               rx_ring->p_idx, rx_ring->freed_idx, rx_ring->stopped);
 
     sptr  = ((nku8_f*) rx_ring) + RING_DESC_SIZE;
     sptr += (rx_ring->freed_idx & (RING_INDEX_MASK)) * SLOT_DESC_SIZE;
     sd = (VEthSlotDesc*) sptr;
-    sd->data = skb_shinfo_to_head(shinfo);
+    sd->data = data;
 
     rx_ring->freed_idx++;
     if (rx_ring->stopped) {
         nkops.nk_xirq_trigger(link->peer.tx_ready_xirq, link->peer.osid);
     }
+}
+
+static void veth_free_skb(struct skb_shared_info *shinfo, void* cookie)
+{
+    veth_free_buffer (skb_shinfo_to_head(shinfo), cookie);
 }
 
 /*
@@ -370,12 +380,11 @@ static inline struct sk_buff * veth_alloc_skb(VEthLink * link)
     int tmp;
 
     skb = ___alloc_skb(GFP_ATOMIC, -1);
+    if (!skb)
+            goto out;
 
     memset(skb, 0, offsetof(struct sk_buff, tail));
     atomic_set(&skb->users, 1);
-
-    if (!skb)
-            goto out;
 
     tmp = link->rx_ring->p_idx - link->rx_ring->c_idx;
     BUG_ON( (tmp < 0) || tmp > RING_SIZE );
@@ -451,9 +460,23 @@ static void veth_rx_hdl(void* cookie, NkXIrq xirq)
 
 #ifdef CONFIG_SKB_DESTRUCTOR
 	skb  = veth_alloc_skb(link);
+	if (!skb) {
+	    nku8_f* src = (nku8_f*) rx_ring + RING_DESC_SIZE;
+
+	    src += (rx_ring->c_idx & (RING_INDEX_MASK)) * SLOT_DESC_SIZE;
+	    rx_ring->c_idx++;
+	    veth_free_buffer (src, link);
+	    veth->stats.rx_dropped++;
+	    continue;
+	}
 #else
-	skb  = dev_alloc_skb(ETH_FRAME_LEN + SLOT_HLEN_PAD); // over allocate (1514)
-    	skb_reserve(skb, SLOT_HLEN_PAD);
+	skb  = dev_alloc_skb(ETH_FRAME_LEN); // over allocate (1514)
+	if (!skb) {
+	    rx_ring->c_idx++;
+	    rx_ring->freed_idx++;
+	    veth->stats.rx_dropped++;
+	    continue;
+	}
 	len = ring_pull_data(rx_ring, skb->data);
 	skb_put(skb, len);
 #endif
@@ -909,6 +932,10 @@ veth_dev_init(VEth* vethdev, NkDevVlink* rx_link, NkDevVlink* tx_link)
     return 0;
 }
 
+#ifndef SET_MODULE_OWNER
+#define SET_MODULE_OWNER(dev) do { } while (0)
+#endif
+
 #ifdef HAVE_NET_DEVICE_OPS
 static const struct net_device_ops veth_netdev_ops = {
     .ndo_open			= veth_open,
@@ -945,6 +972,7 @@ static VEth* veth_dev_alloc(void)
     veth->link.enabled    = 0;
     veth->link.local.osid = nkops.nk_id_get();
 
+    SET_MODULE_OWNER(netdev);
 #ifdef HAVE_NET_DEVICE_OPS
     netdev->netdev_ops         = &veth_netdev_ops;
 #else
@@ -1119,9 +1147,9 @@ static void __exit veth_module_exit (void)
 }
 
 #ifdef MODULE
-MODULE_DESCRIPTION("VLX virtual Ethernet device driver 1.2");
-MODULE_AUTHOR("Christophe Augier <christophe.augier@virtuallogix.com> - VirtualLogix");
-MODULE_LICENSE("Proprietary");
+MODULE_DESCRIPTION("VLX virtual Ethernet device driver");
+MODULE_AUTHOR("Christophe Augier <christophe.augier@redbend.com>");
+MODULE_LICENSE("GPL");
 #endif
 
 module_init(veth_module_init);

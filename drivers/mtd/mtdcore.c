@@ -311,60 +311,71 @@ int add_mtd_device(struct mtd_info *mtd)
 	if (error)
 		goto fail_locked;
 
-	mtd->index = i;
-	mtd->usecount = 0;
+	for (i=0; i < MAX_MTD_DEVICES; i++)
+		if (!mtd_table[i]) {
+			struct mtd_notifier *not;
 
-	if (is_power_of_2(mtd->erasesize))
-		mtd->erasesize_shift = ffs(mtd->erasesize) - 1;
-	else
-		mtd->erasesize_shift = 0;
+			mtd_table[i] = mtd;
+			mtd->index = i;
+			mtd->usecount = 0;
 
-	if (is_power_of_2(mtd->writesize))
-		mtd->writesize_shift = ffs(mtd->writesize) - 1;
-	else
-		mtd->writesize_shift = 0;
+			if (is_power_of_2(mtd->erasesize))
+				mtd->erasesize_shift = ffs(mtd->erasesize) - 1;
+			else
+				mtd->erasesize_shift = 0;
 
-	mtd->erasesize_mask = (1 << mtd->erasesize_shift) - 1;
-	mtd->writesize_mask = (1 << mtd->writesize_shift) - 1;
+			if (is_power_of_2(mtd->writesize))
+				mtd->writesize_shift = ffs(mtd->writesize) - 1;
+			else
+				mtd->writesize_shift = 0;
 
-	/* Some chips always power up locked. Unlock them now */
-	if ((mtd->flags & MTD_WRITEABLE)
-	    && (mtd->flags & MTD_POWERUP_LOCK) && mtd->unlock) {
-		if (mtd->unlock(mtd, 0, mtd->size))
-			printk(KERN_WARNING
-			       "%s: unlock failed, writes may not work\n",
-			       mtd->name);
-	}
+			mtd->erasesize_mask = (1 << mtd->erasesize_shift) - 1;
+			mtd->writesize_mask = (1 << mtd->writesize_shift) - 1;
 
-	/* Caller should have set dev.parent to match the
-	 * physical device.
-	 */
-	mtd->dev.type = &mtd_devtype;
-	mtd->dev.class = &mtd_class;
-	mtd->dev.devt = MTD_DEVT(i);
-	dev_set_name(&mtd->dev, "mtd%d", i);
-	dev_set_drvdata(&mtd->dev, mtd);
-	if (device_register(&mtd->dev) != 0)
-		goto fail_added;
+			/* Some chips always power up locked. Unlock them now */
+			if ((mtd->flags & MTD_WRITEABLE)
+	    		&& (mtd->flags & MTD_POWERUP_LOCK) && mtd->unlock) {
+				if (mtd->unlock(mtd, 0, mtd->size))
+					printk(KERN_WARNING
+					       "%s: unlock failed, "
+					       "writes may not work\n",
+					       mtd->name);
 
-	if (MTD_DEVT(i))
-		device_create(&mtd_class, mtd->dev.parent,
-			      MTD_DEVT(i) + 1,
-			      NULL, "mtd%dro", i);
+			}
 
-	DEBUG(0, "mtd: Giving out device %d to %s\n", i, mtd->name);
-	/* No need to get a refcount on the module containing
-	   the notifier, since we hold the mtd_table_mutex */
-	list_for_each_entry(not, &mtd_notifiers, list)
-		not->add(mtd);
+			/* Caller should have set dev.parent to match the
+	 		 * physical device.
+			 */
+			mtd->dev.type = &mtd_devtype;
+			mtd->dev.class = &mtd_class;
+			mtd->dev.devt = MTD_DEVT(i);
+			dev_set_name(&mtd->dev, "mtd%d", i);
+			dev_set_drvdata(&mtd->dev, mtd);
+			if (device_register(&mtd->dev) != 0) {
+				//goto fail_added;
+				mtd_table[i] = NULL;
+				break;
+			}
 
-	mutex_unlock(&mtd_table_mutex);
-	/* We _know_ we aren't being removed, because
-	   our caller is still holding us here. So none
-	   of this try_ nonsense, and no bitching about it
-	   either. :) */
-	__module_get(THIS_MODULE);
-	return 0;
+			if (MTD_DEVT(i))
+				device_create(&mtd_class, mtd->dev.parent,
+			      		MTD_DEVT(i) + 1,
+			      		NULL, "mtd%dro", i);
+
+			DEBUG(0, "mtd: Giving out device %d to %s\n", i, mtd->name);
+			/* No need to get a refcount on the module containing
+			   the notifier, since we hold the mtd_table_mutex */
+			list_for_each_entry(not, &mtd_notifiers, list)
+				not->add(mtd);
+
+			mutex_unlock(&mtd_table_mutex);
+			/* We _know_ we aren't being removed, because
+			   our caller is still holding us here. So none
+			   of this try_ nonsense, and no bitching about it
+			   either. :) */
+			__module_get(THIS_MODULE);
+			return 0;
+		}
 
 fail_added:
 	idr_remove(&mtd_idr, i);
@@ -650,6 +661,9 @@ static struct proc_dir_entry *proc_mtd;
 
 static inline int mtd_proc_info(char *buf, struct mtd_info *this)
 {
+	if (!this)
+		return 0;
+
 	return sprintf(buf, "mtd%d: %8.8llx %8.8x \"%s\"\n", this->index,
 		       (unsigned long long)this->size,
 		       this->erasesize, this->name);
@@ -670,29 +684,15 @@ struct mtd_part {
 static int mtd_read_proc (char *page, char **start, off_t off, int count,
 			  int *eof, void *data_unused)
 {
-	//struct mtd_info *mtd;
-	int len, l, i=0;
+	struct mtd_info *mtd;
+	int len, l;
         off_t   begin = 0;
-
-#ifdef CONFIG_MTD_NAND_SPRD
-	struct mtd_info *this = mtd_table[i];
-	struct mtd_part *part = PART(this);
-	struct mtd_info *master = part->master;
-	struct nand_chip *chipinfo = master->priv;
-#endif
 
 	mutex_lock(&mtd_table_mutex);
 
-#ifdef CONFIG_MTD_NAND_SPRD
-	len = sprintf(page, "%sdev:    size   erasesize  name\n", chipinfo->flashname);
-#else
 	len = sprintf(page, "dev:    size   erasesize  name\n");
-#endif
-	//mtd_for_each_device(mtd) {
-	for (i=0; i< MAX_MTD_DEVICES; i++) {
-	
-		//l = mtd_proc_info(page + len, mtd);
-		l = mtd_proc_info(page + len, i);
+	mtd_for_each_device(mtd) {
+		l = mtd_proc_info(page + len, mtd);
                 len += l;
                 if (len+begin > off+count)
                         goto done;

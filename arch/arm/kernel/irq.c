@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1992 Linus Torvalds
  *  Modifications for ARM processor Copyright (C) 1995-2000 Russell King.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  Support for Dynamic Tick Timer Copyright (C) 2004-2005 Nokia Corporation.
  *  Dynamic Tick Timer written by Tony Lindgren <tony@atomide.com> and

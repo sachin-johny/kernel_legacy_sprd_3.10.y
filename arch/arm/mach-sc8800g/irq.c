@@ -282,8 +282,6 @@ static struct irq_chip nk_sprd_muxed_ana_chip = {
 	.ack		= nk_sprd_ack_ana_irq,
 	.mask		= nk_sprd_mask_ana_irq,
 	.unmask		= nk_sprd_unmask_ana_irq,
-	//.disable	= nk_sprd_disable_ana_irq,
-	//.enable         = nk_sprd_enable_ana_irq,
         .startup        = nk_startup_irq,
         .shutdown       = nk_shutdown_irq,
 };
@@ -327,7 +325,5 @@ void __init sprd_init_irq(void)
 		set_irq_handler(n,handle_level_irq);
 	}
 #endif /* CONFIG_NKERNEL */
-
-	//set_irq_chained_handler(IRQ_ANA_INT, sprd_ana_demux_handler);
 
 }

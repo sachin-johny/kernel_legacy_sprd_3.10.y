@@ -7,6 +7,7 @@
  *
  *  Contributor(s):
  *   Christophe Lizzi (Christophe.Lizzi@virtuallogix.com)
+ *   Vladimir Grouzdev (Vladimir.Grouzdev@virtuallogix.com)
  *
  ****************************************************************
  */
@@ -15,76 +16,97 @@
 #include <linux/device.h>
 #include <linux/init.h>
 #include <linux/version.h>
+#include <linux/slab.h>
 
-#define VPMEM_DEBUG
+#undef VPMEM_DEBUG
 
 #define VPMEM_DRV_NAME "vpmem-be"
 
 #include "vlx/vpmem_common.h"
+#include "vpmem.h"
 
-
-    int __init
+    static int __init
 vpmem_dev_init (vpmem_dev_t* vpmem)
 {
-    vpmem->info = nkops.nk_ptov(vpmem->vlink->c_info);
+    NkPhAddr       pdev;
+    vpmem_shdev_t* shdev;
+    vpmem_dev_t*   peer;
+
+    pdev = nkops.nk_pdev_alloc(vpmem->plink, 0, sizeof(vpmem_shdev_t));
+    if (!pdev) {
+	ETRACE("vpmem %s: nk_pdev_alloc(%d) failed\n",
+	       vpmem->name, sizeof(vpmem_shdev_t));
+	return -ENOMEM;
+    }
+    shdev = (vpmem_shdev_t*)nkops.nk_ptov(pdev);
+
+    vpmem->info = nkops.nk_ptov(vpmem->vlink->s_info);
     if (!vpmem->info || !*vpmem->info) {
 	vpmem->info = "vpmem";
     }
 
     vpmem_info_name(vpmem->info, vpmem->name, sizeof(vpmem->name));
 
-    vpmem->pmem_size = vpmem_info_size(vpmem->info);
-    vpmem->pmem_phys = nkops.nk_pmem_alloc(vpmem->plink, 0, vpmem->pmem_size);
-    if (!vpmem->pmem_phys) {
-
-	ETRACE("vpmem id %u, name %s, nk_pmem_alloc(%d bytes) failed\n", vpmem->id, vpmem->name, vpmem->pmem_size);
-	return -ENOMEM;
+    peer = vpmem_dev_peer(vpmem);
+    if (peer) {
+	vpmem->pmem_phys = peer->pmem_phys;
+        vpmem->pmem_size = peer->pmem_size;
+    } else {
+        vpmem->pmem_size = vpmem_info_size(vpmem->info);
+        vpmem->pmem_phys = vpmem_info_base(vpmem->info);
+	if (!vpmem->pmem_phys) {
+            vpmem->pmem_phys = nkops.nk_pmem_alloc(vpmem->plink, 0,
+					           vpmem->pmem_size);
+	    if (!vpmem->pmem_phys) {
+	        ETRACE("vpmem %s: nk_pmem_alloc(%d bytes) failed\n",
+	               vpmem->name, vpmem->pmem_size);
+	        return -ENOMEM;
+	    }
+	}
     }
 
-    //vpmem->pmem_base = (char*)nkops.nk_mem_map(vpmem->pmem_phys, vpmem->pmem_size);
+    shdev->base = vpmem->pmem_phys;
+    shdev->size = vpmem->pmem_size;
 
-    DTRACE1("vpmem id %u, name %s, pmem size %u, phys addr [0x%lx -> 0x%lx] initialized\n",
-      vpmem->id, vpmem->name, vpmem->pmem_size,
-      (unsigned long)vpmem->pmem_phys, (unsigned long)vpmem->pmem_phys + vpmem->pmem_size);
+    vpmem->vlink->s_state = NK_DEV_VLINK_ON;
+
+    nkops.nk_xirq_trigger(NK_XIRQ_SYSCONF, vpmem->vlink->c_id);
+
+    DTRACE1("%s [0x%x..0x%x] initialized\n",
+	    vpmem->name, vpmem->pmem_phys,
+	    vpmem->pmem_phys + vpmem->pmem_size);
 
     return 0;
 }
 
-
-    int __exit
+    static void __exit
 vpmem_dev_exit (vpmem_dev_t* vpmem)
 {
-    DTRACE("removing vpmem id %u, name %s\n", vpmem->id, vpmem->name);
+    vpmem_unmap(vpmem);
 
-    if (vpmem->pmem_base && vpmem->pmem_phys) {
-	nkops.nk_mem_unmap(vpmem->pmem_base, vpmem->pmem_phys, vpmem->pmem_size);
-    }
+    DTRACE1("%s [0x%x..0x%x] removed\n",
+	    vpmem->name, vpmem->pmem_phys,
+	    vpmem->pmem_phys + vpmem->pmem_size);
 
-    DTRACE1("vpmem id %u, name %s, pmem size %u, phys addr [0x%lx -> 0x%lx] removed\n",
-      vpmem->id, vpmem->name, vpmem->pmem_size,
-      (unsigned long)vpmem->pmem_phys, (unsigned long)vpmem->pmem_phys + vpmem->pmem_size);
+    vpmem->vlink->s_state = NK_DEV_VLINK_OFF;
 
-    return 0;
+    nkops.nk_xirq_trigger(NK_XIRQ_SYSCONF, vpmem->vlink->c_id);
 }
-
 
     static int __init
 vpmem_init (void)
 {
-    return vpmem_module_init(0);
+    return vpmem_module_init(0, vpmem_dev_init);
 }
-
 
     static void __exit
 vpmem_exit (void)
 {
-    vpmem_module_exit();
+    vpmem_module_exit(vpmem_dev_exit);
 }
-
 
 module_init(vpmem_init);
 module_exit(vpmem_exit);
-
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("VLX virtual Android Physical Memory back-end");

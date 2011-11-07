@@ -101,13 +101,16 @@ _add_focus_key (char*              name,
 		NkOsId             id)
 {
     focus_key_t* key;
+    int          i;
 
     if (focus_key_free == focus_key_limit) {
 	return -ENOMEM;
     }
     key = focus_key_free++;
 
-    memcpy(key->name, name, len);
+    for (i = 0; i < len; i++) {
+	key->name[i] = ((name[i] == '~') ? ' ' : name[i]);
+    }
     key->name[len] = 0;
 
     key->code   = code;
@@ -172,6 +175,8 @@ focus_thread (void *param)
 		if (os_ctx->binfo(os_ctx, paddr) >= 0) {
 		    int* standby = (int*)(nkops.nk_ptov(vinfo.data));
 		    *standby = (*standby ? 0 : 1);
+		    printk("CPU%d is %s-line\n",
+			   vinfo.osid, (*standby ? "off" : "on"));
 		}
 		break;
 	    }
@@ -724,11 +729,15 @@ combined_connect (struct input_handler *handler, struct input_dev *dev,
 #endif
 	if (!combined_mode) {
 		// match vts device if device has ABS bits
-		int absbit_mask = (BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) | BIT_MASK(ABS_PRESSURE));
+		int absbit_mask0 = (BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) |
+				    BIT_MASK(ABS_PRESSURE));
+		int absbit_mask1 = (BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) |
+				    BIT_MASK(ABS_TOOL_WIDTH));
 		if (test_bit(EV_KEY, dev->evbit) && 
 		    test_bit(EV_ABS, dev->evbit) && 
-		    (dev->keybit[BIT_WORD(BTN_TOUCH)] & BIT_MASK(BTN_TOUCH)) && 
-		    (dev->absbit[0] & absbit_mask) == absbit_mask) {
+		    (dev->keybit[BIT_WORD(BTN_TOUCH)] & BIT_MASK(BTN_TOUCH)) &&
+		    (((dev->absbit[0] & absbit_mask0) == absbit_mask0) ||
+		     ((dev->absbit[0] & absbit_mask1) == absbit_mask1))) {
 			error = evdev_connect(handler, dev, id , VTS_NAME);
 			if (error != -ENODEV) {
 				printk(VLINK "vts_connect %s\n",kobject_name(&dev->dev.kobj));

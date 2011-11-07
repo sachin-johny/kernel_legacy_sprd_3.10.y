@@ -3,11 +3,12 @@
  *
  *  Component:	VirtualLogix VBattery Backend Interface
  *
- *  Copyright (C) 2010, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2010-2011, VirtualLogix. All Rights Reserved.
  *
  *  Contributor(s):
- *    Vladimir Grouzdev (vladimir.grouzdev@vlx.com)
- *    Adam Mirowski (adam.mirowski@vlx.com)
+ *    Vladimir Grouzdev (vladimir.grouzdev@virtuallogix.com)
+ *    Adam Mirowski (adam.mirowski@virtuallogix.com)
+ *    Christophe Lizzi (christophe.lizzi@virtuallogix.com)
  *
  ****************************************************************
  */
@@ -41,6 +42,8 @@ typedef struct vbat_t {
     struct vrpc_t*	 vrpc;	// RPC link
     void*                data;	// RPC data
     vrpc_size_t          msize;	// maximum data size
+    vbat_mode_t          poll;  // polling/interrupt mode
+    NkXIrq               cxirq; // server->client cross-irq
     struct vbat_t*       next;	// next battery
 } vbat_t;
 
@@ -51,6 +54,7 @@ static struct notifier_block _vbat_nblk;
 _vbat_lookup (struct power_supply* psy, struct vrpc_t* vrpc)
 {
     vbat_t* vbat = _vbats;
+
     while (vbat) {
 	if ((vbat->psy == psy) &&
 	    (vrpc_peer_id(vbat->vrpc) == vrpc_peer_id(vrpc))) {
@@ -81,6 +85,54 @@ _vbat_get_string (vbat_t* vbat, const char* s, vbat_res_t* res)
     ((char*) &res->value)[len] = 0;
 
     return (5 + len);
+}
+
+    static vrpc_size_t
+_vbat_set_mode (vbat_t* vbat, nku32_f arg, vbat_res_t* res)
+{
+    nku32_f err = 0;
+
+    DTRACE("current mode %u, set mode %u\n", vbat->poll, arg);
+
+    /*
+     * current mode + set mode -> new mode
+     * INTR           INTR        INTR
+     * INTR           POLL        POLL
+     * INTR           POLL_ONLY   POLL
+     * POLL           INTR        INTR
+     * POLL           POLL        POLL
+     * POLL           POLL_ONLY   POLL
+     * POLL_ONLY      INTR        POLL_ONLY + error
+     * POLL_ONLY      POLL        POLL_ONLY
+     * POLL_ONLY      POLL_ONLY   POLL_ONLY
+     */
+    switch (arg) {
+    case VBAT_MODE_POLL:
+    case VBAT_MODE_POLL_ONLY:
+	if (vbat->poll != VBAT_MODE_POLL_ONLY) {
+	    vbat->poll = VBAT_MODE_POLL;
+	}
+	break;
+
+    case VBAT_MODE_INTR:
+	if (vbat->poll != VBAT_MODE_POLL_ONLY) {
+	    vbat->poll = VBAT_MODE_INTR;
+	} else {
+	    err = -EIO;
+	}
+	break;
+
+    default:
+	err = -EINVAL;
+	break;
+    }
+
+    TRACE("operating in %s mode\n", vbat->poll ? "polling" : "interrupt");
+
+    /* Return current operation mode. */
+    res->res   = err;
+    res->value = (nku32_f) vbat->poll;
+    return sizeof(vbat_res_t);
 }
 
     static vrpc_size_t
@@ -189,14 +241,20 @@ _vbat_get_vprop_value (vbat_t* vbat,
     static vrpc_size_t
 _vbat_call (void* cookie, vrpc_size_t size)
 {
-    vbat_t*     vbat = cookie;
-    vbat_req_t* req  = vbat->data;
-    vbat_res_t* res  = vbat->data;
+    vbat_t*     vbat = (vbat_t*) cookie;
+    vbat_req_t* req  = (vbat_req_t*) vbat->data;
+    vbat_res_t* res  = (vbat_res_t*) vbat->data;
 
     if ((vbat->msize < sizeof(vbat_res_t)) || (size != sizeof(vbat_req_t))) {
 	return 0;
     }
+
+    DTRACE("received cmd %u, arg %u\n", req->cmd, req->arg);
+
     switch (req->cmd) {
+    case VBAT_CMD_SET_MODE:
+	return _vbat_set_mode (vbat, req->arg, res);
+
     case VBAT_CMD_GET_NAME:
 	return _vbat_get_name (vbat, res);
 
@@ -218,13 +276,34 @@ _vbat_call (void* cookie, vrpc_size_t size)
     return 0;
 }
 
+    static void
+_vbat_info (vbat_t* vbat)
+{
+    const char* info = vrpc_info(vbat->vrpc);
+    if (info) {
+	if (strstr(info, "poll_only")) {
+	    vbat->poll = VBAT_MODE_POLL_ONLY;
+	}
+	else
+	if (strstr(info, "poll")) {
+	    vbat->poll = VBAT_MODE_POLL;
+	}
+	else
+	if (strstr(info, "intr")) {
+	    vbat->poll = VBAT_MODE_INTR;
+	}
+    }
+
+    DTRACE("info %s -> poll %u\n", info, vbat->poll);
+}
+
     static int
 _vbat_create (struct power_supply* psy, struct vrpc_t* vrpc)
 {
     int     res;
     vbat_t* vbat;
 
-    vbat = kzalloc(sizeof(vbat_t), GFP_KERNEL);
+    vbat = (vbat_t*) kzalloc(sizeof(vbat_t), GFP_KERNEL);
     if (!vbat) {
 	ETRACE("memory allocation failed\n");
 	return 0;
@@ -235,6 +314,14 @@ _vbat_create (struct power_supply* psy, struct vrpc_t* vrpc)
     vbat->data  = vrpc_data(vrpc);
     vbat->msize = vrpc_maxsize(vrpc);
 
+    /*
+     * If the native battery monitor can not inform us of
+     * a power supply state change via _vbat_changed(),
+     * then vbat->poll should be set to VBAT_MODE_POLL_ONLY
+     * to ensure that interrupt mode can not be set by the FE.
+     */
+    vbat->poll  = VBAT_MODE_POLL;
+
     if ((vbat->msize < sizeof(vbat_req_t)) ||
         (vbat->msize < sizeof(vbat_res_t))) {
 	ETRACE("not enough VRPC shared memory -> %d\n", vbat->msize);
@@ -242,10 +329,26 @@ _vbat_create (struct power_supply* psy, struct vrpc_t* vrpc)
 	return 0;
     }
 
-    if ((res = vrpc_server_open(vrpc, _vbat_call, vbat, 0))) {
+    if ((res = vrpc_server_open(vrpc, _vbat_call, vbat, 0)) != 0) {
 	ETRACE("VRPC open failed -> %d\n", res);
 	kfree(vbat);
 	return 0;
+    }
+
+    _vbat_info(vbat);
+
+    if (vbat->poll != VBAT_MODE_POLL_ONLY) {
+
+	NkPhAddr    plink = vrpc_plink(vbat->vrpc);
+	NkDevVlink* vlink = vrpc_vlink(vbat->vrpc);
+	NkOsId      c_id  = vlink->c_id;
+
+	vbat->cxirq = nkops.nk_pxirq_alloc(plink, VRPC_PXIRQ_BASE, c_id, 1);
+	if (vbat->cxirq == 0) {
+	    ETRACE("could not allocate cross interrupt; "
+	      "falling back to polling mode\n");
+	    vbat->poll = VBAT_MODE_POLL_ONLY;
+	}
     }
 
     DTRACE("VBAT %s -> %d created\n", psy->name, vrpc_peer_id(vrpc));
@@ -277,7 +380,8 @@ _vbat_destroy (vbat_t* vbat)
 _vbat_setup (struct power_supply* psy)
 {
     struct vrpc_t* vrpc = 0;
-    while ((vrpc = vrpc_server_lookup(VBAT_VRPC_NAME, vrpc))) {
+
+    while ((vrpc = vrpc_server_lookup(VBAT_VRPC_NAME, vrpc)) != 0) {
 	if (_vbat_lookup(psy, vrpc)) {
 	    vrpc_release(vrpc);
 	} else {
@@ -288,15 +392,45 @@ _vbat_setup (struct power_supply* psy)
     }
 }
 
+    static void
+_vbat_changed (struct power_supply* psy)
+{
+   vbat_t* vbat = _vbats;
+
+    while (vbat) {
+	if (vbat->psy == psy) {
+
+	    DTRACE("psy '%s' changed, %ssending interrupt to FE\n",
+	      psy->name, vbat->poll ? "not " : "");
+	    /*
+	     * If the FE does not operate in polling mode, we have to post
+	     * an interrupt to explicitly inform it that the power supply
+	     * state has changed.
+	     */
+	    if (!vbat->poll) {
+		NkDevVlink* vlink = vrpc_vlink(vbat->vrpc);
+		nkops.nk_xirq_trigger(vbat->cxirq, vlink->c_id);
+	    }
+	}
+	vbat = vbat->next;
+    }
+}
+
     static int
 _vbat_notify (struct notifier_block* nblk,
 	      unsigned long          event,
 	      void*                  data)
 {
     struct power_supply* psy = data;
+
     if (psy->type == POWER_SUPPLY_TYPE_BATTERY) {
-	_vbat_setup(psy);
+	if (event == 0) {
+	    _vbat_setup(psy);
+	} else {
+	    _vbat_changed(psy);
+	}
     }
+
     return NOTIFY_DONE;
 }
 

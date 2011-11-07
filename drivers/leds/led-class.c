@@ -132,14 +132,12 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 {
 	led_cdev->dev = device_create(leds_class, parent, 0, led_cdev,
 				      "%s", led_cdev->name);
-	
 	if (IS_ERR(led_cdev->dev))
 		return PTR_ERR(led_cdev->dev);
 
 #ifdef CONFIG_LEDS_TRIGGERS
 	init_rwsem(&led_cdev->trigger_lock);
 #endif
-
 	/* add to the list of leds */
 	down_write(&leds_list_lock);
 	list_add_tail(&led_cdev->node, &leds_list);
@@ -149,10 +147,9 @@ int led_classdev_register(struct device *parent, struct led_classdev *led_cdev)
 		led_cdev->max_brightness = LED_FULL;
 
 	led_update_brightness(led_cdev);
-	
+
 #ifdef CONFIG_LEDS_TRIGGERS
 	led_trigger_set_default(led_cdev);
-	
 #endif
 
 	printk(KERN_DEBUG "Registered led device: %s\n",

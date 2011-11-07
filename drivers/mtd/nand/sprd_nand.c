@@ -72,6 +72,75 @@
 wait_queue_head_t	wait_queue;
 sprd_dma_ctrl ctrl;
 sprd_dma_desc dma_desc;
+static unsigned long nand_func_cfg8[] = {
+#ifdef CONFIG_ARCH_SC8800G
+	MFP_CFG_X(NFWPN, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFRB,  AF0, DS1, F_PULL_UP,   S_PULL_UP,   IO_Z),
+	MFP_CFG_X(NFCLE, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFALE, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFCEN, AF0, DS1, F_PULL_NONE, S_PULL_UP,   IO_Z),
+	MFP_CFG_X(NFWEN, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFREN, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD0,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD1,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD2,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD3,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD4,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD5,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD6,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD7,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+#endif
+#ifdef CONFIG_ARCH_SC8800S
+	MFP_CFG_X(NFWPN, AF0, DS3, PULL_NONE, IO_OE),
+	MFP_CFG_X(NFRB,  AF0, DS3, PULL_UP,   IO_Z),
+	MFP_CFG_X(NFCLE, AF0, DS3, PULL_NONE, IO_OE),
+	MFP_CFG_X(NFALE, AF0, DS3, PULL_NONE, IO_OE),
+	MFP_CFG_X(NFCEN, AF0, DS3, PULL_NONE, IO_OE),
+	MFP_CFG_X(NFWEN, AF0, DS3, PULL_NONE, IO_OE),
+	MFP_CFG_X(NFREN, AF0, DS3, PULL_NONE, IO_OE),
+	MFP_CFG_X(NFD0,  AF0, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(NFD1,  AF0, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(NFD2,  AF0, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(NFD3,  AF0, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(NFD4,  AF0, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(NFD5,  AF0, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(NFD6,  AF0, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(NFD7,  AF0, DS3, PULL_NONE, IO_IE),
+#endif
+};
+
+static unsigned long nand_func_cfg16[] = {
+#ifdef CONFIG_ARCH_SC8800G
+	MFP_CFG_X(NFD8,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD9,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD10,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD11,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD12,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD13,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD14,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+	MFP_CFG_X(NFD15,  AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_Z),
+#endif
+#ifdef CONFIG_ARCH_SC8800S
+	MFP_CFG_X(NFD8,  AF0, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(LCD_D9,  AF1, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(LCD_D10, AF1, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(LCD_D11, AF1, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(LCD_D12, AF1, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(LCD_D13, AF1, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(LCD_D14, AF1, DS3, PULL_NONE, IO_IE),
+	MFP_CFG_X(LCD_D15, AF1, DS3, PULL_NONE, IO_IE),
+#endif
+};
+
+static void sprd_config_nand_pins8(void)
+{
+	sprd_mfp_config(nand_func_cfg8, ARRAY_SIZE(nand_func_cfg8));	
+}
+
+static void sprd_config_nand_pins16(void)
+{
+	sprd_mfp_config(nand_func_cfg16, ARRAY_SIZE(nand_func_cfg16));
+}
 
 struct sprd_platform_nand {
 	/* timing information for nand flash controller */
@@ -472,7 +541,7 @@ static void sprd_nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 
 static uint8_t sprd_nand_read_byte(struct mtd_info *mtd)
 {
-	struct nand_chip *chip = mtd->priv;
+    struct nand_chip *chip = mtd->priv;
 
 	if (sprd_port_mode == OOBWORD_PORT)
 		chip->IO_ADDR_R = chip->IO_ADDR_W = NFC_SBUF;

@@ -297,6 +297,7 @@ static const struct rtc_class_ops sprd_rtc_ops = {
 //	.ioctl = sprd_rtc_ioctl,
 };
 
+
 static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
 	int err;

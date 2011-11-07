@@ -27,7 +27,7 @@
 #endif
 
 #if 0
-#undef VMQ_ODEBUG		/* Activates old/noisy debug traces */
+#define VMQ_ODEBUG		/* Activates old/noisy debug traces */
 #endif
 
 /*----- Local header files -----*/
@@ -36,10 +36,20 @@
 
 /*----- Tracing -----*/
 
+#define WTRACE(x...)	printk (KERN_WARNING "VMQ: " x)
+#define ETRACE(x...)	printk (KERN_ERR     "VMQ: " x)
+
 #ifdef VMQ_DEBUG
-#define DTRACE(x...)	do {printk ("(%d) %s: ", current->tgid, __func__);\
-			    printk (x);} while (0)
-#define VMQ_BUG_ON(x)	BUG_ON(x)
+#define DTRACE(_f, _a...) \
+	printk ("(%d) %s: " _f, current->tgid, __func__, ## _a)
+#define VMQ_BUG_ON(x) \
+	do { \
+	    if (x) { \
+		ETRACE ("Unexpected '%s' in %s in %s() line %d\n", \
+			#x, __FILE__, __func__, __LINE__); \
+		BUG(); \
+	    } \
+	} while (0)
 #else
 #define DTRACE(x...)
 #define VMQ_BUG_ON(x)
@@ -50,9 +60,6 @@
 #else
 #define OTRACE(x...)
 #endif
-
-#define WTRACE(x...)	printk (KERN_WARNING "VMQ: " x)
-#define ETRACE(x...)	printk (KERN_ERR "VMQ: " x)
 
 /*----- Locking -----*/
 
@@ -131,6 +138,7 @@ typedef struct {
     vmq_head	head;
     vmq_is	is [1] VMQ_ALIGN;
 	/* Short slots */
+	/* Possible padding */
 	/* Long slots */
 } vmq_pmem;
 
@@ -215,12 +223,17 @@ vmq_sysconf_trigger (NkOsId osid)
     nkops.nk_xirq_trigger (NK_XIRQ_SYSCONF, osid);
 }
 
+#define VLX_SERVICES_PROC_NK
+#include "vlx-services.c"
+
 /*----- Generic channel management -----*/
 
 typedef struct {
     NkXIrq		local_xirq;
+    unsigned		local_xirqs_received;
     NkXIrqId		xid;		/* Handler id */
     NkXIrq		peer_xirq;
+    unsigned		peer_xirqs_sent;
     NkDevVlink*		vlink;
     vmq_pmem*		pmem;
     NkPhAddr		paddr;
@@ -235,6 +248,7 @@ typedef struct {
     unsigned		ss_checked_out;
     unsigned		ls_checked_out;
     spinlock_t*		spinlock;
+    _Bool		need_flush;
 } vmq_xx;
 
     /* VMQ_LOCK must be taken on entry */
@@ -281,8 +295,9 @@ vmq_xx_return_msg_receive (vmq_xx* xx, void** msg,
 	    return -ESTALE;
 	}
 	*msg = VMQ_SHORT_SLOT (xx, ss_number);
-	OTRACE ("msg %p p_idx %d last_x_idx %d c_idx %d\n",
-		*msg, head->unsafe_p_idx, xx->last_x_idx, head->unsafe_c_idx);
+	OTRACE ("msg %p p_idx %d/%d last_x_idx %d c_idx %d/%d\n", *msg,
+		head->unsafe_p_idx, xx->safe_p_idx, xx->last_x_idx,
+		head->unsafe_c_idx, xx->safe_c_idx);
 	++xx->last_x_idx;
 	++xx->ss_checked_out;
 	VMQ_UNLOCK (xx->spinlock, flags);
@@ -310,10 +325,25 @@ vmq_xx_all_returned (vmq_xx* xx)
 
 static void vmq_xx_sysconf_notify (vmq_xx* xx);
 
+    static inline void
+vmq_xx_xirq_trigger_server (vmq_xx* xx)
+{
+    OTRACE ("xirq %d os %d\n", xx->peer_xirq, xx->vlink->s_id);
+    ++xx->peer_xirqs_sent;
+    nkops.nk_xirq_trigger (xx->peer_xirq, xx->vlink->s_id);
+}
+
+    static inline void
+vmq_xx_xirq_trigger_client (vmq_xx* xx)
+{
+    ++xx->peer_xirqs_sent;
+    nkops.nk_xirq_trigger (xx->peer_xirq, xx->vlink->c_id);
+}
+
     /* Only called by vmq_msg_send() */
 
     static void
-vmq_xx_msg_send (vmq_xx* xx, void* msg)
+vmq_xx_msg_send (vmq_xx* xx, void* msg, _Bool flush)
 {
     vmq_pmem*		xx_pmem = xx->pmem;
     const unsigned	ss_number = VMQ_SHORT_SLOT_NUM (xx, msg);
@@ -338,9 +368,26 @@ vmq_xx_msg_send (vmq_xx* xx, void* msg)
     if (vmq_xx_ring_is_full (xx)) {
 	xx_pmem->head.unsafe_stopped = 1;
     }
+    xx->need_flush = !flush;
     VMQ_UNLOCK (xx->spinlock, flags);
-    OTRACE ("xirq %d os %d\n", xx->peer_xirq, xx->vlink->s_id);
-    nkops.nk_xirq_trigger (xx->peer_xirq, xx->vlink->s_id);
+    if (flush) {
+	vmq_xx_xirq_trigger_server (xx);
+    }
+}
+
+    static inline void
+vmq_xx_msg_send_flush (vmq_xx* xx)
+{
+    _Bool		flush;
+    unsigned long	flags;
+
+    VMQ_LOCK (xx->spinlock, flags);
+    flush = xx->need_flush;
+    xx->need_flush = false;
+    VMQ_UNLOCK (xx->spinlock, flags);
+    if (flush) {
+	vmq_xx_xirq_trigger_server (xx);
+    }
 }
 
     /* Only called by vmq_msg_free() and vmq_msg_return() */
@@ -348,8 +395,8 @@ vmq_xx_msg_send (vmq_xx* xx, void* msg)
     static void
 vmq_xx_msg_free (vmq_xx* xx, void* msg, _Bool signal)
 {
-    vmq_pmem*		xx_pmem = xx->pmem;
-    vmq_head*		head	= &xx_pmem->head;
+    vmq_pmem*	xx_pmem = xx->pmem;
+    vmq_head*	head	= &xx_pmem->head;
 	/*
 	 *  Convert msg pointer to a ss_number
 	 *  and place it in index at slot head.c_idx.
@@ -358,8 +405,9 @@ vmq_xx_msg_free (vmq_xx* xx, void* msg, _Bool signal)
     unsigned long	flags;
 
     VMQ_BUG_ON (ss_number >= xx->config.msg_count);
-    OTRACE ("msg %p p_idx %d last_x_idx %d c_idx %d slot %d\n", msg,
-	    head->unsafe_p_idx, xx->last_x_idx, head->unsafe_c_idx, ss_number);
+    OTRACE ("msg %p p_idx %d/%d last_x_idx %d c_idx %d/%d slot %d\n", msg,
+	    head->unsafe_p_idx, xx->safe_p_idx, xx->last_x_idx,
+	    head->unsafe_c_idx, xx->safe_c_idx, ss_number);
     VMQ_LOCK (xx->spinlock, flags);
     --xx->ss_checked_out;
     if (xx->aborted) {
@@ -378,7 +426,7 @@ vmq_xx_msg_free (vmq_xx* xx, void* msg, _Bool signal)
 
 	/* Send tx xirq if producer ring was stopped (full) */
     if (head->unsafe_stopped || signal) {
-	nkops.nk_xirq_trigger (xx->peer_xirq, xx->vlink->c_id);
+	vmq_xx_xirq_trigger_client (xx);
     }
 }
 
@@ -409,8 +457,9 @@ vmq_xx_msg_receive (vmq_xx* xx, void** msg)
 	    return -ESTALE;
 	}
 	*msg = VMQ_SHORT_SLOT (xx, ss_number);
-	OTRACE ("msg %p p_idx %d last_x_idx %d c_idx %d\n",
-		*msg, head->unsafe_p_idx, xx->last_x_idx, head->unsafe_c_idx);
+	OTRACE ("msg %p p_idx %d/%d last_x_idx %d c_idx %d/%d\n", *msg,
+		head->unsafe_p_idx, xx->safe_p_idx, xx->last_x_idx,
+		head->unsafe_c_idx, xx->safe_c_idx);
 	++xx->last_x_idx;
 	++xx->ss_checked_out;
 	VMQ_UNLOCK (xx->spinlock, flags);
@@ -420,9 +469,23 @@ vmq_xx_msg_receive (vmq_xx* xx, void** msg)
 
 	/* Send tx xirq if producer ring was stopped (full) */
     if (head->unsafe_stopped) {
-	nkops.nk_xirq_trigger (xx->peer_xirq, xx->vlink->c_id);
+	vmq_xx_xirq_trigger_client (xx);
     }
     return -EAGAIN;
+}
+
+    static size_t
+vmq_xx_config_ss_total (const vmq_xx_config_t* config)
+{
+    unsigned ss_total = VMQ_SIZEOF_VMQ_PMEM +
+	config->msg_count * (sizeof (vmq_is) + config->msg_max);
+
+    if (config->data_max >= PAGE_SIZE && !(config->data_max % PAGE_SIZE)) {
+	DTRACE ("Rounding up ss_total from 0x%x to 0x%lx\n",
+		ss_total, VMQ_ROUNDUP (ss_total, PAGE_SIZE));
+	ss_total = VMQ_ROUNDUP (ss_total, PAGE_SIZE);
+    }
+    return ss_total;
 }
 
     static inline unsigned
@@ -434,9 +497,7 @@ vmq_xx_config_ls_total (const vmq_xx_config_t* config)
     static inline size_t
 vmq_xx_config_pmem_size (const vmq_xx_config_t* config)
 {
-    return VMQ_SIZEOF_VMQ_PMEM +
-	config->msg_count * (sizeof (vmq_is) + config->msg_max) +
-	vmq_xx_config_ls_total (config);
+    return vmq_xx_config_ss_total (config) + vmq_xx_config_ls_total (config);
 }
 
     static void
@@ -453,13 +514,11 @@ vmq_xx_finish (vmq_xx* xx)
     }
 }
 
-static void vmq_tx_hdl (void* cookie, NkXIrq xirq);
-static void vmq_rx_hdl (void* cookie, NkXIrq xirq);
-
     static signed
 vmq_xx_init (vmq_xx* xx, NkDevVlink* vlink, _Bool tx,
 	     const vmq_xx_config_t* config, spinlock_t* spinlock)
 {
+    size_t	pmem_size;
     signed	diag;
 
     xx->config = *config;
@@ -468,35 +527,50 @@ vmq_xx_init (vmq_xx* xx, NkDevVlink* vlink, _Bool tx,
     xx->spinlock = spinlock;
 
     if (config->msg_count <= 0 ||
-	(config->msg_count & (config->msg_count-1))) return -EINVAL;
-
+	    (config->msg_count & (config->msg_count-1))) {
+	ETRACE ("OS %d->OS %d link %d %s invalid msg_count %d.\n",
+		vlink->c_id, vlink->s_id, vlink->link,
+		tx ? "client" : "server", config->msg_count);
+	return -EINVAL;
+    }
     xx->ring_index_mask = config->msg_count - 1;
 
+    pmem_size = vmq_xx_config_pmem_size (&xx->config);
     xx->vlink = vlink;
     xx->paddr = nkops.nk_pmem_alloc (nkops.nk_vtop (vlink), VMQ_PMEM_ID,
-				     vmq_xx_config_pmem_size (&xx->config));
+				     pmem_size);
     if (!xx->paddr) {
-	ETRACE ("OS %d->OS %d link %d %s pmem alloc failed.\n",
+	ETRACE ("OS %d->OS %d link %d %s pmem alloc failed (%d bytes).\n",
 		vlink->c_id, vlink->s_id, vlink->link,
-		tx ? "client" : "server");
+		tx ? "client" : "server", pmem_size);
 	return -ENOMEM;
     }
-    xx->pmem = (vmq_pmem*) nkops.nk_mem_map (xx->paddr,
-					     vmq_xx_config_pmem_size
-					     (&xx->config));
+    xx->pmem = (vmq_pmem*) nkops.nk_mem_map (xx->paddr, pmem_size);
     if (!xx->pmem) {
 	ETRACE ("Error while mapping\n");
 	return -EAGAIN;
     }
-    xx->ss_area = (char*) &xx->pmem->is [xx->config.msg_count];
-    xx->ls_area = VMQ_SHORT_SLOT (xx, xx->config.msg_count);
+	/* Check if last byte is readable */
+    diag = *((char*) xx->pmem + pmem_size - 1);
+    (void) diag;
 
-    DTRACE ("%s: bytes %x phys %llx virt %p +%x +%x +%x +%x\n",
-	    tx ? "tx" : "rx",
-	    vmq_xx_config_pmem_size (&xx->config), (long long) xx->paddr,
-	    xx->pmem, sizeof ((vmq_pmem*) 0)->head,
+    xx->ss_area = (char*) &xx->pmem->is [xx->config.msg_count];
+    xx->ls_area = (char*) xx->pmem + vmq_xx_config_ss_total (&xx->config);
+	/*
+	 *  phys/virt
+	 *  +------+-------+-------+---------+------+
+	 *  | HEAD | INDEX | SHORT | PADDING | LONG |
+	 *  +------+-------+-------+---------+------+
+	 *  <----------------bytes------------------>
+	 */
+    DTRACE ("%s: bytes 0x%x phys %llx virt %p\n",
+	    tx ? "tx" : "rx", pmem_size,
+	    (long long) xx->paddr, xx->pmem);
+    DTRACE ("0x%x + 0x%x + 0x%x + 0x%x + 0x%x\n",
+	    sizeof ((vmq_pmem*) 0)->head,
 	    xx->config.msg_count * sizeof (vmq_is),
 	    xx->config.msg_count * xx->config.msg_max,
+	    xx->ls_area - VMQ_SHORT_SLOT (xx, xx->config.msg_count),
 	    vmq_xx_config_ls_total (&xx->config));
 
     xx->local_xirq = nkops.nk_pxirq_alloc (nkops.nk_vtop (vlink),
@@ -506,14 +580,6 @@ vmq_xx_init (vmq_xx* xx, NkDevVlink* vlink, _Bool tx,
 	ETRACE ("OS %d->OS %d link %d server pxirq alloc failed.\n",
 		vlink->c_id, vlink->s_id, vlink->link);
 	diag = -ENOMEM;
-	goto error;
-    }
-    xx->xid = nkops.nk_xirq_attach (xx->local_xirq,
-				    tx ? vmq_tx_hdl : vmq_rx_hdl, xx);
-    if (!xx->xid) {
-        ETRACE ("OS %d->OS %d link %d server cannot attach xirq handler.\n",
-		vlink->c_id, vlink->s_id, vlink->link);
-        diag = -ENOMEM;
 	goto error;
     }
     xx->peer_xirq = nkops.nk_pxirq_alloc (nkops.nk_vtop (vlink),
@@ -530,6 +596,24 @@ vmq_xx_init (vmq_xx* xx, NkDevVlink* vlink, _Bool tx,
 error:
     vmq_xx_finish (xx);
     return diag;
+}
+
+    static inline NkPhAddr
+vmq_xx_pls_area (vmq_xx* xx)
+{
+    return xx->paddr + xx->ls_area - (char*) xx->pmem;
+}
+
+    static signed
+vmq_xx_start (vmq_xx* xx, NkXIrqHandler hdl)
+{
+    xx->xid = nkops.nk_xirq_attach (xx->local_xirq, hdl, xx);
+    if (!xx->xid) {
+	ETRACE ("OS %d->OS %d link %d server cannot attach xirq handler.\n",
+		xx->vlink->c_id, xx->vlink->s_id, xx->vlink->link);
+	return -ENOMEM;
+    }
+    return 0;
 }
 
     static inline void
@@ -614,8 +698,11 @@ vmq_tx_dequeue_ss (vmq_tx* tx)
 {
     struct list_head* lh = tx->free_ss.next;
 
+    VMQ_BUG_ON (list_empty (&tx->free_ss));
+    VMQ_BUG_ON ((unsigned) (lh - tx->ss_heads) >= tx->xx.config.msg_count);
     list_del_init (lh);
 	/* Now list_empty(lh) is true */
+    VMQ_BUG_ON (tx->xx.ss_checked_out >= tx->xx.config.msg_count);
     ++tx->xx.ss_checked_out;
     return VMQ_SHORT_SLOT (&tx->xx, lh - tx->ss_heads);
 }
@@ -656,6 +743,8 @@ vmq_tx_dequeue_ls (vmq_tx* tx)
 
     list_del (lh);
     ++tx->xx.ls_checked_out;
+    DTRACE ("data_offset %d\n",
+	    VMQ_LONG_SLOT (&tx->xx, lh - tx->ls_heads) - tx->xx.ls_area);
     return VMQ_LONG_SLOT (&tx->xx, lh - tx->ls_heads) - tx->xx.ls_area;
 }
 
@@ -664,9 +753,10 @@ static void vmq_tx_notify (vmq_tx* tx);
     static void
 vmq_tx_hdl (void* cookie, NkXIrq xirq)
 {
-    vmq_tx*	tx = cookie;
+    vmq_tx*	tx = (vmq_tx*) cookie;
 
     (void) xirq;
+    ++tx->xx.local_xirqs_received;
     OTRACE ("xirq %d pending %d\n", xirq, VMQ_UNSAFE_C_PENDING (&tx->xx));
     vmq_tx_notify (tx);
     if (tx->xx.pmem->head.unsafe_stopped) {
@@ -690,6 +780,7 @@ vmq_tx_msg_allocate (vmq_tx* tx, unsigned data_len, void** msg,
     vmq_head*		head    = &tx_pmem->head;
     unsigned long	flags;
 
+    VMQ_BUG_ON ((data_len && !data_offset) || (!data_len && data_offset));    
     if (!data_offset) data_len = 0;
     OTRACE ("data_len %d\n", data_len);
     if (data_len > tx->xx.config.data_max) {
@@ -697,6 +788,8 @@ vmq_tx_msg_allocate (vmq_tx* tx, unsigned data_len, void** msg,
 	return -E2BIG;
     }
     while (true) {
+	_Bool flush;
+
 	if (tx->xx.vlink->s_state != NK_DEV_VLINK_ON) {
 		/*
 		 *  This trace can be issued a great many times before
@@ -711,22 +804,40 @@ vmq_tx_msg_allocate (vmq_tx* tx, unsigned data_len, void** msg,
 	    return -EAGAIN;
 	}
 	VMQ_LOCK (tx->xx.spinlock, flags);
-	OTRACE ("tx: p_idx %d c_idx %d last_x_idx %d\n",
-		head->unsafe_p_idx, head->unsafe_c_idx, tx->xx.last_x_idx);
+	OTRACE ("tx: p_idx %d/%d c_idx %d/%d last_x_idx %d\n",
+		head->unsafe_p_idx, tx->xx.safe_p_idx,
+		head->unsafe_c_idx, tx->xx.safe_c_idx, tx->xx.last_x_idx);
 	if (tx->xx.aborted) {
+	    DTRACE ("tx aborted\n");
 	    VMQ_UNLOCK (tx->xx.spinlock, flags);
 	    return -ECONNABORTED;
 	}
 	VMQ_UNSAFE_HEAD_SPACE_ASSERT (&tx->xx);
-	if (!vmq_xx_ring_is_full (&tx->xx) &&
-		(!data_len || !list_empty (&tx->free_ls)))
+	    /*
+	     * Instead of checking !list_empty(free_ss) we used to check
+	     * !vmq_xx_ring_is_full(tx) here, but this was not correct, as
+	     * we can have a situation where there is place in the ring,
+	     * but messages are still handled by the caller.
+	     */
+	if (!list_empty (&tx->free_ss) &&
+		(!data_len || !list_empty (&tx->free_ls))) {
+	    VMQ_BUG_ON (vmq_xx_ring_is_full (&tx->xx));
 	    break;
+	}
 	head->unsafe_stopped = 1;
+	flush = tx->xx.need_flush;
+	tx->xx.need_flush = false;
 	VMQ_UNLOCK (tx->xx.spinlock, flags);
-	if (nonblocking) return -EAGAIN;
 	DTRACE ("tx ring is full\n");
+	if (flush) {
+	    vmq_xx_xirq_trigger_server (&tx->xx);
+	}
+	if (nonblocking) return -EAGAIN;
 	vmq_tx_slots_wait (tx);
-	if (signal_pending (current)) return -EINTR;
+	if (signal_pending (current)) {
+	    DTRACE ("tx signal pending\n");
+	    return -EINTR;
+	}
     }
     *msg = vmq_tx_dequeue_ss (tx);
     if (data_offset) {
@@ -752,6 +863,7 @@ vmq_tx_data_free (vmq_tx* tx, unsigned data_offset)
 
     VMQ_LOCK (tx->xx.spinlock, flags);
     vmq_tx_enqueue_ls (tx, ls_number);
+    VMQ_BUG_ON (!tx->xx.ls_checked_out);
     --tx->xx.ls_checked_out;
     sysconf_notify = tx->xx.aborted && vmq_xx_all_returned (&tx->xx);
     vmq_tx_slots_freed (tx);
@@ -861,16 +973,17 @@ vmq_tx_init (vmq_tx* tx, NkDevVlink* tx_vlink, const vmq_xx_config_t* config,
     diag = vmq_xx_init (&tx->xx, tx_vlink, true /*tx*/, config, spinlock);
     if (diag) return diag;	/* Error message already issued */
 
-    tx->ss_heads = kzalloc (config->msg_count * sizeof (struct list_head),
-			    GFP_KERNEL);
+    tx->ss_heads = (struct list_head*)
+	kzalloc (config->msg_count * sizeof (struct list_head), GFP_KERNEL);
     if (!tx->ss_heads) {
 	ETRACE ("Could not allocate memory for vmq tx.\n");
 	vmq_tx_finish (tx);
 	return -ENOMEM;
     }
     if (config->data_count) {
-	tx->ls_heads = kzalloc (config->data_count * sizeof (struct list_head),
-				GFP_KERNEL);
+	tx->ls_heads = (struct list_head*)
+	    kzalloc (config->data_count * sizeof (struct list_head),
+		     GFP_KERNEL);
 	if (!tx->ls_heads) {
 	    ETRACE ("Could not allocate memory for vmq tx.\n");
 	    vmq_tx_finish (tx);
@@ -893,9 +1006,10 @@ static void vmq_rx_notify (vmq_rx* rx);
     static void
 vmq_rx_hdl (void* cookie, NkXIrq xirq)
 {
-    vmq_rx* rx = cookie;
+    vmq_rx* rx = (vmq_rx*) cookie;
 
     (void) xirq;
+    ++rx->xx.local_xirqs_received;
     OTRACE ("xirq %d pending %d\n", xirq, VMQ_UNSAFE_P_PENDING (&rx->xx));
     vmq_rx_notify (rx);
 }
@@ -969,12 +1083,13 @@ vmq_rx_init (vmq_rx* rx, NkDevVlink* rx_vlink, const vmq_xx_config_t* config,
 /*----- Transmission channel: API -----*/
 
 struct vmq_link_t {
-    vmq_link_public_t		public;		/* Must be first */
+    vmq_link_public_t		public2;	/* Must be first */
     struct list_head		link;
     vmq_tx			tx;
     vmq_rx			rx;
     struct vmq_links_t*		links;
     const vmq_callbacks_t*	callbacks;
+    signed			is_on;		/* -1 if still unknown */
 };
 
     static void
@@ -1004,7 +1119,19 @@ vmq_msg_allocate_ex (vmq_link_t* link, unsigned data_len, void** msg,
     void
 vmq_msg_send (vmq_link_t* link, void* msg)
 {
-    vmq_xx_msg_send (&link->tx.xx, msg);
+    vmq_xx_msg_send (&link->tx.xx, msg, true);
+}
+
+    void
+vmq_msg_send_async (vmq_link_t* link, void* msg)
+{
+    vmq_xx_msg_send (&link->tx.xx, msg, false);
+}
+
+    void
+vmq_msg_send_flush (vmq_link_t* link)
+{
+    vmq_xx_msg_send_flush (&link->tx.xx);
 }
 
     void
@@ -1023,6 +1150,12 @@ vmq_return_msg_receive (vmq_link_t* link, void** msg)
 vmq_return_msg_free (vmq_link_t* link, void* msg)
 {
     vmq_tx_return_msg_free (&link->tx, msg);
+}
+
+    unsigned
+vmq_msg_slot (vmq_link_t* link, const void* msg)
+{
+    return VMQ_SHORT_SLOT_NUM (&link->tx.xx, msg);
 }
 
 /*----- Reception channel: API -----*/
@@ -1079,6 +1212,7 @@ vmq_link_off_completed (vmq_link_t* link)
 }
 
 struct vmq_links_t {
+    vmq_links_public_t		public2;	/* Must be first */
     struct list_head		links;
     spinlock_t			spinlock;
     const vmq_callbacks_t*	callbacks;
@@ -1145,12 +1279,18 @@ vmq_link_sysconf (vmq_link_t* link, void* cookie)
 	}
     }
     if (vmq_link_on (link)) {
-	if (link->callbacks->link_on) {
-	    link->callbacks->link_on (link);
+	if (link->is_on != 1) {		/* -1 or 0 */
+	    link->is_on = 1;
+	    if (link->callbacks->link_on) {
+		link->callbacks->link_on (link);
+	    }
 	}
     } else {
-	if (link->callbacks->link_off) {
-	    link->callbacks->link_off (link);
+	if (link->is_on != 0) {		/* -1 or 1 */
+	    link->is_on = 0;
+	    if (link->callbacks->link_off) {
+		link->callbacks->link_off (link);
+	    }
 	}
     }
     return false;
@@ -1193,7 +1333,7 @@ vmq_xx_sysconf_notify (vmq_xx* xx)
     static void
 vmq_sysconf_hdl (void* cookie, NkXIrq xirq)
 {
-    vmq_links_t* links = cookie;
+    vmq_links_t* links = (vmq_links_t*) cookie;
 
     (void) xirq;
     DTRACE ("cookie %p xirq %d\n", cookie, xirq);
@@ -1202,15 +1342,18 @@ vmq_sysconf_hdl (void* cookie, NkXIrq xirq)
     DTRACE ("finished\n");
 }
 
-/*----- Support for /proc/vmq.<vlink_name> -----*/
+/*----- Support for /proc/nk/vmq.<vlink_name> -----*/
 
     static int
 vmq_proc_xx (char* buf, const char* name, const vmq_xx* xx)
 {
-    return sprintf (buf, "%s: %6x %4x %6x %4x %2d %2d %2d\n", name,
+    return sprintf (buf, "%s: %6x %4x %6x %4x %2d %2d %2d %3d %3d %5u %5u\n",
+		    name,
 		    xx->config.msg_count,  xx->config.msg_max,
 		    xx->config.data_count, xx->config.data_max,
-		    xx->aborted, xx->ss_checked_out, xx->ls_checked_out);
+		    xx->aborted, xx->ss_checked_out, xx->ls_checked_out,
+		    xx->local_xirq, xx->peer_xirq,
+		    xx->local_xirqs_received, xx->peer_xirqs_sent);
 }
 
     static int
@@ -1224,11 +1367,13 @@ vmq_read_proc (char* page, char** start, off_t off, int count, int* eof,
 
     list_for_each_entry_type (link, vmq_link_t, &links->links, link) {
 	len += sprintf (page+len, "     Loc Rem DataMax MsgMax Info\n");
-	len += sprintf (page+len, "Pub: %3d %3d %7x %6x %s\n",
-			link->public.local_osid, link->public.peer_osid,
-			link->public.data_max, link->public.msg_max,
-			link->public.rx_s_info ? link->public.rx_s_info : "");
-	len += sprintf (page+len, "    MCount MMax DCount DMax Ab MO DO\n");
+	len += sprintf (page+len, "Pub: %3d %3d %7x %6x %s|%s\n",
+			link->public2.local_osid, link->public2.peer_osid,
+			link->public2.data_max, link->public2.msg_max,
+			link->public2.rx_s_info ? link->public2.rx_s_info : "",
+			link->public2.tx_s_info ? link->public2.tx_s_info : "");
+	len += sprintf (page+len,
+	    "    MCount MMax DCount DMax Ab MO DO  XL  XP XRecv XSent\n");
 	len += vmq_proc_xx (page+len, "TX", &link->tx.xx);
 	len += vmq_proc_xx (page+len, "RX", &link->rx.xx);
 
@@ -1255,11 +1400,10 @@ done:
 vmq_find_pair_vlink (NkDevVlink* l, const char* vlink_name)
 {
     NkPhAddr    plink = 0;
-    NkDevVlink* vlink;
 
     DTRACE ("\n");
     while ((plink = nkops.nk_vlink_lookup (vlink_name, plink)) != 0) {
-	vlink = nkops.nk_ptov (plink);
+	NkDevVlink* vlink = (NkDevVlink*) nkops.nk_ptov (plink);
 
 	if ((vlink != l) &&
 	    (vlink->s_id == l->c_id) &&
@@ -1276,6 +1420,8 @@ vmq_find_pair_vlink (NkDevVlink* l, const char* vlink_name)
     static _Bool
 vmq_link_match (vmq_link_t* link, void* cookie)
 {
+    DTRACE ("rx link %d %s use\n", link->rx.xx.vlink->link,
+	    link->rx.xx.vlink->link == *(int*) cookie ? "in" : "not in");
     return link->rx.xx.vlink->link == *(int*) cookie;
 }
 
@@ -1296,29 +1442,68 @@ vmq_link_create (vmq_links_t* links, NkDevVlink* rx_vlink,
 		 const vmq_xx_config_t* rx_config)
 {
     vmq_link_t*		link;
-    vmq_xx_config_t	local_tx_config;
     signed		diag;
 
     DTRACE ("\n");
-    link = kzalloc (sizeof *link, GFP_KERNEL);
+    link = (vmq_link_t*) kzalloc (sizeof *link, GFP_KERNEL);
     if (!link) {
 	ETRACE ("Could not allocate memory for vmq link.\n");
 	return -ENOMEM;
     }
     if (rx_vlink->s_info) {
-	link->public.rx_s_info = (char*) nkops.nk_ptov (rx_vlink->s_info);
-	DTRACE ("rx_s_info '%s'\n", link->public.rx_s_info);
+	link->public2.rx_s_info = (char*) nkops.nk_ptov (rx_vlink->s_info);
+	DTRACE ("rx_s_info '%s'\n", link->public2.rx_s_info);
+    }
+    if (tx_vlink->s_info) {
+	link->public2.tx_s_info = (char*) nkops.nk_ptov (tx_vlink->s_info);
+	DTRACE ("tx_s_info '%s'\n", link->public2.tx_s_info);
     }
     if (!tx_config) {
-	if (!links->callbacks->get_tx_config) return -EINVAL;
-	diag = links->callbacks->get_tx_config (links, link->public.rx_s_info,
-						&local_tx_config);
-	if (diag) {
-	    kfree (link);
-	    return diag;
+	DTRACE ("no static tx config\n");
+	if (!links->callbacks->get_tx_config) {
+	    ETRACE ("No tx_config and no get_tx_config callback provided\n");
+	    return -EINVAL;
 	}
-	tx_config = &local_tx_config;
+	tx_config = links->callbacks->get_tx_config (link,
+						     link->public2.tx_s_info);
+	if (!tx_config) {
+	    DTRACE ("get_tx_config callback failed\n");
+	    kfree (link);
+	    return -EINVAL;
+	}
+	if (tx_config == VMQ_XX_CONFIG_IGNORE_VLINK) {
+	    DTRACE ("ignoring tx vlink %d as requested\n", tx_vlink->link);
+	    kfree (link);
+	    return 0;
+	}
+	DTRACE ("using dynamic tx config\n");
     }
+    if (!rx_config) {
+	DTRACE ("no static rx config\n");
+	if (!links->callbacks->get_rx_config) {
+	    ETRACE ("No rx_config and no get_rx_config callback provided\n");
+	    return -EINVAL;
+	}
+	rx_config = links->callbacks->get_rx_config (link,
+						     link->public2.rx_s_info);
+	if (!rx_config) {
+	    DTRACE ("get_rx_config callback failed\n");
+	    kfree (link);
+	    return -EINVAL;
+	}
+	if (rx_config == VMQ_XX_CONFIG_IGNORE_VLINK) {
+	    DTRACE ("ignoring rx vlink %d as requested\n", rx_vlink->link);
+	    kfree (link);
+	    return 0;
+	}
+	DTRACE ("using dynamic rx config\n");
+    }
+	/* Callback can be called immediately */
+	/* Update: no more, since the intro of vmq_links_start() */
+    link->callbacks = links->callbacks;
+    link->links     = links;
+    link->is_on     = -1;	/* Forces link_on/off callback calling */
+
     diag = vmq_tx_init (&link->tx, tx_vlink, tx_config, &links->spinlock);
     if (diag) {		/* Error message already issued */
 	kfree (link);
@@ -1333,14 +1518,13 @@ vmq_link_create (vmq_links_t* links, NkDevVlink* rx_vlink,
 	/*
 	 * vdev=(...,linkid|....s_info...)
 	 */
-    link->public.local_osid   = link->rx.xx.vlink->s_id;
-    link->public.peer_osid    = link->tx.xx.vlink->s_id;
-    link->public.rx_data_area = link->rx.xx.ls_area;
-    link->public.tx_data_area = link->tx.xx.ls_area;
-    link->public.data_max     = link->tx.xx.config.data_max;
-    link->public.msg_max      = link->tx.xx.config.msg_max;
-    link->links               = links;
-    link->callbacks           = links->callbacks;
+    link->public2.local_osid    = link->rx.xx.vlink->s_id;
+    link->public2.peer_osid     = link->tx.xx.vlink->s_id;
+    link->public2.rx_data_area  = link->rx.xx.ls_area;
+    link->public2.tx_data_area  = link->tx.xx.ls_area;
+    link->public2.data_max      = link->tx.xx.config.data_max;
+    link->public2.msg_max       = link->tx.xx.config.msg_max;
+    link->public2.ptx_data_area = vmq_xx_pls_area (&link->tx.xx);
 
     list_add (&link->link, &links->links);
     return 0;
@@ -1349,12 +1533,13 @@ vmq_link_create (vmq_links_t* links, NkDevVlink* rx_vlink,
     /* Only called externally */
 
     signed
-vmq_links_init (vmq_links_t** result, const char* vlink_name,
-		const vmq_callbacks_t* callbacks,
-		const vmq_xx_config_t* tx_config,
-		const vmq_xx_config_t* rx_config)
+vmq_links_init_ex (vmq_links_t** result, const char* vlink_name,
+		   const vmq_callbacks_t* callbacks,
+		   const vmq_xx_config_t* tx_config,
+		   const vmq_xx_config_t* rx_config, void* priv,
+		   _Bool is_frontend)
 {
-    NkOsId myid = nkops.nk_id_get();
+    const NkOsId myid = nkops.nk_id_get();
     vmq_links_t* links;
     NkPhAddr plink = 0;
     signed diag;
@@ -1362,58 +1547,98 @@ vmq_links_init (vmq_links_t** result, const char* vlink_name,
     DTRACE ("\n");
     *result = NULL;	/* Make sure it is NULL on error */
     if (!callbacks->sysconf_notify) {
-	DTRACE ("The sysconf notify callback is mandatory.\n");
+	ETRACE ("The sysconf notify callback is mandatory.\n");
 	return -EINVAL;
     }
-    links = kzalloc (sizeof *links, GFP_KERNEL);
+    links = (vmq_links_t*) kzalloc (sizeof *links, GFP_KERNEL);
     if (!links) {
 	ETRACE ("Could not allocate vmtd_links descriptor.\n");
 	diag = -ENOMEM;
 	goto error;
     }
+    links->public2.priv = priv;
     INIT_LIST_HEAD (&links->links);
     links->spinlock = SPIN_LOCK_UNLOCKED;
     links->callbacks = callbacks;
     while ((plink = nkops.nk_vlink_lookup (vlink_name, plink)) != 0) {
-	NkDevVlink* vlink = nkops.nk_ptov (plink);
+	NkDevVlink* rx_vlink = (NkDevVlink*) nkops.nk_ptov (plink);
 
-	if (vlink->s_id == myid && !vmq_vlink_in_use (links, vlink)) {
-	    NkDevVlink* rx_vlink;
-	    NkDevVlink* tx_vlink;
+	DTRACE ("rx_vlink with tag %d s_id %d c_id %d\n",
+		rx_vlink->link, rx_vlink->s_id, rx_vlink->c_id);
+	if (rx_vlink->s_id == myid && !vmq_vlink_in_use (links, rx_vlink)) {
+	    NkDevVlink* tx_vlink = vmq_find_pair_vlink (rx_vlink, vlink_name);
 
-	    rx_vlink = vlink;
-	    tx_vlink = vmq_find_pair_vlink (rx_vlink, vlink_name);
 	    if (tx_vlink) {
-		diag = vmq_link_create (links, rx_vlink, tx_vlink,
-					tx_config, rx_config);
+		DTRACE ("rx_plink %x rx_vlink %p tx_vlink %p\n",
+			plink, rx_vlink, tx_vlink);
+		DTRACE ("tx_vlink with tag %d s_id %d c_id %d\n",
+			tx_vlink->link, tx_vlink->s_id, tx_vlink->c_id);
+		if (is_frontend && rx_vlink->s_id == rx_vlink->c_id) {
+		    DTRACE ("reversed link create\n");
+		    diag = vmq_link_create (links, tx_vlink, rx_vlink,
+					    tx_config, rx_config);
+		} else {
+		    DTRACE ("direct link create\n");
+		    diag = vmq_link_create (links, rx_vlink, tx_vlink,
+					    tx_config, rx_config);
+		}
 		if (diag) {	/* Error message already issued */
 		    goto error;
 		}
 	    }
 	}
     }
-	/*
-	 *  Set result already now, in case a callback
-	 *  is immediately called.
-	 */
     *result = links;
+    {
+	const size_t len = sizeof "vmq.-fe" + strlen (vlink_name);
+
+	links->proc_name = kmalloc (len, GFP_KERNEL);
+	if (links->proc_name) {
+	    snprintf (links->proc_name, len, "vmq.%s-%ce", vlink_name,
+		      is_frontend ? 'f' : 'b');
+	    links->proc = create_proc_read_entry (links->proc_name, 0,
+	    					  vlx_proc_nk_lookup(),
+						  vmq_read_proc, links);
+	}
+    }
+    return 0;
+
+error:
+    vmq_links_finish (links);
+    return diag;
+}
+
+    static _Bool
+vmq_link_start (vmq_link_t* link, void* cookie)
+{
+    signed diag;
+
+    DTRACE ("\n");
+    diag = vmq_xx_start (&link->tx.xx, vmq_tx_hdl);
+    if (diag) {		/* Error message already issued */
+	*(signed*) cookie = diag;
+	return true;	/* Interrupt iteration */
+    }
+    diag = vmq_xx_start (&link->rx.xx, vmq_rx_hdl);
+    if (diag) {		/* Error message already issued */
+	*(signed*) cookie = diag;
+	return true;	/* Interrupt iteration */
+    }
+    return false;
+}
+
+    signed
+vmq_links_start (vmq_links_t* links)
+{
+    signed diag;
+
+    DTRACE ("\n");
+    if (vmq_links_iterate (links, vmq_link_start, &diag)) return diag;
     links->sysconf_id = nkops.nk_xirq_attach (NK_XIRQ_SYSCONF,
 					      vmq_sysconf_hdl, links);
     if (!links->sysconf_id) {
 	ETRACE ("Cannot attach sysconf handler\n");
-	*result = NULL;
-	diag = -EAGAIN;
-	goto error;
-    }
-    {
-	const size_t len = sizeof "vmq." + strlen (vlink_name);
-
-	links->proc_name = kmalloc (len, GFP_KERNEL);
-	if (links->proc_name) {
-	    snprintf (links->proc_name, len, "vmq.%s", vlink_name);
-	    links->proc = create_proc_read_entry (links->proc_name, 0, NULL,
-						  vmq_read_proc, links);
-	}
+	return -EAGAIN;
     }
 	/*
 	 *  Trigger a sysconf to ourselves rather than simply
@@ -1421,12 +1646,8 @@ vmq_links_init (vmq_links_t** result, const char* vlink_name,
 	 *  way we get the proper environment in the handler
 	 *  and avoid concurrency with the real handler.
 	 */
-    vmq_sysconf_trigger (myid);
+    vmq_sysconf_trigger (nkops.nk_id_get());
     return 0;
-
-error:
-    vmq_links_finish (links);
-    return diag;
 }
 
     /* Only called by vmq_links_finish() */
@@ -1451,7 +1672,7 @@ vmq_links_finish (vmq_links_t* links)
     DTRACE ("\n");
     if (links) {
 	if (links->proc && links->proc_name) {
-	    remove_proc_entry (links->proc_name, NULL);
+	    remove_proc_entry (links->proc_name, vlx_proc_nk_lookup());
 	}
 	kfree (links->proc_name);
 	if (links->sysconf_id) {
@@ -1468,14 +1689,18 @@ EXPORT_SYMBOL (vmq_data_free);
 EXPORT_SYMBOL (vmq_data_offset_ok);
 EXPORT_SYMBOL (vmq_links_abort);
 EXPORT_SYMBOL (vmq_links_finish);
-EXPORT_SYMBOL (vmq_links_init);
+EXPORT_SYMBOL (vmq_links_init_ex);
 EXPORT_SYMBOL (vmq_links_iterate);
+EXPORT_SYMBOL (vmq_links_start);
 EXPORT_SYMBOL (vmq_links_sysconf);
 EXPORT_SYMBOL (vmq_msg_allocate_ex);
 EXPORT_SYMBOL (vmq_msg_free);
 EXPORT_SYMBOL (vmq_msg_receive);
 EXPORT_SYMBOL (vmq_msg_return);
 EXPORT_SYMBOL (vmq_msg_send);
+EXPORT_SYMBOL (vmq_msg_send_async);
+EXPORT_SYMBOL (vmq_msg_send_flush);
+EXPORT_SYMBOL (vmq_msg_slot);
 EXPORT_SYMBOL (vmq_return_msg_free);
 EXPORT_SYMBOL (vmq_return_msg_receive);
 
@@ -1485,7 +1710,7 @@ MODULE_LICENSE ("GPL");
 MODULE_LICENSE ("Proprietary");
 #endif
 MODULE_AUTHOR ("Adam Mirowski <adam.mirowski@virtuallogix.com>");
-MODULE_DESCRIPTION ("VLX Virtual VMQ communications driver");
+MODULE_DESCRIPTION ("VLX VMQ communications driver");
 
 /*----- End of file -----*/
 

@@ -3,6 +3,7 @@
 #
 # 15 Sep 2000, Christoph Hellwig <hch@infradead.org>
 # Rewritten to use lists instead of if-statements.
+# Copyright (C) 2011, Red Bend Ltd.
 #
 
 obj-y				+= gpio/
@@ -19,6 +20,7 @@ obj-$(CONFIG_PNP)		+= pnp/
 obj-$(CONFIG_ARM_AMBA)		+= amba/
 
 obj-$(CONFIG_VIRTIO)		+= virtio/
+obj-$(CONFIG_NKERNEL_DDI)	+= vlx/
 obj-$(CONFIG_XEN)		+= xen/
 
 # regulators early, since some subsystems rely on them to initialize

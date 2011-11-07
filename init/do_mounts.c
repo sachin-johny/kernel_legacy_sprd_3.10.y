@@ -334,7 +334,9 @@ void __init change_floppy(char *fmt, ...)
 void __init mount_root(void)
 {
 #ifdef CONFIG_ROOT_NFS
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 	if (MAJOR(ROOT_DEV) == UNNAMED_MAJOR) {
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 		if (mount_nfs_root())
 			return;
 
@@ -343,18 +345,24 @@ void __init mount_root(void)
 	}
 #endif
 #ifdef CONFIG_BLK_DEV_FD
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 	if (MAJOR(ROOT_DEV) == FLOPPY_MAJOR) {
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 		/* rd_doload is 2 for a dual initrd/ramload setup */
 		if (rd_doload==2) {
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 			if (rd_load_disk(1)) {
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 				ROOT_DEV = Root_RAM1;
 				root_device_name = NULL;
 			}
 		} else
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 			change_floppy("root floppy");
 	}
 #endif
 #ifdef CONFIG_BLOCK
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 	create_dev("/dev/root", ROOT_DEV);
 	mount_block_root("/dev/root", root_mountflags);
 #endif
@@ -411,6 +419,7 @@ void __init prepare_namespace(void)
 {
 	int is_floppy;
 
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 	if (root_delay) {
 		printk(KERN_INFO "Waiting %dsec before mounting root device...\n",
 		       root_delay);
@@ -443,6 +452,7 @@ void __init prepare_namespace(void)
 	if (initrd_load())
 		goto out;
 
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 	/* wait for any asynchronous scanning to complete */
 	if ((ROOT_DEV == 0) && root_wait) {
 		printk(KERN_INFO "Waiting for root device %s...\n",
@@ -453,13 +463,17 @@ void __init prepare_namespace(void)
 		async_synchronize_full();
 	}
 
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 	is_floppy = MAJOR(ROOT_DEV) == FLOPPY_MAJOR;
 
 	if (is_floppy && rd_doload && rd_load_disk(0))
 		ROOT_DEV = Root_RAM0;
 
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 	mount_root();
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 out:
+    printk(KERN_ALERT "%s, %d\n", __FUNCTION__, __LINE__);
 	devtmpfs_mount("dev");
 	sys_mount(".", "/", NULL, MS_MOVE, NULL);
 	sys_chroot(".");

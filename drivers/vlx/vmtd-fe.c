@@ -2033,7 +2033,7 @@ vmtd_thread (void* arg)
     return 0;
 }
 
-/*----- Support for /proc/vmtd-fe -----*/
+/*----- Support for /proc/nk/vmtd-fe -----*/
 
 static const char* vmtd_type_names[] = {NK_DEV_MTD_NAMES};
 
@@ -2146,6 +2146,7 @@ done:
 /*----- Initialization and exit entry points -----*/
 
 #define VLX_SERVICES_THREADS
+#define VLX_SERVICES_PROC_NK
 #include "vlx-services.c"
 
 static struct proc_dir_entry*	vmtd_proc;
@@ -2176,8 +2177,8 @@ vmtd_exit (void)
 	vmq_links_finish (vmtd_links);
 	vmtd_links = NULL;
     }
-    if (vmtd_proc)     remove_proc_entry ("vmtd-fe",     NULL);
-    if (vmtd_proc_ext) remove_proc_entry ("vmtd-fe.ext", NULL);
+    if (vmtd_proc)     remove_proc_entry ("vmtd-fe",     vlx_proc_nk_lookup());
+    if (vmtd_proc_ext) remove_proc_entry ("vmtd-fe.ext", vlx_proc_nk_lookup());
 }
 
     static _Bool
@@ -2229,14 +2230,18 @@ vmtd_init (void)
 
     DTRACE ("\n");
     sema_init (&vmtd_sem, 0);	/* Before it is signaled */
-    vmtd_proc     = create_proc_read_entry ("vmtd-fe",     0, NULL,
+    vmtd_proc     = create_proc_read_entry ("vmtd-fe",     0,
+					    vlx_proc_nk_lookup(),
 					    vmtd_read_proc, NULL);
-    vmtd_proc_ext = create_proc_read_entry ("vmtd-fe.ext", 0, NULL,
+    vmtd_proc_ext = create_proc_read_entry ("vmtd-fe.ext", 0,
+					    vlx_proc_nk_lookup(),
 					    vmtd_read_proc, (void*) 1);
-    diag = vmq_links_init (&vmtd_links, "vmtd", &vmtd_callbacks,
-			   &vmtd_tx_config, &vmtd_rx_config);
+    diag = vmq_links_init_ex (&vmtd_links, "vmtd", &vmtd_callbacks,
+			      &vmtd_tx_config, &vmtd_rx_config, NULL, true);
     if (diag) goto error;
     if (vmq_links_iterate (vmtd_links, vmtd_init_link, &diag)) goto error;
+    diag = vmq_links_start (vmtd_links);
+    if (diag) goto error;
     diag = vlx_thread_start (&vmtd_thread_desc, vmtd_thread, vmtd_links,
     			     "vmtd-fe");
     if (diag) goto error;
@@ -2256,8 +2261,6 @@ error:
      */
 late_initcall (vmtd_init);
 module_exit (vmtd_exit);
-
-#include "vlx-vipc.c"
 
 /*----- Module description -----*/
 

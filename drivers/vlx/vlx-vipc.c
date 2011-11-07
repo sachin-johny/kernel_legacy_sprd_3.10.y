@@ -13,6 +13,7 @@
 
 /*----- System includes -----*/
 
+#include <linux/sched.h>
 #include "vlx-vipc.h"
 
 /*----- Local configuration -----*/
@@ -39,6 +40,17 @@
 	printk ("(%d) %s: " format, current->tgid, __func__, ##args)
 #else
 #define DTRACE(x...)
+#endif
+
+/*----- Version compatibility functions -----*/
+
+#ifndef list_for_each_entry
+#define list_for_each_entry(pos, head, member)				\
+	for (pos = list_entry((head)->next, typeof(*pos), member),	\
+		     prefetch(pos->member.next);			\
+	     &pos->member != (head);					\
+	     pos = list_entry(pos->member.next, typeof(*pos), member),	\
+		     prefetch(pos->member.next))
 #endif
 
 /*----- VIPC list -----*/ 
@@ -137,16 +149,24 @@ vipc_list_cookie_to_waiter (vipc_list_t* list, nku64_f cookie)
     void
 vipc_list_wait (vipc_list_t* list, vipc_waiter_t* waiter)
 {
+	/* This #ifdef is probably no more necessary */
+#ifdef VIPC_SAFE_COOKIES
+    set_current_state (TASK_INTERRUPTIBLE);
+#else
+    set_current_state (TASK_UNINTERRUPTIBLE);
+#endif
 	/* On SMP, we would need more sync here */
     while (!waiter->occurred) {
+	schedule();
 	    /* This #ifdef is probably no more necessary */
 #ifdef VIPC_SAFE_COOKIES
 	set_current_state (TASK_INTERRUPTIBLE);
 #else
 	set_current_state (TASK_UNINTERRUPTIBLE);
 #endif
-	schedule();
     }
+	/* Set thread state back to running if while() was never entered */
+    set_current_state (TASK_RUNNING);
     vipc_list_del (list, waiter);
 }
 
@@ -201,3 +221,25 @@ vipc_ctx_abort_calls (vipc_ctx_t* ctx)
     }
     VIPC_LIST_UNLOCK (&ctx->list, spinlock_flags);
 }
+
+/*----- Module description -----*/
+
+EXPORT_SYMBOL (vipc_ctx_abort_calls);
+EXPORT_SYMBOL (vipc_ctx_call);
+EXPORT_SYMBOL (vipc_ctx_process_reply);
+EXPORT_SYMBOL (vipc_list_add);
+EXPORT_SYMBOL (vipc_list_cookie_to_waiter);
+EXPORT_SYMBOL (vipc_list_del);
+EXPORT_SYMBOL (vipc_list_init);
+EXPORT_SYMBOL (vipc_list_wait);
+EXPORT_SYMBOL (vipc_waiter_init);
+
+#ifdef MODULE
+MODULE_LICENSE ("GPL");
+#else
+MODULE_LICENSE ("Proprietary");
+#endif
+MODULE_AUTHOR ("Adam Mirowski <adam.mirowski@virtuallogix.com>");
+MODULE_DESCRIPTION ("VLX VIPC communications driver");
+
+/*----- End of file -----*/

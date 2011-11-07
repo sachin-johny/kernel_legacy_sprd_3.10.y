@@ -438,15 +438,12 @@ static int create_bbt(struct mtd_info *mtd, uint8_t *buf,
 	for (i = startblock; i < numblocks;) {
 		int ret;
 
-		if (bd->options & NAND_BBT_SCANALLPAGES) {
-			//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);		
+		if (bd->options & NAND_BBT_SCANALLPAGES)
 			ret = scan_block_full(mtd, bd, from, buf, readlen,
 					      scanlen, len);
-		} else {
-			//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
+		else
 			ret = scan_block_fast(mtd, bd, from, buf, len);
-		}
-		
+
 		if (ret < 0)
 			return ret;
 
@@ -1014,18 +1011,15 @@ int nand_scan_bbt(struct mtd_info *mtd, struct nand_bbt_descr *bd)
 
 	/* Is the bbt at a given page ? */
 	if (td->options & NAND_BBT_ABSPAGE) {
-		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
 		res = read_abs_bbts(mtd, buf, td, md);
 	} else {
 		/* Search the bad block table using a pattern in oob */
-		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);
 		res = search_read_bbts(mtd, buf, td, md);
 	}
 
-	if (res) {
-		//printk("%s  %s  %d\n", __FILE__, __FUNCTION__, __LINE__);	
+	if (res)
 		res = check_create(mtd, buf, bd);
-	}
+
 	/* Prevent the bbt regions from erasing / writing */
 	mark_bbt_region(mtd, td);
 	if (md)
@@ -1106,7 +1100,7 @@ static struct nand_bbt_descr smallpage_memorybased = {
 };
 
 static struct nand_bbt_descr largepage_memorybased = {
-	.options = NAND_BBT_SCAN2NDPAGE,
+	.options = 0,
 	.offs = 0,
 	.len = 2,
 	.pattern = scan_ff_pattern

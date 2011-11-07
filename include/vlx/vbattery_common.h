@@ -3,11 +3,12 @@
  *
  *  Component:	VirtualLogix VBattery Interface
  *
- *  Copyright (C) 2010, VirtualLogix. All Rights Reserved.
+ *  Copyright (C) 2010-2011, VirtualLogix. All Rights Reserved.
  *
  *  Contributor(s):
- *    Vladimir Grouzdev (vladimir.grouzdev@vlx.com)
- *    Adam Mirowski (adam.mirowski@vlx.com)
+ *    Vladimir Grouzdev (vladimir.grouzdev@virtuallogix.com)
+ *    Adam Mirowski (adam.mirowski@virtuallogix.com)
+ *    Christophe Lizzi (christophe.lizzi@virtuallogix.com)
  *
  ****************************************************************
  */
@@ -35,10 +36,21 @@ typedef enum {
     VBAT_CMD_GET_VPROP_MAX,
     VBAT_CMD_GET_VPROP_ID,
     VBAT_CMD_GET_VPROP_VAL,
+    VBAT_CMD_SET_MODE,
     VBAT_CMD_MAX
 } vbat_cmd_t;
 
-#define VBAT_CMD_NAME {"name", "vtype", "vprop_max", "vprop_id", "vprop_val"}
+#define VBAT_CMD_NAME {"name", "vtype", "vprop_max", "vprop_id", "vprop_val", "set_mode"}
+
+typedef enum {
+    VBAT_MODE_INTR,
+    VBAT_MODE_POLL,
+    VBAT_MODE_POLL_ONLY,
+    VBAT_MODE_POLL_MAX,
+    VBAT_MODE_POLL_LAST = 0x7FFFFFFF
+} vbat_mode_t;
+
+#define VBAT_MODE_NAME {"intr", "poll", "poll_only"}
 
 typedef enum {
     VBAT_POWER_SUPPLY_TYPE_BATTERY,
@@ -154,6 +166,8 @@ typedef enum {
 
 #if defined VBATTERY_FE || defined VBATTERY_BE
 
+#include <linux/version.h>
+
 #define _VBAT_CASE(n)  case VBAT_##n: return n
 
 #ifdef VBATTERY_FE
@@ -194,7 +208,9 @@ vbat_power_supply_vhealth2health (const vbat_power_supply_health_t vhealth)
     _VBAT_CASE (POWER_SUPPLY_HEALTH_DEAD);
     _VBAT_CASE (POWER_SUPPLY_HEALTH_OVERVOLTAGE);
     _VBAT_CASE (POWER_SUPPLY_HEALTH_UNSPEC_FAILURE);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_HEALTH_COLD);
+#endif
     default: break;
     }
     return -1;
@@ -211,7 +227,9 @@ vbat_power_supply_vtechnology2technology (const vbat_power_supply_technology_t
     _VBAT_CASE (POWER_SUPPLY_TECHNOLOGY_LIPO);
     _VBAT_CASE (POWER_SUPPLY_TECHNOLOGY_LiFe);
     _VBAT_CASE (POWER_SUPPLY_TECHNOLOGY_NiCd);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_TECHNOLOGY_LiMn);
+#endif
     default: break;
     }
     return -1;
@@ -227,8 +245,10 @@ vbat_vproperty2property (const vbat_power_supply_property_t vproperty)
     _VBAT_CASE (POWER_SUPPLY_PROP_PRESENT);
     _VBAT_CASE (POWER_SUPPLY_PROP_ONLINE);
     _VBAT_CASE (POWER_SUPPLY_PROP_TECHNOLOGY);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_MAX);
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_MIN);
+#endif
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN);
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN);
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_NOW);
@@ -241,7 +261,9 @@ vbat_vproperty2property (const vbat_power_supply_property_t vproperty)
     _VBAT_CASE (POWER_SUPPLY_PROP_CHARGE_EMPTY);
     _VBAT_CASE (POWER_SUPPLY_PROP_CHARGE_NOW);
     _VBAT_CASE (POWER_SUPPLY_PROP_CHARGE_AVG);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_PROP_CHARGE_COUNTER);
+#endif
     _VBAT_CASE (POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN);
     _VBAT_CASE (POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN);
     _VBAT_CASE (POWER_SUPPLY_PROP_ENERGY_FULL);
@@ -259,7 +281,9 @@ vbat_vproperty2property (const vbat_power_supply_property_t vproperty)
 	/* Properties of type `const char *' */
     _VBAT_CASE (POWER_SUPPLY_PROP_MODEL_NAME);
     _VBAT_CASE (POWER_SUPPLY_PROP_MANUFACTURER);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_PROP_SERIAL_NUMBER);
+#endif
     default: break;
     }
     return (enum power_supply_property) -1;
@@ -306,7 +330,9 @@ vbat_power_supply_health2vhealth (const int health)
     _VBAT_CASE (POWER_SUPPLY_HEALTH_DEAD);
     _VBAT_CASE (POWER_SUPPLY_HEALTH_OVERVOLTAGE);
     _VBAT_CASE (POWER_SUPPLY_HEALTH_UNSPEC_FAILURE);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_HEALTH_COLD);
+#endif
     default: break;
     }
     return -1;
@@ -322,7 +348,9 @@ vbat_power_supply_technology2vtechnology (const int technology)
     _VBAT_CASE (POWER_SUPPLY_TECHNOLOGY_LIPO);
     _VBAT_CASE (POWER_SUPPLY_TECHNOLOGY_LiFe);
     _VBAT_CASE (POWER_SUPPLY_TECHNOLOGY_NiCd);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_TECHNOLOGY_LiMn);
+#endif
     default: break;
     }
     return -1;
@@ -338,8 +366,10 @@ vbat_property2vproperty (const enum power_supply_property property)
     _VBAT_CASE (POWER_SUPPLY_PROP_PRESENT);
     _VBAT_CASE (POWER_SUPPLY_PROP_ONLINE);
     _VBAT_CASE (POWER_SUPPLY_PROP_TECHNOLOGY);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_MAX);
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_MIN);
+#endif
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_MAX_DESIGN);
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_MIN_DESIGN);
     _VBAT_CASE (POWER_SUPPLY_PROP_VOLTAGE_NOW);
@@ -352,7 +382,9 @@ vbat_property2vproperty (const enum power_supply_property property)
     _VBAT_CASE (POWER_SUPPLY_PROP_CHARGE_EMPTY);
     _VBAT_CASE (POWER_SUPPLY_PROP_CHARGE_NOW);
     _VBAT_CASE (POWER_SUPPLY_PROP_CHARGE_AVG);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_PROP_CHARGE_COUNTER);
+#endif
     _VBAT_CASE (POWER_SUPPLY_PROP_ENERGY_FULL_DESIGN);
     _VBAT_CASE (POWER_SUPPLY_PROP_ENERGY_EMPTY_DESIGN);
     _VBAT_CASE (POWER_SUPPLY_PROP_ENERGY_FULL);
@@ -370,7 +402,9 @@ vbat_property2vproperty (const enum power_supply_property property)
 	/* Properties of type `const char *' */
     _VBAT_CASE (POWER_SUPPLY_PROP_MODEL_NAME);
     _VBAT_CASE (POWER_SUPPLY_PROP_MANUFACTURER);
+#if LINUX_VERSION_CODE > KERNEL_VERSION (2,6,23)
     _VBAT_CASE (POWER_SUPPLY_PROP_SERIAL_NUMBER);
+#endif
     default: break;
     }
     return (vbat_power_supply_property_t) -1;

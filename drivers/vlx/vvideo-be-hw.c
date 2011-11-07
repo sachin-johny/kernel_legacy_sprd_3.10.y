@@ -21,6 +21,7 @@
 #include <linux/mutex.h>
 #include <linux/poll.h>
 #include <linux/wait.h>
+#include <linux/slab.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 
@@ -285,7 +286,7 @@ vvideo_hw_allocate_buffer (vvideo_hw_device_t* dev, unsigned int cacheable, unsi
 	ETRACE("can't allocate buffer, buf_avail %lu < buf_size %lu\n", buf_avail, buf_size);
 	return -ENOMEM;
     }
-    
+
     buf            = &dev->buf[ dev->nbufs ];
     buf->index     = dev->nbufs;
     buf->type      = V4L2_BUF_TYPE_VIDEO_OUTPUT;
@@ -312,7 +313,7 @@ vvideo_hw_free_buffers (vvideo_hw_device_t* dev)
 
     // Reset 'free memory' pointer
     dev->mem_free = dev->mem_base;
-    
+
     // Wipe out all allocated buffers
     memset(dev->buf, 0, sizeof(struct v4l2_buffer) * VVIDEO_HW_BUF_MAX);
     dev->nbufs = 0;
@@ -327,7 +328,7 @@ vvideo_hw_query_buffer (vvideo_hw_device_t* dev, struct v4l2_buffer* qbuf)
     struct v4l2_buffer* buf;
 
     DTRACE("querying buffer index %u, nbufs %u\n", qbuf->index, dev->nbufs);
-    
+
     if (qbuf->index >= dev->nbufs) {
 	ETRACE("querying invalid buffer index %u\n", qbuf->index);
 	return -EINVAL;
@@ -381,7 +382,7 @@ vvideo_hw_renderer_callback (void* cookie, void* buf_addr)
     } else {
 	buf->flags &= ~V4L2_BUF_FLAG_QUEUED;
 	buf->flags |= V4L2_BUF_FLAG_DONE;
-	
+
 	// Enqueue the rendered buffer.
 	fifo_put(&dev->bufq, (void*)buf);
     }
@@ -654,7 +655,7 @@ vvideo_hw_ops_ioctl (void* private_data, unsigned int cmd, void* arg)
 	}
 	}
     }
-	
+
     // Set format
     case VIDIOC_S_FMT: {
 	struct v4l2_format* fmt = (struct v4l2_format*) arg;
@@ -773,7 +774,7 @@ vvideo_hw_ops_ioctl (void* private_data, unsigned int cmd, void* arg)
 	if (buf->memory != V4L2_MEMORY_MMAP) {
 	    ETRACE("failed to query buffer memory %u\n", buf->type);
 	    return -EINVAL;
-	}	
+	}
 
 	err = vvideo_hw_query_buffer(dev, buf);
 	return err;
@@ -841,7 +842,7 @@ vvideo_hw_ops_ioctl (void* private_data, unsigned int cmd, void* arg)
 	err = vvideo_hw_set_rotation(dev, *rotation);
 	return err;
     }
-	
+
     // Get rotation
     case VIDIOC_VVIDEO_HW_G_ROTATION: {
 	int* rotation = (int*) arg;
@@ -874,7 +875,7 @@ vvideo_hw_ops_ioctl (void* private_data, unsigned int cmd, void* arg)
     }
 
     // Enable colorkey
-    case VIDIOC_VVIDEO_HW_COLORKEY_ENABLE: { 
+    case VIDIOC_VVIDEO_HW_COLORKEY_ENABLE: {
 
 	DTRACE("enabling colorkey\n");
 
@@ -928,6 +929,38 @@ vvideo_hw_ops_mmap (void* private_data, unsigned long pgoff, unsigned long* bus_
 
 
 static int
+vvideo_hw_ops_munmap (void* private_data, unsigned long pgoff, unsigned long size)
+{
+    vvideo_hw_device_t* dev = (vvideo_hw_device_t*) private_data;
+    unsigned long       buf_offset;
+    void*               buf_addr;
+    struct v4l2_buffer* buf;
+
+    (void) size;
+
+    buf_offset = pgoff << PAGE_SHIFT;
+    buf_addr   = dev->mem_base + buf_offset;
+
+    buf = vvideo_hw_lookup_buffer(dev, buf_addr);
+
+    DTRACE("unmapping buffer pgoff %lu, offset %lu, addr %p -> index %u\n",
+      pgoff, buf_offset, buf_addr, buf ? buf->index : 999);
+
+    if (buf == NULL) {
+	DTRACE("buffer pgoff %lu, offset %lu, addr %p not found\n", pgoff, buf_offset, buf_addr);
+	return -ENOMEM;
+    }
+
+    buf->flags &= ~V4L2_BUF_FLAG_MAPPED;
+
+    DTRACE("unmapped buffer pgoff %lu, offset %lu, addr %p, index %u\n",
+      pgoff, buf_offset, buf_addr, buf->index);
+
+    return 0;
+}
+
+
+static int
 vvideo_hw_dev_init (vvideo_hw_device_t* dev, NkPhAddr plink)
 {
     unsigned long           pmem_size;
@@ -954,7 +987,7 @@ vvideo_hw_dev_init (vvideo_hw_device_t* dev, NkPhAddr plink)
     // Allocate the video buffers from the persistent shared memory area.
     dev->pmem = nkops.nk_pmem_alloc(plink, 0, pmem_size);
     if (!dev->pmem) {
-	ETRACE("nk_pmem_alloc failed\n");
+	ETRACE("nk_pmem_alloc(%lu bytes) failed\n", pmem_size);
 	return -ENOMEM;
     }
 
@@ -1572,6 +1605,7 @@ static vvideo_hw_ops_t vvideo_hw_ops = {
     .release = vvideo_hw_ops_release,
     .ioctl   = vvideo_hw_ops_ioctl,
     .mmap    = vvideo_hw_ops_mmap,
+    .munmap  = vvideo_hw_ops_munmap,
 };
 
 

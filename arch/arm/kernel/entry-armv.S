@@ -4,6 +4,7 @@
  *  Copyright (C) 1996,1997,1998 Russell King.
  *  ARM700 fix by Matthew Godbolt (linux-user@willothewisp.demon.co.uk)
  *  nommu support by Hyok S. Choi (hyok.choi@samsung.com)
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -240,9 +241,6 @@ __dabt_svc:
 	@
 	@ set desired IRQ state, then call main handler
 	@
-#ifdef CONFIG_NKERNEL
-	asm_trace_hardirqs_on
-#endif
 	msr	cpsr_c, r9
 	mov	r2, sp
 	bl	do_DataAbort
@@ -629,9 +627,6 @@ __pabt_svc:
 	ldr	pc, [r4, #PROCESSOR_PABT_FUNC]
 #else
 	bl	CPU_PABORT_HANDLER
-#endif
-#ifdef CONFIG_NKERNEL
-	asm_trace_hardirqs_on
 #endif
 	msr	cpsr_c, r9			@ Maybe enable interrupts
 	mov	r2, sp				@ regs

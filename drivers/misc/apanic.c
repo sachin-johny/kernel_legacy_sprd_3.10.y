@@ -568,11 +568,7 @@ static int apanic(struct notifier_block *this, unsigned long event,
 #ifdef CONFIG_PREEMPT
 	sub_preempt_count(PREEMPT_ACTIVE);
 #endif
-	/*
-	 * sometimes kernel panic two times, drop the next one
-	 * and don't save it to flash, sword
-	 */
-//	in_panic = 0;
+	in_panic = 0;
 	return NOTIFY_DONE;
 }
 
