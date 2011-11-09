@@ -1264,8 +1264,10 @@ static int sc8800fb_resume(struct platform_device *pdev)
 }
 static struct platform_driver sc8800fb_driver = {
 	.probe = sc8800fb_probe,
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend = sc8800fb_suspend,
 	.resume = sc8800fb_resume,
+#endif
 	.driver = {
 		.name = "sc8800fb",
 		.owner = THIS_MODULE,
