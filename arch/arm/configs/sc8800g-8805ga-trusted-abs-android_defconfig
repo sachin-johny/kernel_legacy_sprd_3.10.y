@@ -1165,6 +1165,10 @@ CONFIG_RADIO_ADAPTERS=y
 # CONFIG_RADIO_SI470X is not set
 # CONFIG_RADIO_TEA5764 is not set
 # CONFIG_DAB is not set
+CONFIG_CMMB=y
+CONFIG_CMMB_INNOFIDEI=y
+# CONFIG_CMMB_SIANO is not set
+# CONFIG_CMMMB_NONE is not set
 
 #
 # Graphics support

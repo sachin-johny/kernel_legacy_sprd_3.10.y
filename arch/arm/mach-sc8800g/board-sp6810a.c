@@ -541,6 +541,7 @@ static void __init openphone_map_io(void)
 	sdram_plimit = get_sdram_plimit();
 	sprd_map_common_io();
 	sprd_ramconsole_reserve_sdram();
+	sprd_pmem_reserve_sdram();
 }
 
 extern unsigned long phys_initrd_start;

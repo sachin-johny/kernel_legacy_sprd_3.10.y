@@ -29,8 +29,16 @@
 #include <sound/soc-dapm.h>
 #include <linux/delay.h>
 #include <sound/tlv.h>
+#include <linux/device.h>
+#include <linux/init.h>
+#include <linux/string.h>
+#include <linux/sysfs.h>
+#include <linux/stat.h>
+
+#include "aud_enha.h"
 
 #include "sc88xx-asoc.h"
+
 
 #define VBC_DYNAMIC_POWER_MANAGEMENT    0
 #define POWER_OFF_ON_STANDBY    0
@@ -45,9 +53,6 @@
 #define VBC_CODEC_POWER_DOWN_FORCE      (1 << 30)
 #define VBC_CODEC_SPEAKER_PA 0xfffd
 #define VBC_CODEC_DSP      0xfffc
-
-extern int snd_soc_init_card(struct snd_soc_device *socdev);
-
 /*
   ALSA SOC usually puts the device in standby mode when it's not used
   for sometime. If you define POWER_OFF_ON_STANDBY the driver will
@@ -100,20 +105,20 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_ENUM("Micphone", vbc_mic12_enum),
     // PCM
     SOC_SINGLE("PCM Playback Switch", VBCR1, DAC_MUTE, 1, 1),
-    SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+ //   SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+ //   SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+ //   SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Speaker
     /* SOC_SINGLE("Speaker Playback Switch", VBCR1, xxx, 1, 1), */
     SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
-    SOC_DOUBLE_TLV("Speaker Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("Speaker Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("Speaker Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+ //   SOC_DOUBLE_TLV("Speaker Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+ //   SOC_SINGLE_TLV("Speaker Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+ //   SOC_SINGLE_TLV("Speaker Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Earpiece
     SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
-    SOC_DOUBLE_TLV("Earpiece Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("Earpiece Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("Earpiece Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+ //   SOC_DOUBLE_TLV("Earpiece Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+ //   SOC_SINGLE_TLV("Earpiece Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+ //   SOC_SINGLE_TLV("Earpiece Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Bypass
     SOC_SINGLE("BypassFM Playback Switch", VBCR1, BYPASS, 1, 0),
     SOC_DOUBLE_R_TLV("BypassFM Playback Volume", VBCGR2, VBCGR3, 0, 0x0f, 1, dac_tlv),
@@ -123,9 +128,9 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE("LineinFM", VBPMR1, SB_LIN, 1, 1),
     // Headset
     SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
-    SOC_DOUBLE_TLV("Headset Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("Headset Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("Headset Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+ //   SOC_DOUBLE_TLV("Headset Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+ //   SOC_SINGLE_TLV("Headset Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+ //   SOC_SINGLE_TLV("Headset Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Capture
     SOC_SINGLE_TLV("Capture Capture Volume", VBCGR10, 4, 0x0f, 0, adc_tlv),
     // reset codec
@@ -138,6 +143,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE("Power Codec", VBC_CODEC_POWER, 0, 31, 0),
     SOC_SINGLE("InCall", VBC_CODEC_DSP, 0, 1, 0),
 };
+static int32_t cur_sample_rate=44100;
 
 int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, const char *prefix)
 {
@@ -585,6 +591,9 @@ void vbc_power_on(unsigned int value)
              vbc_reg_read(VBPMR1, SB_MIX, 1) ||
              vbc_reg_read(VBPMR2, SB, 1)     ||
              vbc_reg_read(VBPMR2, SB_SLEEP, 1)))) {
+#if VBC_DYNAMIC_POWER_MANAGEMENT
+            int forced = 0;
+#endif
             // int VBCGR1_value;
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
             printk("---- vbc do power on ----\n");
@@ -696,9 +705,9 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
     vbc_reg_write(VBCCR2, 4, VBC_RATE_8000, 0xf); // 8K sample DAC
     vbc_reg_write(VBCCR2, 0, VBC_RATE_8000, 0xf); // 8K sample ADC
 
-    vbc_reg_write(VBCGR1, 0, 0x00, 0xff); // DAC Gain
-    vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
-    vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
+//    vbc_reg_write(VBCGR1, 0, 0x00, 0xff); // DAC Gain
+//    vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
+//    vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
 #if 0
     msleep(1);
 
@@ -1016,7 +1025,7 @@ static int vbc_pcm_hw_params(struct snd_pcm_substream *substream,
             printk(KERN_EMERG "VBC codec only supports format 16bits"); 
             break;
     }
-
+	cur_sample_rate = params_rate(params);
     switch (params_rate(params)) {
         case  8000: vbc_reg_write(VBCCR2, idx * 4, VBC_RATE_8000 , 0xf); break;
         case 11025: vbc_reg_write(VBCCR2, idx * 4, VBC_RATE_11025, 0xf); break;
@@ -1028,12 +1037,18 @@ static int vbc_pcm_hw_params(struct snd_pcm_substream *substream,
         case 96000: vbc_reg_write(VBCCR2, idx * 4, VBC_RATE_96000, 0xf); break;
         default:
             printk(KERN_EMERG "VBC codec not supports rate %d\n", params_rate(params));
+			cur_sample_rate = 44100;
             break;
     }
 
-    // lprintf("Sample Rate is [%d]\n", params_rate(params));
+     printk("Sample Rate is [%d]\n", params_rate(params));
 
     return 0;
+}
+
+int32_t get_cur_sample_rate(void)
+{
+	return cur_sample_rate;
 }
 
 int vbc_hw_free(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
@@ -1180,27 +1195,50 @@ static inline int local_amplifier_enabled(void)
         return 0;
     }
 }
-#else
+#elif   defined(CONFIG_MACH_SP8805GA)           || \
+        defined(CONFIG_MACH_OPENPHONE)
+
+#if defined(CONFIG_MACH_SP8805GA)
+extern int sprd_local_audio_pa_mode_detect_gpio;
+#endif
+static int sprd_local_audio_pa_mode = 0; // 1 -- internal PA; 0 -- outside PA
+
 static inline void local_amplifier_init(void)
 {
-
+#if defined(CONFIG_MACH_SP8805GA)
+    if (gpio_get_value(sprd_local_audio_pa_mode_detect_gpio)) {
+        sprd_local_audio_pa_mode = 0;
+    } else sprd_local_audio_pa_mode = 1;
+#else
+    sprd_local_audio_pa_mode = 1;
+#endif
+    printk("vbc sprd_local_audio_pa_mode = %d\n", sprd_local_audio_pa_mode);
 }
 
 static inline void local_amplifier_enable(int enable)
 {
-    local_cpu_pa_control(enable);
+    if (sprd_local_audio_pa_mode) {
+        local_cpu_pa_control(enable);
+    } else {
+        printk("vbc not support outside PA\n");
+    }
 }
 
 static inline int local_amplifier_enabled(void)
 {
-    u32 value = ADI_Analogdie_reg_read(ANA_PA_CTL);
-    switch (value) {
-        case 0x5A5A: return 1;
-        default : return 0;
+    if (sprd_local_audio_pa_mode) {
+        u32 value = ADI_Analogdie_reg_read(ANA_PA_CTL);
+        switch (value) {
+            case 0x5A5A: return 1;
+            default : return 0;
+        }
+    } else {
+        printk("vbc not support outside PA\n");
+        return 0;
     }
 }
-//#else
-//#error "not define this CONFIG_MACH_xxxxx"
+#else
+#error "not define this CONFIG_MACH_xxxxx"
 #endif
 inline void vbc_amplifier_enable(int enable, const char *prename)
 {
@@ -1224,6 +1262,9 @@ inline int vbc_amplifier_enabled(void)
 }
 EXPORT_SYMBOL_GPL(vbc_amplifier_enabled);
 
+void obj_vbc_param_release(struct kobject *kobject);               //added by jian
+ssize_t kobj_vbc_param_show(struct kobject *kobject, struct attribute *attr,char *buf);       //added by jian
+ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,const char *buf, size_t count);  //added by jian
 ssize_t modem_status_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t modem_status_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf);
@@ -1245,6 +1286,68 @@ struct class modem_class = {
     .class_attrs    = modem_class_attrs,
 };
 
+struct attribute vbc_param_attr = {            //added by jian
+        .name = "vbc_param_config",
+        .mode = S_IRWXUGO,
+};
+static struct attribute *def_vbc_param_attrs[] = {	//added by jian
+        &vbc_param_attr,
+        NULL,
+};
+struct sysfs_ops obj_vbc_param_sysops =			//added by jian
+{
+        .show = kobj_vbc_param_show,
+        .store = kobj_vbc_param_store,
+};
+struct kobj_type ktype = 				//added by jian
+{
+        .release = obj_vbc_param_release,
+        .sysfs_ops=&obj_vbc_param_sysops,
+        .default_attrs=def_vbc_param_attrs,
+};
+
+void obj_vbc_param_release(struct kobject *kobject)	//added by jian
+{
+        printk("vbc_param_release: release!\n");
+}
+
+ssize_t kobj_vbc_param_show(struct kobject *kobject, struct attribute *attr,char *buf)	//added by jian
+{
+        printk("vbc_param have show!\n");
+        printk("vbc_param attrname:%s !\n", attr->name);
+        sprintf(buf,"%s\n",attr->name);
+        return strlen(attr->name)+2;
+}
+
+ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,const char *buf, size_t count)	//added by jian
+{	
+	AUDIO_TOTAL_T *audio_param_ptr = PNULL;
+	uint16_t pga_gain_god = 0;
+	uint16_t pga_gain_go = 0;
+	int16_t vol_index = 0;
+	int16_t arm_vol = 0;
+	uint32_t i;
+	audio_param_ptr = (AUDIO_TOTAL_T *)buf;
+	if(PNULL == audio_param_ptr)
+	{
+		printk("kobj_vbc_param_store audio_param_ptr is NULL!\n");
+		return 0;
+	}
+	printk("vbc_param have store!\n");
+		
+	if(AUDIO_NO_ERROR != AUDENHA_SetPara(audio_param_ptr))
+	{
+		printk("kobj_vbc_param_store AUDENHA_SetPara error!\n");
+		return 0;
+	}
+	vol_index = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.app_config_info_set.app_config_info[0].valid_volume_level_count;
+	arm_vol=audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.app_config_info_set.app_config_info[0].arm_volume[vol_index];
+	AUDDEV_SetPGA(0,arm_vol);
+	AUDDEV_SetPGA(1,arm_vol);
+	
+	return count;
+}
+
 ssize_t modem_status_show(struct class *class, struct class_attribute *attr, char *buf)
 {
     char *base = buf;
@@ -1263,6 +1366,7 @@ enum {
     MODE_NORMAL = 0,
     MODE_RINGTONE,
     MODE_IN_CALL,
+    MODE_WAITING,
     MODE_MAX
 };
 ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf)
@@ -1273,6 +1377,7 @@ ssize_t android_mode_show(struct class *class, struct class_attribute *attr, cha
     switch (android_mode) {
         case MODE_RINGTONE: mode_name = "ringtone"; break;
         case MODE_IN_CALL:  mode_name = "incall"; break;
+        case MODE_WAITING:  mode_name = "waiting"; break;
         default: android_mode = MODE_NORMAL; mode_name = "normal"; break;
     }
     local_fiq_enable();
@@ -1334,6 +1439,8 @@ struct snd_soc_dai vbc_dai[] = {
 };
 EXPORT_SYMBOL_GPL(vbc_dai);
 
+struct kobject vbc_kobj;  	//added by jian
+
 static int vbc_probe(struct platform_device *pdev)
 {
     struct snd_soc_device *socdev = platform_get_drvdata(pdev);
@@ -1387,7 +1494,8 @@ static int vbc_probe(struct platform_device *pdev)
     android_pm_init();
     android_sprd_pm_init();
     class_register(&modem_class);
-
+	printk("kboject vbc_param init!\n");					//added by jian
+	kobject_init_and_add(&vbc_kobj,&ktype,NULL,"kobject_vbc_param");	//added by jian
 	return 0;
 
 // card_err:
@@ -1405,6 +1513,9 @@ static int vbc_remove(struct platform_device *pdev)
 
 	if (codec == NULL)
 		return 0;
+	printk("kobject vbc_param exit!\n");		//added by jian
+	kobject_del(&vbc_kobj);				//added by jian
+
     class_unregister(&modem_class);
 #if POWER_OFF_ON_STANDBY
     vbc_set_bias_level(codec, SND_SOC_BIAS_STANDBY);

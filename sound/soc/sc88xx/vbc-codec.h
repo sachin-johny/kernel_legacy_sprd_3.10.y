@@ -24,6 +24,7 @@
 #include <mach/regs_global.h>
 #include <mach/regs_ahb.h>
 #include <mach/regs_int.h>
+#include <asm/io.h>
 
 #define VBC_FIFO_FRAME_NUM      160
 #define VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX 1
@@ -312,6 +313,9 @@ static inline u32 vbc_reg_read(u32 reg, u8 shift, u32 mask)
 #endif
     return tmp & (mask << shift);
 }
+
+extern int32_t get_cur_sample_rate();
+
 //--------------------------
 extern struct snd_soc_codec_device vbc_codec;
 extern struct snd_soc_dai vbc_dai[];

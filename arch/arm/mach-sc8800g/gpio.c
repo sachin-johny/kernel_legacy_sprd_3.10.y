@@ -247,7 +247,6 @@ static int __gpio_get_dir (struct gpio_info *info)
 	case GPIO_SECTION_INVALID:
 	default:
 	    pr_warning("[GPIO_DRV]the GPIO_ID is Invalid in this chip");
-	    WARN_ON(1);
 	    return -EINVAL;
 	}
 
@@ -387,8 +386,11 @@ static void sprd_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	}
 */
 
-	if (!__gpio_get_dir (&gpio_info)) {
+	if (!__gpio_get_dir(&gpio_info)) {
 	        WARN(1, "GPIO_%d dir wrong!can't set input value", gpio_id);
+		return;
+	} else if (__gpio_get_dir(&gpio_info) < 0){
+	        WARN(1, "GPIO_%d can't set value", gpio_id);
 		return;
 	}
 

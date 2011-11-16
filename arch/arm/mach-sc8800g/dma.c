@@ -97,13 +97,13 @@ void sprd_dma_check_channel(void){
      int i;
      for(i=0; i<DMA_CHN_NUM; i++){
         if(sprd_irq_handlers[i].handler == NULL){
-	  printk("=== dma channel:%d is not occupied ====\n", i);
+	  pr_debug("=== dma channel:%d is not occupied ====\n", i);
 	}
      }
      for(i=0; i<DMA_CHN_NUM; i++){
-	  printk("=== sprd_irq_handlers[%d].handler:%p ====\n", i, sprd_irq_handlers[i].handler);
-	  printk("=== sprd_irq_handlers[%d].dma_uid:%u ====\n", i, sprd_irq_handlers[i].dma_uid);
-	  printk("=== sprd_irq_handlers[%d].used_ago:%u ====\n", i, sprd_irq_handlers[i].used_ago);
+	  pr_debug("=== sprd_irq_handlers[%d].handler:%p ====\n", i, sprd_irq_handlers[i].handler);
+	  pr_debug("=== sprd_irq_handlers[%d].dma_uid:%u ====\n", i, sprd_irq_handlers[i].dma_uid);
+	  pr_debug("=== sprd_irq_handlers[%d].used_ago:%u ====\n", i, sprd_irq_handlers[i].used_ago);
      }
 } 
 EXPORT_SYMBOL_GPL(sprd_dma_check_channel);
@@ -115,7 +115,7 @@ EXPORT_SYMBOL_GPL(sprd_dma_check_channel);
  **/
 void dma_set_uid(u32 dma_chn, u32 dma_uid){
        if(dma_chn > DMA_CHN_MAX){
-          printk("!!!! Invalid DMA Channel: %d !!!!\n", dma_chn);
+          pr_warning("!!!! Invalid DMA Channel: %d !!!!\n", dma_chn);
 	  return;
        }
        
@@ -126,7 +126,7 @@ void dma_set_uid(u32 dma_chn, u32 dma_uid){
        dma_uid = dma_uid << chn_uid_shift; 
        dma_uid |= __raw_readl(dma_chn_uid_reg);
        __raw_writel(dma_uid, dma_chn_uid_reg);
-       printk("**** dma_chn_uid_reg:0x%x, 0x%x ****\n", dma_chn_uid_reg, __raw_readl(dma_chn_uid_reg) );
+       pr_debug("**** dma_chn_uid_reg:0x%x, 0x%x ****\n", dma_chn_uid_reg, __raw_readl(dma_chn_uid_reg) );
 
 }
 
@@ -186,7 +186,7 @@ int sprd_dma_request(u32 uid, void (*irq_handler)(int, void *), void *data){
        local_irq_restore(flags);
        return -1;
     }	    
-    printk("++++ requested dma channel:%u +++", ch_id);
+    pr_debug("++++ requested dma channel:%u +++", ch_id);
     sprd_irq_handlers[ch_id].handler = irq_handler;
     sprd_irq_handlers[ch_id].dev_id = data;
     sprd_irq_handlers[ch_id].dma_uid = uid;
@@ -547,7 +547,7 @@ void sprd_dma_setup(sprd_dma_ctrl *ctrl)
     u32 modes = ctrl->modes; // DMA_LINKLIST;
     u32 wrap_addr_start = 0, wrap_addr_end = 0;
     u32 softlist_size = 0, softlist_baseaddr = 0, softlist_cmd = 0;
-
+	
     // DMA Channel Control
     dma_reg_write(DMA_CHx_EN, ch_id, 0, 1); // stop hard transfer for hard channel
     dma_reg_write(DMA_SOFT_REQ, ch_id, 0, 1); // stop soft transfer for soft channel
@@ -581,7 +581,7 @@ void sprd_dma_setup(sprd_dma_ctrl *ctrl)
     // set user id
     dma_reg_write(DMA_CHN_UID_BASE + (ch_id & ~0x03), 
                   (ch_id & 0x03) << 3,
-                  (ch_id > DMA_DRM_CPT) ? DMA_SOFT0:ch_id,
+                  (ch_id >= DMA_CHN_SOFTWARE_START && ch_id <= DMA_CHN_SOFTWARE_END) ? DMA_SOFT0:ch_id,
                   0x1f);
 
     if (modes & DMA_LINKLIST) {
@@ -681,6 +681,119 @@ void sprd_dma_setup_cfg(sprd_dma_ctrl *ctrl,
     dma_desc->dbm = autodma_burst_step_dst | (autodma_burst_mod_dst & ~DMA_BURST_STEP_ABS_SIZE_MASK);
 }
 EXPORT_SYMBOL_GPL(sprd_dma_setup_cfg);
+
+void sprd_dma_setup_cfg_ext(sprd_dma_ctrl *ctrl,
+            int ch_id,
+            int dma_modes,
+            int interrupt_type,
+            int autodma_src,
+            int autodma_dst,
+            int autodma_burst_mod_src,
+            int autodma_burst_mod_dst,
+            int burst_size,
+            int src_data_width,
+            int dst_data_width,
+            u32 dsrc,
+            u32 ddst,
+            u32 tlen)
+{
+    sprd_dma_desc *dma_desc = ctrl->dma_desc;
+    int autodma_burst_step_src = autodma_burst_mod_src & DMA_BURST_STEP_ABS_SIZE_MASK;
+    int autodma_burst_step_dst = autodma_burst_mod_dst & DMA_BURST_STEP_ABS_SIZE_MASK;
+    int pmod = 0; // src & dst element postm next block offset value is forced to 0 [luther.ge]
+    int width = 0;
+
+    ctrl->ch_id = ch_id;
+    ctrl->modes = dma_modes;
+    ctrl->interrupt_type = interrupt_type;
+
+    if (src_data_width == 32) width |= DMA_SDATA_WIDTH32;
+    else if (src_data_width == 16) width |= DMA_SDATA_WIDTH16;
+    else width |= DMA_SDATA_WIDTH8;
+
+    if (dst_data_width == 32) width |= DMA_DDATA_WIDTH32;
+    else if (dst_data_width == 16) width |= DMA_DDATA_WIDTH16;
+    else width |= DMA_DDATA_WIDTH8;
+
+    if (autodma_src != DMA_NOCHANGE) {
+        autodma_burst_step_src |= autodma_src << 25; // inc or dec direction bit for burst dma
+        // pmod |= autodma_src << 31; // inc or dec direction bit for block dma
+	pmod = 1<<16;
+    }
+    if (autodma_dst != DMA_NOCHANGE) {
+        autodma_burst_step_src |= autodma_dst << 25; // inc or dec direction bit for burst dma
+        // pmod |= autodma_dst << 15; // inc or dec direction bit for block dma
+	pmod = 1;
+    }
+	
+    dma_desc->cfg = width | DMA_REQMODE_NORMAL | burst_size;
+    dma_desc->tlen = tlen;
+    dma_desc->dsrc = dsrc;
+    dma_desc->ddst = ddst;
+    dma_desc->llptr = 0;
+    dma_desc->pmod = pmod;
+    dma_desc->sbm = 0;//autodma_burst_step_src | (autodma_burst_mod_src & ~DMA_BURST_STEP_ABS_SIZE_MASK);
+    dma_desc->dbm = 0;//autodma_burst_step_dst | (autodma_burst_mod_dst & ~DMA_BURST_STEP_ABS_SIZE_MASK);
+}
+EXPORT_SYMBOL_GPL(sprd_dma_setup_cfg_ext);
+
+
+
+void sprd_dma_setup_cfg_pmod(sprd_dma_ctrl *ctrl,
+            int ch_id,
+            int dma_modes,
+            int interrupt_type,
+            int endian,
+            int autodma_src,
+            int autodma_dst,
+            int src_ele_step,
+            int des_ele_step,
+            int autodma_burst_mod_src,
+            int autodma_burst_mod_dst,
+            int burst_size,
+            int src_data_width,
+            int dst_data_width,
+            u32 dsrc,
+            u32 ddst,
+            u32 tlen)
+{
+    sprd_dma_desc *dma_desc = ctrl->dma_desc;
+    int autodma_burst_step_src = autodma_burst_mod_src & DMA_BURST_STEP_ABS_SIZE_MASK;
+    int autodma_burst_step_dst = autodma_burst_mod_dst & DMA_BURST_STEP_ABS_SIZE_MASK;
+    int pmod = des_ele_step |(src_ele_step<<16);
+    int width = 0;
+
+    ctrl->ch_id = ch_id;
+    ctrl->modes = dma_modes;
+    ctrl->interrupt_type = interrupt_type;
+
+    if (src_data_width == 32) width |= DMA_SDATA_WIDTH32;
+    else if (src_data_width == 16) width |= DMA_SDATA_WIDTH16;
+    else width |= DMA_SDATA_WIDTH8;
+
+    if (dst_data_width == 32) width |= DMA_DDATA_WIDTH32;
+    else if (dst_data_width == 16) width |= DMA_DDATA_WIDTH16;
+    else width |= DMA_DDATA_WIDTH8;
+
+    if (autodma_src != DMA_NOCHANGE) {
+        autodma_burst_step_src |= autodma_src << 25; // inc or dec direction bit for burst dma
+        // pmod |= autodma_src << 31; // inc or dec direction bit for block dma
+    }
+    if (autodma_dst != DMA_NOCHANGE) {
+        autodma_burst_step_src |= autodma_dst << 25; // inc or dec direction bit for burst dma
+        // pmod |= autodma_dst << 15; // inc or dec direction bit for block dma
+    }
+
+    dma_desc->cfg = endian | width | DMA_REQMODE_TRANS | burst_size;
+    dma_desc->tlen = tlen;
+    dma_desc->dsrc = dsrc;
+    dma_desc->ddst = ddst;
+    dma_desc->llptr = 0;
+    dma_desc->pmod = pmod;
+    dma_desc->sbm = autodma_burst_step_src | (autodma_burst_mod_src & ~DMA_BURST_STEP_ABS_SIZE_MASK);
+    dma_desc->dbm = autodma_burst_step_dst | (autodma_burst_mod_dst & ~DMA_BURST_STEP_ABS_SIZE_MASK);
+}
+EXPORT_SYMBOL_GPL(sprd_dma_setup_cfg_pmod);
 
 static int sprd_dma_init(void)
 {

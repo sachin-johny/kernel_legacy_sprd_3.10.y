@@ -56,7 +56,8 @@ unsigned long get_sdram_plimit(void);
 #define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
                                 SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE)
 
-#define SPRD_PMEM_BASE          ((sdram_plimit)-SPRD_IO_MEM_SIZE)
+#define SPRD_PMEM_END           (128*1024*1024) /* alway 128M */
+#define SPRD_PMEM_BASE          (SPRD_PMEM_END-SPRD_IO_MEM_SIZE)
 #define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
 #define SPRD_ROT_MEM_BASE       (SPRD_PMEM_ADSP_BASE+SPRD_PMEM_ADSP_SIZE)
 #define SPRD_SCALE_MEM_BASE     (SPRD_ROT_MEM_BASE+SPRD_ROT_MEM_SIZE)
@@ -66,15 +67,17 @@ unsigned long get_sdram_plimit(void);
 # define RAM_CONSOLE_START   (SPRD_PMEM_BASE - RAM_CONSOLE_SIZE)
 #endif
 
-void udc_enable(void); 
-void udc_disable(void);
+extern void udc_enable(void);
+extern void udc_disable(void);
+extern int in_factory_mode(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
-int __init sprd_ramconsole_init(void);
-void sprd_ramconsole_reserve_sdram(void);
+extern int __init sprd_ramconsole_init(void);
+extern void sprd_ramconsole_reserve_sdram(void);
 #else
 static inline int sprd_ramconsole_init(void) {return 0;}
 static inline void sprd_ramconsole_reserve_sdram(void){}
 #endif
+extern void sprd_pmem_reserve_sdram(void);
 
 #endif
 

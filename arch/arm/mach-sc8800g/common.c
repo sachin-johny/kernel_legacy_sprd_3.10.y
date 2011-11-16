@@ -240,10 +240,12 @@ static struct platform_device sprd_vsp_device = {
 	.id	= -1,
 };
 
+#ifdef CONFIG_CMMB_INNOFIDEI
 static struct platform_device inno_demod_device = {
 	.name   = "inno-demod",
 	.id     = -1,
 };
+#endif
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_kpad_device,
@@ -259,8 +261,10 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_2d_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
-	&sprd_vsp_device,
-	&inno_demod_device,
+	&sprd_vsp_device
+#ifdef CONFIG_CMMB_INNOFIDEI
+	,&inno_demod_device
+#endif	
 };
 
 void __init sprd_add_devices(void)
@@ -583,8 +587,8 @@ static struct platform_device usb_mass_storage_device = {
 
 #ifdef CONFIG_USB_ANDROID_RNDIS
 static struct usb_ether_platform_data rndis_pdata = {
-       .ethaddr   = {0x02, 0x89,0xfb,0xab,0x1b,0xcd},
-       .vendorID  = 0x22B8,
+       .ethaddr   = {0x02,0x89,0xfb,0xab,0x1b,0xcd},
+       .vendorID  = SPRD_VENDOR_ID,
        .vendorDescr  = "Spreadtrum",
 };
 
@@ -690,6 +694,11 @@ exit:
 void sprd_ramconsole_reserve_sdram(void)
 {
         reserve_bootmem(RAM_CONSOLE_START, RAM_CONSOLE_SIZE, 0);
+}
+
+void sprd_pmem_reserve_sdram(void)
+{
+        reserve_bootmem(SPRD_PMEM_BASE, SPRD_IO_MEM_SIZE, 0);
 }
 #endif
 

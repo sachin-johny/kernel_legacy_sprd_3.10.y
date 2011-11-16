@@ -27,6 +27,7 @@ static inline void __iomem *__io(unsigned long addr)
 #define __io(a)         __io(a)
 #define __mem_pci(a)    (a)
 
+#ifndef CONFIG_NKERNEL
 
 static inline void __raw_bits_and(unsigned int v, unsigned int a)
 {
@@ -54,5 +55,36 @@ static inline void __raw_bits_xor(unsigned int v, unsigned int a)
 	__raw_writel((__raw_readl(a) ^ v), a);
 	raw_local_irq_restore(flags);
 }
+
+#else /* CONFIG_NKERNEL */
+
+static inline void __raw_bits_and(unsigned int v, unsigned int a)
+{
+	unsigned long flags;
+
+	hw_local_irq_save(flags);
+	__raw_writel((__raw_readl(a) & v), a);
+	hw_local_irq_restore(flags);
+}
+
+static inline void __raw_bits_or(unsigned int v, unsigned int a)
+{
+	unsigned long flags;
+
+	hw_local_irq_save(flags);
+	__raw_writel((__raw_readl(a) | v), a);
+	hw_local_irq_restore(flags);
+}
+
+static inline void __raw_bits_xor(unsigned int v, unsigned int a)
+{
+	unsigned long flags;
+
+	hw_local_irq_save(flags);
+	__raw_writel((__raw_readl(a) ^ v), a);
+	hw_local_irq_restore(flags);
+}
+
+#endif /* CONFIG_NKERNEL */
 
 #endif

@@ -126,10 +126,10 @@
 #define DMA_MIN_PRI                     0//wong
 #define ON                              1//wong
 #define OFF                             0//wong
-#define DMA_CHN_HARDWARE_START 4
-#define DMA_CHN_HARDWARE_END   31 
-#define DMA_CHN_SOFTWARE_START 0
-#define DMA_CHN_SOFTWARE_END   3
+#define DMA_CHN_HARDWARE_START 1
+#define DMA_CHN_HARDWARE_END   0x1c 
+#define DMA_CHN_SOFTWARE_START 0x1d
+#define DMA_CHN_SOFTWARE_END   0x1f
 #define SRC_ELEM_POSTM_SHIFT  16
 #define CFG_BLK_LEN_MASK      0xffff
 #define SRC_ELEM_POSTM_MASK   0xffff
@@ -231,8 +231,8 @@ typedef enum {
 #define DMA_PAUSE_REQ   (1 << 8)
 // CH_CFG0
 #define DMA_LLEND       (1 << 31)
-#define DMA_BIG_ENDIAN  (0 << 30)
-#define DMA_LIT_ENDIAN  (1 << 30) // this bit not used by SC8800G2
+#define DMA_BIG_ENDIAN  (1 << 28)
+#define DMA_LIT_ENDIAN  (0 << 28) // this bit not used by SC8800G2
 #define DMA_SDATA_WIDTH8  (0 << 26)
 #define DMA_SDATA_WIDTH16 (1 << 26)
 #define DMA_SDATA_WIDTH32 (2 << 26)
@@ -429,4 +429,39 @@ void sprd_dma_setup_cfg(sprd_dma_ctrl *ctrl,
             u32 dsrc,
             u32 ddst,
             u32 tlen);
+
+void sprd_dma_setup_cfg_ext(sprd_dma_ctrl *ctrl,
+            int ch_id,
+            int dma_modes,
+            int interrupt_type,
+            int autodma_src,
+            int autodma_dst,
+            int autodma_burst_mod_src,
+            int autodma_burst_mod_dst,
+            int burst_size,
+            int src_data_width,
+            int dst_data_width,
+            u32 dsrc,
+            u32 ddst,
+            u32 tlen);
+
+void sprd_dma_setup_cfg_pmod(sprd_dma_ctrl *ctrl,
+            int ch_id,
+            int dma_modes,
+            int interrupt_type,
+            int endian,
+            int autodma_src,
+            int autodma_dst,
+            int src_ele_step,
+            int des_ele_step,
+            int autodma_burst_mod_src,
+            int autodma_burst_mod_dst,
+            int burst_size,
+            int src_data_width,
+            int dst_data_width,
+            u32 dsrc,
+            u32 ddst,
+            u32 tlen);
+
+
 #endif

@@ -134,8 +134,8 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
 #include <mach/irqs.h>
 #include <mach/mfp.h>
 
-#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL      24 * 1000 * 1000
-#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH        24 * 1000 * 1000
+#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL      32 * 1000 * 1000
+#define SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH        32 * 1000 * 1000
 
 #define SPRD_3RDPARTY_SPI_MASTER_BUS_NUM    0
 #define SPRD_3RDPARTY_SPI_MASTER_CS0_GPIO   32
@@ -177,13 +177,23 @@ static struct spi_board_info openhone_spi_devices4wifi[] = {
     },
 };
 
+
 static struct spi_board_info openhone_spi_devices4cmmb[] = {
+#ifdef CONFIG_CMMB_INNOFIDEI
     {
         .modalias       = "cmmb-dev", // "spidev" --> spidev_spi
         .chip_select    = SPRD_3RDPARTY_SPI_CMMB_CS,
         .max_speed_hz   = 8 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
+#else
+    {
+        .modalias       = "cmmb-dev", // "spidev" --> spidev_spi
+        .chip_select    = SPRD_3RDPARTY_SPI_CMMB_CS,
+        .max_speed_hz   = 10 * 1000 * 1000,
+        .mode           = SPI_CPOL | SPI_CPHA,
+    },
+#endif
 };
 
 static u64 spi_dmamask = DMA_BIT_MASK(32);
@@ -221,7 +231,8 @@ struct gpio_desc {
     const char *desc;
 };
 
-#define SPRD_3RDPARTY_GPIO_WIFI_POWER       106
+#define SPRD_3RDPARTY_GPIO_WIFI_POWER       53 // PIN_EMCKE1_REG for hardware 1.2.0
+#define SPRD_3RDPARTY_GPIO_WIFI_POWER1      106 // PIN_XTL_EN_REG for hardware 1.1.0
 #define SPRD_3RDPARTY_GPIO_WIFI_RESET       135
 #define SPRD_3RDPARTY_GPIO_WIFI_PWD         99
 #define SPRD_3RDPARTY_GPIO_WIFI_WAKE        142
@@ -229,9 +240,16 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_BT_POWER         -1
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
 #define SPRD_3RDPARTY_GPIO_BT_RTS           -1
+
+#ifdef CONFIG_CMMB_INNOFIDEI
 #define SPRD_3RDPARTY_GPIO_CMMB_POWER       140
 #define SPRD_3RDPARTY_GPIO_CMMB_RESET       138
 #define SPRD_3RDPARTY_GPIO_CMMB_IRQ         139
+#else
+#define SPRD_3RDPARTY_GPIO_CMMB_POWER       -1
+#define SPRD_3RDPARTY_GPIO_CMMB_RESET       -1
+#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         -1
+#endif
 #define SPRD_3RDPARTY_GPIO_TP_PWR             (-1)   //not used
 #define SPRD_3RDPARTY_GPIO_TP_RST              27
 #define SPRD_3RDPARTY_GPIO_TP_IRQ              26
@@ -290,25 +308,35 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_onoff);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_normal);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_high);
 
-static struct gpio_desc gpio_func_cfg[] = {
+// -----------------------------------------------------------------------
+#define SPRD_LOCAL_AUDIO_PA_MODE_DETECT_GPIO 40 // PIN_EMRST_N_REG
 
+int sprd_local_audio_pa_mode_detect_gpio = SPRD_LOCAL_AUDIO_PA_MODE_DETECT_GPIO;
+
+EXPORT_SYMBOL_GPL(sprd_local_audio_pa_mode_detect_gpio);
+
+static struct gpio_desc gpio_func_cfg[] = {
+    {
+        GPIO_DESC_MFP_OBSOLETE, SPRD_LOCAL_AUDIO_PA_MODE_DETECT_GPIO | GPIO_DIRECTION_INPUT,
+        "audio PA detect"
+    },
    {
-        //MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE), // wifi_power_io - also Bluetooth power
-	//SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        
 	GPIO_DESC_MFP_OBSOLETE,
 	SPRD_3RDPARTY_GPIO_FLASH_LED| GPIO_DIRECTION_OUTPUT,
         "flash led"
     },
 
-
     {
-        //MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE), // wifi_power_io - also Bluetooth power
-	//SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-        
 	GPIO_DESC_MFP_OBSOLETE,
 	SPRD_3RDPARTY_GPIO_WIFI_POWER | GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_OUTPUT,
-        "wifi power"
+        "wifi power v1.2.0"
+    },
+    {
+        //MFP_CFG_X(XTL_EN, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE), // wifi_power_io - also Bluetooth power
+	//SPRD_3RDPARTY_GPIO_WIFI_POWER1 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	GPIO_DESC_MFP_OBSOLETE,
+	SPRD_3RDPARTY_GPIO_WIFI_POWER1 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_OUTPUT,
+        "wifi power v1.1.0"
     },
     {
         //MFP_CFG_X(RFCTL9, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_Z), // wifi_pwd_io
@@ -370,7 +398,7 @@ static struct gpio_desc gpio_func_cfg[] = {
         //SPRD_3RDPARTY_GPIO_CMMB_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
         
 	GPIO_DESC_MFP_OBSOLETE,
-	SPRD_3RDPARTY_GPIO_CMMB_IRQ | GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_INPUT,
+	SPRD_3RDPARTY_GPIO_CMMB_IRQ | GPIO_DIRECTION_INPUT,
         "demod int"
     },
    {
@@ -696,6 +724,7 @@ static void __init openphone_map_io(void)
 	sdram_plimit = get_sdram_plimit();
 	sprd_map_common_io();
 	sprd_ramconsole_reserve_sdram();
+	sprd_pmem_reserve_sdram();
 }
 
 extern unsigned long phys_initrd_start;

@@ -113,7 +113,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_NFD13_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    NF DATA
     {PIN_NFD14_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    NF DATA
     {PIN_NFD15_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    NF DATA
-    {PIN_EMRST_N_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100    EMRST(NC)
+    {PIN_EMRST_N_REG,    (PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_3 | PIN_SPX_EN | PIN_I_EN) },    // 0x100    EMRST(NC)
     {PIN_EMA0_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
     {PIN_EMA1_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
     {PIN_EMA2_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
@@ -128,7 +128,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_EMA11_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
     {PIN_EMA12_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
     {PIN_EMA13_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
-    {PIN_EMCKE1_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100  NC
+    {PIN_EMCKE1_REG,     (PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3 | PIN_SPD_EN | PIN_O_EN) },    // 0x100  NC
     {PIN_EMD0_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
     {PIN_EMD1_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
     {PIN_EMD2_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    

@@ -13,16 +13,21 @@
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regs_ahb.h>
+#include <mach/regs_ana.h>
+#include <mach/regs_global.h>
+#include <mach/adi_hal_internal.h>
 
 #define USE_FAKE_CPUFREQ		1
 
 #ifdef USE_FAKE_CPUFREQ
-#define MIN_FREQ					(120000)
-#define MAX_FREQ					(600000)
-#else
+static unsigned long cpu_main_freq = 0;
 #define REG_AHB_ARM_CLK					(*((volatile unsigned int *)(AHB_ARM_CLK)))
 #define REG_CHIP_ID					(*((volatile unsigned int *)(CHIP_ID)))
-
+#define REG_GR_GEN1					(*((volatile unsigned int *)(GR_GEN1)))
+#define REG_GR_MPLL_MN					(*((volatile unsigned int *)(GR_MPLL_MN)))
+#define MIN_FREQ					(26000)
+#define MAX_FREQ					(800000)
+#else
 #define MIN_FREQ					(26000)
 #define MAX_FREQ					(400000)
 #endif
@@ -106,11 +111,11 @@ int clk_set_flags(struct clk *clk, unsigned long flags)
 EXPORT_SYMBOL(clk_set_flags);
 #endif
 
-/* return is : Kz */
+/* return is : Hz */
 static unsigned long get_mcu_clk(void)
 {
 #ifdef USE_FAKE_CPUFREQ
-	return (MAX_FREQ * 1000);	
+	return (cpu_main_freq * 1000);	
 #else
 	int clk_mcu_sel, clk_mcu;
 	clk_mcu_sel = (REG_AHB_ARM_CLK >> 23) & 0x3;
@@ -288,7 +293,7 @@ static int sc8800g_cpufreq_set_target(struct cpufreq_policy *policy,
 	return 0;
 }
 
-static int sc8800g_cpufreq_driver_init(struct cpufreq_policy *policy)
+static int __init sc8800g_cpufreq_driver_init(struct cpufreq_policy *policy)
 {
 	int ret;
 
@@ -333,15 +338,36 @@ static struct cpufreq_driver sc8800g_cpufreq_driver = {
 
 static int __init sc8800g_cpufreq_init(void)
 {
-#if 0
-	printk("\nREG_CHIP_ID = 0x%08x\n", REG_CHIP_ID);
+	unsigned int cnt, clk, arm_clk;
+
+#ifdef USE_FAKE_CPUFREQ
+	/*printk("\nREG_CHIP_ID = 0x%08x\n", REG_CHIP_ID);
 	printk("REG_AHB_ARM_CLK = 0x%08x\n", REG_AHB_ARM_CLK);
 	printk("REG_GR_MPLL_MN = 0x%08x\n", REG_GR_MPLL_MN);
-	printk("REG_GR_GEN1 = 0x%08x\n\n", REG_GR_GEN1);
+	printk("REG_GR_GEN1 = 0x%08x\n", REG_GR_GEN1);
+	printk("ANA_DCDC_CTL = 0x%08x\n", ANA_REG_GET(ANA_DCDC_CTL));*/
 
-	return 0;
-#else
-	unsigned int cnt, clk, arm_clk;
+	switch (REG_GR_MPLL_MN & 0xfff) {
+	case 0xe1:
+		cpu_main_freq = 450 * 1000; /* KHz */
+		break;
+	case 0x12c:
+		cpu_main_freq = 600 * 1000;
+		break;
+	case 0x113:
+		cpu_main_freq = 550 * 1000;
+		break;
+	case 0xfa:
+		cpu_main_freq = 500 * 1000;
+		break;
+	case 0x104:
+		cpu_main_freq = 520 * 1000;
+		break;
+	case 0x145:
+		cpu_main_freq = 650 * 1000;
+		break;
+	}
+#endif
 
 	arm_clk = clk_get_rate() / 1000;
 	for (cnt = 0; cnt < FREQ_TABLE_ENTRY; cnt ++) {
@@ -360,13 +386,13 @@ static int __init sc8800g_cpufreq_init(void)
 
 	clk = 0;
 #ifdef USE_FAKE_CPUFREQ
-	sc8800g_freq_table[clk].frequency = 600000;
+	sc8800g_freq_table[clk].frequency = cpu_main_freq;
 	clk ++;
-	sc8800g_freq_table[clk].frequency = 400000;
+	sc8800g_freq_table[clk].frequency = cpu_main_freq;
 	clk ++;
-	sc8800g_freq_table[clk].frequency = 200000;
+	sc8800g_freq_table[clk].frequency = cpu_main_freq;
 	clk ++;
-	sc8800g_freq_table[clk].frequency = 120000;
+	sc8800g_freq_table[clk].frequency = cpu_main_freq;
 	clk ++;
 #else
 	sc8800g_freq_table[clk].frequency = 400000;
@@ -383,6 +409,5 @@ static int __init sc8800g_cpufreq_init(void)
 		printk("sc8800g_freq_table[%d].frequency = %d\n", cnt, sc8800g_freq_table[cnt].frequency);
 
 	return cpufreq_register_driver(&sc8800g_cpufreq_driver);
-#endif
 }
 module_init(sc8800g_cpufreq_init);

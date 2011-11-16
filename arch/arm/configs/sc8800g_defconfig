@@ -1,7 +1,10 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.9
-# Wed Mar  9 17:36:15 2011
+<<<<<<< HEAD
+=======
+# Mon Mar 28 13:50:25 2011
+>>>>>>> sprdroid_froyo
 #
 CONFIG_NKERNEL=y
 CONFIG_NKERNEL_DDI=y
@@ -221,6 +224,7 @@ CONFIG_ARCH_SUPPORTS_BIG_ENDIAN=y
 # CONFIG_MACH_G2PHONE is not set
 CONFIG_MACH_OPENPHONE=y
 # CONFIG_SC8800G_IDLE is not set
+CONFIG_SC8800G_VIBRATOR=y
 CONFIG_HZ=100
 
 #

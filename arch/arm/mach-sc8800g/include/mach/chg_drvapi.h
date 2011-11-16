@@ -83,8 +83,8 @@ extern   "C"
 
 #define PREVRECHARGE        4160//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
 // restart the charge process.
-#define CHGMNG_OVER_CHARGE (4260)
-#define PREVCHGEND      (4210)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
+#define CHGMNG_OVER_CHARGE (4220)
+#define PREVCHGEND      (4200)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
 #define CHGMNG_SAFTY_CUTOFF_POINT 960//837   // 4.33V. When the battery voltage is higher than this value, we will stop charging forcibly.
 
 #define BUSYSTATE       1   //when the phone is staying in busy state(for example, talking, play games or play music, etc.),we will stop
@@ -106,6 +106,8 @@ extern   "C"
 #define CHARGE_VBAT_STATISTIC_BUFFERSIZE 16
 #define CHARGE_VPROG_STATISTIC_BUFFERSIZE 5
 #define CHGMNG_PLUST_TIMES  3
+#define CHARGE_BEFORE_STOP 600
+#define CHARGE_OVER_TIME 21600 /* set for charge over time, 6 hours */
 
 #define ADC_VPROG_LIMIT    500
 #define VBAT_RESULT_NUM     10       //ADC sampling number
@@ -140,7 +142,7 @@ extern   "C"
 
 #define CC_CV_VOLTAGE 4200
 #define CV_REF_CURRENT 4
-#define CV_STOP_CURRENT 5
+#define CV_STOP_CURRENT 70
 #define PLUSE_CURRENT 4
 
 #define OVP_ADC_VALUE 0x198
@@ -756,6 +758,7 @@ uint32_t CHG_UpdateSwitchoverPoint (bool up_or_down);
 //  Note:
 /*****************************************************************************/
  uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue);
+ uint16_t CHGMNG_ChargerAdcvalueToVoltage (uint16_t adcvalue);
 
 /*****************************************************************************/
 //  Description:    This function is used to get VBAT ADC value.
