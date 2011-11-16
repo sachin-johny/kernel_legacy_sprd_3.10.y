@@ -585,7 +585,6 @@ void vbc_power_on(unsigned int value)
              vbc_reg_read(VBPMR1, SB_MIX, 1) ||
              vbc_reg_read(VBPMR2, SB, 1)     ||
              vbc_reg_read(VBPMR2, SB_SLEEP, 1)))) {
-            int forced = 0;
             // int VBCGR1_value;
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
             printk("---- vbc do power on ----\n");
@@ -934,12 +933,6 @@ static int vbc_set_dai_fmt(struct snd_soc_dai *codec_dai, unsigned int fmt)
     return 0;
 }
 
-static int vbc_set_dai_pll(struct snd_soc_dai *codec_dai,
-		int pll_id, unsigned int freq_in, unsigned int freq_out)
-{
-    return 0;
-}
-
 static int vbc_set_dai_clkdiv(struct snd_soc_dai *codec_dai, int div_id, int div)
 {
     return 0;
@@ -1057,7 +1050,6 @@ static struct snd_soc_dai_ops vbc_dai_ops = {
     .hw_free    = vbc_hw_free,
     .shutdown   = vbc_shutdown,
 	.set_clkdiv = vbc_set_dai_clkdiv,
-	.set_pll    = vbc_set_dai_pll,
 	.set_fmt    = vbc_set_dai_fmt,
 	.set_tristate = vbc_set_dai_tristate,
 };
@@ -1188,8 +1180,6 @@ static inline int local_amplifier_enabled(void)
         return 0;
     }
 }
-//#elif   defined(CONFIG_MACH_SP8805GA)           || \
-//        defined(CONFIG_MACH_OPENPHONE)
 #else
 static inline void local_amplifier_init(void)
 {
@@ -1234,12 +1224,12 @@ inline int vbc_amplifier_enabled(void)
 }
 EXPORT_SYMBOL_GPL(vbc_amplifier_enabled);
 
-ssize_t modem_status_show(struct class *class, char *buf);
-ssize_t modem_status_store(struct class *class, const char *buf, size_t count);
-ssize_t android_mode_show(struct class *class, char *buf);
-ssize_t android_mode_store(struct class *class, const char *buf, size_t count);
-ssize_t vbc_regs_show(struct class *class, char *buf);
-ssize_t vbc_regs_store(struct class *class, const char *buf, size_t count);
+ssize_t modem_status_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t modem_status_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t android_mode_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 // /sys/class/modem/*
 static struct class_attribute modem_class_attrs[] = { // drivers/gpio/gpiolib.c
 	__ATTR(status, 0766, modem_status_show, modem_status_store),
@@ -1255,7 +1245,7 @@ struct class modem_class = {
     .class_attrs    = modem_class_attrs,
 };
 
-ssize_t modem_status_show(struct class *class, char *buf)
+ssize_t modem_status_show(struct class *class, struct class_attribute *attr, char *buf)
 {
     char *base = buf;
     buf += sprintf(buf, "incall:");
@@ -1263,7 +1253,7 @@ ssize_t modem_status_show(struct class *class, char *buf)
     return buf - base;
 }
 
-ssize_t modem_status_store(struct class *class, const char *buf, size_t count)
+ssize_t modem_status_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
     return count;
 }
@@ -1275,7 +1265,7 @@ enum {
     MODE_IN_CALL,
     MODE_MAX
 };
-ssize_t android_mode_show(struct class *class, char *buf)
+ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf)
 {
     const char *mode_name;
 
@@ -1290,7 +1280,7 @@ ssize_t android_mode_show(struct class *class, char *buf)
     return sprintf(buf, "%s\n", mode_name);
 }
 
-ssize_t android_mode_store(struct class *class, const char *buf, size_t count)
+ssize_t android_mode_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
     int value;
 	sscanf(buf, "%d", &value);
@@ -1302,13 +1292,13 @@ ssize_t android_mode_store(struct class *class, const char *buf, size_t count)
     return count;
 }
 
-ssize_t vbc_regs_show(struct class *class, char *buf)
+ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf)
 {
     vbc_dump_regs(0, 0, 0);
     return 0;
 }
 
-ssize_t vbc_regs_store(struct class *class, const char *buf, size_t count)
+ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
     return count;
 }
@@ -1394,17 +1384,14 @@ static int vbc_probe(struct platform_device *pdev)
 	snd_soc_add_controls(codec, vbc_snd_controls,
 				ARRAY_SIZE(vbc_snd_controls));
 	vbc_add_widgets(codec);
-	ret = snd_soc_init_card(socdev);
-	if (ret < 0)
-		goto card_err;
     android_pm_init();
     android_sprd_pm_init();
     class_register(&modem_class);
+
 	return 0;
 
-card_err:
-	snd_soc_free_pcms(socdev);
-
+// card_err:
+// 	snd_soc_free_pcms(socdev);
 pcm_err:
 	kfree(socdev->card->codec);
 	socdev->card->codec = NULL;
