@@ -45,13 +45,7 @@
 
 #include <linux/i2c.h>
 
-#ifdef CONFIG_SENSORS_MMC31XX
-#include <linux/mmc31xx.h>
-#endif
-#ifdef CONFIG_SENSORS_MXC622X
-#include <linux/mxc622x.h>
-#endif
-#include <linux/dcam_sensor.h>
+ #include <linux/dcam_sensor.h>
 
 //move pin configuration to pin_map_openphone.c
 #define GPIO_DIRECTION_OUTPUT (1<<30)
@@ -115,12 +109,18 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
    {
         I2C_BOARD_INFO(SENSOR_SUB_I2C_NAME,SENSOR_SUB_I2C_ADDR|0x8000),
     },
+    
 #ifdef CONFIG_SENSORS_MMC31XX
+#define MMC31XX_I2C_NAME		"mmc31xx"
+#define MMC31XX_I2C_ADDR		0x30
     {
         I2C_BOARD_INFO(MMC31XX_I2C_NAME, MMC31XX_I2C_ADDR | 0x4000),
     },
 #endif
+
 #ifdef CONFIG_SENSORS_MXC622X
+#define MXC622X_I2C_NAME		"mxc622x"
+#define MXC622X_I2C_ADDR		0x15
     {
         I2C_BOARD_INFO(MXC622X_I2C_NAME,MXC622X_I2C_ADDR|0x4000),
     },
@@ -156,25 +156,13 @@ static struct spi_board_info openhone_spi_devices[] = {
     {
         .modalias       = "spidev", // "spidev" --> spidev_spi
         .chip_select    = 0,
-        .max_speed_hz   = 48 * 1000 * 1000,
+        .max_speed_hz   = 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
     {
-        .modalias       = "cmmb-dev", // "spidev" --> spidev_spi
+        .modalias       = "spidev", // "spidev" --> spidev_spi
         .chip_select    = 1,
-        .max_speed_hz   = 8 * 1000 * 1000,
-        .mode           = SPI_CPOL | SPI_CPHA,
-    },
-    {
-        .modalias       = "spi_slot0", // "spidev" --> spidev_spi
-        .chip_select    = 2,
-        .max_speed_hz   = 48 * 1000 * 1000,
-        .mode           = SPI_CPOL | SPI_CPHA,
-    },
-    {
-        .modalias       = "spi_slot1", // "spidev" --> spidev_spi
-        .chip_select    = 3,
-        .max_speed_hz   = 0.5 * 1000 * 1000,
+        .max_speed_hz   = 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
 };
@@ -189,12 +177,21 @@ static struct spi_board_info openhone_spi_devices4wifi[] = {
 };
 
 static struct spi_board_info openhone_spi_devices4cmmb[] = {
+#ifdef CONFIG_CMMB_INNOFIDEI
     {
         .modalias       = "cmmb-dev", // "spidev" --> spidev_spi
         .chip_select    = SPRD_3RDPARTY_SPI_CMMB_CS,
         .max_speed_hz   = 8 * 1000 * 1000,
         .mode           = SPI_CPOL | SPI_CPHA,
     },
+#else  /* siano or other.. */
+    {
+        .modalias       = "cmmb-dev", // "spidev" --> spidev_spi
+        .chip_select    = SPRD_3RDPARTY_SPI_CMMB_CS,
+        .max_speed_hz   = 10 * 1000 * 1000,
+        .mode           = SPI_CPOL | SPI_CPHA,
+    },
+#endif
 };
 
 static u64 spi_dmamask = DMA_BIT_MASK(32);
@@ -236,9 +233,15 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_BT_POWER         -1
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
 #define SPRD_3RDPARTY_GPIO_BT_RTS           42
+#ifdef CONFIG_CMMB_INNOFIDEI
 #define SPRD_3RDPARTY_GPIO_CMMB_POWER       135
 #define SPRD_3RDPARTY_GPIO_CMMB_RESET       94
 #define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
+#else
+#define SPRD_3RDPARTY_GPIO_CMMB_POWER       -1
+#define SPRD_3RDPARTY_GPIO_CMMB_RESET       -1
+#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         -1
+#endif
 #define SPRD_3RDPARTY_GPIO_TP_PWR             59   //not used
 #define SPRD_3RDPARTY_GPIO_TP_RST              144
 #define SPRD_3RDPARTY_GPIO_TP_IRQ              143
@@ -328,6 +331,30 @@ static struct gpio_desc gpio_func_cfg[] = {
         SPRD_3RDPARTY_GPIO_BT_RTS | GPIO_DIRECTION_OUTPUT,
         "BT RTS"
     },
+    {
+       //MFP_CFG_X(GPIO135    , AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE), // cmmb power
+       //135,
+	
+	GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_CMMB_POWER | GPIO_DIRECTION_OUTPUT,
+        "demod power"
+    },
+    {
+        //MFP_CFG_X(RFCTL4    , AF3, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE), // cmmb reset
+        //94,
+	
+	GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_CMMB_RESET | GPIO_DIRECTION_OUTPUT,
+        "demod reset"
+    },
+    {
+        //MFP_CFG_X(RFCTL3    , AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE), // cmmb interrupt
+        //93 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	
+	GPIO_DESC_MFP_OBSOLETE,
+        SPRD_3RDPARTY_GPIO_CMMB_IRQ | GPIO_DIRECTION_INPUT,
+        "demod int"
+   }
 };
 
 static unsigned long spi_func_cfg[] = {
@@ -512,6 +539,7 @@ static void __init openphone_map_io(void)
 	sdram_plimit = get_sdram_plimit();
 	sprd_map_common_io();
 	sprd_ramconsole_reserve_sdram();
+	sprd_pmem_reserve_sdram();
 }
 
 extern unsigned long phys_initrd_start;

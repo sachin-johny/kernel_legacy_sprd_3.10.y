@@ -270,11 +270,7 @@ nk_sprd_mask_ana_irq(unsigned int irq)
     static void
 nk_sprd_unmask_ana_irq(unsigned int irq)
 {
-#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
-	ANA_REG_OR(ANA_INT_EN,1 << (irq % 32));
-#else
 	nkops.nk_xirq_trigger(irq, nkxpic_owner);
-#endif
 }
 
 static struct irq_chip nk_sprd_muxed_ana_chip = {

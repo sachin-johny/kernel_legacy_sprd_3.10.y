@@ -467,7 +467,8 @@ i2c_new_device(struct i2c_adapter *adap, struct i2c_board_info const *info)
 	if (status) {
 		dev_err(&adap->dev, "Invalid %d-bit I2C address 0x%02hx\n",
 			client->flags & I2C_CLIENT_TEN ? 10 : 7, client->addr);
-		goto out_err_silent;
+		// goto out_err_silent;
+        status = 0;
 	}
 
 	/* Check for address business */
