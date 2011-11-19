@@ -37,7 +37,7 @@
 #define _pacd(a,v) __raw_bits_xor(v,a)
 #define _pamd(a,m,v) do{uint32 _tmp=__raw_readl(a); _tmp &= ~(m); __raw_writel(_tmp|((m)&(v)), (a));}while(0)
 
-#define DCAM_DEBUG
+//#define DCAM_DEBUG
 #ifdef DCAM_DEBUG
 #define DCAM_TRACE printk
 #else
@@ -45,7 +45,7 @@
 #endif
 #define DCAM_TRACE_ERR printk
 
-#define SENSOR_DEBUG
+//#define SENSOR_DEBUG
 #ifdef SENSOR_DEBUG
 #define SENSOR_TRACE printk
 #else

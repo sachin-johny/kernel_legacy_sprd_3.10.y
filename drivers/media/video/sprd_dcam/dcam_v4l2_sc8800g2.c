@@ -48,7 +48,7 @@
 #include "sensor_drv.h"
 
 //for debug+++++start
-#define DCAM_V4L2_DEBUG 1
+#define DCAM_V4L2_DEBUG 0
 #if DCAM_V4L2_DEBUG
 uint32_t g_address = 0xc0000000;
 #endif

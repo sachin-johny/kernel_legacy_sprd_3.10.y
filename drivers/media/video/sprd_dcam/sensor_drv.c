@@ -23,7 +23,7 @@
  **                         Debugging Flag                                    *
  **---------------------------------------------------------------------------*/
 
-#define DEBUG_SENSOR_DRV
+//#define DEBUG_SENSOR_DRV
 #ifdef DEBUG_SENSOR_DRV
 #define SENSOR_PRINT   printk
 #else
