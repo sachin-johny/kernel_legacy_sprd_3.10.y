@@ -1405,11 +1405,9 @@ LOCAL uint32_t GT2005_After_Snapshot(uint32_t para)
 	//GT2005_WriteReg(0x0300 , 0x81);	
 	Sensor_WriteReg(0x0300 , 0x81);
 	msleep(100);
-	GT2005_Change_Image_Format(SENSOR_IMAGE_FORMAT_YUV422);
-	
+	//GT2005_Change_Image_Format(SENSOR_IMAGE_FORMAT_YUV422);
 	SENSOR_TRACE("SENSOR_GT2005: After Snapshot");
-
-	return 0;
+	return Sensor_SetMode(para);
 }
 
 LOCAL uint32_t GT2005_Change_Image_Format(uint32_t param)

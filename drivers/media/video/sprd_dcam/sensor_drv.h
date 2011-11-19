@@ -547,6 +547,11 @@ typedef struct sensor_info_tag
         int32_t i2c_dev_handler;
 }SENSOR_INFO_T;
 
+typedef struct sensor_config{
+	uint32_t sensor_id; // 0: back camera; 1: front camera;
+	uint32_t set_sensor_num; //0: no set; 1: set; 2: need to update
+	uint32_t sensor_num;
+}SENSOR_CONFIG_T;
 
 //wxz: for sensor_atv.h
 typedef enum
@@ -657,8 +662,7 @@ PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg
 //  Author:         Liangwen.Zhen
 //  Note:           
 /*****************************************************************************/
-//PUBLIC BOOLEAN Sensor_Init(void);
-PUBLIC uint32_t Sensor_Init(uint32_t sensor_id);
+PUBLIC uint32_t Sensor_Init(SENSOR_CONFIG_T *sensor_config);
 
 /*****************************************************************************/
 //  Description:    This function is used to check if sensor has been init    

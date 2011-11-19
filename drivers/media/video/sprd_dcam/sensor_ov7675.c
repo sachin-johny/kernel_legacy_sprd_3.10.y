@@ -147,7 +147,7 @@ LOCAL uint32_t s_preview_mode;
     {0x00, 0x00},                                  
     {0x10, 0x00},                                  
     {0x0d, 0x40},                                  
-    {0x14, 0x18},                                  
+    {0x14, 0x38},                                  
     {0xa5, 0x07},                                  
     {0xab, 0x08},                                  
     {0x24, 0x60},    
@@ -281,7 +281,8 @@ LOCAL uint32_t s_preview_mode;
     {0x2d, 0x00},                                  
     {0x2e, 0x00}, 
     //wxz20110527: config the driver capabitlity to 1x.
-    {0x09, 0x00}
+    {0x09, 0x00},
+    {SENSOR_WRITE_DELAY, 100},//delay 100ms
 };
 
  LOCAL const SENSOR_REG_T ov7675_YUV_MOTION_320X240[]=
@@ -327,7 +328,7 @@ LOCAL uint32_t s_preview_mode;
     {0x00, 0x00},
     {0x10, 0x00},
     {0x0d, 0x40},
-    {0x14, 0x28},
+    {0x14, 0x38},
     {0xa5, 0x02},
     {0xab, 0x02},
     {0x24, 0x68},
@@ -650,8 +651,8 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_OV7675_ioctl_func_tab =
 	PNULL,							// extend information about sensor	
 	SENSOR_AVDD_2800MV,                     // iovdd
 	SENSOR_AVDD_2800MV,                      // dvdd
-	1,                     // skip frame num before preview 
-	1,                      // skip frame num before capture
+	4,                     // skip frame num before preview 
+	3,                      // skip frame num before capture
 	0,                      // deci frame num during preview	
 	2,                      // deci frame num during video preview
 	0,                     // threshold enable(only analog TV)	
@@ -908,18 +909,24 @@ LOCAL uint32_t set_ov7675_ae_awb_enable(uint32_t ae_enable, uint32_t awb_enable)
 
 LOCAL uint32_t set_hmirror_enable(uint32_t enable)
 {
- 
-	SENSOR_TRACE("set_hmirror_enable: enable = %d", enable);
-	
+ 	uint8_t value = 0;	
+	value = OV7675_ReadReg(0x1e);
+	value = (value & 0xDF) | ((enable & 0x1) << 5); //landscape
+	SENSOR_TRACE("set_hmirror_enable: enable = %d, 0x1e: 0x%x.\n", enable, value);
+	OV7675_WriteReg(0x1e, value);
+
 	return 0;
 }
 
 
 LOCAL uint32_t set_vmirror_enable(uint32_t enable)
 {
+ 	uint8_t value = 0;	
+	value = OV7675_ReadReg(0x1e);
+	value = (value & 0xEF) | (((enable == 1 ? 0 : 1)) << 4); //portrait
+	SENSOR_TRACE("set_vmirror_enable: enable = %d, 0x1e: 0x%x.\n", enable, value);
+	OV7675_WriteReg(0x1e, value);
 
-	SENSOR_TRACE("set_vmirror_enable: enable = %d", enable);
-	
 	return 0;
 }
 
@@ -997,7 +1004,7 @@ LOCAL uint32_t set_ov7675_anti_flicker(uint32_t mode)
 {
     // normal mode
     {
-        {0x2d, 0x00},{0x2e, 0x00},{0x14, 0x28},{0xff, 0xff}
+        {0x2d, 0x00},{0x2e, 0x00},{0x14, 0x38},{0xff, 0xff}
     },    
     //vodeo mode
     {
@@ -1015,7 +1022,7 @@ LOCAL uint32_t set_ov7675_anti_flicker(uint32_t mode)
 {
     // normal mode
     {
-        {0x2d, 0x00},{0x2e, 0x00},{0x14, 0x28},{0x92, 0xfb}, {0x93, 0x01}, {0xa5, 0x05},{0xff, 0xff}
+        {0x2d, 0x00},{0x2e, 0x00},{0x14, 0x38},{0x92, 0xfb}, {0x93, 0x01}, {0xa5, 0x05},{0xff, 0xff}
     }, 
     {
         {0x2d, 0x00},{0x2e, 0x00},{0x14, 0x38}, {0x92, 0x68}, {0x93, 0x01}, {0xff, 0xff}, {0xff, 0xff}       
@@ -1587,7 +1594,7 @@ LOCAL uint32_t set_frame_rate(uint32_t param)
 LOCAL const SENSOR_REG_T ov7675_mode_tab[][5]=
 {
     // 30 fps
-    {{0x2d, 0x00},{0x2e, 0x00},{0x14, 0x28},{0xa5, 02}, {0xff,0xff}}, // normal
+    {{0x2d, 0x00},{0x2e, 0x00},{0x14, 0x38},{0xa5, 02}, {0xff,0xff}}, // normal
     {{0x2d, 0x00},{0x2e, 0x00},{0x14, 0x38},{0xa5, 06}, {0xff,0xff}} // night  
 };
 

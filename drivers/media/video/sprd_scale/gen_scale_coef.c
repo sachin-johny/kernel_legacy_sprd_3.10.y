@@ -118,6 +118,11 @@ static int64_t div64_s64_s64(int64_t dividend, int64_t divisor)
 	int64_t dividend_tmp = dividend;
 	int64_t divisor_tmp = divisor;
 	int64_t ret = 0;
+
+	if(0 == divisor)
+	{
+		return 0;
+	}
 	
         if((dividend >> 63) & 0x1)
 	{
