@@ -226,9 +226,9 @@ void machine_halt(void)
 
 void machine_power_off(void)
 {
-#ifndef CONFIG_NKERNEL
 	if (pm_power_off)
 		pm_power_off();
+#ifndef CONFIG_NKERNEL
 #else
 	while (1) {
 	    os_ctx->stop(os_ctx, os_ctx->id);
@@ -239,8 +239,8 @@ void machine_power_off(void)
 
 void machine_restart(char *cmd)
 {
-#ifndef CONFIG_NKERNEL
 	arm_pm_restart(reboot_mode, cmd);
+#ifndef CONFIG_NKERNEL
 #else
 	while (1) {
 	    os_ctx->restart(os_ctx, os_ctx->id);

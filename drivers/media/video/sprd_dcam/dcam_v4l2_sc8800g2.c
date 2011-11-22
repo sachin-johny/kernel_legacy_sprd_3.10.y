@@ -83,7 +83,6 @@ static uint32_t g_is_first_frame = 1; //store the flag for the first frame
 DCAM_INFO_T g_dcam_info; //store the dcam and sensor config info
 uint32_t g_zoom_level = 0; //zoom level: 0: 1x, 1: 2x, 2: 3x, 3: 4x
 uint32_t g_is_first_irq = 1; 
-uint32_t g_dcam_err_work = 0; //wxz20111015: 0: dcam no error; 1: dcam occur error, but it can work.
 
 #define DCAM_MODULE_NAME "dcam"
 #define WAKE_NUMERATOR 30
@@ -280,6 +279,24 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.step          = 0x1,
 		.default_value = 0,
 		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	}, {
+		.id            = V4L2_CID_HFLIP,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "hmirror",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	}, {
+		.id            = V4L2_CID_VFLIP,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "vmirror",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
 	}
 };
 
@@ -431,13 +448,13 @@ static int init_sensor_parameters(void)
 			break;				
 		}
 	}
-	if(SENSOR_IMAGE_FORMAT_RAW != sensor_info_ptr->image_format)
-		Sensor_Ioctl(SENSOR_IOCTL_BEFORE_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
 	DCAM_V4L2_PRINT("###V4L2: snapshot_m: %d, preview_m: %d.\n", g_dcam_info.snapshot_m, g_dcam_info.preview_m);
-	if(g_dcam_info.preview_m != g_dcam_info.snapshot_m)
-		Sensor_SetMode(g_dcam_info.snapshot_m);//wxz:????
-	else if(g_dcam_info.snapshot_m < SENSOR_MODE_SNAPSHOT_ONE_FIRST) 
-		Sensor_SetMode(g_dcam_info.preview_m);
+	if(g_dcam_info.preview_m != g_dcam_info.snapshot_m){//wxz20111110: for capture mode
+		Sensor_Ioctl(SENSOR_IOCTL_BEFORE_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
+	}
+	else if(g_dcam_info.snapshot_m < SENSOR_MODE_SNAPSHOT_ONE_FIRST){ //for preview mode
+		Sensor_Ioctl(SENSOR_IOCTL_AFTER_SNAPSHOT, (uint32_t)g_dcam_info.preview_m);
+	}
 	return 0;
 }
 
@@ -758,6 +775,12 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			g_zoom_level = (uint32_t)ctrl->value;
 			DCAM_V4L2_PRINT("g_zoom_level=%d.\n", g_zoom_level);
 			break;			
+		case V4L2_CID_HFLIP:  		
+			Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);	
+			break;
+		case V4L2_CID_VFLIP:  		
+			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);	
+			break;
 		default:
 			break;
 	}
@@ -791,7 +814,10 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	int i;
 	DCAM_V4L2_PRINT("###V4L2: vidioc_g_parm E.\n");
 	streamparm->type = dev->streamparm.type;
-	streamparm->parm.capture.capability = dev->streamparm.parm.capture.capability;
+	for(i = 0; i < 7; i++){
+		streamparm->parm.raw_data[i] = dev->streamparm.parm.raw_data[i];
+	}
+	/*streamparm->parm.capture.capability = dev->streamparm.parm.capture.capability;
 	streamparm->parm.capture.capturemode = dev->streamparm.parm.capture.capturemode;
 	streamparm->parm.capture.timeperframe.numerator = dev->streamparm.parm.capture.timeperframe.numerator;
 	streamparm->parm.capture.timeperframe.denominator = dev->streamparm.parm.capture.timeperframe.denominator;
@@ -802,27 +828,35 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	streamparm->parm.raw_data[0] = dev->streamparm.parm.raw_data[0];
 	streamparm->parm.raw_data[1] = dev->streamparm.parm.raw_data[1];
 	streamparm->parm.raw_data[2] = dev->streamparm.parm.raw_data[2];//wxz20110815: the orientation info
+	*/
 	DCAM_V4L2_PRINT("###V4L2: vidioc_g_parm X.\n");
 	return 0;
 }
-static int v4l2_sensor_init(uint32_t sensor_id)
+static int v4l2_sensor_init(SENSOR_CONFIG_T *sensor_config)
 {
 	//init sensor
 	if(SENSOR_TRUE != Sensor_IsInit()){		
-		if(SENSOR_SUCCESS != Sensor_Init(sensor_id)){
-			DCAM_V4L2_PRINT("###DCAM: Fail to init sensor.\n");
-			return -1;
+		if(SENSOR_SUCCESS != Sensor_Init(sensor_config)){
+			if(1 == sensor_config->set_sensor_num){//wxz20111021: HAL set sensor number, but fail. So try again.
+				sensor_config->set_sensor_num = 2;
+				sensor_config->sensor_num = 0xEE;				
+				DCAM_V4L2_PRINT("###V4L2: HAL set sensor number, but fail. So try again.\n");
+				if(SENSOR_SUCCESS != Sensor_Init(sensor_config)){
+					DCAM_V4L2_PRINT("###DCAM: Fail to init sensor.\n");
+					return -1;
+				}
+				else{
+					DCAM_V4L2_PRINT("###DCAM: OK to init sensor; driver find the sensor number: %d.\n", sensor_config->sensor_num);
+				}
+			}
+			else{
+				DCAM_V4L2_PRINT("###DCAM: Fail to init sensor.\n");
+				return -1;
+			}
 		}
+		//init_sensor_parameters();
 	}
-	DCAM_V4L2_PRINT("###DCAM: OK to init sensor.\n");
-	/*
-	//open sensor
-        if(0 != Sensor_Open()){
-		DCAM_V4L2_PRINT("###DCAM: fail to open sensor.\n");
-		return -1;
-        }		
-	DCAM_V4L2_PRINT("###DCAM: OK to open sensor.\n");	
-	*/
+	DCAM_V4L2_PRINT("###DCAM: OK to init sensor.\n");	
 
 	return 0;
 }
@@ -831,11 +865,12 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	struct dcam_fh *fh = priv;
 	struct dcam_dev *dev = fh->dev;
 	int i;
-	uint32_t sensor_id = 0;
+	//uint32_t sensor_id = 0;
+	SENSOR_CONFIG_T sensor_config;
 	
 	DCAM_V4L2_PRINT("###V4L2: vidioc_s_parm E.\n");
 	dev->streamparm.type = streamparm->type;
-	dev->streamparm.parm.capture.capability = streamparm->parm.capture.capability;
+	/*dev->streamparm.parm.capture.capability = streamparm->parm.capture.capability;
 	dev->streamparm.parm.capture.capturemode = streamparm->parm.capture.capturemode;
 	dev->streamparm.parm.capture.timeperframe.numerator = streamparm->parm.capture.timeperframe.numerator;
 	dev->streamparm.parm.capture.timeperframe.denominator = streamparm->parm.capture.timeperframe.denominator;
@@ -843,25 +878,31 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	dev->streamparm.parm.capture.readbuffers = streamparm->parm.capture.readbuffers;
 	for(i = 0; i < 4; i++)
 		dev->streamparm.parm.capture.reserved[i] = streamparm->parm.capture.reserved[i];
+	*/
 
+	//wxz20111021: raw_data
+	//BYTE0: 0: HAL doesn't set sensor_id; 1: HAL sets sensor_id;
+	//BYTE1: 0: back camera if BYTE0 is 1; 1: front camera if BYTE0 is 1;
+	//BYTE2: 0: no crop and rotation; 1: crop and rotation;
+	//BYTE3: 0: HAL doesn't set sensor number; 1: HAL sets sensor number; 2: need to update the sensor number;
+	//BYTE4: back sensor number if BYTE3 is 1; If the number is right, use it; not right, check all sensors and change the number; 0xFF is bad sensor;
+	//BYTE5: front sensor number if BYTE3 is 1; If the number is right, use it; not right, check all sensors and change the number; 0xFF is bad sensor;	     //BYTE6: 0: preview mode; 1: capture mode;
 	if(1 == streamparm->parm.raw_data[0])
 	{
 		if(0 == streamparm->parm.raw_data[1])
 		{
 			//Sensor_SetCurId(SENSOR_MAIN);
-			sensor_id = 0;
+			sensor_config.sensor_id = 0;
 		}
 		else if(1 == streamparm->parm.raw_data[1])
 		{
 			//Sensor_SetCurId(SENSOR_SUB);
-			sensor_id = 1;
+			sensor_config.sensor_id = 1;
 		}			
-		dev->streamparm.parm.raw_data[0] = streamparm->parm.raw_data[0];
-		dev->streamparm.parm.raw_data[1] = streamparm->parm.raw_data[1];
 	}
 	else{
 		//Sensor_SetCurId(SENSOR_MAIN);
-		sensor_id = 0;
+		sensor_config.sensor_id = 0;
 	}
 	if(1 == streamparm->parm.raw_data[2]){
 		g_dcam_info.orientation = 1;	
@@ -869,18 +910,68 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	else{
 		g_dcam_info.orientation = 0;	
 	}
-	if(0 != v4l2_sensor_init(sensor_id)){
+	//wxz20111021: handle the sensor number
+	if(1 == streamparm->parm.raw_data[3]){
+		sensor_config.set_sensor_num = 1;
+		if(0 == sensor_config.sensor_id){
+			sensor_config.sensor_num = streamparm->parm.raw_data[4];			
+		}
+		else if(1 == sensor_config.sensor_id){
+			sensor_config.sensor_num = streamparm->parm.raw_data[5];			
+		}
+	}
+	else{
+		sensor_config.set_sensor_num = 0;
+		sensor_config.sensor_num = 0;	
+	}	
+	//sensor_config.set_sensor_num = 0;
+	DCAM_V4L2_PRINT("###V4L2: before v4l2_sensor_init. set: %d, num: %d, id: %d.\n", sensor_config.set_sensor_num, sensor_config.sensor_num, sensor_config.sensor_id);
+	if(0 != v4l2_sensor_init(&sensor_config)){
 		DCAM_V4L2_PRINT("###V4L2: fail to sensor_init.\n");
-		printk("###V4L2: fail to sensor_init, sensor id: %d; to init another sensor.\n", sensor_id);
-		sensor_id = sensor_id == 0 ? 1 : 0;
-		if(0 != v4l2_sensor_init(sensor_id)){
-			printk("###V4L2: fail to sensor_init, sensor id: %d; two sensor are fail.\n", sensor_id);
+		DCAM_V4L2_PRINT("###V4L2: fail to sensor_init, sensor id: %d; to init another sensor.\n", sensor_config.sensor_id);
+		//the sensor is bad for init.  set the number 0xFF 
+		if(0 == sensor_config.sensor_id){
+			streamparm->parm.raw_data[4] = 0xFC;			
+		}
+		else if(1 == sensor_config.sensor_id){
+			streamparm->parm.raw_data[5] = 0xFD;				
+		}
+		sensor_config.sensor_id = sensor_config.sensor_id == 0 ? 1 : 0;
+		//update the sensor number for another sensor.
+		if(0 == sensor_config.sensor_id){
+			sensor_config.sensor_num = streamparm->parm.raw_data[4];			
+		}
+		else if(1 == sensor_config.sensor_id){
+			sensor_config.sensor_num = streamparm->parm.raw_data[5];			
+		}
+		if(0 != v4l2_sensor_init(&sensor_config)){
+			//the sensor is bad for init.  set the number 0xFF 
+			if(0 == sensor_config.sensor_id){
+				streamparm->parm.raw_data[4] = 0xFA;			
+			}
+			else if(1 == sensor_config.sensor_id){
+				streamparm->parm.raw_data[5] = 0xFB;				
+			}
+			DCAM_V4L2_PRINT("###V4L2: fail to sensor_init, sensor id: %d; two sensor are fail.\n", sensor_config.sensor_id);
 			return -1;
 		}
 		if(1 == streamparm->parm.raw_data[0]){
-			dev->streamparm.parm.raw_data[1] = sensor_id;			
-			printk("###V4L2: the old sensor fail, to change another sensor: %d.", sensor_id);
+			streamparm->parm.raw_data[1] = sensor_config.sensor_id;			
+			DCAM_V4L2_PRINT("###V4L2: the old sensor fail, to change another sensor: %d.\n", sensor_config.sensor_id);
 		}		
+	}
+	if(2 == sensor_config.set_sensor_num){//need to update the sensor number
+		streamparm->parm.raw_data[3] = 2;
+		DCAM_V4L2_PRINT("###V4L2: update new sensor number, id: %d, num: %d.", sensor_config.sensor_id, sensor_config.sensor_num);
+		if(0 == sensor_config.sensor_id){
+			streamparm->parm.raw_data[4] = sensor_config.sensor_num;			
+		}
+		else if(1 == sensor_config.sensor_id){
+			streamparm->parm.raw_data[5] = sensor_config.sensor_num;				
+		}
+	}
+	for(i = 0; i < 7; i++){
+		dev->streamparm.parm.raw_data[i] = streamparm->parm.raw_data[i];
 	}
 
 	DCAM_V4L2_PRINT("###V4L2: vidioc_s_parm X.\n");
@@ -1134,7 +1225,8 @@ static void init_dcam_parameters(void *priv)
 	 //init dcam
 	 {
 	 DCAM_INIT_PARAM_T init_param;
-	 if(1 == dev->streamparm.parm.capture.capturemode)
+	 //if(1 == dev->streamparm.parm.capture.capturemode)
+	 if(1 == dev->streamparm.parm.raw_data[6])
 	 {
 	 	 init_param.mode = 3;//1//:DCAM_MODE 1:PREVIEW; 2:mpeg; 3:jpeg	 	
 	 }
@@ -1250,7 +1342,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return ret;
 	}
 	g_is_first_irq = 1;
-	g_dcam_err_work = 0;
 	g_last_buf = 0xFFFFFFFF;
 	 dcam_start();
 
@@ -1280,13 +1371,6 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	}
 	g_is_first_frame = 1; //store the nex first frame.
 	
-	//stop sensor
-	//wxz:20111017:call after_snapshot after capture. 
-	if((g_dcam_info.snapshot_m < SENSOR_MODE_PREVIEW_TWO)
-		&& (g_dcam_info.snapshot_m > SENSOR_MODE_PREVIEW_ONE)){
-		Sensor_Ioctl(SENSOR_IOCTL_AFTER_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
-	}
-
        //stop dcam
       dcam_stop();
 
@@ -1316,12 +1400,6 @@ static void set_next_buffer(struct dcam_fh *fh)
 	struct dcam_dmaqueue *dma_q = &dev->vidq;
 
 	unsigned long flags = 0;
-	
-	if(1 == g_dcam_err_work){
-		dcam_set_buffer_address(g_last_buf);
-		g_dcam_err_work = 0;
-		return;
-	}
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&dma_q->active)) {
@@ -1410,7 +1488,7 @@ static void set_layer_cb(uint32_t base)
 	printk("set_layer_cb: A1base : 0x%x.\n", base);
 }
 #endif
-   static void path1_done_buffer(struct dcam_fh *fh)
+static void path1_done_buffer(struct dcam_fh *fh)
 {
 	struct dcam_buffer *buf;
 	struct dcam_dev *dev = fh->dev;
@@ -1434,7 +1512,7 @@ static void set_layer_cb(uint32_t base)
 	if(1 != g_is_first_irq){
 		if((g_first_buf_addr != (uint32_t)buf->vb.baddr) ||
 			(g_first_buf_addr == g_last_buf)){ //wxz20110727: if the next buf is last buffer, do not wake up the buffer.
-			printk("###V4L2: path1_done_buffer: Fail to this entry. last addr: %x, buf addr: %x, g_last_buf: %x\n", g_first_buf_addr, (uint32_t)buf->vb.baddr, g_last_buf);
+			printk("###V4L2: path1_done_buffer: need another buffer. last addr: %x, buf addr: %x, g_last_buf: %x\n", g_first_buf_addr, (uint32_t)buf->vb.baddr, g_last_buf);
 			goto unlock;
 		}		
 	}
@@ -1473,14 +1551,76 @@ static void set_layer_cb(uint32_t base)
 	buf->vb.field_count++;
 	do_gettimeofday(&buf->vb.ts);
 	buf->vb.state = VIDEOBUF_DONE;
+	#if 0 //wxz20111029: for test the error in preview and capture mode
+	{
+		//for capture
+		if(fh->width > 1000){
+			buf->vb.state = VIDEOBUF_ERROR;
+		}
+		//for preview
+		static uint32_t num = 0;
+		if(100 == num++){
+			buf->vb.state = VIDEOBUF_ERROR;
+			num = 0;
+		}
+	}
+	#endif
 	
 	DCAM_V4L2_PRINT("###V4L2: path1_done_buffer:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));
         //is_first_frame = 0;
         //g_dcam_buf_ptr = buf;
-	wake_up(&buf->vb.done); 
+	wake_up(&buf->vb.done);
+	g_first_buf_addr = g_last_buf; 
 unlock:
 	spin_unlock_irqrestore(&dev->slock, flags);
-	g_first_buf_addr = g_last_buf;
+	//g_first_buf_addr = g_last_buf;
+	return;
+}
+
+static void dcam_error_handle(struct dcam_fh *fh)
+{
+	struct dcam_buffer *buf;
+	struct dcam_dev *dev = fh->dev;
+	struct dcam_dmaqueue *dma_q = &dev->vidq;
+	
+
+	unsigned long flags = 0;
+	DCAM_V4L2_PRINT("###V4L2: dcam_error_handle.\n");	
+	spin_lock_irqsave(&dev->slock, flags);
+	if (list_empty(&dma_q->active)) {
+		printk("###V4L2: dcam_error_handle: No active queue to serve\n");
+		goto unlock;
+	}
+
+	if(NULL == dma_q->active.next){
+		printk("###V4L2: dcam_error_handle: the active.next is NULL.\n");
+		goto unlock;
+	}
+	buf = list_entry(dma_q->active.next,
+			 struct dcam_buffer, vb.queue);
+	if(1 != g_is_first_irq){
+		if((g_first_buf_addr != (uint32_t)buf->vb.baddr) ||
+			(g_first_buf_addr == g_last_buf)){ //wxz20110727: if the next buf is last buffer, do not wake up the buffer.
+			printk("###V4L2: dcam_error_handle: need another buffer. last addr: %x, buf addr: %x, g_last_buf: %x\n", g_first_buf_addr, (uint32_t)buf->vb.baddr, g_last_buf);
+			goto unlock;
+		}		
+	}
+	else{
+		g_is_first_irq = 0;		
+	}
+
+	list_del(&buf->vb.queue);
+	// Advice that buffer was filled
+	buf->vb.field_count++;
+	do_gettimeofday(&buf->vb.ts);
+	buf->vb.state = VIDEOBUF_ERROR;
+	
+	DCAM_V4L2_PRINT("###V4L2: dcam_error_handle:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));
+      
+	wake_up(&buf->vb.done);
+	g_first_buf_addr = g_last_buf; 
+unlock:
+	spin_unlock_irqrestore(&dev->slock, flags);	
 	return;
 }
 
@@ -1497,19 +1637,19 @@ void dcam_cb_ISRPath1Done(void)
 }
 void dcam_cb_ISRCapFifoOF(void)
 {	
-	g_dcam_err_work = 1;
+	dcam_error_handle(g_fh);
 }
 void dcam_cb_ISRSensorLineErr(void)
-{	
-	g_dcam_err_work = 1;
+{
+	//dcam_error_handle(g_fh);
 }
 void dcam_cb_ISRSensorFrameErr(void)
 {	
-	g_dcam_err_work = 1;
+	dcam_error_handle(g_fh);
 }
 void dcam_cb_ISRJpegBufOF(void)
 {	
-	g_dcam_err_work = 1;
+	//nothing
 }
 /* ------------------------------------------------------------------
 	Videobuf operations
@@ -1518,7 +1658,7 @@ static int
 buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned int *size)
 {
 	struct dcam_fh  *fh = vq->priv_data;
-	struct dcam_dev *dev  = fh->dev;
+	//struct dcam_dev *dev  = fh->dev;
 
 	if(V4L2_PIX_FMT_RGB32 == fh->fmt->fourcc)
 		*size = fh->width*fh->height*4;
@@ -1544,8 +1684,8 @@ buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned int *size)
 
 static void free_buffer(struct videobuf_queue *vq, struct dcam_buffer *buf)
 {
-	struct dcam_fh  *fh = vq->priv_data;
-	struct dcam_dev *dev  = fh->dev;
+	//struct dcam_fh  *fh = vq->priv_data;
+	//struct dcam_dev *dev  = fh->dev;
 
 	//dprintk(dev, 1, "%s, state: %i\n", __func__, buf->vb.state);
 
@@ -1563,7 +1703,7 @@ buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 						enum v4l2_field field)
 {
 	struct dcam_fh     *fh  = vq->priv_data;
-	struct dcam_dev    *dev = fh->dev;
+	//struct dcam_dev    *dev = fh->dev;
 	struct dcam_buffer *buf = container_of(vb, struct dcam_buffer, vb);
 //	int rc = 0;
 	//unsigned int addr;
@@ -1644,8 +1784,8 @@ static void buffer_release(struct videobuf_queue *vq,
 			   struct videobuf_buffer *vb)
 {
 	struct dcam_buffer   *buf  = container_of(vb, struct dcam_buffer, vb);
-	struct dcam_fh       *fh   = vq->priv_data;
-	struct dcam_dev      *dev  = (struct dcam_dev *)fh->dev;
+	//struct dcam_fh       *fh   = vq->priv_data;
+	//struct dcam_dev      *dev  = (struct dcam_dev *)fh->dev;
 
 	//dprintk(dev, 1, "%s\n", __func__);
 

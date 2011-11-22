@@ -647,7 +647,8 @@ SENSOR_REG_T GT2005_YUV_COMMON[]=
 	{0x0113 , 0xE0},
 
 
-       {SENSOR_WRITE_DELAY, 200},
+       //{SENSOR_WRITE_DELAY, 200},
+	{SENSOR_WRITE_DELAY, 50},
 	
 
 	{0xff , 0xff}	
@@ -966,16 +967,16 @@ LOCAL uint32_t GT2005_Identify(uint32_t param)
 	uint32_t ret_value = 0xFF;
 
 	id_h_value = Sensor_ReadReg(0x0000);
-	SENSOR_TRACE("GT2005_Identify-id_h_value %d", id_h_value);
+	SENSOR_TRACE("GT2005_Identify-id_h_value %d.\n", id_h_value);
 	
 	id_l_value = Sensor_ReadReg(0x0001);
-	SENSOR_TRACE("GT2005_Identify-id_l_value %d", id_l_value);
+	SENSOR_TRACE("GT2005_Identify-id_l_value %d.\n", id_l_value);
 
 	if((GT2005_ID_H_VALUE == id_h_value) && (GT2005_ID_L_VALUE == id_l_value))
 	{
 			
 		ret_value = 0;
-		SENSOR_TRACE("It Is GT2005 Sensor !");	
+		SENSOR_TRACE("It Is GT2005 Sensor !\n");	
 	}
 	
 	return ret_value;

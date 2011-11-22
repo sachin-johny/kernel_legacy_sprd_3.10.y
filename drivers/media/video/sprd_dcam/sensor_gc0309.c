@@ -651,8 +651,11 @@ LOCAL uint32_t set_gc0309_ae_enable(uint32_t enable)
 
 LOCAL uint32_t set_hmirror_enable(uint32_t enable)
 {
- 
-	SENSOR_TRACE("set_hmirror_enable: enable = %d\n", enable);
+ 	uint8_t value = 0;	
+	value = GC0309_ReadReg(0x14);
+	value = (value & 0xFE) | (enable == 1 ? 0 : 1); //landscape
+	SENSOR_TRACE("set_hmirror_enable: enable = %d, 0x14: 0x%x.\n", enable, value);
+	GC0309_WriteReg(0x14, value);
 	
 	return 0;
 }
@@ -660,8 +663,11 @@ LOCAL uint32_t set_hmirror_enable(uint32_t enable)
 
 LOCAL uint32_t set_vmirror_enable(uint32_t enable)
 {
-
-	SENSOR_TRACE("set_vmirror_enable: enable = %d\n", enable);
+	uint8_t value = 0;	
+	value = GC0309_ReadReg(0x14);
+	value = (value & 0xFD) | ((enable & 0x1) << 1); //portrait
+	SENSOR_TRACE("set_vmirror_enable: enable = %d, 0x14: 0x%x.\n", enable, value);
+	GC0309_WriteReg(0x14, value);
 	
 	return 0;
 }

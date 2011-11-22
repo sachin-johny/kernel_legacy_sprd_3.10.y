@@ -326,7 +326,8 @@ SENSOR_REG_T ov2655_YUV_COMMON[]=
 		                
 		{0x3086, 0x0f}, 
 		{0x3086, 0x00}, 
-		{0x3302, 0x11},   
+		{0x3302, 0x11},  
+		{SENSOR_WRITE_DELAY, 150}, 
 };
 
 //pclk = 36MHz @24MHz MCLK
@@ -458,7 +459,8 @@ static const SENSOR_REG_T ov2655_YUV_640X480[]=
 	{0x331c, 0x00},
 	{0x331d, 0x38},
 	{0x3302, 0x11},
-	{0x3362, 0x90}
+	{0x3362, 0x90},
+	{SENSOR_WRITE_DELAY, 150}, 
 };
 
 
@@ -936,13 +938,20 @@ LOCAL uint32_t OV2655_Identify(uint32_t param)
     if(iden_reg_val == 0x26)
     {
         iden_reg_val = Sensor_ReadReg(0x300B);
-        if(iden_reg_val == 0x56)
+        if(iden_reg_val == 0x56){
             ret = SENSOR_OP_SUCCESS;
+	}
     }
 
     OV2655_InitExifInfo();
-    
-    //SENSOR_TRACE("OV2655_Identify: ret = %d.\n", ret);
+
+    if(SENSOR_OP_SUCCESS == ret){
+            SENSOR_TRACE("It Is OV2655 Sensor !");	
+    }   
+    else{
+            SENSOR_TRACE("It Is not OV2655 Sensor !");	
+    }
+ 
     return ret;
 }
 
@@ -1733,9 +1742,8 @@ LOCAL uint32_t OV2655_set_work_mode(uint32_t mode)
 LOCAL uint32_t OV2655_after_snapshot(uint32_t param)
 {
     //Sensor_SendRegTabToSensor(&s_OV3640_resolution_Tab_YUV[0]);
-    OV2655_chang_image_format(SENSOR_IMAGE_FORMAT_YUV422);
-    
-    return SENSOR_SUCCESS;
+    //OV2655_chang_image_format(SENSOR_IMAGE_FORMAT_YUV422);
+    return Sensor_SetMode(param);
 }
 
 LOCAL uint32_t OV2655_chang_image_format(uint32_t param)
