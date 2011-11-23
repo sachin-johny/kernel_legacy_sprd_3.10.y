@@ -1519,6 +1519,7 @@ int yaffs2_ScanBackwards(yaffs_Device *dev)
 		yaffs_SkipRestOfBlock(dev);
 #else
 	yaffs_SkipRestOfBlock(dev);
+#endif
 
 	if (altBlockIndex)
 		YFREE_ALT(blockIndex);
