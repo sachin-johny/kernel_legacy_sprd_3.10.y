@@ -2612,6 +2612,9 @@ typedef struct {
 	int lazy_loading_overridden;
 	int empty_lost_and_found;
 	int empty_lost_and_found_overridden;
+#ifdef	SPRD_SKIPREST_BLOCK
+	int skip_rest_block;
+#endif	
 } yaffs_options;
 
 #define MAX_OPT_LEN 30
@@ -2646,7 +2649,14 @@ static int yaffs_parse_options(yaffs_options *options, const char *options_str)
 		} else if (!strcmp(cur_opt, "tags-ecc-on")){
 			options->tags_ecc_on = 1;
 			options->tags_ecc_overridden = 1;
-		} else if (!strcmp(cur_opt, "lazy-loading-off")){
+		} 
+#ifdef	SPRD_SKIPREST_BLOCK
+		 else if (!strcmp(cur_opt, "no-rest-block")) {
+			options->skip_rest_block = 1;
+			/* mount yaffs2 mtd@fixnv /fixnv nosuid nodev no-checkpoint,tags-ecc-off,no-rest-block */
+		}
+#endif
+		 else if (!strcmp(cur_opt, "lazy-loading-off")){
 			options->lazy_loading_enabled = 0;
 			options->lazy_loading_overridden=1;
 		} else if (!strcmp(cur_opt, "lazy-loading-on")){
@@ -2939,6 +2949,9 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 
 	if(options.tags_ecc_overridden)
 		param->noTagsECC = !options.tags_ecc_on;
+#ifdef	SPRD_SKIPREST_BLOCK
+	param->nSkipRestBlock = options.skip_rest_block;
+#endif
 
 #ifdef CONFIG_YAFFS_EMPTY_LOST_AND_FOUND
 	param->emptyLostAndFound = 1;
@@ -3192,6 +3205,9 @@ static char *yaffs_dump_dev_part0(char *buf, yaffs_Device * dev)
 	buf += sprintf(buf, "totalBytesPerChunk. %d\n", dev->param.totalBytesPerChunk);
 	buf += sprintf(buf, "useNANDECC......... %d\n", dev->param.useNANDECC);
 	buf += sprintf(buf, "noTagsECC.......... %d\n", dev->param.noTagsECC);
+#ifdef	SPRD_SKIPREST_BLOCK
+	buf += sprintf(buf, "noRestBlock.......... %d\n", dev->param.nSkipRestBlock);
+#endif
 	buf += sprintf(buf, "isYaffs2........... %d\n", dev->param.isYaffs2);
 	buf += sprintf(buf, "inbandTags......... %d\n", dev->param.inbandTags);
 	buf += sprintf(buf, "emptyLostAndFound.. %d\n", dev->param.emptyLostAndFound);
