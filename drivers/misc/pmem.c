@@ -1322,8 +1322,6 @@ static int pmem_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifndef CONFIG_VPMEM_FRONTEND
-
 static struct platform_driver pmem_driver = {
 	.probe = pmem_probe,
 	.remove = pmem_remove,
@@ -1344,19 +1342,3 @@ static void __exit pmem_exit(void)
 module_init(pmem_init);
 module_exit(pmem_exit);
 
-#else /* CONFIG_VPMEM_FRONTEND */
-
-int vpmem_pmem_probe(struct platform_device *pdev)
-{
-    return pmem_probe(pdev);
-}
-
-int vpmem_pmem_remove(struct platform_device *pdev)
-{
-    return pmem_remove(pdev);
-}
-
-EXPORT_SYMBOL(vpmem_pmem_probe);
-EXPORT_SYMBOL(vpmem_pmem_remove);
-
-#endif /* CONFIG_VPMEM_FRONTEND */

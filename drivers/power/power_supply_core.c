@@ -25,6 +25,20 @@ EXPORT_SYMBOL_GPL(power_supply_class);
 
 static struct device_type power_supply_dev_type;
 
+#if defined CONFIG_VBATTERY_BACKEND || defined CONFIG_VBATTERY_BACKEND_MODULE
+static BLOCKING_NOTIFIER_HEAD(vbattery_be_notifier_list);
+int vbattery_be_register_client(struct notifier_block *nb)
+{
+    return blocking_notifier_chain_register(&vbattery_be_notifier_list, nb);
+}
+EXPORT_SYMBOL(vbattery_be_register_client);
+int vbattery_be_unregister_client(struct notifier_block *nb)
+{
+    return blocking_notifier_chain_unregister(&vbattery_be_notifier_list, nb);
+}
+EXPORT_SYMBOL(vbattery_be_unregister_client);
+#endif
+
 static int __power_supply_changed_work(struct device *dev, void *data)
 {
 	struct power_supply *psy = (struct power_supply *)data;
@@ -206,7 +220,7 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 
 	power_supply_changed(psy);
 
-#ifdef CONFIG_VBATTERY_BACKEND
+#if defined CONFIG_VBATTERY_BACKEND || defined CONFIG_VBATTERY_BACKEND_MODULE
 	blocking_notifier_call_chain(&vbattery_be_notifier_list, 0, psy);
 #endif
 	goto success;
