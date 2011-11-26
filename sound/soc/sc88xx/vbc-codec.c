@@ -653,6 +653,7 @@ static inline int mode_incall(void)
 
 static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 {
+    int ret = 0;
     printk("vbc reset start...\n");
     // 1. dial phone number
     // 2. modem will set DSP control audio codec
@@ -666,11 +667,17 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
     // The problem occures in step 7 & 8, if 8 first occures, pop sound will be created, and
     // alsa DMA can't be work, AudioFlinger will can't obtainBuffer from alsa driver [luther.ge]
     if (check_incall) {
+        #define VBC_DSP_WAITING_MAX_COUNT   20
+        int try_max = 0;
         // vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
         // fix above problem
-        while (mode_incall()) {
+        while (mode_incall() && try_max++ < VBC_DSP_WAITING_MAX_COUNT) {
             printk("vbc waiting DSP release audio codec ......\n");
             msleep(100);
+        }
+        if (try_max >= VBC_DSP_WAITING_MAX_COUNT) {
+            printk("vbc say God God God God God God God oh my !!!!\n");
+            ret = -1;
         }
         printk("vbc waiting modem stable setting audio codec ...... start ......\n");
         msleep(200);
@@ -757,11 +764,12 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
     vbc_codec_unmute(); // don't mute
 #endif
     printk("vbc reset finish...\n");
-    return 0;
+    return ret;
 }
 
 static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned int value, int dir)
 {
+    int ret = 0;
     // printk("vbc_soft_ctrl value[%d]=%04x\n", dir, reg);
     switch (reg) {
         case VBC_CODEC_RESET:
@@ -773,16 +781,16 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
             // speaker_muted = true;
 #if VBC_DYNAMIC_POWER_MANAGEMENT
-            vbc_reset(codec, 0, 1);
+            ret = vbc_reset(codec, 0, 1);
             vbc_power_down(-1);
 #else
-            vbc_reset(codec, 1, 1);
+            ret = vbc_reset(codec, 1, 1);
 #endif
-            // vbc_reset(codec);
+            // ret = vbc_reset(codec);
             if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
             if (!speaker_muted) vbc_amplifier_enable(true, "vbc_soft_ctrl"); // unMute speaker
-            return 0;
+            return ret < 0 ? -2 : ret;
         case VBC_CODEC_POWER:
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
             printk("vbc power to 0x%08x\n", value);
@@ -815,7 +823,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
 static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 {
     int ret = vbc_soft_ctrl(codec, reg, 0, 0);
-    if (ret >=0) return ret;
+    if (ret != -1) return ret;
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
     reg |= ARM_VB_BASE2;
 #ifdef CONFIG_ARCH_SC8800S
@@ -828,7 +836,7 @@ static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int val)
 {
     int ret = vbc_soft_ctrl(codec, reg, val, 1);
-    if (ret >=0) return ret;
+    if (ret != -1) return ret;
     // Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert
     reg |= ARM_VB_BASE2;
     vbc_write_callback(reg, val);
