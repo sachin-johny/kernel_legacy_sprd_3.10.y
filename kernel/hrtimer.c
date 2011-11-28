@@ -742,6 +742,19 @@ static int hrtimer_switch_to_hres(void)
 
 #else
 
+static inline int hrtimer_hres_active(void) { return 0; }
+static inline int hrtimer_is_hres_enabled(void) { return 0; }
+static inline int hrtimer_switch_to_hres(void) { return 0; }
+static inline void
+hrtimer_force_reprogram(struct hrtimer_cpu_base *base, int skip_equal) { }
+static inline int hrtimer_enqueue_reprogram(struct hrtimer *timer,
+					    struct hrtimer_clock_base *base,
+					    int wakeup)
+{
+	return 0;
+}
+static inline void hrtimer_init_hres(struct hrtimer_cpu_base *base) { }
+static inline void hrtimer_init_timer_hres(struct hrtimer *timer) { }
 
 #endif /* CONFIG_HIGH_RES_TIMERS */
 

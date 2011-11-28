@@ -541,6 +541,9 @@ asmlinkage void __init start_kernel(void)
 	char * command_line;
 	extern struct kernel_param __start___param[], __stop___param[];
 
+#ifdef CONFIG_NKERNEL
+	jiffies_64 = INITIAL_JIFFIES;
+#endif
 	smp_setup_processor_id();
 
 	/*

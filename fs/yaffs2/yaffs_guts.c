@@ -1958,7 +1958,7 @@ static int yaffs_FindBlockForAllocation(yaffs_Device *dev)
 		 * Can't get space to gc
 		 */
 		T(YAFFS_TRACE_ERROR,
-		  (TSTR("yaffs tragedy: no more erased blocks" TENDSTR)));
+		  (TSTR("yaffs tragedy: no more erased blocks : %s" TENDSTR), dev->param.name));
 
 		return -1;
 	}
@@ -1989,8 +1989,8 @@ static int yaffs_FindBlockForAllocation(yaffs_Device *dev)
 
 	T(YAFFS_TRACE_ALWAYS,
 	  (TSTR
-	   ("yaffs tragedy: no more erased blocks, but there should have been %d"
-	    TENDSTR), dev->nErasedBlocks));
+	   ("yaffs tragedy: no more erased blocks : %s, but there should have been %d"
+	    TENDSTR),dev->param.name , dev->nErasedBlocks));
 
 	return -1;
 }

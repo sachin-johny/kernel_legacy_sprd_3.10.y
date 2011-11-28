@@ -293,7 +293,7 @@ static int sc8800g_cpufreq_set_target(struct cpufreq_policy *policy,
 	return 0;
 }
 
-static int __init sc8800g_cpufreq_driver_init(struct cpufreq_policy *policy)
+static int sc8800g_cpufreq_driver_init(struct cpufreq_policy *policy)
 {
 	int ret;
 

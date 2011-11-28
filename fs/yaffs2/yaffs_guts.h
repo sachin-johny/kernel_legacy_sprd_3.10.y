@@ -111,6 +111,9 @@
 /* Special sequence number for bad block that failed to be marked bad */
 #define YAFFS_SEQUENCE_BAD_BLOCK	0xFFFF0000
 
+/* skip rest block for fixnv,backupfixnv,productinfo and runtimenv for u-boot */
+#define SPRD_SKIPREST_BLOCK	(1)
+
 /* ChunkCache is used for short read/write operations.*/
 typedef struct {
 	struct yaffs_ObjectStruct *object;
@@ -539,6 +542,10 @@ struct yaffs_DeviceParamStruct {
 				 */
 	int useNANDECC;		/* Flag to decide whether or not to use NANDECC on data (yaffs1) */
 	int noTagsECC;		/* Flag to decide whether or not to do ECC on packed tags (yaffs2) */ 
+
+#ifdef	SPRD_SKIPREST_BLOCK
+	int nSkipRestBlock;
+#endif
 
 	int isYaffs2;           /* Use yaffs2 mode on this device */
 

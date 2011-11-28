@@ -85,14 +85,10 @@ config CFG80211_DEFAULT_PS
 	  applications instead -- they need to register their network
 	  latency requirement, see Documentation/power/pm_qos_interface.txt.
 
-config CFG80211_DEFAULT_PS_VALUE
-	int
-	default 1 if CFG80211_DEFAULT_PS
-	default 0
-
 config CFG80211_DEBUGFS
 	bool "cfg80211 DebugFS entries"
-	depends on CFG80211 && DEBUG_FS
+	depends on CFG80211
+	depends on DEBUG_FS
 	---help---
 	  You can enable this if you want to debugfs entries for cfg80211.
 

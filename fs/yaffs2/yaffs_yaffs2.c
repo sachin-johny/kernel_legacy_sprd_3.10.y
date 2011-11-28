@@ -1513,8 +1513,13 @@ int yaffs2_ScanBackwards(yaffs_Device *dev)
 		}
 
 	}
-	
+
+#ifdef	SPRD_SKIPREST_BLOCK
+	if (dev->param.nSkipRestBlock != 1)
+		yaffs_SkipRestOfBlock(dev);
+#else
 	yaffs_SkipRestOfBlock(dev);
+#endif
 
 	if (altBlockIndex)
 		YFREE_ALT(blockIndex);
