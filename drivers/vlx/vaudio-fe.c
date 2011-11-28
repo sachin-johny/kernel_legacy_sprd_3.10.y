@@ -120,7 +120,7 @@ static struct semaphore   vaudio_thread_sem;
 static bool		  vaudio_thread_aborted;
 static unsigned char	  vaudio_thread_init_now;
 #define VAUDIO_PROC_SYNC    1
-#define VAUDIO_VTIMER_ROUND_JIFFIES (msecs_to_jiffies(200))
+#define VAUDIO_VTIMER_ROUND_JIFFIES (msecs_to_jiffies(800))
 
 #if VAUDIO_PROC_SYNC
 static int vaudio_snd_card_close(struct snd_pcm_substream* substream);
@@ -198,7 +198,7 @@ static unsigned long round_jiffies2(unsigned long j)
 static int lutimer_init(void)
 {
     init_timer(&lutimer);
-    lutimer.expires = round_jiffies2(jiffies + VAUDIO_VTIMER_ROUND_JIFFIES);
+    lutimer.expires = round_jiffies2(jiffies + 1);
     lutimer.data = 1;
     lutimer.function = &lutimer_handler;
     add_timer(&lutimer);
