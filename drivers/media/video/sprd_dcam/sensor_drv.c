@@ -123,12 +123,12 @@ static const struct i2c_device_id sensor_sub_id[] = {
 //static unsigned short sensor_main_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
 static unsigned short sensor_main_force[] = {2, SENSOR_MAIN_I2C_ADDR_CFG, I2C_CLIENT_END, I2C_CLIENT_END};
 static const unsigned short *const sensor_main_forces[] = { sensor_main_force, NULL };
-static struct i2c_client_address_data sensor_main_addr_data = { .forces = sensor_main_forces,};
+//static struct i2c_client_address_data sensor_main_addr_data = { .forces = sensor_main_forces,};
 //static unsigned short sensor_sub_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
 //static unsigned short sensor_sub_force[] = {2, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
 static unsigned short sensor_sub_force[] = {2, SENSOR_SUB_I2C_ADDR_CFG, I2C_CLIENT_END, I2C_CLIENT_END};
 static const unsigned short *const sensor_sub_forces[] = { sensor_sub_force, NULL };
-static struct i2c_client_address_data sensor_sub_addr_data = { .forces = sensor_sub_forces,};
+//static struct i2c_client_address_data sensor_sub_addr_data = { .forces = sensor_sub_forces,};
 
 /**---------------------------------------------------------------------------*
  **                         Constant Variables                                *
@@ -1216,13 +1216,13 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 			{
 				sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_main_id;
-				sensor_i2c_driver.address_data = &sensor_main_addr_data;
+				//sensor_i2c_driver.address_data = &sensor_main_addr_data;
 				i2c_del_driver(&sensor_i2c_driver);
 			}
 			g_is_main_sensor = 0;		
 			sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 			sensor_i2c_driver.id_table = sensor_sub_id;
-			sensor_i2c_driver.address_data = &sensor_sub_addr_data;
+			//sensor_i2c_driver.address_data = &sensor_sub_addr_data;
 	    	}
 	    	else  if(SENSOR_MAIN == sensor_id)
 	    	{
@@ -1233,13 +1233,13 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 			{
 		    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_sub_id;
-				sensor_i2c_driver.address_data = &sensor_sub_addr_data; 
+				//sensor_i2c_driver.address_data = &sensor_sub_addr_data; 
 				i2c_del_driver(&sensor_i2c_driver);
 			}
 			g_is_main_sensor = 1;	
 			sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 			sensor_i2c_driver.id_table = sensor_main_id;
-			sensor_i2c_driver.address_data = &sensor_main_addr_data;
+			//sensor_i2c_driver.address_data = &sensor_main_addr_data;
 			
 	    	}
 		
@@ -1320,7 +1320,7 @@ LOCAL int  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 				SENSOR_PRINT("_Sensor_I2CInit,sensor_main_force[1] =%d \n",sensor_main_force[1] );
 				sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_main_id;
-				sensor_i2c_driver.address_data = &sensor_main_addr_data;
+				//sensor_i2c_driver.address_data = &sensor_main_addr_data;
 					
 		    	}
 		    	else  if(SENSOR_SUB == sensor_id)
@@ -1328,7 +1328,7 @@ LOCAL int  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 				SENSOR_PRINT("_Sensor_I2CInit,sensor_sub_force[1] =%d \n",sensor_sub_force[1] );
 		    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_sub_id;
-				sensor_i2c_driver.address_data = &sensor_sub_addr_data;     				
+				//sensor_i2c_driver.address_data = &sensor_sub_addr_data;     				
 		    	}
 
 		 	if(i2c_add_driver(&sensor_i2c_driver))
@@ -1366,7 +1366,7 @@ LOCAL int _Sensor_I2CDeInit(SENSOR_ID_E sensor_id)
 			{
 				sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_main_id;
-				sensor_i2c_driver.address_data = &sensor_main_addr_data;
+				//sensor_i2c_driver.address_data = &sensor_main_addr_data;
 
 				i2c_del_driver(&sensor_i2c_driver);		
 				g_is_register_sensor = 0;
@@ -1376,7 +1376,7 @@ LOCAL int _Sensor_I2CDeInit(SENSOR_ID_E sensor_id)
 		    	{
 		    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_sub_id;
-				sensor_i2c_driver.address_data = &sensor_sub_addr_data;     		
+				//sensor_i2c_driver.address_data = &sensor_sub_addr_data;     		
 				i2c_del_driver(&sensor_i2c_driver);	
 				g_is_register_sensor = 0;
 				SENSOR_PRINT("SENSOR: delete  I2C  %d driver OK.\n",sensor_id);
@@ -1747,13 +1747,13 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
 	{
 		if (1 == g_is_main_sensor)
 		{
-			//sensor_i2c_driver.id_table = sensor_main_id;
-			sensor_i2c_driver.address_data = &sensor_main_addr_data;		
+			sensor_i2c_driver.id_table = sensor_main_id;
+			//sensor_i2c_driver.address_data = &sensor_main_addr_data;		
 		}
 		else 
 		{
-			//sensor_i2c_driver.id_table = sensor_sub_id;
-			sensor_i2c_driver.address_data = &sensor_sub_addr_data;    
+			sensor_i2c_driver.id_table = sensor_sub_id;
+			//sensor_i2c_driver.address_data = &sensor_sub_addr_data;    
 		}   	
 			i2c_del_driver(&sensor_i2c_driver);
 			g_is_register_sensor = 0;
