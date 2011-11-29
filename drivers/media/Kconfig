@@ -143,4 +143,30 @@ config USB_DABUSB
 	  module will be called dabusb.
 endif # DAB
 
+#
+# CMMB device support
+#
+menuconfig CMMB
+	boolean "CMMB support"
+	---help---
+	If you want to use any CMMB device, enable this option first.
+
+if CMMB
+choice
+	prompt "CMMB device type"
+	depends on SPI
+	default CMMB_DEV_NONE
+	---help---
+	Select an option to use a type of CMMB device.
+config CMMB_INNOFIDEI
+	boolean "Innofidei"
+
+config CMMB_SIANO
+	boolean "Siano"
+
+config CMMMB_NONE
+	boolean "N/A"
+endchoice
+endif
+
 endif # MEDIA_SUPPORT

@@ -20,22 +20,28 @@
 #include <linux/spi/spi.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
-
+#include <linux/semaphore.h>
 #include <asm/io.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
 
 #include "spi_sc88xx.h"
-#define SPRD_SPI_DEBUG  0
-#define SPRD_SPI_DEBUG_DATA 0
-#define SPRD_SPI_CS_GPIO 1 /* you should also modify the spi_func_cfg[] */
+#include <asm/cacheflush.h>
 
+#define SPRD_SPI_DEBUG  0
+#define SPRD_SPI_CS_GPIO 1 /* you should also modify the spi_func_cfg[] */
+#define SPRD_SPI_BOUNDRY_NUM  32
+
+struct sprd_spi_data *gsprd_data;
+struct spi_device *gspi;
+
+#if 0
 // lock is held, spi irq is disabled
 static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
 {
     int len;
     unsigned long flags;
-
+	
     sprd_data->dma_started = 0;
 
     if (sprd_data->cspi_trans == 0) return 0; /* when both tx & rx mode starts, first tx irq enters, 
@@ -140,58 +146,94 @@ static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
     sprd_data->cspi_trans_num += len;
     sprd_data->dma_started = 1;
     spi_dma_start(); // Must Enable SPI_DMA_EN last
-
+	
     return 0;
 }
+#endif
+void dump_buffer(unsigned char *buffer, int length){
 
-// ok value
-// 20
-// 50
-// 500
-// 
-// faild value
-// 2
-// 10
-#define ONLY4TEST_UDELAY  20 // 500
-static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+  int i=0;
+  
+  for(i=0; i< length&& i<32*32; i++){
+    printk("%02X ",buffer[i]);
+    if(i%8==7) printk(" ");
+    if(i%32==31) printk("\n");
+  }
+  printk("\n\n");
+}
+
+#define _doSWAP32(x)\
+  (((x) & 0x000000FF) << 24) |	\
+  (((x) & 0x0000FF00) << 8)  |	\
+  (((x) & 0x00FF0000) >> 8)  |	\
+  (((x) & 0xFF000000) >> 24)
+
+#define CSPI_HACK
+
+#ifdef CSPI_HACK
+
+#define MYLOCAL_TIMEOUT 0xff00000
+#define SETUP_WATERMARK(rx_empty, rx_full) spi_writel((rx_empty<<8)| rx_full, SPI_CTL3)
+
+#define ENABLE_RX() spi_write_reg(SPI_CTL1, 12, 0x01, 0x03)
+#define ENABLE_TX() spi_write_reg(SPI_CTL1, 12, 0x02, 0x03)
+#define ENABLE_FULL_DUPLEX() spi_write_reg(SPI_CTL1, 12, 0x03, 0x03)
+
+#define BUSY_WHILE_SET(bitpattern) for(timeout = 0;((spi_readl(SPI_STS2) & bitpattern)) && timeout++ < MYLOCAL_TIMEOUT;)
+#define BUSY_WHILE_NOT_SET(bitpattern) for(timeout = 0;(!(spi_readl(SPI_STS2) & bitpattern)) && timeout++ < MYLOCAL_TIMEOUT;);
+
+int sprd_spi_direct_transfer_tx(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
 {
-    int i, timeout;
-    u8 *data;
-#define MYLOCAL_TIMEOUT 0xf0000
-    struct sprd_spi_data *sprd_data = cookie;
-    struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
-#if SPRD_SPI_DEBUG_DATA
-printk("new ");
+  int i,j,timeout;
+  u8 safetx = 4;
+  
+#define MYLOCAL_TIMEOUT 0xff0000
+  struct sprd_spi_data *sprd_data = gsprd_data;
+  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+
+
+  
+  /* Set tx only */ 
+  ENABLE_TX();
+
+  for(i=0;i<len/(safetx);i++){
+    BUSY_WHILE_NOT_SET(SPI_TX_FIFO_REALLY_EMPTY);
+    for(j=0;j<safetx;j++)
+      spi_writel(((u8*)data_out)[i*safetx+j],SPI_TXD); 
+    }
+
+  for(i=0;i<len%(safetx);++i){
+    BUSY_WHILE_NOT_SET(SPI_TX_FIFO_REALLY_EMPTY);
+    spi_writel(((u8*)data_out)[(len/(safetx))*(safetx)+i],SPI_TXD);
+  }
+  /* Make sure all bytes have been clocked out before function exits and CS is set low */
+  BUSY_WHILE_NOT_SET(SPI_TX_FIFO_REALLY_EMPTY);
+  
+  return 0;
+}
 #endif
 
 #ifdef CSPI_HACK
-static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+
+int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
 {
   int i,j,timeout, block;
   int tlen = 0;
   int block_bytes = 128; //MAX 128
-  int saferx = 4;
+  int saferx = 16;
   unsigned char* data;
-
+  unsigned short hs = 0;
 #define MYLOCAL_TIMEOUT 0xff0000
-    struct sprd_spi_data *sprd_data = cookie;
-    struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
-    u32 spi_ctl0 = sprd_ctrl_data->spi_ctl0;
-
+  struct sprd_spi_data *sprd_data = gsprd_data;
+  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+  
   data = (unsigned char *)data_in;
+  if(gspi->max_speed_hz >= 32000000)
+    hs = 0x0001<<14;
 
-  /* Set rx watermark */
-  spi_writel(saferx, SPI_CTL3);
-
-  /* Set 32 bit mode */
-#ifdef RX32
-  spi_ctl0 &= ~(0x1f<<2);
-  spi_writel(spi_ctl0,SPI_CTL0);
-#endif
-
-  /* Enable rx only */
-  spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); 
-
+  SETUP_WATERMARK(saferx-1,saferx);
+  ENABLE_RX();
+ 
   for (i = 0, tlen = len; tlen;i++) {
     if (tlen > block_bytes) {
       block = block_bytes;
@@ -200,116 +242,127 @@ static int sprd_spi_direct_transfer_rx(void *data_in, const void *data_out, int 
       block = tlen;
       tlen = 0;
     }
-    
-    spi_writel(0x0000, SPI_CTL4); /* stop only rx */
-    spi_writel((1 << 9) | block, SPI_CTL4);
+
+    /* stop only rx */
+    spi_writel(0x0000, SPI_CTL4);
+    spi_writel(hs | (1 << 9) | block, SPI_CTL4);
     
     for (j = 0; j < block/saferx; j++) {
-      /* wait for rx fifo not empty */
-      int k;
-      u32 tmp;
-      /* wait for rx fifo above watermark */
-      for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_RX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
-      
-      /* Read the data */
-#ifndef RX32
-      for(k=0;k<saferx;k++)
-      {
-	data[i*block_bytes+j*saferx+k] = spi_readl(SPI_TXD);
-	
-      }
-#else
-      tmp = spi_readl(SPI_TXD);
-      ((u32*)data)[i*block_bytes+j] = _doSWAP32(tmp);
-#endif
-
+      int k;      
+      BUSY_WHILE_SET(SPI_RX_FIFO_EMPTY);
+      for(k=0;k<saferx;k++) 
+	data[i*block_bytes+j*saferx+k] = spi_readl(SPI_TXD);	
     }
-#ifdef RX32
-    if(block%saferx)
-    spi_writel(sprd_ctrl_data->spi_ctl0,SPI_CTL0);
-#endif
+
     for (j = 0; j < block%saferx; j++) {
-      /* wait for rx fifo not empty */
-      for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
-      /* Read the data */
+      BUSY_WHILE_SET(SPI_RX_FIFO_REALLY_EMPTY);
       data[i*block_bytes+(block/saferx)*saferx + j] = spi_readl(SPI_TXD);
     }
   }
-  spi_writel(sprd_ctrl_data->spi_ctl0,SPI_CTL0);
-  spi_writel(0x01 | (0x00 << 8), SPI_CTL3);
+  
+  
+  SETUP_WATERMARK(0,1);
   return 0;
 }
 #endif
 
-        spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */
-#if SPRD_SPI_DEBUG_DATA
-printk("[in] ");
+int sprd_spi_direct_transfer_full_duplex(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+{
+  int i,j,timeout,block,tlen;
+  unsigned short hs = 0;
+  
+#define MYLOCAL_TIMEOUT 0xff0000
+#ifndef CSPI_HACK
+#  define FIFO_SIZE 128
+#else
+#  define FIFO_SIZE 1
 #endif
 
-  struct sprd_spi_data *sprd_data = cookie;
+  struct sprd_spi_data *sprd_data = gsprd_data;//cookie;
 
-            spi_writel(0x0000, SPI_CTL4); /* stop only rx */
-            spi_writel((1 << 9) | block, SPI_CTL4);
+  if(gspi->max_speed_hz >= 32000000){
+    hs = 0x0001<<14;
+    spi_writel(hs,SPI_CTL4);
+  }
+  
+  ENABLE_FULL_DUPLEX();
 
-            for (j = 0; j < block; j++) {
-                for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
-                if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
-                data = (u8*)data_in + i;
-                switch (sprd_ctrl_data->data_width) {
-                    case 1: ( (u8*)data)[0] = spi_readl(SPI_TXD); i += 1; break;
-                    case 2: ((u16*)data)[0] = spi_readl(SPI_TXD); i += 2; break;
-                    case 4: ((u32*)data)[0] = spi_readl(SPI_TXD); i += 4; break;
-                }
-                // udelay(ONLY4TEST_UDELAY);
-#if SPRD_SPI_DEBUG_DATA
-printk("%02x ", ((u8*)data)[0]);
-if ((j & 0x0f) == 0x0f)
-    printk("\n");
-#endif
-            }
-#if SPRD_SPI_DEBUG_DATA
-if ((j & 0x0f) != 0x0f)
-    printk("\n");
-#endif
-        }
+  j=0;
+  /* Repeat until done */
+  for (i = 0, tlen = len; tlen;i++){
+    if (tlen > FIFO_SIZE) {
+      block = FIFO_SIZE;
+      tlen -= FIFO_SIZE;
+    } else {
+      block = tlen;
+      tlen = 0;
     }
-    if (data_out) {
-#if SPRD_SPI_DEBUG_DATA
-printk("[out] ");
+    
+    /* Wait until tx fifo empty*/
+    BUSY_WHILE_NOT_SET(SPI_TX_FIFO_REALLY_EMPTY);
+
+    /* Write byte to tx fifo buffer */
+    for(j=0;j < block; ++j)
+      spi_writel(((u8*)data_out)[i*FIFO_SIZE+j],SPI_TXD);
+    /* Wait until tx fifo empty*/
+    BUSY_WHILE_NOT_SET(SPI_TX_FIFO_REALLY_EMPTY);
+    
+    /* Wait until rx fifo not empty */
+    BUSY_WHILE_SET(SPI_RX_FIFO_REALLY_EMPTY);
+
+    /* Read as many bytes as were written */
+    for(j=0;j<block;++j)
+      ((u8*)data_in)[i*FIFO_SIZE+j] = spi_readl(SPI_TXD);
+  }
+
+  return 0;
+}
+
+EXPORT_SYMBOL_GPL(sprd_spi_direct_transfer_rx);
+EXPORT_SYMBOL_GPL(sprd_spi_direct_transfer_tx);
+EXPORT_SYMBOL_GPL(sprd_spi_direct_transfer_full_duplex);
+
+#ifdef CSPI_HACK
+#  define CSPI_READ 0x10
+#  define CSPI_WRITE 0x20
+#  define CSPI_BURST 0x40
+#  define CSPI_TYPE_MASK 0x70
+#  define CSPI_CMD_LENGTH 6 
 #endif
-        spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */
-        for (i = 0; i < len;) {
-            for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
-            if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
-            data = (u8*)data_out + i;
-            switch (sprd_ctrl_data->data_width) {
-                case 1: spi_writel(( (u8*)data)[0], SPI_TXD); i += 1; break;
-                case 2: spi_writel(((u16*)data)[0], SPI_TXD); i += 2; break;
-                case 4: spi_writel(((u32*)data)[0], SPI_TXD); i += 4; break;
-            }
-            // udelay(ONLY4TEST_UDELAY);
-#if SPRD_SPI_DEBUG_DATA
-printk("%02x ", ((u8*)data)[0]);
-    if ((i & 0x0f) == 0x0f)
-        printk("\n");
-#endif
-        }
-#if SPRD_SPI_DEBUG_DATA
-if ((i & 0x0f) != 0x0f)
-        printk("\n");
-#endif
-        for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
-        if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
-        // for (i = 0; i < 5; i++);
-        for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
-        if (timeout >= MYLOCAL_TIMEOUT) return -ENOPROTOOPT;
+
+static int sprd_spi_direct_transfer_main(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+{
+  unsigned char cmd = *(unsigned char*)data_out;
+  unsigned char *data_read = (unsigned char *)data_in;
+  unsigned char *data_write = (unsigned char *)data_out;
+  int fd_len=min(len,8);
+  
+#ifndef CSPI_HACK
+  sprd_spi_direct_transfer_full_duplex(data_in, data_out, len, cookie, cookie2);
+#else
+  switch(cmd & CSPI_TYPE_MASK)
+    {
+    case CSPI_READ:
+    case CSPI_READ|CSPI_BURST:
+      sprd_spi_direct_transfer_full_duplex(data_in, data_out, fd_len, cookie, cookie2);
+      if(fd_len!=len)
+	sprd_spi_direct_transfer_rx(&data_read[fd_len], &data_write[fd_len], len - fd_len, cookie, cookie2);
+      break;
+    case CSPI_WRITE:
+    case CSPI_WRITE|CSPI_BURST:
+      sprd_spi_direct_transfer_full_duplex(data_in, data_out, fd_len, cookie, cookie2);
+      if(fd_len!=len)
+	sprd_spi_direct_transfer_tx(&data_read[fd_len], &data_write[fd_len], len - fd_len, cookie, cookie2);
+      break;
+    default:
+      sprd_spi_direct_transfer_full_duplex(data_in, data_out, len, cookie, cookie2);
     }
 #endif
   return 0;
 }
 
 
-static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+static int sprd_spi_bytes_transfer(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
 {
   int i, timeout;
   u8 *data;
@@ -364,6 +417,7 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
   }
 
   if (data_out) {
+	
     spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); /* Only Enable SPI transmit mode */
     for (i = 0; i < len;) {
       for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
@@ -394,8 +448,117 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
   return 0;
 }
 
+#define SPI_DMA_MIN_LEN  48    //16+32
+#define SPI_BURST_SIZE     16    //bitlen =8,rx_threshhod = 16
+//only for cmmb receive dma
+static void sprd_cmmb_dma_txrx_cfg(void *data_in, int len,void *cookie, void *cookie2)
+{
+    int dummy = 0xffffffff;
+    int i, ch_id;
+    u32 dsrc, ddst;
+    int width;
+    int autodma_src, autodma_dst, autodma_burst_mod_src, autodma_burst_mod_dst;
+    struct sprd_spi_data *sprd_data = cookie;	
+    struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;//spi->controller_data;
+    sprd_dma_ctrl ctrl;
+
+    for (i = 0; i < 2; i++) {
+        if (i == 0) ch_id = DMA_SPI_RX;
+        else ch_id = DMA_SPI_TX;
+
+        if (ch_id == DMA_SPI_RX) {
+            ctrl.dma_desc = &sprd_ctrl_data->dma_desc_rx;
+            autodma_src = DMA_NOCHANGE;
+            autodma_dst = DMA_INCREASE;
+            autodma_burst_mod_src = SRC_BURST_MODE_SINGLE;
+            autodma_burst_mod_dst = SRC_BURST_MODE_4;
+            dsrc = SPRD_SPI_PHYS + SPI_TXD;
+	      ddst = virt_to_phys(data_in);
+        } else {
+            ctrl.dma_desc = &sprd_ctrl_data->dma_desc_tx;
+            autodma_src = DMA_NOCHANGE;
+            autodma_dst = DMA_NOCHANGE;
+            autodma_burst_mod_src = SRC_BURST_MODE_4;
+            autodma_burst_mod_dst = SRC_BURST_MODE_SINGLE;
+	     dsrc = virt_to_phys(&dummy);
+	     ddst = SPRD_SPI_PHYS + SPI_TXD;
+        }
+
+        width = (sprd_ctrl_data->spi_ctl0 >> 2) & 0x1f;
+        if (width == 0) width = 32;
+        sprd_dma_setup_cfg_ext(&ctrl,
+                ch_id,
+                DMA_NORMAL,
+                TRANS_DONE_EN,
+                autodma_src, autodma_dst,
+                0,0,//autodma_burst_mod_src, autodma_burst_mod_dst, 
+                16,//SPRD_SPI_BURST_SIZE_DEFAULT, 
+                width, width,
+                dsrc, ddst, len);
+         sprd_dma_setup(&ctrl);
+    }	
+
+    {
+    int saferx = 16;
+    SETUP_WATERMARK(saferx-1,saferx);		
+    spi_write_reg(SPI_CTL1, 12, 0x03, 0x03);
+    spi_dma_start();
+    }
+    sprd_dma_channel_start(DMA_SPI_RX);	
+    sprd_dma_channel_start(DMA_SPI_TX);	
+	
+}
+
+static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+{
+	int ret = 0;
+	int addr_align_margin = 0;
+	int remain_size = 0;	
+	int dma_len = 0;
+	void* read_data = 0;
+	int rw_len = 0;
+	u32 old_reg = 0;	
+       struct sprd_spi_data *sprd_data = cookie;
+	
+	if (data_in){
+		if (len < SPI_DMA_MIN_LEN ){
+			ret = sprd_spi_bytes_transfer(data_in,NULL,len,cookie,cookie2);
+		}
+		else {
+			addr_align_margin = SPRD_SPI_BOUNDRY_NUM - ((uint)(data_in)%SPRD_SPI_BOUNDRY_NUM);
+			read_data=data_in;
+			rw_len = len;
+			
+			if (addr_align_margin < SPRD_SPI_BOUNDRY_NUM && addr_align_margin > 0){
+				ret = sprd_spi_bytes_transfer(data_in,NULL,addr_align_margin,cookie,cookie2);
+				read_data=data_in +addr_align_margin;
+				rw_len = len -addr_align_margin;
+			}
+			
+			remain_size = rw_len % SPI_BURST_SIZE;
+			dma_len = rw_len - remain_size;
+
+			old_reg = spi_readl(SPI_CTL1);
+			sprd_cmmb_dma_txrx_cfg(read_data,dma_len,cookie,cookie2);
+		       down_interruptible(&sprd_data->process_sem);
+			outer_inv_range((unsigned long)read_data,(unsigned long)read_data+dma_len);
+			spi_writel(old_reg, SPI_CTL1);
+
+			//sprd_spi_bytes_transfer(read_data,NULL,dma_len,cookie,cookie2);
+			
+			if (remain_size ){
+				ret = sprd_spi_bytes_transfer(read_data+dma_len,NULL,remain_size,cookie,cookie2);
+			}
+		}
+	}
+	if (data_out){
+		ret = sprd_spi_bytes_transfer(NULL,data_out,len,cookie,cookie2);		
+	}
+	return ret;
+}
+
 /* the following codes is specially for atheros driver */
-#define ATH_HACK
+//#define ATH_HACK
 
 #define _doSWAP32(x)		\
 		((((x) & 0x000000FF) << 24) | \
@@ -415,9 +578,6 @@ struct semaphore spi_complete_sem;
 
 static int sprd_spi_direct_transfer_ath_spec(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
 {
-  int i, timeout;
-  u8 *data;
-  int data_width = 0;
 
 #ifdef ATH_HACK
 #define USE_RX_SWAP
@@ -630,8 +790,7 @@ static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_m
                 if (cs_change) {
                     cs_activate(sprd_data, spi);
                     cs_change = cspi_trans->cs_change;
-                }
-
+                }				
                  msg->status = sprd_spi_direct_transfer(
                         cspi_trans->rx_buf, cspi_trans->tx_buf,
                         cspi_trans->len, sprd_data, sprd_ctrl_data);
@@ -739,6 +898,7 @@ void sprd_spi_tmod(struct spi_device *spi, u32 transfer_mod)
 }
 EXPORT_SYMBOL_GPL(sprd_spi_tmod);
 
+
 #if SPRD_SPI_DMA_MODE
 static void
 #else
@@ -746,10 +906,25 @@ static irqreturn_t
 #endif
 sprd_spi_interrupt(int irq, void *dev_id)
 {
+    int timeout;
     struct spi_master *master = dev_id;
     struct sprd_spi_data *sprd_data = spi_master_get_devdata(master);
 
+    //printk("spi irq [ %d ]\n", irq);
+    BUSY_WHILE_NOT_SET(SPI_RX_FIFO_REALLY_EMPTY);
+	
     spin_lock(&sprd_data->lock);
+    if ( irq == DMA_SPI_TX ){ 	
+    	sprd_dma_channel_stop(DMA_SPI_TX);
+	spi_dma_stop();
+       up(&sprd_data->process_sem);
+    }
+    if ( irq == DMA_SPI_RX ){
+    	sprd_dma_channel_stop(DMA_SPI_RX);
+    }
+	
+
+#if 0	
 #if SPRD_SPI_DEBUG
     lprintf("spi irq [ %d ]\n", irq);
 #endif
@@ -773,6 +948,8 @@ sprd_spi_interrupt(int irq, void *dev_id)
     if (sprd_spi_do_transfer(sprd_data) < 0)
         printk(KERN_ERR "error : %s\n", __func__);
 */
+#endif
+
     spin_unlock(&sprd_data->lock);
 
 #if !SPRD_SPI_DMA_MODE
@@ -800,7 +977,6 @@ static inline void cs_activate(struct sprd_spi_data *sprd_data, struct spi_devic
         sprd_data->cs_null = 0;
     }
 }
-
 static inline void cs_deactivate(struct sprd_spi_data *sprd_data, struct spi_device *spi)
 {
 #if SPRD_SPI_CS_GPIO
@@ -813,6 +989,19 @@ static inline void cs_deactivate(struct sprd_spi_data *sprd_data, struct spi_dev
 #endif
     sprd_data->cs_null = 1;
 }
+
+void csr_cs_activate(int mode){
+  down(&gsprd_data->process_sem_direct);
+  cs_activate(gsprd_data, gspi);
+}
+
+void csr_cs_deactivate(){
+  cs_deactivate(gsprd_data, gspi);
+  up(&gsprd_data->process_sem_direct);
+}
+
+EXPORT_SYMBOL_GPL(csr_cs_activate);
+EXPORT_SYMBOL_GPL(csr_cs_deactivate);
 
 /*
  * For DMA, tx_buf/tx_dma have the same relationship as rx_buf/rx_dma:
@@ -851,6 +1040,7 @@ static int sprd_spi_dma_map_transfer(struct sprd_spi_data *sprd_data, struct spi
     return 0;
 }
 
+#if 0
 static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans)
 {
 /*
@@ -867,6 +1057,7 @@ static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct 
         dma_unmap_single(dev, trans->rx_dma, trans->len, DMA_FROM_DEVICE);
 */
 }
+#endif
 
 static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device *spi)
 {
@@ -876,7 +1067,7 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
     int autodma_src, autodma_dst, autodma_burst_mod_src, autodma_burst_mod_dst;
     struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
     sprd_dma_ctrl ctrl;// = {.dma_desc = &sprd_ctrl_data->dma_desc};
-
+    
     for (i = 0; i < 2; i++) {
         if (i == 0) ch_id = DMA_SPI_RX;
         else ch_id = DMA_SPI_TX;
@@ -909,7 +1100,7 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
 #endif
 
         dsrc = ddst = SPRD_SPI_PHYS + SPI_TXD;
-
+#if 0
         sprd_dma_setup_cfg(&ctrl,
                 ch_id,
                 DMA_NORMAL,
@@ -920,6 +1111,7 @@ static int sprd_spi_setup_dma(struct sprd_spi_data *sprd_data, struct spi_device
                 width, width,
                 dsrc, ddst, 0);
          sprd_dma_setup(&ctrl);
+#endif		 
     }
 
     // 综合实验决定将SPI_CTL3的rx大小设置为1
@@ -1056,6 +1248,7 @@ static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
     return len;
 }
 
+#if 0
 static int spi_kthread(void *args)
 {
     struct sprd_spi_data *sprd_data = args;
@@ -1074,6 +1267,7 @@ static int spi_kthread(void *args)
 
     return 0;
 }
+#endif
 
 static int sprd_spi_setup(struct spi_device *spi)
 {
@@ -1088,7 +1282,12 @@ static int sprd_spi_setup(struct spi_device *spi)
     u32 spi_ctl0 = 0;
     int ret;
 
+    //__raw_bits_or(2 << 26, GR_CLK_DLY);
+    //__raw_bits_or(1 << 21, GR_GEN2);
+
     sprd_data = spi_master_get_devdata(spi->master);
+    gsprd_data = sprd_data;
+    gspi = spi;
 
     if (sprd_data->stopping)
         return -ESHUTDOWN;
@@ -1308,13 +1507,15 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
     spi_writel(0, SPI_INT_EN);
     // clk source selected to 96M
     __raw_bits_and(~(0x03 << 26), GR_CLK_DLY);
-    // __raw_bits_or(2 << 26, GR_CLK_DLY);
+    //__raw_bits_or(2 << 26, GR_CLK_DLY);
+    __raw_bits_or(0 << 26, GR_CLK_DLY);
     /*
      * clk_spi_div sets to 1, so clk_spi=96M/2=48M,
      * and clk_spi is SPI_CTL5 interval base clock.[luther.ge]
      */
     __raw_bits_and(~(0x07 << 21), GR_GEN2);
-    // __raw_bits_or(1 << 21, GR_GEN2);
+    //__raw_bits_or(1 << 21, GR_GEN2);
+    __raw_bits_or(0 << 21, GR_GEN2);
 
     sprd_data->cs_null = 1;
 
@@ -1324,10 +1525,10 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 
     init_MUTEX(&sprd_data->process_sem_direct);
     init_MUTEX_LOCKED(&sprd_data->process_sem);
-    sprd_data->spi_kthread = kthread_create(spi_kthread, sprd_data, "spi_kthread");
-    if (IS_ERR(sprd_data->spi_kthread)) goto out_reset_hw;
+    //sprd_data->spi_kthread = kthread_create(spi_kthread, sprd_data, "spi_kthread");
+    //if (IS_ERR(sprd_data->spi_kthread)) goto out_reset_hw;
 
-    wake_up_process(sprd_data->spi_kthread);
+    //wake_up_process(sprd_data->spi_kthread);
 
     return 0;
 
@@ -1358,7 +1559,7 @@ static int __exit sprd_spi_remove(struct platform_device *pdev)
     sprd_data->stopping = 1;
     spin_unlock_irq(&sprd_data->lock);
 
-    if (!IS_ERR(sprd_data->spi_kthread)) kthread_stop(sprd_data->spi_kthread);
+    //if (!IS_ERR(sprd_data->spi_kthread)) kthread_stop(sprd_data->spi_kthread);
 
     /* Terminate remaining queued transfers */
     list_for_each_entry(msg, &sprd_data->queue, queue) {

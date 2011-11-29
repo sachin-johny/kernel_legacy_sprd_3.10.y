@@ -1306,6 +1306,10 @@ CONFIG_RADIO_ADAPTERS=y
 # CONFIG_RADIO_SAA7706H is not set
 # CONFIG_RADIO_TEF6862 is not set
 # CONFIG_DAB is not set
+CONFIG_CMMB=y
+CONFIG_CMMB_INNOFIDEI=y
+# CONFIG_CMMB_SIANO is not set
+# CONFIG_CMMMB_NONE is not set
 
 #
 # Graphics support

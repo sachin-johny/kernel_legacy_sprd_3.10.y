@@ -229,13 +229,13 @@ struct sprd_spi_controller_data {
                                 struct spi_transfer, transfer_list);\
     sprd_data->cspi_trans_num = 0;
 
-static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data);
+//static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data);
 static inline void cs_activate(struct sprd_spi_data *sprd_data, struct spi_device *spi);
 static inline void cs_deactivate(struct sprd_spi_data *sprd_data, struct spi_device *spi);
 static inline int sprd_dma_update_spi(u32 sptr, u32 slen, u32 dptr, u32 dlen,
                         struct spi_device *spi, struct sprd_spi_data *sprd_data);
 static int sprd_spi_dma_map_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans);
-static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans);
+//static void sprd_spi_dma_unmap_transfer(struct sprd_spi_data *sprd_data, struct spi_transfer *trans);
 static void spi_complete2(void *arg);
 
 #endif
