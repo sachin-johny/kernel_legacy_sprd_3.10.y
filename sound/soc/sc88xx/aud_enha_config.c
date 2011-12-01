@@ -20,7 +20,7 @@
 #include "filter_calc.h"
 #include "aud_enha.h"
 #include <linux/delay.h>
-#include <sci_types.h>
+#include "sci_types.h"
 
 
 

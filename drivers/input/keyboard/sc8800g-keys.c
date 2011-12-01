@@ -819,9 +819,11 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	}//if (gpio == VOLUP_KEY_GPIO)
 
 	if (gpio == PBINT_GPI) {
+#if  defined (CONFIG_MACH_SP8810)
 		if (irq_is_detected ==  1) 
 			ret = sprd_get_eic_data(EIC_ID_11);
 		else
+#endif
 			ret = gpio_get_value(gpio);
 		if (ret) {
 			//printk("The Pin is HIGH\n");
@@ -891,6 +893,7 @@ static void gpio_key_init(unsigned long gpio, const char *label)
 	}
 }
 
+#if  defined (CONFIG_MACH_SP8810)
 static void int_key_init(enum EIC_TYPE_E eic_id, const char *label)
 {
 	unsigned long err, irq, ret;
@@ -910,6 +913,7 @@ static void int_key_init(enum EIC_TYPE_E eic_id, const char *label)
 	}
 
 }
+#endif
 
 #endif
 

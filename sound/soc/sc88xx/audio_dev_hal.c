@@ -33,7 +33,7 @@
 
 //#include "dal_audio.h"
 #include "vb_drvapi.h"
-#include <sci_types.h>
+#include "sci_types.h"
 #include "audio_dev_phy.h"
 #include "filter_calc.h"
 #include "aud_enha.h"
