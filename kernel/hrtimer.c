@@ -1260,7 +1260,9 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 	int i, retries = 0;
 
 	//printk("hrtimer_interrupt()!\n");
+#ifndef CONFIG_ARCH_SC8810
 	timer_int_counter++;
+#endif
 	BUG_ON(!cpu_base->hres_active);
 	cpu_base->nr_events++;
 	dev->next_event.tv64 = KTIME_MAX;

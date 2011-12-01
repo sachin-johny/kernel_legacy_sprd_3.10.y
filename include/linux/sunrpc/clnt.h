@@ -4,6 +4,7 @@
  *  Declarations for the high-level RPC client interface
  *
  *  Copyright (C) 1995, 1996, Olaf Kirch <okir@monad.swb.de>
+ *  Copyright (C) 2011, Red Bend Ltd.
  */
 
 #ifndef _LINUX_SUNRPC_CLNT_H

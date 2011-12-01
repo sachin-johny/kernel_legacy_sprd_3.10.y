@@ -12,6 +12,7 @@ obj-$(CONFIG_KEYBOARD_ATARI)		+= atakbd.o
 obj-$(CONFIG_KEYBOARD_ATKBD)		+= atkbd.o
 obj-$(CONFIG_KEYBOARD_SC8800S)          += sc8800s-keys.o
 obj-$(CONFIG_KEYBOARD_SC8800G)          += sc8800g-keys.o
+obj-$(CONFIG_KEYBOARD_SC8810)           += sc8800g-keys.o
 obj-$(CONFIG_KEYBOARD_BFIN)		+= bf54x-keys.o
 obj-$(CONFIG_KEYBOARD_DAVINCI)		+= davinci_keyscan.o
 obj-$(CONFIG_KEYBOARD_EP93XX)		+= ep93xx_keypad.o

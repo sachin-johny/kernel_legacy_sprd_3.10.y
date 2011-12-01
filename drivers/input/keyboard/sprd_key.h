@@ -12,7 +12,7 @@ struct sprd_kpad_platform_data {
         u32 keyup_test_interval; /* in ms */
 };
 
-#ifdef CONFIG_KEYBOARD_SC8800G
+#if (defined CONFIG_KEYBOARD_SC8800G || defined CONFIG_KEYBOARD_SC8810)
 #define KEYVAL(row, col, val) (((row) << 24) | ((col) << 16) | (val))
 #endif
 

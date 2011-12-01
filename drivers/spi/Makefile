@@ -44,10 +44,11 @@ obj-$(CONFIG_SPI_XILINX)		+= xilinx_spi.o
 obj-$(CONFIG_SPI_XILINX_OF)		+= xilinx_spi_of.o
 obj-$(CONFIG_SPI_XILINX_PLTFM)		+= xilinx_spi_pltfm.o
 obj-$(CONFIG_SPI_SH_SCI)		+= spi_sh_sci.o
-obj-$(CONFIG_SPI_SC88XX)		+= spi_sc88xx.o
 obj-$(CONFIG_SPI_SH_MSIOF)		+= spi_sh_msiof.o
 obj-$(CONFIG_SPI_STMP3XXX)		+= spi_stmp.o
 obj-$(CONFIG_SPI_NUC900)		+= spi_nuc900.o
+obj-$(CONFIG_SPI_SC88XX)		+= spi_sc88xx.o
+obj-$(CONFIG_SPI_SC8810)		+= spi_sc8810.o
 
 # special build for s3c24xx spi driver with fiq support
 spi_s3c24xx_hw-y			:= spi_s3c24xx.o

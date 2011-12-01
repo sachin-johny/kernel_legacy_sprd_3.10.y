@@ -24,11 +24,10 @@
 #include <linux/leds.h>
 #include <linux/err.h>
 #include <linux/delay.h>
+#include <linux/slab.h>
 
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>
-
-#include <linux/slab.h>
 
 
 /* sprd keypad backlight */

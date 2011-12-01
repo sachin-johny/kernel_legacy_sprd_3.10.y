@@ -55,7 +55,9 @@
 #include <asm/mach/irq.h>
 #include <asm/pgtable-hwdef.h>
 
+#ifndef CONFIG_ARCH_SC8810
 #include <mach/test.h>
+#endif
 
 #include <linux/slab.h>
 /*

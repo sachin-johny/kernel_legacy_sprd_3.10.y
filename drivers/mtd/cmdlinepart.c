@@ -68,7 +68,7 @@ static char sprd_nand_parts[] = "sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(
 #ifdef CONFIG_MACH_BIGPHONE
 static char sprd_nand_parts[] = "sprd-nand:4m(BOOTLOADER),4m(CACHE),4m(BOOT),4m(RECOVERY),100m(SYSTEM),140m(DATA)";
 #endif
-#if defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP6810A)
+#if defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP6810A) || defined(CONFIG_ARCH_SC8810)
 /*static char sprd_nand_parts[] = "sprd-nand:384k@256k(2ndbl),128k(params),512k(vmjaluna),6016k(modem),7680k(kernel),5120k(dsp),1280k(fixnv),2560k(runtimenv),6400k(recovery),100m(system),198m(userdata),1m(boot_logo),1m(fastboot_logo),2m(cache),256k(misc)";*/
 static char sprd_nand_parts[] = "sprd-nand:512k@256k(2ndbl),128k(params),512k(vmjaluna),10m(modem),10m(boot),5120k(dsp),1280k(fixnv),3840k(backupfixnv),3840k(runtimenv),10m(recovery),150m(system),1m(boot_logo),1m(fastboot_logo),2m(cache),256k(misc),2m(productinfo),300m(userdata)";
 #endif

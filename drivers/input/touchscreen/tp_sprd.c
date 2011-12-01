@@ -7,12 +7,12 @@
 #include <linux/platform_device.h>
 #include <linux/bug.h>
 #include <linux/input.h>
-//#include <linux/proc_fs.h>
+#include <linux/slab.h>
+
 #include <linux/ctype.h>
 #include <linux/device.h>
 #include <asm/io.h>
 #include <asm/irq.h>
-//#include <asm/uaccess.h>
 
 #include <mach/hardware.h>
 #include <mach/adi_hal_internal.h>
@@ -130,6 +130,10 @@
         while(ANA_REG_GET(TPC_INT_RAW) & msk);    \
     }while(0)
 
+#define X_MIN	0
+#define X_MAX	0x3ff
+#define Y_MIN	0
+#define Y_MAX	0x3ff
 
 #define TPC_CHANNEL_X       2
 #define TPC_CHANNEL_Y       3
@@ -138,16 +142,6 @@
 #define SCI_TRUE	1
 #define SCI_FALSE	0
 
-/* fit touch panel to LCD size */
-#define TP_LCD_WIDTH    320
-#define TP_LCD_HEIGHT   480
-
-#define X_MIN	0
-#define X_MAX	0x3ff
-#define Y_MIN	0
-#define Y_MAX	0x3ff
-
-/*
 int a= 35337;
 int b= -305;
 int c= -8622664;
@@ -155,7 +149,6 @@ int d= -105;
 int e= 43086;
 int f= -8445728;
 int g= 65536;
-*/
 
 typedef union
 {
@@ -167,14 +160,6 @@ typedef union
     int32_t dwValue;
 } TPC_DATA_U;
 
-
-typedef struct{
-    uint16_t x_coef_a;
-    uint16_t x_coef_b;
-    uint16_t y_coef_a;
-    uint16_t y_coef_b;
-}TPC_COEF;
-
 struct sprd_tp{
 	struct input_dev *input;
 	
@@ -184,20 +169,12 @@ struct sprd_tp{
 	struct timer_list timer;
 	TPC_DATA_U tp_data;
 };
-
-
-static uint8_t          cal_mode_en = 0;
-static TPC_DATA_U       cal_data;
-static TPC_COEF         cal_coef;
-static struct sprd_tp  *sprd_tp_data = NULL;
-static uint16_t         tp_fix_cx = (TP_LCD_WIDTH>>1);
-static uint16_t         tp_fix_cy = (TP_LCD_HEIGHT>>1);
-    
 static void ADC_Init(void)
 {
-	ANA_REG_OR (ANA_AGEN, AGEN_ADC_EN); //AUXAD controller APB clock enable
-    ANA_REG_OR (ANA_CLK_CTL, ACLK_CTL_AUXAD_EN | ACLK_CTL_AUXADC_EN);//enable AUXAD clock generation
-    ANA_REG_OR (ADC_CTRL, ADC_EN_BIT);//ADC module enable
+//8810	TODO
+	ANA_REG_OR (ANA_AGEN, (BIT_5 | BIT_13 | BIT_14)); //AUXAD controller APB clock enable
+//	ANA_REG_OR (ANA_CLK_CTL, ACLK_CTL_AUXAD_EN | ACLK_CTL_AUXADC_EN);//enable AUXAD clock generation
+//	ANA_REG_OR (ADC_CTRL, ADC_EN_BIT);//ADC module enable
 
 }
 static void ADC_SetScale (uint32_t scale)
@@ -236,7 +213,7 @@ static void ADC_SetCs (uint32_t source)
 }
 static void tp_init(void)
 {
-	ANA_REG_OR (ANA_AGEN, AGEN_TPC_EN | AGEN_RTC_TPC_EN);//Touch panel controller APB clock enable
+	ANA_REG_OR (ANA_AGEN, BIT_12 | BIT_4);//Touch panel controller APB clock enable
 
    	 //Enable TPC module
     ANA_REG_OR (TPC_CTRL, TPC_EN_BIT);
@@ -293,8 +270,6 @@ static inline void tp_stop (void)
     ADC_CloseTPC();
 
 }
-
-
 static int tp_fetch_data (TPC_DATA_U *tp_data)
 {
     uint16_t i;
@@ -321,12 +296,11 @@ static int tp_fetch_data (TPC_DATA_U *tp_data)
         cur_data.data.x  = ANA_REG_GET (TPC_X_DATA);
         cur_data.data.y  = ANA_REG_GET (TPC_Y_DATA);
         
-        TP_PRINT("x=%d,y=%d\n",cur_data.data.x,cur_data.data.y);
-
-        if(cur_data.data.x <= X_MIN || cur_data.data.x >= X_MAX || 
-            cur_data.data.y <= Y_MIN || cur_data.data.y >= Y_MAX)
+        if(cur_data.data.x <= X_MIN || cur_data.data.y >= Y_MAX)
                 return SCI_FALSE;
             
+
+        TP_PRINT("x=%d,y=%d\n",cur_data.data.x,cur_data.data.y);
         if (pre_data.dwValue != 0)
         {
             delta_x = pre_data.data.x - cur_data.data.x;
@@ -334,11 +308,11 @@ static int tp_fetch_data (TPC_DATA_U *tp_data)
             delta_y = pre_data.data.y - cur_data.data.y;
             delta_y = (delta_y > 0) ? delta_y : (- delta_y);
 
-            TP_PRINT("delta_x=%d,delta_y=%d\n",delta_x,delta_y);
+            //TP_PRINT("delta_x=%d,delta_y=%d\n",delta_x,delta_y);
             
             if ( (delta_x + delta_y) >= TPC_DELTA_DATA)
             {
-                TP_PRINT ("func[%s]: fetch data failed !delta_x = %d delta_y = %d\n",__FUNCTION__,delta_x, delta_y);
+                //TP_PRINT ("func[%s]: fetch data failed !delta_x = %d delta_y = %d\n",__FUNCTION__,delta_x, delta_y);
                 result  = SCI_FALSE;
             }
         }
@@ -410,44 +384,21 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
                     //TP_PRINT("fetch data finish\n");
                     //xd=765-tp->tp_data.data.x;
                     //yd=816-tp->tp_data.data.y;
-                    if (cal_mode_en == 0) {
-                        #if 0
-                        xd=X_MAX-tp->tp_data.data.x;
-                        yd=Y_MAX-tp->tp_data.data.y;
-                        if(0 == a+b+c+d+e+f+g){
-                          input_report_abs(tp->input, ABS_X, xd);
-                          input_report_abs(tp->input, ABS_Y, yd);
-                          TP_PRINT("cal params all zero.\n");
-                        }else{
-                          xl=(a*xd+b*yd+c)/g;
-                          yl=(d*xd+e*yd+f)/g;
-                          xl=(xl+20)*3;
-                          yl=(yl+15)*2;
-
-                        }
-                        #endif
-                        xl = tp->tp_data.data.x;
-                        yl = tp->tp_data.data.y;
-
-                        input_report_abs(tp->input, ABS_X, xl);
-                        input_report_abs(tp->input, ABS_Y, yl);
-
+                    xd=X_MAX-tp->tp_data.data.x;
+                    yd=Y_MAX-tp->tp_data.data.y;
+                    if(0 == a+b+c+d+e+f+g){
+                      input_report_abs(tp->input, ABS_X, xd);
+                      input_report_abs(tp->input, ABS_Y, yd);
+                    }else{
+                      xl=(a*xd+b*yd+c)/g;
+                      yl=(d*xd+e*yd+f)/g;
+                      xl=(xl+20)*3;
+                      yl=(yl+15)*2;
+                      TP_PRINT("xd=%d,yd=%d\n",xd,yd);
+                      TP_PRINT("xl=%d,yl=%d\n",xl,yl);
+                      input_report_abs(tp->input, ABS_X, xl);
+                      input_report_abs(tp->input, ABS_Y, yl);
                     }
-                    else { 
-                        /* calibration enable, 1: sampling mode
-                         2: verification mode. */
-                        cal_data.data.x = tp->tp_data.data.x;
-                        cal_data.data.y = tp->tp_data.data.y;
-                        xd = tp_fix_cx;//tp->tp_data.data.x;
-                        yd = tp_fix_cy;//tp->tp_data.data.y;
-                        input_report_abs(tp->input, ABS_X, xd);
-                        input_report_abs(tp->input, ABS_Y, yd);
-                        
-                        //TP_PRINT("TP cal mode: x = %d, y = %d\n", xd, yd);
-                    }
-
-                    //TP_PRINT("xd=%d,yd=%d\n",xd,yd);
-                    TP_PRINT("xl=%d,yl=%d\n",xl,yl);
                     input_report_abs(tp->input, ABS_PRESSURE,1);
                     input_report_key(tp->input, BTN_TOUCH, 1);
                     input_sync(tp->input);
@@ -541,7 +492,7 @@ static void tp_remove_proc(void)
 	remove_proc_entry("tp_info", NULL);  //remove /proc/tp_info
 
 }
-
+#endif
 static ssize_t tp_sysfs_show(struct device *dev,
 			struct device_attribute *attr,
 			char *buf)
@@ -559,7 +510,7 @@ static ssize_t tp_sysfs_store(struct device *dev,
 	int num;
 	char *endp,*startp;
 
-	startp = endp = (char*)buf;
+	startp = endp = buf;
 	
 	num=0;
 	while(*startp && num < 7){
@@ -583,117 +534,6 @@ static ssize_t tp_sysfs_store(struct device *dev,
 }
 
 static DEVICE_ATTR(tp, 0666, tp_sysfs_show, tp_sysfs_store); 
-#endif
-
-
-static ssize_t cal_mode_sysfs_store(struct device *dev,
-			struct device_attribute *attr,
-			const char *buf, size_t size)
-{
-	char *endp,*startp;
-    uint8_t cal_en = 0;
-    
-	startp = endp = (char*)buf;
-	
-    cal_en = simple_strtol(startp, &endp, 10);
-    if (cal_en > 2) return size;
-
-    if (cal_en == 1) {
-        ANA_REG_AND (TPC_CALC_CTRL, ~BIT_0);  /* calibration mode */
-    }
-    else {
-        ANA_REG_OR (TPC_CALC_CTRL, BIT_0);   /*  normal mode */
-//        input_set_abs_params(sprd_tp_data->input, ABS_X, X_MIN, 320, 0, 0);
-//        input_set_abs_params(sprd_tp_data->input, ABS_Y, Y_MIN, 480, 0, 0);
-    }
-
-    cal_mode_en = cal_en;
-    
-	return size;
-}
-
-static ssize_t cal_mode_sysfs_show(struct device *dev,
-			struct device_attribute *attr,
-			char *buf)
-{
-	int len;
-    
-    len = sprintf(buf, "%d\n", cal_mode_en);
-
-	return len;
-}
-
-static DEVICE_ATTR(cal_mode, 0666, cal_mode_sysfs_show, cal_mode_sysfs_store); 
-
-
-static ssize_t cal_data_sysfs_show(struct device *dev,
-			struct device_attribute *attr,
-			char *buf)
-{
-	int len;
-
-    if (cal_mode_en == 0)
-        len = sprintf(buf, "0 0 \n");
-    else 
-        len = sprintf(buf, "%d %d \n", cal_data.data.x, cal_data.data.y);
-
-	return len;
-}
-
-
-static DEVICE_ATTR(cal_data, 0444, cal_data_sysfs_show, NULL); 
-
-
-static ssize_t cal_coef_sysfs_show(struct device *dev,
-			struct device_attribute *attr,
-			char *buf)
-{
-	int len;
-    len = sprintf(buf, "%#x %#x %#x %#x\n",
-        cal_coef.x_coef_a, 
-        cal_coef.x_coef_b, 
-        cal_coef.y_coef_a, 
-        cal_coef.y_coef_b);
-
-	return len;
-}
-
-static ssize_t cal_coef_sysfs_store(struct device *dev,
-			struct device_attribute *attr,
-			const char *buf, size_t size)
-{
-	long para[4];
-	int num;
-	char *endp,*startp;
-
-	startp = endp = (char*)buf;
-	
-	num=0;
-	while(*startp && num < 4){
-		
-		para[num++] =simple_strtol(startp, &endp, 16);		
-		if(endp){
-           endp++;	
-		   startp=endp;
-        }		
-	}
-
-    ANA_REG_SET(TPC_CALC_X_COEF_A, para[0]);
-    ANA_REG_SET(TPC_CALC_X_COEF_B, para[1]);
-    ANA_REG_SET(TPC_CALC_Y_COEF_A, para[2]);
-    ANA_REG_SET(TPC_CALC_Y_COEF_B, para[3]);
-
-	cal_coef.x_coef_a = para[0];
-    cal_coef.x_coef_b = para[1];
-    cal_coef.y_coef_a = para[2];
-    cal_coef.y_coef_b = para[3];
-    
-	return size;
-}
-
-static DEVICE_ATTR(cal_coef, 0666, cal_coef_sysfs_show, cal_coef_sysfs_store); 
-
-
 /*
  * The functions for inserting/removing us as a module.
  */
@@ -717,7 +557,7 @@ static int __init sprd_tp_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		goto err_alloc;
 	}
-    sprd_tp_data = tp;
+    
 	tp->input=input_dev;
 	tp->input->name = "sprd_touch_screen";
 	tp->input->phys = "TP";
@@ -729,8 +569,8 @@ static int __init sprd_tp_probe(struct platform_device *pdev)
 
 	tp->input->evbit[0] = tp->input->evbit[0] = BIT_MASK(EV_SYN) | BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	tp->input->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
-	input_set_abs_params(tp->input, ABS_X, X_MIN, TP_LCD_WIDTH, 0, 0);
-	input_set_abs_params(tp->input, ABS_Y, Y_MIN, TP_LCD_HEIGHT, 0, 0);
+	input_set_abs_params(tp->input, ABS_X, X_MIN, X_MAX, 0, 0);
+	input_set_abs_params(tp->input, ABS_Y, Y_MIN, Y_MAX, 0, 0);
 	input_set_abs_params(tp->input, ABS_PRESSURE, 0, 1, 0, 0);
 	/*init adc*/
 	ADC_Init();
@@ -738,7 +578,7 @@ static int __init sprd_tp_probe(struct platform_device *pdev)
 	tp_init();
 
 	TP_PRINT("before enter request_irq\n");
-	ret = request_irq(tp->irq,tp_irq, 0, "touch_screen", tp);
+	ret = request_irq(tp->irq,tp_irq, IRQF_DISABLED, "touch_screen", tp);
 	if (ret != 0) {
 		printk("func[%s]: Could not allocate tp IRQ!\n",__FUNCTION__);
 		ret =  -EIO;
@@ -757,21 +597,11 @@ static int __init sprd_tp_probe(struct platform_device *pdev)
 #if 0
 	if(tp_create_proc())
 		printk("create touch panel proc file failed!\n");
-
- 	if(device_create_file(&tp->input->dev, &dev_attr_tp)) {
- 		printk("create touch panel sysfs file tp failed!\n");
- 	}
 #endif
- 	if(device_create_file(&tp->input->dev, &dev_attr_cal_mode)) {
- 		printk("create touch panel sysfs file cal_mode failed!\n");
- 	}
- 	if(device_create_file(&tp->input->dev, &dev_attr_cal_data)) {
- 		printk("create touch panel sysfs file cal_data failed!\n");
+ 	if(device_create_file(&tp->input->dev, &dev_attr_tp)) {
+ 		printk("create touch panel sysfs file failed!\n");
  	}
 
- 	if(device_create_file(&tp->input->dev, &dev_attr_cal_coef)) {
- 		printk("create touch panel sysfs file cal_coef failed!\n");
- 	}
 
       ANA_REG_OR(TPC_INT_EN,(TPC_UP_IRQ_MSK_BIT |TPC_DOWN_IRQ_MSK_BIT));	
 
@@ -800,11 +630,8 @@ static int sprd_tp_remove(struct platform_device *pdev)
 	kfree(tp);
 #if 0
 	tp_remove_proc();
-	device_remove_file(&tp->input->dev, &dev_attr_tp);
 #endif
-	device_remove_file(&tp->input->dev, &dev_attr_cal_mode);
-	device_remove_file(&tp->input->dev, &dev_attr_cal_data);
-	device_remove_file(&tp->input->dev, &dev_attr_cal_coef);
+	device_remove_file(&tp->input->dev, &dev_attr_tp);
 
 	return 0;
 }

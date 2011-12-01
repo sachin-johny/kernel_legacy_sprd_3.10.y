@@ -1,0 +1,42 @@
+if ARCH_SC8810
+
+config ARCH_SUPPORTS_BIG_ENDIAN
+	bool
+	default y
+
+comment "SC8810 Board Type"
+	depends on ARCH_SC8810
+
+
+config MACH_SC8810OPENPHONE
+	depends on ARCH_SC8810
+	default n
+	bool "OpenPhone Board"
+	help
+	  Support for the SC8810 based openphone
+config MACH_SP8810
+	depends on ARCH_SC8810
+	default n
+	bool "SP8810 Phone"
+	help
+	  Support for the SC8810 based phone
+
+config SC8810_IDLE
+	depends on ARCH_SC8810
+	default n
+	bool "Idle Support for SC8810"
+
+config SC8800G_VIBRATOR
+    depends on ARCH_SC8810
+    select ANDROID_TIMED_OUTPUT
+    default n
+    bool "vibrator for SC8810"
+
+config CACHE_L3X0
+	bool "Enable the L3x0 outer cache controller"
+	default y
+	select OUTER_CACHE
+	help
+	  This option enables the L3x0 PrimeCell.
+
+endif

@@ -214,7 +214,7 @@ config MMC_SDHCI_SP8800S
 
 config MMC_SDHCI_SP8800G
         tristate "SDHCI support on Spreadtrum 8800G SoC"
-        depends on  ARCH_SC8800G
+        depends on  (ARCH_SC8800G || ARCH_SC8810)
         help
           This selects the Secure Digital Host Controller Interface (SDHCI)
           often referrered to as the HSMMC block in some of the Spreadtrum's

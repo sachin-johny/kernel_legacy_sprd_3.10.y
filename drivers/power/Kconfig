@@ -144,7 +144,7 @@ config CHARGER_PCF50633
 
 config SPRD_POWER
 	tristate "Spreadtrum SoC's power supply& mesurement controller"
-	depends on (ARCH_SC8800S || ARCH_SC8800G) 
+	depends on (ARCH_SC8800S || ARCH_SC8800G || ARCH_SC8810) 
 	help
 	 Say Y to include support for Spreadtrum SoC's power supply and
 	 mesurement controller driver

@@ -665,7 +665,7 @@ config ARCH_SA1100
 	  Support for StrongARM 11x0 based boards.
 
 config ARCH_S3C2410
-	bool "Samsung S3C24xx"
+	bool "Samsung S3C2410, S3C2412, S3C2413, S3C2416, S3C2440, S3C2442, S3C2443, S3C2450"
 	select GENERIC_GPIO
 	select ARCH_HAS_CPUFREQ
 	select HAVE_CLK
@@ -856,6 +856,36 @@ config ARCH_SC8800G
 	help
 	  Support for Spreadtrum sc8800g based systems.
 
+config ARCH_SC8810
+	bool  "SPREADTRUM SC8810"
+	depends on MMU
+	select CPU_V7
+	select VFP
+	select VFPv3
+	select NEON
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_REQUIRE_GPIOLIB
+        select COMMON_CLKDEV
+#	select HAVE_DYNAMIC_FTRACE
+#	select HAVE_FUNCTION_GRAPH_TRACER	
+	help
+	  Support for Spreadtrum sc8810 based systems.
+
+
+config ARCH_NE1
+	bool "NEC-EL NaviEngine1-based boards"
+	select CPU_V6
+	select MACH_NE1TB
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select GENERIC_GPIO
+#	select IRQ_PER_CPU  PP_TBC !!!
+	select ARM_AMBA
+	select ARM_GIC
+#	select PCI
+	help
+	  This enables support for NEC-EL NaviEngine1-based boards.
 
 config ARCH_ARM_OSWARE
 	bool "Generic ARM OSware Machine"
@@ -989,12 +1019,12 @@ source "arch/arm/mach-vexpress/Kconfig"
 
 source "arch/arm/mach-w90x900/Kconfig"
 
-#source "arch/arm/mach-bcmring/Kconfig"
 
 source "arch/arm/mach-sc8800s/Kconfig"
 
 source "arch/arm/mach-sc8800g/Kconfig"
 
+source "arch/arm/mach-sc8810/Kconfig"
 
 # Definitions to make life easier
 config ARCH_ACORN

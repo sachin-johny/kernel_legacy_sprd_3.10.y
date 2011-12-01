@@ -1447,6 +1447,11 @@ config TS0710_MUX_UART
 	depends on SERIAL_SPRD
     default n
 
+config SERIAL_SC8810
+	bool "Spreadtrum on-chip serial port support"
+	depends on ARM && ARCH_SC8810
+	select SERIAL_CORE
+
 config SERIAL_SPRD_CONSOLE
 	bool "Spreadtrum serial console support"
 	depends on SERIAL_SC8810=y

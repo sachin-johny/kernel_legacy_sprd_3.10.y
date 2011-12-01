@@ -28,7 +28,6 @@
 RELOC-$(CONFIG_RELOCATABLE_KERNEL) := -r
 
 LDFLAGS_vmlinux	:=$(RELOC-y) -p --no-undefined -X
-
 ifeq ($(CONFIG_CPU_ENDIAN_BE8),y)
 LDFLAGS_vmlinux	+= --be8
 endif
@@ -197,6 +196,7 @@ machine-$(CONFIG_ARCH_S5PV210)		:= s5pv210
 machine-$(CONFIG_ARCH_SA1100)		:= sa1100
 machine-$(CONFIG_ARCH_SC8800S)		:= sc8800s
 machine-$(CONFIG_ARCH_SC8800G)		:= sc8800g
+machine-$(CONFIG_ARCH_SC8810)		:= sc8810
 machine-$(CONFIG_ARCH_SHARK)		:= shark
 machine-$(CONFIG_ARCH_SHMOBILE) 	:= shmobile
 machine-$(CONFIG_ARCH_STMP378X)		:= stmp378x
@@ -212,6 +212,7 @@ machine-$(CONFIG_MACH_SPEAR300)		:= spear3xx
 machine-$(CONFIG_MACH_SPEAR310)		:= spear3xx
 machine-$(CONFIG_MACH_SPEAR320)		:= spear3xx
 machine-$(CONFIG_MACH_SPEAR600)		:= spear6xx
+machine-$(CONFIG_ARCH_NE1)	        := ne1
 
 # Platform directory name.  This list is sorted alphanumerically
 # by CONFIG_* macro name.

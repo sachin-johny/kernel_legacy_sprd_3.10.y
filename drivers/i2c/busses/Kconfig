@@ -620,6 +620,13 @@ config I2C_SC8800
 	  Say Y here to include support for I2C controller in the
 	  Spreadtrum SC8800 based System-on-Chip devices.
 
+config I2C_SC8810
+	tristate "SC8810 I2C Driver"
+	depends on ARCH_SC8810
+	help
+	  Say Y here to include support for I2C controller in the
+	  Spreadtrum SC8810 based System-on-Chip devices.
+
 comment "External I2C/SMBus adapter drivers"
 
 config I2C_PARPORT

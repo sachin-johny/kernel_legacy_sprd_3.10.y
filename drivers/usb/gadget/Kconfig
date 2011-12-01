@@ -546,6 +546,28 @@ config USB_SC8800G
 	default USB_GADGET
 	select USB_GADGET_SELECTED
 	select USB_GADGET_DUALSPEED
+
+config USB_GADGET_SC8810
+	boolean "SPREADTRUM SC8810 USB2.0 Controller"
+	depends on ARCH_SC8810
+	help
+	   Spreadtrum's SC8810 usb 2.0 controller is an integrated
+	   full speed USB 2.0 device controller.
+
+	   It has up to 5 endpoints, including endpoint zero (for
+	   control transfers).
+
+	   Say "y" to link the driver statically, or "m" to build a
+	   dynamically linked module called "sc8810_udc" and force all
+	   gadget drivers to also be dynamically linked.
+
+config USB_SC8810
+	tristate
+	depends on USB_GADGET_SC8810
+	default USB_GADGET
+	select USB_GADGET_SELECTED
+	select USB_GADGET_DUALSPEED
+
 #
 # LAST -- dummy/emulated controller
 #

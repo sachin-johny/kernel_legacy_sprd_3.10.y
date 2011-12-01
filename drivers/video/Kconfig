@@ -2219,6 +2219,14 @@ config FB_SC8800G
 	select FB_CFB_IMAGEBLIT
 	default y
 
+config FB_SC8810
+	tristate "frame buffer driver for sc8810"
+	depends on FB && ARCH_SC8810
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	default y
+
 config FB_MX3
 	tristate "MX3 Framebuffer support"
 	depends on FB && MX3_IPU

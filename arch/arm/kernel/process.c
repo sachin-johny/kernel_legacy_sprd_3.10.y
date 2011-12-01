@@ -151,7 +151,9 @@ static inline void nkidle(void)
 }
 
 #endif
-
+#ifdef CONFIG_ARCH_SC8810
+static int schedu_counter = 0;
+#endif
 /*
  * The idle thread, has rather strange semantics for calling pm_idle,
  * but this is what x86 does and we need to do the same, so that

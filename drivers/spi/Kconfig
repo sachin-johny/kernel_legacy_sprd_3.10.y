@@ -294,10 +294,16 @@ config SPI_SH_SCI
 
 config SPI_SC88XX
     tristate "SpreadTrum SC88XX Series SPI"
-    depends on ARCH_SC8800G || ARCH_SC8800S
+    depends on (ARCH_SC8800G || ARCH_SC8800S)
     help 
       SPI driver for SpreadTrum series ARM SoC
 
+config SPI_SC8810
+    tristate "SpreadTrum SC8810 Series SPI"
+    depends on (ARCH_SC8810)
+    help 
+      SPI driver for SpreadTrum series ARM SoC
+      
 config SPI_STMP3XXX
 	tristate "Freescale STMP37xx/378x SPI/SSP controller"
 	depends on ARCH_STMP3XXX && SPI_MASTER

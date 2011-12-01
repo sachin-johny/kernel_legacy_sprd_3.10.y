@@ -23,7 +23,6 @@
 #include <linux/leds.h>
 #include <linux/err.h>
 #include <linux/delay.h>
-
 #include <linux/slab.h>
 
 #include <mach/adi_hal_internal.h>

@@ -1102,18 +1102,27 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 
 
 	if (pwr == 0) {
+#ifdef CONFIG_ARCH_SC8810
+		LDO_TurnOffLDO(LDO_BPSDIO0);
+#else
 		LDO_TurnOffLDO(LDO_LDO_SDIO);
+#endif
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
 		return;
 	}
 
 	pwr |= SDHCI_POWER_ON;
 
-	LDO_SetVoltLevel (LDO_LDO_SDIO, volt_level);
+#ifdef CONFIG_ARCH_SC8810
+	LDO_SetVoltLevel (LDO_BPSDIO0, volt_level);
 	sdhci_writeb(host, SDHCI_POWER_ON, SDHCI_POWER_CONTROL);
 
+	LDO_TurnOnLDO(LDO_BPSDIO0);
+#else
+	LDO_SetVoltLevel (LDO_LDO_SDIO, volt_level);
+	sdhci_writeb(host, SDHCI_POWER_ON, SDHCI_POWER_CONTROL);
 	LDO_TurnOnLDO(LDO_LDO_SDIO);
-	
+#endif
 	/*
 	 * Some controllers need an extra 10ms delay of 10ms before they
 	 * can apply clock after applying power
@@ -1135,7 +1144,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	unsigned long flags;
 	
 	host = mmc_priv(mmc);
-        wake_lock(&sdhci_suspend_lock);
+	wake_lock(&sdhci_suspend_lock);
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -1172,7 +1181,7 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 	host = mmc_priv(mmc);
 
-        wake_lock(&sdhci_suspend_lock);
+	wake_lock(&sdhci_suspend_lock);
 
 	spin_lock_irqsave(&host->lock, flags);
 
@@ -1307,7 +1316,7 @@ static void sdhci_tasklet_card(unsigned long param)
 
 	spin_unlock_irqrestore(&host->lock, flags);
 
-        wake_lock_timeout(&sdhci_detect_lock, 5*HZ);
+	wake_lock_timeout(&sdhci_detect_lock, 5*HZ);
 
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
 }
@@ -1701,10 +1710,11 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 		printk("=== sd card suspend error:%d ===\n", ret);
 		return ret;
         }
+#ifndef CONFIG_ARCH_SC8810//TODO8810
         __raw_bits_and(~BIT_3, ANA_LDO_PD_CTL);//power down SDIO_LDO
         __raw_bits_or(BIT_2, ANA_LDO_PD_CTL);//power down SDIO_LDO
 	//free_irq(host->irq, host);
-
+#endif
 	return 0;
 }
 
@@ -1714,9 +1724,10 @@ int sdhci_resume_host(struct sdhci_host *host)
 {
 	int ret;
       
+#ifndef CONFIG_ARCH_SC8810//TODO8810
         __raw_bits_and(~BIT_2, ANA_LDO_PD_CTL);//power on SDIO_LDO
         __raw_bits_or(BIT_3, ANA_LDO_PD_CTL);//power on SDIO_LDO
-
+#endif
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
 		if (host->ops->enable_dma)
 			host->ops->enable_dma(host);

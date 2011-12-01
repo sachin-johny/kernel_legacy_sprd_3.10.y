@@ -28,9 +28,10 @@ obj-$(CONFIG_USB_FSL_QE)	+= fsl_qe_udc.o
 obj-$(CONFIG_USB_CI13XXX)	+= ci13xxx_udc.o
 obj-$(CONFIG_USB_S3C_HSOTG)	+= s3c-hsotg.o
 obj-$(CONFIG_USB_LANGWELL)	+= langwell_udc.o
+
 obj-$(CONFIG_USB_SC8800H)	+= sc8800s_udc.o
 obj-$(CONFIG_USB_SC8800G)	+= dwc_otg/
-
+obj-$(CONFIG_USB_SC8810)	+= dwc_otg/
 #
 # USB gadget drivers
 #
@@ -71,6 +72,8 @@ obj-$(CONFIG_USB_ANDROID_ADB)	+= f_adb.o
 obj-$(CONFIG_USB_ANDROID_MASS_STORAGE)	+= f_mass_storage.o
 obj-$(CONFIG_USB_ANDROID_MTP)	+= f_mtp.o
 obj-$(CONFIG_USB_ANDROID_RNDIS)	+= f_rndis.o u_ether.o
+obj-$(CONFIG_USB_ANDROID_ACCESSORY)	+= f_accessory.o
+obj-$(CONFIG_USB_ANDROID_MODEM)	+= f_modem.o
 obj-$(CONFIG_USB_ANDROID_GSERIAL)	+= f_serial.o u_serial.o
 obj-$(CONFIG_USB_ANDROID_VSERIAL)	+= f_vserial.o
 

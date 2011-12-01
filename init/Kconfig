@@ -1,3 +1,7 @@
+#
+#  Copyright (C) 2011, Red Bend Ltd.
+#
+
 config ARCH
 	string
 	option env="ARCH"
