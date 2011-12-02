@@ -60,11 +60,11 @@
 #define DRV_NAME        	"sprd-keypad8805ga"
 #endif
 
-#ifdef CONFIG_ARCH_SC8810
+#ifdef CONFIG_MACH_SC8810
 #define DRV_NAME        	"sprd-keypad8810"
 #endif
 
-#ifdef CONFIG_MACH_SC8810_OPENPHONE
+#ifdef CONFIG_MACH_SC8810OPENPHONE
 #define DRV_NAME        	"sprd-keypad8810"
 #endif
 
@@ -278,6 +278,74 @@ static const unsigned int sprd_keymap[] = {
 	KEYVAL(7, 0, 30/*KEY_MENU*/), //ok //yunlong.wang add for ofn key detect 20110218
         KEYVAL(7, 1, 71/*KEY_HELP*/), //poweron / power off -> no implement
 #endif
+#if defined(CONFIG_MACH_SC8810OPENPHONE)
+        // 0 row
+	KEYVAL(0, 0, 00/*KEY_SEND*/), //dial up 1
+        KEYVAL(0, 1, 01/*KEY_R*/), //R
+        KEYVAL(0, 2, 02/*KEY_F*/), //F
+        KEYVAL(0, 3, 03/*KEY_V*/), //V
+        KEYVAL(0, 4, 04/*KEY_LEFT*/), //left
+        KEYVAL(0, 5, 05/*KEY_CAMERA*/), //CAM
+        KEYVAL(0, 6, 06/*KEY_Q*/), //Q
+        KEYVAL(0, 7, 07/*KEY_ENTER*/), //left function
+        // 1 row
+        KEYVAL(1, 0, 10/*KEY_SEND*/), //dial up 2 -> no implement
+	KEYVAL(1, 1, 11/*KEY_T*/), //T
+        KEYVAL(1, 2, 12/*KEY_G*/), //G
+	KEYVAL(1, 3, 13/*KEY_B*/), //B
+        KEYVAL(1, 4, 14/*KEY_RIGHT*/), //right
+        KEYVAL(1, 5, 15/*KEY_TV*/), //TV -> no implement
+        KEYVAL(1, 6, 16/*KEY_W*/), //W
+        KEYVAL(1, 7, 17/*KEY_BACK*/), //right function
+       // 2 row
+        KEYVAL(2, 0, 20/*KEY_END*/), //hang up
+        KEYVAL(2, 1, 21/*KEY_Y*/), //Y
+        KEYVAL(2, 2, 22/*KEY_H*/), //H
+        KEYVAL(2, 3, 23/*KEY_N*/), //N
+        KEYVAL(2, 4, 24/*KEY_UP*/), //UP
+        KEYVAL(2, 5, 25/*KEY_MP3*/), //MP3 -> no implement
+        KEYVAL(2, 6, 26/*KEY_E*/), //E
+        KEYVAL(2, 7, 27/*KEY_HOMEPAGE*/), //home page -> no implement
+       // 3 row
+        KEYVAL(3, 0, 30/*KEY_MENU*/), //ok
+        KEYVAL(3, 1, 31/*KEY_U*/), //U
+        KEYVAL(3, 2, 32/*KEY_J*/), //J
+        KEYVAL(3, 3, 33/*KEY_M*/), //M
+        KEYVAL(3, 4, 34/*KEY_DOWN*/), //down
+        KEYVAL(3, 5, 35/*KEY_HELP*/), //Enter -> no implement
+        KEYVAL(3, 6, 36/*KEY_I*/), //I
+        KEYVAL(3, 7, 37/*KEY_HELP*/), //notepad -> no implement
+	// 4 row
+        KEYVAL(4, 0, 40/*KEY_VOLUMEDOWN*/), //V-
+        KEYVAL(4, 1, 41/*KEY_VOLUMEUP*/), //V+
+        KEYVAL(4, 2, 42/*KEY_DELETE*/), //DEL
+        KEYVAL(4, 3, 43/*KEY_HELP*/), //char ctrl -> no implement
+        KEYVAL(4, 4, 44/*KEY_LEFTALT*/), //ALT
+        KEYVAL(4, 5, 45/*KEY_LEFTSHIFT*/), //shift
+        KEYVAL(4, 6, 46/*KEY_O*/), //O
+        KEYVAL(4, 7, 47/*KEY_INFO*/), //information -> no implement
+	// 5 row
+        KEYVAL(5, 0, 50/*KEY_Z*/), //Z
+        KEYVAL(5, 1, 51/*KEY_L*/), //L
+        KEYVAL(5, 2, 52/*KEY_K*/), //K
+        KEYVAL(5, 3, 53/*KEY_D*/), //D
+        KEYVAL(5, 4, 54/*KEY_S*/), //S
+        KEYVAL(5, 5, 55/*KEY_A*/), //A
+        KEYVAL(5, 6, 56/*KEY_P*/), //P
+        KEYVAL(5, 7, 57/*KEY_BACKSPACE*/), //space -> no implement
+	// 6 row
+        KEYVAL(6, 0, 60/*KEY_X*/), //X
+        KEYVAL(6, 1, 61/*KEY_C*/), //C
+        KEYVAL(6, 2, 62/*KEY_COMMA*/), // ,
+        KEYVAL(6, 3, 63/*KEY_DOT*/), // .
+        KEYVAL(6, 4, 64/*KEY_HELP*/), // '& -> no implement
+        KEYVAL(6, 5, 65/*KEY_HELP*/), //! -> no implement
+        KEYVAL(6, 6, 66/*KEY_SLASH*/), // /
+        KEYVAL(6, 7, 67/*KEY_CALENDAR*/), //calendar -> no implement
+	// 7 row 
+	KEYVAL(7, 0, 30/*KEY_MENU*/), //ok //yunlong.wang add for ofn key detect 20110218
+        KEYVAL(7, 1, 71/*KEY_HELP*/), //poweron / power off -> no implement
+#endif
 #if defined(CONFIG_MACH_SP8805GA)
         // 0 row
 	KEYVAL(0, 0, 22/*KEY_SEND*/), //dial up 1
@@ -337,6 +405,10 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .rows                   = 8,
         .cols                   = 8,
 #endif
+#ifdef CONFIG_MACH_SC8810OPENPHONE
+        .rows                   = 8,
+        .cols                   = 8,
+#endif
 #ifdef CONFIG_MACH_SP8805GA
         .rows                   = 4,
         .cols                   = 3,
@@ -357,7 +429,7 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .keyup_test_interval    = 50, /* 50 ms (50ms) */
 };
 
-#ifdef CONFIG_MACH_SP8810
+#if defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
 static unsigned long keypad_func_cfg[] = {
 	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
 	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
@@ -387,7 +459,7 @@ typedef struct kpd_key_tag
     unsigned long timer_id;
 } kpd_key_t;
 
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SC8810OPENPHONE)
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM];
 kpd_key_t s_key[MAX_MUL_KEY_NUM];
 #elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined (CONFIG_MACH_SP8810)
@@ -505,7 +577,7 @@ static void print_kpad(void)
 	printk("REG_KPD_KEY_STATUS = 0x%08x\n", REG_KPD_KEY_STATUS);
 	printk("REG_KPD_SLEEP_STATUS = 0x%08x\n", REG_KPD_SLEEP_STATUS);
 	printk("REG_PIN_CTL_REG = 0x%08x\n", REG_PIN_CTL_REG);
-#ifndef CONFIG_MACH_SP8810
+#if !defined(CONFIG_MACH_SP8810) && !defined(CONFIG_MACH_SC8810OPENPHONE) 
 	printk("REG_KPD_DEBUG_STATUS1 = 0x%08x\n", REG_KPD_DEBUG_STATUS1);
 	printk("REG_KPD_DEBUG_STATUS2 = 0x%08x\n", REG_KPD_DEBUG_STATUS2);
 
@@ -990,7 +1062,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	REG_KPD_CTRL = 0x6 | key_type;
         REG_INT_DIS = (1 << IRQ_KPD_INT);
         REG_GR_GEN0 |= BIT_8 | BIT_26;
-#ifdef CONFIG_MACH_SP8810	
+#if defined(CONFIG_MACH_SP8810) || (CONFIG_MACH_SC8810OPENPHONE)	
         sprd_config_keypad_pins();
 #endif
         REG_KPD_INT_CLR = KPD_INT_ALL;
@@ -1014,7 +1086,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 
         sprd_kpad->input = input;
         input->name = pdev->name;
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SC8810OPENPHONE)
         input->phys = "sprd-keypad/input0";
 #elif defined(CONFIG_MACH_SP6810A)
         input->phys = "sprd-keypad6810/input0";
@@ -1059,7 +1131,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         }
 
         device_init_wakeup(&pdev->dev, 1);
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SC8810OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
 #elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810)
 	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++) {
@@ -1069,7 +1141,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 		/* create a timer to check if key is released */
 		setup_timer(&s_kpd_timer[i], sprd_kpad_timer, (unsigned long) &s_key[i]);
 		s_key[i].timer_id = i;						        
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
 	}
 #endif
 
@@ -1117,7 +1189,7 @@ static int __devexit sprd_kpad_remove(struct platform_device *pdev)
         //struct sprd_kpad_platform_data *pdata = pdev->dev.platform_data;
         struct sprd_kpad_t *sprd_kpad = platform_get_drvdata(pdev);
 
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)|| defined(CONFIG_MACH_SC8810OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++)
 #elif defined(CONFIG_MACH_SP6810A)  || defined(CONFIG_MACH_SP8805GA) || defined (CONFIG_MACH_SP8810)
 	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++)
