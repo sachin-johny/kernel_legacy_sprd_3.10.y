@@ -27,7 +27,11 @@
 
 
 /* switch for VLX solution. */
+#if (defined CONFIG_MACH_SC8810OPENPHONE || defined CONFIG_MACH_SP8810)
+#else
 #define	VM_VLX_SUPPORT	1
+#endif
+
 #define CLK_FW_ERR(x...)     printk(x)
 #define CLK_FW_INFO(x...)    printk(x)
 
@@ -1768,6 +1772,7 @@ static struct clk_functions sc8800g2_clk_functions = {
 #endif
 };
 
+int is_stub = 1;
 
 #ifdef	VM_VLX_SUPPORT
 
@@ -1776,9 +1781,7 @@ const char vlink_name_clk_fw[] = "vclock_framework";
 NkPhAddr    plink_clk_fw;
 NkDevVlink* vlink_clk_fw;
 
-int is_stub = 1;
 
-#endif
 
 static int clk_fw_vlink_init(void)
 {
@@ -1794,7 +1797,10 @@ static int clk_fw_vlink_init(void)
     }
     return 0;
 }
+#else
+static int clk_fw_vlink_init(void){}
 
+#endif
 
 void *alloc_share_memory(unsigned int size, unsigned int res_id)
 {
@@ -1844,10 +1850,10 @@ int __init sc8800g2_clock_init(void)
         CLK_FW_ERR("######: clock-framework: vlink initialization failed!\n");
         return -ENOMEM;
     }
-
+#ifdef	VM_VLX_SUPPORT
     CLK_FW_ERR("#####: OS[%d] run as %s.\n", nkops.nk_id_get(), 
             is_stub ? "Stub" : "Non-Stub");
-
+#endif
 	/* allocate memory for shared clock information. */
 	array_size = ARRAY_SIZE(sc8800g2_clks);
 	pstub_start= (struct clock_stub *)alloc_share_memory(CLOCK_NUM * 
