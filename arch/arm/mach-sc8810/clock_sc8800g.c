@@ -17,6 +17,7 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/bitops.h>
+#include <linux/slab.h>
 
 #include <asm/clkdev.h>
 
@@ -27,8 +28,7 @@
 
 
 /* switch for VLX solution. */
-#if (defined CONFIG_MACH_SC8810OPENPHONE || defined CONFIG_MACH_SP8810)
-#else
+#ifdef CONFIG_NKERNEL
 #define	VM_VLX_SUPPORT	1
 #endif
 
@@ -1798,15 +1798,16 @@ static int clk_fw_vlink_init(void)
     return 0;
 }
 #else
-static int clk_fw_vlink_init(void){}
+static int clk_fw_vlink_init(void){return 0;}
 
 #endif
 
 void *alloc_share_memory(unsigned int size, unsigned int res_id)
 {
+    void *pmem = NULL;
+
 #ifdef	VM_VLX_SUPPORT
     NkPhAddr     paddr;
-    void *pmem = NULL;
 	
 
     /* Allocate persistent shared memory */
@@ -1824,9 +1825,10 @@ void *alloc_share_memory(unsigned int size, unsigned int res_id)
     }
     return pmem;
 	
-#else
+#else	
+	pmem = kzalloc( size, GFP_KERNEL);
 	/* empty for now. */
-	return NULL;
+	return pmem;
 #endif
 
 }

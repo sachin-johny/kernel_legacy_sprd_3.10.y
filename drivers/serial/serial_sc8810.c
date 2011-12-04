@@ -77,12 +77,6 @@
 
 #endif
 
-#ifdef CONFIG_ARCH_SC8800S
-
-#define IRQ_UART0_1	24
-#define IRQ_UART2_3	18
-
-#endif
 
 /*UART FIFO watermark*/
 #define SP_TX_FIFO	0x40//8
@@ -859,29 +853,29 @@ static int clk_startup(void)
 		if (IS_ERR(clk)) {
 			printk("clock[%s]: failed to get clock by clk_get()!\n",
 					clk_name);
-			return -EINVAL;
+			continue;
 		}
 		clk_parent = clk_get(NULL, "ext_26m");		
 		if (IS_ERR(clk_parent)) {
 			printk("clock[%s]: failed to get parent [%s] by clk_get()!\n",
 					clk_name, "clk_26m");
-			return -EINVAL;
+			continue;
 		}		
 		ret= clk_set_parent(clk, clk_parent);
 		if (ret) {
 			printk("clock[%s]: clk_set_parent() failed!\n", clk_name);
-			return -EINVAL;
+			continue;
 		}
 		div=1;
 		ret = clk_set_divisor(clk, div);
 		if (ret) {
 			printk("clock[%s]: clk_set_divisor() failed!\n", clk_name);
-			return -EINVAL;
+			continue;
 		}
 		ret = clk_enable(clk);
 		if (ret) {
 			printk("clock[%s]: clk_enable() failed!\n", clk_name);
-			return -EINVAL;
+			continue;
 		}
         serial_clk[i]= clk;
 	}
