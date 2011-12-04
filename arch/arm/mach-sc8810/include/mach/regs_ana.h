@@ -76,6 +76,8 @@
 #define   ANA_CHIP_ID_LOW          (ANA_REG_BASE + 0XF8)
 #define   ANA_CHIP_ID_HIGH          (ANA_REG_BASE + 0XFC)
 
+#define ANA_CHGR_CTL0 ANA_CHGR_CTRL0
+#define ANA_CHGR_CTL1 ANA_CHGR_CTRL1
 //fixed end
 
 

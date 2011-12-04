@@ -38,10 +38,13 @@
 #include <mach/hardware.h>
 #include <mach/regs_ana.h>
 #include <mach/adi_hal_internal.h>
+#if defined(CONFIG_ARCH_SC8810)
+#include <mach/eic.h>
+#endif
 
 #include <linux/slab.h>
 
-// #define CHG_DEBUG
+//#define CHG_DEBUG
 //#define BATTERY_USE_WAKE_LOCK
 #define BATTERY_WAKE_LOCK_LENGTH (10*HZ)
 #ifdef CHG_DEBUG
@@ -380,7 +383,11 @@ static int sprd_remove_caliberate_attr(struct device *dev)
 
 static inline int usb_connected(void)
 {
+#if defined(CONFIG_ARCH_SC8810)
+    return sprd_get_eic_data(EIC_ID_10);
+#else
     return gpio_get_value(CHARGER_DETECT_GPIO)&BIT_2? 1:0;
+#endif
 }
 static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 {
@@ -676,7 +683,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         DEBUG("voltage %d\n", voltage);
 
         DEBUG("charging %d in_precharge %d, usb %d, ac %d, start %d\n", battery_data->charging, battery_data->in_precharge,\
-                    usb_online, ac_online, battery_data->precharge_start);
+                    usb_online, ac_online, battery_data->precharge_start); 													   
 
         if(!battery_data->charging && (battery_data->in_precharge == 1) && \
                     usb_online && (voltage < battery_data->precharge_start)){
@@ -981,11 +988,10 @@ retry_adc:
 	data->usb_online = 0;
 	data->ac_online = 0;
 
-#ifndef CONFIG_ARCH_SC8810//TODO8810
 	ret = usb_register_hotplug_callback(&power_cb);
 	if (ret)
 		goto err_request_irq_failed;
-#endif
+
 	ret = power_supply_register(&pdev->dev, &data->usb);
 	if (ret)
 		goto err_usb_failed;

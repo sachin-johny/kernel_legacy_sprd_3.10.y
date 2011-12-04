@@ -80,6 +80,9 @@
 #include "dwc_otg_pcd.h"
 #include "dwc_otg_dbg.h"
 
+#if defined(CONFIG_ARCH_SC8810)
+#include <mach/eic.h>
+#endif
 static struct gadget_wrapper {
 	dwc_otg_pcd_t *pcd;
 
@@ -1112,7 +1115,11 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 		pr_info("too early, no gadget drive\n");
 		return IRQ_HANDLED;
 	}
+#if defined(CONFIG_ARCH_SC8810)
+	value = sprd_get_eic_data(EIC_ID_10);
+#else
 	value = gpio_get_value(CHARGER_DETECT_GPIO);
+#endif
 
 	if (value){
 		pr_debug("usb detect plug in\n");
@@ -1134,17 +1141,24 @@ static void enumeration_enable(void)
 	struct gadget_wrapper *d;
 
 	pr_info("enable usb enumeration\n");
+#if defined(CONFIG_ARCH_SC8810)
+	//TODO? //Mingwei
+#else
 	d = gadget_wrapper;
 	plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
 	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
 	enable_irq(plug_irq);
-
+#endif
 	return;
 }
 
 static int cable_is_connected(void)
 {
-	return gpio_get_value(CHARGER_DETECT_GPIO) ? 1 : 0;
+#if defined(CONFIG_ARCH_SC8810)
+	return sprd_get_eic_data(EIC_ID_10);
+#else
+ 	return gpio_get_value(CHARGER_DETECT_GPIO) ? 1 : 0;
+#endif
 }
 
 /*
@@ -1226,11 +1240,21 @@ int pcd_init(
 	 * setup usb cable detect interupt
 	 */
 	{
+#if defined(CONFIG_ARCH_SC8810)
+		plug_irq = sprd_alloc_eic_irq(EIC_ID_10);//CHG_INT
+		set_irq_type(plug_irq, IRQ_TYPE_LEVEL_HIGH);
+
+		pr_debug("usb detect irq:%d gpio level %d\n", plug_irq,
+				sprd_get_eic_data(EIC_ID_10));
+		gadget_wrapper->vbus = sprd_get_eic_data(EIC_ID_10);
+#else
 		plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
 		gpio_set_hw_debounce(CHARGER_DETECT_GPIO, 200);
 		pr_debug("usb detect irq:%d gpio level %d\n", plug_irq,
 				gpio_get_value(CHARGER_DETECT_GPIO));
 		gadget_wrapper->vbus = gpio_get_value(CHARGER_DETECT_GPIO);
+
+#endif	
 		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED |
 				IRQF_TRIGGER_HIGH, "usb detect", otg_dev->pcd);
 	}
