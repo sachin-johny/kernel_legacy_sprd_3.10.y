@@ -37,7 +37,7 @@
 /**---------------------------------------------------------------------------*
  **                         Debugging Flag                                    *
  **---------------------------------------------------------------------------*/
-#define DEBUG_CHG
+//#define DEBUG_CHG
 
 #ifdef DEBUG_CHG
 #define CHG_PRINT( _format_string )   printk _format_string
