@@ -43,7 +43,6 @@
 #include <mach/regs_ana.h>
 #include <mach/regs_gpio.h>
 #include <mach/adi_hal_internal.h>
-#include <mach/eic.h>
 
 #ifdef CONFIG_ARCH_SC8810
 #include <mach/eic.h>
