@@ -60,7 +60,7 @@
 #define DRV_NAME        	"sprd-keypad8805ga"
 #endif
 
-#ifdef CONFIG_MACH_SC8810
+#ifdef CONFIG_MACH_SP8810
 #define DRV_NAME        	"sprd-keypad8810"
 #endif
 
