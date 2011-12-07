@@ -126,6 +126,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE_TLV("BypassFM Right Playback Volume",VBCGR3, 0, 0x0f, 1, dac_tlv),
     // Linein
     SOC_SINGLE("LineinFM", VBPMR1, SB_LIN, 1, 1),
+    SOC_SINGLE("LineinFM_Record", ANA_CHGR_CTL0, 15, 1, 0),
     // Headset
     SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
  //   SOC_DOUBLE_TLV("Headset Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
