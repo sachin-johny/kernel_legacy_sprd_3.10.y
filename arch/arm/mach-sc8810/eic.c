@@ -32,32 +32,28 @@
 
 #define EIC_TYPE	(0x1<<0)
 #define SIC_TYPE	(0x0<<0)
+#define EIC_SIC_MASK	(0x1<<0)
+
 #define A_DIE		(0x1<<1)
 #define D_DIE		(0X0<<1)
+#define A_D_DIE_MASK	(0X1<<1)
+
 #define INTER_ID(x)	((x)<<15)
-#define GET_INTER_ID(x) (((x)>>15)&0xff) //internal_id from 0-7
+#define GET_INTER_ID(x) (((x)>>15)&0xff)	//internal_id from 0-7
 
 struct eic_config {
 	enum EIC_TYPE_E eic_export_id;
 	unsigned int type;
-	 // unsigned int internal_id;	/*find bit or find control register */
+	// unsigned int internal_id;   /*find bit or find control register */
 	unsigned int base_addr;
 };
 
 //config begin
-//definition for EIC
-#define EIC_BASE_ADDR_D_P	(0x8a001000)	//Phy addr
 #define EIC_BASE_ADDR_D_V	(SPRD_EIC_BASE + 0x0)	//v addr
-
-#define EIC_BASE_ADDR_A_P	(0x82000700)	//Phy addr
 #define EIC_BASE_ADDR_A_V	(SPRD_MISC_BASE + 0x700)	//v addr.
-
-//#define EIC_BASE_ADDR_A_P	(0x82000700)	//Phy addr
 #define EIC_BASE_ADDR_V	(SPRD_MISC_BASE + 0x600)
 
-//define softreset register
 #define EIC_SOFTRESET_ADDR_V (SPRD_MISC_BASE + 0x604)
-
 
 #define SIC_BASE_ADDR_D_P	(0x8a001080)	//Phy.addr
 #define SIC_BASE_ADDR_D_V	(SPRD_EIC_BASE + 0x80)	//Phy.addr
@@ -180,22 +176,24 @@ static int sic_set_interrupt_mode(unsigned int config_index, unsigned int mode);
 static void eic_set(struct eic_config *p, unsigned int value,
 		    unsigned int offset)
 {
-	unsigned int isDIE = p->type;
-	if (isDIE & D_DIE) {
+	if ((p->type & A_D_DIE_MASK) == D_DIE) {
 		EIC_DBG("eic_set is ddie\n");
 		__raw_writel(value, p->base_addr + offset);
 	} else {
-		EIC_DBG("eic_set is adie, add  = 0x%x, value = 0x%x\n", p->base_addr+ offset, value);
+		EIC_DBG("eic_set is adie, add  = 0x%x, value = 0x%x\n",
+			p->base_addr + offset, value);
 		ANA_REG_SET(p->base_addr + offset, value);
 	}
 }
 
 static unsigned int eic_get(struct eic_config *p, unsigned int offset)
 {
-	unsigned isDIE = p->type;
-	if (isDIE & D_DIE) {
+	if ((p->type & A_D_DIE_MASK) == D_DIE) {
+		EIC_DBG("eic_get is ddie\n");
 		return __raw_readl(p->base_addr + offset);
 	} else {
+		EIC_DBG("eic_get is adie, add  = 0x%x\n",
+			p->base_addr + offset);
 		return ANA_REG_GET(p->base_addr + offset);
 	}
 }
@@ -242,14 +240,15 @@ static int eic_aux(unsigned int config_index, unsigned reg_offset, unsigned op,
 
 	if (op & EIC_RO) {
 		_value = eic_get(&config_data[config_index], reg_offset);
-		EIC_DBG("%s, _value = 0x%x\n", __FUNCTION__,_value);
+		EIC_DBG("%s, _value = 0x%x\n", __FUNCTION__, _value);
 		old = ! !(_value & (0x1 << eic_bit));
 	}
 
 	if (op & EIC_WO) {
-		_value &= ~(1<<eic_bit);
-		set_value = _value  | ((! !set_value) << eic_bit);
-		EIC_DBG("%s,value = 0x%x, offset = 0x%x\n", __FUNCTION__, set_value, reg_offset);
+		_value &= ~(1 << eic_bit);
+		set_value = _value | ((! !set_value) << eic_bit);
+		EIC_DBG("%s,value = 0x%x, offset = 0x%x\n", __FUNCTION__,
+			set_value, reg_offset);
 		eic_set(&config_data[config_index], set_value, reg_offset);
 	}
 	return old;
@@ -339,7 +338,6 @@ static int sic_set_interrupt_mode(unsigned int config_index, unsigned int mode)
 	return eic_aux(config_index, SIC_INT_MODE, EIC_RW, mode);
 }
 
-
 struct eic_irq_map {
 	enum EIC_TYPE_E eic_id;
 	int irq_num;
@@ -360,11 +358,12 @@ static void sprd_ack_eic_irq(unsigned int irq)
 	EIC_DBG("ack irq eic %d  irq %d", eic, irq);
 
 	index = __get_config_index(eic);
-	if (config_data[index].type & EIC_TYPE) {
+	if ((config_data[index].type & EIC_SIC_MASK) == EIC_TYPE) {
 		eic_clear_interrupt(index);
-	}else if (config_data[index].type & SIC_TYPE) {
+	} else if ((config_data[index].type & EIC_SIC_MASK) == SIC_TYPE) {
 		sic_interrupt_clear(index);
-	}
+	} else
+		goto Err;
 
 	return;
 Err:
@@ -384,11 +383,12 @@ static void sprd_mask_eic_irq(unsigned int irq)
 	EIC_DBG("mask eic %d  irq %d", eic, irq);
 
 	config_index = __get_config_index(eic);
-	if (config_data[config_index].type & EIC_TYPE) {
+	if ((config_data[config_index].type & EIC_SIC_MASK) == EIC_TYPE) {
 		eic_set_interrupt(config_index, 0);
-	} else if (config_data[config_index].type & SIC_TYPE) {
+	} else if ((config_data[config_index].type & EIC_SIC_MASK) == SIC_TYPE) {
 		sic_set_interrupt(config_index, 0);
-	}
+	} else
+		goto Err;
 
 	return;
 Err:
@@ -406,15 +406,17 @@ static void sprd_unmask_eic_irq(unsigned int irq)
 		goto Err;
 
 	config_index = __get_config_index(eic);
-	
-	EIC_DBG("unmask eic %d  irq %d, config_index %d", eic, irq, config_index);
-	if (config_data[config_index].type & EIC_TYPE) {
+
+	EIC_DBG("unmask eic %d  irq %d, config_index %d", eic, irq,
+		config_index);
+	if ((config_data[config_index].type & EIC_SIC_MASK) == EIC_TYPE) {
 		eic_set_interrupt(config_index, 1);
 		eic_start_trig(config_index);	//TODO: the interval of two EIC trigger needs be longer than 2ms
-	} else if (config_data[config_index].type & SIC_TYPE) {
+	} else if ((config_data[config_index].type & EIC_SIC_MASK) == SIC_TYPE) {
 		sic_set_interrupt(config_index, 1);
-	}
-	
+	} else
+		goto Err;
+//TODO: 
 #define INTCV_REG(off) (SPRD_INTCV_BASE + (off))
 #define INTCV_INT_EN      INTCV_REG(0x0008)	/* 1: enable, 0: disable */
 	__raw_writel(1 << (IRQ_ANA_INT), INTCV_INT_EN);
@@ -439,17 +441,18 @@ static int sprd_eic_irq_type(unsigned int irq, unsigned int type)
 	spin_lock_irqsave(&eic_lock, flags);
 
 	config_index = __get_config_index(eic);
-	if (config_data[config_index].type & EIC_TYPE) {
+	if ((config_data[config_index].type & EIC_SIC_MASK) == EIC_TYPE) {
 		if (IRQ_TYPE_LEVEL_HIGH == type)
 			eic_set_iev(config_index, 1);
 		else
 			eic_set_iev(config_index, 0);
-	}else if (config_data[config_index].type & SIC_TYPE) {
+	} else if ((config_data[config_index].type & EIC_SIC_MASK) == SIC_TYPE) {
 		if (IRQ_TYPE_LEVEL_HIGH == type)
 			sic_set_interrupt_pol(config_index, 1);
 		else
 			sic_set_interrupt_pol(config_index, 0);
-	}
+	} else
+		pr_warning(" [%s] error eic type %d\n", __FUNCTION__, eic);
 
 	if (type & (IRQ_TYPE_LEVEL_LOW | IRQ_TYPE_LEVEL_HIGH))
 		__set_irq_handler_unlocked(irq, handle_level_irq);
@@ -483,9 +486,9 @@ static void eic_handler(unsigned int irq, struct irq_desc *desc)
 	printk("eic_handler\n");
 #if 0
 	//clear INT register: use eic_clear_interrupt() and eic_get_masked_interrupt() function.
-	ANA_REG_SET(EIC_BASE_ADDR_A_V + EIC_IC_OFFSET,0xff);
-	ANA_REG_SET(EIC_BASE_ADDR_A_V + EIC_MIS_OFFSET,0xff);
-	__raw_writel(0xff,EIC_BASE_ADDR_D_V + EIC_IC_OFFSET);
+	ANA_REG_SET(EIC_BASE_ADDR_A_V + EIC_IC_OFFSET, 0xff);
+	ANA_REG_SET(EIC_BASE_ADDR_A_V + EIC_MIS_OFFSET, 0xff);
+	__raw_writel(0xff, EIC_BASE_ADDR_D_V + EIC_IC_OFFSET);
 #endif
 
 	for (i = 0; i < ARRAY_SIZE(eic_irq_table); ++i) {
@@ -493,22 +496,22 @@ static void eic_handler(unsigned int irq, struct irq_desc *desc)
 			continue;
 		config_index = __get_config_index(eic_irq_table[i].eic_id);
 		//get the EICMIS register bit value,interrupt active or not.
-		if (config_data[config_index].type & EIC_TYPE) {
+		if ((config_data[config_index].type & EIC_SIC_MASK) == EIC_TYPE) {
 			interrupt_status =
 			    eic_get_masked_interrupt(config_index);
-		}
-		else if (config_data[config_index].type & SIC_TYPE) {
+		} else if ((config_data[config_index].type & EIC_SIC_MASK) ==
+			   SIC_TYPE) {
 			interrupt_status =
 			    sic_get_interrupt_masked(config_index);
 		}
-		if (interrupt_status == 1){
-			generic_handle_irq(eic_irq_table[i].irq_num);//run the irq_desc->handle_irq.
+		if (interrupt_status == 1) {
+			generic_handle_irq(eic_irq_table[i].irq_num);	//run the irq_desc->handle_irq.
 		}
 	}
 
 }
 
-extern void( *eic_mux_handler)(unsigned int irq, struct irq_desc *desc);
+extern void (*eic_mux_handler) (unsigned int irq, struct irq_desc * desc);
 static void eic_irq_init(void)
 {
 	int irq;
@@ -528,7 +531,6 @@ static void eic_irq_init(void)
 	set_irq_chained_handler(IRQ_ANA_EIC_INT, eic_handler);
 }
 
-
 #define EIC_SOFTRESET_EN_D (BIT_29)
 #define EIC_SOFTRESET_EN_A (BIT_6)
 
@@ -537,16 +539,14 @@ static void eic_phy_softreset(void)
 	volatile int i = 0;
 	//D-die reset.
 	__raw_bits_or(EIC_SOFTRESET_EN_D, GR_SOFT_RST);
-	for(i=0; i<100; ++i) ;
+	for (i = 0; i < 100; ++i) ;
 	__raw_bits_and(~EIC_SOFTRESET_EN_D, GR_SOFT_RST);
 
 	//A-die reset.
 	ANA_REG_OR(EIC_SOFTRESET_ADDR_V, EIC_SOFTRESET_EN_A);
-	for(i=0; i<100; ++i) ;
+	for (i = 0; i < 100; ++i) ;
 	ANA_REG_AND(EIC_SOFTRESET_ADDR_V, ~EIC_SOFTRESET_EN_A);
 }
-
-
 
 #define EIC_APB_EN_A (BIT_3)
 #define EIC_APB_RTC_EIC_A (BIT_11)
@@ -555,7 +555,7 @@ static void eic_phy_softreset(void)
 static void eic_phy_enable(void)
 {
 	//enable pin and adi.
-	__raw_bits_or(GEN0_PIN_EN |GEN0_ADI_EN, GR_GEN0);
+	__raw_bits_or(GEN0_PIN_EN | GEN0_ADI_EN, GR_GEN0);
 
 	//D-die.
 	__raw_bits_or(GEN0_GPIO_RTC_EN, GR_GEN0);
@@ -570,7 +570,7 @@ static void eic_phy_enable(void)
 
 int sprd_get_eic_data(enum EIC_TYPE_E eic_id)
 {
-	 int config_index = __get_config_index(eic_id);
+	int config_index = __get_config_index(eic_id);
 	return eic_get_data(config_index);
 }
 
@@ -604,7 +604,7 @@ __must_check int sprd_alloc_eic_irq(enum EIC_TYPE_E eic_id)
 	eic_irq_table[i].eic_id = eic_id;
 	eic_irq_table[i].irq_num = irq;
 #if 1
-	printk(KERN_ALERT "eic_irq_table eic_id:%d,irq_num:%d\n",eic_id,irq);
+	printk(KERN_ALERT "eic_irq_table eic_id:%d,irq_num:%d\n", eic_id, irq);
 #endif
 	set_irq_chip_data(irq, &eic_irq_table[i]);
 	local_irq_restore(flags);
@@ -640,4 +640,3 @@ void __init eic_init(void)
 	eic_phy_enable();
 	eic_irq_init();
 }
-
