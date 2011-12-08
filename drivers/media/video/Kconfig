@@ -583,6 +583,11 @@ config VIDEO_OVERLAY_SPRD
 	help
 	  Support overlay for SPRD
 
+config VSP_SC8810
+	tristate "SPRD vsp driver for sc8810"
+	depends on ARCH_SC8810
+	default y
+
 config VIDEO_VPSS_SYSTEM
 	tristate "VPSS System module driver"
 	depends on ARCH_DAVINCI
