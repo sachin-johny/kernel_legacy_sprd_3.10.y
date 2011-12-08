@@ -172,6 +172,7 @@ typedef struct _isp_path_desc_tag
 {
 	ISP_SIZE_T               input_size;
 	ISP_RECT_T               input_rect;
+	ISP_RECT_T              input_range;
 	ISP_SIZE_T               sc_input_size;
 	ISP_SIZE_T               output_size;
 	ISP_FRAME_T              input_frame;

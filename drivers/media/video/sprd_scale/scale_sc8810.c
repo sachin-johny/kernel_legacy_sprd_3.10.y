@@ -641,8 +641,6 @@ static int32_t _SCALE_DriverStop(void)
 	}
 	
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 0;
-	memset(&s_scale_mod, 0, sizeof(ISP_MODULE_T));
-
 	_SCALE_DriverIrqDisable(ISP_IRQ_SCL_LINE_MASK);
 	_SCALE_DriverIrqClear(ISP_IRQ_SCL_LINE_MASK);
 	
@@ -650,6 +648,7 @@ static int32_t _SCALE_DriverStop(void)
 	endian_param.endian_uv = ISP_MASTER_ENDIANNESS_LITTLE;
 	rtn = _SCALE_DriverPath2Config(ISP_PATH_OUTPUT_ENDIAN,(void*)&endian_param);
 	ISP_RTN_IF_ERR(rtn);	
+	memset(&s_scale_mod, 0, sizeof(ISP_MODULE_T));	
 
 	SCALE_PRINT("SCALE: DriverStop is OK.\n"); 
 
@@ -721,22 +720,37 @@ void _SCALE_ContinueSlice(long unsigned int data)
 	ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
 	ISP_FRAME_T next_frame;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T*)s_scale_mod.module_addr;
-	
+	ISP_RECT_T              rect = {0};
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 0;
+	int32_t                   rtn_drv = 0;
 
 	//for YUV422
 	//note: these addresses must be aligned by 64 words.
-	next_frame.yaddr = p_path->input_frame.yaddr + p_path->slice_count * p_path->slice_height * p_path->input_size.w;
-	if( p_path->input_format ==ISP_DATA_YUV422)
+	
+          SCALE_PRINT("input_range:%d,%d,%d,%d \n",p_path->input_range.x,p_path->input_range.y,p_path->input_range.w,p_path->input_range.h);
+	if((ISP_DATA_YUV422 == p_path->input_format)||(ISP_DATA_YUV420 == p_path->input_format))
 	{
-		next_frame.uaddr = p_path->input_frame.uaddr + p_path->slice_count * p_path->slice_height * p_path->input_size.w;
+		next_frame.yaddr = p_path->input_frame.yaddr +(p_path->input_range.y+p_path->slice_count * p_path->slice_height )* p_path->input_size.w;
+		if( ISP_DATA_YUV422 == p_path->input_format)
+		{
+			next_frame.uaddr = p_path->input_frame.uaddr +(p_path->input_range.y+p_path->slice_count * p_path->slice_height )* p_path->input_size.w;
+		}
+		else
+		{
+			next_frame.uaddr = p_path->input_frame.uaddr +( (p_path->input_range.y+p_path->slice_count * p_path->slice_height) * p_path->input_size.w)/2;
+		}
+	}
+	else if( ISP_DATA_RGB888 == p_path->input_format)
+	{
+		next_frame.yaddr = p_path->input_frame.yaddr +(p_path->input_range.y+p_path->slice_count * p_path->slice_height )* p_path->input_size.w*4;
 	}
 	else
 	{
-		next_frame.uaddr = p_path->input_frame.uaddr + (p_path->slice_count * p_path->slice_height * p_path->input_size.w)/2;
+		next_frame.yaddr = p_path->input_frame.yaddr +(p_path->input_range.y+p_path->slice_count * p_path->slice_height )* p_path->input_size.w*2;
 	}
 	next_frame.vaddr = next_frame.uaddr;
 	_SCALE_DriverSetExtSrcFrameAddr(&next_frame);
+	#if 1
 	SCALE_PRINT("SCALE: input addr: y: 0x%x, u: 0x%x, in w: %d, slice hei: %d.\n", 
 		                     p_path->input_frame.yaddr, 
 		                     p_path->input_frame.uaddr, 
@@ -747,6 +761,7 @@ void _SCALE_ContinueSlice(long unsigned int data)
 		                    next_frame.yaddr, 
 		                    next_frame.uaddr, 
 		                    next_frame.vaddr);
+	#endif
 	next_frame.yaddr = p_path->output_frame.yaddr + p_path->slice_line_count * p_path->output_size.w;
 	next_frame.uaddr = p_path->output_frame.uaddr + p_path->slice_line_count * p_path->output_size.w;
 	//to check the address if they are aligned by 64 wods
@@ -779,16 +794,24 @@ void _SCALE_ContinueSlice(long unsigned int data)
 		                   next_frame.uaddr, 
 		                   next_frame.vaddr);
 
-	if(p_path->slice_count == (p_path->input_rect.h / p_path->slice_height))
+	rect.x = p_path->input_range.x;
+	rect.y = 0;
+	rect.w = p_path->input_range.w;
+	rect.h = p_path->input_range.h;
+
+	rtn_drv = _SCALE_DriverPath2Config(ISP_PATH_INPUT_RECT, (void*)&rect);
+	ISP_RTN_IF_ERR(rtn_drv);
+
+	if(p_path->slice_count == (p_path->input_range.h / p_path->slice_height))
 	{
-		p_path->slice_height = p_path->input_rect.h - p_path->slice_count * p_path->slice_height;	        
+		p_path->slice_height = p_path->input_range.h - p_path->slice_count * p_path->slice_height;	        
 		p_isp_reg->slice_ver_cnt_u.mBits.slice_line_input = p_path->slice_height;
 		p_isp_reg->slice_ver_cnt_u.mBits.last_slice = 1;
 		p_path->is_last_slice = 1;
 		SCALE_PRINT("SCALE: the last slice height: %d.\n", p_path->slice_height);
 	}
 	
-	_SCALE_DriverPath2TrimAndScaling();   
+//	_SCALE_DriverPath2TrimAndScaling();   
 	_SCALE_DriverForceCopy();
 	#ifdef SCALE_DEBUG
 	get_scale_reg();	
@@ -1464,7 +1487,12 @@ static int SCALE_ioctl(struct inode *node, struct file *fl, unsigned int cmd, un
 		case SCALE_IOC_CONFIG:
 		{			
 			SCALE_CONFIG_T path2_config;			
-			copy_from_user(&path2_config, (SCALE_CONFIG_T *)param, sizeof(SCALE_CONFIG_T));			
+			ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
+			copy_from_user(&path2_config, (SCALE_CONFIG_T *)param, sizeof(SCALE_CONFIG_T));		
+			if(ISP_PATH_INPUT_RECT == path2_config.id)
+			{
+				memcpy(&p_path->input_range,path2_config.param,sizeof(ISP_RECT_T));
+			}
 			_SCALE_DriverPath2Config(path2_config.id,  path2_config.param);
 		}
 		break;		

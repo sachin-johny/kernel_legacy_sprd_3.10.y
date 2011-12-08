@@ -17,6 +17,7 @@
  */
  
 #include "dcam_drv_sc8810.h" 
+#include <linux/time.h>
 
 #define ISP_PATH1 1 
 #define ISP_PATH2 2
@@ -39,7 +40,7 @@ typedef void (*ISP_ISR_PTR)(uint32_t base_addr);
 #define ISP_SCALE2_H_TAB_OFFSET                        0x400
 #define ISP_SCALE2_V_TAB_OFFSET                         0x4F0
 
-#define ISP_IRQ_LINE_MASK                                     0x000003FFUL
+#define ISP_IRQ_LINE_MASK                                     0x000001FFUL
 #define ISP_IRQ_SENSOR_SOF_BIT                         BIT_0
 #define ISP_IRQ_SENSOR_EOF_BIT                         BIT_1
 #define ISP_IRQ_CAP_SOF_BIT                                 BIT_2
@@ -299,7 +300,7 @@ static  void _ISP_DriverIrqEnable(uint32_t base_addr,uint32_t mask)
 
 static ISR_EXE_T _ISP_ISRSystemRoot(uint32_t param)
 {
-         printk("_ISP_ISRSystemRoot .\n");
+    //     printk("_ISP_ISRSystemRoot .\n");
 	_ISP_DriverISRRoot(s_isp_mod.module_addr);
 
 	return ISR_DONE;
@@ -369,6 +370,15 @@ static void  _ISP_ISRCapEndOfFrame(uint32_t base_addr)
 	return ;
 }
 
+static uint32_t gettime(void)
+{
+	struct timeval val;
+	uint32_t ret;
+	
+         do_gettimeofday(&val);
+	ret = (val.tv_sec*1000000+val.tv_usec)/1000;
+	return ret;         
+}
 static void  _ISP_ISRPath1Done(uint32_t base_addr)
 {
 	ISP_ISR_FUNC_PTR          user_func = s_isp_mod.user_func[ISP_IRQ_NOTICE_PATH1_DONE];
@@ -525,6 +535,12 @@ static int32_t _ISP_DriverPath1TrimAndScaling(uint32_t base_addr)
 		p_isp_reg->dcam_path_cfg_u.mBits.scale_bypass = 0;
 		rtn = _ISP_DriverSetSC1Coeff(base_addr);
 		p_path->scale_en = 1;
+		if(2 == p_isp_reg->cap_ctrl_u.mBits.sensor_mode)
+		{
+			p_isp_reg->dcam_path_cfg_u.mBits.scale_bypass = 1;
+			p_path->scale_en = 0;
+		}
+			
 	}
 	else
 	{
@@ -757,7 +773,7 @@ static int32_t _ISP_DriverGenScxCoeff(uint32_t base_addr, uint32_t idxScx)
 	for( i = 0; i < ISP_SCALE_COEFF_H_NUM; i++)
 	{
 		*(volatile uint32_t*)HScaleAddr = *pHCoeff;
-		DCAM_DRV_TRACE("DCAM DRV:Coeff H[%d] = 0x%x.\n", i, *pHCoeff); 
+//		DCAM_DRV_TRACE("DCAM DRV:Coeff H[%d] = 0x%x.\n", i, *pHCoeff); 
 		HScaleAddr += 4;
 		pHCoeff++;
 	}    
@@ -765,7 +781,7 @@ static int32_t _ISP_DriverGenScxCoeff(uint32_t base_addr, uint32_t idxScx)
 	for( i=0 ;i < ISP_SCALE_COEFF_V_NUM; i++)
 	{
 		*(volatile uint32_t*)VScaleAddr = *pVCoeff;    
-		DCAM_DRV_TRACE("DCAM DRV: Coeff V[%d] = 0x%x.\n", i, *pVCoeff);
+//		DCAM_DRV_TRACE("DCAM DRV: Coeff V[%d] = 0x%x.\n", i, *pVCoeff);
 		VScaleAddr += 4;
 		pVCoeff++;
 	}
@@ -1349,7 +1365,7 @@ int32_t ISP_DriverPath1Config(uint32_t base_addr, ISP_CFG_ID_E id, void* param)
 		{
 			uint32_t format = *(volatile uint32_t*)param;
 
-			if((format != ISP_DATA_YUV422) && (format != ISP_DATA_YUV420) &&(ISP_DATA_RGB565))
+			if((format != ISP_DATA_YUV422) && (format != ISP_DATA_YUV420) &&(format != ISP_DATA_RGB565))
 			{
 				rtn = ISP_DRV_RTN_PATH_OUTPUT_FORMAT_ERR; 
 			}
@@ -1902,13 +1918,13 @@ void ISP_DriverUnRegisterIRQ(void)
 	free_irq(IRQ_LINE_DCAM, &g_share_irq);
 }
 
-uint32_t ISP_DriverSetBufferAddress(uint32_t base_addr, uint32_t buf_addr)
+uint32_t ISP_DriverSetBufferAddress(uint32_t base_addr, uint32_t buf_addr,uint32_t uv_addr)
 {
     	ISP_PATH_DESCRIPTION_T    *p_path = 0;
     	ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_REG_T                       *p_isp_reg = (ISP_REG_T*)base_addr;
 
-	DCAM_TRACE("DCAM DRV:ISP_DriverSetBufferAddress:base_addr=0x%x,path_id = %d.\n",base_addr,s_isp_mod.isp_mode);
+//	DCAM_TRACE("DCAM DRV:ISP_DriverSetBufferAddress:base_addr=0x%x,path_id = %d.\n",base_addr,s_isp_mod.isp_mode);
 
 	if((ISP_MODE_PREVIEW == s_isp_mod.isp_mode) || ISP_MODE_CAPTURE == s_isp_mod.isp_mode)
 	{
@@ -1918,7 +1934,14 @@ uint32_t ISP_DriverSetBufferAddress(uint32_t base_addr, uint32_t buf_addr)
 	
 	        	if(p_path->input_format == ISP_CAP_INPUT_FORMAT_YUV) 
 	        	{
-			p_isp_reg->frm_addr_8_u.dwValue = buf_addr + p_path->output_size.w * p_path->output_size.h;
+	        		if(0 == uv_addr)
+	        		{
+				p_isp_reg->frm_addr_8_u.dwValue = buf_addr + p_path->output_size.w * p_path->output_size.h;
+	        		}
+			else
+			{
+				p_isp_reg->frm_addr_8_u.dwValue = uv_addr;
+			}
 	       	}        	
 	}
 	else if((ISP_MODE_PREVIEW_EX == s_isp_mod.isp_mode) ||(ISP_MODE_CAPTURE_EX == s_isp_mod.isp_mode))
@@ -1928,7 +1951,14 @@ uint32_t ISP_DriverSetBufferAddress(uint32_t base_addr, uint32_t buf_addr)
 	
 	        	if(p_path->input_format == ISP_CAP_INPUT_FORMAT_YUV) 
 	        	{
-			p_isp_reg->frm_addr_1_u.dwValue = buf_addr + p_path->output_size.w * p_path->output_size.h;
+	        		if(0 == uv_addr)
+	        		{
+				p_isp_reg->frm_addr_1_u.dwValue = buf_addr + p_path->output_size.w * p_path->output_size.h;
+	        		}
+			else
+			{
+				p_isp_reg->frm_addr_1_u.dwValue = uv_addr;
+			}
 	       	}        	
 	}
 	else

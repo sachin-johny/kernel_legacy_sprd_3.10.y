@@ -1298,7 +1298,7 @@ int32_t Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 				}
 				else
 				{
-					printk("SENSOR: IIC write reg OK! 0x%04x, val:0x%04x ", subaddr, data);
+					//printk("SENSOR: IIC write reg OK! 0x%04x, val:0x%04x ", subaddr, data);
 					break;
 				}
 			}           
@@ -1306,7 +1306,7 @@ int32_t Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 		else
 		{
 			msleep(data);
-			SENSOR_PRINT("SENSOR: IIC write Delay %d ms", data);	    	
+			//SENSOR_PRINT("SENSOR: IIC write Delay %d ms", data);	    	
 		}
 	}
 	return 0;

@@ -89,6 +89,11 @@ obj-$(CONFIG_FB_SC8800G)		+= sprd_scale/
 obj-$(CONFIG_FB_SC8800G)		+= sprd_rotation/
 obj-$(CONFIG_FB_SC8800G)		+= sprd_vsp/
 
+obj-$(CONFIG_FB_SC8810)		+= sprd_dcam/
+obj-$(CONFIG_FB_SC8810)		+= sprd_scale/
+obj-$(CONFIG_FB_SC8810)		+= sprd_rotation/
+obj-$(CONFIG_FB_SC8810)		+= sprd_vsp/
+
 # And now the v4l2 drivers:
 
 obj-$(CONFIG_VIDEO_BT848) += bt8xx/

@@ -39,7 +39,7 @@
 /**---------------------------------------------------------------------------*
  **                         Debugging Flag                                    *
  **---------------------------------------------------------------------------*/
-#define DEBUG_SENSOR_DRV 1
+//#define DEBUG_SENSOR_DRV 1
 #ifdef DEBUG_SENSOR_DRV
 #define SENSOR_PRINT   printk
 #else

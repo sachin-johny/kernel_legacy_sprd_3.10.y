@@ -153,7 +153,7 @@ int32_t ISP_DriverPath1Config (uint32_t base_addr,ISP_CFG_ID_E id,void *param);
 int32_t ISP_DriverPath2Config(uint32_t base_addr, ISP_CFG_ID_E id, void* param);
 int ISP_DriverRegisterIRQ(void);
 void ISP_DriverUnRegisterIRQ(void);
-uint32_t ISP_DriverSetBufferAddress(uint32_t base_addr, uint32_t buf_addr);
+uint32_t ISP_DriverSetBufferAddress(uint32_t base_addr, uint32_t buf_addr,uint32_t uv_addr);
 PUBLIC void ISP_DriverPowerDown(uint32_t base_addr,uint32_t sensor_id,uint32_t value);
 PUBLIC void ISP_DriverReset(uint32_t base_addr,uint32_t value);
 

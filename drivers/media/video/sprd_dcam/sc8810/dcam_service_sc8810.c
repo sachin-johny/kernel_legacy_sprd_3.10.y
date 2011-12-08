@@ -35,6 +35,7 @@ typedef struct dcam_parameter
 	DCAM_ROTATION_E rotation;
 	int skip_frame;
 	uint32_t first_buf_addr;
+	uint32_t first_buf_uv_addr;
 	uint32_t zoom_level;
 	uint32_t zoom_multiple;
 }DCAM_PARAMETER_T;
@@ -204,6 +205,7 @@ int dcam_parameter_init(DCAM_INIT_PARAM_T *init_param)
 	g_dcam_param.rotation = init_param->rotation;  
 	g_dcam_param.skip_frame = init_param->skip_frame;
 	g_dcam_param.first_buf_addr = init_param->first_buf_addr;
+	g_dcam_param.first_buf_uv_addr = init_param->first_u_buf_addr;
 	g_dcam_param.zoom_level = init_param->zoom_level;
 	g_dcam_param.zoom_multiple = init_param->zoom_multiple;
 	
@@ -551,7 +553,7 @@ void _ISP_ServiceStartPreview(void)
                                            _ISP_ServiceOnSensorFrameErr);
         ISP_RTN_IF_ERR(rtn_drv);
   
-	ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr);
+	ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr,g_dcam_param.first_buf_uv_addr);
 #ifdef DCAM_DEBUG    
 //	get_dcam_reg();
 #endif  	
@@ -729,10 +731,13 @@ static void _ISP_ServiceStartJpeg(void)
 				                                   (void*)&output_size);
 	ISP_RTN_IF_ERR(rtn_drv);
 
-	rtn_drv = ISP_DriverPath1Config(s->module_addr, 
-				                                   ISP_PATH_OUTPUT_FORMAT, 
-				                                   (void*)&s->dcam_path1_out_format);
-	ISP_RTN_IF_ERR(rtn_drv);
+          if(ISP_DCAM_PATH1_OUT_FORMAT_JPEG != s->dcam_path1_out_format)
+          {
+		rtn_drv = ISP_DriverPath1Config(s->module_addr, 
+					                                   ISP_PATH_OUTPUT_FORMAT, 
+					                                   (void*)&s->dcam_path1_out_format);
+		ISP_RTN_IF_ERR(rtn_drv);
+          }
 
 
 	/*Register ISR callback*/
@@ -741,7 +746,7 @@ static void _ISP_ServiceStartJpeg(void)
 				                                        _ISP_ServiceOnPath1);
 	ISP_RTN_IF_ERR(rtn_drv);
 
-	ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr); 
+	ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr,g_dcam_param.first_buf_uv_addr); 
 #ifdef DCAM_DEBUG    
 //	get_dcam_reg();
 #endif    
@@ -1132,6 +1137,15 @@ void ISP_ServiceStopCapture(void)
 	return ;
 }
 
+void dcam_get_jpg_len(uint32_t *len)
+{
+	ISP_SERVICE_T          *s = &s_isp_service;
+	*len = 0;
+	
+	ISP_DriverCapGetInfo(s->module_addr,ISP_CAP_JPEG_GET_LENGTH,len);
+//	DCAM_TRACE("DCAM:ISP_ServiceGetJpgLen len=%d .\n",*len); 
+	return;	
+}
 int dcam_stop(void)
 {
 	ISP_SERVICE_T          *s = &s_isp_service;
@@ -1153,11 +1167,11 @@ int dcam_stop(void)
 	return DCAM_SUCCESS;
 }
 
-uint32_t dcam_set_buffer_address(uint32_t address)
+uint32_t dcam_set_buffer_address(uint32_t yaddr,uint32_t uv_addr)
 {
 	 ISP_SERVICE_T           *s = &s_isp_service;
 
-	 return ISP_DriverSetBufferAddress(s->module_addr, address);
+	 return ISP_DriverSetBufferAddress(s->module_addr, yaddr,uv_addr);
 }
 
 void dcam_powerdown(uint32_t sensor_id,uint32_t value)

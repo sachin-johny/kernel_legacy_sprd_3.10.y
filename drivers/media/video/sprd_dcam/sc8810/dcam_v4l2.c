@@ -64,14 +64,16 @@ typedef struct dcam_info
 	DCAM_ROTATION_E rot_angle;
 	DCAM_DATA_FORMAT_E out_format;
 	uint32_t zoom_multiple;
+	uint32_t jpg_len;
 }DCAM_INFO_T;
 
-uint32_t g_cur_buf_addr = 0; //store the buffer address which is hte next buffer DQbufed.
+
 uint32_t g_first_buf_addr = 0; //store the first buffer address
+uint32_t g_first_buf_uv_addr = 0; //store the address of uv buffer
 uint32_t g_last_buf = 0xFFFFFFFF;//record the last buffer for dcam driver
+uint32_t g_last_uv_buf = 0xFFFFFFFF;
 struct dcam_fh *g_fh = NULL; //store the fh pointer for ISR callback function
 static uint32_t g_is_first_frame = 1; //store the flag for the first frame
-//struct dcam_buffer *g_dcam_buf_ptr = NULL;
 DCAM_INFO_T g_dcam_info; //store the dcam and sensor config info
 uint32_t g_zoom_level = 0; //zoom level: 0: 1x, 1: 2x, 2: 3x, 3: 4x
 uint32_t g_is_first_irq = 1; 
@@ -535,7 +537,7 @@ static inline unsigned int norm_maxw(void)
 	sensor_info_ptr = Sensor_GetInfo();
 
 	max_width = (uint32_t)sensor_info_ptr->source_width_max;
-	DCAM_V4L2_PRINT("V4L2: norm_maxw,max width =%d.\n",max_width);
+//	DCAM_V4L2_PRINT("V4L2: norm_maxw,max width =%d.\n",max_width);
 	return max_width;	
 }
 
@@ -547,7 +549,7 @@ static inline unsigned int norm_maxh(void)
 	sensor_info_ptr = Sensor_GetInfo();
 
 	max_height = (uint32_t)sensor_info_ptr->source_height_max;
-	DCAM_V4L2_PRINT("V4L2: norm_maxw,max height =%d.\n",max_height);
+//	DCAM_V4L2_PRINT("V4L2: norm_maxw,max height =%d.\n",max_height);
 	return max_height;	
 }
 static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,struct v4l2_format *f)
@@ -842,9 +844,9 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	data_ptr = &streamparm->parm.raw_data[3];
 	for(i=SENSOR_MODE_PREVIEW_ONE;i<SENSOR_MODE_MAX;i++)
 	{
-		sensor_mode_info_ptr = &sensor_info_ptr->sensor_mode_info[i];
+		sensor_mode_info_ptr = &sensor_info_ptr->sensor_mode_info[i-1];
 
-		if((0 != sensor_mode_info_ptr->width)&&(0 != sensor_mode_info_ptr->height))
+		if((0 != sensor_mode_info_ptr->width)&&(0 != sensor_mode_info_ptr->height) )
 		{
 			*data_ptr++ = i;
 			*data_ptr++ = sensor_mode_info_ptr->width&0xff;
@@ -863,8 +865,11 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 		}
 		else
 		{
-			i = i -1;
-			break;
+			if(0!=(i-1))
+			{
+				i = i -1;
+				break;
+			}
 		}
 	}
 	streamparm->parm.raw_data[2] = i;
@@ -974,10 +979,11 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	if(1 == g_is_first_frame)
 	{
 		g_first_buf_addr = p->m.userptr;
+		g_first_buf_uv_addr = p->reserved;
 		g_is_first_frame = 0;
 		DCAM_V4L2_PRINT("V4L2: g_first_buf_addr: %x.\n", g_first_buf_addr);
 	}
-	DCAM_V4L2_PRINT("V4L2: qbuf : addr: 0x%x.\n", p->m.userptr);
+//	DCAM_V4L2_PRINT("V4L2: qbuf : addr: 0x%x,uaddr:0x%x.\n", p->m.userptr,p->reserved);
 	return (videobuf_qbuf(&fh->vb_vidq, p)); 
 }
 
@@ -989,6 +995,18 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		                              file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));	
+}
+
+static int vidioc_g_output(struct file *file, void *priv, unsigned int *i)
+{
+//	struct vpif_fh *fh = priv;
+//	struct channel_obj *ch = fh->channel;
+//	struct video_obj *vid_ch = &ch->video;
+
+//	 dcam_get_jpg_len(i);
+	*i=g_dcam_info.jpg_len;
+
+	return 0;
 }
 
 #define DCAM_PIXEL_ALIGNED 16
@@ -1121,6 +1139,7 @@ static void init_dcam_parameters(void *priv)
 	init_param.skip_frame = 0;
 	init_param.rotation = g_dcam_info.rot_angle;
 	init_param.first_buf_addr = g_first_buf_addr;
+	init_param.first_u_buf_addr = g_first_buf_uv_addr;
 
          DCAM_V4L2_PRINT("v4l2: init param rotation = %d .\n",init_param.rotation);
 	g_dcam_info.input_size.w =init_param.input_size.w;
@@ -1151,6 +1170,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	}
 	g_is_first_irq = 1;
 	g_last_buf = 0xFFFFFFFF;
+	g_last_uv_buf = 0xFFFFFFFF;
 	dcam_start();
 
 	DCAM_V4L2_PRINT("DCAM_V4L2: OK to vidioc_streamon.\n");
@@ -1238,6 +1258,7 @@ static void set_next_buffer(struct dcam_fh *fh)
 	if(0xFFFFFFFF == g_last_buf){ //the first buffer set to driver already.
 		buf->fmt->flag = 1;
 		g_last_buf = 0;
+		g_last_uv_buf = 0;
 	}	
 	if((1 == buf->fmt->flag) || (g_last_buf == buf->vb.baddr)){		
 	if(NULL == dma_q->active.next->next){
@@ -1253,7 +1274,8 @@ static void set_next_buffer(struct dcam_fh *fh)
 	if(0 != buf->vb.baddr){
 		buf->fmt->flag = 1;
 		g_last_buf = buf->vb.baddr;		
-		dcam_set_buffer_address(buf->vb.baddr);		
+		g_last_uv_buf = buf->vb.privsize;
+		dcam_set_buffer_address(buf->vb.baddr,buf->vb.privsize);		
 	}
 	else
 	{
@@ -1261,7 +1283,7 @@ static void set_next_buffer(struct dcam_fh *fh)
 		goto unlock;
 	}
 	
-	DCAM_V4L2_PRINT("V4L2: set_next_buffer filled buffer %x.\n", (uint32_t)buf->vb.baddr);
+//	DCAM_V4L2_PRINT("V4L2: set_next_buffer filled buffer yaddr:0x%x,uaddr:0x%x.\n", (uint32_t)buf->vb.baddr,buf->vb.privsize);
 	
 unlock:
 	spin_unlock_irqrestore(&dev->slock, flags);
@@ -1306,12 +1328,13 @@ unlock:
 	do_gettimeofday(&buf->vb.ts);
 	buf->vb.state = VIDEOBUF_DONE;
 	
-	DCAM_V4L2_PRINT("V4L2: path1_done_buffer:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));   
+//	DCAM_V4L2_PRINT("V4L2: path1_done_buffer:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));   
 	wake_up(&buf->vb.done); 
 	
 unlock:
 	spin_unlock_irqrestore(&dev->slock, flags);
 	g_first_buf_addr = g_last_buf;
+	g_first_buf_uv_addr = g_last_uv_buf;
 	return;
 	
 }
@@ -1358,6 +1381,7 @@ static void dcam_error_handle(struct dcam_fh *fh)
       
 	wake_up(&buf->vb.done);
 	g_first_buf_addr = g_last_buf; 
+	g_first_buf_uv_addr = g_last_uv_buf;
 unlock:
 	spin_unlock_irqrestore(&dev->slock, flags);	
 	return;
@@ -1373,6 +1397,7 @@ void dcam_cb_ISRCapEOF(void)
 }
 void dcam_cb_ISRPath1Done(void)
 {	
+  	dcam_get_jpg_len(&g_dcam_info.jpg_len);
 	path1_done_buffer(g_fh);
 }
 
@@ -1443,8 +1468,8 @@ static int buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 	struct dcam_dev    *dev = fh->dev;
 	struct dcam_buffer *buf = container_of(vb, struct dcam_buffer, vb);
 
-	DCAM_V4L2_PRINT("V4L2:buffer_prepare  w: %d, h: %d, baddr: %lx, bsize: %d.\n ",
-		                              fh->width,fh->height, buf->vb.baddr, buf->vb.bsize);
+//	DCAM_V4L2_PRINT("V4L2:buffer_prepare  w: %d, h: %d, baddr: %lx, bsize: %d.\n ",
+//		                              fh->width,fh->height, buf->vb.baddr, buf->vb.bsize);
    
 	dprintk(dev, 1, "%s, field=%d\n", __func__, field);
 
@@ -1646,6 +1671,7 @@ static const struct v4l2_ioctl_ops dcam_ioctl_ops = {
 	.vidioc_streamon      = vidioc_streamon,
 	.vidioc_streamoff     = vidioc_streamoff,
 	.vidioc_g_crop = vidioc_g_crop,
+	.vidioc_g_output = vidioc_g_output,
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
 //	.vidiocgmbuf          = vidiocgmbuf,
 #endif

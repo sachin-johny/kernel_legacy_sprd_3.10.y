@@ -102,6 +102,7 @@ typedef struct dcam_init_param
 	DCAM_ROTATION_E rotation;
 	int skip_frame;
 	uint32_t first_buf_addr;
+	uint32_t first_u_buf_addr;
 	uint32_t zoom_level;
 	uint32_t zoom_multiple;
 }DCAM_INIT_PARAM_T;
@@ -129,10 +130,11 @@ int dcam_close(void);
 int dcam_parameter_init(DCAM_INIT_PARAM_T *init_param);
 int dcam_start(void);
 int dcam_stop(void);
-PUBLIC uint32_t dcam_callback_fun_register(DCAM_CB_ID_E cb_id,CALLBACK_FUNC_PTR user_func);
-PUBLIC uint32_t dcam_set_buffer_address(uint32_t address);
-PUBLIC void dcam_powerdown(uint32_t sensor_id,uint32_t value);
-PUBLIC void dcam_reset_sensor(uint32_t value);
+uint32_t dcam_callback_fun_register(DCAM_CB_ID_E cb_id,CALLBACK_FUNC_PTR user_func);
+uint32_t dcam_set_buffer_address(uint32_t yaddr,uint32_t uv_addr);
+void dcam_powerdown(uint32_t sensor_id,uint32_t value);
+void dcam_reset_sensor(uint32_t value);
 int dcam_is_previewing(uint32_t zoom_level);
+void dcam_get_jpg_len(uint32_t *len);
 
 #endif //_DCAM_SERVICE_SC8810_H_
