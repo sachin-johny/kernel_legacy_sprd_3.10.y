@@ -20,7 +20,9 @@
 #include <mach/regs_ana.h>
 #include <mach/bits.h>
 
-//#define TP_DEBUG
+#include <mach/irqs.h>
+
+#define TP_DEBUG
 #ifdef  TP_DEBUG
 #define TP_PRINT  printk
 #else
@@ -393,7 +395,6 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
         //enable done interrupt
         ANA_REG_OR (TPC_INT_EN, TPC_DONE_IRQ_MSK_BIT);
 		
-        return IRQ_HANDLED;
     }
     //Pen Up interrupt
     else if (int_status & TPC_UP_IRQ_MSK_BIT)
@@ -471,7 +472,6 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
             else{
                     TP_PRINT("func[%s]: done interrupt rise,but can not fetch data!\n",__FUNCTION__);
                     //ANA_REG_AND (TPC_INT_EN, ~TPC_DONE_IRQ_MSK_BIT);
-                    return IRQ_HANDLED;
             }
             //ANA_REG_AND (TPC_INT_EN, ~TPC_DONE_IRQ_MSK_BIT);
     }
@@ -479,7 +479,14 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
     else{
         printk("func[%s]: uncundefined irq\n",__FUNCTION__);
     }
-	
+#if CONFIG_ARCH_SC8810
+#ifdef CONFIG_NKERNEL
+	//TODO: 
+#define INTCV_REG(off) (SPRD_INTCV_BASE + (off))
+#define INTCV_INT_EN      INTCV_REG(0x0008)	/* 1: enable, 0: disable */
+	__raw_writel(1 << (IRQ_ANA_INT), INTCV_INT_EN);
+#endif
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -672,6 +679,7 @@ static int __init sprd_tp_probe(struct platform_device *pdev)
  	}
 
       ANA_REG_OR(TPC_INT_EN,(TPC_UP_IRQ_MSK_BIT |TPC_DOWN_IRQ_MSK_BIT));	
+
 
 	return 0;
 
