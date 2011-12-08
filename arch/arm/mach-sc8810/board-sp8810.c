@@ -107,21 +107,14 @@ struct platform_device android_pmem_adsp_device = {
 #endif
 
 //i2c pad:  the high two bit of the addr is the pad control bit
-static struct i2c_board_info __initdata openphone_i2c_boardinfo[] = {
-#ifdef CONFIG_SENSORS_MMC31XX
+static struct i2c_board_info __initdata sp8810_i2c_boardinfo[] = {
 	{
-	 I2C_BOARD_INFO(MMC31XX_I2C_NAME, MMC31XX_I2C_ADDR),
+	 	I2C_BOARD_INFO("al3006_pls", 0x1c),
 	 },
-#endif
-#ifdef CONFIG_SENSORS_MXC622X
-	{
-	 I2C_BOARD_INFO(MXC622X_I2C_NAME, MXC622X_I2C_ADDR),
-	 },
-#endif
 };
 
 //i2c pad:  the high two bit of the addr is the pad control bit
-static struct i2c_board_info __initdata openphone_i2c_boardinfo1[] = {
+static struct i2c_board_info __initdata sp8810_i2c_boardinfo1[] = {
     {
         I2C_BOARD_INFO(SENSOR_MAIN_I2C_NAME,SENSOR_MAIN_I2C_ADDR),
     },
@@ -130,21 +123,29 @@ static struct i2c_board_info __initdata openphone_i2c_boardinfo1[] = {
     },
 };
 
-static struct i2c_board_info __initdata sc8810_i2c_boardinfo2[] = {
+static struct i2c_board_info __initdata sp8810_i2c_boardinfo2[] = {
 	 {
 		 I2C_BOARD_INFO("pixcir_ts", 0x5C),
 	 },
 };
 
 
-static unsigned long i2c2_func_cfg[] = {
-	MFP_CFG_X(SIMDA2, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SIMCLK2, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-};
+static void sprd8810_i2c0pin_config(void)
+{
+	unsigned int reg;
+	reg = __raw_readl(SPRD_CPC_BASE+0x0000);
+	reg |= (0x03<<21);
+	__raw_writel(reg, (SPRD_CPC_BASE+0x0000));
+}
 
-static void sprd8810_ctp_config(void)
+static void sprd8810_i2c2pin_config(void)
 {	
 	unsigned int reg;
+	unsigned long i2c2_func_cfg[] = {
+		MFP_CFG_X(SIMDA2, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+		MFP_CFG_X(SIMCLK2, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+	};
+	
 	sprd_mfp_config(i2c2_func_cfg, ARRAY_SIZE(i2c2_func_cfg));
 	
 	reg = __raw_readl(SPRD_GREG_BASE+0x0028);
@@ -154,13 +155,14 @@ static void sprd8810_ctp_config(void)
 
 static int __init sprd_i2c_init(void)
 {
-	sprd8810_ctp_config();
-	sprd_register_i2c_bus(0, openphone_i2c_boardinfo,
-			ARRAY_SIZE(openphone_i2c_boardinfo));
-	sprd_register_i2c_bus(1, openphone_i2c_boardinfo1,
-			ARRAY_SIZE(openphone_i2c_boardinfo1));
-	sprd_register_i2c_bus(2, sc8810_i2c_boardinfo2,
-			ARRAY_SIZE(sc8810_i2c_boardinfo2));
+	sprd8810_i2c0pin_config();
+	sprd8810_i2c2pin_config();
+	sprd_register_i2c_bus(0, sp8810_i2c_boardinfo,
+			ARRAY_SIZE(sp8810_i2c_boardinfo));
+	sprd_register_i2c_bus(1, sp8810_i2c_boardinfo1,
+			ARRAY_SIZE(sp8810_i2c_boardinfo1));
+	sprd_register_i2c_bus(2, sp8810_i2c_boardinfo2,
+			ARRAY_SIZE(sp8810_i2c_boardinfo2));
 	sprd_register_i2c_bus(3, NULL, 0);
 	return 0;
 }
@@ -271,6 +273,7 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
 #define SPRD_3RDPARTY_GPIO_TP_RST           59
 #define SPRD_3RDPARTY_GPIO_TP_IRQ           60
+#define SPRD_3RDPARTY_GPIO_PLS_IRQ          28
 
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
@@ -286,6 +289,7 @@ int sprd_3rdparty_gpio_cmmb_reset = SPRD_3RDPARTY_GPIO_CMMB_RESET;
 int sprd_3rdparty_gpio_cmmb_irq = SPRD_3RDPARTY_GPIO_CMMB_IRQ;
 int sprd_3rdparty_gpio_tp_rst = SPRD_3RDPARTY_GPIO_TP_RST;
 int sprd_3rdparty_gpio_tp_irq = SPRD_3RDPARTY_GPIO_TP_IRQ;
+int sprd_3rdparty_gpio_pls_irq	=SPRD_3RDPARTY_GPIO_PLS_IRQ;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -300,6 +304,7 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_reset);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_pls_irq);
 
 static struct gpio_desc gpio_func_cfg[] = {
 	{
@@ -341,7 +346,11 @@ static struct gpio_desc gpio_func_cfg[] = {
 	{
 	MFP_CFG_X(SIMRST3, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE), // TP interrupt
 	SPRD_3RDPARTY_GPIO_TP_IRQ,
-	"tp int"}
+	"tp int"},
+	{
+	MFP_CFG_X(KEYIN5, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
+	SPRD_3RDPARTY_GPIO_PLS_IRQ,
+	"pls int"}
 
 };
 
