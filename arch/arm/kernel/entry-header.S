@@ -78,6 +78,7 @@
 
 #define	NK_SIRQ_RESTORE(rcpsr, rwork1, rwork2)		 \
 	mov	rwork1, rcpsr, lsr DASH NK_VPSR_SHIFT		;\
+	and	rwork1, rwork1, #1				;\
 	get_irq_enabled	rwork2					;\
 	strb	rwork1, [rwork2]				;\
 	ldrb	rwork2, [rwork2, DASH __VEX_IRQ_CTX_E2P]	;\
