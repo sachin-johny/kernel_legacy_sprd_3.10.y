@@ -226,6 +226,11 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		if(ret){
 			printk("clock[%s]:clk_enable() failed!\n",dev.vsp_clk->name);
 		}
+#ifdef CONFIG_ARCH_SC8810
+		reg_value = __raw_readl(AHB_CTL0);
+		reg_value |= ((1<<28) | (1<<27) | (1<<13));
+		__raw_writel(reg_value,AHB_CTL0);
+#endif		
 		reg_value = __raw_readl(AHB_SOFT_RST);
 		__raw_writel(reg_value|(1<<15),AHB_SOFT_RST);
 		__raw_writel(reg_value|(0<<15),AHB_SOFT_RST);	
