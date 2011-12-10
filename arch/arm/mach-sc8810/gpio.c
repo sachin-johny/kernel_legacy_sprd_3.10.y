@@ -3,10 +3,10 @@
  *
  *  Generic SPRD GPIO handling
  *
- *  Author:	Yingchun Li(yingchun.li@spreadtrum.com)
- *  Created:	March 10, 2010
+ *  Author:	steve.zhan, modifyed from spreadtrum mocor platform.
+ *  Created:	Dec 1, 2011
  *  Copyright:	Spreadtrum Inc.
- *
+ * 
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License version 2 as
  *  published by the Free Software Foundation.
@@ -69,7 +69,6 @@ static void __get_gpio_base_info(u32 gpio_id, struct gpio_info *info)
 	info->base_addr = __get_base_addr(gpio_id);
 	info->bit_num = __get_bit_num(gpio_id);
 	info->die = __get_gpio_die(gpio_id);
-
 	for (i = 0; i < table_size; ++i) {
 		if (section_table[i].page_base == info->base_addr) {
 			if (section_table[i].page_size > info->bit_num) {
@@ -102,21 +101,21 @@ static int __gpio_set_input_enable(struct gpio_info *info, int enable)
 
 	case GPIO_SECTION_GPI:
 		{
-			WARN(1, "if have gpi, Need To DO");
+			pr_warning("if have gpi, Need To DO");
 			return -EINVAL;
 		}
 		return 0;
 
 	case GPIO_SECTION_GPO:
 		{
-			WARN(1, "cannot set dir input with GPO");
+			pr_warning( "cannot set dir input with GPO");
 			return -EINVAL;
 		}
 		return 0;
 
 	case GPIO_SECTION_INVALID:
 	default:
-		WARN(1, " the GPIO_ID is Invalid in this chip");
+		pr_warning(" the GPIO_ID is Invalid in this chip");
 		return -1;
 	}
 
@@ -149,21 +148,21 @@ static int __gpio_set_dir(struct gpio_info *info, int dir)
 
 	case GPIO_SECTION_GPI:
 		if (dir) {
-			WARN(1, "cannot set dir output with GPI");
+			pr_warning( "cannot set dir output with GPI");
 			return -EINVAL;
 		}
 		return 0;
 
 	case GPIO_SECTION_GPO:
 		if (!dir) {
-			WARN(1, "cannot set dir input with GPO");
+			pr_warning("cannot set dir input with GPO");
 			return -EINVAL;
 		}
 		return 0;
 
 	case GPIO_SECTION_INVALID:
 	default:
-		WARN(1, " the GPIO_ID is Invalid in this chip");
+		pr_warning(" the GPIO_ID is Invalid in this chip");
 		return -1;
 	}
 
@@ -367,17 +366,26 @@ static int sprd_gpio_direction_output(struct gpio_chip *chip,
 	int res;
 
 	__get_gpio_base_info(gpio_id, &gpio_info);
+
+	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
+		goto Err;
 	res = __gpio_set_dir(&gpio_info, 1);
 	if (res < 0)
+	{	
+		pr_err("__gpio_set_dir return res = %d\n", res);
 		goto Err;
+	}
 	res = __gpio_set_input_enable(&gpio_info, 0);
-	goto Err;
-
+	if (res < 0)
+	{
+		pr_err("__gpio_set_input_enable return res = %d\n", res);
+		goto Err;
+	}
 	__gpio_set_pin_data(&gpio_info, value);
 	return 0;
 
 Err:
-	pr_warning("GPIO: cannot set direction for %d\n", gpio_id);
+	pr_warning("GPIO: cannot set direction output for %d\n", gpio_id);
 	return -EINVAL;
 }
 
@@ -388,6 +396,9 @@ static int sprd_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 	int res;
 
 	__get_gpio_base_info(gpio_id, &gpio_info);
+
+	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
+		goto Err;
 	res = __gpio_set_dir(&gpio_info, 0);
 	if (res < 0)
 		goto Err;
@@ -397,7 +408,7 @@ static int sprd_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 
 	return 0;
 Err:
-	pr_warning("GPIO: cannot set direction for %d\n", gpio_id);
+	pr_warning("GPIO: cannot set direction input for %d\n", gpio_id);
 	return -EINVAL;
 }
 
@@ -407,6 +418,8 @@ static int sprd_gpio_get(struct gpio_chip *chip, unsigned offset)
 	struct gpio_info gpio_info;
 
 	__get_gpio_base_info(gpio_id, &gpio_info);
+	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
+		return -1;
 
 	if (!__gpio_get_data_mask(&gpio_info)) {
 		WARN(1, "GPIO_%d data mask hasn't been opened!\n", gpio_id);
@@ -432,6 +445,8 @@ static void sprd_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	__gpio_check_pin_valid(gpio_id);
 
 	__get_gpio_base_info(gpio_id, &gpio_info);
+	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
+		return;
 
 	if (!__gpio_get_dir(&gpio_info)) {
 		WARN(1, "GPIO_%d dir wrong!can't set input value", gpio_id);
@@ -453,6 +468,8 @@ static int sprd_gpio_request(struct gpio_chip *chip, unsigned offset)
 
 	GPIO_DBG("request gpio_%d\r\n", gpio_id);
 	__get_gpio_base_info(gpio_id, &gpio_info);
+	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
+		return -1;
 
 	GPIO_DBG
 	    ("gpio info, pin is :%d, base addr :%x, bit num :%d, type :%d\r\n",
@@ -471,8 +488,10 @@ static void sprd_gpio_free(struct gpio_chip *chip, unsigned offset)
 	__gpio_check_pin_valid(gpio_id);
 
 	__get_gpio_base_info(gpio_id, &gpio_info);
-	__gpio_set_data_mask(&gpio_info, false);
 
+	if (gpio_info.gpio_type != GPIO_SECTION_INVALID) {
+		__gpio_set_data_mask(&gpio_info, false);
+	}
 	return;
 }
 
@@ -840,13 +859,15 @@ static void sprd_ack_gpio_irq(unsigned int irq)
 	struct gpio_info gpio_info;
 
 	gpio = map->gpio_id;
-	
+
 	__gpio_check_pin_valid(gpio);
 
 	GPIO_DBG("ack irq gpio %d  irq %d", gpio, irq);
 
 	__get_gpio_base_info(gpio, &gpio_info);
-	__gpio_clear_irq_status(&gpio_info);
+
+	if (gpio_info.gpio_type != GPIO_SECTION_INVALID)
+		__gpio_clear_irq_status(&gpio_info);
 }
 
 static void sprd_mask_gpio_irq(unsigned int irq)
@@ -860,7 +881,8 @@ static void sprd_mask_gpio_irq(unsigned int irq)
 
 	GPIO_DBG("mask gpio %d  irq %d", gpio, irq);
 	__get_gpio_base_info(gpio, &gpio_info);
-	__gpio_disable_irq(&gpio_info);
+	if (gpio_info.gpio_type != GPIO_SECTION_INVALID)
+		__gpio_disable_irq(&gpio_info);
 }
 
 static void sprd_unmask_gpio_irq(unsigned int irq)
@@ -872,13 +894,15 @@ static void sprd_unmask_gpio_irq(unsigned int irq)
 	gpio = map->gpio_id;
 	__gpio_check_pin_valid(gpio);
 
-
 	GPIO_DBG("unmask gpio %d  irq %d", gpio, irq);
 	__get_gpio_base_info(gpio, &gpio_info);
-	__gpio_enable_irq(&gpio_info);
 
-	if (gpio_info.gpio_type == GPIO_SECTION_GPI)
+	if (gpio_info.gpio_type != GPIO_SECTION_INVALID)
+		__gpio_enable_irq(&gpio_info);
+
+	if (gpio_info.gpio_type == GPIO_SECTION_GPI) {
 		__gpio_trig_detect(&gpio_info);
+	}
 }
 
 static int sprd_gpio_irq_type(unsigned int irq, unsigned int type)
@@ -891,6 +915,8 @@ static int sprd_gpio_irq_type(unsigned int irq, unsigned int type)
 	__gpio_check_pin_valid(gpio);
 
 	__get_gpio_base_info(gpio, &gpio_info);
+	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
+		return -1;
 	//set irq type
 	__gpio_set_int_type(&gpio_info, type);
 
@@ -920,6 +946,9 @@ static int gpio_get_int_status(unsigned int gpio)
 	struct gpio_info gpio_info;
 
 	__get_gpio_base_info(gpio, &gpio_info);
+
+	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
+		return -1;
 	return __gpio_get_int_status(&gpio_info);
 
 }
@@ -928,20 +957,20 @@ static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	int i;
 
-	GPIO_DBG("%s\n",__func__);
+	GPIO_DBG("%s\n", __func__);
 
 	for (i = 0; i < NR_GPIO_IRQS; i++) {
 		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID) {
 			continue;
 		}
-		if (gpio_get_int_status(gpio_irq_table[i].gpio_id)) {
+		if (gpio_get_int_status(gpio_irq_table[i].gpio_id) >= 0) {
 			generic_handle_irq(gpio_irq_table[i].irq_num);
 		}
 	}
 	desc->chip->unmask(irq);
 }
 
-extern  void( *gpio_mux_handler)(unsigned int irq, struct irq_desc *desc);
+extern void (*gpio_mux_handler) (unsigned int irq, struct irq_desc * desc);
 
 static void sprd_gpio_irq_init(void)
 {
@@ -971,6 +1000,8 @@ __must_check int sprd_alloc_gpio_irq(unsigned gpio)
 	unsigned long flags;
 
 	__get_gpio_base_info(gpio, &gpio_info);
+	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
+		return -1;
 
 	// find a free record
 	for (i = 0; i < NR_GPIO_IRQS; i++) {
@@ -986,7 +1017,7 @@ __must_check int sprd_alloc_gpio_irq(unsigned gpio)
 	}
 
 	if (i >= NR_GPIO_IRQS) {
-		pr_warning("sprd_alloc_gpio_irq:No free item in the table!\n", gpio);
+		pr_warning("sprd_alloc_gpio_irq:No free item in the table!\n",gpio);
 		return -1;
 	}
 	local_irq_save(flags);
