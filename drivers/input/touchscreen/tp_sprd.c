@@ -482,9 +482,7 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
 #if CONFIG_ARCH_SC8810
 #ifdef CONFIG_NKERNEL
 	//TODO: 
-#define INTCV_REG(off) (SPRD_INTCV_BASE + (off))
-#define INTCV_INT_EN      INTCV_REG(0x0008)	/* 1: enable, 0: disable */
-	__raw_writel(1 << (IRQ_ANA_INT), INTCV_INT_EN);
+	sprd_enable_ana_irq();
 #endif
 #endif
 	return IRQ_HANDLED;

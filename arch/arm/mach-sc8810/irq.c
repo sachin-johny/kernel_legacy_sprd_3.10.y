@@ -289,6 +289,14 @@ static void eic_gpio_mux_handler(unsigned int irq, struct irq_desc *desc)
 		gpio_mux_handler(irq,desc);
 }
 
+#ifdef CONFIG_NKERNEL
+void sprd_enable_ana_irq(void)
+{
+	__raw_writel(1 << (IRQ_ANA_INT), INTCV_INT_EN);
+}
+EXPORT_SYMBOL(sprd_enable_ana_irq);
+
+#endif
 void __init sprd_init_irq(void)
 {
 	unsigned int n;

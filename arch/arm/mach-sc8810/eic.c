@@ -417,9 +417,9 @@ static void sprd_unmask_eic_irq(unsigned int irq)
 	} else
 		goto Err;
 //TODO: 
-#define INTCV_REG(off) (SPRD_INTCV_BASE + (off))
-#define INTCV_INT_EN      INTCV_REG(0x0008)	/* 1: enable, 0: disable */
-	__raw_writel(1 << (IRQ_ANA_INT), INTCV_INT_EN);
+#ifdef CONFIG_NKERNEL
+	sprd_enable_ana_irq();
+#endif
 	return;
 Err:
 	pr_warning(" [%s] error eic %d\n", __FUNCTION__, eic);

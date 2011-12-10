@@ -35,8 +35,6 @@
 #define IRQ_TIMER1_INT		6
 
 #define IRQ_TIMER2_INT		7
-
-//#define IRQ_GPIO_INT		8
 #define IRQ_GPIO_EIC_INT	8	
 
 #define IRQ_SPI0_INT		9
@@ -105,6 +103,8 @@
 #define NR_IRQS (NR_SPRD_IRQS +NR_ANA_IRQS+ NR_GPIO_IRQS + NR_BOARD_IRQS + NR_EIC_ALL_IRQS)
 
 
-
+#ifdef CONFIG_NKERNEL
+void sprd_enable_ana_irq(void);
+#endif
 
 #endif

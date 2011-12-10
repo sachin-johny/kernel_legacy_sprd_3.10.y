@@ -108,7 +108,7 @@ static int __gpio_set_input_enable(struct gpio_info *info, int enable)
 
 	case GPIO_SECTION_GPO:
 		{
-			pr_warning( "cannot set dir input with GPO");
+			pr_warning("cannot set dir input with GPO");
 			return -EINVAL;
 		}
 		return 0;
@@ -148,7 +148,7 @@ static int __gpio_set_dir(struct gpio_info *info, int dir)
 
 	case GPIO_SECTION_GPI:
 		if (dir) {
-			pr_warning( "cannot set dir output with GPI");
+			pr_warning("cannot set dir output with GPI");
 			return -EINVAL;
 		}
 		return 0;
@@ -370,14 +370,12 @@ static int sprd_gpio_direction_output(struct gpio_chip *chip,
 	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
 		goto Err;
 	res = __gpio_set_dir(&gpio_info, 1);
-	if (res < 0)
-	{	
+	if (res < 0) {
 		pr_err("__gpio_set_dir return res = %d\n", res);
 		goto Err;
 	}
 	res = __gpio_set_input_enable(&gpio_info, 0);
-	if (res < 0)
-	{
+	if (res < 0) {
 		pr_err("__gpio_set_input_enable return res = %d\n", res);
 		goto Err;
 	}
@@ -956,7 +954,9 @@ static int gpio_get_int_status(unsigned int gpio)
 static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	int i;
-
+#ifdef CONFIG_NKERNEL
+	int isAdie = 0;
+#endif
 	GPIO_DBG("%s\n", __func__);
 
 	for (i = 0; i < NR_GPIO_IRQS; i++) {
@@ -964,9 +964,21 @@ static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 			continue;
 		}
 		if (gpio_get_int_status(gpio_irq_table[i].gpio_id) >= 0) {
+#ifdef CONFIG_NKERNEL
+			struct gpio_info gpio_info;
+			__get_gpio_base_info(gpio_irq_table[i].gpio_id,
+					     &gpio_info);
+			if (gpio_info.die == A_DIE)
+				isAdie = 1;
+#endif
 			generic_handle_irq(gpio_irq_table[i].irq_num);
 		}
 	}
+#ifdef CONFIG_NKERNEL
+	if (isAdie)
+		sprd_enable_ana_irq();
+#endif
+
 	desc->chip->unmask(irq);
 }
 
@@ -1017,7 +1029,8 @@ __must_check int sprd_alloc_gpio_irq(unsigned gpio)
 	}
 
 	if (i >= NR_GPIO_IRQS) {
-		pr_warning("sprd_alloc_gpio_irq:No free item in the table!\n",gpio);
+		pr_warning("sprd_alloc_gpio_irq:No free item in the table!\n",
+			   gpio);
 		return -1;
 	}
 	local_irq_save(flags);
