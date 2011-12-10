@@ -160,9 +160,9 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 	{
 		.id = LDO_BPRF0,
 		.bp_reg = ANA_LDO_PD_SET,
-		.bp_bits = BIT_4,
+		.bp_bits = BIT_3,
 		.bp_rst_reg = ANA_LDO_PD_RST,
-		.bp_rst = BIT_4,
+		.bp_rst = BIT_3,
 		.level_reg_b0 = ANA_LDO_VCTL0,
 		.b0 = BIT_4,
 		.b0_rst = BIT_5,
@@ -174,12 +174,12 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 	{
 		.id = LDO_BPRF1,
 		.bp_reg = ANA_LDO_PD_SET,
-		.bp_bits = BIT_3,
+		.bp_bits = BIT_4,
 		.bp_rst_reg = ANA_LDO_PD_RST,
-		.bp_rst = BIT_3,
+		.bp_rst = BIT_4,
 		.level_reg_b0 = ANA_LDO_VCTL0,
 		.b0 = BIT_8,
-		.b0_rst = BIT_8,
+		.b0_rst = BIT_9,
 		.level_reg_b1 = ANA_LDO_VCTL0,
 		.b1 = BIT_10,
 		.b1_rst = BIT_11,
@@ -488,7 +488,8 @@ LDO_ERR_E LDO_TurnOnLDO(LDO_ID_E ldo_id)
 				__raw_bits_and((~LDO_USB_PD), GR_CLK_GEN5);
 
 		} else {
-			REG_SETCLRBIT(ctl->bp_reg, ctl->bp_rst, ctl->bp_bits);	
+			//REG_SETCLRBIT(ctl->bp_rst_reg, ctl->bp_rst, ctl->bp_bits);	
+			ANA_REG_OR(ctl->bp_rst_reg, ctl->bp_rst);
 		}
 		ctl->current_status = CURRENT_STATUS_ON;
 	}

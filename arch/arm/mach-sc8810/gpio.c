@@ -379,6 +379,7 @@ static int sprd_gpio_direction_output(struct gpio_chip *chip,
 		pr_err("__gpio_set_input_enable return res = %d\n", res);
 		goto Err;
 	}
+
 	__gpio_set_pin_data(&gpio_info, value);
 	return 0;
 

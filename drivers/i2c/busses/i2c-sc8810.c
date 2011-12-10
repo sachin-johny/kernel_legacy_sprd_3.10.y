@@ -234,7 +234,7 @@ static int sc8810_i2c_doxfer(struct sc8810_i2c *i2c, struct i2c_msg *msgs, int n
 	sc8810_i2c_message_start(i2c, msgs);
 	
 	spin_unlock_irqrestore(&i2c->lock,flags);
-	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ * 50);
+	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ);
 	
 	ret = i2c->msg_idx;
 	/* having these next two as dev_err() makes life very 
@@ -264,18 +264,16 @@ static int sc8810_i2c_xfer(struct i2c_adapter *adap,struct i2c_msg *msgs, int nu
 	int retry;
 	int ret;
 
-        printk("I2C: num=%d,addr=%x, len=%d,data=%s", num,msgs->addr, msgs->len, msgs->buf);
+//        printk("I2C: num=%d,addr=%x, len=%d,data=%s", num,msgs->addr, msgs->len, msgs->buf);
 	for (retry = 0; retry < adap->retries; retry++) {
-		
-		printk("I2C:Retrying transmission1;  (%d)\n", retry);
+        if (retry > 0)
+		    printk("I2C:Retrying transmission (%d)\n", retry);
 
 		ret = sc8810_i2c_doxfer(i2c, msgs, num);
 
 		if (ret != -EAGAIN)
 			return ret;
 		//sc8810_i2c_2_reset(i2c);
-		
-		printk("I2C:Retrying transmission2;  (%d)\n", retry);
 
 		udelay(100);
 	}

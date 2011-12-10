@@ -153,6 +153,15 @@ static void sprd8810_i2c2pin_config(void)
 	__raw_writel(reg, (SPRD_GREG_BASE+0x0028));
 }
 
+static void sprd_i2c0_init(void)
+{
+    unsigned int value = 0x0;
+
+    value = __raw_readl(PIN_CTL_REG);
+    value |= 0x600000; // set bit21 and bit 22.
+    __raw_writel(value, PIN_CTL_REG);
+}
+
 static int __init sprd_i2c_init(void)
 {
 	sprd8810_i2c0pin_config();
@@ -174,10 +183,10 @@ static int __init sprd_i2c_init(void)
 #include <mach/mfp.h>
 
 #define SPRD_3RDPARTY_SPI_MASTER_BUS_NUM    0
-#define SPRD_3RDPARTY_SPI_MASTER_CS0_GPIO   32
-#define SPRD_3RDPARTY_SPI_MASTER_CS1_GPIO   33
-#define SPRD_3RDPARTY_SPI_MASTER_CS2_GPIO   32
-#define SPRD_3RDPARTY_SPI_MASTER_CS3_GPIO   33
+#define SPRD_3RDPARTY_SPI_MASTER_CS0_GPIO   33//32
+#define SPRD_3RDPARTY_SPI_MASTER_CS1_GPIO   32//33
+#define SPRD_3RDPARTY_SPI_MASTER_CS2_GPIO   33//32
+#define SPRD_3RDPARTY_SPI_MASTER_CS3_GPIO   32//33
 
 #define SPRD_3RDPARTY_SPI_WIFI_CS   2
 #define SPRD_3RDPARTY_SPI_CMMB_CS   3
@@ -263,23 +272,24 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_WIFI_POWER       106
 #define SPRD_3RDPARTY_GPIO_WIFI_RESET       140
 #define SPRD_3RDPARTY_GPIO_WIFI_PWD         99
-#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        139
+//#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        139
 #define SPRD_3RDPARTY_GPIO_WIFI_IRQ         141
 #define SPRD_3RDPARTY_GPIO_BT_POWER         -1
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
 #define SPRD_3RDPARTY_GPIO_BT_RTS           42
-#define SPRD_3RDPARTY_GPIO_CMMB_POWER       135
-#define SPRD_3RDPARTY_GPIO_CMMB_RESET       94
-#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         93
+#define SPRD_3RDPARTY_GPIO_CMMB_POWER       -1//135
+#define SPRD_3RDPARTY_GPIO_CMMB_RESET       138
+#define SPRD_3RDPARTY_GPIO_CMMB_IRQ         139
 #define SPRD_3RDPARTY_GPIO_TP_RST           59
 #define SPRD_3RDPARTY_GPIO_TP_IRQ           60
 #define SPRD_3RDPARTY_GPIO_PLS_IRQ          28
+#define SPRD_3RDPARTY_GPIO_MINT_IRQ          97
 
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
 int sprd_3rdparty_gpio_wifi_pwd = SPRD_3RDPARTY_GPIO_WIFI_PWD;
-int sprd_3rdparty_gpio_wifi_wake = SPRD_3RDPARTY_GPIO_WIFI_WAKE;
+//int sprd_3rdparty_gpio_wifi_wake = SPRD_3RDPARTY_GPIO_WIFI_WAKE;
 int sprd_3rdparty_gpio_wifi_irq = SPRD_3RDPARTY_GPIO_WIFI_IRQ;
 int sprd_3rdparty_gpio_bt_power = SPRD_3RDPARTY_GPIO_BT_POWER;
 int sprd_3rdparty_gpio_bt_reset = SPRD_3RDPARTY_GPIO_BT_RESET;
@@ -290,11 +300,12 @@ int sprd_3rdparty_gpio_cmmb_irq = SPRD_3RDPARTY_GPIO_CMMB_IRQ;
 int sprd_3rdparty_gpio_tp_rst = SPRD_3RDPARTY_GPIO_TP_RST;
 int sprd_3rdparty_gpio_tp_irq = SPRD_3RDPARTY_GPIO_TP_IRQ;
 int sprd_3rdparty_gpio_pls_irq	=SPRD_3RDPARTY_GPIO_PLS_IRQ;
+int sprd_3rdparty_gpio_mint_irq   = SPRD_3RDPARTY_GPIO_MINT_IRQ ;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_pwd);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_wake);
+//EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_wake);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_reset);
@@ -305,16 +316,17 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_pls_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_mint_irq);
 
 static struct gpio_desc gpio_func_cfg[] = {
 	{
 	 MFP_CFG_X(RFCTL9, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	// wifi_power_io
 	 SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
 	 "wifi pwd"},
-	{
-	 MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-	 SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-	 "wifi wake"},
+	//{
+	// MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	// SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	// "wifi wake"},
 	{
 	 MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 	 SPRD_3RDPARTY_GPIO_WIFI_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
@@ -327,17 +339,17 @@ static struct gpio_desc gpio_func_cfg[] = {
 	 MFP_CFG_X(U0RTS, AF3, DS1, F_PULL_DOWN, S_PULL_UP, IO_OE),	// BT_RTS
 	 SPRD_3RDPARTY_GPIO_BT_RTS,
 	 "BT RTS"},
+	//{
+	// MFP_CFG_X(GPIO135, AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE),	// cmmb power
+	// 135,
+	// "demod power"},
 	{
-	 MFP_CFG_X(GPIO135, AF0, DS1, F_PULL_NONE, S_PULL_UP, IO_OE),	// cmmb power
-	 135,
-	 "demod power"},
-	{
-	 MFP_CFG_X(RFCTL4, AF3, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),	// cmmb reset
-	 94,
+	 MFP_CFG_X(GPIO138, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),	// cmmb reset
+	 138,
 	 "demod reset"},
 	{
-	 MFP_CFG_X(RFCTL3, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),	// cmmb interrupt
-	 93 | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	 MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),	// cmmb interrupt
+	 139,
 	  "demod int"},
 	 {
 	MFP_CFG_X(SIMCLK3, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_OE), // TP reset
@@ -350,8 +362,12 @@ static struct gpio_desc gpio_func_cfg[] = {
 	{
 	MFP_CFG_X(KEYIN5, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
 	SPRD_3RDPARTY_GPIO_PLS_IRQ,
-	"pls int"}
-
+	"pls int"},
+    {
+	MFP_CFG_X(RFCTL7, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),
+	SPRD_3RDPARTY_GPIO_MINT_IRQ,
+	"mint drdy"
+    }	
 };
 
 static unsigned long spi_func_cfg[] = {
