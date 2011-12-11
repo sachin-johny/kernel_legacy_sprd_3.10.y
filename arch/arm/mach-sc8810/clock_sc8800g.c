@@ -732,8 +732,8 @@ static const struct clksel clk_sdio_clksel[] = {
 		{.parent = NULL}
 };
 
-static struct clk clk_sdio = {
-	.name = "clk_sdio",
+static struct clk clk_sdio0 = {
+	.name = "clk_sdio0/**/",
 	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
@@ -750,16 +750,43 @@ static struct clk clk_sdio = {
 
 	.clksel = clk_sdio_clksel,
 	.clksel_reg = IOMEM(GEN5),
-	.clksel_mask = CLK_SDIO_CLKSEL_MASK,
+	.clksel_mask = CLK_SDIO0_CLKSEL_MASK,
 
 	.enable_reg = IOMEM(AHB_CTL0),
-	.enable_bit = CLK_SDIO_EN_SHIFT,
+	.enable_bit = CLK_SDIO0_EN_SHIFT,
 	/*
 	.clkdiv_reg = IOMEM(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
 
+static struct clk clk_sdio1 = {
+	.name = "clk_sdio1",
+	.flags = DEVICE_AHB,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+	.divisor = 1,
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_sdio_clksel,
+	.clksel_reg = IOMEM(GEN5),
+	.clksel_mask = CLK_SDIO1_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_bit = CLK_SDIO1_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
 
 static const struct clksel clk_uart0_clksel[] = {
 		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_8div},
@@ -1329,7 +1356,8 @@ static struct sc88xx_clk sc8800g2_clks[] = {
 	CLK(NULL, "clk_dcam", &clk_dcam, CK_SC8800G2),
 	CLK(NULL, "clk_vsp", &clk_vsp, CK_SC8800G2),
 	CLK(NULL, "clk_lcdc", &clk_lcdc, CK_SC8800G2),
-	CLK(NULL, "clk_sdio", &clk_sdio, CK_SC8800G2),
+	CLK(NULL, "clk_sdio0", &clk_sdio0, CK_SC8800G2),
+	CLK(NULL, "clk_sdio1", &clk_sdio1, CK_SC8800G2),
 	CLK(NULL, "clk_uart0", &clk_uart0, CK_SC8800G2),
 	CLK(NULL, "clk_uart1", &clk_uart1, CK_SC8800G2),
 	CLK(NULL, "clk_uart2", &clk_uart2, CK_SC8800G2),

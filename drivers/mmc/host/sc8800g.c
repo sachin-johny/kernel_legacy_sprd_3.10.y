@@ -130,7 +130,10 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	host->ioaddr = (void __iomem *)res->start;
 
-	host->hw_name = "Spread SDIO host";
+	if (0 == pdev->id)
+			host->hw_name = "Spread SDIO host0";
+	else
+			host->hw_name = "Spread SDIO host1";
 	host->ops = &sdhci_sprd_ops;
 	/*
 		SC8800G don't have timeout value and cann't find card

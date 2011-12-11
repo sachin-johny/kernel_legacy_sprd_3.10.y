@@ -32,7 +32,8 @@
 #define		CLK_DCAM_EN_SHIFT	1
 #define		CLK_VSP_EN_SHIFT	13
 #define		CLK_LCDC_EN_SHIFT	3
-#define		CLK_SDIO_EN_SHIFT	4
+#define		CLK_SDIO0_EN_SHIFT	4
+#define     CLK_SDIO1_EN_SHIFT  19
 #define		CLK_UART0_EN_SHIFT	20
 #define		CLK_UART1_EN_SHIFT	21
 #define		CLK_UART2_EN_SHIFT	22
@@ -53,7 +54,8 @@
 #define		CLK_DCAM_CLKSEL_MASK 	(0x3UL << 4)
 #define		CLK_VSP_CLKSEL_MASK 	(0x3UL << 2)
 #define		CLK_LCDC_CLKSEL_MASK 	(0x3UL << 6)
-#define		CLK_SDIO_CLKSEL_MASK 	(0x3UL << 17)
+#define		CLK_SDIO0_CLKSEL_MASK 	(0x3UL << 17)
+#define     CLK_SDIO1_CLKSEL_MASK   (0x3UL << 19)
 #define		CLK_UART0_CLKSEL_MASK 	(0x3UL << 20)
 #define		CLK_UART1_CLKSEL_MASK 	(0x3UL << 22)
 #define		CLK_UART2_CLKSEL_MASK 	(0x3UL << 24)

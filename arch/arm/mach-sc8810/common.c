@@ -233,31 +233,49 @@ void __init sprd_add_devices(void)
 
 #define SPRD_SDIO_SLOT0_BASE SPRD_SDIO_BASE
 
-#define SD_DETECT_GPIO	101
-static struct resource sprd_sdio_resource[] = {
-	[0] = {
-		.start = SPRD_SDIO0_BASE,
-		.end   = SPRD_SDIO0_BASE + SPRD_SDIO0_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = SD_DETECT_GPIO,
-		.end   = SD_DETECT_GPIO,
-		.flags = IORESOURCE_MEM,
-	},
-	[2] = {
-		.start = IRQ_SDIO_INT,
-		.end   = IRQ_SDIO_INT,
-		.flags = IORESOURCE_IRQ,
-	}
-};
+#define SD0_DETECT_GPIO        101
+#define SD1_DETECT_GPIO        100
 
-struct platform_device sprd_sdio_device = {
-	.name		= "sprd-sdhci",
-	.id		= 0,
-	.num_resources	= ARRAY_SIZE(sprd_sdio_resource),
-	.resource	= sprd_sdio_resource,
-};
+#define SDIO_RESOURCE_BUILDER(base, size, detect_gpio, irq)                    \
+       {       \
+               {       \
+                       .start = base,  \
+                       .end   = base + size - 1,       \
+                       .flags = IORESOURCE_MEM,        \
+               },      \
+               {       \
+                       .start = detect_gpio,   \
+                       .end   = detect_gpio,   \
+                       .flags = IORESOURCE_MEM,        \
+               },      \
+               {       \
+                       .start = irq,   \
+                       .end   = irq,   \
+                       .flags = IORESOURCE_IRQ,        \
+               },      \
+        }
+
+static struct resource sprd_sdio_resource[][3] = {
+       /*sdio0*/
+       SDIO_RESOURCE_BUILDER(SPRD_SDIO0_BASE, SPRD_SDIO0_SIZE, SD0_DETECT_GPIO, IRQ_SDIO0_INT),
+       /*sdio1*/
+       SDIO_RESOURCE_BUILDER(SPRD_SDIO1_BASE, SPRD_SDIO1_SIZE, SD1_DETECT_GPIO, IRQ_SDIO1_INT)
+ };
+
+
+#define SDIO_DEV_BUILDER(bus_id, res)          \
+       {       \
+               .name           = "sprd-sdhci", \
+               .id     = (bus_id),     \
+               .num_resources  = ARRAY_SIZE(res),      \
+               .resource       = (res),        \
+       }
+
+struct platform_device sprd_sdio_device[] = {
+       SDIO_DEV_BUILDER(0, sprd_sdio_resource[0]),
+       SDIO_DEV_BUILDER(1, sprd_sdio_resource[1])
+ };
+
 
 static unsigned long sdio_func_cfg[] __initdata = {
 	MFP_CFG_X(SD0_CLK, AF0, DS3, F_PULL_NONE, S_PULL_NONE, IO_Z),
@@ -280,21 +298,27 @@ static void sprd_config_sdio_pins(void)
 void __init sprd_add_sdio_device(void)
 {
 	int err;
-	/* Enable SDIO Module */
+	/* Enable SDIO0 Module */
 	__raw_bits_or(BIT_4, AHB_CTL0);
-	/* reset sdio module*/
+	/* reset sdio0 module*/
 	__raw_bits_or(BIT_12, AHB_SOFT_RST);
 	__raw_bits_and(~BIT_12, AHB_SOFT_RST);
 
+	/* Enable SDIO1 Module */
+	__raw_bits_or(BIT_19, AHB_CTL0);
+	/* reset sdio1 module*/
+	__raw_bits_or(BIT_16, AHB_SOFT_RST);
+	__raw_bits_and(~BIT_16, AHB_SOFT_RST);
+
 	sprd_config_sdio_pins();
-	err = gpio_request(SD_DETECT_GPIO, "sdcard detect");
+	err = gpio_request(SD0_DETECT_GPIO, "sdcard detect");
 	if (err) {
 		pr_warning("cannot alloc gpio for sdcard detect\r\n");
 		return;
 	}
-	gpio_direction_input(SD_DETECT_GPIO);
-
-	platform_device_register(&sprd_sdio_device);
+	gpio_direction_input(SD0_DETECT_GPIO);
+	platform_device_register(&sprd_sdio_device[0]);
+	platform_device_register(&sprd_sdio_device[1]);
 }
 
 static struct resource sprd_otg_resource[] = {

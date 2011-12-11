@@ -70,7 +70,7 @@
 #define IRQ_ISP_INT		27
 #define IRQ_NLC_INT		28
 #define IRQ_LCDC_INT		29
-#define IRQ_SDIO_INT		30
+#define IRQ_SDIO0_INT		30
 
 #define IRQ_BM0_INT		31
 #define IRQ_BM1_INT		31
