@@ -21,6 +21,7 @@
 #include "aud_enha.h"
 #include <linux/delay.h>
 #include "sci_types.h"
+#include <linux/time.h> 
 
 
 
@@ -41,9 +42,9 @@
 
 
 #define HPF_FADE_OUT_TOTAL_TIME 10      //ms  range:25-50
-#define HPF_FADE_OUT_GAIN_SET_TIMES 10
+#define HPF_FADE_OUT_GAIN_SET_TIMES 20
 #define HPF_FADE_IN_TOTAL_TIME 10      //ms  range:25-50
-#define HPF_FADE_IN_GAIN_SET_TIMES 10
+#define HPF_FADE_IN_GAIN_SET_TIMES 20
 
 #define BAND_FADE_OUT_TOTAL_TIME 8      //ms  range:25-50
 #define BAND_FADE_OUT_GAIN_SET_TIMES 8
@@ -73,7 +74,7 @@ LOCAL void AUDENHA_FadeOut(
     {
         step_value[i]   = ori_gain_ptr->s[i]/fade_out_set_times;
     }
-    step_time    = fade_out_total_time/fade_out_set_times;
+    step_time    = fade_out_total_time*1000/fade_out_set_times;  //us
     
     //fade out step by step
     for(j=1;j<=fade_out_set_times;j++)
@@ -83,7 +84,7 @@ LOCAL void AUDENHA_FadeOut(
             VB_SetHpfGain(i, (ori_gain_ptr->s[i]-j*step_value[i]));  
         }
 
-        msleep(step_time);  //ms
+        udelay(step_time);  //us
     }
 
     //set all gain to 0 finally
@@ -114,7 +115,7 @@ LOCAL void AUDENHA_FadeIn(
     {
         step_value[i]   = dest_gain_ptr->s[i]/fade_in_set_times;
     }
-    step_time    = fade_in_total_time/fade_in_set_times;
+    step_time    = fade_in_total_time*1000/fade_in_set_times;   //us
     
     for(j=1;j<=fade_in_set_times;j++)
     {     
@@ -122,8 +123,7 @@ LOCAL void AUDENHA_FadeIn(
         {
             VB_SetHpfGain(i, (j*step_value[i]));  
         }
-        
-        msleep(step_time);
+        udelay(step_time);		//us
     }
 
     //set all gain to dest  gain finally

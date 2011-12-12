@@ -306,7 +306,7 @@ PUBLIC void AUDDEV_SetPGA (uint32_t uiChannel, uint32_t uiGain)
     // GOL/R gain
     hp_pga = ( (uiGain & DOL_DAC_GO_MASK) >> DOL_DAC_GO_SHIFT);
 
-    printk ("AUDDEV_SetPGA 0x%x, 0x%x, vol_p1=0x%x, vol_p2=0x%x",
+    printk ("AUDDEV_SetPGA 0x%x, 0x%x, vol_p1=0x%x, vol_p2=0x%x \n",
                    uiChannel, uiGain, dac_pga, hp_pga);
 
     pga.dac_pga_l = dac_pga;
