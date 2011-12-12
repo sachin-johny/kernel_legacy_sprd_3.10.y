@@ -715,7 +715,8 @@ static void _ISP_ServiceStartJpeg(void)
 				                                   (void*)&s->input_range);
 	ISP_RTN_IF_ERR(rtn_drv);
 
-	if(s->is_slice)
+	//if(s->is_slice)
+	if((s->encoder_size.w>960)&&(s->cap_output_size.w!=s->encoder_size.w))
 	{
 		output_size.w = s->cap_output_size.w;
 		output_size.h = s->cap_output_size.h;    	    	       
@@ -756,7 +757,7 @@ static void _ISP_ServiceStartJpeg(void)
 exit:
 
 	if(rtn_drv)
-	{
+	{  		
 		DCAM_TRACE_ERR("DCAM:start jpeg driver error code 0x%x",rtn_drv);	
 	}
 	else
@@ -958,6 +959,37 @@ static ISP_DCAM_PATH1_OUT_FORMAT_E dcam_outformat_convert(DCAM_DATA_FORMAT_E inp
 #define DCAMERA_PIXEL_ALIGNED               4 
 #define DCAMERA_WIDTH(w)                    ((w)& ~(DCAMERA_PIXEL_ALIGNED - 1))
 #define DCAMERA_HEIGHT(h)                   ((h)& ~(DCAMERA_PIXEL_ALIGNED - 1))
+
+void dcam_get_zoom_trim(ISP_RECT_T *trim_rect,uint32_t zoom_level)
+{
+	uint32_t zoom_step_w,zoom_step_h;
+	uint32_t trim_width=trim_rect->w,trim_height=trim_rect->h;
+
+	if(0 == zoom_level)
+		return;
+	DCAM_TRACE_HIGH("DCAM:dcam_get_zoom_trim ,level =%d,x=%d,y=%d,w=%d,h=%d .\n",
+		                                       zoom_level,trim_rect->x,trim_rect->y,trim_rect->w,trim_rect->h);
+	
+	zoom_step_w = ZOOM_STEP(trim_width);
+	zoom_step_w &= ~1;
+	zoom_step_w *= zoom_level;
+
+	zoom_step_h = ZOOM_STEP(trim_height);
+	zoom_step_h &= ~1;
+	zoom_step_h *= zoom_level;
+	trim_width = trim_width-zoom_step_w;
+	trim_height = trim_height-zoom_step_h;
+
+	trim_rect->x = ( trim_rect->w-trim_width)/2 ;
+	trim_rect->x &= ~1;
+	trim_rect->y = (trim_rect->h -trim_height)/2;
+	trim_rect->y &= ~1;
+
+	trim_rect->w = DCAMERA_WIDTH(trim_width);
+	trim_rect->h = DCAMERA_HEIGHT(trim_height);
+	DCAM_TRACE_HIGH("DCAM:dcam_get_zoom_trim,x=%d,y=%d,w=%d,h=%d .\n",trim_rect->x,trim_rect->y,trim_rect->w,trim_rect->h);
+}
+
 static void ISP_ServiceSetParameters(void)
 {
 	ISP_SERVICE_T         *s = &s_isp_service;
@@ -1143,7 +1175,7 @@ void dcam_get_jpg_len(uint32_t *len)
 	*len = 0;
 	
 	ISP_DriverCapGetInfo(s->module_addr,ISP_CAP_JPEG_GET_LENGTH,len);
-//	DCAM_TRACE("DCAM:ISP_ServiceGetJpgLen len=%d .\n",*len); 
+	printk("DCAM:ISP_ServiceGetJpgLen len=%d .\n",*len); 
 	return;	
 }
 int dcam_stop(void)

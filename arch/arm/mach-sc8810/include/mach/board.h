@@ -45,8 +45,8 @@ void __init sprd_gpu_init(void);
  *  1M - Rotation
  *  1M - scaling
  */
-#define SPRD_PMEM_SIZE          (8*1024*1024)
-#define SPRD_PMEM_ADSP_SIZE   (8*1024*1024)//  (7*1024*1024)
+#define SPRD_PMEM_SIZE          (2*1024*1024)
+#define SPRD_PMEM_ADSP_SIZE   (22*1024*1024)//  (7*1024*1024)
 #define SPRD_ROT_MEM_SIZE       (1024*512)
 #define SPRD_SCALE_MEM_SIZE    (1024*512)
 #define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \

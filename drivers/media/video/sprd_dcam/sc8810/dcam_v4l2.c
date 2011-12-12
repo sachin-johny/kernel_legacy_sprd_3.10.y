@@ -560,6 +560,7 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,struct v4l2_form
 	enum v4l2_field field;
 	unsigned int maxw, maxh;
 	unsigned int temp = 0;
+	ISP_RECT_T trim_rect;
 
 	fmt = get_format(f);
 	if (!fmt) {
@@ -580,9 +581,9 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,struct v4l2_form
 	maxw  = norm_maxw();
 	maxh  = norm_maxh();
 
-	if(1 == f->fmt.raw_data[0])
+	if(1 == f->fmt.raw_data[199])
 	{
-		if(3 != f->fmt.raw_data[1])//180 degree
+		if(3 != f->fmt.raw_data[198])//180 degree
 		{
 			temp = maxw;
 			maxw = maxh;
@@ -594,7 +595,20 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,struct v4l2_form
 	v4l_bound_align_image(&f->fmt.pix.width, 48, maxw, 2,&f->fmt.pix.height, 32, maxh, 0, 0);
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * fmt->depth) >> 3;
 	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
-
+#if 1
+	if((f->fmt.raw_data[197]!=0)&&(f->fmt.pix.width>960))
+	{
+		trim_rect.x = 0;
+		trim_rect.y = 0;
+		trim_rect.w = f->fmt.pix.width;
+		trim_rect.h = f->fmt.pix.height;
+		DCAM_V4L2_PRINT("V4L2: vidioc_try_fmt_vid_cap 0: w=%d,h=%d .\n",f->fmt.pix.width,f->fmt.pix.height);
+		dcam_get_zoom_trim(&trim_rect,f->fmt.raw_data[2]);
+		DCAM_V4L2_PRINT("V4L2: vidioc_try_fmt_vid_cap 1: w=%d,h=%d .\n",f->fmt.pix.width,f->fmt.pix.height);
+		f->fmt.pix.width = trim_rect.w;
+		f->fmt.pix.height = trim_rect.h;
+	}
+#endif
 	return 0;
 }
 
