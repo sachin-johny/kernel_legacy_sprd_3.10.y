@@ -109,10 +109,35 @@ static struct sc8810_platform_i2c sc8810_i2c_default_platform = {
 	.fast_freq	= 400*1000,
 	.min_freq	= 10*1000,
 };
-
-
+static struct sc8810_i2c  *wyl_i2c;
+static void sc8810_i2c_2_reset(struct sc8810_i2c *i2c);
 static inline struct sc8810_platform_i2c *sc8810_i2c_get_platformdata(struct device *dev);
 static void set_i2c_clk(struct sc8810_i2c *i2c,unsigned int freq);
+static ssize_t i2c_reset(struct device* cd, struct device_attribute *attr,
+		       const char* buf, size_t len);
+
+static DEVICE_ATTR(reset, S_IRUGO | S_IWUSR, NULL, i2c_reset);
+
+static ssize_t i2c_reset(struct device* cd, struct device_attribute *attr,
+		       const char* buf, size_t len)
+{
+	printk("%s\n",__func__);
+	sc8810_i2c_2_reset(wyl_i2c);
+	return len;
+}
+
+static int i2c_create_sysfs(struct platform_device *pdev)
+{
+	int err;
+	struct device *dev = &(pdev->dev);
+	
+	err = device_create_file(dev, &dev_attr_reset);
+
+	return err;
+}
+
+
+
 /* sc8810_i2c_wait_exec
  *
  * wait i2c cmd executable
@@ -234,7 +259,7 @@ static int sc8810_i2c_doxfer(struct sc8810_i2c *i2c, struct i2c_msg *msgs, int n
 	sc8810_i2c_message_start(i2c, msgs);
 	
 	spin_unlock_irqrestore(&i2c->lock,flags);
-	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ);
+	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ * 50);
 	
 	ret = i2c->msg_idx;
 	/* having these next two as dev_err() makes life very 
@@ -264,6 +289,7 @@ static int sc8810_i2c_xfer(struct i2c_adapter *adap,struct i2c_msg *msgs, int nu
 	int retry;
 	int ret;
 
+	wyl_i2c = i2c;
 //        printk("I2C: num=%d,addr=%x, len=%d,data=%s", num,msgs->addr, msgs->len, msgs->buf);
 	for (retry = 0; retry < adap->retries; retry++) {
         if (retry > 0)
@@ -711,6 +737,8 @@ static int sc8810_i2c_probe(struct platform_device *pdev)
 		goto err_adap;
 	}
 	platform_set_drvdata(pdev, i2c);
+
+	i2c_create_sysfs(pdev);
 
 	return 0;
 
