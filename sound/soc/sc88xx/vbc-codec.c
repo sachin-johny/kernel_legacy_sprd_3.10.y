@@ -316,7 +316,8 @@ static void vbc_set_ctrl2arm(void)
     msleep(1);
 }
 
-#if defined(CONFIG_ARCH_SC8800G)
+#if defined(CONFIG_ARCH_SC8800G) || \
+    defined(CONFIG_ARCH_SC8810)
 u16 __raw_adi_read(u32 addr)
 {
     u32 adi_data, phy_addr;
@@ -375,6 +376,12 @@ static void vbc_ldo_on(bool on)
             __raw_adi_or(1 << 15, ANA_LDO_PD_CTL);
             do_on_off = 1;
         }
+#elif defined(CONFIG_ARCH_SC8810)
+        if (!(__raw_adi_read(ANA_LDO_PD_CTL0) & (1 << 15))) {
+            __raw_adi_and(~(1 << 14), ANA_LDO_PD_CTL0);
+            __raw_adi_or(1 << 15, ANA_LDO_PD_CTL0);
+            do_on_off = 1;
+        }
 #endif
     } else {
 #ifdef CONFIG_ARCH_SC8800S
@@ -386,6 +393,12 @@ static void vbc_ldo_on(bool on)
         if ((__raw_adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
             __raw_adi_and(~(1 << 15), ANA_LDO_PD_CTL);
             __raw_adi_or((1 << 14), ANA_LDO_PD_CTL);
+            do_on_off = 1;
+        }
+#elif defined(CONFIG_ARCH_SC8810)
+        if ((__raw_adi_read(ANA_LDO_PD_CTL0) & (1 << 15))) {
+            __raw_adi_and(~(1 << 15), ANA_LDO_PD_CTL0);
+            __raw_adi_or((1 << 14), ANA_LDO_PD_CTL0);
             do_on_off = 1;
         }
 #endif
@@ -406,6 +419,11 @@ static void vbc_set_mainclk_to12M(void)
     __raw_bits_or(1 << 29, GR_CLK_DLY); // CLK_ADI_EN_ARM and CLK_ADI_SEL=76.8MHZ
     __raw_adi_or(1 << 15, ANA_LDO_PD_CTL);
     __raw_adi_or(VBMCLK_ARM_EN | VBCTL_SEL, ANA_CLK_CTL);
+#elif defined(CONFIG_ARCH_SC8810)
+    __raw_bits_or(GEN0_VB_EN | GEN0_ADI_EN, GR_GEN0); // Enable voiceband module
+    __raw_bits_or(1 << 29, GR_CLK_DLY); // CLK_ADI_EN_ARM and CLK_ADI_SEL=76.8MHZ
+    __raw_adi_or(1 << 15, ANA_LDO_PD_CTL0);
+	__raw_adi_or(0x1 | 0x2, ANA_AUDIO_CTRL);
 #endif
 }
 
@@ -750,7 +768,8 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
     vbc_reg_VBCR1_set(BYPASS, 0); // Analog bypass not route to mixer
     vbc_reg_VBCR1_set(DACSEL, 1); // route DAC to mixer
     vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
     vbc_reg_VBCR1_set(MONO, 0); // stereo DAC left & right channel
     vbc_reg_VBCR1_set(HP_DIS, 0); // route mixer audio data to headphone outputs
     vbc_reg_VBCR1_set(BYPASS, 0); // Analog bypass not route to mixer
@@ -829,7 +848,8 @@ static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
     reg |= ARM_VB_BASE2;
 #ifdef CONFIG_ARCH_SC8800S
     return __raw_readl(reg);
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
     return adi_read(reg);
 #endif
 }
@@ -843,7 +863,8 @@ static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int
     vbc_write_callback(reg, val);
 #ifdef CONFIG_ARCH_SC8800S
     __raw_writel(val, reg);
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
     adi_write(val, reg);
 #endif
     return 0;
@@ -1165,7 +1186,7 @@ int vbc_resume(struct platform_device *pdev)
 #define vbc_suspend NULL
 #define vbc_resume  NULL
 #endif
-
+#if defined(CONFIG_ARCH_SC8800G)
 #define local_cpu_pa_control(x) \
 do { \
     if (x) { \
@@ -1175,6 +1196,18 @@ do { \
         ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1555); \
     } \
 } while (0)
+#elif defined(CONFIG_ARCH_SC8810)
+#define local_cpu_pa_control(x) \
+do { \
+    if (x) { \
+        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x1181);  \
+        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1e41); \
+    } else { \
+        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x182); \
+        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1242); \
+    } \
+} while (0)
+#endif
 
 #if     defined(CONFIG_ARCH_SC8800S)             || \
         defined(CONFIG_MACH_SP6810A)
@@ -1206,6 +1239,7 @@ static inline int local_amplifier_enabled(void)
 }
 #elif   defined(CONFIG_MACH_SP8805GA)           || \
         defined(CONFIG_MACH_OPENPHONE)          || \
+        defined(CONFIG_MACH_SP8810)             || \
         defined(CONFIG_MACH_SC8810OPENPHONE)
 
 #if defined(CONFIG_MACH_SP8805GA)
@@ -1237,11 +1271,19 @@ static inline void local_amplifier_enable(int enable)
 static inline int local_amplifier_enabled(void)
 {
     if (sprd_local_audio_pa_mode) {
+#if defined(CONFIG_ARCH_SC8800G)
         u32 value = ADI_Analogdie_reg_read(ANA_PA_CTL);
         switch (value) {
             case 0x5A5A: return 1;
             default : return 0;
         }
+#elif defined(CONFIG_ARCH_SC8810)
+        u32 value = ADI_Analogdie_reg_read(ANA_AUDIO_PA_CTRL0);
+        switch (value) {
+            case 0x1181: return 1;
+            default : return 0;
+        }
+#endif
     } else {
         printk("vbc not support outside PA\n");
         return 0;

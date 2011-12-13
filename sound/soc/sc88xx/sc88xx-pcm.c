@@ -279,7 +279,8 @@ void stop_cpu_dma(struct snd_pcm_substream *substream)
     struct sc88xx_runtime_data *rtd = substream->runtime->private_data;
 #ifdef CONFIG_ARCH_SC8800S
     __raw_bits_and(~rtd->dma_channel, DMA_CHx_EN);
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
     __raw_bits_or(rtd->dma_channel, DMA_CHx_DIS);
 #endif
 }

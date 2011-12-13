@@ -194,7 +194,8 @@ enum {
 
 #ifdef CONFIG_ARCH_SC8800S
 #define ARM_VB_BASE2 ARM_VB_BASE
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
 #define ANA_DOLPHIN_BASE SPRD_ADI_BASE      // 0x82000100 Analog die register, must use adi_analogdie_read/write
 #define ARM_VB_BASE2 ANA_DOLPHIN_BASE
 #endif
@@ -222,7 +223,8 @@ enum {
 #ifdef CONFIG_ARCH_SC8800S
 #define SPRD_VBC_ALSA_CTRL2ARM_REG  AHB_MISC
 #include <mach/power_manager.h>
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
 #define SPRD_VBC_ALSA_CTRL2ARM_REG  GR_BUSCLK
 #include <mach/regs_ahb.h>
 #include <mach/regs_global.h>
@@ -272,7 +274,8 @@ static inline u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
     tmp |= val << shift;
     __raw_writel(tmp, reg);
     raw_local_irq_restore(flags);
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
     unsigned long flags;
     u32 tmp, ret;
     raw_local_irq_save(flags);
@@ -299,7 +302,8 @@ static inline u32 vbc_reg_read(u32 reg, u8 shift, u32 mask)
     // tmp |= val << shift;
     // __raw_writel(tmp, reg);
     raw_local_irq_restore(flags);
-#elif defined(CONFIG_ARCH_SC8800G)
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
     unsigned long flags;
     u32 tmp;
     raw_local_irq_save(flags);
