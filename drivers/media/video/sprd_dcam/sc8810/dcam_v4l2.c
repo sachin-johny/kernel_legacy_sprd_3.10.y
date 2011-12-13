@@ -924,13 +924,13 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	for(i = 0; i < 4; i++)
 		dev->streamparm.parm.capture.reserved[i] = streamparm->parm.capture.reserved[i];
 
-	if(1 == streamparm->parm.raw_data[0])
+	if(1 == streamparm->parm.raw_data[199])
 	{
-		if(0 == streamparm->parm.raw_data[1])
+		if(0 == streamparm->parm.raw_data[198])
 		{			
 			sensor_id = 0;
 		}
-		else if(1 == streamparm->parm.raw_data[1])
+		else if(1 == streamparm->parm.raw_data[198])
 		{			
 			sensor_id = 1;
 		}			
@@ -939,17 +939,17 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	{		
 		sensor_id = 0;
 	}
-	if(1 == streamparm->parm.raw_data[2])
+	if(1 == streamparm->parm.raw_data[197])
 	{
-		if(1 == streamparm->parm.raw_data[3])
+		if(1 == streamparm->parm.raw_data[196])
 		{
 			g_dcam_info.rot_angle = DCAM_ROTATION_90;
 		}
-		else if( 2 == streamparm->parm.raw_data[3])
+		else if( 2 == streamparm->parm.raw_data[196])
 		{
 			g_dcam_info.rot_angle = DCAM_ROTATION_270;			
 		}
-		else if(3 == streamparm->parm.raw_data[3])
+		else if(3 == streamparm->parm.raw_data[196])
 		{
 			g_dcam_info.rot_angle = DCAM_ROTATION_180;
 		}		
