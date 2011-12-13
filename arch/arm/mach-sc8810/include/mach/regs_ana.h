@@ -1,7 +1,7 @@
 /*
  *  linux/arch/arm/mach-sc8810/include\mach
  *
- *  Spreadtrum ldo control 
+ *  Spreadtrum ldo control
  *
  *
  *  Author:	steve.zhan@spreadtrum.com
@@ -140,6 +140,8 @@
 #define ANA_LDO_PD_SET_MSK  0x3FF
 ///ANA_LDO_PD_CTL
 #define ANA_LDO_PD_CTL_MSK  0x5555
+///ANA_LDO_RST_MSK
+#define ANA_LDO_PD_RST_MSK  0x0000
 
 ///ANA_VIBRATOR_CTRL0 BIT map
 #define VIBR_STABLE_V_SHIFT	12
@@ -164,6 +166,7 @@
 #define CHGR_ADAPTER_CHG_SHIFT          6
 #define CHGR_ADAPTER_CHG_MSK            (3 << CHGR_ADAPTER_CHG_SHIFT)
 #define CHGR_PD_BIT                     			BIT_8
+#define PA_LDO_EN_RST					BIT_9
 #define CHGR_RECHG_BIT                  		BIT_12
 #define CHGR_ADATPER_EN_BIT             	BIT_0
 #define CHGR_ADATPER_EN_RST_BIT       	BIT_1
@@ -211,8 +214,8 @@
 #define ANA_G2_CHIP_ID          ((unsigned short)1)
 
 
-/**************************************** 
-  * add bit definitions used by power management. 
+/****************************************
+  * add bit definitions used by power management.
   *
   *  Wang liwei. 2011-01-18
   *

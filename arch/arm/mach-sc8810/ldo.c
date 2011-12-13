@@ -1,7 +1,7 @@
 /*
  *  linux/arch/arm/mach-sc8810/ldo.c
  *
- *  Spreadtrum ldo control 
+ *  Spreadtrum ldo control
  *
  *
  *  Author:	steve.zhan@spreadtrum.com
@@ -68,7 +68,7 @@ struct ldo_ctl_info {
 	unsigned int b1;
 	unsigned int b1_rst;
 
-	unsigned int init_level; 	
+	unsigned int init_level;
 /**
 	not need config area
 */
@@ -450,7 +450,7 @@ static struct ldo_ctl_info* LDO_GetLdoCtl(LDO_ID_E ldo_id)
 {
 	int i = 0;
 	struct ldo_ctl_info* ctl = NULL;
-	
+
 	///ldo_id = LDO_DCDCARM;//for test....
 	for ( i = 0; i < ARRAY_SIZE(ldo_ctl_data); ++i) {
 		if (ldo_ctl_data[i].id == ldo_id) {
@@ -472,7 +472,7 @@ LDO_ERR_E LDO_TurnOnLDO(LDO_ID_E ldo_id)
 
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
-	
+
 	spin_lock_irqsave(&ldo_lock, flags);
 	printk("\n:::::::::::::::::::::::::LDO ctl->ref:%d\n",ctl->ref);
 	printk("\n:::::::::::::::::::::::::LDO ctl->current_status:%d\n",ctl->current_status);
@@ -488,18 +488,18 @@ LDO_ERR_E LDO_TurnOnLDO(LDO_ID_E ldo_id)
 				__raw_bits_and((~LDO_USB_PD), GR_CLK_GEN5);
 
 		} else {
-			//REG_SETCLRBIT(ctl->bp_rst_reg, ctl->bp_rst, ctl->bp_bits);	
+			//REG_SETCLRBIT(ctl->bp_rst_reg, ctl->bp_rst, ctl->bp_bits);
 			ANA_REG_OR(ctl->bp_rst_reg, ctl->bp_rst);
 		}
 		ctl->current_status = CURRENT_STATUS_ON;
 	}
-	
+
 	printk("\n:::::::::::::::::::::::::LDO GETctl->bp_reg:%x\n", ANA_REG_GET(ctl->bp_reg));
-	
+
 	spin_unlock_irqrestore(&ldo_lock, flags);
 	printk(":::::::::::::::::::::::::LDO_TurnOnLDO ENd:::::::::::::::::::::::::");
 	return LDO_ERR_OK;
-} 
+}
 EXPORT_SYMBOL_GPL(LDO_TurnOnLDO);
 
 
@@ -507,7 +507,7 @@ EXPORT_SYMBOL_GPL(LDO_TurnOnLDO);
 {
 	struct ldo_ctl_info* ctl = NULL;
 	unsigned long flags;
-	
+
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
 
@@ -554,7 +554,7 @@ EXPORT_SYMBOL_GPL(LDO_TurnOffLDO);
 
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
-	
+
 	spin_lock_irqsave(&ldo_lock, flags);
 	if(ctl->level_reg_b0 == ctl->level_reg_b1) {
 		if (ctl->level_reg_b0 == LDO_INVALID_REG_ADDR)
@@ -569,11 +569,11 @@ EXPORT_SYMBOL_GPL(LDO_TurnOffLDO);
 			SET_LEVELBIT(ctl->level_reg_b1, b1_mask, ctl->b1, ctl->b1_rst);
 		}
 	}
-	
+
 	ctl->current_volt_level = volt_level;
 	spin_unlock_irqrestore(&ldo_lock, flags);
 	return LDO_ERR_OK;
-Err_Exit:	
+Err_Exit:
 	spin_unlock_irqrestore(&ldo_lock, flags);
 	return LDO_ERR_ERR;
 }
@@ -588,7 +588,7 @@ Err_Exit:
 
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
-	
+
 	spin_lock_irqsave(&ldo_lock, flags);
 	if (ctl->current_volt_level == LDO_VOLT_LEVEL_FAULT_MAX) {
 		if(ctl->level_reg_b0 == ctl->level_reg_b1) {
@@ -601,7 +601,7 @@ Err_Exit:
 	else
 	{
 		level_ret = ctl->current_volt_level;
-	}	
+	}
 	spin_unlock_irqrestore(&ldo_lock, flags);
 
 	return level_ret;
@@ -618,7 +618,7 @@ static void LDO_DeepSleepInit(void)
 	for ( i = 0; i < ARRAY_SIZE(slp_ldo_ctl_data); ++i) {
 		aux = ANA_REG_GET(slp_ldo_ctl_data[i].ldo_sleep_reg);
 		aux &= ~slp_ldo_ctl_data[i].mask;
-		aux |= slp_ldo_ctl_data[i].value;		
+		aux |= slp_ldo_ctl_data[i].value;
 		ANA_REG_SET(slp_ldo_ctl_data[i].ldo_sleep_reg, aux);
 	}
 	spin_unlock_irqrestore(&ldo_lock, flags);
@@ -633,7 +633,7 @@ int __init LDO_Init(void)
 			LDO_SetVoltLevel(ldo_ctl_data[i].id, ldo_ctl_data[i].init_level);
 		}
 		ldo_ctl_data[i].ref = 0;
-		ldo_ctl_data[i].current_status = CURRENT_STATUS_INIT;		
+		ldo_ctl_data[i].current_status = CURRENT_STATUS_INIT;
 		ldo_ctl_data[i].current_volt_level = ldo_ctl_data[i].init_level;
 	}
 
@@ -645,19 +645,21 @@ int __init LDO_Init(void)
 
 static void LDO_TurnOffCoreLDO(void)
 {
-//	ANA_REG_SET (ANA_LDO_PD_SET, ANA_LDO_PD_SET_MSK);   /// turn off system core ldo
+	ANA_REG_SET (ANA_LDO_PD_SET, ANA_LDO_PD_SET_MSK);/// turn off system core ldo
 }
 
 static void LDO_TurnOffAllModuleLDO(void)
 {
-//	ANA_REG_SET (ANA_LDO_PD_CTL, ANA_LDO_PD_CTL_MSK);               ///turn off all module ldo
-//	ANA_REG_MSK_OR (ANA_PA_CTL, LDO_PA_SET, (LDO_PA_SET|LDO_PA_RST)); ///PA poweroff
+	ANA_REG_OR(ANA_AUDIO_PA_CTRL1, PA_LDO_EN_RST);///PA poweroff
+	ANA_REG_SET (ANA_LDO_PD_CTL1, ANA_LDO_PD_CTL_MSK);
+	ANA_REG_SET (ANA_LDO_PD_CTL0, ANA_LDO_PD_CTL_MSK);
+	ANA_REG_SET (ANA_LDO_PD_RST, ANA_LDO_PD_RST_MSK);
 }
 
 void LDO_TurnOffAllLDO(void)
 {
-//	LDO_TurnOffAllModuleLDO();
-//	LDO_TurnOffCoreLDO();
+	LDO_TurnOffAllModuleLDO();
+	LDO_TurnOffCoreLDO();
 }
 
 arch_initcall(LDO_Init);
