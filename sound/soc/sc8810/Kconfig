@@ -1,9 +1,0 @@
-menu "SoC Audio for the SPREADTRUM SC88XX"
-
-config SND_SC8810_SOC_SPRDPHONE
-	tristate "sprdphone -- SoC Audio for the SPREADTRUM SC8810 chips with intergrated VBC Dolphin codec"
-    select SND_PCM
-    help
-      Say Y if you want to built in to kernel, Say M for ko module.
-
-endmenu

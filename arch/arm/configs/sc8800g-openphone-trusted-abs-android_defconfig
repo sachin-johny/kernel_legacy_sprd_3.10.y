@@ -1,6 +1,6 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.35-sprd-redbend
+# Linux kernel version: 2.6.35.7
 # Wed Nov 16 17:32:26 2011
 #
 CONFIG_NKERNEL=y
