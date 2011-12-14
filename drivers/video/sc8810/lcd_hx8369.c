@@ -299,7 +299,6 @@ static int32_t hx8369_set_direction(struct lcd_spec *self, uint16_t direction)
 static int32_t hx8369_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 {
 	Send_data send_cmd = self->info.mcu->ops->send_cmd;
-	Send_data send_data = self->info.mcu->ops->send_data;
 
 	if(is_sleep) {
 		//Sleep In
@@ -348,9 +347,9 @@ static struct timing_mcu lcd_hx8369_timing = {
 	.rcss = 80,
 	.rlpw = 200,
 	.rhpw = 200,
-	.wcss = 40,
-	.wlpw = 160,
-	.whpw = 160,
+	.wcss = 10,
+	.wlpw = 40,
+	.whpw = 40,
 };
 
 static struct info_mcu lcd_hx8369_info = {

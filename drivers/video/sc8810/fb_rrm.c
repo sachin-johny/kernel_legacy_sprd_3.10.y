@@ -47,6 +47,7 @@
 #define DEFAULT_BUF_NUM 2
 
 static struct rrmanager rrm;
+static struct semaphore lcdc_done_wait;
 
 /* assumed to be called with irq off, so no race condition to be worry about.
  * return available num */ 
@@ -206,6 +207,8 @@ int rrm_refresh(int id, void (*callback)(void* data), void *data)
 	unsigned long flags;
 	struct rr r = {callback, data};
 
+	down(&lcdc_done_wait);	
+
 	/* acquire lcdc first */
 	if(lm_acquire(id)) {
 		printk(KERN_ERR "lm_acquire failed!\n");
@@ -242,6 +245,8 @@ void rrm_interrupt(struct rrmanager *rrm)
 {
 	int i;
 	int cnt = 0;
+
+	up(&lcdc_done_wait);	
 
 	/* invoke callbacks of the requests */
 	for(i=0; i< rrm->layer_num; i++) {
@@ -330,6 +335,8 @@ EXPORT_SYMBOL(rrm_layer_exit);
 struct rrmanager* rrm_init(void (*hw_refresh)(void *p), void *para)
 {
         int i;
+
+	sema_init(&lcdc_done_wait, 1);
 
         rrm.frame_state = FS_IDLE;
         rrm.layer_num = LID_OSD2; /* FIXME: hardcoded layer usage */
