@@ -72,6 +72,11 @@ static const unsigned int adc_tlv[] = {
         0, 0xf, TLV_DB_LINEAR_ITEM(0, 4500),
 };
 
+static const unsigned int dac_tlv_fm[] = {
+    TLV_DB_RANGE_HEAD(1),
+        0, 0x1f, TLV_DB_LINEAR_ITEM(5, 450),
+};
+
 static const char *vbc_mic_sel[] = {
     "1",
     "2",
@@ -121,9 +126,9 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
  //   SOC_SINGLE_TLV("Earpiece Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Bypass
     SOC_SINGLE("BypassFM Playback Switch", VBCR1, BYPASS, 1, 0),
-    SOC_DOUBLE_R_TLV("BypassFM Playback Volume", VBCGR2, VBCGR3, 0, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("BypassFM Left Playback Volume", VBCGR2, 0, 0x0f, 1, dac_tlv),
-    SOC_SINGLE_TLV("BypassFM Right Playback Volume",VBCGR3, 0, 0x0f, 1, dac_tlv),
+    SOC_DOUBLE_R_TLV("BypassFM Playback Volume", VBCGR2, VBCGR3, 0, 0x1f, 1, dac_tlv_fm),
+    SOC_SINGLE_TLV("BypassFM Left Playback Volume", VBCGR2, 0, 0x1f, 1, dac_tlv_fm),
+    SOC_SINGLE_TLV("BypassFM Right Playback Volume",VBCGR3, 0, 0x1f, 1, dac_tlv_fm),
     // Linein
     SOC_SINGLE("LineinFM", VBPMR1, SB_LIN, 1, 1),
     SOC_SINGLE("LineinFM_Record", ANA_CHGR_CTL0, 15, 1, 0),
@@ -731,6 +736,8 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
     vbc_reg_write(VBCCR2, 4, VBC_RATE_8000, 0xf); // 8K sample DAC
     vbc_reg_write(VBCCR2, 0, VBC_RATE_8000, 0xf); // 8K sample ADC
 
+    vbc_reg_write(VBCGR2, 0, 0, 0x1f); // FM Gain to max by default
+    vbc_reg_write(VBCGR3, 0, 0, 0x1f);
 //    vbc_reg_write(VBCGR1, 0, 0x00, 0xff); // DAC Gain
 //    vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
 //    vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
