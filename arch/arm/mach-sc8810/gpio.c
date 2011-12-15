@@ -861,7 +861,7 @@ static void sprd_ack_gpio_irq(unsigned int irq)
 
 	__gpio_check_pin_valid(gpio);
 
-	GPIO_DBG("ack irq gpio %d  irq %d", gpio, irq);
+	GPIO_DBG("ack irq gpio %d  irq %d\n", gpio, irq);
 
 	__get_gpio_base_info(gpio, &gpio_info);
 
@@ -878,7 +878,7 @@ static void sprd_mask_gpio_irq(unsigned int irq)
 	gpio = map->gpio_id;
 	__gpio_check_pin_valid(gpio);
 
-	GPIO_DBG("mask gpio %d  irq %d", gpio, irq);
+	GPIO_DBG("mask gpio %d  irq %d\n", gpio, irq);
 	__get_gpio_base_info(gpio, &gpio_info);
 	if (gpio_info.gpio_type != GPIO_SECTION_INVALID)
 		__gpio_disable_irq(&gpio_info);
@@ -893,7 +893,7 @@ static void sprd_unmask_gpio_irq(unsigned int irq)
 	gpio = map->gpio_id;
 	__gpio_check_pin_valid(gpio);
 
-	GPIO_DBG("unmask gpio %d  irq %d", gpio, irq);
+	GPIO_DBG("unmask gpio %d  irq %d\n", gpio, irq);
 	__get_gpio_base_info(gpio, &gpio_info);
 
 	if (gpio_info.gpio_type != GPIO_SECTION_INVALID)
@@ -964,7 +964,7 @@ static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 		if (gpio_irq_table[i].gpio_id == GPIO_INVALID_ID) {
 			continue;
 		}
-		if (gpio_get_int_status(gpio_irq_table[i].gpio_id) >= 0) {
+		if (gpio_get_int_status(gpio_irq_table[i].gpio_id) > 0) {
 #ifdef CONFIG_NKERNEL
 			struct gpio_info gpio_info;
 			__get_gpio_base_info(gpio_irq_table[i].gpio_id,
