@@ -118,6 +118,7 @@ extern   "C"
  void CHG_TurnOn (void)
 {
 	ANA_REG_AND (ANA_CHGR_CTRL0,~CHGR_PD_BIT);
+	ANA_REG_MSK_OR (ANA_CHGR_CTRL1, (31<<CHAR_SW_POINT_SHIFT), CHAR_SW_POINT_MSK);//temp code,modify it after calibration ready,mingwei 20111215
 	CHG_PRINT ( ("CHGMNG:CHG_TurnOn"));
 }
 
@@ -169,6 +170,7 @@ extern   "C"
 {
     SCI_ASSERT (eswitchpoint <=31);
     ANA_REG_MSK_OR (ANA_CHGR_CTRL1, (eswitchpoint<<CHAR_SW_POINT_SHIFT), CHAR_SW_POINT_MSK);
+	ANA_REG_MSK_OR (ANA_CHGR_CTRL1, (31<<CHAR_SW_POINT_SHIFT), CHAR_SW_POINT_MSK);//temp code,modify it after calibration ready,mingwei 20111215
 }
 
 /*****************************************************************************/
@@ -232,7 +234,7 @@ extern   "C"
 
     chg_switchpoint = (shift_bit << 4) | current_switchpoint;
     ANA_REG_MSK_OR (ANA_CHGR_CTRL1, (chg_switchpoint<<CHAR_SW_POINT_SHIFT), CHAR_SW_POINT_MSK);
-
+	ANA_REG_MSK_OR (ANA_CHGR_CTRL1, (31<<CHAR_SW_POINT_SHIFT), CHAR_SW_POINT_MSK);//temp code,modify it after calibration ready,mingwei 20111215
     return chg_switchpoint;
 }
 

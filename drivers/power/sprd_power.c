@@ -288,6 +288,17 @@ static ssize_t sprd_set_caliberate(struct device *dev,
         battery_data->usb_online = 0;
         battery_data->ac_online = 0;
         break;
+#if defined(CONFIG_ARCH_SC8810)	//temp code,modify it after calibration ready,mingwei 20111215
+	case BATTERY_0:
+		adc_voltage_table[0][1]=4200;
+		adc_voltage_table[0][0]=916;
+		break;
+	case BATTERY_1:
+		adc_voltage_table[1][1]=3600;
+		adc_voltage_table[1][0]=784;
+		CHGMNG_VoltageToPercentum(0, 0, 1);
+		break;
+#else		
     case BATTERY_0:
         adc_voltage_table[0][1]=set_value&0xffff;
         adc_voltage_table[0][0]=(set_value>>16)&0xffff;
@@ -297,6 +308,7 @@ static ssize_t sprd_set_caliberate(struct device *dev,
         adc_voltage_table[1][0]=(set_value>>16)&0xffff;
         CHGMNG_VoltageToPercentum(0, 0, 1);
         break;
+#endif		
 	case HW_SWITCH_POINT:
 		battery_data->hw_switch_point = set_value;
 		CHG_SetSwitchoverPoint ((CHG_SWITPOINT_E)(battery_data->hw_switch_point));

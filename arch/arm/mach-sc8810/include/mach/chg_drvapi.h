@@ -36,23 +36,23 @@ extern   "C"
  **                         MACRO Definations                                     *
  **---------------------------------------------------------------------------*/
 
-#define CHG_VOLTAGE_4V2 950
-#define CHG_VOLTAGE_4V1 930
-#define CHG_VOLTAGE_TEMP_4V1 910
-#define CHG_VOLTAGE_4V0 910
-#define CHG_VOLTAGE_3V9 890
-#define CHG_VOLTAGE_3V8 870
-#define CHG_VOLTAGE_3V7 850
-#define CHG_VOLTAGE_3V6 830
-#define CHG_VOLTAGE_3V5 800
-#define CHG_VOLTAGE_3V4 770
-#define CHG_VOLTAGE_3V3 750
-#define CHG_VOLTAGE_3V2 730
-#define CHG_VOLTAGE_3V1 710
-#define CHG_VOLTAGE_3V0 690
-#define CHG_VOLTAGE_2V9 670
-#define CHG_VOLTAGE_2V8 650
-#define CHG_VOLTAGE_2V7 630
+#define CHG_VOLTAGE_4V2 936
+#define CHG_VOLTAGE_4V1 914
+#define CHG_VOLTAGE_TEMP_4V1 914
+#define CHG_VOLTAGE_4V0 892
+#define CHG_VOLTAGE_3V9 870
+#define CHG_VOLTAGE_3V8 848
+#define CHG_VOLTAGE_3V7 826
+#define CHG_VOLTAGE_3V6 804
+#define CHG_VOLTAGE_3V5 782
+#define CHG_VOLTAGE_3V4 760
+#define CHG_VOLTAGE_3V3 738
+#define CHG_VOLTAGE_3V2 716
+#define CHG_VOLTAGE_3V1 694
+#define CHG_VOLTAGE_3V0 672
+#define CHG_VOLTAGE_2V9 650
+#define CHG_VOLTAGE_2V8 628
+#define CHG_VOLTAGE_2V7 606
 
 // When lower than it ,Should shutdown the phone anyway
 #define CHGMNG_VOLTAGE_DEADLINE    CHG_VOLTAGE_3V1//625
