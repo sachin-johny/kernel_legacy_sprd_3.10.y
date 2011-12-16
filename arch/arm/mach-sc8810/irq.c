@@ -226,8 +226,6 @@ nk_sprd_ack_irq (unsigned int irq)
 nk_sprd_unmask_irq (unsigned int irq)
 {
 #ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
-	if (irq == 14)
-		printk("enable 14 irq\n");
 	if (irq > 31 ) 
 		printk("nk_sprd_unmask_irq, irq error = 0x%x\n", irq);
 	__raw_writel(1 << (irq & 31), INTCV_INT_EN);
