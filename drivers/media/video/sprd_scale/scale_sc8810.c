@@ -70,7 +70,7 @@ static struct mutex *lock;
 #define SCALE_PATH_ADDR_INVALIDE(addr)                  (NULL != (addr)) 
 #define SCALE_PATH_YUV_ADDR_INVALIDE(y,u,v)         (SCALE_PATH_ADDR_INVALIDE(y) && SCALE_PATH_ADDR_INVALIDE(u) && SCALE_PATH_ADDR_INVALIDE(v))
 
-#define SCALE_DEBUG
+//#define SCALE_DEBUG
 #ifdef SCALE_DEBUG
 #define SCALE_PRINT printk
 #else

@@ -24,7 +24,7 @@
 /**---------------------------------------------------------------------------*
 **                                                               Debug Micro Define                                                                         **
 **----------------------------------------------------------------------------*/
-#define DCAM_V4L2_DEBUG 1
+//#define DCAM_V4L2_DEBUG 1
 
 #ifdef DCAM_V4L2_DEBUG
 #define DCAM_V4L2_PRINT printk 

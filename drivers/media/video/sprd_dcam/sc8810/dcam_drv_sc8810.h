@@ -32,7 +32,7 @@ extern   "C"
 /**---------------------------------------------------------------------------*
 **                                                               Debug Micro Define                                                                         **
 **----------------------------------------------------------------------------*/
-#define DCAM_DRV_DEBUG
+//#define DCAM_DRV_DEBUG
 #ifdef DCAM_DRV_DEBUG
 #define DCAM_DRV_TRACE printk
 #else

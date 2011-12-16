@@ -1175,7 +1175,7 @@ void dcam_get_jpg_len(uint32_t *len)
 	*len = 0;
 	
 	ISP_DriverCapGetInfo(s->module_addr,ISP_CAP_JPEG_GET_LENGTH,len);
-	printk("DCAM:ISP_ServiceGetJpgLen len=%d .\n",*len); 
+//	printk("DCAM:ISP_ServiceGetJpgLen len=%d .\n",*len); 
 	return;	
 }
 int dcam_stop(void)

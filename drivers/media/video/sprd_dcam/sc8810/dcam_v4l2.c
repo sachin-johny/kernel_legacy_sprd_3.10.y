@@ -1485,7 +1485,7 @@ static int buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 //	DCAM_V4L2_PRINT("V4L2:buffer_prepare  w: %d, h: %d, baddr: %lx, bsize: %d.\n ",
 //		                              fh->width,fh->height, buf->vb.baddr, buf->vb.bsize);
    
-	dprintk(dev, 1, "%s, field=%d\n", __func__, field);
+//	dprintk(dev, 1, "%s, field=%d\n", __func__, field);
 
 	BUG_ON(NULL == fh->fmt);	
 
@@ -1521,7 +1521,7 @@ static void buffer_queue(struct videobuf_queue *vq, struct videobuf_buffer *vb)
 	struct dcam_dev       *dev  = fh->dev;
 	struct dcam_dmaqueue *vidq = &dev->vidq;
 
-	dprintk(dev, 1, "%s\n", __func__);	
+//	dprintk(dev, 1, "%s\n", __func__);	
 
 	buf->vb.state = VIDEOBUF_QUEUED;
 	buf->fmt->flag = 0;		
