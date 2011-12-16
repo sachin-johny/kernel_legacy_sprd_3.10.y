@@ -390,6 +390,8 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
  */
 static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 {
+//TODO 
+#if 0
 	// set and then clear BIT_15
 	u32 val;
 	val = __raw_readl(INT_UINT_CTL);	
@@ -400,7 +402,7 @@ static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 
 	// set wakeup symbol
 	is_uart_rx_wakeup = true;
-
+#endif
 	return IRQ_HANDLED;
 }
 

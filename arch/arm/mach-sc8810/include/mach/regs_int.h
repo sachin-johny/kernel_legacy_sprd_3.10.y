@@ -19,8 +19,9 @@
 #include <mach/hardware.h>
 #include <mach/bits.h>
 
+#if 0
 //#define INT_REG_BASE            		0x20a00000
-#define INT_REG_BASE        SPRD_INTCV_BASE
+//#define INT_REG_BASE        SPRD_INTCV_BASE
 
 #define INT_IRQ_BASE                    (INT_REG_BASE + 0x0000)
 #define INT_IRQ_STS                     (INT_REG_BASE + 0x0000) //Interrupt status after masked by irq_enable.
@@ -39,6 +40,7 @@
 #define INT_FIQ_TEST_SRC                (INT_REG_BASE + 0x0034)
 #define INT_FIQ_TEST_SEL                (INT_REG_BASE + 0x0038)
 #define INT_UINT_CTL                    (INT_REG_BASE + 0x003C)
+#endif
 
 #define INTCTL_SPECIAL_LATCH_IRQ            BIT_0
 #define INTCTL_SOFT_IRQ                     BIT_1

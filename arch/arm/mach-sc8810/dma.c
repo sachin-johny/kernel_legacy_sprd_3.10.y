@@ -821,7 +821,7 @@ static int sprd_dma_init(void)
 
     /*enable dma int*/
     if (ret == 0) {
-        dma_reg_write(INT_IRQ_EN, 21, 1, 1);
+//        dma_reg_write(INT_IRQ_EN, IRQ_DMA_INT, 1, 1);
         printk(KERN_INFO "request dma irq ok\n");
     } else printk(KERN_ERR "request dma irq failed %d\n", ret);
 

@@ -72,15 +72,10 @@
 #define DRV_NAME "sprd-keypad8805ga"
 #endif
 
-#define INT_MASK_STS            (SPRD_INTCV_BASE + 0x0000)
-#define INT_RAW_STS            	(SPRD_INTCV_BASE + 0x0004)
-#define INT_EN                  (SPRD_INTCV_BASE + 0x0008)
-#define INT_DIS			(SPRD_INTCV_BASE + 0x000C)
-
-#define REG_INT_MASK_STS        (*((volatile unsigned int *)INT_MASK_STS))
-#define REG_INT_RAW_STS        	(*((volatile unsigned int *)INT_RAW_STS))
-#define REG_INT_EN              (*((volatile unsigned int *)INT_EN))
-#define REG_INT_DIS          	(*((volatile unsigned int *)INT_DIS))
+#define REG_INT_MASK_STS        (*((volatile unsigned int *) (SPRD_INTCV_BASE + 0x0000)))
+#define REG_INT_RAW_STS        	(*((volatile unsigned int *)(SPRD_INTCV_BASE + 0x0004)))
+#define REG_INT_EN              (*((volatile unsigned int *)(SPRD_INTCV_BASE + 0x0008)))
+#define REG_INT_DIS          	(*((volatile unsigned int *)(SPRD_INTCV_BASE + 0x000C)))
 
 
 

@@ -270,7 +270,7 @@ static int sc8810_i2c_doxfer(struct sc8810_i2c *i2c, struct i2c_msg *msgs, int n
 #define INTCV_IRQ_STS     INTCV_REG(0x0000)
 #define INTCV_INT_RAW     INTCV_REG(0x0004)
 #define INTCV_INT_EN      INTCV_REG(0x0008)	/* 1: enable, 0: disable */		
-		printk("I2C:timeout, i2c msg num = %d, i2c state =%d, debug_msg_num = %d \n", i2c->msg_num, i2c->state,num);       		
+		printk("I2C:timeout!!!!!!!!!!!!!!!!!!!!!!!!!!!!, i2c msg num = %d, i2c state =%d, debug_msg_num = %d \n", i2c->msg_num, i2c->state,num);       		
 		printk("msg_ptr = %d, msg len = %d, msg_idx = %d\n", i2c->msg_ptr, i2c->msg->len, i2c->msg_idx);
 		printk("i2c intraw =0x%x, intMak =0x%x, intenable =0x%x,i2c_trl =0x%x, i2c_cmd=0x%x\n", __raw_readl(INTCV_INT_RAW), __raw_readl(INTCV_IRQ_STS),__raw_readl(INTCV_IRQ_STS + 0x8), __raw_readl(i2c->membase+I2C_CTL), __raw_readl(i2c->membase+I2C_CMD));
 		sc8810_i2c_disable_irq(i2c);
@@ -594,21 +594,17 @@ static irqreturn_t sc8810_i2c_irq(unsigned int irq, void *dev_id)
 		
 	ctl = __raw_readl(i2c->membase+I2C_CTL);
 	if (!(ctl & I2C_CTL_INT)) {
-#if 1//only for debug 		
+#if  0//only for debug
 		unsigned int debug_irq_status = 0;
-		if (i2c->membase == (SPRD_I2C0_BASE+I2C_CTL) || i2c->membase == (SPRD_I2C1_BASE+I2C_CTL))
-		{
-			debug_irq_status = __raw_readl(SPRD_I2C0_BASE+I2C_CTL);
-			debug_irq_status |= __raw_readl(SPRD_I2C1_BASE+I2C_CTL);
-			
-		} else {		
-			debug_irq_status = __raw_readl(SPRD_I2C2_BASE+I2C_CTL);
-			debug_irq_status |= __raw_readl(SPRD_I2C3_BASE+I2C_CTL);
+		debug_irq_status = __raw_readl(SPRD_I2C0_BASE+I2C_CTL);
+		debug_irq_status |= __raw_readl(SPRD_I2C1_BASE+I2C_CTL);		
+		debug_irq_status |= __raw_readl(SPRD_I2C2_BASE+I2C_CTL);
+		debug_irq_status |= __raw_readl(SPRD_I2C3_BASE+I2C_CTL);
+		if (!(debug_irq_status & I2C_CTL_INT)) {
+				printk("I2C:sc8810_i2c_irq, NOT FOUND Or had handled!!!\n");
 		}
-		if (!(debug_irq_status & I2C_CTL_INT))	
-				printk("I2C:sc8810_i2c_irq, NOT FOUND!!!\n");
 #endif
-		goto out;
+		return IRQ_NONE;
 	}
 	sc8810_clr_irq(i2c);
  
