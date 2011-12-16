@@ -822,12 +822,14 @@ static int32_t _ISP_DriverSetSC1Coeff(uint32_t base_addr)
 
 void _ISP_DriverEnableInt(void)
 {
- 	_paod(INT_IRQ_EN, 1<<IRQ_LINE_DCAM);
+	printk("_ISP_DriverEnableInt\n");
+ 	_pawd(INT_IRQ_EN, 1<<IRQ_LINE_DCAM);
 }
 
 void _ISP_DriverDisableInt(void)
 {
-	_paod(INT_IRQ_DISABLE, 1<<IRQ_LINE_DCAM);  
+	printk("_ISP_DriverDisableInt\n");
+	_pawd(INT_IRQ_DISABLE, 1<<IRQ_LINE_DCAM);  
 }
 
 static irqreturn_t _ISP_DriverISR(int irq, void *dev_id)

@@ -151,7 +151,7 @@
 #define SPRD_SIM1_PHYS           0x85003000
 #define SPRD_SIM1_SIZE           SZ_4K
 
-/* I2C 
+/* I2C */ 
 #define SPRD_I2C0_BASE            0xE0028000
 #define SPRD_I2C0_PHYS            0x86000000
 #define SPRD_I2C0_SIZE            SZ_4K
@@ -167,7 +167,7 @@
 #define SPRD_I2C3_BASE            0xE002b000
 #define SPRD_I2C3_PHYS            0x86003000
 #define SPRD_I2C3_SIZE            SZ_4K
-*/
+
 
 /* keypad and system counter share the same base */
 #define SPRD_KPD_BASE            0xE002c000

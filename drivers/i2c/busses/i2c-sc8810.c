@@ -259,18 +259,27 @@ static int sc8810_i2c_doxfer(struct sc8810_i2c *i2c, struct i2c_msg *msgs, int n
 	sc8810_i2c_message_start(i2c, msgs);
 	
 	spin_unlock_irqrestore(&i2c->lock,flags);
-	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ * 50);
+
+	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ);
 	
 	ret = i2c->msg_idx;
 	/* having these next two as dev_err() makes life very 
 	 * noisy when doing an i2cdetect */
 	if (timeout == 0){
-		printk("I2C:timeout\n");        
+#define INTCV_REG(off) (SPRD_INTCV_BASE + (off))		
+#define INTCV_IRQ_STS     INTCV_REG(0x0000)
+#define INTCV_INT_RAW     INTCV_REG(0x0004)
+#define INTCV_INT_EN      INTCV_REG(0x0008)	/* 1: enable, 0: disable */		
+		printk("I2C:timeout, i2c msg num = %d, i2c state =%d, debug_msg_num = %d \n", i2c->msg_num, i2c->state,num);       		
+		printk("msg_ptr = %d, msg len = %d, msg_idx = %d\n", i2c->msg_ptr, i2c->msg->len, i2c->msg_idx);
+		printk("i2c intraw =0x%x, intMak =0x%x, intenable =0x%x,i2c_trl =0x%x, i2c_cmd=0x%x\n", __raw_readl(INTCV_INT_RAW), __raw_readl(INTCV_IRQ_STS),__raw_readl(INTCV_IRQ_STS + 0x8), __raw_readl(i2c->membase+I2C_CTL), __raw_readl(i2c->membase+I2C_CMD));
 		sc8810_i2c_disable_irq(i2c);
 		sc8810_clr_irq(i2c);
 		//__raw_writel(0x1,i2c->membase+I2C_RST);  //reset i2c module
-		sc8810_i2c_2_reset(i2c);
-        ret = -ENXIO;
+		sc8810_i2c_2_reset(i2c);		
+		__raw_writel(1 << 14, INTCV_INT_EN);
+		
+		ret = -ENXIO;
 	}else if (ret != num){
 		printk("incomplete xfer (%d)\n", ret);
 		ret = -EAGAIN;
@@ -582,13 +591,25 @@ static irqreturn_t sc8810_i2c_irq(unsigned int irq, void *dev_id)
 	unsigned int ctl;
 	int ret;
 	i2c = (struct sc8810_i2c *)dev_id;
-	
-        //printk("I2C:sc8810_i2c_irq\n");
-
+		
 	ctl = __raw_readl(i2c->membase+I2C_CTL);
-	if (!(ctl & I2C_CTL_INT))
-		return IRQ_NONE;
-
+	if (!(ctl & I2C_CTL_INT)) {
+#if 1//only for debug 		
+		unsigned int debug_irq_status = 0;
+		if (i2c->membase == (SPRD_I2C0_BASE+I2C_CTL) || i2c->membase == (SPRD_I2C1_BASE+I2C_CTL))
+		{
+			debug_irq_status = __raw_readl(SPRD_I2C0_BASE+I2C_CTL);
+			debug_irq_status |= __raw_readl(SPRD_I2C1_BASE+I2C_CTL);
+			
+		} else {		
+			debug_irq_status = __raw_readl(SPRD_I2C2_BASE+I2C_CTL);
+			debug_irq_status |= __raw_readl(SPRD_I2C3_BASE+I2C_CTL);
+		}
+		if (!(debug_irq_status & I2C_CTL_INT))	
+				printk("I2C:sc8810_i2c_irq, NOT FOUND!!!\n");
+#endif
+		goto out;
+	}
 	sc8810_clr_irq(i2c);
  
 	if (i2c->state == STATE_IDLE) {
@@ -700,7 +721,7 @@ static int sc8810_i2c_probe(struct platform_device *pdev)
 	}
 #endif
 
-	i2c->membase= ioremap(res->start, resource_size(res));
+	i2c->membase= res->start;//ioremap(res->start, resource_size(res));
 	if (!i2c->membase) {
 		printk("I2C:ioremap failed!\n");
 		ret=-EIO;
