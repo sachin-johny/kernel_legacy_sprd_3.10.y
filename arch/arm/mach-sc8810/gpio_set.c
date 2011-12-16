@@ -69,7 +69,7 @@ static const struct file_operations gpio_set_fops = {
 
 static struct miscdevice gpio_set_dev = {
     .minor =    MISC_DYNAMIC_MINOR,
-    .name  =    "gpio_set",
+    .name  =    "gpio",
     .fops  =    &gpio_set_fops
 };
 

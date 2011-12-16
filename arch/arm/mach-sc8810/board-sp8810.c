@@ -285,6 +285,9 @@ struct gpio_desc {
 #define SPRD_3RDPARTY_GPIO_PLS_IRQ          28
 #define SPRD_3RDPARTY_GPIO_MINT_IRQ          97
 
+#define SPRD_3RDPARTY_GPIO_GPS_PWR	           -1
+#define SPRD_3RDPARTY_GPIO_GPS_ONOFF	    27
+#define SPRD_3RDPARTY_GPIO_GPS_RST	           26
 
 int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
 int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
@@ -301,6 +304,9 @@ int sprd_3rdparty_gpio_tp_rst = SPRD_3RDPARTY_GPIO_TP_RST;
 int sprd_3rdparty_gpio_tp_irq = SPRD_3RDPARTY_GPIO_TP_IRQ;
 int sprd_3rdparty_gpio_pls_irq	=SPRD_3RDPARTY_GPIO_PLS_IRQ;
 int sprd_3rdparty_gpio_mint_irq   = SPRD_3RDPARTY_GPIO_MINT_IRQ ;
+int sprd_3rdparty_gpio_gps_pwr   = SPRD_3RDPARTY_GPIO_GPS_PWR;
+int sprd_3rdparty_gpio_gps_rst   = SPRD_3RDPARTY_GPIO_GPS_RST;
+int sprd_3rdparty_gpio_gps_onoff   = SPRD_3RDPARTY_GPIO_GPS_ONOFF;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -317,6 +323,9 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_pls_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_mint_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_pwr);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_rst);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_onoff);
 
 static struct gpio_desc gpio_func_cfg[] = {
 	{
@@ -367,6 +376,16 @@ static struct gpio_desc gpio_func_cfg[] = {
 	MFP_CFG_X(RFCTL7, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),
 	SPRD_3RDPARTY_GPIO_MINT_IRQ,
 	"mint drdy"
+    },	
+    {
+	MFP_CFG_X(KEYOUT6, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE),
+	SPRD_3RDPARTY_GPIO_GPS_RST,
+	"gps  reset"
+    },
+    {
+	MFP_CFG_X(KEYOUT7, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE),
+	SPRD_3RDPARTY_GPIO_GPS_ONOFF,	
+	"gps  onoff"
     }	
 };
 
@@ -391,6 +410,10 @@ static unsigned long bt_func_cfg[] = {
 	MFP_CFG_X(U0CTS, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 };
 #endif
+
+static unsigned long gps_pin_cfg[] = {
+	MFP_CFG_X(CLK_AUX0, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
+};
 
 static struct spi_device *sprd_spi_device_register(int master_bus_num,
 						   struct spi_board_info *chip,
@@ -535,6 +558,23 @@ static void __init chip_init(void)
 }
 void __init eic_init(void);
 
+#include <mach/ldo.h>
+void __init gps_hw_config(void)
+{
+	//config 32k clk_aux0
+	//Initialize gps pin in file pin_map_sc8805.c
+	sprd_mfp_config(gps_pin_cfg, ARRAY_SIZE(gps_pin_cfg));
+
+       __raw_bits_and(~(BIT_10|BIT_11),SPRD_GREG_BASE+0x0070);
+	__raw_bits_or(BIT_11,SPRD_GREG_BASE+0x70);
+
+	__raw_bits_and(~(0XFF),SPRD_GREG_BASE+0x0018);
+	__raw_bits_or(BIT_10,SPRD_GREG_BASE+0x0018);
+
+	LDO_TurnOnLDO(LDO_BPWIF0);
+	LDO_SetVoltLevel(LDO_BPWIF0,LDO_VOLT_LEVEL2);
+}
+
 static void __init openphone_init(void)
 {
 	chip_init();
@@ -552,6 +592,7 @@ static void __init openphone_init(void)
 	sprd_spi_init();
 	sprd_charger_init();
 	sprd_gpu_init();
+	gps_hw_config();
 }
 
 static void __init openphone_map_io(void)
