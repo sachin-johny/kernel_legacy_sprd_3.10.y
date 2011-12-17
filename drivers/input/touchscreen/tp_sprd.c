@@ -22,7 +22,7 @@
 
 #include <mach/irqs.h>
 
-#define TP_DEBUG
+//#define TP_DEBUG
 #ifdef  TP_DEBUG
 #define TP_PRINT  printk
 #else
