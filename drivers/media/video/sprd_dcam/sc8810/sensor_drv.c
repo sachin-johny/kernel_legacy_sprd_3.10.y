@@ -1243,7 +1243,7 @@ int32_t Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 	int32_t ret = -1;
 	SENSOR_IOCTL_FUNC_PTR 	write_reg_func;
 
-	SENSOR_PRINT("this_client->addr=0x%x\n",this_client->addr);
+//	SENSOR_PRINT("this_client->addr=0x%x\n",this_client->addr);
 
 	write_reg_func = s_sensor_info_ptr->ioctl_func_tab_ptr->write_reg;
 

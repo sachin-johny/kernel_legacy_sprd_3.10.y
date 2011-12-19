@@ -76,7 +76,7 @@ static struct mutex *lock;
 #else
 #define SCALE_PRINT(...)
 #endif
-
+#define SCALE_PRINT_ERR printk
 static ISP_MODULE_T       s_scale_mod;
 SCALE_MODE_E g_scale_mode = SCALE_MODE_SCALE;
 
@@ -690,8 +690,7 @@ uint32_t _SCALE_IsContinueSlice(void)
 	ISP_REG_T *p_isp_reg = (ISP_REG_T*)s_scale_mod.module_addr;
 
 	if(1 == p_path->slice_en)
-	{
-		_SCALE_CopyTartgetData();			
+	{		
 		count = p_isp_reg->slice_ver_cnt_u.mBits.slice_line_output;
 		p_path->slice_line_count = count;
 		
@@ -721,11 +720,12 @@ void _SCALE_ContinueSlice(long unsigned int data)
 	ISP_FRAME_T next_frame;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T*)s_scale_mod.module_addr;
 	ISP_RECT_T              rect = {0};
-	p_isp_reg->rev_path_cfg_u.mBits.review_start = 0;
 	int32_t                   rtn_drv = 0;
 
 	//for YUV422
-	//note: these addresses must be aligned by 64 words.
+	//note: these addresses must be aligned by 64 words.	
+
+	p_isp_reg->rev_path_cfg_u.mBits.review_start = 0;
 	
           SCALE_PRINT("input_range:%d,%d,%d,%d \n",p_path->input_range.x,p_path->input_range.y,p_path->input_range.w,p_path->input_range.h);
 	if((ISP_DATA_YUV422 == p_path->input_format)||(ISP_DATA_YUV420 == p_path->input_format))
@@ -750,7 +750,7 @@ void _SCALE_ContinueSlice(long unsigned int data)
 	}
 	next_frame.vaddr = next_frame.uaddr;
 	_SCALE_DriverSetExtSrcFrameAddr(&next_frame);
-	#if 1
+
 	SCALE_PRINT("SCALE: input addr: y: 0x%x, u: 0x%x, in w: %d, slice hei: %d.\n", 
 		                     p_path->input_frame.yaddr, 
 		                     p_path->input_frame.uaddr, 
@@ -761,27 +761,10 @@ void _SCALE_ContinueSlice(long unsigned int data)
 		                    next_frame.yaddr, 
 		                    next_frame.uaddr, 
 		                    next_frame.vaddr);
-	#endif
+
 	next_frame.yaddr = p_path->output_frame.yaddr + p_path->slice_line_count * p_path->output_size.w;
 	next_frame.uaddr = p_path->output_frame.uaddr + p_path->slice_line_count * p_path->output_size.w;
-	//to check the address if they are aligned by 64 wods
-	if((next_frame.yaddr & 0xFF) || (next_frame.uaddr & 0xFF))
-	{
-		g_zoom_dma_buf.by_dma = 1;
-		g_zoom_dma_buf.out_y_addr = next_frame.yaddr;
-		g_zoom_dma_buf.out_uv_addr = next_frame.uaddr;
-		next_frame.yaddr = ZOOM_BUF_ALIGNED(next_frame.yaddr);
-		next_frame.uaddr = ZOOM_BUF_ALIGNED(next_frame.uaddr);
-		g_zoom_dma_buf.in_y_addr = next_frame.yaddr;
-		g_zoom_dma_buf.in_uv_addr = next_frame.uaddr;	
-		g_zoom_dma_buf.width = p_path->output_size.w;
-		g_zoom_dma_buf.last_line_cnt = p_path->slice_line_count;		
-	}
-	else
-	{
-		g_zoom_dma_buf.by_dma = 0;
-		g_zoom_dma_buf.last_line_cnt = 0;
-	}
+
 	next_frame.vaddr = next_frame.uaddr;
 	_SCALE_DriverSetExtDstFrameAddr(&next_frame);
 	SCALE_PRINT("SCALE: output addr: y: 0x%x, u: 0x%x, out w: %d.\n",
@@ -799,7 +782,7 @@ void _SCALE_ContinueSlice(long unsigned int data)
 	rect.w = p_path->input_range.w;
 	rect.h = p_path->input_range.h;
 
-	rtn_drv = _SCALE_DriverPath2Config(ISP_PATH_INPUT_RECT, (void*)&rect);
+	rtn_drv = _SCALE_DriverPath2Config(ISP_PATH_INPUT_RECT_PHY, (void*)&rect);
 	ISP_RTN_IF_ERR(rtn_drv);
 
 	if(p_path->slice_count == (p_path->input_range.h / p_path->slice_height))
@@ -810,11 +793,16 @@ void _SCALE_ContinueSlice(long unsigned int data)
 		p_path->is_last_slice = 1;
 		SCALE_PRINT("SCALE: the last slice height: %d.\n", p_path->slice_height);
 	}
+	else
+	{
+		p_isp_reg->slice_ver_cnt_u.dwValue = 0;
+		p_isp_reg->slice_ver_cnt_u.mBits.slice_line_input = p_path->slice_height;	
+	}
 	
 //	_SCALE_DriverPath2TrimAndScaling();   
-	_SCALE_DriverForceCopy();
+//	_SCALE_DriverForceCopy();
 	#ifdef SCALE_DEBUG
-	get_scale_reg();	
+	//get_scale_reg();	
 	#endif
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 1;
 	
@@ -822,7 +810,6 @@ void _SCALE_ContinueSlice(long unsigned int data)
 static void  _SCALE_ISRPath2Done(void)
 {  
 	up(&g_sem);
-	SCALE_PRINT("SCALE: path2 done IRQ.\n");
 	return ;
 }
 
@@ -901,6 +888,27 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
 				p_isp_reg->rev_trim_size_u.mBits.size_x   = p_rect.w;
 				p_isp_reg->rev_trim_size_u.mBits.size_y   = p_rect.h;
 				SCALE_MEMCPY((void*)&p_path->input_rect,&p_rect,sizeof(ISP_RECT_T));
+			}
+			break;
+		}
+		case ISP_PATH_INPUT_RECT_PHY:
+		{
+			ISP_RECT_T *p_rect = (ISP_RECT_T *)param;				
+
+			if(p_rect->x > ISP_PATH_FRAME_WIDTH_MAX ||
+			   p_rect->y > ISP_PATH_FRAME_HEIGHT_MAX ||
+			   p_rect->w > ISP_PATH_FRAME_WIDTH_MAX ||
+			   p_rect->h > ISP_PATH_FRAME_HEIGHT_MAX )
+			{
+				rtn = ISP_DRV_RTN_PARA_ERR;    
+			}
+			else
+			{				
+				p_isp_reg->rev_trim_start_u.mBits.start_x = p_rect->x;
+				p_isp_reg->rev_trim_start_u.mBits.start_y = p_rect->y;
+				p_isp_reg->rev_trim_size_u.mBits.size_x   = p_rect->w;
+				p_isp_reg->rev_trim_size_u.mBits.size_y   = p_rect->h;
+				SCALE_MEMCPY((void*)&p_path->input_rect,p_rect,sizeof(ISP_RECT_T));
 			}
 			break;
 		}
@@ -1355,7 +1363,7 @@ static void _SCALE_DriverISRRoot(void)
 
 	irq_line = ISP_IRQ_SCL_LINE_MASK & _SCALE_DriverReadIrqLine();
 	irq_status = irq_line;
-
+/*
 	for(i = 0; i < ISP_IRQ_NUMBER; i++)
 	{
 		if(irq_line & 1)
@@ -1366,6 +1374,10 @@ static void _SCALE_DriverISRRoot(void)
 		if(!irq_line)
 		break;
 	}
+	*/
+	
+	_SCALE_ISRPath2Done();
+
 	_SCALE_DriverIrqClear(irq_status);	
 }
 
@@ -1460,9 +1472,14 @@ int SCALE_release (struct inode *node, struct file *pf)
    ------------------------------------------------------------------*/
 int _SCALE_DriverIODone(void)
 {
+	int32_t ret = 0;
 	_SCALE_DriverSetMode();
 	_SCALE_DriverRegisterIRQ();
-	_SCALE_DriverStart();
+	ret = _SCALE_DriverStart();
+	if(ISP_DRV_RTN_SUCCESS != ret)
+	{
+		SCALE_PRINT_ERR("_SCALE_DriverIODone: 0,ret=%d .\n ",ret);
+	}
 	down(&g_sem);
 	down_interruptible(&g_sem);
 	while(1){
