@@ -704,6 +704,8 @@ static void sc8810_nand_hw_init(void)
 	REG_AHB_SOFT_RST &= ~BIT_5;
 
 	sc8810_nand_wp_en(0);
+	nfc_reg_write(NFC_TIMING, ((6 << 0) | (6 << 5) | (10 << 10) | (6 << 16) | (5 << 21) | (5 << 26)));	
+	nfc_reg_write(NFC_TIMING+0X4, 0xffffffff);//TIMEOUT
 //	set_nfc_param(1);//53MHz
 }
 
