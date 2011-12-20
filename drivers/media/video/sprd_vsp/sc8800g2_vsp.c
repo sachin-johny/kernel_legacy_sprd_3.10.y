@@ -226,11 +226,11 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		if(ret){
 			printk("clock[%s]:clk_enable() failed!\n",dev.vsp_clk->name);
 		}
-#ifdef CONFIG_ARCH_SC8810
-		reg_value = __raw_readl(AHB_CTL0);
-		reg_value |= ((1<<28) | (1<<27) | (1<<13));
-		__raw_writel(reg_value,AHB_CTL0);
-#endif		
+//#ifdef CONFIG_ARCH_SC8810
+//		reg_value = __raw_readl(AHB_CTL0);
+//		reg_value |= ((1<<28) | (1<<27) | (1<<13));
+//		__raw_writel(reg_value,AHB_CTL0);
+//#endif		
 		reg_value = __raw_readl(AHB_SOFT_RST);
 		__raw_writel(reg_value|(1<<15),AHB_SOFT_RST);
 		__raw_writel(reg_value|(0<<15),AHB_SOFT_RST);	
@@ -241,7 +241,8 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 #endif
 	    break;
 	    case VSP_DISABLE:
-	        clk_disable(dev.vsp_clk);
+	       //clk_disable(dev.vsp_clk);
+	       clk_disable_force(dev.vsp_clk);
 		VSP_PRINT("vsp ioctl VSP_DISABLE\n");
 	    break;	
 	    case VSP_ACQUAIRE:
@@ -257,7 +258,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		    return -ERESTARTSYS;
 		}
 		dev.condition = 0;
-
+/*
 		if (!task_has_rt_policy(current)) {
 		    struct sched_param schedpar;
 		    int ret;
@@ -269,7 +270,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		    if(ret!=0)
 		        printk("vsp change pri fail a\n");
 		}
-
+*/
 		VSP_PRINT("vsp ioctl VSP_ACQUAIRE end\n");
 	    break;	
 	    case VSP_RELEASE:
