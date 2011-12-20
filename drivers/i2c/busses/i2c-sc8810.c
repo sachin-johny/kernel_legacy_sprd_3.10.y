@@ -260,7 +260,7 @@ static int sc8810_i2c_doxfer(struct sc8810_i2c *i2c, struct i2c_msg *msgs, int n
 	
 	spin_unlock_irqrestore(&i2c->lock,flags);
 
-	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0,HZ);
+	timeout=wait_event_timeout(i2c->wait, i2c->msg_num == 0, 5*HZ);
 	
 	ret = i2c->msg_idx;
 	/* having these next two as dev_err() makes life very 
@@ -277,7 +277,7 @@ static int sc8810_i2c_doxfer(struct sc8810_i2c *i2c, struct i2c_msg *msgs, int n
 		sc8810_clr_irq(i2c);
 		//__raw_writel(0x1,i2c->membase+I2C_RST);  //reset i2c module
 		sc8810_i2c_2_reset(i2c);		
-		__raw_writel(1 << 14, INTCV_INT_EN);
+		__raw_writel(1 << 14 | (1 << 11), INTCV_INT_EN);
 		
 		ret = -ENXIO;
 	}else if (ret != num){
