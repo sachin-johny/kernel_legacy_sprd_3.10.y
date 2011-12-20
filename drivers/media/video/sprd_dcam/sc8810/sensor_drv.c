@@ -913,7 +913,7 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
 	SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_level);          
 	SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); 
 	SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
-#ifdef CONFIG_MACH_SP8810
+#if defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A)
 	switch(Sensor_GetCurId())
 	{
 		case SENSOR_MAIN:

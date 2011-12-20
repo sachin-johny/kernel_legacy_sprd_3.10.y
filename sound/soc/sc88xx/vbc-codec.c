@@ -1247,7 +1247,8 @@ static inline int local_amplifier_enabled(void)
 #elif   defined(CONFIG_MACH_SP8805GA)           || \
         defined(CONFIG_MACH_OPENPHONE)          || \
         defined(CONFIG_MACH_SP8810)             || \
-        defined(CONFIG_MACH_SC8810OPENPHONE)
+        defined(CONFIG_MACH_SC8810OPENPHONE)    || \
+        defined(CONFIG_MACH_SP6820A)
 
 #if defined(CONFIG_MACH_SP8805GA)
 extern int sprd_local_audio_pa_mode_detect_gpio;

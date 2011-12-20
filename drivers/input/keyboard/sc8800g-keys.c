@@ -64,6 +64,10 @@
 #define DRV_NAME        	"sprd-keypad8810"
 #endif
 
+#ifdef CONFIG_MACH_SP6820A
+#define DRV_NAME        	"sprd-keypad6820a"
+#endif
+
 #ifdef CONFIG_MACH_SC8810OPENPHONE
 #define DRV_NAME        	"sprd-keypad8810"
 #endif
@@ -163,7 +167,7 @@
 #define CFG_COL_POLARITY    (0xFF00 & KPDPOLARITY_COL)
 #define CFG_CLK_DIV         1
 
-#if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined (CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined (CONFIG_MACH_SP8810) || defined (CONFIG_MACH_SP6820A) || defined(CONFIG_MACH_SC8810OPENPHONE)
 #define HOME_KEY_GPIO		28
 #define VOLUP_KEY_GPIO		25
 #define PBINT_GPI		163
@@ -388,6 +392,13 @@ static const unsigned int sprd_keymap[] = {
         KEYVAL(0, 1, 30),  //cam
 		KEYVAL(1, 1, 11),
 #endif
+#if defined (CONFIG_MACH_SP6820A)
+           						// 0 row
+		KEYVAL(0, 0, 40),		//d
+		KEYVAL(1, 0, 41),        //u
+        KEYVAL(0, 1, 30),  //cam
+		KEYVAL(1, 1, 11),
+#endif
 };
 
 
@@ -412,6 +423,10 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
 	.rows					= 2,
 	.cols					= 2,
 #endif
+#if defined (CONFIG_MACH_SP6820A)
+	.rows					= 2,
+	.cols					= 2,
+#endif
 #ifdef CONFIG_MACH_SP6810A
         .rows                   = 5,
         .cols                   = 5,
@@ -424,7 +439,7 @@ static struct sprd_kpad_platform_data sprd_kpad_data = {
         .keyup_test_interval    = 50, /* 50 ms (50ms) */
 };
 
-#if defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#if defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A) || defined(CONFIG_MACH_SC8810OPENPHONE)
 static unsigned long keypad_func_cfg[] = {
 	MFP_CFG_X(KEYOUT0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
 	MFP_CFG_X(KEYOUT1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_OE),
@@ -457,7 +472,7 @@ typedef struct kpd_key_tag
 #if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM];
 kpd_key_t s_key[MAX_MUL_KEY_NUM];
-#elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined (CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined (CONFIG_MACH_SP8810) || defined (CONFIG_MACH_SP6820A)  || defined(CONFIG_MACH_SC8810OPENPHONE)
 struct timer_list s_kpd_timer[MAX_MUL_KEY_NUM + 3];
 kpd_key_t s_key[MAX_MUL_KEY_NUM + 3];
 #else
@@ -572,7 +587,7 @@ static void print_kpad(void)
 	printk("REG_KPD_KEY_STATUS = 0x%08x\n", REG_KPD_KEY_STATUS);
 	printk("REG_KPD_SLEEP_STATUS = 0x%08x\n", REG_KPD_SLEEP_STATUS);
 	printk("REG_PIN_CTL_REG = 0x%08x\n", REG_PIN_CTL_REG);
-#if !defined(CONFIG_MACH_SP8810) && !defined(CONFIG_MACH_SC8810OPENPHONE) 
+#if !defined(CONFIG_MACH_SP8810) && !defined(CONFIG_MACH_SC8810OPENPHONE) && !defined(CONFIG_MACH_SP6820A) 
 	printk("REG_KPD_DEBUG_STATUS1 = 0x%08x\n", REG_KPD_DEBUG_STATUS1);
 	printk("REG_KPD_DEBUG_STATUS2 = 0x%08x\n", REG_KPD_DEBUG_STATUS2);
 
@@ -797,7 +812,7 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
         return IRQ_HANDLED;
 }
 
-#if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#if defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A) || defined(CONFIG_MACH_SC8810OPENPHONE)
 
 static int irq_is_detected  = 0;
 
@@ -886,7 +901,7 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	}//if (gpio == VOLUP_KEY_GPIO)
 
 	if (gpio == PBINT_GPI) {
-#if  defined (CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#if  defined (CONFIG_MACH_SP8810) || defined (CONFIG_MACH_SP6820A)  || defined(CONFIG_MACH_SC8810OPENPHONE)
 		if (irq_is_detected ==  1) 
 			ret = sprd_get_eic_data(EIC_ID_11);
 		else
@@ -960,7 +975,7 @@ static void gpio_key_init(unsigned long gpio, const char *label)
 	}
 }
 
-#if  defined (CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#if  defined (CONFIG_MACH_SP8810) || defined (CONFIG_MACH_SP6820A)  || defined(CONFIG_MACH_SC8810OPENPHONE)
 static void int_key_init(enum EIC_TYPE_E eic_id, const char *label)
 {
 	unsigned long err, irq, ret;
@@ -1057,7 +1072,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	REG_KPD_CTRL = 0x6 | key_type;
         REG_INT_DIS = (1 << IRQ_KPD_INT);
         REG_GR_GEN0 |= BIT_8 | BIT_26;
-#if defined(CONFIG_MACH_SP8810) || (CONFIG_MACH_SC8810OPENPHONE)	
+#if defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A) || (CONFIG_MACH_SC8810OPENPHONE)	
         sprd_config_keypad_pins();
 #endif
         REG_KPD_INT_CLR = KPD_INT_ALL;
@@ -1085,6 +1100,8 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         input->phys = "sprd-keypad/input0";
 #elif defined(CONFIG_MACH_SP6810A)
         input->phys = "sprd-keypad6810/input0";
+#elif defined(CONFIG_MACH_SP6820A)
+        input->phys = "sprd-keypad6820a/input0";
 #elif defined(CONFIG_MACH_SP8805GA)
         input->phys = "sprd-keypad8805ga/input0";
 #elif defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
@@ -1128,7 +1145,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
         device_init_wakeup(&pdev->dev, 1);
 #if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++) {
-#elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#elif defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A) || defined(CONFIG_MACH_SC8810OPENPHONE)
 	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++) {
 #endif
 		/* clear Key state */
@@ -1136,7 +1153,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 		/* create a timer to check if key is released */
 		setup_timer(&s_kpd_timer[i], sprd_kpad_timer, (unsigned long) &s_key[i]);
 		s_key[i].timer_id = i;						        
-#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE) || defined(CONFIG_MACH_SP6810A) || defined(CONFIG_MACH_SP8805GA) || defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A) || defined(CONFIG_MACH_SC8810OPENPHONE)
 	}
 #endif
 
@@ -1158,7 +1175,7 @@ static int __devinit sprd_kpad_probe(struct platform_device *pdev)
 	ANA_REG_OR(ANA_INT_EN, ANA_GPIO_IRQ);
 #endif
 
-#if  defined (CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#if  defined (CONFIG_MACH_SP8810) || defined (CONFIG_MACH_SP6820A)  || defined(CONFIG_MACH_SC8810OPENPHONE)
 	int_key_init(EIC_ID_11, 0);
 #endif
 
@@ -1186,7 +1203,7 @@ static int __devexit sprd_kpad_remove(struct platform_device *pdev)
 
 #if defined(CONFIG_MACH_G2PHONE) || defined(CONFIG_MACH_OPENPHONE)
 	for (i = 0; i < MAX_MUL_KEY_NUM; i++)
-#elif defined(CONFIG_MACH_SP6810A)  || defined(CONFIG_MACH_SP8805GA) || defined (CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SC8810OPENPHONE)
+#elif defined(CONFIG_MACH_SP6810A)  || defined(CONFIG_MACH_SP8805GA) || defined (CONFIG_MACH_SP8810) || defined (CONFIG_MACH_SP6820A)  || defined(CONFIG_MACH_SC8810OPENPHONE)
 	for (i = 0; i < (MAX_MUL_KEY_NUM + 3); i++)
 #endif
         	del_timer_sync(&s_kpd_timer[i]);
