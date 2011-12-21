@@ -1052,8 +1052,8 @@ static void ISP_ServiceSetParameters(void)
 	s->encoder_size.h = g_dcam_param.encoder_rect.h;
 	s->preview_deci_frame_num = 0;
 	
-         DCAM_TRACE_HIGH("DCAM:ISP_ServiceSetParameters,zoom_level =%d ,trim_width=%d,trim_height=%d..\n",
-                                                  g_dcam_param.zoom_level,trim_width,trim_height);
+         DCAM_TRACE_HIGH("DCAM:ISP_ServiceSetParameters,zoom_level =%d ,trim_width=%d,trim_height=%d,input size:%d,%d..\n",
+                                                  g_dcam_param.zoom_level,trim_width,trim_height,g_dcam_param.input_size.w,g_dcam_param.input_size.h);
 		 
 	s->cap_img_dec.x_factor = _ISP_ServiceGetXYDeciFactor(&s->cap_output_size.w, &s->cap_output_size.h,
 								                                            dst_img_size.w, dst_img_size.h);	
