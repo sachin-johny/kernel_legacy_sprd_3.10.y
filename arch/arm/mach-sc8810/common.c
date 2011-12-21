@@ -646,18 +646,10 @@ static unsigned long charger_detect_cfg =
     MFP_ANA_CFG_X(CHIP_RSTN, AF0, DS1, F_PULL_UP,S_PULL_UP, IO_IE);
 void __init sprd_charger_init(void)
 {
-
-#if 0   //mingwei
-	int irq;
-	gpio_request(CHARGER_DETECT_GPIO, "charger detect");
-    gpio_direction_input(CHARGER_DETECT_GPIO);
-	irq = sprd_alloc_gpio_irq(CHARGER_DETECT_GPIO);
-	if (irq < 0){
-		pr_warning("cant alloc gpio irq %d\n", CHARGER_DETECT_GPIO);
-		return;
-	}
-	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
-#endif    
+	gpio_request(USB_DP_GPIO, "charger detect");
+	gpio_request(USB_DM_GPIO, "charger detect");
+	gpio_direction_input(USB_DP_GPIO);
+	gpio_direction_input(USB_DM_GPIO);
 }
 void __init sprd_gpu_init(void)
 {
