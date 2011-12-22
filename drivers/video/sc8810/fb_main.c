@@ -40,11 +40,10 @@
 #include <linux/earlysuspend.h>
 #endif
 
-
 #include "lcdc_reg.h"
 #include "lcd.h"
 #include "fb_rrm.h"
-#include "lcdc_manager.h" /* TEMP */
+#include "lcdc_manager.h" 
 
 //#define  FB_DEBUG 
 #ifdef FB_DEBUG
@@ -53,12 +52,7 @@
 #define FB_PRINT(...)
 #endif
 
-/* TEMP, software make-up for lcdc's 4-byte-align only limitation */
-unsigned int fb_len;
-unsigned int fb_pa;
-unsigned int fb_va;
-unsigned int fb_va_cached;
-/* TEMP, end */
+#define ARRAY_LEN(array)  (sizeof(array) / sizeof(array[0]))
 
 struct sc8810fb_info {
 	struct fb_info   *fb;
@@ -94,9 +88,7 @@ static struct lcd_cfg lcd_panel[] = {
 		},
 };
 
-
 #endif
-
 
 static int32_t lcm_send_cmd (uint32_t cmd)
 {
@@ -133,7 +125,7 @@ static int32_t lcm_send_data (uint32_t data)
 	return 0;
 }
 
-static int32_t lcm_read_data (void)
+static uint32_t lcm_read_data (void)
 {
 	/* busy wait for ahb fifo full sign's disappearance */
 	while(__raw_readl(LCM_CTRL) & BIT20);
@@ -149,8 +141,7 @@ static struct ops_mcu lcm_mcu_ops = {
 	.read_data = lcm_read_data,
 };
 
-extern struct lcdc_manager lm; /* TEMP */
-//extern struct semaphore copybit_wait; /* TEMP */
+extern struct lcdc_manager lm; 
 static irqreturn_t lcdc_isr(int irq, void *data)
 {
 	uint32_t val ;
@@ -189,11 +180,11 @@ static void lcdc_mcu_init(void)
 	//LCDC module enable
 	reg_val |= (1<<0);
 
-
 	/*FMARK mode*/
 	//reg_val | = (1<<1);
 
 	/*FMARK pol*/
+
 	__raw_writel(reg_val, LCDC_CTRL); 
 	
 	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
@@ -204,8 +195,7 @@ static void lcdc_mcu_init(void)
 	FB_PRINT("@fool2[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_BG_COLOR));
 
 	/* dithering enable*/
-	//__raw_bits_or(1<<4, LCDC_CTRL);   
-	
+	//__raw_bits_or(1<<4, LCDC_CTRL); 	
 }
 
 static int mount_panel(struct sc8810fb_info *fb, struct lcd_spec *panel)
@@ -231,10 +221,8 @@ static int mount_panel(struct sc8810fb_info *fb, struct lcd_spec *panel)
 static int setup_fbmem(struct sc8810fb_info *info, struct platform_device *pdev)
 {
 	uint32_t len, addr;
-#if 1
 	len = info->panel->width * info->panel->height * (info->bits_per_pixel/8) * 2;
 
-	/* the addr should be 8 byte align */
 	addr = __get_free_pages(GFP_ATOMIC | __GFP_ZERO, get_order(len));
 	if (!addr)
 		return -ENOMEM;
@@ -243,51 +231,22 @@ static int setup_fbmem(struct sc8810fb_info *info, struct platform_device *pdev)
 	info->fb->fix.smem_start = __pa(addr);
 	info->fb->fix.smem_len = len;
 	info->fb->screen_base = (char*)addr;
-
-	/* TEMP, software make-up for lcdc's 4-byte-align only limitation */
-	fb_len = len;
-	fb_pa = info->fb->fix.smem_start;
-	fb_va_cached = (uint32_t)info->fb->screen_base;
-	fb_va = (uint32_t)ioremap(info->fb->fix.smem_start, 
-		info->fb->fix.smem_len);
        
-	printk("sc8810fb->fb->fix.smem_start=0x%x\n",(uint32_t)info->fb->fix.smem_start);
+	FB_PRINT("sc8810fb->fb->fix.smem_start=0x%x\n",(uint32_t)info->fb->fix.smem_start);
 
-	printk("sc8810fb fb_va=0x%x, size=%d\n", fb_va, info->fb->fix.smem_len);
-	/* TEMP, end */
-#else /*for 8810 fpga gpu test*/
-        len = info->panel->width * info->panel->height * (info->bits_per_pixel/8) * 2;
-                
-        info->fb->fix.smem_start =  63*1024*1024;
-        info->fb->fix.smem_len = len;
-
-        fb_va = (uint32_t)ioremap(info->fb->fix.smem_start, 
-        	info->fb->fix.smem_len);
-		
-        info->fb->screen_base = (char*)fb_va;
-        
-        /* TEMP, software make-up for lcdc's 4-byte-align only limitation */
-        fb_len = len;
-        fb_pa = info->fb->fix.smem_start;
-        fb_va_cached = (uint32_t)info->fb->screen_base;
-        fb_va = (uint32_t)ioremap(info->fb->fix.smem_start, 
-        	info->fb->fix.smem_len);
-        printk("sc8810_fb fb_va=0x%x, size=%d\n", fb_va, info->fb->fix.smem_len);
-        /* TEMP, end */
-#endif
 	return 0;
 }
 
 static int sc8810fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	if ((var->xres != info->var.xres) ||
-	    (var->yres != info->var.yres) ||
-	    (var->xres_virtual != info->var.xres_virtual) ||
-	    (var->yres_virtual != info->var.yres_virtual) ||
-	    (var->xoffset != info->var.xoffset) ||
-	    (var->bits_per_pixel != info->var.bits_per_pixel) ||
-	    (var->grayscale != info->var.grayscale))
-		 return -EINVAL;
+		(var->yres != info->var.yres) ||
+		(var->xres_virtual != info->var.xres_virtual) ||
+		(var->yres_virtual != info->var.yres_virtual) ||
+		(var->xoffset != info->var.xoffset) ||
+		(var->bits_per_pixel != info->var.bits_per_pixel) ||
+		(var->grayscale != info->var.grayscale))
+			return -EINVAL;
 	return 0;
 }
 
@@ -297,12 +256,11 @@ static void real_set_layer(void *data)
 	uint32_t reg_val;
 	uint32_t x,y;
 
-	/* image layer base */
 	reg_val = (fb->var.yoffset == 0)?fb->fix.smem_start:
 		              (fb->fix.smem_start + fb->fix.smem_len/2);
 
 	//this is for further Optimization
-	if(0 /* fb->var.reserved[0] == 0x6f766572*/) {	
+	if (fb->var.reserved[0] == 0x6f766572) {	
 		x = fb->var.reserved[1] & 0xffff;
 		y = fb->var.reserved[1] >> 16;
 
@@ -317,19 +275,14 @@ static void real_refresh(void *para)
 	struct sc8810fb_info *info = (struct sc8810fb_info *)para;
 	struct fb_info *fb = info->fb;
 
-	if(0 /*fb->var.reserved[0] == 0x6f7665728*/) {	
+	if (fb->var.reserved[0] == 0x6f766572) {	
 		uint16_t left,top,width,height;
-		//never use for more further Optimization
+
 		__raw_writel(fb->var.reserved[2], LCDC_LCM_SIZE);
 
-		//this is for further Optimization
-		//never use for more further Optimization
 		__raw_writel(fb->var.reserved[2], LCDC_OSD1_SIZE_XY);
-		//this is for further Optimization
 
-		//this is for more further Optimization
 		__raw_writel(fb->var.reserved[2], LCDC_DISP_SIZE);
-		//this is for more further Optimization
 		
 		left   = fb->var.reserved[1] &  0xffff;
 		top    = fb->var.reserved[1] >> 16;
@@ -342,7 +295,6 @@ static void real_refresh(void *para)
 	}
 
 	__raw_bits_or((1<<3), LCDC_CTRL); /* start refresh */
-
 }
 
 static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
@@ -398,6 +350,13 @@ static void setup_fb_info(struct sc8810fb_info *info)
 	fb->fix.type = FB_TYPE_PACKED_PIXELS;
 	fb->fix.visual = FB_VISUAL_TRUECOLOR;
 	fb->fix.line_length = panel->width * info->bits_per_pixel / 8;
+
+#if 0
+	if (panel->ops->lcd_invalidate_rect != NULL) {
+		fb->fix.reserved[0] = 0x6f76;
+		fb->fix.reserved[1] = 0x6572;
+	}
+#endif
 
 	fb->var.xres = panel->width;
 	fb->var.yres = panel->height;
@@ -617,7 +576,6 @@ int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 		reg_val |= (2 << 7); //B2B3B0B1
 	}
 
-
 	/*data endian*/
 	//__raw_bits_or(1<<8,LCDC_OSD1_CTRL);  //little endian
 	//__raw_bits_and(~(1<<7),LCDC_OSD1_CTRL);  
@@ -779,13 +737,8 @@ static uint32_t lcd_id_from_uboot = 0;
 
 static int __init calibration_start(char *str)
 {
-	if((str[0]=='I')&&(str[1]=='D'))
-	{
+	if ((str != NULL) && (str[0] == 'I') && (str[1] == 'D')) {
 		sscanf(&str[2], "%x", &lcd_id_from_uboot);
-	}
-	else
-	{
-		lcd_id_from_uboot = 0;
 	}
 	FB_PRINT("sc8810fb lcd_id_from_uboot 0x%x\n", lcd_id_from_uboot);
 	return 1;
@@ -795,10 +748,8 @@ __setup("lcd_id=", calibration_start);
 static int32_t find_adapt_from_uboot(void)
 {
 	int32_t i;
-	if(lcd_id_from_uboot != 0)
-	{
-		for(i = 0;i<(sizeof(lcd_panel))/(sizeof(lcd_panel[0]));i++)
-		{
+	if(lcd_id_from_uboot != 0) {
+		for(i = 0;i < ARRAY_LEN(lcd_panel); i++) {
 			if(lcd_id_from_uboot == lcd_panel[i].lcd_id) {
 				return i;
 			}
@@ -829,7 +780,7 @@ static int32_t find_adapt_from_readid(struct sc8810fb_info *info)
 {
 	int32_t i;
 	uint32_t id;
-	for(i = 0;i<(sizeof(lcd_panel))/(sizeof(lcd_panel[0]));i++) {
+	for(i = 0; i < ARRAY_LEN(lcd_panel); i++) {
 		//first ,try mount
 		mount_panel(info,lcd_panel[i].panel);
 		//hw init to every panel
@@ -855,7 +806,7 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	struct fb_info *fb;
 	struct sc8810fb_info *info;
 	int32_t ret;
-	uint32_t lcd_adapt = 0;
+	int32_t lcd_adapt = 0;
 
 	FB_PRINT("sc8810fb initialize!\n");
 
@@ -874,23 +825,21 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	info->need_reinit = 1;
 	hw_early_init(info);
 
-
 	lcd_adapt = find_adapt_from_uboot();
-	if(lcd_adapt == -1)
-	{
+	if (lcd_adapt == -1) {
 		lcd_adapt = find_adapt_from_readid(info);
-	}
-	else
-	{
+	} else {		
 		info->need_reinit = 0;
 	}
 
+	if (lcd_adapt < 0) { // invalid index
+		lcd_adapt = 0;	
+	}
 	ret = mount_panel(info, lcd_panel[lcd_adapt].panel);
 	if (ret) {
 		printk(KERN_ERR "unsupported panel!!\n");
 		return -EFAULT;
 	}
-
 	ret = setup_fbmem(info, pdev);
 	if (ret)
 		return ret;

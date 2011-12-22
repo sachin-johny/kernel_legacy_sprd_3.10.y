@@ -230,8 +230,13 @@ static int32_t hx8357_invalidate_rect(struct lcd_spec *self,
 				uint16_t left, uint16_t top,
 				uint16_t right, uint16_t bottom)
 {
+	Send_cmd_data send_cmd_data = self->info.mcu->ops->send_cmd_data;
+
 	LCD_PRINT("hx8357_invalidate_rect \n");
 
+	// TE scaneline
+	send_cmd_data(0x000b, (top >> 8));
+	send_cmd_data(0x000c, (top & 0xff));
 	return self->ops->lcd_set_window(self, left, top, 
 			right, bottom);
 }

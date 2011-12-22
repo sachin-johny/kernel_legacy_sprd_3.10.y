@@ -97,7 +97,7 @@ struct timing_mcu {
 typedef int32_t (*Send_cmd)(uint32_t data);
 typedef int32_t (*Send_data)(uint32_t data);
 typedef int32_t (*Send_cmd_data)(uint32_t cmd, uint32_t data);
-typedef int32_t (*Read_data)(void);
+typedef uint32_t (*Read_data)(void);
 
 struct ops_mcu {
 	int32_t (*send_cmd)(uint32_t cmd);

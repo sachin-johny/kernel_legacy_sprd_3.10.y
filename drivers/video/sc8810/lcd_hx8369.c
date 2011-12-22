@@ -196,7 +196,7 @@ static int32_t hx8369_init(struct lcd_spec *self)
 			send_data(0xff);
 		for (i = 0; i < 480*800/3; i++)
 			send_data(0xff00);
-       	for (i = 0; i < 480*800/3; i++)
+		for (i = 0; i < 480*800/3; i++)
 			send_data(0xff0000);
 	}
 	send_cmd(0x29); //Display On 
@@ -204,7 +204,6 @@ static int32_t hx8369_init(struct lcd_spec *self)
 	send_cmd(0x2C); //Write data
 	//mdelay(120); //120ms
 	LCD_PRINT("hx8369_init: end\n");
-
 
 	return 0;
 }
@@ -248,7 +247,14 @@ static int32_t hx8369_invalidate_rect(struct lcd_spec *self,
 				uint16_t left, uint16_t top,
 				uint16_t right, uint16_t bottom)
 {
-	LCD_PRINT("hx8369_invalidate_rect \n");
+	Send_data send_cmd = self->info.mcu->ops->send_cmd;
+	Send_data send_data = self->info.mcu->ops->send_data;
+
+	LCD_PRINT("hx8369_invalidate_rect : (%d, %d, %d, %d)\n",left, top, right, bottom);
+
+	send_cmd(0x44); // TE scanline
+	send_data((top >> 8));
+	send_data((top & 0xFF));
 
 	return self->ops->lcd_set_window(self, left, top, 
 			right, bottom);
@@ -317,7 +323,7 @@ static int32_t hx8369_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 	return 0;
 }
 
-static int32_t hx8369_read_id(struct lcd_spec *self)
+static uint32_t hx8369_read_id(struct lcd_spec *self)
 {
 	Send_data send_cmd = self->info.mcu->ops->send_cmd;
 	Send_data send_data = self->info.mcu->ops->send_data;
