@@ -399,6 +399,31 @@ static void setup_fb_info(struct sc8810fb_info *info)
 		PP[r] = 0xffffffff;
 }
 
+static void fb_free_resources(struct sc8810fb_info *info)
+{
+
+	if (info == NULL)
+		return;
+
+	if (info->panel != NULL && info->panel->ops->lcd_close != NULL) {
+		info->panel->ops->lcd_close(info->panel);
+	}
+
+	__raw_writel(0, LCDC_CTRL); // disable LCDC
+
+	rrm_exit();
+
+	if (&info->fb->cmap != NULL) {
+		fb_dealloc_cmap(&info->fb->cmap);
+	}
+	if (info->fb->screen_base) {
+		free_pages ((unsigned long)info->fb->screen_base, 
+				get_order(info->fb->fix.smem_len));		
+	}		
+	unregister_framebuffer(info->fb);
+	framebuffer_release(info->fb);
+}
+
 static void lcdc_lcm_configure(struct lcd_spec *panel)
 {
 	uint32_t reg_val = 0;
@@ -813,8 +838,11 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	lm_init(4); /* TEMP */
 	
 	fb = framebuffer_alloc(sizeof(struct sc8810fb_info), &pdev->dev);
-	if (!fb)
-		return -ENOMEM;
+	if (!fb) {
+		ret = -ENOMEM;
+		goto err0;
+	}
+
 	info = fb->par;
 	info->fb = fb;
 	info->ops = &lcm_mcu_ops;
@@ -831,25 +859,23 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	} else {		
 		info->need_reinit = 0;
 	}
-
 	if (lcd_adapt < 0) { // invalid index
-		return -EINVAL;
+		ret = -EINVAL;
+		goto cleanup;
 	}
-	ret = mount_panel(info, lcd_panel[lcd_adapt].panel);
-	if (ret) {
-		printk(KERN_ERR "unsupported panel!!\n");
-		return -EFAULT;
-	}
+
+	mount_panel(info, lcd_panel[lcd_adapt].panel);
+
 	ret = setup_fbmem(info, pdev);
-	if (ret)
-		return ret;
+	if (ret) {
+		goto cleanup;
+	}
 
 	setup_fb_info(info);
 
 	ret = register_framebuffer(fb);
 	if (ret) {
-		framebuffer_release(fb);
-		return ret;
+		goto cleanup;
 	}
 
 	hw_init(info);
@@ -866,6 +892,12 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	register_early_suspend(&info->early_suspend);
 #endif
 	return 0;
+
+cleanup:
+	fb_free_resources(info);
+err0:
+	dev_err(&pdev->dev, "failed to probe sc8810fb\n");
+	return ret;
 }
 
 static int sc8810fb_suspend(struct platform_device *pdev,pm_message_t state)
