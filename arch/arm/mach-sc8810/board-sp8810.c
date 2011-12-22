@@ -47,6 +47,7 @@
 #include <mach/clock_sc8800g.h>
 #include <mach/common.h>
 #include <linux/i2c.h>
+#include <mach/ldo.h>
 
 #ifdef CONFIG_SENSORS_MMC31XX
 #include <linux/mmc31xx.h>
@@ -269,11 +270,11 @@ struct gpio_desc {
 	const char *desc;
 };
 
-#define SPRD_3RDPARTY_GPIO_WIFI_POWER       106
+#define SPRD_3RDPARTY_GPIO_WIFI_POWER       -1
 #define SPRD_3RDPARTY_GPIO_WIFI_RESET       140
-#define SPRD_3RDPARTY_GPIO_WIFI_PWD         99
+#define SPRD_3RDPARTY_GPIO_WIFI_PWD         137          //1214 update
 //#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        139
-#define SPRD_3RDPARTY_GPIO_WIFI_IRQ         141
+#define SPRD_3RDPARTY_GPIO_WIFI_IRQ         -1
 #define SPRD_3RDPARTY_GPIO_BT_POWER         -1
 #define SPRD_3RDPARTY_GPIO_BT_RESET         90
 #define SPRD_3RDPARTY_GPIO_BT_RTS           42
@@ -329,9 +330,22 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_onoff);
 
 static struct gpio_desc gpio_func_cfg[] = {
 	{
+
+//-----base on 8810a   update this  part  about  wifi  function 
+
+//disable  this part  and replace  this
+
+//6810A WIFI PWD  GPIO94  control  vreg on vdd_ana  vdd_dig
+#if 0
 	 MFP_CFG_X(RFCTL9, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	// wifi_power_io
 	 SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
 	 "wifi pwd"},
+#endif
+//---vreg  on  1.8V  
+
+	 MFP_CFG_X(GPIO137, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+	 SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
+	 "wifi pwd"},         
 	//{
 	// MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 	// SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
@@ -533,6 +547,21 @@ static void sprd_spi_init(void)
 }
 #endif
 
+
+static void sprd_wifildo_init(void)
+{
+//---VDD-WIFI1  1.8V
+
+   LDO_TurnOnLDO(LDO_BPWIF1);
+   LDO_SetVoltLevel(LDO_BPWIF1,LDO_VOLT_LEVEL2);
+
+//---VDD-SDIO1  1.8V
+
+   LDO_TurnOnLDO(LDO_BPSDIO1);
+   LDO_SetVoltLevel(LDO_BPSDIO1,LDO_VOLT_LEVEL3);
+
+
+}
 static struct platform_device *devices[] __initdata = {
 	&example_device,
 #ifdef CONFIG_ANDROID_PMEM
@@ -558,7 +587,7 @@ static void __init chip_init(void)
 }
 void __init eic_init(void);
 
-#include <mach/ldo.h>
+
 void __init gps_hw_config(void)
 {
 	//config 32k clk_aux0
@@ -590,6 +619,7 @@ static void __init openphone_init(void)
 	sprd_gadget_init();
 	sprd_add_dcam_device();
 	sprd_spi_init();
+        sprd_wifildo_init();  //WIFI  vreg  ana  and digital
 	sprd_charger_init();
 	sprd_gpu_init();
 	gps_hw_config();
