@@ -833,7 +833,7 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	}
 
 	if (lcd_adapt < 0) { // invalid index
-		lcd_adapt = 0;	
+		return -EINVAL;
 	}
 	ret = mount_panel(info, lcd_panel[lcd_adapt].panel);
 	if (ret) {
