@@ -1000,10 +1000,11 @@ retry_adc:
 	data->usb_online = 0;
 	data->ac_online = 0;
 
+#if defined(CONFIG_USB_SUPPORT)
 	ret = usb_register_hotplug_callback(&power_cb);
 	if (ret)
 		goto err_request_irq_failed;
-
+#endif
 	ret = power_supply_register(&pdev->dev, &data->usb);
 	if (ret)
 		goto err_usb_failed;

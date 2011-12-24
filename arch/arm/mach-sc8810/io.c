@@ -81,7 +81,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(IIS1),
 	SPRD_DEVICE(PMU),
 	SPRD_DEVICE(AXIM_GPU),
-#ifdef CONFIG_CACHE_L3X0
+#if	1//def CONFIG_CACHE_L3X0
 	SPRD_DEVICE(CACHE310),
 #endif
 };
