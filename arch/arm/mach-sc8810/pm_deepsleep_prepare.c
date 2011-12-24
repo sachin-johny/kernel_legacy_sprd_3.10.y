@@ -473,7 +473,7 @@ static int is_dsp_sleep(void)
 {
 	u32 val;
 	int ret_val = 0;
-#if 0
+
 	/*
 	printk("####: check register: GR_STC_STATE for DSP\n");
 	*/
@@ -506,14 +506,13 @@ static int is_dsp_sleep(void)
 		ret_val = -2;
 	}
 #endif
-#endif
 	return ret_val;
 }
 
 static int verify_dsp_deep_sleep_by_value(u32 val1, u32 val2)
 {
 	int ret_val = 0;
-#if 0
+
 	printk("####: check register: GR_STC_STATE for DSP\n");
 	printk("######: GR_STC_STATE =%08x\n", val1);
 	if (GR_DSP_STOP & val1) {
@@ -592,7 +591,7 @@ static int verify_dsp_deep_sleep_by_value(u32 val1, u32 val2)
 		printk("#####: GR_CLK_DLY[GR_EMC_STOP_CH3] is NOT set!\n");
 		ret_val = -EINVAL;
 	}
-#endif
+
 	return ret_val;
 }
 
@@ -1220,11 +1219,11 @@ int supsend_gpio_save(void)
 	u32 val = 0;
 
 	if (sprd_check_gpio_enable) {
-//		gpio_for_suespend();
+		gpio_for_suespend();
 	}
 
 	if (sprd_dump_gpio_registers) {
-//		gpio_dump_registers();
+		gpio_dump_registers();
 	}
 
 #ifdef CONFIG_MACH_SP6810A
@@ -1263,7 +1262,6 @@ int sc8800g_enter_deepsleep(int inidle)
     int status;
     u32 t0, t1, delta;
     int ret = 0;
-#if 0
 /*
     int calibration_enable = 0;
 */
@@ -1459,7 +1457,6 @@ int sc8800g_enter_deepsleep(int inidle)
 					fiq_sts, 0, 0);
 		}
    }
-#endif
     return ret;
 }
 EXPORT_SYMBOL(sc8800g_enter_deepsleep);
@@ -2217,7 +2214,6 @@ int sc8800g_prepare_deep_sleep(void)
     pid_t pid_number;
     u32 * pint = (u32 *)sc8800g_cpu_standby;
 #if 0
-#if 0
 	val = __raw_readl(EMC_CFG0);
 	val |= RF_AUTO_SLEEP_ENABLE;
 	__raw_writel(val, EMC_CFG0);
@@ -2390,7 +2386,6 @@ int sc8800g_prepare_deep_sleep(void)
 	*/
 	sprd_proc_create(sprd_proc_entry, "sprd_suspend_enable", &_suspend_enable_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "sprd_suspend_interval", &_suspend_interval_proc_fops);
-#endif
     return 0;
 }
 EXPORT_SYMBOL(sc8800g_prepare_deep_sleep);
