@@ -73,7 +73,7 @@
 #define L2X0_AUX_CTRL_EARLY_BRESP_SHIFT		30
 
 #ifndef __ASSEMBLY__
-extern int __init sp_init_l3x0(void);
+extern int sp_init_l3x0(void);
 #endif
 
 //config begin

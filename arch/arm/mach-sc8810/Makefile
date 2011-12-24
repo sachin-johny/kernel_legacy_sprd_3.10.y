@@ -13,7 +13,7 @@ obj-$(CONFIG_MACH_SC8810OPENPHONE) += board-openphone.o
 obj-$(CONFIG_MACH_SP8810) += board-sp8810.o
 obj-$(CONFIG_MACH_SP6820A) += board-sp6820a.o
 
-obj-$(CONFIG_PM)		+= pm.o standby.o idle_v7.o pm_devices.o
+obj-$(CONFIG_PM)		+= pm.o standby.o idle_v7.o pm_devices.o deepsleep.o
 
 obj-$(CONFIG_CPU_FREQ_SC8800G) += cpufreq-sc8800g.o
 obj-$(CONFIG_CPU_IDLE_SC8800G) += cpuidle-sc8800g.o

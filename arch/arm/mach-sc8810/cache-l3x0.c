@@ -139,7 +139,7 @@ static void l2x0_cache_sync(void)
 #endif
 }
 
-static void l2x0_flush_all(void)
+void l2x0_flush_all(void)
 {
 	unsigned long flags;
 
@@ -374,7 +374,7 @@ void l2x0_intr_mask(unsigned long value)
 	writel(value, l2x0_base + L2X0_INTR_MASK);
 }
 
-static void __init l3x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
+static void l3x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 {
 	__u32 aux;
 	__u32 cache_id;
@@ -466,7 +466,7 @@ static void __init l3x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 
 
 
- int __init sp_init_l3x0(void)
+ int sp_init_l3x0(void)
 {
 	l3x0_init((void __iomem *)SPRD_CACHE310_BASE, PL310_CACHE_AUX_VALUE, PL310_CACHE_AUX_MASK);
 	return 0;

@@ -1,6 +1,6 @@
 /*
  * sc8810 Power Management Routines
- * * 
+ * *
  * Copyright (c) 2011 Spreadtrum, Inc.
  *
  * created for sc8810, 2011
@@ -20,6 +20,13 @@
 #include <asm/io.h>
 #include <mach/regs_ahb.h>
 #include <mach/regs_global.h>
+
+extern void hold(void);
+extern int deepsleep_prepare(void);
+extern int deepsleep_finish(void);
+extern int sp_init_l3x0(void);
+extern void l2x0_flush_all(void);
+
 extern int sp_pm_collapse(void);
 extern void sp_pm_collapse_exit(void);
 static uint32_t *sp_pm_reset_vector = NULL;
@@ -33,7 +40,6 @@ void sc8810_enter_dormant(void)
 		sp_pm_reset_vector = ioremap(0xffff0000, PAGE_SIZE);
 		if (sp_pm_reset_vector == NULL) {
 			printk(KERN_ERR "sp_pm_init: failed to map reset vector\n");
-			return 0;
 		}
 	}
 	printk(KERN_INFO "sc8810_enter_dormant\n");
@@ -45,7 +51,11 @@ void sc8810_enter_dormant(void)
 	saved_vector[1] = sp_pm_reset_vector[1];
 	sp_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
 	sp_pm_reset_vector[1] = virt_to_phys(sp_pm_collapse_exit);
+
+	deepsleep_prepare();
 	isDormantExit = sp_pm_collapse();
+	deepsleep_finish();
+
 	sp_pm_reset_vector[0] = saved_vector[0];
 	sp_pm_reset_vector[1] = saved_vector[1];
 	if (isDormantExit) {
