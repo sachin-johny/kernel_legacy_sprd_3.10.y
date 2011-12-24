@@ -85,6 +85,10 @@ typedef unsigned int uint32;
 extern void printascii(char *);
 #endif
 
+#define INT_REG(off) (SPRD_INTCV_BASE + (off))
+
+#define INT_IRQ_STS     INT_REG(0x0000)
+#define INT_FIQ_STS     INT_REG(0x0020)
 
 
 extern long has_wake_lock_info(int type);
@@ -426,8 +430,16 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 
 extern void sc8800g_cpu_standby(void);
 extern void sc8800g_cpu_standby_end(void);
-extern int sc8800g_cpu_standby_prefetch(void);
+int sc8800g_cpu_standby_prefetch(void)
+{
+	//TODO:
+	return 0;
+}
 
+u32 __attribute__ ((naked)) sc8800g_read_cpsr(void)
+{
+	__asm__ __volatile__("mrs r0, cpsr\nbx lr");
+}
 
 #define UART_STS0 (SPRD_SERIAL1_BASE + 0x08)
 #define UART_STS1 (SPRD_SERIAL1_BASE + 0x0c)
@@ -2292,7 +2304,7 @@ int sc8800g_prepare_deep_sleep(void)
    __raw_writel(val, GR_CLK_EN);
 
     //ANA_REG_OR(ANA_LDO_SLP, (FSM_RF0_BP_EN | FSM_RF1_BP_EN));
-    ANA_REG_SET(ANA_LDO_SLP, 0xa4f3);
+    //ANA_REG_SET(ANA_LDO_SLP, 0xa4f3);
 
 
     /* ANA_ANA_CTL0 */
@@ -2301,7 +2313,7 @@ int sc8800g_prepare_deep_sleep(void)
     ANA_REG_OR(ANA_ANA_CTL0, VIBR_PD);
     */
     /* enable LDOs auto power down. */
-    ANA_REG_OR(ANA_ANA_CTL0, FSM_AFCPD_EN);
+    //ANA_REG_OR(ANA_ANA_CTL0, FSM_AFCPD_EN);
 
     /* enable OTP. */
     /*
@@ -2323,13 +2335,14 @@ int sc8800g_prepare_deep_sleep(void)
         printk("###: iram_start = %p\n", iram_start);
     }
 
-
+#if 0
     /* copy sleep code to IRAM. */
     printk("###: sc8800g_cpu_standby = %p, sc8800g_cpu_standby_end = %p\n", 
         sc8800g_cpu_standby, sc8800g_cpu_standby_end);
     if ((sc8800g_cpu_standby_end - sc8800g_cpu_standby + 128) > SLEEP_CODE_SIZE) {
           panic("##: code size is larger than expected, need more memory!\n");
     }
+#endif
 
     memcpy_toio(iram_start, sc8800g_cpu_standby, SLEEP_CODE_SIZE);
 

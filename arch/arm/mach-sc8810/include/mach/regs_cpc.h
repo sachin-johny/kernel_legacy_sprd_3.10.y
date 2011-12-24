@@ -22,9 +22,7 @@
 #define PIN_CTL_REG					(SPRD_CPC_BASE + 0x0000)
 
 #define ANA_CPC_BASE			(SPRD_MISC_BASE + 0x180)
-#define ANA_PIN_CTL_BASE		(ANA_CPC_BASE	+ 0x8C)
-#define PM_INVALID_VAL        0xffffffff
-#define PM_INVALID_SHORT_VAL  0xffff
+#define ANA_PIN_CTL_BASE		(ANA_CPC_BASE	+ 0x8C)//right?
 
 #define PINMAP_REG_BASE     PIN_CTL_BASE
 #define ANA_PINMAP_REG_BASE ANA_PIN_CTL_BASE
@@ -289,13 +287,49 @@
 
 /*----------Analog Die Pin Control Register----------*/
 
-#define ANA_PIN_CHIP_RSTN_REG		ANA_REG_ADDR(0x008C)
+#define ANA_PIN_TESTRSTN_REG		ANA_REG_ADDR(0x008C)
 #define ANA_PIN_PBINT_REG			ANA_REG_ADDR(0x0094)
 #define ANA_PIN_TP_XL_REG			ANA_REG_ADDR(0x0098)
 #define ANA_PIN_TP_XR_REG			ANA_REG_ADDR(0x009C)
 #define ANA_PIN_TP_YU_REG			ANA_REG_ADDR(0x00A0)
 #define ANA_PIN_TP_YD_REG			ANA_REG_ADDR(0x00A4)
 
+#define PIN_Z_EN                0x00            // High-Z in sleep mode
+#define PIN_O_EN                BIT_0           // Output enable in sleep mode
+#define PIN_I_EN                BIT_1           // Input enable in sleep mode
+#define PIN_SPD_EN              BIT_2           // Pull down enable for sleep mode
+#define PIN_SPU_EN              BIT_3           // Pull up enable for sleep mode
+#define PIN_SPX_EN              0x00            // Don't pull down or up
+#define PIN_FUNC_DEF            (0x00<<4)       //Function select,BIT4-5
+#define PIN_FUNC_1              (0x01<<4)
+#define PIN_FUNC_2              (0x02<<4)
+#define PIN_FUNC_3              (0x03<<4)
+#define PIN_FPD_EN          BIT_6           // Weak pull down for function mode
+#define PIN_FPU_EN          BIT_7           // Weak pull up for function mode
+#define PIN_FPX_EN          0x00            // Don't pull down or up
+#define PIN_DS_0                (0x00<<8)           // Driver strength level 0 BIT8-9
+#define PIN_DS_1                (0x01<<8)           // Driver strength level 1 BIT8-9
+#define PIN_DS_2                (0x02<<8)           // Driver strength level 2 BIT8-9
+#define PIN_DS_3                (0x03<<8)           // Driver strength level 3 BIT8-9
+#define ANA_PIN_Z_EN                0x00            // High-Z in sleep mode
+#define ANA_PIN_O_EN                BIT_0           // Output enable in sleep mode
+#define ANA_PIN_I_EN                BIT_1           // Input enable in sleep mode
+#define ANA_PIN_PD_EN               BIT_2           // Pull down enable
+#define ANA_PIN_PU_EN               BIT_3           // Pull up enable
+#define ANA_PIN_PX_EN               0x00            // Don't pull down or up
+#define ANA_PIN_FUNC_DEF            (0x00<<4)       //Function select,BIT4-5
+#define ANA_PIN_FUNC_1              (0x01<<4)
+#define ANA_PIN_FUNC_2              (0x02<<4)
+#define ANA_PIN_FUNC_3              (0x03<<4)
+#define ANA_PIN_FUN_PD_EN           BIT_6           // Weak pull down for function mode
+#define ANA_PIN_FUN_PU_EN           BIT_7           // Weak pull up for function mode
+#define ANA_PIN_FUN_PX_EN           0x00            // Don't pull down or up
+#define ANA_PIN_DS_0                (0x00<<8)           // Driver strength level 0 BIT8-9
+#define ANA_PIN_DS_1                (0x01<<8)           // Driver strength level 1 BIT8-9
+#define ANA_PIN_DS_2                (0x02<<8)           // Driver strength level 2 BIT8-9
+#define ANA_PIN_DS_3                (0x03<<8)           // Driver strength level 3 BIT8-9
+#define PM_INVALID_VAL        0xffffffff
+#define PM_INVALID_SHORT_VAL  0xffff
 typedef unsigned int uint32;
 typedef unsigned short uint16;
 
@@ -360,4 +394,4 @@ extern const PM_GPIO_CTL_T pm_gpio_default_map[];
 	}while(0)
 
 #endif
-#define PIN_EMA1_REG                          REG_ADDR(0x01A4)
+
