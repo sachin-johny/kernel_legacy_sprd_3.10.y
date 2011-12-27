@@ -95,8 +95,8 @@ LOCAL int  AUDENHA_GetParaFromEqset(
     uint16_t eq_mode_index = 0;
     uint16_t i =0;
 
-    printk("aud_enha_exp.c,[AUDENHA_GetParaFromEqset]is_eq_para_tunable:%d,eq_para_set_index:%d,tunable_eq_para_set_index:%d,s_cur_eq_mode_sel:%d  \n",
-        is_eq_para_tunable,eq_para_set_index,tunable_eq_para_set_index,s_cur_eq_mode_sel);
+    // printk("aud_enha_exp.c,[AUDENHA_GetParaFromEqset]is_eq_para_tunable:%d,eq_para_set_index:%d,tunable_eq_para_set_index:%d,s_cur_eq_mode_sel:%d  \n",
+    //    is_eq_para_tunable,eq_para_set_index,tunable_eq_para_set_index,s_cur_eq_mode_sel);
 //	s_cur_eq_mode_sel=AUD_ENHA_EQMODE_SEL_REGULAR;   //test	
 	//no eq
 	if(AUD_ENHA_EQMODE_SEL_OFF == s_cur_eq_mode_sel)
@@ -111,14 +111,14 @@ LOCAL int  AUDENHA_GetParaFromEqset(
 		{
 		    s_cur_hpf_param.band_sw[i] =  SCI_FALSE;
 		}
-		 printk("aud_enha_exp.c,[AUDENHA_GetParaFromEqset] no eq ! \n");
+		 // printk("aud_enha_exp.c,[AUDENHA_GetParaFromEqset] no eq ! \n");
 		 return AUDIO_NO_ERROR;
     	}
 
 	// eq on
     if(0 == eq_para_set_index)
     {
-        printk("aud_enha_exp.c,[AUDENHA_GetParaFromEqset] eq_para_set_index == 0! \n");
+        // printk("aud_enha_exp.c,[AUDENHA_GetParaFromEqset] eq_para_set_index == 0! \n");
         return AUDIO_ERROR;
     }   
     if(AUD_ENHA_EQMODE_SEL_MMISET == s_cur_eq_mode_sel)
@@ -192,11 +192,11 @@ LOCAL int  AUDENHA_GetParaFromEqset(
             s_cur_hpf_param.eq_band_para[i].gaindB  = 0;
         }
 
-        printk("aud_enha_exp.c,[AUDENHA_GetParaFromEqset] tunable eq !current boost array:%d,%d,%d,%d,%d  \n",tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[0],
-            tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[1],
-            tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[2],
-            tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[3],
-            tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[4]);
+        // printk("aud_enha_exp.c,[AUDENHA_GetParaFromEqset] tunable eq !current boost array:%d,%d,%d,%d,%d  \n",tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[0],
+        //     tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[1],
+        //     tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[2],
+        //     tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[3],
+        //     tunable_eq_para_ptr->eq_modes[eq_mode_index].boostdB_current[4]);
     }
 
     return AUDIO_NO_ERROR;
@@ -221,7 +221,7 @@ LOCAL int  AUDENHA_GetParaFromAudMode(
     aud_proc_control[1] = armAudioInfo->tAudioNvArmModeStruct.app_config_info_set.aud_proc_exp_control[1];//bit15-bit8:agc sw;bit7-bit0:lcf sw
 
 
-	printk("aud_enha_exp.c,[AUDENHA_GetParaFromAudMode] aud_proc_control[0]:0x%x;aud_proc_control[1]:0x%x  \n", aud_proc_control[0],aud_proc_control[1]); 
+	// printk("aud_enha_exp.c,[AUDENHA_GetParaFromAudMode] aud_proc_control[0]:0x%x;aud_proc_control[1]:0x%x  \n", aud_proc_control[0],aud_proc_control[1]); 
    
    
     //s_cur_alc_param
@@ -229,7 +229,7 @@ LOCAL int  AUDENHA_GetParaFromAudMode(
     s_cur_alc_param.alc_input_gain  =  armAudioInfo->tAudioNvArmModeStruct.app_config_info_set.app_config_info[s_cur_music_type].agc_input_gain[s_cur_music_type]; //s_cur_music_type=0:multimedia play(mp3)
     memcpy(&s_cur_alc_param.alc_Para,&armAudioInfo->tAudioNvArmModeStruct.reserve[7],sizeof(VBC_ALC_PARAS_T));
 
-    printk("aud_enha_exp.c,[AUDENHA_GetParaFromAudMode] s_cur_alc_param.alc_sw:%d;s_cur_alc_param.alc_input_gain:%d  \n",s_cur_alc_param.alc_sw,s_cur_alc_param.alc_input_gain); 
+    // printk("aud_enha_exp.c,[AUDENHA_GetParaFromAudMode] s_cur_alc_param.alc_sw:%d;s_cur_alc_param.alc_input_gain:%d  \n",s_cur_alc_param.alc_sw,s_cur_alc_param.alc_input_gain); 
 
     //s_cur_eq_mode_sel
     s_cur_eq_mode_sel = (AUD_ENHA_EQMODE_SEL_E)(armAudioInfo->tAudioNvArmModeStruct.app_config_info_set.app_config_info[s_cur_music_type].eq_switch&0xF);//BIT 3-BIT 0
@@ -260,7 +260,7 @@ LOCAL int  AUDENHA_GetParaFromAudMode(
     //s_cur_dapath_param
     s_cur_dapath_param.left_fm_mix_mode  = (armAudioInfo->tAudioNvArmModeStruct.reserve[0])&0x3000;//BIT13-BIT12
     s_cur_dapath_param.right_fm_mix_mode = (armAudioInfo->tAudioNvArmModeStruct.reserve[0])&0xC000;//BIT15-BIT14
-	printk("aud_enha_exp.c,[AUDENHA_GetParaFromAudMode] lcf_sw:%d;filter_type:%d r_limit:%d \n",s_cur_hpf_param.lcf_para.isFilterOn,s_cur_hpf_param.lcf_para.eLcfParaType,s_cur_hpf_param.r_limit); 
+	// printk("aud_enha_exp.c,[AUDENHA_GetParaFromAudMode] lcf_sw:%d;filter_type:%d r_limit:%d \n",s_cur_hpf_param.lcf_para.isFilterOn,s_cur_hpf_param.lcf_para.eLcfParaType,s_cur_hpf_param.r_limit); 
 
     return AUDIO_NO_ERROR;
 }
@@ -291,7 +291,7 @@ LOCAL int  AUDENHA_GetPara(
 	mode_name = (char *)armAudioInfo->ucModeName;
     if(NULL==mode_name)
     {
-    	printk("aud_enha_exp.c AUDENHA_GetPara mode_name:%s.\n", mode_name);
+    	// printk("aud_enha_exp.c AUDENHA_GetPara mode_name:%s.\n", mode_name);
     	return AUDIO_ERROR;
     }
 	
@@ -317,7 +317,7 @@ LOCAL int  AUDENHA_GetPara(
         s_cur_eq_para_set_index = 4;
     }
 
-	printk("AUDENHA_GetPara mode_name:%s , s_cur_eq_para_set_index :%d \n",mode_name,s_cur_eq_para_set_index);
+	// printk("AUDENHA_GetPara mode_name:%s , s_cur_eq_para_set_index :%d \n",mode_name,s_cur_eq_para_set_index);
    if(armAudioInfo->tAudioNvArmModeStruct.reserve[0]&0x0800)
     {
         //EQ  Tunable
@@ -331,7 +331,7 @@ LOCAL int  AUDENHA_GetPara(
 		
 	if( AUDIO_NO_ERROR != AUDENHA_GetParaFromEqset(SCI_FALSE,s_cur_eq_para_set_index,s_cur_tunable_eq_para_set_index) ) //pass eq
 	{
-		printk("aud_enha_exp.c AUDENHA_GetPara param error!\n");
+		// printk("aud_enha_exp.c AUDENHA_GetPara param error!\n");
 		return AUDIO_ERROR;
 	}
 
@@ -359,7 +359,7 @@ PUBLIC int  AUDENHA_SetPara(
    
 	if(AUDIO_NO_ERROR != AUDENHA_GetPara(audio_param_ptr))
 	{
-		printk("aud_enha_exp.c AUDENHA_GetPara error!\n");
+		// printk("aud_enha_exp.c AUDENHA_GetPara error!\n");
 		return AUDIO_ERROR;
 	}
 
@@ -370,10 +370,10 @@ PUBLIC int  AUDENHA_SetPara(
             s_cur_sample_rate  //fs
             ))
 	{
-		printk("aud_enha_exp.c AUDENHA_Init error! \n");
+		// printk("aud_enha_exp.c AUDENHA_Init error! \n");
 		return AUDIO_ERROR;
 	}
-	printk("aud_enha_exp.c AUDENHA_SetPara success!\n");
+	// printk("aud_enha_exp.c AUDENHA_SetPara success!\n");
 
     return AUDIO_NO_ERROR;
 }

@@ -38,7 +38,7 @@
 /**---------------------------------------------------------------------------*
  **                         Macro Definition                                  *
  **---------------------------------------------------------------------------*/
-#define AUD_EHA_DEBUG
+// #define AUD_EHA_DEBUG
 
 
 #define HPF_FADE_OUT_TOTAL_TIME 10      //ms  range:25-50
@@ -171,7 +171,7 @@ LOCAL BOOLEAN AUDENHA_SetHpf(
 
     if(!return_value)
     {
-        printk("aud_eha_config.c,[AUDENHA_SetHpfs] encounters error when caculating filter para! \n");
+        // printk("aud_eha_config.c,[AUDENHA_SetHpfs] encounters error when caculating filter para! \n");
 
         //if return error,this filter is set to all-pass filter
         hpf_gain_ptr->s[0]= 4096;
@@ -227,7 +227,7 @@ LOCAL BOOLEAN AUDENHA_SetHpf(
 
         if(!return_value)
         {
-            printk("aud_eha_config.c,[AUDENHA_SetHpfs]band:%d encounters error when caculating filter para! \n",i);
+            // printk("aud_eha_config.c,[AUDENHA_SetHpfs]band:%d encounters error when caculating filter para! \n",i);
 
             //if return error,this filter is set to all-pass filter
             hpf_gain_ptr->s[i+1]= 4096;
@@ -348,7 +348,7 @@ LOCAL int AUDENHA_initDigiGain(
     //DG switch
     VB_DGSwitch(VBC_DA_LEFT, SCI_TRUE); 
     VB_DGSwitch(VBC_DA_RIGHT, SCI_TRUE);
-	printk(KERN_DEBUG "CONFIG: AUDENHA_initDigiGain VBC_DA_LEFT=TRUE VBC_DA_RIGHT=SCI_TRUE \n");
+	// printk(KERN_DEBUG "CONFIG: AUDENHA_initDigiGain VBC_DA_LEFT=TRUE VBC_DA_RIGHT=SCI_TRUE \n");
 
 
     return AUDIO_NO_ERROR;
@@ -435,7 +435,7 @@ PUBLIC int AUDENHA_InitHpf(
 {
     BOOLEAN return_value = SCI_FALSE;
 
-    printk("aud_eha_config.c,[AUDENHA_InitHpf]  HPF is on! \n");
+    // printk("aud_eha_config.c,[AUDENHA_InitHpf]  HPF is on! \n");
 
     VB_SetHpfLimit((int8_t)(hpf_param_ptr->r_limit)); //RLimit:bit7~0
     VB_SetHpfWidth(hpf_param_ptr->data_width);       //IIS_Bits_select  
@@ -447,7 +447,7 @@ PUBLIC int AUDENHA_InitHpf(
     
     if(!return_value)
     {
-        printk("aud_eha_config.c,[AUDENHA_InitHpf]  set eq failed! \n");
+        // printk("aud_eha_config.c,[AUDENHA_InitHpf]  set eq failed! \n");
         return AUDIO_ERROR;   
     }
 
@@ -479,7 +479,7 @@ PUBLIC int AUDENHA_SetEqMode(
     
     if(!set_return_value)
     {
-        printk("aud_eha_config.c,[AUDENHA_SetEqMode]  set hpf failed! \n");
+        // printk("aud_eha_config.c,[AUDENHA_SetEqMode]  set hpf failed! \n");
         return AUDIO_ERROR;   
     }
 
@@ -520,10 +520,10 @@ PUBLIC int AUDENHA_Init(
 
     //digital gain
     AUDENHA_initDigiGain(dg_param_ptr);
-	printk("AUDENHA_Init:AUDENHA_initDigiGain left_gain=%d right_gain=%d \n",dg_param_ptr->left_gain,dg_param_ptr->right_gain);
+	// printk("AUDENHA_Init:AUDENHA_initDigiGain left_gain=%d right_gain=%d \n",dg_param_ptr->left_gain,dg_param_ptr->right_gain);
     //da path control
     AUDENHA_initDAPath(dapath_param_ptr);
-	printk("AUDENHA_Init:AUDENHA_initDAPath left_fm_mix_mode=%d right_fm_mix_mode=%d \n",dapath_param_ptr->left_fm_mix_mode,dapath_param_ptr->right_fm_mix_mode);
+	// printk("AUDENHA_Init:AUDENHA_initDAPath left_fm_mix_mode=%d right_fm_mix_mode=%d \n",dapath_param_ptr->left_fm_mix_mode,dapath_param_ptr->right_fm_mix_mode);
 
     //alc init
     AUDENHA_initAlc(alc_param_ptr);
@@ -533,7 +533,7 @@ PUBLIC int AUDENHA_Init(
     init_return_value = AUDENHA_InitHpf(hpf_param_ptr,sample_rate);
     if(AUDIO_NO_ERROR != init_return_value)
     {
-        printk("aud_eha_config.c,[AUDENHA_Init] Hpf init failed! \n");
+        // printk("aud_eha_config.c,[AUDENHA_Init] Hpf init failed! \n");
         return AUDIO_ERROR;
     }
 
@@ -552,7 +552,7 @@ PUBLIC BOOLEAN AUDENHA_DeInit(
    
     int32_t i=0;
     
-    printk("aud_eha_config.c,[AUDENHA_InitHpf]  eq is off! \n");
+    // printk("aud_eha_config.c,[AUDENHA_InitHpf]  eq is off! \n");
 
     //set s0  ~ s6 to zero
     for(i=0;i<TOTAL_S_GAIN_NUM;i++)

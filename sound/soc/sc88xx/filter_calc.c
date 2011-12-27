@@ -361,7 +361,7 @@ LOCAL CONST int16_t BaseGTable[901] = {//%32768πÈ“ªªØ
 int32_t do_sprddiv64(int64_t dividend,int32_t divisor)    //jian.chen add
 {
 	if(0 == divisor){
-		printk(KERN_ERR "filter_calc.c do_sprddiv64 divisor==0!\n");
+		// printk(KERN_ERR "filter_calc.c do_sprddiv64 divisor==0!\n");
 		return ENODATA;
 	}
 	return (int32_t)div_s64(dividend,divisor);

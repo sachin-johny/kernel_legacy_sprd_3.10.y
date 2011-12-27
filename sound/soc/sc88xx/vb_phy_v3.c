@@ -415,7 +415,7 @@ PUBLIC void VB_PHY_SetFMMixMode (
     }
     else
     {
-        printk ("vb_phy_v2.c,[VB_PHY_SetFMMixMode] invalid da index :%d \n",da_index);
+        // printk ("vb_phy_v2.c,[VB_PHY_SetFMMixMode] invalid da index :%d \n",da_index);
     }
 }
 
@@ -453,7 +453,7 @@ PUBLIC void VB_PHY_DGSwitch (
     }
     else
     {
-        printk ("vb_phy_v2.c,[VB_PHY_DGSwitch] invalid da index :%d \n",da_index);
+        // printk ("vb_phy_v2.c,[VB_PHY_DGSwitch] invalid da index :%d \n",da_index);
     }
 }
 
@@ -490,7 +490,7 @@ PUBLIC void VB_PHY_SetDG (
     }
     else
     {
-        printk ("vb_phy_v2.c,[VB_PHY_SetDG] invalid da index :%d \n",da_index);
+        // printk ("vb_phy_v2.c,[VB_PHY_SetDG] invalid da index :%d \n",da_index);
     }
 }
 
