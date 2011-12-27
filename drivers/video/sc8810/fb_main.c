@@ -62,6 +62,7 @@ struct sc8810fb_info {
 	uint32_t cap;
 	uint32_t bits_per_pixel;
 	uint32_t need_reinit;
+	uint32_t deep_sleep;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
@@ -148,11 +149,12 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 	struct sc8810fb_info *fb = (struct sc8810fb_info *)data;
 
 	val = __raw_readl(LCDC_IRQ_STATUS);
-	if (val & (1<<0)){      /* lcdc done */
+	if (val & (1<<0)) {      /* lcdc done */
 		FB_PRINT("--> lcdc_isr lm.mode=%d\n", lm.mode);
 		__raw_bits_or((1<<0), LCDC_IRQ_CLR);
-		if(lm.mode == LMODE_DISPLAY) /* TEMP */
+		if(lm.mode == LMODE_DISPLAY) {/* TEMP */
 			rrm_interrupt(fb->rrm);
+		}
 	}
 
 	return IRQ_HANDLED;
@@ -214,7 +216,7 @@ static int mount_panel(struct sc8810fb_info *fb, struct lcd_spec *panel)
 	} else {
 		fb->bits_per_pixel = 16;
 	}
-	FB_PRINT("allen: fb->bits_per_pixel = %d;\n", fb->bits_per_pixel);
+	FB_PRINT("[%s] fb->bits_per_pixel = %d;\n", __FUNCTION__, fb->bits_per_pixel);
 	return 0;
 }
 
@@ -289,7 +291,8 @@ static void real_refresh(void *para)
 		width  = fb->var.reserved[2] &  0xffff;
 		height = fb->var.reserved[2] >> 16;
 
-		info->panel->ops->lcd_invalidate_rect(info->panel,left,top,left+width-1,top+height-1);
+		info->panel->ops->lcd_invalidate_rect(info->panel,
+					left, top, left+width-1, top+height-1);
 	} else {
 		info->panel->ops->lcd_invalidate(info->panel);
 	}
@@ -320,8 +323,7 @@ static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	FB_PRINT("@fool2[%s] LCM_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCM_CTRL));
 	FB_PRINT("@fool2[%s] LCM_PARAMETER0: 0x%x\n", __FUNCTION__, __raw_readl(LCM_PARAMETER0));
 	FB_PRINT("@fool2[%s] LCM_PARAMETER1: 0x%x\n", __FUNCTION__, __raw_readl(LCM_PARAMETER1));
-	//FB_PRINT("@fool2[%s] LCM_IFMODE: 0x%x\n", __FUNCTION__, __raw_readl(LCM_IFMODE));
-	//FB_PRINT("@fool2[%s] LCM_RGBMODE: 0x%x\n", __FUNCTION__, __raw_readl(LCM_RGBMODE));
+
 	return 0;
 }
 
@@ -566,7 +568,7 @@ static inline int set_lcmrect( struct fb_info *info)
 	return 0;
 }
 
-int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
+static int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 {
 	uint32_t reg_val = 0;
 
@@ -655,36 +657,29 @@ int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	return 0;
 }
 
-static void hw_early_init(struct sc8810fb_info *info)
+static void lcdc_reset(void)
 {
-	int ret;
-
 	//select LCD clock source	
-	//__raw_bits_and(~(1<<6), GR_PLL_SRC);    //pll_src=96M
-	//__raw_bits_and(~(1<<7), GR_PLL_SRC);
+	__raw_bits_and(~((1 << 6) | (1 << 7)), GR_PLL_SRC);    //pll_src=128M
 
 	//set LCD divdior
-	//__raw_bits_and(~(1<<0), GR_GEN4);  //div=0
-	//__raw_bits_and(~(1<<1), GR_GEN4); 
-	//__raw_bits_and(~(1<<2), GR_GEN4);  
+	__raw_bits_and(~((1 << 0) |(1 << 1) | (1 << 2)), GR_GEN4);  //div=0
 
 	//enable LCD clock
-	//__raw_bits_or(1<<3, AHB_CTL0); 
+	__raw_bits_or(1<<3, AHB_CTL0); 
 
 	//LCD soft reset
-	//__raw_bits_or(1<<3, AHB_SOFT_RST);
+	__raw_bits_or(1<<3, AHB_SOFT_RST);
 	//mdelay(10);	
-	//__raw_bits_and(~(1<<3), AHB_SOFT_RST); 
+	__raw_bits_and(~(1<<3), AHB_SOFT_RST); 
+}
+
+static void hw_early_init(struct sc8810fb_info *info)
+{
+	//int ret;
 
 	__raw_bits_and(~(1<<0), LCDC_IRQ_EN);
 	__raw_bits_or((1<<0), LCDC_IRQ_CLR);
-
-	/* register isr */
-	ret = request_irq(IRQ_LCDC_INT, lcdc_isr, IRQF_DISABLED, "LCDC", info);
-	if (ret) {
-		printk(KERN_ERR "lcdc: failed to request irq!\n");
-		return;
-	}
 
 	/* init lcdc mcu mode using default configuration */
 	lcdc_mcu_init();
@@ -697,8 +692,9 @@ static void hw_init(struct sc8810fb_info *info)
 		return;
 
 	//panel reset
-	if(info->need_reinit) {
+	if (info->need_reinit) {
 	    panel_reset(NULL);
+
 	}
 	
 	/* set lcdc-lcd interface parameters */
@@ -746,7 +742,7 @@ static void sc8810fb_early_suspend (struct early_suspend* es)
 	if(info->panel->ops->lcd_enter_sleep != NULL){
 		info->panel->ops->lcd_enter_sleep(info->panel,1);
 	}
-
+	FB_PRINT("allen: [%s]\n", __FUNCTION__);
 }
 
 static void sc8810fb_early_resume (struct early_suspend* es)
@@ -755,6 +751,7 @@ static void sc8810fb_early_resume (struct early_suspend* es)
 	if(info->panel->ops->lcd_enter_sleep != NULL){
 		info->panel->ops->lcd_enter_sleep(info->panel,0);
 	}
+	FB_PRINT("allen: [%s]\n", __FUNCTION__);
 }
 #endif
 
@@ -849,15 +846,21 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	info->rrm = rrm_init(real_refresh, (void*)info);
 	rrm_layer_init(LID_OSD1, 2, real_set_layer);
 
+	/* register isr */
+	ret = request_irq(IRQ_LCDC_INT, lcdc_isr, IRQF_DISABLED, "LCDC", info);
+	if (ret) {
+		printk(KERN_ERR "lcdc: failed to request irq!\n");
+		goto cleanup;
+	}
+
 	//we maybe readid ,so hardware should be init
-	info->need_reinit = 1;
+	
 	hw_early_init(info);
 
 	lcd_adapt = find_adapt_from_uboot();
 	if (lcd_adapt == -1) {
+		info->need_reinit = 1;
 		lcd_adapt = find_adapt_from_readid(info);
-	} else {		
-		info->need_reinit = 0;
 	}
 	if (lcd_adapt < 0) { // invalid index
 		ret = -EINVAL;
@@ -881,7 +884,9 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	hw_init(info);
 	hw_later_init(info);
 
-	/* FIXME: put the BL stuff to where it belongs. */
+	// after init hardware
+	info->need_reinit = 0;
+	
 	//set_backlight(50);
 	platform_set_drvdata(pdev, info);
 
@@ -902,15 +907,27 @@ err0:
 
 static int sc8810fb_suspend(struct platform_device *pdev,pm_message_t state)
 {
-	struct sc8810fb_info *info=platform_get_drvdata(pdev);
+	struct sc8810fb_info *info = platform_get_drvdata(pdev);
+	info->deep_sleep = 1;
 	info->panel->ops->lcd_enter_sleep(info->panel,1);
+	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
 }
 
 static int sc8810fb_resume(struct platform_device *pdev)
 {
-	struct sc8810fb_info *info=platform_get_drvdata(pdev);
+	struct sc8810fb_info *info = platform_get_drvdata(pdev);
+
+	if (info->deep_sleep == 1) {
+		lcdc_reset();
+		hw_early_init(info);
+		panel_reset(NULL);
+		hw_init(info);
+		hw_later_init(info);		
+	}
 	info->panel->ops->lcd_enter_sleep(info->panel,0);
+	info->deep_sleep = 0;
+	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
 }
 
