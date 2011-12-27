@@ -428,13 +428,13 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
         RESTORE_REG(AHB_CTL0, AHB_CTL0_MASK, reg_ahb_ctl0_val); \
     }while(0)
 
+#define sc8800g_cpu_standby	 	sp_pm_collapse
+#define sc8800g_cpu_standby_prefetch	sp_pm_collapse_prefetch
+#define sc8800g_cpu_standby_end	sp_pm_collapse_exit
 extern void sc8800g_cpu_standby(void);
 extern void sc8800g_cpu_standby_end(void);
-int sc8800g_cpu_standby_prefetch(void)
-{
-	//TODO:
-	return 0;
-}
+extern int sc8800g_cpu_standby_prefetch(void);
+extern void trace(void);
 
 u32 __attribute__ ((naked)) sc8800g_read_cpsr(void)
 {
@@ -772,7 +772,7 @@ EXPORT_SYMBOL(sc8800g_set_pll);
 void sc8800g_save_pll(void)
 {
 	u32 val1, val2;
-
+#if 0
 	val1 = __raw_readl(GR_GEN1);
 	val1 |= BIT_9;
 	__raw_writel(val1, GR_GEN1);
@@ -785,11 +785,13 @@ void sc8800g_save_pll(void)
 
 	val1 &= ~BIT_9;
 	__raw_writel(val1, GR_GEN1);
+#endif
 }
 
 void sc8800g_restore_pll(void)
 {
 	u32 val1, val2;
+#if 0
 	if (pll_n > 0x0fff) pll_n = 200;
 	val1 = __raw_readl(GR_GEN1);
 	val1 |= BIT_9;
@@ -802,6 +804,7 @@ void sc8800g_restore_pll(void)
 
 	val1 &= ~BIT_9;
 	__raw_writel(val1, GR_GEN1);
+#endif
 }
 
 void __iomem *iram_start;
@@ -963,8 +966,8 @@ int sprd_timer_info_enable = 0;
 int sprd_check_dsp_enable = 0;
 int sprd_check_gpio_enable = 0;
 int sprd_dump_gpio_registers = 0;
-int sprd_wait_until_uart_tx_fifo_empty = 0;
-int sprd_sleep_mode_info = 0;
+int sprd_wait_until_uart_tx_fifo_empty = 1;
+int sprd_sleep_mode_info = 1;
 
 
 
@@ -1184,12 +1187,14 @@ int sleep_wait_emc_sleep(void)
 static void disable_ahb_module (void)
 {
     u32 val;
+#if 0
     if (!sleep_wait_emc_sleep()) {
         printk("###: EMC channel[6,7,8] is NOT idle!\n");
         printk("###: EMC channel[6,7,8] is NOT idle!\n");
         printk("###: EMC channel[6,7,8] is NOT idle!\n");    
         return;
     }
+#endif
     val = __raw_readl(AHB_CTL0);
     val &= ~AHB_CTL0_MASK;
     __raw_writel(val, AHB_CTL0);
@@ -1281,6 +1286,8 @@ int sc8800g_enter_deepsleep(int inidle)
 
     REG_LOCAL_VALUE_DEF;
 
+    printk("@@@%s\n", __FUNCTION__);
+    //trace();
 
 	if (!hw_irqs_disabled())  {
 		flags = sc8800g_read_cpsr();
@@ -1483,7 +1490,6 @@ static void nkidle(void)
 {
 	int val;
 	u32 t0, t1, delta;
-
 	if (!need_resched()) {
 		hw_local_irq_disable();
 		if (!raw_local_irq_pending()) {
@@ -2322,7 +2328,7 @@ int sc8800g_prepare_deep_sleep(void)
 
     /* AHB_CTL1 */
     val = POWCTL1_CONFIG;
-    __raw_writel(val, GR_POWCTL1);
+    //__raw_writel(val, GR_POWCTL1);
 
 
     printk("####: ioremap space for share IRAM ......\n");
@@ -2335,14 +2341,12 @@ int sc8800g_prepare_deep_sleep(void)
         printk("###: iram_start = %p\n", iram_start);
     }
 
-#if 0
     /* copy sleep code to IRAM. */
     printk("###: sc8800g_cpu_standby = %p, sc8800g_cpu_standby_end = %p\n", 
         sc8800g_cpu_standby, sc8800g_cpu_standby_end);
     if ((sc8800g_cpu_standby_end - sc8800g_cpu_standby + 128) > SLEEP_CODE_SIZE) {
           panic("##: code size is larger than expected, need more memory!\n");
     }
-#endif
 
     memcpy_toio(iram_start, sc8800g_cpu_standby, SLEEP_CODE_SIZE);
 
