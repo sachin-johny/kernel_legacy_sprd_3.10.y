@@ -181,6 +181,9 @@ static int32_t _SCALE_DriverCalcSC2Size(void)
 	uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
 
+	//printk("_SCALE_DriverCalcSC2Size,intput rect:%d,%d,%d,%d,output:%d,%d .\n",p_path->input_rect.x,p_path->input_rect.y,p_path->input_rect.w,p_path->input_rect.h,
+	//	  p_path->output_size.w,p_path->output_size.h);
+
 	if(p_path->input_rect.w * ISP_PATH_SC_COEFF_MAX < p_path->output_size.w ||		
 	    p_path->input_rect.h * ISP_PATH_SC_COEFF_MAX < p_path->output_size.h) 
 	{

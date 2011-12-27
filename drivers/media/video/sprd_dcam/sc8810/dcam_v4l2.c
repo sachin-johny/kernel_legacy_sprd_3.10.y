@@ -806,7 +806,13 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				dcam_start();
 			}
 			DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
-			break;			
+			break;	
+		case V4L2_CID_HFLIP:  		
+			Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);	
+			break;
+		case V4L2_CID_VFLIP:  		
+			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);	
+			break;
 		default:
 			break;
 	}
@@ -1218,7 +1224,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -EINVAL;
 	if (i != fh->type)
 		return -EINVAL;
-	init_dcam_parameters(priv);//wxz:???
+	init_dcam_parameters(priv);
 	init_sensor_parameters();
 
 	if(0 != (ret = videobuf_streamon(&fh->vb_vidq)))
@@ -1254,6 +1260,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_is_first_frame = 1; //store the nex first frame.
 	g_dcam_info.preview_m = 0;
 	g_dcam_info.snapshot_m = 0;
+	g_dcam_info.mode = DCAM_MODE_TYPE_IDLE;
 
 	//stop dcam
 	dcam_stop();
@@ -1461,6 +1468,13 @@ void dcam_cb_ISRPath1Done(void)
 	path1_done_buffer(g_fh);
 }
 
+void dcam_cb_ISRPath2Done(void)
+{	
+  	if(DCAM_MODE_TYPE_PREVIEW == g_dcam_info.mode)
+  	{
+		path1_done_buffer(g_fh);
+  	}
+}
 void dcam_cb_ISRCapFifoOF(void)
 {	
 	dcam_error_handle(g_fh);
@@ -1655,7 +1669,7 @@ static int open(struct file *file)
 //	dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
 	dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
 	dcam_callback_fun_register(DCAM_CB_PATH1_DONE,dcam_cb_ISRPath1Done);
-	dcam_callback_fun_register(DCAM_CB_PATH2_DONE,dcam_cb_ISRPath1Done);
+	dcam_callback_fun_register(DCAM_CB_PATH2_DONE,dcam_cb_ISRPath2Done);
 	dcam_callback_fun_register(DCAM_CB_CAP_FIFO_OF,dcam_cb_ISRCapFifoOF);	
 	dcam_callback_fun_register(DCAM_CB_SENSOR_LINE_ERR,dcam_cb_ISRSensorLineErr);	
 	dcam_callback_fun_register(DCAM_CB_SENSOR_FRAME_ERR,dcam_cb_ISRSensorFrameErr);	
