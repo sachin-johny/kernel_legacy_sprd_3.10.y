@@ -18,8 +18,14 @@ ENTRY(sp_arch_idle)
 	wfi
 	bx      lr
 
-ENTRY(sp_pm_collapse) 
-	ldr     r0, =saved_state
+ENTRY(sp_pm_collapse)
+//	b	sp_pm_collapse
+//	ldr     r0, =saved_state
+	ldr     r1, =saved_state
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
 	stmia   r0!, {r4-r14}
 	mrc     p15, 0, r1, c1, c0, 0 /* MMU control */
 	mrc     p15, 0, r2, c2, c0, 0 /* TTBR0 */
@@ -48,14 +54,20 @@ ENTRY(sp_pm_collapse)
 	mcr     p15, 0, r1, c1, c0, 0    /* restore d/i cache  */
 	isb
 
- 
-	ldr     r0, =saved_state         /* restore registers */
+
+//	ldr     r0, =saved_state         /* restore registers */
+	ldr     r1, =saved_state
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
 	ldmfd   r0, {r4-r14}
 	mov     r0, #0                   /* return power collapse failed */
 	bx      lr
 
 ENTRY(sp_pm_collapse_exit)
-#if 0  
+	b sp_pm_collapse_exit
+#if 0
 	bl	__cpu_early_init
 #endif
 	ldr     r1, =saved_state_end
@@ -124,12 +136,33 @@ sp_pm_pa_to_va:
 	nop
 1:	b       1b
 
+ENTRY(sp_pm_collapse_prefetch)
+//	b	sp_pm_collapse_prefetch
+	b	sp_pm_collapse
+    mov  r2, #0
+    ldr  r1, =iram_start
+    ldr  r1, [r1]
+    add  r2, r1, r2
+    mov pc, r2
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+ENTRY(sp_pm_collapse_end)
+
+ENTRY(trace)
+	b	trace
 
 	.data
 
 saved_state:
 	.space  4 * 11 /* r4-14 */
 	.space  4 * 10  /* cp15 */
- saved_state_end:
+saved_state_end:
 
 

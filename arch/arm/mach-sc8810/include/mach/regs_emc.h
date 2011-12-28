@@ -25,8 +25,8 @@
 #define EMC_DCFG2				              (SPRD_EMC_BASE + 0x0148)
 
 
-#define EXT_MEM_STS2                    (SPRD_EMC_BASE + 0x0078)
-#define EXT_MEM_STS3                    (SPRD_EMC_BASE + 0x007c)
+#define EXT_MEM_STS2                    (SPRD_EMC_BASE + 0x00A8)
+#define EXT_MEM_STS3                    (SPRD_EMC_BASE + 0x00Ac)
 
 /* bit definitions for register EMC_CFG0. */
 #define	RF_AUTO_SLEEP_ENABLE			(0x1UL << 10)

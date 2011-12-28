@@ -604,11 +604,13 @@ void __init gps_hw_config(void)
 	LDO_SetVoltLevel(LDO_BPWIF0,LDO_VOLT_LEVEL2);
 }
 
+extern void sc8810_pin_map_init(void);
 static void __init openphone_init(void)
 {
 	chip_init();
 	ADI_init();
 	LDO_Init();
+	//sc8810_pin_map_init();
 	sprd_i2c_init();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();

@@ -85,6 +85,10 @@ typedef unsigned int uint32;
 extern void printascii(char *);
 #endif
 
+#define INT_REG(off) (SPRD_INTCV_BASE + (off))
+
+#define INT_IRQ_STS     INT_REG(0x0000)
+#define INT_FIQ_STS     INT_REG(0x0020)
 
 
 extern long has_wake_lock_info(int type);
@@ -378,6 +382,8 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 
 
 #define GEN0_MASK ( GEN0_SIM0_EN | GEN0_I2C_EN | GEN0_GPIO_EN | \
+			   GEN0_I2C0_EN|GEN0_I2C1_EN|GEN0_I2C2_EN|GEN0_I2C3_EN | \
+			   GEN0_SPI0_EN|GEN0_SPI1_EN| GEN0_I2S0_EN | GEN0_I2S1_EN| \
 	                GEN0_EFUSE_EN | GEN0_I2S_EN | GEN0_PIN_EN | \
 	                GEN0_EPT_EN | GEN0_SIM1_EN | GEN0_SPI_EN | GEN0_UART0_EN | \
 	                GEN0_UART1_EN | GEN0_UART2_EN)
@@ -385,8 +391,10 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 #define CLK_EN_MASK (CLK_PWM0_EN | CLK_PWM1_EN | CLK_PWM2_EN | CLK_PWM3_EN)
 #define BUSCLK_ALM_MASK (ARM_VB_MCLKON|ARM_VB_DA0ON|ARM_VB_DA1ON|ARM_VB_ADCON|ARM_VB_ANAON|ARM_VB_ACC)
 #define AHB_CTL0_MASK   (AHB_CTL0_DCAM_EN|AHB_CTL0_CCIR_EN|AHB_CTL0_LCDC_EN|    \
-                         AHB_CTL0_SDIO_EN|AHB_CTL0_DMA_EN|     \
+                         AHB_CTL0_SDIO0_EN|AHB_CTL0_SDIO1_EN|AHB_CTL0_DMA_EN|     \
                          AHB_CTL0_BM0_EN |AHB_CTL0_NFC_EN|AHB_CTL0_BM1_EN|       \
+                         AHB_CTL0_G2D_EN|AHB_CTL0_G3D_EN|	\
+                         AHB_CTL0_AXIBUSMON0_EN|AHB_CTL0_AXIBUSMON1_EN|	\
                          AHB_CTL0_VSP_EN|AHB_CTL0_ROT_EN | AHB_CTL0_USBD_EN)
 
 #define GR_CLK_EN_MASK CLK_EN_MASK
@@ -424,10 +432,21 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
         RESTORE_REG(AHB_CTL0, AHB_CTL0_MASK, reg_ahb_ctl0_val); \
     }while(0)
 
+#define sc8800g_cpu_standby	 	sp_pm_collapse
+#define sc8800g_cpu_standby_prefetch	sp_pm_collapse_prefetch
+#define sc8800g_cpu_standby_end	sp_pm_collapse_exit
 extern void sc8800g_cpu_standby(void);
 extern void sc8800g_cpu_standby_end(void);
 extern int sc8800g_cpu_standby_prefetch(void);
+extern void trace(void);
 
+static uint32_t *sp_pm_reset_vector = NULL;
+static uint32_t saved_vector[2];
+
+u32 __attribute__ ((naked)) sc8800g_read_cpsr(void)
+{
+	__asm__ __volatile__("mrs r0, cpsr\nbx lr");
+}
 
 #define UART_STS0 (SPRD_SERIAL1_BASE + 0x08)
 #define UART_STS1 (SPRD_SERIAL1_BASE + 0x0c)
@@ -473,7 +492,7 @@ static int is_dsp_sleep(void)
 {
 	u32 val;
 	int ret_val = 0;
-#if 0
+
 	/*
 	printk("####: check register: GR_STC_STATE for DSP\n");
 	*/
@@ -506,14 +525,13 @@ static int is_dsp_sleep(void)
 		ret_val = -2;
 	}
 #endif
-#endif
 	return ret_val;
 }
 
 static int verify_dsp_deep_sleep_by_value(u32 val1, u32 val2)
 {
 	int ret_val = 0;
-#if 0
+
 	printk("####: check register: GR_STC_STATE for DSP\n");
 	printk("######: GR_STC_STATE =%08x\n", val1);
 	if (GR_DSP_STOP & val1) {
@@ -592,7 +610,7 @@ static int verify_dsp_deep_sleep_by_value(u32 val1, u32 val2)
 		printk("#####: GR_CLK_DLY[GR_EMC_STOP_CH3] is NOT set!\n");
 		ret_val = -EINVAL;
 	}
-#endif
+
 	return ret_val;
 }
 
@@ -761,7 +779,7 @@ EXPORT_SYMBOL(sc8800g_set_pll);
 void sc8800g_save_pll(void)
 {
 	u32 val1, val2;
-
+#if 0
 	val1 = __raw_readl(GR_GEN1);
 	val1 |= BIT_9;
 	__raw_writel(val1, GR_GEN1);
@@ -774,11 +792,13 @@ void sc8800g_save_pll(void)
 
 	val1 &= ~BIT_9;
 	__raw_writel(val1, GR_GEN1);
+#endif
 }
 
 void sc8800g_restore_pll(void)
 {
 	u32 val1, val2;
+#if 0
 	if (pll_n > 0x0fff) pll_n = 200;
 	val1 = __raw_readl(GR_GEN1);
 	val1 |= BIT_9;
@@ -791,6 +811,7 @@ void sc8800g_restore_pll(void)
 
 	val1 &= ~BIT_9;
 	__raw_writel(val1, GR_GEN1);
+#endif
 }
 
 void __iomem *iram_start;
@@ -1149,7 +1170,7 @@ int disable_apb_module(void)
 
     val = __raw_readl(GR_CLK_EN);
     val &= ~CLK_EN_MASK;
-    __raw_writel(val, GR_CLK_EN);
+    __raw_writel(val, GR_CLK_EN);//BUGBUG: BUFON_CTRL closed or not?
 
     return 0;
 }
@@ -1173,12 +1194,14 @@ int sleep_wait_emc_sleep(void)
 static void disable_ahb_module (void)
 {
     u32 val;
+#if 0
     if (!sleep_wait_emc_sleep()) {
         printk("###: EMC channel[6,7,8] is NOT idle!\n");
         printk("###: EMC channel[6,7,8] is NOT idle!\n");
         printk("###: EMC channel[6,7,8] is NOT idle!\n");    
         return;
     }
+#endif
     val = __raw_readl(AHB_CTL0);
     val &= ~AHB_CTL0_MASK;
     __raw_writel(val, AHB_CTL0);
@@ -1220,11 +1243,11 @@ int supsend_gpio_save(void)
 	u32 val = 0;
 
 	if (sprd_check_gpio_enable) {
-//		gpio_for_suespend();
+		gpio_for_suespend();
 	}
 
 	if (sprd_dump_gpio_registers) {
-//		gpio_dump_registers();
+		gpio_dump_registers();
 	}
 
 #ifdef CONFIG_MACH_SP6810A
@@ -1263,14 +1286,12 @@ int sc8800g_enter_deepsleep(int inidle)
     int status;
     u32 t0, t1, delta;
     int ret = 0;
-#if 0
 /*
     int calibration_enable = 0;
 */
 	unsigned long flags;
 
     REG_LOCAL_VALUE_DEF;
-
 
 	if (!hw_irqs_disabled())  {
 		flags = sc8800g_read_cpsr();
@@ -1421,15 +1442,42 @@ int sc8800g_enter_deepsleep(int inidle)
 	
 		t0 = get_sys_cnt();
 		//enable_mcu_sleep();
+
+#if 1
+	writel(1, SPRD_CACHE310_BASE + 0xF80/*L2X0_POWER_CTRL*/);//standby mode enable
+#endif
+		/* AHB_PAUSE */
+		val = __raw_readl(AHB_PAUSE);
+		val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
+		val |= (MCU_SYS_SLEEP_EN);
+//		val |= (MCU_DEEP_SLEEP_EN);//go deepsleep when all PD auto poweroff en
+		__raw_writel(val, AHB_PAUSE);
+
+		saved_vector[0] = sp_pm_reset_vector[0];
+		saved_vector[1] = sp_pm_reset_vector[1];
+		sp_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
+		sp_pm_reset_vector[1] = virt_to_phys(sc8800g_cpu_standby_end);
+
 		ret = sc8800g_cpu_standby_prefetch();
+		//trace();
+
+		sp_pm_reset_vector[0] = saved_vector[0];
+		sp_pm_reset_vector[1] = saved_vector[1];
+		if (ret) {
+			cpu_init();
+		}
+		else {
+		}
+		//printk(KERN_INFO "@@@@@@@@wakeup(%d)\n", ret);
+
 		RESTORE_GLOBAL_REG;
 		t1 = get_sys_cnt();
 		delta = t1 - t0;
 		if (!inidle) sleep_time += delta;
 		else sleep_time_inidle += delta;
-		/*
+
 		udelay(20);
-		*/
+
 		supsend_ldo_turnon();
 		supsend_gpio_restore();
 	
@@ -1459,7 +1507,6 @@ int sc8800g_enter_deepsleep(int inidle)
 					fiq_sts, 0, 0);
 		}
    }
-#endif
     return ret;
 }
 EXPORT_SYMBOL(sc8800g_enter_deepsleep);
@@ -1474,7 +1521,6 @@ static void nkidle(void)
 {
 	int val;
 	u32 t0, t1, delta;
-
 	if (!need_resched()) {
 		hw_local_irq_disable();
 		if (!raw_local_irq_pending()) {
@@ -2216,7 +2262,15 @@ int sc8800g_prepare_deep_sleep(void)
     int i;
     pid_t pid_number;
     u32 * pint = (u32 *)sc8800g_cpu_standby;
-#if 0
+
+	if (!sp_pm_reset_vector) {
+		sp_pm_reset_vector = ioremap(0xffff0000, PAGE_SIZE);
+		if (sp_pm_reset_vector == NULL) {
+			printk(KERN_ERR "sp_pm_init: failed to map reset vector\n");
+			return 0;
+		}
+	}
+
 #if 0
 	val = __raw_readl(EMC_CFG0);
 	val |= RF_AUTO_SLEEP_ENABLE;
@@ -2282,7 +2336,12 @@ int sc8800g_prepare_deep_sleep(void)
     /* AHB_CTL1 */
 	val = __raw_readl(AHB_CTL1);
 	val |= (AHB_CTRL1_EMC_CH_AUTO_GATE_EN | AHB_CTRL1_EMC_AUTO_GATE_EN | 
+		AHB_CTRL1_ARM_AUTO_GATE_EN|
+		AHB_CTRL1_AHB_AUTO_GATE_EN|
+//		AHB_CTRL1_MCU_AUTO_GATE_EN|	//BUGBUG
+		AHB_CTRL1_ARM_DAHB_SLEEP_EN|
 	        AHB_CTRL1_ARMMTX_AUTO_GATE_EN | AHB_CTRL1_MSTMTX_AUTO_GATE_EN);
+	val &= ~AHB_CTRL1_MCU_AUTO_GATE_EN;
 	__raw_writel(val, AHB_CTL1);
 
 
@@ -2296,7 +2355,7 @@ int sc8800g_prepare_deep_sleep(void)
    __raw_writel(val, GR_CLK_EN);
 
     //ANA_REG_OR(ANA_LDO_SLP, (FSM_RF0_BP_EN | FSM_RF1_BP_EN));
-    ANA_REG_SET(ANA_LDO_SLP, 0xa4f3);
+    //ANA_REG_SET(ANA_LDO_SLP, 0xa4f3);
 
 
     /* ANA_ANA_CTL0 */
@@ -2305,7 +2364,7 @@ int sc8800g_prepare_deep_sleep(void)
     ANA_REG_OR(ANA_ANA_CTL0, VIBR_PD);
     */
     /* enable LDOs auto power down. */
-    ANA_REG_OR(ANA_ANA_CTL0, FSM_AFCPD_EN);
+    //ANA_REG_OR(ANA_ANA_CTL0, FSM_AFCPD_EN);
 
     /* enable OTP. */
     /*
@@ -2314,7 +2373,7 @@ int sc8800g_prepare_deep_sleep(void)
 
     /* AHB_CTL1 */
     val = POWCTL1_CONFIG;
-    __raw_writel(val, GR_POWCTL1);
+    //__raw_writel(val, GR_POWCTL1);
 
 
     printk("####: ioremap space for share IRAM ......\n");
@@ -2326,7 +2385,6 @@ int sc8800g_prepare_deep_sleep(void)
     else {
         printk("###: iram_start = %p\n", iram_start);
     }
-
 
     /* copy sleep code to IRAM. */
     printk("###: sc8800g_cpu_standby = %p, sc8800g_cpu_standby_end = %p\n", 
@@ -2390,7 +2448,6 @@ int sc8800g_prepare_deep_sleep(void)
 	*/
 	sprd_proc_create(sprd_proc_entry, "sprd_suspend_enable", &_suspend_enable_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "sprd_suspend_interval", &_suspend_interval_proc_fops);
-#endif
     return 0;
 }
 EXPORT_SYMBOL(sc8800g_prepare_deep_sleep);

@@ -60,32 +60,37 @@
 #define GEN0_TIMER_EN                   BIT_2
 #define GEN0_SIM0_EN                    BIT_3
 #define GEN0_I2C_EN                     BIT_4
+#define GEN0_I2C0_EN                     GEN0_I2C_EN
 #define GEN0_GPIO_EN                    BIT_5
 #define GEN0_ADI_EN                     BIT_6
 #define GEN0_EFUSE_EN                   BIT_7
 #define GEN0_KPD_EN                     BIT_8
 #define GEN0_EIC_EN						BIT_9
-//reserved
 #define GEN0_MCU_DSP_RST                BIT_10
 #define GEN0_MCU_SOFT_RST               BIT_11
 #define GEN0_I2S_EN                     BIT_12
+#define GEN0_I2S0_EN                     GEN0_I2S_EN
 #define GEN0_PIN_EN                     BIT_13
 #define GEN0_CCIR_MCLK_EN               BIT_14
 #define GEN0_EPT_EN                     BIT_15
 #define GEN0_SIM1_EN                    BIT_16
 #define GEN0_SPI_EN                     BIT_17
-//reserved
+#define GEN0_SPI0_EN                     GEN0_SPI_EN
+#define GEN0_SPI1_EN                     BIT_18
 #define GEN0_SYST_EN                    BIT_19
 #define GEN0_UART0_EN                   BIT_20
 #define GEN0_UART1_EN                   BIT_21
 #define GEN0_UART2_EN                   BIT_22
 #define GEN0_VB_EN                      BIT_23
 #define GEN0_GPIO_RTC_EN                BIT_24
-//reserved
+#define GEN0_EIC_RTC_EN                GEN0_GPIO_RTC_EN
+#define GEN0_I2S1_EN                	BIT_25
 #define GEN0_KPD_RTC_EN                 BIT_26
 #define GEN0_SYST_RTC_EN                BIT_27
 #define GEN0_TMR_RTC_EN                 BIT_28
-//reserved
+#define GEN0_I2C1_EN                     BIT_29
+#define GEN0_I2C2_EN                     BIT_30
+#define GEN0_I2C3_EN                     BIT_31
 
 /* GR_PCTL */
 #define MCU_MPLL_EN    (0x1UL << 1)

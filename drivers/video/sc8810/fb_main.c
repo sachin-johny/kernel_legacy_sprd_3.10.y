@@ -908,7 +908,7 @@ err0:
 static int sc8810fb_suspend(struct platform_device *pdev,pm_message_t state)
 {
 	struct sc8810fb_info *info = platform_get_drvdata(pdev);
-	info->deep_sleep = 1;
+	info->deep_sleep = 0;
 	info->panel->ops->lcd_enter_sleep(info->panel,1);
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
