@@ -51,6 +51,7 @@
 #define AHB_CTL0_CCIR_EN    BIT_2
 #define AHB_CTL0_LCDC_EN    BIT_3
 #define AHB_CTL0_SDIO_EN    BIT_4
+#define AHB_CTL0_SDIO0_EN    AHB_CTL0_SDIO_EN
 #define AHB_CTL0_USBD_EN    BIT_5
 #define AHB_CTL0_DMA_EN     BIT_6
 #define AHB_CTL0_BM0_EN     (BIT_7)
@@ -59,8 +60,13 @@
 #define AHB_CTL0_VSP_EN      BIT_13
 #define AHB_CTL0_ROT_EN      BIT_14
 #define AHB_CTL0_DRM_EN     BIT_18
+#define AHB_CTL0_SDIO1_EN    BIT_19
+#define AHB_CTL0_G2D_EN    BIT_20
+#define AHB_CTL0_G3D_EN    BIT_21
 #define AHB_CTL0_AHB_ARCH_EB   BIT_15
 #define AHB_CTL0_EMC_EN   BIT_28
+#define AHB_CTL0_AXIBUSMON0_EN   BIT_29
+#define AHB_CTL0_AXIBUSMON1_EN   BIT_30
 
 #define AHB_BIGENDIAN_DMA           BIT_0
 #define AHB_BIGENDIAN_NFC						BIT_1

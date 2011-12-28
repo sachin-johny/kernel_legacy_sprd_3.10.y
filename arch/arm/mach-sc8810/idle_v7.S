@@ -137,8 +137,8 @@ sp_pm_pa_to_va:
 1:	b       1b
 
 ENTRY(sp_pm_collapse_prefetch)
+//	b	sp_pm_collapse_prefetch
 	b	sp_pm_collapse
-	b	sp_pm_collapse_prefetch
     mov  r2, #0
     ldr  r1, =iram_start
     ldr  r1, [r1]

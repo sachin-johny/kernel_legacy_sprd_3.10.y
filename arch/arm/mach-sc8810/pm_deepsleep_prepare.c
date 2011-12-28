@@ -382,6 +382,8 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 
 
 #define GEN0_MASK ( GEN0_SIM0_EN | GEN0_I2C_EN | GEN0_GPIO_EN | \
+			   GEN0_I2C0_EN|GEN0_I2C1_EN|GEN0_I2C2_EN|GEN0_I2C3_EN | \
+			   GEN0_SPI0_EN|GEN0_SPI1_EN| GEN0_I2S0_EN | GEN0_I2S1_EN| \
 	                GEN0_EFUSE_EN | GEN0_I2S_EN | GEN0_PIN_EN | \
 	                GEN0_EPT_EN | GEN0_SIM1_EN | GEN0_SPI_EN | GEN0_UART0_EN | \
 	                GEN0_UART1_EN | GEN0_UART2_EN)
@@ -389,8 +391,10 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 #define CLK_EN_MASK (CLK_PWM0_EN | CLK_PWM1_EN | CLK_PWM2_EN | CLK_PWM3_EN)
 #define BUSCLK_ALM_MASK (ARM_VB_MCLKON|ARM_VB_DA0ON|ARM_VB_DA1ON|ARM_VB_ADCON|ARM_VB_ANAON|ARM_VB_ACC)
 #define AHB_CTL0_MASK   (AHB_CTL0_DCAM_EN|AHB_CTL0_CCIR_EN|AHB_CTL0_LCDC_EN|    \
-                         AHB_CTL0_SDIO_EN|AHB_CTL0_DMA_EN|     \
+                         AHB_CTL0_SDIO0_EN|AHB_CTL0_SDIO1_EN|AHB_CTL0_DMA_EN|     \
                          AHB_CTL0_BM0_EN |AHB_CTL0_NFC_EN|AHB_CTL0_BM1_EN|       \
+                         AHB_CTL0_G2D_EN|AHB_CTL0_G3D_EN|	\
+                         AHB_CTL0_AXIBUSMON0_EN|AHB_CTL0_AXIBUSMON1_EN|	\
                          AHB_CTL0_VSP_EN|AHB_CTL0_ROT_EN | AHB_CTL0_USBD_EN)
 
 #define GR_CLK_EN_MASK CLK_EN_MASK
@@ -435,6 +439,9 @@ extern void sc8800g_cpu_standby(void);
 extern void sc8800g_cpu_standby_end(void);
 extern int sc8800g_cpu_standby_prefetch(void);
 extern void trace(void);
+
+static uint32_t *sp_pm_reset_vector = NULL;
+static uint32_t saved_vector[2];
 
 u32 __attribute__ ((naked)) sc8800g_read_cpsr(void)
 {
@@ -966,8 +973,8 @@ int sprd_timer_info_enable = 0;
 int sprd_check_dsp_enable = 0;
 int sprd_check_gpio_enable = 0;
 int sprd_dump_gpio_registers = 0;
-int sprd_wait_until_uart_tx_fifo_empty = 1;
-int sprd_sleep_mode_info = 1;
+int sprd_wait_until_uart_tx_fifo_empty = 0;
+int sprd_sleep_mode_info = 0;
 
 
 
@@ -1163,7 +1170,7 @@ int disable_apb_module(void)
 
     val = __raw_readl(GR_CLK_EN);
     val &= ~CLK_EN_MASK;
-    __raw_writel(val, GR_CLK_EN);
+    __raw_writel(val, GR_CLK_EN);//BUGBUG: BUFON_CTRL closed or not?
 
     return 0;
 }
@@ -1286,8 +1293,8 @@ int sc8800g_enter_deepsleep(int inidle)
 
     REG_LOCAL_VALUE_DEF;
 
-    printk("@@@%s\n", __FUNCTION__);
-    //trace();
+//    printk("@@@%s\n", __FUNCTION__);
+//    trace();
 
 	if (!hw_irqs_disabled())  {
 		flags = sc8800g_read_cpsr();
@@ -1438,15 +1445,42 @@ int sc8800g_enter_deepsleep(int inidle)
 	
 		t0 = get_sys_cnt();
 		//enable_mcu_sleep();
+
+#if 1
+	writel(1, SPRD_CACHE310_BASE + 0xF80/*L2X0_POWER_CTRL*/);//standby mode enable
+#endif
+		/* AHB_PAUSE */
+		val = __raw_readl(AHB_PAUSE);
+		val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
+		val |= (MCU_SYS_SLEEP_EN);
+//		val |= (MCU_DEEP_SLEEP_EN);//
+		__raw_writel(val, AHB_PAUSE);
+
+		saved_vector[0] = sp_pm_reset_vector[0];
+		saved_vector[1] = sp_pm_reset_vector[1];
+		sp_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
+		sp_pm_reset_vector[1] = virt_to_phys(sc8800g_cpu_standby_end);
+
 		ret = sc8800g_cpu_standby_prefetch();
+		//trace();
+
+		sp_pm_reset_vector[0] = saved_vector[0];
+		sp_pm_reset_vector[1] = saved_vector[1];
+		if (ret) {
+			cpu_init();
+		}
+		else {
+		}
+		//printk(KERN_INFO "@@@@@@@@wakeup(%d)\n", ret);
+
 		RESTORE_GLOBAL_REG;
 		t1 = get_sys_cnt();
 		delta = t1 - t0;
 		if (!inidle) sleep_time += delta;
 		else sleep_time_inidle += delta;
-		/*
+
 		udelay(20);
-		*/
+
 		supsend_ldo_turnon();
 		supsend_gpio_restore();
 	
@@ -2231,6 +2265,15 @@ int sc8800g_prepare_deep_sleep(void)
     int i;
     pid_t pid_number;
     u32 * pint = (u32 *)sc8800g_cpu_standby;
+
+	if (!sp_pm_reset_vector) {
+		sp_pm_reset_vector = ioremap(0xffff0000, PAGE_SIZE);
+		if (sp_pm_reset_vector == NULL) {
+			printk(KERN_ERR "sp_pm_init: failed to map reset vector\n");
+			return 0;
+		}
+	}
+
 #if 0
 	val = __raw_readl(EMC_CFG0);
 	val |= RF_AUTO_SLEEP_ENABLE;
@@ -2296,7 +2339,12 @@ int sc8800g_prepare_deep_sleep(void)
     /* AHB_CTL1 */
 	val = __raw_readl(AHB_CTL1);
 	val |= (AHB_CTRL1_EMC_CH_AUTO_GATE_EN | AHB_CTRL1_EMC_AUTO_GATE_EN | 
+		AHB_CTRL1_ARM_AUTO_GATE_EN|
+		AHB_CTRL1_AHB_AUTO_GATE_EN|
+//		AHB_CTRL1_MCU_AUTO_GATE_EN|	//BUGBUG
+		AHB_CTRL1_ARM_DAHB_SLEEP_EN|
 	        AHB_CTRL1_ARMMTX_AUTO_GATE_EN | AHB_CTRL1_MSTMTX_AUTO_GATE_EN);
+	val &= ~AHB_CTRL1_MCU_AUTO_GATE_EN;
 	__raw_writel(val, AHB_CTL1);
 
 
