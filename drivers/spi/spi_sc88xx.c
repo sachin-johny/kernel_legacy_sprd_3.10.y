@@ -20,7 +20,7 @@
 #include <linux/spi/spi.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
-#include <linux/semaphore.h>
+
 #include <asm/io.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
@@ -541,7 +541,7 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
 			old_reg = spi_readl(SPI_CTL1);
 			sprd_cmmb_dma_txrx_cfg(read_data,dma_len,cookie,cookie2);
 		       down_interruptible(&sprd_data->process_sem);
-			outer_inv_range((unsigned long)read_data,(unsigned long)read_data+dma_len);
+			dmac_inv_range(read_data,read_data+dma_len);
 			spi_writel(old_reg, SPI_CTL1);
 
 			//sprd_spi_bytes_transfer(read_data,NULL,dma_len,cookie,cookie2);

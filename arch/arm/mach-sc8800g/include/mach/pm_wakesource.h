@@ -1,6 +1,6 @@
-/* arch/arm/mach-sc8800g/include/mach/memory.h
+/* include/arch/arm/mach_../pm_wakesource.h
  *
- * Copyright (C) 2010 Spreadtrum
+ * Copyright (C) 2001-2011 Spreadtrum, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -13,15 +13,21 @@
  *
  */
 
-#ifndef __ASM_ARCH_MEMORY_H
-#define __ASM_ARCH_MEMORY_H
+#ifndef _PM_WAKE_SOURCE_H
+#define _PM_WAKE_SOURCE_H
 
-/* physical offset of RAM */
-#define PHYS_OFFSET		UL(0x0)
+#include <linux/list.h>
 
-/* bus address and physical addresses are identical */
-#define __virt_to_bus(x)	__virt_to_phys(x)
-#define __bus_to_virt(x)	__phys_to_virt(x)
+struct wake_source {
+	struct list_head link;
+	void (*set)(struct wake_source *h);
+	void (*clear)(struct wake_source *h);
+};
+
+void register_wake_source(struct wake_source *handler);
+void unregister_wake_source(struct wake_source *handler);
+void wake_source_set(void);
+void wake_source_clr(void);
 
 #endif
 

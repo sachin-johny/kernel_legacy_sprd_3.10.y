@@ -128,12 +128,14 @@ extern unsigned int buf_ptr;    /* va of temp buffer */
 extern unsigned int buf_ptr_cached;
 extern unsigned int buf_ptr_pa; /* pa of temp buffer */
 
-#define GET_VA(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr): \
-	((base >= buf_ptr_pa && base <= buf_ptr_pa+fb_len)?       \
+#define GET_VA(base) ((base>=SPRD_PMEM_BASE && base<SPRD_PMEM_END)? \
+	(base-SPRD_PMEM_BASE+pmem_ptr):                             \
+	((base >= buf_ptr_pa && base <= buf_ptr_pa+fb_len)?         \
 	(base - buf_ptr_pa + buf_ptr):(base-fb_pa+fb_va)))
 
-#define GET_VA_CACHED(base) ((base>=SPRD_PMEM_BASE)?(base-SPRD_PMEM_BASE+pmem_ptr_cached): \
-	((base >= buf_ptr_pa && base <= buf_ptr_pa+fb_len)?       \
+#define GET_VA_CACHED(base) ((base>=SPRD_PMEM_BASE && base< SPRD_PMEM_END)? \
+	(base-SPRD_PMEM_BASE+pmem_ptr_cached):                              \
+	((base >= buf_ptr_pa && base <= buf_ptr_pa+fb_len)?                 \
 	(base - buf_ptr_pa + buf_ptr_cached):(base-fb_pa+fb_va_cached)))
 /* TEMP, end */
 
@@ -423,10 +425,13 @@ static inline void copy_all(struct s2d_blit_req * req)
 	CL_PRINT("copy_all: dst@0x%x, src@0x%x\n", dst, src);
 	for (i = req->dst_rect.h; i!= 0; i--) {
 		memcpy(dst, src, req->dst_rect.w*2);
+
+		clean_dcache_area(dst, L1_CACHE_ALIGN(req->dst_rect.w*2)+L1_CACHE_BYTES);
+		dmac_inv_range(src, src + req->dst_rect.w*2);
+
 		dst += req->dst.width;
 		src += req->src.width;
 	}
-	clean_dcache_area(dst_tmp, (unsigned int)dst - (unsigned int)dst_tmp);
 }
 
 /* the blend32_xxx serial works for BGRA8888 to RGB565 */
@@ -523,10 +528,12 @@ static inline void blend32_all(struct s2d_blit_req * req)
 			dst++;
 			src+=4;
 		}
+		clean_dcache_area(dst_base, L1_CACHE_ALIGN((unsigned int)dst-(unsigned int)dst_base)+L1_CACHE_BYTES);
+		dmac_inv_range(src_base, src);
+
 		dst_base += req->dst.width;
 		src_base += req->src.width;
 	}
-	clean_dcache_area(dst_base_tmp, (unsigned int)dst - (unsigned int)dst_base_tmp);
 
 	CL_PRINT("blend32_all: dst@0x%x, src@0x%x, {%d,%d}\n", 
 		dst_base, src_base, req->dst_rect.w, req->dst_rect.h);
@@ -628,10 +635,12 @@ static inline void blend_all(struct s2d_blit_req * req)
 			dst++;
 			src++;
 		}
+		clean_dcache_area(dst_base, L1_CACHE_ALIGN((unsigned int)dst-(unsigned int)dst_base)+L1_CACHE_BYTES);
+		dmac_inv_range(src_base, src);
+
 		dst_base += req->dst.width;
 		src_base += req->src.width;
 	}
-	clean_dcache_area(dst_base_tmp, (unsigned int)dst - (unsigned int)dst_base_tmp);
 }
 
 /* 
@@ -662,6 +671,8 @@ int do_copybit_lcdc(struct s2d_blit_req * req)
 		CL_PRINT("========SOFTWARE_BLEND_ALL!!! \n");
 		if (req->src.format == S2D_BGRA_8888)
 			blend32_all(req);
+		else if ( req->alpha == 255)
+			copy_all(req);
 		else
 			blend_all(req);
 

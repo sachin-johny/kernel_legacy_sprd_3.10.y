@@ -2292,7 +2292,11 @@ int sc8800g_prepare_deep_sleep(void)
    __raw_writel(val, GR_CLK_EN);
 
     //ANA_REG_OR(ANA_LDO_SLP, (FSM_RF0_BP_EN | FSM_RF1_BP_EN));
+#ifdef CONFIG_MACH_SP6810A
+    ANA_REG_SET(ANA_LDO_SLP, 0xa4f1); //wxz20111124: cancel the auto control for RF1	
+#else
     ANA_REG_SET(ANA_LDO_SLP, 0xa4f3);
+#endif
 
 
     /* ANA_ANA_CTL0 */

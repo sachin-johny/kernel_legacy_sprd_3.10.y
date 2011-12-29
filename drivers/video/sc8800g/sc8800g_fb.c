@@ -47,6 +47,9 @@
 #define FB_PRINT(...)
 #endif
 
+/* default lcdc clock */
+#define DEF_CLOCK 96000000
+
 #define AHB_CTL0                (SPRD_AHB_BASE + 0x200)
 #define AHB_SOFT_RST            (SPRD_AHB_BASE + 0x210)
 #define AHB_ARM_CLK         (SPRD_AHB_BASE + 0x224)
@@ -121,6 +124,7 @@ struct sc8800fb_info {
 	struct ops_mcu *ops;
 	struct lcd_spec *panel;
 	struct rrmanager *rrm;
+	struct clk *clk_lcdc;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
@@ -236,40 +240,6 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 static void set_pins(void)
 {	
 
-	__raw_writel(0x1fff00, SPRD_CPC_BASE);
-
-	/*LCDC pin config*/
-    static unsigned long lcd_func_cfg[] = {
-
-    MFP_CFG_X(LCD_CSN1,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_CSN1
-    MFP_CFG_X(LCD_RSTN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_RSTN
-    MFP_CFG_X(LCD_CD,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_CD
-    MFP_CFG_X(LCD_D0,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[0]
-    MFP_CFG_X(LCD_D1,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[1]
-    MFP_CFG_X(LCD_D2,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[2]
-    MFP_CFG_X(LCD_D3,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[3]
-    MFP_CFG_X(LCD_D4,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[4]
-    MFP_CFG_X(LCD_D5,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[5]
-    MFP_CFG_X(LCD_D6,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[6]
-    MFP_CFG_X(LCD_D7,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[7]
-    MFP_CFG_X(LCD_D8,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[8]
-    MFP_CFG_X(LCD_WRN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_WRN
-    MFP_CFG_X(LCD_RDN,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_RDN
-    MFP_CFG_X(LCD_CSN0,AF0,DS1,F_PULL_NONE,S_PULL_UP,IO_Z),//LCD_CSN0	
-    MFP_CFG_X(LCD_D9,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[9]
-    MFP_CFG_X(LCD_D10,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[10]
-    MFP_CFG_X(LCD_D11,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[11]
-    MFP_CFG_X(LCD_D12,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[12]
-    MFP_CFG_X(LCD_D13,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[13]
-    MFP_CFG_X(LCD_D14,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[14]
-    MFP_CFG_X(LCD_D15,AF0,DS1,F_PULL_NONE,S_PULL_DOWN,IO_Z),//LCD_D[15]
-    MFP_CFG_X(LCD_D16,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_D[16]
-    MFP_CFG_X(LCD_D17,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_D[17]
-    MFP_CFG_X(LCD_FMARK,AF0,DS1,F_PULL_NONE,S_PULL_NONE,IO_Z),//LCD_FMARK
-    
-    };
-
-    sprd_mfp_config(lcd_func_cfg,ARRAY_SIZE(lcd_func_cfg));
 }
 
 static int32_t panel_reset(struct lcd_spec *self)
@@ -832,17 +802,17 @@ static void hw_early_init(struct sc8800fb_info *sc8800fb)
 	int ret;
 
 	set_pins();
-	//select LCD clock source	
-	//__raw_bits_and(~(1<<6), GR_PLL_SRC);    //pll_src=96M
-	//__raw_bits_and(~(1<<7), GR_PLL_SRC);
 
-	//set LCD divdior
-	//__raw_bits_and(~(1<<0), GR_GEN4);  //div=0
-	//__raw_bits_and(~(1<<1), GR_GEN4); 
-	//__raw_bits_and(~(1<<2), GR_GEN4);  
+	/* prepare clock stuff */
+	sc8800fb->clk_lcdc = clk_get(NULL, "clk_lcdc");
+	if (IS_ERR(sc8800fb->clk_lcdc))
+		printk(KERN_ERR "lcdc: failed to get clk!\n");
 
-	//enable LCD clock
-	//__raw_bits_or(1<<3, AHB_CTL0); 
+	if (clk_set_rate(sc8800fb->clk_lcdc, DEF_CLOCK))
+		printk(KERN_ERR "lcdc: failed to set clk!\n");
+
+	if (clk_enable(sc8800fb->clk_lcdc))
+		printk(KERN_ERR "lcdc: failed to enable clk!\n");
 
 	//LCD soft reset
 	//__raw_bits_or(1<<3, AHB_SOFT_RST);
@@ -872,46 +842,6 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 	if (LCD_MODE_RGB == sc8800fb->panel->mode)
 		return;
 
-	//move to early
-	#if 0//overlord for lcd adapt
-	set_pins();
-
-	//misc_setup();
-
-	//select LCD clock source	
-	__raw_bits_and(~(1<<6), GR_PLL_SRC);    //pll_src=96M
-	__raw_bits_and(~(1<<7), GR_PLL_SRC);
-
-	//set LCD divdior
-	__raw_bits_and(~(1<<0), GR_GEN4);  //div=0
-	__raw_bits_and(~(1<<1), GR_GEN4); 
-	__raw_bits_and(~(1<<2), GR_GEN4);  
-
-	//enable LCD clock
-	__raw_bits_or(1<<3, AHB_CTL0); 
-
-	//LCD soft reset
-	__raw_bits_or(1<<3, AHB_SOFT_RST);
-	mdelay(10);	
-	__raw_bits_and(~(1<<3), AHB_SOFT_RST); 
-
-	/* register isr */
-	ret = request_irq(IRQ_LCDC_INT, lcdc_isr, IRQF_DISABLED, "LCDC", sc8800fb);
-	if (ret) {
-		printk(KERN_ERR "lcdc: failed to request irq!\n");
-		return;
-	}
-
-	/* enable LCDC_DONE IRQ */
-	__raw_bits_or((1<<0), LCDC_IRQ_EN);
-
-	/* init lcdc mcu mode using default configuration */
-	lcdc_mcu_init(sc8800fb);
-#endif
-
-	//__raw_bits_or((1<<0), LCDC_DAC_CONTROL_REG); /*close tv_out */
-
-	
 	//panel reset
 	if(sc8800fb->need_reinit)
 	{
@@ -923,14 +853,6 @@ static void hw_init(struct sc8800fb_info *sc8800fb)
 
 	/* set timing parameters for LCD */
 	lcdc_update_lcm_timing(sc8800fb);
-
-//move to later we do not want init sevral times when readid
-#if 0//overlord for lcd adapt
-	/* init mounted lcd panel */
-	sc8800fb->panel->ops->lcd_init(sc8800fb->panel);
-
-	set_lcdc_layers(&sc8800fb->fb->var, sc8800fb->fb); 
-#endif
 }
 
 static void hw_later_init(struct sc8800fb_info *sc8800fb)
@@ -1075,11 +997,16 @@ static void sc8800fb_early_suspend (struct early_suspend* es)
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,1);
 	}
 
+	clk_disable(sc8800fb->clk_lcdc);
 }
 
 static void sc8800fb_early_resume (struct early_suspend* es)
 {
 	struct sc8800fb_info *sc8800fb = container_of(es, struct sc8800fb_info, early_suspend);
+
+	if (clk_enable(sc8800fb->clk_lcdc))
+		printk(KERN_ERR "lcdc: failed to enable clk!\n");
+
 	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL){
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
 	}
@@ -1319,11 +1246,18 @@ static int sc8800fb_suspend(struct platform_device *pdev,pm_message_t state)
 	struct sc8800fb_info *sc8800fb = platform_get_drvdata(pdev);
 	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL)
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,1);
+
+	clk_disable(sc8800fb->clk_lcdc);
+
 	return 0;
 }
 static int sc8800fb_resume(struct platform_device *pdev)
 {
 	struct sc8800fb_info *sc8800fb = platform_get_drvdata(pdev);
+
+	if (clk_enable(sc8800fb->clk_lcdc))
+		printk(KERN_ERR "lcdc: failed to enable clk!\n");
+
 	if(sc8800fb->panel->ops->lcd_enter_sleep != NULL)
 		sc8800fb->panel->ops->lcd_enter_sleep(sc8800fb->panel,0);
 	return 0;

@@ -70,6 +70,7 @@ unsigned long get_sdram_plimit(void);
 extern void udc_enable(void);
 extern void udc_disable(void);
 extern int in_factory_mode(void);
+extern int in_calibration(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 extern void sprd_ramconsole_reserve_sdram(void);

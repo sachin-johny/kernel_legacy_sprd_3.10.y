@@ -332,6 +332,7 @@ static int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
     uint32_t *pTmpBuf     = SCI_NULL;
     uint32_t *pHCoeff     = SCI_NULL;	
     uint32_t *pVCoeff     = SCI_NULL;
+    uint32_t checkNum = 0;
 
 
 	if(ISP_PATH1 != idxScx && ISP_PATH2 != idxScx)
@@ -386,13 +387,24 @@ static int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
     }
 	
 	if(ISP_PATH1 == idxScx)
-	{    
-        do
-        {   
-            //pIspReg->dcam_cfg_u.mBits.path1_clk_switch = ISP_CLK_DOMAIN_AHB;		
-		_paod(DCAM_CFG, BIT_3);//ISP_CLK_DOMAIN_AHB
-        //}while(!(pIspReg->dcam_cfg_u.mBits.path1_clk_status));
-        }while(!((_pard(DCAM_CFG) >> 5) & 0x1));
+	{   
+		checkNum = 0;
+	        do
+	        {          
+			_paod(DCAM_CFG, BIT_3);//ISP_CLK_DOMAIN_AHB
+			if((1 == ((_pard(DCAM_CFG) >> 5) & 0x1)) || (checkNum > 100)){
+				if(checkNum > 100){
+					printk("ISP_DRV: BIT_3: Error in _ISP_DriverGenScxCoeff().\n");
+					return ISP_DRV_RTN_PARA_ERR;
+				}
+				break;			
+			}
+			else{
+				checkNum++;
+				msleep(10);
+			}
+	        }while(1);
+
 
 #ifdef ISP_DRV_SCALE_COEFF_DBG
         SCALE_PRINT("ISP_DRV: _ISP_DriverGenScxCoeff Domain = 0x%x", 
@@ -402,12 +414,22 @@ static int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
     }
     else 
     {
-        do
-        {
-            //pIspReg->dcam_cfg_u.mBits.path2_clk_switch = ISP_CLK_DOMAIN_AHB;     
-		_paod(DCAM_CFG, BIT_4);//ISP_CLK_DOMAIN_AHB
-        //}while(!(pIspReg->dcam_cfg_u.mBits.path2_clk_status));
-        }while(!((_pard(DCAM_CFG) >> 6) & 0x1));
+            checkNum = 0;
+	        do
+	        {          
+			_paod(DCAM_CFG, BIT_4);//ISP_CLK_DOMAIN_AHB
+			if((1 == ((_pard(DCAM_CFG) >> 6) & 0x1)) || (checkNum > 100)){
+				if(checkNum > 100){
+					printk("ISP_DRV: BIT_4: Error in _ISP_DriverGenScxCoeff().\n");
+					return ISP_DRV_RTN_PARA_ERR;
+				}
+				break;			
+			}
+			else{
+				checkNum++;
+				msleep(10);
+			}
+	        }while(1);
 
 #ifdef ISP_DRV_SCALE_COEFF_DBG
         SCALE_PRINT("ISP_DRV: _ISP_DriverGenScxCoeff Domain = 0x%x", 
@@ -851,11 +873,12 @@ LOCAL int32_t _SCALE_DriverStop(void)
 {
     uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
 
-	dcam_dec_user_count();
-     if( 0 == dcam_get_user_count())
+     dcam_down_sem_user_count();
+     if( 0 == dcam_dec_user_count())
      {
      	_SCALE_DriverDeinit();
      }
+	dcam_up_sem_user_count();
 
       _paad(REV_PATH_CFG, ~BIT_0);
 	//msleep(20); //wait the review path stop.  //wxz:???
@@ -1756,17 +1779,19 @@ int _SCALE_DriverIOInit(void)
 	else{
 		SCALE_PRINT("###scale g_scale_clk clk_get ok.g_dcam_clk->parent->usecount: %d.\n", g_scale_clk->parent->usecount);
 	}	
-	
-	if( 0 == dcam_get_user_count())
+
+	dcam_down_sem_user_count();
+	if( 1 == dcam_inc_user_count())
      	{
      		_SCALE_DriverInit();
 		//SCALE_PRINT_ERR("###scale:_SCALE_DriverInit.\n");
      	}
 	if(0 != _SCALE_DriverSetMclk()){
 		SCALE_PRINT_ERR("###scale  Failed to _SCALE_DriverSetMclk!\n");
+		dcam_up_sem_user_count();
 		return -1;
 	}
-	dcam_inc_user_count();
+	dcam_up_sem_user_count();
 
 	return 0;
 }

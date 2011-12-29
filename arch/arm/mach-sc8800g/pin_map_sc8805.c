@@ -63,7 +63,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_KEYOUT2_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    NC
     {PIN_KEYOUT3_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    NC
     {PIN_KEYOUT4_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101    NC
-    {PIN_KEYOUT5_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3 | PIN_SPX_EN | PIN_O_EN ) },    // 0x131  GPS_PWON 
+    {PIN_KEYOUT5_REG,    ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_O_EN ) },    // 0x131  GPS_PWON 
     {PIN_KEYOUT6_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3 | PIN_SPU_EN | PIN_I_EN ) },    // 0x1ba  CTP_INT  
     {PIN_KEYOUT7_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3 | PIN_SPU_EN | PIN_O_EN ) },    // 0x1b9  CTP_RST   
     {PIN_KEYIN0_REG,     ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_I_EN ) },    // 0x18a   KEY IN 
@@ -113,7 +113,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_NFD13_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    NF DATA
     {PIN_NFD14_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    NF DATA
     {PIN_NFD15_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    NF DATA
-    {PIN_EMRST_N_REG,    (PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_3 | PIN_SPX_EN | PIN_I_EN) },    // 0x100    EMRST(NC)
+    {PIN_EMRST_N_REG,    ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_3   | PIN_SPX_EN | PIN_I_EN) },    // 0x100    EMRST(NC)
     {PIN_EMA0_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
     {PIN_EMA1_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
     {PIN_EMA2_REG,       ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104    
@@ -225,7 +225,7 @@ const PM_PINFUNC_T pm_func[]=
     {PIN_CCIRPD0_REG,     ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_Z_EN ) },    // 0x100   CAMERA will powerdown 
     {PIN_SCL_REG,        ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x188    
     {PIN_SDA_REG,        ( PIN_DS_1 | PIN_FPU_EN | PIN_FUNC_DEF | PIN_SPU_EN | PIN_Z_EN ) },    // 0x188    
-    {PIN_CLK_AUX0_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPX_EN | PIN_O_EN ) },    // 0x101   GPS_32K
+    {PIN_CLK_AUX0_REG,   ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_3 | PIN_SPD_EN | PIN_Z_EN ) },    // 0x101   GPS_32K
     {PIN_IISDI_REG,      ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x144   BT PCM_IN
     {PIN_IISDO_REG,      ( PIN_DS_1 | PIN_FPX_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x104   BT PCM_OUT
     {PIN_IISCLK_REG,     ( PIN_DS_1 | PIN_FPD_EN | PIN_FUNC_DEF | PIN_SPD_EN | PIN_Z_EN ) },    // 0x144   BT PCM_CLK 

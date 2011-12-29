@@ -52,8 +52,6 @@
 #define SP_TTY_MINOR_START	64
 #define SP_TTY_MAJOR	TTY_MAJOR
 
-#define UART_CLK	26000000
-
 /*offset*/
 #define ARM_UART_TXD	0x0000
 #define ARM_UART_RXD	0x0004
@@ -84,14 +82,18 @@
 
 #endif
 
+#define SP_FIFO_SIZE 128
 /*UART FIFO watermark*/
 #define SP_TX_FIFO	0x40//8
 #define SP_RX_FIFO	0x40//1	
+#define SP_RX_TOUT  0x03  // RX timeout
+
 /*UART IEN*/
-#define UART_IEN_RX_FIFO_FULL	(0x1<<0)
-#define UART_IEN_TX_FIFO_EMPTY	(0x1<<1)
-#define UART_IEN_BREAK_DETECT	(0x1<<7)
-#define UART_IEN_TIMEOUT     	(0x1<<13)
+#define UART_IEN_RX_FIFO_FULL	 (0x1<<0)
+#define UART_IEN_TX_FIFO_EMPTY	 (0x1<<1)
+#define UART_IEN_RX_FIFO_OVERRUN (0x1<<4)
+#define UART_IEN_BREAK_DETECT	 (0x1<<7)
+#define UART_IEN_TIMEOUT     	 (0x1<<13)
 
 /*data length*/
 #define UART_DATA_BIT	(0x3<<2)
@@ -118,10 +120,13 @@
 #define RX_HW_FLOW_CTL_EN		(0x1<<7)
 #define TX_HW_FLOW_CTL_EN		(0x1<<8)
 /*status indicator*/
-#define UART_STS_RX_FIFO_FULL	(0x1<<0)
-#define UART_STS_TX_FIFO_EMPTY	(0x1<<1)
-#define UART_STS_BREAK_DETECT	(0x1<<7)
-#define UART_STS_TIMEOUT     	(0x1<<13)
+#define UART_STS_RX_FIFO_FULL	 (0x1<<0)
+#define UART_STS_TX_FIFO_EMPTY	 (0x1<<1)
+#define UART_STS_RX_FIFO_OVERRUN (0x1<<4)
+#define UART_STS_BREAK_DETECT	 (0x1<<7)
+#define UART_STS_TIMEOUT     	 (0x1<<13)
+#define UART_STS_RX_REAL_FULL	 (0x1<<14)
+
 /*baud rate*/
 #define BAUD_1200_26M	0x54A0
 #define BAUD_2400_26M	0x2A50
@@ -141,25 +146,28 @@
 #define BAUD_2500000_26M 0x000B
 #define BAUD_3000000_26M 0x0009
 
-extern void printascii(const char *);
+static int clk_setup(void);
+static int clk_startup(unsigned int line);
+static int clk_shutdown(unsigned int line);
 
 #if 0
 #ifdef CONFIG_TS0710_MUX_UART
 //static struct tty_struct serial_tty;
 extern struct mux_ringbuffer rbuf;
-extern struct tty_driver *serial_for_mux_driver;
+struct tty_driver *serial_for_mux_driver = NULL;
 static int serial_mux_guard = 0;
-extern struct tty_struct *serial_for_mux_tty;
+struct tty_struct *serial_for_mux_tty = NULL;
 extern ssize_t mux_ringbuffer_write(struct mux_ringbuffer *rbuf, const u8 *buf, size_t len);
 extern ssize_t mux_ringbuffer_free(struct mux_ringbuffer *rbuf);
 extern int cmux_opened(void);
 extern int is_cmux_mode(void);
-extern void (*serial_mux_dispatcher)(struct tty_struct *tty);
-extern void (*serial_mux_sender)(void);
+void (*serial_mux_dispatcher)(struct tty_struct *tty) = NULL;
+void (*serial_mux_sender)(void) = NULL;
 #endif
 #endif
 
 static struct wake_lock uart_rx_lock;  // UART0  RX  IRQ 
+static bool is_uart_rx_wakeup;
 
 static inline unsigned int serial_in(struct uart_port *port,int offset)
 {
@@ -167,9 +175,21 @@ static inline unsigned int serial_in(struct uart_port *port,int offset)
 }
 static inline void  serial_out(struct uart_port *port,int offset,int value)
 {
-	//printascii("enter serial_out!!!\r\n");
 	__raw_writel(value,port->membase+offset);
-	//printascii("leave serial_out!!!\r\n");
+}
+
+static inline void  serial_tx_out(struct uart_port *port,int offset,int value)
+{
+    unsigned long orig_jiffies = jiffies;
+    int timeout = usecs_to_jiffies(100);
+    while(((serial_in(port,ARM_UART_STS1)>>8)&0xff)>=SP_FIFO_SIZE)
+    {
+        printk("%s:tx fifo full",__func__);
+        if (time_after(jiffies, orig_jiffies + timeout)){
+           break;
+        }
+    }
+    serial_out(port,offset,value);
 }
 
 static unsigned int serialsc8800_tx_empty(struct uart_port *port)
@@ -234,13 +254,11 @@ static void serialsc8800_enable_ms(struct uart_port *port)
 static void serialsc8800_break_ctl(struct uart_port *port,int break_state)
 {
 }
-static char rev[2048]; 
 static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 {
 	struct uart_port *port=(struct uart_port*)dev_id;
 	struct tty_struct *tty=port->state->port.tty;
 	unsigned int status,ch,flag,lsr,max_count=2048;
-	unsigned int count,st=0;
 #if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	if ((0==port->line)&& cmux_opened()){
@@ -321,7 +339,7 @@ static inline void  serialsc8800_tx_chars(int irq,void *dev_id)
 	int count;
 
 	if(port->x_char){
-		serial_out(port,ARM_UART_TXD,port->x_char);
+		serial_tx_out(port,ARM_UART_TXD,port->x_char);
 		port->icount.tx++;
 		port->x_char=0;
 		return;
@@ -332,7 +350,7 @@ static inline void  serialsc8800_tx_chars(int irq,void *dev_id)
 	}
 	count=SP_TX_FIFO;
 	do{
-		serial_out(port,ARM_UART_TXD,xmit->buf[xmit->tail]);
+		serial_tx_out(port,ARM_UART_TXD,xmit->buf[xmit->tail]);
 		xmit->tail = (xmit->tail+1) & (UART_XMIT_SIZE-1);
 		port->icount.tx++;
 		if(uart_circ_empty(xmit))
@@ -370,7 +388,7 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
 		if(!(serial_in(port,ARM_UART_STS0) & serial_in(port,ARM_UART_IEN))){
 			break;
 		}
-		if(serial_in(port,ARM_UART_STS0) & (UART_STS_RX_FIFO_FULL | UART_STS_BREAK_DETECT| UART_STS_TIMEOUT )){
+		if(serial_in(port,ARM_UART_STS0) & (UART_STS_RX_FIFO_FULL | UART_STS_RX_FIFO_OVERRUN | UART_STS_BREAK_DETECT| UART_STS_TIMEOUT | UART_STS_RX_REAL_FULL)){
 #if 0
 			if(0==port->line){
 			//	printk("kewang:STS0=%x,STS1=%x,STS2=%x\r\n",serial_in(port,ARM_UART_STS0),serial_in(port,ARM_UART_STS1),serial_in(port,ARM_UART_STS2));
@@ -403,18 +421,14 @@ static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 	val &= ~ BIT_15;
 	__raw_writel(val, INT_UINT_CTL);
 
+	// set wakeup symbol
+	is_uart_rx_wakeup = true;
+
 	return IRQ_HANDLED;
 }
 
 static void serialsc8800_pin_config(void)
 {
-     unsigned long serial_func_cfg[] = {
-        MFP_CFG_X(U0CTS, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
-        MFP_CFG_X(U0RTS, AF1, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-     };
-
-     sprd_mfp_config(serial_func_cfg, ARRAY_SIZE(serial_func_cfg));
-     
      __raw_bits_or((1<<22),SPRD_GREG_BASE+0x8);
      __raw_bits_or((1<<20),SPRD_GREG_BASE+0x8); // UART0
      __raw_bits_or((1<<6),SPRD_GREG_BASE+0x28);
@@ -424,8 +438,11 @@ static int serialsc8800_startup(struct uart_port *port)
 {
 	int ret=0;
 	unsigned int ien,ctrl1;
-	
-	//port->uartclk=26000000;
+
+	printk("serial[%d] serialsc8800_startup!\n", port->line);
+	ret = clk_startup(port->line);
+	if(ret)
+		printk("serial[%d] enable clock failed!\n", port->line);
 #if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	if(port->line == 0){
@@ -449,7 +466,9 @@ static int serialsc8800_startup(struct uart_port *port)
 	/*
  	*set fifo water mark,tx_int_mark=8,rx_int_mark=1
  	*/
-	serial_out(port,ARM_UART_CTL2,((SP_TX_FIFO<<8)|SP_RX_FIFO));
+	//serial_out(port,ARM_UART_CTL2,0x801);
+		
+    serial_out(port,ARM_UART_CTL2,((SP_TX_FIFO<<8)|SP_RX_FIFO));
 	/*
  	*clear rx fifo
  	*/ 
@@ -493,14 +512,20 @@ static int serialsc8800_startup(struct uart_port *port)
 	}
 
     ctrl1=serial_in(port,ARM_UART_CTL1);
-    ctrl1 |= 0x3e00|SP_RX_FIFO;
+	if (0 == port->line) {
+        ctrl1 |= (SP_RX_TOUT << 9)|(SP_RX_FIFO);
+    }
+    else{
+        ctrl1 |= 0x3e00|SP_RX_FIFO;
+    }
 	serial_out(port,ARM_UART_CTL1,ctrl1);	
 
 	/*
  	*enable interrupt
  	*/ 
 	ien=serial_in(port,ARM_UART_IEN);
-	ien |= UART_IEN_RX_FIFO_FULL | UART_IEN_TX_FIFO_EMPTY | UART_IEN_BREAK_DETECT| UART_IEN_TIMEOUT;
+	ien |= UART_IEN_RX_FIFO_FULL | UART_IEN_TX_FIFO_EMPTY | UART_IEN_BREAK_DETECT| UART_IEN_TIMEOUT
+        |UART_IEN_RX_FIFO_OVERRUN;
 	serial_out(port,ARM_UART_IEN,ien);	
 	return 0;
 }
@@ -509,11 +534,11 @@ static void serialsc8800_shutdown(struct uart_port *port)
 #if 0
 #ifdef CONFIG_TS0710_MUX_UART
 	if (port->line == 0) {
-		serial_mux_guard--;
+		serial_mux_Sguard--;
 	}
 #endif
 #endif
-
+	printk("serial[%d] serialsc8800_shutdown!\n", port->line);
 	serial_out(port,ARM_UART_IEN,0x0);
 	serial_out(port,ARM_UART_ICLR,0xffffffff);
 	free_irq(port->irq,port);
@@ -521,6 +546,8 @@ static void serialsc8800_shutdown(struct uart_port *port)
 	if (!port->line) {
 		free_irq(IRQ_WAKEUP,port);
 	}
+
+	clk_shutdown(port->line);
 	
 }
 static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *termios,struct ktermios *old)
@@ -529,7 +556,7 @@ static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *ter
 	unsigned int baud,quot;
 	unsigned int lcr,fc;
 	unsigned long flags;
-	//printascii("enter set_termios\r\n");
+
 	/*
  	*ask the core to calculate the divisor for us
  	*/
@@ -678,7 +705,13 @@ static void serialsc8800_set_termios(struct uart_port *port,struct ktermios *ter
 	serial_out(port,ARM_UART_CLKD0,quot&0xffff);//clock divider bit0~bit15	 
 	serial_out(port,ARM_UART_CLKD1,(quot&0x1f0000)>>16);	 //clock divider bit16~bit20
 	serial_out(port,ARM_UART_CTL0,lcr);
-    fc |= 0x3e00|SP_RX_FIFO;
+    
+	if (0 == port->line) {
+        fc |= (SP_RX_TOUT << 9)|(SP_RX_FIFO);
+    }
+    else{
+        fc |= 0x3e00|SP_RX_FIFO;
+    }
 	serial_out(port,ARM_UART_CTL1,fc);
 		 
 	spin_unlock_irqrestore(&port->lock,flags);
@@ -733,7 +766,6 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL0_BASE,
 		.mapbase = SPRD_SERIAL0_BASE,
-		.uartclk =UART_CLK,
 		.irq =IRQ_UART0,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -744,7 +776,6 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL1_BASE,
 		.mapbase = SPRD_SERIAL1_BASE,
-		.uartclk =UART_CLK,
 		.irq =IRQ_UART1,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -755,7 +786,6 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL2_BASE,
 		.mapbase = SPRD_SERIAL2_BASE,
-		.uartclk =UART_CLK,
 		.irq =IRQ_UART2,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -772,7 +802,6 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL0_BASE,
 		.mapbase = SPRD_SERIAL0_BASE,
-		.uartclk =UART_CLK,
 		.irq =IRQ_UART0_1,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -783,7 +812,6 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL1_BASE,
 		.mapbase = SPRD_SERIAL1_BASE,
-		.uartclk =UART_CLK,
 		.irq =IRQ_UART0_1,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -794,7 +822,6 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL2_BASE,
 		.mapbase = SPRD_SERIAL2_BASE,
-		.uartclk =UART_CLK,
 		.irq =IRQ_UART2_3,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -805,7 +832,6 @@ static struct uart_port serialsc8800_ports[] = {
 		.iotype =SERIAL_IO_PORT,
 		.membase =(void *)SPRD_SERIAL3_BASE,
 		.mapbase = SPRD_SERIAL3_BASE,
-		.uartclk =UART_CLK,
 		.irq =IRQ_UART2_3,
 		.fifosize =128,
 		.ops =&serialsc8800_ops,
@@ -813,29 +839,30 @@ static struct uart_port serialsc8800_ports[] = {
 		.line =3,
 	}
 
-
 };
 #endif
 
 #define UART_NR		ARRAY_SIZE(serialsc8800_ports)
+struct clk *serial_clk[UART_NR];
+
 static void serialsc8800_setup_ports(void)
 {
 	unsigned int i;
 	
 	for(i=0;i<UART_NR;i++)		
-		serialsc8800_ports[i].uartclk=UART_CLK;
+		serialsc8800_ports[i].uartclk = serial_clk[i]->rate;
 }
-struct clk *serial_clk[UART_NR];
-static int clk_startup(void)
+
+static int clk_setup(void)
 {
 	unsigned int i;
 	struct clk *clk;
 	struct clk *clk_parent;
 	char clk_name[10];
 	int ret;
-    unsigned int div;
+    	unsigned int div;
 	
-	for(i=0;i<UART_NR;i++){
+	for(i=0;i<UART_NR;i++) {
 		sprintf(clk_name,"clk_uart%d",i);
 		clk = clk_get(NULL, clk_name);
 		if (IS_ERR(clk)) {
@@ -860,30 +887,44 @@ static int clk_startup(void)
 			printk("clock[%s]: clk_set_divisor() failed!\n", clk_name);
 			return -EINVAL;
 		}
-		ret = clk_enable(clk);
-		if (ret) {
-			printk("clock[%s]: clk_enable() failed!\n", clk_name);
-			return -EINVAL;
-		}
-        serial_clk[i]= clk;
+
+		serial_clk[i]= clk;
 	}
 	return 0;
 }
-static int clk_shutdown(void)
+static int clk_startup(unsigned int line)
 {
-	unsigned int i;
+	struct clk *clk;
+	int ret;
+
+	if(line < 0 || line >= UART_NR)
+		return -EINVAL;
 	
-    for(i=0;i<UART_NR;i++){
-		clk_disable(serial_clk[i]);
-		clk_put(serial_clk[i]);
+	clk = serial_clk[line];
+	ret = clk_enable(clk);
+	if (ret) {
+		printk("serial[%d]: clk_enable() failed!\n", line);
+		return -EINVAL;
 	}
+	return 0;
+}
+static int clk_shutdown(unsigned int line)
+{
+	struct clk *clk;
+	
+	if(line < 0 || line >= UART_NR)
+		return -EINVAL;
+	
+	clk = serial_clk[line];
+	clk_disable(clk);
+
 	return 0;
 }
 #ifdef CONFIG_SERIAL_SPRD_CONSOLE
 static inline void wait_for_xmitr(struct uart_port *port)
 {
 	unsigned int status,tmout=10000;
-	//printascii("enter wait_for_xmitr!!\r\n");
+
 	/*
  	* wait up to 10ms for the character(s) to be sent
  	*/ 
@@ -894,20 +935,17 @@ static inline void wait_for_xmitr(struct uart_port *port)
 		udelay(1);
 	}while(status & 0xff00);
 	//}while((status & UART_STS_TX_FIFO_EMPTY)!=UART_STS_TX_FIFO_EMPTY);
-	//printascii("leave wait_for_xmitr!!\r\n");
 }
 static void serialsc8800_console_putchar(struct uart_port *port,int ch)
 {
-	//printascii("enter serialsc8800_console_putchar!\r\n");
 	wait_for_xmitr(port);
-	serial_out(port,ARM_UART_TXD,ch);
-	//printascii("leave serialsc8800_console_putchar!\r\n");
+	serial_tx_out(port,ARM_UART_TXD,ch);
 }
 static void serialsc8800_console_write(struct console *co,const char *s,unsigned int count)
 {
 	struct uart_port *port=&serialsc8800_ports[co->index];
 	int ien;
-	//printascii("enter serialsc8800_console_write\r\n");
+
 	/*firstly,save the IEN register and disable the interrupts*/
 	ien=serial_in(port,ARM_UART_IEN);
 	serial_out(port,ARM_UART_IEN,0x0);
@@ -916,7 +954,6 @@ static void serialsc8800_console_write(struct console *co,const char *s,unsigned
 	/*finally,wait for  TXD FIFO to become empty and restore the IEN register*/
 	wait_for_xmitr(port);
 	serial_out(port,ARM_UART_IEN,ien);
-	//printascii("leave serialsc8800_console_write\r\n");
 }
 static int __init serialsc8800_console_setup(struct console *co,char *options)
 {
@@ -925,8 +962,7 @@ static int __init serialsc8800_console_setup(struct console *co,char *options)
 	int bits =8;
 	int parity ='n';
 	int flow ='n';
-	//int i;
-	//printascii("enter console_setup!\r\n");
+
 	if(unlikely(co->index >= UART_NR || co->index < 0))
 		co->index = 0;	
 	//for(i=0;i<4;i++){
@@ -950,7 +986,7 @@ static struct console serialsc8800_console = {
 };
 static int __init serialsc8800_console_init(void)
 {
-	serialsc8800_setup_ports();
+	//serialsc8800_setup_ports();
 	register_console(&serialsc8800_console);
 	return 0;
 }
@@ -973,8 +1009,11 @@ static struct uart_driver serialsc8800_reg = {
 static int serialsc8800_probe(struct platform_device *dev)
 {
 	int ret,i;
+
+	for(i = 0; i < UART_NR; i++)
+		serial_clk[i] = NULL;
 	
-    ret = clk_startup();
+	ret = clk_setup();
 	if (ret) {
 		printk("func[%s]: serial set clock failed!\n", __FUNCTION__);
 		return ret;
@@ -991,32 +1030,42 @@ static int serialsc8800_probe(struct platform_device *dev)
 	serial_mux_guard = 0;
 #endif
 #endif
-	for(i=0;i<UART_NR;i++)
+	for(i = 0;i < UART_NR;i++)
 		uart_add_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
 	return 0;
 }
 static int serialsc8800_remove(struct platform_device *dev)
 {
-	int i,ret;
+	int i;
 	
-    for(i=0;i<UART_NR;i++)
+	for(i = 0;i < UART_NR;i++)
 		uart_remove_one_port(&serialsc8800_reg,&serialsc8800_ports[i]);
+	
 	uart_unregister_driver(&serialsc8800_reg);
-    ret = clk_shutdown();
-	if (ret) {
-		printk("func[%s]: serial shutdown clock failed!\n", __FUNCTION__);
-		return ret;
+	
+	for(i = 0;i < UART_NR;i++) {
+		if(serial_clk[i])
+			clk_put(serial_clk[i]);
 	}
-    return 0;
+    	return 0;
 }
 static int serialsc8800_suspend(struct platform_device *dev, pm_message_t state)
-{		
+{
+
+	is_uart_rx_wakeup = false;
+
 	return 0;
 }
 
 static int serialsc8800_resume(struct platform_device *dev)
 {
-    wake_lock_timeout(&uart_rx_lock, 300);	//3s
+
+    if(is_uart_rx_wakeup)
+    {
+        is_uart_rx_wakeup = false;
+        wake_lock_timeout(&uart_rx_lock, HZ / 5);	// 0.2s
+    }
+
     return 0;
 }
 

@@ -33,7 +33,7 @@
 #define BIT_27              0x08000000
 #define BIT_28              0x10000000
 #define BIT_29              0x20000000
-#define BIT_30              0x40000000
+#define BIT_30              0x40000000 
 #define BIT_31              0x80000000
 
 #endif

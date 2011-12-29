@@ -31,16 +31,25 @@
 #define CROP_OUTPUT_BUF SPRD_SCALE_MEM_BASE
 #define SC8800G_2D_MINOR MISC_DYNAMIC_MINOR
 
+
+static atomic_t s_working;
+
 static struct mutex *lock;
 static wait_queue_head_t	wait_queue;
 static  int  condition; 
 static wait_queue_head_t	wait_queue_crop;
 static  int  condition_crop; 
 
-#define SOFT_RGBA2ARGB
-#ifdef SOFT_RGBA2ARGB
+static wait_queue_head_t	wait_queue_convert;
+static  int  condition_convert; 
+
+
+
+//#define SOFT_RGBA2ARGB
+//#ifdef SOFT_RGBA2ARGB
 #define PMEM_BASE_PHY_ADDR SPRD_PMEM_BASE 
 #define PMEM_SIZE  SPRD_IO_MEM_SIZE
+#define IS_PMEM(a) (a>=PMEM_BASE_PHY_ADDR && a<(PMEM_BASE_PHY_ADDR+PMEM_SIZE))
 #define LCD_WIDTH  320
 #define LCD_HEIGHT 480
 /* FIXME */
@@ -60,7 +69,7 @@ unsigned int pmem_ptr_cached;
 #endif
 
 #define GET_VA(base) (base-PMEM_BASE_PHY_ADDR+pmem_ptr)
-#endif
+//#endif
 
 int sc8800g_2d_open(struct inode *inode, struct file *file)
 {
@@ -104,33 +113,41 @@ int sc8800g_2d_release(struct inode *inode, struct file *file)
 static void sprd_2d_dma_irq(int dma_ch, void *dev_id)
 {
        // printk("[] sprd_2d_dma_irq()\n");
-        condition = 1;
+	condition = 1;
 	wake_up_interruptible(&wait_queue);
 }
-static int do_copybit_dma_copy(struct s2d_blit_req * req,uint32_t byte_per_pixel)
+
+int do_copybit_dma_copy(struct s2d_blit_req * req,uint32_t byte_per_pixel)
 {
-	sprd_dma_ctrl ctrl;
-	sprd_dma_desc dma_desc;
+	uint32_t ret = 0;
+	int32_t  ch_id = 0;
+	sprd_dma_ctrl ctrl     = {0};
+	sprd_dma_desc dma_desc = {0};
+
 	uint32_t src_img_postm = (req->src.width-req->src_rect.w)*byte_per_pixel;
 	uint32_t dst_img_postm =( req->dst.width-req->dst_rect.w)*byte_per_pixel;
 	uint32_t src_addr = req->src.base + (req->src_rect.y*req->src.width + req->src_rect.x)*byte_per_pixel;
 	uint32_t dst_addr = req->dst.base + (req->dst_rect.y*req->dst.width + req->dst_rect.x)*byte_per_pixel;
 	uint32_t block_len = req->dst_rect.w*byte_per_pixel;
 	uint32_t total_len = req->dst_rect.w*req->dst_rect.h*byte_per_pixel;
-	uint32_t ret = 0;
 
 	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
 
-	ret  = sprd_request_dma(DMA_SOFT0, sprd_2d_dma_irq, req);
-	if(ret){
-		return -EFAULT;
+	while(1) {		
+		ch_id  = sprd_dma_request(DMA_SOFT0, sprd_2d_dma_irq, req);
+		if (ch_id < 0) {
+        		printk("copybit sprd_dma_request request dma fail.ret : %d.\n", ret);
+        		msleep(5); 
+        	} else {
+			break;
+		}			
 	}
 	condition = 0;
 	memset(&ctrl, 0, sizeof(sprd_dma_ctrl));
 	memset(&dma_desc, 0, sizeof(sprd_dma_desc));
 	ctrl.dma_desc = &dma_desc;
 	sprd_dma_setup_cfg(&ctrl,
-			DMA_SOFT0,
+			ch_id,
 			DMA_NORMAL,
 			TRANS_DONE_EN,
 			DMA_INCREASE, DMA_INCREASE,
@@ -139,16 +156,16 @@ static int do_copybit_dma_copy(struct s2d_blit_req * req,uint32_t byte_per_pixel
 			byte_per_pixel*8, byte_per_pixel*8,
 			src_addr, dst_addr, total_len);
 	sprd_dma_setup(&ctrl);
-	sprd_dma_start(DMA_SOFT0);
-	__raw_bits_or(1 << DMA_SOFT0, DMA_SOFT_REQ);	 
-	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() before %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
+	sprd_dma_channel_start(ch_id);
+
+	//printk("[pid:%d] do_copybit_dma_copy() before %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
 	if(wait_event_interruptible(wait_queue, condition)){
 		ret =  -EFAULT;
 	}
-	//C2D_PRINT("[pid:%d] do_copybit_dma_copy() after %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
+	//printk("[pid:%d] do_copybit_dma_copy() after %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
 	//mdelay(100);
-	sprd_dma_stop(DMA_SOFT0);
-	sprd_free_dma(DMA_SOFT0);
+	sprd_dma_stop(ch_id);
+	sprd_dma_free(ch_id);
 	return ret;
 }
 #if 0
@@ -238,7 +255,7 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 static void sprd_2d_crop_dma_irq(int dma_ch, void *dev_id)
 {
        // printk("[] sprd_2d_dma_irq()\n");
-        condition_crop = 1;
+	condition_crop = 1;
 	wake_up_interruptible(&wait_queue_crop);
 }
 
@@ -339,6 +356,123 @@ static int do_copybit_crop_by_dma(struct s2d_blit_req * req)
 	return crop_by_dma(req, byte_per_pixel);	
 }
 
+
+
+
+static void sprd_convert_dma_irq(int dma_ch, void *dev_id)
+{
+       // printk("[] sprd_2d_dma_irq()\n");
+	condition_convert = 1;
+	wake_up_interruptible(&wait_queue_convert);
+}
+
+int do_convert_dma_copy(struct s2d_blit_req * req)
+{
+	uint32_t ret = 0;
+	int32_t  ch_id = 0;
+	sprd_dma_ctrl ctrl     = {0};
+	sprd_dma_desc dma_desc = {0};
+
+	uint32_t src_img_postm = (req->src.width-req->src_rect.w) * 4;
+	uint32_t src_addr = req->src.base + (req->src_rect.y*req->src.width + req->src_rect.x) * 4;
+	uint32_t dst_addr = buf_ptr_pa;
+	uint32_t block_len = req->src_rect.w;
+	uint32_t total_len = req->src_rect.w*req->src_rect.h;
+
+	while(1) {		
+		ch_id  = sprd_dma_request(DMA_SOFT0, sprd_convert_dma_irq, req);
+		if (ch_id < 0) {
+        		printk("copybit sprd_dma_request request dma fail.ret : %d.\n", ret);
+        		msleep(5); 
+        	} else {
+			break;
+		}			
+	}
+
+	condition_convert = 0;
+	ctrl.dma_desc = &dma_desc;
+	sprd_dma_setup_cfg_pmod( &ctrl,
+			ch_id,
+			DMA_NORMAL,
+			TRANS_DONE_EN,
+			DMA_BIG_ENDIAN,                           // reverse byte order
+			DMA_INCREASE, DMA_INCREASE,
+			0,0,
+			SRC_BURST_MODE_8|src_img_postm, SRC_BURST_MODE_8|0,
+			block_len*4,
+			32, 32,
+			src_addr, dst_addr, total_len*4);
+	sprd_dma_setup(&ctrl);
+	sprd_dma_channel_start(ch_id);
+
+	//printk("[pid:%d] do_convert_dma_copy() :ABGR %d,%d,%d,%d\n", current->pid,req->dst_rect.x,req->dst_rect.y,req->dst_rect.w,req->dst_rect.h);
+	//printk("[pid:%d] do_convert_dma_copy() :ABGR %d,%d,%d\n", current->pid,src_addr,dst_addr,total_len * 4);
+	if(wait_event_interruptible(wait_queue_convert, condition_convert)) {
+		printk("Allen Error 0\n");
+		ret =  -EFAULT;
+	}
+
+	sprd_dma_channel_stop(ch_id);
+
+	memset(&ctrl, 0, sizeof ctrl);
+	memset(&dma_desc, 0,sizeof dma_desc);
+
+	condition_convert = 0;
+	ctrl.dma_desc = &dma_desc;
+	sprd_dma_setup_cfg_pmod( &ctrl,
+			ch_id,
+			DMA_NORMAL,
+			TRANS_DONE_EN,
+			DMA_LIT_ENDIAN,
+		       DMA_INCREASE, DMA_INCREASE,	
+			4,4,
+			SRC_BURST_MODE_SINGLE|src_img_postm, SRC_BURST_MODE_SINGLE|0,
+			block_len,
+			8, 8,
+			src_addr+0, dst_addr+1,  total_len);
+	sprd_dma_setup(&ctrl);
+	sprd_dma_channel_start(ch_id);
+
+	//printk("[pid:%d] do_convert_dma_copy() R->B : %d, %d\n", current->pid,src_addr+0,dst_addr+1);
+	if(wait_event_interruptible(wait_queue_convert, condition_convert)) {
+		printk("Allen Error 1\n");
+		ret =  -EFAULT;
+	}
+
+	sprd_dma_channel_stop(ch_id);
+
+	memset(&ctrl, 0, sizeof ctrl);
+	memset(&dma_desc, 0,sizeof dma_desc);
+
+	condition_convert = 0;
+	ctrl.dma_desc = &dma_desc;
+	sprd_dma_setup_cfg_pmod(&ctrl,
+			ch_id,
+			DMA_NORMAL,
+			TRANS_DONE_EN,
+			DMA_LIT_ENDIAN,
+			DMA_INCREASE, DMA_INCREASE,
+			4,4,
+			SRC_BURST_MODE_SINGLE|src_img_postm, SRC_BURST_MODE_SINGLE|0,
+			block_len,
+			8, 8,
+			src_addr+2, dst_addr+3,  total_len);
+	sprd_dma_setup(&ctrl);
+	sprd_dma_channel_start(ch_id);
+
+	//printk("[pid:%d] do_convert_dma_copy() B->R \n", current->pid);
+	if(wait_event_interruptible(wait_queue_convert, condition_convert)){
+		printk("Allen Error 2\n");
+		ret =  -EFAULT;
+	}
+
+	sprd_dma_channel_stop(ch_id);
+	sprd_dma_free(ch_id);
+	return ret;
+}
+
+
+
 static inline void clean_cache_all(void)
 {
 	__asm__ __volatile__(
@@ -359,6 +493,18 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 	unsigned int *src, *src_base, *dst;
 	unsigned int param[4] ={0};
 	parameters = (struct s2d_blit_req_list*)file->private_data;
+
+	//added by jianguo.du for surface composer status
+       if((SC8800G_2D_BLIT+1)==cmd){
+		atomic_set(&s_working,arg);   	
+	   	return 0;
+       }
+       if((SC8800G_2D_BLIT+2)==cmd){
+		put_user(atomic_read(&s_working),(int __user *)arg);
+	   	return 0;
+       }
+	//end 
+	
 	if (copy_from_user(parameters, 
 				(struct s2d_blit_req_list*)arg, sizeof(struct s2d_blit_req_list)))
 		return -2;
@@ -374,11 +520,10 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 	}
 
 	/* FIXME: work around for pmem flush failure */
-	if (parameters->req[0].src.base >= PMEM_BASE_PHY_ADDR)
+	if (IS_PMEM(parameters->req[0].src.base))
 		clean_cache_all();
 
-	for(num = 0; num < parameters->count; num++){
-		
+	for(num = 0; num < parameters->count; num++) {		
 		params = &parameters->req[num];
 
 	C2D_PRINT("sc8800g_2d_ioctl num: %d, do_flags: %d,alpha:%d, flags: %d, dst:{%d, %d,%d,0x%x}, src:{%d,%d,%d,0x%x}, dst_rect:{%d, %d, %d,%d}, src_rect:{%d,%d,%d,%d}\n",
@@ -386,11 +531,13 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 		params->dst.width, params->dst.height,params->dst.format,params->dst.base,
 		params->src.width, params->src.height,params->src.format,params->src.base,
 		params->dst_rect.x, params->dst_rect.y, params->dst_rect.w, params->dst_rect.h,
-		params->src_rect.x, params->src_rect.y, params->src_rect.w, params->src_rect.h);
-				
-#ifdef SOFT_RGBA2ARGB
+		params->src_rect.x, params->src_rect.y, params->src_rect.w, params->src_rect.h);				
+
 		/* we assume RGBA8888 format data is from pmem */
-		if ((params->src.format == S2D_BGRA_8888) &&(params->dst.format != S2D_BGRA_8888)){
+		if ((params->src.format == S2D_BGRA_8888) &&(params->dst.format != S2D_BGRA_8888)) {
+		       //printk("Allen: color convert start :%d \n", __raw_readl((SPRD_SYSCNT_BASE+0x0004)));
+#ifdef SOFT_RGBA2ARGB
+
 			/* it's RGBA actually, so we need to change it first */
 			src_base = (unsigned int *)GET_VA(params->src.base);
 			src_base += params->src_rect.y * params->src.width + 
@@ -439,14 +586,39 @@ static int sc8800g_2d_ioctl(struct inode *inode, struct file *file, unsigned int
 			}
 			clean_dcache_area((unsigned int *)buf_ptr_cached, 
 					(unsigned int)dst - buf_ptr_cached);
+
+#else        //dma convert               
+
+			if(params->src_rect.w > 0x7) {	//  if the width <= 7, we just do with soft					
+				do_convert_dma_copy(params);
+			} else {
+				src_base = (unsigned int *)GET_VA(params->src.base);
+				src_base += params->src_rect.y * params->src.width + 
+					params->src_rect.x;
+
+				dst = (unsigned int *)buf_ptr_cached;
+				for (i = params->src_rect.h; i!=0; i--) {
+					src = src_base;
+					for (j = params->src_rect.w; j!=0; j--) {
+						*dst++ = ((*src)<<8) | ((*src)>>24);
+						src++;
+					}
+					src_base += params->src.width;
+				}
+				clean_dcache_area((unsigned int *)buf_ptr_cached, 
+					(unsigned int)dst - buf_ptr_cached);
+			}
+
+#endif	
+			//printk("Allen: color convert end :%d \n", __raw_readl((SPRD_SYSCNT_BASE+0x0004)));	
 			params->src.width = params->src_rect.w;
 			params->src.height = params->src_rect.h;
 			//params->src.format = S2D_ARGB_8888;
 			params->src.base = __pa(buf_ptr_cached);
 			params->src_rect.x = 0;
-			params->src_rect.y = 0;			
+			params->src_rect.y = 0;	
 		}
-#endif	
+	
 		if((params->alpha==0xff)&&(params->src.format==S2D_RGB_565)&&(params->dst.format==S2D_RGB_565)\
 				&&(params->src_rect.w==params->dst_rect.w)&&(params->src_rect.h==params->dst_rect.h)\
 				&&(0 == (params->do_flags & BIT_1)))
@@ -523,11 +695,15 @@ int sc8800g_2d_probe(struct platform_device *pdev)
 	if (lock == NULL)
 		return -1;
 
+	atomic_set(&s_working,0);
+	
 	mutex_init(lock);
 	init_waitqueue_head(&wait_queue);
 	init_waitqueue_head(&wait_queue_crop);
+	init_waitqueue_head(&wait_queue_convert);
 
-#ifdef SOFT_RGBA2ARGB
+
+//#ifdef SOFT_RGBA2ARGB
 	/* FIXME: hard-coded size and address */
 	buf_ptr_cached = __get_free_pages(GFP_ATOMIC, get_order(LCD_WIDTH*LCD_HEIGHT*4));
 	buf_ptr_pa = __pa(buf_ptr_cached);
@@ -535,7 +711,7 @@ int sc8800g_2d_probe(struct platform_device *pdev)
 	pmem_ptr = (unsigned int)ioremap(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
 	pmem_ptr_cached = (unsigned int)ioremap_cached(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
 	printk("sc8800g_2d alloc buf @ 0x%x\n", buf_ptr);
-#endif
+//#endif
 
 	printk(KERN_ALERT" sc8800g_2d_probe Success\n");
 
@@ -549,12 +725,12 @@ static int sc8800g_2d_remove(struct platform_device *dev)
 
 	misc_deregister(&sc8800g_2d_dev);
 
-#ifdef SOFT_RGBA2ARGB
+//#ifdef SOFT_RGBA2ARGB
 	free_pages(buf_ptr_cached, get_order(LCD_WIDTH*LCD_HEIGHT*4));
 	iounmap((void*)buf_ptr);
 	iounmap((void*)pmem_ptr);
 	iounmap((void*)pmem_ptr_cached);
-#endif
+//#endif
 
 	printk(KERN_INFO "sc8800g_2d_remove Success !\n");
 	return 0;

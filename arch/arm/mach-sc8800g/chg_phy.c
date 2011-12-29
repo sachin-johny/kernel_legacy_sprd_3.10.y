@@ -176,6 +176,10 @@ extern   "C"
     ANA_REG_MSK_OR (ANA_CHGR_CTL1, (eswitchpoint<<CHAR_SW_POINT_SHIFT), CHAR_SW_POINT_MSK);
 }
 
+uint32_t CHG_GetSwitchoverPoint (void)
+{
+	return ((ANA_REG_GET(ANA_CHGR_CTL1) & CHAR_SW_POINT_MSK)>>CHAR_SW_POINT_SHIFT);
+}
 /*****************************************************************************/
 //  Description:    This function is used to update one level of the lowest switchover point
 //                      between constant-current and constant-voltage modes.

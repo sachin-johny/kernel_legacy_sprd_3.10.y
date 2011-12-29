@@ -210,6 +210,6 @@
 /* USB device space */
 #define SPRD_USB_BASE            0xE4036000
 #define SPRD_USB_PHYS            0x20300000
-#define SPRD_USB_SIZE            SZ_1M
+#define SPRD_USB_SIZE            SZ_4M
 
 #endif

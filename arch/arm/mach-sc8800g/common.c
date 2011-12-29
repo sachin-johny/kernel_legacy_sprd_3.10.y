@@ -570,7 +570,7 @@ static struct platform_device androidusb_device = {
 
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 static struct usb_mass_storage_platform_data usbms_plat = {
-	.vendor			= "Spreadtrum",
+	.vendor			= "Sprdtrum",
 	.product		= "phone",
 	.nluns 			= 1,
 	.release		= 0x0200,

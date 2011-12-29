@@ -37,6 +37,7 @@
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>
 #include <mach/regs_cpc.h>
+#include <mach/regs_ahb.h>
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -74,6 +75,8 @@ static void __init chip_init(void)
 	ANA_REG_SET(ANA_ADIE_CHIP_ID,0);
 	/* setup pins configration when LDO shutdown*/
 	__raw_writel(0x1fff00, PIN_CTL_REG);
+
+      __raw_bits_and(~(BIT_11 | BIT_7), AHB_REG_BASE);//disable bus monitor clock
 }
 int __init LDO_Init(void);
 

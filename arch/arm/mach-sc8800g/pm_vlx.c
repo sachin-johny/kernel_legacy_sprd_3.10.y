@@ -22,6 +22,8 @@
 #include <mach/test.h>
 #include <mach/clock_common.h>
 #include <mach/clock_sc8800g.h>
+#include <mach/pm_wakesource.h>
+#include <mach/board.h>
 
 #define ANA_INT_STATUS             (SPRD_MISC_BASE +0x380+ 0x00)
 #define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
@@ -36,6 +38,7 @@
 #define WKAEUP_SRC_RX0      BIT_0
 #define WAKEUP_SRC_PB		BIT_3
 #define WAKEUP_SRC_CHG		BIT_2
+#define WKAEUP_SRC_GPIO     BIT_8
 
 extern void sc8800g_cpu_standby(void);
 
@@ -60,6 +63,7 @@ int sc8800g_set_wakeup_src(void)
 	wakeup_src = (WKAEUP_SRC_KEAPAD |
 				WKAEUP_SRC_RX0 |
 				WAKEUP_SRC_PB |
+                WKAEUP_SRC_GPIO | 
 				WAKEUP_SRC_CHG);
 	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
 		val = __raw_readl(INT_IRQ_EN);
@@ -68,6 +72,15 @@ int sc8800g_set_wakeup_src(void)
 		__raw_writel(val, INT_IRQ_EN);
 	}
 		 
+    if (WKAEUP_SRC_GPIO & wakeup_src) {
+        val = __raw_readl(INT_IRQ_EN);
+        irq_enable = val;
+        val |= WKAEUP_SRC_GPIO;
+        __raw_writel(val, INT_IRQ_EN);
+    }
+
+    wake_source_set();
+
 	//enable UART0 Wake up Source  for  BT	
 	if (WKAEUP_SRC_RX0 & wakeup_src) {
 		val = __raw_readl(INT_IRQ_EN);
@@ -94,13 +107,24 @@ int sc8800g_set_wakeup_src(void)
 	wakeup_src = (WKAEUP_SRC_KEAPAD | 
 				WKAEUP_SRC_RX0 |
 				 WAKEUP_SRC_CHG | 
-				 WAKEUP_SRC_PB);
+				 WAKEUP_SRC_PB |
+                 WKAEUP_SRC_GPIO
+                 );
 	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
 		val = __raw_readl(INT_IRQ_EN);
 		irq_enable = val;
 		val |= WKAEUP_SRC_KEAPAD;
 		__raw_writel(val, INT_IRQ_EN);
 	}
+
+    if (WKAEUP_SRC_GPIO & wakeup_src) {
+        val = __raw_readl(INT_IRQ_EN);
+        irq_enable = val;
+        val |= WKAEUP_SRC_GPIO;
+        __raw_writel(val, INT_IRQ_EN);
+    }
+
+    wake_source_set();
 
 	//enable UART0 Wake up Source  for  BT	
 	if (WKAEUP_SRC_RX0 & wakeup_src) {
@@ -127,6 +151,7 @@ int sc8800g_set_wakeup_src(void)
 	wakeup_src = (WKAEUP_SRC_KEAPAD |
 				WKAEUP_SRC_RX0 |
 				WAKEUP_SRC_CHG |
+                WKAEUP_SRC_GPIO |
 				 WAKEUP_SRC_PB);
 	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
 		val = __raw_readl(INT_IRQ_EN);
@@ -134,6 +159,15 @@ int sc8800g_set_wakeup_src(void)
 		val |= WKAEUP_SRC_KEAPAD;
 		__raw_writel(val, INT_IRQ_EN);
 	}
+
+    if (WKAEUP_SRC_GPIO & wakeup_src) {
+        val = __raw_readl(INT_IRQ_EN);
+        irq_enable = val;
+        val |= WKAEUP_SRC_GPIO;
+        __raw_writel(val, INT_IRQ_EN);
+    }
+
+    wake_source_set();
 
 	//enable UART0 Wake up Source  for  BT	
 	if (WKAEUP_SRC_RX0 & wakeup_src) {
@@ -177,7 +211,6 @@ static int sprd_check_battery(void)
 	}
 	return ret_val;
 }
-int in_calibration(void);
 int sc8800g_pm_enter(suspend_state_t state)
 {
 	int ret_val = 0;

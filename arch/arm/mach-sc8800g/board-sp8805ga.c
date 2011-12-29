@@ -38,6 +38,7 @@
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>
 #include <mach/regs_cpc.h>
+#include <mach/regs_ahb.h>
 
 #include <linux/clk.h>
 #include <mach/clock_common.h>
@@ -220,9 +221,6 @@ static struct platform_device sprd_spi_controller_device = {
 	.num_resources	= ARRAY_SIZE(spi_resources),
 };
 
-static unsigned long gps_pin_cfg[] = {
-	MFP_CFG_X(CLK_AUX0, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
-};
 
 #define GPIO_OUTPUT_DEFAUT_VALUE_HIGH   (1 << 31)
 struct gpio_desc {
@@ -283,6 +281,7 @@ int sprd_3rdparty_gpio_gps_onoff   = SPRD_3RDPARTY_GPIO_GPS_ONOFF;
 
 int sprd_3rdparty_clock_wifi_freq_speed_normal = SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_NORMAL;
 int sprd_3rdparty_clock_wifi_freq_speed_high = SPRD_3RDPARTY_CLOCK_WIFI_FREQ_SPEED_HIGH;
+int sprd_board_type = 0;
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
@@ -307,6 +306,7 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_onoff);
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_normal);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_clock_wifi_freq_speed_high);
+EXPORT_SYMBOL_GPL(sprd_board_type);
 
 // -----------------------------------------------------------------------
 #define SPRD_LOCAL_AUDIO_PA_MODE_DETECT_GPIO 40 // PIN_EMRST_N_REG
@@ -446,7 +446,7 @@ static struct gpio_desc gpio_func_cfg[] = {
 	//SPRD_3RDPARTY_GPIO_GPS_PWR|GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
 	
 	GPIO_DESC_MFP_OBSOLETE,
-	SPRD_3RDPARTY_GPIO_GPS_PWR|GPIO_OUTPUT_DEFAUT_VALUE_HIGH | GPIO_DIRECTION_OUTPUT,
+	SPRD_3RDPARTY_GPIO_GPS_PWR | GPIO_DIRECTION_OUTPUT,
 	"gps  pwr"
     },
     {
@@ -661,6 +661,8 @@ static void __init chip_init(void)
     ANA_REG_SET(ANA_ADIE_CHIP_ID,0);
     /* setup pins configration when LDO shutdown*/
     __raw_writel(0x1fff00, PIN_CTL_REG);
+
+    __raw_bits_and(~(BIT_11 | BIT_7), AHB_REG_BASE);//disable bus monitor clock
 }
 
 static unsigned long i2c_func_cfg[] __initdata = {
@@ -679,18 +681,56 @@ void __init i2c_gpio_device_set(struct i2c_board_info *devices, int nr_devices)
 	i2c_register_board_info(1,openphone_i2c_boardinfo,ARRAY_SIZE(openphone_i2c_boardinfo));
 }
 
-void __init gps_hw_config(void)
+static unsigned long clk_aux0_pin_cfg_on[] = {
+    MFP_CFG_X(CLK_AUX0, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
+};
+
+static unsigned long clk_aux0_pin_cfg_off[] = {
+    MFP_CFG_X(CLK_AUX0, AF3, DS1, F_PULL_UP, S_PULL_DOWN, IO_Z),
+};
+
+void clk_32k_config(int is_on)
 {
-	//config 32k clk_aux0
-	//Initialize gps pin in file pin_map_sc8805.c
-	sprd_mfp_config(gps_pin_cfg, ARRAY_SIZE(gps_pin_cfg));
+    if (is_on){
+        sprd_mfp_config(clk_aux0_pin_cfg_on, ARRAY_SIZE(clk_aux0_pin_cfg_on));
+        __raw_bits_and(~(BIT_10|BIT_11),SPRD_GREG_BASE+0x0070);
+    	__raw_bits_or(BIT_11,SPRD_GREG_BASE+0x70);
 
-       __raw_bits_and(~(BIT_10|BIT_11),SPRD_GREG_BASE+0x0028);
-	__raw_bits_or(BIT_11,SPRD_GREG_BASE+0x70);
-
-	__raw_bits_and(~(0X3F),SPRD_GREG_BASE+0x0018);
-	__raw_bits_or(BIT_10,SPRD_GREG_BASE+0x0018);
+    	__raw_bits_and(~(0X3F),SPRD_GREG_BASE+0x0018);
+    	__raw_bits_or(BIT_10,SPRD_GREG_BASE+0x0018);
+    }
+    else{
+        __raw_bits_and(~BIT_10,SPRD_GREG_BASE+0x0018);
+        sprd_mfp_config(clk_aux0_pin_cfg_off, ARRAY_SIZE(clk_aux0_pin_cfg_off));
+    }
 }
+EXPORT_SYMBOL_GPL(clk_32k_config);
+
+void gps_power_ctl(int is_on)
+{
+    gpio_set_value(sprd_3rdparty_gpio_gps_pwr,is_on);
+
+}
+EXPORT_SYMBOL_GPL(gps_power_ctl);
+
+//hardware v1.0.0,v1.1.0 return 1
+//hardware v1.2.0        return 0
+static void set_boardtype(void)
+{
+    static unsigned long gpio40_pin_cfg[] = {
+        MFP_CFG_X(EMRST_N, AF3, DS1, F_PULL_DOWN, S_PULL_NONE, IO_IE),
+    };
+
+    if (gpio_get_value(sprd_local_audio_pa_mode_detect_gpio)) {
+        sprd_board_type = 0;
+    }
+    else{
+        sprd_board_type = 1;
+    }
+
+	sprd_mfp_config(gpio40_pin_cfg, ARRAY_SIZE(gpio40_pin_cfg));
+}
+                            
 
 unsigned long sdram_plimit;
 extern void sc8800g_pin_map_init(void);
@@ -715,8 +755,8 @@ static void __init openphone_init(void)
 	sprd_add_dcam_device();
 	sprd_spi_init();
 	sprd_charger_init();
-	gps_hw_config();
 	sprd_ramconsole_init();
+    set_boardtype();
 }
 
 static void __init openphone_map_io(void)
