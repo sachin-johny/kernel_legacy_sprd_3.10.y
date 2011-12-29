@@ -402,17 +402,32 @@ struct dcam_fh {
 	int			   input; 	/* Input Number on bars */
 };
 
-static int init_sensor_parameters(void)
+static int init_sensor_parameters(void *priv)
 {
 	uint32_t i,width;
 	SENSOR_EXP_INFO_T *sensor_info_ptr = NULL;
+	struct dcam_fh  *fh = priv;
+	struct dcam_dev *dev = fh->dev;
+	DCAM_INIT_PARAM_T init_param;
+	
 	DCAM_V4L2_PRINT("V4L2: init sensor parameters E.\n");
 	sensor_info_ptr = Sensor_GetInfo();
+
+	if((DCAM_ROTATION_0 == g_dcam_info.rot_angle ) || (DCAM_ROTATION_180 == g_dcam_info.rot_angle))
+         	{
+		init_param.input_size.w = fh->width;
+		init_param.input_size.h = fh->height;
+         	}
+	else
+	{
+		init_param.input_size.w = fh->height;
+		init_param.input_size.h = fh->width;
+	}
 
 	for(i = SENSOR_MODE_PREVIEW_ONE; i < SENSOR_MODE_MAX; i++)
 	{
 		width = sensor_info_ptr->sensor_mode_info[i].width;
-		if(g_dcam_info.input_size.w <= width)
+		if(init_param.input_size.w <= width)
 		{
 			g_dcam_info.snapshot_m = sensor_info_ptr->sensor_mode_info[i].mode;
 			if(g_dcam_info.snapshot_m < SENSOR_MODE_PREVIEW_TWO)
@@ -424,7 +439,17 @@ static int init_sensor_parameters(void)
 			g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[i].height;
 			break;				
 		}
-	}
+	}	
+
+	if(1 != dev->streamparm.parm.capture.capturemode) //for preview
+	 {
+	 	if(g_dcam_info.preview_m != g_dcam_info.snapshot_m)
+	 	{
+			g_dcam_info.snapshot_m = g_dcam_info.preview_m;
+			printk("V4L2:init_sensor_parameters,preview size is diffrent with request!preview mode = %d .\n ",g_dcam_info.preview_m);
+	 	}
+	 }   
+
 	if(SENSOR_IMAGE_FORMAT_RAW != sensor_info_ptr->image_format)
 		Sensor_Ioctl(SENSOR_IOCTL_BEFORE_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
 	DCAM_V4L2_PRINT("V4L2: snapshot_m: %d, preview_m: %d.\n", g_dcam_info.snapshot_m, g_dcam_info.preview_m);
@@ -1100,18 +1125,7 @@ static void init_dcam_parameters(void *priv)
 	init_param.format = g_dcam_info.out_format;//DCAM_DATA_YUV422; 
 	init_param.yuv_pattern = YUV_YUYV;    
 	init_param.display_rgb_type = RGB_565;
-	#if 0
-  	if((fh->width < 640) && (fh->height < 480))
-    	{
-	    	init_param.input_size.w = 640;
-		init_param.input_size.h = 480;
-    	}
-	else
-	{
-		init_param.input_size.w = fh->width;
-		init_param.input_size.h = fh->height;
-	}
-	#endif
+
          if((DCAM_ROTATION_0 == g_dcam_info.rot_angle ) || (DCAM_ROTATION_180 == g_dcam_info.rot_angle))
          	{
 		init_param.input_size.w = fh->width;
@@ -1132,31 +1146,17 @@ static void init_dcam_parameters(void *priv)
 	init_param.input_rect.h = init_param.input_size.h;
 	init_param.display_rect.x = 0;
 	init_param.display_rect.y = 0;
-	init_param.display_rect.w =init_param.input_size.w;// fh->width;
-	init_param.display_rect.h = init_param.input_size.h;//fh->height; 
+	init_param.display_rect.w =init_param.input_size.w;
+	init_param.display_rect.h = init_param.input_size.h;
 	init_param.encoder_rect.x = 0;
 	init_param.encoder_rect.y = 0;
-	init_param.encoder_rect.w =init_param.input_size.w;// fh->width;
-	init_param.encoder_rect.h = init_param.input_size.h;//fh->height;
+	init_param.encoder_rect.w =init_param.input_size.w;
+	init_param.encoder_rect.h = init_param.input_size.h;
 	init_param.zoom_level = g_zoom_level;
 
   	DCAM_V4L2_PRINT("v4l2: init param rect 0,%d,%d,%d,%d\n",
 		                             init_param.input_rect.x,init_param.input_rect.y,init_param.input_rect.w,init_param.input_rect.h);
-	#if 0
-	if((0 != g_zoom_level) && (3 == init_param.mode))
-	{
-		DCAM_TRIM_RECT_T trim_rect;
-		zoom_picture_size(fh->width, fh->height,  &trim_rect, g_zoom_level);
-		init_param.input_rect.x += trim_rect.x;
-		init_param.input_rect.y  += trim_rect.y;
-		init_param.input_rect.w = trim_rect.w;
-		init_param.input_rect.h = trim_rect.h;	
-		init_param.encoder_rect.x = 0;
-    		init_param.encoder_rect.y = 0;
-    		init_param.encoder_rect.w = trim_rect.w;
-   		init_param.encoder_rect.h = trim_rect.h;		
-	}
-	#endif
+
 	DCAM_V4L2_PRINT("v4l2: init param rect 1,%d,%d,%d,%d\n",
 		                              init_param.input_rect.x,init_param.input_rect.y,init_param.input_rect.w,init_param.input_rect.h);
 	init_param.skip_frame = 0;
@@ -1165,48 +1165,14 @@ static void init_dcam_parameters(void *priv)
 	init_param.first_u_buf_addr = g_first_buf_uv_addr;
 
          DCAM_V4L2_PRINT("v4l2: init param rotation = %d,preview mode=%d .\n",init_param.rotation,g_dcam_info.preview_m);
-	if(DCAM_MODE_TYPE_PREVIEW == init_param.mode)
-	{
-		if(sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].width>init_param.input_size.w)
-		{
-			g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].width;
-			g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].height;
-			init_param.input_rect.w = g_dcam_info.input_size.w;
-			init_param.input_rect.h = g_dcam_info.input_size.h;		
-			init_param.input_size.w = init_param.input_rect.w;
-			init_param.input_size.h = init_param.input_rect.h;
-		}
-		else
-		{
-			g_dcam_info.input_size.w =init_param.input_size.w;
-			g_dcam_info.input_size.h = init_param.input_size.h;
-		}		
-	}
-	else
-	{
-		if(SENSOR_IMAGE_FORMAT_JPEG != sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].image_format)
-		{
-			if(sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].width>init_param.input_size.w)
-			{
-				g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].width;
-				g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].height;
-				init_param.input_rect.w = g_dcam_info.input_size.w;
-				init_param.input_rect.h = g_dcam_info.input_size.h;	
-				init_param.input_size.w = init_param.input_rect.w;
-			         init_param.input_size.h = init_param.input_rect.h;
-			}
-			else
-			{
-				g_dcam_info.input_size.w =init_param.input_size.w;
-				g_dcam_info.input_size.h = init_param.input_size.h;
-			}
-		}
-		else
-		{
-			g_dcam_info.input_size.w =init_param.input_size.w;
-			g_dcam_info.input_size.h = init_param.input_size.h;
-		}
-	}
+
+	g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].width;
+	g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].height;
+	init_param.input_rect.w = g_dcam_info.input_size.w;
+	init_param.input_rect.h = g_dcam_info.input_size.h;		
+	init_param.input_size.w = init_param.input_rect.w;
+	init_param.input_size.h = init_param.input_rect.h;
+
 	printk("test 0:input size %d,%d,rect:%d,%d .\n",g_dcam_info.input_size.w,g_dcam_info.input_size.h,init_param.input_rect.w,init_param.input_rect.h);
 	g_dcam_info.mode = init_param.mode;
 	init_param.zoom_multiple = g_dcam_info.zoom_multiple;
@@ -1224,8 +1190,8 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -EINVAL;
 	if (i != fh->type)
 		return -EINVAL;
-	init_dcam_parameters(priv);
-	init_sensor_parameters();
+	init_sensor_parameters(priv);
+	init_dcam_parameters(priv);	
 
 	if(0 != (ret = videobuf_streamon(&fh->vb_vidq)))
 	{
@@ -1444,7 +1410,7 @@ static void dcam_error_handle(struct dcam_fh *fh)
 	do_gettimeofday(&buf->vb.ts);
 	buf->vb.state = VIDEOBUF_ERROR;
 	
-	DCAM_V4L2_PRINT("###V4L2: dcam_error_handle:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));
+//	DCAM_V4L2_PRINT("###V4L2: dcam_error_handle:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));
       
 	wake_up(&buf->vb.done);
 	g_first_buf_addr = g_last_buf; 
