@@ -9,6 +9,7 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License.
  */
+#if defined(CONFIG_NKERNEL)
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
@@ -27,9 +28,17 @@
 #define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
 #define ANA_INT_EN                     (SPRD_MISC_BASE + 0x380 + 0x08)
 #define ANA_INT_STATUS_SYNC      (SPRD_MISC_BASE + 0x380 + 0x0C)
+#if defined(CONFIG_ARCH_SC8810)
+#define INT_IRQ_EN				(SPRD_INTCV_BASE + 0x08)
+
+#define ANA_GPIO_IE            (SPRD_MISC_BASE + 0x700 + 0x18)
+#define ANA_GPIO_IEV           (SPRD_MISC_BASE + 0x700 + 0x14)
+#define ANA_GPIO_RIS           (SPRD_MISC_BASE + 0x700 + 0x1c)
+#else
 #define ANA_GPIO_IE            (SPRD_MISC_BASE + 0x600 + 0x18)
 #define ANA_GPIO_IEV           (SPRD_MISC_BASE + 0x600 + 0x14)
 #define ANA_GPIO_RIS           (SPRD_MISC_BASE + 0x600 + 0x1c)
+#endif
 
 
 #define WKAEUP_SRC_KEAPAD   BIT_10
@@ -123,7 +132,7 @@ int sc8800g_set_wakeup_src(void)
 	}
 #endif
 
-#ifdef CONFIG_MACH_SC8810OPENPHONE
+#if defined(CONFIG_MACH_SC8810OPENPHONE) || defined(CONFIG_MACH_SP8810)
 	wakeup_src = (WKAEUP_SRC_KEAPAD |
 				WKAEUP_SRC_RX0 |
 				WAKEUP_SRC_CHG |
@@ -135,6 +144,7 @@ int sc8800g_set_wakeup_src(void)
 		__raw_writel(val, INT_IRQ_EN);
 	}
 
+#if 0
 	//enable UART0 Wake up Source  for  BT	
 	if (WKAEUP_SRC_RX0 & wakeup_src) {
 		val = __raw_readl(INT_IRQ_EN);
@@ -145,6 +155,7 @@ int sc8800g_set_wakeup_src(void)
 		val |= BIT_0 | BIT_16;
 		__raw_writel(val, INT_UINT_CTL);
 	}
+#endif
 	if (WAKEUP_SRC_PB & wakeup_src) {
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_PB);
@@ -300,3 +311,4 @@ static int __init sc8800g_pm_init(void)
 }
 
 device_initcall(sc8800g_pm_init);
+#endif

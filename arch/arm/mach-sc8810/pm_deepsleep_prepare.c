@@ -36,7 +36,6 @@ check points for botton current.
 1. camera, TP, WIFI, BT, FM, audio PA,  LCD are totally ok.
 2. GPS, G-sensor, M-sensor need to be checked, totally 1.4mA.
 */
-
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -1241,7 +1240,7 @@ void gpio_dump_registers(void);
 int supsend_gpio_save(void)
 {
 	u32 val = 0;
-
+#if defined(CONFIG_MACH_SP8810)
 	if (sprd_check_gpio_enable) {
 		gpio_for_suespend();
 	}
@@ -1249,7 +1248,7 @@ int supsend_gpio_save(void)
 	if (sprd_dump_gpio_registers) {
 		gpio_dump_registers();
 	}
-
+#endif
 #ifdef CONFIG_MACH_SP6810A
 	/* GPIO 96, shutdown audio PA. */
 	val = __raw_readl(SPRD_GPIO_BASE + 0x0300);
@@ -2413,8 +2412,9 @@ int sc8800g_prepare_deep_sleep(void)
 			"pm_message_wakelock");
        init_pm_message();
 
-
+#if defined(CONFIG_NKERNEL)
 	pm_idle = nkidle;
+#endif
 	/*
 	mod_timer(&deep_sleep_timer, jiffies + DEEP_SLEEP_INTERVAL);
 	*/
