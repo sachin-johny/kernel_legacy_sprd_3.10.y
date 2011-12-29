@@ -32,6 +32,7 @@
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <asm/cacheflush.h>
+#include <linux/dma-mapping.h>
 
 #include "sc8800g_lcdc_manager.h"
 #include "sc8800g_copybit_lcdc.h"
@@ -427,7 +428,7 @@ static inline void copy_all(struct s2d_blit_req * req)
 		memcpy(dst, src, req->dst_rect.w*2);
 
 		clean_dcache_area(dst, L1_CACHE_ALIGN(req->dst_rect.w*2)+L1_CACHE_BYTES);
-		dmac_inv_range(src, src + req->dst_rect.w*2);
+		dmac_map_area(src, src + req->dst_rect.w*2, DMA_FROM_DEVICE);
 
 		dst += req->dst.width;
 		src += req->src.width;
@@ -529,7 +530,7 @@ static inline void blend32_all(struct s2d_blit_req * req)
 			src+=4;
 		}
 		clean_dcache_area(dst_base, L1_CACHE_ALIGN((unsigned int)dst-(unsigned int)dst_base)+L1_CACHE_BYTES);
-		dmac_inv_range(src_base, src);
+		dmac_map_area(src_base, src, DMA_FROM_DEVICE);
 
 		dst_base += req->dst.width;
 		src_base += req->src.width;
@@ -636,7 +637,7 @@ static inline void blend_all(struct s2d_blit_req * req)
 			src++;
 		}
 		clean_dcache_area(dst_base, L1_CACHE_ALIGN((unsigned int)dst-(unsigned int)dst_base)+L1_CACHE_BYTES);
-		dmac_inv_range(src_base, src);
+		dmac_map_area(src_base, src, DMA_FROM_DEVICE);
 
 		dst_base += req->dst.width;
 		src_base += req->src.width;
