@@ -62,7 +62,6 @@ struct sc8810fb_info {
 	uint32_t cap;
 	uint32_t bits_per_pixel;
 	uint32_t need_reinit;
-	uint32_t deep_sleep;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
@@ -908,7 +907,6 @@ err0:
 static int sc8810fb_suspend(struct platform_device *pdev,pm_message_t state)
 {
 	struct sc8810fb_info *info = platform_get_drvdata(pdev);
-	info->deep_sleep = 0;
 	info->panel->ops->lcd_enter_sleep(info->panel,1);
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
@@ -918,15 +916,19 @@ static int sc8810fb_resume(struct platform_device *pdev)
 {
 	struct sc8810fb_info *info = platform_get_drvdata(pdev);
 
-	if (info->deep_sleep == 1) {
+	if (__raw_readl(LCDC_CTRL) == 0) { // resume from deep sleep
+		info->need_reinit = 1;
+
 		lcdc_reset();
 		hw_early_init(info);
-		panel_reset(NULL);
 		hw_init(info);
-		hw_later_init(info);		
+		hw_later_init(info);
+
+		info->need_reinit = 0;		
+	} else {
+		info->panel->ops->lcd_enter_sleep(info->panel,0);
 	}
-	info->panel->ops->lcd_enter_sleep(info->panel,0);
-	info->deep_sleep = 0;
+
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
 }
