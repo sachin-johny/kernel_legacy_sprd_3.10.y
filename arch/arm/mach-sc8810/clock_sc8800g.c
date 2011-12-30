@@ -169,10 +169,19 @@ static struct clk mpll_ck = {
 	.name = "mpll_ck",
 	.ops = &clkops_null,
 	.parent = &ext_26m,
-	.flags = RATE_FIXED | ENABLE_ON_INIT,
+	.flags = ENABLE_ON_INIT,
 	.clkdm_name = "pll_clkdm",
 	.recalc = &sc8800g2_mpllcore_recalc,
 	.set_rate = &sc8800g2_reprogram_mpllcore,
+};
+
+static struct clk dpll_ck = {
+	.name = "dpll_ck",
+	.rate = 333000000,
+	.flags = RATE_FIXED,
+	.ops = &clkops_null,
+	.parent = &ext_26m,
+	.clkdm_name = "pll_clkdm",
 };
 
 static struct clk tdpll_ck = {
@@ -185,6 +194,26 @@ static struct clk tdpll_ck = {
 };
 
 /* third level.*/
+static struct clk l3_400m = {
+	.name = "l3_400m",
+	.flags = RATE_FIXED,
+	.rate = 400000000,
+	.ops = &clkops_null,
+	.divisor = 2,
+	.parent = &mpll_ck,
+	.clkdm_name = "l3_clkdm",
+};
+
+static struct clk l3_384m = {
+	.name = "l3_384m",
+	.flags = RATE_FIXED,
+	.rate = 384000000,
+	.ops = &clkops_null,
+	.divisor = 2,
+	.parent = &tdpll_ck,
+	.clkdm_name = "l3_clkdm",
+};
+
 static struct clk l3_256m = {
 	.name = "l3_256m",
 	.flags = RATE_FIXED,
@@ -342,6 +371,38 @@ static struct clk clk_6m500k = {
 
 
 /* for source-selectable clock. */
+static const struct clksel_rate rates_clk_800m_4div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_384m_4div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_333m_4div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_256m_4div[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
+		{.div = 3, .val = 2, .flags = RATE_IN_SC8800G2},
+		{.div = 4, .val = 3, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
 static const struct clksel_rate rates_clk_48m_4div[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
@@ -1311,6 +1372,120 @@ static struct clk clk_usb_ref = {
 	*/
 };
 
+static const struct clksel clk_mcu_clksel[] = {
+		{.parent = &mpll_ck,		.val = 0,	.rates = rates_clk_800m_4div},
+		{.parent = &l3_384m,		.val = 1,	.rates = rates_clk_384m_4div},
+		{.parent = &l3_256m,		.val = 2,	.rates = rates_clk_256m_4div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_256div},
+		{.parent = NULL}
+};
+
+static struct clk clk_mcu = {
+	.name = "clk_mcu",
+	.flags = ENABLE_ON_INIT,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &mpll_ck,
+	.clkdm_name = "core",
+
+	.recalc = &sc88xx_recalc_generic,
+//	.set_rate = &sc88xx_set_rate_generic,
+	.init = &sc88xx_init_clksel_parent,
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_mcu_clksel,
+	.clksel_reg = IOMEM(AHB_ARM_CLK),
+	.clksel_mask = CLK_MCU_CLKSEL_MASK,
+
+//	.enable_reg = IOMEM(GEN1),
+//	.enable_bit = CLK_MCU_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(AHB_ARM_CLK),
+	.clkdiv_mask = CLK_MCU_CLKDIV_MASK,
+};
+
+
+static const struct clksel clk_axi_clksel[] = {
+		{.parent = &clk_mcu,		.val = 0,	.rates = rates_clk_800m_4div},
+		{.parent = NULL}
+};
+
+
+static struct clk clk_axi = {
+	.name = "clk_axi",
+	.flags = ENABLE_ON_INIT,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_mcu,
+	.clkdm_name = "core",
+
+	.recalc = &sc88xx_recalc_generic,
+//	.set_rate = &sc88xx_set_rate_generic,
+	.init = &sc88xx_init_clksel_parent,
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_axi_clksel,
+	.clkdiv_reg = IOMEM(AHB_CA5_CFG),
+	.clkdiv_mask = CLK_AXI_CLKDIV_MASK,
+
+};
+
+
+static const struct clksel clk_ahb_clksel[] = {
+		{.parent = &clk_mcu,		.val = 0,	.rates = rates_clk_800m_4div},
+		{.parent = NULL}
+};
+
+static struct clk clk_ahb = {
+	.name = "clk_ahb",
+	.flags = ENABLE_ON_INIT,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_mcu,
+	.clkdm_name = "core",
+
+	.recalc = &sc88xx_recalc_generic,
+//	.set_rate = &sc88xx_set_rate_generic,
+	.init = &sc88xx_init_clksel_parent,
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_ahb_clksel,
+	.clkdiv_reg = IOMEM(AHB_ARM_CLK),
+	.clkdiv_mask = CLK_AHB_CLKDIV_MASK,
+
+};
+
+
+static const struct clksel clk_emc_clksel[] = {
+		{.parent = &l3_400m,		.val = 0,	.rates = rates_clk_800m_4div},
+		{.parent = &dpll_ck,		.val = 1,	.rates = rates_clk_333m_4div},
+		{.parent = &l3_256m,		.val = 2,	.rates = rates_clk_256m_4div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_256div},
+		{.parent = NULL}
+};
+
+static struct clk clk_emc = {
+	.name = "clk_emc",
+	.flags = DEVICE_AHB,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &l3_400m,
+	.clkdm_name = "core",
+
+	.recalc = &sc88xx_recalc_generic,
+//	.set_rate = &sc88xx_set_rate_generic,
+	.init = &sc88xx_init_clksel_parent,
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_emc_clksel,
+	.clksel_reg = IOMEM(AHB_ARM_CLK),
+	.clksel_mask = CLK_EMC_CLKSEL_MASK,
+
+//	.enable_reg = IOMEM(AHB_CTL0),
+//	.enable_bit = CLK_EMC_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(AHB_ARM_CLK),
+	.clkdiv_mask = CLK_EMC_CLKDIV_MASK,
+};
+
+
+
 
 static struct sc88xx_clk sc8800g2_clks[] = {
 	/* 1. first level: external input clock. */
@@ -1323,6 +1498,11 @@ static struct sc88xx_clk sc8800g2_clks[] = {
 	/* 2. second level: PLL output clock. */
 	CLK(NULL, "mpll_ck", &mpll_ck, CK_SC8800G2),
 	CLK(NULL, "tdpll_ck", &tdpll_ck, CK_SC8800G2),
+
+	CLK(NULL, "clk_mcu", &clk_mcu, CK_SC8800G2),
+	CLK(NULL, "clk_axi", &clk_axi, CK_SC8800G2),
+	CLK(NULL, "clk_ahb", &clk_ahb, CK_SC8800G2),
+//	CLK(NULL, "clk_emc", &clk_emc, CK_SC8800G2),
 
 	/* third level: clock derived from top module. */
 	CLK(NULL, "l3_256m", &l3_256m, CK_SC8800G2),
@@ -1380,8 +1560,9 @@ static void _sc88xx_clk_commit(struct clk *clk)
 
 static unsigned long sc8800g2_mpllcore_recalc(struct clk *clk)
 {
-
-	return 0;
+	unsigned long refclk = 4000000;//4//4M MPLL_REFIN
+	unsigned long v = __raw_readl(GR_MPLL_MN);
+	return refclk * (v & 0x7ff);
 }
 
 static int sc8800g2_reprogram_mpllcore(struct clk *clk, unsigned long rate)
@@ -1974,6 +2155,10 @@ int __init sc8800g2_clock_init(void)
 		pstub[index].usecount);
     }
      */
+	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
+		struct clk * clk = clk_get(NULL, c->lk.con_id);
+		printk("%s : %u\n", clk->name, clk_get_rate(clk));
+	}
 
 	return 0;
  }

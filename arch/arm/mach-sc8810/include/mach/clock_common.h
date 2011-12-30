@@ -48,6 +48,8 @@
 #define		CLK_PWM3_EN_SHIFT	24
 #define		CLK_USB_REF_EN_SHIFT	5
 
+#define		CLK_EMC_EN_SHIFT	28
+
 
 /* clock source mask. */
 #define		CCIR_MCLK_CLKSEL_MASK 	(0x3UL << 18)
@@ -70,6 +72,8 @@
 #define		CLK_PWM3_CLKSEL_MASK 	(0x1UL << 28)
 #define		CLK_USB_REF_CLKSEL_MASK 	(0x1UL << 0)
 
+#define		CLK_MCU_CLKSEL_MASK		(0x3UL << 23)
+#define		CLK_EMC_CLKSEL_MASK		(0x3UL << 12)
 
 /* clock divisor mask */
 #define		CCIR_MCLK_CLKDIV_MASK	(0x3UL << 24)
@@ -82,6 +86,10 @@
 #define		CLK_AUX0_CLKDIV_MASK	(0xffUL << 0)
 #define		CLK_AUX1_CLKDIV_MASK	(0xffUL << 22)
 
+#define		CLK_MCU_CLKDIV_MASK		(0x3UL << 0)
+#define		CLK_AXI_CLKDIV_MASK		(0x3UL << 11)
+#define		CLK_AHB_CLKDIV_MASK		(0x3UL << 4)
+#define		CLK_EMC_CLKDIV_MASK		(0x3UL << 8)
 
 
 struct clk;

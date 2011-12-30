@@ -67,7 +67,7 @@ static void LCD_SetPwmRatio(unsigned short value)
 {
 	__raw_bits_or(CLK_PWM0_EN, GR_CLK_EN);
 	__raw_bits_or(CLK_PWM0_SEL, GR_CLK_EN);
-	__raw_bits_or(PIN_PWM0_MOD_VALUE, PIN_MODE_PWMA);
+	__raw_bits_or(PIN_PWM0_MOD_VALUE, PIN_MOD_PWMA);
 	__raw_writel(LCD_PWM_PRESCALE_VALUE, SPRD_PWM0_PRESCALE);
 	__raw_writel(value, SPRD_PWM0_CNT);
 	__raw_writel(PWM_REG_MSK_VALUE, SPRD_PWM0_PAT_LOW);
