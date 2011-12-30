@@ -1,7 +1,7 @@
 /*
  * LED driver for Sprd lcd driven LEDS.
  *
- * Copyright (C) 2010 Spreadtrum 
+ * Copyright (C) 2010 Spreadtrum
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
- * 
+ *
  *  usage :
 	  echo 255 > /sys/class/leds/lcd-backlight/brightness
 	  cat /sys/class/leds/lcd-backlight/brightness
@@ -29,7 +29,24 @@
 
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>
+#include <mach/regs_global.h>
+#include <mach/regs_cpc.h>
+#include <mach/io.h>
 
+#define SPRD_PWM_REG(off) 		(SPRD_PWM_BASE + (off))
+#define SPRD_PWM0_PRESCALE   	SPRD_PWM_REG(0x0000)
+#define SPRD_PWM0_CNT 			SPRD_PWM_REG(0x0004)
+#define SPRD_PWM0_TONE_DIV 	SPRD_PWM_REG(0x0008)
+#define SPRD_PWM0_PAT_LOW 	SPRD_PWM_REG(0x000C)
+#define SPRD_PWM0_PAT_HIG 	SPRD_PWM_REG(0x0010)
+
+#define LCD_PWM_PRESCALE_VALUE 	0x01
+#define LCD_PWM_MOD_VALUE 		0xFF
+#define PWM_REG_MSK_VALUE			0xFFFF
+
+#define PIN_PWM0_MOD_VALUE   0x20
+
+#define LCD_PWM0_EN BIT_8
 
 /* sprd keypad backlight */
 struct sprd_lcd_led {
@@ -45,18 +62,44 @@ struct sprd_lcd_led {
 #define to_sprd_led(led_cdev) \
 	container_of(led_cdev, struct sprd_lcd_led, cdev)
 
+
+static void LCD_SetPwmRatio(unsigned short value)
+{
+	__raw_bits_or(CLK_PWM0_EN, GR_CLK_EN);
+	__raw_bits_or(CLK_PWM0_SEL, GR_CLK_EN);
+	__raw_bits_or(PIN_PWM0_MOD_VALUE, PIN_MODE_PWMA);
+	__raw_writel(LCD_PWM_PRESCALE_VALUE, SPRD_PWM0_PRESCALE);
+	__raw_writel(value, SPRD_PWM0_CNT);
+	__raw_writel(PWM_REG_MSK_VALUE, SPRD_PWM0_PAT_LOW);
+	__raw_writel(PWM_REG_MSK_VALUE, SPRD_PWM0_PAT_HIG);
+
+	__raw_bits_or(LCD_PWM0_EN, SPRD_PWM0_PRESCALE);
+
+}
+
 static void LCD_SetBackLightBrightness( unsigned long  value)
 {
+#if CONFIG_ARCH_SC8810
+	unsigned long duty_mod= 0;
+	if(value > LCD_PWM_MOD_VALUE)
+		value = LCD_PWM_MOD_VALUE;
 
+	if(value < 0)
+		value = 0;
+
+	duty_mod = (value << 8) | LCD_PWM_MOD_VALUE;
+	LCD_SetPwmRatio(duty_mod);
+#else
 	if(value > 255)
 		value = 255;
-	
+
     if(value > 8)
 	    value = value/8;
     else
         value = 0;
-    
+
     ANA_REG_MSK_OR (WHTLED_CTL, ( (value << WHTLED_V_SHIFT) &WHTLED_V_MSK), WHTLED_V_MSK);
+#endif
 }
 
 
@@ -124,7 +167,7 @@ static void sprd_led_set(struct led_classdev *led_cdev,
 	spin_lock_irqsave(&led->value_lock, flags);
 	led->value = value;
 	spin_unlock_irqrestore(&led->value_lock, flags);
-	schedule_work(&led->work);	
+	schedule_work(&led->work);
 }
 
 static void sprd_lcd_led_shutdown(struct platform_device *pdev)
@@ -161,12 +204,12 @@ static int sprd_lcd_led_probe(struct platform_device *pdev)
 	INIT_WORK(&led->work, led_work);
 	led->value = LED_OFF;
 	platform_set_drvdata(pdev, led);
-	
+
 	ret = led_classdev_register(&pdev->dev, &led->cdev);
-	
+
 	if (ret < 0)
 		goto err_led;
-		
+
 	/* backlight on */
 	//FIXME
 

@@ -21,6 +21,8 @@
 
 #define PIN_CTL_REG					(SPRD_CPC_BASE + 0x0000)
 
+#define PIN_MOD_PWMA				(SPRD_CPC_BASE + 0x03e0)
+
 #define ANA_CPC_BASE			(SPRD_MISC_BASE + 0x180)
 #define ANA_PIN_CTL_BASE		(ANA_CPC_BASE	+ 0x00)
 

@@ -17,6 +17,7 @@
 #define __ASM_ARM_ARCH_IO_H
 
 #include <asm/system.h>
+#include <asm/io.h>
 
 #define IO_SPACE_LIMIT 0xffffffff
 
