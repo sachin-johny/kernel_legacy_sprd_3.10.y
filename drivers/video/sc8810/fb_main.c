@@ -53,6 +53,7 @@
 #endif
 
 #define ARRAY_LEN(array)  (sizeof(array) / sizeof(array[0]))
+#define MAX_LCDC_TIMING_VALUE 15
 
 struct sc8810fb_info {
 	struct fb_info   *fb;
@@ -497,7 +498,6 @@ static void lcdc_update_lcm_timing(struct sc8810fb_info *info)
 {
 	uint32_t  reg_value;
 	uint32_t  ahb_div,ahb_clk;   
-	uint32_t  ahb_clk_cycle;
 	uint32_t  rcss, rlpw, rhpw, wcss, wlpw, whpw;
 	struct timing_mcu *timing;
 
@@ -517,23 +517,50 @@ static void lcdc_update_lcm_timing(struct sc8810fb_info *info)
     	}	
 	//ahb_clk = CHIP_GetMcuClk()/ahb_div;
 	
-	// for sc8810 fpga
-	ahb_clk = 32*1000*1000;
+	ahb_clk = 200; // AHB : 200MHZ
 	
 	FB_PRINT("[%s] ahb_clk: 0x%x\n", __FUNCTION__, ahb_clk);
 
 	/* LCD_UpdateTiming() */
-	ahb_clk_cycle = (100000000 >> 17)/(ahb_clk >> 20 );
 
+        /************************************************
+	* we assume : t = ? ns, AHB = ? MHz   so
+        *      1ns  cycle  :  AHB /1000 
+	*      tns  cycles :  t * AHB / 1000
+	*
+	*****************************************/   
 	timing = info->panel->info.mcu->timing;
-	rcss = ((timing->rcss/ahb_clk_cycle + 1) < 14) ? (timing->rcss/ahb_clk_cycle+1):14;
-	rlpw = ((timing->rlpw/ahb_clk_cycle + 1) < 14) ? (timing->rlpw/ahb_clk_cycle+1):14;
-	rhpw = ((timing->rhpw/ahb_clk_cycle + 1) < 14) ? (timing->rhpw/ahb_clk_cycle+1):14;
-	wcss = ((timing->wcss/ahb_clk_cycle + 1) < 14) ? (timing->wcss/ahb_clk_cycle+1):14;
-	wlpw = ((timing->wlpw/ahb_clk_cycle + 1) < 14) ? (timing->wlpw/ahb_clk_cycle+1):14;
-	whpw = ((timing->whpw/ahb_clk_cycle + 1) < 14) ? (timing->whpw/ahb_clk_cycle+1):14;
-	
-	/*   LCDC_ChangePulseWidth() */
+
+	rcss = (timing->rcss * ahb_clk + 1000 - 1) / 1000; //ceiling
+        if (rcss > MAX_LCDC_TIMING_VALUE) {
+		rcss = MAX_LCDC_TIMING_VALUE ; // max 15 cycles
+	}
+
+	rlpw = (timing->rlpw * ahb_clk + 1000 - 1) / 1000;
+	if (rlpw > MAX_LCDC_TIMING_VALUE) {
+		rlpw = MAX_LCDC_TIMING_VALUE ; 
+	}
+
+	rhpw = (timing->rhpw * ahb_clk + 1000 - 1) / 1000; 
+	if (rhpw > MAX_LCDC_TIMING_VALUE) {
+		rhpw = MAX_LCDC_TIMING_VALUE ; 
+	}
+
+	wcss = (timing->wcss * ahb_clk + 1000 - 1) / 1000; 
+	if (wcss > MAX_LCDC_TIMING_VALUE) {
+		wcss = MAX_LCDC_TIMING_VALUE ; 
+	}
+
+	wlpw = (timing->wlpw * ahb_clk + 1000 - 1) / 1000; 
+	if (wlpw > MAX_LCDC_TIMING_VALUE) {
+		wlpw = MAX_LCDC_TIMING_VALUE ; 
+	}
+
+	whpw = (timing->whpw * ahb_clk + 1000 - 1) / 1000; 
+	if (whpw > MAX_LCDC_TIMING_VALUE) {
+		whpw = MAX_LCDC_TIMING_VALUE ; 
+	}
+
     	reg_value = whpw | (wlpw << 4) | (wcss << 8)
                         | (rhpw << 16) |(rlpw << 20) | (rcss << 24);
 	__raw_writel(reg_value,LCM_PARAMETER0); /* FIXME: hardcoded for !CS0 */
@@ -917,17 +944,12 @@ static int sc8810fb_resume(struct platform_device *pdev)
 	struct sc8810fb_info *info = platform_get_drvdata(pdev);
 
 	if (__raw_readl(LCDC_CTRL) == 0) { // resume from deep sleep
-		info->need_reinit = 1;
-
 		lcdc_reset();
 		hw_early_init(info);
 		hw_init(info);
 		hw_later_init(info);
-
-		info->need_reinit = 0;		
-	} else {
-		info->panel->ops->lcd_enter_sleep(info->panel,0);
 	}
+	info->panel->ops->lcd_enter_sleep(info->panel,0);
 
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
