@@ -87,8 +87,8 @@ void sc88xx_init_clksel_parent(struct clk *clk)
 					clk->rate = clk->recalc(clk);
 				propagate_rate(clk);
 			}
+			found = 1;
 		}
-		found = 1;
 	}
 	if (!found)
 		printk("clock: Can find parent for clock [%s].\n", clk->pstub->name);

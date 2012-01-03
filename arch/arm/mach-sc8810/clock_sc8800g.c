@@ -1465,7 +1465,7 @@ static struct clk clk_emc = {
 	.name = "clk_emc",
 	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
-	.parent = &l3_400m,
+	.parent = &ext_26m,
 	.clkdm_name = "core",
 
 	.recalc = &sc88xx_recalc_generic,
@@ -1497,12 +1497,13 @@ static struct sc88xx_clk sc8800g2_clks[] = {
 
 	/* 2. second level: PLL output clock. */
 	CLK(NULL, "mpll_ck", &mpll_ck, CK_SC8800G2),
+	CLK(NULL, "dpll_ck", &dpll_ck, CK_SC8800G2),
 	CLK(NULL, "tdpll_ck", &tdpll_ck, CK_SC8800G2),
 
 	CLK(NULL, "clk_mcu", &clk_mcu, CK_SC8800G2),
 	CLK(NULL, "clk_axi", &clk_axi, CK_SC8800G2),
 	CLK(NULL, "clk_ahb", &clk_ahb, CK_SC8800G2),
-//	CLK(NULL, "clk_emc", &clk_emc, CK_SC8800G2),
+	CLK(NULL, "clk_emc", &clk_emc, CK_SC8800G2),
 
 	/* third level: clock derived from top module. */
 	CLK(NULL, "l3_256m", &l3_256m, CK_SC8800G2),
@@ -2088,7 +2089,7 @@ int __init sc8800g2_clock_init(void)
                          pstub++, pname++, index++) {
             continue;
         }
-	CLK_FW_INFO("######: first available block at: %d\n", index);
+	CLK_FW_INFO("######: first available block at: %d pstub@ %p\n", index, pstub);
 	if (is_stub) {	
                /*
 		memset(pname, '\0', CLOCK_NUM * MAX_CLOCK_NAME_LEN);
