@@ -22,6 +22,7 @@
 #include "dcam_common.h"
 #include "sc8810_reg_isp.h"
 #include "gen_scale_coef.h"
+#include "isp_control.h"
 
 
 #ifdef   __cplusplus

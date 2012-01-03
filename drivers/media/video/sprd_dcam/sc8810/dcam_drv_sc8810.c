@@ -989,6 +989,7 @@ int32_t ISP_DriverStop(uint32_t base_addr)
 		case ISP_MODE_VT:
 		case ISP_MODE_PREVIEW_EX:          
 			p_isp_reg->dcam_path_cfg_u.mBits.cap_eb = 0;
+		         isp_put_path2();
 			msleep(20);//wait the dcam stop
 			break;  
 		case ISP_MODE_PREVIEW:

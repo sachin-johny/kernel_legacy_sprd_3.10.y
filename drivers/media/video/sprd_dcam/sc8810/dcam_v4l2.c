@@ -65,6 +65,14 @@ typedef struct dcam_info
 	DCAM_DATA_FORMAT_E out_format;
 	uint32_t zoom_multiple;
 	uint32_t jpg_len;
+	uint8_t wb_param;
+	uint8_t brightness_param;
+	uint8_t contrast_param;
+	uint8_t saturation_param;
+	uint8_t imageeffect_param;
+	uint8_t hflip_param;
+	uint8_t vflip_param;
+	uint8_t previewmode_param;
 }DCAM_INFO_T;
 
 
@@ -804,26 +812,73 @@ static int vidioc_g_ctrl(struct file *file, void *priv,
 }
 static int vidioc_handle_ctrl(struct v4l2_control *ctrl)	
 {
-	DCAM_V4L2_PRINT("vidioc_handle_ctrl, id: %d, value: %d.\n", ctrl->id, ctrl->value);
+	int is_previewing = 0;
 	
+	DCAM_V4L2_PRINT("vidioc_handle_ctrl, id: %d, value: %d.\n", ctrl->id, ctrl->value);
+	is_previewing = dcam_is_previewing(g_zoom_level);	
 	switch(ctrl->id)
 	{
 		case V4L2_CID_DO_WHITE_BALANCE:
+			g_dcam_info.wb_param = (uint8_t)ctrl->value;
+			if(is_previewing)
+			{
+				dcam_stop();
+			}
 			Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, (uint32_t)ctrl->value);
+			if(is_previewing)
+			{
+				dcam_start();
+			}
 			break;
 		case V4L2_CID_COLORFX:
+			g_dcam_info.imageeffect_param = (uint8_t)ctrl->value;
+			if(is_previewing)
+			{
+				dcam_stop();
+			}
 			Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT, (uint32_t)ctrl->value);
+			if(is_previewing)
+			{
+				dcam_start();
+			}
 			break;
-		case V4L2_CID_COLOR_KILLER:  			
+		case V4L2_CID_COLOR_KILLER:  
+			g_dcam_info.previewmode_param = (uint8_t)ctrl->value;
+			if(is_previewing)
+			{
+				dcam_stop();
+			}
 			Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)ctrl->value);
+			if(is_previewing)
+			{
+				dcam_start();
+			}
 			break;	
-		case V4L2_CID_BRIGHTNESS:  		
+		case V4L2_CID_BRIGHTNESS:  	
+			g_dcam_info.brightness_param = (uint8_t)ctrl->value;
+			if(is_previewing)
+			{
+				dcam_stop();
+			}
 			Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)ctrl->value);
+			if(is_previewing)
+			{
+				dcam_start();
+			}
 			break;		
 		case V4L2_CID_CONTRAST:  		
+			g_dcam_info.contrast_param = (uint8_t)ctrl->value;
+			if(is_previewing)
+			{
+				dcam_stop();
+			}
 			Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, (uint32_t)ctrl->value);
+			if(is_previewing)
+			{
+				dcam_start();
+			}
 			break;				
-		case V4L2_CID_ZOOM_ABSOLUTE:
+		case V4L2_CID_ZOOM_ABSOLUTE:			
 			g_zoom_level = (uint32_t)ctrl->value;
 			if(dcam_is_previewing(g_zoom_level))
 			{
@@ -833,10 +888,28 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
 			break;	
 		case V4L2_CID_HFLIP:  		
+			g_dcam_info.hflip_param = (uint8_t)ctrl->value;
+			if(is_previewing)
+			{
+				dcam_stop();
+			}
 			Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);	
+			if(is_previewing)
+			{
+				dcam_start();
+			}
 			break;
 		case V4L2_CID_VFLIP:  		
+			g_dcam_info.vflip_param = (uint8_t)ctrl->value;
+			if(is_previewing)
+			{
+				dcam_stop();
+			}
 			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);	
+			if(is_previewing)
+			{
+				dcam_start();
+			}
 			break;
 		default:
 			break;
@@ -1036,8 +1109,8 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh  *fh = priv;
 
-	DCAM_V4L2_PRINT("v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n",
-		                              file->f_flags, O_NONBLOCK, g_dcam_info.mode);
+//	DCAM_V4L2_PRINT("v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n",
+//		                              file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));	
 }
@@ -1180,6 +1253,18 @@ static void init_dcam_parameters(void *priv)
 	dcam_parameter_init(&init_param);
 }
 
+static void dcam_set_param(void)
+{
+	DCAM_V4L2_PRINT("V4L2:dcam_set_param s.\n");
+	Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, (uint32_t)g_dcam_info.wb_param);
+	Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT, (uint32_t)g_dcam_info.imageeffect_param);
+	Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)g_dcam_info.previewmode_param);
+	Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)g_dcam_info.brightness_param);
+	Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, (uint32_t)g_dcam_info.contrast_param);
+	Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)g_dcam_info.hflip_param);				
+	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)g_dcam_info.vflip_param);	
+	DCAM_V4L2_PRINT("V4L2:dcam_set_param e.\n");		
+}
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct dcam_fh  *fh = priv;
@@ -1192,6 +1277,8 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -EINVAL;
 	init_sensor_parameters(priv);
 	init_dcam_parameters(priv);	
+
+	dcam_set_param();
 
 	if(0 != (ret = videobuf_streamon(&fh->vb_vidq)))
 	{
@@ -1629,6 +1716,15 @@ static int open(struct file *file)
 							sizeof(struct dcam_buffer), fh);
 
 	g_fh = fh;
+
+	g_dcam_info.wb_param = 0;
+	g_dcam_info.brightness_param = 0;
+	g_dcam_info.contrast_param = 0;
+	g_dcam_info.saturation_param = 0;
+	g_dcam_info.imageeffect_param = 0;
+	g_dcam_info.hflip_param = 0;
+	g_dcam_info.vflip_param = 0;
+	g_dcam_info.previewmode_param = 0;
 	//open dcam
 	dcam_open();
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");

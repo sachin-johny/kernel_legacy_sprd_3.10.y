@@ -467,6 +467,13 @@ typedef struct sensor_reg_tag
 	uint16_t reg_value;						// value of sensor register
 	
 }SENSOR_REG_T, *SENSOR_REG_T_PTR;
+
+typedef struct sensor_reg_bits_tag
+{
+	uint16_t reg_addr;						// address of sensor register
+	uint16_t reg_value;						// value of sensor register
+	uint32_t reg_bits;                                                   // indicate invalid bits of register	
+}SENSOR_REG_BITS_T, *SENSOR_REG_BITS_T_PTR;
 typedef struct sensor_trim_tag
 {
 	uint16_t trim_start_x;
