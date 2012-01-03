@@ -269,5 +269,9 @@
 #define SPRD_AXIM_GPU_PHYS            0x20A01000
 #define SPRD_AXIM_GPU_SIZE            SZ_4K
 
+#define SPRD_A5_DEBUG_BASE            0xE0052000
+#define SPRD_A5_DEBUG_PHYS            0xa0008000
+#define SPRD_A5_DEBUG_SIZE            SZ_4K
+
 
 #endif

@@ -86,9 +86,11 @@ extern void printascii(char *);
 
 #define INT_REG(off) (SPRD_INTCV_BASE + (off))
 
-#define INT_IRQ_STS     INT_REG(0x0000)
-#define INT_FIQ_STS     INT_REG(0x0020)
-
+#define INT_IRQ_STS            INT_REG(0x0000)
+#define INT_IRQ_RAW            INT_REG(0x0004)
+#define INT_IRQ_ENB            INT_REG(0x0008)
+#define INT_IRQ_DIS            INT_REG(0x000c)
+#define INT_FIQ_STS            INT_REG(0x0020)
 
 extern long has_wake_lock_info(int type);
 extern long has_wake_lock_for_suspend(int type);
@@ -112,6 +114,7 @@ u32 sleep_mode = 0;
 u32 sleep_counter = 0;
 u32 uptime = 0;
 u32 sleep_time = 0;
+u32 wake_time = 0;
 u32 sleep_time_inidle = 0;
 u32 idle_time = 0;
 int thread_loops = 0;
@@ -387,7 +390,8 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 	                GEN0_EPT_EN | GEN0_SIM1_EN | GEN0_SPI_EN | GEN0_UART0_EN | \
 	                GEN0_UART1_EN | GEN0_UART2_EN)
 
-#define CLK_EN_MASK (CLK_PWM0_EN | CLK_PWM1_EN | CLK_PWM2_EN | CLK_PWM3_EN)
+#define CLK_EN_MASK (CLK_PWM0_EN | CLK_PWM1_EN | CLK_PWM2_EN | CLK_PWM3_EN| \
+				(3<<16)/*BUFON_CTRL*/)
 #define BUSCLK_ALM_MASK (ARM_VB_MCLKON|ARM_VB_DA0ON|ARM_VB_DA1ON|ARM_VB_ADCON|ARM_VB_ANAON|ARM_VB_ACC)
 #define AHB_CTL0_MASK   (AHB_CTL0_DCAM_EN|AHB_CTL0_CCIR_EN|AHB_CTL0_LCDC_EN|    \
                          AHB_CTL0_SDIO0_EN|AHB_CTL0_SDIO1_EN|AHB_CTL0_DMA_EN|     \
@@ -1265,6 +1269,31 @@ int supsend_gpio_restore(void)
 	return 0;
 }
 
+#define PD_AUTO_EN     BIT_22
+int sc8810_setup_pd_automode(void)
+{
+	__raw_writel(0x06000320|PD_AUTO_EN, GR_GPU_PWR_CTRL);
+	__raw_writel(0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
+	__raw_writel(0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);
+	//__raw_writel(0x04400720, GR_CEVA_RAM_TH_PWR_CTRL);
+	//__raw_writel(0x05400520, GR_GSM_PWR_CTRL);
+	//__raw_writel(0x05400520, GR_TD_PWR_CTRL);
+	//__raw_writel(0x04400720, GR_CEVA_RAM_BH_PWR_CTRL);
+	__raw_writel(0x03000920|PD_AUTO_EN, GR_PERI_PWR_CTRL);
+	__raw_writel(0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+	__raw_writel(0x07000a20|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
+}
+
+int sc8810_setup_ldo_slpmode(void)
+{
+//	 ANA_REG_SET(ANA_LDO_PD_CTL0, 0x00005555);
+//	 ANA_REG_SET(ANA_LDO_PD_CTL1, 0x00000155);
+	 ANA_REG_SET(ANA_LDO_SLP0, 0x0000a7ff);//except v18/28
+	 ANA_REG_SET(ANA_LDO_SLP1, 0x0000801f|(1<<12));//
+	 ANA_REG_SET(ANA_LED_CTRL, 0x0000801f);//all led off
+	 ANA_REG_SET(ANA_AGEN, 0x00000bcb);
+}
+
 struct workqueue_struct *deep_sleep_work_queue;
 static void deep_sleep_suspend(struct work_struct *work);
 
@@ -1389,10 +1418,11 @@ int sc8800g_enter_deepsleep(int inidle)
 		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
 
 		sleep_counter++;
-	
+
 		supsend_ldo_turnoff();
 		supsend_gpio_save();
-	
+//		sc8810_setup_pd_automode();
+//		sc8810_setup_ldo_slpmode();
 		add_pm_message(get_sys_cnt(), "deepsleep_enter: inidle = ", inidle, 0, 0);
 		/*
 		printk("IRQ_STS = %08x, %s\n", 
@@ -1403,7 +1433,9 @@ int sc8800g_enter_deepsleep(int inidle)
 		disable_audio_module();
 		disable_apb_module();
 		disable_ahb_module();
-		
+
+//		__raw_writel(0x00000028, INT_IRQ_DIS);//prevent uart1, time0 int while sleep
+
 		/*
 		gr_stc_state = __raw_readl(GR_STC_STATE);
 		ahb_sts = __raw_readl(AHB_STS);
@@ -1441,10 +1473,12 @@ int sc8800g_enter_deepsleep(int inidle)
 	
 		t0 = get_sys_cnt();
 		//enable_mcu_sleep();
-
 #if 1
-	writel(1, SPRD_CACHE310_BASE + 0xF80/*L2X0_POWER_CTRL*/);//standby mode enable
+//	__raw_writel(0xc5acce55, SPRD_A5_DEBUG_BASE+0x0fb0);//a5 debug lock access, cleared
+//	__raw_writel(0, SPRD_A5_DEBUG_BASE+0x310);//a5 debug device power-down and reset control, not assert
+	__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);//l2cache power control, standby mode enable
 #endif
+
 		/* AHB_PAUSE */
 		val = __raw_readl(AHB_PAUSE);
 		val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
@@ -1458,7 +1492,7 @@ int sc8800g_enter_deepsleep(int inidle)
 		sp_pm_reset_vector[1] = virt_to_phys(sc8800g_cpu_standby_end);
 
 		ret = sc8800g_cpu_standby_prefetch();
-		//trace();
+		wake_time = get_sys_cnt();
 
 		sp_pm_reset_vector[0] = saved_vector[0];
 		sp_pm_reset_vector[1] = saved_vector[1];
@@ -1505,6 +1539,7 @@ int sc8800g_enter_deepsleep(int inidle)
 			add_pm_message(get_sys_cnt(), "deepsleep_exit: INT_FIQ_STS = ", 
 					fiq_sts, 0, 0);
 		}
+		wake_time = get_sys_cnt() - wake_time;
    }
     return ret;
 }

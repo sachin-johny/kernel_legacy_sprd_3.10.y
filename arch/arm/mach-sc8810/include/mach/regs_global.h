@@ -48,7 +48,16 @@
 #define GR_PLL_SCR                      (GREG_BASE + 0x0070)
 #define GR_CLK_EN                       (GREG_BASE + 0x0074)
 //reserved
-#define GR_CLK_GEN5                     (GREG_BASE + 0x007C)
+#define GR_CLK_GEN5				(GREG_BASE + 0x007C)
+#define GR_GPU_PWR_CTRL		(GREG_BASE + 0x0080)
+#define GR_MM_PWR_CTRL		(GREG_BASE + 0x0084)
+#define GR_CEVA_RAM_TH_PWR_CTRL	(GREG_BASE + 0x0088)
+#define GR_GSM_PWR_CTRL		(GREG_BASE + 0x008C)
+#define GR_TD_PWR_CTRL			 (GREG_BASE + 0x0090)
+#define GR_PERI_PWR_CTRL		(GREG_BASE + 0x0094)
+#define GR_CEVA_RAM_BH_PWR_CTRL	(GREG_BASE + 0x0098)
+#define GR_ARM_SYS_PWR_CTRL	(GREG_BASE + 0x009C)
+#define GR_G3D_PWR_CTRL		(GREG_BASE + 0x00A0)
 //reserved
 #define GR_SWRST                        GR_SOFT_RST             ////mingweiflag GR_SOFT_RST or GR_SWRST?
 #define GR_BUSCLK_ALM                   GR_BUSCLK

@@ -84,6 +84,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 #if	1//def CONFIG_CACHE_L3X0
 	SPRD_DEVICE(CACHE310),
 #endif
+	SPRD_DEVICE(A5_DEBUG),
 };
 
 void __init sprd_map_common_io(void)

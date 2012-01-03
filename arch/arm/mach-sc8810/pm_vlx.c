@@ -9,7 +9,6 @@
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License.
  */
-#if defined(CONFIG_NKERNEL)
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
@@ -221,6 +220,7 @@ int sc8800g_pm_enter(suspend_state_t state)
 		  (suspend_time < sprd_suspend_interval)) {
 		hw_local_irq_disable();
 
+#if defined(CONFIG_NKERNEL)
 		local_irq_save(flags);
 		if (raw_local_irq_pending()) {
 			/*
@@ -238,6 +238,9 @@ int sc8800g_pm_enter(suspend_state_t state)
 		if (0 == ret_val) {
 			sc8800g_enter_deepsleep(0);
 		}
+#else
+		sc8800g_enter_deepsleep(0);
+#endif
 		suspend_end = get_sys_cnt();
 		suspend_time = suspend_end - suspend_start;
 
@@ -311,4 +314,4 @@ static int __init sc8800g_pm_init(void)
 }
 
 device_initcall(sc8800g_pm_init);
-#endif
+
