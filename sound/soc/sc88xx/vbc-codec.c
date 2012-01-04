@@ -565,9 +565,11 @@ void vbc_power_on_playback(bool ldo)
     // Following code has risk [luther.ge]
     // mutex_lock(&vbc_power_lock);
     ldo = ldo;
+#if 0
     if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
     if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
     if (!speaker_muted) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
+#endif
     //  if (speaker_muted && earpiece_muted && headset_muted)
     //      printk("---- vbc mute all pa ----\n");
     //  else
