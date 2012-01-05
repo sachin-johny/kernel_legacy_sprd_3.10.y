@@ -131,7 +131,7 @@ int sc8800g_set_wakeup_src(void)
 	}
 #endif
 
-#if defined(CONFIG_MACH_SC8810OPENPHONE) || defined(CONFIG_MACH_SP8810)
+#if defined(CONFIG_MACH_SC8810OPENPHONE) || defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A)
 	wakeup_src = (WKAEUP_SRC_KEAPAD |
 				WKAEUP_SRC_RX0 |
 				WAKEUP_SRC_CHG |
