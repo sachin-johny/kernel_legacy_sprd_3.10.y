@@ -54,13 +54,15 @@
 
 #define ARRAY_LEN(array)  (sizeof(array) / sizeof(array[0]))
 #define MAX_LCDC_TIMING_VALUE 15
+#define FB_NORMAL 0
+#define FB_NO_REFRESH 1
 
 struct sc8810fb_info {
 	struct fb_info   *fb;
 	struct ops_mcu   *ops;
 	struct lcd_spec  *panel;
 	struct rrmanager *rrm;
-	uint32_t cap;
+	uint32_t fb_state;
 	uint32_t bits_per_pixel;
 	uint32_t need_reinit;
 
@@ -276,7 +278,7 @@ static void real_refresh(void *para)
 {
 	struct sc8810fb_info *info = (struct sc8810fb_info *)para;
 	struct fb_info *fb = info->fb;
-
+	
 	if (fb->var.reserved[0] == 0x6f766572) {	
 		uint16_t left,top,width,height;
 
@@ -300,9 +302,16 @@ static void real_refresh(void *para)
 	__raw_bits_or((1<<3), LCDC_CTRL); /* start refresh */
 }
 
-static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
+static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
-	rrm_refresh(LID_OSD1, NULL, info);
+	struct sc8810fb_info *info = fb->par;
+
+	if (info->fb_state != FB_NORMAL) {
+		printk(KERN_ERR " sc8810fb can not do pan_display!!\n");
+		return;
+	}
+
+	rrm_refresh(LID_OSD1, NULL, fb);
 
 	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
 	FB_PRINT("@fool2[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_SIZE));
@@ -322,7 +331,6 @@ static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 
 	FB_PRINT("@fool2[%s] LCM_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCM_CTRL));
 	FB_PRINT("@fool2[%s] LCM_PARAMETER0: 0x%x\n", __FUNCTION__, __raw_readl(LCM_PARAMETER0));
-	FB_PRINT("@fool2[%s] LCM_PARAMETER1: 0x%x\n", __FUNCTION__, __raw_readl(LCM_PARAMETER1));
 
 	return 0;
 }
@@ -572,7 +580,7 @@ static inline int set_lcdsize( struct fb_info *info)
 {
 	uint32_t reg_val;
 	
-	reg_val = ( info->var.xres & 0xfff) | (( info->var.yres & 0xfff )<<16);
+	reg_val = ( info->var.xres & 0xfff) | (( info->var.yres & 0xfff ) << 16);
 	__raw_writel(reg_val, LCDC_DISP_SIZE);
 	
 	FB_PRINT("[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_SIZE));
@@ -585,7 +593,7 @@ static inline int set_lcmrect( struct fb_info *info)
 	
 	__raw_writel(0, LCDC_LCM_START);
 	
-	reg_val = ( info->var.xres & 0xfff) | (( info->var.yres & 0xfff )<<16);
+	reg_val = ( info->var.xres & 0xfff) | (( info->var.yres & 0xfff ) << 16);
 	__raw_writel(reg_val, LCDC_LCM_SIZE);
 	
 	FB_PRINT("[%s] LCDC_LCM_START: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCM_START));
@@ -653,7 +661,7 @@ static int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	//__raw_writel(reg_val, LCDC_OSD1_ALPHA_BASE_ADDR); 
 
 	/*OSD1 layer size*/
-	reg_val = ( info->var.xres & 0xfff) | (( info->var.yres & 0xfff )<<16);
+	reg_val = ( info->var.xres & 0xfff) | (( info->var.yres & 0xfff ) << 16);
 	__raw_writel(reg_val, LCDC_OSD1_SIZE_XY);
 
 	FB_PRINT("@[%s] LCDC_OSD1_SIZE_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_SIZE_XY));
@@ -720,7 +728,6 @@ static void hw_init(struct sc8810fb_info *info)
 	//panel reset
 	if (info->need_reinit) {
 	    panel_reset(NULL);
-
 	}
 	
 	/* set lcdc-lcd interface parameters */
@@ -740,25 +747,6 @@ static void hw_later_init(struct sc8810fb_info *info)
 
 	set_lcdc_layers(&info->fb->var, info->fb); 
 	__raw_bits_or((1<<0), LCDC_IRQ_EN);
-}
-
-static int32_t set_backlight(uint32_t value)
-{
-#ifdef CONFIG_MACH_SC8810OPENPHONE
-	FB_PRINT("sc8810fb : openphone\n");
-	ANA_REG_AND(WHTLED_CTL, ~(WHTLED_PD_SET | WHTLED_PD_RST));
-	ANA_REG_OR(WHTLED_CTL,  WHTLED_PD_RST);
-	ANA_REG_MSK_OR (WHTLED_CTL, ( (value << WHTLED_V_SHIFT) &WHTLED_V_MSK), WHTLED_V_MSK);
-#else
-	if (gpio_request(143, "LCD_BL")) {
-		printk(KERN_ERR "Failed ro request LCD_BL GPIO_%d \n",
-			143);
-		return -ENODEV;
-	}
-	gpio_direction_output(143, 1);
-	gpio_set_value(143, 1);
-#endif
-	return 0;
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -868,6 +856,7 @@ static int sc8810fb_probe(struct platform_device *pdev)
 
 	info = fb->par;
 	info->fb = fb;
+	info->fb_state = FB_NORMAL;
 	info->ops = &lcm_mcu_ops;
 	info->rrm = rrm_init(real_refresh, (void*)info);
 	rrm_layer_init(LID_OSD1, 2, real_set_layer);
@@ -878,7 +867,6 @@ static int sc8810fb_probe(struct platform_device *pdev)
 		printk(KERN_ERR "lcdc: failed to request irq!\n");
 		goto cleanup;
 	}
-
 	//we maybe readid ,so hardware should be init
 	
 	hw_early_init(info);
@@ -889,8 +877,9 @@ static int sc8810fb_probe(struct platform_device *pdev)
 		lcd_adapt = find_adapt_from_readid(info);
 	}
 	if (lcd_adapt < 0) { // invalid index
-		ret = -EINVAL;
-		goto cleanup;
+		printk(KERN_ERR " can not read device id, and we will not refresh!\n");
+		info->fb_state = FB_NO_REFRESH;
+		lcd_adapt = 0;
 	}
 
 	mount_panel(info, lcd_panel[lcd_adapt].panel);
@@ -907,13 +896,14 @@ static int sc8810fb_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 
-	hw_init(info);
-	hw_later_init(info);
+	if (info->fb_state == FB_NORMAL) {
+		hw_init(info);
+		hw_later_init(info);
+	}
 
 	// after init hardware
 	info->need_reinit = 0;
 	
-	//set_backlight(50);
 	platform_set_drvdata(pdev, info);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
