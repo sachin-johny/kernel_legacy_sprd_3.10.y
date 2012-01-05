@@ -73,6 +73,7 @@ typedef struct dcam_info
 	uint8_t hflip_param;
 	uint8_t vflip_param;
 	uint8_t previewmode_param;
+	uint32_t focus_param;
 }DCAM_INFO_T;
 
 
@@ -277,6 +278,16 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.step          = 0x1,
 		.default_value = 0,
 		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	},
+		{
+		.id		= V4L2_CID_FOCUS_AUTO,
+		.name	= "Focus, Auto",		
+		.type	= V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum   = 0,
+		.maximum  = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CID_FOCUS_AUTO,
 	}
 };
 
@@ -810,75 +821,90 @@ static int vidioc_g_ctrl(struct file *file, void *priv,
 
 	return -EINVAL;
 }
+static void dcam_stop_handle(int param)
+{
+	if(param)
+	{
+		dcam_stop();
+	}
+}
+static void dcam_start_handle(int param)
+{
+	if(param)
+	{
+		dcam_start();
+	}
+}
 static int vidioc_handle_ctrl(struct v4l2_control *ctrl)	
 {
 	int is_previewing = 0;
 	
-	DCAM_V4L2_PRINT("vidioc_handle_ctrl, id: %d, value: %d.\n", ctrl->id, ctrl->value);
+	DCAM_V4L2_PRINT("V4L2:vidioc_handle_ctrl, id: %d, value: %d.\n", ctrl->id, ctrl->value);
 	is_previewing = dcam_is_previewing(g_zoom_level);	
+
 	switch(ctrl->id)
 	{
 		case V4L2_CID_DO_WHITE_BALANCE:
-			g_dcam_info.wb_param = (uint8_t)ctrl->value;
-			if(is_previewing)
+			if(g_dcam_info.wb_param == (uint8_t)ctrl->value)
 			{
-				dcam_stop();
+				DCAM_V4L2_PRINT("V4L2:don't need handle wb!.\n");
+				break;
 			}
-			Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, (uint32_t)ctrl->value);
-			if(is_previewing)
-			{
-				dcam_start();
-			}
+			g_dcam_info.wb_param = (uint8_t)ctrl->value;		
+			dcam_stop_handle(is_previewing);
+			Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, (uint32_t)ctrl->value);			
+			dcam_start_handle(is_previewing);		
 			break;
 		case V4L2_CID_COLORFX:
-			g_dcam_info.imageeffect_param = (uint8_t)ctrl->value;
-			if(is_previewing)
+			if(g_dcam_info.imageeffect_param == (uint8_t)ctrl->value)
 			{
-				dcam_stop();
+				DCAM_V4L2_PRINT("V4L2:don't need handle image effect!.\n");
+				break;
 			}
+			g_dcam_info.imageeffect_param = (uint8_t)ctrl->value;			
+			dcam_stop_handle(is_previewing);	
 			Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT, (uint32_t)ctrl->value);
-			if(is_previewing)
-			{
-				dcam_start();
-			}
+			dcam_start_handle(is_previewing);	
 			break;
 		case V4L2_CID_COLOR_KILLER:  
-			g_dcam_info.previewmode_param = (uint8_t)ctrl->value;
-			if(is_previewing)
+			if(g_dcam_info.previewmode_param == (uint8_t)ctrl->value)
 			{
-				dcam_stop();
+				DCAM_V4L2_PRINT("V4L2:don't need handle preview mode!.\n");
+				break;
 			}
-			Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)ctrl->value);
-			if(is_previewing)
-			{
-				dcam_start();
-			}
+			g_dcam_info.previewmode_param = (uint8_t)ctrl->value;			
+			dcam_stop_handle(is_previewing);		
+			Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)ctrl->value);			
+			dcam_start_handle(is_previewing);		
 			break;	
 		case V4L2_CID_BRIGHTNESS:  	
-			g_dcam_info.brightness_param = (uint8_t)ctrl->value;
-			if(is_previewing)
+			if(g_dcam_info.brightness_param == (uint8_t)ctrl->value)
 			{
-				dcam_stop();
+				DCAM_V4L2_PRINT("V4L2:don't need handle brightness!.\n");
+				break;
 			}
-			Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)ctrl->value);
-			if(is_previewing)
-			{
-				dcam_start();
-			}
+			g_dcam_info.brightness_param = (uint8_t)ctrl->value;			
+			dcam_stop_handle(is_previewing);		
+			Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)ctrl->value);			
+			dcam_start_handle(is_previewing);		
 			break;		
 		case V4L2_CID_CONTRAST:  		
+			if(g_dcam_info.contrast_param == (uint8_t)ctrl->value)
+			{
+				DCAM_V4L2_PRINT("V4L2:don't need handle contrast!.\n");
+				break;
+			}
 			g_dcam_info.contrast_param = (uint8_t)ctrl->value;
-			if(is_previewing)
-			{
-				dcam_stop();
-			}
+			dcam_stop_handle(is_previewing);
 			Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, (uint32_t)ctrl->value);
-			if(is_previewing)
-			{
-				dcam_start();
-			}
+			dcam_start_handle(is_previewing);		
 			break;				
-		case V4L2_CID_ZOOM_ABSOLUTE:			
+		case V4L2_CID_ZOOM_ABSOLUTE:		
+			if(g_zoom_level == (uint32_t)ctrl->value)
+			{
+				DCAM_V4L2_PRINT("V4L2:don't need handle zoom!.\n");
+				break;
+			}
 			g_zoom_level = (uint32_t)ctrl->value;
 			if(dcam_is_previewing(g_zoom_level))
 			{
@@ -888,28 +914,40 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
 			break;	
 		case V4L2_CID_HFLIP:  		
-			g_dcam_info.hflip_param = (uint8_t)ctrl->value;
-			if(is_previewing)
+			if(g_dcam_info.hflip_param == (uint8_t)ctrl->value)
 			{
-				dcam_stop();
+				DCAM_V4L2_PRINT("V4L2:don't need handle hflip!.\n");
+				break;
 			}
+			g_dcam_info.hflip_param = (uint8_t)ctrl->value;		
+			dcam_stop_handle(is_previewing);	
 			Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);	
-			if(is_previewing)
-			{
-				dcam_start();
-			}
+			dcam_start_handle(is_previewing);		
 			break;
-		case V4L2_CID_VFLIP:  		
+		case V4L2_CID_VFLIP:  	
+			if(g_dcam_info.vflip_param == (uint8_t)ctrl->value)
+			{
+				DCAM_V4L2_PRINT("V4L2:don't need handle vflip!.\n");
+				break;
+			}
 			g_dcam_info.vflip_param = (uint8_t)ctrl->value;
-			if(is_previewing)
-			{
-				dcam_stop();
-			}
+			dcam_stop_handle(is_previewing);
 			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);	
-			if(is_previewing)
+			dcam_start_handle(is_previewing);
+			break;
+		case V4L2_CID_FOCUS_AUTO:
+#if 0			
+			//printk("test focus kernel,param=%d.\n",(uint32_t)ctrl->value);
+			if(g_dcam_info.focus_param == (uint32_t)ctrl->value)
 			{
-				dcam_start();
+				DCAM_V4L2_PRINT("V4L2:don't need handle focus!.\n");
+				break;
 			}
+			g_dcam_info.focus_param = (uint32_t)ctrl->value;
+			dcam_stop_handle(is_previewing);
+		//	Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)ctrl->value);
+			dcam_start_handle(is_previewing);
+#endif		      
 			break;
 		default:
 			break;
@@ -1717,14 +1755,15 @@ static int open(struct file *file)
 
 	g_fh = fh;
 
-	g_dcam_info.wb_param = 0;
-	g_dcam_info.brightness_param = 0;
-	g_dcam_info.contrast_param = 0;
-	g_dcam_info.saturation_param = 0;
-	g_dcam_info.imageeffect_param = 0;
+	g_dcam_info.wb_param = 8;
+	g_dcam_info.brightness_param = 8;
+	g_dcam_info.contrast_param = 8;
+	g_dcam_info.saturation_param =8;
+	g_dcam_info.imageeffect_param =8;
 	g_dcam_info.hflip_param = 0;
 	g_dcam_info.vflip_param = 0;
-	g_dcam_info.previewmode_param = 0;
+	g_dcam_info.previewmode_param = 8;
+	g_dcam_info.focus_param = 0;
 	//open dcam
 	dcam_open();
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");

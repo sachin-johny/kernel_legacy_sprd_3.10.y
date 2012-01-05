@@ -357,7 +357,7 @@ typedef enum
     SENSOR_IOCTL_ZOOM,					//change sensor output window and size
 
     SENSOR_IOCTL_CUS_FUNC_3,		// set function 3 for custumer to configure
-    SENSOR_IOCTL_CUS_FUNC_4,		// set function 4 for custumer to configure
+    SENSOR_IOCTL_FOCUS,//SENSOR_IOCTL_CUS_FUNC_4,		// set function 4 for custumer to configure
 
     SENSOR_IOCTL_ANTI_BANDING_FLICKER, // Set anti banding flicker mode
     SENSOR_IOCTL_VIDEO_MODE, // Set video mode
@@ -452,7 +452,7 @@ typedef struct sensor_ioctl_func_tab_tag
     // CUSTOMER FUNCTION	                      
 //    uint32_t (*cus_func_3)	  (uint32_t param);  	// function 3 for custumer to configure                      
     uint32_t (*get_exif)	  (uint32_t param);  	// function 3 for custumer to configure                      
-    uint32_t (*cus_func_4)	  (uint32_t param);	// function 4 for custumer to configure 	
+    uint32_t (*set_focus)	  (uint32_t param);	// function 4 for custumer to configure 	
     uint32_t (*set_anti_banding_flicker)(uint32_t param); // Set anti banding flicker	 0: 50hz;1: 60	
     uint32_t (*set_video_mode)(uint32_t param); // set video mode
 
