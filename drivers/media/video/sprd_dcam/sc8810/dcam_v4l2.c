@@ -1326,10 +1326,10 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_is_first_irq = 1;
 	g_last_buf = 0xFFFFFFFF;
 	g_last_uv_buf = 0xFFFFFFFF;
-	dcam_start();
+	ret = dcam_start();
 
-	DCAM_V4L2_PRINT("DCAM_V4L2: OK to vidioc_streamon.\n");
-	return 0;
+	DCAM_V4L2_PRINT("DCAM_V4L2: OK to vidioc_streamon,ret=%d.\n",ret);
+	return ret;
 }
 
 static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)

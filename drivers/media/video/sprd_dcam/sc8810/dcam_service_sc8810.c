@@ -345,7 +345,7 @@ static void _ISP_ServiceOnJpegBufOF(void *p)
 		(*cb_fun)();
 }
 
-void _ISP_ServiceStartPreview(void)
+int32_t  _ISP_ServiceStartPreview(void)
 {
 	ISP_SERVICE_T           *s = &s_isp_service;
 	ISP_CAP_SYNC_POL_T      cap_sync = {0};
@@ -569,19 +569,23 @@ exit:
 		s->state = ISP_STATE_PREVIEW;
 	}
 	DCAM_TRACE("DCAM:_ISP_ServiceStartPreview X.\n");	
-	return ;
+	return rtn_drv;
 	
 }
 
-static uint32_t ISP_ServiceStartPreview(void)
+static int ISP_ServiceStartPreview(void)
 {
 	ISP_SERVICE_T         *s = &s_isp_service;
+	int ret = DCAM_SUCCESS;
 
 	DCAM_TRACE("DCAM:ISP_ServiceStartPreview");
-	_ISP_ServiceStartPreview();
-	s->is_first_frame = 1;
-
-	return DCAM_SUCCESS;
+	ret = _ISP_ServiceStartPreview();
+	if(DCAM_SUCCESS == ret)
+	{
+		s->is_first_frame = 1;
+	}
+	
+	return ret;
 }
 
 #if 0//DCAM_DEBUG
@@ -625,7 +629,7 @@ int dcam_close(void)
 	return DCAM_SUCCESS;
 }
 
-static void _ISP_ServiceStartJpeg(void)
+static int _ISP_ServiceStartJpeg(void)
 {
 	ISP_SERVICE_T           *s = &s_isp_service;
 	ISP_CAP_SYNC_POL_T      cap_sync = {0};
@@ -771,12 +775,15 @@ exit:
 			s->state = ISP_STATE_CAPTURE_SCALE;
 		}
 	}
-	return ;
+	return rtn_drv;
 }
 
-static void ISP_ServiceStartCapture(void)
+static int ISP_ServiceStartCapture(void)
 {
-	_ISP_ServiceStartJpeg();
+	int ret = DCAM_SUCCESS;
+	ret = _ISP_ServiceStartJpeg();
+
+	return ret;
 }
 
 static uint32_t _ISP_ServiceGetXYDeciFactor(uint32_t *src_width, uint32_t *src_height, uint32_t dst_width, uint32_t dst_height)
@@ -1095,6 +1102,7 @@ static void ISP_ServiceSetParameters(void)
 
 int dcam_start(void)
 {
+	int ret = DCAM_SUCCESS;
 	if(0 == dcam_get_user_count())
 	{
 		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ISP); //switch IRAM to isp
@@ -1108,13 +1116,13 @@ int dcam_start(void)
 	ISP_ServiceSetParameters();
 	
 	if(DCAM_MODE_TYPE_PREVIEW == g_dcam_param.mode)
-		ISP_ServiceStartPreview();
+		ret = ISP_ServiceStartPreview();
 	else if(DCAM_MODE_TYPE_CAPTURE == g_dcam_param.mode)
-		ISP_ServiceStartCapture();
+		ret = ISP_ServiceStartCapture();
 	
 	DCAM_TRACE("DCAM: dcam_start end. \n"); 
 
-	return DCAM_SUCCESS;
+	return ret;
 }
 
 int dcam_is_previewing(uint32_t zoom_level)
