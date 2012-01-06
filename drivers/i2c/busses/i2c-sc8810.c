@@ -109,8 +109,8 @@ static struct sc8810_platform_i2c sc8810_i2c_default_platform = {
 	.fast_freq	= 400*1000,
 	.min_freq	= 10*1000,
 };
-static struct sc8810_i2c  *wyl_i2c;
-static void sc8810_i2c_2_reset(struct sc8810_i2c *i2c);
+static struct sc8810_i2c *sc8810_i2c_ctl[4];
+static void sc8810_i2c_ctl1_reset(struct sc8810_i2c *i2c);
 static inline struct sc8810_platform_i2c *sc8810_i2c_get_platformdata(struct device *dev);
 static void set_i2c_clk(struct sc8810_i2c *i2c,unsigned int freq);
 static ssize_t i2c_reset(struct device* cd, struct device_attribute *attr,
@@ -122,7 +122,7 @@ static ssize_t i2c_reset(struct device* cd, struct device_attribute *attr,
 		       const char* buf, size_t len)
 {
 	printk("%s\n",__func__);
-	sc8810_i2c_2_reset(wyl_i2c);
+	sc8810_i2c_ctl1_reset(sc8810_i2c_ctl[1]);
 	return len;
 }
 
@@ -197,7 +197,7 @@ static void sc8810_i2c_message_start(struct sc8810_i2c *i2c, struct i2c_msg *msg
 	__raw_writel(cmd, i2c->membase + I2C_CMD);
 }
 
-static void sc8810_i2c_2_reset(struct sc8810_i2c *i2c)
+static void sc8810_i2c_ctl1_reset(struct sc8810_i2c *i2c)
 {
 	unsigned int tmp;
 	struct sc8810_platform_i2c *pdata;
@@ -276,7 +276,7 @@ static int sc8810_i2c_doxfer(struct sc8810_i2c *i2c, struct i2c_msg *msgs, int n
 		sc8810_i2c_disable_irq(i2c);
 		sc8810_clr_irq(i2c);
 		//__raw_writel(0x1,i2c->membase+I2C_RST);  //reset i2c module
-		sc8810_i2c_2_reset(i2c);		
+		sc8810_i2c_ctl1_reset(i2c);
 		__raw_writel(1 << 14 | (1 << 11), INTCV_INT_EN);
 		
 		ret = -ENXIO;
@@ -298,7 +298,6 @@ static int sc8810_i2c_xfer(struct i2c_adapter *adap,struct i2c_msg *msgs, int nu
 	int retry;
 	int ret;
 
-	wyl_i2c = i2c;
 //        printk("I2C: num=%d,addr=%x, len=%d,data=%s", num,msgs->addr, msgs->len, msgs->buf);
 	for (retry = 0; retry < adap->retries; retry++) {
         if (retry > 0)
@@ -308,7 +307,7 @@ static int sc8810_i2c_xfer(struct i2c_adapter *adap,struct i2c_msg *msgs, int nu
 
 		if (ret != -EAGAIN)
 			return ret;
-		//sc8810_i2c_2_reset(i2c);
+		//sc8810_i2c_ctl1_reset(i2c);
 
 		udelay(100);
 	}
@@ -648,6 +647,12 @@ static void set_i2c_clk(struct sc8810_i2c *i2c,unsigned int freq)
 	__raw_writel(i2c_div>>16,i2c->membase+I2C_CLKD1);   //div1[16~25]
  
 }
+void sc8810_i2c_set_clk(unsigned int id_nr, unsigned int freq)
+{
+    set_i2c_clk(sc8810_i2c_ctl[id_nr], freq);
+}
+EXPORT_SYMBOL_GPL(sc8810_i2c_set_clk);
+
 static void sc8810_i2c_init(struct sc8810_i2c *i2c)
 {
 	unsigned int tmp;
@@ -753,6 +758,9 @@ static int sc8810_i2c_probe(struct platform_device *pdev)
 		printk("I2C:add_adapter failed!\n");
 		goto err_adap;
 	}
+
+    sc8810_i2c_ctl[pdev->id] = i2c;
+    printk("I2C:sc8810_i2c_ctl[%d]=%x",pdev->id, sc8810_i2c_ctl[pdev->id]);
 	platform_set_drvdata(pdev, i2c);
 
 	i2c_create_sysfs(pdev);
