@@ -57,6 +57,7 @@ struct sc88xx_clk {
 
 
 static unsigned long sc8800g2_mpllcore_recalc(struct clk *clk);
+static unsigned long sc8800g2_dpllcore_recalc(struct clk *clk);
 static int sc8800g2_reprogram_mpllcore(struct clk *clk, unsigned long rate);
 
 
@@ -177,11 +178,12 @@ static struct clk mpll_ck = {
 
 static struct clk dpll_ck = {
 	.name = "dpll_ck",
-	.rate = 333000000,
-	.flags = RATE_FIXED,
 	.ops = &clkops_null,
 	.parent = &ext_26m,
+	.flags = ENABLE_ON_INIT,
 	.clkdm_name = "pll_clkdm",
+	.recalc = &sc8800g2_dpllcore_recalc,
+	.set_rate = 0,
 };
 
 static struct clk tdpll_ck = {
@@ -1563,6 +1565,13 @@ static unsigned long sc8800g2_mpllcore_recalc(struct clk *clk)
 {
 	unsigned long refclk = 4000000;//4//4M MPLL_REFIN
 	unsigned long v = __raw_readl(GR_MPLL_MN);
+	return refclk * (v & 0x7ff);
+}
+
+static unsigned long sc8800g2_dpllcore_recalc(struct clk *clk)
+{
+	unsigned long refclk = 4000000;//4//4M DPLL_REFIN
+	unsigned long v = __raw_readl(GR_DPLL_CTRL);
 	return refclk * (v & 0x7ff);
 }
 

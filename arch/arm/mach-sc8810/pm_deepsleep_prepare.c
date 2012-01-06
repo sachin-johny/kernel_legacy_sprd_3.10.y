@@ -380,7 +380,7 @@ void sc8800g2_delay(void);
 
 
 
-u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_gen5, reg_ahb_ctl3;
+u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_gen5, reg_ahb_ctl3, reg_intc_en;
 
 
 #define GEN0_MASK ( GEN0_SIM0_EN | GEN0_I2C_EN | GEN0_GPIO_EN | \
@@ -403,6 +403,8 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 #define GR_CLK_EN_MASK CLK_EN_MASK
 #define GR_GEN0_MASK GEN0_MASK
 
+#define INT_IRQ_MASK	(BIT_3)/*UART1*/
+
 //register save
 #define SAVE_REG(_reg_save, _reg_addr, _reg_mask)  {_reg_save = (*(volatile uint32*)(_reg_addr) & ((uint32)_reg_mask));}
 #define SAVE_ANA_REG(_reg_save, _reg_addr, _reg_mask) {_reg_save = (ANA_REG_GET(_reg_addr) & ((uint32)_reg_mask));}
@@ -412,6 +414,7 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
         SAVE_REG(reg_gen0_val, GR_GEN0, GR_GEN0_MASK);   \
         SAVE_REG(reg_busclk_alm, GR_BUSCLK_ALM, BUSCLK_ALM_MASK);    \
         SAVE_REG(reg_ahb_ctl0_val, AHB_CTL0, AHB_CTL0_MASK);\
+        SAVE_REG(reg_intc_en, INT_IRQ_ENB, INT_IRQ_MASK);\
     }while(0)
 
 //register restore
@@ -433,6 +436,7 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
         RESTORE_REG(GR_BUSCLK_ALM, BUSCLK_ALM_MASK, reg_busclk_alm);   \
         RESTORE_REG(GR_GEN0, GR_GEN0_MASK, reg_gen0_val);\
         RESTORE_REG(AHB_CTL0, AHB_CTL0_MASK, reg_ahb_ctl0_val); \
+        RESTORE_REG(INT_IRQ_ENB, INT_IRQ_MASK, reg_intc_en);\
     }while(0)
 
 #define sc8800g_cpu_standby	 	sp_pm_collapse
@@ -455,7 +459,6 @@ u32 __attribute__ ((naked)) sc8800g_read_cpsr(void)
 #define UART_STS1 (SPRD_SERIAL1_BASE + 0x0c)
 
 #define UART_TRANSFER_REALLY_OVER (0x1UL << 15)
-
 
 static void wait_until_uart1_tx_done(void)
 {
@@ -1272,9 +1275,9 @@ int supsend_gpio_restore(void)
 #define PD_AUTO_EN     BIT_22
 int sc8810_setup_pd_automode(void)
 {
-	__raw_writel(0x06000320|PD_AUTO_EN, GR_GPU_PWR_CTRL);
+	//__raw_writel(0x06000320|PD_AUTO_EN, GR_GPU_PWR_CTRL);//reserved
 	__raw_writel(0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
-	__raw_writel(0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);
+	__raw_writel(0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);//GPU
 	//__raw_writel(0x04400720, GR_CEVA_RAM_TH_PWR_CTRL);
 	//__raw_writel(0x05400520, GR_GSM_PWR_CTRL);
 	//__raw_writel(0x05400520, GR_TD_PWR_CTRL);
@@ -1291,7 +1294,6 @@ int sc8810_setup_ldo_slpmode(void)
 	 ANA_REG_SET(ANA_LDO_SLP0, 0x0000a7ff);//except v18/28
 	 ANA_REG_SET(ANA_LDO_SLP1, 0x0000801f|(1<<12));//
 	 ANA_REG_SET(ANA_LED_CTRL, 0x0000801f);//all led off
-	 ANA_REG_SET(ANA_AGEN, 0x00000bcb);
 }
 
 struct workqueue_struct *deep_sleep_work_queue;
@@ -1422,7 +1424,7 @@ int sc8800g_enter_deepsleep(int inidle)
 		supsend_ldo_turnoff();
 		supsend_gpio_save();
 //		sc8810_setup_pd_automode();
-//		sc8810_setup_ldo_slpmode();
+		sc8810_setup_ldo_slpmode();
 		add_pm_message(get_sys_cnt(), "deepsleep_enter: inidle = ", inidle, 0, 0);
 		/*
 		printk("IRQ_STS = %08x, %s\n", 
@@ -1434,7 +1436,7 @@ int sc8800g_enter_deepsleep(int inidle)
 		disable_apb_module();
 		disable_ahb_module();
 
-//		__raw_writel(0x00000028, INT_IRQ_DIS);//prevent uart1, time0 int while sleep
+		__raw_writel(INT_IRQ_MASK, INT_IRQ_DIS);//prevent uart1, time0 int while sleep
 
 		/*
 		gr_stc_state = __raw_readl(GR_STC_STATE);
@@ -1490,8 +1492,9 @@ int sc8800g_enter_deepsleep(int inidle)
 		saved_vector[1] = sp_pm_reset_vector[1];
 		sp_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
 		sp_pm_reset_vector[1] = virt_to_phys(sc8800g_cpu_standby_end);
-
+//		trace();
 		ret = sc8800g_cpu_standby_prefetch();
+//		trace();
 		wake_time = get_sys_cnt();
 
 		sp_pm_reset_vector[0] = saved_vector[0];
