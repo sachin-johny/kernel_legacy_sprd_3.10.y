@@ -405,7 +405,7 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 #define GR_CLK_EN_MASK CLK_EN_MASK
 #define GR_GEN0_MASK GEN0_MASK
 
-#define INT_IRQ_MASK	(BIT_3)/*UART1*/
+#define INT_IRQ_MASK	(BIT_3)/*UART1*///|(BIT_5)/*TIME0*/
 
 //register save
 #define SAVE_REG(_reg_save, _reg_addr, _reg_mask)  {_reg_save = (*(volatile uint32*)(_reg_addr) & ((uint32)_reg_mask));}
@@ -439,9 +439,11 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
         RESTORE_REG(AHB_CTL0, AHB_CTL0_MASK, reg_ahb_ctl0_val); \
     }while(0)
 
+#define sc8800g_cpu_idle	 	sp_arch_idle
 #define sc8800g_cpu_standby	 	sp_pm_collapse
 #define sc8800g_cpu_standby_prefetch	sp_pm_collapse_prefetch
 #define sc8800g_cpu_standby_end	sp_pm_collapse_exit
+extern void sc8800g_cpu_idle(void);
 extern void sc8800g_cpu_standby(void);
 extern void sc8800g_cpu_standby_end(void);
 extern int sc8800g_cpu_standby_prefetch(void);
@@ -1300,13 +1302,13 @@ int supsend_gpio_restore(void)
 int sc8810_setup_pd_automode(void)
 {
 	//__raw_writel(0x06000320|PD_AUTO_EN, GR_GPU_PWR_CTRL);//reserved
-	//__raw_writel(0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
-	//__raw_writel(0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);//GPU
-	//__raw_writel(0x04400720, GR_CEVA_RAM_TH_PWR_CTRL);
-	//__raw_writel(0x05400520, GR_GSM_PWR_CTRL);
-	//__raw_writel(0x05400520, GR_TD_PWR_CTRL);
-	//__raw_writel(0x04400720, GR_CEVA_RAM_BH_PWR_CTRL);
-	//__raw_writel(0x03000920|PD_AUTO_EN, GR_PERI_PWR_CTRL);
+	__raw_writel(0x06000320/*|PD_AUTO_EN*/, GR_MM_PWR_CTRL);
+	__raw_writel(0x06000320/*|PD_AUTO_EN*/, GR_G3D_PWR_CTRL);//GPU
+	__raw_writel(0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_TH_PWR_CTRL);
+	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_GSM_PWR_CTRL);
+	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);
+	__raw_writel(0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
+	__raw_writel(0x03000920/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
 	__raw_writel(0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
 	__raw_writel(0x07000a20|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
 }
@@ -1644,6 +1646,7 @@ static void nkidle(void)
 				else {
 				    idle_loops++;
 				    t0 = get_sys_cnt();
+				    sc8800g_cpu_idle();
 					/*
 				    sc8800g_cpu_standby();
 				    */
