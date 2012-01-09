@@ -38,11 +38,12 @@ config SC8800G_VIBRATOR
     default n
     bool "vibrator for SC8810"
 
-config CACHE_L3X0
-	bool "Enable the L3x0 outer cache controller"
+config CACHE_L2X0_310
+        bool "Enable the L2x0 310 outer cache controller"
 	default y
 	select OUTER_CACHE
+        select OUTER_CACHE_SYNC
 	help
-	  This option enables the L3x0 PrimeCell.
+          This option enables the L2x0 PrimeCell.
 
 endif

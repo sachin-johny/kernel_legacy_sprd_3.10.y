@@ -19,5 +19,5 @@ obj-$(CONFIG_CPU_FREQ_SC8800G) += cpufreq-sc8800g.o
 obj-$(CONFIG_CPU_IDLE_SC8800G) += cpuidle-sc8800g.o
 
 obj-$(CONFIG_SC8800G_VIBRATOR) += vibrator.o
-obj-$(CONFIG_CACHE_L3X0)	+= cache-l3x0.o
+obj-$(CONFIG_CACHE_L2X0_310)	+= cache-l3x0.o
 

@@ -27,8 +27,11 @@
 #define writel_relaxed __raw_writel
 
 #define CACHE_LINE_SIZE		32
-#ifdef CONFIG_CACHE_L3X0
+#ifdef CONFIG_CACHE_L2X0_310
 #define CONFIG_CACHE_PL310
+#define CONFIG_ARM_ERRATA_753970
+#define CONFIG_PL310_ERRATA_588369
+#define CONFIG_PL310_ERRATA_727915
 #endif
 
 #ifdef CONFIG_NKERNEL
@@ -86,7 +89,7 @@ static inline void l2x0_inv_line(unsigned long addr)
 
 #if defined(CONFIG_PL310_ERRATA_588369) || defined(CONFIG_PL310_ERRATA_727915)
 
-#define debug_writel(val)	outer_cache.set_debug(val)
+#define debug_writel(val)	l2x0_set_debug(val)
 
 static void l2x0_set_debug(unsigned long val)
 {
@@ -419,8 +422,6 @@ static void l3x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	l2x0_size = ways * way_size * SZ_1K;
 
 	writel_relaxed(0x1ff,l2x0_base + L2X0_INTR_CLEAR);
-	l2x0_tag_latency(PL310_TAG_RAM_LATENCY);
-	l2x0_data_latency(PL310_DATA_RAM_LATENCY);
 	l2x0_intr_clr(0x1ff);
 	l2x0_intr_mask(0x1ff);
 
@@ -436,32 +437,28 @@ static void l3x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 
 		l2x0_inv_all();
 
+		l2x0_tag_latency(PL310_TAG_RAM_LATENCY);
+		l2x0_data_latency(PL310_DATA_RAM_LATENCY);
 		/* enable L2X0 */
 		writel_relaxed(1, l2x0_base + L2X0_CTRL);
 	}
 
-
-
 	outer_cache.inv_range = l2x0_inv_range;
 	outer_cache.clean_range = l2x0_clean_range;
 	outer_cache.flush_range = l2x0_flush_range;
-	/*
 	outer_cache.sync = l2x0_cache_sync;
+
+	/*	
 	outer_cache.flush_all = l2x0_flush_all;
 	outer_cache.inv_all = l2x0_inv_all;
 	outer_cache.disable = l2x0_disable;
 	outer_cache.set_debug = l2x0_set_debug;
 	*/
 
-	if (!(readl_relaxed(l2x0_base + L2X0_CTRL) & 1)) {
-		printk(KERN_INFO "l2 cache is disabled\n");
-	} else {
-		printk(KERN_INFO "l2 cache is enabled\n");
-	}
 
-	printk(KERN_INFO "%s cache controller enabled\n", type);
-	printk(KERN_INFO "lxx0: %d ways, CACHE_ID 0x%08x, AUX_CTRL 0x%08x, Cache size: %d B\n",
-			ways, cache_id, aux, l2x0_size);
+//	printk(KERN_INFO "%s cache controller enabled\n", type);
+//	printk(KERN_INFO "lxx0: %d ways, CACHE_ID 0x%08x, AUX_CTRL 0x%08x, Cache size: %d B\n",
+//			ways, cache_id, aux, l2x0_size);
 }
 
 
@@ -472,3 +469,23 @@ static void l3x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	return 0;
 }
 
+static void __l2x0_flush_all(void)
+{
+	debug_writel(0x03);
+	writel_relaxed(l2x0_way_mask, l2x0_base + L2X0_CLEAN_INV_WAY);
+	cache_wait_way(l2x0_base + L2X0_CLEAN_INV_WAY, l2x0_way_mask);
+	cache_sync();
+	debug_writel(0x00);
+}
+int outer_cache_poweroff(void)
+{
+	__l2x0_flush_all();
+	writel_relaxed(0, l2x0_base + L2X0_CTRL);
+	dsb();
+	return 0;
+}
+int outer_cache_poweron(void)
+{
+	sp_init_l3x0();
+	return 0;
+}
