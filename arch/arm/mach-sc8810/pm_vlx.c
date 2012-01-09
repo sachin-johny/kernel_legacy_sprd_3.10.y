@@ -188,6 +188,16 @@ static int sprd_check_battery(void)
 	return ret_val;
 }
 int in_calibration(void);
+void my_mdelay(int ms)
+{
+	u32 suspend_start, suspend_end, suspend_time;
+	suspend_start = suspend_end = get_sys_cnt();
+	do {
+		suspend_end = get_sys_cnt();
+		suspend_time = suspend_end - suspend_start;
+	}while(suspend_time < ms);
+}
+
 int sc8800g_pm_enter(suspend_state_t state)
 {
 	int ret_val = 0;
@@ -197,7 +207,12 @@ int sc8800g_pm_enter(suspend_state_t state)
 	/* for battery checking. */
 	u32 battery_check_start;
     int status;
-    	
+
+	/* make sure printk()  has finished. */
+	my_mdelay(200);
+
+
+	
     calibration_enable = in_calibration();
     /*
     if (calibration_enable) printk("##: In Calibration mode!\n");
@@ -223,9 +238,7 @@ int sc8800g_pm_enter(suspend_state_t state)
 #if defined(CONFIG_NKERNEL)
 		local_irq_save(flags);
 		if (raw_local_irq_pending()) {
-			/*
-			printk("*******: pm_enter(), irq pending! *****\n");
-			*/
+			//printk("*******: pm_enter(), irq pending! *****\n");
 			local_irq_restore(flags);
 			hw_local_irq_enable();
 			break;
@@ -237,14 +250,22 @@ int sc8800g_pm_enter(suspend_state_t state)
 		ret_val = os_ctx->idle(os_ctx);
 		if (0 == ret_val) {
 			sc8800g_enter_deepsleep(0);
+			//printk("##: Return from deep sleep.\n");
+			//mdelay(100);
 		}
 #else
 		sc8800g_enter_deepsleep(0);
 #endif
 		suspend_end = get_sys_cnt();
 		suspend_time = suspend_end - suspend_start;
+		
+		//printk("##: Going to enable hw irq.\n");
+		//mdelay(200);
 
 		hw_local_irq_enable();
+
+		//printk("##: hw irq has been enabled.\n");
+		//mdelay(300);
 
         /* check charger status. */
         battery_sleep();
@@ -253,12 +274,11 @@ int sc8800g_pm_enter(suspend_state_t state)
 		if ((suspend_end -  battery_check_start) > BATTERY_CHECK_INTERVAL) {
 			battery_check_start = suspend_end;
 			if (sprd_check_battery()) {
-				/*
 				printk("###: battery low!\n");
-				*/
 				break;
 			}
 		}
+//		my_mdelay(100);
 	}
 
 	sc8800g_unset_wakeup_src();

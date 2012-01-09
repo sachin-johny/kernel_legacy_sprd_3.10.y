@@ -467,21 +467,22 @@ LDO_ERR_E LDO_TurnOnLDO(LDO_ID_E ldo_id)
 {
 	struct ldo_ctl_info* ctl = NULL;
 	unsigned long flags;
-	printk(":::::::::::::::::::::::::LDO_TurnOnLDO Start:::::::::::::::::::::::::");
-	printk(":::::::::::::::::::::::::LDO_TurnOnLDO %d:%d::::::::::::::::::::::::",LDO_BPSDIO0,ldo_id);
+	printk(":::::::::::::::::::::::::LDO_TurnOnLDO Start:::::::::::::::::::::::::.\n");
+	//printk(":::::::::::::::::::::::::LDO_TurnOnLDO %d:%d::::::::::::::::::::::::", 
+	//		LDO_BPSDIO0,ldo_id);
 
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
 
 	spin_lock_irqsave(&ldo_lock, flags);
-	printk("\n:::::::::::::::::::::::::LDO ctl->ref:%d\n",ctl->ref);
-	printk("\n:::::::::::::::::::::::::LDO ctl->current_status:%d\n",ctl->current_status);
+	//printk("\n:::::::::::::::::::::::::LDO ctl->ref:%d\n",ctl->ref);
+	//printk("\n:::::::::::::::::::::::::LDO ctl->current_status:%d\n",ctl->current_status);
 	if ((ctl->ref++) == 0) {
-	printk("\n:::::::::::::::::::::::::LDO ctl->ref:IN\n");
+	//printk("\n:::::::::::::::::::::::::LDO ctl->ref:IN\n");
 
-	printk("\n:::::::::::::::::::::::::LDO ctl->bp_reg:%x\n",ctl->bp_reg);
-	printk("\n:::::::::::::::::::::::::LDO ctl->bp_rst:%x\n",ctl->bp_rst);
-	printk("\n:::::::::::::::::::::::::LDO ctl->bp_bits:%x\n",ctl->bp_bits);
+	//printk("\n:::::::::::::::::::::::::LDO ctl->bp_reg:%x\n",ctl->bp_reg);
+	//printk("\n:::::::::::::::::::::::::LDO ctl->bp_rst:%x\n",ctl->bp_rst);
+	//printk("\n:::::::::::::::::::::::::LDO ctl->bp_bits:%x\n",ctl->bp_bits);
 
 		if(ctl->bp_reg == LDO_INVALID_REG_ADDR) {
 			if (LDO_LDO_USBD == ldo_id)
@@ -494,10 +495,10 @@ LDO_ERR_E LDO_TurnOnLDO(LDO_ID_E ldo_id)
 		ctl->current_status = CURRENT_STATUS_ON;
 	}
 
-	printk("\n:::::::::::::::::::::::::LDO GETctl->bp_reg:%x\n", ANA_REG_GET(ctl->bp_reg));
+	//printk("\n:::::::::::::::::::::::::LDO GETctl->bp_reg:%x\n", ANA_REG_GET(ctl->bp_reg));
 
 	spin_unlock_irqrestore(&ldo_lock, flags);
-	printk(":::::::::::::::::::::::::LDO_TurnOnLDO ENd:::::::::::::::::::::::::");
+	printk(":::::::::::::::::::::::::LDO_TurnOnLDO ENd:::::::::::::::::::::::::.\n");
 	return LDO_ERR_OK;
 }
 EXPORT_SYMBOL_GPL(LDO_TurnOnLDO);

@@ -83,6 +83,7 @@ typedef unsigned int uint32;
 #ifdef        CONFIG_DEBUG_LL
 extern void printascii(char *);
 #endif
+extern void printascii_phy(char *);
 
 #define INT_REG(off) (SPRD_INTCV_BASE + (off))
 
@@ -96,13 +97,13 @@ extern long has_wake_lock_info(int type);
 extern long has_wake_lock_for_suspend(int type);
 
 
-#define IRAM_BASE_PHY   0x40000000
-#define IRAM_START_PHY 0x40004000
+#define IRAM_BASE_PHY   0xFFFF0000
+#define IRAM_START_PHY 	0xFFFF4000
 #define IRAM_SIZE 0x4000
 
 #define SLEEP_CODE_SIZE 4096
-static u32 pll_n = 200;
-#define SC8800G2_DEFAULT_PLL_N 200
+#define SC8800G2_DEFAULT_PLL_N (0xd5)
+static u32 pll_n = SC8800G2_DEFAULT_PLL_N;
 /*********************************/
 /*********************************/
 /* for debug only. */
@@ -129,6 +130,7 @@ u32 gr_clk_dly = 0;
 u32 dma_sts = 0;
 u32 irq_sts = 0;
 u32 fiq_sts = 0;
+u32 irq_enable = 0;
 struct timespec now_ts_pm;
 
 /* for /proc/xxx interfaces. */
@@ -414,7 +416,6 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
         SAVE_REG(reg_gen0_val, GR_GEN0, GR_GEN0_MASK);   \
         SAVE_REG(reg_busclk_alm, GR_BUSCLK_ALM, BUSCLK_ALM_MASK);    \
         SAVE_REG(reg_ahb_ctl0_val, AHB_CTL0, AHB_CTL0_MASK);\
-        SAVE_REG(reg_intc_en, INT_IRQ_ENB, INT_IRQ_MASK);\
     }while(0)
 
 //register restore
@@ -436,7 +437,6 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
         RESTORE_REG(GR_BUSCLK_ALM, BUSCLK_ALM_MASK, reg_busclk_alm);   \
         RESTORE_REG(GR_GEN0, GR_GEN0_MASK, reg_gen0_val);\
         RESTORE_REG(AHB_CTL0, AHB_CTL0_MASK, reg_ahb_ctl0_val); \
-        RESTORE_REG(INT_IRQ_ENB, INT_IRQ_MASK, reg_intc_en);\
     }while(0)
 
 #define sc8800g_cpu_standby	 	sp_pm_collapse
@@ -447,8 +447,9 @@ extern void sc8800g_cpu_standby_end(void);
 extern int sc8800g_cpu_standby_prefetch(void);
 extern void trace(void);
 
+#define SAVED_VECTOR_SIZE 64
 static uint32_t *sp_pm_reset_vector = NULL;
-static uint32_t saved_vector[2];
+static uint32_t saved_vector[SAVED_VECTOR_SIZE];
 
 u32 __attribute__ ((naked)) sc8800g_read_cpsr(void)
 {
@@ -762,6 +763,7 @@ static int verify_ahb_sts_by_value(u32 val)
 
 void sc8800g_set_pll(void)
 {
+#if 0
 	u32 val1, val2;
 
 	printk("##: set new pll value!\n");
@@ -778,21 +780,22 @@ void sc8800g_set_pll(void)
 
 	val1 &= ~BIT_9;
 	__raw_writel(val1, GR_GEN1);
+#endif
 }
 EXPORT_SYMBOL(sc8800g_set_pll);
 
 
 void sc8800g_save_pll(void)
 {
-	u32 val1, val2;
 #if 0
+	u32 val1, val2;
 	val1 = __raw_readl(GR_GEN1);
 	val1 |= BIT_9;
 	__raw_writel(val1, GR_GEN1);
 
 	val2 = __raw_readl(GR_MPLL_MN);
-	pll_n = val2 & 0x0fff;
-	val2 &= 0xffff000;
+	pll_n = val2 & 0x03ff;
+	val2 &= 0xffffc00;
 	val2 |= SC8800G2_DEFAULT_PLL_N;
 	__raw_writel(val2, GR_MPLL_MN);
 
@@ -803,15 +806,15 @@ void sc8800g_save_pll(void)
 
 void sc8800g_restore_pll(void)
 {
-	u32 val1, val2;
 #if 0
-	if (pll_n > 0x0fff) pll_n = 200;
+	u32 val1, val2;
+	if (pll_n > 0x03ff) pll_n = SC8800G2_DEFAULT_PLL_N;
 	val1 = __raw_readl(GR_GEN1);
 	val1 |= BIT_9;
 	__raw_writel(val1, GR_GEN1);
 
 	val2 = __raw_readl(GR_MPLL_MN);
-	val2 &= 0xffff000;
+	val2 &= 0xffffc00;
 	val2 |= pll_n;
 	__raw_writel(val2, GR_MPLL_MN);
 
@@ -819,6 +822,26 @@ void sc8800g_restore_pll(void)
 	__raw_writel(val1, GR_GEN1);
 #endif
 }
+
+void sc8800g_pll_default(void)
+{
+#if 0
+	u32 val1, val2;
+	if (pll_n > 0x03ff) pll_n = SC8800G2_DEFAULT_PLL_N;
+	val1 = __raw_readl(GR_GEN1);
+	val1 |= BIT_9;
+	__raw_writel(val1, GR_GEN1);
+
+	val2 = __raw_readl(GR_MPLL_MN);
+	val2 &= 0xffffc00;
+	val2 |= pll_n;
+	__raw_writel(val2, GR_MPLL_MN);
+
+	val1 &= ~BIT_9;
+	__raw_writel(val1, GR_GEN1);
+#endif
+}
+
 
 void __iomem *iram_start;
 
@@ -981,6 +1004,7 @@ int sprd_check_gpio_enable = 0;
 int sprd_dump_gpio_registers = 0;
 int sprd_wait_until_uart_tx_fifo_empty = 0;
 int sprd_sleep_mode_info = 0;
+int sprd_sc8810_deepsleep_enable = 0;
 
 
 
@@ -1276,13 +1300,13 @@ int supsend_gpio_restore(void)
 int sc8810_setup_pd_automode(void)
 {
 	//__raw_writel(0x06000320|PD_AUTO_EN, GR_GPU_PWR_CTRL);//reserved
-	__raw_writel(0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
-	__raw_writel(0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);//GPU
+	//__raw_writel(0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
+	//__raw_writel(0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);//GPU
 	//__raw_writel(0x04400720, GR_CEVA_RAM_TH_PWR_CTRL);
 	//__raw_writel(0x05400520, GR_GSM_PWR_CTRL);
 	//__raw_writel(0x05400520, GR_TD_PWR_CTRL);
 	//__raw_writel(0x04400720, GR_CEVA_RAM_BH_PWR_CTRL);
-	__raw_writel(0x03000920|PD_AUTO_EN, GR_PERI_PWR_CTRL);
+	//__raw_writel(0x03000920|PD_AUTO_EN, GR_PERI_PWR_CTRL);
 	__raw_writel(0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
 	__raw_writel(0x07000a20|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
 }
@@ -1310,12 +1334,16 @@ static void deep_sleep_suspend(struct work_struct *work)
 /*
 int in_calibration(void);
 */
+
+extern int outer_cache_poweron(void);
+
 #ifdef CONFIG_PM
 int sc8800g_enter_deepsleep(int inidle)
 {
     int status;
     u32 t0, t1, delta;
     int ret = 0;
+	int i;
 /*
     int calibration_enable = 0;
 */
@@ -1416,14 +1444,17 @@ int sc8800g_enter_deepsleep(int inidle)
     }
     else {
 		sleep_mode = SLEEP_MODE_DEEP;
-		if (sprd_sleep_mode_info) printk("## sleep[DEEP].\n");
+		if (sprd_sleep_mode_info) printascii_phy(">>[DEEP]\n");
 		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
 
 		sleep_counter++;
 
 		supsend_ldo_turnoff();
 		supsend_gpio_save();
-//		sc8810_setup_pd_automode();
+		/* Power domain auto power-down, wangliwei, 2012-01-06. */
+		if (sprd_sc8810_deepsleep_enable) {
+			sc8810_setup_pd_automode();
+		}
 		sc8810_setup_ldo_slpmode();
 		add_pm_message(get_sys_cnt(), "deepsleep_enter: inidle = ", inidle, 0, 0);
 		/*
@@ -1447,7 +1478,13 @@ int sc8800g_enter_deepsleep(int inidle)
 		dma_sts = __raw_readl(DMA_TRANS_STS);
 		irq_sts = __raw_readl(INT_IRQ_STS);
 		fiq_sts = __raw_readl(INT_FIQ_STS);
-	
+
+		/* Following code may cause 	CPU to die. */
+		/*
+		irq_enable = __raw_readl(INT_IRQ_ENB);
+		printk("irq_enable = %08x.", irq_enable);
+		*/
+		
 		if (0 != irq_sts) 
 			add_pm_message(get_sys_cnt(), "Going to deep sleep with pending irq: INT_IRQ_STS = ", 
 					irq_sts, 0, 0);
@@ -1475,7 +1512,7 @@ int sc8800g_enter_deepsleep(int inidle)
 	
 		t0 = get_sys_cnt();
 		//enable_mcu_sleep();
-#if 1
+#ifdef CONFIG_CACHE_L2X0_310
 //	__raw_writel(0xc5acce55, SPRD_A5_DEBUG_BASE+0x0fb0);//a5 debug lock access, cleared
 //	__raw_writel(0, SPRD_A5_DEBUG_BASE+0x310);//a5 debug device power-down and reset control, not assert
 	__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);//l2cache power control, standby mode enable
@@ -1485,49 +1522,84 @@ int sc8800g_enter_deepsleep(int inidle)
 		val = __raw_readl(AHB_PAUSE);
 		val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
 		val |= (MCU_SYS_SLEEP_EN);
-//		val |= (MCU_DEEP_SLEEP_EN);//go deepsleep when all PD auto poweroff en
+		
+		/* enable MCU deep sleep, wangliwei, 2012-01-06. */
+		val |= (MCU_DEEP_SLEEP_EN);//go deepsleep when all PD auto poweroff en
 		__raw_writel(val, AHB_PAUSE);
 
-		saved_vector[0] = sp_pm_reset_vector[0];
-		saved_vector[1] = sp_pm_reset_vector[1];
-		sp_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
-		sp_pm_reset_vector[1] = virt_to_phys(sc8800g_cpu_standby_end);
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			saved_vector[i] = sp_pm_reset_vector[i];
+		}
+//		saved_vector[0] = sp_pm_reset_vector[0];
+//		saved_vector[1] = sp_pm_reset_vector[1];
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			sp_pm_reset_vector[i] = 0xe320f000; /* nop*/
+		}
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = virt_to_phys(sc8800g_cpu_standby_end);
+	
+//		sp_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
+//		sp_pm_reset_vector[1] = virt_to_phys(sc8800g_cpu_standby_end);
 //		trace();
 		ret = sc8800g_cpu_standby_prefetch();
 //		trace();
 		wake_time = get_sys_cnt();
 
-		sp_pm_reset_vector[0] = saved_vector[0];
-		sp_pm_reset_vector[1] = saved_vector[1];
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			sp_pm_reset_vector[i] = saved_vector[i];
+		}
+
+
+//		sp_pm_reset_vector[0] = saved_vector[0];
+//		sp_pm_reset_vector[1] = saved_vector[1];
+
+		RESTORE_GLOBAL_REG;
+		//printascii_phy("##: We are here!\n");
 		if (ret) {
 			cpu_init();
+			//printascii_phy("@@@\n");
+			// Remove following code when power domains don't auto power down.
+			// wangliwei, 2010-01-06
+//			sp_init_l3x0();
 		}
 		else {
 		}
 		//printk(KERN_INFO "@@@@@@@@wakeup(%d)\n", ret);
-
-		RESTORE_GLOBAL_REG;
+		outer_cache_poweron();
+		//printk("##: 111.\n");
+		//mdelay(100);
+		//udelay(100);
+		//printk("##: 222.\n");
+		//mdelay(100);
 		t1 = get_sys_cnt();
 		delta = t1 - t0;
 		if (!inidle) sleep_time += delta;
 		else sleep_time_inidle += delta;
 
 		udelay(20);
+		//printk("##: 333.\n");
+		//mdelay(100);
 
 		supsend_ldo_turnon();
 		supsend_gpio_restore();
-	
+		/*
 		if (ret) {
 			printk("##: bad return value.\n");
 			printk("##: bad return value.\n");
 			printk("##: bad return value.\n");
 		}
+		*/
+			//printk("##: 444.\n");
+			//mdelay(100);
 
 		sc8800g_restore_pll();
 		irq_sts = __raw_readl(INT_IRQ_STS);
 		fiq_sts = __raw_readl(INT_FIQ_STS);
 		parse_sprd_hard_irq(irq_sts);
-	
+		//printk("##: INT_IRQ_STS = %08x.\n", irq_sts);
+		//printk("##: INT_FIQ_STS = %08x.\n", fiq_sts);
+		//printk("##: 555.\n");
+		//mdelay(100);
 	
 		if (0 == irq_sts) {
 			add_pm_message(get_sys_cnt(), "deepsleep_exit: ### WITHOUT TRIGGER IRQ ###: ", 
@@ -1565,12 +1637,16 @@ static void nkidle(void)
 			if (0 == val) {
 #ifdef CONFIG_PM
 				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND)) {
+					/*
 					sc8800g_enter_deepsleep(1);
+					*/
 				}
 				else {
 				    idle_loops++;
 				    t0 = get_sys_cnt();
+					/*
 				    sc8800g_cpu_standby();
+				    */
 				    t1 = get_sys_cnt();
 				    delta = t1 - t0;
 				    idle_time += delta;
@@ -2213,6 +2289,60 @@ static struct file_operations _suspend_enable_proc_fops = {
 };
 
 
+static int sprd_sc8810_deepsleep_enable_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_sc8810_deepsleep_enable_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_sc8810_deepsleep_enable_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_sc8810_deepsleep_enable_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_sc8810_deepsleep_enable_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_sc8810_deepsleep_enable = 0;
+		break;
+	case '1':
+		sprd_sc8810_deepsleep_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _suspend_sc8810_deepsleep_proc_fops = {
+    open:    sprd_sc8810_deepsleep_enable_open,
+    release: sprd_sc8810_deepsleep_enable_release,
+    llseek:  sprd_sc8810_deepsleep_enable_lseek,
+    read:    sprd_sc8810_deepsleep_enable_read,
+    write:   sprd_sc8810_deepsleep_enable_write,
+};
+
+
+
 static int sprd_suspend_interval_open (struct inode* inode, struct file*  file)
 {
     return 0;
@@ -2307,6 +2437,20 @@ int sc8800g_prepare_deep_sleep(void)
 			return 0;
 		}
 	}
+
+
+
+	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
+	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
+	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
+	/*
+	sc8800g_pll_default();
+	*/
+	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
+	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
+	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
+
+
 
 #if 0
 	val = __raw_readl(EMC_CFG0);
@@ -2486,6 +2630,7 @@ int sc8800g_prepare_deep_sleep(void)
 	*/
 	sprd_proc_create(sprd_proc_entry, "sprd_suspend_enable", &_suspend_enable_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "sprd_suspend_interval", &_suspend_interval_proc_fops);
+	sprd_proc_create(sprd_proc_entry, "sprd_sc8810_deepsleep_enable", &_suspend_sc8810_deepsleep_proc_fops);
     return 0;
 }
 EXPORT_SYMBOL(sc8800g_prepare_deep_sleep);

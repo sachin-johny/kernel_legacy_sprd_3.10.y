@@ -143,9 +143,9 @@ static int __get_config_index(enum EIC_TYPE_E num)
 #define EIC_RO (1)
 #define EIC_WO (2)
 #define EIC_RW (EIC_RO | EIC_WO)
-
+/*
 #define DEBUG
-
+*/
 #ifdef DEBUG
 #define EIC_DBG(fmt...) printk(fmt)
 #else

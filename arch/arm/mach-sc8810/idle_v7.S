@@ -13,12 +13,110 @@
 #include <linux/linkage.h>
 #include <asm/assembler.h>
 #include <asm/vfpmacros.h>
+#include <mach/regs_ahb.h>
+
+	.macro	addruart,rx
+	@ see if the MMU is enabled and select appropriate base address
+	mrc	p15, 0, \rx, c1, c0
+	tst	\rx, #1
+	ldreq	\rx, =SPRD_SERIAL1_PHYS
+	ldrne	\rx, =SPRD_SERIAL1_BASE
+	.endm
+
+	.macro	senduart,rd,rx
+	and	\rd,\rd,#0xFF
+	str	\rd, [\rx, #0x00]
+	.endm
+
+	.macro	waituart,rd,rx
+	@ wait for TX_READY
+1:	ldr	\rd, [\rx, #0x0C]
+	mov	\rd,\rd,lsr #8
+	and	\rd,\rd,#0xFF
+	teq	\rd, #0x00
+	bne	1b
+	.endm
+
+	.macro	busyuart,rd,rx
+	@ wait for TX_READY
+2:	ldr	\rd, [\rx, #0x0C]
+	mov	\rd,\rd,lsr #8
+	and	\rd,\rd,#0xFF
+	teq	\rd, #0x00
+	bne	2b
+	.endm
+
+ENTRY(printascii_phy)
+		addruart r3
+		b	2f
+1:		waituart r2, r3
+		senduart r1, r3
+		busyuart r2, r3
+		teq	r1, #'\n'
+		moveq	r1, #'\r'
+		beq	1b
+2:		teq	r0, #0
+		ldrneb	r1, [r0], #1
+		teqne	r1, #0
+		bne	1b
+		mov	pc, lr
+ENDPROC(printascii_phy)
+
+printch:
+		addruart r3
+		mov	r1, r0
+		mov	r0, #0
+		b	1b
+
+
 
 ENTRY(sp_arch_idle)
 	wfi
 	bx      lr
 
 ENTRY(sp_pm_collapse)
+////////////////////////////
+////////////////////////////
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | IRQ_MODE)
+	ldr     r1, =saved_state_irq
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
+	stmia   r0!, {sp, lr}
+
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | ABT_MODE)
+	ldr     r1, =saved_state_abt
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
+	stmia   r0!, {sp, lr}
+
+
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | UND_MODE)
+	ldr     r1, =saved_state_und
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
+	stmia   r0!, {sp, lr}
+
+/*
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | SYSTEM_MODE)
+	ldr     r1, =saved_state_sys
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
+	stmia   r0!, {sp, lr}
+*/
+
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | SVC_MODE)
+
+
+/////////////////////////////
+/////////////////////////////
 //	b	sp_pm_collapse
 //	ldr     r0, =saved_state
 	ldr     r1, =saved_state
@@ -43,14 +141,33 @@ ENTRY(sp_pm_collapse)
 
  	bl      v7_flush_dcache_all
 
+///////////////////////////////////
+// Remove following code when power domains don't auto power down.
+// wangliwei, 2010-01-06
+//////////////////////////////
+#if 0
+	bl      l2x0_flush_all
+	dmb
+
+	ldr		r1, =0xe004c100	//disable l2cache
+	mov		r2, #0
+	str		r2, [r1]
+#else
+	bl		outer_cache_poweroff
+#endif
+	
 	mrc     p15, 0, r1, c1, c0, 0    /* read current CR    */
 	bic     r0, r1, #(1 << 2)        /* clear dcache bit   */
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
 
+////////////////////////////////////
+////////////////////////////////////
 	dsb
 	wfi
+//1:	b 1b
 
+	
 	mcr     p15, 0, r1, c1, c0, 0    /* restore d/i cache  */
 	isb
 
@@ -66,7 +183,73 @@ ENTRY(sp_pm_collapse)
 	bx      lr
 
 ENTRY(sp_pm_collapse_exit)
-	b sp_pm_collapse_exit
+//	b sp_pm_collapse_exit
+//////////////////////////////////////
+/////////////////////////////////////
+	/* enable uart1 clock to print some messages. */
+/*
+	ldr		r1, =0x8b000008
+	ldr		r2, [r1, #0]
+	orr		r2, r2, #(0x1 << 21)
+	str		r2, [r1, #0]
+
+     mov r0, #'<'
+     bl printch
+     
+     mov r0, #'<'
+     bl printch
+     
+     mov r0, #'<'
+     bl printch
+     
+     mov r0, #'<'
+     bl printch
+
+
+     mov r0, #'\r'
+     bl printch
+     
+     mov r0, #'\n'
+     bl printch
+*/
+
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | IRQ_MODE)
+	ldr     r1, =saved_state_irq
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
+	ldmfd   r0, {sp, lr}
+
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | ABT_MODE)
+	ldr     r1, =saved_state_abt
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
+	ldmfd   r0, {sp, lr}
+
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | UND_MODE)
+	ldr     r1, =saved_state_und
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
+	ldmfd   r0, {sp, lr}
+/*
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | SYSTEM_MODE)
+	ldr     r1, =saved_state_sys
+	ldr     r2, =sp_pm_collapse
+	adr     r3, sp_pm_collapse
+	add     r1, r1, r3
+	sub     r0, r1, r2
+	ldmfd   r0, {sp, lr}
+*/
+	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | SVC_MODE)
+
+////////////////////////////////////
+///////////////////////////////////
+
 #if 0
 	bl	__cpu_early_init
 #endif
@@ -79,7 +262,9 @@ ENTRY(sp_pm_collapse_exit)
  	ldmdb   r1!, {r2-r11}
 	mcr     p15, 0, r4, c3, c0, 0 /* dacr */
 	mcr     p15, 0, r3, c2, c0, 0 /* TTBR0 */
+#if 0
 	mcr     p15, 3, r5, c15, c0, 3 /* L2CR1 */
+#endif
 	mcr     p15, 0, r6, c10, c2, 0 /* PRRR */
 	mcr     p15, 0, r7, c10, c2, 1 /* NMRR */
 	mcr     p15, 0, r8, c1, c0, 1 /* ACTLR */
@@ -153,11 +338,6 @@ ENTRY(sp_pm_collapse_prefetch)
 	nop
 	nop
 
-ENTRY(sp_pm_collapse_end)
-
-ENTRY(trace)
-	b	trace
-
 	.data
 
 saved_state:
@@ -165,4 +345,25 @@ saved_state:
 	.space  4 * 10  /* cp15 */
 saved_state_end:
 
+
+saved_state_irq:
+	.space  4 * 2 /* sp,  lr */
+saved_state_irq_end:
+
+saved_state_abt:
+	.space  4 * 2 /* sp,  lr */
+saved_state_abt_end:
+
+saved_state_und:
+	.space  4 * 2 /* sp,  lr */
+saved_state_und_end:
+
+saved_state_sys:
+	.space  4 * 2 /* sp,  lr */
+saved_state_sys_end:
+
+ENTRY(sp_pm_collapse_end)
+
+ENTRY(trace)
+	b	trace
 

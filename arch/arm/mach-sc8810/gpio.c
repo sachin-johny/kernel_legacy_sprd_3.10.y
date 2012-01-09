@@ -23,8 +23,9 @@
 #include <mach/regs_gpio.h>
 #include <mach/regs_ana.h>
 #include "gpio_phy.h"
-
+/*
 #define DEBUG
+*/
 #ifdef DEBUG
 #define GPIO_DBG(fmt...) printk(fmt)
 #else
@@ -421,7 +422,10 @@ static int sprd_gpio_get(struct gpio_chip *chip, unsigned offset)
 		return -1;
 
 	if (!__gpio_get_data_mask(&gpio_info)) {
+		/*
 		WARN(1, "GPIO_%d data mask hasn't been opened!\n", gpio_id);
+		*/
+		printk("GPIO_%d data mask hasn't been opened!\n", gpio_id);
 	}
 	/*
 	   if (__gpio_get_dir (&gpio_info))
@@ -456,16 +460,18 @@ static void sprd_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 	}
 
 	__gpio_set_pin_data(&gpio_info, value);
-
+	/*
 	GPIO_DBG("gpio_%d setting :%x \n", gpio_id, value);
+	*/
 }
 
 static int sprd_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
 	unsigned gpio_id = offset;
 	struct gpio_info gpio_info;
-
+	/*
 	GPIO_DBG("request gpio_%d\r\n", gpio_id);
+	*/
 	__get_gpio_base_info(gpio_id, &gpio_info);
 	if (gpio_info.gpio_type == GPIO_SECTION_INVALID)
 		return -1;

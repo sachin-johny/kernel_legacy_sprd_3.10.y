@@ -55,9 +55,7 @@
 #include <asm/mach/irq.h>
 #include <asm/pgtable-hwdef.h>
 
-#ifndef CONFIG_ARCH_SC8810
 #include <mach/test.h>
-#endif
 
 #include <linux/slab.h>
 /*
@@ -1673,19 +1671,23 @@ nk_do_xirq (struct pt_regs* regs)
 	    break;
 	}
 
-#ifdef OLD
-	if (get_sys_cnt() > (120000)) {
+	/* if (get_sys_cnt() > (120000)) */{
 		/*
-		if (xirq > 36)  {
+		if (xirq > 31)  {
 			printk("##: xirq = %d\n", xirq);
 		}
-		if (xirq != 6)	printk("##: xirq = %d.\n", xirq);
 		*/
+		
+		//if (xirq != 6)	printk("##: xirq = %d.\n", xirq);
+		/*
 		add_pm_message(get_sys_cnt(), "xirq = ", xirq, 0, 0);
+		*/		
 	}
+
+
 	interrupt_counter++;
 	inc_sprd_irq(xirq);
-#endif
+	
 	nk_do_IRQ(xirq, regs);
     }
 

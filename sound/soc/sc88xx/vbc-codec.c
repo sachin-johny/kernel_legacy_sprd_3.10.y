@@ -411,7 +411,7 @@ static void vbc_ldo_on(bool on)
 #endif
     }
     if (do_on_off) {
-        printk("+++++++++++++ audio set ldo to %s +++++++++++++\n", on ? "on" : "off");
+        //printk("+++++++++++++ audio set ldo to %s +++++++++++++\n", on ? "on" : "off");
     }
 }
 
@@ -500,7 +500,7 @@ void vbc_power_down(unsigned int value)
             (!vbc_reg_read(VBPMR1, SB_DAC, 1) ||
             !earpiece_muted || !headset_muted || !speaker_muted))) {
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
-            printk("---- vbc do power down ----\n");
+            //printk("---- vbc do power down ----\n");
 #endif
             // VBCGR1_value = vbc_reg_write(VBCGR1, 0, 0xff, 0xff); // DAC Gain
             if (use_delay) msleep(100); // avoid quick switch from power on to off
@@ -552,7 +552,7 @@ void vbc_power_down(unsigned int value)
             vbc_reg_VBPMR2_set(SB, 1); // Power down sb
             if (use_delay) msleep(100); // avoid quick switch from power off to on
             vbc_ldo_on(0);
-            printk("....................... audio full power down [%d] .......................\n", use_delay);
+            //printk("....................... audio full power down [%d] .......................\n", use_delay);
         }
     }
     mutex_unlock(&vbc_power_lock);
@@ -794,7 +794,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 #endif
     vbc_codec_unmute(); // don't mute
 #endif
-    printk("vbc reset finish...\n");
+    //printk("vbc reset finish...\n");
     return ret;
 }
 
@@ -1180,7 +1180,7 @@ static void android_sprd_pm_exit(void) {}
 #ifdef CONFIG_PM
 int vbc_suspend(struct platform_device *pdev, pm_message_t state)
 {
-    printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+    //printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
     vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
     return 0;
 }
