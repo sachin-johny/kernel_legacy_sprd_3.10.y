@@ -115,7 +115,7 @@ static struct platform_device sprd_kpad_device = {
 #if defined(CONFIG_MACH_SP6820A)
         .name           = "sprd-keypad6820a",
 #endif
-#if defined(CONFIG_MACH_SP8810)
+#if defined(CONFIG_MACH_SP8810)  || defined(CONFIG_MACH_SC8810OPENPHONE)
         .name           = "sprd-keypad8810",
 #endif
         .id             = -1,
@@ -163,25 +163,25 @@ static struct resource sprd_serial_resources[] = {
 		.name = "serial_res1",
                 .flags = IORESOURCE_MEM,
         },
-	[2] = {		
+	[2] = {
                 .start = SPRD_SERIAL2_BASE,
                 .end = SPRD_SERIAL2_BASE + SPRD_SERIAL2_SIZE-1,
 		.name = "serial_res2",
                 .flags = IORESOURCE_MEM,
         },
-	[3] = {		
+	[3] = {
                 .start = IRQ_SER0_INT,
                 .end = IRQ_SER0_INT,
 		.name = "serial_res3",
                 .flags = IORESOURCE_IRQ,
         },
-	[4] = {		
+	[4] = {
                 .start = IRQ_SER1_INT,
                 .end = IRQ_SER1_INT,
 		.name = "serial_res4",
                 .flags = IORESOURCE_IRQ,
         },
-	[5] = {		
+	[5] = {
                 .start = IRQ_SER2_INT,
                 .end = IRQ_SER2_INT,
 		.name = "serial_res5",
@@ -223,7 +223,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_battery_device,
 	&sprd_kp_bl_device,
 	&sprd_lcd_bl_device,
-	&sprd_serial_device, 
+	&sprd_serial_device,
 	&sprd_tp_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
@@ -612,7 +612,7 @@ void __init sprd_gadget_init(void)
 
 	platform_device_register(&androidusb_device);
 }
-static unsigned long dcam_func_cfg[] __initdata = {	
+static unsigned long dcam_func_cfg[] __initdata = {
 	MFP_CFG_X(CCIRMCLK, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRCK, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRHS, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
@@ -624,7 +624,7 @@ static unsigned long dcam_func_cfg[] __initdata = {
 	MFP_CFG_X(CCIRD4, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRD5, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRD6, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
-	MFP_CFG_X(CCIRD7, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),	
+	MFP_CFG_X(CCIRD7, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRRST, AF3, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRPD1, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
 	MFP_CFG_X(CCIRPD0, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
@@ -632,11 +632,11 @@ static unsigned long dcam_func_cfg[] __initdata = {
 static void sprd_config_dcam_pins(void)
 {
 	sprd_mfp_config(dcam_func_cfg, ARRAY_SIZE(dcam_func_cfg));
-	
+
 }
 void __init sprd_add_dcam_device(void)
 {
-	// Enable DCAM Module 
+	// Enable DCAM Module
 	__raw_bits_or(BIT_26, AHB_CTL0);//wxz: H5:0x20900200[26]
 
 	sprd_config_dcam_pins();
