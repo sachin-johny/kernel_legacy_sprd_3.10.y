@@ -914,22 +914,24 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
 			break;	
 		case V4L2_CID_HFLIP:  		
-			if(g_dcam_info.hflip_param == (uint8_t)ctrl->value)
-			{
-				DCAM_V4L2_PRINT("V4L2:don't need handle hflip!.\n");
-				break;
-			}
+		//	if(g_dcam_info.hflip_param == (uint8_t)ctrl->value)
+		//	{
+		//		DCAM_V4L2_PRINT("V4L2:don't need handle hflip!.\n");
+		//		break;
+		//	}
+			printk("V4L2:hflip setting.\n.");
 			g_dcam_info.hflip_param = (uint8_t)ctrl->value;		
 			dcam_stop_handle(is_previewing);	
 			Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);	
 			dcam_start_handle(is_previewing);		
 			break;
 		case V4L2_CID_VFLIP:  	
-			if(g_dcam_info.vflip_param == (uint8_t)ctrl->value)
-			{
-				DCAM_V4L2_PRINT("V4L2:don't need handle vflip!.\n");
-				break;
-			}
+		//	if(g_dcam_info.vflip_param == (uint8_t)ctrl->value)
+		//	{
+		//		DCAM_V4L2_PRINT("V4L2:don't need handle vflip!.\n");
+		//		break;
+		//	}
+			printk("V4L2:vflip setting.\n.");
 			g_dcam_info.vflip_param = (uint8_t)ctrl->value;
 			dcam_stop_handle(is_previewing);
 			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);	
