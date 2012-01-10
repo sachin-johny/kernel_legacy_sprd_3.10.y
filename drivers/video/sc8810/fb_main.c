@@ -934,10 +934,12 @@ static int sc8810fb_resume(struct platform_device *pdev)
 	struct sc8810fb_info *info = platform_get_drvdata(pdev);
 
 	if (__raw_readl(LCDC_CTRL) == 0) { // resume from deep sleep
+		info->need_reinit = 1;
 		lcdc_reset();
 		hw_early_init(info);
 		hw_init(info);
 		hw_later_init(info);
+		info->need_reinit = 0;
 	}
 	info->panel->ops->lcd_enter_sleep(info->panel,0);
 
