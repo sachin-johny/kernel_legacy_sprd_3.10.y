@@ -525,7 +525,7 @@ static void lcdc_update_lcm_timing(struct sc8810fb_info *info)
     	}	
 	//ahb_clk = CHIP_GetMcuClk()/ahb_div;
 	
-	ahb_clk = 200; // AHB : 200MHZ
+	ahb_clk = 250; // AHB : 250MHZ
 	
 	FB_PRINT("[%s] ahb_clk: 0x%x\n", __FUNCTION__, ahb_clk);
 
