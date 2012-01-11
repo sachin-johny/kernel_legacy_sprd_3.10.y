@@ -155,7 +155,7 @@ ENTRY(sp_pm_collapse)
 #else
 	bl		outer_cache_poweroff
 #endif
-	
+
 	mrc     p15, 0, r1, c1, c0, 0    /* read current CR    */
 	bic     r0, r1, #(1 << 2)        /* clear dcache bit   */
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
@@ -167,10 +167,36 @@ ENTRY(sp_pm_collapse)
 	wfi
 //1:	b 1b
 
-	
+
 	mcr     p15, 0, r1, c1, c0, 0    /* restore d/i cache  */
 	isb
 
+#if 0
+	/* enable uart1 clock to print some messages. */
+
+	ldr		r1, =0xe0033008	//virtual base
+	ldr		r2, [r1, #0]
+	orr		r2, r2, #(0x1 << 21)
+	str		r2, [r1, #0]
+
+     mov r0, #'@'
+     bl printch
+
+     mov r0, #'@'
+     bl printch
+
+     mov r0, #'@'
+     bl printch
+
+     mov r0, #'@'
+     bl printch
+
+     mov r0, #'\r'
+     bl printch
+
+     mov r0, #'\n'
+     bl printch
+#endif
 
 //	ldr     r0, =saved_state         /* restore registers */
 	ldr     r1, =saved_state
@@ -186,8 +212,9 @@ ENTRY(sp_pm_collapse_exit)
 //	b sp_pm_collapse_exit
 //////////////////////////////////////
 /////////////////////////////////////
+#if 0
 	/* enable uart1 clock to print some messages. */
-/*
+
 	ldr		r1, =0x8b000008
 	ldr		r2, [r1, #0]
 	orr		r2, r2, #(0x1 << 21)
@@ -195,23 +222,22 @@ ENTRY(sp_pm_collapse_exit)
 
      mov r0, #'<'
      bl printch
-     
-     mov r0, #'<'
-     bl printch
-     
-     mov r0, #'<'
-     bl printch
-     
+
      mov r0, #'<'
      bl printch
 
+     mov r0, #'<'
+     bl printch
+
+     mov r0, #'<'
+     bl printch
 
      mov r0, #'\r'
      bl printch
-     
+
      mov r0, #'\n'
      bl printch
-*/
+#endif
 
 	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | IRQ_MODE)
 	ldr     r1, =saved_state_irq

@@ -1004,9 +1004,9 @@ int sprd_timer_info_enable = 0;
 int sprd_check_dsp_enable = 0;
 int sprd_check_gpio_enable = 0;
 int sprd_dump_gpio_registers = 0;
-int sprd_wait_until_uart_tx_fifo_empty = 0;
+int sprd_wait_until_uart_tx_fifo_empty = 1;
 int sprd_sleep_mode_info = 0;
-int sprd_sc8810_deepsleep_enable = 0;
+int sprd_sc8810_deepsleep_enable = 1;
 
 
 
@@ -1302,8 +1302,8 @@ int supsend_gpio_restore(void)
 int sc8810_setup_pd_automode(void)
 {
 	//__raw_writel(0x06000320|PD_AUTO_EN, GR_GPU_PWR_CTRL);//reserved
-	__raw_writel(0x06000320/*|PD_AUTO_EN*/, GR_MM_PWR_CTRL);
-	__raw_writel(0x06000320/*|PD_AUTO_EN*/, GR_G3D_PWR_CTRL);//GPU
+	__raw_writel(0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
+	__raw_writel(0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);//GPU
 	__raw_writel(0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_TH_PWR_CTRL);
 	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_GSM_PWR_CTRL);
 	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);
@@ -1446,7 +1446,7 @@ int sc8800g_enter_deepsleep(int inidle)
     }
     else {
 		sleep_mode = SLEEP_MODE_DEEP;
-		if (sprd_sleep_mode_info) printascii_phy(">>[DEEP]\n");
+		if (sprd_sleep_mode_info) printk("## sleep[DEEP] %d\n", inidle);
 		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
 
 		sleep_counter++;
