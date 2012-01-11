@@ -838,6 +838,7 @@ static void dcam_start_handle(int param)
 static int vidioc_handle_ctrl(struct v4l2_control *ctrl)	
 {
 	int is_previewing = 0;
+	SENSOR_EXT_FUN_T af_param = {0};
 	
 	DCAM_V4L2_PRINT("V4L2:vidioc_handle_ctrl, id: %d, value: %d.\n", ctrl->id, ctrl->value);
 	is_previewing = dcam_is_previewing(g_zoom_level);	
@@ -938,18 +939,22 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			dcam_start_handle(is_previewing);
 			break;
 		case V4L2_CID_FOCUS_AUTO:
-#if 0			
-			//printk("test focus kernel,param=%d.\n",(uint32_t)ctrl->value);
-			if(g_dcam_info.focus_param == (uint32_t)ctrl->value)
+			printk("test focus kernel,param=%d.\n",(uint32_t)ctrl->value);
+
+			if((0 == g_dcam_info.focus_param)&&(1 == ctrl->value))
 			{
-				DCAM_V4L2_PRINT("V4L2:don't need handle focus!.\n");
-				break;
-			}
-			g_dcam_info.focus_param = (uint32_t)ctrl->value;
-			dcam_stop_handle(is_previewing);
-		//	Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)ctrl->value);
-			dcam_start_handle(is_previewing);
-#endif		      
+				DCAM_V4L2_PRINT("V4L2: need initial auto firmware!.\n");
+				af_param.cmd = SENSOR_EXT_FUNC_INIT;
+				af_param.param = SENSOR_EXT_FOCUS_TRIG;
+				Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param);
+				if(SENSOR_MAIN == Sensor_GetCurId())
+				{
+					g_dcam_info.focus_param = 1;
+				}
+			}			
+			af_param.cmd = SENSOR_EXT_FOCUS_START;
+			af_param.param = SENSOR_EXT_FOCUS_TRIG;//(uint32_t)ctrl->value;
+			Sensor_Ioctl(SENSOR_IOCTL_FOCUS,(uint32_t)&af_param );		      
 			break;
 		default:
 			break;
@@ -1765,7 +1770,6 @@ static int open(struct file *file)
 	g_dcam_info.hflip_param = 0;
 	g_dcam_info.vflip_param = 0;
 	g_dcam_info.previewmode_param = 8;
-	g_dcam_info.focus_param = 0;
 	//open dcam
 	dcam_open();
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");
@@ -1989,6 +1993,7 @@ int dcam_probe(struct platform_device *pdev)
 		return -1;
 
 	mutex_init(lock);
+	g_dcam_info.focus_param = 0;
 
 	printk(KERN_ALERT "dcam_probe Success.\n");
 
