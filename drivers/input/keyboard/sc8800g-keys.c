@@ -704,11 +704,15 @@ unsigned long handle_key(unsigned short key_code, kpd_key_t *key_ptr)
 static void sprd_kpad_timer(unsigned long data)
 {
 	unsigned short rowcol, key;
+	unsigned long key_sts = 0xffff;
 	kpd_key_t *key_ptr = (kpd_key_t *)data;
 	
+#if  defined (CONFIG_MACH_SP8810) || defined (CONFIG_MACH_SP6820A)  || defined(CONFIG_MACH_SC8810OPENPHONE)
+	key_sts = sprd_get_eic_data(EIC_ID_11); /* fix on bug when charging and pb pressed long */
+#endif
 	/* Check if the key is released, if the state is TB_KPD_PRESSED and count is 0, it means the key is released */
     	if (key_ptr->state == TB_KPD_PRESSED) {
-        	if (key_ptr->count == 0) {
+        	if ((key_ptr->count == 0) && (key_sts != 0)) {
             		change_state(key_ptr);
         	} else {
            		key_ptr->count = 0;
@@ -825,14 +829,12 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	unsigned long s_int_status;
 	unsigned long s_key_status;
 	
-	if (irq_is_detected ==  1) {
-		printk("irq = %d\n", irq);
-		gpio = irq; 
-	}
-	else {
-		msleep(20);
+	if (irq_is_detected == 1)
+		gpio = irq;
+	else
 		gpio = irq_to_gpio(irq);
-	}
+
+	msleep(20); /* fix on bug : cpu usage too high when pb pressed long */
 	//printk("%s %d  gpio = %d\n", __FUNCTION__, __LINE__, gpio);
 	if (gpio == HOME_KEY_GPIO) {
 		ret = gpio_get_value(gpio);
