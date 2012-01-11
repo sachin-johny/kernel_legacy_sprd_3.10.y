@@ -288,6 +288,25 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.step          = 0x1,
 		.default_value = 0,
 		.flags         = V4L2_CID_FOCUS_AUTO,
+	},
+	{
+		.id            = V4L2_CID_HFLIP,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "hmirror",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	}, {
+		.id            = V4L2_CID_VFLIP,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "vmirror",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
 	}
 };
 
@@ -914,29 +933,15 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			}
 			DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
 			break;	
-		case V4L2_CID_HFLIP:  		
-		//	if(g_dcam_info.hflip_param == (uint8_t)ctrl->value)
-		//	{
-		//		DCAM_V4L2_PRINT("V4L2:don't need handle hflip!.\n");
-		//		break;
-		//	}
+		case V4L2_CID_HFLIP:  				
 			printk("V4L2:hflip setting.\n.");
-			g_dcam_info.hflip_param = (uint8_t)ctrl->value;		
-			dcam_stop_handle(is_previewing);	
-			Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);	
-			dcam_start_handle(is_previewing);		
+			g_dcam_info.hflip_param = (uint8_t)ctrl->value;				
+		//	Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);				
 			break;
-		case V4L2_CID_VFLIP:  	
-		//	if(g_dcam_info.vflip_param == (uint8_t)ctrl->value)
-		//	{
-		//		DCAM_V4L2_PRINT("V4L2:don't need handle vflip!.\n");
-		//		break;
-		//	}
+		case V4L2_CID_VFLIP:  			
 			printk("V4L2:vflip setting.\n.");
-			g_dcam_info.vflip_param = (uint8_t)ctrl->value;
-			dcam_stop_handle(is_previewing);
-			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);	
-			dcam_start_handle(is_previewing);
+			g_dcam_info.vflip_param = (uint8_t)ctrl->value;	
+		//	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);		
 			break;
 		case V4L2_CID_FOCUS_AUTO:
 			printk("test focus kernel,param=%d.\n",(uint32_t)ctrl->value);
@@ -1306,8 +1311,8 @@ static void dcam_set_param(void)
 	Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)g_dcam_info.previewmode_param);
 	Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)g_dcam_info.brightness_param);
 	Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, (uint32_t)g_dcam_info.contrast_param);
-	Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)g_dcam_info.hflip_param);				
-	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)g_dcam_info.vflip_param);	
+//	Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)g_dcam_info.hflip_param);				
+//	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)g_dcam_info.vflip_param);	
 	DCAM_V4L2_PRINT("V4L2:dcam_set_param e.\n");		
 }
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
