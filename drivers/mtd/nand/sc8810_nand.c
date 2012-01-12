@@ -34,6 +34,7 @@
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
+#include <mach/pm_devices.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
@@ -830,15 +831,59 @@ static int sprd_nand_remove(struct platform_device *pdev)
 	return 0;
 }
 
-
 /* PM Support */
+#ifdef CONFIG_PM
+static unsigned long nfc_reg_cfg0;
+static int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
+{
+#if 0
+	struct sprd_nand_info *info = platform_get_drvdata(dev);
+
+	if (info)
+		clk_disable(info->clk);
+#else
+	nfc_reg_cfg0 = nfc_reg_read(NFC_CFG0); /* save CS_SEL */
+	nfc_reg_write(NFC_CFG0, (nfc_reg_cfg0 | BIT_6)); /* deset CS_SEL */
+	REG_AHB_CTL0 &= ~BIT_8; /* disabel nfc clock */
+#endif
+
+	return 0;
+}
+
+static int sprd_nand_resume(struct platform_device *dev)
+{
+#if 0
+	struct sprd_nand_info *info = platform_get_drvdata(dev);
+
+	if (info) {
+		clk_enable(info->clk);
+		sprd_nand_inithw(info, dev);
+	}
+#else
+	int ik_cnt = 0;
+
+	REG_AHB_CTL0 |= BIT_8;//no BIT_9
+	REG_AHB_SOFT_RST |= BIT_5;
+	for(ik_cnt = 0; ik_cnt < 0xffff; ik_cnt++);
+	REG_AHB_SOFT_RST &= ~BIT_5;
+
+	nfc_reg_write(NFC_CFG0, nfc_reg_cfg0); /* set CS_SEL */
+	sc8810_nand_wp_en(0);
+	nfc_reg_write(NFC_TIMING, ((6 << 0) | (6 << 5) | (10 << 10) | (6 << 16) | (5 << 21) | (5 << 26)));	
+	nfc_reg_write(NFC_TIMING+0X4, 0xffffffff);//TIMEOUT
+#endif
+
+	return 0;
+}
+#else
 #define sprd_nand_suspend NULL
 #define sprd_nand_resume NULL
+#endif
 
 static struct platform_driver sprd_nand_driver = {
 	.probe		= sprd_nand_probe,
 	.remove		= sprd_nand_remove,
-	.suspend		= sprd_nand_suspend,
+	.suspend	= sprd_nand_suspend,
 	.resume		= sprd_nand_resume,
 	.driver		= {
 		.name	= "sprd_nand",
