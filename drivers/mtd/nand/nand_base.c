@@ -3042,7 +3042,7 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 
 	for (i = 0; i < 8; i++)
 		id_data[i] = chip->read_byte(mtd);
-
+	
 	if (id_data[0] != *maf_id || id_data[1] != dev_id) {
 		printk(KERN_INFO "%s: second ID read did not match "
 		       "%02x,%02x against %02x,%02x\n", __func__,
@@ -3202,6 +3202,10 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	       " 0x%02x, Chip ID: 0x%02x (%s %s)\n", *maf_id, dev_id,
 	       nand_manuf_ids[maf_idx].name, type->name);
 
+#ifdef	CONFIG_ARCH_SC8810
+	extern void nand_hardware_config(struct nand_chip*, u8[8]);
+	nand_hardware_config(chip,id_data);
+#endif
 	return type;
 }
 

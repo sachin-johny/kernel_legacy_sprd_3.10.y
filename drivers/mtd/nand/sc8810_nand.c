@@ -104,28 +104,18 @@ static void sprd_config_nand_pins16(void)
 
 #endif
 
-#if 1
-#define CONFIG_SYS_NAND_PAGE_SIZE	2048
 /* Size of the block protected by one OOB (Spare Area in Samsung terminology) */
 #define CONFIG_SYS_NAND_ECCSIZE	512
 /* Number of ECC bytes per OOB - S3C6400 calculates 4 bytes ECC in 1-bit mode */
 //#define CONFIG_SYS_NAND_ECCBYTES	4
 #define CONFIG_SYS_NAND_ECCBYTES	4
 /* Number of ECC-blocks per NAND page */
-#define CONFIG_SYS_NAND_ECCSTEPS	(CONFIG_SYS_NAND_PAGE_SIZE / CONFIG_SYS_NAND_ECCSIZE)
 /* 2 bit correct, sc8810 support 1, 2, 4, 8, 12,14, 24 */
 #define CONFIG_SYS_NAND_ECC_MODE	2
-#define CONFIG_SYS_SPL_ECC_POS		8
 /* Size of a single OOB region */
-#define CONFIG_SYS_NAND_OOBSIZE	64
 /* Number of ECC bytes per page */
-#define CONFIG_SYS_NAND_ECCTOTAL	(CONFIG_SYS_NAND_ECCBYTES * CONFIG_SYS_NAND_ECCSTEPS)
 /* ECC byte positions */
-#define CONFIG_SYS_NAND_ECCPOS		{40, 41, 42, 43, 44, 45, 46, 47, \
-				 48, 49, 50, 51, 52, 53, 54, 55, \
-				 56, 57, 58, 59, 60, 61, 62, 63}
 
-#endif
 
 #define	NFC_ECC_EVENT  		1
 #define	NFC_DONE_EVENT		2
@@ -492,23 +482,17 @@ static void sc8810_nand_read_buf(struct mtd_info *mtd, uint8_t *buf, int len)
 {
 	nand_copy(buf, g_info.b_pointer + io_wr_port,len);
 	g_info.b_pointer += len;
-	if (g_info.b_pointer > 2048 +64 )
-		printk(KERN_INFO "g_info.b_pointer error");
 }
 static void sc8810_nand_write_buf(struct mtd_info *mtd, const uint8_t *buf,
 				   int len)
 {
 	nand_copy(g_info.b_pointer + io_wr_port, (unsigned char*)buf,len);
 	g_info.b_pointer += len;
-	if (g_info.b_pointer > 2048 +64 )
-		printk(KERN_INFO "g_info.b_pointer error");
 }
 static u_char sc8810_nand_read_byte(struct mtd_info *mtd)
 {
 	u_char ch;
 	ch = io_wr_port[g_info.b_pointer ++];
-	if (g_info.b_pointer > 2048 +64 )
-		printk(KERN_INFO "g_info.b_pointer error");
 	return ch;
 }
 static u16 sc8810_nand_read_word(struct mtd_info *mtd)
@@ -516,8 +500,6 @@ static u16 sc8810_nand_read_word(struct mtd_info *mtd)
 	u16 ch = 0;
 	ch = io_wr_port[g_info.b_pointer ++];
 	ch |= io_wr_port[g_info.b_pointer ++] << 8;
-	if (g_info.b_pointer > 2048 +64 ) 
-		printk(KERN_INFO "g_info.b_pointer error");
 
 	return ch;
 }
@@ -583,10 +565,10 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 			nfc_mcr_inst_init();
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
 			nfc_mcr_inst_add(0x00, NF_MC_ADDR_ID);
-			nfc_mcr_inst_add(4, NF_MC_RWORD_ID);
+			nfc_mcr_inst_add(7, NF_MC_RWORD_ID);
 			nfc_mcr_inst_exc_for_id();
 			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT);
-			nand_copy(io_wr_port, (void *)NFC_MBUF_ADDR, 5);
+			nand_copy(io_wr_port, (void *)NFC_MBUF_ADDR, 8);
 			break;					
 		case NAND_CMD_ERASE1:
 			nfc_mcr_inst_init();
@@ -708,6 +690,42 @@ static void sc8810_nand_hw_init(void)
 	nfc_reg_write(NFC_TIMING, ((6 << 0) | (6 << 5) | (10 << 10) | (6 << 16) | (5 << 21) | (5 << 26)));	
 	nfc_reg_write(NFC_TIMING+0X4, 0xffffffff);//TIMEOUT
 //	set_nfc_param(1);//53MHz
+}
+static struct nand_ecclayout _nand_oob_128 = {
+	.eccbytes = 56,
+	.eccpos = {
+		    72, 73, 74, 75, 76, 77, 78, 79,
+		    80,  81,  82,  83,  84,  85,  86,  87,
+		    88,  89,  90,  91,  92,  93,  94,  95,
+		    96,  97,  98,  99, 100, 101, 102, 103,
+		   104, 105, 106, 107, 108, 109, 110, 111,
+		   112, 113, 114, 115, 116, 117, 118, 119,
+		   120, 121, 122, 123, 124, 125, 126, 127},
+	.oobfree = {
+		{.offset = 2,
+		 .length = 70}}
+};
+void nand_hardware_config(struct nand_chip *this, u8 id[8])
+{
+	if ( (id[0] == NAND_MFR_SAMSUNG ) && (id [1] == 0xbc) && (id [3] == 0x66))
+	{
+		if ((id[4] & 0x3 ) == 0) {
+ 			this->ecc.size = 512;
+			this->ecc.bytes = 2;
+			g_info.ecc_mode = 1;
+		}else if ((id[4] & 0x3 ) == 1) {
+ 			this->ecc.size = 512;
+			this->ecc.bytes = 4;
+			g_info.ecc_mode = 2;
+ 		}else  if ((id[4] & 0x3 ) == 2) {
+ 			this->ecc.size = 512;
+			this->ecc.bytes = 7;
+			g_info.ecc_mode = 4;
+			this->ecc.layout =	&_nand_oob_128;
+		}
+		else
+			BUG_ON(1);
+	}
 }
 
 int board_nand_init(struct nand_chip *this)
