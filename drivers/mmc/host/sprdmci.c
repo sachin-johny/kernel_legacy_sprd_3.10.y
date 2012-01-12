@@ -55,7 +55,6 @@ static unsigned int debug_quirks = 0;
 
 static struct wake_lock sdhci_detect_lock;
 static struct wake_lock sdhci_suspend_lock;
-static struct wake_lock sdhci_resume_lock;//wong
 
 static void sdhci_prepare_data(struct sdhci_host *, struct mmc_data *);
 static void sdhci_finish_data(struct sdhci_host *);
@@ -978,7 +977,7 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		flags |= SDHCI_CMD_INDEX;
 	if (cmd->data)
 		flags |= SDHCI_CMD_DATA;
-
+	DBG("SDIO host send command:%d \n", cmd->opcode);
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 
@@ -1162,6 +1161,22 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	wake_lock(&sdhci_suspend_lock);
 
 	spin_lock_irqsave(&host->lock, flags);
+//if card broken, send no commands,
+	if( (mmc->card) && (mmc->card->removed) ){
+	    if(mrq->data){
+	        mrq->data->error = -ETIMEDOUT;
+	    }else if(mrq->cmd){
+		mrq->cmd->error = -ETIMEDOUT;
+	    }
+	    host->mrq = NULL;
+	    host->cmd = NULL;
+	    host->data = NULL;
+	    mmc_request_done(mmc, mrq);
+	    wake_unlock(&sdhci_suspend_lock);
+	    spin_unlock_irqrestore(&host->lock, flags);
+	    return;
+	}
+//if card broken, send no commands, 
 
 	WARN_ON(host->mrq != NULL);
 
@@ -1207,17 +1222,17 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * Reset the chip on each power off.
 	 * Should clear out any weird states.
 	 */
-	if (ios->power_mode == MMC_POWER_OFF) {
-		sdhci_writel(host, 0, SDHCI_SIGNAL_ENABLE);
+//	if (ios->power_mode == MMC_POWER_OFF) {
+//		sdhci_writel(host, 0, SDHCI_SIGNAL_ENABLE);
+//		sdhci_reinit(host);
+//	}
+//sdhci_set_clock(host, ios->clock);//ok case, original position
+        
+	if(ios->power_mode == MMC_POWER_UP){
 		sdhci_reinit(host);
 	}
 
-	sdhci_set_clock(host, ios->clock);
 
-	if (ios->power_mode == MMC_POWER_OFF)
-		sdhci_set_power(host, -1);
-	else
-		sdhci_set_power(host, ios->vdd);
 
 	ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
 	if (ios->bus_width == MMC_BUS_WIDTH_4)
@@ -1226,11 +1241,19 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		ctrl &= ~SDHCI_CTRL_4BITBUS;
 
 	if (ios->timing == MMC_TIMING_SD_HS)
-		ctrl |= SDHCI_CTRL_HISPD;
+//	        ctrl |= SDHCI_CTRL_HISPD;//comment, from jason.wu
+		ctrl &= ~SDHCI_CTRL_HISPD;
 	else
 		ctrl &= ~SDHCI_CTRL_HISPD;
 
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
+	if (ios->power_mode == MMC_POWER_OFF){
+		sdhci_set_power(host, -1);
+		sdhci_reinit(host);
+	}
+	else if(ios->power_mode == MMC_POWER_UP)
+		sdhci_set_power(host, ios->vdd);
+	sdhci_set_clock(host, ios->clock);
 
 	/*
 	 * Some (ENE) controllers go apeshit on some ios operation,
@@ -1418,6 +1441,8 @@ static void sdhci_tasklet_finish(unsigned long param)
 	sdhci_deactivate_led(host);
 #endif
 
+	sdhci_reset(host, SDHCI_RESET_CMD);
+	sdhci_reset(host, SDHCI_RESET_DATA);
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
 
@@ -1434,7 +1459,8 @@ static void sdhci_timeout_timer(unsigned long data)
 	host = (struct sdhci_host*)data;
 
 	spin_lock_irqsave(&host->lock, flags);
-
+	if(host->mmc->card)
+           host->mmc->card->removed = 1;//wong, from msm
 	if (host->mrq) {
 		printk(KERN_ERR "%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
@@ -1483,7 +1509,8 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (host->cmd->error) {
 	        if(host->mmc->card){
-		   printk("!!!!! error in sending cmd:%d, err:%d ", host->cmd->opcode, host->cmd->error);
+		  printk("!!!!! error in sending cmd:%d, err:%d \n", host->cmd->opcode, host->cmd->error);
+		  //sdhci_dumpregs(host);
 		}
 		tasklet_schedule(&host->finish_tasklet);
 		return;
@@ -1562,10 +1589,8 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			}
 		}
 
-		printk(KERN_ERR "%s: Got data interrupt 0x%08x even "
-			"though no data operation was in progress.\n",
-			mmc_hostname(host->mmc), (unsigned)intmask);
-		sdhci_dumpregs(host);
+		printk("data irq, but no data request\n");
+		//sdhci_dumpregs(host);
 
 		return;
 	}
@@ -1718,18 +1743,13 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 	int ret;
 
 	sdhci_disable_card_detection(host);
-
-	//ret = mmc_suspend_host(host->mmc, state);
 	ret = mmc_suspend_host(host->mmc);
 	if (ret){
-		printk("=== sd card suspend error:%d ===\n", ret);
+		printk("=== wow~ sd card suspend error:%d ===\n", ret);
 		return ret;
         }
-#ifndef CONFIG_ARCH_SC8810//TODO8810
-        __raw_bits_and(~BIT_3, ANA_LDO_PD_CTL);//power down SDIO_LDO
-        __raw_bits_or(BIT_2, ANA_LDO_PD_CTL);//power down SDIO_LDO
-	//free_irq(host->irq, host);
-#endif
+
+	printk("sdhci_suspend_host, done\n");
 	return 0;
 }
 
@@ -1740,8 +1760,6 @@ int sdhci_resume_host(struct sdhci_host *host)
 	int ret;
       
 #ifndef CONFIG_ARCH_SC8810//TODO8810
-        __raw_bits_and(~BIT_2, ANA_LDO_PD_CTL);//power on SDIO_LDO
-        __raw_bits_or(BIT_3, ANA_LDO_PD_CTL);//power on SDIO_LDO
 #endif
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
 		if (host->ops->enable_dma)
@@ -1756,16 +1774,15 @@ int sdhci_resume_host(struct sdhci_host *host)
 	sdhci_init(host);
 	mmiowb();
         
-	wake_lock(&sdhci_resume_lock);//for swapfile
 	ret = mmc_resume_host(host->mmc);
 	if (ret){
 		printk("=== sd card resume error:%d ===\n", ret);
 		return ret;
 	}
-	wake_unlock(&sdhci_resume_lock);//for swapfile
 
 	sdhci_enable_card_detection(host);
 	
+        printk("sdhci_resume_host, done\n");//wong 
 	return 0;
 }
 
@@ -2158,7 +2175,6 @@ static int __init sdhci_drv_init(void)
 
         wake_lock_init(&sdhci_detect_lock, WAKE_LOCK_SUSPEND, "mmc_pm_detect");
         wake_lock_init(&sdhci_suspend_lock, WAKE_LOCK_SUSPEND, "mmc_pm_suspend");
-        wake_lock_init(&sdhci_resume_lock, WAKE_LOCK_SUSPEND, "mmc_pm_resume");//for swapfile
 
 	return 0;
 }
@@ -2167,7 +2183,6 @@ static void __exit sdhci_drv_exit(void)
 {
         wake_lock_destroy(&sdhci_detect_lock);
         wake_lock_destroy(&sdhci_suspend_lock);
-        wake_lock_destroy(&sdhci_resume_lock);//for swapfile
 }
 
 module_init(sdhci_drv_init);

@@ -197,6 +197,7 @@ struct mmc_host {
 	int			claim_cnt;	/* "claim" nesting count */
 
 	struct delayed_work	detect;
+	struct delayed_work	remove;
 
 	const struct mmc_bus_ops *bus_ops;	/* current bus driver */
 	unsigned int		bus_refs;	/* reference counter */
@@ -204,6 +205,7 @@ struct mmc_host {
 	unsigned int		bus_resume_flags;
 #define MMC_BUSRESUME_MANUAL_RESUME	(1 << 0)
 #define MMC_BUSRESUME_NEEDS_RESUME	(1 << 1)
+#define MMC_BUSRESUME_FAILS_RESUME	(1 << 2)
 
 	unsigned int		sdio_irqs;
 	struct task_struct	*sdio_irq_thread;
@@ -252,8 +254,12 @@ static inline void *mmc_priv(struct mmc_host *host)
 #define mmc_dev(x)	((x)->parent)
 #define mmc_classdev(x)	(&(x)->class_dev)
 #define mmc_hostname(x)	(dev_name(&(x)->class_dev))
-#define mmc_bus_needs_resume(host) ((host)->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME)
-#define mmc_bus_manual_resume(host) ((host)->bus_resume_flags & MMC_BUSRESUME_MANUAL_RESUME)
+#define mmc_bus_manual_resume(host) \
+	((host)->bus_resume_flags & MMC_BUSRESUME_MANUAL_RESUME)
+#define mmc_bus_needs_resume(host)  \
+	((host)->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME)
+#define mmc_bus_fails_resume(host)  \
+	((host)->bus_resume_flags & MMC_BUSRESUME_FAILS_RESUME)
 
 static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 {
@@ -262,8 +268,14 @@ static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 	else
 		host->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
 }
+static inline void mmc_init_bus_resume_flags(struct mmc_host *host)
+{
+	host->bus_resume_flags = 0;
+}
 
 extern int mmc_resume_bus(struct mmc_host *host);
+extern void mmc_power_off(struct mmc_host *host);//wong
+extern void mmc_power_up(struct mmc_host *host);//wong
 
 extern int mmc_suspend_host(struct mmc_host *);
 extern int mmc_resume_host(struct mmc_host *);

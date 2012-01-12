@@ -226,6 +226,7 @@ int mmc_add_card(struct mmc_card *card)
 	const char *type;
 
 	dev_set_name(&card->dev, "%s:%04x", mmc_hostname(card->host), card->rca);
+	card->removed = 0;
 
 	switch (card->type) {
 	case MMC_TYPE_MMC:
@@ -275,6 +276,8 @@ int mmc_add_card(struct mmc_card *card)
  */
 void mmc_remove_card(struct mmc_card *card)
 {
+	if (mmc_card_sd(card))
+		card->removed = 1;
 #ifdef CONFIG_DEBUG_FS
 	mmc_remove_card_debugfs(card);
 #endif

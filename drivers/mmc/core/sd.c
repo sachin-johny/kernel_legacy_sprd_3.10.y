@@ -642,7 +642,9 @@ static int mmc_sd_resume(struct mmc_host *host)
 		if (err) {
 			printk(KERN_ERR "%s: Re-init card rc = %d (retries = %d)\n",
 			       mmc_hostname(host), err, retries);
+			mmc_power_off(host);//wong
 			mdelay(5);
+			mmc_power_up(host);//wong
 			retries--;
 			continue;
 		}
