@@ -1775,8 +1775,10 @@ static int open(struct file *file)
 	g_dcam_info.hflip_param = 0;
 	g_dcam_info.vflip_param = 0;
 	g_dcam_info.previewmode_param = 8;
+	g_dcam_info.focus_param = 0;
 	//open dcam
-	dcam_open();
+	if(0 != dcam_open())
+		return 1;
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");
 //	dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
 	dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
@@ -1997,8 +1999,7 @@ int dcam_probe(struct platform_device *pdev)
 	if (lock == NULL)
 		return -1;
 
-	mutex_init(lock);
-	g_dcam_info.focus_param = 0;
+	mutex_init(lock);	
 
 	printk(KERN_ALERT "dcam_probe Success.\n");
 

@@ -50,6 +50,8 @@ extern     "C"
 #define CMD_ACK 0x3023
 #define CMD_PARAM0 0x3024
 #define CMD_PARAM1 0x3025
+#define CMD_PARAM2 0x3026
+#define CMD_PARAM3 0x3027
 #define CMD_PARAM4 0x3028
  
 /**---------------------------------------------------------------------------*
@@ -68,7 +70,7 @@ LOCAL uint32_t _ov5640_set_ev(uint32_t level);
 //LOCAL uint32_t _ov5640_set_anti_flicker(uint32_t mode);
 //LOCAL uint32_t _ov5640_set_video_mode(uint32_t mode);
 LOCAL uint32_t _ov5640_set_awb(uint32_t mode);
-//LOCAL uint32_t _ov5640_set_work_mode(uint32_t mode);
+LOCAL uint32_t _ov5640_set_work_mode(uint32_t mode);
 LOCAL uint32_t _ov5640_BeforeSnapshot(uint32_t param);
 LOCAL uint32_t _ov5640_check_image_format_support(uint32_t param); 
 LOCAL uint32_t _ov5640_pick_out_jpeg_stream(uint32_t param);
@@ -112,7 +114,7 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x371b, 0x20},
     {0x471c, 0x50},
     {0x3a18, 0x00},
-    {0x3a19, 0xf8},
+    {0x3a19, 0x7c},//0xf8
     {0x3635, 0x1c},
     {0x3634, 0x40},
     {0x3622, 0x01},
@@ -144,8 +146,8 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x380b, 0xe0},
     {0x380c, 0x07},
     {0x380d, 0x68},
-    {0x380e, 0x03},
-    {0x380f, 0xd8},
+    {0x380e, 0x04},//03
+    {0x380f, 0x98},//d8
     {0x3810, 0x00},
     {0x3811, 0x10},
     {0x3812, 0x00},
@@ -182,6 +184,73 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x3824, 0x02},
     {0x5000, 0xa7},
     {0x5001, 0xa3},
+#if 1    
+    //awb
+    {0x5180, 0xff}, 
+    {0x5181, 0xf2}, 
+    {0x5182, 0x00},  
+    {0x5183, 0x14}, 
+    {0x5184, 0x25}, 
+    {0x5185, 0x24}, 
+    {0x5186, 0x0e}, 
+    {0x5187, 0x18}, 
+    {0x5188, 0x1a}, 
+    {0x5189, 0x7e}, 
+    {0x518a, 0x5c}, 
+    {0x518b, 0xda}, 
+    {0x518c, 0xa3}, 
+    {0x518d, 0x3f}, 
+    {0x518e, 0x2d}, 
+    {0x518f, 0x53}, 
+    {0x5190, 0x45}, 
+    {0x5191, 0xf8}, 
+    {0x5192, 0x04},  
+    {0x5193, 0xf0}, 
+    {0x5194, 0xf0}, 
+    {0x5195, 0xf0}, 
+    {0x5196, 0x03},  
+    {0x5197, 0x01},  
+    {0x5198, 0x04}, 
+    {0x5199, 0x21}, 
+    {0x519a, 0x04},  
+    {0x519b, 0x00},  
+    {0x519c, 0x08}, 
+    {0x519d, 0x9e}, 
+    {0x519e, 0x38}, 
+        
+    //gamma
+    {0x5480, 0x01}, //BIAS plus on
+    {0x5481, 0x08},
+    {0x5482, 0x14},
+    {0x5483, 0x28},
+    {0x5484, 0x51},
+    {0x5485, 0x65},
+    {0x5486, 0x71},
+    {0x5487, 0x7d},
+    {0x5488, 0x87},
+    {0x5489, 0x91},
+    {0x548a, 0x9a},
+    {0x548b, 0xaa},
+    {0x548c, 0xb8},
+    {0x548d, 0xcd},
+    {0x548e, 0xdd},
+    {0x548f, 0xea},
+    {0x5490, 0x1d},
+        
+    //color matrix
+    {0x5381, 0x1e}, //CMX1 for Y
+    {0x5382, 0x5b}, //CMX2 for Y
+    {0x5383, 0x08}, //CMX3 for Y
+    {0x5384, 0x0a}, //CMX4 for U
+    {0x5385, 0x7e}, //CMX5 for U
+    {0x5386, 0x88}, //CMX6 for U
+    {0x5387, 0x7c}, //CMX7 for V
+    {0x5388, 0x6c}, //CMX8 for V
+    {0x5389, 0x10}, //CMX9 for V
+    {0x538a, 0x01}, //sign[9]
+    {0x538b, 0x98}, //sign[8:1]
+#else
+    //awb
     {0x5180, 0xff},
     {0x5181, 0xf2},
     {0x5182, 0x00},
@@ -213,29 +282,8 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x519c, 0x06},
     {0x519d, 0x82},
     {0x519e, 0x38},
-    {0x5381, 0x1c}, 
-    {0x5382, 0x5a},
-    {0x5383, 0x06},
-    {0x5384, 0x0a},
-    {0x5385, 0x7e},
-    {0x5386, 0x88},
-    {0x5387, 0x7c},
-    {0x5388, 0x6c},
-    {0x5389, 0x10},
-    {0x538a, 0x01},
-    {0x538b, 0x98},
-    {0x5300, 0x08},
-    {0x5301, 0x30},
-    {0x5302, 0x10},
-    {0x5303, 0x00},
-    {0x5304, 0x08},
-    {0x5305, 0x30},
-    {0x5306, 0x08},
-    {0x5307, 0x16},
-    {0x5309, 0x08},
-    {0x530a, 0x30},
-    {0x530b, 0x04},
-    {0x530c, 0x06},
+    
+    //gamma
     {0x5480, 0x01},
     {0x5481, 0x08},
     {0x5482, 0x14},
@@ -253,12 +301,44 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x548e, 0xdd},
     {0x548f, 0xea},
     {0x5490, 0x1d}, 
+    
+    //cmx
+    {0x5381, 0x1c}, 
+    {0x5382, 0x5a},
+    {0x5383, 0x06},
+    {0x5384, 0x0a},
+    {0x5385, 0x7e},
+    {0x5386, 0x88},
+    {0x5387, 0x7c},
+    {0x5388, 0x6c},
+    {0x5389, 0x10},
+    {0x538a, 0x01},
+    {0x538b, 0x98},
+#endif
+    
+    //cip
+    {0x5300, 0x08},
+    {0x5301, 0x30},
+    {0x5302, 0x10},
+    {0x5303, 0x00},
+    {0x5304, 0x08},
+    {0x5305, 0x30},
+    {0x5306, 0x08},
+    {0x5307, 0x16},
+    {0x5309, 0x08},
+    {0x530a, 0x30},
+    {0x530b, 0x04},
+    {0x530c, 0x06},
+       
+    //uv adjust
     {0x5580, 0x02},
     {0x5583, 0x40},
     {0x5584, 0x10},
     {0x5589, 0x10},
     {0x558a, 0x00},
     {0x558b, 0xf8},
+    
+    //lenc
     {0x5800, 0x23},
     {0x5801, 0x15},
     {0x5802, 0x10},
@@ -320,6 +400,8 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x583a, 0x9f},
     {0x583b, 0xbf},
     {0x583c, 0xec},
+    
+    //aec
     {0x5025, 0x00},
     {0x3a0f, 0x30},
     {0x3a10, 0x28},
@@ -327,10 +409,10 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x3a1e, 0x26},
     {0x3a11, 0x60},
     {0x3a1f, 0x14},
+    {0x3503 , 0x00},
     {0x3008, 0x02},
     //if register:0x3035 is setted 0x21,the frame rate is 15fps
     //if not ,the frame rate is 15fps
-    //{0x3035    ,  0x21}
 };
 
 //1280X960  YUV   Mode
@@ -567,7 +649,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_ov5640_ioctl_func_tab =
     PNULL,
     PNULL,//_ov5640_set_saturation,
 
-    PNULL,    
+    _ov5640_set_work_mode,    
     _ov5640_set_image_effect,
 
     _ov5640_BeforeSnapshot,
@@ -1158,7 +1240,7 @@ LOCAL const SENSOR_REG_T ov5640_ev_tab[][7]=
         {0x3a0f, 0x30},{0x3a10, 0x28},{0x3a11, 0x61},{0x3a1b, 0x30},{0x3a1e, 0x28},{0x3a1f, 0x10},{0xffff, 0xff}
     },
     {//level 0
-        {0x3a0f, 0x38},{0x3a10, 0x30},{0x3a11, 0x61},{0x3a1b, 0x38},{0x3a1e, 0x30},{0x3a1f, 0x10},{0xffff, 0xff}
+        {0x3a0f, 0x3a},{0x3a10, 0x32},{0x3a11, 0x61},{0x3a1b, 0x38},{0x3a1e, 0x30},{0x3a1f, 0x10},{0xffff, 0xff}
     },
     {//level 1
         {0x3a0f, 0x40},{0x3a10, 0x38},{0x3a11, 0x71},{0x3a1b, 0x40},{0x3a1e, 0x38},{0x3a1f, 0x10},{0xffff, 0xff}
@@ -1511,34 +1593,34 @@ LOCAL uint32_t _ov5640_set_awb(uint32_t mode)
 // Note:
 //        mode 0:normal;   1:night 
 /******************************************************************************/
- LOCAL const SENSOR_REG_T ov5640_work_mode_tab[][6]=
+ LOCAL const SENSOR_REG_T ov5640_work_mode_tab[][7]=
 {
 
-    {    //normal fix 15fps
-            {0x3014, 0x84},   
-            {0x302d, 0x00},
-            {0x302e, 0x00},                    
-            {0xFFFF, 0xFF},
-            {0xFFFF, 0xFF},
-            {0xFFFF, 0xFF}            
+    {    //normal fix 25fps
+            {0x3212, 0x03},
+            {0x3a00, 0x78},   
+            {0x3a14, 0x04},
+            {0x3a15, 0x98},
+            {0x3212, 0x13},
+            {0x3212, 0xa3}, 
+            {0xFFFF, 0xFF}       
     },
-    {    //night min 5-15fps
-            {0x3014, 0x8c},
-            {0x3016, 0x92},                 
-            {0x3015, 0x22}, 
-            {0x302d, 0x00},
-            {0x302e, 0x00},                          
+    {    //night min 12.5-25fps
+            {0x3212, 0x03},   
+            {0x3a00, 0x7c},
+            {0x3a14, 0x09},
+            {0x3a15, 0x30},
+            {0x3212, 0x13},
+            {0x3212, 0xa3},                          
             {0xFFFF, 0xFF}
     }
 };
-#if 0
+
 LOCAL uint32_t _ov5640_set_work_mode(uint32_t mode)
 {
 	uint16_t i=0x00;
 	SENSOR_REG_T_PTR sensor_reg_ptr=(SENSOR_REG_T_PTR)ov5640_work_mode_tab[mode];
-
-	//    SCI_ASSERT(PNULL != sensor_reg_ptr);   /*assert verified*/
-
+	
 	for(i=0; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xFF!=sensor_reg_ptr[i].reg_value); i++)
 	{
 		Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
@@ -1549,7 +1631,6 @@ LOCAL uint32_t _ov5640_set_work_mode(uint32_t mode)
 	SENSOR_PRINT("SENSOR: _ov5640_set_work_mode: mode = %d", mode);
 	return 0;
 }
-#endif
 
 /******************************************************************************/
 // Description:
@@ -1629,6 +1710,7 @@ LOCAL uint32_t _ov5640_BeforeSnapshot(uint32_t param)
 	Sensor_WriteReg(0x350b, Gain + 1);
 	msleep(100);
 	Sensor_WriteReg(0x350b, Gain);
+	msleep(300);
 
 	//  Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_EXPOSURETIME, (uint32)ulCapture_Exposure);
 
@@ -1887,9 +1969,11 @@ LOCAL uint32_t _ov5640_AutoFocusZone(SENSOR_EXT_FUN_T_PTR param_ptr)
 	{
 		Sensor_WriteReg(CMD_PARAM0, ext_ptr->zone.x);
 		Sensor_WriteReg(CMD_PARAM1, ext_ptr->zone.y);
-
+		Sensor_WriteReg(CMD_PARAM2, FOCUS_ZONE_W);
+		Sensor_WriteReg(CMD_PARAM3, FOCUS_ZONE_H);
+		
 		Sensor_WriteReg(CMD_ACK, 0x01);
-		Sensor_WriteReg(CMD_MAIN, 0x81);
+		Sensor_WriteReg(CMD_MAIN, 0x91);
 
 		msleep(10);
 
@@ -6057,7 +6141,7 @@ LOCAL uint32_t _ov5640_ExtFunc(uint32_t ctl_param)
 {
 	uint32_t rtn=SENSOR_SUCCESS;
 	SENSOR_EXT_FUN_T_PTR ext_ptr = (SENSOR_EXT_FUN_T_PTR)ctl_param;
-	printk("SENSOR: _ov5640_ExtFunc cmd:0x%x ",ctl_param);    
+	printk("SENSOR: _ov5640_ExtFunc cmd:0x%x ",ext_ptr->cmd);    
 
 	switch(ext_ptr->cmd)
 	{

@@ -29,6 +29,9 @@
 #include <asm/io.h>
 #include <linux/file.h>
 #include <linux/slab.h>
+#include <mach/clock_common.h>
+#include <linux/clk.h>
+#include <linux/err.h>
 
 #include "scale_sc8800g2.h"
 #include "scale_drv_sc8810.h"
@@ -106,7 +109,60 @@ struct semaphore g_sem;
 static int g_scale_num = 0;//store the time opened.
 static uint32_t g_share_irq = 0xFF; //for share irq handler function
 ZOOM_DMA_BUF g_zoom_dma_buf;	//use it when the zoom buf address is not aligned by 64 words.
+struct clk *g_scale_clk = NULL; //for power manager
 
+static int _SCALE_DriverSetMclk(SCALE_CLK_SEL_E clk_sel)
+{
+    	char *name_parent = NULL;
+    	struct clk *clk_parent = NULL;
+	int ret;
+
+	switch(clk_sel)
+	{
+		case SCALE_CLK_96M:
+			name_parent = "clk_96m";
+			break;
+		case SCALE_CLK_64M:
+			name_parent = "clk_64m";
+			break;		
+		case SCALE_CLK_26M:
+			name_parent = "clk_26m";
+			break;
+		default:
+			name_parent = "clk_48m";
+			break;
+	}
+	
+	clk_parent = clk_get_parent(g_scale_clk);
+	SCALE_PRINT("SCALE:_SCALE_DriverSetMclk,clock[%s]: parent_name: %s.\n", g_scale_clk->name, clk_parent->name);
+	if(strcmp(name_parent, clk_parent->name))
+	{//need to wait the parent
+		clk_parent = clk_get(NULL, name_parent);
+		if(!clk_parent)
+		{
+			SCALE_PRINT_ERR("SCALE:_SCALE_DriverSetMclk,clock[%s]: failed to get parent [%s] by clk_get()!\n", g_scale_clk->name, name_parent);
+			return -EINVAL;
+		}
+
+		ret = clk_set_parent(g_scale_clk, clk_parent);
+		if(ret)
+		{
+			SCALE_PRINT_ERR("SCALE:_SCALE_DriverSetMclk,clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n", g_scale_clk->name, clk_parent->name, g_scale_clk->usecount);
+			return -EINVAL;
+		}		
+	}
+	ret = clk_enable(g_scale_clk);
+	if(ret)
+	{
+		SCALE_PRINT_ERR("SCALE:_SCALE_DriverSetMclk,clock[%s]: clk_enable() failed!\n", g_scale_clk->name);
+	}
+	else
+	{
+		SCALE_PRINT("SCALE:_SCALE_DriverSetMclk, g_scale_clk clk_enable ok.\n");
+	}	
+
+	return 0;	
+}
 #ifdef SCALE_DEBUG //for debug
 void get_scale_reg(void)
 {
@@ -536,8 +592,8 @@ uint32_t _SCALE_DriverInit(void)
 	rtn_drv = _SCALE_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
 	ISP_RTN_IF_ERR(rtn_drv);
 
-	rtn_drv = _SCALE_DriverSetClk(ARM_GLOBAL_PLL_SCR, SCALE_CLK_48M);
-	ISP_RTN_IF_ERR(rtn_drv);
+//	rtn_drv = _SCALE_DriverSetClk(ARM_GLOBAL_PLL_SCR, SCALE_CLK_48M);
+//	ISP_RTN_IF_ERR(rtn_drv);
 
 	return rtn_drv;	
 }
@@ -1430,6 +1486,16 @@ int _SCALE_DriverIOInit(void)
 
 	init_MUTEX(&g_sem);
 	memset(&s_scale_mod, 0, sizeof(ISP_MODULE_T));
+	g_scale_clk = clk_get(NULL, "clk_dcam");
+	if(IS_ERR(g_scale_clk))
+	{
+		SCALE_PRINT_ERR("SCALE: _SCALE_DriverIOInit,Failed: Can't get clock [clk_dcam]!\n");
+		SCALE_PRINT_ERR("SCALE: _SCALE_DriverIOInit,g_scale_clk = %p.\n", g_scale_clk);
+	}
+	else
+	{
+		SCALE_PRINT("SCALE:_SCALE_DriverIOInit, g_scale_clk clk_get ok.g_dcam_clk->parent->usecount: %d.\n", g_scale_clk->parent->usecount);
+	}	
 	s_scale_mod.module_addr = DCAM_REG_BASE;
 
 	g_scale_num++;
@@ -1439,6 +1505,12 @@ int _SCALE_DriverIOInit(void)
      		_SCALE_DriverInit();
 		SCALE_PRINT("SCALE:_SCALE_DriverInit.\n");
      	}
+	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_48M))
+	{
+		SCALE_PRINT_ERR("SCALE:_SCALE_DriverIOInit,Failed to _SCALE_DriverSetMclk!\n");
+		dcam_inc_user_count();
+		return -1;
+	}
 	dcam_inc_user_count();
 
 	return 0;
@@ -1459,6 +1531,15 @@ int _SCALE_DriverIODeinit (void)
 	g_scale_num--;
 
 	//up(&g_sem_cnt);
+
+	if(g_scale_clk)
+	{
+		clk_disable(g_scale_clk);
+		SCALE_PRINT("SCALE:_SCALE_DriverIODeinit,clk_disable ok.\n");
+		clk_put(g_scale_clk);
+		SCALE_PRINT("SCALE: _SCALE_DriverIODeinit clk_put ok.\n");
+		g_scale_clk = NULL;
+	}
 	isp_put_path2();
 
 	return 0;
