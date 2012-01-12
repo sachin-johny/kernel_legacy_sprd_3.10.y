@@ -375,6 +375,7 @@ static void setup_fb_info(struct sc8810fb_info *info)
 	fb->var.xres_virtual = panel->width;
 	fb->var.yres_virtual = panel->height * 2;
 	fb->var.bits_per_pixel = info->bits_per_pixel;
+	fb->var.pixclock = 45000; // fake pixel clock to avoid divide 0
 	fb->var.accel_flags = 0;
 
 	fb->var.yoffset = 0;
