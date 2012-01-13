@@ -53,7 +53,9 @@
 
 static unsigned int debug_quirks = 0;
 
+#ifdef HOT_PLUG_SUPPORTED	
 static struct wake_lock sdhci_detect_lock;
+#endif
 static struct wake_lock sdhci_suspend_lock;
 
 static void sdhci_prepare_data(struct sdhci_host *, struct mmc_data *);
@@ -132,6 +134,7 @@ static void sdhci_mask_irqs(struct sdhci_host *host, u32 irqs)
 	sdhci_clear_set_irqs(host, irqs, 0);
 }
 
+#ifdef HOT_PLUG_SUPPORTED
 int sdcard_present(struct sdhci_host *host)
 {
 	int gpio;
@@ -185,6 +188,7 @@ static void sdhci_disable_card_detection(struct sdhci_host *host)
 {
 	sdhci_set_card_detection(host, false);
 }
+#endif
 
 static void sdhci_reset(struct sdhci_host *host, u8 mask)
 {
@@ -238,7 +242,9 @@ static void sdhci_init(struct sdhci_host *host)
 static void sdhci_reinit(struct sdhci_host *host)
 {
 	sdhci_init(host);
+#ifdef HOT_PLUG_SUPPORTED	
 	sdhci_enable_card_detection(host);
+#endif
 }
 
 static void sdhci_activate_led(struct sdhci_host *host)
@@ -1327,6 +1333,7 @@ static const struct mmc_host_ops sdhci_ops = {
  *                                                                           *
 \*****************************************************************************/
 
+#ifdef HOT_PLUG_SUPPORTED	
 static void sdhci_tasklet_card(unsigned long param)
 {
 	struct sdhci_host *host;
@@ -1358,6 +1365,7 @@ static void sdhci_tasklet_card(unsigned long param)
 
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
 }
+#endif
 
 static void sdhci_tasklet_finish(unsigned long param)
 {
@@ -1715,6 +1723,7 @@ out:
 	return result;
 }
 
+#ifdef HOT_PLUG_SUPPORTED	
 static irqreturn_t sd_detect_irq(int irq, void *dev_id)
 {
 	struct sdhci_host* host = dev_id;
@@ -1731,6 +1740,7 @@ static irqreturn_t sd_detect_irq(int irq, void *dev_id)
 	tasklet_schedule(&host->card_tasklet);
 	return IRQ_HANDLED;
 }
+#endif
 /*****************************************************************************\
  *                                                                           *
  * Suspend/resume                                                            *
@@ -1742,7 +1752,9 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 {
 	int ret;
 
+#ifdef HOT_PLUG_SUPPORTED
 	sdhci_disable_card_detection(host);
+#endif
 	ret = mmc_suspend_host(host->mmc);
 	if (ret){
 		printk("=== wow~ sd card suspend error:%d ===\n", ret);
@@ -1759,8 +1771,6 @@ int sdhci_resume_host(struct sdhci_host *host)
 {
 	int ret;
       
-#ifndef CONFIG_ARCH_SC8810//TODO8810
-#endif
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
 		if (host->ops->enable_dma)
 			host->ops->enable_dma(host);
@@ -1780,8 +1790,9 @@ int sdhci_resume_host(struct sdhci_host *host)
 		return ret;
 	}
 
+#ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
-	
+#endif	
         printk("sdhci_resume_host, done\n");//wong 
 	return 0;
 }
@@ -1821,7 +1832,9 @@ int sdhci_add_host(struct sdhci_host *host)
 	struct mmc_host *mmc;
 	unsigned int caps;
 	struct sprd_host_data *host_data;
+#ifdef HOT_PLUG_SUPPORTED
 	int detect_irq;
+#endif
 	int ret;
 
 	WARN_ON(host == NULL);
@@ -1945,7 +1958,7 @@ int sdhci_add_host(struct sdhci_host *host)
 			host->ops->set_clock && host->ops->get_min_clock)
 		mmc->f_min = host->ops->get_min_clock(host);
 	else
-		mmc->f_min = host->max_clk / 256;
+		mmc->f_min = host->max_clk / 256;//375000Hz
 	mmc->f_max = host->max_clk;
 	
 	mmc->caps = MMC_CAP_SDIO_IRQ;
@@ -2031,8 +2044,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	/*
 	 * Init tasklets.
 	 */
+#ifdef HOT_PLUG_SUPPORTED
 	tasklet_init(&host->card_tasklet,
 		sdhci_tasklet_card, (unsigned long)host);
+#endif
 	tasklet_init(&host->finish_tasklet,
 		sdhci_tasklet_finish, (unsigned long)host);
 
@@ -2044,7 +2059,7 @@ int sdhci_add_host(struct sdhci_host *host)
 		goto untasklet;
 
 	host_data = sdhci_priv(host);
-	/*
+#ifdef HOT_PLUG_SUPPORTED	
 	detect_irq = host_data->detect_irq;
 	if (sdcard_present(host)){
 		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
@@ -2055,7 +2070,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	}
 	if (ret)
 		goto untasklet;
-	*/
+#endif
 	sdhci_init(host);
 
 #ifdef CONFIG_MMC_DEBUG
@@ -2084,18 +2099,23 @@ int sdhci_add_host(struct sdhci_host *host)
 		(host->flags & SDHCI_USE_ADMA) ? "ADMA" :
 		(host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO");
 
+#ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
-
+#endif
 	return 0;
 
 #ifdef SDHCI_USE_LEDS_CLASS
 reset:
 	sdhci_reset(host, SDHCI_RESET_ALL);
 	free_irq(host->irq, host);
+#ifdef HOT_PLUG_SUPPORTED
 	free_irq(detect_irq, host);
 #endif
+#endif
 untasklet:
+#ifdef HOT_PLUG_SUPPORTED	
 	tasklet_kill(&host->card_tasklet);
+#endif
 	tasklet_kill(&host->finish_tasklet);
 
 	return ret;
@@ -2124,8 +2144,9 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 		spin_unlock_irqrestore(&host->lock, flags);
 	}
 
+#ifdef HOT_PLUG_SUPPORTED
 	sdhci_disable_card_detection(host);
-
+#endif
 	mmc_remove_host(host->mmc);
 
 #ifdef SDHCI_USE_LEDS_CLASS
@@ -2138,11 +2159,14 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 	free_irq(host->irq, host);
 
 	host_data = sdhci_priv(host);
+#ifdef HOT_PLUG_SUPPORTED
 	free_irq(host_data->detect_irq, host);
-
+#endif
 	del_timer_sync(&host->timer);
 
+#ifdef HOT_PLUG_SUPPORTED	
 	tasklet_kill(&host->card_tasklet);
+#endif	
 	tasklet_kill(&host->finish_tasklet);
 
 	kfree(host->adma_desc);
@@ -2173,7 +2197,9 @@ static int __init sdhci_drv_init(void)
 		": Secure Digital Host Controller Interface driver\n");
 	printk(KERN_INFO DRIVER_NAME ": Copyright(c) Pierre Ossman\n");
 
+#ifdef HOT_PLUG_SUPPORTED	
         wake_lock_init(&sdhci_detect_lock, WAKE_LOCK_SUSPEND, "mmc_pm_detect");
+#endif
         wake_lock_init(&sdhci_suspend_lock, WAKE_LOCK_SUSPEND, "mmc_pm_suspend");
 
 	return 0;
@@ -2181,7 +2207,9 @@ static int __init sdhci_drv_init(void)
 
 static void __exit sdhci_drv_exit(void)
 {
+#ifdef HOT_PLUG_SUPPORTED	
         wake_lock_destroy(&sdhci_detect_lock);
+#endif
         wake_lock_destroy(&sdhci_suspend_lock);
 }
 

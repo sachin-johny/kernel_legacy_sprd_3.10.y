@@ -38,7 +38,7 @@
 #define     SDIO_BASE_CLK_16M       16000000        // 16 MHz
 #define     SDIO_BASE_CLK_8M        8000000         // 8  MHz
 
-#define SDIO_MAX_CLK  SDIO_BASE_CLK_96M  //40Mhz
+#define SDIO_MAX_CLK  SDIO_BASE_CLK_96M  //96Mhz
 
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
@@ -151,12 +151,13 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	sd_detect_gpio = res ? res->start : -1;
-
+#ifdef HOT_PLUG_SUPPORTED
 	detect_irq = sprd_alloc_gpio_irq(sd_detect_gpio);
         if (detect_irq < 0){
 		dev_err(dev, "cannot alloc detect irq\n");
                 return -1;
 	}
+#endif
 	host_data->detect_irq = detect_irq;
 
 	sdhci_sprd_set_base_clock(SDIO_MAX_CLK);
