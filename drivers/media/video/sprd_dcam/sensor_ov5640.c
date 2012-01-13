@@ -1913,7 +1913,7 @@ LOCAL uint32_t _ov5640_MatchZone(SENSOR_EXT_FUN_T_PTR param_ptr)
 LOCAL uint32_t _ov5640_AutoFocusTrig(SENSOR_EXT_FUN_T_PTR param_ptr)
 {
 	uint32_t rtn=SENSOR_SUCCESS;
-	uint16_t i=0x03;
+	uint16_t i=0x09;
 	uint16_t reg_value=0x00;
 
 	printk("SENSOR: _ov5640_AutoFocusTrig"); 
@@ -1929,7 +1929,7 @@ LOCAL uint32_t _ov5640_AutoFocusTrig(SENSOR_EXT_FUN_T_PTR param_ptr)
 			rtn=SENSOR_FAIL;
 			break ;
 		}
-		msleep(300);        
+		msleep(100);        
 		reg_value=Sensor_ReadReg(CMD_ACK);
 		i--;
 	}while(0x00!=reg_value);

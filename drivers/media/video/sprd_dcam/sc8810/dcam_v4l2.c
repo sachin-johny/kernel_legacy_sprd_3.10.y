@@ -946,16 +946,18 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		case V4L2_CID_FOCUS_AUTO:
 			printk("test focus kernel,param=%d.\n",(uint32_t)ctrl->value);
 
+			if(SENSOR_MAIN != Sensor_GetCurId())
+			{
+				break;
+			}
+
 			if((0 == g_dcam_info.focus_param)&&(1 == ctrl->value))
 			{
 				DCAM_V4L2_PRINT("V4L2: need initial auto firmware!.\n");
 				af_param.cmd = SENSOR_EXT_FUNC_INIT;
 				af_param.param = SENSOR_EXT_FOCUS_TRIG;
-				Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param);
-				if(SENSOR_MAIN == Sensor_GetCurId())
-				{
-					g_dcam_info.focus_param = 1;
-				}
+				Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param);				
+				g_dcam_info.focus_param = 1;				
 			}			
 			af_param.cmd = SENSOR_EXT_FOCUS_START;
 			af_param.param = SENSOR_EXT_FOCUS_TRIG;//(uint32_t)ctrl->value;
