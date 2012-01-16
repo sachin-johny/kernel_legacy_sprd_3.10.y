@@ -74,6 +74,16 @@
 #define SPRD_VSP_PHYS SPRD_MEA_PHYS
 #define SPRD_VSP_SIZE 0x13000   //76k
 
+#define DCAM_CFG_OFF						0x0
+#define DCAM_SRC_SIZE_OFF					0xC
+#define DCAM_ISP_DIS_SIZE_OFF				0x10
+#define DCAM_VSP_TIME_OUT_OFF				0x14
+#define DCAM_INT_STS_OFF					0x20
+#define DCAM_INT_MASK_OFF					0x24
+#define DCAM_INT_CLR_OFF					0x28
+#define DCAM_INT_RAW_OFF					0x2C
+
+
 
 #define SC8800G_VSP_IOCTL_MAGIC 'm'
 #define VSP_CONFIG_FREQ _IOW(SC8800G_VSP_IOCTL_MAGIC, 1, unsigned int)
@@ -82,12 +92,15 @@
 #define VSP_DISABLE     _IO(SC8800G_VSP_IOCTL_MAGIC, 4)
 #define VSP_ACQUAIRE    _IO(SC8800G_VSP_IOCTL_MAGIC, 5)
 #define VSP_RELEASE     _IO(SC8800G_VSP_IOCTL_MAGIC, 6)
-
+#define VSP_START     _IO(SC8800G_VSP_IOCTL_MAGIC, 7)
 
 struct vsp_dev{
     unsigned int freq_div;
     wait_queue_head_t	wait_queue;
     int  condition;  
+    wait_queue_head_t	wait_queue_work;
+    int  condition_work;  	
+    int  vsp_int_status;	
     struct semaphore sem;
     struct clk *vsp_clk; 
 };
@@ -169,7 +182,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 	    case VSP_CONFIG_FREQ:
 	        get_user(dev.freq_div,(int __user *)arg);
 		//force disable clk
-		clk_disable(dev.vsp_clk);
+		clk_disable_force(dev.vsp_clk);
 		//select new parent clk	
 		name_parent =vsp_get_clk_src_name(dev.freq_div);
 		clk_parent = clk_get(NULL, name_parent);
@@ -191,7 +204,7 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		reg_value = (reg_value>>20)&0xf;
 #endif
 #ifdef VSP_SC8800G2
-                reg_value = __raw_readl(SPRD_GREG_PLL_SCR);
+              reg_value = __raw_readl(SPRD_GREG_PLL_SCR);
 		reg_value = (reg_value>>2)&0x3;
 #endif
 		put_user(reg_value,(int __user *)arg);
@@ -277,7 +290,31 @@ static int vsp_ioctl(struct inode *inodep, struct file *filp, unsigned int cmd, 
 		VSP_PRINT("vsp ioctl VSP_RELEASE\n");
 		dev.condition = 1;
 		wake_up_interruptible_nr(&dev.wait_queue,1);
-	    break;	    
+	    break;
+	    case VSP_START:
+		VSP_PRINT("vsp ioctl VSP_START\n");
+		ret = wait_event_interruptible_timeout(dev.wait_queue_work, dev.condition_work, msecs_to_jiffies(VSP_TIMEOUT_MS));
+		if(ret == -ERESTARTSYS){
+		    printk("KERN_ERR vsp error start -ERESTARTSYS\n");
+		    dev.vsp_int_status |= 1<<30;
+		    ret = -EINVAL;	
+		}else if(ret == 0){
+		    printk("KERN_ERR vsp error start  timeout\n");
+		    dev.vsp_int_status |= 1<<31;
+		    ret = -ETIMEDOUT;
+		}else{
+		    ret = 0;
+		}
+		if(ret){
+		//clear vsp int
+			__raw_writel((1<<10)|(1<<12)|(1<<15),SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+		}
+		put_user(dev.vsp_int_status,(int __user *)arg);
+		dev.vsp_int_status = 0;		
+		dev.condition_work = 0;
+		VSP_PRINT("vsp ioctl VSP_START end\n");	       
+	       return ret;
+	    break;	        
 	    default:
 		return -EINVAL;
 	}
@@ -308,6 +345,14 @@ static struct miscdevice vsp_dev = {
 	.fops   = &vsp_fops,
 };
 
+static irqreturn_t vsp_isr(int irq, void *data)
+{
+	dev.vsp_int_status = __raw_readl(SPRD_VSP_BASE+DCAM_INT_STS_OFF);
+	__raw_writel((1<<10)|(1<<12)|(1<<15),SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+	dev.condition_work = 1;
+	wake_up_interruptible(&dev.wait_queue_work);
+	return IRQ_HANDLED;
+}
 
 static int vsp_probe(struct platform_device *pdev)
 {
@@ -324,6 +369,11 @@ static int vsp_probe(struct platform_device *pdev)
 
 	init_waitqueue_head(&dev.wait_queue);
 	dev.condition = 1;	
+
+	init_waitqueue_head(&dev.wait_queue_work);
+	dev.vsp_int_status = 0;		
+	dev.condition_work = 0;
+	
 #ifdef VSP_SC8800H5
 	dev.freq_div = DEFAULT_FREQ_DIV;
 #endif
@@ -349,6 +399,15 @@ static int vsp_probe(struct platform_device *pdev)
 		printk("clock[%s]: clk_set_parent() failed in probe!", dev.vsp_clk->name);
 		return -EINVAL;
 	}	
+
+#if 0
+	/* register isr */
+	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &dev);
+	if (ret) {
+		printk(KERN_ERR "vsp: failed to request irq!\n");
+		return -EINVAL;
+	}
+#endif	
 	return 0;
 }
 
