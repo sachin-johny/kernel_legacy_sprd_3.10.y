@@ -936,12 +936,12 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		case V4L2_CID_HFLIP:  				
 			printk("V4L2:hflip setting.\n.");
 			g_dcam_info.hflip_param = (uint8_t)ctrl->value;				
-		//	Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);				
+			Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);				
 			break;
 		case V4L2_CID_VFLIP:  			
 			printk("V4L2:vflip setting.\n.");
 			g_dcam_info.vflip_param = (uint8_t)ctrl->value;	
-		//	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);		
+			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);		
 			break;
 		case V4L2_CID_FOCUS_AUTO:
 			printk("test focus kernel,param=%d.\n",(uint32_t)ctrl->value);

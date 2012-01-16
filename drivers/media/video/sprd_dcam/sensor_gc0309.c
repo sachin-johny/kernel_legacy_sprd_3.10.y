@@ -408,13 +408,8 @@ SENSOR_REG_T gc0309_YUV_640X480[]=
 	{0xb5,0x00},	
 	{0xba,0x00}, 
 	{0xbb,0x00}, 
-#ifdef CONFIG_ARCH_SC8810
-	{0x14,0x12},  // Mirror UpsideDown 
-#else
-	{0x14,0x11}, 
-#endif
-
-    {SENSOR_WRITE_DELAY, 200},//delay 20ms
+	{0x14,0x10},  // Mirror UpsideDown 
+          {SENSOR_WRITE_DELAY, 200},//delay 20ms
 
     { 0xff,0xff},
 
