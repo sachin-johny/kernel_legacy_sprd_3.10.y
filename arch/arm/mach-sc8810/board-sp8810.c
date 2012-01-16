@@ -425,9 +425,6 @@ static unsigned long bt_func_cfg[] = {
 };
 #endif
 
-static unsigned long gps_pin_cfg[] = {
-	MFP_CFG_X(CLK_AUX0, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_OE),
-};
 
 static struct spi_device *sprd_spi_device_register(int master_bus_num,
 						   struct spi_board_info *chip,
@@ -587,22 +584,48 @@ static void __init chip_init(void)
 }
 void __init eic_init(void);
 
+static unsigned long clk_aux0_pin_cfg_on[] = {
+            MFP_CFG_X(CLK_AUX0, AF0, DS3, F_PULL_NONE, S_PULL_NONE, IO_OE),
+};
 
-void __init gps_hw_config(void)
+static unsigned long clk_aux0_pin_cfg_off[] = {
+            MFP_CFG_X(CLK_AUX0, AF3, DS1, F_PULL_NONE, S_PULL_NONE, IO_Z),
+};
+
+
+void clk_32k_config(int is_on)
 {
 	//config 32k clk_aux0
-	//Initialize gps pin in file pin_map_sc8805.c
-	sprd_mfp_config(gps_pin_cfg, ARRAY_SIZE(gps_pin_cfg));
+    if (is_on){
+        sprd_mfp_config(clk_aux0_pin_cfg_on, ARRAY_SIZE(clk_aux0_pin_cfg_on));
 
-       __raw_bits_and(~(BIT_10|BIT_11),SPRD_GREG_BASE+0x0070);
-	__raw_bits_or(BIT_11,SPRD_GREG_BASE+0x70);
+        __raw_bits_and(~(BIT_10|BIT_11),SPRD_GREG_BASE+0x0070);
+    	__raw_bits_or(BIT_11,SPRD_GREG_BASE+0x70);
 
-	__raw_bits_and(~(0XFF),SPRD_GREG_BASE+0x0018);
-	__raw_bits_or(BIT_10,SPRD_GREG_BASE+0x0018);
+    	__raw_bits_and(~(0XFF),SPRD_GREG_BASE+0x0018);
+    	__raw_bits_or(BIT_10,SPRD_GREG_BASE+0x0018);
 
-	LDO_TurnOnLDO(LDO_BPWIF0);
-	LDO_SetVoltLevel(LDO_BPWIF0,LDO_VOLT_LEVEL2);
+    }
+    else{
+        __raw_bits_and(~BIT_10,SPRD_GREG_BASE+0x0018);
+        sprd_mfp_config(clk_aux0_pin_cfg_off, ARRAY_SIZE(clk_aux0_pin_cfg_off));
+        
+    }
 }
+EXPORT_SYMBOL_GPL(clk_32k_config);
+
+void gps_power_ctl(int is_on)
+{
+    printk("%s is_on=%d\n",__func__,is_on);
+    if (is_on){
+    	LDO_TurnOnLDO(LDO_BPWIF0);
+    	LDO_SetVoltLevel(LDO_BPWIF0,LDO_VOLT_LEVEL2);
+    }
+    else {
+    	LDO_TurnOffLDO(LDO_BPWIF0);
+    }
+}
+EXPORT_SYMBOL_GPL(gps_power_ctl);
 
 extern void sc8810_pin_map_init(void);
 static void __init openphone_init(void)
@@ -624,7 +647,6 @@ static void __init openphone_init(void)
         sprd_wifildo_init();  //WIFI  vreg  ana  and digital
 	sprd_charger_init();
 	sprd_gpu_init();
-	gps_hw_config();
 }
 
 static void __init openphone_map_io(void)
