@@ -489,8 +489,13 @@ LDO_ERR_E LDO_TurnOnLDO(LDO_ID_E ldo_id)
 				__raw_bits_and((~LDO_USB_PD), GR_CLK_GEN5);
 
 		} else {
-			//REG_SETCLRBIT(ctl->bp_rst_reg, ctl->bp_rst, ctl->bp_bits);
-			ANA_REG_OR(ctl->bp_rst_reg, ctl->bp_rst);
+			if (ctl->bp_reg == ctl->bp_rst_reg) {
+				REG_SETCLRBIT(ctl->bp_rst_reg, ctl->bp_rst, ctl->bp_bits);
+			}
+			else {
+				ANA_REG_BIC(ctl->bp_reg, ctl->bp_bits);
+				ANA_REG_OR(ctl->bp_rst_reg, ctl->bp_rst);//high priority
+			}
 		}
 		ctl->current_status = CURRENT_STATUS_ON;
 	}
@@ -518,7 +523,13 @@ EXPORT_SYMBOL_GPL(LDO_TurnOnLDO);
 			if (LDO_LDO_USBD == ldo_id)
 				__raw_bits_or((LDO_USB_PD), GR_CLK_GEN5);
 		} else {
-			REG_SETCLRBIT(ctl->bp_reg, ctl->bp_bits, ctl->bp_rst);
+			if (ctl->bp_reg == ctl->bp_rst_reg) {
+				REG_SETCLRBIT(ctl->bp_reg, ctl->bp_bits, ctl->bp_rst);
+			}
+			else {
+				ANA_REG_BIC(ctl->bp_rst_reg, ctl->bp_rst);//high priority
+				ANA_REG_OR(ctl->bp_reg, ctl->bp_bits);
+			}
 		}
 		ctl->current_status = CURRENT_STATUS_OFF;
 	}
