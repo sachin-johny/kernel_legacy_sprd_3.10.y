@@ -163,7 +163,7 @@ static int eic_get_raw_interrupt(unsigned int config_index);
 static int eic_get_masked_interrupt(unsigned int config_index);
 static int eic_clear_interrupt(unsigned int config_index);
 static int eic_start_trig(unsigned int config_index);	//for the debounce bypass mode, arm can receive int without need of trig plus.
-static void eic_ctrl(unsigned int config_index, unsigned int isDebounceEnable,
+void eic_ctrl(unsigned int config_index, unsigned int isDebounceEnable,
 		     unsigned int debounceMs);
 
 static void sic_set_interrupt(unsigned int config_index, unsigned int enable);
@@ -295,7 +295,7 @@ static int eic_start_trig(unsigned int config_index)
 	return (-1);
 }
 
-static void eic_ctrl(unsigned int config_index, unsigned int isDebounceEnable,
+void eic_ctrl(unsigned int config_index, unsigned int isDebounceEnable,
 		     unsigned int debounceMs)
 {
 	unsigned int value = 0;
@@ -312,6 +312,7 @@ static void eic_ctrl(unsigned int config_index, unsigned int isDebounceEnable,
 	value |= debounceMs;
 	eic_set(&config_data[config_index], value, eic_ctrl_reg[eic_id]);
 }
+EXPORT_SYMBOL(eic_ctrl);
 
 static void sic_set_interrupt(unsigned int config_index, unsigned int enable)
 {
@@ -573,6 +574,7 @@ int sprd_get_eic_data(enum EIC_TYPE_E eic_id)
 	int config_index = __get_config_index(eic_id);
 	return eic_get_data(config_index);
 }
+EXPORT_SYMBOL(sprd_get_eic_data);
 
 /*
 	allocate an irq for eic

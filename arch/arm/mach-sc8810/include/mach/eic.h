@@ -50,4 +50,7 @@ enum EIC_TYPE_E {
 
 extern int sprd_get_eic_data(enum EIC_TYPE_E eic_id);
 extern int sprd_alloc_eic_irq(enum EIC_TYPE_E eic_id);
+extern void sprd_free_eic_irq(int irq);
+extern void eic_ctrl(unsigned int config_index, unsigned int isDebounceEnable,
+		     unsigned int debounceMs);
 #endif
