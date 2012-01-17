@@ -48,6 +48,13 @@ enum EIC_TYPE_E {
 };
 //api end
 
+#define TP_XL_PAD_ID		EIC_ID_8
+#define CHAR_INT_ID			EIC_ID_10
+#define PBINT_ID				EIC_ID_11
+#define HEAD_BUTTON_ID		EIC_ID_12
+#define HEADMIC_DET_ID		EIC_ID_13
+#define CHGR_OVI_ID			EIC_ID_14
+
 extern int sprd_get_eic_data(enum EIC_TYPE_E eic_id);
 extern int sprd_alloc_eic_irq(enum EIC_TYPE_E eic_id);
 extern void sprd_free_eic_irq(int irq);
