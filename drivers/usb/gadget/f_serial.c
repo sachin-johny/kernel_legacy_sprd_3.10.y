@@ -15,6 +15,7 @@
 #include <linux/device.h>
 #include <linux/usb/android_composite.h>
 
+#include <mach/board.h>
 #include "u_serial.h"
 #include "gadget_chips.h"
 
@@ -325,6 +326,8 @@ int __init gser_bind_config(struct usb_configuration *c, u8 port_num)
 	gser->port.func.set_alt = gser_set_alt;
 	gser->port.func.disable = gser_disable;
 	gser->port.func.setup = gser_setup;
+	if (!in_factory_mode())
+		gser->port.func.disabled = 1;
 
 	status = usb_add_function(c, &gser->port.func);
 	if (status)

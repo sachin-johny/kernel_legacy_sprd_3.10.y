@@ -37,6 +37,8 @@
 #include <mach/regs_ahb.h>
 #include <mach/regs_global.h>
 #include <mach/ldo.h>
+#include <mach/eic.h>
+#include <mach/usb.h>
 
 static struct resource sprd_nand_resources[] = {
 	[0] = {
@@ -362,11 +364,12 @@ static void usb_enable_module(int en)
 	if (en){
 		__raw_bits_or(BIT_6, AHB_CTL3);
 		__raw_bits_and(~BIT_9, GR_CLK_GEN5);
-		__raw_bits_or(BIT_5, AHB_CTL0);
+		//__raw_bits_or(BIT_5, AHB_CTL0);
 	}else {
 		__raw_bits_and(~BIT_6, AHB_CTL3);
 		__raw_bits_or(BIT_9, GR_CLK_GEN5);
 		__raw_bits_and(~BIT_5, AHB_CTL0);
+		//clk_disable(usb_clk);
 	}
 }
 static void usb_startup(void)
@@ -381,10 +384,13 @@ static void usb_startup(void)
 	__raw_bits_or(BIT_6, AHB_CTL3);
 
 
-	__raw_bits_or(BIT_7, AHB_SOFT_RST);
-	mdelay(10);
-	__raw_bits_and(~BIT_7, AHB_SOFT_RST);
-	msleep(30);
+	__raw_bits_or(BIT_6|BIT_7, AHB_SOFT_RST);
+	mdelay(5);
+	__raw_bits_and(~(BIT_6|BIT_7), AHB_SOFT_RST);
+	//__raw_bits_and(~BIT_5, AHB_CTL0);
+	__raw_bits_or(BIT_5, AHB_CTL0);
+	//clk_enable(usb_clk);
+	mdelay(5);
 }
 
 void udc_enable(void)
@@ -399,6 +405,52 @@ void udc_disable(void)
 	usb_ldo_switch(0);
 }
 EXPORT_SYMBOL(udc_disable);
+
+static int usb_vbus_irq = 0;
+int usb_alloc_vbus_irq(void)
+{
+	int irq;
+
+	irq = sprd_alloc_eic_irq(EIC_ID_10);//chg_int
+	if (irq < 0) {
+		return -1;
+	}
+
+	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+	usb_vbus_irq = irq;
+	return irq;
+}
+
+void usb_free_vbus_irq(int irq)
+{
+	return sprd_free_eic_irq(irq);
+}
+
+int usb_get_vbus_irq(void)
+{
+	return usb_vbus_irq;
+}
+
+int usb_get_vbus_state(void)
+{
+	int value;
+
+	value = sprd_get_eic_data(EIC_ID_10);
+	return !!value;
+}
+
+void usb_set_vbus_irq_type(int irq, int irq_type)
+{
+	if (irq_type == VBUS_PLUG_IN)
+		set_irq_type(irq, IRQ_TYPE_LEVEL_HIGH);
+	else if (irq_type == VBUS_PLUG_OUT)
+		set_irq_type(irq, IRQ_TYPE_LEVEL_LOW);
+	else {
+		pr_warning("error type for usb vbus\n");
+	}
+
+	return;
+}
 
 static int calibration_mode = false;
 static int __init calibration_start(char *str)
@@ -651,6 +703,7 @@ void __init sprd_charger_init(void)
 	gpio_direction_input(USB_DP_GPIO);
 	gpio_direction_input(USB_DM_GPIO);
 }
+
 void __init sprd_gpu_init(void)
 {
 	__raw_bits_or(BIT_21, AHB_CTL0);

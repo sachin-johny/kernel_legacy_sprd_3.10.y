@@ -218,6 +218,8 @@ dwc_otg_core_if_t *dwc_otg_cil_init(const uint32_t * reg_base_addr)
 	core_if->srp_success = 0;
 	core_if->srp_timer_started = 0;
 
+#if 0
+	in device mode, we don't need workqueue
 	/*
 	 * Create new workqueue and init works
 	 */
@@ -229,7 +231,7 @@ dwc_otg_core_if_t *dwc_otg_cil_init(const uint32_t * reg_base_addr)
 		dwc_free(core_if);
 		return 0;
 	}
-
+#endif
 	core_if->snpsid = dwc_read_reg32(&core_if->core_global_regs->gsnpsid);
 
 	DWC_PRINTF("Core Release: %x.%x%x%x\n",
@@ -243,7 +245,6 @@ dwc_otg_core_if_t *dwc_otg_cil_init(const uint32_t * reg_base_addr)
 		DWC_WARN("DWC_TIMER_ALLOC failed\n");
 		dwc_free(host_if);
 		dwc_free(dev_if);
-		DWC_WORKQ_FREE(core_if->wq_otg);
 		dwc_free(core_if);
 		return 0;
 	}
@@ -268,10 +269,12 @@ void dwc_otg_cil_remove(dwc_otg_core_if_t * core_if)
 	dwc_modify_reg32(&core_if->core_global_regs->gahbcfg, 1, 0);
 	dwc_write_reg32(&core_if->core_global_regs->gintmsk, 0);
 
+/*
 	if (core_if->wq_otg) {
 		DWC_WORKQ_WAIT_WORK_DONE(core_if->wq_otg, 500);
 		DWC_WORKQ_FREE(core_if->wq_otg);
 	}
+*/
 	if (core_if->dev_if) {
 		dwc_free(core_if->dev_if);
 	}
@@ -531,8 +534,8 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 
 		/* core_init() is now called on every switch so only call the
 		 * following for the first time through. */
-		if (!core_if->phy_init_done) {
-			core_if->phy_init_done = 1;
+		//if (!core_if->phy_init_done) {
+		//	core_if->phy_init_done = 1;
 			DWC_DEBUGPL(DBG_CIL, "FS_PHY detected\n");
 			usbcfg.d32 = dwc_read_reg32(&global_regs->gusbcfg);
 			usbcfg.b.physel = 1;
@@ -540,7 +543,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 
 			/* Reset after a PHY select */
 			dwc_otg_core_reset(core_if);
-		}
+		//}
 
 		/* Program DCFG.DevSpd or HCFG.FSLSPclkSel to 48Mhz in FS.      Also
 		 * do this on HNP Dev/Host mode switches (done in dev_init and
@@ -571,8 +574,9 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	else {
 		//sword
 		/* High speed PHY. */
-		if (!core_if->phy_init_done) {
-			core_if->phy_init_done = 1;
+		/* re set phy anyway sword*/
+		//if (!core_if->phy_init_done) {
+		//core_if->phy_init_done = 1;
 			/* HS PHY parameters.  These parameters are preserved
 			 * during soft reset so only program the first time.  Do
 			 * a soft reset immediately after setting phyif.  */
@@ -598,7 +602,7 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 			dwc_write_reg32(&global_regs->gusbcfg, usbcfg.d32);
 			/* Reset after setting the PHY parameters */
 			dwc_otg_core_reset(core_if);
-		}
+		//}
 	}
 
 	if ((core_if->hwcfg2.b.hs_phy_type == 2) &&
@@ -654,9 +658,9 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	}
 	if (core_if->dma_enable) {
 		if (core_if->dma_desc_enable) {
-			DWC_PRINTF("Using Descriptor DMA mode\n");
+			DWC_DEBUGPL(DBG_CIL,"Using Descriptor DMA mode\n");
 		} else {
-			DWC_PRINTF("Using Buffer DMA mode\n");
+			DWC_DEBUGPL(DBG_CIL,"Using Buffer DMA mode\n");
 
 		}
 	} else {
@@ -669,9 +673,9 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 
 	core_if->pti_enh_enable = core_if->core_params->pti_enable != 0;
 	core_if->multiproc_int_enable = core_if->core_params->mpi_enable;
-	DWC_PRINTF("Periodic Transfer Interrupt Enhancement - %s\n",
+	DWC_DEBUGPL(DBG_CIL,"Periodic Transfer Interrupt Enhancement - %s\n",
 		   ((core_if->pti_enh_enable) ? "enabled" : "disabled"));
-	DWC_PRINTF("Multiprocessor Interrupt Enhancement - %s\n",
+	DWC_DEBUGPL(DBG_CIL,"Multiprocessor Interrupt Enhancement - %s\n",
 		   ((core_if->multiproc_int_enable) ? "enabled" : "disabled"));
 
 	/*
@@ -3639,7 +3643,6 @@ void dwc_otg_core_reset(dwc_otg_core_if_t * core_if)
 	/* Core Soft Reset */
 	count = 0;
 	greset.b.csftrst = 1;
-	DWC_INFO("greset %x\r\n", greset.d32);
 	dwc_write_reg32(&global_regs->grstctl, greset.d32);
 	do {
 		greset.d32 = dwc_read_reg32(&global_regs->grstctl);
@@ -3648,15 +3651,13 @@ void dwc_otg_core_reset(dwc_otg_core_if_t * core_if)
 				 __func__, greset.d32);
 			break;
 		}
-		//dwc_udelay(1);
-		//sword
-		dwc_mdelay(1);
+		dwc_udelay(1);
 	}
 	while (greset.b.csftrst == 1);
 
 	/* Wait for 3 PHY Clocks */
-	/* orignal 100ms is too long, change to 5ms, sword */
-	dwc_mdelay(5);
+	/* orignal 100ms is too long, change to 1ms, sword */
+	dwc_mdelay(1);
 }
 
 uint8_t dwc_otg_is_device_mode(dwc_otg_core_if_t * _core_if)

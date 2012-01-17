@@ -63,7 +63,7 @@
 # include <linux/irq.h>
 
 #include <asm/io.h>
-#include <mach/board.h>
+#include <mach/usb.h>
 
 
 #include "dwc_os.h"
@@ -515,6 +515,8 @@ static int set_parameters(dwc_otg_core_if_t * core_if)
  * (Device and host modes) interrupts.
  */
 static irqreturn_t dwc_otg_common_irq(int irq, void *dev)
+	__attribute__((unused));
+static irqreturn_t dwc_otg_common_irq(int irq, void *dev)
 {
 	dwc_otg_device_t *otg_dev = dev;
 	int32_t retval = IRQ_NONE;
@@ -646,7 +648,8 @@ static int dwc_otg_driver_probe(
 	 * Map the DWC_otg Core memory into virtual address space.
 	 */
 
-	dwc_otg_device->base = platform_get_resource(_dev, IORESOURCE_MEM, 0)->start;
+	dwc_otg_device->base = (void *)platform_get_resource(_dev,
+						IORESOURCE_MEM, 0)->start;
 
 	if (!dwc_otg_device->base) {
 		dev_err(&_dev->dev, "ioremap() failed\n");

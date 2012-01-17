@@ -38,6 +38,8 @@
 #include <linux/usb/android_composite.h>
 
 #include <linux/sched.h>
+#include <mach/board.h>
+
 #define BULK_BUFFER_SIZE           4096
 
 /* number of tx requests to allocate */
@@ -608,7 +610,7 @@ static int vser_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl
 		switch (ctrl->bRequest) {
 		case 0x22:
 			value = 0;
-			if ((w_value && 0xff) == 1)
+			if ((w_value & 0xff) == 1)
 				port_open = true;
 			break;
 		}
@@ -672,7 +674,8 @@ static int vser_bind_config(struct usb_configuration *c)
 	dev->function.set_alt = vser_function_set_alt;
 	dev->function.disable = vser_function_disable;
 	dev->function.setup = vser_setup;
-
+	if (!in_factory_mode())
+		dev->function.disabled = 1;
 
 	/* _vser_dev must be set before calling usb_gadget_register_driver */
 	_vser_dev = dev;

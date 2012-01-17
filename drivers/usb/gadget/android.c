@@ -337,6 +337,13 @@ void android_enable_function(struct usb_function *f, int enable)
 					|| !strcmp(func->name, "mtp")) {
 					usb_function_set_enabled(func, !enable);
 				}
+				/* for vendor serial and genral serial, we simply disable
+				 * them, app will setting them according their status;
+				 */
+				if (!strcmp(func->name, "vser")
+					|| !strcmp(func->name, "gser")) {
+					usb_function_set_enabled(func, 0);
+				}
 			}
 		}
 #endif

@@ -73,16 +73,18 @@ static dwc_otg_pcd_ep_t *get_ep_from_handle(dwc_otg_pcd_t * pcd, void *handle)
 	return NULL;
 }
 
-static void noinline dump_log(char * buf, int len, int direction)
+static void noinline dump_log(unsigned char * buf, int len, int direction)
 {
 #ifdef DEBUG
 	int i = 0;
 
-	trace_printk("**log_buf :%s data...\r\n", (direction ? "in" : "out"));
+	trace_printk("**log_buf :%s len:%d\n", (direction ? "in" : "out"), len);
 	if (len > 64)
 		len = 64;
-	for (i = 0; i < len; i++)	{
-		trace_printk("%2x\r\n", *((unsigned char*)buf+i) );
+	for (i = 0; i < len; i += 4)	{
+		trace_printk("%02x %02x %02x %02x\n",
+			     buf[i],buf[i+1],buf[i+2],buf[i+3]
+			     );
 	}
 #endif
 }
@@ -104,14 +106,16 @@ void dwc_otg_request_done(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req,
 	if (GET_CORE_IF(ep->pcd)->dma_enable){
 		if (req->mapped) {
 			dma_unmap_single(NULL, req->dma, req->length,
-					(ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
-					 DMA_FROM_DEVICE);
+					(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+					((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+					 DMA_FROM_DEVICE));
 			req->dma = DMA_ADDR_INVALID;
 			req->mapped = 0;
 		} else {
 			dma_sync_single_for_cpu(NULL, req->dma, req->length,
-					(ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
-					DMA_FROM_DEVICE);
+					(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+					((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+					 DMA_FROM_DEVICE));
 		}
 	}
 
@@ -1542,7 +1546,7 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 
 	ep = get_ep_from_handle(pcd, ep_handle);
 	if ((!ep->desc && ep->dwc_ep.num != 0)) {
-		DWC_WARN("bad ep\n");
+		DWC_WARN("bad ep %p  num :%d\n", ep->desc, ep->dwc_ep.num);
 		return -DWC_E_INVALID;
 	}
 
@@ -1572,13 +1576,15 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 			req->dma = dma_map_single(NULL,
 				buf,
 				buflen,
-				ep->dwc_ep.is_in ? DMA_TO_DEVICE :
-				DMA_FROM_DEVICE);
+				(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+				((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+				 DMA_FROM_DEVICE));
 			req->mapped = 1;
 		} else {
 			dma_sync_single_for_device(NULL, req->dma, req->length,
-				(ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
-				DMA_FROM_DEVICE);
+				(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+				((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+				 DMA_FROM_DEVICE));
 			req->mapped = 0;
 		}
 	}

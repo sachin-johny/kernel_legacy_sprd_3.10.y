@@ -89,6 +89,7 @@ static ssize_t enable_store(
 	int value;
 
 	sscanf(buf, "%d", &value);
+	pr_info("%s function :%s\n",(!!value ? "enable" : "disable"), f->name);
 	if (driver->enable_function)
 		driver->enable_function(f, value);
 	else
@@ -747,6 +748,8 @@ static int get_string(struct usb_composite_dev *cdev,
 				return len;
 		}
 		list_for_each_entry(f, &c->functions, list) {
+			if (f->disabled)
+				continue;
 			if (!f->strings)
 				continue;
 			len = lookup_string(f->strings, buf, language, id);
@@ -1285,25 +1288,6 @@ composite_uevent(struct device *dev, struct kobj_uevent_env *env)
 		return -ENOMEM;
 	return 0;
 }
-
-#if 0
-static int
-composite_uevent(struct device *dev, struct kobj_uevent_env *env)
-{
-	struct usb_function *f = dev_get_drvdata(dev);
-
-	if (!f) {
-		/* this happens when the device is first created */
-		return 0;
-	}
-
-	if (add_uevent_var(env, "FUNCTION=%s", f->name))
-		return -ENOMEM;
-	if (add_uevent_var(env, "ENABLED=%d", !f->disabled))
-		return -ENOMEM;
-	return 0;
-}
-#endif
 
 /*-------------------------------------------------------------------------*/
 

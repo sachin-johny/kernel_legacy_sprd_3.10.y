@@ -142,7 +142,7 @@
 #define	gadget_is_sprd(g)	0
 #endif
 
-#ifdef CONFIG_USB_GADGET_SC8800G
+#ifdef CONFIG_USB_GADGET_SPRD_DWC
 #define	gadget_is_sprd_otg(g)	!strcmp("dwc_otg", (g)->name)
 #else
 #define	gadget_is_sprd_otg(g)	0

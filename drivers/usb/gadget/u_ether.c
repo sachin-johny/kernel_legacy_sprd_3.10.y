@@ -95,7 +95,8 @@ struct eth_dev {
 
 #ifdef CONFIG_USB_GADGET_DUALSPEED
 
-static unsigned qmult = 5;
+//static unsigned qmult = 5;
+static unsigned qmult = 12;
 module_param(qmult, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(qmult, "queue length multiplier at high speed");
 
@@ -392,7 +393,10 @@ static int prealloc(struct list_head *list, struct usb_ep *ep, unsigned n)
 	while (i--) {
 		req = usb_ep_alloc_request(ep, GFP_ATOMIC);
 		if (!req)
+		{
+			printk(KERN_ERR "%s@%d: usb_ep_alloc_request fail: %d\n", __func__, __LINE__, i);
 			return list_empty(list) ? -ENOMEM : 0;
+		}
 		list_add(&req->list, list);
 	}
 	return 0;
@@ -421,10 +425,16 @@ static int alloc_requests(struct eth_dev *dev, struct gether *link, unsigned n)
 	spin_lock(&dev->req_lock);
 	status = prealloc(&dev->tx_reqs, link->in_ep, n);
 	if (status < 0)
+	{
+		ERROR(dev, "fail to alloc in_ep\n");
 		goto fail;
+	}
 	status = prealloc(&dev->rx_reqs, link->out_ep, n);
 	if (status < 0)
+	{
+		ERROR(dev, "fail to alloc out_ep\n");
 		goto fail;
+	}
 	goto done;
 fail:
 	DBG(dev, "can't alloc requests\n");

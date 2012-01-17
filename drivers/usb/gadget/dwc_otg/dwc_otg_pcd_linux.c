@@ -80,9 +80,6 @@
 #include "dwc_otg_pcd.h"
 #include "dwc_otg_dbg.h"
 
-#if defined(CONFIG_ARCH_SC8810)
-#include <mach/eic.h>
-#endif
 static struct gadget_wrapper {
 	dwc_otg_pcd_t *pcd;
 
@@ -113,10 +110,7 @@ static struct wake_lock usb_wake_lock;
 static DEFINE_SPINLOCK(udc_lock);
 
 #define CABLE_TIMEOUT		(HZ*2)
-#define CABLE_TIMEOUT_FACTORY	(HZ*15)
-static int cable_timeout = CABLE_TIMEOUT;
-
-extern int in_factory_mode(void);
+#define CABLE_TIMEOUT_FACTORY	(HZ*10)
 
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
@@ -310,6 +304,10 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 				      usb_req->length, usb_req->zero, usb_req,
 				      gfp_flags == GFP_ATOMIC ? 1 : 0);
 	if (retval) {
+		pr_err("%s, cannot enqueue a renquest, err :%d\n", __func__,
+			retval);
+		pr_info( "%s queue req %p, len %d buf %p\n",
+			    usb_ep->name, usb_req, usb_req->length, usb_req->buf);
 		return -EINVAL;
 	}
 
@@ -563,6 +561,11 @@ static int test_lpm_enabled(struct usb_gadget *gadget)
  * the device is suspended, remote wakeup signaling is started.
  *
  */
+/*
+ * currently we don't need remote wakeup, for it will cause USBCV
+ * test fail;
+ */
+static int wakeup(struct usb_gadget *gadget)__attribute__((unused));
 static int wakeup(struct usb_gadget *gadget)
 {
 	struct gadget_wrapper *d;
@@ -580,6 +583,9 @@ static int wakeup(struct usb_gadget *gadget)
 
 extern void dwc_otg_pcd_stop(dwc_otg_pcd_t *pcd);
 
+static void __udc_startup(void);
+static void __udc_shutdown(void);
+
 static int pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct gadget_wrapper *d;
@@ -591,21 +597,25 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		d = container_of(gadget, struct gadget_wrapper, gadget);
 
 	local_irq_save(flags);
-	if (!d->enabled || !d->udc_startup){
+	if (!d->enabled || !d->vbus){
 		is_on = 0;
 	}
 	local_irq_restore(flags);
+	spin_lock(&udc_lock);
 	if(is_on) {
-		dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
+	//	dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
+		__udc_startup();
 	} else {
-		dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
-		dwc_otg_pcd_stop(d->pcd);
+	//	dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
+	//	dwc_otg_pcd_stop(d->pcd);
+		__udc_shutdown();
 	}
+	spin_unlock(&udc_lock);
 	return 0;
 }
 static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 	.get_frame = get_frame_number,
-	.wakeup = wakeup,
+	//.wakeup = wakeup,
 #ifdef CONFIG_USB_DWC_OTG_LPM
 	.lpm_support = test_lpm_enabled,
 #endif
@@ -613,6 +623,7 @@ static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 	// current versions must always be self-powered
 };
 
+static int timer_started = 0;
 static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 {
 	int retval = -DWC_E_NOT_SUPPORTED;
@@ -622,6 +633,11 @@ static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 				 *)bytes);
 	}
 
+	if (timer_started) {
+		//we need timer out right now, for we know cable must be usb;
+		timer_started = 0;
+		mod_timer_pending(&gadget_wrapper->cable_timer, jiffies + HZ);
+	}
 	trace_printk("setup res val: %d\n", retval);
 	//sword
 	//if (retval == -ENOTSUPP) {
@@ -991,6 +1007,7 @@ static void __udc_startup(void)
 
 	d = gadget_wrapper;
 
+	pr_info("USB:startup udc\n");
 	if (!d->udc_startup) {
 		wake_lock(&usb_wake_lock);
 		udc_enable();
@@ -1007,6 +1024,7 @@ static void __udc_shutdown(void)
 
 	d = gadget_wrapper;
 
+	pr_info("USB:shutdown udc\n");
 	if (d->udc_startup) {
 		dwc_otg_pcd_stop(d->pcd);
 		udc_disable();
@@ -1048,6 +1066,9 @@ int dwc_udc_state(void)
 static struct usb_hotplug_callback *hotplug_cb;
 static void hotplug_callback(int event, int usb_cable)
 {
+	if (unlikely(!hotplug_cb || !hotplug_cb->plugin))
+		pr_warning("%s, hotplug call back is not registered\n",
+			__func__);
 	switch (event) {
 	case PLUG_IN:
 		if (hotplug_cb && hotplug_cb->plugin)
@@ -1090,8 +1111,9 @@ static void usb_detect_works(struct work_struct *work)
 	spin_lock(&udc_lock);
 	if (plug_in){
 		pr_info("usb detect plug in,vbus pull up\n");
+		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
+		timer_started = 1;
 		__udc_startup();
-		mod_timer(&d->cable_timer, jiffies + cable_timeout);
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
 		del_timer(&d->cable_timer);
@@ -1115,18 +1137,14 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 		pr_info("too early, no gadget drive\n");
 		return IRQ_HANDLED;
 	}
-#if defined(CONFIG_ARCH_SC8810)
-	value = sprd_get_eic_data(EIC_ID_10);
-#else
-	value = gpio_get_value(CHARGER_DETECT_GPIO);
-#endif
 
+	value = usb_get_vbus_state();
 	if (value){
 		pr_debug("usb detect plug in\n");
-		set_irq_type(irq, IRQF_TRIGGER_LOW);
+		usb_set_vbus_irq_type(irq, VBUS_PLUG_OUT);
 	} else {
 		pr_debug("usb detect plug out\n");
-		set_irq_type(irq, IRQF_TRIGGER_HIGH);
+		usb_set_vbus_irq_type(irq, VBUS_PLUG_IN);
 	}
 
 	d->vbus = value;
@@ -1139,26 +1157,22 @@ static void enumeration_enable(void)
 {
 	int plug_irq;
 	struct gadget_wrapper *d;
+
 	pr_info("enable usb enumeration\n");
-#if defined(CONFIG_ARCH_SC8810)
 	d = gadget_wrapper;
-	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
-#else
-	d = gadget_wrapper;
-	plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
+	plug_irq = usb_get_vbus_irq();
 	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
 	enable_irq(plug_irq);
-#endif
+
 	return;
 }
 
 static int cable_is_connected(void)
 {
-#if defined(CONFIG_ARCH_SC8810)
-	return sprd_get_eic_data(EIC_ID_10);
-#else
- 	return gpio_get_value(CHARGER_DETECT_GPIO) ? 1 : 0;
-#endif
+	if (usb_get_vbus_state())
+		return 1;
+	else
+		return 0;
 }
 
 /*
@@ -1166,11 +1180,28 @@ static int cable_is_connected(void)
  * ac adapter calbe, we disable udc for lowering the
  * power.
  */
+#define REENUM_CNT  1
 static void cable_detect_handler(unsigned long data)
 {
 	int usb_cable;
+	static int reenum_cnt = REENUM_CNT;
 	usb_cable = cable_is_usb();
 
+	/* in factory mode, we know the cable must be usb, so we enumerate
+	 * again
+	 */
+	if (in_factory_mode() && !usb_cable && reenum_cnt){
+		pr_info("try usb enumertation again\n");
+		reenum_cnt--;
+		spin_lock(&udc_lock);
+		__udc_shutdown();
+		mod_timer(&gadget_wrapper->cable_timer, jiffies +
+				CABLE_TIMEOUT_FACTORY);
+		timer_started = 1;
+		__udc_startup();
+		spin_unlock(&udc_lock);
+		return;
+	}
 	hotplug_callback(PLUG_IN, usb_cable);
 
 	spin_lock(&udc_lock);
@@ -1197,9 +1228,6 @@ int pcd_init(
 	int plug_irq;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
-
-	if (in_factory_mode())
-		cable_timeout = CABLE_TIMEOUT_FACTORY;
 
 	wake_lock_init(&usb_wake_lock, WAKE_LOCK_SUSPEND, "usb_work");
 	wake_lock(&usb_wake_lock);
@@ -1240,23 +1268,17 @@ int pcd_init(
 	 * setup usb cable detect interupt
 	 */
 	{
-#if defined(CONFIG_ARCH_SC8810)
-		plug_irq = sprd_alloc_eic_irq(EIC_ID_10);//CHG_INT
-		set_irq_type(plug_irq, IRQ_TYPE_LEVEL_HIGH);
+		plug_irq = usb_alloc_vbus_irq();
+		if (plug_irq < 0) {
+			pr_warning("cannot alloc vbus irq\n");
+			return -EBUSY;
+		}
+		usb_set_vbus_irq_type(plug_irq, VBUS_PLUG_IN);
 
-		pr_debug("usb detect irq:%d gpio level %d\n", plug_irq,
-				sprd_get_eic_data(EIC_ID_10));
-		gadget_wrapper->vbus = sprd_get_eic_data(EIC_ID_10);
-#else
-		plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
-		gpio_set_hw_debounce(CHARGER_DETECT_GPIO, 200);
-		pr_debug("usb detect irq:%d gpio level %d\n", plug_irq,
-				gpio_get_value(CHARGER_DETECT_GPIO));
-		gadget_wrapper->vbus = gpio_get_value(CHARGER_DETECT_GPIO);
-
-#endif	
-		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED |
-				IRQF_TRIGGER_HIGH, "usb detect", otg_dev->pcd);
+		gadget_wrapper->vbus = usb_get_vbus_state();
+		pr_info("now usb vbus is :%d\n", gadget_wrapper->vbus);
+		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED,
+				"usb detect", otg_dev->pcd);
 	}
 
 	INIT_WORK(&gadget_wrapper->detect_work, usb_detect_works);
@@ -1297,6 +1319,7 @@ struct platform_device *_dev
 {
 	dwc_otg_device_t *otg_dev = platform_get_drvdata(_dev);
 	dwc_otg_pcd_t *pcd = otg_dev->pcd;
+	int plug_irq;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
 
@@ -1304,6 +1327,8 @@ struct platform_device *_dev
 	 * Free the IRQ
 	 */
 	//free_irq(_dev->irq, pcd);
+	plug_irq = usb_get_vbus_irq();
+	usb_free_vbus_irq(plug_irq);
 	dwc_otg_pcd_remove(pcd);
 	destroy_workqueue(gadget_wrapper->detect_wq);
 	wake_lock_destroy(&usb_wake_lock);
