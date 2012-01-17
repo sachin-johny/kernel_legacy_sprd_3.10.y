@@ -1139,10 +1139,10 @@ static void enumeration_enable(void)
 {
 	int plug_irq;
 	struct gadget_wrapper *d;
-
 	pr_info("enable usb enumeration\n");
 #if defined(CONFIG_ARCH_SC8810)
-	//TODO? //Mingwei
+	d = gadget_wrapper;
+	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
 #else
 	d = gadget_wrapper;
 	plug_irq = gpio_to_irq(CHARGER_DETECT_GPIO);
