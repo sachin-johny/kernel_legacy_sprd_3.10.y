@@ -633,7 +633,7 @@ static void __init openphone_init(void)
 	chip_init();
 	ADI_init();
 	LDO_Init();
-	//sc8810_pin_map_init();
+	sc8810_pin_map_init();
 	sprd_i2c_init();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();

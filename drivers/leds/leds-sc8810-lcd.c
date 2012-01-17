@@ -114,7 +114,7 @@ static void sprd_led_enable(struct sprd_lcd_led *led)
     ANA_REG_AND (WHTLED_CTL, ~ (WHTLED_PD_SET|WHTLED_PD_RST));
     ANA_REG_OR (WHTLED_CTL, WHTLED_PD_RST);
 #else
-	gpio_set_value(143, 1);
+//	gpio_set_value(143, 1);
 #endif
 	LCD_SetBackLightBrightness(led->value);
 
@@ -132,7 +132,7 @@ static void sprd_led_disable(struct sprd_lcd_led *led)
     ANA_REG_AND (WHTLED_CTL, ~ (WHTLED_PD_SET|WHTLED_PD_RST));
     ANA_REG_OR (WHTLED_CTL, WHTLED_PD_SET);
 #else
-		gpio_set_value(143, 0);
+//		gpio_set_value(143, 0);
 #endif
 	LCD_SetBackLightBrightness(led->value);
 
