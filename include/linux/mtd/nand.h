@@ -402,6 +402,9 @@ struct nand_chip {
 	unsigned long  (*nfc_wr_oob)(struct mtd_info *mtd);
 	char  		flashname[100];
 #endif
+#ifdef CONFIG_MTD_NAND_SC8810
+	char  		flashname[100];
+#endif
 
 	int		chip_delay;
 	unsigned int	options;

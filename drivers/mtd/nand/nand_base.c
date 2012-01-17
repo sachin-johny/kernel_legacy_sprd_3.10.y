@@ -3191,7 +3191,7 @@ static struct nand_flash_dev *nand_get_flash_type(struct mtd_info *mtd,
 	if (mtd->writesize > 512 && chip->cmdfunc == nand_command)
 		chip->cmdfunc = nand_command_lp;
 
-#ifdef CONFIG_MTD_NAND_SPRD
+#ifdef CONFIG_MTD_NAND_SC8810
 
 	sprintf(chip->flashname, "NAND device: Manufacturer ID:"
 	       " 0x%02x, Chip ID: 0x%02x (%s %s)\n", *maf_id, dev_id,

@@ -669,7 +669,7 @@ static inline int mtd_proc_info(char *buf, struct mtd_info *this)
 		       this->erasesize, this->name);
 }
 
-#ifdef CONFIG_MTD_NAND_SPRD
+#ifdef CONFIG_MTD_NAND_SC8810
 struct mtd_part {
 	struct mtd_info mtd;
 	struct mtd_info *master;
@@ -679,18 +679,105 @@ struct mtd_part {
 
 #define PART(x)  ((struct mtd_part *)(x))
 
+static inline int my_atoi(const char *name)
+{
+    int val = 0;
+
+    for (;; name++) {
+	switch (*name) {
+	    case '0' ... '9':
+		val = 10*val+(*name-'0');
+		break;
+	    default:
+		return val;
+	}
+    }
+}
+
+static inline int get_remaining_block(char *buf, int goodblk, int badblk, unsigned long erasesize)
+{
+    	char* pos;
+    	int pos_len;
+    	char number[8];
+    	int nandsize;
+	int remainsize;
+	int reserved = 0;
+
+    	pos = strstr(buf, "MiB");
+    	if (pos == 0)
+		return 0;
+
+    	pos_len = 0;
+    	while (*pos != ' ') {
+		pos --;
+		pos_len ++;
+    	}
+
+    	pos ++;
+    	pos_len --;
+    	memset(number, 0, 8);
+    	strncpy(number, pos, pos_len);
+    	nandsize = my_atoi(number);
+
+	remainsize = (nandsize * 1024 * 1024) - ((goodblk + badblk) * erasesize);
+
+	while ((reserved * erasesize) < remainsize)
+		reserved ++;
+
+    	return reserved;  
+}
+
+static inline int mtd_nand_block_info (struct mtd_info *mtd, int *goodblock)
+{
+	int badblock = 0;
+	loff_t offs;
+	
+	for (offs = 0; offs < mtd->size; offs += mtd->erasesize) {
+		if (mtd->block_isbad(mtd, offs) == 1)	
+			badblock ++;
+		else
+			(*goodblock) ++;
+	}
+
+	return badblock;
+}
+
 #endif
 
 static int mtd_read_proc (char *page, char **start, off_t off, int count,
 			  int *eof, void *data_unused)
 {
 	struct mtd_info *mtd;
-	int len, l;
+	int len, l, i=0;
         off_t   begin = 0;
+
+#ifdef CONFIG_MTD_NAND_SC8810
+	int good = 0, bad = 0, reserved = 0;
+	struct mtd_info *this;
+	struct mtd_part *part;
+	struct mtd_info *master;
+	struct nand_chip *chipinfo;
+
+	for (i=0; i< MAX_MTD_DEVICES; i++) {
+		this = mtd_table[i];
+		if (this != NULL)
+			bad += mtd_nand_block_info(this, &good);
+        }
+#endif
 
 	mutex_lock(&mtd_table_mutex);
 
+#ifdef CONFIG_MTD_NAND_SC8810
+	this = mtd_table[0];
+	part = PART(this);
+	master = part->master;
+	chipinfo = master->priv;
+
+	reserved = get_remaining_block(chipinfo->flashname, good, bad, this->erasesize);
+	len = sprintf(page, "%sGood Block: %d  Bad Block: %d  Reserved Block: %d\ndev:    size   erasesize  name\n", chipinfo->flashname, good, bad, reserved);
+#else
 	len = sprintf(page, "dev:    size   erasesize  name\n");
+#endif
 	mtd_for_each_device(mtd) {
 		l = mtd_proc_info(page + len, mtd);
                 len += l;
