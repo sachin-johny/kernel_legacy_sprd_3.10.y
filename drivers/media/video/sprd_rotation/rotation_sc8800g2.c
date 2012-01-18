@@ -534,6 +534,8 @@ void rotation_exit(void)
 	printk(KERN_INFO "rotation_exit called !\n");
 	platform_driver_unregister(&rotation_driver);
 	mutex_destroy(lock);
+	kfree(lock);//wxz20120118: free the mutex lock
+	lock = NULL;
 }
 
 module_init(rotation_init);

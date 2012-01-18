@@ -1691,6 +1691,8 @@ void scale_exit(void)
 {
 	platform_driver_unregister(&scale_driver);
 	mutex_destroy(lock);
+	kfree(lock);//wxz20120118: free the mutex lock
+	lock = NULL;
 }
 
 module_init(scale_init);

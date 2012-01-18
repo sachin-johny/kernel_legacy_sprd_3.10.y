@@ -1089,7 +1089,11 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 		else if(1 == streamparm->parm.raw_data[198])
 		{			
 			sensor_id = 1;
-		}			
+		}
+		else if(5 == streamparm->parm.raw_data[198]) //wxz20120118: for ATV sensor
+		{			
+			sensor_id = 5;
+		}
 	}
 	else
 	{		
@@ -1586,7 +1590,7 @@ void dcam_cb_ISRCapFifoOF(void)
 }
 void dcam_cb_ISRSensorLineErr(void)
 {
-	//dcam_error_handle(g_fh);
+	dcam_error_handle(g_fh);
 }
 void dcam_cb_ISRSensorFrameErr(void)
 {	
@@ -2070,6 +2074,8 @@ void dcam_v4l2_exit(void)
 {
 	platform_driver_unregister(&dcam_driver);
 	mutex_destroy(lock);
+	kfree(lock);//wxz20120118: free the mutex lock
+	lock = NULL;
 	release();
 }
 
