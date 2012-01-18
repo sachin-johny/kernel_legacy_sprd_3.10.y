@@ -102,10 +102,6 @@ static struct gadget_wrapper {
 	int vbus;
 } *gadget_wrapper;
 
-enum {
-	PLUG_IN,
-	PLUG_OUT
-};
 static struct wake_lock usb_wake_lock;
 static DEFINE_SPINLOCK(udc_lock);
 
@@ -1070,11 +1066,11 @@ static void hotplug_callback(int event, int usb_cable)
 		pr_warning("%s, hotplug call back is not registered\n",
 			__func__);
 	switch (event) {
-	case PLUG_IN:
+	case VBUS_PLUG_IN:
 		if (hotplug_cb && hotplug_cb->plugin)
 			hotplug_cb->plugin(usb_cable, hotplug_cb->data);
 		break;
-	case PLUG_OUT:
+	case VBUS_PLUG_OUT:
 		if (hotplug_cb && hotplug_cb->plugout)
 			hotplug_cb->plugout(usb_cable, hotplug_cb->data);
 		break;
@@ -1119,7 +1115,7 @@ static void usb_detect_works(struct work_struct *work)
 		del_timer(&d->cable_timer);
 		__udc_shutdown();
 		if (need_notify) {
-			hotplug_callback(PLUG_OUT, cable_is_usb());
+			hotplug_callback(VBUS_PLUG_OUT, cable_is_usb());
 			need_notify = 0;
 		}
 	}
@@ -1202,7 +1198,7 @@ static void cable_detect_handler(unsigned long data)
 		spin_unlock(&udc_lock);
 		return;
 	}
-	hotplug_callback(PLUG_IN, usb_cable);
+	hotplug_callback(VBUS_PLUG_IN, usb_cable);
 
 	spin_lock(&udc_lock);
 	need_notify = 1;

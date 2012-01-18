@@ -36,4 +36,5 @@ extern void sprd_free_gpio_irq(int irq);
 #include <asm-generic/gpio.h>
 
 extern void __init sprd_gpio_init(void);
+extern void gpio_set_hw_debounce(unsigned int gpio, u8 period);
 #endif

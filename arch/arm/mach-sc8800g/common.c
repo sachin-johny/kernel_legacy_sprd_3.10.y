@@ -37,6 +37,7 @@
 #include <mach/regs_ahb.h>
 #include <mach/regs_global.h>
 #include <mach/ldo.h>
+#include <mach/usb.h>
 
 static struct resource sprd_nand_resources[] = {
 	[0] = {
@@ -376,11 +377,9 @@ static void usb_startup(void)
 	__raw_bits_or(BIT_6, AHB_CTL3);
 
 
-	//__raw_bits_or(BIT_6|BIT_7, AHB_SOFT_RST);
-	//__raw_bits_or(BIT_7, AHB_SOFT_RST);
-	//mdelay(5);
-	//__raw_bits_and(~(BIT_6 | BIT_7), AHB_SOFT_RST);
-	//__raw_bits_and(~(BIT_7), AHB_SOFT_RST);
+	__raw_bits_or(BIT_6|BIT_7, AHB_SOFT_RST);
+	mdelay(5);
+	__raw_bits_and(~(BIT_6 | BIT_7), AHB_SOFT_RST);
 	//   __raw_bits_or(BIT_5, AHB_CTL0);
 	clk_enable(usb_clk);
 	mdelay(5);
@@ -398,6 +397,63 @@ void udc_disable(void)
 	usb_ldo_switch(0);
 }
 EXPORT_SYMBOL(udc_disable);
+
+static int usb_vbus_irq = 0;
+int usb_alloc_vbus_irq(void)
+{
+	int irq;
+
+	gpio_request(CHARGER_DETECT_GPIO, "charger detect");
+	gpio_direction_input(CHARGER_DETECT_GPIO);
+
+	irq = sprd_alloc_gpio_irq(CHARGER_DETECT_GPIO);
+	if (irq < 0){
+		pr_warning("cant alloc gpio irq %d\n", CHARGER_DETECT_GPIO);
+		return -1;
+	}
+	/*
+	 * here we disable vbus irq before request_irq
+	 */
+	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+
+	gpio_set_hw_debounce(CHARGER_DETECT_GPIO, 200);
+	pr_debug("usb detect irq:%d gpio level %d\n", irq,
+			gpio_get_value(CHARGER_DETECT_GPIO));
+
+	usb_vbus_irq = irq;
+	return irq;
+}
+
+void usb_free_vbus_irq(int irq)
+{
+	return sprd_free_gpio_irq(irq);
+}
+
+int usb_get_vbus_irq(void)
+{
+	return usb_vbus_irq;
+}
+
+int usb_get_vbus_state(void)
+{
+	int value;
+
+	value = gpio_get_value(CHARGER_DETECT_GPIO);
+	return !!value;
+}
+
+void usb_set_vbus_irq_type(int irq, int irq_type)
+{
+	if (irq_type == VBUS_PLUG_IN)
+		set_irq_type(irq, IRQ_TYPE_LEVEL_HIGH);
+	else if (irq_type == VBUS_PLUG_OUT)
+		set_irq_type(irq, IRQ_TYPE_LEVEL_LOW);
+	else {
+		pr_warning("error type for usb vbus\n");
+	}
+
+	return;
+}
 
 static int calibration_mode = false;
 static int __init calibration_start(char *str)
@@ -623,20 +679,10 @@ void __init sprd_add_dcam_device(void)
 }
 void __init sprd_charger_init(void)
 {
-	int irq;
-	gpio_request(CHARGER_DETECT_GPIO, "charger detect");
 	gpio_request(USB_DP_GPIO, "charger detect");
 	gpio_request(USB_DM_GPIO, "charger detect");
-	gpio_direction_input(CHARGER_DETECT_GPIO);
 	gpio_direction_input(USB_DP_GPIO);
 	gpio_direction_input(USB_DM_GPIO);
-
-	irq = sprd_alloc_gpio_irq(CHARGER_DETECT_GPIO);
-	if (irq < 0){
-		pr_warning("cant alloc gpio irq %d\n", CHARGER_DETECT_GPIO);
-		return;
-	}
-	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
 }
 
 /* because nkernel knows the size of "SDRAM_SIZE", and the high end memory

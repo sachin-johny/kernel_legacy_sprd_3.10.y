@@ -67,8 +67,6 @@ unsigned long get_sdram_plimit(void);
 # define RAM_CONSOLE_START   (SPRD_PMEM_BASE - RAM_CONSOLE_SIZE)
 #endif
 
-extern void udc_enable(void);
-extern void udc_disable(void);
 extern int in_factory_mode(void);
 extern int in_calibration(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
