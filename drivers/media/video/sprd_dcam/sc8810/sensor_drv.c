@@ -391,7 +391,7 @@ PUBLIC void Sensor_Reset(uint32_t level)
 	gpio_set_value(72,level);
 	msleep(100);
 	gpio_set_value(72,!level);		
-         msleep(100);
+        // msleep(100);
 	gpio_free(72);
 }
 /*****************************************************************************/
@@ -1535,7 +1535,7 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 	 	if(i2c_add_driver(&sensor_i2c_driver))
 		{
 			SENSOR_PRINT_HIGH("SENSOR: add I2C driver error\n");
-			msleep(20);
+		//	msleep(20);
 			return SENSOR_FAIL;
 		}  
 		else
@@ -1544,7 +1544,7 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 			g_is_register_sensor = 1;
 		}
 	}
-	msleep(20);
+//	msleep(20);
 	return SENSOR_SUCCESS;
 }
 
@@ -1707,7 +1707,7 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 	valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
 	_Sensor_I2CInit(sensor_id);
 
-	msleep(20);
+//	msleep(20);
 		  
           //search the sensor in the table
 	for(sensor_index=0x00; sensor_index<valid_tab_index_max;sensor_index++)
@@ -1723,15 +1723,15 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 		Sensor_PowerOn(SCI_TRUE);
 		SENSOR_PRINT_ERR("SENSOR: Sensor_PowerOn done,this_client=0x%x\n",(uint32_t)this_client);
 		SENSOR_PRINT_ERR("SENSOR: identify ptr =0x%x\n",(uint32_t)sensor_info_ptr->ioctl_func_tab_ptr->identify);
-		msleep(20);
+	//	msleep(20);
 		if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
 		{
 			//ImgSensor_GetMutex();		
 			printk("SENSOR:identify  Sensor 00:this_client=0x%x,this_client->addr=0x%x,0x%x\n",(uint32_t)this_client,(uint32_t)&this_client->addr,this_client->addr);
-			msleep(100);
+	//		msleep(100);
 			this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
 			SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
-			msleep(100);
+	//		msleep(100);
 			if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
 			{			         
 				s_sensor_list_ptr[sensor_id]=sensor_info_ptr; 
@@ -1812,7 +1812,7 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 
 	_Sensor_Identify(SENSOR_MAIN);
 
-	msleep(20);
+//	msleep(20);
 
 	_Sensor_Identify(SENSOR_SUB);
 	
@@ -1820,7 +1820,7 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 
 	if(SENSOR_TRUE == sensor_register_info_ptr->is_register[sensor_id])
 	{
-		msleep(20);
+//		msleep(20);
 		_Sensor_SetStatus(sensor_id);		
         		_Sensor_SetId(sensor_id);
 		s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];

@@ -409,7 +409,7 @@ SENSOR_REG_T gc0309_YUV_640X480[]=
 	{0xba,0x00}, 
 	{0xbb,0x00}, 
 	{0x14,0x10},  // Mirror UpsideDown 
-          {SENSOR_WRITE_DELAY, 200},//delay 20ms
+          {SENSOR_WRITE_DELAY, 20},//delay 20ms
 
     { 0xff,0xff},
 
@@ -551,7 +551,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_GC0309_ioctl_func_tab =
 	PNULL,							// extend information about sensor	
     SENSOR_AVDD_2800MV,                     // iovdd
 	SENSOR_AVDD_1500MV,                      // dvdd
-	3,
+	2,
 	0,
 	0,
 	2
@@ -721,7 +721,7 @@ LOCAL uint32_t set_brightness(uint32_t level)
 	{
 		GC0309_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
 	}
-	msleep(100); 
+//	msleep(100); 
 	SENSOR_TRACE("set_brightness: level = %d\n", level);
 	
 	return 0;
@@ -1043,7 +1043,7 @@ SENSOR_REG_T GC0309_awb_tab[][5]=
 					   GC0309_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
 			}
 		}
-		msleep(100); 
+	//	msleep(100); 
 		SENSOR_TRACE("SENSOR: set_awb_mode: mode = %d\n", mode);
 		
 		return 0;
@@ -1096,7 +1096,7 @@ LOCAL uint32_t set_contrast(uint32_t level)
     {
         GC0309_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
     }
-    msleep(20);
+//    msleep(20);
     SENSOR_TRACE("set_contrast: level = %d\n", level);
     return 0;
 }

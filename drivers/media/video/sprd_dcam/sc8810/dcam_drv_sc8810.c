@@ -426,7 +426,7 @@ static void  _ISP_ISRCapFifoOverflow(uint32_t base_addr)
 	ISP_ISR_FUNC_PTR  user_func = s_isp_mod.user_func[ISP_IRQ_NOTICE_CAP_FIFO_OF];
 
           printk("_ISP_ISRCapFifoOverflow .\n");	  
-          msleep(100);
+ //         msleep(100);
 	if(user_func)
 	{
 		(*user_func)(NULL);
@@ -440,7 +440,7 @@ static void  _ISP_ISRSensorLineErr(uint32_t base_addr)
 	ISP_ISR_FUNC_PTR   user_func = s_isp_mod.user_func[ISP_IRQ_NOTICE_SENSOR_LINE_ERR];
 
 	printk("_ISP_ISRSensorLineErr .\n");
-	msleep(100);
+//	msleep(100);
 	if(user_func)
 	{
 		 (*user_func)(NULL);
@@ -452,7 +452,7 @@ static void  _ISP_ISRSensorFrameErr(uint32_t base_addr)
 {
 	ISP_ISR_FUNC_PTR   user_func = s_isp_mod.user_func[ISP_IRQ_NOTICE_SENSOR_FRAME_ERR];
          printk("_ISP_ISRSensorFrameErr .\n");
-	msleep(100);
+//	msleep(100);
 	if(user_func)
 	{
 		 (*user_func)(NULL);
@@ -465,7 +465,7 @@ static void  _ISP_ISRJpegBufOverflow(uint32_t base_addr)
 	ISP_ISR_FUNC_PTR   user_func = s_isp_mod.user_func[ISP_IRQ_NOTICE_JPEG_BUF_OF];
 
           printk("_ISP_ISRJpegBufOverflow.\n");
- 	msleep(100);
+ //	msleep(100);
 	if(user_func)
 	{
 		(*user_func)(NULL);
