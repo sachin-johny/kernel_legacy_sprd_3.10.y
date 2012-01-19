@@ -340,18 +340,28 @@ static struct lcd_operations lcd_hx8357_operations = {
 };
 
 static struct timing_mcu lcd_hx8357_timing = {
-	.rcss = 15,  // 10ns
-	.rlpw = 60,
-	.rhpw = 60,
-	.wcss = 10,
-	.wlpw = 35,
-	.whpw = 35,
+[LCD_REGISTER_TIMING] = {                    // read/write register timing
+		.rcss = 15,  // 15ns
+		.rlpw = 60,
+		.rhpw = 60,
+		.wcss = 10,
+		.wlpw = 35,
+		.whpw = 35,
+	},
+[LCD_GRAM_TIMING] = {                    // read/write gram timing
+		.rcss = 15,  // 15ns
+		.rlpw = 60,
+		.rhpw = 60,
+		.wcss = 10,
+		.wlpw = 35,
+		.whpw = 35,
+	},
 };
 
 static struct info_mcu lcd_hx8357_info = {
 	.bus_mode = LCD_BUS_8080,
 	.bus_width = 16,
-	.timing = &lcd_hx8357_timing,
+	.timing = lcd_hx8357_timing,
 	.ops = NULL,
 };
 

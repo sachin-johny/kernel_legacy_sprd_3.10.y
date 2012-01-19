@@ -37,6 +37,11 @@
 #define LCD_DIRECT_MIR_V   5
 #define LCD_DIRECT_MIR_HV  6
 
+enum LCD_TIMING {
+	LCD_REGISTER_TIMING = 0,
+	LCD_GRAM_TIMING,
+};
+
 struct lcd_spec;
 
 /* LCD operations */

@@ -349,19 +349,29 @@ static struct lcd_operations lcd_hx8369_operations = {
 	.lcd_readid          = hx8369_read_id,
 };
 
-static struct timing_mcu lcd_hx8369_timing = {
-	.rcss = 25,  // 25 ns
-	.rlpw = 70,
-	.rhpw = 70,
-	.wcss = 10,
-	.wlpw = 20,
-	.whpw = 20,
+static struct timing_mcu lcd_hx8369_timing[] = {
+[LCD_REGISTER_TIMING] = {                // read/write register timing
+		.rcss = 25,  // 25 ns
+		.rlpw = 70,
+		.rhpw = 70,
+		.wcss = 10,
+		.wlpw = 50,
+		.whpw = 50,
+	},
+[LCD_GRAM_TIMING] = {                // read/write gram timing
+		.rcss = 25,  // 25 ns
+		.rlpw = 70,
+		.rhpw = 70,
+		.wcss = 10,
+		.wlpw = 15,
+		.whpw = 25,
+	}
 };
 
 static struct info_mcu lcd_hx8369_info = {
 	.bus_mode = LCD_BUS_8080,
 	.bus_width = 24,
-	.timing = &lcd_hx8369_timing,
+	.timing = lcd_hx8369_timing,
 	.ops = NULL,
 };
 

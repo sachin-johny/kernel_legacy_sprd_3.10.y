@@ -66,6 +66,9 @@ struct sc8810fb_info {
 	uint32_t bits_per_pixel;
 	uint32_t need_reinit;
 
+	uint32_t write_register_timing;
+	uint32_t write_gram_timing;
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
@@ -92,6 +95,9 @@ static struct lcd_cfg lcd_panel[] = {
 };
 
 #endif
+
+static uint32_t lcdc_calculate_lcm_timing(struct timing_mcu *timing);
+static void lcdc_update_lcm_timing(uint32_t reg_value);
 
 static int32_t lcm_send_cmd (uint32_t cmd)
 {
@@ -148,14 +154,15 @@ extern struct lcdc_manager lm;
 static irqreturn_t lcdc_isr(int irq, void *data)
 {
 	uint32_t val ;
-	struct sc8810fb_info *fb = (struct sc8810fb_info *)data;
+	struct sc8810fb_info *info = (struct sc8810fb_info *)data;
 
 	val = __raw_readl(LCDC_IRQ_STATUS);
 	if (val & (1<<0)) {      /* lcdc done */
 		FB_PRINT("--> lcdc_isr lm.mode=%d\n", lm.mode);
 		__raw_bits_or((1<<0), LCDC_IRQ_CLR);
-		if(lm.mode == LMODE_DISPLAY) {/* TEMP */
-			rrm_interrupt(fb->rrm);
+		if(lm.mode == LMODE_DISPLAY) {
+			lcdc_update_lcm_timing(info->write_register_timing);
+			rrm_interrupt(info->rrm);
 		}
 	}
 
@@ -177,48 +184,55 @@ static int32_t panel_reset(struct lcd_spec *self)
 
 static void lcdc_mcu_init(void)
 {
-	uint32_t reg_val = 0;
-	//panel reset
-	//panel_reset(NULL);
+	uint32_t reg_val;
 	
 	//LCDC module enable
-	reg_val |= (1<<0);
+	reg_val = (1<<0);
 
 	/*FMARK mode*/
-	//reg_val | = (1<<1);
+	//reg_val |= (1<<1);
 
 	/*FMARK pol*/
 
 	__raw_writel(reg_val, LCDC_CTRL); 
 	
-	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
+	FB_PRINT("[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
 	
 	/* set background*/
 	__raw_writel(0x0, LCDC_BG_COLOR);   //red
 
-	FB_PRINT("@fool2[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_BG_COLOR));
+	FB_PRINT("[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_BG_COLOR));
 
 	/* dithering enable*/
 	//__raw_bits_or(1<<4, LCDC_CTRL); 	
 }
 
-static int mount_panel(struct sc8810fb_info *fb, struct lcd_spec *panel)
+static int mount_panel(struct sc8810fb_info *info, struct lcd_spec *panel)
 {
 	/* TODO: check whether the mode/res are supported */
 	uint32_t bus_width;
-	fb->panel = panel;
+	info->panel = panel;
 
-	panel->info.mcu->ops = fb->ops;
+	panel->info.mcu->ops = info->ops;
 
 	panel->ops->lcd_reset = panel_reset;
 
-	bus_width = fb->panel->info.mcu->bus_width;
+	bus_width = info->panel->info.mcu->bus_width;
 	if (bus_width == 9 || bus_width == 18 || bus_width == 24) {
-		fb->bits_per_pixel = 32;
+		info->bits_per_pixel = 32;
 	} else {
-		fb->bits_per_pixel = 16;
+		info->bits_per_pixel = 16;
 	}
-	FB_PRINT("[%s] fb->bits_per_pixel = %d;\n", __FUNCTION__, fb->bits_per_pixel);
+
+	{
+		struct timing_mcu *timing = panel->info.mcu->timing;
+		info->write_register_timing = lcdc_calculate_lcm_timing(timing);
+		timing++;
+		info->write_gram_timing = lcdc_calculate_lcm_timing(timing);  
+	}
+
+	FB_PRINT("[%s] bits_per_pixel:%d;write_register_timing:0x%x;write_register_timing:0x%x\n",
+		 __FUNCTION__, info->bits_per_pixel,info->write_register_timing,info->write_gram_timing);
 	return 0;
 }
 
@@ -241,15 +255,15 @@ static int setup_fbmem(struct sc8810fb_info *info, struct platform_device *pdev)
 	return 0;
 }
 
-static int sc8810fb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
+static int sc8810fb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
-	if ((var->xres != info->var.xres) ||
-		(var->yres != info->var.yres) ||
-		(var->xres_virtual != info->var.xres_virtual) ||
-		(var->yres_virtual != info->var.yres_virtual) ||
-		(var->xoffset != info->var.xoffset) ||
-		(var->bits_per_pixel != info->var.bits_per_pixel) ||
-		(var->grayscale != info->var.grayscale))
+	if ((var->xres != fb->var.xres) ||
+		(var->yres != fb->var.yres) ||
+		(var->xres_virtual != fb->var.xres_virtual) ||
+		(var->yres_virtual != fb->var.yres_virtual) ||
+		(var->xoffset != fb->var.xoffset) ||
+		(var->bits_per_pixel != fb->var.bits_per_pixel) ||
+		(var->grayscale != fb->var.grayscale))
 			return -EINVAL;
 	return 0;
 }
@@ -257,28 +271,27 @@ static int sc8810fb_check_var(struct fb_var_screeninfo *var, struct fb_info *inf
 static void real_set_layer(void *data)
 {
 	struct fb_info *fb = (struct fb_info *)data;
-	uint32_t reg_val;
-	uint32_t x,y;
 
-	reg_val = (fb->var.yoffset == 0)?fb->fix.smem_start:
+	uint32_t reg_val = (fb->var.yoffset == 0)?fb->fix.smem_start:
 		              (fb->fix.smem_start + fb->fix.smem_len/2);
-
-	//this is for further Optimization
-	if (fb->var.reserved[0] == 0x6f766572) {	
+#ifdef LCD_UPDATE_PARTLY
+	if (fb->var.reserved[0] == 0x6f766572) {
+		uint32_t x,y;	
 		x = fb->var.reserved[1] & 0xffff;
 		y = fb->var.reserved[1] >> 16;
 
 		reg_val += ((x + y * fb->var.xres) * fb->var.bits_per_pixel / 8);
 	}
-		
+#endif		
 	__raw_writel(reg_val, LCDC_OSD1_BASE_ADDR);
 }
 
 static void real_refresh(void *para)
 {
 	struct sc8810fb_info *info = (struct sc8810fb_info *)para;
-	struct fb_info *fb = info->fb;
-	
+
+#ifdef LCD_UPDATE_PARTLY
+	struct fb_info *fb = info->fb;	
 	if (fb->var.reserved[0] == 0x6f766572) {	
 		uint16_t left,top,width,height;
 
@@ -295,11 +308,16 @@ static void real_refresh(void *para)
 
 		info->panel->ops->lcd_invalidate_rect(info->panel,
 					left, top, left+width-1, top+height-1);
-	} else {
-		info->panel->ops->lcd_invalidate(info->panel);
-	}
+	} else 
+#endif	
+	{
 
+		info->panel->ops->lcd_invalidate(info->panel);
+
+	}
+	lcdc_update_lcm_timing(info->write_gram_timing);
 	__raw_bits_or((1<<3), LCDC_CTRL); /* start refresh */
+
 }
 
 static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
@@ -308,7 +326,7 @@ static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 
 	if (info->fb_state != FB_NORMAL) {
 		printk(KERN_ERR " sc8810fb can not do pan_display!!\n");
-		return;
+		return 0;
 	}
 
 	rrm_refresh(LID_OSD1, NULL, fb);
@@ -361,7 +379,7 @@ static void setup_fb_info(struct sc8810fb_info *info)
 	fb->fix.visual = FB_VISUAL_TRUECOLOR;
 	fb->fix.line_length = panel->width * info->bits_per_pixel / 8;
 
-#if 0
+#ifdef LCD_UPDATE_PARTLY
 	if (panel->ops->lcd_invalidate_rect != NULL) {
 		fb->fix.reserved[0] = 0x6f76;
 		fb->fix.reserved[1] = 0x6572;
@@ -475,40 +493,11 @@ static void lcdc_lcm_configure(struct lcd_spec *panel)
 	FB_PRINT("@fool2[%s] LCM_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCM_CTRL));
 }
 
-uint32_t CHIP_GetMcuClk (void)
-{
-	uint32_t clk_mcu_sel;
-    	uint32_t clk_mcu = 0;
-    	
-	clk_mcu_sel = __raw_readl(AHB_ARM_CLK);
-	clk_mcu_sel = (clk_mcu_sel >>  23)  &  0x3;
-	switch (clk_mcu_sel)
-	{
-	case 0:
-		clk_mcu = 400000000;
-            	break;
-	case 1:
-		clk_mcu = 153600000;
-		break;
-	case 2:
-		clk_mcu = 64000000;
-            	break;
-	case 3:
-            	clk_mcu = 26000000;
-            	break;
-	default:
-		// can't go there
-		break;
-	}       
-	return clk_mcu;
-}
-
-static void lcdc_update_lcm_timing(struct sc8810fb_info *info)
+static uint32_t lcdc_calculate_lcm_timing(struct timing_mcu *timing)
 {
 	uint32_t  reg_value;
 	uint32_t  ahb_div,ahb_clk;   
 	uint32_t  rcss, rlpw, rhpw, wcss, wlpw, whpw;
-	struct timing_mcu *timing;
 
 	reg_value = __raw_readl(AHB_ARM_CLK);
 	
@@ -516,32 +505,27 @@ static void lcdc_update_lcm_timing(struct sc8810fb_info *info)
 	
 	ahb_div = ahb_div + 1;
 
-	if(__raw_readl (AHB_ARM_CLK) & (1<<30))
-    	{
+	if(__raw_readl (AHB_ARM_CLK) & (1<<30))	{
 		ahb_div = ahb_div << 1;
-    	}
-    	if(__raw_readl (AHB_ARM_CLK) & (1<<31))
-    	{
-        	ahb_div=ahb_div<<1;
-    	}	
+	}
+	if(__raw_readl (AHB_ARM_CLK) & (1<<31)) {
+		ahb_div=ahb_div<<1;
+	}	
 	//ahb_clk = CHIP_GetMcuClk()/ahb_div;
 	
 	ahb_clk = 250; // AHB : 250MHZ
 	
 	FB_PRINT("[%s] ahb_clk: 0x%x\n", __FUNCTION__, ahb_clk);
 
-	/* LCD_UpdateTiming() */
-
-        /************************************************
+	/************************************************
 	* we assume : t = ? ns, AHB = ? MHz   so
         *      1ns  cycle  :  AHB /1000 
 	*      tns  cycles :  t * AHB / 1000
 	*
-	*****************************************/   
-	timing = info->panel->info.mcu->timing;
+	*****************************************/ 
 
 	rcss = (timing->rcss * ahb_clk + 1000 - 1) / 1000; //ceiling
-        if (rcss > MAX_LCDC_TIMING_VALUE) {
+	if (rcss > MAX_LCDC_TIMING_VALUE) {
 		rcss = MAX_LCDC_TIMING_VALUE ; // max 15 cycles
 	}
 
@@ -570,8 +554,13 @@ static void lcdc_update_lcm_timing(struct sc8810fb_info *info)
 		whpw = MAX_LCDC_TIMING_VALUE ; 
 	}
 
-    	reg_value = whpw | (wlpw << 4) | (wcss << 8)
-                        | (rhpw << 16) |(rlpw << 20) | (rcss << 24);
+	return (whpw | (wlpw << 4) | (wcss << 8)
+					| (rhpw << 16) |(rlpw << 20) | (rcss << 24));
+
+}
+
+static void lcdc_update_lcm_timing(uint32_t reg_value)
+{
 	__raw_writel(reg_value,LCM_PARAMETER0); /* FIXME: hardcoded for !CS0 */
 
 	FB_PRINT("[%s] LCM_PARAMETER0: 0x%x\n", __FUNCTION__, __raw_readl(LCM_PARAMETER0));
@@ -588,13 +577,13 @@ static inline int set_lcdsize( struct fb_info *info)
 	return 0;
 }
 
-static inline int set_lcmrect( struct fb_info *info)
+static inline int set_lcmrect( struct fb_info *fb)
 {
 	uint32_t reg_val;
 	
 	__raw_writel(0, LCDC_LCM_START);
 	
-	reg_val = ( info->var.xres & 0xfff) | (( info->var.yres & 0xfff ) << 16);
+	reg_val = ( fb->var.xres & 0xfff) | (( fb->var.yres & 0xfff ) << 16);
 	__raw_writel(reg_val, LCDC_LCM_SIZE);
 	
 	FB_PRINT("[%s] LCDC_LCM_START: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_LCM_START));
@@ -603,7 +592,7 @@ static inline int set_lcmrect( struct fb_info *info)
 	return 0;
 }
 
-static int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
+static int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
 	uint32_t reg_val = 0;
 
@@ -662,7 +651,7 @@ static int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	//__raw_writel(reg_val, LCDC_OSD1_ALPHA_BASE_ADDR); 
 
 	/*OSD1 layer size*/
-	reg_val = ( info->var.xres & 0xfff) | (( info->var.yres & 0xfff ) << 16);
+	reg_val = ( fb->var.xres & 0xfff) | (( fb->var.yres & 0xfff ) << 16);
 	__raw_writel(reg_val, LCDC_OSD1_SIZE_XY);
 
 	FB_PRINT("@[%s] LCDC_OSD1_SIZE_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_SIZE_XY));
@@ -673,7 +662,7 @@ static int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	FB_PRINT("@[%s] LCDC_OSD1_DISP_XY: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_DISP_XY));
 
 	/*OSD1 layer pitch*/
-	reg_val = ( info->var.xres & 0xfff) ;
+	reg_val = ( fb->var.xres & 0xfff) ;
 	__raw_writel(reg_val, LCDC_OSD1_PITCH);
 
 	FB_PRINT("@[%s] LCDC_OSD1_PITCH: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_OSD1_PITCH));
@@ -684,10 +673,10 @@ static int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *info)
 	//Fix me
 
 	/*LCDC workplane size*/
-	set_lcdsize(info);
+	set_lcdsize(fb);
 	
 	/*LCDC LCM rect size*/
-	set_lcmrect(info);
+	set_lcmrect(fb);
 
 	return 0;
 }
@@ -735,8 +724,7 @@ static void hw_init(struct sc8810fb_info *info)
 	lcdc_lcm_configure(info->panel);
 
 	/* set timing parameters for LCD */
-	lcdc_update_lcm_timing(info);
-
+	lcdc_update_lcm_timing(info->write_register_timing);
 }
 
 static void hw_later_init(struct sc8810fb_info *info)
