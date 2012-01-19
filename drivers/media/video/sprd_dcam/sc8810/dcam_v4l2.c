@@ -86,6 +86,8 @@ static uint32_t g_is_first_frame = 1; //store the flag for the first frame
 DCAM_INFO_T g_dcam_info; //store the dcam and sensor config info
 uint32_t g_zoom_level = 0; //zoom level: 0: 1x, 1: 2x, 2: 3x, 3: 4x
 uint32_t g_is_first_irq = 1; 
+static uint32_t s_error_cnt = 0;
+static uint32_t s_test_camera_fail = 0;
 
 #define DCAM_MODULE_NAME "dcam"
 #define WAKE_NUMERATOR 30
@@ -1317,8 +1319,7 @@ static void dcam_set_param(void)
 	Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)g_dcam_info.previewmode_param);
 	Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)g_dcam_info.brightness_param);
 	Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, (uint32_t)g_dcam_info.contrast_param);
-//	Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)g_dcam_info.hflip_param);				
-//	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)g_dcam_info.vflip_param);	
+	
 	DCAM_V4L2_PRINT("V4L2:dcam_set_param e.\n");		
 }
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
@@ -1331,6 +1332,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -EINVAL;
 	if (i != fh->type)
 		return -EINVAL;
+	s_error_cnt = 0;
 	init_sensor_parameters(priv);
 	init_dcam_parameters(priv);	
 
@@ -1363,7 +1365,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 
 	if(0 != (ret = videobuf_streamoff(&fh->vb_vidq)))
 	{
-		DCAM_V4L2_ERR("V4L2: Fail to videobuf_streamoff.\n");
+		DCAM_V4L2_ERR("V4L2: Fail to videobuf_streamoff,ret=%d.\n",ret);
 		return ret;
 	}
 	g_is_first_frame = 1; //store the nex first frame.
@@ -1381,7 +1383,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		}       	
 
 	DCAM_V4L2_PRINT("V4L2: OK to vidioc_streamoff.\n");
-	
+	s_error_cnt= 0;
 	return ret;
 }
 
@@ -1521,9 +1523,18 @@ static void dcam_error_handle(struct dcam_fh *fh)
 	struct dcam_dev *dev = fh->dev;
 	struct dcam_dmaqueue *dma_q = &dev->vidq;
 	
-
+              
 	unsigned long flags = 0;
-	DCAM_V4L2_PRINT("###V4L2: dcam_error_handle.\n");	
+	
+	printk("###V4L2: dcam_error_handle.\n");	
+	printk("V4L2:dcam_error_handle,sensor0_drv=0x%x.\n",Sensor_ReadReg(0x302c));
+	s_test_camera_fail = 1;
+
+	if(s_error_cnt>1)
+	{
+		printk("dcam_error_handle: have been handled!.\n");
+		return;
+	}
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&dma_q->active)) {
 		printk("###V4L2: dcam_error_handle: No active queue to serve\n");
@@ -1535,17 +1546,7 @@ static void dcam_error_handle(struct dcam_fh *fh)
 		goto unlock;
 	}
 	buf = list_entry(dma_q->active.next,
-			 struct dcam_buffer, vb.queue);
-	if(1 != g_is_first_irq){
-		if((g_first_buf_addr != (uint32_t)buf->vb.baddr) ||
-			(g_first_buf_addr == g_last_buf)){ //wxz20110727: if the next buf is last buffer, do not wake up the buffer.
-			printk("###V4L2: dcam_error_handle: need another buffer. last addr: %x, buf addr: %x, g_last_buf: %x\n", g_first_buf_addr, (uint32_t)buf->vb.baddr, g_last_buf);
-			goto unlock;
-		}		
-	}
-	else{
-		g_is_first_irq = 0;		
-	}
+			 struct dcam_buffer, vb.queue);	
 
 	list_del(&buf->vb.queue);
 	// Advice that buffer was filled
@@ -1557,7 +1558,6 @@ static void dcam_error_handle(struct dcam_fh *fh)
       
 	wake_up(&buf->vb.done);
 	g_first_buf_addr = g_last_buf; 
-	g_first_buf_uv_addr = g_last_uv_buf;
 unlock:
 	spin_unlock_irqrestore(&dev->slock, flags);	
 	return;
@@ -1586,14 +1586,17 @@ void dcam_cb_ISRPath2Done(void)
 }
 void dcam_cb_ISRCapFifoOF(void)
 {	
+	s_error_cnt++;
 	dcam_error_handle(g_fh);
 }
 void dcam_cb_ISRSensorLineErr(void)
 {
+	s_error_cnt++;
 	dcam_error_handle(g_fh);
 }
 void dcam_cb_ISRSensorFrameErr(void)
 {	
+	s_error_cnt++;
 	dcam_error_handle(g_fh);
 }
 void dcam_cb_ISRJpegBufOF(void)
@@ -1816,14 +1819,15 @@ static int close(struct file *file)
 	mutex_unlock(&dev->mutex);
 
 	dprintk(dev, 1, "close called (minor=%d, users=%d)\n",minor, dev->users);
-	
-	//close sensor       
-	Sensor_Close();
-	DCAM_V4L2_PRINT("V4L2: OK to close sensor.\n");
+	if(0 == s_test_camera_fail)
+	{
+		//close sensor       
+		Sensor_Close();
+		DCAM_V4L2_PRINT("V4L2: OK to close sensor.\n");
 
-	//close dcam
-	dcam_close();
-
+		//close dcam
+		dcam_close();
+	}
 	DCAM_V4L2_PRINT("V4L2: OK to close dcam.\n");
 
 	return 0;

@@ -420,7 +420,7 @@ int32_t  _ISP_ServiceStartPreview(void)
 
 	//rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_48M);
 	//ISP_RTN_IF_ERR(rtn_drv);
-	if(0 != dcam_set_mclk(ISP_CLK_48M))
+	if(0 != dcam_set_mclk(ISP_CLK_64M))
 	{
 		DCAM_TRACE_ERR("DCAM:_ISP_ServiceStartPreview, fail to set dcam mclk.\n");
 		return 1;
@@ -725,7 +725,7 @@ static int _ISP_ServiceStartJpeg(void)
 
 	//rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_64M);
 	//ISP_RTN_IF_ERR(rtn_drv);
-	if(0 != dcam_set_mclk(ISP_CLK_48M))
+	if(0 != dcam_set_mclk(ISP_CLK_64M))
 	{
 		DCAM_TRACE_ERR("DCAM:_ISP_ServiceStartJpeg, fail to set dcam mclk.\n");
 		return 1;

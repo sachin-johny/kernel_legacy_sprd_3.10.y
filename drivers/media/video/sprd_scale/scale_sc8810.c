@@ -1505,7 +1505,7 @@ int _SCALE_DriverIOInit(void)
      		_SCALE_DriverInit();
 		SCALE_PRINT("SCALE:_SCALE_DriverInit.\n");
      	}
-	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_48M))
+	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_64M))
 	{
 		SCALE_PRINT_ERR("SCALE:_SCALE_DriverIOInit,Failed to _SCALE_DriverSetMclk!\n");
 		dcam_inc_user_count();
