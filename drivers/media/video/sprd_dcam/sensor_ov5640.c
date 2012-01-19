@@ -988,7 +988,8 @@ LOCAL uint32_t _ov5640_set_brightness(uint32_t level)
 	uint32_t reg_value = 0;
 	SENSOR_REG_BITS_T_PTR sensor_reg_ptr=(SENSOR_REG_BITS_T_PTR)ov5640_brightness_tab[level];
 
-	//    SCI_ASSERT(PNULL!=sensor_reg_ptr);   /*assert verified*/
+	if(level>6)
+		return 0;
 
 	for(i=0x00; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xff!=sensor_reg_ptr[i].reg_value); i++)
 	{
@@ -1056,7 +1057,8 @@ LOCAL uint32_t _ov5640_set_contrast(uint32_t level)
 	uint32_t reg_value = 0;
 	SENSOR_REG_BITS_T_PTR sensor_reg_ptr=(SENSOR_REG_BITS_T_PTR)ov5640_contrast_tab[level];
 
-	//   SCI_ASSERT(PNULL!=sensor_reg_ptr);   /*assert verified*/
+	if(level>6)
+		return 0;
 
 	for(i=0x00; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xFF!=sensor_reg_ptr[i].reg_value); i++)
 	{
@@ -1130,7 +1132,8 @@ LOCAL uint32_t _ov5640_set_saturation(uint32_t level)
 	uint32_t reg_value = 0;
 	SENSOR_REG_BITS_T_PTR sensor_reg_ptr=(SENSOR_REG_BITS_T_PTR)ov5640_saturation_tab[level];
 
-	//   SCI_ASSERT(PNULL!=sensor_reg_ptr);   /*assert verified*/
+	if(level>6)
+		return 0;
 
 	for(i=0x00; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xFF!=sensor_reg_ptr[i].reg_value); i++)
 	{
@@ -1201,6 +1204,9 @@ LOCAL uint32_t _ov5640_set_image_effect(uint32_t effect_type)
 	uint32_t reg_value = 0;
 	SENSOR_REG_BITS_T_PTR sensor_reg_ptr=(SENSOR_REG_BITS_T_PTR)ov5640_image_effect_tab[effect_type];
 
+	if(effect_type>7)
+		return 0;
+
 	for(i=0x00; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xff!=sensor_reg_ptr[i].reg_value); i++)
 	{
 		if(0xff == sensor_reg_ptr[i].reg_bits)
@@ -1258,7 +1264,8 @@ LOCAL uint32_t _ov5640_set_ev(uint32_t level)
 	SENSOR_REG_T_PTR sensor_reg_ptr=(SENSOR_REG_T_PTR)ov5640_ev_tab[level];
 	uint16_t i=0x00;
 
-	//   SCI_ASSERT(PNULL!=sensor_reg_ptr);   /*assert verified*/
+	if(level>6)
+		return 0;
 
 	for(i=0x00; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xFF!=sensor_reg_ptr[i].reg_value); i++)
 	{
@@ -1563,7 +1570,9 @@ LOCAL uint32_t _ov5640_set_awb(uint32_t mode)
 	uint32_t reg_value = 0;
 	SENSOR_REG_BITS_T_PTR sensor_reg_ptr=(SENSOR_REG_BITS_T_PTR)ov5640_awb_tab[mode];
 
-
+          if(mode>6)
+		return 0;
+		  
 	for(i=0; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xFF!=sensor_reg_ptr[i].reg_value); i++)
 	{
 		if(0xff == sensor_reg_ptr[i].reg_bits)
@@ -1620,6 +1629,9 @@ LOCAL uint32_t _ov5640_set_work_mode(uint32_t mode)
 {
 	uint16_t i=0x00;
 	SENSOR_REG_T_PTR sensor_reg_ptr=(SENSOR_REG_T_PTR)ov5640_work_mode_tab[mode];
+
+	if(mode>1)
+		return 0;
 	
 	for(i=0; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xFF!=sensor_reg_ptr[i].reg_value); i++)
 	{

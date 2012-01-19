@@ -78,7 +78,6 @@ LOCAL uint32_t read_gain_value(uint32_t value);
 LOCAL uint32_t write_gain_value(uint32_t gain_value);
 LOCAL uint32_t read_gain_scale(uint32_t value);
 LOCAL uint32_t set_frame_rate(uint32_t param);
-LOCAL uint32_t GC0309_set_work_mode(uint32_t mode);
 
 LOCAL uint32_t set_gc0309_ev(uint32_t level);
 LOCAL uint32_t set_gc0309_awb(uint32_t mode);
@@ -714,8 +713,8 @@ LOCAL uint32_t set_brightness(uint32_t level)
 	uint16_t i;
 	SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)gc0309_brightness_tab[level];
 
-	SENSOR_ASSERT(level < 7);
-	SENSOR_ASSERT(PNULL != sensor_reg_ptr);
+	if(level>6)
+		return 0;
 	
 	for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) && (0xFF != sensor_reg_ptr[i].reg_value); i++)
 	{
@@ -743,21 +742,20 @@ SENSOR_REG_T GC0309_ev_tab[][3]=
 
 LOCAL uint32_t set_gc0309_ev(uint32_t level)
 {
-    uint16_t i; 
-    SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC0309_ev_tab[level];
+	uint16_t i; 
+	SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC0309_ev_tab[level];
 
-    SENSOR_ASSERT(PNULL != sensor_reg_ptr);
-    SENSOR_ASSERT(level < 7);
- 
-    for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) ||(0xFF != sensor_reg_ptr[i].reg_value) ; i++)
-    {
-        GC0309_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
-    }
+	if(level>6)
+	return 0;
 
-    
-    SENSOR_TRACE("SENSOR: set_ev: level = %d\n", level);
+	for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) ||(0xFF != sensor_reg_ptr[i].reg_value) ; i++)
+	{
+		GC0309_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
+	}
 
-    return 0;
+	SENSOR_TRACE("SENSOR: set_ev: level = %d\n", level);
+
+	return 0;
 }
 
 /******************************************************************************/
@@ -772,46 +770,46 @@ LOCAL uint32_t set_gc0309_anti_flicker(uint32_t param )
     switch (param)
     {
         case FLICKER_50HZ:
-            GC0309_WriteReg(0x01, 0x6A); 	
+            GC0309_WriteReg(0x01, 0x0A); 	
             GC0309_WriteReg(0x02, 0x06); 
-            GC0309_WriteReg(0x0f, 0x01);
+            GC0309_WriteReg(0x0f, 0x11);
 
-            //write_cmos_sensor(0x03  ,0x01); 	
-            //write_cmos_sensor(0x04  ,0x2c); 	
+            //write_cmos_sensor(0x03  ,0x02); 	
+            //write_cmos_sensor(0x04  ,0xee); 	
 
             GC0309_WriteReg(0xe2, 0x00); 	//anti-flicker step [11:8]
-            GC0309_WriteReg(0xe3, 0x96);   //anti-flicker step [7:0]
+            GC0309_WriteReg(0xe3, 0x7D);   //anti-flicker step [7:0]
 
             GC0309_WriteReg(0xe4, 0x02);   //exp level 1  16.67fps
             GC0309_WriteReg(0xe5, 0xEE); 
-            GC0309_WriteReg(0xe6, 0x02);   //exp level 2  12.5fps
-            GC0309_WriteReg(0xe7, 0xEE); 
-            GC0309_WriteReg(0xe8, 0x02);   //exp level 3  8.33fps
-            GC0309_WriteReg(0xe9, 0xEE); 
-            GC0309_WriteReg(0xea, 0x09);   //exp level 4  4.00fps
-            GC0309_WriteReg(0xeb, 0x60); 
+            GC0309_WriteReg(0xe6, 0x03);   //exp level 2  12.5fps
+            GC0309_WriteReg(0xe7, 0xE8); 
+            GC0309_WriteReg(0xe8, 0x04);   //exp level 3  10fps
+            GC0309_WriteReg(0xe9, 0xE2); 
+            GC0309_WriteReg(0xea, 0x07);   //exp level 4  6.25fps
+            GC0309_WriteReg(0xeb, 0xD0); 
 
             break;
 
         case FLICKER_60HZ:
-            GC0309_WriteReg(0x01, 0x2c); 	
-            GC0309_WriteReg(0x02, 0x98); 
-            GC0309_WriteReg(0x0f, 0x02);
+            GC0309_WriteReg(0x01, 0x32); 	
+            GC0309_WriteReg(0x02, 0x38); 
+            GC0309_WriteReg(0x0f, 0x11);
 
-            //GC0309_WriteReg(0x03  ,0x01); 	
-            //GC0309_WriteReg(0x04  ,0x40); 	
+            //GC0309_WriteReg(0x03  ,0x02); 	
+            //GC0309_WriteReg(0x04  ,0xBC); 	
 
             GC0309_WriteReg(0xe2, 0x00); 	//anti-flicker step [11:8]
-            GC0309_WriteReg(0xe3, 0x50);   //anti-flicker step [7:0]
+            GC0309_WriteReg(0xe3, 0x64);   //anti-flicker step [7:0]
 
-            GC0309_WriteReg(0xe4, 0x02);   //exp level 1  15.00fps
-            GC0309_WriteReg(0xe5, 0x80); 
-            GC0309_WriteReg(0xe6, 0x03);   //exp level 2  10.00fps
-            GC0309_WriteReg(0xe7, 0xc0); 
-            GC0309_WriteReg(0xe8, 0x05);   //exp level 3  7.50fps
-            GC0309_WriteReg(0xe9, 0x00); 
-            GC0309_WriteReg(0xea, 0x09);   //exp level 4  4.00fps
-            GC0309_WriteReg(0xeb, 0x60); 
+            GC0309_WriteReg(0xe4, 0x03);   //exp level 1  15.00fps
+            GC0309_WriteReg(0xe5, 0x20); 
+            GC0309_WriteReg(0xe6, 0x03);   //exp level 2  12fps
+            GC0309_WriteReg(0xe7, 0xE8); 
+            GC0309_WriteReg(0xe8, 0x04);   //exp level 3  10fps
+            GC0309_WriteReg(0xe9, 0xB0); 
+            GC0309_WriteReg(0xea, 0x06);   //exp level 4  7.5fps
+            GC0309_WriteReg(0xeb, 0x40); 
 
             break;
 
@@ -829,54 +827,17 @@ LOCAL uint32_t set_gc0309_anti_flicker(uint32_t param )
 // Note:
 //		 
 /******************************************************************************/
-//__align(4) const SENSOR_REG_T GC0309_video_mode_nor_tab[][15]=
-SENSOR_REG_T GC0309_video_mode_nor_tab[][15]=
-{
-    // normal mode      14.3 fps
-    {
-	{0x01,0x6a},{0x02,0x70},{0x0f,0x00},{0xe2,0x00},{0xe3,0x96},{0xe4,0x02},{0xe5,0x58},
-	{0xe6,0x02},{0xe7,0x58},{0xe8,0x02},{0xe9,0x58},{0xea,0x09}, {0xeb,0xc4}, {0xec,0x20},{0xff,0xff} 
-	},    
-    //vodeo mode     
-    {
-	{0x01,0xfa},{0x02,0x9c},{0x0f,0x11},{0xe2,0x00},{0xe3,0x64},{0xe4,0x03},{0xe5,0x84},
-	{0xe6,0x03},{0xe7,0x84},{0xe8,0x03},{0xe9,0x84},{0xea,0x09}, {0xeb,0xc4}, {0xec,0x20},{0xff,0xff} 
-    }
-
-};    
-
 LOCAL uint32_t set_gc0309_video_mode(uint32_t mode)
 {
-    //uint8_t data=0x00;
     uint16_t i;
     SENSOR_REG_T* sensor_reg_ptr = PNULL;
     uint8_t tempregval = 0;
 
-    SENSOR_ASSERT(mode <= 1);
-
-     //SENSOR_TRACE("set_GC0309_video_mode-CHIP_DetectMemType()=%d",CHIP_DetectMemType());
-   
-    //if(!CHIP_DetectMemType())
-        //#ifdef _WQVGA_LCD
-            sensor_reg_ptr = (SENSOR_REG_T*)GC0309_video_mode_nor_tab[mode];
-        //#else
-            //sensor_reg_ptr = (SENSOR_REG_T*)GC0309_video_mode_nor_tab[mode];
-        //#endif
-    //else
-        //#ifdef _WQVGA_LCD
-            //SENSOR_PASSERT(0, ("Not support NOR wqvga yet"));
-        //#else
-            //sensor_reg_ptr = (SENSOR_REG_T*)GC0309_video_mode_nor_tab[mode];
-        //#endif
-
-    SENSOR_ASSERT(PNULL != sensor_reg_ptr);
-
-    for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) || (0xFF != sensor_reg_ptr[i].reg_value); i++)
-    {
-    	GC0309_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
-    }
-	tempregval = GC0309_ReadReg(0xd2);
-    SENSOR_TRACE("SENSOR: GC0309_ReadReg(0xd2) = %x\n", tempregval);
+	if(0 == mode)
+		GC0309_WriteReg(0xec,0x20);
+	else if(1 == mode)
+		GC0309_WriteReg(0xec,0x00);
+    SENSOR_TRACE("SENSOR: GC0309_ReadReg(0xec) = %x\n", GC0309_ReadReg(0xec));
     SENSOR_TRACE("SENSOR: set_video_mode: mode = %d\n", mode);
     return 0;
 }
@@ -1024,10 +985,10 @@ SENSOR_REG_T GC0309_awb_tab[][5]=
 		
 		SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC0309_awb_tab[mode];
 	
-		awb_en_value = GC0309_ReadReg(0x22);
+		awb_en_value = GC0309_ReadReg(0x22);	
 	
-		SENSOR_ASSERT(mode < 7);
-		SENSOR_ASSERT(PNULL != sensor_reg_ptr);
+		if(mode>6)
+			return 0;
 		
 		for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) || (0xFF != sensor_reg_ptr[i].reg_value); i++)
 		{
@@ -1089,8 +1050,8 @@ LOCAL uint32_t set_contrast(uint32_t level)
 
     sensor_reg_ptr = (SENSOR_REG_T*)gc0309_contrast_tab[level];
 
-    SENSOR_ASSERT(level < 7 );
-    SENSOR_ASSERT(PNULL != sensor_reg_ptr);
+   if(level>6)
+   	return 0;
 
     for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) && (0xFF != sensor_reg_ptr[i].reg_value); i++)
     {
@@ -1128,22 +1089,22 @@ LOCAL uint32_t set_preview_mode(uint32_t preview_mode)
 {
 	SENSOR_TRACE("set_preview_mode: preview_mode = %d\n", preview_mode);
 	
-	
+	set_gc0309_anti_flicker(0);
 	switch (preview_mode)
 	{
 		case DCAMERA_ENVIRONMENT_NORMAL: 
 		{
-			GC0309_set_work_mode(0);
+			GC0309_WriteReg(0xec,0x20);
 			break;
 		}
 		case DCAMERA_ENVIRONMENT_NIGHT:
 		{
-			GC0309_set_work_mode(1);
+			GC0309_WriteReg(0xec,0x30);
 			break;
 		}
 		case DCAMERA_ENVIRONMENT_SUNNY:
 		{
-			GC0309_set_work_mode(0);
+			GC0309_WriteReg(0xec,0x10);
 			break;
 		}
 		default:
@@ -1153,7 +1114,7 @@ LOCAL uint32_t set_preview_mode(uint32_t preview_mode)
 			
 	}
 	
-	SENSOR_Sleep(250);
+	SENSOR_Sleep(10);
 	
 	return 0;
 }
@@ -1222,19 +1183,19 @@ SENSOR_REG_T GC0309_image_effect_tab[][11]=
 };
 LOCAL uint32_t set_image_effect(uint32_t effect_type)
 {
-    uint16_t i;
-    
-    SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC0309_image_effect_tab[effect_type];
+	uint16_t i;
 
-    SENSOR_ASSERT(PNULL != sensor_reg_ptr);
+	SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC0309_image_effect_tab[effect_type];
+	if(effect_type>7)
+		return 0;
 
-    for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) || (0xFF != sensor_reg_ptr[i].reg_value) ; i++)
-    {
-        Sensor_WriteReg_8bits(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
-    }
-    SENSOR_TRACE("-----------set_image_effect: effect_type = %d------------\n", effect_type);
-    
-    return 0;
+	for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) || (0xFF != sensor_reg_ptr[i].reg_value) ; i++)
+	{
+		Sensor_WriteReg_8bits(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
+	}
+	SENSOR_TRACE("-----------set_image_effect: effect_type = %d------------\n", effect_type);
+
+	return 0;
 }
 
 /*
@@ -1337,39 +1298,5 @@ LOCAL uint32_t set_frame_rate(uint32_t param)
     
 {
 	//GC0309_WriteReg( 0xd8, uint8_t data );
-	return 0;
-}
-
-/******************************************************************************/
-// Description:
-// Global resource dependence: 
-// Author:
-// Note:
-//		mode 0:normal;	 1:night 
-/******************************************************************************/
-//__align(4) const SENSOR_REG_T gc0309_mode_tab[][8]=
-SENSOR_REG_T gc0309_mode_tab[][8]=
-{
-	//LCD的GAMMA值需要细调，不然会有一圈圈的光晕
-	//Fps 12.5 YUV open auto frame function, 展讯的jpeg编码不行太大和太快，因此将帧率限制在12.5fps
-	{/*{0xa0, 0x50},*/{0xec, 0x20},{0xFF, 0xFF},},
-	//Fps 12.5->3.125 YUV open auto frame function
-	{/*{0xa0, 0x40},*/{0xd8, 0x30},{0xFF, 0xFF},},
-};
-
-LOCAL uint32_t GC0309_set_work_mode(uint32_t mode)
-{
-	uint16_t i;
-	SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)gc0309_mode_tab[mode];
-
-	SENSOR_ASSERT(mode <= 1);
-	SENSOR_ASSERT(PNULL != sensor_reg_ptr);
-	
-	for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) || (0xFF != sensor_reg_ptr[i].reg_value); i++)
-	{
-		GC0309_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
-	}
-
-	SENSOR_TRACE("set_work_mode: mode = %d\n", mode);
 	return 0;
 }
