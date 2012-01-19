@@ -1303,7 +1303,7 @@ int sc8810_setup_pd_automode(void)
 {
 	//__raw_writel(0x06000320|PD_AUTO_EN, GR_GPU_PWR_CTRL);//reserved
 	__raw_writel(0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
-	__raw_writel(0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);//GPU
+	__raw_writel(0x06000320/*|PD_AUTO_EN*/, GR_G3D_PWR_CTRL);//GPU
 	__raw_writel(0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_TH_PWR_CTRL);
 	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_GSM_PWR_CTRL);
 	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);
@@ -1317,8 +1317,9 @@ int sc8810_setup_ldo_slpmode(void)
 {
 //	 ANA_REG_SET(ANA_LDO_PD_CTL0, 0x00005555);
 //	 ANA_REG_SET(ANA_LDO_PD_CTL1, 0x00000155);
-	 ANA_REG_SET(ANA_LDO_SLP0, 0x0000a7ff);//except v18/28
+	 ANA_REG_SET(ANA_LDO_SLP0, 0x0000a7fb);//except v18/28, SIM0,1
 	 ANA_REG_SET(ANA_LDO_SLP1, 0x0000801f|(1<<12));//
+	 ANA_REG_SET(ANA_LDO_SLP2, 0x00000a20);//a-die armdcdc iso
 	 ANA_REG_SET(ANA_LED_CTRL, 0x0000801f);//all led off
 }
 
@@ -1418,7 +1419,9 @@ int sc8800g_enter_deepsleep(int inidle)
 		if (sprd_wait_until_uart_tx_fifo_empty) wait_until_uart1_tx_done();
 
 		t0 = get_sys_cnt();
-		sc8800g_cpu_standby();
+		//sc8800g_cpu_standby();
+		sc8800g_cpu_idle();
+
 		t1 = get_sys_cnt();
 		delta = t1 - t0;
 		idle_time += delta;
@@ -1433,8 +1436,9 @@ int sc8800g_enter_deepsleep(int inidle)
         disable_audio_module();
         disable_ahb_module();
         //enable_mcu_sleep();
-       t0 = get_sys_cnt();
-       ret =  sc8800g_cpu_standby_prefetch();
+		t0 = get_sys_cnt();
+		//ret =  sc8800g_cpu_standby_prefetch();
+		sc8800g_cpu_idle();
         RESTORE_GLOBAL_REG;
         t1 = get_sys_cnt();
         delta = t1 - t0;
