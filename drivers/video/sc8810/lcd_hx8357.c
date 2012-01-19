@@ -339,7 +339,7 @@ static struct lcd_operations lcd_hx8357_operations = {
 	.lcd_enter_sleep = hx8357_enter_sleep,
 };
 
-static struct timing_mcu lcd_hx8357_timing = {
+static struct timing_mcu lcd_hx8357_timing[] = {
 [LCD_REGISTER_TIMING] = {                    // read/write register timing
 		.rcss = 15,  // 15ns
 		.rlpw = 60,
