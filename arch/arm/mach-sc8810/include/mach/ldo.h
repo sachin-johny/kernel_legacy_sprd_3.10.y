@@ -117,33 +117,16 @@ typedef enum
     LDO_LDO_RF1     ,
     LDO_LDO_USBD    ,
     ////end SC8800G
-
-    //sc8810
+    //sc8810 
     LDO_DCDCARM,
-    LDO_BPVDD25,
-    LDO_BPVDD18,
-    LDO_BPVDD28,
-    LDO_BPAVDDBB,
-    LDO_BPRF1,
-    LDO_BPRF0,
-    LDO_BPMEM,
     LDO_DCDC,
-    LDO_PDBG,
-    LDO_BPVB,
-    LDO_BPCAMA,
-    LDO_BPCAMD1,
-    LDO_BPCAMD0,
-    LDO_BPSIM1,
-    LDO_BPSIM0,
-    LDO_BPSDIO0,
-    LDO_BPUSBH,
-    LDO_BPSIM3,
-    LDO_BPSIM2,
-    LDO_BPWIF1,
-    LDO_BPWIF0,
-    LDO_BPSDIO1,
-    LDO_RTC,
-
+    LDO_LDO_BG,
+    LDO_LDO_SDIO0,
+    LDO_LDO_SIM3,
+    LDO_LDO_SIM2,
+    LDO_LDO_WIF1,
+    LDO_LDO_WIF0,
+    LDO_LDO_SDIO1,
     //end sc8810
 
     LDO_LDO_MAX     //id for calculate LDO number only!
@@ -154,36 +137,6 @@ typedef enum
 
 typedef enum 
 {
-#if 0
-    SLP_LDO_NULL  = 0,  //id for NULL
-    SLP_LDO_ABB,        //id for abb
-    SLP_LDO_VBO,        //id for voice band
-    SLP_LDO_AUX1,       //id for sensor core
-    SLP_LDO_AUX2,       //id for sensor analog and io
-    SLP_LDO_USB,        //id for USB
-    SLP_LDO_RF,         //id for RF
-    SLP_LDO_COREV,      //id for ldo core
-    SLP_LDO_PLL,
-    SLP_LDO_AFC,
-    SLP_LDO_SDIO,       //id for ldo sdio
-    SLP_LDO_IO18,       //id for vddio18
-    SLP_LDO_IO28,       //id for vddio28
-    SLP_LDO_BG,          //id for ldo BG
-    ///SC8800G
-    SLP_LDO_PA,
-    SLP_LDO_DVDD18,
-    SLP_LDO_VDD25,
-    SLP_LDO_VDD18,
-    SLP_LDO_VDD28,
-    SLP_LDO_CAMA,
-    SLP_LDO_CAMD1,
-    SLP_LDO_CAMD0,
-    SLP_LDO_SIM1,
-    SLP_LDO_SIM0,
-    SLP_LDO_RF1,
-    SLP_LDO_RF0,
-    ///END SC8800G
-#endif
     //SC8810
     SLP_LDO_SDIO1,
     SLP_LDO_VDD25,

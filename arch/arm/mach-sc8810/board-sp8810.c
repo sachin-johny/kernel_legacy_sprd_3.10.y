@@ -549,13 +549,13 @@ static void sprd_wifildo_init(void)
 {
 //---VDD-WIFI1  1.8V
 
-   LDO_TurnOnLDO(LDO_BPWIF1);
-   LDO_SetVoltLevel(LDO_BPWIF1,LDO_VOLT_LEVEL2);
+   LDO_TurnOnLDO(LDO_LDO_WIF1);
+   LDO_SetVoltLevel(LDO_LDO_WIF1,LDO_VOLT_LEVEL2);
 
 //---VDD-SDIO1  1.8V
 
-   LDO_TurnOnLDO(LDO_BPSDIO1);
-   LDO_SetVoltLevel(LDO_BPSDIO1,LDO_VOLT_LEVEL3);
+   LDO_TurnOnLDO(LDO_LDO_SDIO1);
+   LDO_SetVoltLevel(LDO_LDO_SDIO1,LDO_VOLT_LEVEL3);
 
 
 }
@@ -618,11 +618,11 @@ void gps_power_ctl(int is_on)
 {
     printk("%s is_on=%d\n",__func__,is_on);
     if (is_on){
-    	LDO_TurnOnLDO(LDO_BPWIF0);
-    	LDO_SetVoltLevel(LDO_BPWIF0,LDO_VOLT_LEVEL2);
+    	LDO_TurnOnLDO(LDO_LDO_WIF0);
+    	LDO_SetVoltLevel(LDO_LDO_WIF0,LDO_VOLT_LEVEL2);
     }
     else {
-    	LDO_TurnOffLDO(LDO_BPWIF0);
+    	LDO_TurnOffLDO(LDO_LDO_WIF0);
     }
 }
 EXPORT_SYMBOL_GPL(gps_power_ctl);

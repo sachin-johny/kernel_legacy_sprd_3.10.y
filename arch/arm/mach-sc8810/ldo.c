@@ -41,7 +41,7 @@
 #define LDO_INVALID_REG_ADDR		(0x1)
 
 static DEFINE_SPINLOCK(ldo_lock);
-
+ 
 #define SCI_PASSERT(condition, format...)  \
 	do {		\
 		if(!(condition)) { \
@@ -102,7 +102,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPVDD25,
+		.id = LDO_LDO_VDD25,
 		.bp_reg = ANA_LDO_PD_SET,
 		.bp_bits = BIT_8,
 		.bp_rst_reg = ANA_LDO_PD_RST,
@@ -116,7 +116,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPVDD18,
+		.id = LDO_LDO_VDD18,
 		.bp_reg = ANA_LDO_PD_SET,
 		.bp_bits = BIT_7,
 		.bp_rst_reg = ANA_LDO_PD_RST,
@@ -130,7 +130,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPVDD28,
+		.id = LDO_LDO_VDD28,
 		.bp_reg = ANA_LDO_PD_SET,
 		.bp_bits = BIT_6,
 		.bp_rst_reg = ANA_LDO_PD_RST,
@@ -144,7 +144,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPAVDDBB,
+		.id = LDO_LDO_ABB,
 		.bp_reg = ANA_LDO_PD_SET,
 		.bp_bits = BIT_5,
 		.bp_rst_reg = ANA_LDO_PD_RST,
@@ -158,7 +158,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPRF0,
+		.id = LDO_LDO_RF0,
 		.bp_reg = ANA_LDO_PD_SET,
 		.bp_bits = BIT_3,
 		.bp_rst_reg = ANA_LDO_PD_RST,
@@ -172,7 +172,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPRF1,
+		.id = LDO_LDO_RF1,
 		.bp_reg = ANA_LDO_PD_SET,
 		.bp_bits = BIT_4,
 		.bp_rst_reg = ANA_LDO_PD_RST,
@@ -186,7 +186,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPMEM,
+		.id = LDO_LDO_MEM,
 		.bp_reg = ANA_LDO_PD_SET,
 		.bp_bits = BIT_2,
 		.bp_rst_reg = ANA_LDO_PD_RST,
@@ -214,7 +214,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_PDBG,
+		.id = LDO_LDO_BG,
 		.bp_reg = ANA_LDO_PD_SET,
 		.bp_bits = BIT_0,
 		.bp_rst_reg = ANA_LDO_PD_RST,
@@ -228,7 +228,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPVB,
+		.id = LDO_LDO_AVB,
 		.bp_reg = ANA_LDO_PD_CTL0,
 		.bp_bits = BIT_14,
 		.bp_rst_reg = ANA_LDO_PD_CTL0,
@@ -242,7 +242,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPCAMA,
+		.id = LDO_LDO_CAMA,
 		.bp_reg = ANA_LDO_PD_CTL0,
 		.bp_bits = BIT_12,
 		.bp_rst_reg = ANA_LDO_PD_CTL0,
@@ -256,7 +256,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPCAMD1,
+		.id = LDO_LDO_CAMD1,
 		.bp_reg = ANA_LDO_PD_CTL0,
 		.bp_bits = BIT_10,
 		.bp_rst_reg = ANA_LDO_PD_CTL0,
@@ -270,7 +270,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPCAMD0,
+		.id = LDO_LDO_CAMD0,
 		.bp_reg = ANA_LDO_PD_CTL0,
 		.bp_bits = BIT_8,
 		.bp_rst_reg = ANA_LDO_PD_CTL0,
@@ -284,7 +284,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPSIM1,
+		.id = LDO_LDO_SIM1,
 		.bp_reg = ANA_LDO_PD_CTL0,
 		.bp_bits = BIT_6,
 		.bp_rst_reg = ANA_LDO_PD_CTL0,
@@ -298,7 +298,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPSIM0,
+		.id = LDO_LDO_SIM0,
 		.bp_reg = ANA_LDO_PD_CTL0,
 		.bp_bits = BIT_4,
 		.bp_rst_reg = ANA_LDO_PD_CTL0,
@@ -312,7 +312,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPSDIO0,
+		.id = LDO_LDO_SDIO0,
 		.bp_reg = ANA_LDO_PD_CTL0,
 		.bp_bits = BIT_2,
 		.bp_rst_reg = ANA_LDO_PD_CTL0,
@@ -326,7 +326,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPUSBH,
+		.id = LDO_LDO_USB,
 		.bp_reg = ANA_LDO_PD_CTL0,
 		.bp_bits = BIT_0,
 		.bp_rst_reg = ANA_LDO_PD_CTL0,
@@ -340,7 +340,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPSIM3,
+		.id = LDO_LDO_SIM3,
 		.bp_reg = ANA_LDO_PD_CTL1,
 		.bp_bits = BIT_8,
 		.bp_rst_reg = ANA_LDO_PD_CTL1,
@@ -354,7 +354,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL3,	//CMMB 1.2V
 	},
 	{
-		.id = LDO_BPSIM2,
+		.id = LDO_LDO_SIM2,
 		.bp_reg = ANA_LDO_PD_CTL1,
 		.bp_bits = BIT_6,
 		.bp_rst_reg = ANA_LDO_PD_CTL1,
@@ -368,7 +368,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL1,	//E-NAND 3.0V
 	},
 	{
-		.id = LDO_BPWIF1,
+		.id = LDO_LDO_WIF1,
 		.bp_reg = ANA_LDO_PD_CTL1,
 		.bp_bits = BIT_4,
 		.bp_rst_reg = ANA_LDO_PD_CTL1,
@@ -382,7 +382,7 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL2,	//WIFI 1.8V
 	},
 	{
-		.id = LDO_BPWIF0,
+		.id = LDO_LDO_WIF0,
 		.bp_reg = ANA_LDO_PD_CTL1,
 		.bp_bits = BIT_2,
 		.bp_rst_reg = ANA_LDO_PD_CTL1,
@@ -396,24 +396,24 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_BPSDIO1,
+		.id = LDO_LDO_SDIO1,
 		.bp_reg = ANA_LDO_PD_CTL1,
 		.bp_bits = BIT_0,
 		.bp_rst_reg = ANA_LDO_PD_CTL1,
 		.bp_rst = BIT_1,
 		.level_reg_b0 = ANA_LDO_VCTL3,
-		.b0 = BIT_8,
-		.b0_rst = BIT_9,
+		.b0 = BIT_12,
+		.b0_rst = BIT_13,
 		.level_reg_b1 = ANA_LDO_VCTL3,
-		.b1 = BIT_10,
-		.b1_rst = BIT_11,
+		.b1 = BIT_14,
+		.b1_rst = BIT_15,
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 	{
-		.id = LDO_RTC,
-		.bp_reg = 0,
+		.id = LDO_LDO_RTC,
+		.bp_reg = LDO_INVALID_REG_ADDR,
 		.bp_bits = 0,
-		.bp_rst_reg = 0,
+		.bp_rst_reg = LDO_INVALID_REG_ADDR,
 		.bp_rst = 0,
 		.level_reg_b0 = ANA_LDO_VCTL0,
 		.b0 = 0,
@@ -421,6 +421,20 @@ static struct ldo_ctl_info ldo_ctl_data[] =
 		.level_reg_b1 = ANA_LDO_VCTL0,
 		.b1 = 2,
 		.b1_rst = 3,
+		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
+	},
+	{
+		.id = LDO_LDO_USBD,
+		.bp_reg = LDO_INVALID_REG_ADDR,
+		.bp_bits = 0,
+		.bp_rst_reg = LDO_INVALID_REG_ADDR,
+		.bp_rst = 0,
+		.level_reg_b0 = LDO_INVALID_REG_ADDR,
+		.b0 = 0,
+		.b0_rst = 0,
+		.level_reg_b1 = LDO_INVALID_REG_ADDR,
+		.b1 = 0,
+		.b1_rst = 0,
 		.init_level = LDO_VOLT_LEVEL_FAULT_MAX,
 	},
 };
@@ -451,7 +465,6 @@ static struct ldo_ctl_info* LDO_GetLdoCtl(LDO_ID_E ldo_id)
 	int i = 0;
 	struct ldo_ctl_info* ctl = NULL;
 
-	///ldo_id = LDO_DCDCARM;//for test....
 	for ( i = 0; i < ARRAY_SIZE(ldo_ctl_data); ++i) {
 		if (ldo_ctl_data[i].id == ldo_id) {
 			ctl = &ldo_ctl_data[i];
@@ -467,23 +480,12 @@ LDO_ERR_E LDO_TurnOnLDO(LDO_ID_E ldo_id)
 {
 	struct ldo_ctl_info* ctl = NULL;
 	unsigned long flags;
-	printk(":::::::::::::::::::::::::LDO_TurnOnLDO Start:::::::::::::::::::::::::.\n");
-	//printk(":::::::::::::::::::::::::LDO_TurnOnLDO %d:%d::::::::::::::::::::::::", 
-	//		LDO_BPSDIO0,ldo_id);
 
 	ctl = LDO_GetLdoCtl(ldo_id);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
 
 	spin_lock_irqsave(&ldo_lock, flags);
-	//printk("\n:::::::::::::::::::::::::LDO ctl->ref:%d\n",ctl->ref);
-	//printk("\n:::::::::::::::::::::::::LDO ctl->current_status:%d\n",ctl->current_status);
 	if ((ctl->ref++) == 0) {
-	//printk("\n:::::::::::::::::::::::::LDO ctl->ref:IN\n");
-
-	//printk("\n:::::::::::::::::::::::::LDO ctl->bp_reg:%x\n",ctl->bp_reg);
-	//printk("\n:::::::::::::::::::::::::LDO ctl->bp_rst:%x\n",ctl->bp_rst);
-	//printk("\n:::::::::::::::::::::::::LDO ctl->bp_bits:%x\n",ctl->bp_bits);
-
 		if(ctl->bp_reg == LDO_INVALID_REG_ADDR) {
 			if (LDO_LDO_USBD == ldo_id)
 				__raw_bits_and((~LDO_USB_PD), GR_CLK_GEN5);
@@ -500,10 +502,8 @@ LDO_ERR_E LDO_TurnOnLDO(LDO_ID_E ldo_id)
 		ctl->current_status = CURRENT_STATUS_ON;
 	}
 
-	//printk("\n:::::::::::::::::::::::::LDO GETctl->bp_reg:%x\n", ANA_REG_GET(ctl->bp_reg));
-
 	spin_unlock_irqrestore(&ldo_lock, flags);
-	printk(":::::::::::::::::::::::::LDO_TurnOnLDO ENd:::::::::::::::::::::::::.\n");
+
 	return LDO_ERR_OK;
 }
 EXPORT_SYMBOL_GPL(LDO_TurnOnLDO);
@@ -657,6 +657,7 @@ int __init LDO_Init(void)
 
 static void LDO_TurnOffCoreLDO(void)
 {
+	ANA_REG_SET (ANA_LDO_PD_RST, 0);
 	ANA_REG_SET (ANA_LDO_PD_SET, ANA_LDO_PD_SET_MSK);/// turn off system core ldo
 }
 
@@ -665,7 +666,6 @@ static void LDO_TurnOffAllModuleLDO(void)
 	ANA_REG_OR(ANA_AUDIO_PA_CTRL1, PA_LDO_EN_RST);///PA poweroff
 	ANA_REG_SET (ANA_LDO_PD_CTL1, ANA_LDO_PD_CTL_MSK);
 	ANA_REG_SET (ANA_LDO_PD_CTL0, ANA_LDO_PD_CTL_MSK);
-	ANA_REG_SET (ANA_LDO_PD_RST, ANA_LDO_PD_RST_MSK);
 }
 
 void LDO_TurnOffAllLDO(void)

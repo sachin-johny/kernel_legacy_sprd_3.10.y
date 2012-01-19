@@ -352,9 +352,9 @@ static inline
 void    usb_ldo_switch(int flag)
 {
         if(flag){
-            LDO_TurnOnLDO(LDO_BPUSBH);
+            LDO_TurnOnLDO(LDO_LDO_USB);
         } else {
-            LDO_TurnOffLDO(LDO_BPUSBH);
+            LDO_TurnOffLDO(LDO_LDO_USB);
         }
 }
 

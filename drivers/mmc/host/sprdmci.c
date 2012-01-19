@@ -1109,10 +1109,10 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (pwr == 0) {
 #ifdef CONFIG_ARCH_SC8810
 		if (!strcmp("Spread SDIO host0", host->hw_name)){
-				LDO_TurnOffLDO(LDO_BPSDIO0);
+				LDO_TurnOffLDO(LDO_LDO_SDIO0);
 		}
 		else if (!strcmp("Spread SDIO host1", host->hw_name)){
-				LDO_TurnOffLDO(LDO_BPSDIO1);
+				LDO_TurnOffLDO(LDO_LDO_SDIO1);
 		}
 #else
 		LDO_TurnOffLDO(LDO_LDO_SDIO);
@@ -1125,18 +1125,18 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 
 #ifdef CONFIG_ARCH_SC8810
 	if (!strcmp("Spread SDIO host0", host->hw_name)){
-			LDO_SetVoltLevel (LDO_BPSDIO0, volt_level);
+			LDO_SetVoltLevel (LDO_LDO_SDIO0, volt_level);
 	}
 	else if (!strcmp("Spread SDIO host1", host->hw_name)){
-			LDO_SetVoltLevel (LDO_BPSDIO1, volt_level);
+			LDO_SetVoltLevel (LDO_LDO_SDIO1, volt_level);
 	}
 	sdhci_writeb(host, SDHCI_POWER_ON, SDHCI_POWER_CONTROL);
 
 	if (!strcmp("Spread SDIO host0", host->hw_name)){
-			LDO_TurnOnLDO(LDO_BPSDIO0);
+			LDO_TurnOnLDO(LDO_LDO_SDIO0);
 	}
 	else if (!strcmp("Spread SDIO host1", host->hw_name)){
-			LDO_TurnOnLDO(LDO_BPSDIO1);
+			LDO_TurnOnLDO(LDO_LDO_SDIO1);
 	}
 #else
 	LDO_SetVoltLevel (LDO_LDO_SDIO, volt_level);
