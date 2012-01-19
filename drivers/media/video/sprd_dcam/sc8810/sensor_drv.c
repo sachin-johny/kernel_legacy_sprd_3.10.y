@@ -1729,6 +1729,9 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 			//ImgSensor_GetMutex();		
 			printk("SENSOR:identify  Sensor 00:this_client=0x%x,this_client->addr=0x%x,0x%x\n",(uint32_t)this_client,(uint32_t)&this_client->addr,this_client->addr);
 	//		msleep(100);
+			#ifdef CONFIG_NMI_ATV
+			if(5 != Sensor_GetCurId())//test by wang bonnie
+			#endif
 			this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
 			SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
 	//		msleep(100);
@@ -1775,7 +1778,9 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 	   		_Sensor_SetId(i);
 			
 			 s_sensor_info_ptr=s_sensor_list_ptr[i];
-
+			#ifdef CONFIG_NMI_ATV
+         		if(5 != Sensor_GetCurId())//bonnie
+			#endif
 			this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
 
 			Sensor_PowerOn(SENSOR_TRUE);
@@ -1815,6 +1820,13 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 //	msleep(20);
 
 	_Sensor_Identify(SENSOR_SUB);
+	#ifdef CONFIG_NMI_ATV
+
+	msleep(20);  //Jed add them 20111110 bonnie
+
+	_Sensor_Identify(SENSOR_ATV);
+
+	#endif
 	
 	SENSOR_PRINT("SENSOR: Sensor_Init Identify \n");
 
@@ -1827,6 +1839,9 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 		Sensor_SetExportInfo(&s_sensor_exp_info);
 		s_sensor_init = SENSOR_TRUE;
 		Sensor_PowerOn(SENSOR_TRUE);
+		#ifdef CONFIG_NMI_ATV
+		if(5 != Sensor_GetCurId())//bonnie
+		#endif
 		this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
 		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n",sensor_id,this_client->addr);
 		ret_val=SENSOR_SUCCESS;		

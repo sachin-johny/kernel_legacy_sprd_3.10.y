@@ -66,6 +66,9 @@ extern SENSOR_INFO_T g_GT2005_yuv_info;
 extern SENSOR_INFO_T g_GC0309_yuv_info;
 extern SENSOR_INFO_T g_ov5640_yuv_info;
 extern SENSOR_INFO_T g_OV7660_yuv_info;
+#ifdef CONFIG_NMI_ATV
+extern SENSOR_INFO_T g_nmi600_yuv_info;//atv:nmi bonnie
+#endif
 /**---------------------------------------------------------------------------*
  **                         analog tv                                         *
  **---------------------------------------------------------------------------*/
@@ -96,7 +99,11 @@ const SENSOR_INFO_T* sub_sensor_infor_tab[]=
 
 const SENSOR_INFO_T* atv_infor_tab[]=
 {
-	PNULL, 
+#ifdef CONFIG_NMI_ATV
+    &g_nmi600_yuv_info, //&g_tlg1120_yuv_info,  bonnie
+#else
+	PNULL,
+#endif
 	PNULL
 };
 
