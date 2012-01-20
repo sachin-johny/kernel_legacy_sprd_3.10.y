@@ -1123,6 +1123,16 @@ void __init setup_arch(char **cmdline_p)
 	early_trap_init();
 }
 
+/*
+ * Pick out the high ram size.  We look for ram=512M,
+ */
+static int __init high_ram(char *p)
+{
+	if(p && strstr(p,"512M"))
+		arm_add_memory(0xE0000000, 0x10000000);
+	return 0;
+}
+early_param("ram", high_ram);
 
 static int __init topology_init(void)
 {
