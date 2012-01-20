@@ -206,7 +206,7 @@ typedef enum
 {
 	SENSOR_MAIN = 0,
 	SENSOR_SUB,
-	SENSOR_ATV,
+	SENSOR_ATV=5,//bonnie
 	SENSOR_ID_MAX
 }SENSOR_ID_E;
 

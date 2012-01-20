@@ -120,6 +120,9 @@ static struct i2c_board_info __initdata sp8810_i2c_boardinfo1[] = {
     {
         I2C_BOARD_INFO(SENSOR_MAIN_I2C_NAME,SENSOR_MAIN_I2C_ADDR),
     },
+	{
+	 	I2C_BOARD_INFO("nmiatv", 0x60),
+	 },	
    {
         I2C_BOARD_INFO(SENSOR_SUB_I2C_NAME,SENSOR_SUB_I2C_ADDR),
     },

@@ -11,11 +11,4 @@ config CAMERA_3M
 
 endchoice
 
-#
-# config for nmi atv
-#
-
-config NMI_ATV
-	bool "NMIATV SUPPORT"
-
 endif
