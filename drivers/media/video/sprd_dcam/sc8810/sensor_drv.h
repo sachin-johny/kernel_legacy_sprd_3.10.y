@@ -188,6 +188,7 @@
 #define SENSOR_EXPOSURE_AUTO 0x01
 #define SENSOR_EXPOSURE_ZONE (0x01<<1)
 
+#define FOCUS_ZONE_CNT_MAX   6
 /**---------------------------------------------------------------------------*
  **                         Data Structures                                   *
  **---------------------------------------------------------------------------*/
@@ -373,6 +374,7 @@ typedef enum
 	SENSOR_EXT_FOCUS_NONE=0x00,
 	SENSOR_EXT_FOCUS_TRIG,
 	SENSOR_EXT_FOCUS_ZONE,
+	SENSOR_EXT_FOCUS_MULTI_ZONE,
 	SENSOR_EXT_FOCUS_MAX
 }SENSOR_EXT_FOCUS_CMD_E;
 
@@ -498,6 +500,13 @@ typedef struct _sensor_ext_fun_tag
 	uint32_t param;
 	SENSOR_RECT_T zone;
 }SENSOR_EXT_FUN_T, *SENSOR_EXT_FUN_T_PTR;
+typedef struct _sensor_ext_fun_param_tag 
+{
+	uint8_t cmd;
+	uint8_t param;
+	uint16_t zone_cnt;
+	SENSOR_RECT_T zone[FOCUS_ZONE_CNT_MAX];
+}SENSOR_EXT_FUN_PARAM_T, *SENSOR_EXT_FUN_PARAM_T_PTR;
 
 // struct: Information about sensor register table 
 typedef struct sensor_reg_tab_info_tag

@@ -856,10 +856,15 @@ static void dcam_start_handle(int param)
 		dcam_start();
 	}
 }
+#define FOCUS_PARAM_COUNT (2+FOCUS_ZONE_CNT_MAX*4)
+#define FOCUS_PARAM_LEN   (FOCUS_PARAM_COUNT*2)
+
 static int vidioc_handle_ctrl(struct v4l2_control *ctrl)	
 {
 	int is_previewing = 0;
-	SENSOR_EXT_FUN_T af_param = {0};
+	SENSOR_EXT_FUN_PARAM_T af_param;
+	uint16_t focus_param[FOCUS_PARAM_COUNT] = {0};
+	uint32_t  i=0;
 	
 	DCAM_V4L2_PRINT("V4L2:vidioc_handle_ctrl, id: %d, value: %d.\n", ctrl->id, ctrl->value);
 	is_previewing = dcam_is_previewing(g_zoom_level);	
@@ -946,23 +951,60 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);		
 			break;
 		case V4L2_CID_FOCUS_AUTO:
-			printk("test focus kernel,param=%d.\n",(uint32_t)ctrl->value);
-
 			if(SENSOR_MAIN != Sensor_GetCurId())
 			{
 				break;
 			}
 
-			if((0 == g_dcam_info.focus_param)&&(1 == ctrl->value))
+			copy_from_user(&focus_param[0], (uint16_t*)ctrl->value, FOCUS_PARAM_LEN);		
+			printk("V4L2:focus kernel,type=%d,zone_cnt=%d.\n",focus_param[0],focus_param[1]);
+			if((0 == g_dcam_info.focus_param)&&(0 != focus_param[0]))
 			{
 				DCAM_V4L2_PRINT("V4L2: need initial auto firmware!.\n");
 				af_param.cmd = SENSOR_EXT_FUNC_INIT;
 				af_param.param = SENSOR_EXT_FOCUS_TRIG;
 				Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param);				
 				g_dcam_info.focus_param = 1;				
-			}			
-			af_param.cmd = SENSOR_EXT_FOCUS_START;
-			af_param.param = SENSOR_EXT_FOCUS_TRIG;//(uint32_t)ctrl->value;
+			}	
+
+			switch(focus_param[0])
+			{
+				case 1:
+					af_param.cmd = SENSOR_EXT_FOCUS_START;
+					af_param.param = SENSOR_EXT_FOCUS_TRIG;
+					break;
+				case 2:
+					{						
+						af_param.cmd = SENSOR_EXT_FOCUS_START;
+						af_param.param = SENSOR_EXT_FOCUS_ZONE;
+						af_param.zone_cnt = 1;
+
+						af_param.zone[0].x = focus_param[2];
+						af_param.zone[0].y = focus_param[3];
+						af_param.zone[0].w = focus_param[4];
+						af_param.zone[0].h = focus_param[5];			
+					}
+					break;
+				case 3:
+					{
+						uint16_t *param_ptr = &focus_param[2];
+						af_param.cmd = SENSOR_EXT_FOCUS_START;
+						af_param.param = SENSOR_EXT_FOCUS_MULTI_ZONE;
+						af_param.zone_cnt = focus_param[1];
+						for( i=0 ; i<focus_param[1] ; i++)
+						{
+							af_param.zone[i].x = *param_ptr++;
+							af_param.zone[i].y = *param_ptr++;
+							af_param.zone[i].w = *param_ptr++;
+							af_param.zone[i].h = *param_ptr++;									
+						}
+					}
+					break;
+				default:
+					printk("V4L2:don't support this focus,focus type = %d .\n",focus_param[0]);
+					break;
+			}
+			
 			Sensor_Ioctl(SENSOR_IOCTL_FOCUS,(uint32_t)&af_param );		      
 			break;
 		default:
@@ -979,10 +1021,14 @@ static int vidioc_s_ctrl(struct file *file, void *priv,struct v4l2_control *ctrl
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(dcam_qctrl); i++)
-		if (ctrl->id == dcam_qctrl[i].id) {
-			if (ctrl->value < dcam_qctrl[i].minimum ||
-			    ctrl->value > dcam_qctrl[i].maximum) {
-				return -ERANGE;
+		if (ctrl->id == dcam_qctrl[i].id)
+		{
+			if(ctrl->id != V4L2_CID_FOCUS_AUTO)
+			{
+				if (ctrl->value < dcam_qctrl[i].minimum || ctrl->value > dcam_qctrl[i].maximum) 
+				{
+					return -ERANGE;
+				}
 			}
 			dev->qctl_regs[i] = ctrl->value;
 			vidioc_handle_ctrl(ctrl);
