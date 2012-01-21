@@ -17,8 +17,7 @@
 /**---------------------------------------------------------------------------*
  **                         Dependencies                                      *
  **---------------------------------------------------------------------------*/
-#include "sc8810/sensor_cfg.h"
-#include "sc8810/sensor_drv.h"
+#include "sensor.h"
 #include <linux/delay.h>
 
 /*lint -save -e765 */
@@ -656,6 +655,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_ov5640_ioctl_func_tab =
     _ov5640_after_snapshot,
     PNULL,
     PNULL,
+
     PNULL,
     PNULL,
     PNULL,
@@ -4634,6 +4634,7 @@ LOCAL const SENSOR_REG_T ov5640_init_single_firmware[]=
   {0x893e, 0x1e},
   {0x893f, 0x70},
   {0x8940, 0xd2},
+
   {0x8941, 0x35},
   {0x8942, 0x02},
   {0x8943, 0x0a},

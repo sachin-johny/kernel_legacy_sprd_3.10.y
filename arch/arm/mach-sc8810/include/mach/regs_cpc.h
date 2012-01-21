@@ -290,6 +290,7 @@
 /*----------Analog Die Pin Control Register----------*/
 
 #define ANA_PIN_TESTRSTN_REG		ANA_REG_ADDR(0x008C)
+#define ANA_PIN_CHIP_RSTN_REG		ANA_REG_ADDR(0x008C)
 #define ANA_PIN_PBINT_REG			ANA_REG_ADDR(0x0094)
 #define ANA_PIN_TP_XL_REG			ANA_REG_ADDR(0x0098)
 #define ANA_PIN_TP_XR_REG			ANA_REG_ADDR(0x009C)
@@ -332,13 +333,7 @@
 #define ANA_PIN_DS_3                (0x03<<8)           // Driver strength level 3 BIT8-9
 #define PM_INVALID_VAL        0xffffffff
 #define PM_INVALID_SHORT_VAL  0xffff
-typedef unsigned int uint32;
-typedef unsigned short uint16;
 
-typedef struct PM_PINFUNC_tag {
-	uint32 addr;
-	uint32 value;
-} PM_PINFUNC_T;
 
 typedef enum {
 	PM_OUTPUT,
@@ -354,17 +349,6 @@ typedef enum {
 	PM_NO_INT,
 	PM_INVALID_INT
 } PM_IS_E;
-
-typedef struct GPIO_CTL_tag {
-	uint16 gpio_num;
-	uint16 default_val;
-	PM_DIR_E dir;
-	PM_IS_E int_sense;
-} PM_GPIO_CTL_T;
-
-extern const PM_PINFUNC_T pm_func[];
-extern const PM_PINFUNC_T pm_default_global_map[];
-extern const PM_GPIO_CTL_T pm_gpio_default_map[];
 
 #define CHIP_REG_OR(reg_addr, value)   do{ \
                                              unsigned long flags;   \

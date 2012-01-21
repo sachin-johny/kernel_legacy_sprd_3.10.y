@@ -17,7 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 
-#include "lcd.h"
+#include <mach/lcd.h>
 
 //#define  LCD_DEBUG
 #ifdef LCD_DEBUG

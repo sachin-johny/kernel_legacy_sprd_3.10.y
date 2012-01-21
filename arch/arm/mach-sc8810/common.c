@@ -99,10 +99,11 @@ static struct platform_device sprd_tp_device = {
 };
 
 
-
+extern struct sprd_lcd_platform_data lcd_data;
 static struct platform_device sprd_fb_device = {
 	.name	= "sc8810fb",
 	.id	= -1,
+	.dev.platform_data = &lcd_data,
 };
 
 static struct resource sprd_kpad_resources[] = {
@@ -113,16 +114,13 @@ static struct resource sprd_kpad_resources[] = {
         },
 };
 
+extern struct sprd_kpad_platform_data sprd_kpad_data;
 static struct platform_device sprd_kpad_device = {
-#if defined(CONFIG_MACH_SP6820A)
-        .name           = "sprd-keypad6820a",
-#endif
-#if defined(CONFIG_MACH_SP8810)  || defined(CONFIG_MACH_SC8810OPENPHONE)
-        .name           = "sprd-keypad8810",
-#endif
+        .name           = "qwerty",
         .id             = -1,
         .num_resources  = ARRAY_SIZE(sprd_kpad_resources),
         .resource       = sprd_kpad_resources,
+        .dev.platform_data = &sprd_kpad_data,
 };
 
 static struct resource sprd_battery_resources[] = {

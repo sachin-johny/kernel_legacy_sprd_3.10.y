@@ -22,6 +22,7 @@
 #include <mach/regs_global.h>
 #include <mach/regs_gpio.h>
 #include <mach/regs_ana.h>
+#include <mach/board.h>
 #include "gpio_phy.h"
 /*
 #define DEBUG
@@ -546,6 +547,8 @@ static struct gpio_chip sprd_gpio_chip = {
 	.base = 0,
 	.ngpio = GPIO_MAX_PIN_NUM,
 };
+
+static u8 sprd_gpio_logic[GPIO_MAX_PIN_NUM];
 
 static u32 __gpio_get_int_mask_addr(struct gpio_info *info)
 {
@@ -1094,6 +1097,11 @@ __init void sprd_gpio_init(void)
 {
 	//__raw_writel(0x7fff, GR_GEN2);
 	//CHIP_REG_OR ( (GR_GEN0), (GEN0_GPIO_EN | GEN0_GPIO_RTC_EN));
+   	 struct gpio_initdata *gd;
+	 int i,size;
+	 int gpio, value,logic;
+
+	memset(sprd_gpio_logic,1,sizeof(sprd_gpio_logic));
 	__raw_bits_or(GEN0_GPIO_EN | GEN0_GPIO_RTC_EN, GR_GEN0);
 
 	ANA_REG_OR(ANA_AGEN, AGEN_RTC_ARCH_EN);
@@ -1101,6 +1109,27 @@ __init void sprd_gpio_init(void)
 	ANA_REG_OR(ANA_AGEN, AGEN_GPIO_EN);
 
 	gpiochip_add(&sprd_gpio_chip);
+	get_gpio_cfg(&gd,&size);
+    	for (i = 0; i < size; i++) {
+		gpio = (gd[i].io) & GPIO_INDEX_MAX;
+		*(gd[i].gpio) = gpio;
+		if(gd[i].io == -1) {
+			continue;
+		}
+		value = !!(gd[i].io & GPIO_DEFAUT_HIGH);
+		logic =  !!(gd[i].io & GPIO_LOGIC_TRUE);
+
+		sprd_gpio_request(&sprd_gpio_chip,gpio);
+		/*GPIO's direction no longer depends on pin's sleep status.*/
+		if (gd->io & GPIO_DIRECTION_OUTPUT) {
+		   sprd_gpio_direction_output (&sprd_gpio_chip,gpio, value);
+		} else if (gd->io & GPIO_DIRECTION_INPUT) {
+		    sprd_gpio_direction_input(&sprd_gpio_chip,gpio);
+		} else {
+		   printk(KERN_WARNING "%s : not supported gpio direction!\n", __func__);
+		}
+		sprd_gpio_logic[gpio] = (u8)logic;
+	}
 
 	sprd_gpio_irq_init();
 }

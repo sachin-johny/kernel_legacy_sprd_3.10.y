@@ -16,7 +16,7 @@
  * GNU General Public License for more details.
  */ 
 #include "dcam_service_sc8810.h"
-#include "sensor_drv.h"
+#include <mach/sensor_drv.h>
 #include "isp_control.h"
 #include <mach/clock_common.h>
 #include <linux/clk.h>

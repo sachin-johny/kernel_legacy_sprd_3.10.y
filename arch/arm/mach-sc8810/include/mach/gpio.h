@@ -30,6 +30,16 @@
 #define gpio_set_value __gpio_set_value
 #define gpio_to_irq  __gpio_to_irq
 
+#define GPIO_DEFAUT_HIGH		(1 << 31)
+#define GPIO_DEFAUT_LOW			(0 << 31)
+#define GPIO_DIRECTION_OUTPUT	(1 << 30)
+#define GPIO_DIRECTION_INPUT		(1 << 29)
+#define GPIO_LOGIC_TRUE			(1<< 28)
+#define GPIO_LOGIC_FALSE			(0 << 28)
+
+
+#define GPIO_INDEX_MAX			(0xffff)
+
 extern __must_check int sprd_alloc_gpio_irq(unsigned gpio);
 extern int irq_to_gpio(unsigned long irq);
 extern void sprd_free_gpio_irq(int irq);

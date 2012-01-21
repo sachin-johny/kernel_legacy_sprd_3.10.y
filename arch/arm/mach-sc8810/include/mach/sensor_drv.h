@@ -34,7 +34,24 @@
 #include <mach/hardware.h>
 #include <asm/io.h>
 
-#include "dcam_service.h"
+//for sensor
+#define SENSOR_SUCCESS 0
+#define SENSOR_FAIL 1
+#define SENSOR_FALSE 0 
+#define SENSOR_TRUE 1
+#define SENSOR_ASSERT(a) do{}while(!(a));
+#define SENSOR_Sleep(m) msleep(m)
+#define SENSOR_MEMSET memset
+#define SENSOR_MALLOC kmalloc
+typedef void *SENSOR_MUTEX_PTR;
+#define SENSOR_PASSERT(m, n) if(!m) printk n 
+
+#define BOOLEAN char
+#define PNULL  ((void *)0)
+#define PUBLIC 
+#define LOCAL static
+#define SENSOR_NULL 0
+#define SENSOR_Sleep msleep
 
 /**---------------------------------------------------------------------------*
  **                         Debugging Flag                                    *

@@ -20,8 +20,8 @@
 #define _SENSOR_H_
 
 #ifdef CONFIG_ARCH_SC8810
-#include "sc8810/sensor_cfg.h"
-#include "sc8810/sensor_drv.h"
+#include <mach/sensor_cfg.h>
+#include <mach/sensor_drv.h>
 #include <linux/delay.h>
 #else
 #include "sensor_cfg.h"

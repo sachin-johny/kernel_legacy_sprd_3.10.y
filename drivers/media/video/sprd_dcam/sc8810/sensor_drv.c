@@ -19,13 +19,15 @@
  **---------------------------------------------------------------------------*/ 
 #include <linux/delay.h>
 #include <linux/slab.h>
-#include "sensor_drv.h"
-#include "sensor_cfg.h"
+#include <mach/sensor_drv.h>
+#include <mach/sensor_cfg.h>
 #include <mach/adi_hal_internal.h>
 #include <linux/dcam_sensor.h>
 #include <mach/clock_common.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+
+#include "dcam_common.h"
 
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
@@ -137,24 +139,24 @@ typedef struct
 static LDO_CTL_T g_ldo_ctl_tab[] = 
 {
 	{
-		LDO_LDO_USBD, DCAM_NULL, DCAM_NULL, DCAM_NULL, DCAM_NULL,DCAM_NULL,DCAM_NULL,
-		DCAM_NULL, DCAM_NULL, DCAM_NULL,DCAM_NULL, LDO_VOLT_LEVEL_MAX, DCAM_NULL
+		LDO_LDO_USBD, SENSOR_NULL, SENSOR_NULL, SENSOR_NULL, SENSOR_NULL,SENSOR_NULL,SENSOR_NULL,
+		SENSOR_NULL, SENSOR_NULL, SENSOR_NULL,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
 	},
 	{
 		LDO_LDO_CAMA, ANA_LDO_PD_CTL, BIT_12, BIT_13, ANA_LDO_VCTL2,BIT_8,BIT_9,
-		ANA_LDO_VCTL2, BIT_10, BIT_11,DCAM_NULL, LDO_VOLT_LEVEL_MAX, DCAM_NULL
+		ANA_LDO_VCTL2, BIT_10, BIT_11,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
 	},
 	{
 		LDO_LDO_CAMD1, ANA_LDO_PD_CTL, BIT_10, BIT_11, ANA_LDO_VCTL2,BIT_4,BIT_5,
-		ANA_LDO_VCTL2, BIT_6, BIT_7,DCAM_NULL, LDO_VOLT_LEVEL_MAX, DCAM_NULL
+		ANA_LDO_VCTL2, BIT_6, BIT_7,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
 	},
 	{
 		LDO_LDO_CAMD0, ANA_LDO_PD_CTL, BIT_8, BIT_9, ANA_LDO_VCTL2,BIT_0,BIT_1,
-		ANA_LDO_VCTL2, BIT_2, BIT_3,DCAM_NULL, LDO_VOLT_LEVEL_MAX, DCAM_NULL
+		ANA_LDO_VCTL2, BIT_2, BIT_3,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
 	},
 	{
-		LDO_LDO_MAX, DCAM_NULL, DCAM_NULL, DCAM_NULL, DCAM_NULL,DCAM_NULL,DCAM_NULL,
-		DCAM_NULL, DCAM_NULL, DCAM_NULL,DCAM_NULL, LDO_VOLT_LEVEL_MAX, DCAM_NULL
+		LDO_LDO_MAX, SENSOR_NULL, SENSOR_NULL, SENSOR_NULL, SENSOR_NULL,SENSOR_NULL,SENSOR_NULL,
+		SENSOR_NULL, SENSOR_NULL, SENSOR_NULL,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
 	}
 };
 
@@ -303,14 +305,14 @@ PUBLIC void ImgSensor_DeleteMutex(void)
 {
 	uint32_t ret;
 	
-	if(DCAM_NULL==s_imgsensor_mutex_ptr)
+	if(SENSOR_NULL==s_imgsensor_mutex_ptr)
 	{
 		return ;
 	}
     
 	ret=SENSOR_DeleteMutex(s_imgsensor_mutex_ptr);	
 	SENSOR_ASSERT(ret==SENSOR_SUCCESS );	
-	s_imgsensor_mutex_ptr=DCAM_NULL;	
+	s_imgsensor_mutex_ptr=SENSOR_NULL;	
 }
 
 /*****************************************************************************/
@@ -351,7 +353,7 @@ PUBLIC void ImgSensor_GetMutex(void)
 PUBLIC void ImgSensor_PutMutex(void)
 {
 	uint32_t ret;    
-	if(DCAM_NULL==s_imgsensor_mutex_ptr)
+	if(SENSOR_NULL==s_imgsensor_mutex_ptr)
 	{
 		return;
 	}
@@ -571,7 +573,7 @@ int Sensor_SetMCLK0(uint32_t mclk)
 LOCAL LDO_CTL_PTR LDO_GetLdoCtl(LDO_ID_E ldo_id)
 {
 	uint32_t i;
-	LDO_CTL_PTR ctl = DCAM_NULL;
+	LDO_CTL_PTR ctl = SENSOR_NULL;
 
 	for(i = 0; g_ldo_ctl_tab[i].id != LDO_LDO_MAX; i++)
 	{
@@ -587,10 +589,10 @@ LOCAL LDO_CTL_PTR LDO_GetLdoCtl(LDO_ID_E ldo_id)
 LOCAL uint32_t LDO_TurnOnLDO(LDO_ID_E ldo_id)
 {
 	//LOCAL_VAR_DEF
-	LDO_CTL_PTR ctl = DCAM_NULL;
+	LDO_CTL_PTR ctl = SENSOR_NULL;
 
 	ctl = LDO_GetLdoCtl(ldo_id);
-	if(DCAM_NULL == ctl->bp_reg)
+	if(SENSOR_NULL == ctl->bp_reg)
 	{
 		if(LDO_LDO_USBD == ldo_id)
 		{
@@ -610,10 +612,10 @@ LOCAL uint32_t LDO_TurnOnLDO(LDO_ID_E ldo_id)
 LOCAL uint32_t LDO_TurnOffLDO(LDO_ID_E ldo_id)
 {
 	//LOCAL_VAR_DEF
-	LDO_CTL_PTR ctl = DCAM_NULL;	
+	LDO_CTL_PTR ctl = SENSOR_NULL;	
 
 	ctl = LDO_GetLdoCtl(ldo_id);
-	if(DCAM_NULL == ctl->bp_reg)
+	if(SENSOR_NULL == ctl->bp_reg)
 	{
 		if(LDO_LDO_USBD == ldo_id)
 		{
@@ -636,13 +638,13 @@ LOCAL uint32_t LDO_SetVoltLevel(LDO_ID_E ldo_id, LDO_VOLT_LEVEL_E volt_level)
 {
 	//LOCAL_VAR_DEF
 	uint32_t b0_mask, b1_mask;
-	LDO_CTL_PTR ctl = DCAM_NULL;
+	LDO_CTL_PTR ctl = SENSOR_NULL;
 
 	b0_mask = (volt_level & BIT_0) ? ~0 : 0;
 	b1_mask = (volt_level & BIT_1) ? ~0 : 0;	
 
 	ctl = LDO_GetLdoCtl(ldo_id);
-	if(DCAM_NULL == ctl->level_reg_b0)
+	if(SENSOR_NULL == ctl->level_reg_b0)
 		return SENSOR_SUCCESS;
 
 	if(ctl->level_reg_b0 == ctl->level_reg_b1)

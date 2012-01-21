@@ -131,9 +131,14 @@ struct lcd_spec {
 	struct lcd_operations *ops;
 };
 
-struct lcd_cfg{ 
+struct lcd_panel_cfg{ 
+	uint32_t lcd_cs;
 	uint32_t lcd_id;
-	struct lcd_spec* panel;
+	struct   lcd_spec* panel;
 };
 
+struct  sprd_lcd_platform_data {
+	struct lcd_panel_cfg  *lcd_panel_ptr;
+	uint32_t         lcd_panel_size;
+};
 #endif

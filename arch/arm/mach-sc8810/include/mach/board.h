@@ -26,6 +26,11 @@ struct sprd_platform_data
 	unsigned has_vsync_irq:1;
 };
 
+struct gpio_initdata {
+    int* gpio;
+    int io;
+};
+
 /* common init routines for use by arch/arm/mach-sprd/board-*.c */
 
 void __init sprd_add_devices(void);
@@ -37,6 +42,11 @@ void __init sprd_gadget_init(void);
 void __init sprd_add_dcam_device(void);
 void __init sprd_charger_init(void);
 void __init sprd_gpu_init(void);
+void __init sprd_pin_map_init(void);
+
+/*get custom config*/
+void __init get_gpio_cfg(struct gpio_initdata** desc, int* size);
+int __init sprd_i2c_init(void);
 
 /* pmem area definition */
 /*

@@ -1267,21 +1267,10 @@ int supsend_ldo_turnon(void)
 	return 0;
 }
 
-void gpio_for_suespend(void);
-void gpio_dump_registers(void);
 
 int supsend_gpio_save(void)
 {
 	u32 val = 0;
-#if defined(CONFIG_MACH_SP8810)
-	if (sprd_check_gpio_enable) {
-		gpio_for_suespend();
-	}
-
-	if (sprd_dump_gpio_registers) {
-		gpio_dump_registers();
-	}
-#endif
 #ifdef CONFIG_MACH_SP6810A
 	/* GPIO 96, shutdown audio PA. */
 	val = __raw_readl(SPRD_GPIO_BASE + 0x0300);

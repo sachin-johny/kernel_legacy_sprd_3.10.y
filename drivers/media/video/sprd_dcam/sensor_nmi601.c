@@ -17,8 +17,7 @@
 /**---------------------------------------------------------------------------*
  **                         Dependencies                                      *
  **---------------------------------------------------------------------------*/
-#include "sc8810/sensor_cfg.h"
-#include "sc8810/sensor_drv.h"
+#include "sensor.h"
 //#include "i2c_api.h"
 //#include "os_api.h"
 //#include "chip.h"

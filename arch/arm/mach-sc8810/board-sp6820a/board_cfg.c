@@ -108,79 +108,6 @@ struct platform_device android_pmem_adsp_device = {
 };
 #endif
 
-//i2c pad:  the high two bit of the addr is the pad control bit
-static struct i2c_board_info __initdata sp8810_i2c_boardinfo[] = {
-	{
-	 	I2C_BOARD_INFO("al3006_pls", 0x1c),
-	 },
-};
-
-//i2c pad:  the high two bit of the addr is the pad control bit
-static struct i2c_board_info __initdata sp8810_i2c_boardinfo1[] = {
-    {
-        I2C_BOARD_INFO(SENSOR_MAIN_I2C_NAME,SENSOR_MAIN_I2C_ADDR),
-    },
-	{
-	 	I2C_BOARD_INFO("nmiatv", 0x60),
-	 },	
-   {
-        I2C_BOARD_INFO(SENSOR_SUB_I2C_NAME,SENSOR_SUB_I2C_ADDR),
-    },
-};
-
-static struct i2c_board_info __initdata sp8810_i2c_boardinfo2[] = {
-	 {
-		 I2C_BOARD_INFO("pixcir_ts", 0x5C),
-	 },
-};
-
-
-static void sprd8810_i2c0pin_config(void)
-{
-	unsigned int reg;
-	reg = __raw_readl(SPRD_CPC_BASE+0x0000);
-	reg |= (0x03<<21);
-	__raw_writel(reg, (SPRD_CPC_BASE+0x0000));
-}
-
-static void sprd8810_i2c2pin_config(void)
-{	
-	unsigned int reg;
-	unsigned long i2c2_func_cfg[] = {
-		MFP_CFG_X(SIMDA2, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-		MFP_CFG_X(SIMCLK2, AF1, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	};
-	
-	sprd_mfp_config(i2c2_func_cfg, ARRAY_SIZE(i2c2_func_cfg));
-	
-	reg = __raw_readl(SPRD_GREG_BASE+0x0028);
-	reg |= 0x0100;
-	__raw_writel(reg, (SPRD_GREG_BASE+0x0028));
-}
-
-static void sprd_i2c0_init(void)
-{
-    unsigned int value = 0x0;
-
-    value = __raw_readl(PIN_CTL_REG);
-    value |= 0x600000; // set bit21 and bit 22.
-    __raw_writel(value, PIN_CTL_REG);
-}
-
-static int __init sprd_i2c_init(void)
-{
-	sprd8810_i2c0pin_config();
-	sprd8810_i2c2pin_config();
-	sprd_register_i2c_bus(0, sp8810_i2c_boardinfo,
-			ARRAY_SIZE(sp8810_i2c_boardinfo));
-	sprd_register_i2c_bus(1, sp8810_i2c_boardinfo1,
-			ARRAY_SIZE(sp8810_i2c_boardinfo1));
-	sprd_register_i2c_bus(2, sp8810_i2c_boardinfo2,
-			ARRAY_SIZE(sp8810_i2c_boardinfo2));
-	sprd_register_i2c_bus(3, NULL, 0);
-	return 0;
-}
-
 #if defined(CONFIG_SPI_SC8810) || defined(CONFIG_SPI_SC8810_MODULE)
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
@@ -265,125 +192,6 @@ static struct platform_device sprd_spi_controller_device = {
 		},
 	.resource = spi_resources,
 	.num_resources = ARRAY_SIZE(spi_resources),
-};
-
-#define GPIO_OUTPUT_DEFAUT_VALUE_HIGH   (1 << 31)
-struct gpio_desc {
-	unsigned long mfp;
-	int io;
-	const char *desc;
-};
-
-#define SPRD_3RDPARTY_GPIO_WIFI_POWER       -1
-#define SPRD_3RDPARTY_GPIO_WIFI_RESET       140
-#define SPRD_3RDPARTY_GPIO_WIFI_PWD         137          //1214 update
-//#define SPRD_3RDPARTY_GPIO_WIFI_WAKE        139
-#define SPRD_3RDPARTY_GPIO_WIFI_IRQ         -1
-#define SPRD_3RDPARTY_GPIO_BT_POWER         -1
-#define SPRD_3RDPARTY_GPIO_BT_RESET         90
-#define SPRD_3RDPARTY_GPIO_BT_RTS           42
-#define SPRD_3RDPARTY_GPIO_TP_RST           59
-#define SPRD_3RDPARTY_GPIO_TP_IRQ           60
-#define SPRD_3RDPARTY_GPIO_PLS_IRQ          28
-#define SPRD_3RDPARTY_GPIO_MINT_IRQ          97
-
-#define SPRD_3RDPARTY_GPIO_GPS_PWR	        -1
-#define SPRD_3RDPARTY_GPIO_GPS_ONOFF	    27
-#define SPRD_3RDPARTY_GPIO_GPS_RST	        26
-
-int sprd_3rdparty_gpio_wifi_power = SPRD_3RDPARTY_GPIO_WIFI_POWER;
-int sprd_3rdparty_gpio_wifi_reset = SPRD_3RDPARTY_GPIO_WIFI_RESET;
-int sprd_3rdparty_gpio_wifi_pwd = SPRD_3RDPARTY_GPIO_WIFI_PWD;
-//int sprd_3rdparty_gpio_wifi_wake = SPRD_3RDPARTY_GPIO_WIFI_WAKE;
-int sprd_3rdparty_gpio_wifi_irq = SPRD_3RDPARTY_GPIO_WIFI_IRQ;
-int sprd_3rdparty_gpio_bt_power = SPRD_3RDPARTY_GPIO_BT_POWER;
-int sprd_3rdparty_gpio_bt_reset = SPRD_3RDPARTY_GPIO_BT_RESET;
-int sprd_3rdparty_gpio_bt_rts = SPRD_3RDPARTY_GPIO_BT_RTS;
-int sprd_3rdparty_gpio_tp_rst = SPRD_3RDPARTY_GPIO_TP_RST;
-int sprd_3rdparty_gpio_tp_irq = SPRD_3RDPARTY_GPIO_TP_IRQ;
-int sprd_3rdparty_gpio_pls_irq	=SPRD_3RDPARTY_GPIO_PLS_IRQ;
-int sprd_3rdparty_gpio_mint_irq   = SPRD_3RDPARTY_GPIO_MINT_IRQ ;
-int sprd_3rdparty_gpio_gps_pwr   = SPRD_3RDPARTY_GPIO_GPS_PWR;
-int sprd_3rdparty_gpio_gps_rst   = SPRD_3RDPARTY_GPIO_GPS_RST;
-int sprd_3rdparty_gpio_gps_onoff   = SPRD_3RDPARTY_GPIO_GPS_ONOFF;
-
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_reset);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_pwd);
-//EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_wake);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_irq);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_power);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_reset);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_bt_rts);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_rst);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_pls_irq);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_mint_irq);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_pwr);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_rst);
-EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_gps_onoff);
-
-static struct gpio_desc gpio_func_cfg[] = {
-	{
-
-//-----base on 8810a   update this  part  about  wifi  function 
-
-//disable  this part  and replace  this
-
-//6810A WIFI PWD  GPIO94  control  vreg on vdd_ana  vdd_dig
-#if 0
-	 MFP_CFG_X(RFCTL9, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	// wifi_power_io
-	 SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-	 "wifi pwd"},
-#endif
-//---vreg  on  1.8V  
-
-	 MFP_CFG_X(GPIO137, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-	 SPRD_3RDPARTY_GPIO_WIFI_PWD | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-	 "wifi pwd"},         
-	//{
-	// MFP_CFG_X(GPIO139, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-	// SPRD_3RDPARTY_GPIO_WIFI_WAKE | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-	// "wifi wake"},
-	{
-	 MFP_CFG_X(GPIO140, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-	 SPRD_3RDPARTY_GPIO_WIFI_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-	 "wifi reset"},
-	{
-	 MFP_CFG_X(RFCTL0, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),	// BT_RESET
-	 SPRD_3RDPARTY_GPIO_BT_RESET | GPIO_OUTPUT_DEFAUT_VALUE_HIGH,
-	 "BT reset"},
-	{
-	 MFP_CFG_X(U0RTS, AF3, DS1, F_PULL_DOWN, S_PULL_UP, IO_OE),	// BT_RTS
-	 SPRD_3RDPARTY_GPIO_BT_RTS,
-	 "BT RTS"},
-	 {
-	MFP_CFG_X(SIMCLK3, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_OE), // TP reset
-	 SPRD_3RDPARTY_GPIO_TP_RST,
-	 "tp reset"},
-	{
-	MFP_CFG_X(SIMRST3, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE), // TP interrupt
-	SPRD_3RDPARTY_GPIO_TP_IRQ,
-	"tp int"},
-	{
-	MFP_CFG_X(KEYIN5, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_IE),
-	SPRD_3RDPARTY_GPIO_PLS_IRQ,
-	"pls int"},
-    {
-	MFP_CFG_X(RFCTL7, AF3, DS1, F_PULL_NONE, S_PULL_DOWN, IO_IE),
-	SPRD_3RDPARTY_GPIO_MINT_IRQ,
-	"mint drdy"
-    },	
-    {
-	MFP_CFG_X(KEYOUT6, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE),
-	SPRD_3RDPARTY_GPIO_GPS_RST,
-	"gps  reset"
-    },
-    {
-	MFP_CFG_X(KEYOUT7, AF3, DS1, F_PULL_UP, S_PULL_NONE, IO_OE),
-	SPRD_3RDPARTY_GPIO_GPS_ONOFF,	
-	"gps  onoff"
-    }	
 };
 
 static unsigned long spi_func_cfg[] = {
@@ -481,43 +289,17 @@ EXPORT_SYMBOL_GPL(sprd_spi_cs_hook);
 
 static void sprd_spi_init(void)
 {
-	int gpio, value;
-	struct gpio_desc *gd;
-	int i, nr_chip = ARRAY_SIZE(openhone_spi_devices);
+	int i;
+	int gpio;
 	struct spi_board_info *chip = openhone_spi_devices;
-
-	for (i = 0; i < ARRAY_SIZE(gpio_func_cfg); i++) {
-		gd = &gpio_func_cfg[i];
-		sprd_mfp_config(&gd->mfp, 1);
-		gpio = gd->io & ~GPIO_OUTPUT_DEFAUT_VALUE_HIGH;
-		value = ! !(gd->io & GPIO_OUTPUT_DEFAUT_VALUE_HIGH);
-		if (gpio_request(gpio, gd->desc))
-			printk(KERN_WARNING
-			       "%s : [%s] gpio %d request failed!\n", __func__,
-			       gd->desc, gpio);
-		if (gd->mfp & MFP_IO_OE) {
-			gpio_direction_output(gpio, value);
-		} else if (gd->mfp & MFP_IO_IE) {
-			gpio_direction_input(gpio);
-		} else {
-			printk(KERN_WARNING "%s : not support gpio mode!\n",
-			       __func__);
-		}
-	}
-
 	sprd_mfp_config(spi_func_cfg, ARRAY_SIZE(spi_func_cfg));
 
-	for (i = 0; i < nr_chip; i++) {
+	for (i = 0; i < ARRAY_SIZE(openhone_spi_devices); i++) {
 		gpio = spi_cs_gpio[chip[i].chip_select];
-#if 0
-		// we do it in sprd_spi_setup func
-		gpio_request(gpio, chip[i].modalias);
-		gpio_direction_output(gpio, !(chip[i].mode & SPI_CS_HIGH));
-#endif
 		chip[i].controller_data = (void *)gpio;
 	}
 
-	spi_register_board_info(chip, nr_chip);
+	spi_register_board_info(chip, ARRAY_SIZE(openhone_spi_devices));
 	platform_device_register(&sprd_spi_controller_device);
 }
 #else
@@ -614,10 +396,11 @@ static void __init openphone_init(void)
 	chip_init();
 	ADI_init();
 	LDO_Init();
+	sprd_pin_map_init();
+	sprd_gpio_init();
 	sprd_i2c_init();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
-	sprd_gpio_init();
 	eic_init();
 	sprd_add_sdio_device();
 	sprd_add_otg_device();

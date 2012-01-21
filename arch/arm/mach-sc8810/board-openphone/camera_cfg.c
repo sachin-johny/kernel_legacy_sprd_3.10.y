@@ -29,8 +29,8 @@
 #include <mach/hardware.h>
 #include <asm/io.h>
 
-#include "sensor_drv.h"
-#include "sensor_cfg.h"
+#include <mach/sensor_drv.h>
+#include <mach/sensor_cfg.h>
 
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *

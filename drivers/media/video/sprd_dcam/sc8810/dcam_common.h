@@ -76,19 +76,6 @@ typedef void *DCAM_MUTEX_PTR;
 typedef void *DCAM_SEMAPHORE_PTR;
 typedef void *DCAM_TIMER_PTR;
 
-//for sensor
-#define SENSOR_SUCCESS 0
-#define SENSOR_FAIL 1
-#define SENSOR_FALSE 0 
-#define SENSOR_TRUE 1
-#define SENSOR_ASSERT(a) do{}while(!(a));
-#define SENSOR_Sleep(m) msleep(m)
-#define SENSOR_MEMSET memset
-#define SENSOR_MALLOC kmalloc
-typedef void *SENSOR_MUTEX_PTR;
-#define SENSOR_PASSERT(m, n) if(!m) printk n 
-
-
 /**---------------------------------------------------------------------------*
 **                                                                              Data Prototype                                                                    **
 **----------------------------------------------------------------------------*/

@@ -8,10 +8,9 @@ obj-$(CONFIG_TS0710_MUX_UART)+= ts0710_mux.o mux_buffer.o
 obj-y += common.o clock_common.o clock_sc8800g.o power_domain.o clock_test.o i2c.o \
 		 pm_deepsleep_prepare.o driver_test.o spinlock_hw_vlx.o   
 
-obj-$(CONFIG_MACH_G2PHONE) += board-g2phone.o
-obj-$(CONFIG_MACH_SC8810OPENPHONE) += board-openphone.o
-obj-$(CONFIG_MACH_SP8810) += board-sp8810.o pin_map_sc8810.o
-obj-$(CONFIG_MACH_SP6820A) += board-sp6820a.o
+obj-$(CONFIG_MACH_SC8810OPENPHONE) += board-openphone/
+obj-$(CONFIG_MACH_SP8810) += board-sp8810/
+obj-$(CONFIG_MACH_SP6820A) += board-sp6820a/
 
 obj-$(CONFIG_PM)		+= pm_vlx.o idle_v7.o pm_devices.o
 

@@ -41,7 +41,7 @@
 #endif
 
 #include "lcdc_reg.h"
-#include "lcd.h"
+#include <mach/lcd.h>
 #include "fb_rrm.h"
 #include "lcdc_manager.h" 
 
@@ -52,7 +52,6 @@
 #define FB_PRINT(...)
 #endif
 
-#define ARRAY_LEN(array)  (sizeof(array) / sizeof(array[0]))
 #define MAX_LCDC_TIMING_VALUE 15
 #define FB_NORMAL 0
 #define FB_NO_REFRESH 1
@@ -73,28 +72,6 @@ struct sc8810fb_info {
 	struct early_suspend early_suspend;
 #endif
 };
-
-#ifdef CONFIG_MACH_SC8810OPENPHONE
-
-extern struct lcd_spec lcd_panel_hx8357;
-static struct lcd_cfg lcd_panel[] = {
-	[0]={
-		.lcd_id = 0x57,
-		.panel = &lcd_panel_hx8357,
-		},
-};
-
-#else
-
-extern struct lcd_spec lcd_panel_hx8369;
-static struct lcd_cfg lcd_panel[] = {
-	[0]={
-		.lcd_id = 0x69,
-		.panel = &lcd_panel_hx8369,
-		},
-};
-
-#endif
 
 static uint32_t lcdc_calculate_lcm_timing(struct timing_mcu *timing);
 static void lcdc_update_lcm_timing(uint32_t reg_value);
@@ -770,11 +747,14 @@ static int __init calibration_start(char *str)
 }
 __setup("lcd_id=", calibration_start);
 
-static int32_t find_adapt_from_uboot(void)
+static int32_t find_adapt_from_uboot(struct  sprd_lcd_platform_data* platform_data)
 {
 	int32_t i;
+	struct lcd_panel_cfg  *lcd_panel = platform_data->lcd_panel_ptr;
+	uint32_t lcd_panel_size = platform_data->lcd_panel_size;
+
 	if(lcd_id_from_uboot != 0) {
-		for(i = 0;i < ARRAY_LEN(lcd_panel); i++) {
+		for(i = 0;i < lcd_panel_size; i++) {
 			if(lcd_id_from_uboot == lcd_panel[i].lcd_id) {
 				return i;
 			}
@@ -801,11 +781,13 @@ static uint32_t lcd_readid_default(struct lcd_spec *self)
 	return id;
 }
 
-static int32_t find_adapt_from_readid(struct sc8810fb_info *info)
+static int32_t find_adapt_from_readid(struct sc8810fb_info *info,struct  sprd_lcd_platform_data*platform_data)
 {
 	int32_t i;
 	uint32_t id;
-	for(i = 0; i < ARRAY_LEN(lcd_panel); i++) {
+	struct lcd_panel_cfg  *lcd_panel = platform_data->lcd_panel_ptr;
+	uint32_t lcd_panel_size = platform_data->lcd_panel_size;
+	for(i = 0; i < lcd_panel_size; i++) {
 		//first ,try mount
 		mount_panel(info,lcd_panel[i].panel);
 		//hw init to every panel
@@ -832,6 +814,8 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	struct sc8810fb_info *info;
 	int32_t ret;
 	int32_t lcd_adapt = 0;
+	struct sprd_lcd_platform_data* platform_data = pdev->dev.platform_data;
+	struct lcd_panel_cfg* lcd_panel = platform_data->lcd_panel_ptr;
 
 	FB_PRINT("sc8810fb initialize!\n");
 
@@ -860,10 +844,10 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	
 	hw_early_init(info);
 
-	lcd_adapt = find_adapt_from_uboot();
+	lcd_adapt = find_adapt_from_uboot(platform_data);
 	if (lcd_adapt == -1) {
 		info->need_reinit = 1;
-		lcd_adapt = find_adapt_from_readid(info);
+		lcd_adapt = find_adapt_from_readid(info,platform_data);
 	}
 	if (lcd_adapt < 0) { // invalid index
 		printk(KERN_ERR " can not read device id, and we will not refresh!\n");

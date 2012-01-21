@@ -45,7 +45,7 @@
 #include <linux/io.h>
 
 #include "dcam_service.h"
-#include "sensor_drv.h"
+#include <mach/sensor_drv.h>
 
 #define DCAM_MINOR MISC_DYNAMIC_MINOR
 
