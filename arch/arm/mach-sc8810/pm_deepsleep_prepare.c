@@ -444,6 +444,10 @@ extern void sp_arch_idle(void);
 extern void trace(void);
 extern int sp_pm_collapse(void);
 extern void sp_pm_collapse_exit(void);
+extern void sc8810_standby_iram(void);
+extern void sc8810_standby_iram_end(void);
+extern void sc8810_standby_exit_iram(void);
+
 
 #define SAVED_VECTOR_SIZE 64
 static uint32_t *sp_pm_reset_vector = NULL;
@@ -772,8 +776,8 @@ void sc8800g_set_pll(void)
 	__raw_writel(val1, GR_GEN1);
 
 	val2 = __raw_readl(GR_MPLL_MN);
-	val2 &= 0xffff000;
-	val2 |= 0xc8;
+	val2 &= 0xfffff800;
+	val2 |= SC8800G2_DEFAULT_PLL_N;
 	__raw_writel(val2, GR_MPLL_MN);
 
 	val1 &= ~BIT_9;
@@ -792,8 +796,8 @@ void sc8800g_save_pll(void)
 	__raw_writel(val1, GR_GEN1);
 
 	val2 = __raw_readl(GR_MPLL_MN);
-	pll_n = val2 & 0x03ff;
-	val2 &= 0xffffc00;
+	pll_n = val2 & 0x07ff;
+	val2 &= 0xfffff800;
 	val2 |= SC8800G2_DEFAULT_PLL_N;
 	__raw_writel(val2, GR_MPLL_MN);
 
@@ -806,13 +810,13 @@ void sc8800g_restore_pll(void)
 {
 #if 0
 	u32 val1, val2;
-	if (pll_n > 0x03ff) pll_n = SC8800G2_DEFAULT_PLL_N;
+	if (pll_n > 0x07ff) pll_n = SC8800G2_DEFAULT_PLL_N;
 	val1 = __raw_readl(GR_GEN1);
 	val1 |= BIT_9;
 	__raw_writel(val1, GR_GEN1);
 
 	val2 = __raw_readl(GR_MPLL_MN);
-	val2 &= 0xffffc00;
+	val2 &= 0xfffff800;
 	val2 |= pll_n;
 	__raw_writel(val2, GR_MPLL_MN);
 
@@ -825,13 +829,13 @@ void sc8800g_pll_default(void)
 {
 #if 0
 	u32 val1, val2;
-	if (pll_n > 0x03ff) pll_n = SC8800G2_DEFAULT_PLL_N;
+	if (pll_n > 0x07ff) pll_n = SC8800G2_DEFAULT_PLL_N;
 	val1 = __raw_readl(GR_GEN1);
 	val1 |= BIT_9;
 	__raw_writel(val1, GR_GEN1);
 
 	val2 = __raw_readl(GR_MPLL_MN);
-	val2 &= 0xffffc00;
+	val2 &= 0xffff800;
 	val2 |= pll_n;
 	__raw_writel(val2, GR_MPLL_MN);
 
@@ -1522,7 +1526,9 @@ int sc8800g_enter_deepsleep(int inidle)
 			sp_pm_reset_vector[i] = 0xe320f000; /* nop*/
 		}
 		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
-		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = virt_to_phys(sp_pm_collapse_exit);
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = (sc8810_standby_exit_iram - 
+			sc8810_standby_iram + IRAM_START_PHY);
+		//sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = virt_to_phys(sc8800g_cpu_standby_end);
 	
 //		sp_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
 //		sp_pm_reset_vector[1] = virt_to_phys(sc8800g_cpu_standby_end);
@@ -2549,7 +2555,7 @@ int sc8800g_prepare_deep_sleep(void)
     val = POWCTL1_CONFIG;
     //__raw_writel(val, GR_POWCTL1);
 
-#if 0
+
     printk("####: ioremap space for share IRAM ......\n");
     iram_start = ioremap(IRAM_START_PHY,  IRAM_SIZE);
     if (!iram_start) {
@@ -2562,13 +2568,12 @@ int sc8800g_prepare_deep_sleep(void)
 
     /* copy sleep code to IRAM. */
     printk("###: sc8800g_cpu_standby = %p, sc8800g_cpu_standby_end = %p\n", 
-        sc8800g_cpu_standby, sc8800g_cpu_standby_end);
-    if ((sc8800g_cpu_standby_end - sc8800g_cpu_standby + 128) > SLEEP_CODE_SIZE) {
+        sc8810_standby_iram, sc8810_standby_iram_end);
+    if ((sc8810_standby_iram_end - sc8810_standby_iram + 128) > SLEEP_CODE_SIZE) {
           panic("##: code size is larger than expected, need more memory!\n");
     }
 
-    memcpy_toio(iram_start, sc8800g_cpu_standby, SLEEP_CODE_SIZE);
-#endif
+    memcpy_toio(iram_start, sc8810_standby_iram, SLEEP_CODE_SIZE);
 
     /* we will get these code free different virtual address, so flush it 
         to make it visible, mayde not necessary.

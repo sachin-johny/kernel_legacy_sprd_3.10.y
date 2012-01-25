@@ -75,55 +75,29 @@ ENTRY(sp_arch_idle)
 	bx      lr
 
 ENTRY(sp_pm_collapse)
-////////////////////////////
-////////////////////////////
 	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | IRQ_MODE)
-	ldr     r1, =saved_state_irq
-	ldr     r2, =sp_pm_collapse
-	adr     r3, sp_pm_collapse
-	add     r1, r1, r3
-	sub     r0, r1, r2
+	ldr     r0, =saved_state_irq
 	stmia   r0!, {sp, lr}
 
 	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | ABT_MODE)
-	ldr     r1, =saved_state_abt
-	ldr     r2, =sp_pm_collapse
-	adr     r3, sp_pm_collapse
-	add     r1, r1, r3
-	sub     r0, r1, r2
+	ldr     r0, =saved_state_abt
 	stmia   r0!, {sp, lr}
 
 
 	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | UND_MODE)
-	ldr     r1, =saved_state_und
-	ldr     r2, =sp_pm_collapse
-	adr     r3, sp_pm_collapse
-	add     r1, r1, r3
-	sub     r0, r1, r2
+	ldr     r0, =saved_state_und
 	stmia   r0!, {sp, lr}
 
 /*
 	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | SYSTEM_MODE)
-	ldr     r1, =saved_state_sys
-	ldr     r2, =sp_pm_collapse
-	adr     r3, sp_pm_collapse
-	add     r1, r1, r3
-	sub     r0, r1, r2
+	ldr     r0, =saved_state_sys
 	stmia   r0!, {sp, lr}
 */
 
 	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | SVC_MODE)
 
 
-/////////////////////////////
-/////////////////////////////
-//	b	sp_pm_collapse
-//	ldr     r0, =saved_state
-	ldr     r1, =saved_state
-	ldr     r2, =sp_pm_collapse
-	adr     r3, sp_pm_collapse
-	add     r1, r1, r3
-	sub     r0, r1, r2
+	ldr     r0, =saved_state
 	stmia   r0!, {r4-r14}
 	mrc     p15, 0, r1, c1, c0, 0 /* MMU control */
 	mrc     p15, 0, r2, c2, c0, 0 /* TTBR0 */
@@ -139,12 +113,6 @@ ENTRY(sp_pm_collapse)
 	mrc     p15, 0, ip, c13, c0, 1 /* context ID */
 	stmia   r0!, {r1-r9, ip}
 
- 	bl      v7_flush_dcache_all
-
-///////////////////////////////////
-// Remove following code when power domains don't auto power down.
-// wangliwei, 2010-01-06
-//////////////////////////////
 #if 0
 	bl      l2x0_flush_all
 	dmb
@@ -156,89 +124,25 @@ ENTRY(sp_pm_collapse)
 	bl		outer_cache_poweroff
 #endif
 
-	mrc     p15, 0, r1, c1, c0, 0    /* read current CR    */
-	bic     r0, r1, #(1 << 2)        /* clear dcache bit   */
+ 	bl      v7_flush_dcache_all
+
+	mrc     p15, 0, r4, c1, c0, 0    /* read current CR    */
+	bic     r0, r4, #(1 << 2)        /* clear dcache bit   */
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
+	
+	bl sc8810_standby_iram
 
-////////////////////////////////////
-////////////////////////////////////
-	dsb
-	wfi
-//1:	b 1b
-
-
-	mcr     p15, 0, r1, c1, c0, 0    /* restore d/i cache  */
+	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
 
-#if 0
-	/* enable uart1 clock to print some messages. */
-
-	ldr		r1, =0xe0033008	//virtual base
-	ldr		r2, [r1, #0]
-	orr		r2, r2, #(0x1 << 21)
-	str		r2, [r1, #0]
-
-     mov r0, #'@'
-     bl printch
-
-     mov r0, #'@'
-     bl printch
-
-     mov r0, #'@'
-     bl printch
-
-     mov r0, #'@'
-     bl printch
-
-     mov r0, #'\r'
-     bl printch
-
-     mov r0, #'\n'
-     bl printch
-#endif
-
-//	ldr     r0, =saved_state         /* restore registers */
-	ldr     r1, =saved_state
-	ldr     r2, =sp_pm_collapse
-	adr     r3, sp_pm_collapse
-	add     r1, r1, r3
-	sub     r0, r1, r2
+	ldr     r0, =saved_state         /* restore registers */
 	ldmfd   r0, {r4-r14}
 	mov     r0, #0                   /* return power collapse failed */
 	bx      lr
 
+
 ENTRY(sp_pm_collapse_exit)
-//	b sp_pm_collapse_exit
-//////////////////////////////////////
-/////////////////////////////////////
-#if 0
-	/* enable uart1 clock to print some messages. */
-
-	ldr		r1, =0x8b000008
-	ldr		r2, [r1, #0]
-	orr		r2, r2, #(0x1 << 21)
-	str		r2, [r1, #0]
-
-     mov r0, #'<'
-     bl printch
-
-     mov r0, #'<'
-     bl printch
-
-     mov r0, #'<'
-     bl printch
-
-     mov r0, #'<'
-     bl printch
-
-     mov r0, #'\r'
-     bl printch
-
-     mov r0, #'\n'
-     bl printch
-#endif
-
 	msr		cpsr_c, #(PSR_F_BIT | PSR_I_BIT | IRQ_MODE)
 	ldr     r1, =saved_state_irq
 	ldr     r2, =sp_pm_collapse
@@ -347,7 +251,10 @@ sp_pm_pa_to_va:
 	nop
 1:	b       1b
 
+
+/*
 	.data
+*/
 
 saved_state:
 	.space  4 * 11 /* r4-14 */
