@@ -1446,11 +1446,6 @@ int sc8800g_enter_deepsleep(int inidle)
 
 		supsend_ldo_turnoff();
 		supsend_gpio_save();
-		/* Power domain auto power-down, wangliwei, 2012-01-06. */
-		if (sprd_sc8810_deepsleep_enable) {
-			sc8810_setup_pd_automode();
-		}
-		sc8810_setup_ldo_slpmode();
 		add_pm_message(get_sys_cnt(), "deepsleep_enter: inidle = ", inidle, 0, 0);
 		/*
 		printk("IRQ_STS = %08x, %s\n", 
@@ -2531,6 +2526,12 @@ int sc8800g_prepare_deep_sleep(void)
 	*/
    __raw_writel(val, GR_CLK_EN);
 
+	/* Power domain auto power-down, wangliwei, 2012-01-06. */
+	if (sprd_sc8810_deepsleep_enable) {
+		sc8810_setup_pd_automode();
+	}
+	sc8810_setup_ldo_slpmode();
+
     //ANA_REG_OR(ANA_LDO_SLP, (FSM_RF0_BP_EN | FSM_RF1_BP_EN));
     //ANA_REG_SET(ANA_LDO_SLP, 0xa4f3);
 
@@ -2552,7 +2553,7 @@ int sc8800g_prepare_deep_sleep(void)
     val = POWCTL1_CONFIG;
     //__raw_writel(val, GR_POWCTL1);
 
-
+#if 0
     printk("####: ioremap space for share IRAM ......\n");
     iram_start = ioremap(IRAM_START_PHY,  IRAM_SIZE);
     if (!iram_start) {
@@ -2571,6 +2572,7 @@ int sc8800g_prepare_deep_sleep(void)
     }
 
     memcpy_toio(iram_start, sc8800g_cpu_standby, SLEEP_CODE_SIZE);
+#endif
 
     /* we will get these code free different virtual address, so flush it 
         to make it visible, mayde not necessary.
