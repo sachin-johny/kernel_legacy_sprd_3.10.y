@@ -439,15 +439,11 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
         RESTORE_REG(AHB_CTL0, AHB_CTL0_MASK, reg_ahb_ctl0_val); \
     }while(0)
 
-#define sc8800g_cpu_idle	 	sp_arch_idle
-#define sc8800g_cpu_standby	 	sp_pm_collapse
-#define sc8800g_cpu_standby_prefetch	sp_pm_collapse_prefetch
-#define sc8800g_cpu_standby_end	sp_pm_collapse_exit
-extern void sc8800g_cpu_idle(void);
-extern void sc8800g_cpu_standby(void);
-extern void sc8800g_cpu_standby_end(void);
-extern int sc8800g_cpu_standby_prefetch(void);
+
+extern void sp_arch_idle(void);
 extern void trace(void);
+extern int sp_pm_collapse(void);
+extern void sp_pm_collapse_exit(void);
 
 #define SAVED_VECTOR_SIZE 64
 static uint32_t *sp_pm_reset_vector = NULL;
@@ -1409,7 +1405,7 @@ int sc8800g_enter_deepsleep(int inidle)
 
 		t0 = get_sys_cnt();
 		//sc8800g_cpu_standby();
-		sc8800g_cpu_idle();
+		sp_arch_idle();
 
 		t1 = get_sys_cnt();
 		delta = t1 - t0;
@@ -1427,7 +1423,7 @@ int sc8800g_enter_deepsleep(int inidle)
         //enable_mcu_sleep();
 		t0 = get_sys_cnt();
 		//ret =  sc8800g_cpu_standby_prefetch();
-		sc8800g_cpu_idle();
+		sp_arch_idle();
         RESTORE_GLOBAL_REG;
         t1 = get_sys_cnt();
         delta = t1 - t0;
@@ -1526,12 +1522,12 @@ int sc8800g_enter_deepsleep(int inidle)
 			sp_pm_reset_vector[i] = 0xe320f000; /* nop*/
 		}
 		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
-		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = virt_to_phys(sc8800g_cpu_standby_end);
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = virt_to_phys(sp_pm_collapse_exit);
 	
 //		sp_pm_reset_vector[0] = 0xE51FF004; /* ldr pc, 4 */
 //		sp_pm_reset_vector[1] = virt_to_phys(sc8800g_cpu_standby_end);
 //		trace();
-		ret = sc8800g_cpu_standby_prefetch();
+		ret = sp_pm_collapse();
 //		trace();
 		wake_time = get_sys_cnt();
 
@@ -1634,7 +1630,7 @@ static void nkidle(void)
 				else {
 				    idle_loops++;
 				    t0 = get_sys_cnt();
-				    sc8800g_cpu_idle();
+				    sp_arch_idle();
 					/*
 				    sc8800g_cpu_standby();
 				    */
@@ -1663,7 +1659,7 @@ void nkidle_original(void)
 			if (0 == val) {
 				    idle_loops++;
 				    t0 = get_sys_cnt();
-				    sc8800g_cpu_standby();
+				    sp_arch_idle();
 				    t1 = get_sys_cnt();
 				    delta = t1 - t0;
 				    idle_time += delta;
@@ -2419,7 +2415,7 @@ int sc8800g_prepare_deep_sleep(void)
     u32 val = 0;
     int i;
     pid_t pid_number;
-    u32 * pint = (u32 *)sc8800g_cpu_standby;
+    u32 * pint;
 
 	if (!sp_pm_reset_vector) {
 		sp_pm_reset_vector = ioremap(0xffff0000, PAGE_SIZE);
