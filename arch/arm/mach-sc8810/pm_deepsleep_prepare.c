@@ -1291,15 +1291,15 @@ int supsend_gpio_restore(void)
 int sc8810_setup_pd_automode(void)
 {
 	//__raw_writel(0x06000320|PD_AUTO_EN, GR_GPU_PWR_CTRL);//reserved
-	__raw_writel(0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
-	__raw_writel(0x06000320/*|PD_AUTO_EN*/, GR_G3D_PWR_CTRL);//GPU
-	__raw_writel(0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_TH_PWR_CTRL);
-	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_GSM_PWR_CTRL);
-	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);
-	__raw_writel(0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
-	__raw_writel(0x03000920/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
-	__raw_writel(0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
-	__raw_writel(0x07000a20|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
+	__raw_writel(0x06000aa0|PD_AUTO_EN, GR_MM_PWR_CTRL);
+	__raw_writel(0x06000aa0|PD_AUTO_EN, GR_G3D_PWR_CTRL);//GPU
+	__raw_writel(0x04000aa0/*|PD_AUTO_EN*/, GR_CEVA_RAM_TH_PWR_CTRL);
+	__raw_writel(0x05000aa0/*|PD_AUTO_EN*/, GR_GSM_PWR_CTRL);
+	__raw_writel(0x05000aa0/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);
+	__raw_writel(0x04000aa0/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
+	__raw_writel(0x03000aa0/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
+	__raw_writel(0x02000aa0|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+	__raw_writel(0x070010a0|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
 }
 
 int sc8810_setup_ldo_slpmode(void)
@@ -1308,7 +1308,7 @@ int sc8810_setup_ldo_slpmode(void)
 //	 ANA_REG_SET(ANA_LDO_PD_CTL1, 0x00000155);
 	 ANA_REG_SET(ANA_LDO_SLP0, 0x0000a7fb);//except v18/28, SIM0,1
 	 ANA_REG_SET(ANA_LDO_SLP1, 0x0000801f|(1<<12));//
-	 ANA_REG_SET(ANA_LDO_SLP2, 0x00000a20);//a-die armdcdc iso
+	 ANA_REG_SET(ANA_LDO_SLP2, 0x000010a0);//a-die armdcdc iso
 	 ANA_REG_SET(ANA_LED_CTRL, 0x0000801f);//all led off
 }
 
@@ -2533,6 +2533,24 @@ int sc8800g_prepare_deep_sleep(void)
 		sc8810_setup_pd_automode();
 	}
 	sc8810_setup_ldo_slpmode();
+	printk("####### checking some registers. ##########\n");
+	printk("####### checking some registers. ##########\n");
+	printk("####### checking some registers. ##########\n");
+	val = ANA_REG_GET(ANA_DCDC_CTRL_DS);
+	printk("## before ##: ANA_DCDC_CTRL_DS = %08x.\n", val);
+	val &= 0xffff00ff;
+	val |= (0x0f << 8);
+	ANA_REG_SET(ANA_DCDC_CTRL_DS, val);
+	val = ANA_REG_GET(ANA_DCDC_CTRL_DS);
+	printk("## after ##: ANA_DCDC_CTRL_DS = %08x.\n", val);
+
+	val = __raw_readl(GR_GEN4);
+	printk("## before ##: GR_GEN4 = %08x.\n", val);
+	val |= (BIT_31 | BIT_30 | BIT_29);
+	__raw_writel(val, GR_GEN4);
+	val = __raw_readl(GR_GEN4);
+	printk("## after ##: GR_GEN4 = %08x.\n", val);
+
 
     //ANA_REG_OR(ANA_LDO_SLP, (FSM_RF0_BP_EN | FSM_RF1_BP_EN));
     //ANA_REG_SET(ANA_LDO_SLP, 0xa4f3);
