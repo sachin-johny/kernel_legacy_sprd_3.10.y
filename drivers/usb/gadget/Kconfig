@@ -531,9 +531,9 @@ config USB_GADGET_SC8800G
 	depends on ARCH_SC8800G
 	help
 	   Spreadtrum's SC8800G usb 2.0 controller is an integrated
-	   full speed USB 2.0 device controller.
+	   high speed USB 2.0 device controller.
 
-	   It has up to 5 endpoints, including endpoint zero (for
+	   It has up to 6 endpoints, excluding endpoint zero (for
 	   control transfers).
 
 	   Say "y" to link the driver statically, or "m" to build a
@@ -544,6 +544,7 @@ config USB_SC8800G
 	tristate
 	depends on USB_GADGET_SC8800G
 	default USB_GADGET
+	select USB_SPRD_DWC
 	select USB_GADGET_SELECTED
 	select USB_GADGET_DUALSPEED
 
@@ -552,10 +553,11 @@ config USB_GADGET_SC8810
 	depends on ARCH_SC8810
 	help
 	   Spreadtrum's SC8810 usb 2.0 controller is an integrated
-	   full speed USB 2.0 device controller.
+	   high speed USB 2.0 device controller.
 
-	   It has up to 5 endpoints, including endpoint zero (for
-	   control transfers).
+	   It has up to 10 endpoints, excluding endpoint zero (for
+	   control transfers),but it only has max 5 tx fifos, so you
+	   cannot use >5 IN endpoints at one time.
 
 	   Say "y" to link the driver statically, or "m" to build a
 	   dynamically linked module called "sc8810_udc" and force all
@@ -565,6 +567,7 @@ config USB_SC8810
 	tristate
 	depends on USB_GADGET_SC8810
 	default USB_GADGET
+	select USB_SPRD_DWC
 	select USB_GADGET_SELECTED
 	select USB_GADGET_DUALSPEED
 
@@ -614,6 +617,11 @@ config USB_GADGET_DUALSPEED
 	  Means that gadget drivers should include extra descriptors
 	  and code to handle dual-speed controllers.
 
+config  USB_SPRD_DWC
+	boolean
+	default n
+	help
+	   Spreadtrum's usb 2.0  ip controller
 #
 # USB Gadget Drivers
 #

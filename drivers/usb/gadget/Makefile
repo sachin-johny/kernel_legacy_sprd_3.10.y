@@ -30,8 +30,7 @@ obj-$(CONFIG_USB_S3C_HSOTG)	+= s3c-hsotg.o
 obj-$(CONFIG_USB_LANGWELL)	+= langwell_udc.o
 
 obj-$(CONFIG_USB_SC8800H)	+= sc8800s_udc.o
-obj-$(CONFIG_USB_SC8800G)	+= dwc_otg/
-obj-$(CONFIG_USB_SC8810)	+= dwc_otg/
+obj-$(CONFIG_USB_SPRD_DWC)	+= dwc_otg/
 #
 # USB gadget drivers
 #

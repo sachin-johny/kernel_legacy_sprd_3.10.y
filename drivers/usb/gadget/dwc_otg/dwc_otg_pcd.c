@@ -1332,6 +1332,7 @@ static uint32_t assign_tx_fifo(dwc_otg_core_if_t * core_if)
 		}
 		TxMsk <<= 1;
 	}
+	DWC_ERROR("cannot allocate tx fifo for IN ep\n");
 	return 0;
 }
 
