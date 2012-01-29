@@ -60,7 +60,6 @@
 #include "dwc_os.h"
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
-#include <linux/kernel.h>
 
 static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if);
 
@@ -431,7 +430,6 @@ static uint32_t calc_num_in_eps(dwc_otg_core_if_t * core_if)
 		hwcfg1 >>= 2;
 	}
 
-	pr_info("num_in_eps %d, num_tx_fifos:%d\n", num_in_eps, num_tx_fifos);
 	/*
 	 * the dedicate fifo maybe less than number of IN eps, but our
 	 * composite usb function normally won't use all dedicated fifo,
@@ -466,7 +464,6 @@ static uint32_t calc_num_out_eps(dwc_otg_core_if_t * core_if)
 
 		hwcfg1 >>= 2;
 	}
-	pr_info("num_out_eps :%d\n", num_out_eps);
 	return num_out_eps;
 }
 
