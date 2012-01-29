@@ -289,7 +289,7 @@ const unsigned long pm_func[] __initdata = {
 	MFP_CFG_X(TRACEDAT7,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                
 	MFP_CFG_X(SIMCLK2,	AF1,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	// I2C2_SDA,CTP,LDOSIM2                                    
 	MFP_CFG_X(SIMDA2,	AF1,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	// I2C2_SDL,CTP,LDOSIM2                                        
-	MFP_CFG_X(SIMRST2,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                            
+	MFP_CFG_X(SIMRST2,	AF1,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                            
 	MFP_CFG_X(SIMCLK3,	AF3,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// GPIO,CTP_RST                                            
 	MFP_CFG_X(SIMDA3,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                                
 	MFP_CFG_X(SIMRST3,	AF3,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_IE),	// GPIO,CTP_INT,EXT PULLUP                                                    
