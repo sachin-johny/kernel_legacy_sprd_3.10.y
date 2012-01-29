@@ -152,6 +152,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE("InCall", VBC_CODEC_DSP, 0, 1, 0),
 };
 static int32_t cur_sample_rate=44100;
+static int32_t cur_internal_pa_gain = 0x8;   //default:1000----0db  added by jian
 
 int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, const char *prefix)
 {
@@ -1216,7 +1217,7 @@ do { \
 #define local_cpu_pa_control(x) \
 do { \
     if (x) { \
-        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x1181);  \
+        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, (0x1101 |( (cur_internal_pa_gain <<4) & 0x00F0)));  \
         ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1e41); \
     } else { \
         ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x182); \
@@ -1270,8 +1271,8 @@ static inline void local_amplifier_init(void)
     if (gpio_get_value(sprd_local_audio_pa_mode_detect_gpio)) {
         sprd_local_audio_pa_mode = 0;
     } else sprd_local_audio_pa_mode = 1;
-#else
-    sprd_local_audio_pa_mode = 1;
+#else    //8810 is controlled by audio_para
+//    sprd_local_audio_pa_mode = 1;
 #endif
     printk("vbc sprd_local_audio_pa_mode = %d\n", sprd_local_audio_pa_mode);
 }
@@ -1403,7 +1404,12 @@ ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,cons
 		return 0;
 	}
 	printk("vbc_param have store!\n");
-		
+
+//#if defined(CONFIG_ARCH_SC8810)
+	sprd_local_audio_pa_mode = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_SWITCH_INDEX];
+	cur_internal_pa_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0xF;
+//	printk("chj kobj_vbc_param_store sprd_local_audio_pa_mode:%d cur_internal_pa_gain:0x%2x\n",sprd_local_audio_pa_mode,cur_internal_pa_gain);
+//#endif
 	if(AUDIO_NO_ERROR != AUDENHA_SetPara(audio_param_ptr))
 	{
 		printk("kobj_vbc_param_store AUDENHA_SetPara error!\n");

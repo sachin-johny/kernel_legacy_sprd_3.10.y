@@ -25,6 +25,8 @@
 #define	AUDIO_ENHA_DATA_MEMORY	                0x04			/*  */
 #define	AUDIO_ENHA_DATA_FLASH	                0x08			/*  */
 
+#define AUDIO_NV_INTPA_SWITCH_INDEX  44
+#define AUDIO_NV_INTPA_GAIN_INDEX    45
 
 typedef enum{
 	GET_AUDIO_MODE_COUNT,
