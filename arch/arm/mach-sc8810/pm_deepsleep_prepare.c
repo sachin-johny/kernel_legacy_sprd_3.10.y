@@ -1048,6 +1048,69 @@ static int print_thread(void *pdata)
 	time_duration /= 1000;
 
 	uptime = get_sys_cnt();
+
+	if (sprd_clock_info_enable) {
+		printk("\n===========================\n");
+	    val = __raw_readl(GR_GEN0);
+		printk("##: GR_GEN0 = %08x.\n", val);
+		if (val & GEN0_SIM0_EN) printk("GEN0_SIM0_EN =1.\n");
+		if (val & GEN0_I2C_EN) printk("GEN0_I2C_EN =1.\n");
+		if (val & GEN0_GPIO_EN) printk("GEN0_GPIO_EN =1.\n");
+		if (val & GEN0_I2C0_EN) printk("GEN0_I2C0_EN =1.\n");
+		if (val & GEN0_I2C1_EN) printk("GEN0_I2C1_EN =1.\n");
+		if (val & GEN0_I2C2_EN) printk("GEN0_I2C2_EN =1.\n");
+		if (val & GEN0_I2C3_EN) printk("GEN0_I2C3_EN =1.\n");
+		if (val & GEN0_SPI0_EN) printk("GEN0_SPI0_EN =1.\n");
+		if (val & GEN0_SPI1_EN) printk("GEN0_SPI1_EN =1.\n");
+		if (val & GEN0_I2S0_EN) printk("GEN0_I2S0_EN =1.\n");
+		if (val & GEN0_I2S1_EN) printk("GEN0_I2S1_EN =1.\n");
+		if (val & GEN0_EFUSE_EN) printk("GEN0_EFUSE_EN =1.\n");
+		if (val & GEN0_I2S_EN) printk("GEN0_I2S_EN =1.\n");
+		if (val & GEN0_PIN_EN) printk("GEN0_PIN_EN =1.\n");
+		if (val & GEN0_EPT_EN) printk("GEN0_EPT_EN =1.\n");
+		if (val & GEN0_SIM1_EN) printk("GEN0_SIM1_EN =1.\n");
+		if (val & GEN0_SPI_EN) printk("GEN0_SPI_EN =1.\n");
+		if (val & GEN0_UART0_EN) printk("GEN0_UART0_EN =1.\n");
+		if (val & GEN0_UART1_EN) printk("GEN0_UART1_EN =1.\n");
+		if (val & GEN0_UART2_EN) printk("GEN0_UART2_EN =1.\n");
+
+	    val = __raw_readl(GR_CLK_EN);
+		printk("##: GR_CLK_EN = %08x.\n", val);
+		if (val & CLK_PWM0_EN) printk("CLK_PWM0_EN =1.\n");
+		if (val & CLK_PWM1_EN) printk("CLK_PWM1_EN = 1.\n");
+		if (val & CLK_PWM2_EN) printk("CLK_PWM2_EN = 1.\n");
+		if (val & CLK_PWM3_EN) printk("CLK_PWM3_EN = 1.\n");
+
+	    u32 val = __raw_readl(GR_BUSCLK_ALM);
+		printk("##: GR_BUSCLK_ALM = %08x.\n", val);
+		if (val & ARM_VB_MCLKON) printk("ARM_VB_MCLKON =1.\n");
+		if (val & ARM_VB_DA0ON) printk("ARM_VB_DA0ON = 1.\n");
+		if (val & ARM_VB_DA1ON) printk("ARM_VB_DA1ON = 1.\n");
+		if (val & ARM_VB_ADCON) printk("ARM_VB_ADCON = 1.\n");
+		if (val & ARM_VB_ANAON) printk("ARM_VB_ANAON = 1.\n");
+		if (val & ARM_VB_ACC) printk("ARM_VB_ACC = 1.\n");
+
+	    val = __raw_readl(AHB_CTL0);
+		printk("##: AHB_CTL0 = %08x.\n", val);
+		if (val & AHB_CTL0_DCAM_EN) printk("AHB_CTL0_DCAM_EN =1.\n");
+		if (val & AHB_CTL0_CCIR_EN) printk("AHB_CTL0_CCIR_EN =1.\n");
+		if (val & AHB_CTL0_LCDC_EN) printk("AHB_CTL0_LCDC_EN =1.\n");
+		if (val & AHB_CTL0_SDIO0_EN) printk("AHB_CTL0_SDIO0_EN =1.\n");
+		if (val & AHB_CTL0_SDIO1_EN) printk("AHB_CTL0_SDIO1_EN =1.\n");
+		if (val & AHB_CTL0_DMA_EN) printk("AHB_CTL0_DMA_EN =1.\n");
+		if (val & AHB_CTL0_BM0_EN) printk("AHB_CTL0_BM0_EN =1.\n");
+		if (val & AHB_CTL0_NFC_EN) printk("AHB_CTL0_NFC_EN =1.\n");
+		if (val & AHB_CTL0_BM1_EN) printk("AHB_CTL0_BM1_EN =1.\n");
+		if (val & AHB_CTL0_G2D_EN) printk("AHB_CTL0_G2D_EN =1.\n");
+		if (val & AHB_CTL0_G3D_EN) printk("AHB_CTL0_G3D_EN =1.\n");
+		if (val & AHB_CTL0_AXIBUSMON0_EN) printk("AHB_CTL0_AXIBUSMON0_EN =1.\n");
+		if (val & AHB_CTL0_AXIBUSMON1_EN) printk("AHB_CTL0_AXIBUSMON1_EN =1.\n");
+		if (val & AHB_CTL0_VSP_EN) printk("AHB_CTL0_VSP_EN =1.\n");
+		if (val & AHB_CTL0_ROT_EN) printk("AHB_CTL0_ROT_EN =1.\n");
+		if (val & AHB_CTL0_USBD_EN) printk("AHB_CTL0_USBD_EN =1.\n");
+
+		printk("\n===========================\n");
+	}
 #ifdef SPRD_COPROCESSOR_INFO
 	printk("###: c1 = %08x.\n", sc8800g_read_cp15_c1());
 	printk("###: c2 = %08x.\n", sc8800g_read_cp15_c2());
