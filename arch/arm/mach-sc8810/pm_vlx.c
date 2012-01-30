@@ -22,6 +22,7 @@
 #include <mach/test.h>
 #include <mach/clock_common.h>
 #include <mach/clock_sc8800g.h>
+#include <mach/irqs.h>
 
 #define ANA_INT_STATUS             (SPRD_MISC_BASE +0x380+ 0x00)
 #define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
@@ -30,6 +31,8 @@
 #if defined(CONFIG_ARCH_SC8810)
 #define INT_IRQ_EN				(SPRD_INTCV_BASE + 0x08)
 
+#define ANA_GPIO_DATA          (SPRD_MISC_BASE + 0x700 + 0x00)
+#define ANA_GPIO_MASK          (SPRD_MISC_BASE + 0x700 + 0x04)
 #define ANA_GPIO_IE            (SPRD_MISC_BASE + 0x700 + 0x18)
 #define ANA_GPIO_IEV           (SPRD_MISC_BASE + 0x700 + 0x14)
 #define ANA_GPIO_RIS           (SPRD_MISC_BASE + 0x700 + 0x1c)
@@ -158,6 +161,9 @@ int sc8800g_set_wakeup_src(void)
 	if (WAKEUP_SRC_PB & wakeup_src) {
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_PB);
+#ifdef CONFIG_NKERNEL
+		sprd_enable_ana_irq();
+#endif
 	}
 
 	if (WAKEUP_SRC_CHG & wakeup_src) {

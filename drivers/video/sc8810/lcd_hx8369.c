@@ -187,7 +187,7 @@ static int32_t hx8369_init(struct lcd_spec *self)
 	//24 bit don't need to set 2DH 
 
 	send_cmd(0x11); //Sleep Out 
-	mdelay(120); //120ms
+	msleep(120); //120ms
 	
 	if (0) { //  for test the lcd
 		int i;
@@ -200,9 +200,9 @@ static int32_t hx8369_init(struct lcd_spec *self)
 			send_data(0xff0000);
 	}
 	send_cmd(0x29); //Display On 
-	mdelay(120); //120ms
+	msleep(120); //120ms
 	send_cmd(0x2C); //Write data
-	//mdelay(120); //120ms
+	//msleep(120); //120ms
 	LCD_PRINT("hx8369_init: end\n");
 
 	return 0;
@@ -309,16 +309,16 @@ static int32_t hx8369_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 	if(is_sleep) {
 		//Sleep In
 		send_cmd(0x28);
-		mdelay(120); 
+		msleep(120); 
 		send_cmd(0x10);
-		mdelay(120); 
+		msleep(120); 
 	}
 	else {
 		//Sleep Out
 		send_cmd(0x11);
-		mdelay(120); 
+		msleep(120); 
 		send_cmd(0x29);
-		mdelay(120); 
+		msleep(120); 
 	}
 	return 0;
 }

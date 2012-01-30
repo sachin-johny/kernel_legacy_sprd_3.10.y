@@ -914,7 +914,7 @@ static int sc8810fb_resume(struct platform_device *pdev)
 		hw_later_init(info);
 		info->need_reinit = 0;
 	}
-	info->panel->ops->lcd_enter_sleep(info->panel,0);
+	else info->panel->ops->lcd_enter_sleep(info->panel,0);
 
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;

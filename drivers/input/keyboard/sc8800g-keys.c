@@ -523,7 +523,7 @@ static irqreturn_t sprd_gpio_isr(int irq, void *dev_id)
 	struct kpd_key_t *key_ptr;
 	int gpio_id = (int)dev_id;
 
-	msleep(20);
+	//msleep(20);
 	gpio = irq_to_gpio(irq);
 	ret = gpio_get_value(gpio);
 	if (!ret) {
@@ -590,7 +590,7 @@ static void int_key_init(enum EIC_TYPE_E eic_id, const int gpio_id)
 	ret = sprd_alloc_eic_irq(eic_id);
 	if (ret != -1) {
 		irq = ret ;
-		ret = request_threaded_irq(irq, NULL, sprd_pint_isr, IRQF_TRIGGER_LOW | IRQF_ONESHOT, NULL, (void*)gpio_id);
+		ret = request_threaded_irq(irq, sprd_pint_isr, NULL, IRQF_TRIGGER_LOW/* | IRQF_ONESHOT*/, NULL, (void*)gpio_id);
 		ret = sprd_get_eic_data(eic_id);
 		if (ret) {
 			printk("The Pin is HIGH, so set low level trigger. irq = %ld\n", irq);

@@ -591,7 +591,7 @@ config TOUCHSCREEN_SC8800G
 
 config TOUCHSCREEN_SC8810
 	tristate "SPRD SC8810 touchscreen driver"
-	depends on ARCH_SC8810
+	depends on ARCH_SC8810 && MACH_SC8810OPENPHONE
 	help
 	  Say Y here if you have a sprd touchscreen.
 
