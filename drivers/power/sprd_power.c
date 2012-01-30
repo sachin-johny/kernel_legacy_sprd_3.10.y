@@ -43,6 +43,7 @@
 #endif
 
 #include <linux/slab.h>
+#include <linux/jiffies.h>
 
 //#define CHG_DEBUG
 //#define BATTERY_USE_WAKE_LOCK
@@ -67,6 +68,7 @@ struct sprd_battery_data {
     struct timer_list battery_timer;
     int timer_freq;
     int in_precharge;
+    int adc_cal_updated;
 
     uint32_t capacity;
     uint32_t voltage;
@@ -86,6 +88,7 @@ struct sprd_battery_data {
     uint32_t charge_stop_point;
     uint32_t cur_type;
 	uint32_t hw_switch_point;
+    uint64_t charge_start_jiffies;
 
 	struct power_supply battery;
 	struct power_supply ac;
@@ -260,6 +263,7 @@ static struct device_attribute sprd_caliberate[]={
     SPRD_CALIBERATE_ATTR_WO(battery_0),
     SPRD_CALIBERATE_ATTR_WO(battery_1),
     SPRD_CALIBERATE_ATTR(hw_switch_point),
+    SPRD_CALIBERATE_ATTR_RO(charger_voltage),
 };
 static enum {
     BATTERY_VOLTAGE = 0,
@@ -268,6 +272,7 @@ static enum {
     BATTERY_0,
     BATTERY_1,
 	HW_SWITCH_POINT,
+    CHARGER_VOLTAGE,
 };
 extern uint16_t adc_voltage_table[2][2];
 static ssize_t sprd_set_caliberate(struct device *dev,
@@ -289,13 +294,18 @@ static ssize_t sprd_set_caliberate(struct device *dev,
         battery_data->ac_online = 0;
         break;
     case BATTERY_0:
-        adc_voltage_table[0][1]=set_value&0xffff;
-        adc_voltage_table[0][0]=(set_value>>16)&0xffff;
+        if(battery_data->adc_cal_updated == 0){
+            adc_voltage_table[0][1]=set_value&0xffff;
+            adc_voltage_table[0][0]=(set_value>>16)&0xffff;
+        }
         break;
     case BATTERY_1:
-        adc_voltage_table[1][1]=set_value&0xffff;
-        adc_voltage_table[1][0]=(set_value>>16)&0xffff;
-        CHGMNG_VoltageToPercentum(0, 0, 1);
+        if(battery_data->adc_cal_updated == 0){
+            adc_voltage_table[1][1]=set_value&0xffff;
+            adc_voltage_table[1][0]=(set_value>>16)&0xffff;
+            CHGMNG_VoltageToPercentum(0, 0, 1, 0);
+            battery_data->adc_cal_updated = 1;
+        }
         break;
 	case HW_SWITCH_POINT:
 		battery_data->hw_switch_point = set_value;
@@ -345,6 +355,20 @@ static ssize_t sprd_show_caliberate(struct device *dev,
         i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
                     battery_data->hw_switch_point);
 		break;
+    case CHARGER_VOLTAGE:
+        if(battery_data->charging){
+            adc_value = ADC_GetValue(ADC_CHANNEL_VCHG, false); 
+            if(adc_value < 0)
+              voltage = 0;
+            else
+              voltage = CHGMNG_ChargerAdcvalueToVoltage(adc_value);
+            i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+                        voltage);
+        }else{
+            i += scnprintf(buf + i, PAGE_SIZE - i, "%s\n",
+                        "discharging");
+        }
+        break;
     default:
         i = -EINVAL;
         break;
@@ -521,7 +545,7 @@ uint32_t get_vprog_value(void)
     for(i=0;i<_VPROG_BUF_SIZE;i++){
         sum = sum + vprog_buf[i];
     }
-    return sum/_BUF_SIZE;
+    return sum/_VPROG_BUF_SIZE;
 }
 void update_vprog_value(uint32_t vprog)
 {
@@ -560,6 +584,7 @@ void update_vbat_value(uint32_t vbat)
 static int pluse_charging = 0;
 static int pluse_charge_cnt = CHGMNG_PLUST_TIMES;
 static int hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
+static int stop_left_time = CHARGE_BEFORE_STOP;
 static int32_t vprog_current = 0;
 static int pre_usb_online = 0;
 static int pre_ac_online = 0;
@@ -570,6 +595,8 @@ void enable_usb_charge(struct sprd_battery_data * battery_data)
 {
     pluse_charge_cnt = CHGMNG_PLUST_TIMES;
     hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
+    stop_left_time = CHARGE_BEFORE_STOP;
+    battery_data->charge_start_jiffies = get_jiffies_64();
     battery_data->charging = 1;
     CHG_SetAdapterMode(CHG_USB_ADAPTER);
     CHG_SetUSBChargeCurrent(CHG_USB_400MA);
@@ -582,6 +609,8 @@ void enable_ac_charge(struct sprd_battery_data * battery_data)
 {
     pluse_charge_cnt = CHGMNG_PLUST_TIMES;
     hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
+    stop_left_time = CHARGE_BEFORE_STOP;
+    battery_data->charge_start_jiffies = get_jiffies_64();
     CHG_SetAdapterMode(CHG_NORMAL_ADAPTER);
     CHG_SetNormalChargeCurrent(CHG_NOR_600MA);
     battery_data->cur_type = 600;
@@ -620,6 +649,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
     int temp;
 #endif
     static int loop_cnt = 0; 
+    uint64_t now_jiffies = 0;
     
     loop_cnt++;
     loop_cnt %= CHARGE_LOOP_CNT;
@@ -657,6 +687,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
     }
 
     if(battery_data->charging || loop_cnt == 0){
+#if 0
         if(battery_data->charging && battery_data->capacity>90){
 			if(!pluse_charging){
 				CHG_ShutDown();
@@ -674,6 +705,11 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
 			if(adc_value >= 0)
 				put_vbat_value(adc_value);
         }
+#else
+        adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+        if(adc_value >= 0)
+          put_vbat_value(adc_value);
+#endif
         if(adc_value < 0)
           goto out;
         adc_value = get_vbat_value();
@@ -702,10 +738,12 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         vprog_value = CHG_GetVirtualVprog();
         if(vprog_value < 0)
           goto out;
-        DEBUG("raw vprog %d\n", vprog_value);
+        DEBUG("raw vprog adc %d\n", vprog_value);
         vprog_current = CHGMNG_AdcvalueToVoltage(vprog_value);
+	DEBUG("vporg adc to voltage %d \n", vprog_current);
 
         vprog_current = CHGMNG_AdcvalueToCurrent(vprog_current, battery_data->cur_type);
+	DEBUG("raw vporg current %d\n", vprog_current);
         put_vprog_value(vprog_current);
         vprog_current= get_vprog_value();
         DEBUG("average vprog current %d\n", vprog_current);
@@ -764,9 +802,10 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
             if(voltage <= battery_data->precharge_end) {
                 hw_switch_update_cnt --;
                 if(hw_switch_update_cnt <= 0){
-                        current_ref = (battery_data->cur_type)/CV_STOP_CURRENT;
+                        current_ref = CC_CV_SWITCH_POINT;
                         if(vprog_current < current_ref){
                             battery_data->hw_switch_point = CHG_UpdateSwitchoverPoint(true);
+                            stop_left_time = CHARGE_BEFORE_STOP;
                         }
                     hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
                 }
@@ -775,21 +814,22 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
                 if(vprog_current >= battery_data->cur_type/CV_STOP_CURRENT && \
 					vprog_current <= battery_data->cur_type/PLUSE_CURRENT){
                     pluse_charging = 1;
+                    stop_left_time = CHARGE_BEFORE_STOP;
                 }else 
 #endif
-				if(vprog_current <= battery_data->cur_type/CV_STOP_CURRENT){
-                    battery_notify = 1;
-                    charge_stop(battery_data);
-                    battery_data->in_precharge = 1;
+				if(vprog_current <= CV_STOP_CURRENT){
+                    stop_left_time --;
+                    if(stop_left_time <=0){
+                        battery_notify = 1;
+                        charge_stop(battery_data);
+                        battery_data->in_precharge = 1;
+                        stop_left_time = CHARGE_BEFORE_STOP;
+                    }
                 }
 				if(voltage > CHGMNG_OVER_CHARGE){
-					battery_data->hw_switch_point = CHG_UpdateSwitchoverPoint(false);
-#if 0
-                    battery_notify = 1;
-                    charge_stop(battery_data);
-                    battery_data->in_precharge = 1;
-					printk("!!!!!charge stop for over charge!!!!!\n");
-#endif
+					battery_data->hw_switch_point = CHG_GetSwitchoverPoint();
+					CHG_UpdateSwitchoverPoint(false);
+                    stop_left_time = CHARGE_BEFORE_STOP;
 				}
             }
             if(battery_data->charging)
@@ -808,8 +848,17 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
                 pluse_charging = 0;
             }
         }
+        
+        now_jiffies = get_jiffies_64();
+        if((now_jiffies - battery_data->charge_start_jiffies) > CHARGE_OVER_TIME * HZ){
+            battery_notify = 1;
+            charge_stop(battery_data);
+            battery_data->in_precharge = 1;
+            stop_left_time = CHARGE_BEFORE_STOP;
+            printk("charge last over %d seconds, stop charge\n", CHARGE_OVER_TIME);
+        }
         DEBUG("usb online %d, ac online %d\n", usb_online, ac_online);
-        DEBUG("now_hw_switch_point %d\n", battery_data->hw_switch_point);
+        DEBUG("hw_switch_point %d\n", battery_data->hw_switch_point);
 		{
 			DEBUG("ANA_CHG_CTL0 0x%x\n", ANA_REG_GET(ANA_CHGR_CTL0));
 			DEBUG("ANA_CHG_CTL1 0x%x\n", ANA_REG_GET(ANA_CHGR_CTL1));
@@ -822,7 +871,7 @@ out:
         spin_unlock_irqrestore(&battery_data->lock, flag);
 
         if(loop_cnt == 0){
-            capacity = CHGMNG_VoltageToPercentum(voltage, battery_data->charging, 0);
+            capacity = CHGMNG_VoltageToPercentum(voltage, battery_data->charging, 0, usb_online);
             voltage = (voltage /10)*10;
             //DEBUG("capacity %d\n", capacity);
 
@@ -878,12 +927,12 @@ int battery_updata(void)
     if(adc_value < 0)
       return 0;
     voltage = CHGMNG_AdcvalueToVoltage(adc_value);
-    capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0);
+    capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0, 0);
     DEBUG("battery_update: capacity %d\n", capacity);
     if(pre_capacity == 0xffffffff){
         adc_value = get_vbat_value();
         voltage = CHGMNG_AdcvalueToVoltage(adc_value);
-        pre_capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0);
+        pre_capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0, 0);
     }
 
     if(pre_capacity != capacity){
@@ -918,6 +967,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
     data->charging = 0;
     data->cur_type = 400;
+    data->adc_cal_updated = 0;
 
     data->over_voltage = OVP_ADC_VALUE;
     data->over_voltage_recovery = OVP_ADC_RECV_VALUE;
@@ -972,7 +1022,7 @@ retry_adc:
     voltage_value = CHGMNG_AdcvalueToVoltage(adc_value);
     charger_present = usb_connected();
     printk("charge: charger present %d\n", charger_present);
-    data->capacity = CHGMNG_VoltageToPercentum(voltage_value, charger_present, 0);
+    data->capacity = CHGMNG_VoltageToPercentum(voltage_value, charger_present, 0, 1);
     printk("charge: capacity value in probe %d\n", data->capacity);
 	//update_vbat_value(adc_value);
 	update_vprog_value(0);
@@ -987,6 +1037,7 @@ retry_adc:
 	data->timer_freq = HZ/10;
 	data->usb_online = 0;
 	data->ac_online = 0;
+    data->charge_start_jiffies = 0;
 
 #if defined(CONFIG_USB_SUPPORT)
 	ret = usb_register_hotplug_callback(&power_cb);
@@ -1058,7 +1109,7 @@ static int sprd_battery_resume(struct platform_device *pdev)
     if(adc_value < 0)
       return 0;
     voltage_value = CHGMNG_AdcvalueToVoltage(adc_value);
-    capacity = CHGMNG_VoltageToPercentum(voltage_value, battery_data->charging, 0);
+    capacity = CHGMNG_VoltageToPercentum(voltage_value, battery_data->charging, 0, battery_data->usb_online);
     DEBUG("%s capacity %d pre_capacity %d\n", __func__, capacity, data->capacity);
     capacity = (data->capacity + capacity)/2;
 	data->capacity = capacity;

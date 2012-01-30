@@ -84,25 +84,53 @@ uint16_t adc_voltage_table[2][2] =
     {0x3a1, 0x1068},
     {0x31b, 0xe10},
 };
+uint16_t charger_adc_voltage_table[2][2] =
+{
+    {0x198, 6500},
+    {0x170, 5800},
+};
 uint16_t voltage_capacity_table[][2] = 
 {
-    {4100,  100},
-    {4000,  80},
-    {3900,  60},
-    {3800,  40},
+    {4150,  100},
+    {4060,  90},
+	{3980,  80},
+	{3900,  70},
+    {3840,  60},
+	{3800,  50},
+    {3760,  40},
+	{3730,  30},
     {3700,  20},
-    {3600,  10},
-    {3500,  0},
+	{3650,  15},
+    {3600,  5},
+    {3400,  0},
 };
 
-uint16_t charging_voltage_capacity_table[][2]={
+uint16_t ac_charging_voltage_capacity_table[][2]={
     {4210,  100},
-    {4050,  80},
-    {3950,  60},
-    {3850,  40},
-    {3750,  20},
-    {3650,  10},
-    {3500,  0},
+	{4150,  70},
+    {4010,  60},
+	{3970,  50},
+    {3930,  40},
+	{3900,  30},
+    {3870,  20},
+    {3820,  15},
+	{3770,  5},
+    {3250,  0},
+};
+
+uint16_t usb_charging_voltage_capacity_table[][2]={
+    {4200,  100},
+	{4120,  90},
+	{4080,  80},
+	{4005,  70},
+    {3965,  60},
+	{3930,  50},
+    {3890,  40},
+	{3865,  30},
+    {3830,  20},
+    {3810,  15},
+	{3730,  5},
+    {3250,  0},
 };
 
 int32_t temp_adc_table[][2] = 
@@ -323,6 +351,15 @@ uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue)
     temp = temp / (adc_voltage_table[0][0] - adc_voltage_table[1][0]);
     return temp + adc_voltage_table[0][1];
 }
+
+uint16_t CHGMNG_ChargerAdcvalueToVoltage (uint16_t adcvalue)
+{
+    int32_t temp;
+    temp = charger_adc_voltage_table[0][1] - charger_adc_voltage_table[1][1];
+    temp = temp * (adcvalue - charger_adc_voltage_table[0][0]);
+    temp = temp / (charger_adc_voltage_table[0][0] - charger_adc_voltage_table[1][0]);
+    return temp + charger_adc_voltage_table[0][1];
+}
 #endif
 
 /*****************************************************************************/
@@ -330,7 +367,7 @@ uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue)
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
-uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int update)
+uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int update, int is_usb)
 {
     uint16_t percentum;
     int32_t temp;
@@ -344,23 +381,42 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int updat
         return 0;
     }
 
-    if(is_charging){
-        table_size = ARRAY_SIZE(charging_voltage_capacity_table);
-        for(pos = table_size-1; pos > 0; pos--){
-            if(voltage < charging_voltage_capacity_table[pos][0])
-              break;
-        }
-        if(pos == table_size-1) {
-          percentum = 0;
-        }else{
-            temp = charging_voltage_capacity_table[pos][1]-charging_voltage_capacity_table[pos+1][1];
-            temp = temp * (voltage - charging_voltage_capacity_table[pos][0]);
-            temp = temp / (charging_voltage_capacity_table[pos][0] - charging_voltage_capacity_table[pos+1][0]);
-            temp = temp + charging_voltage_capacity_table[pos][1];
-			if(temp > 100)
-				temp = 100;
-            percentum = temp;
-        }
+	if(is_charging){
+		if(is_usb){
+			table_size = ARRAY_SIZE(usb_charging_voltage_capacity_table);
+			for(pos = table_size-1; pos > 0; pos--){
+				if(voltage < usb_charging_voltage_capacity_table[pos][0])
+					break;
+			}
+			if(pos == table_size-1) {
+				percentum = 0;
+			}else{
+				temp = usb_charging_voltage_capacity_table[pos][1]-usb_charging_voltage_capacity_table[pos+1][1];
+				temp = temp * (voltage - usb_charging_voltage_capacity_table[pos][0]);
+				temp = temp / (usb_charging_voltage_capacity_table[pos][0] - usb_charging_voltage_capacity_table[pos+1][0]);
+				temp = temp + usb_charging_voltage_capacity_table[pos][1];
+				if(temp > 100)
+					temp = 100;
+				percentum = temp;
+			}
+		}else{
+			table_size = ARRAY_SIZE(ac_charging_voltage_capacity_table);
+			for(pos = table_size-1; pos > 0; pos--){
+				if(voltage < ac_charging_voltage_capacity_table[pos][0])
+					break;
+			}
+			if(pos == table_size-1) {
+				percentum = 0;
+			}else{
+				temp = ac_charging_voltage_capacity_table[pos][1]-ac_charging_voltage_capacity_table[pos+1][1];
+				temp = temp * (voltage - ac_charging_voltage_capacity_table[pos][0]);
+				temp = temp / (ac_charging_voltage_capacity_table[pos][0] - ac_charging_voltage_capacity_table[pos+1][0]);
+				temp = temp + ac_charging_voltage_capacity_table[pos][1];
+				if(temp > 100)
+					temp = 100;
+				percentum = temp;
+			}
+		}
 
         if(pre_percentum == 0xffff)
           pre_percentum = percentum;

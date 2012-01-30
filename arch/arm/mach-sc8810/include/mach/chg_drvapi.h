@@ -106,7 +106,7 @@ extern   "C"
 #define CHARGE_VBAT_STATISTIC_BUFFERSIZE 16
 #define CHARGE_VPROG_STATISTIC_BUFFERSIZE 5
 #define CHGMNG_PLUST_TIMES  3
-#define CHARGE_BEFORE_STOP 600
+#define CHARGE_BEFORE_STOP 1200
 #define CHARGE_OVER_TIME 21600 /* set for charge over time, 6 hours */
 
 #define ADC_VPROG_LIMIT    500
@@ -142,7 +142,8 @@ extern   "C"
 
 #define CC_CV_VOLTAGE 4200
 #define CV_REF_CURRENT 4
-#define CV_STOP_CURRENT 70
+#define CV_STOP_CURRENT 120
+#define CC_CV_SWITCH_POINT 120
 #define PLUSE_CURRENT 4
 
 #define OVP_ADC_VALUE 0x198
@@ -577,7 +578,7 @@ uint32_t CHR_CheckBatteryStaus (void);
 //  Note:
 /*****************************************************************************/
  void CHGMNG_SetChargeEndVoltage (uint16_t value);
-uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int update);
+uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int update, int is_usb);
 
 /*****************************************************************************/
 //  Description:    This function gets the charge safty voltage.
@@ -846,6 +847,7 @@ uint32_t CHG_UpdateSwitchoverPoint (bool up_or_down);
 //  Note:
 /*****************************************************************************/
  void CHG_SetSwitchoverPoint (CHG_SWITPOINT_E eswitchpoint);
+ uint32_t CHG_GetSwitchoverPoint (void);
 
 /*****************************************************************************/
 //  Description:    This function is used to update one level of the lowest switchover point
