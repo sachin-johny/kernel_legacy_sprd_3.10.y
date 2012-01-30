@@ -1097,7 +1097,8 @@ __init void sprd_gpio_init(void)
 {
 	//__raw_writel(0x7fff, GR_GEN2);
 	//CHIP_REG_OR ( (GR_GEN0), (GEN0_GPIO_EN | GEN0_GPIO_RTC_EN));
-   	 struct gpio_initdata *gd;
+   	 struct gpio_initdata *gpio_cfg, *gd;
+     int    gpio_io;
 	 int i,size;
 	 int gpio, value,logic;
 
@@ -1109,21 +1110,23 @@ __init void sprd_gpio_init(void)
 	ANA_REG_OR(ANA_AGEN, AGEN_GPIO_EN);
 
 	gpiochip_add(&sprd_gpio_chip);
-	get_gpio_cfg(&gd,&size);
+	get_gpio_cfg(&gpio_cfg,&size);
     	for (i = 0; i < size; i++) {
-		gpio = (gd[i].io) & GPIO_INDEX_MAX;
-		*(gd[i].gpio) = gpio;
-		if(gd[i].io == -1) {
+        gd = &gpio_cfg[i]; 
+        gpio_io = gd->io;
+		gpio = gpio_io&GPIO_INDEX_MAX;
+		*(gd->gpio) = gpio;
+		if(gpio_io == -1) {
 			continue;
 		}
-		value = !!(gd[i].io & GPIO_DEFAUT_HIGH);
-		logic =  !!(gd[i].io & GPIO_LOGIC_TRUE);
+		value = !!(gpio_io & GPIO_DEFAUT_HIGH);
+		logic =  !!(gpio_io & GPIO_LOGIC_TRUE);
 
 		sprd_gpio_request(&sprd_gpio_chip,gpio);
 		/*GPIO's direction no longer depends on pin's sleep status.*/
-		if (gd->io & GPIO_DIRECTION_OUTPUT) {
+		if (gpio_io & GPIO_DIRECTION_OUTPUT) {
 		   sprd_gpio_direction_output (&sprd_gpio_chip,gpio, value);
-		} else if (gd->io & GPIO_DIRECTION_INPUT) {
+		} else if (gpio_io & GPIO_DIRECTION_INPUT) {
 		    sprd_gpio_direction_input(&sprd_gpio_chip,gpio);
 		} else {
 		   printk(KERN_WARNING "%s : not supported gpio direction!\n", __func__);
