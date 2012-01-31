@@ -1111,7 +1111,7 @@ __init void sprd_gpio_init(void)
 
 	gpiochip_add(&sprd_gpio_chip);
 	get_gpio_cfg(&gpio_cfg,&size);
-    	for (i = 0; i < size; i++) {
+	for (i = 0; i < size; i++) {
         gd = &gpio_cfg[i]; 
         gpio_io = gd->io;
 		gpio = gpio_io&GPIO_INDEX_MAX;

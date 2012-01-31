@@ -518,7 +518,7 @@ EXPORT_SYMBOL_GPL(LDO_TurnOnLDO);
 	SCI_PASSERT(ctl != NULL, ("ldo_id = %d", ldo_id));
 
 	spin_lock_irqsave(&ldo_lock, flags);
-	if ((--ctl->ref) == 0) {
+	if (ctl->ref > 0 && (--ctl->ref) == 0) {
 		if(ctl->bp_reg == LDO_INVALID_REG_ADDR) {
 			if (LDO_LDO_USBD == ldo_id)
 				__raw_bits_or((LDO_USB_PD), GR_CLK_GEN5);
