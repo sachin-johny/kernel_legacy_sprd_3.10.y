@@ -294,6 +294,37 @@ int usb_interface_id(struct usb_configuration *config,
 	return -ENODEV;
 }
 
+static struct usb_function *get_function_by_intf(struct usb_composite_dev *cdev,
+		int intf)
+{
+	struct usb_configuration *config = cdev->config;
+	enum usb_device_speed	speed = cdev->gadget->speed;
+	struct usb_function *f;
+	struct usb_descriptor_header **descriptors;
+	struct usb_descriptor_header *descriptor;
+	struct usb_interface_descriptor *intf_desc;
+	int i;
+	for (i = 0; i < MAX_CONFIG_INTERFACES; i++) {
+		f = config->interface[i];
+		if (!f)
+			return NULL;
+		if (f->disabled)
+			continue;
+		if (speed == USB_SPEED_HIGH)
+			descriptors = f->hs_descriptors;
+		else
+			descriptors = f->descriptors;
+
+		while ((descriptor = *descriptors++) != NULL) {
+			intf_desc = (struct usb_interface_descriptor *)descriptor;
+			if (intf_desc->bDescriptorType == USB_DT_INTERFACE &&
+				intf_desc->bInterfaceNumber == intf) {
+				return f;
+			}
+		}
+	}
+	return NULL;
+}
 static int config_buf(struct usb_configuration *config,
 		enum usb_device_speed speed, void *buf, u8 type)
 {
@@ -348,10 +379,16 @@ static int config_buf(struct usb_configuration *config,
 			intf = (struct usb_interface_descriptor *)dest;
 			if (intf->bDescriptorType == USB_DT_INTERFACE) {
 				/* don't increment bInterfaceNumber for alternate settings */
-				if (intf->bAlternateSetting == 0)
+				if (intf->bAlternateSetting == 0) {
+					intf->bInterfaceNumber = interfaceCount;
+					intf = (struct usb_interface_descriptor *)descriptor;
 					intf->bInterfaceNumber = interfaceCount++;
-				else
+				} else {
 					intf->bInterfaceNumber = interfaceCount - 1;
+					intf = (struct usb_interface_descriptor *)descriptor;
+					intf->bInterfaceNumber = interfaceCount - 1;
+				}
+
 			}
 			dest += intf->bLength;
 		}
@@ -472,6 +509,7 @@ static int set_config(struct usb_composite_dev *cdev,
 	int			result = -EINVAL;
 	unsigned		power = gadget_is_otg(gadget) ? 8 : 100;
 	int			tmp;
+	int			interfaceCount = 0;
 
 	if (cdev->config)
 		reset_config(cdev);
@@ -536,14 +574,15 @@ static int set_config(struct usb_composite_dev *cdev,
 			set_bit(addr, f->endpoints);
 		}
 
-		result = f->set_alt(f, tmp, 0);
+		result = f->set_alt(f, interfaceCount, 0);
 		if (result < 0) {
 			DBG(cdev, "interface %d (%s/%p) alt 0 --> %d\n",
-					tmp, f->name, f, result);
+					interfaceCount, f->name, f, result);
 
 			reset_config(cdev);
 			goto done;
 		}
+		interfaceCount++;
 	}
 
 	/* when we return, be sure our power usage is valid */
@@ -913,7 +952,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			goto unknown;
 		if (!cdev->config || w_index >= MAX_CONFIG_INTERFACES)
 			break;
-		f = cdev->config->interface[intf];
+		f = get_function_by_intf(cdev, intf);
 		if (!f)
 			break;
 		if (w_value && !f->set_alt)
@@ -925,7 +964,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 			goto unknown;
 		if (!cdev->config || w_index >= MAX_CONFIG_INTERFACES)
 			break;
-		f = cdev->config->interface[intf];
+		f = get_function_by_intf(cdev, intf);
 		if (!f)
 			break;
 		/* lots of interfaces only need altsetting zero... */
@@ -955,7 +994,7 @@ unknown:
 			if (cdev->config == NULL)
 				return value;
 
-			f = cdev->config->interface[intf];
+			f = get_function_by_intf(cdev, intf);
 			break;
 
 		case USB_RECIP_ENDPOINT:

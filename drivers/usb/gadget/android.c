@@ -109,6 +109,7 @@ static struct usb_device_descriptor device_desc = {
 
 static struct list_head _functions = LIST_HEAD_INIT(_functions);
 static int _registered_function_count = 0;
+static int get_product_id(struct android_dev *dev);
 
 static struct android_usb_function *get_function(const char *name)
 {
@@ -124,6 +125,7 @@ static void bind_functions(struct android_dev *dev)
 {
 	struct android_usb_function	*f;
 	char **functions = dev->functions;
+	int	product_id;
 	int i;
 
 	for (i = 0; i < dev->num_functions; i++) {
@@ -134,6 +136,11 @@ static void bind_functions(struct android_dev *dev)
 		else
 			printk(KERN_ERR "function %s not found in bind_functions\n", name);
 	}
+	product_id = get_product_id(dev);
+	printk(KERN_INFO "usb: product_id=0x%x\n", product_id);
+	device_desc.idProduct = __constant_cpu_to_le16(product_id);
+	if (dev->cdev)
+		dev->cdev->desc.idProduct = device_desc.idProduct;
 }
 
 static int android_bind_config(struct usb_configuration *c)
@@ -360,6 +367,7 @@ void android_enable_function(struct usb_function *f, int enable)
 			}
 		}
 		product_id = get_product_id(dev);
+		printk(KERN_INFO "usb: product_id=0x%x\n", product_id);
 		device_desc.idProduct = __constant_cpu_to_le16(product_id);
 		if (dev->cdev)
 			dev->cdev->desc.idProduct = device_desc.idProduct;
