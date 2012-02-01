@@ -701,8 +701,3 @@ void __init sprd_charger_init(void)
 	gpio_direction_input(USB_DP_GPIO);
 	gpio_direction_input(USB_DM_GPIO);
 }
-
-void __init sprd_gpu_init(void)
-{
-	__raw_bits_or(BIT_21, AHB_CTL0);
-}

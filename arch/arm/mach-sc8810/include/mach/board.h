@@ -41,7 +41,6 @@ void __init sprd_add_otg_device(void);
 void __init sprd_gadget_init(void);
 void __init sprd_add_dcam_device(void);
 void __init sprd_charger_init(void);
-void __init sprd_gpu_init(void);
 void __init sprd_pin_map_init(void);
 
 /*get custom config*/
