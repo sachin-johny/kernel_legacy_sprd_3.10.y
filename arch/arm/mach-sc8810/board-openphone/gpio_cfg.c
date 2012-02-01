@@ -65,7 +65,7 @@ static struct gpio_initdata __initdata gpio_func_cfg[] = {
 	{&sprd_3rdparty_gpio_tp_irq,		60	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_cmmb_power,	135	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_cmmb_reset,	94	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
-	{&sprd_3rdparty_gpio_tp_irq,		93	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_cmmb_irq,		93	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
 };
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
