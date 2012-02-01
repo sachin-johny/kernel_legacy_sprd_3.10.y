@@ -435,6 +435,8 @@ struct fsg_dev {
 
 	struct usb_ep		*bulk_in;
 	struct usb_ep		*bulk_out;
+
+	struct switch_dev	 sdev;
 };
 
 
@@ -2420,6 +2422,7 @@ static void fsg_disable(struct usb_function *f)
 
 
 /*-------------------------------------------------------------------------*/
+static struct fsg_dev			*the_fsg;
 
 static void handle_exception(struct fsg_common *common)
 {
@@ -2519,6 +2522,7 @@ static void handle_exception(struct fsg_common *common)
 		 * requires this.) */
 		if (!fsg_is_set(common))
 			break;
+		common->ep0req->length = 0;
 		if (test_and_clear_bit(IGNORE_BULK_OUT,
 				       &common->fsg->atomic_bitflags))
 			usb_ep_clear_halt(common->fsg->bulk_in);
@@ -2536,11 +2540,13 @@ static void handle_exception(struct fsg_common *common)
 
 	case FSG_STATE_CONFIG_CHANGE:
 		do_set_interface(common, common->new_fsg);
+		switch_set_state(&the_fsg->sdev, !!common->new_fsg);
 		break;
 
 	case FSG_STATE_EXIT:
 	case FSG_STATE_TERMINATED:
 		do_set_interface(common, NULL);		/* Free resources */
+		switch_set_state(&the_fsg->sdev, 0);
 		spin_lock_irq(&common->lock);
 		common->state = FSG_STATE_TERMINATED;	/* Stop the thread */
 		spin_unlock_irq(&common->lock);
@@ -2939,6 +2945,7 @@ static void fsg_unbind(struct usb_configuration *c, struct usb_function *f)
 	fsg_common_put(common);
 	usb_free_descriptors(fsg->function.descriptors);
 	usb_free_descriptors(fsg->function.hs_descriptors);
+	switch_dev_unregister(&fsg->sdev);
 	kfree(fsg);
 }
 
@@ -3005,6 +3012,17 @@ static struct usb_gadget_strings *fsg_strings_array[] = {
 	NULL,
 };
 
+static ssize_t print_switch_name(struct switch_dev *sdev, char *buf)
+{
+	return sprintf(buf, "%s\n", FUNCTION_NAME);
+}
+
+static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
+{
+	struct fsg_dev	*fsg = container_of(sdev, struct fsg_dev, sdev);
+	return sprintf(buf, "%s\n", (fsg->common->new_fsg ? "online" : "offline"));
+}
+
 static int fsg_add(struct usb_composite_dev *cdev,
 		   struct usb_configuration *c,
 		   struct fsg_common *common)
@@ -3015,6 +3033,15 @@ static int fsg_add(struct usb_composite_dev *cdev,
 	fsg = kzalloc(sizeof *fsg, GFP_KERNEL);
 	if (unlikely(!fsg))
 		return -ENOMEM;
+
+	the_fsg = fsg;
+
+	fsg->sdev.name = FUNCTION_NAME;
+	fsg->sdev.print_name = print_switch_name;
+	fsg->sdev.print_state = print_switch_state;
+	rc = switch_dev_register(&fsg->sdev);
+	if (rc < 0)
+		return rc;
 
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	fsg->function.name        = FUNCTION_NAME;
