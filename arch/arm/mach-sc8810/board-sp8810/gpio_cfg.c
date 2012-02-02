@@ -72,8 +72,8 @@ static struct gpio_initdata __initdata gpio_func_cfg[] = {
 	{&sprd_3rdparty_gpio_pls_irq,		28	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_mint_irq,		97	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_gps_pwr,		-1	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
-	{&sprd_3rdparty_gpio_gps_rst,		27	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
-	{&sprd_3rdparty_gpio_gps_onoff,		26	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_gps_rst,		26	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_gps_onoff,		27	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 
 };
 
