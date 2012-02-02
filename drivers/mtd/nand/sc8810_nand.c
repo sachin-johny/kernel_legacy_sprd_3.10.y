@@ -635,6 +635,15 @@ static void sc8810_nand_select_chip(struct mtd_info *mtd, int chip)
 {
 	//struct nand_chip *this = mtd->priv;
 	//struct sprd_nand_info *info = this->priv;
+	/* clk_enable(info->clk) */
+	int ik_cnt = 0;
+	
+	if (chip != -1) {
+		REG_AHB_CTL0 |= BIT_8;//no BIT_9 /* enabel nfc clock */
+		for(ik_cnt = 0; ik_cnt < 10000; ik_cnt ++);
+	} else
+		REG_AHB_CTL0 &= ~BIT_8; /* disabel nfc clock */
+		
 }
 static int sc8810_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_char *ecc_code)
 {
@@ -829,6 +838,8 @@ static int sprd_nand_probe(struct platform_device *pdev)
 		goto release;
 	}
 	add_mtd_partitions(sprd_mtd, partitions, num_partitions);
+	
+	REG_AHB_CTL0 &= ~BIT_8; /* disabel nfc clock */
 
 	return 0;
 release:
@@ -880,7 +891,7 @@ static int sprd_nand_resume(struct platform_device *dev)
 #else
 	int ik_cnt = 0;
 
-	REG_AHB_CTL0 |= BIT_8;//no BIT_9
+	REG_AHB_CTL0 |= BIT_8;//no BIT_9 /* enable nfc clock */
 	REG_AHB_SOFT_RST |= BIT_5;
 	for(ik_cnt = 0; ik_cnt < 0xffff; ik_cnt++);
 	REG_AHB_SOFT_RST &= ~BIT_5;
