@@ -15,8 +15,6 @@
  */
 
 #include <linux/kernel.h>
-#include <linux/delay.h>
-
 #include <mach/lcd.h>
 
 //#define  LCD_DEBUG
@@ -36,7 +34,7 @@ static int32_t hx8357_init(struct lcd_spec *self)
 	LCD_PRINT("hx8357_init\n");
 
 	send_cmd_data(0x00ff, 0x00);  //Command page 0
-	mdelay(15);  //delay
+	LCD_DelayMS(15);  //delay
 	send_cmd_data(0x001a, 0x0004);  //VGH VGL VCL DDVDH
 	send_cmd_data(0x001b, 0x001c);
 
@@ -45,15 +43,15 @@ static int32_t hx8357_init(struct lcd_spec *self)
 	send_cmd_data(0x0024, 0x0069);//set VCOMH voltage,VHH=0x64
 	send_cmd_data(0x0025, 0x0063); //set VCOML voltage,VML=0x71
 	send_cmd_data(0x0019, 0x0001);
-	mdelay(10);  //delay
+	LCD_DelayMS(10);  //delay
 	send_cmd_data(0x001a, 0x0001); //VGH VGL VCL DDVDH
 	send_cmd_data(0x001f, 0x008a);
 	send_cmd_data(0x0001, 0x0000);
 	send_cmd_data(0x001c, 0x0005);
 	send_cmd_data(0x001f, 0x0082);
-	mdelay(10); //delay
+	LCD_DelayMS(10); //delay
 	send_cmd_data(0x001f, 0x0092);
-	mdelay(10); //delay
+	LCD_DelayMS(10); //delay
 	send_cmd_data(0x001f, 0x00d4);
 
 	/* set GRAM area 320*480 */
@@ -125,7 +123,7 @@ static int32_t hx8357_init(struct lcd_spec *self)
 	send_cmd_data(0x00e8, 0x00d1);
 	send_cmd_data(0x00e9, 0x00c0);
 	send_cmd_data(0x0028, 0x0038);
-	mdelay(80);  //delay
+	LCD_DelayMS(80);  //delay
 	send_cmd_data(0x0028, 0x003c); //GON=0,DTE=0,D[1:0]=01
 
 	send_cmd_data(0x0080, 0x0000);
@@ -290,12 +288,12 @@ static int32_t hx8357_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 		send_cmd_data(0x00FF, 0x00);//Select Command Page 0
 		// Display off Setting
 		send_cmd_data(0x0028, 0x38); // GON=1, DTE=1, D[1:0]=10
-		mdelay(40);  //delay	
+		LCD_DelayMS(40);  //delay	
 		send_cmd_data(0x0028, 0x04); // GON=0, DTE=0, D[1:0]=01
 		// Power off Setting
 		send_cmd_data(0x001F, 0x90); // Stop VCOMG
 		// GAS_EN=1, VCOMG=0, PON=1, DK=0, XDK=0, DDVDH_TRI=0, STB=0
-		mdelay(5);  //delay	
+		LCD_DelayMS(5);  //delay	
 		send_cmd_data(0x001F, 0x88);// Stop step-up circuit
 		// GAS_EN=1, VCOMG=1, PON=0, DK=1, XDK=1, DDVDH_TRI=0, STB=0
 		send_cmd_data(0x001C, 0x00);// AP=000
@@ -306,25 +304,25 @@ static int32_t hx8357_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 	else {
 		send_cmd_data(0x00FF, 0x00);//Select Command Page 0
 		send_cmd_data(0x0019, 0x01);//OSC_EN=1, Start to Oscillate
-		mdelay(5);  //delay
+		LCD_DelayMS(5);  //delay
 		send_cmd_data(0x001F, 0x88);
 		//GAS_EN=1, VCOMG=0, PON=0, DK=1, XDK=0, DDVDH_TRI=0, STB=0
 		// Power on Setting
 		send_cmd_data(0x001C, 0x03);// AP=011
 		send_cmd_data(0x001F, 0x80);// Exit standby mode and Step-up circuit 1 enable
 		// GAS_EN=1, VCOMG=0, PON=0, DK=0, XDK=0, DDVDH_TRI=0, STB=0
-		mdelay(5);  //delay
+		LCD_DelayMS(5);  //delay
 		send_cmd_data(0x001F, 0x90);// Step-up circuit 2 enable
 		// GAS_EN=1, VCOMG=0, PON=1, DK=0, XDK=0, DDVDH_TRI=0, STB=0
-		mdelay(5);  //delay
+		LCD_DelayMS(5);  //delay
 		send_cmd_data(0x001F, 0xD4);
 		// GAS_EN=1, VCOMG=1, PON=1, DK=0, XDK=1, DDVDH_TRI=0, STB=0
-		mdelay(5);  //delay
+		LCD_DelayMS(5);  //delay
 		// Display on Setting
 		send_cmd_data(0x0028, 0x08);// GON=0, DTE=0, D[1:0]=01
-		mdelay(40);  //delay
+		LCD_DelayMS(40);  //delay
 		send_cmd_data(0x0028, 0x38);// GON=1, DTE=1, D[1:0]=10
-		mdelay(40);  //delay
+		LCD_DelayMS(40);  //delay
 		send_cmd_data(0x0028, 0x3C);// GON=1, DTE=1, D[1:0]=11
 	}
 	return 0;

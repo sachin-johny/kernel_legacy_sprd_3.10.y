@@ -18,6 +18,9 @@
 #define _LCD_H_
 
 #include <linux/types.h>
+#include <linux/delay.h>
+
+#define LCD_DelayMS  msleep
 
 /* LCD mode */
 #define LCD_MODE_RGB 0

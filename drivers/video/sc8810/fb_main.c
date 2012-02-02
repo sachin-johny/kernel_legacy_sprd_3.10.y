@@ -18,30 +18,24 @@
 #include <linux/module.h>
 #include <linux/fb.h>
 #include <linux/delay.h>
-
-#include <linux/freezer.h>
 #include <linux/wait.h>
 #include <linux/io.h>
-#include <linux/uaccess.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
-#include <linux/debugfs.h>
-#include <linux/io.h>
 #include <linux/interrupt.h>
+#include <linux/gpio.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
-#include <mach/adi_hal_internal.h>
-#include <mach/regs_ana.h>
-#include <mach/mfp.h>
-#include <linux/gpio.h>
+#include <mach/clock_common.h>
+#include <mach/lcd.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
 
 #include "lcdc_reg.h"
-#include <mach/lcd.h>
+
 #include "fb_rrm.h"
 #include "lcdc_manager.h" 
 
@@ -68,6 +62,7 @@ struct sc8810fb_info {
 	uint32_t write_register_timing;
 	uint32_t write_gram_timing;
 
+	struct clk *clk_lcdc; 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
 #endif
@@ -146,15 +141,69 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+#define  LCDC_CLK_NAME   "clk_lcdc"
+#define  LCDC_96MHz      0x0
+#define  LCDC_64MHz      0x1
+#define  LCDC_48MHz      0x2
+#define  LCDC_26MHz      0x3
+
+static char *lcdc_get_clk_src_name(unsigned int clk_src)
+{
+        char *src_name;
+	switch(clk_src) {
+		case LCDC_96MHz:
+			src_name =  "clk_96m";
+			break;
+		case LCDC_64MHz:
+			src_name =  "clk_64m";			
+			break;
+		case LCDC_48MHz:
+			src_name =  "clk_48m";			
+			break;
+		default:
+			src_name =  "clk_26m";				
+			break;
+	}	
+	return src_name;
+}
+
+static struct clk *lcdc_init_mclk (unsigned int clk_src)
+{
+    	char *name_parent = NULL;
+    	struct clk *clk_parent = NULL;
+	int ret;
+	struct clk *clk_lcdc = clk_get(NULL, LCDC_CLK_NAME);
+
+	name_parent = lcdc_get_clk_src_name(clk_src);
+	clk_parent = clk_get_parent(clk_lcdc);
+
+	FB_PRINT("###lcdc:clock[%s]: parent_name: %s.\n", clk_lcdc->name, clk_parent->name);
+	if (!clk_parent || strcmp(name_parent, clk_parent->name)) {//need to wait the parent
+		clk_parent = clk_get(NULL, name_parent);
+		if (!clk_parent) {
+			printk("###lcdc:clock[%s]: failed to get parent [%s] by clk_get()!\n", clk_lcdc->name, name_parent);
+			return NULL;
+		}
+
+		ret = clk_set_parent(clk_lcdc, clk_parent);
+		if (ret) {
+			printk("###lcdc:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n", clk_lcdc->name, clk_parent->name, clk_lcdc->usecount);
+			return NULL;
+		}		
+	}
+
+	return clk_lcdc;	
+}
+
 static int32_t panel_reset(struct lcd_spec *self)
 {
 	//panel reset
 	__raw_writel(0x1, LCM_RSTN);	
-	mdelay(0x10);
+	msleep(0x10);
 	__raw_writel(0x0, LCM_RSTN);
-	mdelay(0x10);
+	msleep(0x10);
 	__raw_writel(0x1, LCM_RSTN);
-	mdelay(0x10);
+	msleep(0x10);
 
 	return 0;
 }
@@ -660,24 +709,18 @@ static int set_lcdc_layers(struct fb_var_screeninfo *var, struct fb_info *fb)
 
 static void lcdc_reset(void)
 {
-	//select LCD clock source	
-	__raw_bits_and(~((1 << 6) | (1 << 7)), GR_PLL_SRC);    //pll_src=128M
-
-	//set LCD divdior
-	__raw_bits_and(~((1 << 0) |(1 << 1) | (1 << 2)), GR_GEN4);  //div=0
-
-	//enable LCD clock
-	__raw_bits_or(1<<3, AHB_CTL0); 
-
 	//LCD soft reset
 	__raw_bits_or(1<<3, AHB_SOFT_RST);
-	//mdelay(10);	
+	msleep(10);	
 	__raw_bits_and(~(1<<3), AHB_SOFT_RST); 
 }
 
 static void hw_early_init(struct sc8810fb_info *info)
 {
 	//int ret;
+	info->clk_lcdc = lcdc_init_mclk(LCDC_96MHz);
+
+	clk_enable(info->clk_lcdc);
 
 	__raw_bits_and(~(1<<0), LCDC_IRQ_EN);
 	__raw_bits_or((1<<0), LCDC_IRQ_CLR);
@@ -722,16 +765,25 @@ static void sc8810fb_early_suspend (struct early_suspend* es)
 	if(info->panel->ops->lcd_enter_sleep != NULL){
 		info->panel->ops->lcd_enter_sleep(info->panel,1);
 	}
-	FB_PRINT("allen: [%s]\n", __FUNCTION__);
+	if (info->clk_lcdc) {
+		FB_PRINT("clk_disable\n");
+		clk_disable(info->clk_lcdc);
+	}
+	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
 }
 
 static void sc8810fb_early_resume (struct early_suspend* es)
 {
 	struct sc8810fb_info *info = container_of(es, struct sc8810fb_info, early_suspend);
-	if(info->panel->ops->lcd_enter_sleep != NULL){
+
+	if (info->clk_lcdc) {
+		FB_PRINT("clk_enable\n");
+		clk_enable(info->clk_lcdc);
+	}
+	if(info->panel->ops->lcd_enter_sleep != NULL) {
 		info->panel->ops->lcd_enter_sleep(info->panel,0);
 	}
-	FB_PRINT("allen: [%s]\n", __FUNCTION__);
+	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
 }
 #endif
 
@@ -897,7 +949,13 @@ err0:
 static int sc8810fb_suspend(struct platform_device *pdev,pm_message_t state)
 {
 	struct sc8810fb_info *info = platform_get_drvdata(pdev);
-	info->panel->ops->lcd_enter_sleep(info->panel,1);
+	if (info->panel->ops->lcd_enter_sleep != NULL) {
+		info->panel->ops->lcd_enter_sleep(info->panel,1);
+	}
+	if (info->clk_lcdc) {
+		FB_PRINT("clk_disable(info->clk_lcdc)\n");
+		clk_disable(info->clk_lcdc);
+	}
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
 }
@@ -906,6 +964,11 @@ static int sc8810fb_resume(struct platform_device *pdev)
 {
 	struct sc8810fb_info *info = platform_get_drvdata(pdev);
 
+	if (info->clk_lcdc) {
+		FB_PRINT("clk_enable(info->clk_lcdc)\n");
+		clk_enable(info->clk_lcdc);
+	}
+
 	if (__raw_readl(LCDC_CTRL) == 0) { // resume from deep sleep
 		info->need_reinit = 1;
 		lcdc_reset();
@@ -913,8 +976,11 @@ static int sc8810fb_resume(struct platform_device *pdev)
 		hw_init(info);
 		hw_later_init(info);
 		info->need_reinit = 0;
+	} else { 
+		if(info->panel->ops->lcd_enter_sleep != NULL){
+			info->panel->ops->lcd_enter_sleep(info->panel,0);
+		}
 	}
-	else info->panel->ops->lcd_enter_sleep(info->panel,0);
 
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
