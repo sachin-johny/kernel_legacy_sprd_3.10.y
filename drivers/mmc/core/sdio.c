@@ -266,7 +266,8 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 {
 	struct mmc_card *card;
 	int err;
-
+    int save_rca = 0;
+	int save_rca_valid = 0;
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
@@ -274,6 +275,7 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 	 * Inform the card of the voltage
 	 */
 	if (!powered_resume) {
+	    mmc_go_idle(host);
 		err = mmc_send_io_op_cond(host, host->ocr, &ocr);
 		if (err)
 			goto err;
@@ -296,7 +298,8 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 		err = PTR_ERR(card);
 		goto err;
 	}
-
+    
+    printk("%s: old_card %p\n", __FUNCTION__, oldcard );	
 	card->type = MMC_TYPE_SDIO;
 
 	/*
@@ -312,7 +315,10 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_send_relative_addr(host, &card->rca);
 		if (err)
 			goto remove;
-
+        
+        printk("%s: save_rca %d\n", __FUNCTION__, card->rca );
+		save_rca = card->rca;
+		save_rca_valid = -1;		
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
 
@@ -320,6 +326,7 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 	 * Select card, as all following commands rely on that.
 	 */
 	if (!powered_resume && !mmc_host_is_spi(host)) {
+	    printk("%s:%d About to select card %p\n", __FUNCTION__, __LINE__, card);
 		err = mmc_select_card(card);
 		if (err)
 			goto remove;
@@ -362,6 +369,10 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 		if (!same) {
 			err = -ENOENT;
 			goto err;
+		}
+		printk("oldcard->rca %d save_rca %d save_rca_valid %d\n", oldcard->rca, save_rca, save_rca_valid );
+		if( save_rca_valid ) {
+			oldcard->rca = save_rca;
 		}
 		card = oldcard;
 		return 0;
@@ -444,6 +455,7 @@ static void mmc_sdio_detect(struct mmc_host *host)
 	/*
 	 * Just check if our card has been removed.
 	 */
+	printk("%s:%d About to select card %p\n", __FUNCTION__, __LINE__, host->card);
 	err = mmc_select_card(host->card);
 
 	mmc_release_host(host);
@@ -711,6 +723,7 @@ int sdio_reset_comm(struct mmc_card *card)
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
 	if (!mmc_host_is_spi(host)) {
+		printk("%s:%d About to select card %p\n", __FUNCTION__, __LINE__, card);
 		err = mmc_select_card(card);
 		if (err)
 			goto err;
