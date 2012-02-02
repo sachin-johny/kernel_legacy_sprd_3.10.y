@@ -412,11 +412,13 @@ static void __init openphone_init(void)
 	sprd_spi_init();
         sprd_wifildo_init();  //WIFI  vreg  ana  and digital
 	sprd_charger_init();
+	sprd_ramconsole_init();
 }
 
 static void __init openphone_map_io(void)
 {
 	sprd_map_common_io();
+	sprd_ramconsole_reserve_sdram();
 }
 
 extern unsigned long phys_initrd_start;

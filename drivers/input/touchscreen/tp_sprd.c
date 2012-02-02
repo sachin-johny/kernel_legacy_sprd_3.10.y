@@ -600,7 +600,7 @@ static DEVICE_ATTR(cal_coef, 0666, cal_coef_sysfs_show, cal_coef_sysfs_store);
 /*
  * The functions for inserting/removing us as a module.
  */
-static int __init sprd_tp_probe(struct platform_device *pdev)
+static int sprd_tp_probe(struct platform_device *pdev)
 {
 	struct sprd_tp *tp;
 	struct input_dev *input_dev;
