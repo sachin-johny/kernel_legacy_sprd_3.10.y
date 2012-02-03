@@ -152,6 +152,18 @@ struct sc8810_nand_info {
 	
 };
 
+struct sc8810_nand_page_oob {
+	unsigned char m_c;
+	unsigned char d_c;
+	unsigned char cyc_3;
+	unsigned char cyc_4;
+	unsigned char cyc_5;
+	int pagesize;
+	int oobsize; /* total oob size */
+	int eccsize; /* per ??? bytes data for ecc calcuate once time */
+	int eccbit; /* ecc level per eccsize */
+};
+
 #define NF_MC_CMD_ID	(0xFD)
 #define NF_MC_ADDR_ID	(0xF1)
 #define NF_MC_WAIT_ID	(0xF2)
@@ -171,6 +183,13 @@ struct sc8810_nand_info {
 #define REG_AHB_SOFT_RST				(*((volatile unsigned int *)(AHB_SOFT_RST)))
 
 #define REG_GR_NFC_MEM_DLY                      (*((volatile unsigned int *)(GR_NFC_MEM_DLY)))
+
+/* only for 4kpage or 8kpage nand flash, no 2kpage */
+static struct sc8810_nand_page_oob nand_config_table[] =
+{
+	{0xec, 0xbc, 0x00, 0x66, 0x56, 4096, 128, 512, 4},
+	{0x2c, 0xbc, 0x90, 0x66, 0x54, 4096, 224, 512, 8}
+};
 
 static struct sc8810_nand_info g_info ={0};
 static nand_ecc_modes_t sprd_ecc_mode = NAND_ECC_NONE;
@@ -568,7 +587,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 			nfc_mcr_inst_add(7, NF_MC_RWORD_ID);
 			nfc_mcr_inst_exc_for_id();
 			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT);
-			nand_copy(io_wr_port, (void *)NFC_MBUF_ADDR, 8);
+			nand_copy(io_wr_port, (void *)NFC_MBUF_ADDR, 5);
 			break;					
 		case NAND_CMD_ERASE1:
 			nfc_mcr_inst_init();
@@ -714,27 +733,58 @@ static struct nand_ecclayout _nand_oob_128 = {
 		{.offset = 2,
 		 .length = 70}}
 };
-void nand_hardware_config(struct nand_chip *this, u8 id[8])
+
+static struct nand_ecclayout _nand_oob_224 = {
+	.eccbytes = 104,
+	.eccpos = {
+		120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132,
+		133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145,
+		146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158,
+		159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171,
+		172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184,
+		185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197,
+		198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210,
+		211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223},
+	.oobfree = {
+		{.offset = 2,
+		.length = 118}}
+};
+
+void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u8 id[8])
 {
-	if ( (id[0] == NAND_MFR_SAMSUNG ) && (id [1] == 0xbc) && (id [3] == 0x66))
-	{
-		if ((id[4] & 0x3 ) == 0) {
- 			this->ecc.size = 512;
-			this->ecc.bytes = 2;
-			g_info.ecc_mode = 1;
-		}else if ((id[4] & 0x3 ) == 1) {
- 			this->ecc.size = 512;
-			this->ecc.bytes = 4;
-			g_info.ecc_mode = 2;
- 		}else  if ((id[4] & 0x3 ) == 2) {
- 			this->ecc.size = 512;
-			this->ecc.bytes = 7;
-			g_info.ecc_mode = 4;
-			this->ecc.layout =	&_nand_oob_128;
-		}
-		else
-			BUG_ON(1);
+	int index;
+	int array;
+	
+	for (index = 0; index < 5; index ++)
+		printk(" %02x ", id[index]);
+	printk("\n");
+
+	array = sizeof(nand_config_table) / sizeof(struct sc8810_nand_page_oob);
+	for (index = 0; index < array; index ++) {
+		if ((nand_config_table[index].m_c == id[0]) && (nand_config_table[index].d_c == id[1]) && (nand_config_table[index].cyc_3 == id[2]) && (nand_config_table[index].cyc_4 == id[3]) && (nand_config_table[index].cyc_5 == id[4]))
+			break;
 	}
+
+	if (index < array) {
+		this->ecc.size = nand_config_table[index].eccsize;
+		g_info.ecc_mode = nand_config_table[index].eccbit;
+		/* 4 bit ecc, per 512 bytes can creat 13 * 4 = 52 bit , 52 / 8 = 7 bytes
+		   8 bit ecc, per 512 bytes can creat 13 * 8 = 104 bit , 104 / 8 = 13 bytes */
+		switch (g_info.ecc_mode) {
+			case 4:
+				/* 4 bit ecc, per 512 bytes can creat 13 * 4 = 52 bit , 52 / 8 = 7 bytes */
+				this->ecc.bytes = 7;
+				this->ecc.layout = &_nand_oob_128;
+			break;
+			case 8:
+				/* 8 bit ecc, per 512 bytes can creat 13 * 8 = 104 bit , 104 / 8 = 13 bytes */
+				this->ecc.bytes = 13;
+				this->ecc.layout = &_nand_oob_224;
+				mtd->oobsize = nand_config_table[index].oobsize;
+			break;
+		}
+	} else 
+		printk("The type of nand flash is not in table, so use default configuration!\n");
 }
 
 int board_nand_init(struct nand_chip *this)

@@ -26,7 +26,7 @@ typedef struct NkDevMtdNandOobFree {
 
 typedef struct NkDevMtdNandEccLayout {
     nku32_f              eccbytes;
-    nku32_f              eccpos [64];
+    nku32_f              eccpos [128];
     nku32_f              oobavail;
     NkDevMtdNandOobFree  oobfree [NK_DEV_MTD_MAX_OOBFREE_ENTRIES];
 } NkDevMtdNandEccLayout;	/* (1+64+1+(8*2))*4 = 328 bytes (41*8) */
