@@ -1888,45 +1888,190 @@ LOCAL uint32_t _ov5640_set_awb(uint32_t mode)
 // Note:
 //        mode 0:normal;   1:night 
 /******************************************************************************/
- LOCAL const SENSOR_REG_T ov5640_work_mode_tab[][7]=
+ LOCAL const SENSOR_REG_BITS_T ov5640_work_mode_tab[][30]=
 {
 
-    {    //normal fix 25fps
-            {0x3212, 0x03},
-            {0x3a00, 0x78},   
-            {0x3a14, 0x04},
-            {0x3a15, 0x98},
-            {0x3212, 0x13},
-            {0x3212, 0xa3}, 
-            {0xFFFF, 0xFF}       
+    /* Normal Mode */
+    {
+	// Night mode disable
+            {0x3a00, 0x00, 0x04},
+	//ISO Auto - 8x1
+            {0x3a18, 0x00, 0xff},   
+            {0x3a19, 0x7c, 0xff},
+	// AE Weight - Average
+            {0x501d, 0x00, 0xff},
+            {0x5688, 0x11, 0xff},
+            {0x5689, 0x11, 0xff}, 
+            {0x568a, 0x11, 0xff},
+            {0x568b, 0x11, 0xff},
+            {0x568c, 0x11, 0xff},
+            {0x568d, 0x11, 0xff}, 
+            {0x568e, 0x11, 0xff},
+	    {0x568f, 0x11, 0xff},
+	// CMX
+            {0x5381, 0x1e, 0xff},
+            {0x5382, 0x5b, 0xff},
+            {0x5383, 0x08, 0xff}, 
+            {0x5384, 0x0a, 0xff},
+            {0x5385, 0x7e, 0xff},
+            {0x5386, 0x88, 0xff},
+            {0x5387, 0x7c, 0xff}, 
+            {0x5388, 0x6c, 0xff},
+	    {0x5389, 0x10, 0xff},
+            {0x538a, 0x01, 0xff},
+	    {0x538b, 0x98, 0xff},
+
+	//normal fix 25fps
+            {0x3212, 0x03, 0xff},
+            {0x3a00, 0x78, 0xff},   
+            {0x3a14, 0x04, 0xff},
+            {0x3a15, 0x98, 0xff},
+            {0x3212, 0x13, 0xff},
+            {0x3212, 0xa3, 0xff}, 
+            {0xFFFF, 0xFF, 0xff}       
     },
+
+    /* Night Mode */
     {    //night min 12.5-25fps
-            {0x3212, 0x03},   
-            {0x3a00, 0x7c},
-            {0x3a14, 0x09},
-            {0x3a15, 0x30},
-            {0x3212, 0x13},
-            {0x3212, 0xa3},                          
-            {0xFFFF, 0xFF}
+            {0x3212, 0x03, 0xff},   
+            {0x3a00, 0x7c, 0xff},
+            {0x3a14, 0x09, 0xff},
+            {0x3a15, 0x30, 0xff},
+            {0x3212, 0x13, 0xff},
+            {0x3212, 0xa3, 0xff},                          
+            {0xFFFF, 0xFF, 0xff}
+    },
+
+    /* portrait */
+    {
+	// Night mode disable
+            {0x3a00, 0x00, 0x04},
+	//ISO Auto - 8x1
+            {0x3a18, 0x00, 0xff},   
+            {0x3a19, 0x7c, 0xff},
+	// AE Weight - Average
+            {0x501d, 0x00, 0xff},
+            {0x5688, 0x00, 0xff},
+            {0x5689, 0x00, 0xff}, 
+            {0x568a, 0x10, 0xff},
+            {0x568b, 0x01, 0xff},
+            {0x568c, 0x10, 0xff},
+            {0x568d, 0x01, 0xff}, 
+            {0x568e, 0x00, 0xff},
+	    {0x568f, 0x00, 0xff},
+	// CMX
+            {0x5381, 0x1c, 0xff},
+            {0x5382, 0x5a, 0xff},
+            {0x5383, 0x06, 0xff}, 
+            {0x5384, 0x08, 0xff},
+            {0x5385, 0x65, 0xff},
+            {0x5386, 0x6d, 0xff},
+            {0x5387, 0x63, 0xff}, 
+            {0x5388, 0x56, 0xff},
+	    {0x5389, 0x0d, 0xff},
+            {0x538a, 0x01, 0xff},
+	    {0x538b, 0x98, 0xff},
+
+            {0xFFFF, 0xFF, 0xff}       
+    },
+
+    /* landscape */
+    {
+	// Night mode disable
+            {0x3a00, 0x00, 0x04},
+	//ISO Auto - 8x1
+            {0x3a18, 0x00, 0xff},   
+            {0x3a19, 0x7c, 0xff},
+	// AE Weight - Average
+            {0x501d, 0x00, 0xff},
+            {0x5688, 0x11, 0xff},
+            {0x5689, 0x11, 0xff}, 
+            {0x568a, 0x11, 0xff},
+            {0x568b, 0x11, 0xff},
+            {0x568c, 0x11, 0xff},
+            {0x568d, 0x11, 0xff}, 
+            {0x568e, 0x11, 0xff},
+	    {0x568f, 0x11, 0xff},
+	// CMX
+            {0x5381, 0x0b, 0xff},
+            {0x5382, 0x5f, 0xff},
+            {0x5383, 0x18, 0xff}, 
+            {0x5384, 0x14, 0xff},
+            {0x5385, 0x95, 0xff},
+            {0x5386, 0xab, 0xff},
+            {0x5387, 0x65, 0xff}, 
+            {0x5388, 0x5c, 0xff},
+	    {0x5389, 0x09, 0xff},
+            {0x538a, 0x01, 0xff},
+	    {0x538b, 0x98, 0xff},
+
+            {0xFFFF, 0xFF, 0xff}       
+    },
+    
+    /* Sports */
+    {
+	// Night mode disable
+            {0x3a00, 0x00, 0x04},
+	//ISO Auto - 8x1
+            {0x3a18, 0x01, 0xff},   
+            {0x3a19, 0xfc, 0xff},
+	// AE Weight - Average
+            {0x501d, 0x00, 0xff},
+            {0x5688, 0x11, 0xff},
+            {0x5689, 0x11, 0xff}, 
+            {0x568a, 0x11, 0xff},
+            {0x568b, 0x11, 0xff},
+            {0x568c, 0x11, 0xff},
+            {0x568d, 0x11, 0xff}, 
+            {0x568e, 0x11, 0xff},
+	    {0x568f, 0x11, 0xff},
+	// CMX
+            {0x5381, 0x1e, 0xff},
+            {0x5382, 0x5b, 0xff},
+            {0x5383, 0x08, 0xff}, 
+            {0x5384, 0x0a, 0xff},
+            {0x5385, 0x7e, 0xff},
+            {0x5386, 0x88, 0xff},
+            {0x5387, 0x7c, 0xff}, 
+            {0x5388, 0x6c, 0xff},
+	    {0x5389, 0x10, 0xff},
+            {0x538a, 0x01, 0xff},
+	    {0x538b, 0x98, 0xff},
+
+            {0xFFFF, 0xFF, 0xff}       
     }
 };
 
 LOCAL uint32_t _ov5640_set_work_mode(uint32_t mode)
 {
 	uint16_t i=0x00;
-	SENSOR_REG_T_PTR sensor_reg_ptr=(SENSOR_REG_T_PTR)ov5640_work_mode_tab[mode];
+	uint32_t reg_bits = 0;
+	uint32_t reg_value = 0;
+	SENSOR_REG_BITS_T_PTR sensor_reg_ptr=(SENSOR_REG_BITS_T_PTR)ov5640_work_mode_tab[mode];
 
-	if(mode>1)
+	if(mode>4)
 		return 0;
-	
+
 	for(i=0; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xFF!=sensor_reg_ptr[i].reg_value); i++)
 	{
-		Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
+		if(0xff == sensor_reg_ptr[i].reg_bits)
+		{
+			Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
+		}
+		else
+		{
+			reg_bits = sensor_reg_ptr[i].reg_bits;
+			reg_value = Sensor_ReadReg(sensor_reg_ptr[i].reg_addr);
+			reg_value &= ~reg_bits;
+			reg_value |= sensor_reg_ptr[i].reg_value;
+			Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, (uint16_t)reg_value);
+		}
 	}
 
 	//  Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_SCENECAPTURETYPE, (uint32)mode);
 
 	SENSOR_PRINT("SENSOR: _ov5640_set_work_mode: mode = %d", mode);
+	printk("SENSOR: _ov5640_set_work_mode: mode = %d", mode);
 	return 0;
 }
 
@@ -2374,6 +2519,41 @@ LOCAL uint32_t _ov5640_AutoFocusMultiZone(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 	return rtn;
 }
 
+LOCAL uint32_t _ov5640_AutoFocusMacro(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
+{
+	uint32_t rtn=SENSOR_SUCCESS;
+	uint16_t i=0x09;
+	uint16_t reg_value=0x00;
+
+	printk("SENSOR: _ov5640_AutoFocusMacro \n"); 
+
+	Sensor_WriteReg(0x3027, 0x00);
+	Sensor_WriteReg(0x3028, 0xff);
+	Sensor_WriteReg(0x3023, 0x01);
+	Sensor_WriteReg(0x3022, 0x1a);
+
+	Sensor_WriteReg(CMD_ACK, 0x01);
+	Sensor_WriteReg(CMD_MAIN, 0x03);
+
+	do
+	{
+		if(0x00==i)
+		{
+			printk("SENSOR: _ov5640_AutoFocusMacro error! \n"); 
+			rtn=SENSOR_FAIL;
+			break ;
+		}
+		msleep(100);        
+		reg_value=Sensor_ReadReg(CMD_ACK);
+		i--;
+	}while(0x00!=reg_value);
+
+	printk("SENSOR: _ov5640_AutoFocusMacro Done! rtn = %d \n", rtn); 
+	
+	return rtn;
+}
+
+
 /******************************************************************************/
 // Description:
 // Global resource dependence: 
@@ -2406,6 +2586,12 @@ LOCAL uint32_t _ov5640_StartAutoFocus(uint32_t param)
 			rtn = _ov5640_AutoFocusMultiZone(ext_ptr);
 			break;
 		}
+		case SENSOR_EXT_FOCUS_MACRO:
+		{
+			rtn = _ov5640_AutoFocusMacro(ext_ptr);
+			break;
+		}
+		
 		default :
 			break;
 	}

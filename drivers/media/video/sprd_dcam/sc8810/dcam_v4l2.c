@@ -1034,6 +1034,11 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 							af_param.zone[i].h = *param_ptr++;									
 						}
 					}
+
+				case 4:
+					af_param.cmd = SENSOR_EXT_FOCUS_START;
+					af_param.param = SENSOR_EXT_FOCUS_MACRO;
+
 					break;
 				default:
 					DCAM_V4L2_ERR("V4L2:don't support this focus,focus type = %d .\n",focus_param[0]);
