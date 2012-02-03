@@ -254,6 +254,7 @@ static  void   _ISP_DrvierModuleReset(uint32_t base_addr)
 	*(volatile uint32_t *)(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET) |= BIT_1 | BIT_2;
 	*(volatile uint32_t *)(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET) |= BIT_1 | BIT_2;
 	*(volatile uint32_t *)(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET) &= ~(BIT_1 | BIT_2);	
+	printk("_ISP_DrvierModuleReset .\n");
 }
 
 int32_t ISP_DriverModuleInit(uint32_t base_addr) 
@@ -504,7 +505,9 @@ static void _ISP_DriverAutoCopy(uint32_t base_addr)
 {
 	ISP_REG_T *p_isp_reg = (ISP_REG_T*)base_addr;
 
+	p_isp_reg->dcam_path_cfg_u.mBits.frc_copy_cap = 1;
 	p_isp_reg->dcam_path_cfg_u.mBits.auto_copy_cap = 1;
+
 }
 
 static int32_t _ISP_DriverPath1TrimAndScaling(uint32_t base_addr)
@@ -846,6 +849,19 @@ static irqreturn_t _ISP_DriverISR(int irq, void *dev_id)
 	
  	 _ISP_ISRSystemRoot(0);
  	 return IRQ_HANDLED;
+}
+
+void ISP_DriverHandleErr(uint32_t ahb_ctrl_addr,uint32_t base_addr)
+{
+	ISP_REG_T            *p_isp_reg = (ISP_REG_T*)base_addr;
+
+	DCAM_DRV_ERR("DCAM DRV:ISP_DriverHandleErr ahb_ctrl_addr=0x%x,base_addr=0x%x.\n",ahb_ctrl_addr,base_addr);
+
+	p_isp_reg->dcam_path_cfg_u.mBits.cap_eb = 0;
+	
+	_ISP_DrvierModuleReset(ahb_ctrl_addr);	
+
+	DCAM_DRV_ERR("DCAM DRV:ISP_DriverHandleErr e.\n");
 }
 
 int32_t ISP_DriverModuleEnable(uint32_t ahb_ctrl_addr)// must be AHB general control register base address

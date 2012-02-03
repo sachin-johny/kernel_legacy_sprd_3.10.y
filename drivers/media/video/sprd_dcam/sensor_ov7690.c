@@ -17,13 +17,7 @@
 /**---------------------------------------------------------------------------*
  ** 						Dependencies									  *
  **---------------------------------------------------------------------------*/
-#include "sensor_cfg.h"
-#include "sensor_drv.h"
-/*#include "i2c_api.h"
-#include "os_api.h"
-#include "chip.h"
-#include "dal_dcamera.h"
-#include "sci_api.h"*/
+#include "sensor.h"
 #include <linux/delay.h>
 /**---------------------------------------------------------------------------*
  ** 						Compiler Flag									  *
@@ -45,6 +39,8 @@
 /**---------------------------------------------------------------------------*
  ** 						   Macro Define
  **---------------------------------------------------------------------------*/
+ #define SENSOR_TRACE SENSOR_PRINT
+ #define DCAM_Sleep msleep
 #define OV7690_I2C_ADDR_W 0x21 //0x42
 #define OV7690_I2C_ADDR_R 0x21 //0x43
 
@@ -259,11 +255,11 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_OV7690_ioctl_func_tab =
 // Internal 
 	PNULL,
 	
-#if defined(PLATFORM_SC8800G)
+//#if defined(PLATFORM_SC8800G)
     PNULL,
-#else
-    _OV7690_Power_On,
-#endif
+//#else
+ //   _OV7690_Power_On,
+//#endif
 
 	PNULL,
 	OV7690_Identify,
@@ -466,7 +462,7 @@ LOCAL uint32_t OV7690_Identify(uint32_t param)
 			if(err_cnt>3)
 			{
 				SENSOR_TRACE("Fail to OV7690_Identify: ret: %d, value[%d]: %d.\n", ret, i, value[i]);
-				return DCAM_FAIL;
+				return SENSOR_FAIL;
 			}
 			else
 			{

@@ -26,6 +26,7 @@
 #include <mach/clock_common.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <mach/ldo.h>
 
 #include "dcam_common.h"
 
@@ -60,105 +61,7 @@
 #define SENSOR_I2C_OP_TRY_NUM   4
 #define SCI_TRUE 1 
 #define SCI_FALSE 0
-/**---------------------------------------------------------------------------*
- **                         Global Variables                                  *
- **---------------------------------------------------------------------------*/
-// #define SET_SENSOR_ADDR(addr)  (0x8000|(addr))
- //save value for register
-//#define LOCAL_VAR_DEF uint32_t reg_val;
-#define REG_SETBIT(_reg_addr, _bit_mask, _bit_set) ANA_REG_MSK_OR(_reg_addr, _bit_set, _bit_mask);
-#define SET_LEVEL(_reg_addr, _bit0_mask, _bit1_mask, _set_bit0,\
-                  _rst_bit0, _set_bit1, _rst_bit1) \
-                  do{ \
-                      REG_SETBIT( \
-                     (_reg_addr), \
-                     ((_set_bit0)|(_rst_bit0) | (_set_bit1)|(_rst_bit1)),  \
-                     (((_set_bit0)&(_bit0_mask)) | ((_rst_bit0)&(~_bit0_mask))| \
-                     ((_set_bit1)&(_bit1_mask)) | ((_rst_bit1)&(~_bit1_mask)))  \
-                    )   \
-                  }while(0)
-#define REG_SETCLRBIT(_reg_addr, _set_bit, _clr_bit)    \
-                      do  \
-                      {   \
-                         uint32_t reg_val;\
-                         reg_val = ANA_REG_GET(_reg_addr);   \
-                         reg_val |= (_set_bit);  \
-                         reg_val &= ~(_clr_bit); \
-                         ANA_REG_SET(_reg_addr,reg_val);   \
-                      }while(0)
 
-//macro used to set voltage level according to bit field
-#define SET_LEVELBIT(_reg_addr, _bit_mask, _set_bit, _rst_bit) \
-{ \
-	REG_SETBIT( \
-		_reg_addr, \
-		(_set_bit) | (_rst_bit), \
-		((_set_bit) & (_bit_mask)) | ((_rst_bit) & (~_bit_mask)) \
-		) \
-}
-
-#define LDO_USB_PD BIT_9
-typedef enum
-{
-	LDO_VOLT_LEVEL0 = 0,
-	LDO_VOLT_LEVEL1,
-	LDO_VOLT_LEVEL2,
-	LDO_VOLT_LEVEL3,
-	LDO_VOLT_LEVEL_MAX	
-}LDO_VOLT_LEVEL_E;
-typedef enum
-{
-	LDO_LDO_CAMA = 28,
-	LDO_LDO_CAMD0,
-	LDO_LDO_CAMD1,
-	LDO_LDO_VDD18,
-	LDO_LDO_VDD25,
-	LDO_LDO_VDD28,
-	LDO_LDO_RF0,
-	LDO_LDO_RF1,
-	LDO_LDO_USBD,
-	LDO_LDO_MAX	
-}LDO_ID_E;
-typedef struct
-{
-	LDO_ID_E id;
-	uint32_t bp_reg;
-	uint32_t bp;
-	uint32_t bp_rst;
-	uint32_t level_reg_b0;
-	uint32_t b0;
-	uint32_t b0_rst;
-	uint32_t level_reg_b1;
-	uint32_t b1;
-	uint32_t b1_rst;
-	uint32_t valid_time;
-	uint32_t init_level;
-	uint32_t ref;           
-}LDO_CTL_T,* LDO_CTL_PTR;
-
-static LDO_CTL_T g_ldo_ctl_tab[] = 
-{
-	{
-		LDO_LDO_USBD, SENSOR_NULL, SENSOR_NULL, SENSOR_NULL, SENSOR_NULL,SENSOR_NULL,SENSOR_NULL,
-		SENSOR_NULL, SENSOR_NULL, SENSOR_NULL,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
-	},
-	{
-		LDO_LDO_CAMA, ANA_LDO_PD_CTL, BIT_12, BIT_13, ANA_LDO_VCTL2,BIT_8,BIT_9,
-		ANA_LDO_VCTL2, BIT_10, BIT_11,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
-	},
-	{
-		LDO_LDO_CAMD1, ANA_LDO_PD_CTL, BIT_10, BIT_11, ANA_LDO_VCTL2,BIT_4,BIT_5,
-		ANA_LDO_VCTL2, BIT_6, BIT_7,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
-	},
-	{
-		LDO_LDO_CAMD0, ANA_LDO_PD_CTL, BIT_8, BIT_9, ANA_LDO_VCTL2,BIT_0,BIT_1,
-		ANA_LDO_VCTL2, BIT_2, BIT_3,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
-	},
-	{
-		LDO_LDO_MAX, SENSOR_NULL, SENSOR_NULL, SENSOR_NULL, SENSOR_NULL,SENSOR_NULL,SENSOR_NULL,
-		SENSOR_NULL, SENSOR_NULL, SENSOR_NULL,SENSOR_NULL, LDO_VOLT_LEVEL_MAX, SENSOR_NULL
-	}
-};
 
 /**---------------------------------------------------------------------------*
  **                         Local Variables                                   *
@@ -380,28 +283,40 @@ PUBLIC SENSOR_TYPE_E _Sensor_GetSensorType(void)
 PUBLIC void Sensor_Reset(uint32_t level)
 {
 	int err = 0xff;
-	err = gpio_request(72,"ccirrst");
-	if (err) {
-		printk("Sensor_Reset failed requesting err=%d\n", err);
-		return ;
-	}
+	SENSOR_IOCTL_FUNC_PTR	reset_func;
+	printk("Sensor_Reset");
 
-	gpio_direction_output(72,!level);	
-	
-	gpio_set_value(72, !level);
-	msleep(20);
-	gpio_set_value(72,level);
-	msleep(100);
-	gpio_set_value(72,!level);		
-        // msleep(100);
-	gpio_free(72);
+	reset_func = s_sensor_info_ptr->ioctl_func_tab_ptr->reset;
+
+	if(PNULL != reset_func)
+	{
+		reset_func(0);
+	}
+	else
+	{		
+		err = gpio_request(72,"ccirrst");
+		if (err) {
+			printk("Sensor_Reset failed requesting err=%d\n", err);
+			return ;
+		}
+
+		gpio_direction_output(72,level);	
+		
+		//gpio_set_value(72, !level);
+		//msleep(20);
+		gpio_set_value(72,level);
+		msleep(20);
+		gpio_set_value(72,!level);		
+	         msleep(20);
+		gpio_free(72);
+	}
 }
 /*****************************************************************************/
 //  Description:    This function is used to power on sensor and select xclk    
 //  Author:         Liangwen.Zhen
 //  Note:           1.Unit: MHz 2. if mclk equal 0, close main clock to sensor
 /*****************************************************************************/
-PUBLIC int Sensor_SetMCLK(uint32_t mclk)
+PUBLIC int Sensor_SetMCLK1(uint32_t mclk)
 {
     uint32_t divd = 0;
     //uint32_t pll_clk = 0;	
@@ -457,112 +372,127 @@ PUBLIC int Sensor_SetMCLK(uint32_t mclk)
     SENSOR_PRINT("SENSOR: Sensor_SetMCLK X\n");
 	return 0;
 }
-int Sensor_SetMCLK0(uint32_t mclk)
+int Sensor_SetMCLK(uint32_t mclk)
 {
-    uint32_t divd = 0;
-    char *name_parent = NULL;
-    struct clk *clk_parent = NULL;
-    int ret;    
-	
-    SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d MHz, clk = %d MHz\n", s_sensor_mclk, mclk);
+	uint32_t divd = 0;
+	char *name_parent = NULL;
+	struct clk *clk_parent = NULL;
+	int ret;    
 
-    if((0 != mclk) && (s_sensor_mclk != mclk))
-    {
-    	if(s_ccir_clk){
-		clk_disable(s_ccir_clk);		
-		SENSOR_PRINT("###sensor s_ccir_clk clk_disable ok.\n");
-    	}
-	else{
-	    	s_ccir_clk = clk_get(NULL, "ccir_mclk");
-		if(IS_ERR(s_ccir_clk)){
-			SENSOR_PRINT_ERR("###: Failed: Can't get clock [ccir_mclk]!\n");
-			SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n", s_ccir_clk);
+	SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d MHz, clk = %d MHz\n", s_sensor_mclk, mclk);
+
+	if((0 != mclk) && (s_sensor_mclk != mclk))
+	{
+		if(s_ccir_clk)
+		{
+			clk_disable(s_ccir_clk);		
+			SENSOR_PRINT("###sensor s_ccir_clk clk_disable ok.\n");
 		}
-		else{
-			SENSOR_PRINT("###sensor s_ccir_clk clk_get ok.\n");
-		}	
-	}
-        if(mclk > SENSOR_MAX_MCLK)
-        {
-            mclk = SENSOR_MAX_MCLK;
-        }
-	name_parent = "clk_48m";	
-	clk_parent = clk_get(NULL, name_parent);
-	if(!clk_parent){
-		SENSOR_PRINT_ERR("###:clock[%s]: failed to get parent [%s] by clk_get()!\n", s_ccir_clk->name, name_parent);
-		return -EINVAL;
-	}
-
-	ret = clk_set_parent(s_ccir_clk, clk_parent);
-	if(ret){
-		SENSOR_PRINT_ERR("###:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n", s_ccir_clk->name, clk_parent->name, s_ccir_clk->usecount);
-		return -EINVAL;
-	}
-        divd = SENSOR_MAX_MCLK / mclk;      
-	ret = clk_set_divisor(s_ccir_clk, divd);
-	if(ret){
-		SENSOR_PRINT_ERR("###:clock[%s]: clk_set_divisor failed!\n", s_ccir_clk->name);
-		return -EINVAL;
-	}
-	ret = clk_enable(s_ccir_clk);
-	if(ret){
-		SENSOR_PRINT_ERR("###:clock[%s]: clk_enable() failed!\n", s_ccir_clk->name);
-	}
-	else{
-		SENSOR_PRINT("###sensor s_ccir_clk clk_enable ok.\n");
-	}
-     
-       // CCIR CLK Enable
-    	if(NULL == s_ccir_enable_clk){
-	    	s_ccir_enable_clk = clk_get(NULL, "clk_ccir");
-		if(IS_ERR(s_ccir_enable_clk)){
-			SENSOR_PRINT_ERR("###: Failed: Can't get clock [clk_ccir]!\n");
-			SENSOR_PRINT_ERR("###: s_ccir_enable_clk = %p.\n", s_ccir_enable_clk);
+		else
+		{
+		    	s_ccir_clk = clk_get(NULL, "ccir_mclk");
+			if(IS_ERR(s_ccir_clk))
+			{
+				SENSOR_PRINT_ERR("###: Failed: Can't get clock [ccir_mclk]!\n");
+				SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n", s_ccir_clk);
+			}
+			else
+			{
+				SENSOR_PRINT("###sensor s_ccir_clk clk_get ok.\n");
+			}	
+		}
+		if(mclk > SENSOR_MAX_MCLK)
+		{
+			mclk = SENSOR_MAX_MCLK;
+		}
+		name_parent = "clk_48m";	
+		clk_parent = clk_get(NULL, name_parent);
+		if(!clk_parent)
+		{
+			SENSOR_PRINT_ERR("###:clock[%s]: failed to get parent [%s] by clk_get()!\n", s_ccir_clk->name, name_parent);
 			return -EINVAL;
-		} 
-		else{
-			SENSOR_PRINT("###sensor s_ccir_enable_clk clk_get ok.\n");
+		}
+
+		ret = clk_set_parent(s_ccir_clk, clk_parent);
+		if(ret)
+		{
+			SENSOR_PRINT_ERR("###:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n", s_ccir_clk->name, clk_parent->name, s_ccir_clk->usecount);
+			return -EINVAL;
+		}
+		divd = SENSOR_MAX_MCLK / mclk;      
+		ret = clk_set_divisor(s_ccir_clk, divd);
+		if(ret)
+		{
+			SENSOR_PRINT_ERR("###:clock[%s]: clk_set_divisor failed!\n", s_ccir_clk->name);
+			return -EINVAL;
+		}
+		ret = clk_enable(s_ccir_clk);
+		if(ret)
+		{
+			SENSOR_PRINT_ERR("###:clock[%s]: clk_enable() failed!\n", s_ccir_clk->name);
+		}
+		else
+		{
+			SENSOR_PRINT("###sensor s_ccir_clk clk_enable ok.\n");
+		}
+	 
+	   // CCIR CLK Enable
+		if(NULL == s_ccir_enable_clk)
+		{
+		    	s_ccir_enable_clk = clk_get(NULL, "clk_ccir");
+			if(IS_ERR(s_ccir_enable_clk))
+			{
+				SENSOR_PRINT_ERR("###: Failed: Can't get clock [clk_ccir]!\n");
+				SENSOR_PRINT_ERR("###: s_ccir_enable_clk = %p.\n", s_ccir_enable_clk);
+				return -EINVAL;
+			} 
+			else
+			{
+				SENSOR_PRINT("###sensor s_ccir_enable_clk clk_get ok.\n");
+			}	
+			ret = clk_enable(s_ccir_enable_clk);
+			if(ret)
+			{
+				SENSOR_PRINT_ERR("###:clock[%s]: clk_enable() failed!\n", s_ccir_enable_clk->name);
+			}
+			else
+			{
+				SENSOR_PRINT("###sensor s_ccir_enable_clk clk_enable ok.\n");
+			}
 		}	
-		ret = clk_enable(s_ccir_enable_clk);
-		if(ret){
-			SENSOR_PRINT_ERR("###:clock[%s]: clk_enable() failed!\n", s_ccir_enable_clk->name);
-		}
-		else{
-			SENSOR_PRINT("###sensor s_ccir_enable_clk clk_enable ok.\n");
-		}
-	}	
-        
-        s_sensor_mclk = mclk;
-        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d Hz, divd = %d\n", s_sensor_mclk, divd);
-    }
-    else if(0 == mclk)
-    { 
-	if(s_ccir_clk){
-		clk_disable(s_ccir_clk);
-		SENSOR_PRINT("###sensor s_ccir_clk clk_disable ok.\n");
-		clk_put(s_ccir_clk);		
-		SENSOR_PRINT("###sensor s_ccir_clk clk_put ok.\n");
-		s_ccir_clk = NULL;
+	    
+		s_sensor_mclk = mclk;
+		SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d Hz, divd = %d\n", s_sensor_mclk, divd);
 	}
-	// CCIR CLK disable
-	if(s_ccir_enable_clk){
-		clk_disable(s_ccir_enable_clk);
-		SENSOR_PRINT("###sensor s_ccir_enable_clk clk_disable ok.\n");
-		clk_put(s_ccir_enable_clk);		
-		SENSOR_PRINT("###sensor s_ccir_enable_clk clk_put ok.\n");
-		s_ccir_enable_clk = NULL;
-	}	
+	else if(0 == mclk)
+	{ 
+		if(s_ccir_clk)
+		{
+			clk_disable(s_ccir_clk);
+			SENSOR_PRINT("###sensor s_ccir_clk clk_disable ok.\n");
+			clk_put(s_ccir_clk);		
+			SENSOR_PRINT("###sensor s_ccir_clk clk_put ok.\n");
+			s_ccir_clk = NULL;
+		}
+		// CCIR CLK disable
+		if(s_ccir_enable_clk)
+		{
+			clk_disable(s_ccir_enable_clk);
+			SENSOR_PRINT("###sensor s_ccir_enable_clk clk_disable ok.\n");
+			clk_put(s_ccir_enable_clk);		
+			SENSOR_PRINT("###sensor s_ccir_enable_clk clk_put ok.\n");
+			s_ccir_enable_clk = NULL;
+		}
+		s_sensor_mclk = 0;
+		SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> Disable MCLK !!!");
+	}
+	else
+	{
+		SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> Do nothing !! ");
+	}
+	SENSOR_PRINT("SENSOR: Sensor_SetMCLK X\n");
 
-        s_sensor_mclk = 0;
-        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> Disable MCLK !!!");
-    }
-    else
-    {
-        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> Do nothing !! ");
-    }
-    SENSOR_PRINT("SENSOR: Sensor_SetMCLK X\n");
-
-    return 0;
+	return 0;
 }
 
 /*****************************************************************************/
@@ -570,296 +500,123 @@ int Sensor_SetMCLK0(uint32_t mclk)
 //  Author:         Liangwen.Zhen
 //  Note:           Open AVDD on one special voltage or Close it
 /*****************************************************************************/
-LOCAL LDO_CTL_PTR LDO_GetLdoCtl(LDO_ID_E ldo_id)
-{
-	uint32_t i;
-	LDO_CTL_PTR ctl = SENSOR_NULL;
-
-	for(i = 0; g_ldo_ctl_tab[i].id != LDO_LDO_MAX; i++)
-	{
-		if(ldo_id == g_ldo_ctl_tab[i].id)
-		{
-			ctl = &g_ldo_ctl_tab[i];
-			break;
-		}
-	}
-	return ctl;
-}
-
-LOCAL uint32_t LDO_TurnOnLDO(LDO_ID_E ldo_id)
-{
-	//LOCAL_VAR_DEF
-	LDO_CTL_PTR ctl = SENSOR_NULL;
-
-	ctl = LDO_GetLdoCtl(ldo_id);
-	if(SENSOR_NULL == ctl->bp_reg)
-	{
-		if(LDO_LDO_USBD == ldo_id)
-		{
-			//CHIP_REG_OR( GR_CLK_GEN5, (~LDO_USB_PD));
-			_paod( GR_CLK_GEN5, (~LDO_USB_PD));
-		}
-		return SENSOR_SUCCESS;
-	}
-	if(0 == ctl->ref)
-	{
-		REG_SETCLRBIT(ctl->bp_reg, ctl->bp_rst, ctl->bp);
-	}
-	ctl->ref++;
-
-	return SENSOR_SUCCESS;	
-}
-LOCAL uint32_t LDO_TurnOffLDO(LDO_ID_E ldo_id)
-{
-	//LOCAL_VAR_DEF
-	LDO_CTL_PTR ctl = SENSOR_NULL;	
-
-	ctl = LDO_GetLdoCtl(ldo_id);
-	if(SENSOR_NULL == ctl->bp_reg)
-	{
-		if(LDO_LDO_USBD == ldo_id)
-		{
-			//CHIP_REG_OR(GR_CLK_GEN5, LDO_USB_PD);
-			_paod(GR_CLK_GEN5, LDO_USB_PD);
-		}
-		return SENSOR_SUCCESS;
-	}
-	if(ctl->ref > 0)
-		ctl->ref--;
-	if(0 == ctl->ref)
-	{
-		REG_SETCLRBIT(ctl->bp_reg, ctl->bp, ctl->bp_rst);
-	}
-
-	return SENSOR_SUCCESS;	
-}
-
-LOCAL uint32_t LDO_SetVoltLevel(LDO_ID_E ldo_id, LDO_VOLT_LEVEL_E volt_level)
-{
-	//LOCAL_VAR_DEF
-	uint32_t b0_mask, b1_mask;
-	LDO_CTL_PTR ctl = SENSOR_NULL;
-
-	b0_mask = (volt_level & BIT_0) ? ~0 : 0;
-	b1_mask = (volt_level & BIT_1) ? ~0 : 0;	
-
-	ctl = LDO_GetLdoCtl(ldo_id);
-	if(SENSOR_NULL == ctl->level_reg_b0)
-		return SENSOR_SUCCESS;
-
-	if(ctl->level_reg_b0 == ctl->level_reg_b1)
-	{
-		SET_LEVEL(ctl->level_reg_b0, b0_mask, b1_mask, ctl->b0, ctl->b0_rst, ctl->b1, ctl->b1_rst);
-	}
-	else
-	{
-		SET_LEVELBIT(ctl->level_reg_b0, b0_mask, ctl->b0, ctl->b0_rst);
-		SET_LEVELBIT(ctl->level_reg_b1, b1_mask, ctl->b1, ctl->b1_rst);		
-	}
-
-	return SENSOR_SUCCESS;		
-}
 PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val, SENSOR_AVDD_VAL_E iodd_val)
 {
-    uint32_t ldo_volt_level = LDO_VOLT_LEVEL0;
+	uint32_t ldo_volt_level = LDO_VOLT_LEVEL0;
 
-    switch(avdd_val)
-    {            
-        case SENSOR_AVDD_2800MV:
-            ldo_volt_level = LDO_VOLT_LEVEL0;    
-            break;
-            
-        case SENSOR_AVDD_3000MV:
-            ldo_volt_level = LDO_VOLT_LEVEL1;    
-            break;
-            
-        case SENSOR_AVDD_2500MV:
-            ldo_volt_level = LDO_VOLT_LEVEL2;    
-            break;
-            
-        case SENSOR_AVDD_1800MV:
-            ldo_volt_level = LDO_VOLT_LEVEL3;    
-            break;  
-            
-        case SENSOR_AVDD_CLOSED:
-        case SENSOR_AVDD_UNUSED:
-        default:
-            ldo_volt_level = LDO_VOLT_LEVEL_MAX;   
-            break;
-    } 
-   
-    if(LDO_VOLT_LEVEL_MAX == ldo_volt_level)
-    {
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off avdd\n"); 
-    
-        LDO_TurnOffLDO(LDO_LDO_CAMA);        
-        LDO_TurnOffLDO(LDO_LDO_CAMD1);            
-    }
-    else
-    {
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on avdd, VoltLevel %d\n",ldo_volt_level); 
-    
-        LDO_SetVoltLevel(LDO_LDO_CAMA, ldo_volt_level);      
-        LDO_TurnOnLDO(LDO_LDO_CAMA);  
-        LDO_SetVoltLevel(LDO_LDO_CAMD1, 0);      
-        LDO_TurnOnLDO(LDO_LDO_CAMD1);  
-	}
-
-    switch(dvdd_val)
-    {
-        case SENSOR_AVDD_1800MV:
-            ldo_volt_level = LDO_VOLT_LEVEL0;    
-            break;
-            
-        case SENSOR_AVDD_2800MV:
-            ldo_volt_level = LDO_VOLT_LEVEL1;    
-            break;
-            
-        case SENSOR_AVDD_1500MV://SENSOR_AVDD_3000MV:
-            ldo_volt_level = LDO_VOLT_LEVEL2;    
-            break;
-            
-        case SENSOR_AVDD_1300MV:
-            ldo_volt_level = LDO_VOLT_LEVEL3;    
-            break;  
-            
-        case SENSOR_AVDD_CLOSED:
-        case SENSOR_AVDD_UNUSED:
-        default:
-            ldo_volt_level = LDO_VOLT_LEVEL_MAX;           
-            break;
-    } 
-    
-    if(LDO_VOLT_LEVEL_MAX == ldo_volt_level)
-    {
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off dvdd, sensor_id %d\n",
-                     Sensor_GetCurId()); 
-
-        LDO_TurnOffLDO(LDO_LDO_CAMD0);
-    }
-    else
-    {
-        SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on dvdd, sensor_id %d, VoltLevel %d\n",
-        Sensor_GetCurId(),ldo_volt_level); 
-
-        LDO_TurnOnLDO(LDO_LDO_CAMD0);    
-        LDO_SetVoltLevel(LDO_LDO_CAMD0, ldo_volt_level);      
-    }  
-    
-    return ;
-}
-
-PUBLIC void Sensor_SetVoltage0(SENSOR_AVDD_VAL_E camd0_val, SENSOR_AVDD_VAL_E camd1_val, SENSOR_AVDD_VAL_E cama_val)
-{
-	uint32_t ldo_camd0_level = LDO_VOLT_LEVEL0;
-	uint32_t ldo_camd1_level = LDO_VOLT_LEVEL0;
-	uint32_t ldo_cama_level = LDO_VOLT_LEVEL0;
-
-	SENSOR_PRINT("Sensor_SetVoltage: %d, %d, %d.\n", camd0_val, camd1_val,  cama_val);
-
-	switch(camd1_val)
+	switch(iodd_val)
 	{            
 		case SENSOR_AVDD_2800MV:
-			ldo_camd1_level = LDO_VOLT_LEVEL0;    
+			ldo_volt_level = LDO_VOLT_LEVEL0;    
 			break;
 
-		case SENSOR_AVDD_3300MV:
-			ldo_camd1_level = LDO_VOLT_LEVEL1;    
+		case SENSOR_AVDD_3800MV: 
+			ldo_volt_level = LDO_VOLT_LEVEL1;    
 			break;
 
 		case SENSOR_AVDD_1800MV:
-			ldo_camd1_level = LDO_VOLT_LEVEL2;    
+			ldo_volt_level = LDO_VOLT_LEVEL2;    
 			break;
 
 		case SENSOR_AVDD_1200MV:
-			ldo_camd1_level = LDO_VOLT_LEVEL3;    
+			ldo_volt_level = LDO_VOLT_LEVEL3;    
 			break;  
 
 		case SENSOR_AVDD_CLOSED:
 		case SENSOR_AVDD_UNUSED:
 		default:
-			ldo_camd1_level = LDO_VOLT_LEVEL_MAX;   
+			ldo_volt_level = SENSOR_AVDD_CLOSED;   
 			break;
 	} 
-	switch(cama_val)
-	{            
-		case SENSOR_AVDD_2800MV:
-			ldo_cama_level = LDO_VOLT_LEVEL0;    
-			break;
-
-		case SENSOR_AVDD_3000MV:
-			ldo_cama_level = LDO_VOLT_LEVEL1;    
-			break;
-
-		case SENSOR_AVDD_2500MV:
-			ldo_cama_level = LDO_VOLT_LEVEL2;    
-			break;
-
-		case SENSOR_AVDD_1800MV:
-			ldo_cama_level = LDO_VOLT_LEVEL3;    
-			break;  
-
-		case SENSOR_AVDD_CLOSED:
-		case SENSOR_AVDD_UNUSED:
-		default:
-			ldo_cama_level = LDO_VOLT_LEVEL_MAX;   
-			break;
-	} 
-   
-	if((LDO_VOLT_LEVEL_MAX == ldo_cama_level) || (LDO_VOLT_LEVEL_MAX == ldo_camd1_level))
+	if(SENSOR_AVDD_CLOSED == ldo_volt_level)
 	{
-		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off camd1, cama\n"); 
-		LDO_TurnOffLDO(LDO_LDO_CAMA);        
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off camd1.\n");        
 		LDO_TurnOffLDO(LDO_LDO_CAMD1);            
 	}
 	else
-	{	
-		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on camd1 and cama, cama VoltLevel %d, camd1 VoltLevel %d\n",ldo_cama_level, ldo_camd1_level); 
-
-		LDO_SetVoltLevel(LDO_LDO_CAMA, ldo_cama_level);      
-		LDO_TurnOnLDO(LDO_LDO_CAMA); 
-		LDO_SetVoltLevel(LDO_LDO_CAMD1, ldo_camd1_level);
+	{
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on avdd, VoltLevel %d\n",ldo_volt_level); 
+		LDO_SetVoltLevel(LDO_LDO_CAMD1, ldo_volt_level);      
 		LDO_TurnOnLDO(LDO_LDO_CAMD1);  
 	}
 
-	switch(camd0_val)
-	{
-		case SENSOR_AVDD_1800MV:
-			ldo_camd0_level = LDO_VOLT_LEVEL0;    
-			break;
-
+	switch(avdd_val)
+	{            
 		case SENSOR_AVDD_2800MV:
-			ldo_camd0_level = LDO_VOLT_LEVEL1;    
+			ldo_volt_level = LDO_VOLT_LEVEL0;    
 			break;
 
-		case SENSOR_AVDD_1500MV:
-			ldo_camd0_level = LDO_VOLT_LEVEL2;    
+		case SENSOR_AVDD_3000MV:
+			ldo_volt_level = LDO_VOLT_LEVEL1;    
 			break;
 
-		case SENSOR_AVDD_1300MV:
-			ldo_camd0_level = LDO_VOLT_LEVEL3;    
+		case SENSOR_AVDD_2500MV:
+			ldo_volt_level = LDO_VOLT_LEVEL2;    
+			break;
+
+		case SENSOR_AVDD_1800MV:
+			ldo_volt_level = LDO_VOLT_LEVEL3;    
 			break;  
 
 		case SENSOR_AVDD_CLOSED:
 		case SENSOR_AVDD_UNUSED:
 		default:
-			ldo_camd0_level = LDO_VOLT_LEVEL_MAX;           
+			ldo_volt_level = SENSOR_AVDD_CLOSED;   
+			break;
+	} 
+   
+	if(SENSOR_AVDD_CLOSED == ldo_volt_level)
+	{
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off avdd\n"); 
+		LDO_TurnOffLDO(LDO_LDO_CAMA);        
+        
+	}
+	else
+	{
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on avdd, VoltLevel %d\n",ldo_volt_level); 
+		LDO_SetVoltLevel(LDO_LDO_CAMA, ldo_volt_level);      
+		LDO_TurnOnLDO(LDO_LDO_CAMA);  	
+	}
+
+	switch(dvdd_val)
+	{
+		case SENSOR_AVDD_1800MV:
+			ldo_volt_level = LDO_VOLT_LEVEL0;    
+			break;
+
+		case SENSOR_AVDD_2800MV:
+			ldo_volt_level = LDO_VOLT_LEVEL1;    
+			break;
+
+		case SENSOR_AVDD_1500MV:
+			ldo_volt_level = LDO_VOLT_LEVEL2;    
+			break;
+
+		case SENSOR_AVDD_1300MV:
+			ldo_volt_level = LDO_VOLT_LEVEL3;    
+			break;  
+
+		case SENSOR_AVDD_CLOSED:
+		case SENSOR_AVDD_UNUSED:
+		default:
+			ldo_volt_level = SENSOR_AVDD_CLOSED;           
 			break;
 	} 
     
-	if(LDO_VOLT_LEVEL_MAX == ldo_camd0_level)
+	if(SENSOR_AVDD_CLOSED == ldo_volt_level)
 	{
-		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off camd0, sensor_id %d\n", Sensor_GetCurId()); 
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn off dvdd, sensor_id %d\n",Sensor_GetCurId()); 
 		LDO_TurnOffLDO(LDO_LDO_CAMD0);
 	}
 	else
 	{
-		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on camd0, sensor_id %d, camd0 VoltLevel %d\n",Sensor_GetCurId(),ldo_camd0_level); 
+		SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... turn on dvdd, sensor_id %d, VoltLevel %d\n",
+		Sensor_GetCurId(),ldo_volt_level); 
 		LDO_TurnOnLDO(LDO_LDO_CAMD0);    
-		LDO_SetVoltLevel(LDO_LDO_CAMD0, ldo_camd0_level);      
+		LDO_SetVoltLevel(LDO_LDO_CAMD0, ldo_volt_level);      
 	}  
-
-	return ;
+    
+    return ;
 }
 
 /*****************************************************************************/
@@ -883,25 +640,34 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 	power_func = s_sensor_info_ptr->ioctl_func_tab_ptr->power;
 
 	SENSOR_PRINT("SENSOR: Sensor_PowerOn -> power_on = %d, power_down_level = %d, avdd_val = %d\n",power_on,power_down,avdd_val);   
-
-	if(power_on)
-	{				
-		// Open power
-		Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);    
-		// Reset sensor		
-		Sensor_Reset(rst_lvl);		
-		Sensor_PowerDown(!power_down);		
-		msleep(10);
-		Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
-	}			
+	    // call user func
+	if(PNULL != power_func)
+	{
+		power_func(power_on);
+	}  
 	else
 	{
-		// Power down sensor and maybe close DVDD, DOVDD
-		Sensor_PowerDown(power_down);
-		msleep(20);
-		Sensor_SetMCLK(SENSOR_DISABLE_MCLK);			 
-		Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);	
-	}   			
+		if(power_on)
+		{			
+			Sensor_PowerDown(power_down);	
+			// Open power
+			Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);    
+			msleep(10);
+			Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
+			msleep(5);
+			Sensor_PowerDown(!power_down);
+			// Reset sensor		
+			Sensor_Reset(rst_lvl);						
+		}			
+		else
+		{
+			// Power down sensor and maybe close DVDD, DOVDD
+			Sensor_PowerDown(power_down);
+			msleep(20);
+			Sensor_SetMCLK(SENSOR_DISABLE_MCLK);			 
+			Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);	
+		}   		
+	}
 }
 
 
@@ -1246,6 +1012,7 @@ int32_t Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 	SENSOR_IOCTL_FUNC_PTR 	write_reg_func;
 
 //	SENSOR_PRINT("this_client->addr=0x%x\n",this_client->addr);
+//	SENSOR_PRINT_ERR("Sensor_WriteReg:addr=0x%x,data=0x%x .\n",subaddr,data);
 
 	write_reg_func = s_sensor_info_ptr->ioctl_func_tab_ptr->write_reg;
 
@@ -1902,8 +1669,7 @@ PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 	else
 	{
 		SENSOR_PRINT("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
-	}
-
+	}       
 	return SENSOR_SUCCESS;
 }
 /*****************************************************************************/

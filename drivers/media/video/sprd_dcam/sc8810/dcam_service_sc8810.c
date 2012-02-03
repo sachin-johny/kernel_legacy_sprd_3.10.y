@@ -420,7 +420,7 @@ int32_t  _ISP_ServiceStartPreview(void)
 
 	//rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_48M);
 	//ISP_RTN_IF_ERR(rtn_drv);
-	if(0 != dcam_set_mclk(ISP_CLK_64M))
+	if(0 != dcam_set_mclk(ISP_CLK_96M))
 	{
 		DCAM_TRACE_ERR("DCAM:_ISP_ServiceStartPreview, fail to set dcam mclk.\n");
 		return 1;
@@ -725,7 +725,7 @@ static int _ISP_ServiceStartJpeg(void)
 
 	//rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_64M);
 	//ISP_RTN_IF_ERR(rtn_drv);
-	if(0 != dcam_set_mclk(ISP_CLK_64M))
+	if(0 != dcam_set_mclk(ISP_CLK_96M))
 	{
 		DCAM_TRACE_ERR("DCAM:_ISP_ServiceStartJpeg, fail to set dcam mclk.\n");
 		return 1;
@@ -1226,6 +1226,13 @@ int dcam_is_previewing(uint32_t zoom_level)
 
 	DCAM_TRACE("DCAM: dcam_is_previewing %d,zoom=%d. \n",ret,g_dcam_param.zoom_level ); 
 	return ret;
+}
+
+void dcam_error_close(void)
+{
+	ISP_SERVICE_T          *s = &s_isp_service;
+	
+	ISP_DriverHandleErr(AHB_GLOBAL_REG_CTL0,s->module_addr);
 }
 
 void ISP_ServiceStopPreview(void)

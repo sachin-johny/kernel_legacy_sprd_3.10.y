@@ -15,12 +15,7 @@
 #ifndef _GT2005_C_
 
 #define _GT2005_C_
-#include "sensor_cfg.h"
-#include "sensor_drv.h"
-//#include "i2c_drv.h"
-//#include "os_api.h"
-//#include "chip.h"
-//#include "dal_dcamera.h"
+#include "sensor.h"
 #include <linux/delay.h>
 /**---------------------------------------------------------------------------*
  ** 						Compiler Flag									  *
@@ -38,6 +33,7 @@
 /**---------------------------------------------------------------------------*
  **                         Const variables                                   *
  **---------------------------------------------------------------------------*/
+#define SENSOR_TRACE SENSOR_PRINT
 #define GT2005_I2C_ADDR_W    			0x3C //0x78 -> 0x78 >> 1
 #define GT2005_I2C_ADDR_R    			0x3C //0x79 -> 0x79 >> 1
 #define GT2005_I2C_ACK					0x0

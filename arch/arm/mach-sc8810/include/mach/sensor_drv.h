@@ -51,7 +51,6 @@ typedef void *SENSOR_MUTEX_PTR;
 #define PUBLIC 
 #define LOCAL static
 #define SENSOR_NULL 0
-#define SENSOR_Sleep msleep
 
 /**---------------------------------------------------------------------------*
  **                         Debugging Flag                                    *
@@ -240,7 +239,7 @@ typedef enum
 // enum: AVDD value about BB LDO output
 typedef enum
 {
-	SENSOR_AVDD_3300MV = 0,
+	SENSOR_AVDD_3800MV = 0,
 	SENSOR_AVDD_3000MV,
 	SENSOR_AVDD_2800MV,
 	SENSOR_AVDD_2500MV,
@@ -413,6 +412,52 @@ typedef enum
 	SENSOR_EXT_EXPOSURE_START,
 	SENSOR_EXT_FUNC_MAX
 }SENSOR_EXT_FUNC_CMD_E;
+
+//enum: preview enviroment type
+typedef enum
+{
+	DCAMERA_ENVIRONMENT_NORMAL = 0x00,
+	DCAMERA_ENVIRONMENT_NIGHT,
+	DCAMERA_ENVIRONMENT_SUNNY,
+	DCAMERA_ENVIRONMENT_SPORTS,
+	DCAMERA_ENVIRONMENT_LANDSCAPE,
+	DCAMERA_ENVIRONMENT_PORTRAIT,
+	DCAMERA_ENVIRONMENT_PORTRAIT_NIGHT,
+	DCAMERA_ENVIRONMENT_BACKLIGHT,
+	DCAMERA_ENVIRONMENT_MACRO,
+
+	DCAMERA_ENVIRONMENT_MANUAL = 30,
+	DCAMERA_ENVIRONMENT_AUTO = 31,
+
+	DCAMERA_ENVIRONMENT_MAX	
+}DCAMERA_PARAM_ENVIRONMENT_E;
+
+typedef enum
+{
+	DCAMERA_WB_MODE_AUTO = 0x00, 
+	DCAMERA_WB_MODE_INCANDESCENCE,
+	DCAMERA_WB_MODE_U30,
+	DCAMERA_WB_MODE_CWF,
+	DCAMERA_WB_MODE_FLUORESCENT,
+	DCAMERA_WB_MODE_SUN,
+	DCAMERA_WB_MODE_CLOUD,
+	DCAMERA_WB_MODE_MAX	
+}DCAMERA_PARAM_WB_MODE_E;
+
+//enum: preview effect type
+typedef enum
+{
+	DCAMERA_EFFECT_NORMAL = 0x00,
+	DCAMERA_EFFECT_BLACKWHITE,
+	DCAMERA_EFFECT_RED,
+	DCAMERA_EFFECT_GREEN,
+	DCAMERA_EFFECT_BLUE,
+	DCAMERA_EFFECT_YELLOW,
+	DCAMERA_EFFECT_NEGATIVE,
+	DCAMERA_EFFECT_CANVAS,
+	DCAMERA_EFFECT_RELIEVOS,
+	DCAMERA_EFFECT_MAX	
+}DCAMERA_PARAM_EFFECT_E;
 
 typedef uint32_t (*SENSOR_IOCTL_FUNC_PTR)(uint32_t param);
 // struct: Sensor IOCTL function
@@ -817,6 +862,12 @@ PUBLIC SENSOR_EXP_INFO_T* Sensor_GetInfo( void );
 //  Note:           
 /*****************************************************************************/
 PUBLIC ERR_SENSOR_E Sensor_Close(void) ;
+/*****************************************************************************/
+//  Description:    This function is used to reset sensor    
+//  Author:         Liangwen.Zhen
+//  Note:           
+/*****************************************************************************/
+PUBLIC void Sensor_Reset(uint32_t level);
 
 /*****************************************************************************/
 //  Description:    This function is used to power down sensor     

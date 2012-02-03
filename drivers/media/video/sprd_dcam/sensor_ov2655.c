@@ -16,16 +16,9 @@
 
 /**---------------------------------------------------------------------------*
  ** 						Dependencies									  *
- **---------------------------------------------------------------------------*/
- 
-//#ifndef FEA_HS_OV_2655  //Added by yangbin  2009.9.9
-#include "sensor_cfg.h"
-#include "sensor_drv.h"
-/*#include "i2c_api.h"
-#include "os_api.h"
-#include "chip.h"
-#include "dal_dcamera.h"
-#include "sci_api.h"*/
+ **---------------------------------------------------------------------------*/ 
+
+#include "sensor.h"
 #include <linux/delay.h>
 
 /**---------------------------------------------------------------------------*
@@ -47,8 +40,7 @@
 /**---------------------------------------------------------------------------*
  ** 						   Macro Define
  **---------------------------------------------------------------------------*/
-//#define OV2655_I2C_ADDR_W		0x60
-//#define OV2655_I2C_ADDR_R		0x61
+ #define SENSOR_TRACE SENSOR_PRINT
 #define OV2655_I2C_ADDR_W	0x30 //wxz: for nex I2C
 #define OV2655_I2C_ADDR_R		0x30
 

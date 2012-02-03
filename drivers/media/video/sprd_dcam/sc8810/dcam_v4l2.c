@@ -48,6 +48,7 @@
 #include <mach/sensor_drv.h>
 
 #define DCAM_MINOR MISC_DYNAMIC_MINOR
+#define V4L2_OPEN_FOCUS 1
 
 static struct mutex *lock;
 
@@ -73,7 +74,10 @@ typedef struct dcam_info
 	uint8_t hflip_param;
 	uint8_t vflip_param;
 	uint8_t previewmode_param;
-	uint32_t focus_param;
+	uint8_t focus_param;
+	uint8_t ev_param;
+	uint8_t power_freq;
+	uint8_t reserved_1;
 }DCAM_INFO_T;
 
 
@@ -281,7 +285,7 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.default_value = 0,
 		.flags         = V4L2_CTRL_FLAG_SLIDER,
 	},
-		{
+	{
 		.id		= V4L2_CID_FOCUS_AUTO,
 		.name	= "Focus, Auto",		
 		.type	= V4L2_CTRL_TYPE_BOOLEAN,
@@ -289,7 +293,7 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.maximum  = 255,
 		.step          = 0x1,
 		.default_value = 0,
-		.flags         = V4L2_CID_FOCUS_AUTO,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
 	},
 	{
 		.id            = V4L2_CID_HFLIP,
@@ -306,6 +310,26 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.name          = "vmirror",
 		.minimum       = 0,
 		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	},
+	{
+		.id		= V4L2_CID_EXPOSURE,
+		.name	= "exposure",		
+		.type	= V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum   = 0,
+		.maximum  = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	},
+	{
+		.id		= V4L2_CID_POWER_LINE_FREQUENCY,
+		.name	= "power freq",		
+		.type	= V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum   = 0,
+		.maximum  = 255,
 		.step          = 0x1,
 		.default_value = 0,
 		.flags         = V4L2_CTRL_FLAG_SLIDER,
@@ -865,9 +889,14 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 	SENSOR_EXT_FUN_PARAM_T af_param;
 	uint16_t focus_param[FOCUS_PARAM_COUNT] = {0};
 	uint32_t  i=0;
+	int ret = 0;
 	
-	DCAM_V4L2_PRINT("V4L2:vidioc_handle_ctrl, id: %d, value: %d.\n", ctrl->id, ctrl->value);
+	DCAM_V4L2_PRINT("V4L2:vidioc_handle_ctrl, id: %d, value: %d,dcam mode=%d.\n", ctrl->id, ctrl->value,g_dcam_info.mode);
 	is_previewing = dcam_is_previewing(g_zoom_level);	
+	if(g_dcam_info.mode == 3)
+	{
+		DCAM_V4L2_ERR("v4l2:vidioc_handle_ctrl,don't adjust sensor when cap mode.\n");
+	}
 
 	switch(ctrl->id)
 	{
@@ -951,19 +980,25 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);		
 			break;
 		case V4L2_CID_FOCUS_AUTO:
+#ifdef V4L2_OPEN_FOCUS			
 			if(SENSOR_MAIN != Sensor_GetCurId())
 			{
 				break;
 			}
 
 			copy_from_user(&focus_param[0], (uint16_t*)ctrl->value, FOCUS_PARAM_LEN);		
-			printk("V4L2:focus kernel,type=%d,zone_cnt=%d.\n",focus_param[0],focus_param[1]);
+			printk("test V4L2:focus kernel,type=%d,zone_cnt=%d.\n",focus_param[0],focus_param[1]);
 			if((0 == g_dcam_info.focus_param)&&(0 != focus_param[0]))
 			{
 				DCAM_V4L2_PRINT("V4L2: need initial auto firmware!.\n");
 				af_param.cmd = SENSOR_EXT_FUNC_INIT;
 				af_param.param = SENSOR_EXT_FOCUS_TRIG;
-				Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param);				
+				if(SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param))
+				{
+					ret = -1;
+					DCAM_V4L2_ERR("v4l2:auto foucs init fail.\n");
+					break;
+				}
 				g_dcam_info.focus_param = 1;				
 			}	
 
@@ -1001,17 +1036,46 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 					}
 					break;
 				default:
-					printk("V4L2:don't support this focus,focus type = %d .\n",focus_param[0]);
+					DCAM_V4L2_ERR("V4L2:don't support this focus,focus type = %d .\n",focus_param[0]);
 					break;
 			}
 			
-			Sensor_Ioctl(SENSOR_IOCTL_FOCUS,(uint32_t)&af_param );		      
+			if( SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS,(uint32_t)&af_param ))
+			{
+				DCAM_V4L2_ERR("v4l2:auto focus fail. \n");
+				ret = -1;
+			}
+#endif			
+			break;
+		case V4L2_CID_EXPOSURE:
+			printk("test vidioc_handle_ctrl:ev=%d .\n",(uint32_t)ctrl->value);
+			if(g_dcam_info.ev_param == (uint8_t)ctrl->value)
+			{
+				DCAM_V4L2_PRINT("V4L2:don't need handle ev!.\n");
+				break;
+			}
+			g_dcam_info.ev_param = (uint8_t)ctrl->value;
+			dcam_stop_handle(is_previewing);
+			Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION, (uint32_t)ctrl->value);
+			dcam_start_handle(is_previewing);		
+			break;
+		case V4L2_CID_POWER_LINE_FREQUENCY:
+			printk("test vidioc_handle_ctrl:antibanding=%d .\n",(uint32_t)ctrl->value);
+			if(g_dcam_info.power_freq == (uint8_t)ctrl->value)
+			{
+				DCAM_V4L2_PRINT("V4L2:don't need handle power freq!.\n");
+				break;
+			}
+			g_dcam_info.power_freq = (uint8_t)ctrl->value;
+			dcam_stop_handle(is_previewing);
+			Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER, (uint32_t)ctrl->value);
+			dcam_start_handle(is_previewing);		
 			break;
 		default:
 			break;
 	}
 	
-	return 0;
+	return ret;
 }
 
 static int vidioc_s_ctrl(struct file *file, void *priv,struct v4l2_control *ctrl)
@@ -1019,6 +1083,7 @@ static int vidioc_s_ctrl(struct file *file, void *priv,struct v4l2_control *ctrl
 	struct dcam_fh *fh = priv;
 	struct dcam_dev *dev = fh->dev;
 	int i;
+	int ret = 0;
 
 	for (i = 0; i < ARRAY_SIZE(dcam_qctrl); i++)
 		if (ctrl->id == dcam_qctrl[i].id)
@@ -1031,8 +1096,8 @@ static int vidioc_s_ctrl(struct file *file, void *priv,struct v4l2_control *ctrl
 				}
 			}
 			dev->qctl_regs[i] = ctrl->value;
-			vidioc_handle_ctrl(ctrl);
-			return 0;
+			ret = vidioc_handle_ctrl(ctrl);
+			return ret;
 		}
 	return -EINVAL;
 }
@@ -1360,18 +1425,24 @@ static void init_dcam_parameters(void *priv)
 static void dcam_set_param(void)
 {
 	DCAM_V4L2_PRINT("V4L2:dcam_set_param s.\n");
-	Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, (uint32_t)g_dcam_info.wb_param);
-	Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT, (uint32_t)g_dcam_info.imageeffect_param);
-	Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)g_dcam_info.previewmode_param);
-	Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)g_dcam_info.brightness_param);
-	Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, (uint32_t)g_dcam_info.contrast_param);
-	
+	if(1 == g_dcam_info.mode)
+	{
+		Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, (uint32_t)g_dcam_info.wb_param);
+		Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT, (uint32_t)g_dcam_info.imageeffect_param);
+		Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, (uint32_t)g_dcam_info.previewmode_param);
+		Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t)g_dcam_info.brightness_param);
+		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, (uint32_t)g_dcam_info.contrast_param);
+		Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,(uint32_t)g_dcam_info.ev_param);
+		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,(uint32_t)g_dcam_info.power_freq);
+	}
 	DCAM_V4L2_PRINT("V4L2:dcam_set_param e.\n");		
 }
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct dcam_fh  *fh = priv;
 	int ret = 0;
+	uint16_t j= 0;
+	uint16_t data=0;
 
 	DCAM_V4L2_PRINT("V4L2: videobuf_streamon start.\n");
 	if (fh->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
@@ -1392,6 +1463,19 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_is_first_irq = 1;
 	g_last_buf = 0xFFFFFFFF;
 	g_last_uv_buf = 0xFFFFFFFF;
+#if 0
+	for(j=0x3000;j<=0x30ff;j++)
+	{
+		data = Sensor_ReadReg(j);
+		printk("read: %x=%x.\n",j,data);
+	}
+	for(j=0x3800;j<=0x38ff;j++)
+	{
+		data = Sensor_ReadReg(j);
+		printk("read: %x=%x.\n",j,data);
+	}
+#endif
+
 	ret = dcam_start();
 
 	DCAM_V4L2_PRINT("DCAM_V4L2: OK to vidioc_streamon,ret=%d.\n",ret);
@@ -1418,6 +1502,17 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.preview_m = 0;
 	g_dcam_info.snapshot_m = 0;
 	g_dcam_info.mode = DCAM_MODE_TYPE_IDLE;
+	g_dcam_info.wb_param = 8;
+	g_dcam_info.brightness_param = 8;
+	g_dcam_info.contrast_param = 8;
+	g_dcam_info.saturation_param =8;
+	g_dcam_info.imageeffect_param =8;
+	g_dcam_info.hflip_param = 0;
+	g_dcam_info.vflip_param = 0;
+	g_dcam_info.previewmode_param = 8;
+	g_dcam_info.ev_param = 8;
+	g_dcam_info.focus_param = 0;
+	g_dcam_info.power_freq = 8;
 
 	//stop dcam
 	dcam_stop();
@@ -1427,7 +1522,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		{
 			fh->vb_vidq.bufs[k]->state = VIDEOBUF_IDLE;
 		}       	
-
+          
 	DCAM_V4L2_PRINT("V4L2: OK to vidioc_streamoff.\n");
 	s_error_cnt= 0;
 	return ret;
@@ -1567,13 +1662,12 @@ static void dcam_error_handle(struct dcam_fh *fh)
 {
 	struct dcam_buffer *buf;
 	struct dcam_dev *dev = fh->dev;
-	struct dcam_dmaqueue *dma_q = &dev->vidq;
-	
+	struct dcam_dmaqueue *dma_q = &dev->vidq;	
               
-	unsigned long flags = 0;
+	unsigned long flags = 0;	
 	
 	printk("###V4L2: dcam_error_handle.\n");	
-	printk("V4L2:dcam_error_handle,sensor0_drv=0x%x.\n",Sensor_ReadReg(0x302c));
+	
 	s_test_camera_fail = 1;
 
 	if(s_error_cnt>1)
@@ -1581,6 +1675,7 @@ static void dcam_error_handle(struct dcam_fh *fh)
 		printk("dcam_error_handle: have been handled!.\n");
 		return;
 	}
+	dcam_error_close();
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&dma_q->active)) {
 		printk("###V4L2: dcam_error_handle: No active queue to serve\n");
@@ -1830,7 +1925,9 @@ static int open(struct file *file)
 	g_dcam_info.hflip_param = 0;
 	g_dcam_info.vflip_param = 0;
 	g_dcam_info.previewmode_param = 8;
+	g_dcam_info.ev_param = 8;
 	g_dcam_info.focus_param = 0;
+	g_dcam_info.power_freq = 8;
 	//open dcam
 	if(0 != dcam_open())
 		return 1;

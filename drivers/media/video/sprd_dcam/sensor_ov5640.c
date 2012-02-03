@@ -66,7 +66,7 @@ LOCAL uint32_t _ov5640_set_contrast(uint32_t level);
 LOCAL uint32_t _ov5640_set_saturation(uint32_t level);
 LOCAL uint32_t _ov5640_set_image_effect(uint32_t effect_type);
 LOCAL uint32_t _ov5640_set_ev(uint32_t level); 
-//LOCAL uint32_t _ov5640_set_anti_flicker(uint32_t mode);
+LOCAL uint32_t _ov5640_set_anti_flicker(uint32_t mode);
 //LOCAL uint32_t _ov5640_set_video_mode(uint32_t mode);
 LOCAL uint32_t _ov5640_set_awb(uint32_t mode);
 LOCAL uint32_t _ov5640_set_work_mode(uint32_t mode);
@@ -82,10 +82,12 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
 {
     {0x3103, 0x11},
     {0x3008, 0x82},
+    {SENSOR_WRITE_DELAY, 0x20},//delay 100ms     
     {0x3008, 0x42},
     {0x3103, 0x03},
     {0x3017, 0xff},
     {0x3018, 0xff},
+    {0x3031, 0x08}, //kenxu add 20120201 for external 1.5v dvdd @ 2.8v DOVDD
     {0x3034, 0x1a},
     {0x3035, 0x11},//0x11-->30fps; 0x21-->15fps
     {0x3036, 0x46},
@@ -410,10 +412,286 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x3a1f, 0x14},
     {0x3503 , 0x00},
     {0x3008, 0x02},
+//    {0x3031, 0x08}, //kenxu add 20120201 for external 1.5v dvdd @ 2.8v DOVDD
     //if register:0x3035 is setted 0x21,the frame rate is 15fps
     //if not ,the frame rate is 15fps
 };
-
+LOCAL const SENSOR_REG_T ov5640_common_init[]=
+{
+      {0x3103, 0x11},	// sysclk from pad
+      {0x3008, 0x82},	// software reset
+      //sleep 5ms
+      {0x3008, 0x42},	// software power down
+      {0x3103, 0x03},	// sysclk from pll
+      {0x3017, 0xff},	// Frex, Vsync, Href, PCLK, D[9:6] output
+      {0x3018, 0xff},	// D[5:0], GPIO[1:0] output
+      {0x3034, 0x1a},
+      {0x3035, 0x11},//0x11-->30fps; 0x21-->15fps
+      {0x3036, 0x46},
+      {0x3037, 0x13},
+      {0x3108, 0x01},	// clock divider
+      {0x3630, 0x36},
+      {0x3631, 0x0e},
+      {0x3632, 0xe2},
+      {0x3633, 0x12},
+      {0x3621, 0xe0},
+      {0x3704, 0xa0},
+      {0x3703, 0x5a},
+      {0x3715, 0x78},
+      {0x3717, 0x01},
+      {0x370b, 0x60},
+      {0x3705, 0x1a},
+      {0x3905, 0x02},
+      {0x3906, 0x10},
+      {0x3901, 0x0a},
+      {0x3731, 0x12},
+      {0x3600, 0x08},	// VCM debug
+      {0x3601, 0x33},	// VCM debug
+      {0x302d, 0x60},	// system control
+      {0x3620, 0x52},
+      {0x371b, 0x20},
+      {0x471c, 0x50},
+      {0x3a13, 0x43},	// pre-gain = 1.05x
+      {0x3a18, 0x00},	// AEC gain ceiling = 7.75x
+      {0x3a19, 0x7c},	// AEC gain ceiling
+      {0x3635, 0x13},
+      {0x3636, 0x03},
+      {0x3634, 0x40},
+      {0x3622, 0x01},
+                   
+      //50/60Hz detection
+      {0x3c01, 0x34},	// sum auto, band counter enable, threshold = 4
+      {0x3c04, 0x28},	// threshold low sum
+      {0x3c05, 0x98},	// threshold high sum
+      {0x3c06, 0x00},	// light meter 1 threshold H
+      {0x3c07, 0x07},	// light meter 1 threshold L
+      {0x3c08, 0x00},	// light meter 2 threshold H
+      {0x3c09, 0x1c},	// light meter 2 threshold L
+      {0x3c0a, 0x9c},	// sample number H
+      {0x3c0b, 0x40},	// sample number L
+      {0x3810, 0x00},	// X offset
+      {0x3811, 0x10},	// X offset
+      {0x3812, 0x00},	// Y offset
+      {0x3708, 0x64},
+      {0x4001, 0x02},	// BLC start line
+      {0x4005, 0x1a},	// BLC always update
+      {0x3000, 0x00},	// enable MCU, OTP
+      {0x3004, 0xff},	// enable BIST, MCU memory, MCU, OTP, STROBE, D5060, timing, array clock
+      {0x300e, 0x58},	// MIPI 2 lane? power down PHY HS TX, PHY LP RX, DVP enable
+      {0x302e, 0x00},
+      {0x4300, 0x30},	// YUV 422, YUYV
+      {0x501f, 0x00},	// ISP YUV 422
+      {0x440e, 0x00},
+      {0x5000, 0xa7},	// LENC on, raw gamma on, BPC on, WPC on, CIP on
+                  
+      //AEC target
+      {0x3a0f, 0x30},	// stable in high
+      {0x3a10, 0x28},	// stable in low
+      {0x3a1b, 0x30},	// stable out high
+      {0x3a1e, 0x26},	// stable out low
+      {0x3a11, 0x60},	// fast zone high
+      {0x3a1f, 0x14},	// fast zone low
+                   
+      //LENC       
+      {0x5800, 0x23},
+      {0x5801, 0x14},
+      {0x5802, 0x0f},
+      {0x5803, 0x0f},
+      {0x5804, 0x12},
+      {0x5805, 0x26},
+      {0x5806, 0x0c},
+      {0x5807, 0x08},
+      {0x5808, 0x05},
+      {0x5809, 0x05},
+      {0x580a, 0x08},
+      {0x580b, 0x0d},
+      {0x580c, 0x08},
+      {0x580d, 0x03},
+      {0x580e, 0x00},
+      {0x580f, 0x00},
+      {0x5810, 0x03},
+      {0x5811, 0x09},
+      {0x5812, 0x07},
+      {0x5813, 0x03},
+      {0x5814, 0x00},
+      {0x5815, 0x01},
+      {0x5816, 0x03},
+      {0x5817, 0x08},
+      {0x5818, 0x0d},
+      {0x5819, 0x08},
+      {0x581a, 0x05},
+      {0x581b, 0x06},
+      {0x581c, 0x08},
+      {0x581d, 0x0e},
+      {0x581e, 0x29},
+      {0x581f, 0x17},
+      {0x5820, 0x11},
+      {0x5821, 0x11},
+      {0x5822, 0x15},
+      {0x5823, 0x28},
+      {0x5824, 0x46},
+      {0x5825, 0x26},
+      {0x5826, 0x08},
+      {0x5827, 0x26},
+      {0x5828, 0x64},
+      {0x5829, 0x26},
+      {0x582a, 0x24},
+      {0x582b, 0x22},
+      {0x582c, 0x24},
+      {0x582d, 0x24},
+      {0x582e, 0x06},
+      {0x582f, 0x22},
+      {0x5830, 0x40},
+      {0x5831, 0x42},
+      {0x5832, 0x24},
+      {0x5833, 0x26},
+      {0x5834, 0x24},
+      {0x5835, 0x22},
+      {0x5836, 0x22},
+      {0x5837, 0x26},
+      {0x5838, 0x44},
+      {0x5839, 0x24},
+      {0x583a, 0x26},
+      {0x583b, 0x28},
+      {0x583c, 0x42},
+      {0x583d, 0xce},	// LENC BR offset
+                  
+      //AWB       
+      {0x5180, 0xff}, 
+      {0x5181, 0xf2}, 
+      {0x5182, 0x00},  
+      {0x5183, 0x14}, 
+      {0x5184, 0x25}, 
+      {0x5185, 0x24}, 
+      {0x5186, 0x0e}, 
+      {0x5187, 0x18}, 
+      {0x5188, 0x1a}, 
+      {0x5189, 0x7e}, 
+      {0x518a, 0x5c}, 
+      {0x518b, 0xda}, 
+      {0x518c, 0xa3}, 
+      {0x518d, 0x3f}, 
+      {0x518e, 0x2d}, 
+      {0x518f, 0x53}, 
+      {0x5190, 0x45}, 
+      {0x5191, 0xf8}, 
+      {0x5192, 0x04},  
+      {0x5193, 0xf0}, 
+      {0x5194, 0xf0}, 
+      {0x5195, 0xf0}, 
+      {0x5196, 0x03},  
+      {0x5197, 0x01},  
+      {0x5198, 0x04}, 
+      {0x5199, 0x21}, 
+      {0x519a, 0x04},  
+      {0x519b, 0x00},  
+      {0x519c, 0x08}, 
+      {0x519d, 0x9e}, 
+      {0x519e, 0x38}, 
+                   
+      //Gamma      
+      {0x5480, 0x01}, //BIAS plus on
+      {0x5481, 0x08},
+      {0x5482, 0x14},
+      {0x5483, 0x28},
+      {0x5484, 0x51},
+      {0x5485, 0x65},
+      {0x5486, 0x71},
+      {0x5487, 0x7d},
+      {0x5488, 0x87},
+      {0x5489, 0x91},
+      {0x548a, 0x9a},
+      {0x548b, 0xaa},
+      {0x548c, 0xb8},
+      {0x548d, 0xcd},
+      {0x548e, 0xdd},
+      {0x548f, 0xea},
+      {0x5490, 0x1d},
+                   
+      //color matrix
+      {0x5381, 0x1e}, //CMX1 for Y
+      {0x5382, 0x5b}, //CMX2 for Y
+      {0x5383, 0x08}, //CMX3 for Y
+      {0x5384, 0x0a}, //CMX4 for U
+      {0x5385, 0x7e}, //CMX5 for U
+      {0x5386, 0x88}, //CMX6 for U
+      {0x5387, 0x7c}, //CMX7 for V
+      {0x5388, 0x6c}, //CMX8 for V
+      {0x5389, 0x10}, //CMX9 for V
+      {0x538a, 0x01}, //sign[9]
+      {0x538b, 0x98}, //sign[8:1]
+                   
+      //UV adjust  
+      {0x5580, 0x02},
+      {0x5583, 0x40},
+      {0x5584, 0x10},
+      {0x5589, 0x10},
+      {0x558a, 0x00},
+      {0x558b, 0xf8},
+      {0x501d, 0x40},	// enable manual offset in contrast
+                   
+      //CIP        
+      {0x5300, 0x08},	// sharpen-MT th1
+      {0x5301, 0x30},	// sharpen-MT th2
+      {0x5302, 0x10},	// sharpen-MT off1
+      {0x5303, 0x00},	// sharpen-MT off2
+      {0x5304, 0x08},	// De-noise th1
+      {0x5305, 0x30},	// De-noise th2
+      {0x5306, 0x08},	// De-noise off1
+      {0x5307, 0x16},	// De-noise off2
+      {0x5309, 0x08},	// sharpen-TH th1
+      {0x530a, 0x30},	// sharpen-TH th2
+      {0x530b, 0x04},	// sharpen-TH off1
+      {0x530c, 0x06},	// sharpen-TH off2
+                   
+      {0x5025, 0x00},
+                   
+      {0x3008, 0x02},	// wake up from software power down
+};
+LOCAL const SENSOR_REG_T ov5640_640X480_new[]=
+{
+	{0x3c07, 0x08},	// lightmeter 1 threshold[7:0]
+	{0x3820, 0x41},	// flip
+	{0x3821, 0x07},	// mirror
+	{0x3814, 0x31},	// timing X inc
+	{0x3815, 0x31},	// timing Y inc
+	{0x3800, 0x00},	// HS
+	{0x3801, 0x00},	// HS
+	{0x3802, 0x00},	// VS
+	{0x3803, 0x04},	// VS
+	{0x3804, 0x0a},	// HW (HE)
+	{0x3805, 0x3f},	// HW (HE)
+	{0x3806, 0x07},	// VH (VE)
+	{0x3807, 0x9b},	// VH (VE)
+	{0x3808, 0x02},	// DVPHO
+	{0x3809, 0x80},	// DVPHO
+	{0x380a, 0x01},	// DVPVO
+	{0x380b, 0xe0},	// DVPVO
+	{0x380c, 0x07},	// HTS
+	{0x380d, 0x68},	// HTS
+	{0x380e, 0x03},	// VTS
+	{0x380f, 0xd8},	// VTS
+	{0x3813, 0x06},	// timing V offset
+	{0x3618, 0x00},
+	{0x3612, 0x29},
+	{0x3709, 0x52},
+	{0x370c, 0x03},
+	{0x3a02, 0x0b},	// 60Hz max exposure, night mode 5fps
+	{0x3a03, 0x88},	// 60Hz max exposure
+	{0x3a14, 0x0b},	// 50Hz max exposure, night mode 5fps
+	{0x3a15, 0x88},	// 50Hz max exposure
+	{0x4004, 0x02},	// BLC line number
+	{0x3002, 0x1c},	// reset JFIFO, SFIFO, JPG
+	{0x3006, 0xc3},	// disable clock of JPEG2x, JPEG
+	{0x4713, 0x03},	// JPEG mode 3
+	{0x4407, 0x04},	// Quantization sacle
+	{0x460b, 0x35},
+	{0x460c, 0x22},
+	{0x4837, 0x22},	// MIPI global timing
+	{0x3824, 0x02},	// PCLK manual divider
+	{0x5001, 0xa3},	// SDE on, CMX on, AWB on
+	{0x3503, 0x00},	 // AEC/AGC on
+};
 //1280X960  YUV   Mode
 LOCAL const SENSOR_REG_T ov5640_1280X960[] =
 {
@@ -672,7 +950,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_ov5640_ioctl_func_tab =
     PNULL,
     _ov5640_GetExifInfo,
     _ov5640_ExtFunc,
-    PNULL,
+    _ov5640_set_anti_flicker,
     PNULL,
     _ov5640_pick_out_jpeg_stream,
     PNULL
@@ -747,8 +1025,8 @@ PUBLIC SENSOR_INFO_T g_ov5640_yuv_info =
     NULL,//&g_ov5640_ext_info,                // extend information about sensor
     SENSOR_AVDD_2800MV,                     // iovdd
     SENSOR_AVDD_1500MV,                      // dvdd
-    4,                     // skip frame num before preview 
-    2,                      // skip frame num before capture        
+    3,                     // skip frame num before preview 
+    3,                      // skip frame num before capture        
     0,                      // deci frame num during preview    
     0,                      // deci frame num during video preview      
 
@@ -880,16 +1158,15 @@ LOCAL uint32_t _ov5640_PowerOn(uint32_t power_on)
 
 	if(SENSOR_TRUE==power_on)
 	{
-		Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);
-		Sensor_PowerDown((BOOLEAN)!power_down);
-		// Open Mclk in default frequency
-		Sensor_SetMCLK(SENSOR_DEFALUT_MCLK);   
-
-		msleep(20);
-		Sensor_SetResetLevel(reset_level);
-		msleep(reset_width);
-		Sensor_SetResetLevel((BOOLEAN)!reset_level);
-		msleep(100);
+		Sensor_PowerDown(power_down);	
+		// Open power
+		Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);    
+		msleep(10);
+		Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
+		msleep(5);
+		Sensor_PowerDown(!power_down);
+		// Reset sensor		
+		Sensor_Reset(reset_level);		
 	}
 	else
 	{
@@ -1246,7 +1523,7 @@ LOCAL const SENSOR_REG_T ov5640_ev_tab[][7]=
         {0x3a0f, 0x30},{0x3a10, 0x28},{0x3a11, 0x61},{0x3a1b, 0x30},{0x3a1e, 0x28},{0x3a1f, 0x10},{0xffff, 0xff}
     },
     {//level 0
-        {0x3a0f, 0x3a},{0x3a10, 0x32},{0x3a11, 0x61},{0x3a1b, 0x38},{0x3a1e, 0x30},{0x3a1f, 0x10},{0xffff, 0xff}
+        {0x3a0f, 0x38},{0x3a10, 0x30},{0x3a11, 0x61},{0x3a1b, 0x38},{0x3a1e, 0x30},{0x3a1f, 0x10},{0xffff, 0xff}
     },
     {//level 1
         {0x3a0f, 0x40},{0x3a10, 0x38},{0x3a11, 0x71},{0x3a1b, 0x40},{0x3a1e, 0x38},{0x3a1f, 0x10},{0xffff, 0xff}
@@ -1291,13 +1568,14 @@ LOCAL const SENSOR_REG_T ov5640_anti_banding_flicker_tab[][4]=
         {0x3014, 0x04}, {0x3073, 0xc4}, {0x301d, 0x02}, {0xffff, 0xff}
     }
 };    
-#if 0
+
 LOCAL uint32_t _ov5640_set_anti_flicker(uint32_t mode)
-{//65.6 us
+{
 	SENSOR_REG_T_PTR sensor_reg_ptr=(SENSOR_REG_T_PTR)ov5640_anti_banding_flicker_tab[mode];
 	uint16_t i=0x00;
 
-	//   SCI_ASSERT(PNULL!=sensor_reg_ptr);   /*assert verified*/
+         if(mode>1)
+		 return 0;
 
 	for(i=0x00; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xff!=sensor_reg_ptr[i].reg_value); i++)
 	{
@@ -1308,7 +1586,7 @@ LOCAL uint32_t _ov5640_set_anti_flicker(uint32_t mode)
 
 	return 0;
 }
-#endif
+
 /******************************************************************************/
 // Description: set video mode
 // Global resource dependence: 
@@ -1588,7 +1866,15 @@ LOCAL uint32_t _ov5640_set_awb(uint32_t mode)
 			Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, (uint16_t)reg_value);
 		}
 	}
+#if 0//for test	
+	if(mode==5)
+		Sensor_Reset(0);
 
+	if(mode==6)
+	{
+		Sensor_SetMode(0);
+	}
+#endif
 	//  Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_LIGHTSOURCE, (uint32)mode);
 
 	SENSOR_PRINT("SENSOR: _ov5640_set_awb = 0x%02x,reg_value=0x%x", mode,reg_value);
@@ -1722,7 +2008,7 @@ LOCAL uint32_t _ov5640_BeforeSnapshot(uint32_t param)
 	Sensor_WriteReg(0x350b, Gain + 1);
 	msleep(100);
 	Sensor_WriteReg(0x350b, Gain);
-	msleep(300);
+	//msleep(300);
 
 	//  Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_EXPOSURETIME, (uint32)ulCapture_Exposure);
 
@@ -2049,7 +2335,7 @@ LOCAL uint32_t _ov5640_AutoFocusMultiZone(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 		if(SENSOR_SUCCESS != rtn)
 		{
 			SENSOR_PRINT_ERR("_ov5640_AutoFocusMultiZone: match zone error! .\n");
-			return;
+			return SENSOR_FAIL;
 		}
 		printk("_ov5640_AutoFocusMultiZone:x=%d,y=%d.\n",ext_param[i].zone.x,ext_param[i].zone.y);
 	}	
