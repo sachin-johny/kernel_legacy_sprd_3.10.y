@@ -720,8 +720,6 @@ static void hw_early_init(struct sc8810fb_info *info)
 	//int ret;
 	info->clk_lcdc = lcdc_init_mclk(LCDC_96MHz);
 
-	clk_enable(info->clk_lcdc);
-
 	__raw_bits_and(~(1<<0), LCDC_IRQ_EN);
 	__raw_bits_or((1<<0), LCDC_IRQ_CLR);
 
