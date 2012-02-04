@@ -718,8 +718,6 @@ static void lcdc_reset(void)
 static void hw_early_init(struct sc8810fb_info *info)
 {
 	//int ret;
-	info->clk_lcdc = lcdc_init_mclk(LCDC_96MHz);
-
 	__raw_bits_and(~(1<<0), LCDC_IRQ_EN);
 	__raw_bits_or((1<<0), LCDC_IRQ_CLR);
 
@@ -884,6 +882,8 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	info->rrm = rrm_init(real_refresh, (void*)info);
 	rrm_layer_init(LID_OSD1, 2, real_set_layer);
 
+	info->clk_lcdc = lcdc_init_mclk(LCDC_96MHz);
+	
 	/* register isr */
 	ret = request_irq(IRQ_LCDC_INT, lcdc_isr, IRQF_DISABLED, "LCDC", info);
 	if (ret) {
