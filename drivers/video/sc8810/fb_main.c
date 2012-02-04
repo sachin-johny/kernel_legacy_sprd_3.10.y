@@ -883,7 +883,8 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	rrm_layer_init(LID_OSD1, 2, real_set_layer);
 
 	info->clk_lcdc = lcdc_init_mclk(LCDC_96MHz);
-	
+	clk_enable(info->clk_lcdc); 
+
 	/* register isr */
 	ret = request_irq(IRQ_LCDC_INT, lcdc_isr, IRQF_DISABLED, "LCDC", info);
 	if (ret) {
