@@ -1396,6 +1396,7 @@ int in_calibration(void);
 */
 
 extern int outer_cache_poweron(void);
+extern int outer_cache_poweroff(void);
 
 #ifdef CONFIG_PM
 int sc8800g_enter_deepsleep(int inidle)
@@ -1692,6 +1693,52 @@ int sprd_pm_suspend_check_enter(void);
 int sprd_pm_resume_check(void);
 
 
+int sc8810_idle_sleep(int inidle)
+{
+    int status;
+    u32 t0, t1, delta;
+    int ret = 0;
+	int i;
+	unsigned long flags;
+
+
+    status = sc8800g_get_clock_status();
+    if (status & DEVICE_AHB) {
+		sp_arch_idle();
+	}
+    else {
+		/* AHB_PAUSE */
+		val = __raw_readl(AHB_PAUSE);
+		val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
+		val |= (MCU_SYS_SLEEP_EN);
+
+#ifdef CONFIG_SC8810_IDLE_DEEP		
+		/* enable MCU deep sleep, wangliwei, 2012-01-06. */
+		val |= (MCU_DEEP_SLEEP_EN);//go deepsleep when all PD auto poweroff en
+		__raw_writel(val, AHB_PAUSE);
+
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			saved_vector[i] = sp_pm_reset_vector[i];
+		}
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			sp_pm_reset_vector[i] = 0xe320f000; /* nop*/
+		}
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = (sc8810_standby_exit_iram - 
+			sc8810_standby_iram + IRAM_START_PHY);
+		sp_pm_collapse();
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			sp_pm_reset_vector[i] = saved_vector[i];
+		}
+		outer_cache_poweron();
+#else
+		sp_arch_idle();
+#endif
+   	}
+    return ret;
+}
+EXPORT_SYMBOL(sc8810_idle_sleep);
+
 #ifdef CONFIG_NKERNEL
 static void nkidle(void)
 {
@@ -1703,22 +1750,11 @@ static void nkidle(void)
 			val = os_ctx->idle(os_ctx);
 			if (0 == val) {
 #ifdef CONFIG_PM
-				if (!has_wake_lock_for_suspend(WAKE_LOCK_SUSPEND)) {
-					/*
-					sc8800g_enter_deepsleep(1);
-					*/
-				}
-				else {
-				    idle_loops++;
-				    t0 = get_sys_cnt();
-				    sp_arch_idle();
-					/*
-				    sc8800g_cpu_standby();
-				    */
-				    t1 = get_sys_cnt();
-				    delta = t1 - t0;
-				    idle_time += delta;
-				}
+				/*
+				printk("###: Gonna sleep after %u ms.\n", 
+				jiffies_to_msecs(get_next_timer_interrupt(jiffies) -jiffies));
+				*/
+				sc8810_idle_sleep(1);
 #endif
 			}
 		}
