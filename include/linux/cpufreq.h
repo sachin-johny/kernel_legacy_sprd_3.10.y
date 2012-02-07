@@ -225,7 +225,10 @@ struct cpufreq_driver {
 	int	(*target)	(struct cpufreq_policy *policy,
 				 unsigned int target_freq,
 				 unsigned int relation);
-
+//wong, for input event	
+    int	(*target_max)	(struct cpufreq_policy *policy,
+				 unsigned int target_freq);
+//wong, for input event 
 	/* should be defined, if possible */
 	unsigned int	(*get)	(unsigned int cpu);
 
@@ -293,6 +296,12 @@ __ATTR(_name, 0444, show_##_name##_old, NULL)
 #define cpufreq_freq_attr_rw(_name)		\
 static struct freq_attr _name =			\
 __ATTR(_name, 0644, show_##_name, store_##_name)
+
+//wong
+#define cpufreq_freq_attr_rwrwrw(_name)		\
+static struct freq_attr _name =			\
+__ATTR(_name, 0666, show_##_name, store_##_name)
+//wong
 
 #define cpufreq_freq_attr_rw_old(_name)		\
 static struct freq_attr _name##_old =		\

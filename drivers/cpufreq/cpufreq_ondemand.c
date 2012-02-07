@@ -547,6 +547,8 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		load_freq = load * freq_avg;
 		if (load_freq > max_load_freq)
 			max_load_freq = load_freq;
+//		printk("%s, cpu load(calculate in time):%d\%, \n", __func__, load);
+//		printk("%s, max_load_freq:%d\%, \n", __func__, max_load_freq);
 	}
 
 	/* Check for frequency increase */
@@ -555,7 +557,6 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		if (!dbs_tuners_ins.powersave_bias) {
 			if (policy->cur == policy->max)
 				return;
-
 			__cpufreq_driver_target(policy, policy->max,
 				CPUFREQ_RELATION_H);
 		} else {
@@ -569,9 +570,9 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	/* Check for frequency decrease */
 	/* if we cannot reduce the frequency anymore, break out early */
-	if (policy->cur == policy->min)
+	if (policy->cur == policy->min){
 		return;
-
+	}
 	/*
 	 * The optimal frequency is the frequency that is the lowest that
 	 * can support the current CPU usage without triggering the up
@@ -587,11 +588,11 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 		if (freq_next < policy->min)
 			freq_next = policy->min;
-
 		if (!dbs_tuners_ins.powersave_bias) {
 			__cpufreq_driver_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
 		} else {
+		
 			int freq = powersave_bias_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
 			__cpufreq_driver_target(policy, freq,
@@ -606,13 +607,11 @@ static void do_dbs_timer(struct work_struct *work)
 		container_of(work, struct cpu_dbs_info_s, work.work);
 	unsigned int cpu = dbs_info->cpu;
 	int sample_type = dbs_info->sample_type;
-
 	/* We want all CPUs to do sampling nearly on same jiffy */
-	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);
-
+	int delay = usecs_to_jiffies(dbs_tuners_ins.sampling_rate);    
 	if (num_online_cpus() > 1)
-		delay -= jiffies % delay;
-
+		delay -= jiffies % delay;		
+	
 	mutex_lock(&dbs_info->timer_mutex);
 
 	/* Common NORMAL_SAMPLE setup */
@@ -623,7 +622,7 @@ static void do_dbs_timer(struct work_struct *work)
 		if (dbs_info->freq_lo) {
 			/* Setup timer for SUB_SAMPLE */
 			dbs_info->sample_type = DBS_SUB_SAMPLE;
-			delay = dbs_info->freq_hi_jiffies;
+			delay = dbs_info->freq_hi_jiffies;			
 		}
 	} else {
 		__cpufreq_driver_target(dbs_info->cur_policy,
@@ -729,12 +728,12 @@ static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
 			latency = policy->cpuinfo.transition_latency / 1000;
 			if (latency == 0)
 				latency = 1;
-			/* Bring kernel and HW constraints together */
+			/* Bring kernel and HW constraints together */			
 			min_sampling_rate = max(min_sampling_rate,
 					MIN_LATENCY_MULTIPLIER * latency);
 			dbs_tuners_ins.sampling_rate =
 				max(min_sampling_rate,
-				    latency * LATENCY_MULTIPLIER);
+				    latency * LATENCY_MULTIPLIER);		
 			dbs_tuners_ins.io_is_busy = should_io_be_busy();
 		}
 		mutex_unlock(&dbs_mutex);

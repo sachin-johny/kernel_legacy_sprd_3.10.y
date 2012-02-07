@@ -14,7 +14,7 @@ obj-$(CONFIG_MACH_SP6820A) += board-sp6820a/
 
 obj-$(CONFIG_PM)		+= pm_vlx.o idle_v7.o pm_devices.o standby.o
 
-obj-$(CONFIG_CPU_FREQ_SC8800G) += cpufreq-sc8800g.o
+obj-$(CONFIG_CPU_FREQ_SC8810) += cpufreq-sc8800g.o
 obj-$(CONFIG_CPU_IDLE_SC8800G) += cpuidle-sc8800g.o
 
 obj-$(CONFIG_SC8800G_VIBRATOR) += vibrator.o

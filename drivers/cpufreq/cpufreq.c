@@ -144,16 +144,16 @@ struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu)
 	/* get the cpufreq driver */
 	spin_lock_irqsave(&cpufreq_driver_lock, flags);
 
-	if (!cpufreq_driver)
+	if (!cpufreq_driver){
 		goto err_out_unlock;
-
-	if (!try_module_get(cpufreq_driver->owner))
+	}
+	if (!try_module_get(cpufreq_driver->owner)){
 		goto err_out_unlock;
-
+	}
 
 	/* get the CPU */
 	data = per_cpu(cpufreq_cpu_data, cpu);
-
+    
 	if (!data)
 		goto err_out_put_module;
 
@@ -469,7 +469,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 static ssize_t store_##file_name					\
 (struct cpufreq_policy *policy, const char *buf, size_t count)		\
 {									\
-	unsigned int ret = -EINVAL;					\
+    unsigned int ret = -EINVAL;					\
 	struct cpufreq_policy new_policy;				\
 									\
 	ret = cpufreq_get_policy(&new_policy, policy->cpu);		\
@@ -654,6 +654,7 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 {
 	unsigned int limit;
 	int ret;
+	
 	if (cpufreq_driver->bios_limit) {
 		ret = cpufreq_driver->bios_limit(policy->cpu, &limit);
 		if (!ret)
@@ -661,6 +662,37 @@ static ssize_t show_bios_limit(struct cpufreq_policy *policy, char *buf)
 	}
 	return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
 }
+
+//wong
+static ssize_t store_input_event(struct cpufreq_policy *policy,
+					const char *buf, size_t count)
+{
+	unsigned int ret;
+	printk("store, policy->governor->name:%s\n", policy->governor->name);
+
+	if (cpufreq_driver->target_max) {
+		  //ret = cpufreq_driver->target(policy, policy->max, CPUFREQ_RELATION_H);
+		  ret = cpufreq_driver->target_max(policy, policy->cpuinfo.max_freq);
+		  if (!ret){
+              policy->cur = policy->cpuinfo.max_freq;
+			  return sprintf(buf, "%u\n", policy->cpuinfo.max_freq);
+		  }	  
+	}
+   
+	return count;
+}
+
+static ssize_t show_input_event(struct cpufreq_policy *policy, char *buf)
+{
+    int ret = 0;
+    printk("show, policy->governor->name:%s\n", policy->governor->name);
+	
+
+	return sprintf(buf, "%u\n", policy->cur);
+
+}
+//wong
+
 
 cpufreq_freq_attr_ro_perm(cpuinfo_cur_freq, 0400);
 cpufreq_freq_attr_ro(cpuinfo_min_freq);
@@ -676,6 +708,8 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
+cpufreq_freq_attr_rwrwrw(input_event);//wong
+
 
 static struct attribute *default_attrs[] = {
 	&cpuinfo_min_freq.attr,
@@ -689,6 +723,7 @@ static struct attribute *default_attrs[] = {
 	&scaling_driver.attr,
 	&scaling_available_governors.attr,
 	&scaling_setspeed.attr,
+	&input_event.attr,
 	NULL
 };
 
@@ -725,6 +760,7 @@ no_policy:
 static ssize_t store(struct kobject *kobj, struct attribute *attr,
 		     const char *buf, size_t count)
 {
+
 	struct cpufreq_policy *policy = to_policy(kobj);
 	struct freq_attr *fattr = to_attr(attr);
 	ssize_t ret = -EINVAL;
@@ -1350,7 +1386,8 @@ static int cpufreq_suspend(struct sys_device *sysdev, pm_message_t pmsg)
 	int cpu = sysdev->id;
 	struct cpufreq_policy *cpu_policy;
 
-	dprintk("suspending cpu %u\n", cpu);
+//	dprintk("suspending cpu %u\n", cpu);
+	printk("suspending cpu %u\n", cpu);
 
 	if (!cpu_online(cpu))
 		return 0;
@@ -1397,7 +1434,8 @@ static int cpufreq_resume(struct sys_device *sysdev)
 	int cpu = sysdev->id;
 	struct cpufreq_policy *cpu_policy;
 
-	dprintk("resuming cpu %u\n", cpu);
+//	dprintk("resuming cpu %u\n", cpu);
+	printk("resuming cpu %u\n", cpu);
 
 	if (!cpu_online(cpu))
 		return 0;
@@ -1523,7 +1561,7 @@ int __cpufreq_driver_target(struct cpufreq_policy *policy,
 {
 	int retval = -EINVAL;
 
-	dprintk("target for CPU %u: %u kHz, relation %u\n", policy->cpu,
+	printk("target for CPU %u: %u kHz, relation %u\n", policy->cpu,
 		target_freq, relation);
 	if (cpu_online(policy->cpu) && cpufreq_driver->target)
 		retval = cpufreq_driver->target(policy, target_freq, relation);
@@ -1561,12 +1599,12 @@ int __cpufreq_driver_getavg(struct cpufreq_policy *policy, unsigned int cpu)
 	int ret = 0;
 
 	policy = cpufreq_cpu_get(policy->cpu);
-	if (!policy)
+	if (!policy){
 		return -EINVAL;
-
-	if (cpu_online(cpu) && cpufreq_driver->getavg)
+	}
+	if (cpu_online(cpu) && cpufreq_driver->getavg){
 		ret = cpufreq_driver->getavg(policy, cpu);
-
+	}
 	cpufreq_cpu_put(policy);
 	return ret;
 }
@@ -1609,7 +1647,7 @@ static int __cpufreq_governor(struct cpufreq_policy *policy,
 	if (!try_module_get(policy->governor->owner))
 		return -EINVAL;
 
-	dprintk("__cpufreq_governor for CPU %u, event %u\n",
+	printk("__cpufreq_governor for CPU %u, event %u\n",
 						policy->cpu, event);
 	ret = policy->governor->governor(policy, event);
 
@@ -1627,10 +1665,9 @@ static int __cpufreq_governor(struct cpufreq_policy *policy,
 int cpufreq_register_governor(struct cpufreq_governor *governor)
 {
 	int err;
-
-	if (!governor)
+	if (!governor){
 		return -EINVAL;
-
+	}
 	mutex_lock(&cpufreq_governor_mutex);
 
 	err = -EBUSY;
@@ -1709,9 +1746,8 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 				struct cpufreq_policy *policy)
 {
 	int ret = 0;
-
 	cpufreq_debug_disable_ratelimit();
-	dprintk("setting new policy for CPU %u: %u - %u kHz\n", policy->cpu,
+	printk("setting new policy for CPU %u: %u - %u kHz\n", policy->cpu,
 		policy->min, policy->max);
 
 	memcpy(&policy->cpuinfo, &data->cpuinfo,
@@ -1724,9 +1760,9 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 
 	/* verify the cpu speed can be set within this limit */
 	ret = cpufreq_driver->verify(policy);
-	if (ret)
+	if (ret){
 		goto error_out;
-
+	}
 	/* adjust if necessary - all reasons */
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_ADJUST, policy);
@@ -1738,9 +1774,9 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	/* verify the cpu speed can be set within this limit,
 	   which might be different to the first one */
 	ret = cpufreq_driver->verify(policy);
-	if (ret)
+	if (ret){
 		goto error_out;
-
+	}
 	/* notification of the new policy */
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_NOTIFY, policy);
@@ -1748,29 +1784,29 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 	data->min = policy->min;
 	data->max = policy->max;
 
-	dprintk("new min and max freqs are %u - %u kHz\n",
+	printk("new min and max freqs are %u - %u kHz\n",
 					data->min, data->max);
 
 	if (cpufreq_driver->setpolicy) {
 		data->policy = policy->policy;
-		dprintk("setting range\n");
+		printk("setting range\n");
 		ret = cpufreq_driver->setpolicy(policy);
 	} else {
 		if (policy->governor != data->governor) {
 			/* save old, working values */
 			struct cpufreq_governor *old_gov = data->governor;
 
-			dprintk("governor switch\n");
+			printk("governor switch\n");
 
 			/* end old governor */
-			if (data->governor)
+			if (data->governor){
 				__cpufreq_governor(data, CPUFREQ_GOV_STOP);
-
+			}
 			/* start new governor */
 			data->governor = policy->governor;
 			if (__cpufreq_governor(data, CPUFREQ_GOV_START)) {
 				/* new governor failed, so re-start old one */
-				dprintk("starting governor %s failed\n",
+				printk("starting governor %s failed\n",
 							data->governor->name);
 				if (old_gov) {
 					data->governor = old_gov;
@@ -1782,7 +1818,7 @@ static int __cpufreq_set_policy(struct cpufreq_policy *data,
 			}
 			/* might be a policy change, too, so fall through */
 		}
-		dprintk("governor: change or update limits\n");
+		printk("governor: change or update limits\n");
 		__cpufreq_governor(data, CPUFREQ_GOV_LIMITS);
 	}
 
@@ -1814,7 +1850,6 @@ int cpufreq_update_policy(unsigned int cpu)
 		goto fail;
 	}
 
-	dprintk("updating policy for CPU %u\n", cpu);
 	memcpy(&policy, data, sizeof(struct cpufreq_policy));
 	policy.min = data->user_policy.min;
 	policy.max = data->user_policy.max;
@@ -1902,8 +1937,6 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 	if (!driver_data || !driver_data->verify || !driver_data->init ||
 	    ((!driver_data->setpolicy) && (!driver_data->target)))
 		return -EINVAL;
-
-	dprintk("trying to register driver %s\n", driver_data->name);
 
 	if (driver_data->setpolicy)
 		driver_data->flags |= CPUFREQ_CONST_LOOPS;
