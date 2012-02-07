@@ -112,8 +112,9 @@ ENDPROC(sc8810_standby_iram)
 
 ENTRY(sc8810_standby_exit_iram)
 	mrs r0, cpsr
+	and r0, r0, #0xff
 	mov r6, r0
-	ldr r1, =0x01d3
+	ldr r1, =0x00d3
 	cmp r0, r1
 	blne dead
 /*
