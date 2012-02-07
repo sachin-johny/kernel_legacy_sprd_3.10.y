@@ -536,7 +536,9 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 				 * so make sure to check both the busy
 				 * indication and the card state.
 				 */
-                            printk("check cards status: 0x%x\n", cmd.resp[0]);//dbg
+		            //dbg 		
+			    if(cmd.resp[0] != 0x900)
+                               printk("check cards status: 0x%x\n", cmd.resp[0]);//dbg
 			} while (!(cmd.resp[0] & R1_READY_FOR_DATA) ||
 				(R1_CURRENT_STATE(cmd.resp[0]) == 7));
 
