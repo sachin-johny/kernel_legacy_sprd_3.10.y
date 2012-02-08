@@ -77,7 +77,7 @@ typedef struct dcam_info
 	uint8_t focus_param;
 	uint8_t ev_param;
 	uint8_t power_freq;
-	uint8_t reserved_1;
+	uint8_t flash_mode;
 }DCAM_INFO_T;
 
 
@@ -330,6 +330,17 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.type	= V4L2_CTRL_TYPE_BOOLEAN,
 		.minimum   = 0,
 		.maximum  = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	},
+	{
+		// use V4L2_CID_GAMMA for camera flash
+		.id            = V4L2_CID_GAMMA,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "gamma,flah",
+		.minimum       = 0,
+		.maximum       = 255,
 		.step          = 0x1,
 		.default_value = 0,
 		.flags         = V4L2_CTRL_FLAG_SLIDER,
@@ -986,6 +997,11 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				break;
 			}
 
+			if(g_dcam_info.flash_mode)
+			{
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH,1);
+			}
+
 			copy_from_user(&focus_param[0], (uint16_t*)ctrl->value, FOCUS_PARAM_LEN);		
 			printk("test V4L2:focus kernel,type=%d,zone_cnt=%d.\n",focus_param[0],focus_param[1]);
 			if((0 == g_dcam_info.focus_param)&&(0 != focus_param[0]))
@@ -1076,6 +1092,23 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER, (uint32_t)ctrl->value);
 			dcam_start_handle(is_previewing);		
 			break;
+
+		case V4L2_CID_GAMMA:
+			printk("test camera flash mode = %d .\n", (uint8_t)ctrl->value);
+			if(g_dcam_info.flash_mode == (uint8_t)ctrl->value)
+			{
+				DCAM_V4L2_PRINT("V4L2:don't need handle flash: V4L2_CID_GAMMA !.\n");
+				break;
+			}
+
+			g_dcam_info.flash_mode = (uint8_t)ctrl->value;
+			
+			if(0 == g_dcam_info.flash_mode)
+			{
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH,0);
+			}
+			break;
+			
 		default:
 			break;
 	}
@@ -1442,12 +1475,17 @@ static void dcam_set_param(void)
 	}
 	DCAM_V4L2_PRINT("V4L2:dcam_set_param e.\n");		
 }
+
+extern ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode);    
+extern int Sensor_CheckTiming(SENSOR_MODE_E mode);
+
 static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 {
 	struct dcam_fh  *fh = priv;
 	int ret = 0;
 	uint16_t j= 0;
 	uint16_t data=0;
+	uint32_t w_cnt = 0;
 
 	DCAM_V4L2_PRINT("V4L2: videobuf_streamon start.\n");
 	if (fh->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
@@ -1481,10 +1519,36 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	}
 #endif
 
-	ret = dcam_start();
+        w_cnt = 0;
 
-	DCAM_V4L2_PRINT("DCAM_V4L2: OK to vidioc_streamon,ret=%d.\n",ret);
-	return ret;
+	if(3 == g_dcam_info.mode)
+	{		
+		while(1)
+		{			 
+			if(0!=Sensor_CheckTiming(g_dcam_info.snapshot_m))
+			{							
+				if(w_cnt>2)
+						break;
+				Sensor_SetTiming(g_dcam_info.snapshot_m);
+				w_cnt++;			
+				printk("sensor reg write error,w_cnt=%d!.\n",w_cnt);
+			}
+			else
+				break;
+			
+		}
+	}
+
+	if(w_cnt >2)
+	{
+		printk("start error,w_cnt=%d .\n",w_cnt);
+		return -1;
+	}
+	
+	ret = dcam_start();
+	
+	printk("DCAM_V4L2: OK to vidioc_streamon,ret=%d.\n",ret);
+	return -ret;
 }
 
 static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
@@ -1497,6 +1561,11 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -EINVAL;
 	if (i != fh->type)
 		return -EINVAL;
+
+	if(g_dcam_info.flash_mode)
+	{
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH,0);
+	}
 
 	if(0 != (ret = videobuf_streamoff(&fh->vb_vidq)))
 	{
@@ -1653,6 +1722,7 @@ unlock:
 	buf->vb.state = VIDEOBUF_DONE;
 	
 //	DCAM_V4L2_PRINT("V4L2: path1_done_buffer:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));   
+         printk("time = %d.\n",(buf->vb.ts.tv_sec*1000+buf->vb.ts.tv_usec/1000));
 	wake_up(&buf->vb.done); 
 	
 unlock:
@@ -1933,6 +2003,8 @@ static int open(struct file *file)
 	g_dcam_info.ev_param = 8;
 	g_dcam_info.focus_param = 0;
 	g_dcam_info.power_freq = 8;
+	g_dcam_info.flash_mode = 0;
+	
 	//open dcam
 	if(0 != dcam_open())
 		return 1;
@@ -1956,7 +2028,13 @@ static int close(struct file *file)
 	struct dcam_dev *dev       = fh->dev;	
 
 	int minor = video_devdata(file)->minor;
-	
+
+	if(g_dcam_info.flash_mode)
+	{
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH,0);
+		printk("close the flash \n");
+	}
+
 	videobuf_stop(&fh->vb_vidq);
 	videobuf_mmap_free(&fh->vb_vidq);
 

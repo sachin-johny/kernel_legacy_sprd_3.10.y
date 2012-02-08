@@ -678,10 +678,19 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 /*****************************************************************************/
 PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
 {
+	SENSOR_IOCTL_FUNC_PTR	entersleep_func=s_sensor_info_ptr->ioctl_func_tab_ptr->enter_sleep;
+	
 	SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_level);          
 	SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); 
 	SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
+
+	if(entersleep_func)
+	{
+		entersleep_func(power_level);
+		 return SENSOR_SUCCESS;
+	}
 #if defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A)
+	
 	switch(Sensor_GetCurId())
 	{
 		case SENSOR_MAIN:
@@ -763,119 +772,7 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
 
     return SENSOR_SUCCESS;
 }
-#if 0
-#ifdef PLATFORM_6810
-PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
-{
-	SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_level);          
-	SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); 
-	SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
 
-	switch(Sensor_GetCurId())
-	{
-		case SENSOR_MAIN:
-		{
-			_paod(PIN_CTL_CCIRPD1,  (BIT_4|BIT_5));
-			gpio_request(78,"ccirpd1");
-			if(0 == power_level)
-			{
-				gpio_direction_output(78,0);
-			}
-			else
-			{
-				gpio_direction_output(78,1);
-			}      
-			break;
-		}
-		case SENSOR_SUB:
-		{
-			_paod(PIN_CTL_CCIRPD0,  (BIT_4|BIT_5));
-			gpio_request(79,"ccirpd0");
-			if(0 == power_level)
-			{
-				gpio_direction_output(79,0);
-			}
-			else
-			{
-				gpio_direction_output(79,1);
-			}
-			break;
-		}
-		default :
-			break;            
-	}
-    return SENSOR_SUCCESS;
-}
-#else 
-PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_down)
-{
-	switch(Sensor_GetCurId())
-	{
-		case SENSOR_MAIN:
-		{
-			SENSOR_PRINT("SENSOR: Sensor_PowerDown -> main: power_down %d\n", power_down);          
-			SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1)); 
-			SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
-
-			_paad(PIN_CTL_CCIRPD1,  ~(BIT_4|BIT_5));
-			_paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
-			if(power_down == 0)
-			{
-				//_paad(CAP_CNTRL,  ~(BIT_11|BIT_12));
-				dcam_powerdown(0,0);
-				dcam_reset_sensor(0);
-				mdelay(10);			
-				//  _paod(CAP_CNTRL,  BIT_11);
-				dcam_reset_sensor(1);
-			}
-			else
-			{			
-				//	_paod(CAP_CNTRL,  BIT_12);
-				dcam_powerdown(0,1);
-			}			
-			_paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));            
-			break;
-		}
-		case SENSOR_SUB:
-		{
-			SENSOR_PRINT("SENSOR: Sensor_PowerDown -> sub: power_down %d\n", power_down);     
-			SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n", _pard(PIN_CTL_CCIRPD1));       
-			SENSOR_PRINT("SENSOR: Sensor_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n", _pard(PIN_CTL_CCIRPD0));
-
-			_paod(AHB_GLOBAL_REG_CTL0,  BIT_1|BIT_2);
-			if(power_down == 0)
-			{
-				//_paad(CAP_CNTRL,  ~(BIT_11|BIT_13));		
-				dcam_powerdown(1,0);
-				dcam_reset_sensor(0);             
-				mdelay(10);
-				//_paod(CAP_CNTRL,  BIT_11); 
-				dcam_reset_sensor(1);
-				SENSOR_PRINT("sub power down. 0: CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
-			}
-			else
-			{
-				//_paod(CAP_CNTRL,  BIT_13);
-				dcam_powerdown(1,1);
-				SENSOR_PRINT("sub power down. 1 : CAP_CNTRL: 0x%x\n", _pard(CAP_CNTRL));
-			}
-			_paad(AHB_GLOBAL_REG_CTL0,  ~(BIT_1|BIT_2));
-			break;
-		}
-		case SENSOR_ATV:
-		{
-			SENSOR_PRINT("SENSOR: Sensor_PowerDown -> atv");
-			break;
-		}
-		default :
-			break;            
-	}
-
-	return SENSOR_SUCCESS;
-}
-
-#endif
-#endif
 /*****************************************************************************/
 //  Description:    This function is used to reset img sensor     
 //  Author:         Tim.zhu
@@ -1822,6 +1719,105 @@ PUBLIC uint32_t Sensor_SetSensorType(SENSOR_TYPE_E sensor_type)
 	s_sensor_type=sensor_type;
 
 	return SENSOR_SUCCESS;
+}
+PUBLIC ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode)
+{
+	uint32_t mclk;
+	uint32_t cur_id = s_sensor_register_info_ptr->cur_id;
+	
+	printk("SENSOR: Sensor_SetTiming -> mode = %d,sensor_id=%d.\n", mode,cur_id);        
+       
+	if(0!=cur_id)
+		return 0;
+	
+	if(PNULL != s_sensor_info_ptr->resolution_tab_info_ptr[mode].sensor_reg_tab_ptr)
+	{
+	          // send register value to sensor
+		Sensor_SendRegTabToSensor(&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
+
+		s_sensor_mode[Sensor_GetCurId()]=mode;
+	}
+	else
+	{
+		SENSOR_PRINT("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
+	}       
+	return SENSOR_SUCCESS;
+}
+
+PUBLIC int Sensor_CheckTiming(SENSOR_MODE_E mode)
+{
+	SENSOR_REG_TAB_INFO_T * sensor_reg_tab_info_ptr = &s_sensor_info_ptr->resolution_tab_info_ptr[mode];
+	uint32_t i = 0;
+	uint16_t data = 0;
+	uint32_t cur_id = s_sensor_register_info_ptr->cur_id;
+	int ret = SENSOR_SUCCESS;	
+	
+	printk("SENSOR: Sensor_CheckTiming -> mode = %d,sensor_id=%d.\n", mode,cur_id);      
+
+	if(0!=cur_id)
+		return 0;
+		
+	for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
+	{		
+		if((0x4202 == sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr)||(SENSOR_WRITE_DELAY == sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr))
+			continue;
+		data = Sensor_ReadReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr);
+		if(data != sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value)
+		{
+			ret = -1;
+			printk("SENSOR: Sensor_CheckTiming report error!.\n");      
+			break;
+		}
+	}		
+	printk("SENSOR: Sensor_CheckTiming return = %d.\n", ret);  
+	return ret;
+}
+
+/*****************************************************************************/
+//  Description:    This function is used to control flash
+//  Author:         Tim.Zhu
+//  Note:           
+/*****************************************************************************/
+PUBLIC uint32_t Sensor_SetFlash(uint32_t flash_mode)
+{
+	uint32_t reg_val = 0;
+	
+	printk("Sensor_SetFlash:flash_mode=%d .\n",flash_mode);
+	//printk("Sensor_SetFlash:PIN_CTL_GPIO135->0x%x,PIN_CTL_GPIO144->0x%x .\n",_pard(PIN_CTL_GPIO135),_pard(PIN_CTL_GPIO144));
+
+	if(1 == flash_mode)
+	{
+		// low light
+		gpio_request(135,"gpio135");
+		gpio_direction_output(135,1);
+		gpio_set_value(135,1);
+		gpio_request(144,"gpio144");
+		gpio_direction_output(144,0);
+		gpio_set_value(144,0); 
+	}
+	else if (2 == flash_mode)
+	{
+		// high light
+		gpio_request(135,"gpio135");
+		gpio_direction_output(135,1);
+		gpio_set_value(135,1);
+
+		gpio_request(144,"gpio144");
+		gpio_direction_output(144,1);
+		gpio_set_value(144,1); 
+	}
+	else
+	{
+		// close the light 
+		gpio_request(135,"gpio135");
+		gpio_direction_output(135,0);
+		gpio_set_value(135,0);
+		gpio_request(144,"gpio144");
+		gpio_direction_output(144,0);
+		gpio_set_value(144,0);
+	}
+
+	return 0;
 }
 
 /**---------------------------------------------------------------------------*

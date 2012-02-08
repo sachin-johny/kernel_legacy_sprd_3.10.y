@@ -52,7 +52,10 @@ extern     "C"
 #define CMD_PARAM2 0x3026
 #define CMD_PARAM3 0x3027
 #define CMD_PARAM4 0x3028
- 
+
+
+static uint32_t  g_flash_mode_en = 0;
+
 /**---------------------------------------------------------------------------*
  **                     Local Function Prototypes                              *
  **---------------------------------------------------------------------------*/
@@ -74,15 +77,18 @@ LOCAL uint32_t _ov5640_BeforeSnapshot(uint32_t param);
 LOCAL uint32_t _ov5640_check_image_format_support(uint32_t param); 
 LOCAL uint32_t _ov5640_pick_out_jpeg_stream(uint32_t param);
 LOCAL uint32_t _ov5640_after_snapshot(uint32_t param);
+LOCAL uint32_t _ov540_flash(uint32_t param);
 LOCAL uint32_t _ov5640_GetExifInfo(uint32_t param);
 LOCAL uint32_t _ov5640_ExtFunc(uint32_t ctl_param);
 
 //640X480 YUV 
 LOCAL const SENSOR_REG_T ov5640_640X480[]=
 {
+    {0x4202,0x0f},////kenxu add 20120207 for stream off
+    {SENSOR_WRITE_DELAY, 0x64},//delay 100ms
     {0x3103, 0x11},
     {0x3008, 0x82},
-    {SENSOR_WRITE_DELAY, 0x20},//delay 100ms     
+    {SENSOR_WRITE_DELAY, 0x20},//delay 32ms     
     {0x3008, 0x42},
     {0x3103, 0x03},
     {0x3017, 0xff},
@@ -412,6 +418,7 @@ LOCAL const SENSOR_REG_T ov5640_640X480[]=
     {0x3a1f, 0x14},
     {0x3503 , 0x00},
     {0x3008, 0x02},
+    {0x4202,0x00},//kenxu add 20120207 for stream on
 //    {0x3031, 0x08}, //kenxu add 20120201 for external 1.5v dvdd @ 2.8v DOVDD
     //if register:0x3035 is setted 0x21,the frame rate is 15fps
     //if not ,the frame rate is 15fps
@@ -420,11 +427,12 @@ LOCAL const SENSOR_REG_T ov5640_common_init[]=
 {
       {0x3103, 0x11},	// sysclk from pad
       {0x3008, 0x82},	// software reset
-      //sleep 5ms
+      {SENSOR_WRITE_DELAY, 0x20},//delay 100ms  
       {0x3008, 0x42},	// software power down
       {0x3103, 0x03},	// sysclk from pll
       {0x3017, 0xff},	// Frex, Vsync, Href, PCLK, D[9:6] output
       {0x3018, 0xff},	// D[5:0], GPIO[1:0] output
+      {0x3031, 0x08}, //kenxu add 20120201 for external 1.5v dvdd @ 2.8v DOVDD
       {0x3034, 0x1a},
       {0x3035, 0x11},//0x11-->30fps; 0x21-->15fps
       {0x3036, 0x46},
@@ -695,6 +703,8 @@ LOCAL const SENSOR_REG_T ov5640_640X480_new[]=
 //1280X960  YUV   Mode
 LOCAL const SENSOR_REG_T ov5640_1280X960[] =
 {
+    {0x4202,0x0f},////kenxu add 20120207 for stream off
+    {SENSOR_WRITE_DELAY, 0x64},//delay 100ms
     {0x3035, 0x11},
     {0x3036, 0x69},
     {0x3c07, 0x07},
@@ -732,12 +742,15 @@ LOCAL const SENSOR_REG_T ov5640_1280X960[] =
     {0x3002, 0x00},
     {0x3006, 0xff},
     {0x4713, 0x02},
-    {0x3824, 0x04}
+    {0x3824, 0x04},
+    {0x4202,0x00}////kenxu add 20120207 for stream on
 }; 
  
 //1600X1200  YUV   Mode
 LOCAL const SENSOR_REG_T ov5640_1600X1200[] =
 {
+    {0x4202,0x0f},////kenxu add 20120207 for stream off
+    {SENSOR_WRITE_DELAY, 0x64},//delay 100ms
     {0x3035, 0x11},
     {0x3036, 0x69},
     {0x3c07, 0x07},
@@ -775,12 +788,15 @@ LOCAL const SENSOR_REG_T ov5640_1600X1200[] =
     {0x3002, 0x00},
     {0x3006, 0xff},
     {0x4713, 0x02},
-    {0x3824, 0x04}
+    {0x3824, 0x04},
+    {0x4202,0x00}////kenxu add 20120207 for stream on
 } ; 
 
 //20480X1536  JPG   Mode
 LOCAL const SENSOR_REG_T ov5640_2048X1536[] =
 {
+    {0x4202,0x0f},////kenxu add 20120207 for stream off
+    {SENSOR_WRITE_DELAY, 0x64},//delay 100ms
     {0x3035, 0x11},
     {0x3036, 0x69},
     {0x3c07, 0x07},
@@ -818,12 +834,15 @@ LOCAL const SENSOR_REG_T ov5640_2048X1536[] =
     {0x3002, 0x00},
     {0x3006, 0xff},
     {0x4713, 0x02},
-    {0x3824, 0x04}
+    {0x3824, 0x04},
+    {0x4202,0x00},////kenxu add 20120207 for stream on
 };
 
 //2592X1944  JPG   Mode
 LOCAL const SENSOR_REG_T ov5640_2592X1944[] =
 {
+    {0x4202,0x0f},////kenxu add 20120207 for stream off
+    {SENSOR_WRITE_DELAY, 0x64},//delay 100ms
     {0x3035, 0x11},
     {0x3036, 0x69},
     {0x3c07, 0x07},
@@ -861,7 +880,8 @@ LOCAL const SENSOR_REG_T ov5640_2592X1944[] =
     {0x3002, 0x00},
     {0x3006, 0xff},
     {0x4713, 0x02},
-    {0x3824, 0x04}
+    {0x3824, 0x04},
+    {0x4202,0x00}////kenxu add 20120207 for stream on
 };
 
 LOCAL SENSOR_REG_TAB_INFO_T s_ov5640_resolution_Tab_YUV[]=
@@ -931,9 +951,8 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_ov5640_ioctl_func_tab =
 
     _ov5640_BeforeSnapshot,
     _ov5640_after_snapshot,
+    _ov540_flash,
     PNULL,
-    PNULL,
-
     PNULL,
     PNULL,
     PNULL,
@@ -2097,6 +2116,14 @@ LOCAL uint32_t _ov5640_BeforeSnapshot(uint32_t param)
 		return SENSOR_SUCCESS;
 	}
 
+	printk("set flash on beforeSnapShot, g_flash_mode = %d \n", g_flash_mode_en);
+	if(g_flash_mode_en)
+	{
+		//Sensor_SetFlash(0);
+		Sensor_SetFlash(1);
+		g_flash_mode_en = 0;
+	}
+	
 	Sensor_WriteReg(0x3503,0x07);
 
 	ret_h = ret_m = ret_l = 0;
@@ -2277,6 +2304,20 @@ LOCAL uint32_t _ov5640_after_snapshot(uint32_t param)
 	Sensor_SetMode(param);
 
 	return SENSOR_SUCCESS;
+}
+
+LOCAL uint32_t _ov540_flash(uint32_t param)
+{
+	printk("_ov540_flash:param=%d .\n",param);
+
+	if(param)
+	{
+		/* enable flash, disable in _ov5640_BeforeSnapshot */
+		g_flash_mode_en = param;
+	}
+	Sensor_SetFlash(param);
+
+	printk("_ov540_flash:end .\n");
 }
 
 /******************************************************************************/
