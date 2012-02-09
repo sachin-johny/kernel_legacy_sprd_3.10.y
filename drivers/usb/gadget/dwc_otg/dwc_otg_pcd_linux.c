@@ -604,6 +604,12 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 	} else {
 	//	dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
 	//	dwc_otg_pcd_stop(d->pcd);
+		/*
+		 *this is soft disconnct, and maybe the timer started
+		 *by plugin still work, need cancel this timer like plugout
+		 */
+		if(timer_pending(&d->cable_timer))
+			del_timer(&d->cable_timer);
 		__udc_shutdown();
 	}
 	spin_unlock(&udc_lock);
