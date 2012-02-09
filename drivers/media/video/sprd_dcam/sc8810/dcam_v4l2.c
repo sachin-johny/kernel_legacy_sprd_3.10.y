@@ -2034,7 +2034,20 @@ static int close(struct file *file)
 		Sensor_Ioctl(SENSOR_IOCTL_FLASH,0);
 		printk("close the flash \n");
 	}
+	
+	//wxz20120209: close the dcam and sensor before free fh. Because the dcam interrupt will use the fh.
+	if(0 == s_test_camera_fail)
+	{
+		//close sensor       
+		Sensor_Close();
+		DCAM_V4L2_PRINT("V4L2: OK to close sensor.\n");
 
+		//close dcam
+		dcam_close();
+		msleep(100);
+	}
+	DCAM_V4L2_PRINT("V4L2: OK to close dcam.\n");
+	
 	videobuf_stop(&fh->vb_vidq);
 	videobuf_mmap_free(&fh->vb_vidq);
 
@@ -2045,16 +2058,6 @@ static int close(struct file *file)
 	mutex_unlock(&dev->mutex);
 
 	dprintk(dev, 1, "close called (minor=%d, users=%d)\n",minor, dev->users);
-	if(0 == s_test_camera_fail)
-	{
-		//close sensor       
-		Sensor_Close();
-		DCAM_V4L2_PRINT("V4L2: OK to close sensor.\n");
-
-		//close dcam
-		dcam_close();
-	}
-	DCAM_V4L2_PRINT("V4L2: OK to close dcam.\n");
 
 	return 0;
 }
