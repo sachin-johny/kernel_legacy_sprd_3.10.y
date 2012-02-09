@@ -25,6 +25,12 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#ifdef CONFIG_CPU_FREQ
+#include <linux/cpufreq.h>
+//#include <linux/notifier.h>
+
+#endif
+
 #include <mach/pm_devices.h>
 #include <mach/test.h>
 #include <mach/dma.h>
@@ -1336,6 +1342,59 @@ static void sc8800g2_wdt_resume (struct early_suspend* es)
 #endif
 
 
+#if CONFIG_CPU_FREQ
+
+
+struct notifier_block freq_transition;
+struct notifier_block freq_policy;
+
+
+
+static int
+driver_test_freq_transition(struct notifier_block *nb, unsigned long val,
+			 void *data){
+	struct cpufreq_freqs *f = data;	
+	switch(val){
+      case CPUFREQ_PRECHANGE:
+	  	printk("cpufreq notify: CPUFREQ_PRECHANGE\n");
+		printk("cpufreq notify: driver_test_freq_transition\n");
+	    printk("cpufreq notify: old_freq:%u, new_freq:%u\n", f->old, f->new);   
+        printk("cpufreq notify: driver_test_freq_transition\n");
+		break;
+	  case CPUFREQ_POSTCHANGE:
+	  	printk("cpufreq notify: CPUFREQ_POSTCHANGE\n");
+		printk("cpufreq notify: driver_test_freq_transition\n");
+	    printk("cpufreq notify: old_freq:%u, new_freq:%u\n", f->old, f->new);   
+        printk("cpufreq notify: driver_test_freq_transition\n");
+		break;
+	}
+	return 0;
+}
+
+static int
+driver_test_freq_policy(struct notifier_block *nb, unsigned long val,
+			 void *data){
+	struct cpufreq_policy *policy = data;
+
+	switch (val) {
+	  case CPUFREQ_ADJUST:
+	  	printk("cpufreq nofity: CPUFREQ_ADJUST\n");
+		break;
+	  case CPUFREQ_INCOMPATIBLE:
+		printk("cpufreq nofity: CPUFREQ_INCOMPATIBLE\n");
+		break;
+	  case CPUFREQ_NOTIFY:
+		printk("cpufreq nofity: CPUFREQ_NOTIFY\n");
+		break;
+	}
+	return 0;
+
+
+}
+
+#endif
+
+
 struct sprd_pm_suspend sprd_suspend;
 
 static int sc8800g2_sprd_suspend (struct device *pdev, pm_message_t state)
@@ -1375,6 +1434,12 @@ static int __init omap_wdt_init(void)
 	register_early_suspend(&early_suspend);
 #endif
 
+#if CONFIG_CPU_FREQ
+   freq_transition.notifier_call = driver_test_freq_transition;
+   freq_policy.notifier_call = driver_test_freq_policy;
+   cpufreq_register_notifier(&freq_transition, CPUFREQ_TRANSITION_NOTIFIER);
+   cpufreq_register_notifier(&freq_policy, CPUFREQ_POLICY_NOTIFIER);
+#endif
 	sprd_suspend.suspend = sc8800g2_sprd_suspend;
 	sprd_suspend.resume  = sc8800g2_sprd_resume;
 	/* !!!!!!! please set this parameter correctly. */
