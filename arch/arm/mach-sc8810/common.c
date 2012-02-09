@@ -746,4 +746,10 @@ void sprd_ramconsole_reserve_sdram(void)
         reserve_bootmem(RAM_CONSOLE_START, RAM_CONSOLE_SIZE, 0);
 }
 
+void sprd_pmem_reserve_sdram(void)
+{
+        reserve_bootmem(SPRD_PMEM_BASE, SPRD_IO_MEM_SIZE, 0);
+}
+
+
 #endif
