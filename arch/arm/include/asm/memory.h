@@ -257,10 +257,14 @@ static inline __deprecated void *bus_to_virt(unsigned long x)
 #include <linux/numa.h>
 
 #define arch_pfn_to_nid(pfn)	PFN_TO_NID(pfn)
+#ifndef arch_local_page_offset
 #define arch_local_page_offset(pfn, nid) LOCAL_MAP_NR((pfn) << PAGE_SHIFT)
+#endif
 
+#ifndef virt_to_page
 #define virt_to_page(kaddr)					\
 	(ADDR_TO_MAPBASE(kaddr) + LOCAL_MAP_NR(kaddr))
+#endif
 
 #define virt_addr_valid(kaddr)	(KVADDR_TO_NID(kaddr) < MAX_NUMNODES)
 

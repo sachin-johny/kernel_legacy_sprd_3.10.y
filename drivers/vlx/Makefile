@@ -102,7 +102,7 @@ obj-$(CONFIG_VLX_MONITORING) += perfmonitor.o
 
 
 #VLX Information
-obj-$(CONFIG_VINFO)		+= vinfo.o
+#obj-$(CONFIG_VINFO)		+= vinfo.o
 
 #VLX user mode virtual driver proxy driver
 obj-$(CONFIG_VLX_UMP)		+= vlx-ump.o
