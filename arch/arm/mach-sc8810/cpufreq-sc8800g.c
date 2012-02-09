@@ -28,7 +28,7 @@
 
 static struct proc_dir_entry *sprd_cpufreq_proc_entry;
 static DEFINE_MUTEX(sprd_cpufreq_mutex);
-int cpufreq_bypass = 0;
+int cpufreq_bypass = 1;
 struct task_struct *cpufreq_thread;
 
 
@@ -430,7 +430,7 @@ static int sprd_cpufreq_keep_max(void){
            return 0;
     }
 #endif
-    if(cpufreq_thread->state != TASK_RUNNING){
+    if(!cpufreq_bypass && (cpufreq_thread->state!=TASK_RUNNING)){
 	   DBG("%s, wake_up_process cpufreq_thread\n", __func__);	
        wake_up_process(cpufreq_thread);
 	}else{
@@ -471,7 +471,7 @@ static ssize_t sprd_cpufreq_read(struct file* file, char* buf, size_t count, lof
 static ssize_t sprd_cpufreq_write(struct file* file, const char* buf, size_t size, loff_t* ppos){
         
 	char cmd[3];
-        
+    unsigned long cpufreq = 0;
         
 	if(*ppos){
 	     printk("============= *ppos=%d ================\n", *ppos);
@@ -495,6 +495,10 @@ static ssize_t sprd_cpufreq_write(struct file* file, const char* buf, size_t siz
 			 //printk("touch event, keep max freq \n");
 		 	 //sprd_cpufreq_keep_max( );
 	         break;
+		 case 'd':
+			  cpufreq = get_mcu_clk();
+			  printk("current cpu frequency:%uHz\n", cpufreq);
+			  break;
 	     default :
 	          printk("!!!! invalid command !!!!!");
         }		   
@@ -617,13 +621,13 @@ static int sc8800g_cpufreq_set_target(struct cpufreq_policy *policy,
 		  DBG("target->clk_mcu_mhz:%uMHz, target->vdd_mcu_mv:%umv.\n", target->clk_mcu_mhz, target->vdd_mcu_mv );
 		  DBG("freqs.new:%uKHz.\n", freqs.new); 	 
 		  ret = clk_set_rate(freqs.new, target->vdd_mcu_mv);	  
-		  cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+		  cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);		  
+		  printk("cpufreq: Set actual frequency %lukHz\n", clk_get_rate() / 1000);
 	   }
 	   	mutex_unlock(&drv_state.lock);
 	}
 	
 	DBG("current_cfg.clk_mcu_mhz:%dMHz, current_cfg.vdd_mcu_mv:%dmv\n", current_cfg.clk_mcu_mhz, current_cfg.vdd_mcu_mv);
-	printk("cpufreq: Set actual frequency %lukHz\n", clk_get_rate() / 1000);
 
 	return 0;
 }
