@@ -1522,20 +1522,23 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
         w_cnt = 0;
 
 	if(3 == g_dcam_info.mode)
-	{		
-		while(1)
-		{			 
-			if(0!=Sensor_CheckTiming(g_dcam_info.snapshot_m))
-			{							
-				if(w_cnt>2)
-						break;
-				Sensor_SetTiming(g_dcam_info.snapshot_m);
-				w_cnt++;			
-				printk("sensor reg write error,w_cnt=%d!.\n",w_cnt);
+	{
+		if(g_dcam_info.snapshot_m != g_dcam_info.preview_m)
+		{
+			while(1)
+			{			 
+				if(0!=Sensor_CheckTiming(g_dcam_info.snapshot_m))
+				{							
+					if(w_cnt>2)
+							break;
+					Sensor_SetTiming(g_dcam_info.snapshot_m);
+					w_cnt++;			
+					printk("sensor reg write error,w_cnt=%d!.\n",w_cnt);
+				}
+				else
+					break;
+				
 			}
-			else
-				break;
-			
 		}
 	}
 
@@ -1585,7 +1588,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.vflip_param = 0;
 	g_dcam_info.previewmode_param = 8;
 	g_dcam_info.ev_param = 8;
-	g_dcam_info.focus_param = 0;
+	//g_dcam_info.focus_param = 0;
 	g_dcam_info.power_freq = 8;
 
 	//stop dcam

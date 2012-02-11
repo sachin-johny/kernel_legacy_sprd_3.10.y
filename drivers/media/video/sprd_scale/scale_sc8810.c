@@ -1129,11 +1129,14 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
 			break;
 		}
 		case ISP_PATH_INPUT_ENDIAN:
-		{
-			ISP_ENDIAN_T endian = *(ISP_ENDIAN_T*)param;
+		{			
+			uint32_t endian_mode = *(uint32_t*)param;
+			ISP_ENDIAN_T endian;
+			endian.endian_y = endian_mode;
+			endian.endian_uv = endian_mode;
 			p_path->input_frame_endian = endian;
-			p_isp_reg->endian_sel_u.mBits.review_input_endian_y = endian.endian_y;
-			p_isp_reg->endian_sel_u.mBits.review_input_endian_uv = endian.endian_uv;
+			p_isp_reg->endian_sel_u.mBits.review_input_endian_y = endian_mode;
+			p_isp_reg->endian_sel_u.mBits.review_input_endian_uv = endian_mode;
 			break;
 		}
 		default:
