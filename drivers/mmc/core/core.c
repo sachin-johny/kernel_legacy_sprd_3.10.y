@@ -1473,6 +1473,16 @@ int mmc_pm_notify(struct notifier_block *notify_block,
 
 	return 0;
 }
+
+
+int mmc_auto_suspend(struct mmc_host *host){
+    int err = 0;
+    if(host->ops->auto_suspend)
+       err = host->ops->auto_suspend(host);
+    pr_debug("mmc_auto_suspend done, err:%d\n", err);
+    return err;
+}
+EXPORT_SYMBOL(mmc_auto_suspend);
 #endif
 
 #ifdef CONFIG_MMC_EMBEDDED_SDIO

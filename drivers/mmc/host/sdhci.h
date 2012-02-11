@@ -293,6 +293,7 @@ struct sdhci_host {
 	struct tasklet_struct	finish_tasklet;
 
 	struct timer_list	timer;		/* Timer for timeouts */
+	struct timer_list	auto_suspend_timer;		/* Timer for auto suspend */
 
 
 	unsigned long		private[0] ____cacheline_aligned;

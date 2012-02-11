@@ -106,6 +106,7 @@ struct mmc_host_ops {
 	void	(*set_ios)(struct mmc_host *host, struct mmc_ios *ios);
 	int	(*get_ro)(struct mmc_host *host);
 	int	(*get_cd)(struct mmc_host *host);
+	int	(*auto_suspend)(struct mmc_host *host);
 
 	void	(*enable_sdio_irq)(struct mmc_host *host, int enable);
 
@@ -279,6 +280,7 @@ extern void mmc_power_up(struct mmc_host *host);//wong
 
 extern int mmc_suspend_host(struct mmc_host *);
 extern int mmc_resume_host(struct mmc_host *);
+extern int mmc_auto_suspend(struct mmc_host *);
 
 extern void mmc_power_save_host(struct mmc_host *host);
 extern void mmc_power_restore_host(struct mmc_host *host);

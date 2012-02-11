@@ -18,13 +18,13 @@
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
 #include <linux/scatterlist.h>
-
+#include <linux/pm.h>
 #include <linux/leds.h>
-
 #include <linux/slab.h>
-
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include <linux/mmc/sd.h>
+#include <linux/mmc/mmc.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <mach/ldo.h>
@@ -40,6 +40,7 @@
 #include "sdhci.h"
 #include "sprdmci.h"
 
+#define MMC_AUTO_SUSPEND 
 #define DRIVER_NAME "sdhci"
 #define KERN_DEBUG " "
 
@@ -51,6 +52,9 @@
 #define SDHCI_USE_LEDS_CLASS
 #endif
 
+#ifdef MMC_AUTO_SUSPEND
+#define PM_AUTO_SUSPEND_TIMEOUT 20
+#endif
 static unsigned int debug_quirks = 0;
 
 #ifdef HOT_PLUG_SUPPORTED	
@@ -63,6 +67,9 @@ static void sdhci_finish_data(struct sdhci_host *);
 
 static void sdhci_send_command(struct sdhci_host *, struct mmc_command *);
 static void sdhci_finish_command(struct sdhci_host *);
+static void sdhci_deselect_card(struct sdhci_host *host);
+extern void mmc_power_off(struct mmc_host* mmc);
+static void sdhci_auto_suspend_host(unsigned long data);
 
 static void sdhci_dumpregs(struct sdhci_host *host)
 {
@@ -1169,6 +1176,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	spin_lock_irqsave(&host->lock, flags);
 //if card broken, send no commands,
 	if( (mmc->card) && (mmc->card->removed) ){
+	    printk("sdhci_request:: card was removed\n");
 	    if(mrq->data){
 	        mrq->data->error = -ETIMEDOUT;
 	    }else if(mrq->cmd){
@@ -1178,11 +1186,17 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	    host->cmd = NULL;
 	    host->data = NULL;
 	    mmc_request_done(mmc, mrq);
+#ifdef MMC_AUTO_SUSPEND
+	    del_timer(&host->auto_suspend_timer);
+#endif
 	    wake_unlock(&sdhci_suspend_lock);
 	    spin_unlock_irqrestore(&host->lock, flags);
 	    return;
 	}
 //if card broken, send no commands, 
+#ifdef MMC_AUTO_SUSPEND
+	del_timer(&host->auto_suspend_timer);
+#endif
 
 	WARN_ON(host->mrq != NULL);
 
@@ -1319,11 +1333,21 @@ out:
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+static int sdhci_auto_suspend(struct mmc_host* host_mmc){
+	struct sdhci_host *host;
+	host = mmc_priv(host_mmc);
+	if(host_mmc->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME){
+	   return 0;
+	}
+	mod_timer(&host->auto_suspend_timer, jiffies + PM_AUTO_SUSPEND_TIMEOUT * HZ);
+	return 0;
+}
 static const struct mmc_host_ops sdhci_ops = {
 	.request	= sdhci_request,
 	.set_ios	= sdhci_set_ios,
 	.get_ro		= sdhci_get_ro,
 	.enable_sdio_irq = sdhci_enable_sdio_irq,
+	.auto_suspend   = sdhci_auto_suspend,
 };
 
 /*****************************************************************************\
@@ -1384,6 +1408,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	 * The controller needs a reset of internal state machines
 	 * upon error conditions.
 	 */
+	if(mrq){
 	if (!(host->flags & SDHCI_DEVICE_DEAD) &&
 		(mrq->cmd->error ||
 		 (mrq->data && (mrq->data->error ||
@@ -1439,7 +1464,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 			WEIRD_TIMEOUT-count);
 		}
 	}
-
+        }
 	host->mrq = NULL;
 	host->cmd = NULL;
 	host->data = NULL;
@@ -1467,7 +1492,7 @@ static void sdhci_timeout_timer(unsigned long data)
 
 	spin_lock_irqsave(&host->lock, flags);
 	if(host->mmc->card)
-           host->mmc->card->removed = 1;//wong, from msm
+           host->mmc->card->removed = 1;//from msm
 	if (host->mrq) {
 		printk(KERN_ERR "%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
@@ -1490,6 +1515,36 @@ static void sdhci_timeout_timer(unsigned long data)
 	spin_unlock_irqrestore(&host->lock, flags);
 }
 
+void sdhci_deselect_card(struct sdhci_host *host){
+       struct mmc_command cmd;
+       memset(&cmd, 0, sizeof(struct mmc_command) );
+       cmd.opcode = MMC_SELECT_CARD;
+       cmd.arg = 0;
+       cmd.flags = MMC_RSP_NONE | MMC_CMD_AC;
+       cmd.data = NULL;
+       sdhci_writel(host, cmd.arg, SDHCI_ARGUMENT);
+       sdhci_writew(host, SDHCI_MAKE_CMD(cmd.opcode, SDHCI_CMD_RESP_NONE), SDHCI_COMMAND);
+}
+#ifdef MMC_AUTO_SUSPEND
+static void sdhci_auto_suspend_host(unsigned long data){
+	struct sdhci_host *host;
+	struct mmc_host *host_mmc;
+	host = (struct sdhci_host*)data;
+	host_mmc = host->mmc;
+        printk("=== mmc: no requests in %ds, suspend host ===\n", PM_AUTO_SUSPEND_TIMEOUT);
+	if(host_mmc->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME){
+	   printk("=== sdio host already been suspended ===\n");
+	   return;
+	}
+        sdhci_deselect_card(host);
+        host->mmc->card->state &= ~MMC_STATE_HIGHSPEED;
+	mmc_power_off(host_mmc);
+        host_mmc->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
+        del_timer(&host->auto_suspend_timer);
+	printk("=== mmc: host auto-suspend done ===\n");
+	return;
+}
+#endif
 /*****************************************************************************\
  *                                                                           *
  * Interrupt handling                                                        *
@@ -1501,10 +1556,12 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	BUG_ON(intmask == 0);
 
 	if (!host->cmd) {
+		if(intmask != 1){
 		printk(KERN_ERR "%s: Got command interrupt 0x%08x even "
 			"though no command operation was in progress.\n",
 			mmc_hostname(host->mmc), (unsigned)intmask);
 		sdhci_dumpregs(host);
+		}
 		return;
 	}
 
@@ -1792,7 +1849,7 @@ int sdhci_resume_host(struct sdhci_host *host)
 #ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
 #endif	
-        printk("sdhci_resume_host, done\n");//wong 
+        printk("sdhci_resume_host, done\n"); 
 	return 0;
 }
 
@@ -2051,7 +2108,9 @@ int sdhci_add_host(struct sdhci_host *host)
 		sdhci_tasklet_finish, (unsigned long)host);
 
 	setup_timer(&host->timer, sdhci_timeout_timer, (unsigned long)host);
-
+#ifdef MMC_AUTO_SUSPEND	
+	setup_timer(&host->auto_suspend_timer, sdhci_auto_suspend_host, (unsigned long)host);
+#endif
 	ret = request_irq(host->irq, sdhci_irq, IRQF_SHARED,
 		mmc_hostname(mmc), host);
 	if (ret)
