@@ -14,10 +14,15 @@
 
 static const unsigned int sprd_keymap[] = {
 	// 0 row
-	KEYVAL(0, 0,	ANDROID_KEY_VOLUME_DOWN),   
+	KEYVAL(0, 0,	ANDROID_KEY_VOLUME_DOWN),
 	KEYVAL(0, 1,	ANDROID_KEY_CAMERA),
 	// 1 row
-	KEYVAL(1, 0,	ANDROID_KEY_VOLUME_UP),       
+	KEYVAL(1, 0,	ANDROID_KEY_VOLUME_UP),
+	KEYVAL(1, 1,	ANDROID_KEY_MENU),
+	// 2 row
+	KEYVAL(2, 0,	ANDROID_KEY_BACK),
+	// 3 row
+	KEYVAL(3, 0,	ANDROID_KEY_HOME),
 };
 
 int sprd_3rdparty_gpio_key0 = 163;
