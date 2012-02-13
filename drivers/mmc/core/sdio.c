@@ -547,11 +547,20 @@ static int mmc_sdio_resume(struct mmc_host *host)
 	return err;
 }
 
+static void mmc_sdio_power_restore(struct mmc_host *host)
+{
+	host->card->state &= ~MMC_STATE_HIGHSPEED;
+	mmc_claim_host(host);
+	mmc_sdio_init_card(host, host->ocr, host->card, 0);
+	mmc_release_host(host);
+}
+
 static const struct mmc_bus_ops mmc_sdio_ops = {
 	.remove = mmc_sdio_remove,
 	.detect = mmc_sdio_detect,
 	.suspend = mmc_sdio_suspend,
 	.resume = mmc_sdio_resume,
+	.power_restore = mmc_sdio_power_restore,
 };
 
 
