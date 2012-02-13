@@ -116,7 +116,7 @@ static struct resource sprd_kpad_resources[] = {
 
 extern struct sprd_kpad_platform_data sprd_kpad_data;
 static struct platform_device sprd_kpad_device = {
-        .name           = "qwerty",
+        .name           = "sprd-keypad",
         .id             = -1,
         .num_resources  = ARRAY_SIZE(sprd_kpad_resources),
         .resource       = sprd_kpad_resources,

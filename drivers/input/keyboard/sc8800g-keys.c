@@ -48,7 +48,7 @@
 #include <mach/eic.h>
 #endif
 
-#define DRV_NAME        	"qwerty"
+#define DRV_NAME        	"sprd-keypad"
 
 #define INT_MASK_STS						(SPRD_INTCV_BASE + 0x0000)
 #define INT_RAW_STS						(SPRD_INTCV_BASE + 0x0004)
