@@ -551,6 +551,7 @@ static void mmc_sdio_power_restore(struct mmc_host *host)
 {
 	host->card->state &= ~MMC_STATE_HIGHSPEED;
 	mmc_claim_host(host);
+	mmc_power_up(host);
 	mmc_sdio_init_card(host, host->ocr, host->card, 0);
 	mmc_release_host(host);
 }

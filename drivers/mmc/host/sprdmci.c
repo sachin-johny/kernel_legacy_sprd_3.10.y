@@ -711,7 +711,6 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_data *data)
 	BUG_ON(data->blksz * data->blocks > 524288);
 	BUG_ON(data->blksz > host->mmc->max_blk_size);
 	BUG_ON(data->blocks > 65535);
-
 	host->data = data;
 	host->data_early = 0;
 
@@ -1032,9 +1031,8 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	int div;
 	u16 clk;
 	unsigned long timeout;
-
-	if (clock == host->clock)
-		return;
+	
+	pr_debug("%s, host->clock:%u, clock:%u\n", __func__, host->clock, clock);
 
 	if (host->ops->set_clock) {
 		host->ops->set_clock(host, clock);
@@ -1042,10 +1040,14 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			return;
 	}
 
-	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
+	if (clock == host->clock){
+		return;
+	}
 
-	if (clock == 0)
+	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
+	if (clock == 0){
 		goto out;
+	}
 
 	for (div = 1;div < 256;div *= 2) {
 		if ((host->max_clk / div) <= clock)
@@ -1479,7 +1481,6 @@ static void sdhci_tasklet_finish(unsigned long param)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_request_done(host->mmc, mrq);
-
 	wake_unlock(&sdhci_suspend_lock);
 }
 
@@ -1539,6 +1540,7 @@ static void sdhci_auto_suspend_host(unsigned long data){
         sdhci_deselect_card(host);
         host->mmc->card->state &= ~MMC_STATE_HIGHSPEED;
 	mmc_power_off(host_mmc);
+	
         host_mmc->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
         del_timer(&host->auto_suspend_timer);
 	printk("=== mmc: host auto-suspend done ===\n");
@@ -2150,6 +2152,7 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	mmiowb();
 
+        mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	mmc_add_host(mmc);
 
 	printk(KERN_INFO "%s: SDHCI controller on %s [%s] using %s\n",
