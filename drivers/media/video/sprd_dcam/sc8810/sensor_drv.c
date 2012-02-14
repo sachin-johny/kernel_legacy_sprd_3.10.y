@@ -977,7 +977,11 @@ int32_t Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 	}
 	return 0;
 }
-
+/*****************************************************************************/
+//  Description:    This function is used to read value to sensor register    
+//  Author:         Liangwen.Zhen
+//  Note:           
+/*****************************************************************************/
 uint16_t Sensor_ReadReg(uint16_t reg_addr)
 {
 	uint32_t  i=0;	
@@ -1819,7 +1823,15 @@ PUBLIC uint32_t Sensor_SetFlash(uint32_t flash_mode)
 
 	return 0;
 }
-
+/*****************************************************************************/
+//  Description:    This function is used to get i2c client
+//  Author:         Tim.Zhu
+//  Note:           
+/*****************************************************************************/
+PUBLIC struct i2c_client *Sensor_GetI2CClien(void)
+{
+	return this_client;
+}
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
  **---------------------------------------------------------------------------*/

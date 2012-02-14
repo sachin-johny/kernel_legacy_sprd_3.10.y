@@ -649,7 +649,20 @@ static void set_i2c_clk(struct sc8810_i2c *i2c,unsigned int freq)
 }
 void sc8810_i2c_set_clk(unsigned int id_nr, unsigned int freq)
 {
-    set_i2c_clk(sc8810_i2c_ctl[id_nr], freq);
+  //  set_i2c_clk(sc8810_i2c_ctl[id_nr], freq);
+  	unsigned int tmp;
+	
+	tmp=__raw_readl(sc8810_i2c_ctl[id_nr]->membase+I2C_CTL); 
+	__raw_writel(tmp&(~I2C_CTL_EN),sc8810_i2c_ctl[id_nr]->membase+I2C_CTL); //disable i2c module
+	tmp=__raw_readl(sc8810_i2c_ctl[id_nr]->membase+I2C_CTL); 
+
+	printk("I2C:sc8810_i2c_set_clk: disable i2c%d, i2c ctl:%x\n", id_nr, tmp);
+    	set_i2c_clk(sc8810_i2c_ctl[id_nr], freq);
+
+	tmp=__raw_readl(sc8810_i2c_ctl[id_nr]->membase+I2C_CTL); 
+	__raw_writel(tmp|I2C_CTL_EN,sc8810_i2c_ctl[id_nr]->membase+I2C_CTL); //enable i2c module	
+	tmp=__raw_readl(sc8810_i2c_ctl[id_nr]->membase+I2C_CTL); 	
+	printk("I2C:sc8810_i2c_set_clk: enable i2c%d, i2c ctl:%x\n", id_nr, tmp);
 }
 EXPORT_SYMBOL_GPL(sc8810_i2c_set_clk);
 

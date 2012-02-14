@@ -1496,7 +1496,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	init_sensor_parameters(priv);
 	init_dcam_parameters(priv);	
 
-	dcam_set_param();
+	//dcam_set_param();
 
 	if(0 != (ret = videobuf_streamon(&fh->vb_vidq)))
 	{
@@ -1506,18 +1506,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_is_first_irq = 1;
 	g_last_buf = 0xFFFFFFFF;
 	g_last_uv_buf = 0xFFFFFFFF;
-#if 0
-	for(j=0x3000;j<=0x30ff;j++)
-	{
-		data = Sensor_ReadReg(j);
-		printk("read: %x=%x.\n",j,data);
-	}
-	for(j=0x3800;j<=0x38ff;j++)
-	{
-		data = Sensor_ReadReg(j);
-		printk("read: %x=%x.\n",j,data);
-	}
-#endif
 
         w_cnt = 0;
 
