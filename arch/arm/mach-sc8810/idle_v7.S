@@ -113,16 +113,7 @@ ENTRY(sp_pm_collapse)
 	mrc     p15, 0, ip, c13, c0, 1 /* context ID */
 	stmia   r0!, {r1-r9, ip}
 
-#if 0
-	bl      l2x0_flush_all
-	dmb
-
-	ldr		r1, =0xe004c100	//disable l2cache
-	mov		r2, #0
-	str		r2, [r1]
-#else
 	bl		outer_cache_poweroff
-#endif
 
  	bl      v7_flush_dcache_all
 

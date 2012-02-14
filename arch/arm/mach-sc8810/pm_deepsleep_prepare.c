@@ -989,6 +989,8 @@ void timer_stats_print(void);
 
 
 static struct wake_lock messages_wakelock;
+static struct wake_lock idle_wakelock;
+
 
 u32 timer_int_counter0 = 0, timer_int_counter1 = 0;
 u32 tick_sched_timer_counter0 = 0, tick_sched_timer_counter1 = 0;
@@ -1017,6 +1019,9 @@ static u32 time0 = 0, time1 = 0, time_duration;
 static u32 sleep_time_local1 = 0, sleep_time_local2 = 0, sleep_duration;
 static u32 sleep_time_inidle_local1 = 0, sleep_time_inidle_local2 = 0, sleep_duration_inidle;
 
+static u32 arch_idle_local1 = 0, arch_idle_local2 = 0, arch_idle_total = 0, arch_idle_delta = 0;
+
+
 /* data for pm_suspend. */
 int sprd_suspend_enable = 1;
 u32 sprd_suspend_interval =  0;
@@ -1042,11 +1047,16 @@ static int print_thread(void *pdata)
 	sleep_duration_inidle = sleep_time_inidle_local2 - sleep_time_inidle_local1;
 
  
+	arch_idle_local1 = arch_idle_local2;
+	arch_idle_local2 = arch_idle_total;
+	arch_idle_delta = arch_idle_local2 - arch_idle_local1;
+
+
 	time0 = time1;
 	time1 = get_sys_cnt();
 	time_duration = (time1 - time0);
-	printk("\n####: thread period: [%d + %d]/[%d]\n", 
-		sleep_duration, sleep_duration_inidle, time_duration);
+	printk("\n####: thread period: [%d + %d + [arch_idle = %d]]/[%d]\n", 
+		sleep_duration, sleep_duration_inidle, arch_idle_delta, time_duration);
 	time_duration /= 1000;
 
 	uptime = get_sys_cnt();
@@ -1594,14 +1604,8 @@ int sc8800g_enter_deepsleep(int inidle)
 		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
 			sp_pm_reset_vector[i] = 0xe320f000; /* nop*/
 		}
-		sp_pm_reset_vector[SAVED_VECTOR_SIZE -16] = 0xe3031000; /* movw r1, #0x3000 */
-		sp_pm_reset_vector[SAVED_VECTOR_SIZE -15] = 0xe3481000; /* movt r1, #0x8000 */
-		sp_pm_reset_vector[SAVED_VECTOR_SIZE -14] = 0xe5912000; /* ldr r2, [r1] */
-		sp_pm_reset_vector[SAVED_VECTOR_SIZE -13] = 0xe3520000; /* cmp r2, #0 */
-		sp_pm_reset_vector[SAVED_VECTOR_SIZE -12] = 0xf57ff06f; /* isb sy */
-//		sp_pm_reset_vector[SAVED_VECTOR_SIZE -11] = 0x0320f003; /* wfieq */
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
 
-		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 3] = 0xE51FF000; /* ldr pc, 8 */
 		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = (sc8810_standby_exit_iram - 
 			sc8810_standby_iram + IRAM_START_PHY);
 		//sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = virt_to_phys(sc8800g_cpu_standby_end);
@@ -1689,9 +1693,28 @@ int sc8800g_enter_deepsleep(int inidle)
 EXPORT_SYMBOL(sc8800g_enter_deepsleep);
 #endif
 
+/*
+Disable deep sleep, system hold a wakelock 
+and nerver goes into deep sleep. 
+*/
+/*
+#define CONFIG_SC8810_NO_DEEP_SLEEP 1
+*/
+
+/* Enable deep idle, in idle thrad, system may goes into deep sleep mode. */
+/*
+#define CONFIG_SC8810_IDLE_DEEP 1
+*/
+
+/* Close some clock forcely to do some experiments. */
+/*
+#define CONFIG_SC8810_DEEP_IDLE_TEST 1
+*/
+
 int sprd_pm_suspend_check_enter(void);
 int sprd_pm_resume_check(void);
 
+int sprd_deep_idle_min_time = 2;
 
 int sc8810_idle_sleep(int inidle)
 {
@@ -1700,21 +1723,41 @@ int sc8810_idle_sleep(int inidle)
     int ret = 0;
 	int i;
 	unsigned long flags;
+	u32 timer_expiration_ms = 0;
 
-
+#ifdef CONFIG_SC8810_IDLE_DEEP
     status = sc8800g_get_clock_status();
-    if (status & DEVICE_AHB) {
+
+	timer_expiration_ms = jiffies_to_msecs(get_next_timer_interrupt(jiffies) -jiffies);
+	if ((timer_expiration_ms < sprd_deep_idle_min_time) || 
+			has_wake_lock(WAKE_LOCK_IDLE)) {
+
+		t0 = get_sys_cnt();
 		sp_arch_idle();
+		t1 = get_sys_cnt();
+		delta = t1 - t0;
+		arch_idle_total += delta;
 	}
-    else {
+	else {
+
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+    	REG_LOCAL_VALUE_DEF;
+		SAVE_GLOBAL_REG;
+		disable_audio_module();
+		disable_apb_module();
+		disable_ahb_module();
+#endif
+
+#ifdef CONFIG_CACHE_L2X0_310
+		__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);//l2cache power control, standby mode enable
+#endif
 		/* AHB_PAUSE */
 		val = __raw_readl(AHB_PAUSE);
 		val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
 		val |= (MCU_SYS_SLEEP_EN);
-
-#ifdef CONFIG_SC8810_IDLE_DEEP		
+		
 		/* enable MCU deep sleep, wangliwei, 2012-01-06. */
-		val |= (MCU_DEEP_SLEEP_EN);//go deepsleep when all PD auto poweroff en
+		val |= (MCU_DEEP_SLEEP_EN);
 		__raw_writel(val, AHB_PAUSE);
 
 		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
@@ -1726,15 +1769,59 @@ int sc8810_idle_sleep(int inidle)
 		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
 		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = (sc8810_standby_exit_iram - 
 			sc8810_standby_iram + IRAM_START_PHY);
-		sp_pm_collapse();
+		t0 = get_sys_cnt();
+		ret = sp_pm_collapse();
+		t1 = get_sys_cnt();
+		delta = t1 - t0;
+		arch_idle_total += delta;
+
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+		RESTORE_GLOBAL_REG;
+#endif
 		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
 			sp_pm_reset_vector[i] = saved_vector[i];
 		}
+
+		if (ret) {
+			cpu_init();
+		}
+		else {
+		}
 		outer_cache_poweron();
-#else
-		sp_arch_idle();
+	}
+#else /* !CONFIG_SC8810_IDLE_DEEP */
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+	if (get_sys_cnt() > 150000) {
+   		REG_LOCAL_VALUE_DEF;
+		SAVE_GLOBAL_REG;
+		disable_audio_module();
+		disable_apb_module();
+		disable_ahb_module();
 #endif
-   	}
+    val = __raw_readl(AHB_CTL0);
+    val &= ~(AHB_CTL0_SDIO0_EN|AHB_CTL0_SDIO1_EN);
+    __raw_writel(val, AHB_CTL0);
+
+#ifdef CONFIG_CACHE_L2X0_310
+	__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);//l2cache power control, standby mode enable
+#endif
+	outer_cache_poweroff();
+	t0 = get_sys_cnt();
+	sp_arch_idle();
+	t1 = get_sys_cnt();
+	delta = t1 - t0;
+	arch_idle_total += delta;
+
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+	RESTORE_GLOBAL_REG;
+#endif
+
+	outer_cache_poweron();
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+	}
+#endif
+
+#endif
     return ret;
 }
 EXPORT_SYMBOL(sc8810_idle_sleep);
@@ -1750,10 +1837,6 @@ static void nkidle(void)
 			val = os_ctx->idle(os_ctx);
 			if (0 == val) {
 #ifdef CONFIG_PM
-				/*
-				printk("###: Gonna sleep after %u ms.\n", 
-				jiffies_to_msecs(get_next_timer_interrupt(jiffies) -jiffies));
-				*/
 				sc8810_idle_sleep(1);
 #endif
 			}
@@ -2721,7 +2804,12 @@ int sc8800g_prepare_deep_sleep(void)
 
 	wake_lock_init(&messages_wakelock, WAKE_LOCK_SUSPEND,
 			"pm_message_wakelock");
-       init_pm_message();
+	wake_lock_init(&idle_wakelock, WAKE_LOCK_SUSPEND,
+			"idle_wakelock");
+#ifdef CONFIG_SC8810_NO_DEEP_SLEEP
+	wake_lock(&idle_wakelock);
+#endif
+	init_pm_message();
 
 #if defined(CONFIG_NKERNEL)
 	pm_idle = nkidle;
