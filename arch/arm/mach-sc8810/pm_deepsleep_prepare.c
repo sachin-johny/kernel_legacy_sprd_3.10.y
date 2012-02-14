@@ -1003,7 +1003,7 @@ u32 schedu_counter0 = 0, schedu_counter1 = 0;
 int sprd_irq_info_enable = 0;
 int sprd_thread_info_enable = 0;
 int sprd_statistic_info_enable = 0;
-int sprd_clock_info_enable = 0;
+int sprd_clock_info_enable = 1;
 int sprd_timer_info_enable = 0;
 int sprd_check_dsp_enable = 0;
 int sprd_check_gpio_enable = 0;
