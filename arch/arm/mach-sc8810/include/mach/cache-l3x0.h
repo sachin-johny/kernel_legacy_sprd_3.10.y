@@ -93,7 +93,7 @@ extern int sp_init_l3x0(void);
 #define CACHE_ASSOCI  ((0) << 16)
 #define CACHE_SHARED_INV_ENABLE  ((0) << 13)
 
-#define CACHE_EC_CONFIG ((1) << 12)
+#define CACHE_EC_CONFIG ((0) << 12)
 #define CACHE_STORE_BUFFER_LIMI_ENABLE ((1) << 11)
 #define CACHE_HIGH_PRIORITY_SO_DEV ((0) << 10)
 #define CACHE_FULL_LINE_ZERO_ENABLE ((0)<<0)
@@ -104,7 +104,7 @@ extern int sp_init_l3x0(void);
 #define TAG_RAM_SETUP_ACCESS_LATENCY (((0x1) & 0x7) << 0)
 
 #define DATA_RAM_WRITE_ACCESS_LATENCY (((0x1) & 0x7) << 8)
-#define DATA_RAM_READ_ACCESS_LATENCY (((0x1) & 0x7) << 4)
+#define DATA_RAM_READ_ACCESS_LATENCY (((0x0) & 0x7) << 4)
 #define DATA_RAM_SETUP_ACCESS_LATENCY (((0x1) & 0x7) << 0)
 
 #define AUX_VALUE (CACHE_EARLY_BRESP_ENABLE | CACHE_I_P_ENABLE | CACHE_D_P_ENABLE |CACHE_N_S_ACCESS \
