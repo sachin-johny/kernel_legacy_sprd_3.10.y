@@ -259,7 +259,7 @@ nk_sprd_mask_ana_irq(unsigned int irq)
 nk_sprd_unmask_ana_irq(unsigned int irq)
 {
 	int value = *(volatile*)(INTCV_INT_EN);
-	printk("linux nk_sprd_unmask_ana_irq int_enable = 0x%x\n",value );
+	printk("linux nk_sprd_unmask_ana_irq %d, int_enable = 0x%x\n", irq, value );
 	nkops.nk_xirq_trigger(irq, nkxpic_owner);	
 }
 

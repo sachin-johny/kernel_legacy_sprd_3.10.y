@@ -2698,6 +2698,11 @@ int sc8800g_prepare_deep_sleep(void)
     val |= (MCU_MPLL_EN);
     __raw_writel(val, GR_PCTL);
 
+	/* AHB_CTL0 */
+	val = __raw_readl(AHB_CTL0);
+	val &= ~AHB_CTL0_ROT_EN;
+	__raw_writel(val, AHB_CTL0);
+
     /* AHB_CTL1 */
 	val = __raw_readl(AHB_CTL1);
 	val |= (AHB_CTRL1_EMC_CH_AUTO_GATE_EN | AHB_CTRL1_EMC_AUTO_GATE_EN | 
