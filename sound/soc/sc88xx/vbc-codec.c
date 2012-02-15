@@ -820,7 +820,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
 #endif
             // ret = vbc_reset(codec);
             if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
-            if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
+            if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone            
             if (!speaker_muted) vbc_amplifier_enable(true, "vbc_soft_ctrl"); // unMute speaker
             return ret < 0 ? -2 : ret;
         case VBC_CODEC_POWER:
@@ -1216,10 +1216,10 @@ do { \
 #elif defined(CONFIG_ARCH_SC8810)
 #define local_cpu_pa_control(x) \
 do { \
-    if (x) { \
+    if (x) { \	
         ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, (0x1101 |( (cur_internal_pa_gain <<4) & 0x00F0)));  \
         ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1e41); \
-    } else { \
+    } else { \    
         ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x182); \
         ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1242); \
     } \
@@ -1297,8 +1297,9 @@ static inline int local_amplifier_enabled(void)
         }
 #elif defined(CONFIG_ARCH_SC8810)
         u32 value = ADI_Analogdie_reg_read(ANA_AUDIO_PA_CTRL0);
+		value &= 0x1101;
         switch (value) {
-            case 0x1181: return 1;
+            case 0x1101: return 1;
             default : return 0;
         }
 #endif
@@ -1324,6 +1325,7 @@ inline void vbc_amplifier_enable(int enable, const char *prename)
 //              earpiece_muted ? "":"Earpiece ", headset_muted ? "":"Headset ");
 #endif
     local_amplifier_enable(enable);
+
 }
 EXPORT_SYMBOL_GPL(vbc_amplifier_enable);
 inline int vbc_amplifier_enabled(void)
@@ -1408,7 +1410,7 @@ ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,cons
 //#if defined(CONFIG_ARCH_SC8810)
 	sprd_local_audio_pa_mode = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_SWITCH_INDEX];
 	cur_internal_pa_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0xF;
-//	printk("chj kobj_vbc_param_store sprd_local_audio_pa_mode:%d cur_internal_pa_gain:0x%2x\n",sprd_local_audio_pa_mode,cur_internal_pa_gain);
+//	printk("chj kobj_vbc_param_store sprd_local_audio_pa_mode:%d cur_internal_pa_gain:0x%x\n",sprd_local_audio_pa_mode,cur_internal_pa_gain);
 //#endif
 	if(AUDIO_NO_ERROR != AUDENHA_SetPara(audio_param_ptr))
 	{
