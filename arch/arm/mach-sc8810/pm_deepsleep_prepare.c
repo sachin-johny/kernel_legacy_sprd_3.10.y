@@ -1798,9 +1798,6 @@ int sc8810_idle_sleep(int inidle)
 		disable_apb_module();
 		disable_ahb_module();
 #endif
-    val = __raw_readl(AHB_CTL0);
-    val &= ~(AHB_CTL0_SDIO0_EN|AHB_CTL0_SDIO1_EN);
-    __raw_writel(val, AHB_CTL0);
 
 #ifdef CONFIG_CACHE_L2X0_310
 	__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);//l2cache power control, standby mode enable
