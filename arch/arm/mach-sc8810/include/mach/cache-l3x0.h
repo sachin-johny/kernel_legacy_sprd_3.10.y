@@ -104,7 +104,7 @@ extern int sp_init_l3x0(void);
 #define TAG_RAM_SETUP_ACCESS_LATENCY (((0x1) & 0x7) << 0)
 
 #define DATA_RAM_WRITE_ACCESS_LATENCY (((0x1) & 0x7) << 8)
-#define DATA_RAM_READ_ACCESS_LATENCY (((0x0) & 0x7) << 4)
+#define DATA_RAM_READ_ACCESS_LATENCY (((0x1) & 0x7) << 4)
 #define DATA_RAM_SETUP_ACCESS_LATENCY (((0x1) & 0x7) << 0)
 
 #define AUX_VALUE (CACHE_EARLY_BRESP_ENABLE | CACHE_I_P_ENABLE | CACHE_D_P_ENABLE |CACHE_N_S_ACCESS \
