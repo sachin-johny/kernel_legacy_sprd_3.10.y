@@ -1254,11 +1254,7 @@ static inline int local_amplifier_enabled(void)
         return 0;
     }
 }
-#elif   defined(CONFIG_MACH_SP8805GA)           || \
-        defined(CONFIG_MACH_OPENPHONE)          || \
-        defined(CONFIG_MACH_SP8810)             || \
-        defined(CONFIG_MACH_SC8810OPENPHONE)    || \
-        defined(CONFIG_MACH_SP6820A)
+#else
 
 #if defined(CONFIG_MACH_SP8805GA)
 extern int sprd_local_audio_pa_mode_detect_gpio;
@@ -1308,8 +1304,6 @@ static inline int local_amplifier_enabled(void)
         return 0;
     }
 }
-#else
-#error "not define this CONFIG_MACH_xxxxx"
 #endif
 inline void vbc_amplifier_enable(int enable, const char *prename)
 {

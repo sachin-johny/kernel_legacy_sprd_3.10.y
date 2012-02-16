@@ -689,86 +689,44 @@ PUBLIC BOOLEAN Sensor_PowerDown(BOOLEAN power_level)
 		entersleep_func(power_level);
 		 return SENSOR_SUCCESS;
 	}
-#if defined(CONFIG_MACH_SP8810) || defined(CONFIG_MACH_SP6820A)
+
+extern int sprd_3rdparty_gpio_main_camera_pwd;
+extern int sprd_3rdparty_gpio_sub_camera_pwd;
 	
 	switch(Sensor_GetCurId())
 	{
 		case SENSOR_MAIN:
 		{
-			_paod(PIN_CTL_CCIRPD1,  (BIT_4|BIT_5));
-			gpio_request(73,"ccirpd1");
+			gpio_request(sprd_3rdparty_gpio_main_camera_pwd,"main camera");
 			if(0 == power_level)
 			{
-				gpio_direction_output(73,0);
-				gpio_set_value(73,0);
+				gpio_direction_output(sprd_3rdparty_gpio_main_camera_pwd,0);
 				
 			}
 			else
 			{
-				gpio_direction_output(73,1);
-				gpio_set_value(73,1);
-			}      
+				gpio_direction_output(sprd_3rdparty_gpio_main_camera_pwd,1);
+			}    
+			gpio_free(sprd_3rdparty_gpio_main_camera_pwd);
 			break;
 		}
 		case SENSOR_SUB:
 		{
-			_paod(PIN_CTL_CCIRPD0,  (BIT_4|BIT_5));
-			gpio_request(74,"ccirpd0");
+			gpio_request(sprd_3rdparty_gpio_sub_camera_pwd,"sub camera");
 			if(0 == power_level)
 			{
-				gpio_direction_output(74,0);
-				gpio_set_value(74,0);
+				gpio_direction_output(sprd_3rdparty_gpio_sub_camera_pwd,0);
 			}
 			else
 			{
-				gpio_direction_output(74,1);
-				gpio_set_value(74,1);
+				gpio_direction_output(sprd_3rdparty_gpio_sub_camera_pwd,1);
 			}
+			gpio_free(sprd_3rdparty_gpio_sub_camera_pwd);
 			break;
 		}
 		default :
 			break;            
 	}
-#else
-	switch(Sensor_GetCurId())
-	{
-		case SENSOR_MAIN:
-		{
-			_paod(PIN_CTL_CCIRPD0,  (BIT_4|BIT_5));
-			gpio_request(74,"ccirpd0");
-			if(0 == power_level)
-			{
-				gpio_direction_output(74,0);
-				gpio_set_value(74,0);
-				
-			}
-			else
-			{
-				gpio_direction_output(74,1);
-				gpio_set_value(74,1);
-			}      
-			break;
-		}
-		case SENSOR_SUB:
-		{
-			_paod(PIN_CTL_CCIRPD1,  (BIT_4|BIT_5));
-			gpio_request(73,"ccirpd1");
-			if(0 == power_level)
-			{
-				gpio_direction_output(73,0);
-				gpio_set_value(73,0);
-			}
-			else
-			{
-				gpio_direction_output(73,1);
-				gpio_set_value(73,1);
-			}
-			break;
-		}
-		default :
-			break;            
-	}
-#endif
 
     return SENSOR_SUCCESS;
 }

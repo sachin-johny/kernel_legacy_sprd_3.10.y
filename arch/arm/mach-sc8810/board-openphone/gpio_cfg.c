@@ -51,6 +51,9 @@ int sprd_3rdparty_gpio_cmmb_power;
 int sprd_3rdparty_gpio_cmmb_reset;
 int sprd_3rdparty_gpio_cmmb_irq;
 
+int sprd_3rdparty_gpio_main_camera_pwd;
+int sprd_3rdparty_gpio_sub_camera_pwd;
+
 
 static struct gpio_initdata __initdata gpio_func_cfg[] = {	
 	{&sprd_3rdparty_gpio_wifi_power,	160	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
@@ -66,6 +69,8 @@ static struct gpio_initdata __initdata gpio_func_cfg[] = {
 	{&sprd_3rdparty_gpio_cmmb_power,	135	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_cmmb_reset,	94	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_cmmb_irq,		93	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_main_camera_pwd,	74	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_sub_camera_pwd,	73	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 };
 
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_wifi_power);
@@ -81,6 +86,8 @@ EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_tp_irq);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_power);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_reset);
 EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_cmmb_irq);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_main_camera_pwd);
+EXPORT_SYMBOL_GPL(sprd_3rdparty_gpio_sub_camera_pwd);
 
 void __init get_gpio_cfg(struct gpio_initdata** desc, int* size)
 {
