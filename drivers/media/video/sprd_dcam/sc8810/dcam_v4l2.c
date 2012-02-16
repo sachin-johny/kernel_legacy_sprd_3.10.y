@@ -49,8 +49,13 @@
 
 #define DCAM_MINOR MISC_DYNAMIC_MINOR
 #define V4L2_OPEN_FOCUS 1
+#define DCAM_SCALE_OUT_WIDTH_MAX    960
+
+#define DCAM_TIME_OUT                 500//ms 
+#define DCAM_RESTART_COUNT   2//3        
 
 static struct mutex *lock;
+static struct task_struct *s_dcam_thread;
 
 typedef struct dcam_info
 {
@@ -80,7 +85,39 @@ typedef struct dcam_info
 	uint8_t flash_mode;
 }DCAM_INFO_T;
 
+typedef enum
+{
+	DCAM_START_OK = 0,
+	DCAM_OK,
+	DCAM_RUN,
+	DCAM_LINE_ERR,
+	DCAM_FRAME_ERR,
+	DCAM_CAP_FIFO_OVERFLOW,
+	DCAM_NO_RUN,	
+	DCAM_RESTART,
+	DCAM_WORK_STATUS_MAX
+}DCAM_WORK_STATUS;
 
+typedef struct _dcam_error_info_tag
+{
+	struct task_struct *th;
+	DCAM_WORK_STATUS work_status;
+	uint8_t is_report_err;	
+	uint8_t restart_cnt;
+	uint8_t is_restart;
+	uint8_t is_running;
+	uint8_t ret;
+	uint8_t is_stop;
+	uint8_t rsd1;
+	uint8_t rsd2;
+	void *priv;
+	DCAM_MODE_TYPE_E mode;
+	struct semaphore dcam_start_sem;
+	struct semaphore dcam_thread_sem;
+	struct timer_list dcam_timer;
+}DCAM_ERROR_INFO_T;
+
+static DCAM_ERROR_INFO_T s_dcam_err_info;
 uint32_t g_first_buf_addr = 0; //store the first buffer address
 uint32_t g_first_buf_uv_addr = 0; //store the address of uv buffer
 uint32_t g_last_buf = 0xFFFFFFFF;//record the last buffer for dcam driver
@@ -90,8 +127,6 @@ static uint32_t g_is_first_frame = 1; //store the flag for the first frame
 DCAM_INFO_T g_dcam_info; //store the dcam and sensor config info
 uint32_t g_zoom_level = 0; //zoom level: 0: 1x, 1: 2x, 2: 3x, 3: 4x
 uint32_t g_is_first_irq = 1; 
-static uint32_t s_error_cnt = 0;
-static uint32_t s_test_camera_fail = 0;
 
 #define DCAM_MODULE_NAME "dcam"
 #define WAKE_NUMERATOR 30
@@ -476,7 +511,8 @@ struct dcam_fh {
 	unsigned char              bars[8][3];
 	int			   input; 	/* Input Number on bars */
 };
-
+static int dcam_start_timer(struct timer_list *dcam_timer,uint32_t time_val);
+static void dcam_stop_timer(struct timer_list *dcam_timer);
 static int init_sensor_parameters(void *priv)
 {
 	uint32_t i,width;
@@ -691,12 +727,21 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,struct v4l2_form
 		}
 	}
 
+	if(maxw<f->fmt.pix.width)
+	{
+		if((maxw*4>=f->fmt.pix.width)&&(f->fmt.pix.width<=DCAM_SCALE_OUT_WIDTH_MAX))
+		{
+			maxw = f->fmt.pix.width;
+			maxh = f->fmt.pix.height;
+		}
+	}
+
 	f->fmt.pix.field = field;
 	v4l_bound_align_image(&f->fmt.pix.width, 48, maxw, 2,&f->fmt.pix.height, 32, maxh, 0, 0);
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * fmt->depth) >> 3;
 	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
 #if 1
-	if((f->fmt.raw_data[197]!=0)&&(f->fmt.pix.width>960))
+	if((f->fmt.raw_data[197]!=0)&&(f->fmt.pix.width>DCAM_SCALE_OUT_WIDTH_MAX))
 	{
 		trim_rect.x = 0;
 		trim_rect.y = 0;
@@ -1394,7 +1439,7 @@ static void init_dcam_parameters(void *priv)
 	 
 	 if(1 == dev->streamparm.parm.capture.capturemode)
 	 {
-	 	 init_param.mode = 3;//1
+	 	 init_param.mode = 3;//1  //for captupe
 	 }
 	 else 
 	 {
@@ -1444,16 +1489,24 @@ static void init_dcam_parameters(void *priv)
 	init_param.first_buf_addr = g_first_buf_addr;
 	init_param.first_u_buf_addr = g_first_buf_uv_addr;
 
-         DCAM_V4L2_PRINT("v4l2: init param rotation = %d,preview mode=%d .\n",init_param.rotation,g_dcam_info.preview_m);
-
-	g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].width;
-	g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].height;
+         printk("v4l2: init param rotation = %d,preview mode=%d .\n",init_param.rotation,g_dcam_info.preview_m);
+         if( 1 == init_param.mode)
+          {
+		g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].width;
+		g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].height;
+          }
+        else
+        	{
+		g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].width;
+		g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].height;
+       	}
 	init_param.input_rect.w = g_dcam_info.input_size.w;
 	init_param.input_rect.h = g_dcam_info.input_size.h;		
 	init_param.input_size.w = init_param.input_rect.w;
 	init_param.input_size.h = init_param.input_rect.h;
 
-	printk("test 0:input size %d,%d,rect:%d,%d .\n",g_dcam_info.input_size.w,g_dcam_info.input_size.h,init_param.input_rect.w,init_param.input_rect.h);
+	printk("v4l2:init_dcam_parameters,input size %d,%d,rect:%d,%d .\n",
+		  g_dcam_info.input_size.w,g_dcam_info.input_size.h,init_param.input_rect.w,init_param.input_rect.h);
 	g_dcam_info.mode = init_param.mode;
 	init_param.zoom_multiple = g_dcam_info.zoom_multiple;
 	init_param.zoom_level = g_zoom_level;
@@ -1492,11 +1545,20 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		return -EINVAL;
 	if (i != fh->type)
 		return -EINVAL;
-	s_error_cnt = 0;
+
+	s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
+	s_dcam_err_info.priv = priv;
+	s_dcam_err_info.is_running = 0;
+	s_dcam_err_info.restart_cnt = 0;
+	s_dcam_err_info.is_report_err = 0;
+	s_dcam_err_info.ret = 0;
+	
+	init_MUTEX(&s_dcam_err_info.dcam_start_sem);
+	down(&s_dcam_err_info.dcam_start_sem);
+	
 	init_sensor_parameters(priv);
 	init_dcam_parameters(priv);	
-
-	//dcam_set_param();
+	s_dcam_err_info.mode = g_dcam_info.mode;
 
 	if(0 != (ret = videobuf_streamon(&fh->vb_vidq)))
 	{
@@ -1506,38 +1568,16 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_is_first_irq = 1;
 	g_last_buf = 0xFFFFFFFF;
 	g_last_uv_buf = 0xFFFFFFFF;
-
-        w_cnt = 0;
-
-	if(3 == g_dcam_info.mode)
-	{
-		if(g_dcam_info.snapshot_m != g_dcam_info.preview_m)
-		{
-			while(1)
-			{			 
-				if(0!=Sensor_CheckTiming(g_dcam_info.snapshot_m))
-				{							
-					if(w_cnt>2)
-							break;
-					Sensor_SetTiming(g_dcam_info.snapshot_m);
-					w_cnt++;			
-					printk("sensor reg write error,w_cnt=%d!.\n",w_cnt);
-				}
-				else
-					break;
-				
-			}
-		}
-	}
-
-	if(w_cnt >2)
-	{
-		printk("start error,w_cnt=%d .\n",w_cnt);
-		return -1;
-	}
-	
+  
 	ret = dcam_start();
-	
+	if(!ret)
+	{
+		dcam_start_timer(&s_dcam_err_info.dcam_timer, DCAM_TIME_OUT);
+		down_interruptible(&s_dcam_err_info.dcam_start_sem);
+		up(&s_dcam_err_info.dcam_start_sem);	
+		ret = s_dcam_err_info.ret;
+	}
+		
 	printk("DCAM_V4L2: OK to vidioc_streamon,ret=%d.\n",ret);
 	return -ret;
 }
@@ -1588,8 +1628,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 			fh->vb_vidq.bufs[k]->state = VIDEOBUF_IDLE;
 		}       	
           
-	DCAM_V4L2_PRINT("V4L2: OK to vidioc_streamoff.\n");
-	s_error_cnt= 0;
+	printk("V4L2: OK to vidioc_streamoff.\n");
 	return ret;
 }
 
@@ -1680,6 +1719,17 @@ unlock:
 	struct dcam_dev *dev = fh->dev;
 	struct dcam_dmaqueue *dma_q = &dev->vidq;
 	unsigned long flags = 0;	
+
+	if(0 == s_dcam_err_info.is_running)
+	{		
+		s_dcam_err_info.work_status = DCAM_START_OK;		
+	}
+	else
+	{
+		s_dcam_err_info.work_status = DCAM_OK;
+	}
+	up(&s_dcam_err_info.dcam_thread_sem);
+//	printk("wjp:path1 done.\n");
 	
 	spin_lock_irqsave(&dev->slock, flags);
 
@@ -1732,16 +1782,9 @@ static void dcam_error_handle(struct dcam_fh *fh)
               
 	unsigned long flags = 0;	
 	
-	printk("###V4L2: dcam_error_handle.\n");	
-	
-	s_test_camera_fail = 1;
+	printk("###V4L2: dcam_error_handle.\n");		
 
-	if(s_error_cnt>1)
-	{
-		printk("dcam_error_handle: have been handled!.\n");
-		return;
-	}
-	dcam_error_close();
+	//dcam_error_close();
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&dma_q->active)) {
 		printk("###V4L2: dcam_error_handle: No active queue to serve\n");
@@ -1759,9 +1802,7 @@ static void dcam_error_handle(struct dcam_fh *fh)
 	// Advice that buffer was filled
 	buf->vb.field_count++;
 	do_gettimeofday(&buf->vb.ts);
-	buf->vb.state = VIDEOBUF_ERROR;
-	
-//	DCAM_V4L2_PRINT("###V4L2: dcam_error_handle:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));
+	buf->vb.state = VIDEOBUF_IDLE;
       
 	wake_up(&buf->vb.done);
 	g_first_buf_addr = g_last_buf; 
@@ -1792,19 +1833,22 @@ void dcam_cb_ISRPath2Done(void)
   	}
 }
 void dcam_cb_ISRCapFifoOF(void)
-{	
-	s_error_cnt++;
-	dcam_error_handle(g_fh);
+{		
+	dcam_error_close();
+	s_dcam_err_info.work_status = DCAM_CAP_FIFO_OVERFLOW;
+	up(&s_dcam_err_info.dcam_thread_sem);	
 }
 void dcam_cb_ISRSensorLineErr(void)
 {
-	s_error_cnt++;
-	dcam_error_handle(g_fh);
+	dcam_error_close();
+	s_dcam_err_info.work_status = DCAM_LINE_ERR;
+	up(&s_dcam_err_info.dcam_thread_sem);
 }
 void dcam_cb_ISRSensorFrameErr(void)
-{	
-	s_error_cnt++;
-	dcam_error_handle(g_fh);
+{		
+	dcam_error_close();
+	s_dcam_err_info.work_status = DCAM_FRAME_ERR;
+	up(&s_dcam_err_info.dcam_thread_sem);
 }
 void dcam_cb_ISRJpegBufOF(void)
 {	
@@ -1926,10 +1970,158 @@ static struct videobuf_queue_ops dcam_video_qops = {
 	.buf_release    = buffer_release,
 };
 
+static int dcam_scan_status_thread(void * data_ptr)
+{
+	DCAM_ERROR_INFO_T *info_ptr = (DCAM_ERROR_INFO_T*)data_ptr;
+	int ret=0;
 
+	if(!data_ptr)
+	{
+		printk("v4l2:dcam_scan_status_thread,run error!.\n");
+	}	
+	printk("v4l2:dcam_scan_status_thread,test 0!.\n");
+	while (1)
+	{
+		printk("v4l2:dcam_scan_status_thread,test!.\n");
+		if(!s_dcam_err_info.is_stop)	down_interruptible(&s_dcam_err_info.dcam_thread_sem);		
+		else goto dcam_thread_end;
+		switch(info_ptr->work_status)
+		{
+			case DCAM_START_OK:							
+				info_ptr->restart_cnt = 0;
+				info_ptr->is_report_err = 0;
+				up(&info_ptr->dcam_start_sem);
+				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+				if(DCAM_MODE_TYPE_PREVIEW == info_ptr->mode)
+				{
+					dcam_start_timer(&s_dcam_err_info.dcam_timer,DCAM_TIME_OUT);
+				}
+				info_ptr->is_running = 1;
+				printk("v4l2:dcam_scan_status_thread,DCAM_START_OK.\n ");
+				break;
+			case DCAM_OK:
+				info_ptr->work_status = DCAM_RUN;
+				printk("v4l2:dcam_scan_status_thread,DCAM_OK.\n ");
+				break;
+			case DCAM_LINE_ERR:				
+			case DCAM_FRAME_ERR:			
+			case DCAM_CAP_FIFO_OVERFLOW:
+			case DCAM_NO_RUN:	
+				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+				if(info_ptr->restart_cnt>DCAM_RESTART_COUNT)
+				{
+					if(1 == info_ptr->is_running )
+					{
+						info_ptr->is_report_err = 1;
+						dcam_error_handle(g_fh);
+						printk("v4l2:dcam_scan_status_thread,report error!.\n");
+					}
+					else
+					{
+						info_ptr->ret = 1;
+						up(&info_ptr->dcam_start_sem);					
+						printk("v4l2:dcam_scan_status_thread,start fail!.\n");
+					}
+					break;
+				}				
+			
+				if(DCAM_MODE_TYPE_PREVIEW == s_dcam_err_info.mode)
+				{
+					Sensor_SetTiming(SENSOR_MODE_COMMON_INIT);
+					Sensor_SetTiming(g_dcam_info.preview_m);
+				}
+				else
+				{
+					Sensor_SetTiming(g_dcam_info.snapshot_m);
+				}
+				info_ptr->work_status = DCAM_RESTART;
+				dcam_start();
+				dcam_dec_user_count();
+				dcam_start_timer(&info_ptr->dcam_timer,DCAM_TIME_OUT);				
+				info_ptr->restart_cnt++;
+				break;		
+			case DCAM_WORK_STATUS_MAX:
+				printk("v4l2:dcam_scan_status_thread,work status error!.\n");
+				break;
+			default:
+				break;
+		}
+			
+	}
+dcam_thread_end:	
+	printk("wjp thread end.\n");
+	return 0;
+}
 /* ------------------------------------------------------------------
 	File operations for the device
    ------------------------------------------------------------------*/
+static int dcam_create_thread(void)
+{
+	int ret = 0;
+
+	printk("v4l2:dcam_create_thread s!.\n");	
+	init_MUTEX(&s_dcam_err_info.dcam_thread_sem);
+	down(&s_dcam_err_info.dcam_thread_sem);
+	/* Start up the thread for scan dcam's status */
+	s_dcam_thread = kthread_create(dcam_scan_status_thread, (void*)&s_dcam_err_info, "dcam-scan-status");
+	if (IS_ERR(s_dcam_thread)) 
+	{
+		printk("v4l2:dcam_create_thread error!.\n");			
+		ret = -1;
+	}
+	s_dcam_thread = s_dcam_thread;
+	wake_up_process(s_dcam_thread);
+	printk("v4l2:dcam_create_thread e!.\n");	
+	return ret;
+}
+
+static void dcam_stop_thread(void)
+{
+	if (!IS_ERR(s_dcam_thread)) kthread_stop(s_dcam_thread);
+}
+
+static void dcam_timer_callback( uint32_t data )
+{
+	if((s_dcam_err_info.work_status  == DCAM_NO_RUN)||
+	    (s_dcam_err_info.work_status  == DCAM_WORK_STATUS_MAX) ||
+	    (s_dcam_err_info.work_status== DCAM_RESTART))
+	{
+		printk("v4l2:dcam_timer_callback,dcam is DCAM_NO_RUN.\n");
+		s_dcam_err_info.work_status  =  DCAM_NO_RUN;
+		
+	}
+
+	up(&s_dcam_err_info.dcam_thread_sem);		
+	
+}
+static int dcam_init_timer(struct timer_list *dcam_timer)
+{
+	int ret;
+
+	printk("v4l2:Timer module installing\n");
+
+	setup_timer( dcam_timer, dcam_timer_callback, 0 );	
+	printk("v4l2:Timer module installing e\n");
+
+	return 0;
+}
+
+static int dcam_start_timer(struct timer_list *dcam_timer,uint32_t time_val)
+{
+	int ret;
+
+	printk( "v4l2:dcam_start_timer,starting timer to fire in %ld \n", jiffies );
+	ret = mod_timer( dcam_timer, jiffies + msecs_to_jiffies(time_val) );
+	if (ret) printk("v4l2:Error in mod_timer\n");
+
+	return 0;
+}
+
+static void dcam_stop_timer(struct timer_list *dcam_timer)
+{
+	del_timer_sync(dcam_timer);
+}
+
 static int open(struct file *file)
 {
 	struct dcam_dev *dev = video_drvdata(file);
@@ -1999,6 +2191,10 @@ static int open(struct file *file)
 	//open dcam
 	if(0 != dcam_open())
 		return 1;
+	s_dcam_err_info.is_stop = 0;
+	dcam_create_thread();
+	dcam_init_timer(&s_dcam_err_info.dcam_timer);
+	
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");
 //	dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
 	dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
@@ -2027,23 +2223,26 @@ static int close(struct file *file)
 	}
 	
 	//wxz20120209: close the dcam and sensor before free fh. Because the dcam interrupt will use the fh.
-	if(0 == s_test_camera_fail)
-	{
-		//close sensor       
-		Sensor_Close();
-		DCAM_V4L2_PRINT("V4L2: OK to close sensor.\n");
+	
+	//close sensor       
+	Sensor_Close();
+	DCAM_V4L2_PRINT("V4L2: OK to close sensor.\n");
 
-		//close dcam
-		dcam_close();
-		msleep(100);
-	}
-	DCAM_V4L2_PRINT("V4L2: OK to close dcam.\n");
+	//close dcam
+	dcam_close();
+	s_dcam_err_info.is_stop = 1;
+	up(&s_dcam_err_info.dcam_thread_sem);	
+
+	printk("v4l2: OK to close dcam.\n");
 	
 	videobuf_stop(&fh->vb_vidq);
 	videobuf_mmap_free(&fh->vb_vidq);
-
+       
+	dcam_stop_timer(&s_dcam_err_info.dcam_timer);	
+	printk("v4l2:close,stop timer");		
+	
 	kfree(fh);
-
+          
 	mutex_lock(&dev->mutex);
 	dev->users--;
 	mutex_unlock(&dev->mutex);

@@ -101,12 +101,8 @@ typedef void *SENSOR_MUTEX_PTR;
 
 
 #define SENSOR_DISABLE_MCLK					0		// MHZ
-#define SENSOR_DEFALUT_MCLK					12		// MHZ
-#ifdef CONFIG_ARCH_SC8810
+#define SENSOR_DEFALUT_MCLK					24		// MHZ
 #define SENSOR_MAX_MCLK						96		// MHZ
-#else
-#define SENSOR_MAX_MCLK						48		// MHZ
-#endif
 
 #define SENSOR_LOW_PULSE_RESET				0x00
 #define SENSOR_HIGH_PULSE_RESET				0x01

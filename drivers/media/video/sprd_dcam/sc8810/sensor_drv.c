@@ -923,6 +923,7 @@ int32_t Sensor_WriteReg(uint16_t subaddr, uint16_t data)
 				else
 				{
 					//printk("SENSOR: IIC write reg OK! 0x%04x, val:0x%04x ", subaddr, data);
+					ret = 0;
 					break;
 				}
 			}           
@@ -1689,8 +1690,8 @@ PUBLIC ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode)
 	
 	printk("SENSOR: Sensor_SetTiming -> mode = %d,sensor_id=%d.\n", mode,cur_id);        
        
-	if(0!=cur_id)
-		return 0;
+	//if(0!=cur_id)
+	//	return 0;
 	
 	if(PNULL != s_sensor_info_ptr->resolution_tab_info_ptr[mode].sensor_reg_tab_ptr)
 	{

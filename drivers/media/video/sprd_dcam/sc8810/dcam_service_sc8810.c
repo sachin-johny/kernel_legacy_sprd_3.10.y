@@ -838,6 +838,22 @@ static int _ISP_ServiceStartJpeg(void)
 				                                        _ISP_ServiceOnPath1);
 	ISP_RTN_IF_ERR(rtn_drv);
 
+	if(ISP_CAP_MODE_YUV == s->sensor_mode)
+	{
+		rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+	                                           ISP_IRQ_NOTICE_CAP_FIFO_OF,
+	                                           _ISP_ServiceOnCAPBufOF);
+	        ISP_RTN_IF_ERR(rtn_drv);	
+	        rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+	                                           ISP_IRQ_NOTICE_SENSOR_LINE_ERR,
+	                                           _ISP_ServiceOnSensorLineErr);
+	        ISP_RTN_IF_ERR(rtn_drv);	
+	        rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+	                                           ISP_IRQ_NOTICE_SENSOR_FRAME_ERR,
+	                                           _ISP_ServiceOnSensorFrameErr);
+	        ISP_RTN_IF_ERR(rtn_drv);
+	}
+
 	ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr,g_dcam_param.first_buf_uv_addr); 
 #ifdef DCAM_DEBUG    
 //	get_dcam_reg();
