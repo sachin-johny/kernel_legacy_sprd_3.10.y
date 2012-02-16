@@ -119,7 +119,7 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
 
 static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
-	.set_clock		= sdhci_sprd_set_ahb_clock,
+//	.set_clock		= sdhci_sprd_set_ahb_clock,
 };
 
 
