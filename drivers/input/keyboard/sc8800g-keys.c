@@ -177,6 +177,7 @@ struct sprd_kpad_t *sprd_kpad;
 
 //yunlong.wang add for key emulator
 static unsigned char g_keycode;
+static unsigned long pb_keystatus4sleep = 0;	/* 0 : UP;  1 : DOWN */
 static ssize_t sprd_kpad_store_emulate(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 static ssize_t sprd_kpad_show_emulate(struct device* cd,struct device_attribute *attr, char* buf);
 static DEVICE_ATTR(emulate, S_IRUGO | S_IWUSR, sprd_kpad_show_emulate, sprd_kpad_store_emulate);
@@ -335,6 +336,8 @@ void change_state(struct kpd_key_t *key_ptr)
         	input_report_key(sprd_kpad->input, key, 0);
         	input_sync(sprd_kpad->input);	
         	clear_key(key_ptr);
+		if (key == POWRER_KEY_VAL)
+			pb_keystatus4sleep = 0;	/* UP */
 		printk("%dU\n", key);
     	}
 }
@@ -547,6 +550,11 @@ static irqreturn_t sprd_pint_isr(int irq, void *dev_id)
 	int gpio_id = (int)dev_id;
 	ret = sprd_get_eic_data(EIC_ID_11);
 	
+	if ((pb_keystatus4sleep == 0) && (ret != 0)) {
+		/* fix on bug : kernel output a lot of log when pb presse shortly */
+		pb_keystatus4sleep = 1;	/* DOWN */
+		ret = 0;
+	}
 	if (!ret) {
 		key_code = gpio_id | TB_KPD_GPIO_KEY;
 		/* gpio key never seat the code again */
