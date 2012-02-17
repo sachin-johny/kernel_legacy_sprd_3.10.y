@@ -108,7 +108,7 @@ typedef struct _dcam_error_info_tag
 	uint8_t is_running;
 	uint8_t ret;
 	uint8_t is_stop;
-	uint8_t rsd1;
+	uint8_t is_wakeup_thread;;
 	uint8_t rsd2;
 	void *priv;
 	DCAM_MODE_TYPE_E mode;
@@ -1252,6 +1252,11 @@ static int v4l2_sensor_init(uint32_t sensor_id)
 			DCAM_V4L2_PRINT("DCAM: Fail to init sensor.\n");
 			return -1;
 		}
+		if(0 == s_dcam_err_info.is_wakeup_thread)
+		{
+			wake_up_process(s_dcam_thread);
+			s_dcam_err_info.is_wakeup_thread = 1;
+		}
 	}
 	DCAM_V4L2_PRINT("V4L2:sensor init OK.\n");
 
@@ -2035,8 +2040,8 @@ static int dcam_scan_status_thread(void * data_ptr)
 					Sensor_SetTiming(g_dcam_info.snapshot_m);
 				}
 				info_ptr->work_status = DCAM_RESTART;
-				dcam_start();
 				dcam_dec_user_count();
+				dcam_start();				
 				dcam_start_timer(&info_ptr->dcam_timer,DCAM_TIME_OUT);				
 				info_ptr->restart_cnt++;
 				break;		
@@ -2049,6 +2054,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 			
 	}
 dcam_thread_end:	
+	up(&s_dcam_err_info.dcam_thread_sem);		
 	printk("wjp thread end.\n");
 	return 0;
 }
@@ -2069,8 +2075,8 @@ static int dcam_create_thread(void)
 		printk("v4l2:dcam_create_thread error!.\n");			
 		ret = -1;
 	}
-	s_dcam_thread = s_dcam_thread;
-	wake_up_process(s_dcam_thread);
+
+         s_dcam_err_info.is_wakeup_thread = 0;
 	printk("v4l2:dcam_create_thread e!.\n");	
 	return ret;
 }
@@ -2239,7 +2245,9 @@ static int close(struct file *file)
 	videobuf_mmap_free(&fh->vb_vidq);
        
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);	
-	printk("v4l2:close,stop timer");		
+	down_interruptible(&s_dcam_err_info.dcam_thread_sem);	
+	s_dcam_err_info.is_wakeup_thread = 0;
+	printk("v4l2:close,stop timer.\n");		
 	
 	kfree(fh);
           
