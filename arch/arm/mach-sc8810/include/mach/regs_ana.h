@@ -226,6 +226,23 @@
 #define	FSM_RF1_BP_EN		(0x1UL << 1)
 #define	FSM_LDOPA_BP_EN		(0x1UL << 15)
 
+/* ANA_LDO_PD_CTL0 */
+#define LDO_USB_CTL		BIT_1
+#define LDO_SDIO0_CTL	BIT_3
+#define LDO_SIM0_CTL	BIT_5
+#define LDO_SIM1_CTL	BIT_7
+#define LDO_BPCAMD0_CTL		BIT_9
+#define LDO_BPCAMD1_CTL		BIT_11
+#define LDO_BPCAMA_CTL		BIT_13
+#define LDO_BPVB_CTL		BIT_15
+
+/* ANA_LDO_PD_CTL1 */
+#define LDO_SDIO1_CTL	BIT_1
+#define LDO_BPWIF0_CTL	BIT_3
+#define LDO_BPWIF1_CTL	BIT_5
+#define LDO_SIM2_CTL	BIT_7
+#define LDO_SIM3_CTL	BIT_9
+
 
 #endif //_ANALOG_REG_V3_H_
 

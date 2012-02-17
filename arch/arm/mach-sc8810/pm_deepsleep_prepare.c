@@ -1122,6 +1122,50 @@ static int print_thread(void *pdata)
 		if (val & AHB_CTL0_USBD_EN) printk("AHB_CTL0_USBD_EN =1.\n");
 
 		printk("\n===========================\n");
+
+		val = ANA_REG_GET(ANA_LDO_PD_CTL0);
+		printk("##: ANA_LDO_PD_CTL0 = %04x.\n", val);
+		if ((val & LDO_USB_CTL)) printk("##: LDO_USB_CTL is on.\n");
+		else if(!(val & (LDO_USB_CTL >> 1))) printk("##: LDO_USB_CTL is not off.\n");
+
+		if ((val & LDO_SDIO0_CTL)) printk("##: LDO_SDIO0_CTL is on.\n");
+		else if(!(val & (LDO_SDIO0_CTL >> 1))) printk("##: LDO_SDIO0_CTL is not off.\n");
+
+		if ((val & LDO_SIM0_CTL)) printk("##: LDO_SIM0_CTL is on.\n");
+		else if(!(val & (LDO_SIM0_CTL >> 1))) printk("##: LDO_SIM0_CTL is not off.\n");
+
+		if ((val & LDO_SIM1_CTL)) printk("##: LDO_SIM1_CTL is on.\n");
+		else if(!(val & (LDO_SIM1_CTL >> 1))) printk("##: LDO_SIM1_CTL is not off.\n");
+
+		if ((val & LDO_BPCAMD0_CTL)) printk("##: LDO_BPCAMD0_CTL is on.\n");
+		else if(!(val & (LDO_BPCAMD0_CTL >> 1))) printk("##: LDO_BPCAMD0_CTL is not off.\n");
+
+		if ((val & LDO_BPCAMD1_CTL)) printk("##: LDO_BPCAMD1_CTL is on.\n");
+		else if(!(val & (LDO_BPCAMD1_CTL >> 1))) printk("##: LDO_BPCAMD1_CTL is not off.\n");
+
+		if ((val & LDO_BPCAMA_CTL)) printk("##: LDO_BPCAMA_CTL is on.\n");
+		else if(!(val & (LDO_BPCAMA_CTL >> 1))) printk("##: LDO_BPCAMA_CTL is not off.\n");
+
+		if ((val & LDO_BPVB_CTL)) printk("##: LDO_BPVB_CTL is on.\n");
+		else if(!(val & (LDO_BPVB_CTL >> 1))) printk("##: LDO_BPVB_CTL is not off.\n");
+
+
+		val = ANA_REG_GET(ANA_LDO_PD_CTL1);
+		printk("##: ANA_LDO_PD_CTL1 = %04x.\n", val);
+		if ((val & LDO_SDIO1_CTL)) printk("##: LDO_SDIO1_CTL is on.\n");
+		else if(!(val & (LDO_SDIO1_CTL >> 1))) printk("##: LDO_SDIO1_CTL is not off.\n");
+
+		if ((val & LDO_BPWIF0_CTL)) printk("##: LDO_BPWIF0_CTL is on.\n");
+		else if(!(val & (LDO_BPWIF0_CTL >> 1))) printk("##: LDO_BPWIF0_CTL is not off.\n");
+
+		if ((val & LDO_BPWIF1_CTL)) printk("##: LDO_BPWIF1_CTL is on.\n");
+		else if(!(val & (LDO_BPWIF1_CTL >> 1))) printk("##: LDO_BPWIF1_CTL is not off.\n");
+
+		if ((val & LDO_SIM2_CTL)) printk("##: LDO_SIM2_CTL is on.\n");
+		else if(!(val & (LDO_SIM2_CTL >> 1))) printk("##: LDO_SIM2_CTL is not off.\n");
+
+		if ((val & LDO_SIM3_CTL)) printk("##: LDO_SIM3_CTL is on.\n");
+		else if(!(val & (LDO_SIM3_CTL >> 1))) printk("##: LDO_SIM3_CTL is not off.\n");
 	}
 #ifdef SPRD_COPROCESSOR_INFO
 	printk("###: c1 = %08x.\n", sc8800g_read_cp15_c1());
@@ -1724,6 +1768,7 @@ int sc8810_idle_sleep(int inidle)
 	int i;
 	unsigned long flags;
 	u32 timer_expiration_ms = 0;
+	u32 val = 0;
 
 #ifdef CONFIG_SC8810_IDLE_DEEP
     status = sc8800g_get_clock_status();
@@ -1797,6 +1842,33 @@ int sc8810_idle_sleep(int inidle)
 		disable_audio_module();
 		disable_apb_module();
 		disable_ahb_module();
+    val = __raw_readl(AHB_CTL0);
+    val &= ~(AHB_CTL0_SDIO1_EN);
+    __raw_writel(val, AHB_CTL0);
+
+	val = ANA_REG_GET(ANA_LDO_PD_CTL0);
+	/*
+	val &= ~(LDO_BPVB_CTL);
+	val |= (LDO_BPVB_CTL >> 1);
+	*/
+
+	val &= ~(LDO_USB_CTL);
+	val |= (LDO_USB_CTL >> 1);
+	ANA_REG_SET(ANA_LDO_PD_CTL0, val);
+
+
+	val = ANA_REG_GET(ANA_LDO_PD_CTL1);
+	val &= ~(LDO_SDIO1_CTL);
+	val |= (LDO_SDIO1_CTL >> 1);
+
+	val &= ~(LDO_BPWIF0_CTL);
+	val |= (LDO_BPWIF0_CTL >> 1);
+
+	val &= ~(LDO_BPWIF1_CTL);
+	val |= (LDO_BPWIF1_CTL >> 1);
+
+	ANA_REG_SET(ANA_LDO_PD_CTL1, val);
+
 #endif
 
 #ifdef CONFIG_CACHE_L2X0_310
