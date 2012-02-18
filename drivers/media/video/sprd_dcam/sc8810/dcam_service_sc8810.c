@@ -1225,6 +1225,9 @@ int dcam_start(void)
 	
 	DCAM_TRACE("DCAM: dcam_start end. \n"); 
 
+	if(ret != 0)
+		dcam_dec_user_count();
+
 	return ret;
 }
 

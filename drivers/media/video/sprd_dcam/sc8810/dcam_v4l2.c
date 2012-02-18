@@ -673,6 +673,8 @@ static inline unsigned int norm_maxw(void)
 	sensor_info_ptr = Sensor_GetInfo();
 
 	max_width = (uint32_t)sensor_info_ptr->source_width_max;
+	if(max_width<DCAM_SCALE_OUT_WIDTH_MAX)
+		max_width = DCAM_SCALE_OUT_WIDTH_MAX;
 //	DCAM_V4L2_PRINT("V4L2: norm_maxw,max width =%d.\n",max_width);
 	return max_width;	
 }
@@ -1504,6 +1506,8 @@ static void init_dcam_parameters(void *priv)
         	{
 		g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].width;
 		g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].height;
+		if(fh->width>DCAM_SCALE_OUT_WIDTH_MAX)
+			g_zoom_level = 0;
        	}
 	init_param.input_rect.w = g_dcam_info.input_size.w;
 	init_param.input_rect.h = g_dcam_info.input_size.h;		
@@ -2072,6 +2076,7 @@ static int dcam_create_thread(void)
 	s_dcam_thread = kthread_create(dcam_scan_status_thread, (void*)&s_dcam_err_info, "dcam-scan-status");
 	if (IS_ERR(s_dcam_thread)) 
 	{
+		s_dcam_err_info.is_wakeup_thread = 0xff;
 		printk("v4l2:dcam_create_thread error!.\n");			
 		ret = -1;
 	}
