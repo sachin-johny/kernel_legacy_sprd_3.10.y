@@ -62,6 +62,9 @@ static struct wake_lock sdhci_detect_lock;
 #endif
 static struct wake_lock sdhci_suspend_lock;
 
+//mmc1 host for WiFi force card detection
+struct mmc_host *g_mmc1_host = NULL;
+
 static void sdhci_prepare_data(struct sdhci_host *, struct mmc_data *);
 static void sdhci_finish_data(struct sdhci_host *);
 
@@ -2159,6 +2162,11 @@ int sdhci_add_host(struct sdhci_host *host)
 		mmc_hostname(mmc), host->hw_name, dev_name(mmc_dev(mmc)),
 		(host->flags & SDHCI_USE_ADMA) ? "ADMA" :
 		(host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO");
+    
+    if (!strcmp("sprd-sdhci.1", dev_name(mmc_dev(mmc)))) {
+        g_mmc1_host = host->mmc;
+        printk("mmc1,g_mmc1_host=%p\n", g_mmc1_host);
+    }
 
 #ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
@@ -2183,6 +2191,7 @@ untasklet:
 }
 
 EXPORT_SYMBOL_GPL(sdhci_add_host);
+EXPORT_SYMBOL_GPL(g_mmc1_host);
 
 void sdhci_remove_host(struct sdhci_host *host, int dead)
 {
