@@ -2,6 +2,7 @@
 # Makefile for the Linux network (ethercard) device drivers.
 #
 
+obj-y += wifi_dummy.o
 obj-$(CONFIG_MII) += mii.o
 obj-$(CONFIG_MDIO) += mdio.o
 obj-$(CONFIG_PHYLIB) += phy/
