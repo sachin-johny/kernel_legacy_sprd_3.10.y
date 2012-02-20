@@ -312,11 +312,17 @@ static int32_t hx8369_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 		LCD_DelayMS(120); 
 	}
 	else {
+#if 1
 		//Sleep Out
 		send_cmd(0x11);
 		LCD_DelayMS(120); 
 		send_cmd(0x29);
 		LCD_DelayMS(120); 
+#else
+		// re init	
+		se1f->ops->reset(self);
+		se1f->ops->lcd_init(self);
+#endif
 	}
 	return 0;
 }

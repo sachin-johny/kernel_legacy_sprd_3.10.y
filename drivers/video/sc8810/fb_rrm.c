@@ -47,6 +47,8 @@
 #define DEFAULT_BUF_NUM 2
 
 static struct rrmanager rrm;
+static DECLARE_WAIT_QUEUE_HEAD(idle_wq);
+
 
 /* assumed to be called with irq off, so no race condition to be worry about.
  * return available num */ 
@@ -274,9 +276,15 @@ void rrm_interrupt(struct rrmanager *rrm)
 	if (cnt == 0) {
 		/* no request collected */
 		rrm->frame_state = FS_IDLE;
+		wake_up(&idle_wq);
 	} else {
 		rrm->exec->refresh(rrm->exec, 0, NULL);
 	}
+}
+
+void rrm_wait_for_idle(void)
+{
+	wait_event(idle_wq, rrm.frame_state == FS_IDLE);
 }
 
 /* TEMP */

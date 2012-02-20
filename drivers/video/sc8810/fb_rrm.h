@@ -120,4 +120,9 @@ struct rrmanager* rrm_init(void (*hw_refresh)(void*para), void* para);
  */
 int rrm_exit(void);
 
+/**
+ * rrm_wait_for_idle - wait for device getting to idle state 
+ */
+void rrm_wait_for_idle(void);
+
 #endif

@@ -199,11 +199,11 @@ static int32_t panel_reset(struct lcd_spec *self)
 {
 	//panel reset
 	__raw_writel(0x1, LCM_RSTN);	
-	msleep(0x10);
+	msleep(0x1);
 	__raw_writel(0x0, LCM_RSTN);
-	msleep(0x10);
+	msleep(0x1);
 	__raw_writel(0x1, LCM_RSTN);
-	msleep(0x10);
+	msleep(0x1);
 
 	return 0;
 }
@@ -711,7 +711,7 @@ static void lcdc_reset(void)
 {
 	//LCD soft reset
 	__raw_bits_or(1<<3, AHB_SOFT_RST);
-	msleep(10);	
+	udelay(10);	
 	__raw_bits_and(~(1<<3), AHB_SOFT_RST); 
 }
 
@@ -763,6 +763,7 @@ static void sc8810fb_early_suspend (struct early_suspend* es)
 	}
 	if (info->clk_lcdc) {
 		FB_PRINT("clk_disable\n");
+		rrm_wait_for_idle();
 		clk_disable(info->clk_lcdc);
 	}
 	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
@@ -775,6 +776,15 @@ static void sc8810fb_early_resume (struct early_suspend* es)
 	if (info->clk_lcdc) {
 		FB_PRINT("clk_enable\n");
 		clk_enable(info->clk_lcdc);
+	}
+	if (__raw_readl(LCDC_CTRL) == 0) {
+		FB_PRINT("sc8810fb resume from deep sleep \n");
+		lcdc_reset();
+		hw_early_init(info);
+		hw_init(info);
+		hw_later_init(info);
+	} else {	
+		FB_PRINT("sc8810fb resume from sleep \n");
 	}
 	if(info->panel->ops->lcd_enter_sleep != NULL) {
 		info->panel->ops->lcd_enter_sleep(info->panel,0);
@@ -969,16 +979,14 @@ static int sc8810fb_resume(struct platform_device *pdev)
 	}
 
 	if (__raw_readl(LCDC_CTRL) == 0) { // resume from deep sleep
-		info->need_reinit = 1;
 		lcdc_reset();
 		hw_early_init(info);
 		hw_init(info);
 		hw_later_init(info);
-		info->need_reinit = 0;
-	} else { 
-		if(info->panel->ops->lcd_enter_sleep != NULL){
-			info->panel->ops->lcd_enter_sleep(info->panel,0);
-		}
+	} 
+
+	if(info->panel->ops->lcd_enter_sleep != NULL){
+		info->panel->ops->lcd_enter_sleep(info->panel,0);
 	}
 
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
@@ -987,8 +995,10 @@ static int sc8810fb_resume(struct platform_device *pdev)
 
 static struct platform_driver sc8810fb_driver = {
 	.probe = sc8810fb_probe,
+#ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend = sc8810fb_suspend,
 	.resume = sc8810fb_resume,
+#endif
 	.driver = {
 		.name = "sc8810fb",
 		.owner = THIS_MODULE,
