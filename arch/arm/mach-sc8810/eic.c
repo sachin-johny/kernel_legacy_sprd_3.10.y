@@ -25,7 +25,7 @@
 #include <mach/irqs.h>
 #include <mach/hardware.h>
 #include <mach/adi_hal_internal.h>
-
+#include <linux/wakelock.h>
 #include <linux/interrupt.h>
 
 #include <mach/eic.h>
@@ -96,6 +96,8 @@ static int eic_ctrl_reg[] =
 
 #define EIC_APB_EN_A (BIT_3)
 #define EIC_APB_RTC_EIC_A (BIT_11)
+
+static struct wake_lock anaeic_wake_lock;
 
 static struct eic_config config_data[] = {
 	{EIC_ID_0, (D_DIE | EIC_TYPE | INTER_ID(0)), EIC_BASE_ADDR_D_V},
@@ -483,6 +485,7 @@ static void eic_handler(unsigned int irq, struct irq_desc *desc)
 	int config_index = 0;
 	int interrupt_status = 0;
 
+	wake_lock_timeout(&anaeic_wake_lock, 2 * HZ);
 	//Debug INT
 	printk("eic_handler\n");
 #if 0
@@ -641,4 +644,5 @@ void __init eic_init(void)
 {
 	eic_phy_enable();
 	eic_irq_init();
+	wake_lock_init(&anaeic_wake_lock, WAKE_LOCK_SUSPEND, "anaeic_work");
 }
