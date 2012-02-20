@@ -1011,7 +1011,9 @@ int sprd_wait_until_uart_tx_fifo_empty = 1;
 int sprd_sleep_mode_info = 0;
 int sprd_sc8810_deepsleep_enable = 1;
 
-
+int sprd_no_deep_sleep_enable = 0;
+int sprd_idle_test_enable = 0;
+int sprd_idle_deep_enable = 0;
 
 int sprd_pm_message_enable = 0;
 static u32 time0 = 0, time1 = 0, time_duration;
@@ -1760,6 +1762,7 @@ and nerver goes into deep sleep.
 #define CONFIG_SC8810_DEEP_IDLE_TEST 1
 */
 
+#if 0
 int sprd_pm_suspend_check_enter(void);
 int sprd_pm_resume_check(void);
 
@@ -1844,9 +1847,11 @@ int sc8810_idle_sleep(int inidle)
 	if (get_sys_cnt() > 150000) {
    		REG_LOCAL_VALUE_DEF;
 		SAVE_GLOBAL_REG;
+		/*
 		disable_audio_module();
 		disable_apb_module();
 		disable_ahb_module();
+		*/
     val = __raw_readl(AHB_CTL0);
     val &= ~(AHB_CTL0_SDIO1_EN);
     __raw_writel(val, AHB_CTL0);
@@ -1899,6 +1904,145 @@ int sc8810_idle_sleep(int inidle)
     return ret;
 }
 EXPORT_SYMBOL(sc8810_idle_sleep);
+#endif
+
+int sc8810_idle_sleep(int inidle)
+{
+    int status;
+    u32 t0, t1, delta;
+    int ret = 0;
+	int i;
+	unsigned long flags;
+	u32 timer_expiration_ms = 0;
+	u32 val = 0;
+
+#ifdef CONFIG_SC8810_IDLE_DEEP
+    status = sc8800g_get_clock_status();
+
+	timer_expiration_ms = jiffies_to_msecs(get_next_timer_interrupt(jiffies) -jiffies);
+	if ((timer_expiration_ms < sprd_deep_idle_min_time) || 
+			has_wake_lock(WAKE_LOCK_IDLE)) {
+
+		t0 = get_sys_cnt();
+		sp_arch_idle();
+		t1 = get_sys_cnt();
+		delta = t1 - t0;
+		arch_idle_total += delta;
+	}
+	else {
+
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+    	REG_LOCAL_VALUE_DEF;
+		SAVE_GLOBAL_REG;
+		disable_audio_module();
+		disable_apb_module();
+		disable_ahb_module();
+#endif
+
+#ifdef CONFIG_CACHE_L2X0_310
+		__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);//l2cache power control, standby mode enable
+#endif
+		/* AHB_PAUSE */
+		val = __raw_readl(AHB_PAUSE);
+		val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
+		val |= (MCU_SYS_SLEEP_EN);
+		
+		/* enable MCU deep sleep, wangliwei, 2012-01-06. */
+		val |= (MCU_DEEP_SLEEP_EN);
+		__raw_writel(val, AHB_PAUSE);
+
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			saved_vector[i] = sp_pm_reset_vector[i];
+		}
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			sp_pm_reset_vector[i] = 0xe320f000; /* nop*/
+		}
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
+		sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = (sc8810_standby_exit_iram - 
+			sc8810_standby_iram + IRAM_START_PHY);
+		t0 = get_sys_cnt();
+		ret = sp_pm_collapse();
+		t1 = get_sys_cnt();
+		delta = t1 - t0;
+		arch_idle_total += delta;
+
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+		RESTORE_GLOBAL_REG;
+#endif
+		for (i = 0; i < SAVED_VECTOR_SIZE; i++) {
+			sp_pm_reset_vector[i] = saved_vector[i];
+		}
+
+		if (ret) {
+			cpu_init();
+		}
+		else {
+		}
+		outer_cache_poweron();
+	}
+#else /* !CONFIG_SC8810_IDLE_DEEP */
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+	if (get_sys_cnt() > 150000) {
+   		REG_LOCAL_VALUE_DEF;
+		SAVE_GLOBAL_REG;
+		/*
+		disable_audio_module();
+		disable_apb_module();
+		disable_ahb_module();
+		*/
+    val = __raw_readl(AHB_CTL0);
+    val &= ~(AHB_CTL0_SDIO1_EN);
+    __raw_writel(val, AHB_CTL0);
+
+	val = ANA_REG_GET(ANA_LDO_PD_CTL0);
+	/*
+	val &= ~(LDO_BPVB_CTL);
+	val |= (LDO_BPVB_CTL >> 1);
+	*/
+
+	val &= ~(LDO_USB_CTL);
+	val |= (LDO_USB_CTL >> 1);
+	ANA_REG_SET(ANA_LDO_PD_CTL0, val);
+
+
+	val = ANA_REG_GET(ANA_LDO_PD_CTL1);
+	val &= ~(LDO_SDIO1_CTL);
+	val |= (LDO_SDIO1_CTL >> 1);
+
+	val &= ~(LDO_BPWIF0_CTL);
+	val |= (LDO_BPWIF0_CTL >> 1);
+
+	val &= ~(LDO_BPWIF1_CTL);
+	val |= (LDO_BPWIF1_CTL >> 1);
+
+	ANA_REG_SET(ANA_LDO_PD_CTL1, val);
+
+#endif
+
+#ifdef CONFIG_CACHE_L2X0_310
+	__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);//l2cache power control, standby mode enable
+#endif
+	outer_cache_poweroff();
+	t0 = get_sys_cnt();
+	sp_arch_idle();
+	t1 = get_sys_cnt();
+	delta = t1 - t0;
+	arch_idle_total += delta;
+
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+	RESTORE_GLOBAL_REG;
+#endif
+
+	outer_cache_poweron();
+#ifdef CONFIG_SC8810_DEEP_IDLE_TEST
+	}
+#endif
+
+#endif
+    return ret;
+}
+EXPORT_SYMBOL(sc8810_idle_sleep);
+
 
 #ifdef CONFIG_NKERNEL
 static void nkidle(void)
@@ -2659,6 +2803,166 @@ static struct file_operations _suspend_interval_proc_fops = {
     write:   sprd_suspend_interval_write,
 };
 
+static int sprd_sc8810_no_deep_sleep_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_sc8810_no_deep_sleep_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_sc8810_no_deep_sleep_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_sc8810_no_deep_sleep_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_sc8810_no_deep_sleep_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_no_deep_sleep_enable = 0;
+		break;
+	case '1':
+		sprd_no_deep_sleep_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _no_deep_sleep_fops = {
+    open:    sprd_sc8810_no_deep_sleep_open,
+    release: sprd_sc8810_no_deep_sleep_release,
+    llseek:  sprd_sc8810_no_deep_sleep_lseek,
+    read:    sprd_sc8810_no_deep_sleep_read,
+    write:   sprd_sc8810_no_deep_sleep_write,
+};
+
+
+static int sprd_sc8810_idle_test_fops_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_sc8810_idle_test_fops_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_sc8810_idle_test_fops_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_sc8810_idle_test_fops_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_sc8810_idle_test_fops_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_idle_test_enable = 0;
+		break;
+	case '1':
+		sprd_idle_test_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _idle_test_fops = {
+    open:    sprd_sc8810_idle_test_fops_open,
+    release: sprd_sc8810_idle_test_fops_release,
+    llseek:  sprd_sc8810_idle_test_fops_lseek,
+    read:    sprd_sc8810_idle_test_fops_read,
+    write:   sprd_sc8810_idle_test_fops_write,
+};
+
+
+
+static int sprd_sc8810_idle_deep_open (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+
+static int sprd_sc8810_idle_deep_release (struct inode* inode, struct file*  file)
+{
+    return 0;
+}
+static loff_t sprd_sc8810_idle_deep_lseek (struct file* file, loff_t off, int whence)
+{
+	return 0;
+}
+static ssize_t sprd_sc8810_idle_deep_read (struct file* file, char* buf, size_t count, loff_t* ppos)
+{
+    return 0;
+}
+
+static ssize_t sprd_sc8810_idle_deep_write (struct file* file, const char* ubuf, size_t size, loff_t* ppos)
+{
+	char ctl[2];
+
+	if (size != 2 || *ppos)
+		return -EINVAL;
+
+	if (copy_from_user(ctl, ubuf, size))
+		return -EFAULT;
+
+	mutex_lock(&sprd_proc_info_mutex);
+	switch (ctl[0]) {
+	case '0':
+		sprd_idle_deep_enable = 0;
+		break;
+	case '1':
+		sprd_idle_deep_enable = 1;
+		break;
+	default:
+		size = -EINVAL;
+	}
+	mutex_unlock(&sprd_proc_info_mutex);
+
+	return size;
+}
+
+static struct file_operations _idle_deep_fops = {
+    open:    sprd_sc8810_idle_deep_open,
+    release: sprd_sc8810_idle_deep_release,
+    llseek:  sprd_sc8810_idle_deep_lseek,
+    read:    sprd_sc8810_idle_deep_read,
+    write:   sprd_sc8810_idle_deep_write,
+};
+
+
 static void deep_sleep_timeout(unsigned long data)
 {
 	printk("###: deep_sleep_timeout()!\n");
@@ -2927,6 +3231,10 @@ int sc8800g_prepare_deep_sleep(void)
 	sprd_proc_create(sprd_proc_entry, "sprd_suspend_enable", &_suspend_enable_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "sprd_suspend_interval", &_suspend_interval_proc_fops);
 	sprd_proc_create(sprd_proc_entry, "sprd_sc8810_deepsleep_enable", &_suspend_sc8810_deepsleep_proc_fops);
+
+	sprd_proc_create(sprd_proc_entry, "sprd_no_deep_sleep", &_no_deep_sleep_fops);
+	sprd_proc_create(sprd_proc_entry, "sprd_idle_test", &_idle_test_fops);
+	sprd_proc_create(sprd_proc_entry, "sprd_idle_deep", &_idle_deep_fops);
     return 0;
 }
 EXPORT_SYMBOL(sc8800g_prepare_deep_sleep);
