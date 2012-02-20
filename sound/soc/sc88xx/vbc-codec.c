@@ -1259,7 +1259,7 @@ static inline int local_amplifier_enabled(void)
 #if defined(CONFIG_MACH_SP8805GA)
 extern int sprd_local_audio_pa_mode_detect_gpio;
 #elif defined(CONFIG_MACH_SP6820A)
-extern uint32_t SPRD_BOARD_VERSION;
+static uint32_t SPRD_BOARD_VERSION;
 static int32_t speaker_gpio = -1;
 static int32_t speaker_gpio_enabled_level;
 #endif
@@ -1272,6 +1272,7 @@ static inline void local_amplifier_init(void)
         sprd_local_audio_pa_mode = 0;
     } else sprd_local_audio_pa_mode = 1;
 #elif defined(CONFIG_MACH_SP6820A)
+    SPRD_BOARD_VERSION = system_rev & 0xffff;
     if (SPRD_BOARD_VERSION == 0x100) {
         sprd_local_audio_pa_mode = 1;
     } else if (SPRD_BOARD_VERSION == 0x101) {
