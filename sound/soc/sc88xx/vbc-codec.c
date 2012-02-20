@@ -1258,6 +1258,10 @@ static inline int local_amplifier_enabled(void)
 
 #if defined(CONFIG_MACH_SP8805GA)
 extern int sprd_local_audio_pa_mode_detect_gpio;
+#elif defined(CONFIG_MACH_SP6820A)
+extern uint32_t SPRD_BOARD_VERSION;
+static int32_t speaker_gpio = -1;
+static int32_t speaker_gpio_enabled_level;
 #endif
 static int sprd_local_audio_pa_mode = 0; // 1 -- internal PA; 0 -- outside PA
 
@@ -1267,6 +1271,17 @@ static inline void local_amplifier_init(void)
     if (gpio_get_value(sprd_local_audio_pa_mode_detect_gpio)) {
         sprd_local_audio_pa_mode = 0;
     } else sprd_local_audio_pa_mode = 1;
+#elif defined(CONFIG_MACH_SP6820A)
+    if (SPRD_BOARD_VERSION == 0x100) {
+        sprd_local_audio_pa_mode = 1;
+    } else if (SPRD_BOARD_VERSION == 0x101) {
+        sprd_local_audio_pa_mode = 0;
+        speaker_gpio = 91;
+        speaker_gpio_enabled_level = 1;
+        if (gpio_request(speaker_gpio, "speaker amplifier")) {
+            printk(KERN_ERR "speaker amplifier gpio request fail!\n");
+        }
+    }
 #else    //8810 is controlled by audio_para
 //    sprd_local_audio_pa_mode = 1;
 #endif
@@ -1278,7 +1293,13 @@ static inline void local_amplifier_enable(int enable)
     if (sprd_local_audio_pa_mode) {
         local_cpu_pa_control(enable);
     } else {
+#if defined(CONFIG_MACH_SP6820A)
+        if (speaker_gpio >= 0)
+            gpio_direction_output(speaker_gpio, enable ? speaker_gpio_enabled_level:!speaker_gpio_enabled_level);
+        else printk("board 0x%03x not support outside PA\n", SPRD_BOARD_VERSION);
+#else
         printk("vbc not support outside PA\n");
+#endif
     }
 }
 
@@ -1300,7 +1321,15 @@ static inline int local_amplifier_enabled(void)
         }
 #endif
     } else {
+#if defined(CONFIG_MACH_SP6820A)
+        if (speaker_gpio >= 0) {
+            if (!!gpio_get_value(speaker_gpio) == speaker_gpio_enabled_level)
+                return 1;
+            else return 0;
+        } else printk("board 0x%03x not support outside PA\n", SPRD_BOARD_VERSION);
+#else
         printk("vbc not support outside PA\n");
+#endif
         return 0;
     }
 }
@@ -1402,7 +1431,9 @@ ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,cons
 	printk("vbc_param have store!\n");
 
 //#if defined(CONFIG_ARCH_SC8810)
+#if !defined(CONFIG_MACH_SP6820A)
 	sprd_local_audio_pa_mode = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_SWITCH_INDEX];
+#endif
 	cur_internal_pa_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0xF;
 //	printk("chj kobj_vbc_param_store sprd_local_audio_pa_mode:%d cur_internal_pa_gain:0x%x\n",sprd_local_audio_pa_mode,cur_internal_pa_gain);
 //#endif
