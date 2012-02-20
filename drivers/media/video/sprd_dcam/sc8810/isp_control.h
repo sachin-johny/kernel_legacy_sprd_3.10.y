@@ -34,6 +34,7 @@
 void dcam_inc_user_count(void);
 void dcam_dec_user_count(void);
 uint32_t dcam_get_user_count(void);
+void dcam_clear_user_count(void);
 void isp_get_path2(void);
 void isp_put_path2(void);
 void isp_mutex_init(void);

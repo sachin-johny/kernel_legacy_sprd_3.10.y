@@ -52,6 +52,7 @@
 #define DCAM_SCALE_OUT_WIDTH_MAX    960
 
 #define DCAM_TIME_OUT                 500//ms 
+#define DCAM_TIME_OUT_FOR_ATV                 2000//ms 
 #define DCAM_RESTART_COUNT   2//3        
 
 static struct mutex *lock;
@@ -109,7 +110,8 @@ typedef struct _dcam_error_info_tag
 	uint8_t ret;
 	uint8_t is_stop;
 	uint8_t is_wakeup_thread;;
-	uint8_t rsd2;
+	uint8_t rsd;
+	uint32_t timeout_val;
 	void *priv;
 	DCAM_MODE_TYPE_E mode;
 	struct semaphore dcam_start_sem;
@@ -1561,6 +1563,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	s_dcam_err_info.restart_cnt = 0;
 	s_dcam_err_info.is_report_err = 0;
 	s_dcam_err_info.ret = 0;
+	s_dcam_err_info.timeout_val = DCAM_TIME_OUT;
 	
 	init_MUTEX(&s_dcam_err_info.dcam_start_sem);
 	down(&s_dcam_err_info.dcam_start_sem);
@@ -1577,11 +1580,17 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_is_first_irq = 1;
 	g_last_buf = 0xFFFFFFFF;
 	g_last_uv_buf = 0xFFFFFFFF;
+
+	if(5 == Sensor_GetCurId())
+	{
+		printk("v4l2:streamon,sensor is ATV .\n");
+		s_dcam_err_info.timeout_val = DCAM_TIME_OUT_FOR_ATV;
+	}
   
 	ret = dcam_start();
 	if(!ret)
 	{
-		dcam_start_timer(&s_dcam_err_info.dcam_timer, DCAM_TIME_OUT);
+		dcam_start_timer(&s_dcam_err_info.dcam_timer, s_dcam_err_info.timeout_val);
 		down_interruptible(&s_dcam_err_info.dcam_start_sem);
 		up(&s_dcam_err_info.dcam_start_sem);	
 		ret = s_dcam_err_info.ret;
@@ -2003,7 +2012,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 				if(DCAM_MODE_TYPE_PREVIEW == info_ptr->mode)
 				{
-					dcam_start_timer(&s_dcam_err_info.dcam_timer,DCAM_TIME_OUT);
+					dcam_start_timer(&s_dcam_err_info.dcam_timer,info_ptr->timeout_val);
 				}
 				info_ptr->is_running = 1;
 				printk("v4l2:dcam_scan_status_thread,DCAM_START_OK.\n ");
@@ -2019,9 +2028,10 @@ static int dcam_scan_status_thread(void * data_ptr)
 				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 				if(info_ptr->restart_cnt>DCAM_RESTART_COUNT)
 				{
+					dcam_dec_user_count();
 					if(1 == info_ptr->is_running )
 					{
-						info_ptr->is_report_err = 1;
+						info_ptr->is_report_err = 1;						
 						dcam_error_handle(g_fh);
 						printk("v4l2:dcam_scan_status_thread,report error!.\n");
 					}
@@ -2046,7 +2056,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 				info_ptr->work_status = DCAM_RESTART;
 				dcam_dec_user_count();
 				dcam_start();				
-				dcam_start_timer(&info_ptr->dcam_timer,DCAM_TIME_OUT);				
+				dcam_start_timer(&info_ptr->dcam_timer,info_ptr->timeout_val);				
 				info_ptr->restart_cnt++;
 				break;		
 			case DCAM_WORK_STATUS_MAX:
@@ -2059,7 +2069,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 	}
 dcam_thread_end:	
 	up(&s_dcam_err_info.dcam_thread_sem);		
-	printk("wjp thread end.\n");
+	printk("dcam thread end.\n");
 	return 0;
 }
 /* ------------------------------------------------------------------
@@ -2241,6 +2251,7 @@ static int close(struct file *file)
 
 	//close dcam
 	dcam_close();
+	dcam_clear_user_count();
 	s_dcam_err_info.is_stop = 1;
 	up(&s_dcam_err_info.dcam_thread_sem);	
 
