@@ -40,6 +40,11 @@ uint32_t dcam_get_user_count(void)
 	DCAM_TRACE("DCAM:dcam_get_user_count: count: %d.\n", s_dcam_user_count);
 	return s_dcam_user_count;
 }
+
+void dcam_clear_user_count(void)
+{
+	s_dcam_user_count = 0;
+}
 void isp_get_path2(void)
 {
 	down(&s_sem_cnt);
