@@ -763,8 +763,10 @@ static void sc8810fb_early_suspend (struct early_suspend* es)
 	}
 	if (info->clk_lcdc) {
 		FB_PRINT("clk_disable\n");
+		/* FIXME: temp change before we found a solution
 		rrm_wait_for_idle();
 		clk_disable(info->clk_lcdc);
+		*/
 	}
 	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
 }
@@ -775,7 +777,9 @@ static void sc8810fb_early_resume (struct early_suspend* es)
 
 	if (info->clk_lcdc) {
 		FB_PRINT("clk_enable\n");
+		/* FIXME: temp change before we found a solution
 		clk_enable(info->clk_lcdc);
+		*/
 	}
 	if (__raw_readl(LCDC_CTRL) == 0) {
 		FB_PRINT("sc8810fb resume from deep sleep \n");
