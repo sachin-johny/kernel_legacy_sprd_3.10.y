@@ -527,6 +527,12 @@ static int init_sensor_parameters(void *priv)
 	DCAM_V4L2_PRINT("V4L2: init sensor parameters E.\n");
 	sensor_info_ptr = Sensor_GetInfo();
 
+	if(PNULL == sensor_info_ptr)
+	{
+		printk("v4l2:init_sensor_parameters,get sensor info fail .\n");
+		return -1;
+	}
+
 	if((DCAM_ROTATION_0 == g_dcam_info.rot_angle ) || (DCAM_ROTATION_180 == g_dcam_info.rot_angle))
          	{
 		init_param.input_size.w = fh->width;
@@ -674,6 +680,11 @@ static inline unsigned int norm_maxw(void)
 	SENSOR_EXP_INFO_T *sensor_info_ptr = NULL;	
 	
 	sensor_info_ptr = Sensor_GetInfo();
+	if(PNULL == sensor_info_ptr)
+	{
+		printk("v4l2:norm_maxw,get sensor info fail.\n");
+		return 0;
+	}	
 
 	max_width = (uint32_t)sensor_info_ptr->source_width_max;
 	if(max_width<DCAM_SCALE_OUT_WIDTH_MAX)
@@ -688,6 +699,12 @@ static inline unsigned int norm_maxh(void)
 	SENSOR_EXP_INFO_T *sensor_info_ptr = NULL;	
 	
 	sensor_info_ptr = Sensor_GetInfo();
+
+	if(PNULL == sensor_info_ptr)
+	{
+		printk("v4l2:norm_maxh,get sensor info fail.\n");
+		return 0;
+	}	
 
 	max_height = (uint32_t)sensor_info_ptr->source_height_max;
 //	DCAM_V4L2_PRINT("V4L2: norm_maxw,max height =%d.\n",max_height);
@@ -1212,6 +1229,11 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	streamparm->parm.raw_data[1] = dev->streamparm.parm.raw_data[1];
 
 	sensor_info_ptr = Sensor_GetInfo();
+	if(PNULL == sensor_info_ptr)
+	{
+		printk("v4l2:vidioc_g_parm,get sensor info fail.\n");
+		return -1;
+	}
 	data_ptr = &streamparm->parm.raw_data[3];
 	for(i=SENSOR_MODE_PREVIEW_ONE;i<SENSOR_MODE_MAX;i++)
 	{
@@ -1439,14 +1461,21 @@ void zoom_picture_size(uint32_t in_w, uint32_t in_h, DCAM_TRIM_RECT_T *trim_rect
 	
 }
 
-static void init_dcam_parameters(void *priv)
+static int init_dcam_parameters(void *priv)
 {
 	struct dcam_fh  *fh = priv;
 	struct dcam_dev *dev = fh->dev;
 	 DCAM_INIT_PARAM_T init_param;
 	 SENSOR_EXP_INFO_T *sensor_info_ptr = NULL;
+	 int ret = 0;
 	
 	sensor_info_ptr = Sensor_GetInfo();
+
+	if(PNULL == sensor_info_ptr)
+	{
+		printk("v4l2:init_dcam_parameters,get sensor info fail.\n");
+		return -1;
+	}
 
 	 g_dcam_info.zoom_multiple = 2;
 	 
@@ -1526,6 +1555,7 @@ static void init_dcam_parameters(void *priv)
 	init_param.zoom_multiple = g_dcam_info.zoom_multiple;
 	init_param.zoom_level = g_zoom_level;
 	dcam_parameter_init(&init_param);
+	return 0;
 }
 
 static void dcam_set_param(void)
@@ -1572,8 +1602,13 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	init_MUTEX(&s_dcam_err_info.dcam_start_sem);
 	down(&s_dcam_err_info.dcam_start_sem);
 	
-	init_sensor_parameters(priv);
-	init_dcam_parameters(priv);	
+	ret = init_sensor_parameters(priv);
+	if(0 != ret)
+		return -1;
+	
+	ret = init_dcam_parameters(priv);	
+	if(0 != ret)
+		return -1;
 	s_dcam_err_info.mode = g_dcam_info.mode;
 
 	if(0 != (ret = videobuf_streamon(&fh->vb_vidq)))
@@ -1662,6 +1697,11 @@ static int  vidioc_g_crop(struct file *file, void *fh, struct v4l2_crop *crop)
 		return -EINVAL;
 
 	sensor_info_ptr = Sensor_GetInfo();
+	if(PNULL == sensor_info_ptr)
+	{
+		printk("v4l2:vidioc_g_crop,get sensor info fail.\n");
+		return -1;
+	}
 
 	crop->c.left = 0;
 	crop->c.top = 0;

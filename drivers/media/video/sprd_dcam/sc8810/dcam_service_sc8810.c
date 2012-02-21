@@ -915,14 +915,20 @@ static uint32_t _ISP_ServiceGetXYDeciFactor(uint32_t *src_width, uint32_t *src_h
 	return i;
 }
 
-static void _ISP_GetSensorInterfaceInfo(void)
+static int _ISP_GetSensorInterfaceInfo(void)
 {
 	ISP_SERVICE_T         *s = &s_isp_service;
-	SENSOR_EXP_INFO_T sensor_info;
+	SENSOR_EXP_INFO_T *sensor_info_ptr;
 	SENSOR_INTERFACE_E sensor_interface = SENSOR_INTERFACE_MAX;
          uint32_t width = 0;
-		 
-	sensor_info = *Sensor_GetInfo();
+ 	int ret = 0;
+			 
+	sensor_info_ptr = Sensor_GetInfo();
+	if(PNULL == sensor_info_ptr)
+	{
+		printk("v4l2:_ISP_GetSensorInterfaceInfo,get sensor info fail.\n");
+		return -1;
+	}	
 
 	width = s->cap_input_range.w*2-1;
 	
@@ -930,7 +936,7 @@ static void _ISP_GetSensorInterfaceInfo(void)
 	s->cap_if_mode   = 0;
 	s->sensor_mode = ISP_CAP_MODE_YUV;
 	s->ccir656_en = 0;
-	sensor_interface = sensor_info.sensor_interface;
+	sensor_interface = sensor_info_ptr->sensor_interface;
          switch(sensor_interface)
          	{
 		case SENSOR_INTERFACE_CCIR601_8BITS:
@@ -1029,17 +1035,18 @@ static void _ISP_GetSensorInterfaceInfo(void)
 			break;
 		}
 	}
-	if(SENSOR_IMAGE_FORMAT_JPEG == sensor_info.image_format)
+	if(SENSOR_IMAGE_FORMAT_JPEG == sensor_info_ptr->image_format)
 	{
 		s->sensor_mode = ISP_CAP_MODE_JPEG;
 	}
-	else if(SENSOR_IMAGE_FORMAT_RAW == sensor_info.image_format)
+	else if(SENSOR_IMAGE_FORMAT_RAW == sensor_info_ptr->image_format)
 	{
 		s->sensor_mode = ISP_CAP_MODE_RAWRGB;
 	}
 
 	DCAM_TRACE_HIGH("DCAM:_ISP_GetSensorInterfaceInfo,sensor_mode:%d,cap_endian:%d,cap mode:%d,spi width:%d \n",
 					   s->sensor_mode,s->cap_if_endian,s->cap_if_mode,s->width_of_spi);
+	return 0;
 }
 static ISP_DCAM_PATH1_OUT_FORMAT_E dcam_outformat_convert(DCAM_DATA_FORMAT_E input_format)
 {
@@ -1100,24 +1107,30 @@ void dcam_get_zoom_trim(ISP_RECT_T *trim_rect,uint32_t zoom_level)
 	DCAM_TRACE_HIGH("DCAM:dcam_get_zoom_trim,x=%d,y=%d,w=%d,h=%d .\n",trim_rect->x,trim_rect->y,trim_rect->w,trim_rect->h);
 }
 
-static void ISP_ServiceSetParameters(void)
+static int ISP_ServiceSetParameters(void)
 {
 	ISP_SERVICE_T         *s = &s_isp_service;
-	SENSOR_EXP_INFO_T sensor_info;
+	SENSOR_EXP_INFO_T *sensor_info_ptr;
 	ISP_SIZE_T dst_img_size;
 	uint32_t trim_width = 0;
          uint32_t trim_height = 0;
 	uint32_t zoom_step_w = 0,zoom_step_h = 0;
+	int ret = 0;
 
-	sensor_info = *Sensor_GetInfo();
+	sensor_info_ptr = Sensor_GetInfo();
+	if(PNULL == sensor_info_ptr)
+	{
+		printk("dcam service:get sensor info fail.\n");
+		return -1;
+	}
 
-	s->cap_input_image_format = sensor_info.image_format;
-	s->cap_input_image_pattern = sensor_info.image_pattern;
-	s->hsync_polarity = sensor_info.hsync_polarity;
-	s->vsync_polarity = sensor_info.vsync_polarity;
-	s->pclk_polarity = sensor_info.pclk_polarity;
-	s->preview_skip_frame_num = sensor_info.preview_skip_num;
-	s->preview_deci_frame_num = sensor_info.preview_deci_num;
+	s->cap_input_image_format = sensor_info_ptr->image_format;
+	s->cap_input_image_pattern = sensor_info_ptr->image_pattern;
+	s->hsync_polarity = sensor_info_ptr->hsync_polarity;
+	s->vsync_polarity = sensor_info_ptr->vsync_polarity;
+	s->pclk_polarity = sensor_info_ptr->pclk_polarity;
+	s->preview_skip_frame_num = sensor_info_ptr->preview_skip_num;
+	s->preview_deci_frame_num = sensor_info_ptr->preview_deci_num;
 	s->cap_input_size.w = g_dcam_param.input_size.w;
 	s->cap_input_size.h = g_dcam_param.input_size.h;
 	dst_img_size.w = g_dcam_param.display_rect.w;
@@ -1198,8 +1211,11 @@ static void ISP_ServiceSetParameters(void)
 
          DCAM_TRACE_HIGH("DCAM:ISP_ServiceSetParameters,display rotation =%d .\n",s->display_rotation);
 	
-	_ISP_GetSensorInterfaceInfo();
+	ret = _ISP_GetSensorInterfaceInfo();
+	if(0 != ret)
+		return -1;
 	s->dcam_path1_out_format =dcam_outformat_convert(g_dcam_param.format);
+	return 0;
 
 }
 
@@ -1216,7 +1232,9 @@ int dcam_start(void)
 	dcam_inc_user_count();
 	
 	DCAM_TRACE("DCAM: dcam_start start. \n"); 
-	ISP_ServiceSetParameters();
+	ret = ISP_ServiceSetParameters();
+	if(0  != ret)
+		return -1;
 	
 	if(DCAM_MODE_TYPE_PREVIEW == g_dcam_param.mode)
 		ret = ISP_ServiceStartPreview();
