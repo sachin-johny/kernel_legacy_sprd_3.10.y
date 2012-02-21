@@ -93,12 +93,12 @@ static const struct i2c_device_id sensor_sub_id[] = {
 	{ }
 };
 
-static unsigned short sensor_main_force[] = {2, SENSOR_MAIN_I2C_ADDR_CFG, I2C_CLIENT_END, I2C_CLIENT_END};
+static unsigned short sensor_main_force[] = {2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
 static const unsigned short *const sensor_main_forces[] = { sensor_main_force, NULL };
-static unsigned short sensor_main_default_addr_list[] ={ SENSOR_MAIN_I2C_ADDR_CFG,I2C_CLIENT_END};
-static unsigned short sensor_sub_force[] = {2, SENSOR_SUB_I2C_ADDR_CFG, I2C_CLIENT_END, I2C_CLIENT_END};
+static unsigned short sensor_main_default_addr_list[] ={ SENSOR_MAIN_I2C_ADDR,I2C_CLIENT_END};
+static unsigned short sensor_sub_force[] = {2, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
 static const unsigned short *const sensor_sub_forces[] = { sensor_sub_force, NULL };
-static unsigned short sensor_sub_default_addr_list[] ={ SENSOR_SUB_I2C_ADDR_CFG,I2C_CLIENT_END};
+static unsigned short sensor_sub_default_addr_list[] ={ SENSOR_SUB_I2C_ADDR,I2C_CLIENT_END};
 
 /**---------------------------------------------------------------------------*
  **                         Constant Variables                                *
@@ -121,12 +121,12 @@ static unsigned short sensor_sub_default_addr_list[] ={ SENSOR_SUB_I2C_ADDR_CFG,
 	}	
 	this_client = client;	
 	if(SENSOR_MAIN == Sensor_GetCurId()){
-		if(SENSOR_MAIN_I2C_ADDR_CFG != (this_client->addr & (~0xFF))) {
+		if(SENSOR_MAIN_I2C_ADDR != (this_client->addr & (~0xFF))) {
 			this_client->addr = (this_client->addr & (~0xFF)) | (sensor_main_force[1]&0xFF); 
 		}
 	}
 	else{ //for SENSOR_SUB	
-		if(SENSOR_SUB_I2C_ADDR_CFG != (this_client->addr & (~0xFF))) {
+		if(SENSOR_SUB_I2C_ADDR != (this_client->addr & (~0xFF))) {
 			this_client->addr = (this_client->addr & (~0xFF)) | (sensor_sub_force[1]&0xFF); 
 		}
 	}

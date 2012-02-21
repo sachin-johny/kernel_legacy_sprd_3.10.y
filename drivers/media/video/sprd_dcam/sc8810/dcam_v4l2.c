@@ -116,6 +116,7 @@ typedef struct _dcam_error_info_tag
 	DCAM_MODE_TYPE_E mode;
 	struct semaphore dcam_start_sem;
 	struct semaphore dcam_thread_sem;
+	struct semaphore dcam_thread_wakeup_sem;
 	struct timer_list dcam_timer;
 }DCAM_ERROR_INFO_T;
 
@@ -1260,6 +1261,8 @@ static int v4l2_sensor_init(uint32_t sensor_id)
 		{
 			wake_up_process(s_dcam_thread);
 			s_dcam_err_info.is_wakeup_thread = 1;
+			down_interruptible(&s_dcam_err_info.dcam_thread_wakeup_sem);
+			printk("v4l2:wake up dcam thread!.\n");
 		}
 	}
 	DCAM_V4L2_PRINT("V4L2:sensor init OK.\n");
@@ -1304,6 +1307,7 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	{		
 		sensor_id = 0;
 	}
+	printk("v4l2:vidioc_s_parm,sensor_id=%d.\n",sensor_id);
 	if(1 == streamparm->parm.raw_data[197])
 	{
 		if(1 == streamparm->parm.raw_data[196])
@@ -1997,12 +2001,14 @@ static int dcam_scan_status_thread(void * data_ptr)
 	{
 		printk("v4l2:dcam_scan_status_thread,run error!.\n");
 	}	
+	up(&info_ptr->dcam_thread_wakeup_sem);
 	printk("v4l2:dcam_scan_status_thread,test 0!.\n");
 	while (1)
 	{
 		printk("v4l2:dcam_scan_status_thread,test!.\n");
-		if(!s_dcam_err_info.is_stop)	down_interruptible(&s_dcam_err_info.dcam_thread_sem);		
-		else goto dcam_thread_end;
+		down_interruptible(&s_dcam_err_info.dcam_thread_sem);		
+		if(s_dcam_err_info.is_stop)	
+			goto dcam_thread_end;
 		switch(info_ptr->work_status)
 		{
 			case DCAM_START_OK:							
@@ -2068,7 +2074,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 			
 	}
 dcam_thread_end:	
-	up(&s_dcam_err_info.dcam_thread_sem);		
+	//up(&s_dcam_err_info.dcam_thread_sem);		
 	printk("dcam thread end.\n");
 	return 0;
 }
@@ -2082,6 +2088,7 @@ static int dcam_create_thread(void)
 	printk("v4l2:dcam_create_thread s!.\n");	
 	init_MUTEX(&s_dcam_err_info.dcam_thread_sem);
 	down(&s_dcam_err_info.dcam_thread_sem);
+	init_MUTEX_LOCKED(&s_dcam_err_info.dcam_thread_wakeup_sem);
 	/* Start up the thread for scan dcam's status */
 	s_dcam_thread = kthread_create(dcam_scan_status_thread, (void*)&s_dcam_err_info, "dcam-scan-status");
 	if (IS_ERR(s_dcam_thread)) 
@@ -2261,7 +2268,7 @@ static int close(struct file *file)
 	videobuf_mmap_free(&fh->vb_vidq);
        
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);	
-	down_interruptible(&s_dcam_err_info.dcam_thread_sem);	
+//	down_interruptible(&s_dcam_err_info.dcam_thread_sem);	
 	s_dcam_err_info.is_wakeup_thread = 0;
 	printk("v4l2:close,stop timer.\n");		
 	
