@@ -154,6 +154,63 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
 static int32_t cur_sample_rate=44100;
 static int32_t cur_internal_pa_gain = 0x8;   //default:1000----0db  added by jian
 
+u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
+{
+#ifdef CONFIG_ARCH_SC8800S
+    unsigned long flags;
+    u32 tmp, ret;
+    raw_local_irq_save(flags);
+    ret = tmp = __raw_readl(reg);
+    tmp &= ~(mask << shift);
+    tmp |= val << shift;
+    __raw_writel(tmp, reg);
+    raw_local_irq_restore(flags);
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
+    u32 tmp, ret;
+    // raw_local_irq_save(flags);
+    enter_critical();
+    if (not_in_adi_range(reg)) tmp = __raw_readl(reg);
+    else tmp = __raw_adi_read(reg);
+    ret = tmp;
+    tmp &= ~(mask << shift);
+    tmp |= val << shift;
+    if (not_in_adi_range(reg)) __raw_writel(tmp, reg);
+    else __raw_adi_write(tmp, reg);
+    // raw_local_irq_restore(flags);
+    exit_critical();
+#endif
+    return ret & (mask << shift);
+}
+EXPORT_SYMBOL_GPL(vbc_reg_write);
+
+u32 vbc_reg_read(u32 reg, u8 shift, u32 mask)
+{
+#ifdef CONFIG_ARCH_SC8800S
+    unsigned long flags;
+    u32 tmp;
+    raw_local_irq_save(flags);
+    tmp = __raw_readl(reg);
+    // tmp &= mask << shift;
+    // tmp |= val << shift;
+    // __raw_writel(tmp, reg);
+    raw_local_irq_restore(flags);
+#elif defined(CONFIG_ARCH_SC8800G) || \
+      defined(CONFIG_ARCH_SC8810)
+    u32 tmp;
+    enter_critical();
+    if (not_in_adi_range(reg)) tmp = __raw_readl(reg);
+    else tmp = __raw_adi_read(reg);
+    // tmp &= ~(mask << shift);
+    // tmp |= val << shift;
+    // if (not_in_adi_range(reg)) __raw_writel(tmp, reg);
+    // else __raw_adi_write(tmp, reg);
+    exit_critical();
+#endif
+    return tmp & (mask << shift);
+}
+EXPORT_SYMBOL_GPL(vbc_reg_read);
+
 int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, const char *prefix)
 {
     int i;
@@ -336,6 +393,10 @@ u16 __raw_adi_read(u32 addr)
     do {
         adi_data = __raw_readl(ADI_RD_DATA);
     } while (adi_data & (1 << 31));
+    //rd_data high part should be the address of the last read operation
+    if ((adi_data & 0xFFFF0000) != ((phy_addr) <<16)) {
+        panic("vbc ADI read error!");
+    }
     //exit_critical();
 //  lprintf("addr=0x%08x, phy=0x%08x, val=0x%04x\n", addr, phy_addr, adi_data & 0xffff);
     return adi_data & 0xffff;
@@ -379,13 +440,13 @@ static void vbc_ldo_on(bool on)
             do_on_off = 1;
         }
 #elif defined(CONFIG_ARCH_SC8800G)
-        if (!(__raw_adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
+        if (!(adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
             __raw_adi_and(~(1 << 14), ANA_LDO_PD_CTL);
             __raw_adi_or(1 << 15, ANA_LDO_PD_CTL);
             do_on_off = 1;
         }
 #elif defined(CONFIG_ARCH_SC8810)
-        if (!(__raw_adi_read(ANA_LDO_PD_CTL0) & (1 << 15))) {
+        if (!(adi_read(ANA_LDO_PD_CTL0) & (1 << 15))) {
             __raw_adi_and(~(1 << 14), ANA_LDO_PD_CTL0);
             __raw_adi_or(1 << 15, ANA_LDO_PD_CTL0);
             do_on_off = 1;
@@ -398,13 +459,13 @@ static void vbc_ldo_on(bool on)
             do_on_off = 1;
         }
 #elif defined(CONFIG_ARCH_SC8800G)
-        if ((__raw_adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
+        if ((adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
             __raw_adi_and(~(1 << 15), ANA_LDO_PD_CTL);
             __raw_adi_or((1 << 14), ANA_LDO_PD_CTL);
             do_on_off = 1;
         }
 #elif defined(CONFIG_ARCH_SC8810)
-        if ((__raw_adi_read(ANA_LDO_PD_CTL0) & (1 << 15))) {
+        if ((adi_read(ANA_LDO_PD_CTL0) & (1 << 15))) {
             __raw_adi_and(~(1 << 15), ANA_LDO_PD_CTL0);
             __raw_adi_or((1 << 14), ANA_LDO_PD_CTL0);
             do_on_off = 1;
@@ -412,7 +473,7 @@ static void vbc_ldo_on(bool on)
 #endif
     }
     if (do_on_off) {
-        //printk("+++++++++++++ audio set ldo to %s +++++++++++++\n", on ? "on" : "off");
+        printk("+++++++++++++ audio set ldo to %s +++++++++++++\n", on ? "on" : "off");
     }
 }
 
@@ -501,7 +562,7 @@ void vbc_power_down(unsigned int value)
             (!vbc_reg_read(VBPMR1, SB_DAC, 1) ||
             !earpiece_muted || !headset_muted || !speaker_muted))) {
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
-            //printk("---- vbc do power down ----\n");
+            printk("---- vbc do power down ----\n");
 #endif
             // VBCGR1_value = vbc_reg_write(VBCGR1, 0, 0xff, 0xff); // DAC Gain
             if (use_delay) msleep(100); // avoid quick switch from power on to off
@@ -553,7 +614,7 @@ void vbc_power_down(unsigned int value)
             vbc_reg_VBPMR2_set(SB, 1); // Power down sb
             if (use_delay) msleep(100); // avoid quick switch from power off to on
             vbc_ldo_on(0);
-            //printk("....................... audio full power down [%d] .......................\n", use_delay);
+            printk("....................... audio full power down [%d] .......................\n", use_delay);
         }
     }
     mutex_unlock(&vbc_power_lock);
@@ -795,7 +856,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 #endif
     vbc_codec_unmute(); // don't mute
 #endif
-    //printk("vbc reset finish...\n");
+    printk("vbc reset finish...\n");
     return ret;
 }
 
@@ -1088,7 +1149,7 @@ static int vbc_pcm_hw_params(struct snd_pcm_substream *substream,
             break;
     }
 
-     printk("Sample Rate is [%d]\n", params_rate(params));
+    printk("Sample Rate is [%d]\n", params_rate(params));
 
     return 0;
 }
@@ -1181,8 +1242,12 @@ static void android_sprd_pm_exit(void) {}
 #ifdef CONFIG_PM
 int vbc_suspend(struct platform_device *pdev, pm_message_t state)
 {
-    //printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+    struct snd_soc_device *socdev = platform_get_drvdata(pdev);
+    struct snd_soc_codec *codec = socdev->card->codec;
+    mutex_lock(&codec->mutex);
+    printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
     vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
+    mutex_unlock(&codec->mutex);
     return 0;
 }
 
@@ -1190,6 +1255,7 @@ int vbc_resume(struct platform_device *pdev)
 {
     struct snd_soc_device *socdev = platform_get_drvdata(pdev);
     struct snd_soc_codec *codec = socdev->card->codec;
+    mutex_lock(&codec->mutex);
     printk("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
 #if 1
     vbc_reset(codec, 1, 0);
@@ -1197,6 +1263,7 @@ int vbc_resume(struct platform_device *pdev)
     if (codec) vbc_reset(codec, 0, 0);
     vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE);
 #endif
+    mutex_unlock(&codec->mutex);
     return 0;
 }
 #else
