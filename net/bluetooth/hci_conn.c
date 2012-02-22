@@ -148,7 +148,7 @@ void hci_setup_sync(struct hci_conn *conn, __u16 handle)
 
 	cp.tx_bandwidth   = cpu_to_le32(0x00001f40);
 	cp.rx_bandwidth   = cpu_to_le32(0x00001f40);
-	cp.max_latency    = cpu_to_le16(0xffff);
+	cp.max_latency    = cpu_to_le16(0x000a);
 	cp.voice_setting  = cpu_to_le16(hdev->voice_setting);
 	cp.retrans_effort = 0xff;
 

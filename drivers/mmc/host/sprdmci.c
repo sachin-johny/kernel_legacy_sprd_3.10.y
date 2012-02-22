@@ -64,7 +64,6 @@ static struct wake_lock sdhci_suspend_lock;
 
 //mmc1 host for WiFi force card detection
 struct mmc_host *g_mmc1_host = NULL;
-
 static void sdhci_prepare_data(struct sdhci_host *, struct mmc_data *);
 static void sdhci_finish_data(struct sdhci_host *);
 
@@ -2276,7 +2275,7 @@ static int __init sdhci_drv_init(void)
 }
 
 static void __exit sdhci_drv_exit(void)
-{
+{ 
 #ifdef HOT_PLUG_SUPPORTED	
         wake_lock_destroy(&sdhci_detect_lock);
 #endif
