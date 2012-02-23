@@ -274,6 +274,10 @@ static struct irqaction sprd_gptimer_irq = {
 	.dev_id		= &sprd_gptimer,
 };
 
+#ifdef CONFIG_LOW_RESOLUTION_CLKSRC
+static u32 saved_syscnt = 0, same_cnt_num = 0;
+#endif
+
 /*
  * we use the system counter as the clock source.
  */
@@ -286,6 +290,15 @@ static cycle_t sprd_syscnt_read(struct clocksource *cs)
 		val1 = val2;
 		val2 = __raw_readl(SYSCNT_COUNT);
 	}
+#ifdef CONFIG_LOW_RESOLUTION_CLKSRC
+	/* FIXME: fix the bug that low resolution timer will cause cts failed, use a high one in nexttime pls */
+	if(saved_syscnt == val2)
+		same_cnt_num++;
+	else {
+		same_cnt_num = 0;
+		saved_syscnt = val2;
+	}
+#endif
 	return val2;
 }
 
@@ -300,8 +313,14 @@ static struct clocksource sprd_syscnt = {
 
 unsigned long long sched_clock(void)
 {
+#ifdef CONFIG_LOW_RESOLUTION_CLKSRC
+	/* FIXME: fix the bug that low resolution timer will cause cts failed, use a high one in nexttime pls */
+	return clocksource_cyc2ns(sprd_syscnt.read(&sprd_syscnt),
+				  sprd_syscnt.mult, sprd_syscnt.shift) + same_cnt_num;
+#else
 	return clocksource_cyc2ns(sprd_syscnt.read(&sprd_syscnt),
 				  sprd_syscnt.mult, sprd_syscnt.shift);
+#endif
 }
 
 void read_persistent_clock(struct timespec *ts)

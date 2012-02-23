@@ -46,4 +46,11 @@ config CACHE_L2X0_310
 	help
           This option enables the L2x0 PrimeCell.
 
+config LOW_RESOLUTION_CLKSRC
+	depends on ARCH_SC8810
+	default y
+        bool "Using a low resolution timer(1ms)"
+	help
+          This option enables some low resolution timer workaround codes.
+
 endif
