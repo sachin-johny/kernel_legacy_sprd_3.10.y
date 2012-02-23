@@ -297,11 +297,12 @@ static int eic_start_trig(unsigned int config_index)
 	return (-1);
 }
 
-void eic_ctrl(unsigned int config_index, unsigned int isDebounceEnable,
+void eic_ctrl(enum EIC_TYPE_E num, unsigned int isDebounceEnable,
 		     unsigned int debounceMs)
 {
 	unsigned int value = 0;
 	unsigned int eic_id = 0;
+	unsigned int config_index = __get_config_index(num);
 
 	eic_id = GET_INTER_ID(config_data[config_index].type);
 	value |= (1 << 15);	//clock of dbnc forced open
@@ -419,7 +420,7 @@ static void sprd_unmask_eic_irq(unsigned int irq)
 		sic_set_interrupt(config_index, 1);
 	} else
 		goto Err;
-//TODO: 
+//TODO:
 #ifdef CONFIG_NKERNEL
 	sprd_enable_ana_irq();
 #endif
