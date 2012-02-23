@@ -473,7 +473,7 @@ static void vbc_ldo_on(bool on)
 #endif
     }
     if (do_on_off) {
-        printk("+++++++++++++ audio set ldo to %s +++++++++++++\n", on ? "on" : "off");
+        printk("+++++++++++++ vbc set ldo to %s +++++++++++++\n", on ? "on" : "off");
     }
 }
 
@@ -507,7 +507,6 @@ static inline void vbc_ready2go(void)
 
 extern inline int vbc_amplifier_enabled(void);
 extern inline void vbc_amplifier_enable(int enable, const char *prename);
-static DEFINE_MUTEX(vbc_power_lock);
 static volatile int earpiece_muted = 1, headset_muted = 1, speaker_muted = 1;
 void vbc_write_callback(unsigned int reg, unsigned int val)
 {
@@ -534,7 +533,6 @@ void vbc_power_down(unsigned int value)
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
     int power_down_force = 0;
 #endif
-    mutex_lock(&vbc_power_lock);
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
     if (value != -1) {
         power_down_force = !!(value & VBC_CODEC_POWER_DOWN_FORCE);
@@ -545,7 +543,7 @@ void vbc_power_down(unsigned int value)
     // printk("audio %s\n", __func__);
     {
         int do_sb_power = 0;
-        use_delay = 1; // !headset_muted;
+        use_delay = 1; // (in_irq() || irqs_disabled()) ? 0 : 1; // !headset_muted;
         // int VBCGR1_value;
         if ((vbc_reg_read(VBPMR1, SB_ADC, 1)
              && (value == SNDRV_PCM_STREAM_PLAYBACK && !vbc_reg_read(VBPMR1, SB_DAC, 1))) ||
@@ -614,10 +612,9 @@ void vbc_power_down(unsigned int value)
             vbc_reg_VBPMR2_set(SB, 1); // Power down sb
             if (use_delay) msleep(100); // avoid quick switch from power off to on
             vbc_ldo_on(0);
-            printk("....................... audio full power down [%d] .......................\n", use_delay);
+            printk("....................... vbc full power down [%d]-%d .......................\n", use_delay, in_irq() || irqs_disabled());
         }
     }
-    mutex_unlock(&vbc_power_lock);
 }
 EXPORT_SYMBOL_GPL(vbc_power_down);
 
@@ -625,7 +622,6 @@ EXPORT_SYMBOL_GPL(vbc_power_down);
 void vbc_power_on_playback(bool ldo)
 {
     // Following code has risk [luther.ge]
-    // mutex_lock(&vbc_power_lock);
     ldo = ldo;
 #if 0
     if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
@@ -637,13 +633,12 @@ void vbc_power_on_playback(bool ldo)
     //  else
     //      printk("---- vbc unmute %s%s%spa ----\n", speaker_muted ? "":"Speaker ",
     //             earpiece_muted ? "":"Earpiece ",headset_muted ? "":"Headset ");
-    // mutex_unlock(&vbc_power_lock);
 }
+#endif
 
 void vbc_power_on_capture(bool ldo)
 {
     // Following code has risk [luther.ge]
-    // mutex_lock(&vbc_power_lock);
     if (vbc_reg_read(VBPMR1, SB_ADC, 1)) {
         if (ldo) vbc_ldo_on(1);
         printk("vbc_power_on capture\n");
@@ -655,16 +650,13 @@ void vbc_power_on_capture(bool ldo)
         vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
         vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
     }
-    // mutex_unlock(&vbc_power_lock);
 }
-#endif
 
 void vbc_power_on(unsigned int value)
 {
     int use_delay;
     int mute_dac;
     int power_on_force;
-    mutex_lock(&vbc_power_lock);
     mute_dac = !!(value & VBC_CODEC_POWER_ON_OUT_MUTE_DAC);
     value &= ~VBC_CODEC_POWER_ON_OUT_MUTE_DAC;
     power_on_force = !!(value & VBC_CODEC_POWER_ON_FORCE);
@@ -672,7 +664,7 @@ void vbc_power_on(unsigned int value)
     vbc_ldo_on(1);
     // printk("audio %s\n", __func__);
     {
-        use_delay = 1; // !headset_muted;
+        use_delay = 1; // (in_irq() || irqs_disabled()) ? 0 : 1;; // !headset_muted;
         if (power_on_force ||
             (value == SNDRV_PCM_STREAM_PLAYBACK &&
             (vbc_reg_read(VBPMR1, SB_DAC, 1) ||
@@ -697,7 +689,6 @@ void vbc_power_on(unsigned int value)
             /* headset_muted =  */ vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
             /* speaker_muted =  */ vbc_amplifier_enable(false, "vbc_power_on playback"); // Mute speaker
             if (use_delay) msleep(50);
-            else msleep(35);
 
             vbc_reg_VBCR1_set(DACSEL, 1); // route DAC to mixer
             vbc_reg_VBPMR1_set(SB_DAC, 0); // Power on DAC
@@ -706,20 +697,20 @@ void vbc_power_on(unsigned int value)
             if (use_delay) msleep(50);
             vbc_reg_VBPMR1_set(SB_MIX, 0);
             if (use_delay) msleep(50);
-            else msleep(50);
 
             vbc_reg_VBPMR1_set(SB_OUT, 0); // Power on DAC OUT
             if (use_delay) msleep(50);
             vbc_reg_VBCR1_set(MONO, 0); // stereo DAC left & right channel
             vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
             if (use_delay) msleep(100);
-            else msleep(95); // to avoid low sound in head early pcm data
 
             if (!mute_dac) vbc_codec_unmute();
 #if VBC_DYNAMIC_POWER_MANAGEMENT
             if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
             if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
+            printk("....................... vbc power on playback [%d]-%d .......................\n", use_delay, in_irq() || irqs_disabled());
+            // if (!use_delay) dump_stack();
 #endif
             // vbc_reg_write(VBCGR1, 0, VBCGR1_value, 0xff); // DAC Gain
         }
@@ -732,7 +723,6 @@ void vbc_power_on(unsigned int value)
         if (value == SNDRV_PCM_STREAM_CAPTURE)
             vbc_power_on_capture(0);
     }
-    mutex_unlock(&vbc_power_lock);
 }
 EXPORT_SYMBOL_GPL(vbc_power_on);
 
@@ -981,7 +971,7 @@ void flush_vbc_cache(struct snd_pcm_substream *substream)
 //  vbc_codec_mute();
     /* clear dma cache buffer */
     memset((void*)runtime->dma_area, GAP_DATA_CHAR, runtime->dma_bytes);
-    printk("audio flush cache buffer...\n");
+    printk("vbc flush cache buffer...\n");
     if (cpu_codec_dma_chain_operate_ready(substream)) {
         vbc_dma_start(substream); // we must restart dma
         start_cpu_dma(substream);
@@ -1130,7 +1120,7 @@ static int vbc_pcm_hw_params(struct snd_pcm_substream *substream,
         case SNDRV_PCM_FORMAT_U16_LE:
         case SNDRV_PCM_FORMAT_U16_BE: break;
         default: 
-            printk(KERN_EMERG "VBC codec only supports format 16bits"); 
+            printk(KERN_EMERG "vbc codec only supports format 16bits");
             break;
     }
 	cur_sample_rate = params_rate(params);
@@ -1144,12 +1134,12 @@ static int vbc_pcm_hw_params(struct snd_pcm_substream *substream,
         case 48000: vbc_reg_write(VBCCR2, idx * 4, VBC_RATE_48000, 0xf); break;
         case 96000: vbc_reg_write(VBCCR2, idx * 4, VBC_RATE_96000, 0xf); break;
         default:
-            printk(KERN_EMERG "VBC codec not supports rate %d\n", params_rate(params));
+            printk(KERN_EMERG "vbc codec not supports rate %d\n", params_rate(params));
 			cur_sample_rate = 44100;
             break;
     }
 
-    printk("Sample Rate is [%d]\n", params_rate(params));
+    printk("vbc Sample Rate is [%d]\n", params_rate(params));
 
     return 0;
 }
@@ -1245,7 +1235,7 @@ int vbc_suspend(struct platform_device *pdev, pm_message_t state)
     struct snd_soc_device *socdev = platform_get_drvdata(pdev);
     struct snd_soc_codec *codec = socdev->card->codec;
     mutex_lock(&codec->mutex);
-    printk("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+    printk("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
     vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
     mutex_unlock(&codec->mutex);
     return 0;
@@ -1256,7 +1246,7 @@ int vbc_resume(struct platform_device *pdev)
     struct snd_soc_device *socdev = platform_get_drvdata(pdev);
     struct snd_soc_codec *codec = socdev->card->codec;
     mutex_lock(&codec->mutex);
-    printk("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
+    printk("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
 #if 1
     vbc_reset(codec, 1, 0);
 #else
@@ -1405,7 +1395,7 @@ static inline int local_amplifier_enabled(void)
 inline void vbc_amplifier_enable(int enable, const char *prename)
 {
 #if VBC_DYNAMIC_POWER_MANAGEMENT
-    printk("audio %s ==> trun %s PA\n", prename, enable ? "on":"off");
+    printk("vbc %s ==> trun %s PA\n", prename, enable ? "on":"off");
     printk("[headset_muted =%d]\n"
            "[earpiece_muted=%d]\n"
            "[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
