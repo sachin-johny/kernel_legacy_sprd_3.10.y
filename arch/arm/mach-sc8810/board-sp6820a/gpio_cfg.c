@@ -57,8 +57,8 @@ int sprd_3rdparty_gpio_sub_camera_pwd;
 
 static struct gpio_initdata __initdata gpio_func_cfg[] = {	
 	{&sprd_3rdparty_gpio_wifi_power,	-1	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
-	{&sprd_3rdparty_gpio_wifi_reset,	140	|GPIO_DEFAUT_HIGH	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
-	{&sprd_3rdparty_gpio_wifi_pwd,		137	|GPIO_DEFAUT_HIGH	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_wifi_reset,	140	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_wifi_pwd,		137	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_wifi_irq,		-1	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_bt_power,		-1	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_bt_reset,		90	|GPIO_DEFAUT_HIGH	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
