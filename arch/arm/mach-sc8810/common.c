@@ -378,7 +378,6 @@ static void usb_startup(void)
 	__raw_bits_and(~BIT_1, AHB_CTL3);
 	__raw_bits_and(~BIT_2, AHB_CTL3);
 	usb_ldo_switch(1);
-	usb_ldo_switch(1);
 	__raw_bits_or(BIT_6, AHB_CTL3);
 
 
