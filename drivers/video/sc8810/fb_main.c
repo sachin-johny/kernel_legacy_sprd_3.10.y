@@ -763,10 +763,8 @@ static void sc8810fb_early_suspend (struct early_suspend* es)
 	}
 	if (info->clk_lcdc) {
 		FB_PRINT("clk_disable\n");
-		/* FIXME: temp change before we found a solution
 		rrm_wait_for_idle();
 		clk_disable(info->clk_lcdc);
-		*/
 	}
 	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
 }
@@ -777,9 +775,7 @@ static void sc8810fb_early_resume (struct early_suspend* es)
 
 	if (info->clk_lcdc) {
 		FB_PRINT("clk_enable\n");
-		/* FIXME: temp change before we found a solution
 		clk_enable(info->clk_lcdc);
-		*/
 	}
 	if (__raw_readl(LCDC_CTRL) == 0) {
 		FB_PRINT("sc8810fb resume from deep sleep \n");
@@ -961,6 +957,7 @@ err0:
 	return ret;
 }
 
+#ifndef CONFIG_HAS_EARLYSUSPEND
 static int sc8810fb_suspend(struct platform_device *pdev,pm_message_t state)
 {
 	struct sc8810fb_info *info = platform_get_drvdata(pdev);
@@ -998,6 +995,7 @@ static int sc8810fb_resume(struct platform_device *pdev)
 	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
 	return 0;
 }
+#endif
 
 static struct platform_driver sc8810fb_driver = {
 	.probe = sc8810fb_probe,
