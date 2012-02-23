@@ -783,10 +783,12 @@ static void sc8810fb_early_resume (struct early_suspend* es)
 	}
 	if (__raw_readl(LCDC_CTRL) == 0) {
 		FB_PRINT("sc8810fb resume from deep sleep \n");
+		info->need_reinit = 1;
 		lcdc_reset();
 		hw_early_init(info);
 		hw_init(info);
 		hw_later_init(info);
+		info->need_reinit = 0;
 	} else {	
 		FB_PRINT("sc8810fb resume from sleep \n");
 	}
