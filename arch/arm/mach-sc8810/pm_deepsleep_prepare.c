@@ -392,8 +392,7 @@ u32 reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_gen_clk_en, reg_gen_clk_
 	                GEN0_EPT_EN | GEN0_SIM1_EN | GEN0_SPI_EN | GEN0_UART0_EN | \
 	                GEN0_UART1_EN | GEN0_UART2_EN)
 
-#define CLK_EN_MASK (CLK_PWM0_EN | CLK_PWM1_EN | CLK_PWM2_EN | CLK_PWM3_EN| \
-				(3<<16)/*BUFON_CTRL*/)
+#define CLK_EN_MASK (CLK_PWM0_EN | CLK_PWM1_EN | CLK_PWM2_EN | CLK_PWM3_EN)
 #define BUSCLK_ALM_MASK (ARM_VB_MCLKON|ARM_VB_DA0ON|ARM_VB_DA1ON|ARM_VB_ADCON|ARM_VB_ANAON|ARM_VB_ACC)
 #define AHB_CTL0_MASK   (AHB_CTL0_DCAM_EN|AHB_CTL0_CCIR_EN|AHB_CTL0_LCDC_EN|    \
                          AHB_CTL0_SDIO0_EN|AHB_CTL0_SDIO1_EN|AHB_CTL0_DMA_EN|     \
@@ -1321,7 +1320,7 @@ int disable_apb_module(void)
 
     val = __raw_readl(GR_CLK_EN);
     val &= ~CLK_EN_MASK;
-    __raw_writel(val, GR_CLK_EN);//BUGBUG: BUFON_CTRL closed or not?
+    __raw_writel(val, GR_CLK_EN);
 
     return 0;
 }
