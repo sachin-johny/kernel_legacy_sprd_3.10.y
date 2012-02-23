@@ -1017,7 +1017,7 @@ end:
 	mmc_bus_put(host);
 	printk(KERN_INFO "%s: Deferred resume %s\n", mmc_hostname(host),
 	        err ? "failed" : "completed");
-	return 0;
+	return err;
 }
 
 EXPORT_SYMBOL(mmc_resume_bus);

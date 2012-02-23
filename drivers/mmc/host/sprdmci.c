@@ -1540,7 +1540,9 @@ static void sdhci_auto_suspend_host(unsigned long data){
 	   return;
 	}
         sdhci_deselect_card(host);
-        host->mmc->card->state &= ~MMC_STATE_HIGHSPEED;
+	if(host->mmc->card){
+          host->mmc->card->state &= ~MMC_STATE_HIGHSPEED;
+	}
 	mmc_power_off(host_mmc);
 	
         host_mmc->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;

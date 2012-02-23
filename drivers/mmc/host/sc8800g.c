@@ -95,23 +95,27 @@ static void sdhci_sprd_set_base_clock(unsigned int clock)
 static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock){
    unsigned int val = __raw_readl(AHB_CTL0);
 
-   pr_debug("%s, set clk:%u\n", __func__, clock);
+   pr_debug("%s, set ahb clk:%u\n", __func__, clock);
    if(clock == 0){
       if(!strcmp(host->hw_name, "Spread SDIO host0")){
          val &= ~ AHB_CTL0_SDIO0_EN;
          __raw_writel(val, AHB_CTL0);
-	  }else if(!strcmp(host->hw_name, "Spread SDIO host1")){
-	  	val &= ~ AHB_CTL0_SDIO1_EN;
-         __raw_writel(val, AHB_CTL0);
-	  }	
+      }else if(!strcmp(host->hw_name, "Spread SDIO host1")){
+          pr_debug("SDIO1: %s, set ahb clk:%u\n", __func__, clock);
+	  val &= ~ AHB_CTL0_SDIO1_EN;
+          __raw_writel(val, AHB_CTL0);
+	  host->clock = 0;
+      }	
    }else{
       if(!strcmp(host->hw_name, "Spread SDIO host0")){
-         val |= AHB_CTL0_SDIO0_EN;
-         __raw_writel(val, AHB_CTL0);
-	  }else if(!strcmp(host->hw_name, "Spread SDIO host1")){
-	  	 val |= AHB_CTL0_SDIO1_EN;
-         __raw_writel(val, AHB_CTL0);
-	  }
+          val |= AHB_CTL0_SDIO0_EN;
+          __raw_writel(val, AHB_CTL0);
+       }else if(!strcmp(host->hw_name, "Spread SDIO host1")){
+          pr_debug("SDIO1: %s, set ahb clk:%u\n", __func__, clock);
+	  val |= AHB_CTL0_SDIO1_EN;
+          __raw_writel(val, AHB_CTL0);
+       }
+       msleep(1);
    }
 
    return;	  
@@ -119,7 +123,7 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
 
 static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
-//	.set_clock		= sdhci_sprd_set_ahb_clock,
+	.set_clock		= sdhci_sprd_set_ahb_clock,
 };
 
 
@@ -223,8 +227,13 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 static int sdhci_sprd_resume(struct platform_device *dev)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
-
+        if(host->ops->set_clock){
+	    host->ops->set_clock(host, 1);
+	}
 	sdhci_resume_host(host);
+        if(host->ops->set_clock){
+	    host->ops->set_clock(host, 0);
+	}
 
 	return 0;
 }
