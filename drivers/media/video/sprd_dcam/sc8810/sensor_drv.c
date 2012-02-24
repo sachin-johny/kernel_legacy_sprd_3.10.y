@@ -78,6 +78,7 @@ LOCAL SENSOR_REGISTER_INFO_T s_sensor_register_info={0x00};
 LOCAL SENSOR_REGISTER_INFO_T_PTR s_sensor_register_info_ptr=&s_sensor_register_info;
 struct clk *s_ccir_clk = NULL;//for power manager
 struct clk *s_ccir_enable_clk = NULL;//for power manager
+LOCAL uint32_t s_flash_mode = 0xff;
 
 static struct i2c_client *this_client = NULL;
 static int g_is_main_sensor = 0;
@@ -1778,6 +1779,11 @@ PUBLIC int Sensor_CheckTiming(SENSOR_MODE_E mode)
 PUBLIC uint32_t Sensor_SetFlash(uint32_t flash_mode)
 {
 	uint32_t reg_val = 0;
+
+	if(s_flash_mode == flash_mode)
+		return;
+
+	s_flash_mode = flash_mode;
 	
 	printk("Sensor_SetFlash:flash_mode=%d .\n",flash_mode);
 	//printk("Sensor_SetFlash:PIN_CTL_GPIO135->0x%x,PIN_CTL_GPIO144->0x%x .\n",_pard(PIN_CTL_GPIO135),_pard(PIN_CTL_GPIO144));

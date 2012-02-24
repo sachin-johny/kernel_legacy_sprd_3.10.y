@@ -1066,7 +1066,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 
 			if(g_dcam_info.flash_mode)
 			{
-				Sensor_Ioctl(SENSOR_IOCTL_FLASH,1);
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH, 1); // open flash
 			}
 
 			copy_from_user(&focus_param[0], (uint16_t*)ctrl->value, FOCUS_PARAM_LEN);		
@@ -1079,6 +1079,10 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				if(SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param))
 				{
 					ret = -1;
+					if(g_dcam_info.flash_mode)
+					{
+						Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0x10); // close flash from open
+					}
 					DCAM_V4L2_ERR("v4l2:auto foucs init fail.\n");
 					break;
 				}
@@ -1133,6 +1137,11 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				DCAM_V4L2_ERR("v4l2:auto focus fail. \n");
 				ret = -1;
 			}
+			
+			if(g_dcam_info.flash_mode)
+			{
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0x10); // close flash from open
+			}
 #endif			
 			break;
 		case V4L2_CID_EXPOSURE:
@@ -1172,7 +1181,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			
 			if(0 == g_dcam_info.flash_mode)
 			{
-				Sensor_Ioctl(SENSOR_IOCTL_FLASH,0);
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH,0); // disable flash
 			}
 			break;
 			
@@ -1645,15 +1654,15 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	int ret = 0;
 	int k;
 
+	if(g_dcam_info.flash_mode)
+	{
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0x10); // close flash from open
+	}
+
 	if (fh->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 	if (i != fh->type)
 		return -EINVAL;
-
-	if(g_dcam_info.flash_mode)
-	{
-		Sensor_Ioctl(SENSOR_IOCTL_FLASH,0);
-	}
 
 	if(0 != (ret = videobuf_streamoff(&fh->vb_vidq)))
 	{
@@ -2287,7 +2296,7 @@ static int close(struct file *file)
 
 	if(g_dcam_info.flash_mode)
 	{
-		Sensor_Ioctl(SENSOR_IOCTL_FLASH,0);
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0); // close flash
 		printk("close the flash \n");
 	}
 	
