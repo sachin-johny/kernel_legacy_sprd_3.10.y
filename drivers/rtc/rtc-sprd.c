@@ -197,6 +197,8 @@ static int sprd_rtc_set_alarm(struct device *dev,
 {
 	unsigned long secs;
 	unsigned temp;
+	unsigned long read_secs;
+	int i = 0;
 	rtc_tm_to_time(&alrm->time, &secs);
     if(secs < sec_2011_to_1970)
       return -1;
@@ -210,10 +212,16 @@ static int sprd_rtc_set_alarm(struct device *dev,
 
         secs = secs - sec_2011_to_1970;
         sprd_rtc_set_alarm_sec(secs);
+		msleep(150);
+		do {
+			read_secs = sprd_rtc_get_alarm_sec();
+			msleep(1);
+			i++;
+		}while(read_secs != secs && i < 100);
 	}else{
         ANA_REG_AND(ANA_RTC_INT_EN, ~(RTC_ALARM_BIT));
+		msleep(150);
     }
-    msleep(150);
 
 	return 0;
 }
