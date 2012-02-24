@@ -48,6 +48,7 @@
 //#define CHG_DEBUG
 //#define BATTERY_USE_WAKE_LOCK
 #define BATTERY_WAKE_LOCK_LENGTH (10*HZ)
+#define CHARGER_PLUG_OUT_LENGTH (3*HZ)
 #ifdef CHG_DEBUG
 #define DEBUG(_fmt...) printk(_fmt)
 #else
@@ -93,6 +94,7 @@ struct sprd_battery_data {
 	struct power_supply battery;
 	struct power_supply ac;
 	struct power_supply usb;
+    struct wake_lock charger_plug_out_lock;
 #ifdef BATTERY_USE_WAKE_LOCK
     struct wake_lock charge_wake_lock;
     struct wake_lock update_wake_lock;
@@ -500,6 +502,7 @@ static int plugout_callback(int usb_cable, void *data)
 
 	spin_unlock_irqrestore(&d->lock, irq_flags);
 	DEBUG("interrupt happen: usb:%d, ac:%d\n", d->usb_online, d->ac_online);
+	wake_lock_timeout(&(d->charger_plug_out_lock), CHARGER_PLUG_OUT_LENGTH);
 
 	return 0;
 }
@@ -1029,6 +1032,7 @@ retry_adc:
 	memset(vprog_buf, 0, sizeof(vprog_buf));
 	memset(temp_buf, 0, sizeof(temp_buf));
 
+	wake_lock_init(&(data->charger_plug_out_lock), WAKE_LOCK_SUSPEND, "charger_plug_out_lock");
 #ifdef BATTERY_USE_WAKE_LOCK
 	wake_lock_init(&(data->charge_wake_lock), WAKE_LOCK_SUSPEND, "charge_wake_lock");
 	wake_lock_init(&(data->update_wake_lock), WAKE_LOCK_SUSPEND, "update_wake_lock");
