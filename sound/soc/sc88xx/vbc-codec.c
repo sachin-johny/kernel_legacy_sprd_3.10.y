@@ -211,7 +211,7 @@ u32 vbc_reg_read(u32 reg, u8 shift, u32 mask)
 }
 EXPORT_SYMBOL_GPL(vbc_reg_read);
 
-int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, const char *prefix)
+int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, bool head, const char *prefix)
 {
     int i;
     u32 ivaddr;
@@ -221,6 +221,7 @@ int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, const c
     paddr += offset;
     vaddr = (u32)ioremap(paddr, nword << 2);
     /* print a serial of reg in a formated way */
+if (head) {
     if (buf) {
         if (prefix) buf += snprintf(buf, maxp - buf, "%s", prefix);
         else buf += snprintf(buf, maxp - buf, "%s",
@@ -232,6 +233,7 @@ int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, const c
                     "  ADDRESS  |   VALUE\n"
                     "-----------+-----------\n");
     }
+}
     for (i = 0; i < nword; i++) {
         if (paddr < (SPRD_ADI_PHYS + ANA_REG_ADDR_START - SPRD_ADI_BASE) ||
             paddr > (SPRD_ADI_PHYS + ANA_REG_ADDR_START - SPRD_ADI_BASE + ANA_REG_ADDR_END - ANA_REG_ADDR_START))
@@ -261,12 +263,30 @@ static void vbc_dump_regs(u32 cmd, char *buf, int max)
     buft = bufb + max;
     switch (cmd) {
         case 0: {
-            buf += print_cpu_regs(SPRD_VB_PHYS , 0, 107, 0, buft - buf, "vbc_dump_regs VBDA0 - HPCOEF42\n");
-            buf += print_cpu_regs(SPRD_ADI_PHYS, 0x0100, 22, 0, buft - buf, "VBAICR - VBTR2\n");
+            buf += print_cpu_regs(SPRD_VB_PHYS , 0, 107, 0, buft - buf, 1, "vbc_dump_regs VBDA0 - HPCOEF42\n");
+            buf += print_cpu_regs(SPRD_ADI_PHYS, 0x0100, 22, 0, buft - buf, 1, "VBAICR - VBTR2\n");
             // printk("%s", bufb);
         }
         default: break;
     }
+}
+
+static void vbc_print_reg(uint32_t phy, int num)
+{
+    print_cpu_regs(phy, 0, num, NULL, 0, 0, NULL);
+}
+
+static void vbc_print_regs(int type)
+{
+#if 0
+    printk("---------------- [ start %d ] ----------------\n", type);
+    vbc_print_reg(0x82000104, 1); // VBCR1
+    vbc_print_reg(0x82000674, 3); // ANA_AUDIO_CTRL
+    vbc_print_reg(0x82000680, 1); // ANA_MIXED_CTRL
+    vbc_print_reg(0x82000610, 1); // ANA_LDO_PD_CTL0
+    vbc_print_reg(0x82000620, 1); // ANA_LDO_VCTL2
+    printk("---------------- [ end %d ] ----------------\n", type);
+#endif
 }
 
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
@@ -1236,7 +1256,9 @@ int vbc_suspend(struct platform_device *pdev, pm_message_t state)
     struct snd_soc_codec *codec = socdev->card->codec;
     mutex_lock(&codec->mutex);
     printk("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+    vbc_print_regs(0);
     vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
+    vbc_print_regs(0);
     mutex_unlock(&codec->mutex);
     return 0;
 }
@@ -1247,6 +1269,7 @@ int vbc_resume(struct platform_device *pdev)
     struct snd_soc_codec *codec = socdev->card->codec;
     mutex_lock(&codec->mutex);
     printk("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
+    vbc_print_regs(1);
 #if 1
     vbc_reset(codec, 1, 0);
 #else
@@ -1254,6 +1277,7 @@ int vbc_resume(struct platform_device *pdev)
     vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE);
 #endif
     mutex_unlock(&codec->mutex);
+    vbc_print_regs(1);
     return 0;
 }
 #else
