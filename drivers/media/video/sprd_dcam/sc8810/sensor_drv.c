@@ -1643,8 +1643,7 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
 				}
 			 }
 		}
-		else
-		{
+		else if(SENSOR_SUB == Sensor_GetCurId()) {
 			SENSOR_PRINT_HIGH("SENSOR: Sensor_close 3.\n");
 			 if(SCI_TRUE==s_sensor_register_info_ptr->is_register[SENSOR_MAIN])
 			 {
@@ -1663,6 +1662,41 @@ PUBLIC ERR_SENSOR_E Sensor_Close(void)
 				}
 			 }
 		}
+		else if(SENSOR_ATV == Sensor_GetCurId()) {
+			 if(SCI_TRUE==s_sensor_register_info_ptr->is_register[SENSOR_MAIN])
+			 {
+			 	SENSOR_PRINT_HIGH("SENSOR: Sensor_close 4.\n");
+				_Sensor_SetId(SENSOR_MAIN);
+				s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_MAIN];
+				Sensor_SetExportInfo(&s_sensor_exp_info);			
+				Sensor_PowerOn(SENSOR_FALSE);	
+				if(1== g_is_register_sensor) 
+				{					
+					SENSOR_PRINT_HIGH("SENSOR: Sensor_close 5.\n");
+					sensor_i2c_driver.address_list= &sensor_main_default_addr_list[0];					
+					i2c_del_driver(&sensor_i2c_driver);
+					g_is_register_sensor = 0;
+					g_is_main_sensor = 0;
+				}
+			 }
+			 if(SCI_TRUE==s_sensor_register_info_ptr->is_register[SENSOR_SUB])
+			 {
+			 	SENSOR_PRINT_HIGH("SENSOR: Sensor_close 1.\n");
+	        		_Sensor_SetId(SENSOR_SUB);
+				s_sensor_info_ptr=s_sensor_list_ptr[SENSOR_SUB];
+				Sensor_SetExportInfo(&s_sensor_exp_info);			
+				Sensor_PowerOn(SENSOR_FALSE);	
+				if(1== g_is_register_sensor) 
+				{				
+					SENSOR_PRINT_HIGH("SENSOR: Sensor_close 2.\n");
+					sensor_i2c_driver.address_list= &sensor_sub_default_addr_list[0]; 						
+					i2c_del_driver(&sensor_i2c_driver);
+					g_is_register_sensor = 0;
+					g_is_main_sensor = 0;
+				}
+			 }			
+		}
+
 	}
           SENSOR_PRINT_HIGH("SENSOR: Sensor_close 6.\n");
 	s_sensor_init = SENSOR_FALSE;	
