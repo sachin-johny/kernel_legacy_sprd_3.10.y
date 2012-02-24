@@ -211,6 +211,8 @@ static void rotation_set_img_size (ROTATION_SIZE_T *size)
     _paad(REG_ROTATION_IMG_SIZE, 0xFF000000);
     _paod(REG_ROTATION_IMG_SIZE, (size->h & 0xFFF) | ((size->w & 0xFFF) << 12));
 
+     _pawd(REG_ROTATION_ORIGWIDTH, size->w & 0xFFF);
+
     return ;
 }
 static void rotation_set_pixel_mode (ROTATION_PIXEL_FORMAT_E pixel_format)
@@ -327,7 +329,12 @@ int rotation_dma_start(ROTATION_PARAM_T* param_ptr)
 	memset(&ctrl, 0, sizeof(sprd_dma_ctrl));
 	memset(&dma_desc, 0, sizeof(sprd_dma_desc));
 	ctrl.dma_desc = &dma_desc;
+#ifdef CONFIG_ARCH_SC8810
+	ctrl.dma_desc_phy = (dma_addr_t)0x20800420;
+#else
 	ctrl.dma_desc_phy = (dma_addr_t)0x20800210;
+#endif
+	
 	sprd_dma_setup_cfg(&ctrl,
                 DMA_ROT,
                 DMA_LINKLIST,

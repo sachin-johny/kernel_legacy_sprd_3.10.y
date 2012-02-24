@@ -1808,7 +1808,7 @@ unlock:
 	buf = list_entry(dma_q->active.next,
 			 struct dcam_buffer, vb.queue);
 	if(1 != g_is_first_irq){
-		if(g_first_buf_addr != (uint32_t)buf->vb.baddr){			
+		if((g_first_buf_addr != (uint32_t)buf->vb.baddr) || (g_first_buf_addr == g_last_buf)){			
 			printk("V4L2: path1_done_buffer: Fail to this entry. last addr: %x, buf addr: %x\n", g_first_buf_addr, (uint32_t)buf->vb.baddr);
 			goto unlock;
 		}		
@@ -1827,11 +1827,12 @@ unlock:
 //	DCAM_V4L2_PRINT("V4L2: path1_done_buffer:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));   
          printk("time = %d.\n",(buf->vb.ts.tv_sec*1000+buf->vb.ts.tv_usec/1000));
 	wake_up(&buf->vb.done); 
-	
-unlock:
-	spin_unlock_irqrestore(&dev->slock, flags);
 	g_first_buf_addr = g_last_buf;
 	g_first_buf_uv_addr = g_last_uv_buf;
+
+unlock:
+	spin_unlock_irqrestore(&dev->slock, flags);
+
 	return;
 	
 }
@@ -2267,7 +2268,7 @@ static int open(struct file *file)
 //	dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
 	dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
 	dcam_callback_fun_register(DCAM_CB_PATH1_DONE,dcam_cb_ISRPath1Done);
-	dcam_callback_fun_register(DCAM_CB_PATH2_DONE,dcam_cb_ISRPath2Done);
+	//dcam_callback_fun_register(DCAM_CB_PATH2_DONE,dcam_cb_ISRPath2Done);
 	dcam_callback_fun_register(DCAM_CB_CAP_FIFO_OF,dcam_cb_ISRCapFifoOF);	
 	dcam_callback_fun_register(DCAM_CB_SENSOR_LINE_ERR,dcam_cb_ISRSensorLineErr);	
 	dcam_callback_fun_register(DCAM_CB_SENSOR_FRAME_ERR,dcam_cb_ISRSensorFrameErr);	

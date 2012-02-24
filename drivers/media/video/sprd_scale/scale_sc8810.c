@@ -1425,7 +1425,7 @@ static void _SCALE_DriverISRRoot(void)
 
 	irq_line = ISP_IRQ_SCL_LINE_MASK & _SCALE_DriverReadIrqLine();
 	irq_status = irq_line;
-/*
+
 	for(i = 0; i < ISP_IRQ_NUMBER; i++)
 	{
 		if(irq_line & 1)
@@ -1436,9 +1436,9 @@ static void _SCALE_DriverISRRoot(void)
 		if(!irq_line)
 		break;
 	}
-	*/
 	
-	_SCALE_ISRPath2Done();
+	
+	//_SCALE_ISRPath2Done();
 
 	_SCALE_DriverIrqClear(irq_status);	
 }

@@ -40,7 +40,7 @@ typedef void (*ISP_ISR_PTR)(uint32_t base_addr);
 #define ISP_SCALE2_H_TAB_OFFSET                        0x400
 #define ISP_SCALE2_V_TAB_OFFSET                         0x4F0
 
-#define ISP_IRQ_LINE_MASK                                     0x000003FFUL
+#define ISP_IRQ_LINE_MASK                                     0x000001FFUL // 0x000003FFUL
 #define ISP_IRQ_SENSOR_SOF_BIT                         BIT_0
 #define ISP_IRQ_SENSOR_EOF_BIT                         BIT_1
 #define ISP_IRQ_CAP_SOF_BIT                                 BIT_2
@@ -211,8 +211,7 @@ static ISP_ISR_PTR s_isp_isr_list[ISP_IRQ_NUMBER]=
 	_ISP_ISRSensorLineErr,
 	_ISP_ISRSensorFrameErr,
 	_ISP_ISRJpegBufOverflow,
-	_ISP_ISRPath2Done,
-	NULL
+	NULL//_ISP_ISRPath2Done,	
 };
 #ifdef DCAM_DRV_DEBUG
 static void _ISP_GetReg(void)
@@ -841,11 +840,12 @@ static irqreturn_t _ISP_DriverISR(int irq, void *dev_id)
 	value = p_isp_reg->dcam_int_stat_u.dwValue & ISP_IRQ_LINE_MASK;
 	if(0 == value)
 		return IRQ_NONE;
-
+#if 0
 	if(1 == p_isp_reg->dcam_cfg_u.mBits.review_path_eb)
 	{
 		return IRQ_NONE;
 	}
+#endif
 	
  	 _ISP_ISRSystemRoot(0);
  	 return IRQ_HANDLED;
