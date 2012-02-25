@@ -1425,7 +1425,13 @@ int sc8810_setup_ldo_slpmode(void)
 {
 //	 ANA_REG_SET(ANA_LDO_PD_CTL0, 0x5555);
 //	 ANA_REG_SET(ANA_LDO_PD_CTL1, 0x0155);
-	 ANA_REG_SET(ANA_LDO_SLP0, 0xa7fb);//except v18/28, SIM0,1
+#if defined(CONFIG_MACH_SP6820A)
+	 ANA_REG_SET(ANA_LDO_SLP0, 0xa7f3);//except v18/28, SIM0,1
+#elif defined(CONFIG_MACH_SP8810)
+	ANA_REG_SET(ANA_LDO_SLP0, 0xa7fb);//except v18/28, SIM0
+#else
+	ANA_REG_SET(ANA_LDO_SLP0, 0xa7fb);//except v18/28, SIM0
+#endif
 	 ANA_REG_SET(ANA_LDO_SLP1, 0x801f|(1<<12));//ARMDCDC_PWR_ON_DLY = 1, Not Hold ARMDCDC
 	 ANA_REG_SET(ANA_LDO_SLP2, 0x0f20);//a-die armdcdc iso
 //	 ANA_REG_SET(ANA_DCDC_CTRL, 0x0025);
