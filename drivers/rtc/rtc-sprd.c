@@ -30,6 +30,7 @@ static unsigned long sec_2011_to_1970;
 static inline unsigned get_sec(void)
 {
     unsigned sec, sec_bak;
+	int i = 0;
     sec = ANA_REG_GET(ANA_RTC_SEC_CNT) & RTC_SEC_MASK;
     do{
         sec_bak = ANA_REG_GET(ANA_RTC_SEC_CNT) & RTC_SEC_MASK;
@@ -37,13 +38,16 @@ static inline unsigned get_sec(void)
           break;
         else
           sec = sec_bak;
-    }while(1);
+
+		i++;
+    }while(i<10);
 
     return sec;
 }
 static inline unsigned get_min(void)
 {
     unsigned min, min_bak;
+	int i = 0;
     min = ANA_REG_GET(ANA_RTC_MIN_CNT) & RTC_MIN_MASK;
     do{
         min_bak = ANA_REG_GET(ANA_RTC_MIN_CNT) & RTC_MIN_MASK;
@@ -51,13 +55,16 @@ static inline unsigned get_min(void)
           break;
         else
           min = min_bak;
-    }while(1);
+
+		i++;
+    }while(i<10);
 
     return min;
 }
 static inline unsigned get_hour(void)
 {
     unsigned hour, hour_bak;
+	int i = 0;
     hour = ANA_REG_GET(ANA_RTC_HOUR_CNT) & RTC_HOUR_MASK;
     do{
         hour_bak = ANA_REG_GET(ANA_RTC_HOUR_CNT) & RTC_HOUR_MASK;
@@ -65,13 +72,16 @@ static inline unsigned get_hour(void)
           break;
         else
           hour = hour_bak;
-    }while(1);
+
+		i++;
+    }while(i<10);
 
     return hour;
 }
 static inline unsigned get_day(void)
 {
     unsigned day, day_bak;
+	int i = 0;
     day = ANA_REG_GET(ANA_RTC_DAY_CNT) & RTC_DAY_MASK;
     do{
         day_bak = ANA_REG_GET(ANA_RTC_DAY_CNT) & RTC_DAY_MASK;
@@ -79,7 +89,9 @@ static inline unsigned get_day(void)
           break;
         else
           day = day_bak;
-    }while(1);
+
+		i++;
+    }while(i<10);
     
     return day;
 }
@@ -88,6 +100,7 @@ static inline unsigned long sprd_rtc_get_sec(void)
 {
 	unsigned sec, min, hour, day;
 	unsigned first = 0, second = 0;
+	int i = 0;
 
 	do{
 		sec = get_sec();
@@ -99,7 +112,9 @@ static inline unsigned long sprd_rtc_get_sec(void)
 		if((second - first) == 0)
 			break;
 		first = second;
-	}while(1);
+
+		i++;
+    }while(i<10);
 
 	return first;
 }
@@ -109,6 +124,7 @@ static inline void sprd_rtc_set_sec(unsigned long secs)
 	unsigned sec, min, hour, day;
     unsigned set_mask = 0, int_rsts;
 	unsigned long temp;
+	int i = 0;
 
 	sec = secs % 60;
 	temp = (secs - sec)/60;
@@ -145,6 +161,13 @@ static inline void sprd_rtc_set_sec(unsigned long secs)
 
         if(set_mask == int_rsts)
           break;
+
+		if(i<150){
+			msleep(1);
+			i++;
+		}else{
+			break;
+		}
     }while(1);
     ANA_REG_OR(ANA_RTC_INT_CLR, RTC_UPD_TIME_MASK);
 
