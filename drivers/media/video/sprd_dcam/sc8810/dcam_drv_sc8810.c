@@ -953,7 +953,7 @@ int32_t ISP_DriverStart(uint32_t base_addr)
 	if((ISP_MODE_PREVIEW == s_isp_mod.isp_mode)||(ISP_MODE_CAPTURE == s_isp_mod.isp_mode))
 	{
 		rtn = _ISP_DriverPath1TrimAndScaling(base_addr);
-		ISP_DRV_RTN_IF_ERR;
+		//ISP_DRV_RTN_IF_ERR;
 		DCAM_DRV_TRACE("DCAM DRV: _ISP_DriverPath1TrimAndScaling ok.\n");
 
 		_ISP_DriverIrqClear(base_addr,ISP_IRQ_LINE_MASK);
@@ -983,7 +983,7 @@ int32_t ISP_DriverStart(uint32_t base_addr)
 	p_isp_reg->dcam_path_cfg_u.mBits.cap_eb = 1;
 	DCAM_DRV_TRACE("DCAM DRV: start:DCAM_PATH_CFG: %x.\n", _pard(DCAM_PATH_CFG));
 
-	return rtn;
+	return ISP_DRV_RTN_SUCCESS;//rtn;
 }
 
 int32_t ISP_DriverStop(uint32_t base_addr)
