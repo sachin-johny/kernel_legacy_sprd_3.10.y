@@ -758,12 +758,13 @@ static void hw_later_init(struct sc8810fb_info *info)
 static void sc8810fb_early_suspend (struct early_suspend* es)
 {
 	struct sc8810fb_info *info = container_of(es, struct sc8810fb_info, early_suspend);
+
+	rrm_wait_for_idle();
 	if(info->panel->ops->lcd_enter_sleep != NULL){
 		info->panel->ops->lcd_enter_sleep(info->panel,1);
 	}
 	if (info->clk_lcdc) {
 		FB_PRINT("clk_disable\n");
-		rrm_wait_for_idle();
 		clk_disable(info->clk_lcdc);
 	}
 	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);

@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.7
-# Fri Feb 24 02:07:11 2012
+# Sat Feb 25 17:16:27 2012
 #
 CONFIG_NKERNEL=y
 CONFIG_NKERNEL_DDI=y
@@ -1942,9 +1942,7 @@ CONFIG_ARM_UNWIND=y
 # CONFIG_DEBUG_USER is not set
 # CONFIG_DEBUG_ERRORS is not set
 # CONFIG_DEBUG_STACK_USAGE is not set
-CONFIG_DEBUG_LL=y
-# CONFIG_EARLY_PRINTK is not set
-# CONFIG_DEBUG_ICEDCC is not set
+# CONFIG_DEBUG_LL is not set
 # CONFIG_OC_ETM is not set
 
 #

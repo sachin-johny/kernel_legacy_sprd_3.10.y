@@ -284,7 +284,7 @@ void rrm_interrupt(struct rrmanager *rrm)
 
 void rrm_wait_for_idle(void)
 {
-	wait_event_timeout(idle_wq, (rrm.frame_state == FS_IDLE), HZ/30);
+	wait_event_timeout(idle_wq, (rrm.frame_state == FS_IDLE), HZ);
 }
 
 /* TEMP */
