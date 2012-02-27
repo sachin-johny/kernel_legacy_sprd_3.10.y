@@ -143,7 +143,7 @@ extern   "C"
 #define CC_CV_VOLTAGE 4200
 #define CV_REF_CURRENT 4
 #define CV_STOP_CURRENT 120
-#define CC_CV_SWITCH_POINT 120
+#define CC_CV_SWITCH_POINT 200
 #define PLUSE_CURRENT 4
 
 #define OVP_ADC_VALUE 0x198
