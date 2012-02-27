@@ -561,7 +561,7 @@ static const struct mmc_bus_ops mmc_sdio_ops = {
 	.detect = mmc_sdio_detect,
 	.suspend = mmc_sdio_suspend,
 	.resume = mmc_sdio_resume,
-//	.power_restore = mmc_sdio_power_restore,
+	.power_restore = mmc_sdio_power_restore,
 };
 
 
