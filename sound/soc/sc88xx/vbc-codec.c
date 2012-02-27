@@ -114,17 +114,29 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
  //   SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE("PCM2 Playback Switch", VBCR1, DAC_MUTE, 1, 1),
+    SOC_DOUBLE_TLV("PCM2 Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("PCM2 Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("PCM2 Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Speaker
     /* SOC_SINGLE("Speaker Playback Switch", VBCR1, xxx, 1, 1), */
     SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
  //   SOC_DOUBLE_TLV("Speaker Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Speaker Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Speaker Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE("Speaker2 Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
+    SOC_DOUBLE_TLV("Speaker2 Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Speaker2 Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Speaker2 Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Earpiece
     SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
  //   SOC_DOUBLE_TLV("Earpiece Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Earpiece Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Earpiece Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE("Earpiece2 Playback Switch", VBCR1, BTL_MUTE, 1, 1),
+    SOC_DOUBLE_TLV("Earpiece2 Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Earpiece2 Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Earpiece2 Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Bypass
     SOC_SINGLE("BypassFM Playback Switch", VBCR1, BYPASS, 1, 0),
     SOC_DOUBLE_R_TLV("BypassFM Playback Volume", VBCGR2, VBCGR3, 0, 0x1f, 1, dac_tlv_fm),
@@ -138,6 +150,10 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
  //   SOC_DOUBLE_TLV("Headset Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Headset Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Headset Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE("Headset2 Playback Switch", VBCR1, HP_DIS, 1, 1),
+    SOC_DOUBLE_TLV("Headset2 Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Headset2 Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+    SOC_SINGLE_TLV("Headset2 Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Capture
     SOC_SINGLE_TLV("Capture Capture Volume", VBCGR10, 4, 0x0f, 0, adc_tlv),
     // reset codec
