@@ -744,9 +744,10 @@ int sdio_set_host_pm_flags(struct sdio_func *func, mmc_pm_flag_t flags)
 
 	host = func->card->host;
 
-	if (flags & ~host->pm_caps)
+	if (flags & ~host->pm_caps){
+	        printk("mmc: %s, ~host->pm_caps\n", __func__);
 		return -EINVAL;
-
+        }
 	/* function suspend methods are serialized, hence no lock needed */
 	host->pm_flags |= flags;
 	return 0;

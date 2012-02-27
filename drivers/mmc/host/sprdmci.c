@@ -1494,8 +1494,8 @@ static void sdhci_timeout_timer(unsigned long data)
 	host = (struct sdhci_host*)data;
 
 	spin_lock_irqsave(&host->lock, flags);
-	if(host->mmc->card)
-           host->mmc->card->removed = 1;//from msm
+//	if(host->mmc->card)
+//           host->mmc->card->removed = 1;//from msm
 	if (host->mrq) {
 		printk(KERN_ERR "%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
@@ -1845,7 +1845,7 @@ int sdhci_resume_host(struct sdhci_host *host)
 
 	sdhci_init(host);
 	mmiowb();
-        
+
 	ret = mmc_resume_host(host->mmc);
 	if (ret){
 		printk("=== sd card resume error:%d ===\n", ret);
@@ -2156,7 +2156,6 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	mmiowb();
 
-        mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	mmc_add_host(mmc);
 
 	printk(KERN_INFO "%s: SDHCI controller on %s [%s] using %s\n",
