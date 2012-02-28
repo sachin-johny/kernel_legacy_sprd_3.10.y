@@ -27,6 +27,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <mach/ldo.h>
+#include <mach/sensor_drv.h>
 
 #include "dcam_common.h"
 
@@ -1788,36 +1789,44 @@ PUBLIC uint32_t Sensor_SetFlash(uint32_t flash_mode)
 	printk("Sensor_SetFlash:flash_mode=%d .\n",flash_mode);
 	//printk("Sensor_SetFlash:PIN_CTL_GPIO135->0x%x,PIN_CTL_GPIO144->0x%x .\n",_pard(PIN_CTL_GPIO135),_pard(PIN_CTL_GPIO144));
 
-	if(1 == flash_mode)
+	switch (flash_mode)
 	{
-		// low light
-		gpio_request(135,"gpio135");
-		gpio_direction_output(135,1);
-		gpio_set_value(135,1);
-		gpio_request(144,"gpio144");
-		gpio_direction_output(144,0);
-		gpio_set_value(144,0); 
-	}
-	else if (2 == flash_mode)
-	{
-		// high light
-		gpio_request(135,"gpio135");
-		gpio_direction_output(135,1);
-		gpio_set_value(135,1);
+		case 1:  // flash on
+		case 2:  // for torch
+			// low light
+			gpio_request(135,"gpio135");
+			gpio_direction_output(135,1);
+			gpio_set_value(135,1);
+			gpio_request(144,"gpio144");
+			gpio_direction_output(144,0);
+			gpio_set_value(144,0); 
+			break;
+			
+		case 0x11:
+			// high light
+			gpio_request(135,"gpio135");
+			gpio_direction_output(135,1);
+			gpio_set_value(135,1);
 
-		gpio_request(144,"gpio144");
-		gpio_direction_output(144,1);
-		gpio_set_value(144,1); 
-	}
-	else
-	{
-		// close the light 
-		gpio_request(135,"gpio135");
-		gpio_direction_output(135,0);
-		gpio_set_value(135,0);
-		gpio_request(144,"gpio144");
-		gpio_direction_output(144,0);
-		gpio_set_value(144,0);
+			gpio_request(144,"gpio144");
+			gpio_direction_output(144,1);
+			gpio_set_value(144,1); 
+			break;
+
+		case 0x10: // close flash
+		case 0x0:
+			// close the light 
+			gpio_request(135,"gpio135");
+			gpio_direction_output(135,0);
+			gpio_set_value(135,0);
+			gpio_request(144,"gpio144");
+			gpio_direction_output(144,0);
+			gpio_set_value(144,0);
+			break;
+
+		default:
+			printk("Sensor_SetFlash unknow mode:flash_mode=%d .\n",flash_mode);
+			break;
 	}
 
 	return 0;

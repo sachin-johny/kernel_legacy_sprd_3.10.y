@@ -84,6 +84,9 @@ typedef struct dcam_info
 	uint8_t ev_param;
 	uint8_t power_freq;
 	uint8_t flash_mode;
+	uint8_t recording_start;
+	uint8_t reserved1;
+	uint16_t reserved2;
 }DCAM_INFO_T;
 
 typedef enum
@@ -1170,6 +1173,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			break;
 
 		case V4L2_CID_GAMMA:
+			//g_dcam_info.flash_mode: 0 - close, 1 - on, 2 - torch, 0x10 - close after start, 0x11 - high light, 0x22 - recording start
 			printk("test camera flash mode = %d .\n", (uint8_t)ctrl->value);
 			if(g_dcam_info.flash_mode == (uint8_t)ctrl->value)
 			{
@@ -1177,11 +1181,20 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				break;
 			}
 
-			g_dcam_info.flash_mode = (uint8_t)ctrl->value;
-			
-			if(0 == g_dcam_info.flash_mode)
+			if(0x22 == ctrl->value)
 			{
-				Sensor_Ioctl(SENSOR_IOCTL_FLASH,0); // disable flash
+				g_dcam_info.recording_start = 1;
+				if(2 == g_dcam_info.flash_mode)
+					Sensor_Ioctl(SENSOR_IOCTL_FLASH,1);  
+			}
+			else
+			{
+				g_dcam_info.flash_mode = (uint8_t)ctrl->value;
+				
+				if(0 == g_dcam_info.flash_mode)
+				{
+					Sensor_Ioctl(SENSOR_IOCTL_FLASH,0); // disable flash
+				}
 			}
 			break;
 			
@@ -1595,6 +1608,12 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	uint32_t w_cnt = 0;
 
 	DCAM_V4L2_PRINT("V4L2: videobuf_streamon start.\n");
+
+	if(g_dcam_info.flash_mode && g_dcam_info.recording_start)
+	{
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, 2); // torch
+	}
+	
 	if (fh->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 	if (i != fh->type)
@@ -1654,6 +1673,8 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	int ret = 0;
 	int k;
 
+	g_dcam_info.recording_start = 0;
+	
 	if(g_dcam_info.flash_mode)
 	{
 		Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0x10); // close flash from open
@@ -2265,6 +2286,7 @@ static int open(struct file *file)
 	g_dcam_info.focus_param = 0;
 	g_dcam_info.power_freq = 8;
 	g_dcam_info.flash_mode = 0;
+	g_dcam_info.recording_start = 0;
 	
 	//open dcam
 	if(0 != dcam_open())
