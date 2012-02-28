@@ -1333,6 +1333,15 @@ int dcam_stop(void)
 		DCAM_TRACE("DCAM: dcam stop softreset and set clk.\n");
 	}	
 
+	if(g_dcam_clk)
+	{
+		clk_disable(g_dcam_clk);
+		DCAM_TRACE("DCAM:dcam_stop,clk_disable ok.\n");
+		clk_put(g_dcam_clk);
+		DCAM_TRACE("DCAM:dcam_stop,clk_put ok.\n");		
+	
+	}
+
 	DCAM_TRACE("DCAM: dcam_stop end. \n"); 
 
 	return DCAM_SUCCESS;
