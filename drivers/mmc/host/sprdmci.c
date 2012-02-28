@@ -2154,6 +2154,8 @@ int sdhci_add_host(struct sdhci_host *host)
 #endif
 
 	mmiowb();
+        
+	mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 
 	mmc_add_host(mmc);
 
