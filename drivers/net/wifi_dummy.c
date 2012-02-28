@@ -112,7 +112,7 @@ static void wifi_dummy_notify_sdio( void *pdata){
    gpio_direction_output(sprd_3rdparty_gpio_wifi_pwd,0);
    gpio_set_value(sprd_3rdparty_gpio_wifi_pwd,0);
 
-   LDO_TurnOffLDO(LDO_LDO_WIF1);
+   //LDO_TurnOffLDO(LDO_LDO_WIF1);
 
    mmc_power_off(mmc);  
 
