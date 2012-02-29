@@ -1167,6 +1167,20 @@ static int print_thread(void *pdata)
 
 		if ((val & LDO_SIM3_CTL)) printk("##: LDO_SIM3_CTL is on.\n");
 		else if(!(val & (LDO_SIM3_CTL >> 1))) printk("##: LDO_SIM3_CTL is not off.\n");
+
+
+		printk("\n===========================\n");
+		val = ANA_REG_GET(ANA_AUDIO_PA_CTRL0);
+		printk("##: ANA_AUDIO_PA_CTRL0 = %04x.\n", val);
+		if (val & AUDIO_PA_ENABLE)	 printk("##: Audo PA is enabled.\n");	
+		else if (!(val & AUDIO_PA_ENABLE_RST)) printk("##: Audo PA is not stopped.\n");
+
+		val = ANA_REG_GET(ANA_AUDIO_PA_CTRL1);
+		printk("##: ANA_AUDIO_PA_CTRL1 = %04x.\n", val);
+		if (val & AUDIO_PA_LDO_ENABLE)	 printk("##: Audo PA_LDO is enabled.\n");	
+		else if (!(val & AUDIO_PA_LDO_ENABLE_RST)) printk("##: Audo PA_LDO is not stopped.\n");
+		printk("\n===========================\n");
+
 	}
 #ifdef SPRD_COPROCESSOR_INFO
 	printk("###: c1 = %08x.\n", sc8800g_read_cp15_c1());
