@@ -2103,6 +2103,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 			case DCAM_CAP_FIFO_OVERFLOW:
 			case DCAM_NO_RUN:	
 				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+				dcam_stop();
 				if(info_ptr->restart_cnt>DCAM_RESTART_COUNT)
 				{
 					dcam_dec_user_count();
@@ -2130,8 +2131,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 				{
 					Sensor_SetTiming(g_dcam_info.snapshot_m);
 				}
-				info_ptr->work_status = DCAM_RESTART;
-				dcam_dec_user_count();
+				info_ptr->work_status = DCAM_RESTART;						
 				dcam_start();				
 				dcam_start_timer(&info_ptr->dcam_timer,info_ptr->timeout_val);				
 				info_ptr->restart_cnt++;
