@@ -212,6 +212,9 @@ sprd_gptimer_set_next_event(unsigned long cycles, struct clock_event_device *c)
 	}
 	*/
 
+	/* FIXME: workaround for eic irq disabled by unkown source */
+        sprd_enable_ana_irq();
+
 	/*busy wait for timer loading finished*/
 	while(__raw_readl(TIMER1_CLEAR) & (1<<4));
 

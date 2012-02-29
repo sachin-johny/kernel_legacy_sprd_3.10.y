@@ -964,7 +964,9 @@ static int gpio_get_int_status(unsigned int gpio)
 static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 {
 	int i;
-
+#ifdef CONFIG_NKERNEL
+	int isAdie = 0;
+#endif
 	GPIO_DBG("%s\n", __func__);
 
 	for (i = 0; i < NR_GPIO_IRQS; i++) {
@@ -972,9 +974,20 @@ static void sprd_gpio_demux_handler(unsigned int irq, struct irq_desc *desc)
 			continue;
 		}
 		if (gpio_get_int_status(gpio_irq_table[i].gpio_id) > 0) {
+#ifdef CONFIG_NKERNEL
+			struct gpio_info gpio_info;
+			__get_gpio_base_info(gpio_irq_table[i].gpio_id,
+					     &gpio_info);
+			if (gpio_info.die == A_DIE)
+				isAdie = 1;
+#endif
 			generic_handle_irq(gpio_irq_table[i].irq_num);
 		}
 	}
+#ifdef CONFIG_NKERNEL
+	if (isAdie)
+		sprd_enable_ana_irq();
+#endif
 
 	desc->chip->unmask(irq);
 }

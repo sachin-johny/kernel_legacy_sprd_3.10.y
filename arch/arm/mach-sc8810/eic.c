@@ -420,6 +420,10 @@ static void sprd_unmask_eic_irq(unsigned int irq)
 		sic_set_interrupt(config_index, 1);
 	} else
 		goto Err;
+//TODO:
+#ifdef CONFIG_NKERNEL
+	sprd_enable_ana_irq();
+#endif
 	return;
 Err:
 	pr_warning(" [%s] error eic %d\n", __FUNCTION__, eic);
