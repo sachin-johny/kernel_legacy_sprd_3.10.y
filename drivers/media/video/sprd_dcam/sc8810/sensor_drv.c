@@ -1786,7 +1786,7 @@ PUBLIC uint32_t Sensor_SetFlash(uint32_t flash_mode)
 
 	s_flash_mode = flash_mode;
 	
-	printk("Sensor_SetFlash:flash_mode=%d .\n",flash_mode);
+	printk("Sensor_SetFlash:flash_mode=0x%x .\n",flash_mode);
 	//printk("Sensor_SetFlash:PIN_CTL_GPIO135->0x%x,PIN_CTL_GPIO144->0x%x .\n",_pard(PIN_CTL_GPIO135),_pard(PIN_CTL_GPIO144));
 
 	switch (flash_mode)

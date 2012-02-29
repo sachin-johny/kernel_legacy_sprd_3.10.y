@@ -55,6 +55,10 @@
 #define DCAM_TIME_OUT_FOR_ATV                 2000//ms 
 #define DCAM_RESTART_COUNT   2//3        
 
+
+//#define FLASH_DV_OPEN_ON_RECORD		1 // mode 1: samsung
+#define FLASH_DV_OPEN_ALWAYS			1 // mode 2: HTC, default
+
 static struct mutex *lock;
 static struct task_struct *s_dcam_thread;
 
@@ -101,6 +105,17 @@ typedef enum
 	DCAM_RESTART,
 	DCAM_WORK_STATUS_MAX
 }DCAM_WORK_STATUS;
+
+typedef enum
+{
+	FLASH_CLOSE 				= 0x0,
+	FLASH_OPEN   				= 0x1,
+	FLASH_TORCH 				= 0x2,  // user only set flash to close/open/torch state
+	FLASH_CLOSE_AFTER_OPEN 	= 0x10, // following is set to sensor. 
+	FLASH_HIGH_LIGHT 			= 0x11,
+	FLASH_OPEN_ON_RECORDING	= 0x22,
+	FLASH_STATUS_MAX
+}DCAM_FLASH_STATUS;
 
 typedef struct _dcam_error_info_tag
 {
@@ -1069,7 +1084,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 
 			if(g_dcam_info.flash_mode)
 			{
-				Sensor_Ioctl(SENSOR_IOCTL_FLASH, 1); // open flash
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN); // open flash
 			}
 
 			copy_from_user(&focus_param[0], (uint16_t*)ctrl->value, FOCUS_PARAM_LEN);		
@@ -1084,7 +1099,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 					ret = -1;
 					if(g_dcam_info.flash_mode)
 					{
-						Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0x10); // close flash from open
+						Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN); // close flash from open
 					}
 					DCAM_V4L2_ERR("v4l2:auto foucs init fail.\n");
 					break;
@@ -1143,7 +1158,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			
 			if(g_dcam_info.flash_mode)
 			{
-				Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0x10); // close flash from open
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN); // close flash from open
 			}
 #endif			
 			break;
@@ -1174,27 +1189,36 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 
 		case V4L2_CID_GAMMA:
 			//g_dcam_info.flash_mode: 0 - close, 1 - on, 2 - torch, 0x10 - close after start, 0x11 - high light, 0x22 - recording start
-			printk("test camera flash mode = %d .\n", (uint8_t)ctrl->value);
+			printk("test camera flash mode = 0x%x .\n", (uint8_t)ctrl->value);
 			if(g_dcam_info.flash_mode == (uint8_t)ctrl->value)
 			{
 				DCAM_V4L2_PRINT("V4L2:don't need handle flash: V4L2_CID_GAMMA !.\n");
 				break;
 			}
 
-			if(0x22 == ctrl->value)
+
+			if(FLASH_OPEN_ON_RECORDING == ctrl->value)
 			{
 				g_dcam_info.recording_start = 1;
-				if(2 == g_dcam_info.flash_mode)
-					Sensor_Ioctl(SENSOR_IOCTL_FLASH,1);  
+#ifdef FLASH_DV_OPEN_ON_RECORD
+				if(FLASH_TORCH == g_dcam_info.flash_mode)
+					Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_TORCH);  
+#endif
 			}
 			else
 			{
 				g_dcam_info.flash_mode = (uint8_t)ctrl->value;
 				
-				if(0 == g_dcam_info.flash_mode)
+				if(FLASH_CLOSE == g_dcam_info.flash_mode)
 				{
-					Sensor_Ioctl(SENSOR_IOCTL_FLASH,0); // disable flash
+					Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE); // disable flash
 				}
+#ifdef FLASH_DV_OPEN_ALWAYS
+				else if(FLASH_TORCH == g_dcam_info.flash_mode)
+				{
+					Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_TORCH); 
+				}
+#endif
 			}
 			break;
 			
@@ -1609,11 +1633,13 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 
 	DCAM_V4L2_PRINT("V4L2: videobuf_streamon start.\n");
 
+#ifdef FLASH_DV_OPEN_ON_RECORD
 	if(g_dcam_info.flash_mode && g_dcam_info.recording_start)
 	{
-		Sensor_Ioctl(SENSOR_IOCTL_FLASH, 2); // torch
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_TORCH); // torch
 	}
-	
+#endif
+
 	if (fh->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
 		return -EINVAL;
 	if (i != fh->type)
@@ -1677,7 +1703,12 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	
 	if(g_dcam_info.flash_mode)
 	{
-		Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0x10); // close flash from open
+#ifdef FLASH_DV_OPEN_ALWAYS
+		if(FLASH_TORCH != g_dcam_info.flash_mode)
+#endif
+		{
+			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN); // close flash from open
+		}
 	}
 
 	if (fh->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
@@ -2285,7 +2316,7 @@ static int open(struct file *file)
 	g_dcam_info.ev_param = 8;
 	g_dcam_info.focus_param = 0;
 	g_dcam_info.power_freq = 8;
-	g_dcam_info.flash_mode = 0;
+	g_dcam_info.flash_mode = FLASH_CLOSE;
 	g_dcam_info.recording_start = 0;
 	
 	//open dcam
@@ -2318,7 +2349,7 @@ static int close(struct file *file)
 
 	if(g_dcam_info.flash_mode)
 	{
-		Sensor_Ioctl(SENSOR_IOCTL_FLASH, 0); // close flash
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE); // close flash
 		printk("close the flash \n");
 	}
 	
