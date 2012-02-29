@@ -161,9 +161,6 @@ int sc8800g_set_wakeup_src(void)
 	if (WAKEUP_SRC_PB & wakeup_src) {
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_PB);
-#ifdef CONFIG_NKERNEL
-		sprd_enable_ana_irq();
-#endif
 	}
 
 	if (WAKEUP_SRC_CHG & wakeup_src) {

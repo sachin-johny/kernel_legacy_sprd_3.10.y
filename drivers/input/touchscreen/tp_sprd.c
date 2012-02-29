@@ -479,12 +479,6 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
     else{
         printk("func[%s]: uncundefined irq\n",__FUNCTION__);
     }
-#if CONFIG_ARCH_SC8810
-#ifdef CONFIG_NKERNEL
-	//TODO: 
-	sprd_enable_ana_irq();
-#endif
-#endif
 	return IRQ_HANDLED;
 }
 
