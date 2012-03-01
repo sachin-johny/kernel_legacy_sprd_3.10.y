@@ -51,7 +51,7 @@
 #define V4L2_OPEN_FOCUS 1
 #define DCAM_SCALE_OUT_WIDTH_MAX    960
 
-#define DCAM_TIME_OUT                 500//ms 
+#define DCAM_TIME_OUT                 1000//ms 
 #define DCAM_TIME_OUT_FOR_ATV                 2000//ms 
 #define DCAM_RESTART_COUNT   2//3        
 
