@@ -365,9 +365,11 @@ void clk_disable(struct clk *clk)
 
 	hw_spin_lock_irqsave(&clockfw_lock, flags);
 	if (clk->pstub->usecount == 0) {
+		/*
 		printk("Trying to disable clock [%s] with 0 usecount\n",
 				clk->pstub->name);
 		WARN_ON(1);
+		*/
 		goto out;
 	}
 	if (arch_clock->clk_disable)
