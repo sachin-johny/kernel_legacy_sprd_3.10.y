@@ -219,25 +219,30 @@ static int __devexit sdhci_sprd_remove(struct platform_device *pdev)
 
 static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 {
+	int ret = 0; 
 	struct sdhci_host *host = platform_get_drvdata(dev);
-
-	sdhci_suspend_host(host, pm);
-
+        
+	ret = sdhci_suspend_host(host, pm);
+        if(ret){
+           printk("~wow, %s suspend error %d\n", host->hw_name, ret);
+	   return ret;
+	}
 	return 0;
 }
 
 static int sdhci_sprd_resume(struct platform_device *dev)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
+
         if(host->ops->set_clock){
-	    host->ops->set_clock(host, 1);
+	    host->ops->set_clock(host, 1); //enable ahb clock to restore registers
 	}
         if(!strcmp(host->hw_name, "Spread SDIO host1")){
 	    host->mmc->pm_flags &= ~MMC_PM_KEEP_POWER; 
 	}
 	sdhci_resume_host(host);
-        if(!strcmp(host->hw_name, "Spread SDIO host1")){
-	    host->mmc->pm_flags |= MMC_PM_KEEP_POWER; 
+	if(!strcmp(host->hw_name, "Spread SDIO host1")){
+            host->mmc->pm_flags |= MMC_PM_KEEP_POWER; 
 	}
 	if( !(host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
             if(host->ops->set_clock){
