@@ -57,10 +57,10 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param);
 
 typedef enum
 {
-	SCALE_CLK_96M = 0,
+	SCALE_CLK_128M = 0,
+	SCALE_CLK_76M8,
 	SCALE_CLK_64M,
-	SCALE_CLK_48M,
-	SCALE_CLK_26M
+	SCALE_CLK_48M
 } SCALE_CLK_SEL_E;
 
 #define SCALE_MINOR MISC_DYNAMIC_MINOR
@@ -119,14 +119,14 @@ static int _SCALE_DriverSetMclk(SCALE_CLK_SEL_E clk_sel)
 
 	switch(clk_sel)
 	{
-		case SCALE_CLK_96M:
-			name_parent = "clk_96m";
+		case SCALE_CLK_128M:
+			name_parent = "clk_128m";
 			break;
+		case SCALE_CLK_76M8:
+			name_parent = "clk_76m800k";
+			break;		
 		case SCALE_CLK_64M:
 			name_parent = "clk_64m";
-			break;		
-		case SCALE_CLK_26M:
-			name_parent = "clk_26m";
 			break;
 		default:
 			name_parent = "clk_48m";
@@ -557,7 +557,7 @@ static int32_t _SCALE_DriverSoftReset(uint32_t ahb_ctrl_addr)
 
 	return rtn;
 }
-
+#if 0
 static int32_t _SCALE_DriverSetClk(uint32_t pll_src_addr,SCALE_CLK_SEL_E clk_sel)
 {
 	ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;	
@@ -582,7 +582,7 @@ static int32_t _SCALE_DriverSetClk(uint32_t pll_src_addr,SCALE_CLK_SEL_E clk_sel
 	return rtn;
     
 }
-
+#endif
 uint32_t _SCALE_DriverInit(void)
 {
 	int32_t rtn_drv = ISP_DRV_RTN_SUCCESS;
@@ -1508,7 +1508,7 @@ int _SCALE_DriverIOInit(void)
      		_SCALE_DriverInit();
 		SCALE_PRINT("SCALE:_SCALE_DriverInit.\n");
      	}
-	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_96M))
+	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_128M))
 	{
 		SCALE_PRINT_ERR("SCALE:_SCALE_DriverIOInit,Failed to _SCALE_DriverSetMclk!\n");
 	//	dcam_inc_user_count();

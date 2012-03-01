@@ -191,14 +191,14 @@ static int dcam_set_mclk(ISP_CLK_SEL_E clk_sel)
 
 	switch(clk_sel)
 	{
-		case ISP_CLK_96M:
-			name_parent = "clk_96m";
+		case ISP_CLK_128M:
+			name_parent = "clk_128m";
 			break;
+		case ISP_CLK_76M8:
+			name_parent = "clk_76m800k";
+			break;	
 		case ISP_CLK_64M:
 			name_parent = "clk_64m";
-			break;	
-		case ISP_CLK_26M:
-			name_parent = "clk_26m";
 			break;
 		default:
 			name_parent = "clk_48m";
@@ -420,7 +420,7 @@ int32_t  _ISP_ServiceStartPreview(void)
 
 	//rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_48M);
 	//ISP_RTN_IF_ERR(rtn_drv);
-	if(0 != dcam_set_mclk(ISP_CLK_96M))
+	if(0 != dcam_set_mclk(ISP_CLK_128M))
 	{
 		DCAM_TRACE_ERR("DCAM:_ISP_ServiceStartPreview, fail to set dcam mclk.\n");
 		return 1;
@@ -475,9 +475,10 @@ int32_t  _ISP_ServiceStartPreview(void)
 	                                                            (void*)&s->preview_deci_frame_num);
 	ISP_RTN_IF_ERR(rtn_drv);
 
-	cap_sync.vsync_pol = s->vsync_polarity;
-	cap_sync.hsync_pol = s->hsync_polarity;
-	printk("_ISP_ServiceStartPreview:hsync=%d,vsync=%d",cap_sync.hsync_pol,cap_sync.vsync_pol);
+	cap_sync.vsync_pol = (uint8_t)s->vsync_polarity;
+	cap_sync.hsync_pol = (uint8_t)s->hsync_polarity;
+	cap_sync.pclk_pol = (uint8_t)s->pclk_polarity;
+	printk("_ISP_ServiceStartPreview:hsync=%d,vsync=%d,plck=%d.\n",cap_sync.hsync_pol,cap_sync.vsync_pol,cap_sync.pclk_pol);
 	rtn_drv = ISP_DriverCapConfig(s->module_addr, 
 	                                                           ISP_CAP_SYNC_POL, 
 	                                                           (void*)&cap_sync);
@@ -725,7 +726,7 @@ static int _ISP_ServiceStartJpeg(void)
 
 	//rtn_drv = ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_64M);
 	//ISP_RTN_IF_ERR(rtn_drv);
-	if(0 != dcam_set_mclk(ISP_CLK_96M))
+	if(0 != dcam_set_mclk(ISP_CLK_128M))
 	{
 		DCAM_TRACE_ERR("DCAM:_ISP_ServiceStartJpeg, fail to set dcam mclk.\n");
 		return 1;
@@ -743,6 +744,7 @@ static int _ISP_ServiceStartJpeg(void)
 
 	cap_sync.vsync_pol = s->vsync_polarity;
 	cap_sync.hsync_pol = s->hsync_polarity;
+	cap_sync.pclk_pol = s->pclk_polarity;
 	rtn_drv = ISP_DriverCapConfig(s->module_addr, 
 	                                                            ISP_CAP_SYNC_POL, 
 	                             			     (void*)&cap_sync);
@@ -1135,6 +1137,8 @@ static int ISP_ServiceSetParameters(void)
 	s->cap_input_size.h = g_dcam_param.input_size.h;
 	dst_img_size.w = g_dcam_param.display_rect.w;
 	dst_img_size.h = g_dcam_param.display_rect.h;
+
+	printk("DCAM:ISP_ServiceSetParameters,pclk polarity is %d.\n",s->pclk_polarity);
 	
          if(dst_img_size.w*g_dcam_param.input_size.h<g_dcam_param.input_size.w*dst_img_size.h)//full screen
          	{

@@ -916,7 +916,7 @@ void ISP_DriverIramSwitch(uint32_t base_addr,uint32_t isp_or_arm)
 int32_t ISP_DriverSetClk(uint32_t pll_src_addr,ISP_CLK_SEL_E clk_sel)
 {
 	ISP_DRV_RTN_E   rtn = ISP_DRV_RTN_SUCCESS;	
-
+#if 0
 	ISP_CHECK_PARAM_ZERO_POINTER(pll_src_addr);
 
 	switch(clk_sel)
@@ -936,6 +936,7 @@ int32_t ISP_DriverSetClk(uint32_t pll_src_addr,ISP_CLK_SEL_E clk_sel)
 			_paod(pll_src_addr, BIT_4 | BIT_5); //default set 26M;
 			break;
 	}
+#endif	
 	return rtn;
 }
 
@@ -1064,10 +1065,11 @@ int32_t ISP_DriverCapConfig(uint32_t base_addr, ISP_CFG_ID_E isp_cfg_id, void* p
 		case ISP_CAP_SYNC_POL:        	  
 		{
 			ISP_CAP_SYNC_POL_T *p_sync_pol = (ISP_CAP_SYNC_POL_T*)param;  
+			uint32_t tmp = 0; 
 			          
 			ISP_CHECK_PARAM_ZERO_POINTER(param);
 
-			if(p_sync_pol->vsync_pol > 1 || p_sync_pol->hsync_pol > 1)
+			if(p_sync_pol->vsync_pol > 1 || p_sync_pol->hsync_pol > 1||p_sync_pol->pclk_pol > 1)
 			{
 			     	rtn = ISP_DRV_RTN_CAP_SYNC_POL_ERR;
 			}
@@ -1075,6 +1077,10 @@ int32_t ISP_DriverCapConfig(uint32_t base_addr, ISP_CFG_ID_E isp_cfg_id, void* p
 			{                
 				p_isp_reg->cap_ctrl_u.mBits.hsync_pol = p_sync_pol->hsync_pol ;
 				p_isp_reg->cap_ctrl_u.mBits.vsync_pol = p_sync_pol->vsync_pol;
+				tmp = _pard(CLK_DLY_CTRL);
+				tmp &= 0xfff7ffff;
+				tmp |= ((p_sync_pol->pclk_pol&0x1)<<19);
+				_pawd(CLK_DLY_CTRL,tmp);
 			}
 			break;            
 		}

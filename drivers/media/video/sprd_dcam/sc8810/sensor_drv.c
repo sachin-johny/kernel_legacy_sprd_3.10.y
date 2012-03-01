@@ -62,6 +62,24 @@
 #define SENSOR_I2C_OP_TRY_NUM   4
 #define SCI_TRUE 1 
 #define SCI_FALSE 0
+#define SENSOR_MCLK_SRC_NUM   4
+#define SENSOR_MCLK_DIV_MAX     4
+#define NUMBER_MAX                         0x7FFFFFF
+#define ABS(a) ((a) > 0 ? (a) : -(a))
+
+typedef struct SN_MCLK
+{
+    int     clock;
+    char *src_name;
+}SN_MCLK;
+
+const SN_MCLK sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = 
+{
+    {96, "clk_96m"},
+    {77,"clk_76m800k"},
+    {48, "clk_48m"},
+    {26, "ext_26m"}    
+};
 
 
 /**---------------------------------------------------------------------------*
@@ -313,73 +331,58 @@ PUBLIC void Sensor_Reset(uint32_t level)
 		gpio_free(72);
 	}
 }
+
+LOCAL int select_sensor_mclk(uint8_t clk_set, char** clk_src_name,uint8_t* clk_div)
+{
+	uint8_t   i,j,mark_src = 0,mark_div = 0,mark_src_tmp = 0;
+	int           clk_tmp,src_delta,src_delta_min = NUMBER_MAX;
+	int           div_delta,div_delta_min = NUMBER_MAX;
+
+	printk("SENSOR:select_sensor_mclk,clk_set=%d.\n",clk_set);
+	if(clk_set > 96 || !clk_src_name || !clk_div)
+	{
+		return SENSOR_FAIL;
+	}
+
+	for(i = 0; i < SENSOR_MCLK_DIV_MAX; i++ )
+	{
+		clk_tmp =(int)(clk_set * (i + 1));
+		src_delta_min = NUMBER_MAX;
+		for(j = 0; j < SENSOR_MCLK_SRC_NUM; j++ )
+		{
+			src_delta =    ABS(sensor_mclk_tab[j].clock - clk_tmp);
+			if(src_delta < src_delta_min)
+			{
+				src_delta_min = src_delta;
+				mark_src_tmp = j;
+			}
+		}
+
+		if(src_delta_min <  div_delta_min)
+		{
+			div_delta_min = src_delta_min;
+			mark_src = mark_src_tmp;
+			mark_div = i;
+		}
+	}
+
+	printk("SENSOR:select_sensor_mclk,clk_src=%d,clk_div=%d .\n",mark_src,mark_div);
+
+	*clk_src_name = sensor_mclk_tab[mark_src].src_name;
+	*clk_div = mark_div+1;
+	return SENSOR_SUCCESS;
+}
 /*****************************************************************************/
 //  Description:    This function is used to power on sensor and select xclk    
 //  Author:         Liangwen.Zhen
 //  Note:           1.Unit: MHz 2. if mclk equal 0, close main clock to sensor
 /*****************************************************************************/
-PUBLIC int Sensor_SetMCLK1(uint32_t mclk)
-{
-    uint32_t divd = 0;
-    //uint32_t pll_clk = 0;	
-	
-    SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %dMHz, clk = %dMHz\n", s_sensor_mclk, mclk);
-
-    if((0 != mclk) && (s_sensor_mclk != mclk))
-    {
-        if(mclk > SENSOR_MAX_MCLK)
-        {
-            mclk = SENSOR_MAX_MCLK;
-        }
-
-       // *(volatile uint32_t *)GR_GEN0 &= ~BIT_14; //first disable MCLK
-       _paad(ARM_GLOBAL_REG_GEN0, ~BIT_14);
-
-        //*(volatile uint32_t*)GR_PLL_SCR &= ~(BIT_19 | BIT_18); // bit19, bit18 ,  00 48M,01  76.8M, 1x, 26M
-        _paad(ARM_GLOBAL_PLL_SCR, ~(BIT_18 | BIT_19));
-
-        //*(volatile uint32_t *)GR_GEN3 &= ~(BIT_24 | BIT_25); // CCIR divide factor        
-        _paad(ARM_GLOBAL_REG_GEN3, ~(BIT_24 | BIT_25));
-		
-        divd = SENSOR_MAX_MCLK / mclk - 1;
-
-        if(divd > (BIT_0 | BIT_1))
-        {
-           divd = (BIT_0 | BIT_1); 
-        }
-        
-        divd <<= 24;
-
-        //*(volatile uint32_t *)GR_GEN3 |= divd; // CCIR divide factor
-        _paod(ARM_GLOBAL_REG_GEN3, divd);
-        
-       // *(volatile uint32_t *)GR_GEN0 |= BIT_14; // CCIR CLK Enable
-        _paod(ARM_GLOBAL_REG_GEN0, BIT_14);
-        
-        s_sensor_mclk = mclk;
-        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d Hz, divd = %d\n", s_sensor_mclk, divd);
-    }
-    else if(0 == mclk)
-    {
-        //*(volatile uint32_t *)GR_GEN0 &= ~BIT_14;
-	_paad(ARM_GLOBAL_REG_GEN0, ~BIT_14);
-
-        s_sensor_mclk = 0;
-        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> Disable MCLK !!!");
-    }
-    else
-    {
-        SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> Do nothing !! ");
-    }
-    SENSOR_PRINT("SENSOR: Sensor_SetMCLK X\n");
-	return 0;
-}
 int Sensor_SetMCLK(uint32_t mclk)
-{
-	uint32_t divd = 0;
-	char *name_parent = NULL;
+{	
 	struct clk *clk_parent = NULL;
 	int ret;    
+	uint8_t clk_div;
+	char *clk_src_name=NULL;
 
 	SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d MHz, clk = %d MHz\n", s_sensor_mclk, mclk);
 
@@ -407,11 +410,16 @@ int Sensor_SetMCLK(uint32_t mclk)
 		{
 			mclk = SENSOR_MAX_MCLK;
 		}
-		name_parent = "clk_48m";	
-		clk_parent = clk_get(NULL, name_parent);
+		if(SENSOR_SUCCESS != select_sensor_mclk((uint8_t)mclk,&clk_src_name,&clk_div))
+		{
+			printk("SENSOR:Sensor_SetMCLK select clock source fail.\n");
+			return -EINVAL;
+		}
+		
+		clk_parent = clk_get(NULL, clk_src_name);
 		if(!clk_parent)
 		{
-			SENSOR_PRINT_ERR("###:clock[%s]: failed to get parent [%s] by clk_get()!\n", s_ccir_clk->name, name_parent);
+			SENSOR_PRINT_ERR("###:clock[%s]: failed to get parent [%s] by clk_get()!\n", s_ccir_clk->name, clk_src_name);
 			return -EINVAL;
 		}
 
@@ -421,8 +429,8 @@ int Sensor_SetMCLK(uint32_t mclk)
 			SENSOR_PRINT_ERR("###:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n", s_ccir_clk->name, clk_parent->name, s_ccir_clk->usecount);
 			return -EINVAL;
 		}
-		divd = SENSOR_MAX_MCLK / mclk;      
-		ret = clk_set_divisor(s_ccir_clk, divd);
+		
+		ret = clk_set_divisor(s_ccir_clk, clk_div);
 		if(ret)
 		{
 			SENSOR_PRINT_ERR("###:clock[%s]: clk_set_divisor failed!\n", s_ccir_clk->name);
@@ -438,7 +446,7 @@ int Sensor_SetMCLK(uint32_t mclk)
 			SENSOR_PRINT("###sensor s_ccir_clk clk_enable ok.\n");
 		}
 	 
-	   // CCIR CLK Enable
+	         // CCIR CLK Enable
 		if(NULL == s_ccir_enable_clk)
 		{
 		    	s_ccir_enable_clk = clk_get(NULL, "clk_ccir");
@@ -464,7 +472,7 @@ int Sensor_SetMCLK(uint32_t mclk)
 		}	
 	    
 		s_sensor_mclk = mclk;
-		SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d Hz, divd = %d\n", s_sensor_mclk, divd);
+		SENSOR_PRINT("SENSOR: Sensor_SetMCLK -> s_sensor_mclk = %d Hz, divd = %d\n", s_sensor_mclk, clk_div);
 	}
 	else if(0 == mclk)
 	{ 

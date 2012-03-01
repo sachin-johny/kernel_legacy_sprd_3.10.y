@@ -311,10 +311,10 @@ enum
 
 typedef enum
 {
-	ISP_CLK_96M = 0,
+	ISP_CLK_128M = 0,
+	ISP_CLK_76M8,
 	ISP_CLK_64M,
-	ISP_CLK_48M,
-	ISP_CLK_26M
+	ISP_CLK_48M
 } ISP_CLK_SEL_E;
 
 typedef enum 
@@ -344,8 +344,10 @@ typedef enum
 
 typedef struct _isp_cap_sync_pol_tag
 {
-	uint16_t               vsync_pol;
-	uint16_t               hsync_pol;
+	uint8_t               vsync_pol;
+	uint8_t               hsync_pol;
+	uint8_t               pclk_pol;
+	uint8_t               rsd;
 } ISP_CAP_SYNC_POL_T;
 
 typedef struct _isp_cap_dec_tag

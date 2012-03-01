@@ -429,209 +429,6 @@ static const struct clksel_rate rates_ext_26m_4div[] = {
 		{.div = 0},
 };
 
-static const struct clksel ccir_mclk_clksel[] = {
-		{.parent = &clk_48m,		.val = 0,	.rates = rates_clk_48m_4div},
-		{.parent = &clk_76m800k,	.val = 1,	.rates = rates_clk_76m800k_4div},
-		{.parent = &ext_26m,		.val = 2,	.rates = rates_ext_26m_4div},
-		{.parent = &ext_26m,		.val = 3,	.rates = rates_ext_26m_4div},
-		{.parent = NULL}
-};
-
-static struct clk ccir_mclk = {
-	.name = "ccir_mclk",
-	.flags = DEVICE_AHB,
-	.ops = &sc88xx_clk_ops_generic,
-	.parent = &clk_48m,
-	.clkdm_name = "top_module",
-
-	.recalc = &sc88xx_recalc_generic,
-	.set_rate = &sc88xx_set_rate_generic,
-
-	.init = &sc88xx_init_clksel_parent,
-
-	.round_rate = &sc88xx_clksel_round_rate,
-
-	.clksel = ccir_mclk_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
-	.clksel_mask = CCIR_MCLK_CLKSEL_MASK,
-
-	.enable_reg = IOMEM(GEN0),
-	.enable_bit = CCIR_MCLK_EN_SHIFT,
-
-	.clkdiv_reg = IOMEM(GEN3),
-	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
-};
-
-static const struct clksel_rate rates_clk_ccir_pad_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-
-static const struct clksel clk_ccir_clksel[] = {
-		{.parent = &clk_ccir_pad,	.val = 2,	.rates = rates_clk_ccir_pad_nodiv},
-		{.parent = NULL}
-};
-
-
-static struct clk clk_ccir = {
-	.name = "clk_ccir",
-	.flags = DEVICE_AHB,
-	.ops = &sc88xx_clk_ops_generic,
-	.parent = &clk_ccir_pad,
-	.clkdm_name = "peripheral",
-	.divisor = 1,
-
-	.recalc = &sc88xx_recalc_generic,
-
-	/*
-	.set_rate = &sc88xx_set_rate_generic,
-	*/
-
-	/*
-	.init = &sc88xx_init_clksel_parent,
-	*/
-
-	/*
-	.round_rate = &sc88xx_clksel_round_rate,
-	*/
-
-
-	.clksel = clk_ccir_clksel,
-	/*
-	.clksel_reg = IOMEM(PLL_SCR),
-	.clksel_mask = CLK_IIS_CLKSEL_MASK,
-	*/
-	.enable_reg = IOMEM(AHB_CTL0),
-	.enable_bit = CLK_CCIR_EN_SHIFT,
-	/*
-	.clkdiv_reg = IOMEM(GEN2),
-	.clkdiv_mask = CLK_IIS_CLKDIV_MASK,
-	*/
-};
-
-
-
-static const struct clksel_rate rates_clk_96m_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-static const struct clksel_rate rates_clk_76m800k_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-static const struct clksel_rate rates_clk_64m_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-static const struct clksel_rate rates_clk_51m200k_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-
-static const struct clksel_rate rates_clk_48m_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-static const struct clksel_rate rates_clk_26m_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-static const struct clksel_rate rates_clk_24m_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-static const struct clksel_rate rates_clk_12m_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-static const struct clksel_rate rates_clk_32k_nodiv[] = {
-		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
-		{.div = 0},
-};
-
-
-
-static const struct clksel clk_dcam_clksel[] = {
-		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
-		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_64m_nodiv},
-		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_nodiv},
-		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_nodiv},
-		{.parent = NULL}
-};
-
-static struct clk clk_dcam = {
-	.name = "clk_dcam",
-	.flags = DEVICE_AHB,
-	.ops = &sc88xx_clk_ops_generic,
-	.parent = &clk_96m,
-	.clkdm_name = "peripheral",
-	.divisor = 1,
-
-	.recalc = &sc88xx_recalc_generic,
-	/*
-	.set_rate = &sc88xx_set_rate_generic,
-	*/
-	.init = &sc88xx_init_clksel_parent,
-
-	.round_rate = &sc88xx_clksel_round_rate,
-
-	.clksel = clk_dcam_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
-	.clksel_mask = CLK_DCAM_CLKSEL_MASK,
-
-	.enable_reg = IOMEM(AHB_CTL0),
-	.enable_bit = CLK_DCAM_EN_SHIFT,
-	/*
-	.clkdiv_reg = IOMEM(GEN3),
-	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
-	*/
-};
-
-static const struct clksel clk_vsp_clksel[] = {
-		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
-		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_64m_nodiv},
-		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_nodiv},
-		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_nodiv},
-		{.parent = NULL}
-};
-
-static struct clk clk_vsp = {
-	.name = "clk_vsp",
-	.flags = DEVICE_AHB,
-	.ops = &sc88xx_clk_ops_generic,
-	.parent = &clk_96m,
-	.clkdm_name = "peripheral",
-	.divisor = 1,
-
-	.recalc = &sc88xx_recalc_generic,
-	/*
-	.set_rate = &sc88xx_set_rate_generic,
-	*/
-	.init = &sc88xx_init_clksel_parent,
-
-	.round_rate = &sc88xx_clksel_round_rate,
-
-	.clksel = clk_vsp_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
-	.clksel_mask = CLK_VSP_CLKSEL_MASK,
-
-	.enable_reg = IOMEM(AHB_CTL0),
-	.enable_bit = CLK_VSP_EN_SHIFT,
-	/*
-	.clkdiv_reg = IOMEM(GEN3),
-	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
-	*/
-};
-
 static const struct clksel_rate rates_clk_192m_8div[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 2, .val = 1, .flags = RATE_IN_SC8800G2},
@@ -751,6 +548,212 @@ static const struct clksel_rate rates_clk_iis_clk_pad_8div[] = {
 		{.div = 7, .val = 6, .flags = RATE_IN_SC8800G2},
 		{.div = 8, .val = 7, .flags = RATE_IN_SC8800G2},
 		{.div = 0},
+};
+
+static const struct clksel ccir_mclk_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_8div},
+		{.parent = &clk_76m800k,	.val = 1,	.rates = rates_clk_76m800k_4div},
+		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_4div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_ext_26m_4div},
+		{.parent = NULL}
+};
+
+static struct clk ccir_mclk = {
+	.name = "ccir_mclk",
+	.flags = DEVICE_AHB,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "top_module",
+
+	.recalc = &sc88xx_recalc_generic,
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = ccir_mclk_clksel,
+	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_mask = CCIR_MCLK_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(GEN0),
+	.enable_bit = CCIR_MCLK_EN_SHIFT,
+
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+};
+
+static const struct clksel_rate rates_clk_ccir_pad_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+
+static const struct clksel clk_ccir_clksel[] = {
+		{.parent = &clk_ccir_pad,	.val = 2,	.rates = rates_clk_ccir_pad_nodiv},
+		{.parent = NULL}
+};
+
+
+static struct clk clk_ccir = {
+	.name = "clk_ccir",
+	.flags = DEVICE_AHB,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_ccir_pad,
+	.clkdm_name = "peripheral",
+	.divisor = 1,
+
+	.recalc = &sc88xx_recalc_generic,
+
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+
+	/*
+	.init = &sc88xx_init_clksel_parent,
+	*/
+
+	/*
+	.round_rate = &sc88xx_clksel_round_rate,
+	*/
+
+
+	.clksel = clk_ccir_clksel,
+	/*
+	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_mask = CLK_IIS_CLKSEL_MASK,
+	*/
+	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_bit = CLK_CCIR_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN2),
+	.clkdiv_mask = CLK_IIS_CLKDIV_MASK,
+	*/
+};
+
+static const struct clksel_rate rates_clk_128m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_96m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_76m800k_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_64m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_51m200k_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+
+static const struct clksel_rate rates_clk_48m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_26m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_24m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_12m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+static const struct clksel_rate rates_clk_32k_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
+
+
+static const struct clksel clk_dcam_clksel[] = {
+		{.parent = &clk_128m,		.val = 0,	.rates = rates_clk_128m_nodiv},
+		{.parent = &clk_76m800k,	.val = 1,	.rates = rates_clk_76m800k_nodiv},
+		{.parent = &clk_64m,		.val = 2,	.rates = rates_clk_64m_nodiv},
+		{.parent = &clk_48m,		.val = 3,	.rates = rates_clk_48m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_dcam = {
+	.name = "clk_dcam",
+	.flags = DEVICE_AHB,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_128m,
+	.clkdm_name = "peripheral",
+	.divisor = 1,
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_dcam_clksel,
+	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_mask = CLK_DCAM_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_bit = CLK_DCAM_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
+static const struct clksel clk_vsp_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
+		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_64m_nodiv},
+		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_nodiv},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_vsp = {
+	.name = "clk_vsp",
+	.flags = DEVICE_AHB,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+	.divisor = 1,
+
+	.recalc = &sc88xx_recalc_generic,
+	/*
+	.set_rate = &sc88xx_set_rate_generic,
+	*/
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_vsp_clksel,
+	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_mask = CLK_VSP_CLKSEL_MASK,
+
+	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_bit = CLK_VSP_EN_SHIFT,
+	/*
+	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
 };
 
 static const struct clksel clk_lcdc_clksel[] = {
