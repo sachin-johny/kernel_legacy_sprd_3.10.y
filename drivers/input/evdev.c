@@ -10,8 +10,7 @@
 
 #define EVDEV_MINOR_BASE	64
 #define EVDEV_MINORS		32
-#define EVDEV_BUFFER_SIZE	1024
-                            //64
+#define EVDEV_BUFFER_SIZE	64
 
 #include <linux/poll.h>
 #include <linux/sched.h>
