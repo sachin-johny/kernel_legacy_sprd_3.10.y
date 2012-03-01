@@ -759,6 +759,7 @@ static void sc8810fb_early_suspend (struct early_suspend* es)
 {
 	struct sc8810fb_info *info = container_of(es, struct sc8810fb_info, early_suspend);
 
+	info->fb_state = FB_NO_REFRESH;
 	rrm_wait_for_idle();
 	if(info->panel->ops->lcd_enter_sleep != NULL){
 		info->panel->ops->lcd_enter_sleep(info->panel,1);
@@ -770,7 +771,7 @@ static void sc8810fb_early_suspend (struct early_suspend* es)
 	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
 }
 
-static void sc8810fb_early_resume (struct early_suspend* es)
+static void sc8810fb_late_resume (struct early_suspend* es)
 {
 	struct sc8810fb_info *info = container_of(es, struct sc8810fb_info, early_suspend);
 
@@ -788,10 +789,11 @@ static void sc8810fb_early_resume (struct early_suspend* es)
 		info->need_reinit = 0;
 	} else {	
 		FB_PRINT("sc8810fb resume from sleep \n");
+		if(info->panel->ops->lcd_enter_sleep != NULL) {
+			info->panel->ops->lcd_enter_sleep(info->panel,0);
+		}
 	}
-	if(info->panel->ops->lcd_enter_sleep != NULL) {
-		info->panel->ops->lcd_enter_sleep(info->panel,0);
-	}
+	info->fb_state = FB_NORMAL;
 	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
 }
 #endif
@@ -945,7 +947,7 @@ static int sc8810fb_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	info->early_suspend.suspend = sc8810fb_early_suspend;
-	info->early_suspend.resume  = sc8810fb_early_resume;
+	info->early_suspend.resume  = sc8810fb_late_resume;
 	info->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	register_early_suspend(&info->early_suspend);
 #endif
