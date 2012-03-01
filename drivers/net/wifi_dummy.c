@@ -104,7 +104,7 @@ static void wifi_dummy_notify_sdio( void *pdata){
  
    DBG("%s\n", __func__);
    
-   msleep(20000);
+   msleep(10000);
 //   mmc_power_save_host(mmc);  
    DBG("%s, power_save_host\n", __func__);
    gpio_direction_output(sprd_3rdparty_gpio_wifi_reset, 0);
