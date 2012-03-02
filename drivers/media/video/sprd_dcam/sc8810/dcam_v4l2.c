@@ -595,6 +595,18 @@ static int init_sensor_parameters(void *priv)
 		Sensor_SetMode(g_dcam_info.snapshot_m);
 	else if(g_dcam_info.snapshot_m < SENSOR_MODE_SNAPSHOT_ONE_FIRST) 
 		Sensor_SetMode(g_dcam_info.preview_m);
+
+	/* Setting sensor parameters */
+	Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE,              	g_dcam_info.wb_param);
+	Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT,        		g_dcam_info.imageeffect_param);
+	Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE,              	g_dcam_info.previewmode_param);
+	Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,               		g_dcam_info.brightness_param);
+	Sensor_Ioctl(SENSOR_IOCTL_CONTRAST,                 		g_dcam_info.contrast_param);
+	Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,           	g_dcam_info.hflip_param);
+	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
+	Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
+	Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
+
 	return 0;
 }
 
