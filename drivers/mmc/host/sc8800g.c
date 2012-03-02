@@ -237,13 +237,13 @@ static int sdhci_sprd_resume(struct platform_device *dev)
         if(host->ops->set_clock){
 	    host->ops->set_clock(host, 1); //enable ahb clock to restore registers
 	}
-        if(!strcmp(host->hw_name, "Spread SDIO host1")){
-	    host->mmc->pm_flags &= ~MMC_PM_KEEP_POWER; 
-	}
+        //if(!strcmp(host->hw_name, "Spread SDIO host1")){
+	//    host->mmc->pm_flags &= ~MMC_PM_KEEP_POWER; 
+	//}
 	sdhci_resume_host(host);
-	if(!strcmp(host->hw_name, "Spread SDIO host1")){
-            host->mmc->pm_flags |= MMC_PM_KEEP_POWER; 
-	}
+	//if(!strcmp(host->hw_name, "Spread SDIO host1")){
+        //    host->mmc->pm_flags |= MMC_PM_KEEP_POWER; 
+	//}
 	if( !(host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
             if(host->ops->set_clock){
 	      host->ops->set_clock(host, 0);

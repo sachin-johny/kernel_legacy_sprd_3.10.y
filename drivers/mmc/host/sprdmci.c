@@ -236,20 +236,31 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 		sdhci_clear_set_irqs(host, SDHCI_INT_ALL_MASK, ier);
 }
 
-static void sdhci_init(struct sdhci_host *host)
+static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios);
+
+static void sdhci_init(struct sdhci_host *host, int soft)
 {
-	sdhci_reset(host, SDHCI_RESET_ALL);
+	if (soft)
+		sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
+	else
+		sdhci_reset(host, SDHCI_RESET_ALL);
 
 	sdhci_clear_set_irqs(host, SDHCI_INT_ALL_MASK,
 		SDHCI_INT_BUS_POWER | SDHCI_INT_DATA_END_BIT |
 		SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT | SDHCI_INT_INDEX |
 		SDHCI_INT_END_BIT | SDHCI_INT_CRC | SDHCI_INT_TIMEOUT |
 		SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE);
+
+	if (soft) {
+		/* force clock reconfiguration */
+		host->clock = 0;
+		sdhci_set_ios(host->mmc, &host->mmc->ios);
+	}
 }
 
 static void sdhci_reinit(struct sdhci_host *host)
 {
-	sdhci_init(host);
+	sdhci_init(host, 0);
 #ifdef HOT_PLUG_SUPPORTED	
 	sdhci_enable_card_detection(host);
 #endif
@@ -990,7 +1001,8 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		flags |= SDHCI_CMD_INDEX;
 	if (cmd->data)
 		flags |= SDHCI_CMD_DATA;
-	DBG("SDIO host send command:%d \n", cmd->opcode);
+//	DBG("SDIO host send command:%d \n", cmd->opcode);
+//	printk("%s send cmd:%d \n", mmc_hostname(host->mmc), cmd->opcode);
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 
@@ -1041,9 +1053,8 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			return;
 	}
 
-	if (clock == host->clock){
+        if (clock == host->clock)
 		return;
-	}
 
 	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 	if (clock == 0){
@@ -1578,7 +1589,7 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (host->cmd->error) {
 	        if(host->mmc->card){
-		  printk("!!!!! error in sending cmd:%d, err:%d \n", host->cmd->opcode, host->cmd->error);
+		  printk("%s: !!!!! error in sending cmd:%d, err:%d \n", mmc_hostname(host->mmc), host->cmd->opcode, host->cmd->error);
 		  //sdhci_dumpregs(host);
 		}
 		tasklet_schedule(&host->finish_tasklet);
@@ -1818,11 +1829,11 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 #endif
 	ret = mmc_suspend_host(host->mmc);
 	if (ret){
-		printk("=== wow~ sd card suspend error:%d ===\n", ret);
+		printk("=== wow~ %s suspend error:%d ===\n",mmc_hostname(host->mmc), ret);
 		return ret;
         }
 
-	printk("sdhci_suspend_host, done\n");
+	printk("%s, suspend_host, done\n", mmc_hostname(host->mmc));
 	return 0;
 }
 
@@ -1830,6 +1841,7 @@ EXPORT_SYMBOL_GPL(sdhci_suspend_host);
 
 int sdhci_resume_host(struct sdhci_host *host)
 {
+        printk("%s sdhci_resume_host, start\n", mmc_hostname(host->mmc)); 
 	int ret;
       
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
@@ -1842,19 +1854,19 @@ int sdhci_resume_host(struct sdhci_host *host)
 	//if (ret)
 	//	return ret;
 
-	sdhci_init(host);
+	sdhci_init(host, (host->mmc->pm_flags & MMC_PM_KEEP_POWER));
 	mmiowb();
         
 	ret = mmc_resume_host(host->mmc);
 	if (ret){
-		printk("=== sd card resume error:%d ===\n", ret);
+		printk("=== %s resume error:%d ===\n", mmc_hostname(host->mmc), ret);
 		return ret;
 	}
 
 #ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
 #endif	
-        printk("sdhci_resume_host, done\n"); 
+        printk("%s sdhci_resume_host, done\n", mmc_hostname(host->mmc)); 
 	return 0;
 }
 
@@ -2134,7 +2146,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	if (ret)
 		goto untasklet;
 #endif
-	sdhci_init(host);
+	sdhci_init(host, 0);
 
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dumpregs(host);
