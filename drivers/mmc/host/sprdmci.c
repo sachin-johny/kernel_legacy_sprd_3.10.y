@@ -1862,7 +1862,10 @@ int sdhci_resume_host(struct sdhci_host *host)
 		printk("=== %s resume error:%d ===\n", mmc_hostname(host->mmc), ret);
 		return ret;
 	}
-
+      
+        if(!(host->mmc->pm_flags & MMC_PM_KEEP_POWER)){ 
+           sdhci_set_power(host, -1);//power off ldo_sdio1
+        }
 #ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
 #endif	
