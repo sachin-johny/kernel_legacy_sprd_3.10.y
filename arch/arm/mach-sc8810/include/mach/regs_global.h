@@ -133,6 +133,8 @@
 #define SWRST_UART1_RST                 BIT_12
 #define SWRST_UART2_RST                 BIT_13
 #define SWRST_SPI_RST                   BIT_14
+#define SWRST_SPI0_RST                  SWRST_SPI_RST
+#define SWRST_SPI1_RST                  BIT_15
 //reserved
 #define SWRST_IIS_RST                   BIT_16
 //reserved

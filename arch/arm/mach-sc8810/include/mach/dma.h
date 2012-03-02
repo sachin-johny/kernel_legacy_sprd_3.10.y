@@ -191,6 +191,8 @@
 #define DMA_SPI_TX                      0x13
 #define DMA_SPI_RX                      0x14
 #define DMA_ROT                         0x15
+#define DMA_SPI1_TX                     0x16
+#define DMA_SPI1_RX                     0x17
 #define DMA_DRM_RAW                     0x1D
 #define DMA_DRM_CPT                     0x1E
 #define DMA_VB_AD                       DMA_VB_AD0

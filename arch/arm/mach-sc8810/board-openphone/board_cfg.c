@@ -156,48 +156,82 @@ static struct spi_board_info openhone_spi_devices4cmmb[] = {
 };
 
 static u64 spi_dmamask = DMA_BIT_MASK(32);
-static struct resource spi_resources[] = {
-	[0] = {
-	       .start = SPRD_SPI0_PHYS,
-	       .end = SPRD_SPI0_PHYS + SZ_4K - 1,
-	       .flags = IORESOURCE_MEM,
-	       },
-	[1] = {
-	       .start = IRQ_SPI0_INT,
-	       .end = IRQ_SPI0_INT,
-	       .flags = IORESOURCE_IRQ,
-	       },
-	[2] = {
-	      .start = IRQ_SPI1_INT,
-	      .end = IRQ_SPI1_INT,
-	      .flags = IORESOURCE_IRQ,
-	      },
+static struct resource spi_resources[][2] = {
+               {
+                       {
+                               .start = SPRD_SPI0_PHYS,
+                               .end = SPRD_SPI0_PHYS + SZ_4K - 1,
+                               .flags = IORESOURCE_MEM,
+                       },
+                       {
+                               .start = IRQ_SPI0_INT,
+                               .end = IRQ_SPI0_INT,
+                               .flags = IORESOURCE_IRQ,
+                       },
+               },
+               {
+                       {
+                               .start = SPRD_SPI1_PHYS,
+                               .end = SPRD_SPI1_PHYS + SZ_4K - 1,
+                               .flags = IORESOURCE_MEM,
+                       },
+
+                       {
+                               .start = IRQ_SPI1_INT,
+                               .end = IRQ_SPI1_INT,
+                               .flags = IORESOURCE_IRQ,
+                       },
+               },
+};
+
+static struct platform_device sprd_spi_controller_device[] = {
+       {
+               .name = "sprd_spi",
+               .id = 0,
+               .dev = {
+                       .dma_mask = &spi_dmamask,
+                       .coherent_dma_mask = DMA_BIT_MASK(32),
+                       },
+               .resource = spi_resources[0],
+               .num_resources = ARRAY_SIZE(spi_resources[0]),
+       },
+       {
+               .name = "sprd_spi",
+               .id = 1,
+               .dev = {
+                       .dma_mask = &spi_dmamask,
+                       .coherent_dma_mask = DMA_BIT_MASK(32),
+                       },
+               .resource = spi_resources[1],
+               .num_resources = ARRAY_SIZE(spi_resources[1]),
+       },
 
 };
 
-static struct platform_device sprd_spi_controller_device = {
-	.name = "sprd_spi",
-	.id = 0,
-	.dev = {
-		.dma_mask = &spi_dmamask,
-		.coherent_dma_mask = DMA_BIT_MASK(32),
-		},
-	.resource = spi_resources,
-	.num_resources = ARRAY_SIZE(spi_resources),
-};
 
 static unsigned long spi_func_cfg[] = {
 	MFP_CFG_X(SPI_CLK, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 	MFP_CFG_X(SPI_DI, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 	MFP_CFG_X(SPI_DO, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+
+        /* spi1 pin config*/
+        MFP_CFG_X(TRACECTRL, AF2, DS3, F_PULL_UP, S_PULL_UP, IO_NONE),
+        MFP_CFG_X(TRACECLK, AF2, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+        MFP_CFG_X(TRACEDAT0, AF2, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+
 #if 1
 	/* configure cs pin to normal gpio */
 	MFP_CFG_X(SPI_CSN0, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 	MFP_CFG_X(SPI_CSN1, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        MFP_CFG_X(TRACEDAT1, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        MFP_CFG_X(TRACEDAT2, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 #else
 	/* configure cs pin to spi csx */
 	MFP_CFG_X(SPI_CSN0, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 	MFP_CFG_X(SPI_CSN1, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+        MFP_CFG_X(TRACEDAT1, AF2, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        MFP_CFG_X(TRACEDAT2, AF2, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+
 #endif
 };
 
@@ -290,9 +324,10 @@ static void sprd_spi_init(void)
 		gpio = spi_cs_gpio[chip[i].chip_select];
 		chip[i].controller_data = (void *)gpio;
 	}
+        platform_device_register(&sprd_spi_controller_device[0]);
+        platform_device_register(&sprd_spi_controller_device[1]);
 
-	spi_register_board_info(chip, ARRAY_SIZE(openhone_spi_devices));
-	platform_device_register(&sprd_spi_controller_device);
+        spi_register_board_info(chip, ARRAY_SIZE(openhone_spi_devices));
 }
 #else
 static void sprd_spi_init(void)

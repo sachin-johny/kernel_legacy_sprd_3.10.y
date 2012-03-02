@@ -28,7 +28,17 @@
 #include "spi_sc8810.h"
 #define SPRD_SPI_DEBUG  0
 #define SPRD_SPI_CS_GPIO 1 /* you should also modify the spi_func_cfg[] */
+#define ATH_HACK
 
+#define _doSWAP32(x)	\
+		((((x) & 0x000000FF) << 24) | \
+		(((x) & 0x0000FF00) << 8)  | \
+		(((x) & 0x00FF0000) >> 8)  | \
+		(((x) & 0xFF000000) >> 24))
+		
+#define _doSWAP16(x)	\
+		((((x) & 0x00FF) << 8) | \
+		(((x) & 0xFF00) >> 8) )
 // lock is held, spi irq is disabled
 static int sprd_spi_do_transfer(struct sprd_spi_data *sprd_data)
 {
@@ -392,6 +402,199 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out, int len
   return 0;
 }
 
+static int sprd_spi_direct_transfer_ath_spec(void *data_in, const void *data_out, int len, void *cookie, void *cookie2)
+{
+  int i, timeout;
+  u8 *data;
+  int data_width = 0;
+
+#ifdef ATH_HACK
+#define USE_RX_SWAP
+#define MYLOCAL_TIMEOUT 0xff0000
+  struct sprd_spi_data *sprd_data = cookie;
+  struct sprd_spi_controller_data *sprd_ctrl_data = cookie2;
+  u32    spi_ctl0 = sprd_ctrl_data->spi_ctl0;
+
+  if(data_in){
+#ifdef USE_RX_SWAP
+      spi_ctl0 &= ~(0x1F << 2);
+      if (len%4 == 0){
+          spi_writel(spi_ctl0, SPI_CTL0);
+          sprd_ctrl_data->data_width = 4;
+          sprd_ctrl_data->data_width_order = 2;
+      }else if ((len % 2) == 0){
+          spi_ctl0 |= (0x10 << 2);
+          spi_writel(spi_ctl0, SPI_CTL0);
+          sprd_ctrl_data->data_width = 2;
+          sprd_ctrl_data->data_width_order = 1;
+      }
+      else
+#endif
+     {
+        spi_writel(sprd_ctrl_data->spi_ctl0, SPI_CTL0);
+        sprd_ctrl_data->data_width = 1;
+        sprd_ctrl_data->data_width_order = 0;
+     }
+  }
+  
+  if (data_in) {
+    int block, tlen, j, block_bytes;
+	u32 tmpData = 0;
+ 
+    spi_write_reg(SPI_CTL1, 12, 0x01, 0x03); /* Only Enable SPI receive mode */
+
+    if (likely(sprd_ctrl_data->data_width != 3)) {
+      block_bytes = SPRD_SPI_DMA_BLOCK_MAX << sprd_ctrl_data->data_width_order;
+    } else block_bytes = SPRD_SPI_DMA_BLOCK_MAX * 3;
+
+    for (i = 0, tlen = len; tlen;) {
+      if (tlen > block_bytes) {
+    	block = SPRD_SPI_DMA_BLOCK_MAX;
+    	tlen -= block_bytes;
+      } else {
+    	if (likely(sprd_ctrl_data->data_width != 3))
+    	  block = tlen >> sprd_ctrl_data->data_width_order;
+    	else 
+          block = tlen / sprd_ctrl_data->data_width;
+    	tlen = 0;
+      }
+	  
+      spi_writel(0x0000, SPI_CTL4); /* stop only rx */
+      spi_writel((1 << 9) | block, SPI_CTL4);
+
+      for (j = 0; j < block; j++) {
+		for (timeout = 0;(spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+		if (timeout >= MYLOCAL_TIMEOUT){
+		  printk("Timeout spi_readl(SPI_STS2) & SPI_RX_FIFO_REALLY_EMPTY)\n");
+		  return  -ENOPROTOOPT;
+		}
+		data = (u8*)data_in + i;
+		switch (sprd_ctrl_data->data_width) {
+		case 1: ( (u8*)data)[0] = spi_readl(SPI_TXD); i += 1; break;
+#ifndef USE_RX_SWAP
+		case 2: ((u16*)data)[0] = (spi_readl(SPI_TXD)); i += 2; break;
+		case 4: ((u32*)data)[0] = (spi_readl(SPI_TXD)); i += 4; break;
+#else
+		case 2: 
+			{
+				tmpData = spi_readl(SPI_TXD);
+				((u16*)data)[0] = _doSWAP16(tmpData); 
+				i += 2; 
+				break;
+			}
+		case 4:
+			{
+				tmpData = spi_readl(SPI_TXD);
+				((u32*)data)[0] = _doSWAP32(tmpData); 				 
+				i += 4; 
+				break;
+			}
+#endif
+		}
+      }
+    }
+  }
+
+  if (data_out) {
+    u32 orgLen = 0;
+    u32 len2 = 0;
+    u32 size = 0;
+
+    spi_write_reg(SPI_CTL1, 12, 0x02, 0x03); 
+	
+    orgLen = 4 - (((u32)data_out) % 4);
+    if (orgLen < 4 && orgLen > 0)
+    {
+        spi_writel(sprd_ctrl_data->spi_ctl0, SPI_CTL0);      
+        for (i = 0; (i < orgLen) && (i < len);){
+            for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
+            if (timeout >= MYLOCAL_TIMEOUT){     
+                printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL)\n");
+                return  -ENOPROTOOPT;
+            }
+
+            data = (u8*)data_out + i;
+            spi_writel(( (u8*)data)[0], SPI_TXD); 
+            i += 1;           
+        }
+
+        for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
+           return -ENOPROTOOPT;
+        }
+        
+        for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
+           return -ENOPROTOOPT;
+        }
+
+        data_out = (u8*)data_out + i;
+        
+        if (len >= orgLen){
+            len -= orgLen;
+        }else{
+            len = 0;
+        }    
+    }
+
+    size = len & 0x3;
+    len2 = len - size;
+    
+    spi_ctl0 &= ~(0x1F << 2); 
+    spi_writel(spi_ctl0, SPI_CTL0);
+    
+    for (i = 0; i < len2;) {
+        for(timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){     
+            printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_FULL)\n");
+            return  -ENOPROTOOPT;
+        }
+        data = (u8*)data_out + i;	                  
+		spi_writel(_doSWAP32(((u32*)data)[0]), SPI_TXD); 
+        i += 4; 
+       
+    }
+    if (len2 > 0)
+    {
+        for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
+           return -ENOPROTOOPT;
+        }
+        for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
+           return -ENOPROTOOPT;
+        }    
+    }    
+    data_out = (u8*)data_out + i;
+    if (size){
+        spi_writel(sprd_ctrl_data->spi_ctl0, SPI_CTL0);
+        
+        for (i = 0; i < size;){
+            data = (u8*)data_out + i;
+            spi_writel(( (u8*)data)[0], SPI_TXD); 
+            i += 1;           
+        }
+
+        for (timeout = 0;!(spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY)\n");
+           return -ENOPROTOOPT;
+        }
+        
+        for (timeout = 0;(spi_readl(SPI_STS2) & SPI_TX_BUSY) && timeout++ < MYLOCAL_TIMEOUT;);
+        if (timeout >= MYLOCAL_TIMEOUT){
+           printk("Timeout spi_readl(SPI_STS2) & SPI_TX_BUSY)\n");
+           return -ENOPROTOOPT;
+        }
+    }
+  }
+#endif
+  return 0;
+}
 
 static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_message *msg)
 {
@@ -426,6 +629,11 @@ static int sprd_spi_direct_transfer_compact(struct spi_device *spi, struct spi_m
                     cs_deactivate(sprd_data, spi);
                 }
             break;
+            case SPI_TMOD_ATH:
+		msg->status = sprd_spi_direct_transfer_ath_spec(
+                cspi_trans->rx_buf, cspi_trans->tx_buf,
+                cspi_trans->len, sprd_data, sprd_ctrl_data);
+		break;
             default:
                 msg->status = sprd_spi_direct_transfer(
                         cspi_trans->rx_buf, cspi_trans->tx_buf,
@@ -871,14 +1079,22 @@ static int sprd_spi_setup(struct spi_device *spi)
         return -EINVAL;
     if (bits == 32) bits = 0;
 
-    clk_spi_mode = (__raw_readl(GR_CLK_DLY) >> 26) & 0x03;
+    //clk_spi_mode = (__raw_readl(GR_CLK_DLY) >> 26) & 0x03;
+	switch(spi->master->bus_num){
+			case 0: clk_spi_mode = (__raw_readl(GR_CLK_DLY) >> 26) & 0x03; break;
+			case 1: clk_spi_mode = (__raw_readl(GR_CLK_DLY) >> 30) & 0x03; break;
+	}
     switch (clk_spi_mode) {
         case 0: clk_spi = 192   * 1000 * 1000; break;
         case 1: clk_spi = 153.6 * 1000 * 1000; break;
         case 2: clk_spi = 96    * 1000 * 1000; break;
         case 3: clk_spi = 26    * 1000 * 1000; break; 
     }
-    clk_spi_div = (__raw_readl(GR_GEN2) >> 21) & 0x07;
+    //clk_spi_div = (__raw_readl(GR_GEN2) >> 21) & 0x07;
+    	switch(spi->master->bus_num){
+	    case 0: clk_spi_div = (__raw_readl(GR_GEN2) >> 21) & 0x07; break;
+	    case 1: clk_spi_div = (__raw_readl(GR_GEN2) >> 11) & 0x07; break;
+	}
     clk_spi /= (clk_spi_div + 1);
 
     // spi_clk = clk_spi / (2 * (spi_clkd + 1));
@@ -1048,7 +1264,6 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 
 
 
-
     //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     if (!sprd_data->buffer)
         goto out_free;
@@ -1064,8 +1279,18 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
     sprd_data->irq = irq;
 
 #if SPRD_SPI_DMA_MODE
-    ret = sprd_request_dma(DMA_SPI_TX, sprd_spi_interrupt, master);
-    ret = sprd_request_dma(DMA_SPI_RX, sprd_spi_interrupt, master);
+    //ret = sprd_request_dma(DMA_SPI_TX, sprd_spi_interrupt, master);
+    //ret = sprd_request_dma(DMA_SPI_RX, sprd_spi_interrupt, master);
+	switch(pdev->id){
+			case 0: {
+			ret = sprd_request_dma(DMA_SPI_TX, sprd_spi_interrupt, master);
+			ret = sprd_request_dma(DMA_SPI_RX, sprd_spi_interrupt, master);
+			}break;
+			case 1: {
+			/*to do*/
+			ret = 0;
+			}break;
+	}    
 #else
     ret = request_irq(irq, sprd_spi_interrupt, 0,
                 dev_name(&pdev->dev), master);
@@ -1074,20 +1299,37 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
         goto out_unmap_regs;
 
     /* Initialize the hardware */
-    __raw_bits_or(GEN0_SPI_EN, GR_GEN0); // Enable SPI module
-    __raw_bits_or(SWRST_SPI_RST, GR_SOFT_RST);
-    msleep(1);
-    __raw_bits_and(~SWRST_SPI_RST, GR_SOFT_RST);
-    spi_writel(0, SPI_INT_EN);
-    // clk source selected to 96M
-    __raw_bits_and(~(0x03 << 26), GR_CLK_DLY);
-    // __raw_bits_or(2 << 26, GR_CLK_DLY);
-    /*
-     * clk_spi_div sets to 1, so clk_spi=96M/2=48M,
-     * and clk_spi is SPI_CTL5 interval base clock.[luther.ge]
-     */
-    __raw_bits_and(~(0x07 << 21), GR_GEN2);
-    // __raw_bits_or(1 << 21, GR_GEN2);
+	      switch(pdev->id){
+              case 0: {
+                      __raw_bits_or(GEN0_SPI_EN, GR_GEN0); // Enable SPI module
+                      __raw_bits_or(SWRST_SPI_RST, GR_SOFT_RST);
+                      msleep(1);
+                      __raw_bits_and(~SWRST_SPI_RST, GR_SOFT_RST);
+                      spi_writel(0, SPI_INT_EN);
+                      // clk source selected to 96M
+                      __raw_bits_and(~(0x03 << 26), GR_CLK_DLY);
+                      __raw_bits_or(2 << 26, GR_CLK_DLY);
+                      /*
+                       * clk_spi_div sets to 1, so clk_spi=96M/2=48M,
+                       * and clk_spi is SPI_CTL5 interval base clock.[luther.ge]
+                       */
+                      __raw_bits_and(~(0x07 << 21), GR_GEN2);
+                      // __raw_bits_or(1 << 21, GR_GEN2);
+              }break;
+              case 1: {
+                      __raw_bits_or(GEN0_SPI1_EN, GR_GEN0); // Enable SPI module
+                      __raw_bits_or(SWRST_SPI1_RST, GR_SOFT_RST);
+                      msleep(1);
+                      __raw_bits_and(~SWRST_SPI1_RST, GR_SOFT_RST);
+                      spi_writel(0, SPI_INT_EN);
+                      __raw_bits_and(~(0x03 << 30), GR_CLK_DLY);
+                      __raw_bits_or(2 << 30, GR_CLK_DLY);
+                      __raw_bits_and(~(0x07 << 11), GR_GEN2);
+                      // __raw_bits_or(1 << 11, GR_GEN2);
+                      /*turn on ldo for spi1*/
+                      //LDO_TurnOnLDO(LDO_BPSDIO1);
+              }break;
+      }    
 
     sprd_data->cs_null = 1;
 
@@ -1097,10 +1339,10 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 
     init_MUTEX(&sprd_data->process_sem_direct);
     init_MUTEX_LOCKED(&sprd_data->process_sem);
-    sprd_data->spi_kthread = kthread_create(spi_kthread, sprd_data, "spi_kthread");
-    if (IS_ERR(sprd_data->spi_kthread)) goto out_reset_hw;
+    //sprd_data->spi_kthread = kthread_create(spi_kthread, sprd_data, "spi_kthread");
+    //if (IS_ERR(sprd_data->spi_kthread)) goto out_reset_hw;
 
-    wake_up_process(sprd_data->spi_kthread);
+    //wake_up_process(sprd_data->spi_kthread);
 
     return 0;
 
@@ -1131,7 +1373,7 @@ static int __exit sprd_spi_remove(struct platform_device *pdev)
     sprd_data->stopping = 1;
     spin_unlock_irq(&sprd_data->lock);
 
-    if (!IS_ERR(sprd_data->spi_kthread)) kthread_stop(sprd_data->spi_kthread);
+    //if (!IS_ERR(sprd_data->spi_kthread)) kthread_stop(sprd_data->spi_kthread);
 
     /* Terminate remaining queued transfers */
     list_for_each_entry(msg, &sprd_data->queue, queue) {
