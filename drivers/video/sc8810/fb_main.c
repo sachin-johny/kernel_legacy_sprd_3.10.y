@@ -219,6 +219,7 @@ static void lcdc_mcu_init(void)
 	//reg_val |= (1<<1);
 
 	/*FMARK pol*/
+	reg_val |= (1<<2);
 
 	__raw_writel(reg_val, LCDC_CTRL); 
 	
@@ -575,7 +576,7 @@ static uint32_t lcdc_calculate_lcm_timing(struct timing_mcu *timing)
 		wlpw = MAX_LCDC_TIMING_VALUE ; 
 	}
 
-	whpw = (timing->whpw * ahb_clk + 1000 - 1) / 1000; 
+	whpw = (timing->whpw * ahb_clk + 1000 - 1) / 1000 - 1; 
 	if (whpw > MAX_LCDC_TIMING_VALUE) {
 		whpw = MAX_LCDC_TIMING_VALUE ; 
 	}
