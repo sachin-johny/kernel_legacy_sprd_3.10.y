@@ -40,6 +40,17 @@
 #include "sdhci.h"
 #include "sprdmci.h"
 
+#define MMC_HOST_WAKEUP_SUPPORTED
+#define INT_IRQ_EN				(SPRD_INTCV_BASE + 0x08)
+#define HOST_WAKEUP_GPIO  22
+
+#ifdef MMC_HOST_WAKEUP_SUPPORTED
+#include <mach/pm_wakesource.h>
+#include <mach/regs_cpc.h>
+#include <mach/mfp.h>
+static unsigned int sdio_wakeup_irq;
+#endif
+
 #define MMC_AUTO_SUSPEND 
 #define DRIVER_NAME "sdhci"
 #define KERN_DEBUG " "
@@ -61,6 +72,11 @@ static unsigned int debug_quirks = 0;
 static struct wake_lock sdhci_detect_lock;
 #endif
 static struct wake_lock sdhci_suspend_lock;
+
+#ifdef MMC_HOST_WAKEUP_SUPPORTED
+static struct wake_source sprd_host_wakeup;
+#endif
+
 
 //mmc1 host for WiFi force card detection
 static void sdhci_prepare_data(struct sdhci_host *, struct mmc_data *);
@@ -299,6 +315,85 @@ static void sdhci_led_control(struct led_classdev *led,
 		sdhci_activate_led(host);
 
 	spin_unlock_irqrestore(&host->lock, flags);
+}
+#endif
+
+
+#ifdef MMC_HOST_WAKEUP_SUPPORTED
+static irqreturn_t sdhci_wakeup_irq_handler(int irq, void *dev){
+    printk("sdhci_wakeup_irq_handler\n");
+    /* Disable interrupt before calling handler */
+     disable_irq_nosync(irq);
+	 
+	 return IRQ_HANDLED;
+
+}
+
+
+
+void sdhci_set_data1_to_gpio22(struct sdhci_host *host){
+     
+	 static unsigned long sdiod1_gpio_func_cfg[] = {
+		MFP_CFG_X(SD2_D1,	 AF3,	 DS1,	 F_PULL_UP,  S_PULL_UP,  IO_IE), //gpio, input 
+	 };
+	 sprd_mfp_config(sdiod1_gpio_func_cfg, ARRAY_SIZE(sdiod1_gpio_func_cfg));
+	 
+	 printk("%s, PIN_SD2_D1_REG:0x%x\n", __func__, __raw_readl(PIN_SD2_D1_REG));
+	 printk("sdhci_set_data1_to_gpio22 done\n");	 
+     
+		
+}
+
+void sdhci_set_gpio22_to_data1(struct sdhci_host *host){
+	static unsigned long gpio_sdiod1_func_cfg[] = {
+		MFP_CFG_X(SD2_D1,	AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z), //data[1] 
+	};
+
+	 sprd_mfp_config(gpio_sdiod1_func_cfg, ARRAY_SIZE(gpio_sdiod1_func_cfg));
+
+	 printk("%s, PIN_SD2_D1_REG:0x%x\n", __func__, __raw_readl(PIN_SD2_D1_REG));	 
+	 printk("sdhci_set_gpio22_to_data1 done\n");	 
+
+}
+
+
+static void  sdhci_host_wakeup_set( struct wake_source *src ){
+    
+	printk("%s\n", __func__);
+    struct  sdhci_host *host;
+    host = (struct  sdhci_host *)(src->param);
+
+//	if( (host->mmc->card )			   &&
+//		mmc_card_sdio(host->mmc->card) && 
+	
+    if(host->mmc->pm_flags & MMC_PM_KEEP_POWER) {
+	   
+	    __raw_bits_or(BIT_6,SPRD_GPIO_BASE+0x18); //gpio22 irq enable
+	
+	    printk("set: SPRD_GPIO_BASE+0x18:0x%x\n", __raw_readl(SPRD_GPIO_BASE+0x18));
+    }
+    return;
+}
+
+static void  sdhci_host_wakeup_clear(struct wake_source *src){
+	
+	printk("%s\n", __func__);
+    struct  sdhci_host *host;
+    host = (struct  sdhci_host *)(src->param);
+
+
+#ifdef CONFIG_MACH_SC8810    
+//   	if( (host->mmc->card )			   &&
+//		mmc_card_sdio(host->mmc->card) && 
+	 if(host->mmc->pm_flags & MMC_PM_KEEP_POWER) {
+	   
+       __raw_bits_and(~BIT_6,SPRD_GPIO_BASE+0x18); //gpio22 irq disable
+ 
+       printk("clr: SPRD_GPIO_BASE+0x18:0x%x\n", __raw_readl(SPRD_GPIO_BASE+0x18));
+   }
+#endif
+
+   return;
 }
 #endif
 
@@ -1002,7 +1097,7 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	if (cmd->data)
 		flags |= SDHCI_CMD_DATA;
 //	DBG("SDIO host send command:%d \n", cmd->opcode);
-//	printk("%s send cmd:%d \n", mmc_hostname(host->mmc), cmd->opcode);
+	DBG("%s send cmd:%d \n", mmc_hostname(host->mmc), cmd->opcode);
 	sdhci_writew(host, SDHCI_MAKE_CMD(cmd->opcode, flags), SDHCI_COMMAND);
 }
 
@@ -1767,9 +1862,10 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 
 	intmask &= ~SDHCI_INT_BUS_POWER;
 
-	if (intmask & SDHCI_INT_CARD_INT)
-		cardint = 1;
-
+	if (intmask & SDHCI_INT_CARD_INT){
+		cardint = 1;        
+		//printk("=== yeah~ %s, card irq  ===\n", mmc_hostname(host->mmc));
+	}
 	intmask &= ~SDHCI_INT_CARD_INT;
 
 	if (intmask) {
@@ -1822,16 +1918,33 @@ static irqreturn_t sd_detect_irq(int irq, void *dev_id)
 
 int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 {
+   
+   printk("%s, suspend_host, start\n", mmc_hostname(host->mmc));
 	int ret;
 
 #ifdef HOT_PLUG_SUPPORTED
 	sdhci_disable_card_detection(host);
 #endif
+
+
 	ret = mmc_suspend_host(host->mmc);
 	if (ret){
 		printk("=== wow~ %s suspend error:%d ===\n",mmc_hostname(host->mmc), ret);
 		return ret;
         }
+#ifdef MMC_HOST_WAKEUP_SUPPORTED
+	if( (host->mmc->card )			   &&
+		mmc_card_sdio(host->mmc->card) && 
+	   (host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
+       
+	   sprd_host_wakeup.param = (void*)host;
+	   sdhci_set_data1_to_gpio22(host);
+	   gpio_request(HOST_WAKEUP_GPIO, "host_wakeup_irq");
+	   gpio_direction_input(HOST_WAKEUP_GPIO);
+	   sdio_wakeup_irq = sprd_alloc_gpio_irq(HOST_WAKEUP_GPIO);
+	   request_threaded_irq(sdio_wakeup_irq, sdhci_wakeup_irq_handler, NULL, IRQF_TRIGGER_LOW | IRQF_ONESHOT, "host_wakeup_irq", host);
+    }
+#endif
 
 	printk("%s, suspend_host, done\n", mmc_hostname(host->mmc));
 	return 0;
@@ -1841,9 +1954,20 @@ EXPORT_SYMBOL_GPL(sdhci_suspend_host);
 
 int sdhci_resume_host(struct sdhci_host *host)
 {
-        printk("%s sdhci_resume_host, start\n", mmc_hostname(host->mmc)); 
+    printk("%s sdhci_resume_host, start\n", mmc_hostname(host->mmc)); 
 	int ret;
-      
+	
+#ifdef MMC_HOST_WAKEUP_SUPPORTED    
+	if( (host->mmc->card )			   &&
+		mmc_card_sdio(host->mmc->card) && 
+	  (host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
+
+	   free_irq(sdio_wakeup_irq, host);	
+	   gpio_free(HOST_WAKEUP_GPIO);	
+	   sdhci_set_gpio22_to_data1(host);
+    }
+#endif	
+
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
 		if (host->ops->enable_dma)
 			host->ops->enable_dma(host);
@@ -1856,7 +1980,7 @@ int sdhci_resume_host(struct sdhci_host *host)
 
 	sdhci_init(host, (host->mmc->pm_flags & MMC_PM_KEEP_POWER));
 	mmiowb();
-        
+		
 	ret = mmc_resume_host(host->mmc);
 	if (ret){
 		printk("=== %s resume error:%d ===\n", mmc_hostname(host->mmc), ret);
@@ -2184,6 +2308,7 @@ int sdhci_add_host(struct sdhci_host *host)
 #ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
 #endif
+
 	return 0;
 
 #ifdef SDHCI_USE_LEDS_CLASS
@@ -2284,6 +2409,12 @@ static int __init sdhci_drv_init(void)
 #endif
         wake_lock_init(&sdhci_suspend_lock, WAKE_LOCK_SUSPEND, "mmc_pm_suspend");
 
+#ifdef MMC_HOST_WAKEUP_SUPPORTED
+	sprd_host_wakeup.set = sdhci_host_wakeup_set;
+    sprd_host_wakeup.clear = sdhci_host_wakeup_clear;
+    register_wake_source(&sprd_host_wakeup);
+#endif
+
 	return 0;
 }
 
@@ -2293,6 +2424,12 @@ static void __exit sdhci_drv_exit(void)
         wake_lock_destroy(&sdhci_detect_lock);
 #endif
         wake_lock_destroy(&sdhci_suspend_lock);
+
+#ifdef MMC_HOST_WAKEUP_SUPPORTED
+        unregister_wake_source(&sprd_host_wakeup);
+#endif
+
+
 }
 
 module_init(sdhci_drv_init);

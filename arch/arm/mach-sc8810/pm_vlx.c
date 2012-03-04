@@ -23,6 +23,8 @@
 #include <mach/clock_common.h>
 #include <mach/clock_sc8800g.h>
 #include <mach/irqs.h>
+#include <mach/pm_wakesource.h>
+
 
 #define ANA_INT_STATUS             (SPRD_MISC_BASE +0x380+ 0x00)
 #define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
@@ -99,6 +101,7 @@ int sc8800g_set_wakeup_src(void)
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_CHG);
 	}
+
 #endif
 
 #ifdef CONFIG_MACH_SP8805GA
@@ -132,6 +135,7 @@ int sc8800g_set_wakeup_src(void)
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_CHG);
 	}
+
 #endif
 
 #ifdef CONFIG_ARCH_SC8810
@@ -170,9 +174,10 @@ int sc8800g_set_wakeup_src(void)
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_CHG);
 	}
-
+        
+	printk("wake_source_set\n");
+	wake_source_set( );
 #endif
-
 	return 0;
 }
 
@@ -181,6 +186,7 @@ int sc8800g_unset_wakeup_src(void)
 	/*
 	__raw_writel(irq_enable, INT_IRQ_EN);
 	*/
+	wake_source_clr( );
 	return 0;
 }
 

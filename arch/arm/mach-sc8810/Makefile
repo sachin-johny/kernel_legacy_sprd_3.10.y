@@ -1,7 +1,7 @@
 obj-y += io.o idle.o irq.o timer.o gpio.o gpio_phy.o\
 	mfp_sprd.o \
 	dma.o ldo.o adi_drv.o \
-	rfkill_dummy.o gpio_set.o adc.o chg_phy.o eic.o arch_init.o arch_asm.o
+	rfkill_dummy.o gpio_set.o adc.o chg_phy.o eic.o arch_init.o arch_asm.o pm_wakesource.o
 obj-m +=driver_rw.o
 obj-$(CONFIG_TS0710_MUX_UART)+= ts0710_mux.o mux_buffer.o 
 # Common code for board init
