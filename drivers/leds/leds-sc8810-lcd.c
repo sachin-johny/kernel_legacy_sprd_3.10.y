@@ -29,6 +29,7 @@
 
 #include <mach/adi_hal_internal.h>
 #include <mach/regs_ana.h>
+#include <linux/earlysuspend.h>
 #include <mach/regs_global.h>
 #include <mach/regs_cpc.h>
 #include <mach/io.h>
@@ -57,11 +58,36 @@ struct sprd_lcd_led {
 	enum led_brightness value;
 	struct led_classdev cdev;
 	int enabled;
+	int suspend;
+	struct early_suspend sprd_early_suspend_desc;
 };
 
 #define to_sprd_led(led_cdev) \
 	container_of(led_cdev, struct sprd_lcd_led, cdev)
 
+static void led_work(struct work_struct *);
+
+#ifdef CONFIG_EARLYSUSPEND
+static void sprd_lcd_led_earlysuspend(struct early_suspend *h)
+{
+	struct sprd_lcd_led *led = container_of(h, struct sprd_lcd_led, sprd_early_suspend_desc);
+
+	printk("\n\033[31m%s()\033[0m\n", __func__);
+	mutex_lock(&led->mutex);
+	led->suspend = 1;
+	mutex_unlock(&led->mutex);
+}
+static void sprd_lcd_led_lateresume(struct early_suspend *h)
+{
+	struct sprd_lcd_led *led = container_of(h, struct sprd_lcd_led, sprd_early_suspend_desc);
+
+	printk("\n\033[31m%s()\033[0m\n", __func__);
+	mutex_lock(&led->mutex);
+	led->suspend = 0;
+	mutex_unlock(&led->mutex);
+	led_work(&led->work);
+}
+#endif
 
 static void LCD_SetPwmRatio(unsigned short value)
 {
@@ -146,7 +172,7 @@ static void led_work(struct work_struct *work)
 
 	mutex_lock(&led->mutex);
 	spin_lock_irqsave(&led->value_lock, flags);
-	if (led->value == LED_OFF) {
+	if (led->value == LED_OFF || led->suspend) {
 		spin_unlock_irqrestore(&led->value_lock, flags);
 		sprd_led_disable(led);
 		goto out;
@@ -198,6 +224,7 @@ static int sprd_lcd_led_probe(struct platform_device *pdev)
 	led->cdev.brightness_get = NULL;
 	led->cdev.flags |= LED_CORE_SUSPENDRESUME;
 	led->enabled = 0;
+	led->suspend = 0;
 
 	spin_lock_init(&led->value_lock);
 	mutex_init(&led->mutex);
@@ -210,12 +237,20 @@ static int sprd_lcd_led_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto err_led;
 
-	/* backlight on */
-	//FIXME
+#ifdef CONFIG_EARLYSUSPEND
+	led->sprd_early_suspend_desc.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	led->sprd_early_suspend_desc.suspend = sprd_lcd_led_earlysuspend;
+	led->sprd_early_suspend_desc.resume = sprd_lcd_led_lateresume;
+	register_early_suspend(&led->sprd_early_suspend_desc);
+#endif
 
+		
+	/* backlight on : richard feng delete the following line */
+#if 0
 	led->value = LED_FULL;
 	led->enabled = 0;
 	schedule_work(&led->work);
+#endif
 
 	return 0;
 
@@ -229,6 +264,9 @@ static int sprd_lcd_led_remove(struct platform_device *pdev)
 {
 	struct sprd_lcd_led *led = platform_get_drvdata(pdev);
 
+#ifdef CONFIG_EARLYSUSPEND
+	unregister_early_suspend(&led->sprd_early_suspend_desc);
+#endif
 	led_classdev_unregister(&led->cdev);
 	flush_scheduled_work();
 	led->value = LED_OFF;
