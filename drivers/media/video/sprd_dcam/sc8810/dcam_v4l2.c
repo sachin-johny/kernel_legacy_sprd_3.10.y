@@ -1749,6 +1749,8 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	//g_dcam_info.focus_param = 0;
 	g_dcam_info.power_freq = 8;
 
+	dcam_stop_timer(&s_dcam_err_info.dcam_timer);	
+	
 	//stop dcam
 	dcam_stop();
 
