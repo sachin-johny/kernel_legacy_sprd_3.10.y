@@ -360,6 +360,7 @@ void sdhci_set_gpio22_to_data1(struct sdhci_host *host){
 static void  sdhci_host_wakeup_set( struct wake_source *src ){
     
 	printk("%s\n", __func__);
+#ifdef MMC_HOST_WAKEUP_SUPPORTED	
     struct  sdhci_host *host;
     host = (struct  sdhci_host *)(src->param);
 
@@ -372,17 +373,18 @@ static void  sdhci_host_wakeup_set( struct wake_source *src ){
 	
 	    printk("set: SPRD_GPIO_BASE+0x18:0x%x\n", __raw_readl(SPRD_GPIO_BASE+0x18));
     }
+#endif
     return;
 }
 
 static void  sdhci_host_wakeup_clear(struct wake_source *src){
 	
 	printk("%s\n", __func__);
+#ifdef MMC_HOST_WAKEUP_SUPPORTED	
     struct  sdhci_host *host;
     host = (struct  sdhci_host *)(src->param);
 
-
-#ifdef CONFIG_MACH_SC8810    
+    
 //   	if( (host->mmc->card )			   &&
 //		mmc_card_sdio(host->mmc->card) && 
 	 if(host->mmc->pm_flags & MMC_PM_KEEP_POWER) {
@@ -391,8 +393,8 @@ static void  sdhci_host_wakeup_clear(struct wake_source *src){
  
        printk("clr: SPRD_GPIO_BASE+0x18:0x%x\n", __raw_readl(SPRD_GPIO_BASE+0x18));
    }
-#endif
 
+#endif
    return;
 }
 #endif
@@ -2302,11 +2304,13 @@ int sdhci_add_host(struct sdhci_host *host)
 		mmc_hostname(mmc), host->hw_name, dev_name(mmc_dev(mmc)),
 		(host->flags & SDHCI_USE_ADMA) ? "ADMA" :
 		(host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO");
-    
-
 
 #ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
+#endif
+
+#ifdef MMC_HOST_WAKEUP_SUPPORTED		   
+	sprd_host_wakeup.param = (void*)host;
 #endif
 
 	return 0;
