@@ -34,6 +34,11 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#if CONFIG_CPU_FREQ
+#include <linux/cpufreq.h>
+#include <linux/notifier.h>
+#endif
+
 #include "lcdc_reg.h"
 
 #include "fb_rrm.h"
@@ -65,6 +70,11 @@ struct sc8810fb_info {
 	struct clk *clk_lcdc; 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
+#endif
+
+#if CONFIG_CPU_FREQ
+	struct notifier_block freq_transition;
+	struct notifier_block freq_policy;
 #endif
 };
 
@@ -799,6 +809,61 @@ static void sc8810fb_late_resume (struct early_suspend* es)
 }
 #endif
 
+#if CONFIG_CPU_FREQ
+/*
+*  @nb, structure "notifier_ block" defined in your drivers
+*  @val,CPUFREQ_PRECHANGE or CPUFREQ_POSTCHANGE
+*  @data, pointer which point to  strcuture "cpufreq_freqs"
+*/
+static int
+lcdfb_freq_transition(struct notifier_block *nb, unsigned long val, void *data)
+{
+	struct cpufreq_freqs *f = data;
+	struct sc8810fb_info *info = container_of(f, struct sc8810fb_info, freq_transition);
+
+	switch(val){
+	case CPUFREQ_PRECHANGE:
+		info->fb_state = FB_NO_REFRESH;
+		rrm_wait_for_idle();
+		FB_PRINT("lcdfb cpufreq notify: CPUFREQ_PRECHANGE\n");
+	        FB_PRINT("lcdfb cpufreq notify: old_freq:%u, new_freq:%u\n", f->old, f->new);   
+		break;
+	case CPUFREQ_POSTCHANGE:
+		info->fb_state = FB_NORMAL;
+		FB_PRINT("lcdfb cpufreq notify: CPUFREQ_POSTCHANGE\n");
+		FB_PRINT("lcdfb cpufreq notify: old_freq:%u, new_freq:%u\n", f->old, f->new);   
+		break;
+	}
+	return 0;
+}
+
+/*
+*  @nb, structure "notifier_ block" defined in your drivers
+*  @val,CPUFREQ_ADJUST, CPUFREQ_INCOMPATIBLE, CPUFREQ_NOTIFY
+*  @data, pointer which point to  strcuture "cpufreq_policy"
+*/
+static int
+lcdfb_freq_policy(struct notifier_block *nb, unsigned long val,
+			 void *data)
+{
+	struct cpufreq_policy *policy = data;
+
+	switch (val) {
+	case CPUFREQ_ADJUST:
+		FB_PRINT("lcdfb cpufreq nofity: CPUFREQ_ADJUST\n");
+		break;
+	case CPUFREQ_INCOMPATIBLE:
+		FB_PRINT("lcdfb cpufreq nofity: CPUFREQ_INCOMPATIBLE\n");
+		break;
+	case CPUFREQ_NOTIFY:
+		FB_PRINT("lcdfb cpufreq nofity: CPUFREQ_NOTIFY\n");
+		break;
+	}
+	return 0;
+}
+#endif
+
+
 static uint32_t lcd_id_from_uboot = 0;
 
 static int __init calibration_start(char *str)
@@ -951,6 +1016,14 @@ static int sc8810fb_probe(struct platform_device *pdev)
 	info->early_suspend.resume  = sc8810fb_late_resume;
 	info->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	register_early_suspend(&info->early_suspend);
+#endif
+
+#if CONFIG_CPU_FREQ
+	info->freq_transition.notifier_call = lcdfb_freq_transition;
+	cpufreq_register_notifier(&info->freq_transition, CPUFREQ_TRANSITION_NOTIFIER);
+
+	info->freq_policy.notifier_call = lcdfb_freq_policy;
+	cpufreq_register_notifier(&info->freq_policy, CPUFREQ_POLICY_NOTIFIER);
 #endif
 	return 0;
 
