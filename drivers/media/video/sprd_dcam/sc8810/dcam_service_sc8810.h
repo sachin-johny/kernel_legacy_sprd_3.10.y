@@ -138,5 +138,8 @@ int dcam_is_previewing(uint32_t zoom_level);
 void dcam_get_jpg_len(uint32_t *len);
 void dcam_get_zoom_trim(ISP_RECT_T *trim_rect,uint32_t zoom_level);
 void dcam_error_close(void);
+void dcam_set_first_buf_addr(uint32_t y_addr,uint32_t uv_addr);
+void dcam_enableint(void);
+void dcam_disableint(void);
 
 #endif //_DCAM_SERVICE_SC8810_H_

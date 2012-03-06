@@ -1391,11 +1391,11 @@ typedef void (*isr_func_t)(void);
 
 void _SCALE_DriverEnableInt(void)
 {
-	 _paod(SCL_INT_IRQ_EN, 1UL << 27);
+//	 _paod(SCL_INT_IRQ_EN, 1UL << 27);
 }
 void _SCALE_DriverDisableInt(void)
 {
- 	_paod(SCL_INT_IRQ_DISABLE, 1UL << 27);
+// 	_paod(SCL_INT_IRQ_DISABLE, 1UL << 27);
 }
 static  uint32_t _SCALE_DriverReadIrqLine(void)
 {
@@ -1483,7 +1483,7 @@ int _SCALE_DriverIOInit(void)
 	isp_get_path2();
 	if(0 < g_scale_num)
 	{
-		SCALE_PRINT("SCALE: fail to open device.\n");
+		SCALE_PRINT_ERR("SCALE: fail to open device,g_scale_num=%d.\n",g_scale_num);
 		return -1;
 	}
 
@@ -1497,7 +1497,7 @@ int _SCALE_DriverIOInit(void)
 	}
 	else
 	{
-		SCALE_PRINT("SCALE:_SCALE_DriverIOInit, g_scale_clk clk_get ok.g_dcam_clk->parent->usecount: %d.\n", g_scale_clk->parent->usecount);
+		SCALE_PRINT_ERR("SCALE:_SCALE_DriverIOInit, g_scale_clk clk_get ok.g_dcam_clk->parent->usecount: %d.\n", g_scale_clk->parent->usecount);
 	}	
 	s_scale_mod.module_addr = DCAM_REG_BASE;
 
@@ -1511,7 +1511,6 @@ int _SCALE_DriverIOInit(void)
 	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_128M))
 	{
 		SCALE_PRINT_ERR("SCALE:_SCALE_DriverIOInit,Failed to _SCALE_DriverSetMclk!\n");
-	//	dcam_inc_user_count();
 		return -1;
 	}
 	dcam_inc_user_count();

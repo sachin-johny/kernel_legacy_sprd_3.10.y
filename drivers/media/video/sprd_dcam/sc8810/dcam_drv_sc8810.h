@@ -159,6 +159,8 @@ uint32_t ISP_DriverSetBufferAddress(uint32_t base_addr, uint32_t buf_addr,uint32
 PUBLIC void ISP_DriverPowerDown(uint32_t base_addr,uint32_t sensor_id,uint32_t value);
 PUBLIC void ISP_DriverReset(uint32_t base_addr,uint32_t value);
 void ISP_DriverHandleErr(uint32_t ahb_ctrl_addr,uint32_t base_addr);
+void _ISP_DriverEnableInt(void);
+void _ISP_DriverDisableInt(void);
 
 
 #ifdef   __cplusplus

@@ -41,7 +41,9 @@ typedef struct dcam_parameter
 	uint32_t first_buf_uv_addr;
 	uint32_t zoom_level;
 	uint32_t zoom_multiple;
+	uint32_t no_skip_frame_flag;
 }DCAM_PARAMETER_T;
+    
 DCAM_PARAMETER_T g_dcam_param;
 
 typedef  int (*ISP_USER_FUNC_PTR)(void*);
@@ -316,6 +318,7 @@ static uint32_t _ISP_ServiceClose(void)
 	DCAM_TRACE("DCAM:ISP_ServiceClose, service = %d", s->service);
 
 	ISP_DriverStop(s->module_addr);
+	ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
 
 	_ISP_ServiceDeInit();
 
@@ -411,6 +414,7 @@ int32_t  _ISP_ServiceStartPreview(void)
 	int32_t                   rtn_drv = DCAM_SUCCESS;
 	ISP_SIZE_T              disp_size = {0};
 	ISP_MODE_E       isp_mode = ISP_MODE_PREVIEW;
+	uint32_t reg_val = 0;
 
 	DCAM_TRACE("DCAM:_ISP_ServiceStartPreview s->module_addr=0x%x E.\n",s->module_addr);
 
@@ -465,9 +469,19 @@ int32_t  _ISP_ServiceStartPreview(void)
 	ISP_RTN_IF_ERR(rtn_drv);
 	
 	/*Set CAP*/
-	rtn_drv = ISP_DriverCapConfig(s->module_addr, 
-	                                                            ISP_CAP_PRE_SKIP_CNT, 
-	                                                            (void*)&s->preview_skip_frame_num);
+	if(0 == g_dcam_param.no_skip_frame_flag)
+	{
+		rtn_drv = ISP_DriverCapConfig(s->module_addr, 
+	         		                                                   ISP_CAP_PRE_SKIP_CNT, 
+	                   	                                         (void*)&s->preview_skip_frame_num);
+	}
+	else
+	{
+	
+		rtn_drv = ISP_DriverCapConfig(s->module_addr, 
+	         		                                                   ISP_CAP_PRE_SKIP_CNT, 
+	                   	                                         (void*)&reg_val);
+	}
 	ISP_RTN_IF_ERR(rtn_drv);
 		
 	rtn_drv = ISP_DriverCapConfig(s->module_addr, 
@@ -700,10 +714,11 @@ int dcam_close(void)
 	//unregister dcam IRQ
 	ISP_DriverUnRegisterIRQ();
 	_ISP_ServiceClose();
+
 	if(g_dcam_clk)
 	{
-		clk_disable(g_dcam_clk);
-		DCAM_TRACE("DCAM:dcam_close,clk_disable ok.\n");
+		//clk_disable(g_dcam_clk);
+		//DCAM_TRACE("DCAM:dcam_close,clk_disable ok.\n");
 		clk_put(g_dcam_clk);
 		DCAM_TRACE("DCAM:dcam_close,clk_put ok.\n");		
 		g_dcam_clk = NULL;
@@ -1238,18 +1253,21 @@ int dcam_start(void)
 	DCAM_TRACE("DCAM: dcam_start start. \n"); 
 	ret = ISP_ServiceSetParameters();
 	if(0  != ret)
-		return -1;
+		goto dcam_start_end;
 	
 	if(DCAM_MODE_TYPE_PREVIEW == g_dcam_param.mode)
 		ret = ISP_ServiceStartPreview();
 	else if(DCAM_MODE_TYPE_CAPTURE == g_dcam_param.mode)
 		ret = ISP_ServiceStartCapture();
 	
-	DCAM_TRACE("DCAM: dcam_start end. \n"); 
-
+	DCAM_TRACE("DCAM: dcam_start end. \n"); 	
+dcam_start_end:
 	if(ret != 0)
+	{
+		printk("dcam:dcam_start return ret=%d.\n",ret);
+		ret = 1;
 		dcam_dec_user_count();
-
+	}
 	return ret;
 }
 
@@ -1326,6 +1344,8 @@ int dcam_stop(void)
 	ISP_SERVICE_T          *s = &s_isp_service;
 	DCAM_TRACE("DCAM: dcam_stop start. \n"); 
 
+	g_dcam_param.no_skip_frame_flag = 0;
+
 	ISP_DriverStop(s->module_addr); 
 	s->state = ISP_STATE_STOP;  
 	dcam_dec_user_count();
@@ -1341,8 +1361,8 @@ int dcam_stop(void)
 	{
 		clk_disable(g_dcam_clk);
 		DCAM_TRACE("DCAM:dcam_stop,clk_disable ok.\n");
-		clk_put(g_dcam_clk);
-		DCAM_TRACE("DCAM:dcam_stop,clk_put ok.\n");		
+	//	clk_put(g_dcam_clk);
+	//	DCAM_TRACE("DCAM:dcam_stop,clk_put ok.\n");		
 	
 	}
 
@@ -1372,5 +1392,23 @@ void dcam_reset_sensor(uint32_t value)
 
 	printk("DCAM Service:dcam_reset_sensor:module addr:0x%x,value:%d\n",s->module_addr,value);
 	ISP_DriverReset(s->module_addr,value);
+}
+
+void dcam_set_first_buf_addr(uint32_t y_addr,uint32_t uv_addr)
+{
+	printk("wjp dcam_set_first_buf_addr.\n");
+	g_dcam_param.first_buf_addr = y_addr;
+	g_dcam_param.first_buf_uv_addr = uv_addr;
+	g_dcam_param.no_skip_frame_flag = 1;
+}
+
+void dcam_enableint(void)
+{
+	_ISP_DriverEnableInt();
+}
+
+void dcam_disableint(void)
+{
+	_ISP_DriverDisableInt();
 }
 

@@ -58,6 +58,12 @@
 
 //#define FLASH_DV_OPEN_ON_RECORD		1 // mode 1: samsung
 #define FLASH_DV_OPEN_ALWAYS			1 // mode 2: HTC, default
+#define DCAM_HANDLE_TIMEOUT     200//ms
+#define DCAM_THREAD_END_FLAG  0xFF
+
+//mode of DCAM
+#define DCAM_NORMA_MODE  0x0
+#define DCAM_VIDEO_MODE      0x1
 
 static struct mutex *lock;
 static struct task_struct *s_dcam_thread;
@@ -86,11 +92,12 @@ typedef struct dcam_info
 	uint8_t previewmode_param;
 	uint8_t focus_param;
 	uint8_t ev_param;
+	uint8_t video_mode;
 	uint8_t power_freq;
 	uint8_t flash_mode;
 	uint8_t recording_start;
-	uint8_t reserved1;
-	uint16_t reserved2;
+	volatile uint8_t v4l2_buf_ctrl_set_next_flag;
+	volatile uint8_t v4l2_buf_ctrl_path_done_flag;;
 }DCAM_INFO_T;
 
 typedef enum
@@ -126,7 +133,7 @@ typedef struct _dcam_error_info_tag
 	uint8_t is_restart;
 	uint8_t is_running;
 	uint8_t ret;
-	uint8_t is_stop;
+	volatile uint8_t is_stop;
 	uint8_t is_wakeup_thread;;
 	uint8_t rsd;
 	uint32_t timeout_val;
@@ -400,7 +407,19 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 		.step          = 0x1,
 		.default_value = 0,
 		.flags         = V4L2_CTRL_FLAG_SLIDER,
+	},
+		
+	{		
+		.id            = V4L2_CID_BLACK_LEVEL,
+		.type          = V4L2_CTRL_TYPE_INTEGER,
+		.name          = "preview mode",
+		.minimum       = 0,
+		.maximum       = 255,
+		.step          = 0x1,
+		.default_value = 0,
+		.flags         = V4L2_CTRL_FLAG_SLIDER,
 	}
+			
 };
 
 #define dprintk(dev, level, fmt, arg...)  v4l2_printk(KERN_DEBUG, &dev->v4l2_dev, fmt , ## arg)	
@@ -607,6 +626,11 @@ static int init_sensor_parameters(void *priv)
 	Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
 	Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
 
+	if(1 != dev->streamparm.parm.capture.capturemode) //for preview
+	{
+		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.video_mode);
+	}
+
 	return 0;
 }
 
@@ -726,6 +750,8 @@ static inline unsigned int norm_maxw(void)
 static inline unsigned int norm_maxh(void)
 {
 	uint32_t max_height = 0;
+	uint32_t max_width = 0;
+    
 	SENSOR_EXP_INFO_T *sensor_info_ptr = NULL;	
 	
 	sensor_info_ptr = Sensor_GetInfo();
@@ -737,6 +763,14 @@ static inline unsigned int norm_maxh(void)
 	}	
 
 	max_height = (uint32_t)sensor_info_ptr->source_height_max;
+
+         max_width = (uint32_t)sensor_info_ptr->source_width_max;
+	if(max_width<DCAM_SCALE_OUT_WIDTH_MAX)
+	{
+                    max_width = DCAM_SCALE_OUT_WIDTH_MAX;
+                    max_height = (DCAM_SCALE_OUT_WIDTH_MAX *sensor_info_ptr->source_height_max ) /sensor_info_ptr->source_width_max;
+	}
+    
 //	DCAM_V4L2_PRINT("V4L2: norm_maxw,max height =%d.\n",max_height);
 	return max_height;	
 }
@@ -998,6 +1032,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 	uint16_t focus_param[FOCUS_PARAM_COUNT] = {0};
 	uint32_t  i=0;
 	int ret = 0;
+	uint32_t handle_timeout_cnt=0;
 	
 	DCAM_V4L2_PRINT("V4L2:vidioc_handle_ctrl, id: %d, value: %d,dcam mode=%d.\n", ctrl->id, ctrl->value,g_dcam_info.mode);
 	is_previewing = dcam_is_previewing(g_zoom_level);	
@@ -1008,6 +1043,36 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 
 	switch(ctrl->id)
 	{
+#if 0	
+		case V4L2_CID_BLACK_LEVEL:
+			if(0==(uint8_t)ctrl->value)
+			{
+				g_dcam_info.video_mode = DCAM_NORMA_MODE;
+			}
+			else if(1==(uint8_t)ctrl->value)
+			{
+				g_dcam_info.video_mode = DCAM_VIDEO_MODE;
+			}
+			if(is_previewing)
+			{
+				handle_timeout_cnt = 0;
+				g_dcam_info.v4l2_buf_ctrl_set_next_flag = 1;
+				while(g_dcam_info.v4l2_buf_ctrl_set_next_flag!=0)
+				{
+					if(handle_timeout_cnt>DCAM_HANDLE_TIMEOUT)
+						break;
+					handle_timeout_cnt++;
+					msleep(1);
+					printk("v4l2 video mode handle,handle_timeout_cnt=%d.\n",handle_timeout_cnt);
+				}
+				dcam_stop();				
+				dcam_set_first_buf_addr(g_last_buf,g_last_uv_buf);
+				Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.video_mode);
+				dcam_start();
+			}
+			printk("v4l2:g_dcam_info.video_mode = %d.\n",g_dcam_info.video_mode);	
+			break;
+#endif			
 		case V4L2_CID_DO_WHITE_BALANCE:
 			if(g_dcam_info.wb_param == (uint8_t)ctrl->value)
 			{
@@ -1072,7 +1137,18 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			g_zoom_level = (uint32_t)ctrl->value;
 			if(dcam_is_previewing(g_zoom_level))
 			{
-				dcam_stop();
+				handle_timeout_cnt = 0;
+				g_dcam_info.v4l2_buf_ctrl_set_next_flag = 1;
+				while(g_dcam_info.v4l2_buf_ctrl_set_next_flag!=0)
+				{
+					if(handle_timeout_cnt>DCAM_HANDLE_TIMEOUT)
+						break;
+					handle_timeout_cnt++;
+					msleep(1);
+					printk("v4l2 zoom handle,handle_timeout_cnt=%d.\n",handle_timeout_cnt);
+				}
+				dcam_stop();				
+				dcam_set_first_buf_addr(g_last_buf,g_last_uv_buf);
 				dcam_start();
 			}
 			DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
@@ -1599,7 +1675,7 @@ static int init_dcam_parameters(void *priv)
         	{
 		g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].width;
 		g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].height;
-		if(fh->width>DCAM_SCALE_OUT_WIDTH_MAX)
+	//	if(fh->width>sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].width)
 			g_zoom_level = 0;
        	}
 	init_param.input_rect.w = g_dcam_info.input_size.w;
@@ -1748,9 +1824,10 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.ev_param = 8;
 	//g_dcam_info.focus_param = 0;
 	g_dcam_info.power_freq = 8;
+	g_dcam_info.video_mode = 0;
 
-	dcam_stop_timer(&s_dcam_err_info.dcam_timer);	
-	
+          //stop timer
+          dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	//stop dcam
 	dcam_stop();
 
@@ -1955,12 +2032,30 @@ void dcam_cb_ISRSensorSOF(void)
 }
 void dcam_cb_ISRCapEOF(void)
 {	
+	dcam_disableint();
+	if(g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1)
+	{
+		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
+		g_dcam_info.v4l2_buf_ctrl_path_done_flag= 1;
+	}
 	set_next_buffer(g_fh);
+	dcam_enableint();
 }
 void dcam_cb_ISRPath1Done(void)
 {	
+	dcam_disableint();
   	dcam_get_jpg_len(&g_dcam_info.jpg_len);
+	
+	if(g_dcam_info.v4l2_buf_ctrl_path_done_flag==1)
+	{
+		g_dcam_info.v4l2_buf_ctrl_path_done_flag = 0;
+		printk("dcam_cb_ISRPath1Done test 1.\n");
+		_ISP_DriverEnableInt();
+		return;
+	}
+
 	path1_done_buffer(g_fh);
+	dcam_enableint();
 }
 
 void dcam_cb_ISRPath2Done(void)
@@ -2190,7 +2285,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 			
 	}
 dcam_thread_end:	
-	//up(&s_dcam_err_info.dcam_thread_sem);		
+	s_dcam_err_info.is_stop = DCAM_THREAD_END_FLAG;	
 	printk("dcam thread end.\n");
 	return 0;
 }
@@ -2226,16 +2321,21 @@ static void dcam_stop_thread(void)
 
 static void dcam_timer_callback( uint32_t data )
 {
+	printk( "v4l2:dcam_timer_callback.\n");
+	
 	if((s_dcam_err_info.work_status  == DCAM_NO_RUN)||
 	    (s_dcam_err_info.work_status  == DCAM_WORK_STATUS_MAX) ||
 	    (s_dcam_err_info.work_status== DCAM_RESTART))
 	{
 		printk("v4l2:dcam_timer_callback,dcam is DCAM_NO_RUN.\n");
 		s_dcam_err_info.work_status  =  DCAM_NO_RUN;
-		
+		up(&s_dcam_err_info.dcam_thread_sem);		
 	}
-
-	up(&s_dcam_err_info.dcam_thread_sem);		
+	else
+	{
+         		dcam_start_timer(&s_dcam_err_info.dcam_timer,s_dcam_err_info.timeout_val);
+	}
+			
 	
 }
 static int dcam_init_timer(struct timer_list *dcam_timer)
@@ -2332,6 +2432,7 @@ static int open(struct file *file)
 	g_dcam_info.power_freq = 8;
 	g_dcam_info.flash_mode = FLASH_CLOSE;
 	g_dcam_info.recording_start = 0;
+	g_dcam_info.video_mode = DCAM_NORMA_MODE;
 	
 	//open dcam
 	if(0 != dcam_open())
@@ -2354,10 +2455,12 @@ static int open(struct file *file)
 	return 0;
 }
 
+#define DCAM_CLOSE_TIMEOUT     500
 static int close(struct file *file)
 {
 	struct dcam_fh         *fh = file->private_data;
 	struct dcam_dev *dev       = fh->dev;	
+	uint32_t cnt = 0;
 
 	int minor = video_devdata(file)->minor;
 
@@ -2366,28 +2469,40 @@ static int close(struct file *file)
 		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE); // close flash
 		printk("close the flash \n");
 	}
+
+	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+	printk("v4l2:close,stop timer.\n");	
 	
-	//wxz20120209: close the dcam and sensor before free fh. Because the dcam interrupt will use the fh.
+	s_dcam_err_info.is_stop = 1;
+	up(&s_dcam_err_info.dcam_thread_sem);	
+
+	if(DCAM_THREAD_END_FLAG != s_dcam_err_info.is_stop)
+	{
+		while(cnt<DCAM_CLOSE_TIMEOUT)
+		{
+			cnt++;
+			if(DCAM_THREAD_END_FLAG == s_dcam_err_info.is_stop)
+				break;
+			msleep(1);
+		}
+	}
+	printk("v4l2:stop thread end.\n");
+	
+	//close dcam
+	dcam_close();
+	printk("v4l2: OK to close dcam.\n");
 	
 	//close sensor       
 	Sensor_Close();
 	DCAM_V4L2_PRINT("V4L2: OK to close sensor.\n");
-
-	//close dcam
-	dcam_close();
-	dcam_clear_user_count();
-	s_dcam_err_info.is_stop = 1;
-	up(&s_dcam_err_info.dcam_thread_sem);	
-
-	printk("v4l2: OK to close dcam.\n");
+	
+	dcam_clear_user_count();		
 	
 	videobuf_stop(&fh->vb_vidq);
-	videobuf_mmap_free(&fh->vb_vidq);
-       
-	dcam_stop_timer(&s_dcam_err_info.dcam_timer);	
-//	down_interruptible(&s_dcam_err_info.dcam_thread_sem);	
+	videobuf_mmap_free(&fh->vb_vidq);       	
+
 	s_dcam_err_info.is_wakeup_thread = 0;
-	printk("v4l2:close,stop timer.\n");		
+		
 	
 	kfree(fh);
           

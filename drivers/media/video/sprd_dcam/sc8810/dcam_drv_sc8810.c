@@ -193,7 +193,6 @@ static void    _ISP_DriverLinkFrames(void);
 static void    _ISP_DriverAutoCopy(uint32_t base_addr);
 static int32_t   _ISP_DriverCalcSC1Size(void);
 static int32_t   _ISP_DriverSetSC1Coeff(uint32_t base_addr);
-static void _ISP_DriverDisableInt(void);
 static int32_t   _ISP_DriverPath1TrimAndScaling(uint32_t base_addr);
 static int32_t _ISP_DriverCalcSC2Size(void);
 static int32_t _ISP_DriverGenScxCoeff(uint32_t base_addr, uint32_t idxScx);
@@ -518,6 +517,14 @@ static int32_t _ISP_DriverPath1TrimAndScaling(uint32_t base_addr)
 	printk("_ISP_DriverPath1TrimAndScaling:input size:%d,%d,input rect:%d,%d\n",p_path->input_size.w,p_path->input_size.h,
 		    p_path->input_rect.w, p_path->input_rect.h);
 
+	if(ISP_CAP_MODE_JPEG == p_isp_reg->cap_ctrl_u.mBits.sensor_mode)
+	{
+		p_isp_reg->dcam_path_cfg_u.mBits.cam1_trim_eb = 0;		
+		p_isp_reg->dcam_path_cfg_u.mBits.scale_bypass = 1;
+		p_path->scale_en = 0;	
+		return rtn;
+	}
+
 	/*trim config*/
 	if(p_path->input_size.w != p_path->input_rect.w || p_path->input_size.h != p_path->input_rect.h)
 	{		
@@ -536,13 +543,7 @@ static int32_t _ISP_DriverPath1TrimAndScaling(uint32_t base_addr)
 	{
 		p_isp_reg->dcam_path_cfg_u.mBits.scale_bypass = 0;
 		rtn = _ISP_DriverSetSC1Coeff(base_addr);
-		p_path->scale_en = 1;
-		if(2 == p_isp_reg->cap_ctrl_u.mBits.sensor_mode)
-		{
-			p_isp_reg->dcam_path_cfg_u.mBits.scale_bypass = 1;
-			p_path->scale_en = 0;
-		}
-			
+		p_path->scale_en = 1;				
 	}
 	else
 	{
@@ -562,6 +563,13 @@ static int32_t _ISP_DriverPath2TrimAndScaling(uint32_t base_addr)
 	uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_PATH_DESCRIPTION_T    *p_path = &s_isp_mod.isp_path2;
 	ISP_REG_T                                    *p_isp_reg = (ISP_REG_T*)base_addr;
+
+	if(ISP_CAP_MODE_JPEG == p_isp_reg->cap_ctrl_u.mBits.sensor_mode)
+	{
+		p_isp_reg->rev_path_cfg_u.mBits.trim_eb = 0;	
+		p_isp_reg->rev_path_cfg_u.mBits.scale_bypass = 1;
+		return rtn;
+	}
 	
 	/*trim config*/
 	if(p_path->input_size.w != p_path->input_rect.w || 	p_path->input_size.h != p_path->input_rect.h)
@@ -952,11 +960,11 @@ int32_t ISP_DriverStart(uint32_t base_addr)
 	DCAM_DRV_TRACE("DCAM DRV: isp mode: %x", s_isp_mod.isp_mode);
 
 	if((ISP_MODE_PREVIEW == s_isp_mod.isp_mode)||(ISP_MODE_CAPTURE == s_isp_mod.isp_mode))
-	{
+	{	
 		rtn = _ISP_DriverPath1TrimAndScaling(base_addr);
-		//ISP_DRV_RTN_IF_ERR;
+		ISP_DRV_RTN_IF_ERR;
 		DCAM_DRV_TRACE("DCAM DRV: _ISP_DriverPath1TrimAndScaling ok.\n");
-
+	
 		_ISP_DriverIrqClear(base_addr,ISP_IRQ_LINE_MASK);
 		_ISP_DriverIrqEnable(base_addr, ISP_IRQ_LINE_MASK);
 		DCAM_DRV_TRACE("DCAM DRV: int mask:%x", _pard(DCAM_INT_MASK));
@@ -968,7 +976,7 @@ int32_t ISP_DriverStart(uint32_t base_addr)
 	else
 	{
 		rtn = _ISP_DriverPath2TrimAndScaling(base_addr);
-		ISP_DRV_RTN_IF_ERR;		
+		ISP_DRV_RTN_IF_ERR;	
             
                   _ISP_DriverIrqClear(base_addr,ISP_IRQ_LINE_MASK);
 		_ISP_DriverIrqEnable(base_addr, ISP_IRQ_LINE_MASK);
@@ -984,7 +992,7 @@ int32_t ISP_DriverStart(uint32_t base_addr)
 	p_isp_reg->dcam_path_cfg_u.mBits.cap_eb = 1;
 	DCAM_DRV_TRACE("DCAM DRV: start:DCAM_PATH_CFG: %x.\n", _pard(DCAM_PATH_CFG));
 
-	return ISP_DRV_RTN_SUCCESS;//rtn;
+	return rtn;
 }
 
 int32_t ISP_DriverStop(uint32_t base_addr)
@@ -1006,7 +1014,10 @@ int32_t ISP_DriverStop(uint32_t base_addr)
 		case ISP_MODE_VT:
 		case ISP_MODE_PREVIEW_EX:          
 			p_isp_reg->dcam_path_cfg_u.mBits.cap_eb = 0;
-		         isp_put_path2();
+			if(ISP_MODE_PREVIEW_EX == s_isp_mod.isp_mode)
+			{
+		         		isp_put_path2();
+			}
 			msleep(20);//wait the dcam stop
 			break;  
 		case ISP_MODE_PREVIEW:
