@@ -607,8 +607,14 @@ static int init_sensor_parameters(void *priv)
 	 	}
 	 }   
 
-	if(SENSOR_IMAGE_FORMAT_RAW != sensor_info_ptr->image_format)
+	DCAM_V4L2_PRINT("V4L2:init_sensor_parameters, image_format = %d,  preview_m=%d, snapshot_m=%d, capturemode = %d  \n ",
+			sensor_info_ptr->image_format, g_dcam_info.preview_m, g_dcam_info.snapshot_m, dev->streamparm.parm.capture.capturemode);
+	
+	if((SENSOR_IMAGE_FORMAT_RAW != sensor_info_ptr->image_format)
+		&& (1 == dev->streamparm.parm.capture.capturemode)) 
+	{
 		Sensor_Ioctl(SENSOR_IOCTL_BEFORE_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
+	}
 	DCAM_V4L2_PRINT("V4L2: snapshot_m: %d, preview_m: %d.\n", g_dcam_info.snapshot_m, g_dcam_info.preview_m);
 	if(g_dcam_info.preview_m != g_dcam_info.snapshot_m)
 		Sensor_SetMode(g_dcam_info.snapshot_m);
