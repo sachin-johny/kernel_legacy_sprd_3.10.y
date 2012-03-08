@@ -631,6 +631,11 @@ static struct clk clk_ccir = {
 	*/
 };
 
+static const struct clksel_rate rates_clk_153m600k_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
+		{.div = 0},
+};
+
 static const struct clksel_rate rates_clk_128m_nodiv[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8800G2},
 		{.div = 0},
@@ -721,10 +726,10 @@ static struct clk clk_dcam = {
 };
 
 static const struct clksel clk_vsp_clksel[] = {
-		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
-		{.parent = &clk_64m,		.val = 1,	.rates = rates_clk_64m_nodiv},
-		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_nodiv},
-		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_nodiv},
+		{.parent = &l3_153m600k,	.val = 0,	.rates = rates_clk_153m600k_nodiv},
+		{.parent = &clk_128m,		.val = 1,	.rates = rates_clk_128m_nodiv},
+		{.parent = &clk_64m,		.val = 2,	.rates = rates_clk_64m_nodiv},
+		{.parent = &clk_48m,		.val = 3,	.rates = rates_clk_48m_nodiv},
 		{.parent = NULL}
 };
 
@@ -732,7 +737,7 @@ static struct clk clk_vsp = {
 	.name = "clk_vsp",
 	.flags = DEVICE_AHB,
 	.ops = &sc88xx_clk_ops_generic,
-	.parent = &clk_96m,
+	.parent = &l3_153m600k,
 	.clkdm_name = "peripheral",
 	.divisor = 1,
 

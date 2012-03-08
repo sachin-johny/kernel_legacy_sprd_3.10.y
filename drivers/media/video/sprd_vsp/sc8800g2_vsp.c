@@ -65,10 +65,11 @@
 #define AHB_SOFT_RST            (SPRD_AHB_BASE + 0x210)
 
 #define  SPRD_GREG_PLL_SCR     (SPRD_GREG_BASE + 0x70)
-#define  VSP_96MHz      0x0
-#define  VSP_64MHz      0x1
-#define  VSP_48MHz      0x2
-#define  VSP_26MHz      0x3
+
+#define  VSP_154MHz      0x0
+#define  VSP_128MHz      0x1
+#define  VSP_64MHz      0x2
+#define  VSP_48MHz      0x3
 
 #define SPRD_VSP_BASE SPRD_MEA_BASE
 #define SPRD_VSP_PHYS SPRD_MEA_PHYS
@@ -111,17 +112,17 @@ static char * vsp_get_clk_src_name(unsigned int clk_src)
 {
         char *src_name;
 	switch(clk_src){
-		case VSP_96MHz:
-			src_name =  "clk_96m";
+		case VSP_154MHz:
+			src_name =  "l3_153m600k";
+			break;
+		case VSP_128MHz:
+			src_name =  "clk_128m";			
 			break;
 		case VSP_64MHz:
 			src_name =  "clk_64m";			
 			break;
-		case VSP_48MHz:
-			src_name =  "clk_48m";			
-			break;
 		default:
-			src_name =  "clk_26m";				
+			src_name =  "clk_48m";				
 			break;
 	}	
 	return src_name;
@@ -378,7 +379,7 @@ static int vsp_probe(struct platform_device *pdev)
 	dev.freq_div = DEFAULT_FREQ_DIV;
 #endif
 #ifdef VSP_SC8800G2
-	dev.freq_div = VSP_96MHz;
+	dev.freq_div = VSP_154MHz;
 #endif
 	dev.vsp_clk = clk_get(NULL,"clk_vsp");
 	if (IS_ERR(dev.vsp_clk)) {
