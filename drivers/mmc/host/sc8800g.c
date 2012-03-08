@@ -42,6 +42,19 @@
 
 #define SDIO_MAX_CLK  SDIO_BASE_CLK_96M  //96Mhz
 
+
+static void sdhci_sdio1_set_power( struct sdhci_host *host ){
+ 
+   printk("%s\n", __func__);
+   
+   msleep(10000);
+
+   mmc_power_off(host->mmc);  
+
+   return;
+}
+
+
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
  * @host: The SDHCI host instance.
@@ -121,9 +134,24 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
    return;	  
 }
 
+static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power){
+   printk("%s, entry\n", __func__ );
+   if((!strcmp(host->hw_name, "Spread SDIO host1")) && (!power) ){
+   
+      pid_t sdio1_power_thread;
+      sdio1_power_thread = kernel_thread(sdhci_sdio1_set_power, host, 0);
+      if(sdio1_power_thread<0)
+          printk("!!!!! sdio1_power_thread isn't allowed to be created !!!\n");
+   
+      printk("%s, done\n", __func__ );
+   }
+   return 0; 
+}
+
 static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
 	.set_clock		= sdhci_sprd_set_ahb_clock,
+//	.set_power      = sdhci_sprd_set_power,
 };
 
 
@@ -200,7 +228,9 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	}
       
         host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ); 
- 
+
+	sdhci_sprd_set_power(host, 0);
+    printk("sdhci_sprd_probe, done\n");
 	return 0;
 
  err_add_host:

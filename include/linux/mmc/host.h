@@ -277,6 +277,7 @@ static inline void mmc_init_bus_resume_flags(struct mmc_host *host)
 extern int mmc_resume_bus(struct mmc_host *host);
 extern void mmc_power_off(struct mmc_host *host);//wong
 extern void mmc_power_up(struct mmc_host *host);//wong
+extern void sdhci_bus_scan(void);//wong
 
 extern int mmc_suspend_host(struct mmc_host *);
 extern int mmc_resume_host(struct mmc_host *);
