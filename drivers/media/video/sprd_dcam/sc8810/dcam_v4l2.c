@@ -1018,7 +1018,9 @@ static void dcam_stop_handle(int param)
 {
 	if(param)
 	{
+		dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 		dcam_stop();
+		s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
 	}
 }
 static void dcam_start_handle(int param)
@@ -1026,6 +1028,7 @@ static void dcam_start_handle(int param)
 	if(param)
 	{
 		dcam_start();
+		dcam_start_timer(&s_dcam_err_info.dcam_timer, s_dcam_err_info.timeout_val);
 	}
 }
 #define FOCUS_PARAM_COUNT (2+FOCUS_ZONE_CNT_MAX*4)
@@ -1153,9 +1156,12 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 					msleep(1);
 					printk("v4l2 zoom handle,handle_timeout_cnt=%d.\n",handle_timeout_cnt);
 				}
-				dcam_stop();				
+				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+				dcam_stop();			
+				s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
 				dcam_set_first_buf_addr(g_last_buf,g_last_uv_buf);
 				dcam_start();
+				dcam_start_timer(&s_dcam_err_info.dcam_timer, s_dcam_err_info.timeout_val);
 			}
 			DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
 			break;	
