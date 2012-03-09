@@ -1448,7 +1448,7 @@ int sc8810_setup_ldo_slpmode(void)
 #else
 	ANA_REG_SET(ANA_LDO_SLP0, 0xa7fb);//except v18/28, SIM0
 #endif
-	 ANA_REG_SET(ANA_LDO_SLP1, 0x801f|(1<<12));//ARMDCDC_PWR_ON_DLY = 1, Not Hold ARMDCDC
+	 ANA_REG_SET(ANA_LDO_SLP1, 0x801d|(1<<12));//ARMDCDC_PWR_ON_DLY = 1, Not Hold ARMDCDC
 	 ANA_REG_SET(ANA_LDO_SLP2, 0x0f20);//a-die armdcdc iso
 //	 ANA_REG_SET(ANA_DCDC_CTRL, 0x0025);
 //	 ANA_REG_SET(ANA_DCDC_CTRL_DS, 0x0f43);//dcdc lvl dly, and hold vcccore 1.1v

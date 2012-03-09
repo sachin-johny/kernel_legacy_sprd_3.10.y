@@ -258,7 +258,7 @@ const unsigned long pm_func[] __initdata = {
 	MFP_CFG_X(GPIO137,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// WIFI_1.8V_ON  ??         
 	MFP_CFG_X(GPIO138,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	// CMMB_RSTN               
 	MFP_CFG_X(GPIO139,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CMMB_INT,don't need wakeup on 8800g,what about 8810?                   
-	MFP_CFG_X(GPIO140,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	// WIFI_RSTN    ??                   
+	MFP_CFG_X(GPIO140,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_OE),	// WIFI_RSTN    ??                   
 	MFP_CFG_X(GPIO141,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_IE),	// HP_DET,EXT PULLUP                           
 	MFP_CFG_X(GPIO142,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// WIFI_WAKEUP(NC)
 	MFP_CFG_X(GPIO143,	AF2,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// LCM_BL_EN,PWM                                   
