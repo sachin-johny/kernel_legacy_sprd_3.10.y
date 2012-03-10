@@ -28,7 +28,12 @@
 
 static struct proc_dir_entry *sprd_cpufreq_proc_entry;
 static DEFINE_MUTEX(sprd_cpufreq_mutex);
+#ifdef CONFIG_MACH_SP6820A
+int cpufreq_bypass = 1;
+#endif
+#ifdef CONFIG_MACH_SP8810
 int cpufreq_bypass = 0;
+#endif
 struct task_struct *cpufreq_thread;
 
 
