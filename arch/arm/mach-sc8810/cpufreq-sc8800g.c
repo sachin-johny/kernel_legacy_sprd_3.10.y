@@ -28,7 +28,7 @@
 
 static struct proc_dir_entry *sprd_cpufreq_proc_entry;
 static DEFINE_MUTEX(sprd_cpufreq_mutex);
-int cpufreq_bypass = 1;
+int cpufreq_bypass = 0;
 struct task_struct *cpufreq_thread;
 
 
