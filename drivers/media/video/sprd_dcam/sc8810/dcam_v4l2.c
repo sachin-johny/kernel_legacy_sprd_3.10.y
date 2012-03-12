@@ -48,6 +48,7 @@
 #include <mach/sensor_drv.h>
 
 #define DCAM_MINOR MISC_DYNAMIC_MINOR
+//#define DCAM_SET_SENSOR_MODE     1
 #define V4L2_OPEN_FOCUS 1
 #define DCAM_SCALE_OUT_WIDTH_MAX    960
 
@@ -62,7 +63,7 @@
 #define DCAM_THREAD_END_FLAG  0xFF
 
 //mode of DCAM
-#define DCAM_NORMA_MODE  0x0
+#define DCAM_PREVIEW_MODE  0x0
 #define DCAM_VIDEO_MODE      0x1
 
 static struct mutex *lock;
@@ -92,7 +93,7 @@ typedef struct dcam_info
 	uint8_t previewmode_param;
 	uint8_t focus_param;
 	uint8_t ev_param;
-	uint8_t video_mode;
+	uint8_t sensor_work_mode;
 	uint8_t power_freq;
 	uint8_t flash_mode;
 	uint8_t recording_start;
@@ -631,11 +632,12 @@ static int init_sensor_parameters(void *priv)
 	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
 	Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
 	Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
-
+#if DCAM_SET_SENSOR_MODE
 	if(1 != dev->streamparm.parm.capture.capturemode) //for preview
 	{
-		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.video_mode);
+		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
 	}
+#endif
 
 	return 0;
 }
@@ -1052,16 +1054,14 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 
 	switch(ctrl->id)
 	{
-#if 0	
+#if DCAM_SET_SENSOR_MODE
 		case V4L2_CID_BLACK_LEVEL:
-			if(0==(uint8_t)ctrl->value)
+			if(g_dcam_info.sensor_work_mode == (uint8_t)ctrl->value)
 			{
-				g_dcam_info.video_mode = DCAM_NORMA_MODE;
+				printk("v4l2:vidioc_handle_ctrl,don't need to modify work mode.\n");
+				break;
 			}
-			else if(1==(uint8_t)ctrl->value)
-			{
-				g_dcam_info.video_mode = DCAM_VIDEO_MODE;
-			}
+			g_dcam_info.sensor_work_mode = (uint8_t)ctrl->value;			
 			if(is_previewing)
 			{
 				handle_timeout_cnt = 0;
@@ -1074,13 +1074,16 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 					msleep(1);
 					printk("v4l2 video mode handle,handle_timeout_cnt=%d.\n",handle_timeout_cnt);
 				}
-				dcam_stop();				
+				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+				dcam_stop();			
+				s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
 				dcam_set_first_buf_addr(g_last_buf,g_last_uv_buf);
-				Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.video_mode);
+				Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
 				dcam_start();
+				dcam_start_timer(&s_dcam_err_info.dcam_timer, s_dcam_err_info.timeout_val);
 			}
-			printk("v4l2:g_dcam_info.video_mode = %d.\n",g_dcam_info.video_mode);	
-			break;
+			printk("v4l2:g_dcam_info.sensor_work_mode = %d.\n",g_dcam_info.sensor_work_mode);	
+			break;	
 #endif			
 		case V4L2_CID_DO_WHITE_BALANCE:
 			if(g_dcam_info.wb_param == (uint8_t)ctrl->value)
@@ -1833,10 +1836,9 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.hflip_param = 0;
 	g_dcam_info.vflip_param = 0;
 	g_dcam_info.previewmode_param = 8;
-	g_dcam_info.ev_param = 8;
-	//g_dcam_info.focus_param = 0;
+	g_dcam_info.ev_param = 8;	
 	g_dcam_info.power_freq = 8;
-	g_dcam_info.video_mode = 0;
+         g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
 
           //stop timer
           dcam_stop_timer(&s_dcam_err_info.dcam_timer);
@@ -2444,7 +2446,7 @@ static int open(struct file *file)
 	g_dcam_info.power_freq = 8;
 	g_dcam_info.flash_mode = FLASH_CLOSE;
 	g_dcam_info.recording_start = 0;
-	g_dcam_info.video_mode = DCAM_NORMA_MODE;
+	g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
 	
 	//open dcam
 	if(0 != dcam_open())
