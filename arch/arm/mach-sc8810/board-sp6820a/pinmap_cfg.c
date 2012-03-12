@@ -256,7 +256,7 @@ const unsigned long pm_func[] __initdata = {
 	MFP_CFG_X(GPIO142,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// WIFI_WAKEUP(NC)
 	MFP_CFG_X(GPIO143,	AF2,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// LCM_BL_EN,PWM                                   
 	MFP_CFG_X(GPIO144,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	// FLASH_LED,GPIO                                       
-	MFP_CFG_X(SD2_CLK,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                          
+	MFP_CFG_X(SD2_CLK,	AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                          
 	MFP_CFG_X(SD2_CMD,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                              
 	MFP_CFG_X(SD2_D0,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                                  
 	MFP_CFG_X(SD2_D1,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                                  
