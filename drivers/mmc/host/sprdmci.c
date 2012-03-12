@@ -2018,7 +2018,16 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 	sdhci_disable_card_detection(host);
 #endif
 
-
+//#ifdef CONFIG_MMC_DEBUG    
+	sdhci_dumpregs(host);
+//#endif
+    if(!mmc_bus_needs_resume(host->mmc)){
+        if(!sdhci_readw(host, SDHCI_CLOCK_CONTROL)){
+	   printk("!!! %s: no clock !!!\n", mmc_hostname(host->mmc));
+           sdhci_set_clock(host, host->mmc->f_min);
+        }
+    }
+	
 	ret = mmc_suspend_host(host->mmc);
 	if (ret){
 		printk("=== wow~ %s suspend error:%d ===\n",mmc_hostname(host->mmc), ret);
