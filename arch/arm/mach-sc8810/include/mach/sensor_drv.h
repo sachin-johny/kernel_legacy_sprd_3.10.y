@@ -34,6 +34,8 @@
 #include <mach/hardware.h>
 #include <asm/io.h>
 
+#include <mach/jpeg_exif_header_k.h>
+
 //for sensor
 #define SENSOR_SUCCESS 0
 #define SENSOR_FAIL 1
@@ -409,6 +411,52 @@ typedef enum
 	SENSOR_EXT_EXPOSURE_START,
 	SENSOR_EXT_FUNC_MAX
 }SENSOR_EXT_FUNC_CMD_E;
+
+// enum: Sensor exif command
+typedef enum
+{
+    SENSOR_EXIF_CTRL_EXPOSURETIME=0x00,
+    SENSOR_EXIF_CTRL_FNUMBER,
+    SENSOR_EXIF_CTRL_EXPOSUREPROGRAM,	
+    SENSOR_EXIF_CTRL_SPECTRALSENSITIVITY,	
+    SENSOR_EXIF_CTRL_ISOSPEEDRATINGS,
+    SENSOR_EXIF_CTRL_OECF,	
+    SENSOR_EXIF_CTRL_SHUTTERSPEEDVALUE,
+    SENSOR_EXIF_CTRL_APERTUREVALUE,
+    SENSOR_EXIF_CTRL_BRIGHTNESSVALUE,
+    SENSOR_EXIF_CTRL_EXPOSUREBIASVALUE,
+    SENSOR_EXIF_CTRL_MAXAPERTUREVALUE,
+    SENSOR_EXIF_CTRL_SUBJECTDISTANCE,
+    SENSOR_EXIF_CTRL_METERINGMODE,
+    SENSOR_EXIF_CTRL_LIGHTSOURCE,	
+    SENSOR_EXIF_CTRL_FLASH,
+    SENSOR_EXIF_CTRL_FOCALLENGTH,
+    SENSOR_EXIF_CTRL_SUBJECTAREA,
+    SENSOR_EXIF_CTRL_FLASHENERGY,
+    SENSOR_EXIF_CTRL_SPATIALFREQUENCYRESPONSE,
+    SENSOR_EXIF_CTRL_FOCALPLANEXRESOLUTION,
+    SENSOR_EXIF_CTRL_FOCALPLANEYRESOLUTION,
+    SENSOR_EXIF_CTRL_FOCALPLANERESOLUTIONUNIT,
+    SENSOR_EXIF_CTRL_SUBJECTLOCATION,
+    SENSOR_EXIF_CTRL_EXPOSUREINDEX,
+    SENSOR_EXIF_CTRL_SENSINGMETHOD,
+    SENSOR_EXIF_CTRL_FILESOURCE,
+    SENSOR_EXIF_CTRL_SCENETYPE,
+    SENSOR_EXIF_CTRL_CFAPATTERN,
+    SENSOR_EXIF_CTRL_CUSTOMRENDERED,
+    SENSOR_EXIF_CTRL_EXPOSUREMODE,
+    SENSOR_EXIF_CTRL_WHITEBALANCE,
+    SENSOR_EXIF_CTRL_DIGITALZOOMRATIO,
+    SENSOR_EXIF_CTRL_FOCALLENGTHIN35MMFILM,
+    SENSOR_EXIF_CTRL_SCENECAPTURETYPE,	
+    SENSOR_EXIF_CTRL_GAINCONTROL,
+    SENSOR_EXIF_CTRL_CONTRAST,
+    SENSOR_EXIF_CTRL_SATURATION,
+    SENSOR_EXIF_CTRL_SHARPNESS,
+    SENSOR_EXIF_CTRL_DEVICESETTINGDESCRIPTION,
+    SENSOR_EXIF_CTRL_SUBJECTDISTANCERANGE,
+    SENSOR_EXIF_CTRL_MAX,
+}SENSOR_EXIF_CTRL_E;
 
 //enum: preview enviroment type
 typedef enum
@@ -999,6 +1047,20 @@ PUBLIC uint32_t Sensor_SetFlash(uint32_t is_open);
 //  Note:           
 /*****************************************************************************/
 PUBLIC struct i2c_client *Sensor_GetI2CClien(void);
+
+/*****************************************************************************/
+//  Description:    This function is used to set sensor exif info    
+//  Author:         
+//  Note:           
+/*****************************************************************************/
+PUBLIC uint32 Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd ,uint32 param);
+
+/*****************************************************************************/
+//  Description:    This function is used to Get sensor exif info    
+//  Author:         
+//  Note:           
+/*****************************************************************************/
+PUBLIC EXIF_SPEC_PIC_TAKING_COND_T* Sensor_GetSensorExifInfo( void );
 
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *

@@ -40,12 +40,18 @@
 #include <media/v4l2-ioctl.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
+#include <mach/board.h>
 
 //for read 
 #include <linux/io.h>
 
 #include "dcam_service.h"
 #include <mach/sensor_drv.h>
+
+#include <mach/jpeg_exif_header_k.h>
+#include <mach/dc_cfg.h>
+
+JINF_EXIF_INFO_T* g_dc_exif_info_ptr = NULL;
 
 #define DCAM_MINOR MISC_DYNAMIC_MINOR
 //#define DCAM_SET_SENSOR_MODE     1
@@ -1563,6 +1569,47 @@ static int vidioc_g_output(struct file *file, void *priv, unsigned int *i)
 	return 0;
 }
 
+void vidioc_get_exif(JINF_EXIF_INFO_T *exif_ptr, uint32_t size)
+{
+	DC_InitExifParameter(exif_ptr, size);
+	DC_GetExifParameter();
+	DC_GetExifParameter_Post();
+}
+
+
+#define PMEM_BASE_PHY_ADDR 		SPRD_PMEM_BASE 
+#define PMEM_SIZE  					SPRD_IO_MEM_SIZE
+#define GET_VA(base, pmem_ptr) 		(base-PMEM_BASE_PHY_ADDR+pmem_ptr)
+
+/* Use querymenu to get jpeg exif info */
+static int vidioc_querymenu(struct file *file, void *priv, struct v4l2_querymenu *qm)
+{
+	uint32_t p_memptr;
+	uint32_t size;
+
+	printk("V4l2:vidioc_querymenu start \n");
+
+	size = qm->index;
+
+	p_memptr = (unsigned int)ioremap(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
+	if (NULL == p_memptr) 
+	{
+		printk("V4L2: vidioc_querymenu error ####: Can't ioremap for PMEM_BASE_PHY_ADDR!\n");
+		return -ENOMEM;
+	}
+
+	g_dc_exif_info_ptr = (JINF_EXIF_INFO_T*)GET_VA(qm->id, p_memptr);
+
+	printk("V4l2:vidioc_querymenu set: id=%x, index = %x, g_dc_exif_info_ptr=%x \n",  qm->id, qm->index, (uint32_t)g_dc_exif_info_ptr);
+
+	vidioc_get_exif(g_dc_exif_info_ptr, size);
+
+	iounmap(p_memptr);
+
+	return 0;
+}
+
+
 #define DCAM_PIXEL_ALIGNED 16
 #define DCAM_W_H_ALIGNED(x) (((x) + DCAM_PIXEL_ALIGNED - 1) & ~(DCAM_PIXEL_ALIGNED - 1))
 
@@ -2566,6 +2613,7 @@ static const struct v4l2_ioctl_ops dcam_ioctl_ops = {
 	.vidioc_streamoff     = vidioc_streamoff,
 	.vidioc_g_crop = vidioc_g_crop,
 	.vidioc_g_output = vidioc_g_output,
+	.vidioc_querymenu = vidioc_querymenu,
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
 //	.vidiocgmbuf          = vidiocgmbuf,
 #endif

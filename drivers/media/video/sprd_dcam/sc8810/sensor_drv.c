@@ -1848,6 +1848,394 @@ PUBLIC struct i2c_client *Sensor_GetI2CClien(void)
 {
 	return this_client;
 }
+
+/*****************************************************************************/
+//  Description:    This function is used to set sensor exif info    
+//  Author:         
+//  Note:           
+/*****************************************************************************/
+PUBLIC uint32 Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd ,uint32 param)
+{
+    SENSOR_EXP_INFO_T_PTR sensor_info_ptr=Sensor_GetInfo();
+    EXIF_SPEC_PIC_TAKING_COND_T* sensor_exif_info_ptr=PNULL;
+
+    if(PNULL!=sensor_info_ptr->ioctl_func_ptr->get_exif)/*lint !e613*/
+    {
+        sensor_exif_info_ptr=(EXIF_SPEC_PIC_TAKING_COND_T*)sensor_info_ptr->ioctl_func_ptr->get_exif(0x00);/*lint !e613*/
+    }
+    else
+    {
+        SENSOR_PRINT("SENSOR: Sensor_SetSensorExifInfo the get_exif fun is null error \n");
+        return SENSOR_FAIL;
+    }
+
+    switch(cmd)
+    {
+        case SENSOR_EXIF_CTRL_EXPOSURETIME:
+        {
+            SENSOR_MODE_E img_sensor_mode=s_sensor_mode[Sensor_GetCurId()];
+            uint32 exposureline_time=sensor_info_ptr->sensor_mode_info[img_sensor_mode].line_time;/*lint !e613*/
+            uint32 exposureline_num=param;
+            uint32 exposure_time=0x00;
+
+            exposure_time=exposureline_time*exposureline_num;
+
+            sensor_exif_info_ptr->valid.ExposureTime=1;
+
+            if(0x00==exposure_time)
+            {
+                sensor_exif_info_ptr->valid.ExposureTime=0;
+            }
+            else if(1000000>=exposure_time)
+            {
+                sensor_exif_info_ptr->ExposureTime.numerator=0x01;
+                sensor_exif_info_ptr->ExposureTime.denominator=1000000/exposure_time;
+            }
+            else
+            {
+                uint32 second=0x00;
+                do
+                {
+                    second++;
+                    exposure_time-=1000000;
+                    if(1000000>=exposure_time)
+                    {
+                        break;
+                    }
+                }while(1);/*lint !e506*/
+
+                sensor_exif_info_ptr->ExposureTime.denominator=1000000/exposure_time;
+                sensor_exif_info_ptr->ExposureTime.numerator=sensor_exif_info_ptr->ExposureTime.denominator*second;
+            }
+            break;
+        }
+        case SENSOR_EXIF_CTRL_FNUMBER:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_EXPOSUREPROGRAM:
+        {
+            break;
+        }	
+        case SENSOR_EXIF_CTRL_SPECTRALSENSITIVITY:
+        {
+            break;
+        }	
+        case SENSOR_EXIF_CTRL_ISOSPEEDRATINGS:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_OECF:
+        {
+            break;
+        }	
+        case SENSOR_EXIF_CTRL_SHUTTERSPEEDVALUE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_APERTUREVALUE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_BRIGHTNESSVALUE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_EXPOSUREBIASVALUE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_MAXAPERTUREVALUE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SUBJECTDISTANCE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_METERINGMODE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_LIGHTSOURCE:
+        {
+            sensor_exif_info_ptr->valid.LightSource=1;
+            switch(param)
+            {
+                case 0:
+                {
+                    sensor_exif_info_ptr->LightSource=0x00;
+                    break;
+                }
+                case 1:
+                {
+                    sensor_exif_info_ptr->LightSource=0x03;
+                    break;
+                }
+                case 2:
+                {
+                    sensor_exif_info_ptr->LightSource=0x0f;
+                    break;
+                }
+                case 3:
+                {
+                    sensor_exif_info_ptr->LightSource=0x0e;
+                    break;
+                }
+                case 4:
+                {
+                    sensor_exif_info_ptr->LightSource=0x03;
+                    break;
+                }
+                case 5:
+                {
+                    sensor_exif_info_ptr->LightSource=0x01;
+                    break;
+                }
+                case 6:
+                {
+                    sensor_exif_info_ptr->LightSource=0x0a;
+                    break;
+                }
+                default :
+                {
+                    sensor_exif_info_ptr->LightSource=0xff;
+                    break;
+                }
+            }
+            break;
+        }	
+        case SENSOR_EXIF_CTRL_FLASH:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_FOCALLENGTH:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SUBJECTAREA:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_FLASHENERGY:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SPATIALFREQUENCYRESPONSE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_FOCALPLANEXRESOLUTION:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_FOCALPLANEYRESOLUTION:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_FOCALPLANERESOLUTIONUNIT:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SUBJECTLOCATION:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_EXPOSUREINDEX:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SENSINGMETHOD:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_FILESOURCE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SCENETYPE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_CFAPATTERN:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_CUSTOMRENDERED:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_EXPOSUREMODE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_WHITEBALANCE:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_DIGITALZOOMRATIO:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_FOCALLENGTHIN35MMFILM:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SCENECAPTURETYPE:
+        {
+            sensor_exif_info_ptr->valid.SceneCaptureType=1;
+            switch(param)
+            {
+                case 0:
+                {
+                    sensor_exif_info_ptr->SceneCaptureType=0x00;
+                    break;
+                }
+                case 1:
+                {
+                    sensor_exif_info_ptr->SceneCaptureType=0x03;
+                    break;
+                }
+                default :
+                {
+                    sensor_exif_info_ptr->LightSource=0xff;
+                    break;
+                }
+            }
+            break;
+        }	
+        case SENSOR_EXIF_CTRL_GAINCONTROL:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_CONTRAST:
+        {
+            sensor_exif_info_ptr->valid.Contrast=1;
+            switch(param)
+            {
+                case 0:
+                case 1:
+                case 2:
+                {
+                    sensor_exif_info_ptr->Contrast=0x01;
+                    break;
+                }
+                case 3:
+                {
+                    sensor_exif_info_ptr->Contrast=0x00;
+                    break;
+                }
+                case 4:
+                case 5:
+                case 6:
+                {
+                    sensor_exif_info_ptr->Contrast=0x02;
+                    break;
+                }
+                default :
+                {
+                    sensor_exif_info_ptr->Contrast=0xff;
+                    break;
+                }
+            }
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SATURATION:
+        {
+            sensor_exif_info_ptr->valid.Saturation=1;
+            switch(param)
+            {
+                case 0:
+                case 1:
+                case 2:
+                {
+                    sensor_exif_info_ptr->Saturation=0x01;
+                    break;
+                }
+                case 3:
+                {
+                    sensor_exif_info_ptr->Saturation=0x00;
+                    break;
+                }
+                case 4:
+                case 5:
+                case 6:
+                {
+                    sensor_exif_info_ptr->Saturation=0x02;
+                    break;
+                }
+                default :
+                {
+                    sensor_exif_info_ptr->Saturation=0xff;
+                    break;
+                }
+            }
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SHARPNESS:
+        {
+            sensor_exif_info_ptr->valid.Sharpness=1;
+            switch(param)
+            {
+                case 0:
+                case 1:
+                case 2:
+                {
+                    sensor_exif_info_ptr->Sharpness=0x01;
+                    break;
+                }
+                case 3:
+                {
+                    sensor_exif_info_ptr->Sharpness=0x00;
+                    break;
+                }
+                case 4:
+                case 5:
+                case 6:
+                {
+                    sensor_exif_info_ptr->Sharpness=0x02;
+                    break;
+                }
+                default :
+                {
+                    sensor_exif_info_ptr->Sharpness=0xff;
+                    break;
+                }
+            }
+            break;
+        }
+        case SENSOR_EXIF_CTRL_DEVICESETTINGDESCRIPTION:
+        {
+            break;
+        }
+        case SENSOR_EXIF_CTRL_SUBJECTDISTANCERANGE:
+        {
+            break;
+        }
+        default :
+            break;
+    }
+
+    return SENSOR_SUCCESS;
+}
+
+/*****************************************************************************/
+//  Description:    This function is used to get sensor exif info    
+//  Author:         
+//  Note:           
+/*****************************************************************************/
+PUBLIC EXIF_SPEC_PIC_TAKING_COND_T* Sensor_GetSensorExifInfo(void)
+{
+    SENSOR_EXP_INFO_T_PTR sensor_info_ptr=Sensor_GetInfo();
+    EXIF_SPEC_PIC_TAKING_COND_T* sensor_exif_info_ptr=PNULL;
+
+    if(PNULL!=sensor_info_ptr->ioctl_func_ptr->get_exif)/*lint !e613*/
+    {
+        sensor_exif_info_ptr=(EXIF_SPEC_PIC_TAKING_COND_T*)sensor_info_ptr->ioctl_func_ptr->get_exif(0x00);/*lint !e613*/
+    }
+
+    return sensor_exif_info_ptr;
+}
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
  **---------------------------------------------------------------------------*/
