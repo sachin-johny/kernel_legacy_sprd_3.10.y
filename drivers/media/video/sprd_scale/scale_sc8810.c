@@ -707,7 +707,7 @@ static int32_t _SCALE_DriverStop(void)
 	endian_param.endian_uv = ISP_MASTER_ENDIANNESS_LITTLE;
 	rtn = _SCALE_DriverPath2Config(ISP_PATH_OUTPUT_ENDIAN,(void*)&endian_param);
 	ISP_RTN_IF_ERR(rtn);	
-	memset(&s_scale_mod, 0, sizeof(ISP_MODULE_T));	
+	//memset(&s_scale_mod, 0, sizeof(ISP_MODULE_T));	
 
 	SCALE_PRINT("SCALE: DriverStop is OK.\n"); 
 
