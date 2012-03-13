@@ -879,6 +879,23 @@ config ARCH_VT8500
 	select HAVE_PWM
 	help
 	  Support for VIA/WonderMedia VT8500/WM85xx System-on-Chip.
+
+config ARCH_SC8810
+	bool  "SPREADTRUM SC8810"
+	depends on MMU
+	select CPU_V7
+	select VFP
+	select VFPv3
+	select NEON
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select HAVE_SCHED_CLOCK
+	select HAVE_CLK
+	select ARCH_REQUIRE_GPIOLIB
+	select ARCH_HAS_CPUFREQ
+	help
+	  Support for Spreadtrum sc8810 based systems.
+
 endchoice
 
 #
@@ -1005,6 +1022,8 @@ source "arch/arm/plat-versatile/Kconfig"
 source "arch/arm/mach-vt8500/Kconfig"
 
 source "arch/arm/mach-w90x900/Kconfig"
+
+source "arch/arm/mach-sc8810/Kconfig"
 
 # Definitions to make life easier
 config ARCH_ACORN

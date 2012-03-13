@@ -1,0 +1,17 @@
+if ARCH_SC8810
+
+comment "SC8810 Board Type"
+
+config MACH_SP8810GA
+	default n
+	bool "SP8810GA Phone"
+	help
+	  SP8810GA phone board based on SC8810.
+
+config MACH_SP6820GA
+	default n
+	bool "SP6820GA Phone"
+	help
+	  SP6820GA phone board based on SC8810.
+
+endif
