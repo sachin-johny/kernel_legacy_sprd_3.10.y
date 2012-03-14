@@ -1024,11 +1024,25 @@ static int vidioc_g_ctrl(struct file *file, void *priv,
 }
 static void dcam_stop_handle(int param)
 {
+	uint32_t handle_timeout_cnt=0;
+	
 	if(param)
 	{
+		handle_timeout_cnt = 0;
+		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 1;
+		while(g_dcam_info.v4l2_buf_ctrl_set_next_flag!=0)
+		{
+			if(handle_timeout_cnt>DCAM_HANDLE_TIMEOUT)
+				break;
+			handle_timeout_cnt++;
+			msleep(1);
+			printk("v4l2 dcam_stop_handle,handle_timeout_cnt=%d.\n",handle_timeout_cnt);
+		}
+
 		dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 		dcam_stop();
 		s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
+		dcam_set_first_buf_addr(g_last_buf,g_last_uv_buf);
 	}
 }
 static void dcam_start_handle(int param)
@@ -1543,7 +1557,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		g_is_first_frame = 0;
 		DCAM_V4L2_PRINT("V4L2: g_first_buf_addr: %x.\n", g_first_buf_addr);
 	}
-//	DCAM_V4L2_PRINT("V4L2: qbuf : addr: 0x%x,uaddr:0x%x.\n", p->m.userptr,p->reserved);
+	DCAM_V4L2_PRINT("V4L2: vidioc_qbuf: v4l2_buff : addr: 0x%x,uaddr:0x%x.\n", p->m.userptr,p->reserved);
 	return (videobuf_qbuf(&fh->vb_vidq, p)); 
 }
 
@@ -1551,8 +1565,8 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh  *fh = priv;
 
-//	DCAM_V4L2_PRINT("v4l2: vidioc_dqbuf: file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n",
-//		                              file->f_flags, O_NONBLOCK, g_dcam_info.mode);
+	DCAM_V4L2_PRINT("V4L2: vidioc_dqbuf: v4l2_buff: addr: 0x%x, file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n",
+		                              p->m.userptr, file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	
 	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));	
 }
@@ -1781,7 +1795,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	uint16_t data=0;
 	uint32_t w_cnt = 0;
 
-	DCAM_V4L2_PRINT("V4L2: videobuf_streamon start.\n");
+	printk("#### V4L2: vidioc_streamon start.\n");
 
 #ifdef FLASH_DV_OPEN_ON_RECORD
 	if(g_dcam_info.flash_mode && g_dcam_info.recording_start)
@@ -1840,6 +1854,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	}
 		
 	printk("DCAM_V4L2: OK to vidioc_streamon,ret=%d.\n",ret);
+	printk("#### V4L2: vidioc_streamon end .\n");
 	return -ret;
 }
 
@@ -1849,6 +1864,8 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	int ret = 0;
 	int k;
 
+	printk("#### V4L2: vidioc_streamoff start.\n");
+	
 	g_dcam_info.recording_start = 0;
 	
 	if(g_dcam_info.flash_mode)
@@ -1898,7 +1915,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 			fh->vb_vidq.bufs[k]->state = VIDEOBUF_IDLE;
 		}       	
           
-	printk("V4L2: OK to vidioc_streamoff.\n");
+	printk("#### V4L2: vidioc_streamoff end.\n");
 	return ret;
 }
 
@@ -1973,7 +1990,8 @@ static void set_next_buffer(struct dcam_fh *fh)
 		buf->fmt->flag = 1;
 		g_last_buf = buf->vb.baddr;		
 		g_last_uv_buf = buf->vb.privsize;
-		dcam_set_buffer_address(buf->vb.baddr,buf->vb.privsize);		
+		dcam_set_buffer_address(buf->vb.baddr,buf->vb.privsize);
+		DCAM_V4L2_PRINT("#### V4L2: v4l2_buff: set_next_buffer addr = 0x%x \n", buf->vb.baddr);
 	}
 	else
 	{
@@ -2525,6 +2543,8 @@ static int close(struct file *file)
 
 	int minor = video_devdata(file)->minor;
 
+	printk("#### V4L2: close start.\n");
+	
 	if(g_dcam_info.flash_mode)
 	{
 		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE); // close flash
@@ -2573,6 +2593,8 @@ static int close(struct file *file)
 
 	dprintk(dev, 1, "close called (minor=%d, users=%d)\n",minor, dev->users);
 
+	printk("#### V4L2: close end.\n");
+	
 	return 0;
 }
 
