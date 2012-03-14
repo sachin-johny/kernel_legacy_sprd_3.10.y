@@ -137,13 +137,13 @@ extern   "C"
 //#define VOL_TO_CUR_PARAM (576 * 3)
 //#define VOL_DIV_P1 (268 * 4)
 #define VOL_TO_CUR_PARAM (576)
-#define VOL_DIV_P1 (268)
+#define VOL_DIV_P1 (266)
 #define VOL_DIV_P2 1000
 
 #define CC_CV_VOLTAGE 4200
 #define CV_REF_CURRENT 4
-#define CV_STOP_CURRENT 120
-#define CC_CV_SWITCH_POINT 200
+#define CV_STOP_CURRENT 130
+#define CC_CV_SWITCH_POINT 120
 #define PLUSE_CURRENT 4
 
 #define OVP_ADC_VALUE 0x198
