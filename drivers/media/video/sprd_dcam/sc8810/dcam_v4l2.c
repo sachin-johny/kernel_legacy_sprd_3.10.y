@@ -1702,7 +1702,7 @@ static int init_dcam_parameters(void *priv)
 	init_param.format = g_dcam_info.out_format;//DCAM_DATA_YUV422; 
 	init_param.yuv_pattern = YUV_YUYV;    
 	init_param.display_rgb_type = RGB_565;
-
+#if 0
          if((DCAM_ROTATION_0 == g_dcam_info.rot_angle ) || (DCAM_ROTATION_180 == g_dcam_info.rot_angle))
          	{
 		init_param.input_size.w = fh->width;
@@ -1714,6 +1714,10 @@ static int init_dcam_parameters(void *priv)
 		init_param.input_size.h = fh->width;
 	}
 		
+#else
+		init_param.input_size.w = fh->width;
+		init_param.input_size.h = fh->height;
+#endif
 	init_param.polarity.hsync = 1;
 	init_param.polarity.vsync = 0;
 	init_param.polarity.pclk = 0;
@@ -1737,7 +1741,7 @@ static int init_dcam_parameters(void *priv)
 	DCAM_V4L2_PRINT("v4l2: init param rect 1,%d,%d,%d,%d\n",
 		                              init_param.input_rect.x,init_param.input_rect.y,init_param.input_rect.w,init_param.input_rect.h);
 	init_param.skip_frame = 0;
-	init_param.rotation = g_dcam_info.rot_angle;
+	//init_param.rotation = g_dcam_info.rot_angle;
 	init_param.first_buf_addr = g_first_buf_addr;
 	init_param.first_u_buf_addr = g_first_buf_uv_addr;
 
