@@ -97,7 +97,6 @@ static unsigned int host_power = 0;
 static unsigned int host_clk = 0;
 #endif
 
-//mmc1 host for WiFi force card detection
 static void sdhci_prepare_data(struct sdhci_host *, struct mmc_data *);
 static void sdhci_finish_data(struct sdhci_host *);
 
@@ -156,46 +155,46 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 static void sdhci_save_regs(struct sdhci_host *host){
     if (!strcmp("Spread SDIO host1", host->hw_name)){
 			printk("%s, entry\n", __func__);
-    host_addr = sdhci_readl(host, SDHCI_DMA_ADDRESS);
-    host_blk_size = sdhci_readw(host, SDHCI_BLOCK_SIZE);
-    host_blk_cnt = sdhci_readw(host, SDHCI_BLOCK_COUNT);
-    host_arg = sdhci_readl(host, SDHCI_ARGUMENT);
-    host_tran_mode = sdhci_readw(host, SDHCI_TRANSFER_MODE);
-    host_ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
-    host_power = sdhci_readb(host, SDHCI_POWER_CONTROL);
-    host_clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);		
-	}
+         host_addr = sdhci_readl(host, SDHCI_DMA_ADDRESS);
+         host_blk_size = sdhci_readw(host, SDHCI_BLOCK_SIZE);
+         host_blk_cnt = sdhci_readw(host, SDHCI_BLOCK_COUNT);
+         host_arg = sdhci_readl(host, SDHCI_ARGUMENT);
+         host_tran_mode = sdhci_readw(host, SDHCI_TRANSFER_MODE);
+         host_ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+         host_power = sdhci_readb(host, SDHCI_POWER_CONTROL);
+         host_clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);		
+    }
 
 }
 
 static void sdhci_restore_regs(struct sdhci_host *host){
     if (!strcmp("Spread SDIO host1", host->hw_name)){
 			printk("%s, entry\n", __func__);
-    sdhci_writel(host, host_addr, SDHCI_DMA_ADDRESS);
-    sdhci_writew(host, host_blk_size, SDHCI_BLOCK_SIZE);
-    sdhci_writew(host, host_blk_cnt, SDHCI_BLOCK_COUNT);
-    sdhci_writel(host, host_arg, SDHCI_ARGUMENT);
-    sdhci_writew(host, host_tran_mode, SDHCI_TRANSFER_MODE);
-    sdhci_writeb(host, host_ctrl, SDHCI_HOST_CONTROL);
-    sdhci_writeb(host, host_power, SDHCI_POWER_CONTROL);
-    sdhci_writew(host, host_clk, SDHCI_CLOCK_CONTROL);		
-	}
+        sdhci_writel(host, host_addr, SDHCI_DMA_ADDRESS);
+        sdhci_writew(host, host_blk_size, SDHCI_BLOCK_SIZE);
+        sdhci_writew(host, host_blk_cnt, SDHCI_BLOCK_COUNT);
+        sdhci_writel(host, host_arg, SDHCI_ARGUMENT);
+        sdhci_writew(host, host_tran_mode, SDHCI_TRANSFER_MODE);
+        sdhci_writeb(host, host_ctrl, SDHCI_HOST_CONTROL);
+        sdhci_writeb(host, host_power, SDHCI_POWER_CONTROL);
+        sdhci_writew(host, host_clk, SDHCI_CLOCK_CONTROL);		
+    }
 
 }
 
 static void sdhci_dump_saved_regs(struct sdhci_host *host){
     if (!strcmp("Spread SDIO host1", host->hw_name)){
-		printk("%s, entry\n", __func__);
-		printk("%s, host_addr:0x%x\n", host->hw_name, host_addr);
-		printk("%s, host_blk_size:0x%x\n", host->hw_name, host_blk_size);
-		printk("%s, host_blk_cnt:0x%x\n", host->hw_name, host_blk_cnt);
-		printk("%s, host_arg:0x%x\n", host->hw_name, host_arg);
-		printk("%s, host_tran_mode:0x%x\n", host->hw_name, host_tran_mode);
-		printk("%s, host_ctrl:0x%x\n", host->hw_name, host_ctrl);
-		printk("%s, host_power:0x%x\n", host->hw_name, host_power);
-		printk("%s, host_clk:0x%x\n", host->hw_name, host_clk);
+	printk("%s, entry\n", __func__);
+	printk("%s, host_addr:0x%x\n", host->hw_name, host_addr);
+	printk("%s, host_blk_size:0x%x\n", host->hw_name, host_blk_size);
+	printk("%s, host_blk_cnt:0x%x\n", host->hw_name, host_blk_cnt);
+	printk("%s, host_arg:0x%x\n", host->hw_name, host_arg);
+	printk("%s, host_tran_mode:0x%x\n", host->hw_name, host_tran_mode);
+	printk("%s, host_ctrl:0x%x\n", host->hw_name, host_ctrl);
+	printk("%s, host_power:0x%x\n", host->hw_name, host_power);
+	printk("%s, host_clk:0x%x\n", host->hw_name, host_clk);
 		   	
-	}
+   }
 
 }
 #endif
@@ -433,10 +432,7 @@ static void  sdhci_host_wakeup_set( struct wake_source *src ){
     struct  sdhci_host *host;
     host = (struct  sdhci_host *)(src->param);
 
-//	if( (host->mmc->card )			   &&
-//		mmc_card_sdio(host->mmc->card) && 
-	
-    if(host->mmc->pm_flags & MMC_PM_KEEP_POWER) {
+	if( (host->mmc->card )&& mmc_card_sdio(host->mmc->card) ){
 	   
 	    __raw_bits_or(BIT_6,SPRD_GPIO_BASE+0x18); //gpio22 irq enable
 	
@@ -454,9 +450,7 @@ static void  sdhci_host_wakeup_clear(struct wake_source *src){
     host = (struct  sdhci_host *)(src->param);
 
     
-//   	if( (host->mmc->card )			   &&
-//		mmc_card_sdio(host->mmc->card) && 
-	 if(host->mmc->pm_flags & MMC_PM_KEEP_POWER) {
+	if( (host->mmc->card )&& mmc_card_sdio(host->mmc->card) ){
 	   
        __raw_bits_and(~BIT_6,SPRD_GPIO_BASE+0x18); //gpio22 irq disable
  
@@ -470,16 +464,17 @@ static void  sdhci_host_wakeup_clear(struct wake_source *src){
 
 
 #ifdef SDHCI_BUS_SCAN
+//force card detection
  void sdhci_bus_scan(void){
     if(sdhci_host_g && (sdhci_host_g->mmc)){
 	   printk("%s, entry\n", __func__);
 	   if (sdhci_host_g->ops->set_clock) {
 		 sdhci_host_g->ops->set_clock(sdhci_host_g, 1);
 	   }
-	   
-	   sdhci_reset(sdhci_host_g, SDHCI_RESET_ALL);
+
+	   //sdhci_reset(sdhci_host_g, SDHCI_RESET_ALL);
 	   sdhci_reinit(sdhci_host_g);
-       mmc_detect_change(sdhci_host_g->mmc, 0);
+	   mmc_detect_change(sdhci_host_g->mmc, msecs_to_jiffies(200));
 	}
 	
 	return;
@@ -1447,7 +1442,7 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 //		sdhci_writel(host, 0, SDHCI_SIGNAL_ENABLE);
 //		sdhci_reinit(host);
 //	}
-//sdhci_set_clock(host, ios->clock);//ok case, original position
+//      sdhci_set_clock(host, ios->clock);//ok case, original position
         
 	if(ios->power_mode == MMC_POWER_UP){
 		sdhci_reinit(host);
@@ -1956,7 +1951,6 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 
 	if (intmask & SDHCI_INT_CARD_INT){
 		cardint = 1;        
-		//printk("=== yeah~ %s, card irq  ===\n", mmc_hostname(host->mmc));
 	}
 	intmask &= ~SDHCI_INT_CARD_INT;
 
@@ -2021,13 +2015,14 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 //#ifdef CONFIG_MMC_DEBUG    
 	sdhci_dumpregs(host);
 //#endif
+/*
     if(!mmc_bus_needs_resume(host->mmc)){
         if(!sdhci_readw(host, SDHCI_CLOCK_CONTROL)){
 	   printk("!!! %s: no clock !!!\n", mmc_hostname(host->mmc));
            sdhci_set_clock(host, host->mmc->f_min);
         }
     }
-	
+*/	
 	ret = mmc_suspend_host(host->mmc);
 	if (ret){
 		printk("=== wow~ %s suspend error:%d ===\n",mmc_hostname(host->mmc), ret);
@@ -2035,10 +2030,13 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
     }
 		
 #ifdef MMC_HOST_WAKEUP_SUPPORTED
+#if 0
 	if( (host->mmc->card )			   &&
 		mmc_card_sdio(host->mmc->card) && 
 	   (host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
-       
+#endif
+
+	if( (host->mmc->card )&& mmc_card_sdio(host->mmc->card) ){
 	   sprd_host_wakeup.param = (void*)host;
 	   sdhci_set_data1_to_gpio22(host);
 	   gpio_request(HOST_WAKEUP_GPIO, "host_wakeup_irq");
@@ -2081,9 +2079,13 @@ int sdhci_resume_host(struct sdhci_host *host)
 #endif
 
 #ifdef MMC_HOST_WAKEUP_SUPPORTED    
-	if( (host->mmc->card )			   &&
-		mmc_card_sdio(host->mmc->card) && 
-	  (host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
+#if 0
+		if( (host->mmc->card )			   &&
+			mmc_card_sdio(host->mmc->card) && 
+		   (host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
+#endif
+	
+	if( (host->mmc->card )&& mmc_card_sdio(host->mmc->card) ){
 
 	   free_irq(sdio_wakeup_irq, host);	
 	   gpio_free(HOST_WAKEUP_GPIO);	
@@ -2114,9 +2116,16 @@ int sdhci_resume_host(struct sdhci_host *host)
 		return ret;
 	}
       
-        if(!(host->mmc->pm_flags & MMC_PM_KEEP_POWER)){ 
-           sdhci_set_power(host, -1);//power off ldo_sdio1
-        }
+     //   if(!(host->mmc->pm_flags & MMC_PM_KEEP_POWER)){ 
+     //   if(!(host->mmc->card)){ 
+    //       sdhci_set_power(host, -1);//power off ldo_sdio1
+     //   }
+     //}
+     
+     if(!(host->mmc->card)){ 
+           sdhci_set_power(host, -1);//power off ldo_sdio1 if device is off
+     }
+     
 #ifdef HOT_PLUG_SUPPORTED
 	sdhci_enable_card_detection(host);
 #endif	

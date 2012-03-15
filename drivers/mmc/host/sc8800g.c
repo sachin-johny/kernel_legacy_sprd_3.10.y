@@ -42,7 +42,11 @@
 
 #define SDIO_MAX_CLK  SDIO_BASE_CLK_96M  //96Mhz
 
-
+/*
+*   NOTE: sdhci_sdio1_set_power() is for CSR UNIFI6030, if wifi were not initialized at boot
+* boot time, there will be 4mA current leakage;
+*   For another devices on sdio1 bus, should not call this function if on strong reasons
+*/
 static void sdhci_sdio1_set_power( struct sdhci_host *host ){
  
    printk("%s\n", __func__);
@@ -50,6 +54,11 @@ static void sdhci_sdio1_set_power( struct sdhci_host *host ){
    msleep(10000);
 
    mmc_power_off(host->mmc);  
+   
+   __gpio_set_value(140, 0);
+   __gpio_set_value(137, 0);
+   
+   sdhci_bus_scan( );
 
    return;
 }
@@ -134,6 +143,11 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
    return;	  
 }
 
+/*
+*   NOTE: sdhci_sdio1_set_power() is for CSR UNIFI6030, if wifi were not initialized at boot
+* boot time, there will be 4mA current leakage;
+*   For another devices on sdio1 bus, should not call this function if on strong reasons
+*/
 static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power){
    printk("%s, entry\n", __func__ );
    if((!strcmp(host->hw_name, "Spread SDIO host1")) && (!power) ){
@@ -274,11 +288,27 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 	//if(!strcmp(host->hw_name, "Spread SDIO host1")){
         //    host->mmc->pm_flags |= MMC_PM_KEEP_POWER; 
 	//}
+#if 0	
 	if( !(host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
             if(host->ops->set_clock){
 	      host->ops->set_clock(host, 0);
 	    }
-        }
+    }
+#endif
+
+	//disable sdio0(T-FLASH card) ahb clock  
+	if(mmc_bus_manual_resume(host->mmc)) {
+	   if(host->ops->set_clock){
+	     host->ops->set_clock(host, 0);  
+	   }
+	}
+
+	//disable sdio1(WIFI) ahb clock  
+	if(!(host->mmc->card) ){
+       if(host->ops->set_clock){
+	     host->ops->set_clock(host, 0);  
+	   }
+	}
 
 	return 0;
 }
