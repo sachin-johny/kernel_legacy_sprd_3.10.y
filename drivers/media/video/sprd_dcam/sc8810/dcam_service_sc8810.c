@@ -1245,7 +1245,6 @@ int dcam_start(void)
 	{
 		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ISP); //switch IRAM to isp
 		ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);  
-		//ISP_DriverSetClk(ARM_GLOBAL_PLL_SCR, ISP_CLK_48M);
 		DCAM_TRACE("DCAM: scam_start softreset and set clk.\n");
 	}
 	dcam_inc_user_count();
@@ -1360,10 +1359,7 @@ int dcam_stop(void)
 	if(g_dcam_clk)
 	{
 		clk_disable(g_dcam_clk);
-		DCAM_TRACE("DCAM:dcam_stop,clk_disable ok.\n");
-	//	clk_put(g_dcam_clk);
-	//	DCAM_TRACE("DCAM:dcam_stop,clk_put ok.\n");		
-	
+		DCAM_TRACE("DCAM:dcam_stop,clk_disable ok.\n");	
 	}
 
 	DCAM_TRACE("DCAM: dcam_stop end. \n"); 

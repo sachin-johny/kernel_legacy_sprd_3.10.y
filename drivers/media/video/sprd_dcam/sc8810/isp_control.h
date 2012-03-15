@@ -31,6 +31,12 @@
 #include <linux/file.h>
 #include <linux/slab.h>
 
+struct dcam_cnt_ctrl {
+	uint32_t user_cnt;
+	struct semaphore ctrl_sem;
+	struct semaphore ctrl_path2_sem;	
+};
+
 void dcam_inc_user_count(void);
 void dcam_dec_user_count(void);
 uint32_t dcam_get_user_count(void);

@@ -18,42 +18,56 @@
 #include "dcam_common.h"
 #include "isp_control.h"
 
-static uint32_t s_dcam_user_count = 0;
-static struct semaphore s_sem_cnt;
+static struct dcam_cnt_ctrl s_dcam_cnt_ctrl_info;
+
 void dcam_inc_user_count(void)
 {
-	s_dcam_user_count++;
-	DCAM_TRACE("DCAM:dcam_inc_user_count: count: %d.\n", s_dcam_user_count);
+	down(&s_dcam_cnt_ctrl_info.ctrl_sem);
+	s_dcam_cnt_ctrl_info.user_cnt++;	
+	up(&s_dcam_cnt_ctrl_info.ctrl_sem);	
+	DCAM_TRACE("DCAM:dcam_inc_user_count: count: %d.\n", s_dcam_cnt_ctrl_info.user_cnt);	
 }
 
 void dcam_dec_user_count(void)
 {
-	if(s_dcam_user_count >= 1)
-		s_dcam_user_count--;
+	down(&s_dcam_cnt_ctrl_info.ctrl_sem);
+	if(s_dcam_cnt_ctrl_info.user_cnt>= 1)
+		s_dcam_cnt_ctrl_info.user_cnt--;
 	else
-		s_dcam_user_count = 0;
-	DCAM_TRACE("DCAM:dcam_dec_user_count: count: %d.\n", s_dcam_user_count);
+		s_dcam_cnt_ctrl_info.user_cnt = 0;	
+	up(&s_dcam_cnt_ctrl_info.ctrl_sem);
+	DCAM_TRACE("DCAM:dcam_dec_user_count: count: %d.\n", s_dcam_cnt_ctrl_info.user_cnt);
 }
  
 uint32_t dcam_get_user_count(void)
 {
-	DCAM_TRACE("DCAM:dcam_get_user_count: count: %d.\n", s_dcam_user_count);
-	return s_dcam_user_count;
+	uint32_t ret_cnt;
+	
+	down(&s_dcam_cnt_ctrl_info.ctrl_sem);
+	ret_cnt = s_dcam_cnt_ctrl_info.user_cnt;	
+	up(&s_dcam_cnt_ctrl_info.ctrl_sem);
+	DCAM_TRACE("DCAM:dcam_get_user_count: count: %d.\n", ret_cnt);
+	
+	return ret_cnt;
 }
 
 void dcam_clear_user_count(void)
 {
-	s_dcam_user_count = 0;
+	down(&s_dcam_cnt_ctrl_info.ctrl_sem);
+	s_dcam_cnt_ctrl_info.user_cnt = 0;
+	up(&s_dcam_cnt_ctrl_info.ctrl_sem);
 }
 void isp_get_path2(void)
 {
-	down(&s_sem_cnt);
+	down(&s_dcam_cnt_ctrl_info.ctrl_path2_sem);
 }
 void isp_put_path2(void)
 {
-	up(&s_sem_cnt);
+	up(&s_dcam_cnt_ctrl_info.ctrl_path2_sem);
 }
 void isp_mutex_init(void)
 {
-	init_MUTEX(&s_sem_cnt);
+	init_MUTEX(&s_dcam_cnt_ctrl_info.ctrl_path2_sem);
+	init_MUTEX(&s_dcam_cnt_ctrl_info.ctrl_sem);
+	s_dcam_cnt_ctrl_info.user_cnt = 0;
 }

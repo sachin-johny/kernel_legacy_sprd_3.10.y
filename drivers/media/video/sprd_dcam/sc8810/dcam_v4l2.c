@@ -1741,7 +1741,7 @@ static int init_dcam_parameters(void *priv)
 	DCAM_V4L2_PRINT("v4l2: init param rect 1,%d,%d,%d,%d\n",
 		                              init_param.input_rect.x,init_param.input_rect.y,init_param.input_rect.w,init_param.input_rect.h);
 	init_param.skip_frame = 0;
-	//init_param.rotation = g_dcam_info.rot_angle;
+	init_param.rotation = 0;//g_dcam_info.rot_angle;
 	init_param.first_buf_addr = g_first_buf_addr;
 	init_param.first_u_buf_addr = g_first_buf_uv_addr;
 
@@ -2329,7 +2329,6 @@ static int dcam_scan_status_thread(void * data_ptr)
 				dcam_stop();
 				if(info_ptr->restart_cnt>DCAM_RESTART_COUNT)
 				{
-					dcam_dec_user_count();
 					if(1 == info_ptr->is_running )
 					{
 						info_ptr->is_report_err = 1;						
