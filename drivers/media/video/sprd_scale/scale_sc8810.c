@@ -608,14 +608,14 @@ static int32_t _SCALE_DriverStart(void)
 {
 	uint32_t rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_PATH_DESCRIPTION_T    *p_path2 = &s_scale_mod.isp_path2;
-	ISP_ENDIAN_T endian_param = {0};
 	ISP_REG_T *p_isp_reg = (ISP_REG_T*)s_scale_mod.module_addr;
 
 	rtn = _SCALE_DriverPath2TrimAndScaling();            
 	ISP_RTN_IF_ERR(rtn);
 
 	_SCALE_DriverIrqEnable(ISP_IRQ_REVIEW_DONE_BIT);	
-            
+
+#if 0			
 	if(ISP_DATA_RGB565 == p_path2->input_format)	
 	{		
 		endian_param.endian_y    = ISP_MASTER_ENDIANNESS_HALFBIG;		
@@ -632,7 +632,7 @@ static int32_t _SCALE_DriverStart(void)
 	
 	SCALE_PRINT("SCALE: ISP_DriverStart , p_path2->input_format %d ,p_path2->output_format %d.\n",
 	                             p_path2->input_format,p_path2->output_format);		
-	
+
 	if((ISP_DATA_RGB565 == p_path2->output_format) ||((ISP_DATA_YUV422 == p_path2->input_format) && (1 != p_path2->output_frame_endian.endian_y)))
 	{
 		endian_param.endian_y    = ISP_MASTER_ENDIANNESS_LITTLE;
@@ -646,7 +646,8 @@ static int32_t _SCALE_DriverStart(void)
 		endian_param.endian_uv = ISP_MASTER_ENDIANNESS_LITTLE;		
 		rtn = _SCALE_DriverPath2Config(ISP_PATH_OUTPUT_ENDIAN,(void*)&endian_param);
 		ISP_RTN_IF_ERR(rtn);
-	}
+	} 
+#endif
 
 	if(1 == p_path2->slice_en)
 	{				
@@ -690,7 +691,6 @@ static  void _SCALE_DriverIrqDisable(uint32_t mask)
 static int32_t _SCALE_DriverStop(void)
 {
 	uint32_t             rtn = ISP_DRV_RTN_SUCCESS;
-	ISP_ENDIAN_T endian_param = {0};
 	ISP_REG_T  *p_isp_reg = (ISP_REG_T*)s_scale_mod.module_addr;
 
 	dcam_dec_user_count();
@@ -702,11 +702,13 @@ static int32_t _SCALE_DriverStop(void)
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 0;
 	_SCALE_DriverIrqDisable(ISP_IRQ_SCL_LINE_MASK);
 	_SCALE_DriverIrqClear(ISP_IRQ_SCL_LINE_MASK);
-	
+
+#if 0	
 	endian_param.endian_y   = ISP_MASTER_ENDIANNESS_LITTLE;
 	endian_param.endian_uv = ISP_MASTER_ENDIANNESS_LITTLE;
 	rtn = _SCALE_DriverPath2Config(ISP_PATH_OUTPUT_ENDIAN,(void*)&endian_param);
 	ISP_RTN_IF_ERR(rtn);	
+#endif	
 	//memset(&s_scale_mod, 0, sizeof(ISP_MODULE_T));	
 
 	SCALE_PRINT("SCALE: DriverStop is OK.\n"); 
