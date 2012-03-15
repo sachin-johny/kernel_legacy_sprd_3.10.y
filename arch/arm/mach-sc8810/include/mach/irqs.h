@@ -19,6 +19,9 @@
  * see spec 4.5.2 
  */
 
+/* general irq numbers */
+#define NR_SPRD_IRQS		32
+
 #define IRQ_SLEEP_INT		0
 #define IRQ_SOFT_TRIG_INT	1
 #define IRQ_SER0_INT		2
@@ -34,7 +37,7 @@
 #define IRQ_TIMER1_INT		6
 
 #define IRQ_TIMER2_INT		7
-#define IRQ_GPIO_EIC_INT	8	
+#define IRQ_GPIO_INT		8 /* cascaded digital gpio irqs */
 
 #define IRQ_SPI0_INT		9
 #define IRQ_SPI1_INT		9
@@ -56,11 +59,11 @@
 #define IRQ_SYST_INT		17
 #define IRQ_IIS0_INT		19
 #define IRQ_IIS1_INT		19
-#define IRQ_DSP_ICU_INT	20
+#define IRQ_DSP_ICU_INT		20
 #define IRQ_DMA_INT		21
 #define IRQ_VBC_INT		22
 #define IRQ_VSP_INT		23
-#define IRQ_ANA_INT		24
+#define IRQ_ANA_INT		24 /* cascaded analog chip irqs */
 
 #define IRQ_ADI_INT		25
 #define IRQ_GPU_INT		25
@@ -76,27 +79,30 @@
 #define IRQ_SDIO1_INT		31
 #define IRQ_AXI_BUS_MON		31
 
-#define IRQ_ANA_ADC_INT		32
-#define IRQ_ANA_GPIO_INT	33
-#define IRQ_ANA_RTC_INT		34
-#define IRQ_ANA_WDG_INT		35
-#define IRQ_ANA_TPC_INT		36
-#define IRQ_ANA_EIC_INT		37
-#define IRQ_ANA_CHGRWDG_INT	38
-
-#define IRQ_ANA_INT_START	IRQ_ANA_ADC_INT
-
-#define NR_SPRD_IRQS		32
+/* analog die irq numbers */
 #define NR_ANA_IRQS		7
 
-#define GPIO_IRQ_START  	(NR_SPRD_IRQS + NR_ANA_IRQS)
-#define NR_GPIO_IRQS		10
+#define IRQ_ANA_INT_START	NR_SPRD_IRQS
 
-#define NR_EIC_ALL_IRQS		(16+8)
-#define EIC_IRQ_START		(GPIO_IRQ_START + NR_GPIO_IRQS)
+#define IRQ_ANA_ADC_INT		(IRQ_ANA_INT_START + 0)
+#define IRQ_ANA_GPIO_INT	(IRQ_ANA_INT_START + 1)
+#define IRQ_ANA_RTC_INT		(IRQ_ANA_INT_START + 2)
+#define IRQ_ANA_WDG_INT		(IRQ_ANA_INT_START + 3)
+#define IRQ_ANA_TPC_INT		(IRQ_ANA_INT_START + 4)
+#define IRQ_ANA_EIC_INT		(IRQ_ANA_INT_START + 5)
+#define IRQ_ANA_CHGRWDG_INT	(IRQ_ANA_INT_START + 6)
 
-#define NR_BOARD_IRQS		0	/* to be added later */
+/* digital gpio irq numbers */
+#define NR_GPIO_IRQS		160 /* digital gpio irq */
 
-#define NR_IRQS			(NR_SPRD_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS + NR_BOARD_IRQS + NR_EIC_ALL_IRQS)
+#define GPIO_IRQ_START		(NR_SPRD_IRQS + NR_ANA_IRQS)
+
+/* analog gpio+eic irq numbers */
+#define NR_EIC_ALL_IRQS		(16 + 8)
+
+#define EIC_IRQ_START		(NR_SPRD_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
+
+/* total irq numbers */
+#define NR_IRQS			(NR_SPRD_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS + NR_EIC_ALL_IRQS)
 
 #endif
