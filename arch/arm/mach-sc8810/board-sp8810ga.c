@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/platform_device.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -22,9 +23,15 @@
 
 #include <mach/hardware.h>
 
+#include "devices.h"
+
 extern void __init sc8810_map_io(void);
 extern void __init sc8810_init_irq(void);
 extern void __init sc8810_timer_init(void);
+
+static struct platform_device *devices[] __initdata = {
+	&sprd_device_example,
+};
 
 static struct sys_timer sc8810_timer = { 
 	        .init = sc8810_timer_init,
@@ -32,6 +39,7 @@ static struct sys_timer sc8810_timer = {
 
 static void __init sc8810_init_machine(void)
 {
+	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,
