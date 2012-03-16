@@ -53,6 +53,7 @@
 
 JINF_EXIF_INFO_T* g_dc_exif_info_ptr = NULL;
 
+#define INVALID_VALUE				0xff
 #define DCAM_MINOR MISC_DYNAMIC_MINOR
 //#define DCAM_SET_SENSOR_MODE     1
 #define V4L2_OPEN_FOCUS 1
@@ -629,15 +630,33 @@ static int init_sensor_parameters(void *priv)
 		Sensor_SetMode(g_dcam_info.preview_m);
 
 	/* Setting sensor parameters */
-	Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE,              	g_dcam_info.wb_param);
-	Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT,        		g_dcam_info.imageeffect_param);
-	Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE,              	g_dcam_info.previewmode_param);
-	Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,               		g_dcam_info.brightness_param);
-	Sensor_Ioctl(SENSOR_IOCTL_CONTRAST,                 		g_dcam_info.contrast_param);
-	Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,           	g_dcam_info.hflip_param);
-	Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
-	Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
-	Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
+	if(INVALID_VALUE != g_dcam_info.wb_param)
+		Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE,              	g_dcam_info.wb_param);
+	
+	if(INVALID_VALUE != g_dcam_info.imageeffect_param)
+		Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT,        		g_dcam_info.imageeffect_param);
+	
+	if(INVALID_VALUE != g_dcam_info.previewmode_param)
+		Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE,              	g_dcam_info.previewmode_param);
+	
+	if(INVALID_VALUE != g_dcam_info.brightness_param)
+		Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,               		g_dcam_info.brightness_param);
+	
+	if(INVALID_VALUE != g_dcam_info.contrast_param)
+		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST,                 		g_dcam_info.contrast_param);
+	
+	if(INVALID_VALUE != g_dcam_info.hflip_param)
+		Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,           	g_dcam_info.hflip_param);
+	
+	if(INVALID_VALUE != g_dcam_info.vflip_param)
+		Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
+	
+	if(INVALID_VALUE != g_dcam_info.ev_param)
+		Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
+	
+	if(INVALID_VALUE != g_dcam_info.power_freq)
+		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
+	
 #if DCAM_SET_SENSOR_MODE
 	if(1 != dev->streamparm.parm.capture.capturemode) //for preview
 	{
@@ -1896,16 +1915,16 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.preview_m = 0;
 	g_dcam_info.snapshot_m = 0;
 	g_dcam_info.mode = DCAM_MODE_TYPE_IDLE;
-	g_dcam_info.wb_param = 8;
-	g_dcam_info.brightness_param = 8;
-	g_dcam_info.contrast_param = 8;
-	g_dcam_info.saturation_param =8;
-	g_dcam_info.imageeffect_param =8;
+	g_dcam_info.wb_param = INVALID_VALUE;
+	g_dcam_info.brightness_param = INVALID_VALUE;
+	g_dcam_info.contrast_param = INVALID_VALUE;
+	g_dcam_info.saturation_param =INVALID_VALUE;
+	g_dcam_info.imageeffect_param =INVALID_VALUE;
 	g_dcam_info.hflip_param = 0;
 	g_dcam_info.vflip_param = 0;
-	g_dcam_info.previewmode_param = 8;
-	g_dcam_info.ev_param = 8;	
-	g_dcam_info.power_freq = 8;
+	g_dcam_info.previewmode_param = INVALID_VALUE;
+	g_dcam_info.ev_param = INVALID_VALUE;	
+	g_dcam_info.power_freq = INVALID_VALUE;
          g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
 
           //stop timer
@@ -2501,17 +2520,17 @@ static int open(struct file *file)
 
 	g_fh = fh;
 
-	g_dcam_info.wb_param = 8;
-	g_dcam_info.brightness_param = 8;
-	g_dcam_info.contrast_param = 8;
-	g_dcam_info.saturation_param =8;
-	g_dcam_info.imageeffect_param =8;
+	g_dcam_info.wb_param = INVALID_VALUE;
+	g_dcam_info.brightness_param = INVALID_VALUE;
+	g_dcam_info.contrast_param = INVALID_VALUE;
+	g_dcam_info.saturation_param =INVALID_VALUE;
+	g_dcam_info.imageeffect_param =INVALID_VALUE;
 	g_dcam_info.hflip_param = 0;
 	g_dcam_info.vflip_param = 0;
-	g_dcam_info.previewmode_param = 8;
-	g_dcam_info.ev_param = 8;
+	g_dcam_info.previewmode_param = INVALID_VALUE;
+	g_dcam_info.ev_param = INVALID_VALUE;
 	g_dcam_info.focus_param = 0;
-	g_dcam_info.power_freq = 8;
+	g_dcam_info.power_freq = INVALID_VALUE;
 	g_dcam_info.flash_mode = FLASH_CLOSE;
 	g_dcam_info.recording_start = 0;
 	g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
