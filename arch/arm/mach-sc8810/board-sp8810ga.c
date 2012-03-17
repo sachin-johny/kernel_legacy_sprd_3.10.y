@@ -31,6 +31,9 @@ extern void __init sc8810_timer_init(void);
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_device_example,
+	&sprd_serial_device1,
+	&sprd_serial_device2,
+	&sprd_serial_device3,
 };
 
 static struct sys_timer sc8810_timer = { 
