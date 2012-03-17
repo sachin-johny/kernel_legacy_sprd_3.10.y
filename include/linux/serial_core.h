@@ -206,6 +206,9 @@
 /* Xilinx PSS UART */
 #define PORT_XUARTPS	98
 
+/* SPRD UARTs */
+#define PORT_SPRD 99
+
 #ifdef __KERNEL__
 
 #include <linux/compiler.h>

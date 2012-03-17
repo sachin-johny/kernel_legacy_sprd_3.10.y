@@ -13,12 +13,9 @@
 
 #include <mach/hardware.h>
 
-	.macro	addruart,rx, tmp
-	@ see if the MMU is enabled and select appropriate base address
-	mrc	p15, 0, \rx, c1, c0
-	tst	\rx, #1
-	ldreq	\rx, =SPRD_SERIAL1_PHYS
-	ldrne	\rx, =SPRD_SERIAL1_BASE
+	.macro  addruart,rp, rv
+	ldr \rp, =SPRD_SERIAL1_PHYS
+	ldr \rv, =SPRD_SERIAL1_BASE
 	.endm
 
 	.macro	senduart,rd,rx

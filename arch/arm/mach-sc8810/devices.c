@@ -37,3 +37,63 @@ struct platform_device sprd_device_example = {
 	.num_resources	= ARRAY_SIZE(resources_example),
 	.resource	= resources_example,
 };
+
+static struct resource sprd_serial_resources1[] = {
+	[0] = {
+		.start = SPRD_SERIAL0_BASE,
+		.end = SPRD_SERIAL0_BASE + SPRD_SERIAL0_SIZE-1,
+		.name = "serial_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_SER0_INT,
+		.end = IRQ_SER0_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+struct platform_device sprd_serial_device1 = {
+	.name           = "serial_sprd",
+	.id             =  0,
+	.num_resources  = ARRAY_SIZE(sprd_serial_resources1),
+	.resource       = sprd_serial_resources1,
+};
+
+static struct resource sprd_serial_resources2[] = {
+	[0] = {
+		.start = SPRD_SERIAL1_BASE,
+		.end = SPRD_SERIAL1_BASE + SPRD_SERIAL1_SIZE-1,
+		.name = "serial_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_SER1_INT,
+		.end = IRQ_SER1_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+struct platform_device sprd_serial_device2 = {
+	.name           = "serial_sprd",
+	.id             =  1,
+	.num_resources  = ARRAY_SIZE(sprd_serial_resources2),
+	.resource       = sprd_serial_resources2,
+};
+
+static struct resource sprd_serial_resources3[] = {
+	[0] = {
+		.start = SPRD_SERIAL2_BASE,
+		.end = SPRD_SERIAL2_BASE + SPRD_SERIAL2_SIZE-1,
+		.name = "serial_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_SER2_INT,
+		.end = IRQ_SER2_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_serial_device3 = {
+	.name           = "serial_sprd",
+	.id             =  2,
+	.num_resources  = ARRAY_SIZE(sprd_serial_resources3),
+	.resource       = sprd_serial_resources3,
+};
