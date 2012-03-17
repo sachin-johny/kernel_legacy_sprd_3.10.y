@@ -1432,8 +1432,14 @@ int sc8810_setup_pd_automode(void)
 	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);
 	__raw_writel(0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
 	__raw_writel(0x03000920/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
-	__raw_writel(0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
-	__raw_writel(0x07000f20|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
+	if (__raw_readl(CHIP_ID) == CHIP_ID_VER_0) {//original version
+		__raw_writel(0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+		__raw_writel(0x07000f20|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
+	}
+	else {
+		__raw_writel(0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+		__raw_writel(0x07000a20|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
+	}
 //	__raw_writel((0x07<<29)|(30<<21)|(30<<13)|(60<<3), GR_GEN4);	//xtl pll wait
 }
 
