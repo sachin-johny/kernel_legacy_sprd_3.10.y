@@ -41,7 +41,7 @@
 #define AHB_ENDIAN_EN           (AHB_REG_BASE + 0x90)
 #define USB_PHY_CTRL            (AHB_REG_BASE + 0xA0)
 
-#define CHIP_ID                 (AHB_REG_BASE + 0x3FC)
+#define CHIP_ID                 (AHB_REG_BASE + 0x1FC)
 
 #define AHB_DSP_BOOT_EN             (AHB_REG_BASE + 0x84)
 #define AHB_DSP_BOOT_VECTOR         (AHB_REG_BASE + 0x88)
