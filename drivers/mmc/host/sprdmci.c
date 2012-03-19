@@ -61,9 +61,12 @@ static unsigned int sdio_wakeup_irq;
 #define DBG(f, x...) \
 	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
 
+//no led used in our host
+#if 0
 #if defined(CONFIG_LEDS_CLASS) || (defined(CONFIG_LEDS_CLASS_MODULE) && \
 	defined(CONFIG_MMC_SDHCI_MODULE))
 #define SDHCI_USE_LEDS_CLASS
+#endif
 #endif
 
 #ifdef SDHCI_BUS_SCAN
@@ -1149,7 +1152,11 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		mdelay(1);
 	}
 
-	mod_timer(&host->timer, jiffies + 10 * HZ);
+        if(host->suspending){
+	   mod_timer(&host->timer, jiffies + 2*HZ/10); 
+        }else{
+	   mod_timer(&host->timer, jiffies + 10 * HZ);
+	}
 
 	host->cmd = cmd;
 
@@ -1396,7 +1403,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	WARN_ON(host->mrq != NULL);
 
-#ifndef SDHCI_USE_LEDS_CLASS
+#ifdef SDHCI_USE_LEDS_CLASS
 	sdhci_activate_led(host);
 #endif
 
@@ -1665,7 +1672,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	host->cmd = NULL;
 	host->data = NULL;
 
-#ifndef SDHCI_USE_LEDS_CLASS
+#ifdef SDHCI_USE_LEDS_CLASS
 	sdhci_deactivate_led(host);
 #endif
 
@@ -1688,6 +1695,7 @@ static void sdhci_timeout_timer(unsigned long data)
 	spin_lock_irqsave(&host->lock, flags);
 //	if(host->mmc->card)
 //           host->mmc->card->removed = 1;//from msm
+        printk("!!!! %s: %s timeout !!!!\n", mmc_hostname(host->mmc), host->suspending?"supsend":"command");
 	if (host->mrq) {
 		printk(KERN_ERR "%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
@@ -1771,7 +1779,8 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (host->cmd->error) {
 	        if(host->mmc->card){
-		  printk("%s: !!!!! error in sending cmd:%d, err:%d \n", mmc_hostname(host->mmc), host->cmd->opcode, host->cmd->error);
+		  printk("%s: !!!!! error in sending cmd:%d, int:0x%x, err:%d \n", 
+		  	     mmc_hostname(host->mmc), host->cmd->opcode, intmask, host->cmd->error);
 		  //sdhci_dumpregs(host);
 		}
 		tasklet_schedule(&host->finish_tasklet);
@@ -1867,8 +1876,11 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		host->data->error = -EIO;
 	}
 
-	if (host->data->error)
+	if (host->data->error){
+		printk("%s: !!!!! error in sending data, int:0x%x, err:%d \n", 
+			   mmc_hostname(host->mmc), intmask, host->cmd->error);
 		sdhci_finish_data(host);
+	}
 	else {
 		if (intmask & (SDHCI_INT_DATA_AVAIL | SDHCI_INT_SPACE_AVAIL))
 			sdhci_transfer_pio(host);
@@ -2015,6 +2027,7 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 //#ifdef CONFIG_MMC_DEBUG    
 	sdhci_dumpregs(host);
 //#endif
+        host->suspending = 1;//avoid dpm timeout
 /*
     if(!mmc_bus_needs_resume(host->mmc)){
         if(!sdhci_readw(host, SDHCI_CLOCK_CONTROL)){
@@ -2068,7 +2081,7 @@ int sdhci_resume_host(struct sdhci_host *host)
 {
     printk("%s sdhci_resume_host, start\n", mmc_hostname(host->mmc)); 
 	int ret;
-
+    host->suspending = 0;//clear indicator
 #ifdef MMC_RESTORE_REGS
 
 #ifdef CONFIG_MMC_DEBUG    
@@ -2450,6 +2463,7 @@ int sdhci_add_host(struct sdhci_host *host)
 #ifdef SDHCI_BUS_SCAN
     sdhci_host_g = host;
 #endif
+        host->suspending = 0;//avoid dpm timeout
 	return 0;
 
 #ifdef SDHCI_USE_LEDS_CLASS

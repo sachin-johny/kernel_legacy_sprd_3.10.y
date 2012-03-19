@@ -294,6 +294,7 @@ struct sdhci_host {
 
 	struct timer_list	timer;		/* Timer for timeouts */
 	struct timer_list	auto_suspend_timer;		/* Timer for auto suspend */
+	unsigned int            suspending;     /* suspend indicator*/
 
 
 	unsigned long		private[0] ____cacheline_aligned;

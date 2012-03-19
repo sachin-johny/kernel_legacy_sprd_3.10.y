@@ -120,10 +120,11 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
    pr_debug("%s, set ahb clk:%u\n", __func__, clock);
    if(clock == 0){
       if(!strcmp(host->hw_name, "Spread SDIO host0")){
+          printk("SDIO0: %s, set ahb clk:%u\n", __func__, clock);
          val &= ~AHB_CTL0_SDIO0_EN;
          __raw_writel(val, AHB_CTL0);
       }else if(!strcmp(host->hw_name, "Spread SDIO host1")){
-          pr_debug("SDIO1: %s, set ahb clk:%u\n", __func__, clock);
+          printk("SDIO1: %s, set ahb clk:%u\n", __func__, clock);
 	  val &= ~AHB_CTL0_SDIO1_EN;
           __raw_writel(val, AHB_CTL0);
 	  host->clock = 0;
