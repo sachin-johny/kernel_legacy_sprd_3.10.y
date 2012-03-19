@@ -1772,7 +1772,7 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 	if (host->cmd->error) {
 	        if(host->mmc->card){
 		  printk("%s: !!!!! error in sending cmd:%d, err:%d \n", mmc_hostname(host->mmc), host->cmd->opcode, host->cmd->error);
-		  sdhci_dumpregs(host);
+		  //sdhci_dumpregs(host);
 		}
 		tasklet_schedule(&host->finish_tasklet);
 		return;

@@ -16,9 +16,6 @@
 #include <linux/slab.h>
 
 #include <linux/mmc/card.h>
-#include <linux/mmc/host.h>
-#include <linux/mmc/mmc.h>
-#include <linux/mmc/sdio.h>
 #include <linux/mmc/sdio_func.h>
 
 #include "sdio_cis.h"
@@ -127,7 +124,6 @@ static int sdio_bus_probe(struct device *dev)
 	struct sdio_func *func = dev_to_sdio_func(dev);
 	const struct sdio_device_id *id;
 	int ret;
-	int count=5;
 
 	id = sdio_match_device(func, drv);
 	if (!id)
@@ -135,20 +131,11 @@ static int sdio_bus_probe(struct device *dev)
 
 	/* Set the default block size so the driver is sure it's something
 	 * sensible. */
-RETRY:
 	sdio_claim_host(func);
-	mmc_power_restore_host(func->card->host);
 	ret = sdio_set_block_size(func, 0);
 	sdio_release_host(func);
-	if (ret){
-		printk("********************sdio_set_block_size error\n");
-		mmc_power_restore_host(func->card->host);
-		if(count>0){
-			count--;
-			goto RETRY;
-		}
+	if (ret)
 		return ret;
-	}
 
 	return drv->probe(func, id);
 }
