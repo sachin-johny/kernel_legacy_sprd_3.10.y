@@ -21,8 +21,7 @@
 #include <asm/mach/time.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
-
-#define GREG_GEN0	(SPRD_GREG_BASE + 0x0008)
+#include <mach/globalregs.h>
 
 /* timer0/1 is trigged by RTC, 32KHZ */
 #define GPTIMER_FREQ	32768
@@ -248,9 +247,7 @@ void __init sc8810_timer_init(void)
 	unsigned int value;
 
 	/* enable timer & syscnt in global regs */
-	value = __raw_readl(GREG_GEN0);
-	value |= (1 << 2) | (1 << 19);
-	__raw_writel(value, GREG_GEN0);
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_TIMER_EN | GEN0_SYST_EN, GR_GEN0);
 
 	/* setup timer2 and syscnt as clocksource */
 	sprd_gptimer_clocksource_init();
