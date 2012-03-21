@@ -271,7 +271,7 @@ static int sc8810_i2c_doxfer(struct sc8810_i2c *i2c, struct i2c_msg *msgs, int n
 #define INTCV_INT_RAW     INTCV_REG(0x0004)
 #define INTCV_INT_EN      INTCV_REG(0x0008)	/* 1: enable, 0: disable */		
 		printk("I2C:timeout!!!!!!!!!!!!!!!!!!!!!!!!!!!!, i2c msg num = %d, i2c state =%d, debug_msg_num = %d \n", i2c->msg_num, i2c->state,num);       		
-		printk("msg_ptr = %d, msg len = %d, msg_idx = %d\n", i2c->msg_ptr, i2c->msg->len, i2c->msg_idx);
+		printk("msg_ptr = %d, msg_idx = %d\n", i2c->msg_ptr, i2c->msg_idx);
 		printk("i2c intraw =0x%x, intMak =0x%x, intenable =0x%x,i2c_trl =0x%x, i2c_cmd=0x%x\n", __raw_readl(INTCV_INT_RAW), __raw_readl(INTCV_IRQ_STS),__raw_readl(INTCV_IRQ_STS + 0x8), __raw_readl(i2c->membase+I2C_CTL), __raw_readl(i2c->membase+I2C_CMD));
 		sc8810_i2c_disable_irq(i2c);
 		sc8810_clr_irq(i2c);
@@ -349,7 +349,7 @@ static inline void sc8810_i2c_stop(struct sc8810_i2c *i2c, int ret)
 {
 	unsigned int cmd;
 
-	//printk("I2C:sc8810_i2c_stop!\n");
+	printk("I2C:sc8810_i2c_stop!\n");
 
 	/* stop the transfer */
 	cmd= I2C_CMD_STOP | I2C_CMD_WRITE;
