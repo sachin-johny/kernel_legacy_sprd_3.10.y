@@ -17,6 +17,8 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/card.h>//wong
+
 #include <linux/gpio.h>
 
 #include <mach/regs_global.h>
@@ -279,16 +281,28 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
 
-        if(host->ops->set_clock){
+    if(host->ops->set_clock){
 	    host->ops->set_clock(host, 1); //enable ahb clock to restore registers
 	}
-        //if(!strcmp(host->hw_name, "Spread SDIO host1")){
-	//    host->mmc->pm_flags &= ~MMC_PM_KEEP_POWER; 
-	//}
+        /*   VDD_SDIO must not be off when in deep-sleep, because of 
+        *  host-wake-up.(correct?)
+	    *    modification below is for CSR. CSR's chips need whole initialization  
+	    *  even if the power is not off.So we clear MMC_PM_KEEP_POWER flag. before 
+	    *  resume, and set it again after resume, or resume will 
+	    *  failed. Other wifi manufacturers may not need this.
+	    *    0x032a is vendor id of CSR. 
+	    */
+	if((host->mmc->card) && (host->mmc->card->cis.vendor ==  0x032a) ){
+        printk("wifi: clear MMC_PM_KEEP_POWER flag\n");
+		host->mmc->pm_flags &= ~MMC_PM_KEEP_POWER; 
+	}
+	
 	sdhci_resume_host(host);
-	//if(!strcmp(host->hw_name, "Spread SDIO host1")){
-        //    host->mmc->pm_flags |= MMC_PM_KEEP_POWER; 
-	//}
+	
+	if((host->mmc->card) && (host->mmc->card->cis.vendor ==  0x032a) ){		
+        printk("wifi: set MMC_PM_KEEP_POWER flag\n");
+        host->mmc->pm_flags |= MMC_PM_KEEP_POWER; 
+	}
 #if 0	
 	if( !(host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
             if(host->ops->set_clock){

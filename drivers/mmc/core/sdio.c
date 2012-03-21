@@ -275,7 +275,15 @@ static int mmc_sdio_init_card(struct mmc_host *host, u32 ocr,
 	 * Inform the card of the voltage
 	 */
 	if (!powered_resume) {
-	    mmc_go_idle(host);
+        /*
+	    *    modification for CSR. cmd0 must to be send before cmd5, 
+	    * or the initialization will failed. Other wifi manufacturers
+	    * may not depend on cmd0 here.
+	    *    0x032a is the vendor id of CSR. 
+	    */
+		if(oldcard && (oldcard->cis.vendor ==  0x032a)){
+	       mmc_go_idle(host);
+ 	    }
 		err = mmc_send_io_op_cond(host, host->ocr, &ocr);
 		if (err)
 			goto err;
