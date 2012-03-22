@@ -889,7 +889,7 @@ config ARCH_SC8810
 	select NEON
 	select GENERIC_TIME
 	select GENERIC_CLOCKEVENTS
-	select HAVE_CLK
+	select CLKDEV_LOOKUP
 	select ARCH_REQUIRE_GPIOLIB
 	select ARCH_HAS_CPUFREQ
 	help
