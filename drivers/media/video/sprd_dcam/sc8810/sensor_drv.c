@@ -325,7 +325,7 @@ PUBLIC void Sensor_Reset(uint32_t level)
 		//gpio_set_value(72, !level);
 		//msleep(20);
 		gpio_set_value(72,level);
-		msleep(20);
+		msleep(40);
 		gpio_set_value(72,!level);		
 	         msleep(20);
 		gpio_free(72);
