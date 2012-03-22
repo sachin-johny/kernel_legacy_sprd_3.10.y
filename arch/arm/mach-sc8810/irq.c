@@ -150,7 +150,6 @@ static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 void __init sc8810_init_irq(void)
 {
 	int n;
-
 	for (n = 0; n < NR_SPRD_IRQS; n++) {
 		irq_set_chip_and_handler(n, &sprd_irq_chip, handle_level_irq);
 		set_irq_flags(n, IRQF_VALID);
