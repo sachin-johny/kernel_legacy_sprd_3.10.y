@@ -1470,6 +1470,7 @@ static int v4l2_sensor_init(uint32_t sensor_id)
 		if(0 == s_dcam_err_info.is_wakeup_thread)
 		{
 			wake_up_process(s_dcam_thread);
+			s_dcam_err_info.is_stop = 0;
 			s_dcam_err_info.is_wakeup_thread = 1;
 			down_interruptible(&s_dcam_err_info.dcam_thread_wakeup_sem);
 			printk("v4l2:wake up dcam thread!.\n");
@@ -2538,7 +2539,7 @@ static int open(struct file *file)
 	//open dcam
 	if(0 != dcam_open())
 		return 1;
-	s_dcam_err_info.is_stop = 0;
+	s_dcam_err_info.is_stop =DCAM_THREAD_END_FLAG;
 	dcam_create_thread();
 	dcam_init_timer(&s_dcam_err_info.dcam_timer);
 	
