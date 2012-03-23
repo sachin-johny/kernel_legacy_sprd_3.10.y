@@ -23,5 +23,7 @@ extern struct platform_device sprd_nand_device;
 extern struct platform_device sprd_lcd_device;
 extern struct platform_device sprd_otg_device;
 extern struct platform_device sprd_backlight_device;
-
+extern struct platform_device sprd_i2c_device0;
+extern struct platform_device sprd_i2c_device1;
+extern struct platform_device sprd_i2c_device2;
 #endif

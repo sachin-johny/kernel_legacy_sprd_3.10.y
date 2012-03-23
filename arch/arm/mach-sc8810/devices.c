@@ -177,3 +177,86 @@ struct platform_device sprd_backlight_device = {
 	.name           = "sprd_backlight",
 	.id             =  -1,
 };
+
+static struct resource sprd_i2c_resources0[] = {
+	[0] = {
+		.start = SPRD_I2C0_BASE,
+		.end   = SPRD_I2C0_BASE + SPRD_I2C0_SIZE -1,
+		.name  = "i2c0_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_I2C0_INT,
+		.end   = IRQ_I2C0_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_i2c_device0 = {
+	.name           = "sc8810-i2c",
+	.id             =  0,
+	.num_resources  = ARRAY_SIZE(sprd_i2c_resources0),
+	.resource       = sprd_i2c_resources0,
+};
+
+
+static struct resource sprd_i2c_resources1[] = {
+	[0] = {
+		.start = SPRD_I2C1_BASE,
+		.end   = SPRD_I2C1_BASE + SPRD_I2C1_SIZE -1,
+		.name  = "i2c1_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_I2C1_INT,
+		.end   = IRQ_I2C1_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_i2c_device1 = {
+	.name           = "sc8810-i2c",
+	.id             =  1,
+	.num_resources  = ARRAY_SIZE(sprd_i2c_resources1),
+	.resource       = sprd_i2c_resources1,
+};
+
+
+static struct resource sprd_i2c_resources2[] = {
+	[0] = {
+		.start = SPRD_I2C2_BASE,
+		.end   = SPRD_I2C2_BASE + SPRD_I2C2_SIZE -1,
+		.name  = "i2c2_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_I2C2_INT,
+		.end   = IRQ_I2C2_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_i2c_device2 = {
+	.name           = "sc8810-i2c",
+	.id             =  2,
+	.num_resources  = ARRAY_SIZE(sprd_i2c_resources2),
+	.resource       = sprd_i2c_resources2,
+};
+
+
+static struct resource sprd_i2c_resources3[] = {
+	[0] = {
+		.start = SPRD_I2C3_BASE,
+		.end   = SPRD_I2C3_BASE + SPRD_I2C3_SIZE -1,
+		.name  = "i2c3_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_I2C3_INT,
+		.end   = IRQ_I2C3_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_i2c_device3 = {
+	.name           = "sc8810-i2c",
+	.id             =  3,
+	.num_resources  = ARRAY_SIZE(sprd_i2c_resources3),
+	.resource       = sprd_i2c_resources3,
+};

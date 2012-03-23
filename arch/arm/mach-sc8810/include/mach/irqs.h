@@ -51,9 +51,9 @@
 #define IRQ_PIU_SER_INT		13
 
 #define IRQ_PIU_CR_INT		14
-#define IRQ_I2C2		14
+#define IRQ_I2C2_INT		14
+#define IRQ_I2C3_INT		14
 
-#define IRQ_I2C3		14
 #define IRQ_DSP0_INT		15
 #define IRQ_DSP1_INT		16
 #define IRQ_SYST_INT		17
