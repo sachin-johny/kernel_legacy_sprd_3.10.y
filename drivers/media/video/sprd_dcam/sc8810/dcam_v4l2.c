@@ -657,7 +657,7 @@ static int init_sensor_parameters(void *priv)
 	if(INVALID_VALUE != g_dcam_info.power_freq)
 		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
 	
-#if DCAM_SET_SENSOR_MODE
+#ifdef DCAM_SET_SENSOR_MODE
 	if(1 != dev->streamparm.parm.capture.capturemode) //for preview
 	{
 		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
@@ -1093,7 +1093,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 
 	switch(ctrl->id)
 	{
-#if DCAM_SET_SENSOR_MODE
+#ifdef DCAM_SET_SENSOR_MODE
 		case V4L2_CID_BLACK_LEVEL:
 			if(g_dcam_info.sensor_work_mode == (uint8_t)ctrl->value)
 			{
@@ -1577,18 +1577,21 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		g_is_first_frame = 0;
 		DCAM_V4L2_PRINT("V4L2: g_first_buf_addr: %x.\n", g_first_buf_addr);
 	}
-	DCAM_V4L2_PRINT("V4L2: vidioc_qbuf: v4l2_buff : addr: 0x%x,uaddr:0x%x.\n", p->m.userptr,p->reserved);
+	DCAM_V4L2_PRINT("V4L2: vidioc_qbuf: v4l2_buff : addr: 0x%08x,uaddr:0x%x.\n", p->m.userptr,p->reserved);
 	return (videobuf_qbuf(&fh->vb_vidq, p)); 
 }
 
 static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh  *fh = priv;
+	int retun_val = 0;
 
-	DCAM_V4L2_PRINT("V4L2: vidioc_dqbuf: v4l2_buff: addr: 0x%x, file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n",
+	retun_val = (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));
+
+	DCAM_V4L2_PRINT("V4L2: vidioc_dqbuf: v4l2_buff: addr: 0x%08x, file->f_flags: %x,  O_NONBLOCK: %x, g_dcam_info.mode: %d.\n",
 		                              p->m.userptr, file->f_flags, O_NONBLOCK, g_dcam_info.mode);
 	
-	return (videobuf_dqbuf(&fh->vb_vidq, p, file->f_flags & O_NONBLOCK));	
+	return retun_val;	
 }
 
 static int vidioc_g_output(struct file *file, void *priv, unsigned int *i)
@@ -2015,7 +2018,7 @@ static void set_next_buffer(struct dcam_fh *fh)
 		g_last_buf = buf->vb.baddr;		
 		g_last_uv_buf = buf->vb.privsize;
 		dcam_set_buffer_address(buf->vb.baddr,buf->vb.privsize);
-		DCAM_V4L2_PRINT("#### V4L2: v4l2_buff: set_next_buffer addr = 0x%x \n", buf->vb.baddr);
+		DCAM_V4L2_PRINT("#### V4L2: v4l2_buff: set_next_buffer addr = 0x%08x \n", buf->vb.baddr);
 	}
 	else
 	{
