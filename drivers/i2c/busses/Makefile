@@ -65,7 +65,8 @@ obj-$(CONFIG_I2C_TEGRA)		+= i2c-tegra.o
 obj-$(CONFIG_I2C_VERSATILE)	+= i2c-versatile.o
 obj-$(CONFIG_I2C_OCTEON)	+= i2c-octeon.o
 obj-$(CONFIG_I2C_XILINX)	+= i2c-xiic.o
-obj-$(CONFIG_I2C_EG20T)         += i2c-eg20t.o
+obj-$(CONFIG_I2C_EG20T)		+= i2c-eg20t.o
+obj-$(CONFIG_I2C_SC8810)	+= i2c-sc8810.o
 
 # External I2C/SMBus adapter drivers
 obj-$(CONFIG_I2C_DIOLAN_U2C)	+= i2c-diolan-u2c.o
