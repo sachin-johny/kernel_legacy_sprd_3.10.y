@@ -259,11 +259,14 @@ LOCAL void _DC_SetExifSpecificParameter(void)
 LOCAL void _DC_SetExifGpsParameter(void)
 {
     JINF_EXIF_INFO_T* dc_exif_info_ptr=(JINF_EXIF_INFO_T* )s_dc_exif_info_ptr;
-#if 1
+
     EXIF_GPS_INFO_T* dc_gps_info_ptr=s_dc_gps_info_ptr;
     if(NULL == dc_gps_info_ptr)
 		return;
 
+    //memset(&s_dc_gps_info_ptr, 0, sizeof(EXIF_GPS_INFO_T)); // already set to 0 when DC_InitExifParameter
+
+#if 0
     *(uint32*)&dc_gps_info_ptr->valid = (uint32)0x7F;
 
     dc_gps_info_ptr->GPSVersionID[0] = 2;
