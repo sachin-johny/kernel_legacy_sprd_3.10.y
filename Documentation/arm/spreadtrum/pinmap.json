@@ -1,0 +1,8 @@
+{"maps" : [
+	{"name" : "pin", "items" : [
+		{"offset" : "0x0008", "value" : "0x000"},
+		{"offset" : "0x00d0", "value" : "0x114"},
+		{"offset" : "0x00d0", "value" : "0x228"},
+		{"offset" : "0x00d8", "value" : "0x338"}
+	]}
+]}
