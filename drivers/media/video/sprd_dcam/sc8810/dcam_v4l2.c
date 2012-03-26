@@ -2206,6 +2206,8 @@ static int buffer_setup(struct videobuf_queue *vq, unsigned int *count, unsigned
 		*size = fh->width*fh->height*4;
 	else if(V4L2_PIX_FMT_RGB565X == fh->fmt->fourcc)
 		*size = fh->width*fh->height*2;
+        else if(V4L2_PIX_FMT_JPEG == fh->fmt->fourcc)
+		*size = fh->width*fh->height/4;            
 	else 
 		*size = fh->width*fh->height * 3 / 2;	
 
@@ -2259,7 +2261,9 @@ static int buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 		buf->vb.size = fh->width*fh->height*4;
 	else if(V4L2_PIX_FMT_RGB565X == fh->fmt->fourcc)
 		buf->vb.size = fh->width*fh->height*2;
-	else 
+        else if(V4L2_PIX_FMT_JPEG == fh->fmt->fourcc )
+		buf->vb.size = fh->width*fh->height/4;            
+	else  
 		buf->vb.size = fh->width*fh->height * 3 / 2;	
 	if (0 != buf->vb.baddr  &&  buf->vb.bsize < buf->vb.size)
 		return -EINVAL;
