@@ -1829,6 +1829,8 @@ CONFIG_RTC_INTF_ALARM_DEV=y
 #
 # on-CPU RTC drivers
 #
+CONFIG_RTC_DRV_SPRD=y
+CONFIG_RTC_START_FROM_2012=y
 # CONFIG_DMADEVICES is not set
 # CONFIG_AUXDISPLAY is not set
 # CONFIG_UIO is not set
@@ -1875,6 +1877,7 @@ CONFIG_MACH_NO_WESTBRIDGE=y
 # Altera FPGA firmware download module
 #
 # CONFIG_ALTERA_STAPL is not set
+CONFIG_CLKDEV_LOOKUP=y
 
 #
 # File systems

@@ -97,3 +97,18 @@ struct platform_device sprd_serial_device3 = {
 	.num_resources  = ARRAY_SIZE(sprd_serial_resources3),
 	.resource       = sprd_serial_resources3,
 };
+
+static struct resource resources_rtc[] = {
+	[0] = {
+		.start	= IRQ_ANA_RTC_INT,
+		.end	= IRQ_ANA_RTC_INT,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+struct platform_device sprd_device_rtc= {
+	.name	= "sprd_rtc",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(resources_rtc),
+	.resource	= resources_rtc,
+};
