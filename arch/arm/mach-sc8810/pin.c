@@ -27,13 +27,13 @@ typedef struct {
 } pinmap_t;
 
 pinmap_t __initconst pinmap[] = {
-//#include "__pinmap.c"
+#include "__pinmap.c"
 };
 
 static int __init pin_init(void)
 {
 	int i;
-	for (i = 0; i < sizeof(pinmap) / sizeof(pinmap_t); i++) {
+	for (i = 0; i < ARRAY_SIZE(pinmap); i++) {
 		SCI_D(pinmap[i].reg) = pinmap[i].val;
 	}
 	return 0;
