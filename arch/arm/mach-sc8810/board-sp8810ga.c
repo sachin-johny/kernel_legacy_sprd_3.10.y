@@ -28,6 +28,7 @@
 extern void __init sc8810_map_io(void);
 extern void __init sc8810_init_irq(void);
 extern void __init sc8810_timer_init(void);
+extern void __init regulator_add_devices(void);
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_device_example,
@@ -36,12 +37,13 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device3,
 };
 
-static struct sys_timer sc8810_timer = { 
+static struct sys_timer sc8810_timer = {
 	        .init = sc8810_timer_init,
 };
 
 static void __init sc8810_init_machine(void)
 {
+	regulator_add_devices();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 
@@ -55,5 +57,5 @@ MACHINE_START(SC8810OPENPHONE, "SP8810")
 	.init_irq	= sc8810_init_irq,
 	.timer		= &sc8810_timer,
 	.init_machine	= sc8810_init_machine,
-	.fixup		= sc8810_fixup, 
+	.fixup		= sc8810_fixup,
 MACHINE_END
