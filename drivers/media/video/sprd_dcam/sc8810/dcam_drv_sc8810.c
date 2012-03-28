@@ -312,6 +312,7 @@ static void _ISP_DriverISRRoot(uint32_t base_addr)
 	irq_line = ISP_IRQ_LINE_MASK & _ISP_DriverReadIrqLine(base_addr);
 
 	irq_status = irq_line;
+#if 0	
 	for(i = 0; i < ISP_IRQ_NUMBER; i++)
 	{
 		if(irq_line & 1)
@@ -322,6 +323,18 @@ static void _ISP_DriverISRRoot(uint32_t base_addr)
 		if(!irq_line)
 		   	 break;
 	}
+#else
+	for(i = ISP_IRQ_NUMBER - 1; i >= 0; i--)
+        {
+            if(irq_line & (1 << (uint32_t)i))
+            {
+                s_isp_isr_list[i](base_addr);
+            }
+            irq_line &= ~(uint32_t)(1 << (uint32_t)i); //clear the interrupt flag
+            if(!irq_line) //no interrupt source leaved
+                break;
+        }
+#endif
 	_ISP_DriverIrqClear(base_addr,irq_status);	
 }
 
@@ -503,9 +516,16 @@ static void _ISP_DriverAutoCopy(uint32_t base_addr)
 {
 	ISP_REG_T *p_isp_reg = (ISP_REG_T*)base_addr;
 
-	p_isp_reg->dcam_path_cfg_u.mBits.frc_copy_cap = 1;
 	p_isp_reg->dcam_path_cfg_u.mBits.auto_copy_cap = 1;
+}
 
+static void _ISP_DriverForeCopy(uint32_t base_addr)
+{
+	ISP_REG_T *p_isp_reg = (ISP_REG_T*)base_addr;
+
+	p_isp_reg->dcam_path_cfg_u.mBits.frc_copy_cap = 1;
+	p_isp_reg->dcam_path_cfg_u.mBits.frc_copy_cap = 1;
+	p_isp_reg->dcam_path_cfg_u.mBits.frc_copy_cap = 0;
 }
 
 static int32_t _ISP_DriverPath1TrimAndScaling(uint32_t base_addr)
@@ -987,7 +1007,7 @@ int32_t ISP_DriverStart(uint32_t base_addr)
 #ifdef DCAM_DRV_DEBUG
 	_ISP_GetReg();	
 #endif
-	_ISP_DriverAutoCopy(base_addr);	
+	_ISP_DriverForeCopy(base_addr);	
 
 	p_isp_reg->dcam_path_cfg_u.mBits.cap_eb = 1;
 	DCAM_DRV_TRACE("DCAM DRV: start:DCAM_PATH_CFG: %x.\n", _pard(DCAM_PATH_CFG));

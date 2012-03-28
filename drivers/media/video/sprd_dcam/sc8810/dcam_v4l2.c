@@ -1118,8 +1118,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
 				dcam_set_first_buf_addr(g_last_buf,g_last_uv_buf);
 				Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
-				dcam_start();
-				dcam_start_timer(&s_dcam_err_info.dcam_timer, s_dcam_err_info.timeout_val);
+				dcam_start_handle(1);
 			}
 			printk("v4l2:g_dcam_info.sensor_work_mode = %d.\n",g_dcam_info.sensor_work_mode);	
 			break;	
@@ -1202,8 +1201,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				dcam_stop();			
 				s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
 				dcam_set_first_buf_addr(g_last_buf,g_last_uv_buf);
-				dcam_start();
-				dcam_start_timer(&s_dcam_err_info.dcam_timer, s_dcam_err_info.timeout_val);
+				dcam_start_handle(1);
 			}
 			DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
 			break;	
@@ -2132,13 +2130,22 @@ unlock:
 	return;
 }   
 
-void dcam_cb_ISRSensorSOF(void)
+void dcam_cb_ISRCapSOF(void)
 {	
-	printk("dcam_cb_ISRSensorSOF\n");
+	dcam_disableint();	
+//	printk("cap_sof.\n");
+	if(g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1)
+	{
+		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
+		g_dcam_info.v4l2_buf_ctrl_path_done_flag= 1;
+	}
+	set_next_buffer(g_fh);
+	dcam_enableint();
 }
 void dcam_cb_ISRCapEOF(void)
 {	
 	dcam_disableint();
+//	printk("cap_eof.\n");
 	if(g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1)
 	{
 		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
@@ -2149,7 +2156,7 @@ void dcam_cb_ISRCapEOF(void)
 }
 void dcam_cb_ISRPath1Done(void)
 {	
-	dcam_disableint();
+	dcam_disableint();	
   	dcam_get_jpg_len(&g_dcam_info.jpg_len);
 	
 	if(g_dcam_info.v4l2_buf_ctrl_path_done_flag==1)
@@ -2381,8 +2388,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 					Sensor_SetTiming(g_dcam_info.snapshot_m);
 				}
 				info_ptr->work_status = DCAM_RESTART;						
-				dcam_start();				
-				dcam_start_timer(&info_ptr->dcam_timer,info_ptr->timeout_val);				
+				dcam_start_handle(1);		
 				info_ptr->restart_cnt++;
 				break;		
 			case DCAM_WORK_STATUS_MAX:
@@ -2551,8 +2557,9 @@ static int open(struct file *file)
 	dcam_init_timer(&s_dcam_err_info.dcam_timer);
 	
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");
-//	dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
-	dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
+	//dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
+	dcam_callback_fun_register(DCAM_CB_CAP_SOF ,dcam_cb_ISRCapSOF);
+	//dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
 	dcam_callback_fun_register(DCAM_CB_PATH1_DONE,dcam_cb_ISRPath1Done);
 	//dcam_callback_fun_register(DCAM_CB_PATH2_DONE,dcam_cb_ISRPath2Done);
 	dcam_callback_fun_register(DCAM_CB_CAP_FIFO_OF,dcam_cb_ISRCapFifoOF);	

@@ -351,6 +351,14 @@ static void _ISP_ServiceOnSensorEOF(void *p)
 	printk("_ISP_ServiceOnSensorEOF\n");
 }
 
+
+static void _ISP_ServiceOnCAPSOF(void *p)
+{
+	CALLBACK_FUNC_PTR cb_fun = g_dcam_cb[DCAM_CB_CAP_SOF];
+	if(cb_fun)
+		(*cb_fun)();
+}
+
 static void _ISP_ServiceOnCAPEOF(void *p)
 {
 	CALLBACK_FUNC_PTR cb_fun = g_dcam_cb[DCAM_CB_CAP_EOF];
@@ -375,11 +383,6 @@ static void _ISP_ServiceOnPath2(void *p)
 #ifdef DCAM_DEBUG    
 //	get_dcam_reg();
 #endif
-}
-
-static void _ISP_ServiceOnCAPSOF(void *p)
-{
-	DCAM_TRACE("_ISP_ServiceOnCAPSOF\n");
 }
 
 static void _ISP_ServiceOnCAPBufOF(void *p)
@@ -618,6 +621,11 @@ int32_t  _ISP_ServiceStartPreview(void)
 		                                               ISP_IRQ_NOTICE_CAP_EOF,
 		                                               _ISP_ServiceOnCAPEOF);
 	ISP_RTN_IF_ERR(rtn_drv);		
+
+	rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+		                                               ISP_IRQ_NOTICE_CAP_SOF,
+		                                               _ISP_ServiceOnCAPSOF);
+	ISP_RTN_IF_ERR(rtn_drv);	
 
 	rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
                                            ISP_IRQ_NOTICE_CAP_FIFO_OF,
@@ -1392,7 +1400,6 @@ void dcam_reset_sensor(uint32_t value)
 
 void dcam_set_first_buf_addr(uint32_t y_addr,uint32_t uv_addr)
 {
-	printk("wjp dcam_set_first_buf_addr.\n");
 	g_dcam_param.first_buf_addr = y_addr;
 	g_dcam_param.first_buf_uv_addr = uv_addr;
 	g_dcam_param.no_skip_frame_flag = 1;
