@@ -2136,38 +2136,30 @@ void dcam_cb_ISRCapSOF(void)
 //	printk("cap_sof.\n");
 	if(g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1)
 	{
-		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
-		g_dcam_info.v4l2_buf_ctrl_path_done_flag= 1;
+		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;		
+		return;
 	}
 	set_next_buffer(g_fh);
 	dcam_enableint();
 }
 void dcam_cb_ISRCapEOF(void)
-{	
+{
+#if  0
 	dcam_disableint();
 //	printk("cap_eof.\n");
 	if(g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1)
 	{
 		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
-		g_dcam_info.v4l2_buf_ctrl_path_done_flag= 1;
 	}
 	set_next_buffer(g_fh);
 	dcam_enableint();
+#endif	
 }
 void dcam_cb_ISRPath1Done(void)
 {	
 	dcam_disableint();	
-  	dcam_get_jpg_len(&g_dcam_info.jpg_len);
-	
-	if(g_dcam_info.v4l2_buf_ctrl_path_done_flag==1)
-	{
-		g_dcam_info.v4l2_buf_ctrl_path_done_flag = 0;
-		printk("dcam_cb_ISRPath1Done test 1.\n");
-		_ISP_DriverEnableInt();
-		return;
-	}
-
-	path1_done_buffer(g_fh);
+  	dcam_get_jpg_len(&g_dcam_info.jpg_len);		
+	path1_done_buffer(g_fh);	
 	dcam_enableint();
 }
 
