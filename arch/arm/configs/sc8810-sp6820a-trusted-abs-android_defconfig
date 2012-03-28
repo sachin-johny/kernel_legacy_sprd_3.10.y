@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.35.7
-# Tue Mar 20 23:50:54 2012
+# Wed Mar 28 18:51:41 2012
 #
 CONFIG_NKERNEL=y
 CONFIG_NKERNEL_DDI=y
@@ -1876,7 +1876,7 @@ CONFIG_PRINTK_TIME=y
 # CONFIG_ENABLE_WARN_DEPRECATED is not set
 # CONFIG_ENABLE_MUST_CHECK is not set
 CONFIG_FRAME_WARN=1024
-# CONFIG_MAGIC_SYSRQ is not set
+CONFIG_MAGIC_SYSRQ=y
 # CONFIG_STRIP_ASM_SYMS is not set
 CONFIG_UNUSED_SYMBOLS=y
 CONFIG_DEBUG_FS=y

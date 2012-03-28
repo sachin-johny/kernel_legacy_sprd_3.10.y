@@ -35,6 +35,7 @@
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/input.h>
+#include <linux/sysrq.h>
 #include <mach/mfp.h>
 #include <mach/sprd_key.h>
 #include "regs_kpd_sc8800g.h"
@@ -513,6 +514,24 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 			clear_key(&s_key[2]);
 	}
 	
+#ifdef CONFIG_MAGIC_SYSRQ	       /* Handle the SysRq Hack */
+	/* Vol-Down + Camera */
+	if (s_key_status == 0x77778180) {
+		printk("########################################################################\n");
+		handle_sysrq('m', NULL);
+		printk("########################################################################\n");
+		handle_sysrq('p', NULL);
+		printk("########################################################################\n");
+		handle_sysrq('q', NULL);
+		printk("########################################################################\n");
+		handle_sysrq('w', NULL);
+		printk("########################################################################\n");
+		handle_sysrq('t', NULL);
+		printk("########################################################################\n");
+		handle_sysrq('i', NULL);
+		printk("########################################################################\n");
+	}
+#endif
         return IRQ_HANDLED;
 }
 
