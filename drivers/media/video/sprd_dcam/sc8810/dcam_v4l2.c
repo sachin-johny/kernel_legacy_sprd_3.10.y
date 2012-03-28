@@ -1279,7 +1279,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 							af_param.zone[i].h = *param_ptr++;									
 						}
 					}
-
+				         break;
 				case 4:
 					af_param.cmd = SENSOR_EXT_FOCUS_START;
 					af_param.param = SENSOR_EXT_FOCUS_MACRO;
