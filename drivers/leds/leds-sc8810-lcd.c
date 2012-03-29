@@ -160,7 +160,7 @@ static void sprd_led_disable(struct sprd_lcd_led *led)
 #else
 //		gpio_set_value(143, 0);
 #endif
-	LCD_SetBackLightBrightness(led->value);
+	LCD_SetBackLightBrightness(0);
 
 	led->enabled = 0;
 }
