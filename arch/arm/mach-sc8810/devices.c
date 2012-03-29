@@ -112,3 +112,24 @@ struct platform_device sprd_device_rtc= {
 	.num_resources	= ARRAY_SIZE(resources_rtc),
 	.resource	= resources_rtc,
 };
+
+static struct resource sprd_nand_resources[] = {
+	[0] = {
+		.start	= 7,
+		.end = 7,
+		.flags	= IORESOURCE_DMA,
+	},
+	[1] = {
+		.start	= SPRD_NAND_BASE,
+		.end = SPRD_NAND_BASE + SPRD_NAND_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device sprd_nand_device = {
+	.name		= "sprd-nand",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(sprd_nand_resources),
+	.resource	= sprd_nand_resources,
+};
+
