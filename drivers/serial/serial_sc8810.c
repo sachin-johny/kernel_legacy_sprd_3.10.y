@@ -241,12 +241,13 @@ static inline void serialsc8800_rx_chars(int irq,void *dev_id)
 	if ((0==port->line)&& cmux_opened()){
 		count =0; 	
 	//	printk("\nSR<");
-		do {
-			rev[count] = serial_in(port, ARM_UART_RXD);
-			//printk("%x",rev[count]);
-			st = serial_in(port,ARM_UART_STS1);
-			count++;
-		} while ((st & 0xff) && (max_count-- > 0));
+        st = serial_in(port,ARM_UART_STS1);
+        while ((st & 0x7f) && (max_count-- > 0)){
+                rev[count] = serial_in(port, ARM_UART_RXD);
+                st = serial_in(port,ARM_UART_STS1);
+                count++;
+        } 
+                                                                        
 	//	printk("\n%dSR>",count);
 		mux_ringbuffer_write(&rbuf, rev, count);
 		if (serial_mux_dispatcher && is_cmux_mode())
