@@ -1484,7 +1484,7 @@ static int snd_pcm_drain(struct snd_pcm_substream *substream,
 		snd_pcm_stream_unlock_irq(substream);
 		up_read(&snd_pcm_link_rwsem);
 		snd_power_unlock(card);
-		tout = schedule_timeout(10 * HZ);
+		tout = schedule_timeout(1 * HZ);
 		snd_power_lock(card);
 		down_read(&snd_pcm_link_rwsem);
 		snd_pcm_stream_lock_irq(substream);
