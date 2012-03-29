@@ -19,5 +19,6 @@ extern struct platform_device sprd_serial_device1;
 extern struct platform_device sprd_serial_device2;
 extern struct platform_device sprd_serial_device3;
 extern struct platform_device sprd_device_rtc;
+extern struct platform_device sprd_nand_device;
 
 #endif

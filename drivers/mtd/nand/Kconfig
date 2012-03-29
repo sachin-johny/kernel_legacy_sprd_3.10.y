@@ -554,4 +554,10 @@ config MTD_NAND_FSMC
 	  Enables support for NAND Flash chips on the ST Microelectronics
 	  Flexible Static Memory Controller (FSMC)
 
+config MTD_NAND_SC8810
+	tristate "NAND Flash support for SpreadTrum SC8810 phone board"
+   	depends on ARCH_SC8810
+	help
+	  This enables the NAND flash controller with hardware ecc on the SC8810 phone board
+
 endif # MTD_NAND
