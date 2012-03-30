@@ -37,7 +37,7 @@
 #define IRQ_TIMER1_INT		6
 
 #define IRQ_TIMER2_INT		7
-#define IRQ_GPIO_INT		8 /* cascaded digital gpio irqs */
+#define IRQ_GPIO_INT		8	/* cascaded digital gpio irqs */
 
 #define IRQ_SPI0_INT		9
 #define IRQ_SPI1_INT		9
@@ -63,7 +63,7 @@
 #define IRQ_DMA_INT		21
 #define IRQ_VBC_INT		22
 #define IRQ_VSP_INT		23
-#define IRQ_ANA_INT		24 /* cascaded analog chip irqs */
+#define IRQ_ANA_INT		24	/* cascaded analog chip irqs */
 
 #define IRQ_ADI_INT		25
 #define IRQ_GPU_INT		25
@@ -93,12 +93,12 @@
 #define IRQ_ANA_CHGRWDG_INT	(IRQ_ANA_INT_START + 6)
 
 /* digital gpio irq numbers */
-#define NR_GPIO_IRQS		160 /* digital gpio irq */
+#define NR_GPIO_IRQS		160	/* digital gpio irq */
 
 #define GPIO_IRQ_START		(NR_SPRD_IRQS + NR_ANA_IRQS)
 
 /* analog gpio+eic irq numbers */
-#define NR_EIC_ALL_IRQS		(16 + 8)
+#define NR_EIC_ALL_IRQS		(32 + 16)
 
 #define EIC_IRQ_START		(NR_SPRD_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
 

@@ -82,10 +82,21 @@ int sci_adi_unlock(void)
 
 #endif
 
+int sci_adi_ready(void)
+{
+	int cnt = 1000;
+	do {
+		udelay(1);
+	} while (!(SCI_D(REG_ADI_FIFO_STS) & BIT_FIFO_EMPTY) && cnt--);
+	return 0;
+}
+
 int sci_adi_read(u32 reg)
 {
 	unsigned long val;
 	sci_adi_lock();
+
+	sci_adi_ready();
 
 	SCI_D(REG_ADI_RD_CMD) = ANA_V2P(reg);	//BUGBUG: phy addr or virt?
 
@@ -110,7 +121,7 @@ int sci_adi_raw_write(u32 reg, u16 val)
 		;		//BUGBUG: need timeout?
 	} while (!(SCI_D(REG_ADI_FIFO_STS) & BIT_FIFO_EMPTY));
 
-	SCI_D(reg) = val;
+	SCI_D(reg) = (u32) val;
 
 	sci_adi_unlock();
 	return 0;
