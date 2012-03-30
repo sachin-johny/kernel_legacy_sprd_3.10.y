@@ -90,7 +90,8 @@ fs.readFile(filename, function(err, data) {
 	//controller desc
 	if (filename.indexOf(json.ctrl.name) == -1) console.log("Warning: invalid controller name!!!");
 	var ctl_name = 'CTL_' + json.ctrl.name.toUpperCase();
-	if (json.ctrl.die >= 2/* see below */) var ana_ctl_name = 'ANA_' + ctl_name;
+	if (json.ctrl.die >= 2/* see below */) var ana_ctl_name = 'ANA_' + ctl_name;//mixed controller
+	if (json.ctrl.die == 2/* only adie */) ctl_name = 'ANA_CTL_' + json.ctrl.name.toUpperCase();
 	//console.log(json.ctrl.name);
 	resbuf += '#ifndef __{0}_H__\n#define __{1}_H__\n\n'.format(ctl_name.toUpperCase(), ctl_name.toUpperCase());
 	resbuf += '#define ' + ctl_name + '\n';
@@ -100,7 +101,7 @@ fs.readFile(filename, function(err, data) {
 	var regsbuf = '/* registers definitions for controller {0} */\n'.format(ctl_name);
 	var bitsbuf = '';
 	var ana_regsbuf = '';
-	if (ana_ctl_name) ana_regsbuf += '/* registers definitions for controller ANA_{0} */\n'.format(ctl_name);
+	if (ana_ctl_name) ana_regsbuf += '/* registers definitions for controller {0} */\n'.format(ana_ctl_name);
 	//register desc
 	for (var i in json.ctrl.regs) {
 		//console.log(json.ctrl.regs[i].name + ' ' + json.ctrl.regs[i].offset);
@@ -154,7 +155,7 @@ fs.readFile(filename, function(err, data) {
 		varsbuf += '( {0} )\n'.format(json.ctrl.vars[i].value);
 	}
 
-	if (json.ctrl.die == 2) regsbuf = '';
+	if (json.ctrl.die == 2/* only adie */) regsbuf = '';
 	resbuf += regsbuf + ana_regsbuf + bitsbuf + varsbuf;
 	resbuf += '\n#endif //__{0}_H__\n'.format(ctl_name.toUpperCase());
 	outfilename = ctl_name.toLowerCase() + '.h';

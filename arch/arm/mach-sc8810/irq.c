@@ -19,6 +19,8 @@
 #include <asm/io.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+#include <mach/adi.h>
+#include <mach/ana_ctl_int.h>
 
 /* general interrupt registers */
 #define	INTCV_REG(off)        (SPRD_INTCV_BASE + (off))
@@ -72,20 +74,7 @@ static struct irq_chip sprd_irq_chip = {
 /* ****************************************************************** */
 
 /* Analog Die interrupt registers */
-#define	ANA_INT_STATUS        (SPRD_MISC_BASE + 0x380 + 0x00)
-#define	ANA_INT_RAW           (SPRD_MISC_BASE + 0x380 + 0x04)
-#define	ANA_INT_EN            (SPRD_MISC_BASE + 0x380 + 0x08)
-#define	ANA_INT_STATUS_SYNC   (SPRD_MISC_BASE + 0x380 + 0x0C)
-
-#ifndef	ANA_REG_AND
-#define	ANA_REG_AND(r, v)     0
-#endif
-#ifndef	ANA_REG_OR
-#define	ANA_REG_OR(r, v)      0
-#endif
-#ifndef	ANA_REG_GET
-#define	ANA_REG_GET(a)        0
-#endif
+#define ANA_CTL_INT_BASE				( SPRD_MISC_BASE + 0x380 )
 
 void sprd_ack_ana_irq(struct irq_data *data)
 {
@@ -94,12 +83,14 @@ void sprd_ack_ana_irq(struct irq_data *data)
 
 static void sprd_mask_ana_irq(struct irq_data *data)
 {
-	ANA_REG_AND(ANA_INT_EN, ~(1 << (data->irq & 31)));
+	int offset = data->irq - IRQ_ANA_INT_START;
+	SCI_A_CLR(ANA_REG_INT_EN, BIT(offset & MASK_ANA_INT));
 }
 
 static void sprd_unmask_ana_irq(struct irq_data *data)
 {
-	ANA_REG_OR(ANA_INT_EN, 1 << (data->irq & 31));
+	int offset = data->irq - IRQ_ANA_INT_START;
+	SCI_A_SET(ANA_REG_INT_EN, BIT(offset & MASK_ANA_INT));
 }
 
 /* WARN: disable/enable is the same with umask/mask. */
@@ -132,10 +123,10 @@ static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 	if (desc->irq_data.chip->irq_ack)
 		desc->irq_data.chip->irq_ack(&desc->irq_data);
 	/* TODO IF gpu has interrupt coming
-	  if (gpu_has_interrupt)
-	  generic_handle_irq(gpu_interrpt_id);
-	  */
-	status = ANA_REG_GET(ANA_INT_STATUS);
+	   if (gpu_has_interrupt)
+	   generic_handle_irq(gpu_interrpt_id);
+	 */
+	status = SCI_A(ANA_REG_INT_MASK_STATUS);
 
 	for (i = 0; i < NR_ANA_IRQS; ++i) {
 		if ((status >> i) & 0x1) {
@@ -157,7 +148,8 @@ void __init sc8810_init_irq(void)
 
 	irq_set_chained_handler(IRQ_ANA_INT, sprd_ana_demux_handler);
 	for (n = IRQ_ANA_INT_START; n < IRQ_ANA_INT_START + NR_ANA_IRQS; n++) {
-		irq_set_chip_and_handler(n, &sprd_muxed_ana_chip, handle_level_irq);
+		irq_set_chip_and_handler(n, &sprd_muxed_ana_chip,
+					 handle_level_irq);
 		set_irq_flags(n, IRQF_VALID);
 	}
 }

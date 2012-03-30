@@ -22,14 +22,17 @@
 #include <mach/adi.h>
 #include <mach/gpio.h>
 #include <mach/ctl_eic.h>
+#include <mach/ana_ctl_glb.h>
 
 #define CTL_EIC_BASE					( SPRD_EIC_BASE )
 #define ANA_CTL_EIC_BASE				( SPRD_MISC_BASE + 0x0700)
+#define ANA_CTL_GLB_BASE				SCI_ADDRESS(SPRD_MISC_BASE, 0x0600)
 
 int sci_gpio_read(struct gpio_chip *chip, unsigned offset, u32 reg);
 int sci_gpio_write(struct gpio_chip *chip, unsigned offset, u32 reg, int value);
 int sci_gpio_request(struct gpio_chip *chip, unsigned offset);
 void sci_gpio_free(struct gpio_chip *chip, unsigned offset);
+int sci_gpio_direction_input(struct gpio_chip *chip, unsigned offset);
 int sci_gpio_get(struct gpio_chip *chip, unsigned offset);
 int sci_gpio_to_irq(struct gpio_chip *chip, unsigned offset);
 int sci_irq_to_gpio(struct gpio_chip *chip, unsigned irq);
@@ -67,7 +70,7 @@ struct sci_eic_chip {
 
 int sci_eic_enable(void)
 {
-	//BUGBUG: enable D-Die and A-Die eic and eic controller and enable clock rtc/div5 for eic
+	SCI_A_SET(ANA_REG_GLB_APB_CLK_EN, BIT_EIC_EB | BIT_RTC_EIC_EB);
 	return 0;
 }
 
@@ -124,7 +127,7 @@ static struct sci_eic_chip sc8810_eic_chip = {
 	.chip.label = "sc8810-eic",
 	.chip.request = sci_gpio_request,
 	.chip.free = sci_gpio_free,
-	.chip.direction_input = 0,	//sci_eic_direction_input,
+	.chip.direction_input = sci_gpio_direction_input,
 	.chip.get = sci_gpio_get,
 	.chip.direction_output = sci_eic_direction_output,
 	.chip.set = 0,
@@ -140,14 +143,14 @@ static struct sci_eic_chip sc8810_ana_eic_chip = {
 	.chip.label = "sc8810-ana-eic",
 	.chip.request = sci_gpio_request,
 	.chip.free = sci_gpio_free,
-	.chip.direction_input = 0,
+	.chip.direction_input = sci_gpio_direction_input,
 	.chip.get = sci_gpio_get,
 	.chip.direction_output = sci_eic_direction_output,
 	.chip.set = 0,
 	.chip.set_debounce = sci_eic_set_debounce,
 	.chip.to_irq = sci_gpio_to_irq,
 	.chip.base = 160,
-	.chip.ngpio = 8,
+	.chip.ngpio = 16,
 	.base_addr = ANA_CTL_EIC_BASE,
 	.adie = 1,
 };
