@@ -30,6 +30,16 @@ enum {
 static int debug_mask = DEBUG_USER_STATE;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
+static void print_name_offset(char *buf, void *sym)
+{
+    char symname[KSYM_NAME_LEN];
+
+    if (lookup_symbol_name((unsigned long)sym, symname) < 0)
+        sprintf(symname, "<%p>", sym);
+    if (buf) strcpy(buf, symname);
+    else pr_info("--- < traceing > ---: %s\n", symname);
+}
+
 static DEFINE_MUTEX(early_suspend_lock);
 static LIST_HEAD(early_suspend_handlers);
 static void early_suspend(struct work_struct *work);
@@ -94,8 +104,10 @@ static void early_suspend(struct work_struct *work)
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("early_suspend: call handlers\n");
 	list_for_each_entry(pos, &early_suspend_handlers, link) {
-		if (pos->suspend != NULL)
+		if (pos->suspend != NULL) {
+            print_name_offset(NULL, pos->suspend);
 			pos->suspend(pos);
+        }
 	}
 	mutex_unlock(&early_suspend_lock);
 
@@ -132,8 +144,10 @@ static void late_resume(struct work_struct *work)
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("late_resume: call handlers\n");
 	list_for_each_entry_reverse(pos, &early_suspend_handlers, link)
-		if (pos->resume != NULL)
+		if (pos->resume != NULL) {
+            print_name_offset(NULL, pos->resume);
 			pos->resume(pos);
+        }
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("late_resume: done\n");
 abort:
