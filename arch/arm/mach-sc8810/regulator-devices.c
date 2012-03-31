@@ -521,6 +521,29 @@ static struct regulator_init_data vddusb_data = {
 };
 
 
+/*	[ VDDUSBD ]
+	LDO		: Power supply for USB Digital Core
+	Fix consumers	: USB Digital Core
+	after reset	: ON
+*/
+static struct regulator_consumer_supply vddusbd_consumers[] = {
+	CONSUMERS_VDDUSBD
+};
+
+static struct regulator_init_data vddusbd_data = {
+	.constraints	= {
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
+	},
+
+	.num_consumer_supplies		= ARRAY_SIZE(vddusbd_consumers),
+	.consumer_supplies		= vddusbd_consumers,
+
+	.regulator_init			= sc8810_regulator_init_reg,
+	.driver_data			= &regulators_init_status[LDO_VDDUSBD],
+};
+
+
 /*	[ VDDSIM3 ]
 	LDO		: 1.8V Power supply for SIM card
 	Ref consumers	: SIM Card or CMMB RF
@@ -776,6 +799,7 @@ static struct platform_device regulator_devices[] = {
 	REGULATOR_DEV( LDO_VDDSIM0,		vddsim0_data	),
 	REGULATOR_DEV( LDO_VDDSD0,		vddsd0_data	),
 	REGULATOR_DEV( LDO_VDDUSB,		vddusb_data	),
+	REGULATOR_DEV( LDO_VDDUSBD,		vddusbd_data	),
 	REGULATOR_DEV( LDO_VDDSIM3,		vddsim3_data	),
 	REGULATOR_DEV( LDO_VDDSIM2,		vddsim2_data	),
 	REGULATOR_DEV( LDO_VDDWIF1,		vddwif1_data	),
@@ -796,7 +820,7 @@ static struct platform_device regulator_devices[] = {
 	REGULATOR_DEBUG_DEV( LDO_VDDRF1,	"VDDRF1"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDMEM,	"VDDMEM"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDCORE,	"VDDCORE"	),
-	REGULATOR_DEBUG_DEV( LDO_LDO_BG,	"BG"		),
+	REGULATOR_DEBUG_DEV( LDO_LDO_BG,	"LDO_BG"	),
 	REGULATOR_DEBUG_DEV( LDO_AVDDVB,	"AVDDVB"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDCAMDA,	"VDDCAMDA"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDCAMD1,	"VDDCAMD1"	),
@@ -805,6 +829,7 @@ static struct platform_device regulator_devices[] = {
 	REGULATOR_DEBUG_DEV( LDO_VDDSIM0,	"VDDSIM0"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDSD0,	"VDDSD0"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDUSB,	"VDDUSB"	),
+	REGULATOR_DEBUG_DEV( LDO_VDDUSBD,	"VDDUSBD"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDSIM3,	"VDDSIM3"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDSIM2,	"VDDSIM2"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDWIF1,	"VDDWIF1"	),
@@ -812,7 +837,7 @@ static struct platform_device regulator_devices[] = {
 	REGULATOR_DEBUG_DEV( LDO_VDDSD1,	"VDDSD1"	),
 	REGULATOR_DEBUG_DEV( LDO_VDDRTC,	"VDDRTC"	),
 	REGULATOR_DEBUG_DEV( LDO_DVDD18,	"DVDD18"	),
-	REGULATOR_DEBUG_DEV( LDO_LDO_PA,	"PA"		),
+	REGULATOR_DEBUG_DEV( LDO_LDO_PA,	"LDO_PA"	),
 #endif
 };
 
@@ -846,6 +871,7 @@ static struct regulator_init_status regulators_init_status[] =
 	REGU_INIT_VDDSIM0,
 	REGU_INIT_VDDSD0,
 	REGU_INIT_VDDUSB,
+	REGU_INIT_VDDUSBD,
 	REGU_INIT_VDDSIM3,
 	REGU_INIT_VDDSIM2,
 	REGU_INIT_VDDWIF1,

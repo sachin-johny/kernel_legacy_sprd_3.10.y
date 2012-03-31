@@ -23,6 +23,7 @@
 #include <mach/hardware.h>
 #include <mach/regulator.h>
 #include <mach/bits.h>
+#include <mach/globalregs.h>
 
 /* system register interface dependence*/
 /*#define REGULATOR_SYSFS_DEBUG_WITHOUT_ADI*/
@@ -216,6 +217,10 @@ static const int LDO_VDDUSB_voltage_table[] = {
 	3100000,
 };
 
+static const int LDO_VDDUSBD_voltage_table[] = {
+	/*nothing in spec*/
+};
+
 static const int LDO_VDDSIM3_voltage_table[] = {
 	2800000,
 	3000000,
@@ -331,6 +336,7 @@ static struct sc8810_regulator sc8810_regulator_regs[] = {
 	SC8810_REGU(	LDO_VDDSIM0,	LDO_PD_CTRL0,	BIT_4,	LDO_PD_CTRL0,	BIT_5,	LDO_VCTRL1,	BIT_0,	LDO_SLP_CTRL0,	BIT_2	),
 	SC8810_REGU(	LDO_VDDSD0,	LDO_PD_CTRL0,	BIT_2,	LDO_PD_CTRL0,	BIT_3,	LDO_VCTRL1,	BIT_12,	LDO_SLP_CTRL0,	BIT_9	),
 	SC8810_REGU(	LDO_VDDUSB,	LDO_PD_CTRL0,	BIT_0,	LDO_PD_CTRL0,	BIT_1,	LDO_VCTRL2,	BIT_12,	LDO_SLP_CTRL0,	BIT_4	),
+	SC8810_REGU(	LDO_VDDUSBD,	GR_CLK_GEN5,	BIT_9,	GR_CLK_GEN5,	BIT_9,	LDO_NA,		LDO_NA,	LDO_NA,		LDO_NA	),
 	SC8810_REGU(	LDO_VDDSIM3,	LDO_PD_CTRL1,	BIT_8,	LDO_PD_CTRL1,	BIT_9,	LDO_VCTRL4,	BIT_12,	LDO_SLP_CTRL1,	BIT_3	),
 	SC8810_REGU(	LDO_VDDSIM2,	LDO_PD_CTRL1,	BIT_6,	LDO_PD_CTRL1,	BIT_7,	LDO_VCTRL4,	BIT_8,	LDO_SLP_CTRL1,	BIT_2	),
 	SC8810_REGU(	LDO_VDDWIF1,	LDO_PD_CTRL1,	BIT_4,	LDO_PD_CTRL1,	BIT_5,	LDO_VCTRL4,	BIT_4,	LDO_SLP_CTRL1,	BIT_1	),
@@ -358,7 +364,12 @@ int sc8810_regulator_init_reg(void * driver_data)
 		case LDO_INIT_ON:
 			if (reg->reg_on_addr == LDO_NA)
 				break;
-			if (reg->reg_off_addr == reg->reg_on_addr) {
+
+			/*special case for VDDUSBD turn on*/
+			if (unlikely(reg_init_status->ldo_id == LDO_VDDUSBD)) {
+				sprd_greg_clear_bits(REG_TYPE_GLOBAL, reg->reg_on_bit, reg->reg_on_addr);
+			} else if (reg->reg_off_addr == reg->reg_on_addr) {
+
 				unsigned int reg_val = 0;
 				reg_val = LDO_REG_GET(reg->reg_on_addr);
 				reg_val |= reg->reg_on_bit;
@@ -372,7 +383,12 @@ int sc8810_regulator_init_reg(void * driver_data)
 		case LDO_INIT_OFF:
 			if (reg->reg_off_addr == LDO_NA)
 				return -EINVAL;
-			if (reg->reg_off_addr == reg->reg_on_addr) {
+
+			/*special case for VDDUSBD turn off*/
+			if (unlikely(reg_init_status->ldo_id == LDO_VDDUSBD)) {
+				sprd_greg_set_bits(REG_TYPE_GLOBAL, reg->reg_off_bit, reg->reg_off_addr);
+			} else if (reg->reg_off_addr == reg->reg_on_addr) {
+
 				unsigned int reg_val = 0;
 				reg_val = LDO_REG_GET(reg->reg_off_addr);
 				reg_val |= reg->reg_off_bit;
@@ -442,8 +458,12 @@ static int sc8810_regulator_enable(struct regulator_dev *rdev)
 	if (reg->reg_on_addr == LDO_NA)
 		return 0;
 
+	/*special case for VDDUSBD turn on*/
+	if (unlikely(rdev_get_id(rdev) == LDO_VDDUSBD)) {
+		sprd_greg_clear_bits(REG_TYPE_GLOBAL, reg->reg_on_bit, reg->reg_on_addr);
+	}
 	/*if-else becasue adi op*/
-	if (reg->reg_off_addr == reg->reg_on_addr) {
+	else if (reg->reg_off_addr == reg->reg_on_addr) {
 		unsigned int reg_val = 0;
 		reg_val = LDO_REG_GET(reg->reg_on_addr);
 		reg_val |= reg->reg_on_bit;
@@ -465,8 +485,12 @@ static int sc8810_regulator_disable(struct regulator_dev *rdev)
 	if (reg->reg_off_addr == LDO_NA)
 		return -EINVAL;
 
+	/*special case for VDDUSBD turn off*/
+	if (unlikely(rdev_get_id(rdev) == LDO_VDDUSBD)) {
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, reg->reg_off_bit, reg->reg_off_addr);
+	}
 	/*if-else becasue adi op*/
-	if (reg->reg_off_addr == reg->reg_on_addr) {
+	else if (reg->reg_off_addr == reg->reg_on_addr) {
 		unsigned int reg_val = 0;
 		reg_val = LDO_REG_GET(reg->reg_off_addr);
 		reg_val |= reg->reg_off_bit;
@@ -489,7 +513,12 @@ static int sc8810_regulator_is_enabled(struct regulator_dev *rdev)
 	if(reg->reg_on_addr == LDO_NA)
 		return 1;
 
-	on= ((LDO_REG_GET(reg->reg_on_addr)) & (reg->reg_on_bit));
+	/*special case for VDDUSBD turn on*/
+	if (unlikely(rdev_get_id(rdev) == LDO_VDDUSBD)) {
+		on = (((sprd_greg_read(REG_TYPE_GLOBAL, reg->reg_on_addr)) & (reg->reg_on_bit)) == 0);
+	} else {
+		on= ((LDO_REG_GET(reg->reg_on_addr)) & (reg->reg_on_bit));
+	}
 
 	return (on != 0);
 }
@@ -650,6 +679,7 @@ static struct regulator_desc sc8810_regulators[] = {
 	DESC_REG(LDO_VDDSIM0),
 	DESC_REG(LDO_VDDSD0),
 	DESC_REG(LDO_VDDUSB),
+	DESC_REG(LDO_VDDUSBD),
 	DESC_REG(LDO_VDDSIM3),
 	DESC_REG(LDO_VDDSIM2),
 	DESC_REG(LDO_VDDWIF1),
