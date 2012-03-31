@@ -594,7 +594,12 @@ static int basic_write(ts0710_con * ts0710, __u8 * buf, int len)
 	send =0;
 	while (send < len+2) {
 		res = COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY, buf+send, len + 2-send);
-		send=send+res;
+        if(res < 0)
+            return -1;
+        else if(res == 0)
+            msleep(2);
+        else
+            send=send+res;
 	}
 	/*	if (res != len + 2) {
 
