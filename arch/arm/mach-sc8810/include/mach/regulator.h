@@ -17,7 +17,8 @@
 
 /*REGULAOTR_NAME_XXX below is prepared ready for use in DRIVER and CUSTOM_CFG.
 
-  In dev drivers, use "V_XXX" is recommended.
+  In dev drivers, "V_XXX" is supplied for who want to don't include <mach/regulator.h>.
+  If you prefer MACOR rather "V_XXX" in your drv, just inlcude <mach/regulator.h> and use the MACOR(REGU_NAME_XXX) below is recommended.
   example in camera_drv.c, just use like:
   [0]regulator_get(&dev, "V_CAMDVDD");  to get a ldo.
 
@@ -65,6 +66,7 @@
 #define REGU_NAME_SDHOST1		"V_SDHOST1"
 #define REGU_NAME_TP			"V_TP"
 #define REGU_NAME_USB			"V_USB"
+#define REGU_NAME_USBD			"V_USBD"
 #define REGU_NAME_WIFI			"V_WIFI"
 #define REGU_NAME_WIFIIO		"V_WIFIIO"
 #define REGU_NAME_BT			"V_BT"
@@ -98,6 +100,7 @@
 	"V_SDHOST1"		NA		NA
 	"V_TP"			"VDDSIM2"	"VDDSIM2"
 	"V_USB"			"VDDUSB"	"VDDUSB"
+	"V_USBD"		"VDDUSBD"	"VDDUSBD"
 	"V_WIFI"		"VDDWIF1"	"VDDWIF1"
 	"V_WIFIIO"		"VDDSD1"	"VDDSD1"
 
@@ -139,7 +142,7 @@ struct regulator_init_status {
 };
 
 
-/*TOTAL 26 REGULATORS IN SC8810: 2 DCDC AND 24 LDO*/
+/*TOTAL 27 REGULATORS IN SC8810: 2 DCDC AND 25 LDO*/
 enum regulator_supply_source{
 	LDO_VDDARM	= 0,	/*	"VDDARM"	*/
 	LDO_VDD25,		/*	"VDD25"		*/
@@ -159,6 +162,7 @@ enum regulator_supply_source{
 	LDO_VDDSIM0,		/*	"VDDSIM0"	*/
 	LDO_VDDSD0,		/*	"VDDSD0"	*/
 	LDO_VDDUSB,		/*	"VDDUSB"	*/
+	LDO_VDDUSBD,		/*	"VDDUSBD"	*/
 	LDO_VDDSIM3,		/*	"VDDSIM3"	*/
 	LDO_VDDSIM2,		/*	"VDDSIM2"	*/
 	LDO_VDDWIF1,		/*	"VDDWIF1"	*/
