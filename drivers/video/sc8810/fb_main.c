@@ -80,6 +80,10 @@ struct sc8810fb_info {
 
 static uint32_t lcdc_calculate_lcm_timing(struct timing_mcu *timing);
 static void lcdc_update_lcm_timing(uint32_t reg_value);
+static void lcdc_reset(void);
+static void hw_early_init(struct sc8810fb_info *info);
+static void hw_init(struct sc8810fb_info *info);
+static void hw_later_init(struct sc8810fb_info *info);
 
 static int32_t lcm_send_cmd (uint32_t cmd)
 {
@@ -366,7 +370,21 @@ static int real_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 		return 0;
 	}
 
-	rrm_refresh(LID_OSD1, NULL, fb);
+	if (rrm_refresh(LID_OSD1, NULL, fb) != 0) {
+		printk(KERN_ERR " sc8810fb refresh time out \n");
+		if (__raw_readl(LCDC_CTRL) == 0) {
+			printk(KERN_ERR " sc8810fb resume from time out \n");
+			if (info->clk_lcdc->usecount == 0) {// ref count 
+				clk_enable(info->clk_lcdc);
+			}
+			info->need_reinit = 1;
+			lcdc_reset();
+			hw_early_init(info);
+			hw_init(info);
+			hw_later_init(info);
+			info->need_reinit = 0;
+		}
+	}
 
 	FB_PRINT("@fool2[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_CTRL));
 	FB_PRINT("@fool2[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, __raw_readl(LCDC_DISP_SIZE));

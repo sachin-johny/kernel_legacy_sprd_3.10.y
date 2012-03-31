@@ -90,7 +90,10 @@ static int rrq_dequeue(struct rrqueue *self, struct rr *r)
 
 static int rrq_wait(struct rrqueue *self)
 {
-	down(&self->waitlock);
+	if (down_timeout(&self->waitlock, msecs_to_jiffies(500)) != 0) {
+             return -1;
+	}
+
 	return 0;
 }
 
@@ -225,7 +228,10 @@ int rrm_refresh(int id, void (*callback)(void* data), void *data)
 			RRM_PRINT("RRM[%s] layer[%d] is waiting\n",
 					__FUNCTION__, id);
 			spin_unlock_irqrestore(&rrm.lock, flags);
-			rrm.que[id]->wait(rrm.que[id]);
+			if (rrm.que[id]->wait(rrm.que[id]) != 0) {
+				rrm.frame_state = FS_IDLE;
+				return -1;
+			}
 			spin_lock_irqsave(&rrm.lock, flags); 
 			RRM_PRINT("RRM[%s] layer[%d] has waked up\n",
 					__FUNCTION__, id);
