@@ -550,25 +550,11 @@ static void lcdc_lcm_configure(struct lcd_spec *panel)
 
 static uint32_t lcdc_calculate_lcm_timing(struct timing_mcu *timing)
 {
-	uint32_t  reg_value;
-	uint32_t  ahb_div,ahb_clk;   
+	uint32_t  ahb_clk;   
 	uint32_t  rcss, rlpw, rhpw, wcss, wlpw, whpw;
-
-	reg_value = __raw_readl(AHB_ARM_CLK);
 	
-	ahb_div = ( reg_value>>4 ) & 0x7;
-	
-	ahb_div = ahb_div + 1;
-
-	if(__raw_readl (AHB_ARM_CLK) & (1<<30))	{
-		ahb_div = ahb_div << 1;
-	}
-	if(__raw_readl (AHB_ARM_CLK) & (1<<31)) {
-		ahb_div=ahb_div<<1;
-	}	
-	//ahb_clk = CHIP_GetMcuClk()/ahb_div;
-	
-	ahb_clk = 250; // AHB : 250MHZ
+	struct clk * clk = clk_get(NULL,"clk_ahb");
+	ahb_clk = clk_get_rate(clk) / 1000000; 
 	
 	FB_PRINT("[%s] ahb_clk: 0x%x\n", __FUNCTION__, ahb_clk);
 
