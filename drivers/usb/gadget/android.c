@@ -51,6 +51,10 @@
 #include "f_adb.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
+#ifdef CONFIG_USB_SPRD_DWC
+#include "f_vserial.c"
+#include "f_serial.c"
+#endif
 #define USB_ETH_RNDIS y
 #include "f_rndis.c"
 #include "rndis.c"
@@ -642,16 +646,84 @@ static struct android_usb_function accessory_function = {
 	.bind_config	= accessory_function_bind_config,
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
+#ifdef CONFIG_USB_SPRD_DWC
+static int vser_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+	return vser_init();
+}
+
+static void vser_function_cleanup(struct android_usb_function *f)
+{
+	vser_cleanup();
+}
+
+static int vser_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	return vser_bind_config(c);
+}
+
+static int vser_function_ctrlrequest(struct android_usb_function *f,
+						struct usb_composite_dev *cdev,
+						const struct usb_ctrlrequest *c)
+{
+	return vser_setup(cdev, c);
+}
+static struct android_usb_function vser_function = {
+	.name		= "vser",
+	.init		= vser_function_init,
+	.cleanup	= vser_function_cleanup,
+	.bind_config	= vser_function_bind_config,
+	.ctrlrequest	= vser_function_ctrlrequest,
+};
 
 
+static int gser_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+	return gserial_setup(cdev->gadget, 1);
+}
+
+static void gser_function_cleanup(struct android_usb_function *f)
+{
+	gserial_cleanup();
+}
+
+static int gser_function_bind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	return gser_bind_config(c, 0);
+}
+
+static int gser_function_ctrlrequest(struct android_usb_function *f,
+						struct usb_composite_dev *cdev,
+						const struct usb_ctrlrequest *c)
+{
+	return gser_setup(cdev, c);
+}
+
+static struct android_usb_function gser_function = {
+	.name		= "gser",
+	.init		= gser_function_init,
+	.cleanup	= gser_function_cleanup,
+	.bind_config	= gser_function_bind_config,
+	.ctrlrequest	= gser_function_ctrlrequest,
+};
+#endif
 static struct android_usb_function *supported_functions[] = {
 	&adb_function,
-	&acm_function,
 	&mtp_function,
 	&ptp_function,
 	&rndis_function,
 	&mass_storage_function,
 	&accessory_function,
+#ifdef CONFIG_USB_SPRD_DWC
+	&vser_function,
+	&gser_function,
+#else
+	&acm_function,
+#endif
 	NULL
 };
 

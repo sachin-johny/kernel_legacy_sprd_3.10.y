@@ -95,7 +95,11 @@ struct eth_dev {
 
 #ifdef CONFIG_USB_GADGET_DUALSPEED
 
+#ifdef CONFIG_USB_SPRD_DWC
+static unsigned qmult = 12;
+#else
 static unsigned qmult = 5;
+#endif
 module_param(qmult, uint, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(qmult, "queue length multiplier at high speed");
 
@@ -253,6 +257,11 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	 * but on at least one, checksumming fails otherwise.  Note:
 	 * RNDIS headers involve variable numbers of LE32 values.
 	 */
+	/*
+	 * RX: Do not move data by IP_ALIGN:
+	 * if your DMA controller cannot handle it
+	 */
+	if (!gadget_dma32(dev->gadget))
 	skb_reserve(skb, NET_IP_ALIGN);
 
 	req->buf = skb->data;
@@ -286,7 +295,12 @@ static void rx_complete(struct usb_ep *ep, struct usb_request *req)
 	/* normal completion */
 	case 0:
 		skb_put(skb, req->actual);
-
+		if (gadget_dma32(dev->gadget) && NET_IP_ALIGN) {
+			u8 *data = skb->data;
+			size_t len = skb_headlen(skb);
+			skb_reserve(skb, NET_IP_ALIGN);
+			memmove(skb->data, data, len);
+		}
 		if (dev->unwrap) {
 			unsigned long	flags;
 
@@ -383,8 +397,10 @@ static int prealloc(struct list_head *list, struct usb_ep *ep, unsigned n)
 	}
 	while (i--) {
 		req = usb_ep_alloc_request(ep, GFP_ATOMIC);
-		if (!req)
+		if (!req){
+			printk(KERN_ERR "%s@%d: usb_ep_alloc_request fail: %d\n", __func__, __LINE__, i);
 			return list_empty(list) ? -ENOMEM : 0;
+		}
 		list_add(&req->list, list);
 	}
 	return 0;
@@ -412,11 +428,15 @@ static int alloc_requests(struct eth_dev *dev, struct gether *link, unsigned n)
 
 	spin_lock(&dev->req_lock);
 	status = prealloc(&dev->tx_reqs, link->in_ep, n);
-	if (status < 0)
+	if (status < 0){
+		ERROR(dev, "fail to alloc in_ep\n");
 		goto fail;
+	}
 	status = prealloc(&dev->rx_reqs, link->out_ep, n);
-	if (status < 0)
+	if (status < 0){
+		ERROR(dev, "fail to alloc out_ep\n");
 		goto fail;
+	}
 	goto done;
 fail:
 	DBG(dev, "can't alloc requests\n");
@@ -576,6 +596,22 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 			goto drop;
 
 		length = skb->len;
+	}
+	/*
+	 * Align data to 32bit if the dma controller requires it
+	 */
+	if (gadget_dma32(dev->gadget)) {
+		unsigned long align = (unsigned long)skb->data & 3;
+		if (WARN_ON(skb_headroom(skb) < align)) {
+			dev_kfree_skb_any(skb);
+			goto drop;
+		} else if (align) {
+			u8 *data = skb->data;
+			size_t len = skb_headlen(skb);
+			skb->data -= align;
+			memmove(skb->data, data, len);
+			skb_set_tail_pointer(skb, len);
+		}
 	}
 	req->buf = skb->data;
 	req->context = skb;

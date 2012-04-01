@@ -132,6 +132,7 @@ struct platform_device sprd_nand_device = {
 	.num_resources	= ARRAY_SIZE(sprd_nand_resources),
 	.resource	= sprd_nand_resources,
 };
+
 static struct resource sprd_lcd_resources[] = {
 	[0] = {
 		.start = SPRD_LCDC_BASE,
@@ -150,4 +151,24 @@ struct platform_device sprd_lcd_device = {
 	.id             =  0,
 	.num_resources  = ARRAY_SIZE(sprd_lcd_resources),
 	.resource       = sprd_lcd_resources,
+};
+
+static struct resource sprd_otg_resource[] = {
+	[0] = {
+		.start = SPRD_USB_BASE,
+		.end   = SPRD_USB_BASE + SPRD_USB_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_USBD_INT,
+		.end   = IRQ_USBD_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+
+struct platform_device sprd_otg_device = {
+	.name		= "dwc_otg",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(sprd_otg_resource),
+	.resource	= sprd_otg_resource,
 };

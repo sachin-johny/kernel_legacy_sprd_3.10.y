@@ -136,6 +136,12 @@
 #define gadget_is_s3c_hsotg(g)    0
 #endif
 
+#ifdef CONFIG_USB_SPRD_DWC
+#define gadget_is_sprd_dwc(g)		!strcmp("dwc_otg", (g)->name)
+#else
+#define gadget_is_sprd_dwc(g)		0
+#endif
+
 #ifdef CONFIG_USB_S3C_HSUDC
 #define gadget_is_s3c_hsudc(g) (!strcmp("s3c-hsudc", (g)->name))
 #else
@@ -223,6 +229,8 @@ static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
 		return 0x29;
 	else if (gadget_is_s3c_hsudc(gadget))
 		return 0x30;
+	else if (gadget_is_sprd_dwc(gadget))
+		return 0x80;
 
 	return -ENOENT;
 }
@@ -246,4 +254,14 @@ static inline bool gadget_supports_altsettings(struct usb_gadget *gadget)
 	return true;
 }
 
+/**
+ * gadget_dma32 - return true if we want buffer aligned on 32 bits (for dma)
+ * @gadget: the gadget in question
+ */
+static inline bool gadget_dma32(struct usb_gadget *gadget)
+{
+        if (gadget_is_sprd_dwc(gadget))
+                return true;
+        return false;
+}
 #endif /* __GADGET_CHIPS_H */

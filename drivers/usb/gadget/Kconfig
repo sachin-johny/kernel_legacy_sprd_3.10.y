@@ -594,6 +594,24 @@ config USB_CI13XXX_MSM
 	default USB_GADGET
 	select USB_GADGET_SELECTED
 
+config USB_GADGET_SPRD_DWC
+	boolean "SPREADTRUM SC8800G USB2.0 Controller"
+	depends on ARCH_SC8800G || ARCH_SC8810
+	help
+	   Spreadtrum's usb controller is an integrated high speed
+	   USB 2.0 device controller(with dwc core).
+
+	   Say "y" to link the driver statically, or "m" to build a
+	   dynamically linked module called "dwc_otg" and force all
+	   gadget drivers to also be dynamically linked.
+
+config USB_SPRD_DWC
+	tristate
+	depends on USB_GADGET_SPRD_DWC
+	default USB_GADGET
+	select USB_GADGET_SELECTED
+	select USB_GADGET_DUALSPEED
+
 #
 # LAST -- dummy/emulated controller
 #
@@ -636,6 +654,10 @@ endchoice
 config USB_GADGET_DUALSPEED
 	bool
 	depends on USB_GADGET
+	default n
+	help
+	  Means that gadget drivers should include extra descriptors
+	  and code to handle dual-speed controllers.
 
 #
 # USB Gadget Drivers
