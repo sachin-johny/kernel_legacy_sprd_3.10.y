@@ -15,7 +15,6 @@
 #define __ASM_ARM_ARCH_GLOBALREGS_H
 
 #include <mach/hardware.h>
-#include <mach/bits.h>
 
 /* general global register offset */
 #define GR_GEN0			0x0008
@@ -56,134 +55,134 @@
 #define GR_BUSCLK_ALM		GR_BUSCLK
 
 /* the GEN0 register bit */
-#define GEN0_TIMER_EN		BIT_2
-#define GEN0_SIM0_EN		BIT_3
-#define GEN0_I2C_EN		BIT_4
+#define GEN0_TIMER_EN		BIT(2)
+#define GEN0_SIM0_EN		BIT(3)
+#define GEN0_I2C_EN		BIT(4)
 #define GEN0_I2C0_EN		GEN0_I2C_EN
-#define GEN0_GPIO_EN		BIT_5
-#define GEN0_ADI_EN		BIT_6
-#define GEN0_EFUSE_EN		BIT_7
-#define GEN0_KPD_EN		BIT_8
-#define GEN0_EIC_EN		BIT_9
-#define GEN0_MCU_DSP_RST	BIT_10
-#define GEN0_MCU_SOFT_RST	BIT_11
-#define GEN0_I2S_EN		BIT_12
+#define GEN0_GPIO_EN		BIT(5)
+#define GEN0_ADI_EN		BIT(6)
+#define GEN0_EFUSE_EN		BIT(7)
+#define GEN0_KPD_EN		BIT(8)
+#define GEN0_EIC_EN		BIT(9)
+#define GEN0_MCU_DSP_RST	BIT(10)
+#define GEN0_MCU_SOFT_RST	BIT(11)
+#define GEN0_I2S_EN		BIT(12)
 #define GEN0_I2S0_EN		GEN0_I2S_EN
-#define GEN0_PIN_EN		BIT_13
-#define GEN0_CCIR_MCLK_EN	BIT_14
-#define GEN0_EPT_EN		BIT_15
-#define GEN0_SIM1_EN		BIT_16
-#define GEN0_SPI_EN		BIT_17
+#define GEN0_PIN_EN		BIT(13)
+#define GEN0_CCIR_MCLK_EN	BIT(14)
+#define GEN0_EPT_EN		BIT(15)
+#define GEN0_SIM1_EN		BIT(16)
+#define GEN0_SPI_EN		BIT(17)
 #define GEN0_SPI0_EN		GEN0_SPI_EN
-#define GEN0_SPI1_EN		BIT_18
-#define GEN0_SYST_EN		BIT_19
-#define GEN0_UART0_EN		BIT_20
-#define GEN0_UART1_EN		BIT_21
-#define GEN0_UART2_EN		BIT_22
-#define GEN0_VB_EN		BIT_23
-#define GEN0_GPIO_RTC_EN	BIT_24
+#define GEN0_SPI1_EN		BIT(18)
+#define GEN0_SYST_EN		BIT(19)
+#define GEN0_UART0_EN		BIT(20)
+#define GEN0_UART1_EN		BIT(21)
+#define GEN0_UART2_EN		BIT(22)
+#define GEN0_VB_EN		BIT(23)
+#define GEN0_GPIO_RTC_EN	BIT(24)
 #define GEN0_EIC_RTC_EN		GEN0_GPIO_RTC_EN
-#define GEN0_I2S1_EN		BIT_25
-#define GEN0_KPD_RTC_EN		BIT_26
-#define GEN0_SYST_RTC_EN	BIT_27
-#define GEN0_TMR_RTC_EN		BIT_28
-#define GEN0_I2C1_EN		BIT_29
-#define GEN0_I2C2_EN		BIT_30
-#define GEN0_I2C3_EN		BIT_31
+#define GEN0_I2S1_EN		BIT(25)
+#define GEN0_KPD_RTC_EN		BIT(26)
+#define GEN0_SYST_RTC_EN	BIT(27)
+#define GEN0_TMR_RTC_EN		BIT(28)
+#define GEN0_I2C1_EN		BIT(29)
+#define GEN0_I2C2_EN		BIT(30)
+#define GEN0_I2C3_EN		BIT(31)
 
 /* GR_PCTL */
-#define MCU_MPLL_EN		BIT_1
+#define MCU_MPLL_EN		BIT(1)
 
 /* GR_GEN1 */
-#define GEN1_MPLL_MN_EN		BIT_9
-#define GEN1_CLK_AUX0_EN	BIT_10
-#define GEN1_CLK_AUX1_EN	BIT_11
-#define GEN1_RTC_ARCH_EN	BIT_18
+#define GEN1_MPLL_MN_EN		BIT(9)
+#define GEN1_CLK_AUX0_EN	BIT(10)
+#define GEN1_CLK_AUX1_EN	BIT(11)
+#define GEN1_RTC_ARCH_EN	BIT(18)
 
 /* the APB Soft Reset register bit */
-#define SWRST_I2C_RST		BIT_0
-#define SWRST_KPD_RST		BIT_1
-#define SWRST_SIM0_RST		BIT_5
-#define SWRST_SIM1_RST		BIT_6
-#define SWRST_TIMER_RST		BIT_8
-#define SWRST_EPT_RST		BIT_10
-#define SWRST_UART0_RST		BIT_11
-#define SWRST_UART1_RST		BIT_12
-#define SWRST_UART2_RST		BIT_13
-#define SWRST_SPI_RST		BIT_14
-#define SWRST_IIS_RST		BIT_16
-#define SWRST_SYST_RST		BIT_19
-#define SWRST_PINREG_RST	BIT_20
-#define SWRST_GPIO_RST		BIT_21
-#define ADI_SOFT_RST		BIT_22
-#define SWRST_VBC_RST		BIT_23
-#define SWRST_PWM0_RST		BIT_24
-#define SWRST_PWM1_RST		BIT_25
-#define SWRST_PWM2_RST		BIT_26
-#define SWRST_PWM3_RST		BIT_27
-#define SWRST_EFUSE_RST		BIT_28
+#define SWRST_I2C_RST		BIT(0)
+#define SWRST_KPD_RST		BIT(1)
+#define SWRST_SIM0_RST		BIT(5)
+#define SWRST_SIM1_RST		BIT(6)
+#define SWRST_TIMER_RST		BIT(8)
+#define SWRST_EPT_RST		BIT(10)
+#define SWRST_UART0_RST		BIT(11)
+#define SWRST_UART1_RST		BIT(12)
+#define SWRST_UART2_RST		BIT(13)
+#define SWRST_SPI_RST		BIT(14)
+#define SWRST_IIS_RST		BIT(16)
+#define SWRST_SYST_RST		BIT(19)
+#define SWRST_PINREG_RST	BIT(20)
+#define SWRST_GPIO_RST		BIT(21)
+#define ADI_SOFT_RST		BIT(22)
+#define SWRST_VBC_RST		BIT(23)
+#define SWRST_PWM0_RST		BIT(24)
+#define SWRST_PWM1_RST		BIT(25)
+#define SWRST_PWM2_RST		BIT(26)
+#define SWRST_PWM3_RST		BIT(27)
+#define SWRST_EFUSE_RST		BIT(28)
 
 /* the ARM VB CTRL register bit */
-#define ARM_VB_IIS_SEL		BIT_0
-#define ARM_VB_MCLKON		BIT_1
-#define ARM_VB_DA0ON		BIT_2
-#define ARM_VB_DA1ON		BIT_3
-#define ARM_VB_AD0ON		BIT_4
-#define ARM_VB_AD1ON		BIT_5
-#define ARM_VB_ANAON		BIT_6
-#define ARM_VB_ACC		BIT_7
+#define ARM_VB_IIS_SEL		BIT(0)
+#define ARM_VB_MCLKON		BIT(1)
+#define ARM_VB_DA0ON		BIT(2)
+#define ARM_VB_DA1ON		BIT(3)
+#define ARM_VB_AD0ON		BIT(4)
+#define ARM_VB_AD1ON		BIT(5)
+#define ARM_VB_ANAON		BIT(6)
+#define ARM_VB_ACC		BIT(7)
 #define ARM_VB_ADCON		ARM_VB_AD0ON
 
 /* the Interrupt control register bit */
-#define IRQ_MCU_IRQ0		BIT_0
-#define IRQ_MCU_FRQ0		BIT_1
-#define IRQ_MCU_IRQ1		BIT_2
-#define IRQ_MCU_FRQ1		BIT_3
-#define IRQ_VBCAD_IRQ		BIT_5
-#define IRQ_VBCDA_IRQ		BIT_6
-#define IRQ_RFT_INT		BIT_12
+#define IRQ_MCU_IRQ0		BIT(0)
+#define IRQ_MCU_FRQ0		BIT(1)
+#define IRQ_MCU_IRQ1		BIT(2)
+#define IRQ_MCU_FRQ1		BIT(3)
+#define IRQ_VBCAD_IRQ		BIT(5)
+#define IRQ_VBCDA_IRQ		BIT(6)
+#define IRQ_RFT_INT		BIT(12)
 
 /* the Interrupt clear register bit */
-#define ICLR_DSP_IRQ0_CLR	BIT_0
-#define ICLR_DSP_FRQ0_CLR	BIT_1
-#define ICLR_DSP_IRQ1_CLR	BIT_2
-#define ICLR_DSP_FIQ1_CLR	BIT_3
-#define ICLR_VBCAD_IRQ_CLR	BIT_5
-#define ICLR_VBCDA_IRQ_CLR	BIT_6
-#define ICLR_RFT_INT_CLR	BIT_12
+#define ICLR_DSP_IRQ0_CLR	BIT(0)
+#define ICLR_DSP_FRQ0_CLR	BIT(1)
+#define ICLR_DSP_IRQ1_CLR	BIT(2)
+#define ICLR_DSP_FIQ1_CLR	BIT(3)
+#define ICLR_VBCAD_IRQ_CLR	BIT(5)
+#define ICLR_VBCDA_IRQ_CLR	BIT(6)
+#define ICLR_RFT_INT_CLR	BIT(12)
 
 /* the Clock enable register bit */
-#define CLK_PWM0_EN		BIT_21
-#define CLK_PWM1_EN		BIT_22
-#define CLK_PWM2_EN		BIT_23
-#define CLK_PWM3_EN		BIT_24
-#define CLK_PWM0_SEL		BIT_25
-#define CLK_PWM1_SEL		BIT_26
-#define CLK_PWM2_SEL		BIT_27
-#define CLK_PWM3_SEL		BIT_28
+#define CLK_PWM0_EN		BIT(21)
+#define CLK_PWM1_EN		BIT(22)
+#define CLK_PWM2_EN		BIT(23)
+#define CLK_PWM3_EN		BIT(24)
+#define CLK_PWM0_SEL		BIT(25)
+#define CLK_PWM1_SEL		BIT(26)
+#define CLK_PWM2_SEL		BIT(27)
+#define CLK_PWM3_SEL		BIT(28)
 
 /* POWER CTL1 */
 #define POWCTL1_CONFIG		0x0423F91E  /* isolation number 1ms:30cycles */
 
 /* bits definition for CLK_EN. */
-#define	MCU_XTLEN_AUTOPD_EN	BIT_18
-#define	APB_PERI_FRC_CLP	BIT_19
+#define	MCU_XTLEN_AUTOPD_EN	BIT(18)
+#define	APB_PERI_FRC_CLP	BIT(19)
 
 /* bits definition for GR_STC_STATE. */
 
-#define	GR_EMC_STOP		BIT_0
-#define	GR_MCU_STOP		BIT_1
-#define	GR_DSP_STOP		BIT_2
+#define	GR_EMC_STOP		BIT(0)
+#define	GR_MCU_STOP		BIT(1)
+#define	GR_DSP_STOP		BIT(2)
 
 /* bits definition for GR_CLK_DLY. */
-#define	GR_EMC_STOP_CH5		BIT_4
-#define	GR_EMC_STOP_CH4		BIT_5
-#define	GR_EMC_STOP_CH3		BIT_6
-#define	DSP_DEEP_STOP		BIT_9
-#define	DSP_SYS_STOP		BIT_10
-#define	DSP_AHB_STOP		BIT_11
-#define	DSP_MTX_STOP		BIT_12
-#define	DSP_CORE_STOP		BIT_13
+#define	GR_EMC_STOP_CH5		BIT(4)
+#define	GR_EMC_STOP_CH4		BIT(5)
+#define	GR_EMC_STOP_CH3		BIT(6)
+#define	DSP_DEEP_STOP		BIT(9)
+#define	DSP_SYS_STOP		BIT(10)
+#define	DSP_AHB_STOP		BIT(11)
+#define	DSP_MTX_STOP		BIT(12)
+#define	DSP_CORE_STOP		BIT(13)
 
 /* ****************************************************************** */
 
@@ -208,73 +207,73 @@
 #define USB_PHY_CTRL		0xA0
 
 /* AHB_CTL0 bits */
-#define AHB_CTL0_DCAM_EN	BIT_1
-#define AHB_CTL0_CCIR_EN	BIT_2
-#define AHB_CTL0_LCDC_EN	BIT_3
-#define AHB_CTL0_SDIO_EN	BIT_4
+#define AHB_CTL0_DCAM_EN	BIT(1)
+#define AHB_CTL0_CCIR_EN	BIT(2)
+#define AHB_CTL0_LCDC_EN	BIT(3)
+#define AHB_CTL0_SDIO_EN	BIT(4)
 #define AHB_CTL0_SDIO0_EN	AHB_CTL0_SDIO_EN
-#define AHB_CTL0_USBD_EN	BIT_5
-#define AHB_CTL0_DMA_EN		BIT_6
-#define AHB_CTL0_BM0_EN		BIT_7
-#define AHB_CTL0_NFC_EN		BIT_8
-#define AHB_CTL0_BM1_EN		BIT_11
-#define AHB_CTL0_VSP_EN		BIT_13
-#define AHB_CTL0_ROT_EN		BIT_14
-#define AHB_CTL0_DRM_EN		BIT_18
-#define AHB_CTL0_SDIO1_EN	BIT_19
-#define AHB_CTL0_G2D_EN		BIT_20
-#define AHB_CTL0_G3D_EN		BIT_21
-#define AHB_CTL0_AHB_ARCH_EB	BIT_15
-#define AHB_CTL0_EMC_EN		BIT_28
-#define AHB_CTL0_AXIBUSMON0_EN	BIT_29
-#define AHB_CTL0_AXIBUSMON1_EN	BIT_30
+#define AHB_CTL0_USBD_EN	BIT(5)
+#define AHB_CTL0_DMA_EN		BIT(6)
+#define AHB_CTL0_BM0_EN		BIT(7)
+#define AHB_CTL0_NFC_EN		BIT(8)
+#define AHB_CTL0_BM1_EN		BIT(11)
+#define AHB_CTL0_VSP_EN		BIT(13)
+#define AHB_CTL0_ROT_EN		BIT(14)
+#define AHB_CTL0_DRM_EN		BIT(18)
+#define AHB_CTL0_SDIO1_EN	BIT(19)
+#define AHB_CTL0_G2D_EN		BIT(20)
+#define AHB_CTL0_G3D_EN		BIT(21)
+#define AHB_CTL0_AHB_ARCH_EB	BIT(15)
+#define AHB_CTL0_EMC_EN		BIT(28)
+#define AHB_CTL0_AXIBUSMON0_EN	BIT(29)
+#define AHB_CTL0_AXIBUSMON1_EN	BIT(30)
 
 /* AHB_CTRL1 bits */
-#define AHB_CTRL1_EMC_AUTO_GATE_EN 	BIT_8
-#define AHB_CTRL1_EMC_CH_AUTO_GATE_EN	BIT_9
-#define AHB_CTRL1_ARM_AUTO_GATE_EN	BIT_11
-#define AHB_CTRL1_AHB_AUTO_GATE_EN	BIT_12
-#define AHB_CTRL1_MCU_AUTO_GATE_EN	BIT_13
-#define AHB_CTRL1_MSTMTX_AUTO_GATE_EN	BIT_14
-#define AHB_CTRL1_ARMMTX_AUTO_GATE_EN	BIT_15
-#define AHB_CTRL1_ARM_DAHB_SLEEP_EN	BIT_16
+#define AHB_CTRL1_EMC_AUTO_GATE_EN 	BIT(8)
+#define AHB_CTRL1_EMC_CH_AUTO_GATE_EN	BIT(9)
+#define AHB_CTRL1_ARM_AUTO_GATE_EN	BIT(11)
+#define AHB_CTRL1_AHB_AUTO_GATE_EN	BIT(12)
+#define AHB_CTRL1_MCU_AUTO_GATE_EN	BIT(13)
+#define AHB_CTRL1_MSTMTX_AUTO_GATE_EN	BIT(14)
+#define AHB_CTRL1_ARMMTX_AUTO_GATE_EN	BIT(15)
+#define AHB_CTRL1_ARM_DAHB_SLEEP_EN	BIT(16)
 
 /* USB_PHY_CTRL bits */
-#define USB_DM_PULLUP_BIT	BIT_19
-#define USB_DP_PULLDOWN_BIT	BIT_20
-#define USB_DM_PULLDOWN_BIT	BIT_21
+#define USB_DM_PULLUP_BIT	BIT(19)
+#define USB_DP_PULLDOWN_BIT	BIT(20)
+#define USB_DM_PULLDOWN_BIT	BIT(21)
 
 /* bit definitions for register DSP_BOOT_EN */
-#define	DSP_BOOT_ENABLE		BIT_0
+#define	DSP_BOOT_ENABLE		BIT(0)
 
 /* bit definitions for register DSP_RST */
-#define	DSP_RESET		BIT_0
+#define	DSP_RESET		BIT(0)
 
 /* bit definitions for register AHB_PAUSE */
-#define	MCU_CORE_SLEEP		BIT_0
-#define	MCU_SYS_SLEEP_EN	BIT_1
-#define	MCU_DEEP_SLEEP_EN	BIT_2
-#define	APB_SLEEP		BIT_3
+#define	MCU_CORE_SLEEP		BIT(0)
+#define	MCU_SYS_SLEEP_EN	BIT(1)
+#define	MCU_DEEP_SLEEP_EN	BIT(2)
+#define	APB_SLEEP		BIT(3)
 
 
 /* bit definitions for register AHB_STS */
-#define	EMC_STOP_CH0		BIT_0
-#define	EMC_STOP_CH1		BIT_1
-#define	EMC_STOP_CH2		BIT_2
-#define	EMC_STOP_CH3		BIT_3
-#define	EMC_STOP_CH4		BIT_4
-#define	EMC_STOP_CH5		BIT_5
-#define	EMC_STOP_CH6		BIT_6
-#define	EMC_STOP_CH7		BIT_7
-#define	EMC_STOP_CH8		BIT_8
-#define	ARMMTX_STOP_CH0		BIT_12
-#define	ARMMTX_STOP_CH1		BIT_13
-#define	ARMMTX_STOP_CH2		BIT_14
-#define	AHB_STS_EMC_STOP	BIT_16
-#define	AHB_STS_EMC_SLEEP	BIT_17
-#define	DMA_BUSY		BIT_18
-#define	DSP_MAHB_SLEEP_EN	BIT_19
-#define	APB_PRI_EN		BIT_20
+#define	EMC_STOP_CH0		BIT(0)
+#define	EMC_STOP_CH1		BIT(1)
+#define	EMC_STOP_CH2		BIT(2)
+#define	EMC_STOP_CH3		BIT(3)
+#define	EMC_STOP_CH4		BIT(4)
+#define	EMC_STOP_CH5		BIT(5)
+#define	EMC_STOP_CH6		BIT(6)
+#define	EMC_STOP_CH7		BIT(7)
+#define	EMC_STOP_CH8		BIT(8)
+#define	ARMMTX_STOP_CH0		BIT(12)
+#define	ARMMTX_STOP_CH1		BIT(13)
+#define	ARMMTX_STOP_CH2		BIT(14)
+#define	AHB_STS_EMC_STOP	BIT(16)
+#define	AHB_STS_EMC_SLEEP	BIT(17)
+#define	DMA_BUSY		BIT(18)
+#define	DSP_MAHB_SLEEP_EN	BIT(19)
+#define	APB_PRI_EN		BIT(20)
 
 /* ****************************************************************** */
 
