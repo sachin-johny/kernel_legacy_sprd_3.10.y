@@ -1124,21 +1124,19 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void* param)
 			break;
 		case ISP_PATH_OUTPUT_ENDIAN:
 		{
-			ISP_ENDIAN_T *endian_ptr  = (ISP_ENDIAN_T*)param;
 			ISP_ENDIAN_T endian;
-			endian.endian_y = endian_ptr->endian_y;
-			endian.endian_uv = endian_ptr->endian_uv;
+			SCALE_CHECK_PARAM_ZERO_POINTER(param);
+			memcpy(&endian, (ISP_ENDIAN_T *)param, sizeof(ISP_ENDIAN_T));			
 			p_path->output_frame_endian = endian;
 			p_isp_reg->endian_sel_u.mBits.review_output_endian_y = endian.endian_y&0x3;
-			p_isp_reg->endian_sel_u.mBits.review_output_endian_uv = endian.endian_uv&0x3;
+			p_isp_reg->endian_sel_u.mBits.review_output_endian_uv = endian.endian_uv&0x3;			
 			break;
 		}
 		case ISP_PATH_INPUT_ENDIAN:
 		{					
-			ISP_ENDIAN_T *endian_ptr  = (ISP_ENDIAN_T*)param;
 			ISP_ENDIAN_T endian;
-			endian.endian_y = endian_ptr->endian_y;
-			endian.endian_uv = endian_ptr->endian_uv;
+			SCALE_CHECK_PARAM_ZERO_POINTER(param);
+			memcpy(&endian, (ISP_ENDIAN_T *)param, sizeof(ISP_ENDIAN_T));				
 			p_path->input_frame_endian = endian;
 			p_isp_reg->endian_sel_u.mBits.review_input_endian_y = endian.endian_y&0x3 ;
 			p_isp_reg->endian_sel_u.mBits.review_input_endian_uv = endian.endian_uv&0x3;
