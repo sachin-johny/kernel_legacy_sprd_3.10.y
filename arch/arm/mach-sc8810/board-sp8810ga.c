@@ -44,9 +44,37 @@ static struct sys_timer sc8810_timer = {
 	        .init = sc8810_timer_init,
 };
 
+static int calibration_mode = false;
+static int __init calibration_start(char *str)
+{
+        if(str)
+                pr_info("modem calibartion:%s\n", str);
+        calibration_mode = true;
+        return 1;
+}
+__setup("calibration=", calibration_start);
+
+int in_calibration(void)
+{
+     return (calibration_mode == true);
+}
+
+EXPORT_SYMBOL(in_calibration);
+
+static void __init sprd_add_otg_device(void)
+{
+	/*
+	 * if in calibrtaion mode, we do nothing, modem will handle everything
+	 */
+	if (calibration_mode)
+		return;
+	platform_device_register(&sprd_otg_device);
+}
+
 static void __init sc8810_init_machine(void)
 {
 	regulator_add_devices();
+	sprd_add_otg_device();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 }
 
