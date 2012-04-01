@@ -919,6 +919,7 @@ static char * supply_list[]={
     "battery",
 };
 
+extern int sci_efuse_calibration_get(unsigned int* p_cal_data);
 static int sprd_battery_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -927,6 +928,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
     int voltage_value;
     int i;
     int charger_present;
+    unsigned int efuse_cal_data[2] = {0};
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -972,6 +974,16 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	init_timer(&data->battery_timer);
 	data->battery_timer.function = battery_handler;
 	data->battery_timer.data = (unsigned long)data;
+
+    printk("probe adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],adc_voltage_table[1][0]);
+
+ 	if(sci_efuse_calibration_get(efuse_cal_data))
+ 	{
+		adc_voltage_table[0][1]=efuse_cal_data[0]&0xffff;
+		adc_voltage_table[0][0]=(efuse_cal_data[0]>>16)&0xffff;
+		adc_voltage_table[1][1]=efuse_cal_data[1]&0xffff;
+		adc_voltage_table[1][0]=(efuse_cal_data[1]>>16)&0xffff;			
+ 	}
 
     ADC_Init();
 
