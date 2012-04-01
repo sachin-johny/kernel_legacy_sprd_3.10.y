@@ -24,7 +24,6 @@
 
 #include <mach/hardware.h>
 #include <mach/regulator.h>
-#include <mach/bits.h>
 
 /*ldo registers retarget func for adi independence*/
 

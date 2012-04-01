@@ -13,7 +13,6 @@
 #ifndef __ARCH_ARM_SC8810_CLOCK_COMMON_H
 #define __ARCH_ARM_SC8810_CLOCK_COMMON_H
  #include <mach/hardware.h>
- #include <mach/bits.h>
 
 /* clock flags. */
 #define RATE_FIXED		(1 << 1)	/* Fixed clock rate */
