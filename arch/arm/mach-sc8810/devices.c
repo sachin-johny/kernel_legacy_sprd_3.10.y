@@ -132,4 +132,22 @@ struct platform_device sprd_nand_device = {
 	.num_resources	= ARRAY_SIZE(sprd_nand_resources),
 	.resource	= sprd_nand_resources,
 };
-
+static struct resource sprd_lcd_resources[] = {
+	[0] = {
+		.start = SPRD_LCDC_BASE,
+		.end = SPRD_LCDC_BASE + SPRD_LCDC_SIZE - 1,
+		.name = "lcd_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_LCDC_INT,
+		.end = IRQ_LCDC_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_lcd_device = {
+	.name           = "sprd_fb",
+	.id             =  0,
+	.num_resources  = ARRAY_SIZE(sprd_lcd_resources),
+	.resource       = sprd_lcd_resources,
+};
