@@ -31,6 +31,7 @@ extern void __init sc8810_map_io(void);
 extern void __init sc8810_init_irq(void);
 extern void __init sc8810_timer_init(void);
 extern void __init regulator_add_devices(void);
+extern void __init sc8810_clock_init(void);
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_device_example,
@@ -122,10 +123,18 @@ static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,
 {
 }
 
+static void __init sc8810_init_early(void)
+{
+	/* earlier init request than irq and timer */
+	sc8810_clock_init();
+
+}
+
 MACHINE_START(SC8810OPENPHONE, "SP8810")
 	.map_io		= sc8810_map_io,
 	.init_irq	= sc8810_init_irq,
 	.timer		= &sc8810_timer,
 	.init_machine	= sc8810_init_machine,
 	.fixup		= sc8810_fixup,
+	.init_early	= sc8810_init_early,
 MACHINE_END

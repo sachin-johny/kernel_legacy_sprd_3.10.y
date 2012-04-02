@@ -16,7 +16,6 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/clockchips.h>
-#include <linux/spinlock.h>
 
 #include <asm/mach/time.h>
 #include <mach/hardware.h>
@@ -28,6 +27,12 @@
 
 /* timer2 is trigged by PCLK, 26MHZ */
 #define	PCLKTIMER_FREQ	26000000
+
+static uint32_t timer_rates[] = {
+	GPTIMER_FREQ,
+	GPTIMER_FREQ,
+	PCLKTIMER_FREQ
+};
 
 #define	TIMER_LOAD(id)	(SPRD_TIMER_BASE + 0x20 * (id) + 0x0000)
 #define	TIMER_VALUE(id)	(SPRD_TIMER_BASE + 0x20 * (id) + 0x0004)
@@ -64,6 +69,8 @@ static inline void sprd_gptimer_ctl(int timer_id, int enable, int mode)
 
 static int sprd_gptimer_set_next_event(unsigned long cycles, struct clock_event_device *c)
 {
+	while (__raw_readl(TIMER_INT(EVENT_TIMER)) & TIMER_INT_BUSY);
+
 	sprd_gptimer_ctl(EVENT_TIMER, TIMER_DISABLE, ONETIME_MODE);
 	__raw_writel(cycles, TIMER_LOAD(EVENT_TIMER));
 	sprd_gptimer_ctl(EVENT_TIMER, TIMER_ENABLE, ONETIME_MODE);
@@ -74,6 +81,8 @@ static int sprd_gptimer_set_next_event(unsigned long cycles, struct clock_event_
 static void sprd_gptimer_set_mode(enum clock_event_mode mode, struct clock_event_device *c)
 {
 	unsigned int saved;
+
+	while (__raw_readl(TIMER_INT(EVENT_TIMER)) & TIMER_INT_BUSY);
 
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
@@ -137,7 +146,7 @@ static void sprd_gptimer_clockevent_init(void)
 	setup_irq(IRQ_TIMER1_INT, &sprd_gptimer_irq);
 
 	sprd_gptimer_event.mult =
-		div_sc(GPTIMER_FREQ, NSEC_PER_SEC, sprd_gptimer_event.shift);
+		div_sc(timer_rates[EVENT_TIMER], NSEC_PER_SEC, sprd_gptimer_event.shift);
 	sprd_gptimer_event.max_delta_ns =
 		clockevent_delta2ns(ULONG_MAX, &sprd_gptimer_event);
 	sprd_gptimer_event.min_delta_ns =
@@ -151,12 +160,11 @@ static void sprd_gptimer_clockevent_init(void)
 
 static cycle_t sprd_gptimer_read(struct clocksource *cs)
 {
-	spinlock_t lock;
 	unsigned int val1, val2;
 	unsigned long flags;
 
 	/* read multiple times in case of boundary issue */
-	spin_lock_irqsave(&lock, flags);
+	local_irq_save(flags);
 	val1 = __raw_readl(TIMER_VALUE(SOURCE_TIMER));
 	val2 = __raw_readl(TIMER_VALUE(SOURCE_TIMER));
 	/* NOTE: register access is slower than 26Mhz, need more cycles */
@@ -164,7 +172,7 @@ static cycle_t sprd_gptimer_read(struct clocksource *cs)
 		val1 = val2;
 		val2 = __raw_readl(TIMER_VALUE(SOURCE_TIMER));
 	}
-	spin_unlock_irqrestore(&lock, flags);
+	local_irq_restore(flags);
 
 	return (ULONG_MAX - val2);
 }
@@ -174,7 +182,6 @@ static struct clocksource sprd_gptimer_src = {
 	.rating		= 300,
 	.read		= sprd_gptimer_read,
 	.mask		= CLOCKSOURCE_MASK(32),
-	.shift		= 20,
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
@@ -188,28 +195,25 @@ static void sprd_gptimer_clocksource_init(void)
 	__raw_writel(ULONG_MAX, TIMER_LOAD(SOURCE_TIMER));
 	sprd_gptimer_ctl(SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
 
-	sprd_gptimer_src.mult =
-		clocksource_hz2mult(PCLKTIMER_FREQ, sprd_gptimer_src.shift);
-	clocksource_register(&sprd_gptimer_src);
+	clocksource_register_hz(&sprd_gptimer_src, timer_rates[SOURCE_TIMER]);
 }
 
 /* ****************************************************************** */
 
 static cycle_t sprd_syscnt_read(struct clocksource *cs)
 {
-	spinlock_t lock;
 	unsigned int val1, val2;
 	unsigned long flags;
 
 	/* read multiple times in case of boundary issue */
-	spin_lock_irqsave(&lock, flags);
+	local_irq_save(flags);
 	val1 = __raw_readl(SYSCNT_COUNT);
 	val2 = __raw_readl(SYSCNT_COUNT);
 	while((int)(val2 - val1) >> 1) {
 		val1 = val2;
 		val2 = __raw_readl(SYSCNT_COUNT);
 	}
-	spin_unlock_irqrestore(&lock, flags);
+	local_irq_restore(flags);
 
 	return val2;
 }
@@ -219,7 +223,6 @@ static struct clocksource sprd_syscnt = {
 	.rating		= 200,
 	.read		= sprd_syscnt_read,
 	.mask		= CLOCKSOURCE_MASK(32),
-	.shift		= 10,
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
@@ -228,18 +231,17 @@ static void sprd_syscnt_clocksource_init(void)
 	/* disable irq for syscnt */
 	__raw_writel(0, SYSCNT_CTL);
 
-	sprd_syscnt.mult =
-		clocksource_hz2mult(SYSCNT_FREQ, sprd_syscnt.shift);
-	clocksource_register(&sprd_syscnt);
+	clocksource_register_hz(&sprd_syscnt, SYSCNT_FREQ);
 }
 
 /* ****************************************************************** */
 
 unsigned long long sched_clock(void)
 {
-	/* use timer2 as sched clock tick */
-	return clocksource_cyc2ns(sprd_gptimer_src.read(&sprd_gptimer_src),
-			sprd_gptimer_src.mult, sprd_gptimer_src.shift);
+	/* use gptimer2 as highres sched clock tick */
+	struct clocksource *src = &sprd_gptimer_src;
+
+	return clocksource_cyc2ns(src->read(src), src->mult, src->shift);
 }
 
 void __init sc8810_timer_init(void)
@@ -249,9 +251,11 @@ void __init sc8810_timer_init(void)
 	/* enable timer & syscnt in global regs */
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_TIMER_EN | GEN0_SYST_EN, GR_GEN0);
 
-	/* setup timer2 and syscnt as clocksource */
+	/* setup timer2 as clocksource */
 	sprd_gptimer_clocksource_init();
+#if 0
 	sprd_syscnt_clocksource_init();
+#endif
 
 	/* setup timer1 as clockevent.  */
 	sprd_gptimer_clockevent_init();

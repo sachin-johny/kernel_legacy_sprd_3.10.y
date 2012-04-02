@@ -139,10 +139,8 @@ static void serial_sprd_set_mctrl(struct uart_port *port, unsigned int mctrl)
 
 static void serial_sprd_stop_tx(struct uart_port *port)
 {
-	unsigned long flags;
 	unsigned int ien, iclr;
 
-	spin_lock_irqsave(&port->lock, flags);
 	iclr = serial_in(port, ARM_UART_ICLR);
 	ien = serial_in(port, ARM_UART_IEN);
 
@@ -151,29 +149,23 @@ static void serial_sprd_stop_tx(struct uart_port *port)
 
 	serial_out(port, ARM_UART_ICLR, iclr);
 	serial_out(port, ARM_UART_IEN, ien);
-	spin_unlock_irqrestore(&port->lock, flags);
 }
 
 static void serial_sprd_start_tx(struct uart_port *port)
 {
-	unsigned long flags;
 	unsigned int ien;
 
-	spin_lock_irqsave(&port->lock, flags);
 	ien = serial_in(port, ARM_UART_IEN);
 	if (!(ien & UART_IEN_TX_FIFO_EMPTY)) {
 		ien |= UART_IEN_TX_FIFO_EMPTY;
 		serial_out(port, ARM_UART_IEN, ien);
 	}
-	spin_unlock_irqrestore(&port->lock, flags);
 }
 
 static void serial_sprd_stop_rx(struct uart_port *port)
 {
-	unsigned long flags;
 	unsigned int ien, iclr;
 
-	spin_lock_irqsave(&port->lock, flags);
 	iclr = serial_in(port, ARM_UART_ICLR);
 	ien = serial_in(port, ARM_UART_IEN);
 
@@ -182,7 +174,6 @@ static void serial_sprd_stop_rx(struct uart_port *port)
 
 	serial_out(port, ARM_UART_IEN, ien);
 	serial_out(port, ARM_UART_ICLR, iclr);
-	spin_unlock_irqrestore(&port->lock, flags);
 }
 
 static void serial_sprd_enable_ms(struct uart_port *port)
@@ -289,10 +280,8 @@ static inline void serial_sprd_tx_chars(int irq, void *dev_id)
 static irqreturn_t serial_sprd_interrupt_chars(int irq, void *dev_id)
 {
 	struct uart_port *port = (struct uart_port *)dev_id;
-	unsigned long flags;
 	int pass_counter = 0;
 
-	spin_lock_irqsave(&port->lock, flags);
 	do {
 		if (!
 		    (serial_in(port, ARM_UART_STS0) &
@@ -309,7 +298,7 @@ static irqreturn_t serial_sprd_interrupt_chars(int irq, void *dev_id)
 		}
 		serial_out(port, ARM_UART_ICLR, 0xffffffff);
 	} while (pass_counter++ < 50);
-	spin_unlock_irqrestore(&port->lock, flags);
+
 	return IRQ_HANDLED;
 }
 
@@ -381,7 +370,6 @@ static void serial_sprd_set_termios(struct uart_port *port,
 {
 	unsigned int baud, quot;
 	unsigned int lcr, fc;
-	unsigned long flags;
 	/* ask the core to calculate the divisor for us */
 	baud = uart_get_baud_rate(port, termios, old, 1200, 3000000);
 #if 0 /* ? */ 
@@ -475,7 +463,6 @@ static void serial_sprd_set_termios(struct uart_port *port,
 			lcr |= UART_EVEN_PAR;
 	}
 	/* change the port state. */
-	spin_lock_irqsave(&port->lock, flags);
 	/* update the per-port timeout */
 	uart_update_timeout(port, termios->c_cflag, baud);
 
@@ -515,8 +502,6 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	serial_out(port, ARM_UART_CTL0, lcr);
 	fc |= 0x3e00 | SP_RX_FIFO;
 	serial_out(port, ARM_UART_CTL1, fc);
-
-	spin_unlock_irqrestore(&port->lock, flags);
 }
 
 static const char *serial_sprd_type(struct uart_port *port)
@@ -659,14 +644,6 @@ static struct console serial_sprd_console = {
 	.index = -1,
 	.data = &serial_sprd_reg,
 };
-
-static int __init serial_sprd_console_init(void)
-{
-	register_console(&serial_sprd_console);
-	return 0;
-}
-
-console_initcall(serial_sprd_console_init);
 
 #define SPRD_CONSOLE		&serial_sprd_console
 
