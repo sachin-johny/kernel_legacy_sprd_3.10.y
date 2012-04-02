@@ -53,13 +53,13 @@
 
 #define TIMER_MARGIN	60		/* Default is 60 seconds */
 static int soft_margin = TIMER_MARGIN;	/* in seconds */
-module_param(soft_margin, int, 0);
+module_param(soft_margin, int, S_IWUSR | S_IRUGO);
 MODULE_PARM_DESC(soft_margin,
 	"Watchdog soft_margin in seconds. (0 < soft_margin < 65536, default="
 					__MODULE_STRING(TIMER_MARGIN) ")");
 
 static int nowayout = WATCHDOG_NOWAYOUT;
-module_param(nowayout, int, 0);
+module_param(nowayout, int, S_IWUSR | S_IRUGO);
 MODULE_PARM_DESC(nowayout,
 		"Watchdog cannot be stopped once started (default="
 				__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
@@ -100,6 +100,8 @@ static void watchdog_fire(unsigned long data)
 		printk(KERN_CRIT PFX "Triggered - Reboot ignored.\n");
 	else {
 		printk(KERN_CRIT PFX "Initiating system reboot.\n");
+		/* FIXME: we expect to see more info by doing panic */
+		panic(PFX "Timeout!!!\n");
 		emergency_restart();
 		printk(KERN_CRIT PFX "Reboot didn't ?????\n");
 	}
