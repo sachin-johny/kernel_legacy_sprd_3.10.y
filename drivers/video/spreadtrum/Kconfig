@@ -1,0 +1,13 @@
+config FB_SC8810
+	boolean "SC8810 frame buffer support "
+	depends on FB && ARCH_SC8810
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+          Frame buffer driver for SC8810 based boards.
+
+config FB_LCD_HX8369
+	boolean "support HX8369 panel"
+	depends on FB_SC8810
+
