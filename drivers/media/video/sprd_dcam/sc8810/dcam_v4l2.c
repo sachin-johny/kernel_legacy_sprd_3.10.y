@@ -645,11 +645,11 @@ static int init_sensor_parameters(void *priv)
 	if(INVALID_VALUE != g_dcam_info.contrast_param)
 		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST,                 		g_dcam_info.contrast_param);
 	
-	if(INVALID_VALUE != g_dcam_info.hflip_param)
-		Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,           	g_dcam_info.hflip_param);
+//	if(INVALID_VALUE != g_dcam_info.hflip_param)
+//		Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,           	g_dcam_info.hflip_param);
 	
-	if(INVALID_VALUE != g_dcam_info.vflip_param)
-		Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
+//	if(INVALID_VALUE != g_dcam_info.vflip_param)
+//		Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
 	
 	if(INVALID_VALUE != g_dcam_info.ev_param)
 		Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
@@ -1207,12 +1207,12 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			break;	
 		case V4L2_CID_HFLIP:  				
 			printk("V4L2:hflip setting.\n.");
-			g_dcam_info.hflip_param = (uint8_t)ctrl->value;				
+			//g_dcam_info.hflip_param = (uint8_t)ctrl->value;				
 			Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE, (uint32_t)ctrl->value);				
 			break;
 		case V4L2_CID_VFLIP:  			
 			printk("V4L2:vflip setting.\n.");
-			g_dcam_info.vflip_param = (uint8_t)ctrl->value;	
+			//g_dcam_info.vflip_param = (uint8_t)ctrl->value;	
 			Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE, (uint32_t)ctrl->value);		
 			break;
 		case V4L2_CID_FOCUS_AUTO:
@@ -1922,8 +1922,8 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.contrast_param = INVALID_VALUE;
 	g_dcam_info.saturation_param =INVALID_VALUE;
 	g_dcam_info.imageeffect_param =INVALID_VALUE;
-	g_dcam_info.hflip_param = 0;
-	g_dcam_info.vflip_param = 0;
+	g_dcam_info.hflip_param = INVALID_VALUE;
+	g_dcam_info.vflip_param = INVALID_VALUE;
 	g_dcam_info.previewmode_param = INVALID_VALUE;
 	g_dcam_info.ev_param = INVALID_VALUE;	
 	g_dcam_info.power_freq = INVALID_VALUE;
@@ -2531,8 +2531,8 @@ static int open(struct file *file)
 	g_dcam_info.contrast_param = INVALID_VALUE;
 	g_dcam_info.saturation_param =INVALID_VALUE;
 	g_dcam_info.imageeffect_param =INVALID_VALUE;
-	g_dcam_info.hflip_param = 0;
-	g_dcam_info.vflip_param = 0;
+	g_dcam_info.hflip_param = INVALID_VALUE;
+	g_dcam_info.vflip_param = INVALID_VALUE;
 	g_dcam_info.previewmode_param = INVALID_VALUE;
 	g_dcam_info.ev_param = INVALID_VALUE;
 	g_dcam_info.focus_param = 0;
