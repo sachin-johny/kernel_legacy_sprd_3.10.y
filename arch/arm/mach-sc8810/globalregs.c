@@ -14,13 +14,14 @@
 #include <asm/io.h>
 #include <mach/globalregs.h>
 #include <linux/spinlock.h>
+#include <linux/module.h>
 
 static uint32_t globalregs[] = {
 	SPRD_GREG_BASE,
 	SPRD_AHB_BASE + 0x200,
 };
 
-static spinlock_t lock;
+static spinlock_t lock = __SPIN_LOCK_UNLOCKED(lock);
 
 int32_t sprd_greg_read(uint32_t type, uint32_t reg_offset)
 {
@@ -34,7 +35,8 @@ void sprd_greg_write(uint32_t type, uint32_t value, uint32_t reg_offset)
 
 void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 {
-	unsigned int flags, value;
+	int value;
+	unsigned long flags;
 
 	spin_lock_irqsave(&lock, flags);
 	value = __raw_readl(globalregs[type] + reg_offset);
@@ -45,7 +47,8 @@ void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 
 void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 {
-	unsigned int flags, value;
+	int value;
+	unsigned long flags;
 
 	spin_lock_irqsave(&lock, flags);
 	value = __raw_readl(globalregs[type] + reg_offset);
@@ -53,3 +56,8 @@ void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 	__raw_writel(value, globalregs[type] + reg_offset);
 	spin_unlock_irqrestore(&lock, flags);
 }
+
+EXPORT_SYMBOL(sprd_greg_read);
+EXPORT_SYMBOL(sprd_greg_write);
+EXPORT_SYMBOL(sprd_greg_set_bits);
+EXPORT_SYMBOL(sprd_greg_clear_bits);

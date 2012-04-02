@@ -2107,4 +2107,3 @@ int sc8810_get_clock_info(void)
 	}
     return status;
 }
-core_initcall(sc8810_clock_init);
