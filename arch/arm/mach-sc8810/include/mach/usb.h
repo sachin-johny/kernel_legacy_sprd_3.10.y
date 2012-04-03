@@ -3,6 +3,8 @@
 
 extern void udc_enable(void);
 extern void udc_disable(void);
+extern void udc_phy_down(void);
+extern void udc_phy_up(void);
 
 struct usb_hotplug_callback {
 	int (*plugin)(int usb_cable, void *data);

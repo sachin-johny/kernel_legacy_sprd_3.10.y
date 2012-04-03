@@ -36,6 +36,7 @@
 #include <linux/gpio.h>
 #include <mach/bits.h>
 #include <mach/board.h>
+#include <mach/usb.h>
 
 #define SCI_FALSE false
 #define SCI_TRUE true
@@ -479,9 +480,12 @@ int charger_is_adapter(void)
 {
 	uint32_t ret;
 	volatile uint32_t i;
-    unsigned long irq_flag=0;
-    
-    local_irq_save(irq_flag);
+	unsigned long irq_flag=0;
+
+	udc_enable();
+	udc_phy_down();
+
+	local_irq_save(irq_flag);
 
 	CHIP_REG_AND(USB_PHY_CTRL,(~(USB_DM_PULLDOWN_BIT|USB_DP_PULLDOWN_BIT)));
 
@@ -499,16 +503,17 @@ int charger_is_adapter(void)
 		for(i = 0;i < 200;i++){;}  ///wait
 		if((gpio_get_value(USB_DM_GPIO)&BIT_1) && (gpio_get_value(USB_DP_GPIO)&BIT_2))
 		{
-            ret = 1; // adapter
+			ret = 1; // adapter
 		}
 		else
 		{
-            ret = 1; //non standard adapter
+			ret = 1; //non standard adapter
 		}
 		CHIP_REG_AND(USB_PHY_CTRL,(~USB_DM_PULLDOWN_BIT));
 	}
 
-    local_irq_restore(irq_flag);
+	local_irq_restore(irq_flag);
+	udc_disable();
 	return ret; 
 }
 #define VPROG_RESULT_NUM 10

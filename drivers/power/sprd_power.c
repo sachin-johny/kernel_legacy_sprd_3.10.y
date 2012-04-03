@@ -455,6 +455,7 @@ static int plugin_callback(int usb_cable, void *data)
 {
 	struct sprd_battery_data *d = battery_data;
 	unsigned long irq_flags;
+	int ac_adapter = 0;
 
 	DEBUG("charger plugin interrupt happen\n");
 	if ( !d ) {
@@ -462,20 +463,16 @@ static int plugin_callback(int usb_cable, void *data)
 		return 1;
 	}
 
+	ac_adapter = charger_is_adapter();
 	spin_lock_irqsave(&d->lock, irq_flags);
 
 	d->ac_online = 0;
 	d->usb_online = 0;
 
-	if (usb_cable) {
-		d->usb_online = 1;
+	if (ac_adapter) {
+		d->ac_online = 1;
 	} else {
-		if(charger_is_adapter()){
-			d->ac_online = 1;
-		} else {
-			d->usb_online = 1;
-			pr_warning("unknown charger!\n");
-		}
+		d->usb_online = 1;
 	}
 
 	spin_unlock_irqrestore(&d->lock, irq_flags);

@@ -105,8 +105,7 @@ static struct gadget_wrapper {
 static struct wake_lock usb_wake_lock;
 static DEFINE_SPINLOCK(udc_lock);
 
-#define CABLE_TIMEOUT		(HZ*2)
-#define CABLE_TIMEOUT_FACTORY	(HZ*10)
+#define CABLE_TIMEOUT		(HZ*15)
 
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
@@ -597,13 +596,11 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		is_on = 0;
 	}
 	local_irq_restore(flags);
+
 	spin_lock(&udc_lock);
-	if(is_on) {
-	//	dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
+	if (is_on) {
 		__udc_startup();
 	} else {
-	//	dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
-	//	dwc_otg_pcd_stop(d->pcd);
 		/*
 		 *this is soft disconnct, and maybe the timer started
 		 *by plugin still work, need cancel this timer like plugout
@@ -613,6 +610,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		__udc_shutdown();
 	}
 	spin_unlock(&udc_lock);
+
 	return 0;
 }
 static const struct usb_gadget_ops dwc_otg_pcd_ops = {
@@ -625,7 +623,6 @@ static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 	// current versions must always be self-powered
 };
 
-static int timer_started = 0;
 static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 {
 	int retval = -DWC_E_NOT_SUPPORTED;
@@ -635,11 +632,6 @@ static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 				 *)bytes);
 	}
 
-	if (timer_started) {
-		//we need timer out right now, for we know cable must be usb;
-		timer_started = 0;
-		mod_timer_pending(&gadget_wrapper->cable_timer, jiffies + HZ);
-	}
 	trace_printk("setup res val: %d\n", retval);
 	//sword
 	//if (retval == -ENOTSUPP) {
@@ -1065,6 +1057,19 @@ int dwc_udc_state(void)
 	return d->udc_startup;
 }
 
+void udc_phy_down(void)
+{
+	struct gadget_wrapper *d = gadget_wrapper;
+
+	dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
+}
+
+void udc_phy_up(void)
+{
+	struct gadget_wrapper *d = gadget_wrapper;
+
+	dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
+}
 static struct usb_hotplug_callback *hotplug_cb;
 static void hotplug_callback(int event, int usb_cable)
 {
@@ -1087,7 +1092,6 @@ static void hotplug_callback(int event, int usb_cable)
 	return;
 }
 
-static int need_notify = 0;
 
 static int cable_is_usb(void)
 {
@@ -1113,17 +1117,14 @@ static void usb_detect_works(struct work_struct *work)
 	spin_lock(&udc_lock);
 	if (plug_in){
 		pr_info("usb detect plug in,vbus pull up\n");
+		hotplug_callback(VBUS_PLUG_IN, 0);
 		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
-		timer_started = 1;
 		__udc_startup();
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
 		del_timer(&d->cable_timer);
 		__udc_shutdown();
-		if (need_notify) {
-			hotplug_callback(VBUS_PLUG_OUT, cable_is_usb());
-			need_notify = 0;
-		}
+		hotplug_callback(VBUS_PLUG_OUT, cable_is_usb());
 	}
 	spin_unlock(&udc_lock);
 	switch_set_state(&d->sdev, !!plug_in);
@@ -1198,16 +1199,13 @@ static void cable_detect_handler(unsigned long data)
 		spin_lock(&udc_lock);
 		__udc_shutdown();
 		mod_timer(&gadget_wrapper->cable_timer, jiffies +
-				CABLE_TIMEOUT_FACTORY);
-		timer_started = 1;
+				CABLE_TIMEOUT);
 		__udc_startup();
 		spin_unlock(&udc_lock);
 		return;
 	}
-	hotplug_callback(VBUS_PLUG_IN, usb_cable);
 
 	spin_lock(&udc_lock);
-	need_notify = 1;
 	if (!usb_cable) {
 		pr_info("cable is ac adapter\n");
 		__udc_shutdown();
@@ -1219,7 +1217,6 @@ static void cable_detect_handler(unsigned long data)
  * This function initialized the PCD portion of the driver.
  *
  */
-void gpio_set_hw_debounce(unsigned long irq, u8 period);
 int pcd_init(
 	struct platform_device *_dev
 	)
@@ -1390,7 +1387,6 @@ int usb_gadget_register_driver(struct usb_gadget_driver *driver)
 	DWC_DEBUGPL(DBG_ANY, "registered gadget driver '%s'\n",
 			driver->driver.name);
 
-	//enable_gpio_detect_irq();
 	enumeration_enable();
 	return 0;
 }
@@ -1430,6 +1426,7 @@ EXPORT_SYMBOL(usb_gadget_unregister_driver);
 int usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {
 	int ret = 0;
+
 	if (cb){
 		hotplug_cb = cb;
 	} else {
