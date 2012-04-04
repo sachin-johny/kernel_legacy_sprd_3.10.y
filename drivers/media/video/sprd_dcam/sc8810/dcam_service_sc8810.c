@@ -928,9 +928,7 @@ static uint32_t _ISP_ServiceGetXYDeciFactor(uint32_t *src_width, uint32_t *src_h
 		width = *src_width / (1<<i);
 		height = *src_height / (1<<i);
 		if(width <= (dst_width * ISP_PATH_SC_COEFF_MAX) && 
-		height <= (dst_height * ISP_PATH_SC_COEFF_MAX) && 
-		(width % ISP_ALIGNED_PIXELS) == 0 && 
-		(height % ISP_ALIGNED_PIXELS) == 0) 
+		height <= (dst_height * ISP_PATH_SC_COEFF_MAX) )
 			break;
 	}
 
@@ -1211,14 +1209,19 @@ static int ISP_ServiceSetParameters(void)
 	s->cap_img_dec.x_mode = ISP_CAP_IMG_DEC_MODE_DIRECT;
 	s->input_size.w = s->cap_output_size.w;
 	s->input_size.h = s->cap_output_size.h;
-	s->input_range.x = 0;
-	s->input_range.y = 0;
-	s->input_range.w = s->cap_output_size.w;
-	s->input_range.h = s->cap_output_size.h;
+	trim_width = DCAMERA_WIDTH(s->cap_output_size.w);
+	trim_height = DCAMERA_HEIGHT(s->cap_output_size.h);
+	s->input_range.x = (s->cap_output_size.w-trim_width)/2;
+	s->input_range.x &= ~1;
+	s->input_range.y = (s->cap_output_size.h-trim_height)/2;
+	s->input_range.y &= ~1;
+	s->input_range.w = trim_width;//s->cap_output_size.w;
+	s->input_range.h = trim_height;//s->cap_output_size.h;
 	s->display_range.x = g_dcam_param.display_rect.x;
 	s->display_range.y = g_dcam_param.display_rect.y;
 	s->display_range.w = dst_img_size.w;//g_dcam_param.display_rect.w;
 	s->display_range.h = dst_img_size.h;//g_dcam_param.display_rect.h;
+	printk("test:%d,%d,%d,%d.\n",s->input_range.x,s->input_range.y,s->input_range.w,s->input_range.h);
 	if(DCAM_ROTATION_90 == g_dcam_param.rotation)
 	{
 		s->display_rotation = ISP_ROTATION_90;
