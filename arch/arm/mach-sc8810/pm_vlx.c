@@ -49,6 +49,7 @@
 #define WKAEUP_SRC_RX0      BIT_0
 #define WAKEUP_SRC_PB		BIT_3
 #define WAKEUP_SRC_CHG		BIT_2
+#define SPRD_EICINT_BASE	(SPRD_EIC_BASE+0x80)
 
 extern void sc8800g_cpu_standby(void);
 
@@ -150,18 +151,21 @@ int sc8800g_set_wakeup_src(void)
 		__raw_writel(val, INT_IRQ_EN);
 	}
 
-#if 0
+
 	//enable UART0 Wake up Source  for  BT	
 	if (WKAEUP_SRC_RX0 & wakeup_src) {
-		val = __raw_readl(INT_IRQ_EN);
-		val |= (BIT_0 | BIT_2);
-		__raw_writel(val, INT_IRQ_EN);
+		//SIC interrupt enable
+		val = __raw_readl(SPRD_EICINT_BASE+0x00);
+		val |= BIT_0;
+		__raw_writel(val, SPRD_EICINT_BASE+0x00);
 		
-		val = __raw_readl(INT_UINT_CTL);	
-		val |= BIT_0 | BIT_16;
-		__raw_writel(val, INT_UINT_CTL);
+		//SIC polarity 0
+		val = __raw_readl(SPRD_EICINT_BASE+0x10);
+		val |= BIT_0;
+		__raw_writel(val, SPRD_EICINT_BASE+0x10);
+
 	}
-#endif
+
 	if (WAKEUP_SRC_PB & wakeup_src) {
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_PB);

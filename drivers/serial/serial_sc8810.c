@@ -135,6 +135,8 @@
 #define BAUD_2500000_26M 0x000B
 #define BAUD_3000000_26M 0x0009
 
+#define SPRD_EICINT_BASE	(SPRD_EIC_BASE+0x80)
+
 extern void printascii(const char *);
 
 #if 0
@@ -391,19 +393,27 @@ static irqreturn_t serialsc8800_interrupt_chars(int irq,void *dev_id)
  */
 static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 {
-//TODO 
-#if 0
-	// set and then clear BIT_15
 	u32 val;
-	val = __raw_readl(INT_UINT_CTL);	
-	val |= BIT_15;
-	__raw_writel(val, INT_UINT_CTL);
-	val &= ~ BIT_15;
-	__raw_writel(val, INT_UINT_CTL);
+
+	printk("%s\n",__func__);
+	
+	//SIC polarity 1
+	val = __raw_readl(SPRD_EICINT_BASE+0x10);
+	if((val&BIT_0)==BIT_0)
+		val &= ~BIT_0;
+	else
+		val |= BIT_0;
+	__raw_writel(val, SPRD_EICINT_BASE+0x10);
+
+	//clear interrupt
+	val = __raw_readl(SPRD_EICINT_BASE+0x0C);	
+	val |= BIT_0;
+	__raw_writel(val, SPRD_EICINT_BASE+0x0C);
+
 
 	// set wakeup symbol
 	is_uart_rx_wakeup = true;
-#endif
+
 	return IRQ_HANDLED;
 }
 
