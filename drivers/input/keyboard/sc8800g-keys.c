@@ -181,7 +181,11 @@ static unsigned char g_keycode;
 static unsigned long pb_keystatus4sleep = 0;	/* 0 : UP;  1 : DOWN */
 static ssize_t sprd_kpad_store_emulate(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 static ssize_t sprd_kpad_show_emulate(struct device* cd,struct device_attribute *attr, char* buf);
+static ssize_t sprd_kpad_store_sysrq(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
+static ssize_t sprd_kpad_show_sysrq(struct device* cd,struct device_attribute *attr, char* buf);
 static DEVICE_ATTR(emulate, S_IRUGO | S_IWUSR, sprd_kpad_show_emulate, sprd_kpad_store_emulate);
+static DEVICE_ATTR(sysrq, S_IRUGO | S_IWUSR, sprd_kpad_show_sysrq, sprd_kpad_store_sysrq);
+static sysrq_enabled = 1;
  
 static ssize_t sprd_kpad_show_emulate(struct device* cd,struct device_attribute *attr, char* buf)
 {
@@ -211,12 +215,26 @@ static ssize_t sprd_kpad_store_emulate(struct device* cd, struct device_attribut
 	return len;
 }
 
+static ssize_t sprd_kpad_show_sysrq(struct device* cd,struct device_attribute *attr, char* buf)
+{
+	return sprintf(buf, "%d\n", sysrq_enabled);
+}
+
+static ssize_t sprd_kpad_store_sysrq(struct device* cd, struct device_attribute *attr,const char* buf, size_t len)
+{
+	sysrq_enabled = !!simple_strtoul(buf, NULL, NULL);
+	return len;
+}
+
 static int sprd_kpad_create_sysfs(struct platform_device *pdev)
 {
 	int err;
 	struct device *dev = &(pdev->dev);
 	
 	err = device_create_file(dev, &dev_attr_emulate);
+    if (err == 0)
+        err = device_create_file(dev, &dev_attr_sysrq);
+    else pr_err("%s: create sysrq\n", __FUNCTION__);
 
 	return err;
 }
@@ -516,7 +534,7 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 	
 #ifdef CONFIG_MAGIC_SYSRQ	       /* Handle the SysRq Hack */
 	/* Vol-Down + Camera */
-	if (s_key_status == 0x77778180) {
+	if (sysrq_enabled && s_key_status == 0x77778180) {
 		printk("########################################################################\n");
 		handle_sysrq('m', NULL);
 		printk("########################################################################\n");
@@ -526,9 +544,9 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 		printk("########################################################################\n");
 		handle_sysrq('w', NULL);
 		printk("########################################################################\n");
-		handle_sysrq('t', NULL);
+		handle_sysrq('s', NULL);
 		printk("########################################################################\n");
-		handle_sysrq('i', NULL);
+		handle_sysrq('b', NULL);
 		printk("########################################################################\n");
 	}
 #endif
