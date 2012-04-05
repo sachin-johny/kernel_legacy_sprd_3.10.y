@@ -22,6 +22,8 @@
 #include <asm/mach-types.h>
 
 #include <mach/hardware.h>
+#include <linux/i2c.h>
+#include <linux/i2c/pixcir_i2c_ts.h>
 
 #include "devices.h"
 
@@ -47,6 +49,7 @@ static struct platform_device *devices[] __initdata = {
 static struct sys_timer sc8810_timer = {
 	        .init = sc8810_timer_init,
 };
+
 
 static int calibration_mode = false;
 static int __init calibration_start(char *str)
@@ -75,11 +78,42 @@ static void __init sprd_add_otg_device(void)
 	platform_device_register(&sprd_otg_device);
 }
 
+/*============================TOUCH SCREEN================================*/
+
+static struct pixcir_ts_platform_data pixcir_ts_info = {
+	.irq_gpio_number	= TS_IRQ_GPIO_PIN,
+	.reset_gpio_number	= TS_RESET_GPION_PIN,
+};
+
+static struct i2c_board_info i2c2_boardinfo[] = {
+	{
+		I2C_BOARD_INFO(PIXICR_DEVICE_NAME, 0x5C),
+		.platform_data = &pixcir_ts_info,
+	},
+};
+
+/*============================TOUCH SCREEN END================================*/
+/* sprd8810_i2c2sel_config
+ * config I2C2 SDA/SCL to SIM2 pads
+ */
+static void sprd8810_i2c2sel_config(void)
+{
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, PINCTRL_I2C2_SEL, GR_PIN_CTL);
+}
+
+static int sc8810_add_i2c_devices(void)
+{
+	sprd8810_i2c2sel_config();
+	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
+
+}
+
 static void __init sc8810_init_machine(void)
 {
 	regulator_add_devices();
 	sprd_add_otg_device();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
+	sc8810_add_i2c_devices();
 }
 
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,

@@ -184,6 +184,9 @@
 #define	DSP_MTX_STOP		BIT(12)
 #define	DSP_CORE_STOP		BIT(13)
 
+/* PIN_CTRL */
+#define PINCTRL_I2C2_SEL	BIT(8)
+
 /* ****************************************************************** */
 
 /* AHB register offset */
