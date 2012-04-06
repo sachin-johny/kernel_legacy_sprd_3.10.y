@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/irq.h>
+#include <linux/interrupt.h>
 #include <linux/module.h>
 #include <asm/gpio.h>
 
@@ -23,6 +24,13 @@
 #include <mach/gpio.h>
 #include <mach/ctl_eic.h>
 #include <mach/ana_ctl_glb.h>
+#include "adi_internal.h"
+
+/*
+#undef pr_debug
+#define pr_debug pr_info
+*/
+#define debug(format, arg...) pr_debug("gpio: " "+++" format, ## arg)
 
 #define CTL_EIC_BASE					( SPRD_EIC_BASE )
 #define ANA_CTL_EIC_BASE				( SPRD_MISC_BASE + 0x0700)
@@ -46,8 +54,12 @@ int sci_gpio_irq_set_type(struct irq_data *data, unsigned int flow_type);
 int sci_gpio_irq_set_wake(struct irq_data *data, unsigned int on);
 
 void sci_gpio_irq_handler(unsigned int irq, struct irq_desc *desc);
+irqreturn_t sci_gpio_irq_act_handler(int irq, void *dev_id);
 void __init gpio_irq_init(unsigned int irq, irq_flow_handler_t handler,
 			  struct gpio_chip *gpiochip, struct irq_chip *irqchip);
+void __init gpio_demux_irq_init(unsigned int irq, struct irqaction *action,
+				struct gpio_chip *gpiochip,
+				struct irq_chip *irqchip);
 
 struct sci_eic_chip {
 	struct gpio_chip chip;
@@ -113,7 +125,7 @@ static int sci_eic_set_debounce(struct gpio_chip *chip, unsigned offset,
 	int adie = EIC_INFO(adie);
 	u32 reg = EIC_OFF2REG3(REG_EIC_0CTRL) + (EIC_OFF2SHIFT << 2);
 	u32 tmp = SCI_REG_GET(reg);
-
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
 	BUG_ON(offset >= 8);	//only lower 8 eics is valid
 	tmp |= BIT_FORCE_CLK_DBNC;	//BUGBUG: why force?
 
@@ -162,8 +174,6 @@ int sci_eic_irq_set_wake(struct irq_data *data, unsigned int on)
 
 static struct irq_chip sc8810_eic_irq_chip = {
 	.name = "sprd-eic",
-	.irq_enable = sci_gpio_irq_enable,
-	.irq_disable = sci_gpio_irq_disable,
 	.irq_ack = sci_gpio_irq_ack,
 	.irq_mask = sci_gpio_irq_mask,
 	.irq_unmask = sci_gpio_irq_unmask,
@@ -173,13 +183,18 @@ static struct irq_chip sc8810_eic_irq_chip = {
 
 static struct irq_chip sc8810_ana_eic_irq_chip = {
 	.name = "sprd-ana-eic",
-	.irq_enable = sci_gpio_irq_enable,
-	.irq_disable = sci_gpio_irq_disable,
 	.irq_ack = sci_gpio_irq_ack,
 	.irq_mask = sci_gpio_irq_mask,
 	.irq_unmask = sci_gpio_irq_unmask,
 	.irq_set_wake = sci_eic_irq_set_wake,
 	.irq_set_type = sci_gpio_irq_set_type,
+};
+
+static struct irqaction sc8810_eic_irq_action = {
+	.name = "sprd-eic-act",
+	.flags = IRQF_SHARED,
+	.handler = sci_gpio_irq_act_handler,
+	.dev_id = &sc8810_eic_chip,
 };
 
 static int __init eic_init(void)
@@ -188,9 +203,9 @@ static int __init eic_init(void)
 	gpiochip_add((struct gpio_chip *)&sc8810_eic_chip);
 	gpiochip_add((struct gpio_chip *)&sc8810_ana_eic_chip);
 #define IRQ_EIC_INT		IRQ_GPIO_INT
-	gpio_irq_init(IRQ_EIC_INT, sci_gpio_irq_handler,
-		      (struct gpio_chip *)&sc8810_eic_chip,
-		      &sc8810_eic_irq_chip);
+	gpio_demux_irq_init(IRQ_EIC_INT, &sc8810_eic_irq_action,
+			    (struct gpio_chip *)&sc8810_eic_chip,
+			    &sc8810_eic_irq_chip);
 	gpio_irq_init(IRQ_ANA_EIC_INT, sci_gpio_irq_handler,
 		      (struct gpio_chip *)&sc8810_ana_eic_chip,
 		      &sc8810_ana_eic_irq_chip);
