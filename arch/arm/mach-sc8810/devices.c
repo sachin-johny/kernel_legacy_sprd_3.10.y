@@ -172,3 +172,8 @@ struct platform_device sprd_otg_device = {
 	.num_resources	= ARRAY_SIZE(sprd_otg_resource),
 	.resource	= sprd_otg_resource,
 };
+
+struct platform_device sprd_backlight_device = {
+	.name           = "sprd_backlight",
+	.id             =  -1,
+};
