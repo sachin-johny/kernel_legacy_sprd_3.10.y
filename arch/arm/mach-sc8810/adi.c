@@ -20,6 +20,7 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/ctl_glb.h>
+#include "adi_internal.h"
 
 #define CTL_GLB_BASE					( SPRD_GREG_BASE )
 #define CTL_ADI_BASE					( SPRD_MISC_BASE )
