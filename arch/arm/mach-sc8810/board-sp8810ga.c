@@ -38,6 +38,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_device_rtc,
 	&sprd_nand_device,
 	&sprd_lcd_device,
+	&sprd_backlight_device,
 };
 
 static struct sys_timer sc8810_timer = {

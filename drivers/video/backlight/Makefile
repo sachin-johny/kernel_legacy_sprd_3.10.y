@@ -15,6 +15,7 @@ obj-$(CONFIG_LCD_S6E63M0)	+= s6e63m0.o
 obj-$(CONFIG_LCD_LD9040)	+= ld9040.o
 
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
+obj-$(CONFIG_BACKLIGHT_SC8810)	+= sc8810_bl.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
 obj-$(CONFIG_BACKLIGHT_EP93XX)	+= ep93xx_bl.o
 obj-$(CONFIG_BACKLIGHT_GENERIC)	+= generic_bl.o
