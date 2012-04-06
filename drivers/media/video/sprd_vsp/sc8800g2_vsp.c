@@ -401,7 +401,7 @@ static int vsp_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}	
 
-#if 0
+#if 1
 	/* register isr */
 	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &dev);
 	if (ret) {
