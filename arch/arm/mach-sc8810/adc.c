@@ -21,6 +21,7 @@
 #include <mach/adi.h>
 #include <mach/ctl_adc.h>
 #include <mach/ana_ctl_glb.h>
+#include "adi_internal.h"
 
 #define ANA_CTL_GLB_BASE				SCI_ADDRESS(SPRD_MISC_BASE, 0x0600)
 #define ANA_CTL_ADC_BASE				SCI_ADDRESS(SPRD_MISC_BASE, 0x0300)

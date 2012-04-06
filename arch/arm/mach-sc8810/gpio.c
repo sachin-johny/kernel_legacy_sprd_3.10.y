@@ -11,9 +11,6 @@
  * GNU General Public License for more details.
  */
 
-/* #define DEBUG */
-#define debug(format, arg...) pr_info("gpio: " "+++" format, ## arg)
-
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/irq.h>
@@ -27,6 +24,14 @@
 #include <mach/gpio.h>
 #include <mach/ctl_gpio.h>
 #include <mach/ctl_eic.h>
+#include <mach/ana_ctl_glb.h>
+#include "adi_internal.h"
+
+/*
+#undef pr_debug
+#define pr_debug pr_info
+*/
+#define debug(format, arg...) pr_debug("gpio: " "+++" format, ## arg)
 
 /*
  * SC8810 GPIO bank and number summary:
@@ -42,6 +47,7 @@
 #define CTL_GPIO_BASE					( SPRD_GPIO_BASE )
 #define ANA_CTL_EIC_BASE				( SPRD_MISC_BASE + 0x0700)
 #define ANA_CTL_GPIO_BASE				( SPRD_MISC_BASE + 0x0480 )
+#define ANA_CTL_GLB_BASE				SCI_ADDRESS(SPRD_MISC_BASE, 0x0600)
 
 typedef struct {
 	u32 reg, val;
@@ -119,20 +125,20 @@ int sci_gpio_write(struct gpio_chip *chip, unsigned offset, u32 reg, int value)
 
 int sci_gpio_request(struct gpio_chip *chip, unsigned offset)
 {
-	debug("%s %d\n", __FUNCTION__, offset);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
 	return sci_gpio_write(chip, offset, REG_GPIO_DMSK, 1);
 }
 
 void sci_gpio_free(struct gpio_chip *chip, unsigned offset)
 {
-	debug("%s %d\n", __FUNCTION__, offset);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
 	sci_gpio_write(chip, offset, REG_GPIO_DMSK, 0);
 }
 
 int sci_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 {
 	sci_gpio_write(chip, offset, REG_GPIO_DIR, 0);
-	debug("%s %d\n", __FUNCTION__, offset);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
 	return sci_gpio_write(chip, offset, REG_GPIO_INEN, 1);
 }
 
@@ -152,9 +158,9 @@ int sci_gpio_get(struct gpio_chip *chip, unsigned offset)
 	     (sci_gpio_read(chip, offset, REG_GPIO_DMSK) &
 	      (1 << GPIO_OFF2SHIFT)), "%sGPIO%u data mask hasn't been opened\n",
 	     (adie) ? "ANA " : "", chip->base + offset);
-	debug("%s %d\n", __FUNCTION__, offset);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
 	return ! !(sci_gpio_read(chip, offset, REG_GPIO_DATA) &
-		   (1 >> GPIO_OFF2SHIFT));
+		   (1 << GPIO_OFF2SHIFT));
 }
 
 static void sci_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
@@ -224,7 +230,7 @@ void sci_gpio_irq_enable(struct irq_data *data)
 {
 	struct gpio_chip *chip = (struct gpio_chip *)data->chip_data;
 	int offset = sci_irq_to_gpio(chip, data->irq);
-	debug("%s %d\n", __FUNCTION__, offset);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
 	sci_gpio_write(chip, offset, REG_GPIO_IE, 1);
 }
 
@@ -232,7 +238,7 @@ void sci_gpio_irq_disable(struct irq_data *data)
 {
 	struct gpio_chip *chip = (struct gpio_chip *)data->chip_data;
 	int offset = sci_irq_to_gpio(chip, data->irq);
-	debug("%s %d\n", __FUNCTION__, offset);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
 	sci_gpio_write(chip, offset, REG_GPIO_IE, 0);
 }
 
@@ -240,7 +246,7 @@ void sci_gpio_irq_ack(struct irq_data *data)
 {
 	struct gpio_chip *chip = (struct gpio_chip *)data->chip_data;
 	int offset = sci_irq_to_gpio(chip, data->irq);
-	debug("%s %d\n", __FUNCTION__, offset);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
 	sci_gpio_write(chip, offset, REG_GPIO_IC, 1);
 }
 
@@ -248,16 +254,16 @@ void sci_gpio_irq_mask(struct irq_data *data)
 {
 	struct gpio_chip *chip = (struct gpio_chip *)data->chip_data;
 	int offset = sci_irq_to_gpio(chip, data->irq);
-	debug("%s %d\n", __FUNCTION__, offset);
-	sci_gpio_write(chip, offset, REG_GPIO_MIS, 0);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
+	sci_gpio_write(chip, offset, REG_GPIO_IE, 0);
 }
 
 void sci_gpio_irq_unmask(struct irq_data *data)
 {
 	struct gpio_chip *chip = (struct gpio_chip *)data->chip_data;
 	int offset = sci_irq_to_gpio(chip, data->irq);
-	debug("%s %d\n", __FUNCTION__, offset);
-	sci_gpio_write(chip, offset, REG_GPIO_MIS, 1);
+	debug("%s %d+%d\n", __FUNCTION__, chip->base, offset);
+	sci_gpio_write(chip, offset, REG_GPIO_IE, 1);
 }
 
 int sci_gpio_irq_set_type(struct irq_data *data, unsigned int flow_type)
@@ -310,10 +316,8 @@ int sci_gpio_irq_set_wake(struct irq_data *data, unsigned int on)
 	return 0;
 }
 
-void sci_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
+void sci_gpio_chip_irq_handler(unsigned int irq, struct gpio_chip *chip)
 {
-	struct gpio_chip *chip =
-	    (struct gpio_chip *)desc->irq_data.handler_data;
 	int offset;
 	for (offset = 0; offset <= chip->ngpio; offset += 16) {
 		u16 tmp =
@@ -322,16 +326,29 @@ void sci_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 			irq = __ffs(tmp);	//Count Leading Zeros
 			tmp &= ~(1 << irq);	//clear
 			irq = chip->to_irq(chip, offset + irq);
-			debug("%s %d\n", __FUNCTION__, irq);
+			debug("%s generic_handle_irq %d\n", __FUNCTION__, irq);
 			generic_handle_irq(irq);
 		}
 	}
 }
 
+void sci_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
+{
+	struct gpio_chip *chip =
+	    (struct gpio_chip *)desc->irq_data.handler_data;
+	sci_gpio_chip_irq_handler(irq, chip);
+}
+
+irqreturn_t sci_gpio_irq_act_handler(int irq, void *dev_id)
+{
+	struct gpio_chip *chip = (struct gpio_chip *)dev_id;
+	debug("%s %d:%d\n", __FUNCTION__, chip->base, chip->ngpio);
+	sci_gpio_chip_irq_handler(irq, chip);
+	return IRQ_HANDLED;
+}
+
 static struct irq_chip sc8810_gpio_irq_chip = {
 	.name = "sprd-gpio",
-	.irq_enable = sci_gpio_irq_enable,
-	.irq_disable = sci_gpio_irq_disable,
 	.irq_ack = sci_gpio_irq_ack,
 	.irq_mask = sci_gpio_irq_mask,
 	.irq_unmask = sci_gpio_irq_unmask,
@@ -341,8 +358,6 @@ static struct irq_chip sc8810_gpio_irq_chip = {
 
 static struct irq_chip sc8810_ana_gpio_irq_chip = {
 	.name = "sprd-ana-gpio",
-	.irq_enable = sci_gpio_irq_enable,
-	.irq_disable = sci_gpio_irq_disable,
 	.irq_ack = sci_gpio_irq_ack,
 	.irq_mask = sci_gpio_irq_mask,
 	.irq_unmask = sci_gpio_irq_unmask,
@@ -350,14 +365,18 @@ static struct irq_chip sc8810_ana_gpio_irq_chip = {
 	.irq_set_type = sci_gpio_irq_set_type,
 };
 
-void __init gpio_irq_init(unsigned int irq, irq_flow_handler_t handler,
-			  struct gpio_chip *gpiochip, struct irq_chip *irqchip)
+static struct irqaction sc8810_gpio_irq_action = {
+	.name = "sprd-gpio-act",
+	.flags = IRQF_SHARED,
+	.handler = sci_gpio_irq_act_handler,
+	.dev_id = &sc8810_gpio_chip,
+};
+
+static void __init gpio_chip_irq_init(unsigned int irq,
+				      struct gpio_chip *gpiochip,
+				      struct irq_chip *irqchip)
 {
 	int offset;
-
-	/* setup the cascade irq handlers */
-	irq_set_chained_handler(irq, handler);
-	irq_set_handler_data(irq, gpiochip);
 	for (offset = 0; offset < gpiochip->ngpio; offset++) {
 		int irqno = gpiochip->to_irq(gpiochip, offset);
 		irq_set_chip_and_handler(irqno, irqchip, handle_level_irq);
@@ -366,60 +385,39 @@ void __init gpio_irq_init(unsigned int irq, irq_flow_handler_t handler,
 	}
 }
 
-static gpiomap_t __initconst gpiomap[] = {
-//#include "__gpiomap.c"
-};
+void __init gpio_irq_init(unsigned int irq, irq_flow_handler_t handler,
+			  struct gpio_chip *gpiochip, struct irq_chip *irqchip)
+{
+	/* setup the cascade irq handlers */
+	irq_set_chained_handler(irq, handler);
+	irq_set_handler_data(irq, gpiochip);
+	gpio_chip_irq_init(irq, gpiochip, irqchip);
+}
+
+void __init gpio_demux_irq_init(unsigned int irq, struct irqaction *action,
+				struct gpio_chip *gpiochip,
+				struct irq_chip *irqchip)
+{
+	/* setup the demultiplexing irq handlers */
+	irq_set_chained_handler(irq, handle_level_irq);
+	setup_irq(irq, action);
+	gpio_chip_irq_init(irq, gpiochip, irqchip);
+}
 
 static int __init gpio_init(void)
 {
 	int i;
 	sci_gpio_enable();
-	for (i = 0; i < sizeof(gpiomap) / sizeof(gpiomap_t); i++) {
-		if (SCI_REG_IS_ADIE(gpiomap[i].reg))
-			sci_adi_raw_write(gpiomap[i].reg, gpiomap[i].val);
-		else
-			SCI_D(gpiomap[i].reg) = gpiomap[i].val;
-	}
 	gpiochip_add((struct gpio_chip *)&sc8810_gpio_chip);
 	gpiochip_add((struct gpio_chip *)&sc8810_ana_gpio_chip);
-	gpio_irq_init(IRQ_GPIO_INT, sci_gpio_irq_handler,
-		      (struct gpio_chip *)&sc8810_gpio_chip,
-		      &sc8810_gpio_irq_chip);
+	gpio_demux_irq_init(IRQ_GPIO_INT, &sc8810_gpio_irq_action,
+			    (struct gpio_chip *)&sc8810_gpio_chip,
+			    &sc8810_gpio_irq_chip);
 	gpio_irq_init(IRQ_ANA_GPIO_INT, sci_gpio_irq_handler,
 		      (struct gpio_chip *)&sc8810_ana_gpio_chip,
 		      &sc8810_ana_gpio_irq_chip);
 	return 0;
 }
 
-/*
-#define IRQ_ANA_PB		(163)
-
-static irqreturn_t sprd_pint_isr(int irq, void *dev_id)
-{
-	u16 data;
-	data = SCI_A(ANA_REG_EIC_DATA);
-	printk("%s %d %x\n", __FUNCTION__, irq, (u32)data);
-
-	if (data & 8) {//not hold
-		irq_set_irq_type(irq, IRQF_TRIGGER_LOW);
-	}
-	else {
-		irq_set_irq_type(irq, IRQF_TRIGGER_HIGH);
-	}
-	gpio_direction_input(IRQ_ANA_PB);//reset eic triger
-	return IRQ_HANDLED;
-}
-
-static int __init gpio_test(void)
-{
-	gpio_request(IRQ_ANA_PB, "");
-	gpio_direction_input(IRQ_ANA_PB);
-	printk("++++++++++++++++++++++++++++\n");
-	return request_irq(gpio_to_irq(IRQ_ANA_PB), sprd_pint_isr, IRQF_TRIGGER_LOW, "powerkey", (void*)0);
-}
-
-late_initcall(gpio_test);
-
-*/
-
 arch_initcall(gpio_init);
+

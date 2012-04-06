@@ -21,6 +21,7 @@
 #include <mach/irqs.h>
 #include <mach/adi.h>
 #include <mach/ana_ctl_int.h>
+#include "adi_internal.h"
 
 /* general interrupt registers */
 #define	INTCV_REG(off)        (SPRD_INTCV_BASE + (off))
@@ -84,13 +85,13 @@ void sprd_ack_ana_irq(struct irq_data *data)
 static void sprd_mask_ana_irq(struct irq_data *data)
 {
 	int offset = data->irq - IRQ_ANA_INT_START;
-	SCI_A_CLR(ANA_REG_INT_EN, BIT(offset & MASK_ANA_INT));
+	sci_adi_clr(ANA_REG_INT_EN, BIT(offset & MASK_ANA_INT));
 }
 
 static void sprd_unmask_ana_irq(struct irq_data *data)
 {
 	int offset = data->irq - IRQ_ANA_INT_START;
-	SCI_A_SET(ANA_REG_INT_EN, BIT(offset & MASK_ANA_INT));
+	sci_adi_set(ANA_REG_INT_EN, BIT(offset & MASK_ANA_INT));
 }
 
 /* WARN: disable/enable is the same with umask/mask. */
@@ -126,7 +127,7 @@ static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
 	   if (gpu_has_interrupt)
 	   generic_handle_irq(gpu_interrpt_id);
 	 */
-	status = SCI_A(ANA_REG_INT_MASK_STATUS);
+	status = sci_adi_read(ANA_REG_INT_MASK_STATUS);
 
 	for (i = 0; i < NR_ANA_IRQS; ++i) {
 		if ((status >> i) & 0x1) {

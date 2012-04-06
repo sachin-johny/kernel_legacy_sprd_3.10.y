@@ -18,6 +18,7 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/ctl_efuse.h>
+#include "adi_internal.h"
 
 #define CTL_EFUSE_BASE				( efuse_iobase )
 
