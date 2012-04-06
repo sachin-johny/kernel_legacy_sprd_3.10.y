@@ -235,4 +235,43 @@ config CHARGER_GPIO
 	  This driver can be build as a module. If so, the module will be
 	  called gpio-charger.
 
+menuconfig SPRD_POWER
+	tristate "Spreadtrum SoC's power supply& mesurement controller"
+	help
+	 Say Y to include support for Spreadtrum SoC's power supply and
+	 mesurement controller driver
+
+if SPRD_POWER
+
+config NOTIFY_BY_USB
+	bool "Get charger plug event from usb module"
+	depends on USB_SUPPORT
+	default y
+	help
+	  If selected, Power driver will register a callback to usb,
+	  and got notified when AC and USB plug event happen
+
+config BATTERY_TEMP_DECT
+	bool "Battery module have temperature detection"
+	default n
+	help
+	  If Battery driver have temperature detection embeded,
+	  it is enabled by this selection
+
+config PLUG_WAKELOCK_TIME_SEC
+	int "Battery plug out wakelock length"
+	default "3"
+	help
+	  This specify the wakelock length, when charger plug out happen.
+	  It have an unit in seconds.
+
+config AVERAGE_CNT
+	int "times sampling for average"
+	default "10"
+	help
+	  Some of the battery status is calculated by averaging algorithm.
+	  This define sample size.
+
+endif # SPRD_POWER
+
 endif # POWER_SUPPLY

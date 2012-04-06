@@ -29,6 +29,7 @@
 #define GPIO_TOUCH_RESET	59
 #define GPIO_TOUCH_IRQ		60
 
+#define EIC_CHARGER_DETECT	162
 #define EIC_KEY_POWER		163
 
 #endif
