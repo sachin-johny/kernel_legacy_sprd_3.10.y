@@ -16,6 +16,7 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include "devices.h"
+#include <mach/board.h>
 
 /* example platform device & its resource */
 static struct resource resources_example[] = {
@@ -274,4 +275,19 @@ struct platform_device sprd_keypad_device = {
         .id             = -1,
         .num_resources  = ARRAY_SIZE(sprd_keypad_resources),
         .resource       = sprd_keypad_resources,
+};
+
+static struct resource sprd_battery_resources[] = {
+        [0] = {
+                .start = EIC_CHARGER_DETECT,
+                .end = EIC_CHARGER_DETECT,
+                .flags = IORESOURCE_IO,
+        }
+};
+
+struct platform_device sprd_battery_device = {
+        .name           = "sprd-battery",
+        .id             =  0,
+        .num_resources  = ARRAY_SIZE(sprd_battery_resources),
+        .resource       = sprd_battery_resources,
 };

@@ -71,4 +71,33 @@
 
 /* vars definitions for controller CTL_ADC */
 
+/* adc channel definition */
+#define ADC_CHANNEL_INVALID  0xffff
+
+enum adc_channel {
+	ADIN_0 = 0,
+	ADC_CHANNEL_TEMP = 1,
+	ADIN_2 = 2,
+	ADIN_3 = 3,
+	ADC_CHANNEL_PROG = 4,
+	ADC_CHANNEL_VBAT = 5,
+	ADC_CHANNEL_VCHG = 6,
+	ADIN_7 = 7,
+	ADIN_8 = 8,
+	ADIN_9 = ADC_CHANNEL_INVALID,
+	ADIN_10 = ADC_CHANNEL_INVALID,
+	ADIN_11 = ADC_CHANNEL_INVALID,
+	ADIN_12 = ADC_CHANNEL_INVALID,
+	ADIN_13 = ADC_CHANNEL_INVALID,
+	ADIN_14 = 14,
+	ADIN_15 = 15,
+	ADC_MAX = 16,
+};
+
+/* adc scale definition */
+enum adc_scale {
+	ADC_SCALE_3V = 0,
+	ADC_SCALE_1V2 = 1,
+};
+
 #endif //__CTL_ADC_H__
