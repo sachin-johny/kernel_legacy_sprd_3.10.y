@@ -260,3 +260,18 @@ struct platform_device sprd_i2c_device3 = {
 	.num_resources  = ARRAY_SIZE(sprd_i2c_resources3),
 	.resource       = sprd_i2c_resources3,
 };
+
+static struct resource sprd_keypad_resources[] = {
+        {
+                .start = IRQ_KPD_INT,
+                .end = IRQ_KPD_INT,
+                .flags = IORESOURCE_IRQ,
+        },
+};
+
+struct platform_device sprd_keypad_device = {
+        .name           = "sprd-keypad",
+        .id             = -1,
+        .num_resources  = ARRAY_SIZE(sprd_keypad_resources),
+        .resource       = sprd_keypad_resources,
+};
