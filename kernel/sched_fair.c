@@ -3594,6 +3594,22 @@ static void prio_changed_fair(struct rq *rq, struct task_struct *p,
 static void switched_to_fair(struct rq *rq, struct task_struct *p,
 			     int running)
 {
+	struct sched_entity *se = &p->se;
+	struct cfs_rq *cfs_rq = cfs_rq_of(se);
+
+	if (se->on_rq && cfs_rq->curr != se)
+		__dequeue_entity(cfs_rq, se);
+
+	/*
+	 * se->vruntime can be completely out there, there is no telling
+	 * how long this task was !fair and on what CPU if any it became
+	 * !fair. Therefore, reset it to a known, reasonable value.
+	 */
+	se->vruntime = cfs_rq->min_vruntime;
+
+	if (se->on_rq && cfs_rq->curr != se)
+		__enqueue_entity(cfs_rq, se);
+
 	/*
 	 * We were most likely switched from sched_rt, so
 	 * kick off the schedule if running, otherwise just see
