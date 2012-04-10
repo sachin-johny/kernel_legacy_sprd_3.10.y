@@ -24,7 +24,7 @@
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/pixcir_i2c_ts.h>
-
+#include <mach/globalregs.h>
 #include "devices.h"
 
 extern void __init sc8810_map_io(void);
