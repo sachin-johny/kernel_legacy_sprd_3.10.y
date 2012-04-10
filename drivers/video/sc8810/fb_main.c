@@ -54,6 +54,7 @@
 #define MAX_LCDC_TIMING_VALUE 15
 #define FB_NORMAL 0
 #define FB_NO_REFRESH 1
+#define LCD_UPDATE_PARTLY 1
 
 struct sc8810fb_info {
 	struct fb_info   *fb;
