@@ -1308,7 +1308,7 @@ static int print_thread(void *pdata)
 	    if (has_wake_lock_info(WAKE_LOCK_SUSPEND)) {
 			printk("##: Some locks are being holded.\n");
 	    }
-           mdelay(100);
+           msleep(100);
 	start_pm_message();
 	add_pm_message(get_sys_cnt(), "**** print_thread stop. *****", 0, 0, 0); 
            wake_unlock(&messages_wakelock);
