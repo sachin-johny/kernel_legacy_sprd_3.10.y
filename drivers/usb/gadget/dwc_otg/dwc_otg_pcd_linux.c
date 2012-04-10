@@ -580,6 +580,7 @@ extern void dwc_otg_pcd_stop(dwc_otg_pcd_t *pcd);
 
 static void __udc_startup(void);
 static void __udc_shutdown(void);
+static int udc_stopped = 0;
 
 static int pullup(struct usb_gadget *gadget, int is_on)
 {
@@ -596,6 +597,10 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		is_on = 0;
 	}
 	local_irq_restore(flags);
+	if (udc_stopped) {
+		pr_info("udc has been stopped by user\n");
+		return -EINVAL;
+	}
 
 	spin_lock(&udc_lock);
 	if (is_on) {
@@ -1031,13 +1036,17 @@ static int cable_is_connected(void);
 
 void dwc_udc_startup(void)
 {
+	/*
 	//if usb cable  not connect, do nothing
 	if (!cable_is_connected()) {
 		pr_warning("usb cable is not connect\n");
 		return;
 	}
+	*/
+
 	//udc not startup, startup udc and get a wacklock
 	spin_lock(&udc_lock);
+	udc_stopped = 0;
 	__udc_startup();
 	spin_unlock(&udc_lock);
 }
@@ -1045,6 +1054,7 @@ void dwc_udc_startup(void)
 void dwc_udc_shutdown(void)
 {
 	spin_lock(&udc_lock);
+	udc_stopped = 1;
 	__udc_shutdown();
 	spin_unlock(&udc_lock);
 }
