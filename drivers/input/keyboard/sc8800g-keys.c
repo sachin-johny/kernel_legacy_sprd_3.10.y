@@ -544,9 +544,9 @@ static irqreturn_t sprd_kpad_isr(int irq, void *dev_id)
 		printk("########################################################################\n");
 		handle_sysrq('w', NULL);
 		printk("########################################################################\n");
-		handle_sysrq('s', NULL);
+		handle_sysrq('i', NULL);
 		printk("########################################################################\n");
-		handle_sysrq('b', NULL);
+		panic("Vol-Down + Camera is triggered!!!");
 		printk("########################################################################\n");
 	}
 #endif
