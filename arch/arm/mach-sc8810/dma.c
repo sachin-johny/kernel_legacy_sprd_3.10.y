@@ -76,8 +76,6 @@
 #define DMA_CHN_UID6                    (DMA_REG_BASE + 0x00B0)
 #define DMA_CHN_UID7                    (DMA_REG_BASE + 0x00B4)
 
-#define DMA_CHx_EN                      (DMA_REG_BASE + 0x00C0)
-#define DMA_CHx_DIS                     (DMA_REG_BASE + 0x00C4)
 
 #define SPRD_DMA_DPRINTF(mask, format, args...) \
 	do { \

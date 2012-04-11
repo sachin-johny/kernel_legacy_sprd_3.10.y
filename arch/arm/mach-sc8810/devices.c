@@ -278,6 +278,21 @@ struct platform_device sprd_keypad_device = {
         .resource       = sprd_keypad_resources,
 };
 
+struct platform_device sprd_audio_soc_device = {
+	.name           = "sc88xx-pcm-audio",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_soc_vbc_device = {
+	.name           = "sc88xx-vbc",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_vbc_device = {
+	.name           = "vbc-codec",
+	.id             =  -1,
+};
+
 static struct resource sprd_battery_resources[] = {
         [0] = {
                 .start = EIC_CHARGER_DETECT,
