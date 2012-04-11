@@ -606,6 +606,12 @@ static int init_sensor_parameters(void *priv)
 		}
 	}	
 
+	if(1 == dev->streamparm.parm.capture.capturemode)
+	{
+		if(init_param.input_size.w<=DCAM_SCALE_OUT_WIDTH_MAX)
+			g_dcam_info.snapshot_m = g_dcam_info.preview_m;
+	}
+
 	if(1 != dev->streamparm.parm.capture.capturemode) //for preview
 	 {
 	 	if(g_dcam_info.preview_m != g_dcam_info.snapshot_m)
