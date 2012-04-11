@@ -259,6 +259,9 @@ static inline u32 dma_get_reg(u32 reg)
 	return __raw_readl(reg);
 }
 
+#define DMA_CHx_EN                      (DMA_REG_BASE + 0x00C0)
+#define DMA_CHx_DIS                     (DMA_REG_BASE + 0x00C4)
+
 #define sprd_dma_start(ch_id) \
     dma_reg_bits_or(1 << ch_id, DMA_CHx_EN) /* Enable DMA channel */
 

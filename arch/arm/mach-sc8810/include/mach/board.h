@@ -21,7 +21,14 @@
 #ifdef	CONFIG_MACH_SP8810GA
 #include <mach/gpio-sp8810ga.h>
 #endif
+#include <linux/platform_device.h>
 
+struct pdata_notifier {
+#define PLATFORM_PDATA_TYTE_AUDIO_SPEAKER   0
+    struct platform_device pd;
+    u32 cmd;
+    int (*notifier_call)(struct pdata_notifier*, u32, void *);
+};
 /*
  * pmem area definition
  */
