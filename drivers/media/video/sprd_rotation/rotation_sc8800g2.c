@@ -186,6 +186,12 @@ static void rotation_cfg (void)
 }
 
 
+static void rotation_disable(void)
+{
+	  // rot eb
+    _paad(AHB_GLOBAL_REG_CTL0, ~BIT_14); //ROTATION_DRV_ONE
+}
+
 
 static void rotation_software_reset(void)
 {
@@ -393,6 +399,7 @@ int rotation_IOinit(void)
 }
 int rotation_IOdeinit(void)
 {
+	rotation_disable();
 	up(&g_sem_rot);
 	return 0;
 }

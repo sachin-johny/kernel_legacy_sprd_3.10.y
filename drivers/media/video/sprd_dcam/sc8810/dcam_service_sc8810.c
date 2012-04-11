@@ -318,7 +318,7 @@ static uint32_t _ISP_ServiceClose(void)
 	DCAM_TRACE("DCAM:ISP_ServiceClose, service = %d", s->service);
 
 	ISP_DriverStop(s->module_addr);
-	ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
+//	ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
 
 	_ISP_ServiceDeInit();
 
@@ -1252,12 +1252,14 @@ static int ISP_ServiceSetParameters(void)
 int dcam_start(void)
 {
 	int ret = DCAM_SUCCESS;
+	isp_get_path2();
 	if(0 == dcam_get_user_count())
 	{
 		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ISP); //switch IRAM to isp
 		ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);  
 		DCAM_TRACE("DCAM: scam_start softreset and set clk.\n");
 	}
+	isp_put_path2();
 	dcam_inc_user_count();
 	
 	DCAM_TRACE("DCAM: dcam_start start. \n"); 
@@ -1359,14 +1361,15 @@ int dcam_stop(void)
 	ISP_DriverStop(s->module_addr); 
 	s->state = ISP_STATE_STOP;  
 	dcam_dec_user_count();
+	isp_get_path2();
 	if(0 == dcam_get_user_count())
-	{
-		ISP_DriverModuleDisable(AHB_GLOBAL_REG_CTL0);
+	{		
 		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ARM); //switch IRAM to ARM	
 		ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
+		ISP_DriverModuleDisable(AHB_GLOBAL_REG_CTL0);
 		DCAM_TRACE("DCAM: dcam stop softreset and set clk.\n");
 	}	
-
+         isp_put_path2();
 	if(g_dcam_clk)
 	{
 		clk_disable(g_dcam_clk);

@@ -533,7 +533,7 @@ static int32_t _SCALE_DriverModuleDisable(uint32_t ahb_ctrl_addr) // must be AHB
 	ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;    
 
 	_paod(ahb_ctrl_addr + ISP_AHB_CTRL_MEM_SW_OFFSET, BIT_0); // switch memory to ARM    
-	_paad(ahb_ctrl_addr + ISP_AHB_CTRL_MOD_EN_OFFSET,~(BIT_1|BIT_2));	
+//	_paad(ahb_ctrl_addr + ISP_AHB_CTRL_MOD_EN_OFFSET,~(BIT_1|BIT_2));	
 
 	return rtn;	
 }
@@ -549,7 +549,7 @@ static int32_t _SCALE_DriverSoftReset(uint32_t ahb_ctrl_addr)
 {
 	ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;    
 
-	_SCALE_DriverModuleEnable(ahb_ctrl_addr);
+//	_SCALE_DriverModuleEnable(ahb_ctrl_addr);
 
 	_SCALE_DrvierModuleReset(ahb_ctrl_addr);    
 
@@ -1504,18 +1504,18 @@ int _SCALE_DriverIOInit(void)
 	}	
 	s_scale_mod.module_addr = DCAM_REG_BASE;
 
-	g_scale_num++;
+	g_scale_num++;	
 	
-	if( 0 == dcam_get_user_count())
-     	{
-     		_SCALE_DriverInit();
-		SCALE_PRINT("SCALE:_SCALE_DriverInit.\n");
-     	}
 	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_128M))
 	{
 		SCALE_PRINT_ERR("SCALE:_SCALE_DriverIOInit,Failed to _SCALE_DriverSetMclk!\n");
 		return -1;
 	}
+	if( 0 == dcam_get_user_count())
+     	{
+     		_SCALE_DriverInit();
+		SCALE_PRINT("SCALE:_SCALE_DriverInit.\n");
+     	}
 	dcam_inc_user_count();
 
 	return 0;
