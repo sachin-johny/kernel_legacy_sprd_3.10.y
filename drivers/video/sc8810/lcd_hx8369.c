@@ -75,15 +75,15 @@ static int32_t hx8369_init(struct lcd_spec *self)
 	send_data(0x01); 
 
 	send_cmd(0xB4);  // SET Display 480x800 
-	send_data(0x01); 
+	send_data(0x00); 
 	send_data(0x18); 
 	send_data(0x80); 
 	send_data(0x06); 
 	send_data(0x02); 
 
-	//send_cmd(0xB0);//OSC  
-	//send_data(0x00);   
-	//send_data(0x0B);//05   42HZ  07 50HZ  0B 100% 67HZ
+	send_cmd(0xB0);//OSC  
+	send_data(0x01);   
+	send_data(0x09);//05   42HZ  07 50HZ  0B 100% 67HZ
 
 
 	send_cmd(0xB6);  // SET VCOM 
@@ -320,7 +320,7 @@ static int32_t hx8369_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 		LCD_DelayMS(120); 
 #else
 		// re init	
-		se1f->ops->reset(self);
+		se1f->ops->lcd_reset(self);
 		se1f->ops->lcd_init(self);
 #endif
 	}
@@ -366,9 +366,9 @@ static struct timing_mcu lcd_hx8369_timing[] = {
 		.rcss = 25,  // 25 ns
 		.rlpw = 70,
 		.rhpw = 70,
-		.wcss = 10,
+		.wcss = 0,
 		.wlpw = 15,
-		.whpw = 25,
+		.whpw = 24,
 	}
 };
 
