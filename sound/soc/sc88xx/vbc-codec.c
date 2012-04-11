@@ -1466,12 +1466,15 @@ ssize_t modem_status_show(struct class *class, struct class_attribute *attr, cha
 ssize_t modem_status_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t android_mode_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+ssize_t android_sim_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t android_sim_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 // /sys/class/modem/*
 static struct class_attribute modem_class_attrs[] = { // drivers/gpio/gpiolib.c
 	__ATTR(status, 0766, modem_status_show, modem_status_store),
     __ATTR(mode, 0766, android_mode_show, android_mode_store),
+    __ATTR(sim, 0766, android_sim_show, android_sim_store),
     __ATTR(regs, 0766, vbc_regs_show, vbc_regs_store),
 	// __ATTR(unexport, 0200, NULL, unexport_store),
 	__ATTR_NULL,
@@ -1592,11 +1595,30 @@ ssize_t android_mode_show(struct class *class, struct class_attribute *attr, cha
 ssize_t android_mode_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
     int value;
-	sscanf(buf, "%d", &value);
+    sscanf(buf, "%d", &value);
     local_fiq_disable();
     android_mode = value;
     if (android_mode < 0 || android_mode >= MODE_MAX)
         android_mode = MODE_NORMAL;
+    local_fiq_enable();
+    return count;
+}
+
+
+static int sim_num = 0;
+ssize_t android_sim_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+    char *base = buf;
+    buf += sprintf(buf, "%d\n", sim_num);
+    return buf - base;
+}
+
+ssize_t android_sim_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
+{
+    int value;
+	sscanf(buf, "%d", &value);
+    local_fiq_disable();
+    sim_num = value;
     local_fiq_enable();
     return count;
 }
