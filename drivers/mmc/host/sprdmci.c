@@ -1877,8 +1877,8 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 	}
 
 	if (host->data->error){
-		printk("%s: !!!!! error in sending data, int:0x%x, err:%d \n", 
-			   mmc_hostname(host->mmc), intmask, host->cmd->error);
+		printk("%s: !!!!! error in sending data, int:0x%x\n", 
+			   				mmc_hostname(host->mmc), intmask);
 		sdhci_finish_data(host);
 	}
 	else {
@@ -2128,13 +2128,13 @@ int sdhci_resume_host(struct sdhci_host *host)
 		printk("=== %s resume error:%d ===\n", mmc_hostname(host->mmc), ret);
 		return ret;
 	}
-      
-     //   if(!(host->mmc->pm_flags & MMC_PM_KEEP_POWER)){ 
-     //   if(!(host->mmc->card)){ 
-    //       sdhci_set_power(host, -1);//power off ldo_sdio1
-     //   }
-     //}
-     
+#if 0      
+	if(!(host->mmc->pm_flags & MMC_PM_KEEP_POWER)){ 
+		if(!(host->mmc->card)){ 
+			sdhci_set_power(host, -1);//power off ldo_sdio1
+		}
+	}
+#endif     
      if(!(host->mmc->card)){ 
            sdhci_set_power(host, -1);//power off ldo_sdio1 if device is off
      }

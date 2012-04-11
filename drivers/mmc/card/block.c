@@ -859,20 +859,26 @@ static void mmc_blk_remove(struct mmc_card *card)
 #ifdef CONFIG_PM
 static int mmc_blk_suspend(struct mmc_card *card, pm_message_t state)
 {
+    printk("%s, entry\n", __func__);
+	int error = 0;
 	struct mmc_blk_data *md = mmc_get_drvdata(card);
 
 	if (md) {
-		mmc_queue_suspend(&md->queue);
+		//mmc_queue_suspend(&md->queue);//ok case
+		error = mmc_queue_suspend(&md->queue);
 	}
-	return 0;
+        printk("mmc_blk_suspend, done, return:%d\n", error);
+	return error;
 }
 
 static int mmc_blk_resume(struct mmc_card *card)
 {
+	printk("%s, start\n", __func__);
 	struct mmc_blk_data *md = mmc_get_drvdata(card);
 
 	if (md) {
 	    if (!mmc_bus_manual_resume(card->host)) {
+		printk("%s, set_blksize\n", __func__);
 		mmc_blk_set_blksize(md, card);
 #ifdef CONFIG_MMC_BLOCK_PARANOID_RESUME
 			md->queue.check_status = 1;
@@ -880,6 +886,7 @@ static int mmc_blk_resume(struct mmc_card *card)
             }
 		mmc_queue_resume(&md->queue);
 	}
+	printk("%s, done\n", __func__);
 	return 0;
 }
 #else

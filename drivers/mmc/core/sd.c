@@ -609,6 +609,7 @@ static int mmc_sd_suspend(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
+	printk("%s, %s, claim host done\n", mmc_hostname(host), __func__);
 	if (!mmc_host_is_spi(host))
 		mmc_deselect_cards(host);
 	host->card->state &= ~MMC_STATE_HIGHSPEED;

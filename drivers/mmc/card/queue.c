@@ -15,6 +15,7 @@
 #include <linux/freezer.h>
 #include <linux/kthread.h>
 #include <linux/scatterlist.h>
+#include <linux/delay.h>
 
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/card.h>
@@ -296,11 +297,14 @@ EXPORT_SYMBOL(mmc_cleanup_queue);
  * complete any outstanding requests.  This ensures that we
  * won't suspend while a request is being processed.
  */
-void mmc_queue_suspend(struct mmc_queue *mq)
+#define SLEEP_TIME  400
+#define SLEEP_NUM   5
+int mmc_queue_suspend(struct mmc_queue *mq)
 {
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
-
+	int sleep_num = 0;
+	printk("%s, entry\n", __func__);
 	if (!(mq->flags & MMC_QUEUE_SUSPENDED)) {
 		mq->flags |= MMC_QUEUE_SUSPENDED;
 
@@ -308,8 +312,35 @@ void mmc_queue_suspend(struct mmc_queue *mq)
 		blk_stop_queue(q);
 		spin_unlock_irqrestore(q->queue_lock, flags);
 
-		down(&mq->thread_sem);
+		//down(&mq->thread_sem);//original
+		while(sleep_num < SLEEP_NUM){
+			if(down_trylock(&mq->thread_sem)){
+				printk("thread_sem has already be hold, sleep %dms\n", SLEEP_TIME);
+				sleep_num++;
+				msleep(SLEEP_TIME);
+			}else{
+				return 0;
+			}
+		}
+		mq->flags &= ~MMC_QUEUE_SUSPENDED;
+		spin_lock_irqsave(q->queue_lock, flags);
+		blk_start_queue(q);
+		printk("%s, start queue done\n", __func__);
+		spin_unlock_irqrestore(q->queue_lock, flags);
+		printk("There are still some questes in queue after %dms, return -1\n", SLEEP_TIME * SLEEP_NUM);
+		return -1;
+#if 0		
+		if(down_trylock(&mq->thread_sem)){
+		   printk("thread_sem has already be hold, return -1\n");
+		   return -1;
+	        }else{
+		   printk("thread_sem has not be hold\n");
+		   return 0;
+	        }
+#endif
 	}
+	printk(" queue has alread supsended\n");
+	return 0;
 }
 
 /**
@@ -320,14 +351,16 @@ void mmc_queue_resume(struct mmc_queue *mq)
 {
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
-
+        printk("%s, start\n", __func__);
 	if (mq->flags & MMC_QUEUE_SUSPENDED) {
 		mq->flags &= ~MMC_QUEUE_SUSPENDED;
-
+                printk("%s, up begin\n", __func__);
 		up(&mq->thread_sem);
+                printk("%s, up done\n", __func__);
 
 		spin_lock_irqsave(q->queue_lock, flags);
 		blk_start_queue(q);
+		printk("%s, start queue done\n", __func__);
 		spin_unlock_irqrestore(q->queue_lock, flags);
 	}
 }

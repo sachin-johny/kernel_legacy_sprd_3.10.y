@@ -490,6 +490,7 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 		if (stop || !host->claimed || host->claimer == current)
 			break;
 		spin_unlock_irqrestore(&host->lock, flags);
+		printk("%s, %u claimed host\n", mmc_hostname(host), host->claimer->pid);
 		schedule();
 		spin_lock_irqsave(&host->lock, flags);
 	}
@@ -1366,18 +1367,19 @@ int mmc_suspend_host(struct mmc_host *host)
 	if (host->caps & MMC_CAP_DISABLE)
 		cancel_delayed_work(&host->disable);
 	cancel_delayed_work(&host->detect);
+        printk("%s, cancel_delayed_work, done\n", mmc_hostname(host) );
 	mmc_flush_scheduled_work();
-
+        printk("%s, flush_scheduled_work, done\n", mmc_hostname(host) );
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
 		if (host->bus_ops->suspend)
 			err = host->bus_ops->suspend(host);
 	}
 	mmc_bus_put(host);
-
+        printk("%s, bus_ops->suspend() done\n", mmc_hostname(host) );	
 	if (!err && !(host->pm_flags & MMC_PM_KEEP_POWER))
 		mmc_power_off(host);
-
+        printk("%s, %s done\n", mmc_hostname(host), __func__ );
 	return err;
 }
 
