@@ -25,6 +25,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/pixcir_i2c_ts.h>
 #include <mach/globalregs.h>
+#include <mach/board.h>
 #include "devices.h"
 
 extern void __init sc8810_map_io(void);
@@ -83,8 +84,8 @@ static void __init sprd_add_otg_device(void)
 /*============================TOUCH SCREEN================================*/
 
 static struct pixcir_ts_platform_data pixcir_ts_info = {
-	.irq_gpio_number	= TS_IRQ_GPIO_PIN,
-	.reset_gpio_number	= TS_RESET_GPION_PIN,
+	.irq_gpio_number	= GPIO_TOUCH_IRQ,
+	.reset_gpio_number	= GPIO_TOUCH_RESET,
 };
 
 static struct i2c_board_info i2c2_boardinfo[] = {
