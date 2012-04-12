@@ -477,7 +477,7 @@ static void  sdhci_host_wakeup_clear(struct wake_source *src){
 
 	   //sdhci_reset(sdhci_host_g, SDHCI_RESET_ALL);
 	   sdhci_reinit(sdhci_host_g);
-	   mmc_detect_change(sdhci_host_g->mmc, msecs_to_jiffies(200));
+       mmc_detect_change(sdhci_host_g->mmc, 0);
 	}
 	
 	return;

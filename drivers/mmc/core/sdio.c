@@ -509,6 +509,7 @@ static int mmc_sdio_suspend(struct mmc_host *host)
 
 	if (!err && host->pm_flags & MMC_PM_KEEP_POWER) {
 		mmc_claim_host(host);
+		printk("%s, %s, claim host done\n", mmc_hostname(host), __func__);
 		sdio_disable_wide(host->card);
 		mmc_release_host(host);
 	}
