@@ -3,6 +3,7 @@
 #define __PIXCIR_I2C_TS_H__
 
 #include <linux/earlysuspend.h>
+#include <mach/board.h>
 
 //#define PIXCIR_DEBUG		1
 
@@ -15,8 +16,6 @@
 
 #define		PIXICR_DEVICE_NAME	"pixcir_ts"
 
-#define TS_IRQ_GPIO_PIN		60
-#define TS_RESET_GPION_PIN	59
 #define TS_IRQ_PIN			"ts_irq_pin"
 #define TS_RESET_PIN		"ts_rst_pin"
 

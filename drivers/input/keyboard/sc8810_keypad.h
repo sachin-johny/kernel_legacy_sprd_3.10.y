@@ -15,6 +15,7 @@
 #define _SC8810_REG_KEYPAD_H_
 
 #include <mach/hardware.h>
+#include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/adi.h>
 #include <mach/ctl_eic.h>
@@ -81,7 +82,7 @@
 #define CFG_ROW_POLARITY            (0x00FF & KPDPOLARITY_ROW)
 #define CFG_COL_POLARITY            (0xFF00 & KPDPOLARITY_COL)
 
-#define ANA_GPI_PB                  163
+#define ANA_GPI_PB                  EIC_KEY_POWER
 #define	KEYCODE(x)                  ((x) | 0x08)
 
 struct sprd_keypad_t {

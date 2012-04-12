@@ -14,4 +14,21 @@
 #ifndef __GPIO_SC8810_H__
 #define __GPIO_SC8810_H__
 
+#ifndef __ASM_ARCH_BOARD_H
+#error  "Don't include this file directly, include <mach/board.h>"
+#endif
+
+/*
+ * GPIO NR:
+ *   0   - 15  : D-Die EIC
+ *   16  - 159 : D-Die GPIO
+ *   160 - 175 : A-Die EIC
+ *   176 - 207 : A-Die GPIO
+ */
+
+#define GPIO_TOUCH_RESET	59
+#define GPIO_TOUCH_IRQ		60
+
+#define EIC_KEY_POWER		163
+
 #endif
