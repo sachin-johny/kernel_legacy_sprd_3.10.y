@@ -22,7 +22,7 @@
 
 void cpu_idle_asm(void);
 
-void arch_idle(void)
+static inline void arch_idle(void)
 {
 #ifdef CONFIG_SC8810_IDLE
 	cpu_idle_asm();
