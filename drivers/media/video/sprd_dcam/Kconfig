@@ -11,4 +11,8 @@ config CAMERA_3M
 
 endchoice
 
+config SENSOR_DRIVER_FOR_ANDROID2
+	tristate "android version"
+	help
+	  select - sensor driver is used to android2.2.2.
 endif
