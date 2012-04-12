@@ -100,7 +100,12 @@ struct sprd_keypad_platform_data {
 	unsigned int keyup_test_interval;	/* in ms */
 };
 
-unsigned short sprd_keymap[] = { KEYCODE(0x00), KEYCODE(0x01), KEYCODE(0x10) };
+unsigned short sprd_keymap[] = {
+	KEYCODE(0x00),
+	KEYCODE(0x01),
+	KEYCODE(0x10),
+	KEY_POWER,
+};
 
 struct sprd_keypad_platform_data sprd_keypad_data = {
 	.rows = CUSTOM_KEYPAD_ROWS,
