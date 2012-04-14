@@ -569,6 +569,15 @@ int32_t  _ISP_ServiceStartPreview(void)
 		                                   			     ISP_PATH_OUTPUT_FORMAT, 
 		                                    			     (void*)&s->dcam_path1_out_format);
 		ISP_RTN_IF_ERR(rtn_drv);
+
+		if(ISP_DCAM_PATH1_OUT_FORMAT_YUV420 == s->dcam_path1_out_format)
+		{
+			reg_val = 1;
+			rtn_drv = ISP_DriverPath1Config(s->module_addr, 
+			                           			     ISP_PATH_UV420_AVG_EN, 
+			                            			     (void*)&reg_val);
+			ISP_RTN_IF_ERR(rtn_drv);
+		}
 		
 		rtn_drv = ISP_DriverNoticeRegister(s->module_addr,  
 			                                               ISP_IRQ_NOTICE_PATH1_DONE,

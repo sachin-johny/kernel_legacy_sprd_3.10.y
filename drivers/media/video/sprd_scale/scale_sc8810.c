@@ -775,7 +775,7 @@ uint32_t _SCALE_IsContinueSlice(void)
 }
 
 
-void _SCALE_ContinueSlice(long unsigned int data)
+int _SCALE_ContinueSlice(long unsigned int data)
 {
 	ISP_PATH_DESCRIPTION_T    *p_path = &s_scale_mod.isp_path2;
 	ISP_FRAME_T next_frame;
@@ -866,7 +866,7 @@ void _SCALE_ContinueSlice(long unsigned int data)
 	//get_scale_reg();	
 	#endif
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 1;
-	
+	return 0;
 }
 static void  _SCALE_ISRPath2Done(void)
 {  
@@ -1470,9 +1470,9 @@ int  _SCALE_DriverRegisterIRQ(void)
 {
 	uint32_t ret = 0;
 
-	if(0 != (ret = request_irq(IRQ_LINE_DCAM, _SCALE_DriverISR, SA_SHIRQ, "SCALE", &g_share_irq)))
-	SCALE_ASSERT(0);
-
+	//if(0 != (ret = request_irq(IRQ_LINE_DCAM, _SCALE_DriverISR, SA_SHIRQ, "SCALE", &g_share_irq)))
+	//SCALE_ASSERT(0);
+	ret = request_irq(IRQ_LINE_DCAM, _SCALE_DriverISR, SA_SHIRQ, "SCALE", &g_share_irq);
 	return ret;
 }
 void _SCALE_DriverUnRegisterIRQ(void)
@@ -1563,26 +1563,31 @@ int _SCALE_DriverIODone(void)
 {
 	int32_t ret = 0;
 	_SCALE_DriverSetMode();
-	_SCALE_DriverRegisterIRQ();
+	ret = _SCALE_DriverRegisterIRQ();
+	if(ISP_DRV_RTN_SUCCESS != ret){
+		printk("SCALE:register IRD fail!\n");
+		return -1;
+	}
 	ret = _SCALE_DriverStart();
-	if(ISP_DRV_RTN_SUCCESS != ret)
-	{
-		SCALE_PRINT_ERR("_SCALE_DriverIODone: 0,ret=%d .\n ",ret);
+	if(ISP_DRV_RTN_SUCCESS != ret){
+		printk("SCALE:_SCALE_DriverIODone: ret=%d .\n ",ret);
+		return -1;
 	}
 	down(&g_sem);
 	down_interruptible(&g_sem);
 	while(1){
 		if(1 == _SCALE_IsContinueSlice()){
-			_SCALE_ContinueSlice(0);
+			if(0 != _SCALE_ContinueSlice(0)) {
+				goto SCALEDONE_END;
+			}				
 			down_interruptible(&g_sem);
 		}
 		else{			
 			break;
 		}
 	}
-	
-	up(&g_sem);	
-	
+SCALEDONE_END:	
+	up(&g_sem);		
 	return 0;	
 }
 
