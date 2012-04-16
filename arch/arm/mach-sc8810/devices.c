@@ -13,10 +13,11 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/android_pmem.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
-#include "devices.h"
 #include <mach/board.h>
+#include "devices.h"
 
 /* example platform device & its resource */
 static struct resource resources_example[] = {
@@ -291,3 +292,33 @@ struct platform_device sprd_battery_device = {
         .num_resources  = ARRAY_SIZE(sprd_battery_resources),
         .resource       = sprd_battery_resources,
 };
+
+#ifdef CONFIG_ANDROID_PMEM
+static struct android_pmem_platform_data sprd_pmem_pdata = {
+	.name = "pmem",
+	.start = SPRD_PMEM_BASE,
+	.size = SPRD_PMEM_SIZE,
+	.no_allocator = 0,
+	.cached = 1,
+};
+
+static struct android_pmem_platform_data sprd_pmem_adsp_pdata = {
+	.name = "pmem_adsp",
+	.start = SPRD_PMEM_ADSP_BASE,
+	.size = SPRD_PMEM_ADSP_SIZE,
+	.no_allocator = 0,
+	.cached = 1,
+};
+
+struct platform_device sprd_pmem_device = {
+	.name = "android_pmem",
+	.id = 0,
+	.dev = {.platform_data = &sprd_pmem_pdata},
+};
+
+struct platform_device sprd_pmem_adsp_device = {
+	.name = "android_pmem",
+	.id = 1,
+	.dev = {.platform_data = &sprd_pmem_adsp_pdata},
+};
+#endif

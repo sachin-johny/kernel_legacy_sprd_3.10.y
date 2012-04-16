@@ -28,6 +28,7 @@
 #include <mach/board.h>
 #include "devices.h"
 
+extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
 extern void __init sc8810_init_irq(void);
 extern void __init sc8810_timer_init(void);
@@ -48,6 +49,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device2,
 	&sprd_keypad_device,
 	&sprd_battery_device,
+	&sprd_pmem_device,
+	&sprd_pmem_adsp_device,
 };
 
 static struct sys_timer sc8810_timer = {
@@ -133,6 +136,7 @@ static void __init sc8810_init_early(void)
 }
 
 MACHINE_START(SC8810OPENPHONE, "SP8810")
+	.reserve	= sc8810_reserve,
 	.map_io		= sc8810_map_io,
 	.init_irq	= sc8810_init_irq,
 	.timer		= &sc8810_timer,
