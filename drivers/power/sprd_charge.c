@@ -163,12 +163,12 @@ uint16_t sprd_bat_adc_to_vol(struct sprd_battery_data * data, uint16_t adcvalue)
 {
 	int32_t temp;
 	unsigned long flag;
-	spin_lock_irqsave(&(battery_data->lock), flag);
+	spin_lock_irqsave(&(data->lock), flag);
 	temp = adc_voltage_table[0][1] - adc_voltage_table[1][1];
 	temp = temp * (adcvalue - adc_voltage_table[0][0]);
 	temp = temp / (adc_voltage_table[0][0] - adc_voltage_table[1][0]);
 	temp = temp + adc_voltage_table[0][1];
-	spin_unlock_irqrestore(&battery_data->lock, flag);
+	spin_unlock_irqrestore(&data->lock, flag);
 	return temp;
 }
 
