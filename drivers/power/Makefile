@@ -37,4 +37,4 @@ obj-$(CONFIG_CHARGER_MAX8903)	+= max8903_charger.o
 obj-$(CONFIG_CHARGER_TWL4030)	+= twl4030_charger.o
 obj-$(CONFIG_CHARGER_GPIO)	+= gpio-charger.o
 obj-$(CONFIG_SPRD_POWER)	+= sprd_battery.o
-sprd_battery-y := sprd_power.o charge.o
+sprd_battery-y := sprd_power.o sprd_charge.o
