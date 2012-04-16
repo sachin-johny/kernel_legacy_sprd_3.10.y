@@ -2,6 +2,7 @@
  *  linux/fs/nfs/dir.c
  *
  *  Copyright (C) 1992  Rick Sladkey
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  nfs directory handling functions
  *
@@ -2287,6 +2288,9 @@ int nfs_permission(struct inode *inode, int mask, unsigned int flags)
 {
 	struct rpc_cred *cred;
 	int res = 0;
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	struct translate_cred tcred;
+#endif
 
 	if (flags & IPERM_FLAG_RCU)
 		return -ECHILD;
@@ -2322,12 +2326,20 @@ force_lookup:
 	if (!NFS_PROTO(inode)->access)
 		goto out_notsup;
 
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	rpc_translate_cred(&tcred,
+			   NFS_CLIENT(inode)->cl_rootuid,
+			   NFS_CLIENT(inode)->cl_rootgid);
+#endif
 	cred = rpc_lookup_cred();
 	if (!IS_ERR(cred)) {
 		res = nfs_do_access(inode, cred, mask);
 		put_rpccred(cred);
 	} else
 		res = PTR_ERR(cred);
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	rpc_restore_translated_cred(&tcred);
+#endif
 out:
 	if (!res && (mask & MAY_EXEC) && !execute_ok(inode))
 		res = -EACCES;

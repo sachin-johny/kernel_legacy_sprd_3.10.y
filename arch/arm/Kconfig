@@ -1,3 +1,72 @@
+#
+#  Copyright (C) 2011, Red Bend Ltd.
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License Version 2
+#  as published by the Free Software Foundation.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+#  You should have received a copy of the GNU General Public License Version 2
+#  along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
+#
+# For a description of the syntax of this configuration file,
+# see Documentation/kbuild/kconfig-language.txt.
+#
+
+config NKERNEL
+	bool "VLX virtualizer support"
+	default y
+
+config NKERNEL_DDI
+	bool "VLX virtual driver support"
+	default y
+
+config NKERNEL_DDI_APICHECK
+	bool "VLX virtual driver API call check"
+	depends on NKERNEL_DDI
+	default n
+
+config TEXT_OFFSET
+ 	hex  "Text offset configuration"
+ 	default 0x00008000
+
+config RELOCATABLE_KERNEL
+ 	bool "Build relocatable linux kernel"
+ 	default	y  if NKERNEL
+
+config NKERNEL_DYNAMIC_GUEST_LOADING
+	bool "VLX dynamic guest loading support"
+	default n
+
+config NKERNEL_ARCH_PM_MASTER
+	bool
+	help
+	  Select this option for a platform to enable NKERNEL_PM_MASTER option.
+
+config NKERNEL_PM_MASTER
+	bool "VLX Power Management Master"
+	depends on NKERNEL && NKERNEL_ARCH_PM_MASTER
+	default y
+	help
+	  Select this option to delegate to this guest OS the global
+	  platform power management. In order to behave correctly,
+	  this guest OS has to be running on all physical cores with
+	  disabled migration. In addition, this guest OS has to be running
+	  on a highest priority and it has to park physical cores.
+
+config NKERNEL_PM_GLOBAL_SUSPEND
+	bool "VLX Global Suspend to RAM"
+	depends on NKERNEL_PM_MASTER
+	default y
+	help
+	  Select this option in order to suspend to RAM the physical
+	  platform only when all VMs are virtually suspended.
+
 config ARM
 	bool
 	default y
@@ -558,6 +627,21 @@ config ARCH_KS8695
 	  Support for Micrel/Kendin KS8695 "Centaur" (ARM922T) based
 	  System-on-Chip devices.
 
+config ARCH_NE1
+	bool "NEC-EL NaviEngine1-based boards"
+	select CPU_V6
+	select MACH_NE1TB
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select GENERIC_GPIO
+#	select IRQ_PER_CPU  PP_TBC !!!
+	select ARM_AMBA
+	select ARM_GIC
+	select MIGHT_HAVE_PCI
+#	select PCI
+	help
+	  This enables support for NEC-EL NaviEngine1-based boards.
+
 config ARCH_W90X900
 	bool "Nuvoton W90X900 CPU"
 	select CPU_ARM926T
@@ -895,6 +979,13 @@ config ARCH_SC8810
 	help
 	  Support for Spreadtrum sc8810 based systems.
 
+config ARCH_ARM_OSWARE
+	bool "VLX Generic ARM Virtual Machine"
+	select HAVE_SCHED_CLOCK
+	help
+	  This enables support for a basic and generic ARM machine that runs
+          on top of VLX.
+
 endchoice
 
 #
@@ -966,6 +1057,8 @@ source "arch/arm/mach-omap1/Kconfig"
 source "arch/arm/mach-omap2/Kconfig"
 
 source "arch/arm/mach-orion5x/Kconfig"
+
+source "arch/arm/mach-osware/Kconfig"
 
 source "arch/arm/mach-pxa/Kconfig"
 source "arch/arm/plat-pxa/Kconfig"
@@ -1048,6 +1141,9 @@ config PLAT_VERSATILE
 config ARM_TIMER_SP804
 	bool
 	select CLKSRC_MMIO
+
+config MACH_NE1TB
+	bool
 
 source arch/arm/mm/Kconfig
 
@@ -1343,9 +1439,10 @@ config SMP
 	depends on REALVIEW_EB_ARM11MP || REALVIEW_EB_A9MP || \
 		 MACH_REALVIEW_PB11MP || MACH_REALVIEW_PBX || ARCH_OMAP4 || \
 		 ARCH_EXYNOS4 || ARCH_TEGRA || ARCH_U8500 || ARCH_VEXPRESS_CA9X4 || \
-		 ARCH_MSM_SCORPIONMP || ARCH_SHMOBILE
+		 ARCH_MSM_SCORPIONMP || ARCH_SHMOBILE || ARCH_NE1 || \
+		 MACH_ARM_OSWARE
 	select USE_GENERIC_SMP_HELPERS
-	select HAVE_ARM_SCU if !ARCH_MSM_SCORPIONMP
+	select HAVE_ARM_SCU if (!ARCH_MSM_SCORPIONMP)
 	help
 	  This enables support for systems with more than one CPU. If you have
 	  a system with only one CPU, like most personal computers, say N. If
@@ -1429,7 +1526,8 @@ config LOCAL_TIMERS
 	bool "Use local timer interrupts"
 	depends on SMP
 	default y
-	select HAVE_ARM_TWD if (!ARCH_MSM_SCORPIONMP && !EXYNOS4_MCT)
+	select HAVE_ARM_TWD if (!ARCH_MSM_SCORPIONMP && !EXYNOS4_MCT && \
+		!NKERNEL)
 	help
 	  Enable support for local timers on SMP platforms, rather then the
 	  legacy IPI broadcast method.  Local timers allows the system
@@ -1527,6 +1625,7 @@ config OABI_COMPAT
 
 config ARCH_HAS_HOLES_MEMORYMODEL
 	bool
+	default y if NKERNEL
 
 config ARCH_SPARSEMEM_ENABLE
 	bool

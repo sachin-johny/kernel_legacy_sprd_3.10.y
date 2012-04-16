@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1991, 1992, 1995  Linus Torvalds
  *  Modifications for ARM (C) 1994-2001 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -147,12 +148,23 @@ static int __init timer_init_syscore_ops(void)
 
 device_initcall(timer_init_syscore_ops);
 
+#ifdef CONFIG_NKERNEL
+
+extern int              nk_use_htimer;
+extern struct sys_timer nk_vtick_timer;
+
+#endif
+
 void __init time_init(void)
 {
 	system_timer = machine_desc->timer;
+#ifdef CONFIG_NKERNEL
+	if ((nk_use_htimer == 0) && (system_timer != &nk_vtick_timer)) {
+		printk(KERN_WARNING "vtick configuration has been overwritten!\n");
+	}
+#endif
 	system_timer->init();
 #ifdef CONFIG_HAVE_SCHED_CLOCK
 	sched_clock_postinit();
 #endif
 }
-

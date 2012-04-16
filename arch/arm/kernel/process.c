@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1996-2000 Russell King - Converted to ARM.
  *  Original Copyright (C) 1995  Linus Torvalds
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -211,12 +212,99 @@ static void default_idle(void)
 void (*pm_idle)(void) = default_idle;
 EXPORT_SYMBOL(pm_idle);
 
+#if defined(CONFIG_NKERNEL) && !defined(CONFIG_NKERNEL_PM_MASTER)
+
+static inline void nkidle(void)
+{
+	if (!need_resched()) {
+		hw_local_irq_disable();
+		if (!arch_local_irq_pending())
+			(void)os_ctx->idle(os_ctx);
+		hw_local_irq_enable();
+	}
+	local_irq_enable();
+}
+
+#endif
+
+#ifdef CONFIG_NKERNEL_PM_MASTER
+#include <linux/kernel_stat.h>
+#endif
+
 /*
  * The idle thread, has rather strange semantics for calling pm_idle,
  * but this is what x86 does and we need to do the same, so that
  * things like cpuidle get called in the same way.  The only difference
  * is that we always respect 'hlt_counter' to prevent low power idle.
  */
+#ifdef CONFIG_NKERNEL_PM_MASTER
+
+void cpu_idle(void)
+{
+	local_fiq_enable();
+
+	/* endless idle loop with no priority at all */
+	while (1) {
+
+		hw_local_irq_disable();
+
+		do {
+		    int pending;
+
+		    local_irq_disable();
+
+		    pending = arch_local_irq_pending();
+
+		    if (need_resched() || pending) {
+		        hw_local_irq_enable();
+			local_irq_enable();
+			preempt_enable_no_resched();
+		        schedule();
+		        preempt_disable();
+		        hw_local_irq_disable();
+			continue;
+		    }
+
+		} while (os_ctx->idle(os_ctx));
+
+		local_irq_disable();
+
+		tick_nohz_stop_sched_tick(1);
+		leds_event(led_idle_start);
+
+#ifdef CONFIG_HOTPLUG_CPU
+		if (cpu_is_offline(smp_processor_id())) {
+			hw_local_irq_enable();
+			local_irq_enable();
+			cpu_die();
+		}
+#endif
+
+		if (hlt_counter) {
+			local_irq_enable();
+			cpu_relax();
+		} else {
+			stop_critical_timings();
+			pm_idle();
+			start_critical_timings();
+			/*
+			 * This will eventually be removed - pm_idle
+			 * functions should always return with IRQs
+			 * enabled.
+			 */
+			WARN_ON(irqs_disabled());
+			local_irq_enable();
+		}
+
+		leds_event(led_idle_end);
+		tick_nohz_restart_sched_tick();
+
+		hw_local_irq_enable();
+	}
+}
+
+#else
+
 void cpu_idle(void)
 {
 	local_fiq_enable();
@@ -237,7 +325,11 @@ void cpu_idle(void)
 				cpu_relax();
 			} else {
 				stop_critical_timings();
+#ifndef CONFIG_NKERNEL
 				pm_idle();
+#else
+				nkidle();
+#endif
 				start_critical_timings();
 				/*
 				 * This will eventually be removed - pm_idle
@@ -256,6 +348,8 @@ void cpu_idle(void)
 	}
 }
 
+#endif
+
 static char reboot_mode = 'h';
 
 int __init reboot_setup(char *str)
@@ -268,28 +362,44 @@ __setup("reboot=", reboot_setup);
 
 void machine_shutdown(void)
 {
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NKERNEL_PM_MASTER)
 #ifdef CONFIG_SMP
 	smp_send_stop();
+#endif
+#else
+	printk(KERN_EMERG "System halted\n");
+	while (1) {
+	    os_ctx->stop(os_ctx, os_ctx->id);
+	}
 #endif
 }
 
 void machine_halt(void)
 {
 	machine_shutdown();
+	printk(KERN_EMERG "System halted, OK to turn off power\n");
 	while (1);
 }
 
 void machine_power_off(void)
 {
 	machine_shutdown();
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NKERNEL_PM_MASTER)
 	if (pm_power_off)
 		pm_power_off();
+#endif
 }
 
 void machine_restart(char *cmd)
 {
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NKERNEL_PM_MASTER)
 	machine_shutdown();
 	arm_pm_restart(reboot_mode, cmd);
+#else
+	while (1) {
+	    os_ctx->restart(os_ctx, os_ctx->id);
+	}
+#endif
 }
 
 /*
@@ -528,7 +638,11 @@ asm(	".pushsection .text\n"
 #ifdef CONFIG_TRACE_IRQFLAGS
 "	bl	trace_hardirqs_on\n"
 #endif
+#ifndef CONFIG_NKERNEL
 "	msr	cpsr_c, r7\n"
+#else
+"	bl	_irq_set\n"	/* enable interrupt */
+#endif
 "	mov	r0, r4\n"
 "	mov	lr, r6\n"
 "	mov	pc, r5\n"
@@ -566,7 +680,18 @@ pid_t kernel_thread(int (*fn)(void *), void *arg, unsigned long flags)
 	regs.ARM_r6 = (unsigned long)kernel_thread_exit;
 	regs.ARM_r7 = SVC_MODE | PSR_ENDSTATE | PSR_ISETSTATE;
 	regs.ARM_pc = (unsigned long)kernel_thread_helper;
+#ifndef CONFIG_NKERNEL
 	regs.ARM_cpsr = regs.ARM_r7 | PSR_I_BIT;
+#else
+	/*
+	 * ARM_cpsr - interrupts are masked in software
+	 * ARM_r7   - interrupts are unmasked in software
+	 * ARM_r7 is not used actually we cal _irq_set()
+	 * to unmask interrupts.
+	 */
+	regs.ARM_cpsr = regs.ARM_r7;
+	regs.ARM_r7  |= (__VEX_IRQ_FLAG << NK_VPSR_SHIFT);
+#endif
 
 	return do_fork(flags|CLONE_VM|CLONE_UNTRACED, 0, &regs, 0, NULL, NULL);
 }

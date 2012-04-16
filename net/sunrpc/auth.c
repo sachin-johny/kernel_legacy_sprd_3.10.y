@@ -4,6 +4,7 @@
  * Generic RPC client authentication API.
  *
  * Copyright (C) 1996, Olaf Kirch <okir@monad.swb.de>
+ * Copyright (C) 2011, Red Bend Ltd.
  */
 
 #include <linux/types.h>
@@ -490,6 +491,15 @@ rpcauth_bindcred(struct rpc_task *task, struct rpc_cred *cred, int flags)
 	struct rpc_rqst *req = task->tk_rqstp;
 	struct rpc_cred *new;
 	int lookupflags = 0;
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+        struct translate_cred tcred;
+
+	if (task->tk_client != NULL) {
+		rpc_translate_cred(&tcred,
+				   task->tk_client->cl_rootuid,
+				   task->tk_client->cl_rootgid);
+	}
+#endif            
 
 	if (flags & RPC_TASK_ASYNC)
 		lookupflags |= RPCAUTH_LOOKUP_NEW;
@@ -499,6 +509,12 @@ rpcauth_bindcred(struct rpc_task *task, struct rpc_cred *cred, int flags)
 		new = rpcauth_bind_root_cred(task, lookupflags);
 	else
 		new = rpcauth_bind_new_cred(task, lookupflags);
+
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+        if (task->tk_client != NULL)
+		rpc_restore_translated_cred(&tcred);
+#endif            
+
 	if (IS_ERR(new))
 		return PTR_ERR(new);
 	if (req->rq_cred != NULL)

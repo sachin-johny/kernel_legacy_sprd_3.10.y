@@ -4,6 +4,7 @@
  *  Declarations for the high-level RPC client interface
  *
  *  Copyright (C) 1995, 1996, Olaf Kirch <okir@monad.swb.de>
+ *  Copyright (C) 2011, Red Bend Ltd.
  */
 
 #ifndef _LINUX_SUNRPC_CLNT_H
@@ -20,6 +21,9 @@
 #include <linux/sunrpc/stats.h>
 #include <linux/sunrpc/xdr.h>
 #include <linux/sunrpc/timer.h>
+#ifdef CONFIG_ROOT_NFS_UID
+#include <linux/sched.h>
+#endif
 #include <asm/signal.h>
 #include <linux/path.h>
 #include <net/ipv6.h>
@@ -52,8 +56,11 @@ struct rpc_clnt {
 				cl_chatty   : 1;/* be verbose */
 
 	struct rpc_rtt *	cl_rtt;		/* RTO estimator data */
+#ifdef CONFIG_ROOT_NFS_UID
+	uid_t                   cl_rootuid;
+	gid_t                   cl_rootgid;
+#endif
 	const struct rpc_timeout *cl_timeout;	/* Timeout strategy */
-
 	int			cl_nodelen;	/* nodename length */
 	char 			cl_nodename[UNX_MAXNODENAME];
 	struct path		cl_path;
@@ -125,6 +132,41 @@ struct rpc_create_args {
 #define RPC_CLNT_CREATE_NOPING		(1UL << 4)
 #define RPC_CLNT_CREATE_DISCRTRY	(1UL << 5)
 #define RPC_CLNT_CREATE_QUIET		(1UL << 6)
+
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+/*
+ * Helper functions and structures for NFSroot uid/gid translation support
+ */
+struct translate_cred {
+	uid_t fsuid;
+	gid_t fsgid;
+};
+
+static __inline__ void rpc_translate_cred(struct translate_cred *cred,
+					  uid_t request_uid,
+					  gid_t request_gid)
+{
+	if (cred) {
+		cred->fsuid = current_fsuid();
+		cred->fsgid = current_fsgid();
+	}
+
+	if ((current_fsuid() == 0) && (request_uid)) {
+		current_set_fsuid(request_uid);
+		current_set_fsgid(request_gid);
+	}
+	if ((current_fsgid() == 0) && (request_gid))
+		current_set_fsgid(request_gid);
+}
+
+static __inline__ void rpc_restore_translated_cred(struct translate_cred *cred)
+{
+	if (cred) {
+		current_set_fsuid(cred->fsuid);
+		current_set_fsgid(cred->fsgid);
+	}
+}
+#endif /* CONFIG_ROOT_NFS_UID_WRITE */
 
 struct rpc_clnt *rpc_create(struct rpc_create_args *args);
 struct rpc_clnt	*rpc_bind_new_program(struct rpc_clnt *,

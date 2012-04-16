@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1995-2009 Russell King
  *  Fragments that appear the same as linux/arch/i386/kernel/traps.c (C) Linus Torvalds
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,6 +33,10 @@
 #include <asm/traps.h>
 #include <asm/unwind.h>
 #include <asm/tls.h>
+
+#ifdef CONFIG_NKERNEL
+#include <asm/nkern.h>
+#endif
 
 #include "signal.h"
 
@@ -741,6 +746,20 @@ void abort(void)
 }
 EXPORT_SYMBOL(abort);
 
+
+#ifdef CONFIG_NKERNEL
+
+extern void vector_und(void);
+extern void vector_swi(void);
+extern void vector_pabt(void);
+extern void vector_dabt(void);
+extern void vector_fiq(void);
+extern void vector_irq(void);
+extern void vector_iswi(void);
+
+#endif
+
+
 void __init trap_init(void)
 {
 	return;
@@ -763,6 +782,7 @@ void __init early_trap_init(void)
 #else
 	unsigned long vectors = (unsigned long)vectors_page;
 #endif
+#ifndef CONFIG_NKERNEL
 	extern char __stubs_start[], __stubs_end[];
 	extern char __vectors_start[], __vectors_end[];
 	extern char __kuser_helper_start[], __kuser_helper_end[];
@@ -775,6 +795,37 @@ void __init early_trap_init(void)
 	 */
 	memcpy((void *)vectors, __vectors_start, __vectors_end - __vectors_start);
 	memcpy((void *)vectors + 0x200, __stubs_start, __stubs_end - __stubs_start);
+#else
+	extern char __kuser_helper_start[], __kuser_helper_end[];
+	int kuser_sz = __kuser_helper_end - __kuser_helper_start;
+
+	    /*
+	     * Normally both SWI and UNDEF vectors are initialized by
+	     * NK to the nk_panic entry point, except when the TLB
+	     * lockdown is disabled. In this mode, the same
+	     * (read-only) vectors page is shared by all physical processors
+	     * and therefore the SWI vector points to a NK internal
+	     * entry point. We use such heuristics in order to connect
+	     * the indirect SWI and prefetch abort vectors rather than the
+	     * direct ones.
+	     */
+	if (os_ctx->os_vectors[NK_SYSTEM_CALL_VECTOR/4] == 
+	    os_ctx->os_vectors[NK_UNDEF_INSTR_VECTOR/4]) {
+            os_ctx->os_vectors[NK_SYSTEM_CALL_VECTOR/4]    = vector_swi;
+            os_ctx->os_vectors[NK_PREFETCH_ABORT_VECTOR/4] = vector_pabt;
+	} else {
+            os_ctx->os_vectors[NK_ISWI_VECTOR/4]           = vector_iswi;
+            os_ctx->os_vectors[NK_IPABORT_VECTOR/4]        = vector_pabt;
+	}
+
+	os_ctx->os_vectors[NK_UNDEF_INSTR_VECTOR/4]    = vector_und;
+	os_ctx->os_vectors[NK_DATA_ABORT_VECTOR/4]     = vector_dabt;
+	os_ctx->os_vectors[NK_FIQ_VECTOR/4]            = vector_fiq;
+	os_ctx->os_vectors[NK_IIRQ_VECTOR/4]           = vector_irq;
+	os_ctx->os_vectors[NK_XIRQ_VECTOR/4]           = vector_irq;
+
+	os_ctx->ready(os_ctx);
+#endif
 	memcpy((void *)vectors + 0x1000 - kuser_sz, __kuser_helper_start, kuser_sz);
 
 	/*
@@ -794,3 +845,13 @@ void __init early_trap_init(void)
 	flush_icache_range(vectors, vectors + PAGE_SIZE);
 	modify_domain(DOMAIN_USER, DOMAIN_CLIENT);
 }
+
+
+#ifdef CONFIG_NKERNEL
+
+EXPORT_SYMBOL(_save_flags);
+EXPORT_SYMBOL(_irq_save);
+EXPORT_SYMBOL(_irq_set);
+EXPORT_SYMBOL(_irq_restore);
+
+#endif

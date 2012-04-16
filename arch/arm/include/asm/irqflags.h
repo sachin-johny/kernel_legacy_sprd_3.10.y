@@ -1,3 +1,18 @@
+/*
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #ifndef __ASM_ARM_IRQFLAGS_H
 #define __ASM_ARM_IRQFLAGS_H
 
@@ -10,7 +25,7 @@
  */
 #if __LINUX_ARM_ARCH__ >= 6
 
-static inline unsigned long arch_local_irq_save(void)
+static inline unsigned long hw_local_irq_save(void)
 {
 	unsigned long flags;
 
@@ -21,7 +36,7 @@ static inline unsigned long arch_local_irq_save(void)
 	return flags;
 }
 
-static inline void arch_local_irq_enable(void)
+static inline void hw_local_irq_enable(void)
 {
 	asm volatile(
 		"	cpsie i			@ arch_local_irq_enable"
@@ -30,7 +45,7 @@ static inline void arch_local_irq_enable(void)
 		: "memory", "cc");
 }
 
-static inline void arch_local_irq_disable(void)
+static inline void hw_local_irq_disable(void)
 {
 	asm volatile(
 		"	cpsid i			@ arch_local_irq_disable"
@@ -46,7 +61,7 @@ static inline void arch_local_irq_disable(void)
 /*
  * Save the current interrupt enable state & disable IRQs
  */
-static inline unsigned long arch_local_irq_save(void)
+static inline unsigned long hw_local_irq_save(void)
 {
 	unsigned long flags, temp;
 
@@ -63,7 +78,7 @@ static inline unsigned long arch_local_irq_save(void)
 /*
  * Enable IRQs
  */
-static inline void arch_local_irq_enable(void)
+static inline void hw_local_irq_enable(void)
 {
 	unsigned long temp;
 	asm volatile(
@@ -78,7 +93,7 @@ static inline void arch_local_irq_enable(void)
 /*
  * Disable IRQs
  */
-static inline void arch_local_irq_disable(void)
+static inline void hw_local_irq_disable(void)
 {
 	unsigned long temp;
 	asm volatile(
@@ -125,7 +140,7 @@ static inline void arch_local_irq_disable(void)
 /*
  * Save the current interrupt enable state.
  */
-static inline unsigned long arch_local_save_flags(void)
+static inline unsigned long hw_local_save_flags(void)
 {
 	unsigned long flags;
 	asm volatile(
@@ -137,7 +152,7 @@ static inline unsigned long arch_local_save_flags(void)
 /*
  * restore saved IRQ & FIQ state
  */
-static inline void arch_local_irq_restore(unsigned long flags)
+static inline void hw_local_irq_restore(unsigned long flags)
 {
 	asm volatile(
 		"	msr	cpsr_c, %0	@ local_irq_restore"
@@ -146,10 +161,78 @@ static inline void arch_local_irq_restore(unsigned long flags)
 		: "memory", "cc");
 }
 
+#ifndef	CONFIG_NKERNEL
+
+#define arch_local_irq_save	hw_local_irq_save
+#define arch_local_irq_enable	hw_local_irq_enable
+#define arch_local_irq_disable	hw_local_irq_disable
+#define arch_local_save_flags	hw_local_save_flags
+#define arch_local_irq_restore	hw_local_irq_restore
+
 static inline int arch_irqs_disabled_flags(unsigned long flags)
 {
 	return flags & PSR_I_BIT;
 }
+
+#else	/* CONFIG_NKERNEL */
+
+unsigned int _irq_save(void);
+void _irq_set(void);
+unsigned int _save_flags(void);
+unsigned int _irq_restore(unsigned int);
+unsigned int _irq_pending(void);
+
+/*
+ * Save the current interrupt enable state & disable IRQs
+ */
+static inline unsigned long arch_local_irq_save(void)
+{
+	return _irq_save();
+}
+
+/*
+ * Enable IRQs
+ */
+static inline void arch_local_irq_enable(void)
+{
+	_irq_set();
+}
+
+/*
+ * Disable IRQs
+ */
+static inline void arch_local_irq_disable(void)
+{
+	(void) _irq_save();
+}
+
+/*
+ * Save the current interrupt enable state.
+ */
+static inline unsigned long arch_local_save_flags(void)
+{
+	return _save_flags();
+}
+
+/*
+ * restore saved IRQ & FIQ state
+ */
+static inline void arch_local_irq_restore(unsigned long flags)
+{
+	_irq_restore(flags);
+}
+
+static inline unsigned int arch_local_irq_pending(void)
+{
+	return _irq_pending();
+}
+
+static inline int arch_irqs_disabled_flags(unsigned long flags)
+{
+	return !(flags & __VEX_IRQ_FLAG);
+}
+
+#endif /* CONFIG_NKERNEL */
 
 #endif
 #endif

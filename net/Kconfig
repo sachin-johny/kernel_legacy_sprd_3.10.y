@@ -1,4 +1,8 @@
 #
+#  Copyright (C) 2011, Red Bend Ltd.
+#
+
+#
 # Network configuration
 #
 
@@ -44,6 +48,14 @@ config COMPAT_NETLINK_MESSAGES
 	  compat-independent messages instead!
 
 menu "Networking options"
+
+config SKB_DESTRUCTOR
+	bool "SKB Destructor"
+	default y
+	---help---
+	  This option enables to specify a separate destructor function to call
+	  when sk_buff data buffers are freed. This is used in VEth to enable
+	  one copy communication.
 
 source "net/packet/Kconfig"
 source "net/unix/Kconfig"

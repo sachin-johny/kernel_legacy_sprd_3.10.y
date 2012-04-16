@@ -2,6 +2,7 @@
  *  linux/fs/proc/root.c
  *
  *  Copyright (C) 1991, 1992 Linus Torvalds
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  proc root directory handling functions
  */

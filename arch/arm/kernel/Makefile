@@ -1,5 +1,6 @@
 #
 # Makefile for the linux kernel.
+# Copyright (C) 2011, Red Bend Ltd.
 #
 
 CPPFLAGS_vmlinux.lds := -DTEXT_OFFSET=$(TEXT_OFFSET)
@@ -69,5 +70,9 @@ endif
 head-y			:= head$(MMUEXT).o
 obj-$(CONFIG_DEBUG_LL)	+= debug.o
 obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
+
+obj-$(CONFIG_NKERNEL)	+= jiffies.o
+
+CPPFLAGS_vmlinux.lds = -P -C -U$(ARCH) -DTEXT_OFFSET=$(TEXT_OFFSET)
 
 extra-y := $(head-y) init_task.o vmlinux.lds

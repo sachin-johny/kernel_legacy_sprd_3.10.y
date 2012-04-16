@@ -2,6 +2,7 @@
  *  arch/arm/include/asm/assembler.h
  *
  *  Copyright (C) 1996-2000 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -128,6 +129,16 @@
 	asm_trace_hardirqs_on
 	enable_irq_notrace
 	.endm
+
+#ifdef CONFIG_NKERNEL
+/*
+ * we have analysed the use of these two macros. There are mostly used to
+ * implement atomic operations. And it is simpler to let them as is.
+ * mach-* files should be carefully analyzed, because they use sometimes
+ * those macros too.
+ */
+#endif
+
 /*
  * Save the current IRQ state and disable IRQs.  Note that this macro
  * assumes FIQs are enabled, and that the processor is in SVC mode.

@@ -2,6 +2,7 @@
  *  linux/arch/arm/common/gic.c
  *
  *  Copyright (C) 2002 ARM Limited, All Rights Reserved.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -32,6 +33,14 @@
 #include <asm/irq.h>
 #include <asm/mach/irq.h>
 #include <asm/hardware/gic.h>
+
+#ifdef    CONFIG_NKERNEL
+
+#include <nk/nkern.h>
+
+#define CONFIG_NKERNEL_NO_SHARED_IRQ
+
+#endif /* CONFIG_NKERNEL */
 
 static DEFINE_SPINLOCK(irq_controller_lock);
 
@@ -81,6 +90,7 @@ static inline unsigned int gic_irq(struct irq_data *d)
 	return d->irq - gic_data->irq_offset;
 }
 
+#ifndef   CONFIG_NKERNEL
 /*
  * Routines to acknowledge, disable and enable interrupts
  */
@@ -94,6 +104,7 @@ static void gic_mask_irq(struct irq_data *d)
 		gic_arch_extn.irq_mask(d);
 	spin_unlock(&irq_controller_lock);
 }
+#endif
 
 static void gic_unmask_irq(struct irq_data *d)
 {
@@ -105,6 +116,8 @@ static void gic_unmask_irq(struct irq_data *d)
 	writel_relaxed(mask, gic_dist_base(d) + GIC_DIST_ENABLE_SET + (gic_irq(d) / 32) * 4);
 	spin_unlock(&irq_controller_lock);
 }
+
+#ifndef   CONFIG_NKERNEL
 
 static void gic_eoi_irq(struct irq_data *d)
 {
@@ -198,6 +211,10 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 }
 #endif
 
+#endif	/* CONFIG_NKERNEL */
+
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NKERNEL_PM_MASTER)
+
 #ifdef CONFIG_PM
 static int gic_set_wake(struct irq_data *d, unsigned int on)
 {
@@ -212,6 +229,10 @@ static int gic_set_wake(struct irq_data *d, unsigned int on)
 #else
 #define gic_set_wake	NULL
 #endif
+
+#endif	/* !defined(CONFIG_NKERNEL) || defined(CONFIG_NKERNEL_PM_MASTER) */
+
+#ifndef	CONFIG_NKERNEL
 
 static void gic_handle_cascade_irq(unsigned int irq, struct irq_desc *desc)
 {
@@ -262,9 +283,102 @@ void __init gic_cascade_irq(unsigned int gic_nr, unsigned int irq)
 	irq_set_chained_handler(irq, gic_handle_cascade_irq);
 }
 
+#else  /* CONFIG_NKERNEL */
+
+extern NkDevXPic*   nkxpic;		/* virtual XPIC device */
+extern NkOsId       nkxpic_owner;	/* owner of the virtual XPIC device */
+extern NkOsMask     nkosmask;		/* my OS mask */
+
+extern void __nk_xirq_startup  (struct irq_data* d);
+extern void __nk_xirq_shutdown (struct irq_data* d);
+
+    static unsigned int
+nk_startup_irq (struct irq_data* d)
+{
+	__nk_xirq_startup(d);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[d->irq].os_enabled  = nkosmask;
+#else
+	nkxpic->irq[d->irq].os_enabled |= nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+
+	return 0;
+}
+
+    static void
+nk_shutdown_irq (struct irq_data* d)
+{
+	__nk_xirq_shutdown(d);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[d->irq].os_enabled  = 0;
+#else
+	nkxpic->irq[d->irq].os_enabled &= ~nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+}
+
+    static void
+nk_mask_ack_irq (struct irq_data* d)
+{
+    /*
+     * mask_ack() is called only from handle_level_irq.
+     * in our case this job is already done by vpic
+     *
+     * we do not define mask(), because it is called
+     * only from interrupt migration code. No migration
+     * for us because we do not have set_affinity().
+     */
+}
+
+    static void
+nk_ack_irq (struct irq_data* d)
+{
+    /*
+     * ack might be called by some stupid drivers
+     * for cascaded interrupt controllers
+     */
+}
+
+    static void
+nk_unmask_irq (struct irq_data* d)
+{
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	gic_unmask_irq(d);
+#else
+	nkops.nk_xirq_trigger(d->irq, nkxpic_owner);
+#endif
+}
+
+#ifdef CONFIG_SMP
+static int nk_set_cpu(struct irq_data *d, const struct cpumask *mask, bool force)
+{
+        nkops.nk_xirq_affinity(d->irq, cpumask_bits(mask)[0]);
+	return 0;
+}
+#endif
+
+static struct irq_chip nk_gic_chip = {
+	.name		= "GIC",
+	.irq_mask_ack	= nk_mask_ack_irq,
+	.irq_ack	= nk_ack_irq,
+	.irq_unmask	= nk_unmask_irq,
+	.irq_startup	= nk_startup_irq,
+	.irq_shutdown	= nk_shutdown_irq,
+#ifdef CONFIG_SMP
+	.irq_set_affinity = nk_set_cpu,
+#endif
+#ifdef	CONFIG_NKERNEL_PM_MASTER
+	.irq_set_wake	= gic_set_wake,
+#endif
+};
+
+#endif /* CONFIG_NKERNEL */
+
 static void __init gic_dist_init(struct gic_chip_data *gic,
 	unsigned int irq_start)
 {
+#ifndef   CONFIG_NKERNEL
 	unsigned int gic_irqs, irq_limit, i;
 	void __iomem *base = gic->dist_base;
 	u32 cpumask = 1 << smp_processor_id();
@@ -325,10 +439,41 @@ static void __init gic_dist_init(struct gic_chip_data *gic,
 	}
 
 	writel_relaxed(1, base + GIC_DIST_CTRL);
+#else  /* CONFIG_NKERNEL */
+	unsigned int gic_irqs, irq_limit, i;
+	void __iomem *base = gic->dist_base;
+
+	/*
+	 * Find out how many interrupts are supported.
+	 * The GIC only supports up to 1020 interrupt sources.
+	 */
+	gic_irqs = readl_relaxed(base + GIC_DIST_CTR) & 0x1f;
+	gic_irqs = (gic_irqs + 1) * 32;
+	if (gic_irqs > 1020)
+		gic_irqs = 1020;
+
+	/*
+	 * Limit number of interrupts registered to the platform maximum
+	 */
+	irq_limit = gic->irq_offset + gic_irqs;
+	if (WARN_ON(irq_limit > NR_IRQS))
+		irq_limit = NR_IRQS;
+
+	/*
+	 * Setup the Linux IRQ subsystem.
+	 */
+	for (i = irq_start; i < irq_limit; i++) {
+		irq_set_chip_and_handler(i, &nk_gic_chip, handle_level_irq);
+		irq_set_chip_data(i, gic);
+		set_irq_flags(i, IRQF_VALID);
+	}
+
+#endif /* CONFIG_NKERNEL */
 }
 
 static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 {
+#ifndef CONFIG_NKERNEL
 	void __iomem *dist_base = gic->dist_base;
 	void __iomem *base = gic->cpu_base;
 	int i;
@@ -348,6 +493,7 @@ static void __cpuinit gic_cpu_init(struct gic_chip_data *gic)
 
 	writel_relaxed(0xf0, base + GIC_CPU_PRIMASK);
 	writel_relaxed(1, base + GIC_CPU_CTRL);
+#endif
 }
 
 void __init gic_init(unsigned int gic_nr, unsigned int irq_start,
@@ -386,6 +532,7 @@ void __cpuinit gic_enable_ppi(unsigned int irq)
 	local_irq_restore(flags);
 }
 
+#ifndef CONFIG_NKERNEL
 #ifdef CONFIG_SMP
 void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 {
@@ -401,3 +548,4 @@ void gic_raise_softirq(const struct cpumask *mask, unsigned int irq)
 	writel_relaxed(map << 16 | irq, gic_data[0].dist_base + GIC_DIST_SOFTINT);
 }
 #endif
+#endif /* CONFIG_NKERNEL */

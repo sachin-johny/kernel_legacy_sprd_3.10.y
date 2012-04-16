@@ -2788,8 +2788,8 @@ static void __exit exit_yaffs_fs(void)
 }
 
 module_init(init_yaffs_fs)
-    module_exit(exit_yaffs_fs)
+module_exit(exit_yaffs_fs)
 
-    MODULE_DESCRIPTION("YAFFS2 - a NAND specific flash file system");
+MODULE_DESCRIPTION("YAFFS2 - a NAND specific flash file system");
 MODULE_AUTHOR("Charles Manning, Aleph One Ltd., 2002-2010");
 MODULE_LICENSE("GPL");

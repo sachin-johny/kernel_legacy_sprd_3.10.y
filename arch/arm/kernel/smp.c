@@ -2,6 +2,7 @@
  *  linux/arch/arm/kernel/smp.c
  *
  *  Copyright (C) 2002 ARM Limited, All Rights Reserved.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -264,7 +265,11 @@ void __ref cpu_die(void)
  * Called by both boot and secondaries to move global data into
  * per-processor storage.
  */
+#ifndef CONFIG_NKERNEL
 static void __cpuinit smp_store_cpu_info(unsigned int cpuid)
+#else
+void __cpuinit smp_store_cpu_info(unsigned int cpuid)
+#endif
 {
 	struct cpuinfo_arm *cpu_info = &per_cpu(cpu_data, cpuid);
 
@@ -294,6 +299,9 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	local_flush_tlb_all();
 
 	cpu_init();
+#if defined(CONFIG_NKERNEL) && defined(CONFIG_PM)
+	if (!preempt_count())
+#endif
 	preempt_disable();
 	trace_hardirqs_off();
 
@@ -358,6 +366,8 @@ void __init smp_prepare_boot_cpu(void)
 	per_cpu(cpu_data, cpu).idle = current;
 }
 
+#ifndef	 CONFIG_NKERNEL
+
 void __init smp_prepare_cpus(unsigned int max_cpus)
 {
 	unsigned int ncores = num_possible_cpus();
@@ -384,6 +394,8 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 		platform_smp_prepare_cpus(max_cpus);
 	}
 }
+
+#endif
 
 static void (*smp_cross_call)(const struct cpumask *, unsigned int);
 
@@ -456,6 +468,21 @@ static void ipi_timer(void)
 }
 
 #ifdef CONFIG_LOCAL_TIMERS
+
+#ifdef CONFIG_NKERNEL
+
+    irqreturn_t
+nk_do_local_timer (int irq, void* dev_id)
+{
+    struct clock_event_device *evt = dev_id;
+    int cpu = smp_processor_id();
+    irq_stat[cpu].local_timer_irqs++;
+    evt->event_handler(evt);
+    return IRQ_HANDLED;
+}
+
+#else
+
 asmlinkage void __exception_irq_entry do_local_timer(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
@@ -469,6 +496,8 @@ asmlinkage void __exception_irq_entry do_local_timer(struct pt_regs *regs)
 	set_irq_regs(old_regs);
 }
 
+#endif
+
 void show_local_irqs(struct seq_file *p, int prec)
 {
 	unsigned int cpu;
@@ -480,6 +509,7 @@ void show_local_irqs(struct seq_file *p, int prec)
 
 	seq_printf(p, " Local timer interrupts\n");
 }
+
 #endif
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS_BROADCAST
@@ -615,6 +645,47 @@ static void ipi_cpu_backtrace(unsigned int cpu, struct pt_regs *regs)
 /*
  * Main handler for inter-processor interrupts
  */
+
+#ifdef CONFIG_NKERNEL
+
+    void
+nk_do_IPI (int ipinr, void* dev_id)
+{
+	unsigned int cpu = smp_processor_id();
+
+	if (ipinr >= IPI_TIMER && ipinr < IPI_TIMER + NR_IPI)
+		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
+
+	switch (ipinr) {
+	case IPI_TIMER:
+		ipi_timer();
+		break;
+
+	case IPI_RESCHEDULE:
+		scheduler_ipi();
+		break;
+
+	case IPI_CALL_FUNC:
+		generic_smp_call_function_interrupt();
+		break;
+
+	case IPI_CALL_FUNC_SINGLE:
+		generic_smp_call_function_single_interrupt();
+		break;
+
+	case IPI_CPU_STOP:
+		ipi_cpu_stop(cpu);
+		break;
+
+	default:
+		printk(KERN_CRIT "CPU%u: Unknown IPI message 0x%x\n",
+		       cpu, ipinr);
+		break;
+	}
+}
+
+#else
+
 asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 {
 	unsigned int cpu = smp_processor_id();
@@ -655,6 +726,8 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 	}
 	set_irq_regs(old_regs);
 }
+
+#endif
 
 void smp_send_reschedule(int cpu)
 {

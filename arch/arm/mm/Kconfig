@@ -1,3 +1,18 @@
+#
+#  Copyright (C) 2011, Red Bend Ltd.
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License Version 2
+#  as published by the Free Software Foundation.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+#  You should have received a copy of the GNU General Public License Version 2
+#  along with this program. If not, see <http://www.gnu.org/licenses/>.
+#
+
 comment "Processor Type"
 
 # Select CPU types depending on the architecture selected.  This selects
@@ -163,7 +178,9 @@ config CPU_ARM925T
 
 # ARM926T
 config CPU_ARM926T
-	bool "Support ARM926T processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB
+	bool "Support ARM926T processor" if ARCH_INTEGRATOR \
+					|| MACH_REALVIEW_EB \
+					|| ARCH_ARM_OSWARE
 	select CPU_32v5
 	select CPU_ABRT_EV5TJ
 	select CPU_PABRT_LEGACY
@@ -339,6 +356,11 @@ config CPU_XSCALE
 	select CPU_CACHE_VIVT
 	select CPU_CP15_MMU
 	select CPU_TLB_V4WBI if MMU
+	help
+	  XScale processor (ARM v5 core + a few extentions)
+
+	  Say Y if you want support for the XScale processor.
+	  Otherwise, say N.
 
 # XScale Core Version 3
 config CPU_XSC3
@@ -390,7 +412,11 @@ config CPU_PJ4
 
 # ARMv6
 config CPU_V6
-	bool "Support ARM V6 processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB || MACH_REALVIEW_PBX
+	bool "Support ARM V6 processor" if ARCH_INTEGRATOR	\
+					|| MACH_REALVIEW_EB	\
+					|| MACH_REALVIEW_PBX	\
+					|| MACH_NE1 		\
+					|| ARCH_ARM_OSWARE
 	select CPU_32v6
 	select CPU_ABRT_EV6
 	select CPU_PABRT_V6
@@ -417,7 +443,10 @@ config CPU_V6K
 
 # ARMv7
 config CPU_V7
-	bool "Support ARM V7 processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB || MACH_REALVIEW_PBX
+	bool "Support ARM V7 processor" if ARCH_INTEGRATOR	\
+					|| MACH_REALVIEW_EB	\
+					|| MACH_REALVIEW_PBX	\
+					|| ARCH_ARM_OSWARE
 	select CPU_32v6K
 	select CPU_32v7
 	select CPU_ABRT_EV7
@@ -654,7 +683,7 @@ config SWP_EMULATE
 	bool "Emulate SWP/SWPB instructions"
 	depends on !CPU_USE_DOMAINS && CPU_V7
 	select HAVE_PROC_CPU if PROC_FS
-	default y if SMP
+	default y if (SMP && !NKERNEL)
 	help
 	  ARMv6 architecture deprecates use of the SWP/SWPB instructions.
 	  ARMv7 multiprocessing extensions introduce the ability to disable

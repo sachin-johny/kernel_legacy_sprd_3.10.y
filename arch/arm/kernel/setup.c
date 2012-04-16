@@ -2,6 +2,7 @@
  *  linux/arch/arm/kernel/setup.c
  *
  *  Copyright (C) 1995-2001 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -56,6 +57,30 @@
 #include "atags.h"
 #include "tcm.h"
 
+#ifdef CONFIG_NKERNEL
+
+#include <nk/nkern.h>
+#include <asm/nkern.h>
+
+#undef NK_DEBUG
+
+#ifdef NK_DEBUG
+#define	PRINTNK(x)	printnk x
+#else
+#define	PRINTNK(x)
+#endif
+
+/*
+ * Kernel symbols exported to modules, when running on OSware.
+ * (not exported by native kernels).
+ */
+    /*
+     * To retrieve module's options from the command line
+     */
+EXPORT_SYMBOL(saved_command_line);
+
+#endif /* CONFIG_NKERNEL */
+
 #ifndef MEM_SIZE
 #define MEM_SIZE	(16*1024*1024)
 #endif
@@ -75,6 +100,10 @@ __setup("fpe=", fpe_setup);
 extern void paging_init(struct machine_desc *desc);
 extern void sanity_check_meminfo(void);
 extern void reboot_setup(char *str);
+
+#ifdef CONFIG_NKERNEL
+extern void nk_console_init(void);
+#endif
 
 unsigned int processor_id;
 EXPORT_SYMBOL(processor_id);
@@ -121,10 +150,46 @@ struct stack {
 	u32 und[3];
 } ____cacheline_aligned;
 
+#ifndef CONFIG_NKERNEL
 static struct stack stacks[NR_CPUS];
+#endif
 
 char elf_platform[ELF_PLATFORM_SIZE];
 EXPORT_SYMBOL(elf_platform);
+
+#ifdef CONFIG_NKERNEL
+
+#define ATAG_MAP_DESC	0x4b4e0004
+#define ATAG_TTB_FLAGS	0x4b4e0005
+
+#define NK_MAPS_MAX	64
+
+NkMapDesc nk_maps[NK_MAPS_MAX];
+int       nk_maps_max;
+
+EXPORT_SYMBOL(nk_maps);
+EXPORT_SYMBOL(nk_maps_max);
+
+int	  nk_direct_dma = 0;		/* can do direct dma to another OS */
+int	  nk_balloon_memory = 0;	/* can use balloon memory */
+
+    static void
+nk_balloon_memory_setup (void)
+{
+    if (os_ctx->balloon_ctrl &&
+       (os_ctx->balloon_ctrl(NK_BALLOON_STATUS, 0, 0) == NK_BALLOON_ENABLED)) {
+	nk_balloon_memory = 1;
+    }
+}
+
+#ifdef CONFIG_IWMMXT
+int	  nk_iwmmxt = 0;		/* can use iwmmx registers */
+EXPORT_SYMBOL(nk_iwmmxt);
+#endif
+
+unsigned long nk_highest_addr ;		/* highest mapped RAM/ROM address */
+
+#endif
 
 static const char *cpu_name;
 static const char *machine_name;
@@ -229,6 +294,13 @@ int cpu_architecture(void)
 		 * Register 0 and check for VMSAv7 or PMSAv7 */
 		asm("mrc	p15, 0, %0, c0, c1, 4"
 		    : "=r" (mmfr0));
+#ifdef CONFIG_NKERNEL
+		if ((mmfr0 & 0x0000000f) == 0x00000002 ||
+		    (mmfr0 & 0x000000f0) == 0x00000020)
+		    cpu_arch = CPU_ARCH_ARMv6;
+		else
+		    cpu_arch = CPU_ARCH_ARMv7;
+#else
 		if ((mmfr0 & 0x0000000f) >= 0x00000003 ||
 		    (mmfr0 & 0x000000f0) >= 0x00000030)
 			cpu_arch = CPU_ARCH_ARMv7;
@@ -237,6 +309,7 @@ int cpu_architecture(void)
 			cpu_arch = CPU_ARCH_ARMv6;
 		else
 			cpu_arch = CPU_ARCH_UNKNOWN;
+#endif
 	} else
 		cpu_arch = CPU_ARCH_UNKNOWN;
 
@@ -399,13 +472,16 @@ static void __init setup_processor(void)
 void cpu_init(void)
 {
 	unsigned int cpu = smp_processor_id();
+#ifndef CONFIG_NKERNEL
 	struct stack *stk = &stacks[cpu];
+#endif
 
 	if (cpu >= NR_CPUS) {
 		printk(KERN_CRIT "CPU%u: bad primary CPU number\n", cpu);
 		BUG();
 	}
 
+#ifndef CONFIG_NKERNEL
 	/*
 	 * Define the placement constraint for the inline asm directive below.
 	 * In Thumb-2, msr with an immediate value is not allowed.
@@ -440,6 +516,7 @@ void cpu_init(void)
 	      "I" (offsetof(struct stack, und[0])),
 	      PLC (PSR_F_BIT | PSR_I_BIT | SVC_MODE)
 	    : "r14");
+#endif
 }
 
 void __init dump_machine_table(void)
@@ -485,6 +562,8 @@ int __init arm_add_memory(phys_addr_t start, unsigned long size)
 	return 0;
 }
 
+#ifndef CONFIG_NKERNEL
+
 /*
  * Pick out the memory size.  We look for mem=size@start,
  * where start and size are "size[KkMm]"
@@ -516,6 +595,31 @@ static int __init early_mem(char *p)
 	return 0;
 }
 early_param("mem", early_mem);
+
+#endif
+
+#ifdef CONFIG_NKERNEL
+
+static int __init early_guest_direct_dma(char *__unused)
+{
+	nk_direct_dma = 1;
+	return 0;
+}
+
+early_param("guest-direct_dma", early_guest_direct_dma);
+
+#ifdef CONFIG_IWMMXT
+
+static void __init early_guest_iwmmxt(char *__unused)
+{
+	nk_iwmmxt = (os_ctx->cpu_cap & HWCAP_IWMMXT)?1:0;
+}
+
+early_param("guest-iwmmxt", early_guest_iwmmxt);
+
+#endif
+
+#endif
 
 static void __init
 setup_ramdisk(int doload, int prompt, int image_start, unsigned int rd_sz)
@@ -599,12 +703,122 @@ static int __init parse_tag_core(const struct tag *tag)
 
 __tagtable(ATAG_CORE, parse_tag_core);
 
+#ifndef CONFIG_NKERNEL
+
 static int __init parse_tag_mem32(const struct tag *tag)
 {
 	return arm_add_memory(tag->u.mem.start, tag->u.mem.size);
 }
 
 __tagtable(ATAG_MEM, parse_tag_mem32);
+
+#endif
+
+#ifdef CONFIG_NKERNEL
+
+static int __init parse_tag_map_desc(const struct tag *t)
+{
+	NkMapDesc* tag = (NkMapDesc*)&(t->u);
+	NkOsId	   id  = os_ctx->id;
+	int	   ok  = 0;
+
+	if (tag->mem_type == NK_MD_RAM) {
+		ok = (nk_balloon_memory ? 1 : (tag->mem_owner != NK_OS_ANON));
+	} else if ((tag->mem_type == NK_MD_ROM) ||
+		   (tag->mem_type == NK_MD_FAST_RAM)) {
+
+		ok = ((tag->mem_owner == id)          ||
+		      (tag->mem_owner == NK_OS_NKERN));
+
+	} else if (tag->mem_type == NK_MD_IO_MEM) {
+
+		ok = ((tag->mem_owner == id)          ||
+#ifndef CONFIG_MMU
+		      (tag->mem_owner == NK_OS_ANON)  ||
+#endif
+		      (tag->mem_owner == NK_OS_NKERN));
+	}
+
+	if (!ok) {
+		return 0;
+	}
+
+	if (nk_maps_max < NK_MAPS_MAX) {
+
+		nk_maps[nk_maps_max++] = *tag;
+
+		if ((tag->mem_type == NK_MD_RAM) ||
+		    (tag->mem_type == NK_MD_ROM)) {
+			NkPhSize  size = tag->plimit - tag->pstart + 1;
+			NkVmAddr  vend = tag->vstart + size;
+
+			if (nk_highest_addr < vend) {
+				nk_highest_addr = vend;
+			}
+		}
+
+		PRINTNK(("nk_maps: 0x%08x 0x%08x -> 0x%08x %d %d\n",
+			tag->pstart, tag->plimit, tag->vstart,
+			tag->mem_type, tag->mem_owner));
+	} else {
+		printk(KERN_WARNING
+			"nk_maps[%d] table overflow: parsing tag"
+			      "  [0x%08x,0x%08x] -> 0x%08x\n",
+			      NK_MAPS_MAX, tag->pstart,
+			      tag->plimit, tag->vstart);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+__tagtable(ATAG_MAP_DESC, parse_tag_map_desc);
+
+static void __init nk_meminfo_setup(void)
+{
+	NkOsId	    id        = os_ctx->id;
+	NkMapDesc*  map;
+	NkMapDesc*  map_limit = &nk_maps[nk_maps_max];
+
+	for (map  = &nk_maps[0]; map < map_limit; map++) {
+		if ((((map->mem_owner == id) ||
+		      (nk_balloon_memory && (map->mem_owner == NK_OS_ANON)) ||
+		       nk_direct_dma)) &&
+		    (__pa(map->vstart) == map->pstart)) {
+			NkPhAddr  start = map->pstart;
+			NkPhSize  size  = map->plimit - map->pstart + 1;
+
+			if (arm_add_memory(start, size) == 0) {
+				PRINTNK(("%s: [%d] added: 0x%08x..0x%08x\n",
+					 __FUNCTION__, id, start,
+					 start + size - 1));
+			}
+
+		        if (nk_balloon_memory &&
+			    (map->mem_owner == NK_OS_ANON)) {
+			    nk_balloon_memory += (size >> PAGE_SHIFT);
+			}
+		}
+	}
+}
+
+#ifdef CONFIG_MMU
+#if __LINUX_ARM_ARCH__ >= 6
+
+unsigned int ttb_flags;
+
+static int __init parse_tag_ttb_flags(const struct tag *t)
+{
+	ttb_flags = *(unsigned int*)&(t->u);
+	return 0;
+}
+
+__tagtable(ATAG_TTB_FLAGS, parse_tag_ttb_flags);
+
+#endif
+#endif
+
+#endif
 
 #if defined(CONFIG_VGA_CONSOLE) || defined(CONFIG_DUMMY_CONSOLE)
 struct screen_info screen_info = {
@@ -791,6 +1005,169 @@ static void __init squash_mem_tags(struct tag *tag)
 			tag->hdr.tag = ATAG_NONE;
 }
 
+#ifdef CONFIG_NKERNEL
+
+#define NK_RES_LIMIT 16
+static struct resource nkres[NK_RES_LIMIT];
+static int             nkidx = 0;
+static NkSpcDesc_32    nkio;
+
+/*
+ * Parse command line to get assigned I/O space.
+ * Note that __setup() cannot be used, because it is called later.
+ * searched option is: linux-iomem=<start>-<end> or linux-iomem=<start>,<size>
+ * (may use '*' wildcard and '!" negation)
+*/
+static char* __init nk_get_io_param (const char*   cmd,
+				     unsigned int* saddr,
+				     unsigned int* eaddr,
+				     int*          enabled)
+{
+	static const char* io_prefix [] = { "viomem=",
+					    "guest-iomem=",
+					    "linux-iomem=", 0 };
+	const char** prefix = io_prefix;
+	char*        end;
+	char*        start = 0;
+
+	while (*prefix) {
+		char* cstart = strstr(cmd, *prefix);
+		if (cstart) {
+			cstart += strlen(*prefix);
+			if (!start || (cstart < start)) {
+				start = cstart;
+			}
+		}
+		prefix++;
+	}
+	if (!start) {
+		return 0;
+	}
+
+	if (*start == '!') {
+		*enabled = 0;
+		start++;
+	} else {
+		*enabled = 1;
+	}
+
+	if (*start == '*') {
+		*saddr = 0;
+		*eaddr = 0xffffffff;
+		end    = (char*)(start + 1);
+	} else {
+		*saddr = simple_strtoul(start, &end, 0);
+		if (end == start) {
+			return 0;
+		}
+
+		if (*end == '-') {
+			start  = end+1;
+			*eaddr = simple_strtoul(start, &end, 0);
+			if (end == start) {
+				return 0;
+			}
+		} else if (*end == ',') {
+			start  = end+1;
+			*eaddr = simple_strtoul(start, &end, 0);
+			if (end == start) {
+				return 0;
+			}
+			*eaddr = *saddr + *eaddr - 1;
+		}
+	}
+
+	if (*end != ' ' && *end != '\t' && *end != '\0') {
+		return 0;
+	}
+
+	return (char*)(end+1);
+}
+
+static void __init nk_tag_io_space (NkSpcDesc_32* space)
+{
+	char*        cmd   = cmd_line;
+	unsigned int start;
+	unsigned int end = 0;
+	int          enabled;
+
+	nk_spc_init_32(space);
+
+	while ((cmd = nk_get_io_param(cmd, &start, &end, &enabled))) {
+		if (start > end) {
+			continue;
+		}
+		if (enabled) {
+		    nk_spc_tag_32(space, start, end - start + 1,
+				  NK_SPC_FREE);
+		    PRINTNK(("NK: Assigned I/O resource: [0x%x-0x%x]\n",
+			     start, end));
+		} else {
+		    nk_spc_tag_32(space, start, end - start + 1,
+				  NK_SPC_NONEXISTENT);
+		    PRINTNK(("NK: Excluded I/O resource: [0x%x-0x%x]\n",
+			     start, end));
+		}
+	}
+}
+
+static void __init nk_disable_resources (nku32_f start, nku32_f size)
+{
+	int conflict;
+
+	if (nkidx == (NK_RES_LIMIT-1)) {
+		printk(KERN_WARNING "Not enough static device resources (%d)!",
+			NK_RES_LIMIT);
+		return;
+	}
+	nkres[nkidx].name  = "NK reserved I/O";
+	nkres[nkidx].start = start;
+	nkres[nkidx].end   = start + size - 1;
+	nkres[nkidx].child = NULL;
+	nkres[nkidx].flags = IORESOURCE_BUSY;
+	conflict = request_resource(&iomem_resource, &nkres[nkidx]);
+	if (conflict) {
+		PRINTNK(("NK: failed to disable I/O resource [0x%lx,0x%lx]\n",
+			 nkres[nkidx].start, nkres[nkidx].end));
+	} else {
+		PRINTNK(("NK: Disabled I/O resource: [0x%lx..0x%lx]\n",
+			 nkres[nkidx].start, nkres[nkidx].end));
+	}
+	nkidx++;
+}
+
+
+static void __init nk_request_io_resources (void)
+{
+	NkPhAddr pdev;
+
+	NkSpcDesc_32*	io    = &nkio;
+	NkSpcChunk_32*	chunk = io->chunk;
+	int		i;
+
+	nk_tag_io_space(io);
+
+	pdev = 0;
+	while ((pdev = nkops.nk_dev_lookup_by_type(NK_DEV_ID_NKIO, pdev))) {
+		NkDevDesc* vdev = (NkDevDesc*)nkops.nk_ptov(pdev);
+		NkDevNkIO* nkio = (NkDevNkIO*)nkops.nk_ptov(vdev->dev_header);
+		if (nkio->size) {
+		    nk_spc_tag_32(io, nkio->base, nkio->size,
+			          NK_SPC_NONEXISTENT);
+		    PRINTNK(("NK: Excluded I/O resource: [0x%x-0x%x]\n",
+			    nkio->base, nkio->base + nkio->size -1));
+		}
+	}
+
+	for (i = 0; i < io->numChunks; i++) {
+		NkSpcTag state = NK_SPC_STATE(chunk[i].tag);
+		if (state == NK_SPC_NONEXISTENT) {
+			nk_disable_resources(chunk[i].start, chunk[i].size);
+		}
+	}
+}
+#endif /* CONFIG_NKERNEL */
+
 static struct machine_desc * __init setup_machine_tags(unsigned int nr)
 {
 	struct tag *tags = (struct tag *)&init_tags;
@@ -815,6 +1192,12 @@ static struct machine_desc * __init setup_machine_tags(unsigned int nr)
 		dump_machine_table(); /* does not return */
 	}
 
+#ifdef CONFIG_NKERNEL
+
+	nk_balloon_memory_setup();
+
+	tags = (struct tag*)os_ctx->taglist;
+#else
 	if (__atags_pointer)
 		tags = phys_to_virt(__atags_pointer);
 	else if (mdesc->boot_params) {
@@ -836,6 +1219,7 @@ static struct machine_desc * __init setup_machine_tags(unsigned int nr)
 			tags = phys_to_virt(mdesc->boot_params);
 		}
 	}
+#endif
 
 #if defined(CONFIG_DEPRECATED_PARAM_STRUCT)
 	/*
@@ -901,10 +1285,17 @@ void __init setup_arch(char **cmdline_p)
 
 	parse_early_param();
 
+#ifdef CONFIG_NKERNEL
+	nk_meminfo_setup();
+#endif
+
 	sanity_check_meminfo();
 	arm_memblock_init(&meminfo, mdesc);
 
 	paging_init(mdesc);
+#ifdef CONFIG_NKERNEL
+	nk_request_io_resources();
+#endif
 	request_standard_resources(mdesc);
 
 	unflatten_device_tree();
@@ -929,11 +1320,35 @@ void __init setup_arch(char **cmdline_p)
 	conswitchp = &dummy_con;
 #endif
 #endif
+
+#ifdef CONFIG_NKERNEL
+
+#ifndef CONFIG_IWMMXT
+	if (os_ctx->cpu_cap & HWCAP_IWMMXT) {
+	    printk(KERN_CRIT "Linux has been configured for XScale/DSP "
+		   "whereas current XScale processor provides IWMMXT\n");
+	    BUG();
+	}
+#endif
+
+	nk_console_init();
+#endif
 	early_trap_init();
 
 	if (mdesc->init_early)
 		mdesc->init_early();
 }
+
+/*
+ * Pick out the high ram size.  We look for ram=512M,
+ */
+static int __init high_ram(char *p)
+{
+    	if(p && strstr(p,"512M"))
+	    		arm_add_memory(0xE0000000, 0x10000000);
+		return 0;
+}
+early_param("ram", high_ram);
 
 
 static int __init topology_init(void)

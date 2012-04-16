@@ -2,6 +2,7 @@
  *
  * Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
  * Written by David Howells (dhowells@redhat.com)
+ * Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -663,6 +664,10 @@ static int nfs_create_rpc_client(struct nfs_client *clp,
 				__func__, PTR_ERR(clnt));
 		return PTR_ERR(clnt);
 	}
+#ifdef CONFIG_ROOT_NFS_UID
+	clnt->cl_rootuid = (uid_t) 0;
+	clnt->cl_rootgid = (gid_t) 0;
+#endif
 
 	clp->cl_rpcclient = clnt;
 	return 0;
@@ -849,6 +854,11 @@ static int nfs_init_server(struct nfs_server *server,
 		dprintk("<-- nfs_init_server() = error %ld\n", PTR_ERR(clp));
 		return PTR_ERR(clp);
 	}
+
+#ifdef CONFIG_ROOT_NFS_UID
+	clp->cl_rpcclient->cl_rootuid = (uid_t) data->rootuid;
+	clp->cl_rpcclient->cl_rootgid = (gid_t) data->rootgid;
+#endif
 
 	server->nfs_client = clp;
 

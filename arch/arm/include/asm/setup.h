@@ -2,6 +2,7 @@
  *  linux/include/asm/setup.h
  *
  *  Copyright (C) 1997-1999 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -192,7 +193,11 @@ static struct tagtable __tagtable_##fn __tag = { tag, fn }
 /*
  * Memory map description
  */
+#ifndef CONFIG_NKERNEL
 #define NR_BANKS 8
+#else
+#define NR_BANKS 64
+#endif
 
 struct membank {
 	phys_addr_t start;

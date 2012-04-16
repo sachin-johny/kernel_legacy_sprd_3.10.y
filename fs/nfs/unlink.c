@@ -1,6 +1,8 @@
 /*
  *  linux/fs/nfs/unlink.c
  *
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
  * nfs sillydelete handling
  *
  */
@@ -262,12 +264,24 @@ nfs_async_unlink(struct inode *dir, struct dentry *dentry)
 	struct nfs_unlinkdata *data;
 	int status = -ENOMEM;
 	void *devname_garbage = NULL;
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	struct translate_cred tcred;
+#endif
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL)
 		goto out;
 
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	rpc_translate_cred(&tcred,
+			   NFS_CLIENT(dir)->cl_rootuid,
+			   NFS_CLIENT(dir)->cl_rootgid);
+#endif
 	data->cred = rpc_lookup_cred();
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+	rpc_restore_translated_cred(&tcred);
+#endif
+
 	if (IS_ERR(data->cred)) {
 		status = PTR_ERR(data->cred);
 		goto out_free;

@@ -2,6 +2,7 @@
  *  linux/arch/arm/kernel/debug.S
  *
  *  Copyright (C) 1994-1999 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -9,15 +10,29 @@
  *
  *  32-bit debugging code
  */
+
 #include <linux/linkage.h>
 
 		.text
-
 /*
  * Some debugging routines (useful if you've got MM problems and
  * printk isn't working).  For DEBUGGING ONLY!!!  Do not leave
  * references to these in a production kernel!
  */
+
+#ifdef CONFIG_NKERNEL
+
+/*
+ * nanokernel owns a debug serial line and provides printnk function
+ * which always works if stack pointer and pointer to os_ctx are
+ * already initialized.
+ * we made a special arrangements in head.S to initialize sp and
+ * os_ctx early. there are some "grey areas" in head.S, where
+ * sp is set to __mmap_switched_data, so we cannot use printnk after this
+ * until __mmap_switched reinitializes sp and os_ctx.
+ */
+
+#else
 
 #if defined(CONFIG_DEBUG_ICEDCC)
 		@@ debug using ARM EmbeddedICE DCC channel
@@ -120,6 +135,8 @@
 
 #endif /* CONFIG_MMU */
 
+#endif /* CONFIG_NKERNEL */
+
 /*
  * Useful debugging routines
  */
@@ -153,6 +170,22 @@ ENDPROC(printhex2)
 
 		.ltorg
 
+#ifdef CONFIG_NKERNEL
+
+ENTRY(printascii)
+	b	printnk
+ENDPROC(printascii)
+
+ENTRY(printch)
+	mov	r1, r0
+	adr	r0, fmt
+	b	printnk
+ENDPROC(printch)
+
+fmt:	.asciz	"%c"
+	.align
+#else
+
 ENTRY(printascii)
 		addruart_current r3, r1, r2
 		b	2f
@@ -175,5 +208,7 @@ ENTRY(printch)
 		mov	r0, #0
 		b	1b
 ENDPROC(printch)
+
+#endif
 
 hexbuf:		.space 16

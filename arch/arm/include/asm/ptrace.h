@@ -2,6 +2,7 @@
  *  arch/arm/include/asm/ptrace.h
  *
  *  Copyright (C) 1996-2003 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -136,6 +137,10 @@ struct pt_regs {
 
 #ifdef __KERNEL__
 
+#ifdef CONFIG_NKERNEL
+#include <asm/nkern.h>
+#endif
+
 #define user_mode(regs)	\
 	(((regs)->ARM_cpsr & 0xf) == 0)
 
@@ -185,6 +190,9 @@ static inline int valid_user_regs(struct pt_regs *regs)
 	if (!(elf_hwcap & HWCAP_26BIT))
 		regs->ARM_cpsr |= USR_MODE;
 
+#ifdef CONFIG_NKERNEL
+	regs->ARM_cpsr |= (__VEX_IRQ_FLAG << NK_VPSR_SHIFT);
+#endif
 	return 0;
 }
 

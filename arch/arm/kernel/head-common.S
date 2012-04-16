@@ -4,6 +4,7 @@
  *  Copyright (C) 1994-2002 Russell King
  *  Copyright (c) 2003 ARM Limited
  *  All Rights Reserved
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -44,6 +45,12 @@
  *  r5, r6 corrupted
  */
 __vet_atags:
+#ifdef CONFIG_NKERNEL
+	/*
+	 * nanokernel already verified tags.
+	 * setup.c will look in OS context for them.
+	 */
+#else
 	tst	r2, #0x3			@ aligned?
 	bne	1f
 
@@ -63,9 +70,27 @@ __vet_atags:
 
 2:	mov	pc, lr				@ atag/dtb pointer is ok
 
+#endif
 1:	mov	r2, #0
 	mov	pc, lr
 ENDPROC(__vet_atags)
+
+
+#ifdef CONFIG_NKERNEL
+#ifndef CONFIG_SMP
+		.global	_os_ctx
+_os_ctx:	.long	os_ctx
+_irq_ena_off:	.long	__VEX_IRQ_CTX_ENA
+_irq_enabled:	.long	__irq_enabled
+#ifndef CONFIG_XIP_KERNEL
+_irq_enabled1:	.long	__irq_enabled_common
+#endif
+#endif
+#ifdef CONFIG_MACH_ARM_OSWARE
+#include <asm/mach-types.h>
+_mach_type:	.long	MACH_TYPE_ARM_OSWARE
+#endif
+#endif
 
 /*
  * The following fragment of code is executed with the MMU on in MMU mode,
@@ -76,7 +101,9 @@ ENDPROC(__vet_atags)
  *  r2  = atags/dtb pointer
  *  r9  = processor ID
  */
+#ifndef	CONFIG_NKERNEL
 	__INIT
+#endif
 __mmap_switched:
 	adr	r3, __mmap_switched_data
 
@@ -91,6 +118,21 @@ __mmap_switched:
 1:	cmp	r6, r7
 	strcc	fp, [r6],#4
 	bcc	1b
+
+#ifdef CONFIG_NKERNEL
+#ifndef CONFIG_SMP
+	ldr	r4, _os_ctx			@ save pointer to os_ctx
+	str	r12, [r4]
+	ldr	r4, _irq_ena_off
+	add	r12, r12, r4
+	ldr	r4, _irq_enabled
+	str	r12, [r4]
+#ifndef CONFIG_XIP_KERNEL
+	ldr	r4, _irq_enabled1
+	str	r12, [r4]
+#endif
+#endif
+#endif
 
  ARM(	ldmia	r3, {r4, r5, r6, r7, sp})
  THUMB(	ldmia	r3, {r4, r5, r6, r7}	)
@@ -117,6 +159,9 @@ __mmap_switched_data:
 	.long	init_thread_union + THREAD_START_SP @ sp
 	.size	__mmap_switched_data, . - __mmap_switched_data
 
+#ifdef	CONFIG_NKERNEL
+	__INIT
+#endif
 /*
  * This provides a C-API version of __lookup_processor_type
  */

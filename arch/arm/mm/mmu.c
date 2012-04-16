@@ -2,6 +2,7 @@
  *  linux/arch/arm/mm/mmu.c
  *
  *  Copyright (C) 1995-2005 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -30,6 +31,10 @@
 #include <asm/mach/map.h>
 
 #include "mm.h"
+
+#ifdef CONFIG_NKERNEL
+#include <asm/nkern.h>
+#endif
 
 /*
  * empty_zero_page is a special page that is used for
@@ -93,6 +98,26 @@ static struct cachepolicy cache_policies[] __initdata = {
 	}
 };
 
+#ifdef CONFIG_NKERNEL
+
+extern NkMapDesc nk_maps[];
+extern int       nk_maps_max;
+
+    static int
+_is_nk_smp (void)
+{
+    NkMapDesc*	map;
+    NkMapDesc*  map_limit = &nk_maps[nk_maps_max];
+    for (map  = &nk_maps[0]; map < map_limit; map++) {
+	if ((map->mem_type == NK_MD_RAM) && (map->pte_attr & PMD_SECT_S)) {
+	    return 1;
+	}
+    }
+    return 0;
+}
+
+#endif
+
 /*
  * These are useful for identifying cache coherency
  * problems by allowing the cache or the cache and
@@ -115,6 +140,12 @@ static int __init early_cachepolicy(char *p)
 	}
 	if (i == ARRAY_SIZE(cache_policies))
 		printk(KERN_ERR "ERROR: unknown or unsupported cache policy\n");
+#ifdef CONFIG_NKERNEL
+	if (_is_nk_smp()) {
+		cachepolicy = CPOLICY_WRITEALLOC;
+		printk(KERN_WARNING "Only cachepolicy=writealloc supported on SMP\n");
+	} else
+#else
 	/*
 	 * This restriction is partly to do with the way we boot; it is
 	 * unpredictable to have memory mapped using two different sets of
@@ -122,6 +153,7 @@ static int __init early_cachepolicy(char *p)
 	 * change these attributes once the initial assembly has setup the
 	 * page tables.
 	 */
+#endif
 	if (cpu_architecture() >= CPU_ARCH_ARMv6) {
 		printk(KERN_WARNING "Only cachepolicy=writeback supported on ARMv6 and later\n");
 		cachepolicy = CPOLICY_WRITEBACK;
@@ -233,8 +265,12 @@ static struct mem_type mem_types[] = {
 		.domain    = DOMAIN_KERNEL,
 	},
 	[MT_LOW_VECTORS] = {
+#ifndef CONFIG_NKERNEL
 		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY |
 				L_PTE_RDONLY,
+#else
+		.prot_pte  = L_PTE_PRESENT | L_PTE_YOUNG | L_PTE_DIRTY,
+#endif
 		.prot_l1   = PMD_TYPE_TABLE,
 		.domain    = DOMAIN_USER,
 	},
@@ -306,7 +342,12 @@ static void __init build_mem_type_table(void)
 			cachepolicy = CPOLICY_WRITEBACK;
 		ecc_mask = 0;
 	}
+
+#ifdef CONFIG_NKERNEL
+	if (_is_nk_smp())
+#else
 	if (is_smp())
+#endif
 		cachepolicy = CPOLICY_WRITEALLOC;
 
 	/*
@@ -401,11 +442,13 @@ static void __init build_mem_type_table(void)
 	cp = &cache_policies[cachepolicy];
 	vecs_pgprot = kern_pgprot = user_pgprot = cp->pte;
 
+#ifndef CONFIG_NKERNEL
 	/*
 	 * Only use write-through for non-SMP systems
 	 */
 	if (!is_smp() && cpu_arch >= CPU_ARCH_ARMv5 && cachepolicy > CPOLICY_WRITETHROUGH)
 		vecs_pgprot = cache_policies[CPOLICY_WRITETHROUGH].pte;
+#endif
 
 	/*
 	 * Enable CPU-specific coherency if supported.
@@ -429,7 +472,11 @@ static void __init build_mem_type_table(void)
 		mem_types[MT_MINICLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 		mem_types[MT_CACHECLEAN].prot_sect |= PMD_SECT_APX|PMD_SECT_AP_WRITE;
 
+#ifdef CONFIG_NKERNEL
+		if (_is_nk_smp()) {
+#else
 		if (is_smp()) {
+#endif
 			/*
 			 * Mark memory with the "shared" attribute
 			 * for SMP systems
@@ -563,7 +610,6 @@ static void __init alloc_init_section(pud_t *pud, unsigned long addr,
 	 */
 	if (((addr | end | phys) & ~SECTION_MASK) == 0) {
 		pmd_t *p = pmd;
-
 		if (addr & SECTION_SIZE)
 			pmd++;
 
@@ -647,7 +693,8 @@ static void __init create_36bit_mapping(struct map_desc *md,
 		int i;
 
 		for (i = 0; i < 16; i++)
-			*pmd++ = __pmd(phys | type->prot_sect | PMD_SECT_SUPER);
+			*pmd++ = __pmd(phys | type->prot_sect |
+					PMD_SECT_SUPER);
 
 		addr += SUPERSECTION_SIZE;
 		phys += SUPERSECTION_SIZE;
@@ -855,6 +902,7 @@ void __init sanity_check_meminfo(void)
 	memblock_set_current_limit(lowmem_limit);
 }
 
+#ifndef CONFIG_NKERNEL
 static inline void prepare_page_table(void)
 {
 	unsigned long addr;
@@ -888,6 +936,7 @@ static inline void prepare_page_table(void)
 	     addr < VMALLOC_END; addr += PGDIR_SIZE)
 		pmd_clear(pmd_off_k(addr));
 }
+#endif /* CONFIG_NKERNEL */
 
 /*
  * Reserve the special regions of memory
@@ -909,6 +958,7 @@ void __init arm_mm_memblock_reserve(void)
 #endif
 }
 
+#ifndef CONFIG_NKERNEL
 /*
  * Set up device the mappings.  Since we clear out the page tables for all
  * mappings above VMALLOC_END, we will remove any debug device mappings.
@@ -991,6 +1041,162 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 	local_flush_tlb_all();
 	flush_cache_all();
 }
+#else /* CONFIG_NKERNEL */
+
+#include <linux/bootmem.h>
+
+extern NkMapDesc nk_maps[];
+extern int       nk_maps_max;
+
+/*
+ * Setup initial mappings.  We should establish all mappings described
+ * in nk_maps[]. We also map vectors and other "fixed" areas used by
+ * cache flush functions on some architectures.
+ *
+ * Until now we have worked in initial mapping provided by the nanokernel
+ * (we did not change the hardware translation tree base register
+ * to swapper_pg_dir in head.S)
+ *
+ * We will prepare new mappings at its "official" place and switch
+ * to swapper_pg_dir after we complete mapping initialization.
+ */
+
+static void __init devicemaps_init(struct machine_desc *mdesc)
+{
+	pgd_t*		 init_pgd = init_mm.pgd;
+	struct map_desc  md;
+	NkMapDesc*	 map;
+	NkMapDesc*  	 map_limit   = &nk_maps[nk_maps_max];
+	NkPhAddr	 pstart      = 0;
+	NkVmAddr	 vstart      = 0;
+	NkPhAddr	 plimit      = 0;
+
+	memset(init_pgd, 0, sizeof(pgd_t) * PTRS_PER_PGD);
+
+	for (map  = &nk_maps[0]; map < map_limit; map++) {
+
+		if ((map->mem_type == NK_MD_RAM) ||
+		    (map->mem_type == NK_MD_ROM) ||
+		    (map->mem_type == NK_MD_FAST_RAM)) {
+
+			pstart = map->pstart & ~(PGDIR_SIZE/2 - 1);
+			vstart = map->vstart & ~(PGDIR_SIZE/2 - 1);
+			plimit = map->plimit |  (PGDIR_SIZE/2 - 1);
+
+		} else if (map->mem_type  == NK_MD_IO_MEM) {
+
+			pstart = map->pstart & ~(PAGE_SIZE - 1);
+			vstart = map->vstart & ~(PAGE_SIZE - 1);
+			plimit = map->plimit |  (PAGE_SIZE - 1);
+		}
+
+		md.pfn      =  __phys_to_pfn(pstart);
+		md.virtual  = vstart;
+		md.length   = plimit - pstart + 1;
+
+		if (map->mem_type == NK_MD_RAM) {
+			md.type = MT_MEMORY;
+		} else if (map->mem_type == NK_MD_ROM) {
+			md.type = MT_ROM;
+		} else if (map->mem_type == NK_MD_IO_MEM) {
+			if (map->pte_attr & PMD_SECT_CACHEABLE) {
+				md.type = MT_DEVICE_CACHED;
+			} else if (cpu_architecture() >= CPU_ARCH_ARMv6 &&
+				   (get_cr() & CR_XP)) {
+				if (map->pte_attr & PMD_SECT_BUFFERABLE) {
+					md.type = MT_DEVICE;
+				} else {
+					md.type = MT_DEVICE_NONSHARED;
+				}
+			} else {
+				md.type = MT_DEVICE;
+			}
+		} else if (map->mem_type == NK_MD_FAST_RAM) {
+			if (map->pte_attr & PMD_SECT_CACHEABLE) {
+				md.type = MT_MEMORY;
+			} else {
+				md.type = MT_DEVICE;
+			}
+		}
+
+		create_mapping(&md);
+	}
+
+#ifdef FLUSH_BASE
+	md.pfn     = __phys_to_pfn(FLUSH_BASE_PHYS);
+	md.virtual = FLUSH_BASE;
+	md.length  = SZ_1M;
+	md.type    = MT_CACHECLEAN;
+	create_mapping(&md);
+#endif
+
+#ifdef FLUSH_BASE_MINICACHE
+	md.pfn     = __phys_to_pfn(FLUSH_BASE_PHYS + SZ_1M);
+	md.virtual = FLUSH_BASE_MINICACHE;
+	md.length  = SZ_1M;
+	md.type    = MT_MINICLEAN;
+	create_mapping(&md);
+#endif
+
+	/*
+	 * vectors_page defaults to os_ctx->nkvector
+	 * (further used to initialize traps)
+	 */
+	vectors_page = os_ctx->nkvector;
+
+	/* Map the nkernel vectors page */
+	md.pfn     = __phys_to_pfn(os_ctx->vector);
+	md.virtual = (unsigned long) os_ctx->nkvector;
+	md.length  = PAGE_SIZE;
+	md.type    = ((md.virtual == 0xffff0000) ?
+		      MT_HIGH_VECTORS : MT_LOW_VECTORS);
+	create_mapping(&md);
+
+	/* Map the private high vectors page (for kuser helpers) */
+	if (md.virtual != 0xffff0000) {
+		vectors_page = early_alloc(PAGE_SIZE);
+		BUG_ON(!vectors_page);
+
+		md.pfn     = __phys_to_pfn(virt_to_phys(vectors_page));
+		md.virtual = 0xffff0000;
+		md.type    = MT_HIGH_VECTORS;
+		create_mapping(&md);
+
+		if ((unsigned long) os_ctx->nkvector != vectors_base()) {
+			void* dst = (void*)vectors_base();
+			memcpy(vectors_page, dst, PAGE_SIZE);
+		} else {
+			memset(vectors_page, 0, PAGE_SIZE);
+		}
+	}
+
+	/*
+	 * If we aren't using high-vectors, also create a mapping
+	 * at the low-vectors virtual address.
+	 */
+	if ((!vectors_high()) && ((unsigned long) os_ctx->nkvector)) {
+		md.virtual = 0;
+		md.type    = MT_LOW_VECTORS;
+		create_mapping(&md);
+	}
+
+	/*
+	 * Switch to a freshly initialized page directory
+	 */
+	flush_cache_all();
+	cpu_switch_mm(init_mm.pgd, &init_mm);
+	local_flush_tlb_all();
+
+	/*
+	 * Ask the machine support to map in the statically mapped devices.
+	 * No need to flush tlb after this, because tlb was flushed before
+	 * and map_io will create *new* mappings only.
+	 */
+	if (mdesc->map_io)
+		mdesc->map_io();
+
+}
+#endif /* CONFIG_NKERNEL */
 
 static void __init kmap_init(void)
 {
@@ -999,6 +1205,8 @@ static void __init kmap_init(void)
 		PKMAP_BASE, _PAGE_KERNEL_TABLE);
 #endif
 }
+
+#ifndef CONFIG_NKERNEL
 
 static void __init map_lowmem(void)
 {
@@ -1023,6 +1231,7 @@ static void __init map_lowmem(void)
 		create_mapping(&map);
 	}
 }
+#endif /* !CONFIG_NKERNEL */
 
 /*
  * paging_init() sets up the page tables, initialises the zone memory
@@ -1035,8 +1244,10 @@ void __init paging_init(struct machine_desc *mdesc)
 	memblock_set_current_limit(lowmem_limit);
 
 	build_mem_type_table();
+#ifndef CONFIG_NKERNEL
 	prepare_page_table();
 	map_lowmem();
+#endif
 	devicemaps_init(mdesc);
 	kmap_init();
 

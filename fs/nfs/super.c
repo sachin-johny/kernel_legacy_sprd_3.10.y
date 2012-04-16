@@ -2,6 +2,7 @@
  *  linux/fs/nfs/super.c
  *
  *  Copyright (C) 1992  Rick Sladkey
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  nfs superblock handling functions
  *
@@ -87,6 +88,9 @@ enum {
 	Opt_sharecache, Opt_nosharecache,
 	Opt_resvport, Opt_noresvport,
 	Opt_fscache, Opt_nofscache,
+#ifdef CONFIG_ROOT_NFS_UID
+	Opt_auto_uid,
+#endif
 
 	/* Mount options that take integer arguments */
 	Opt_port,
@@ -100,6 +104,9 @@ enum {
 	Opt_mountvers,
 	Opt_nfsvers,
 	Opt_minorversion,
+#ifdef CONFIG_ROOT_NFS_UID
+	Opt_rootuid, Opt_rootgid,
+#endif
 
 	/* Mount options that take string arguments */
 	Opt_sec, Opt_proto, Opt_mountproto, Opt_mounthost,
@@ -149,6 +156,9 @@ static const match_table_t nfs_mount_option_tokens = {
 	{ Opt_noresvport, "noresvport" },
 	{ Opt_fscache, "fsc" },
 	{ Opt_nofscache, "nofsc" },
+#ifdef CONFIG_ROOT_NFS_UID
+	{Opt_auto_uid, "auto_uid"},
+#endif
 
 	{ Opt_port, "port=%s" },
 	{ Opt_rsize, "rsize=%s" },
@@ -167,6 +177,10 @@ static const match_table_t nfs_mount_option_tokens = {
 	{ Opt_nfsvers, "nfsvers=%s" },
 	{ Opt_nfsvers, "vers=%s" },
 	{ Opt_minorversion, "minorversion=%s" },
+#ifdef CONFIG_ROOT_NFS_UID
+	{Opt_rootuid, "rootuid=%s"},
+	{Opt_rootgid, "rootgid=%s"},
+#endif
 
 	{ Opt_sec, "sec=%s" },
 	{ Opt_proto, "proto=%s" },
@@ -1188,6 +1202,11 @@ static int nfs_parse_mount_options(char *raw,
 		case Opt_noresvport:
 			mnt->flags |= NFS_MOUNT_NORESVPORT;
 			break;
+#ifdef CONFIG_ROOT_NFS_UID
+		case Opt_auto_uid:
+			mnt->flags |= NFS_MOUNT_AUTO_ROOTUID;
+			break;
+#endif
 		case Opt_fscache:
 			mnt->options |= NFS_OPTION_FSCACHE;
 			kfree(mnt->fscache_uniq);
@@ -1304,6 +1323,18 @@ static int nfs_parse_mount_options(char *raw,
 				goto out_invalid_value;
 			mnt->minorversion = option;
 			break;
+#ifdef CONFIG_ROOT_NFS_UID
+		case Opt_rootuid:
+			if (nfs_get_option_ul(args, &option))
+				goto out_invalid_value;
+			mnt->rootuid = option;
+			break;
+		case Opt_rootgid:
+			if (nfs_get_option_ul(args, &option))
+				goto out_invalid_value;
+			mnt->rootgid = option;
+			break;
+#endif
 
 		/*
 		 * options that take text values
@@ -2281,6 +2312,13 @@ static struct dentry *nfs_fs_mount(struct file_system_type *fs_type,
 	if (error)
 		goto error_splat_root;
 
+#ifdef CONFIG_ROOT_NFS_UID
+	if (server->flags & NFS_MOUNT_AUTO_ROOTUID) {
+		server->client->cl_rootuid = mntroot->d_inode->i_uid;
+		server->client->cl_rootgid = mntroot->d_inode->i_gid;
+	}
+#endif
+
 	s->s_flags |= MS_ACTIVE;
 
 out:
@@ -2393,6 +2431,13 @@ nfs_xdev_mount(struct file_system_type *fs_type, int flags,
 		error = -ESTALE;
 		goto error_splat_super;
 	}
+
+#ifdef CONFIG_ROOT_NFS_UID
+	if (server->flags & NFS_MOUNT_AUTO_ROOTUID) {
+		server->client->cl_rootuid = mntroot->d_inode->i_uid;
+		server->client->cl_rootgid = mntroot->d_inode->i_gid;
+	}
+#endif
 
 	s->s_flags |= MS_ACTIVE;
 

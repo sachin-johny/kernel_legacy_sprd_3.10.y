@@ -4,6 +4,7 @@
  *  Copyright (C) 1996,1997,1998 Russell King.
  *  ARM700 fix by Matthew Godbolt (linux-user@willothewisp.demon.co.uk)
  *  nommu support by Hyok S. Choi (hyok.choi@samsung.com)
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -24,6 +25,17 @@
 #include <asm/unwind.h>
 #include <asm/unistd.h>
 #include <asm/tls.h>
+
+#ifdef CONFIG_NKERNEL
+
+#include <asm/domain.h>
+#include <asm/nkern.h>
+
+#if !defined(CONFIG_SMP) && !defined(CONFIG_XIP_KERNEL)
+#define	__irq_enabled__	__irq_enabled
+#endif
+
+#endif
 
 #include "entry-header.S"
 #include <asm/entry-macro-multi.S>
@@ -72,9 +84,33 @@ __dabt_invalid:
 	b	common_invalid
 ENDPROC(__dabt_invalid)
 
+#ifndef CONFIG_NKERNEL
 __irq_invalid:
 	inv_entry BAD_IRQ
 	b	common_invalid
+#else
+__irq_invalid:
+ THUMB(	.error "THUMB is not supported yet" )
+	sub	sp, sp, #S_FRAME_SIZE		@ stack frame
+	stmia	sp, {r0 - r9}			@ save r0-r9
+	add	r8, r10, #ctx_regs_r10_off	@ prepare to save r10-r15,cpsr
+	add	r9, sp, #S_R10			@
+	ldmia	r8, {r0 - r6}			@ read r10-r15,cpsr from OS ctx
+	mov	r3, sp				@ "fix" save sp
+						@ set soft intr status in cpsr
+	orr	r6, r6, #(__VEX_IRQ_FLAG << NK_VPSR_SHIFT)
+						@
+	mov	r7, #-1				@ "old_r0"
+	stmia	r9, {r0 - r7}			@ save r10-r15,cpsr,old_r0
+
+	zero_fp
+
+	enable_irq_notrace
+
+	mov	r0, sp
+	mov	r1, #BAD_IRQ
+	b	bad_mode
+#endif
 ENDPROC(__irq_invalid)
 
 __und_invalid:
@@ -91,12 +127,17 @@ common_invalid:
 	zero_fp
 
 	ldmia	r0, {r4 - r6}
+#ifdef CONFIG_NKERNEL
+	NK_SIRQ_SAVE_SVC(r6, r0)
+#endif
 	add	r0, sp, #S_PC		@ here for interlock avoidance
 	mov	r7, #-1			@  ""   ""    ""        ""
 	str	r4, [sp]		@ save preserved r0
 	stmia	r0, {r5 - r7}		@ lr_<exception>,
 					@ cpsr_<exception>, "old_r0"
-
+#ifdef CONFIG_NKERNEL
+	enable_irq_notrace
+#endif
 	mov	r0, sp
 	b	bad_mode
 ENDPROC(__und_invalid)
@@ -133,9 +174,11 @@ ENDPROC(__und_invalid)
  SPFIX(	addeq	r0, r0, #4	)
 	str	r1, [sp, #-4]!		@ save the "real" r0 copied
 					@ from the exception stack
-
 	mov	r1, lr
 
+#ifdef CONFIG_NKERNEL
+	NK_SIRQ_SAVE_SVC(r3, r9)	@ save softwr intr satus in cpsr
+#endif
 	@
 	@ We are now ready to fill in the remaining blanks on the stack:
 	@
@@ -156,9 +199,12 @@ __dabt_svc:
 	@ get ready to re-enable interrupts if appropriate
 	@
 	mrs	r9, cpsr
+#ifndef CONFIG_NKERNEL
 	tst	r3, #PSR_I_BIT
 	biceq	r9, r9, #PSR_I_BIT
-
+#else
+	bic	r9, r9, #PSR_I_BIT
+#endif
 	@
 	@ Call the processor-specific abort handler:
 	@
@@ -193,10 +239,14 @@ __dabt_svc:
 	@ restore SPSR and restart the instruction
 	@
 	ldr	r2, [sp, #S_PSR]
+#ifdef  CONFIG_NKERNEL
+	NK_SIRQ_RESTORE_SVC(r2, r1, r0)
+#endif
 	svc_exit r2				@ return from exception
  UNWIND(.fnend		)
 ENDPROC(__dabt_svc)
 
+#ifndef CONFIG_NKERNEL
 	.align	5
 __irq_svc:
 	svc_entry
@@ -226,6 +276,113 @@ __irq_svc:
 	bleq	trace_hardirqs_on
 #endif
 	svc_exit r4				@ return from exception
+
+#else /* CONFIG_NKERNEL */
+
+__irq_svc_handler:
+	get_os_ctx	r10
+#ifdef CONFIG_SMP
+	ldr     r0, [r10, #ctx_vcpu_yield_off]
+	cmp	r0, #0
+	movne	lr, pc
+	ldrne	pc, [r10, #ctx_smp_yield_off]
+#endif
+	b	__irq_svc_handler_
+
+	.align	5
+__irq_svc:
+ THUMB(	.error "THUMB is not supported yet" )
+ UNWIND(.fnstart		)
+ UNWIND(.save {r0 - pc}		)
+	sub	sp, sp, #S_FRAME_SIZE		@ stack frame
+#ifdef CONFIG_THUMB2_KERNEL
+ SPFIX(	str	r0, [sp]	)		@ temporarily saved
+ SPFIX(	mov	r0, sp		)
+ SPFIX(	tst	r0, #4		)		@ test original stack alignment
+ SPFIX(	ldr	r0, [sp]	)		@ restored
+#else
+ SPFIX(	tst	sp, #4		)
+#endif
+ SPFIX(	subne	sp, sp, #4	)
+	stmia	sp, {r0 - r9}			@ save r0-r9
+	add	r8, r10, #ctx_regs_r10_off	@ prepare to save r10-r15,cpsr
+	add	r9, sp, #S_R10
+	ldmia	r8, {r0 - r6}			@ read r10-r15,cpsr from OS ctx
+						@ set soft intr status in cpsr
+	orr	r6, r6, #(__VEX_IRQ_FLAG << NK_VPSR_SHIFT)
+
+	mov	r7, #-1				@ "old_r0"
+	stmia	r9, {r0 - r7}			@ save r10-r15,cpsr,old_r0
+
+__irq_svc_handler_:				@ all regs saved, OS ctx - r10
+						@ hardwr interrupts are masked
+	mov	r0, #0
+	strb	r0, [r10, #__VEX_IRQ_CTX_ENA]	@ disable softwr intr
+
+	mrs	r4, cpsr			@ r4 - cpsr with disabled intr
+	bic	r5, r4, #PSR_I_BIT		@ r5 - cpsr with enabled intr
+
+__irq_svc_loop:
+	mov	r0, #0
+	strb	r0, [r10, #__VEX_IRQ_CTX_PEN]	@ reset pending softwr intr
+	msr	cpsr, r5			@ enable hardwr intr
+
+#ifdef CONFIG_TRACE_IRQFLAGS
+	bl	trace_hardirqs_off
+#endif
+#ifdef CONFIG_PREEMPT
+	get_thread_info tsk
+	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
+	add	r7, r8, #1			@ increment it
+	str	r7, [tsk, #TI_PREEMPT]
+#endif
+
+	mov	r0, sp
+	bl	nk_do_xirq			@ nk_do_xirq(regs)
+
+#ifdef CONFIG_PREEMPT
+	str	r8, [tsk, #TI_PREEMPT]		@ restore preempt count
+	ldr	r0, [tsk, #TI_FLAGS]		@ get flags
+	teq	r8, #0				@ if preempt count != 0
+	movne	r0, #0				@ force flags to 0
+	tst	r0, #_TIF_NEED_RESCHED
+	blne	svc_preempt
+#endif
+#ifdef CONFIG_TRACE_IRQFLAGS
+	bl	trace_hardirqs_on
+#endif
+	msr	cpsr, r4			@ mask hardwr intr
+
+#ifdef CONFIG_SMP
+	get_os_ctx	r10
+#endif
+
+	mov	r1, #__VEX_IRQ_FLAG		@ check for pending softwr intr
+	ldrb    r0, [r10, #__VEX_IRQ_CTX_PEN]
+	tst	r0, r1
+	bne	__irq_svc_loop
+
+	strb	r1, [r10, #__VEX_IRQ_CTX_ENA]	@ unmask softwr intr
+
+#ifdef CONFIG_SMP
+	ldr     r0, [r10, #ctx_vcpu_yield_off]
+	cmp	r0, #0
+	bne	1f
+#endif
+
+	ldr	r2, [sp, #S_PSR]		@ restore spsr
+	svc_exit r2				@ return from exception
+
+#ifdef CONFIG_SMP
+1:
+	mov	lr, pc
+	ldr	pc, [r10, #ctx_smp_yield_off]
+	mov	r0, #0
+	strb	r0, [r10, #__VEX_IRQ_CTX_ENA]	@ mask softwr intr
+	b	__irq_svc_loop
+#endif
+
+#endif /*CONFIG_NKERNEL */
  UNWIND(.fnend		)
 ENDPROC(__irq_svc)
 
@@ -239,6 +396,153 @@ svc_preempt:
 	tst	r0, #_TIF_NEED_RESCHED
 	moveq	pc, r8				@ go again
 	b	1b
+#endif
+
+#ifdef CONFIG_NKERNEL
+
+process_pending_irqs:
+ UNWIND(.fnstart		)
+ UNWIND(.save {r0 - pc}		)
+	sub	sp, sp, #S_FRAME_SIZE		@ stack frame
+#ifdef CONFIG_THUMB2_KERNEL
+ SPFIX(	str	r0, [sp]	)		@ temporarily saved
+ SPFIX(	mov	r0, sp		)
+ SPFIX(	tst	r0, #4		)		@ test original stack alignment
+ SPFIX(	ldr	r0, [sp]	)		@ restored
+#else
+ SPFIX(	tst	sp, #4		)
+#endif
+ SPFIX(	subne	sp, sp, #4	)
+	stmia	sp, {r0 - r12}			@ save r0 - r12
+	add	r0, sp, #S_FRAME_SIZE
+ SPFIX(	addne	r0, r0, #4      )
+	add	r1, sp, #S_SP
+	mrs	r2, cpsr
+#ifdef CONFIG_SMP
+	bic	r2, r2, #PSR_I_BIT
+#endif
+	orr	r2, r2, #(__VEX_IRQ_FLAG << NK_VPSR_SHIFT)
+	str	r0, [r1], #4
+	str	lr, [r1], #4
+	str	lr, [r1], #4
+	str	r2, [r1], #4
+	mov	r3, #-1
+	str	r3, [r1], #4
+#ifndef CONFIG_SMP
+	orr	r3, r2, #PSR_I_BIT
+	msr	cpsr, r3
+#endif
+	b	__irq_svc_handler
+ UNWIND(.fnend		)
+ENDPROC(process_pending_irqs)
+
+#ifndef CONFIG_SMP
+
+#ifdef CONFIG_XIP_KERNEL
+_os_ctx:
+	.long	os_ctx
+#else
+	.global	os_ctx
+os_ctx:
+	.space	4
+#endif
+
+#endif
+
+ENTRY(_save_flags)
+#ifdef CONFIG_SMP
+	mrs	r1, cpsr
+	cpsid	i
+#endif
+	get_irq_enabled r0
+	ldrb	r0, [r0]
+#ifdef CONFIG_SMP
+	msr	cpsr_c, r1
+#endif
+	mov	pc, lr
+ENDPROC(_save_flags)
+
+ENTRY(_irq_save)
+#ifdef CONFIG_SMP
+	mrs	r2, cpsr
+	cpsid	i
+#endif
+	mov	r3, #0
+	get_irq_enabled r1
+	ldrb	r0, [r1]
+	strb	r3, [r1]
+#ifdef CONFIG_SMP
+	msr	cpsr_c, r2
+#endif
+	mov	pc, lr
+ENDPROC(_irq_save)
+
+ENTRY(_irq_set)
+#ifdef CONFIG_SMP
+	mrs	r2, cpsr
+	cpsid	i
+	mov	r0, #__VEX_IRQ_FLAG
+	get_irq_enabled r1
+	strb	r0, [r1]
+	ldrb	r1, [r1, #__VEX_IRQ_CTX_E2P]
+	tst	r1, #__VEX_IRQ_FLAG
+	bne	process_pending_irqs
+	msr	cpsr_c, r2
+	moveq	pc, lr
+#else
+	mov	r0, #__VEX_IRQ_FLAG
+	get_irq_enabled r1
+	strb	r0, [r1]
+	ldrb	r1, [r1, #__VEX_IRQ_CTX_E2P]
+	tst	r1, #__VEX_IRQ_FLAG
+	moveq	pc, lr
+	b	process_pending_irqs
+#endif
+ENDPROC(_irq_set)
+
+ENTRY(_irq_restore)
+#ifdef CONFIG_SMP
+	mrs	r2, cpsr
+	cpsid	i
+	get_irq_enabled r1
+	strb	r0, [r1]
+	ldrb	r1, [r1, #__VEX_IRQ_CTX_E2P]
+	tst	r1, r0
+	bne	process_pending_irqs
+	msr	cpsr_c, r2
+	mov	pc, lr
+#else
+	get_irq_enabled r1
+	strb	r0, [r1]
+	ldrb	r1, [r1, #__VEX_IRQ_CTX_E2P]
+	tst	r1, r0
+	moveq	pc, lr
+	b	process_pending_irqs
+#endif
+ENDPROC(_irq_restore)
+
+ENTRY(_irq_pending)
+	mov	r0, #__VEX_IRQ_FLAG
+	get_irq_enabled r1
+	strb	r0, [r1]
+	ldrb	r1, [r1, #__VEX_IRQ_CTX_E2P]
+	tst	r1, #__VEX_IRQ_FLAG
+	moveq	r0, #0
+	movne	r0, #1
+	mov	pc, lr
+ENDPROC(_irq_pending)
+
+#ifndef CONFIG_SMP
+#ifdef CONFIG_XIP_KERNEL
+___irq_enabled:
+	.long	 __irq_enabled
+#else
+	.global  __irq_enabled
+__irq_enabled:
+	.long	0
+#endif
+#endif
+
 #endif
 
 	.align	5
@@ -271,6 +575,7 @@ __und_svc:
 	adr	r9, BSYM(1f)
 	bl	call_fpe
 
+	enable_irq
 	mov	r0, sp				@ struct pt_regs *regs
 	bl	do_undefinstr
 
@@ -283,6 +588,9 @@ __und_svc:
 	@ restore SPSR and restart the instruction
 	@
 	ldr	r2, [sp, #S_PSR]		@ Get SVC cpsr
+#ifdef  CONFIG_NKERNEL
+	NK_SIRQ_RESTORE_SVC(r2, r1, r0)
+#endif
 	svc_exit r2				@ return from exception
  UNWIND(.fnend		)
 ENDPROC(__und_svc)
@@ -295,8 +603,12 @@ __pabt_svc:
 	@ re-enable interrupts if appropriate
 	@
 	mrs	r9, cpsr
+#ifndef CONFIG_NKERNEL
 	tst	r3, #PSR_I_BIT
 	biceq	r9, r9, #PSR_I_BIT
+#else
+	bic	r9, r9, #PSR_I_BIT
+#endif
 
 	mov	r0, r2			@ pass address of aborted instruction.
 #ifdef MULTI_PABORT
@@ -320,6 +632,9 @@ __pabt_svc:
 	@ restore SPSR and restart the instruction
 	@
 	ldr	r2, [sp, #S_PSR]
+#ifdef  CONFIG_NKERNEL
+	NK_SIRQ_RESTORE_SVC(r2, r1, r0)
+#endif
 	svc_exit r2				@ return from exception
  UNWIND(.fnend		)
 ENDPROC(__pabt_svc)
@@ -357,6 +672,9 @@ ENDPROC(__pabt_svc)
 
 	str	r1, [sp]		@ save the "real" r0 copied
 					@ from the exception stack
+#ifdef CONFIG_NKERNEL
+	NK_SIRQ_SAVE_USR(r3)
+#endif
 
 	@
 	@ We are now ready to fill in the remaining blanks on the stack:
@@ -430,6 +748,7 @@ __dabt_usr:
  UNWIND(.fnend		)
 ENDPROC(__dabt_usr)
 
+#ifndef CONFIG_NKERNEL
 	.align	5
 __irq_usr:
 	usr_entry
@@ -447,6 +766,73 @@ __irq_usr:
 #endif
 
 	irq_handler
+
+#else /* CONFIG_NKERNEL */
+
+ENTRY(__irq_usr_handler)
+	get_os_ctx	r10
+#ifdef CONFIG_SMP
+	ldr     r0, [r10, #ctx_vcpu_yield_off]
+	cmp	r0, #0
+	movne	lr, pc
+	ldrne	pc, [r10, #ctx_smp_yield_off]
+#endif
+	b	__irq_usr_handler_
+
+	.align	5
+__irq_usr:
+ THUMB(	.error "THUMB is not supported yet" )
+ UNWIND(.fnstart	)
+ UNWIND(.cantunwind	)	@ don't unwind the user space
+	sub	sp, sp, #S_FRAME_SIZE		@ stack frame
+	stmia	sp, {r0 - r9}			@ save r0-r9
+	add	r8, r10, #ctx_regs_r10_off	@ prepare to save r10-r15,cpsr
+	add	r9, sp, #S_R10
+	ldmia	r8, {r0 - r6}			@ read r10-r15,cpsr from OS ctx
+
+						@ set soft intr status in cpsr
+	orr	r6, r6, #(__VEX_IRQ_FLAG << NK_VPSR_SHIFT)
+
+	mov	r7, #-1				@ "old_r0"
+	stmia	r9, {r0 - r7}			@ save r10-r15,cpsr,old_r0
+
+	@
+	@ Enable the alignment trap while in kernel mode
+	@
+	alignment_trap r0
+
+	@
+	@ Clear FP to mark the first stack frame
+	@
+	zero_fp
+
+	mov     r2, r5				@ move interrupted pc to r2
+	kuser_cmpxchg_check
+
+__irq_usr_handler_:				@ all regs saved, r10 - OS ctx
+						@ hardware intr are masked
+	mov	r0, #0
+	strb	r0, [r10, #__VEX_IRQ_CTX_ENA]	@ disable softwr intr
+
+	mrs	r4, cpsr			@ r4 - cpsr with disabled intr
+	bic	r5, r4, #PSR_I_BIT		@ r5 - cpsr with enabled intr
+
+	mov	r0, #0
+	strb	r0, [r10, #__VEX_IRQ_CTX_PEN]	@ reset pending softwr intr
+	msr	cpsr, r5			@ enable hardwr intr
+
+	get_thread_info tsk
+#ifdef CONFIG_PREEMPT
+	ldr	r8, [tsk, #TI_PREEMPT]		@ get preempt count
+	add	r7, r8, #1			@ increment it
+	str	r7, [tsk, #TI_PREEMPT]
+#endif
+
+	mov	r0, sp
+	bl	nk_do_xirq			@ nk_do_xirq(regs)
+
+#endif /*CONFIG_NKERNEL */
+
 #ifdef CONFIG_PREEMPT
 	ldr	r0, [tsk, #TI_PREEMPT]
 	str	r8, [tsk, #TI_PREEMPT]
@@ -927,7 +1313,7 @@ __kuser_cmpxchg:				@ 0xffff0fc0
 	.text
 kuser_cmpxchg_fixup:
 	@ Called from kuser_cmpxchg_check macro.
-	@ r2 = address of interrupted insn (must be preserved).
+	@ r2 = address of interrupted instruction (must be preserved).
 	@ sp = saved regs. r7 and r8 are clobbered.
 	@ 1b = first critical insn, 2b = last critical insn.
 	@ If r2 >= 1b and r2 <= 2b then saved pc_usr is set to 1b.
@@ -1038,10 +1424,23 @@ __kuser_helper_end:
  * SP points to a minimal amount of processor-private memory, the address
  * of which is copied into r0 for the mode specific abort handler.
  */
+#ifndef CONFIG_NKERNEL
 	.macro	vector_stub, name, mode, correction=0
 	.align	5
 
 vector_\name:
+#else
+	.macro	vector_stub, name, mode, correction=0, save_area
+	.align	5
+
+ENTRY(vector_\name)
+#ifdef CONFIG_SMP
+	get_os_ctx sp
+	add	sp, sp, #\save_area
+#else
+	ldr	sp, =\save_area
+#endif
+#endif
 	.if \correction
 	sub	lr, lr, #\correction
 	.endif
@@ -1077,12 +1476,33 @@ ENDPROC(vector_\name)
 1:
 	.endm
 
+#ifdef CONFIG_NKERNEL
+	.text				@ keep vector stubs in .text segment
+#endif
 	.globl	__stubs_start
 __stubs_start:
 /*
  * Interrupt dispatcher
  */
+#ifndef CONFIG_NKERNEL
 	vector_stub	irq, IRQ_MODE, 4
+#else
+ENTRY(vector_irq)
+ THUMB(	.error "THUMB is not supported yet" )
+	/*
+	 * We are invoked by NK under the following conditions:
+	 *   - we are already running in SVC mode with disabled IRQ
+	 *   - the following registers are saved in the OS context:
+	 *	 r10,r11,r12,sp,lr,pc,cpsr.
+	 *   - r10 points to the context
+	 *   - NK_VEX_IRQ is pending in the OS context and must be
+	 *     reset by the IRQ handler
+	 */
+	ldr	r12, [r10, #ctx_cpsr_off]
+	and	r12, r12, #0x0f
+	ldr	pc, [pc, r12, lsl #2]
+	nop
+#endif
 
 	.long	__irq_usr			@  0  (USR_26 / USR_32)
 	.long	__irq_invalid			@  1  (FIQ_26 / FIQ_32)
@@ -1105,7 +1525,15 @@ __stubs_start:
  * Data abort dispatcher
  * Enter in ABT mode, spsr = USR CPSR, lr = USR PC
  */
+#ifndef CONFIG_NKERNEL
 	vector_stub	dabt, ABT_MODE, 8
+#else
+#ifdef CONFIG_SMP
+	vector_stub	dabt, ABT_MODE, 8, ctx_sp_abt_off
+#else
+	vector_stub	dabt, ABT_MODE, 8, __temp_abt
+#endif
+#endif
 
 	.long	__dabt_usr			@  0  (USR_26 / USR_32)
 	.long	__dabt_invalid			@  1  (FIQ_26 / FIQ_32)
@@ -1128,7 +1556,15 @@ __stubs_start:
  * Prefetch abort dispatcher
  * Enter in ABT mode, spsr = USR CPSR, lr = USR PC
  */
+#ifndef CONFIG_NKERNEL
 	vector_stub	pabt, ABT_MODE, 4
+#else
+#ifdef CONFIG_SMP
+	vector_stub	pabt, ABT_MODE, 4, ctx_sp_abt_off
+#else
+	vector_stub	pabt, ABT_MODE, 4, __temp_abt
+#endif
+#endif
 
 	.long	__pabt_usr			@  0 (USR_26 / USR_32)
 	.long	__pabt_invalid			@  1 (FIQ_26 / FIQ_32)
@@ -1151,7 +1587,15 @@ __stubs_start:
  * Undef instr entry dispatcher
  * Enter in UND mode, spsr = SVC/USR CPSR, lr = SVC/USR PC
  */
+#ifndef CONFIG_NKERNEL
 	vector_stub	und, UND_MODE
+#else
+#ifdef CONFIG_SMP
+	vector_stub	und, UND_MODE, 0, ctx_sp_und_off
+#else
+	vector_stub	und, UND_MODE, 0, __temp_und
+#endif
+#endif
 
 	.long	__und_usr			@  0 (USR_26 / USR_32)
 	.long	__und_invalid			@  1 (FIQ_26 / FIQ_32)
@@ -1182,7 +1626,11 @@ __stubs_start:
  * other mode than FIQ...  Ok you can switch to another mode, but you can't
  * get out of that mode without clobbering one register.
  */
+#ifndef CONFIG_NKERNEL
 vector_fiq:
+#else
+ENTRY(vector_fiq)
+#endif
 	disable_fiq
 	subs	pc, lr, #4
 
@@ -1228,6 +1676,21 @@ __vectors_end:
 
 	.data
 
+#if defined(CONFIG_NKERNEL) && !defined(CONFIG_SMP)
+__temp_irq:
+	.word	0				@ saved r0
+	.word	0				@ saved lr_irq
+	.word	0				@ saved spsr_irq
+__temp_und:
+	.word	0				@ saved r0
+	.word	0				@ saved lr_und
+	.word	0				@ saved spsr_und
+__temp_abt:
+	.word	0				@ saved r0
+	.word	0				@ saved lr_abt
+	.word	0				@ saved spsr_abt
+#endif
+
 	.globl	cr_alignment
 	.globl	cr_no_alignment
 cr_alignment:
@@ -1238,5 +1701,17 @@ cr_no_alignment:
 #ifdef CONFIG_MULTI_IRQ_HANDLER
 	.globl	handle_arch_irq
 handle_arch_irq:
+	.space	4
+#endif
+
+#if defined(CONFIG_NKERNEL) && \
+    defined(CONFIG_XIP_KERNEL) && \
+    !defined(CONFIG_SMP)
+	.globl	os_ctx
+os_ctx:
+	.space	4
+
+	.globl	__irq_enabled
+__irq_enabled:
 	.space	4
 #endif

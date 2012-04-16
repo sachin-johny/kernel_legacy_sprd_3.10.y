@@ -1,3 +1,18 @@
+/*
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #ifndef __ASM_ARM_DIV64
 #define __ASM_ARM_DIV64
 
@@ -28,6 +43,8 @@
 #define __xh "r1"
 #endif
 
+#if 0
+
 #define __do_div_asm(n, base)					\
 ({								\
 	register unsigned int __base      asm("r4") = base;	\
@@ -45,6 +62,28 @@
 	n = __res;						\
 	__rem;							\
 })
+
+#else
+
+/* XXX Workaround gcc 3.3.4 bug (PR 15089) */
+#define  __do_div_asm(n, base)					\
+({								\
+	register unsigned long long __n   asm("r0") = n;	\
+	register unsigned long long __res asm("r2");		\
+	register unsigned int __rem       asm(__xh);		\
+	asm(	__asmeq("%0", __xh)				\
+		__asmeq("%1", "r2")				\
+		__asmeq("%2", "r0")				\
+		"mov	r4, %3	\n\t"				\
+		"bl	__do_div64"				\
+		: "=r" (__rem), "=r" (__res)			\
+		: "r" (__n), "r" (base)				\
+		: "r4", "ip", "lr", "cc");			\
+	n = __res;						\
+	__rem;							\
+})
+
+#endif
 
 #if __GNUC__ < 4
 

@@ -2,6 +2,7 @@
  *  linux/arch/arm/kernel/entry-common.S
  *
  *  Copyright (C) 2000 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -13,8 +14,38 @@
 #include <mach/entry-macro.S>
 #include <asm/unwind.h>
 
+#ifdef CONFIG_NKERNEL
+
+#if !defined(CONFIG_SMP) && !defined(CONFIG_XIP_KERNEL)
+#define	__irq_enabled__	__irq_enabled_common
+#endif
+
+#endif
+
 #include "entry-header.S"
 
+#ifdef CONFIG_NKERNEL
+
+#define	__NK_SIRQ_DISABLE(reg1, reg2)	 	 	\
+	get_irq_enabled reg1				;\
+	mov	reg2, DASH 0				;\
+	strb	reg2, [reg1]
+
+
+#ifdef CONFIG_SMP
+
+#define	NK_SIRQ_DISABLE(reg1, reg2) 	 \
+	cpsid	i			;\
+	__NK_SIRQ_DISABLE(reg1, reg2) 	;\
+	cpsie	i
+
+#else
+
+#define	NK_SIRQ_DISABLE(reg1, reg2)  __NK_SIRQ_DISABLE(reg1, reg2) 
+
+#endif
+
+#endif /* CONFIG_NKERNEL */
 
 	.align	5
 /*
@@ -25,7 +56,11 @@
 ret_fast_syscall:
  UNWIND(.fnstart	)
  UNWIND(.cantunwind	)
+#ifndef CONFIG_NKERNEL
 	disable_irq				@ disable interrupts
+#else
+	NK_SIRQ_DISABLE(r1, r2)			@ logically disable interupts
+#endif
 	ldr	r1, [tsk, #TI_FLAGS]
 	tst	r1, #_TIF_WORK_MASK
 	bne	fast_work_pending
@@ -33,6 +68,9 @@ ret_fast_syscall:
 	asm_trace_hardirqs_on
 #endif
 
+#ifdef CONFIG_NKERNEL
+	disable_irq				@ really disable interrupts
+#endif
 	/* perform architecture specific actions before user return */
 	arch_ret_to_user r1, lr
 
@@ -63,7 +101,11 @@ work_resched:
  */
 ENTRY(ret_to_user)
 ret_slow_syscall:
+#ifndef CONFIG_NKERNEL
 	disable_irq				@ disable interrupts
+#else
+	NK_SIRQ_DISABLE(r1, r2)
+#endif
 ENTRY(ret_to_user_from_irq)
 	ldr	r1, [tsk, #TI_FLAGS]
 	tst	r1, #_TIF_WORK_MASK
@@ -71,6 +113,10 @@ ENTRY(ret_to_user_from_irq)
 no_work_pending:
 #if defined(CONFIG_IRQSOFF_TRACER)
 	asm_trace_hardirqs_on
+#endif
+
+#ifdef CONFIG_NKERNEL
+	disable_irq				@ really disable interrupts
 #endif
 	/* perform architecture specific actions before user return */
 	arch_ret_to_user r1, lr
@@ -341,7 +387,10 @@ ENDPROC(ftrace_stub)
 #endif
 
 	.align	5
-ENTRY(vector_swi)
+	.global	vector_swi
+ENTRY(vector_iswi)
+	ldmia	sp!, {r0}			@ restore r0
+vector_swi:
 	sub	sp, sp, #S_FRAME_SIZE
 	stmia	sp, {r0 - r12}			@ Calling r0 - r12
  ARM(	add	r8, sp, #S_PC		)
@@ -349,6 +398,9 @@ ENTRY(vector_swi)
  THUMB(	mov	r8, sp			)
  THUMB(	store_user_sp_lr r8, r10, S_SP	)	@ calling sp, lr
 	mrs	r8, spsr			@ called from non-FIQ mode, so ok.
+#ifdef CONFIG_NKERNEL
+	NK_SIRQ_SAVE_USR(r8)
+#endif
 	str	lr, [sp, #S_PC]			@ Save calling PC
 	str	r8, [sp, #S_PSR]		@ Save CPSR
 	str	r0, [sp, #S_OLD_R0]		@ Save OLD_R0
@@ -483,6 +535,21 @@ __sys_trace_return:
 	mov	r0, #1				@ trace exit [IP = 1]
 	bl	syscall_trace
 	b	ret_slow_syscall
+
+#ifdef CONFIG_NKERNEL
+
+#ifndef CONFIG_SMP
+#ifdef CONFIG_XIP_KERNEL
+___irq_enabled:
+	.long	 __irq_enabled
+#else
+	.global  __irq_enabled_common
+__irq_enabled_common:
+	.long	0
+#endif
+#endif
+
+#endif
 
 	.align	5
 #ifdef CONFIG_ALIGNMENT_TRAP
@@ -644,4 +711,3 @@ ENTRY(sys_oabi_call_table)
 #undef OBSOLETE
 
 #endif
-

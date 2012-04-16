@@ -2,6 +2,7 @@
  *  linux/arch/arm/mm/init.c
  *
  *  Copyright (C) 1995-2005 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -34,8 +35,23 @@
 
 #include "mm.h"
 
+#ifdef CONFIG_NKERNEL
+#include <nk/nk.h>
+
+extern void printnk (char* f, ...);
+
+#undef NK_DEBUG
+#ifdef NK_DEBUG
+#define	PRINTNK(x)	printnk x
+#else
+#define	PRINTNK(x)
+#endif
+
+#endif
+
 static unsigned long phys_initrd_start __initdata = 0;
 static unsigned long phys_initrd_size __initdata = 0;
+
 
 static int __init early_initrd(char *p)
 {
@@ -52,6 +68,7 @@ static int __init early_initrd(char *p)
 	return 0;
 }
 early_param("initrd", early_initrd);
+
 
 static int __init parse_tag_initrd(const struct tag *tag)
 {
@@ -158,6 +175,66 @@ static void __init find_limits(unsigned long *min, unsigned long *max_low,
 			*max_low = end;
 	}
 }
+
+#ifdef CONFIG_NKERNEL
+
+extern NkMapDesc nk_maps[];
+extern int       nk_maps_max;
+
+extern int nk_direct_dma;
+extern int nk_balloon_memory;
+
+/*
+ * Reserve the memory blocks used by other VMs.
+ *
+ * This must be done ASAP and before any other memblock allocation or
+ * reservation is done (e.g.: for bootmem, or I/O memory regions),
+ * to avoid conflicts on memory dedicated to other VMs.
+ */ 
+static void __init nk_memblock_reserve (void)
+{
+	NkMapDesc* map;
+	NkMapDesc* map_limit = &nk_maps[nk_maps_max];
+
+	if (!nk_direct_dma && !nk_balloon_memory) {
+		return;
+	}
+
+	for (map  = &nk_maps[0]; map < map_limit; map++) {
+
+		if ((map->mem_type  == NK_MD_RAM)  &&
+		    (map->mem_owner != os_ctx->id) &&
+		    (nk_direct_dma ||
+		    (nk_balloon_memory && (map->mem_owner == NK_OS_ANON))) &&
+		    ((void*)map->vstart == __va(map->pstart))) {
+
+			NkPhAddr start = map->pstart;
+			NkPhSize size  = map->plimit - map->pstart + 1;
+
+			PRINTNK(("%s: 0x%08lx..0x%08lx\n",
+				 __FUNCTION__, start, start + size - 1));
+
+			if (!memblock_is_region_memory(start, size)) {
+				printnk("%s: 0x%08lx..0x%08lx - no memory."
+					" It cannot be used by another VM\n",
+					__FUNCTION__, start, start + size -1);
+				BUG();
+			}
+			if (memblock_is_region_reserved(start, size)) {
+				printnk("%s: 0x%08lx..0x%08lx - busy."
+					" It cannot be used by another VM\n",
+					__FUNCTION__, start, start + size -1);
+				BUG();
+			} else {
+				long res;
+				res = memblock_reserve(start, size);
+				BUG_ON(res);
+			}
+		}
+	}
+}
+
+#endif /* CONFIG_NKERNEL */
 
 static void __init arm_bootmem_init(unsigned long start_pfn,
 	unsigned long end_pfn)
@@ -329,6 +406,11 @@ void __init arm_memblock_init(struct meminfo *mi, struct machine_desc *mdesc)
 #else
 	memblock_reserve(__pa(_stext), _end - _stext);
 #endif
+
+#ifdef CONFIG_NKERNEL
+	nk_memblock_reserve();
+#endif
+
 #ifdef CONFIG_BLK_DEV_INITRD
 	if (phys_initrd_size &&
 	    !memblock_is_region_memory(phys_initrd_start, phys_initrd_size)) {
@@ -427,6 +509,16 @@ free_memmap(unsigned long start_pfn, unsigned long end_pfn)
 {
 	struct page *start_pg, *end_pg;
 	unsigned long pg, pgend;
+
+	/*
+	 * Generally page allocator works under the assumption that the
+	 * mem_map array is contiguous and valid out to MAX_ORDER_NR_PAGES
+	 * block of pages, ie. that if we have validated any page within
+	 * this MAX_ORDER_NR_PAGES block we need not check any other.
+	 * We should round memmap holes down to satisfy the above requirement.
+	 */
+	start_pfn = ALIGN(start_pfn, MAX_ORDER_NR_PAGES);
+	end_pfn = end_pfn & ~(MAX_ORDER_NR_PAGES - 1);
 
 	/*
 	 * Convert start_pfn/end_pfn to a struct page pointer.
@@ -606,6 +698,12 @@ void __init mem_init(void)
 		} while (page < end);
 	}
 
+#ifdef CONFIG_NKERNEL
+	if (nk_balloon_memory) {
+	    totalram_pages += nk_balloon_memory - 1;
+	}
+#endif
+
 	/*
 	 * Since our memory may not be contiguous, calculate the
 	 * real number of pages we have in this system
@@ -661,7 +759,7 @@ void __init mem_init(void)
 #ifdef CONFIG_MMU
 			MLM(CONSISTENT_BASE, CONSISTENT_END),
 #endif
-			MLM(VMALLOC_START, VMALLOC_END),
+			MLM(VMALLOC_START, (unsigned long)VMALLOC_END),
 			MLM(PAGE_OFFSET, (unsigned long)high_memory),
 #ifdef CONFIG_HIGHMEM
 			MLM(PKMAP_BASE, (PKMAP_BASE) + (LAST_PKMAP) *
@@ -716,10 +814,12 @@ void free_initmem(void)
 				    "TCM link");
 #endif
 
+#if !defined(CONFIG_NKERNEL) || !defined(CONFIG_PM) || !defined(CONFIG_SMP)
 	if (!machine_is_integrator() && !machine_is_cintegrator())
 		totalram_pages += free_area(__phys_to_pfn(__pa(__init_begin)),
 					    __phys_to_pfn(__pa(__init_end)),
 					    "init");
+#endif
 }
 
 #ifdef CONFIG_BLK_DEV_INITRD

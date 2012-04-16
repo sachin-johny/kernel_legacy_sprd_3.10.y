@@ -1,3 +1,18 @@
+/*
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/ctype.h>
@@ -431,6 +446,50 @@ void __init mount_root(void)
 #endif
 }
 
+#ifdef CONFIG_INIT_DEV
+int __init mkdev(const char* name, int mode, dev_t dev)
+{
+	int err;
+
+	(void) sys_unlink(name);
+	err = sys_mknod((const char __user *) name, mode, new_encode_dev(dev));
+	if (err < 0) {
+		printk(KERN_ERR "failed to create %s, err=%d\n",
+		       name, err);
+		return err;
+	}
+	return 0;
+}
+
+void __init init_dev(void)
+{
+	static char* tmpdevfs[] = { "tmpfs", "ramfs", NULL };
+	char** fs;
+	char** fsn;
+	int err;
+
+	(void) sys_mkdir("/dev", 0755);
+	for (fs = tmpdevfs, fsn = fs + 1;; fs = fsn++) {
+		err = sys_mount("dev", "/dev", *fs, 0, NULL);
+		if (err >= 0) {
+			break;
+		}
+		if ((err == -ENODEV) && (*fsn)) {
+			continue;
+		}
+		printk(KERN_ERR "failed to mount %s on /dev, err=%d\n",
+		       *fs, err);
+		if (!*fsn) {
+			return;
+		}
+	}
+	if (mkdev("/dev/console",  S_IFCHR|0600,  MKDEV(5, 1)))
+		return;
+	if (mkdev("/dev/null",     S_IFCHR|0600,  MKDEV(1, 3)))
+		return;
+}
+#endif
+
 /*
  * Prepare the namespace - decide what/where to mount, load ramdisks, etc.
  */
@@ -490,4 +549,7 @@ out:
 	devtmpfs_mount("dev");
 	sys_mount(".", "/", NULL, MS_MOVE, NULL);
 	sys_chroot((const char __user __force *)".");
+#ifdef CONFIG_INIT_DEV
+	init_dev();
+#endif
 }

@@ -2,6 +2,7 @@
  *  linux/arch/arm/mm/proc-v7.S
  *
  *  Copyright (C) 2001 Deep Blue Solutions Ltd.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -103,8 +104,14 @@ ENTRY(cpu_v7_switch_mm)
 #ifdef CONFIG_MMU
 	mov	r2, #0
 	ldr	r1, [r1, #MM_CONTEXT_ID]	@ get mm->context.id
+#ifndef CONFIG_NKERNEL
 	ALT_SMP(orr	r0, r0, #TTB_FLAGS_SMP)
 	ALT_UP(orr	r0, r0, #TTB_FLAGS_UP)
+#else
+	ldr	r3, =ttb_flags
+	ldr	r3, [r3]
+	orr	r0, r0, r3
+#endif
 #ifdef CONFIG_ARM_ERRATA_430973
 	mcr	p15, 0, r2, c7, c5, 6		@ flush BTAC/BTB
 #endif
@@ -134,6 +141,7 @@ ENDPROC(cpu_v7_switch_mm)
  *	- pte   - PTE value to store
  *	- ext	- value for extended PTE bits
  */
+#ifndef CONFIG_NKERNEL
 ENTRY(cpu_v7_set_pte_ext)
 #ifdef CONFIG_MMU
 	str	r1, [r0]			@ linux version
@@ -172,6 +180,22 @@ ENTRY(cpu_v7_set_pte_ext)
 #endif
 	mov	pc, lr
 ENDPROC(cpu_v7_set_pte_ext)
+
+#else
+
+/*
+ * we use old armv6 code if CONFIG_NKERNEL is defined. TEX remapping
+ * is not supprted yet
+ */
+	armv6_mt_table cpu_v7
+
+ENTRY(cpu_v7_set_pte_ext)
+#ifdef CONFIG_MMU
+	armv6_set_pte_ext cpu_v7
+#endif
+	mov	pc, lr
+
+#endif
 
 cpu_v7_name:
 	.ascii	"ARMv7 Processor"
@@ -280,6 +304,7 @@ cpu_resume_l1_flags:
  *	- cache type register is implemented
  */
 __v7_ca9mp_setup:
+#ifndef CONFIG_NKERNEL
 #ifdef CONFIG_SMP
 	ALT_SMP(mrc	p15, 0, r0, c1, c0, 1)
 	ALT_UP(mov	r0, #(1 << 6))		@ fake it for UP
@@ -287,12 +312,21 @@ __v7_ca9mp_setup:
 	orreq	r0, r0, #(1 << 6) | (1 << 0)	@ Enable SMP/nAMP mode and
 	mcreq	p15, 0, r0, c1, c0, 1		@ TLB ops broadcasting
 #endif
+#endif
 __v7_setup:
+#ifndef CONFIG_NKERNEL
 	adr	r12, __v7_setup_stack		@ the local stack
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
 	bl	v7_flush_dcache_all
 	ldmia	r12, {r0-r5, r7, r9, r11, lr}
-
+#else
+	adr	r10, __v7_setup_stack		@ the local stack
+	stmia	r10, {r0-r5, r7, r9, r11, lr}
+	bl	v7_flush_dcache_all
+	adr	r10, __v7_setup_stack		@ the local stack
+	ldmia	r10, {r0-r5, r7, r9, r11, lr}
+#endif
+#ifndef CONFIG_NKERNEL
 	mrc	p15, 0, r0, c0, c0, 0		@ read main ID register
 	and	r10, r0, #0xff000000		@ ARM?
 	teq	r10, #0x41000000
@@ -380,6 +414,7 @@ __v7_setup:
 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
 	mcr	p15, 0, r6, c10, c2, 1		@ write NMRR
 #endif
+#endif	/* !CONFIG_NKERNEL */
 	adr	r5, v7_crval
 	ldmia	r5, {r5, r6}
 #ifdef CONFIG_CPU_ENDIAN_BE8
@@ -404,7 +439,11 @@ ENDPROC(__v7_setup)
 	 */
 	.type	v7_crval, #object
 v7_crval:
+#ifndef CONFIG_NKERNEL
 	crval	clear=0x0120c302, mmuset=0x10c03c7d, ucset=0x00c01c7c
+#else
+	crval	clear=0x0120c302, mmuset=0x00c03c7d, ucset=0x00c01c7c
+#endif
 
 __v7_setup_stack:
 	.space	4 * 11				@ 11 registers

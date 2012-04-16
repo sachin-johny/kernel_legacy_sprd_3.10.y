@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2000-2002 Russell King
  *  modification for nommu, Hyok S. Choi, 2004
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -112,9 +113,13 @@
 #define END_MEM     		(UL(CONFIG_DRAM_BASE) + CONFIG_DRAM_SIZE)
 #endif
 
+#ifndef	CONFIG_NKERNEL
 #ifndef PAGE_OFFSET
 #define PAGE_OFFSET		(PHYS_OFFSET)
 #endif
+#else
+#define PAGE_OFFSET		(0xc0000000UL) /* Page offset: 3GB */
+#endif	/* CONFIG_NKERNEL */
 
 /*
  * The module can be at any place in ram in nommu mode.

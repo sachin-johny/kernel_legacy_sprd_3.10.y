@@ -1,6 +1,19 @@
 /* ld script to make ARM Linux kernel
  * taken from the i386 version by Russell King
  * Written by Martin Mares <mj@atrey.karlin.mff.cuni.cz>
+ *
+ *  Copyright (C) 2011, Red Bend Ltd.
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License Version 2
+ *  as published by the Free Software Foundation.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ *
+ *  You should have received a copy of the GNU General Public License Version 2
+ *  along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <asm-generic/vmlinux.lds.h>
@@ -30,20 +43,27 @@
 OUTPUT_ARCH(arm)
 ENTRY(stext)
 
+#ifndef CONFIG_NKERNEL
 #ifndef __ARMEB__
 jiffies = jiffies_64;
 #else
 jiffies = jiffies_64 + 4;
 #endif
+#endif
 
 SECTIONS
 {
+#ifndef CONFIG_RELOCATABLE_KERNEL
+
 #ifdef CONFIG_XIP_KERNEL
 	. = XIP_VIRT_ADDR(CONFIG_XIP_PHYS_ADDR);
 #else
 	. = PAGE_OFFSET + TEXT_OFFSET;
 #endif
 
+#else
+	.filler : { *(.filler) }
+#endif
 	.init : {			/* Init code and data		*/
 		_stext = .;
 		_sinittext = .;
@@ -85,8 +105,15 @@ SECTIONS
 	PERCPU_SECTION(32)
 
 #ifndef CONFIG_XIP_KERNEL
+#ifndef CONFIG_RELOCATABLE_KERNEL
 	. = ALIGN(PAGE_SIZE);
 	__init_end = .;
+#else
+	.end_of_init : {
+		*(.end_of_init)
+		__init_end = .;
+	}
+#endif
 #endif
 
 	/*
@@ -102,6 +129,7 @@ SECTIONS
 		*(.ARM.exidx.devexit.text)
 		*(.ARM.extab.devexit.text)
 #endif
+		*.(note.gnu.build-id)
 #ifndef CONFIG_MMU
 		*(.fixup)
 		*(__ex_table)
@@ -150,6 +178,20 @@ SECTIONS
 	}
 #endif
 
+#ifdef CONFIG_RELOCATABLE_KERNEL
+	.end_of_text : {
+		*(.end_of_text)
+		_etext = .;
+	}
+
+	.text_data_barrier : {
+		*(.text_data_barrier)
+		__data_loc = .;
+	}
+
+	.data : {
+#else
+
 	_etext = .;			/* End of text and rodata section */
 
 #ifdef CONFIG_XIP_KERNEL
@@ -161,6 +203,7 @@ SECTIONS
 #endif
 
 	.data : AT(__data_loc) {
+#endif
 		_data = .;		/* address in memory */
 		_sdata = .;
 
@@ -262,9 +305,18 @@ SECTIONS
 
 	NOTES
 
+#ifndef CONFIG_RELOCATABLE_KERNEL
 	BSS_SECTION(0, 0, 0)
 	_end = .;
-
+#else
+	.bss : {
+		__bss_start = .;	/* BSS				*/
+		*(.bss)
+		*(COMMON)
+		__bss_stop = .;
+		_end = .;
+	}
+#endif
 	STABS_DEBUG
 	.comment 0 : { *(.comment) }
 

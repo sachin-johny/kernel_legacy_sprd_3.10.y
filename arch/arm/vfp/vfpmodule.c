@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2004 ARM Limited.
  *  Written by Deep Blue Solutions Limited.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -393,6 +394,28 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 	preempt_enable();
 }
 
+#ifdef CONFIG_NKERNEL
+static void vfp_enable(void *unused)
+{
+	unsigned long	flags;
+	u32 		access;
+
+	if ((os_ctx->cpu_cap & NK_HWCAP_VFP) == 0) {
+	    return; 
+	}
+
+	flags = hw_local_irq_save();
+	/*
+	 * if we have to acquire vfp
+	 */
+	if (!os_ctx->vfp_owned) {
+	    os_ctx->vfp_get(os_ctx);
+	}
+	access = get_copro_access();
+	set_copro_access(access | CPACC_FULL(10) | CPACC_FULL(11));
+	hw_local_irq_restore(flags);
+}
+#else
 static void vfp_enable(void *unused)
 {
 	u32 access = get_copro_access();
@@ -402,6 +425,7 @@ static void vfp_enable(void *unused)
 	 */
 	set_copro_access(access | CPACC_FULL(10) | CPACC_FULL(11));
 }
+#endif
 
 #ifdef CONFIG_PM
 #include <linux/syscore_ops.h>

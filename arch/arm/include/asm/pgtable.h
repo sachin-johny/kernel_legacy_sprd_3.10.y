@@ -2,6 +2,7 @@
  *  arch/arm/include/asm/pgtable.h
  *
  *  Copyright (C) 1995-2002 Russell King
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -38,7 +39,22 @@
  */
 #ifndef VMALLOC_START
 #define VMALLOC_OFFSET		(8*1024*1024)
+
+#ifndef CONFIG_NKERNEL
+
 #define VMALLOC_START		(((unsigned long)high_memory + VMALLOC_OFFSET) & ~(VMALLOC_OFFSET-1))
+
+#else
+
+#ifndef __ASSEMBLY__
+extern unsigned long nk_highest_addr;
+
+#define VMALLOC_START		((nk_highest_addr + VMALLOC_OFFSET) & ~(VMALLOC_OFFSET-1))
+
+#endif
+
+#endif /* CONFIG_NKERNEL */
+
 #endif
 
 /*

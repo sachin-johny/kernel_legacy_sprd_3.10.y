@@ -2,6 +2,7 @@
  *
  * Copyright (C) 2008 Red Hat, Inc. All Rights Reserved.
  * Written by David Howells (dhowells@redhat.com)
+ * Copyright (C) 2011, Red Bend Ltd.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public Licence
@@ -364,6 +365,19 @@ extern struct user_namespace init_user_ns;
 #define current_user_ns() (&init_user_ns)
 #endif
 
+#ifdef CONFIG_ROOT_NFS_UID_WRITE
+
+#define current_cred_set_xxx(id,new_id)		\
+do {						\
+	struct cred *__cred;			\
+	__cred = (struct cred *) current->cred;	\
+	__cred->id = new_id;			\
+} while(0)
+
+#define current_set_fsuid(x) 	current_cred_set_xxx(fsuid,x)
+#define current_set_fsgid(x) 	current_cred_set_xxx(fsgid,x)
+
+#endif
 
 #define current_uid_gid(_uid, _gid)		\
 do {						\

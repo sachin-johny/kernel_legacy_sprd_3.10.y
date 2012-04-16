@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1992 Linus Torvalds
  *  Modifications for ARM processor Copyright (C) 1995-2000 Russell King.
+ *  Copyright (C) 2011, Red Bend Ltd.
  *
  *  Support for Dynamic Tick Timer Copyright (C) 2004-2005 Nokia Corporation.
  *  Dynamic Tick Timer written by Tony Lindgren <tony@atomide.com> and
@@ -66,6 +67,7 @@ int arch_show_interrupts(struct seq_file *p, int prec)
 	return 0;
 }
 
+#if !defined(CONFIG_NKERNEL)
 /*
  * do_IRQ handles all hardware IRQ's.  Decoded IRQs should not
  * come via this function.  Instead, they should provide their
@@ -96,6 +98,18 @@ asm_do_IRQ(unsigned int irq, struct pt_regs *regs)
 	irq_exit();
 	set_irq_regs(old_regs);
 }
+
+#else	/* CONFIG_NKERNEL */
+
+void nk_do_IRQ(unsigned int irq, struct pt_regs *regs)
+{
+	generic_handle_irq(irq);
+
+	/* AT91 specific workaround */
+	irq_finish(irq);
+}
+
+#endif	/* CONFIG_NKERNEL */
 
 void set_irq_flags(unsigned int irq, unsigned int iflags)
 {
