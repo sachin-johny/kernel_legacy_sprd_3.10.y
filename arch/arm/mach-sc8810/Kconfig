@@ -14,4 +14,15 @@ config MACH_SP6820GA
 	help
 	  SP6820GA phone board based on SC8810.
 
+config SPRD_PMEM_SIZE
+        int "size for /dev/pmem"
+        range 1 16
+        default 8
+	depends on ANDROID_PMEM
+
+config SPRD_PMEM_ADSP_SIZE
+        int "size for /dev/pmem_adsp"
+        range 1 64
+        default 22
+	depends on ANDROID_PMEM
 endif
