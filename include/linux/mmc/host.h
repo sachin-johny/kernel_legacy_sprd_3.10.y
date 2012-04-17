@@ -131,6 +131,7 @@ struct mmc_host_ops {
 	void	(*set_ios)(struct mmc_host *host, struct mmc_ios *ios);
 	int	(*get_ro)(struct mmc_host *host);
 	int	(*get_cd)(struct mmc_host *host);
+	int	(*auto_suspend)(struct mmc_host *host);
 
 	void	(*enable_sdio_irq)(struct mmc_host *host, int enable);
 
@@ -263,13 +264,14 @@ struct mmc_host {
 
 	struct delayed_work	detect;
 	struct wake_lock	detect_wake_lock;
-
+	struct delayed_work	remove;
 	const struct mmc_bus_ops *bus_ops;	/* current bus driver */
 	unsigned int		bus_refs;	/* reference counter */
 
 	unsigned int		bus_resume_flags;
 #define MMC_BUSRESUME_MANUAL_RESUME	(1 << 0)
 #define MMC_BUSRESUME_NEEDS_RESUME	(1 << 1)
+#define MMC_BUSRESUME_FAILS_RESUME	(1 << 2)
 
 	unsigned int		sdio_irqs;
 	struct task_struct	*sdio_irq_thread;
@@ -325,6 +327,9 @@ static inline void *mmc_priv(struct mmc_host *host)
 #define mmc_bus_needs_resume(host) ((host)->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME)
 #define mmc_bus_manual_resume(host) ((host)->bus_resume_flags & MMC_BUSRESUME_MANUAL_RESUME)
 
+#define mmc_bus_fails_resume(host)  \
+	((host)->bus_resume_flags & MMC_BUSRESUME_FAILS_RESUME)
+
 static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 {
 	if (manual)
@@ -332,11 +337,19 @@ static inline void mmc_set_bus_resume_policy(struct mmc_host *host, int manual)
 	else
 		host->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
 }
+static inline void mmc_init_bus_resume_flags(struct mmc_host *host)
+{
+	host->bus_resume_flags = 0;
+}
 
 extern int mmc_resume_bus(struct mmc_host *host);
+extern void mmc_power_off(struct mmc_host *host);
+extern void mmc_power_up(struct mmc_host *host);
+extern void sdhci_bus_scan(void);
 
 extern int mmc_suspend_host(struct mmc_host *);
 extern int mmc_resume_host(struct mmc_host *);
+extern int mmc_auto_suspend(struct mmc_host *);
 
 extern int mmc_power_save_host(struct mmc_host *host);
 extern int mmc_power_restore_host(struct mmc_host *host);
@@ -409,4 +422,3 @@ static inline int mmc_host_cmd23(struct mmc_host *host)
 	return host->caps & MMC_CAP_CMD23;
 }
 #endif
-
