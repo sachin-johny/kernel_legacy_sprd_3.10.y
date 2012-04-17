@@ -34,6 +34,7 @@
 #include <linux/string.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
+#include <linux/reboot.h>
 
 #include "aud_enha.h"
 
@@ -1634,6 +1635,18 @@ ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const 
     return count;
 }
 
+static int vbc_reboot_notify(struct notifier_block *nb,
+			       unsigned long code, void *unused)
+{
+    pr_warn("vbc power off\n");
+    vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
+    return 0;
+}
+
+static struct notifier_block vbc_reboot_notifier = {
+	.notifier_call = vbc_reboot_notify,
+};
+
 #define VBC_PCM_RATES (SNDRV_PCM_RATE_8000  |	\
 			  SNDRV_PCM_RATE_11025 |	\
 			  SNDRV_PCM_RATE_16000 |	\
@@ -1798,6 +1811,7 @@ static int vbc_init(void)
     lutimer_init();
     #endif
     local_amplifier_init();
+    register_reboot_notifier(&vbc_reboot_notifier);
     return snd_soc_register_dais(vbc_dai, ARRAY_SIZE(vbc_dai));
 }
 
@@ -1807,6 +1821,7 @@ static void vbc_exit(void)
     lutimer_exit();
     #endif
     snd_soc_unregister_dais(vbc_dai, ARRAY_SIZE(vbc_dai));
+    unregister_reboot_notifier(&vbc_reboot_notifier);
 }
 
 module_init(vbc_init);
