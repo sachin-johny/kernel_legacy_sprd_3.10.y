@@ -103,7 +103,7 @@ static struct gadget_wrapper {
 } *gadget_wrapper;
 
 static struct wake_lock usb_wake_lock;
-static DEFINE_SPINLOCK(udc_lock);
+static DEFINE_MUTEX(udc_lock);
 
 #define CABLE_TIMEOUT		(HZ*15)
 
@@ -616,7 +616,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 	if (!d->enabled || !d->vbus)
 		action = 0;
 
-	spin_lock(&udc_lock);
+	mutex_lock(&udc_lock);
 	if (action) {
 		__udc_startup();
 	} else {
@@ -628,7 +628,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 			del_timer(&d->cable_timer);
 		__udc_shutdown();
 	}
-	spin_unlock(&udc_lock);
+	mutex_unlock(&udc_lock);
 
 	return 0;
 }
@@ -1056,16 +1056,16 @@ void dwc_udc_startup(void)
 		return;
 	}
 	//udc not startup, startup udc and get a wacklock
-	spin_lock(&udc_lock);
+	mutex_lock(&udc_lock);
 	__udc_startup();
-	spin_unlock(&udc_lock);
+	mutex_unlock(&udc_lock);
 }
 
 void dwc_udc_shutdown(void)
 {
-	spin_lock(&udc_lock);
+	mutex_lock(&udc_lock);
 	__udc_shutdown();
-	spin_unlock(&udc_lock);
+	mutex_unlock(&udc_lock);
 }
 
 int dwc_udc_state(void)
@@ -1133,7 +1133,7 @@ static void usb_detect_works(struct work_struct *work)
 	plug_in = d->vbus;
 	local_irq_restore(flags);
 
-	spin_lock(&udc_lock);
+	mutex_lock(&udc_lock);
 	if (plug_in){
 		pr_info("usb detect plug in,vbus pull up\n");
 		hotplug_callback(VBUS_PLUG_IN, 0);
@@ -1145,7 +1145,7 @@ static void usb_detect_works(struct work_struct *work)
 		__udc_shutdown();
 		hotplug_callback(VBUS_PLUG_OUT, cable_is_usb());
 	}
-	spin_unlock(&udc_lock);
+	mutex_unlock(&udc_lock);
 	switch_set_state(&d->sdev, !!plug_in);
 }
 
@@ -1215,21 +1215,21 @@ static void cable_detect_handler(unsigned long data)
 	if (in_factory_mode() && !usb_cable && reenum_cnt){
 		pr_info("try usb enumertation again\n");
 		reenum_cnt--;
-		spin_lock(&udc_lock);
+		mutex_lock(&udc_lock);
 		__udc_shutdown();
 		mod_timer(&gadget_wrapper->cable_timer, jiffies +
 				CABLE_TIMEOUT);
 		__udc_startup();
-		spin_unlock(&udc_lock);
+		mutex_unlock(&udc_lock);
 		return;
 	}
 
-	spin_lock(&udc_lock);
+	mutex_lock(&udc_lock);
 	if (!usb_cable) {
 		pr_info("cable is ac adapter\n");
 		__udc_shutdown();
 	}
-	spin_unlock(&udc_lock);
+	mutex_unlock(&udc_lock);
 	return;
 }
 /**
