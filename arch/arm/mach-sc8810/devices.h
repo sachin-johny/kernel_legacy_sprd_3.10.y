@@ -30,5 +30,7 @@ extern struct platform_device sprd_keypad_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_pmem_device;
 extern struct platform_device sprd_pmem_adsp_device;
+extern struct platform_device sprd_sdio0_device;
+extern struct platform_device sprd_sdio1_device;
 
 #endif

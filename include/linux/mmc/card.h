@@ -216,6 +216,7 @@ struct mmc_card {
 	unsigned int		sd_bus_speed;	/* Bus Speed Mode set for the card */
 
 	struct dentry		*debugfs_root;
+	unsigned int		removed;       /*card removed*/
 };
 
 /*

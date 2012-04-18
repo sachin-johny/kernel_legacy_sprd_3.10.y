@@ -322,3 +322,43 @@ struct platform_device sprd_pmem_adsp_device = {
 	.dev = {.platform_data = &sprd_pmem_adsp_pdata},
 };
 #endif
+
+static struct resource sprd_sdio0_resources[] = {
+	[0] = {
+		.start = SPRD_SDIO0_BASE,
+		.end = SPRD_SDIO0_BASE + SPRD_SDIO0_SIZE-1,
+		.name = "sdio0_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_SDIO0_INT,
+		.end = IRQ_SDIO0_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_sdio0_device = {
+	.name           = "sprd-sdhci",
+	.id             =  0,
+	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
+	.resource       = sprd_sdio0_resources,
+};
+
+static struct resource sprd_sdio1_resources[] = {
+	[0] = {
+		.start = SPRD_SDIO1_BASE,
+		.end = SPRD_SDIO1_BASE + SPRD_SDIO1_SIZE-1,
+		.name = "sdio1_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_SDIO1_INT,
+		.end = IRQ_SDIO1_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_sdio1_device = {
+	.name           = "sprd-sdhci",
+	.id             =  1,
+	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
+	.resource       = sprd_sdio1_resources,
+};
