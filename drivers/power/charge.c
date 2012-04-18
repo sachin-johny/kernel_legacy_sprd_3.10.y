@@ -82,8 +82,8 @@ static CHGMNG_VBATTABLE_T vbat_table =         //vbat table. It can be calibrate
 
 uint16_t adc_voltage_table[2][2] =
 {
-    {947, 4200},
-    {811, 3600},
+    {928, 4200},
+    {796, 3600},
 };
 uint16_t charger_adc_voltage_table[2][2] =
 {

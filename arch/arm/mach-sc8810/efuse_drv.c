@@ -110,11 +110,11 @@ int sci_efuse_calibration_get(unsigned int* p_cal_data)
 		return 0;
 	}
     //adc 3.6V 
-    adc_temp = (data & 0x00FF) + BASE_ADC_P0 - ADC_DATA_OFFSET;
+    adc_temp = ((data>>8) & 0x00FF) + BASE_ADC_P0 - ADC_DATA_OFFSET;
     p_cal_data[1] = (VOL_P0)|(adc_temp << 16);
 
     //adc 4.2V
-	adc_temp = ((data>>8) & 0x00FF) + BASE_ADC_P1 - ADC_DATA_OFFSET;
+	adc_temp = (data & 0x00FF) + BASE_ADC_P1 - ADC_DATA_OFFSET;
     p_cal_data[0] = (VOL_P1)|(adc_temp << 16);
 
 	return 1;
