@@ -72,6 +72,7 @@
 #include <linux/wakelock.h>
 #include <linux/switch.h>
 #include <mach/usb.h>
+#include <mach/board.h>
 
 #include "dwc_otg_driver.h"
 #include "dwc_otg_pcd_if.h"
@@ -611,6 +612,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		if (unlikely(!enum_enabled)) {
 			enum_enabled = 1;
 			enumeration_enable();
+			return 0;
 		}
 	}
 	if (!d->enabled || !d->vbus)
@@ -1170,6 +1172,7 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	}
 
 	d->vbus = value;
+	gpio_direction_input(EIC_CHARGER_DETECT);
 	queue_work(d->detect_wq, &d->detect_work);
 
 	return IRQ_HANDLED;
@@ -1184,7 +1187,7 @@ static void enumeration_enable(void)
 	d = gadget_wrapper;
 	plug_irq = usb_get_vbus_irq();
 	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
-	//enable_irq(plug_irq);
+	enable_irq(plug_irq);
 
 	return;
 }
@@ -1286,20 +1289,16 @@ int pcd_init(
 	 * setup usb cable detect interupt
 	 */
 	{
-	/*
 		plug_irq = usb_alloc_vbus_irq();
 		if (plug_irq < 0) {
 			pr_warning("cannot alloc vbus irq\n");
 			return -EBUSY;
 		}
 		usb_set_vbus_irq_type(plug_irq, VBUS_PLUG_IN);
-	*/
 		gadget_wrapper->vbus = usb_get_vbus_state();
 		pr_info("now usb vbus is :%d\n", gadget_wrapper->vbus);
-		/*
 		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED,
 				"usb detect", otg_dev->pcd);
-		*/
 	}
 
 	INIT_WORK(&gadget_wrapper->detect_work, usb_detect_works);

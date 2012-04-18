@@ -44,6 +44,7 @@ extern int sci_adc_get_value(unsigned chan, int scale);
 static struct sprd_battery_data *battery_data;
 
 #ifdef CONFIG_NOTIFY_BY_USB
+#include <mach/usb.h>
 static int plugin_callback(int usb_cable, void *data);
 static int plugout_callback(int usb_cable, void *data);
 /*
@@ -810,6 +811,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		goto err_io_resource;
 	}
 	data->gpio = res->start;
+#ifndef CONFIG_NOTIFY_BY_USB
 	ret = gpio_request(data->gpio, "charger");
 	if (ret) {
 		dev_err(&pdev->dev, "failed to request gpio: %d\n", ret);
@@ -822,7 +824,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		goto err_io_to_irq;
 	}
 	data->irq = ret;
-
+#endif
 	for (i = 0; i < CONFIG_AVERAGE_CNT; i++) {
 retry_adc:
 		adc_value = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
