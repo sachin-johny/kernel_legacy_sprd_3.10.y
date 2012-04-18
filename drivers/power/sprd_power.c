@@ -684,15 +684,13 @@ out:
 			power_supply_changed(&battery_data->ac);
 		}
 		if (battery_notify || usb_notify || ac_notify) {
-			pr_info("******charge status*******\n");
-			pr_info("voltage %d\n", battery_data->voltage);
-			pr_info("capacity %d\n", battery_data->capacity);
-			pr_info("usb %d ac %d\n", battery_data->usb_online,
+			pr_debug("voltage %d\n", battery_data->voltage);
+			pr_debug("capacity %d\n", battery_data->capacity);
+			pr_debug("usb %d ac %d\n", battery_data->usb_online,
 				battery_data->ac_online);
-			pr_info("charge %d precharge %d\n",
+			pr_debug("charge %d precharge %d\n",
 				battery_data->charging,
 				battery_data->in_precharge);
-			pr_info("****** end of charge status ****\n");
 		}
 		mod_timer(&battery_data->battery_timer,
 			  jiffies + battery_data->timer_freq);
