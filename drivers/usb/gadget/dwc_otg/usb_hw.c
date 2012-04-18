@@ -15,15 +15,16 @@
 #include <linux/delay.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <linux/gpio.h>
+#include <asm/irq.h>
 #include <mach/clock_common.h>
 #include <mach/clock_sc8810.h>
 #include <mach/globalregs.h>
-#include <mach/gpio.h>
+#include <mach/board.h>
 #include "usb_hw.h"
 
 #define	 USB_LDO_NAME    "V_USB"
 #define  USB_CLK_NAME    "clk_usb_ref"
-#define  USB_VBUS_GPIO	 146 
 
 static void usb_ldo_switch(int is_on)
 {
@@ -99,20 +100,26 @@ void udc_disable(void)
 
 int usb_alloc_vbus_irq(void)
 {
-        gpio_request(USB_VBUS_GPIO,"sprd_ogt");
-	return gpio_to_irq(USB_VBUS_GPIO);
+	int irq;
+
+	gpio_request(EIC_CHARGER_DETECT,"sprd_ogt");
+	gpio_direction_input(EIC_CHARGER_DETECT);
+	irq = gpio_to_irq(EIC_CHARGER_DETECT);
+	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+
+	return irq;
 }
 
 void usb_free_vbus_irq(int irq)
 {
-	gpio_free(USB_VBUS_GPIO);
+	gpio_free(EIC_CHARGER_DETECT);
 }
 
 int usb_get_vbus_irq(void)
 {
 	int value;
 
-	value = gpio_to_irq(USB_VBUS_GPIO);
+	value = gpio_to_irq(EIC_CHARGER_DETECT);
 
 	return value;
 }
@@ -120,9 +127,8 @@ int usb_get_vbus_state(void)
 {
 	int value;
 
-	value = gpio_get_value(USB_VBUS_GPIO);
-        return 1;
-	//return !!value;
+	value = gpio_get_value(EIC_CHARGER_DETECT);
+	return !!value;
 }
 
 void usb_set_vbus_irq_type(int irq, int irq_type)
