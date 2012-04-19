@@ -95,7 +95,7 @@ extern void printascii_phy(char *);
 
 extern long has_wake_lock_info(int type);
 extern long has_wake_lock_for_suspend(int type);
-
+extern u32 sprd_glb_get_chipid(void);
 
 #define IRAM_BASE_PHY   0xFFFF0000
 #define IRAM_START_PHY 	0xFFFF4000
@@ -1432,7 +1432,8 @@ int sc8810_setup_pd_automode(void)
 	__raw_writel(0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);
 	__raw_writel(0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
 	__raw_writel(0x03000920/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
-	if (__raw_readl(CHIP_ID) == CHIP_ID_VER_0) {//original version
+	if (sprd_glb_get_chipid() == CHIP_ID_8810G ||
+		sprd_glb_get_chipid() == CHIP_ID_8810S) {
 		__raw_writel(0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
 		__raw_writel(0x07000f20|BIT_23, GR_POWCTL0);  //ARM Core auto poweroff
 	}
@@ -3258,4 +3259,11 @@ int sc8800g_prepare_deep_sleep(void)
     return 0;
 }
 EXPORT_SYMBOL(sc8800g_prepare_deep_sleep);
+
+u32 sprd_glb_get_chipid(void)
+{
+	return __raw_readl(CHIP_ID);
+}
+
+EXPORT_SYMBOL(sprd_glb_get_chipid);
 #endif

@@ -139,10 +139,14 @@
 #define	DSP_MAHB_SLEEP_EN		(0x1UL << 19)
 #define	APB_PRI_EN		(0x1UL << 20)
 
-
 /* chip id metafixed for register CHIP_ID or CHIP_TYPE */
-#define CHIP_ID_VER_0		(0x88100000UL)
-#define CHIP_ID_VER_MF		(0x88100040UL)
+#define CHIP_ID_8810G		(0x88100000UL)	//oriGinal
+#define CHIP_ID_8810S		(0x88100001UL)	//Smic
+#define CHIP_ID_8810E		(0x88100040UL)	//mEtafix
+#define MASK_CHIP_TYPE		(0xFFFF0000UL)
+#define SHFT_CHIP_TYPE		(16UL)
+#define MASK_CHIP_VERSION	(0x0000FFFFUL)
+#define SHFT_CHIP_VERSION	(0UL)
 
 /*******************************************
   *
