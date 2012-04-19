@@ -24,6 +24,10 @@
 /*support for customize cfg to special project,
   commonly customer don't need create a overrid cfg.
   if there is a special board ,add new one like this*/
+#ifdef CONFIG_MACH_SP8810EA
+#include "regulator-sp8810ea.h"
+#endif
+
 #ifdef CONFIG_MACH_SP8810GA
 #include "regulator-sp8810ga.h"
 #endif

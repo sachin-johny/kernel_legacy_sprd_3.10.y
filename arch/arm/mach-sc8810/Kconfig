@@ -2,6 +2,15 @@ if ARCH_SC8810
 
 comment "SC8810 Board Type"
 
+choice
+	prompt "SC8810 Board"
+
+config MACH_SP8810EA
+	default n
+	bool "SP8810EA Phone"
+	help
+	  SP8810EA phone board based on SC8810.
+
 config MACH_SP8810GA
 	default n
 	bool "SP8810GA Phone"
@@ -13,6 +22,8 @@ config MACH_SP6820GA
 	bool "SP6820GA Phone"
 	help
 	  SP6820GA phone board based on SC8810.
+
+endchoice
 
 config SPRD_PMEM_SIZE
         int "size for /dev/pmem"

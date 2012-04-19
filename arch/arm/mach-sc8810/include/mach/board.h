@@ -14,6 +14,10 @@
 #ifndef __ASM_ARCH_BOARD_H
 #define __ASM_ARCH_BOARD_H
 
+#ifdef	CONFIG_MACH_SP8810EA
+#include <mach/gpio-sp8810ea.h>
+#endif
+
 #ifdef	CONFIG_MACH_SP8810GA
 #include <mach/gpio-sp8810ga.h>
 #endif
