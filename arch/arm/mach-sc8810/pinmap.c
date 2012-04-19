@@ -27,7 +27,13 @@ typedef struct {
 } pinmap_t;
 
 pinmap_t __initconst pinmap[] = {
-#include "__pinmap.c"
+#ifdef CONFIG_MACH_SP8810GA
+#include "pinmap-sp8810ga.h"
+#endif
+
+#ifdef CONFIG_MACH_SP8810EA
+#include "pinmap-sp8810ea.h"
+#endif
 };
 
 static int __init pin_init(void)
