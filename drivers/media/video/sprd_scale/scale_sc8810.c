@@ -163,22 +163,23 @@ static int _SCALE_DriverSetMclk(SCALE_CLK_SEL_E clk_sel)
 
 	return 0;	
 }
-#ifdef SCALE_DEBUG //for debug
+//#ifdef SCALE_DEBUG //for debug
 void get_scale_reg(void)
 {
 	uint32_t i, value;
 	for(i = 0; i < 29; i++)
 	{
 		value = _pard(DCAM_REG_BASE + i * 4);
-		SCALE_PRINT("SCALE reg:0x%x, 0x%x.\n", DCAM_REG_BASE + i * 4, value);
+		printk("SCALE reg:0x%x, 0x%x.\n", DCAM_REG_BASE + i * 4, value);
 	}
+
 	for(i = 0; i < 9; i++)
 	{
 		value = _pard(DCAM_REG_BASE + 0x0100 + i * 4);
-		SCALE_PRINT("SCALE reg:0x%x, 0x%x.\n", DCAM_REG_BASE + 0x0100 + i * 4, value);
-	}
+		printk("SCALE reg:0x%x, 0x%x.\n", DCAM_REG_BASE + 0x0100 + i * 4, value);
+	}	
 }
-#endif
+//#endif
 static void _SCALE_DriverSetExtSrcFrameAddr(ISP_FRAME_T *p_frame) 
 {
 	ISP_REG_T  *p_isp_reg = (ISP_REG_T*)s_scale_mod.module_addr;
@@ -533,7 +534,7 @@ static int32_t _SCALE_DriverModuleDisable(uint32_t ahb_ctrl_addr) // must be AHB
 	ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;    
 
 	_paod(ahb_ctrl_addr + ISP_AHB_CTRL_MEM_SW_OFFSET, BIT_0); // switch memory to ARM    
-//	_paad(ahb_ctrl_addr + ISP_AHB_CTRL_MOD_EN_OFFSET,~(BIT_1|BIT_2));	
+	_paad(ahb_ctrl_addr + ISP_AHB_CTRL_MOD_EN_OFFSET,~(BIT_1|BIT_2));	
 
 	return rtn;	
 }
@@ -549,7 +550,7 @@ static int32_t _SCALE_DriverSoftReset(uint32_t ahb_ctrl_addr)
 {
 	ISP_DRV_RTN_E             rtn = ISP_DRV_RTN_SUCCESS;    
 
-//	_SCALE_DriverModuleEnable(ahb_ctrl_addr);
+	_SCALE_DriverModuleEnable(ahb_ctrl_addr);
 
 	_SCALE_DrvierModuleReset(ahb_ctrl_addr);    
 
@@ -665,9 +666,9 @@ static int32_t _SCALE_DriverStart(void)
             
 	_SCALE_DriverForceCopy();
 	
-#ifdef SCALE_DEBUG
+//#ifdef SCALE_DEBUG
 	get_scale_reg();
-#endif
+//#endif
 
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 1;
 	SCALE_PRINT("SCALE: DriverStart is OK.\n"); 
@@ -862,9 +863,10 @@ int _SCALE_ContinueSlice(long unsigned int data)
 	
 //	_SCALE_DriverPath2TrimAndScaling();   
 //	_SCALE_DriverForceCopy();
-	#ifdef SCALE_DEBUG
-	//get_scale_reg();	
-	#endif
+//	#ifdef SCALE_DEBUG
+         printk("SCALE:_SCALE_ContinueSlice start.\n");
+	get_scale_reg();	
+//	#endif
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 1;
 	return 0;
 }
@@ -1484,9 +1486,11 @@ int _SCALE_DriverIOInit(void)
 {
 	//down(&g_sem_cnt);
 	isp_get_path2();
+	printk("_SCALE_DriverIOInit start.\n");
 	if(0 < g_scale_num)
 	{
 		SCALE_PRINT_ERR("SCALE: fail to open device,g_scale_num=%d.\n",g_scale_num);
+		isp_put_path2();
 		return -1;
 	}
 
@@ -1497,6 +1501,8 @@ int _SCALE_DriverIOInit(void)
 	{
 		SCALE_PRINT_ERR("SCALE: _SCALE_DriverIOInit,Failed: Can't get clock [clk_dcam]!\n");
 		SCALE_PRINT_ERR("SCALE: _SCALE_DriverIOInit,g_scale_clk = %p.\n", g_scale_clk);
+		isp_put_path2();
+		return -1;
 	}
 	else
 	{
@@ -1505,19 +1511,20 @@ int _SCALE_DriverIOInit(void)
 	s_scale_mod.module_addr = DCAM_REG_BASE;
 
 	g_scale_num++;	
-	
-	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_128M))
-	{
-		SCALE_PRINT_ERR("SCALE:_SCALE_DriverIOInit,Failed to _SCALE_DriverSetMclk!\n");
-		return -1;
-	}
+
 	if( 0 == dcam_get_user_count())
      	{
      		_SCALE_DriverInit();
 		SCALE_PRINT("SCALE:_SCALE_DriverInit.\n");
      	}
+	
+	if(0 != _SCALE_DriverSetMclk(SCALE_CLK_128M))
+	{
+		SCALE_PRINT_ERR("SCALE:_SCALE_DriverIOInit,Failed to _SCALE_DriverSetMclk!\n");
+		isp_put_path2();
+		return -1;
+	}
 	dcam_inc_user_count();
-
 	return 0;
 }
 
@@ -1562,6 +1569,8 @@ int SCALE_release (struct inode *node, struct file *pf)
 int _SCALE_DriverIODone(void)
 {
 	int32_t ret = 0;
+
+	printk("SCALE:_SCALE_DriverIODone start.\n");
 	_SCALE_DriverSetMode();
 	ret = _SCALE_DriverRegisterIRQ();
 	if(ISP_DRV_RTN_SUCCESS != ret){
@@ -1574,7 +1583,9 @@ int _SCALE_DriverIODone(void)
 		return -1;
 	}
 	down(&g_sem);
+	printk("SCALE:down g_sem.\n");
 	down_interruptible(&g_sem);
+	printk("SCALE:down_interruptible g_sem.\n");
 	while(1){
 		if(1 == _SCALE_IsContinueSlice()){
 			if(0 != _SCALE_ContinueSlice(0)) {
@@ -1587,7 +1598,8 @@ int _SCALE_DriverIODone(void)
 		}
 	}
 SCALEDONE_END:	
-	up(&g_sem);		
+	up(&g_sem);	
+	printk("SCALE:_SCALE_DriverIODone end.\n");
 	return 0;	
 }
 
