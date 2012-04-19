@@ -140,7 +140,7 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
 	  val |= AHB_CTL0_SDIO1_EN;
           __raw_writel(val, AHB_CTL0);
        }
-       msleep(3);
+       udelay(1000);
    }
 
    return;	  

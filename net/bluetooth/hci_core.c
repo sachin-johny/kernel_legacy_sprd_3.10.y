@@ -901,7 +901,13 @@ int hci_register_dev(struct hci_dev *hdev)
 	hdev->esco_type = (ESCO_HV1);
 	hdev->link_mode = (HCI_LM_ACCEPT);
 
+//Begin CSR SR31780 EK01 2012-04-13
+#if 1
+	hdev->idle_timeout = 5000;
+#else
 	hdev->idle_timeout = 0;
+#endif
+//End CSR SR31780 EK01 2012-04-13
 	hdev->sniff_max_interval = 800;
 	hdev->sniff_min_interval = 80;
 
