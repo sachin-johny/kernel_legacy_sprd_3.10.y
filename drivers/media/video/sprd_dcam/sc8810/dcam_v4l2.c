@@ -59,7 +59,7 @@ JINF_EXIF_INFO_T* g_dc_exif_info_ptr = NULL;
 #define V4L2_OPEN_FOCUS 1
 #define DCAM_SCALE_OUT_WIDTH_MAX    960
 
-#define DCAM_TIME_OUT                 1000//ms 
+#define DCAM_TIME_OUT                 2000//ms 
 #define DCAM_TIME_OUT_FOR_ATV                 2000//ms 
 #define DCAM_RESTART_COUNT   2//3        
 
@@ -152,12 +152,12 @@ typedef struct _dcam_error_info_tag
 	struct semaphore dcam_thread_wakeup_sem;
 	struct timer_list dcam_timer;
 }DCAM_ERROR_INFO_T;
-
+#define DCAM_INVALID_ADDR   0xFFFFFFFF
 static DCAM_ERROR_INFO_T s_dcam_err_info;
 uint32_t g_first_buf_addr = 0; //store the first buffer address
 uint32_t g_first_buf_uv_addr = 0; //store the address of uv buffer
-uint32_t g_last_buf = 0xFFFFFFFF;//record the last buffer for dcam driver
-uint32_t g_last_uv_buf = 0xFFFFFFFF;
+uint32_t g_last_buf = DCAM_INVALID_ADDR;//record the last buffer for dcam driver
+uint32_t g_last_uv_buf = DCAM_INVALID_ADDR;
 struct dcam_fh *g_fh = NULL; //store the fh pointer for ISR callback function
 static uint32_t g_is_first_frame = 1; //store the flag for the first frame
 DCAM_INFO_T g_dcam_info; //store the dcam and sensor config info
@@ -2358,7 +2358,8 @@ static int dcam_scan_status_thread(void * data_ptr)
 			case DCAM_CAP_FIFO_OVERFLOW:
 			case DCAM_NO_RUN:	
 				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
-				dcam_stop();
+				dcam_stop();				
+				dcam_set_first_buf_addr(g_first_buf_addr,g_first_buf_uv_addr);										
 				if(info_ptr->restart_cnt>DCAM_RESTART_COUNT)
 				{
 					if(1 == info_ptr->is_running )
