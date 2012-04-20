@@ -7,6 +7,11 @@ config FB_SC8810
 	help
           Frame buffer driver for SC8810 based boards.
 
+config FB_LCDC_CS_SWITCH
+	tristate "CS1 for LCDC"
+	depends on FB_SC8810
+	default n
+
 config FB_LCD_HX8369
 	boolean "support HX8369 panel"
 	depends on FB_SC8810
