@@ -30,7 +30,7 @@ static void __iomem *ctl_efuse_base = 0;
 void sci_efuse_poweron(void)
 {
 	ctl_efuse_base = ioremap(CTL_EFUSE_BASE_PHYS, PAGE_SIZE);
-	SCI_D(GR_GEN0) |= GEN0_EFUSE_EN;
+	__raw_bits_or(GEN0_EFUSE_EN, GR_GEN0);
 	SCI_D(REG_EFUSE_PGM_PARA) |= BIT_EFUSE_VDD_ON;
 	SCI_D(REG_EFUSE_PGM_PARA) |= BIT_CLK_EFS_EN;
 }
@@ -40,7 +40,7 @@ void sci_efuse_poweroff(void)
 	SCI_D(REG_EFUSE_PGM_PARA) &= ~BIT_PGM_EN;
 	SCI_D(REG_EFUSE_PGM_PARA) &= ~BIT_CLK_EFS_EN;
 	SCI_D(REG_EFUSE_PGM_PARA) &= ~BIT_EFUSE_VDD_ON;
-	SCI_D(GR_GEN0) &= ~GEN0_EFUSE_EN;
+	__raw_bits_and(~GEN0_EFUSE_EN, GR_GEN0);
 	if (ctl_efuse_base) {
 		iounmap(ctl_efuse_base);
 		ctl_efuse_base = 0;
