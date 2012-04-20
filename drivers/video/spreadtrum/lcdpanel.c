@@ -85,6 +85,84 @@ static int32_t mcu_reset(struct panel_spec *self)
 	return 0;
 }
 
+#ifdef CONFIG_FB_LCDC_CS_SWITCH
+static void mcu_lcm_configure(struct panel_spec *panel, int cs)
+{
+	uint32_t reg_val = 0;
+
+	if (cs == 1) {
+		/* CS0 bus mode [BIT0]: 8080/6800 */
+		switch (panel->info.mcu->bus_mode) {
+		case LCD_BUS_8080:
+
+			break;
+		case LCD_BUS_6800:
+			reg_val |= 1;
+			break;
+		default:
+			break;
+		}
+		/* CS0 bus width [BIT1:0] */
+		switch (panel->info.mcu->bus_width) {
+		case 8:
+			break;
+		case 9:
+			reg_val |= ((1 << 1) | (1 << 4));
+			break;
+		case 16:
+			reg_val |= (2 << 1);
+			break;
+		case 18:
+			reg_val |= ((3 << 1) | (1 << 4));
+			break;
+		case 24:
+			reg_val |= ((4 << 1) | (2 << 4));
+			break;
+		default:
+			break;
+
+		}
+		lcdc_write(reg_val, LCM_CTRL);
+	} else {
+		/* CS1 bus mode [BIT0]: 8080/6800 */
+		switch (panel->info.mcu->bus_mode) {
+		case LCD_BUS_8080:
+
+			break;
+		case LCD_BUS_6800:
+			reg_val |= (1 << 8);
+			break;
+		default:
+			break;
+		}
+		/* CS1 bus width [BIT1:0] */
+		switch (panel->info.mcu->bus_width) {
+		case 8:
+			break;
+		case 9:
+			reg_val |= ((1 << 9) | (1 << 12));
+			break;
+		case 16:
+			reg_val |= (2 << 9);
+			break;
+		case 18:
+			reg_val |= ((3 << 9) | (1 << 12));
+			break;
+		case 24:
+			reg_val |= ((4 << 9) | (2 << 12));
+			break;
+		default:
+			break;
+
+		}
+		/* CS1	select */
+		reg_val |= (1 << 16);
+		lcdc_write(reg_val, LCM_CTRL);
+	}
+}
+
+#else
+
 static void mcu_lcm_configure(struct panel_spec *panel, int cs)
 {
 	uint32_t reg_val = 0;
@@ -160,6 +238,9 @@ static void mcu_lcm_configure(struct panel_spec *panel, int cs)
 	}
 }
 
+#endif
+
+
 static uint32_t mcu_readid(struct panel_spec *self)
 {
 	uint32_t id = 0;
@@ -233,6 +314,42 @@ static uint32_t mcu_calc_timing(struct timing_mcu *timing)
 			| (rhpw << 16) |(rlpw << 20) | (rcss << 24));
 }
 
+
+#ifdef CONFIG_FB_LCDC_CS_SWITCH
+static int mcu_set_timing(struct sprdfb_device *dev, int32_t type)
+{
+	if (dev->csid == 0) {
+		switch (type)
+		{
+		case LCD_REGISTER_TIMING:
+			lcdc_write(dev->timing[LCD_REGISTER_TIMING],LCM_TIMING1);
+			break;
+
+		case LCD_GRAM_TIMING:
+			lcdc_write(dev->timing[LCD_GRAM_TIMING],LCM_TIMING1);
+			break;
+		default:
+			break;
+		}
+	} else if (dev->csid == 1) {
+		switch (type)
+		{
+		case LCD_REGISTER_TIMING:
+			lcdc_write(dev->timing[LCD_REGISTER_TIMING],LCM_TIMING0);
+			break;
+
+		case LCD_GRAM_TIMING:
+			lcdc_write(dev->timing[LCD_GRAM_TIMING],LCM_TIMING0);
+			break;
+		default:
+			break;
+		}
+	}
+	return 0;
+}
+
+#else
+
 static int mcu_set_timing(struct sprdfb_device *dev, int32_t type)
 {
 	if (dev->csid == 0) {
@@ -264,6 +381,8 @@ static int mcu_set_timing(struct sprdfb_device *dev, int32_t type)
 	}
 	return 0;
 }
+
+#endif
 
 static int mcu_mount_panel(struct sprdfb_device *dev, struct panel_spec *panel)
 {

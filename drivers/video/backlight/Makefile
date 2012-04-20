@@ -16,7 +16,6 @@ obj-$(CONFIG_LCD_LD9040)	+= ld9040.o
 obj-$(CONFIG_LCD_AMS369FG06)	+= ams369fg06.o
 
 obj-$(CONFIG_BACKLIGHT_CLASS_DEVICE) += backlight.o
-obj-$(CONFIG_BACKLIGHT_SC8810)	+= sc8810_bl.o
 obj-$(CONFIG_BACKLIGHT_ATMEL_PWM)    += atmel-pwm-bl.o
 obj-$(CONFIG_BACKLIGHT_EP93XX)	+= ep93xx_bl.o
 obj-$(CONFIG_BACKLIGHT_GENERIC)	+= generic_bl.o
@@ -43,3 +42,5 @@ obj-$(CONFIG_BACKLIGHT_88PM860X) += 88pm860x_bl.o
 obj-$(CONFIG_BACKLIGHT_PCF50633)	+= pcf50633-backlight.o
 obj-$(CONFIG_BACKLIGHT_AAT2870) += aat2870_bl.o
 obj-$(CONFIG_BACKLIGHT_OT200) += ot200_bl.o
+obj-$(CONFIG_BACKLIGHT_SC8810)	+= sc8810_bl.o
+obj-$(CONFIG_BACKLIGHT_SGM3727)	+= sgm3727_bl.o
