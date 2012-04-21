@@ -154,10 +154,15 @@ abort:
 	mutex_unlock(&early_suspend_lock);
 }
 
+extern int powerkey_wdt_stop(void);
+
 void request_suspend_state(suspend_state_t new_state)
 {
 	unsigned long irqflags;
 	int old_sleep;
+
+	/* when we get here, means userspace service work well, stop reboot watchdog */
+	powerkey_wdt_stop();
 
 	spin_lock_irqsave(&state_lock, irqflags);
 	old_sleep = state & SUSPEND_REQUESTED;
