@@ -11,19 +11,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ASM_ARCH_UNCOMPRESS_H
+#ifndef _MACH_WATCHDOG_H_
+#define _MACH_WATCHDOG_H_
 
-#include <mach/hardware.h>
-#include <mach/watchdog.h>
-
-static inline void arch_idle(void)
-{
-}
-
-static inline void arch_reset(char mode, const char *cmd)
-{
-	sprd_set_reboot_mode(cmd);
-	sprd_turnon_watchdog(50);
-}
-
+void sprd_set_reboot_mode(const char *cmd);
+void sprd_turnon_watchdog(unsigned int ms);
+void sprd_turnoff_watchdog(void);
 #endif
