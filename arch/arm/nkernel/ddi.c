@@ -900,7 +900,11 @@ nk_smp_pxirq_alloc (NkPhAddr link, NkResourceId id, NkOsId osid, int numb)
     return NKCTX()->smp_pxirq_alloc(link, id, osid, numb);
 }
 
+/* Workaround IRQ missing */
+/*
 #if (__LINUX_ARM_ARCH__ >= 6)
+*/
+#if 0
 
     static inline nku32_f
 __nk_smp_swap (volatile nku32_f* addr, nku32_f data)

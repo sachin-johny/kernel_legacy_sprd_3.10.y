@@ -337,6 +337,9 @@ void sci_gpio_irq_handler(unsigned int irq, struct irq_desc *desc)
 	struct gpio_chip *chip =
 	    (struct gpio_chip *)desc->irq_data.handler_data;
 	sci_gpio_chip_irq_handler(irq, chip);
+#ifdef CONFIG_NKERNEL
+	desc->irq_data.chip->irq_unmask(&desc->irq_data);
+#endif
 }
 
 irqreturn_t sci_gpio_irq_act_handler(int irq, void *dev_id)

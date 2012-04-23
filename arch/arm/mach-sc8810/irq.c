@@ -23,6 +23,13 @@
 #include <mach/ana_ctl_int.h>
 #include "adi_internal.h"
 
+#ifdef CONFIG_NKERNEL
+#include <nk/nkern.h>
+#define CONFIG_NKERNEL_NO_SHARED_IRQ
+extern void nk_ddi_init(void);
+static struct irq_chip nk_sprd_irq_chip;
+#endif
+
 /* general interrupt registers */
 #define	INTCV_REG(off)        (SPRD_INTCV_BASE + (off))
 #define	INTCV_IRQ_STS         INTCV_REG(0x0000)
@@ -31,6 +38,7 @@
 #define	INTCV_IRQ_DIS         INTCV_REG(0x000C)
 #define	INTCV_IRQ_SOFT        INTCV_REG(0x0010)
 
+#ifndef CONFIG_NKERNEL
 static void sprd_irq_ack(struct irq_data *data)
 {
 	/* nothing to do... */
@@ -154,3 +162,121 @@ void __init sc8810_init_irq(void)
 		set_irq_flags(n, IRQF_VALID);
 	}
 }
+
+#else /* CONFIG_NKERNEL */
+
+extern NkDevXPic*   nkxpic;		/* virtual XPIC device */
+extern NkOsId       nkxpic_owner;	/* owner of the virtual XPIC device */
+extern NkOsMask     nkosmask;		/* my OS mask */
+
+extern void __nk_xirq_startup  (struct irq_data* d);
+extern void __nk_xirq_shutdown (struct irq_data* d);
+
+static unsigned int nk_startup_irq (struct irq_data *data)
+{
+	__nk_xirq_startup(data);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[data->irq].os_enabled  = nkosmask;
+#else
+	nkxpic->irq[data->irq].os_enabled |= nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+
+	return 0;
+}
+
+static void nk_shutdown_irq (struct irq_data *data)
+{
+	__nk_xirq_shutdown(data);
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	nkxpic->irq[data->irq].os_enabled  = 0;
+#else
+	nkxpic->irq[irq].os_enabled &= ~nkosmask;
+#endif
+	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
+}
+
+static void nk_sprd_mask_ack_irq (struct irq_data *data)
+{
+	/*
+	 * mask_ack() is called only from handle_level_irq.
+	 * in our case this job is already done by vpic
+	 *
+	 * we do not define mask(), because it is called
+	 * only from interrupt migration code. No migration
+	 * for us because we do not have set_affinity().
+	 */
+}
+
+static void nk_sprd_ack_irq (struct irq_data *data)
+{
+	/*
+	 * ack might be called by some stupid drivers
+	 * for cascaded interrupt controllers
+	 */
+}
+
+static void nk_sprd_unmask_irq (struct irq_data *data)
+{
+#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
+	if (data->irq > 31 )
+		printk("nk_sprd_unmask_irq, irq error = 0x%x\n", data->irq);
+	__raw_writel(1 << (data->irq & 31), INTCV_IRQ_EN);
+#else
+	nkops.nk_xirq_trigger(data->irq, nkxpic_owner);
+#endif
+}
+
+static struct irq_chip nk_sprd_irq_chip = {
+	.name		= "sprd",
+	.irq_mask_ack	= nk_sprd_mask_ack_irq,
+	.irq_ack	= nk_sprd_ack_irq,
+	.irq_unmask	= nk_sprd_unmask_irq,
+	.irq_startup	= nk_startup_irq,
+	.irq_shutdown	= nk_shutdown_irq,
+};
+
+static void nk_sprd_ack_ana_irq(struct irq_data *data)
+{
+	/* nothing to do... */
+}
+
+static void nk_sprd_mask_ana_irq(struct irq_data *data)
+{
+	/* nothing to do... */
+}
+
+static void nk_sprd_unmask_ana_irq(struct irq_data *data)
+{
+	nkops.nk_xirq_trigger(data->irq, nkxpic_owner);
+}
+
+static struct irq_chip nk_sprd_muxed_ana_chip = {
+	.name		= "ANA",
+	.irq_ack	= nk_sprd_ack_ana_irq,
+	.irq_mask	= nk_sprd_mask_ana_irq,
+	.irq_unmask	= nk_sprd_unmask_ana_irq,
+	.irq_startup	= nk_startup_irq,
+	.irq_shutdown	= nk_shutdown_irq,
+};
+
+void __init sc8810_init_irq(void)
+{
+	int n;
+
+	nk_ddi_init();
+	for (n = 0; n < NR_SPRD_IRQS; ++n) {
+		if (n != IRQ_ANA_INT) {
+			irq_set_chip_and_handler(n, &nk_sprd_irq_chip,
+					handle_level_irq);
+			set_irq_flags(n, IRQF_VALID);
+		}
+	}
+
+	for (n = IRQ_ANA_ADC_INT; n < IRQ_ANA_ADC_INT+ NR_ANA_IRQS; ++n) {
+		irq_set_chip_and_handler(n, &nk_sprd_muxed_ana_chip,
+				handle_level_irq);
+		set_irq_flags(n, IRQF_VALID);
+	}
+}
+#endif /* CONFIG_NKERNEL */

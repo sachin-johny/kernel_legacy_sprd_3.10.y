@@ -30,10 +30,13 @@ obj-y			:= console.o ddi.o perfmon.o
 obj-$(CONFIG_PROC_FS)	+= proc.o nktags.o
 obj-$(CONFIG_SMP)	+= smp.o
 
+# Don't use vtimer or vtick
+ifeq (0, 1)
 ifeq ($(CONFIG_GENERIC_CLOCKEVENTS),y)
 obj-y += vtimer.o
 else
 obj-y += vtick.o
+endif
 endif
 
 g_vlog-objs := vlog.o

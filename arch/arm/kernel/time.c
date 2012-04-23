@@ -148,20 +148,26 @@ static int __init timer_init_syscore_ops(void)
 
 device_initcall(timer_init_syscore_ops);
 
+/* Don't use vtime or vtick */
+#if 0
 #ifdef CONFIG_NKERNEL
 
 extern int              nk_use_htimer;
 extern struct sys_timer nk_vtick_timer;
 
 #endif
+#endif
 
 void __init time_init(void)
 {
 	system_timer = machine_desc->timer;
+/* Don't use vtime or vtick */
+#if 0
 #ifdef CONFIG_NKERNEL
 	if ((nk_use_htimer == 0) && (system_timer != &nk_vtick_timer)) {
 		printk(KERN_WARNING "vtick configuration has been overwritten!\n");
 	}
+#endif
 #endif
 	system_timer->init();
 #ifdef CONFIG_HAVE_SCHED_CLOCK

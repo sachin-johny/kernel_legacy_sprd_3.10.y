@@ -26,8 +26,12 @@
 #define CTL_ADI_BASE					( SPRD_MISC_BASE )
 #define SCI_ADDRESS(_b_, _o_)			( (u32)(_b_) + (_o_) )
 
-#define hw_local_irq_save local_irq_save
-#define hw_local_irq_restore local_irq_restore
+#define sci_adi_lock()				\
+		unsigned long flags;		\
+		flags = hw_local_irq_save()
+
+#define sci_adi_unlock()			\
+		hw_local_irq_restore(flags)
 
 static int sci_adi_internal_reset(void)
 {
@@ -62,26 +66,6 @@ int sci_adi_disable(void)
 	//BUGBUG: disable ADI_ACC (global)
 	return 0;
 }
-
-#if 0
-int sci_adi_lock(void)
-{
-	return 0;
-}
-
-int sci_adi_unlock(void)
-{
-	return 0;
-}
-
-#else
-#define sci_adi_lock()					\
-		unsigned long flags;			\
-		hw_local_irq_save(flags);		\
-
-#define sci_adi_unlock() hw_local_irq_restore(flags);
-
-#endif
 
 int sci_adi_ready(void)
 {
@@ -166,10 +150,6 @@ static int __init adi_init(void)
 	return 0;
 }
 
-//EXPORT_SYMBOL(sci_adi_lock);
-//EXPORT_SYMBOL(sci_adi_unlock);
-//EXPORT_SYMBOL(sci_adi_enable);
-//EXPORT_SYMBOL(sci_adi_disable);
 EXPORT_SYMBOL(sci_adi_read);
 EXPORT_SYMBOL(sci_adi_raw_write);
 EXPORT_SYMBOL(sci_adi_write);

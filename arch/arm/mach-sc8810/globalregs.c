@@ -38,11 +38,19 @@ void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 	int value;
 	unsigned long flags;
 
+#ifndef CONFIG_NKERNEL
 	spin_lock_irqsave(&lock, flags);
+#else
+	flags = hw_local_irq_save();
+#endif
 	value = __raw_readl(globalregs[type] + reg_offset);
 	value |= bits;
 	__raw_writel(value, globalregs[type] + reg_offset);
+#ifndef CONFIG_NKERNEL
 	spin_unlock_irqrestore(&lock, flags);
+#else
+	hw_local_irq_restore(flags);
+#endif
 }
 
 void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
@@ -50,11 +58,19 @@ void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 	int value;
 	unsigned long flags;
 
+#ifndef CONFIG_NKERNEL
 	spin_lock_irqsave(&lock, flags);
+#else
+	flags = hw_local_irq_save();
+#endif
 	value = __raw_readl(globalregs[type] + reg_offset);
 	value &= ~bits;
 	__raw_writel(value, globalregs[type] + reg_offset);
+#ifndef CONFIG_NKERNEL
 	spin_unlock_irqrestore(&lock, flags);
+#else
+	hw_local_irq_restore(flags);
+#endif
 }
 
 EXPORT_SYMBOL(sprd_greg_read);
