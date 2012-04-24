@@ -64,6 +64,12 @@ config SGI_MBCS
 
 source "drivers/tty/serial/Kconfig"
 
+config TS0710_MUX_UART
+    bool "Spreadtrum MUX driver switch"
+    default y
+    help
+      This driver supports Spreadtrum mux driver.
+
 config TTY_PRINTK
 	bool "TTY driver to output user messages via printk"
 	depends on EXPERT

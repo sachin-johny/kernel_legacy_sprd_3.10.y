@@ -61,10 +61,6 @@
 #define CON_PRINT(...)
 #endif
 
-# ifdef CONFIG_ARCH_SC8800G
-//#define CONFIG_TS0710_MUX_UART
-# endif /* CONFIG_ARCH_SC8800G */
-
 #define SERIAL_NK_NAME	  "ttyNK"
 #define SERIAL_NK_MAJOR	  220 /* GMv 254 */
 #define SERIAL_NK_MINOR	  0
@@ -452,10 +448,10 @@ vcons_rx_intr (NkPort* port)
 #ifdef CONFIG_TS0710_MUX_UART
 	if ( ( 3 == line ) && cmux_opened() ) {
 	    int 		num;
-	    unsigned long	flags;  
-	    num =0; 	
-		
-	    hw_local_irq_save(flags);
+	    unsigned long	flags;
+	    num =0;
+
+	    flags = hw_local_irq_save();
 
 	    if  ( (num = os_ctx->cops.read(port->id, port->buf, size)) ) {
 		mux_ringbuffer_write(&rbuf, port->buf, num);
@@ -485,15 +481,15 @@ vcons_rx_intr (NkPort* port)
     if (count > 0) {
 #ifdef CONFIG_TS0710_MUX_UART
 	if (line == 3) {
-	    unsigned long flags;   
+	    unsigned long flags;
 
-	    hw_local_irq_save(flags);
+	    flags = hw_local_irq_save();
 	    if (serial_mux_dispatcher && is_cmux_mode()) {
 		serial_mux_dispatcher(port->tty);
 	    }
 	    hw_local_irq_restore(flags);
 	    return;
-	} 
+	}
 #endif
 	tty_schedule_flip(port->tty);
     }
@@ -520,8 +516,8 @@ vcons_tx_intr (NkPort* port)
     if ((3==line) && cmux_opened()){
 	CON_PRINT("func[%s]:serial_mux_sender\n",__FUNCTION__);
 	if(serial_mux_sender){
-	    serial_mux_sender();	
-	}	
+	    serial_mux_sender();
+	}
     }
 #endif
 
