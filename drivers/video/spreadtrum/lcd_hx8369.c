@@ -376,7 +376,8 @@ struct panel_spec lcd_hx8369_spec = {
 };
 
 struct panel_cfg lcd_hx8369 = {
-	.lcd_cs = 0,
+	/* this panel may on both CS0/1 */
+	.lcd_cs = -1,
 	.lcd_id = 0x69,
 	.lcd_name = "lcd_hx8369",
 	.panel = &lcd_hx8369_spec,
