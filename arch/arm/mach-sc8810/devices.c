@@ -148,9 +148,15 @@ static struct resource sprd_lcd_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
-struct platform_device sprd_lcd_device = {
+struct platform_device sprd_lcd_device0 = {
 	.name           = "sprd_fb",
 	.id             =  0,
+	.num_resources  = ARRAY_SIZE(sprd_lcd_resources),
+	.resource       = sprd_lcd_resources,
+};
+struct platform_device sprd_lcd_device1 = {
+	.name           = "sprd_fb",
+	.id             =  1,
 	.num_resources  = ARRAY_SIZE(sprd_lcd_resources),
 	.resource       = sprd_lcd_resources,
 };

@@ -400,9 +400,13 @@ int sprd_register_panel(struct panel_cfg *cfg)
 	mutex_lock(&panel_mutex);
 	if (cfg->lcd_cs == 0) {
 		list_add_tail(&cfg->list, &panel_list0);
+	} else if (cfg->lcd_cs == 1) {
+		list_add_tail(&cfg->list, &panel_list1);
 	} else {
+		list_add_tail(&cfg->list, &panel_list0);
 		list_add_tail(&cfg->list, &panel_list1);
 	}
+
 	mutex_unlock(&panel_mutex);
 
 	return 0;
