@@ -708,7 +708,8 @@ cpufreq_freq_attr_rw(scaling_min_freq);
 cpufreq_freq_attr_rw(scaling_max_freq);
 cpufreq_freq_attr_rw(scaling_governor);
 cpufreq_freq_attr_rw(scaling_setspeed);
-cpufreq_freq_attr_rwrwrw(input_event);//wong
+//cpufreq_freq_attr_rwrwrw(input_event);//wong
+cpufreq_freq_attr_rw(input_event);//wong
 
 
 static struct attribute *default_attrs[] = {
