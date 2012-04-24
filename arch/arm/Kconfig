@@ -20,7 +20,9 @@
 
 config NKERNEL
 	bool "VLX virtualizer support"
-	default y
+	default n
+
+if NKERNEL
 
 config NKERNEL_DDI
 	bool "VLX virtual driver support"
@@ -30,10 +32,6 @@ config NKERNEL_DDI_APICHECK
 	bool "VLX virtual driver API call check"
 	depends on NKERNEL_DDI
 	default n
-
-config TEXT_OFFSET
- 	hex  "Text offset configuration"
- 	default 0x00008000
 
 config RELOCATABLE_KERNEL
  	bool "Build relocatable linux kernel"
@@ -66,6 +64,11 @@ config NKERNEL_PM_GLOBAL_SUSPEND
 	help
 	  Select this option in order to suspend to RAM the physical
 	  platform only when all VMs are virtually suspended.
+endif
+
+config TEXT_OFFSET
+ 	hex  "Text offset configuration"
+ 	default 0x00008000
 
 config ARM
 	bool

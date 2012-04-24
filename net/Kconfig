@@ -51,6 +51,7 @@ menu "Networking options"
 
 config SKB_DESTRUCTOR
 	bool "SKB Destructor"
+	depends on NKERNEL_VETH
 	default y
 	---help---
 	  This option enables to specify a separate destructor function to call

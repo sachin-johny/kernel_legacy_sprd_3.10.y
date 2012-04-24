@@ -36,7 +36,7 @@ config MACH_ARM_64_BYTES_L1_CACHE_LINE
 
 config ARCH_SUPPORTS_BIG_ENDIAN
 	bool
-        depends on CPU_V6 || CPU_V7
+        depends on MACH_ARM_OSWARE && (CPU_V6 || CPU_V7)
 	default y
 
 config RAM_PHYS
