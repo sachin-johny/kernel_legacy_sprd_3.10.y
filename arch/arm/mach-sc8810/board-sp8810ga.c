@@ -48,9 +48,9 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
 	&sprd_keypad_device,
-    &sprd_audio_soc_device,
-    &sprd_audio_soc_vbc_device,
-    &sprd_audio_vbc_device,
+	&sprd_audio_soc_device,
+	&sprd_audio_soc_vbc_device,
+	&sprd_audio_vbc_device,
 	&sprd_battery_device,
 	&sprd_pmem_device,
 	&sprd_pmem_adsp_device,
@@ -66,28 +66,19 @@ static struct sys_timer sc8810_timer = {
 	.init = sc8810_timer_init,
 };
 
-static int pdata_notifier_call(struct pdata_notifier *pdn, u32 sub_cmd, void *data);
-static struct pdata_notifier sc8810_pdata_notifier [] = {
-{
-    .pd = { .name = "speaker-pa", },
-    .cmd = PLATFORM_PDATA_TYTE_AUDIO_SPEAKER,
-    .notifier_call = pdata_notifier_call,
-},
-};
-
 static int calibration_mode = false;
 static int __init calibration_start(char *str)
 {
-        if(str)
-                pr_info("modem calibartion:%s\n", str);
-        calibration_mode = true;
-        return 1;
+	if(str)
+		pr_info("modem calibartion:%s\n", str);
+	calibration_mode = true;
+	return 1;
 }
 __setup("calibration=", calibration_start);
 
 int in_calibration(void)
 {
-     return (calibration_mode == true);
+	return (calibration_mode == true);
 }
 
 EXPORT_SYMBOL(in_calibration);
@@ -134,34 +125,34 @@ static int sc8810_add_i2c_devices(void)
 	sprd8810_i2c2sel_config();
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
-    return 0;
+	return 0;
 }
 
-static int sc8810_add_pdata_notifier_devices(void)
+struct platform_device audio_pa_amplifier_device = {
+	.name = "speaker-pa",
+	.id = -1,
+};
+
+static int audio_pa_amplifier_l(u32 cmd, void *data)
 {
-    int i, ignored;
-    for (i = 0; i < ARRAY_SIZE(sc8810_pdata_notifier); i++) {
-        ignored = 1;
-        switch (sc8810_pdata_notifier[i].cmd) {
-        // board version 0.1 & 0.2 ...
-        case PLATFORM_PDATA_TYTE_AUDIO_SPEAKER:
-            break;
-        default:
-            ignored = 0;
-            break;
-        }
-        if (!ignored && sc8810_pdata_notifier[i].pd.name) {
-            int ret;
-            sc8810_pdata_notifier[i].pd.id = -1;
-            platform_set_drvdata(&sc8810_pdata_notifier[i].pd, &sc8810_pdata_notifier[i]);
-            ret = platform_device_register(&sc8810_pdata_notifier[i].pd);
-            if (ret)
-                pr_err("register pdata_notifier failed --> [ %s ].%d < %d >\n",
-                        sc8810_pdata_notifier[i].pd.name, sc8810_pdata_notifier[i].cmd, ret);
-        } else pr_warn("this board ignore this pdata_notifier --> [ %s ].%d\n",
-                sc8810_pdata_notifier[i].pd.name, sc8810_pdata_notifier[i].cmd);
-    }
-    return 0;
+	int ret = 0;
+	if (cmd < 0) {
+		/* get speaker amplifier status : enabled or disabled */
+		ret = 0;
+	} else {
+		/* set speaker amplifier */
+	}
+	return ret;
+}
+
+static int sc8810_add_misc_devices(void)
+{
+	if (0) {
+		platform_set_drvdata(&audio_pa_amplifier_device, audio_pa_amplifier_l);
+		if (platform_device_register(&audio_pa_amplifier_device))
+			pr_err("faile to install audio_pa_amplifier_device\n");
+	}
+	return 0;
 }
 
 static void __init sc8810_init_machine(void)
@@ -170,26 +161,7 @@ static void __init sc8810_init_machine(void)
 	sprd_add_otg_device();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
-    sc8810_add_pdata_notifier_devices();
-}
-
-static int pdata_notifier_call(struct pdata_notifier *pdn, u32 sub_cmd, void *data)
-{
-    int ret = 0;
-    switch (pdn->cmd) {
-    case PLATFORM_PDATA_TYTE_AUDIO_SPEAKER:
-        if (sub_cmd < 0) {
-            // get speaker amplifier status : enabled or disabled
-            ret = 0;
-        } else {
-            // set speaker amplifier
-        }
-        break;
-    default:
-        ret = -1;
-        pr_warn("[ %s ] cmd %d does not have notifier_call function\n", pdn->pd.name, pdn->cmd);
-    }
-    return ret;
+	sc8810_add_misc_devices();
 }
 
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,

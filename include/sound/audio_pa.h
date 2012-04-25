@@ -1,7 +1,5 @@
 /*
- * sound/soc/sprd/sc88xx-vbc.h
- *
- * SC88XX SoC & VBC CODEC DAI-LINK -- link SpreadTrum sc88xx chip and VBC Dolphin codec.
+ * audio_pa.h
  *
  * Copyright (C) 2012 SpreadTrum Ltd.
  *
@@ -14,7 +12,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __SC88XX_VBC_H
-#define __SC88XX_VBC_H
-
+#ifndef __SOUND_AUDIO_PA
+#define __SOUND_AUDIO_PA
+#include <linux/platform_device.h>
+typedef int (*audio_pa_callback)(u32, void *);
+extern audio_pa_callback audio_pa_amplifier;
 #endif
