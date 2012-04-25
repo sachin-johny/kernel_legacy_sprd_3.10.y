@@ -118,6 +118,10 @@ static struct usb_hotplug_callback power_cb = {
 	.data = NULL,
 };
 
+int sprd_get_adc_cal_type(void)
+{
+	return battery_data?battery_data->adc_cal_updated:0;
+}
 
 static int sprd_ac_get_property(struct power_supply *psy,
 			enum power_supply_property psp,
