@@ -597,7 +597,7 @@ static void correct_invalid_id(unsigned char *buf)
 		buf[3] = nand_id_replace_table[index][8];
 		buf[4] = nand_id_replace_table[index][9];
 
-		printf("nand id(%02x,%02x,%02x,%02x,%02x) is invalid, correct it by(%02x,%02x,%02x,%02x,%02x)\n",
+		printk("nand id(%02x,%02x,%02x,%02x,%02x) is invalid, correct it by(%02x,%02x,%02x,%02x,%02x)\n",
 			id[0],id[1],id[2],id[3],id[4], buf[0],buf[1],buf[2],buf[3],buf[4]);
 	}
 	else
