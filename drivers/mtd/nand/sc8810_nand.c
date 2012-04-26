@@ -326,10 +326,9 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag)
 	}
 	nfc_reg_write(NFC_CLR_RAW, 0xffff0000); //clear all interrupt status
 
-	if(counter > NFC_TIMEOUT_VAL)
+	if(counter >= NFC_TIMEOUT_VAL)
 	{
-		while (1);
-		return -1;
+		panic("nfc cmd timeout!!!");
 	}
 	return 0;
 }
