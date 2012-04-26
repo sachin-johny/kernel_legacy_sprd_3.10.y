@@ -16,16 +16,6 @@
 /**---------------------------------------------------------------------------*
  **                         Dependencies                                      *
  **---------------------------------------------------------------------------*/
-//#include "sci_types.h"
-//#include "sci_api.h"
-////#include "os_api.h"
-//#include "chip_plf_export.h"
-//#include "tasks_id.h"
-//#include "tx_api_thumb.h"
-//#include "chg_drvapi.h"
-//#include "dal_power.h"
-//#include "adc_drvapi.h"
-//#include "upm_api.h"
 #include <mach/chg_drvapi.h>
 #include <mach/adc_drvapi.h>
 #include <linux/reboot.h>
@@ -38,8 +28,6 @@
 #include <mach/board.h>
 #include <mach/usb.h>
 
-#define SCI_FALSE false
-#define SCI_TRUE true
 /**---------------------------------------------------------------------------*
  **                         Debugging Flag                                    *
  **---------------------------------------------------------------------------*/
@@ -56,40 +44,12 @@
 /**---------------------------------------------------------------------------*
  **                         Global Variables                                  *
  **---------------------------------------------------------------------------*/
-
-
-
-
-static CHGMNG_VBATTABLE_T vbat_table =         //vbat table. It can be calibrated by nveditor.
-{
-    CHG_VOLTAGE_2V8, // 2.8V
-    CHG_VOLTAGE_2V9, // 2.9V
-    CHG_VOLTAGE_3V0, // 3.0V
-    CHG_VOLTAGE_3V1, // 3.1V
-    CHG_VOLTAGE_3V2, // 3.2V
-    CHG_VOLTAGE_3V3, // 3.3V
-    CHG_VOLTAGE_3V4, // 3.4V
-    CHG_VOLTAGE_3V5, // 3.5V
-    CHG_VOLTAGE_3V6, // 3.6V
-    CHG_VOLTAGE_3V7, // 3.7V
-    CHG_VOLTAGE_3V8, // 3.8V
-    CHG_VOLTAGE_3V9, // 3.9V
-    CHG_VOLTAGE_4V0, // 4.0V
-    CHG_VOLTAGE_4V1, // 4.1V
-    CHG_VOLTAGE_4V2, // 4.2V
-    0xFFFF // 0xffff
-};
-
 uint16_t adc_voltage_table[2][2] =
 {
     {928, 4200},
     {796, 3600},
 };
-uint16_t charger_adc_voltage_table[2][2] =
-{
-    {0x198, 6500},
-    {0x170, 5800},
-};
+
 uint16_t voltage_capacity_table[][2] = 
 {
     {4150,  100},
@@ -162,72 +122,6 @@ int32_t temp_adc_table[][2] =
     { -250,      0x354},
     { -300,      0x364}
 };
-/*CHGMNG_IDLE state use*/
-
-/* recent_message_flag: Record the recent message which has been send before client registes.*/
-/**---------------------------------------------------------------------------*
- **                         Constant Variables                                *
- **---------------------------------------------------------------------------*/
-
-extern bool PROD_SetChargeNVParam (CHG_SWITPOINT_E    point);
-
-#ifdef CHARGER_OV_SUPPORT
-static void CHGMNG_DetectHandler (uint32_t state);
-#define VCHG_DETECT_TIMES        20
-#define VCHG_DETECT_VALID_TIMES    10
-static uint16_t g_Vcharging_detect_interval = 100;
-static uint16_t g_Vcharging_detect_times = 0;
-static SCI_TIMER_PTR g_Vcharging_timer = NULL;
-static uint32_t g_charge_over_adc = 0;
-static uint32_t g_charge_low_adc = 0;
-#endif
-
-//end modify by paul for charge manage
-/**---------------------------------------------------------------------------*
- **                         Function Definitions                              *
- **---------------------------------------------------------------------------*/
-/*****************************************************************************/
-//  Description:    This function initialize the Charge manager. Before starting charge
-//                      manager, you'd better set the essential parameters according to your need.
-//                      Otherwise, it will use the default parameters.
-//                      For example,
-//                      {
-//                          CHR_PARAM_T* chr_param = REFPARAM_GetChargeParam();
-//
-//                          CHGMNG_SetSwitchVoltage(chr_param->switch_voltage);
-//                          CHGMNG_SetRechargeVoltage(chr_param->recharge_voltage);
-//                          CHGMNG_SetChargeEndVoltage(chr_param->charge_end_voltage);
-//
-//                          CHGMNG_SetChargeEndTime((CHGMNG_STATE_E)CHGMNG_HCHARGING, chr_param->hcharging_endtime);
-//                          CHGMNG_SetChargeEndTime((CHGMNG_STATE_E)CHGMNG_LCHARGING, chr_param->lcharging_endtime);
-//                          CHGMNG_SetChargeEndTime((CHGMNG_STATE_E)CHGMNG_RECHARGING, chr_param->rcharging_endtime);
-//
-//                          CHGMNG_SetTimerInterval((CHGMNG_STATE_E)CHGMNG_HCHARGING, chr_param->hcharging_detect_interval);
-//                          CHGMNG_SetTimerInterval((CHGMNG_STATE_E)CHGMNG_LCHARGING, chr_param->lcharging_detect_interval);
-//                          CHGMNG_SetTimerInterval((CHGMNG_STATE_E)CHGMNG_RECHARGING, chr_param->recharge_detect_interval);
-//                          CHGMNG_SetTimerInterval((CHGMNG_STATE_E)CHGMNG_STOPPING, chr_param->scharging_detect_interval);
-//
-//                          CHGMNG_SetHWSwitchPoint((CHG_SWITPOINT_E)chr_param->hw_switch_point);
-//
-//                          CHGMNG_SetWarningVoltage(chr_param->voltage_warning);
-//                          CHGMNG_SetShutdownVoltage(chr_param->voltage_shutdown);
-//                          CHGMNG_SetWarningCount(chr_param->warning_count);
-//
-//                          CHGMNG_SetVBatTable((CHGMNG_VBATTABLE_T*)chr_param->adc_voltage_table);
-//
-//                          CHGMNG_SetChargeEndTime((CHGMNG_STATE_E)CHGMNG_PULSECHARGING, chr_param->pcharging_endtime);
-//                          CHGMNG_SetTimerInterval((CHGMNG_STATE_E)CHGMNG_PULSECHARGING, chr_param->pcharge_detect_interval);
-//                          CHGMNG_SetPulseVoltage(chr_param->pulse_charge_voltage);
-//                          CHGMNG_SetPulseWide(chr_param->pulse_wide);
-//                          CHGMNG_SetPulseWaitingTime(chr_param->pulse_waiting_time);
-//
-//                          CHGMNG_SetTestFlag(chr_param->charge_test_flag);
-//                     }
-//  Return:         CHGMNG_STARTSUCCESS - normal
-//                      CHGMNG_STARTINCHARGING - t is charging when CHGMNG_Start
-//  Author:         Benjamin.Wang
-//  Note:           This module should be initialized after GPIO_Init.
-/*****************************************************************************/
 
 /*****************************************************************************/
 //  Description:    This function is used to get the result of Vprog ADC.
@@ -239,7 +133,7 @@ static uint32_t g_charge_low_adc = 0;
 {
     uint32_t   result = (uint32_t) (-1);
 
-    result = ADC_GetValue(ADC_CHANNEL_PROG, SCI_FALSE);
+    result = ADC_GetValue(ADC_CHANNEL_PROG, false);
 
     return result;
 }
@@ -247,7 +141,7 @@ static uint32_t g_charge_low_adc = 0;
 uint32_t CHG_GetTempADCResult(void)
 {
     uint32_t result = (uint32_t) (-1);
-    result = ADC_GetValue(ADC_CHANNEL_TEMP, SCI_FALSE);
+    result = ADC_GetValue(ADC_CHANNEL_TEMP, false);
     return result;
 }
 
@@ -283,9 +177,10 @@ int CHGMNG_AdcvalueToTemp(uint16_t adcvalue)
     return result;
 }
 
-uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type)
+uint32_t CHGMNG_AdcvalueToCurrent(uint16_t vprog_adc, uint16_t cur_type)
 {
-    return (((uint32_t)voltage*cur_type*VOL_DIV_P1)/VOL_TO_CUR_PARAM)/VOL_DIV_P2;
+    uint16_t voltage = CHGMNG_AdcvalueToVoltage(vprog_adc);
+    return (((uint32_t)voltage*cur_type*VBAT_VOL_DIV_P1)/VOL_TO_CUR_PARAM)/VBAT_VOL_DIV_P2;
 }
 
 /*****************************************************************************/
@@ -293,24 +188,14 @@ uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type)
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
- uint16_t CHGMNG_VoltageToAdcvalue (uint16_t votage)
+uint16_t CHGMNG_VoltageToAdcvalue (uint16_t voltage)
 {
-    uint32_t adcvalue = 0;
-
-    if (votage < 2800)
-    {
-        SCI_PASSERT (("Voltage Setting is too low!"));
-    }
-    else if (votage <= 4200)
-    {
-        adcvalue = ( (uint16_t *) (&vbat_table)) [votage / 100 - 28] + (uint32_t) (votage % 100) * (vbat_table.vbat_4_2-vbat_table.vbat_2_8) /1400;
-    }
-    else
-    {
-        adcvalue = vbat_table.vbat_4_2 + (uint32_t) (votage - 4200) * (vbat_table.vbat_4_2-vbat_table.vbat_2_8) /1400;
-    }
-
-    return (uint16_t) (adcvalue);
+    int32_t temp;
+    temp = voltage - adc_voltage_table[0][1];
+    temp = temp * (adc_voltage_table[1][0] - adc_voltage_table[0][0]);
+    temp = temp / (adc_voltage_table[1][1] - adc_voltage_table[0][1]);
+    temp = temp + adc_voltage_table[0][0];
+    return temp;
 }
 
 /*****************************************************************************/
@@ -318,32 +203,6 @@ uint32_t CHGMNG_AdcvalueToCurrent(uint16_t voltage, uint16_t cur_type)
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
-#if 0
- uint16_t CHGMNG_AdcvalueToVoltage (uint32_t adcvalue)
-{
-    uint16_t i;
-    uint16_t voltage = 0;
-    i = 0;
-
-    while ( ( (uint16_t *) (&vbat_table)) [i] != 0xFFFF)
-    {
-        if (adcvalue <= ( (uint16_t *) (&vbat_table)) [i])
-        {
-            voltage = 2800 + i * 100 - ( ( (uint16_t *) (&vbat_table)) [i] - adcvalue) * (4200-2800) / (vbat_table.vbat_4_2-vbat_table.vbat_2_8);
-            break;
-        }
-
-        i++;
-    }
-
-    if (adcvalue > vbat_table.vbat_4_2)
-    {
-        voltage = 4200 + (adcvalue - vbat_table.vbat_4_2) * 100 / 20;
-    }
-
-    return voltage;
-}
-#else
 uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue)
 {
     int32_t temp;
@@ -352,16 +211,18 @@ uint16_t CHGMNG_AdcvalueToVoltage (uint16_t adcvalue)
     temp = temp / (adc_voltage_table[0][0] - adc_voltage_table[1][0]);
     return temp + adc_voltage_table[0][1];
 }
-
-uint16_t CHGMNG_ChargerAdcvalueToVoltage (uint16_t adcvalue)
+uint16_t CHGMNG_ChargerAdcvalueToVoltage(uint16_t adc)
 {
-    int32_t temp;
-    temp = charger_adc_voltage_table[0][1] - charger_adc_voltage_table[1][1];
-    temp = temp * (adcvalue - charger_adc_voltage_table[0][0]);
-    temp = temp / (charger_adc_voltage_table[0][0] - charger_adc_voltage_table[1][0]);
-    return temp + charger_adc_voltage_table[0][1];
+    uint32_t result;
+    uint32_t vbat_vol = CHGMNG_AdcvalueToVoltage (adc);
+    uint32_t m,n;
+    
+    ///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
+    n = VBAT_VOL_DIV_P2*VCHG_DIV_P1;
+    m = vbat_vol*VBAT_VOL_DIV_P1*(VCHG_DIV_P2);
+    result = (m + n/2)/n;
+    return result;
 }
-#endif
 
 /*****************************************************************************/
 //  Description:    Convert ADCVoltage to percentrum.

@@ -49,7 +49,7 @@
 #define   ANA_LDO_SLP2           (ANA_REG_BASE + 0x34)
 #define   ANA_DCDC_CTRL             (ANA_REG_BASE + 0x38)
 #define   ANA_DCDC_CTRL_DS           (ANA_REG_BASE + 0x3C)
-#define   ANA_CTRL_CAL           (ANA_REG_BASE + 0x40)
+#define   ANA_DCDC_CTRL_CAL           (ANA_REG_BASE + 0x40)
 #define   ANA_DCDCARM_CTRL            (ANA_REG_BASE + 0x44)
 #define   ANA_DCDCARM_CTRL_CAL      (ANA_REG_BASE + 0x48)
 #define   ANA_PLL_CTRL         (ANA_REG_BASE + 0x4C)

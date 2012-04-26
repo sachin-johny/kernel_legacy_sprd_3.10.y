@@ -18,9 +18,6 @@
 /**---------------------------------------------------------------------------*
  **                         Dependencies                                      *
  **---------------------------------------------------------------------------*/
-//#include "chip_plf_export.h"
-//#include "..\..\analog\v3\analog_reg_v3.h"
-//#include "adi_hal_internal.h"
 #include <mach/chg_drvapi.h>
 #include <linux/gpio.h>
 #include <mach/mfp.h>
@@ -48,8 +45,6 @@
 /**---------------------------------------------------------------------------*
  **                         MACRO Definations                                     *
  **---------------------------------------------------------------------------*/
-
-#define CHG_CTL             (ANA_GPIN_PG0_BASE + 0x0000)
 
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
@@ -88,18 +83,6 @@ extern   "C"
 }
 
 /*****************************************************************************/
-//  Description:    This function indicates that the charger input Vchg is above 3V.
-//                  Return: SCI_TRUE - Charge INT has happened.
-//                              SCI_FALSE - Charge INT hasn't happened.
-//  Author:         Benjamin.Wang
-//  Note:
-/*****************************************************************************/
- bool CHG_GetCHGIntStatus (void)
-{
-    return SCI_FALSE;
-}
-
-/*****************************************************************************/
 //  Description:    This function is used to shut down the charger.
 //  Author:         Benjamin.Wang
 //  Note:
@@ -119,18 +102,6 @@ extern   "C"
 {
 	ANA_REG_AND (ANA_CHGR_CTRL0,~CHGR_PD_BIT);
 	CHG_PRINT ( ("CHGMNG:CHG_TurnOn"));
-}
-
-/*****************************************************************************/
-//  Description:    This function indicates the charger status.If it is "1", the charge is done.
-//                  Return: SCI_TRUE - charge had done.
-//                              SCI_FALSE - charge hadn't finished.
-//  Author:         Benjamin.Wang
-//  Note:
-/*****************************************************************************/
- bool CHG_GetCHGDoneStatus (void)
-{
-    return SCI_FALSE;       ///sc8800g don't have this function.
 }
 
 /*****************************************************************************/
@@ -161,11 +132,7 @@ extern   "C"
 //  Author:         Benjamin.Wang
 //  Note:
 /*****************************************************************************/
- void CHG_SetSwitchoverPoint (
-    CHG_SWITPOINT_E eswitchpoint         // the input range is 0~31. shifup/down 1bit,
-    // CC-CV switchover voltage shift amount, MSB, 2bits
-    // CC-CV switchover voltage shift amount, LSB, 2bits
-)
+ void CHG_SetSwitchoverPoint (CHG_SWITPOINT_E eswitchpoint )
 {
     SCI_ASSERT (eswitchpoint <=31);
     ANA_REG_MSK_OR (ANA_CHGR_CTRL1, (eswitchpoint<<CHAR_SW_POINT_SHIFT), CHAR_SW_POINT_MSK);

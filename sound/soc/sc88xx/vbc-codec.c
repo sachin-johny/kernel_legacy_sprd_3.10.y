@@ -1473,10 +1473,10 @@ ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *b
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 // /sys/class/modem/*
 static struct class_attribute modem_class_attrs[] = { // drivers/gpio/gpiolib.c
-	__ATTR(status, 0766, modem_status_show, modem_status_store),
-    __ATTR(mode, 0766, android_mode_show, android_mode_store),
-    __ATTR(sim, 0766, android_sim_show, android_sim_store),
-    __ATTR(regs, 0766, vbc_regs_show, vbc_regs_store),
+	__ATTR(status, 0664, modem_status_show, modem_status_store),
+    __ATTR(mode, 0664, android_mode_show, android_mode_store),
+    __ATTR(sim, 0664, android_sim_show, android_sim_store),
+    __ATTR(regs, 0664, vbc_regs_show, vbc_regs_store),
 	// __ATTR(unexport, 0200, NULL, unexport_store),
 	__ATTR_NULL,
 };
@@ -1489,7 +1489,7 @@ struct class modem_class = {
 
 struct attribute vbc_param_attr = {            //added by jian
         .name = "vbc_param_config",
-        .mode = S_IRWXUGO,
+        .mode = 0644,
 };
 static struct attribute *def_vbc_param_attrs[] = {	//added by jian
         &vbc_param_attr,

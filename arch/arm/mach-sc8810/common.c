@@ -657,8 +657,19 @@ static struct platform_device rndis_device = {
 };
 #endif
 
+static char usb_from_file[30];
+
+static int __init usb_serial(char *str)
+{
+	sprintf(usb_from_file, "%s", str);
+	return 1;
+}
+__setup("usb_s=", usb_serial);
+
 void __init sprd_gadget_init(void)
 {
+	if(usb_from_file[0]){
+		andusb_plat.serial_number = usb_from_file;}
 #ifdef CONFIG_USB_ANDROID_MASS_STORAGE
 	platform_device_register(&usb_mass_storage_device);
 #endif
