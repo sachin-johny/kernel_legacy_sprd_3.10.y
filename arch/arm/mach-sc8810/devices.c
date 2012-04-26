@@ -314,6 +314,11 @@ struct platform_device sprd_battery_device = {
         .resource       = sprd_battery_resources,
 };
 
+struct platform_device sprd_vsp_device = {
+	.name	= "sprd_vsp",
+	.id	= -1,
+};
+
 #ifdef CONFIG_ANDROID_PMEM
 static struct android_pmem_platform_data sprd_pmem_pdata = {
 	.name = "pmem",
