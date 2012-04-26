@@ -895,6 +895,7 @@ CONFIG_ANDROID_PMEM=y
 # CONFIG_UID_STAT is not set
 # CONFIG_BMP085 is not set
 # CONFIG_WL127X_RFKILL is not set
+CONFIG_SPRD_VSP=y
 # CONFIG_APANIC is not set
 # CONFIG_C2PORT is not set
 

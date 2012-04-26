@@ -32,6 +32,7 @@ extern struct platform_device sprd_audio_soc_device;
 extern struct platform_device sprd_audio_soc_vbc_device;
 extern struct platform_device sprd_audio_vbc_device;
 extern struct platform_device sprd_battery_device;
+extern struct platform_device sprd_vsp_device;
 extern struct platform_device sprd_pmem_device;
 extern struct platform_device sprd_pmem_adsp_device;
 extern struct platform_device sprd_sdio0_device;
