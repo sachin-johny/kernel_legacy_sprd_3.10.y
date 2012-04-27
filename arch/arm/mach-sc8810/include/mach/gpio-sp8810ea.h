@@ -32,5 +32,8 @@
 #define EIC_CHARGER_DETECT	162
 #define EIC_KEY_POWER		163
 
+#define SPI0_CMMB_CS_GPIO  	32
+#define SPI1_WIFI_CS_GPIO  	44
+
 #define GPIO_BK		143
 #endif

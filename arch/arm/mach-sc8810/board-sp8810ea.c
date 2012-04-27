@@ -24,6 +24,7 @@
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/pixcir_i2c_ts.h>
+#include <linux/spi/spi.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
 #include "devices.h"
@@ -47,6 +48,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
+	&sprd_spi0_device,
+	&sprd_spi1_device,
 	&sprd_keypad_device,
 	&sprd_audio_soc_device,
 	&sprd_audio_soc_vbc_device,
@@ -137,6 +140,49 @@ static int audio_pa_amplifier_l(u32 cmd, void *data)
 	return ret;
 }
 
+
+static int spi_cs_gpio_map[][2] = {
+    {SPI0_CMMB_CS_GPIO,  0},
+    {SPI1_WIFI_CS_GPIO,  0},
+} ;
+
+
+static struct spi_board_info spi_boardinfo[] = {
+	{
+		.modalias = "cmmb-dev",
+		.bus_num = 0,
+		.chip_select = 0,
+		.max_speed_hz = 1000 * 1000,
+		.mode = SPI_CPOL | SPI_CPHA,
+	},
+	{
+		.modalias = "brcm-dev",
+		.bus_num = 1,
+		.chip_select = 0,
+		.max_speed_hz = 1000 * 1000,
+		.mode = SPI_CPOL | SPI_CPHA,
+	},
+};
+
+
+static void sprd_spi_init(void)
+{
+	int busnum, cs, gpio;
+	int i;
+
+	struct spi_board_info *info = spi_boardinfo;
+
+	for (i = 0; i < ARRAY_SIZE(spi_boardinfo); i++) {
+		busnum = info[i].bus_num;
+		cs = info[i].chip_select;
+		gpio   = spi_cs_gpio_map[busnum][cs];
+
+		info[i].controller_data = (void *)gpio;
+	}
+
+        spi_register_board_info(info, ARRAY_SIZE(spi_boardinfo));
+}
+
 static int sc8810_add_misc_devices(void)
 {
 	if (0) {
@@ -154,6 +200,7 @@ static void __init sc8810_init_machine(void)
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
+	sprd_spi_init();
 }
 
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,
