@@ -10,29 +10,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _DCAM_SERVICE_H_
+#define _DCAM_SERVICE_H_
 
-#ifndef __GPIO_SC8810_H__
-#define __GPIO_SC8810_H__
+#include "sensor_drv.h"
+#include "jpeg_exif_header_k.h"
+#include "dc_cfg.h"
+#include "../sc8810/dcam_service_sc8810.h"
 
-#ifndef __ASM_ARCH_BOARD_H
-#error  "Don't include this file directly, include <mach/board.h>"
-#endif
-
-/*
- * GPIO NR:
- *   0   - 15  : D-Die EIC
- *   16  - 159 : D-Die GPIO
- *   160 - 175 : A-Die EIC
- *   176 - 207 : A-Die GPIO
- */
-
-#define GPIO_TOUCH_RESET	59
-#define GPIO_TOUCH_IRQ		60
-
-#define EIC_CHARGER_DETECT	162
-#define EIC_KEY_POWER		163
-
-#define GPIO_SENSOR_RESET	72
-#define GPIO_MAIN_SENSOR_PWN    73
-#define GPIO_SUB_SENSOR_PWN       74
+#define DCAM_V4L2_PRINT pr_debug
+#define DCAM_V4L2_ERR printk
 #endif

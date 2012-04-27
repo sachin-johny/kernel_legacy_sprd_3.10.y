@@ -347,6 +347,33 @@ struct platform_device sprd_pmem_adsp_device = {
 	.id = 1,
 	.dev = {.platform_data = &sprd_pmem_adsp_pdata},
 };
+static struct resource sprd_dcam_resources[] = {
+	{
+		.start	= SPRD_ISP_BASE,
+		.end	= SPRD_ISP_BASE + SPRD_ISP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= IRQ_ISP_INT,
+		.end	= IRQ_ISP_INT,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+struct platform_device sprd_dcam_device = {
+	.name		= "sprd_dcam",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(sprd_dcam_resources),
+	.resource	= sprd_dcam_resources,
+};
+struct platform_device sprd_scale_device = {
+	.name	= "sprd_scale",
+	.id	= -1,
+};
+
+struct platform_device sprd_rotation_device = {
+	.name	= "sprd_rotation",
+	.id	= -1,
+};
 #endif
 
 static struct resource sprd_sdio0_resources[] = {

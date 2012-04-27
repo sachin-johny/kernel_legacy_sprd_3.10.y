@@ -37,5 +37,8 @@ extern struct platform_device sprd_pmem_device;
 extern struct platform_device sprd_pmem_adsp_device;
 extern struct platform_device sprd_sdio0_device;
 extern struct platform_device sprd_sdio1_device;
+extern struct platform_device sprd_dcam_device;
+extern struct platform_device sprd_scale_device;
+extern struct platform_device sprd_rotation_device;
 
 #endif

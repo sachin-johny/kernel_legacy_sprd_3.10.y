@@ -10,29 +10,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _SENSOR_CFG_H_
+#define _SENSOR_CFG_H_
 
-#ifndef __GPIO_SC8810_H__
-#define __GPIO_SC8810_H__
+#include "sensor_drv.h"
 
-#ifndef __ASM_ARCH_BOARD_H
-#error  "Don't include this file directly, include <mach/board.h>"
-#endif
+struct sensor_drv_cfg {
+	struct list_head list;
+	uint32_t sensor_pos;
+	const char *sensor_name;
+	SENSOR_INFO_T *driver_info;
+};
+int dcam_register_sensor_drv(struct sensor_drv_cfg *cfg);
+struct list_head *Sensor_GetList(SENSOR_ID_E sensor_id);
 
-/*
- * GPIO NR:
- *   0   - 15  : D-Die EIC
- *   16  - 159 : D-Die GPIO
- *   160 - 175 : A-Die EIC
- *   176 - 207 : A-Die GPIO
- */
-
-#define GPIO_TOUCH_RESET	59
-#define GPIO_TOUCH_IRQ		60
-
-#define EIC_CHARGER_DETECT	162
-#define EIC_KEY_POWER		163
-
-#define GPIO_SENSOR_RESET	72
-#define GPIO_MAIN_SENSOR_PWN    73
-#define GPIO_SUB_SENSOR_PWN       74
 #endif

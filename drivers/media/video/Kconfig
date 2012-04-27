@@ -637,6 +637,15 @@ config VIDEO_VIVI
 # USB Multimedia device configuration
 #
 
+config VIDEO_DCAM_SPRD
+	tristate "SPRD DCAM driver"
+	select VIDEOBUF_VMALLOC
+	help
+	  Support digital camera for SPRD
+
+source "drivers/media/video/sprd_dcam/Kconfig"
+source "drivers/media/video/davinci/Kconfig"
+
 menuconfig V4L_USB_DRIVERS
 	bool "V4L USB devices"
 	depends on USB

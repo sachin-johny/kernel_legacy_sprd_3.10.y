@@ -10,29 +10,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _SIN_COS_H_
+#define _SIN_COS_H_
+#include <linux/types.h>
 
-#ifndef __GPIO_SC8810_H__
-#define __GPIO_SC8810_H__
-
-#ifndef __ASM_ARCH_BOARD_H
-#error  "Don't include this file directly, include <mach/board.h>"
-#endif
-
-/*
- * GPIO NR:
- *   0   - 15  : D-Die EIC
- *   16  - 159 : D-Die GPIO
- *   160 - 175 : A-Die EIC
- *   176 - 207 : A-Die GPIO
- */
-
-#define GPIO_TOUCH_RESET	59
-#define GPIO_TOUCH_IRQ		60
-
-#define EIC_CHARGER_DETECT	162
-#define EIC_KEY_POWER		163
-
-#define GPIO_SENSOR_RESET	72
-#define GPIO_MAIN_SENSOR_PWN    73
-#define GPIO_SUB_SENSOR_PWN       74
+#define COSSIN_Q 30
+#define pi              3.14159265359
+#define PI_32           0x3243F6A88
+#define ARC_32_COEF     2147483648
+#define ARC_32(arc) (int32_t)((arc) / (pi) * 2147483648);
+int32_t sin_32(int32_t n);
+int32_t cos_32(int32_t n);
 #endif

@@ -10,29 +10,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _GEN_SCALE_COEF_H_
+#define _GEN_SCALE_COEF_H_
+#include <linux/types.h>
 
-#ifndef __GPIO_SC8810_H__
-#define __GPIO_SC8810_H__
+#define SCALER_COEF_TAP_NUM_HOR			48
+#define SCALER_COEF_TAP_NUM_VER			68
 
-#ifndef __ASM_ARCH_BOARD_H
-#error  "Don't include this file directly, include <mach/board.h>"
-#endif
-
-/*
- * GPIO NR:
- *   0   - 15  : D-Die EIC
- *   16  - 159 : D-Die GPIO
- *   160 - 175 : A-Die EIC
- *   176 - 207 : A-Die GPIO
- */
-
-#define GPIO_TOUCH_RESET	59
-#define GPIO_TOUCH_IRQ		60
-
-#define EIC_CHARGER_DETECT	162
-#define EIC_KEY_POWER		163
-
-#define GPIO_SENSOR_RESET	72
-#define GPIO_MAIN_SENSOR_PWN    73
-#define GPIO_SUB_SENSOR_PWN       74
+uint8_t GenScaleCoeff(int16_t i_w, int16_t i_h, int16_t o_w, int16_t o_h,
+		      uint32_t * coeff_h_ptr, uint32_t * coeff_v_ptr,
+		      void *temp_buf_ptr, uint32_t temp_buf_size);
 #endif
