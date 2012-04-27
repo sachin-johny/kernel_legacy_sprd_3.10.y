@@ -27,6 +27,8 @@ extern struct platform_device sprd_backlight_device;
 extern struct platform_device sprd_i2c_device0;
 extern struct platform_device sprd_i2c_device1;
 extern struct platform_device sprd_i2c_device2;
+extern struct platform_device sprd_spi0_device;
+extern struct platform_device sprd_spi1_device;
 extern struct platform_device sprd_keypad_device;
 extern struct platform_device sprd_audio_soc_device;
 extern struct platform_device sprd_audio_soc_vbc_device;

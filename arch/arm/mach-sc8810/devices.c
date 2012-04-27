@@ -269,6 +269,50 @@ struct platform_device sprd_i2c_device3 = {
 	.resource       = sprd_i2c_resources3,
 };
 
+/* 8810 SPI devices.  */
+static struct resource spi0_resources[] = {
+    [0] = {
+        .start = SPRD_SPI0_BASE,
+        .end = SPRD_SPI0_BASE + SPRD_SPI0_SIZE - 1,
+        .flags = IORESOURCE_MEM,
+    },
+    [1] = {
+        .start = IRQ_SPI0_INT,
+        .end = IRQ_SPI0_INT,
+        .flags = IORESOURCE_IRQ,
+    },
+};
+
+
+static struct resource spi1_resources[] = {
+    [0] = {
+        .start = SPRD_SPI1_BASE,
+        .end = SPRD_SPI1_BASE + SPRD_SPI1_SIZE - 1,
+        .flags = IORESOURCE_MEM,
+    },
+    [1] = {
+        .start = IRQ_SPI1_INT,
+        .end = IRQ_SPI1_INT,
+        .flags = IORESOURCE_IRQ,
+    },
+};
+
+
+struct platform_device sprd_spi0_device = {
+    .name = "sprd_spi",
+    .id = 0,
+    .resource = spi0_resources,
+    .num_resources = ARRAY_SIZE(spi0_resources),
+};
+
+struct platform_device sprd_spi1_device = {
+    .name = "sprd_spi",
+    .id = 1,
+    .resource = spi1_resources,
+    .num_resources = ARRAY_SIZE(spi1_resources),
+};
+
+
 static struct resource sprd_keypad_resources[] = {
         {
                 .start = IRQ_KPD_INT,

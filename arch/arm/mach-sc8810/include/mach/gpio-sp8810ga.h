@@ -32,6 +32,8 @@
 #define EIC_CHARGER_DETECT	162
 #define EIC_KEY_POWER		163
 
+#define SPI0_CMMB_CS_GPIO  	32
+
 #define GPIO_SENSOR_RESET	72
 #define GPIO_MAIN_SENSOR_PWN    73
 #define GPIO_SUB_SENSOR_PWN       74
