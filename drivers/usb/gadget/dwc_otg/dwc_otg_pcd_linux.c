@@ -94,7 +94,7 @@ static struct gadget_wrapper {
 	 */
 	struct timer_list cable_timer;
 	struct workqueue_struct *detect_wq;
-	struct work_struct detect_work;
+	struct delayed_work detect_work;
 
 	struct switch_dev sdev;
 	int udc_startup;
@@ -1161,7 +1161,7 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	}
 
 	d->vbus = value;
-	queue_work(d->detect_wq, &d->detect_work);
+	queue_delayed_work(d->detect_wq, &d->detect_work, HZ);
 
 	return IRQ_HANDLED;
 }
@@ -1290,7 +1290,7 @@ int pcd_init(
 				"usb detect", otg_dev->pcd);
 	}
 
-	INIT_WORK(&gadget_wrapper->detect_work, usb_detect_works);
+	INIT_DELAYED_WORK(&gadget_wrapper->detect_work, usb_detect_works);
 	gadget_wrapper->detect_wq = create_singlethread_workqueue("usb detect wq");
 	/*
 	 * register a switch device for sending pnp message,

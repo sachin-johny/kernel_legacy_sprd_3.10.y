@@ -461,7 +461,7 @@ static int plugin_callback(int usb_cable, void *data)
 	unsigned long irq_flags;
 	int ac_adapter = 0;
 
-	DEBUG("charger plugin interrupt happen\n");
+	pr_info("charger plugin interrupt happen\n");
 	if ( !d ) {
 		pr_warning("batttery_data is NULL!!\n");
 		return 1;
@@ -490,7 +490,7 @@ static int plugout_callback(int usb_cable, void *data)
 	struct sprd_battery_data *d = battery_data;
 	unsigned long irq_flags;
 
-	DEBUG("charger plugout interrupt happen\n");
+	pr_info("charger plugout interrupt happen\n");
 	if ( !d ) {
 		pr_warning("batttery_data is NULL!!\n");
 		return 1;
@@ -967,6 +967,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
     int charger_present;
     unsigned int efuse_cal_data[2] = {0};
 
+	pr_info("%s start\n", __func__);
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
 		ret = -ENOMEM;
