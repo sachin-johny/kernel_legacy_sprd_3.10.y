@@ -10,29 +10,21 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _DC_CFG_H_
+#define _DC_CFG_H_
 
-#ifndef __GPIO_SC8810_H__
-#define __GPIO_SC8810_H__
-
-#ifndef __ASM_ARCH_BOARD_H
-#error  "Don't include this file directly, include <mach/board.h>"
+#define DCAM_CFG_DEBUG 1
+#ifdef DCAM_CFG_DEBUG
+#define DCAM_CFG_PRINT pr_debug
+#else
+#define DCAM_CFG_PRINT(...)
 #endif
+#define DCAM_CFG_ERR printk
 
-/*
- * GPIO NR:
- *   0   - 15  : D-Die EIC
- *   16  - 159 : D-Die GPIO
- *   160 - 175 : A-Die EIC
- *   176 - 207 : A-Die GPIO
- */
-
-#define GPIO_TOUCH_RESET	59
-#define GPIO_TOUCH_IRQ		60
-
-#define EIC_CHARGER_DETECT	162
-#define EIC_KEY_POWER		163
-
-#define GPIO_SENSOR_RESET	72
-#define GPIO_MAIN_SENSOR_PWN    73
-#define GPIO_SUB_SENSOR_PWN       74
+#include <linux/types.h>
+#include "jpeg_exif_header_k.h"
+JINF_EXIF_INFO_T *DC_InitExifParameter(JINF_EXIF_INFO_T * exif_info_ptr,
+				       uint32_t size);
+JINF_EXIF_INFO_T *DC_GetExifParameter(void);
+void DC_GetExifParameter_Post(void);
 #endif
