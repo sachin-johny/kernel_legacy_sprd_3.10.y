@@ -74,6 +74,10 @@ extern   "C"
 #define OVP_OVER_VOL 6500   //6.5V
 #define OVP_RECV_VOL 5800   //5.8V
 
+#define ADC_CAL_TYPE_NO         0
+#define ADC_CAL_TYPE_NV         1
+#define ADC_CAL_TYPE_EFUSE      2
+
 /**---------------------------------------------------------------------------*
  **                         Data Structures                                   *
  **---------------------------------------------------------------------------*/

@@ -300,17 +300,17 @@ static ssize_t sprd_set_caliberate(struct device *dev,
         battery_data->ac_online = 0;
         break;
     case BATTERY_0:
-        if(battery_data->adc_cal_updated == 0){
+        if(battery_data->adc_cal_updated != ADC_CAL_TYPE_NV){
             adc_voltage_table[0][1]=set_value&0xffff;
             adc_voltage_table[0][0]=(set_value>>16)&0xffff;
         }
         break;
     case BATTERY_1:
-        if(battery_data->adc_cal_updated == 0){
+        if(battery_data->adc_cal_updated != ADC_CAL_TYPE_NV){
             adc_voltage_table[1][1]=set_value&0xffff;
             adc_voltage_table[1][0]=(set_value>>16)&0xffff;
             CHGMNG_VoltageToPercentum(0, 0, 1, 0);
-            battery_data->adc_cal_updated = 1;
+            battery_data->adc_cal_updated = ADC_CAL_TYPE_NV;
         }
         break;
 	case HW_SWITCH_POINT:
@@ -976,7 +976,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
     data->charging = 0;
     data->cur_type = 400;
-    data->adc_cal_updated = 0;
+    data->adc_cal_updated = ADC_CAL_TYPE_NO;
 
     data->over_voltage = OVP_OVER_VOL;
     data->over_voltage_recovery = OVP_RECV_VOL;
@@ -1019,7 +1019,8 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		adc_voltage_table[0][1]=efuse_cal_data[0]&0xffff;
 		adc_voltage_table[0][0]=(efuse_cal_data[0]>>16)&0xffff;
 		adc_voltage_table[1][1]=efuse_cal_data[1]&0xffff;
-		adc_voltage_table[1][0]=(efuse_cal_data[1]>>16)&0xffff;			
+		adc_voltage_table[1][0]=(efuse_cal_data[1]>>16)&0xffff;	
+        data->adc_cal_updated = ADC_CAL_TYPE_EFUSE;
  	}
 
     ADC_Init();
