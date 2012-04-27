@@ -74,7 +74,7 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 
 int do_dcdc_init(void *data)
 {
-	int ret, cnt = 60 * 10;	//ten minutes
+	int ret, cnt = 60 * 3;	//three minutes
 	int dcdc_def_vol = 1100;	//FIXME: how to read dcdc value?
 	debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type());
 
@@ -85,10 +85,11 @@ int do_dcdc_init(void *data)
 
 	do {
 		msleep(1000);
-	} while (sprd_get_adc_cal_type() && cnt--);	//wait for user app setup battery calibrate params
+	} while (0 == sprd_get_adc_cal_type() && --cnt);	//wait for user app setup battery calibrate params
+	debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type());
 
-	if (0 == cnt) {
-		info("%s timeout\n", __FUNCTION__);
+	if (0 == cnt || 0 == sprd_get_adc_cal_type()) {
+		info("%s maybe timeout\n", __FUNCTION__);
 		return 0;
 	}
 
