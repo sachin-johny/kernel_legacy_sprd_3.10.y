@@ -684,7 +684,8 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 	}
 	vbc_set_mainclk_to12M();
 	vbc_set_ctrl2arm();
-	if (poweron) vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE);
+	if (poweron)
+		vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE | VBC_CODEC_POWER_ON_OUT_MUTE_DAC);
 	vbc_ready2go();
 	vbc_set_AD_DA_fifo_frame_num(VBC_FIFO_FRAME_NUM, VBC_FIFO_FRAME_NUM);
 	vbc_buffer_clear_all(); /* must have this func, or first play will have noise */
