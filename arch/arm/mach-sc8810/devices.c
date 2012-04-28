@@ -391,6 +391,7 @@ struct platform_device sprd_pmem_adsp_device = {
 	.id = 1,
 	.dev = {.platform_data = &sprd_pmem_adsp_pdata},
 };
+#endif
 static struct resource sprd_dcam_resources[] = {
 	{
 		.start	= SPRD_ISP_BASE,
@@ -418,7 +419,6 @@ struct platform_device sprd_rotation_device = {
 	.name	= "sprd_rotation",
 	.id	= -1,
 };
-#endif
 
 static struct resource sprd_sdio0_resources[] = {
 	[0] = {
