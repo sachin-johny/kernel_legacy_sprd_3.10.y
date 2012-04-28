@@ -90,9 +90,10 @@ static const struct soc_enum vbc_codec_reset_enum =
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
 	SOC_ENUM("Micphone", vbc_mic12_enum),
 	SOC_SINGLE("PCM Playback Switch", VBCR1, DAC_MUTE, 1, 1),
-	SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+	/*SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
 	SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
 	SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+	*/
 	SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
 	SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
 	SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
@@ -710,7 +711,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 	vbc_reg_write(VBCGR3, 0, 0, 0x1f);
 #if !VBC_EQ_MODULE_SUPPORT
 	vbc_reg_write(VBCGR1, 0, 0x00, 0xff); /* DAC Gain */
-	vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
+	vbc_reg_write(VBCGR8, 0, 0x1f, 0x1f);
 	vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
 #endif
 
