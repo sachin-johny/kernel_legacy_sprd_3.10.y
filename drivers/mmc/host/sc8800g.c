@@ -44,27 +44,6 @@
 
 #define SDIO_MAX_CLK  SDIO_BASE_CLK_96M  //96Mhz
 
-/*
-*   NOTE: sdhci_sdio1_set_power() is for CSR UNIFI6030, if wifi were not initialized at boot
-* boot time, there will be 4mA current leakage;
-*   For another devices on sdio1 bus, should not call this function if on strong reasons
-*/
-static void sdhci_sdio1_set_power( struct sdhci_host *host ){
- 
-   printk("%s\n", __func__);
-   
-   msleep(10000);
-
-   mmc_power_off(host->mmc);  
-   
-   __gpio_set_value(140, 0);
-   __gpio_set_value(137, 0);
-   
-   sdhci_bus_scan( );
-
-   return;
-}
-
 
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
@@ -146,24 +125,6 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
    return;	  
 }
 
-/*
-*   NOTE: sdhci_sdio1_set_power() is for CSR UNIFI6030, if wifi were not initialized at boot
-* boot time, there will be 4mA current leakage;
-*   For another devices on sdio1 bus, should not call this function if on strong reasons
-*/
-static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power){
-   printk("%s, entry\n", __func__ );
-   if((!strcmp(host->hw_name, "Spread SDIO host1")) && (!power) ){
-   
-      pid_t sdio1_power_thread;
-      sdio1_power_thread = kernel_thread(sdhci_sdio1_set_power, host, 0);
-      if(sdio1_power_thread<0)
-          printk("!!!!! sdio1_power_thread isn't allowed to be created !!!\n");
-   
-      printk("%s, done\n", __func__ );
-   }
-   return 0; 
-}
 
 static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
@@ -244,10 +205,9 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		goto err_add_host;
 	}
       
-        host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ); 
+        host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
 
-	sdhci_sprd_set_power(host, 0);
-    printk("sdhci_sprd_probe, done\n");
+	printk("sdhci_sprd_probe, done\n");
 	return 0;
 
  err_add_host:
@@ -281,48 +241,24 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
 
-    if(host->ops->set_clock){
-	    host->ops->set_clock(host, 1); //enable ahb clock to restore registers
+	if(host->ops->set_clock){
+		host->ops->set_clock(host, 1); //enable ahb clock to restore registers
 	}
-        /*   VDD_SDIO must not be off when in deep-sleep, because of 
-        *  host-wake-up.(correct?)
-	    *    modification below is for CSR. CSR's chips need whole initialization  
-	    *  even if the power is not off.So we clear MMC_PM_KEEP_POWER flag. before 
-	    *  resume, and set it again after resume, or resume will 
-	    *  failed. Other wifi manufacturers may not need this.
-	    *    0x032a is vendor id of CSR. 
-	    */
-	if((host->mmc->card) && (host->mmc->card->cis.vendor ==  0x032a) ){
-        printk("wifi: clear MMC_PM_KEEP_POWER flag\n");
-		host->mmc->pm_flags &= ~MMC_PM_KEEP_POWER; 
-	}
-	
+
 	sdhci_resume_host(host);
-	
-	if((host->mmc->card) && (host->mmc->card->cis.vendor ==  0x032a) ){		
-        printk("wifi: set MMC_PM_KEEP_POWER flag\n");
-        host->mmc->pm_flags |= MMC_PM_KEEP_POWER; 
-	}
-#if 0	
-	if( !(host->mmc->pm_flags & MMC_PM_KEEP_POWER) ){
-            if(host->ops->set_clock){
-	      host->ops->set_clock(host, 0);
-	    }
-    }
-#endif
 
-	//disable sdio0(T-FLASH card) ahb clock  
+	//disable sdio0(T-FLASH card) ahb clock
 	if(mmc_bus_manual_resume(host->mmc)) {
-	   if(host->ops->set_clock){
-	     host->ops->set_clock(host, 0);  
-	   }
+		if(host->ops->set_clock){
+			host->ops->set_clock(host, 0);
+		}
 	}
 
-	//disable sdio1(WIFI) ahb clock  
+	//disable sdio1(WIFI) ahb clock
 	if(!(host->mmc->card) ){
-       if(host->ops->set_clock){
-	     host->ops->set_clock(host, 0);  
-	   }
+		if(host->ops->set_clock){
+			host->ops->set_clock(host, 0);
+		}
 	}
 
 	return 0;
