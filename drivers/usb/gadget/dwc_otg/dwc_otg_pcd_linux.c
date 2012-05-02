@@ -1172,7 +1172,6 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	}
 
 	d->vbus = value;
-	gpio_direction_input(EIC_CHARGER_DETECT);
 	queue_work(d->detect_wq, &d->detect_work);
 
 	return IRQ_HANDLED;

@@ -554,7 +554,7 @@ static irqreturn_t pixcir_ts_isr(int irq, void *dev_id)
 {
 	struct pixcir_ts_struct *tsdata = (struct pixcir_ts_struct *)dev_id;
 
-	//disable irq
+	PIXCIR_DBG("%s",__func__);
 	disable_irq_nosync(irq);
 
 	if (!work_pending(&tsdata->pen_event_work)) {
@@ -574,7 +574,10 @@ static void pixcir_ts_irq_work(struct work_struct *work)
 {
 	struct pixcir_ts_struct *tsdata = g_pixcir_ts;
 	pixcir_ts_poscheck(tsdata);
-    enable_irq(tsdata->client->irq);
+
+	PIXCIR_DBG("%s--enable irq",__func__);
+
+	enable_irq(tsdata->client->irq);
 }
 
 #ifdef CONFIG_PM_SLEEP

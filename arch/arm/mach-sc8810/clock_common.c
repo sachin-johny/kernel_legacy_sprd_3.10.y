@@ -22,7 +22,7 @@
 #include <linux/io.h>
 #include <linux/bitops.h>
 
-#include <mach/clock_common.h>
+#include "clock_common.h"
 
 static DEFINE_MUTEX(clocks_mutex);
 static DEFINE_SPINLOCK(clockfw_lock);
@@ -203,7 +203,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 			rate_after = clk->rate;
 		}
 		if (rate_before != rate_after) {
-			printk("clock[%s]: Rates are not equal after recalc(%lu --> %lu).\n", 
+			printk("clock[%s]: Rates are not equal after recalc(%lu --> %lu).\n",
 				clk->name, rate_before, rate_after);
 			ret = -EINVAL;
 		}

@@ -14,9 +14,9 @@
 #ifndef __ASM_ARCH_SPRD_IRQS_H
 #define __ASM_ARCH_SPRD_IRQS_H
 
-/* 
- * naming rule: name in chip spec plus  an "IRQ_" prefix 
- * see spec 4.5.2 
+/*
+ * naming rule: name in chip spec plus  an "IRQ_" prefix
+ * see spec 4.5.2
  */
 
 /* general irq numbers */
@@ -79,7 +79,7 @@
 #define IRQ_SDIO1_INT		31
 #define IRQ_AXI_BUS_MON		31
 
-/* analog die irq numbers */
+/* analog die irq numbers in adi.c */
 #define NR_ANA_IRQS		7
 
 #define IRQ_ANA_INT_START	NR_SPRD_IRQS
@@ -92,17 +92,12 @@
 #define IRQ_ANA_EIC_INT		(IRQ_ANA_INT_START + 5)
 #define IRQ_ANA_CHGRWDG_INT	(IRQ_ANA_INT_START + 6)
 
-/* digital gpio irq numbers */
-#define NR_GPIO_IRQS		160	/* digital gpio irq */
+/* all gpio/eic irq numbers in gpio_eic.c */
+#define NR_GPIO_IRQS		(208)
 
 #define GPIO_IRQ_START		(NR_SPRD_IRQS + NR_ANA_IRQS)
 
-/* analog gpio+eic irq numbers */
-#define NR_EIC_ALL_IRQS		(32 + 16)
-
-#define EIC_IRQ_START		(NR_SPRD_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
-
-/* total irq numbers */
-#define NR_IRQS			(NR_SPRD_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS + NR_EIC_ALL_IRQS)
+/* total irq numbers, the last one is reserved and used in gpio_eic.c */
+#define NR_IRQS			(NR_SPRD_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS + 1)
 
 #endif

@@ -15,13 +15,10 @@
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/interrupt.h>
+#include <linux/io.h>
 
-#include <asm/io.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
-#include <mach/adi.h>
-#include <mach/ana_ctl_int.h>
-#include "adi_internal.h"
 
 /* general interrupt registers */
 #define	INTCV_REG(off)        (SPRD_INTCV_BASE + (off))
@@ -64,7 +61,7 @@ static int sprd_irq_set_type(struct irq_data *data, unsigned int flow_type)
 }
 
 static struct irq_chip sprd_irq_chip = {
-	.name = "sprd",
+	.name = "irq-sprd",
 	.irq_ack = sprd_irq_ack,
 	.irq_mask = sprd_irq_mask,
 	.irq_unmask = sprd_irq_unmask,
@@ -72,85 +69,11 @@ static struct irq_chip sprd_irq_chip = {
 	.irq_set_type = sprd_irq_set_type,
 };
 
-/* ****************************************************************** */
-
-/* Analog Die interrupt registers */
-#define ANA_CTL_INT_BASE				( SPRD_MISC_BASE + 0x380 )
-
-void sprd_ack_ana_irq(struct irq_data *data)
-{
-	/* nothing to do... */
-}
-
-static void sprd_mask_ana_irq(struct irq_data *data)
-{
-	int offset = data->irq - IRQ_ANA_INT_START;
-	sci_adi_clr(ANA_REG_INT_EN, BIT(offset & MASK_ANA_INT));
-}
-
-static void sprd_unmask_ana_irq(struct irq_data *data)
-{
-	int offset = data->irq - IRQ_ANA_INT_START;
-	sci_adi_set(ANA_REG_INT_EN, BIT(offset & MASK_ANA_INT));
-}
-
-/* WARN: disable/enable is the same with umask/mask. */
-static void sprd_disable_ana_irq(struct irq_data *data)
-{
-	sprd_mask_ana_irq(data);
-}
-
-static void sprd_enable_ana_irq(struct irq_data *data)
-{
-	sprd_unmask_ana_irq(data);
-}
-
-static struct irq_chip sprd_muxed_ana_chip = {
-	.name = "ANA",
-	.irq_ack = sprd_ack_ana_irq,
-	.irq_mask = sprd_mask_ana_irq,
-	.irq_unmask = sprd_unmask_ana_irq,
-	.irq_disable = sprd_disable_ana_irq,
-	.irq_enable = sprd_enable_ana_irq,
-};
-
-static void sprd_ana_demux_handler(unsigned int irq, struct irq_desc *desc)
-{
-	uint32_t irq_ana;
-	uint32_t status;
-	int i;
-
-	desc->irq_data.chip->irq_mask(&desc->irq_data);
-	if (desc->irq_data.chip->irq_ack)
-		desc->irq_data.chip->irq_ack(&desc->irq_data);
-	/* TODO IF gpu has interrupt coming
-	   if (gpu_has_interrupt)
-	   generic_handle_irq(gpu_interrpt_id);
-	 */
-	status = sci_adi_read(ANA_REG_INT_MASK_STATUS);
-
-	for (i = 0; i < NR_ANA_IRQS; ++i) {
-		if ((status >> i) & 0x1) {
-			irq_ana = IRQ_ANA_INT_START + i;
-			generic_handle_irq(irq_ana);
-		}
-	}
-	if (desc->irq_data.chip->irq_unmask)
-		desc->irq_data.chip->irq_unmask(&desc->irq_data);
-}
-
 void __init sc8810_init_irq(void)
 {
 	int n;
 	for (n = 0; n < NR_SPRD_IRQS; n++) {
 		irq_set_chip_and_handler(n, &sprd_irq_chip, handle_level_irq);
-		set_irq_flags(n, IRQF_VALID);
-	}
-
-	irq_set_chained_handler(IRQ_ANA_INT, sprd_ana_demux_handler);
-	for (n = IRQ_ANA_INT_START; n < IRQ_ANA_INT_START + NR_ANA_IRQS; n++) {
-		irq_set_chip_and_handler(n, &sprd_muxed_ana_chip,
-					 handle_level_irq);
 		set_irq_flags(n, IRQF_VALID);
 	}
 }

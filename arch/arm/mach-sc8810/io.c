@@ -60,7 +60,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(KPD),
 	SPRD_DEVICE(SYSCNT),
 	SPRD_DEVICE(PWM),
-	SPRD_DEVICE(RTC),
+	SPRD_DEVICE(EFUSE),
 	SPRD_DEVICE(WDG),
 	SPRD_DEVICE(GPIO),
 	SPRD_DEVICE(GREG),

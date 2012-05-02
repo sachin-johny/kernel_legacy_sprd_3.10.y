@@ -14,7 +14,6 @@
 #ifndef __ARCH_ARM_SC8810_CLOCK_SC8800G2_H
 #define __ARCH_ARM_SC8810_CLOCK_SC8800G2_H
 
-#define IOMEM(a)	__io(a)
 extern const struct clkops clkops_null;
 
 int sc88xx_clksel_rournd_rate_clkr(struct clk *clk, unsigned long target_rate,

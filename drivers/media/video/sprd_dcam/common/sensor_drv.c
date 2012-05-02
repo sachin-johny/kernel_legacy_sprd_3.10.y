@@ -12,17 +12,16 @@
  */
 #include <linux/delay.h>
 #include <linux/slab.h>
-#include "sensor_cfg.h"
-#include <mach/clock_common.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include <mach/board.h>
-#include <mach/gpio-sp8810ga.h>
+#include "sensor_cfg.h"
 #include "sensor_drv.h"
 #include "sensor_cfg.h"
-#include "../sc8810/dcam_common.h"
+
+#define _pard(a) __raw_readl(a)
 
 #define SENSOR_ONE_I2C	1
 #define SENSOR_ZERO_I2C	0
@@ -262,7 +261,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 {
 	uint8_t i, j, mark_src = 0, mark_div = 0, mark_src_tmp = 0;
 	int clk_tmp, src_delta, src_delta_min = NUMBER_MAX;
-	int div_delta, div_delta_min = NUMBER_MAX;
+	int div_delta_min = NUMBER_MAX;
 
 	printk("SENSOR:select_sensor_mclk,clk_set=%d.\n", clk_set);
 	if (clk_set > 96 || !clk_src_name || !clk_div) {
@@ -333,32 +332,26 @@ int Sensor_SetMCLK(uint32_t mclk)
 		clk_parent = clk_get(NULL, clk_src_name);
 		if (!clk_parent) {
 			SENSOR_PRINT_ERR
-			    ("###:clock[%s]: failed to get parent [%s] by clk_get()!\n",
-			     s_ccir_clk->name, clk_src_name);
+			    ("###:clock: failed to get clock [%s] by clk_get()!\n", clk_src_name);
 			return -EINVAL;
 		}
 
 		ret = clk_set_parent(s_ccir_clk, clk_parent);
 		if (ret) {
 			SENSOR_PRINT_ERR
-			    ("###:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n",
-			     s_ccir_clk->name, clk_parent->name,
-			     s_ccir_clk->usecount);
+			    ("###:clock: clk_set_parent() failed!parent \n");
 			return -EINVAL;
 		}
 
 		ret = clk_set_rate(s_ccir_clk, (mclk * SENOR_CLK_M_VALUE));
 		if (ret) {
 			SENSOR_PRINT_ERR
-			    ("###:clock[%s]: clk_set_rate failed!\n",
-			     s_ccir_clk->name);
+			    ("###:clock: clk_set_rate failed!\n");
 			return -EINVAL;
 		}
 		ret = clk_enable(s_ccir_clk);
 		if (ret) {
-			SENSOR_PRINT_ERR
-			    ("###:clock[%s]: clk_enable() failed!\n",
-			     s_ccir_clk->name);
+			SENSOR_PRINT_ERR("###:clock: clk_enable() failed!\n");
 		} else {
 			SENSOR_PRINT("###sensor s_ccir_clk clk_enable ok.\n");
 		}
@@ -379,8 +372,7 @@ int Sensor_SetMCLK(uint32_t mclk)
 			ret = clk_enable(s_ccir_enable_clk);
 			if (ret) {
 				SENSOR_PRINT_ERR
-				    ("###:clock[%s]: clk_enable() failed!\n",
-				     s_ccir_enable_clk->name);
+				    ("###:clock: clk_enable() failed!\n");
 			} else {
 				SENSOR_PRINT
 				    ("###sensor s_ccir_enable_clk clk_enable ok.\n");

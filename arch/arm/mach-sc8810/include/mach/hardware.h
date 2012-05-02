@@ -41,11 +41,6 @@
 #define SPRD_ISP_PHYS	0x20200000
 #define SPRD_ISP_SIZE	SZ_4K
 
-/* USB device space */
-//#define SPRD_USB_BASE	(SPRD_REGS_BASE + 0x00003000)
-//#define SPRD_USB_PHYS	0x20300000
-//#define SPRD_USB_SIZE	SZ_4K
-
 /* busmonitor control 0 registers */
 #define SPRD_BUSM0_BASE	(SPRD_REGS_BASE + 0x00004000)
 #define SPRD_BUSM0_PHYS	0x20400000
@@ -76,10 +71,10 @@
 #define SPRD_ROTO_PHYS	0x20800000
 #define SPRD_ROTO_SIZE	SZ_4K
 
-/* AHB control registers 
+/* AHB control registers
 NOTE: the real AHB phisical address base is 0x20900100, but here
 we can only map the address aligned by page size, so the
-defination of AHB registers should be SPRD_AHB_BASE + 0x100 + 
+defination of AHB registers should be SPRD_AHB_BASE + 0x100 +
 register offset.
 */
 
@@ -151,7 +146,7 @@ register offset.
 #define SPRD_SIM1_PHYS	0x85003000
 #define SPRD_SIM1_SIZE	SZ_4K
 
-/* I2C */ 
+/* I2C */
 #define SPRD_I2C0_BASE	(SPRD_REGS_BASE + 0x00028000)
 #define SPRD_I2C0_PHYS	0x86000000
 #define SPRD_I2C0_SIZE	SZ_4K
@@ -168,12 +163,10 @@ register offset.
 #define SPRD_I2C3_PHYS	0x86003000
 #define SPRD_I2C3_SIZE	SZ_4K
 
-
 /* keypad and system counter share the same base */
 #define SPRD_KPD_BASE	(SPRD_REGS_BASE + 0x0002c000)
 #define SPRD_KPD_PHYS	0x87000000
 #define SPRD_KPD_SIZE	SZ_4K
-//#define SPRD_SYSCNT_BASE SPRD_KPD_BASE
 
 #define SPRD_SYSCNT_BASE	(SPRD_REGS_BASE + 0x0002d000)
 #define SPRD_SYSCNT_PHYS	0x87003000
@@ -184,10 +177,10 @@ register offset.
 #define SPRD_PWM_PHYS	0x88000000
 #define SPRD_PWM_SIZE	SZ_4K
 
-/* real time clock */
-#define SPRD_RTC_BASE	(SPRD_REGS_BASE + 0x0002f000)
-#define SPRD_RTC_PHYS	0x89000000
-#define SPRD_RTC_SIZE	SZ_4K
+/* efuse */
+#define SPRD_EFUSE_BASE	(SPRD_REGS_BASE + 0x0002f000)
+#define SPRD_EFUSE_PHYS	0x89000000
+#define SPRD_EFUSE_SIZE	SZ_4K
 
 /* watchdog */
 #define SPRD_WDG_BASE	(SPRD_REGS_BASE + 0x00030000)

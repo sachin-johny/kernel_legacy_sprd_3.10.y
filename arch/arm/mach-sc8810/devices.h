@@ -14,10 +14,9 @@
 #ifndef __ARCH_ARM_MACH_SPRD_DEVICES_H
 #define __ARCH_ARM_MACH_SPRD_DEVICES_H
 
-extern struct platform_device sprd_device_example;
+extern struct platform_device sprd_serial_device0;
 extern struct platform_device sprd_serial_device1;
 extern struct platform_device sprd_serial_device2;
-extern struct platform_device sprd_serial_device3;
 extern struct platform_device sprd_device_rtc;
 extern struct platform_device sprd_nand_device;
 extern struct platform_device sprd_lcd_device0;

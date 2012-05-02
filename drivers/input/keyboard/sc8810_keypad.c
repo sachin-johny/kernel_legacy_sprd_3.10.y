@@ -161,8 +161,6 @@ static irqreturn_t sprd_powerkey_isr(int irq, void *dev_id)
 		irq_set_irq_type(irq, IRQF_TRIGGER_HIGH);
 	}
 
-	gpio_direction_input(ANA_GPI_PB);
-
 	return IRQ_HANDLED;
 }
 

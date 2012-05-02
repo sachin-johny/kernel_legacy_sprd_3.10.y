@@ -17,8 +17,6 @@
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <asm/irq.h>
-#include <mach/clock_common.h>
-#include <mach/clock_sc8810.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
 #include "usb_hw.h"

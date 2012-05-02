@@ -23,7 +23,6 @@
 #include <asm/io.h>
 #include <linux/file.h>
 #include <linux/slab.h>
-#include <mach/clock_common.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <video/sprd_scale.h>
@@ -117,30 +116,19 @@ static int _SCALE_DriverSetMclk(SCALE_CLK_SEL_E clk_sel)
 		break;
 	}
 
-	clk_parent = clk_get_parent(g_scale_clk);
-	SCALE_PRINT("SCALE:_SCALE_DriverSetMclk,clock[%s]: parent_name: %s.\n",
-		    g_scale_clk->name, clk_parent->name);
-	if (strcmp(name_parent, clk_parent->name)) {
-		clk_parent = clk_get(NULL, name_parent);
-		if (!clk_parent) {
-			SCALE_PRINT_ERR
-			    ("SCALE:clock[%s]: failed to get parent [%s] by clk_get()!\n",
-			     g_scale_clk->name, name_parent);
-			return -EINVAL;
-		}
+	clk_parent = clk_get(NULL, name_parent);
+	if (clk_parent && clk_parent != clk_get_parent(g_scale_clk)) {
 		ret = clk_set_parent(g_scale_clk, clk_parent);
 		if (ret) {
 			SCALE_PRINT_ERR
-			    ("SCALE:clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n",
-			     g_scale_clk->name, clk_parent->name,
-			     g_scale_clk->usecount);
+			    ("SCALE:clock: clk_set_parent() failed!\n");
 			return -EINVAL;
 		}
 	}
+
 	ret = clk_enable(g_scale_clk);
 	if (ret) {
-		SCALE_PRINT_ERR("SCALE:clock[%s]: clk_enable() failed!\n",
-				g_scale_clk->name);
+		SCALE_PRINT_ERR("SCALE:clock: clk_enable() failed!\n");
 	} else {
 		SCALE_PRINT("SCALE:g_scale_clk clk_enable ok.\n");
 	}
@@ -1092,8 +1080,7 @@ int _SCALE_DriverIOInit(void) {
 				g_scale_clk);
 	} else {
 		SCALE_PRINT_ERR
-		    ("SCALE:_SCALE_DriverIOInit, g_scale_clk clk_get ok.g_dcam_clk->parent->usecount: %d.\n",
-		     g_scale_clk->parent->usecount);
+		    ("SCALE:_SCALE_DriverIOInit, g_scale_clk clk_get ok\n");
 	}
 	s_scale_mod.module_addr = DCAM_REG_BASE;
 	g_scale_num++;
