@@ -537,6 +537,9 @@ void vbc_power_on(unsigned int value)
 			vbc_reg_VBPMR2_set(SB_SLEEP, 0); /* SB quit sleep mode */
 
 			vbc_codec_mute();
+
+			vbc_buffer_clear_all(); /* must have this func, or first play will have noise */
+
 			/* earpiece_muted = */ vbc_reg_VBCR1_set(BTL_MUTE, 1); /* Mute earpiece */
 			/* headset_muted =  */ vbc_reg_VBCR1_set(HP_DIS, 1); /* Mute headphone */
 			/* speaker_muted =  */ audio_speaker_enable(false, "vbc_power_on playback"); /* Mute speaker */
@@ -849,6 +852,8 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
 			#endif
 #if !VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
 			vbc_dma_start(substream);
+#else
+			vbc_buffer_clear_all(); /* must have this func, or first play will have noise */
 #endif
 			break;
 		case SNDRV_PCM_TRIGGER_STOP:
