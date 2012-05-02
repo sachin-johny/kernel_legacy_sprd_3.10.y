@@ -192,6 +192,7 @@ struct sprd_dma_channel_desc{
 	u32 cfg_req_mode_sel;/* request mode */
 	u32 cfg_src_wrap_en;
 	u32 cfg_dst_wrap_en;
+	u32 cfg_no_auto_close;
 	u32 cfg_blk_len;
 	u32 total_len;
 	u32 src_addr;
@@ -313,5 +314,5 @@ int  sprd_dma_irq_handler_ready(u32 chn);
 
 /* ONLY FOR DEBUG */
 void sprd_dma_check_channel(void);
-void sprd_dma_dump_regs(void);
+void sprd_dma_dump_regs(u32 chn_id);
 #endif
