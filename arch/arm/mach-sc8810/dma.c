@@ -181,7 +181,7 @@ EXPORT_SYMBOL_GPL(sprd_dma_check_channel);
  * dump main dma regs for DEBUG
  *
  */
-void sprd_dma_dump_regs(void){
+void sprd_dma_dump_regs(u32 chn_id){
 	printk("==== DMA_CFG:0x%x ===\n", __raw_readl(DMA_CFG) );
 	printk("==== DMA_CHx_EN_STATUS:0x%x ===\n", __raw_readl(DMA_CHN_EN_STATUS) );
 	printk("==== DMA_LINKLIST_EN:0x%x ===\n", __raw_readl(DMA_LINKLIST_EN) );
@@ -219,6 +219,16 @@ void sprd_dma_dump_regs(void){
 
 	printk("==== DMA_TRANS_STS:0x%x ===\n", __raw_readl(DMA_TRANS_STS) );
 	printk("==== DMA_REQ_PEND:0x%x ===\n", __raw_readl(DMA_REQ_PEND) );
+
+	printk("==== DMA_CH%d_CFG0:0x%x ===\n", chn_id, __raw_readl(DMA_CHx_CFG0(chn_id)) );
+	printk("==== DMA_CH%d_CFG1:0x%x ===\n", chn_id, __raw_readl(DMA_CHx_CFG1(chn_id)) );
+	printk("==== DMA_CH%d_SRC_ADDR:0x%x ===\n", chn_id, __raw_readl(DMA_CHx_SRC_ADDR(chn_id)) );
+	printk("==== DMA_CH%d_DEST_ADDR:0x%x ===\n", chn_id, __raw_readl(DMA_CHx_DEST_ADDR(chn_id)) );
+	printk("==== DMA_CH%d_LLPTR:0x%x ===\n", chn_id, __raw_readl(DMA_CHx_LLPTR(chn_id)) );
+	printk("==== DMA_CH%d_SDEP:0x%x ===\n", chn_id, __raw_readl(DMA_CHx_SDEP(chn_id)) );
+	printk("==== DMA_CH%d_SBP:0x%x ===\n", chn_id, __raw_readl(DMA_CHx_SBP(chn_id)) );
+	printk("==== DMA_CH%d_DBP:0x%x ===\n", chn_id, __raw_readl(DMA_CHx_DBP(chn_id)) );
+
 }
 EXPORT_SYMBOL_GPL(sprd_dma_dump_regs);
 
@@ -270,14 +280,30 @@ u32 dma_check_channel(u32 uid)
 		WARN_ON(1);
 		return -1;
 	}
-	for(chn=DMA_CHN_MIN; chn<DMA_CHN_NUM; chn++){
-		if(sprd_irq_handlers[chn].dma_uid==uid)
-		  	return chn;
 
-		if((sprd_irq_handlers[chn].handler==NULL) && (sprd_irq_handlers[chn].used!=1)){
-			return chn;
+	if(uid == DMA_UID_SOFTWARE){
+		for(chn=DMA_CHN_MIN; chn<DMA_CHN_NUM; chn++){
+			if((sprd_irq_handlers[chn].handler==NULL) &&
+				(sprd_irq_handlers[chn].used!=1)) {
+				return chn;
+			}
+		}
+	}else{
+		/* return the same channel if not freed */
+		for(chn=DMA_CHN_MIN; chn<DMA_CHN_NUM; chn++){
+			if(sprd_irq_handlers[chn].dma_uid==uid)
+				return chn;
+		}
+		for(chn=DMA_CHN_MIN; chn<DMA_CHN_NUM; chn++){
+			if((sprd_irq_handlers[chn].handler==NULL) &&
+				(sprd_irq_handlers[chn].used!=1)) {
+				return chn;
+			}
 		}
 	}
+
+	printk(" !!! %s, no more channels left\n", __func__ );
+	return -1;
 }
 
 /*
@@ -372,7 +398,7 @@ EXPORT_SYMBOL_GPL(sprd_dma_free);
  */
 static void dma_channel_start(int dma_chn, int on_off)
 {
-	PRINT_FLOW("%s, dma_chn:%d, %d", __func__, dma_chn, on_off);
+	pr_debug("%s, dma_chn:%d, %d", __func__, dma_chn, on_off);
 	switch(on_off){
 	case ON:
 		dma_reg_bits_and (~(1<<dma_chn), DMA_CHx_DIS);
@@ -386,7 +412,7 @@ static void dma_channel_start(int dma_chn, int on_off)
 		printk("??? dma_channel_start??? what you mean?\n");
 	}
 
-	PRINT_FLOW("%s, DMA_CHN_EN_STATUS:0x%x", __func__, __raw_readl(DMA_CHN_EN_STATUS) );
+	pr_debug("%s, DMA_CHN_EN_STATUS:0x%x", __func__, __raw_readl(DMA_CHN_EN_STATUS) );
 	return;
 }
 
@@ -580,6 +606,7 @@ void sprd_dma_chn_cfg_update(u32 chn, struct sprd_dma_channel_desc *desc)
 			desc->cfg_req_mode_sel   |
 			desc->cfg_src_wrap_en    |
 			desc->cfg_dst_wrap_en    |
+			desc->cfg_no_auto_close  |
 			(desc->cfg_blk_len&CFG_BLK_LEN_MASK)
 		);
 	chn_elem_postm = ((desc->src_elem_postm & SRC_ELEM_POSTM_MASK)<<SRC_ELEM_POSTM_SHIFT) |
