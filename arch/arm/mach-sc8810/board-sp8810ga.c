@@ -37,10 +37,9 @@ extern void __init regulator_add_devices(void);
 extern void __init sc8810_clock_init(void);
 
 static struct platform_device *devices[] __initdata = {
-	&sprd_device_example,
+	&sprd_serial_device0,
 	&sprd_serial_device1,
 	&sprd_serial_device2,
-	&sprd_serial_device3,
 	&sprd_device_rtc,
 	&sprd_nand_device,
 	&sprd_lcd_device0,
@@ -96,8 +95,6 @@ static void __init sprd_add_otg_device(void)
 	platform_device_register(&sprd_otg_device);
 }
 
-/*============================TOUCH SCREEN================================*/
-
 static struct pixcir_ts_platform_data pixcir_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
@@ -114,10 +111,8 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
 };
-/*============================TOUCH SCREEN END================================*/
-/* sprd8810_i2c2sel_config
- * config I2C2 SDA/SCL to SIM2 pads
- */
+
+/* config I2C2 SDA/SCL to SIM2 pads */
 static void sprd8810_i2c2sel_config(void)
 {
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, PINCTRL_I2C2_SEL, GR_PIN_CTL);

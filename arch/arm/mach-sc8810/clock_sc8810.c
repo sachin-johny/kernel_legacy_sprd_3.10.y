@@ -24,18 +24,14 @@
 
 #include <linux/clkdev.h>
 
-#include <mach/clock_common.h>
-#include <mach/clock_sc8810.h>
+#include "clock_common.h"
+#include "clock_sc8810.h"
 
 #define CLK_FW_ERR(fmt, ...)    printk(KERN_ERR fmt, ##__VA_ARGS__)
-#ifdef CLK_FW_DEBUG
-#define pr_info(fmt, ...)		printk(KERN_INFO fmt, ##__VA_ARGS__)
-#else
-#define CLK_FW_INFO(x...)
-#endif
+#define CLK_FW_INFO(fmt, ...)	printk(KERN_INFO fmt, ##__VA_ARGS__)
 
 #define GREG_BASE		SPRD_GREG_BASE
-#define AHB_REG_BASE	(SPRD_AHB_BASE+0x200)
+#define AHB_REG_BASE		(SPRD_AHB_BASE+0x200)
 
 #define GR_PLL_SCR		(GREG_BASE + 0x0070)
 #define GR_GEN0			(GREG_BASE + 0x0008)
@@ -56,16 +52,16 @@
 #define GR_PCTL			(GREG_BASE + 0x000C)
 #define GR_CLK_EN		(GREG_BASE + 0x0074)
 #define GR_MPLL_MN		(GREG_BASE + 0x0024)
-#define GR_DPLL_CTRL	(GREG_BASE + 0x0040)
+#define GR_DPLL_CTRL		(GREG_BASE + 0x0040)
 
 /* control registers. */
-#define 	PLL_SCR		GR_PLL_SCR
-#define 	GEN0		GR_GEN0
-#define 	GEN1		GR_GEN1
-#define 	GEN2		GR_GEN2
-#define 	GEN3		GR_GEN3
-#define 	GEN4		GR_GEN4
-#define 	GEN5		GR_CLK_GEN5
+#define PLL_SCR		GR_PLL_SCR
+#define GEN0		GR_GEN0
+#define GEN1		GR_GEN1
+#define GEN2		GR_GEN2
+#define GEN3		GR_GEN3
+#define GEN4		GR_GEN4
+#define GEN5		GR_CLK_GEN5
 #define	PLLMN_CTRL	GR_MPLL_MN
 #define	CLK_DLY		GR_CLK_DLY
 #define	PCTRL		GR_PCTL
@@ -616,13 +612,13 @@ static struct clk ccir_mclk = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = ccir_mclk_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_reg = __io(PLL_SCR),
 	.clksel_mask = CCIR_MCLK_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(GEN0),
+	.enable_reg = __io(GEN0),
 	.enable_bit = CCIR_MCLK_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 };
 
@@ -654,13 +650,13 @@ static struct clk clk_ccir = {
 
 	.clksel = clk_ccir_clksel,
 	/*
-	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_reg = __io(PLL_SCR),
 	.clksel_mask = CLK_IIS_CLKSEL_MASK,
 	*/
-	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_reg = __io(AHB_CTL0),
 	.enable_bit = CLK_CCIR_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN2),
+	.clkdiv_reg = __io(GEN2),
 	.clkdiv_mask = CLK_IIS_CLKDIV_MASK,
 	*/
 };
@@ -746,13 +742,13 @@ static struct clk clk_dcam = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_dcam_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_reg = __io(PLL_SCR),
 	.clksel_mask = CLK_DCAM_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_reg = __io(AHB_CTL0),
 	.enable_bit = CLK_DCAM_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -780,13 +776,13 @@ static struct clk clk_vsp = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_vsp_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_reg = __io(PLL_SCR),
 	.clksel_mask = CLK_VSP_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_reg = __io(AHB_CTL0),
 	.enable_bit = CLK_VSP_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -815,13 +811,13 @@ static struct clk clk_lcdc = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_lcdc_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_reg = __io(PLL_SCR),
 	.clksel_mask = CLK_LCDC_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_reg = __io(AHB_CTL0),
 	.enable_bit = CLK_LCDC_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(GEN4),
+	.clkdiv_reg = __io(GEN4),
 	.clkdiv_mask = CLK_LCDC_CLKDIV_MASK,
 };
 
@@ -848,13 +844,13 @@ static struct clk clk_sdio0 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_sdio0_clksel,
-	.clksel_reg = IOMEM(GEN5),
+	.clksel_reg = __io(GEN5),
 	.clksel_mask = CLK_SDIO0_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_reg = __io(AHB_CTL0),
 	.enable_bit = CLK_SDIO0_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -882,13 +878,13 @@ static struct clk clk_sdio1 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_sdio1_clksel,
-	.clksel_reg = IOMEM(GEN5),
+	.clksel_reg = __io(GEN5),
 	.clksel_mask = CLK_SDIO1_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_reg = __io(AHB_CTL0),
 	.enable_bit = CLK_SDIO1_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -919,13 +915,13 @@ static struct clk clk_uart0 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_uart0_clksel,
-	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_reg = __io(CLK_DLY),
 	.clksel_mask = CLK_UART0_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(GEN0),
+	.enable_reg = __io(GEN0),
 	.enable_bit = CLK_UART0_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(GEN5),
+	.clkdiv_reg = __io(GEN5),
 	.clkdiv_mask = CLK_UART0_CLKDIV_MASK,
 };
 
@@ -955,13 +951,13 @@ static struct clk clk_uart1 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_uart1_clksel,
-	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_reg = __io(CLK_DLY),
 	.clksel_mask = CLK_UART1_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(GEN0),
+	.enable_reg = __io(GEN0),
 	.enable_bit = CLK_UART1_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(GEN5),
+	.clkdiv_reg = __io(GEN5),
 	.clkdiv_mask = CLK_UART1_CLKDIV_MASK,
 };
 
@@ -991,13 +987,13 @@ static struct clk clk_uart2 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_uart2_clksel,
-	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_reg = __io(CLK_DLY),
 	.clksel_mask = CLK_UART2_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(GEN0),
+	.enable_reg = __io(GEN0),
 	.enable_bit = CLK_UART2_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(GEN5),
+	.clkdiv_reg = __io(GEN5),
 	.clkdiv_mask = CLK_UART2_CLKDIV_MASK,
 };
 
@@ -1026,13 +1022,13 @@ static struct clk clk_spi = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_spi_clksel,
-	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_reg = __io(CLK_DLY),
 	.clksel_mask = CLK_SPI_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(GEN0),
+	.enable_reg = __io(GEN0),
 	.enable_bit = CLK_SPI_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(GEN2),
+	.clkdiv_reg = __io(GEN2),
 	.clkdiv_mask = CLK_SPI_CLKDIV_MASK,
 };
 
@@ -1057,13 +1053,13 @@ static struct clk clk_adi_m = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_adi_m_clksel,
-	.clksel_reg = IOMEM(CLK_DLY),
+	.clksel_reg = __io(CLK_DLY),
 	.clksel_mask = CLK_ADI_M_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(CLK_DLY),
+	.enable_reg = __io(CLK_DLY),
 	.enable_bit = CLK_ADI_M_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -1164,13 +1160,13 @@ static struct clk clk_aux0 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_aux0_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_reg = __io(PLL_SCR),
 	.clksel_mask = CLK_AUX0_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(GEN1),
+	.enable_reg = __io(GEN1),
 	.enable_bit = CLK_AUX0_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(GEN1),
+	.clkdiv_reg = __io(GEN1),
 	.clkdiv_mask = CLK_AUX0_CLKDIV_MASK,
 };
 
@@ -1199,13 +1195,13 @@ static struct clk clk_aux1 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_aux1_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_reg = __io(PLL_SCR),
 	.clksel_mask = CLK_AUX1_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(GEN1),
+	.enable_reg = __io(GEN1),
 	.enable_bit = CLK_AUX1_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(PCTRL),
+	.clkdiv_reg = __io(PCTRL),
 	.clkdiv_mask = CLK_AUX1_CLKDIV_MASK,
 };
 
@@ -1234,13 +1230,13 @@ static struct clk clk_iis = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_iis_clksel,
-	.clksel_reg = IOMEM(PLL_SCR),
+	.clksel_reg = __io(PLL_SCR),
 	.clksel_mask = CLK_IIS_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(GEN0),
+	.enable_reg = __io(GEN0),
 	.enable_bit = CLK_IIS_EN_SHIFT,
 
-	.clkdiv_reg = IOMEM(GEN2),
+	.clkdiv_reg = __io(GEN2),
 	.clkdiv_mask = CLK_IIS_CLKDIV_MASK,
 };
 
@@ -1265,13 +1261,13 @@ static struct clk clk_pwm0 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_pwm0_clksel,
-	.clksel_reg = IOMEM(CLK_EN),
+	.clksel_reg = __io(CLK_EN),
 	.clksel_mask = CLK_PWM0_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(CLK_EN),
+	.enable_reg = __io(CLK_EN),
 	.enable_bit = CLK_PWM0_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -1297,13 +1293,13 @@ static struct clk clk_pwm1 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_pwm1_clksel,
-	.clksel_reg = IOMEM(CLK_EN),
+	.clksel_reg = __io(CLK_EN),
 	.clksel_mask = CLK_PWM1_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(CLK_EN),
+	.enable_reg = __io(CLK_EN),
 	.enable_bit = CLK_PWM1_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -1329,13 +1325,13 @@ static struct clk clk_pwm2 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_pwm2_clksel,
-	.clksel_reg = IOMEM(CLK_EN),
+	.clksel_reg = __io(CLK_EN),
 	.clksel_mask = CLK_PWM2_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(CLK_EN),
+	.enable_reg = __io(CLK_EN),
 	.enable_bit = CLK_PWM2_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -1361,13 +1357,13 @@ static struct clk clk_pwm3 = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_pwm3_clksel,
-	.clksel_reg = IOMEM(CLK_EN),
+	.clksel_reg = __io(CLK_EN),
 	.clksel_mask = CLK_PWM3_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(CLK_EN),
+	.enable_reg = __io(CLK_EN),
 	.enable_bit = CLK_PWM3_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -1393,13 +1389,13 @@ static struct clk clk_usb_ref = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_usb_ref_clksel,
-	.clksel_reg = IOMEM(AHB_CTL3),
+	.clksel_reg = __io(AHB_CTL3),
 	.clksel_mask = CLK_USB_REF_CLKSEL_MASK,
 
-	.enable_reg = IOMEM(AHB_CTL0),
+	.enable_reg = __io(AHB_CTL0),
 	.enable_bit = CLK_USB_REF_EN_SHIFT,
 	/*
-	.clkdiv_reg = IOMEM(GEN3),
+	.clkdiv_reg = __io(GEN3),
 	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
 	*/
 };
@@ -1427,13 +1423,13 @@ static struct clk clk_mcu = {
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_mcu_clksel,
-	.clksel_reg = IOMEM(AHB_ARM_CLK),
+	.clksel_reg = __io(AHB_ARM_CLK),
 	.clksel_mask = CLK_MCU_CLKSEL_MASK,
 	/*
-	.enable_reg = IOMEM(GEN1),
+	.enable_reg = __io(GEN1),
 	.enable_bit = CLK_MCU_EN_SHIFT,
 	*/
-	.clkdiv_reg = IOMEM(AHB_ARM_CLK),
+	.clkdiv_reg = __io(AHB_ARM_CLK),
 	.clkdiv_mask = CLK_MCU_CLKDIV_MASK,
 };
 
@@ -1452,12 +1448,11 @@ static struct clk clk_axi = {
 	.clkdm_name = "core",
 
 	.recalc = &sc88xx_recalc_generic,
-//	.set_rate = &sc88xx_set_rate_generic,
 	.init = &sc88xx_init_clksel_parent,
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_axi_clksel,
-	.clkdiv_reg = IOMEM(AHB_CA5_CFG),
+	.clkdiv_reg = __io(AHB_CA5_CFG),
 	.clkdiv_mask = CLK_AXI_CLKDIV_MASK,
 
 };
@@ -1476,12 +1471,11 @@ static struct clk clk_ahb = {
 	.clkdm_name = "core",
 
 	.recalc = &sc88xx_recalc_generic,
-//	.set_rate = &sc88xx_set_rate_generic,
 	.init = &sc88xx_init_clksel_parent,
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_ahb_clksel,
-	.clkdiv_reg = IOMEM(AHB_ARM_CLK),
+	.clkdiv_reg = __io(AHB_ARM_CLK),
 	.clkdiv_mask = CLK_AHB_CLKDIV_MASK,
 
 };
@@ -1503,18 +1497,14 @@ static struct clk clk_emc = {
 	.clkdm_name = "core",
 
 	.recalc = &sc88xx_recalc_generic,
-//	.set_rate = &sc88xx_set_rate_generic,
 	.init = &sc88xx_init_clksel_parent,
 	.round_rate = &sc88xx_clksel_round_rate,
 
 	.clksel = clk_emc_clksel,
-	.clksel_reg = IOMEM(AHB_ARM_CLK),
+	.clksel_reg = __io(AHB_ARM_CLK),
 	.clksel_mask = CLK_EMC_CLKSEL_MASK,
 
-//	.enable_reg = IOMEM(AHB_CTL0),
-//	.enable_bit = CLK_EMC_EN_SHIFT,
-
-	.clkdiv_reg = IOMEM(AHB_ARM_CLK),
+	.clkdiv_reg = __io(AHB_ARM_CLK),
 	.clkdiv_mask = CLK_EMC_CLKDIV_MASK,
 };
 
@@ -1595,14 +1585,14 @@ static void _sc88xx_clk_commit(struct clk *clk)
 
 static unsigned long sc8800g2_mpllcore_recalc(struct clk *clk)
 {
-	unsigned long refclk = 4000000;//4//4M MPLL_REFIN
+	unsigned long refclk = 4000000;
 	unsigned long v = __raw_readl(GR_MPLL_MN);
 	return refclk * (v & 0x7ff);
 }
 
 static unsigned long sc8800g2_dpllcore_recalc(struct clk *clk)
 {
-	unsigned long refclk = 4000000;//4//4M DPLL_REFIN
+	unsigned long refclk = 4000000;
 	unsigned long v = __raw_readl(GR_DPLL_CTRL);
 	return refclk * (v & 0x7ff);
 }
@@ -1734,23 +1724,20 @@ static int sc88xx_clk_set_parent(struct clk *clk, struct clk *new_parent)
 		return -EINVAL;
 	}
 
-	//CLK_FW_ERR("get parent [%s]\n", new_parent->name);
 	clks = sc88xx_get_clksel_by_parent(clk, new_parent);
 	if (!clks) {
-		CLK_FW_ERR("clock[%s]: Can't find parent [%s]!\n", clk->name, 
+		CLK_FW_ERR("clock[%s]: Can't find parent [%s]!\n", clk->name,
 					new_parent->name);
 		return -EPERM;
 	}
 
 	field_val = clks->val;
-	//CLK_FW_ERR("name = [%s], clks->val = %08x\n", clks->parent->name, clks->val);
 
 	WARN_ON(clk->clksel_mask == 0);
 
 	v = __raw_readl(clk->clksel_reg);
 	v &= (~clk->clksel_mask);
 	v |= (field_val << __ffs(clk->clksel_mask));
-	//CLK_FW_ERR("field_val = %08x, v = %08x\n", field_val, v);
 	__raw_writel(v, clk->clksel_reg);
 	v = __raw_readl(clk->clksel_reg);
 
@@ -1912,12 +1899,12 @@ int sc88xx_set_rate_generic(struct clk *clk, unsigned long rate)
 
 	if ((!clk->clkdiv_reg) || (!clk->clkdiv_mask)) {
 		if (rate == clk->parent->rate) {
-			CLK_FW_INFO("clock[%s]: set same rate as parent[%s].\n", 
+			CLK_FW_INFO("clock[%s]: set same rate as parent[%s].\n",
 				clk->name, clk->parent->name);
 			return 0;
 		}
 		else {
-			CLK_FW_ERR("clock[%s]: no divisor, rate can't be changed!\n", 
+			CLK_FW_ERR("clock[%s]: no divisor, rate can't be changed!\n",
 				clk->name);
 			return -EINVAL;
 		}
@@ -2040,7 +2027,7 @@ int __init sc8810_clock_init(void)
 
 	rates_init();
 	clk_init(&sc8810_clk_functions);
-		
+
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 		clk_preinit(c->lk.clk);
 		clkdev_add(&c->lk);
@@ -2051,7 +2038,7 @@ int __init sc8810_clock_init(void)
 
 	clk_enable_init_clocks();
 	CLK_FW_ERR("###: sc8810_clock_init() is done.\n");
-	
+
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 					p = c->lk.clk;
 		printk("clock: [%s], parent = [%s], usecount = %d, rate = %ld.\n",
@@ -2086,11 +2073,11 @@ int sc8810_get_clock_info(void)
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 		p = c->lk.clk;
 	    if (p->usecount) {
-	        CLK_FW_INFO("###: clock[%s] is active now, [flags = %08x] [usecount = %d].\n", 
+	        CLK_FW_INFO("###: clock[%s] is active now, [flags = %08x] [usecount = %d].\n",
 		    p->name, p->flags, p->usecount);
 
 		    status |= p->flags;
-		    
+
 		    if (p->flags & DEVICE_AHB) {
 		        CLK_FW_INFO("###: clcok[%s] is on AHB.\n", p->name);
 		    }

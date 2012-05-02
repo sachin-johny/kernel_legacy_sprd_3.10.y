@@ -14,10 +14,16 @@
 #ifndef __ADI_H__
 #define __ADI_H__
 
+/*
+ * WARN: the arguments (reg, value) is different from
+ * the general __raw_writel(value, reg)
+ */
+
+/* reg is a virtual address based on SPRD_MISC_BASE */
 int sci_adi_read(u32 reg);
 int sci_adi_raw_write(u32 reg, u16 val);
 int sci_adi_write(u32 reg, u16 val, u16 msk);
 int sci_adi_set(u32 reg, u16 bits);
 int sci_adi_clr(u32 reg, u16 bits);
 
-#endif //__ADI_H__
+#endif

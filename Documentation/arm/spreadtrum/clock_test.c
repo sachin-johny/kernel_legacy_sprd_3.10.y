@@ -24,9 +24,8 @@
 
 #include <asm/clkdev.h>
 
-#include <mach/clock_common.h>
-#include <mach/clock_sc8810.h>
-
+#include "clock_common.h"
+#include "clock_sc8810.h"
 
 #define GREG_BASE     		SPRD_GREG_BASE
 #define AHB_REG_BASE      (SPRD_AHB_BASE+0x200)

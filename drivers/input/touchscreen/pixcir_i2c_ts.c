@@ -300,7 +300,7 @@ static void pixcir_ts_virtual_keys_init(void)
  */
 static void pxicir_ts_pininit(int irq_pin, int rst_pin)
 {
-	printk(KERN_INFO "====%s==== [irq=%d];[rst=%d]\n",__func__,irq_pin,rst_pin);
+	printk(KERN_INFO "%s [irq=%d];[rst=%d]\n",__func__,irq_pin,rst_pin);
 	gpio_request(irq_pin, TS_IRQ_PIN);
 	gpio_request(rst_pin, TS_RESET_PIN);
 }
@@ -311,7 +311,7 @@ static void pxicir_ts_pininit(int irq_pin, int rst_pin)
  */
 static void pixcir_ts_pwron(struct regulator *reg_vdd)
 {
-	printk(KERN_INFO "====%s====\n",__func__);
+	printk(KERN_INFO "%s\n",__func__);
 	regulator_set_voltage(reg_vdd, 2700000, 2800000);
 	regulator_enable(reg_vdd);
 	msleep(20);
@@ -332,7 +332,7 @@ static int attb_read_val(int gpio_pin)
  */
 static void pixcir_reset(int reset_pin)
 {
-	printk(KERN_INFO "====%s====\n",__func__);
+	printk(KERN_INFO "%s\n",__func__);
 	gpio_direction_output(reset_pin, 0);
 	msleep(3);
 	gpio_set_value(reset_pin, 1);
@@ -480,7 +480,6 @@ static irqreturn_t pixcir_ts_isr(int irq, void *dev_id)
 	struct pixcir_ts_struct *tsdata = (struct pixcir_ts_struct *)dev_id;
 
 	PIXCIR_DBG("%s",__func__);
-	//disable irq
 	disable_irq_nosync(irq);
 
 	if (!work_pending(&tsdata->pen_event_work)) {
@@ -504,8 +503,7 @@ static void pixcir_ts_irq_work(struct work_struct *work)
 	pixcir_ts_poscheck(tsdata);
 	PIXCIR_DBG("%s--enable irq",__func__);
 
-    enable_irq(tsdata->client->irq);
-
+	enable_irq(tsdata->client->irq);
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -541,7 +539,7 @@ static int pixcir_i2c_ts_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 
-	printk(KERN_INFO "====%s====\n",__func__);
+	printk(KERN_INFO "%s\n",__func__);
 	pixcir_reset(g_pixcir_ts->platform_data->reset_gpio_number);
 	if (device_may_wakeup(&client->dev))
 		disable_irq_wake(client->irq);
@@ -1033,7 +1031,6 @@ static int __init pixcir_i2c_ts_init(void)
 	/********************************Bee-0928-BOTTOM******************************************/
 	return i2c_add_driver(&pixcir_i2c_ts_driver);
 }
-module_init(pixcir_i2c_ts_init);
 
 static void __exit pixcir_i2c_ts_exit(void)
 {
@@ -1043,6 +1040,8 @@ static void __exit pixcir_i2c_ts_exit(void)
 	unregister_chrdev(I2C_MAJOR,"pixcir_i2c_ts");
 	/********************************Bee-0928-BOTTOM******************************************/
 }
+
+module_init(pixcir_i2c_ts_init);
 module_exit(pixcir_i2c_ts_exit);
 
 MODULE_AUTHOR("Yunlong wang <yunlong.wang@spreadtrum.com>");

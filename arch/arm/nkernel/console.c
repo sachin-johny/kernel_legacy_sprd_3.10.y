@@ -499,7 +499,7 @@ vcons_rx_intr (NkPort* port)
 vcons_tx_intr (NkPort* port)
 {
     unsigned long		flags;
-    
+    int				line;
 
     spin_lock_irqsave(&port->lock, flags);
 
@@ -511,7 +511,6 @@ vcons_tx_intr (NkPort* port)
     spin_unlock_irqrestore(&port->lock, flags);
 
 #ifdef CONFIG_TS0710_MUX_UART
-    int				line;
     line = NKLINE(port->tty);
     if ((3==line) && cmux_opened()){
 	CON_PRINT("func[%s]:serial_mux_sender\n",__FUNCTION__);
@@ -766,7 +765,7 @@ serial_open (struct tty_struct* tty, struct file* filp)
     line = NKLINE(tty);
     port = line + serial_port;
 	
-    printk("serial_open tty addr = 0x%x, filp = 0x%x, port = 0x%x\n", tty, filp,port);
+    printk("serial_open tty addr = %p, filp = %p, port =%p\n", tty, filp, port);
 #ifdef CONFIG_TS0710_MUX_UART
 	if(line == 3){
 
@@ -777,7 +776,7 @@ serial_open (struct tty_struct* tty, struct file* filp)
 		} else {
 			serial_mux_guard++;
 			serial_for_mux_tty = tty;
-			printk("=========serial_for_mux_tty=%p========\n",serial_for_mux_tty);
+			printk("serial_open: serial_for_mux_tty=%p\n",serial_for_mux_tty);
 		}
 	}
 #endif
@@ -834,7 +833,7 @@ serial_close (struct tty_struct* tty, struct file* filp)
 	}
 #endif
 
-    printk("serial_close tty addr = 0x%x, filp = 0x%x, port->count=0x%x\n", tty, filp, port->count);
+    printk("serial_close tty addr = %p, filp = %p, port->count=0x%x\n", tty, filp, port->count);
     port->count--;
     if (port->count == 0) {
 
@@ -911,7 +910,7 @@ serial_init (void)
 
 #ifdef CONFIG_TS0710_MUX_UART
 	serial_for_mux_driver = &serial_driver;
-	printk("=========serial_for_mux_driver=%p========\n",serial_for_mux_driver);
+	printk("serial_init: serial_for_mux_driver=%p\n",serial_for_mux_driver);
 	//serial_for_mux_tty = &serial_tty;
 	serial_mux_guard = 0;
 #endif

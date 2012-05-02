@@ -189,6 +189,7 @@ static void sprd_gptimer_clocksource_init(void)
 {
 	/* disalbe irq since it's just a read source */
 	__raw_writel(0, TIMER_INT(SOURCE_TIMER));
+	disable_irq(IRQ_TIMER2_INT);
 
 	/* set timer load as maximal */
 	sprd_gptimer_ctl(SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
@@ -230,6 +231,7 @@ static void sprd_syscnt_clocksource_init(void)
 {
 	/* disable irq for syscnt */
 	__raw_writel(0, SYSCNT_CTL);
+	disable_irq(IRQ_SYST_INT);
 
 	clocksource_register_hz(&sprd_syscnt, SYSCNT_FREQ);
 }
@@ -246,8 +248,6 @@ unsigned long long sched_clock(void)
 
 void __init sc8810_timer_init(void)
 {
-	unsigned int value;
-
 	/* enable timer & syscnt in global regs */
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_TIMER_EN | GEN0_SYST_EN, GR_GEN0);
 

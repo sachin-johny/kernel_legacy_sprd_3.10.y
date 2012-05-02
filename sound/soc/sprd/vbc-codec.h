@@ -20,7 +20,6 @@
 #include <mach/hardware.h>
 #include <mach/globalregs.h>
 #include <mach/adi.h>
-#include <mach/ctl_adi.h>
 #include <asm/io.h>
 
 #define VBC_FIFO_FRAME_NUM	  160
@@ -113,7 +112,8 @@ enum {
 };
 /* -------------------------- */
 #define SPRD_VBC_ALSA_CTRL2ARM_REG (SPRD_GREG_BASE + GR_BUSCLK)
-#define ARM_VB_BASE SPRD_VB_BASE
+
+#define ARM_VB_BASE		SPRD_VB_BASE
 
 #define VIRT_VBDA0		(SPRD_VB_BASE + 0x0000) /* 0x0000  Voice band DAC0 data buffer */
 #define VIRT_VBDA1		(SPRD_VB_BASE + 0x0004) /* 0x0002  Voice band DAC1 data buffer */
@@ -124,10 +124,10 @@ enum {
 #define PHYS_VBAD0		(SPRD_VB_PHYS + 0x0008) /* 0x0004  Voice band ADC0 data buffer */
 #define PHYS_VBAD1		(SPRD_VB_PHYS + 0x000C) /* 0x0006  Voice band ADC1 data buffer */
 
-#define DMA_VB_DA0_BIT	(1 << DMA_VB_DA0)
-#define DMA_VB_DA1_BIT	(1 << DMA_VB_DA1)
-#define DMA_VB_AD0_BIT	(1 << DMA_VB_AD0)
-#define DMA_VB_AD1_BIT	(1 << DMA_VB_AD1)
+#define DMA_VB_DA0_BIT		(1 << DMA_VB_DA0)
+#define DMA_VB_DA1_BIT		(1 << DMA_VB_DA1)
+#define DMA_VB_AD0_BIT		(1 << DMA_VB_AD0)
+#define DMA_VB_AD1_BIT		(1 << DMA_VB_AD1)
 
 #define VBDA0			(ARM_VB_BASE + 0x0000) /* 0x0000  Voice band DAC0 data buffer */
 #define VBDA1			(ARM_VB_BASE + 0x0004) /* 0x0002  Voice band DAC1 data buffer */
@@ -204,29 +204,20 @@ enum {
 #define HPCOEF41		(ARM_VB_BASE + 0x01A4)
 #define HPCOEF42		(ARM_VB_BASE + 0x01A8)
 
-#if defined(CONFIG_ARCH_SC8800G) || \
-	  defined(CONFIG_ARCH_SC8810)
-#define ARM_VB_BASE2 SPRD_MISC_BASE /* ANA_VIRT_BASE // 0x82000100 Analog die register, must use adi_analogdie_read/write */
-#endif
-
-#define SPRD_ADI_BASE		ARM_VB_BASE2
-#define SPRD_ADI_PHYS		SPRD_MISC_PHYS /* ANA_PHYS_BASE */
-#define ANA_REG_ADDR_START	(SPRD_ADI_BASE + 0x40) /*0x82000040 */
-#define ANA_REG_ADDR_END	(SPRD_ADI_BASE + 0x780) /*0x82000780 */
-#define ADI_ARM_RD_CMD		REG_ADI_RD_CMD
-#define ADI_RD_DATA			REG_ADI_RD_DATA
-#define ADI_FIFO_STS		REG_ADI_FIFO_STS
-#define ADI_FIFO_EMPTY		BIT_FIFO_EMPTY
-#define CTL_GLB_BASE		(SPRD_GREG_BASE)
-#define CTL_ADI_BASE		(ARM_VB_BASE2) /* (ANA_VIRT_BASE) */
-#define SCI_ADDRESS(_b_, _o_)	((u32)(_b_) + (_o_))
-
 /* sc8810 ldo register */
-#define	LDO_REG_BASE		(SPRD_ADI_BASE + 0x600)
+#define	LDO_REG_BASE		(SPRD_MISC_BASE + 0x600)
 #define	ANA_LDO_PD_CTL0		(LDO_REG_BASE  + 0x10)
 #define ANA_AUDIO_CTRL		(LDO_REG_BASE  + 0x74)
 #define	ANA_AUDIO_PA_CTRL0	(LDO_REG_BASE  + 0x78)
 #define	ANA_AUDIO_PA_CTRL1	(LDO_REG_BASE  + 0x7C)
+
+#define SPRD_ADI_BASE           SPRD_MISC_BASE
+#define SPRD_ADI_PHYS           SPRD_MISC_PHYS
+
+#define ANA_REG_ADDR_START      (SPRD_MISC_BASE + 0x40)  /* 0x82000040 */
+#define ANA_REG_ADDR_END        (SPRD_MISC_BASE + 0x780) /* 0x82000780 */
+
+#define ARM_VB_BASE2		SPRD_MISC_BASE
 
 #define VBAICR			(ARM_VB_BASE2 + 0x0100) /* 0x0080 Voice band Codec AICR */
 #define VBCR1			(ARM_VB_BASE2 + 0x0104) /* 0x0082 Voice band Codec CR1 */

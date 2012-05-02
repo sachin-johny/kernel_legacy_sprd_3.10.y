@@ -29,8 +29,8 @@
 #include <linux/delay.h>
 #include <mach/hardware.h>
 #include <mach/adi.h>
+#include <mach/adc.h>
 #include <mach/gpio.h>
-#include <mach/ctl_adc.h>
 #include <linux/device.h>
 
 #include <linux/slab.h>

@@ -18,7 +18,6 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/adi.h>
-#include <mach/ctl_eic.h>
 
 #define KPD_REG_BASE                (SPRD_KPD_BASE)
 

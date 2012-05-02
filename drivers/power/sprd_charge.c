@@ -17,8 +17,8 @@
 #include <mach/gpio.h>
 #include <linux/gpio.h>
 #include <mach/globalregs.h>
-#include <mach/ctl_adc.h>
 #include <mach/adi.h>
+#include <mach/adc.h>
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/spinlock.h>

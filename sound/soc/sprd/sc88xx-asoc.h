@@ -90,63 +90,20 @@ struct sc88xx_runtime_data {
 	sprd_dma_desc *dma_desc_array_dummy_pcm[2];
 };
 
-static inline void __raw_bits_and(unsigned int v, unsigned int a)
-{
-	unsigned long flags;
-
-	local_irq_save(flags);
-	__raw_writel((__raw_readl(a) & v), a);
-	local_irq_restore(flags);
-}
-
-static inline void __raw_bits_or(unsigned int v, unsigned int a)
-{
-	unsigned long flags;
-	local_irq_save(flags);
-	__raw_writel((__raw_readl(a) | v), a);
-	local_irq_restore(flags);
-}
-
-static inline void __raw_bits_xor(unsigned int v, unsigned int a)
-{
-	unsigned long flags;
-
-	local_irq_save(flags);
-	__raw_writel((__raw_readl(a) ^ v), a);
-	local_irq_restore(flags);
-}
-
-#define enter_critical() \
-	unsigned long flags; \
+#define enter_critical()	\
+	unsigned long flags;	\
 	local_irq_save(flags)
-#define exit_critical()  \
+
+#define exit_critical()		\
 	local_irq_restore(flags)
 
-#define ADI_Analogdie_reg_write sci_adi_raw_write
-#define ADI_Analogdie_reg_read sci_adi_read
+#define not_in_adi_range(addr)							\
+	(addr < ANA_REG_ADDR_START || addr > ANA_REG_ADDR_END)
 
-extern u16 __raw_adi_read(u32 addr);
-extern int __raw_adi_write(u32 data, u32 addr);
-static inline u16 adi_read(u32 addr)
-{
-	u16 data;
-	enter_critical();
-	data = __raw_adi_read(addr);
-	exit_critical();
-	return data;
-}
-
-static inline int adi_write(u32 data, u32 addr)
-{
-	enter_critical();
-	__raw_adi_write(data, addr);
-	exit_critical();
-	return 0;
-}
-#define not_in_adi_range(addr) (addr < ANA_REG_ADDR_START || addr > ANA_REG_ADDR_END)
-#define check_range(addr) \
-	if (not_in_adi_range(addr)) { \
-		pr_err("ADI_AnalogDie addr 0x%08x not in [0x%08x, 0x%08x]\n", addr, ANA_REG_ADDR_START, ANA_REG_ADDR_END); \
+#define check_range(addr)							\
+	if (not_in_adi_range(addr)) {						\
+		pr_err("AnalogDie addr 0x%08x not in [0x%08x, 0x%08x]\n",	\
+				addr, ANA_REG_ADDR_START, ANA_REG_ADDR_END);	\
 		return 0; \
 	}
 

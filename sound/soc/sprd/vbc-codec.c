@@ -16,9 +16,11 @@
  */
 #include "sc88xx-asoc.h"
 #include <sound/audio_pa.h>
+#include <mach/adi.h>
+#include <mach/globalregs.h>
 
 #define VBC_EQ_MODULE_SUPPORT			0
-#define VBC_DYNAMIC_POWER_MANAGEMENT	0
+#define VBC_DYNAMIC_POWER_MANAGEMENT		0
 #define POWER_OFF_ON_STANDBY			0
 /*
   ALSA SOC usually puts the device in standby mode when it's not used
@@ -60,18 +62,18 @@ static const char *vbc_codec_reset_enum_sel[] = {
 	"true",
 };
 
-#define VBC_CODEC_RESET					0xffff
-#define VBC_CODEC_POWER					0xfffe
+#define VBC_CODEC_RESET				0xffff
+#define VBC_CODEC_POWER				0xfffe
 #define VBC_CODEC_POWER_ON_OUT			(1 << 0)
 #define VBC_CODEC_POWER_ON_IN			(1 << 1)
 #define VBC_CODEC_POWER_OFF_OUT			(1 << 2)
 #define VBC_CODEC_POWER_OFF_IN			(1 << 3)
-#define VBC_CODEC_POWER_ON_OUT_MUTE_DAC (1 << 4)
+#define VBC_CODEC_POWER_ON_OUT_MUTE_DAC		(1 << 4)
 #define VBC_CODEC_POWER_ON_FORCE		(1 << 29)
 #define VBC_CODEC_POWER_DOWN_FORCE		(1 << 30)
 #define VBC_CODEC_SPEAKER_PA			0xfffd
-#define VBC_CODEC_DSP					0xfffc
-#define VBC_CODEC_POWER2				0xfffb
+#define VBC_CODEC_DSP				0xfffc
+#define VBC_CODEC_POWER2			0xfffb
 
 static void audio_speaker_enable(int enable, const char *prename);
 static int audio_speaker_enabled(void);
@@ -113,11 +115,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
 	SOC_SINGLE_TLV("BypassFM Left Playback Volume", VBCGR2, 0, 0x1f, 1, dac_tlv_fm),
 	SOC_SINGLE_TLV("BypassFM Right Playback Volume",VBCGR3, 0, 0x1f, 1, dac_tlv_fm),
 	SOC_SINGLE("LineinFM", VBPMR1, SB_LIN, 1, 1),
-#if defined(CONFIG_ARCH_SC8800G)
-	SOC_SINGLE("LineinFM_Record", ANA_CHGR_CTL0, 15, 1, 0),
-#elif defined(CONFIG_ARCH_SC8810)
 	SOC_SINGLE("LineinFM_Record", ANA_AUDIO_CTRL, 3, 1, 0),
-#endif
 	SOC_SINGLE_TLV("Capture Capture Volume", VBCGR10, 4, 0x0f, 0, adc_tlv),
 	SOC_ENUM("Reset Codec", vbc_codec_reset_enum),
 	SOC_SINGLE("Power Codec", VBC_CODEC_POWER, 0, 31, 0),
@@ -130,27 +128,25 @@ u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
 	u32 tmp, ret;
 	enter_critical();
 	if (not_in_adi_range(reg)) tmp = __raw_readl(reg);
-	else tmp = __raw_adi_read(reg);
+	else tmp = sci_adi_read(reg);
 	ret = tmp;
 	tmp &= ~(mask << shift);
 	tmp |= val << shift;
 	if (not_in_adi_range(reg)) __raw_writel(tmp, reg);
-	else __raw_adi_write(tmp, reg);
+	else sci_adi_raw_write(reg, tmp);
 	exit_critical();
 	return ret & (mask << shift);
 }
-EXPORT_SYMBOL_GPL(vbc_reg_write);
 
 u32 vbc_reg_read(u32 reg, u8 shift, u32 mask)
 {
 	u32 tmp;
 	enter_critical();
 	if (not_in_adi_range(reg)) tmp = __raw_readl(reg);
-	else tmp = __raw_adi_read(reg);
+	else tmp = sci_adi_read(reg);
 	exit_critical();
 	return tmp & (mask << shift);
 }
-EXPORT_SYMBOL_GPL(vbc_reg_read);
 
 int print_cpu_regs(u32 paddr, u32 offset, int nword, char *buf, int max, bool head, const char *prefix)
 {
@@ -204,10 +200,11 @@ static void vbc_dump_regs(u32 cmd, char *buf, int max)
 	bufb = buf;
 	buft = bufb + max;
 	switch (cmd) {
-		case 0: {
-			buf += print_cpu_regs(SPRD_VB_PHYS , 0, 107, 0, buft - buf, 1, "vbc_dump_regs VBDA0 - HPCOEF42\n");
-			buf += print_cpu_regs(SPRD_ADI_PHYS, 0x0100, 22, 0, buft - buf, 1, "VBAICR - VBTR2\n");
-		} break;
+		case 0:
+			buf += print_cpu_regs(SPRD_VB_PHYS , 0, 107, 0,
+					buft - buf, 1, "vbc_dump_regs VBDA0 - HPCOEF42\n");
+			buf += print_cpu_regs(SPRD_ADI_PHYS, 0x0100, 22, 0,
+					buft - buf, 1, "VBAICR - VBTR2\n");
 		default: break;
 	}
 }
@@ -333,110 +330,47 @@ static int vbc_codec_unmute(void)
 	return vbc_reg_VBCR1_set(DAC_MUTE, 0);
 }
 
+static inline void __raw_bits_or(unsigned int v, unsigned int a)
+{
+	unsigned long flags;
+	local_irq_save(flags);
+	__raw_writel((__raw_readl(a) | v), a);
+	local_irq_restore(flags);
+}
+
 static void vbc_set_ctrl2arm(void)
 {
 	/* Enable VB DAC0/DAC1 (ARM-side) */
-	__raw_bits_or(ARM_VB_MCLKON|ARM_VB_ACC|ARM_VB_DA0ON|ARM_VB_ANAON|ARM_VB_DA1ON|ARM_VB_ADCON, SPRD_VBC_ALSA_CTRL2ARM_REG);
+	__raw_writel(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) |
+			ARM_VB_MCLKON | ARM_VB_ACC | ARM_VB_DA0ON |
+			ARM_VB_ANAON | ARM_VB_DA1ON | ARM_VB_ADCON,
+			SPRD_VBC_ALSA_CTRL2ARM_REG);
 	msleep(1);
 }
 
-#if defined(CONFIG_ARCH_SC8800G) || \
-	defined(CONFIG_ARCH_SC8810)
-u16 __raw_adi_read(u32 addr)
+/* FIXME: use regulator interface for power on/off */
+static void vbc_ldo_on(int on)
 {
-	u32 adi_data, phy_addr;
-	check_range(addr);
-	phy_addr = addr - SPRD_ADI_BASE + SPRD_ADI_PHYS;
-	/* enter_critical(); */
-	__raw_writel(phy_addr, ADI_ARM_RD_CMD);
-	do {
-		adi_data = __raw_readl(ADI_RD_DATA);
-	} while (adi_data & (1 << 31));
-	/* rd_data high part should be the address of the last read operation */
-	if ((adi_data & 0xFFFF0000) != ((phy_addr) <<16)) {
-		panic("vbc ADI read error!");
-	}
-	/* exit_critical(); */
-	return adi_data & 0xffff;
-}
-EXPORT_SYMBOL_GPL(__raw_adi_read);
-
-int __raw_adi_write(u32 data, u32 addr)
-{
-	check_range(addr);
-	/* enter_critical(); */
-	while ((__raw_readl(ADI_FIFO_STS) & ADI_FIFO_EMPTY) == 0);
-	__raw_writel(data, addr);
-	/* exit_critical(); */
-	return 1;
-}
-EXPORT_SYMBOL_GPL(__raw_adi_write);
-
-static void __raw_adi_and(u32 value, u32 addr)
-{
-	enter_critical();
-	__raw_adi_write(__raw_adi_read(addr) & value, addr);
-	exit_critical();
-}
-
-static void __raw_adi_or(u32 value, u32 addr)
-{
-	enter_critical();
-	__raw_adi_write(__raw_adi_read(addr) | value, addr);
-	exit_critical();
-}
-#endif
-
-static void vbc_ldo_on(bool on)
-{
-	int do_on_off = 0;
 	if (on) {
-#if defined(CONFIG_ARCH_SC8800G)
-		if (!(adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
-			__raw_adi_and(~(1 << 14), ANA_LDO_PD_CTL);
-			__raw_adi_or(1 << 15, ANA_LDO_PD_CTL);
-			do_on_off = 1;
-		}
-#elif defined(CONFIG_ARCH_SC8810)
-		if (!(adi_read(ANA_LDO_PD_CTL0) & (1 << 15))) {
-			__raw_adi_and(~(1 << 14), ANA_LDO_PD_CTL0);
-			__raw_adi_or(1 << 15, ANA_LDO_PD_CTL0);
-			do_on_off = 1;
-		}
-#endif
+		sci_adi_set(ANA_LDO_PD_CTL0, (1 << 15));
+		sci_adi_clr(ANA_LDO_PD_CTL0, (1 << 14));
 	} else {
-#if defined(CONFIG_ARCH_SC8800G)
-		if ((adi_read(ANA_LDO_PD_CTL) & (1 << 15))) {
-			__raw_adi_and(~(1 << 15), ANA_LDO_PD_CTL);
-			__raw_adi_or((1 << 14), ANA_LDO_PD_CTL);
-			do_on_off = 1;
-		}
-#elif defined(CONFIG_ARCH_SC8810)
-		if ((adi_read(ANA_LDO_PD_CTL0) & (1 << 15))) {
-			__raw_adi_and(~(1 << 15), ANA_LDO_PD_CTL0);
-			__raw_adi_or((1 << 14), ANA_LDO_PD_CTL0);
-			do_on_off = 1;
-		}
-#endif
+		sci_adi_clr(ANA_LDO_PD_CTL0, (1 << 15));
+		sci_adi_set(ANA_LDO_PD_CTL0, (1 << 14));
 	}
-	if (do_on_off) {
-		pr_info("+++++++++++++ vbc set ldo to %s +++++++++++++\n", on ? "on" : "off");
-	}
+	pr_debug("vbc set ldo to %s \n", on ? "on" : "off");
 }
 
+/* FIXME: use clk interfaces */
 static void vbc_set_mainclk_to12M(void)
 {
-#if defined(CONFIG_ARCH_SC8800G)
-	__raw_bits_or(GEN0_VB_EN | GEN0_ADI_EN, GR_GEN0); /* Enable voiceband module */
-	__raw_bits_or(1 << 29, GR_CLK_DLY); /* CLK_ADI_EN_ARM and CLK_ADI_SEL=76.8MHZ */
-	__raw_adi_or(1 << 15, ANA_LDO_PD_CTL);
-	__raw_adi_or(VBMCLK_ARM_EN | VBCTL_SEL, ANA_CLK_CTL);
-#elif defined(CONFIG_ARCH_SC8810)
-	__raw_bits_or(GEN0_VB_EN | GEN0_ADI_EN, SPRD_GREG_BASE + GR_GEN0); /* Enable voiceband module */
-	__raw_bits_or(1 << 29, SPRD_GREG_BASE + GR_CLK_DLY); /* CLK_ADI_EN_ARM and CLK_ADI_SEL=76.8MHZ */
-	__raw_adi_or(1 << 15, ANA_LDO_PD_CTL0);
-	__raw_adi_or(0x1 | 0x2, ANA_AUDIO_CTRL);
-#endif
+	/* Enable voiceband module */
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_VB_EN, GR_GEN0);
+	/* CLK_ADI_EN_ARM and CLK_ADI_SEL=76.8MHZ */
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, 1 << 29, GR_CLK_DLY);
+
+	vbc_ldo_on(1);
+	sci_adi_set(ANA_AUDIO_CTRL, 0x1 | 0x2);
 }
 
 static inline void vbc_ready2go(void)
@@ -547,7 +481,6 @@ void vbc_power_down(unsigned int value)
 		}
 	}
 }
-EXPORT_SYMBOL_GPL(vbc_power_down);
 
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
 void vbc_power_on_playback(bool ldo)
@@ -642,7 +575,6 @@ void vbc_power_on(unsigned int value)
 			vbc_power_on_capture(0);
 	}
 }
-EXPORT_SYMBOL_GPL(vbc_power_on);
 
 static inline int mode_incall(void)
 {
@@ -789,7 +721,7 @@ static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 	if (ret != -1) return ret;
 	/* Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert */
 	reg |= ARM_VB_BASE2;
-	return adi_read(reg);
+	return sci_adi_read(reg);
 }
 
 static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int val)
@@ -799,7 +731,7 @@ static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int
 	/* Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert */
 	reg |= ARM_VB_BASE2;
 	vbc_write_callback(reg, val);
-	adi_write(val, reg);
+	sci_adi_raw_write(reg, val);
 	return 0;
 }
 
@@ -820,7 +752,6 @@ inline void vbc_dma_start(struct snd_pcm_substream *substream)
 {
 	vbc_dma_control(sc88xx_get_dma_channel(substream), 1);
 }
-EXPORT_SYMBOL_GPL(vbc_dma_start);
 
 static inline void vbc_dma_stop(struct snd_pcm_substream *substream)
 {
@@ -829,7 +760,6 @@ static inline void vbc_dma_stop(struct snd_pcm_substream *substream)
 
 void flush_vbc_cache(struct snd_pcm_substream *substream)
 {
-#if 1
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	/* we could not stop vbc_dma_buffer immediately, because audio data still in cache */
 	if (substream->stream != SNDRV_PCM_STREAM_PLAYBACK)
@@ -845,9 +775,7 @@ void flush_vbc_cache(struct snd_pcm_substream *substream)
 		stop_cpu_dma(substream);
 		vbc_dma_stop(substream);
 	}
-#endif
 }
-EXPORT_SYMBOL_GPL(flush_vbc_cache);
 
 static int vbc_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_dai *dai)
@@ -1039,28 +967,17 @@ int vbc_soc_resume(struct snd_soc_codec *codec)
 #define vbc_soc_suspend NULL
 #define vbc_soc_resume  NULL
 #endif
-#if defined(CONFIG_ARCH_SC8800G)
-#define local_cpu_pa_control(x) \
-do { \
-	if (x) { \
-		/* ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1aa9); // classAb */ \
-		ADI_Analogdie_reg_write(ANA_PA_CTL, 0x5A5A); /* classD */ \
-	} else { \
-		ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1555); \
-	} \
-} while (0)
-#elif defined(CONFIG_ARCH_SC8810)
-#define local_cpu_pa_control(x) \
-do { \
-	if (x) { \
-		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, (0x1101 | (8 << 4))); \
-		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1e41); \
-	} else { \
-		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x182); \
-		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1242); \
-	} \
-} while (0)
-#endif
+
+static inline void local_cpu_pa_control(bool enable)
+{
+	if (enable) {
+		sci_adi_raw_write(ANA_AUDIO_PA_CTRL0, (0x1101 | (8 << 4)));
+		sci_adi_raw_write(ANA_AUDIO_PA_CTRL1, 0x1e41);
+	} else {
+		sci_adi_raw_write(ANA_AUDIO_PA_CTRL0, 0x182);
+		sci_adi_raw_write(ANA_AUDIO_PA_CTRL1, 0x1242);
+	}
+}
 
 static void audio_speaker_enable(int enable, const char *prename)
 {
@@ -1080,20 +997,12 @@ static int audio_speaker_enabled(void)
 	if (audio_pa_amplifier) {
 		return audio_pa_amplifier(-1, NULL);
 	} else {
-#if defined(CONFIG_ARCH_SC8800G)
-		u32 value = ADI_Analogdie_reg_read(ANA_PA_CTL);
-		switch (value) {
-			case 0x5A5A: return 1;
-			default : return 0;
-		}
-#elif defined(CONFIG_ARCH_SC8810)
-		u32 value = ADI_Analogdie_reg_read(ANA_AUDIO_PA_CTRL0);
+		u32 value = sci_adi_read(ANA_AUDIO_PA_CTRL0);
 		value &= 0x1101;
 		switch (value) {
 			case 0x1101: return 1;
 			default : return 0;
 		}
-#endif
 	}
 }
 

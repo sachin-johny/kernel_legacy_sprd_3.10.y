@@ -12,7 +12,6 @@
  */
 #include "dcam_service_sc8810.h"
 #include "../common/isp_control.h"
-#include <mach/clock_common.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 
@@ -173,9 +172,6 @@ static int dcam_set_mclk(ISP_CLK_SEL_E clk_sel)
 	struct clk *clk_parent = NULL;
 	int ret;
 
-	DCAM_TRACE("DCAM:dcam_set_mclk,dcam usecount=%d .\n",
-		   g_dcam_clk->parent->usecount);
-
 	switch (clk_sel) {
 	case ISP_CLK_128M:
 		name_parent = "clk_128m";
@@ -191,24 +187,12 @@ static int dcam_set_mclk(ISP_CLK_SEL_E clk_sel)
 		break;
 	}
 
-	clk_parent = clk_get_parent(g_dcam_clk);
-	DCAM_TRACE("DCAM:dcam_set_mclk,clock[%s],parent_name: %s.\n",
-		   g_dcam_clk->name, clk_parent->name);
-	if (strcmp(name_parent, clk_parent->name)) {	//need to wait the parent
-		clk_parent = clk_get(NULL, name_parent);
-		if (!clk_parent) {
-			DCAM_TRACE_ERR
-			    ("DCAM:dcam_set_mclk,clock[%s]: failed to get parent [%s] by clk_get()!\n",
-			     g_dcam_clk->name, name_parent);
-			return -EINVAL;
-		}
-
+	clk_parent = clk_get(NULL, name_parent);
+	if (clk_parent && clk_parent != clk_get_parent(g_dcam_clk)) {
 		ret = clk_set_parent(g_dcam_clk, clk_parent);
 		if (ret) {
 			DCAM_TRACE_ERR
-			    ("DCAM:dcam_set_mclk,clock[%s]: clk_set_parent() failed!parent: %s, usecount: %d.\n",
-			     g_dcam_clk->name, clk_parent->name,
-			     g_dcam_clk->usecount);
+			    ("DCAM:dcam_set_mclk,clock: clk_set_parent() failed!\n");
 			return -EINVAL;
 		}
 	}
@@ -216,8 +200,7 @@ static int dcam_set_mclk(ISP_CLK_SEL_E clk_sel)
 	ret = clk_enable(g_dcam_clk);
 	if (ret) {
 		DCAM_TRACE_ERR
-		    ("DCAM:dcam_set_mclk,clock[%s]: clk_enable() failed!\n",
-		     g_dcam_clk->name);
+		    ("DCAM:dcam_set_mclk,clock: clk_enable() failed!\n");
 	} else {
 		DCAM_TRACE("DCAM:dcam_set_mclk,clk_enable ok.\n");
 	}
@@ -663,8 +646,6 @@ int dcam_open(void)
 		DCAM_TRACE_ERR("DCAM:dcam_open,get clk fail!.\n");
 		return 1;
 	}
-	DCAM_TRACE("DCAM:dcam_open,parent->usecount: %d.\n",
-		   g_dcam_clk->parent->usecount);
 
 	_ISP_ServiceOpen();
 	ISP_DriverRegisterIRQ();
