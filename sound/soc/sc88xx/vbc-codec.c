@@ -397,11 +397,31 @@ static void vbc_buffer_clear(int id)
     }
 }
 
+static void vbc_buffer_clear2(int id)
+{
+    int i;
+    vbc_reg_VBDABUFFDTA_set(RAMSW_NUMB, id ? 1:0);
+    for (i = 0; i < VBC_FIFO_FRAME_NUM; i++) {
+        __raw_writel((i << 16) / VBC_FIFO_FRAME_NUM, VBDA0);
+        __raw_writel((i << 16) / VBC_FIFO_FRAME_NUM, VBDA1);
+    }
+}
+
 static void vbc_buffer_clear_all(void)
 {
+    pr_warn("vbc_buffer_clear_all to avoid vbc hardware noise!\n");
     vbc_access_buf(true);
     vbc_buffer_clear(1); // clear data buffer 1
     vbc_buffer_clear(0); // clear data buffer 0
+    vbc_access_buf(false);
+}
+
+static void vbc_buffer_clear_all2(void)
+{
+    pr_warn("vbc_buffer_clear_all2 to create vbc hardware noise!\n");
+    vbc_access_buf(true);
+    vbc_buffer_clear2(1); // clear data buffer 1
+    vbc_buffer_clear2(0); // clear data buffer 0
     vbc_access_buf(false);
 }
 
@@ -726,6 +746,9 @@ void vbc_power_on(unsigned int value)
             vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
 
             vbc_codec_mute();
+
+            vbc_buffer_clear_all(); // must have this func, or first play will have noise
+
             /* earpiece_muted = */ vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
             /* headset_muted =  */ vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
             /* speaker_muted =  */ vbc_amplifier_enable(false, "vbc_power_on playback"); // Mute speaker
@@ -1111,6 +1134,15 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
             #endif
 #if !VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
             vbc_dma_start(substream);
+#else
+            if (1)
+                vbc_buffer_clear_all(); // must have this func, or first play will have noise
+            else {
+                vbc_buffer_clear_all2();
+                pr_warn("vbc 0000000000000000\n");
+                msleep(2000);
+                pr_warn("vbc 1111111111111111\n");
+            }
 #endif
             break;
         case SNDRV_PCM_TRIGGER_STOP:
