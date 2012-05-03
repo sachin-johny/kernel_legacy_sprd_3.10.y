@@ -91,15 +91,26 @@ static char expect_close;
  *	If the timer expires..
  */
 
+int first_watchdog_fire = 0;
+extern unsigned long nfc_wait_times;
+extern unsigned long nfc_wait_long;
+
 static void watchdog_fire(unsigned long data)
 {
 	if (test_and_clear_bit(0, &orphan_timer))
 		module_put(THIS_MODULE);
+ 
+	if(!first_watchdog_fire) {
+		printk("soft watch triggered here, wait for 2 seconds to collect logs\n");
+		first_watchdog_fire = 1;
+		mod_timer(&watchdog_ticktock, jiffies+(2*HZ));
+		return;
+	}
 
 	if (soft_noboot)
 		printk(KERN_CRIT PFX "Triggered - Reboot ignored.\n");
 	else {
-		printk(KERN_CRIT PFX "Initiating system reboot.\n");
+		printk(KERN_CRIT PFX "Initiating system reboot: %u %u\n", nfc_wait_times, nfc_wait_long);
 		/* FIXME: we expect to see more info by doing panic */
 		panic(PFX "Timeout!!!\n");
 		emergency_restart();

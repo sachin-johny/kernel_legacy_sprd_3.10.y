@@ -2757,6 +2757,10 @@ asmlinkage void schedule_tail(struct task_struct *prev)
 		put_user(task_pid_vnr(current), current->set_child_tid);
 }
 
+extern int first_watchdog_fire;
+extern unsigned long nfc_wait_times;
+extern unsigned long nfc_wait_long;
+
 /*
  * context_switch - switch to the new MM and the new
  * thread's register state.
@@ -2798,6 +2802,10 @@ context_switch(struct rq *rq, struct task_struct *prev,
 #ifndef __ARCH_WANT_UNLOCKED_CTXSW
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
 #endif
+
+	if(first_watchdog_fire)
+		printk("bc [%s] => [%s], [%s]:[%s], %u-%u\n",
+				prev->comm, next->comm, rq->curr->comm, current->comm, nfc_wait_times, nfc_wait_long);
 
 	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);

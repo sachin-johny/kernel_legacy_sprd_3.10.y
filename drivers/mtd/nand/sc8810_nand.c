@@ -313,11 +313,37 @@ static void sc8810_nand_wp_en(int en)
 	}
 }
 
+extern int first_watchdog_fire;
+unsigned long nfc_wait_times = 0, nfc_wait_long = 0;
+static unsigned long func_start, func_end;
+
+#define SPRD_SYSCNT_BASE            0xE002d000
+#define SYSCNT_REG(off) (SPRD_SYSCNT_BASE + (off))
+#define SYSCNT_COUNT    SYSCNT_REG(0x0004)
+
+static unsigned long read_clock_sim()
+{
+    	u32 val1, val2;
+        val1 = __raw_readl(SYSCNT_COUNT);
+        val2 = __raw_readl(SYSCNT_COUNT);
+        while(val2 != val1) {
+                val1 = val2;
+                val2 = __raw_readl(SYSCNT_COUNT);
+        } 
+	return val2;
+}
+
 static int sc8810_nfc_wait_command_finish(unsigned int flag)
 {
 	unsigned int event = 0;
 	unsigned int value;
 	unsigned int counter = 0;
+
+	if(first_watchdog_fire) {
+		nfc_wait_times++;
+		func_start = read_clock_sim();
+	}
+
 	while(((event & flag) != flag) && (counter < NFC_TIMEOUT_VAL/*time out*/))
 	{
 		value = nfc_reg_read(NFC_CLR_RAW);
@@ -333,12 +359,18 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag)
 	}
 	nfc_reg_write(NFC_CLR_RAW, 0xffff0000); //clear all interrupt status
 
-	if(counter >= NFC_TIMEOUT_VAL)
-	{
+	if(counter >= NFC_TIMEOUT_VAL) {
 		panic("nfc cmd timeout!!!");
 	}
+
+	if(first_watchdog_fire) {
+		func_end = read_clock_sim();
+		nfc_wait_long += (func_end - func_start);
+	}
+
 	return 0;
 }
+
 unsigned int ecc_mode_convert(u32 mode)
 {
 	u32 mode_m;
