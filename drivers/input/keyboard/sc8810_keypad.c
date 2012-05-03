@@ -144,8 +144,17 @@ static irqreturn_t sprd_keypad_isr(int irq, void *dev_id)
 
 static irqreturn_t sprd_powerkey_isr(int irq, void *dev_id)
 {
+	static unsigned long last_value = 1;
 	unsigned short key = KEY_POWER;
 	unsigned long value = gpio_get_value(ANA_GPI_PB);
+
+	if (last_value == value) {
+		/* seems an event is missing, just report it */
+		input_report_key(sprd_keypad->input, key, last_value);
+		input_sync(sprd_keypad->input);
+
+		printk("%dX\n", key);
+	}
 
 	if (value) {
 		/* Release : HIGHT level */
@@ -160,6 +169,8 @@ static irqreturn_t sprd_powerkey_isr(int irq, void *dev_id)
 		printk("%dD\n", key);
 		irq_set_irq_type(irq, IRQF_TRIGGER_HIGH);
 	}
+
+	last_value = value;
 
 	return IRQ_HANDLED;
 }
