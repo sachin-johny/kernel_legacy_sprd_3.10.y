@@ -65,6 +65,7 @@
 #define REGU_NAME_SDHOST0		"V_SDHOST0"
 #define REGU_NAME_SDHOST1		"V_SDHOST1"
 #define REGU_NAME_TP			"V_TP"
+#define REGU_NAME_TP1			"V_TP1"
 #define REGU_NAME_USB			"V_USB"
 #define REGU_NAME_USBD			"V_USBD"
 #define REGU_NAME_WIFI			"V_WIFI"

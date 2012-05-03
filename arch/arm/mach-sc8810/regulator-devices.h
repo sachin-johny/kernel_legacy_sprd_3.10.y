@@ -36,6 +36,9 @@
 #include "regulator-a-example.h"
 #endif
 
+#ifdef CONFIG_MACH_AMAZING
+#include "regulator-amazing.h"
+#endif
 
 /*cfg macor layer: here is the base to make up for cfg easier*/
 #ifndef REGU_NAMES_VDDARM

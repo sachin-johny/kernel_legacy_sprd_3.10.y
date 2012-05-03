@@ -11,3 +11,6 @@ config FB_LCD_HX8369
 	boolean "support HX8369 panel"
 	depends on FB_SC8810
 
+config FB_LCD_ILI9486
+	boolean "support ILI9486 panel"
+	depends on FB_SC8810

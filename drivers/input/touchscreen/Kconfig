@@ -863,4 +863,16 @@ config TOUCHSCREEN_PIXCIR
           To compile this driver as a module, choose M here: the
           module will be called pixcir_i2c_ts.c.
 
+config TOUCHSCREEN_ZINITIX
+        tristate "ZINITIX touchscreen driver"
+        depends on I2C
+        help
+          Say Y here if you have a ZINITIX based touchscreen
+          controller.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called zinitix_touch.c.
+
 endif
