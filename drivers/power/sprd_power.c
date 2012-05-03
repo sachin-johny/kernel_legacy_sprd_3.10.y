@@ -967,7 +967,6 @@ static int sprd_battery_probe(struct platform_device *pdev)
     int charger_present;
     unsigned int efuse_cal_data[2] = {0};
 
-	pr_info("%s start\n", __func__);
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
 		ret = -ENOMEM;
@@ -1061,11 +1060,6 @@ retry_adc:
 	data->ac_online = 0;
     data->charge_start_jiffies = 0;
 
-#if defined(CONFIG_USB_SUPPORT)
-	ret = usb_register_hotplug_callback(&power_cb);
-	if (ret)
-		goto err_request_irq_failed;
-#endif
 	ret = power_supply_register(&pdev->dev, &data->usb);
 	if (ret)
 		goto err_usb_failed;
@@ -1081,6 +1075,11 @@ retry_adc:
 	platform_set_drvdata(pdev, data);
 	battery_data = data;
 	data->hw_switch_point = CHGMNG_DEFAULT_SWITPOINT;
+#if defined(CONFIG_USB_SUPPORT)
+	ret = usb_register_hotplug_callback(&power_cb);
+	if (ret)
+		goto err_request_irq_failed;
+#endif
 
 	sprd_creat_caliberate_attr(data->battery.dev);
 

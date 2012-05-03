@@ -94,7 +94,7 @@ static struct gadget_wrapper {
 	 */
 	struct timer_list cable_timer;
 	struct workqueue_struct *detect_wq;
-	struct delayed_work detect_work;
+	struct work_struct detect_work;
 
 	struct switch_dev sdev;
 	int udc_startup;
@@ -1161,7 +1161,7 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	}
 
 	d->vbus = value;
-	queue_delayed_work(d->detect_wq, &d->detect_work, HZ);
+	queue_work(d->detect_wq, &d->detect_work);
 
 	return IRQ_HANDLED;
 }
@@ -1290,7 +1290,7 @@ int pcd_init(
 				"usb detect", otg_dev->pcd);
 	}
 
-	INIT_DELAYED_WORK(&gadget_wrapper->detect_work, usb_detect_works);
+	INIT_WORK(&gadget_wrapper->detect_work, usb_detect_works);
 	gadget_wrapper->detect_wq = create_singlethread_workqueue("usb detect wq");
 	/*
 	 * register a switch device for sending pnp message,
@@ -1436,12 +1436,31 @@ EXPORT_SYMBOL(usb_gadget_unregister_driver);
 int usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {
 	int ret = 0;
+	struct gadget_wrapper *d;
+	unsigned long flags;
+	int plug_in;
 
 	if (cb){
 		hotplug_cb = cb;
 	} else {
 		pr_warning("%s, error\n", __func__);
 		ret = -EINVAL;
+		return ret;
+	}
+
+	if(gadget_wrapper){
+		d = gadget_wrapper;
+
+		local_irq_save(flags);
+		plug_in = d->vbus;
+		local_irq_restore(flags);
+
+		spin_lock(&udc_lock);
+		if (plug_in){
+			pr_info("charge register callback, usb already plug in %d\n", plug_in);
+			hotplug_callback(VBUS_PLUG_IN, 0);
+		}
+		spin_unlock(&udc_lock);
 	}
 	return ret;
 }
