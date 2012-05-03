@@ -25,7 +25,7 @@
 
 #define VIBRATOR_REG_UNLOCK	(0xA1B2)
 #define VIBRATOR_REG_LOCK	(~VIBRATOR_REG_UNLOCK)
-#define VIBRATOR_STABLE_LEVEL	(4)
+#define VIBRATOR_STABLE_LEVEL	(2)
 #define VIBRATOR_INIT_LEVEL	(11)	//init level must larger than stable level
 #define	VIBRATOR_INIT_STATE_CNT	(10)
 
