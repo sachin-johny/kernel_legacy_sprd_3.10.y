@@ -1091,6 +1091,18 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 	uint32_t handle_timeout_cnt=0;
 	
 	DCAM_V4L2_PRINT("V4L2:vidioc_handle_ctrl, id: %d, value: %d,dcam mode=%d.\n", ctrl->id, ctrl->value,g_dcam_info.mode);
+
+	while(DCAM_RESTART == s_dcam_err_info.work_status)
+	{
+		printk("V4L2: wait to restart finish!\n");
+		if(handle_timeout_cnt>DCAM_TIME_OUT) {
+			printk("V4L2: wait timeout for restart!\n");
+			return ret;
+		}
+		msleep(1);
+		handle_timeout_cnt++;
+	}
+	handle_timeout_cnt = 0;
 	is_previewing = dcam_is_previewing(g_zoom_level);	
 	if(g_dcam_info.mode == 3)
 	{
@@ -2351,6 +2363,7 @@ static int dcam_scan_status_thread(void * data_ptr)
 				break;
 			case DCAM_OK:
 				info_ptr->work_status = DCAM_RUN;
+				info_ptr->restart_cnt = 0;
 				printk("v4l2:dcam_scan_status_thread,DCAM_OK.\n ");
 				break;
 			case DCAM_LINE_ERR:				
