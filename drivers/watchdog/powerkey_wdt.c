@@ -48,6 +48,8 @@ static void powerkey_wdt_fire(unsigned long data)
 
 	/* we expect to see more info by doing panic */
 	if(powerkey_wdt_triggered) {
+		/* should set trigger flag to 0, otherwise, next stat will be omit */
+		powerkey_wdt_triggered = 0;
 		if(powerkey_retry++ >= POWERKEY_RETRY_TIMES)
 			panic("PowerKey SoftDog: Timeout!!!\n");
 	}
