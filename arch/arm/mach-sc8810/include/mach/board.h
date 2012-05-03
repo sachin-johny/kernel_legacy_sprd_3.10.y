@@ -22,6 +22,10 @@
 #include <mach/gpio-sp8810ga.h>
 #endif
 
+#ifdef	CONFIG_MACH_AMAZING
+#include <mach/gpio-amazing.h>
+#endif
+
 /*
  * pmem area definition
  */

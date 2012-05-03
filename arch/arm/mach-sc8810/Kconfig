@@ -23,6 +23,11 @@ config MACH_SP6820GA
 	help
 	  SP6820GA phone board based on SC8810.
 
+config MACH_AMAZING
+	default n
+	bool "AMAZING Phone"
+	help
+	  AMAZING phone board based on SC8810.
 endchoice
 
 config SPRD_PMEM_SIZE
