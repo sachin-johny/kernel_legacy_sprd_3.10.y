@@ -41,4 +41,11 @@ config SPRD_PMEM_ADSP_SIZE
         range 1 64
         default 22
 	depends on ANDROID_PMEM
+
+config SC8810_VIBRATOR
+        depends on ARCH_SC8810
+        select ANDROID_TIMED_OUTPUT
+        default n
+        bool "vibrator for SC8810"
+
 endif
