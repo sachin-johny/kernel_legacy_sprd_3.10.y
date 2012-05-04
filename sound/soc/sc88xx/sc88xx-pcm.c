@@ -55,6 +55,8 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,
 };
 
+extern int vbc_set_sleep_mode(int on);
+
 int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -99,6 +101,7 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 		goto err1;
 
 	runtime->private_data = rtd;
+	vbc_set_sleep_mode(0);
 	return 0;
 
 err1:
@@ -116,6 +119,7 @@ int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 			      rtd->dma_desc_array, rtd->dma_desc_array_phys);
 	kfree(rtd);
 
+	// vbc_set_sleep_mode(1);
     return 0;
 }
 

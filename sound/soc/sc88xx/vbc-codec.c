@@ -174,6 +174,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
 };
 static int32_t cur_sample_rate=44100;
 static int32_t cur_internal_pa_gain = 0x8;   //default:1000----0db  added by jian
+static void vbc_dma_control(int chs, bool on);
 
 u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
 {
@@ -588,6 +589,47 @@ void vbc_write_callback(unsigned int reg, unsigned int val)
     }
 }
 
+static int headset_plug_in = 0;
+int vbc_set_sleep_mode(int on)
+{
+#if !VBC_DYNAMIC_POWER_MANAGEMENT
+	u32 data;
+	enter_critical();
+	data = vbc_reg_read(VBDABUFFDTA, 0, UINT_MAX);
+	if (!headset_plug_in || !on) {
+		if (!!on && (data & ((1 << VBAD0DMA_EN) | /*(1 << VBAD1DMA_EN) |*/ (1 << VBDA0DMA_EN) | (1 << VBDA1DMA_EN)))) {
+			pr_warn("%s audio dma < 0x%04x > is on going < %d >\n", __func__, data, on);
+		} else {
+			pr_info("%s audio %s sleep, dma < 0x%04x >  < %d >\n", __func__, !!on ? "enter":"exit", data, on);
+			vbc_reg_VBPMR2_set(SB_SLEEP, !!on);
+		}
+	} else {
+		if (on < 0) {
+			pr_info("%s audio headset has been plugged out\n", __func__);
+		} else pr_info("%s audio headset is in, not allow sleep %d\n", __func__, !!on);
+	}
+	exit_critical();
+#endif
+	return 0;
+}
+EXPORT_SYMBOL_GPL(vbc_set_sleep_mode);
+
+void headset_plug_status(int status)
+{
+	enter_critical();
+	if (status) {
+		vbc_set_sleep_mode(0);
+		headset_plug_in = 1;
+	} else {
+		if (headset_plug_in)
+			vbc_set_sleep_mode(-1); // headset has been plugged out
+		headset_plug_in = 0;
+		vbc_set_sleep_mode(1);
+	}
+	exit_critical();
+}
+EXPORT_SYMBOL_GPL(headset_plug_status);
+
 void vbc_power_down(unsigned int value)
 {
     int use_delay;
@@ -622,9 +664,9 @@ void vbc_power_down(unsigned int value)
             !earpiece_muted || !headset_muted || !speaker_muted))) {
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
             printk("---- vbc do power down ----\n");
+            if (use_delay) msleep(100); // avoid quick switch from power on to off
 #endif
             // VBCGR1_value = vbc_reg_write(VBCGR1, 0, 0xff, 0xff); // DAC Gain
-            if (use_delay) msleep(100); // avoid quick switch from power on to off
             /*
             earpiece_muted= vbc_reg_read(VBCR1, BTL_MUTE, 1);
             headset_muted = vbc_reg_read(VBCR1, HP_DIS, 1);
@@ -671,11 +713,14 @@ void vbc_power_down(unsigned int value)
             do_sb_power)/* vbc_reg_read(VBPMR1, SB_ADC, 1) && vbc_reg_read(VBPMR1, SB_DAC, 1) */ {
             vbc_reg_VBPMR2_set(SB_SLEEP, 1); // SB enter sleep mode
             vbc_reg_VBPMR2_set(SB, 1); // Power down sb
+#if !VBC_DYNAMIC_POWER_MANAGEMENT
             if (use_delay) msleep(100); // avoid quick switch from power off to on
+#endif
             vbc_ldo_on(0);
             printk("....................... vbc full power down [%d]-%d .......................\n", use_delay, in_irq() || irqs_disabled());
         }
     }
+	vbc_set_sleep_mode(1);
 }
 EXPORT_SYMBOL_GPL(vbc_power_down);
 
@@ -747,6 +792,8 @@ void vbc_power_on(unsigned int value)
 
             vbc_codec_mute();
 
+			if (power_on_force) // after phone call, modem will not clear AUDIO_VBAD0 & AUDIO_VBAD1 bit
+				vbc_dma_control(AUDIO_VBDA0 | AUDIO_VBDA1 | AUDIO_VBAD0 | AUDIO_VBAD1, 0);
             vbc_buffer_clear_all(); // must have this func, or first play will have noise
 
             /* earpiece_muted = */ vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
@@ -766,7 +813,9 @@ void vbc_power_on(unsigned int value)
             if (use_delay) msleep(50);
             vbc_reg_VBCR1_set(MONO, 0); // stereo DAC left & right channel
             vbc_reg_VBPMR1_set(SB_BTL, 0); // power on earphone
+#if !VBC_DYNAMIC_POWER_MANAGEMENT
             if (use_delay) msleep(100);
+#endif
 
             if (!mute_dac) vbc_codec_unmute();
 #if VBC_DYNAMIC_POWER_MANAGEMENT
@@ -787,6 +836,7 @@ void vbc_power_on(unsigned int value)
         if (value == SNDRV_PCM_STREAM_CAPTURE)
             vbc_power_on_capture(0);
     }
+	vbc_set_sleep_mode(0);
 }
 EXPORT_SYMBOL_GPL(vbc_power_on);
 
@@ -1017,12 +1067,14 @@ static void vbc_dma_control(int chs, bool on)
 inline void vbc_dma_start(struct snd_pcm_substream *substream)
 {
     vbc_dma_control(audio_playback_capture_channel(substream), 1);
+	vbc_set_sleep_mode(0);
 }
 EXPORT_SYMBOL_GPL(vbc_dma_start);
 
 static inline void vbc_dma_stop(struct snd_pcm_substream *substream)
 {
     vbc_dma_control(audio_playback_capture_channel(substream), 0);
+	// vbc_set_sleep_mode(1);
 }
 
 void flush_vbc_cache(struct snd_pcm_substream *substream)
