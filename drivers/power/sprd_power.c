@@ -767,6 +767,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
             printk("charger voltage too high\n");
             charge_stop(battery_data);
             battery_data->over_voltage_flag = 1;
+            battery_notify = 1;
         }
 
         if(voltage > CHGMNG_OVER_CHARGE){
@@ -793,6 +794,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
               enable_ac_charge(battery_data);
             else
               enable_usb_charge(battery_data);
+            battery_notify = 1;
         }
     }
 
