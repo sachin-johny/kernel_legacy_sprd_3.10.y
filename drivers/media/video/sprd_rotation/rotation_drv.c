@@ -301,7 +301,7 @@ int rotation_dma_start(ROTATION_PARAM_T * param_ptr)
 	int ch_id = -1;
 	struct sprd_dma_channel_desc dma_desc;
 	DECLARE_ROTATION_PARAM_ENTRY(s);
-
+	/*printk("wjp rotation 0.\n");*/
 	RTT_PRINT("rotation_dma_start E .\n");
 	ch_id = sprd_dma_request(DMA_ROT, rotation_dma_irq, &dma_desc);
 	if (ch_id < 0) {
@@ -316,7 +316,9 @@ int rotation_dma_start(ROTATION_PARAM_T * param_ptr)
 	dma_desc.cfg_req_mode_sel = DMA_REQMODE_LIST;
 	sprd_dma_channel_config(ch_id, DMA_LINKLIST, &dma_desc);
 	sprd_dma_set_irq_type(ch_id, LINKLIST_DONE, 1);
+	/*printk("wjp rotation 1.\n");*/
 	sprd_dma_start(ch_id);
+	/*printk("wjp rotation 2.\n");*/
 	RTT_PRINT("rotation_dma_start X .\n");
 	return 0;
 }
@@ -414,9 +416,9 @@ static int rotation_start_copy_data(ROTATION_PARAM_T * param_ptr)
 	uint32_t total_len;
 	int32_t ret = 0;
 	int ch_id = 0;
-	//struct timeval ts;
-	//struct timeval te;
-//      printk("wjp:rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);
+	/*struct timeval ts;*/
+	/*struct timeval te;*/
+	/*printk("wjp:rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);*/
 	if (ROTATION_YUV420 == param_ptr->data_format) {
 		block_len =
 		    param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
@@ -459,20 +461,16 @@ static int rotation_start_copy_data(ROTATION_PARAM_T * param_ptr)
 	dma_desc.src_elem_postm = 0x0004;
 	dma_desc.dst_elem_postm = 0x0004;
 	sprd_dma_channel_config(ch_id, DMA_NORMAL, &dma_desc);
-	sprd_dma_set_irq_type(ch_id, TRANSACTION_DONE, 1);	
-         //sprd_dma_dump_regs(ch_id);
-	//mdelay(1);
-	//printk("wjp:before rotation_start_copy_data start!\n");
+	sprd_dma_set_irq_type(ch_id, TRANSACTION_DONE, 1);
+	/*printk("wjp:before rotation_start_copy_data start!\n");*/
 	sprd_dma_channel_start(ch_id);
-	//printk("wjp:rotation_start_copy_data start!\n");
 	if (wait_event_interruptible(wait_queue, condition)) {
 		ret = -EFAULT;
 	}
-      	//printk("wjp:rotation_start_copy_data e!\n");
 	sprd_dma_channel_stop(ch_id);
 	sprd_dma_free(ch_id);
-	// do_gettimeofday(&te);
-	// printk("wjp:dma endian time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));
+	/* do_gettimeofday(&te);*/
+	/*printk("wjp:dma endian time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));*/
 	return ret;
 }
 

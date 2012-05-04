@@ -486,9 +486,8 @@ struct dcam_dev {
 	struct list_head dcam_devlist;
 	struct v4l2_device v4l2_dev;
 	spinlock_t slock;
-	struct mutex mutex;
 	struct mutex lock;
-	int users;
+	atomic_t users;
 	/* various device info */
 	struct video_device *vfd;
 
@@ -1893,7 +1892,7 @@ static void path1_done_buffer(struct dcam_fh *fh)
 	buf->vb.field_count++;
 	do_gettimeofday(&buf->vb.ts);
 	buf->vb.state = VIDEOBUF_DONE;
-	printk("time = %d.\n",
+	pr_debug("time = %d.\n",
 	       (int)(buf->vb.ts.tv_sec * 1000 + buf->vb.ts.tv_usec / 1000));
 	wake_up(&buf->vb.done);
 	g_first_buf_addr = g_last_buf;
@@ -2102,7 +2101,7 @@ static int dcam_scan_status_thread(void *data_ptr)
 	up(&info_ptr->dcam_thread_wakeup_sem);
 	printk("v4l2:dcam_scan_status_thread,test 0!.\n");
 	while (1) {
-		printk("v4l2:dcam_scan_status_thread,test!.\n");
+		pr_debug("v4l2:dcam_scan_status_thread,test!.\n");
 		down_interruptible(&s_dcam_err_info.dcam_thread_sem);
 		if (s_dcam_err_info.is_stop)
 			goto dcam_thread_end;
@@ -2117,12 +2116,12 @@ static int dcam_scan_status_thread(void *data_ptr)
 						 info_ptr->timeout_val);
 			}
 			info_ptr->is_running = 1;
-			printk
-			    ("v4l2:dcam_scan_status_thread,DCAM_START_OK.\n ");
+			pr_debug("v4l2:dcam_scan_status_thread,DCAM_START_OK.\n ");
 			break;
 		case DCAM_OK:
 			info_ptr->work_status = DCAM_RUN;
-			printk("v4l2:dcam_scan_status_thread,DCAM_OK.\n ");
+			info_ptr->restart_cnt = 0;
+			pr_debug("v4l2:dcam_scan_status_thread,DCAM_OK.\n ");
 			break;
 		case DCAM_LINE_ERR:
 		case DCAM_FRAME_ERR:
@@ -2238,23 +2237,19 @@ static int open(struct file *file)
 	struct dcam_fh *fh = NULL;
 	int retval = 0;
 
-	mutex_lock(&dev->mutex);
-	dev->users++;
-	if (dev->users > 1) {
-		dev->users--;
-		mutex_unlock(&dev->mutex);
+	if (atomic_inc_return(&dev->users) > 1) {
+		atomic_dec_return(&dev->users);
 		return -EBUSY;
 	}
 	dprintk(dev, 1, "open /dev/video%d type=%s users=%d\n", dev->vfd->num,
-		v4l2_type_names[V4L2_BUF_TYPE_VIDEO_CAPTURE], dev->users);
+		v4l2_type_names[V4L2_BUF_TYPE_VIDEO_CAPTURE], dev->users.counter);
 
 	/* allocate + initialize per filehandle data */
 	fh = kzalloc(sizeof(*fh), GFP_KERNEL);
 	if (NULL == fh) {
-		dev->users--;
+		atomic_dec_return(&dev->users);
 		retval = -ENOMEM;
 	}
-	mutex_unlock(&dev->mutex);
 	if (retval)
 		return retval;
 
@@ -2348,11 +2343,9 @@ static int close(struct file *file)
 	videobuf_mmap_free(&fh->vb_vidq);
 	s_dcam_err_info.is_wakeup_thread = 0;
 	kfree(fh);
-	mutex_lock(&dev->mutex);
-	dev->users--;
-	mutex_unlock(&dev->mutex);
+	atomic_dec_return(&dev->users);
 	dprintk(dev, 1, "close called (minor=%d, users=%d)\n", minor,
-		dev->users);
+		dev->users.counter);
 	printk("V4L2: close end.\n");
 	return 0;
 }
@@ -2443,7 +2436,6 @@ static int __init create_instance(int inst)
 
 	/* initialize locks */
 	spin_lock_init(&dev->slock);
-	mutex_init(&dev->mutex);
 	mutex_init(&dev->lock);
 
 	ret = -ENOMEM;
