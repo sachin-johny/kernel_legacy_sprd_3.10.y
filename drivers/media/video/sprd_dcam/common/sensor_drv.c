@@ -423,9 +423,7 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 	    ("SENSOR:Sensor_SetVoltage,dvdd_val=%d,avdd_val=%d,iodd_val=%d.\n",
 	     dvdd_val, avdd_val, iodd_val);
 
-	if (s_camvio_regulator) {
-		regulator_disable(s_camvio_regulator);
-	} else {
+	if(NULL == s_camvio_regulator) {
 		s_camvio_regulator = regulator_get(NULL, REGU_NAME_CAMVIO);
 		if (IS_ERR(s_camvio_regulator)) {
 			pr_err("SENSOR:could not get camvio.\n");
@@ -479,21 +477,22 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		pr_err("SENSOR:set camvio error!.\n");
 		return;
 	}
-
-	err = regulator_enable(s_camvio_regulator);
-	if (err) {
-		pr_err("SENSOR:could not enable camvio.\n");
-		return;
-	}
-
-	if (0 == volt_value) {
+	if (0 != volt_value) {
+		err = regulator_enable(s_camvio_regulator);
+		if (err) {
+			regulator_put(s_camvio_regulator);
+			s_camvio_regulator = NULL;
+			pr_err("SENSOR:could not enable camvio.\n");
+			return;
+		}
+	} else {
 		regulator_disable(s_camvio_regulator);
+		regulator_put(s_camvio_regulator);
+		s_camvio_regulator = NULL;
 		pr_debug("SENSOR:disable camvio.\n");
 	}
 
-	if (s_camavdd_regulator) {
-		regulator_disable(s_camavdd_regulator);
-	} else {
+	if (NULL == s_camavdd_regulator) {
 		s_camavdd_regulator = regulator_get(NULL, REGU_NAME_CAMAVDD);
 		if (IS_ERR(s_camavdd_regulator)) {
 			pr_err("SENSOR:could not get camavdd.\n");
@@ -547,20 +546,22 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		pr_err("SENSOR:set camavdd error!.\n");
 		return;
 	}
-	err = regulator_enable(s_camavdd_regulator);
-	if (err) {
-		pr_err("SENSOR:could not enable camavdd.\n");
-		return;
-	}
-
-	if (0 == volt_value) {
+	if (0 != volt_value) {
+		err = regulator_enable(s_camavdd_regulator);
+		if (err) {
+			regulator_put(s_camavdd_regulator);
+			s_camavdd_regulator = NULL;
+			pr_err("SENSOR:could not enable camavdd.\n");
+			return;
+		}
+	} else {
 		regulator_disable(s_camavdd_regulator);
+		regulator_put(s_camavdd_regulator);
+		s_camavdd_regulator = NULL;
 		pr_debug("SENSOR:disable camavdd.\n");
 	}
 
-	if (s_camdvdd_regulator) {
-		regulator_disable(s_camdvdd_regulator);
-	} else {
+	if (NULL == s_camdvdd_regulator) {
 		s_camdvdd_regulator = regulator_get(NULL, REGU_NAME_CAMDVDD);
 		if (IS_ERR(s_camdvdd_regulator)) {
 			pr_err("SENSOR:could not get camdvdd.\n");
@@ -611,16 +612,21 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		break;
 	}
 	if (err) {
-		pr_err("SENSOR:set camdvdd error!.\n");
+		pr_err("SENSOR:set camdvdd error,err=%d!.\n",err);
 		return;
 	}
-	err = regulator_enable(s_camdvdd_regulator);
-	if (err) {
-		pr_err("SENSOR:could not enable camdvdd.\n");
-		return;
-	}
-	if (0 == volt_value) {
+	if (0 != volt_value) {
+		err = regulator_enable(s_camdvdd_regulator);
+		if (err) {
+			regulator_put(s_camdvdd_regulator);
+			s_camdvdd_regulator = NULL;
+			pr_err("SENSOR:could not enable camdvdd.\n");
+			return;
+		}
+	} else {
 		regulator_disable(s_camdvdd_regulator);
+		regulator_put(s_camdvdd_regulator);
+		s_camdvdd_regulator = NULL;
 		pr_debug("SENSOR:disable camdvdd.\n");
 	}
 	return;
