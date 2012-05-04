@@ -2757,9 +2757,12 @@ asmlinkage void schedule_tail(struct task_struct *prev)
 		put_user(task_pid_vnr(current), current->set_child_tid);
 }
 
+
+#ifdef CONFIG_SOFT_WATCHDOG
 extern int first_watchdog_fire;
 extern unsigned long nfc_wait_times;
 extern unsigned long nfc_wait_long;
+#endif
 
 /*
  * context_switch - switch to the new MM and the new
@@ -2803,9 +2806,11 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
 #endif
 
+#ifdef CONFIG_SOFT_WATCHDOG
 	if(first_watchdog_fire)
 		printk("bc [%s] => [%s], [%s]:[%s], %u-%u\n",
 				prev->comm, next->comm, rq->curr->comm, current->comm, nfc_wait_times, nfc_wait_long);
+#endif
 
 	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);

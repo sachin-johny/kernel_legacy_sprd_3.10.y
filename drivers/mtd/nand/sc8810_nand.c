@@ -313,6 +313,7 @@ static void sc8810_nand_wp_en(int en)
 	}
 }
 
+#ifdef CONFIG_SOFT_WATCHDOG
 extern int first_watchdog_fire;
 unsigned long nfc_wait_times = 0, nfc_wait_long = 0;
 static unsigned long func_start, func_end;
@@ -332,6 +333,7 @@ static unsigned long read_clock_sim()
         } 
 	return val2;
 }
+#endif
 
 static int sc8810_nfc_wait_command_finish(unsigned int flag)
 {
@@ -339,10 +341,12 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag)
 	unsigned int value;
 	unsigned int counter = 0;
 
+#ifdef CONFIG_SOFT_WATCHDOG
 	if(first_watchdog_fire) {
 		nfc_wait_times++;
 		func_start = read_clock_sim();
 	}
+#endif
 
 	while(((event & flag) != flag) && (counter < NFC_TIMEOUT_VAL/*time out*/))
 	{
@@ -363,10 +367,12 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag)
 		panic("nfc cmd timeout!!!");
 	}
 
+#ifdef CONFIG_SOFT_WATCHDOG
 	if(first_watchdog_fire) {
 		func_end = read_clock_sim();
 		nfc_wait_long += (func_end - func_start);
 	}
+#endif
 
 	return 0;
 }

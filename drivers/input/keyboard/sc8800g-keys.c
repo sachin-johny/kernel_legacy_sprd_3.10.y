@@ -215,14 +215,18 @@ static ssize_t sprd_kpad_store_emulate(struct device* cd, struct device_attribut
 	return len;
 }
 
+#ifdef CONFIG_SOFT_WATCHDOG
 extern int first_watchdog_fire;
+#endif
 
 static ssize_t sprd_kpad_show_sysrq(struct device* cd,struct device_attribute *attr, char* buf)
 {
+#ifdef CONFIG_SOFT_WATCHDOG
 	if(first_watchdog_fire)
 		first_watchdog_fire = 0;
 	else
 		first_watchdog_fire = 1;
+#endif
 	return sprintf(buf, "%d\n", sysrq_enabled);
 }
 
