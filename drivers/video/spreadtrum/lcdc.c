@@ -45,7 +45,7 @@ static void sprd_lcdc_reset(void)
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
 	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<3), REG_AHB_SOFT_RST);
 	udelay(10);
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (~(1<<3)), REG_AHB_SOFT_RST);
+	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<3)), REG_AHB_SOFT_RST);
 
 }
 
