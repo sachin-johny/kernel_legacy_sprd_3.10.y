@@ -4,6 +4,7 @@
 #include <linux/kthread.h>
 #include <linux/io.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
 #include <mach/hardware.h>
 #include <mach/adi_hal_internal.h>
 #include <mach/adc_drvapi.h>
@@ -16,6 +17,7 @@
 uint16_t CHGMNG_AdcvalueToVoltage(uint16_t adcvalue);
 int sprd_get_adc_cal_type(void);
 
+#define CALIBRATE_TO	(60 * 3)	/*three minutes */
 #define MEASURE_TIMES	(128)
 const int dcdc_ctl_vol[] = {
 	650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400,
@@ -74,24 +76,28 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 
 int do_dcdc_init(void *data)
 {
-	int ret, cnt = 60 * 3;	//three minutes
+	int ret, cnt = CALIBRATE_TO;
 	int dcdc_def_vol = 1100;	//FIXME: how to read dcdc value?
-	debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type());
+	int dcdc_cal_typ = 0;
+//      debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type());
 
 #if 0				//cal test
 	ANA_REG_SET(ANA_DCDC_CTRL_CAL, 0x10);
 	dcdc_def_vol += (ANA_REG_GET(ANA_DCDC_CTRL_CAL) & 0x1f) * 100 / 32;
 #endif
 
+      retry:
 	do {
 		msleep(1000);
-	} while (0 == sprd_get_adc_cal_type() && --cnt);	//wait for user app setup battery calibrate params
-	debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type());
+	} while (dcdc_cal_typ == sprd_get_adc_cal_type() && --cnt);	//wait for user app setup battery calibrate params
 
 	if (0 == cnt || 0 == sprd_get_adc_cal_type()) {
 		info("%s maybe timeout\n", __FUNCTION__);
 		return 0;
 	}
+
+	dcdc_cal_typ = sprd_get_adc_cal_type();
+	debug("%s %d %d\n", __FUNCTION__, dcdc_cal_typ, cnt);
 
 	ret = dcdc_calibrate(ADC_CHANNEL_DCDC, dcdc_def_vol, 1100);
 	if (ret > 0)		//verify
@@ -100,9 +106,28 @@ int do_dcdc_init(void *data)
 	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 1200, 1200);
 	if (ret > 0)		//verify
 		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, 1200);
-	return 0;
+	cnt = CALIBRATE_TO;
+	goto retry;
 }
 
+/*
+static struct delayed_work dcdc_work = {
+	.work.func = NULL,
+};
+
+static void do_dcdc_work(struct work_struct *work)
+{
+	do_dcdc_init(0);
+}
+
+void dcdc_calibrate_callback(void *data)
+{
+	dump_stack();
+	if (!dcdc_work.work.func)
+		INIT_DELAYED_WORK(&dcdc_work, do_dcdc_work);
+	schedule_delayed_work(&dcdc_work, 10);
+}
+*/
 static int __init dcdc_init(void)
 {
 	int ret;
