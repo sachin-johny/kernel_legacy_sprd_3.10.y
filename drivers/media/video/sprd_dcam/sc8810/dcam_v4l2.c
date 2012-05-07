@@ -106,6 +106,10 @@ typedef struct dcam_info
 	uint8_t recording_start;
 	volatile uint8_t v4l2_buf_ctrl_set_next_flag;
 	volatile uint8_t v4l2_buf_ctrl_path_done_flag;;
+
+	SENSOR_MODE_E cur_m;
+	uint32_t skip_flag;
+	
 }DCAM_INFO_T;
 
 typedef enum
@@ -623,52 +627,82 @@ static int init_sensor_parameters(void *priv)
 
 	DCAM_V4L2_PRINT("V4L2:init_sensor_parameters, image_format = %d,  preview_m=%d, snapshot_m=%d, capturemode = %d  \n ",
 			sensor_info_ptr->image_format, g_dcam_info.preview_m, g_dcam_info.snapshot_m, dev->streamparm.parm.capture.capturemode);
-	
+
+	g_dcam_info.skip_flag = 1;
 	if((SENSOR_IMAGE_FORMAT_RAW != sensor_info_ptr->image_format)
 		&& (1 == dev->streamparm.parm.capture.capturemode)) 
 	{
-		Sensor_Ioctl(SENSOR_IOCTL_BEFORE_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
-	}
-	DCAM_V4L2_PRINT("V4L2: snapshot_m: %d, preview_m: %d.\n", g_dcam_info.snapshot_m, g_dcam_info.preview_m);
-	if(g_dcam_info.preview_m != g_dcam_info.snapshot_m)
-		Sensor_SetMode(g_dcam_info.snapshot_m);
-	else if(g_dcam_info.snapshot_m < SENSOR_MODE_SNAPSHOT_ONE_FIRST) 
-		Sensor_SetMode(g_dcam_info.preview_m);
 
-	/* Setting sensor parameters */
-	if(INVALID_VALUE != g_dcam_info.wb_param)
-		Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE,              	g_dcam_info.wb_param);
-	
-	if(INVALID_VALUE != g_dcam_info.imageeffect_param)
-		Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT,        		g_dcam_info.imageeffect_param);
-	
-	if(INVALID_VALUE != g_dcam_info.previewmode_param)
-		Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE,              	g_dcam_info.previewmode_param);
-	
-	if(INVALID_VALUE != g_dcam_info.brightness_param)
-		Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,               		g_dcam_info.brightness_param);
-	
-	if(INVALID_VALUE != g_dcam_info.contrast_param)
-		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST,                 		g_dcam_info.contrast_param);
-	
-//	if(INVALID_VALUE != g_dcam_info.hflip_param)
-//		Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,           	g_dcam_info.hflip_param);
-	
-//	if(INVALID_VALUE != g_dcam_info.vflip_param)
-//		Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
-	
-	if(INVALID_VALUE != g_dcam_info.ev_param)
-		Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
-	
-	if(INVALID_VALUE != g_dcam_info.power_freq)
-		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
-	
-#ifdef DCAM_SET_SENSOR_MODE
-	if(1 != dev->streamparm.parm.capture.capturemode) //for preview
-	{
-		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
+		if(g_dcam_info.cur_m != g_dcam_info.snapshot_m)
+		{
+			Sensor_Ioctl(SENSOR_IOCTL_BEFORE_SNAPSHOT, (uint32_t)g_dcam_info.snapshot_m);
+			DCAM_V4L2_PRINT("V4L2: snapshot_m: %d, preview_m: %d.\n", g_dcam_info.snapshot_m, g_dcam_info.preview_m);
+			if(g_dcam_info.preview_m != g_dcam_info.snapshot_m)
+			{
+				g_dcam_info.cur_m = g_dcam_info.snapshot_m;
+				Sensor_SetMode(g_dcam_info.snapshot_m);
+			}
+			else if(g_dcam_info.snapshot_m < SENSOR_MODE_SNAPSHOT_ONE_FIRST) 
+			{
+				g_dcam_info.cur_m = g_dcam_info.preview_m;
+				Sensor_SetMode(g_dcam_info.preview_m);
+			}
+			else
+			{
+				g_dcam_info.cur_m = g_dcam_info.preview_m;
+			}
+		}
+		else
+		{
+			g_dcam_info.skip_flag = 0;
+		}
+
+		
 	}
+	else
+	{
+		Sensor_SetMode(g_dcam_info.preview_m);
+		g_dcam_info.cur_m = g_dcam_info.preview_m;
+
+		/* Setting sensor parameters */
+		if(INVALID_VALUE != g_dcam_info.wb_param)
+			Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE,              	g_dcam_info.wb_param);
+		
+		if(INVALID_VALUE != g_dcam_info.imageeffect_param)
+			Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT,        		g_dcam_info.imageeffect_param);
+		
+		if(INVALID_VALUE != g_dcam_info.previewmode_param)
+			Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE,              	g_dcam_info.previewmode_param);
+		
+		if(INVALID_VALUE != g_dcam_info.brightness_param)
+			Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,               		g_dcam_info.brightness_param);
+		
+		if(INVALID_VALUE != g_dcam_info.contrast_param)
+			Sensor_Ioctl(SENSOR_IOCTL_CONTRAST,                 		g_dcam_info.contrast_param);
+		
+	//	if(INVALID_VALUE != g_dcam_info.hflip_param)
+	//		Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,           	g_dcam_info.hflip_param);
+		
+	//	if(INVALID_VALUE != g_dcam_info.vflip_param)
+	//		Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
+		
+		if(INVALID_VALUE != g_dcam_info.ev_param)
+			Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
+		
+		if(INVALID_VALUE != g_dcam_info.power_freq)
+			Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
+		
+#ifdef DCAM_SET_SENSOR_MODE
+		if(INVALID_VALUE != g_dcam_info.sensor_work_mode)
+		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
+
 #endif
+		
+		
+	}
+
+	
+
 
 	return 0;
 }
@@ -1483,6 +1517,7 @@ static int v4l2_sensor_init(uint32_t sensor_id)
 			DCAM_V4L2_PRINT("DCAM: Fail to init sensor.\n");
 			return -1;
 		}
+		g_dcam_info.cur_m = SENSOR_MODE_COMMON_INIT;
 		if(0 == s_dcam_err_info.is_wakeup_thread)
 		{
 			wake_up_process(s_dcam_thread);
@@ -1710,6 +1745,17 @@ void zoom_picture_size(uint32_t in_w, uint32_t in_h, DCAM_TRIM_RECT_T *trim_rect
 	
 }
 
+/*
+	
+	if ((1 == dev->streamparm.parm.capture.capturemode)&&
+	   (g_dcam_info.cur_m != g_dcam_info.snapshot_m))
+	{
+
+		
+	}
+
+*/
+
 static int init_dcam_parameters(void *priv)
 {
 	struct dcam_fh  *fh = priv;
@@ -1807,6 +1853,8 @@ static int init_dcam_parameters(void *priv)
 	g_dcam_info.mode = init_param.mode;
 	init_param.zoom_multiple = g_dcam_info.zoom_multiple;
 	init_param.zoom_level = g_zoom_level;
+	init_param.skip_flag = g_dcam_info.skip_flag;
+		
 	dcam_parameter_init(&init_param);
 	return 0;
 }
@@ -1862,12 +1910,14 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	
 	init_MUTEX(&s_dcam_err_info.dcam_start_sem);
 	down(&s_dcam_err_info.dcam_start_sem);
-	
+	//printk("#### V4L2: vidioc_streamon start. 1 \n");
 	ret = init_sensor_parameters(priv);
 	if(0 != ret)
 		return -1;
-	
+	//printk("#### V4L2: vidioc_streamon start. 2 \n");
 	ret = init_dcam_parameters(priv);	
+
+	//printk("#### V4L2: vidioc_streamon start. 3 \n");
 	if(0 != ret)
 		return -1;
 	s_dcam_err_info.mode = g_dcam_info.mode;
@@ -1881,6 +1931,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_last_buf = 0xFFFFFFFF;
 	g_last_uv_buf = 0xFFFFFFFF;
 
+	//printk("#### V4L2: vidioc_streamon start. 4 \n");
 	if(5 == Sensor_GetCurId())
 	{
 		printk("v4l2:streamon,sensor is ATV .\n");
@@ -1895,7 +1946,8 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		up(&s_dcam_err_info.dcam_start_sem);	
 		ret = s_dcam_err_info.ret;
 	}
-		
+
+
 	printk("DCAM_V4L2: OK to vidioc_streamon,ret=%d.\n",ret);
 	printk("#### V4L2: vidioc_streamon end .\n");
 	return -ret;
@@ -2149,7 +2201,11 @@ unlock:
 }   
 
 void dcam_cb_ISRCapSOF(void)
-{	
+{
+	struct timeval tv;
+	do_gettimeofday(&tv);
+
+	printk("dcam_cb_ISRCapSOF: %d",(tv.tv_sec*1000+ tv.tv_usec/1000) );
 	dcam_disableint();	
 //	printk("cap_sof.\n");
 	if(g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1)
@@ -2159,6 +2215,7 @@ void dcam_cb_ISRCapSOF(void)
 	}
 	set_next_buffer(g_fh);
 	dcam_enableint();
+	
 }
 void dcam_cb_ISRCapEOF(void)
 {

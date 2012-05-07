@@ -105,6 +105,8 @@ typedef struct dcam_init_param
 	uint32_t first_u_buf_addr;
 	uint32_t zoom_level;
 	uint32_t zoom_multiple;
+	uint32_t skip_flag;
+	
 }DCAM_INIT_PARAM_T;
 
 typedef enum

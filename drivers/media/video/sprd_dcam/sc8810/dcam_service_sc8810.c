@@ -42,6 +42,7 @@ typedef struct dcam_parameter
 	uint32_t zoom_level;
 	uint32_t zoom_multiple;
 	uint32_t no_skip_frame_flag;
+	
 }DCAM_PARAMETER_T;
     
 DCAM_PARAMETER_T g_dcam_param;
@@ -269,6 +270,16 @@ int dcam_parameter_init(DCAM_INIT_PARAM_T *init_param)
 	g_dcam_param.first_buf_uv_addr = init_param->first_u_buf_addr;
 	g_dcam_param.zoom_level = init_param->zoom_level;
 	g_dcam_param.zoom_multiple = init_param->zoom_multiple;
+
+
+	if(0 ==  init_param->skip_flag)
+	{
+		g_dcam_param.no_skip_frame_flag = 1;			
+	}
+	else
+	{
+		g_dcam_param.no_skip_frame_flag = 0;			
+	}
 	
 	DCAM_TRACE("DCAM: dcam_parameter_init mode: %d, format: %d, yuv_pattern: %d. \n",
 		                      g_dcam_param.mode,g_dcam_param.format,g_dcam_param.yuv_pattern);      
@@ -769,11 +780,27 @@ static int _ISP_ServiceStartJpeg(void)
 	ISP_RTN_IF_ERR(rtn_drv);
 
 	/*Set CAP*/
-	rtn_drv = ISP_DriverCapConfig(s->module_addr, 
-	                                                            ISP_CAP_PRE_SKIP_CNT, 
-	                                                             (void*)&s->capture_skip_frame_num);
-	ISP_RTN_IF_ERR(rtn_drv);
+	if(0 == g_dcam_param.no_skip_frame_flag)
+	{
+		printk("_ISP_ServiceStartJpeg, skip: %d", s->capture_skip_frame_num);
 
+		rtn_drv = ISP_DriverCapConfig(s->module_addr, 
+		                                                            ISP_CAP_PRE_SKIP_CNT, 
+		                                                             (void*)&s->capture_skip_frame_num);
+		
+	}
+	else
+	{
+		uint32_t skip_num = 0;
+
+		printk("_ISP_ServiceStartJpeg, no skip");
+		rtn_drv = ISP_DriverCapConfig(s->module_addr, 
+		                                                            ISP_CAP_PRE_SKIP_CNT, 
+		                                                             (void*)&skip_num);
+		
+	}
+	ISP_RTN_IF_ERR(rtn_drv);
+	
 	cap_sync.vsync_pol = s->vsync_polarity;
 	cap_sync.hsync_pol = s->hsync_polarity;
 	cap_sync.pclk_pol = s->pclk_polarity;
@@ -1419,6 +1446,8 @@ void dcam_set_first_buf_addr(uint32_t y_addr,uint32_t uv_addr)
 	g_dcam_param.first_buf_uv_addr = uv_addr;
 	g_dcam_param.no_skip_frame_flag = 1;
 }
+
+
 
 void dcam_enableint(void)
 {
