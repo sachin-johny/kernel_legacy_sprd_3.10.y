@@ -48,9 +48,7 @@
 */
 #include <linux/module.h>
 #include <linux/types.h>
-
 #include <linux/kernel.h>
-
 #include <linux/errno.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
@@ -58,12 +56,12 @@
 #include <linux/string.h>
 #include <linux/major.h>
 #include <linux/init.h>
-
 #include <linux/proc_fs.h>
+#include <linux/delay.h>
+#include <linux/kthread.h>
 
 #ifndef USB_FOR_MUX
 #include <linux/serial.h>
-
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/mm.h>
@@ -73,7 +71,6 @@
 #include <asm/bitops.h>
 #include <linux/workqueue.h>
 #endif
-#include <linux/delay.h>
 
 #ifdef USB_FOR_MUX
 //#include <linux/usb.h>
@@ -265,6 +262,7 @@ extern struct tty_struct *COMM_FOR_MUX_TTY;
 
 static struct workqueue_struct *muxsend_work_queue;
 static struct workqueue_struct *muxpost_receive_work_queue;
+static struct task_struct *mux_kthread;
 
 static void receive_worker(struct work_struct *private_);
 static void post_recv_worker(struct work_struct *private_);
@@ -2686,7 +2684,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 	mux_send_struct *send_info;
 	mux_recv_struct *recv_info;
 
-	printk("MUX: mux[%d] opened!\n", tty->index);
+	printk(KERN_INFO "MUX: mux[%d] opened!\n", tty->index);
 
 	UNUSED_PARAM(filp);
 
@@ -2734,23 +2732,23 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 				    ops->write(COMM_FOR_MUX_TTY, "at\r",
 					       strlen("at\r"));
 			/*wait for response "OK \r" */
-			printk("\n cmux receive:<\n");
+			printk(KERN_INFO "\n cmux receive:<\n");
 			msleep(1000);
 			while (1) {
 
 				int c = mux_ringbuffer_avail(&rbuf);
-				printk("ts mux receive %d chars\n", c);
+				printk(KERN_INFO "ts mux receive %d chars\n", c);
 				if (c > 0) {
 					if (c > 256)
 						c = 256;
 					mux_ringbuffer_read(&rbuf, buff++, 1,
 							    0);
-					printk("%c", *(buff - 1));
+					printk(KERN_INFO "%c", *(buff - 1));
 					if (findInBuf(buffer, 256, "OK"))
 						break;
 					if (findInBuf(buffer, 256, "ERROR")) {
 						printk
-						    ("\n wrong modem state !!!!\n");
+						    (KERN_INFO "\n wrong modem state !!!!\n");
 						break;
 					}
 
@@ -2770,7 +2768,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 					i++;
 				}
 				if (i > 5) {
-					printk("\n wrong modem state !!!!\n");
+					printk(KERN_WARNING "\n wrong modem state !!!!\n");
 					retval = -ENODEV;
 					goto out;
 				}
@@ -2779,7 +2777,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 							"at+cmux=0\r",
 							strlen("at+cmux=0\r"));
 			msleep(2000);
-			printk("\n cmux receive>\n");
+			printk(KERN_INFO "\n cmux receive>\n");
 			/*flush ringbuffer */
 			mux_ringbuffer_flush(&rbuf);
 			cmux_mode = 1;
@@ -2913,7 +2911,7 @@ int mux_set_thread_pro(int pro)
 		s.sched_priority = MAX_RT_PRIO - pro;
 		ret = sched_setscheduler(current, SCHED_RR, &s);
 		if (ret != 0)
-			printk("MUX: set priority failed!\n");
+			printk(KERN_WARNING "MUX: set priority failed!\n");
 	}
 	return 0;
 }
@@ -3188,12 +3186,11 @@ static void receive_worker(struct work_struct *private_)
 
 static int mux_receive_thread(void *data)
 {
-
 	mux_set_thread_pro(95);
 
 	while (1) {
 
-		down(&receive_sem);
+		down_interruptible(&receive_sem);
 
 		if (mux_exiting == 1) {
 			mux_exiting = 2;
@@ -3570,7 +3567,7 @@ static const struct tty_operations tty_ops = {
 
 static int __init mux_init(void)
 {
-	unsigned int j, retval;
+	unsigned int j, err;
 
 	ts0710_init();
 
@@ -3587,8 +3584,14 @@ static int __init mux_init(void)
 	mux_recv_flags = 0;
 
 	sema_init(&receive_sem, 0);
-	retval = kernel_thread(mux_receive_thread, NULL, 0);
-	BUG_ON(0 == retval);
+	mux_kthread = kthread_create(mux_receive_thread, NULL, "mux_receive");
+	if(IS_ERR(mux_kthread)){
+		printk(KERN_ERR "Unable to create mux_receive thread\n");
+		err = PTR_ERR(mux_kthread);
+		mux_kthread = NULL;
+		return err;
+	}
+	wake_up_process(mux_kthread);
 
 	muxsend_work_queue = create_workqueue("muxsend");
 	muxpost_receive_work_queue = create_workqueue("muxpostreceive");
@@ -3622,7 +3625,7 @@ static int __init mux_init(void)
 	COMM_MUX_SENDER = mux_sender;
 
 	if (mux_create_proc())
-		printk("create mux proc interface failed!\n");
+		printk(KERN_WARNING "create mux proc interface failed!\n");
 
 	return 0;
 }
@@ -3656,6 +3659,8 @@ static void __exit mux_exit(void)
 		msleep(10);
 	}
 	destroy_workqueue(muxpost_receive_work_queue);
+	if(!IS_ERR(mux_kthread))
+		kthread_stop(mux_kthread);
 
 	if (tty_unregister_driver(&mux_driver))
 		panic("Couldn't unregister mux driver");
