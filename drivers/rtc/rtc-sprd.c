@@ -81,7 +81,7 @@
 #define	  SPRD_ANA_BASE 	   (SPRD_MISC_BASE + 0x600)
 #define   ANA_REG_BASE         SPRD_ANA_BASE   /*  0x82000600 */
 #define   ANA_AGEN              (ANA_REG_BASE + 0x00)
-static unsigned long sec_2012_to_1970;
+static unsigned long secs_start_year_to_1970;
 struct sprd_rtc_data{
 	struct rtc_device *rtc;
 	unsigned int irq_no;
@@ -220,7 +220,7 @@ static int sprd_rtc_read_alarm(struct device *dev,
 {
 	unsigned long secs = sprd_rtc_get_alarm_sec();
 
-	secs = secs + sec_2012_to_1970;
+	secs = secs + secs_start_year_to_1970;
 	rtc_time_to_tm(secs, &alrm->time);
 
 	alrm->enabled = !!(sci_adi_read(ANA_RTC_INT_EN) & RTC_ALARM_BIT);
@@ -238,7 +238,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 	int i = 0;
 
 	rtc_tm_to_time(&alrm->time, &secs);
-	if(secs < sec_2012_to_1970)
+	if(secs < secs_start_year_to_1970)
 		return -1;
 
 	sci_adi_raw_write(ANA_RTC_INT_CLR, RTC_ALARM_BIT);
@@ -248,7 +248,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 		temp |= RTC_ALARM_BIT;
 		sci_adi_raw_write(ANA_RTC_INT_EN, temp);
 
-		secs = secs - sec_2012_to_1970;
+		secs = secs - secs_start_year_to_1970;
 		sprd_rtc_set_alarm_sec(secs);
 		do {
 			read_secs = sprd_rtc_get_alarm_sec();
@@ -272,9 +272,9 @@ static int sprd_rtc_read_time(struct device *dev,
 		sprd_rtc_set_sec(0);
 		secs = 0;
 	}
-	secs = secs + sec_2012_to_1970;
+	secs = secs + secs_start_year_to_1970;
 	if(secs > 0x7f000000){
-		secs = sec_2012_to_1970;
+		secs = secs_start_year_to_1970;
 		sprd_rtc_set_sec(0);
 	}
 	rtc_time_to_tm(secs, tm);
@@ -287,18 +287,18 @@ static int sprd_rtc_set_time(struct device *dev,
 	unsigned long secs;
 
 	rtc_tm_to_time(tm, &secs);
-	if(secs < sec_2012_to_1970)
+	if(secs < secs_start_year_to_1970)
 		return -1;
-	secs = secs - sec_2012_to_1970;
+	secs = secs - secs_start_year_to_1970;
 	sprd_rtc_set_sec(secs);
 	return 0;
 }
 
 static int sprd_rtc_set_mmss(struct device *dev, unsigned long secs)
 {
-	if(secs < sec_2012_to_1970)
+	if(secs < secs_start_year_to_1970)
 		return -1;
-	secs = secs - sec_2012_to_1970;
+	secs = secs - secs_start_year_to_1970;
 	sprd_rtc_set_sec(secs);
 	return 0;
 }
@@ -433,9 +433,9 @@ static int __init sprd_rtc_init(void)
 		return err;
 
 	if(CONFIG_RTC_START_YEAR > 1970)
-		sec_2012_to_1970 = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0);
+		secs_start_year_to_1970 = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0);
 	else 
-		sec_2012_to_1970 = mktime(1970, 1, 1, 0, 0, 0);
+		secs_start_year_to_1970 = mktime(1970, 1, 1, 0, 0, 0);
 
 	return 0;
 }
