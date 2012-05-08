@@ -2,6 +2,7 @@
 #define __GPIO_PHY_H__
 
 #include <mach/gpio.h>
+#include <mach/regs_adi.h>
 #include <mach/adi_hal_internal.h>
 
 enum gpio_section_type {
@@ -45,8 +46,8 @@ static __inline u32 __get_base_addr (u32 gpio_id)
 	if (gpio_id > NR_D_DIE_GPIOS)
 	{
 		if (gpio_id < 176 + 16)
-			return 0x82000480;
-		return 0x820004c0;
+			return __adi_phy_to_virt(0x82000480);
+		return __adi_phy_to_virt(0x820004c0);
 	}
 
 	return ((gpio_id>>4) -1) * 0x80 + (u32) GPIO_BASE;
