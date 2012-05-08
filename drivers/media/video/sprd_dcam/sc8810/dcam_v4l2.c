@@ -55,7 +55,7 @@ JINF_EXIF_INFO_T* g_dc_exif_info_ptr = NULL;
 
 #define INVALID_VALUE				0xff
 #define DCAM_MINOR MISC_DYNAMIC_MINOR
-//#define DCAM_SET_SENSOR_MODE     1
+#define DCAM_SET_SENSOR_MODE     1
 #define V4L2_OPEN_FOCUS 1
 #define DCAM_SCALE_OUT_WIDTH_MAX    960
 
@@ -664,6 +664,11 @@ static int init_sensor_parameters(void *priv)
 		Sensor_SetMode(g_dcam_info.preview_m);
 		g_dcam_info.cur_m = g_dcam_info.preview_m;
 
+                printk("parameters: %d, %d, %d, %d, %d, %d, %d, %d \n",
+                                g_dcam_info.wb_param, g_dcam_info.imageeffect_param, g_dcam_info.previewmode_param,
+                                g_dcam_info.brightness_param, g_dcam_info.contrast_param, g_dcam_info.ev_param, 
+                                g_dcam_info.power_freq, g_dcam_info.sensor_work_mode);
+
 		/* Setting sensor parameters */
 		if(INVALID_VALUE != g_dcam_info.wb_param)
 			Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE,              	g_dcam_info.wb_param);
@@ -692,9 +697,9 @@ static int init_sensor_parameters(void *priv)
 		if(INVALID_VALUE != g_dcam_info.power_freq)
 			Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
 		
-#ifdef DCAM_SET_SENSOR_MODE
+#if 0//def DCAM_SET_SENSOR_MODE
 		if(INVALID_VALUE != g_dcam_info.sensor_work_mode)
-		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
+		    Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
 
 #endif
 		
@@ -1172,6 +1177,11 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
 				dcam_start_handle(1);
 			}
+                        else
+                        {
+                                Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
+                        }
+                            
 			printk("v4l2:g_dcam_info.sensor_work_mode = %d.\n",g_dcam_info.sensor_work_mode);	
 			break;	
 #endif			
@@ -1997,7 +2007,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.previewmode_param = INVALID_VALUE;
 	g_dcam_info.ev_param = INVALID_VALUE;	
 	g_dcam_info.power_freq = INVALID_VALUE;
-         g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
+        //g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
 
           //stop timer
           dcam_stop_timer(&s_dcam_err_info.dcam_timer);
@@ -2151,7 +2161,7 @@ unlock:
 	buf->vb.state = VIDEOBUF_DONE;
 	
 //	DCAM_V4L2_PRINT("V4L2: path1_done_buffer:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));   
-         printk("time = %d.\n",(buf->vb.ts.tv_sec*1000+buf->vb.ts.tv_usec/1000));
+         printk("path1_done_buffer: time = %d \n",(buf->vb.ts.tv_sec*1000+buf->vb.ts.tv_usec/1000));
 	wake_up(&buf->vb.done); 
 	g_first_buf_addr = g_last_buf;
 	g_first_buf_uv_addr = g_last_uv_buf;
@@ -2205,7 +2215,7 @@ void dcam_cb_ISRCapSOF(void)
 	struct timeval tv;
 	do_gettimeofday(&tv);
 
-	printk("dcam_cb_ISRCapSOF: %d",(tv.tv_sec*1000+ tv.tv_usec/1000) );
+	printk("dcam_cb_ISRCapSOF: %d \n",(tv.tv_sec*1000+ tv.tv_usec/1000) );
 	dcam_disableint();	
 //	printk("cap_sof.\n");
 	if(g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1)
