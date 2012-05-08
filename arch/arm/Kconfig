@@ -42,7 +42,7 @@ config NKERNEL_DYNAMIC_GUEST_LOADING
 	default n
 
 config NKERNEL_ARCH_PM_MASTER
-	bool
+	bool "Power Manage by Linux"
 	help
 	  Select this option for a platform to enable NKERNEL_PM_MASTER option.
 
