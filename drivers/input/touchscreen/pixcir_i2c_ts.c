@@ -24,22 +24,33 @@
 #include <linux/regulator/consumer.h>
 #include <linux/i2c/pixcir_i2c_ts.h>
 #include <mach/regulator.h>
+
+
 /*********************************Bee-0928-TOP****************************************/
 
-struct pixcir_ts_struct *g_pixcir_ts;
+static unsigned char debug_level=PIXCIR_DEBUG;
+
+#define PIXCIR_DBG(format, ...)	\
+	if(debug_level == 1)	\
+		printk(KERN_INFO "PIXCIR " format "\n", ## __VA_ARGS__)
+
+static struct pixcir_ts_struct *g_pixcir_ts;
 static unsigned char status_reg = 0;
 static struct point_node_t point_slot[MAX_FINGER_NUM*2];
-
+static struct point_node_t point_slot_back[MAX_FINGER_NUM*2];
+static int distance[5]={0};
+static int touch_flage[5]={0};
 static struct i2c_driver pixcir_i2c_ts_driver;
 static struct class *i2c_dev_class;
 static LIST_HEAD( i2c_dev_list);
 static DEFINE_SPINLOCK( i2c_dev_list_lock);
 
 
-static ssize_t pixcir_set_calibrate(struct device* cd, struct device_attribute *attr,
-		       const char* buf, size_t len);
+static ssize_t pixcir_set_calibrate(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 static ssize_t pixcir_show_suspend(struct device* cd,struct device_attribute *attr, char* buf);
 static ssize_t pixcir_store_suspend(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
+static ssize_t pixcir_show_debug(struct device* cd,struct device_attribute *attr, char* buf);
+static ssize_t pixcir_store_debug(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 
 static void pixcir_reset(int reset_pin);
 static void pixcir_ts_suspend(struct early_suspend *handler);
@@ -48,7 +59,7 @@ static void pixcir_ts_pwron(struct regulator *reg_vdd);
 static int pixcir_tx_config(void);
 static DEVICE_ATTR(calibrate, S_IRUGO | S_IWUSR, NULL, pixcir_set_calibrate);
 static DEVICE_ATTR(suspend, S_IRUGO | S_IWUSR, pixcir_show_suspend, pixcir_store_suspend);
-
+static DEVICE_ATTR(debug, S_IRUGO | S_IWUSR, pixcir_show_debug, pixcir_store_debug);
 
 
 /* pixcir_i2c_rxdata --  read data from i2c
@@ -118,6 +129,35 @@ static int pixcir_i2c_write_data(unsigned char addr, unsigned char data)
 	buf[1]=data;
 	return pixcir_i2c_txdata(buf, 2);
 }
+
+/* pixcir_show_debug -- show debug level
+ * @return: len
+ */
+static ssize_t pixcir_show_debug(struct device* cd,struct device_attribute *attr, char* buf)
+{
+	ssize_t ret = 0;
+
+	sprintf(buf, "PIXCIR Debug %d\n",debug_level);
+
+	ret = strlen(buf) + 1;
+
+	return ret;
+}
+
+/* pixcir_store_debug -- set debug level
+ * @return: len
+ */
+static ssize_t pixcir_store_debug(struct device* cd, struct device_attribute *attr,
+		       const char* buf, size_t len)
+{
+	unsigned long on_off = simple_strtoul(buf, NULL, 10);
+	debug_level = on_off;
+
+	printk(KERN_INFO "%s: debug_level=%d\n",__func__, debug_level);
+
+	return len;
+}
+
 
 
 /* pixcir_set_calibrate --  enable tp chip calibration fucntion
@@ -200,6 +240,8 @@ static int pixcir_create_sysfs(struct i2c_client *client)
 
 	err = device_create_file(dev, &dev_attr_calibrate);
 	err = device_create_file(dev, &dev_attr_suspend);
+	err = device_create_file(dev, &dev_attr_debug);
+
 
 	return err;
 }
@@ -219,7 +261,7 @@ static void pixcir_ts_sleep(void)
  */
 static void pixcir_ts_suspend(struct early_suspend *handler)
 {
-	printk(KERN_INFO "==%s==\n", __func__);
+	printk(KERN_INFO "==%s==, irq=%d\n", __func__,g_pixcir_ts->pixcir_irq);
    	pixcir_ts_sleep();
 	disable_irq_nosync(g_pixcir_ts->pixcir_irq);
 }
@@ -229,7 +271,7 @@ static void pixcir_ts_suspend(struct early_suspend *handler)
  */
 static void pixcir_ts_resume(struct early_suspend *handler)
 {
-	printk(KERN_INFO "==%s==\n", __func__);
+	printk(KERN_INFO "==%s==, irq=%d\n", __func__,g_pixcir_ts->pixcir_irq);
 	pixcir_reset(g_pixcir_ts->platform_data->reset_gpio_number);
 	msleep(100);
 	pixcir_tx_config();
@@ -412,12 +454,12 @@ static struct i2c_dev *get_free_i2c_dev(struct i2c_adapter *adap)
 static void pixcir_ts_poscheck(struct pixcir_ts_struct *data)
 {
 	struct pixcir_ts_struct *tsdata = data;
-
+	int x,y;
 	unsigned char *p;
 	unsigned char touch, button, pix_id,slot_id;
-	unsigned char rdbuf[27];
-	int i;
-
+	unsigned char rdbuf[27]={0};
+	int slotid[5];
+	int i,temp;
 	rdbuf[0]=0;
 	pixcir_i2c_rxdata(rdbuf, 27);
 
@@ -430,11 +472,42 @@ static void pixcir_ts_poscheck(struct pixcir_ts_struct *data)
 	for (i=0; i<touch; i++)	{
 		pix_id = (*(p+4));
 		slot_id = ((pix_id & 7)<<1) | ((pix_id & 8)>>3);
+		slotid[i]=slot_id;
 		point_slot[slot_id].active = 1;
 		point_slot[slot_id].finger_id = pix_id;
 		point_slot[slot_id].posx = (*(p+1)<<8)+(*(p))-X_OFFSET;
 		point_slot[slot_id].posy = (*(p+3)<<8)+(*(p+2))-Y_OFFSET;
 		p+=5;
+		if(distance[i]==0) {
+		  point_slot_back[i].posx=point_slot[slot_id].posx;
+		  point_slot_back[i].posy=point_slot[slot_id].posy;
+		}
+	}
+
+	if(touch) {
+		for(i=0;i<touch;i++){
+			x=(point_slot_back[i].posx-point_slot[slotid[i]].posx);
+			x=(x>0)?x:-x;
+			y=(point_slot_back[i].posy-point_slot[slotid[i]].posy);
+			y=(y>0)?y:-y;
+			temp=x+y;
+			PIXCIR_DBG("pix distance=%2d,%2d,%2d\n",distance[i],temp,touch_flage[i]);
+			if(distance[i]){
+				if((temp<DIS_THRESHOLD)&&(touch_flage[i]==0)){
+					point_slot[slotid[i]].posx=point_slot_back[i].posx;
+					point_slot[slotid[i]].posy=point_slot_back[i].posy;
+					PIXCIR_DBG("pix report back\n");
+				}
+				else
+					touch_flage[i]=1;
+			} else {
+				distance[i]=1;
+			}
+		}
+	}
+	else {
+		memset(distance,0,sizeof(distance));
+		memset(touch_flage,0,sizeof(touch_flage));
 	}
 
 	if(touch) {
@@ -479,7 +552,7 @@ static irqreturn_t pixcir_ts_isr(int irq, void *dev_id)
 {
 	struct pixcir_ts_struct *tsdata = (struct pixcir_ts_struct *)dev_id;
 
-	PIXCIR_DBG("%s",__func__);
+	//disable irq
 	disable_irq_nosync(irq);
 
 	if (!work_pending(&tsdata->pen_event_work)) {
@@ -498,12 +571,8 @@ static irqreturn_t pixcir_ts_isr(int irq, void *dev_id)
 static void pixcir_ts_irq_work(struct work_struct *work)
 {
 	struct pixcir_ts_struct *tsdata = g_pixcir_ts;
-
-	PIXCIR_DBG("%s",__func__);
 	pixcir_ts_poscheck(tsdata);
-	PIXCIR_DBG("%s--enable irq",__func__);
-
-	enable_irq(tsdata->client->irq);
+    enable_irq(tsdata->client->irq);
 }
 
 #ifdef CONFIG_PM_SLEEP
@@ -560,7 +629,7 @@ static SIMPLE_DEV_PM_OPS(pixcir_dev_pm_ops,
 static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 					 const struct i2c_device_id *id)
 {
-	const struct pixcir_ts_platform_data *pdata = client->dev.platform_data;
+	struct pixcir_ts_platform_data *pdata = client->dev.platform_data;
 	struct pixcir_ts_struct *tsdata;
 	struct input_dev *input;
 	struct device *dev;
@@ -602,6 +671,7 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 
 	//get irq number
 	client->irq = gpio_to_irq(pdata->irq_gpio_number);
+	tsdata->pixcir_irq = client->irq;
 	PIXCIR_DBG("%s: irq=%d",__func__, client->irq);
 
 	//register virtual keys
@@ -1019,7 +1089,7 @@ static int __init pixcir_i2c_ts_init(void)
 	/*********************************Bee-0928-TOP****************************************/
 	ret = register_chrdev(I2C_MAJOR,"pixcir_i2c_ts",&pixcir_i2c_ts_fops);
 	if (ret) {
-		printk(KERN_ERR "%s:register chrdev failed\n",__FILE__);
+		printk(KERN_ERR "%s:register chrdev failed\n",__func__);
 		return ret;
 	}
 
