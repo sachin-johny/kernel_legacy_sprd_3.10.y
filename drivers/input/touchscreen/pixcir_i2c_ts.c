@@ -57,9 +57,9 @@ static void pixcir_ts_suspend(struct early_suspend *handler);
 static void pixcir_ts_resume(struct early_suspend *handler);
 static void pixcir_ts_pwron(struct regulator *reg_vdd);
 static int pixcir_tx_config(void);
-static DEVICE_ATTR(calibrate, 0660, NULL, pixcir_set_calibrate);
-static DEVICE_ATTR(suspend, 0660, pixcir_show_suspend, pixcir_store_suspend);
-static DEVICE_ATTR(debug, 0660, pixcir_show_debug, pixcir_store_debug);
+static DEVICE_ATTR(calibrate, S_IRUGO | S_IWUSR, NULL, pixcir_set_calibrate);
+static DEVICE_ATTR(suspend, S_IRUGO | S_IWUSR, pixcir_show_suspend, pixcir_store_suspend);
+static DEVICE_ATTR(debug, S_IRUGO | S_IWUSR, pixcir_show_debug, pixcir_store_debug);
 
 
 /* pixcir_i2c_rxdata --  read data from i2c
@@ -511,6 +511,32 @@ static void pixcir_ts_poscheck(struct pixcir_ts_struct *data)
 	}
 
 	if(touch) {
+		for(i=0;i<touch;i++){
+			x=(point_slot_back[i].posx-point_slot[slotid[i]].posx);
+			x=(x>0)?x:-x;
+			y=(point_slot_back[i].posy-point_slot[slotid[i]].posy);
+			y=(y>0)?y:-y;
+			temp=x+y;
+			PIXCIR_DBG("pix distance=%2d,%2d,%2d\n",distance[i],temp,touch_flage[i]);
+			if(distance[i]){
+				if((temp<DIS_THRESHOLD)&&(touch_flage[i]==0)){
+					point_slot[slotid[i]].posx=point_slot_back[i].posx;
+					point_slot[slotid[i]].posy=point_slot_back[i].posy;
+					PIXCIR_DBG("pix report back\n");
+				}
+				else
+					touch_flage[i]=1;
+			} else {
+				distance[i]=1;
+			}
+		}
+	}
+	else {
+		memset(distance,0,sizeof(distance));
+		memset(touch_flage,0,sizeof(touch_flage));
+	}
+
+	if(touch) {
 		input_report_key(tsdata->input, BTN_TOUCH, 1);
 		for (i=0; i<MAX_FINGER_NUM*2; i++) {
 			if (point_slot[i].active == 1) {
@@ -554,7 +580,7 @@ static irqreturn_t pixcir_ts_isr(int irq, void *dev_id)
 {
 	struct pixcir_ts_struct *tsdata = (struct pixcir_ts_struct *)dev_id;
 
-	PIXCIR_DBG("%s",__func__);
+	//disable irq
 	disable_irq_nosync(irq);
 
 	if (!work_pending(&tsdata->pen_event_work)) {
@@ -574,10 +600,7 @@ static void pixcir_ts_irq_work(struct work_struct *work)
 {
 	struct pixcir_ts_struct *tsdata = g_pixcir_ts;
 	pixcir_ts_poscheck(tsdata);
-
-	PIXCIR_DBG("%s--enable irq",__func__);
-
-	enable_irq(tsdata->client->irq);
+    enable_irq(tsdata->client->irq);
 }
 
 #ifdef CONFIG_PM_SLEEP
