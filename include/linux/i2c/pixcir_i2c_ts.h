@@ -5,16 +5,9 @@
 #include <linux/earlysuspend.h>
 #include <mach/board.h>
 
-//#define PIXCIR_DEBUG		1
+#define PIXCIR_DEBUG		0
 
-#ifdef PIXCIR_DEBUG
-#define PIXCIR_DBG(format, ...)	\
-		printk(KERN_INFO "PIXCIR_TS " format "\n", ## __VA_ARGS__)
-#else
-#define PIXCIR_DBG(format, ...)
-#endif
-
-#define		PIXICR_DEVICE_NAME	"pixcir_ts"
+#define	PIXICR_DEVICE_NAME	"pixcir_ts"
 
 #define TS_IRQ_PIN			"ts_irq_pin"
 #define TS_RESET_PIN		"ts_rst_pin"
@@ -22,7 +15,7 @@
 
 #define X_MAX 				480
 #define Y_MAX 				800
-
+#define DIS_THRESHOLD		40
 
 #define SLAVE_ADDR			0x5c
 #define	BOOTLOADER_ADDR		0x5d
