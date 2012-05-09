@@ -631,6 +631,23 @@ static void sc8810_i2c_init(struct sc8810_i2c *i2c)
 }
 
 
+/*
+* Special configuration of 8810 i2c controllers.
+*/
+static void sc8810_i2c_special_init(int id)
+{
+	unsigned int value = 0;
+
+	if (id == 0) {/* i2c0 */
+		/* set bit21 and bit22, enable scl0 and sda0 pull up  */
+		value = __raw_readl(SPRD_CPC_BASE);
+
+		value |= BIT(21)|BIT(22);
+		__raw_writel(value, SPRD_CPC_BASE);
+	}
+}
+
+
 static ssize_t i2c_reset(struct device* cd, struct device_attribute *attr,
 		       const char* buf, size_t len)
 {
@@ -704,6 +721,8 @@ static int sc8810_i2c_probe(struct platform_device *pdev)
 	/* initialize the i2c controller */
 
 	sc8810_i2c_init(i2c);
+
+	sc8810_i2c_special_init(pdev->id);
 
 	ret = request_irq(i2c->irq, sc8810_i2c_irq, IRQF_SHARED,pdev->name,i2c);
 	if (ret) {
