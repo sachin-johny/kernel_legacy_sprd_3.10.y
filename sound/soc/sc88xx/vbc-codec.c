@@ -836,7 +836,7 @@ void vbc_power_on(unsigned int value)
         if (value == SNDRV_PCM_STREAM_CAPTURE)
             vbc_power_on_capture(0);
     }
-	vbc_set_sleep_mode(0);
+	// vbc_set_sleep_mode(0);
 }
 EXPORT_SYMBOL_GPL(vbc_power_on);
 
