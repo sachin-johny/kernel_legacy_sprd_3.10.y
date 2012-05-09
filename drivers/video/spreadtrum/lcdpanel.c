@@ -75,13 +75,9 @@ static struct ops_mcu lcm_mcu_ops = {
 static int32_t mcu_reset(struct panel_spec *self)
 {
 	/* panel reset */
-	lcdc_write(0x1, LCM_RSTN);
-	msleep(0x1);
 	lcdc_write(0x0, LCM_RSTN);
 	msleep(0x1);
 	lcdc_write(0x1, LCM_RSTN);
-	msleep(0x1);
-
 	return 0;
 }
 
@@ -265,6 +261,11 @@ static int mcu_set_timing(struct sprdfb_device *dev, int32_t type)
 	return 0;
 }
 
+static void lcdc_dithering_enable(void)
+{
+	lcdc_set_bits(BIT(4), LCDC_CTRL);
+}
+
 static int mcu_mount_panel(struct sprdfb_device *dev, struct panel_spec *panel)
 {
 	uint32_t bus_width;
@@ -279,11 +280,11 @@ static int mcu_mount_panel(struct sprdfb_device *dev, struct panel_spec *panel)
 		panel->ops->panel_readid = mcu_readid;
 	}
 
+	dev->bpp = 32;
 	bus_width = (uint32_t)((panel->info.mcu)->bus_width);
-	if (bus_width == 9 || bus_width == 18 || bus_width == 24) {
-		dev->bpp = 32;
-	} else {
-		dev->bpp = 16;
+
+	if (bus_width != 24) {
+		lcdc_dithering_enable();
 	}
 
 	timing = ((panel->info).mcu)->timing;
