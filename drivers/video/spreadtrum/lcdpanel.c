@@ -75,9 +75,12 @@ static struct ops_mcu lcm_mcu_ops = {
 static int32_t mcu_reset(struct panel_spec *self)
 {
 	/* panel reset */
-	lcdc_write(0x0, LCM_RSTN);
-	msleep(0x1);
-	lcdc_write(0x1, LCM_RSTN);
+	lcdc_write(0, LCM_RSTN);
+	udelay(100);
+	lcdc_write(1, LCM_RSTN);
+
+	/* wait 10ms util the lcd is stable */
+	msleep(10);
 	return 0;
 }
 
@@ -380,6 +383,7 @@ int sprd_probe_panel(struct sprdfb_device *dev, int cs)
 		dev->mount_panel(dev, panel);
 		dev->init_panel(dev);
 	} else {
+		/* can not be here in normal; we get correct device id from uboot */
 		mcu_reset(NULL); /* hardware reset , Need not ? */
 		panel = adapt_panel_from_readid(dev, cs);
 	}
