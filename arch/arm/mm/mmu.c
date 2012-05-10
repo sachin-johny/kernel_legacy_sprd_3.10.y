@@ -16,6 +16,7 @@
 #include <linux/nodemask.h>
 #include <linux/memblock.h>
 #include <linux/fs.h>
+#include <linux/sort.h>
 
 #include <asm/cputype.h>
 #include <asm/sections.h>
@@ -805,10 +806,13 @@ static int __init early_vmalloc(char *arg)
 early_param("vmalloc", early_vmalloc);
 
 static phys_addr_t lowmem_limit __initdata = 0;
+extern int meminfo_cmp(const void *_a, const void *_b);
 
 void __init sanity_check_meminfo(void)
 {
 	int i, j, highmem = 0;
+
+	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
 
 	for (i = 0, j = 0; i < meminfo.nr_banks; i++) {
 		struct membank *bank = &meminfo.bank[j];
