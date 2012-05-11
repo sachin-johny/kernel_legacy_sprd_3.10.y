@@ -58,3 +58,4 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
 obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_LIS3DH_I2C)          += lis3dh.o
+obj-$(CONFIG_INPUT_AL3006_I2C)		+= al3006_pls.o

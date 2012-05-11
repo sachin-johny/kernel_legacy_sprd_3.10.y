@@ -24,6 +24,7 @@
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/pixcir_i2c_ts.h>
+#include <linux/i2c/al3006_pls.h>
 #include <linux/i2c/lis3dh.h>
 #include <linux/akm8975.h>
 #include <linux/spi/spi.h>
@@ -102,6 +103,10 @@ static struct pixcir_ts_platform_data pixcir_ts_info = {
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 };
 
+static struct al3006_pls_platform_data al3006_pls_info = {
+	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+};
+
 static struct i2c_board_info i2c2_boardinfo[] = {
 	{
 		I2C_BOARD_INFO(PIXICR_DEVICE_NAME, 0x5C),
@@ -116,7 +121,10 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 
 static struct i2c_board_info i2c0_boardinfo[] = {
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR) },
-        { I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR)   }
+    { I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR)    },
+    { I2C_BOARD_INFO(AL3006_PLS_DEVICE,   AL3006_PLS_ADDRESS),
+      .platform_data = &al3006_pls_info,
+    },
 };
 
 /* config I2C2 SDA/SCL to SIM2 pads */
