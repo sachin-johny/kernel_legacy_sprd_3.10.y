@@ -734,9 +734,9 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 	tsdata->pixcir_early_suspend.resume	= pixcir_ts_resume;
 	register_early_suspend(&tsdata->pixcir_early_suspend);
 
-	if(pixcir_tx_config()<0) {
+	if((error=pixcir_tx_config())<0) {
 		printk(KERN_ERR "%s: I2C error\n",__func__);
-		goto err_free_irq;
+		goto err_i2c;
 	}
 	pixcir_create_sysfs(client);
 
@@ -747,6 +747,8 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 
 	printk(KERN_ERR "%s:insmod Fail!\n",__func__);
 
+err_i2c:
+	unregister_early_suspend(&tsdata->pixcir_early_suspend);
 err_free_irq:
 	free_irq(client->irq, tsdata);
 err_free_mem:
