@@ -126,4 +126,10 @@ source "drivers/media/radio/Kconfig"
 
 source "drivers/media/dvb/Kconfig"
 
+#
+# MDTV/CMMB
+#
+
+source "drivers/media/mdtv/Kconfig"
+
 endif # MEDIA_SUPPORT

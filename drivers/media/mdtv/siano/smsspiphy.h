@@ -2,7 +2,7 @@
 
 Siano Mobile Silicon, Inc.
 MDTV receiver kernel modules.
-Copyright (C) 2006-2009, Uri Shkolnik
+Copyright (C) 2006-2008, Uri Shkolnik
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,14 +19,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ****************************************************************/
 
-#ifndef __SMS_ENDIAN_H__
-#define __SMS_ENDIAN_H__
+#ifndef __SMS_SPI_PHY_H__
+#define __SMS_SPI_PHY_H__
 
-#include <asm/byteorder.h>
-
-extern void smsendian_handle_tx_message(void *buffer);
-extern void smsendian_handle_rx_message(void *buffer);
-extern void smsendian_handle_message_header(void *msg);
-
-#endif /* __SMS_ENDIAN_H__ */
-
+void smsspibus_xfer(void *context, unsigned char *txbuf,
+		    unsigned long txbuf_phy_addr, unsigned char *rxbuf,
+		    unsigned long rxbuf_phy_addr, int len);
+void *smsspiphy_init(void *context, void (*smsspi_interruptHandler) (void *),
+		     void *intr_context);
+void smsspiphy_deinit(void *context);
+void smschipreset(void *context);
+void WriteFWtoStellar(void *pSpiPhy, unsigned char *pFW, unsigned long Len);
+void prepareForFWDnl(void *pSpiPhy);
+void fwDnlComplete(void *context, int App);
+void smschip_poweron(void);
+void smschip_poweroff(void);
+#endif /* __SMS_SPI_PHY_H__ */
