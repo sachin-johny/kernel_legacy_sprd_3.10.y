@@ -1227,7 +1227,7 @@ static void sdhci_finish_command(struct sdhci_host *host)
 	host->cmd = NULL;
 }
 
-static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
+void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	int div;
 	u16 clk;
@@ -1235,12 +1235,11 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	
 	pr_debug("%s, %s, host->clock:%u, clock:%u\n", __func__, mmc_hostname(host->mmc), host->clock, clock);
 
-	if (host->ops->set_clock) {
+	if (host->ops && host->ops->set_clock) {
 		host->ops->set_clock(host, clock);
 		if (host->quirks & SDHCI_QUIRK_NONSTANDARD_CLOCK)
 			return;
 	}
-
         if (clock == host->clock)
 		return;
 
@@ -1275,6 +1274,8 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	clk |= SDHCI_CLOCK_CARD_EN;
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+	printk("%s, clock_control:0x%x\n", mmc_hostname(host->mmc),
+					sdhci_readl(host, SDHCI_CLOCK_CONTROL) );
 
 out:
 	host->clock = clock;

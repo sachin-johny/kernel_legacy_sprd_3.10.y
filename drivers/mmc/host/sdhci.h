@@ -412,6 +412,7 @@ static inline void *sdhci_priv(struct sdhci_host *host)
 	return (void *)host->private;
 }
 
+extern void sdhci_set_clock(struct sdhci_host *host, unsigned int clock);
 extern int sdhci_add_host(struct sdhci_host *host);
 extern void sdhci_remove_host(struct sdhci_host *host, int dead);
 
