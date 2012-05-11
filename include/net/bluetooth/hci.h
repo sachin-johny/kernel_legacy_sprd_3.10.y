@@ -37,7 +37,9 @@
 #define HCI_DEV_DOWN			4
 #define HCI_DEV_SUSPEND			5
 #define HCI_DEV_RESUME			6
-
+#ifdef CONFIG_BT_BCM4330
+#define HCI_DEV_WRITE			7
+#endif
 /* HCI notify events */
 #define HCI_NOTIFY_CONN_ADD		1
 #define HCI_NOTIFY_CONN_DEL		2
