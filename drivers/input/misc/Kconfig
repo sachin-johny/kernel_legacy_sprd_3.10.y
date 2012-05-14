@@ -626,4 +626,13 @@ config INPUT_XEN_KBDDEV_FRONTEND
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
 
+config INPUT_SPRD_HEADSET
+	tristate "SPRD platform builtin headset & button detect driver"
+	default y
+	help
+	  Say Y here if you are using SPRD platform.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called headset.
+
 endif
