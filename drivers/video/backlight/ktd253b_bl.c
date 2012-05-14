@@ -1,3 +1,5 @@
+/*************** maintained by customer ***************************************/
+#define CONFIG_BACKLIGHT_AMAZING 1
 /*
  * linux/drivers/video/backlight/s2c_bl.c
  *
@@ -20,8 +22,6 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *******************************************************************************/
-
-/*************** maintained by customer ***************************************/
 
 #include <linux/module.h>
 #include <linux/kernel.h>
