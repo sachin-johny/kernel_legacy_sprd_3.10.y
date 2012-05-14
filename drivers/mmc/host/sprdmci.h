@@ -237,6 +237,10 @@
 #define  SDHCI_MAX_DIV_SPEC_200	256
 #define  SDHCI_MAX_DIV_SPEC_300	2046
 
+struct sprd_host_data {
+	int detect_irq;
+};
+
 
 /*
  * Host SDMA buffer boundary. Valid values from 4K to 512K in powers of 2.

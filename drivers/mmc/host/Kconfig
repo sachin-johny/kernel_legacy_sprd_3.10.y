@@ -280,6 +280,18 @@ config MMC_SDHCI_SC8810
 	  If you have SC8810 platform with SD Host Controller, say Y or M here.
 	  If unsure, say N.
 
+config MMC_CARD_HOTPLUG
+	bool "Spreadtrum SC8810 SD Host Controller Hot-Plug support"
+	depends on MMC_SDHCI_SC8810
+	default n
+	help
+	  This selects the Secure Digital Host Controller Interface (SDHCI) to
+	  Support Hot-Plug of MMC And SD Memory Card in Spreadtrum's SC8810 SoC
+	  seriels.
+
+	  If you have SC8810 platform support hot-plug, say Y here.
+	  If unsure, say N.
+
 choice
 	prompt "Atmel SD/MMC Driver"
 	depends on AVR32 || ARCH_AT91

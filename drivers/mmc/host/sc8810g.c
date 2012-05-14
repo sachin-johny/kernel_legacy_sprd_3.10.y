@@ -16,6 +16,8 @@
 #include <linux/err.h>
 #include <linux/mmc/host.h>
 #include <linux/gpio.h>
+#include <linux/irq.h>
+
 #include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
@@ -212,8 +214,9 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	struct sdhci_host *host;
 	struct resource *res;
 	int ret, irq;
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	int sd_detect_gpio;
+	int *sd_detect;
 	int detect_irq;
 #endif
 	struct sprd_host_data *host_data;
@@ -254,30 +257,35 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		SDHCI_QUIRK_BROKEN_CARD_DETECTION|\
 		SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
 	host->irq = irq;
-#ifdef HOT_PLUG_SUPPORTED
-	/* hot plug is not supported yet, gpio name should be modifed*/
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-	sd_detect_gpio = res ? res->start : -1;
-	if (0 == pdev->id){
-		ret = gpio_request(sd_detect_gpio, "sdio0_detect");
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+	sd_detect = dev_get_platdata(dev);
+	if(sd_detect && (*sd_detect > 0)){
+		sd_detect_gpio = *sd_detect;
+		pr_info("%s, sd_detect_gpio:%d\n", __func__, sd_detect_gpio);
+
+		if (0 == pdev->id){
+			ret = gpio_request(sd_detect_gpio, "sdio0_detect");
+		}else{
+			ret = gpio_request(sd_detect_gpio, "sdio1_detect");
+		}
+		if (ret) {
+			dev_err(dev, "cannot request gpio\n");
+			return -1;
+		}
+		detect_irq = gpio_to_irq(sd_detect_gpio);
+		if (detect_irq < 0){
+			dev_err(dev, "cannot alloc detect irq\n");
+			return -1;
+		}
+		ret = gpio_direction_input(detect_irq);
+		if (ret) {
+			dev_err(dev, "gpio can not change to input\n");
+			return -1;
+		}
+		host_data->detect_irq = detect_irq;
 	}else{
-		ret = gpio_request(sd_detect_gpio, "sdio1_detect");
+		printk("%s, sd_detect_gpio == 0 \n", __func__ );
 	}
-	if (ret) {
-		dev_err(dev, "cannot request gpio\n");
-		return -1;
-	}
-	detect_irq = gpio_to_irq(sd_detect_gpio);
-	if (detect_irq < 0){
-		dev_err(dev, "cannot alloc detect irq\n");
-		return -1;
-	}
-	ret = gpio_direction_input(detect_irq);
-	if (ret) {
-		dev_err(dev, "gpio can not change to input\n");
-		return -1;
-	}
-	host_data->detect_irq = detect_irq;
 #endif
 	host->clk = NULL;
 	sdhci_module_init(host);

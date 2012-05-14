@@ -39,4 +39,6 @@
 #define SPI1_WIFI_CS_GPIO  	44
 
 #define GPIO_BK		        138
+
+#define GPIO_SDIO_DETECT	137
 #endif
