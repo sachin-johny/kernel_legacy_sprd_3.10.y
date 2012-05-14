@@ -29,6 +29,7 @@
 #include <mach/board.h>
 #include <mach/gpio-amazing.h>
 #include "devices.h"
+#include <linux/ktd253b_bl.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -65,6 +66,12 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_dcam_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
+};
+
+static struct platform_ktd253b_backlight_data ktd253b_data = {
+	.max_brightness = 255,
+	.dft_brightness = 50,
+	.ctrl_pin       = GPIO_BK,
 };
 
 static struct sys_timer sc8810_timer = {
@@ -205,6 +212,7 @@ static void __init sc8810_init_machine(void)
 	regulator_add_devices();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_sdio0_device, &sd_detect_gpio, sizeof(sd_detect_gpio));
+	platform_device_add_data(&sprd_backlight_device,&ktd253b_data,sizeof(ktd253b_data));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();

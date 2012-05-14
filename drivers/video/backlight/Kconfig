@@ -372,6 +372,13 @@ config BACKLIGHT_PANDORA
 	  If you have a Pandora console, say Y to enable the
 	  backlight driver.
 
+config BACKLIGHT_KTD253B
+	tristate "Backlight driver for KTD253B"
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  If you have a backlight driven by a KTD253B, say Y here to
+	  enable its driver.
+
 endif # BACKLIGHT_CLASS_DEVICE
 
 endif # BACKLIGHT_LCD_SUPPORT
