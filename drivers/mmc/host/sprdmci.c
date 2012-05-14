@@ -79,7 +79,7 @@ static struct sdhci_host *sdhci_host_g = NULL;
 static unsigned int debug_quirks = 0;
 
 static struct wake_lock sdhci_wake_lock;
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 static struct wake_lock sdhci_detect_lock;
 #endif
 
@@ -238,7 +238,7 @@ static void sdhci_mask_irqs(struct sdhci_host *host, u32 irqs)
 	sdhci_clear_set_irqs(host, irqs, 0);
 }
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 /*
  *   hot-plug is base on gpio, our host cannot detect plug event
  */
@@ -250,12 +250,17 @@ int sdcard_present(struct sdhci_host *host)
 
 	host_data = sdhci_priv(host);
 	irq = host_data->detect_irq;
-	gpio = irq_to_gpio(irq);
+	if(irq > 0){
+		gpio = irq_to_gpio(irq);
 
-	if (gpio_get_value(gpio))
-		return 0;
-	else
-		return 1;
+		if (gpio_get_value(gpio))
+			return 0;
+		else
+			return 1;
+	} else {
+		pr_err("%s, %s:please check detect irq\n",
+				mmc_hostname(host->mmc), __func__ );
+	}
 }
 
 static void sdhci_set_card_detection(struct sdhci_host *host, bool enable)
@@ -277,14 +282,14 @@ static void sdhci_set_card_detection(struct sdhci_host *host, bool enable)
 	host_data = sdhci_priv(host);
 	irq = host_data->detect_irq;
 	if(!enable) {
-		set_irq_type(irq,IRQF_TRIGGER_NONE);
+		irq_set_irq_type(irq,IRQF_TRIGGER_NONE);
 		return;
 	}
 
 	if(sdcard_present(host)){
-		set_irq_type(irq,IRQF_TRIGGER_HIGH);
+		irq_set_irq_type(irq,IRQF_TRIGGER_HIGH);
 	}else{
-		set_irq_type(irq,IRQF_TRIGGER_LOW);
+		irq_set_irq_type(irq,IRQF_TRIGGER_LOW);
 	}
 }
 
@@ -367,7 +372,7 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 static void sdhci_reinit(struct sdhci_host *host)
 {
 	sdhci_init(host, 0);
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
 }
@@ -2142,7 +2147,7 @@ static const struct mmc_host_ops sdhci_ops = {
  *                                                                           *
 \*****************************************************************************/
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 static void sdhci_tasklet_card(unsigned long param)
 {
 	struct sdhci_host *host;
@@ -2630,7 +2635,7 @@ out:
 	return result;
 }
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 static irqreturn_t sd_detect_irq(int irq, void *dev_id)
 {
 	struct sdhci_host* host = dev_id;
@@ -2640,9 +2645,9 @@ static irqreturn_t sd_detect_irq(int irq, void *dev_id)
 	msleep(200);
 
 	if (sdcard_present(host))
-		set_irq_type(irq,IRQF_TRIGGER_HIGH);
+		irq_set_irq_type(irq,IRQF_TRIGGER_HIGH);
 	else
-		set_irq_type(irq,IRQF_TRIGGER_LOW);
+		irq_set_irq_type(irq,IRQF_TRIGGER_LOW);
 
 	tasklet_schedule(&host->card_tasklet);
 	return IRQ_HANDLED;
@@ -2660,7 +2665,7 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 	printk("%s, suspend_host, start\n", mmc_hostname(host->mmc) );
 	int ret;
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_disable_card_detection(host);
 #endif
 
@@ -2759,7 +2764,7 @@ int sdhci_resume_host(struct sdhci_host *host)
 		sdhci_set_power(host, -1);
 	}
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
 
@@ -2819,7 +2824,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	u32 max_current_caps;
 	unsigned int ocr_avail;
 	struct sprd_host_data *host_data;
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	int detect_irq;
 #endif
 	int ret;
@@ -3190,7 +3195,7 @@ int sdhci_add_host(struct sdhci_host *host)
 	/*
 	 * Init tasklets.
 	 */
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	tasklet_init(&host->card_tasklet,
 		sdhci_tasklet_card, (unsigned long)host);
 #endif
@@ -3218,7 +3223,7 @@ int sdhci_add_host(struct sdhci_host *host)
 		goto untasklet;
 
 	host_data = sdhci_priv(host);
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	detect_irq = host_data->detect_irq;
 	if (sdcard_present(host)){
 		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
@@ -3260,7 +3265,7 @@ int sdhci_add_host(struct sdhci_host *host)
 		(host->flags & SDHCI_USE_ADMA) ? "ADMA" :
 		(host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO");
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
 
@@ -3279,12 +3284,12 @@ int sdhci_add_host(struct sdhci_host *host)
 reset:
 	sdhci_reset(host, SDHCI_RESET_ALL);
 	free_irq(host->irq, host);
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	free_irq(detect_irq, host);
 #endif
 #endif
 untasklet:
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	tasklet_kill(&host->card_tasklet);
 #endif
 	tasklet_kill(&host->finish_tasklet);
@@ -3315,7 +3320,7 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 		spin_unlock_irqrestore(&host->lock, flags);
 	}
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_disable_card_detection(host);
 #endif
 	mmc_remove_host(host->mmc);
@@ -3330,14 +3335,14 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 	free_irq(host->irq, host);
 
 	host_data = sdhci_priv(host);
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	free_irq(host_data->detect_irq, host);
 #endif
 	del_timer_sync(&host->timer);
 	if (host->version >= SDHCI_SPEC_300)
 		del_timer_sync(&host->tuning_timer);
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	tasklet_kill(&host->card_tasklet);
 #endif
 	tasklet_kill(&host->finish_tasklet);
@@ -3373,7 +3378,7 @@ static int __init sdhci_drv_init(void)
 			": Secure Digital Host Controller Interface driver\n");
 	printk("SPRD Secure Digital Host Controller Interface driver\n");
 
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	wake_lock_init(&sdhci_detect_lock, WAKE_LOCK_SUSPEND, "mmc_detect_detect");
 #endif
 	wake_lock_init(&sdhci_wake_lock, WAKE_LOCK_SUSPEND, "sdhci_wake_lock");
@@ -3389,7 +3394,7 @@ static int __init sdhci_drv_init(void)
 
 static void __exit sdhci_drv_exit(void)
 {
-#ifdef HOT_PLUG_SUPPORTED
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	wake_lock_destroy(&sdhci_detect_lock);
 #endif
 	wake_lock_destroy(&sdhci_wake_lock);

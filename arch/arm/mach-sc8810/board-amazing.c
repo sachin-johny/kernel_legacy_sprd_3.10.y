@@ -37,6 +37,8 @@ extern void __init sc8810_timer_init(void);
 extern void __init regulator_add_devices(void);
 extern void __init sc8810_clock_init(void);
 
+static unsigned int sd_detect_gpio = GPIO_SDIO_DETECT;
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
@@ -202,6 +204,7 @@ static void __init sc8810_init_machine(void)
 {
 	regulator_add_devices();
 	sprd_add_otg_device();
+	platform_device_add_data(&sprd_sdio0_device, &sd_detect_gpio, sizeof(sd_detect_gpio));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();

@@ -16,10 +16,6 @@
 
 #include "sprdmci.h"
 
-struct sprd_host_data {
-	int detect_irq;
-};
-
 extern struct sdhci_host *sdhci_alloc_host(struct device *dev,
 	size_t priv_size);
 extern void sdhci_free_host(struct sdhci_host *host);
