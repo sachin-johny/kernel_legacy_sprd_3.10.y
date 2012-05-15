@@ -23,6 +23,7 @@
 #include <asm/io.h>
 #include <linux/file.h>
 #include <linux/slab.h>
+#include <mach/dma.h>
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <video/sprd_scale.h>
@@ -52,6 +53,8 @@ typedef enum {
 #define SCALE_MINOR MISC_DYNAMIC_MINOR
 
 static struct mutex *lock;
+static  int  condition_endian;
+static wait_queue_head_t	wait_queue_endian;
 
 #define SA_SHIRQ IRQF_SHARED
 #define SCALE_CHECK_PARAM_ZERO_POINTER(n)  do{if(0 == (int)(n)) return ISP_DRV_RTN_PARA_ERR;}while(0)
@@ -964,28 +967,22 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param) {
 		break;
 	case ISP_PATH_OUTPUT_ENDIAN:
 		{
-			ISP_ENDIAN_T *endian_ptr = (ISP_ENDIAN_T *) param;
 			ISP_ENDIAN_T endian;
-			endian.endian_y = endian_ptr->endian_y;
-			endian.endian_uv = endian_ptr->endian_uv;
+			SCALE_CHECK_PARAM_ZERO_POINTER(param);
+			memcpy(&endian, (ISP_ENDIAN_T *)param, sizeof(ISP_ENDIAN_T));
 			p_path->output_frame_endian = endian;
-			p_isp_reg->endian_sel_u.mBits.review_output_endian_y =
-			    endian.endian_y & 0x3;
-			p_isp_reg->endian_sel_u.mBits.review_output_endian_uv =
-			    endian.endian_uv & 0x3;
+			p_isp_reg->endian_sel_u.mBits.review_output_endian_y = endian.endian_y&0x3;
+			p_isp_reg->endian_sel_u.mBits.review_output_endian_uv = endian.endian_uv&0x3;
 			break;
 		}
 	case ISP_PATH_INPUT_ENDIAN:
 		{
-			ISP_ENDIAN_T *endian_ptr = (ISP_ENDIAN_T *) param;
 			ISP_ENDIAN_T endian;
-			endian.endian_y = endian_ptr->endian_y;
-			endian.endian_uv = endian_ptr->endian_uv;
+			SCALE_CHECK_PARAM_ZERO_POINTER(param);
+			memcpy(&endian, (ISP_ENDIAN_T *)param, sizeof(ISP_ENDIAN_T));
 			p_path->input_frame_endian = endian;
-			p_isp_reg->endian_sel_u.mBits.review_input_endian_y =
-			    endian.endian_y & 0x3;
-			p_isp_reg->endian_sel_u.mBits.review_input_endian_uv =
-			    endian.endian_uv & 0x3;
+			p_isp_reg->endian_sel_u.mBits.review_input_endian_y = endian.endian_y&0x3 ;
+			p_isp_reg->endian_sel_u.mBits.review_input_endian_uv = endian.endian_uv&0x3;
 			break;
 		}
 	default:
@@ -1148,6 +1145,149 @@ int _SCALE_DriverIODone(void) {
 	up(&g_sem);
 	return 0;
 }
+static void _SCALE_DriverDMAEndianIrq(int dma_ch, void *dev_id)
+{
+        condition_endian = 1;
+	SCALE_PRINT("_SCALE_DriverDMAEndianIrq() E.\n");
+	wake_up_interruptible(&wait_queue_endian);
+	SCALE_PRINT("_SCALE_DriverDMAEndianIrq() X.\n");
+}
+
+static int _SCALE_DriverCopyByDMA(uint32_t width, uint32_t height, uint32_t input_addr, uint32_t output_addr)
+{
+	struct sprd_dma_channel_desc dma_desc;
+	uint32_t byte_per_pixel = 1;
+	uint32_t src_img_postm = 0;
+	uint32_t dst_img_postm = 0;
+	uint32_t src_addr = input_addr;
+	uint32_t dst_addr = output_addr;
+	uint32_t block_len = width * byte_per_pixel;
+	uint32_t total_len = width * height ;
+	int32_t ret = 0;
+	int ch_id = 0;
+	struct timeval ts;
+	struct timeval te;
+	do_gettimeofday(&ts);
+
+	printk("_SCALE_DriverCopyByDMA  %d,%d,%x,%x\n", width,height,input_addr,output_addr);
+
+	while (1) {
+		ch_id = sprd_dma_request(DMA_UID_SOFTWARE, _SCALE_DriverDMAEndianIrq,&s_scale_mod);
+		if (ch_id < 0) {
+			printk("SCALE: _SCALE_DriverCopyByDMA dma fail.ret : %d.\n",ret);
+			msleep(5);
+		} else {
+			printk("SCALE: _SCALE_DriverCopyByDMA request dma OK. ch_id:%d,total_len=0x%x.\n",
+			     ch_id, total_len);
+			break;
+		}
+	}
+	condition_endian = 0;
+	memset(&dma_desc, 0, sizeof(struct sprd_dma_channel_desc));
+	dma_desc.src_burst_mode = SRC_BURST_MODE_8;
+	dma_desc.dst_burst_mode = SRC_BURST_MODE_8;
+	dma_desc.cfg_src_data_width = DMA_SDATA_WIDTH32;
+	dma_desc.cfg_dst_data_width = DMA_DDATA_WIDTH32;
+	dma_desc.cfg_req_mode_sel = DMA_REQMODE_TRANS;
+	dma_desc.total_len = total_len;
+	dma_desc.cfg_blk_len = block_len;
+	dma_desc.src_addr = src_addr;
+	dma_desc.dst_addr = dst_addr;
+	dma_desc.cfg_swt_mode_sel = 7 << 16;
+	dma_desc.src_elem_postm = 0x0004;
+	dma_desc.dst_elem_postm = 0x0004;
+	sprd_dma_channel_config(ch_id, DMA_NORMAL, &dma_desc);
+	sprd_dma_set_irq_type(ch_id, TRANSACTION_DONE, 1);
+	/*printk("wjp:before rotation_start_copy_data start!\n");*/
+	sprd_dma_channel_start(ch_id);
+	if (wait_event_interruptible(wait_queue_endian, condition_endian)) {
+		ret = -EFAULT;
+	}
+	sprd_dma_channel_stop(ch_id);
+	sprd_dma_free(ch_id);
+	/* do_gettimeofday(&te);
+	printk("wjp:dma copy time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));*/
+	 return ret;
+}
+
+static int _SCALE_DriverConvertEndianByDMA(uint32_t width, uint32_t height, uint32_t input_addr, uint32_t output_addr)
+{
+	struct sprd_dma_channel_desc dma_desc;
+	uint32_t byte_per_pixel = 1;
+	uint32_t src_img_postm = 0;
+	uint32_t dst_img_postm = 0;
+	uint32_t src_addr = input_addr;
+	uint32_t dst_addr = output_addr;
+	uint32_t block_len = width * byte_per_pixel;
+	uint32_t total_len = width * height;
+	int32_t ret = 0;
+	int ch_id = 0;
+	struct timeval ts;
+	struct timeval te;
+	do_gettimeofday(&ts);
+         SCALE_PRINT("convert endian   %d,%d,%x,%x\n", width,height,input_addr,output_addr);
+
+	while (1) {
+		ch_id = sprd_dma_request(DMA_UID_SOFTWARE, _SCALE_DriverDMAEndianIrq,&s_scale_mod);
+		if (ch_id < 0) {
+			printk("SCALE: convert endian request dma fail.ret : %d.\n",ret);
+			msleep(5);
+		} else {
+			printk("SCALE: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",ch_id, total_len);
+			break;
+		}
+	}
+	condition_endian = 0;
+	memset(&dma_desc, 0, sizeof(struct sprd_dma_channel_desc));
+	dma_desc.src_burst_mode = SRC_BURST_MODE_8;
+	dma_desc.dst_burst_mode = SRC_BURST_MODE_8;
+	dma_desc.cfg_src_data_width = DMA_SDATA_WIDTH32;
+	dma_desc.cfg_dst_data_width = DMA_DDATA_WIDTH32;
+	dma_desc.cfg_req_mode_sel = DMA_REQMODE_TRANS;
+	dma_desc.total_len = total_len;
+	dma_desc.cfg_blk_len = block_len;
+	dma_desc.src_addr = src_addr;
+	dma_desc.dst_addr = dst_addr;
+	dma_desc.cfg_swt_mode_sel = 7 << 16;
+	dma_desc.cfg_swt_mode_sel  |= (0x2 << 28);/*need to determined??*/
+	dma_desc.src_elem_postm = 0x0004;
+	dma_desc.dst_elem_postm = 0x0004;
+	sprd_dma_channel_config(ch_id, DMA_NORMAL, &dma_desc);
+	sprd_dma_set_irq_type(ch_id, TRANSACTION_DONE, 1);
+	/*printk("wjp:before _SCALE_DriverConvertEndianByDMA start!\n");*/
+	sprd_dma_channel_start(ch_id);
+	if (wait_event_interruptible(wait_queue_endian, condition_endian)) {
+		ret = -EFAULT;
+	}
+	sprd_dma_channel_stop(ch_id);
+	sprd_dma_free(ch_id);
+	/* do_gettimeofday(&te);*/
+	/*printk("wjp:dma endian time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));*/
+	return ret;
+}
+static int _SCALE_DriverEndianHalf2Little(SCALE_YUV420_ENDIAN_T *yuv_config)
+{
+	uint32_t width = yuv_config->width;
+	uint32_t height = yuv_config->height;
+	uint32_t src_addr = yuv_config->src_addr;
+	uint32_t dst_addr = yuv_config->dst_addr;
+
+	_SCALE_DriverRegisterIRQ();
+
+	return _SCALE_DriverConvertEndianByDMA(width, height, src_addr, dst_addr);
+}
+
+static int _SCALE_DriverCopy(SCALE_YUV420_ENDIAN_T *yuv_config)
+{
+	uint32_t width = yuv_config->width;
+	uint32_t height = yuv_config->height;
+	uint32_t src_addr = yuv_config->src_addr;
+	uint32_t dst_addr = yuv_config->dst_addr;
+
+	_SCALE_DriverRegisterIRQ();
+
+	return _SCALE_DriverCopyByDMA(width, height, src_addr, dst_addr);
+}
 
 static int SCALE_ioctl(struct file *fl, unsigned int cmd, unsigned long param) {
 	switch (cmd) {
@@ -1169,6 +1309,18 @@ static int SCALE_ioctl(struct file *fl, unsigned int cmd, unsigned long param) {
 		_SCALE_DriverIODone();
 		break;
 	case SCALE_IOC_YUV422_YUV420:
+		{
+			SCALE_YUV420_ENDIAN_T yuv_config;
+			copy_from_user(&yuv_config, (SCALE_YUV420_ENDIAN_T *)param, sizeof(SCALE_YUV420_ENDIAN_T));
+			_SCALE_DriverCopy(&yuv_config);
+		}
+			break;
+	case SCALE_IOC_YUV420_ENDIAN:
+	{
+		SCALE_YUV420_ENDIAN_T yuv_config;
+		copy_from_user(&yuv_config, (SCALE_YUV420_ENDIAN_T *)param, sizeof(SCALE_YUV420_ENDIAN_T));
+		_SCALE_DriverEndianHalf2Little(&yuv_config);
+	}
 		break;
 	default:
 		break;
@@ -1198,6 +1350,7 @@ int scale_probe(struct platform_device *pdev) {
 		return -1;
 
 	mutex_init(lock);
+	init_waitqueue_head(&wait_queue_endian);
 	SCALE_PRINT("SCALE: init wait_queue_zoom.\n");
 	printk(KERN_ALERT " scale_probe Success\n");
 	return 0;
