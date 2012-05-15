@@ -20,12 +20,181 @@
 #include "clock_sc8810.h"
 #include <mach/adi.h>
 #include <linux/io.h>
+#include <asm/hardware/cache-l2x0.h>
+#include <asm/cacheflush.h>
+#include <linux/delay.h>
+#include <linux/wakelock.h>
+#include <linux/kthread.h>
 
-#define SLEEP_MODE_ARM_CORE 0
-#define SLEEP_MODE_MCU 1
-#define SLEEP_MODE_DEEP 2
+#define PM_PRINT_ENABLE
+
+extern void trace(void);
+extern int sp_pm_collapse(void);
+extern void sp_pm_collapse_exit(void);
+extern void sc8810_standby_iram(void);
+extern void sc8810_standby_iram_end(void);
+extern void sc8810_standby_exit_iram(void);
+extern void l2x0_suspend(void);
+extern void l2x0_resume(int collapsed);
+extern void printascii_phy(char *);
+
+#ifdef PM_PRINT_ENABLE
+static struct wake_lock messages_wakelock;
+#endif
 
 
+/*init (arm gsm td mm) auto power down */
+#define CHIP_ID_VER_0		(0x88100000UL)
+#define CHIP_ID_VER_MF		(0x88100040UL)
+#define PD_AUTO_EN (1<<22)
+#define AHB_REG_BASE (SPRD_AHB_BASE+0x200)
+#define CHIP_ID	(AHB_REG_BASE + 0x1FC)
+
+static void setup_autopd_mode(void)
+{
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL); /*MM*/
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);/*GPU*/
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_TH_PWR_CTRL);
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x05000520/*|PD_AUTO_EN*/, GR_GSM_PWR_CTRL);/*GSM*/
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);/*TD*/
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x03000920/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
+	if (__raw_readl(CHIP_ID) == CHIP_ID_VER_0) {/*original version*/
+		sprd_greg_write(REG_TYPE_GLOBAL, 0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+		sprd_greg_write(REG_TYPE_GLOBAL, 0x07000f20|(1<<23), GR_POWCTL0);
+	}
+	else {
+		sprd_greg_write(REG_TYPE_GLOBAL, 0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+		sprd_greg_write(REG_TYPE_GLOBAL, 0x07000a20|(1<<23), GR_POWCTL0);
+	}
+}
+
+#ifdef PM_PRINT_ENABLE
+static void check_pd(void)
+{
+#define CHECK_PD(_type, _val, _reg) { \
+	val = sprd_greg_read(_type, _reg); \
+	if(val != (_val))	\
+		printk("### setting not same:"#_reg" = %08x !=%08x\n", val, (_val)); \
+	}
+	unsigned int val;
+	CHECK_PD(REG_TYPE_GLOBAL, 0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
+	CHECK_PD(REG_TYPE_GLOBAL, 0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);
+	CHECK_PD(REG_TYPE_GLOBAL, 0x04000720, GR_CEVA_RAM_TH_PWR_CTRL);
+	CHECK_PD(REG_TYPE_GLOBAL, 0x05000520, GR_GSM_PWR_CTRL);
+	CHECK_PD(REG_TYPE_GLOBAL, 0x05000520, GR_TD_PWR_CTRL);
+	CHECK_PD(REG_TYPE_GLOBAL, 0x04000720, GR_CEVA_RAM_BH_PWR_CTRL);
+	CHECK_PD(REG_TYPE_GLOBAL, 0x03000920, GR_PERI_PWR_CTRL);
+	if (__raw_readl(CHIP_ID) == CHIP_ID_VER_0) {
+		printk("####:original version\n");
+		CHECK_PD(REG_TYPE_GLOBAL, 0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+		CHECK_PD(REG_TYPE_GLOBAL, 0x07000f20|(1<<23), GR_POWCTL0);
+	}else{
+		printk("####:next version\n");
+		CHECK_PD(REG_TYPE_GLOBAL, 0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+		CHECK_PD(REG_TYPE_GLOBAL, 0x07000a20|(1<<23), GR_POWCTL0);
+	}
+}
+#endif
+
+/* FIXME: init led ctrl *we have no driver of led, just init here*/
+#define SPRD_ANA_BASE	(SPRD_MISC_BASE + 0x600)
+#define ANA_REG_BASE	SPRD_ANA_BASE
+#define ANA_LED_CTRL	(ANA_REG_BASE + 0x68)
+
+#define   ANA_LDO_SLP0           (ANA_REG_BASE + 0x2C)
+#define   ANA_LDO_SLP1           (ANA_REG_BASE + 0x30)
+#define   ANA_LDO_SLP2           (ANA_REG_BASE + 0x34)
+#define   ANA_DCDC_CTRL         (ANA_REG_BASE + 0x38)
+#define   ANA_DCDC_CTRL_DS		(ANA_REG_BASE + 0x3C)
+
+static void init_led(void)
+{
+	/*all led off*/
+	sci_adi_raw_write(ANA_LED_CTRL, 0x801f);
+}
+
+#ifdef PM_PRINT_ENABLE
+static void check_ldo(void)
+{
+#define CHECK_LDO(_reg, _val) { \
+	val = sci_adi_read(_reg); \
+	if(val != (_val)) printk("### setting not same:"#_reg" = %08x !=%08x\n", val, (_val)); \
+	}
+	unsigned int val;
+	CHECK_LDO(ANA_LDO_SLP0, 0x26f3);
+	CHECK_LDO(ANA_LDO_SLP1, 0x8019|(1<<12));
+	CHECK_LDO(ANA_LDO_SLP2, 0x0f20);
+#if 0
+	CHECK_LDO(ANA_DCDC_CTRL, 0x0025);
+	CHECK_LDO(ANA_DCDC_CTRL_DS, 0x0f43);
+	CHECK_LDO(ANA_LED_CTRL, 0x801f);
+#endif
+}
+#endif
+
+/*copy code for deepsleep return */
+#define SAVED_VECTOR_SIZE 64
+static uint32_t *sp_pm_reset_vector = NULL;
+static uint32_t saved_vector[SAVED_VECTOR_SIZE];
+void __iomem *iram_start;
+
+#define IRAM_BASE_PHY   0xFFFF0000
+#define IRAM_START_PHY 	0xFFFF4000
+#define IRAM_SIZE 0x4000
+#define SLEEP_CODE_SIZE 4096
+
+static int init_reset_vector(void)
+{
+	if (!sp_pm_reset_vector) {
+		sp_pm_reset_vector = ioremap(0xffff0000, PAGE_SIZE);
+		if (sp_pm_reset_vector == NULL) {
+			printk(KERN_ERR "sp_pm_init: failed to map reset vector\n");
+			return 0;
+		}
+	}
+
+	iram_start = (void __iomem *)(SPRD_IRAM_BASE);
+	/* copy sleep code to IRAM. */
+	if ((sc8810_standby_iram_end - sc8810_standby_iram + 128) > SLEEP_CODE_SIZE) {
+		panic("##: code size is larger than expected, need more memory!\n");
+	}
+
+	memcpy_toio(iram_start, sc8810_standby_iram, SLEEP_CODE_SIZE);
+
+	/* just make sure*/
+	flush_cache_all();
+	outer_flush_all();
+	return 0;
+}
+
+static void save_reset_vector(void)
+{
+	int i = 0;
+	for (i = 0; i < SAVED_VECTOR_SIZE; i++)
+		saved_vector[i] = sp_pm_reset_vector[i];
+}
+
+static void set_reset_vector(void)
+{
+	int i = 0;
+	for (i = 0; i < SAVED_VECTOR_SIZE; i++)
+		sp_pm_reset_vector[i] = 0xe320f000; /* nop*/
+
+	sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
+
+	sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = (sc8810_standby_exit_iram -
+		sc8810_standby_iram + IRAM_START_PHY);
+}
+
+static void restore_reset_vector(void)
+{
+	int i;
+	for (i = 0; i < SAVED_VECTOR_SIZE; i++)
+		sp_pm_reset_vector[i] = saved_vector[i];
+}
+
+/* irq functions */
 #define hw_raw_irqs_disabled_flags(flags)	\
 ({										\
 	(int)((flags) & PSR_I_BIT);				\
@@ -38,16 +207,12 @@
 	hw_raw_irqs_disabled_flags(_flags);	\
 })
 
-u32 __attribute__ ((naked)) sc8800g_read_cpsr(void)
+u32 __attribute__ ((naked)) sc8810_read_cpsr(void)
 {
 	__asm__ __volatile__("mrs r0, cpsr\nbx lr");
 }
 
-/*FIXME:TODO
- *the code beblow just ensure adb ahb and audio is complete shut down.
- *but this should be done by drivers .
- */
-
+/*make sure adb ahb and audio is complete shut down.*/
 #define GEN0_MASK ( GEN0_SIM0_EN | GEN0_I2C_EN | GEN0_GPIO_EN | 			\
 			   GEN0_I2C0_EN|GEN0_I2C1_EN|GEN0_I2C2_EN|GEN0_I2C3_EN | 		\
 			   GEN0_SPI0_EN|GEN0_SPI1_EN| GEN0_I2S0_EN | GEN0_I2S1_EN| 	\
@@ -74,15 +239,19 @@ static void disable_audio_module(void)
 	sprd_greg_clear_bits(REG_TYPE_GLOBAL, BUSCLK_ALM_MASK, GR_BUSCLK_ALM);
 }
 
+static void disable_apb_module(void)
+{
+	sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_MASK, GR_GEN0);
+	sprd_greg_clear_bits(REG_TYPE_GLOBAL, CLK_EN_MASK, GR_CLK_EN);
+}
+
 static void disable_ahb_module (void)
 {
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, GEN0_MASK, AHB_CTL0);
 }
 
 
-/*FIXME:TODO
- * the code beblow just save value of ahb apb audio
- */
+/*save/restore global regs*/
 u32 reg_gen_clk_en, reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val;
 
 /*register save*/
@@ -122,6 +291,7 @@ u32 reg_gen_clk_en, reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val;
 
 #define INT_IRQ_MASK	(1<<3)
 
+#ifdef PM_PRINT_ENABLE
 static void print_ahb(void)
 {
 	u32 val = sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0);
@@ -169,28 +339,91 @@ static void print_gr(void)
 		if (val & GEN0_UART0_EN) printk("GEN0_UART0_EN =1.\n");
 		if (val & GEN0_UART1_EN) printk("GEN0_UART1_EN =1.\n");
 		if (val & GEN0_UART2_EN) printk("GEN0_UART2_EN =1.\n");
-
 }
 
-static int print_info()
+/*is dsp sleep :for debug */
+static int is_dsp_sleep(void)
 {
-	print_ahb();
-	print_gr();
+	u32 val;
+	val = sprd_greg_read(REG_TYPE_GLOBAL, GR_STC_STATE);
+
+	if (GR_DSP_STOP & val)
+		printk("#####: GR_STC_STATE[DSP_STOP] is set!\n");
+	else
+		printk("#####: GR_STC_STATE[DSP_STOP] is NOT set!\n");
 	return 0;
 }
 
-void print_irqs(void){
-	int irq_sts, fiq_sts;
-	irq_sts = __raw_readl(INT_IRQ_STS);
-	fiq_sts = __raw_readl(INT_FIQ_STS);
-	printk("PM: irq_sts = %d  fiq_sts= %d\n", irq_sts, fiq_sts);
+static int print_thread(void * data)
+{
+	while(1){
+		wake_lock(&messages_wakelock);
+		print_ahb();
+		print_gr();
+		check_ldo();
+		check_pd();
+		is_dsp_sleep();
+		/*just print locked wake_lock*/
+		has_wake_lock(WAKE_LOCK_SUSPEND);
+		msleep(100);
+		wake_unlock(&messages_wakelock);
+		set_current_state(TASK_INTERRUPTIBLE);
+		schedule_timeout(30 * HZ);
+	}
+	return 0;
+}
+#endif
+
+/* make sure printk is end, if not maybe some messy code  in SERIAL1 output */
+#define UART_TRANSFER_REALLY_OVER (0x1UL << 15)
+#define UART_STS0 (SPRD_SERIAL1_BASE + 0x08)
+#define UART_STS1 (SPRD_SERIAL1_BASE + 0x0c)
+
+static void wait_until_uart1_tx_done(void)
+{
+	u32 tx_fifo_val;
+	u32 really_done = 0;
+	u32 timeout = 200;
+
+	/*uart1 owner dsp sel*/
+	if (sprd_greg_read(REG_TYPE_GLOBAL, GR_PCTL) & (1<<8)/* UART1_SEL */) return ;
+
+	tx_fifo_val = __raw_readl(UART_STS1);
+	tx_fifo_val >>= 8;
+	tx_fifo_val &= 0xff;
+	while(tx_fifo_val != 0) {
+		if (timeout <= 0) break;
+		udelay(100);
+		tx_fifo_val = __raw_readl(UART_STS1);
+		tx_fifo_val >>= 8;
+		tx_fifo_val &= 0xff;
+		timeout--;
+	}
+
+	timeout = 30;
+	really_done = __raw_readl(UART_STS0);
+	while(!(really_done & UART_TRANSFER_REALLY_OVER)) {
+		if (timeout <= 0) break;
+		udelay(100);
+		really_done = __raw_readl(UART_STS0);
+		timeout--;
+	}
 }
 
+/* for debug, printk is ok here */
+int sc8810_prepare_late(void)
+{
+	/*print_info();*/
+	return 0;
+}
+
+/* arm core sleep*/
 static void arm_sleep(void)
 {
 	cpu_do_idle();
 }
 
+/* arm core & ahp sleep*/
 static void mcu_sleep(void)
 {
 	SAVE_GLOBAL_REG;
@@ -200,49 +433,138 @@ static void mcu_sleep(void)
 	RESTORE_GLOBAL_REG;
 }
 
+/* chip sleep*/
 static int deep_sleep(void)
 {
-	cpu_do_idle();
-	return 0;
+	u32 val, ret = 0;
+
+	wait_until_uart1_tx_done();
+
+	SAVE_GLOBAL_REG;
+	disable_audio_module();
+	disable_apb_module();
+	disable_ahb_module();
+	/*prevent uart1*/
+	__raw_writel(INT_IRQ_MASK, INT_IRQ_DIS);
+
+#ifdef CONFIG_CACHE_L2X0
+	__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);
+	l2x0_suspend();
+#endif
+
+	/*go deepsleep when all PD auto poweroff en*/
+	val = sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_PAUSE);
+	val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
+	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
+	sprd_greg_write(REG_TYPE_AHB_GLOBAL, val, AHB_PAUSE);
+
+	/* set entry when deepsleep return*/
+	save_reset_vector();
+	set_reset_vector();
+
+	ret = sp_pm_collapse();
+	restore_reset_vector();
+
+	RESTORE_GLOBAL_REG;
+	udelay(20);
+	/*for debug*/
+	/*printascii_phy("We are here!\n");*/
+	if (ret) cpu_init();
+
+#ifdef CONFIG_CACHE_L2X0
+	l2x0_resume(ret);
+#endif
+return ret;
 }
 
-int sc8810_prepare_late(void)
-{
-	print_info();
-	return 0;
-}
-
+/*sleep entry for 8810 */
 int sc8810_deep_sleep(void)
 {
 	int status, ret = 0;
 	unsigned long flags;
 
 	if (!hw_irqs_disabled())  {
-		flags = sc8800g_read_cpsr();
+		flags = sc8810_read_cpsr();
 		printk("##: Error(%s): IRQ is enabled(%08lx)!\n",
 			 "wakelock_suspend", flags);
 	}
 
 	status = sc8810_get_clock_status();
-
-	/*sc8800g_save_pll();*/
 	if (status & DEVICE_AHB)  {
-		printk("## sleep[ARM_CORE].\n");
 		arm_sleep();
 	} else if (status & DEVICE_APB) {
-		printk("## sleep[MCU].\n");
 		mcu_sleep();
 	} else {
-		printk("## sleep[DEEP].\n");
 		ret = deep_sleep();
 	}
-	/*sc8800g_restore_pll();*/
 	return ret;
 }
 
+/*FIXME:should provider a mashesm but now only make keypad & usb as wake source */
+#define INT_IRQ_EN				(SPRD_INTCV_BASE + 0x08)
+#define ANA_GPIO_IE            (SPRD_MISC_BASE + 0x700 + 0x18)
+
+#define WKAEUP_SRC_KEAPAD   (1<<10)
+#define WKAEUP_SRC_RX0      1
+#define WAKEUP_SRC_PB		(1<<3)
+#define WAKEUP_SRC_CHG		(1<<2)
+#define SPRD_EICINT_BASE	(SPRD_EIC_BASE+0x80)
+
+/*init global regs for pm */
+static void init_gr(void)
+{
+	int val;
+	/* AHB_PAUSE */
+	val = sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_PAUSE);
+	val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
+	val |= (MCU_SYS_SLEEP_EN);
+	sprd_greg_write(REG_TYPE_AHB_GLOBAL, val, AHB_PAUSE);
+
+	/* GR_PCTL */
+	val = sprd_greg_read(REG_TYPE_GLOBAL, GR_PCTL);
+	val |= (MCU_MPLL_EN);
+	sprd_greg_write(REG_TYPE_GLOBAL, val, GR_PCTL);
+
+	/* AHB_CTL0 */
+	val = sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0);
+	val &= ~AHB_CTL0_ROT_EN;
+	sprd_greg_write(REG_TYPE_AHB_GLOBAL, val, AHB_CTL0);
+
+	/* AHB_CTL1 */
+	val = sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL1);
+	val |= (AHB_CTRL1_EMC_CH_AUTO_GATE_EN | AHB_CTRL1_EMC_AUTO_GATE_EN |
+		AHB_CTRL1_ARM_AUTO_GATE_EN|
+		AHB_CTRL1_AHB_AUTO_GATE_EN|
+/*		AHB_CTRL1_MCU_AUTO_GATE_EN| */
+		AHB_CTRL1_ARM_DAHB_SLEEP_EN|
+	        AHB_CTRL1_ARMMTX_AUTO_GATE_EN | AHB_CTRL1_MSTMTX_AUTO_GATE_EN);
+	val &= ~AHB_CTRL1_MCU_AUTO_GATE_EN;
+	sprd_greg_write(REG_TYPE_AHB_GLOBAL, val, AHB_CTL1);
+
+	/* GR_CLK_EN */
+	/* enable XTL auto power down. */
+	val = sprd_greg_read(REG_TYPE_GLOBAL, GR_CLK_EN);
+	val |= MCU_XTLEN_AUTOPD_EN;
+	sprd_greg_write(REG_TYPE_GLOBAL, val, GR_CLK_EN);
+}
 
 void sc8810_pm_init(void)
 {
+	struct task_struct * task;
+
+	init_reset_vector();
+	init_gr();
+	setup_autopd_mode();
+	init_led();
+#ifdef PM_PRINT_ENABLE
+	wake_lock_init(&messages_wakelock, WAKE_LOCK_SUSPEND,
+			"pm_message_wakelock");
+	task = kthread_create(print_thread, NULL, "pm_print");
+	if (task == 0) {
+		printk("Can't crate power manager print thread!\n");
+	}else
+		wake_up_process(task);
+#endif
 }
 
 

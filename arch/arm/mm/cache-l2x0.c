@@ -27,6 +27,8 @@
 #define CACHE_LINE_SIZE		32
 
 static void __iomem *l2x0_base;
+static uint32_t aux_ctrl_save;
+static uint32_t data_latency_ctrl;
 
 static DEFINE_SPINLOCK(l2x0_lock);
 static uint32_t l2x0_way_mask;	/* Bitmask of active ways */
@@ -488,4 +490,40 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	printk(KERN_INFO "%s cache controller enabled\n", type);
 	printk(KERN_INFO "l2x0: %d ways, CACHE_ID 0x%08x, AUX_CTRL 0x%08x, Cache size: %d B\n",
 			l2x0_ways, l2x0_cache_id, aux, l2x0_size);
+}
+
+/* add for powermanager control l2 cache*/
+void l2x0_suspend(void)
+{
+	/* Save aux control register value */
+	aux_ctrl_save = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
+	data_latency_ctrl = readl_relaxed(l2x0_base + L2X0_DATA_LATENCY_CTRL);
+	/* Flush all cache */
+	l2x0_flush_all();
+	/* Disable the cache */
+	writel_relaxed(0, l2x0_base + L2X0_CTRL);
+
+	/* Memory barrier */
+	dmb();
+}
+
+void l2x0_resume(int collapsed)
+{
+	if (collapsed) {
+		/* Disable the cache */
+		writel_relaxed(0, l2x0_base + L2X0_CTRL);
+
+		/* Restore aux control register value */
+		writel_relaxed(aux_ctrl_save, l2x0_base + L2X0_AUX_CTRL);
+		writel_relaxed(data_latency_ctrl, l2x0_base +
+				L2X0_DATA_LATENCY_CTRL);
+
+		/* Invalidate the cache */
+		l2x0_inv_all();
+	}
+
+	/* Enable the cache */
+	writel_relaxed(1, l2x0_base + L2X0_CTRL);
+
+	mb();
 }
