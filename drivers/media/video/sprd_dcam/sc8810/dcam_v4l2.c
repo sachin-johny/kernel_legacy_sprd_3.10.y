@@ -105,7 +105,8 @@ typedef struct dcam_info
 	uint8_t flash_mode;
 	uint8_t recording_start;
 	volatile uint8_t v4l2_buf_ctrl_set_next_flag;
-	volatile uint8_t v4l2_buf_ctrl_path_done_flag;;
+	volatile uint8_t v4l2_buf_ctrl_path_done_flag;
+	uint32_t is_Y_UV;
 
 	SENSOR_MODE_E cur_m;
 	uint32_t skip_flag;
@@ -1598,6 +1599,13 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	{
 		g_dcam_info.rot_angle = DCAM_ROTATION_0;
 	}
+
+	if(1 == streamparm->parm.raw_data[196]){
+		g_dcam_info.is_Y_UV = 1;
+	}
+	else{
+		g_dcam_info.is_Y_UV = 0;
+	}
 	
 	if(0 != v4l2_sensor_init(sensor_id)){
 		DCAM_V4L2_PRINT("V4L2: fail to sensor_init.\n");
@@ -1859,6 +1867,7 @@ static int init_dcam_parameters(void *priv)
 	init_param.zoom_multiple = g_dcam_info.zoom_multiple;
 	init_param.zoom_level = g_zoom_level;
 	init_param.skip_flag = g_dcam_info.skip_flag;
+	init_param.is_Y_UV = g_dcam_info.is_Y_UV;
 		
 	dcam_parameter_init(&init_param);
 	return 0;

@@ -968,7 +968,7 @@ int32_t ISP_DriverSetClk(uint32_t pll_src_addr,ISP_CLK_SEL_E clk_sel)
 	return rtn;
 }
 
-int32_t ISP_DriverStart(uint32_t base_addr)
+int32_t ISP_DriverStart(uint32_t base_addr, uint32_t is_Y_UV)
 {
 	ISP_DRV_RTN_E     rtn = ISP_DRV_RTN_SUCCESS;	
 	ISP_REG_T               *p_isp_reg = (ISP_REG_T*)base_addr;
@@ -991,7 +991,14 @@ int32_t ISP_DriverStart(uint32_t base_addr)
 		
 		//set little endian for path1
 		p_isp_reg->endian_sel_u.mBits.dcam_output_endian_y    = ISP_MASTER_ENDIANNESS_LITTLE;
-		p_isp_reg->endian_sel_u.mBits.dcam_output_endian_uv = ISP_MASTER_ENDIANNESS_LITTLE;
+		if((1 == is_Y_UV) || (ISP_MODE_CAPTURE == s_isp_mod.isp_mode)){
+			p_isp_reg->endian_sel_u.mBits.dcam_output_endian_uv = ISP_MASTER_ENDIANNESS_LITTLE;
+			printk("ISP_DriverStart: output Y_VU.");
+		}
+		else{
+			p_isp_reg->endian_sel_u.mBits.dcam_output_endian_uv = ISP_MASTER_ENDIANNESS_HALFBIG;
+			printk("ISP_DriverStart: output Y_VU.");
+		}
 	}
 	else
 	{

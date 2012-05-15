@@ -106,6 +106,7 @@ typedef struct dcam_init_param
 	uint32_t zoom_level;
 	uint32_t zoom_multiple;
 	uint32_t skip_flag;
+	uint32_t is_Y_UV;
 	
 }DCAM_INIT_PARAM_T;
 

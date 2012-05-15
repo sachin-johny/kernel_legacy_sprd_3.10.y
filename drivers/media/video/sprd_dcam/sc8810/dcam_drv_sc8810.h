@@ -144,7 +144,7 @@ int32_t ISP_DriverSoftReset (uint32_t ahb_ctrl_addr);
 void   ISP_DriverScalingCoeffReset(void);
 int32_t ISP_DriverSetClk (uint32_t pll_src_addr,ISP_CLK_SEL_E clk_sel);
 void  ISP_DriverIramSwitch (uint32_t base_addr,uint32_t isp_or_arm);
-int32_t ISP_DriverStart (uint32_t base_addr);
+int32_t ISP_DriverStart(uint32_t base_addr, uint32_t is_Y_UV);
 int32_t ISP_DriverStop (uint32_t base_addr);
 int32_t ISP_DriverSetMode (uint32_t base_addr,ISP_MODE_E isp_mode);
 ISP_MODE_E  ISP_DriverGetMode(void);

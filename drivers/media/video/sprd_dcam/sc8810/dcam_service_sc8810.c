@@ -42,6 +42,7 @@ typedef struct dcam_parameter
 	uint32_t zoom_level;
 	uint32_t zoom_multiple;
 	uint32_t no_skip_frame_flag;
+	uint32_t is_Y_UV;
 	
 }DCAM_PARAMETER_T;
     
@@ -270,6 +271,7 @@ int dcam_parameter_init(DCAM_INIT_PARAM_T *init_param)
 	g_dcam_param.first_buf_uv_addr = init_param->first_u_buf_addr;
 	g_dcam_param.zoom_level = init_param->zoom_level;
 	g_dcam_param.zoom_multiple = init_param->zoom_multiple;
+	g_dcam_param.is_Y_UV = init_param->is_Y_UV;
 
 
 	if(0 ==  init_param->skip_flag)
@@ -664,7 +666,7 @@ int32_t  _ISP_ServiceStartPreview(void)
 #ifdef DCAM_DEBUG    
 //	get_dcam_reg();
 #endif  	
-	rtn_drv = ISP_DriverStart(s->module_addr); 
+	rtn_drv = ISP_DriverStart(s->module_addr, g_dcam_param.is_Y_UV); 
 exit:
 
 	if(rtn_drv)
@@ -932,7 +934,7 @@ static int _ISP_ServiceStartJpeg(void)
 #ifdef DCAM_DEBUG    
 //	get_dcam_reg();
 #endif    
-	rtn_drv = ISP_DriverStart(s->module_addr);
+	rtn_drv = ISP_DriverStart(s->module_addr, 0);
 	ISP_RTN_IF_ERR(rtn_drv);
 
 exit:
