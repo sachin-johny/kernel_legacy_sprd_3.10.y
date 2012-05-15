@@ -761,6 +761,7 @@ static int _ISP_ServiceStartJpeg(void)
 	ISP_CAP_SYNC_POL_T      cap_sync = {0};
 	int32_t                   rtn_drv = DCAM_SUCCESS;
 	ISP_SIZE_T              output_size = {0};
+	uint32 jpeg_buf_size=0;
 
 	DCAM_TRACE("DCAM:_ISP_ServiceStartJpeg.\n");
 
@@ -867,6 +868,12 @@ static int _ISP_ServiceStartJpeg(void)
 				                                   (void*)&s->input_range);
 	ISP_RTN_IF_ERR(rtn_drv);
 
+	jpeg_buf_size = s->input_size.w*s->input_size.h/4;	
+	rtn_drv = ISP_DriverCapConfig(s->module_addr, 
+				                                   ISP_CAP_JPEG_MEM_IN_16K, 
+				                                   (void*)&jpeg_buf_size);
+	ISP_RTN_IF_ERR(rtn_drv);	
+
 	//if(s->is_slice)
 	if((s->encoder_size.w>960)&&(s->cap_output_size.w!=s->encoder_size.w))
 	{
@@ -914,6 +921,12 @@ static int _ISP_ServiceStartJpeg(void)
 	                                           _ISP_ServiceOnSensorFrameErr);
 	        ISP_RTN_IF_ERR(rtn_drv);
 	}
+	else {
+		rtn_drv = ISP_DriverNoticeRegister(s->module_addr, 
+	                                           ISP_IRQ_NOTICE_JPEG_BUF_OF,
+	                                           _ISP_ServiceOnJpegBufOF);
+	        ISP_RTN_IF_ERR(rtn_drv);
+	}	
 
 	ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr,g_dcam_param.first_buf_uv_addr); 
 #ifdef DCAM_DEBUG    
@@ -1446,7 +1459,6 @@ void dcam_set_first_buf_addr(uint32_t y_addr,uint32_t uv_addr)
 	g_dcam_param.first_buf_uv_addr = uv_addr;
 	g_dcam_param.no_skip_frame_flag = 1;
 }
-
 
 
 void dcam_enableint(void)

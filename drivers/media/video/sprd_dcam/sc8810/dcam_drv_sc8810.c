@@ -1235,7 +1235,10 @@ int32_t ISP_DriverCapConfig(uint32_t base_addr, ISP_CFG_ID_E isp_cfg_id, void* p
 		}            
 		case ISP_CAP_JPEG_MEM_IN_16K:
 		{
-			p_isp_reg->cap_jpg_ctl_u.mBits.jpg_buf_size = (*(uint32_t*)param) & 0x3FF;
+			uint32_t jpg_buf_size =*(uint32_t*)param;
+			jpg_buf_size = jpg_buf_size/(32*1024);
+			//printk("DCAM DRV:jpg buf size=%d.\n",jpg_buf_size);
+			p_isp_reg->cap_jpg_ctl_u.mBits.jpg_buf_size = jpg_buf_size & 0x3FF;
 			break;
 		}
 		case ISP_CAP_IF_ENDIAN:

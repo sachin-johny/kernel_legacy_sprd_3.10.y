@@ -121,6 +121,7 @@ typedef enum
 	DCAM_FRAME_ERR,
 	DCAM_CAP_FIFO_OVERFLOW,
 	DCAM_NO_RUN,	
+	DCAM_JPG_BUF_ERR,
 	DCAM_RESTART,
 	DCAM_WORK_STATUS_MAX
 }DCAM_WORK_STATUS;
@@ -528,7 +529,7 @@ struct dcam_dev {
 	spinlock_t                 slock;
 	struct mutex		   mutex;
 
-	int                        users;
+	volatile int                        users;
 
 	/* various device info */
 	struct video_device        *vfd;
@@ -697,18 +698,9 @@ static int init_sensor_parameters(void *priv)
 		if(INVALID_VALUE != g_dcam_info.power_freq)
 			Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
 		
-#if 0//def DCAM_SET_SENSOR_MODE
 		if(INVALID_VALUE != g_dcam_info.sensor_work_mode)
 		    Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
-
-#endif
-		
-		
 	}
-
-	
-
-
 	return 0;
 }
 
@@ -928,6 +920,7 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,struct v4l2_format
 	struct videobuf_queue *q = &fh->vb_vidq;
 
 	int ret = vidioc_try_fmt_vid_cap(file, fh, f);
+	
 	if (ret < 0)
 		return ret;
 
@@ -1150,8 +1143,11 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 
 	switch(ctrl->id)
 	{
-#ifdef DCAM_SET_SENSOR_MODE
+//#ifdef DCAM_SET_SENSOR_MODE
+
 		case V4L2_CID_BLACK_LEVEL:
+			g_dcam_info.sensor_work_mode = (uint8_t)ctrl->value;
+#if 0			
 			if(g_dcam_info.sensor_work_mode == (uint8_t)ctrl->value)
 			{
 				printk("v4l2:vidioc_handle_ctrl,don't need to modify work mode.\n");
@@ -1181,10 +1177,9 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
                         {
                                 Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
                         }
-                            
+#endif                            
 			printk("v4l2:g_dcam_info.sensor_work_mode = %d.\n",g_dcam_info.sensor_work_mode);	
 			break;	
-#endif			
 		case V4L2_CID_DO_WHITE_BALANCE:
 			if(g_dcam_info.wb_param == (uint8_t)ctrl->value)
 			{
@@ -1427,7 +1422,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		default:
 			break;
 	}
-	
+	printk("V4L2:vidioc_handle_ctrl,ret=%d.\n",ret);
 	return ret;
 }
 
@@ -2111,6 +2106,7 @@ unlock:
 	return;
 }
 
+static uint32_t s_print_cnt = 0;
    static void path1_done_buffer(struct dcam_fh *fh)
 {
 	struct dcam_buffer *buf; 
@@ -2161,7 +2157,13 @@ unlock:
 	buf->vb.state = VIDEOBUF_DONE;
 	
 //	DCAM_V4L2_PRINT("V4L2: path1_done_buffer:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));   
-         printk("path1_done_buffer: time = %d \n",(buf->vb.ts.tv_sec*1000+buf->vb.ts.tv_usec/1000));
+         if(4 == s_print_cnt) {
+         	s_print_cnt = 0;
+         	printk("path1_done_buffer: time = %d \n",(buf->vb.ts.tv_sec*1000+buf->vb.ts.tv_usec/1000));		
+         }
+	else{
+		s_print_cnt++;
+	}
 	wake_up(&buf->vb.done); 
 	g_first_buf_addr = g_last_buf;
 	g_first_buf_uv_addr = g_last_uv_buf;
@@ -2275,7 +2277,9 @@ void dcam_cb_ISRSensorFrameErr(void)
 }
 void dcam_cb_ISRJpegBufOF(void)
 {	
-	//nothing
+	dcam_error_close();
+	s_dcam_err_info.work_status = DCAM_JPG_BUF_ERR;
+	up(&s_dcam_err_info.dcam_thread_sem);
 }
 
 /* ------------------------------------------------------------------
@@ -2432,6 +2436,12 @@ static int dcam_scan_status_thread(void * data_ptr)
 				info_ptr->work_status = DCAM_RUN;
 				info_ptr->restart_cnt = 0;
 				printk("v4l2:dcam_scan_status_thread,DCAM_OK.\n ");
+				break;
+			case DCAM_JPG_BUF_ERR:
+				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+				info_ptr->ret = 1;
+				up(&info_ptr->dcam_start_sem);					
+				printk("v4l2:dcam_scan_status_thread,DCAM_JPG_BUF_ERR,start fail!.\n");
 				break;
 			case DCAM_LINE_ERR:				
 			case DCAM_FRAME_ERR:			
