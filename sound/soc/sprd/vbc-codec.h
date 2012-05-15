@@ -238,6 +238,9 @@ enum {
 #define VBTR1			(ARM_VB_BASE2 + 0x0150) /* 0x00A8 Voice band Codec TR1 */
 #define VBTR2			(ARM_VB_BASE2 + 0x0154) /* 0x00AA Voice band Codec TR2 */
 
+
+extern int32_t get_cur_sample_rate();
+
 /* -------------------------- */
 extern u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask);
 extern u32 vbc_reg_read(u32 reg, u8 shift, u32 mask);
