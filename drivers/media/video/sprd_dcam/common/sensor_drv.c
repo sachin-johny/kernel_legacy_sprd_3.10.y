@@ -85,6 +85,8 @@ static int g_is_main_sensor = 0;
 static int g_is_register_sensor = 0;
 #define SENSOR_DEV_NAME	SENSOR_MAIN_I2C_NAME
 
+LOCAL EXIF_SPEC_PIC_TAKING_COND_T s_default_exif={0x00};
+
 static const struct i2c_device_id sensor_main_id[] = {
 	{SENSOR_MAIN_I2C_NAME, 0},
 	{}
@@ -1712,6 +1714,67 @@ struct i2c_client *Sensor_GetI2CClien(void)
 	return this_client;
 }
 
+LOCAL uint32_t _Sensor_InitDefaultExifInfo(void)
+{
+	EXIF_SPEC_PIC_TAKING_COND_T* exif_ptr=&s_default_exif;
+
+	memset(&s_default_exif, 0, sizeof(EXIF_SPEC_PIC_TAKING_COND_T));
+
+	SENSOR_PRINT("SENSOR: Sensor_InitDefaultExifInfo \n");
+
+	exif_ptr->valid.FNumber=1;
+	exif_ptr->FNumber.numerator=14;
+	exif_ptr->FNumber.denominator=5;
+	exif_ptr->valid.ExposureProgram=1;
+	exif_ptr->ExposureProgram=0x04;
+	/*exif_ptr->SpectralSensitivity[MAX_ASCII_STR_SIZE];
+	exif_ptr->ISOSpeedRatings;
+	exif_ptr->OECF;
+	exif_ptr->ShutterSpeedValue;*/
+	exif_ptr->valid.ApertureValue=1;
+	exif_ptr->ApertureValue.numerator=14;
+	exif_ptr->ApertureValue.denominator=5;
+	/*exif_ptr->BrightnessValue;
+	exif_ptr->ExposureBiasValue;*/
+	exif_ptr->valid.MaxApertureValue=1;
+	exif_ptr->MaxApertureValue.numerator=14;
+	exif_ptr->MaxApertureValue.denominator=5;
+	/*exif_ptr->SubjectDistance;
+	exif_ptr->MeteringMode;
+	exif_ptr->LightSource;
+	exif_ptr->Flash;*/
+	exif_ptr->valid.FocalLength=1;
+	exif_ptr->FocalLength.numerator=289;
+	exif_ptr->FocalLength.denominator=100;
+	/*exif_ptr->SubjectArea;
+	exif_ptr->FlashEnergy;
+	exif_ptr->SpatialFrequencyResponse;
+	exif_ptr->FocalPlaneXResolution;
+	exif_ptr->FocalPlaneYResolution;
+	exif_ptr->FocalPlaneResolutionUnit;
+	exif_ptr->SubjectLocation[2];
+	exif_ptr->ExposureIndex;
+	exif_ptr->SensingMethod;*/
+	exif_ptr->valid.FileSource=1;
+	exif_ptr->FileSource=0x03;
+	/*exif_ptr->SceneType;
+	exif_ptr->CFAPattern;
+	exif_ptr->CustomRendered;*/
+	exif_ptr->valid.ExposureMode=1;
+	exif_ptr->ExposureMode=0x00;
+	exif_ptr->valid.WhiteBalance=1;
+	exif_ptr->WhiteBalance=0x00;
+	/*exif_ptr->DigitalZoomRatio;
+	exif_ptr->FocalLengthIn35mmFilm;
+	exif_ptr->SceneCaptureType;
+	exif_ptr->GainControl;
+	exif_ptr->Contrast;
+	exif_ptr->Saturation;
+	exif_ptr->Sharpness;
+	exif_ptr->DeviceSettingDescription;
+	exif_ptr->SubjectDistanceRange;*/
+	return SENSOR_SUCCESS;
+}
 uint32 Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd, uint32 param)
 {
 	SENSOR_EXP_INFO_T_PTR sensor_info_ptr = Sensor_GetInfo();
@@ -1722,6 +1785,7 @@ uint32 Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd, uint32 param)
 		    (EXIF_SPEC_PIC_TAKING_COND_T *)
 		    sensor_info_ptr->ioctl_func_ptr->get_exif(0x00);
 	} else {
+		sensor_exif_info_ptr = &s_default_exif;
 		SENSOR_PRINT
 		    ("SENSOR: Sensor_SetSensorExifInfo the get_exif fun is null error \n");
 		return SENSOR_FAIL;
@@ -1964,7 +2028,9 @@ EXIF_SPEC_PIC_TAKING_COND_T *Sensor_GetSensorExifInfo(void)
 		sensor_exif_info_ptr =
 		    (EXIF_SPEC_PIC_TAKING_COND_T *)
 		    sensor_info_ptr->ioctl_func_ptr->get_exif(0x00);
+	} else {
+		sensor_exif_info_ptr = &s_default_exif;
+		SENSOR_PRINT("SENSOR: Sensor_GetSensorExifInfo the get_exif fun is null, so use the default exif info.\n");
 	}
-
 	return sensor_exif_info_ptr;
 }

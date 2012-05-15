@@ -17,7 +17,8 @@
 #define ISP_PATH2 2
 #define ISP_DRV_SCALE_COEFF_BUF_SIZE		 (8*1024)
 #define ISP_DRV_SCALE_COEFF_TMP_SIZE		 (6*1024)
-#define ISP_DRV_SCALE_COEFF_COEF_SIZE   	 (1*1024)
+#define ISP_DRV_SCALE_COEFF_COEF_SIZE   	          (1*1024)
+#define ISP_DRV_JPG_BUF_UNIT			          (32*1024)
 #define SCI_NULL 0
 #define SCI_MEMSET memset
 #define ISP_MEMCPY memcpy
@@ -839,7 +840,7 @@ void ISP_DriverHandleErr(uint32_t ahb_ctrl_addr, uint32_t base_addr)
 	     ahb_ctrl_addr, base_addr);
 
 	p_isp_reg->dcam_path_cfg_u.mBits.cap_eb = 0;
-	_ISP_DrvierModuleReset(ahb_ctrl_addr);
+	/*_ISP_DrvierModuleReset(ahb_ctrl_addr);*/
 	DCAM_DRV_ERR("DCAM DRV:ISP_DriverHandleErr e.\n");
 }
 
@@ -1129,8 +1130,11 @@ int32_t ISP_DriverCapConfig(uint32_t base_addr, ISP_CFG_ID_E isp_cfg_id,
 			break;
 		}
 	case ISP_CAP_JPEG_MEM_IN_16K:
-		p_isp_reg->cap_jpg_ctl_u.mBits.jpg_buf_size =
-		    (*(uint32_t *) param) & 0x3FF;
+		{
+			uint32_t jpg_buf_size =*(uint32_t*)param;
+			jpg_buf_size = jpg_buf_size/ISP_DRV_JPG_BUF_UNIT;
+			p_isp_reg->cap_jpg_ctl_u.mBits.jpg_buf_size = jpg_buf_size & 0x3FF;
+		}
 		break;
 	case ISP_CAP_IF_ENDIAN:
 		value = *(uint32_t *) param;
