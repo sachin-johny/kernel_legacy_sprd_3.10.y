@@ -352,6 +352,17 @@ int sc8810_regulator_init_reg(void * driver_data)
 {
 	struct regulator_init_status *reg_init_status = driver_data;
 	struct sc8810_regulator *reg = &sc8810_regulator_regs[reg_init_status->ldo_id];
+	int val;
+	/*init for power manager */
+	if(LDO_VDDARM == reg_init_status->ldo_id){
+		/*ARMDCDC_PWR_ON_DLY = 0x1, FSM_SLPPD_EN=1*/
+		val = LDO_REG_GET(LDO_SLP_CTRL1);
+		val &= 0x0fff;
+		val |= 0x9000;
+		LDO_REG_SET(LDO_SLP_CTRL1, val);
+		/*ARMDCDC_ISO_OFF_NUM = 0x20 ARMDCDC_ISO_ON_NUM = 0x0f*/
+		LDO_REG_SET(LDO_SLP_CTRL2, 0x0f20);
+	}
 
 	if(reg_init_status->ldo_id >= LDO_END_MAX)
 		return -EINVAL;
@@ -431,7 +442,6 @@ int sc8810_regulator_init_reg(void * driver_data)
 		default:
 			return -EINVAL;
 	}
-
 	return 0;
 }
 

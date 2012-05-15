@@ -20,7 +20,6 @@ extern int sc8810_deep_sleep(void);
 extern void sc8810_pm_init(void);
 extern int sc8810_prepare_late(void);
 
-
 static void sc8810_sleep(void){
 	cpu_do_idle();
 }
@@ -29,8 +28,6 @@ static int pm_deepsleep(suspend_state_t state)
 {
 	int ret_val = 0;
 	unsigned long flags;
-
-/*	sc8810_set_wakeup_src(); */
 
 	while(1){
 		hw_local_irq_disable();
@@ -51,8 +48,6 @@ static int pm_deepsleep(suspend_state_t state)
 			hw_local_irq_enable();
 		}
 	}
-
-/*	sc8810_clr_wakeup_src(); */
 	return ret_val;
 }
 

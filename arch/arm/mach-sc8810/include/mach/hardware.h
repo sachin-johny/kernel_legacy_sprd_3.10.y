@@ -264,4 +264,8 @@ register offset.
 #define SPRD_A5_DEBUG_PHYS	0xa0008000
 #define SPRD_A5_DEBUG_SIZE	SZ_4K
 
+/*iraw space for powermanager */
+#define SPRD_IRAM_BASE	(SPRD_REGS_BASE + 0x00053000)
+#define SPRD_IRAM_PHYS	0xffff4000
+#define SPRD_IRAM_SIZE	SZ_16K
 #endif

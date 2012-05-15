@@ -26,6 +26,13 @@
 	.type = MT_DEVICE_NONSHARED, \
 	}
 
+#define SPRD_IRAM(name) { \
+	.virtual = SPRD_##name##_BASE, \
+	.pfn = __phys_to_pfn(SPRD_##name##_PHYS), \
+	.length = SPRD_##name##_SIZE, \
+	.type = MT_MEMORY, \
+	}
+
 static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(INTCV),
 	SPRD_DEVICE(DMA),
@@ -75,6 +82,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(AXIM_GPU),
 	SPRD_DEVICE(CACHE310),
 	SPRD_DEVICE(A5_DEBUG),
+	SPRD_IRAM(IRAM),
 };
 
 void __init sc8810_map_io(void)
