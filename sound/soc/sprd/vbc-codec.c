@@ -18,6 +18,7 @@
 #include <sound/audio_pa.h>
 #include <mach/adi.h>
 #include <mach/globalregs.h>
+#include "aud_enha.h"
 
 #define VBC_EQ_MODULE_SUPPORT			0
 #define VBC_DYNAMIC_POWER_MANAGEMENT		0
@@ -122,6 +123,10 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
 	SOC_SINGLE("Power Codec2",VBC_CODEC_POWER2,0, 31, 0),
 	SOC_SINGLE("InCall", VBC_CODEC_DSP, 0, 1, 0),
 };
+static int32_t cur_sample_rate=44100;
+//static int32_t sprd_local_audio_pa_mode=0;
+static int32_t cur_internal_pa_gain = 0x8;   //default:1000----0db  added by jian
+static int32_t cur_capture_gain = 0xf;  //default:set GI to max added by jian
 
 u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
 {
@@ -498,7 +503,7 @@ void vbc_power_on_capture(bool ldo)
 		vbc_reg_VBPMR2_set(SB_SLEEP, 0); /* SB quit sleep mode */
 
 		vbc_reg_VBPMR2_set(GIM, 1); /* 20db gain mic amplifier */
-		vbc_reg_write(VBCGR10, 4, 0xf, 0xf); /* set GI to max */
+		vbc_reg_write(VBCGR10, 4, cur_capture_gain, 0xf); /* set GI to max */
 		vbc_reg_VBCR1_set(SB_MICBIAS, 0); /* power on mic */
 		vbc_reg_VBPMR1_set(SB_ADC, 0); /* Power on ADC */
 	}
@@ -651,7 +656,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 #endif
 
 	vbc_reg_VBPMR2_set(GIM, 1); /* 20db gain mic amplifier */
-	vbc_reg_write(VBCGR10, 4, 0xf, 0xf); /* set GI to max */
+	vbc_reg_write(VBCGR10, 4, cur_capture_gain, 0xf); /* set GI to max */
 	vbc_reg_VBPMR1_set(SB_ADC, 1); /* Power down ADC */
 	vbc_reg_VBCR1_set(SB_MICBIAS, 1); /* power down mic */
 
@@ -724,6 +729,7 @@ static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 	if (ret != -1) return ret;
 	/* Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert */
 	reg |= ARM_VB_BASE2;
+	vbc_codec_mute();
 	return sci_adi_read(reg);
 }
 
@@ -733,6 +739,7 @@ static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int
 	if (ret != -1) return ret;
 	/* Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert */
 	reg |= ARM_VB_BASE2;
+	vbc_codec_mute();
 	vbc_write_callback(reg, val);
 	sci_adi_raw_write(reg, val);
 	return 0;
@@ -905,7 +912,7 @@ static int vbc_pcm_hw_params(struct snd_pcm_substream *substream,
 		case SNDRV_PCM_FORMAT_U16_BE: break;
 		default: pr_err("vbc codec only supports format 16bits"); break;
 	}
-
+	cur_sample_rate = params_rate(params);
 	switch (params_rate(params)) {
 		case  8000: vbc_reg_write(VBCCR2, idx * 4, VBC_RATE_8000 , 0xf); break;
 		case 11025: vbc_reg_write(VBCCR2, idx * 4, VBC_RATE_11025, 0xf); break;
@@ -918,9 +925,14 @@ static int vbc_pcm_hw_params(struct snd_pcm_substream *substream,
 		default: pr_err("vbc codec not supports rate %d\n", params_rate(params)); break;
 	}
 
-	pr_debug("vbc sample rate is [%d]\n", params_rate(params));
+	printk("vbc sample rate is [%d]\n", params_rate(params));
 
 	return 0;
+}
+
+int32_t get_cur_sample_rate(void)
+{
+	return cur_sample_rate;
 }
 
 int vbc_hw_free(struct snd_pcm_substream *substream, struct snd_soc_dai *dai)
@@ -976,7 +988,7 @@ int vbc_soc_resume(struct snd_soc_codec *codec)
 static inline void local_cpu_pa_control(bool enable)
 {
 	if (enable) {
-		sci_adi_raw_write(ANA_AUDIO_PA_CTRL0, (0x1101 | (8 << 4)));
+		sci_adi_raw_write(ANA_AUDIO_PA_CTRL0, (0x1101 |( (cur_internal_pa_gain <<4) & 0x00F0)));
 		sci_adi_raw_write(ANA_AUDIO_PA_CTRL1, 0x1e41);
 	} else {
 		sci_adi_raw_write(ANA_AUDIO_PA_CTRL0, 0x182);
@@ -1011,17 +1023,26 @@ static int audio_speaker_enabled(void)
 	}
 }
 
+ssize_t kclass_vbc_param_show(struct class *class, struct class_attribute *attr,char *buf);       //modify by jian
+ssize_t kclass_vbc_param_store(struct class *class,struct class_attribute *attr,const char *buf, size_t count);  //modify by jian
 ssize_t modem_status_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t modem_status_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t android_mode_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+
 /* /sys/class/modem/xxx */
 static struct class_attribute modem_class_attrs[] = {
 	__ATTR(status, 0766, modem_status_show, modem_status_store),
 	__ATTR(mode, 0766, android_mode_show, android_mode_store),
 	__ATTR(regs, 0766, vbc_regs_show, vbc_regs_store),
+	__ATTR_NULL,
+};
+/* /sys/class/vbc_param_config/xxx */
+static struct class_attribute vbc_param_class_attrs[] = { //modify by jian
+	__ATTR(vbc_param_store, 0766, kclass_vbc_param_show, kclass_vbc_param_store),
+	// __ATTR(unexport, 0200, NULL, unexport_store),
 	__ATTR_NULL,
 };
 
@@ -1030,6 +1051,55 @@ struct class modem_class = {
 	.owner	= THIS_MODULE,
 	.class_attrs = modem_class_attrs,
 };
+struct class vbc_param_class = { //modify by jian
+	.name           = "vbc_param_config",
+	.owner          = THIS_MODULE,
+	.class_attrs    = vbc_param_class_attrs,
+};
+
+ssize_t kclass_vbc_param_show(struct class *class, struct class_attribute *attr,char *buf)	//modify by jian
+{
+	printk("vbc_param attrname:%s !\n", attr->attr.name);
+	sprintf(buf,"%s\n",attr->attr.name);
+	return strlen(attr->attr.name)+2;
+}
+
+ssize_t kclass_vbc_param_store(struct class *class,struct class_attribute *attr,const char *buf, size_t count)	//modify by jian
+{	
+	AUDIO_TOTAL_T *audio_param_ptr = PNULL;
+	uint16_t pga_gain_god = 0;
+	uint16_t pga_gain_go = 0;
+	int16_t vol_index = 0;
+	int16_t arm_vol = 0;
+	uint32_t i;
+	audio_param_ptr = (AUDIO_TOTAL_T *)buf;
+	if(PNULL == audio_param_ptr)
+	{
+		printk("kclass_vbc_param_store audio_param_ptr is NULL!\n");
+		return 0;
+	}
+	printk("vbc_param have store!\n");
+
+//#if defined(CONFIG_ARCH_SC8810)
+//#if !defined(CONFIG_MACH_SP6820A)
+//	sprd_local_audio_pa_mode = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_SWITCH_INDEX];
+//#endif
+	cur_internal_pa_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0xf;
+	cur_capture_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_CAPTURE_GAIN_INDEX] & 0xf;
+//	printk("chj kclass_vbc_param_store cur_internal_pa_gain:0x%x cur_capture_gain:0x%x\n",cur_internal_pa_gain,cur_capture_gain);
+//#endif
+	if(AUDIO_NO_ERROR != AUDENHA_SetPara(audio_param_ptr))
+	{
+		printk("kclass_vbc_param_store AUDENHA_SetPara error!\n");
+		return 0;
+	}
+	vol_index = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.app_config_info_set.app_config_info[0].valid_volume_level_count;
+	arm_vol=audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.app_config_info_set.app_config_info[0].arm_volume[vol_index];
+	AUDDEV_SetPGA(0,arm_vol);
+	AUDDEV_SetPGA(1,arm_vol);
+	
+	return count;
+}
 
 ssize_t modem_status_show(struct class *class, struct class_attribute *attr, char *buf)
 {
@@ -1140,12 +1210,16 @@ static int vbc_soc_probe(struct snd_soc_codec *codec)
 				ARRAY_SIZE(vbc_snd_controls));
 	vbc_add_widgets(codec);
 	class_register(&modem_class);
+	printk("kclass vbc_param init!\n");		//added by jian
+	class_register(&vbc_param_class);	//modify by jian
 	return 0;
 }
 
 /* power down chip */
 static int vbc_soc_remove(struct snd_soc_codec *codec)
 {
+	printk("kclass vbc_param exit!\n"); 	//added by jian
+	class_unregister(&vbc_param_class); //modify by jian
 	class_unregister(&modem_class);
 #if POWER_OFF_ON_STANDBY
 	vbc_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
