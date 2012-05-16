@@ -667,7 +667,7 @@ static int32_t _SCALE_DriverStart(void)
 	_SCALE_DriverForceCopy();
 	
 //#ifdef SCALE_DEBUG
-	get_scale_reg();
+//	get_scale_reg();
 //#endif
 
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 1;
@@ -865,7 +865,7 @@ int _SCALE_ContinueSlice(long unsigned int data)
 //	_SCALE_DriverForceCopy();
 //	#ifdef SCALE_DEBUG
          printk("SCALE:_SCALE_ContinueSlice start.\n");
-	get_scale_reg();	
+//	get_scale_reg();	
 //	#endif
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 1;
 	return 0;

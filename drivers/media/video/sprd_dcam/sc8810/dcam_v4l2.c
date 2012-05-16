@@ -2702,6 +2702,7 @@ static int close(struct file *file)
 			msleep(1);
 		}
 	}
+	s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
 	printk("v4l2:stop thread end.\n");
 	
 	//close dcam
