@@ -289,7 +289,7 @@ static int rotation_set_UV_param(void)
 
 static void rotation_dma_irq(int dma_ch, void *dev_id)
 {
-	printk("%s, come\n", __func__ );
+	pr_debug("%s, come\n", __func__ );
 	condition = 1;
 	wake_up_interruptible(&wait_queue);
 	RTT_PRINT("rotation_dma_irq X .\n");
@@ -311,8 +311,7 @@ int rotation_dma_start(ROTATION_PARAM_T * param_ptr)
 	s->ch_id = ch_id;
 	condition = 0;
 	memset(&dma_desc, 0, sizeof(struct sprd_dma_channel_desc));
-	dma_desc.src_addr = param_ptr->src_addr.y_addr;
-	dma_desc.dst_addr = (dma_addr_t) 0x20800420;
+	dma_desc.llist_ptr = (dma_addr_t) 0x20800420;
 	dma_desc.cfg_req_mode_sel = DMA_REQMODE_LIST;
 	sprd_dma_channel_config(ch_id, DMA_LINKLIST, &dma_desc);
 	sprd_dma_set_irq_type(ch_id, LINKLIST_DONE, 1);
@@ -487,13 +486,11 @@ static int rotation_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case SPRD_ROTATION_DONE:
 		if (rotation_start(params)) {
-			mutex_unlock(lock);
 			ret = -EFAULT;
 		}
 		break;
 	case SPRD_ROTATION_DATA_COPY:
 		if (rotation_start_copy_data(params)) {
-			mutex_unlock(lock);
 			ret = -EFAULT;
 		}
 		break;

@@ -289,7 +289,7 @@ static uint32_t _ISP_ServiceClose(void)
 	DCAM_TRACE("DCAM:ISP_ServiceClose, service = %d", s->service);
 
 	ISP_DriverStop(s->module_addr);
-	ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
+	/*ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);*/
 
 	_ISP_ServiceDeInit();
 
@@ -535,9 +535,16 @@ int32_t _ISP_ServiceStartPreview(void)
 
 		rtn_drv = ISP_DriverPath1Config(s->module_addr,
 						ISP_PATH_OUTPUT_FORMAT,
-						(void *)&s->
-						dcam_path1_out_format);
+						(void *)&s->dcam_path1_out_format);
 		ISP_RTN_IF_ERR(rtn_drv);
+
+		if(ISP_DCAM_PATH1_OUT_FORMAT_YUV420 == s->dcam_path1_out_format) {
+			reg_val = 1;
+			rtn_drv = ISP_DriverPath1Config(s->module_addr,
+									ISP_PATH_UV420_AVG_EN,
+									(void*)&reg_val);
+			ISP_RTN_IF_ERR(rtn_drv);
+		}
 
 		rtn_drv = ISP_DriverNoticeRegister(s->module_addr,
 						   ISP_IRQ_NOTICE_PATH1_DONE,
@@ -674,6 +681,7 @@ static int _ISP_ServiceStartJpeg(void)
 	ISP_CAP_SYNC_POL_T cap_sync = { 0 };
 	int32_t rtn_drv = DCAM_SUCCESS;
 	ISP_SIZE_T output_size = { 0 };
+	uint32 jpeg_buf_size=0;
 
 	DCAM_TRACE("DCAM:_ISP_ServiceStartJpeg.\n");
 
@@ -758,6 +766,11 @@ static int _ISP_ServiceStartJpeg(void)
 					(void *)&s->input_range);
 	ISP_RTN_IF_ERR(rtn_drv);
 
+	jpeg_buf_size = s->input_size.w*s->input_size.h/4;
+	rtn_drv = ISP_DriverCapConfig(s->module_addr,
+			                                   ISP_CAP_JPEG_MEM_IN_16K,
+			                                   (void*)&jpeg_buf_size);
+	ISP_RTN_IF_ERR(rtn_drv);
 	if ((s->encoder_size.w > 960)
 	    && (s->cap_output_size.w != s->encoder_size.w)) {
 		output_size.w = s->cap_output_size.w;
@@ -799,8 +812,12 @@ static int _ISP_ServiceStartJpeg(void)
 						   ISP_IRQ_NOTICE_SENSOR_FRAME_ERR,
 						   _ISP_ServiceOnSensorFrameErr);
 		ISP_RTN_IF_ERR(rtn_drv);
+	}else {
+		rtn_drv = ISP_DriverNoticeRegister(s->module_addr,
+	                                           ISP_IRQ_NOTICE_JPEG_BUF_OF,
+	                                           _ISP_ServiceOnJpegBufOF);
+		ISP_RTN_IF_ERR(rtn_drv);
 	}
-
 	ISP_DriverSetBufferAddress(s->module_addr, g_dcam_param.first_buf_addr,
 				   g_dcam_param.first_buf_uv_addr);
 #ifdef DCAM_DEBUG
@@ -843,13 +860,11 @@ static uint32_t _ISP_ServiceGetXYDeciFactor(uint32_t * src_width,
 	    ("DCAM:_ISP_ServiceGetXYDeciFactor.src_w=%d,src_h=%d,dst_w=%d,dst_h=%d .\n",
 	     *src_width, *src_height, dst_width, dst_height);
 
-	for (i = 0; i < ISP_CAP_DEC_XY_MAX + 1; i++) {
-		width = *src_width / (1 << i);
-		height = *src_height / (1 << i);
-		if (width <= (dst_width * ISP_PATH_SC_COEFF_MAX) &&
-		    height <= (dst_height * ISP_PATH_SC_COEFF_MAX) &&
-		    (width % ISP_ALIGNED_PIXELS) == 0 &&
-		    (height % ISP_ALIGNED_PIXELS) == 0)
+	for(i = 0; i < ISP_CAP_DEC_XY_MAX + 1; i++) {
+		width = *src_width / (1<<i);
+		height = *src_height / (1<<i);
+		if(width <= (dst_width * ISP_PATH_SC_COEFF_MAX) &&
+		height <= (dst_height * ISP_PATH_SC_COEFF_MAX) )
 			break;
 	}
 
@@ -1111,10 +1126,14 @@ static int ISP_ServiceSetParameters(void)
 	s->cap_img_dec.x_mode = ISP_CAP_IMG_DEC_MODE_DIRECT;
 	s->input_size.w = s->cap_output_size.w;
 	s->input_size.h = s->cap_output_size.h;
-	s->input_range.x = 0;
-	s->input_range.y = 0;
-	s->input_range.w = s->cap_output_size.w;
-	s->input_range.h = s->cap_output_size.h;
+	trim_width = DCAMERA_WIDTH(s->cap_output_size.w);
+	trim_height = DCAMERA_HEIGHT(s->cap_output_size.h);
+	s->input_range.x = (s->cap_output_size.w-trim_width)/2;
+	s->input_range.x &= ~1;
+	s->input_range.y = (s->cap_output_size.h-trim_height)/2;
+	s->input_range.y &= ~1;
+	s->input_range.w = trim_width;
+	s->input_range.h = trim_height;
 	s->display_range.x = g_dcam_param.display_rect.x;
 	s->display_range.y = g_dcam_param.display_rect.y;
 	s->display_range.w = dst_img_size.w;
@@ -1142,11 +1161,13 @@ static int ISP_ServiceSetParameters(void)
 int dcam_start(void)
 {
 	int ret = DCAM_SUCCESS;
+	isp_get_path2();
 	if (0 == dcam_get_user_count()) {
-		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ISP);	//switch IRAM to isp
+		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ISP);/*switch IRAM to isp*/
 		ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
 		DCAM_TRACE("DCAM: scam_start softreset and set clk.\n");
 	}
+	isp_put_path2();
 	dcam_inc_user_count();
 
 	DCAM_TRACE("DCAM: dcam_start start. \n");
@@ -1242,24 +1263,23 @@ int dcam_stop(void)
 	DCAM_TRACE("DCAM: dcam_stop start. \n");
 
 	g_dcam_param.no_skip_frame_flag = 0;
-
 	ISP_DriverStop(s->module_addr);
 	s->state = ISP_STATE_STOP;
 	dcam_dec_user_count();
-	if (0 == dcam_get_user_count()) {
-		ISP_DriverModuleDisable(AHB_GLOBAL_REG_CTL0);
-		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ARM);	//switch IRAM to ARM
+	isp_get_path2();
+	if(0 == dcam_get_user_count()) {
+		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ARM); /*switch IRAM to ARM	*/
 		ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
+		ISP_DriverModuleDisable(AHB_GLOBAL_REG_CTL0);
 		DCAM_TRACE("DCAM: dcam stop softreset and set clk.\n");
 	}
-
+         isp_put_path2();
 	if (g_dcam_clk) {
 		clk_disable(g_dcam_clk);
 		DCAM_TRACE("DCAM:dcam_stop,clk_disable ok.\n");
 	}
 
 	DCAM_TRACE("DCAM: dcam_stop end. \n");
-
 	return DCAM_SUCCESS;
 }
 

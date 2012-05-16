@@ -99,7 +99,10 @@ typedef enum {
 	DCAM_FRAME_ERR,
 	DCAM_CAP_FIFO_OVERFLOW,
 	DCAM_NO_RUN,
+	DCAM_JPG_BUF_ERR,
 	DCAM_RESTART,
+	DCAM_RESTART_PROCESS,
+	DCAM_RESTAER_FAIL,
 	DCAM_WORK_STATUS_MAX
 } DCAM_WORK_STATUS;
 
@@ -559,16 +562,18 @@ static int init_sensor_parameters(void *priv)
 			break;
 		}
 	}
-	/*for preview */
-	if (1 != dev->streamparm.parm.capture.capturemode) {
-		if (g_dcam_info.preview_m != g_dcam_info.snapshot_m) {
+	if(1 == dev->streamparm.parm.capture.capturemode) {
+		if(init_param.input_size.w<=DCAM_SCALE_OUT_WIDTH_MAX)
 			g_dcam_info.snapshot_m = g_dcam_info.preview_m;
-			printk
-			    ("V4L2:init_sensor_parameters,preview size is diffrent with request!preview mode = %d .\n ",
-			     g_dcam_info.preview_m);
+	}
+        /*for preview */
+	if(1 != dev->streamparm.parm.capture.capturemode) {
+		if(g_dcam_info.preview_m != g_dcam_info.snapshot_m) {
+			g_dcam_info.snapshot_m = g_dcam_info.preview_m;
+			printk("V4L2:init_sensor_parameters,preview size is diffrent with request!preview mode = %d .\n ",
+				  g_dcam_info.preview_m);
 		}
 	}
-
 	DCAM_V4L2_PRINT
 	    ("V4L2:init_sensor_parameters, image_format = %d,  preview_m=%d, snapshot_m=%d, capturemode = %d  \n ",
 	     sensor_info_ptr->image_format, g_dcam_info.preview_m,
@@ -600,12 +605,6 @@ static int init_sensor_parameters(void *priv)
 			     g_dcam_info.brightness_param);
 	if (INVALID_VALUE != g_dcam_info.contrast_param)
 		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, g_dcam_info.contrast_param);
-	if (INVALID_VALUE != g_dcam_info.hflip_param)
-		Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,
-			     g_dcam_info.hflip_param);
-	if (INVALID_VALUE != g_dcam_info.vflip_param)
-		Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,
-			     g_dcam_info.vflip_param);
 	if (INVALID_VALUE != g_dcam_info.ev_param)
 		Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,
 			     g_dcam_info.ev_param);
@@ -1014,6 +1013,15 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		DCAM_V4L2_ERR
 		    ("v4l2:vidioc_handle_ctrl,don't adjust sensor when cap mode.\n");
 	}
+	if(DCAM_RESTAER_FAIL== s_dcam_err_info.work_status) {
+		printk("V4L2:vidioc_handle_ctrl restart end,don't need to set sensor.\n");
+		return;
+	}
+	if(is_previewing) {
+		while(DCAM_RESTART_PROCESS == s_dcam_err_info.work_status) {
+			printk("V4L2:vidioc_handle_ctrl,wait restart end.\n");
+		}
+	}
 	switch (ctrl->id) {
 #ifdef DCAM_SET_SENSOR_MODE
 	case V4L2_CID_BLACK_LEVEL:
@@ -1106,35 +1114,19 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			break;
 		}
 		g_zoom_level = (uint32_t) ctrl->value;
-		if (dcam_is_previewing(g_zoom_level)) {
-			handle_timeout_cnt = 0;
-			g_dcam_info.v4l2_buf_ctrl_set_next_flag = 1;
-			while (g_dcam_info.v4l2_buf_ctrl_set_next_flag != 0) {
-				if (handle_timeout_cnt > DCAM_HANDLE_TIMEOUT)
-					break;
-				handle_timeout_cnt++;
-				msleep(1);
-				printk
-				    ("V4L2: zoom handle,handle_timeout_cnt=%d.\n",
-				     handle_timeout_cnt);
-			}
-			dcam_stop_timer(&s_dcam_err_info.dcam_timer);
-			dcam_stop();
-			s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
-			dcam_set_first_buf_addr(g_last_buf, g_last_uv_buf);
+		if(dcam_is_previewing(g_zoom_level)) {
+			dcam_stop_handle(1);
 			dcam_start_handle(1);
 		}
 		DCAM_V4L2_PRINT("V4L2:g_zoom_level=%d.\n", g_zoom_level);
 		break;
 	case V4L2_CID_HFLIP:
 		printk("V4L2:hflip setting.\n.");
-		g_dcam_info.hflip_param = (uint8_t) ctrl->value;
 		Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,
 			     (uint32_t) ctrl->value);
 		break;
 	case V4L2_CID_VFLIP:
 		printk("V4L2:vflip setting.\n.");
-		g_dcam_info.vflip_param = (uint8_t) ctrl->value;
 		Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,
 			     (uint32_t) ctrl->value);
 		break;
@@ -1144,7 +1136,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			break;
 		}
 		if (g_dcam_info.flash_mode) {
-			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	// open flash
+			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
 		}
 		copy_from_user(&focus_param[0], (uint16_t *) ctrl->value,
 			       FOCUS_PARAM_LEN);
@@ -1759,8 +1751,8 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.contrast_param = INVALID_VALUE;
 	g_dcam_info.saturation_param = INVALID_VALUE;
 	g_dcam_info.imageeffect_param = INVALID_VALUE;
-	g_dcam_info.hflip_param = 0;
-	g_dcam_info.vflip_param = 0;
+	g_dcam_info.hflip_param = INVALID_VALUE;
+	g_dcam_info.vflip_param = INVALID_VALUE;
 	g_dcam_info.previewmode_param = INVALID_VALUE;
 	g_dcam_info.ev_param = INVALID_VALUE;
 	g_dcam_info.power_freq = INVALID_VALUE;
@@ -1984,6 +1976,9 @@ void dcam_cb_ISRSensorFrameErr(void)
 void dcam_cb_ISRJpegBufOF(void)
 {
 	printk("V4L2:dcam_cb_ISRJpegBufOF.\n");
+	dcam_error_close();
+	s_dcam_err_info.work_status = DCAM_JPG_BUF_ERR;
+	up(&s_dcam_err_info.dcam_thread_sem);
 }
 
 static int buffer_setup(struct videobuf_queue *vq, unsigned int *count,
@@ -2123,21 +2118,30 @@ static int dcam_scan_status_thread(void *data_ptr)
 			info_ptr->restart_cnt = 0;
 			pr_debug("v4l2:dcam_scan_status_thread,DCAM_OK.\n ");
 			break;
+		case DCAM_JPG_BUF_ERR:
+			dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+			info_ptr->ret = 1;
+			up(&info_ptr->dcam_start_sem);
+			printk("v4l2:dcam_scan_status_thread,DCAM_JPG_BUF_ERR,start fail!.\n");
+			break;
 		case DCAM_LINE_ERR:
 		case DCAM_FRAME_ERR:
 		case DCAM_CAP_FIFO_OVERFLOW:
 		case DCAM_NO_RUN:
+			info_ptr->work_status = DCAM_RESTART_PROCESS;
 			dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 			dcam_stop();
 			if (info_ptr->restart_cnt > DCAM_RESTART_COUNT) {
 				if (1 == info_ptr->is_running) {
 					info_ptr->is_report_err = 1;
 					dcam_error_handle(g_fh);
+					info_ptr->work_status = DCAM_RESTAER_FAIL;
 					printk
 					    ("v4l2:dcam_scan_status_thread,report error!.\n");
 				} else {
 					info_ptr->ret = 1;
 					up(&info_ptr->dcam_start_sem);
+					info_ptr->work_status = DCAM_WORK_STATUS_MAX;
 					printk
 					    ("v4l2:dcam_scan_status_thread,start fail!.\n");
 				}
@@ -2278,8 +2282,8 @@ static int open(struct file *file)
 	g_dcam_info.contrast_param = INVALID_VALUE;
 	g_dcam_info.saturation_param = INVALID_VALUE;
 	g_dcam_info.imageeffect_param = INVALID_VALUE;
-	g_dcam_info.hflip_param = 0;
-	g_dcam_info.vflip_param = 0;
+	g_dcam_info.hflip_param = INVALID_VALUE;
+	g_dcam_info.vflip_param = INVALID_VALUE;
 	g_dcam_info.previewmode_param = INVALID_VALUE;
 	g_dcam_info.ev_param = INVALID_VALUE;
 	g_dcam_info.focus_param = 0;
