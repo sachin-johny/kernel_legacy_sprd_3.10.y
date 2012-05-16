@@ -908,6 +908,8 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	struct usb_composite_dev *cdev = dev->cdev;
 	int enabled = 0;
 
+	if (!cdev)
+		return 0;
 	mutex_lock(&dev->mutex);
 
 	sscanf(buff, "%d", &enabled);
