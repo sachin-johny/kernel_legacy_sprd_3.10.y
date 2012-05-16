@@ -244,6 +244,11 @@ static int sc88xx_pcm_hw_params(struct snd_pcm_substream *substream,
 		dma_desc->dbm = rtd->params->desc.dst_burst_mode | rtd->params->desc.dst_blk_postm;
 		dma_desc->tlen = rtd->pcm_1channel_data_width;
 
+		dma_desc1->cfg = dma_desc->cfg;
+		dma_desc1->sbm = dma_desc->sbm;
+		dma_desc1->dbm = dma_desc->dbm;
+		dma_desc1->tlen = dma_desc->tlen;
+
 		if (dma_channel & DMA_VB_DA0_BIT) {
 			dma_desc->dsrc = dma_buff_phys;
 			dma_desc->ddst = rtd->params->dev_paddr;

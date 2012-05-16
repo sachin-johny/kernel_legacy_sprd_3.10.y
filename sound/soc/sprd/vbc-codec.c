@@ -651,7 +651,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 	vbc_reg_write(VBCGR3, 0, 0, 0x1f);
 #if !VBC_EQ_MODULE_SUPPORT
 	vbc_reg_write(VBCGR1, 0, 0x00, 0xff); /* DAC Gain */
-	vbc_reg_write(VBCGR8, 0, 0x1f, 0x1f);
+	vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
 	vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
 #endif
 
