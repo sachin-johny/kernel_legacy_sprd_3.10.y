@@ -1280,8 +1280,14 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	int enabled = 0;
 
 
+#if 0
 	if (!cdev)
 		return -ENODEV;
+#else
+	/* To resolve the panic in case of calibration mode. */
+	if (!cdev)
+		return 0;
+#endif
 
 	mutex_lock(&dev->mutex);
 
