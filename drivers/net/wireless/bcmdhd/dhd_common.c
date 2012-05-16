@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_common.c 290546 2011-10-19 01:55:21Z $
+ * $Id: dhd_common.c 307573 2012-01-12 00:04:39Z $
  */
 #include <typedefs.h>
 #include <osl.h>
@@ -134,7 +134,7 @@ enum {
 };
 
 const bcm_iovar_t dhd_iovars[] = {
-	{"version", 	IOV_VERSION,	0,	IOVT_BUFFER,	sizeof(dhd_version) },
+	{"version",	IOV_VERSION,	0,	IOVT_BUFFER,	sizeof(dhd_version) },
 #ifdef DHD_DEBUG
 	{"msglevel",	IOV_MSGLEVEL,	0,	IOVT_UINT32,	0 },
 #endif /* DHD_DEBUG */
@@ -336,6 +336,11 @@ dhd_doiovar(dhd_pub_t *dhd_pub, const bcm_iovar_t *vi, uint32 actionid, const ch
 
 	case IOV_SVAL(IOV_MSGLEVEL):
 		dhd_msg_level = int_val;
+#ifdef WL_CFG80211
+		/* Enable DHD and WL logs in oneshot */
+		if (dhd_msg_level & DHD_WL_VAL)
+			wl_cfg80211_enable_trace(dhd_msg_level);
+#endif
 		break;
 	case IOV_GVAL(IOV_BCMERRORSTR):
 		bcm_strncpy_s((char *)arg, len, bcmerrorstr(dhd_pub->bcmerror), BCME_STRLEN);
@@ -857,6 +862,8 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 		break;
 
 	case WLC_E_SCAN_COMPLETE:
+	case WLC_E_ASSOC_REQ_IE:
+	case WLC_E_ASSOC_RESP_IE:
 	case WLC_E_PMKID_CACHE:
 		DHD_EVENT(("MACEVENT: %s\n", event_name));
 		break;
@@ -2041,7 +2048,7 @@ int dhd_keep_alive_onoff(dhd_pub_t *dhd)
 	mkeep_alive_pkt.keep_alive_id = 0;
 	mkeep_alive_pkt.len_bytes = 0;
 	buf_len += WL_MKEEP_ALIVE_FIXED_LEN;
-	/* Keep-alive attributes are set in local variable (mkeep_alive_pkt), and
+	/* Keep-alive attributes are set in local	variable (mkeep_alive_pkt), and
 	 * then memcpy'ed into buffer (mkeep_alive_pktp) since there is no
 	 * guarantee that the buffer is properly aligned.
 	 */

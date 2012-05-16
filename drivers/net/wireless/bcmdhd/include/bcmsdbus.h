@@ -22,7 +22,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdbus.h,v 13.17.86.2 2010-12-23 01:13:20 Exp $
+ * $Id: bcmsdbus.h 300017 2011-12-01 20:30:27Z $
  */
 
 #ifndef	_sdio_api_h_
@@ -116,5 +116,13 @@ extern int sdioh_sdio_reset(sdioh_info_t *si);
 void *bcmsdh_get_sdioh(bcmsdh_info_t *sdh);
 
 
+#ifdef BCMSPI
+/* Function to pass gSPI specific device-status bits to dhd. */
+extern uint32 sdioh_get_dstatus(sdioh_info_t *si);
+
+/* chipid and chiprev info for lower layers to control sw WAR's for hw bugs. */
+extern void sdioh_chipinfo(sdioh_info_t *si, uint32 chip, uint32 chiprev);
+extern void sdioh_dwordmode(sdioh_info_t *si, bool set);
+#endif /* BCMSPI */
 
 #endif /* _sdio_api_h_ */

@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh_sdmmc.c 282820 2011-09-09 15:40:35Z $
+ * $Id: bcmsdh_sdmmc.c 309549 2012-01-20 01:13:15Z $
  */
 #include <typedefs.h>
 
@@ -448,6 +448,7 @@ sdioh_iovar_op(sdioh_info_t *si, const char *name,
 		bcopy(params, &int_val, sizeof(int_val));
 
 	bool_val = (int_val != 0) ? TRUE : FALSE;
+	BCM_REFERENCE(bool_val);
 
 	actionid = set ? IOV_SVAL(vi->varid) : IOV_GVAL(vi->varid);
 	switch (actionid) {
@@ -682,10 +683,10 @@ sdioh_enable_hw_oob_intr(sdioh_info_t *sd, bool enable)
 	else
 		data = SDIO_SEPINT_ACT_HI;	/* disable hw oob interrupt */
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
+#if 1 && LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35)
 	/* Needed for Android Linux Kernel 2.6.35 */
 	data |= SDIO_SEPINT_ACT_HI; 		/* Active HIGH */
-#endif
+#endif /* OEM_ANDROID */
 
 	status = sdioh_request_byte(sd, SDIOH_WRITE, 0, SDIOD_CCCR_BRCM_SEPINT, &data);
 	return status;
@@ -1179,6 +1180,7 @@ static void IRQHandlerF2(struct sdio_func *func)
 	sd = gInstance->sd;
 
 	ASSERT(sd != NULL);
+	BCM_REFERENCE(sd);
 }
 #endif /* !defined(OOB_INTR_ONLY) */
 
@@ -1230,8 +1232,10 @@ sdioh_start(sdioh_info_t *si, int stage)
 		   2.6.27. The implementation prior to that is buggy, and needs broadcom's
 		   patch for it
 		*/
-		if ((ret = sdio_reset_comm(gInstance->func[0]->card)))
+		if ((ret = sdio_reset_comm(gInstance->func[0]->card))) {
 			sd_err(("%s Failed, error = %d\n", __FUNCTION__, ret));
+			return ret;
+		}
 		else {
 			sd->num_funcs = 2;
 			sd->sd_blockmode = TRUE;
@@ -1317,4 +1321,29 @@ int
 sdioh_waitlockfree(sdioh_info_t *sd)
 {
 	return (1);
+}
+
+
+SDIOH_API_RC
+sdioh_gpioouten(sdioh_info_t *sd, uint32 gpio)
+{
+	return SDIOH_API_RC_FAIL;
+}
+
+SDIOH_API_RC
+sdioh_gpioout(sdioh_info_t *sd, uint32 gpio, bool enab)
+{
+	return SDIOH_API_RC_FAIL;
+}
+
+bool
+sdioh_gpioin(sdioh_info_t *sd, uint32 gpio)
+{
+	return FALSE;
+}
+
+SDIOH_API_RC
+sdioh_gpio_init(sdioh_info_t *sd)
+{
+	return SDIOH_API_RC_FAIL;
 }

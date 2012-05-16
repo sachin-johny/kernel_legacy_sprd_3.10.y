@@ -23,7 +23,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh.h,v 13.46.52.3 2010-10-19 00:41:44 Exp $
+ * $Id: bcmsdh.h 300017 2011-12-01 20:30:27Z $
  */
 
 #ifndef	_bcmsdh_h_
@@ -207,5 +207,8 @@ extern uint32 bcmsdh_cur_sbwad(void *sdh);
 /* Function to pass chipid and rev to lower layers for controlling pr's */
 extern void bcmsdh_chipinfo(void *sdh, uint32 chip, uint32 chiprev);
 
+#ifdef BCMSPI
+extern void bcmsdh_dwordmode(void *sdh, bool set);
+#endif /* BCMSPI */
 
 #endif	/* _bcmsdh_h_ */

@@ -20,7 +20,7 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *
-* $Id: dhd_custom_gpio.c,v 1.2.42.1 2010-10-19 00:41:09 Exp $
+* $Id: dhd_custom_gpio.c 280266 2011-08-28 04:18:20Z $
 */
 
 #include <typedefs.h>
@@ -33,6 +33,7 @@
 
 #include <wlioctl.h>
 #include <wl_iw.h>
+#include <mach/gpio.h>//0915
 
 #define WL_ERROR(x) printf x
 #define WL_TRACE(x)
@@ -88,7 +89,6 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 
 #ifdef CUSTOMER_HW2
 	host_oob_irq = wifi_get_irq_number(irq_flags_ptr);
-
 #else
 #if defined(CUSTOM_OOB_GPIO_NUM)
 	if (dhd_oob_gpio_num < 0) {
@@ -113,7 +113,12 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 	gpio_direction_input(dhd_oob_gpio_num);
 #endif /* CUSTOMER_HW */
 #endif /* CUSTOMER_HW2 */
-
+/*
+	gpio_free(dhd_oob_gpio_num);
+	gpio_request(dhd_oob_gpio_num, "oob irq");
+	host_oob_irq = gpio_to_irq(dhd_oob_gpio_num);
+	gpio_direction_input(dhd_oob_gpio_num);
+*/
 	return (host_oob_irq);
 }
 #endif /* defined(OOB_INTR_ONLY) */
@@ -133,6 +138,7 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			wifi_set_power(0, 0);
 #endif
 			WL_ERROR(("=========== WLAN placed in RESET ========\n"));
+
 		break;
 
 		case WLAN_RESET_ON:
@@ -145,6 +151,7 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			wifi_set_power(1, 0);
 #endif
 			WL_ERROR(("=========== WLAN going back to live  ========\n"));
+
 		break;
 
 		case WLAN_POWER_OFF:
@@ -154,7 +161,6 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 			bcm_wlan_power_off(1);
 #endif /* CUSTOMER_HW */
 		break;
-
 		case WLAN_POWER_ON:
 			WL_TRACE(("%s: call customer specific GPIO to turn on WL_REG_ON\n",
 				__FUNCTION__));
@@ -289,5 +295,5 @@ void get_customized_country_code(char *country_iso_code, wl_country_t *cspec)
 	cspec->rev = translate_custom_table[0].custom_locale_rev;
 #endif /* EXMAPLE_TABLE */
 	return;
-#endif /* defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 39)) */
+#endif /* defined(CUSTOMER_HW2) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)) */
 }

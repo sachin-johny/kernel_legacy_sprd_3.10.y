@@ -31,6 +31,8 @@
 #include <mach/globalregs.h>
 #include <mach/board.h>
 #include "devices.h"
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -41,6 +43,8 @@ extern void __init sc8810_clock_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
+/* Control ldo for brcm chip according to HW design */
+static struct regulator *wlan_regulator_18=NULL;
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -220,14 +224,14 @@ static struct spi_board_info spi_boardinfo[] = {
 		.modalias = "cmmb-dev",
 		.bus_num = 0,
 		.chip_select = 0,
-		.max_speed_hz = 1000 * 1000,
+		.max_speed_hz = 8 * 1000 * 1000,
 		.mode = SPI_CPOL | SPI_CPHA,
 	},
 	{
-		.modalias = "brcm-dev",
+		.modalias = "wlan_spi",
 		.bus_num = 1,
 		.chip_select = 0,
-		.max_speed_hz = 1000 * 1000,
+		.max_speed_hz = 48 * 1000 * 1000,
 		.mode = SPI_CPOL | SPI_CPHA,
 	},
 };
@@ -260,6 +264,25 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
+/* Control the BT_VDDIO and WLAN_VDDIO
+Always power on  According to spec
+*/
+static int brcm_ldo_enable(void)
+{
+	int err;
+	wlan_regulator_18 = regulator_get(NULL, REGU_NAME_WIFI);
+	if (IS_ERR(wlan_regulator_18)) {
+		pr_err("can't get 1.8V regulator\n");
+		return -1;
+	}
+	err = regulator_set_voltage(wlan_regulator_18,1800000,1800000);
+	if (err){
+		pr_err("can't set to 1.8V.\n");
+		return -1;
+	}
+        return 0;
+}
+
 static void __init sc8810_init_machine(void)
 {
 	regulator_add_devices();
@@ -268,6 +291,7 @@ static void __init sc8810_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+        brcm_ldo_enable();
 }
 
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,

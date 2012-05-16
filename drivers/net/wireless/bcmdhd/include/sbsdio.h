@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: sbsdio.h,v 13.34 2009-03-11 20:27:16 Exp $
+ * $Id: sbsdio.h 277737 2011-08-16 17:54:59Z $
  */
 
 #ifndef	_SBSDIO_H
@@ -143,7 +143,11 @@
 
 /* direct(mapped) cis space */
 #define SBSDIO_CIS_BASE_COMMON		0x1000		/* MAPPED common CIS address */
+#ifdef BCMSPI
+#define SBSDIO_CIS_SIZE_LIMIT		0x100		/* maximum bytes in one spi CIS */
+#else
 #define SBSDIO_CIS_SIZE_LIMIT		0x200		/* maximum bytes in one CIS */
+#endif /* !BCMSPI */
 #define SBSDIO_OTP_CIS_SIZE_LIMIT       0x078           /* maximum bytes OTP CIS */
 
 #define SBSDIO_CIS_OFT_ADDR_MASK	0x1FFFF		/* cis offset addr is < 17 bits */
