@@ -30,6 +30,7 @@
 #include <linux/err.h>
 #include <linux/slab.h>
 #include <mach/hardware.h>
+#include <linux/clk.h>
 
 #define UART_NR_MAX			CONFIG_SERIAL_SPRD_UART_NR
 #define SP_TTY_NAME			"ttyS"
@@ -83,7 +84,7 @@
 #define UART_LSR_BI	(0x1<<7)
 #define UART_LSR_DR	(0x1<<8)
 /*flow control */
-#define RX_HW_FLOW_CTL_THRESHOLD	0x7F
+#define RX_HW_FLOW_CTL_THRESHOLD	0x40
 #define RX_HW_FLOW_CTL_EN		(0x1<<7)
 #define TX_HW_FLOW_CTL_EN		(0x1<<8)
 /*status indicator*/
@@ -92,23 +93,23 @@
 #define UART_STS_BREAK_DETECT	(0x1<<7)
 #define UART_STS_TIMEOUT     	(0x1<<13)
 /*baud rate*/
-#define BAUD_1200_26M	0x54A0
-#define BAUD_2400_26M	0x2A50
-#define BAUD_4800_26M	0x1528
-#define BAUD_9600_26M	0x0A94
-#define BAUD_19200_26M	0x054A
-#define BAUD_38400_26M	0x02A5
-#define BAUD_57600_26M	0x0152
-#define BAUD_115200_26M	0x00E2
-#define BAUD_230400_26M	0x0071
-#define BAUD_460800_26M	0x0038
-#define BAUD_921600_26M	0x001C
-#define BAUD_1000000_26M 0x001A
-#define BAUD_1152000_26M 0x0016
-#define BAUD_1500000_26M 0x0011
-#define BAUD_2000000_26M 0x000D
-#define BAUD_2500000_26M 0x000B
-#define BAUD_3000000_26M 0x0009
+#define BAUD_1200_48M	0x9C40
+#define BAUD_2400_48M	0x4E20
+#define BAUD_4800_48M	0x2710
+#define BAUD_9600_48M	0x1388
+#define BAUD_19200_48M	0x09C4
+#define BAUD_38400_48M	0x04E2
+#define BAUD_57600_48M	0x0314
+#define BAUD_115200_48M	0x01A0
+#define BAUD_230400_48M	0x00D0
+#define BAUD_460800_48M	0x0068
+#define BAUD_921600_48M	0x0034
+#define BAUD_1000000_48M 0x0030
+#define BAUD_1152000_48M 0x0029
+#define BAUD_1500000_48M 0x0020
+#define BAUD_2000000_48M 0x0018
+#define BAUD_2500000_48M 0x0013
+#define BAUD_3000000_48M 0x0010
 
 static inline unsigned int serial_in(struct uart_port *port, int offset)
 {
@@ -377,56 +378,56 @@ static void serial_sprd_set_termios(struct uart_port *port,
 #endif
 	switch (baud) {
 	case 1200:
-		quot = BAUD_1200_26M;
+		quot = BAUD_1200_48M;
 		break;
 	case 2400:
-		quot = BAUD_2400_26M;
+		quot = BAUD_2400_48M;
 		break;
 	case 4800:
-		quot = BAUD_4800_26M;
+		quot = BAUD_4800_48M;
 		break;
 	case 9600:
-		quot = BAUD_9600_26M;
+		quot = BAUD_9600_48M;
 		break;
 	case 19200:
-		quot = BAUD_19200_26M;
+		quot = BAUD_19200_48M;
 		break;
 	case 38400:
-		quot = BAUD_38400_26M;
+		quot = BAUD_38400_48M;
 		break;
 	case 57600:
-		quot = BAUD_57600_26M;
+		quot = BAUD_57600_48M;
 		break;
 	case 230400:
-		quot = BAUD_230400_26M;
+		quot = BAUD_230400_48M;
 		break;
 	case 460800:
-		quot = BAUD_460800_26M;
+		quot = BAUD_460800_48M;
 		break;
 	case 921600:
-		quot = BAUD_921600_26M;
+		quot = BAUD_921600_48M;
 		break;
 	case 1000000:
-		quot = BAUD_1000000_26M;
+		quot = BAUD_1000000_48M;
 		break;
 	case 1152000:
-		quot = BAUD_1152000_26M;
+		quot = BAUD_1152000_48M;
 		break;
 	case 1500000:
-		quot = BAUD_1500000_26M;
+		quot = BAUD_1500000_48M;
 		break;
 	case 2000000:
-		quot = BAUD_2000000_26M;
+		quot = BAUD_2000000_48M;
 		break;
 	case 2500000:
-		quot = BAUD_2500000_26M;
+		quot = BAUD_2500000_48M;
 		break;
 	case 3000000:
-		quot = BAUD_3000000_26M;
+		quot = BAUD_3000000_48M;
 		break;
 	default:
 	case 115200:
-		quot = BAUD_115200_26M;
+		quot = BAUD_115200_48M;
 		break;
 	}
 	/* set data length */
@@ -554,6 +555,34 @@ static struct uart_ops serial_sprd_ops = {
 };
 static struct uart_port *serial_sprd_ports[UART_NR_MAX] = { 0 };
 
+static int clk_startup(int id)
+{
+	struct clk *clk;
+	struct clk *clk_parent;
+	char clk_name[10];
+	int ret;
+	sprintf(clk_name,"clk_uart%d",id);
+	clk = clk_get(NULL, clk_name);
+	if (IS_ERR(clk)) {
+		printk("clock[%s]: failed to get clock by clk_get()!\n",
+				clk_name);
+	}
+	clk_parent = clk_get(NULL, "clk_48m");
+	if (IS_ERR(clk_parent)) {
+		printk("clock[%s]: failed to get parent [%s] by clk_get()!\n",
+				clk_name, "clk_48m");
+	}
+	ret= clk_set_parent(clk, clk_parent);
+	if (ret) {
+		printk("clock[%s]: clk_set_parent() failed!\n", clk_name);
+	}
+	ret = clk_enable(clk);
+	if (ret) {
+		printk("clock[%s]: clk_enable() failed!\n", clk_name);
+	}
+	return 0;
+}
+
 static int serial_sprd_setup_port(int id, struct resource *mem,
 				   struct resource *irq)
 {
@@ -576,6 +605,7 @@ static int serial_sprd_setup_port(int id, struct resource *mem,
 
 	serial_sprd_ports[id] = up;
 
+	clk_startup(id);
 	return 0;
 }
 
