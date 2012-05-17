@@ -42,6 +42,11 @@ static struct platform_device brcm_bluesleep_device;
 
 static unsigned int sd_detect_gpio = GPIO_SDIO_DETECT;
 
+static struct platform_device  gpsctl_dev = {
+	.name               = "gpsctl",
+	/*.dev.platform_data  = &pdata_gpsctl,*/
+};
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
@@ -70,6 +75,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_rotation_device,
 	&rfkill_device,
 	&brcm_bluesleep_device,
+	&gpsctl_dev,
 };
 
 static struct resource bluesleep_resources[] = {

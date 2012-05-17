@@ -51,4 +51,7 @@
 #define GPIO_SDIO_DETECT	137
 
 #define HEADSET_DETECT_GPIO	0
+#define GPIO_GPS_RESET          28
+#define GPIO_GPS_ONOFF          27
+
 #endif
