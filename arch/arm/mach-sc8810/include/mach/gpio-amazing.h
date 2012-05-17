@@ -49,4 +49,6 @@
 #define GPIO_BK		        138
 
 #define GPIO_SDIO_DETECT	137
+
+#define HEADSET_DETECT_GPIO	0
 #endif
