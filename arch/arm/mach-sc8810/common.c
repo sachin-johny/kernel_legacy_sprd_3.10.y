@@ -300,7 +300,7 @@ static void sprd_config_sdio_pins(void)
 	sprd_mfp_config(&sdcard_detect_gpio_cfg, 1);
 }
 
-void __init sprd_add_sdio0_device(void)
+void __init sprd_add_sdio_device(void)
 {
 	int err;
 	/* Enable SDIO0 Module */
@@ -309,7 +309,12 @@ void __init sprd_add_sdio0_device(void)
 	__raw_bits_or(BIT_12, AHB_SOFT_RST);
 	__raw_bits_and(~BIT_12, AHB_SOFT_RST);
 
-#if 0
+	/* Enable SDIO1 Module */
+	__raw_bits_or(BIT_19, AHB_CTL0);
+	/* reset sdio1 module*/
+	__raw_bits_or(BIT_16, AHB_SOFT_RST);
+	__raw_bits_and(~BIT_16, AHB_SOFT_RST);
+
 	sprd_config_sdio_pins();
 	err = gpio_request(SD0_DETECT_GPIO, "sdcard detect");
 	if (err) {
@@ -317,21 +322,9 @@ void __init sprd_add_sdio0_device(void)
 		return;
 	}
 	gpio_direction_input(SD0_DETECT_GPIO);
-#endif
 	platform_device_register(&sprd_sdio_device[0]);
-}
-
-void __init sprd_add_sdio1_device(void)
-{
-	/* Enable SDIO1 Module */
-	__raw_bits_or(BIT_19, AHB_CTL0);
-	/* reset sdio1 module*/
-	__raw_bits_or(BIT_16, AHB_SOFT_RST);
-	__raw_bits_and(~BIT_16, AHB_SOFT_RST);
-
 	platform_device_register(&sprd_sdio_device[1]);
 }
-
 
 static struct resource sprd_otg_resource[] = {
 	[0] = {

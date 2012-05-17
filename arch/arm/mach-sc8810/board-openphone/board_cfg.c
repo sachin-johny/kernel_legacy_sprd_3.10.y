@@ -374,8 +374,7 @@ static void __init openphone_init(void)
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sprd_add_devices();
 	eic_init();
-	sprd_add_sdio0_device();
-	sprd_add_sdio1_device();
+	sprd_add_sdio_device();
 	sprd_add_otg_device();
 	sprd_gadget_init();
 	sprd_add_dcam_device();
