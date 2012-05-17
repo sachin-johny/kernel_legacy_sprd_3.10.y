@@ -211,14 +211,14 @@ static int spi_cs_gpio_map[][2] = {
 
 static struct spi_board_info spi_boardinfo[] = {
 	{
-		.modalias = "cmmb-dev",
+		.modalias = "wlan_spi",
 		.bus_num = 0,
 		.chip_select = 0,
-		.max_speed_hz = 1000 * 1000,
+		.max_speed_hz = 48 * 1000 * 1000,
 		.mode = SPI_CPOL | SPI_CPHA,
 	},
 	{
-		.modalias = "brcm-dev",
+		.modalias = "cmmb-dev",
 		.bus_num = 1,
 		.chip_select = 0,
 		.max_speed_hz = 1000 * 1000,
