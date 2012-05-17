@@ -2020,70 +2020,11 @@ static struct clk_functions sc8810_clk_functions = {
 	.clk_disable_unused	= sc88xx_clk_disable_unused,
 };
 
-/* modem clock begin*/
-
-int is_stub = 1;
-#ifdef CONFIG_NKERNEL
-
-#include <nk/nkern.h>
-const char vlink_name_clk_fw[] = "vclock_framework";
-NkPhAddr    plink_clk_fw;
-NkDevVlink* vlink_clk_fw;
-
-#define	RES_CLOCK_STUB_MEM	0
-#define	RES_CLOCK_NAME_MEM	1
-
- struct clock_stub {
+struct clock_stub {
 	unsigned char *name;
 	unsigned int  flags;
 	int usecount;
 };
-
-static int clk_fw_vlink_init(void)
-{
-    plink_clk_fw = 0;
-    while ((plink_clk_fw = nkops.nk_vlink_lookup(vlink_name_clk_fw, plink_clk_fw))) {
-		if (0 == plink_clk_fw) {
-			CLK_FW_ERR("#####: Can't find the vlink [%s]!\n", vlink_name_clk_fw);
-			return -ENOMEM;
-		}
-		vlink_clk_fw = nkops.nk_ptov(plink_clk_fw);
-		CLK_FW_ERR("#####: clock-framework: vlink info: s_id = %d, c_id = %d.\n",
-			vlink_clk_fw->s_id, vlink_clk_fw->c_id);
-    }
-    return 0;
-}
-
-
-void *alloc_share_memory(unsigned int size, unsigned int res_id)
-{
-    void *pmem = NULL;
-
-#ifdef CONFIG_NKERNEL
-    NkPhAddr     paddr;
-
-    /* Allocate persistent shared memory */
-    paddr  = nkops.nk_pmem_alloc(nkops.nk_vtop(vlink_clk_fw), res_id, size);
-
-    if (paddr == 0) {
-        CLK_FW_ERR("OS#%d->OS#%d link=%d server pmem alloc failed.\n",
-	        vlink_clk_fw->c_id, vlink_clk_fw->s_id, vlink_clk_fw->link);
-        return NULL;
-    }
-
-    pmem = (void *) nkops.nk_mem_map(paddr, size);
-    if (pmem == 0) {
-	CLK_FW_ERR("error while mapping\n");
-    }
-    return pmem;
-
-#else
-	pmem = kzalloc( size, GFP_KERNEL);
-	/* empty for now. */
-	return pmem;
-#endif
-
-}
 
 struct clock_stub *pstub_start;
 char (*pname_start)[MAX_CLOCK_NAME_LEN];
@@ -2091,29 +2032,86 @@ char (*pname_start)[MAX_CLOCK_NAME_LEN];
 struct clock_stub *pstub;
 char (*pname)[MAX_CLOCK_NAME_LEN];
 
+#define	RES_CLOCK_STUB_MEM	0
+#define	RES_CLOCK_NAME_MEM	1
+
+#ifdef CONFIG_NKERNEL
+
+#include <nk/nkern.h>
+const char vlink_name_clk_fw[] = "vclock_framework";
+NkPhAddr    plink_clk_fw;
+NkDevVlink* vlink_clk_fw;
+
+static int clk_fw_vlink_init(void)
+{
+	plink_clk_fw = 0;
+	while ((plink_clk_fw = nkops.nk_vlink_lookup(vlink_name_clk_fw, plink_clk_fw))) {
+		if (0 == plink_clk_fw) {
+			CLK_FW_ERR("#####: Can't find the vlink [%s]!\n", vlink_name_clk_fw);
+			return -ENOMEM;
+		}
+		vlink_clk_fw = nkops.nk_ptov(plink_clk_fw);
+		CLK_FW_INFO("#####: clock-framework: vlink info: s_id = %d, c_id = %d.\n",
+				vlink_clk_fw->s_id, vlink_clk_fw->c_id);
+	}
+	return 0;
+}
+
+void *alloc_share_memory(unsigned int size, unsigned int res_id)
+{
+	void *pmem = NULL;
+
+	NkPhAddr     paddr;
+
+	/* Allocate persistent shared memory */
+	paddr  = nkops.nk_pmem_alloc(nkops.nk_vtop(vlink_clk_fw), res_id, size);
+
+	if (paddr == 0) {
+		CLK_FW_ERR("OS#%d->OS#%d link=%d server pmem alloc failed.\n",
+				vlink_clk_fw->c_id, vlink_clk_fw->s_id, vlink_clk_fw->link);
+		return NULL;
+	}
+
+	pmem = (void *) nkops.nk_mem_map(paddr, size);
+	if (pmem == 0) {
+		CLK_FW_ERR("error while mapping\n");
+	}
+	return pmem;
+
+}
+
+#else /* !CONFIG_NKERNEL */
+
+static int clk_fw_vlink_init(void)
+{
+	return 0;
+}
+
+void *alloc_share_memory(unsigned int size, unsigned int res_id)
+{
+	void *pmem = NULL;
+	pmem = kzalloc( size, GFP_KERNEL);
+	return pmem;
+}
+
 #endif
-/* modem clock end*/
 
 int __init sc8810_clock_init(void)
- {
+{
 	struct sc88xx_clk *c;
 	struct clk *p;
 
-/* modem clock begin*/
+	/* modem clock begin*/
 	int ret, index;
 	ret = clk_fw_vlink_init();
 	if (ret) {
 		CLK_FW_ERR("######: clock-framework: vlink initialization failed!\n");
 		return -ENOMEM;
 	}
-#ifdef CONFIG_NKERNEL
-    CLK_FW_ERR("#####: OS[%d] run as %s.\n", nkops.nk_id_get(),
-            is_stub ? "Stub" : "Non-Stub");
-#endif
 
 	/* allocate memory for shared clock information. */
 	pstub_start= (struct clock_stub *)alloc_share_memory(CLOCK_NUM *
-		sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
+			sizeof(struct clock_stub), RES_CLOCK_STUB_MEM);
 	if (NULL == pstub_start) {
 		CLK_FW_ERR("Clock Framework: alloc_share_memory() failed!\n");
 		return -ENOMEM;
@@ -2121,19 +2119,20 @@ int __init sc8810_clock_init(void)
 
 	/* allocate memory for clock name. */
 	pname_start = alloc_share_memory(CLOCK_NUM * MAX_CLOCK_NAME_LEN,
-				RES_CLOCK_NAME_MEM);
+			RES_CLOCK_NAME_MEM);
 	if (NULL == pname_start) {
 		CLK_FW_ERR("Clock Framework: alloc_share_memory() failed!\n");
 		return -ENOMEM;
 	}
 
-       /* find first available block. */
+	/* find first available block. */
 	for (index = 0, pstub = pstub_start, pname = pname_start;
-		NULL != pstub->name; pstub++, pname++, index++) {
+			NULL != pstub->name; pstub++, pname++, index++) {
 		printk("PM clock: %s:%s\n", pstub->name, *pname);
-            continue;
+		continue;
 	}
-/* modem clock end */
+	/* modem clock end */
+
 	rates_init();
 	clk_init(&sc8810_clk_functions);
 
@@ -2146,17 +2145,17 @@ int __init sc8810_clock_init(void)
 	recalculate_root_clocks();
 
 	clk_enable_init_clocks();
-	CLK_FW_ERR("###: sc8810_clock_init() is done.\n");
+	CLK_FW_INFO("###: sc8810_clock_init() is done.\n");
 
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
-					p = c->lk.clk;
+		p = c->lk.clk;
 		printk("clock: [%s], parent = [%s], usecount = %d, rate = %ld.\n",
 				p->name, p->parent ? (const char *)p->parent->name : "NULL",
 				p->usecount, p->rate);
 	}
 
 	return 0;
- }
+}
 
 /* modem clock begin*/
 static int sc8810_get_clock_modem_status(void)
