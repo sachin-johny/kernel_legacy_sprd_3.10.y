@@ -36,7 +36,8 @@ struct gpio_initdata {
 void __init sprd_add_devices(void);
 void __init sprd_map_common_io(void);
 void __init sprd_init_irq(void);
-void __init sprd_add_sdio_device(void);
+void __init sprd_add_sdio0_device(void);
+void __init sprd_add_sdio1_device(void);
 void __init sprd_add_otg_device(void);
 void __init sprd_gadget_init(void);
 void __init sprd_add_dcam_device(void);
