@@ -37,6 +37,9 @@
 #define GPIO_BT2AP_WAKE     	25
 #define GPIO_AP2BT_WAKE     	26
 
+#define GPIO_WIFI_SHUTDOWN	144
+#define GPIO_WIFI_IRQ		139
+
 #define EIC_CHARGER_DETECT	162
 #define EIC_KEY_POWER		163
 
