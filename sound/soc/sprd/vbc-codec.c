@@ -729,7 +729,6 @@ static unsigned int vbc_read(struct snd_soc_codec *codec, unsigned int reg)
 	if (ret != -1) return ret;
 	/* Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert */
 	reg |= ARM_VB_BASE2;
-	vbc_codec_mute();
 	return sci_adi_read(reg);
 }
 
@@ -739,7 +738,6 @@ static int vbc_write(struct snd_soc_codec *codec, unsigned int reg, unsigned int
 	if (ret != -1) return ret;
 	/* Because snd_soc_update_bits reg is 16 bits short type, so muse do following convert */
 	reg |= ARM_VB_BASE2;
-	vbc_codec_mute();
 	vbc_write_callback(reg, val);
 	sci_adi_raw_write(reg, val);
 	return 0;
