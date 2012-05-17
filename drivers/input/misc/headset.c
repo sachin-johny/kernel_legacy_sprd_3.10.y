@@ -210,7 +210,7 @@ static void headset_gpio_irq_enable(int enable, struct _headset_gpio *hgp)
 
 static int __init headset_init(void)
 {
-	int ret, i;
+	int ret;
 	struct _headset *ht = &headset;
 	ret = switch_dev_register(&ht->sdev);
 	if (ret < 0) {
@@ -227,9 +227,11 @@ static int __init headset_init(void)
 	ht->input->id.vendor = 0x0001;
 	ht->input->id.product = 0x0001;
 	ht->input->id.version = 0x0100;
+
 	__set_bit(EV_KEY, ht->input->evbit);
-	for (i = 0; i < KEY_CNT; i++)
-		input_set_capability(ht->input, EV_KEY, i);
+	input_set_capability(ht->input, EV_KEY, KEY_MEDIA);
+	input_set_capability(ht->input, EV_KEY, KEY_END);
+
 	if (input_register_device(ht->input))
 		goto _switch_dev_register;
 

@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#ifndef __HEADSET_H__
+#define __HEADSET_H__
 enum {
 	BIT_HEADSET_OUT = 0,
 	BIT_HEADSET_MIC = (1 << 0),
@@ -43,3 +45,4 @@ struct _headset {
 	struct _headset_gpio button;
 	int headphone;
 };
+#endif
