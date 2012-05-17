@@ -1357,6 +1357,11 @@ static void android_sprd_pm_exit(void) {}
 #ifdef CONFIG_PM
 int vbc_suspend(struct platform_device *pdev, pm_message_t state)
 {
+    if(!vbc_reg_read(VBPMR1, SB_LIN, 1))
+    {
+        printk("vbc_suspend FM is still running !!!!!!!!!\n");
+	return 0;
+    }
     struct snd_soc_device *socdev = platform_get_drvdata(pdev);
     struct snd_soc_codec *codec = socdev->card->codec;
     mutex_lock(&codec->mutex);
@@ -1370,6 +1375,11 @@ int vbc_suspend(struct platform_device *pdev, pm_message_t state)
 
 int vbc_resume(struct platform_device *pdev)
 {
+    if(!vbc_reg_read(VBPMR1, SB_LIN, 1))
+    {
+        printk("vbc_resume FM is still running !!!!!!!!!\n");
+	return 0;
+    }
     struct snd_soc_device *socdev = platform_get_drvdata(pdev);
     struct snd_soc_codec *codec = socdev->card->codec;
     mutex_lock(&codec->mutex);
