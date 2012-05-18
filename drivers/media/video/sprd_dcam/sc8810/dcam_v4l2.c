@@ -1921,9 +1921,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	s_dcam_err_info.is_report_err = 0;
 	s_dcam_err_info.ret = 0;
 	s_dcam_err_info.timeout_val = DCAM_TIME_OUT;
-	
-	init_MUTEX(&s_dcam_err_info.dcam_start_sem);
-	down(&s_dcam_err_info.dcam_start_sem);
+		
 	//printk("#### V4L2: vidioc_streamon start. 1 \n");
 	ret = init_sensor_parameters(priv);
 	if(0 != ret)
@@ -2231,7 +2229,8 @@ void dcam_cb_ISRCapSOF(void)
 //	printk("cap_sof.\n");
 	if(g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1)
 	{
-		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;		
+		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
+		dcam_enableint();
 		return;
 	}
 	set_next_buffer(g_fh);
@@ -2655,6 +2654,8 @@ static int open(struct file *file)
 	dcam_init_timer(&s_dcam_err_info.dcam_timer);
 	
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");
+	init_MUTEX(&s_dcam_err_info.dcam_start_sem);
+	down(&s_dcam_err_info.dcam_start_sem);
 	//dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF);
 	dcam_callback_fun_register(DCAM_CB_CAP_SOF ,dcam_cb_ISRCapSOF);
 	//dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF);	
