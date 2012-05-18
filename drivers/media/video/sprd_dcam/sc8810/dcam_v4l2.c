@@ -1955,7 +1955,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	{
 		dcam_start_timer(&s_dcam_err_info.dcam_timer, s_dcam_err_info.timeout_val);
 		down_interruptible(&s_dcam_err_info.dcam_start_sem);
-		up(&s_dcam_err_info.dcam_start_sem);	
 		ret = s_dcam_err_info.ret;
 	}
 
