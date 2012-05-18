@@ -1682,8 +1682,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	s_dcam_err_info.is_report_err = 0;
 	s_dcam_err_info.ret = 0;
 	s_dcam_err_info.timeout_val = DCAM_TIME_OUT;
-	init_MUTEX(&s_dcam_err_info.dcam_start_sem);
-	down(&s_dcam_err_info.dcam_start_sem);
 	ret = init_sensor_parameters(priv);
 	if (0 != ret)
 		return -1;
@@ -1709,7 +1707,6 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 		dcam_start_timer(&s_dcam_err_info.dcam_timer,
 				 s_dcam_err_info.timeout_val);
 		down_interruptible(&s_dcam_err_info.dcam_start_sem);
-		up(&s_dcam_err_info.dcam_start_sem);
 		ret = s_dcam_err_info.ret;
 	}
 	printk("DCAM_V4L2: OK to vidioc_streamon,ret=%d.\n", ret);
@@ -1931,6 +1928,7 @@ void dcam_cb_ISRCapSOF(void)
 	dcam_disableint();
 	if (g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1) {
 		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
+		dcam_enableint();
 		return;
 	}
 	set_next_buffer(g_fh);
@@ -2097,17 +2095,17 @@ static int dcam_scan_status_thread(void *data_ptr)
 	printk("v4l2:dcam_scan_status_thread,test 0!.\n");
 	while (1) {
 		pr_debug("v4l2:dcam_scan_status_thread,test!.\n");
-		down_interruptible(&s_dcam_err_info.dcam_thread_sem);
-		if (s_dcam_err_info.is_stop)
+		down_interruptible(&info_ptr->dcam_thread_sem);
+		if (info_ptr->is_stop)
 			goto dcam_thread_end;
 		switch (info_ptr->work_status) {
 		case DCAM_START_OK:
 			info_ptr->restart_cnt = 0;
 			info_ptr->is_report_err = 0;
 			up(&info_ptr->dcam_start_sem);
-			dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+			dcam_stop_timer(&info_ptr->dcam_timer);
 			if (DCAM_MODE_TYPE_PREVIEW == info_ptr->mode) {
-				dcam_start_timer(&s_dcam_err_info.dcam_timer,
+				dcam_start_timer(&info_ptr->dcam_timer,
 						 info_ptr->timeout_val);
 			}
 			info_ptr->is_running = 1;
@@ -2119,7 +2117,7 @@ static int dcam_scan_status_thread(void *data_ptr)
 			pr_debug("v4l2:dcam_scan_status_thread,DCAM_OK.\n ");
 			break;
 		case DCAM_JPG_BUF_ERR:
-			dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+			dcam_stop_timer(&info_ptr->dcam_timer);
 			info_ptr->ret = 1;
 			up(&info_ptr->dcam_start_sem);
 			printk("v4l2:dcam_scan_status_thread,DCAM_JPG_BUF_ERR,start fail!.\n");
@@ -2129,7 +2127,7 @@ static int dcam_scan_status_thread(void *data_ptr)
 		case DCAM_CAP_FIFO_OVERFLOW:
 		case DCAM_NO_RUN:
 			info_ptr->work_status = DCAM_RESTART_PROCESS;
-			dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+			dcam_stop_timer(&info_ptr->dcam_timer);
 			dcam_stop();
 			if (info_ptr->restart_cnt > DCAM_RESTART_COUNT) {
 				if (1 == info_ptr->is_running) {
@@ -2147,7 +2145,7 @@ static int dcam_scan_status_thread(void *data_ptr)
 				}
 				break;
 			}
-			if (DCAM_MODE_TYPE_PREVIEW == s_dcam_err_info.mode) {
+			if (DCAM_MODE_TYPE_PREVIEW == info_ptr->mode) {
 				Sensor_SetTiming(SENSOR_MODE_COMMON_INIT);
 				Sensor_SetTiming(g_dcam_info.preview_m);
 			} else {
@@ -2166,7 +2164,7 @@ static int dcam_scan_status_thread(void *data_ptr)
 		}
 	}
 dcam_thread_end:
-	s_dcam_err_info.is_stop = DCAM_THREAD_END_FLAG;
+	info_ptr->is_stop = DCAM_THREAD_END_FLAG;
 	printk("dcam thread end.\n");
 	return 0;
 }
@@ -2298,6 +2296,8 @@ static int open(struct file *file)
 	dcam_create_thread();
 	dcam_init_timer(&s_dcam_err_info.dcam_timer);
 	DCAM_V4L2_PRINT("###DCAM: OK to open dcam.\n");
+	init_MUTEX(&s_dcam_err_info.dcam_start_sem);
+	down(&s_dcam_err_info.dcam_start_sem);
 	/*dcam_callback_fun_register(DCAM_CB_SENSOR_SOF ,dcam_cb_ISRSensorSOF); */
 	dcam_callback_fun_register(DCAM_CB_CAP_SOF, dcam_cb_ISRCapSOF);
 	/*dcam_callback_fun_register(DCAM_CB_CAP_EOF ,dcam_cb_ISRCapEOF); */
@@ -2337,6 +2337,7 @@ static int close(struct file *file)
 			msleep(1);
 		}
 	}
+	s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
 	printk("v4l2:stop thread end.\n");
 	dcam_close();
 	printk("v4l2: OK to close dcam.\n");
