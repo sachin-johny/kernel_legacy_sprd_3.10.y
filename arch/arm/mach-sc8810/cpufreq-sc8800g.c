@@ -34,6 +34,9 @@ int cpufreq_bypass = 1;
 #ifdef CONFIG_MACH_SP8810
 int cpufreq_bypass = 1;
 #endif
+#ifdef CONFIG_MACH_SP8810W
+int cpufreq_bypass = 1;
+#endif
 struct task_struct *cpufreq_thread;
 
 

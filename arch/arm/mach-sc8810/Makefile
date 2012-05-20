@@ -10,6 +10,7 @@ obj-y += common.o clock_common.o clock_sc8800g.o power_domain.o clock_test.o i2c
 
 obj-$(CONFIG_MACH_SC8810OPENPHONE) += board-openphone/
 obj-$(CONFIG_MACH_SP8810) += board-sp8810/
+obj-$(CONFIG_MACH_SP8810W) += board-sp8810w/
 obj-$(CONFIG_MACH_SP6820A) += board-sp6820a/
 
 obj-$(CONFIG_PM)		+= pm_vlx.o idle_v7.o pm_devices.o standby.o

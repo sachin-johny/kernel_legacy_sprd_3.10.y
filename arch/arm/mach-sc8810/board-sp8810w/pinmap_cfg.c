@@ -1,0 +1,319 @@
+/*
+  *     Deep sleep testing mode.
+  *
+  *     Download small piece of code into AF0,	DSP and make it sleep for ever.
+  *
+  */
+
+#include <linux/module.h>
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <linux/mm.h>
+#include <linux/miscdevice.h>
+#include <linux/watchdog.h>
+#include <linux/reboot.h>
+#include <linux/init.h>
+#include <linux/err.h>
+#include <linux/platform_device.h>
+#include <linux/moduleparam.h>
+#include <linux/clk.h>
+#include <linux/bitops.h>
+#include <linux/io.h>
+#include <linux/uaccess.h>
+#include <linux/delay.h>
+
+#include <mach/regs_global.h>
+#include <mach/regs_ahb.h>
+#include <mach/regs_ana.h>
+#include <mach/adi_hal_internal.h>
+#include <mach/regs_emc.h>
+#include <mach/regs_int.h>
+#include <mach/regs_cpc.h>
+#include <mach/regs_adi.h>
+#include <mach/mfp.h>
+
+/* Pinmap ctrl register Bit field value
+---------------------------------------------------------------------------------------------------
+|       ,          ,          ,            ,         ,         ,        ,          |
+| AF0,	DS[9:8]| func PU[7],func PD[6],func sel[5:4]| Slp PU[3],slp PD[2],input[1],output[0] |
+|       ,          ,          ,            ,         ,         ,        ,          |
+---------------------------------------------------------------------------------------------------
+*/
+const unsigned long pm_func[] __initdata = {
+	MFP_CFG_X(SIMCLK0,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// SIM0
+	MFP_CFG_X(SIMDA0,   AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_IE),	//  SIM0
+	MFP_CFG_X(SIMRST0,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	//  SIM0
+	MFP_CFG_X(SIMCLK1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// NC
+	MFP_CFG_X(SIMDA1,	  AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_IE),	// NC
+	MFP_CFG_X(SIMRST1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// NC
+	MFP_CFG_X(SD0_CLK,	AF0,	DS3,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// SD/SDIO   
+	MFP_CFG_X(SD_CMD,	  AF0,	DS3,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//  SD/SDIO
+	MFP_CFG_X(SD_D0,	  AF0,	DS3,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//  SD/SDIO
+	MFP_CFG_X(SD_D1,	  AF0,	DS3,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//  SD/SDIO
+	MFP_CFG_X(SD_D2,	  AF0,	DS3,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//  SD/SDIO
+	MFP_CFG_X(SD_D3,	  AF0,	DS3,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//  SD/SDIO
+	MFP_CFG_X(SD1_CLK,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  SD/SDIO
+	MFP_CFG_X(KEYOUT0,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	//  KEY OUT
+	MFP_CFG_X(KEYOUT1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	//  KEY OUT
+	MFP_CFG_X(KEYOUT2,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC
+	MFP_CFG_X(KEYOUT3,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC
+	MFP_CFG_X(KEYOUT4,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC
+	MFP_CFG_X(KEYOUT5,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC
+	MFP_CFG_X(KEYOUT6,	AF3,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	// GPS RST,ldo wifi0
+	MFP_CFG_X(KEYOUT7,	AF3,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	// GPS PWD,set to spx_o when pm ready
+	MFP_CFG_X(KEYIN0,	  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_IE),	//    KEY IN 
+	MFP_CFG_X(KEYIN1,	  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_IE),	//    KEY IN 
+	MFP_CFG_X(KEYIN2,	  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_IE),	//    NC 
+	MFP_CFG_X(KEYIN3,	  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//    NC
+	MFP_CFG_X(KEYIN4,	  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//    NC
+	MFP_CFG_X(KEYIN5,	  AF3,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_IE),	//   PROX_INT,need wakeup mcu while lcd is working  
+	MFP_CFG_X(KEYIN6,	  AF3,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//   G_INT1
+	MFP_CFG_X(KEYIN7,	  AF3,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//   G_INT2
+	MFP_CFG_X(SPI_DI,	  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//   CMMB_SPIDO,VDDRF1  
+	MFP_CFG_X(SPI_CLK,	AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//   CMMB_SPICLK  
+	MFP_CFG_X(SPI_DO,	  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//   CMMB_SPIDI  
+	MFP_CFG_X(SPI_CSN0,	AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//   CMMB_CSN0
+	MFP_CFG_X(SPI_CSN1,	AF3,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//   NC
+	MFP_CFG_X(MTDO,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	//   JTAG  
+	MFP_CFG_X(MTDI,		  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//   JTAG  
+	MFP_CFG_X(MTCK,		  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//   JTAG  
+	MFP_CFG_X(MTMS,		  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//   JTAG  
+	MFP_CFG_X(MTRST_N,	AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	// 0x188  JTAG  
+	MFP_CFG_X(U0TXD,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_IE),	//   BT UART RX  
+	MFP_CFG_X(U0RXD,	  AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_IE),	//   BT UART TX  
+	MFP_CFG_X(U0CTS,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//   NC 
+	MFP_CFG_X(U0RTS,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//   NC 
+	MFP_CFG_X(U1TXD,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//   U1TXD,TESTPOINT  
+	MFP_CFG_X(U1RXD,	  AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//   U1RXD,TESTPOINT
+	MFP_CFG_X(NFWPN,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    NF WP = 0
+	MFP_CFG_X(NFRB,		  AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//     NF RB
+	MFP_CFG_X(NFCLE,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    NF CLE
+	MFP_CFG_X(NFALE,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    NF ALE
+	MFP_CFG_X(NFCEN,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	//   NF CE = VCC
+	MFP_CFG_X(NFWEN,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    NF WE
+	MFP_CFG_X(NFREN,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    NF RE
+	MFP_CFG_X(NFD0,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD1,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD2,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD3,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD4,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD5,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD6,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD7,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD8,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD9,		  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD10,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD11,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD12,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD13,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD14,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	MFP_CFG_X(NFD15,	  AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     NF DATA
+	
+	//emc strength: 2-0-2-3
+	//emc clk, 
+	MFP_CFG_X(CLKDPMEM,	    AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(CLKDMMEM,	    AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	//emc ctl               
+	MFP_CFG_X(EMRST_N,	    AF0,	DS0,	F_PULL_DOWN,	S_PULL_NONE,	IO_Z),	//   EMRST,NC
+	MFP_CFG_X(EMA0,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA1,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA2,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA3,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA4,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA5,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA6,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA7,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA8,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA9,		      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA10,	      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA11,	      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA12,	      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMA13,	      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMCKE1,	      AF0,	DS0,	F_PULL_UP,	  S_PULL_NONE,	IO_OE),	//  
+	MFP_CFG_X(EMRAS_N,	    AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    RAS = 0 
+	MFP_CFG_X(EMCAS_N,	    AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    CAS = 0
+	MFP_CFG_X(EMWE_N,	      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//   WE  = 1
+	MFP_CFG_X(EMCS_N0,	    AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    CS = 0
+	MFP_CFG_X(EMCS_N1,	    AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     NC
+	MFP_CFG_X(EMGPRE_LOOP,	AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMGPST_LOOP,	AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMBA0,	      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMBA1,	      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMCKE0,	      AF0,	DS0,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	//    CKE  = 0
+	//emc data/dqm
+	MFP_CFG_X(EMD0,		      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMD1,		      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMD2,		      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMD3,		      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMD4,		      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMD5,		      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMD6,		      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMD7,		      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//     
+	MFP_CFG_X(EMDQM0,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD8,	        AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD9,	        AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD10,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD11,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD12,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD13,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD14,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD15,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMDQM1,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD16,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD17,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD18,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD19,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD20,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD21,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD22,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD23,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMDQM2,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD24,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD25,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD26,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD27,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD28,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD29,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD30,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMD31,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMDQM3,	      AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	//emc dqs               
+	MFP_CFG_X(EMDQS0,	      AF0,	DS3,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMDQS1,	      AF0,	DS3,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMDQS2,	      AF0,	DS3,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+	MFP_CFG_X(EMDQS3,	      AF0,	DS3,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    
+
+	MFP_CFG_X(LCD_CSN1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC 
+	MFP_CFG_X(LCD_RSTN,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	//    
+	MFP_CFG_X(LCD_CD,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D0,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D2,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D3,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D4,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D5,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D6,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D7,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_D8,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    
+	MFP_CFG_X(LCD_WRN,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	//     
+	MFP_CFG_X(LCD_RDN,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	//     
+	MFP_CFG_X(LCD_CSN0,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	//     
+	MFP_CFG_X(LCD_D9,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     
+	MFP_CFG_X(LCD_D10,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     
+	MFP_CFG_X(LCD_D11,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     
+	MFP_CFG_X(LCD_D12,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     
+	MFP_CFG_X(LCD_D13,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     
+	MFP_CFG_X(LCD_D14,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     
+	MFP_CFG_X(LCD_D15,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//     
+	MFP_CFG_X(LCD_D16,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	// 
+	MFP_CFG_X(LCD_D17,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	// 
+	MFP_CFG_X(LCD_FMARK,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//INPUT   
+	MFP_CFG_X(CCIRMCLK,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  CAMERA will powerdown 
+	MFP_CFG_X(CCIRCK,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRHS,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRVS,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRD0,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRD1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRD2,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRD3,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRD4,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRD5,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRD6,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRD7,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CAMERA will powerdown 
+	MFP_CFG_X(CCIRRST,	AF3,	DS1,	F_PULL_DOWN,	S_PULL_NONE,	IO_Z),	// CAMERA_Reset
+	MFP_CFG_X(CCIRPD1,	AF3,	DS1,	F_PULL_DOWN,	S_PULL_NONE,	IO_Z),	//CAMERA will powerdown 
+	MFP_CFG_X(CCIRPD0,	AF3,	DS1,	F_PULL_DOWN,	S_PULL_NONE,	IO_Z),	//CAMERA will powerdown 
+	MFP_CFG_X(SCL,		AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//CAM SENSOR     
+	MFP_CFG_X(SDA,		AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//CAM SENSOR     
+	MFP_CFG_X(CLK_AUX0,	AF0,	DS2,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	//GPS_32K
+	MFP_CFG_X(IISDI,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  BT PCM_IN,BT MASTER
+	MFP_CFG_X(IISDO,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//  BT PCM_OUT
+	MFP_CFG_X(IISCLK,	AF0,	DS1,	F_PULL_DOWN,	S_PULL_NONE,	IO_Z),	//  BT PCM_CLK,INPUT 
+	MFP_CFG_X(IISLRCK,	AF0,	DS1,	F_PULL_DOWN,	S_PULL_NONE,	IO_Z),	//BT PCM_SYNC,INPUT
+	MFP_CFG_X(IISMCK,	AF2,	DS1,	F_PULL_DOWN,	S_PULL_DOWN,	IO_IE),	//    BTXTLEN = 0 
+	MFP_CFG_X(RFSDA0,	AF0,	DS1,	F_PULL_DOWN,	S_PULL_DOWN,	IO_Z),	//  QS3200 SPI SDA 
+	MFP_CFG_X(RFSCK0,	AF0,	DS1,	F_PULL_DOWN,	S_PULL_DOWN,	IO_Z),	//  QS3200 SPI SCK 
+	MFP_CFG_X(RFSEN0,	AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	//  QS3200 SPI LE 
+	MFP_CFG_X(RFCTL0,	AF3,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_OE),	//    GPIO90 BT RSTN /////PULL DOWN FOR TEST ONLY , BT DRAIN 4mA FROM VBAT
+	MFP_CFG_X(RFCTL1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//  TD PA MD1
+	MFP_CFG_X(RFCTL2,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//  GSM PA MODE 
+	MFP_CFG_X(RFCTL3,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC
+	MFP_CFG_X(RFCTL4,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC
+	MFP_CFG_X(RFCTL5,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//  TD PA EN
+	MFP_CFG_X(RFCTL6,	AF3,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    MAG_INT
+	MFP_CFG_X(RFCTL7,	AF3,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    MSENSOR_DRDY
+	MFP_CFG_X(RFCTL8,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    TD PA VMODE
+	MFP_CFG_X(RFCTL9,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    NC
+	MFP_CFG_X(RFCTL10,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//    GSM PA TXEN
+	MFP_CFG_X(RFCTL11,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//    NC
+	MFP_CFG_X(RFCTL12,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC 
+	MFP_CFG_X(RFCTL13,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//  NC
+	MFP_CFG_X(RFCTL14,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//  VC2
+	MFP_CFG_X(RFCTL15,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//  VC4  
+	MFP_CFG_X(XTL_EN,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC   
+	MFP_CFG_X(PTEST,	AF0,	DS1,	F_PULL_DOWN,	S_PULL_NONE,	IO_Z),	//TIE TO GND    
+	MFP_CFG_X(GPIO135,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	  // FLASH_EN  
+	MFP_CFG_X(GPIO136,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC       
+	MFP_CFG_X(GPIO137,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// WIFI_1.8V_ON  ??         
+	MFP_CFG_X(GPIO138,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_Z),	// CMMB_RSTN               
+	MFP_CFG_X(GPIO139,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// CMMB_INT,don't need wakeup on 8800g,what about 8810?                   
+	MFP_CFG_X(GPIO140,	AF0,	DS1,	F_PULL_NONE,	S_PULL_UP,	IO_OE),	// WIFI_RSTN    ??                   
+	MFP_CFG_X(GPIO141,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_IE),	// HP_DET,EXT PULLUP                           
+	MFP_CFG_X(GPIO142,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// WIFI_WAKEUP(NC)
+	MFP_CFG_X(GPIO143,	AF2,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// LCM_BL_EN,PWM                                   
+	MFP_CFG_X(GPIO144,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	// FLASH_LED,GPIO                                       
+	MFP_CFG_X(SD2_CLK,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                          
+	MFP_CFG_X(SD2_CMD,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                              
+	MFP_CFG_X(SD2_D0,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                                  
+	MFP_CFG_X(SD2_D1,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                                  
+	MFP_CFG_X(SD2_D2,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                                  
+	MFP_CFG_X(SD2_D3,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	//WIFI_SDIO,EXT PULLUP                                                  
+	MFP_CFG_X(U2TXD,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// GPS UART
+	MFP_CFG_X(U2RXD,	AF0,	DS1,	F_PULL_UP,	S_PULL_NONE,	IO_Z),	// GPS UART    
+	MFP_CFG_X(NFCEN1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC
+	MFP_CFG_X(SCL0,		AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	// Proximity/G&MAG Sensor,vdd18,28    
+	MFP_CFG_X(SDA0,		AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	// Proximity/G&MAG Sensor        
+	MFP_CFG_X(SCL2,		AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC            
+	MFP_CFG_X(SDA2,		AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC            
+	MFP_CFG_X(SCL3,		AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC            
+	MFP_CFG_X(SDA3,		AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC            
+	MFP_CFG_X(LCD_D18,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//                 
+	MFP_CFG_X(LCD_D19,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//                     
+	MFP_CFG_X(LCD_D20,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//                     
+	MFP_CFG_X(LCD_D21,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//                         
+	MFP_CFG_X(LCD_D22,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//                         
+	MFP_CFG_X(LCD_D23,	AF0,	DS1,	F_PULL_NONE,	S_PULL_DOWN,	IO_Z),	//                     
+	MFP_CFG_X(TRACECLK,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//                     
+	MFP_CFG_X(TRACECTRL,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                        
+	MFP_CFG_X(TRACEDAT0,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                            
+	MFP_CFG_X(TRACEDAT1,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                
+	MFP_CFG_X(TRACEDAT2,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                
+	MFP_CFG_X(TRACEDAT3,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                
+	MFP_CFG_X(TRACEDAT4,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                
+	MFP_CFG_X(TRACEDAT5,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                
+	MFP_CFG_X(TRACEDAT6,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                
+	MFP_CFG_X(TRACEDAT7,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                
+	MFP_CFG_X(SIMCLK2,	AF1,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	// I2C2_SDA,CTP,LDOSIM2                                    
+	MFP_CFG_X(SIMDA2,	AF1,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_Z),	// I2C2_SDL,CTP,LDOSIM2                                        
+	MFP_CFG_X(SIMRST2,	AF1,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                            
+	MFP_CFG_X(SIMCLK3,	AF3,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_OE),	// GPIO,CTP_RST                                            
+	MFP_CFG_X(SIMDA3,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	// NC                                                
+	MFP_CFG_X(SIMRST3,	AF3,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_IE),	// GPIO,CTP_INT,EXT PULLUP                                                    
+	MFP_ANA_CFG_X(TESTRSTN,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//NC,NO USE!!
+	MFP_ANA_CFG_X(PBINT,	AF0,	DS1,	F_PULL_UP,	S_PULL_UP,	IO_IE),	//0x18a    PBINT
+	MFP_ANA_CFG_X(TP_XL,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//0x100      NC
+	MFP_ANA_CFG_X(TP_XR,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//0x100      NC
+	MFP_ANA_CFG_X(TP_YU,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//0x100      NC
+	MFP_ANA_CFG_X(TP_YD,	AF0,	DS1,	F_PULL_NONE,	S_PULL_NONE,	IO_Z),	//0x100      NC
+};
+
+
+
+void __init sprd_pin_map_init(void)
+{
+	__raw_writel(0x7e7ff00, SPRD_CPC_BASE);
+	sprd_mfp_config(pm_func, ARRAY_SIZE(pm_func));
+}
+
+
