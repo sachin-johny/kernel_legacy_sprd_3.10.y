@@ -75,7 +75,7 @@ static struct sdhci_host *sdhci_host_g = NULL;
 
 
 #ifdef MMC_AUTO_SUSPEND
-#define PM_AUTO_SUSPEND_TIMEOUT 20
+#define PM_AUTO_SUSPEND_TIMEOUT  (HZ/2)
 #endif
 static unsigned int debug_quirks = 0;
 
@@ -1543,7 +1543,7 @@ static int sdhci_auto_suspend(struct mmc_host* host_mmc){
 	if(host_mmc->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME){
 	   return 0;
 	}
-	mod_timer(&host->auto_suspend_timer, jiffies + PM_AUTO_SUSPEND_TIMEOUT * HZ);
+	mod_timer(&host->auto_suspend_timer, jiffies + PM_AUTO_SUSPEND_TIMEOUT);
 	return 0;
 }
 static const struct mmc_host_ops sdhci_ops = {
@@ -1735,19 +1735,19 @@ static void sdhci_auto_suspend_host(unsigned long data){
 	struct mmc_host *host_mmc;
 	host = (struct sdhci_host*)data;
 	host_mmc = host->mmc;
-        printk("=== mmc: no requests in %ds, suspend host ===\n", PM_AUTO_SUSPEND_TIMEOUT);
+	printk("=== %s: no requests, auto suspend host ===\n", mmc_hostname(host_mmc) );
 	if(host_mmc->bus_resume_flags & MMC_BUSRESUME_NEEDS_RESUME){
-	   printk("=== sdio host already been suspended ===\n");
-	   return;
+		printk("=== sdio host already been suspended ===\n");
+		return;
 	}
-        sdhci_deselect_card(host);
+	sdhci_deselect_card(host);
 	if(host->mmc->card){
-          host->mmc->card->state &= ~MMC_STATE_HIGHSPEED;
+		host->mmc->card->state &= ~MMC_STATE_HIGHSPEED;
 	}
 	mmc_power_off(host_mmc);
-	
-        host_mmc->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
-        del_timer(&host->auto_suspend_timer);
+
+	host_mmc->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
+	del_timer(&host->auto_suspend_timer);
 	printk("=== mmc: host auto-suspend done ===\n");
 	return;
 }
