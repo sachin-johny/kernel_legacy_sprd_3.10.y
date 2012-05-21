@@ -1,13 +1,16 @@
 if VIDEO_DCAM_SPRD
 choice
 	prompt "Camera resolution"
-	default CAMERA_2M
+	default CAMERA_5M
 
 config CAMERA_2M
 	bool "2M pixels"
 
 config CAMERA_3M
 	bool "3M pixels"
+
+config CAMERA_5M
+	bool "5M pixels"
 
 endchoice
 

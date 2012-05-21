@@ -56,9 +56,18 @@ int __init sprd_i2c_init(void);
  *  1M - scaling
  */
 #define SPRD_PMEM_SIZE          (2*1024*1024)
-#define SPRD_PMEM_ADSP_SIZE   (25*1024*1024)//  (7*1024*1024)
-#define SPRD_ROT_MEM_SIZE       (1024*512)
-#define SPRD_SCALE_MEM_SIZE    (1024*512)
+#if defined(CONFIG_CAMERA_5M)
+#define SPRD_PMEM_ADSP_SIZE   (19*1024*1024)
+#elif defined(CONFIG_CAMERA_3M)
+#define SPRD_PMEM_ADSP_SIZE   (12*1024*1024)
+#elif defined(CONFIG_CAMERA_2M)
+#define SPRD_PMEM_ADSP_SIZE   (7*1024*1024)
+#else
+#define SPRD_PMEM_ADSP_SIZE   (19*1024*1024)
+#endif
+
+#define SPRD_ROT_MEM_SIZE       0//(1024*512)
+#define SPRD_SCALE_MEM_SIZE    0//(1024*512)
 #define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
                                 SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE)
 
