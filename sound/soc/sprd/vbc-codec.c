@@ -1027,14 +1027,17 @@ ssize_t modem_status_show(struct class *class, struct class_attribute *attr, cha
 ssize_t modem_status_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t android_mode_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+ssize_t android_sim_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t android_sim_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 
 /* /sys/class/modem/xxx */
 static struct class_attribute modem_class_attrs[] = {
-	__ATTR(status, 0766, modem_status_show, modem_status_store),
-	__ATTR(mode, 0766, android_mode_show, android_mode_store),
-	__ATTR(regs, 0766, vbc_regs_show, vbc_regs_store),
+	__ATTR(status, 0644, modem_status_show, modem_status_store),
+	__ATTR(mode, 0644, android_mode_show, android_mode_store),
+	__ATTR(sim, 0644, android_sim_show, android_sim_store),
+	__ATTR(regs, 0644, vbc_regs_show, vbc_regs_store),
 	__ATTR_NULL,
 };
 /* /sys/class/vbc_param_config/xxx */
@@ -1113,39 +1116,27 @@ ssize_t modem_status_store(struct class *class, struct class_attribute *attr, co
 }
 
 static int android_mode;
-enum {
-	MODE_NORMAL = 0,
-	MODE_RINGTONE,
-	MODE_IN_CALL,
-	MODE_WAITING,
-	MODE_MAX
-};
 ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf)
 {
-	const char *mode_name;
-
-	local_fiq_disable();
-	switch (android_mode) {
-		case MODE_RINGTONE: mode_name = "ringtone"; break;
-		case MODE_IN_CALL:  mode_name = "incall"; break;
-		case MODE_WAITING:  mode_name = "waiting"; break;
-		default: android_mode = MODE_NORMAL; mode_name = "normal"; break;
-	}
-	local_fiq_enable();
-
-	return sprintf(buf, "%s\n", mode_name);
+	return sprintf(buf, "%d\n", android_mode);
 }
 
 ssize_t android_mode_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
-	int value;
-	sscanf(buf, "%d", &value);
-	local_fiq_disable();
-	android_mode = value;
-	if (android_mode < 0 || android_mode >= MODE_MAX)
-		android_mode = MODE_NORMAL;
-	local_fiq_enable();
+	sscanf(buf, "%d", &android_mode);
 	return count;
+}
+
+static int sim_num = 0;
+ssize_t android_sim_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%d\n", sim_num);
+}
+
+ssize_t android_sim_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
+{
+	sscanf(buf, "%d", &sim_num);
+    return count;
 }
 
 ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf)
