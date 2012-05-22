@@ -12,6 +12,9 @@ config CAMERA_3M
 config CAMERA_5M
 	bool "5M pixels"
 
+config CAMERA_8M
+	bool "8M pixels"
+
 endchoice
 
 config SENSOR_DRIVER_FOR_ANDROID2
