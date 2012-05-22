@@ -154,7 +154,8 @@ struct sdhci_host {
 	struct tasklet_struct finish_tasklet;
 
 	struct timer_list timer;	/* Timer for timeouts */
-
+	unsigned int suspending;
+	struct clk  *clk;	/* clock source */
 	unsigned int caps;	/* Alternative capabilities */
 
 	unsigned int            ocr_avail_sdio;	/* OCR bit masks */

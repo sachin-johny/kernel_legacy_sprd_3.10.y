@@ -15,6 +15,8 @@
 #include <linux/platform_device.h>
 #include <linux/err.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/mmc.h>
+#include <linux/mmc/card.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
 
@@ -23,6 +25,9 @@
 #include <linux/regulator/consumer.h>
 #include <mach/globalregs.h>
 #include <mach/regulator.h>
+#include <mach/hardware.h>
+#include <linux/interrupt.h>
+
 #include "sc8810g.h"
 
 
@@ -39,6 +44,178 @@
 #define     SDIO_VDD_VOLT_1V8       1800000
 #define     SDIO_VDD_VOLT_3V0       3000000
 #define     SDIO_VDD_VOLT_3V3       3300000
+
+/* MMC_RESTORE_REGS depends on devices of 3rd parties, sdio registers
+ *will be cleared after suspend. host wakeup only supported in sdio host1
+ */
+#define MMC_RESTORE_REGS
+
+/* MMC_HOST_WAKEUP_SUPPORTED should be defined if sdio devices use data1
+ *to wake the system up
+ */
+
+#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
+#include <mach/pinmap.h>
+static unsigned int sdio_wakeup_irq;
+#define HOST_WAKEUP_GPIO     22
+#endif
+
+#ifdef CONFIG_MMC_BUS_SCAN
+static struct sdhci_host *sdhci_host_g = NULL;
+#endif
+
+#ifdef MMC_RESTORE_REGS
+static unsigned int host_addr = 0;
+static unsigned int host_blk_size = 0;
+static unsigned int host_blk_cnt = 0;
+static unsigned int host_arg = 0;
+static unsigned int host_tran_mode = 0;
+static unsigned int host_ctrl = 0;
+static unsigned int host_power = 0;
+static unsigned int host_clk = 0;
+#endif
+
+extern void mmc_power_off(struct mmc_host* mmc);
+
+/* we don't need to restore sdio0, because of CONFIG_MMC_BLOCK_DEFERED_RESUME=y */
+#ifdef MMC_RESTORE_REGS
+static void sdhci_save_regs(struct sdhci_host *host)
+{
+	if (!strcmp("Spread SDIO host1", host->hw_name)){
+		host_addr = sdhci_readl(host, SDHCI_DMA_ADDRESS);
+		host_blk_size = sdhci_readw(host, SDHCI_BLOCK_SIZE);
+		host_blk_cnt = sdhci_readw(host, SDHCI_BLOCK_COUNT);
+		host_arg = sdhci_readl(host, SDHCI_ARGUMENT);
+		host_tran_mode = sdhci_readw(host, SDHCI_TRANSFER_MODE);
+		host_ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+		host_power = sdhci_readb(host, SDHCI_POWER_CONTROL);
+		host_clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+	}
+}
+
+static void sdhci_restore_regs(struct sdhci_host *host)
+{
+	if (!strcmp("Spread SDIO host1", host->hw_name)){
+		sdhci_writel(host, host_addr, SDHCI_DMA_ADDRESS);
+		sdhci_writew(host, host_blk_size, SDHCI_BLOCK_SIZE);
+		sdhci_writew(host, host_blk_cnt, SDHCI_BLOCK_COUNT);
+		sdhci_writel(host, host_arg, SDHCI_ARGUMENT);
+		sdhci_writew(host, host_tran_mode, SDHCI_TRANSFER_MODE);
+		sdhci_writeb(host, host_ctrl, SDHCI_HOST_CONTROL);
+		sdhci_writeb(host, host_power, SDHCI_POWER_CONTROL);
+		sdhci_writew(host, host_clk, SDHCI_CLOCK_CONTROL);
+	}
+}
+
+static void sdhci_dump_saved_regs(struct sdhci_host *host)
+{
+	if (!strcmp("Spread SDIO host1", host->hw_name)){
+		printk("%s, host_addr:0x%x\n", host->hw_name, host_addr);
+		printk("%s, host_blk_size:0x%x\n", host->hw_name, host_blk_size);
+		printk("%s, host_blk_cnt:0x%x\n", host->hw_name, host_blk_cnt);
+		printk("%s, host_arg:0x%x\n", host->hw_name, host_arg);
+		printk("%s, host_tran_mode:0x%x\n", host->hw_name, host_tran_mode);
+		printk("%s, host_ctrl:0x%x\n", host->hw_name, host_ctrl);
+		printk("%s, host_power:0x%x\n", host->hw_name, host_power);
+		printk("%s, host_clk:0x%x\n", host->hw_name, host_clk);
+	}
+}
+#endif
+
+#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
+static irqreturn_t sdhci_wakeup_irq_handler(int irq, void *dev)
+{
+	printk("sdhci_wakeup_irq_handler\n");
+	/* Disable interrupt before calling handler */
+	disable_irq_nosync(irq);
+
+	return IRQ_HANDLED;
+}
+
+void sdhci_set_data1_to_gpio(struct sdhci_host *host)
+{
+	unsigned int val;
+	/* configurate sdio1 data1 to gpio when system in deep sleep */
+	val = BITS_PIN_DS(1) | BITS_PIN_AF(3)  |
+		BIT_PIN_WPU  | BIT_PIN_SLP_WPU |
+		BIT_PIN_SLP_IE ;
+	__raw_writel( val, CTL_PIN_BASE + REG_PIN_SD2_D1 );
+
+	printk("%s, PIN_SD2_D1_REG:0x%x\n", __func__, __raw_readl(REG_PIN_SD2_D1));
+	printk("sdhci_set_data1_to_gpio done\n");
+}
+
+void sdhci_set_gpio_to_data1(struct sdhci_host *host)
+{
+	unsigned int val;
+	/* configurate sdio1 gpio to data1 when system wakeup */
+	val = __raw_readl( CTL_PIN_BASE + REG_PIN_SD2_D1 );
+	val = BITS_PIN_DS(1) | BITS_PIN_AF(0)  |
+		BIT_PIN_WPU  | BIT_PIN_SLP_NUL |
+		BIT_PIN_SLP_Z ;
+	__raw_writel( val, CTL_PIN_BASE + REG_PIN_SD2_D1 );
+
+	printk("%s, REG_PIN_SD2_D1:0x%x\n", __func__, __raw_readl(REG_PIN_SD2_D1));
+	printk("sdhci_set_gpio_to_data1 done\n");
+}
+
+
+static void  sdhci_host_wakeup_set( struct sdhci_host *host )
+{
+	unsigned int val;
+	int ret;
+
+
+	if( (host->mmc->card )&& mmc_card_sdio(host->mmc->card) ){
+		sdhci_set_data1_to_gpio(host);
+		gpio_request(HOST_WAKEUP_GPIO, "host_wakeup_irq");
+		sdio_wakeup_irq = gpio_to_irq(HOST_WAKEUP_GPIO);
+		gpio_direction_input(HOST_WAKEUP_GPIO);
+		ret = request_threaded_irq(sdio_wakeup_irq, sdhci_wakeup_irq_handler, NULL,
+			IRQF_TRIGGER_LOW | IRQF_ONESHOT, "host_wakeup_irq", host);
+		if(ret){
+			printk(KERN_ERR "%s, request threaded irq error:%d\n",
+				mmc_hostname(host->mmc), ret);
+			return;
+		}
+		enable_irq_wake(sdio_wakeup_irq);
+	}
+	return;
+}
+
+static void  sdhci_host_wakeup_clear(struct sdhci_host *host)
+{
+       if( (host->mmc->card )&& mmc_card_sdio(host->mmc->card) ){
+		disable_irq_wake(sdio_wakeup_irq);
+		free_irq(sdio_wakeup_irq, host);
+		gpio_free(HOST_WAKEUP_GPIO);
+		sdhci_set_gpio_to_data1(host);
+        }
+	return;
+}
+#endif
+
+#ifdef CONFIG_MMC_BUS_SCAN
+/*
+ *  force card detection
+ *  some sdio devices can use this API for detection
+ */
+void sdhci_bus_scan(void)
+{
+	if(sdhci_host_g && (sdhci_host_g->mmc)){
+		printk("%s, entry\n", __func__);
+		if (sdhci_host_g->ops->set_clock) {
+			sdhci_host_g->ops->set_clock(sdhci_host_g, 1);
+		}
+
+		sdhci_reinit(sdhci_host_g);
+		mmc_detect_change(sdhci_host_g->mmc, 0);
+	}
+
+	return;
+}
+EXPORT_SYMBOL_GPL(sdhci_bus_scan);
+#endif
 
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
@@ -246,7 +423,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, host);
 	host->vmmc = NULL;
 	host->ioaddr = (void __iomem *)res->start;
-	pr_debug("sdio: host->ioaddr:0x%x\n", host->ioaddr);
+	pr_debug("sdio: host->ioaddr:0x%x\n", (unsigned int)host->ioaddr);
 	if (0 == pdev->id){
 		host->hw_name = "Spread SDIO host0";
 	}else{
@@ -303,7 +480,11 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	}
 
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
+	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 
+#ifdef CONFIG_MMC_BUS_SCAN
+	sdhci_host_g = host;
+#endif
 	return 0;
 
 err_add_host:
@@ -337,6 +518,23 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 		return ret;
 	}
 
+#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
+	if( !strcmp(host->hw_name, "Spread SDIO host1") ) {
+		sdhci_host_wakeup_set(host);
+	}
+#endif
+
+#ifdef MMC_RESTORE_REGS
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+	sdhci_save_regs(host);
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dump_saved_regs(host);
+#endif
+#endif
+
 	return 0;
 }
 
@@ -348,6 +546,23 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 	if(host->ops->set_clock){
 		host->ops->set_clock(host, 1);
 	}
+#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
+	if( !strcmp(host->hw_name, "Spread SDIO host1") ) {
+		sdhci_host_wakeup_clear(host);
+	}
+#endif
+
+#ifdef MMC_RESTORE_REGS
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+	sdhci_restore_regs(host);
+#endif
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
 
 	sdhci_resume_host(host);
 

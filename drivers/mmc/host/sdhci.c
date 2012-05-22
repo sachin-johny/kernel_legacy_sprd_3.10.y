@@ -24,9 +24,13 @@
 #include <linux/pm_runtime.h>
 
 #include <linux/leds.h>
+#include <linux/irq.h>
+#include <linux/gpio.h>
+#include <linux/wakelock.h>
 
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/card.h>
 
 #include "sdhci.h"
 
@@ -35,15 +39,23 @@
 #define DBG(f, x...) \
 	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
 
+/* no led used in our host */
+#if 0
 #if defined(CONFIG_LEDS_CLASS) || (defined(CONFIG_LEDS_CLASS_MODULE) && \
 	defined(CONFIG_MMC_SDHCI_MODULE))
 #define SDHCI_USE_LEDS_CLASS
+#endif
 #endif
 
 #define MAX_TUNING_LOOP 40
 
 static unsigned int debug_quirks = 0;
 static unsigned int debug_quirks2;
+
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+static struct wake_lock sdhci_detect_lock;
+#endif
+static struct wake_lock sdhci_wake_lock;
 
 static void sdhci_finish_data(struct sdhci_host *);
 
@@ -66,7 +78,51 @@ static inline int sdhci_runtime_pm_put(struct sdhci_host *host)
 }
 #endif
 
-static void sdhci_dumpregs(struct sdhci_host *host)
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+/*
+ *   hot-plug is base on gpio, our host cannot detect plug event
+ */
+int sdcard_present(struct sdhci_host *host)
+{
+	int gpio;
+	struct sprd_host_data *host_data;
+	int irq;
+
+	host_data = sdhci_priv(host);
+	irq = host_data->detect_irq;
+	if(irq > 0){
+		gpio = irq_to_gpio(irq);
+
+		if (gpio_get_value(gpio))
+			return 0;
+		else
+			return 1;
+	} else {
+		pr_err("%s, %s:please check detect irq\n",
+				mmc_hostname(host->mmc), __func__ );
+	}
+	return 1;
+}
+
+irqreturn_t sd_detect_irq(int irq, void *dev_id)
+{
+	struct sdhci_host* host = dev_id;
+	/*
+	* deshaking for gpio stable
+	*/
+	msleep(200);
+
+	if (sdcard_present(host))
+		irq_set_irq_type(irq,IRQF_TRIGGER_HIGH);
+	else
+		irq_set_irq_type(irq,IRQF_TRIGGER_LOW);
+
+	tasklet_schedule(&host->card_tasklet);
+	return IRQ_HANDLED;
+}
+#endif
+
+void sdhci_dumpregs(struct sdhci_host *host)
 {
 	pr_debug(DRIVER_NAME ": =========== REGISTER DUMP (%s)===========\n",
 		mmc_hostname(host->mmc));
@@ -144,6 +200,7 @@ static void sdhci_mask_irqs(struct sdhci_host *host, u32 irqs)
 
 static void sdhci_set_card_detection(struct sdhci_host *host, bool enable)
 {
+#if 0
 	u32 present, irqs;
 
 	if ((host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION) ||
@@ -158,6 +215,24 @@ static void sdhci_set_card_detection(struct sdhci_host *host, bool enable)
 		sdhci_unmask_irqs(host, irqs);
 	else
 		sdhci_mask_irqs(host, irqs);
+#endif
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+	int irq;
+	struct sprd_host_data *host_data;
+
+	host_data = sdhci_priv(host);
+	irq = host_data->detect_irq;
+	if(!enable) {
+		irq_set_irq_type(irq,IRQF_TRIGGER_NONE);
+		return;
+	}
+
+	if(sdcard_present(host)){
+		irq_set_irq_type(irq,IRQF_TRIGGER_HIGH);
+	}else{
+		irq_set_irq_type(irq,IRQF_TRIGGER_LOW);
+	}
+#endif
 }
 
 static void sdhci_enable_card_detection(struct sdhci_host *host)
@@ -241,12 +316,16 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 	}
 }
 
-static void sdhci_reinit(struct sdhci_host *host)
+void sdhci_reinit(struct sdhci_host *host)
 {
 	sdhci_init(host, 0);
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
+#endif
 }
 
+/* no led used in our host */
+#if 0
 static void sdhci_activate_led(struct sdhci_host *host)
 {
 	u8 ctrl;
@@ -264,6 +343,7 @@ static void sdhci_deactivate_led(struct sdhci_host *host)
 	ctrl &= ~SDHCI_CTRL_LED;
 	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 }
+#endif
 
 #ifdef SDHCI_USE_LEDS_CLASS
 static void sdhci_led_control(struct led_classdev *led,
@@ -983,7 +1063,11 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		mdelay(1);
 	}
 
-	mod_timer(&host->timer, jiffies + 10 * HZ);
+	if(host->suspending){
+		mod_timer(&host->timer, jiffies + HZ / 5);
+	}else{
+		mod_timer(&host->timer, jiffies + 10 * HZ);
+	}
 
 	host->cmd = cmd;
 
@@ -1081,6 +1165,9 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		if (host->quirks & SDHCI_QUIRK_NONSTANDARD_CLOCK)
 			return;
 	}
+
+	if (clock == host->clock)
+		return;
 
 	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 
@@ -1217,6 +1304,9 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (host->quirks & SDHCI_QUIRK_NO_SIMULT_VDD_AND_POWER)
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 
+	if (host->ops->set_power){
+		host->ops->set_power(host, pwr);
+        }
 	pwr |= SDHCI_POWER_ON;
 
 	sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
@@ -1244,14 +1334,32 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	unsigned long flags;
 
 	host = mmc_priv(mmc);
+	wake_lock(&sdhci_wake_lock);
 
 	sdhci_runtime_pm_get(host);
 
 	spin_lock_irqsave(&host->lock, flags);
 
+	/* if card is removed, send no commands */
+	if( (mmc->card) && (mmc->card->removed) ){
+		printk("%s:: card was removed or broken\n", __func__ );
+		if(mrq->data){
+			mrq->data->error = -ETIMEDOUT;
+		}else if(mrq->cmd){
+			mrq->cmd->error = -ETIMEDOUT;
+		}
+		host->mrq = NULL;
+		host->cmd = NULL;
+		host->data = NULL;
+		mmc_request_done(mmc, mrq);
+		wake_unlock(&sdhci_wake_lock);
+		spin_unlock_irqrestore(&host->lock, flags);
+		return;
+	}
+	/* if card is removed, send no commands */
 	WARN_ON(host->mrq != NULL);
 
-#ifndef SDHCI_USE_LEDS_CLASS
+#ifdef SDHCI_USE_LEDS_CLASS
 	sdhci_activate_led(host);
 #endif
 
@@ -1313,6 +1421,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	int vdd_bit = -1;
 	u8 ctrl;
 
+	host = mmc_priv(mmc);
+
+	wake_lock(&sdhci_wake_lock);
 	spin_lock_irqsave(&host->lock, flags);
 
 	if (host->flags & SDHCI_DEVICE_DEAD) {
@@ -1471,6 +1582,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
+	wake_unlock(&sdhci_wake_lock);
 }
 
 static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
@@ -1939,6 +2051,7 @@ static const struct mmc_host_ops sdhci_ops = {
  *                                                                           *
 \*****************************************************************************/
 
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 static void sdhci_tasklet_card(unsigned long param)
 {
 	struct sdhci_host *host;
@@ -1965,8 +2078,11 @@ static void sdhci_tasklet_card(unsigned long param)
 
 	spin_unlock_irqrestore(&host->lock, flags);
 
+	wake_lock_timeout(&sdhci_detect_lock, 5*HZ);
+
 	mmc_detect_change(host->mmc, msecs_to_jiffies(200));
 }
+#endif
 
 static void sdhci_tasklet_finish(unsigned long param)
 {
@@ -2021,15 +2137,18 @@ static void sdhci_tasklet_finish(unsigned long param)
 	host->cmd = NULL;
 	host->data = NULL;
 
-#ifndef SDHCI_USE_LEDS_CLASS
+#ifdef SDHCI_USE_LEDS_CLASS
 	sdhci_deactivate_led(host);
 #endif
 
+	sdhci_reset(host, SDHCI_RESET_CMD);
+	sdhci_reset(host, SDHCI_RESET_DATA);
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_request_done(host->mmc, mrq);
 	sdhci_runtime_pm_put(host);
+	wake_unlock(&sdhci_wake_lock);
 }
 
 static void sdhci_timeout_timer(unsigned long data)
@@ -2102,6 +2221,12 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		host->cmd->error = -EILSEQ;
 
 	if (host->cmd->error) {
+		if(host->mmc->card){
+			pr_err("%s: !!!!! error in sending cmd:%d, int:0x%x, err:%d \n",
+				mmc_hostname(host->mmc), host->cmd->opcode, intmask,
+								host->cmd->error);
+			sdhci_dumpregs(host);
+		}
 		tasklet_schedule(&host->finish_tasklet);
 		return;
 	}
@@ -2287,6 +2412,10 @@ again:
 	DBG("*** %s got interrupt: 0x%08x\n",
 		mmc_hostname(host->mmc), intmask);
 
+        /*
+        * hot plug is not supported in our chip, we use gpio instead.
+        */
+#if 0
 	if (intmask & (SDHCI_INT_CARD_INSERT | SDHCI_INT_CARD_REMOVE)) {
 		u32 present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
 			      SDHCI_CARD_PRESENT;
@@ -2311,6 +2440,8 @@ again:
 		intmask &= ~(SDHCI_INT_CARD_INSERT | SDHCI_INT_CARD_REMOVE);
 		tasklet_schedule(&host->card_tasklet);
 	}
+#endif
+	intmask &= ~(SDHCI_INT_CARD_INSERT | SDHCI_INT_CARD_REMOVE);
 
 	if (intmask & SDHCI_INT_CMD_MASK) {
 		sdhci_writel(host, intmask & SDHCI_INT_CMD_MASK,
@@ -2384,7 +2515,9 @@ int sdhci_suspend_host(struct sdhci_host *host)
 	if (host->ops->platform_suspend)
 		host->ops->platform_suspend(host);
 
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_disable_card_detection(host);
+#endif
 
 	/* Disable tuning since we are suspending */
 	has_tuning_timer = host->version >= SDHCI_SPEC_300 &&
@@ -2393,6 +2526,11 @@ int sdhci_suspend_host(struct sdhci_host *host)
 		del_timer_sync(&host->tuning_timer);
 		host->flags &= ~SDHCI_NEEDS_RETUNING;
 	}
+	/* DEBUG ONLY */
+	sdhci_dumpregs(host);
+
+	/* avoid dpm timeout */
+	host->suspending = 1;
 
 	ret = mmc_suspend_host(host->mmc);
 	if (ret) {
@@ -2409,6 +2547,9 @@ int sdhci_suspend_host(struct sdhci_host *host)
 
 	free_irq(host->irq, host);
 
+	if (host->vmmc && host->pwr)
+		ret = regulator_disable(host->vmmc);
+
 	return ret;
 }
 
@@ -2417,6 +2558,14 @@ EXPORT_SYMBOL_GPL(sdhci_suspend_host);
 int sdhci_resume_host(struct sdhci_host *host)
 {
 	int ret;
+
+	if (host->vmmc) {
+		int ret = regulator_enable(host->vmmc);
+		if (ret)
+			return ret;
+	}
+
+	host->suspending = 0;/* clear indicator */
 
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
 		if (host->ops->enable_dma)
@@ -2441,7 +2590,16 @@ int sdhci_resume_host(struct sdhci_host *host)
 	}
 
 	ret = mmc_resume_host(host->mmc);
+	if (ret){
+		return ret;
+	}
+	if(!(host->mmc->card)){
+		/* power off ldo_sdio1 if device is off */
+		sdhci_set_power(host, -1);
+	}
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
+#endif
 
 	if (host->ops->platform_resume)
 		host->ops->platform_resume(host);
@@ -2584,6 +2742,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	u32 caps[2];
 	u32 max_current_caps;
 	unsigned int ocr_avail;
+	struct sprd_host_data *host_data;
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+	int detect_irq;
+#endif
 	int ret;
 
 	WARN_ON(host == NULL);
@@ -2971,8 +3133,10 @@ int sdhci_add_host(struct sdhci_host *host)
 	/*
 	 * Init tasklets.
 	 */
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	tasklet_init(&host->card_tasklet,
 		sdhci_tasklet_card, (unsigned long)host);
+#endif
 	tasklet_init(&host->finish_tasklet,
 		sdhci_tasklet_finish, (unsigned long)host);
 
@@ -2998,6 +3162,19 @@ int sdhci_add_host(struct sdhci_host *host)
 		host->vmmc = NULL;
 	}
 
+	host_data = sdhci_priv(host);
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+	detect_irq = host_data->detect_irq;
+	if (sdcard_present(host)){
+		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
+			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "sd card detect", host);
+	} else {
+		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
+			IRQF_TRIGGER_LOW | IRQF_ONESHOT, "sd card detect", host);
+	}
+	if (ret)
+		goto untasklet;
+#endif
 	sdhci_init(host, 0);
 
 #ifdef CONFIG_MMC_DEBUG
@@ -3026,17 +3203,26 @@ int sdhci_add_host(struct sdhci_host *host)
 		(host->flags & SDHCI_USE_ADMA) ? "ADMA" :
 		(host->flags & SDHCI_USE_SDMA) ? "DMA" : "PIO");
 
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
+#endif
 
+	/* avoid dpm timeout */
+	host->suspending = 0;
 	return 0;
 
 #ifdef SDHCI_USE_LEDS_CLASS
 reset:
 	sdhci_reset(host, SDHCI_RESET_ALL);
 	free_irq(host->irq, host);
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+	free_irq(detect_irq, host);
+#endif
 #endif
 untasklet:
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	tasklet_kill(&host->card_tasklet);
+#endif
 	tasklet_kill(&host->finish_tasklet);
 
 	return ret;
@@ -3047,6 +3233,7 @@ EXPORT_SYMBOL_GPL(sdhci_add_host);
 void sdhci_remove_host(struct sdhci_host *host, int dead)
 {
 	unsigned long flags;
+	struct sprd_host_data *host_data;
 
 	if (dead) {
 		spin_lock_irqsave(&host->lock, flags);
@@ -3064,7 +3251,9 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 		spin_unlock_irqrestore(&host->lock, flags);
 	}
 
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_disable_card_detection(host);
+#endif
 
 	mmc_remove_host(host->mmc);
 
@@ -3077,11 +3266,17 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 
 	free_irq(host->irq, host);
 
+	host_data = sdhci_priv(host);
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+	free_irq(host_data->detect_irq, host);
+#endif
 	del_timer_sync(&host->timer);
 	if (host->version >= SDHCI_SPEC_300)
 		del_timer_sync(&host->tuning_timer);
 
+#ifdef CONFIG_MMC_CARD_HOTPLUG
 	tasklet_kill(&host->card_tasklet);
+#endif
 	tasklet_kill(&host->finish_tasklet);
 
 	if (host->vmmc)
@@ -3115,11 +3310,20 @@ static int __init sdhci_drv_init(void)
 		": Secure Digital Host Controller Interface driver\n");
 	pr_info(DRIVER_NAME ": Copyright(c) Pierre Ossman\n");
 
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+	wake_lock_init(&sdhci_detect_lock, WAKE_LOCK_SUSPEND, "mmc_detect_detect");
+#endif
+	wake_lock_init(&sdhci_wake_lock, WAKE_LOCK_SUSPEND, "sdhci_wake_lock");
+
 	return 0;
 }
 
 static void __exit sdhci_drv_exit(void)
 {
+#ifdef CONFIG_MMC_CARD_HOTPLUG
+	wake_lock_destroy(&sdhci_detect_lock);
+#endif
+	wake_lock_destroy(&sdhci_wake_lock);
 }
 
 module_init(sdhci_drv_init);
