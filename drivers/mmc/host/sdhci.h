@@ -243,6 +243,9 @@
 #define SDHCI_MAX_DIV_SPEC_200	256
 #define SDHCI_MAX_DIV_SPEC_300	2046
 
+struct sprd_host_data {
+	int detect_irq;
+};
 /*
  * Host SDMA buffer boundary. Valid values from 4K to 512K in powers of 2.
  */
@@ -260,7 +263,7 @@ struct sdhci_ops {
 #endif
 
 	void	(*set_clock)(struct sdhci_host *host, unsigned int clock);
-
+	void		(*set_power)(struct sdhci_host *host, unsigned int power);
 	int		(*enable_dma)(struct sdhci_host *host);
 	unsigned int	(*get_max_clock)(struct sdhci_host *host);
 	unsigned int	(*get_min_clock)(struct sdhci_host *host);
@@ -372,11 +375,13 @@ static inline void *sdhci_priv(struct sdhci_host *host)
 extern void sdhci_card_detect(struct sdhci_host *host);
 extern int sdhci_add_host(struct sdhci_host *host);
 extern void sdhci_remove_host(struct sdhci_host *host, int dead);
-
+extern void sdhci_reinit(struct sdhci_host *host);
 #ifdef CONFIG_PM
 extern int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state);
 extern int sdhci_resume_host(struct sdhci_host *host);
 extern void sdhci_enable_irq_wakeups(struct sdhci_host *host);
 #endif
-
+#ifdef CONFIG_MMC_DEBUG
+extern void sdhci_dumpregs(struct sdhci_host *host);
+#endif
 #endif /* __SDHCI_HW_H */

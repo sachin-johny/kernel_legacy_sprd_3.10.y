@@ -14,20 +14,6 @@
 #ifndef __SDHCI_SC8810G_H
 #define __SDHCI_SC8810G_H
 
-#include "sprdmci.h"
-
-extern struct sdhci_host *sdhci_alloc_host(struct device *dev,
-	size_t priv_size);
-extern void sdhci_free_host(struct sdhci_host *host);
-extern void sdhci_card_detect(struct sdhci_host *host);
-extern int sdhci_add_host(struct sdhci_host *host);
-extern void sdhci_remove_host(struct sdhci_host *host, int dead);
-
-#ifdef CONFIG_PM
-extern int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state);
-extern int sdhci_resume_host(struct sdhci_host *host);
-extern void sdhci_enable_irq_wakeups(struct sdhci_host *host);
-#endif
-
+#include "sdhci.h"
 
 #endif /* __SDHCI_SC8810G_H */
