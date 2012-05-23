@@ -38,6 +38,10 @@ extern void free_pgd_slow(struct mm_struct *mm, pgd_t *pgd);
 
 #define PGALLOC_GFP	(GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO)
 
+#ifdef CONFIG_SPRD_MEM_POOL
+#include <mach/sprd_mem_pool.h>
+#endif
+
 /*
  * Allocate one PTE table.
  *
