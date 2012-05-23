@@ -1811,7 +1811,7 @@ static int vbc_probe(struct platform_device *pdev)
 #if VBC_DYNAMIC_POWER_MANAGEMENT
     vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
 #else
-    vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE);
+    vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE | VBC_CODEC_POWER_ON_OUT_MUTE_DAC);
 #endif
 #if 0
     /* vbc_reset() must be initialized twice, or the noise when playing audio */
