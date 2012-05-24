@@ -2227,6 +2227,11 @@ config FB_SC8810
 	select FB_CFB_IMAGEBLIT
 	default y
 
+config FB_DUAL_DISPLAY
+	tristate "dual frame buffer driver"
+	depends on FB_SC8810
+	default n
+
 config FB_MX3
 	tristate "MX3 Framebuffer support"
 	depends on FB && MX3_IPU

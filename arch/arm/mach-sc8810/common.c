@@ -98,13 +98,23 @@ static struct platform_device sprd_tp_device = {
 	.resource	= sprd_tp_resources,
 };
 
-
 extern struct sprd_lcd_platform_data lcd_data;
 static struct platform_device sprd_fb_device = {
-	.name	= "sc8810fb",
-	.id	= -1,
+	.name	= "sprdfb",
+	.id	= 0,
 	.dev.platform_data = &lcd_data,
 };
+
+#ifdef CONFIG_FB_DUAL_DISPLAY
+
+extern struct sprd_lcd_platform_data lcd_sub_data;
+static struct platform_device sprd_fb1_device = {
+	.name	= "sprdfb",
+	.id	= 1,
+	.dev.platform_data = &lcd_sub_data,
+};
+
+#endif
 
 static struct resource sprd_kpad_resources[] = {
         {
@@ -220,6 +230,11 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_kpad_device,
 	&sprd_nand_device,
 	&sprd_fb_device,
+
+#ifdef CONFIG_FB_DUAL_DISPLAY
+	&sprd_fb1_device,
+#endif
+
 	&sprd_battery_device,
 	&sprd_kp_bl_device,
 	&sprd_lcd_bl_device,

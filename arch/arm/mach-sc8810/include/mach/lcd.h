@@ -40,6 +40,24 @@
 #define LCD_DIRECT_MIR_V   5
 #define LCD_DIRECT_MIR_HV  6
 
+/* lcdc refresh, TE on, double timing, partial update*/
+#define LCD_CAP_NORMAL               0x0
+
+/* only not support partial update*/
+#define LCD_CAP_NOT_PARTIAL_UPDATE   0x1
+
+/* write register, grame have the same timing */
+#define LCD_CAP_UNIQUE_TIMING        0x2
+
+/* lcd not support TE */
+#define LCD_CAP_NOT_TEAR_SYNC        0x4
+
+/* only do command/data register, such as some mono oled display device */
+#define LCD_CAP_MANUAL_REFRESH       0x8
+
+
+
+
 enum LCD_TIMING {
 	LCD_REGISTER_TIMING = 0,
 	LCD_GRAM_TIMING,
@@ -73,12 +91,12 @@ struct lcd_operations {
 
 /* RGB LCD specific properties */
 struct timing_rgb {
-	uint16_t bfw;
-	uint16_t efw;
-	uint16_t vsw;
-	uint16_t blw;
-	uint16_t elw;
-	uint16_t hsw;
+	uint16_t hfp;
+	uint16_t hbp;
+	uint16_t hsync;
+	uint16_t vfp;
+	uint16_t vbp;
+	uint16_t vsync;
 };
 
 struct ops_rgb {
@@ -123,10 +141,18 @@ struct info_mcu {
 
 /* LCD abstraction */
 struct lcd_spec {
+	uint32_t cap;
 	uint16_t width;
 	uint16_t height;
 	uint16_t mode;
 	uint16_t direction;
+
+	/* for some panel, such as mono oled ,the driver may read 
+the frame buffer's content and do not use the lcdc refresh */
+	char*    screen_base;
+	uint32_t bpp;
+	uint32_t mem_len;
+
 	union {
 		struct info_rgb *rgb;
 		struct info_mcu *mcu;
