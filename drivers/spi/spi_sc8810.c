@@ -66,6 +66,7 @@ static inline void cs_activate(struct sprd_spi_data *sprd_data,
 				   26, GR_CLK_DLY);
 
 #if SPRD_SPI_CS_GPIO
+
 		__gpio_set_value(sprd_ctrl_data->cs_gpio,
 				 spi->mode & SPI_CS_HIGH);
 #endif
@@ -79,6 +80,7 @@ static inline void cs_deactivate(struct sprd_spi_data *sprd_data,
 				 struct spi_device *spi)
 {
 #if SPRD_SPI_CS_GPIO
+
 	if (spi) {
 		struct sprd_spi_controller_data *sprd_ctrl_data =
 		    spi->controller_data;
@@ -194,8 +196,7 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out,
 			}
 
 			spi_writel(0x0000, SPI_CTL4);	/* stop only rx */
-			spi_writel((1 << 9) | block, SPI_CTL4);
-
+			spi_writel((1<<15) | (1 << 9) | block, SPI_CTL4);
 			for (j = 0; j < block; j++) {
 				for (timeout = 0;
 				     (spi_readl(SPI_STS2) &
