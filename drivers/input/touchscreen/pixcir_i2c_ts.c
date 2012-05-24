@@ -511,6 +511,7 @@ static void pixcir_ts_poscheck(struct pixcir_ts_struct *data)
 	}
 
 	if(touch) {
+		input_report_key(tsdata->input, BTN_TOUCH, 1);
 		for (i=0; i<MAX_FINGER_NUM*2; i++) {
 			if (point_slot[i].active == 1) {
 				if(point_slot[i].posy<0) {
@@ -529,6 +530,7 @@ static void pixcir_ts_poscheck(struct pixcir_ts_struct *data)
 		}
 	} else {
 		PIXCIR_DBG("%s: release",__func__);
+		input_report_key(tsdata->input, BTN_TOUCH, 0);
 		input_mt_sync(tsdata->input);
 	}
 	input_sync(tsdata->input);
@@ -686,18 +688,24 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 	input->id.bustype = BUS_I2C;
 	input->dev.parent = &client->dev;
 
+	__set_bit(EV_KEY, input->evbit);
 	__set_bit(EV_ABS, input->evbit);
 	__set_bit(EV_SYN, input->evbit);
+	__set_bit(BTN_TOUCH, input->keybit);
+	__set_bit(ABS_MT_TOUCH_MAJOR, input->absbit);
 	__set_bit(ABS_MT_POSITION_X, input->absbit);
 	__set_bit(ABS_MT_POSITION_Y, input->absbit);
+	__set_bit(ABS_MT_WIDTH_MAJOR, input->absbit);
 
 	__set_bit(KEY_MENU,  input->keybit);
 	__set_bit(KEY_BACK,  input->keybit);
 	__set_bit(KEY_HOME,  input->keybit);
 	__set_bit(KEY_SEARCH,  input->keybit);
 
+	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_X, 0, X_MAX, 0, 0);
 	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, Y_MAX, 0, 0);
+	input_set_abs_params(input, ABS_MT_WIDTH_MAJOR, 0, 200, 0, 0);
 	input_set_drvdata(input, tsdata);
 
 	INIT_WORK(&tsdata->pen_event_work, pixcir_ts_irq_work);
