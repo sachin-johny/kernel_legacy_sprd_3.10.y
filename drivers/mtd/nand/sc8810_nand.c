@@ -705,7 +705,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 			break;	
 		case NAND_CMD_PAGEPROG:
 			eccsize = chip->ecc.size;
-			nand_copy((void *)NFC_MBUF_ADDR, io_wr_port, eccsize);
+			memcpy((void *)NFC_MBUF_ADDR, io_wr_port, eccsize);
 			sc8810_nand_data_add(g_info.b_pointer, chip->options & NAND_BUSWIDTH_16, 0);
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
 			nfc_mcr_inst_add(0, NF_MC_WAIT_ID);
