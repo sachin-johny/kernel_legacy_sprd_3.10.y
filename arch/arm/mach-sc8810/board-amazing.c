@@ -210,8 +210,8 @@ static int audio_pa_amplifier_l(u32 cmd, void *data)
 
 
 static int spi_cs_gpio_map[][2] = {
-    {SPI0_CMMB_CS_GPIO,  0},
-    {SPI1_WIFI_CS_GPIO,  0},
+    {SPI0_WIFI_CS_GPIO,  0},
+    {SPI1_CMMB_CS_GPIO,  0},
 } ;
 
 
@@ -227,7 +227,7 @@ static struct spi_board_info spi_boardinfo[] = {
 		.modalias = "cmmb-dev",
 		.bus_num = 1,
 		.chip_select = 0,
-		.max_speed_hz = 1000 * 1000,
+		.max_speed_hz = 10 * 1000 * 1000,
 		.mode = SPI_CPOL | SPI_CPHA,
 	},
 };
