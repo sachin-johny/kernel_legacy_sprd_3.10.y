@@ -373,63 +373,9 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	unsigned int lcr, fc;
 	/* ask the core to calculate the divisor for us */
 	baud = uart_get_baud_rate(port, termios, old, 1200, 3000000);
-#if 0 /* ? */ 
-	quot = uart_get_divisor(port,baud);
-#endif
-	switch (baud) {
-	case 1200:
-		quot = BAUD_1200_48M;
-		break;
-	case 2400:
-		quot = BAUD_2400_48M;
-		break;
-	case 4800:
-		quot = BAUD_4800_48M;
-		break;
-	case 9600:
-		quot = BAUD_9600_48M;
-		break;
-	case 19200:
-		quot = BAUD_19200_48M;
-		break;
-	case 38400:
-		quot = BAUD_38400_48M;
-		break;
-	case 57600:
-		quot = BAUD_57600_48M;
-		break;
-	case 230400:
-		quot = BAUD_230400_48M;
-		break;
-	case 460800:
-		quot = BAUD_460800_48M;
-		break;
-	case 921600:
-		quot = BAUD_921600_48M;
-		break;
-	case 1000000:
-		quot = BAUD_1000000_48M;
-		break;
-	case 1152000:
-		quot = BAUD_1152000_48M;
-		break;
-	case 1500000:
-		quot = BAUD_1500000_48M;
-		break;
-	case 2000000:
-		quot = BAUD_2000000_48M;
-		break;
-	case 2500000:
-		quot = BAUD_2500000_48M;
-		break;
-	case 3000000:
-		quot = BAUD_3000000_48M;
-		break;
-	default:
-	case 115200:
-		quot = BAUD_115200_48M;
-		break;
-	}
+
+	quot = (unsigned int) ( (port->uartclk + baud / 2) / baud);
+
 	/* set data length */
 	lcr = serial_in(port, ARM_UART_CTL0);
 	lcr &= ~UART_DATA_BIT;
@@ -555,19 +501,28 @@ static struct uart_ops serial_sprd_ops = {
 };
 static struct uart_port *serial_sprd_ports[UART_NR_MAX] = { 0 };
 
-static int clk_startup(int id)
+static int clk_startup(struct platform_device *pdev)
 {
 	struct clk *clk;
 	struct clk *clk_parent;
 	char clk_name[10];
 	int ret;
-	sprintf(clk_name,"clk_uart%d",id);
+	int clksrc;
+
+	sprintf(clk_name,"clk_uart%d",pdev->id);
 	clk = clk_get(NULL, clk_name);
 	if (IS_ERR(clk)) {
 		printk("clock[%s]: failed to get clock by clk_get()!\n",
 				clk_name);
 	}
-	clk_parent = clk_get(NULL, "clk_48m");
+
+	clksrc = *(int*)(pdev->dev.platform_data);
+
+	if (clksrc == 48000000){
+		clk_parent = clk_get(NULL, "clk_48m");
+	} else {
+		clk_parent = clk_get(NULL, "ext_26m");
+	}
 	if (IS_ERR(clk_parent)) {
 		printk("clock[%s]: failed to get parent [%s] by clk_get()!\n",
 				clk_name, "clk_48m");
@@ -583,7 +538,7 @@ static int clk_startup(int id)
 	return 0;
 }
 
-static int serial_sprd_setup_port(int id, struct resource *mem,
+static int serial_sprd_setup_port(struct platform_device *pdev, struct resource *mem,
 				   struct resource *irq)
 {
 	struct uart_port *up;
@@ -592,20 +547,22 @@ static int serial_sprd_setup_port(int id, struct resource *mem,
 		return -ENOMEM;
 	}
 
-	up->line = id;
+	up->line = pdev->id;
 	up->type = PORT_SPRD;
 	up->iotype = SERIAL_IO_PORT;
 	up->membase = (void *)mem->start;
 	up->mapbase = mem->start;
-	up->uartclk = UART_CLK;
+
+	up->uartclk = *(int*)(pdev->dev.platform_data);
+
 	up->irq = irq->start;
 	up->fifosize = 128;
 	up->ops = &serial_sprd_ops;
 	up->flags = ASYNC_BOOT_AUTOCONF;
 
-	serial_sprd_ports[id] = up;
+	serial_sprd_ports[pdev->id] = up;
 
-	clk_startup(id);
+	clk_startup(pdev);
 	return 0;
 }
 
@@ -713,7 +670,7 @@ static int serial_sprd_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = serial_sprd_setup_port(pdev->id, mem, irq);
+	ret = serial_sprd_setup_port(pdev, mem, irq);
 	if (unlikely(ret != 0)) {
 		dev_err(&pdev->dev, "setup port failed\n");
 		return ret;
