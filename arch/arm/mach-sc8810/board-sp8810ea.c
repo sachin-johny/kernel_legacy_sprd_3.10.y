@@ -262,9 +262,15 @@ static int sc8810_add_misc_devices(void)
 
 static void __init sc8810_init_machine(void)
 {
+	int clk;
 	regulator_add_devices();
 	sprd_add_otg_device();
 	platform_add_devices(devices, ARRAY_SIZE(devices));
+	clk=48000000;
+	platform_device_add_data(&sprd_serial_device0,(const void*)&clk,sizeof(int));
+	clk=26000000;
+	platform_device_add_data(&sprd_serial_device1,(const void*)&clk,sizeof(int));
+	platform_device_add_data(&sprd_serial_device2,(const void*)&clk,sizeof(int));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
