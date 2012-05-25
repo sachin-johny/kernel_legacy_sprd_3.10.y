@@ -54,4 +54,9 @@
 #define GPIO_GPS_RESET          28
 #define GPIO_GPS_ONOFF          27
 
+
+#define GPIO_CMMB_RESET         67
+#define GPIO_CMMB_INT           65
+#define GPIO_CMMB_EN            66
+
 #endif
