@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -31,6 +32,10 @@
 #include <mach/globalregs.h>
 #include <mach/board.h>
 #include "devices.h"
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
+#include <mach/gpio.h>
+#include <linux/spi/mxd_cmmb_026x.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -41,6 +46,10 @@ extern void __init sc8810_clock_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
+
+
+/* Control ldo for maxscend cmmb chip according to HW design */
+static struct regulator *cmmb_regulator_1v8 = NULL;
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -210,6 +219,48 @@ static int audio_pa_amplifier_l(u32 cmd, void *data)
 	return ret;
 }
 
+static void mxd_cmmb_poweron(void)
+{
+        regulator_set_voltage(cmmb_regulator_1v8, 1700000, 1800000);
+        regulator_disable(cmmb_regulator_1v8);
+        msleep(3);
+        regulator_enable(cmmb_regulator_1v8);
+        msleep(5);
+
+        /* enable 26M external clock */
+        gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 1);
+}
+
+static void mxd_cmmb_poweroff(void)
+{
+        regulator_disable(cmmb_regulator_1v8);
+        gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 0);
+}
+
+static int mxd_cmmb_init(void)
+{
+         int ret=0;
+         ret = gpio_request(GPIO_CMMB_26M_CLK_EN,   "MXD_CMMB_CLKEN");
+         if (ret)
+         {
+                   pr_debug("mxd spi req gpio clk en err!\n");
+                   goto err_gpio_init;
+         }
+         gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 0);
+         cmmb_regulator_1v8 = regulator_get(NULL, REGU_NAME_CMMBIO);
+         return 0;
+
+err_gpio_init:
+	 gpio_free(GPIO_CMMB_26M_CLK_EN);
+         return ret;
+}
+
+static struct mxd_cmmb_026x_platform_data mxd_plat_data = {
+	.poweron  = mxd_cmmb_poweron,
+	.poweroff = mxd_cmmb_poweroff,
+	.init     = mxd_cmmb_init,
+};
+
 static int spi_cs_gpio_map[][2] = {
 	{SPI0_CMMB_CS_GPIO,  0},
 	{SPI1_WIFI_CS_GPIO,  0},
@@ -222,6 +273,7 @@ static struct spi_board_info spi_boardinfo[] = {
 		.chip_select = 0,
 		.max_speed_hz = 1000 * 1000,
 		.mode = SPI_CPOL | SPI_CPHA,
+		.platform_data = &mxd_plat_data,
 	},
 	{
 		.modalias = "brcm-dev",

@@ -23,6 +23,7 @@
 #include <mach/dma.h>
 #include <mach/hardware.h>
 #include <mach/gpio.h>
+#include <mach/board.h>
 
 #include <linux/regulator/consumer.h>
 #include <mach/hardware.h>
@@ -34,6 +35,8 @@
 #include <linux/interrupt.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
+#include <linux/spi/mxd_cmmb_026x.h>
+
 /*
  * This supports acccess to SPI devices using normal userspace I/O calls.
  * Note that while traditional UNIX/POSIX I/O semantics are half duplex,
@@ -58,13 +61,13 @@ struct regulator        *reg_vdd1v8_2 = NULL;
 
 #define __MXD_SPI_INTR_SUPPORT__  //for intr enable.
 
-#define MXD_CMMB_RESET    67
+#define MXD_CMMB_RESET    GPIO_CMMB_RESET
 //#define MXD_POWER_GPIO    -1
 #ifdef __MXD_SPI_INTR_SUPPORT__
-#define MXD_INT_GPIO      65
+#define MXD_INT_GPIO          GPIO_CMMB_INT
 #endif
 
-#define MXD_CMMB_EN      66
+//#define MXD_CMMB_EN      66
 //#define GPIO_CMMB_26M_EN    93
 
 #define MXD_PWR_UP_DELAY         15 //10ms
@@ -121,113 +124,43 @@ MODULE_PARM_DESC(bufsiz, "data bytes in biggest supported SPI message");
 static int store_irq;
 #endif
 
-#if 0
-#define SPI_PIN_FUNC_MASK  (0x3<<4)
-#define SPI_PIN_FUNC_DEF   (0x2<<4)
-#define SPI_PIN_FUNC_GPIO  (0x3<<4)
+static   struct mxd_cmmb_026x_platform_data  *pcmmbplat =NULL; 
 
-struct spi_pin_desc {
-	const char   *name;
-	unsigned int pin_func;
-	unsigned int reg;
-	unsigned int gpio;
-};
-
-static struct spi_pin_desc spi_pin_group[] = {
-	{"SPI_DI",  SPI_PIN_FUNC_DEF,  REG_PIN_TRACECLK + CTL_PIN_BASE,  41},
-	{"SPI_CLK", SPI_PIN_FUNC_DEF,  REG_PIN_TRACECTRL+ CTL_PIN_BASE,  42},
-	{"SPI_DO",  SPI_PIN_FUNC_DEF,  REG_PIN_TRACEDAT0+ CTL_PIN_BASE,  43},
-	{"SPI_CS0", SPI_PIN_FUNC_GPIO, REG_PIN_TRACEDAT1+ CTL_PIN_BASE,  44}
-};
-
-
-static void sprd_restore_spi_pin_cfg(void)
+static  void mxd_chip_poweron()
 {
-	unsigned int reg;
-	unsigned int  gpio;
-	unsigned int  pin_func;
-	unsigned int value;
-	unsigned long flags;
-	int i = 0;        
-	
-	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
-
-	for (; i < regs_count; i++) {
-	    pin_func = spi_pin_group[i].pin_func;
-	    gpio = spi_pin_group[i].gpio;
-	    
-	    if (pin_func == SPI_PIN_FUNC_DEF) {
-		 reg = spi_pin_group[i].reg;
-
-		 /* free the gpios that have request */
-		 gpio_free(gpio);
-		 
-		 local_irq_save(flags);
-		 
-		 /* config pin default spi function */
-		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_DEF);
-		 __raw_writel(value, reg);
-		 
-		 local_irq_restore(flags);
-	    }
-	    else {  
-		 /* CS should config output */
-		 gpio_direction_output(gpio, 1);
-	    }
+	if(NULL==pcmmbplat)
+	{
+		pr_debug("NULL==pcmmbplat mxd_chip_poweron!\n");
+		return;
 	}
-
+	pcmmbplat->poweron();
 }
-
-
-static void sprd_set_spi_pin_input(void)
+static  void mxd_chip_poweroff()
 {
-	unsigned int reg;
-	unsigned int value;
-	unsigned int  gpio;
-	unsigned int  pin_func;
-	const char    *name;
-	unsigned long flags;
-	int i = 0; 
-
-	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
-
-	for (; i < regs_count; i++) {
-	    pin_func = spi_pin_group[i].pin_func;
-	    gpio = spi_pin_group[i].gpio;
-	    name = spi_pin_group[i].name;
-
-	    /* config pin GPIO function */
-	    if (pin_func == SPI_PIN_FUNC_DEF) {
-		 reg = spi_pin_group[i].reg;
-
-		 local_irq_save(flags);
-		 
-		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_GPIO);
-		 __raw_writel(value, reg);
-		 
-		 local_irq_restore(flags);
-
-		 if (gpio_request(gpio, name)) {
-		     printk("smsspi: request gpio %d failed, pin %s\n", gpio, name);
-		 }
-
-	    }
-
-	    gpio_direction_input(gpio);
+	if(NULL==pcmmbplat)
+	{
+		pr_debug("NULL==pcmmbplat mxd_chip_poweroff!\n");
+		return;
 	}
-
+	pcmmbplat->poweroff();
 }
-#endif
+static  int mxd_cmmb_init()
+{
+
+      if(NULL==pcmmbplat)
+	{
+		pr_debug("NULL==pcmmbplat mxd_cmmb_gpio_init!\n");
+		return -1;
+	}
+	return pcmmbplat->init();
+}
 
 int comip_mxd0251_power(int onoff)
 {
     pr_debug("mxd0251 pw %d\n", onoff);
     if(onoff)
     {
-	//sprd_restore_spi_pin_cfg();
-        /* enable 26M external clock */
-        gpio_direction_output(MXD_CMMB_EN,1);
-
+        mxd_chip_poweron();
         msleep(20);
 		//reset chip.
         gpio_direction_output(MXD_CMMB_RESET,1);
@@ -248,7 +181,8 @@ int comip_mxd0251_power(int onoff)
     {
         /* TODO : close clock */
 		gpio_direction_output(MXD_CMMB_RESET,0);
-		gpio_direction_output(MXD_CMMB_EN,0);
+		//gpio_direction_output(MXD_CMMB_EN,0);
+		mxd_chip_poweroff();
 #ifdef __MXD_SPI_INTR_SUPPORT__  //for intr enable.
 		gpio_direction_output(MXD_INT_GPIO,0);
 #endif
@@ -943,35 +877,28 @@ struct mxd0251_platform_data
 };
 
 /*-------------------------------------------------------------------------*/
-
-static int gpio_init(void)
+static int mxdspi_gpio_init()
 {
-	int ret;
+	int ret=0;
 
     ret = gpio_request(MXD_CMMB_RESET,   "MXD_CMMB_RESET");
 	if (ret)
 	{
 		pr_debug("mxd spi req gpio reset err!\n");
-		goto err_gpio;
+		goto err_gpio_reset;
 	}
-    gpio_direction_output(MXD_CMMB_RESET, 0);
+       gpio_direction_output(MXD_CMMB_RESET, 0);
 	gpio_set_value(MXD_CMMB_RESET, 0);
+	
+	return  mxd_cmmb_init();
 
-	 ret = gpio_request(MXD_CMMB_EN,   "MXD_CMMB_EN");
-	if (ret)
-	{
-		pr_debug("mxd spi req gpio en err!\n");
-		goto err_gpio;
-	}
-	//gpio_request(GPIO_CMMB_26M_EN, "GPIO_CMMB_26M_EN");
-    gpio_direction_output(MXD_CMMB_EN, 0);
-	gpio_set_value(MXD_CMMB_EN, 0);
 
-err_gpio:
-    //gpio_free(gpio_irq);
-    return ret;
+err_gpio_reset:
+	gpio_free(MXD_CMMB_RESET);
 
+	return ret;
 }
+
 
 static int mxdspidev_probe(struct spi_device *spi)
 {
@@ -985,12 +912,12 @@ static int mxdspidev_probe(struct spi_device *spi)
     int gpio_irq;
     int irq;
 #endif
-
+   pcmmbplat = spi->dev.platform_data;
     if(!pdata)
         return -EINVAL;
 
     //sprd_set_spi_pin_input();
-    ret = gpio_init();
+    ret = mxdspi_gpio_init();
 	if (ret)
 	{
 		pr_debug("mxd plat spi req gpio err!\n");
@@ -1077,9 +1004,6 @@ err_irq:
     gpio_free(gpio_irq);
 #endif
 err_gpio:
-	gpio_free(MXD_CMMB_RESET);
-	gpio_free(MXD_CMMB_EN);
-
     return ret;
 }
 

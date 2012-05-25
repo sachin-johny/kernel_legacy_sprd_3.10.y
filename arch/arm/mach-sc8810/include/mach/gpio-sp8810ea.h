@@ -46,4 +46,9 @@
 #define SPI1_WIFI_CS_GPIO  	44
 
 #define GPIO_BK		143
+
+#define GPIO_CMMB_RESET         138
+#define GPIO_CMMB_INT           139
+#define GPIO_CMMB_26M_CLK_EN    93
+
 #endif

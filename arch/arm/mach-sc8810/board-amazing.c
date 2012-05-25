@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -30,6 +31,8 @@
 #include <mach/gpio-amazing.h>
 #include "devices.h"
 #include <linux/ktd253b_bl.h>
+#include <mach/gpio.h>
+#include <linux/spi/mxd_cmmb_026x.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -41,6 +44,9 @@ static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 
 static unsigned int sd_detect_gpio = GPIO_SDIO_DETECT;
+
+/* Control ldo for maxscend cmmb chip according to HW design */
+static struct regulator *cmmb_regulator_1v8 = NULL;
 
 static struct platform_device  gpsctl_dev = {
 	.name               = "gpsctl",
@@ -208,6 +214,40 @@ static int audio_pa_amplifier_l(u32 cmd, void *data)
 	return ret;
 }
 
+static void mxd_cmmb_poweron()
+{
+       gpio_direction_output(GPIO_CMMB_EN, 0);
+       msleep(3);
+       gpio_direction_output(GPIO_CMMB_EN, 1);
+}
+static void mxd_cmmb_poweroff()
+{
+       gpio_direction_output(GPIO_CMMB_EN, 0);
+}
+static int mxd_cmmb_init()
+{
+	int ret=0;
+	ret = gpio_request(GPIO_CMMB_EN,   "MXD_CMMB_EN");
+	if (ret)
+	{
+		pr_debug("mxd spi req gpio en err!\n");
+		goto err_gpio_init;
+	}
+        gpio_direction_output(GPIO_CMMB_EN, 0);
+	gpio_set_value(GPIO_CMMB_EN, 0);
+	return 0;
+err_gpio_init:
+        gpio_free(GPIO_CMMB_EN);
+	return ret;
+}
+
+
+
+static struct mxd_cmmb_026x_platform_data mxd_plat_data = {
+	.poweron  = mxd_cmmb_poweron,
+	.poweroff = mxd_cmmb_poweroff,
+	.init     = mxd_cmmb_init,
+};
 
 static int spi_cs_gpio_map[][2] = {
     {SPI0_WIFI_CS_GPIO,  0},
@@ -229,6 +269,7 @@ static struct spi_board_info spi_boardinfo[] = {
 		.chip_select = 0,
 		.max_speed_hz = 10 * 1000 * 1000,
 		.mode = SPI_CPOL | SPI_CPHA,
+		.platform_data = &mxd_plat_data,
 	},
 };
 
