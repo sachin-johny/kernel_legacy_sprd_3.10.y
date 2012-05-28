@@ -101,9 +101,11 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 		clk_disable(host->clk);
 		host->clock = 0;
 	}else{
-		clk_enable(host->clk);
+		if(!host->clock){
+			clk_enable(host->clk);
+		}
 	}
-	pr_debug("AHB_CTL0:0x%x\n", sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0));
+	pr_debug("clock:%d, AHB_CTL0:0x%x\n", clock, sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0));
 	return;
 }
 
@@ -155,8 +157,13 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 	pr_debug("%s, power:%d, set regulator voltage:%d\n",
 			mmc_hostname(host->mmc), power, volt_level);
 	if(volt_level == 0){
-		if (host->vmmc)
+		if (host->vmmc){
 			ret = regulator_disable(host->vmmc);
+			if(ret){
+				printk(KERN_ERR "%s, disable regulator error:%d\n",
+					mmc_hostname(host->mmc), ret);
+			}
+		}
 	}else{
 		if(host->vmmc){
 			ret = regulator_set_voltage(host->vmmc, volt_level,
@@ -203,7 +210,6 @@ static void sdhci_module_init(struct sdhci_host* host)
 
 
 	sdhci_sprd_set_base_clock(host, SDIO_MAX_CLK);
-	sdhci_sprd_enable_clock(host, true);
 
 }
 
