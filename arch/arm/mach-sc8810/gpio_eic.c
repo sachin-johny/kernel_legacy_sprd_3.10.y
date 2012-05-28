@@ -546,6 +546,11 @@ static int __init gpio_init(void)
 	gpiochip_add(&a_sci_eic.chip);
 	gpiochip_add(&a_sci_gpio.chip);
 
+#ifndef CONFIG_NKERNEL
+	irq_set_chip_and_handler(IRQ_EIC_INT, &dummy_irq_chip, handle_level_irq);
+	set_irq_flags(IRQ_EIC_INT, IRQF_VALID);
+#endif
+
 	gpio_irq_init(IRQ_EIC_INT, &d_sci_eic.chip, &d_eic_irq_chip);
 	gpio_irq_init(IRQ_GPIO_INT, &d_sci_gpio.chip, &d_gpio_irq_chip);
 	gpio_irq_init(IRQ_ANA_EIC_INT, &a_sci_eic.chip, &a_eic_irq_chip);

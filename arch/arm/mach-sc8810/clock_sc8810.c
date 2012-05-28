@@ -2089,8 +2089,7 @@ static int clk_fw_vlink_init(void)
 
 void *alloc_share_memory(unsigned int size, unsigned int res_id)
 {
-	void *pmem = NULL;
-	pmem = kzalloc( size, GFP_KERNEL);
+	static char pmem[CLOCK_NUM * sizeof(struct clock_stub)];
 	return pmem;
 }
 
@@ -2153,6 +2152,7 @@ int __init sc8810_clock_init(void)
 				p->name, p->parent ? (const char *)p->parent->name : "NULL",
 				p->usecount, p->rate);
 	}
+	sc8810_get_clock_info();
 
 	return 0;
 }
@@ -2183,56 +2183,56 @@ static int sc8810_get_clock_modem_status(void)
 
 int sc8810_get_clock_status(void)
 {
-    int status = 0;
+	int status = 0;
 	struct sc88xx_clk *c;
 	struct clk *p;
 
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 		p = c->lk.clk;
-	    if (p->usecount) {
-		    status |= p->flags;
+		if (p->usecount) {
+			status |= p->flags;
 #if 0
-		if(p->flags & DEVICE_APB)
-			printk("###: arm clcok[%s] is on APB.\n", p->name);
-		if(p->flags & DEVICE_AHB)
-			printk("###: arm clcok[%s] is on AHB.\n", p->name);
-		if(p->flags & DEVICE_VIR)
-			printk("###: arm clcok[%s] is on VIR.\n", p->name);
-		if(p->flags & DEVICE_AWAKE)
-			printk("###: arm clcok[%s] is on AWAKE.\n", p->name);
+			if(p->flags & DEVICE_APB)
+				printk("###: arm clcok[%s] is on APB.\n", p->name);
+			if(p->flags & DEVICE_AHB)
+				printk("###: arm clcok[%s] is on AHB.\n", p->name);
+			if(p->flags & DEVICE_VIR)
+				printk("###: arm clcok[%s] is on VIR.\n", p->name);
+			if(p->flags & DEVICE_AWAKE)
+				printk("###: arm clcok[%s] is on AWAKE.\n", p->name);
 #endif
-	    }
+		}
 	}
-    return status | sc8810_get_clock_modem_status();
+	return status | sc8810_get_clock_modem_status();
 }
 
 int sc8810_get_clock_info(void)
 {
-    int status = 0;
+	int status = 0;
 	struct sc88xx_clk *c;
 	struct clk *p;
 
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 		p = c->lk.clk;
-	    if (p->usecount) {
-	        CLK_FW_INFO("###: clock[%s] is active now, [flags = %08x] [usecount = %d].\n",
-		    p->name, p->flags, p->usecount);
+		if (p->usecount) {
+			CLK_FW_INFO("###: clock[%s] is active now, [flags = %08x] [usecount = %d].\n",
+					p->name, p->flags, p->usecount);
 
-		    status |= p->flags;
+			status |= p->flags;
 
-		    if (p->flags & DEVICE_AHB) {
-		        CLK_FW_INFO("###: clcok[%s] is on AHB.\n", p->name);
-		    }
-		    if (p->flags & DEVICE_APB) {
-		        CLK_FW_INFO("###: clcok[%s] is on APB.\n", p->name);
-		    }
-		    if (p->flags & DEVICE_VIR) {
-		        CLK_FW_INFO("###: clcok[%s] is on VIR.\n", p->name);
-		    }
-		    if (p->flags & DEVICE_AWAKE) {
-		        CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", p->name);
-		    }
-	    }
+			if (p->flags & DEVICE_AHB) {
+				CLK_FW_INFO("###: clcok[%s] is on AHB.\n", p->name);
+			}
+			if (p->flags & DEVICE_APB) {
+				CLK_FW_INFO("###: clcok[%s] is on APB.\n", p->name);
+			}
+			if (p->flags & DEVICE_VIR) {
+				CLK_FW_INFO("###: clcok[%s] is on VIR.\n", p->name);
+			}
+			if (p->flags & DEVICE_AWAKE) {
+				CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", p->name);
+			}
+		}
 	}
-    return status;
+	return status;
 }
