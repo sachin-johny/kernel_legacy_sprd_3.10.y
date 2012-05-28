@@ -37,7 +37,7 @@
 #define SP_TTY_MINOR_START	64
 #define SP_TTY_MAJOR		TTY_MAJOR
 
-#define UART_CLK		26000000
+#define UART_CLK		48000000
 
 /*offset*/
 #define ARM_UART_TXD	0x0000
