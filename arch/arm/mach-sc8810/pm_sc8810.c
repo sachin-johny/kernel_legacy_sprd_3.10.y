@@ -16,7 +16,7 @@
 #include <linux/errno.h>
 #include <mach/globalregs.h>
 #include <asm/irqflags.h>
-#include <clock_common.h>
+#include "clock_common.h"
 #include "clock_sc8810.h"
 #include <mach/adi.h>
 #include <linux/io.h>
