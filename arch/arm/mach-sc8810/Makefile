@@ -15,4 +15,5 @@ obj-$(CONFIG_MACH_SP8810EA) += board-sp8810ea.o
 obj-$(CONFIG_MACH_SP8810GA) += board-sp8810ga.o
 obj-$(CONFIG_MACH_SP6820GA) += board-sp6820ga.o
 obj-$(CONFIG_MACH_AMAZING)  += board-amazing.o
+obj-$(CONFIG_MACH_SP8810EB) += board-sp8810eb.o
 obj-$(CONFIG_SC8810_VIBRATOR) += vibrator.o
