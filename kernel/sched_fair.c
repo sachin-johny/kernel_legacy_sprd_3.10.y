@@ -274,11 +274,12 @@ find_matching_se(struct sched_entity **se, struct sched_entity **pse)
 
 static inline u64 max_vruntime(u64 min_vruntime, u64 vruntime)
 {
-	s64 delta = (s64)(vruntime - min_vruntime);
-	if (delta > 0)
-		min_vruntime = vruntime;
+	u64 delta = vruntime - min_vruntime;
 
-	return min_vruntime;
+	if(delta > 0xffffffff)
+		return min_vruntime;
+
+	return vruntime;
 }
 
 static inline u64 min_vruntime(u64 min_vruntime, u64 vruntime)
