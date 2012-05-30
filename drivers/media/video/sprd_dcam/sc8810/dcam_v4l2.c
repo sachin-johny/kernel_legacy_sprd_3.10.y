@@ -1280,7 +1280,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				break;
 			}
 
-			if(g_dcam_info.flash_mode)
+			if(FLASH_OPEN == g_dcam_info.flash_mode)
 			{
 				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN); // open flash
 			}
@@ -1295,7 +1295,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				if(SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param))
 				{
 					ret = -1;
-					if(g_dcam_info.flash_mode)
+					if(FLASH_OPEN == g_dcam_info.flash_mode)
 					{
 						Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN); // close flash from open
 					}
@@ -1354,7 +1354,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				ret = -1;
 			}
 			
-			if(g_dcam_info.flash_mode)
+			if(FLASH_OPEN == g_dcam_info.flash_mode)
 			{
 				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN); // close flash from open
 			}
