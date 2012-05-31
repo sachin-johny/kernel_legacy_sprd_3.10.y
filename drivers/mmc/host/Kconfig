@@ -272,6 +272,7 @@ config MMC_AU1X
 config MMC_SDHCI_SC8810
 	tristate "Spreadtrum SC8810 SD Host Controller support"
 	depends on  ARCH_SC8810
+	select MMC_SDHCI
 	help
 	  This selects the Secure Digital Host Controller Interface (SDHCI)
 	  often referrered to as the HSMMC block in Spreadtrum's SC8810 SoC
