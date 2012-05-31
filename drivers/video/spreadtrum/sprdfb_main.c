@@ -20,7 +20,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/fb.h>
-
+#include <linux/console.h>
 #include "sprdfb.h"
 #include "lcdpanel.h"
 
@@ -48,15 +48,13 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 	/* dev->pending_addr = fb->fix.smem_start + fb->fix.line_length * var->yoffset; */
 
 	/* wait for vsync done */
-	dev->vsync_waiter = 1;
+	dev->vsync_waiter ++;
 	if (dev->ctrl->sync(dev) != 0) {/* time out??? disable ?? */
 		dev->vsync_waiter = 0;
 		/* dev->pending_addr = 0; */
-		printk(KERN_ERR "sprdfb can not do pan_display !!!!\n");
+		pr_debug("sprdfb can not do pan_display !!!!\n");
 		return 0;
 	}
-
-	dev->vsync_waiter = 0;
 
 	/* TODO: set pending address and do refreshing */
 	/* dev->pending_addr = 0; */
@@ -207,19 +205,29 @@ static void fb_free_resources(struct sprdfb_device *dev)
 static void sprdfb_early_suspend (struct early_suspend* es)
 {
 	struct sprdfb_device *dev = container_of(es, struct sprdfb_device, early_suspend);
+	struct fb_info *fb = dev->fb;
 
-	/* TODO: suspend entries */
+	fb_set_suspend(fb, FBINFO_STATE_SUSPENDED);
 
+	if (!lock_fb_info(fb)) {
+		return ;
+	}
 	dev->ctrl->suspend(dev);
+	unlock_fb_info(fb);
 }
 
 static void sprdfb_late_resume (struct early_suspend* es)
 {
 	struct sprdfb_device *dev = container_of(es, struct sprdfb_device, early_suspend);
+	struct fb_info *fb = dev->fb;
 
-	/* TODO: resume entries */
+	if (!lock_fb_info(fb)) {
+		return ;
+	}
 	dev->ctrl->resume(dev);
+	unlock_fb_info(fb);
 
+	fb_set_suspend(fb, FBINFO_STATE_RUNNING);
 }
 #endif
 

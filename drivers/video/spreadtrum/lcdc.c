@@ -66,7 +66,8 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 
 		lcdc->vsync_done = 1;
 		if (dev->vsync_waiter) {
-			wake_up_interruptible(&(lcdc->vsync_queue));
+			wake_up_interruptible_all(&(lcdc->vsync_queue));
+			dev->vsync_waiter = 0;
 		}
 		pr_debug(KERN_INFO "lcdc_done_isr !\n");
 
@@ -103,11 +104,11 @@ static void lcdc_layer_init(struct fb_var_screeninfo *var)
 
 	/******************* OSD1 layer setting **********************/
 
-	lcdc_set_bits((1<<0),LCDC_IMG_CTRL);
-	lcdc_set_bits((1<<0),LCDC_OSD2_CTRL);
-	lcdc_set_bits((1<<0),LCDC_OSD3_CTRL);
-	lcdc_set_bits((1<<0),LCDC_OSD4_CTRL);
-	lcdc_set_bits((1<<0),LCDC_OSD5_CTRL);
+	lcdc_clear_bits((1<<0),LCDC_IMG_CTRL);
+	lcdc_clear_bits((1<<0),LCDC_OSD2_CTRL);
+	lcdc_clear_bits((1<<0),LCDC_OSD3_CTRL);
+	lcdc_clear_bits((1<<0),LCDC_OSD4_CTRL);
+	lcdc_clear_bits((1<<0),LCDC_OSD5_CTRL);
 	/*enable OSD1 layer*/
 	reg_val |= (1 << 0);
 
@@ -248,6 +249,8 @@ static int32_t sprd_lcdc_refresh (struct sprdfb_device *dev)
 
 	pr_debug("fb->var.yoffset: 0x%x\n", fb->var.yoffset);
 
+	lcdc.vsync_done = 0;
+
 #ifdef LCD_UPDATE_PARTLY
 	if (fb->var.reserved[0] == 0x6f766572) {
 		uint32_t x,y, width, height;
@@ -317,12 +320,13 @@ static int32_t sprd_lcdc_sync(struct sprdfb_device *dev)
 	int ret;
 
 	if (dev->enable == 0) {
+		pr_debug("lcdc: sprd_lcdc_sync fb suspeneded already!!\n");
 		return -1;
 	}
 	ret = wait_event_interruptible_timeout(lcdc.vsync_queue,
 			          lcdc.vsync_done, msecs_to_jiffies(100));
-	lcdc.vsync_done = 0;
 	if (!ret) { /* time out */
+		lcdc.vsync_done = 1; /*error recovery */
 		printk(KERN_ERR "lcdc: sprd_lcdc_sync time out!!!!!\n");
 		return -1;
 	}
@@ -331,17 +335,17 @@ static int32_t sprd_lcdc_sync(struct sprdfb_device *dev)
 
 static int32_t sprd_lcdc_suspend(struct sprdfb_device *dev)
 {
-	return 0;
 	if (dev->enable != 0) {
-		dev->enable = 0;
-
 		/* must wait ,sprd_lcdc_sync() */
+		dev->vsync_waiter ++;
 		dev->ctrl->sync(dev);
 
 		/* let lcdc sleep in */
 		if (dev->panel->ops->panel_enter_sleep != NULL) {
 			dev->panel->ops->panel_enter_sleep(dev->panel,1);
 		}
+
+		dev->enable = 0;
 		clk_disable(lcdc.clk_lcdc);
 	}
 	return 0;
@@ -349,19 +353,17 @@ static int32_t sprd_lcdc_suspend(struct sprdfb_device *dev)
 
 static int32_t sprd_lcdc_resume(struct sprdfb_device *dev)
 {
-	return 0;
-
 	if (dev->enable == 0) {
 		clk_enable(lcdc.clk_lcdc);
-
+		lcdc.vsync_done = 1;
 		if (lcdc_read(LCDC_CTRL) == 0) { /* resume from deep sleep */
 			sprd_lcdc_reset();
 			lcdc_hw_init();
-			lcdc_layer_init(&(dev->fb->var));
+			sprd_lcdc_init(dev);
 
 			dev->panel->ops->panel_reset(dev->panel);
 			dev->init_panel(dev);
-
+			dev->panel->ops->panel_init(dev->panel);
 		} else {
 			/* let lcd sleep out */
 			dev->panel->ops->panel_enter_sleep(dev->panel,0);
