@@ -276,10 +276,10 @@ static inline u64 max_vruntime(u64 min_vruntime, u64 vruntime)
 {
 	u64 delta = vruntime - min_vruntime;
 
-	if(delta > 0xffffffff)
-		return min_vruntime;
+	if (delta < 0x80000000)
+		min_vruntime = vruntime;
 
-	return vruntime;
+	return min_vruntime;
 }
 
 static inline u64 min_vruntime(u64 min_vruntime, u64 vruntime)
@@ -753,9 +753,7 @@ place_entity(struct cfs_rq *cfs_rq, struct sched_entity *se, int initial)
 	}
 
 	/* ensure we never gain time by being placed backwards. */
-	vruntime = max_vruntime(se->vruntime, vruntime);
-
-	se->vruntime = vruntime;
+	se->vruntime = max_vruntime(vruntime, se->vruntime);
 }
 
 static void
