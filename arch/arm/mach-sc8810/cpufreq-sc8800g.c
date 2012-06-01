@@ -28,16 +28,15 @@
 
 static struct proc_dir_entry *sprd_cpufreq_proc_entry;
 static DEFINE_MUTEX(sprd_cpufreq_mutex);
-#ifdef CONFIG_MACH_SP6820A
-int cpufreq_bypass = 1;
-#endif
-#ifdef CONFIG_MACH_SP8810
-int cpufreq_bypass = 1;
-#endif
-#ifdef CONFIG_MACH_SP8810W
-int cpufreq_bypass = 1;
-#endif
 struct task_struct *cpufreq_thread;
+
+/*
+ *   Cpu freqency is not be scaled yet, because of reasons of stablily.
+ *   But we still define CONFIG_CPU_FREQ for some APKs, they will
+ *display BogoMIPS instead of the real cpu frequency if CONFIG_CPU_FREQ
+ *is not be defined
+ */
+int cpufreq_bypass = 1;
 
 
 static struct sprd_dvfs_table sc8810g_dvfs_table[] = {
