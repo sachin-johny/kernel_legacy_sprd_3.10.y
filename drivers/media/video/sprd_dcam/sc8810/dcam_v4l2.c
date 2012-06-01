@@ -136,6 +136,17 @@ typedef struct _dcam_error_info_tag {
 	struct timer_list dcam_timer;
 } DCAM_ERROR_INFO_T;
 
+typedef enum
+{
+	DCAM_AF_IDLE,
+	DCAM_AF_GOING,
+	DCAM_AF_ERR,
+	DCAM_AF_OK,
+	DCAM_AF_MAX,
+}dcam_af_status;
+
+static dcam_af_status s_auto_focus;
+
 static DCAM_ERROR_INFO_T s_dcam_err_info;
 uint32_t g_first_buf_addr = 0;	/*store the first buffer address */
 uint32_t g_first_buf_uv_addr = 0;	/*store the address of uv buffer */
@@ -2289,6 +2300,7 @@ static int open(struct file *file)
 	g_dcam_info.flash_mode = FLASH_CLOSE;
 	g_dcam_info.recording_start = 0;
 	g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
+	s_auto_focus = DCAM_AF_IDLE;
 	if (0 != dcam_open()) {
 		return 1;
 	}
@@ -2355,11 +2367,118 @@ static int close(struct file *file)
 	return 0;
 }
 
+uint32_t video_write (struct file *fd, uint8_t *buf, size_t len, loff_t * offset)
+{
+	SENSOR_EXT_FUN_PARAM_T af_param;
+	uint16_t focus_param[FOCUS_PARAM_COUNT] = { 0 };
+	int ret = 0;
+	uint32_t i=0;
+
+	if (SENSOR_MAIN != Sensor_GetCurId()) {
+		return 0;
+	}
+	if (g_dcam_info.flash_mode) {
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
+	}
+	copy_from_user(&focus_param[0], (uint16_t *) buf,FOCUS_PARAM_LEN);
+	printk("V4L2:focus kernel,type=%d,zone_cnt=%d.\n",
+	       focus_param[0], focus_param[1]);
+	s_auto_focus = DCAM_AF_GOING;
+	if ((0 == g_dcam_info.focus_param) && (0 != focus_param[0])) {
+		DCAM_V4L2_PRINT("V4L2: need initial auto firmware!.\n");
+		af_param.cmd = SENSOR_EXT_FUNC_INIT;
+		af_param.param = SENSOR_EXT_FOCUS_TRIG;
+		if (SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS,(uint32_t) & af_param)) {
+			if (g_dcam_info.flash_mode) {
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
+			}
+			s_auto_focus = DCAM_AF_ERR;
+			DCAM_V4L2_ERR("v4l2:auto foucs init fail.\n");
+			goto VIDEO_WRITE_END;
+		}
+		g_dcam_info.focus_param = 1;
+	}
+	switch (focus_param[0]) {
+	case 1:
+		af_param.cmd = SENSOR_EXT_FOCUS_START;
+		af_param.param = SENSOR_EXT_FOCUS_TRIG;
+		break;
+	case 2:
+		af_param.cmd = SENSOR_EXT_FOCUS_START;
+		af_param.param = SENSOR_EXT_FOCUS_ZONE;
+		af_param.zone_cnt = 1;
+		af_param.zone[0].x = focus_param[2];
+		af_param.zone[0].y = focus_param[3];
+		af_param.zone[0].w = focus_param[4];
+		af_param.zone[0].h = focus_param[5];
+		break;
+	case 3:
+		{
+			uint16_t *param_ptr = &focus_param[2];
+			af_param.cmd = SENSOR_EXT_FOCUS_START;
+			af_param.param = SENSOR_EXT_FOCUS_MULTI_ZONE;
+			af_param.zone_cnt = focus_param[1];
+			for (i = 0; i < focus_param[1]; i++) {
+				af_param.zone[i].x = *param_ptr++;
+				af_param.zone[i].y = *param_ptr++;
+				af_param.zone[i].w = *param_ptr++;
+				af_param.zone[i].h = *param_ptr++;
+			}
+		}
+		break;
+	case 4:
+		af_param.cmd = SENSOR_EXT_FOCUS_START;
+		af_param.param = SENSOR_EXT_FOCUS_MACRO;
+		break;
+	default:
+		DCAM_V4L2_ERR
+		    ("V4L2:don't support this focus,focus type = %d .\n",
+		     focus_param[0]);
+		s_auto_focus = DCAM_AF_ERR;
+		goto VIDEO_WRITE_END;
+	}
+
+	if (SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t) & af_param)) {
+		DCAM_V4L2_ERR("V4L2:auto focus fail. \n");
+		s_auto_focus = DCAM_AF_ERR;
+	}
+	if (g_dcam_info.flash_mode) {
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
+	}
+VIDEO_WRITE_END:
+	if(DCAM_AF_ERR != s_auto_focus)
+		s_auto_focus = DCAM_AF_OK;
+	if(DCAM_AF_OK == s_auto_focus) {
+		ret = 1;
+	} else {
+		ret = 0;
+	}
+	s_auto_focus = DCAM_AF_IDLE;
+	printk("wjp device_write ret=%d.\n",ret);
+	return ret;
+}
+#if 0
+int video_read (struct file * fd, uint8_t *buf, size_t len, loff_t *offset)
+{
+	int ret = -1;
+	if(DCAM_AF_GOING == s_auto_focus) {
+		ret = 1;
+	} else if (DCAM_AF_ERR == s_auto_focus) {
+		ret = 2;
+	} else if(DCAM_AF_OK == s_auto_focus) {
+		ret = 3;
+		s_auto_focus = DCAM_AF_IDLE;
+	}
+
+	printk("wjp :device_read:ret = %d.\n",ret);
+}
+#endif
 /**************************************************************************/
 
 static const struct v4l2_file_operations dcam_fops = {
 	.owner = THIS_MODULE,
 	.open = open,
+	.write = video_write,
 	.release = close,
 	.ioctl = video_ioctl2,	/* V4L2 ioctl handler */
 };
@@ -2447,10 +2566,9 @@ static int __init create_instance(int inst)
 	vfd = video_device_alloc();
 	if (!vfd)
 		goto unreg_dev;
-
 	*vfd = dcam_template;
 	vfd->debug = debug;
-	vfd->lock = &dev->lock;
+//	vfd->lock = &dev->lock;
 	ret = video_register_device(vfd, VFL_TYPE_GRABBER, video_nr);
 	if (ret < 0)
 		goto rel_vdev;
