@@ -2573,9 +2573,25 @@ static int nand_write_oob(struct mtd_info *mtd, loff_t to,
 static void single_erase_cmd(struct mtd_info *mtd, int page)
 {
 	struct nand_chip *chip = mtd->priv;
+#ifdef CONFIG_MTD_NAND_SC8810
+	unsigned long count;
+	nfc_status_t status;
+
+	for (count = 0; count < 3; count++) {
+		/* Send commands to erase a block */
+		chip->cmdfunc(mtd, NAND_CMD_ERASE1, -1, page);
+		chip->cmdfunc(mtd, NAND_CMD_ERASE2, -1, -1);
+		status = chip->nfc_operation_status(mtd);
+		if (status == NFC_CMD_OPER_TIMEOUT)
+			chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
+		else if (status == NFC_CMD_OPER_OK)
+			break;
+	}
+#else
 	/* Send commands to erase a block */
 	chip->cmdfunc(mtd, NAND_CMD_ERASE1, -1, page);
 	chip->cmdfunc(mtd, NAND_CMD_ERASE2, -1, -1);
+#endif
 }
 
 /**
