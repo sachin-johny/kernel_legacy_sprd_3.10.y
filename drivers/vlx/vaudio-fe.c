@@ -746,6 +746,8 @@ vaudio_snd_card_pcm (NkVaudio vaudio, int device)
 
 static void vaudio_sysconf_trigger(NkVaudio dev);
 
+static struct snd_card *vaudio_card;
+
     static void
 vaudio_snd_free (struct snd_card* card)
 {
