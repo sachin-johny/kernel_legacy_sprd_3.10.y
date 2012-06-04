@@ -421,7 +421,7 @@ static int lcd_regulator(void)
 		return -1;
 	}
 
-	err =regulator_set_voltage(lcdio_regulator,1800000,1800000);
+	err =regulator_set_voltage(lcdio_regulator,2800000,2800000);
 	if (err)
 		pr_err("ILI9486:could not set lcdio to 1800mv.\n");
 	return 0;
