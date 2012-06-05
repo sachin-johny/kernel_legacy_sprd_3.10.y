@@ -39,6 +39,10 @@ pinmap_t __initconst pinmap[] = {
 #ifdef CONFIG_MACH_AMAZING
 #include "pinmap-amazing.h"
 #endif
+
+#ifdef CONFIG_MACH_Z788
+#include "pinmap-z788.h"
+#endif
 };
 
 static int __init pin_init(void)
