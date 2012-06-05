@@ -21,6 +21,8 @@
 #include <mach/board.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
 
 //#define GET_WIFI_MAC_ADDR_FROM_NV_ITEM	1
 
@@ -40,6 +42,7 @@ static int bcm_wifi_power_state;
 static int bcm_wifi_reset_state;
 static void (*wifi_status_cb)(int card_present, void *dev_id);
 static void *wifi_status_cb_devid;
+static struct regulator *wlan_regulator_18 = NULL;
 
 int bcm_wifi_power(int on);
 int bcm_wifi_reset(int on);
@@ -87,6 +90,27 @@ int __init bcm_init_wifi_mem(void)
 			return -ENOMEM;
 	}
 	return 0;
+}
+
+/* Control the BT_VDDIO and WLAN_VDDIO
+Always power on  According to spec
+*/
+static int brcm_ldo_enable(void)
+{
+	int err;
+	wlan_regulator_18 = regulator_get(NULL, REGU_NAME_WIFI);
+
+	if (IS_ERR(wlan_regulator_18)) {
+		pr_err("can't get wlan 1.8V regulator\n");
+		return -1;
+	}
+
+	err = regulator_set_voltage(wlan_regulator_18,1800000,1800000);
+	if (err){
+		pr_err("can't set wlan to 1.8V.\n");
+		return -1;
+	}
+	regulator_enable(wlan_regulator_18);
 }
 
 int bcm_wifi_power(int on)
@@ -213,9 +237,9 @@ static struct platform_device sprd_spi_controller_device = {
 static int __init bcm_wifi_init(void)
 {
 	int ret;
-	int err;
 
 	bcm_init_wifi_mem();
+	brcm_ldo_enable();
 	gpio_request(GPIO_WIFI_IRQ, "oob_irq");
 	gpio_direction_input(GPIO_WIFI_IRQ);
 	spi_resources[1].start = gpio_to_irq(GPIO_WIFI_IRQ);

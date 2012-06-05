@@ -314,25 +314,6 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
-/* Control the BT_VDDIO and WLAN_VDDIO
-Always power on  According to spec
-*/
-static int brcm_ldo_enable(void)
-{
-	int err;
-	wlan_regulator_18 = regulator_get(NULL, REGU_NAME_WIFI);
-	if (IS_ERR(wlan_regulator_18)) {
-		pr_err("can't get 1.8V regulator\n");
-		return -1;
-	}
-	err = regulator_set_voltage(wlan_regulator_18,1800000,1800000);
-	if (err){
-		pr_err("can't set to 1.8V.\n");
-		return -1;
-	}
-        return 0;
-}
-
 static void __init sc8810_init_machine(void)
 {
 	int clk;
@@ -347,7 +328,6 @@ static void __init sc8810_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
-        brcm_ldo_enable();
 }
 
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,
