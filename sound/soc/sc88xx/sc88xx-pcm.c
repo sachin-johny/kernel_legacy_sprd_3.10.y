@@ -55,6 +55,12 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,
 };
 
+#define USE_STATIC_DMA_ADDR 1
+
+#if USE_STATIC_DMA_ADDR
+static unsigned long dma_phy_addr = 0, dma_virtual_addr = 0;
+#endif
+
 extern int vbc_set_sleep_mode(int on);
 
 int sc88xx_pcm_open(struct snd_pcm_substream *substream)
@@ -94,9 +100,24 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	rtd = kzalloc(sizeof(*rtd), GFP_KERNEL);
 	if (!rtd)
 		goto out;
-	rtd->dma_desc_array =
-		dma_alloc_writecombine(substream->pcm->card->dev, 4*PAGE_SIZE,
-				       &rtd->dma_desc_array_phys, GFP_KERNEL);
+#if USE_STATIC_DMA_ADDR
+	if (dma_phy_addr == 0 && dma_virtual_addr == 0) {
+		dma_virtual_addr =
+			dma_alloc_writecombine(substream->pcm->card->dev, 4*PAGE_SIZE,
+					       &dma_phy_addr, GFP_KERNEL);
+		rtd->dma_desc_array_phys = dma_phy_addr;
+		rtd->dma_desc_array = dma_virtual_addr;
+		printk("vbc dma memory allocated: phy=0x%x, virt=0x%x\n", dma_phy_addr, dma_virtual_addr);
+	} else {
+		rtd->dma_desc_array = dma_virtual_addr;
+		rtd->dma_desc_array_phys = dma_phy_addr;
+		//printk("use memory allocated before: phy=0x%x, virt=0x%x\n", dma_phy_addr, dma_virtual_addr);
+	}
+#else
+		rtd->dma_desc_array =
+			dma_alloc_writecombine(substream->pcm->card->dev, 4*PAGE_SIZE,
+					       &rtd->dma_desc_array_phys, GFP_KERNEL);
+#endif
 	if (!rtd->dma_desc_array)
 		goto err1;
 
@@ -114,9 +135,11 @@ int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd = runtime->private_data;
-
+#if !USE_STATIC_DMA_ADDR
 	dma_free_writecombine(substream->pcm->card->dev, 4*PAGE_SIZE,
 			      rtd->dma_desc_array, rtd->dma_desc_array_phys);
+#endif
+
 	kfree(rtd);
 
 	// vbc_set_sleep_mode(1);
