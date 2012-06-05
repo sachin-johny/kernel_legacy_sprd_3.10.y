@@ -16,5 +16,16 @@
 #define __SOUND_AUDIO_PA
 #include <linux/platform_device.h>
 typedef int (*audio_pa_callback)(u32, void *);
-extern audio_pa_callback audio_pa_amplifier;
+typedef int (*audio_pa_init)(void);
+typedef struct {
+	audio_pa_init init;
+	audio_pa_callback control;
+} _audio_pa_callback, *paudio_pa_callback;
+typedef struct {
+	_audio_pa_callback speaker;
+	_audio_pa_callback earpiece;
+	_audio_pa_callback headset;
+} _audio_pa_control, *paudio_pa_control;
+
+extern paudio_pa_control audio_pa_amplifier;
 #endif

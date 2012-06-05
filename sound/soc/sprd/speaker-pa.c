@@ -14,12 +14,20 @@
  */
 #include <sound/audio_pa.h>
 
-audio_pa_callback audio_pa_amplifier;
+paudio_pa_control audio_pa_amplifier;
 EXPORT_SYMBOL_GPL(audio_pa_amplifier);
 
 static __devinit int speaker_pa_probe(struct platform_device *pdev)
 {
 	audio_pa_amplifier = platform_get_drvdata(pdev);
+	if (audio_pa_amplifier) {
+		if (audio_pa_amplifier->speaker.init)
+			audio_pa_amplifier->speaker.init();
+		if (audio_pa_amplifier->earpiece.init)
+			audio_pa_amplifier->earpiece.init();
+		if (audio_pa_amplifier->headset.init)
+			audio_pa_amplifier->headset.init();
+	}
 	return 0;
 }
 

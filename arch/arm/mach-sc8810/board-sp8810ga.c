@@ -30,6 +30,7 @@
 #include <linux/spi/spi.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
+#include <sound/audio_pa.h>
 #include "devices.h"
 
 extern void __init sc8810_reserve(void);
@@ -147,7 +148,7 @@ struct platform_device audio_pa_amplifier_device = {
 	.id = -1,
 };
 
-static int audio_pa_amplifier_l(u32 cmd, void *data)
+static int audio_pa_amplifier_speaker(u32 cmd, void *data)
 {
 	int ret = 0;
 	if (cmd < 0) {
@@ -158,6 +159,21 @@ static int audio_pa_amplifier_l(u32 cmd, void *data)
 	}
 	return ret;
 }
+
+static _audio_pa_control audio_pa_control = {
+	.speaker = {
+		.init = NULL,
+		.control = NULL,
+	},
+	.earpiece = {
+		.init = NULL,
+		.control = NULL,
+	},
+	.headset = {
+		.init = NULL,
+		.control = NULL,
+	},
+};
 
 static int spi_cs_gpio_map[][2] = {
     {SPI0_CMMB_CS_GPIO,  0},
@@ -193,8 +209,9 @@ static void sprd_spi_init(void)
 
 static int sc8810_add_misc_devices(void)
 {
-	if (0) {
-		platform_set_drvdata(&audio_pa_amplifier_device, audio_pa_amplifier_l);
+	if (audio_pa_control.speaker.control || audio_pa_control.earpiece.control || \
+		audio_pa_control.headset.control) {
+		platform_set_drvdata(&audio_pa_amplifier_device, &audio_pa_control);
 		if (platform_device_register(&audio_pa_amplifier_device))
 			pr_err("faile to install audio_pa_amplifier_device\n");
 	}
