@@ -1034,10 +1034,10 @@ ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const 
 
 /* /sys/class/modem/xxx */
 static struct class_attribute modem_class_attrs[] = {
-	__ATTR(status, 0644, modem_status_show, modem_status_store),
-	__ATTR(mode, 0644, android_mode_show, android_mode_store),
-	__ATTR(sim, 0644, android_sim_show, android_sim_store),
-	__ATTR(regs, 0644, vbc_regs_show, vbc_regs_store),
+	__ATTR(status, 0664, modem_status_show, modem_status_store),
+	__ATTR(mode, 0664, android_mode_show, android_mode_store),
+	__ATTR(sim, 0664, android_sim_show, android_sim_store),
+	__ATTR(regs, 0664, vbc_regs_show, vbc_regs_store),
 	__ATTR_NULL,
 };
 /* /sys/class/vbc_param_config/xxx */
