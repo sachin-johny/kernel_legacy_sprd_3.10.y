@@ -76,6 +76,7 @@ static const char *vbc_codec_reset_enum_sel[] = {
 #define VBC_CODEC_DSP				0xfffc
 #define VBC_CODEC_POWER2			0xfffb
 
+static volatile int earpiece_muted = 1, headset_muted = 1, speaker_muted = 1;
 static void audio_speaker_enable(int enable, const char *prename);
 static int audio_speaker_enabled(void);
 static const struct soc_enum vbc_codec_reset_enum =
@@ -90,6 +91,41 @@ static const struct soc_enum vbc_codec_reset_enum =
 	SOC_SINGLE_TLV(name" Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv), \
 	SOC_SINGLE_TLV(name" Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv)
 
+#define SOC_VBC_ROUTING_SOC_SINGLE(xname, reg, shift, max, invert) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.info = snd_soc_info_volsw, .get = snd_soc_get_volsw,\
+	.put = vbc_routing_put_volsw, \
+	.private_value =  SOC_SINGLE_VALUE(reg, shift, max, invert) }
+
+static int vbc_routing_put_volsw(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int reg = mc->reg;
+	int shift = mc->shift;
+	int ret;
+	u16 val;
+
+	ret = snd_soc_put_volsw(kcontrol, ucontrol);
+	if (ret < 0)
+		return ret;
+
+	if (reg == VBCR1) {
+		switch (shift) {
+		case BTL_MUTE:
+			if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
+				audio_pa_amplifier->earpiece.control(!earpiece_muted, NULL);
+			break;
+		case HP_DIS:
+			if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
+				audio_pa_amplifier->headset.control(!headset_muted, NULL);
+			break;
+		}
+	}
+	return ret;
+}
+
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
 	SOC_ENUM("Micphone", vbc_mic12_enum),
 	SOC_SINGLE("PCM Playback Switch", VBCR1, DAC_MUTE, 1, 1),
@@ -97,9 +133,9 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
 	SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
 	SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
 	*/
-	SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
-	SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
-	SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
+	SOC_VBC_ROUTING_SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
+	SOC_VBC_ROUTING_SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
+	SOC_VBC_ROUTING_SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
 #if !VBC_EQ_MODULE_SUPPORT
 	SOC_DOUBLE_TLV("Speaker Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
 	SOC_SINGLE_TLV("Speaker Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
@@ -259,6 +295,16 @@ static inline void vbc_reg_VBAICR_set(u8 mode)
 
 static inline int vbc_reg_VBCR1_set(u32 type, u32 val)
 {
+	switch (type) {
+	case BTL_MUTE:
+		if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
+			audio_pa_amplifier->earpiece.control(!val, NULL);
+		break;
+	case HP_DIS:
+		if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
+			audio_pa_amplifier->headset.control(!val, NULL);
+		break;
+	}
 	return vbc_reg_write(VBCR1, type, val, 1);
 }
 
@@ -389,7 +435,6 @@ static inline void vbc_ready2go(void)
 	msleep(2);
 }
 
-static volatile int earpiece_muted = 1, headset_muted = 1, speaker_muted = 1;
 void vbc_write_callback(unsigned int reg, unsigned int val)
 {
 	if (reg == VBCR1) {
@@ -1002,15 +1047,15 @@ static void audio_speaker_enable(int enable, const char *prename)
 			"[earpiece_muted=%d]\n"
 			"[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
 #endif
-	if (audio_pa_amplifier)
-		audio_pa_amplifier(enable, NULL);
+	if (audio_pa_amplifier && audio_pa_amplifier->speaker.control)
+		audio_pa_amplifier->speaker.control(enable, NULL);
 	else local_cpu_pa_control(enable);
 }
 
 static int audio_speaker_enabled(void)
 {
-	if (audio_pa_amplifier) {
-		return audio_pa_amplifier(-1, NULL);
+	if (audio_pa_amplifier && audio_pa_amplifier->speaker.control) {
+		return audio_pa_amplifier->speaker.control(-1, NULL);
 	} else {
 		u32 value = sci_adi_read(ANA_AUDIO_PA_CTRL0);
 		value &= 0x1101;
