@@ -34,6 +34,12 @@ config MACH_AMAZING
 	bool "AMAZING Phone"
 	help
 	  AMAZING phone board based on SC8810.
+
+config MACH_Z788
+	default n
+	bool "Z788 Phone"
+	help
+	  Z788 phone board based on SC8810.
 endchoice
 
 config SPRD_PMEM_SIZE
