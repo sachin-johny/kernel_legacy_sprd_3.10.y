@@ -89,6 +89,9 @@ typedef struct dcam_info {
 	uint8_t recording_start;
 	volatile uint8_t v4l2_buf_ctrl_set_next_flag;
 	volatile uint8_t v4l2_buf_ctrl_path_done_flag;
+	volatile uint8_t is_streamoff;
+	uint8_t rsd0;
+	uint16_t rsd1;
 } DCAM_INFO_T;
 
 typedef enum {
@@ -829,10 +832,10 @@ static int vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 {
 	struct dcam_fh *fh = priv;
 	struct videobuf_queue *q = &fh->vb_vidq;
-
 	int ret = vidioc_try_fmt_vid_cap(file, fh, f);
 	if (ret < 0)
 		return ret;
+	g_dcam_info.is_streamoff = 0;
 	mutex_lock(&q->vb_lock);
 	if (videobuf_queue_is_busy(&fh->vb_vidq)) {
 		dprintk(fh->dev, 1, "%s queue busy\n", __func__);
@@ -1461,13 +1464,15 @@ static int vidioc_reqbufs(struct file *file, void *priv,
 static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh *fh = priv;
+	g_dcam_info.is_streamoff = 0;
 	return (videobuf_querybuf(&fh->vb_vidq, p));
 }
 
 static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	struct dcam_fh *fh = priv;
-
+	if(1 == g_dcam_info.is_streamoff)
+		return 0;
 	if (1 == g_is_first_frame) {
 		g_first_buf_addr = p->m.userptr;
 		g_first_buf_uv_addr = p->reserved;
@@ -1765,6 +1770,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.ev_param = INVALID_VALUE;
 	g_dcam_info.power_freq = INVALID_VALUE;
 	g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
+	g_dcam_info.is_streamoff = 1;
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	dcam_stop();
 	for (k = 0; k < VIDEO_MAX_FRAME; k++)
