@@ -985,6 +985,30 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param) {
 			p_isp_reg->endian_sel_u.mBits.review_input_endian_uv = endian.endian_uv&0x3;
 			break;
 		}
+	case ISP_PATH_ROT_MODE:
+		{
+			ISP_ROTATION_E rot = *((ISP_ROTATION_E*)param);
+			if(rot >= 5) {
+				rtn = ISP_DRV_RTN_ROTATION_ANGLE_ERR;
+				break;
+			}
+			if(ISP_ROTATION_0 == rot) {
+				p_isp_reg->rev_path_cfg_u.mBits.rot_eb = 0;
+			} else if(ISP_ROTATION_90 == rot) {
+				p_isp_reg->rev_path_cfg_u.mBits.rot_eb = 1;
+				p_isp_reg->rev_path_cfg_u.mBits.rot_mode = 0;
+			} else if(ISP_ROTATION_180 == rot) {
+				p_isp_reg->rev_path_cfg_u.mBits.rot_eb = 1;
+				p_isp_reg->rev_path_cfg_u.mBits.rot_mode = 2;
+			} else if(ISP_ROTATION_270 == rot) {
+				p_isp_reg->rev_path_cfg_u.mBits.rot_eb = 1;
+				p_isp_reg->rev_path_cfg_u.mBits.rot_mode = 1;
+			} else {
+				p_isp_reg->rev_path_cfg_u.mBits.rot_eb = 1;
+				p_isp_reg->rev_path_cfg_u.mBits.rot_mode = 3;
+			}
+			break;
+		}
 	default:
 		rtn = ISP_DRV_RTN_PARA_ERR;
 		break;
@@ -1290,6 +1314,7 @@ static int _SCALE_DriverCopy(SCALE_YUV420_ENDIAN_T *yuv_config)
 }
 
 static int SCALE_ioctl(struct file *fl, unsigned int cmd, unsigned long param) {
+	int ret = 0;
 	switch (cmd) {
 	case SCALE_IOC_CONFIG:
 		{
@@ -1301,8 +1326,9 @@ static int SCALE_ioctl(struct file *fl, unsigned int cmd, unsigned long param) {
 				memcpy(&p_path->input_range, path2_config.param,
 				       sizeof(ISP_RECT_T));
 			}
-			_SCALE_DriverPath2Config(path2_config.id,
-						 path2_config.param);
+			if(ISP_DRV_RTN_SUCCESS != _SCALE_DriverPath2Config(path2_config.id,path2_config.param)) {
+				ret = -1;
+			}
 		}
 		break;
 	case SCALE_IOC_DONE:
@@ -1325,7 +1351,7 @@ static int SCALE_ioctl(struct file *fl, unsigned int cmd, unsigned long param) {
 	default:
 		break;
 	}
-	return 0;
+	return ret;
 }
 
 static struct file_operations scale_fops = {
