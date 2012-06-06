@@ -33,7 +33,6 @@
 #ifdef	CONFIG_MACH_Z788
 #include <mach/gpio-z788.h>
 #endif
-
 /*
  * pmem area definition
  */
