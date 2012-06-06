@@ -55,7 +55,7 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,
 };
 
-#define USE_STATIC_DMA_ADDR 1
+#define USE_STATIC_DMA_ADDR 0
 
 #if USE_STATIC_DMA_ADDR
 static unsigned long dma_phy_addr = 0, dma_virtual_addr = 0;
