@@ -28,14 +28,13 @@ struct _headset_gpio {
 	int debounce;
 	int debounce_sw;
 	int holded;
-	int actived;
-	int actived_count;
-	int pstatus;
+	int active;
 	int irq_enabled;
 	const char *desc;
 	struct _headset *parent;
 	unsigned int timeout_ms;
 	struct hrtimer timer;
+	enum hrtimer_restart (*callback)(int active, struct _headset_gpio *hgp);
 };
 
 struct _headset {
