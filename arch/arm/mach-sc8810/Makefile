@@ -18,3 +18,4 @@ obj-$(CONFIG_MACH_AMAZING)  += board-amazing.o
 obj-$(CONFIG_MACH_SP8810EB) += board-sp8810eb.o
 obj-$(CONFIG_MACH_Z788)  += board-z788.o
 obj-$(CONFIG_SC8810_VIBRATOR) += vibrator.o
+obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o

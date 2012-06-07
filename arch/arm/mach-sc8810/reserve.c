@@ -30,9 +30,25 @@ int __init sc8810_pmem_reserve_memblock(void)
 	return 0;
 }
 
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+int __init sc8810_ramconsole_reserve_memblock(void)
+{
+	if (memblock_is_region_reserved(SPRD_RAM_CONSOLE_START, SPRD_RAM_CONSOLE_SIZE))
+		return -EBUSY;
+	if (memblock_reserve(SPRD_RAM_CONSOLE_START, SPRD_RAM_CONSOLE_SIZE))
+		return -ENOMEM;
+	return 0;
+}
+#endif
+
 void __init sc8810_reserve(void)
 {
 	int ret;
 	if (ret = sc8810_pmem_reserve_memblock())
 		pr_err("Fail to reserve mem for pmem. errno=%d\n", ret);
+
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	if (ret = sc8810_ramconsole_reserve_memblock())
+		pr_err("Fail to reserve mem for pmem. errno=%d\n", ret);
+#endif
 }
