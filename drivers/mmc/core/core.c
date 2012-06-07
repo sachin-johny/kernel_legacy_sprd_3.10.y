@@ -490,7 +490,6 @@ int __mmc_claim_host(struct mmc_host *host, atomic_t *abort)
 		if (stop || !host->claimed || host->claimer == current)
 			break;
 		spin_unlock_irqrestore(&host->lock, flags);
-		printk("%s, %u claimed host\n", mmc_hostname(host), host->claimer->pid);
 		schedule();
 		spin_lock_irqsave(&host->lock, flags);
 	}
