@@ -30,8 +30,9 @@
 #include <linux/akm8975.h>
 #include <linux/spi/spi.h>
 #include <mach/globalregs.h>
-
 #include <mach/board.h>
+#include <sound/audio_pa.h>
+
 #include "devices.h"
 
 extern void __init sc8810_reserve(void);
@@ -137,7 +138,9 @@ static void sprd8810_i2c2sel_config(void)
 
 static int sc8810_add_i2c_devices(void)
 {
-	//sprd8810_i2c2sel_config();
+	#if 0
+	sprd8810_i2c2sel_config();
+	#endif
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
@@ -149,7 +152,7 @@ struct platform_device audio_pa_amplifier_device = {
 	.id = -1,
 };
 
-static int audio_pa_amplifier_l(u32 cmd, void *data)
+static int audio_pa_amplifier_speaker(u32 cmd, void *data)
 {
 	int ret = 0;
 	if (cmd < 0) {
@@ -160,6 +163,21 @@ static int audio_pa_amplifier_l(u32 cmd, void *data)
 	}
 	return ret;
 }
+
+static _audio_pa_control audio_pa_control = {
+	.speaker = {
+		.init = NULL,
+		.control = NULL,
+	},
+	.earpiece = {
+		.init = NULL,
+		.control = NULL,
+	},
+	.headset = {
+		.init = NULL,
+		.control = NULL,
+	},
+};
 
 static int spi_cs_gpio_map[][2] = {
     {SPI0_CMMB_CS_GPIO,  0},
@@ -195,8 +213,9 @@ static void sprd_spi_init(void)
 
 static int sc8810_add_misc_devices(void)
 {
-	if (0) {
-		platform_set_drvdata(&audio_pa_amplifier_device, audio_pa_amplifier_l);
+	if (audio_pa_control.speaker.control || audio_pa_control.earpiece.control || \
+		audio_pa_control.headset.control) {
+		platform_set_drvdata(&audio_pa_amplifier_device, &audio_pa_control);
 		if (platform_device_register(&audio_pa_amplifier_device))
 			pr_err("faile to install audio_pa_amplifier_device\n");
 	}
@@ -205,8 +224,14 @@ static int sc8810_add_misc_devices(void)
 
 static void __init sc8810_init_machine(void)
 {
+	int clk;
 	regulator_add_devices();
 	sprd_add_otg_device();
+	clk=48000000;
+	platform_device_add_data(&sprd_serial_device0,(const void*)&clk,sizeof(int));
+	clk=26000000;
+	platform_device_add_data(&sprd_serial_device1,(const void*)&clk,sizeof(int));
+	platform_device_add_data(&sprd_serial_device2,(const void*)&clk,sizeof(int));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
