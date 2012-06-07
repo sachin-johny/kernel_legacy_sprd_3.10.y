@@ -1076,6 +1076,8 @@ ssize_t android_sim_show(struct class *class, struct class_attribute *attr, char
 ssize_t android_sim_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+ssize_t android_switch_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t android_switch_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 
 /* /sys/class/modem/xxx */
 static struct class_attribute modem_class_attrs[] = {
@@ -1083,6 +1085,7 @@ static struct class_attribute modem_class_attrs[] = {
 	__ATTR(mode, 0664, android_mode_show, android_mode_store),
 	__ATTR(sim, 0664, android_sim_show, android_sim_store),
 	__ATTR(regs, 0664, vbc_regs_show, vbc_regs_store),
+	__ATTR(switch, 0664, android_switch_show, android_switch_store),
 	__ATTR_NULL,
 };
 /* /sys/class/vbc_param_config/xxx */
@@ -1193,6 +1196,44 @@ ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *b
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
 	return count;
+}
+
+ssize_t android_switch_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%s|%s|%s\n",
+			(audio_pa_amplifier && audio_pa_amplifier->earpiece.control) ? "0.earpiece" : "",
+			(audio_pa_amplifier && audio_pa_amplifier->headset.control) ? "1.headset" : "",
+			(audio_pa_amplifier && audio_pa_amplifier->speaker.control) ? "2.speaker" : "");
+}
+
+ssize_t android_switch_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
+{
+	int type = buf[0];
+	int cmd = buf[1];
+	switch (type) {
+	case 0:
+		if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
+			audio_pa_amplifier->earpiece.control(cmd, NULL);
+		else
+			pr_warn("vbc switch not available on <earpiece>\n");
+		break;
+	case 1:
+		if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
+			audio_pa_amplifier->headset.control(cmd, NULL);
+		else
+			pr_warn("vbc switch not available on <headset>\n");
+		break;
+	case 2:
+		if (audio_pa_amplifier && audio_pa_amplifier->speaker.control)
+			audio_pa_amplifier->speaker.control(cmd, NULL);
+		else
+			pr_warn("vbc switch not available on <speaker>\n");
+		break;
+	default:
+		pr_err("vbc switch not support this type <0x%02x>\n", type);
+		break;
+	}
+    return count;
 }
 
 #define VBC_PCM_RATES (SNDRV_PCM_RATE_8000 | \
