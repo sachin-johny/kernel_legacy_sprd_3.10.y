@@ -45,7 +45,7 @@ JINF_EXIF_INFO_T *g_dc_exif_info_ptr = NULL;
 /*#define DCAM_SET_SENSOR_MODE     1*/
 #define V4L2_OPEN_FOCUS 1
 #define DCAM_SCALE_OUT_WIDTH_MAX    960
-#define DCAM_TIME_OUT                             1000
+#define DCAM_TIME_OUT                             2000
 #define DCAM_TIME_OUT_FOR_ATV            2000
 #define DCAM_RESTART_COUNT   2	//3
 
