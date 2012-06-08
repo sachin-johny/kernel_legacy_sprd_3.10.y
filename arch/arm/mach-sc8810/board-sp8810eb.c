@@ -44,6 +44,9 @@ extern void __init sc8810_init_irq(void);
 extern void __init sc8810_timer_init(void);
 extern void __init regulator_add_devices(void);
 extern void __init sc8810_clock_init(void);
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+extern int __init sprd_ramconsole_init(void);
+#endif
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -365,6 +368,9 @@ static void __init sc8810_init_machine(void)
 	sc8810_add_misc_devices();
 	sprd_spi_init();
         brcm_ldo_enable();
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	sprd_ramconsole_init();
+#endif
 }
 
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,
