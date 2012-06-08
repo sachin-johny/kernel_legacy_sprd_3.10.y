@@ -37,6 +37,7 @@
 #include <linux/backing-dev.h>
 #include <linux/gfp.h>
 
+#include <linux/mtd/nand.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
 
@@ -1047,6 +1048,99 @@ EXPORT_SYMBOL_GPL(mtd_kmalloc_up_to);
 
 static struct proc_dir_entry *proc_mtd;
 
+#ifdef CONFIG_MTD_NAND_SC8810
+static inline int mtd_nand_block_info (struct mtd_info *mtd, int *goodblock)
+{
+	int badblock = 0;
+	loff_t offs;
+
+	for (offs = 0; offs < mtd->size; offs += mtd->erasesize) {
+		if (mtd->block_isbad(mtd, offs) == 1)
+			badblock++;
+		else
+			(*goodblock)++;
+	}
+
+	return badblock;
+}
+
+static inline int get_remaining_block(char *buf, int goodblk, int badblk, unsigned long erasesize)
+{
+	char* pos;
+	int pos_len;
+	char number[8];
+	long nandsize;
+	int remainsize;
+	int reserved = 0;
+
+	pos = strstr(buf, "MiB");
+	if (pos == 0)
+		return 0;
+
+	pos_len = 0;
+	while (*pos != ' ') {
+		pos --;
+		pos_len ++;
+	}
+
+	pos ++;
+	pos_len --;
+	memset(number, 0, 8);
+	strncpy(number, pos, pos_len);
+	nandsize = simple_strtol(number, NULL, 0);
+
+	remainsize = (nandsize * 1024 * 1024) - ((goodblk + badblk) * erasesize);
+
+	while ((reserved * erasesize) < remainsize)
+		reserved ++;
+
+	return reserved;
+}
+
+struct mtd_part {
+	struct mtd_info mtd;
+	struct mtd_info *master;
+	uint64_t offset;
+	struct list_head list;
+};
+
+static int mtd_proc_show(struct seq_file *m, void *v)
+{
+	struct mtd_info *mtd;
+
+	mutex_lock(&mtd_table_mutex);
+
+	int good = 0, bad = 0, reserved = 0;
+	struct nand_chip *chipinfo;
+	struct mtd_part *part;
+	struct mtd_info *master;
+
+	mtd_for_each_device(mtd) {
+		bad += mtd_nand_block_info(mtd, &good);
+	}
+
+	mtd = __mtd_next_device(0);
+
+	part = (struct mtd_part*)mtd;
+	master = part->master;
+	chipinfo = master->priv;
+	if (chipinfo && chipinfo->flashname) {
+		reserved = get_remaining_block(chipinfo->flashname, good, bad, mtd->erasesize);
+		seq_printf(m, "%sGood Block: %d  Bad Block: %d  Reserved Block: %d\ndev:    size   erasesize  name\n", chipinfo->flashname, good, bad, reserved);
+	} else {
+		printk(KERN_WARNING "mtd_proc_show(),could not get chipinfo->flashname.\n");
+		seq_puts(m, "dev:    size   erasesize  name\n");
+	}
+
+	mtd_for_each_device(mtd) {
+		seq_printf(m, "mtd%d: %8.8llx %8.8x \"%s\"\n",
+			mtd->index, (unsigned long long)mtd->size,
+			mtd->erasesize, mtd->name);
+	}
+	mutex_unlock(&mtd_table_mutex);
+	return 0;
+}
+#else
 static int mtd_proc_show(struct seq_file *m, void *v)
 {
 	struct mtd_info *mtd;
@@ -1061,6 +1155,7 @@ static int mtd_proc_show(struct seq_file *m, void *v)
 	mutex_unlock(&mtd_table_mutex);
 	return 0;
 }
+#endif
 
 static int mtd_proc_open(struct inode *inode, struct file *file)
 {

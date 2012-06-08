@@ -3159,6 +3159,12 @@ ident_done:
 		nand_manuf_ids[maf_idx].name,
 		chip->onfi_version ? chip->onfi_params.model : type->name);
 
+#ifdef CONFIG_MTD_NAND_SC8810
+	sprintf(chip->flashname, "NAND device: Manufacturer ID:"
+	       " 0x%02x, Chip ID: 0x%02x (%s %s)\n", *maf_id, *dev_id,
+	       nand_manuf_ids[maf_idx].name, type->name);
+#endif
+
 	return type;
 }
 
