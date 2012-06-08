@@ -1283,10 +1283,12 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (host->pwr == pwr)
 		return -1;
 
-	host->pwr = pwr;
-
 	if (pwr == 0) {
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
+
+		if (host->ops->set_power)
+			host->ops->set_power(host, pwr);
+		host->pwr = pwr;
 		return 0;
 	}
 
@@ -1306,6 +1308,7 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 
 	if (host->ops->set_power){
 		host->ops->set_power(host, pwr);
+		host->pwr = pwr;
         }
 	pwr |= SDHCI_POWER_ON;
 
@@ -2547,9 +2550,13 @@ int sdhci_suspend_host(struct sdhci_host *host)
 
 	free_irq(host->irq, host);
 
-	if (host->vmmc && host->pwr)
+	/*
+	 * host->vmmc have already been disabled in mmc_suspend_host
+	 */
+#if 0
+	if (host->vmmc)
 		ret = regulator_disable(host->vmmc);
-
+#endif
 	return ret;
 }
 
@@ -2558,13 +2565,18 @@ EXPORT_SYMBOL_GPL(sdhci_suspend_host);
 int sdhci_resume_host(struct sdhci_host *host)
 {
 	int ret;
-
-	if (host->vmmc) {
+	/*
+	 *    host->vmmc should not be enabled if no io request,
+	 * it will be enabled in function mmc_bus_resume if
+	 * CONFIG_MMC_BLOCK_DEFERRED_RESUME defined
+	 */
+#if 0
+	if (host->vmmc ) {
 		int ret = regulator_enable(host->vmmc);
 		if (ret)
 			return ret;
 	}
-
+#endif
 	host->suspending = 0;/* clear indicator */
 
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA)) {
