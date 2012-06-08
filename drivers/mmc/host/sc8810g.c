@@ -343,18 +343,21 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 		}
 	}else{
 		if(host->vmmc){
-			ret = regulator_set_voltage(host->vmmc, volt_level,
-								volt_level);
-			if(ret){
-				printk(KERN_ERR "%s, set voltage error:%d\n",
-					mmc_hostname(host->mmc), ret);
-				return;
-			}
-			ret = regulator_enable(host->vmmc);
-			if(ret){
-				printk(KERN_ERR "%s, enabel regulator error:%d\n",
-					mmc_hostname(host->mmc), ret);
-				return;
+			if(host->pwr) {
+				ret = regulator_set_voltage(host->vmmc, volt_level,
+										volt_level);
+				if(ret){
+					printk(KERN_ERR "%s, set voltage error:%d\n",
+						mmc_hostname(host->mmc), ret);
+					return;
+				}
+			}else{
+				ret = regulator_enable(host->vmmc);
+				if(ret){
+					printk(KERN_ERR "%s, enabel regulator error:%d\n",
+						mmc_hostname(host->mmc), ret);
+					return;
+				}
 			}
 		}
 	}
@@ -511,7 +514,7 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 {
 	int ret = 0;
 	struct sdhci_host *host = platform_get_drvdata(dev);
-
+	printk("%s, %s, enter\n", mmc_hostname(host->mmc), __func__ );
 	ret = sdhci_suspend_host(host, pm);
 	if(ret){
 		printk("~wow, %s suspend error %d\n", host->hw_name, ret);
@@ -534,6 +537,7 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 	sdhci_dump_saved_regs(host);
 #endif
 #endif
+	printk("%s, %s, done\n", mmc_hostname(host->mmc), __func__ );
 
 	return 0;
 }
@@ -541,6 +545,7 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 static int sdhci_sprd_resume(struct platform_device *dev)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
+	printk("%s, %s, enter\n", mmc_hostname(host->mmc), __func__ );
 
 	/* enable ahb clock to restore registers */
 	if(host->ops->set_clock){
@@ -579,6 +584,7 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 			host->ops->set_clock(host, 0);
 		}
 	}
+	printk("%s, %s, done\n", mmc_hostname(host->mmc), __func__ );
 
 	return 0;
 }
