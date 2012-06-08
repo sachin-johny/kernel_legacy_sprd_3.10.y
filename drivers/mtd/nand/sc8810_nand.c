@@ -125,6 +125,8 @@ static void sprd_config_nand_pins16(void)
 #define	NFC_TIMEOUT_EVENT	32
 #define NFC_TIMEOUT_VAL		(0x1000000)
 #define NFC_ERASE_TIMEOUT	(0xc000)
+#define NFC_READ_TIMEOUT	(0x2000)
+#define NFC_WRITE_TIMEOUT	(0x4000)
 
 struct sc8810_nand_timing_param {
 	u8 acs_time;
@@ -416,12 +418,18 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 		if ((cmd == NAND_CMD_ERASE2) && (counter >= NFC_ERASE_TIMEOUT)) {
 			nfc_cmd_result_status = NFC_CMD_OPER_TIMEOUT;
 			break;
+		} else if ((cmd == NAND_CMD_READSTART) && (counter >= NFC_READ_TIMEOUT)) {
+			nfc_cmd_result_status = NFC_CMD_OPER_TIMEOUT;
+			break;
+		} else if ((cmd == NAND_CMD_PAGEPROG) && (counter >= NFC_WRITE_TIMEOUT)) {
+			nfc_cmd_result_status = NFC_CMD_OPER_TIMEOUT;
+			break;
 		}
 	}
 
 	nfc_reg_write(NFC_CLR_RAW, 0xffff0000);
 	if (nfc_cmd_result_status == NFC_CMD_OPER_TIMEOUT) {
-		printk("\nnfc cmd[0x%08x] timeout[0x%08x] and reset nand controller.\n", cmd, counter);
+		printk("nfc cmd[0x%08x] timeout[0x%08x] and reset nand controller.\n", cmd, counter);
 		sc8810_nand_reset_again();
 	} else if (counter >= NFC_TIMEOUT_VAL)
 		panic("nfc cmd timeout!!!");
