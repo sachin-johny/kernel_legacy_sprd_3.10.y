@@ -48,7 +48,6 @@
 #include "sc8810_nfc.h"
 #endif
 
-#if 1
 static unsigned long nand_base = 0x60000000;
 
 struct sprd_nand_info {
@@ -101,8 +100,6 @@ static void sprd_config_nand_pins16(void)
 {
 	sprd_mfp_config(nand_func_cfg16, ARRAY_SIZE(nand_func_cfg16));
 }
-
-#endif
 
 /* Size of the block protected by one OOB (Spare Area in Samsung terminology) */
 #define CONFIG_SYS_NAND_ECCSIZE	512
