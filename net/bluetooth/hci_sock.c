@@ -559,13 +559,17 @@ static int hci_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long a
 		return hci_get_conn_list(argp);
 
 	case HCIDEVUP:
+#ifndef CONFIG_BT_BCM4330
 		if (!capable(CAP_NET_ADMIN))
 			return -EACCES;
+#endif
 		return hci_dev_open(arg);
 
 	case HCIDEVDOWN:
+#ifndef CONFIG_BT_BCM4330
 		if (!capable(CAP_NET_ADMIN))
 			return -EACCES;
+#endif
 		return hci_dev_close(arg);
 
 	case HCIDEVRESET:
