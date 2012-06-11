@@ -194,8 +194,7 @@ static int setup_fbmem(struct sprdfb_device *dev, struct platform_device *pdev)
 
 	panel->mem_len = panel->width * panel->height * (dev->bpp / 8) * 2;
 
-	addr = (char*)__get_free_pages(GFP_ATOMIC | __GFP_ZERO,
-					 get_order(panel->mem_len));
+	addr = (char*)alloc_pages_exact(panel->mem_len, GFP_KERNEL|__GFP_ZERO);
 	if(!addr) {
 		panic("sprdfb setup_fbmem error!\n");
 	}
@@ -288,8 +287,8 @@ static void fb_free_resources(struct sprdfb_device *dev)
 		fb_dealloc_cmap(&dev->fb->cmap);
 	}
 	if (dev->fb->screen_base) {
-		free_pages ((unsigned long)dev->fb->screen_base,
-				get_order(dev->fb->fix.smem_len));
+		free_pages_exact ((void *)dev->fb->screen_base,
+				(dev->fb->fix.smem_len));
 	}
 	unregister_framebuffer(dev->fb);
 	framebuffer_release(dev->fb);
