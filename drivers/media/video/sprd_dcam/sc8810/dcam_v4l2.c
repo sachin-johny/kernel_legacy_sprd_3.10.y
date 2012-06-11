@@ -1776,6 +1776,10 @@ static int init_dcam_parameters(void *priv)
 	 DCAM_INIT_PARAM_T init_param;
 	 SENSOR_EXP_INFO_T *sensor_info_ptr = NULL;
 	 int ret = 0;
+	uint16_t trim_start_x = 0;
+	uint16_t trim_start_y = 0;
+	uint16_t trim_width = 0;
+	uint16_t trim_height = 0;
 	
 	sensor_info_ptr = Sensor_GetInfo();
 
@@ -1848,14 +1852,28 @@ static int init_dcam_parameters(void *priv)
           {
 		g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].width;
 		g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].height;
+		trim_start_x = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].trim_start_x;
+		trim_start_y = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].trim_start_y;
+		trim_width = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].trim_width;
+		trim_height = sensor_info_ptr->sensor_mode_info[g_dcam_info.preview_m].trim_height;
           }
         else
         	{
 		g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].width;
 		g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].height;
-	//	if(fh->width>sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].width)
 			g_zoom_level = 0;
+		trim_start_x = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].trim_start_x;
+		trim_start_y = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].trim_start_y;
+		trim_width = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].trim_width;
+		trim_height = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].trim_height;
        	}
+	if((0 != trim_width)&&(0 != trim_height))
+	{
+		g_dcam_info.input_size.w = trim_width;
+		g_dcam_info.input_size.h = trim_height;
+		init_param.input_rect.x = trim_start_x;
+		init_param.input_rect.y = trim_start_y;
+	}
 	init_param.input_rect.w = g_dcam_info.input_size.w;
 	init_param.input_rect.h = g_dcam_info.input_size.h;		
 	init_param.input_size.w = init_param.input_rect.w;

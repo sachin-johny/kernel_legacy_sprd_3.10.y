@@ -1209,6 +1209,8 @@ static int ISP_ServiceSetParameters(void)
 	s->cap_input_size.h = g_dcam_param.input_size.h;
 	dst_img_size.w = g_dcam_param.display_rect.w;
 	dst_img_size.h = g_dcam_param.display_rect.h;
+	s->input_range.x = g_dcam_param.input_rect.x;
+	s->input_range.y = g_dcam_param.input_rect.y;
 
 	printk("DCAM:ISP_ServiceSetParameters,pclk polarity is %d.\n",s->pclk_polarity);
 	
@@ -1262,9 +1264,9 @@ static int ISP_ServiceSetParameters(void)
 	s->input_size.h = s->cap_output_size.h;
 	trim_width = DCAMERA_WIDTH(s->cap_output_size.w);
 	trim_height = DCAMERA_HEIGHT(s->cap_output_size.h);
-	s->input_range.x = (s->cap_output_size.w-trim_width)/2;
+	s->input_range.x += (s->cap_output_size.w-trim_width)/2;
 	s->input_range.x &= ~1;
-	s->input_range.y = (s->cap_output_size.h-trim_height)/2;
+	s->input_range.y += (s->cap_output_size.h-trim_height)/2;
 	s->input_range.y &= ~1;
 	s->input_range.w = trim_width;//s->cap_output_size.w;
 	s->input_range.h = trim_height;//s->cap_output_size.h;

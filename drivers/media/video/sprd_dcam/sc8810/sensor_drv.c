@@ -28,6 +28,7 @@
 #include <linux/err.h>
 #include <mach/ldo.h>
 #include <mach/sensor_drv.h>
+#include <mach/common.h>
 
 #include "dcam_common.h"
 
@@ -310,7 +311,7 @@ PUBLIC void Sensor_Reset(uint32_t level)
 
 	if(PNULL != reset_func)
 	{
-		reset_func(0);
+		reset_func(level);
 	}
 	else
 	{		
@@ -321,9 +322,6 @@ PUBLIC void Sensor_Reset(uint32_t level)
 		}
 
 		gpio_direction_output(72,level);	
-		
-		//gpio_set_value(72, !level);
-		//msleep(20);
 		gpio_set_value(72,level);
 		msleep(40);
 		gpio_set_value(72,!level);		
@@ -1237,6 +1235,10 @@ PUBLIC SENSOR_REGISTER_INFO_T_PTR Sensor_GetRegisterInfo(void)
 LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 {	
           SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
+	SENSOR_INFO_T** sensor_info_tab_ptr = PNULL;
+	SENSOR_INFO_T* sensor_info_ptr= PNULL;
+ 	uint32_t i2c_clock = 100000;
+	uint32_t set_i2c_clock = 0;
 	sensor_register_info_ptr->cur_id=sensor_id;	
 
 	if(0 == g_is_register_sensor)
@@ -1267,6 +1269,34 @@ LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 			else
 			{
 				SENSOR_PRINT_ERR("SENSOR: add I2C driver OK.\n");	
+				sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
+				if(sensor_info_tab_ptr)
+				{
+					sensor_info_ptr = sensor_info_tab_ptr[sensor_id];
+				}
+				if(sensor_info_ptr)
+				{
+					set_i2c_clock = sensor_info_ptr->reg_addr_value_bits & SENSOR_I2C_CLOCK_MASK;
+					if(SENSOR_I2C_FREQ_100 != set_i2c_clock)
+					{
+						if(SENSOR_I2C_FREQ_400 == set_i2c_clock)
+						{
+							sc8810_i2c_set_clk(SENSOR_I2C_ID,400000);					
+						}
+						else if(SENSOR_I2C_FREQ_200 == set_i2c_clock)
+						{
+							sc8810_i2c_set_clk(SENSOR_I2C_ID,200000);
+						}
+						else if(SENSOR_I2C_FREQ_50 == set_i2c_clock)
+						{
+							sc8810_i2c_set_clk(SENSOR_I2C_ID,50000);
+						}
+						else if(SENSOR_I2C_FREQ_20 == set_i2c_clock)
+						{
+							sc8810_i2c_set_clk(SENSOR_I2C_ID,20000);
+						}
+					}
+				}
 				g_is_register_sensor = 1;	
 			}
 		}
@@ -1345,8 +1375,6 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 	sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
 	valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
 	_Sensor_I2CInit(sensor_id);
-
-//	msleep(20);
 		  
           //search the sensor in the table
 	for(sensor_index=0x00; sensor_index<valid_tab_index_max;sensor_index++)
@@ -1365,25 +1393,21 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 	//	msleep(20);
 		if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
 		{
-			//ImgSensor_GetMutex();		
 			printk("SENSOR:identify  Sensor 00:this_client=0x%x,this_client->addr=0x%x,0x%x\n",(uint32_t)this_client,(uint32_t)&this_client->addr,this_client->addr);
 	//		msleep(100);
 			if(5 != Sensor_GetCurId())//test by wang bonnie
 				this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
 			SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
-	//		msleep(100);
 			if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
 			{			         
 				s_sensor_list_ptr[sensor_id]=sensor_info_ptr; 
 				s_sensor_register_info_ptr->is_register[sensor_id]=SCI_TRUE;
 				s_sensor_register_info_ptr->img_sensor_num++;
-				ImgSensor_PutMutex();
 				Sensor_PowerOn(SCI_FALSE);			
 				SENSOR_PRINT_HIGH("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d\n",
 					                                     sensor_id,s_sensor_register_info_ptr->img_sensor_num);
 				break ;
 			}
-		//	ImgSensor_PutMutex();
 		}
 		Sensor_PowerOn(SCI_FALSE);	
 	}
@@ -1452,7 +1476,6 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 
 	_Sensor_Identify(SENSOR_MAIN);
 
-//	msleep(20);
 
 	_Sensor_Identify(SENSOR_SUB);
 	if(5 == sensor_id){
@@ -1464,7 +1487,6 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 
 	if(SENSOR_TRUE == sensor_register_info_ptr->is_register[sensor_id])
 	{
-//		msleep(20);
 		_Sensor_SetStatus(sensor_id);		
         		_Sensor_SetId(sensor_id);
 		s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
@@ -1510,6 +1532,7 @@ PUBLIC BOOLEAN Sensor_IsInit(void)
 PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 {
     	uint32_t mclk;
+	SENSOR_IOCTL_FUNC_PTR set_reg_tab_func=s_sensor_info_ptr->ioctl_func_tab_ptr->cus_func_1;
 
         SENSOR_PRINT("SENSOR: Sensor_SetMode -> mode = %d.\n", mode);        
         if(SENSOR_FALSE == Sensor_IsInit()){	          
@@ -1538,6 +1561,8 @@ PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 	}
 	else
 	{
+		if(set_reg_tab_func)
+			set_reg_tab_func(0);
 		SENSOR_PRINT("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
 	}       
 	return SENSOR_SUCCESS;

@@ -176,11 +176,14 @@ typedef void *SENSOR_MUTEX_PTR;
 #define SNESOR_I2C_NOSTOP_BIT (0x00 << 3)
 
 //I2C FEEQ BIT count
-#define SENSOR_I2C_FREQ_20 (0x01 << 6)
-#define SENSOR_I2C_FREQ_50 (0x02 << 6)
-#define SENSOR_I2C_FREQ_100 (0x00 << 6)
-#define SENSOR_I2C_FREQ_200 (0x03 << 6)
-#define SENSOR_I2C_FREQ_400      (0x04 << 5)
+#define SENSOR_I2C_CLOCK_MASK      (7<<5)
+#define SENSOR_I2C_FREQ_20	(0x01 << 5)
+#define SENSOR_I2C_FREQ_50 	(0x02 << 6)
+#define SENSOR_I2C_FREQ_100 	(0x00 << 5)
+#define SENSOR_I2C_FREQ_200 	(0x03 << 5)
+#define SENSOR_I2C_FREQ_400  	(0x04 << 5)
+
+#define SENSOR_I2C_ID			1
 
 // Hardward signal polarity
 #define SENSOR_HW_SIGNAL_PCLK_N				0x00
@@ -719,7 +722,7 @@ typedef struct sensor_info_tag
 	
 	uint8_t			reg_addr_value_bits;	// bit0: 0: i2c register value is 8 bit, 1: i2c register value is 16 bit
 											// bit2: 0: i2c register addr  is 8 bit, 1: i2c register addr  is 16 bit
-											// other bit: reseved
+											// bit5,bit6,bit7: i2c clock,other bit: reseved
 											
 	uint8_t			hw_signal_polarity;		// bit0: 0:negative; 1:positive -> polarily of pixel clock
 											// bit2: 0:negative; 1:positive -> polarily of vertical synchronization signal
