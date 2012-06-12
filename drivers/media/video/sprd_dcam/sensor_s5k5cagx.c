@@ -18,7 +18,6 @@
 #define s5k5cagx_I2C_ADDR_W       0x2d//0x5a 
 #define s5k5cagx_I2C_ADDR_R        0x2d//0x5b
 
-
 #define I2C_WRITE_BURST_LENGTH    32 
 /**---------------------------------------------------------------------------*
  **                     Local Function Prototypes                                                                                                         *
