@@ -62,6 +62,7 @@ static unsigned long dma_phy_addr = 0, dma_virtual_addr = 0;
 #endif
 
 extern int vbc_set_sleep_mode(int on);
+extern int vbc_resume_late(struct snd_pcm_substream *substream, const char *prefix);
 
 int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 {
@@ -122,6 +123,7 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 		goto err1;
 
 	runtime->private_data = rtd;
+	vbc_resume_late(substream, "snd_pcm_open");
 	vbc_set_sleep_mode(0);
 	return 0;
 

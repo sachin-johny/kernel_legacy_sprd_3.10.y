@@ -1292,6 +1292,23 @@ static struct snd_soc_dai_ops vbc_dai_ops = {
 	.set_tristate = vbc_set_dai_tristate,
 };
 
+static int vbc_codec_full_power_down = 0;
+static struct snd_soc_codec *pcodec;
+int vbc_resume_late(struct snd_pcm_substream *substream, const char *prefix)
+{
+	int ret = 0;
+	if (vbc_codec_full_power_down) {
+		mutex_lock(&pcodec->mutex);
+		if (vbc_codec_full_power_down) {
+			vbc_reset(pcodec, 1, 0);
+			vbc_codec_full_power_down = 0;
+			pr_info("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy <%s>\n", prefix);
+		}
+		ret = 1;
+		mutex_unlock(&pcodec->mutex);
+	}
+	return ret;
+}
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 static struct early_suspend early_suspend;
@@ -1302,6 +1319,7 @@ static void learly_suspend(struct early_suspend *es)
 
 static void learly_resume(struct early_suspend *es)
 {
+	vbc_resume_late(NULL, "vbc early_resume");
     // vbc_power_on();
 }
 
@@ -1309,7 +1327,7 @@ static void android_pm_init(void)
 {
     early_suspend.suspend = learly_suspend;
     early_suspend.resume = learly_resume;
-    early_suspend.level = INT_MAX;
+    early_suspend.level = 0; // we are the last one
     register_early_suspend(&early_suspend);
 }
 
@@ -1357,18 +1375,23 @@ static void android_sprd_pm_exit(void) {}
 #ifdef CONFIG_PM
 int vbc_suspend(struct platform_device *pdev, pm_message_t state)
 {
+	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
+	struct snd_soc_codec *codec = socdev->card->codec;
     if(!vbc_reg_read(VBPMR1, SB_LIN, 1))
     {
         printk("vbc_suspend FM is still running !!!!!!!!!\n");
 	return 0;
     }
-    struct snd_soc_device *socdev = platform_get_drvdata(pdev);
-    struct snd_soc_codec *codec = socdev->card->codec;
     mutex_lock(&codec->mutex);
-    printk("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
-    vbc_print_regs(0);
-    vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
-    vbc_print_regs(0);
+	if (vbc_codec_full_power_down == 0) {
+		pr_info("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+		vbc_print_regs(0);
+		vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
+		vbc_print_regs(0);
+		vbc_codec_full_power_down = 1;
+	} else {
+		pr_info("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx has done\n");
+	}
     mutex_unlock(&codec->mutex);
     return 0;
 }
@@ -1380,10 +1403,13 @@ int vbc_resume(struct platform_device *pdev)
         printk("vbc_resume FM is still running !!!!!!!!!\n");
 	return 0;
     }
+#if 1
+	pr_info("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy later do this\n");
+#else
     struct snd_soc_device *socdev = platform_get_drvdata(pdev);
     struct snd_soc_codec *codec = socdev->card->codec;
     mutex_lock(&codec->mutex);
-    printk("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
+    pr_info("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
     vbc_print_regs(1);
 #if 1
     vbc_reset(codec, 1, 0);
@@ -1393,6 +1419,7 @@ int vbc_resume(struct platform_device *pdev)
 #endif
     mutex_unlock(&codec->mutex);
     vbc_print_regs(1);
+#endif
     return 0;
 }
 #else
@@ -1565,12 +1592,15 @@ ssize_t android_sim_show(struct class *class, struct class_attribute *attr, char
 ssize_t android_sim_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+ssize_t android_codec_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t android_codec_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 // /sys/class/modem/*
 static struct class_attribute modem_class_attrs[] = { // drivers/gpio/gpiolib.c
 	__ATTR(status, 0664, modem_status_show, modem_status_store),
     __ATTR(mode, 0664, android_mode_show, android_mode_store),
     __ATTR(sim, 0664, android_sim_show, android_sim_store),
     __ATTR(regs, 0664, vbc_regs_show, vbc_regs_store),
+	__ATTR(codec, 0664, android_codec_show, android_codec_store),
 	// __ATTR(unexport, 0200, NULL, unexport_store),
 	__ATTR_NULL,
 };
@@ -1729,6 +1759,17 @@ ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const 
     return count;
 }
 
+ssize_t android_codec_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+    return 0;
+}
+
+ssize_t android_codec_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
+{
+	vbc_resume_late(NULL, "user space sys write or open");
+    return count;
+}
+
 static int vbc_reboot_notify(struct notifier_block *nb,
 			       unsigned long code, void *unused)
 {
@@ -1783,7 +1824,7 @@ static int vbc_probe(struct platform_device *pdev)
 	socdev->card->codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
 	if (socdev->card->codec == NULL)
 		return -ENOMEM;
-	codec = socdev->card->codec;
+	pcodec = codec = socdev->card->codec;
 	mutex_init(&codec->mutex);
 
 	codec->name = "VBC";
