@@ -38,6 +38,8 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
 	.fifo_size = VBC_FIFO_FRAME_NUM * 2,
 };
 
+extern int vbc_resume_late(struct snd_pcm_substream *substream, const char *prefix);
+
 int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -84,6 +86,7 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 		goto err1;
 	rtd->uid_cid_map[0] = rtd->uid_cid_map[1] = -1;
 	runtime->private_data = rtd;
+	vbc_resume_late(substream, "snd_pcm_open");
 	return 0;
 
 err1:

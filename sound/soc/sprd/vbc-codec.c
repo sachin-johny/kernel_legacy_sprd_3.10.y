@@ -996,20 +996,71 @@ static struct snd_soc_dai_ops vbc_dai_ops = {
 	.set_tristate = vbc_set_dai_tristate,
 };
 
+static int vbc_codec_full_power_down = 0;
+static struct snd_soc_codec *pcodec;
+int vbc_resume_late(struct snd_pcm_substream *substream, const char *prefix)
+{
+	int ret = 0;
+	if (vbc_codec_full_power_down) {
+		mutex_lock(&pcodec->mutex);
+		if (vbc_codec_full_power_down) {
+			vbc_reset(pcodec, 1, 0);
+			vbc_codec_full_power_down = 0;
+			pr_info("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy <%s>\n", prefix);
+		}
+		ret = 1;
+		mutex_unlock(&pcodec->mutex);
+	}
+	return ret;
+}
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+static struct early_suspend early_suspend;
+static void learly_suspend(struct early_suspend *es) { }
+static void learly_resume(struct early_suspend *es)
+{
+	vbc_resume_late(NULL, "vbc early_resume");
+}
+
+static void android_pm_init(void)
+{
+    early_suspend.suspend = learly_suspend;
+    early_suspend.resume = learly_resume;
+    early_suspend.level = 0; // we are the last one
+    register_early_suspend(&early_suspend);
+}
+
+static void android_pm_exit(void)
+{
+    unregister_early_suspend(&early_suspend);
+}
+#else
+static void android_pm_init(void) {}
+static void android_pm_exit(void) {}
+#endif
+
 #ifdef CONFIG_PM
 int vbc_soc_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {
 	mutex_lock(&codec->mutex);
-	pr_info("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
-	vbc_print_regs(0);
-	vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
-	vbc_print_regs(0);
+	if (vbc_codec_full_power_down == 0) {
+		pr_info("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
+		vbc_print_regs(0);
+		vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
+		vbc_print_regs(0);
+		vbc_codec_full_power_down = 1;
+	} else {
+		pr_info("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx has done\n");
+	}
 	mutex_unlock(&codec->mutex);
 	return 0;
 }
 
 int vbc_soc_resume(struct snd_soc_codec *codec)
 {
+#if 1
+	pr_info("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy later do this\n");
+#else
 	mutex_lock(&codec->mutex);
 	pr_info("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\n");
 	vbc_print_regs(1);
@@ -1021,6 +1072,7 @@ int vbc_soc_resume(struct snd_soc_codec *codec)
 #endif
 	mutex_unlock(&codec->mutex);
 	vbc_print_regs(1);
+#endif
 	return 0;
 }
 #else
@@ -1078,6 +1130,8 @@ ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *b
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t android_switch_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t android_switch_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+ssize_t android_codec_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t android_codec_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 
 /* /sys/class/modem/xxx */
 static struct class_attribute modem_class_attrs[] = {
@@ -1086,6 +1140,7 @@ static struct class_attribute modem_class_attrs[] = {
 	__ATTR(sim, 0664, android_sim_show, android_sim_store),
 	__ATTR(regs, 0664, vbc_regs_show, vbc_regs_store),
 	__ATTR(switch, 0664, android_switch_show, android_switch_store),
+	__ATTR(codec, 0664, android_codec_show, android_codec_store),
 	__ATTR_NULL,
 };
 /* /sys/class/vbc_param_config/xxx */
@@ -1236,6 +1291,17 @@ ssize_t android_switch_store(struct class *class, struct class_attribute *attr, 
     return count;
 }
 
+ssize_t android_codec_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+    return 0;
+}
+
+ssize_t android_codec_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
+{
+	vbc_resume_late(NULL, "user space sys write or open");
+    return count;
+}
+
 #define VBC_PCM_RATES (SNDRV_PCM_RATE_8000 | \
 				SNDRV_PCM_RATE_11025 | \
 				SNDRV_PCM_RATE_16000 | \
@@ -1268,6 +1334,7 @@ struct snd_soc_dai_driver vbc_dai[] = {
 
 static int vbc_soc_probe(struct snd_soc_codec *codec)
 {
+	pcodec = codec;
 	vbc_reset(codec, 0, 0);
 	local_cpu_pa_control(false); /* Turn off classD cpu PA */
 	audio_speaker_enable(false, "vbc_init"); /* Mute Speaker */
@@ -1280,7 +1347,7 @@ static int vbc_soc_probe(struct snd_soc_codec *codec)
 	vbc_codec_mute();
 #endif
 #endif
-
+	android_pm_init();
 	snd_soc_add_controls(codec, vbc_snd_controls,
 				ARRAY_SIZE(vbc_snd_controls));
 	vbc_add_widgets(codec);
@@ -1329,6 +1396,7 @@ static __devinit int vbc_probe(struct platform_device *pdev)
 
 static int __devexit vbc_remove(struct platform_device *pdev)
 {
+	android_pm_exit();
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
