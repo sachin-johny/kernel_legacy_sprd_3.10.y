@@ -14,14 +14,10 @@
 /**---------------------------------------------------------------------------*
  **                            Macro Define
  **---------------------------------------------------------------------------*/
-#if defined (SENSOR_S5K5CAGX_I2C_5A5B_RST_LOW_PWDN_LOW) || defined (SENSOR_S5K5CAGX_I2C_5A5B_RST_LOW_PWDN_HIGH) ||\
-    defined (SENSOR_S5K5CAGX_I2C_5A5B_RST_HIGH_PWDN_LOW) || defined (SENSOR_S5K5CAGX_I2C_5A5B_RST_HIGH_PWDN_HIGH)
+
 #define s5k5cagx_I2C_ADDR_W       0x2d//0x5a 
 #define s5k5cagx_I2C_ADDR_R        0x2d//0x5b
-#else
-#define s5k5cagx_I2C_ADDR_W       0x3c//0x78 
-#define s5k5cagx_I2C_ADDR_R        0x3c//0x79
-#endif
+
 
 #define I2C_WRITE_BURST_LENGTH    32 
 /**---------------------------------------------------------------------------*

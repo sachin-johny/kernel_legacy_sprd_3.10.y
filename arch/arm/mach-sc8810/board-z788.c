@@ -121,8 +121,7 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 };
 
 static struct i2c_board_info i2c1_boardinfo[] = {
-	{I2C_BOARD_INFO("sensor_main",0x3C),},
-	{I2C_BOARD_INFO("sensor_sub",0x21),},
+	{I2C_BOARD_INFO("sensor_main",0x2d),},
 };
 
 static struct i2c_board_info i2c0_boardinfo[] = {
