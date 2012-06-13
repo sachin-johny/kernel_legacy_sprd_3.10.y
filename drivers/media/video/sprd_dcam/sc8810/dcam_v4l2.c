@@ -42,7 +42,6 @@ JINF_EXIF_INFO_T *g_dc_exif_info_ptr = NULL;
 
 #define INVALID_VALUE		0xff
 #define DCAM_MINOR MISC_DYNAMIC_MINOR
-/*#define DCAM_SET_SENSOR_MODE     1*/
 #define V4L2_OPEN_FOCUS 1
 #define DCAM_SCALE_OUT_WIDTH_MAX    960
 #define DCAM_TIME_OUT                             2000
@@ -626,13 +625,13 @@ static int init_sensor_parameters(void *priv)
 		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,
 			     g_dcam_info.power_freq);
 
-#ifdef DCAM_SET_SENSOR_MODE
 	/*for preview */
 	if (1 != dev->streamparm.parm.capture.capturemode) {
+		if(INVALID_VALUE != g_dcam_info.sensor_work_mode) {
 		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,
 			     g_dcam_info.sensor_work_mode);
+		}
 	}
-#endif
 	return 0;
 }
 
@@ -1037,9 +1036,9 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		}
 	}
 	switch (ctrl->id) {
-#ifdef DCAM_SET_SENSOR_MODE
 	case V4L2_CID_BLACK_LEVEL:
-		if (g_dcam_info.sensor_work_mode == (uint8_t) ctrl->value) {
+		g_dcam_info.sensor_work_mode = (uint8_t)ctrl->value;
+		/*if (g_dcam_info.sensor_work_mode == (uint8_t) ctrl->value) {
 			printk
 			    ("V4L2:vidioc_handle_ctrl,don't need to modify work mode.\n");
 			break;
@@ -1064,11 +1063,10 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,
 				     g_dcam_info.sensor_work_mode);
 			dcam_start_handle(1);
-		}
+		}*/
 		printk("V4L2:g_dcam_info.sensor_work_mode = %d.\n",
 		       g_dcam_info.sensor_work_mode);
 		break;
-#endif
 	case V4L2_CID_DO_WHITE_BALANCE:
 		if (g_dcam_info.wb_param == (uint8_t) ctrl->value) {
 			DCAM_V4L2_PRINT("V4L2:don't need handle wb!.\n");
@@ -1769,7 +1767,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.previewmode_param = INVALID_VALUE;
 	g_dcam_info.ev_param = INVALID_VALUE;
 	g_dcam_info.power_freq = INVALID_VALUE;
-	g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
+	/*g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;*/
 	g_dcam_info.is_streamoff = 1;
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	dcam_stop();
