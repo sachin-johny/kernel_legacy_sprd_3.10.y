@@ -44,7 +44,8 @@ extern void __init sc8810_clock_init(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 #endif
-
+static struct platform_device rfkill_device;
+static struct platform_device brcm_bluesleep_device;
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
@@ -71,6 +72,54 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_dcam_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
+	&rfkill_device,
+	&brcm_bluesleep_device,
+};
+
+/* BT suspend/resume */
+static struct resource bluesleep_resources[] = {
+	{
+		.name	= "gpio_host_wake",
+		.start	= GPIO_BT2AP_WAKE,
+		.end	= GPIO_BT2AP_WAKE,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "gpio_ext_wake",
+		.start	= GPIO_AP2BT_WAKE,
+		.end	= GPIO_AP2BT_WAKE,
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+static struct platform_device brcm_bluesleep_device = {
+	.name = "bluesleep",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(bluesleep_resources),
+	.resource	= bluesleep_resources,
+};
+
+/* RFKILL */
+static struct resource rfkill_resources[] = {
+	{
+		.name   = "bt_power",
+		.start  = GPIO_BT_POWER,
+		.end    = GPIO_BT_POWER,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "bt_reset",
+		.start  = GPIO_BT_RESET,
+		.end    = GPIO_BT_RESET,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct platform_device rfkill_device = {
+	.name = "rfkill",
+	.id = -1,
+	.num_resources	= ARRAY_SIZE(rfkill_resources),
+	.resource	= rfkill_resources,
 };
 
 static struct sys_timer sc8810_timer = {
