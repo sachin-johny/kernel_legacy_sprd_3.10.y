@@ -54,4 +54,6 @@
 #define GPIO_CMMB_INT           139
 #define GPIO_CMMB_26M_CLK_EN    93
 
+#define GPIO_SPEAKER_PA_EN		91
+
 #endif

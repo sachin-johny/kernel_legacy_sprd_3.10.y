@@ -213,22 +213,33 @@ struct platform_device audio_pa_amplifier_device = {
 	.id = -1,
 };
 
+static int audio_pa_amplifier_speaker_init(void)
+{
+	if (gpio_request(GPIO_SPEAKER_PA_EN, "speaker outside pa")) {
+		pr_err("failed to alloc gpio %d\n", GPIO_SPEAKER_PA_EN);
+		return -1;
+	}
+	gpio_direction_output(GPIO_SPEAKER_PA_EN, 0);
+	return 0;
+}
+
 static int audio_pa_amplifier_speaker(u32 cmd, void *data)
 {
 	int ret = 0;
 	if (cmd < 0) {
 		/* get speaker amplifier status : enabled or disabled */
-		ret = 0;
+		ret = gpio_get_value(GPIO_SPEAKER_PA_EN);
 	} else {
 		/* set speaker amplifier */
+		gpio_direction_output(GPIO_SPEAKER_PA_EN, cmd);
 	}
 	return ret;
 }
 
 static _audio_pa_control audio_pa_control = {
 	.speaker = {
-		.init = NULL,
-		.control = NULL,
+		.init = audio_pa_amplifier_speaker_init,
+		.control = audio_pa_amplifier_speaker,
 	},
 	.earpiece = {
 		.init = NULL,
