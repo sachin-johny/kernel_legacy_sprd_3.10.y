@@ -43,6 +43,10 @@ pinmap_t __initconst pinmap[] = {
 #ifdef CONFIG_MACH_Z788
 #include "pinmap-z788.h"
 #endif
+
+#ifdef CONFIG_MACH_OPENPHONE_SC6820
+#include "pinmap-sc6820-openphone.h"
+#endif
 };
 
 static int __init pin_init(void)

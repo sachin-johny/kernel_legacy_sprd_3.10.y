@@ -5,6 +5,12 @@ comment "SC8810 Board Type"
 choice
 	prompt "SC8810 Board"
 
+config MACH_OPENPHONE_SC6820
+       default n
+       bool "6820 OpenPhone"
+       help
+         6820 openphone board based on SC8810.
+
 config MACH_SP8810EA
 	default n
 	bool "SP8810EA Phone"

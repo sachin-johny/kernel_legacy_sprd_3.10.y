@@ -432,9 +432,31 @@ static struct resource sprd_sdio1_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
+
 struct platform_device sprd_sdio1_device = {
 	.name           = "sprd-sdhci",
 	.id             =  1,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
 };
+
+static struct resource sprd_tp_resources[] = {
+        {
+                .start  = (SPRD_MISC_BASE +0x280),
+                .end    = (SPRD_MISC_BASE + 0x280+0x44),
+                .flags  = IORESOURCE_MEM,
+        },
+        {
+                .start  = IRQ_ANA_TPC_INT,
+                .end    = IRQ_ANA_TPC_INT,
+                .flags  = IORESOURCE_IRQ,
+        },
+};
+
+struct platform_device sprd_tp_device = {
+        .name           = "sprd-tp",
+        .id             = 0,
+        .num_resources  = ARRAY_SIZE(sprd_tp_resources),
+        .resource       = sprd_tp_resources,
+};
+

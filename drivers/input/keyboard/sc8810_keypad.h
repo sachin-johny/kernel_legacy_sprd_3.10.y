@@ -105,6 +105,7 @@ unsigned short sprd_keymap[] = {
 	KEYCODE(0x01),
 	KEYCODE(0x10),
 	KEYCODE(0x12),
+	KEYCODE(0x20),
 	KEY_POWER,
 };
 
