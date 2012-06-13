@@ -1287,7 +1287,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 
 			copy_from_user(&focus_param[0], (uint16_t*)ctrl->value, FOCUS_PARAM_LEN);		
 			printk("test V4L2:focus kernel,type=%d,zone_cnt=%d.\n",focus_param[0],focus_param[1]);
-			if((0 == g_dcam_info.focus_param)&&(0 != focus_param[0]))
+			if((0 == g_dcam_info.focus_param)&&(0x55 == focus_param[0]))
 			{
 				DCAM_V4L2_PRINT("V4L2: need initial auto firmware!.\n");
 				af_param.cmd = SENSOR_EXT_FUNC_INIT;
@@ -1295,15 +1295,19 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				if(SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t)&af_param))
 				{
 					ret = -1;
+					/*
 					if(FLASH_OPEN == g_dcam_info.flash_mode)
 					{
 						Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN); // close flash from open
-					}
+					}*/
 					DCAM_V4L2_ERR("v4l2:auto foucs init fail.\n");
 					break;
 				}
 				g_dcam_info.focus_param = 1;				
-			}	
+			}
+			if(0x55 == focus_param[0]) {
+				break;
+			}
 
 			switch(focus_param[0])
 			{
