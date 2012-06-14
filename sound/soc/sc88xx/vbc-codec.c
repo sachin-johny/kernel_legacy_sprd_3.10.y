@@ -35,6 +35,7 @@
 #include <linux/sysfs.h>
 #include <linux/stat.h>
 #include <linux/reboot.h>
+#include <sound/audio_pa.h>
 
 #include "aud_enha.h"
 
@@ -95,6 +96,9 @@ static const char *vbc_codec_reset_enum_sel[] = {
     "true",
 };
 
+static volatile int earpiece_muted = 1, headset_muted = 1, speaker_muted = 1;
+static void audio_speaker_enable(int enable, const char *prename);
+static int audio_speaker_enabled(void);
 static const struct soc_enum vbc_codec_reset_enum =
     SOC_ENUM_SINGLE(VBC_CODEC_RESET,
         0,
@@ -106,6 +110,41 @@ static const struct soc_enum vbc_codec_reset_enum =
     SOC_DOUBLE_TLV(name" Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv), \
     SOC_SINGLE_TLV(name" Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv), \
     SOC_SINGLE_TLV(name" Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv)
+
+#define SOC_VBC_ROUTING_SOC_SINGLE(xname, reg, shift, max, invert) \
+{	.iface = SNDRV_CTL_ELEM_IFACE_MIXER, .name = xname, \
+	.info = snd_soc_info_volsw, .get = snd_soc_get_volsw,\
+	.put = vbc_routing_put_volsw, \
+	.private_value =  SOC_SINGLE_VALUE(reg, shift, max, invert) }
+
+static int vbc_routing_put_volsw(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int reg = mc->reg;
+	int shift = mc->shift;
+	int ret;
+	u16 val;
+
+	ret = snd_soc_put_volsw(kcontrol, ucontrol);
+	if (ret < 0)
+		return ret;
+
+	if (reg == VBCR1) {
+		switch (shift) {
+		case BTL_MUTE:
+			if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
+				audio_pa_amplifier->earpiece.control(!earpiece_muted, NULL);
+			break;
+		case HP_DIS:
+			if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
+				audio_pa_amplifier->headset.control(!headset_muted, NULL);
+			break;
+		}
+	}
+	return ret;
+}
 
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
     // Mic
@@ -121,7 +160,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE_TLV("PCM2 Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Speaker
     /* SOC_SINGLE("Speaker Playback Switch", VBCR1, xxx, 1, 1), */
-    SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
+    SOC_VBC_ROUTING_SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
  //   SOC_DOUBLE_TLV("Speaker Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Speaker Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Speaker Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
@@ -130,7 +169,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE_TLV("Speaker2 Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
     SOC_SINGLE_TLV("Speaker2 Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
     // Earpiece
-    SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
+    SOC_VBC_ROUTING_SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
  //   SOC_DOUBLE_TLV("Earpiece Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Earpiece Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Earpiece Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
@@ -151,7 +190,7 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE("LineinFM_Record", ANA_AUDIO_CTRL, 3, 1, 0),
 #endif
     // Headset
-    SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
+    SOC_VBC_ROUTING_SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
  //   SOC_DOUBLE_TLV("Headset Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Headset Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
  //   SOC_SINGLE_TLV("Headset Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
@@ -340,7 +379,17 @@ static inline void vbc_reg_VBAICR_set(u8 mode)
 
 static inline int vbc_reg_VBCR1_set(u32 type, u32 val)
 {
-    return vbc_reg_write(VBCR1, type, val, 1);
+	switch (type) {
+	case BTL_MUTE:
+		if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
+			audio_pa_amplifier->earpiece.control(!val, NULL);
+		break;
+	case HP_DIS:
+		if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
+			audio_pa_amplifier->headset.control(!val, NULL);
+		break;
+	}
+	return vbc_reg_write(VBCR1, type, val, 1);
 }
 
 static void vbc_reg_VBCR2_set(u32 type, u32 val)
@@ -567,9 +616,6 @@ static inline void vbc_ready2go(void)
     msleep(2);
 }
 
-extern inline int vbc_amplifier_enabled(void);
-extern inline void vbc_amplifier_enable(int enable, const char *prename);
-static volatile int earpiece_muted = 1, headset_muted = 1, speaker_muted = 1;
 void vbc_write_callback(unsigned int reg, unsigned int val)
 {
     if (reg == VBCR1) {
@@ -682,11 +728,11 @@ void vbc_power_down(unsigned int value)
             /*
             earpiece_muted= vbc_reg_read(VBCR1, BTL_MUTE, 1);
             headset_muted = vbc_reg_read(VBCR1, HP_DIS, 1);
-            speaker_muted = vbc_amplifier_enabled();
+            speaker_muted = audio_speaker_enabled();
             */
             vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
             vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-            vbc_amplifier_enable(false, "vbc_power_down playback"); // Mute speaker
+            audio_speaker_enable(false, "vbc_power_down playback"); // Mute speaker
             vbc_codec_mute();
             if (use_delay) msleep(50);
             vbc_reg_VBCR1_set(DACSEL, 0); // not route DAC to mixer
@@ -707,7 +753,7 @@ void vbc_power_down(unsigned int value)
             if (value == SNDRV_PCM_STREAM_PLAYBACK) {
                 vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
                 vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-                vbc_amplifier_enable(false, "vbc_power_down playback"); // Mute speaker
+                audio_speaker_enable(false, "vbc_power_down playback"); // Mute speaker
                 vbc_codec_mute();
                 printk("---- vbc mute all pa ----\n");
             }
@@ -744,7 +790,7 @@ void vbc_power_on_playback(bool ldo)
 #if 0
     if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
     if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
-    if (!speaker_muted) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
+    if (!speaker_muted) audio_speaker_enable(true, "vbc_power_on playback"); // unMute speaker
 #endif
     //  if (speaker_muted && earpiece_muted && headset_muted)
     //      printk("---- vbc mute all pa ----\n");
@@ -810,7 +856,7 @@ void vbc_power_on(unsigned int value)
 
             /* earpiece_muted = */ vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
             /* headset_muted =  */ vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
-            /* speaker_muted =  */ vbc_amplifier_enable(false, "vbc_power_on playback"); // Mute speaker
+            /* speaker_muted =  */ audio_speaker_enable(false, "vbc_power_on playback"); // Mute speaker
             if (use_delay) msleep(50);
 
             vbc_reg_VBCR1_set(DACSEL, 1); // route DAC to mixer
@@ -833,7 +879,7 @@ void vbc_power_on(unsigned int value)
 #if VBC_DYNAMIC_POWER_MANAGEMENT
             if (!earpiece_muted || forced) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted || forced) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone
-            if (!speaker_muted || forced) vbc_amplifier_enable(true, "vbc_power_on playback"); // unMute speaker
+            if (!speaker_muted || forced) audio_speaker_enable(true, "vbc_power_on playback"); // unMute speaker
             printk("....................... vbc power on playback [%d]-%d .......................\n", use_delay, in_irq() || irqs_disabled());
             // if (!use_delay) dump_stack();
 #endif
@@ -875,7 +921,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
     if (check_incall) {
         #define VBC_DSP_WAITING_MAX_COUNT   20
         int try_max = 0;
-        // vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
+        // audio_speaker_enable(false, "vbc_init"); // Mute Speaker
         // fix above problem
         while (mode_incall() && try_max++ < VBC_DSP_WAITING_MAX_COUNT) {
             printk("vbc waiting DSP release audio codec ......\n");
@@ -998,7 +1044,7 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             // ret = vbc_reset(codec);
             if (!earpiece_muted) vbc_reg_VBCR1_set(BTL_MUTE, 0); // unMute earpiece
             if (!headset_muted) vbc_reg_VBCR1_set(HP_DIS, 0); // unMute headphone            
-            if (!speaker_muted) vbc_amplifier_enable(true, "vbc_soft_ctrl"); // unMute speaker
+            if (!speaker_muted) audio_speaker_enable(true, "vbc_soft_ctrl"); // unMute speaker
             return ret < 0 ? -2 : ret;
         case VBC_CODEC_POWER:
             if (dir == 0) return 0; // dir 0 for read, we always return 0, so every set 1 value can reach here.
@@ -1025,9 +1071,9 @@ static int vbc_soft_ctrl(struct snd_soc_codec *codec, unsigned int reg, unsigned
             return mode_incall();
         case VBC_CODEC_SPEAKER_PA:
             if (dir) {
-                vbc_amplifier_enable(value & 0x01, "vbc_soft_ctrl2");
+                audio_speaker_enable(value & 0x01, "vbc_soft_ctrl2");
             }
-            value = vbc_amplifier_enabled();
+            value = audio_speaker_enabled();
             speaker_muted = value ? 0:1;
             return value;
         default: return -1;
@@ -1146,7 +1192,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
     // vbc_power_down(substream->stream);
 #if 0
     if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-        vbc_amplifier_enable(false, "sprdphone_shutdown");
+        audio_speaker_enable(false, "sprdphone_shutdown");
 #endif
 }
 
@@ -1324,15 +1370,10 @@ int vbc_resume_late(struct snd_pcm_substream *substream, const char *prefix)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 static struct early_suspend early_suspend;
-static void learly_suspend(struct early_suspend *es)
-{
-    // vbc_power_down();
-}
-
+static void learly_suspend(struct early_suspend *es) { }
 static void learly_resume(struct early_suspend *es)
 {
 	vbc_resume_late(NULL, "vbc early_resume");
-    // vbc_power_on();
 }
 
 static void android_pm_init(void)
@@ -1438,160 +1479,44 @@ int vbc_resume(struct platform_device *pdev)
 #define vbc_suspend NULL
 #define vbc_resume  NULL
 #endif
-#if defined(CONFIG_ARCH_SC8800G)
-#define local_cpu_pa_control(x) \
-do { \
-    if (x) { \
-        /* ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1aa9); //classAb */ \
-        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x5A5A); /* classD */ \
-    } else { \
-        ADI_Analogdie_reg_write(ANA_PA_CTL, 0x1555); \
-    } \
-} while (0)
-#elif defined(CONFIG_ARCH_SC8810)
-#define local_cpu_pa_control(x) \
-do { \
-    if (x) { \	
-        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, (0x1101 |( (cur_internal_pa_gain <<4) & 0x00F0)));  \
-        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x5e41); \
-    } else { \    
-        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x182); \
-        ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1242); \
-    } \
-} while (0)
-#endif
 
-#if     defined(CONFIG_ARCH_SC8800S)             || \
-        defined(CONFIG_MACH_SP6810A)
-#if     defined(CONFIG_ARCH_SC8800S)
-static u32 speaker_gpio = 102; // mfp_to_gpio(MFP_CFG_TO_PIN(gpio_amplifier));
-#elif   defined(CONFIG_MACH_SP6810A)
-static u32 speaker_gpio = 96;  // GPIO_PROD_SPEAKER_PA_EN_ID
-#endif
-static inline void local_amplifier_init(void)
+static inline void local_cpu_pa_control(bool enable)
 {
-    if (gpio_request(speaker_gpio, "speaker amplifier")) {
-        printk(KERN_ERR "speaker amplifier gpio request fail!\n");
-    }
+	if (enable) {
+		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, (0x1101 |( (cur_internal_pa_gain <<4) & 0x00F0)));
+		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x5e41);
+	} else {
+		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x182);
+		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1242);
+	}
 }
 
-static inline void local_amplifier_enable(int enable)
-{
-    local_cpu_pa_control(enable);
-    gpio_direction_output(speaker_gpio, !!enable); msleep(1);
-}
-
-static inline int local_amplifier_enabled(void)
-{
-    if (gpio_get_value(speaker_gpio)) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-#else
-
-#if defined(CONFIG_MACH_SP8805GA)
-extern int sprd_local_audio_pa_mode_detect_gpio;
-#elif defined(CONFIG_MACH_SP6820A)
-static uint32_t SPRD_BOARD_VERSION;
-static int32_t speaker_gpio = -1;
-static int32_t speaker_gpio_enabled_level;
-#endif
-static int sprd_local_audio_pa_mode = 0; // 1 -- internal PA; 0 -- outside PA
-
-static inline void local_amplifier_init(void)
-{
-#if defined(CONFIG_MACH_SP8805GA)
-    if (gpio_get_value(sprd_local_audio_pa_mode_detect_gpio)) {
-        sprd_local_audio_pa_mode = 0;
-    } else sprd_local_audio_pa_mode = 1;
-#elif defined(CONFIG_MACH_SP6820A)
-    SPRD_BOARD_VERSION = system_rev & 0xffff;
-    if (SPRD_BOARD_VERSION == 0x100) {
-        sprd_local_audio_pa_mode = 1;
-    } else if (SPRD_BOARD_VERSION == 0x101) {
-        sprd_local_audio_pa_mode = 0;
-        speaker_gpio = 91;
-        speaker_gpio_enabled_level = 1;
-        if (gpio_request(speaker_gpio, "speaker amplifier")) {
-            printk(KERN_ERR "speaker amplifier gpio request fail!\n");
-        }
-    }
-#else    //8810 is controlled by audio_para
-//    sprd_local_audio_pa_mode = 1;
-#endif
-    printk("vbc sprd_local_audio_pa_mode = %d\n", sprd_local_audio_pa_mode);
-}
-
-static inline void local_amplifier_enable(int enable)
-{
-    if (sprd_local_audio_pa_mode) {
-        local_cpu_pa_control(enable);
-    } else {
-#if defined(CONFIG_MACH_SP6820A)
-        if (speaker_gpio >= 0)
-            gpio_direction_output(speaker_gpio, enable ? speaker_gpio_enabled_level:!speaker_gpio_enabled_level);
-        else printk("board 0x%03x not support outside PA\n", SPRD_BOARD_VERSION);
-#else
-        printk("vbc not support outside PA\n");
-#endif
-    }
-}
-
-static inline int local_amplifier_enabled(void)
-{
-    if (sprd_local_audio_pa_mode) {
-#if defined(CONFIG_ARCH_SC8800G)
-        u32 value = ADI_Analogdie_reg_read(ANA_PA_CTL);
-        switch (value) {
-            case 0x5A5A: return 1;
-            default : return 0;
-        }
-#elif defined(CONFIG_ARCH_SC8810)
-        u32 value = ADI_Analogdie_reg_read(ANA_AUDIO_PA_CTRL0);
-		value &= 0x1101;
-        switch (value) {
-            case 0x1101: return 1;
-            default : return 0;
-        }
-#endif
-    } else {
-#if defined(CONFIG_MACH_SP6820A)
-        if (speaker_gpio >= 0) {
-            if (!!gpio_get_value(speaker_gpio) == speaker_gpio_enabled_level)
-                return 1;
-            else return 0;
-        } else printk("board 0x%03x not support outside PA\n", SPRD_BOARD_VERSION);
-#else
-        printk("vbc not support outside PA\n");
-#endif
-        return 0;
-    }
-}
-#endif
-inline void vbc_amplifier_enable(int enable, const char *prename)
+static void audio_speaker_enable(int enable, const char *prename)
 {
 #if VBC_DYNAMIC_POWER_MANAGEMENT
-    printk("vbc %s ==> trun %s PA\n", prename, enable ? "on":"off");
-    printk("[headset_muted =%d]\n"
-           "[earpiece_muted=%d]\n"
-           "[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
-#else
-//  if (speaker_muted && earpiece_muted && headset_muted)
-//      printk("---- vbc mute3 all pa ----\n");
-//  else printk("---- vbc unmute3 %s%s%spa ----\n", speaker_muted ? "":"Speaker ",
-//              earpiece_muted ? "":"Earpiece ", headset_muted ? "":"Headset ");
+	pr_debug("vbc %s ==> trun %s PA\n", prename, enable ? "on":"off");
+	pr_debug("[headset_muted =%d]\n"
+			"[earpiece_muted=%d]\n"
+			"[speaker_muted =%d]\n", headset_muted, earpiece_muted, speaker_muted);
 #endif
-    local_amplifier_enable(enable);
+	if (audio_pa_amplifier && audio_pa_amplifier->speaker.control)
+		audio_pa_amplifier->speaker.control(enable, NULL);
+	else local_cpu_pa_control(enable);
+}
 
-}
-EXPORT_SYMBOL_GPL(vbc_amplifier_enable);
-inline int vbc_amplifier_enabled(void)
+static int audio_speaker_enabled(void)
 {
-    return local_amplifier_enabled();
+	if (audio_pa_amplifier && audio_pa_amplifier->speaker.control) {
+		return audio_pa_amplifier->speaker.control(-1, NULL);
+	} else {
+		u32 value = ADI_Analogdie_reg_read(ANA_AUDIO_PA_CTRL0);
+		value &= 0x1101;
+		switch (value) {
+			case 0x1101: return 1;
+			default : return 0;
+		}
+	}
 }
-EXPORT_SYMBOL_GPL(vbc_amplifier_enabled);
 
 void obj_vbc_param_release(struct kobject *kobject);               //added by jian
 ssize_t kobj_vbc_param_show(struct kobject *kobject, struct attribute *attr,char *buf);       //added by jian
@@ -1604,14 +1529,18 @@ ssize_t android_sim_show(struct class *class, struct class_attribute *attr, char
 ssize_t android_sim_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
+ssize_t android_switch_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t android_switch_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t android_codec_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t android_codec_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
-// /sys/class/modem/*
-static struct class_attribute modem_class_attrs[] = { // drivers/gpio/gpiolib.c
+
+/* /sys/class/modem/xxx */
+static struct class_attribute modem_class_attrs[] = {
 	__ATTR(status, 0664, modem_status_show, modem_status_store),
-    __ATTR(mode, 0664, android_mode_show, android_mode_store),
-    __ATTR(sim, 0664, android_sim_show, android_sim_store),
-    __ATTR(regs, 0664, vbc_regs_show, vbc_regs_store),
+	__ATTR(mode, 0664, android_mode_show, android_mode_store),
+	__ATTR(sim, 0664, android_sim_show, android_sim_store),
+	__ATTR(regs, 0664, vbc_regs_show, vbc_regs_store),
+	__ATTR(switch, 0664, android_switch_show, android_switch_store),
 	__ATTR(codec, 0664, android_codec_show, android_codec_store),
 	// __ATTR(unexport, 0200, NULL, unexport_store),
 	__ATTR_NULL,
@@ -1673,9 +1602,7 @@ ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,cons
 	printk("vbc_param have store!\n");
 
 //#if defined(CONFIG_ARCH_SC8810)
-#if !defined(CONFIG_MACH_SP6820A)
-	sprd_local_audio_pa_mode = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_SWITCH_INDEX];
-#endif
+	// sprd_local_audio_pa_mode = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_SWITCH_INDEX];
 	cur_internal_pa_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0xF;
 //	printk("chj kobj_vbc_param_store sprd_local_audio_pa_mode:%d cur_internal_pa_gain:0x%x\n",sprd_local_audio_pa_mode,cur_internal_pa_gain);
 //#endif
@@ -1731,43 +1658,69 @@ ssize_t android_mode_show(struct class *class, struct class_attribute *attr, cha
 
 ssize_t android_mode_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
-    int value;
-    sscanf(buf, "%d", &value);
-    local_fiq_disable();
-    android_mode = value;
-    if (android_mode < 0 || android_mode >= MODE_MAX)
-        android_mode = MODE_NORMAL;
-    local_fiq_enable();
-    return count;
+	sscanf(buf, "%d", &android_mode);
+	return count;
 }
 
 
 static int sim_num = 0;
 ssize_t android_sim_show(struct class *class, struct class_attribute *attr, char *buf)
 {
-    char *base = buf;
-    buf += sprintf(buf, "%d\n", sim_num);
-    return buf - base;
+    return sprintf(buf, "%d\n", sim_num);
 }
 
 ssize_t android_sim_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
-    int value;
-	sscanf(buf, "%d", &value);
-    local_fiq_disable();
-    sim_num = value;
-    local_fiq_enable();
+	sscanf(buf, "%d", &sim_num);
     return count;
 }
 
 ssize_t vbc_regs_show(struct class *class, struct class_attribute *attr, char *buf)
 {
-    vbc_dump_regs(0, 0, 0);
-    return 0;
+	vbc_dump_regs(0, 0, 0);
+	return 0;
 }
 
 ssize_t vbc_regs_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
 {
+	return count;
+}
+
+ssize_t android_switch_show(struct class *class, struct class_attribute *attr, char *buf)
+{
+    return sprintf(buf, "%s|%s|%s\n",
+			(audio_pa_amplifier && audio_pa_amplifier->earpiece.control) ? "0.earpiece" : "",
+			(audio_pa_amplifier && audio_pa_amplifier->headset.control) ? "1.headset" : "",
+			(audio_pa_amplifier && audio_pa_amplifier->speaker.control) ? "2.speaker" : "");
+}
+
+ssize_t android_switch_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count)
+{
+	int type = buf[0];
+	int cmd = buf[1];
+	switch (type) {
+	case 0:
+		if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
+			audio_pa_amplifier->earpiece.control(cmd, NULL);
+		else
+			pr_warn("vbc switch not available on <earpiece>\n");
+		break;
+	case 1:
+		if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
+			audio_pa_amplifier->headset.control(cmd, NULL);
+		else
+			pr_warn("vbc switch not available on <headset>\n");
+		break;
+	case 2:
+		if (audio_pa_amplifier && audio_pa_amplifier->speaker.control)
+			audio_pa_amplifier->speaker.control(cmd, NULL);
+		else
+			pr_warn("vbc switch not available on <speaker>\n");
+		break;
+	default:
+		pr_err("vbc switch not support this type <0x%02x>\n", type);
+		break;
+	}
     return count;
 }
 
@@ -1858,7 +1811,7 @@ static int vbc_probe(struct platform_device *pdev)
 
 	vbc_reset(codec, 0, 0);
     local_cpu_pa_control(false); // Turn off classD cpu PA
-    vbc_amplifier_enable(false, "vbc_init"); // Mute Speaker
+    audio_speaker_enable(false, "vbc_init"); // Mute Speaker
     vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
     vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
 #if VBC_DYNAMIC_POWER_MANAGEMENT
@@ -1957,7 +1910,6 @@ static int vbc_init(void)
     #if VBC_VTIMER_TEST
     lutimer_init();
     #endif
-    local_amplifier_init();
     register_reboot_notifier(&vbc_reboot_notifier);
     return snd_soc_register_dais(vbc_dai, ARRAY_SIZE(vbc_dai));
 }

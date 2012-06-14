@@ -57,6 +57,7 @@
 #include <linux/mxc622x.h>
 #endif
 #include <linux/dcam_sensor.h>
+#include <sound/audio_pa.h>
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -378,7 +379,7 @@ void clk_32k_config(int is_on)
         
     }
 }
-EXPORT_SYMBOL_GPL(clk_32k_config);
+//EXPORT_SYMBOL_GPL(clk_32k_config);
 
 void gps_power_ctl(int is_on)
 {
@@ -391,13 +392,96 @@ void gps_power_ctl(int is_on)
     	LDO_TurnOffLDO(LDO_LDO_WIF0);
     }
 }
-EXPORT_SYMBOL_GPL(gps_power_ctl);
+//EXPORT_SYMBOL_GPL(gps_power_ctl);
+#include <mach/adc_drvapi.h>
+static void sprd_get_borad_version(void)
+{
+    uint32_t SPRD_BOARD_VERSION;
+    uint32_t adc = ADC_GetValue(1, 0);
+    // format is 0xa.b.c
+    if (adc < 0xff)
+        SPRD_BOARD_VERSION = 0x100; // v1.0.0
+    else SPRD_BOARD_VERSION = 0x101; // v1.0.1
+    if ((system_rev & 0xffff) == 0) system_rev |= SPRD_BOARD_VERSION;
+    printk("xxxxxx ---- SPRD_BOARD_VERSION is 0x%03x ---- xxxxxx\n", SPRD_BOARD_VERSION);
+}
 
+void gps_ctrl_init(void)
+{
+    clk_32k_config(1);
+    if (system_rev == 0x100){
+        gps_power_ctl(1);
+    }
+    else {
+        gpio_set_value(92,1);
+    }
+}
+
+struct platform_device audio_pa_amplifier_device = {
+	.name = "speaker-pa",
+	.id = -1,
+};
+
+static int gpio_speaker_pa_en;
+static int audio_pa_amplifier_speaker_init(void)
+{
+	if (gpio_request(gpio_speaker_pa_en, "speaker outside pa")) {
+		pr_err("failed to alloc gpio %d\n", gpio_speaker_pa_en);
+		return -1;
+	}
+	gpio_direction_output(gpio_speaker_pa_en, 0);
+	return 0;
+}
+
+static int audio_pa_amplifier_speaker(u32 cmd, void *data)
+{
+	int ret = 0;
+	if (cmd < 0) {
+		/* get speaker amplifier status : enabled or disabled */
+		ret = gpio_get_value(gpio_speaker_pa_en);
+	} else {
+		/* set speaker amplifier */
+		gpio_direction_output(gpio_speaker_pa_en, cmd);
+	}
+	return ret;
+}
+
+static _audio_pa_control audio_pa_control = {
+	.speaker = {
+		.init = NULL,
+		.control = NULL,
+	},
+	.earpiece = {
+		.init = NULL,
+		.control = NULL,
+	},
+	.headset = {
+		.init = NULL,
+		.control = NULL,
+	},
+};
+
+static int sc8810_add_misc_devices(void)
+{
+	if (system_rev == 0x101) {
+		gpio_speaker_pa_en = 91;
+		audio_pa_control.speaker.init = audio_pa_amplifier_speaker_init;
+		audio_pa_control.speaker.control = audio_pa_amplifier_speaker;
+	}
+	if (audio_pa_control.speaker.control || audio_pa_control.earpiece.control || \
+		audio_pa_control.headset.control) {
+		platform_set_drvdata(&audio_pa_amplifier_device, &audio_pa_control);
+		if (platform_device_register(&audio_pa_amplifier_device))
+			pr_err("faile to install audio_pa_amplifier_device\n");
+	}
+	return 0;
+}
 
 static void __init openphone_init(void)
 {
 	chip_init();
 	ADI_init();
+    sprd_get_borad_version();
 	LDO_Init();
 	sprd_pin_map_init();
 	sprd_gpio_init();
@@ -414,12 +498,15 @@ static void __init openphone_init(void)
         sprd_wifildo_init();  //WIFI  vreg  ana  and digital
 	sprd_charger_init();
 	sprd_ramconsole_init();
+    gps_ctrl_init();
+	sc8810_add_misc_devices();
 }
 
 static void __init openphone_map_io(void)
 {
 	sprd_map_common_io();
 	sprd_ramconsole_reserve_sdram();	
+	sprd_pmem_reserve_sdram();
 }
 
 extern unsigned long phys_initrd_start;

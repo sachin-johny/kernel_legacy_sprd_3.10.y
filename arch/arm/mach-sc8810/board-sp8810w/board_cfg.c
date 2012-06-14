@@ -56,6 +56,7 @@
 #include <linux/mxc622x.h>
 #endif
 #include <linux/dcam_sensor.h>
+#include <sound/audio_pa.h>
 
 static struct resource example_resources[] = {
 	[0] = {
@@ -215,11 +216,10 @@ static struct platform_device sprd_spi_controller_device[] = {
 
 };
 
-
 static unsigned long spi_func_cfg[] = {
-	MFP_CFG_X(SPI_CLK, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SPI_DI, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SPI_DO, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+        MFP_CFG_X(SPI_CLK, AF0, DS3, F_PULL_UP, S_PULL_UP, IO_NONE),
+        MFP_CFG_X(SPI_DI, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+        MFP_CFG_X(SPI_DO, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 
         /* spi1 pin config*/
         MFP_CFG_X(TRACECTRL, AF2, DS3, F_PULL_UP, S_PULL_UP, IO_NONE),
@@ -227,15 +227,15 @@ static unsigned long spi_func_cfg[] = {
         MFP_CFG_X(TRACEDAT0, AF2, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
 
 #if 1
-	/* configure cs pin to normal gpio */
-	MFP_CFG_X(SPI_CSN0, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
-	MFP_CFG_X(SPI_CSN1, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        /* configure cs pin to normal gpio */
+        MFP_CFG_X(SPI_CSN0, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
+        MFP_CFG_X(SPI_CSN1, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
         MFP_CFG_X(TRACEDAT1, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
         MFP_CFG_X(TRACEDAT2, AF3, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 #else
-	/* configure cs pin to spi csx */
-	MFP_CFG_X(SPI_CSN0, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
-	MFP_CFG_X(SPI_CSN1, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+        /* configure cs pin to spi csx */
+        MFP_CFG_X(SPI_CSN0, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
+        MFP_CFG_X(SPI_CSN1, AF0, DS1, F_PULL_UP, S_PULL_UP, IO_NONE),
         MFP_CFG_X(TRACEDAT1, AF2, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
         MFP_CFG_X(TRACEDAT2, AF2, DS1, F_PULL_UP, S_PULL_UP, IO_OE),
 
@@ -324,6 +324,7 @@ EXPORT_SYMBOL_GPL(sprd_spi_cs_hook);
 static void sprd_spi_init(void)
 {
 	int i;
+	int ret;
 	int gpio;
 	struct spi_board_info *chip = openhone_spi_devices;
 	sprd_mfp_config(spi_func_cfg, ARRAY_SIZE(spi_func_cfg));
@@ -331,12 +332,11 @@ static void sprd_spi_init(void)
 		gpio = spi_cs_gpio[chip[i].chip_select];
 		chip[i].controller_data = (void *)gpio;
 	}
-
-        platform_device_register(&sprd_spi_controller_device[0]);
-        platform_device_register(&sprd_spi_controller_device[1]);
-
+        ret = platform_device_register(&sprd_spi_controller_device[0]);
+        printk("spi:add spi0:ret=%d",ret);
+        ret = platform_device_register(&sprd_spi_controller_device[1]);
+        printk("spi:add spi1:ret=%d",ret);
         spi_register_board_info(chip, ARRAY_SIZE(openhone_spi_devices));
-
 }
 #else
 static void sprd_spi_init(void)
@@ -415,7 +415,7 @@ void clk_32k_config(int is_on)
         
     }
 }
-EXPORT_SYMBOL_GPL(clk_32k_config);
+//EXPORT_SYMBOL_GPL(clk_32k_config);
 
 void gps_power_ctl(int is_on)
 {
@@ -428,7 +428,56 @@ void gps_power_ctl(int is_on)
     	LDO_TurnOffLDO(LDO_LDO_WIF0);
     }
 }
-EXPORT_SYMBOL_GPL(gps_power_ctl);
+//EXPORT_SYMBOL_GPL(gps_power_ctl);
+
+void sprd_gps_ctrl(void)
+{
+    clk_32k_config(1);
+    gps_power_ctl(1);
+}
+
+struct platform_device audio_pa_amplifier_device = {
+	.name = "speaker-pa",
+	.id = -1,
+};
+
+static int audio_pa_amplifier_speaker(u32 cmd, void *data)
+{
+	int ret = 0;
+	if (cmd < 0) {
+		/* get speaker amplifier status : enabled or disabled */
+		ret = 0;
+	} else {
+		/* set speaker amplifier */
+	}
+	return ret;
+}
+
+static _audio_pa_control audio_pa_control = {
+	.speaker = {
+		.init = NULL,
+		.control = NULL,
+	},
+	.earpiece = {
+		.init = NULL,
+		.control = NULL,
+	},
+	.headset = {
+		.init = NULL,
+		.control = NULL,
+	},
+};
+
+static int sc8810_add_misc_devices(void)
+{
+	if (audio_pa_control.speaker.control || audio_pa_control.earpiece.control || \
+		audio_pa_control.headset.control) {
+		platform_set_drvdata(&audio_pa_amplifier_device, &audio_pa_control);
+		if (platform_device_register(&audio_pa_amplifier_device))
+			pr_err("faile to install audio_pa_amplifier_device\n");
+	}
+	return 0;
+}
 
 extern void sc8810_pin_map_init(void);
 static void __init openphone_init(void)
@@ -453,12 +502,15 @@ static void __init openphone_init(void)
         sprd_wifildo_init();  //WIFI  vreg  ana  and digital
 	sprd_charger_init();
 	sprd_ramconsole_init();
+    sprd_gps_ctrl();
+	sc8810_add_misc_devices();
 }
 
 static void __init openphone_map_io(void)
 {
 	sprd_map_common_io();
-	sprd_ramconsole_reserve_sdram();	
+	sprd_ramconsole_reserve_sdram();
+	sprd_pmem_reserve_sdram();
 }
 
 extern unsigned long phys_initrd_start;
