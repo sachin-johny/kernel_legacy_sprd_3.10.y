@@ -36,6 +36,10 @@
 #include "regulator-sp8810ga.h"
 #endif
 
+#ifdef CONFIG_MACH_OPENPHONE_SC6820
+#include "regulator-sc6820-openphone.h"
+#endif
+
 #ifdef CONFIG_MACH_ADD_NEW_ONE_SPECIAL_PRJ
 #include "regulator-a-example.h"
 #endif
