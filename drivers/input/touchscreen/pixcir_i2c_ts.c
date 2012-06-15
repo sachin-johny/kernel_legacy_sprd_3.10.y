@@ -57,9 +57,9 @@ static void pixcir_ts_suspend(struct early_suspend *handler);
 static void pixcir_ts_resume(struct early_suspend *handler);
 static void pixcir_ts_pwron(struct regulator *reg_vdd);
 static int pixcir_tx_config(void);
-static DEVICE_ATTR(calibrate, S_IRUGO | S_IWUSR, NULL, pixcir_set_calibrate);
-static DEVICE_ATTR(suspend, S_IRUGO | S_IWUSR, pixcir_show_suspend, pixcir_store_suspend);
-static DEVICE_ATTR(debug, S_IRUGO | S_IWUSR, pixcir_show_debug, pixcir_store_debug);
+static DEVICE_ATTR(calibrate, 0660, NULL, pixcir_set_calibrate);
+static DEVICE_ATTR(suspend, 0660, pixcir_show_suspend, pixcir_store_suspend);
+static DEVICE_ATTR(debug, 0660, pixcir_show_debug, pixcir_store_debug);
 
 
 /* pixcir_i2c_rxdata --  read data from i2c
