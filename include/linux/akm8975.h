@@ -86,6 +86,14 @@ Defines a read-only address of the fuse ROM of the AK8975.*/
 struct akm8975_platform_data {
 	char layout;
 	int gpio_DRDY;
+	int mag_low_x;
+	int mag_high_x;
+	int mag_low_y;
+	int mag_high_y;
+	int mag_low_z;
+	int mag_high_z;
+	int (*power_on)(void);
+	int (*power_off)(void);
 };
 
 #endif
