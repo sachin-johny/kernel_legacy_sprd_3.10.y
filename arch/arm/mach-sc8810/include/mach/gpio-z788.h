@@ -27,7 +27,7 @@
  */
 #define GPIO_TOUCH_RESET	59
 #define GPIO_TOUCH_IRQ		92
-#define GPIO_PLSENSOR_IRQ	28
+#define GPIO_PLSENSOR_IRQ	91
 #define GPIO_MAIN_SENSOR_PWN    73
 #define GPIO_SUB_SENSOR_PWN       74
 

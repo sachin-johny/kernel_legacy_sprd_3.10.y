@@ -186,18 +186,6 @@
 #define GSENSOR_GINT1_GPI 0
 #define GSENSOR_GINT2_GPI 1
 
-static struct lis3dh_acc_platform_data lis3dh_plat_data = {
-	.poll_interval = 100,
-	.min_interval = 100,
-	.g_range = LIS3DH_ACC_G_2G,
-	.axis_map_x = 1,
-	.axis_map_y = 0,
-	.axis_map_z = 2,
-	.negate_x = 0,
-	.negate_y = 0,
-	.negate_z = 1
-};
-
 struct {
 	unsigned int cutoff_ms;
 	unsigned int mask;
@@ -1240,7 +1228,6 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 
 	pr_debug("%s: probe start.\n", LIS3DH_ACC_DEV_NAME);
 
-	client->dev.platform_data = &lis3dh_plat_data;
 	/*
 	if (client->dev.platform_data == NULL) {
 		dev_err(&client->dev, "platform data is NULL. exiting.\n");

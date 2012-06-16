@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 
 #include <asm/io.h>
@@ -22,9 +23,12 @@
 #include <asm/mach-types.h>
 
 #include <mach/hardware.h>
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
+
 #include <linux/i2c.h>
 #include <linux/i2c/ft5x0x_ts.h>
-#include <linux/i2c/al3006_pls.h>
+#include <linux/i2c/tmd2771_pls.h>
 #include <linux/i2c/lis3dh.h>
 
 #include <linux/akm8975.h>
@@ -126,6 +130,25 @@ static struct sys_timer sc8810_timer = {
 	.init = sc8810_timer_init,
 };
 
+struct regulator *vsim3_regulator_28 = NULL;
+static int vsim3_pwron()
+{
+	int err = 0;
+	printk(KERN_INFO "%s\n",__func__);
+	vsim3_regulator_28 = regulator_get(NULL, REGU_NAME_GSENSOR);
+	if (IS_ERR(vsim3_regulator_28)) {
+		pr_err("vsim3:could not get 2.8v regulator\n");
+		return -1;
+	}
+	err =regulator_set_voltage(vsim3_regulator_28,2800000,2800000);
+	if (err)
+		pr_err("vsim3:could not set to 2800mv.\n");
+	regulator_enable(vsim3_regulator_28);
+	msleep(20);
+
+        return 0;
+}
+
 static int calibration_mode = false;
 static int __init calibration_start(char *str)
 {
@@ -158,8 +181,31 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 };
 
-static struct al3006_pls_platform_data al3006_pls_info = {
+static struct lis3dh_acc_platform_data lis3dh_plat_data = {
+	.poll_interval = 100,
+	.min_interval = 100,
+	.g_range = LIS3DH_ACC_G_2G,
+	.axis_map_x = 0,
+	.axis_map_y = 1,
+	.axis_map_z = 2,
+	.negate_x = 1,
+	.negate_y = 1,
+	.negate_z = 1,
+	.power_on = vsim3_pwron,
+};
+
+static struct tmd2771_pls_platform_data tmd2771_pls_info = {
 	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+};
+
+struct akm8975_platform_data akm8975_platform_d = {
+	.mag_low_x = -32768,
+	.mag_high_x = -32767,
+	.mag_low_y = -32768,
+	.mag_high_y = -32767,
+	.mag_low_z = -32768,
+	.mag_high_z = -32767,
+	.power_on = vsim3_pwron,
 };
 
 static struct i2c_board_info i2c2_boardinfo[] = {
@@ -167,17 +213,25 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 		I2C_BOARD_INFO(FT5X0X_DEVICE_NAME, 0x3e),
 		.platform_data = &ft5x0x_ts_info,
 	},
+       {
+		I2C_BOARD_INFO("tmd2771_pls",   0x39),
+		.platform_data = &tmd2771_pls_info,
+       },
 };
+
 
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x2d),},
 };
 
 static struct i2c_board_info i2c0_boardinfo[] = {
-	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR) },
-	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR)    },
-	{ I2C_BOARD_INFO(AL3006_PLS_DEVICE,   AL3006_PLS_ADDRESS),
-	  .platform_data = &al3006_pls_info,
+	{
+		I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
+		.platform_data = &lis3dh_plat_data,
+	},
+	{
+		I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+		.platform_data = &akm8975_platform_d,
 	},
 };
 
