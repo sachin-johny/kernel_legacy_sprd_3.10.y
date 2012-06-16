@@ -69,6 +69,7 @@ static int gsm3727_backlight_update_status(struct backlight_device *bldev)
 			bldev->props.brightness == 0) {
 		/* disable backlight */
 		send_cmd(CMD_OFF, 0);
+		step_bak = 31;
 	} else {
 		value = bldev->props.brightness & BK_MOD_MAX;
 
@@ -76,7 +77,7 @@ static int gsm3727_backlight_update_status(struct backlight_device *bldev)
 			value = 255;
 		if(value < 0)
 			value = 0;
-		value_ret = 32 - value/8;
+		value_ret = 31 - value/8;
 
 		send_cmd(CMD_PULSE, (value_ret - step_bak + 32) & 31);
 
