@@ -818,7 +818,7 @@ static inline unsigned int norm_maxw(void)
 	return max_width;	
 }
 
-static inline unsigned int norm_maxh(void)
+static inline unsigned int norm_maxh(uint32_t hw_ratio)
 {
 	uint32_t max_height = 0;
 	uint32_t max_width = 0;
@@ -838,8 +838,11 @@ static inline unsigned int norm_maxh(void)
          max_width = (uint32_t)sensor_info_ptr->source_width_max;
 	if(max_width<DCAM_SCALE_OUT_WIDTH_MAX)
 	{
-                    max_width = DCAM_SCALE_OUT_WIDTH_MAX;
-                    max_height = (DCAM_SCALE_OUT_WIDTH_MAX *sensor_info_ptr->source_height_max ) /sensor_info_ptr->source_width_max;
+                  max_width = DCAM_SCALE_OUT_WIDTH_MAX;
+		if(!hw_ratio)
+		max_height = (DCAM_SCALE_OUT_WIDTH_MAX *sensor_info_ptr->source_height_max ) /sensor_info_ptr->source_width_max;
+		else
+		max_height = (DCAM_SCALE_OUT_WIDTH_MAX *sensor_info_ptr->source_width_max ) /sensor_info_ptr->source_height_max;
 	}
     
 //	DCAM_V4L2_PRINT("V4L2: norm_maxw,max height =%d.\n",max_height);
@@ -854,6 +857,7 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,struct v4l2_form
 	unsigned int maxw, maxh;
 	unsigned int temp = 0;
 	ISP_RECT_T trim_rect;
+	uint32_t hw_ratio = 0;
 
 	fmt = get_format(f);
 	if (!fmt) {
@@ -871,8 +875,10 @@ static int vidioc_try_fmt_vid_cap(struct file *file, void *priv,struct v4l2_form
 		return -EINVAL;
 	}
 
+	printk("f->fmt.pix.width=%d,%d.\n",f->fmt.pix.width,f->fmt.pix.height);
+	hw_ratio = (f->fmt.pix.height > f->fmt.pix.width) ? 1 : 0;
 	maxw  = norm_maxw();
-	maxh  = norm_maxh();
+	maxh  = norm_maxh(hw_ratio);
 
 	if(1 == f->fmt.raw_data[199])
 	{
@@ -2362,7 +2368,7 @@ static int buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 	struct dcam_fh     *fh  = vq->priv_data;
 	struct dcam_dev    *dev = fh->dev;
 	struct dcam_buffer *buf = container_of(vb, struct dcam_buffer, vb);
-
+	uint32_t hw_ratio = (fh->height>fh->width)? 1 : 0;
 //	DCAM_V4L2_PRINT("V4L2:buffer_prepare  w: %d, h: %d, baddr: %lx, bsize: %d.\n ",
 //		                              fh->width,fh->height, buf->vb.baddr, buf->vb.bsize);
    
@@ -2371,7 +2377,7 @@ static int buffer_prepare(struct videobuf_queue *vq, struct videobuf_buffer *vb,
 	BUG_ON(NULL == fh->fmt);	
 
 	if (fh->width  < 48 || fh->width  > norm_maxw() ||
-	    fh->height < 32 || fh->height > norm_maxh())
+	    fh->height < 32 || fh->height > norm_maxh(hw_ratio))
 		return -EINVAL;
 
 	if(V4L2_PIX_FMT_RGB32 == fh->fmt->fourcc)
