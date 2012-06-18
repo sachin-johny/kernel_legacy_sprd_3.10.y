@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 #include "dcam_drv_sc8810.h"
+#include <mach/globalregs.h>
 #include <linux/time.h>
 
 #define ISP_PATH1 1
@@ -232,12 +233,20 @@ static void _ISP_GetReg(void)
 
 static void _ISP_DrvierModuleReset(uint32_t base_addr)
 {
+/*jianping.wang
 	*(volatile uint32_t *)(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET) |=
 	    BIT(1) | BIT(2);
 	*(volatile uint32_t *)(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET) |=
 	    BIT(1) | BIT(2);
 	*(volatile uint32_t *)(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET) &=
 	    ~(BIT(1) | BIT(2));
+*/
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_CCIR_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_DCAM_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_CCIR_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_DCAM_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_CCIR_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_DCAM_SOFT_RST,AHB_SOFT_RST);
 	printk("_ISP_DrvierModuleReset .\n");
 }
 
@@ -849,9 +858,15 @@ int32_t ISP_DriverModuleEnable(uint32_t ahb_ctrl_addr)
 	ISP_DRV_RTN_E rtn = ISP_DRV_RTN_SUCCESS;
 
 	ISP_CHECK_PARAM_ZERO_POINTER(ahb_ctrl_addr);
+/*jianping.wang
 	*(volatile uint32_t *)(ahb_ctrl_addr + ISP_AHB_CTRL_MOD_EN_OFFSET) |=
 	    (BIT(1) | BIT(2));
 	*(volatile uint32_t *)(ahb_ctrl_addr + ISP_AHB_CTRL_MEM_SW_OFFSET) &= ~BIT(0);	// switch memory to ISP
+*/
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_DCAM_EN,AHB_CTL0);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_CCIR_EN,AHB_CTL0);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTRL1_DCAM_BUF_SW,AHB_CTL1);
+
 	_ISP_DrvierModuleReset(ahb_ctrl_addr);
 	return rtn;
 }
@@ -859,10 +874,14 @@ int32_t ISP_DriverModuleEnable(uint32_t ahb_ctrl_addr)
 int32_t ISP_DriverModuleDisable(uint32_t ahb_ctrl_addr)
 {
 	ISP_DRV_RTN_E rtn = ISP_DRV_RTN_SUCCESS;
-
+/*jianping.wang
 	*(volatile uint32_t *)(ahb_ctrl_addr + ISP_AHB_CTRL_MEM_SW_OFFSET) |= BIT(0);	// switch memory to ARM
 	*(volatile uint32_t *)(ahb_ctrl_addr + ISP_AHB_CTRL_MOD_EN_OFFSET) &=
 	    ~(BIT(1) | BIT(2));
+*/
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTRL1_DCAM_BUF_SW,AHB_CTL1);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_DCAM_EN,AHB_CTL0);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_CCIR_EN,AHB_CTL0);
 	return rtn;
 }
 
@@ -878,10 +897,17 @@ int32_t ISP_DriverSoftReset(uint32_t ahb_ctrl_addr)
 
 void ISP_DriverIramSwitch(uint32_t base_addr, uint32_t isp_or_arm)
 {
+/*jianping.wang
 	if (isp_or_arm == IRAM_FOR_ISP) {
 		_paad(base_addr + ISP_AHB_CTRL_MEM_SW_OFFSET, ~BIT(0));
 	} else {
 		_paod(base_addr + ISP_AHB_CTRL_MEM_SW_OFFSET, BIT(0));
+	}
+*/
+	if (isp_or_arm == IRAM_FOR_ISP) {
+		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTRL1_DCAM_BUF_SW,AHB_CTL1);
+	} else {
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTRL1_DCAM_BUF_SW,AHB_CTL1);
 	}
 }
 

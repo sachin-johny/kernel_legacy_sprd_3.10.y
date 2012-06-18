@@ -27,6 +27,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <video/sprd_scale.h>
+#include <mach/globalregs.h>
 #include "scale_drv_sc8810.h"
 #include "../sprd_dcam/common/isp_control.h"
 
@@ -383,11 +384,13 @@ static int32_t _ISP_DriverGenScxCoeff(uint32_t idxScx)
 	return ISP_DRV_RTN_SUCCESS;
 }
 
-static int32_t _SCALE_DriverSetSC2Coeff(void) {
+static int32_t _SCALE_DriverSetSC2Coeff(void)
+{
 	return _ISP_DriverGenScxCoeff(ISP_PATH2);
 }
 
-static int32_t _SCALE_DriverPath2TrimAndScaling(void) {
+static int32_t _SCALE_DriverPath2TrimAndScaling(void)
+{
 	uint32_t rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_PATH_DESCRIPTION_T *p_path = &s_scale_mod.isp_path2;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
@@ -427,56 +430,88 @@ static int32_t _SCALE_DriverPath2TrimAndScaling(void) {
 	return rtn;
 }
 
-static void _SCALE_DriverIrqEnable(uint32_t mask) {
+static void _SCALE_DriverIrqEnable(uint32_t mask)
+{
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 	p_isp_reg->dcam_int_mask_u.dwValue |= mask;
 }
 
-static void _SCALE_DriverForceCopy(void) {
+static void _SCALE_DriverForceCopy(void)
+{
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 	p_isp_reg->dcam_path_cfg_u.mBits.frc_copy_cap = 1;
 	p_isp_reg->dcam_path_cfg_u.mBits.frc_copy_cap = 1;
 	p_isp_reg->dcam_path_cfg_u.mBits.frc_copy_cap = 0;
 }
 
-static void _SCALE_DriverIramSwitch(uint32_t base_addr, uint32_t isp_or_arm) {
+static void _SCALE_DriverIramSwitch(uint32_t base_addr, uint32_t isp_or_arm)
+{
+/*jianping.wang
 	if (isp_or_arm == 0) {
 		_paad(base_addr + ISP_AHB_CTRL_MEM_SW_OFFSET, ~BIT(0));
 	} else {
 		_paod(base_addr + ISP_AHB_CTRL_MEM_SW_OFFSET, BIT(0));
 	}
+*/
+	if (isp_or_arm == 0) {
+		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTRL1_DCAM_BUF_SW,AHB_CTL1);
+	} else {
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTRL1_DCAM_BUF_SW,AHB_CTL1);
+	}
 }
 
-static void _SCALE_DrvierModuleReset(uint32_t base_addr) {
+static void _SCALE_DrvierModuleReset(uint32_t base_addr)
+{
+/*jianping.wang
 	_paod(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET, BIT(1) | BIT(2));
 	_paod(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET, BIT(1) | BIT(2));
 	_paad(base_addr + ISP_AHB_CTRL_SOFT_RESET_OFFSET, ~(BIT(1) | BIT(2)));
+*/
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_CCIR_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_DCAM_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_CCIR_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_DCAM_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_CCIR_SOFT_RST,AHB_SOFT_RST);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_SOFT_RST_DCAM_SOFT_RST,AHB_SOFT_RST);
 }
 
-static int32_t _SCALE_DriverModuleEnable(uint32_t ahb_ctrl_addr) {
+static int32_t _SCALE_DriverModuleEnable(uint32_t ahb_ctrl_addr)
+{
 	ISP_DRV_RTN_E rtn = ISP_DRV_RTN_SUCCESS;
-
+/*jianping.wang
 	_paod(ahb_ctrl_addr + ISP_AHB_CTRL_MOD_EN_OFFSET, BIT(1) | BIT(2));
 	_paad(ahb_ctrl_addr + ISP_AHB_CTRL_MEM_SW_OFFSET, ~BIT(0));
+*/
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_DCAM_EN,AHB_CTL0);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_CCIR_EN,AHB_CTL0);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTRL1_DCAM_BUF_SW,AHB_CTL1);
 	_SCALE_DrvierModuleReset(ahb_ctrl_addr);
 	return rtn;
 }
 
-static int32_t _SCALE_DriverModuleDisable(uint32_t ahb_ctrl_addr) {
+static int32_t _SCALE_DriverModuleDisable(uint32_t ahb_ctrl_addr)
+{
 	ISP_DRV_RTN_E rtn = ISP_DRV_RTN_SUCCESS;
+/*jianping.wang
 	_paod(ahb_ctrl_addr + ISP_AHB_CTRL_MEM_SW_OFFSET, BIT(0));
 	_paad(ahb_ctrl_addr + ISP_AHB_CTRL_MOD_EN_OFFSET, ~(BIT(1) | BIT(2)));
+*/
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTRL1_DCAM_BUF_SW,AHB_CTL1);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_DCAM_EN,AHB_CTL0);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_CCIR_EN,AHB_CTL0);
 	return rtn;
 }
 
-static void _SCALE_DriverScalingCoeffReset(void) {
+static void _SCALE_DriverScalingCoeffReset(void)
+{
 	s_scale_mod.isp_path1.h_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
 	s_scale_mod.isp_path1.v_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
 	s_scale_mod.isp_path2.h_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
 	s_scale_mod.isp_path2.v_scale_coeff = ISP_PATH_SCALE_LEVEL_MAX + 1;
 }
 
-static int32_t _SCALE_DriverSoftReset(uint32_t ahb_ctrl_addr) {
+static int32_t _SCALE_DriverSoftReset(uint32_t ahb_ctrl_addr)
+{
 	ISP_DRV_RTN_E rtn = ISP_DRV_RTN_SUCCESS;
 	_SCALE_DriverModuleEnable(ahb_ctrl_addr);
 	_SCALE_DrvierModuleReset(ahb_ctrl_addr);
@@ -484,7 +519,8 @@ static int32_t _SCALE_DriverSoftReset(uint32_t ahb_ctrl_addr) {
 	return rtn;
 }
 
-uint32_t _SCALE_DriverInit(void) {
+uint32_t _SCALE_DriverInit(void)
+{
 	int32_t rtn_drv = ISP_DRV_RTN_SUCCESS;
 	_SCALE_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, 0);
 	rtn_drv = _SCALE_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
@@ -492,12 +528,14 @@ uint32_t _SCALE_DriverInit(void) {
 	return rtn_drv;
 }
 
-static void _SCALE_DriverDeinit(void) {
+static void _SCALE_DriverDeinit(void)
+{
 	_SCALE_DriverModuleDisable(AHB_GLOBAL_REG_CTL0);
 	_SCALE_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, 1);
 }
 
-static int32_t _SCALE_DriverStart(void) {
+static int32_t _SCALE_DriverStart(void)
+{
 	uint32_t rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_PATH_DESCRIPTION_T *p_path2 = &s_scale_mod.isp_path2;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
@@ -525,17 +563,20 @@ static int32_t _SCALE_DriverStart(void) {
 	return rtn;
 }
 
-static void _SCALE_DriverIrqClear(uint32_t mask) {
+static void _SCALE_DriverIrqClear(uint32_t mask)
+{
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 	p_isp_reg->dcam_int_clr_u.dwValue |= mask;
 }
 
-static void _SCALE_DriverIrqDisable(uint32_t mask) {
+static void _SCALE_DriverIrqDisable(uint32_t mask)
+{
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 	p_isp_reg->dcam_int_mask_u.dwValue &= ~mask;
 }
 
-static int32_t _SCALE_DriverStop(void) {
+static int32_t _SCALE_DriverStop(void)
+{
 	uint32_t rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 
@@ -550,7 +591,8 @@ static int32_t _SCALE_DriverStop(void) {
 	return rtn;
 }
 
-static int32_t _SCALE_DriverSetMode(void) {
+static int32_t _SCALE_DriverSetMode(void)
+{
 	uint32_t rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 
@@ -561,7 +603,8 @@ static int32_t _SCALE_DriverSetMode(void) {
 	return rtn;
 }
 
-void _SCALE_CopyTartgetData(void) {
+void _SCALE_CopyTartgetData(void)
+{
 	uint32_t count, height;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 
@@ -579,7 +622,8 @@ void _SCALE_CopyTartgetData(void) {
 		   g_zoom_dma_buf.width * height);
 }
 
-uint32_t _SCALE_IsContinueSlice(void) {
+uint32_t _SCALE_IsContinueSlice(void)
+{
 	ISP_PATH_DESCRIPTION_T *p_path = &s_scale_mod.isp_path2;
 	uint32_t count = 0;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
@@ -605,12 +649,12 @@ uint32_t _SCALE_IsContinueSlice(void) {
 	}
 }
 
-int _SCALE_ContinueSlice(long unsigned int data) {
+int _SCALE_ContinueSlice(long unsigned int data)
+{
 	ISP_PATH_DESCRIPTION_T *p_path = &s_scale_mod.isp_path2;
 	ISP_FRAME_T next_frame;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
-	ISP_RECT_T rect = {
-	0};
+	ISP_RECT_T rect = {0};
 	int32_t rtn_drv = 0;
 
 	//for YUV422
@@ -714,12 +758,14 @@ int _SCALE_ContinueSlice(long unsigned int data) {
 	p_isp_reg->rev_path_cfg_u.mBits.review_start = 1;
 }
 
-static void _SCALE_ISRPath2Done(void) {
+static void _SCALE_ISRPath2Done(void)
+{
 	up(&g_sem);
 	return;
 }
 
-static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param) {
+static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param)
+{
 	uint32_t rtn = ISP_DRV_RTN_SUCCESS;
 	ISP_PATH_DESCRIPTION_T *p_path = &s_scale_mod.isp_path2;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
@@ -1017,13 +1063,15 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param) {
 
 }
 
-int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void *param) {
+int _SCALE_DriverIOPathConfig(SCALE_CFG_ID_E id, void *param)
+{
 	uint32_t rtn = ISP_DRV_RTN_SUCCESS;
 	return rtn;
 }
 
 typedef void (*isr_func_t) (void);
-static uint32_t _SCALE_DriverReadIrqLine(void) {
+static uint32_t _SCALE_DriverReadIrqLine(void)
+{
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 	return p_isp_reg->dcam_int_stat_u.dwValue;
 }
@@ -1034,7 +1082,8 @@ NULL,
 	    NULL,
 	    NULL, NULL, NULL, NULL, NULL, NULL, NULL, _SCALE_ISRPath2Done};
 
-static void _SCALE_DriverISRRoot(void) {
+static void _SCALE_DriverISRRoot(void)
+{
 	uint32_t irq_line, irq_status;
 	uint32_t i;
 
@@ -1052,12 +1101,14 @@ static void _SCALE_DriverISRRoot(void) {
 	_SCALE_DriverIrqClear(irq_status);
 }
 
-static ISR_EXE_T _SCALE_ISRSystemRoot(uint32_t param) {
+static ISR_EXE_T _SCALE_ISRSystemRoot(uint32_t param)
+{
 	_SCALE_DriverISRRoot();
 	return ISR_DONE;
 }
 
-static irqreturn_t _SCALE_DriverISR(int irq, void *dev_id) {
+static irqreturn_t _SCALE_DriverISR(int irq, void *dev_id)
+{
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 	uint32_t value = p_isp_reg->dcam_int_stat_u.mBits.review_done;
 
@@ -1069,7 +1120,8 @@ static irqreturn_t _SCALE_DriverISR(int irq, void *dev_id) {
 	return IRQ_HANDLED;
 }
 
-int _SCALE_DriverRegisterIRQ(void) {
+int _SCALE_DriverRegisterIRQ(void)
+{
 	uint32_t ret = 0;
 	if (0 !=
 	    (ret =
@@ -1080,11 +1132,13 @@ int _SCALE_DriverRegisterIRQ(void) {
 	return ret;
 }
 
-void _SCALE_DriverUnRegisterIRQ(void) {
+void _SCALE_DriverUnRegisterIRQ(void)
+{
 	free_irq(IRQ_LINE_DCAM, &g_share_irq);
 }
 
-int _SCALE_DriverIOInit(void) {
+int _SCALE_DriverIOInit(void)
+{
 	isp_get_path2();
 	if (0 < g_scale_num) {
 		SCALE_PRINT_ERR("SCALE: fail to open device,g_scale_num=%d.\n",
@@ -1118,14 +1172,16 @@ int _SCALE_DriverIOInit(void) {
 	return 0;
 }
 
-int SCALE_open(struct inode *node, struct file *pf) {
+int SCALE_open(struct inode *node, struct file *pf)
+{
 	if (0 == _SCALE_DriverIOInit())
 		return 0;
 	else
 		return -1;
 }
 
-int _SCALE_DriverIODeinit(void) {
+int _SCALE_DriverIODeinit(void)
+{
 	_SCALE_DriverStop();
 	_SCALE_DriverUnRegisterIRQ();
 	g_scale_num--;
@@ -1140,7 +1196,8 @@ int _SCALE_DriverIODeinit(void) {
 	return 0;
 }
 
-int SCALE_release(struct inode *node, struct file *pf) {
+int SCALE_release(struct inode *node, struct file *pf)
+{
 	_SCALE_DriverIODeinit();
 	return 0;
 }
@@ -1148,7 +1205,8 @@ int SCALE_release(struct inode *node, struct file *pf) {
 /* ------------------------------------------------------------------
 	File operations for the device
    ------------------------------------------------------------------*/
-int _SCALE_DriverIODone(void) {
+int _SCALE_DriverIODone(void)
+{
 	int32_t ret = 0;
 	_SCALE_DriverSetMode();
 	_SCALE_DriverRegisterIRQ();
