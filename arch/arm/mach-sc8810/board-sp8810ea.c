@@ -192,11 +192,11 @@ static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 
 struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_x = -20480,
-	.mag_high_x = -20479,
+	.mag_high_x = 20479,
 	.mag_low_y = -20480,
-	.mag_high_y = -20479,
+	.mag_high_y = 20479,
 	.mag_low_z = -20480,
-	.mag_high_z = -20479,
+	.mag_high_z = 20479,
 };
 
 static struct i2c_board_info i2c1_boardinfo[] = {
