@@ -212,7 +212,29 @@ static struct wifi_platform_data bcm_wifi_control = {
 	.get_mac_addr	= bcm_wifi_get_mac_addr,
 #endif
 };
+#ifdef CONFIG_WLAN_SDIO
+static struct resource sdio_resources[] = {
+	[0] = {
+		.start  = SPRD_SDIO1_PHYS,
+		.end    = SPRD_SDIO1_PHYS + SZ_4K - 1,
+		.flags  = IORESOURCE_MEM,
+	},
+	[1] = {
+		.name = "bcmdhd_wlan_irq",
+		.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
+	},
+};
+static struct platform_device sprd_sdio_controller_device = {
+	.name   = "bcmdhd_wlan",
+	.id     = 1,
+	.dev    = {
+		.platform_data = &bcm_wifi_control,
+	},
+	.resource	= sdio_resources,
+	.num_resources	= ARRAY_SIZE(sdio_resources),
+};
 
+#else
 static struct resource spi_resources[] = {
 	[0] = {
 		.start  = SPRD_SPI0_PHYS,
@@ -233,7 +255,7 @@ static struct platform_device sprd_spi_controller_device = {
 	.resource	= spi_resources,
 	.num_resources	= ARRAY_SIZE(spi_resources),
 };
-
+#endif
 static int __init bcm_wifi_init(void)
 {
 	int ret;
@@ -242,10 +264,19 @@ static int __init bcm_wifi_init(void)
 	brcm_ldo_enable();
 	gpio_request(GPIO_WIFI_IRQ, "oob_irq");
 	gpio_direction_input(GPIO_WIFI_IRQ);
+#ifdef CONFIG_WLAN_SDIO
+	sdio_resources[1].start = gpio_to_irq(GPIO_WIFI_IRQ);
+	sdio_resources[1].end = gpio_to_irq(GPIO_WIFI_IRQ);
+#else
 	spi_resources[1].start = gpio_to_irq(GPIO_WIFI_IRQ);
 	spi_resources[1].end = gpio_to_irq(GPIO_WIFI_IRQ);
+#endif
 	gpio_request(GPIO_WIFI_SHUTDOWN,"wifi_pwd");
+#ifdef CONFIG_WLAN_SDIO
+	ret = platform_device_register(&sprd_sdio_controller_device);
+#else
 	ret = platform_device_register(&sprd_spi_controller_device);
+#endif
 
 	return ret;
 }

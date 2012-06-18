@@ -60,14 +60,6 @@ extern void dhdsdio_isr(void * args);
 #ifdef SPRD_SPI
 //2012.3.19 add by Leo
 int g_irq = 0;
-static struct spi_board_info openhone_spi_devices4wifi[] = {
-	{
-	 .modalias = "wlan_spi",	// "spidev" --> spidev_spi
-	 .chip_select = 1,
-	 .max_speed_hz = 48 * 1000 * 1000,
-	 .mode = 0,
-	 },
-};
 struct spi_device *g_spi = NULL;
 
 //2012.3.19
@@ -582,11 +574,6 @@ extern int sdio_func_reg_notify(void* semaphore);
 extern void sdio_func_unreg_notify(void);
 
 #ifdef SPRD_SPI
-//2012.3.19 add by Leo
-extern struct spi_device *sprd_spi_wifi_device_register(int master_bus_num, struct spi_board_info *chip);
-
-extern struct spi_device *sprd_spi_cmmb_device_register(int master_bus_num, struct spi_board_info *chip);
-
 #if 1
 static int spi_brcm_probe(struct spi_device *spi_dev)
 {
@@ -601,36 +588,6 @@ static int spi_brcm_probe(struct spi_device *spi_dev)
 
 	g_spi = spi_dev;
 	
-
-
-#if 0
-	printk("%s, mode = %d \n", __func__, spi_dev->mode);
-	printk("%s, bit_per_word = %d \n", __func__, spi_dev->bits_per_word);
-	printk("%s, speed = %d \n", __func__, spi_dev->max_speed_hz);
-	printk("%s, chip_select = %d \n", __func__, spi_dev->chip_select);
-	printk("%s, controller_data = %d \n", __func__, *(int *)spi_dev->controller_data);	
-
-	
-	
-	spi_dev->mode= 0;	
-	spi_dev->bits_per_word = 8;
-	spi_dev->chip_select = 0;
-		
-	spi_dev->max_speed_hz =4000000;
-	spi_dev->master->bus_num = 1;
-
-	printk("set spi ==========================%d \n", spi_setup(spi_dev));
-
-	printk("%s, mode = %d \n", __func__, spi_dev->mode);
-	printk("%s, bit_per_word = %d \n", __func__, spi_dev->bits_per_word);
-	printk("%s, speed = %d \n", __func__, spi_dev->max_speed_hz);
-	printk("%s, chip_select = %d \n", __func__, spi_dev->chip_select);
-	printk("%s, controller_data = %d \n", __func__, *(int *)spi_dev->controller_data);	
-
-
-	
-#endif 
-
 #if 1
 	printk("set spi ==========================%d \n", spi_setup(spi_dev));
 
@@ -644,13 +601,6 @@ static int spi_brcm_probe(struct spi_device *spi_dev)
 
 #endif
 
-
-	//2012-02-15 Leo comment out
-	//g_once=getwifionlyone(0);
-
-	/* use bcmsdh_query_device() to get the vendor ID of the target device so
-	 * it will eventually appear in the Broadcom string on the console
-	 */
 #if defined(OOB_INTR_ONLY)
 #ifdef HW_OOB
 	irq_flags =
@@ -669,23 +619,6 @@ static int spi_brcm_probe(struct spi_device *spi_dev)
 		return 1;
 	}
 
-	/*
-	if(0){
-		
-		gpio_request(142, "wifi_irq");
-		//2012-02-15 Leo
-   		//g_irq = sprd_alloc_gpio_irq(204);//	get_wifi_irq(0);//g
-   		gpio_direction_input(142);
- 		g_irq = sprd_alloc_gpio_irq(142);
-		printf("g_irq=%d\n", g_irq);
- 		 //2012-02-15 Leo
-    		//set_wifi_irq(g_irq);
-
-		if  (g_irq < 0) {
-			SDLX_MSG(("%s: Host irq is not defined\n", __FUNCTION__));
-			return 1;
-		}
-	}*/
 #endif /* defined(OOB_INTR_ONLY) */
 
     printk("get_wifi_irq = %d \n", g_irq);
@@ -836,14 +769,8 @@ bcmsdh_register(bcmsdh_driver_t *driver)
 	drvinfo = *driver;
 	
 #ifdef SPRD_SPI
-	//2012.3.19 Add by Leo
 
 	printf("spi registered for wifi\n");
-
-#ifdef CONFIG_MACH_SP8810EA
-	printf("spi registered for wif12i\n");
- 	//sprd_spi_wifi_device_register(1, openhone_spi_devices4wifi);        
-#endif
 
 	if ((error = spi_register_driver(&spi_brcm_driver))){
 		printf("spi registered failed for wifi,error = %d\n",error);
