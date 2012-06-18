@@ -45,6 +45,8 @@
 
 struct akm8975_data {
 	struct i2c_client	*i2c;
+	struct akm8975_platform_data *pdata;
+
 	struct input_dev	*input;
 	struct device		*class_dev;
 	struct class		*compass;
@@ -72,7 +74,6 @@ struct akm8975_data {
 };
 
 static struct akm8975_data *s_akm;
-
 
 
 /***** I2C I/O function ***********************************************/
@@ -1136,7 +1137,7 @@ static int akm8975_input_init(
 	*input = input_allocate_device();
 	if (!*input)
 		return -ENOMEM;
-
+	dev_dbg("akm8975_input_init:\n");
 	/* Setup input device */
 	set_bit(EV_ABS, (*input)->evbit);
 	/* Accelerometer (720 x 16G)*/
@@ -1150,11 +1151,11 @@ static int akm8975_input_init(
 			0, 3, 0, 0);
 	/* Magnetic field (-4096, 4095)*/
 	input_set_abs_params(*input, ABS_RX,
-			-20480, 20479, 0, 0);
+			s_akm->pdata->mag_low_x, s_akm->pdata->mag_high_x, 0, 0);
 	input_set_abs_params(*input, ABS_RY,
-			-20480, 20479, 0, 0);
+			s_akm->pdata->mag_low_y, s_akm->pdata->mag_high_y, 0, 0);
 	input_set_abs_params(*input, ABS_RZ,
-			-20480, 20479, 0, 0);
+			s_akm->pdata->mag_low_z, s_akm->pdata->mag_high_z, 0, 0);
 	input_set_abs_params(*input, ABS_RUDDER,
 			0, 3, 0, 0);
 	/* Orientation (yaw:0,360 pitch:-180,180 roll:-90,90) */
@@ -1240,7 +1241,6 @@ static int akm8975_resume(struct i2c_client *client)
 
 int akm8975_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
-	struct akm8975_platform_data *pdata;
 	int err = 0;
 	int i;
 
@@ -1261,17 +1261,28 @@ int akm8975_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	}
 
 	/***** Set layout information *****/
-	pdata = client->dev.platform_data;
-	if (pdata) {
+	s_akm->pdata = kzalloc(sizeof(*s_akm->pdata), GFP_KERNEL);
+	if (s_akm->pdata == NULL) {
+		err = -ENOMEM;
+		dev_err(&client->dev,
+			"failed to allocate memory for pdata: %d\n", err);
+		goto exit2;
+	}
+
+	memcpy(s_akm->pdata, client->dev.platform_data, sizeof(*s_akm->pdata));
+	if (s_akm->pdata) {
 		/* Platform data is available. copy its value to local. */
-		s_akm->layout = pdata->layout;
+		s_akm->layout = s_akm->pdata->layout;
 	} else {
 		/* Platform data is not available.
 		   Layout information should be set by each application. */
 		dev_dbg(&client->dev, "%s: No platform data.", __func__);
 		s_akm->layout = 0;
 	}
-
+	if(s_akm->pdata->power_on)
+	{
+	      s_akm->pdata->power_on();
+	}
 	/***** I2C initialization *****/
 	s_akm->i2c = client;
 	/* check connection */
@@ -1354,7 +1365,7 @@ int akm8975_probe(struct i2c_client *client, const struct i2c_device_id *id)
         goto exit6;
     }
 
-	dev_dbg(&client->dev, "successfully probed.");
+	dev_dbg(&client->dev, "successfully probed.\n");
 	return 0;
 
 exit6:

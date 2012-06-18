@@ -200,11 +200,11 @@ static struct tmd2771_pls_platform_data tmd2771_pls_info = {
 
 struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_x = -32768,
-	.mag_high_x = -32767,
+	.mag_high_x = 32767,
 	.mag_low_y = -32768,
-	.mag_high_y = -32767,
+	.mag_high_y = 32767,
 	.mag_low_z = -32768,
-	.mag_high_z = -32767,
+	.mag_high_z = 32767,
 	.power_on = vsim3_pwron,
 };
 
