@@ -1137,7 +1137,6 @@ static int akm8975_input_init(
 	*input = input_allocate_device();
 	if (!*input)
 		return -ENOMEM;
-	dev_dbg("akm8975_input_init:\n");
 	/* Setup input device */
 	set_bit(EV_ABS, (*input)->evbit);
 	/* Accelerometer (720 x 16G)*/
