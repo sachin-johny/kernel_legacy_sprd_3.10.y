@@ -120,4 +120,10 @@ source "drivers/media/dvb/Kconfig"
 
 source "drivers/media/mdtv/Kconfig"
 
+#
+# ATV
+#
+
+source "drivers/media/atv/Kconfig"
+
 endif # MEDIA_SUPPORT
