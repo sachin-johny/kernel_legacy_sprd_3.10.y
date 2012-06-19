@@ -231,7 +231,7 @@ config DCAM_SENSOR_POS_SR200PC10
 	help
 	  Sensor position: 1 - back, 2 - front, 3 - both.
 
-config DCAM_ATV_NMI601
+config NMI601_ATV
 	tristate "Add atv driver of NMI601"
 	depends on VIDEO_DCAM_SPRD
 	help
