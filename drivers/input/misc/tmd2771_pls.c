@@ -113,16 +113,12 @@
 #define CHIP_ID                         0x3d
 
 #define TAOS_INPUT_NAME    "light sensor"
-extern int sprd_3rdparty_gpio_pls_irq;
 // forward declarations
 static int taos_probe(struct i2c_client *clientp, const struct i2c_device_id *idp);
 static int taos_remove(struct i2c_client *client);
 static int taos_open(struct inode *inode, struct file *file);
 static int taos_release(struct inode *inode, struct file *file);
-static int taos_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg);
-static int taos_read(struct file *file, char *buf, size_t count, loff_t *ppos);
-static int taos_write(struct file *file, const char *buf, size_t count, loff_t *ppos);
-static loff_t taos_llseek(struct file *file, loff_t offset, int orig);
+static int taos_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
 static int taos_get_lux(void);
 //static int taos_lux_filter(int raw_lux);
 static int taos_device_name(unsigned char *bufp, char **device_name);
@@ -139,16 +135,9 @@ static int taos_interrupts_clear(void);
 //static int taos_suspend(struct i2c_client *client,pm_message_t mesg);
 
 
-static int tmd2771_pls_irq;
 DECLARE_WAIT_QUEUE_HEAD(waitqueue_read);//iVIZM
 
 #define ALS_PROX_DEBUG //iVIZM
-static unsigned int ReadEnable = 0;//iVIZM
-struct ReadData { //iVIZM
-    unsigned int data;
-    unsigned int interrupt;
-};
-struct ReadData readdata[2];//iVIZM
 
 // first device number
 static dev_t taos_dev_number;
@@ -220,11 +209,7 @@ static struct file_operations taos_fops = {
     .owner = THIS_MODULE,
     .open = taos_open,
     .release = taos_release,
-    .read = taos_read,
-    .write = taos_write,
-    .llseek = taos_llseek,
     .unlocked_ioctl = taos_ioctl,
-   // .poll = taos_poll, //iVIZM
 };
 
 // device configuration
@@ -343,21 +328,9 @@ static int taos_get_data(void)//iVIZM
 	//               1:1    = pint:aint
 	//			  1:0	  = pint
 	// 			  0:1   = aint
-/*	del by zwj 
-	if((status&0x30) == 0x30)	// all interrupt
-	{
-		taos_prox_threshold_set();		
-	    ReadEnable = 1;
-        taos_als_threshold_set();
-        taos_als_get_data();
-	}	
-    else */
 	if((status & 0x20) == 0x20) {	// ps
         ret = taos_prox_threshold_set();
-        if(ret >= 0)
-            ReadEnable = 1;
     } else if((status & 0x10) == 0x10) {	// as
-        ReadEnable = 1;
         taos_als_threshold_set();
         taos_als_get_data();
     }
@@ -377,11 +350,12 @@ static int taos_interrupts_clear(void)//iVIZM
 static void taos_work_func(struct work_struct * work) //iVIZM
 {
     wake_lock(&taos_datap->taos_wake_lock);
-    //printk("^^^^^^^^^^^^^^^^^^  taos_work_func ^^^^^^^^^^^^^^^^^^^^\n");
+    printk("^^^^^^^^^^^^^^^^^^  taos_work_func ^^^^^^^^^^^^^^^^^^^^\n");
     taos_get_data();
     taos_interrupts_clear();
     wake_unlock(&taos_datap->taos_wake_lock);
 }
+
 static int taos_als_get_data(void)//iVIZM
 {
     int ret = 0;
@@ -402,18 +376,13 @@ static int taos_als_get_data(void)//iVIZM
     if ((reg_val & TAOS_TRITON_STATUS_ADCVALID) != TAOS_TRITON_STATUS_ADCVALID)
         return -ENODATA;
     if ((lux_val = taos_get_lux()) < 0)
-        //printk(KERN_ERR "TAOS: call to taos_get_lux() returned error %d in ioctl als_data\n", lux_val);
-   // lux_val = taos_lux_filter(lux_val);
+        printk(KERN_ERR "TAOS: call to taos_get_lux() returned error %d in ioctl als_data\n", lux_val);
     printk("********** before taos_als_get_data ********* lux_val = %d \n",lux_val);
-	//lux_val |= (1 << 16);
-	//input_event(taos_datap->input_dev,EV_MSC,MSC_RAW,lux_val);
-	input_report_abs(taos_datap->input_dev,ABS_MISC,lux_val);
-	input_sync(taos_datap->input_dev);	// zwj add test
-    //readdata[0].data = lux_val;
-    //readdata[0].interrupt = HAVE_INTERRUPT;
-    //printk("********** taos_als_get_data ********* lux_val = %d \n",lux_val);
+        input_report_abs(taos_datap->input_dev,ABS_MISC,lux_val);
+        input_sync(taos_datap->input_dev);      // zwj add test
     return ret;
 }
+
 
 static int taos_als_threshold_set(void)//iVIZM
 {
@@ -421,7 +390,7 @@ static int taos_als_threshold_set(void)//iVIZM
     u8 chdata[2];
     u16 ch0;
 		
-//	printk("kl# %s, line=%d \n", __func__, __LINE__);
+	printk("kl# %s, line=%d \n", __func__, __LINE__);
 
     for (i = 0; i < 2; i++) {
         chdata[i] = (i2c_smbus_read_byte_data(taos_datap->client, (TAOS_TRITON_CMD_REG | TAOS_TRITON_CMD_WORD_BLK_RW | (TAOS_TRITON_ALS_CHAN0LO + i))));
@@ -461,7 +430,7 @@ static int taos_prox_threshold_set(void)//iVIZM
     }
     cleardata = chdata[0] + chdata[1]*256;
     proxdata = chdata[4] + chdata[5]*256;
-//    printk("kl## = proxdata = %d, cleardata=%d\n",proxdata, cleardata);
+    printk("kl## = proxdata = %d, cleardata=%d\n",proxdata, cleardata);
 
    //ch0= i2c_smbus_read_byte_data(taos_datap->client, (TAOS_TRITON_CMD_REG | 0x18 ));
    //ch1= i2c_smbus_read_byte_data(taos_datap->client, (TAOS_TRITON_CMD_REG | 0x19 ));
@@ -474,56 +443,27 @@ static int taos_prox_threshold_set(void)//iVIZM
         pro_buf[1] = 0x0;
         pro_buf[2] = taos_cfgp->prox_threshold_hi & 0x0ff;
         pro_buf[3] = taos_cfgp->prox_threshold_hi >> 8;
-        //if (prox_on == 0) {
 			data = 1;
-			//data |= (2 << 16);
-	        //input_event(taos_datap->input_dev,EV_MSC,MSC_RAW,data);
-	       // input_event(taos_datap->input_dev,EV_MSC,MSC_RAW,data);
-	 input_report_abs(taos_datap->input_dev,ABS_DISTANCE,data);		
-	//printk("kl# %s, line=%d, prox_on=%d\n", __func__, __LINE__, prox_on);
-	//zwj if (prox_on==0)
-		{ 
-		printk("kl# %s, line=%d, distance input sync \n", __func__, __LINE__);
-			input_sync(taos_datap->input_dev);
-			}
-            //readdata[1].data = 0;
-            //readdata[1].interrupt = HAVE_INTERRUPT;
-       // }
+	printk(KERN_ERR "report pls data 1\n");
+	input_report_abs(taos_datap->input_dev,ABS_DISTANCE,data);		
+	input_sync(taos_datap->input_dev);
     } 
     else if(proxdata > (taos_cfgp->prox_threshold_hi) )
        {
         if (cleardata > ((sat_als*80)/100)){
-	    data = 0;
-	    }
+	    	data = 0;
+	}
 	else{
-            //return -ENODATA;
-        pro_buf[0] = taos_cfgp->prox_threshold_lo & 0x0ff;
-        pro_buf[1] = taos_cfgp->prox_threshold_lo >> 8;
-        pro_buf[2] = 0xff;
-        pro_buf[3] = 0xff;
-	    data = 0;
-		}
-		//data |= (2 << 16);
-	    //input_event(taos_datap->input_dev,EV_MSC,MSC_RAW,data);
+        	pro_buf[0] = taos_cfgp->prox_threshold_lo & 0x0ff;
+        	pro_buf[1] = taos_cfgp->prox_threshold_lo >> 8;
+        	pro_buf[2] = 0xff;
+        	pro_buf[3] = 0xff;
+		data = 0;
+	}
 	    input_report_abs(taos_datap->input_dev,ABS_DISTANCE,data);
 		
-		//zwj del if (prox_on==0)
-         { 
-			printk("kl# %s, line=%d, distance input sync \n", __func__, __LINE__);
-		 	input_sync(taos_datap->input_dev);
-		}
-        //readdata[1].data = 1;
-        //readdata[1].interrupt = HAVE_INTERRUPT;
+ 	    input_sync(taos_datap->input_dev);
     }
-
-    //if (prox_on == 0) {
-	//     input_report_abs(taos_datap->input_dev, ABS_DISTANCE, proxdata);
-	//}
-
-       // pro_buf[0] = 200  &  0x0ff;
-      //  pro_buf[1] = 200   >> 8;
-      //  pro_buf[2] =500 & 0x0ff;
-      //  pro_buf[3] =500  >> 8;
 	
    // printk("prox_threshold_hi=%d, prox_threshold_lo= %d\n",pro_buf[3]<<8 |pro_buf[2], pro_buf[1]<<8 |pro_buf[0]);
 	
@@ -660,23 +600,8 @@ static int taos_probe(struct i2c_client *clientp, const struct i2c_device_id *id
         /*get irq*/
         clientp->irq = gpio_to_irq(pdata->irq_gpio_number);
 
-	tmd2771_pls_irq = clientp->irq;
+	tmd2711_pls_irq = clientp->irq;
 
-#if 0 // zwj del 
-    if (device_found) {
-        return -ENODEV;
-    	}
-    if (!i2c_check_functionality(clientp->adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
-        printk(KERN_ERR "TAOS: taos_probe() - i2c smbus byte data functions unsupported\n");
-        return -EOPNOTSUPP;
-    }
-    if (!i2c_check_functionality(clientp->adapter, I2C_FUNC_SMBUS_WORD_DATA)) {
-        printk(KERN_ERR "TAOS: taos_probe() - i2c smbus word data functions unsupported\n");
-    }
-    if (!i2c_check_functionality(clientp->adapter, I2C_FUNC_SMBUS_BLOCK_DATA)) {
-        printk(KERN_ERR "TAOS: taos_probe() - i2c smbus block data functions unsupported\n");
-    }
-#endif
 
     taos_datap->client = clientp;
     i2c_set_clientdata(clientp, taos_datap);
@@ -693,15 +618,18 @@ static int taos_probe(struct i2c_client *clientp, const struct i2c_device_id *id
    taos_datap->input_dev->name = TAOS_INPUT_NAME;
    taos_datap->input_dev->id.bustype = BUS_I2C;
    set_bit(EV_ABS,taos_datap->input_dev->evbit);
-   input_set_capability(taos_datap->input_dev,EV_ABS,ABS_DISTANCE);
-   input_set_capability(taos_datap->input_dev,EV_ABS,ABS_MISC);
-   input_sync(taos_datap->input_dev);
+   set_bit(ABS_MISC, taos_datap->input_dev->absbit);
+   set_bit(ABS_DISTANCE, taos_datap->input_dev->absbit);
+        /*for proximity*/
+        input_set_abs_params(taos_datap->input_dev, ABS_DISTANCE, 0, 1, 0, 0);
+        /*for lightsensor*/
+        input_set_abs_params(taos_datap->input_dev, ABS_MISC, 0, 100001, 0, 0);
+
    ret = input_register_device(taos_datap->input_dev);
 	if (ret < 0)	 {
 		 printk("%s: input device regist failed\n", __func__);
 		 goto exit_input_register_failed;
 	}
-     
 	// chip init 
 	if(taos_reg_init(clientp)<0)
 	{
@@ -831,7 +759,7 @@ static int taos_open(struct inode *inode, struct file *file) {
         printk(KERN_ERR "TAOS: device name incorrect during taos_open(), get %s\n", taos_datap->taos_name);
         ret = -ENODEV;
     }
-    memset(readdata, 0, sizeof(struct ReadData)*2);//iVIZM
+    
     enable_irq(tmd2711_pls_irq);//iVIZM
     return (ret);
 }
@@ -850,113 +778,9 @@ static int taos_release(struct inode *inode, struct file *file) {
         printk(KERN_ERR "TAOS: device name incorrect during taos_release(), get %s\n", taos_datap->taos_name);
         ret = -ENODEV;
     }
+    disable_irq(tmd2711_pls_irq);
     return (ret);
 }
-
-// read
-static int taos_read(struct file *file, char *buf, size_t count, loff_t *ppos) {
-    unsigned long flags;
-    int realmax;
-    int err;
-    if((!ReadEnable) && (file->f_flags & O_NONBLOCK))
-        return -EAGAIN;
-    local_save_flags(flags);
-    local_irq_disable();
-
-    realmax = 0;
-    if (down_interruptible(&taos_datap->update_lock))
-        return -ERESTARTSYS;
-    if (ReadEnable > 0) {
-        if (sizeof(struct ReadData)*2 < count)
-            realmax = sizeof(struct ReadData)*2;
-        else
-            realmax = count;
-        err = copy_to_user(buf, readdata, realmax);
-        if (err) 
-            return -EAGAIN;
-        ReadEnable = 0;
-    }
-    up(&taos_datap->update_lock);
-    memset(readdata, 0, sizeof(struct ReadData)*2);
-    local_irq_restore(flags);
-    return realmax;
-}
-
-// write
-static int taos_write(struct file *file, const char *buf, size_t count, loff_t *ppos) {
-    struct taos_data *taos_datap;
-    u8 i = 0, xfrd = 0, reg = 0;
-    u8 my_buf[TAOS_MAX_DEVICE_REGS];
-    int ret = 0;
-
-    //if (prox_on) golden
-    //del_timer(&prox_poll_timer);
-    if ((*ppos < 0) || (*ppos >= TAOS_MAX_DEVICE_REGS) || ((*ppos + count) > TAOS_MAX_DEVICE_REGS)) {
-        printk(KERN_ERR "TAOS: reg limit check failed in taos_write()\n");
-        return -EINVAL;
-    }
-    reg = (u8)*ppos;
-    if ((ret =  copy_from_user(my_buf, buf, count))) {
-        printk(KERN_ERR "TAOS: copy_to_user failed in taos_write()\n");
-        return -ENODATA;
-    }
-    taos_datap = container_of(file->f_dentry->d_inode->i_cdev, struct taos_data, cdev);
-    while (xfrd < count) {
-        if ((ret = (i2c_smbus_write_byte_data(taos_datap->client, (TAOS_TRITON_CMD_REG | reg), my_buf[i++]))) < 0) {
-            printk(KERN_ERR "TAOS: i2c_smbus_write_byte_data failed in taos_write()\n");
-            return (ret);
-        }
-        reg++;
-        xfrd++;
-     }
-     //if (prox_on) golden
-     //taos_prox_poll_timer_start();
-     return ((int)xfrd);
-}
-
-// llseek
-static loff_t taos_llseek(struct file *file, loff_t offset, int orig) {
-    int ret = 0;
-    loff_t new_pos = 0;
-
-    //if (prox_on) golden
-    //del_timer(&prox_poll_timer);
-    if ((offset >= TAOS_MAX_DEVICE_REGS) || (orig < 0) || (orig > 1)) {
-        printk(KERN_ERR "TAOS: offset param limit or origin limit check failed in taos_llseek()\n");
-        return -EINVAL;
-    }
-    switch (orig) {
-    case 0:
-        new_pos = offset;
-        break;
-    case 1:
-        new_pos = file->f_pos + offset;
-        break;
-    default:
-        return -EINVAL;
-        break;
-    }
-    if ((new_pos < 0) || (new_pos >= TAOS_MAX_DEVICE_REGS) || (ret < 0)) {
-        printk(KERN_ERR "TAOS: new offset limit or origin limit check failed in taos_llseek()\n");
-        return -EINVAL;
-    }
-    file->f_pos = new_pos;
-
-    //if (prox_on)  golden
-    //taos_prox_poll_timer_start();
-    return new_pos;
-}
-/*
-//poll iVIZM
-static unsigned int taos_poll(struct file *filp, poll_table *wait)
-{
-    unsigned int mask = 0;
-    poll_wait(filp, &waitqueue_read, wait);
-    if(ReadEnable > 0)
-        mask |= POLLIN | POLLRDNORM;
-    return mask;
-}
-*/
 
 static int taos_sensors_als_on(void) {
     int  ret = 0, i = 0;
@@ -1012,8 +836,8 @@ static int taos_sensors_als_on(void) {
 }	
 
 // ioctls
-static int taos_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg) {
-    struct taos_data *taos_datap;
+//static int taos_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg) {
+static int taos_ioctl(struct file *file, unsigned int cmd, unsigned long arg) {
     int prox_sum = 0, prox_mean = 0, prox_max = 0;
     int lux_val = 0, ret = 0, i = 0, tmp = 0;
     u16 gain_trim_val = 0;
@@ -1022,9 +846,8 @@ static int taos_ioctl(struct inode *inode, struct file *file, unsigned int cmd, 
     int ret_m=0;
     u8 reg_val_temp=0;
 
-//    printk("k#### %s, line=%d \n", __func__, __LINE__);
+    printk("k#### %s, line=%d \n", __func__, __LINE__);
 		
-    taos_datap = container_of(inode->i_cdev, struct taos_data, cdev);
     switch (cmd) {
     case TAOS_IOCTL_SENSOR_CHECK:
         reg_val_temp=0;
