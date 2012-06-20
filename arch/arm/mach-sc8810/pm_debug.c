@@ -27,7 +27,7 @@
 struct dentry * dentry_debug_root = NULL;
 
 /*print switch*/
-static int is_print_sleep_mode = 1;
+static int is_print_sleep_mode = 0;
 int is_print_linux_clock = 0;
 int is_print_modem_clock = 0;
 static int is_print_irq = 1;
