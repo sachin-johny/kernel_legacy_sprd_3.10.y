@@ -15,10 +15,10 @@
 #include <linux/suspend.h>
 #include <linux/errno.h>
 #include <asm/irqflags.h>
+#include <mach/pm_debug.h>
 
 extern int sc8810_deep_sleep(void);
 extern void sc8810_pm_init(void);
-extern int sc8810_prepare_late(void);
 
 static void sc8810_sleep(void){
 	cpu_do_idle();
@@ -28,12 +28,17 @@ static int pm_deepsleep(suspend_state_t state)
 {
 	int ret_val = 0;
 	unsigned long flags;
+	/* add for debug & statisic*/
+	clr_sleep_mode();
+	time_statisic_begin();
 
 	while(1){
 		hw_local_irq_disable();
 		local_irq_save(flags);
 		if (arch_local_irq_pending()) {
-			printk("*******: pm_enter(), irq pending! *****\n");
+			/* add for debug & statisic*/
+			irq_wakeup_set();
+
 			local_irq_restore(flags);
 			hw_local_irq_enable();
 			break;
@@ -48,6 +53,9 @@ static int pm_deepsleep(suspend_state_t state)
 			hw_local_irq_enable();
 		}
 	}
+	/* add for debug & statisic*/
+	time_statisic_end();
+
 	return ret_val;
 }
 
@@ -82,22 +90,27 @@ static int sc8810_pm_valid(suspend_state_t state)
 	}
 }
 
+extern void check_ldo(void);
+extern void check_pd(void);
 static int sc8810_pm_prepare(void)
 {
 	pr_debug("enter %s\n", __func__);
+	check_ldo();
+	check_pd();
 	return 0;
 }
 
 static void sc8810_pm_finish(void)
 {
 	pr_debug("enter %s\n", __func__);
+	print_statisic();
 }
 
 static struct platform_suspend_ops sc8810_pm_ops = {
 	.valid		= sc8810_pm_valid,
 	.enter		= sc8810_pm_enter,
 	.prepare		= sc8810_pm_prepare,
-	.prepare_late 	= sc8810_prepare_late,
+	.prepare_late 	= NULL,
 	.finish		= sc8810_pm_finish,
 };
 

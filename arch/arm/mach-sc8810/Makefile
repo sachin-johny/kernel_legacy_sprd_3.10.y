@@ -4,7 +4,7 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
          watchdog.o rfkill.o
 
 ifeq ($(CONFIG_NKERNEL),y)
-obj-$(CONFIG_PM) += pm_vlx.o pm_sc8810.o standby.o
+obj-$(CONFIG_PM) += pm_vlx.o pm_sc8810.o standby.o pm_debug.o
 else
 obj-$(CONFIG_PM) += pm.o
 endif
