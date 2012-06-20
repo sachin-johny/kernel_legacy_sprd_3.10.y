@@ -24,5 +24,12 @@
 #define GPSCTL_IOC_RESET               _IOW(GPSCTL_IOM, 0x02, short)
 #define GPSCTL_IOC_ONOFF               _IOW(GPSCTL_IOM, 0x03, short)
 
+struct platform_gpsctl_data {
+	unsigned int reset_pin;
+	unsigned int onoff_pin;
+	unsigned int power_pin;
+	char *clk_type;
+	char *pwr_type;
+};
 
 #endif
