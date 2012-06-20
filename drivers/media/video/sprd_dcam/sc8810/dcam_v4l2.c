@@ -2038,11 +2038,11 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.power_freq = INVALID_VALUE;
         //g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
 
-          //stop timer
-          dcam_stop_timer(&s_dcam_err_info.dcam_timer);
+	//stop timer
+	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	//stop dcam
 	dcam_stop();
-
+          s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
 	   for(k = 0; k < VIDEO_MAX_FRAME; k++)
 		if((NULL != fh->vb_vidq.bufs[k]) && (VIDEOBUF_IDLE != fh->vb_vidq.bufs[k]->state))
 		{
