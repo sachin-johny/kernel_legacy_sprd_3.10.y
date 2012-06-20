@@ -43,4 +43,8 @@
 #define SPI0_CMMB_CS_GPIO  	32
 #define GPIO_SENSOR_RESET	72
 
+#define GPIO_GPS_RESET          26
+#define GPIO_GPS_ONOFF          95
+#define GPIO_GPS_POWER          137
+
 #endif

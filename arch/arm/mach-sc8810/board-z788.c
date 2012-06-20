@@ -36,6 +36,8 @@
 #include <mach/globalregs.h>
 #include <mach/board.h>
 #include <sound/audio_pa.h>
+#include <mach/gpio-z788.h>
+#include <gps/gpsctl.h>
 
 #include "devices.h"
 
@@ -50,6 +52,19 @@ extern int __init sprd_ramconsole_init(void);
 #endif
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
+
+static struct platform_gpsctl_data pdata_gpsctl = {
+	.reset_pin = GPIO_GPS_RESET,
+	.onoff_pin = GPIO_GPS_ONOFF,
+	.power_pin = GPIO_GPS_POWER,
+	.pwr_type  = "pwr_gpio",
+};
+
+static struct platform_device  gpsctl_dev = {
+	.name               = "gpsctl",
+	.dev.platform_data  = &pdata_gpsctl,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
@@ -76,6 +91,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_dcam_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
+	&gpsctl_dev,
 	&rfkill_device,
 	&brcm_bluesleep_device,
 };
