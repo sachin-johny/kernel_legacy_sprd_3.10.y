@@ -44,7 +44,7 @@
 	.align 12
 
 ENTRY(sc8810_standby_iram)
-#if 1
+#if 0
 	/*debug info starts*/
 	stmfd sp!, {r4-r12, lr}
 
@@ -129,7 +129,7 @@ ENTRY(sc8810_standby_exit_iram)
 	ldr r0, =0x0020
 	bl my_delay
 
-#if 1
+#if 0
 	/*debug info starts*/
 	/* enable uart1 clock to print some messages. */
 	ldr		r1, =0x8b000008	/*physical address. */

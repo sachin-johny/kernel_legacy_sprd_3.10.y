@@ -25,10 +25,8 @@
 #include <linux/delay.h>
 #include <linux/wakelock.h>
 #include <linux/kthread.h>
+#include <mach/pm_debug.h>
 
-#define PM_PRINT_ENABLE
-
-extern void trace(void);
 extern int sp_pm_collapse(void);
 extern void sp_pm_collapse_exit(void);
 extern void sc8810_standby_iram(void);
@@ -36,12 +34,6 @@ extern void sc8810_standby_iram_end(void);
 extern void sc8810_standby_exit_iram(void);
 extern void l2x0_suspend(void);
 extern void l2x0_resume(int collapsed);
-extern void printascii_phy(char *);
-
-#ifdef PM_PRINT_ENABLE
-static struct wake_lock messages_wakelock;
-#endif
-
 
 /*init (arm gsm td mm) auto power down */
 #define CHIP_ID_VER_0		(0x88100000UL)
@@ -69,8 +61,7 @@ static void setup_autopd_mode(void)
 	}
 }
 
-#ifdef PM_PRINT_ENABLE
-static void check_pd(void)
+void check_pd(void)
 {
 #define CHECK_PD(_type, _val, _reg) { \
 	val = sprd_greg_read(_type, _reg); \
@@ -95,7 +86,6 @@ static void check_pd(void)
 		CHECK_PD(REG_TYPE_GLOBAL, 0x07000a20|(1<<23), GR_POWCTL0);
 	}
 }
-#endif
 
 /* FIXME: init led ctrl *we have no driver of led, just init here*/
 #define SPRD_ANA_BASE	(SPRD_MISC_BASE + 0x600)
@@ -114,8 +104,7 @@ static void init_led(void)
 	sci_adi_raw_write(ANA_LED_CTRL, 0x801f);
 }
 
-#ifdef PM_PRINT_ENABLE
-static void check_ldo(void)
+void check_ldo(void)
 {
 #define CHECK_LDO(_reg, _val) { \
 	val = sci_adi_read(_reg); \
@@ -131,7 +120,6 @@ static void check_ldo(void)
 	CHECK_LDO(ANA_LED_CTRL, 0x801f);
 #endif
 }
-#endif
 
 /*copy code for deepsleep return */
 #define SAVED_VECTOR_SIZE 64
@@ -250,6 +238,16 @@ static void disable_ahb_module (void)
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, GEN0_MASK, AHB_CTL0);
 }
 
+#define INT_REG(off) (SPRD_INTCV_BASE + (off))
+
+#define INT_IRQ_STS            INT_REG(0x0000)
+#define INT_IRQ_RAW           INT_REG(0x0004)
+#define INT_IRQ_ENB           INT_REG(0x0008)
+#define INT_IRQ_DIS            INT_REG(0x000c)
+#define INT_FIQ_STS            INT_REG(0x0020)
+
+#define INT_IRQ_MASK	(1<<3)
+
 
 /*save/restore global regs*/
 u32 reg_gen_clk_en, reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val;
@@ -276,103 +274,6 @@ u32 reg_gen_clk_en, reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val;
         RESTORE_GR_REG(REG_TYPE_GLOBAL, GR_GEN0, GR_GEN0_MASK, reg_gen0_val); \
         RESTORE_GR_REG(REG_TYPE_AHB_GLOBAL, AHB_CTL0, AHB_CTL0_MASK, reg_ahb_ctl0_val); \
     }while(0)
-
-/*FIXME:TODO
- *the code beblow just print some registers info for debug
- *can not find them in headers, so just define here
- */
-#define INT_REG(off) (SPRD_INTCV_BASE + (off))
-
-#define INT_IRQ_STS            INT_REG(0x0000)
-#define INT_IRQ_RAW           INT_REG(0x0004)
-#define INT_IRQ_ENB           INT_REG(0x0008)
-#define INT_IRQ_DIS            INT_REG(0x000c)
-#define INT_FIQ_STS            INT_REG(0x0020)
-
-#define INT_IRQ_MASK	(1<<3)
-
-#ifdef PM_PRINT_ENABLE
-static void print_ahb(void)
-{
-	u32 val = sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0);
-	printk("##: AHB_CTL0 = %08x.\n", val);
-	if (val & AHB_CTL0_DCAM_EN) printk("AHB_CTL0_DCAM_EN =1.\n");
-	if (val & AHB_CTL0_CCIR_EN) printk("AHB_CTL0_CCIR_EN =1.\n");
-	if (val & AHB_CTL0_LCDC_EN) printk("AHB_CTL0_LCDC_EN =1.\n");
-	if (val & AHB_CTL0_SDIO0_EN) printk("AHB_CTL0_SDIO0_EN =1.\n");
-	if (val & AHB_CTL0_SDIO1_EN) printk("AHB_CTL0_SDIO1_EN =1.\n");
-	if (val & AHB_CTL0_DMA_EN) printk("AHB_CTL0_DMA_EN =1.\n");
-	if (val & AHB_CTL0_BM0_EN) printk("AHB_CTL0_BM0_EN =1.\n");
-	if (val & AHB_CTL0_NFC_EN) printk("AHB_CTL0_NFC_EN =1.\n");
-	if (val & AHB_CTL0_BM1_EN) printk("AHB_CTL0_BM1_EN =1.\n");
-	if (val & AHB_CTL0_G2D_EN) printk("AHB_CTL0_G2D_EN =1.\n");
-	if (val & AHB_CTL0_G3D_EN) printk("AHB_CTL0_G3D_EN =1.\n");
-	if (val & AHB_CTL0_AXIBUSMON0_EN) printk("AHB_CTL0_AXIBUSMON0_EN =1.\n");
-	if (val & AHB_CTL0_AXIBUSMON1_EN) printk("AHB_CTL0_AXIBUSMON1_EN =1.\n");
-	if (val & AHB_CTL0_VSP_EN) printk("AHB_CTL0_VSP_EN =1.\n");
-	if (val & AHB_CTL0_ROT_EN) printk("AHB_CTL0_ROT_EN =1.\n");
-	if (val & AHB_CTL0_USBD_EN) printk("AHB_CTL0_USBD_EN =1.\n");
-}
-
-
-static void print_gr(void)
-{
-	u32 val = sprd_greg_read(REG_TYPE_GLOBAL, GR_GEN0);
-		printk("##: GR_GEN0 = %08x.\n", val);
-		if (val & GEN0_SIM0_EN) printk("GEN0_SIM0_EN =1.\n");
-		if (val & GEN0_I2C_EN) printk("GEN0_I2C_EN =1.\n");
-		if (val & GEN0_GPIO_EN) printk("GEN0_GPIO_EN =1.\n");
-		if (val & GEN0_I2C0_EN) printk("GEN0_I2C0_EN =1.\n");
-		if (val & GEN0_I2C1_EN) printk("GEN0_I2C1_EN =1.\n");
-		if (val & GEN0_I2C2_EN) printk("GEN0_I2C2_EN =1.\n");
-		if (val & GEN0_I2C3_EN) printk("GEN0_I2C3_EN =1.\n");
-		if (val & GEN0_SPI0_EN) printk("GEN0_SPI0_EN =1.\n");
-		if (val & GEN0_SPI1_EN) printk("GEN0_SPI1_EN =1.\n");
-		if (val & GEN0_I2S0_EN) printk("GEN0_I2S0_EN =1.\n");
-		if (val & GEN0_I2S1_EN) printk("GEN0_I2S1_EN =1.\n");
-		if (val & GEN0_EFUSE_EN) printk("GEN0_EFUSE_EN =1.\n");
-		if (val & GEN0_I2S_EN) printk("GEN0_I2S_EN =1.\n");
-		if (val & GEN0_PIN_EN) printk("GEN0_PIN_EN =1.\n");
-		if (val & GEN0_EPT_EN) printk("GEN0_EPT_EN =1.\n");
-		if (val & GEN0_SIM1_EN) printk("GEN0_SIM1_EN =1.\n");
-		if (val & GEN0_SPI_EN) printk("GEN0_SPI_EN =1.\n");
-		if (val & GEN0_UART0_EN) printk("GEN0_UART0_EN =1.\n");
-		if (val & GEN0_UART1_EN) printk("GEN0_UART1_EN =1.\n");
-		if (val & GEN0_UART2_EN) printk("GEN0_UART2_EN =1.\n");
-}
-
-/*is dsp sleep :for debug */
-static int is_dsp_sleep(void)
-{
-	u32 val;
-	val = sprd_greg_read(REG_TYPE_GLOBAL, GR_STC_STATE);
-
-	if (GR_DSP_STOP & val)
-		printk("#####: GR_STC_STATE[DSP_STOP] is set!\n");
-	else
-		printk("#####: GR_STC_STATE[DSP_STOP] is NOT set!\n");
-	return 0;
-}
-
-static int print_thread(void * data)
-{
-	while(1){
-		wake_lock(&messages_wakelock);
-		print_ahb();
-		print_gr();
-		check_ldo();
-		check_pd();
-		is_dsp_sleep();
-		/*just print locked wake_lock*/
-		has_wake_lock(WAKE_LOCK_SUSPEND);
-		msleep(100);
-		wake_unlock(&messages_wakelock);
-		set_current_state(TASK_INTERRUPTIBLE);
-		schedule_timeout(30 * HZ);
-	}
-	return 0;
-}
-#endif
 
 /* make sure printk is end, if not maybe some messy code  in SERIAL1 output */
 #define UART_TRANSFER_REALLY_OVER (0x1UL << 15)
@@ -410,17 +311,11 @@ static void wait_until_uart1_tx_done(void)
 	}
 }
 
-/* for debug, printk is ok here */
-int sc8810_prepare_late(void)
-{
-	/*print_info();*/
-	return 0;
-}
-
 /* arm core sleep*/
 static void arm_sleep(void)
 {
 	cpu_do_idle();
+	hard_irq_set();
 }
 
 /* arm core & ahp sleep*/
@@ -430,6 +325,7 @@ static void mcu_sleep(void)
 	disable_audio_module();
 	disable_ahb_module();
 	cpu_do_idle();
+	hard_irq_set();
 	RESTORE_GLOBAL_REG;
 }
 
@@ -463,12 +359,11 @@ static int deep_sleep(void)
 	set_reset_vector();
 
 	ret = sp_pm_collapse();
+	hard_irq_set();
 	restore_reset_vector();
 
 	RESTORE_GLOBAL_REG;
 	udelay(20);
-	/*for debug*/
-	/*printascii_phy("We are here!\n");*/
 	if (ret) cpu_init();
 
 #ifdef CONFIG_CACHE_L2X0
@@ -481,8 +376,9 @@ return ret;
 int sc8810_deep_sleep(void)
 {
 	int status, ret = 0;
-	unsigned long flags;
+	unsigned long flags, time;
 
+	time = get_sys_cnt();
 	if (!hw_irqs_disabled())  {
 		flags = sc8810_read_cpsr();
 		printk("##: Error(%s): IRQ is enabled(%08lx)!\n",
@@ -491,12 +387,17 @@ int sc8810_deep_sleep(void)
 
 	status = sc8810_get_clock_status();
 	if (status & DEVICE_AHB)  {
+		set_sleep_mode(SLP_MODE_ARM);
 		arm_sleep();
 	} else if (status & DEVICE_APB) {
+		set_sleep_mode(SLP_MODE_MCU);
 		mcu_sleep();
 	} else {
+		set_sleep_mode(SLP_MODE_DEP);
 		ret = deep_sleep();
 	}
+	time_add(get_sys_cnt() - time, ret);
+	print_hard_irq_inloop(ret);
 	return ret;
 }
 
@@ -550,21 +451,11 @@ static void init_gr(void)
 
 void sc8810_pm_init(void)
 {
-	struct task_struct * task;
-
 	init_reset_vector();
 	init_gr();
 	setup_autopd_mode();
 	init_led();
-#ifdef PM_PRINT_ENABLE
-	wake_lock_init(&messages_wakelock, WAKE_LOCK_SUSPEND,
-			"pm_message_wakelock");
-	task = kthread_create(print_thread, NULL, "pm_print");
-	if (task == 0) {
-		printk("Can't crate power manager print thread!\n");
-	}else
-		wake_up_process(task);
-#endif
+	pm_debug_init();
 }
 
 

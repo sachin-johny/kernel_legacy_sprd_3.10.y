@@ -2157,8 +2157,34 @@ int __init sc8810_clock_init(void)
 	return 0;
 }
 
+extern int is_print_linux_clock;
+extern int is_print_modem_clock;
 /* modem clock begin*/
 static int sc8810_get_clock_modem_status(void)
+{
+    int index = 0;
+    int status = 0;
+
+    /* check all clocks, both linux side and RTOS side. */
+    for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
+        if (pstub[index].usecount) {
+	      status |= pstub[index].flags;
+		if(is_print_modem_clock){
+		    if (pstub[index].flags & DEVICE_AHB)
+		        printk("###: modem clcok[%s] is on AHB.\n", pstub[index].name);
+		    if (pstub[index].flags & DEVICE_APB)
+		        printk("###: modem clcok[%s] is on APB.\n", pstub[index].name);
+		    if (pstub[index].flags & DEVICE_VIR)
+		        printk("###: modem clcok[%s] is on VIR.\n", pstub[index].name);
+		    if (pstub[index].flags & DEVICE_AWAKE)
+		        printk("###: modem clcok[%s] is on AWAKE.\n", pstub[index].name);
+		}
+        }
+    }
+    return status;
+}
+
+static int sc8810_get_clock_modem_info(void)
 {
     int index = 0;
     int status = 0;
@@ -2191,16 +2217,20 @@ int sc8810_get_clock_status(void)
 		p = c->lk.clk;
 		if (p->usecount) {
 			status |= p->flags;
-#if 0
-			if(p->flags & DEVICE_APB)
-				printk("###: arm clcok[%s] is on APB.\n", p->name);
-			if(p->flags & DEVICE_AHB)
-				printk("###: arm clcok[%s] is on AHB.\n", p->name);
-			if(p->flags & DEVICE_VIR)
-				printk("###: arm clcok[%s] is on VIR.\n", p->name);
-			if(p->flags & DEVICE_AWAKE)
-				printk("###: arm clcok[%s] is on AWAKE.\n", p->name);
-#endif
+			if(is_print_linux_clock){
+				if (p->flags & DEVICE_AHB) {
+					CLK_FW_INFO("###: clcok[%s] is on AHB.\n", p->name);
+				}
+				if (p->flags & DEVICE_APB) {
+					CLK_FW_INFO("###: clcok[%s] is on APB.\n", p->name);
+				}
+				if (p->flags & DEVICE_VIR) {
+					CLK_FW_INFO("###: clcok[%s] is on VIR.\n", p->name);
+				}
+				if (p->flags & DEVICE_AWAKE) {
+					CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", p->name);
+				}
+			}
 		}
 	}
 	return status | sc8810_get_clock_modem_status();
@@ -2234,5 +2264,5 @@ int sc8810_get_clock_info(void)
 			}
 		}
 	}
-	return status;
+	return status | sc8810_get_clock_modem_info();
 }
