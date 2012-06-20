@@ -44,7 +44,7 @@
 
 #include <nk/nkern.h>
 #include <asm/nkern.h>
-
+#include <mach/pm_debug.h>
 /*
  * This driver provides the generic NKDDI to NK specific drivers
  */
@@ -1604,7 +1604,7 @@ nk_do_xirq (struct pt_regs* regs)
 	if (xirq == (NkXIrq)-1) {
 	    break;
 	}
-
+	inc_irq(xirq);
 	/* if (get_sys_cnt() > (120000)) */{
 		/*
 		if (xirq > 31)  {
