@@ -29,7 +29,7 @@
 
 struct clk    *gps_clk;
 struct regulator *gps_regulator = NULL;
-
+static struct platform_gpsctl_data *data;
 void clk_32k_config(int is_on)
 {
 	if (is_on){
@@ -44,31 +44,34 @@ int gps_power_ctl(int is_on)
 {
 	int err;
 
-	if (is_on){
-		gps_regulator = regulator_get(NULL, REGU_NAME_GPS);
-		if (IS_ERR(gps_regulator)) {
-			pr_err("gpsctl:could not get 1.8v regulator\n");
-			return -1;
-		}
-		err = regulator_set_voltage(gps_regulator,1800000,1800000);
-		if (err)
-			pr_err("gpsctl:could not set to 1800mv.\n");
+	if (data->pwr_type && !strcmp(data->pwr_type, "pwr_gpio")) {
+		gpio_set_value(data->power_pin, is_on);
+	} else {
+		if (is_on) {
+			gps_regulator = regulator_get(NULL, REGU_NAME_GPS);
+			if (IS_ERR(gps_regulator)) {
+				pr_err("gpsctl:could not get 1.8v regulator\n");
+				return -1;
+			}
+			err = regulator_set_voltage(gps_regulator, 1800000, 1800000);
+			if (err)
+				pr_err("gpsctl:could not set to 1800mv.\n");
 
-		regulator_enable(gps_regulator);
-	}
-	else {
-		regulator_disable(gps_regulator);
+			regulator_enable(gps_regulator);
+		} else {
+			regulator_disable(gps_regulator);
+		}
 	}
 	return 0;
 }
 
 static void gps_reset(int is_reset)
 {
-	gpio_set_value(GPIO_GPS_RESET,is_reset);
+	gpio_set_value(data->reset_pin, is_reset);
 }
 static void gps_onoff(int is_onoff)
 {
-	gpio_set_value(GPIO_GPS_ONOFF,is_onoff);
+	gpio_set_value(data->onoff_pin, is_onoff);
 }
 
 static int gpsctl_open(struct inode *inode, struct file *file)
@@ -140,23 +143,42 @@ static int gpsctl_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct clk *clk_parent;
-
+	data = pdev->dev.platform_data;
+	/*
 	gpio_request(GPIO_GPS_RESET,"gps_reset" );
 	gpio_direction_output(GPIO_GPS_RESET,0);
 	gpio_request(GPIO_GPS_ONOFF,"gps_onoff" );
 	gpio_direction_output(GPIO_GPS_ONOFF,0);
-
-	gps_clk = clk_get(NULL, "clk_aux0");
-	if (IS_ERR(gps_clk)) {
-		printk("clock: failed to get clk_aux0\n");
+	*/
+	gpio_request(data->reset_pin, "gps_reset");
+	gpio_direction_output(data->reset_pin, 0);
+	gpio_request(data->onoff_pin, "gps_onoff");
+	gpio_direction_output(data->onoff_pin, 0);
+	if (data->pwr_type && !strcmp(data->pwr_type, "pwr_gpio")) {
+		gpio_request(data->power_pin, "gps_power");
+		gpio_direction_output(data->power_pin, 0);
 	}
 
-	clk_parent = clk_get(NULL,"ext_32k");
-	if (IS_ERR(clk_parent)) {
-		printk("failed to get parent ext_32k\n");
-	}
+	if (data->clk_type) {
+		if (strcmp(data->clk_type, "clk_aux0") == 0) {
+			printk("gps_clk: clk_type = = %s\n", "clk_aux0");
+			gps_clk = clk_get(NULL, "clk_aux0");
+			if (IS_ERR(gps_clk)) {
+				printk("clock: failed to get clk_aux0\n");
+			}
 
-	clk_set_parent(gps_clk, clk_parent);
+			clk_parent = clk_get(NULL, "ext_32k");
+			if (IS_ERR(clk_parent)) {
+				printk("failed to get parent ext_32k\n");
+			}
+
+			clk_set_parent(gps_clk, clk_parent);
+		} else {
+			printk("gps_clk: clk_type ! = %s\n", "clk_aux0");
+		}
+	} else {
+		printk("gps_clk: clk_type is null\n");
+	}
 
 	ret = misc_register(&gpsctl_dev);
 	return ret;

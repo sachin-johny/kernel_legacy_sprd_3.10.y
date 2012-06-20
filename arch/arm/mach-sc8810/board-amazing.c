@@ -35,6 +35,8 @@
 #include <mach/gpio.h>
 #include <linux/spi/mxd_cmmb_026x.h>
 
+#include <gps/gpsctl.h>
+
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
 extern void __init sc8810_init_irq(void);
@@ -52,9 +54,15 @@ static unsigned int sd_detect_gpio = GPIO_SDIO_DETECT;
 /* Control ldo for maxscend cmmb chip according to HW design */
 static struct regulator *cmmb_regulator_1v8 = NULL;
 
+static struct platform_gpsctl_data pdata_gpsctl = {
+	.reset_pin = GPIO_GPS_RESET,
+	.onoff_pin = GPIO_GPS_ONOFF,
+	.clk_type  = "clk_aux0",
+};
+
 static struct platform_device  gpsctl_dev = {
 	.name               = "gpsctl",
-	/*.dev.platform_data  = &pdata_gpsctl,*/
+	.dev.platform_data  = &pdata_gpsctl,
 };
 
 static struct platform_device *devices[] __initdata = {
