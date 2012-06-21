@@ -531,6 +531,7 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dumpregs(host);
 #endif
+if(host->mmc && host->mmc->card)
 	sdhci_save_regs(host);
 
 #ifdef CONFIG_MMC_DEBUG
@@ -562,6 +563,7 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dumpregs(host);
 #endif
+if(host->mmc && host->mmc->card)
 	sdhci_restore_regs(host);
 #endif
 
