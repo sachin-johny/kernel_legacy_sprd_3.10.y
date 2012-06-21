@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  *
  */
+#include <mach/board.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
@@ -41,7 +42,6 @@
 /* Wait timeout in millisecond */
 #define AKM8975_DRDY_TIMEOUT	100
 
-#define MSENSOR_DRDY_GPIO      97
 
 struct akm8975_data {
 	struct i2c_client	*i2c;
