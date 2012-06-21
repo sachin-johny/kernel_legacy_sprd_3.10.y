@@ -32,6 +32,7 @@
 #define GPIO_SENSOR_RESET	72
 #define GPIO_MAIN_SENSOR_PWN  73
 #define GPIO_SUB_SENSOR_PWN   74
+#define MSENSOR_DRDY_GPIO      97
 
 
 #define GPIO_BT_RESET       90
