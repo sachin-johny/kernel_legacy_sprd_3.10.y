@@ -2157,8 +2157,10 @@ int __init sc8810_clock_init(void)
 	return 0;
 }
 
+#ifdef CONFIG_NKERNEL
 extern int is_print_linux_clock;
 extern int is_print_modem_clock;
+#endif
 /* modem clock begin*/
 static int sc8810_get_clock_modem_status(void)
 {
@@ -2169,7 +2171,9 @@ static int sc8810_get_clock_modem_status(void)
     for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
         if (pstub[index].usecount) {
 	      status |= pstub[index].flags;
+#ifdef CONFIG_NKERNEL
 		if(is_print_modem_clock){
+#endif
 		    if (pstub[index].flags & DEVICE_AHB)
 		        printk("###: modem clcok[%s] is on AHB.\n", pstub[index].name);
 		    if (pstub[index].flags & DEVICE_APB)
@@ -2178,7 +2182,9 @@ static int sc8810_get_clock_modem_status(void)
 		        printk("###: modem clcok[%s] is on VIR.\n", pstub[index].name);
 		    if (pstub[index].flags & DEVICE_AWAKE)
 		        printk("###: modem clcok[%s] is on AWAKE.\n", pstub[index].name);
+#ifdef CONFIG_NKERNEL
 		}
+#endif
         }
     }
     return status;
@@ -2217,7 +2223,9 @@ int sc8810_get_clock_status(void)
 		p = c->lk.clk;
 		if (p->usecount) {
 			status |= p->flags;
+#ifdef CONFIG_NKERNEL
 			if(is_print_linux_clock){
+#endif
 				if (p->flags & DEVICE_AHB) {
 					CLK_FW_INFO("###: clcok[%s] is on AHB.\n", p->name);
 				}
@@ -2230,7 +2238,9 @@ int sc8810_get_clock_status(void)
 				if (p->flags & DEVICE_AWAKE) {
 					CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", p->name);
 				}
+#ifdef CONFIG_NKERNEL
 			}
+#endif
 		}
 	}
 	return status | sc8810_get_clock_modem_status();
