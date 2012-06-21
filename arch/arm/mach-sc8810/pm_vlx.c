@@ -20,6 +20,20 @@
 extern int sc8810_deep_sleep(void);
 extern void sc8810_pm_init(void);
 
+/*for battery*/
+#define BATTERY_CHECK_INTERVAL 30000
+extern int battery_updata(void);
+extern void battery_sleep(void);
+
+static int sprd_check_battery(void)
+{
+        int ret_val = 0;
+        if (battery_updata()) {
+                ret_val = 1;
+        }
+        return ret_val;
+}
+
 static void sc8810_sleep(void){
 	cpu_do_idle();
 }
@@ -28,6 +42,8 @@ static int pm_deepsleep(suspend_state_t state)
 {
 	int ret_val = 0;
 	unsigned long flags;
+	u32 battery_time, cur_time;
+	battery_time = cur_time = get_sys_cnt();
 	/* add for debug & statisic*/
 	clr_sleep_mode();
 	time_statisic_begin();
@@ -51,6 +67,16 @@ static int pm_deepsleep(suspend_state_t state)
 				sc8810_deep_sleep();
 			}
 			hw_local_irq_enable();
+		}
+
+		battery_sleep();
+		cur_time = get_sys_cnt();
+		if ((cur_time -  battery_time) > BATTERY_CHECK_INTERVAL) {
+			battery_time = cur_time;
+			if (sprd_check_battery()) {
+				printk("###: battery low!\n");
+				break;
+			}
 		}
 	}
 	/* add for debug & statisic*/
