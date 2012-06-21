@@ -33,12 +33,25 @@
 #include <linux/notifier.h>
 #endif
 
+/*
 //#define  FB_DEBUG
 #ifdef FB_DEBUG
 #define FB_PRINT printk
 #else
 #define FB_PRINT(...)
 #endif
+*/
+
+/* Module parameter to control log level */
+int sprdfb_debug_level = 1;
+module_param(sprdfb_debug_level, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
+MODULE_PARM_DESC(sprdfb_debug_level, "Higher number, more dmesg output");
+
+
+#define FB_PRINT(level, args)  do { \
+	if((level) <=  sprdfb_debug_level)\
+        {printk args; } \
+	} while (0)
 
 extern int lcdc_early_init(struct sprd_lcd_platform_data* platform_data,
 				struct sprdfb_device *dev);
@@ -100,7 +113,8 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
 	struct sprdfb_device *dev = fb->par;
 
-	FB_PRINT ("sprdfb_pan_display\n");
+	FB_PRINT(3, ("lcdc: [%s]\n", __FUNCTION__));
+
 	if (dev->fb_state != FB_NORMAL) {
 		printk(KERN_ERR "sprdfb can not do pan_display!!\n");
 		return 0;
@@ -147,13 +161,13 @@ sprdfb_freq_transition(struct notifier_block *nb, unsigned long val, void *data)
 	case CPUFREQ_PRECHANGE:
 		dev->fb_state = FB_NO_REFRESH;
 		lcdc_sync();
-		FB_PRINT("lcdfb cpufreq notify: CPUFREQ_PRECHANGE\n");
-	        FB_PRINT("lcdfb cpufreq notify: old_freq:%u, new_freq:%u\n", f->old, f->new);
+		FB_PRINT(2, ("lcdfb cpufreq notify: CPUFREQ_PRECHANGE\n"));
+	        FB_PRINT(2, ("lcdfb cpufreq notify: old_freq:%u, new_freq:%u\n", f->old, f->new));
 		break;
 	case CPUFREQ_POSTCHANGE:
 		dev->fb_state = FB_NORMAL;
-		FB_PRINT("lcdfb cpufreq notify: CPUFREQ_POSTCHANGE\n");
-		FB_PRINT("lcdfb cpufreq notify: old_freq:%u, new_freq:%u\n", f->old, f->new);
+		FB_PRINT(2, ("lcdfb cpufreq notify: CPUFREQ_POSTCHANGE\n"));
+		FB_PRINT(2, ("lcdfb cpufreq notify: old_freq:%u, new_freq:%u\n", f->old, f->new));
 		break;
 	}
 	return 0;
@@ -172,13 +186,13 @@ sprdfb_freq_policy(struct notifier_block *nb, unsigned long val,
 
 	switch (val) {
 	case CPUFREQ_ADJUST:
-		FB_PRINT("lcdfb cpufreq nofity: CPUFREQ_ADJUST\n");
+		FB_PRINT(2, ("lcdfb cpufreq nofity: CPUFREQ_ADJUST\n"));
 		break;
 	case CPUFREQ_INCOMPATIBLE:
-		FB_PRINT("lcdfb cpufreq nofity: CPUFREQ_INCOMPATIBLE\n");
+		FB_PRINT(2, ("lcdfb cpufreq nofity: CPUFREQ_INCOMPATIBLE\n"));
 		break;
 	case CPUFREQ_NOTIFY:
-		FB_PRINT("lcdfb cpufreq nofity: CPUFREQ_NOTIFY\n");
+		FB_PRINT(2, ("lcdfb cpufreq nofity: CPUFREQ_NOTIFY\n"));
 		break;
 	}
 	return 0;
@@ -303,7 +317,7 @@ static void sprdfb_early_suspend (struct early_suspend* es)
 	dev->fb_state = FB_NO_REFRESH;
 	lcdc_suspend(dev);
 	
-	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
+	FB_PRINT(2, ("lcdc: [%s]\n", __FUNCTION__));
 }
 
 static void sprdfb_late_resume (struct early_suspend* es)
@@ -313,7 +327,7 @@ static void sprdfb_late_resume (struct early_suspend* es)
 	lcdc_resume(dev);
 	dev->fb_state = FB_NORMAL;
 
-	FB_PRINT("lcdc: [%s]\n", __FUNCTION__);
+	FB_PRINT(2, ("lcdc: [%s]\n", __FUNCTION__));
 }
 #endif
 
@@ -395,7 +409,7 @@ static int sprdfb_suspend(struct platform_device *pdev,pm_message_t state)
 {
 	struct sprdfb_device *dev = platform_get_drvdata(pdev);
 	lcdc_suspend(dev);
-	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
+	FB_PRINT(2, ("deep sleep: [%s]\n", __FUNCTION__));
 	return 0;
 }
 
@@ -405,7 +419,7 @@ static int sprdfb_resume(struct platform_device *pdev)
 
 	lcdc_resume(dev);
 
-	FB_PRINT("deep sleep: [%s]\n", __FUNCTION__);
+	FB_PRINT(2, ("deep sleep: [%s]\n", __FUNCTION__));
 	return 0;
 }
 #endif
@@ -488,7 +502,7 @@ static int __init sprdfb_setup(char *options)
 		printk(KERN_ERR "no options\n");
 		return 0;
 	} else {
-		FB_PRINT("options: %s\n", options);
+		FB_PRINT(2,( "options: %s\n", options));
 	}
 
 	/*

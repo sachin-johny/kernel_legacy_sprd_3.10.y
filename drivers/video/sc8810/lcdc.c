@@ -23,12 +23,22 @@
 #include "sprd_fb.h"
 #include "lcdc_reg.h"
 
+/*
 //#define  LCDC_DEBUG
 #ifdef LCDC_DEBUG
 #define LCDC_PRINT printk
 #else
 #define LCDC_PRINT(...)
 #endif
+*/
+
+
+extern int sprdfb_debug_level;
+
+#define LCDC_PRINT(level, args)  do { \
+	if((level) <=  sprdfb_debug_level)\
+        {printk args; } \
+	} while (0)
 
 #define LCD_PARTIAL_UPDATE 1
 #define LCD_PANEL_NORMAL        0
@@ -509,7 +519,7 @@ static int32_t find_adapt_from_readid(struct sprdfb_device *dev,struct  sprd_lcd
 		}
 		//if the id is right?
 		if(id == lcd_panel[i].lcd_id) {
-			LCDC_PRINT ("sc8810fb : this lcd id is %d\n", id);
+			LCDC_PRINT (2, ("sc8810fb : this lcd id is %d\n", id));
 			return i;
 		}
 	}
@@ -537,7 +547,7 @@ int lcdc_early_init(struct sprd_lcd_platform_data* platform_data,struct sprdfb_d
 	dev->ops = &lcm_mcu_ops;
 
 	lcd_adapt = find_adapt_from_uboot(dev->device_id, platform_data);
-	LCDC_PRINT("sprdfb :lcd_adapt %d, %d\n", lcd_adapt, dev->device_id);
+	LCDC_PRINT(2, ("sprdfb :lcd_adapt %d, %d\n", lcd_adapt, dev->device_id));
 	if (lcd_adapt == -1) {
 		/* can not reach here; we get device id from u-boot */
 		dev->need_reinit = 1;
@@ -665,6 +675,8 @@ static int do_lcdc_refresh(struct sprdfb_device *dev)
 {
 	struct fb_info *fb = dev->fb;
 
+	LCDC_PRINT(3, ("lcdc: [%s]\n", __FUNCTION__));
+
 	if (sprd_lcdc_sync() != 0) {
 		printk(KERN_ERR "sprdfb can not do pan_display !!!!\n");
 		return 0;
@@ -736,15 +748,15 @@ static int do_lcdc_refresh(struct sprdfb_device *dev)
 		}
 	}
 
-	LCDC_PRINT("[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_CTRL));
-	LCDC_PRINT("[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_DISP_SIZE));
-	LCDC_PRINT("[%s] LCDC_LCM_START: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_LCM_START));
-	LCDC_PRINT("[%s] LCDC_LCM_SIZE: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_LCM_SIZE));
-	LCDC_PRINT("[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_BG_COLOR));
+	LCDC_PRINT(3, ("[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_CTRL)));
+	LCDC_PRINT(4, ("[%s] LCDC_DISP_SIZE: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_DISP_SIZE)));
+	LCDC_PRINT(4, ("[%s] LCDC_LCM_START: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_LCM_START)));
+	LCDC_PRINT(4, ("[%s] LCDC_LCM_SIZE: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_LCM_SIZE)));
+	LCDC_PRINT(4,("[%s] LCDC_BG_COLOR: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_BG_COLOR)));
 
-	LCDC_PRINT("[%s] LCM_CTRL: 0x%x\n", __FUNCTION__, lcdc_read(LCM_CTRL));
-	LCDC_PRINT("[%s] LCM_TIMING0: 0x%x\n", __FUNCTION__, lcdc_read(LCM_TIMING0));
-	LCDC_PRINT("[%s] LCM_TIMING1: 0x%x\n", __FUNCTION__, lcdc_read(LCM_TIMING1));
+	LCDC_PRINT(4,("[%s] LCM_CTRL: 0x%x\n", __FUNCTION__, lcdc_read(LCM_CTRL)));
+	LCDC_PRINT(4,("[%s] LCM_TIMING0: 0x%x\n", __FUNCTION__, lcdc_read(LCM_TIMING0)));
+	LCDC_PRINT(4, ("[%s] LCM_TIMING1: 0x%x\n", __FUNCTION__, lcdc_read(LCM_TIMING1)));
 
 	return 0;
 }
@@ -835,7 +847,7 @@ int lcdc_resume(struct sprdfb_device *dev)
 {
 	down(&lcdc.waitlock);
 
-	//printk("lcdc_suspend %d, %d!\n", dev->device_id, lcdc.state);
+	LCDC_PRINT(2, ("lcdc_suspend %d, %d!\n", dev->device_id, lcdc.state));
 
 	if (lcdc.clk_lcdc->usecount == 0) {
 		clk_enable(lcdc.clk_lcdc);
@@ -848,7 +860,7 @@ int lcdc_resume(struct sprdfb_device *dev)
 	}
 
 	if (lcdc.state & LCD_PANEL_DEEP_SLEEP) {
-		//printk("sprdfb resume from deep sleep \n");
+		LCDC_PRINT(2, ("sprdfb resume from deep sleep \n"));
 		if (dev->device_id != 0) {
 			hw_init(dev);
 			dev->reserved[1] = dev->timing[0];
@@ -858,7 +870,7 @@ int lcdc_resume(struct sprdfb_device *dev)
 			
 		}
 	} else {
-		//printk("sprdfb resume from sleep \n");
+		LCDC_PRINT(2, ("sprdfb resume from sleep \n"));
 		if(dev->device_id != 0 ) {
 			dev->reserved[1] = dev->timing[0];
 			dev->update_lcm(dev);
@@ -903,7 +915,7 @@ int lcdc_hardware_init(void)
 	clk = clk_get(NULL,"clk_ahb");
 	lcdc.ahb_clk = clk_get_rate(clk) / 1000000;
 
-	LCDC_PRINT("[%s] ahb_clk: 0x%x MHz\n", __FUNCTION__, lcdc.ahb_clk);
+	LCDC_PRINT(2, ("[%s] ahb_clk: 0x%x MHz\n", __FUNCTION__, lcdc.ahb_clk));
 
 	lcdc.state = LCD_PANEL_NORMAL;
 
