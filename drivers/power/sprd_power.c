@@ -936,12 +936,10 @@ int battery_updata(void)
     if(adc_value < 0)
       return 0;
     voltage = CHGMNG_AdcvalueToVoltage(adc_value);
-    capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0, 0);
+    capacity = CHGMNG_VoltageToPercentum(voltage, battery_data->charging, 0, battery_data->usb_online);
     DEBUG("battery_update: capacity %d\n", capacity);
     if(pre_capacity == 0xffffffff){
-        adc_value = get_vbat_value();
-        voltage = CHGMNG_AdcvalueToVoltage(adc_value);
-        pre_capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0, 0);
+        pre_capacity = capacity;
     }
 
     if(pre_capacity != capacity){
@@ -1134,7 +1132,6 @@ static int sprd_battery_resume(struct platform_device *pdev)
     voltage_value = CHGMNG_AdcvalueToVoltage(adc_value);
     capacity = CHGMNG_VoltageToPercentum(voltage_value, battery_data->charging, 0, battery_data->usb_online);
     DEBUG("%s capacity %d pre_capacity %d\n", __func__, capacity, data->capacity);
-    capacity = (data->capacity + capacity)/2;
 	data->capacity = capacity;
 	power_supply_changed(&battery_data->battery);
     return 0;
