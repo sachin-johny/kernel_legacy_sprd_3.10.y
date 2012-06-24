@@ -935,6 +935,13 @@ static int sprd_battery_remove(struct platform_device *pdev)
 
 static int sprd_battery_resume(struct platform_device *pdev)
 {
+	int32_t adc_value = 0;
+	uint32_t voltage = 0;
+	struct sprd_battery_data *data = platform_get_drvdata(pdev);
+
+	adc_value = get_vbat_value(battery_data);
+	voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
+	data->capacity = sprd_vol_to_percent(battery_data, voltage, 0);
 	power_supply_changed(&battery_data->battery);
 	return 0;
 }
