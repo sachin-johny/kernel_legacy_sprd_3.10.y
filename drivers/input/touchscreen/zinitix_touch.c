@@ -2040,9 +2040,11 @@ static void zinitix_early_suspend(struct early_suspend *h)
 	}
 	#endif
 	gpio_direction_output( TSP_INT , 0 );
+
+	#if 0
 	gpio_direction_output( TSP_SCL , 0 ); 
 	gpio_direction_output( TSP_SDA , 0 ); 
-       
+	#endif
 
 	msleep(20);	
 	

@@ -306,14 +306,32 @@ static int32_t ili9486_set_direction(struct panel_spec *self, uint16_t direction
 
 static int32_t ili9486_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 {
+	send_data_t send_cmd = self->info.mcu->ops->send_cmd;
+	send_data_t send_data = self->info.mcu->ops->send_data;
+
 	if(is_sleep) {
 		/*send_cmd(0x10);*/
-		LCD_DelayMS(120); 
+		/* LCD_DelayMS(120);*/
+
+		send_cmd(0x28);
+		mdelay(150);
+
+		send_cmd(0x10);
+		mdelay(120);
+
 	}
 	else {
-		/*send_cmd(0x11);*/
-		LCD_DelayMS(120); 
+		ili9486_init(self);
+		#if 0
+		/*send_cmd(0x11);
+		LCD_DelayMS(120);*/
+		send_cmd(0x11); // (SLPOUT)
+		mdelay(120); // 100ms
+		send_cmd(0x29); // (DISPON)
+		mdelay(100); // 100ms
+		#endif
 	}
+
 	return 0;
 }
 

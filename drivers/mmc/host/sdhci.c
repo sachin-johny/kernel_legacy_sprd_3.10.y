@@ -224,15 +224,17 @@ static void sdhci_set_card_detection(struct sdhci_host *host, bool enable)
 
 	host_data = sdhci_priv(host);
 	irq = host_data->detect_irq;
-	if(!enable) {
-		irq_set_irq_type(irq,IRQF_TRIGGER_NONE);
-		return;
-	}
+	if(irq > 0){
+		if(!enable) {
+			irq_set_irq_type(irq,IRQF_TRIGGER_NONE);
+			return;
+		}
 
-	if(sdcard_present(host)){
-		irq_set_irq_type(irq,IRQF_TRIGGER_HIGH);
-	}else{
-		irq_set_irq_type(irq,IRQF_TRIGGER_LOW);
+		if(sdcard_present(host)){
+			irq_set_irq_type(irq,IRQF_TRIGGER_HIGH);
+		}else{
+			irq_set_irq_type(irq,IRQF_TRIGGER_LOW);
+		}
 	}
 #endif
 }
@@ -3247,12 +3249,15 @@ int sdhci_add_host(struct sdhci_host *host)
 	host_data = sdhci_priv(host);
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	detect_irq = host_data->detect_irq;
+	if (detect_irq > 0) {
 	if (sdcard_present(host)){
 		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
 			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "sd card detect", host);
 	} else {
 		ret = request_threaded_irq(detect_irq, NULL, sd_detect_irq,
 			IRQF_TRIGGER_LOW | IRQF_ONESHOT, "sd card detect", host);
+	}
+
 	}
 	if (ret)
 		goto untasklet;

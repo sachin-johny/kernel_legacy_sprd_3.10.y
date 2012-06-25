@@ -455,18 +455,21 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		}else{
 			ret = gpio_request(sd_detect_gpio, "sdio1_detect");
 		}
+
 		if (ret) {
 			dev_err(dev, "cannot request gpio\n");
 			return -1;
 		}
+
+		ret = gpio_direction_input(sd_detect_gpio);
+		if (ret) {
+			dev_err(dev, "gpio can not change to input\n");
+			return -1;
+		}
+
 		detect_irq = gpio_to_irq(sd_detect_gpio);
 		if (detect_irq < 0){
 			dev_err(dev, "cannot alloc detect irq\n");
-			return -1;
-		}
-		ret = gpio_direction_input(detect_irq);
-		if (ret) {
-			dev_err(dev, "gpio can not change to input\n");
 			return -1;
 		}
 		host_data->detect_irq = detect_irq;

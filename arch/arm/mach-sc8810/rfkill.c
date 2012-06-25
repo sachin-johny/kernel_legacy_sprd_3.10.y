@@ -53,6 +53,8 @@ static void getIoResource(struct platform_device  *pdev)
 
 static int bluetooth_set_power(void *data, bool blocked)
 {
+	printk("%s: block=%d\n",__func__, blocked);
+
 	if (!blocked) {
 		gpio_direction_output(bt_power, 0);
 		gpio_direction_output(bt_reset, 0);
