@@ -1286,11 +1286,6 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 				break;
 			}
 
-			if(FLASH_OPEN == g_dcam_info.flash_mode)
-			{
-				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN); // open flash
-			}
-
 			copy_from_user(&focus_param[0], (uint16_t*)ctrl->value, FOCUS_PARAM_LEN);		
 			printk("test V4L2:focus kernel,type=%d,zone_cnt=%d.\n",focus_param[0],focus_param[1]);
 			if((0 == g_dcam_info.focus_param)&&(0x55 == focus_param[0]))
@@ -1313,6 +1308,11 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			}
 			if(0x55 == focus_param[0]) {
 				break;
+			}
+
+			if(FLASH_OPEN == g_dcam_info.flash_mode)
+			{
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN); // open flash
 			}
 
 			switch(focus_param[0])
