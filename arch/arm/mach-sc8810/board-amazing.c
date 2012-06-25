@@ -370,6 +370,24 @@ static void __init sc8810_init_machine(void)
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,
 		char **cmdline, struct meminfo *mi)
 {
+	struct tag *t = tag;
+
+	/* manipulate cmdline if not in calibration mode, for mfserial */
+	for (; t->hdr.size; t = (struct tag*)((__u32*)(t) + (t)->hdr.size)) {
+		if (t->hdr.tag == ATAG_CMDLINE) {
+			char *p, *c;
+			c = (char*)t->u.cmdline.cmdline;
+			if(strstr(c, "calibration=") == NULL) {
+				p = strstr(c, "console=");
+				/* break it, if exists */
+				if (p)
+					*p = 'O';
+				/* add our kernel parameters */
+				strcat(c, "console=ttyS1,115200n8 loglevel=0");
+			}
+			break;
+		}
+	}
 }
 
 static void __init sc8810_init_early(void)
