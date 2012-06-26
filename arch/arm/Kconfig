@@ -2214,6 +2214,10 @@ config CPU_FREQ_S3C24XX_DEBUGFS
 	help
 	  Export status information via debugfs.
 
+config CPU_FREQ_SC8810
+	bool "CPUfreq support for Spreadtrum SC8810 CPUs"
+	depends on CPU_FREQ && ARCH_SC8810
+
 endif
 
 source "drivers/cpuidle/Kconfig"

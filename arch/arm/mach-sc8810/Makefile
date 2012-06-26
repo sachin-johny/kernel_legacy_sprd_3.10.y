@@ -20,3 +20,4 @@ obj-$(CONFIG_MACH_Z788)  += board-z788.o
 obj-$(CONFIG_SC8810_VIBRATOR) += vibrator.o
 obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o
 obj-$(CONFIG_MACH_OPENPHONE_SC6820) += board-sc6820-openphone.o
+obj-$(CONFIG_CPU_FREQ_SC8810) += cpufreq-sc8810.o
