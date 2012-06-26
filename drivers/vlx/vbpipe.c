@@ -1007,6 +1007,10 @@ ex_poll(struct file* file, poll_table* wait)
     if (RING_P_ROOM(cring, ex_dev->c_size) != 0) {
 	res |= (POLLOUT | POLLWRNORM);
     }
+
+    sring->s_wait = 1;
+    cring->c_wait = 1;
+
     return res;
 }
 
