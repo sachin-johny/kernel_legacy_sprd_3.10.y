@@ -68,12 +68,7 @@ static inline void __raw_bits_or(unsigned int v, unsigned int a)
 }
 static void z788_SetPwmRatio(unsigned short value)
 {
-	//printk("sprd:  %s  ,value = 0x%x  --1\n",__func__,value);
-	
-       if(value <0x20){
-		 value = 0x20;
-	}
-	
+	/*printk("sprd:  %s  ,value = 0x%x  --1\n",__func__,value);*/
 	__raw_bits_or(CLK_PWM0_EN, GR_CLK_EN);
 	__raw_bits_or(CLK_PWM0_SEL, GR_CLK_EN);
 	__raw_bits_or(PIN_PWM0_MOD_VALUE, PIN_MOD_PWMA);
@@ -90,13 +85,14 @@ static int sc8810_backlight_update_status(struct backlight_device *bldev)
 {
 	struct sc8810bl *bl = bl_get_data(bldev);
 	uint32_t value;
-	//printk("sprd:  %s  --2\n",__func__);
+	/*printk("sprd:  %s  --2\n",__func__);*/
 	if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
 			bldev->props.power != FB_BLANK_UNBLANK ||
 			bldev->props.brightness == 0) {
 		/* disable backlight */
-		z788_SetPwmRatio(0);
-		
+		value = 0x0;
+		value = (value << 8) | PWM_MOD_MAX;
+		z788_SetPwmRatio(value);
 	} else {
 		value = bldev->props.brightness & PWM_MOD_MAX;
 		value = (value << 8) | PWM_MOD_MAX;
