@@ -1049,6 +1049,11 @@ static void android_pm_exit(void) {}
 #ifdef CONFIG_PM
 int vbc_soc_suspend(struct snd_soc_codec *codec, pm_message_t state)
 {
+	if(!vbc_reg_read(VBPMR1, SB_LIN, 1))
+	{    
+		printk("vbc_suspend FM is still running !!!!!!!!!\n");
+		return 0;
+	} 
 	mutex_lock(&codec->mutex);
 	if (vbc_codec_full_power_down == 0) {
 		pr_info("vbc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n");
@@ -1064,7 +1069,12 @@ int vbc_soc_suspend(struct snd_soc_codec *codec, pm_message_t state)
 }
 
 int vbc_soc_resume(struct snd_soc_codec *codec)
-{
+{    
+	if(!vbc_reg_read(VBPMR1, SB_LIN, 1))
+	{
+		printk("vbc_resume FM is still running !!!!!!!!!\n");
+		return 0;
+	}
 #if 1
 	pr_info("vbc yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy later do this\n");
 #else
