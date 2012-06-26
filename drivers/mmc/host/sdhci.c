@@ -27,9 +27,11 @@
 #include <linux/irq.h>
 #include <linux/gpio.h>
 #include <linux/wakelock.h>
+#include <linux/delay.h>
 
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
+#include <linux/pm_runtime.h>
 #include <linux/mmc/card.h>
 
 #include "sdhci.h"
@@ -1329,6 +1331,65 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
  * MMC callbacks                                                             *
  *                                                                           *
 \*****************************************************************************/
+#ifdef CONFIG_PM_RUNTIME
+static int sdhci_enable(struct mmc_host *mmc){
+	int ret = 0;
+	struct device *dev = mmc->parent;
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (mmc->card && mmc_card_sdio(mmc->card))
+		return 0;
+
+	if (dev->power.runtime_status == RPM_SUSPENDING) {
+		if (mmc->suspend_task == current) {
+			pm_runtime_get_noresume(dev);
+			goto out;
+		}
+	}
+
+	if(!host->is_resumed){
+		ret = pm_runtime_get_sync(dev);
+	}
+	if (ret < 0) {
+		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
+				__func__, ret);
+		return ret;
+	}
+
+	host->is_resumed = true;
+out:
+	return ret;
+}
+
+static int sdhci_disable(struct mmc_host *mmc, int lazy){
+	int ret = 0;
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (mmc->card && mmc_card_sdio(mmc->card))
+		return 0;
+
+	if(host->is_resumed){
+		ret = pm_runtime_put_sync(mmc->parent);
+	}
+
+	if (ret < 0)
+		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
+				__func__, ret);
+	else{
+		host->is_resumed = false;
+	}
+
+	return ret;
+}
+#else
+static int sdhci_enable(struct mmc_host *mmc){
+	return 0;
+}
+
+static int sdhci_disable(struct mmc_host *mmc){
+	return 0;
+}
+#endif
 
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
@@ -2038,6 +2099,8 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 }
 
 static const struct mmc_host_ops sdhci_ops = {
+	.enable				= sdhci_enable,
+	.disable			= sdhci_disable,
 	.request	= sdhci_request,
 	.set_ios	= sdhci_set_ios,
 	.get_ro		= sdhci_get_ro,
@@ -2114,6 +2177,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	 * The controller needs a reset of internal state machines
 	 * upon error conditions.
 	 */
+	if(mrq){
 	if (!(host->flags & SDHCI_DEVICE_DEAD) &&
 	    ((mrq->cmd && mrq->cmd->error) ||
 		 (mrq->data && (mrq->data->error ||
@@ -2136,6 +2200,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 		sdhci_reset(host, SDHCI_RESET_DATA);
 	}
 
+	}
 	host->mrq = NULL;
 	host->cmd = NULL;
 	host->data = NULL;
@@ -2162,7 +2227,9 @@ static void sdhci_timeout_timer(unsigned long data)
 	host = (struct sdhci_host*)data;
 
 	spin_lock_irqsave(&host->lock, flags);
-
+	pr_err("!!!! %s: %s timeout !!!!\n", mmc_hostname(host->mmc),
+				host->suspending?"supsend":"command");
+	sdhci_dumpregs(host);
 	if (host->mrq) {
 		pr_err("%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
@@ -2340,8 +2407,11 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 		host->data->error = -EIO;
 	}
 
-	if (host->data->error)
+	if (host->data->error){
+		printk("%s: !!!!! error in sending data, int:0x%x, err:%d \n",
+				mmc_hostname(host->mmc), intmask, host->data->error);
 		sdhci_finish_data(host);
+	}
 	else {
 		if (intmask & (SDHCI_INT_DATA_AVAIL | SDHCI_INT_SPACE_AVAIL))
 			sdhci_transfer_pio(host);

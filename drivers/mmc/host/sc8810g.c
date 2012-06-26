@@ -19,6 +19,7 @@
 #include <linux/mmc/card.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -476,6 +477,43 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->clk = NULL;
 	sdhci_module_init(host);
 
+#ifdef CONFIG_PM_RUNTIME
+	ret = pm_runtime_set_active(&(pdev)->dev);
+	if (ret < 0)
+		pr_info("%s: %s: failed with error %d", mmc_hostname(host->mmc),
+				__func__, ret);
+	/*
+	 * There is no notion of suspend/resume for SD/MMC/SDIO
+	 * cards. So host can be suspended/resumed without
+	 * worrying about its children.
+	 */
+	pm_suspend_ignore_children(&(pdev)->dev, true);
+
+	/*
+	 * MMC/SD/SDIO bus suspend/resume operations are defined
+	 * only for the slots that will be used for non-removable
+	 * media or for all slots when CONFIG_MMC_UNSAFE_RESUME is
+	 * defined. Otherwise, they simply become card removal and
+	 * insertion events during suspend and resume respectively.
+	 * Hence, enable run-time PM only for slots for which bus
+	 * suspend/resume operations are defined.
+	 */
+#ifdef CONFIG_MMC_UNSAFE_RESUME
+	/*
+	 * If this capability is set, MMC core will enable/disable host
+	 * for every claim/release operation on a host. We use this
+	 * notification to increment/decrement runtime pm usage count.
+	 */
+	host->mmc->caps |= MMC_CAP_DISABLE;
+	pm_runtime_enable(&(pdev)->dev);
+#else
+	if (host->mmc->caps & MMC_CAP_NONREMOVABLE) {
+		host->mmc->caps |= MMC_CAP_DISABLE;
+		pm_runtime_enable(&(pdev)->dev);
+	}
+#endif
+	mmc_set_disable_delay(host->mmc, 500);
+#endif
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");
@@ -486,11 +524,16 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 
 #ifdef CONFIG_MMC_BUS_SCAN
-	sdhci_host_g = host;
+	if (pdev->id == 1)
+		sdhci_host_g = host;
 #endif
 	return 0;
 
 err_add_host:
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_disable(&(pdev)->dev);
+	pm_runtime_set_suspended(&(pdev)->dev);
+#endif
 	sdhci_free_host(host);
 	return ret;
 }
@@ -503,8 +546,17 @@ static int __devexit sdhci_sprd_remove(struct platform_device *pdev)
 {
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 
+#ifdef CONFIG_PM_RUNTIME
+	if (pm_runtime_suspended(&(pdev)->dev))
+		pm_runtime_resume(&(pdev)->dev);
+#endif
 	sdhci_remove_host(host, 1);
 	sdhci_free_host(host);
+
+#ifdef CONFIG_PM_RUNTIME
+	pm_runtime_disable(&(pdev)->dev);
+	pm_runtime_set_suspended(&(pdev)->dev);
+#endif
 	return 0;
 }
 
@@ -514,8 +566,16 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 {
 	int ret = 0;
 	struct sdhci_host *host = platform_get_drvdata(dev);
-	printk("%s, %s, enter\n", mmc_hostname(host->mmc), __func__ );
+	printk("%s, %s, start\n", mmc_hostname(host->mmc), __func__ );
+#ifdef CONFIG_PM_RUNTIME
+	if (!pm_runtime_suspended(&dev->dev)) {
+		ret = sdhci_suspend_host(host, pm);
+	}else{
+		printk("%s, %s, runtime suspended\n", mmc_hostname(host->mmc), __func__ );
+	}
+#else
 	ret = sdhci_suspend_host(host, pm);
+#endif
 	if(ret){
 		printk("~wow, %s suspend error %d\n", host->hw_name, ret);
 		return ret;
@@ -538,6 +598,11 @@ if(host->mmc && host->mmc->card)
 	sdhci_dump_saved_regs(host);
 #endif
 #endif
+
+	/* disable ahb clock */
+	if(host->ops->set_clock){
+		host->ops->set_clock(host, 0);
+	}
 	printk("%s, %s, done\n", mmc_hostname(host->mmc), __func__ );
 
 	return 0;
@@ -546,7 +611,7 @@ if(host->mmc && host->mmc->card)
 static int sdhci_sprd_resume(struct platform_device *dev)
 {
 	struct sdhci_host *host = platform_get_drvdata(dev);
-	printk("%s, %s, enter\n", mmc_hostname(host->mmc), __func__ );
+	printk("%s, %s, start\n", mmc_hostname(host->mmc), __func__ );
 
 	/* enable ahb clock to restore registers */
 	if(host->ops->set_clock){
@@ -596,6 +661,181 @@ if(host->mmc && host->mmc->card)
 #define sdhci_sprd_resume NULL
 #endif
 
+#ifdef CONFIG_PM_RUNTIME
+static int sdhci_runtime_suspend(struct device *dev){
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct mmc_host *mmc = host->mmc;
+	int rc = 0;
+	if (mmc) {
+		mmc->suspend_task = current;
+
+		/*
+		 * MMC core thinks that host is disabled by now since
+		 * runtime suspend is scheduled after sdhci_disable()
+		 * is called. Thus, MMC core will try to enable the host
+		 * while suspending it. This results in a synchronous
+		 * runtime resume request while in runtime suspending
+		 * context and hence inorder to complete this resume
+		 * requet, it will wait for suspend to be complete,
+		 * but runtime suspend also can not proceed further
+		 * until the host is resumed. Thus, it leads to a hang.
+		 * Hence, increase the pm usage count before suspending
+		 * the host so that any resume requests after this will
+		 * simple become pm usage counter increment operations.
+		 */
+		pm_runtime_get_noresume(dev);
+		/* If there is pending detect work abort runtime suspend */
+		if (unlikely(work_busy(&mmc->detect.work)))
+			rc = -EAGAIN;
+		else{
+			host->suspending = 1;
+			rc = mmc_suspend_host(mmc);
+		}
+		pm_runtime_put_noidle(dev);
+
+		host->suspending = 0;
+		mmc->suspend_task = NULL;
+	}
+	return rc;
+}
+
+static int sdhci_runtime_resume(struct device *dev){
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct mmc_host *mmc = host->mmc;
+
+	if (mmc) {
+		(host->mmc)->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
+		mmc_resume_host(mmc);
+		(host->mmc)->bus_resume_flags |= MMC_BUSRESUME_MANUAL_RESUME;
+	}
+	return 0;
+}
+
+#define SPRD_MMC_IDLE_TIMEOUT 5000
+static int sdhci_runtime_idle(struct device *dev){
+	return 0;
+}
+
+static int sdhci_pm_suspend(struct device *dev)
+{
+	int ret = 0;
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	if (!pm_runtime_suspended(dev)) {
+		if (!(host->mmc->card && mmc_card_sdio(host->mmc->card))) {
+			/*
+			 * decrement power.usage_counter if it's
+			 * not zero earlier
+			 */
+			pm_runtime_put_noidle(dev);
+			ret = pm_runtime_suspend(dev);
+		}
+
+		/*
+		 * if device runtime PM status is still not suspended
+		 * then perform suspend here.
+		 */
+		if (!pm_runtime_suspended(dev))
+			ret = sdhci_runtime_suspend(dev);
+		/* device suspend here,can't use mmc_host_do_disable() function.
+		 * we must change the host->is_resumed,host->mmc->enabled
+		 * value,make sure the device can normal resume.
+		*/
+		if (host->is_resumed)
+			host->is_resumed = 0;
+		if (host->mmc->enabled)
+			host->mmc->enabled = 0;
+	}else{
+		printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
+	}
+
+#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
+	if( !strcmp(host->hw_name, "Spread SDIO host1") ) {
+		sdhci_host_wakeup_set(host);
+	}
+#endif
+
+#ifdef MMC_RESTORE_REGS
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+	sdhci_save_regs(host);
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dump_saved_regs(host);
+#endif
+#endif
+
+	/* disable ahb clock */
+	if(host->ops->set_clock){
+		host->ops->set_clock(host, 0);
+	}
+
+	return 0;
+}
+
+static int sdhci_pm_resume(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	/* enable ahb clock to restore registers */
+	if(host->ops->set_clock){
+		host->ops->set_clock(host, 1);
+	}
+#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
+	if( !strcmp(host->hw_name, "Spread SDIO host1") ) {
+		sdhci_host_wakeup_clear(host);
+	}
+#endif
+
+#ifdef MMC_RESTORE_REGS
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+	sdhci_restore_regs(host);
+#endif
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+	if (!pm_runtime_suspended(dev))
+		sdhci_resume_host(host);
+	else
+		sdhci_reinit(host);//restore irq enable register
+	/* disable sdio0(T-FLASH card) ahb clock */
+	if(mmc_bus_manual_resume(host->mmc)){
+		if(host->ops->set_clock){
+			host->ops->set_clock(host, 0);
+		}
+	}
+
+	if(!(host->mmc->card)){
+		if(host->ops->set_clock){
+			host->ops->set_clock(host, 0);
+		}
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops sdhci_dev_pm_ops = {
+	.suspend	 = sdhci_pm_suspend,
+	.resume		 = sdhci_pm_resume,
+	.runtime_suspend = sdhci_runtime_suspend,
+	.runtime_resume  = sdhci_runtime_resume,
+	.runtime_idle    = sdhci_runtime_idle,
+};
+#else
+static const struct dev_pm_ops sdhci_dev_pm_ops = {
+	.suspend	 = NULL,
+	.resume		 = NULL,
+	.runtime_suspend = NULL,
+	.runtime_resume  = NULL,
+	.runtime_idle    = NULL,
+};
+
+#endif
+
 static struct platform_driver sdhci_sprd_driver = {
 	.probe		= sdhci_sprd_probe,
 	/* SDIO host is a build-in module
@@ -605,6 +845,9 @@ static struct platform_driver sdhci_sprd_driver = {
 	.resume		= sdhci_sprd_resume,
 	.driver		= {
 		.owner		= THIS_MODULE,
+#ifdef CONFIG_PM_RUNTIME
+		.pm 		=  &sdhci_dev_pm_ops,
+#endif
 		.name		= "sprd-sdhci",
 	},
 };
