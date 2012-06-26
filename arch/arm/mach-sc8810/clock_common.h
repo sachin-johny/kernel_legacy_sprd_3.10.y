@@ -97,6 +97,22 @@
 #define	CLK_AHB_CLKDIV_MASK	(0x3UL << 4)
 #define	CLK_EMC_CLKDIV_MASK	(0x3UL << 8)
 
+#define MHz 			(1000000)
+#define GR_MPLL_REFIN_2M	(2*MHz)
+#define GR_MPLL_REFIN_4M	(4*MHz)
+#define GR_MPLL_REFIN_13M	(13*MHz)
+#define GR_MPLL_REFIN_SHIFT	16
+#define GR_MPLL_REFIN_MASK	(0x3)
+#define GR_MPLL_N_MASK		(0x7ff)
+
+
+#define GR_DPLL_REFIN_2M	(2*MHz)
+#define GR_DPLL_REFIN_4M	(4*MHz)
+#define GR_DPLL_REFIN_13M	(13*MHz)
+#define GR_DPLL_REFIN_SHIFT	16
+#define GR_DPLL_REFIN_MASK	(0x3)
+#define GR_DPLL_N_MASK		(0x7ff)
+
 struct clk;
 
 struct clksel_rate {

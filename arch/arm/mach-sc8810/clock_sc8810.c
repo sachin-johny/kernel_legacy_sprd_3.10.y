@@ -86,10 +86,11 @@ struct sc88xx_clk {
 #define 	CK_SC8800G2	(0x1UL << 0)
 
 
-
+static void sc8800g2_mpllcore_init(struct clk *clk);
 static unsigned long sc8800g2_mpllcore_recalc(struct clk *clk);
+static int sc8800g2_mpllcore_reprogram(struct clk *clk, unsigned long rate);
+
 static unsigned long sc8800g2_dpllcore_recalc(struct clk *clk);
-static int sc8800g2_reprogram_mpllcore(struct clk *clk, unsigned long rate);
 
 
 static int clkll_enable_null(struct clk *clk)
@@ -203,8 +204,10 @@ static struct clk mpll_ck = {
 	.parent = &ext_26m,
 	.flags = ENABLE_ON_INIT,
 	.clkdm_name = "pll_clkdm",
+	.rate = 1000000000,
+	.init = &sc8800g2_mpllcore_init,
 	.recalc = &sc8800g2_mpllcore_recalc,
-	.set_rate = &sc8800g2_reprogram_mpllcore,
+	.set_rate = &sc8800g2_mpllcore_reprogram,
 };
 
 static struct clk dpll_ck = {
@@ -213,7 +216,7 @@ static struct clk dpll_ck = {
 	.parent = &ext_26m,
 	.flags = ENABLE_ON_INIT,
 	.clkdm_name = "pll_clkdm",
-	.recalc = &sc8800g2_dpllcore_recalc,
+	//.recalc = &sc8800g2_dpllcore_recalc,
 	.set_rate = 0,
 };
 
@@ -1583,11 +1586,39 @@ static void _sc88xx_clk_commit(struct clk *clk)
 	/* nothing for now. */
 }
 
+static void sc8800g2_mpllcore_init(struct clk *clk){
+	unsigned long rate = 0;
+	if(clk->recalc)
+		rate = clk->recalc(clk);
+	else
+		rate = 1000000000;
+
+	return;
+}
+
 static unsigned long sc8800g2_mpllcore_recalc(struct clk *clk)
 {
-	unsigned long refclk = 4000000;
-	unsigned long v = __raw_readl(GR_MPLL_MN);
-	return refclk * (v & 0x7ff);
+	u32 mpll_refin, mpll_n, mpll_cfg;
+	mpll_cfg = __raw_readl(GR_MPLL_MN);
+	mpll_refin = (mpll_cfg>>GR_MPLL_REFIN_SHIFT) & GR_MPLL_REFIN_MASK;
+	switch(mpll_refin){
+	case 0:
+		mpll_refin = GR_MPLL_REFIN_2M;
+		break;
+	case 1:
+	case 2:
+		mpll_refin = GR_MPLL_REFIN_4M;
+		break;
+	case 3:
+		mpll_refin = GR_MPLL_REFIN_13M;
+		break;
+	default:
+		printk("%s ERROR mpll_refin:%d\n", __func__, mpll_refin);
+	}
+	mpll_n = mpll_cfg & GR_MPLL_N_MASK;
+	clk->rate = mpll_refin * mpll_n;
+	return (clk->rate);
+
 }
 
 static unsigned long sc8800g2_dpllcore_recalc(struct clk *clk)
@@ -1597,8 +1628,42 @@ static unsigned long sc8800g2_dpllcore_recalc(struct clk *clk)
 	return refclk * (v & 0x7ff);
 }
 
-static int sc8800g2_reprogram_mpllcore(struct clk *clk, unsigned long rate)
+static int sc8800g2_mpllcore_reprogram(struct clk *clk, unsigned long rate)
 {
+	u32 mpll_refin, mpll_n, mpll_cfg;
+	clk->rate = rate;
+	rate /= MHz;
+	mpll_cfg = __raw_readl(GR_MPLL_MN);
+	mpll_refin = (mpll_cfg>>GR_MPLL_REFIN_SHIFT) & GR_MPLL_REFIN_MASK;
+	switch(mpll_refin){
+		case 0:
+			  mpll_refin = GR_MPLL_REFIN_2M;
+			  break;
+		case 1:
+		case 2:
+			  mpll_refin = GR_MPLL_REFIN_4M;
+			  break;
+		case 3:
+			  mpll_refin = GR_MPLL_REFIN_13M;
+			  break;
+		default:
+			  printk("%s ERROR mpll_refin:%d\n", __func__, mpll_refin);
+	}
+	mpll_refin /= MHz;
+	mpll_n = rate / mpll_refin;
+	mpll_cfg &= ~GR_MPLL_N_MASK;
+	mpll_cfg |= mpll_n;
+
+	u32 gr_gen1 = __raw_readl(GR_GEN1);
+	gr_gen1 |= BIT(9);
+	__raw_writel(gr_gen1, GR_GEN1);
+	pr_debug("before, mpll_cfg:0x%x, mpll_n:%u, mpll_refin:%u\n", __raw_readl(GR_MPLL_MN), mpll_n, mpll_refin);
+	__raw_writel(mpll_cfg, GR_MPLL_MN);
+	gr_gen1 &= ~BIT(9);
+	__raw_writel(gr_gen1, GR_GEN1);
+
+	propagate_rate(clk);
+	pr_debug("after, mpll_cfg:0x%x, mpll_n:%u, mpll_refin:%u\n", __raw_readl(GR_MPLL_MN), mpll_n, mpll_refin);
 
 	return 0;
 }
