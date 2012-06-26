@@ -24,7 +24,7 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 
-//#define GET_WIFI_MAC_ADDR_FROM_NV_ITEM	1
+#define GET_WIFI_MAC_ADDR_FROM_NV_ITEM	        1
 
 #define PREALLOC_WLAN_NUMBER_OF_SECTIONS	4
 #define PREALLOC_WLAN_NUMBER_OF_BUFFERS		160
@@ -36,6 +36,14 @@
 #define WLAN_SECTION_SIZE_3	(PREALLOC_WLAN_NUMBER_OF_BUFFERS * 1024)
 
 #define WLAN_SKB_BUF_NUM	16
+#define IFHWADDRLEN        	6
+
+#define CUSTOMER_MAC_FILE "/data/wifimac.txt"
+
+extern void * dhd_os_open_image(char *filename);
+extern int  dhd_os_get_image_block(char *buf, int len, void *image);
+extern void dhd_os_close_image(void *image);
+
 
 static int bcm_wifi_cd = 0; /* WIFI virtual 'card detect' status */
 static int bcm_wifi_power_state;
@@ -172,34 +180,53 @@ int bcm_wifi_set_carddetect(int val)
 #ifdef GET_WIFI_MAC_ADDR_FROM_NV_ITEM
 static unsigned char bcm_mac_addr[IFHWADDRLEN] = { 0x11,0x22,0x33,0x44,0x55,0x66 };
 
+static unsigned char char2bin( char m)
+{
+	if (( m >= 'a') && (m <= 'f')) {
+		return m - 'a' + 10;
+	}
+	if (( m >= 'A') && (m <= 'F')) {
+		return m - 'A' + 10;
+	}
+	if (( m >= '0') && (m <= '9')) {
+		return m - '0';
+	}
+}
+
 static int bcm_wifi_get_mac_addr(unsigned char *buf)
 {
 	int rc = 0;
-	unsigned int data1, data2;
+
+	char macaddr[20];
+	int mac_len = 0;
+	void *fp;
 
 	if (!buf){
 		pr_err("%s, null parameter !!\n", __func__);
 		return -EFAULT;
 	}
-
-	data2 = (1<<31);
-
-	if(!rc) {
-		bcm_mac_addr[5] = (unsigned char)((data2>>8)&0xff);
-		bcm_mac_addr[4] = (unsigned char)(data2&0xff);
-		bcm_mac_addr[3] = (unsigned char)((data1>>24)&0xff);
-		bcm_mac_addr[2] = (unsigned char)((data1>>16)&0xff);
-		bcm_mac_addr[1] = (unsigned char)((data1>>8)&0xff);
-		bcm_mac_addr[0] = (unsigned char)(data1&0xff);
-
-		memcpy(buf, bcm_mac_addr, IFHWADDRLEN);
-		pr_info("wifi mac: %x:%x:%x:%x:%x:%x\n", bcm_mac_addr[0], bcm_mac_addr[1], bcm_mac_addr[2], bcm_mac_addr[3], bcm_mac_addr[4], bcm_mac_addr[5]);
-
-		return 0;
-	} else {
-		pr_err("%s fail !!\n", __func__);
+	fp = dhd_os_open_image(CUSTOMER_MAC_FILE);
+	if (fp == NULL)
 		return -EFAULT;
-	}
+	mac_len = dhd_os_get_image_block(macaddr, 17, fp);
+	if (mac_len < 17)
+		return -EFAULT;
+
+
+	bcm_mac_addr[0] = (unsigned char)((char2bin(macaddr[0]) << 4) | char2bin(macaddr[1]));
+	bcm_mac_addr[1] = (unsigned char)((char2bin(macaddr[3]) << 4) | char2bin(macaddr[4]));
+	bcm_mac_addr[2] = (unsigned char)((char2bin(macaddr[6]) << 4) | char2bin(macaddr[7]));
+	bcm_mac_addr[3] = (unsigned char)((char2bin(macaddr[9]) << 4) | char2bin(macaddr[10]));
+	bcm_mac_addr[4] = (unsigned char)((char2bin(macaddr[12]) << 4) | char2bin(macaddr[13]));
+	bcm_mac_addr[5] = (unsigned char)((char2bin(macaddr[15]) << 4) | char2bin(macaddr[16]));
+
+	memcpy(buf, bcm_mac_addr, IFHWADDRLEN);
+	pr_info("wifi mac: %x:%x:%x:%x:%x:%x\n", bcm_mac_addr[0], bcm_mac_addr[1], bcm_mac_addr[2], bcm_mac_addr[3], bcm_mac_addr[4], bcm_mac_addr[5]);
+
+	dhd_os_close_image(fp);
+
+	return 0;
+
 }
 #endif
 
