@@ -27,7 +27,7 @@
 /* When the battery voltage is higher than this value, we will stop charging. */
 #define PREVCHGEND			(4200)
 
-#define CHGMNG_DEFAULT_SWITPOINT CHG_SWITPOINT_20
+#define CHGMNG_DEFAULT_SWITPOINT CHG_SWITPOINT_17
 #define CHGMNG_STOP_VPROG		80	/* Isense stop point */
 #define CHGMNG_SWITCH_CV_VPROG	300	/* Isense stop point */
 #define CHGMNG_PLUSE_TIMES		3
