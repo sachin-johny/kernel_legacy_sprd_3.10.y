@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/jiffies.h>
 #include <linux/mutex.h>
 #include <linux/types.h>
 #include <linux/init.h>
@@ -29,7 +30,7 @@
 #include <mach/hardware.h>
 #include <mach/regulator.h>
 
-
+#define DELTA 				msecs_to_jiffies(1000)
 #define FREQ_TABLE_ENTRY		(4)
 
 /*
@@ -38,7 +39,7 @@
  *display BogoMIPS instead of the real cpu frequency if CONFIG_CPU_FREQ
  *is not be defined
  */
-int cpufreq_bypass = 0;
+int cpufreq_bypass = 1;
 
 struct sprd_dvfs_table {
 	unsigned long  clk_mcu_mhz;
@@ -79,6 +80,9 @@ struct sprd_dvfs_table current_cfg[] = {
 		.vdd_mcu_mv = 0,
 	},
 };
+static unsigned int last_time[NR_CPUS];
+
+
 struct clock_state {
 	struct sprd_dvfs_table  current_para;
 	struct mutex			lock;
@@ -198,6 +202,12 @@ static int sprd_cpufreq_set_rate(struct cpufreq_policy *policy, int index){
 		return 0;
 	}
 
+	if(time_before(jiffies, last_time[policy->cpu]+DELTA)    &&
+		new_freq < current_cfg[policy->cpu].clk_mcu_mhz  ){
+		printk("%s, set rate in 1s(this_time:%u, last_time:%u), skip\n",
+					__func__, jiffies, last_time[policy->cpu] );
+		return ret;
+	}
 	printk("%s, old_freq:%lu KHz, old_vdd:%lu uv  \n", __func__,
 			current_cfg[policy->cpu].clk_mcu_mhz, current_cfg[policy->cpu].vdd_mcu_mv);
 
@@ -211,7 +221,7 @@ static int sprd_cpufreq_set_rate(struct cpufreq_policy *policy, int index){
 				current_cfg[policy->cpu].clk_mcu_mhz, current_cfg[policy->cpu].vdd_mcu_mv);
 	}
 	if(policy->cur == policy->max){
-		msleep(1000);
+		last_time[policy->cpu] = jiffies;
 	}
 	return ret;
 
