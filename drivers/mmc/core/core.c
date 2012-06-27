@@ -558,6 +558,7 @@ EXPORT_SYMBOL(mmc_align_data_size);
  */
 int mmc_host_enable(struct mmc_host *host)
 {
+
 	if (!(host->caps & MMC_CAP_DISABLE))
 		return 0;
 
@@ -566,6 +567,7 @@ int mmc_host_enable(struct mmc_host *host)
 
 	if (host->nesting_cnt++)
 		return 0;
+
 
 	cancel_delayed_work_sync(&host->disable);
 
@@ -817,7 +819,8 @@ void mmc_set_ios(struct mmc_host *host)
 
 	if (ios->clock > 0)
 		mmc_set_ungated(host);
-	host->ops->set_ios(host, ios);
+	if(host->ops)
+		host->ops->set_ios(host, ios);
 }
 EXPORT_SYMBOL(mmc_set_ios);
 
@@ -2370,7 +2373,12 @@ int mmc_suspend_host(struct mmc_host *host)
 		cancel_delayed_work(&host->disable);
 	if (cancel_delayed_work(&host->detect))
 		wake_unlock(&host->detect_wake_lock);
-	mmc_flush_scheduled_work();
+	if(work_busy(&host->disable.work))
+		printk("%s, %s, disable work  busy\n",  mmc_hostname(host), __func__ );
+	else{
+		printk("%s, %s, disable work  idle\n",  mmc_hostname(host), __func__ );
+		mmc_flush_scheduled_work();
+	}
 	err = mmc_cache_ctrl(host, 0);
 	if (err)
 		goto out;
@@ -2425,9 +2433,9 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
-	if (!err && !mmc_card_keep_power(host))
+	if (!err && !mmc_card_keep_power(host)){
 		mmc_power_off(host);
-
+	}
 out:
 	return err;
 }

@@ -146,6 +146,8 @@ struct sdhci_host {
 
 	struct timer_list timer;	/* Timer for timeouts */
 	unsigned int suspending;
+	unsigned int suspended;
+	unsigned int is_resumed;
 	struct clk  *clk;	/* clock source */
 	unsigned int caps;	/* Alternative capabilities */
 
