@@ -60,7 +60,7 @@
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/timer.h>
-
+#include <linux/delay.h>
 #include <linux/platform_device.h>
 
 
@@ -124,6 +124,50 @@ __setup("factory", factory_start);
 int in_factory_mode(void)
 {
 	return (factory_mode == true);
+}
+static struct timer_list setup_transfer_timer;
+static  int suspend_count=0;
+static  int setup_transfer_timer_start = 0;
+static void    monitor_setup_transfer(unsigned long para)
+{
+	dwc_otg_pcd_t *pcd;
+	int	in_ep_ctrl=0;
+	int     in_ep_tsiz=0;
+	dwc_otg_core_if_t *core_if;
+	dwc_otg_dev_if_t *dev_if;
+
+	pcd = (dwc_otg_pcd_t *)para;
+
+	if(pcd==NULL)
+		return;
+	core_if = GET_CORE_IF(pcd);
+	dev_if = core_if->dev_if;
+	if(pcd->ep0state == EP0_DISCONNECT)
+		return;
+	in_ep_ctrl = dwc_read_reg32(&dev_if->in_ep_regs[0]->diepctl);
+	in_ep_tsiz = dwc_read_reg32(&dev_if->in_ep_regs[0]->dieptsiz);
+	if((in_ep_ctrl & 0x80000000) && (in_ep_tsiz & 0x80000))
+		suspend_count++;
+	else
+		suspend_count=0;
+	if(suspend_count > 5){
+		void dwc_udc_startup(void);
+		void dwc_udc_shutdown(void);
+		pr_info("Reset USB Controller...");
+		dwc_udc_shutdown();
+		mdelay(500);
+		dwc_udc_startup();
+	}
+}
+static void setup_transfer_timer_fun(unsigned long para)
+{
+	monitor_setup_transfer((unsigned long)gadget_wrapper->pcd);
+	if(gadget_wrapper->pcd->ep0state != EP0_DISCONNECT)
+		mod_timer(&setup_transfer_timer, jiffies + HZ);
+	else {
+		setup_transfer_timer_start = 0;
+		del_timer(&setup_transfer_timer);
+	}
 }
 /* USB Endpoint Operations */
 /*
@@ -647,6 +691,10 @@ static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 {
 	int retval = -DWC_E_NOT_SUPPORTED;
+	if(setup_transfer_timer_start == 0){
+		setup_transfer_timer_start = 1;
+		mod_timer(&setup_transfer_timer, jiffies + HZ);
+	}
 	if (gadget_wrapper->driver && gadget_wrapper->driver->setup) {
 		retval = gadget_wrapper->driver->setup(&gadget_wrapper->gadget,
 				(struct usb_ctrlrequest
@@ -1282,6 +1330,10 @@ int pcd_init(
 	/*
 	 * initialize a timer for checking cable type.
 	 */
+	{
+		setup_timer(&setup_transfer_timer,setup_transfer_timer_fun,(unsigned long)gadget_wrapper);
+		setup_transfer_timer_start = 0;
+	}
 	setup_timer(&gadget_wrapper->cable_timer, cable_detect_handler,
 			(unsigned long)gadget_wrapper);
 	/*

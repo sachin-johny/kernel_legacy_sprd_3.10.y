@@ -2473,6 +2473,12 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			}
 		}
 
+ 		if(deptsiz.b.xfersize==0){
+ 			depctl.b.snak = 1;
+ 			depctl.b.epena = 1;
+ 			dwc_write_reg32(&in_regs->diepctl, depctl.d32);
+ 		}
+		depctl.b.snak = 0;
 		/* EP enable, IN data in FIFO */
 		depctl.b.cnak = 1;
 		depctl.b.epena = 1;
@@ -2772,6 +2778,16 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			dwc_write_reg32(&in_regs->dieptsiz, deptsiz.d32);
 		}
 
+ 		if(deptsiz.b.xfersize==0){
+ 			depctl.b.snak = 1;
+ 			depctl.b.epena = 1;
+ 			dwc_write_reg32(&in_regs->diepctl, depctl.d32);
+ 		}
+ 		do{
+ 			depctl.d32 = dwc_read_reg32(&in_regs->diepctl);
+ 		}while(depctl.b.naksts==0);
+
+ 		depctl.b.snak = 0;
 		/* EP enable, IN data in FIFO */
 		depctl.b.cnak = 1;
 		depctl.b.epena = 1;
