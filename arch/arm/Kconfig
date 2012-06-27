@@ -2018,6 +2018,9 @@ config CPU_FREQ_PXA
 	default y
 	select CPU_FREQ_DEFAULT_GOV_USERSPACE
 
+config CPU_FREQ_SC8810
+	bool "CPUfreq support for Spreadtrum SC8810 CPUs"
+	depends on CPU_FREQ && ARCH_SC8810
 config CPU_FREQ_S3C64XX
 	bool "CPUfreq support for Samsung S3C64XX CPUs"
 	depends on CPU_FREQ && CPU_S3C6410
