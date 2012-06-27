@@ -7493,6 +7493,11 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 		if (!bus->dhd->dongle_reset) {
 			dhd_os_sdlock(dhdp);
 			dhd_os_wd_timer(dhdp, 0);
+#if defined(OOB_INTR_ONLY)
+			/* Clean up any pending IRQ */
+			bcmsdh_set_irq(FALSE);
+#endif /* defined(OOB_INTR_ONLY) */
+
 #if !defined(IGNORE_ETH0_DOWN)
 			/* Force flow control as protection when stop come before ifconfig_down */
 			dhd_txflowcontrol(bus->dhd, ALL_INTERFACES, ON);
@@ -7500,11 +7505,6 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 			/* Expect app to have torn down any connection before calling */
 			/* Stop the bus, disable F2 */
 			dhd_bus_stop(bus, FALSE);
-
-#if defined(OOB_INTR_ONLY)
-			/* Clean up any pending IRQ */
-			bcmsdh_set_irq(FALSE);
-#endif /* defined(OOB_INTR_ONLY) */
 
 			/* Clean tx/rx buffer pointers, detach from the dongle */
 			dhdsdio_release_dongle(bus, bus->dhd->osh, TRUE, TRUE);
