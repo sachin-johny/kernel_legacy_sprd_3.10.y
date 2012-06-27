@@ -720,7 +720,6 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         if(adc_value < 0)
           goto out;
         adc_value = get_vbat_value();
-        DEBUG("vbat %d\n", adc_value);
 
         voltage = CHGMNG_AdcvalueToVoltage(adc_value);
         DEBUG("voltage %d\n", voltage);
@@ -745,10 +744,8 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         vprog_value = CHG_GetVirtualVprog();
         if(vprog_value < 0)
           goto out;
-        DEBUG("raw vprog adc %d\n", vprog_value);
 
         vprog_current = CHGMNG_AdcvalueToCurrent(vprog_value, battery_data->cur_type);
-        DEBUG("raw vporg current %d\n", vprog_current);
         put_vprog_value(vprog_current);
         vprog_current= get_vprog_value();
         DEBUG("average vprog current %d\n", vprog_current);
@@ -758,7 +755,6 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
           goto out;
         //DEBUG("%s: vchg_adc %d\n", __func__, vchg_adc);
         vchg_vol = CHGMNG_ChargerAdcvalueToVoltage(vchg_adc);
-        DEBUG("raw vchg_vol %d\n", vchg_vol);
         put_vchg_value(vchg_vol);
         vchg_vol = get_vchg_value();
         DEBUG("%s:vchg %d\n", __func__, vchg_vol);
@@ -783,7 +779,6 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         if(vchg_adc < 0)
           goto out;
         vchg_vol = CHGMNG_ChargerAdcvalueToVoltage(vchg_adc);
-        DEBUG("raw vchg_vol %d\n", vchg_vol);
         put_vchg_value(vchg_vol);
         vchg_vol = get_vchg_value();
 
@@ -866,13 +861,14 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
             battery_data->in_precharge = 1;
             printk("charge last over %d seconds, stop charge\n", CHARGE_OVER_TIME);
         }
-        DEBUG("usb online %d, ac online %d\n", usb_online, ac_online);
-        DEBUG("hw_switch_point %d\n", battery_data->hw_switch_point);
-        {
-            DEBUG("ANA_CHG_CTL0 0x%x\n", ANA_REG_GET(ANA_CHGR_CTL0));
-            DEBUG("ANA_CHG_CTL1 0x%x\n", ANA_REG_GET(ANA_CHGR_CTL1));
-            DEBUG("*******************\n");
-        }
+    }
+    if(loop_cnt == 0){
+	    capacity = CHGMNG_VoltageToPercentum(voltage, battery_data->charging, 0, usb_online);
+	    DEBUG("capacity %d\n", capacity);
+	    if(battery_data->capacity != capacity){
+		    battery_data->capacity = capacity;
+		    battery_notify = 1;
+	    }
     }
 
 out:
@@ -880,14 +876,7 @@ out:
         spin_unlock_irqrestore(&battery_data->lock, flag);
 
         if(loop_cnt == 0){
-            capacity = CHGMNG_VoltageToPercentum(voltage, battery_data->charging, 0, usb_online);
             voltage = (voltage /10)*10;
-            //DEBUG("capacity %d\n", capacity);
-
-            if(battery_data->capacity != capacity){
-                battery_data->capacity = capacity;
-                battery_notify = 1;
-            }
 
             if(battery_data->voltage != voltage){
                 battery_data->voltage = voltage;
@@ -932,22 +921,26 @@ int battery_updata(void)
     int32_t voltage;
     uint32_t capacity;
     static uint32_t pre_capacity = 0xffffffff;
-    adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
-    if(adc_value < 0)
-      return 0;
-    voltage = CHGMNG_AdcvalueToVoltage(adc_value);
-    capacity = CHGMNG_VoltageToPercentum(voltage, battery_data->charging, 0, battery_data->usb_online);
-    DEBUG("battery_update: capacity %d\n", capacity);
-    if(pre_capacity == 0xffffffff){
-        pre_capacity = capacity;
-    }
+    if(battery_data->charging == 0) {
+	    adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+	    if(adc_value < 0)
+		    return 0;
+	    voltage = CHGMNG_AdcvalueToVoltage(adc_value);
+	    capacity = CHGMNG_VoltageToPercentum(voltage, 0, 0, 0);
+	    DEBUG("battery_update: capacity %d\n", capacity);
+	    if(pre_capacity == 0xffffffff){
+		    pre_capacity = capacity;
+	    }
 
-    if(pre_capacity != capacity){
-        pre_capacity = capacity;
-        update_vbat_value(adc_value);
-    }
-    if(capacity <5){
-        return 1;
+	    if(pre_capacity != capacity){
+		    pre_capacity = capacity;
+		    update_vbat_value(adc_value);
+	    }
+	    if(capacity <5){
+		    return 1;
+	    }else{
+		    return 0;
+	    }
     }else{
         return 0;
     }
