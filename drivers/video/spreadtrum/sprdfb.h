@@ -49,6 +49,11 @@
 #define LCDC_OSD1_GREY_RGB		(0x006c)
 #define LCDC_OSD1_CK			(0x0070)
 
+#define LCDC_Y2R_CTRL			(0x0160)
+#define LCDC_Y2R_CONTRAST 		(0x0164)
+#define LCDC_Y2R_SATURATION		(0x0168)
+#define LCDC_Y2R_BRIGHTNESS		(0x016c)
+
 #define LCDC_IRQ_EN			(0x0170)
 #define LCDC_IRQ_CLR			(0x0174)
 #define LCDC_IRQ_STATUS			(0x0178)
@@ -112,6 +117,39 @@ struct sprdfb_device {
 #endif
 };
 
+#ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
+enum {
+	SPRD_DATA_TYPE_YUV422 = 0,
+	SPRD_DATA_TYPE_YUV420,
+	SPRD_DATA_TYPE_YUV400,
+	SPRD_DATA_TYPE_RGB888,
+	SPRD_DATA_TYPE_RGB666,
+	SPRD_DATA_TYPE_RGB565,
+	SPRD_DATA_TYPE_RGB555,
+	SPRD_DATA_TYPE_LIMIT
+};
+
+enum{
+	SPRD_OVERLAY_STATUS_OFF = 0,
+	SPRD_OVERLAY_STATUS_ON,
+	SPRD_OVERLAY_STATUS_MAX
+};
+
+typedef struct overlay_rect {
+	uint16_t x;
+	uint16_t y;
+	uint16_t w;
+	uint16_t h;
+}overlay_rect;
+
+typedef struct overlay_info{
+	int data_type;
+	overlay_rect rect;
+	unsigned char *buffer;
+}overlay_info;
+#endif
+
+
 struct panel_ctrl {
 	const char	*name;
 	void		*data;
@@ -129,6 +167,10 @@ struct panel_ctrl {
 
 	/* setup parameter, such as framebuffer addr, lcd width, andso on */
 	int32_t 	(*refresh)	  (struct sprdfb_device *dev);
+
+#ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
+	int32_t 	(*enable_overlay) 	(struct sprdfb_device *dev, struct overlay_info* info, int enable);
+#endif
 
 	#if 0
 	/* io ctl */
