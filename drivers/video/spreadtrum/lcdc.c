@@ -450,7 +450,7 @@ static int overlay_configure(struct sprdfb_device *dev, int type, overlay_rect *
 		return -1;
 	}
 
-//	lcdc_write(((type << 3) | (1 << 0)), LCDC_IMG_CTRL);//enable image layer immediatly
+/*	lcdc_write(((type << 3) | (1 << 0)), LCDC_IMG_CTRL); */
 	lcdc_write((type << 3) , LCDC_IMG_CTRL);
 
 	lcdc_write((uint32_t)buffer, LCDC_IMG_Y_BASE_ADDR);
@@ -506,7 +506,7 @@ static int32_t sprd_lcdc_enable_overlay(struct sprdfb_device *dev, struct overla
 
 	pr_debug("lcdc: [%s]: %d, %d\n", __FUNCTION__, enable,  dev->enable);
 
-	if(enable){ //enable
+	if(enable){  /*enable*/
 		if(NULL == info){
 			printk(KERN_ERR "sprdfb: sprd_lcdc_enable_overlay fail (Invalid parameter)");
 			return -1;
@@ -523,7 +523,7 @@ static int32_t sprd_lcdc_enable_overlay(struct sprdfb_device *dev, struct overla
 		}
 
 		result = overlay_start(dev);
-	}else{ //disable
+	}else{   /*disable*/
 		result = overlay_close(dev);
 	}
 
@@ -541,7 +541,9 @@ struct panel_ctrl sprd_lcdc_ctrl = {
 	.init		 	= sprd_lcdc_init,
 	.cleanup		= sprd_lcdc_cleanup,
 	.enable_plane           = sprd_lcdc_enable_plane,
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	.enable_overlay = sprd_lcdc_enable_overlay,
+#endif
 	.refresh	        = sprd_lcdc_refresh,
 	.sync                   = sprd_lcdc_sync,
 	.suspend		= sprd_lcdc_suspend,
