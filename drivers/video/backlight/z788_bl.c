@@ -95,6 +95,9 @@ static int sc8810_backlight_update_status(struct backlight_device *bldev)
 		z788_SetPwmRatio(value);
 	} else {
 		value = bldev->props.brightness & PWM_MOD_MAX;
+		if(value <0x20){
+		   value == 0x20;
+		}
 		value = (value << 8) | PWM_MOD_MAX;
 		z788_SetPwmRatio(value);
 	}
