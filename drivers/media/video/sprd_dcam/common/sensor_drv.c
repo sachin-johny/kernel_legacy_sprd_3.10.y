@@ -242,7 +242,7 @@ void Sensor_Reset(uint32_t level)
 	reset_func = s_sensor_info_ptr->ioctl_func_tab_ptr->reset;
 
 	if (PNULL != reset_func) {
-		reset_func(0);
+		reset_func(level);
 	} else {
 		err = gpio_request(GPIO_SENSOR_RESET, "ccirrst");
 		if (err) {
@@ -1175,6 +1175,10 @@ LOCAL void _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 {
 	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr =
 	    s_sensor_register_info_ptr;
+	SENSOR_INFO_T** sensor_info_tab_ptr = PNULL;
+	SENSOR_INFO_T* sensor_info_ptr= PNULL;
+ 	uint32_t i2c_clock = 100000;
+	uint32_t set_i2c_clock = 0;
 	sensor_register_info_ptr->cur_id = sensor_id;
 
 	if (0 == g_is_register_sensor) {
@@ -1206,6 +1210,36 @@ LOCAL void _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 			} else {
 				SENSOR_PRINT_ERR
 				    ("SENSOR: add I2C driver OK.\n");
+#if 0
+				sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
+				if(sensor_info_tab_ptr)
+				{
+					sensor_info_ptr = sensor_info_tab_ptr[sensor_id];
+				}
+				if(sensor_info_ptr)
+				{
+					set_i2c_clock = sensor_info_ptr->reg_addr_value_bits & SENSOR_I2C_CLOCK_MASK;
+					if(SENSOR_I2C_FREQ_100 != set_i2c_clock)
+					{
+						if(SENSOR_I2C_FREQ_400 == set_i2c_clock)
+						{
+							sc8810_i2c_set_clk(SENSOR_I2C_ID,400000);					
+						}
+						else if(SENSOR_I2C_FREQ_200 == set_i2c_clock)
+						{
+							sc8810_i2c_set_clk(SENSOR_I2C_ID,200000);
+						}
+						else if(SENSOR_I2C_FREQ_50 == set_i2c_clock)
+						{
+							sc8810_i2c_set_clk(SENSOR_I2C_ID,50000);
+						}
+						else if(SENSOR_I2C_FREQ_20 == set_i2c_clock)
+						{
+							sc8810_i2c_set_clk(SENSOR_I2C_ID,20000);
+						}
+					}
+				}
+#endif
 				g_is_register_sensor = 1;
 			}
 		}
@@ -1413,6 +1447,7 @@ BOOLEAN Sensor_IsInit(void)
 ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 {
 	uint32_t mclk;
+	SENSOR_IOCTL_FUNC_PTR set_reg_tab_func=s_sensor_info_ptr->ioctl_func_tab_ptr->cus_func_1;
 
 	SENSOR_PRINT("SENSOR: Sensor_SetMode -> mode = %d.\n", mode);
 	if (SENSOR_FALSE == Sensor_IsInit()) {
@@ -1439,6 +1474,8 @@ ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 		    (&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
 		s_sensor_mode[Sensor_GetCurId()] = mode;
 	} else {
+		if(set_reg_tab_func)
+			set_reg_tab_func(0);
 		SENSOR_PRINT
 		    ("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
 	}

@@ -160,11 +160,14 @@ typedef void *SENSOR_MUTEX_PTR;
 #define SNESOR_I2C_NOSTOP_BIT (0x00 << 3)
 
 /*I2C FEEQ BIT count*/
-#define SENSOR_I2C_FREQ_20 (0x01 << 6)
-#define SENSOR_I2C_FREQ_50 (0x02 << 6)
-#define SENSOR_I2C_FREQ_100 (0x00 << 6)
-#define SENSOR_I2C_FREQ_200 (0x03 << 6)
-#define SENSOR_I2C_FREQ_400      (0x04 << 5)
+#define SENSOR_I2C_CLOCK_MASK      (7<<5)
+#define SENSOR_I2C_FREQ_20	(0x01 << 5)
+#define SENSOR_I2C_FREQ_50 	(0x02 << 6)
+#define SENSOR_I2C_FREQ_100 	(0x00 << 5)
+#define SENSOR_I2C_FREQ_200 	(0x03 << 5)
+#define SENSOR_I2C_FREQ_400  	(0x04 << 5)
+
+#define SENSOR_I2C_ID			1
 
 /*Hardward signal polarity*/
 #define SENSOR_HW_SIGNAL_PCLK_N				0x00
