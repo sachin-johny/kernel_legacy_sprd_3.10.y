@@ -1149,7 +1149,9 @@ static const struct clksel clk_aux0_clksel[] = {
 
 static struct clk clk_aux0 = {
 	.name = "clk_aux0",
+#if 0
 	.flags = DEVICE_APB,
+#endif
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
