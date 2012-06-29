@@ -145,9 +145,6 @@ static int ft5x0x_i2c_write_data(unsigned char addr, unsigned char data)
 	return ft5x0x_i2c_txdata(buf, 2);
 }
 
-
-
-
 static DEVICE_ATTR(calibrate, S_IRUGO | S_IWUSR, NULL, ft5x0x_set_calibrate);
 static DEVICE_ATTR(suspend, S_IRUGO | S_IWUSR, ft5x0x_show_suspend, ft5x0x_store_suspend);
 
@@ -158,7 +155,7 @@ static ssize_t ft5x0x_set_calibrate(struct device* cd, struct device_attribute *
 
 	if(on_off==1)
 	{
-		printk("%s: PIXCIR calibrate\n",__func__);
+		PIXCIR_DBG("%s: PIXCIR calibrate\n",__func__);
 		ft5x0x_i2c_write_data(0x3a , 0x03);
 		msleep(5*1000);
 	}
@@ -201,12 +198,12 @@ static ssize_t ft5x0x_store_suspend(struct device* cd, struct device_attribute *
 
 	if(on_off==1)
 	{
-		printk(KERN_INFO "Pixcir Entry Suspend\n");
+		PIXCIR_DBG(KERN_INFO "Pixcir Entry Suspend\n");
 		ft5x0x_ts_suspend(NULL);
 	}
 	else
 	{
-		printk(KERN_INFO "Pixcir Entry Resume\n");
+		PIXCIR_DBG(KERN_INFO "Pixcir Entry Resume\n");
 		ft5x0x_ts_resume(NULL);
 	}
 
@@ -227,8 +224,6 @@ static int ft5x0x_create_sysfs(struct i2c_client *client)
 
 	err = device_create_file(dev, &dev_attr_calibrate);
 	err = device_create_file(dev, &dev_attr_suspend);
-	//err = device_create_file(dev, &dev_attr_debug);
-
 
 	return err;
 }
@@ -238,17 +233,15 @@ static int ft5x0x_create_sysfs(struct i2c_client *client)
  */
 static void ft5x0x_ts_sleep(void)
 {
-	printk(KERN_INFO "==%s==\n", __func__);
+	PIXCIR_DBG(KERN_INFO "==%s==\n", __func__);
     //pixcir_i2c_write_data(PIXCIR_PWR_MODE_REG , PIXCIR_PWR_SLEEP_MODE);
 }
-
 
 /* pixcir_ts_suspend --  set pixicr into suspend
  * @return: none
  */
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
-	printk("==%s==\n", __func__);
    	ft5x0x_ts_pwroff(g_ft5x0x_ts->reg_vdd);
 	disable_irq_nosync(g_ft5x0x_ts->ft5x0x_irq);
 }
@@ -258,7 +251,6 @@ static void ft5x0x_ts_suspend(struct early_suspend *handler)
  */
 static void ft5x0x_ts_resume(struct early_suspend *handler)
 {
-	printk(KERN_INFO "==%s==, irq=%d\n", __func__,g_ft5x0x_ts->ft5x0x_irq);
 	ft5x0x_ts_pwron(g_ft5x0x_ts->reg_vdd);
 	gpio_direction_input(g_ft5x0x_ts->platform_data->irq_gpio_number);
 	ft5x0x_reset(g_ft5x0x_ts->platform_data->reset_gpio_number);
@@ -331,7 +323,6 @@ static void ft5x0x_ts_virtual_keys_init(void)
  */
 static void pxicir_ts_pininit(int irq_pin, int rst_pin)
 {
-	printk(KERN_INFO "%s [irq=%d];[rst=%d]\n",__func__,irq_pin,rst_pin);
 	gpio_request(irq_pin, TS_IRQ_PIN);
 	gpio_request(rst_pin, TS_RESET_PIN);
 	gpio_direction_input(irq_pin);
@@ -342,17 +333,16 @@ static void pxicir_ts_pininit(int irq_pin, int rst_pin)
  * @return: none
  */
 struct regulator *tsp_regulator_33 = NULL;
-//param:reg_vdd should be verified later.
 static void ft5x0x_ts_pwroff(struct regulator *reg_vdd)
 {
-	printk(KERN_INFO "%s\n",__func__);
+	PIXCIR_DBG(KERN_INFO "%s\n",__func__);
 	regulator_disable(tsp_regulator_33);
 	msleep(20);
 }
 static void ft5x0x_ts_pwron(struct regulator *reg_vdd)
 {
 	int err = 0;
-	printk(KERN_INFO "%s\n",__func__);
+	PIXCIR_DBG(KERN_INFO "%s\n",__func__);
 	tsp_regulator_33 = regulator_get(NULL, REGU_NAME_TP);
 	if (IS_ERR(tsp_regulator_33)) {
 		pr_err("zinitix:could not get 3.3v regulator\n");
@@ -383,7 +373,7 @@ static int attb_read_val(int gpio_pin)
  */
 static void ft5x0x_reset(int reset_pin)
 {
-	printk(KERN_INFO "%s\n",__func__);
+	PIXCIR_DBG(KERN_INFO "%s\n",__func__);
 	#if 0
 	gpio_direction_output(reset_pin, 0);
 	msleep(3);
@@ -468,7 +458,7 @@ static void ft5x0x_ts_poscheck(struct ft5x0x_ts_struct *data)
 {
 	int ret = 0;
 	struct ft5x0x_ts_struct *tsdata = data;
-	printk("%s\n", __func__);
+	PIXCIR_DBG("%s\n", __func__);
 	ret = ft5x0x_read_data(tsdata);	
 	if (ret == 0) {	
 	        ft5x0x_report_value(tsdata);
@@ -488,14 +478,12 @@ static void ft5x0x_ts_release(struct ft5x0x_ts_struct *data)
 static int ft5x0x_read_data(struct ft5x0x_ts_struct *data)
 {
 	struct ts_event *event = &data->event;
-//	u8 buf[14] = {0};
 	u8 buf[32] = {0};
 	int ret = -1;
 	int touch_point = 0;
 
-	//printk("==read data=\n");	
+	/*printk("==read data=\n");	*/
 #ifdef CONFIG_FT5X0X_MULTITOUCH
-//	ret = ft5x0x_i2c_rxdata(buf, 13);
 	ret = ft5x0x_i2c_rxdata(buf, 31);
 #else
     ret = ft5x0x_i2c_rxdata(buf, 7);
@@ -504,8 +492,9 @@ static int ft5x0x_read_data(struct ft5x0x_ts_struct *data)
 		printk("%s read_data i2c_rxdata failed: %d\n", __func__, ret);
 		return ret;
 	}
-
-//	event->touch_point = buf[2] & 0x03;// 0000 0011
+#if 0
+	event->touch_point = buf[2] & 0x03;/* 0000 0011*/
+#endif
 	touch_point = buf[2] & 0x07;// 000 0111
      
     if (touch_point == 0) {
@@ -572,9 +561,7 @@ static int ft5x0x_read_data(struct ft5x0x_ts_struct *data)
 #endif
     event->pressure = 200;
 
-	//printk(&this_client->dev, "%s: 1:%d %d 2:%d %d \n", __func__,
-		//event->x1, event->y1, event->x2, event->y2);
-	printk("%d (%d, %d), (%d, %d)\n", event->touch_point, event->x1, event->y1, event->x2, event->y2);
+	PIXCIR_DBG("%d (%d, %d), (%d, %d)\n", event->touch_point, event->x1, event->y1, event->x2, event->y2);
 
     return 0;
 }
@@ -582,7 +569,7 @@ static void ft5x0x_report_value(struct ft5x0x_ts_struct *data)
 {
 	struct ts_event *event = &data->event;
         /*lilonghui delet the log for debug2011-12-26*/
-//	printk("==ft5x0x_report_value =\n");
+	PIXCIR_DBG("==ft5x0x_report_value =\n");
 #ifdef CONFIG_FT5X0X_MULTITOUCH
 			input_report_key(data->input, BTN_TOUCH, 1);	
 	switch(event->touch_point) {
@@ -592,43 +579,44 @@ static void ft5x0x_report_value(struct ft5x0x_ts_struct *data)
 			input_report_abs(data->input, ABS_MT_POSITION_Y, event->y5);
 			input_report_abs(data->input, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input);
-			printk("===x5 = %d,y5 = %d ====\n",event->x5,event->y5);
+			PIXCIR_DBG("===x5 = %d,y5 = %d ====\n",event->x5,event->y5);
 		case 4:
 			input_report_abs(data->input, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input, ABS_MT_POSITION_X, event->x4);
 			input_report_abs(data->input, ABS_MT_POSITION_Y, event->y4);
 			input_report_abs(data->input, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input);
-			printk("===x4 = %d,y4 = %d ====\n",event->x4,event->y4);
+			PIXCIR_DBG("===x4 = %d,y4 = %d ====\n",event->x4,event->y4);
 		case 3:
 			input_report_abs(data->input, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input, ABS_MT_POSITION_X, event->x3);
 			input_report_abs(data->input, ABS_MT_POSITION_Y, event->y3);
 			input_report_abs(data->input, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input);
-			printk("===x3 = %d,y3 = %d ====\n",event->x3,event->y3);
+			PIXCIR_DBG("===x3 = %d,y3 = %d ====\n",event->x3,event->y3);
 		case 2:
 			input_report_abs(data->input, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input, ABS_MT_POSITION_X, event->x2);
 			input_report_abs(data->input, ABS_MT_POSITION_Y, event->y2);
 			input_report_abs(data->input, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input);
-			printk("===x2 = %d,y2 = %d ====\n",event->x2,event->y2);
+			PIXCIR_DBG("===x2 = %d,y2 = %d ====\n",event->x2,event->y2);
 		case 1:
 			input_report_abs(data->input, ABS_MT_TOUCH_MAJOR, event->pressure);
 	        input_report_abs(data->input, ABS_MT_POSITION_X, event->x1);
 			input_report_abs(data->input, ABS_MT_POSITION_Y, event->y1);
 			input_report_abs(data->input, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input);
-			printk("===x1 = %d,y1 = %d ====\n",event->x1,event->y1);
-			//("===x1 = %d,y1 = %d ====\n",event->x1,event->y1);
+			PIXCIR_DBG("===x1 = %d,y1 = %d ====\n",event->x1,event->y1);
 		default:
-			//printk("==touch_point default =\n");
+			PIXCIR_DBG("==touch_point default =\n");
 			break;
 	}
     
 	input_report_abs(data->input, ABS_PRESSURE, event->pressure);
-//	input_report_key(data->input, BTN_TOUCH, 1);
+#if 0
+	input_report_key(data->input, BTN_TOUCH, 1);
+#endif
 #else	/* CONFIG_FT5X0X_MULTITOUCH*/
 	if (event->touch_point == 1) {
 		input_report_abs(data->input, ABS_X, event->x1);
@@ -651,8 +639,8 @@ static irqreturn_t ft5x0x_ts_isr(int irq, void *dev_id)
 {
 	int ret = 0;
 	struct ft5x0x_ts_struct *tsdata = (struct ft5x0x_ts_struct *)dev_id;
-	printk("%s\n", __func__);
-	//disable irq
+	PIXCIR_DBG("%s\n", __func__);
+	/*disable irq*/
 	disable_irq_nosync(irq);
 #if 1
 	if (!work_pending(&tsdata->pen_event_work)) {
@@ -664,14 +652,15 @@ static irqreturn_t ft5x0x_ts_isr(int irq, void *dev_id)
 		if (ret == 0) {	
 			ft5x0x_report_value(tsdata);
 		}
-
-		//if (attb_read_val()) {
-		//	PIXCIR_DBG("%s: release\n",__func__);
-//			input_report_key(tsdata->input, BTN_TOUCH, 0);
-//			input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 0);
-//			input_sync(tsdata->input);
-		//	break;
-		//}
+#if 0
+		if (attb_read_val()) {
+			PIXCIR_DBG("%s: release\n",__func__);
+			input_report_key(tsdata->input, BTN_TOUCH, 0);
+			input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 0);
+			input_sync(tsdata->input);
+			break;
+		}
+#endif
 	}
 	enable_irq(irq);
 #endif	
@@ -728,7 +717,7 @@ static int ft5x0x_i2c_ts_resume(struct device *dev)
 #if 1
 	struct i2c_client *client = to_i2c_client(dev);
 
-	printk(KERN_INFO "%s\n",__func__);
+	PIXCIR_DBG(KERN_INFO "%s\n",__func__);
 	ft5x0x_reset(g_ft5x0x_ts->platform_data->reset_gpio_number);
 	if (device_may_wakeup(&client->dev))
 		disable_irq_wake(client->irq);
@@ -756,7 +745,7 @@ static int __devinit ft5x0x_i2c_ts_probe(struct i2c_client *client,
 	struct i2c_dev *i2c_dev;
 	int i, error;
 
-	printk(KERN_INFO "%s: probe\n",__func__);
+	PIXCIR_DBG(KERN_INFO "%s: probe\n",__func__);
 
 	for(i=0; i<MAX_FINGER_NUM*2; i++) {
 		point_slot[i].active = 0;
@@ -776,16 +765,16 @@ static int __devinit ft5x0x_i2c_ts_probe(struct i2c_client *client,
 
 	tsdata->platform_data = pdata;
 
-	//pin init
+	/*pin init*/
 	pxicir_ts_pininit(pdata->irq_gpio_number,pdata->reset_gpio_number);
-
-	//get regulator
-	//tsdata->reg_vdd = regulator_get(&client->dev, REGU_NAME_TP);
-
-	//enable VDD
+#if 0
+	/*get regulator*/
+	tsdata->reg_vdd = regulator_get(&client->dev, REGU_NAME_TP);
+#endif
+	/*enable VDD*/
 	ft5x0x_ts_pwron(tsdata->reg_vdd);
 
-	//reset TP chip
+	/*reset TP chip*/
 	ft5x0x_reset(pdata->reset_gpio_number);
 	msleep(100);
 
@@ -801,8 +790,6 @@ static int __devinit ft5x0x_i2c_ts_probe(struct i2c_client *client,
 
 	tsdata->client = client;
 	tsdata->input = input;
-	//tsdata->chip = pdata;
-	//global_irq = client->irq;
 
 	input->name = client->name;
 	input->id.bustype = BUS_I2C;
@@ -871,7 +858,7 @@ static int __devinit ft5x0x_i2c_ts_probe(struct i2c_client *client,
 	}
 	ft5x0x_create_sysfs(client);
 
-	printk(KERN_INFO "%s:insmod successfully!\n",__func__);
+	PIXCIR_DBG(KERN_INFO "%s:insmod successfully!\n",__func__);
 
 	enable_irq(client->irq);
 	return 0;
