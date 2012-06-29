@@ -589,6 +589,7 @@ void vbc_write_callback(unsigned int reg, unsigned int val)
     }
 }
 
+#if 0
 static int headset_plug_in = 0;
 int vbc_set_sleep_mode(int on)
 {
@@ -628,6 +629,17 @@ void headset_plug_status(int status)
 	}
 	exit_critical();
 }
+#else
+int vbc_set_sleep_mode(int on)
+{
+	return 0;
+}
+
+void headset_plug_status(int status)
+{
+	return;
+}
+#endif
 EXPORT_SYMBOL_GPL(headset_plug_status);
 
 void vbc_power_down(unsigned int value)
