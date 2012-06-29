@@ -1950,6 +1950,12 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	s_dcam_err_info.ret = 0;
 	s_dcam_err_info.timeout_val = DCAM_TIME_OUT;
 		
+	if(1 == fh->dev->streamparm.parm.capture.capturemode){
+		if(FLASH_OPEN == g_dcam_info.flash_mode){
+			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);  // TODO: should be highlight
+		}
+	}
+
 	//printk("#### V4L2: vidioc_streamon start. 1 \n");
 	ret = init_sensor_parameters(priv);
 	if(0 != ret)
