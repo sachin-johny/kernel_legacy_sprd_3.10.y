@@ -5,7 +5,7 @@
 #include <linux/earlysuspend.h>
 #include <mach/board.h>
 
-#define PIXCIR_DEBUG		1
+#define PIXCIR_DEBUG		0
 
 #define	FT5X0X_DEVICE_NAME	"ft5x0x_ts"
 

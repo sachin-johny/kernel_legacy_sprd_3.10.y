@@ -150,7 +150,6 @@ struct regulator *vsim3_regulator_28 = NULL;
 static int vsim3_pwron()
 {
 	int err = 0;
-	printk(KERN_INFO "%s\n",__func__);
 	vsim3_regulator_28 = regulator_get(NULL, REGU_NAME_GSENSOR);
 	if (IS_ERR(vsim3_regulator_28)) {
 		pr_err("vsim3:could not get 2.8v regulator\n");
