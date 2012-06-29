@@ -250,7 +250,12 @@ static int sprd_rtc_set_alarm(struct device *dev,
 
 		secs = secs - secs_start_year_to_1970;
 		sprd_rtc_set_alarm_sec(secs);
+        msleep(150);
 		do {
+             if(i!=0){
+                 sprd_rtc_set_alarm_sec(secs);
+		         msleep(150);
+             }
 			read_secs = sprd_rtc_get_alarm_sec();
 			msleep(1);
 			i++;
