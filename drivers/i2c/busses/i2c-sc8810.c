@@ -442,7 +442,10 @@ static void sc8810_read_handle(struct sc8810_i2c *i2c)
 		}
 	} else if (is_msgend(i2c)) {
 		if (is_lastmsg(i2c)) {
-			sc8810_i2c_stop(i2c,0);
+			i2c->state = STATE_STOP;
+			sc8810_i2c_complete(i2c,0);
+			sc8810_i2c_disable_irq(i2c);
+
 		} else {
 			i2c->msg_ptr = 0;
 			i2c->msg_idx++;
@@ -565,9 +568,11 @@ static irqreturn_t sc8810_i2c_irq(int irq, void *dev_id)
 	unsigned int cmd;
 	unsigned int ctl;
 	int ret;
+
 	i2c = (struct sc8810_i2c *)dev_id;
 
 	ctl = __raw_readl(i2c->membase+I2C_CTL);
+
 	if (!(ctl & I2C_CTL_INT)) {
 #if  0//only for debug
 		unsigned int debug_irq_status = 0;
@@ -594,8 +599,11 @@ static irqreturn_t sc8810_i2c_irq(int irq, void *dev_id)
 		goto out;
 	}
 
+
 	cmd =__raw_readl(i2c->membase+I2C_CMD);
 	ret=sc8810_i2c_irq_nextbyte(i2c,cmd);
+
+
 	if(ret!=0)
 		printk("I2C irq:error\n");
  out:
@@ -645,6 +653,13 @@ static void sc8810_i2c_special_init(int id)
 		value |= BIT(21)|BIT(22);
 		__raw_writel(value, SPRD_CPC_BASE);
 	}
+	else if (id == 3){
+		value = __raw_readl(SPRD_CPC_BASE);
+
+		value |= BIT(25)|BIT(26);
+		__raw_writel(value, SPRD_CPC_BASE);
+	}
+
 }
 
 

@@ -66,6 +66,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
+	&sprd_i2c_device3,
 	&sprd_spi0_device,
 	&sprd_spi1_device,
 	&sprd_keypad_device,
@@ -216,6 +217,12 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 	},
 };
 
+static struct i2c_board_info  i2c3_boardinfo[] = {
+	{I2C_BOARD_INFO("gpsi2c", 0x1fa),
+	.flags=I2C_M_TEN,
+	},
+};
+
 /* config I2C2 SDA/SCL to SIM2 pads */
 static void sprd8810_i2c2sel_config(void)
 {
@@ -228,6 +235,7 @@ static int sc8810_add_i2c_devices(void)
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
+	i2c_register_board_info(3, i2c3_boardinfo, ARRAY_SIZE(i2c3_boardinfo));
 	return 0;
 }
 

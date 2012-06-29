@@ -541,6 +541,12 @@ config GPS_CTRL
 	help
 	  If you say yes here you get support for gps control
 
+config GPS_IRQ
+	tristate "gps irq  support"
+	default n
+	help
+	  If you say yes here you get support for gps irq handle for brcm
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"
