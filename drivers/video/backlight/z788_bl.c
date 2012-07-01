@@ -19,164 +19,136 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <mach/hardware.h>
-#include<mach/globalregs.h>
-
-#define GR_CLK_EN					(SPRD_GREG_BASE + 0x0074)
-#define PIN_MOD_PWMA				(SPRD_CPC_BASE  + 0x03e0)
-#define SPRD_PWM0_PRESCALE   		(SPRD_PWM_BASE + 0x0000)
-#define SPRD_PWM0_CNT 			       (SPRD_PWM_BASE + 0x0004)
-#define SPRD_PWM0_PAT_LOW 	       (SPRD_PWM_BASE + 0x000C)
-#define SPRD_PWM0_PAT_HIG 	       (SPRD_PWM_BASE + 0x0010)
-
-#define PIN_PWM0_MOD_VALUE   0x20
-
 
 /* register definitions */
-#define	PWM_PRESCALE	(0x0000)
-#define	PWM_CNT		(0x0004)
-#define	PWM_TONE_DIV	(0x0008)
-#define	PWM_PAT_LOW	(0x000C)
-#define	PWM_PAT_HIG	(0x0010)
+#define        PWM_PRESCALE    (0x0000)
+#define        PWM_CNT         (0x0004)
+#define        PWM_TONE_DIV    (0x0008)
+#define        PWM_PAT_LOW     (0x000C)
+#define        PWM_PAT_HIG     (0x0010)
 
-#define	PWM_ENABLE	(1 << 8)
-
-#define PWM_SCALE  0x08
-
-#define	PWM_REG_MSK	0xffff
-#define	PWM_MOD_MAX	0xff
+#define        PWM_ENABLE      (1 << 8)
+#define        PWM_SCALE       8
+#define        PWM_REG_MSK     0xffff
+#define        PWM_MOD_MAX     0xff
 
 struct sc8810bl {
-	int		pwm;
-	struct clk	*clk;
+       int             pwm;
+       struct clk      *clk;
 };
 
 static struct sc8810bl sc8810bl;
 
 static inline pwm_read(int index, uint32_t reg)
 {
-	return __raw_readl(SPRD_PWM_BASE + index * 0x20 + reg);
+       return __raw_readl(SPRD_PWM_BASE + index * 0x20 + reg);
 }
 
 static void pwm_write(int index, uint32_t value, uint32_t reg)
 {
-	__raw_writel(value, SPRD_PWM_BASE + index * 0x20 + reg);
-}
-
-static inline void __raw_bits_or(unsigned int v, unsigned int a)
-{
-	__raw_writel((__raw_readl(a) | v), a);
-}
-static void z788_SetPwmRatio(unsigned short value)
-{
-	/*printk("sprd:  %s  ,value = 0x%x  --1\n",__func__,value);*/
-	__raw_bits_or(CLK_PWM0_EN, GR_CLK_EN);
-	__raw_bits_or(CLK_PWM0_SEL, GR_CLK_EN);
-	__raw_bits_or(PIN_PWM0_MOD_VALUE, PIN_MOD_PWMA);
-	__raw_writel(PWM_SCALE, SPRD_PWM0_PRESCALE);
-	__raw_writel(value, SPRD_PWM0_CNT);
-	__raw_writel(PWM_REG_MSK, SPRD_PWM0_PAT_LOW);
-	__raw_writel(PWM_REG_MSK, SPRD_PWM0_PAT_HIG);
-
-	__raw_bits_or(PWM_ENABLE, SPRD_PWM0_PRESCALE);
-
+       __raw_writel(value, SPRD_PWM_BASE + index * 0x20 + reg);
 }
 
 static int sc8810_backlight_update_status(struct backlight_device *bldev)
 {
-	struct sc8810bl *bl = bl_get_data(bldev);
-	uint32_t value;
-	/*printk("sprd:  %s  --2\n",__func__);*/
-	if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
-			bldev->props.power != FB_BLANK_UNBLANK ||
-			bldev->props.brightness == 0) {
-		/* disable backlight */
-		value = 0x0;
-		value = (value << 8) | PWM_MOD_MAX;
-		z788_SetPwmRatio(value);
-	} else {
-		value = bldev->props.brightness & PWM_MOD_MAX;
-		if(value <0x20){
-		   value == 0x20;
-		}
-		value = (value << 8) | PWM_MOD_MAX;
-		z788_SetPwmRatio(value);
-	}
+       struct sc8810bl *bl = bl_get_data(bldev);
+       uint32_t value;
 
-	return 0;
+       if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
+                       bldev->props.power != FB_BLANK_UNBLANK ||
+                       bldev->props.brightness == 0) {
+               /* disable backlight */
+               pwm_write(bl->pwm, 0, PWM_PRESCALE);
+       } else {
+               value = bldev->props.brightness & PWM_MOD_MAX;
+		 if(value <0x20){
+		   value = 0x20;
+		 }
+               value = (value << 8) | PWM_MOD_MAX;
+
+               pwm_write(bl->pwm, PWM_SCALE, PWM_PRESCALE);
+               pwm_write(bl->pwm, value, PWM_CNT);
+               pwm_write(bl->pwm, PWM_REG_MSK, PWM_PAT_LOW);
+               pwm_write(bl->pwm, PWM_REG_MSK, PWM_PAT_HIG);
+
+               pwm_write(bl->pwm, PWM_SCALE | PWM_ENABLE, PWM_PRESCALE);
+       }
+
+       return 0;
 }
 
 static int sc8810_backlight_get_brightness(struct backlight_device *bldev)
 {
-	struct sc8810bl *bl = bl_get_data(bldev);
-	uint32_t brightness = pwm_read(bl->pwm, PWM_CNT) >> 8;
+       struct sc8810bl *bl = bl_get_data(bldev);
+       uint32_t brightness = pwm_read(bl->pwm, PWM_CNT) >> 8;
 
-	return brightness & PWM_MOD_MAX;
+       return brightness & PWM_MOD_MAX;
 }
 
 static const struct backlight_ops sc8810_backlight_ops = {
-	.update_status = sc8810_backlight_update_status,
-	.get_brightness = sc8810_backlight_get_brightness,
+       .update_status = sc8810_backlight_update_status,
+       .get_brightness = sc8810_backlight_get_brightness,
 };
 
 static int __devinit sc8810_backlight_probe(struct platform_device *pdev)
 {
-	struct backlight_properties props;
-	struct backlight_device *bldev;
+       struct backlight_properties props;
+       struct backlight_device *bldev;
 
-	memset(&props, 0, sizeof(struct backlight_properties));
-	props.max_brightness = PWM_MOD_MAX;
-	props.type = BACKLIGHT_RAW;
-	props.brightness = PWM_MOD_MAX;
-	props.power = FB_BLANK_UNBLANK;
+       memset(&props, 0, sizeof(struct backlight_properties));
+       props.max_brightness = PWM_MOD_MAX;
+       props.type = BACKLIGHT_RAW;
+       props.brightness = PWM_MOD_MAX;
+       props.power = FB_BLANK_UNBLANK;
 
-	/* use PWM0 now only, may need dynamic config in the future */
-	sc8810bl.pwm = 0;
-	sc8810bl.clk = clk_get(NULL, "clk_pwm0");
-	if (!sc8810bl.clk) {
-		printk(KERN_ERR "Failed to get clk_pwm0\n");
-		return -EIO;
-	}
-	clk_enable(sc8810bl.clk);
+       /* use PWM0 now only, may need dynamic config in the future */
+       sc8810bl.pwm = 0;
+       sc8810bl.clk = clk_get(NULL, "clk_pwm0");
+       if (!sc8810bl.clk) {
+               printk(KERN_ERR "Failed to get clk_pwm0\n");
+               return -EIO;
+       }
+       clk_enable(sc8810bl.clk);
 
-	bldev = backlight_device_register(
-			dev_name(&pdev->dev), &pdev->dev,
-			&sc8810bl, &sc8810_backlight_ops, &props);
-	if (IS_ERR(bldev)) {
-		printk(KERN_ERR "Failed to register backlight device\n");
-		return -ENOMEM;
-	}
+       bldev = backlight_device_register(
+                       dev_name(&pdev->dev), &pdev->dev,
+                       &sc8810bl, &sc8810_backlight_ops, &props);
+       if (IS_ERR(bldev)) {
+               printk(KERN_ERR "Failed to register backlight device\n");
+               return -ENOMEM;
+       }
 
-	platform_set_drvdata(pdev, bldev);
+       platform_set_drvdata(pdev, bldev);
 
-	return 0;
+       return 0;
 }
 
 static int __devexit sc8810_backlight_remove(struct platform_device *pdev)
 {
-	struct backlight_device *bldev;
+       struct backlight_device *bldev;
 
-	bldev = platform_get_drvdata(pdev);
-	bldev->props.power = FB_BLANK_UNBLANK;
-	bldev->props.brightness = PWM_MOD_MAX;
-	backlight_update_status(bldev);
-	backlight_device_unregister(bldev);
-	platform_set_drvdata(pdev, NULL);
-	clk_disable(sc8810bl.clk);
-	clk_put(sc8810bl.clk);
+       bldev = platform_get_drvdata(pdev);
+       bldev->props.power = FB_BLANK_UNBLANK;
+       bldev->props.brightness = PWM_MOD_MAX;
+       backlight_update_status(bldev);
+       backlight_device_unregister(bldev);
+       platform_set_drvdata(pdev, NULL);
+       clk_disable(sc8810bl.clk);
+       clk_put(sc8810bl.clk);
 
-	return 0;
+       return 0;
 }
 
 #ifdef CONFIG_PM
 static int sc8810_backlight_suspend(struct platform_device *pdev,
-		pm_message_t state)
+               pm_message_t state)
 {
-	return 0;
+       return 0;
 }
 
 static int sc8810_backlight_resume(struct platform_device *pdev)
 {
-	return 0;
+       return 0;
 }
 #else
 #define sc8810_backlight_suspend NULL
@@ -184,28 +156,27 @@ static int sc8810_backlight_resume(struct platform_device *pdev)
 #endif
 
 static struct platform_driver sc8810_backlight_driver = {
-	.probe = sc8810_backlight_probe,
-	.remove = __devexit_p(sc8810_backlight_remove),
-	.suspend = sc8810_backlight_suspend,
-	.resume = sc8810_backlight_resume,
-	.driver = {
-		.name = "sprd_backlight",
-		.owner = THIS_MODULE,
-	},
+       .probe = sc8810_backlight_probe,
+       .remove = __devexit_p(sc8810_backlight_remove),
+       .suspend = sc8810_backlight_suspend,
+       .resume = sc8810_backlight_resume,
+       .driver = {
+               .name = "sprd_backlight",
+               .owner = THIS_MODULE,
+       },
 };
 
 static int __init sc8810_backlight_init(void)
 {
-	return platform_driver_register(&sc8810_backlight_driver);
+       return platform_driver_register(&sc8810_backlight_driver);
 }
 
 static void __exit sc8810_backlight_exit(void)
 {
-	platform_driver_unregister(&sc8810_backlight_driver);
+       platform_driver_unregister(&sc8810_backlight_driver);
 }
 
 module_init(sc8810_backlight_init);
 module_exit(sc8810_backlight_exit);
 
 MODULE_DESCRIPTION("SC8810 Backlight Driver");
-MODULE_LICENSE("GPL v2");
