@@ -686,7 +686,7 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 	 * IIS timeing : High(right channel) for both DA1/AD1, Low(left channel) for both DA0/AD0
 	 * Active level of left/right channel for both ADC and DAC channel
 	 */
-	vbc_set_VBADBUFFDTA_set(VBIIS_LRCK, 0);
+	vbc_set_VBADBUFFDTA_set(VBIIS_LRCK, 1);
 	vbc_reg_VBAICR_set(VBCAICR_MODE_ADC_I2S	|
 					VBCAICR_MODE_DAC_I2S	|
 					VBCAICR_MODE_ADC_SERIAL |
