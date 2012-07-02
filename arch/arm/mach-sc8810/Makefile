@@ -1,6 +1,6 @@
 obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
          clock_common.o clock_sc8810.o regulator.o regulator-devices.o \
-         dma.o reserve.o pinmap.o adi.o gpio_eic.o adc.o efuse.o \
+         dma.o reserve.o pinmap.o adi.o gpio_eic.o adc.o efuse.o dcdc_cal.o \
          watchdog.o rfkill.o
 
 ifeq ($(CONFIG_NKERNEL),y)

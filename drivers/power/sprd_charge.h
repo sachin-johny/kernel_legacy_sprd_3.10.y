@@ -50,6 +50,10 @@
 #define OVP_ADC_VALUE		0x198
 #define OVP_ADC_RECV_VALUE	0x170
 
+#define ADC_CAL_TYPE_NO         0
+#define ADC_CAL_TYPE_NV         1
+#define ADC_CAL_TYPE_EFUSE      2
+
 /* control register definition */
 #define ANA_REG_BASE	(SPRD_MISC_BASE + 0x600)	/*  0x82000600 */
 

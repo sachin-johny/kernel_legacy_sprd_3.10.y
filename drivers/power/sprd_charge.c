@@ -32,8 +32,8 @@
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
-	{0x3a1, 0x1068},
-	{0x31b, 0xe10},
+    {928, 4200},
+    {796, 3600},
 };
 
 uint16_t charger_adc_voltage_table[2][2] = {

@@ -59,6 +59,16 @@ static struct usb_hotplug_callback power_cb = {
 };
 #endif
 
+int sprd_get_adc_cal_type(void)
+{
+	return battery_data?battery_data->adc_cal_updated:0;
+}
+
+uint16_t sprd_get_adc_to_vol(uint16_t data)
+{
+	return sprd_bat_adc_to_vol(battery_data, data);
+}
+
 static int sprd_ac_get_property(struct power_supply *psy,
 				enum power_supply_property psp,
 				union power_supply_propval *val)
@@ -234,7 +244,7 @@ static ssize_t sprd_set_caliberate(struct device *dev,
 		break;
 	case BATTERY_0:
 		spin_lock_irqsave(&battery_data->lock, flag);
-		if (battery_data->adc_cal_updated == 0) {
+		if(battery_data->adc_cal_updated != ADC_CAL_TYPE_NV) {
 			adc_voltage_table[0][1] = set_value & 0xffff;
 			adc_voltage_table[0][0] = (set_value >> 16) & 0xffff;
 		}
@@ -242,11 +252,11 @@ static ssize_t sprd_set_caliberate(struct device *dev,
 		break;
 	case BATTERY_1:
 		spin_lock_irqsave(&battery_data->lock, flag);
-		if (battery_data->adc_cal_updated == 0) {
+		if(battery_data->adc_cal_updated != ADC_CAL_TYPE_NV) {
 			adc_voltage_table[1][1] = set_value & 0xffff;
 			adc_voltage_table[1][0] = (set_value >> 16) & 0xffff;
 			sprd_vol_to_percent(battery_data, 0, 1);
-			battery_data->adc_cal_updated = 1;
+			battery_data->adc_cal_updated = ADC_CAL_TYPE_NV;
 		}
 		spin_unlock_irqrestore(&battery_data->lock, flag);
 		break;
@@ -745,6 +755,7 @@ static char *supply_list[] = {
 	"battery",
 };
 
+extern int sci_efuse_calibration_get(unsigned int* p_cal_data);
 static int sprd_battery_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
@@ -753,6 +764,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	int voltage_value;
 	int i;
 	struct resource *res = NULL;
+	unsigned int efuse_cal_data[2] = {0};
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -766,7 +778,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
 	data->charging = 0;
 	data->cur_type = 400;
-	data->adc_cal_updated = 0;
+	data->adc_cal_updated = ADC_CAL_TYPE_NO;
 	data->hw_switch_point = CHGMNG_DEFAULT_SWITPOINT;
 
 	data->over_voltage = OVP_ADC_VALUE;
@@ -802,6 +814,18 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	init_timer(&data->battery_timer);
 	data->battery_timer.function = battery_handler;
 	data->battery_timer.data = (unsigned long)data;
+
+	printk("probe adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],adc_voltage_table[1][0]);
+
+	if(sci_efuse_calibration_get(efuse_cal_data))
+	{
+		adc_voltage_table[0][1]=efuse_cal_data[0]&0xffff;
+		adc_voltage_table[0][0]=(efuse_cal_data[0]>>16)&0xffff;
+		adc_voltage_table[1][1]=efuse_cal_data[1]&0xffff;
+		adc_voltage_table[1][0]=(efuse_cal_data[1]>>16)&0xffff;
+		data->adc_cal_updated = ADC_CAL_TYPE_EFUSE;
+		printk("probe efuse ok!!! adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],adc_voltage_table[1][0]);
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	if (unlikely(!res)) {

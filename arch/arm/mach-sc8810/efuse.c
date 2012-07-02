@@ -13,9 +13,12 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/irqflags.h>
 #include <linux/io.h>
+#include <linux/spinlock.h>
 
 #include <mach/hardware.h>
+#include <mach/globalregs.h>
 #include <mach/adi.h>
 
 /* registers definitions for controller CTL_EFUSE */
@@ -82,11 +85,68 @@
 /* vars definitions for controller CTL_EFUSE */
 #define PROT_LOCK                       ( BIT_31 )
 
+#define CTL_EFUSE_BASE_PHYS			( 0x89000000 )
+#define CTL_EFUSE_BASE				( ctl_efuse_base )
+
+static spinlock_t lock = __SPIN_LOCK_UNLOCKED(lock);
+
+static inline void __raw_bits_and(unsigned int v, unsigned int a)
+{
+	unsigned long flags;
+
+#ifndef CONFIG_NKERNEL
+		spin_lock_irqsave(&lock, flags);
+#else
+		flags = hw_local_irq_save();
+#endif
+	__raw_writel((__raw_readl(a) & v), a);
+#ifndef CONFIG_NKERNEL
+		spin_unlock_irqrestore(&lock, flags);
+#else
+		hw_local_irq_restore(flags);
+#endif
+}
+
+static inline void __raw_bits_or(unsigned int v, unsigned int a)
+{
+	unsigned long flags;
+
+#ifndef CONFIG_NKERNEL
+			spin_lock_irqsave(&lock, flags);
+#else
+			flags = hw_local_irq_save();
+#endif
+	__raw_writel((__raw_readl(a) | v), a);
+#ifndef CONFIG_NKERNEL
+			spin_unlock_irqrestore(&lock, flags);
+#else
+			hw_local_irq_restore(flags);
+#endif
+}
+
+static void __iomem *ctl_efuse_base = 0;
+void sci_efuse_poweron(void)
+{
+	ctl_efuse_base = ioremap(CTL_EFUSE_BASE_PHYS, PAGE_SIZE);
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_EFUSE_EN, GR_GEN0);
+	__raw_bits_or(BIT_EFUSE_VDD_ON|BIT_CLK_EFS_EN, REG_EFUSE_PGM_PARA);
+}
+
+void sci_efuse_poweroff(void)
+{
+	__raw_bits_and(~(BIT_PGM_EN|BIT_EFUSE_VDD_ON|BIT_CLK_EFS_EN), REG_EFUSE_PGM_PARA);
+	sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_EFUSE_EN, GR_GEN0);
+	if (ctl_efuse_base) {
+		iounmap(ctl_efuse_base);
+		ctl_efuse_base = 0;
+	}
+}
+
 int sci_efuse_read(unsigned blk)
 {
 	int cnt = 100;
 
-	BUG_ON(blk >= (MASK_READ_INDEX >> SHIFT_READ_INDEX));
+	BUG_ON(blk > (MASK_READ_INDEX >> SHIFT_READ_INDEX));
 
 	__raw_writel(BITS_READ_INDEX(blk), REG_EFUSE_BLOCK_INDEX);
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_RD_START, REG_EFUSE_MODE_CTRL);
@@ -117,3 +177,39 @@ int sci_efuse_lock(unsigned blk)
 {
 	return 0;
 }
+
+#define CAL_DATA_BLK	7
+#define BASE_ADC_P0   785   //3.6V
+#define BASE_ADC_P1   917   //4.2V
+#define VOL_P0        3600
+#define VOL_P1        4200
+#define ADC_DATA_OFFSET 128
+int sci_efuse_calibration_get(unsigned int* p_cal_data)
+{
+	int data;
+	unsigned int cal_temp;
+	unsigned short adc_temp;
+
+	sci_efuse_poweron();
+	data = sci_efuse_read(CAL_DATA_BLK);
+	sci_efuse_poweroff();
+
+	data &= ~(1 << 31);
+
+	printk("sci_efuse_calibration data:0x%x\n",data);
+
+	if((!data)||(p_cal_data == NULL))
+	{
+		return 0;
+	}
+	//adc 3.6V
+	adc_temp = ((data>>8) & 0x00FF) + BASE_ADC_P0 - ADC_DATA_OFFSET;
+	p_cal_data[1] = (VOL_P0)|(adc_temp << 16);
+
+	//adc 4.2V
+	adc_temp = (data & 0x00FF) + BASE_ADC_P1 - ADC_DATA_OFFSET;
+	p_cal_data[0] = (VOL_P1)|(adc_temp << 16);
+
+	return 1;
+}
+
