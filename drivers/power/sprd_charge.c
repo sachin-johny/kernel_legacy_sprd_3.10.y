@@ -23,6 +23,7 @@
 #include <linux/err.h>
 #include <linux/spinlock.h>
 #include "sprd_charge.h"
+#include <mach/usb.h>
 
 #define USB_DM_PULLUP_BIT       BIT(19)
 #define USB_DP_PULLDOWN_BIT     BIT(20)
@@ -326,6 +327,8 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	gpio_direction_input(USB_DM_GPIO);
 	gpio_direction_input(USB_DP_GPIO);
 
+	udc_enable();
+	udc_phy_down();
 	local_irq_save(irq_flag);
 
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,
@@ -338,13 +341,11 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	for (i = 0; i < 200; i++) {;
 	}
 	ret = gpio_get_value(USB_DM_GPIO);
-	printk("%s line %d\n", __func__, __LINE__);
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, (USB_DM_PULLUP_BIT),
 			     USB_PHY_CTRL);
 
 	/* normal charger */
 	if (ret) {
-		printk("%s line %d\n", __func__, __LINE__);
 		/* Identify standard adapter */
 		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, USB_DM_PULLDOWN_BIT,
 				   USB_PHY_CTRL);
@@ -352,10 +353,8 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 		}
 		if ((gpio_get_value(USB_DM_GPIO) & BIT(1))
 		    && (gpio_get_value(USB_DP_GPIO) & BIT(2))) {
-			printk("%s line %d\n", __func__, __LINE__);
 			ret = 1;	/* adapter */
 		} else {
-			printk("%s line %d\n", __func__, __LINE__);
 			ret = 1;	/* non standard adapter */
 		}
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, (USB_DM_PULLDOWN_BIT),
@@ -363,6 +362,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	}
 
 	local_irq_restore(irq_flag);
+	udc_disable();
 	gpio_free(USB_DM_GPIO);
 	gpio_free(USB_DP_GPIO);
 	return ret;
