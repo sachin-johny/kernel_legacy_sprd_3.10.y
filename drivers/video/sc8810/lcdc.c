@@ -279,81 +279,125 @@ static int set_lcdc_layer(struct sprdfb_device *dev)
 	return 0;
 }
 
+static uint32_t lcdc_lcm_configure_path0(struct lcd_spec *panel)
+{
+	uint32_t reg_val = 0;
+
+	printk("sprd:[%s]\n", __FUNCTION__);
+
+	/* CS0 bus mode [BIT0]: 8080/6800 */
+	switch (panel->info.mcu->bus_mode) {
+	case LCD_BUS_8080:
+
+		break;
+	case LCD_BUS_6800:
+		reg_val  |= 1;
+		break;
+	default:
+		break;
+	}
+	/* CS0 bus width [BIT2:1] */
+	switch (panel->info.mcu->bus_width) {
+	case 8:
+		break;
+	case 9:
+		reg_val  |= ((1 << 1) | (1 << 4));
+		break;
+	case 16:
+		reg_val  |= (2 << 1);
+		break;
+	case 18:
+		reg_val  |= ((3 << 1) | (1 << 4));
+		break;
+	case 24:
+		reg_val  |= ((4 << 1) | (2 << 4));
+		break;
+	default:
+		reg_val  |= (2 << 1);
+		break;
+	}
+
+	return reg_val;
+}
+
+static uint32_t lcdc_lcm_configure_path1(struct lcd_spec * panel)
+{
+	uint32_t reg_val = 0;
+
+	printk("sprd:[%s]\n", __FUNCTION__);
+
+	/* CS1 bus mode [BIT8]: 8080/6800 */
+	switch (panel->info.mcu->bus_mode) {
+	case LCD_BUS_8080:
+
+		break;
+	case LCD_BUS_6800:
+		reg_val  |= (1 << 8);
+		break;
+	default:
+		break;
+	}
+	/* CS1 bus width [BIT10:9] */
+	switch (panel->info.mcu->bus_width) {
+	case 8:
+		break;
+	case 9:
+		reg_val  |= ((1 << 9) | (1 << 12));
+		break;
+	case 16:
+		reg_val  |= (2 << 9);
+		break;
+	case 18:
+		reg_val  |= ((3 << 9) | (1 << 12));
+		break;
+	case 24:
+		reg_val  |= ((4 << 9) | (2 << 12));
+		break;
+	default:
+		reg_val  |= (2 << 9);
+		break;
+
+	}
+	reg_val  |= (1 << 16);
+
+	return reg_val;
+}
+
+#ifdef CONFIG_FB_LCDC_CS1
+
 static uint32_t lcdc_lcm_configure(struct sprdfb_device *dev)
 {
 	struct lcd_spec *panel = dev->panel;
 	uint32_t reg_val = 0;
 
-	if (dev->id == 0) {
-		/* CS0 bus mode [BIT0]: 8080/6800 */
-		switch (panel->info.mcu->bus_mode) {
-		case LCD_BUS_8080:
+	printk("sprd:[%s]\n", __FUNCTION__);
 
-			break;
-		case LCD_BUS_6800:
-			reg_val  |= 1;
-			break;
-		default:
-			break;
-		}
-		/* CS0 bus width [BIT2:1] */
-		switch (panel->info.mcu->bus_width) {
-		case 8:
-			break;
-		case 9:
-			reg_val  |= ((1 << 1) | (1 << 4));
-			break;
-		case 16:
-			reg_val  |= (2 << 1);
-			break;
-		case 18:
-			reg_val  |= ((3 << 1) | (1 << 4));
-			break;
-		case 24:
-			reg_val  |= ((4 << 1) | (2 << 4));
-			break;
-		default:
-			reg_val  |= (2 << 1);
-			break;
-		}
+	if (dev->id == 0) {  /*main LCD*/
+		reg_val = lcdc_lcm_configure_path1(panel);
 	} else {
-		/* CS1 bus mode [BIT8]: 8080/6800 */
-		switch (panel->info.mcu->bus_mode) {
-		case LCD_BUS_8080:
-
-			break;
-		case LCD_BUS_6800:
-			reg_val  |= (1 << 8);
-			break;
-		default:
-			break;
-		}
-		/* CS1 bus width [BIT10:9] */
-		switch (panel->info.mcu->bus_width) {
-		case 8:
-			break;
-		case 9:
-			reg_val  |= ((1 << 9) | (1 << 12));
-			break;
-		case 16:
-			reg_val  |= (2 << 9);
-			break;
-		case 18:
-			reg_val  |= ((3 << 9) | (1 << 12));
-			break;
-		case 24:
-			reg_val  |= ((4 << 9) | (2 << 12));
-			break;
-		default:
-			reg_val  |= (2 << 9);
-			break;
-
-		}
-		reg_val  |= (1 << 16);
+		reg_val = lcdc_lcm_configure_path0(panel);
 	}
 
 	return reg_val;
 }
+
+#else
+static uint32_t lcdc_lcm_configure(struct sprdfb_device *dev)
+{
+	struct lcd_spec *panel = dev->panel;
+	uint32_t reg_val = 0;
+
+	printk("sprd:[%s]\n", __FUNCTION__);
+
+	if (dev->id == 0) {   /*main LCD*/
+		reg_val = lcdc_lcm_configure_path0(panel);
+	} else {
+		reg_val = lcdc_lcm_configure_path1(panel);
+	}
+
+	return reg_val;
+}
+#endif
 
 static void lcdc_update_lcm_path0(struct sprdfb_device *dev)
 {
@@ -368,10 +412,19 @@ static void lcdc_update_lcm_path1(struct sprdfb_device *dev)
 }
 
 typedef void (*update_lcm_func)(struct sprdfb_device *dev);
+
+#ifdef CONFIG_FB_LCDC_CS1
 update_lcm_func update_lcm[] = {
+	lcdc_update_lcm_path1,   /*main LCD*/
 	lcdc_update_lcm_path0,
+};
+
+#else
+update_lcm_func update_lcm[] = {
+	lcdc_update_lcm_path0, /*main LCD*/
 	lcdc_update_lcm_path1,
 };
+#endif
 
 void hw_init(struct sprdfb_device *dev)
 {

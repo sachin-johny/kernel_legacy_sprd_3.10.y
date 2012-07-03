@@ -2232,6 +2232,11 @@ config FB_DUAL_DISPLAY
 	depends on FB_SC8810
 	default n
 
+config FB_LCDC_CS1
+	bool "use cs1 as main lcd cs"
+	depends on FB_SC8810
+	default n
+
 config FB_MX3
 	tristate "MX3 Framebuffer support"
 	depends on FB && MX3_IPU
