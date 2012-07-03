@@ -1255,14 +1255,14 @@ ssize_t kclass_vbc_param_store(struct class *class,struct class_attribute *attr,
 	if(b_fm_handsfree_on){
 		cur_internal_pa_gain = (audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0xFF00)>>8;
 	}
-	if(!audio_pa_amplifier){
+	if((!audio_pa_amplifier) || (!audio_pa_amplifier->speaker.control)){
 		local_cpu_pa_control(b_internal_pa_open);
 	}
 	vbc_reg_VBPMR2_set(GIM, cur_captre_gim_gain);
 	vbc_reg_write(VBCGR10, 4, cur_capture_gain, 0xf);
 	vbc_reg_write(VBCGR2, 0, cur_fm_gain_l, 0x1f);
 	vbc_reg_write(VBCGR3, 0, cur_fm_gain_r, 0x1f);
-//	printk("chj kclass_vbc_param_store b_fm_headset_on:%d b_fm_handsfree_on:%d cur_internal_pa_gain:0x%x cur_capture_gain:0x%x cur_captre_gim_gain:0x%x cur_fm_gain_l:0x%x cur_fm_gain_r:0x%x b_internal_pa_open:%d GOL:0x%x \n",b_fm_headset_on,b_fm_handsfree_on,cur_internal_pa_gain,cur_capture_gain,cur_captre_gim_gain,cur_fm_gain_l,cur_fm_gain_r,b_internal_pa_open,(arm_vol>>4)&0x1f);
+//	printk("chj kclass_vbc_param_store mode_name:%s b_fm_headset_on:%d b_fm_handsfree_on:%d cur_internal_pa_gain:0x%x cur_capture_gain:0x%x cur_captre_gim_gain:0x%x cur_fm_gain_l:0x%x cur_fm_gain_r:0x%x b_internal_pa_open:%d GOL:0x%x \n",audio_param_ptr->audio_nv_arm_mode_info.ucModeName,b_fm_headset_on,b_fm_handsfree_on,cur_internal_pa_gain,cur_capture_gain,cur_captre_gim_gain,cur_fm_gain_l,cur_fm_gain_r,b_internal_pa_open,(arm_vol>>4)&0x1f);
 	return count;
 }
 
