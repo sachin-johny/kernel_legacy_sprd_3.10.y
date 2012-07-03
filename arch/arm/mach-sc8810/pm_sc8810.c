@@ -449,6 +449,30 @@ static void init_gr(void)
 	sprd_greg_write(REG_TYPE_GLOBAL, val, GR_CLK_EN);
 }
 
+/*idle for sc8810*/
+void sc8810_idle(void)
+{
+	int val;
+	if (!need_resched()) {
+		hw_local_irq_disable();
+		if (!arch_local_irq_pending()) {
+			val = os_ctx->idle(os_ctx);
+			if (0 == val) {
+#ifdef CONFIG_CACHE_L2X0
+				/*l2cache power control, standby mode enable*/
+				__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);
+#endif
+				l2x0_suspend();
+				cpu_do_idle();
+				l2x0_resume(1);
+			}
+		}
+		hw_local_irq_enable();
+	}
+	local_irq_enable();
+	return;
+}
+
 void sc8810_pm_init(void)
 {
 	init_reset_vector();

@@ -16,9 +16,10 @@
 #include <mach/hardware.h>
 #include <mach/watchdog.h>
 
+extern void sc8810_idle(void);
 static inline void arch_idle(void)
 {
-	cpu_do_idle();
+	sc8810_idle();
 }
 
 static inline void arch_reset(char mode, const char *cmd)
