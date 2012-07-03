@@ -192,7 +192,7 @@ static ssize_t sprd_show_caliberate(struct device *dev,
 
 #define SPRD_CALIBERATE_ATTR(_name)                         \
 {                                       \
-	.attr = { .name = #_name, .mode = S_IRUGO | S_IWUGO, },  \
+	.attr = { .name = #_name, .mode = S_IRUGO | S_IWUSR | S_IWGRP, },  \
 	.show = sprd_show_caliberate,                  \
 	.store = sprd_set_caliberate,                              \
 }
@@ -203,7 +203,7 @@ static ssize_t sprd_show_caliberate(struct device *dev,
 }
 #define SPRD_CALIBERATE_ATTR_WO(_name)                         \
 {                                       \
-	.attr = { .name = #_name, .mode = S_IWUGO, },  \
+	.attr = { .name = #_name, .mode = S_IWUSR | S_IWGRP, },  \
 	.store = sprd_set_caliberate,                              \
 }
 static struct device_attribute sprd_caliberate[] = {
