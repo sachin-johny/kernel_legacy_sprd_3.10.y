@@ -78,6 +78,11 @@ static struct platform_suspend_ops sc8810_pm_ops = {
 	.finish		= sc8810_pm_finish,
 };
 
+void sc8810_idle(void)
+{
+	cpu_do_idle();
+}
+
 static int __init sc8810_pm_init(void)
 {
 	/* FIXME: need more initialization for deep sleep */
