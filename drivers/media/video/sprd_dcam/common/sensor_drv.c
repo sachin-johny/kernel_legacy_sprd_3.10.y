@@ -1953,8 +1953,15 @@ uint32 Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd, uint32 param)
 		break;
 	case SENSOR_EXIF_CTRL_EXPOSUREMODE:
 		break;
+		
 	case SENSOR_EXIF_CTRL_WHITEBALANCE:
+		sensor_exif_info_ptr->valid.WhiteBalance = 1;
+		if(param)
+			sensor_exif_info_ptr->WhiteBalance = 1;
+		else
+			sensor_exif_info_ptr->WhiteBalance = 0;
 		break;
+		
 	case SENSOR_EXIF_CTRL_DIGITALZOOMRATIO:
 		break;
 	case SENSOR_EXIF_CTRL_FOCALLENGTHIN35MMFILM:
