@@ -36,6 +36,7 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio_ids.h>
+#include <linux/mmc/host.h>
 
 #if !defined(SDIO_VENDOR_ID_BROADCOM)
 #define SDIO_VENDOR_ID_BROADCOM		0x02d0
@@ -128,6 +129,9 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 			}
 		}
 
+#ifndef SPRD_SPI  /* added for SDIO host */
+		sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
+#endif
 		gInstance->func[func->num] = func;
 
 		if (func->num == 2) {
