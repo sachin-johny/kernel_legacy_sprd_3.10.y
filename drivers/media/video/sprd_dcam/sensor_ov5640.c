@@ -1907,6 +1907,7 @@ LOCAL uint32_t _ov5640_set_awb(uint32_t mode)
 	}
 #endif
 	Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_LIGHTSOURCE, (uint32) mode);
+	Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_WHITEBALANCE, (uint32) mode);
 
 	SENSOR_PRINT("SENSOR: _ov5640_set_awb = 0x%02x,reg_value=0x%x \n", mode,
 		     reg_value);
