@@ -1625,7 +1625,7 @@ struct class modem_class = {
 
 struct attribute vbc_param_attr = {            //added by jian
         .name = "vbc_param_config",
-        .mode = 0644,
+        .mode = 0664,
 };
 static struct attribute *def_vbc_param_attrs[] = {	//added by jian
         &vbc_param_attr,
