@@ -143,11 +143,13 @@ static int __devexit sc8810_backlight_remove(struct platform_device *pdev)
 static int sc8810_backlight_suspend(struct platform_device *pdev,
                pm_message_t state)
 {
+	clk_disable(sc8810bl.clk);
        return 0;
 }
 
 static int sc8810_backlight_resume(struct platform_device *pdev)
 {
+	clk_enable(sc8810bl.clk);
        return 0;
 }
 #else
