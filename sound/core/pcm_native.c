@@ -1488,7 +1488,7 @@ static int snd_pcm_drain(struct snd_pcm_substream *substream,
 		if (runtime->no_period_wakeup)
 			tout = MAX_SCHEDULE_TIMEOUT;
 		else {
-			tout = 10;
+			tout = 1;
 			if (runtime->rate) {
 				long t = runtime->period_size * 2 / runtime->rate;
 				tout = max(t, tout);
