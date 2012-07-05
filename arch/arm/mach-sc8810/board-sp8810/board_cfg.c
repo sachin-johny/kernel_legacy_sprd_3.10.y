@@ -430,6 +430,12 @@ void gps_power_ctl(int is_on)
 }
 EXPORT_SYMBOL_GPL(gps_power_ctl);
 
+static void sprd_gps_init(void)
+{
+	clk_32k_config(1);
+	gps_power_ctl(1);
+}
+
 extern void sc8810_pin_map_init(void);
 static void __init openphone_init(void)
 {
@@ -451,6 +457,7 @@ static void __init openphone_init(void)
         sprd_wifildo_init();  //WIFI  vreg  ana  and digital
 	sprd_charger_init();
 	sprd_ramconsole_init();
+	sprd_gps_init();
 }
 
 static void __init openphone_map_io(void)
