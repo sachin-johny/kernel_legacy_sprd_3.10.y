@@ -107,7 +107,7 @@ static void sdhci_restore_regs(struct sdhci_host *host)
 		sdhci_writew(host, host_clk, SDHCI_CLOCK_CONTROL);
 	}
 }
-
+#ifdef CONFIG_MMC_DEBUG
 static void sdhci_dump_saved_regs(struct sdhci_host *host)
 {
 	if (!strcmp("Spread SDIO host1", host->hw_name)){
@@ -121,6 +121,7 @@ static void sdhci_dump_saved_regs(struct sdhci_host *host)
 		printk("%s, host_clk:0x%x\n", host->hw_name, host_clk);
 	}
 }
+#endif
 #endif
 
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
@@ -525,6 +526,9 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
+	if(pdev->id == 1){
+		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
+	}
 
 #ifdef CONFIG_MMC_BUS_SCAN
 	if (pdev->id == 1)
@@ -570,6 +574,17 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 	int ret = 0;
 	struct sdhci_host *host = platform_get_drvdata(dev);
 	printk("%s, %s, start\n", mmc_hostname(host->mmc), __func__ );
+#ifdef MMC_RESTORE_REGS
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+if(host->mmc && host->mmc->card)
+	sdhci_save_regs(host);
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dump_saved_regs(host);
+#endif
+#endif
 #ifdef CONFIG_PM_RUNTIME
 	if (!pm_runtime_suspended(&dev->dev)) {
 		ret = sdhci_suspend_host(host, pm);
@@ -590,17 +605,6 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 	}
 #endif
 
-#ifdef MMC_RESTORE_REGS
-#ifdef CONFIG_MMC_DEBUG
-	sdhci_dumpregs(host);
-#endif
-if(host->mmc && host->mmc->card)
-	sdhci_save_regs(host);
-
-#ifdef CONFIG_MMC_DEBUG
-	sdhci_dump_saved_regs(host);
-#endif
-#endif
 
 	/* disable ahb clock */
 	if(host->ops->set_clock){
@@ -626,14 +630,6 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 	}
 #endif
 
-#ifdef MMC_RESTORE_REGS
-
-#ifdef CONFIG_MMC_DEBUG
-	sdhci_dumpregs(host);
-#endif
-if(host->mmc && host->mmc->card)
-	sdhci_restore_regs(host);
-#endif
 
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dumpregs(host);
@@ -655,6 +651,14 @@ if(host->mmc && host->mmc->card)
 		}
 	}
 	printk("%s, %s, done\n", mmc_hostname(host->mmc), __func__ );
+#ifdef MMC_RESTORE_REGS
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+if(host->mmc && host->mmc->card)
+	sdhci_restore_regs(host);
+#endif
 
 	return 0;
 }
@@ -723,6 +727,19 @@ static int sdhci_pm_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct sdhci_host *host = dev_get_drvdata(dev);
+
+#ifdef MMC_RESTORE_REGS
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+if(host->mmc && host->mmc->card)
+	sdhci_save_regs(host);
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dump_saved_regs(host);
+#endif
+#endif
+
 	if (!pm_runtime_suspended(dev)) {
 		if (!(host->mmc->card && mmc_card_sdio(host->mmc->card))) {
 			/*
@@ -757,16 +774,7 @@ static int sdhci_pm_suspend(struct device *dev)
 	}
 #endif
 
-#ifdef MMC_RESTORE_REGS
-#ifdef CONFIG_MMC_DEBUG
-	sdhci_dumpregs(host);
-#endif
-	sdhci_save_regs(host);
 
-#ifdef CONFIG_MMC_DEBUG
-	sdhci_dump_saved_regs(host);
-#endif
-#endif
 
 	/* disable ahb clock */
 	if(host->ops->set_clock){
@@ -790,17 +798,7 @@ static int sdhci_pm_resume(struct device *dev)
 	}
 #endif
 
-#ifdef MMC_RESTORE_REGS
 
-#ifdef CONFIG_MMC_DEBUG
-	sdhci_dumpregs(host);
-#endif
-	sdhci_restore_regs(host);
-#endif
-
-#ifdef CONFIG_MMC_DEBUG
-	sdhci_dumpregs(host);
-#endif
 	if (!pm_runtime_suspended(dev))
 		sdhci_resume_host(host);
 	else
@@ -817,7 +815,18 @@ static int sdhci_pm_resume(struct device *dev)
 			host->ops->set_clock(host, 0);
 		}
 	}
+#ifdef MMC_RESTORE_REGS
 
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
+if(host->mmc && host->mmc->card)
+	sdhci_restore_regs(host);
+#endif
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dumpregs(host);
+#endif
 	return 0;
 }
 
