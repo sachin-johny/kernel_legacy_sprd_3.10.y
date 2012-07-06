@@ -230,6 +230,14 @@ static int32_t sprd_lcdc_init(struct sprdfb_device *dev)
 	return 0;
 }
 
+static int32_t sprd_lcdc_uninit(struct sprdfb_device *dev)
+{
+	printk(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+	dev->enable = 0;
+	clk_disable(lcdc.clk_lcdc);
+	return 0;
+}
+
 static int32_t sprd_lcdc_cleanup(struct sprdfb_device *dev)
 {
 	return 0;
@@ -357,6 +365,8 @@ static int32_t sprd_lcdc_sync(struct sprdfb_device *dev)
 
 static int32_t sprd_lcdc_suspend(struct sprdfb_device *dev)
 {
+	printk(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+
 	if (dev->enable != 0) {
 		/* must wait ,sprd_lcdc_sync() */
 		dev->vsync_waiter ++;
@@ -375,6 +385,8 @@ static int32_t sprd_lcdc_suspend(struct sprdfb_device *dev)
 
 static int32_t sprd_lcdc_resume(struct sprdfb_device *dev)
 {
+	printk(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+
 	if (dev->enable == 0) {
 		clk_enable(lcdc.clk_lcdc);
 		lcdc.vsync_done = 1;
@@ -548,6 +560,7 @@ struct panel_ctrl sprd_lcdc_ctrl = {
 	.sync                   = sprd_lcdc_sync,
 	.suspend		= sprd_lcdc_suspend,
 	.resume			= sprd_lcdc_resume,
+	.uninit		= sprd_lcdc_uninit,
 };
 
 

@@ -190,6 +190,8 @@ struct panel_ctrl {
 	int32_t 	(*mmap)		  (struct fb_info *info, struct vm_area_struct *vma);
 	#endif
 
+	int32_t		(*uninit)		  (struct sprdfb_device *dev);
+
 	uint32_t        reserved[5];
 };
 
