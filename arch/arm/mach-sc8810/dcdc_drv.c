@@ -16,6 +16,9 @@
 
 uint16_t CHGMNG_AdcvalueToVoltage(uint16_t adcvalue);
 int sprd_get_adc_cal_type(void);
+void sci_efuse_poweron(void);
+int sci_efuse_read(unsigned blk);
+void sci_efuse_poweroff(void);
 
 #define CALIBRATE_TO	(60 * 3)	/*three minutes */
 #define MEASURE_TIMES	(128)
@@ -31,6 +34,7 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 		sum += val[i] = ADC_GetValue(adc_chan, false);
 	}
 	sum /= ARRAY_SIZE(val);	//get average value
+	info("adc chan %d, value %d\n", adc_chan, sum);
 	adc_vol = CHGMNG_AdcvalueToVoltage(sum) * (8 * 5) / (30 * 4);
 	info("%s default %dmv, from %dmv to %dmv\n", __FUNCTION__, def_vol,
 	     adc_vol, to_vol);
@@ -74,11 +78,39 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	return -1;
 }
 
+int mpll_calibrate(int cpu_freq)
+{
+	u32 val = 0;
+	unsigned long flags;
+	hw_local_irq_save(flags);
+	val = __raw_readl(GR_MPLL_MN) & ~0x7ff;
+	val |= 0x12c;		//upgrade 1.2G
+	__raw_writel(__raw_readl(GR_GEN1) | BIT(9), GR_GEN1);	//mpll unlock
+	__raw_writel(val, GR_MPLL_MN);
+	__raw_writel(__raw_readl(GR_GEN1) & ~BIT(9), GR_GEN1);
+	hw_local_irq_restore(flags);
+	debug("%s 0x%08x\n", __FUNCTION__, val);
+	return 0;
+}
 int do_dcdc_init(void *data)
 {
 	int ret, cnt = CALIBRATE_TO;
 	int dcdc_def_vol = 1100;	//FIXME: how to read dcdc value?
 	int dcdc_cal_typ = 0;
+	int dcdc_to_vol = 1100;	//vddcore
+	int dcdcarm_to_vol = 1220;
+	int cpu_freq = 1000;	//Mega
+	u32 val = 0;
+	sci_efuse_poweron();
+	val = sci_efuse_read(5);
+	sci_efuse_poweroff();
+	debug("%s efuse flag 0x%08x\n", __FUNCTION__, val);
+	/* FIXME: To be confirmed */
+	if (0 || val & BIT(16) /*1.2G flag */ ) {
+		dcdc_to_vol = 1200;
+		dcdcarm_to_vol = 1250;
+		cpu_freq = 1200;
+	}
 //      debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type());
 
 #if 0				//cal test
@@ -99,14 +131,18 @@ int do_dcdc_init(void *data)
 	dcdc_cal_typ = sprd_get_adc_cal_type();
 	debug("%s %d %d\n", __FUNCTION__, dcdc_cal_typ, cnt);
 
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDC, dcdc_def_vol, 1100);
+	ret = dcdc_calibrate(ADC_CHANNEL_DCDC, dcdc_def_vol, dcdc_to_vol);
 	if (ret > 0)		//verify
-		dcdc_calibrate(ADC_CHANNEL_DCDC, ret, 1100);
+		dcdc_calibrate(ADC_CHANNEL_DCDC, ret, dcdc_to_vol);
 
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 1200, 1200);
+	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 1200, dcdcarm_to_vol);
 	if (ret > 0)		//verify
-		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, 1200);
+		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, dcdcarm_to_vol);
 	cnt = CALIBRATE_TO;
+	if (cpu_freq == 1200) {
+		msleep(100);
+		mpll_calibrate(cpu_freq);
+	}
 	goto retry;
 }
 
