@@ -24,6 +24,7 @@
 #include <linux/sysdev.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
+#include <linux/workqueue.h>
 
 #define ANDROID_ALARM_PRINT_ERROR (1U << 0)
 #define ANDROID_ALARM_PRINT_INIT_STATUS (1U << 1)
@@ -36,7 +37,7 @@
 static int debug_mask = ANDROID_ALARM_PRINT_ERROR | \
 			ANDROID_ALARM_PRINT_INIT_STATUS;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
-
+struct work_struct work;
 #define pr_alarm(debug_level_mask, args...) \
 	do { \
 		if (debug_mask & ANDROID_ALARM_PRINT_##debug_level_mask) { \
@@ -73,15 +74,6 @@ static bool suspended;
 static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 {
 	struct alarm *alarm;
-
-	struct rtc_time     rtc_current_rtc_time;
-	unsigned long       rtc_current_time;
-	unsigned long       rtc_alarm_time;
-	struct timespec     rtc_delta;
-	struct timespec     wall_time;
-    struct alarm_queue *wakeup_queue = NULL;
-	struct alarm_queue *tmp_queue = NULL;
-	struct rtc_wkalrm   rtc_alarm;
 	bool is_wakeup = base == &alarms[ANDROID_ALARM_RTC_WAKEUP] ||
 			base == &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP] ||
 			base == &alarms[ANDROID_ALARM_POWER_OFF_WAKEUP];
@@ -112,12 +104,22 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 	base->timer.node.expires = ktime_add(base->delta, alarm->expires);
 	base->timer._softexpires = ktime_add(base->delta, alarm->softexpires);
 	hrtimer_start_expires(&base->timer, HRTIMER_MODE_ABS);
+       schedule_work(&work);
+}
 
-       wakeup_queue  = base;
-	tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
-	if (tmp_queue->first && (!wakeup_queue ||
-				hrtimer_get_expires(&tmp_queue->timer).tv64 <
-				hrtimer_get_expires(&wakeup_queue->timer).tv64))
+static void dryice_work()
+{
+       struct rtc_time     rtc_current_rtc_time;
+	unsigned long       rtc_current_time;
+	unsigned long       rtc_alarm_time;
+       struct timespec     rtc_delta;
+	struct timespec     wall_time;
+       struct alarm_queue *wakeup_queue = NULL;
+	struct alarm_queue *tmp_queue = NULL;
+	struct rtc_wkalrm   rtc_alarm;
+
+      tmp_queue = &alarms[ANDROID_ALARM_RTC_WAKEUP];
+	if (tmp_queue->first)
 		wakeup_queue = tmp_queue;
 	tmp_queue = &alarms[ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP];
 	if (tmp_queue->first && (!wakeup_queue ||
@@ -138,7 +140,7 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 					wall_time.tv_nsec);
 
 		rtc_alarm_time = timespec_sub(ktime_to_timespec(
-			hrtimer_get_expires(&base->timer)),
+			hrtimer_get_expires(&wakeup_queue->timer)),
 			rtc_delta).tv_sec;
 
 		rtc_time_to_tm(rtc_alarm_time, &rtc_alarm.time);
@@ -146,7 +148,7 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 		rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
 		rtc_read_time(alarm_rtc_dev, &rtc_current_rtc_time);
 		rtc_tm_to_time(&rtc_current_rtc_time, &rtc_current_time);
-		pr_alarm(SUSPEND,
+		pr_alarm(INIT_STATUS,
 			"rtc alarm set at %ld, now %ld, rtc delta %ld.%09ld\n",
 			rtc_alarm_time, rtc_current_time,
 			rtc_delta.tv_sec, rtc_delta.tv_nsec);
@@ -211,6 +213,7 @@ void alarm_init(struct alarm *alarm,
 	RB_CLEAR_NODE(&alarm->node);
 	alarm->type = type;
 	alarm->function = function;
+       INIT_WORK(&work, dryice_work);
 
 	pr_alarm(FLOW, "created alarm, type %d, func %pF\n", type, function);
 }
