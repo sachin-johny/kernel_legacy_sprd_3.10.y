@@ -88,7 +88,7 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 	int result = 0;
 	struct sprdfb_device *dev = NULL;
 
-	pr_debug("sprd_fb: [%s]: %d\n", __FUNCTION__, cmd);
+	printk(KERN_INFO "sprd_fb: [%s]: %d\n", __FUNCTION__, cmd);
 
 	if(NULL == info){
 		printk(KERN_ERR "sprd_fb: sprdfb_ioctl error. (Invalid Parameter)");
@@ -105,7 +105,7 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	}
 
-	pr_debug("sprd_fb: [%s]: return %d\n",__FUNCTION__, result);
+	printk(KERN_INFO "sprd_fb: [%s]: return %d\n",__FUNCTION__, result);
 	return result;
 }
 
@@ -242,6 +242,7 @@ static void sprdfb_early_suspend (struct early_suspend* es)
 {
 	struct sprdfb_device *dev = container_of(es, struct sprdfb_device, early_suspend);
 	struct fb_info *fb = dev->fb;
+	printk("sprdfb: [%s]\n",__FUNCTION__);
 
 	fb_set_suspend(fb, FBINFO_STATE_SUSPENDED);
 
@@ -256,6 +257,7 @@ static void sprdfb_late_resume (struct early_suspend* es)
 {
 	struct sprdfb_device *dev = container_of(es, struct sprdfb_device, early_suspend);
 	struct fb_info *fb = dev->fb;
+	printk("sprdfb: [%s]\n",__FUNCTION__);
 
 	if (!lock_fb_info(fb)) {
 		return ;
@@ -270,6 +272,7 @@ static void sprdfb_late_resume (struct early_suspend* es)
 static int sprdfb_suspend(struct platform_device *pdev,pm_message_t state)
 {
 	struct sprdfb_device *dev = platform_get_drvdata(pdev);
+	printk("sprdfb: [%s]\n",__FUNCTION__);
 
 	/* TODO: suspend entries */
 	dev->ctrl->suspend(dev);
@@ -280,6 +283,7 @@ static int sprdfb_suspend(struct platform_device *pdev,pm_message_t state)
 static int sprdfb_resume(struct platform_device *pdev)
 {
 	struct sprdfb_device *dev = platform_get_drvdata(pdev);
+	printk("sprdfb: [%s]\n",__FUNCTION__);
 
 	/* TODO: resume entries */
 	dev->ctrl->resume(dev);
@@ -316,7 +320,7 @@ static int sprdfb_probe(struct platform_device *pdev)
 	struct sprdfb_device *dev;
 	int ret;
 
-	printk("sprdfb initialize!\n");
+	printk(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
 	fb = framebuffer_alloc(sizeof(struct sprdfb_device), &pdev->dev);
 	if (!fb) {
@@ -338,6 +342,7 @@ static int sprdfb_probe(struct platform_device *pdev)
 	/* TODO: do some early init here to probe panel */
 	/* some actions can only done once if two panel is supported by CS0/1 */
 	if (sprd_probe_panel(dev, dev->csid)) {
+		printk(KERN_ERR "sprdfb: probe panel fail\n");
 		ret = -EIO;
 		goto cleanup;
 	}
@@ -375,6 +380,7 @@ static int sprdfb_probe(struct platform_device *pdev)
 	return 0;
 
 cleanup:
+	dev->ctrl->uninit(dev);
 	fb_free_resources(dev);
 err0:
 	dev_err(&pdev->dev, "failed to probe sprdfb\n");
