@@ -24,6 +24,7 @@
 #include <linux/spinlock.h>
 #include "sprd_charge.h"
 #include <mach/usb.h>
+#include <linux/delay.h>
 
 #define USB_DM_PULLUP_BIT       BIT(19)
 #define USB_DP_PULLDOWN_BIT     BIT(20)
@@ -338,8 +339,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	/* Identify USB charger */
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, USB_DM_PULLUP_BIT,
 			   USB_PHY_CTRL);
-	for (i = 0; i < 200; i++) {;
-	}
+	mdelay(10);
 	ret = gpio_get_value(USB_DM_GPIO);
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, (USB_DM_PULLUP_BIT),
 			     USB_PHY_CTRL);
