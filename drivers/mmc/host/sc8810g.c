@@ -395,7 +395,6 @@ static void sdhci_module_init(struct sdhci_host* host)
 
 }
 
-
 static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -519,15 +518,15 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	mmc_set_disable_delay(host->mmc, 500);
 #endif
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
+	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
+	if(pdev->id == 1){
+		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
+	}
+
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");
 		goto err_add_host;
-	}
-
-	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
-	if(pdev->id == 1){
-		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
 	}
 
 #ifdef CONFIG_MMC_BUS_SCAN

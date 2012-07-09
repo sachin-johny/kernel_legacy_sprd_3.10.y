@@ -27,7 +27,7 @@ else
 DHDOFILES += bcmspibrcm.o bcmsdspi_linux.o  bcmpcispi.o
 DHDCFLAGS += -DSPRD_SPI -DBCMSDIOH_SPI -DBCMSPI
 endif
-obj-$(CONFIG_BCMDHD) += dhd_adapter.o
+
 obj-$(CONFIG_BCMDHD) += bcmdhd.o
 bcmdhd-objs += $(DHDOFILES)
 ifneq ($(CONFIG_WIRELESS_EXT),)
