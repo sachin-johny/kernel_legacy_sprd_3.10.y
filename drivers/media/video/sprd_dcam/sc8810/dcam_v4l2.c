@@ -1812,8 +1812,7 @@ static void set_next_buffer(struct dcam_fh *fh)
 
 	spin_lock_irqsave(&dev->slock, flags);
 	if (list_empty(&dma_q->active)) {
-		DCAM_V4L2_PRINT
-		    ("V4L2: set_next_buffer:No active queue to serve\n");
+		printk("V4L2: set_next_buffer:No active queue to serve\n");
 		goto unlock;
 	}
 	if (NULL == dma_q->active.next) {
@@ -1826,6 +1825,7 @@ static void set_next_buffer(struct dcam_fh *fh)
 		buf->fmt->flag = 1;
 		g_last_buf = 0;
 		g_last_uv_buf = 0;
+		printk("V4L2: set_next_buffer:clear g_last_buf.\n");
 	}
 	if ((1 == buf->fmt->flag) || (g_last_buf == buf->vb.baddr)) {
 		if (NULL == dma_q->active.next->next) {
@@ -1843,11 +1843,11 @@ static void set_next_buffer(struct dcam_fh *fh)
 		g_last_buf = buf->vb.baddr;
 		g_last_uv_buf = buf->vb.privsize;
 		dcam_set_buffer_address(buf->vb.baddr, buf->vb.privsize);
-		DCAM_V4L2_PRINT
+		printk
 		    ("#### V4L2: v4l2_buff: set_next_buffer addr = 0x%08x \n",
 		     buf->vb.baddr);
 	} else {
-		DCAM_V4L2_PRINT
+		printk
 		    ("V4L2: fail: set_next_buffer filled buffer is 0.\n");
 		goto unlock;
 	}
@@ -1873,8 +1873,7 @@ static void path1_done_buffer(struct dcam_fh *fh)
 	spin_lock_irqsave(&dev->slock, flags);
 
 	if (list_empty(&dma_q->active)) {
-		DCAM_V4L2_PRINT
-		    ("V4L2: path1_done_buffer: No active queue to serve\n");
+		printk("V4L2: path1_done_buffer: No active queue to serve\n");
 		goto unlock;
 	}
 	if (NULL == dma_q->active.next) {
@@ -1943,9 +1942,11 @@ unlock:
 void dcam_cb_ISRCapSOF(void)
 {
 	dcam_disableint();
+	printk("dcam_cb_ISRCapSOF.\n");
 	if (g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1) {
 		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
 		dcam_enableint();
+		printk("dcam_cb_ISRCapSOF return.\n");
 		return;
 	}
 	set_next_buffer(g_fh);
