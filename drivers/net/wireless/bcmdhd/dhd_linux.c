@@ -486,7 +486,6 @@ static int dhd_sleep_pm_callback(struct notifier_block *nfb, unsigned long actio
 {
 	int ret = NOTIFY_DONE;
 
-#if (LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 39))
 	switch (action)	{
 		case PM_HIBERNATION_PREPARE:
 		case PM_SUSPEND_PREPARE:
@@ -500,7 +499,6 @@ static int dhd_sleep_pm_callback(struct notifier_block *nfb, unsigned long actio
 		break;
 	}
 	smp_mb();
-#endif
 	return ret;
 }
 
@@ -3795,7 +3793,7 @@ dhd_module_init(void)
 	int error = 0;
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
-
+	msleep(2000);     /* Ignore MMC controler Auto Scan during bootloader */
 	wl_android_init();
 
 #ifdef DHDTHREAD

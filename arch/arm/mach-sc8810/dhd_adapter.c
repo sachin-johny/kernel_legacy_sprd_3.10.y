@@ -24,6 +24,8 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 
+#include <linux/mmc/host.h>
+
 #define GET_WIFI_MAC_ADDR_FROM_NV_ITEM	        1
 
 #define PREALLOC_WLAN_NUMBER_OF_SECTIONS	4
@@ -45,16 +47,16 @@ extern int  dhd_os_get_image_block(char *buf, int len, void *image);
 extern void dhd_os_close_image(void *image);
 
 
-static int bcm_wifi_cd = 0; /* WIFI virtual 'card detect' status */
-static int bcm_wifi_power_state;
-static int bcm_wifi_reset_state;
+static int wlan_device_cd = 0; /* WIFI virtual 'card detect' status */
+static int wlan_device_power_state;
+static int wlan_device_reset_state;
 static void (*wifi_status_cb)(int card_present, void *dev_id);
 static void *wifi_status_cb_devid;
 static struct regulator *wlan_regulator_18 = NULL;
 
-int bcm_wifi_power(int on);
-int bcm_wifi_reset(int on);
-int bcm_wifi_set_carddetect(int on);
+int wlan_device_power(int on);
+int wlan_device_reset(int on);
+int wlan_device_set_carddetect(int on);
 
 static struct sk_buff *wlan_static_skb[WLAN_SKB_BUF_NUM];
 
@@ -70,7 +72,7 @@ static wifi_mem_prealloc_t wifi_mem_array[PREALLOC_WLAN_NUMBER_OF_SECTIONS] = {
 	{ NULL, (WLAN_SECTION_SIZE_3 + PREALLOC_WLAN_SECTION_HEADER) }
 };
 
-static void *bcm_wifi_mem_prealloc(int section, unsigned long size)
+static void *wlan_device_mem_prealloc(int section, unsigned long size)
 {
 	if (section == PREALLOC_WLAN_NUMBER_OF_SECTIONS)
 		return wlan_static_skb;
@@ -81,7 +83,7 @@ static void *bcm_wifi_mem_prealloc(int section, unsigned long size)
 	return wifi_mem_array[section].mem_ptr;
 }
 
-int __init bcm_init_wifi_mem(void)
+int __init init_wifi_mem(void)
 {
 	int i;
 
@@ -103,7 +105,7 @@ int __init bcm_init_wifi_mem(void)
 /* Control the BT_VDDIO and WLAN_VDDIO
 Always power on  According to spec
 */
-static int brcm_ldo_enable(void)
+static int wlan_ldo_enable(void)
 {
 	int err;
 	wlan_regulator_18 = regulator_get(NULL, REGU_NAME_WIFI);
@@ -121,7 +123,7 @@ static int brcm_ldo_enable(void)
 	regulator_enable(wlan_regulator_18);
 }
 
-int bcm_wifi_power(int on)
+int wlan_device_power(int on)
 {
 	pr_info("%s:%d \n", __func__, on);
 
@@ -136,19 +138,19 @@ int bcm_wifi_power(int on)
 		gpio_direction_output(GPIO_WIFI_SHUTDOWN, 0);
 
 	}
-	bcm_wifi_power_state = on;
+	wlan_device_power_state = on;
 	return 0;
 }
 
-int bcm_wifi_reset(int on)
+int wlan_device_reset(int on)
 {
 	pr_info("%s: do nothing\n", __func__);
-	bcm_wifi_reset_state = on;
+	wlan_device_reset_state = on;
 	return 0;
 }
 
 
-static int bcm_wifi_status_register(
+int wlan_device_status_register(
 		void (*callback)(int card_present, void *dev_id),
 		void *dev_id)
 {
@@ -159,26 +161,35 @@ static int bcm_wifi_status_register(
 	return 0;
 }
 
-static unsigned int bcm_wifi_status(struct device *dev)
+EXPORT_SYMBOL(wlan_device_status_register);
+
+static unsigned int wlan_device_status(struct device *dev)
 {
-	return bcm_wifi_cd;
+	return wlan_device_cd;
 }
 
-int bcm_wifi_set_carddetect(int val)
+int wlan_device_set_carddetect(int val)
 {
 	pr_info("%s: %d\n", __func__, val);
-	bcm_wifi_cd = val;
+	mdelay(100);
+#if 0
+	wlan_device_cd = val;
 	if (wifi_status_cb) {
 		wifi_status_cb(val, wifi_status_cb_devid);
 	} else
 		pr_warning("%s: Nobody to notify\n", __func__);
+#endif
+
+#ifdef CONFIG_WLAN_SDIO
+        sdhci_bus_scan();
+#endif
 	return 0;
 }
 
 
 
 #ifdef GET_WIFI_MAC_ADDR_FROM_NV_ITEM
-static unsigned char bcm_mac_addr[IFHWADDRLEN] = { 0x11,0x22,0x33,0x44,0x55,0x66 };
+static unsigned char wlan_mac_addr[IFHWADDRLEN] = { 0x11,0x22,0x33,0x44,0x55,0x66 };
 
 static unsigned char char2bin( char m)
 {
@@ -193,7 +204,7 @@ static unsigned char char2bin( char m)
 	}
 }
 
-static int bcm_wifi_get_mac_addr(unsigned char *buf)
+static int wlan_device_get_mac_addr(unsigned char *buf)
 {
 	int rc = 0;
 
@@ -213,15 +224,15 @@ static int bcm_wifi_get_mac_addr(unsigned char *buf)
 		return -EFAULT;
 
 
-	bcm_mac_addr[0] = (unsigned char)((char2bin(macaddr[0]) << 4) | char2bin(macaddr[1]));
-	bcm_mac_addr[1] = (unsigned char)((char2bin(macaddr[3]) << 4) | char2bin(macaddr[4]));
-	bcm_mac_addr[2] = (unsigned char)((char2bin(macaddr[6]) << 4) | char2bin(macaddr[7]));
-	bcm_mac_addr[3] = (unsigned char)((char2bin(macaddr[9]) << 4) | char2bin(macaddr[10]));
-	bcm_mac_addr[4] = (unsigned char)((char2bin(macaddr[12]) << 4) | char2bin(macaddr[13]));
-	bcm_mac_addr[5] = (unsigned char)((char2bin(macaddr[15]) << 4) | char2bin(macaddr[16]));
+	wlan_mac_addr[0] = (unsigned char)((char2bin(macaddr[0]) << 4) | char2bin(macaddr[1]));
+	wlan_mac_addr[1] = (unsigned char)((char2bin(macaddr[3]) << 4) | char2bin(macaddr[4]));
+	wlan_mac_addr[2] = (unsigned char)((char2bin(macaddr[6]) << 4) | char2bin(macaddr[7]));
+	wlan_mac_addr[3] = (unsigned char)((char2bin(macaddr[9]) << 4) | char2bin(macaddr[10]));
+	wlan_mac_addr[4] = (unsigned char)((char2bin(macaddr[12]) << 4) | char2bin(macaddr[13]));
+	wlan_mac_addr[5] = (unsigned char)((char2bin(macaddr[15]) << 4) | char2bin(macaddr[16]));
 
-	memcpy(buf, bcm_mac_addr, IFHWADDRLEN);
-	pr_info("wifi mac: %x:%x:%x:%x:%x:%x\n", bcm_mac_addr[0], bcm_mac_addr[1], bcm_mac_addr[2], bcm_mac_addr[3], bcm_mac_addr[4], bcm_mac_addr[5]);
+	memcpy(buf, wlan_mac_addr, IFHWADDRLEN);
+	pr_info("wifi mac: %x:%x:%x:%x:%x:%x\n", wlan_mac_addr[0], wlan_mac_addr[1], wlan_mac_addr[2], wlan_mac_addr[3], wlan_mac_addr[4], wlan_mac_addr[5]);
 
 	dhd_os_close_image(fp);
 
@@ -230,85 +241,67 @@ static int bcm_wifi_get_mac_addr(unsigned char *buf)
 }
 #endif
 
-static struct wifi_platform_data bcm_wifi_control = {
-	.set_power      = bcm_wifi_power,
-	.set_reset      = bcm_wifi_reset,
-	.set_carddetect = bcm_wifi_set_carddetect,
-	.mem_prealloc	= bcm_wifi_mem_prealloc,
+static struct wifi_platform_data wlan_device_control = {
+	.set_power      = wlan_device_power,
+	.set_reset      = wlan_device_reset,
+	.set_carddetect = wlan_device_set_carddetect,
+	.mem_prealloc	= wlan_device_mem_prealloc,
 #ifdef GET_WIFI_MAC_ADDR_FROM_NV_ITEM
-	.get_mac_addr	= bcm_wifi_get_mac_addr,
+	.get_mac_addr	= wlan_device_get_mac_addr,
 #endif
 };
+
+static struct resource wlan_resources[] = {
 #ifdef CONFIG_WLAN_SDIO
-static struct resource sdio_resources[] = {
 	[0] = {
 		.start  = SPRD_SDIO1_PHYS,
 		.end    = SPRD_SDIO1_PHYS + SZ_4K - 1,
 		.flags  = IORESOURCE_MEM,
 	},
-	[1] = {
-		.name = "bcmdhd_wlan_irq",
-		.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
-	},
-};
-static struct platform_device sprd_sdio_controller_device = {
-	.name   = "bcmdhd_wlan",
-	.id     = 1,
-	.dev    = {
-		.platform_data = &bcm_wifi_control,
-	},
-	.resource	= sdio_resources,
-	.num_resources	= ARRAY_SIZE(sdio_resources),
-};
-
 #else
-static struct resource spi_resources[] = {
 	[0] = {
 		.start  = SPRD_SPI0_PHYS,
 		.end    = SPRD_SPI0_PHYS + SZ_4K - 1,
 		.flags  = IORESOURCE_MEM,
 	},
+#endif
 	[1] = {
 		.name = "bcmdhd_wlan_irq",
 		.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
 	},
 };
-static struct platform_device sprd_spi_controller_device = {
+
+static struct platform_device sprd_wlan_device = {
 	.name   = "bcmdhd_wlan",
 	.id     = 1,
 	.dev    = {
-		.platform_data = &bcm_wifi_control,
+		.platform_data = &wlan_device_control,
 	},
-	.resource	= spi_resources,
-	.num_resources	= ARRAY_SIZE(spi_resources),
+	.resource	= wlan_resources,
+	.num_resources	= ARRAY_SIZE(wlan_resources),
 };
-#endif
-static int __init bcm_wifi_init(void)
+
+static int __init wlan_device_init(void)
 {
 	int ret;
 
-	bcm_init_wifi_mem();
-	brcm_ldo_enable();
+	init_wifi_mem();
+	wlan_ldo_enable();
 	gpio_request(GPIO_WIFI_IRQ, "oob_irq");
 	gpio_direction_input(GPIO_WIFI_IRQ);
-#ifdef CONFIG_WLAN_SDIO
-	sdio_resources[1].start = gpio_to_irq(GPIO_WIFI_IRQ);
-	sdio_resources[1].end = gpio_to_irq(GPIO_WIFI_IRQ);
-#else
-	spi_resources[1].start = gpio_to_irq(GPIO_WIFI_IRQ);
-	spi_resources[1].end = gpio_to_irq(GPIO_WIFI_IRQ);
-#endif
+
+	wlan_resources[1].start = gpio_to_irq(GPIO_WIFI_IRQ);
+	wlan_resources[1].end = gpio_to_irq(GPIO_WIFI_IRQ);
+
 	gpio_request(GPIO_WIFI_SHUTDOWN,"wifi_pwd");
-#ifdef CONFIG_WLAN_SDIO
-	ret = platform_device_register(&sprd_sdio_controller_device);
-#else
-	ret = platform_device_register(&sprd_spi_controller_device);
-#endif
+	gpio_direction_output(GPIO_WIFI_SHUTDOWN, 0);
+
+	ret = platform_device_register(&sprd_wlan_device);
 
 	return ret;
 }
 
-late_initcall(bcm_wifi_init);
+late_initcall(wlan_device_init);
 
 MODULE_DESCRIPTION("Broadcomm wlan driver");
 MODULE_LICENSE("GPL");
