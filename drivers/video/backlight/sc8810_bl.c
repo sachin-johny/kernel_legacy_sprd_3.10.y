@@ -19,6 +19,7 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <mach/hardware.h>
+#include <linux/earlysuspend.h>
 
 /* register definitions */
 #define        PWM_PRESCALE    (0x0000)
@@ -34,7 +35,11 @@
 
 struct sc8810bl {
        int             pwm;
+       uint32_t        value;
+       int             suspend;
        struct clk      *clk;
+       struct mutex    mutex;
+       struct early_suspend sprd_early_suspend_desc;
 };
 
 static struct sc8810bl sc8810bl;
@@ -49,6 +54,28 @@ static void pwm_write(int index, uint32_t value, uint32_t reg)
        __raw_writel(value, SPRD_PWM_BASE + index * 0x20 + reg);
 }
 
+#ifdef CONFIG_EARLYSUSPEND
+static void sc8810_backlight_earlysuspend(struct early_suspend *h)
+{
+       mutex_lock(&sc8810bl.mutex);
+       sc8810bl.suspend = 1;
+       mutex_unlock(&sc8810bl.mutex);
+}
+
+static void sc8810_backlight_lateresume(struct early_suspend *h)
+{
+       mutex_lock(&sc8810bl.mutex);
+       sc8810bl.suspend = 0;
+       mutex_unlock(&sc8810bl.mutex);
+
+       pwm_write(sc8810bl.pwm, PWM_SCALE, PWM_PRESCALE);
+       pwm_write(sc8810bl.pwm, sc8810bl.value, PWM_CNT);
+       pwm_write(sc8810bl.pwm, PWM_REG_MSK, PWM_PAT_LOW);
+       pwm_write(sc8810bl.pwm, PWM_REG_MSK, PWM_PAT_HIG);
+       pwm_write(sc8810bl.pwm, PWM_SCALE | PWM_ENABLE, PWM_PRESCALE);
+}
+#endif
+
 static int sc8810_backlight_update_status(struct backlight_device *bldev)
 {
        struct sc8810bl *bl = bl_get_data(bldev);
@@ -56,12 +83,17 @@ static int sc8810_backlight_update_status(struct backlight_device *bldev)
 
        if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
                        bldev->props.power != FB_BLANK_UNBLANK ||
+                       sc8810bl.suspend ||
                        bldev->props.brightness == 0) {
                /* disable backlight */
                pwm_write(bl->pwm, 0, PWM_PRESCALE);
        } else {
                value = bldev->props.brightness & PWM_MOD_MAX;
+		 if(value <0x20){
+		   value = 0x20;
+		 }
                value = (value << 8) | PWM_MOD_MAX;
+               sc8810bl.value = value;
 
                pwm_write(bl->pwm, PWM_SCALE, PWM_PRESCALE);
                pwm_write(bl->pwm, value, PWM_CNT);
@@ -100,6 +132,7 @@ static int __devinit sc8810_backlight_probe(struct platform_device *pdev)
 
        /* use PWM0 now only, may need dynamic config in the future */
        sc8810bl.pwm = 0;
+       sc8810bl.suspend = 0;
        sc8810bl.clk = clk_get(NULL, "clk_pwm0");
        if (!sc8810bl.clk) {
                printk(KERN_ERR "Failed to get clk_pwm0\n");
@@ -117,12 +150,25 @@ static int __devinit sc8810_backlight_probe(struct platform_device *pdev)
 
        platform_set_drvdata(pdev, bldev);
 
+		mutex_init(&sc8810bl.mutex);
+
+#ifdef CONFIG_EARLYSUSPEND
+       sc8810bl.sprd_early_suspend_desc.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+       sc8810bl.sprd_early_suspend_desc.suspend = sc8810_backlight_earlysuspend;
+       sc8810bl.sprd_early_suspend_desc.resume  = sc8810_backlight_lateresume;
+       register_early_suspend(&sc8810bl.sprd_early_suspend_desc);
+#endif
+
        return 0;
 }
 
 static int __devexit sc8810_backlight_remove(struct platform_device *pdev)
 {
        struct backlight_device *bldev;
+
+#ifdef CONFIG_EARLYSUSPEND
+       unregister_early_suspend(&sc8810bl.sprd_early_suspend_desc);
+#endif
 
        bldev = platform_get_drvdata(pdev);
        bldev->props.power = FB_BLANK_UNBLANK;
@@ -140,11 +186,13 @@ static int __devexit sc8810_backlight_remove(struct platform_device *pdev)
 static int sc8810_backlight_suspend(struct platform_device *pdev,
                pm_message_t state)
 {
+	clk_disable(sc8810bl.clk);
        return 0;
 }
 
 static int sc8810_backlight_resume(struct platform_device *pdev)
 {
+	clk_enable(sc8810bl.clk);
        return 0;
 }
 #else
