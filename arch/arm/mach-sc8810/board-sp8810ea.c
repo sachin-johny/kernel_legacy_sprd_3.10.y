@@ -50,6 +50,9 @@ extern int __init sprd_ramconsole_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
+static struct platform_device kb_backlight_device;
+/* Control ldo for brcm chip according to HW design */
+static struct regulator *wlan_regulator_18=NULL;
 
 
 /* Control ldo for maxscend cmmb chip according to HW design */
@@ -84,6 +87,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_rotation_device,
 	&rfkill_device,
 	&brcm_bluesleep_device,
+	&kb_backlight_device,
 };
 
 /* BT suspend/resume */
@@ -130,6 +134,12 @@ static struct platform_device rfkill_device = {
 	.id = -1,
 	.num_resources	= ARRAY_SIZE(rfkill_resources),
 	.resource	= rfkill_resources,
+};
+
+/* keypad backlight */
+static struct platform_device kb_backlight_device = {
+	.name           = "keyboard-backlight",
+	.id             =  -1,
 };
 
 static struct sys_timer sc8810_timer = {

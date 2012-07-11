@@ -401,6 +401,13 @@ config LEDS_OT200
 	  This option enables support for the LEDs on the Bachmann OT200.
 	  Say Y to enable LEDs on the Bachmann OT200.
 
+config LEDS_SC8810_KB
+	tristate "LED Support for SC8810 keyboard backlight"
+	depends on LEDS_CLASS
+	default n
+	help
+	  This option enables support.
+
 config LEDS_TRIGGERS
 	bool "LED Trigger support"
 	depends on LEDS_CLASS

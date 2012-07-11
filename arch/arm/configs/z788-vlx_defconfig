@@ -1612,6 +1612,9 @@ CONFIG_BACKLIGHT_Z788BL=y
 # CONFIG_BACKLIGHT_ADP8870 is not set
 # CONFIG_BACKLIGHT_KTD253B is not set
 
+# Keypad leds
+CONFIG_LEDS_SC8810_KB=y
+
 #
 # Display device support
 #
