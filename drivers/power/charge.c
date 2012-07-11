@@ -27,6 +27,7 @@
 #include <mach/bits.h>
 #include <mach/board.h>
 #include <mach/usb.h>
+#include <linux/delay.h>
 
 /**---------------------------------------------------------------------------*
  **                         Debugging Flag                                    *
@@ -352,7 +353,7 @@ int charger_is_adapter(void)
 
 	//Identify USB charger
 	CHIP_REG_OR(USB_PHY_CTRL, USB_DM_PULLUP_BIT);
-	for(i = 0;i < 200;i++){;}  ///wait
+	mdelay(10);
 	ret = gpio_get_value(USB_DM_GPIO);   ///USB DM:GPIO145 in SC8800G2
 	CHIP_REG_AND(USB_PHY_CTRL,(~USB_DM_PULLUP_BIT));
 
