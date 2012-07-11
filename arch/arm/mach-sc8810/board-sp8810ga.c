@@ -43,6 +43,8 @@ extern void __init sc8810_clock_init(void);
 extern int __init sprd_ramconsole_init(void);
 #endif
 
+static struct platform_device kb_backlight_device;
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
@@ -69,6 +71,13 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_dcam_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
+	&kb_backlight_device,
+};
+
+/* keypad backlight */
+static struct platform_device kb_backlight_device = {
+	.name           = "keyboard-backlight",
+	.id             =  -1,
 };
 
 static struct sys_timer sc8810_timer = {

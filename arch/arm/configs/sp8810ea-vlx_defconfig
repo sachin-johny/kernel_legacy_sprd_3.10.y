@@ -1586,6 +1586,9 @@ CONFIG_FB_CFB_IMAGEBLIT=y
 # CONFIG_FB_MODE_HELPERS is not set
 # CONFIG_FB_TILEBLITTING is not set
 
+# Keypad leds
+CONFIG_LEDS_SC8810_KB=y
+
 #
 # Frame buffer hardware drivers
 #
@@ -1617,6 +1620,9 @@ CONFIG_BACKLIGHT_SGM3727=y
 # CONFIG_BACKLIGHT_ADP8860 is not set
 # CONFIG_BACKLIGHT_ADP8870 is not set
 # CONFIG_BACKLIGHT_KTD253B is not set
+
+# Keypad leds
+CONFIG_LEDS_SC8810_KB=y
 
 #
 # Display device support
