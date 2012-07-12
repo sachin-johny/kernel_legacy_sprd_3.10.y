@@ -32,6 +32,8 @@
 #endif
 
 
+#define SPRDFB_DEFAULT_FPS (60)
+
 extern int sprd_probe_panel(struct sprdfb_device *dev, int cs);
 
 extern struct panel_ctrl sprd_lcdc_ctrl;
@@ -183,7 +185,11 @@ static void setup_fb_info(struct sprdfb_device *dev)
 	fb->var.xres_virtual = panel->width;
 	fb->var.yres_virtual = panel->height * FRAMEBUFFER_NR;
 	fb->var.bits_per_pixel = dev->bpp;
-	fb->var.pixclock = 45000; /* fake pixel clock to avoid divide 0 */
+	if(0 != dev->panel->fps){
+		fb->var.pixclock = (1000 * 1000 * 1000) / (dev->panel->fps * panel->width * panel->height) * 1000;
+	}else{
+		fb->var.pixclock = (1000 * 1000 * 1000) / (SPRDFB_DEFAULT_FPS * panel->width * panel->height) * 1000;
+	}
 	fb->var.accel_flags = 0;
 	fb->var.yoffset = 0;
 
