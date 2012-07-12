@@ -317,12 +317,14 @@ static int sprd_rtc_proc(struct device *dev, struct seq_file *seq)
 
 	return 0;
 }
+void rtc_aie_update_irq(void *private);
 static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
 {
 	struct rtc_device *rdev = dev_id;
 
 	pr_debug(" RTC ***** interrupt happen\n");
-	rtc_update_irq(rdev, 1, RTC_AF | RTC_IRQF);
+	//rtc_update_irq(rdev, 1, RTC_AF | RTC_IRQF);
+       rtc_aie_update_irq(rdev);
 	CLEAR_RTC_INT(RTC_INT_ALL_MSK);
 	return IRQ_HANDLED;
 }
