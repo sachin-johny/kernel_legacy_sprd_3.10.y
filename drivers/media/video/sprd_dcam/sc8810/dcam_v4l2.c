@@ -603,7 +603,8 @@ static int init_sensor_parameters(void *priv)
 		Sensor_SetMode(g_dcam_info.snapshot_m);
 	else if (g_dcam_info.snapshot_m < SENSOR_MODE_SNAPSHOT_ONE_FIRST)
 		Sensor_SetMode(g_dcam_info.preview_m);
-
+         /*for preview */
+	if(1 != dev->streamparm.parm.capture.capturemode) {
 	/* Setting sensor parameters */
 	if (INVALID_VALUE != g_dcam_info.wb_param)
 		Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, g_dcam_info.wb_param);
@@ -624,9 +625,6 @@ static int init_sensor_parameters(void *priv)
 	if (INVALID_VALUE != g_dcam_info.power_freq)
 		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,
 			     g_dcam_info.power_freq);
-
-	/*for preview */
-	if (1 != dev->streamparm.parm.capture.capturemode) {
 		if(INVALID_VALUE != g_dcam_info.sensor_work_mode) {
 		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,
 			     g_dcam_info.sensor_work_mode);
@@ -1373,7 +1371,17 @@ static int vidioc_g_parm(struct file *file, void *priv,
 	DCAM_V4L2_PRINT("V4L2: vidioc_g_parm X,sensor mode sum = %d.\n", i);
 	return 0;
 }
+static int v4l2_sensor_set_param(uint8_t *buf)
+{
+	Sensor_SetSensorParam(buf);
+	return 0;
+}
 
+static int v4l2_sensor_get_param(uint8_t *buf,uint8_t *is_saved)
+{
+	Sensor_GetSensorParam(buf,is_saved);
+	return 0;
+}
 static int v4l2_sensor_init(uint32_t sensor_id)
 {
 	if (SENSOR_TRUE != Sensor_IsInit()) {
@@ -1401,6 +1409,8 @@ static int vidioc_s_parm(struct file *file, void *priv,
 	struct dcam_dev *dev = fh->dev;
 	int i;
 	uint32_t sensor_id = 0;
+	uint8_t *buf_ptr;
+	uint8_t *is_saved_ptr;
 
 	DCAM_V4L2_PRINT("V4L2: vidioc_s_parm E.\n");
 	dev->streamparm.type = streamparm->type;
@@ -1445,11 +1455,15 @@ static int vidioc_s_parm(struct file *file, void *priv,
 	} else {
 		g_dcam_info.rot_angle = DCAM_ROTATION_0;
 	}
-
+	buf_ptr = &streamparm->parm.raw_data[188];
+	is_saved_ptr = &streamparm->parm.raw_data[196];
+	v4l2_sensor_set_param(buf_ptr);
 	if (0 != v4l2_sensor_init(sensor_id)) {
 		DCAM_V4L2_PRINT("V4L2: fail to sensor_init.\n");
+		*is_saved_ptr = 0;
 		return -1;
 	}
+	v4l2_sensor_get_param(buf_ptr,is_saved_ptr);
 	DCAM_V4L2_PRINT("V4L2: vidioc_s_parm X.\n");
 	return 0;
 }

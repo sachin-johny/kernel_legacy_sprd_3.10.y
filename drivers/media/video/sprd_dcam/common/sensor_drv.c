@@ -83,6 +83,13 @@ LOCAL uint32_t s_flash_mode = 0xff;
 static struct i2c_client *this_client = NULL;
 static int g_is_main_sensor = 0;
 static int g_is_register_sensor = 0;
+#define SIGN_0  0x73
+#define SIGN_1  0x69
+#define SIGN_2  0x67
+#define SIGN_3  0x6e
+static BOOLEAN s_sensor_identified = SCI_FALSE;
+static BOOLEAN s_sensor_param_saved = SCI_FALSE;
+static uint8_t  s_sensor_index[SENSOR_ID_MAX]={0xFF,0xFF,0xFF,0xFF,0xFF};
 #define SENSOR_DEV_NAME	SENSOR_MAIN_I2C_NAME
 
 LOCAL EXIF_SPEC_PIC_TAKING_COND_T s_default_exif={0x00};
@@ -1293,6 +1300,8 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 	SENSOR_INFO_T *sensor_info_ptr = PNULL;
 	struct list_head *sensor_list = PNULL;
 	struct sensor_drv_cfg *cfg;
+	uint32_t i = 0;
+	uint32_t get_cfg_flag = 0;
 
 	SENSOR_PRINT_HIGH("SENSOR: sensor identifing %d", sensor_id);
 
@@ -1301,11 +1310,68 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 		return;
 	}
 	sensor_list = Sensor_GetList(sensor_id);
+	if(s_sensor_identified && (5 != sensor_id)) {
+		sensor_index = s_sensor_index[sensor_id];
+		printk("_Sensor_Identify:sensor_index=%d.\n",sensor_index);
+		if(0xFF != sensor_index) {
+			list_for_each_entry(cfg, sensor_list, list) {
+				if(sensor_index == i) {
+					get_cfg_flag = 1;
+					printk("Sensor_Identify:get index from list is %d.\n",sensor_index);
+					break;
+				} else {
+					i++;
+				}
+			}
+			if(1 != get_cfg_flag) {
+				SENSOR_PRINT_ERR("SENSOR: index %d cfg is null", sensor_index);
+				goto IDENTIFY_SEARCH;
+			}
+			sensor_info_ptr = cfg->driver_info;
+			if(NULL==sensor_info_ptr)
+			{
+				SENSOR_PRINT_ERR("SENSOR: %d info of Sensor_Init table %d is null", sensor_index, (uint)sensor_id);
+				goto IDENTIFY_SEARCH;
+			}
+			_Sensor_I2CInit(sensor_id);
+			s_sensor_info_ptr = sensor_info_ptr;
+			Sensor_PowerOn(SCI_TRUE);
+			if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
+			{
+				this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
+				SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
+				if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
+				{
+					s_sensor_list_ptr[sensor_id]=sensor_info_ptr;
+					s_sensor_register_info_ptr->is_register[sensor_id]=SCI_TRUE;
+					s_sensor_register_info_ptr->img_sensor_num++;
+					Sensor_PowerOn(SCI_FALSE);
+					SENSOR_PRINT_HIGH("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d\n",
+						                                     sensor_id,s_sensor_register_info_ptr->img_sensor_num);
+				}
+				else
+				{
+					Sensor_PowerOn(SCI_FALSE);
+					_Sensor_I2CDeInit(sensor_id);
+					printk("_Sensor_Identify:identify fail!.\n");
+					goto IDENTIFY_SEARCH;
+				}
+			}
+			Sensor_PowerOn(SCI_FALSE);
+			_Sensor_I2CDeInit(sensor_id);
+			return;
+		}
+	}
+IDENTIFY_SEARCH:
+	printk("_Sensor_Identify:search.\n");
+	sensor_index = 0;
+	sensor_list = Sensor_GetList(sensor_id);
 	_Sensor_I2CInit(sensor_id);
 	list_for_each_entry(cfg, sensor_list, list) {
 		sensor_info_ptr = cfg->driver_info;
 
 		if (NULL == sensor_info_ptr) {
+			sensor_index++;
 			SENSOR_PRINT_ERR
 			    ("SENSOR: %d info of Sensor_Init table %d is null",
 			     sensor_index, (uint) sensor_id);
@@ -1336,24 +1402,26 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 			    sensor_info_ptr->
 			    ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)) {
 				s_sensor_list_ptr[sensor_id] = sensor_info_ptr;
-				s_sensor_register_info_ptr->is_register
-				    [sensor_id] = SCI_TRUE;
+				s_sensor_register_info_ptr->is_register[sensor_id] = SCI_TRUE;
+				if(5 != Sensor_GetCurId())//test by wang bonnie
+					s_sensor_index[sensor_id] = sensor_index;
 				s_sensor_register_info_ptr->img_sensor_num++;
 				ImgSensor_PutMutex();
 				Sensor_PowerOn(SCI_FALSE);
 				SENSOR_PRINT_HIGH
-				    ("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d\n",
+				    ("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d,sensor_index=%d.\n",
 				     sensor_id,
-				     s_sensor_register_info_ptr->img_sensor_num);
+				     s_sensor_register_info_ptr->img_sensor_num,sensor_index);
 				break;
 			}
 		}
 		Sensor_PowerOn(SCI_FALSE);
+		sensor_index++;
 	}
 	_Sensor_I2CDeInit(sensor_id);
 	if (SCI_TRUE == s_sensor_register_info_ptr->is_register[sensor_id]) {
-		SENSOR_PRINT_HIGH("SENSOR TYPE of %d indentify OK.\n",
-				  (uint32_t) sensor_id);
+		SENSOR_PRINT_HIGH("SENSOR TYPE of %d indentify OK.\n", (uint32_t) sensor_id);
+		s_sensor_param_saved = SCI_TRUE;
 	} else {
 		SENSOR_PRINT_HIGH("SENSOR TYPE of %d indentify FAILURE.\n",
 				  (uint32_t) sensor_id);
@@ -1403,6 +1471,7 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 	_Sensor_CleanInformation();
 	_Sensor_Identify(SENSOR_MAIN);
 	_Sensor_Identify(SENSOR_SUB);
+	s_sensor_identified = SCI_TRUE;
 	if (5 == sensor_id) {
 		msleep(20);
 		_Sensor_Identify(SENSOR_ATV);
@@ -2077,4 +2146,43 @@ EXIF_SPEC_PIC_TAKING_COND_T *Sensor_GetSensorExifInfo(void)
 		SENSOR_PRINT("SENSOR: Sensor_GetSensorExifInfo the get_exif fun is null, so use the default exif info.\n");
 	}
 	return sensor_exif_info_ptr;
+}
+
+int Sensor_SetSensorParam(uint8_t *buf)
+{
+	uint32_t i;
+
+	if((SIGN_0 != buf[0]) && (SIGN_1 != buf[1])
+	   && (SIGN_2 != buf[2]) && (SIGN_3 != buf[3])) {
+		s_sensor_identified = SCI_FALSE;
+	} else {
+		s_sensor_identified = SCI_TRUE;
+		for( i=0 ; i<2 ; i++) {
+			s_sensor_index[i] = buf[4+i];
+		}
+	}
+	printk("Sensor_SetSensorParam:s_sensor_identified=%d,idex is %d,%d.\n",
+		    s_sensor_identified,s_sensor_index[0],s_sensor_index[1]);
+	return 0;
+}
+
+int Sensor_GetSensorParam(uint8_t *buf,uint8_t *is_saved_ptr)
+{
+	uint32_t i,j=0;
+	uint8_t *ptr=buf;
+
+	if(SCI_TRUE == s_sensor_param_saved) {
+		*is_saved_ptr = 1;
+		*ptr++ = SIGN_0;
+		*ptr++ = SIGN_1;
+		*ptr++ = SIGN_2;
+		*ptr++ = SIGN_3;
+		for( i=0 ; i<2 ; i++) {
+			*ptr++ = s_sensor_index[i];
+		}
+		printk("Sensor_GetSensorParam:index is %d,%d.\n",s_sensor_index[0],s_sensor_index[1]);
+	} else {
+		*is_saved_ptr = 0;
+	}
+	return 0;
 }
