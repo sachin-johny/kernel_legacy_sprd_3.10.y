@@ -1524,7 +1524,17 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	DCAM_V4L2_PRINT("V4L2: vidioc_g_parm X,sensor mode sum = %d.\n",i);
 	return 0;
 }
+static int v4l2_sensor_set_param(uint8_t *buf)
+{
+	Sensor_SetSensorParam(buf);
+	return 0;
+}
 
+static int v4l2_sensor_get_param(uint8_t *buf,uint8_t *is_saved)
+{
+	Sensor_GetSensorParam(buf,is_saved);
+	return 0;
+}
 static int v4l2_sensor_init(uint32_t sensor_id)
 {
 	//init sensor
@@ -1554,6 +1564,8 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	struct dcam_dev *dev = fh->dev;
 	int i;
 	uint32_t sensor_id = 0;
+	uint8_t *buf_ptr;
+	uint8_t *is_saved_ptr;
 	
 	DCAM_V4L2_PRINT("V4L2: vidioc_s_parm E.\n");
 	dev->streamparm.type = streamparm->type;
@@ -1616,11 +1628,15 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	else{
 		g_dcam_info.is_Y_UV = 0;
 	}
-	
+	buf_ptr = &streamparm->parm.raw_data[188];
+	is_saved_ptr = &streamparm->parm.raw_data[196];
+	v4l2_sensor_set_param(buf_ptr);
 	if(0 != v4l2_sensor_init(sensor_id)){
 		DCAM_V4L2_PRINT("V4L2: fail to sensor_init.\n");
+		*is_saved_ptr = 0;
 		return -1;
 	}
+	v4l2_sensor_get_param(buf_ptr,is_saved_ptr);
 
 	DCAM_V4L2_PRINT("V4L2: vidioc_s_parm X.\n");
 	return 0;

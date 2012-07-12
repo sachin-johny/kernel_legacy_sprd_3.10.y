@@ -105,6 +105,14 @@ static int g_is_main_sensor = 0;
 static int g_is_register_sensor = 0;
 #define SENSOR_DEV_NAME	SENSOR_MAIN_I2C_NAME 
 
+#define SIGN_0  0x73
+#define SIGN_1  0x69
+#define SIGN_2  0x67
+#define SIGN_3  0x6e
+static BOOLEAN s_sensor_identified = SCI_FALSE;
+static BOOLEAN s_sensor_param_saved = SCI_FALSE;
+static uint8_t  s_sensor_index[SENSOR_ID_MAX]={0xFF,0xFF,0xFF,0xFF,0xFF};
+
 static const struct i2c_device_id sensor_main_id[] = {
 	{ SENSOR_MAIN_I2C_NAME, 0 },
 	{ }
@@ -1370,8 +1378,49 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 	{
 		SENSOR_PRINT("SENSOR: sensor identified");
 		return;
-	}	    
-
+	}
+	if(s_sensor_identified && (5 != sensor_id)) {
+		sensor_index = s_sensor_index[sensor_id];
+		printk("_Sensor_Identify:sensor_index=%d.\n",sensor_index);
+		if(0xFF != sensor_index) {
+			sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
+			_Sensor_I2CInit(sensor_id);
+			sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
+			if(NULL==sensor_info_ptr)
+			{
+				SENSOR_PRINT_ERR("SENSOR: %d info of Sensor_Init table %d is null", sensor_index, (uint)sensor_id);
+				goto IDENTIFY_SEARCH;
+			}
+			s_sensor_info_ptr = sensor_info_ptr;
+			Sensor_PowerOn(SCI_TRUE);
+			if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
+			{
+				this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
+				SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
+				if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
+				{
+					s_sensor_list_ptr[sensor_id]=sensor_info_ptr;
+					s_sensor_register_info_ptr->is_register[sensor_id]=SCI_TRUE;
+					s_sensor_register_info_ptr->img_sensor_num++;
+					Sensor_PowerOn(SCI_FALSE);
+					SENSOR_PRINT_HIGH("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d\n",
+						                                     sensor_id,s_sensor_register_info_ptr->img_sensor_num);
+				}
+				else
+				{
+					Sensor_PowerOn(SCI_FALSE);
+					_Sensor_I2CDeInit(sensor_id);
+					printk("_Sensor_Identify:identify fail!.\n");
+					goto IDENTIFY_SEARCH;
+				}
+			}
+			Sensor_PowerOn(SCI_FALSE);
+			_Sensor_I2CDeInit(sensor_id);
+			return;
+		}
+	}
+IDENTIFY_SEARCH:
+	printk("_Sensor_Identify:search.\n");
 	sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
 	valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
 	_Sensor_I2CInit(sensor_id);
@@ -1402,6 +1451,8 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 			{			         
 				s_sensor_list_ptr[sensor_id]=sensor_info_ptr; 
 				s_sensor_register_info_ptr->is_register[sensor_id]=SCI_TRUE;
+				if(5 != Sensor_GetCurId())//test by wang bonnie
+					s_sensor_index[sensor_id] = sensor_index;
 				s_sensor_register_info_ptr->img_sensor_num++;
 				Sensor_PowerOn(SCI_FALSE);			
 				SENSOR_PRINT_HIGH("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d\n",
@@ -1415,6 +1466,7 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 	if(SCI_TRUE == s_sensor_register_info_ptr->is_register[sensor_id])
 	{
 		SENSOR_PRINT_HIGH("SENSOR TYPE of %d indentify OK",(uint32_t)sensor_id);
+		s_sensor_param_saved = SCI_TRUE;
 	}
 	else
 	{
@@ -1478,6 +1530,7 @@ PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
 
 
 	_Sensor_Identify(SENSOR_SUB);
+         s_sensor_identified = SCI_TRUE;
 	if(5 == sensor_id){
 		msleep(20);  //Jed add them 20111110 bonnie
 		_Sensor_Identify(SENSOR_ATV);
@@ -2260,6 +2313,53 @@ PUBLIC EXIF_SPEC_PIC_TAKING_COND_T* Sensor_GetSensorExifInfo(void)
     }
 
     return sensor_exif_info_ptr;
+}
+/*****************************************************************************/
+//  Description:    This function is used to set sensor param -> sensor index
+//  Author:
+//  Note:
+/*****************************************************************************/
+int Sensor_SetSensorParam(uint8_t *buf)
+{
+	uint32_t i;
+
+	if((SIGN_0 != buf[0]) && (SIGN_1 != buf[1])
+	   && (SIGN_2 != buf[2]) && (SIGN_3 != buf[3])) {
+		s_sensor_identified = SCI_FALSE;
+	} else {
+		s_sensor_identified = SCI_TRUE;
+		for( i=0 ; i<2 ; i++) {
+			s_sensor_index[i] = buf[4+i];
+		}
+	}
+	printk("Sensor_SetSensorParam:s_sensor_identified=%d,idex is %d,%d.\n",
+		    s_sensor_identified,s_sensor_index[0],s_sensor_index[1]);
+	return 0;
+}
+/*****************************************************************************/
+//  Description:    This function is used to get sensor param -> sensor index
+//  Author:
+//  Note:
+/*****************************************************************************/
+int Sensor_GetSensorParam(uint8_t *buf,uint8_t *is_saved_ptr)
+{
+	uint32_t i,j=0;
+	uint8_t *ptr=buf;
+
+	if(SCI_TRUE == s_sensor_param_saved) {
+		*is_saved_ptr = 1;
+		*ptr++ = SIGN_0;
+		*ptr++ = SIGN_1;
+		*ptr++ = SIGN_2;
+		*ptr++ = SIGN_3;
+		for( i=0 ; i<2 ; i++) {
+			*ptr++ = s_sensor_index[i];
+		}
+		printk("Sensor_GetSensorParam:index is %d,%d.\n",s_sensor_index[0],s_sensor_index[1]);
+	} else {
+		*is_saved_ptr = 0;
+	}
+	return 0;
 }
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *

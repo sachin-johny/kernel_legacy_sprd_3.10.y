@@ -1064,7 +1064,18 @@ PUBLIC uint32 Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd ,uint32 param);
 //  Note:           
 /*****************************************************************************/
 PUBLIC EXIF_SPEC_PIC_TAKING_COND_T* Sensor_GetSensorExifInfo( void );
-
+/*****************************************************************************/
+//  Description:    This function is used to set sensor param -> sensor index
+//  Author:
+//  Note:
+/*****************************************************************************/
+int Sensor_SetSensorParam(uint8_t *buf);
+/*****************************************************************************/
+//  Description:    This function is used to get sensor param -> sensor index
+//  Author:
+//  Note:
+/*****************************************************************************/
+int Sensor_GetSensorParam(uint8_t *buf,uint8_t *is_saved_ptr);
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
  **---------------------------------------------------------------------------*/    
