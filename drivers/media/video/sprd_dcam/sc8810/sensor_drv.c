@@ -1383,6 +1383,12 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 		sensor_index = s_sensor_index[sensor_id];
 		printk("_Sensor_Identify:sensor_index=%d.\n",sensor_index);
 		if(0xFF != sensor_index) {
+			valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
+			if(sensor_index>=valid_tab_index_max)
+			{
+				SENSOR_PRINT_ERR("SENSOR: saved index is larger than sensor sum.\n");
+				goto IDENTIFY_SEARCH;
+			}
 			sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
 			_Sensor_I2CInit(sensor_id);
 			sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
