@@ -122,6 +122,7 @@ struct info_mcu {
 struct panel_spec {
 	uint16_t width;
 	uint16_t height;
+	uint16_t fps;
 	uint16_t mode;
 	uint16_t direction;
 	union {
