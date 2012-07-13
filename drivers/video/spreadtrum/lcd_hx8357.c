@@ -238,20 +238,20 @@ static struct panel_operations lcd_hx8357_operations = {
 
 static struct timing_mcu lcd_hx8357_timing[] = {
 [LCD_REGISTER_TIMING] = {                    // read/write register timing
-		.rcss = 15,  // 15ns
-		.rlpw = 60,
-		.rhpw = 60,
-		.wcss = 10,
-		.wlpw = 35,
-		.whpw = 35,
+		.rcss = 45,  // 25 ns
+		.rlpw = 35,
+		.rhpw = 90,
+		.wcss = 60,
+		.wlpw = 25,
+		.whpw = 25,
 	},
 [LCD_GRAM_TIMING] = {                    // read/write gram timing
-		.rcss = 15,  // 15ns
-		.rlpw = 60,
-		.rhpw = 60,
-		.wcss = 10,
-		.wlpw = 35,
-		.whpw = 35,
+		.rcss = 25,  // 25 ns
+		.rlpw = 70,
+		.rhpw = 70,
+		.wcss = 0,
+		.wlpw = 15,
+		.whpw = 15,
 	},
 };
 
