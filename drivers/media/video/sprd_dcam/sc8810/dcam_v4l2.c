@@ -2742,14 +2742,17 @@ static int close(struct file *file)
 	s_dcam_err_info.is_stop = 1;
 	up(&s_dcam_err_info.dcam_thread_sem);	
 
-	if(DCAM_THREAD_END_FLAG != s_dcam_err_info.is_stop)
+	if(1 == s_dcam_err_info.is_wakeup_thread)
 	{
-		while(cnt<DCAM_CLOSE_TIMEOUT)
+		if(DCAM_THREAD_END_FLAG != s_dcam_err_info.is_stop)
 		{
-			cnt++;
-			if(DCAM_THREAD_END_FLAG == s_dcam_err_info.is_stop)
-				break;
-			msleep(1);
+			while(cnt<DCAM_CLOSE_TIMEOUT)
+			{
+				cnt++;
+				if(DCAM_THREAD_END_FLAG == s_dcam_err_info.is_stop)
+					break;
+				msleep(1);
+			}
 		}
 	}
 	s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
