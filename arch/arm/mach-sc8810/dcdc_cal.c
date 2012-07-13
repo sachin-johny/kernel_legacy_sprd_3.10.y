@@ -24,13 +24,15 @@
 #define   ANA_DCDCARM_CTRL     (ANA_REG_BASE + 0x44)
 #define   ANA_DCDCARM_CTRL_CAL (ANA_REG_BASE + 0x48)
 
+#define REG_SYST_VALUE                  (SPRD_SYSCNT_BASE + 0x0004)
+
 #define debug(format, arg...) pr_info("dcdc: " "@@@" format, ## arg)
 #define info(format, arg...) pr_info("dcdc: " "@@@" format, ## arg)
 
 int sprd_get_adc_cal_type(void);
 uint16_t sprd_get_adc_to_vol(uint16_t data);
 
-#define CALIBRATE_TO	(60 * 3)	/*three minutes */
+#define CALIBRATE_TO	(60 * 1)	/* one minute */
 #define MEASURE_TIMES	(128)
 const int dcdc_ctl_vol[] = {
 	650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400,
@@ -43,7 +45,7 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	for (i = 0; i < ARRAY_SIZE(val); i++) {
 		sum += val[i] = sci_adc_get_value(adc_chan, true);
 	}
-	sum /= ARRAY_SIZE(val);	//get average value
+	sum /= ARRAY_SIZE(val);	/* get average value */
 	info("adc chan %d, value %d\n", adc_chan, sum);
 	adc_vol = sprd_get_adc_to_vol(sum) * (8 * 5) / (30 * 4);
 	info("%s default %dmv, from %dmv to %dmv\n", __FUNCTION__, def_vol,
@@ -89,6 +91,7 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	return -1;
 }
 
+/*
 int do_dcdc_init(void *data)
 {
 	int ret, cnt = CALIBRATE_TO;
@@ -124,32 +127,68 @@ int do_dcdc_init(void *data)
 	cnt = CALIBRATE_TO;
 	goto retry;
 }
+*/
 
-/*
-static struct delayed_work dcdc_work = {
-	.work.func = NULL,
+struct dcdc_delayed_work {
+	struct delayed_work work;
+	u32 uptime;
+	int cal_typ;
 };
+
+static struct dcdc_delayed_work dcdc_work = {
+	.work.work.func = NULL,
+	.uptime = 0,
+	.cal_typ = 0,
+};
+
+static u32 sci_syst_read(void)
+{
+	u32 t = __raw_readl(REG_SYST_VALUE);
+	while (t != __raw_readl(REG_SYST_VALUE))
+		t = __raw_readl(REG_SYST_VALUE);
+	return t;
+}
 
 static void do_dcdc_work(struct work_struct *work)
 {
-	do_dcdc_init(0);
+	int ret, cnt = CALIBRATE_TO;
+	int dcdc_def_vol = 1100;	/* FIXME: how to read dcdc value? */
+	/* debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type()); */
+	if (dcdc_work.cal_typ == sprd_get_adc_cal_type())
+		goto exit;	/* no change, set next delayed work */
+
+	dcdc_work.cal_typ = sprd_get_adc_cal_type();
+	debug("%s %d %d\n", __FUNCTION__, dcdc_work.cal_typ, cnt);
+
+	ret = dcdc_calibrate(ADC_CHANNEL_DCDC, dcdc_def_vol, 1100);
+	if (ret > 0)
+		dcdc_calibrate(ADC_CHANNEL_DCDC, ret, 1100);
+
+	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 1200, 1200);
+	if (ret > 0)
+		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, 1200);
+
+      exit:
+	if (sci_syst_read() - dcdc_work.uptime < CALIBRATE_TO * 1000) {
+		schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
+	} else {
+		info("%s maybe timeout\n", __FUNCTION__);
+	}
+	return;
 }
 
 void dcdc_calibrate_callback(void *data)
 {
-	dump_stack();
-	if (!dcdc_work.work.func)
-		INIT_DELAYED_WORK(&dcdc_work, do_dcdc_work);
-	schedule_delayed_work(&dcdc_work, 10);
+	if (!dcdc_work.work.work.func) {
+		INIT_DELAYED_WORK(&dcdc_work.work, do_dcdc_work);
+		dcdc_work.uptime = sci_syst_read();
+	}
+	schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
 }
-*/
+
 static int __init dcdc_init(void)
 {
-	int ret;
-	ret = kernel_thread(do_dcdc_init, 0, 0);
-	if (ret < 0) {
-		debug("Can't create dcdc thread!\n");
-	}
+	dcdc_calibrate_callback(0);
 	return 0;
 }
 
