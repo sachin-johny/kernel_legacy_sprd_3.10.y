@@ -787,6 +787,7 @@ if(host->mmc && host->mmc->card)
 static int sdhci_pm_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+	unsigned long clock = 0;
 
 	/* enable ahb clock to restore registers */
 	if(host->ops->set_clock){
@@ -803,6 +804,8 @@ static int sdhci_pm_resume(struct device *dev)
 		sdhci_resume_host(host);
 	else
 		sdhci_reinit(host);//restore irq enable register
+
+#if 0
 	/* disable sdio0(T-FLASH card) ahb clock */
 	if(mmc_bus_manual_resume(host->mmc)){
 		if(host->ops->set_clock){
@@ -815,6 +818,7 @@ static int sdhci_pm_resume(struct device *dev)
 			host->ops->set_clock(host, 0);
 		}
 	}
+#endif
 #ifdef MMC_RESTORE_REGS
 
 #ifdef CONFIG_MMC_DEBUG
@@ -827,6 +831,12 @@ if(host->mmc && host->mmc->card)
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dumpregs(host);
 #endif
+
+	if(host->ops->set_clock){
+		clock = host->clock;
+		host->ops->set_clock(host, 0);
+		host->clock = clock;
+	}
 	return 0;
 }
 
