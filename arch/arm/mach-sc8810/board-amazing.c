@@ -34,8 +34,9 @@
 #include <linux/ktd253b_bl.h>
 #include <mach/gpio.h>
 #include <linux/spi/mxd_cmmb_026x.h>
-
 #include <gps/gpsctl.h>
+#include <mach/adc.h>
+#include <linux/headset.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -46,6 +47,7 @@ extern void __init sc8810_clock_init(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 #endif
+extern int sci_adc_get_value(unsigned chan, int scale);
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 
@@ -257,6 +259,57 @@ static _audio_pa_control audio_pa_control = {
 	},
 };
 
+static unsigned int headset_get_button_code_board_method(int v)
+{
+	static struct headset_adc_range {
+		int min;
+		int max;
+		int code;
+	} adc_range[] = {
+		{ 0x0000, 0x0050, KEY_MEDIA},
+		{ 0x0050, 0x0100, KEY_END },
+		{ 0x0100, 0x0150, KEY_FORWARD },
+		{ 0x0200, 0x0250, KEY_BACK },
+		{ 0x0250, 0x0300, KEY_NEXTSONG },
+	};
+	int adc_value = sci_adc_get_value(ADC_CHANNEL_TEMP, false);
+	int i;
+	for (i = 0; i < ARRY_SIZE(adc_range); i++)
+		if (adc_value >= adc_range[i].min && adc_value < adc_range[i].max)
+			return adc_range[i].code;
+	return KEY_RESERVED;
+}
+
+static unsigned int headset_map_code2push_code_board_method(unsigned int code, int push_type)
+{
+	switch (push_type) {
+	case HEADSET_BUTTON_DOWN_SHORT:
+		break;
+	case HEADSET_BUTTON_DOWN_LONG:
+		code = KEY_RESERVED;
+		break;
+	}
+	return code;
+}
+
+static struct platform_device headset_get_button_code_board_method_device = {
+	.name = "headset-button",
+	.id = -1,
+};
+
+static struct _headset_button headset_button = {
+	.cap = {
+		{ EV_KEY, KEY_MEDIA },
+		{ EV_KEY, KEY_END },
+		{ EV_KEY, KEY_FORWARD },
+		{ EV_KEY, KEY_BACK },
+		{ EV_KEY, KEY_NEXTSONG },
+		{ EV_KEY, KEY_RESERVED },
+	},
+	.headset_get_button_code_board_method = headset_get_button_code_board_method,
+	.headset_map_code2push_code_board_method = headset_map_code2push_code_board_method,
+};
+
 static void mxd_cmmb_poweron()
 {
        gpio_direction_output(GPIO_CMMB_EN, 0);
@@ -343,6 +396,13 @@ static int sc8810_add_misc_devices(void)
 		if (platform_device_register(&audio_pa_amplifier_device))
 			pr_err("faile to install audio_pa_amplifier_device\n");
 	}
+
+#if 0
+	platform_set_drvdata(&headset_get_button_code_board_method_device, &headset_button);
+	if (platform_device_register(&headset_get_button_code_board_method_device))
+		pr_err("faile to install headset_get_button_code_board_method_device\n");
+#endif
+
 	return 0;
 }
 
