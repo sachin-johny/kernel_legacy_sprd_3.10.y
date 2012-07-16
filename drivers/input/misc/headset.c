@@ -14,8 +14,6 @@
 #include <linux/interrupt.h>
 #include <linux/irq.h>
 #include <linux/delay.h>
-#include <linux/switch.h>
-#include <linux/input.h>
 #include <mach/gpio.h>
 #include <linux/headset.h>
 #include <mach/board.h>
@@ -113,15 +111,85 @@ static struct _headset headset = {
 	dw = (((dw ? dw : 1) + HEADSET_GPIO_DEBOUNCE_SW_SAMPLE_PERIOD - 1) / \
 		HEADSET_GPIO_DEBOUNCE_SW_SAMPLE_PERIOD) * HEADSET_GPIO_DEBOUNCE_SW_SAMPLE_PERIOD;
 
+static struct _headset_keycap headset_key_capability[20] = {
+	{ EV_KEY, KEY_MEDIA },
+	{ EV_KEY, KEY_END },
+	{ EV_KEY, KEY_RESERVED },
+};
+
+static unsigned int (*headset_get_button_code_board_method)(int v);
+static unsigned int (*headset_map_code2push_code_board_method)(unsigned int code, int push_type);
+static __devinit int headset_button_probe(struct platform_device *pdev)
+{
+	struct _headset_button *headset_button = platform_get_drvdata(pdev);
+	headset_get_button_code_board_method = headset_button->headset_get_button_code_board_method;
+	headset_map_code2push_code_board_method = headset_button->headset_map_code2push_code_board_method;
+	memcpy(headset_key_capability, headset_button->cap, sizeof headset_button->cap);
+	return 0;
+}
+
+static struct platform_driver headset_button_driver = {
+	.driver = {
+		.name = "headset-button",
+		.owner = THIS_MODULE,
+	},
+	.probe = headset_button_probe,
+};
+
+static unsigned int headset_get_button_code(int v)
+{
+	unsigned int code;
+	if (headset_get_button_code_board_method)
+		code = headset_get_button_code_board_method(v);
+	else
+		code = KEY_MEDIA;
+	return code;
+}
+
+static unsigned int headset_map_code2key_type(unsigned int code)
+{
+	unsigned int key_type = EV_KEY;
+	int i;
+	for(i = 0; headset_key_capability[i].key != KEY_RESERVED &&
+		headset_key_capability[i].key != code && i < ARRY_SIZE(headset_key_capability); i++);
+	if (i < ARRY_SIZE(headset_key_capability) &&
+		headset_key_capability[i].key == code)
+		key_type = headset_key_capability[i].type;
+	else
+		pr_err("headset not find code [0x%x]'s maping type\n", code);
+	return key_type;
+}
+
+static unsigned int headset_map_code2push_code(unsigned int code, int push_type)
+{
+	if (headset_map_code2push_code_board_method)
+		return headset_map_code2push_code_board_method(code, push_type);
+
+	switch (push_type) {
+	case HEADSET_BUTTON_DOWN_SHORT:
+		code = KEY_MEDIA;
+		break;
+	case HEADSET_BUTTON_DOWN_LONG:
+		code = KEY_END;
+		break;
+	}
+
+	return code;
+}
+
 static void headset_gpio_irq_enable(int enable, struct _headset_gpio *hgp);
 #define HEADSET_GPIO_DEBOUNCE_SW_SAMPLE_PERIOD	50 /* 10 */
 static enum hrtimer_restart report_headset_button_status(int active, struct _headset_gpio *hgp)
 {
 	enum hrtimer_restart restart;
-	int code = -1;
+	int button_push_type = HEADSET_BUTTON_DOWN_INVALID;
+	unsigned int key_type;
+	static int pre_code = KEY_RESERVED;
 	static int step = 0;
+
 	if (active < 0) {
 		step = 0;
+		pre_code = KEY_RESERVED;
 		return HRTIMER_NORESTART;
 	}
 	if (active) {
@@ -129,22 +197,34 @@ static enum hrtimer_restart report_headset_button_status(int active, struct _hea
 		if (++step > 3)
 			step = 0;
 		switch (step) {
+		case 1:
+			pre_code = headset_get_button_code(0);
+			break;
 		case 2:
-			code = KEY_END;
+			button_push_type = HEADSET_BUTTON_DOWN_LONG;
 			break;
 		}
 	} else {
 		restart = HRTIMER_NORESTART;
 		if (step == 1)
-			code = KEY_MEDIA;
+			button_push_type = HEADSET_BUTTON_DOWN_SHORT;
 		step = 0;
 	}
-	if (code >= 0) {
-		input_event(hgp->parent->input, EV_KEY, code, 1);
-		input_sync(hgp->parent->input);
-		input_event(hgp->parent->input, EV_KEY, code, 0);
-		input_sync(hgp->parent->input);
-		pr_info("headset button-%d[%dms]\n", code, hgp->holded);
+
+	if (button_push_type != HEADSET_BUTTON_DOWN_INVALID) {
+		unsigned int code = headset_map_code2push_code(pre_code, button_push_type);
+		key_type = headset_map_code2key_type(code);
+		switch (key_type) {
+		case EV_KEY:
+			input_event(hgp->parent->input, key_type, code, 1);
+			input_sync(hgp->parent->input);
+			input_event(hgp->parent->input, key_type, code, 0);
+			input_sync(hgp->parent->input);
+			pr_info("headset button-%d[%dms]\n", code, hgp->holded);
+			break;
+		default:
+			pr_err("headset not support key type [%d]\n", key_type);
+		}
 	}
 	return restart;
 }
@@ -250,13 +330,14 @@ static void headset_gpio_irq_enable(int enable, struct _headset_gpio *hgp)
 
 static int __init headset_init(void)
 {
-	int ret;
+	int ret, i;
 	struct _headset *ht = &headset;
 	ret = switch_dev_register(&ht->sdev);
 	if (ret < 0) {
 		pr_err("switch_dev_register failed!\n");
 		return ret;
 	}
+	platform_driver_unregister(&headset_button_driver);
 	ht->input = input_allocate_device();
 	if (ht->input == NULL) {
 		pr_err("switch_dev_register failed!\n");
@@ -268,9 +349,10 @@ static int __init headset_init(void)
 	ht->input->id.product = 0x0001;
 	ht->input->id.version = 0x0100;
 
-	__set_bit(EV_KEY, ht->input->evbit);
-	input_set_capability(ht->input, EV_KEY, KEY_MEDIA);
-	input_set_capability(ht->input, EV_KEY, KEY_END);
+	for(i = 0; headset_key_capability[i].key != KEY_RESERVED; i++) {
+		__set_bit(headset_key_capability[i].type, ht->input->evbit);
+		input_set_capability(ht->input, headset_key_capability[i].type, headset_key_capability[i].key);
+	}
 
 	if (input_register_device(ht->input))
 		goto _switch_dev_register;
@@ -319,6 +401,7 @@ _gpio_request:
 	headset_gpio_free(ht->button.gpio);
 	input_free_device(ht->input);
 _switch_dev_register:
+	platform_driver_unregister(&headset_button_driver);
 	switch_dev_unregister(&ht->sdev);
 	return ret;
 }
@@ -336,6 +419,7 @@ static void __exit headset_exit(void)
 	headset_gpio_free(ht->detect.gpio);
 	headset_gpio_free(ht->button.gpio);
 	input_free_device(ht->input);
+	platform_driver_unregister(&headset_button_driver);
 	switch_dev_unregister(&ht->sdev);
 }
 module_exit(headset_exit);

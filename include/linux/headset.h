@@ -13,10 +13,19 @@
 
 #ifndef __HEADSET_H__
 #define __HEADSET_H__
+#include <linux/switch.h>
+#include <linux/input.h>
+#include <linux/platform_device.h>
 enum {
 	BIT_HEADSET_OUT = 0,
 	BIT_HEADSET_MIC = (1 << 0),
 	BIT_HEADSET_NO_MIC = (1 << 1),
+};
+
+enum {
+	HEADSET_BUTTON_DOWN_INVALID = -1,
+	HEADSET_BUTTON_DOWN_SHORT,
+	HEADSET_BUTTON_DOWN_LONG,
 };
 
 struct _headset_gpio {
@@ -37,6 +46,17 @@ struct _headset_gpio {
 	enum hrtimer_restart (*callback)(int active, struct _headset_gpio *hgp);
 };
 
+struct _headset_keycap {
+	unsigned int type;
+	unsigned int key;
+};
+
+struct _headset_button {
+	struct _headset_keycap cap[15];
+	unsigned int (*headset_get_button_code_board_method)(int v);
+	unsigned int (*headset_map_code2push_code_board_method)(unsigned int code, int push_type);
+};
+
 struct _headset {
 	struct switch_dev sdev;
 	struct input_dev *input;
@@ -44,4 +64,9 @@ struct _headset {
 	struct _headset_gpio button;
 	int headphone;
 };
+
+#ifndef ARRY_SIZE
+#define ARRY_SIZE(A) (sizeof(A)/sizeof(A[0]))
+#endif
+
 #endif
