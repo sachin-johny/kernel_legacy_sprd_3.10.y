@@ -66,9 +66,9 @@ static struct gpio_initdata __initdata gpio_func_cfg[] = {
 	{&sprd_3rdparty_gpio_bt_rts,		42	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_tp_rst,		59	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_tp_irq,		60	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
-	{&sprd_3rdparty_gpio_cmmb_power,	135	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
-	{&sprd_3rdparty_gpio_cmmb_reset,	94	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
-	{&sprd_3rdparty_gpio_cmmb_irq,		93	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_cmmb_power,	96 /*135*/	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_cmmb_reset,	135 /*94*/	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
+	{&sprd_3rdparty_gpio_cmmb_irq,		136	/*93*/  |GPIO_DEFAUT_LOW	|GPIO_DIRECTION_INPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_main_camera_pwd,	74	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 	{&sprd_3rdparty_gpio_sub_camera_pwd,	73	|GPIO_DEFAUT_LOW	|GPIO_DIRECTION_OUTPUT	|GPIO_LOGIC_TRUE},
 };
