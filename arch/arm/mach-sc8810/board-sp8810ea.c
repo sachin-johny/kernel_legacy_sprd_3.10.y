@@ -375,6 +375,14 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
+/*disable busmonitor*/
+static void disable_bm(void)
+{
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,
+		AHB_CTL0_BM0_EN | AHB_CTL0_BM1_EN | AHB_CTL0_NFC_EN | AHB_CTL0_AXIBUSMON0_EN | AHB_CTL0_AXIBUSMON1_EN,
+		AHB_CTL0);
+}
+
 static void __init sc8810_init_machine(void)
 {
 	int clk;
@@ -389,6 +397,7 @@ static void __init sc8810_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+	disable_bm();
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	sprd_ramconsole_init();
 #endif
