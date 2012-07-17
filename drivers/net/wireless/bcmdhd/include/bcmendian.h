@@ -33,6 +33,7 @@
 
 #include <typedefs.h>
 
+#define SPI_DATA_SWAP
 
 #define BCMSWAP16(val) \
 	((uint16)((((uint16)(val) & (uint16)0x00ffU) << 8) | \
