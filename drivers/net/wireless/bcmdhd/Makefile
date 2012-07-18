@@ -19,7 +19,6 @@ DHDOFILES = aiutils.o bcmsdh_sdmmc_linux.o dhd_linux.o siutils.o bcmutils.o   \
 	dhd_linux_sched.o bcmwifi.o dhd_sdio.o bcmevent.o dhd_bta.o hndpmu.o  \
 	bcmsdh.o dhd_cdc.o bcmsdh_linux.o dhd_common.o linux_osl.o            \
 	dhd_custom_gpio.o sbutils.o wldev_common.o wl_android.o \
-	dhd_cfg80211.o
 
 ifneq ($(CONFIG_WLAN_SDIO),)
 DHDOFILES += bcmsdh_sdmmc.o
@@ -35,7 +34,7 @@ bcmdhd-objs += wl_iw.o
 DHDCFLAGS += -DSOFTAP
 endif
 ifneq ($(CONFIG_CFG80211),)
-bcmdhd-objs += wl_cfg80211.o wl_cfgp2p.o wl_linux_mon.o
+bcmdhd-objs += dhd_cfg80211.o wl_cfg80211.o wl_cfgp2p.o wl_linux_mon.o
 DHDCFLAGS += -DWL_CFG80211
 endif
 EXTRA_CFLAGS = $(DHDCFLAGS)

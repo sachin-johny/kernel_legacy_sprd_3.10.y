@@ -32,6 +32,7 @@
 #include <sdiovar.h>		/* to get msglevel bit values */
 
 #include <pcicfg.h>
+#include <bcmendian.h>
 
 //0816 #include <bcmsdspi.h>
 #include <bcmspibrcm.h>
@@ -51,7 +52,6 @@
 
 #define SPIPCI_RREG R_REG
 #define SPIPCI_WREG W_REG
-
 
 #define	SPIPCI_ANDREG(osh, r, v) SPIPCI_WREG(osh, (r), (SPIPCI_RREG(osh, r) & (v)))
 #define	SPIPCI_ORREG(osh, r, v)	SPIPCI_WREG(osh, (r), (SPIPCI_RREG(osh, r) | (v)))
@@ -620,6 +620,14 @@ spi_sendrecv(sdioh_info_t *sd, uint8 *msg_out, uint8 *msg_in, int msglen)
 		//printk("spi_sendrecv write %d len=%d\n" ,Write, msglen);
 
 		if (Write){
+		#ifdef SPI_DATA_SWAP
+			uint i, j;
+			for (j = 0; j < msglen/4; j++) {
+				i = *((uint *)(&msg_out[j * 4]));
+				i = bcmswap32(i);
+				memcpy(&msg_out[j * 4],  &i,  4);
+			}
+		#endif
 			t[0].tx_buf = (char *)&msg_out[0];
 			t[0].rx_buf = 0;
 			t[0].len = msglen-4;
@@ -632,7 +640,23 @@ spi_sendrecv(sdioh_info_t *sd, uint8 *msg_out, uint8 *msg_in, int msglen)
 	
 			spi_message_add_tail(&t[1], &msg);
 			spi_sync(g_spi, &msg);
+		#ifdef SPI_DATA_SWAP
+			for (j = 0; j < 1; j++) {
+				i = *((uint *)(&msg_in[msglen-4]));
+				i = bcmswap32(i);
+				memcpy(&msg_in[msglen-4],  &i,  4);
+			}
+		#endif
+
 		}else{
+		#ifdef SPI_DATA_SWAP
+			uint i, j;
+			for (j = 0; j < 1; j++) {
+				i = *((uint *)(&msg_out[j * 4]));
+				i = bcmswap32(i);
+				memcpy(&msg_out[j * 4],  &i,  4);
+			}
+		#endif
 			t[0].tx_buf = (char *)&msg_out[0];
 			t[0].rx_buf = 0;
 			t[0].len = 4;
@@ -647,13 +671,19 @@ spi_sendrecv(sdioh_info_t *sd, uint8 *msg_out, uint8 *msg_in, int msglen)
 		
 			spi_message_add_tail(&t[1], &msg);
 			spi_sync(g_spi, &msg);
+		#ifdef SPI_DATA_SWAP
+			for (j = 0; j < msglen/4; j++) {
+				i = *((uint *)(&msg_in[j * 4]));
+				i = bcmswap32(i);
+				memcpy(&msg_in[j * 4], &i, 4);
+			}
+		#endif
 		}
 
+		if (bcmpcispi_dump) { //(bcmpcispi_dump) {
+			hexdump(" IN  : ", msg_in, msglen);
+		}
 
-	}
-
-	if (bcmpcispi_dump) { //(bcmpcispi_dump) {
-		hexdump(" IN  : ", msg_in, msglen);
 	}
 }
 

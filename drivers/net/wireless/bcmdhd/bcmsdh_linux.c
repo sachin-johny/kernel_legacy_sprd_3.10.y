@@ -47,6 +47,7 @@
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
 //2012.3.19
+#include <bcmendian.h>
 #endif
 
 #if defined(OOB_INTR_ONLY)
@@ -589,6 +590,9 @@ static int spi_brcm_probe(struct spi_device *spi_dev)
 	g_spi = spi_dev;
 	
 #if 1
+#ifdef SPI_DATA_SWAP
+	spi_dev->bits_per_word = 32;
+#endif
 	printk("set spi ==========================%d \n", spi_setup(spi_dev));
 
 	printk("%s, mode = %d \n", __func__, spi_dev->mode);
