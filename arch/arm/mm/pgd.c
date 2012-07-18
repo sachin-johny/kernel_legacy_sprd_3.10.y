@@ -27,7 +27,11 @@ pgd_t *pgd_alloc(struct mm_struct *mm)
 	pmd_t *new_pmd, *init_pmd;
 	pte_t *new_pte, *init_pte;
 
+#ifdef CONFIG_SPRD_MEM_POOL
+	new_pgd = (pgd_t *)sprd_alloc_pgd();
+#else
 	new_pgd = (pgd_t *)__get_free_pages(GFP_KERNEL, 2);
+#endif
 	if (!new_pgd)
 		goto no_pgd;
 
@@ -74,7 +78,11 @@ no_pte:
 no_pmd:
 	pud_free(mm, new_pud);
 no_pud:
+#ifdef CONFIG_SPRD_MEM_POOL
+	sprd_free_pgd((unsigned long)new_pgd);
+#else
 	free_pages((unsigned long)new_pgd, 2);
+#endif
 no_pgd:
 	return NULL;
 }
@@ -111,5 +119,9 @@ no_pud:
 	pgd_clear(pgd);
 	pud_free(mm, pud);
 no_pgd:
+#ifdef CONFIG_SPRD_MEM_POOL
+	sprd_free_pgd((unsigned long) pgd);
+#else
 	free_pages((unsigned long) pgd_base, 2);
+#endif
 }
