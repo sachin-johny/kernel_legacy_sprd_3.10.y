@@ -21,7 +21,7 @@
 #include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/bitops.h>
-
+#include <linux/seq_file.h>
 #include "clock_common.h"
 
 static DEFINE_MUTEX(clocks_mutex);
@@ -296,4 +296,31 @@ out:
 	spin_unlock_irqrestore(&clockfw_lock, flags);
 }
 EXPORT_SYMBOL(clk_disable);
+
+static void _clock_dump(struct list_head * lhead, struct seq_file *s)
+{
+	struct clk *p ,*cp;
+	list_for_each_entry(p, lhead, sibling){
+		seq_printf(s, "%-16s%-16s%-16ld%2d              %08x        \n",
+			p->name, p->parent?p->parent->name:"NONE", p->rate, p->usecount, p->flags);
+		if(p->children.next != &p->children){
+			/*
+			seq_printf(s, "children :");
+			list_for_each_entry(cp, &p->children, sibling){
+				seq_printf(s, " %s", cp->name);
+			}
+			seq_printf(s, "\n");
+			*/
+			_clock_dump(&p->children, s);
+		}
+	}
+	return ;
+}
+
+void clock_dump(struct seq_file *s)
+{
+	seq_printf(s, "NAME            PARENT          RATE            COUNT           FLAGS\n");
+	_clock_dump(&root_clks, s);
+	return ;
+}
 
