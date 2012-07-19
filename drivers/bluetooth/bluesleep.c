@@ -203,6 +203,9 @@ static void bluesleep_sleep_work(struct work_struct *work)
                         wake_lock_timeout(&bsi->wake_lock, HZ / 2);
                 } else {
 			BT_SLEEP_DBG("tx buffer is not empty, modify timer...");
+			/*lgh add*/
+            gpio_set_value(bsi->ext_wake, 0);
+			/*lgh add end*/
 			mod_timer(&tx_timer, jiffies + (TX_TIMER_INTERVAL * HZ));
 			return;
                 }
