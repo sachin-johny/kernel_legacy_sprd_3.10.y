@@ -42,6 +42,7 @@ typedef uint16 chanspec_t;
 #define CH_10MHZ_APART			2
 #define CH_5MHZ_APART			1	
 #define CH_MAX_2G_CHANNEL		14	
+#define CH_MIN_5G_CHANNEL		36
 #define WLC_MAX_2G_CHANNEL		CH_MAX_2G_CHANNEL 
 #define	MAXCHANNEL		224	
 

@@ -2,13 +2,13 @@
  * Linux cfg80211 driver
  *
  * Copyright (C) 1999-2011, Broadcom Corporation
- * 
+ *
  *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
  * following added to such license:
- * 
+ *
  *      As a special exception, the copyright holders of this software give you
  * permission to link this software with independent modules, and to copy and
  * distribute the resulting executable under terms of your choice, provided that
@@ -16,7 +16,7 @@
  * the license of that module.  An independent module is a module which is not
  * derived from this software.  The special exception does not apply to any
  * modifications of the software.
- * 
+ *
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
@@ -4593,7 +4593,12 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi)
 	mgmt = (struct ieee80211_mgmt *)notif_bss_info->frame_buf;
 	notif_bss_info->channel =
 		bi->ctl_ch ? bi->ctl_ch : CHSPEC_CHANNEL(bi->chanspec);
-
+/*	notif_bss_info->channel = CHSPEC_CHANNEL(bi->chanspec);*/
+	if ((notif_bss_info->channel > CH_MAX_2G_CHANNEL) && (notif_bss_info->channel < CH_MIN_5G_CHANNEL)){
+		WL_ERR(("channel %d is error\n", notif_bss_info->channel));
+		kfree(notif_bss_info);
+		return -EINVAL;
+	}
 	if (notif_bss_info->channel <= CH_MAX_2G_CHANNEL)
 		band = wiphy->bands[IEEE80211_BAND_2GHZ];
 	else
@@ -6269,7 +6274,7 @@ s32 wl_cfg80211_attach(struct net_device *ndev, void *data)
 #if defined(COEX_DHCP)
 	if (wl_cfg80211_btcoex_init(wl))
 		goto cfg80211_attach_out;
-#endif 
+#endif
 
 	wlcfg_drv_priv = wl;
 
@@ -6298,7 +6303,7 @@ void wl_cfg80211_detach(void *para)
 
 #if defined(COEX_DHCP)
 	wl_cfg80211_btcoex_deinit(wl);
-#endif 
+#endif
 
 #if defined(WLP2P) && ENABLE_P2P_INTERFACE
 	wl_cfg80211_detach_p2p();
