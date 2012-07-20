@@ -71,6 +71,7 @@
 #define REGU_NAME_WIFI			"V_WIFI"
 #define REGU_NAME_WIFIIO		"V_WIFIIO"
 #define REGU_NAME_BT			"V_BT"
+#define REGU_NAME_FM                    "V_FM"
 
 
 /*TABLE below is example for user understanding easily.

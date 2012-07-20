@@ -51,10 +51,13 @@
 
 #define GPIO_BK		143
 
-#define GPIO_CMMB_RESET         138
-#define GPIO_CMMB_INT           139
+#define GPIO_CMMB_RESET         33
+#define GPIO_CMMB_INT           136
 #define GPIO_CMMB_26M_CLK_EN    93
 
 #define GPIO_SPEAKER_PA_EN		91
+
+#define GPIO_GPS_RESET 26
+#define GPIO_GPS_ONOFF 27
 
 #endif
