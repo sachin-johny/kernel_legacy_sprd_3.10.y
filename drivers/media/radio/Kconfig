@@ -440,6 +440,15 @@ config RADIO_WL1273
 	  To compile this driver as a module, choose M here: the
 	  module will be called radio-wl1273.
 
+config RADIO_KT0812G
+        tristate "kt0812g FM Radio receiver support"
+        depends on I2C
+        ---help---
+          Say Y here if you want support to kt0812g FM Radio receiver.
+
+          To compile this driver as a module, choose M here: the
+          module will be called radio_kt0812g.
+
 # TI's ST based wl128x FM radio
 source "drivers/media/radio/wl128x/Kconfig"
 
