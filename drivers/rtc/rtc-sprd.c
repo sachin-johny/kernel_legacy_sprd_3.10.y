@@ -24,6 +24,7 @@
 #include <mach/regulator.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
+#include <linux/wakelock.h>
 
 /* RTC_BASE      0x82000080 */
 #define RTC_BASE (SPRD_MISC_BASE + 0x80)
@@ -90,7 +91,7 @@ struct sprd_rtc_data{
 };
 
 static struct sprd_rtc_data *rtc_data;
-
+static struct wake_lock rtc_wake_lock;
 static inline unsigned get_sec(void)
 {
 	return sci_adi_read(ANA_RTC_SEC_CNT) & RTC_SEC_MASK;
@@ -250,16 +251,18 @@ static int sprd_rtc_set_alarm(struct device *dev,
 
 		secs = secs - secs_start_year_to_1970;
 		sprd_rtc_set_alarm_sec(secs);
-        msleep(150);
+		wake_lock(&rtc_wake_lock);
+		msleep(150);
 		do {
-             if(i!=0){
-                 sprd_rtc_set_alarm_sec(secs);
-		         msleep(150);
-             }
+			if(i!=0){
+				sprd_rtc_set_alarm_sec(secs);
+				msleep(150);
+			}
 			read_secs = sprd_rtc_get_alarm_sec();
 			msleep(1);
 			i++;
 		}while(read_secs != secs && i < SPRD_RTC_SET_MAX);
+		wake_unlock(&rtc_wake_lock);
 	}else{
 		sci_adi_clr(ANA_RTC_INT_EN, RTC_ALARM_BIT);
 		msleep(150);
@@ -324,7 +327,7 @@ static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
 
 	pr_debug(" RTC ***** interrupt happen\n");
 	//rtc_update_irq(rdev, 1, RTC_AF | RTC_IRQF);
-       rtc_aie_update_irq(rdev);
+	rtc_aie_update_irq(rdev);
 	CLEAR_RTC_INT(RTC_INT_ALL_MSK);
 	return IRQ_HANDLED;
 }
@@ -443,13 +446,14 @@ static int __init sprd_rtc_init(void)
 		secs_start_year_to_1970 = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0);
 	else 
 		secs_start_year_to_1970 = mktime(1970, 1, 1, 0, 0, 0);
-
+	wake_lock_init(&rtc_wake_lock, WAKE_LOCK_SUSPEND, "rtc");
 	return 0;
 }
 
 static void __exit sprd_rtc_exit(void)
 {
 	platform_driver_unregister(&sprd_rtc_driver);
+	wake_lock_destroy(&rtc_wake_lock);
 }
 
 MODULE_AUTHOR("Mark Yang <markyang@spreadtrum.com");
