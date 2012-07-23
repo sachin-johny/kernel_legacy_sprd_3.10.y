@@ -25,8 +25,12 @@
 #define	AUDIO_ENHA_DATA_MEMORY	                0x04			/*  */
 #define	AUDIO_ENHA_DATA_FLASH	                0x08			/*  */
 
-#define AUDIO_NV_INTPA_SWITCH_INDEX  44
-#define AUDIO_NV_INTPA_GAIN_INDEX    45
+
+#define AUDIO_NV_FM_GAINL_INDEX			41
+#define AUDIO_NV_FM_GAINR_INDEX			42
+#define AUDIO_NV_CAPTURE_GAIN_INDEX		43
+#define AUDIO_NV_INTPA_SWITCH_INDEX		44
+#define AUDIO_NV_INTPA_GAIN_INDEX			45
 
 typedef enum{
 	GET_AUDIO_MODE_COUNT,
@@ -59,6 +63,11 @@ typedef          char  int8;
 typedef unsigned short uint16;
 typedef          short int16;
 
+typedef struct
+{
+	int16  fm_headset_stat;
+	int16  fm_handsfree_stat;
+}__attribute__((packed)) AUDIO_FM_DEVSTAT_T;
 
 typedef struct 
 {

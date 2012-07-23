@@ -213,6 +213,14 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
 };
 static int32_t cur_sample_rate=44100;
 static int32_t cur_internal_pa_gain = 0x8;   //default:1000----0db  added by jian
+static int32_t b_internal_pa_open = 0;
+static int32_t cur_fm_gain_l = 0x0;
+static int32_t cur_fm_gain_r = 0x0;		//0 FM Gain to max by default added by jian
+static int32_t cur_capture_gain = 0xf;		//default:set GI to max added by jian
+static int32_t cur_captre_gim_gain = 0x1;	//default:set GIM to max added by jian
+static int32_t b_fm_headset_on = 0;
+static int32_t b_fm_handsfree_on = 0;
+
 static void vbc_dma_control(int chs, bool on);
 
 u32 vbc_reg_write(u32 reg, u8 shift, u32 val, u32 mask)
@@ -809,8 +817,8 @@ void vbc_power_on_capture(bool ldo)
         vbc_reg_VBPMR2_set(SB, 0); // Power on sb
         vbc_reg_VBPMR2_set(SB_SLEEP, 0); // SB quit sleep mode
 
-        vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
-        vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
+        vbc_reg_VBPMR2_set(GIM, cur_captre_gim_gain); // 20db gain mic amplifier
+        vbc_reg_write(VBCGR10, 4, cur_capture_gain, 0xf); // set GI to max
         vbc_reg_VBCR1_set(SB_MICBIAS, 0); // power on mic
         vbc_reg_VBPMR1_set(SB_ADC, 0); // Power on ADC
     }
@@ -964,8 +972,8 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
     vbc_reg_write(VBCCR2, 4, VBC_RATE_8000, 0xf); // 8K sample DAC
     vbc_reg_write(VBCCR2, 0, VBC_RATE_8000, 0xf); // 8K sample ADC
 
-    vbc_reg_write(VBCGR2, 0, 0, 0x1f); // FM Gain to max by default
-    vbc_reg_write(VBCGR3, 0, 0, 0x1f);
+    vbc_reg_write(VBCGR2, 0, cur_fm_gain_l, 0x1f); // FM Gain to max by default
+    vbc_reg_write(VBCGR3, 0, cur_fm_gain_r, 0x1f);
 //    vbc_reg_write(VBCGR1, 0, 0x00, 0xff); // DAC Gain
 //    vbc_reg_write(VBCGR8, 0, 0x00, 0x1f);
 //    vbc_reg_write(VBCGR9, 0, 0x00, 0x1f);
@@ -982,8 +990,8 @@ static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 #else
     // vbc_power_on(SNDRV_PCM_STREAM_PLAYBACK);
 #endif
-    vbc_reg_VBPMR2_set(GIM, 1); // 20db gain mic amplifier
-    vbc_reg_write(VBCGR10, 4, 0xf, 0xf); // set GI to max
+    vbc_reg_VBPMR2_set(GIM, cur_captre_gim_gain); // 20db gain mic amplifier
+    vbc_reg_write(VBCGR10, 4, cur_capture_gain, 0xf); // set GI to max
     vbc_reg_VBPMR1_set(SB_ADC, 1); // Power down ADC
     vbc_reg_VBCR1_set(SB_MICBIAS, 1); // power down mic
 #if 0
@@ -1482,6 +1490,7 @@ int vbc_resume(struct platform_device *pdev)
 
 static inline void local_cpu_pa_control(bool enable)
 {
+	b_internal_pa_open = enable;
 	if (enable) {
 		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, (0x1101 |( (cur_internal_pa_gain <<4) & 0x00F0)));
 		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x5e41);
@@ -1521,6 +1530,8 @@ static int audio_speaker_enabled(void)
 void obj_vbc_param_release(struct kobject *kobject);               //added by jian
 ssize_t kobj_vbc_param_show(struct kobject *kobject, struct attribute *attr,char *buf);       //added by jian
 ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,const char *buf, size_t count);  //added by jian
+ssize_t kclass_fm_devstat_show(struct class *class, struct class_attribute *attr, char *buf);
+ssize_t kclass_fm_devstat_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t modem_status_show(struct class *class, struct class_attribute *attr, char *buf);
 ssize_t modem_status_store(struct class *class, struct class_attribute *attr, const char *buf, size_t count);
 ssize_t android_mode_show(struct class *class, struct class_attribute *attr, char *buf);
@@ -1546,10 +1557,23 @@ static struct class_attribute modem_class_attrs[] = {
 	__ATTR_NULL,
 };
 
+/* /sys/class/fm_devstat_config/fm_devstat_store */
+static struct class_attribute fm_devstat_class_attrs[] = { //modify by jian
+	__ATTR(fm_devstat_store, 0664, kclass_fm_devstat_show, kclass_fm_devstat_store),
+	// __ATTR(unexport, 0200, NULL, unexport_store),
+	__ATTR_NULL,
+};
+
 struct class modem_class = {
     .name           = "modem",
     .owner          = THIS_MODULE,
     .class_attrs    = modem_class_attrs,
+};
+
+struct class fm_devstat_class = { //modify by jian
+	.name           = "fm_devstat_config",
+	.owner          = THIS_MODULE,
+	.class_attrs    = fm_devstat_class_attrs,
 };
 
 struct attribute vbc_param_attr = {            //added by jian
@@ -1572,6 +1596,23 @@ struct kobj_type ktype = 				//added by jian
         .default_attrs=def_vbc_param_attrs,
 };
 
+ssize_t kclass_fm_devstat_show(struct class *class, struct class_attribute *attr,char *buf)
+{
+	//printk("chj kclass_fm_devstat_show attrname:%s !\n", attr->attr.name);
+	sprintf(buf,"%s\n",attr->attr.name);
+	return strlen(attr->attr.name)+2;
+}
+
+ssize_t kclass_fm_devstat_store(struct class *class,struct class_attribute *attr,const char *buf, size_t count)
+{
+	AUDIO_FM_DEVSTAT_T *audio_fm_devstat = PNULL;
+	audio_fm_devstat = (AUDIO_FM_DEVSTAT_T*)buf;
+	b_fm_headset_on = audio_fm_devstat->fm_headset_stat;
+	b_fm_handsfree_on = audio_fm_devstat->fm_handsfree_stat;
+	//printk("chj kclass_fm_devstat_store b_fm_headset_on:%d b_fm_handsfree_on:%d \n",b_fm_headset_on,b_fm_handsfree_on);
+	return count;
+}
+
 void obj_vbc_param_release(struct kobject *kobject)	//added by jian
 {
         printk("vbc_param_release: release!\n");
@@ -1592,10 +1633,10 @@ ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,cons
 	uint16_t pga_gain_go = 0;
 	int16_t vol_index = 0;
 	int16_t arm_vol = 0;
+	int16_t fm_temp = 0;
 	uint32_t i;
 	audio_param_ptr = (AUDIO_TOTAL_T *)buf;
-	if(PNULL == audio_param_ptr)
-	{
+	if(PNULL == audio_param_ptr){
 		printk("kobj_vbc_param_store audio_param_ptr is NULL!\n");
 		return 0;
 	}
@@ -1603,19 +1644,36 @@ ssize_t kobj_vbc_param_store(struct kobject *kobject,struct attribute *attr,cons
 
 //#if defined(CONFIG_ARCH_SC8810)
 	// sprd_local_audio_pa_mode = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_SWITCH_INDEX];
-	cur_internal_pa_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0xF;
+	cur_internal_pa_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0x00FF;
+	cur_capture_gain = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_CAPTURE_GAIN_INDEX] & 0x00FF;
+	cur_captre_gim_gain = (audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_CAPTURE_GAIN_INDEX] & 0xFF00)>>8;
+	cur_fm_gain_l = (audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_FM_GAINL_INDEX]>>8) & 0x001F;	//GOBL
+	cur_fm_gain_r = (audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_FM_GAINR_INDEX]>>8) & 0x001F;	//GOBR
 //	printk("chj kobj_vbc_param_store sprd_local_audio_pa_mode:%d cur_internal_pa_gain:0x%x\n",sprd_local_audio_pa_mode,cur_internal_pa_gain);
 //#endif
-	if(AUDIO_NO_ERROR != AUDENHA_SetPara(audio_param_ptr))
-	{
+	if(AUDIO_NO_ERROR != AUDENHA_SetPara(audio_param_ptr)){
 		printk("kobj_vbc_param_store AUDENHA_SetPara error!\n");
 		return 0;
 	}
 	vol_index = audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.app_config_info_set.app_config_info[0].valid_volume_level_count;
 	arm_vol=audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.app_config_info_set.app_config_info[0].arm_volume[vol_index];
+	if(b_fm_headset_on){
+		fm_temp = arm_vol&0xfe0f;
+		arm_vol = (((audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_FM_GAINL_INDEX]&0x00FF)<<4)&0x1F0)|fm_temp;
+	}
 	AUDDEV_SetPGA(0,arm_vol);
 	AUDDEV_SetPGA(1,arm_vol);
-	
+	if(b_fm_handsfree_on){
+		cur_internal_pa_gain = (audio_param_ptr->audio_nv_arm_mode_info.tAudioNvArmModeStruct.reserve[AUDIO_NV_INTPA_GAIN_INDEX] & 0xFF00)>>8;
+	}
+	if((!audio_pa_amplifier) || (!audio_pa_amplifier->speaker.control)){
+		local_cpu_pa_control(b_internal_pa_open);
+	}
+	vbc_reg_VBPMR2_set(GIM, cur_captre_gim_gain);
+	vbc_reg_write(VBCGR10, 4, cur_capture_gain, 0xf);
+	vbc_reg_write(VBCGR2, 0, cur_fm_gain_l, 0x1f);
+	vbc_reg_write(VBCGR3, 0, cur_fm_gain_r, 0x1f);
+//	printk("chj kobj_vbc_param_store b_fm_headset_on:%d b_fm_handsfree_on:%d cur_internal_pa_gain:0x%x cur_capture_gain:0x%x cur_captre_gim_gain:0x%x cur_fm_gain_l:0x%x cur_fm_gain_r:0x%x b_internal_pa_open:%d GOL:0x%x \n",b_fm_headset_on,b_fm_handsfree_on,cur_internal_pa_gain,cur_capture_gain,cur_captre_gim_gain,cur_fm_gain_l,cur_fm_gain_r,b_internal_pa_open,(arm_vol>>4)&0x1f);
 	return count;
 }
 
@@ -1833,6 +1891,7 @@ static int vbc_probe(struct platform_device *pdev)
     android_pm_init();
     android_sprd_pm_init();
     class_register(&modem_class);
+	class_register(&fm_devstat_class);
 	printk("kboject vbc_param init!\n");					//added by jian
 	kobject_init_and_add(&vbc_kobj,&ktype,NULL,"kobject_vbc_param");	//added by jian
 	return 0;
@@ -1854,7 +1913,7 @@ static int vbc_remove(struct platform_device *pdev)
 		return 0;
 	printk("kobject vbc_param exit!\n");		//added by jian
 	kobject_del(&vbc_kobj);				//added by jian
-
+	class_unregister(&fm_devstat_class);
     class_unregister(&modem_class);
 #if POWER_OFF_ON_STANDBY
     vbc_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
