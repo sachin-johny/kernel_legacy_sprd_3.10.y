@@ -334,21 +334,7 @@ static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
 
 static int sprd_rtc_open(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	struct sprd_rtc_data *rtc_data = platform_get_drvdata(pdev);
-	int ret;
-	unsigned temp;
-
-	ret = request_irq(rtc_data->irq_no, rtc_interrupt_handler, 0, "sprd_rtc", rtc_data->rtc);
-	if(ret){
-		printk(KERN_ERR "RTC regist irq error\n");
-		return ret;
-	}
-	/* enable rtc interrupt */
-	temp = sci_adi_read(ANA_RTC_INT_EN);
-	temp |= RTC_ALARM_BIT;
-	sci_adi_raw_write(ANA_RTC_INT_EN, temp);
-	return ret;
+	return 0;
 }
 
 static const struct rtc_class_ops sprd_rtc_ops = {
@@ -366,6 +352,7 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
 	int err = -ENODEV;
 	struct resource *irq;
+	int ret = 0;
 
 	rtc_data = kzalloc(sizeof(*rtc_data), GFP_KERNEL);
 	if(IS_ERR(rtc_data)){
@@ -401,6 +388,11 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 	rtc_data->irq_no = irq->start;
 	platform_set_drvdata(plat_dev, rtc_data);
 
+	ret = request_irq(rtc_data->irq_no, rtc_interrupt_handler, 0, "sprd_rtc", rtc_data->rtc);
+	if(ret){
+		printk(KERN_ERR "RTC regist irq error\n");
+		return ret;
+	}
 	return 0;
 
 unregister_rtc:
