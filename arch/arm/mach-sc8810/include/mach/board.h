@@ -49,13 +49,7 @@ void __init get_gpio_cfg(struct gpio_initdata** desc, int* size);
 int __init sprd_i2c_init(void);
 
 /* pmem area definition */
-/*
- *  8M - 2D
- *  6M - Camara/video codec
- *  1M - Rotation
- *  1M - scaling
- */
-#define SPRD_PMEM_SIZE          (2*1024*1024)
+#define SPRD_PMEM_SIZE        0 /*(2*1024*1024)*/
 #if defined(CONFIG_CAMERA_8M)
 #define SPRD_PMEM_ADSP_SIZE   (23*1024*1024)
 #elif defined(CONFIG_CAMERA_5M)
@@ -63,13 +57,13 @@ int __init sprd_i2c_init(void);
 #elif defined(CONFIG_CAMERA_3M)
 #define SPRD_PMEM_ADSP_SIZE   (13*1024*1024)
 #elif defined(CONFIG_CAMERA_2M)
-#define SPRD_PMEM_ADSP_SIZE   (13*1024*1024) 
+#define SPRD_PMEM_ADSP_SIZE   (13*1024*1024)
 #else
 #define SPRD_PMEM_ADSP_SIZE   (19*1024*1024)
 #endif
 
 #define SPRD_ROT_MEM_SIZE       0//(1024*512)
-#define SPRD_SCALE_MEM_SIZE    0//(1024*512)
+#define SPRD_SCALE_MEM_SIZE     0//(1024*512)
 #define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
                                 SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE)
 
