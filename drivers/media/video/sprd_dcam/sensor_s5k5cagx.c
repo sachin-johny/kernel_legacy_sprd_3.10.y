@@ -1467,103 +1467,6 @@ LOCAL const SENSOR_REG_T s5k5cagx_common[]=
 		{0x0F12, 0x0000},	//senHal_pContSenModesRegsArray[79][3] 2 70001550
 		
 		
-		//============================================================ 
-		// AF Interface setting
-		//============================================================ 
-		{0x002A, 0x01D4},
-		{0x0F12, 0x0000}, //REG_TC_IPRM_AuxGpios : 0 - no Flash
-		{0x002A, 0x01DE},
-		{0x0F12, 0x0003}, //REG_TC_IPRM_CM_Init_AfModeType : 3 - AFD_VCM_I2C
-		{0x0F12, 0x0000}, //REG_TC_IPRM_CM_Init_PwmConfig1 : 0 - no PWM
-		{0x002A, 0x01E4},
-		{0x0F12, 0x0041}, //REG_TC_IPRM_CM_Init_GpioConfig1 : 4 -  GPIO4 
-		{0x002A, 0x01E8},
-		{0x0F12, 0x2A0C}, //REG_TC_IPRM_CM_Init_Mi2cBits : MSCL - GPIO1 MSDA - GPIO2 Device ID (0C)
-		{0x0F12, 0x0190}, //REG_TC_IPRM_CM_Init_Mi2cRateKhz : MI2C Speed - 400KHz
-		
-		//============================================================ 
-		// AF Parameter setting
-		//============================================================ 
-		// AF Window Settings
-		{0x002A, 0x025A},
-		{0x0F12, 0x0100}, //#REG_TC_AF_FstWinStartX
-		{0x0F12, 0x0110}, //#REG_TC_AF_FstWinStartY
-		{0x0F12, 0x0200}, //#REG_TC_AF_FstWinSizeX
-		{0x0F12, 0x0238}, //#REG_TC_AF_FstWinSizeY
-		{0x0F12, 0x018C}, //#REG_TC_AF_ScndWinStartX
-		{0x0F12, 0x01C0}, //#REG_TC_AF_ScndWinStartY
-		{0x0F12, 0x00E6}, //#REG_TC_AF_ScndWinSizeX
-		{0x0F12, 0x0132}, //#REG_TC_AF_ScndWinSizeY
-		{0x0F12, 0x0001}, //#REG_TC_AF_WinSizesUpdated
-		
-		// AF Setot Settings 
-		{0x002A, 0x0586},
-		{0x0F12, 0x00FF}, //#skl_af_StatOvlpExpFactor
-		
-		// AF Scene Settings 
-		{0x002A, 0x115E},
-		{0x0F12, 0x0003}, //#af_scene_usSaturatedScene
-		
-		// AF Fine Search Settings 
-		{0x002A, 0x10D4},
-		{0x0F12, 0x1000}, //FineSearch Disable //#af_search_usSingleAfFlags
-		{0x002A, 0x10DE},
-		{0x0F12, 0x0004}, //#af_search_usFinePeakCount
-		{0x002A, 0x106C},
-		{0x0F12, 0x0202}, //#af_pos_usFineStepNumSize
-		
-		// AF Peak Threshold Setting
-		{0x002A, 0x10CA}, //#af_search_usPeakThr
-		{0x0F12, 0x00C0}, 
-		
-		// AF Default Position 
-		{0x002A, 0x1060},
-		{0x0F12, 0x0000}, //#af_pos_usHomePos
-		{0x0F12, 0xB300}, //#af_pos_usLowConfPos
-		
-		// AF LowConfThr Setting
-		{0x002A, 0x10F4}, //LowEdgeBoth GRAD
-		{0x0F12, 0x0280}, 
-		{0x002A, 0x1100}, //LowLight HPF
-		{0x0F12, 0x03A0},  
-		{0x0F12, 0x0320}, 
-		
-		{0x002A, 0x1134},
-		{0x0F12, 0x0030},//af_stat_usMinStatVal
-		
-		// AF low Br Th
-		{0x002A, 0x1154}, // normBrThr
-		{0x0F12, 0x0060},
-		
-		// AF Policy
-		{0x002A, 0x10E2},
-		{0x0F12, 0x0000}, //#af_search_usCapturePolicy: Focus_Priority, 0002 : Shutter_Priority_Fixed, 0001 : Shutter_Priority_Last_BFP 0000: Shutter_Priority_Current
-		{0x002A, 0x1072},
-		{0x0F12, 0x003C}, //#af_pos_usCaptureFixedPo// 0x0008
-		
-		// AF Lens Position Table Settings 
-		{0x002A, 0x1074},
-		{0x0F12, 0x0013}, //#af_pos_usTableLastInd// 0~20 16 Steps 091222
-		{0x0F12, 0x002C}, //#af_pos_usTable_0_// af_pos_usTable 		 
-		{0x0F12, 0x0030}, //#af_pos_usTable_1_							 
-		{0x0F12, 0x0033}, //#af_pos_usTable_2_							 
-		{0x0F12, 0x0036}, //#af_pos_usTable_3_							 
-		{0x0F12, 0x0039}, //#af_pos_usTable_4_							 
-		{0x0F12, 0x003D}, //#af_pos_usTable_5_							 
-		{0x0F12, 0x0041}, //#af_pos_usTable_6_							 
-		{0x0F12, 0x0045}, //#af_pos_usTable_7_							 
-		{0x0F12, 0x0049}, //#af_pos_usTable_8_							 
-		{0x0F12, 0x004F}, //#af_pos_usTable_9_							 
-		{0x0F12, 0x0055}, //#af_pos_usTable_10_ 						 
-		{0x0F12, 0x005D}, //#af_pos_usTable_11_ 						 
-		{0x0F12, 0x0065}, //#af_pos_usTable_12_ 						 
-		{0x0F12, 0x006D}, //#af_pos_usTable_13_ 						 
-		{0x0F12, 0x0077}, //#af_pos_usTable_14_ 						 
-		{0x0F12, 0x0083}, //#af_pos_usTable_15_ 						 
-		{0x0F12, 0x008F}, //#af_pos_usTable_16_  
-		{0x0F12, 0x009B}, //#af_pos_usTable_17_ 						 
-		{0x0F12, 0x00A7}, //#af_pos_usTable_18_  
-		{0x0F12, 0x00B3}, //#af_pos_usTable_19_  
 		
 		{0x002A, 0x0252},
 		{0x0F12, 0x0003}, //init 
@@ -1718,578 +1621,578 @@ LOCAL const SENSOR_REG_T s5k5cagx_common[]=
 		{0x0F12, 0x0011},	
 							
 		{0x002A, 0x347C},	
-		{0x0F12, 0x011F},	//TVAR_ash_pGAS[0] //	  
-		{0x0F12, 0x00EB},	//TVAR_ash_pGAS[1] //  
-		{0x0F12, 0x00C2},	//TVAR_ash_pGAS[2] //  
-		{0x0F12, 0x00B0},	//TVAR_ash_pGAS[3] //  
-		{0x0F12, 0x0094},	//TVAR_ash_pGAS[4] //  
-		{0x0F12, 0x0085},	//TVAR_ash_pGAS[5] //  
-		{0x0F12, 0x0083},	//TVAR_ash_pGAS[6] //  
-		{0x0F12, 0x0088},	//TVAR_ash_pGAS[7] //  
-		{0x0F12, 0x008B},	//TVAR_ash_pGAS[8] //  
-		{0x0F12, 0x0093},	//TVAR_ash_pGAS[9] //  
-		{0x0F12, 0x00A3},	//TVAR_ash_pGAS[10] // 
-		{0x0F12, 0x00C0},	//TVAR_ash_pGAS[11] // 
-		{0x0F12, 0x00E9},	//TVAR_ash_pGAS[12] // 
-		{0x0F12, 0x00F4},	//TVAR_ash_pGAS[13] // 
-		{0x0F12, 0x00CB},	//TVAR_ash_pGAS[14] // 
-		{0x0F12, 0x009F},	//TVAR_ash_pGAS[15] // 
-		{0x0F12, 0x0081},	//TVAR_ash_pGAS[16] // 
-		{0x0F12, 0x0069},	//TVAR_ash_pGAS[17] // 
-		{0x0F12, 0x005C},	//TVAR_ash_pGAS[18] // 
-		{0x0F12, 0x0058},	//TVAR_ash_pGAS[19] // 
-		{0x0F12, 0x0059},	//TVAR_ash_pGAS[20] // 
-		{0x0F12, 0x005D},	//TVAR_ash_pGAS[21] // 
-		{0x0F12, 0x0069},	//TVAR_ash_pGAS[22] // 
-		{0x0F12, 0x007B},	//TVAR_ash_pGAS[23] // 
-		{0x0F12, 0x0097},	//TVAR_ash_pGAS[24] // 
-		{0x0F12, 0x00BF},	//TVAR_ash_pGAS[25] // 
-		{0x0F12, 0x00C0},	//TVAR_ash_pGAS[26] // 
-		{0x0F12, 0x00A7},	//TVAR_ash_pGAS[27] // 
-		{0x0F12, 0x0077},	//TVAR_ash_pGAS[28] // 
-		{0x0F12, 0x0056},	//TVAR_ash_pGAS[29] // 
-		{0x0F12, 0x003F},	//TVAR_ash_pGAS[30] // 
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[31] // 
-		{0x0F12, 0x002E},	//TVAR_ash_pGAS[32] // 
-		{0x0F12, 0x002D},	//TVAR_ash_pGAS[33] // 
-		{0x0F12, 0x0032},	//TVAR_ash_pGAS[34] // 
-		{0x0F12, 0x0044},	//TVAR_ash_pGAS[35] // 
-		{0x0F12, 0x0059},	//TVAR_ash_pGAS[36] // 
-		{0x0F12, 0x0073},	//TVAR_ash_pGAS[37] // 
-		{0x0F12, 0x0097},	//TVAR_ash_pGAS[38] // 
-		{0x0F12, 0x00B1},	//TVAR_ash_pGAS[39] // 
-		{0x0F12, 0x008B},	//TVAR_ash_pGAS[40] // 
-		{0x0F12, 0x0060},	//TVAR_ash_pGAS[41] // 
-		{0x0F12, 0x003D},	//TVAR_ash_pGAS[42] // 
-		{0x0F12, 0x0024},	//TVAR_ash_pGAS[43] // 
-		{0x0F12, 0x0016},	//TVAR_ash_pGAS[44] // 
-		{0x0F12, 0x0012},	//TVAR_ash_pGAS[45] // 
-		{0x0F12, 0x0010},	//TVAR_ash_pGAS[46] // 
-		{0x0F12, 0x0014},	//TVAR_ash_pGAS[47] // 
-		{0x0F12, 0x0025},	//TVAR_ash_pGAS[48] // 
-		{0x0F12, 0x003D},	//TVAR_ash_pGAS[49] // 
-		{0x0F12, 0x005F},	//TVAR_ash_pGAS[50] // 
-		{0x0F12, 0x0084},	//TVAR_ash_pGAS[51] // 
-		{0x0F12, 0x0099},	//TVAR_ash_pGAS[52] // 
-		{0x0F12, 0x0070},	//TVAR_ash_pGAS[53] // 
-		{0x0F12, 0x0048},	//TVAR_ash_pGAS[54] // 
-		{0x0F12, 0x0027},	//TVAR_ash_pGAS[55] // 
-		{0x0F12, 0x0012},	//TVAR_ash_pGAS[56] // 
-		{0x0F12, 0x0006},	//TVAR_ash_pGAS[57] // 
-		{0x0F12, 0x0004},	//TVAR_ash_pGAS[58] // 
-		{0x0F12, 0x0004},	//TVAR_ash_pGAS[59] // 
-		{0x0F12, 0x0009},	//TVAR_ash_pGAS[60] // 
-		{0x0F12, 0x0016},	//TVAR_ash_pGAS[61] // 
-		{0x0F12, 0x002D},	//TVAR_ash_pGAS[62] // 
-		{0x0F12, 0x0050},	//TVAR_ash_pGAS[63] // 
-		{0x0F12, 0x0071},	//TVAR_ash_pGAS[64] // 
-		{0x0F12, 0x0094},	//TVAR_ash_pGAS[65] // 
-		{0x0F12, 0x006B},	//TVAR_ash_pGAS[66] // 
-		{0x0F12, 0x0042},	//TVAR_ash_pGAS[67] // 
-		{0x0F12, 0x0023},	//TVAR_ash_pGAS[68] // 
-		{0x0F12, 0x000C},	//TVAR_ash_pGAS[69] // 
-		{0x0F12, 0x0000},	//TVAR_ash_pGAS[70] // 
+		{0x0F12, 0x020B},	//TVAR_ash_pGAS[0] //	  
+		{0x0F12, 0x019E},	//TVAR_ash_pGAS[1] //  
+		{0x0F12, 0x0155},	//TVAR_ash_pGAS[2] //  
+		{0x0F12, 0x0121},	//TVAR_ash_pGAS[3] //  
+		{0x0F12, 0x00FA},	//TVAR_ash_pGAS[4] //  
+		{0x0F12, 0x00E2},	//TVAR_ash_pGAS[5] //  
+		{0x0F12, 0x00D7},	//TVAR_ash_pGAS[6] //  
+		{0x0F12, 0x00DC},	//TVAR_ash_pGAS[7] //  
+		{0x0F12, 0x00F0},	//TVAR_ash_pGAS[8] //  
+		{0x0F12, 0x0114},	//TVAR_ash_pGAS[9] //  
+		{0x0F12, 0x0148},	//TVAR_ash_pGAS[10] // 
+		{0x0F12, 0x0196},	//TVAR_ash_pGAS[11] // 
+		{0x0F12, 0x01F5},	//TVAR_ash_pGAS[12] // 
+		{0x0F12, 0x01B0},	//TVAR_ash_pGAS[13] // 
+		{0x0F12, 0x0160},	//TVAR_ash_pGAS[14] // 
+		{0x0F12, 0x0118},	//TVAR_ash_pGAS[15] // 
+		{0x0F12, 0x00E0},	//TVAR_ash_pGAS[16] // 
+		{0x0F12, 0x00B6},	//TVAR_ash_pGAS[17] // 
+		{0x0F12, 0x009B},	//TVAR_ash_pGAS[18] // 
+		{0x0F12, 0x008F},	//TVAR_ash_pGAS[19] // 
+		{0x0F12, 0x0094},	//TVAR_ash_pGAS[20] // 
+		{0x0F12, 0x00AD},	//TVAR_ash_pGAS[21] // 
+		{0x0F12, 0x00D8},	//TVAR_ash_pGAS[22] // 
+		{0x0F12, 0x0110},	//TVAR_ash_pGAS[23] // 
+		{0x0F12, 0x0156},	//TVAR_ash_pGAS[24] // 
+		{0x0F12, 0x01AC},	//TVAR_ash_pGAS[25] // 
+		{0x0F12, 0x0172},	//TVAR_ash_pGAS[26] // 
+		{0x0F12, 0x0124},	//TVAR_ash_pGAS[27] // 
+		{0x0F12, 0x00DB},	//TVAR_ash_pGAS[28] // 
+		{0x0F12, 0x009F},	//TVAR_ash_pGAS[29] // 
+		{0x0F12, 0x0073},	//TVAR_ash_pGAS[30] // 
+		{0x0F12, 0x0057},	//TVAR_ash_pGAS[31] // 
+		{0x0F12, 0x004C},	//TVAR_ash_pGAS[32] // 
+		{0x0F12, 0x0054},	//TVAR_ash_pGAS[33] // 
+		{0x0F12, 0x006C},	//TVAR_ash_pGAS[34] // 
+		{0x0F12, 0x0097},	//TVAR_ash_pGAS[35] // 
+		{0x0F12, 0x00D5},	//TVAR_ash_pGAS[36] // 
+		{0x0F12, 0x0120},	//TVAR_ash_pGAS[37] // 
+		{0x0F12, 0x0170},	//TVAR_ash_pGAS[38] // 
+		{0x0F12, 0x0147},	//TVAR_ash_pGAS[39] // 
+		{0x0F12, 0x00FC},	//TVAR_ash_pGAS[40] // 
+		{0x0F12, 0x00AC},	//TVAR_ash_pGAS[41] // 
+		{0x0F12, 0x006F},	//TVAR_ash_pGAS[42] // 
+		{0x0F12, 0x0044},	//TVAR_ash_pGAS[43] // 
+		{0x0F12, 0x002A},	//TVAR_ash_pGAS[44] // 
+		{0x0F12, 0x0020},	//TVAR_ash_pGAS[45] // 
+		{0x0F12, 0x0027},	//TVAR_ash_pGAS[46] // 
+		{0x0F12, 0x0040},	//TVAR_ash_pGAS[47] // 
+		{0x0F12, 0x006C},	//TVAR_ash_pGAS[48] // 
+		{0x0F12, 0x00AB},	//TVAR_ash_pGAS[49] // 
+		{0x0F12, 0x00FB},	//TVAR_ash_pGAS[50] // 
+		{0x0F12, 0x014B},	//TVAR_ash_pGAS[51] // 
+		{0x0F12, 0x0131},	//TVAR_ash_pGAS[52] // 
+		{0x0F12, 0x00E4},	//TVAR_ash_pGAS[53] // 
+		{0x0F12, 0x0090},	//TVAR_ash_pGAS[54] // 
+		{0x0F12, 0x0052},	//TVAR_ash_pGAS[55] // 
+		{0x0F12, 0x0027},	//TVAR_ash_pGAS[56] // 
+		{0x0F12, 0x0010},	//TVAR_ash_pGAS[57] // 
+		{0x0F12, 0x0008},	//TVAR_ash_pGAS[58] // 
+		{0x0F12, 0x000F},	//TVAR_ash_pGAS[59] // 
+		{0x0F12, 0x0027},	//TVAR_ash_pGAS[60] // 
+		{0x0F12, 0x0053},	//TVAR_ash_pGAS[61] // 
+		{0x0F12, 0x0093},	//TVAR_ash_pGAS[62] // 
+		{0x0F12, 0x00EA},	//TVAR_ash_pGAS[63] // 
+		{0x0F12, 0x0138},	//TVAR_ash_pGAS[64] // 
+		{0x0F12, 0x0129},	//TVAR_ash_pGAS[65] // 
+		{0x0F12, 0x00DA},	//TVAR_ash_pGAS[66] // 
+		{0x0F12, 0x0085},	//TVAR_ash_pGAS[67] // 
+		{0x0F12, 0x0046},	//TVAR_ash_pGAS[68] // 
+		{0x0F12, 0x001D},	//TVAR_ash_pGAS[69] // 
+		{0x0F12, 0x0007},	//TVAR_ash_pGAS[70] // 
 		{0x0F12, 0x0000},	//TVAR_ash_pGAS[71] // 
-		{0x0F12, 0x0000},	//TVAR_ash_pGAS[72] // 
-		{0x0F12, 0x0004},	//TVAR_ash_pGAS[73] // 
-		{0x0F12, 0x0014},	//TVAR_ash_pGAS[74] // 
-		{0x0F12, 0x002C},	//TVAR_ash_pGAS[75] // 
-		{0x0F12, 0x0050},	//TVAR_ash_pGAS[76] // 
-		{0x0F12, 0x0073},	//TVAR_ash_pGAS[77] // 
-		{0x0F12, 0x009D},	//TVAR_ash_pGAS[78] // 
-		{0x0F12, 0x0072},	//TVAR_ash_pGAS[79] // 
-		{0x0F12, 0x0048},	//TVAR_ash_pGAS[80] // 
-		{0x0F12, 0x0025},	//TVAR_ash_pGAS[81] // 
-		{0x0F12, 0x000F},	//TVAR_ash_pGAS[82] // 
-		{0x0F12, 0x0002},	//TVAR_ash_pGAS[83] // 
-		{0x0F12, 0x0001},	//TVAR_ash_pGAS[84] // 
-		{0x0F12, 0x0006},	//TVAR_ash_pGAS[85] // 
-		{0x0F12, 0x000D},	//TVAR_ash_pGAS[86] // 
-		{0x0F12, 0x001E},	//TVAR_ash_pGAS[87] // 
-		{0x0F12, 0x0036},	//TVAR_ash_pGAS[88] // 
-		{0x0F12, 0x005B},	//TVAR_ash_pGAS[89] // 
-		{0x0F12, 0x007D},	//TVAR_ash_pGAS[90] // 
-		{0x0F12, 0x00AA},	//TVAR_ash_pGAS[91] // 
-		{0x0F12, 0x0081},	//TVAR_ash_pGAS[92] // 
-		{0x0F12, 0x0055},	//TVAR_ash_pGAS[93] // 
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[94] // 
-		{0x0F12, 0x0023},	//TVAR_ash_pGAS[95] // 
-		{0x0F12, 0x0015},	//TVAR_ash_pGAS[96] // 
-		{0x0F12, 0x0011},	//TVAR_ash_pGAS[97] // 
-		{0x0F12, 0x0015},	//TVAR_ash_pGAS[98] // 
-		{0x0F12, 0x0021},	//TVAR_ash_pGAS[99] // 
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[100] //
-		{0x0F12, 0x004E},	//TVAR_ash_pGAS[101] //
-		{0x0F12, 0x006B},	//TVAR_ash_pGAS[102] //
-		{0x0F12, 0x0090},	//TVAR_ash_pGAS[103] //
-		{0x0F12, 0x00BD},	//TVAR_ash_pGAS[104] //
-		{0x0F12, 0x0092},	//TVAR_ash_pGAS[105] //
-		{0x0F12, 0x0068},	//TVAR_ash_pGAS[106] //
-		{0x0F12, 0x0053},	//TVAR_ash_pGAS[107] //
-		{0x0F12, 0x0041},	//TVAR_ash_pGAS[108] //
-		{0x0F12, 0x0034},	//TVAR_ash_pGAS[109] //
-		{0x0F12, 0x0034},	//TVAR_ash_pGAS[110] //
-		{0x0F12, 0x0037},	//TVAR_ash_pGAS[111] //
-		{0x0F12, 0x0043},	//TVAR_ash_pGAS[112] //
-		{0x0F12, 0x0054},	//TVAR_ash_pGAS[113] //
-		{0x0F12, 0x0070},	//TVAR_ash_pGAS[114] //
-		{0x0F12, 0x0089},	//TVAR_ash_pGAS[115] //
-		{0x0F12, 0x00AB},	//TVAR_ash_pGAS[116] //
-		{0x0F12, 0x00DC},	//TVAR_ash_pGAS[117] //
-		{0x0F12, 0x00B3},	//TVAR_ash_pGAS[118] //
-		{0x0F12, 0x0091},	//TVAR_ash_pGAS[119] //
-		{0x0F12, 0x007E},	//TVAR_ash_pGAS[120] //
-		{0x0F12, 0x006D},	//TVAR_ash_pGAS[121] //
-		{0x0F12, 0x0064},	//TVAR_ash_pGAS[122] //
-		{0x0F12, 0x0065},	//TVAR_ash_pGAS[123] //
-		{0x0F12, 0x0069},	//TVAR_ash_pGAS[124] //
-		{0x0F12, 0x0072},	//TVAR_ash_pGAS[125] //
-		{0x0F12, 0x0081},	//TVAR_ash_pGAS[126] //
-		{0x0F12, 0x0096},	//TVAR_ash_pGAS[127] //
-		{0x0F12, 0x00B0},	//TVAR_ash_pGAS[128] //
-		{0x0F12, 0x00D0},	//TVAR_ash_pGAS[129] //
-		{0x0F12, 0x0105},	//TVAR_ash_pGAS[130] //
-		{0x0F12, 0x00E3},	//TVAR_ash_pGAS[131] //
-		{0x0F12, 0x00C3},	//TVAR_ash_pGAS[132] //
-		{0x0F12, 0x00B1},	//TVAR_ash_pGAS[133] //
-		{0x0F12, 0x009F},	//TVAR_ash_pGAS[134] //
-		{0x0F12, 0x009A},	//TVAR_ash_pGAS[135] //
-		{0x0F12, 0x009E},	//TVAR_ash_pGAS[136] //
-		{0x0F12, 0x00A2},	//TVAR_ash_pGAS[137] //
-		{0x0F12, 0x00A7},	//TVAR_ash_pGAS[138] //
-		{0x0F12, 0x00B1},	//TVAR_ash_pGAS[139] //
-		{0x0F12, 0x00C0},	//TVAR_ash_pGAS[140] //
-		{0x0F12, 0x00E0},	//TVAR_ash_pGAS[141] //
-		{0x0F12, 0x0102},	//TVAR_ash_pGAS[142] //
-		{0x0F12, 0x0109},	//TVAR_ash_pGAS[143] //
-		{0x0F12, 0x00DB},	//TVAR_ash_pGAS[144] //
-		{0x0F12, 0x00B9},	//TVAR_ash_pGAS[145] //
-		{0x0F12, 0x00AA},	//TVAR_ash_pGAS[146] //
-		{0x0F12, 0x0090},	//TVAR_ash_pGAS[147] //
-		{0x0F12, 0x007F},	//TVAR_ash_pGAS[148] //
-		{0x0F12, 0x007C},	//TVAR_ash_pGAS[149] //
-		{0x0F12, 0x0080},	//TVAR_ash_pGAS[150] //
-		{0x0F12, 0x0083},	//TVAR_ash_pGAS[151] //
-		{0x0F12, 0x0089},	//TVAR_ash_pGAS[152] //
-		{0x0F12, 0x0097},	//TVAR_ash_pGAS[153] //
-		{0x0F12, 0x00B3},	//TVAR_ash_pGAS[154] //
-		{0x0F12, 0x00DD},	//TVAR_ash_pGAS[155] //
-		{0x0F12, 0x00DB},	//TVAR_ash_pGAS[156] //
-		{0x0F12, 0x00B7},	//TVAR_ash_pGAS[157] //
-		{0x0F12, 0x0094},	//TVAR_ash_pGAS[158] //
-		{0x0F12, 0x007C},	//TVAR_ash_pGAS[159] //
-		{0x0F12, 0x0065},	//TVAR_ash_pGAS[160] //
-		{0x0F12, 0x0058},	//TVAR_ash_pGAS[161] //
-		{0x0F12, 0x0053},	//TVAR_ash_pGAS[162] //
-		{0x0F12, 0x0052},	//TVAR_ash_pGAS[163] //
-		{0x0F12, 0x0055},	//TVAR_ash_pGAS[164] //
-		{0x0F12, 0x0060},	//TVAR_ash_pGAS[165] //
-		{0x0F12, 0x0072},	//TVAR_ash_pGAS[166] //
-		{0x0F12, 0x008A},	//TVAR_ash_pGAS[167] //
-		{0x0F12, 0x00B2},	//TVAR_ash_pGAS[168] //
-		{0x0F12, 0x00AD},	//TVAR_ash_pGAS[169] //
-		{0x0F12, 0x0095},	//TVAR_ash_pGAS[170] //
-		{0x0F12, 0x006F},	//TVAR_ash_pGAS[171] //
-		{0x0F12, 0x0054},	//TVAR_ash_pGAS[172] //
-		{0x0F12, 0x0040},	//TVAR_ash_pGAS[173] //
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[174] //
-		{0x0F12, 0x002E},	//TVAR_ash_pGAS[175] //
-		{0x0F12, 0x002B},	//TVAR_ash_pGAS[176] //
-		{0x0F12, 0x0030},	//TVAR_ash_pGAS[177] //
-		{0x0F12, 0x0041},	//TVAR_ash_pGAS[178] //
-		{0x0F12, 0x0054},	//TVAR_ash_pGAS[179] //
-		{0x0F12, 0x006C},	//TVAR_ash_pGAS[180] //
-		{0x0F12, 0x008F},	//TVAR_ash_pGAS[181] //
-		{0x0F12, 0x009B},	//TVAR_ash_pGAS[182] //
-		{0x0F12, 0x007B},	//TVAR_ash_pGAS[183] //
-		{0x0F12, 0x0059},	//TVAR_ash_pGAS[184] //
-		{0x0F12, 0x003E},	//TVAR_ash_pGAS[185] //
-		{0x0F12, 0x0027},	//TVAR_ash_pGAS[186] //
-		{0x0F12, 0x0018},	//TVAR_ash_pGAS[187] //
-		{0x0F12, 0x0013},	//TVAR_ash_pGAS[188] //
-		{0x0F12, 0x0010},	//TVAR_ash_pGAS[189] //
-		{0x0F12, 0x0014},	//TVAR_ash_pGAS[190] //
-		{0x0F12, 0x0024},	//TVAR_ash_pGAS[191] //
-		{0x0F12, 0x003A},	//TVAR_ash_pGAS[192] //
-		{0x0F12, 0x0059},	//TVAR_ash_pGAS[193] //
-		{0x0F12, 0x007D},	//TVAR_ash_pGAS[194] //
-		{0x0F12, 0x0083},	//TVAR_ash_pGAS[195] //
-		{0x0F12, 0x0060},	//TVAR_ash_pGAS[196] //
-		{0x0F12, 0x0043},	//TVAR_ash_pGAS[197] //
-		{0x0F12, 0x0029},	//TVAR_ash_pGAS[198] //
-		{0x0F12, 0x0015},	//TVAR_ash_pGAS[199] //
-		{0x0F12, 0x0008},	//TVAR_ash_pGAS[200] //
-		{0x0F12, 0x0003},	//TVAR_ash_pGAS[201] //
-		{0x0F12, 0x0004},	//TVAR_ash_pGAS[202] //
-		{0x0F12, 0x000B},	//TVAR_ash_pGAS[203] //
-		{0x0F12, 0x0017},	//TVAR_ash_pGAS[204] //
-		{0x0F12, 0x002A},	//TVAR_ash_pGAS[205] //
-		{0x0F12, 0x0049},	//TVAR_ash_pGAS[206] //
-		{0x0F12, 0x006B},	//TVAR_ash_pGAS[207] //
-		{0x0F12, 0x007D},	//TVAR_ash_pGAS[208] //
-		{0x0F12, 0x005B},	//TVAR_ash_pGAS[209] //
-		{0x0F12, 0x003D},	//TVAR_ash_pGAS[210] //
-		{0x0F12, 0x0024},	//TVAR_ash_pGAS[211] //
-		{0x0F12, 0x000F},	//TVAR_ash_pGAS[212] //
-		{0x0F12, 0x0001},	//TVAR_ash_pGAS[213] //
+		{0x0F12, 0x0007},	//TVAR_ash_pGAS[72] // 
+		{0x0F12, 0x001F},	//TVAR_ash_pGAS[73] // 
+		{0x0F12, 0x004B},	//TVAR_ash_pGAS[74] // 
+		{0x0F12, 0x008E},	//TVAR_ash_pGAS[75] // 
+		{0x0F12, 0x00E4},	//TVAR_ash_pGAS[76] // 
+		{0x0F12, 0x0138},	//TVAR_ash_pGAS[77] // 
+		{0x0F12, 0x0130},	//TVAR_ash_pGAS[78] // 
+		{0x0F12, 0x00E2},	//TVAR_ash_pGAS[79] // 
+		{0x0F12, 0x008D},	//TVAR_ash_pGAS[80] // 
+		{0x0F12, 0x004E},	//TVAR_ash_pGAS[81] // 
+		{0x0F12, 0x0025},	//TVAR_ash_pGAS[82] // 
+		{0x0F12, 0x000E},	//TVAR_ash_pGAS[83] // 
+		{0x0F12, 0x0007},	//TVAR_ash_pGAS[84] // 
+		{0x0F12, 0x000F},	//TVAR_ash_pGAS[85] // 
+		{0x0F12, 0x0027},	//TVAR_ash_pGAS[86] // 
+		{0x0F12, 0x0055},	//TVAR_ash_pGAS[87] // 
+		{0x0F12, 0x009A},	//TVAR_ash_pGAS[88] // 
+		{0x0F12, 0x00F2},	//TVAR_ash_pGAS[89] // 
+		{0x0F12, 0x0142},	//TVAR_ash_pGAS[90] // 
+		{0x0F12, 0x0145},	//TVAR_ash_pGAS[91] // 
+		{0x0F12, 0x00F9},	//TVAR_ash_pGAS[92] // 
+		{0x0F12, 0x00A6},	//TVAR_ash_pGAS[93] // 
+		{0x0F12, 0x0067},	//TVAR_ash_pGAS[94] // 
+		{0x0F12, 0x003C},	//TVAR_ash_pGAS[95] // 
+		{0x0F12, 0x0024},	//TVAR_ash_pGAS[96] // 
+		{0x0F12, 0x001D},	//TVAR_ash_pGAS[97] // 
+		{0x0F12, 0x0025},	//TVAR_ash_pGAS[98] // 
+		{0x0F12, 0x0041},	//TVAR_ash_pGAS[99] // 
+		{0x0F12, 0x0071},	//TVAR_ash_pGAS[100] //
+		{0x0F12, 0x00B5},	//TVAR_ash_pGAS[101] //
+		{0x0F12, 0x010B},	//TVAR_ash_pGAS[102] //
+		{0x0F12, 0x015A},	//TVAR_ash_pGAS[103] //
+		{0x0F12, 0x0169},	//TVAR_ash_pGAS[104] //
+		{0x0F12, 0x011F},	//TVAR_ash_pGAS[105] //
+		{0x0F12, 0x00CF},	//TVAR_ash_pGAS[106] //
+		{0x0F12, 0x0092},	//TVAR_ash_pGAS[107] //
+		{0x0F12, 0x0066},	//TVAR_ash_pGAS[108] //
+		{0x0F12, 0x004D},	//TVAR_ash_pGAS[109] //
+		{0x0F12, 0x0044},	//TVAR_ash_pGAS[110] //
+		{0x0F12, 0x004F},	//TVAR_ash_pGAS[111] //
+		{0x0F12, 0x006B},	//TVAR_ash_pGAS[112] //
+		{0x0F12, 0x009E},	//TVAR_ash_pGAS[113] //
+		{0x0F12, 0x00E2},	//TVAR_ash_pGAS[114] //
+		{0x0F12, 0x0136},	//TVAR_ash_pGAS[115] //
+		{0x0F12, 0x0183},	//TVAR_ash_pGAS[116] //
+		{0x0F12, 0x01A9},	//TVAR_ash_pGAS[117] //
+		{0x0F12, 0x0157},	//TVAR_ash_pGAS[118] //
+		{0x0F12, 0x010E},	//TVAR_ash_pGAS[119] //
+		{0x0F12, 0x00D2},	//TVAR_ash_pGAS[120] //
+		{0x0F12, 0x00A7},	//TVAR_ash_pGAS[121] //
+		{0x0F12, 0x008C},	//TVAR_ash_pGAS[122] //
+		{0x0F12, 0x0086},	//TVAR_ash_pGAS[123] //
+		{0x0F12, 0x0090},	//TVAR_ash_pGAS[124] //
+		{0x0F12, 0x00AE},	//TVAR_ash_pGAS[125] //
+		{0x0F12, 0x00E0},	//TVAR_ash_pGAS[126] //
+		{0x0F12, 0x0121},	//TVAR_ash_pGAS[127] //
+		{0x0F12, 0x0170},	//TVAR_ash_pGAS[128] //
+		{0x0F12, 0x01C5},	//TVAR_ash_pGAS[129] //
+		{0x0F12, 0x01F7},	//TVAR_ash_pGAS[130] //
+		{0x0F12, 0x0193},	//TVAR_ash_pGAS[131] //
+		{0x0F12, 0x014B},	//TVAR_ash_pGAS[132] //
+		{0x0F12, 0x0114},	//TVAR_ash_pGAS[133] //
+		{0x0F12, 0x00F0},	//TVAR_ash_pGAS[134] //
+		{0x0F12, 0x00D7},	//TVAR_ash_pGAS[135] //
+		{0x0F12, 0x00D0},	//TVAR_ash_pGAS[136] //
+		{0x0F12, 0x00D7},	//TVAR_ash_pGAS[137] //
+		{0x0F12, 0x00F4},	//TVAR_ash_pGAS[138] //
+		{0x0F12, 0x0125},	//TVAR_ash_pGAS[139] //
+		{0x0F12, 0x0160},	//TVAR_ash_pGAS[140] //
+		{0x0F12, 0x01B2},	//TVAR_ash_pGAS[141] //
+		{0x0F12, 0x021A},	//TVAR_ash_pGAS[142] //
+		{0x0F12, 0x01DF},	//TVAR_ash_pGAS[143] //
+		{0x0F12, 0x0172},	//TVAR_ash_pGAS[144] //
+		{0x0F12, 0x012C},	//TVAR_ash_pGAS[145] //
+		{0x0F12, 0x00FB},	//TVAR_ash_pGAS[146] //
+		{0x0F12, 0x00D5},	//TVAR_ash_pGAS[147] //
+		{0x0F12, 0x00BB},	//TVAR_ash_pGAS[148] //
+		{0x0F12, 0x00AF},	//TVAR_ash_pGAS[149] //
+		{0x0F12, 0x00B3},	//TVAR_ash_pGAS[150] //
+		{0x0F12, 0x00C7},	//TVAR_ash_pGAS[151] //
+		{0x0F12, 0x00E7},	//TVAR_ash_pGAS[152] //
+		{0x0F12, 0x0110},	//TVAR_ash_pGAS[153] //
+		{0x0F12, 0x0155},	//TVAR_ash_pGAS[154] //
+		{0x0F12, 0x01B2},	//TVAR_ash_pGAS[155] //
+		{0x0F12, 0x018C},	//TVAR_ash_pGAS[156] //
+		{0x0F12, 0x0135},	//TVAR_ash_pGAS[157] //
+		{0x0F12, 0x00F5},	//TVAR_ash_pGAS[158] //
+		{0x0F12, 0x00C0},	//TVAR_ash_pGAS[159] //
+		{0x0F12, 0x0097},	//TVAR_ash_pGAS[160] //
+		{0x0F12, 0x007C},	//TVAR_ash_pGAS[161] //
+		{0x0F12, 0x0072},	//TVAR_ash_pGAS[162] //
+		{0x0F12, 0x0078},	//TVAR_ash_pGAS[163] //
+		{0x0F12, 0x008D},	//TVAR_ash_pGAS[164] //
+		{0x0F12, 0x00B2},	//TVAR_ash_pGAS[165] //
+		{0x0F12, 0x00E0},	//TVAR_ash_pGAS[166] //
+		{0x0F12, 0x011E},	//TVAR_ash_pGAS[167] //
+		{0x0F12, 0x0170},	//TVAR_ash_pGAS[168] //
+		{0x0F12, 0x0159},	//TVAR_ash_pGAS[169] //
+		{0x0F12, 0x0106},	//TVAR_ash_pGAS[170] //
+		{0x0F12, 0x00C2},	//TVAR_ash_pGAS[171] //
+		{0x0F12, 0x008B},	//TVAR_ash_pGAS[172] //
+		{0x0F12, 0x0061},	//TVAR_ash_pGAS[173] //
+		{0x0F12, 0x0046},	//TVAR_ash_pGAS[174] //
+		{0x0F12, 0x003C},	//TVAR_ash_pGAS[175] //
+		{0x0F12, 0x0043},	//TVAR_ash_pGAS[176] //
+		{0x0F12, 0x0058},	//TVAR_ash_pGAS[177] //
+		{0x0F12, 0x007E},	//TVAR_ash_pGAS[178] //
+		{0x0F12, 0x00B3},	//TVAR_ash_pGAS[179] //
+		{0x0F12, 0x00F4},	//TVAR_ash_pGAS[180] //
+		{0x0F12, 0x0141},	//TVAR_ash_pGAS[181] //
+		{0x0F12, 0x0132},	//TVAR_ash_pGAS[182] //
+		{0x0F12, 0x00E5},	//TVAR_ash_pGAS[183] //
+		{0x0F12, 0x009C},	//TVAR_ash_pGAS[184] //
+		{0x0F12, 0x0062},	//TVAR_ash_pGAS[185] //
+		{0x0F12, 0x0039},	//TVAR_ash_pGAS[186] //
+		{0x0F12, 0x0021},	//TVAR_ash_pGAS[187] //
+		{0x0F12, 0x0018},	//TVAR_ash_pGAS[188] //
+		{0x0F12, 0x0020},	//TVAR_ash_pGAS[189] //
+		{0x0F12, 0x0034},	//TVAR_ash_pGAS[190] //
+		{0x0F12, 0x005B},	//TVAR_ash_pGAS[191] //
+		{0x0F12, 0x0092},	//TVAR_ash_pGAS[192] //
+		{0x0F12, 0x00D6},	//TVAR_ash_pGAS[193] //
+		{0x0F12, 0x0121},	//TVAR_ash_pGAS[194] //
+		{0x0F12, 0x011D},	//TVAR_ash_pGAS[195] //
+		{0x0F12, 0x00CC},	//TVAR_ash_pGAS[196] //
+		{0x0F12, 0x0083},	//TVAR_ash_pGAS[197] //
+		{0x0F12, 0x004A},	//TVAR_ash_pGAS[198] //
+		{0x0F12, 0x0023},	//TVAR_ash_pGAS[199] //
+		{0x0F12, 0x000C},	//TVAR_ash_pGAS[200] //
+		{0x0F12, 0x0005},	//TVAR_ash_pGAS[201] //
+		{0x0F12, 0x000D},	//TVAR_ash_pGAS[202] //
+		{0x0F12, 0x0022},	//TVAR_ash_pGAS[203] //
+		{0x0F12, 0x0048},	//TVAR_ash_pGAS[204] //
+		{0x0F12, 0x007F},	//TVAR_ash_pGAS[205] //
+		{0x0F12, 0x00C9},	//TVAR_ash_pGAS[206] //
+		{0x0F12, 0x0115},	//TVAR_ash_pGAS[207] //
+		{0x0F12, 0x0115},	//TVAR_ash_pGAS[208] //
+		{0x0F12, 0x00C4},	//TVAR_ash_pGAS[209] //
+		{0x0F12, 0x007A},	//TVAR_ash_pGAS[210] //
+		{0x0F12, 0x0041},	//TVAR_ash_pGAS[211] //
+		{0x0F12, 0x001B},	//TVAR_ash_pGAS[212] //
+		{0x0F12, 0x0006},	//TVAR_ash_pGAS[213] //
 		{0x0F12, 0x0000},	//TVAR_ash_pGAS[214] //
-		{0x0F12, 0x0000},	//TVAR_ash_pGAS[215] //
-		{0x0F12, 0x0007},	//TVAR_ash_pGAS[216] //
-		{0x0F12, 0x0016},	//TVAR_ash_pGAS[217] //
-		{0x0F12, 0x002B},	//TVAR_ash_pGAS[218] //
-		{0x0F12, 0x004C},	//TVAR_ash_pGAS[219] //
-		{0x0F12, 0x006D},	//TVAR_ash_pGAS[220] //
-		{0x0F12, 0x0084},	//TVAR_ash_pGAS[221] //
-		{0x0F12, 0x0061},	//TVAR_ash_pGAS[222] //
-		{0x0F12, 0x0040},	//TVAR_ash_pGAS[223] //
-		{0x0F12, 0x0023},	//TVAR_ash_pGAS[224] //
-		{0x0F12, 0x0010},	//TVAR_ash_pGAS[225] //
-		{0x0F12, 0x0002},	//TVAR_ash_pGAS[226] //
-		{0x0F12, 0x0001},	//TVAR_ash_pGAS[227] //
-		{0x0F12, 0x0006},	//TVAR_ash_pGAS[228] //
-		{0x0F12, 0x000F},	//TVAR_ash_pGAS[229] //
-		{0x0F12, 0x001E},	//TVAR_ash_pGAS[230] //
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[231] //
-		{0x0F12, 0x0055},	//TVAR_ash_pGAS[232] //
-		{0x0F12, 0x0077},	//TVAR_ash_pGAS[233] //
-		{0x0F12, 0x008F},	//TVAR_ash_pGAS[234] //
-		{0x0F12, 0x006D},	//TVAR_ash_pGAS[235] //
-		{0x0F12, 0x004C},	//TVAR_ash_pGAS[236] //
-		{0x0F12, 0x0031},	//TVAR_ash_pGAS[237] //
-		{0x0F12, 0x0021},	//TVAR_ash_pGAS[238] //
-		{0x0F12, 0x0014},	//TVAR_ash_pGAS[239] //
-		{0x0F12, 0x0010},	//TVAR_ash_pGAS[240] //
-		{0x0F12, 0x0014},	//TVAR_ash_pGAS[241] //
-		{0x0F12, 0x0020},	//TVAR_ash_pGAS[242] //
-		{0x0F12, 0x0033},	//TVAR_ash_pGAS[243] //
-		{0x0F12, 0x004A},	//TVAR_ash_pGAS[244] //
-		{0x0F12, 0x0065},	//TVAR_ash_pGAS[245] //
-		{0x0F12, 0x0089},	//TVAR_ash_pGAS[246] //
-		{0x0F12, 0x009F},	//TVAR_ash_pGAS[247] //
-		{0x0F12, 0x007A},	//TVAR_ash_pGAS[248] //
-		{0x0F12, 0x005B},	//TVAR_ash_pGAS[249] //
-		{0x0F12, 0x004B},	//TVAR_ash_pGAS[250] //
-		{0x0F12, 0x003E},	//TVAR_ash_pGAS[251] //
-		{0x0F12, 0x0031},	//TVAR_ash_pGAS[252] //
-		{0x0F12, 0x002F},	//TVAR_ash_pGAS[253] //
-		{0x0F12, 0x0034},	//TVAR_ash_pGAS[254] //
-		{0x0F12, 0x003F},	//TVAR_ash_pGAS[255] //
-		{0x0F12, 0x0050},	//TVAR_ash_pGAS[256] //
-		{0x0F12, 0x0067},	//TVAR_ash_pGAS[257] //
-		{0x0F12, 0x007E},	//TVAR_ash_pGAS[258] //
-		{0x0F12, 0x00A3},	//TVAR_ash_pGAS[259] //
-		{0x0F12, 0x00BA},	//TVAR_ash_pGAS[260] //
-		{0x0F12, 0x0094},	//TVAR_ash_pGAS[261] //
-		{0x0F12, 0x007E},	//TVAR_ash_pGAS[262] //
-		{0x0F12, 0x0073},	//TVAR_ash_pGAS[263] //
-		{0x0F12, 0x0065},	//TVAR_ash_pGAS[264] //
-		{0x0F12, 0x005B},	//TVAR_ash_pGAS[265] //
-		{0x0F12, 0x005A},	//TVAR_ash_pGAS[266] //
-		{0x0F12, 0x005F},	//TVAR_ash_pGAS[267] //
-		{0x0F12, 0x0069},	//TVAR_ash_pGAS[268] //
-		{0x0F12, 0x0077},	//TVAR_ash_pGAS[269] //
-		{0x0F12, 0x008A},	//TVAR_ash_pGAS[270] //
-		{0x0F12, 0x00A2},	//TVAR_ash_pGAS[271] //
-		{0x0F12, 0x00C5},	//TVAR_ash_pGAS[272] //
-		{0x0F12, 0x00D7},	//TVAR_ash_pGAS[273] //
-		{0x0F12, 0x00BD},	//TVAR_ash_pGAS[274] //
-		{0x0F12, 0x00AB},	//TVAR_ash_pGAS[275] //
-		{0x0F12, 0x009D},	//TVAR_ash_pGAS[276] //
-		{0x0F12, 0x008F},	//TVAR_ash_pGAS[277] //
-		{0x0F12, 0x008A},	//TVAR_ash_pGAS[278] //
-		{0x0F12, 0x008D},	//TVAR_ash_pGAS[279] //
-		{0x0F12, 0x0091},	//TVAR_ash_pGAS[280] //
-		{0x0F12, 0x0099},	//TVAR_ash_pGAS[281] //
-		{0x0F12, 0x00A2},	//TVAR_ash_pGAS[282] //
-		{0x0F12, 0x00B2},	//TVAR_ash_pGAS[283] //
-		{0x0F12, 0x00CD},	//TVAR_ash_pGAS[284] //
-		{0x0F12, 0x00F1},	//TVAR_ash_pGAS[285] //
-		{0x0F12, 0x00F5},	//TVAR_ash_pGAS[286] //
-		{0x0F12, 0x00CC},	//TVAR_ash_pGAS[287] //
-		{0x0F12, 0x00AD},	//TVAR_ash_pGAS[288] //
-		{0x0F12, 0x00A4},	//TVAR_ash_pGAS[289] //
-		{0x0F12, 0x008F},	//TVAR_ash_pGAS[290] //
-		{0x0F12, 0x0084},	//TVAR_ash_pGAS[291] //
-		{0x0F12, 0x0089},	//TVAR_ash_pGAS[292] //
-		{0x0F12, 0x0093},	//TVAR_ash_pGAS[293] //
-		{0x0F12, 0x009D},	//TVAR_ash_pGAS[294] //
-		{0x0F12, 0x00A7},	//TVAR_ash_pGAS[295] //
-		{0x0F12, 0x00B3},	//TVAR_ash_pGAS[296] //
-		{0x0F12, 0x00CD},	//TVAR_ash_pGAS[297] //
-		{0x0F12, 0x00F4},	//TVAR_ash_pGAS[298] //
-		{0x0F12, 0x00CF},	//TVAR_ash_pGAS[299] //
-		{0x0F12, 0x00A9},	//TVAR_ash_pGAS[300] //
-		{0x0F12, 0x008C},	//TVAR_ash_pGAS[301] //
-		{0x0F12, 0x0075},	//TVAR_ash_pGAS[302] //
-		{0x0F12, 0x0063},	//TVAR_ash_pGAS[303] //
-		{0x0F12, 0x005B},	//TVAR_ash_pGAS[304] //
-		{0x0F12, 0x005C},	//TVAR_ash_pGAS[305] //
-		{0x0F12, 0x0062},	//TVAR_ash_pGAS[306] //
-		{0x0F12, 0x006C},	//TVAR_ash_pGAS[307] //
-		{0x0F12, 0x007A},	//TVAR_ash_pGAS[308] //
-		{0x0F12, 0x008C},	//TVAR_ash_pGAS[309] //
-		{0x0F12, 0x00A3},	//TVAR_ash_pGAS[310] //
-		{0x0F12, 0x00C8},	//TVAR_ash_pGAS[311] //
-		{0x0F12, 0x00A5},	//TVAR_ash_pGAS[312] //
-		{0x0F12, 0x008D},	//TVAR_ash_pGAS[313] //
-		{0x0F12, 0x0068},	//TVAR_ash_pGAS[314] //
-		{0x0F12, 0x0050},	//TVAR_ash_pGAS[315] //
-		{0x0F12, 0x003D},	//TVAR_ash_pGAS[316] //
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[317] //
-		{0x0F12, 0x0033},	//TVAR_ash_pGAS[318] //
-		{0x0F12, 0x0036},	//TVAR_ash_pGAS[319] //
-		{0x0F12, 0x0042},	//TVAR_ash_pGAS[320] //
-		{0x0F12, 0x0058},	//TVAR_ash_pGAS[321] //
-		{0x0F12, 0x006C},	//TVAR_ash_pGAS[322] //
-		{0x0F12, 0x0081},	//TVAR_ash_pGAS[323] //
-		{0x0F12, 0x00A6},	//TVAR_ash_pGAS[324] //
-		{0x0F12, 0x0097},	//TVAR_ash_pGAS[325] //
-		{0x0F12, 0x0077},	//TVAR_ash_pGAS[326] //
-		{0x0F12, 0x0057},	//TVAR_ash_pGAS[327] //
-		{0x0F12, 0x003B},	//TVAR_ash_pGAS[328] //
-		{0x0F12, 0x0025},	//TVAR_ash_pGAS[329] //
-		{0x0F12, 0x0019},	//TVAR_ash_pGAS[330] //
-		{0x0F12, 0x0017},	//TVAR_ash_pGAS[331] //
-		{0x0F12, 0x0018},	//TVAR_ash_pGAS[332] //
-		{0x0F12, 0x0021},	//TVAR_ash_pGAS[333] //
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[334] //
-		{0x0F12, 0x004D},	//TVAR_ash_pGAS[335] //
-		{0x0F12, 0x006C},	//TVAR_ash_pGAS[336] //
-		{0x0F12, 0x0090},	//TVAR_ash_pGAS[337] //
-		{0x0F12, 0x0086},	//TVAR_ash_pGAS[338] //
-		{0x0F12, 0x0061},	//TVAR_ash_pGAS[339] //
-		{0x0F12, 0x0043},	//TVAR_ash_pGAS[340] //
-		{0x0F12, 0x0029},	//TVAR_ash_pGAS[341] //
-		{0x0F12, 0x0015},	//TVAR_ash_pGAS[342] //
-		{0x0F12, 0x0008},	//TVAR_ash_pGAS[343] //
+		{0x0F12, 0x0008},	//TVAR_ash_pGAS[215] //
+		{0x0F12, 0x001E},	//TVAR_ash_pGAS[216] //
+		{0x0F12, 0x0044},	//TVAR_ash_pGAS[217] //
+		{0x0F12, 0x007D},	//TVAR_ash_pGAS[218] //
+		{0x0F12, 0x00C9},	//TVAR_ash_pGAS[219] //
+		{0x0F12, 0x0115},	//TVAR_ash_pGAS[220] //
+		{0x0F12, 0x011C},	//TVAR_ash_pGAS[221] //
+		{0x0F12, 0x00CB},	//TVAR_ash_pGAS[222] //
+		{0x0F12, 0x0081},	//TVAR_ash_pGAS[223] //
+		{0x0F12, 0x0048},	//TVAR_ash_pGAS[224] //
+		{0x0F12, 0x0022},	//TVAR_ash_pGAS[225] //
+		{0x0F12, 0x000D},	//TVAR_ash_pGAS[226] //
+		{0x0F12, 0x0007},	//TVAR_ash_pGAS[227] //
+		{0x0F12, 0x0010},	//TVAR_ash_pGAS[228] //
+		{0x0F12, 0x0027},	//TVAR_ash_pGAS[229] //
+		{0x0F12, 0x004E},	//TVAR_ash_pGAS[230] //
+		{0x0F12, 0x0088},	//TVAR_ash_pGAS[231] //
+		{0x0F12, 0x00D5},	//TVAR_ash_pGAS[232] //
+		{0x0F12, 0x011C},	//TVAR_ash_pGAS[233] //
+		{0x0F12, 0x012D},	//TVAR_ash_pGAS[234] //
+		{0x0F12, 0x00E0},	//TVAR_ash_pGAS[235] //
+		{0x0F12, 0x0097},	//TVAR_ash_pGAS[236] //
+		{0x0F12, 0x005F},	//TVAR_ash_pGAS[237] //
+		{0x0F12, 0x0038},	//TVAR_ash_pGAS[238] //
+		{0x0F12, 0x0021},	//TVAR_ash_pGAS[239] //
+		{0x0F12, 0x001C},	//TVAR_ash_pGAS[240] //
+		{0x0F12, 0x0026},	//TVAR_ash_pGAS[241] //
+		{0x0F12, 0x003D},	//TVAR_ash_pGAS[242] //
+		{0x0F12, 0x0068},	//TVAR_ash_pGAS[243] //
+		{0x0F12, 0x00A3},	//TVAR_ash_pGAS[244] //
+		{0x0F12, 0x00EE},	//TVAR_ash_pGAS[245] //
+		{0x0F12, 0x0138},	//TVAR_ash_pGAS[246] //
+		{0x0F12, 0x0151},	//TVAR_ash_pGAS[247] //
+		{0x0F12, 0x0102},	//TVAR_ash_pGAS[248] //
+		{0x0F12, 0x00BC},	//TVAR_ash_pGAS[249] //
+		{0x0F12, 0x0083},	//TVAR_ash_pGAS[250] //
+		{0x0F12, 0x005C},	//TVAR_ash_pGAS[251] //
+		{0x0F12, 0x0046},	//TVAR_ash_pGAS[252] //
+		{0x0F12, 0x0041},	//TVAR_ash_pGAS[253] //
+		{0x0F12, 0x004B},	//TVAR_ash_pGAS[254] //
+		{0x0F12, 0x0066},	//TVAR_ash_pGAS[255] //
+		{0x0F12, 0x0092},	//TVAR_ash_pGAS[256] //
+		{0x0F12, 0x00CD},	//TVAR_ash_pGAS[257] //
+		{0x0F12, 0x0115},	//TVAR_ash_pGAS[258] //
+		{0x0F12, 0x015F},	//TVAR_ash_pGAS[259] //
+		{0x0F12, 0x018A},	//TVAR_ash_pGAS[260] //
+		{0x0F12, 0x0133},	//TVAR_ash_pGAS[261] //
+		{0x0F12, 0x00F0},	//TVAR_ash_pGAS[262] //
+		{0x0F12, 0x00BB},	//TVAR_ash_pGAS[263] //
+		{0x0F12, 0x0097},	//TVAR_ash_pGAS[264] //
+		{0x0F12, 0x007F},	//TVAR_ash_pGAS[265] //
+		{0x0F12, 0x0079},	//TVAR_ash_pGAS[266] //
+		{0x0F12, 0x0084},	//TVAR_ash_pGAS[267] //
+		{0x0F12, 0x00A1},	//TVAR_ash_pGAS[268] //
+		{0x0F12, 0x00CD},	//TVAR_ash_pGAS[269] //
+		{0x0F12, 0x0105},	//TVAR_ash_pGAS[270] //
+		{0x0F12, 0x014C},	//TVAR_ash_pGAS[271] //
+		{0x0F12, 0x01A0},	//TVAR_ash_pGAS[272] //
+		{0x0F12, 0x01D5},	//TVAR_ash_pGAS[273] //
+		{0x0F12, 0x0171},	//TVAR_ash_pGAS[274] //
+		{0x0F12, 0x012D},	//TVAR_ash_pGAS[275] //
+		{0x0F12, 0x00FE},	//TVAR_ash_pGAS[276] //
+		{0x0F12, 0x00D9},	//TVAR_ash_pGAS[277] //
+		{0x0F12, 0x00C2},	//TVAR_ash_pGAS[278] //
+		{0x0F12, 0x00BD},	//TVAR_ash_pGAS[279] //
+		{0x0F12, 0x00C9},	//TVAR_ash_pGAS[280] //
+		{0x0F12, 0x00E5},	//TVAR_ash_pGAS[281] //
+		{0x0F12, 0x0111},	//TVAR_ash_pGAS[282] //
+		{0x0F12, 0x0146},	//TVAR_ash_pGAS[283] //
+		{0x0F12, 0x018E},	//TVAR_ash_pGAS[284] //
+		{0x0F12, 0x01EE},	//TVAR_ash_pGAS[285] //
+		{0x0F12, 0x01CF},	//TVAR_ash_pGAS[286] //
+		{0x0F12, 0x0162},	//TVAR_ash_pGAS[287] //
+		{0x0F12, 0x011E},	//TVAR_ash_pGAS[288] //
+		{0x0F12, 0x00F1},	//TVAR_ash_pGAS[289] //
+		{0x0F12, 0x00CF},	//TVAR_ash_pGAS[290] //
+		{0x0F12, 0x00B9},	//TVAR_ash_pGAS[291] //
+		{0x0F12, 0x00B0},	//TVAR_ash_pGAS[292] //
+		{0x0F12, 0x00BB},	//TVAR_ash_pGAS[293] //
+		{0x0F12, 0x00D6},	//TVAR_ash_pGAS[294] //
+		{0x0F12, 0x00F9},	//TVAR_ash_pGAS[295] //
+		{0x0F12, 0x0128},	//TVAR_ash_pGAS[296] //
+		{0x0F12, 0x016F},	//TVAR_ash_pGAS[297] //
+		{0x0F12, 0x01D3},	//TVAR_ash_pGAS[298] //
+		{0x0F12, 0x017B},	//TVAR_ash_pGAS[299] //
+		{0x0F12, 0x0127},	//TVAR_ash_pGAS[300] //
+		{0x0F12, 0x00E9},	//TVAR_ash_pGAS[301] //
+		{0x0F12, 0x00B7},	//TVAR_ash_pGAS[302] //
+		{0x0F12, 0x0091},	//TVAR_ash_pGAS[303] //
+		{0x0F12, 0x007B},	//TVAR_ash_pGAS[304] //
+		{0x0F12, 0x0074},	//TVAR_ash_pGAS[305] //
+		{0x0F12, 0x007F},	//TVAR_ash_pGAS[306] //
+		{0x0F12, 0x0099},	//TVAR_ash_pGAS[307] //
+		{0x0F12, 0x00C2},	//TVAR_ash_pGAS[308] //
+		{0x0F12, 0x00F6},	//TVAR_ash_pGAS[309] //
+		{0x0F12, 0x0139},	//TVAR_ash_pGAS[310] //
+		{0x0F12, 0x018E},	//TVAR_ash_pGAS[311] //
+		{0x0F12, 0x014A},	//TVAR_ash_pGAS[312] //
+		{0x0F12, 0x00FA},	//TVAR_ash_pGAS[313] //
+		{0x0F12, 0x00B9},	//TVAR_ash_pGAS[314] //
+		{0x0F12, 0x0084},	//TVAR_ash_pGAS[315] //
+		{0x0F12, 0x005D},	//TVAR_ash_pGAS[316] //
+		{0x0F12, 0x0046},	//TVAR_ash_pGAS[317] //
+		{0x0F12, 0x003E},	//TVAR_ash_pGAS[318] //
+		{0x0F12, 0x0049},	//TVAR_ash_pGAS[319] //
+		{0x0F12, 0x0061},	//TVAR_ash_pGAS[320] //
+		{0x0F12, 0x008C},	//TVAR_ash_pGAS[321] //
+		{0x0F12, 0x00C5},	//TVAR_ash_pGAS[322] //
+		{0x0F12, 0x0107},	//TVAR_ash_pGAS[323] //
+		{0x0F12, 0x0155},	//TVAR_ash_pGAS[324] //
+		{0x0F12, 0x0129},	//TVAR_ash_pGAS[325] //
+		{0x0F12, 0x00DA},	//TVAR_ash_pGAS[326] //
+		{0x0F12, 0x0096},	//TVAR_ash_pGAS[327] //
+		{0x0F12, 0x005F},	//TVAR_ash_pGAS[328] //
+		{0x0F12, 0x0037},	//TVAR_ash_pGAS[329] //
+		{0x0F12, 0x0021},	//TVAR_ash_pGAS[330] //
+		{0x0F12, 0x001A},	//TVAR_ash_pGAS[331] //
+		{0x0F12, 0x0023},	//TVAR_ash_pGAS[332] //
+		{0x0F12, 0x003B},	//TVAR_ash_pGAS[333] //
+		{0x0F12, 0x0065},	//TVAR_ash_pGAS[334] //
+		{0x0F12, 0x009F},	//TVAR_ash_pGAS[335] //
+		{0x0F12, 0x00E5},	//TVAR_ash_pGAS[336] //
+		{0x0F12, 0x012F},	//TVAR_ash_pGAS[337] //
+		{0x0F12, 0x0116},	//TVAR_ash_pGAS[338] //
+		{0x0F12, 0x00C7},	//TVAR_ash_pGAS[339] //
+		{0x0F12, 0x0080},	//TVAR_ash_pGAS[340] //
+		{0x0F12, 0x0049},	//TVAR_ash_pGAS[341] //
+		{0x0F12, 0x0022},	//TVAR_ash_pGAS[342] //
+		{0x0F12, 0x000C},	//TVAR_ash_pGAS[343] //
 		{0x0F12, 0x0006},	//TVAR_ash_pGAS[344] //
-		{0x0F12, 0x000A},	//TVAR_ash_pGAS[345] //
-		{0x0F12, 0x0014},	//TVAR_ash_pGAS[346] //
-		{0x0F12, 0x0023},	//TVAR_ash_pGAS[347] //
-		{0x0F12, 0x0038},	//TVAR_ash_pGAS[348] //
-		{0x0F12, 0x0057},	//TVAR_ash_pGAS[349] //
-		{0x0F12, 0x0078},	//TVAR_ash_pGAS[350] //
-		{0x0F12, 0x0083},	//TVAR_ash_pGAS[351] //
-		{0x0F12, 0x0060},	//TVAR_ash_pGAS[352] //
-		{0x0F12, 0x0040},	//TVAR_ash_pGAS[353] //
-		{0x0F12, 0x0025},	//TVAR_ash_pGAS[354] //
-		{0x0F12, 0x0010},	//TVAR_ash_pGAS[355] //
-		{0x0F12, 0x0002},	//TVAR_ash_pGAS[356] //
-		{0x0F12, 0x0001},	//TVAR_ash_pGAS[357] //
-		{0x0F12, 0x0004},	//TVAR_ash_pGAS[358] //
-		{0x0F12, 0x000C},	//TVAR_ash_pGAS[359] //
-		{0x0F12, 0x001D},	//TVAR_ash_pGAS[360] //
-		{0x0F12, 0x0034},	//TVAR_ash_pGAS[361] //
-		{0x0F12, 0x0054},	//TVAR_ash_pGAS[362] //
-		{0x0F12, 0x0075},	//TVAR_ash_pGAS[363] //
-		{0x0F12, 0x008F},	//TVAR_ash_pGAS[364] //
-		{0x0F12, 0x0069},	//TVAR_ash_pGAS[365] //
-		{0x0F12, 0x0046},	//TVAR_ash_pGAS[366] //
-		{0x0F12, 0x0028},	//TVAR_ash_pGAS[367] //
-		{0x0F12, 0x0012},	//TVAR_ash_pGAS[368] //
-		{0x0F12, 0x0003},	//TVAR_ash_pGAS[369] //
-		{0x0F12, 0x0002},	//TVAR_ash_pGAS[370] //
-		{0x0F12, 0x0007},	//TVAR_ash_pGAS[371] //
-		{0x0F12, 0x0010},	//TVAR_ash_pGAS[372] //
-		{0x0F12, 0x0020},	//TVAR_ash_pGAS[373] //
-		{0x0F12, 0x0037},	//TVAR_ash_pGAS[374] //
-		{0x0F12, 0x0058},	//TVAR_ash_pGAS[375] //
-		{0x0F12, 0x007B},	//TVAR_ash_pGAS[376] //
-		{0x0F12, 0x009D},	//TVAR_ash_pGAS[377] //
-		{0x0F12, 0x007A},	//TVAR_ash_pGAS[378] //
-		{0x0F12, 0x0056},	//TVAR_ash_pGAS[379] //
-		{0x0F12, 0x0037},	//TVAR_ash_pGAS[380] //
-		{0x0F12, 0x0025},	//TVAR_ash_pGAS[381] //
-		{0x0F12, 0x0016},	//TVAR_ash_pGAS[382] //
-		{0x0F12, 0x0011},	//TVAR_ash_pGAS[383] //
-		{0x0F12, 0x0012},	//TVAR_ash_pGAS[384] //
-		{0x0F12, 0x001E},	//TVAR_ash_pGAS[385] //
-		{0x0F12, 0x0031},	//TVAR_ash_pGAS[386] //
-		{0x0F12, 0x0048},	//TVAR_ash_pGAS[387] //
-		{0x0F12, 0x0063},	//TVAR_ash_pGAS[388] //
-		{0x0F12, 0x0087},	//TVAR_ash_pGAS[389] //
-		{0x0F12, 0x00B3},	//TVAR_ash_pGAS[390] //
-		{0x0F12, 0x008A},	//TVAR_ash_pGAS[391] //
-		{0x0F12, 0x0067},	//TVAR_ash_pGAS[392] //
-		{0x0F12, 0x0054},	//TVAR_ash_pGAS[393] //
-		{0x0F12, 0x0043},	//TVAR_ash_pGAS[394] //
-		{0x0F12, 0x0032},	//TVAR_ash_pGAS[395] //
-		{0x0F12, 0x002E},	//TVAR_ash_pGAS[396] //
-		{0x0F12, 0x0030},	//TVAR_ash_pGAS[397] //
-		{0x0F12, 0x0039},	//TVAR_ash_pGAS[398] //
-		{0x0F12, 0x004A},	//TVAR_ash_pGAS[399] //
-		{0x0F12, 0x0061},	//TVAR_ash_pGAS[400] //
-		{0x0F12, 0x0079},	//TVAR_ash_pGAS[401] //
-		{0x0F12, 0x009F},	//TVAR_ash_pGAS[402] //
-		{0x0F12, 0x00D2},	//TVAR_ash_pGAS[403] //
-		{0x0F12, 0x00A9},	//TVAR_ash_pGAS[404] //
-		{0x0F12, 0x008D},	//TVAR_ash_pGAS[405] //
-		{0x0F12, 0x007C},	//TVAR_ash_pGAS[406] //
-		{0x0F12, 0x006A},	//TVAR_ash_pGAS[407] //
-		{0x0F12, 0x005B},	//TVAR_ash_pGAS[408] //
-		{0x0F12, 0x0059},	//TVAR_ash_pGAS[409] //
-		{0x0F12, 0x0057},	//TVAR_ash_pGAS[410] //
-		{0x0F12, 0x005F},	//TVAR_ash_pGAS[411] //
-		{0x0F12, 0x006B},	//TVAR_ash_pGAS[412] //
-		{0x0F12, 0x007D},	//TVAR_ash_pGAS[413] //
-		{0x0F12, 0x0099},	//TVAR_ash_pGAS[414] //
-		{0x0F12, 0x00C0},	//TVAR_ash_pGAS[415] //
-		{0x0F12, 0x00F3},	//TVAR_ash_pGAS[416] //
-		{0x0F12, 0x00D2},	//TVAR_ash_pGAS[417] //
-		{0x0F12, 0x00BC},	//TVAR_ash_pGAS[418] //
-		{0x0F12, 0x00A8},	//TVAR_ash_pGAS[419] //
-		{0x0F12, 0x0094},	//TVAR_ash_pGAS[420] //
-		{0x0F12, 0x008A},	//TVAR_ash_pGAS[421] //
-		{0x0F12, 0x0089},	//TVAR_ash_pGAS[422] //
-		{0x0F12, 0x0087},	//TVAR_ash_pGAS[423] //
-		{0x0F12, 0x008A},	//TVAR_ash_pGAS[424] //
-		{0x0F12, 0x0093},	//TVAR_ash_pGAS[425] //
-		{0x0F12, 0x00A3},	//TVAR_ash_pGAS[426] //
-		{0x0F12, 0x00C3},	//TVAR_ash_pGAS[427] //
-		{0x0F12, 0x00EE},	//TVAR_ash_pGAS[428] //
-		{0x0F12, 0x00C3},	//TVAR_ash_pGAS[429] //
-		{0x0F12, 0x00A1},	//TVAR_ash_pGAS[430] //
-		{0x0F12, 0x008A},	//TVAR_ash_pGAS[431] //
-		{0x0F12, 0x0083},	//TVAR_ash_pGAS[432] //
-		{0x0F12, 0x0075},	//TVAR_ash_pGAS[433] //
-		{0x0F12, 0x006D},	//TVAR_ash_pGAS[434] //
-		{0x0F12, 0x006F},	//TVAR_ash_pGAS[435] //
-		{0x0F12, 0x0077},	//TVAR_ash_pGAS[436] //
-		{0x0F12, 0x0079},	//TVAR_ash_pGAS[437] //
-		{0x0F12, 0x007D},	//TVAR_ash_pGAS[438] //
-		{0x0F12, 0x0085},	//TVAR_ash_pGAS[439] //
-		{0x0F12, 0x0097},	//TVAR_ash_pGAS[440] //
-		{0x0F12, 0x00B1},	//TVAR_ash_pGAS[441] //
-		{0x0F12, 0x009E},	//TVAR_ash_pGAS[442] //
-		{0x0F12, 0x0087},	//TVAR_ash_pGAS[443] //
-		{0x0F12, 0x006C},	//TVAR_ash_pGAS[444] //
-		{0x0F12, 0x005D},	//TVAR_ash_pGAS[445] //
-		{0x0F12, 0x0050},	//TVAR_ash_pGAS[446] //
-		{0x0F12, 0x004B},	//TVAR_ash_pGAS[447] //
-		{0x0F12, 0x004C},	//TVAR_ash_pGAS[448] //
-		{0x0F12, 0x004D},	//TVAR_ash_pGAS[449] //
-		{0x0F12, 0x0050},	//TVAR_ash_pGAS[450] //
-		{0x0F12, 0x0057},	//TVAR_ash_pGAS[451] //
-		{0x0F12, 0x0063},	//TVAR_ash_pGAS[452] //
-		{0x0F12, 0x0078},	//TVAR_ash_pGAS[453] //
-		{0x0F12, 0x008F},	//TVAR_ash_pGAS[454] //
-		{0x0F12, 0x0077},	//TVAR_ash_pGAS[455] //
-		{0x0F12, 0x006C},	//TVAR_ash_pGAS[456] //
-		{0x0F12, 0x004F},	//TVAR_ash_pGAS[457] //
-		{0x0F12, 0x003C},	//TVAR_ash_pGAS[458] //
-		{0x0F12, 0x0031},	//TVAR_ash_pGAS[459] //
-		{0x0F12, 0x002D},	//TVAR_ash_pGAS[460] //
-		{0x0F12, 0x0029},	//TVAR_ash_pGAS[461] //
-		{0x0F12, 0x0028},	//TVAR_ash_pGAS[462] //
-		{0x0F12, 0x002C},	//TVAR_ash_pGAS[463] //
-		{0x0F12, 0x0038},	//TVAR_ash_pGAS[464] //
-		{0x0F12, 0x0046},	//TVAR_ash_pGAS[465] //
-		{0x0F12, 0x0055},	//TVAR_ash_pGAS[466] //
-		{0x0F12, 0x006C},	//TVAR_ash_pGAS[467] //
-		{0x0F12, 0x006C},	//TVAR_ash_pGAS[468] //
-		{0x0F12, 0x0058},	//TVAR_ash_pGAS[469] //
-		{0x0F12, 0x0040},	//TVAR_ash_pGAS[470] //
-		{0x0F12, 0x002D},	//TVAR_ash_pGAS[471] //
-		{0x0F12, 0x001C},	//TVAR_ash_pGAS[472] //
-		{0x0F12, 0x0014},	//TVAR_ash_pGAS[473] //
-		{0x0F12, 0x0012},	//TVAR_ash_pGAS[474] //
-		{0x0F12, 0x000E},	//TVAR_ash_pGAS[475] //
-		{0x0F12, 0x000E},	//TVAR_ash_pGAS[476] //
-		{0x0F12, 0x001A},	//TVAR_ash_pGAS[477] //
-		{0x0F12, 0x002A},	//TVAR_ash_pGAS[478] //
-		{0x0F12, 0x0042},	//TVAR_ash_pGAS[479] //
-		{0x0F12, 0x005B},	//TVAR_ash_pGAS[480] //
-		{0x0F12, 0x005E},	//TVAR_ash_pGAS[481] //
-		{0x0F12, 0x0047},	//TVAR_ash_pGAS[482] //
-		{0x0F12, 0x0030},	//TVAR_ash_pGAS[483] // 																	   
-		{0x0F12, 0x001D},	//TVAR_ash_pGAS[484] // 																	   
-		{0x0F12, 0x0010},	//TVAR_ash_pGAS[485] // 																	   
-		{0x0F12, 0x0007},	//TVAR_ash_pGAS[486] // 																	   
-		{0x0F12, 0x0004},	//TVAR_ash_pGAS[487] // 																	   
-		{0x0F12, 0x0005},	//TVAR_ash_pGAS[488] // 																	   
-		{0x0F12, 0x0007},	//TVAR_ash_pGAS[489] // 																	   
-		{0x0F12, 0x000D},	//TVAR_ash_pGAS[490] // 																	   
-		{0x0F12, 0x001A},	//TVAR_ash_pGAS[491] // 																	   
-		{0x0F12, 0x0032},	//TVAR_ash_pGAS[492] // 																	   
-		{0x0F12, 0x0047},	//TVAR_ash_pGAS[493] // 																	   
-		{0x0F12, 0x005F},	//TVAR_ash_pGAS[494] // 																	   
-		{0x0F12, 0x0047},	//TVAR_ash_pGAS[495] // 																	   
-		{0x0F12, 0x002F},	//TVAR_ash_pGAS[496] // 																	   
-		{0x0F12, 0x001C},	//TVAR_ash_pGAS[497] // 																	   
-		{0x0F12, 0x000C},	//TVAR_ash_pGAS[498] // 																	   
-		{0x0F12, 0x0002},	//TVAR_ash_pGAS[499] // 																	   
-		{0x0F12, 0x0001},	//TVAR_ash_pGAS[500] // 																	   
-		{0x0F12, 0x0000},	//TVAR_ash_pGAS[501] // 																	   
-		{0x0F12, 0x0001},	//TVAR_ash_pGAS[502] // 																	   
-		{0x0F12, 0x0008},	//TVAR_ash_pGAS[503] // 																	   
-		{0x0F12, 0x0018},	//TVAR_ash_pGAS[504] // 																	   
-		{0x0F12, 0x0031},	//TVAR_ash_pGAS[505] // 																	   
-		{0x0F12, 0x0049},	//TVAR_ash_pGAS[506] // 																	   
-		{0x0F12, 0x006A},	//TVAR_ash_pGAS[507] // 																	   
-		{0x0F12, 0x0051},	//TVAR_ash_pGAS[508] // 																	   
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[509] // 																	   
-		{0x0F12, 0x001F},	//TVAR_ash_pGAS[510] // 																	   
-		{0x0F12, 0x000F},	//TVAR_ash_pGAS[511] // 																	   
-		{0x0F12, 0x0004},	//TVAR_ash_pGAS[512] // 																	   
-		{0x0F12, 0x0003},	//TVAR_ash_pGAS[513] // 																	   
-		{0x0F12, 0x0006},	//TVAR_ash_pGAS[514] // 																	   
-		{0x0F12, 0x0007},	//TVAR_ash_pGAS[515] // 																	   
-		{0x0F12, 0x000E},	//TVAR_ash_pGAS[516] // 																	   
-		{0x0F12, 0x001E},	//TVAR_ash_pGAS[517] // 																	   
-		{0x0F12, 0x0038},	//TVAR_ash_pGAS[518] // 																	   
-		{0x0F12, 0x004D},	//TVAR_ash_pGAS[519] // 																	   
-		{0x0F12, 0x0079},	//TVAR_ash_pGAS[520] // 																	   
-		{0x0F12, 0x0063},	//TVAR_ash_pGAS[521] // 																	   
-		{0x0F12, 0x0046},	//TVAR_ash_pGAS[522] // 																	   
-		{0x0F12, 0x002D},	//TVAR_ash_pGAS[523] // 																	   
-		{0x0F12, 0x0020},	//TVAR_ash_pGAS[524] // 																	   
-		{0x0F12, 0x0014},	//TVAR_ash_pGAS[525] // 																	   
-		{0x0F12, 0x0010},	//TVAR_ash_pGAS[526] // 																	   
-		{0x0F12, 0x000E},	//TVAR_ash_pGAS[527] // 																	   
-		{0x0F12, 0x0015},	//TVAR_ash_pGAS[528] // 																	   
-		{0x0F12, 0x0020},	//TVAR_ash_pGAS[529] // 																	   
-		{0x0F12, 0x002E},	//TVAR_ash_pGAS[530] // 																	   
-		{0x0F12, 0x0041},	//TVAR_ash_pGAS[531] // 																	   
-		{0x0F12, 0x005A},	//TVAR_ash_pGAS[532] // 																	   
-		{0x0F12, 0x008F},	//TVAR_ash_pGAS[533] // 																	   
-		{0x0F12, 0x0072},	//TVAR_ash_pGAS[534] // 																	   
-		{0x0F12, 0x0052},	//TVAR_ash_pGAS[535] // 																	   
-		{0x0F12, 0x0047},	//TVAR_ash_pGAS[536] // 																	   
-		{0x0F12, 0x003B},	//TVAR_ash_pGAS[537] // 																	   
-		{0x0F12, 0x002E},	//TVAR_ash_pGAS[538] // 																	   
-		{0x0F12, 0x0029},	//TVAR_ash_pGAS[539] // 																	   
-		{0x0F12, 0x0029},	//TVAR_ash_pGAS[540] // 																	   
-		{0x0F12, 0x002D},	//TVAR_ash_pGAS[541] // 																	   
-		{0x0F12, 0x0035},	//TVAR_ash_pGAS[542] // 																	   
-		{0x0F12, 0x0044},	//TVAR_ash_pGAS[543] // 																	   
-		{0x0F12, 0x0057},	//TVAR_ash_pGAS[544] // 																	   
-		{0x0F12, 0x0070},	//TVAR_ash_pGAS[545] // 																	   
-		{0x0F12, 0x00AC},	//TVAR_ash_pGAS[546] // 																	   
-		{0x0F12, 0x008B},	//TVAR_ash_pGAS[547] // 																	   
-		{0x0F12, 0x0073},	//TVAR_ash_pGAS[548] // 																	   
-		{0x0F12, 0x006A},	//TVAR_ash_pGAS[549] // 																	   
-		{0x0F12, 0x005C},	//TVAR_ash_pGAS[550] // 																	   
-		{0x0F12, 0x0051},	//TVAR_ash_pGAS[551] // 																	   
-		{0x0F12, 0x004B},	//TVAR_ash_pGAS[552] // 																	   
-		{0x0F12, 0x004B},	//TVAR_ash_pGAS[553] // 																	   
-		{0x0F12, 0x004D},	//TVAR_ash_pGAS[554] // 																	   
-		{0x0F12, 0x0052},	//TVAR_ash_pGAS[555] // 																	   
-		{0x0F12, 0x005F},	//TVAR_ash_pGAS[556] // 																	   
-		{0x0F12, 0x0073},	//TVAR_ash_pGAS[557] // 																	   
-		{0x0F12, 0x008E},	//TVAR_ash_pGAS[558] // 																	   
-		{0x0F12, 0x00C0},	//TVAR_ash_pGAS[559] // 																	   
-		{0x0F12, 0x00B0},	//TVAR_ash_pGAS[560] // 																	   
-		{0x0F12, 0x009E},	//TVAR_ash_pGAS[561] // 																	   
-		{0x0F12, 0x0091},	//TVAR_ash_pGAS[562] // 																	   
-		{0x0F12, 0x007F},	//TVAR_ash_pGAS[563] // 																	   
-		{0x0F12, 0x0077},	//TVAR_ash_pGAS[564] // 																	   
-		{0x0F12, 0x0074},	//TVAR_ash_pGAS[565] // 																	   
-		{0x0F12, 0x0072},	//TVAR_ash_pGAS[566] // 																	   
-		{0x0F12, 0x006F},	//TVAR_ash_pGAS[567] // 																	   
-		{0x0F12, 0x0072},	//TVAR_ash_pGAS[568] // 																	   
-		{0x0F12, 0x007C},	//TVAR_ash_pGAS[569] // 																	   
-		{0x0F12, 0x0098},	//TVAR_ash_pGAS[570] // 																	   
-		{0x0F12, 0x00B7},	//TVAR_ash_pGAS[571] // 																	   
+		{0x0F12, 0x000E},	//TVAR_ash_pGAS[345] //
+		{0x0F12, 0x0026},	//TVAR_ash_pGAS[346] //
+		{0x0F12, 0x004E},	//TVAR_ash_pGAS[347] //
+		{0x0F12, 0x0086},	//TVAR_ash_pGAS[348] //
+		{0x0F12, 0x00CF},	//TVAR_ash_pGAS[349] //
+		{0x0F12, 0x011C},	//TVAR_ash_pGAS[350] //
+		{0x0F12, 0x0113},	//TVAR_ash_pGAS[351] //
+		{0x0F12, 0x00C4},	//TVAR_ash_pGAS[352] //
+		{0x0F12, 0x007A},	//TVAR_ash_pGAS[353] //
+		{0x0F12, 0x0042},	//TVAR_ash_pGAS[354] //
+		{0x0F12, 0x001D},	//TVAR_ash_pGAS[355] //
+		{0x0F12, 0x0007},	//TVAR_ash_pGAS[356] //
+		{0x0F12, 0x0000},	//TVAR_ash_pGAS[357] //
+		{0x0F12, 0x0008},	//TVAR_ash_pGAS[358] //
+		{0x0F12, 0x001F},	//TVAR_ash_pGAS[359] //
+		{0x0F12, 0x0045},	//TVAR_ash_pGAS[360] //
+		{0x0F12, 0x007F},	//TVAR_ash_pGAS[361] //
+		{0x0F12, 0x00C9},	//TVAR_ash_pGAS[362] //
+		{0x0F12, 0x0112},	//TVAR_ash_pGAS[363] //
+		{0x0F12, 0x011C},	//TVAR_ash_pGAS[364] //
+		{0x0F12, 0x00CF},	//TVAR_ash_pGAS[365] //
+		{0x0F12, 0x0086},	//TVAR_ash_pGAS[366] //
+		{0x0F12, 0x004C},	//TVAR_ash_pGAS[367] //
+		{0x0F12, 0x0025},	//TVAR_ash_pGAS[368] //
+		{0x0F12, 0x000F},	//TVAR_ash_pGAS[369] //
+		{0x0F12, 0x0007},	//TVAR_ash_pGAS[370] //
+		{0x0F12, 0x000E},	//TVAR_ash_pGAS[371] //
+		{0x0F12, 0x0025},	//TVAR_ash_pGAS[372] //
+		{0x0F12, 0x004B},	//TVAR_ash_pGAS[373] //
+		{0x0F12, 0x0084},	//TVAR_ash_pGAS[374] //
+		{0x0F12, 0x00CD},	//TVAR_ash_pGAS[375] //
+		{0x0F12, 0x0115},	//TVAR_ash_pGAS[376] //
+		{0x0F12, 0x0134},	//TVAR_ash_pGAS[377] //
+		{0x0F12, 0x00E7},	//TVAR_ash_pGAS[378] //
+		{0x0F12, 0x009E},	//TVAR_ash_pGAS[379] //
+		{0x0F12, 0x0065},	//TVAR_ash_pGAS[380] //
+		{0x0F12, 0x003C},	//TVAR_ash_pGAS[381] //
+		{0x0F12, 0x0024},	//TVAR_ash_pGAS[382] //
+		{0x0F12, 0x001B},	//TVAR_ash_pGAS[383] //
+		{0x0F12, 0x0022},	//TVAR_ash_pGAS[384] //
+		{0x0F12, 0x0039},	//TVAR_ash_pGAS[385] //
+		{0x0F12, 0x0062},	//TVAR_ash_pGAS[386] //
+		{0x0F12, 0x0099},	//TVAR_ash_pGAS[387] //
+		{0x0F12, 0x00DF},	//TVAR_ash_pGAS[388] //
+		{0x0F12, 0x0126},	//TVAR_ash_pGAS[389] //
+		{0x0F12, 0x0157},	//TVAR_ash_pGAS[390] //
+		{0x0F12, 0x010C},	//TVAR_ash_pGAS[391] //
+		{0x0F12, 0x00C6},	//TVAR_ash_pGAS[392] //
+		{0x0F12, 0x008D},	//TVAR_ash_pGAS[393] //
+		{0x0F12, 0x0063},	//TVAR_ash_pGAS[394] //
+		{0x0F12, 0x0049},	//TVAR_ash_pGAS[395] //
+		{0x0F12, 0x0041},	//TVAR_ash_pGAS[396] //
+		{0x0F12, 0x0047},	//TVAR_ash_pGAS[397] //
+		{0x0F12, 0x005F},	//TVAR_ash_pGAS[398] //
+		{0x0F12, 0x0087},	//TVAR_ash_pGAS[399] //
+		{0x0F12, 0x00BF},	//TVAR_ash_pGAS[400] //
+		{0x0F12, 0x0100},	//TVAR_ash_pGAS[401] //
+		{0x0F12, 0x0149},	//TVAR_ash_pGAS[402] //
+		{0x0F12, 0x0194},	//TVAR_ash_pGAS[403] //
+		{0x0F12, 0x0140},	//TVAR_ash_pGAS[404] //
+		{0x0F12, 0x00FF},	//TVAR_ash_pGAS[405] //
+		{0x0F12, 0x00CA},	//TVAR_ash_pGAS[406] //
+		{0x0F12, 0x00A0},	//TVAR_ash_pGAS[407] //
+		{0x0F12, 0x0083},	//TVAR_ash_pGAS[408] //
+		{0x0F12, 0x007B},	//TVAR_ash_pGAS[409] //
+		{0x0F12, 0x007F},	//TVAR_ash_pGAS[410] //
+		{0x0F12, 0x0097},	//TVAR_ash_pGAS[411] //
+		{0x0F12, 0x00BE},	//TVAR_ash_pGAS[412] //
+		{0x0F12, 0x00F2},	//TVAR_ash_pGAS[413] //
+		{0x0F12, 0x0131},	//TVAR_ash_pGAS[414] //
+		{0x0F12, 0x0181},	//TVAR_ash_pGAS[415] //
+		{0x0F12, 0x01E4},	//TVAR_ash_pGAS[416] //
+		{0x0F12, 0x017E},	//TVAR_ash_pGAS[417] //
+		{0x0F12, 0x013B},	//TVAR_ash_pGAS[418] //
+		{0x0F12, 0x010C},	//TVAR_ash_pGAS[419] //
+		{0x0F12, 0x00E5},	//TVAR_ash_pGAS[420] //
+		{0x0F12, 0x00CA},	//TVAR_ash_pGAS[421] //
+		{0x0F12, 0x00BF},	//TVAR_ash_pGAS[422] //
+		{0x0F12, 0x00C4},	//TVAR_ash_pGAS[423] //
+		{0x0F12, 0x00D8},	//TVAR_ash_pGAS[424] //
+		{0x0F12, 0x00FE},	//TVAR_ash_pGAS[425] //
+		{0x0F12, 0x012D},	//TVAR_ash_pGAS[426] //
+		{0x0F12, 0x016E},	//TVAR_ash_pGAS[427] //
+		{0x0F12, 0x01CC},	//TVAR_ash_pGAS[428] //
+		{0x0F12, 0x0194},	//TVAR_ash_pGAS[429] //
+		{0x0F12, 0x0138},	//TVAR_ash_pGAS[430] //
+		{0x0F12, 0x00FA},	//TVAR_ash_pGAS[431] //
+		{0x0F12, 0x00D2},	//TVAR_ash_pGAS[432] //
+		{0x0F12, 0x00B5},	//TVAR_ash_pGAS[433] //
+		{0x0F12, 0x00A4},	//TVAR_ash_pGAS[434] //
+		{0x0F12, 0x009E},	//TVAR_ash_pGAS[435] //
+		{0x0F12, 0x00A7},	//TVAR_ash_pGAS[436] //
+		{0x0F12, 0x00BC},	//TVAR_ash_pGAS[437] //
+		{0x0F12, 0x00DC},	//TVAR_ash_pGAS[438] //
+		{0x0F12, 0x0106},	//TVAR_ash_pGAS[439] //
+		{0x0F12, 0x0147},	//TVAR_ash_pGAS[440] //
+		{0x0F12, 0x0199},	//TVAR_ash_pGAS[441] //
+		{0x0F12, 0x0145},	//TVAR_ash_pGAS[442] //
+		{0x0F12, 0x0101},	//TVAR_ash_pGAS[443] //
+		{0x0F12, 0x00CA},	//TVAR_ash_pGAS[444] //
+		{0x0F12, 0x00A0},	//TVAR_ash_pGAS[445] //
+		{0x0F12, 0x0081},	//TVAR_ash_pGAS[446] //
+		{0x0F12, 0x006D},	//TVAR_ash_pGAS[447] //
+		{0x0F12, 0x0069},	//TVAR_ash_pGAS[448] //
+		{0x0F12, 0x0072},	//TVAR_ash_pGAS[449] //
+		{0x0F12, 0x0089},	//TVAR_ash_pGAS[450] //
+		{0x0F12, 0x00AD},	//TVAR_ash_pGAS[451] //
+		{0x0F12, 0x00DA},	//TVAR_ash_pGAS[452] //
+		{0x0F12, 0x0117},	//TVAR_ash_pGAS[453] //
+		{0x0F12, 0x0160},	//TVAR_ash_pGAS[454] //
+		{0x0F12, 0x0117},	//TVAR_ash_pGAS[455] //
+		{0x0F12, 0x00D7},	//TVAR_ash_pGAS[456] //
+		{0x0F12, 0x009D},	//TVAR_ash_pGAS[457] //
+		{0x0F12, 0x0070},	//TVAR_ash_pGAS[458] //
+		{0x0F12, 0x0050},	//TVAR_ash_pGAS[459] //
+		{0x0F12, 0x003F},	//TVAR_ash_pGAS[460] //
+		{0x0F12, 0x0038},	//TVAR_ash_pGAS[461] //
+		{0x0F12, 0x0041},	//TVAR_ash_pGAS[462] //
+		{0x0F12, 0x0057},	//TVAR_ash_pGAS[463] //
+		{0x0F12, 0x0079},	//TVAR_ash_pGAS[464] //
+		{0x0F12, 0x00AD},	//TVAR_ash_pGAS[465] //
+		{0x0F12, 0x00EA},	//TVAR_ash_pGAS[466] //
+		{0x0F12, 0x0129},	//TVAR_ash_pGAS[467] //
+		{0x0F12, 0x00F4},	//TVAR_ash_pGAS[468] //
+		{0x0F12, 0x00B7},	//TVAR_ash_pGAS[469] //
+		{0x0F12, 0x007C},	//TVAR_ash_pGAS[470] //
+		{0x0F12, 0x004E},	//TVAR_ash_pGAS[471] //
+		{0x0F12, 0x002F},	//TVAR_ash_pGAS[472] //
+		{0x0F12, 0x001D},	//TVAR_ash_pGAS[473] //
+		{0x0F12, 0x0018},	//TVAR_ash_pGAS[474] //
+		{0x0F12, 0x001F},	//TVAR_ash_pGAS[475] //
+		{0x0F12, 0x0033},	//TVAR_ash_pGAS[476] //
+		{0x0F12, 0x0056},	//TVAR_ash_pGAS[477] //
+		{0x0F12, 0x0088},	//TVAR_ash_pGAS[478] //
+		{0x0F12, 0x00C6},	//TVAR_ash_pGAS[479] //
+		{0x0F12, 0x0104},	//TVAR_ash_pGAS[480] //
+		{0x0F12, 0x00E2},	//TVAR_ash_pGAS[481] //
+		{0x0F12, 0x00A5},	//TVAR_ash_pGAS[482] //
+		{0x0F12, 0x0066},	//TVAR_ash_pGAS[483] // 																	   
+		{0x0F12, 0x0038},	//TVAR_ash_pGAS[484] // 																	   
+		{0x0F12, 0x001A},	//TVAR_ash_pGAS[485] // 																	   
+		{0x0F12, 0x0009},	//TVAR_ash_pGAS[486] // 																	   
+		{0x0F12, 0x0006},	//TVAR_ash_pGAS[487] // 																	   
+		{0x0F12, 0x000C},	//TVAR_ash_pGAS[488] // 																	   
+		{0x0F12, 0x001E},	//TVAR_ash_pGAS[489] // 																	   
+		{0x0F12, 0x003F},	//TVAR_ash_pGAS[490] // 																	   
+		{0x0F12, 0x006F},	//TVAR_ash_pGAS[491] // 																	   
+		{0x0F12, 0x00B2},	//TVAR_ash_pGAS[492] // 																	   
+		{0x0F12, 0x00EE},	//TVAR_ash_pGAS[493] // 																	   
+		{0x0F12, 0x00DD},	//TVAR_ash_pGAS[494] // 																	   
+		{0x0F12, 0x009E},	//TVAR_ash_pGAS[495] // 																	   
+		{0x0F12, 0x0060},	//TVAR_ash_pGAS[496] // 																	   
+		{0x0F12, 0x0030},	//TVAR_ash_pGAS[497] // 																	   
+		{0x0F12, 0x0013},	//TVAR_ash_pGAS[498] // 																	   
+		{0x0F12, 0x0004},	//TVAR_ash_pGAS[499] // 																	   
+		{0x0F12, 0x0000},	//TVAR_ash_pGAS[500] // 																	   
+		{0x0F12, 0x0005},	//TVAR_ash_pGAS[501] // 																	   
+		{0x0F12, 0x0017},	//TVAR_ash_pGAS[502] // 																	   
+		{0x0F12, 0x0036},	//TVAR_ash_pGAS[503] // 																	   
+		{0x0F12, 0x0066},	//TVAR_ash_pGAS[504] // 																	   
+		{0x0F12, 0x00A7},	//TVAR_ash_pGAS[505] // 																	   
+		{0x0F12, 0x00E4},	//TVAR_ash_pGAS[506] // 																	   
+		{0x0F12, 0x00E5},	//TVAR_ash_pGAS[507] // 																	   
+		{0x0F12, 0x00A6},	//TVAR_ash_pGAS[508] // 																	   
+		{0x0F12, 0x0067},	//TVAR_ash_pGAS[509] // 																	   
+		{0x0F12, 0x0039},	//TVAR_ash_pGAS[510] // 																	   
+		{0x0F12, 0x001B},	//TVAR_ash_pGAS[511] // 																	   
+		{0x0F12, 0x000B},	//TVAR_ash_pGAS[512] // 																	   
+		{0x0F12, 0x0006},	//TVAR_ash_pGAS[513] // 																	   
+		{0x0F12, 0x000B},	//TVAR_ash_pGAS[514] // 																	   
+		{0x0F12, 0x001C},	//TVAR_ash_pGAS[515] // 																	   
+		{0x0F12, 0x003B},	//TVAR_ash_pGAS[516] // 																	   
+		{0x0F12, 0x006B},	//TVAR_ash_pGAS[517] // 																	   
+		{0x0F12, 0x00AC},	//TVAR_ash_pGAS[518] // 																	   
+		{0x0F12, 0x00E6},	//TVAR_ash_pGAS[519] // 																	   
+		{0x0F12, 0x00F9},	//TVAR_ash_pGAS[520] // 																	   
+		{0x0F12, 0x00BC},	//TVAR_ash_pGAS[521] // 																	   
+		{0x0F12, 0x007E},	//TVAR_ash_pGAS[522] // 																	   
+		{0x0F12, 0x0051},	//TVAR_ash_pGAS[523] // 																	   
+		{0x0F12, 0x0030},	//TVAR_ash_pGAS[524] // 																	   
+		{0x0F12, 0x001E},	//TVAR_ash_pGAS[525] // 																	   
+		{0x0F12, 0x0018},	//TVAR_ash_pGAS[526] // 																	   
+		{0x0F12, 0x001E},	//TVAR_ash_pGAS[527] // 																	   
+		{0x0F12, 0x002F},	//TVAR_ash_pGAS[528] // 																	   
+		{0x0F12, 0x0050},	//TVAR_ash_pGAS[529] // 																	   
+		{0x0F12, 0x007E},	//TVAR_ash_pGAS[530] // 																	   
+		{0x0F12, 0x00BD},	//TVAR_ash_pGAS[531] // 																	   
+		{0x0F12, 0x00F7},	//TVAR_ash_pGAS[532] // 																	   
+		{0x0F12, 0x011A},	//TVAR_ash_pGAS[533] // 																	   
+		{0x0F12, 0x00DF},	//TVAR_ash_pGAS[534] // 																	   
+		{0x0F12, 0x00A5},	//TVAR_ash_pGAS[535] // 																	   
+		{0x0F12, 0x0076},	//TVAR_ash_pGAS[536] // 																	   
+		{0x0F12, 0x0054},	//TVAR_ash_pGAS[537] // 																	   
+		{0x0F12, 0x0041},	//TVAR_ash_pGAS[538] // 																	   
+		{0x0F12, 0x003A},	//TVAR_ash_pGAS[539] // 																	   
+		{0x0F12, 0x003E},	//TVAR_ash_pGAS[540] // 																	   
+		{0x0F12, 0x0051},	//TVAR_ash_pGAS[541] // 																	   
+		{0x0F12, 0x0073},	//TVAR_ash_pGAS[542] // 																	   
+		{0x0F12, 0x00A1},	//TVAR_ash_pGAS[543] // 																	   
+		{0x0F12, 0x00DB},	//TVAR_ash_pGAS[544] // 																	   
+		{0x0F12, 0x0115},	//TVAR_ash_pGAS[545] // 																	   
+		{0x0F12, 0x0157},	//TVAR_ash_pGAS[546] // 																	   
+		{0x0F12, 0x0112},	//TVAR_ash_pGAS[547] // 																	   
+		{0x0F12, 0x00DA},	//TVAR_ash_pGAS[548] // 																	   
+		{0x0F12, 0x00AE},	//TVAR_ash_pGAS[549] // 																	   
+		{0x0F12, 0x008D},	//TVAR_ash_pGAS[550] // 																	   
+		{0x0F12, 0x0078},	//TVAR_ash_pGAS[551] // 																	   
+		{0x0F12, 0x006F},	//TVAR_ash_pGAS[552] // 																	   
+		{0x0F12, 0x0074},	//TVAR_ash_pGAS[553] // 																	   
+		{0x0F12, 0x0087},	//TVAR_ash_pGAS[554] // 																	   
+		{0x0F12, 0x00A7},	//TVAR_ash_pGAS[555] // 																	   
+		{0x0F12, 0x00D4},	//TVAR_ash_pGAS[556] // 																	   
+		{0x0F12, 0x010E},	//TVAR_ash_pGAS[557] // 																	   
+		{0x0F12, 0x014F},	//TVAR_ash_pGAS[558] // 																	   
+		{0x0F12, 0x0195},	//TVAR_ash_pGAS[559] // 																	   
+		{0x0F12, 0x0147},	//TVAR_ash_pGAS[560] // 																	   
+		{0x0F12, 0x0111},	//TVAR_ash_pGAS[561] // 																	   
+		{0x0F12, 0x00E6},	//TVAR_ash_pGAS[562] // 																	   
+		{0x0F12, 0x00C9},	//TVAR_ash_pGAS[563] // 																	   
+		{0x0F12, 0x00B4},	//TVAR_ash_pGAS[564] // 																	   
+		{0x0F12, 0x00AA},	//TVAR_ash_pGAS[565] // 																	   
+		{0x0F12, 0x00AE},	//TVAR_ash_pGAS[566] // 																	   
+		{0x0F12, 0x00C0},	//TVAR_ash_pGAS[567] // 																	   
+		{0x0F12, 0x00DF},	//TVAR_ash_pGAS[568] // 																	   
+		{0x0F12, 0x0106},	//TVAR_ash_pGAS[569] // 																	   
+		{0x0F12, 0x0143},	//TVAR_ash_pGAS[570] // 																	   
+		{0x0F12, 0x018F},	//TVAR_ash_pGAS[571] // 																	   
 							 
 		{0x002A, 0x074E},		
 		{0x0F12, 0x0001},	//ash_bLumaMode //																					
@@ -2468,38 +2371,38 @@ LOCAL const SENSOR_REG_T s5k5cagx_common[]=
 		{0x0F12, 0x0000},	//awbb_GridCorr_R[0] // 																				
 		{0x0F12, 0xFFA6},	//awbb_GridCorr_R[1] //    
 		{0x0F12, 0x0000},	//awbb_GridCorr_R[2] //    
-		{0x0F12, 0x0000},	//awbb_GridCorr_R[3] //    
-		{0x0F12, 0xFF6A},	//awbb_GridCorr_R[4] //    
+		{0x0F12, 0xFFCE},	//awbb_GridCorr_R[3] //    
+		{0x0F12, 0xFFB0},	//awbb_GridCorr_R[4] //    
 		{0x0F12, 0x0064},	//awbb_GridCorr_R[5] //    
-				        	   
+				            	   
 		{0x0F12, 0x0000},	//awbb_GridCorr_R[6] //    
 		{0x0F12, 0xFFA6},	//awbb_GridCorr_R[7] //    
 		{0x0F12, 0x0000},	//awbb_GridCorr_R[8] //    
-		{0x0F12, 0x0000},	//awbb_GridCorr_R[9] //    
-		{0x0F12, 0xFF6A},	//awbb_GridCorr_R[10] //   
+		{0x0F12, 0xFFCE},	//awbb_GridCorr_R[9] //    
+		{0x0F12, 0xFFB0},	//awbb_GridCorr_R[10] //   
 		{0x0F12, 0x0064},	//awbb_GridCorr_R[11] //   
-				        	   
+				            	   
 		{0x0F12, 0x0000},	//awbb_GridCorr_R[12] //   
 		{0x0F12, 0xFFA6},	//awbb_GridCorr_R[13] //   
 		{0x0F12, 0x0000},	//awbb_GridCorr_R[14] //   
-		{0x0F12, 0x0000},	//awbb_GridCorr_R[15] //   
-		{0x0F12, 0xFF6A},	//awbb_GridCorr_R[16] //   
+		{0x0F12, 0xFFCE},	//awbb_GridCorr_R[15] //   
+		{0x0F12, 0xFFB0},	//awbb_GridCorr_R[16] //   
 		{0x0F12, 0x0064},	//awbb_GridCorr_R[17] //   
-				        	   
+				            	   
 		{0x0F12, 0x0000},	//awbb_GridCorr_B[0] ////																		 
 		{0x0F12, 0x0000},	//awbb_GridCorr_B[1] // 																		 
 		{0x0F12, 0x0032},	//awbb_GridCorr_B[2] // 																		 
 		{0x0F12, 0x0000},	//awbb_GridCorr_B[3] // 																		 
 		{0x0F12, 0x003C},	//awbb_GridCorr_B[4] // 																		 
 		{0x0F12, 0xFFC0},	//awbb_GridCorr_B[5] // 																		 
-				           
+				               
 		{0x0F12, 0x0000},	//awbb_GridCorr_B[6] // 																		 
 		{0x0F12, 0x0000},	//awbb_GridCorr_B[7] // 																		 
 		{0x0F12, 0x0032},	//awbb_GridCorr_B[8] // 																		 
 		{0x0F12, 0x0000},	//awbb_GridCorr_B[9] // 																		 
 		{0x0F12, 0x003C},	//awbb_GridCorr_B[10] //																		 
 		{0x0F12, 0xFFC0},	//awbb_GridCorr_B[11] //																		 
-				           
+				               
 		{0x0F12, 0x0000},	//awbb_GridCorr_B[12] //																		 
 		{0x0F12, 0x0000},	//awbb_GridCorr_B[13] //																		 
 		{0x0F12, 0x0032},	//awbb_GridCorr_B[14] //																		 
@@ -2682,25 +2585,25 @@ LOCAL const SENSOR_REG_T s5k5cagx_common[]=
 													
 		{0x002A, 0x06A6},							
 		{0x0F12, 0x00C0},	//saRR_AwbCcmCord[0] // 					 
-		{0x0F12, 0x00E0},	//saRR_AwbCcmCord[1] // 					 
+		{0x0F12, 0x00F8}, //00E0	//saRR_AwbCcmCord[1] // 					 
 		{0x0F12, 0x0110},	//saRR_AwbCcmCord[2] // 					 
 		{0x0F12, 0x0139},	//saRR_AwbCcmCord[3] // 					 
 		{0x0F12, 0x0166},	//saRR_AwbCcmCord[4] // 					 
 		{0x0F12, 0x019F},	//saRR_AwbCcmCord[5] // 					 
 							 
 		{0x002A, 0x33A4},	 
-		{0x0F12, 0x017C},	  //TVAR_wbt_pBaseCcmS[0] //														   
-		{0x0F12, 0xFF5D},	//TVAR_wbt_pBaseCcmS[1] //														  
-		{0x0F12, 0xFF70},	//TVAR_wbt_pBaseCcmS[2] //														  
+		{0x0F12, 0x0137},	  //TVAR_wbt_pBaseCcmS[0] //														   
+		{0x0F12, 0xFF76},	//TVAR_wbt_pBaseCcmS[1] //														  
+		{0x0F12, 0xFF9F},	//TVAR_wbt_pBaseCcmS[2] //														  
 		{0x0F12, 0xFFA6},	//TVAR_wbt_pBaseCcmS[3] //														  
 		{0x0F12, 0x00FA},	//TVAR_wbt_pBaseCcmS[4] //														  
 		{0x0F12, 0xFF6C},	//TVAR_wbt_pBaseCcmS[5] //														  
 		{0x0F12, 0xFFFC},	//TVAR_wbt_pBaseCcmS[6] //														  
 		{0x0F12, 0x0004},	//TVAR_wbt_pBaseCcmS[7] //														  
 		{0x0F12, 0x0192},	//TVAR_wbt_pBaseCcmS[8] //														  
-		{0x0F12, 0x011B},	//TVAR_wbt_pBaseCcmS[9] //														  
-		{0x0F12, 0x0127},	//TVAR_wbt_pBaseCcmS[10] // 													  
-		{0x0F12, 0xFF38},	//TVAR_wbt_pBaseCcmS[11] // 													  
+		{0x0F12, 0x0162},	//TVAR_wbt_pBaseCcmS[9] //														  
+		{0x0F12, 0x0073},	//TVAR_wbt_pBaseCcmS[10] // 													  
+		{0x0F12, 0xFDDC},	//TVAR_wbt_pBaseCcmS[11] // 													  
 		{0x0F12, 0x0117},	//TVAR_wbt_pBaseCcmS[12] // 													  
 		{0x0F12, 0xFEF8},	//TVAR_wbt_pBaseCcmS[13] // 													  
 		{0x0F12, 0x0174},	//TVAR_wbt_pBaseCcmS[14] // 													  
@@ -2708,18 +2611,18 @@ LOCAL const SENSOR_REG_T s5k5cagx_common[]=
 		{0x0F12, 0x00F9},	//TVAR_wbt_pBaseCcmS[16] // 													  
 		{0x0F12, 0x00E3},	//TVAR_wbt_pBaseCcmS[17] // 													  
 			 
-		{0x0F12, 0x017C},	//TVAR_wbt_pBaseCcmS[18] // 													  
-		{0x0F12, 0xFF5D},	//TVAR_wbt_pBaseCcmS[19] // 													  
-		{0x0F12, 0xFF70},	//TVAR_wbt_pBaseCcmS[20] // 													  
+		{0x0F12, 0x0137},	//TVAR_wbt_pBaseCcmS[18] // 													  
+		{0x0F12, 0xFF76},	//TVAR_wbt_pBaseCcmS[19] // 													  
+		{0x0F12, 0xFF9F},	//TVAR_wbt_pBaseCcmS[20] // 													  
 		{0x0F12, 0xFFA6},	//TVAR_wbt_pBaseCcmS[21] // 													  
 		{0x0F12, 0x00FA},	//TVAR_wbt_pBaseCcmS[22] // 													  
 		{0x0F12, 0xFF6C},	//TVAR_wbt_pBaseCcmS[23] // 													  
 		{0x0F12, 0xFFFC},	//TVAR_wbt_pBaseCcmS[24] // 													  
 		{0x0F12, 0x0004},	//TVAR_wbt_pBaseCcmS[25] // 													  
 		{0x0F12, 0x0192},	//TVAR_wbt_pBaseCcmS[26] // 													  
-		{0x0F12, 0x011B},	//TVAR_wbt_pBaseCcmS[27] // 													  
-		{0x0F12, 0x0127},	//TVAR_wbt_pBaseCcmS[28] // 													  
-		{0x0F12, 0xFF38},	//TVAR_wbt_pBaseCcmS[29] // 													  
+		{0x0F12, 0x0162},	//TVAR_wbt_pBaseCcmS[27] // 													  
+		{0x0F12, 0x0073},	//TVAR_wbt_pBaseCcmS[28] // 													  
+		{0x0F12, 0xFDDC},	//TVAR_wbt_pBaseCcmS[29] // 													  
 		{0x0F12, 0x0117},	//TVAR_wbt_pBaseCcmS[30] // 													  
 		{0x0F12, 0xFEF8},	//TVAR_wbt_pBaseCcmS[31] // 													  
 		{0x0F12, 0x0174},	//TVAR_wbt_pBaseCcmS[32] // 													  
@@ -2892,7 +2795,7 @@ LOCAL const SENSOR_REG_T s5k5cagx_common[]=
 		{0x0F12, 0x0306},	//70000832 //TVAR_afit_pBaseValS[55] //AFIT8_demsharpmix1_iHystTune [7:0],	* AFIT8_YUV422_DENOISE_iUVSupport [15:8]					  
 		{0x0F12, 0x4603},	//70000834 //TVAR_afit_pBaseValS[56] //AFIT8_YUV422_DENOISE_iYSupport [7:0],   AFIT8_byr_cgras_iShadingPower [15:8] 					  
 		{0x0F12, 0x0480},	//70000836 //TVAR_afit_pBaseValS[57] //AFIT8_RGBGamma2_iLinearity [7:0],  AFIT8_RGBGamma2_iDarkReduce [15:8]							  
-		{0x0F12, 0x103C},	//70000838 //TVAR_afit_pBaseValS[58] //AFIT8_ccm_oscar_iSaturation[7:0],   AFIT8_RGB2YUV_iYOffset [15:8]								  
+		{0x0F12, 0x1080},	//70000838 //TVAR_afit_pBaseValS[58] //AFIT8_ccm_oscar_iSaturation[7:0],   AFIT8_RGB2YUV_iYOffset [15:8]								  
 		{0x0F12, 0x0080},	//7000083A //TVAR_afit_pBaseValS[59] //AFIT8_RGB2YUV_iRGBGain [7:0],   AFIT8_RGB2YUV_iSaturation [15:8] 								  
 		{0x0F12, 0x0101},	//7000083C //TVAR_afit_pBaseValS[60] //AFIT8_sddd8a_iClustThresh_H [7:0],  AFIT8_sddd8a_iClustThresh_C [15:8]							  
 		{0x0F12, 0x0707},	//7000083E //TVAR_afit_pBaseValS[61] //AFIT8_sddd8a_iClustMulT_H [7:0],   AFIT8_sddd8a_iClustMulT_C [15:8]								  
@@ -2996,7 +2899,7 @@ LOCAL const SENSOR_REG_T s5k5cagx_common[]=
 		{0x0F12, 0x0306},	//70000902 //TVAR_afit_pBaseValS[159] /AFIT8_demsharpmix1_iHystTune [7:0],	* AFIT8_YUV422_DENOISE_iUVSupport [15:8]					 /
 		{0x0F12, 0x4603},	//70000904 //TVAR_afit_pBaseValS[160] /AFIT8_YUV422_DENOISE_iYSupport [7:0],   AFIT8_byr_cgras_iShadingPower [15:8] 					 /
 		{0x0F12, 0x0480},	//70000906 //TVAR_afit_pBaseValS[161] /AFIT8_RGBGamma2_iLinearity [7:0],  AFIT8_RGBGamma2_iDarkReduce [15:8]							 /
-		{0x0F12, 0x1046},	//70000908 //TVAR_afit_pBaseValS[162] /AFIT8_ccm_oscar_iSaturation[7:0],   AFIT8_RGB2YUV_iYOffset [15:8]								 /
+		{0x0F12, 0x1080},	//70000908 //TVAR_afit_pBaseValS[162] /AFIT8_ccm_oscar_iSaturation[7:0],   AFIT8_RGB2YUV_iYOffset [15:8]								 /
 		{0x0F12, 0x0080},	//7000090A //TVAR_afit_pBaseValS[163] /AFIT8_RGB2YUV_iRGBGain [7:0],   AFIT8_RGB2YUV_iSaturation [15:8] 								 /
 		{0x0F12, 0x0101},	//7000090C //TVAR_afit_pBaseValS[164] /AFIT8_sddd8a_iClustThresh_H [7:0],  AFIT8_sddd8a_iClustThresh_C [15:8]							 /
 		{0x0F12, 0x0707},	//7000090E //TVAR_afit_pBaseValS[165] /AFIT8_sddd8a_iClustMulT_H [7:0],   AFIT8_sddd8a_iClustMulT_C [15:8]								 /
@@ -3448,8 +3351,8 @@ LOCAL const SENSOR_REG_T s5k5cagx_common[]=
 		{0x0F12, 0x0002},	//REG_0TC_PCFG_uClockInd						2	70000282	//										   
 		{0x0F12, 0x0000},	//REG_0TC_PCFG_usFrTimeType 					2	70000284	//										   
 		{0x0F12, 0x0001},	//REG_0TC_PCFG_FrRateQualityType				2	70000286	//										   
-		{0x0F12, 0x014E},	//REG_0TC_PCFG_usMaxFrTimeMsecMult10			2	70000288	//										   
-		{0x0F12, 0x014E},	//REG_0TC_PCFG_usMinFrTimeMsecMult10			2	7000028A	//										   
+		{0x0F12, 0x03E8},//0535 014E	//REG_0TC_PCFG_usMaxFrTimeMsecMult10			2	70000288	//										   
+		{0x0F12, 0x01F4},//01F4 014E	//REG_0TC_PCFG_usMinFrTimeMsecMult10			2	7000028A	//										   
 		{0x0F12, 0x0000},	//REG_0TC_PCFG_bSmearOutput 					2	7000028C	//										   
 		{0x0F12, 0x0000},	//REG_0TC_PCFG_sSaturation						2	7000028E	//										   
 		{0x0F12, 0x0000},	//REG_0TC_PCFG_sSharpBlur						2	70000290	//										   
@@ -7197,7 +7100,7 @@ LOCAL const SENSOR_REG_T s5k5cagx_2048X1536[] =
     {0x0F12, 0x0001},	
     {0x002A, 0x0224},
     {0x0F12, 0x0001},	
-    {0x0F12, 0x0001},
+    {0x0F12, 0x0001},	
  #else
  {0xFCFC, 0xD000},	 
  {0x0028, 0x7000}, 
@@ -7262,6 +7165,7 @@ LOCAL SENSOR_TRIM_T s_s5k5cagx_Resolution_Trim_Tab[]=
 
 LOCAL SENSOR_IOCTL_FUNC_TAB_T s_s5k5cagx_ioctl_func_tab = 
 {
+
     // Internal 
     _s5k5cagx_Reset,
     _s5k5cagx_PowerOn,
@@ -7379,8 +7283,8 @@ SENSOR_INFO_T g_s5k5cagx_yuv_info =
     PNULL,                          // extend information about sensor
     SENSOR_AVDD_2800MV,             // iovdd
     SENSOR_AVDD_1800MV,             // dvdd
-    4,                              // skip frame num before preview 
-    4,                              // skip frame num before capture        
+    1,                              // skip frame num before preview 
+    2,                              // skip frame num before capture        
     0,                              // deci frame num during preview    
     0,                              // deci frame num during video preview      
 
@@ -7442,7 +7346,7 @@ LOCAL uint32_t _s5k5cagx_InitExifInfo(void)
 #if 0
     EXIF_SPEC_PIC_TAKING_COND_T* exif_ptr=&s_s5k5cagx_exif;
 
-    SENSOR_PRINT("SENSOR: _s5k5cagx_InitExifInfo");
+    SENSOR_PRINT("SENSOR: _s5k5cagx_InitExifInfo\n");
 
     exif_ptr->valid.FNumber=1;
     exif_ptr->FNumber.numerator=14;
@@ -7613,7 +7517,7 @@ LOCAL uint32_t _s5k5cagx_Identify(uint32_t param)
 //			msleep(10);
 	Sensor_WriteReg(0x002C, 0x0000);
 	Sensor_WriteReg(0x002E, 0x0040);
-	SENSOR_PRINT("s5k5cagx_Identify Entry");
+	SENSOR_PRINT("s5k5cagx_Identify Entry\n");
 	pid_value = Sensor_ReadReg(0x0F12);
 	printk("s5k5cagx_Identify 0x00000040 PID = 0x%x.\n", pid_value);
 //}
@@ -7840,12 +7744,10 @@ LOCAL const SENSOR_REG_T s5k5cagx_image_effect_tab[][14]=
     // effect normal        --effect normal
     {
 	{0x0028, 0x7000}, 
-	{0x002A, 0x04d2}, 
-	{0x0F12, 0x067f}, 
+	{0x002A, 0x3286}, 
+	{0x0F12, 0x0001}, 
 	{0x002A, 0x021E}, 
 	{0x0F12, 0x0000}, 
-	{0xffff, 0xffff}, 
-	{0xffff, 0xffff}, 
 	{0xffff, 0xffff}, 
 	{0xffff, 0xffff},
 	{0xffff, 0xffff}, 
@@ -7857,8 +7759,6 @@ LOCAL const SENSOR_REG_T s5k5cagx_image_effect_tab[][14]=
     // effect monochrome    --effect BLACKWHITE
     {
 	{0x0028, 0x7000}, 
-	{0x002A, 0x04d2}, 
-	{0x0F12, 0x067f}, 
 	{0x002A, 0x021E}, 
 	{0x0F12, 0x0001}, 
 	{0xffff, 0xffff},
@@ -7871,78 +7771,51 @@ LOCAL const SENSOR_REG_T s5k5cagx_image_effect_tab[][14]=
 	{0xffff, 0xffff},
 	{0xffff, 0xffff},		
     },
-    // effect
     {
 	{0x0028, 0x7000}, 
-	{0x002A, 0x04d2}, 
-	{0x0F12, 0x067f}, 
+	{0x002A, 0x3286}, 
+	{0x0F12, 0x0001}, 
 	{0x002A, 0x021E}, 
 	{0x0F12, 0x0000}, 
+	{0xffff, 0xffff}, 
 	{0xffff, 0xffff},
+	{0xffff, 0xffff}, 
+	{0xffff, 0xffff}, 
+	{0xffff, 0xffff}, 
 	{0xffff, 0xffff},
+	{0xffff, 0xffff}			
+    },
+        {
+	{0x0028, 0x7000}, 
+	{0x002A, 0x3286}, 
+	{0x0F12, 0x0001}, 
+	{0x002A, 0x021E}, 
+	{0x0F12, 0x0000}, 
+	{0xffff, 0xffff}, 
 	{0xffff, 0xffff},
+	{0xffff, 0xffff}, 
+	{0xffff, 0xffff}, 
+	{0xffff, 0xffff}, 
 	{0xffff, 0xffff},
+	{0xffff, 0xffff}			
+    },
+        {
+	{0x0028, 0x7000}, 
+	{0x002A, 0x3286}, 
+	{0x0F12, 0x0001}, 
+	{0x002A, 0x021E}, 
+	{0x0F12, 0x0000}, 
+	{0xffff, 0xffff}, 
 	{0xffff, 0xffff},
+	{0xffff, 0xffff}, 
+	{0xffff, 0xffff}, 
+	{0xffff, 0xffff}, 
 	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
+	{0xffff, 0xffff}			
     },
     // effect         
     {
 	{0x0028, 0x7000}, 
-	{0x002A, 0x04d2}, 
-	{0x0F12, 0x067f}, 
-	{0x002A, 0x021E}, 
-	{0x0F12, 0x0000}, 
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},	
-    },
-    // effect  aqua         --effect  BLUE
-    {
-	{0x0028, 0x7000}, 
-	{0x002A, 0x04d2}, 
-	{0x0F12, 0x067f}, 
-	{0x002A, 0x021E}, 
-	{0x0F12, 0x0005}, 
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},
-	{0xffff, 0xffff},	
-/*
-	{0x002A, 0x021E},
-	{0x0F12, 0x0000},
-	{0x002A, 0x04D2},
-	{0x0F12, 0x0677},
-	{0x002A, 0x04A0},
-	{0x0F12, 0x0100},
-	{0x0F12, 0x0001},
-	{0x002A, 0x04A4},
-	{0x0F12, 0x0100},
-	{0x0F12, 0x0001},
-	{0x002A, 0x04A8},
-	{0x0F12, 0x0200},
-	{0x0F12, 0x0001},
-	{0xffff, 0xffff}
-*/
-    },
-    // effect  Sepia
-    {
-	{0x0028, 0x7000}, 
-	{0x002A, 0x04d2}, 
-	{0x0F12, 0x067f}, 
 	{0x002A, 0x021E}, 
 	{0x0F12, 0x0004}, 
 	{0xffff, 0xffff},
@@ -7954,7 +7827,69 @@ LOCAL const SENSOR_REG_T s5k5cagx_image_effect_tab[][14]=
 	{0xffff, 0xffff},
 	{0xffff, 0xffff},
 	{0xffff, 0xffff},	
+    },
+        // effect
+    {
+	{0x0028, 0x7000}, 
+	{0x002A, 0x021E}, 
+	{0x0F12, 0x0003}, 
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+    },
+    /*
+    // effect  aqua         --effect  BLUE
+    {
+	{0x0028, 0x7000}, 
+	{0x002A, 0x021E}, 
+	{0x0F12, 0x0005}, 
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},	/*
 /*
+	{0x002A, 0x021E},
+	{0x0F12, 0x0000},
+	{0x002A, 0x04D2},
+	{0x0F12, 0x0677},
+	{0x002A, 0x04A0},
+	{0x0F12, 0x0100},
+	{0x0F12, 0x0001},
+	{0x002A, 0x04A4},
+	{0x0F12, 0x0100},
+	{0x0F12, 0x0001},
+	{0x002A, 0x04A8},
+	{0x0F12, 0x0200},
+	{0x0F12, 0x0001},
+	{0xffff, 0xffff}
+
+    },
+    // effect  Sepia
+    {
+	{0x0028, 0x7000}, 
+	{0x002A, 0x021E}, 
+	{0x0F12, 0x0004}, 
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},
+	{0xffff, 0xffff},	
+
 	{0x002A, 0x021E},
 	{0x0F12, 0x0000},
 	{0x002A, 0x04D2},
@@ -7968,14 +7903,12 @@ LOCAL const SENSOR_REG_T s5k5cagx_image_effect_tab[][14]=
 	{0x002A, 0x04A8},
 	{0x0F12, 0x0100},
 	{0x0F12, 0x0001},
-*/
+
 	{0xffff, 0xffff}
     },  
     // effect NEGATIVE
     {         
 	{0x0028, 0x7000},
-	{0x002A, 0x04d2}, 
-	{0x0F12, 0x067f},  
 	{0x002A, 0x021E}, 
 	{0x0F12, 0x0002}, 
 	{0xffff, 0xffff},
@@ -7991,8 +7924,6 @@ LOCAL const SENSOR_REG_T s5k5cagx_image_effect_tab[][14]=
     //effect Brown
     {
 	{0x0028, 0x7000}, 
-	{0x002A, 0x04d2}, 
-	{0x0F12, 0x067f}, 
 	{0x002A, 0x021E}, 
 	{0x0F12, 0x0004}, 
 	{0xffff, 0xffff},
@@ -8004,7 +7935,7 @@ LOCAL const SENSOR_REG_T s5k5cagx_image_effect_tab[][14]=
 	{0xffff, 0xffff},
 	{0xffff, 0xffff},
 	{0xffff, 0xffff}		
-    },
+    },*/
 };
 
 LOCAL uint32_t _s5k5cagx_set_image_effect(uint32_t effect_type)
@@ -8223,48 +8154,72 @@ LOCAL uint32_t _s5k5cagx_set_video_mode(uint32_t mode)
 // Note:
 //        
 /******************************************************************************/
-LOCAL const SENSOR_REG_T s5k5cagx_awb_tab[][13]=
+LOCAL const SENSOR_REG_T s5k5cagx_awb_tab[][14]=
 {
     //AUTO
     {
+ 	{0xFCFC, 0xD000},    	
 	{0x0028, 0x7000}, 
-	{0x002A ,0x04D2}, {0x0F12 ,0x067F}, {0xffff, 0xffff},
+	{0x002A ,0x246E}, {0x0F12 ,0x0001}, {0xffff, 0xffff},
 	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
 	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
 	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
     },    
     //INCANDESCENCE:
-    {
+
+        {
+ 	{0xFCFC, 0xD000},    	
 	{0x0028, 0x7000}, 
-	{0x002A ,0x04D2}, {0x0F12 ,0x0677}, {0x002A ,0x04A0}, 
-	{0x0F12 ,0x0126}, {0x0F12 ,0x0001}, {0x002A ,0x04A4}, 
-	{0x0F12 ,0x0100}, {0x0F12 ,0x0001}, {0x002A ,0x04A8}, 
-	{0x0F12 ,0x01C5}, {0x0F12 ,0x0001}, {0xffff, 0xffff}                 
+	{0x002A ,0x246E}, {0x0F12 ,0x0000}, {0x002a ,0x04A0}, 
+	{0x0F12 ,0x0400}, {0x0F12 ,0x0001}, {0x0F12 ,0x0400}, 
+	{0x0F12 ,0x0001}, {0x0F12 ,0x0940}, {0x0F12 ,0x0001}, 
+	{0xffff ,0xffff}, {0xffff ,0xffff}, {0xffff, 0xffff}                 
+    },
+    {
+ 	{0xFCFC, 0xD000},    	
+	{0x0028, 0x7000}, 
+	{0x002A ,0x246E}, {0x0F12 ,0x0001}, {0xffff, 0xffff},
+	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
+	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
+	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
+    },    
+    {
+ 	{0xFCFC, 0xD000},    	
+	{0x0028, 0x7000}, 
+	{0x002A ,0x246E}, {0x0F12 ,0x0001}, {0xffff, 0xffff},
+	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
+	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
+	{0xffff, 0xffff}, {0xffff, 0xffff}, {0xffff, 0xffff},
+    },    
+        //SUN:
+    {
+ 	{0xFCFC, 0xD000},    	
+	{0x0028, 0x7000}, 
+	{0x002A ,0x246E}, {0x0F12 ,0x0000}, {0x002a ,0x04A0},
+	{0x0F12 ,0x0575}, {0x0F12 ,0x0001}, {0x0F12 ,0x0400}, 
+	{0x0F12 ,0x0001}, {0x0F12 ,0x0800}, {0x0F12 ,0x0001}, 
+	{0xffff ,0xffff}, {0xffff ,0xffff}, {0xffff, 0xffff}
     },
     //U30(auto)
     {
+ 	{0xFCFC, 0xD000},    	
 	{0x0028, 0x7000}, 
-	{0x002A ,0x04D2}, {0x0F12 ,0x0677}, {0x002A ,0x04A0}, 
-	{0x0F12 ,0x0145}, {0x0F12 ,0x0001}, {0x002A ,0x04A4}, 
-	{0x0F12 ,0x0100}, {0x0F12 ,0x0001}, {0x002A ,0x04A8}, 
-	{0x0F12 ,0x0145}, {0x0F12 ,0x0001}, {0xffff, 0xffff}           
+	{0x002A ,0x246E}, {0x0F12 ,0x0000}, {0x002a ,0x04A0}, 
+	{0x0F12 ,0x05E0}, {0x0F12 ,0x0001}, {0x0F12 ,0x0400}, 
+	{0x0F12 ,0x0001}, {0x0F12 ,0x0530}, {0x0F12 ,0x0001}, 
+	{0xffff ,0xffff}, {0xffff ,0xffff}, {0xffff, 0xffff}           
     },  
-    //SUN:
-    {
-	{0x0028, 0x7000}, 
-	{0x002A ,0x04D2}, {0x0F12 ,0x0677}, {0x002A ,0x04A0},
-	{0x0F12 ,0x0166}, {0x0F12 ,0x0001}, {0x002A ,0x04A4}, 
-	{0x0F12 ,0x0100}, {0x0F12 ,0x0001}, {0x002A ,0x04A8}, 
-	{0x0F12 ,0x0145}, {0x0F12 ,0x0001}, {0xffff, 0xffff}
-    },
+
     //CLOUD:
     {
+ 	{0xFCFC, 0xD000},    	
 	{0x0028, 0x7000}, 
-	{0x002A ,0x04D2}, {0x0F12 ,0x0677}, {0x002A ,0x04A0}, 
-	{0x0F12 ,0x0128}, {0x0F12 ,0x0001}, {0x002A ,0x04A4}, 
-	{0x0F12 ,0x0100}, {0x0F12 ,0x0001}, {0x002A ,0x04A8}, 
-	{0x0F12 ,0x01AB}, {0x0F12 ,0x0001}, {0xffff, 0xffff} 
+	{0x002A ,0x246E}, {0x0F12 ,0x0000}, {0x002a ,0x04A0}, 
+	{0x0F12 ,0x0740}, {0x0F12 ,0x0001}, {0x0F12 ,0x0400}, 
+	{0x0F12 ,0x0001}, {0x0F12 ,0x0460}, {0x0F12 ,0x0001}, 
+	{0xffff ,0xffff}, {0xffff ,0xffff}, {0xffff, 0xffff} 
     },
+    /*
     //CWF equal to flourescent(auto)
     {
 	{0x0028, 0x7000}, 
@@ -8280,7 +8235,7 @@ LOCAL const SENSOR_REG_T s5k5cagx_awb_tab[][13]=
 	{0x0F12 ,0x0145}, {0x0F12 ,0x0001}, {0x002A ,0x04A4}, 
 	{0x0F12 ,0x0100}, {0x0F12 ,0x0001}, {0x002A ,0x04A8}, 
 	{0x0F12 ,0x01EB}, {0x0F12 ,0x0001}, {0xffff, 0xffff}
-    }
+    }*/
 };
 
 LOCAL uint32_t _s5k5cagx_set_awb(uint32_t mode)
@@ -8298,7 +8253,7 @@ LOCAL uint32_t _s5k5cagx_set_awb(uint32_t mode)
 
 	//   Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_LIGHTSOURCE, (uint32)mode);
 
-	SENSOR_PRINT("SENSOR: s5k5cagx_set_awb = 0x%02x", mode);
+	SENSOR_PRINT("SENSOR: s5k5cagx_set_awb = 0x%02x\n", mode);
 	return 0;
 }
 
@@ -8314,8 +8269,8 @@ LOCAL const SENSOR_REG_T s5k5cagx_work_mode_tab[][100]=
     {    //normal fix 15fps
             {0x0028, 0x7000},   
             {0x002A, 0x0288},			
-            {0x0F12, 0x014E},                    
-            {0x0F12, 0x014E},
+            {0x0F12, 0x03E8}, //0535                   
+            {0x0F12, 0x01F4},
             
             {0x002A, 0x020C},
             {0x0F12, 0x0000},// Brightness for controling the EV//
@@ -8730,7 +8685,7 @@ LOCAL uint32_t _s5k5cagx_check_image_format_support(uint32_t param)
 			ret_val = SENSOR_SUCCESS;
 			break;
 		default:
-			SENSOR_PRINT("s5k5cagx only support SENSOR_IMAGE_FORMAT_JPEG & SENSOR_IMAGE_FORMAT_YUV422, input is %d",param);    
+			SENSOR_PRINT("s5k5cagx only support SENSOR_IMAGE_FORMAT_JPEG & SENSOR_IMAGE_FORMAT_YUV422, input is %d\n",param);    
 			break;
 	}
 
@@ -8836,8 +8791,8 @@ LOCAL const SENSOR_REG_T s5k5cagx_preview[]=
 			{0x0F12, 0x0002},	//REG_0TC_PCFG_uClockInd						2	70000282	//										   
 			{0x0F12, 0x0000},	//REG_0TC_PCFG_usFrTimeType 					2	70000284	//										   
 			{0x0F12, 0x0001},	//REG_0TC_PCFG_FrRateQualityType				2	70000286	//										   
-			{0x0F12, 0x014E},	//REG_0TC_PCFG_usMaxFrTimeMsecMult10			2	70000288	//										   
-			{0x0F12, 0x014E},	//REG_0TC_PCFG_usMinFrTimeMsecMult10			2	7000028A	//										   
+			{0x0F12, 0x03E8},//0535	//REG_0TC_PCFG_usMaxFrTimeMsecMult10			2	70000288	//										   
+			{0x0F12, 0x01F4},	//REG_0TC_PCFG_usMinFrTimeMsecMult10			2	7000028A	//										   
 			{0x0F12, 0x0000},	//REG_0TC_PCFG_bSmearOutput 					2	7000028C	//										   
 			{0x0F12, 0x0000},	//REG_0TC_PCFG_sSaturation						2	7000028E	//										   
 			{0x0F12, 0x0000},	//REG_0TC_PCFG_sSharpBlur						2	70000290	//										   
@@ -8892,8 +8847,10 @@ LOCAL uint32_t _s5k5cagx_InitExt(uint32_t param)
 	uint8_t               *p_reg_val_tmp = 0;
 	struct i2c_msg msg_w;
 	struct i2c_client *i2c_client = Sensor_GetI2CClien();
-    
-	printk("SENSOR: _s5k5cagx_InitExt"); 
+ 	struct timeval time1;
+	do_gettimeofday(&time1);
+	printk("_s5k5cagx_InitExt start use new time sec: %ld, usec: %ld.\n", time1.tv_sec,time1.tv_usec);   
+	//printk("SENSOR: _s5k5cagx_InitExt"); 
 	if(0 == i2c_client)
 	{
 		printk("SENSOR: _s5k5cagx_InitExt:error,i2c_client is NULL!.\n");
@@ -8953,7 +8910,7 @@ LOCAL uint32_t _s5k5cagx_InitExt(uint32_t param)
 			else
 			{
 #if 0			
-				SENSOR_PRINT("SENSOR: _s5k5cagx_InitExt, i2c write once from %d {0x%x 0x%x}, total %d registers {0x%x 0x%x}",
+				SENSOR_PRINT("SENSOR: _s5k5cagx_InitExt, i2c write once from %d {0x%x 0x%x}, total %d registers {0x%x 0x%x}\n",
 				      written_num,cmd[0],cmd[1],wr_num_once,p_reg_val_tmp[0],p_reg_val_tmp[1]);  
 				if(wr_num_once > 1)
 				{
@@ -8968,8 +8925,9 @@ LOCAL uint32_t _s5k5cagx_InitExt(uint32_t param)
 		}
 		written_num += wr_num_once-1;
 	}
-
-    printk("SENSOR: _s5k5cagx_InitExt, success");
+	do_gettimeofday(&time1);
+	printk("_s5k5cagx_InitExt end use new time sec: %ld, usec: %ld.\n", time1.tv_sec,time1.tv_usec);   
+    //printk("SENSOR: _s5k5cagx_InitExt, success");
     kfree(p_reg_val_tmp);
     return rtn;
 }
