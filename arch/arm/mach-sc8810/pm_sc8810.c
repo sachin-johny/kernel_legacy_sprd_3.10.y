@@ -235,7 +235,7 @@ static void disable_apb_module(void)
 
 static void disable_ahb_module (void)
 {
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, GEN0_MASK, AHB_CTL0);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_MASK, AHB_CTL0);
 }
 
 #define INT_REG(off) (SPRD_INTCV_BASE + (off))
