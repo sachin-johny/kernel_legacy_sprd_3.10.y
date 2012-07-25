@@ -74,7 +74,7 @@ static unsigned long sprd_mem_pool_alloc(struct sprd_mem_pool *pool_info)
 
 	/* if alloc fail from pool, then try in normal method */
 	if(!buffer) {
-		printk("sprd alloc pool failed, use normal way.\n");
+		pr_debug("sprd alloc pool failed, use normal way.\n");
 		return __get_free_pages(mask, pool_info->entry_order);
 	}
 
