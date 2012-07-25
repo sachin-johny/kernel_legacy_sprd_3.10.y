@@ -21,7 +21,7 @@
 #include <linux/io.h>
 #include <linux/bitops.h>
 #include <linux/slab.h>
-
+#include <linux/seq_file.h>
 #include <linux/clkdev.h>
 
 #include "clock_common.h"
@@ -2343,3 +2343,15 @@ int sc8810_get_clock_info(void)
 	}
 	return status | sc8810_get_clock_modem_info();
 }
+
+void sc8810_clock_modem_dump(struct seq_file *s)
+{
+	int index = 0;
+	seq_printf(s, "NAME            COUNT           FLAGS\n");
+	for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
+		seq_printf(s, "%-16s%2d              %08x        \n",
+			pstub[index].name, pstub[index].usecount, pstub[index].flags);
+	}
+	return ;
+}
+
