@@ -1120,6 +1120,11 @@ static int mtd_proc_show(struct seq_file *m, void *v)
 	}
 
 	mtd = __mtd_next_device(0);
+	if (mtd == NULL) {
+		seq_puts(m, "dev:    size   erasesize  name\n");
+		mutex_unlock(&mtd_table_mutex);
+		return 0;
+	}
 
 	part = (struct mtd_part*)mtd;
 	master = part->master;
