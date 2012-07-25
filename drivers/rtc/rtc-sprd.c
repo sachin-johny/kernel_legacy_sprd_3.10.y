@@ -336,9 +336,9 @@ static int sprd_rtc_open(struct device *dev)
 {
 	int temp = 0;
 	/* enable rtc interrupt */
-	temp = ANA_REG_GET(ANA_RTC_INT_EN);
+	temp = sci_adi_read(ANA_RTC_INT_EN);
 	temp |= RTC_ALARM_BIT;
-	ANA_REG_SET(ANA_RTC_INT_EN, temp);
+	sci_adi_raw_write(ANA_RTC_INT_EN, temp);
 	return 0;
 }
 
