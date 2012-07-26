@@ -11,6 +11,8 @@
 #include <mach/regs_global.h>
 #include <mach/regs_ana.h>
 
+/* FIXME */
+#define REG_SYST_VALUE                  (SPRD_SYSCNT_BASE + 0x0004)
 #define debug(format, arg...) pr_info("dcdc: " "@@@" format, ## arg)
 #define info(format, arg...) pr_info("dcdc: " "@@@" format, ## arg)
 
@@ -20,7 +22,7 @@ void sci_efuse_poweron(void);
 int sci_efuse_read(unsigned blk);
 void sci_efuse_poweroff(void);
 
-#define CALIBRATE_TO	(60 * 3)	/*three minutes */
+#define CALIBRATE_TO	(60 * 1)	/*one minute */
 #define MEASURE_TIMES	(128)
 const int dcdc_ctl_vol[] = {
 	650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400,
@@ -36,6 +38,33 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	sum /= ARRAY_SIZE(val);	//get average value
 	info("adc chan %d, value %d\n", adc_chan, sum);
 	adc_vol = CHGMNG_AdcvalueToVoltage(sum) * (8 * 5) / (30 * 4);
+
+	if (!def_vol) {
+		switch (adc_chan) {
+		case ADC_CHANNEL_DCDC:
+			def_vol = 1100;
+			cal_vol = ANA_REG_GET(ANA_DCDC_CTRL_CAL) & 0x1f;
+			i = ANA_REG_GET(ANA_DCDC_CTRL) & 0x07;
+			break;
+		case ADC_CHANNEL_DCDCARM:
+			def_vol = 1200;
+			cal_vol = ANA_REG_GET(ANA_DCDCARM_CTRL_CAL) & 0x1f;
+			i = ANA_REG_GET(ANA_DCDCARM_CTRL) & 0x07;
+			break;
+		default:
+			goto exit;
+		}
+		if (0 != i /* + cal_vol */ )
+			def_vol = dcdc_ctl_vol[i];
+		def_vol += cal_vol * 100 / 32;
+#if 1
+		if (0 != i + cal_vol) {	/* dcdc had been adjusted in uboot-spl */
+			debug("%s default %dmv, from %dmv to %dmv\n",
+			     __FUNCTION__, def_vol, adc_vol, to_vol);
+			goto exit;
+		}
+#endif
+	}
 	info("%s default %dmv, from %dmv to %dmv\n", __FUNCTION__, def_vol,
 	     adc_vol, to_vol);
 
@@ -78,99 +107,107 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	return -1;
 }
 
-int mpll_calibrate(int cpu_freq)
+static int mpll_calibrate(int cpu_freq)
 {
 	u32 val = 0;
 	unsigned long flags;
+	BUG_ON(cpu_freq != 1200);	/* only upgrade 1.2G */
+	cpu_freq /= 4;
 	hw_local_irq_save(flags);
-	val = __raw_readl(GR_MPLL_MN) & ~0x7ff;
-	val |= 0x12c;		//upgrade 1.2G
-	__raw_writel(__raw_readl(GR_GEN1) | BIT(9), GR_GEN1);	//mpll unlock
+	val = __raw_readl(GR_MPLL_MN);
+	if ((val & 0x7ff) == cpu_freq)
+		goto exit;
+	val = (val & ~0x7ff) | cpu_freq;
+	__raw_writel(__raw_readl(GR_GEN1) | BIT(9), GR_GEN1);	/* mpll unlock */
 	__raw_writel(val, GR_MPLL_MN);
 	__raw_writel(__raw_readl(GR_GEN1) & ~BIT(9), GR_GEN1);
+exit:
 	hw_local_irq_restore(flags);
 	debug("%s 0x%08x\n", __FUNCTION__, val);
 	return 0;
 }
-int do_dcdc_init(void *data)
+
+struct dcdc_delayed_work {
+	struct delayed_work work;
+	u32 uptime;
+	int cal_typ;
+};
+
+static struct dcdc_delayed_work dcdc_work = {
+	.work.work.func = NULL,
+	.uptime = 0,
+	.cal_typ = 0,
+};
+
+static u32 sci_syst_read(void)
+{
+	u32 t = __raw_readl(REG_SYST_VALUE);
+	while (t != __raw_readl(REG_SYST_VALUE))
+		t = __raw_readl(REG_SYST_VALUE);
+	return t;
+}
+
+static void do_dcdc_work(struct work_struct *work)
 {
 	int ret, cnt = CALIBRATE_TO;
-	int dcdc_def_vol = 1100;	//FIXME: how to read dcdc value?
-	int dcdc_cal_typ = 0;
-	int dcdc_to_vol = 1100;	//vddcore
-	int dcdcarm_to_vol = 1220;
-	int cpu_freq = 1000;	//Mega
+	int dcdc_to_vol = 1100;	/* vddcore */
+	int dcdcarm_to_vol = 1200;	/* vddarm */
+	int cpu_freq = 1000;	/* Mega */
 	u32 val = 0;
+
+	/* debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type()); */
+	if (dcdc_work.cal_typ == sprd_get_adc_cal_type())
+		goto exit;	/* no change, set next delayed work */
+
 	sci_efuse_poweron();
 	val = sci_efuse_read(5);
 	sci_efuse_poweroff();
-	debug("%s efuse flag 0x%08x\n", __FUNCTION__, val);
-	/* FIXME: To be confirmed */
-	if (0 || val & BIT(16) /*1.2G flag */ ) {
+	debug("%s efuse flag 0x%08x, mpll %08x\n", __FUNCTION__, val,
+	      __raw_readl(GR_MPLL_MN));
+
+	if (val & BIT(16) /*1.2G flag */ ) {
 		dcdc_to_vol = 1200;
 		dcdcarm_to_vol = 1250;
 		cpu_freq = 1200;
 	}
-//      debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type());
 
-#if 0				//cal test
-	ANA_REG_SET(ANA_DCDC_CTRL_CAL, 0x10);
-	dcdc_def_vol += (ANA_REG_GET(ANA_DCDC_CTRL_CAL) & 0x1f) * 100 / 32;
-#endif
+	dcdc_work.cal_typ = sprd_get_adc_cal_type();
+	debug("%s %d %d\n", __FUNCTION__, dcdc_work.cal_typ, cnt);
 
-      retry:
-	do {
-		msleep(1000);
-	} while (dcdc_cal_typ == sprd_get_adc_cal_type() && --cnt);	//wait for user app setup battery calibrate params
-
-	if (0 == cnt || 0 == sprd_get_adc_cal_type()) {
-		info("%s maybe timeout\n", __FUNCTION__);
-		return 0;
-	}
-
-	dcdc_cal_typ = sprd_get_adc_cal_type();
-	debug("%s %d %d\n", __FUNCTION__, dcdc_cal_typ, cnt);
-
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDC, dcdc_def_vol, dcdc_to_vol);
-	if (ret > 0)		//verify
+	ret = dcdc_calibrate(ADC_CHANNEL_DCDC, 0, dcdc_to_vol);
+	if (ret > 0)
 		dcdc_calibrate(ADC_CHANNEL_DCDC, ret, dcdc_to_vol);
 
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 1200, dcdcarm_to_vol);
-	if (ret > 0)		//verify
+	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 0, dcdcarm_to_vol);
+	if (ret > 0)
 		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, dcdcarm_to_vol);
-	cnt = CALIBRATE_TO;
+
+      exit:
+	if (sci_syst_read() - dcdc_work.uptime < CALIBRATE_TO * 1000) {
+		schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
+	} else {
+		info("%s maybe timeout\n", __FUNCTION__);
+	}
+
 	if (cpu_freq == 1200) {
 		msleep(100);
 		mpll_calibrate(cpu_freq);
 	}
-	goto retry;
-}
-
-/*
-static struct delayed_work dcdc_work = {
-	.work.func = NULL,
-};
-
-static void do_dcdc_work(struct work_struct *work)
-{
-	do_dcdc_init(0);
+	return;
 }
 
 void dcdc_calibrate_callback(void *data)
 {
-	dump_stack();
-	if (!dcdc_work.work.func)
-		INIT_DELAYED_WORK(&dcdc_work, do_dcdc_work);
-	schedule_delayed_work(&dcdc_work, 10);
+	if (!dcdc_work.work.work.func) {
+		INIT_DELAYED_WORK(&dcdc_work.work, do_dcdc_work);
+		dcdc_work.uptime = sci_syst_read();
+	}
+	schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(10));
 }
-*/
+
 static int __init dcdc_init(void)
 {
-	int ret;
-	ret = kernel_thread(do_dcdc_init, 0, 0);
-	if (ret < 0) {
-		debug("Can't create dcdc thread!\n");
-	}
+	dcdc_calibrate_callback(0);
 	return 0;
 }
 
