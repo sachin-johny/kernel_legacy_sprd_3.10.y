@@ -1314,7 +1314,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		}
 		disable_irq_nosync(acc->irq2);
 
-		// Create workqueue for IRQ.
+/*		 Create workqueue for IRQ.*/
 
 		INIT_WORK(&acc->irq2_work, lis3dh_acc_irq2_work_func);
 		acc->irq2_work_queue =
@@ -1433,14 +1433,14 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 
 	/* As default, do not report information */
 	atomic_set(&acc->enabled, 0);
-
+/*
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	acc->early_suspend.suspend = lis3dh_early_suspend;
 	acc->early_suspend.resume = lis3dh_early_resume;
 	acc->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
 	register_early_suspend(&acc->early_suspend);
 #endif
-
+*/
 	mutex_unlock(&acc->lock);
 
 	dev_info(&client->dev, "###%s###\n", __func__);
