@@ -477,8 +477,8 @@ static void lis3dh_acc_irq1_work_func(struct work_struct *work)
 {
 
 	/*struct lis3dh_acc_data *acc =
-	    container_of(work, struct lis3dh_acc_data, irq1_work);
-	*/
+	   container_of(work, struct lis3dh_acc_data, irq1_work);
+	 */
 	/* TODO  add interrupt service procedure.
 	   ie:lis3dh_acc_get_int1_source(acc); */
 	;
@@ -490,8 +490,8 @@ static void lis3dh_acc_irq2_work_func(struct work_struct *work)
 {
 
 	/*struct lis3dh_acc_data *acc =
-	    container_of(work, struct lis3dh_acc_data, irq2_work);
-	*/
+	   container_of(work, struct lis3dh_acc_data, irq2_work);
+	 */
 	/* TODO  add interrupt service procedure.
 	   ie:lis3dh_acc_get_tap_source(acc); */
 	;
@@ -559,7 +559,8 @@ int lis3dh_acc_update_g_range(struct lis3dh_acc_data *acc, u8 new_g_range)
 		acc->resume_state[RES_CTRL_REG4] = updated_val;
 		acc->sensitivity = sensitivity;
 
-		pr_debug("%s sensitivity %d g-range %d\n", __func__, sensitivity,new_g_range);
+		pr_debug("%s sensitivity %d g-range %d\n", __func__,
+			 sensitivity, new_g_range);
 	}
 
 	return 0;
@@ -669,8 +670,7 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 	err = lis3dh_acc_i2c_read(acc, acc_data, 6);
 
 	if (err < 0) {
-		pr_debug("%s I2C read error %d\n", LIS3DH_ACC_I2C_NAME,
-		       err);
+		pr_debug("%s I2C read error %d\n", LIS3DH_ACC_I2C_NAME, err);
 		return err;
 	}
 
@@ -690,7 +690,7 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 		  : (hw_d[acc->pdata->axis_map_z]));
 
 	pr_debug("%s read x=%d, y=%d, z=%d\n",
-	       LIS3DH_ACC_DEV_NAME, xyz[0], xyz[1], xyz[2]);
+		 LIS3DH_ACC_DEV_NAME, xyz[0], xyz[1], xyz[2]);
 
 	return err;
 }
@@ -720,12 +720,12 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 			if (acc->irq2 != 0)
 				enable_irq(acc->irq2);
 			pr_debug("%s: power on: irq enabled\n",
-			       LIS3DH_ACC_DEV_NAME);
+				 LIS3DH_ACC_DEV_NAME);
 		}
 
 		schedule_delayed_work(&acc->input_work,
-				      msecs_to_jiffies(acc->pdata->
-						       poll_interval));
+				      msecs_to_jiffies(acc->
+						       pdata->poll_interval));
 	}
 
 	return 0;
@@ -754,7 +754,7 @@ static int lis3dh_acc_misc_open(struct inode *inode, struct file *file)
 }
 
 static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
-				unsigned long arg)
+				  unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
 	u8 buf[4];
@@ -826,8 +826,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_CTRL_REG3] = ((mask & bit_values) |
-						    (~mask & acc->
-						     resume_state
+						    (~mask & acc->resume_state
 						     [RES_CTRL_REG3]));
 		break;
 
@@ -842,8 +841,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_CTRL_REG6] = ((mask & bit_values) |
-						    (~mask & acc->
-						     resume_state
+						    (~mask & acc->resume_state
 						     [RES_CTRL_REG6]));
 		break;
 
@@ -858,8 +856,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_INT_DUR1] = ((mask & bit_values) |
-						   (~mask & acc->
-						    resume_state
+						   (~mask & acc->resume_state
 						    [RES_INT_DUR1]));
 		break;
 
@@ -874,8 +871,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_INT_THS1] = ((mask & bit_values) |
-						   (~mask & acc->
-						    resume_state
+						   (~mask & acc->resume_state
 						    [RES_INT_THS1]));
 		break;
 
@@ -890,8 +886,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_INT_CFG1] = ((mask & bit_values) |
-						   (~mask & acc->
-						    resume_state
+						   (~mask & acc->resume_state
 						    [RES_INT_CFG1]));
 		break;
 
@@ -917,8 +912,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_INT_DUR2] = ((mask & bit_values) |
-						   (~mask & acc->
-						    resume_state
+						   (~mask & acc->resume_state
 						    [RES_INT_DUR2]));
 		break;
 
@@ -933,8 +927,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_INT_THS2] = ((mask & bit_values) |
-						   (~mask & acc->
-						    resume_state
+						   (~mask & acc->resume_state
 						    [RES_INT_THS2]));
 		break;
 
@@ -949,8 +942,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_INT_CFG2] = ((mask & bit_values) |
-						   (~mask & acc->
-						    resume_state
+						   (~mask & acc->resume_state
 						    [RES_INT_CFG2]));
 		break;
 
@@ -999,8 +991,9 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_TT_CFG] = ((mask & bit_values) |
-						 (~mask & acc->
-						  resume_state[RES_TT_CFG]));
+						 (~mask &
+						  acc->resume_state
+						  [RES_TT_CFG]));
 		break;
 
 	case LIS3DH_ACC_IOCTL_SET_TAP_TLIM:
@@ -1014,8 +1007,9 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_TT_LIM] = ((mask & bit_values) |
-						 (~mask & acc->
-						  resume_state[RES_TT_LIM]));
+						 (~mask &
+						  acc->resume_state
+						  [RES_TT_LIM]));
 		break;
 
 	case LIS3DH_ACC_IOCTL_SET_TAP_THS:
@@ -1029,8 +1023,9 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_TT_THS] = ((mask & bit_values) |
-						 (~mask & acc->
-						  resume_state[RES_TT_THS]));
+						 (~mask &
+						  acc->resume_state
+						  [RES_TT_THS]));
 		break;
 
 	case LIS3DH_ACC_IOCTL_SET_TAP_TLAT:
@@ -1044,8 +1039,9 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_TT_TLAT] = ((mask & bit_values) |
-						  (~mask & acc->
-						   resume_state[RES_TT_TLAT]));
+						  (~mask &
+						   acc->resume_state
+						   [RES_TT_TLAT]));
 		break;
 
 	case LIS3DH_ACC_IOCTL_SET_TAP_TW:
@@ -1059,8 +1055,8 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		if (err < 0)
 			return err;
 		acc->resume_state[RES_TT_TW] = ((mask & bit_values) |
-						(~mask & acc->
-						 resume_state[RES_TT_TW]));
+						(~mask &
+						 acc->resume_state[RES_TT_TW]));
 		break;
 
 #endif /* INTERRUPT_MANAGEMENT */
@@ -1156,7 +1152,7 @@ static int lis3dh_acc_validate_pdata(struct lis3dh_acc_data *acc)
 static int lis3dh_acc_input_init(struct lis3dh_acc_data *acc)
 {
 	int err;
-	/* Polling rx data when the interrupt is not used.*/
+	/* Polling rx data when the interrupt is not used. */
 	if (1 /*acc->irq1 == 0 && acc->irq1 == 0 */ ) {
 		INIT_DELAYED_WORK(&acc->input_work, lis3dh_acc_input_work_func);
 	}
@@ -1229,12 +1225,12 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	pr_debug("%s: probe start.\n", LIS3DH_ACC_DEV_NAME);
 
 	/*
-	if (client->dev.platform_data == NULL) {
-		dev_err(&client->dev, "platform data is NULL. exiting.\n");
-		err = -ENODEV;
-		goto exit_check_functionality_failed;
-	}
-	*/
+	   if (client->dev.platform_data == NULL) {
+	   dev_err(&client->dev, "platform data is NULL. exiting.\n");
+	   err = -ENODEV;
+	   goto exit_check_functionality_failed;
+	   }
+	 */
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "client not i2c capable\n");
 		err = -ENODEV;
@@ -1277,14 +1273,14 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, acc);
 
 	pr_debug("%s: %s has set irq1 to irq: %d\n",
-	       LIS3DH_ACC_DEV_NAME, __func__, acc->irq1);
+		 LIS3DH_ACC_DEV_NAME, __func__, acc->irq1);
 	pr_debug("%s: %s has set irq2 to irq: %d\n",
-	       LIS3DH_ACC_DEV_NAME, __func__, acc->irq2);
+		 LIS3DH_ACC_DEV_NAME, __func__, acc->irq2);
 
 	gpio_request(GSENSOR_GINT1_GPI, "GSENSOR_INT1");
 	gpio_request(GSENSOR_GINT2_GPI, "GSENSOR_INT2");
-	acc->irq1 = 0; /* gpio_to_irq(GSENSOR_GINT1_GPI); */
-	acc->irq2 = 0; /* gpio_to_irq(GSENSOR_GINT2_GPI); */
+	acc->irq1 = 0;		/* gpio_to_irq(GSENSOR_GINT1_GPI); */
+	acc->irq2 = 0;		/* gpio_to_irq(GSENSOR_GINT2_GPI); */
 
 	if (acc->irq1 != 0) {
 		pr_debug("%s request irq1\n", __func__);
@@ -1342,12 +1338,11 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	tempvalue = i2c_smbus_read_word_data(client, WHO_AM_I);
 
 	if ((tempvalue & 0x00FF) == WHOAMI_LIS3DH_ACC) {
-		pr_debug("%s I2C driver registered!\n",
-		       LIS3DH_ACC_DEV_NAME);
+		pr_debug("%s I2C driver registered!\n", LIS3DH_ACC_DEV_NAME);
 	} else {
 		acc->client = NULL;
 		pr_debug("I2C driver not registered!"
-		       " Device unknown 0x%x\n", tempvalue);
+			 " Device unknown 0x%x\n", tempvalue);
 		goto err_destoyworkqueue2;
 	}
 	acc->pdata = kmalloc(sizeof(*acc->pdata), GFP_KERNEL);
@@ -1573,7 +1568,6 @@ static struct i2c_driver lis3dh_acc_driver = {
 	.suspend = lis3dh_acc_suspend,
 	.id_table = lis3dh_acc_id,
 };
-
 
 static int __init lis3dh_acc_init(void)
 {
