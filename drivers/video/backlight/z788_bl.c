@@ -19,19 +19,31 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <mach/hardware.h>
+#include <linux/delay.h>
+#include<mach/globalregs.h>
 #include <linux/earlysuspend.h>
+#define GR_CLK_EN			(SPRD_GREG_BASE + 0x0074)
+#define PIN_MOD_PWMA			(SPRD_CPC_BASE  + 0x03e0)
+#define SPRD_PWM0_PRESCALE   		(SPRD_PWM_BASE + 0x0000)
+#define SPRD_PWM0_CNT 			(SPRD_PWM_BASE + 0x0004)
+#define SPRD_PWM0_PAT_LOW 	       	(SPRD_PWM_BASE + 0x000C)
+#define SPRD_PWM0_PAT_HIG 	       	(SPRD_PWM_BASE + 0x0010)
+
+#define PIN_PWM0_MOD_VALUE   0x20
 
 /* register definitions */
-#define        PWM_PRESCALE    (0x0000)
-#define        PWM_CNT         (0x0004)
-#define        PWM_TONE_DIV    (0x0008)
-#define        PWM_PAT_LOW     (0x000C)
-#define        PWM_PAT_HIG     (0x0010)
+#define	PWM_PRESCALE	(0x0000)
+#define	PWM_CNT		(0x0004)
+#define	PWM_TONE_DIV	(0x0008)
+#define	PWM_PAT_LOW	(0x000C)
+#define	PWM_PAT_HIG	(0x0010)
 
-#define        PWM_ENABLE      (1 << 8)
-#define        PWM_SCALE       8
-#define        PWM_REG_MSK     0xffff
-#define        PWM_MOD_MAX     0xff
+#define	PWM_ENABLE	(1 << 8)
+
+#define PWM_SCALE  8
+
+#define	PWM_REG_MSK	0xffff
+#define	PWM_MOD_MAX	0xff
 
 struct sc8810bl {
 	int pwm;
@@ -54,6 +66,26 @@ static void pwm_write(int index, uint32_t value, uint32_t reg)
 	__raw_writel(value, SPRD_PWM_BASE + index * 0x20 + reg);
 }
 
+static inline void __raw_bits_or(unsigned int v, unsigned int a)
+{
+	__raw_writel((__raw_readl(a) | v), a);
+}
+
+static void z788_SetPwmRatio(unsigned short value)
+{
+	/*printk("sprd:  %s  ,value = 0x%x  --1\n",__func__,value); */
+	__raw_bits_or(CLK_PWM0_EN, GR_CLK_EN);
+	__raw_bits_or(CLK_PWM0_SEL, GR_CLK_EN);
+	__raw_bits_or(PIN_PWM0_MOD_VALUE, PIN_MOD_PWMA);
+	__raw_writel(PWM_SCALE, SPRD_PWM0_PRESCALE);
+	__raw_writel(value, SPRD_PWM0_CNT);
+	__raw_writel(PWM_REG_MSK, SPRD_PWM0_PAT_LOW);
+	__raw_writel(PWM_REG_MSK, SPRD_PWM0_PAT_HIG);
+
+	__raw_bits_or(PWM_ENABLE, SPRD_PWM0_PRESCALE);
+
+}
+
 #ifdef CONFIG_EARLYSUSPEND
 static void sc8810_backlight_earlysuspend(struct early_suspend *h)
 {
@@ -67,12 +99,7 @@ static void sc8810_backlight_lateresume(struct early_suspend *h)
 	mutex_lock(&sc8810bl.mutex);
 	sc8810bl.suspend = 0;
 	mutex_unlock(&sc8810bl.mutex);
-
-	pwm_write(sc8810bl.pwm, PWM_SCALE, PWM_PRESCALE);
-	pwm_write(sc8810bl.pwm, sc8810bl.value, PWM_CNT);
-	pwm_write(sc8810bl.pwm, PWM_REG_MSK, PWM_PAT_LOW);
-	pwm_write(sc8810bl.pwm, PWM_REG_MSK, PWM_PAT_HIG);
-	pwm_write(sc8810bl.pwm, PWM_SCALE | PWM_ENABLE, PWM_PRESCALE);
+	z788_SetPwmRatio(sc8810bl.value);
 }
 #endif
 
@@ -80,12 +107,13 @@ static int sc8810_backlight_update_status(struct backlight_device *bldev)
 {
 	struct sc8810bl *bl = bl_get_data(bldev);
 	uint32_t value;
-
+	/*printk("sprd:  %s  --2\n",__func__); */
 	if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
 	    bldev->props.power != FB_BLANK_UNBLANK ||
 	    sc8810bl.suspend || bldev->props.brightness == 0) {
 		/* disable backlight */
-		pwm_write(bl->pwm, 0, PWM_PRESCALE);
+		z788_SetPwmRatio(0);
+
 	} else {
 		value = bldev->props.brightness & PWM_MOD_MAX;
 		if (value < 0x20) {
@@ -93,13 +121,7 @@ static int sc8810_backlight_update_status(struct backlight_device *bldev)
 		}
 		value = (value << 8) | PWM_MOD_MAX;
 		sc8810bl.value = value;
-
-		pwm_write(bl->pwm, PWM_SCALE, PWM_PRESCALE);
-		pwm_write(bl->pwm, value, PWM_CNT);
-		pwm_write(bl->pwm, PWM_REG_MSK, PWM_PAT_LOW);
-		pwm_write(bl->pwm, PWM_REG_MSK, PWM_PAT_HIG);
-
-		pwm_write(bl->pwm, PWM_SCALE | PWM_ENABLE, PWM_PRESCALE);
+		z788_SetPwmRatio(value);
 	}
 
 	return 0;
