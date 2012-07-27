@@ -49,6 +49,8 @@
 #include <linux/io.h>
 #include <linux/mtd/partitions.h>
 
+#define NFC_CMD_MAX_CNT	(3)
+
 /* Define default oob placement schemes for large and small page devices */
 static struct nand_ecclayout nand_oob_8 = {
 	.eccbytes = 3,
@@ -1455,6 +1457,10 @@ static int nand_do_read_ops(struct mtd_info *mtd, loff_t from,
 		mtd->oobavail : mtd->oobsize;
 
 	uint8_t *bufpoi, *oob, *buf;
+#ifdef CONFIG_MTD_NAND_SC8810
+	unsigned long count;
+	nfc_status_t nfcstatus;
+#endif
 
 	stats = mtd->ecc_stats;
 
@@ -1478,7 +1484,19 @@ static int nand_do_read_ops(struct mtd_info *mtd, loff_t from,
 			bufpoi = aligned ? buf : chip->buffers->databuf;
 
 			if (likely(sndcmd)) {
+#ifdef CONFIG_MTD_NAND_SC8810
+				for (count = 0; count < NFC_CMD_MAX_CNT; count++) {
+					chip->cmdfunc(mtd, NAND_CMD_READ0, 0x00, page);
+
+					nfcstatus = chip->nfc_operation_status(mtd);
+					if (nfcstatus == NFC_CMD_OPER_TIMEOUT)
+						chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
+					else if (nfcstatus == NFC_CMD_OPER_OK)
+						break;
+				}
+#else
 				chip->cmdfunc(mtd, NAND_CMD_READ0, 0x00, page);
+#endif
 				sndcmd = 0;
 			}
 
@@ -1679,11 +1697,28 @@ static int nand_write_oob_std(struct mtd_info *mtd, struct nand_chip *chip,
 	const uint8_t *buf = chip->oob_poi;
 	int length = mtd->oobsize;
 
+#ifdef CONFIG_MTD_NAND_SC8810
+	unsigned long count;
+	nfc_status_t nfcstatus;
+
+	for (count = 0; count < NFC_CMD_MAX_CNT; count++) {
+		chip->cmdfunc(mtd, NAND_CMD_SEQIN, mtd->writesize, page);
+		chip->write_buf(mtd, buf, length);
+		/* Send command to program the OOB data */
+		chip->cmdfunc(mtd, NAND_CMD_PAGEPROG, -1, -1);
+
+		nfcstatus = chip->nfc_operation_status(mtd);
+		if (nfcstatus == NFC_CMD_OPER_TIMEOUT)
+			chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
+		else if (nfcstatus == NFC_CMD_OPER_OK)
+			break;
+	}
+#else
 	chip->cmdfunc(mtd, NAND_CMD_SEQIN, mtd->writesize, page);
 	chip->write_buf(mtd, buf, length);
 	/* Send command to program the OOB data */
 	chip->cmdfunc(mtd, NAND_CMD_PAGEPROG, -1, -1);
-
+#endif
 	status = chip->waitfunc(mtd, chip);
 
 	return status & NAND_STATUS_FAIL ? -EIO : 0;
@@ -2052,6 +2087,12 @@ static int nand_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 			   const uint8_t *buf, int page, int cached, int raw)
 {
 	int status;
+#ifdef CONFIG_MTD_NAND_SC8810
+	unsigned long count = 0;
+	nfc_status_t nfcstatus;
+
+nfc_write_again:
+#endif
 
 	chip->cmdfunc(mtd, NAND_CMD_SEQIN, 0x00, page);
 
@@ -2069,6 +2110,14 @@ static int nand_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 	if (!cached || !(chip->options & NAND_CACHEPRG)) {
 
 		chip->cmdfunc(mtd, NAND_CMD_PAGEPROG, -1, -1);
+#ifdef CONFIG_MTD_NAND_SC8810
+		nfcstatus = chip->nfc_operation_status(mtd);
+		if ((nfcstatus == NFC_CMD_OPER_TIMEOUT) && (count < NFC_CMD_MAX_CNT)) {
+			chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
+			count++;
+			goto nfc_write_again;
+		}
+#endif
 		status = chip->waitfunc(mtd, chip);
 		/*
 		 * See if operation failed and additional status checks are
@@ -2467,9 +2516,25 @@ out:
 static void single_erase_cmd(struct mtd_info *mtd, int page)
 {
 	struct nand_chip *chip = mtd->priv;
+#ifdef CONFIG_MTD_NAND_SC8810
+	unsigned long count;
+	nfc_status_t nfcstatus;
+
+	for (count = 0; count < NFC_CMD_MAX_CNT; count++) {
+		/* Send commands to erase a block */
+		chip->cmdfunc(mtd, NAND_CMD_ERASE1, -1, page);
+		chip->cmdfunc(mtd, NAND_CMD_ERASE2, -1, -1);
+		nfcstatus = chip->nfc_operation_status(mtd);
+		if (nfcstatus == NFC_CMD_OPER_TIMEOUT)
+			chip->cmdfunc(mtd, NAND_CMD_RESET, -1, -1);
+		else if (nfcstatus == NFC_CMD_OPER_OK)
+			break;
+	}
+#else
 	/* Send commands to erase a block */
 	chip->cmdfunc(mtd, NAND_CMD_ERASE1, -1, page);
 	chip->cmdfunc(mtd, NAND_CMD_ERASE2, -1, -1);
+#endif
 }
 
 /**

@@ -800,14 +800,12 @@ struct mtd_part {
 static int mtd_proc_show(struct seq_file *m, void *v)
 {
 	struct mtd_info *mtd;
-
-	mutex_lock(&mtd_table_mutex);
-
-	int good = 0, bad = 0, reserved = 0;
 	struct nand_chip *chipinfo;
 	struct mtd_part *part;
 	struct mtd_info *master;
+	int good = 0, bad = 0, reserved = 0;
 
+	mutex_lock(&mtd_table_mutex);
 	mtd_for_each_device(mtd) {
 		bad += mtd_nand_block_info(mtd, &good);
 	}

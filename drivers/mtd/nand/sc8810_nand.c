@@ -52,6 +52,7 @@ struct sc8810_nand_page_oob {
 
 static struct sprd_nand_info g_info;
 static nand_ecc_modes_t sprd_ecc_mode = NAND_ECC_NONE;
+static nfc_status_t nfc_cmd_result_status = NFC_CMD_OPER_OK;
 static __attribute__((aligned(4))) unsigned char io_wr_port[NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE];
 
 /* 4kB or 8KB PageSize nand flash config table
@@ -190,6 +191,21 @@ static void sc8810_nand_wp_en(int en)
 	}
 }
 
+static void sc8810_nand_hw_init(void)
+{
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_SOFT_NFC_RST, AHB_SOFT_RST);
+	mdelay(2);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_SOFT_NFC_RST, AHB_SOFT_RST);
+
+	sc8810_nand_wp_en(0);
+	nfc_reg_write(NFC_TIMING, NFC_DEFAULT_TIMING);
+	nfc_reg_write(NFC_TIEOUT, 0xffffffff);
+
+
+}
+
+#if 0
 static int sc8810_nfc_wait_command_finish(unsigned int flag)
 {
 	unsigned int event = 0;
@@ -212,6 +228,46 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag)
 
 	return 0;
 }
+#else
+static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
+{
+	unsigned int event = 0;
+	unsigned int value;
+	unsigned int counter = 0;
+
+	nfc_cmd_result_status = NFC_CMD_OPER_OK;
+	while (((event & flag) != flag) && (counter < NFC_TIMEOUT_VAL)) {
+		value = nfc_reg_read(NFC_CLR_RAW);
+
+		if (value & NFC_ECC_DONE_RAW)
+			event |= NFC_ECC_EVENT;
+
+		if (value & NFC_DONE_RAW)
+			event |= NFC_DONE_EVENT;
+		counter ++;
+
+		if ((cmd == NAND_CMD_ERASE2) && (counter >= NFC_ERASE_TIMEOUT)) {
+			nfc_cmd_result_status = NFC_CMD_OPER_TIMEOUT;
+			break;
+		} else if ((cmd == NAND_CMD_READSTART) && (counter >= NFC_READ_TIMEOUT)) {
+			nfc_cmd_result_status = NFC_CMD_OPER_TIMEOUT;
+			break;
+		} else if ((cmd == NAND_CMD_PAGEPROG) && (counter >= NFC_WRITE_TIMEOUT)) {
+			nfc_cmd_result_status = NFC_CMD_OPER_TIMEOUT;
+			break;
+		}
+	}
+
+	nfc_reg_write(NFC_CLR_RAW, 0xffff0000);
+	if (nfc_cmd_result_status == NFC_CMD_OPER_TIMEOUT) {
+		printk("nfc cmd[0x%08x] timeout[0x%08x] and reset nand controller.\n", cmd, counter);
+		sc8810_nand_hw_init();
+	} else if (counter >= NFC_TIMEOUT_VAL)
+		panic("nfc cmd timeout!!!");
+
+	return 0;
+}
+#endif
 
 unsigned int ecc_mode_convert(u32 mode)
 {
@@ -258,7 +314,7 @@ unsigned int sc8810_ecc_encode(struct sc8810_ecc_param *param)
 	reg |= (param->ecc_pos << NFC_ECC_SP_POS_OFFSET) | ((param->sp_size - 1) << NFC_ECC_SP_SIZE_OFFSET) | ((param->ecc_num -1)<< NFC_ECC_NUM_OFFSET);
 	reg |= NFC_ECC_ACTIVE;
 	nfc_reg_write(NFC_ECC_CFG0, reg);
-	sc8810_nfc_wait_command_finish(NFC_ECC_EVENT);
+	sc8810_nfc_wait_command_finish(NFC_ECC_EVENT, -1);
 	memcpy(param->p_sbuf, (u8 *)NFC_SBUF_ADDR,param->sp_size);
 
 	return 0;
@@ -295,7 +351,7 @@ static u32 sc8810_ecc_decode(struct sc8810_ecc_param *param)
 	reg |= NFC_ECC_DECODE;
 	reg |= NFC_ECC_ACTIVE;
 	nfc_reg_write(NFC_ECC_CFG0, reg);
-	sc8810_nfc_wait_command_finish(NFC_ECC_EVENT);
+	sc8810_nfc_wait_command_finish(NFC_ECC_EVENT, -1);
 
 	ret = sc8810_get_decode_sts();
 	if (ret == -1) {
@@ -398,12 +454,12 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			nfc_mcr_inst_init();
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
 			nfc_mcr_inst_exc();
-			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT);
+			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			break;
 		case NAND_CMD_STATUS:
 			nfc_mcr_inst_init();
 			nfc_reg_write(NFC_CMD, 0x80000070);
-			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT);
+			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			memcpy(io_wr_port, (void *)NFC_ID_STS, 1);
 			break;
 		case NAND_CMD_READID:
@@ -412,7 +468,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			nfc_mcr_inst_add(0x00, NF_MC_ADDR_ID);
 			nfc_mcr_inst_add(7, NF_MC_RWORD_ID);
 			nfc_mcr_inst_exc_for_id();
-			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT);
+			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			memcpy(io_wr_port, (void *)NFC_MBUF_ADDR, 5);
 			break;
 		case NAND_CMD_ERASE1:
@@ -423,7 +479,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
 			nfc_mcr_inst_add(0, NF_MC_WAIT_ID);
 			nfc_mcr_inst_exc();
-			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT);
+			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			break;
 		case NAND_CMD_READ0:
 			nfc_mcr_inst_init();
@@ -439,7 +495,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			sc8810_nand_data_add(size, chip->options & NAND_BUSWIDTH_16, 1);
 
 			nfc_mcr_inst_exc();
-			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT);
+			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			memcpy(io_wr_port, (void *)NFC_MBUF_ADDR, size);
 			break;
 		case NAND_CMD_SEQIN:
@@ -452,7 +508,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
 			nfc_mcr_inst_add(0, NF_MC_WAIT_ID);
 			nfc_mcr_inst_exc();
-			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT);
+			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			break;
 		}
 	} else if (ctrl & NAND_ALE)
@@ -476,6 +532,11 @@ static void sc8810_nand_select_chip(struct mtd_info *mtd, int chip)
 		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
 	else
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
+}
+
+static nfc_status_t sc8810_nfc_operation_status(struct mtd_info *mtd)
+{
+	return nfc_cmd_result_status;
 }
 
 static int sc8810_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_char *ecc_code)
@@ -520,18 +581,6 @@ static int sc8810_nand_correct_data(struct mtd_info *mtd, uint8_t *dat, uint8_t 
 	ret = sc8810_ecc_decode(&param);
 
 	return ret;
-}
-
-static void sc8810_nand_hw_init(void)
-{
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_SOFT_NFC_RST);
-	mdelay(2);
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_SOFT_NFC_RST);
-
-	sc8810_nand_wp_en(0);
-	nfc_reg_write(NFC_TIMING, NFC_DEFAULT_TIMING);
-	nfc_reg_write(NFC_TIEOUT, 0xffffffff);
 }
 
 void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u8 id[8])
@@ -587,6 +636,7 @@ int board_nand_init(struct nand_chip *this)
 	this->write_buf = sc8810_nand_write_buf;
 	this->read_byte	= sc8810_nand_read_byte;
 	this->read_word	= sc8810_nand_read_word;
+	this->nfc_operation_status = sc8810_nfc_operation_status;
 
 	this->chip_delay = 20;
 	this->priv = &g_info;
@@ -674,9 +724,9 @@ static int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 static int sprd_nand_resume(struct platform_device *dev)
 {
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_SOFT_NFC_RST);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_SOFT_NFC_RST, AHB_SOFT_RST);
 	mdelay(2);
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_SOFT_NFC_RST);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_SOFT_NFC_RST, AHB_SOFT_RST);
 
 	nfc_reg_write(NFC_CFG0, nfc_reg_cfg0);
 	sc8810_nand_wp_en(0);
