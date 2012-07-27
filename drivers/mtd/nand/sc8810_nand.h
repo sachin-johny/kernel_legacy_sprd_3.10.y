@@ -126,6 +126,9 @@
 #define	NFC_ERR_EVENT				(16)
 #define	NFC_TIMEOUT_EVENT			(32)
 #define NFC_TIMEOUT_VAL				(0x1000000)
+#define NFC_ERASE_TIMEOUT			(0xc000)
+#define NFC_READ_TIMEOUT			(0x2000)
+#define NFC_WRITE_TIMEOUT			(0x4000)
 
 #define NF_MC_CMD_ID				(0xFD)
 #define NF_MC_ADDR_ID				(0xF1)
