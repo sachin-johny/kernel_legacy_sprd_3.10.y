@@ -3793,7 +3793,8 @@ dhd_module_init(void)
 	int error = 0;
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
-	msleep(2000);     /* Ignore MMC controler Auto Scan during bootloader */
+/*depend on MMC Auto scan during boot*/
+/*	msleep(2000);Ignore MMC controler Auto Scan during bootloader */
 	wl_android_init();
 
 #ifdef DHDTHREAD
@@ -4495,6 +4496,7 @@ int net_os_send_hang_message(struct net_device *dev)
 			ret = wl_iw_send_priv_event(dev, "HANG");
 #endif
 #if defined(WL_CFG80211)
+			printk(" Send HANG event\n");
 			ret = wl_cfg80211_hang(dev, WLAN_REASON_UNSPECIFIED);
 			dev_close(dev);
 			dev_open(dev);

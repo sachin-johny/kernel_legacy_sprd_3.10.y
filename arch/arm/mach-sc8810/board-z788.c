@@ -50,6 +50,7 @@ extern void __init sc8810_clock_init(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 #endif
+extern int wlan_device_power(int on);
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
@@ -360,6 +361,7 @@ static void __init sc8810_init_machine(void)
 	clk=26000000;
 	platform_device_add_data(&sprd_serial_device1,(const void*)&clk,sizeof(int));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&clk,sizeof(int));
+	wlan_device_power(1); /*Wlan power enable before MMC Auto scan*/
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
