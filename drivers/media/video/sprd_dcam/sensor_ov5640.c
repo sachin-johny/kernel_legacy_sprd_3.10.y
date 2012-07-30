@@ -1770,6 +1770,11 @@ LOCAL uint32_t _ov5640_set_ev(uint32_t level)
 	return 0;
 }
 
+static  uint32_t flicker_mode = 0;
+static  uint32_t video_mode = 0; //0: normal; 1: video
+
+/*
+
 LOCAL const SENSOR_REG_T ov5640_anti_banding_flicker_tab[][10] = {
 	{			//50hz
 	 {0x3c01, 0xb4}, {0x3c00, 0x04}, {0x3a08, 0x01}, {0x3a09, 0x27},
@@ -1780,16 +1785,90 @@ LOCAL const SENSOR_REG_T ov5640_anti_banding_flicker_tab[][10] = {
 	 {0x3a0e, 0x04}, {0xffff, 0xff}
 	 }
 };
+*/
+LOCAL const SENSOR_REG_T ov5640_video_mode_tab[][8]=
+{
+	/* preview mode: 30 fps*/
+	{
+		{0x3036, 0x46},
+		{0x3c01, 0x80},
+		{0x3c00, 0x04},
+		{0x3a08, 0x01},
+		{0x3a09, 0x27},
+		{0x3a0e, 0x03},
+		{0xffff, 0xff},
+	},
+	{
+		{0x3036, 0x46},
+		{0x3c01, 0x80},
+		{0x3c00, 0x00},
+		{0x3a0a, 0x00},
+		{0x3a0b, 0xf6},
+		{0x3a0d, 0x04},
+		{0xffff, 0xff},
+	},
+	
+	/* video mode: if use 35 fps, change it to 0x50*/
+	{
+		{0x3036, 0x50},/* 0x50: 35fps, 0x46: 30 fps*/
+		{0x3c01, 0x80},
+		{0x3c00, 0x04},
+		{0x3a08, 0x01},
+		{0x3a09, 0x51},
+		{0x3a0e, 0x02},
+		{0xffff, 0xff}
+	},
+	{
+		{0x3036, 0x50},/* 0x50: 35fps, 0x46: 30 fps*/
+		{0x3c01, 0x80},
+		{0x3c00, 0x00},
+		{0x3a0a, 0x01},
+		{0x3a0b, 0x19},
+		{0x3a0d, 0x03},
+		{0xffff, 0xff}
+	}
+	
+};
+
 
 LOCAL uint32_t _ov5640_set_anti_flicker(uint32_t mode)
 {
-	SENSOR_REG_T_PTR sensor_reg_ptr =
-	    (SENSOR_REG_T_PTR) ov5640_anti_banding_flicker_tab[mode];
+	SENSOR_REG_T_PTR sensor_reg_ptr = 0;
+//	    (SENSOR_REG_T_PTR) ov5640_anti_banding_flicker_tab[mode];
 	uint16_t i = 0x00;
 
 	if (mode > 1)
 		return 0;
 
+	flicker_mode = mode;
+
+
+	if(0 == mode)  //50Hz
+	{
+		if(0 == video_mode)
+		{
+			sensor_reg_ptr =  (SENSOR_REG_T_PTR)ov5640_video_mode_tab[0];
+		}
+		else
+		{
+			sensor_reg_ptr =  (SENSOR_REG_T_PTR)ov5640_video_mode_tab[2];		
+		}
+	
+	}
+	else  //60Hz
+	{
+		if(0 == video_mode)
+		{
+			sensor_reg_ptr =  (SENSOR_REG_T_PTR)ov5640_video_mode_tab[1];
+		}
+		else
+		{
+			sensor_reg_ptr =  (SENSOR_REG_T_PTR)ov5640_video_mode_tab[3];		
+		}
+	
+	}
+		
+	
 	for (i = 0x00;
 	     (0xffff != sensor_reg_ptr[i].reg_addr)
 	     || (0xff != sensor_reg_ptr[i].reg_value); i++) {
@@ -1799,28 +1878,73 @@ LOCAL uint32_t _ov5640_set_anti_flicker(uint32_t mode)
 	SENSOR_PRINT("SENSOR: _ov5640_set_anti_flicker = 0x%02x \n", mode);
 	return 0;
 }
+/*@@ Band 50Hz
+78 3c01 80 80;bit[7]set 1
+78 3c00 04
+78 3a08 01
+78 3a09 27
+78 3a0e 03
+ 
+@@ Band 60Hz
+78 3c01 80 80
+78 3c00 00
+78 3a0a 00
+78 3a0b f6
+78 3a0d 04
+*/
+/*
+@@ Band 50Hz
+78 3c01 80 80;bit[7]set 1
+78 3c00 04
+78 3a08 01
+78 3a09 51
+78 3a0e 02
+ 
+@@ Band 60Hz
+78 3c01 80 80
+78 3c00 00
+78 3a0a 01
+78 3a0b 19
+78 3a0d 03
+*/
 
-LOCAL const SENSOR_REG_T ov5640_video_mode_tab[][3]=
-{
-	/* preview mode: 30 fps*/
-	{
-		{0x3036, 0x46},
-		{0xffff, 0xff}
-	},
-	/* video mode: if use 35 fps, change it to 0x50*/
-	{
-		{0x3036, 0x50},/* 0x50: 35fps, 0x46: 30 fps*/
-		{0xffff, 0xff}
-	}
-};
+
 
 LOCAL uint32_t _ov5640_set_video_mode(uint32_t mode)
 {
-	SENSOR_REG_T_PTR sensor_reg_ptr=(SENSOR_REG_T_PTR)ov5640_video_mode_tab[mode];
+	SENSOR_REG_T_PTR sensor_reg_ptr= 0;//(SENSOR_REG_T_PTR)ov5640_video_mode_tab[mode];
 	uint16_t i=0x00;
 	/*printk("_ov5640_set_video_mode,mode=%d.\n",mode);*/
 	if(mode>1)
 		return 0;
+
+	video_mode = mode;
+
+	if(0 == mode)  //normal
+	{
+		if(0 == flicker_mode)
+		{
+			sensor_reg_ptr =  (SENSOR_REG_T_PTR) ov5640_video_mode_tab[0];
+		}
+		else
+		{
+			sensor_reg_ptr =  (SENSOR_REG_T_PTR)ov5640_video_mode_tab[1];		
+		}
+	
+	}
+	else  //video
+	{
+		if(0 == flicker_mode)
+		{
+			sensor_reg_ptr =  (SENSOR_REG_T_PTR)ov5640_video_mode_tab[2];
+		}
+		else
+		{
+			sensor_reg_ptr =  (SENSOR_REG_T_PTR)ov5640_video_mode_tab[3];		
+		}
+	
+	}
+	
 	for(i=0x00; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xff!=sensor_reg_ptr[i].reg_value); i++) {
 		Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
 	}
