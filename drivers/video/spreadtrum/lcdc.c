@@ -34,7 +34,8 @@ struct sprd_lcd_controller {
 
 #ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
 	/* overlay */
-	uint32_t  overlay_state;
+	uint32_t  overlay_state;  /*0-closed, 1-configed, 2-started*/
+	struct semaphore   overlay_lock;
 #endif
 	#if 0
 	spinlock_t 		my_lock;
@@ -70,7 +71,7 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 		lcdc_write(1, LCDC_IRQ_CLR);
 
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
-	if(SPRD_OVERLAY_STATUS_ON == lcdc->overlay_state){
+	if(SPRD_OVERLAY_STATUS_STARTED == lcdc->overlay_state){
 		overlay_close(dev);
 	}
 #endif
@@ -210,6 +211,10 @@ static int32_t sprd_lcdc_early_init(void)
 	sprd_lcdc_reset();
 	lcdc_hw_init();
 
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+	sema_init(&lcdc.overlay_lock, 1);
+#endif
+
 	lcdc.vsync_done = 1;
 	init_waitqueue_head(&(lcdc.vsync_queue));
 	ret = request_irq(IRQ_LCDC_INT, lcdc_isr, IRQF_DISABLED, "LCDC", &lcdc);
@@ -275,6 +280,10 @@ static int32_t sprd_lcdc_refresh (struct sprdfb_device *dev)
 
 	lcdc.vsync_done = 0;
 
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+	down(&lcdc.overlay_lock);
+#endif
+
 #ifdef LCD_UPDATE_PARTLY
 	if (fb->var.reserved[0] == 0x6f766572) {
 		uint32_t x,y, width, height;
@@ -321,6 +330,9 @@ static int32_t sprd_lcdc_refresh (struct sprdfb_device *dev)
 	/* start refresh */
 	lcdc_set_bits((1 << 3), LCDC_CTRL);
 
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+	up(&lcdc.overlay_lock);
+#endif
 	pr_debug("LCDC_CTRL: 0x%x\n", lcdc_read(LCDC_CTRL));
 	pr_debug("LCDC_DISP_SIZE: 0x%x\n", lcdc_read(LCDC_DISP_SIZE));
 	pr_debug("LCDC_LCM_START: 0x%x\n", lcdc_read(LCDC_LCM_START));
@@ -426,7 +438,8 @@ static int overlay_start(struct sprdfb_device *dev)
 {
 	pr_debug("lcdc: [%s] : %d\n", __FUNCTION__,lcdc.overlay_state);
 
-	if(SPRD_OVERLAY_STATUS_OFF  == lcdc.overlay_state){
+
+	if(SPRD_OVERLAY_STATUS_ON  != lcdc.overlay_state){
 		printk(KERN_ERR "sprd_fb: overlay start fail. (not opened)");
 		return -1;
 	}
@@ -442,17 +455,21 @@ static int overlay_start(struct sprdfb_device *dev)
 		return -1;
 	}
 */
-
-	lcdc_set_bits(BIT(0), LCDC_IMG_CTRL);	/* disable the image layer */
+	lcdc_write(0x00000000, LCDC_BG_COLOR);
+	lcdc_write(0x80, LCDC_OSD1_ALPHA);
+	lcdc_set_bits(BIT(0), LCDC_IMG_CTRL);/* disable the image layer */
+	lcdc.overlay_state = SPRD_OVERLAY_STATUS_STARTED;
+	return 0;
 }
 
-static int overlay_configure(struct sprdfb_device *dev, int type, overlay_rect *rect, unsigned char *buffer)
+static int overlay_configure(struct sprdfb_device *dev, int type, overlay_rect *rect, unsigned char *buffer, int y_endian, int uv_endian, bool rb_switch)
 {
 	uint32_t reg_value;
 
 	pr_debug("lcdc: [%s] : %d, (%d, %d,%d,%d), 0x%x\n", __FUNCTION__, type, rect->x, rect->y, rect->h, rect->w, (unsigned int)buffer);
 
-	if(SPRD_OVERLAY_STATUS_OFF  == lcdc.overlay_state){
+
+	if(SPRD_OVERLAY_STATUS_ON  != lcdc.overlay_state){
 		printk(KERN_ERR "sprd_fb: Overlay config fail (not opened)");
 		return -1;
 	}
@@ -462,8 +479,18 @@ static int overlay_configure(struct sprdfb_device *dev, int type, overlay_rect *
 		return -1;
 	}
 
+	if((y_endian >= SPRD_IMG_DATA_ENDIAN_LIMIT) || (uv_endian >= SPRD_IMG_DATA_ENDIAN_LIMIT)){
+		printk(KERN_ERR "sprd_fb: Overlay config fail (y, uv endian error)");
+		return -1;
+	}
+
 /*	lcdc_write(((type << 3) | (1 << 0)), LCDC_IMG_CTRL); */
-	lcdc_write((type << 3) , LCDC_IMG_CTRL);
+	/*lcdc_write((type << 3) , LCDC_IMG_CTRL);*/
+	reg_value = (y_endian << 10)|(uv_endian<<7)|(type << 3);
+	if(rb_switch){
+		reg_value |= (1 << 9);
+	}
+	lcdc_write(reg_value, LCDC_IMG_CTRL);
 
 	lcdc_write((uint32_t)buffer, LCDC_IMG_Y_BASE_ADDR);
 	if (type < SPRD_DATA_TYPE_RGB888) {
@@ -486,6 +513,17 @@ static int overlay_configure(struct sprdfb_device *dev, int type, overlay_rect *
 		lcdc_write(0, LCDC_Y2R_BRIGHTNESS);
 	}
 
+	pr_debug("LCDC_IMG_CTRL: 0x%x\n", lcdc_read(LCDC_IMG_CTRL));
+	pr_debug("LCDC_IMG_Y_BASE_ADDR: 0x%x\n", lcdc_read(LCDC_IMG_Y_BASE_ADDR));
+	pr_debug("LCDC_IMG_UV_BASE_ADDR: 0x%x\n", lcdc_read(LCDC_IMG_UV_BASE_ADDR));
+	pr_debug("LCDC_IMG_SIZE_XY: 0x%x\n", lcdc_read(LCDC_IMG_SIZE_XY));
+	pr_debug("LCDC_IMG_PITCH: 0x%x\n", lcdc_read(LCDC_IMG_PITCH));
+	pr_debug("LCDC_IMG_DISP_XY: 0x%x\n", lcdc_read(LCDC_IMG_DISP_XY));
+	pr_debug("LCDC_Y2R_CTRL: 0x%x\n", lcdc_read(LCDC_Y2R_CTRL));
+	pr_debug("LCDC_Y2R_CONTRAST: 0x%x\n", lcdc_read(LCDC_Y2R_CONTRAST));
+	pr_debug("LCDC_Y2R_SATURATION: 0x%x\n", lcdc_read(LCDC_Y2R_SATURATION));
+	pr_debug("LCDC_Y2R_BRIGHTNESS: 0x%x\n", lcdc_read(LCDC_Y2R_BRIGHTNESS));
+
 	return 0;
 }
 
@@ -502,6 +540,8 @@ static int overlay_close(struct sprdfb_device *dev)
 		return -1;
 	}
 */
+	lcdc_write(0xFFFFFF, LCDC_BG_COLOR);
+	lcdc_write(0xff, LCDC_OSD1_ALPHA);
 	lcdc_clear_bits(BIT(0), LCDC_IMG_CTRL);	/* disable the image layer */
 	lcdc.overlay_state = SPRD_OVERLAY_STATUS_OFF;
 }
@@ -524,19 +564,31 @@ static int32_t sprd_lcdc_enable_overlay(struct sprdfb_device *dev, struct overla
 			return -1;
 		}
 
+		down(&lcdc.overlay_lock);
+
+		if(0 != sprd_lcdc_sync(dev)){
+			printk(KERN_ERR "sprd_fb: sprd_lcdc_enable_overlay fail. (wait done fail)");
+			up(&lcdc.overlay_lock);
+			return -1;
+		}
+
 		result = overlay_open();
 		if(0 != result){
+			up(&lcdc.overlay_lock);
 			return -1;
 		}
 
-		result = overlay_configure(dev, info->data_type, &(info->rect), info->buffer);
+		result = overlay_configure(dev, info->data_type, &(info->rect), info->buffer, info->y_endian, info->uv_endian, info->rb_switch);
 		if(0 != result){
+			up(&lcdc.overlay_lock);
 			return -1;
 		}
 
-		result = overlay_start(dev);
+		up(&lcdc.overlay_lock);
+
+		/*result = overlay_start(dev);*/
 	}else{   /*disable*/
-		result = overlay_close(dev);
+		/*result = overlay_close(dev);*/
 	}
 
 	pr_debug("lcdc: [%s] return %d\n", __FUNCTION__, result);
