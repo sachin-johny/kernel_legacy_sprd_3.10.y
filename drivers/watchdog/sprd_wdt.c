@@ -85,7 +85,9 @@ static ssize_t sci_write(struct file *file, const char __user *data,
 						size_t len, loff_t *ppos)
 {
 	/* TODO: we should have a new reboot reason */
+	/*
 	ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
+	*/
 
 	if (len)
 		WDG_LOAD_TIMER_VALUE(margin * WDT_FREQ);
@@ -197,14 +199,23 @@ static struct miscdevice sci_miscdev = {
 	.fops		= &sci_fops,
 };
 
+extern int in_calibration(void);
+
 static int __init sci_wdt_init(void)
 {
 	int ret;
 
 	boot_status = 0;
 
+	if (in_calibration()) {
+		printk(WDT "calibration mode, quit...\n");
+		return 0;
+	}
+
 	/* TODO: we should have a new reboot reason */
+	/*
 	ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
+	*/
 
 	/* start the watchdog */
 	ANA_REG_OR(ANA_AGEN, AGEN_WDG_EN | AGEN_RTC_ARCH_EN | AGEN_RTC_WDG_EN);
