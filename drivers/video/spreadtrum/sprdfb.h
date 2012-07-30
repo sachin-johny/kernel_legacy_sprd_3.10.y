@@ -130,8 +130,16 @@ enum {
 };
 
 enum{
+	SPRD_IMG_DATA_ENDIAN_B0B1B2B3 = 0,
+	SPRD_IMG_DATA_ENDIAN_B3B2B1B0,
+	SPRD_IMG_DATA_ENDIAN_B2B3B1B0,
+	SPRD_IMG_DATA_ENDIAN_LIMIT
+};
+
+enum{
 	SPRD_OVERLAY_STATUS_OFF = 0,
 	SPRD_OVERLAY_STATUS_ON,
+	SPRD_OVERLAY_STATUS_STARTED,
 	SPRD_OVERLAY_STATUS_MAX
 };
 
@@ -144,6 +152,9 @@ typedef struct overlay_rect {
 
 typedef struct overlay_info{
 	int data_type;
+	int y_endian;
+	int uv_endian;
+	bool rb_switch;
 	overlay_rect rect;
 	unsigned char *buffer;
 }overlay_info;
