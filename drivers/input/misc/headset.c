@@ -241,7 +241,7 @@ static enum hrtimer_restart report_headset_detect_status(int active, struct _hea
 		} else {
 			switch_set_state(&hgp->parent->sdev, BIT_HEADSET_MIC);
 			pr_info("headset plug in\n");
-			headset_gpio_set_irq_type(hgp->irq, hgp->parent->button.irq_type_active);
+			headset_gpio_set_irq_type(hgp->parent->button.irq, hgp->parent->button.irq_type_active);
 			headset_gpio_irq_enable(1, &hgp->parent->button);
 		}
 	} else {
@@ -254,8 +254,8 @@ static enum hrtimer_restart report_headset_detect_status(int active, struct _hea
 			pr_info("headset plug out\n");
 		switch_set_state(&hgp->parent->sdev, BIT_HEADSET_OUT);
 	}
-	/* use below code only when gpio irq misses state ? */
-	/* headset_gpio_set_irq_type(hgp->irq, active ? hgp->irq_type_inactive : hgp->irq_type_active); */
+	/* use below code only when gpio irq misses state, because of the dithering */
+	headset_gpio_set_irq_type(hgp->irq, active ? hgp->irq_type_inactive : hgp->irq_type_active);
 	return HRTIMER_NORESTART;
 }
 
