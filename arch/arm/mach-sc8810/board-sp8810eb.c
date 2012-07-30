@@ -37,6 +37,7 @@
 #include <mach/regulator.h>
 #include <mach/gpio.h>
 #include <linux/spi/mxd_cmmb_026x.h>
+#include <gps/gpsctl.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -57,6 +58,18 @@ static struct regulator *wlan_regulator_18=NULL;
 
 /* Control ldo for maxscend cmmb chip according to HW design */
 static struct regulator *cmmb_regulator_1v8 = NULL;
+
+
+static struct platform_gpsctl_data pdata_gpsctl = {
+        .reset_pin = GPIO_GPS_RESET,
+        .onoff_pin = GPIO_GPS_ONOFF,
+};
+
+static struct platform_device  gpsctl_dev = {
+        .name               = "gpsctl",
+        .dev.platform_data  = &pdata_gpsctl,
+};
+
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -87,6 +100,7 @@ static struct platform_device *devices[] __initdata = {
 	&rfkill_device,
 	&brcm_bluesleep_device,
 	&kb_backlight_device,
+	&gpsctl_dev,
 };
 
 /* BT suspend/resume */
@@ -185,6 +199,9 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 	{
 		I2C_BOARD_INFO(PIXICR_DEVICE_NAME, 0x5C),
 		.platform_data = &pixcir_ts_info,
+	},
+	{
+               I2C_BOARD_INFO("KT0812G_FM", 0x37),
 	},
 };
 
