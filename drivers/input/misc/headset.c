@@ -337,7 +337,7 @@ static int __init headset_init(void)
 		pr_err("switch_dev_register failed!\n");
 		return ret;
 	}
-	platform_driver_unregister(&headset_button_driver);
+	platform_driver_register(&headset_button_driver);
 	ht->input = input_allocate_device();
 	if (ht->input == NULL) {
 		pr_err("switch_dev_register failed!\n");
