@@ -54,6 +54,25 @@
 #define PIXCIR_INT_MODE			0X09
 #define PIXICR_CALIBRATE_MODE	0x03
 
+#define FT5x0x_REG_FW_VER                   0xA6
+
+typedef enum
+{
+    ERR_OK,
+    ERR_MODE,
+    ERR_READID,
+    ERR_ERASE,
+    ERR_STATUS,
+    ERR_ECC,
+    ERR_DL_ERASE_FAIL,
+    ERR_DL_PROGRAM_FAIL,
+    ERR_DL_VERIFY_FAIL
+}E_UPGRADE_ERR_TYPE;
+
+typedef unsigned char         FTS_BYTE;     //8 bit
+typedef unsigned short        FTS_WORD;    //16 bit
+typedef unsigned int          FTS_DWRD;    //16 bit
+typedef unsigned char         FTS_BOOL;    //8 bit
 
 struct i2c_dev{
 	struct list_head list;
