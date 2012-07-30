@@ -24,6 +24,13 @@ enum {
 	SPRD_DATA_FORMAT_LIMIT
 };
 
+enum{
+	SPRD_DATA_ENDIAN_B0B1B2B3 = 0,
+	SPRD_DATA_ENDIAN_B3B2B1B0,
+	SPRD_DATA_ENDIAN_B2B3B1B0,
+	SPRD_DATA_ENDIAN_LIMIT
+};
+
 typedef struct overlay_setting_rect {
 	uint16_t x; //start point - x
 	uint16_t y; //start point - y
@@ -33,6 +40,9 @@ typedef struct overlay_setting_rect {
 
 typedef struct overlay_setting{
 	int data_type;
+	int y_endian;
+	int uv_endian;
+	bool rb_switch;
 	overlay_setting_rect rect;
 	unsigned char *buffer;
 }overlay_setting;
