@@ -301,6 +301,8 @@ static int gps_hostwake_probe(struct i2c_client *client,
 
 	printk(KERN_INFO PFX "%s\n",__func__);
 
+	sc8810_i2c_set_clk(3,400000);/*temp method set i2c clk to 400K*/
+
 	init_waitqueue_head(&ac_data->wait);
 
 	// Pass if return is fail because the HOST_REQ GPIO pin 25 has been already registered as input pin of 3rd party
