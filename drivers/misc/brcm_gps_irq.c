@@ -291,6 +291,8 @@ static const struct file_operations gps_irq_fops = {
 #endif
 };
 
+extern void sc8810_i2c_set_clk(unsigned int id_nr, unsigned int freq);
+
 static int gps_hostwake_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
