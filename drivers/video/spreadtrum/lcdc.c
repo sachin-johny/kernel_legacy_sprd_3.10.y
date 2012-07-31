@@ -278,11 +278,11 @@ static int32_t sprd_lcdc_refresh (struct sprdfb_device *dev)
 
 	pr_debug("fb->var.yoffset: 0x%x\n", fb->var.yoffset);
 
-	lcdc.vsync_done = 0;
-
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	down(&lcdc.overlay_lock);
 #endif
+
+	lcdc.vsync_done = 0;
 
 #ifdef LCD_UPDATE_PARTLY
 	if (fb->var.reserved[0] == 0x6f766572) {
