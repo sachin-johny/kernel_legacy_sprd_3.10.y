@@ -252,8 +252,8 @@ static void ft5x0x_ts_sleep(void)
  */
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
-   	ft5x0x_ts_pwroff(g_ft5x0x_ts->reg_vdd);
 	disable_irq_nosync(g_ft5x0x_ts->ft5x0x_irq);
+	ft5x0x_ts_pwroff(g_ft5x0x_ts->reg_vdd);
 }
 
 /* pixcir_ts_resume --  set pixicr to resume
