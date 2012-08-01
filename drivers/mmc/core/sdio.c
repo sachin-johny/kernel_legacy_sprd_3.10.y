@@ -952,12 +952,12 @@ int sdio_reset_comm(struct mmc_card *card)
 	u32 ocr;
 	int err;
 
-	printk("%s():\n", __func__);
 	mmc_claim_host(host);
 
 	mmc_go_idle(host);
 
 	mmc_set_clock(host, host->f_min);
+	printk("%s():\n", __func__);
 
 	err = mmc_send_io_op_cond(host, 0, &ocr);
 	if (err)
