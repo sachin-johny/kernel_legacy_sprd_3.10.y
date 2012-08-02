@@ -77,6 +77,7 @@ static unsigned int host_clk = 0;
 #endif
 
 extern void mmc_power_off(struct mmc_host* mmc);
+extern void mmc_power_up(struct mmc_host* mmc);
 
 /* we don't need to restore sdio0, because of CONFIG_MMC_BLOCK_DEFERED_RESUME=y */
 #ifdef MMC_RESTORE_REGS
@@ -219,6 +220,35 @@ void sdhci_bus_scan(void)
 EXPORT_SYMBOL_GPL(sdhci_bus_scan);
 #endif
 
+/*
+ *   set indicator indicates that whether any devices attach on sdio bus.
+ *   NOTE: devices must already attached on bus before calling this function.
+ *   @ on: 0---deattach devices
+ *         1---attach devices on bus
+ *   @ return: 0---set indicator ok
+ *             -1---no devices on sdio bus
+ */
+int sdhci_device_attach(int on)
+{
+	struct mmc_host *mmc = NULL;
+	if(sdhci_host_g && (sdhci_host_g->mmc)){
+		mmc = sdhci_host_g->mmc;
+		if(mmc->card){
+			sdhci_host_g->dev_attached = on;
+			if(!on){
+				mmc_power_off(mmc);
+			}else{
+				mmc_power_up(mmc);
+			}
+		}else{
+			/* no devices */
+			sdhci_host_g->dev_attached = 0;
+			return -1;
+		}
+		return 0;
+	}
+}
+
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
  * @host: The SDHCI host instance.
@@ -284,7 +314,8 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 			clk_enable(host->clk);
 		}
 	}
-	pr_debug("clock:%d, AHB_CTL0:0x%x\n", clock, sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0));
+	pr_debug("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
+			sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0));
 	return;
 }
 
@@ -811,20 +842,24 @@ static int sdhci_pm_resume(struct device *dev)
 			host->ops->set_clock(host, 0);
 		}
 	}
+#endif
 
-	if(!(host->mmc->card)){
+	if(!(host->mmc->card) || !host->dev_attached){
 		if(host->ops->set_clock){
+			clock = host->clock;
 			host->ops->set_clock(host, 0);
+			if(clock != 0){
+				host->clock = clock;
+			}
 		}
 	}
-#endif
 #ifdef MMC_RESTORE_REGS
 
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dumpregs(host);
 #endif
-if(host->mmc && host->mmc->card)
-	sdhci_restore_regs(host);
+	if(host->mmc && host->mmc->card)
+		sdhci_restore_regs(host);
 #endif
 
 #ifdef CONFIG_MMC_DEBUG
@@ -834,7 +869,6 @@ if(host->mmc && host->mmc->card)
 	if(host->ops->set_clock){
 		clock = host->clock;
 		host->ops->set_clock(host, 0);
-		host->clock = clock;
 	}
 	return 0;
 }

@@ -401,6 +401,7 @@ extern int mmc_resume_bus(struct mmc_host *host);
 extern void mmc_power_off(struct mmc_host *host);
 extern void mmc_power_up(struct mmc_host *host);
 extern void sdhci_bus_scan(void);
+extern int sdhci_device_attach(int);
 
 extern int mmc_suspend_host(struct mmc_host *);
 extern int mmc_resume_host(struct mmc_host *);
