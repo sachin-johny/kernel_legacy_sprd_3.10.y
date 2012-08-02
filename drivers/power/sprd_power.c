@@ -490,6 +490,7 @@ void charge_stop(struct sprd_battery_data *battery_data)
 	battery_data->in_precharge = 0;
 }
 
+uint32_t vbat_capacity_loop_cnt = 0;
 static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 {
 	uint32_t voltage = 0;
@@ -535,12 +536,19 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 
 	{
 		adc_value = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
+
 		if (adc_value >= 0)
 			put_vbat_value(battery_data, adc_value);
 
 		if (adc_value < 0)
 			goto out;
 		adc_value = get_vbat_value(battery_data);
+
+		vbat_capacity_loop_cnt++;	//10S update vbat capacity buffer
+		vbat_capacity_loop_cnt %= CONFIG_AVERAGE_CNT;
+		if(0 == vbat_capacity_loop_cnt){
+			put_vbat_capacity_value(adc_value);
+		}
 
 		voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
 
@@ -671,7 +679,7 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 out:
 	if (!in_sleep) {
 
-		capacity = sprd_vol_to_percent(battery_data, voltage, 0);
+		capacity = sprd_vol_to_percent(battery_data, sprd_bat_adc_to_vol(battery_data,get_vbat_capacity_value()), 0);
 		voltage = (voltage / 10) * 10;
 
 		if (battery_data->capacity != capacity) {
@@ -722,27 +730,49 @@ void battery_sleep(void)
  * return 1: need update
  *        0: don't need
  */
+#define VBAT_BUFF_NUM	7
 int battery_updata(void)
 {
 	int32_t adc_value;
 	int32_t voltage;
 	uint32_t capacity;
+	int32_t i,j,temp;
+	int32_t vbat_result[VBAT_BUFF_NUM];
 	static uint32_t pre_capacity = 0xffffffff;
-	adc_value = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
+
+	{
+		for(i = 0; i < VBAT_BUFF_NUM;i++){
+			vbat_result[i] = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
+		}
+
+		for(j = 1; j <= VBAT_BUFF_NUM - 1; j++){
+			for(i = 0; i<VBAT_BUFF_NUM - j; i++){
+				if(vbat_result[i] > vbat_result[i + 1]){
+					temp = vbat_result[i];
+					vbat_result[i] = vbat_result[i + 1];
+					vbat_result[i + 1] = temp;
+				}
+			}
+		}
+		adc_value = vbat_result[VBAT_BUFF_NUM/2];
+	}
 	if (adc_value < 0)
 		return 0;
 	voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
 	capacity = sprd_vol_to_percent(battery_data, voltage, 0);
-	pr_info("battery_update: capacity %d\n", capacity);
+	pr_info("battery_update: capacity %d,voltage:%d\n", capacity,voltage);
 	if (pre_capacity == 0xffffffff) {
-		adc_value = get_vbat_value(battery_data);
-		voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
+		voltage = sprd_bat_adc_to_vol(battery_data,get_vbat_capacity_value());
 		pre_capacity = sprd_vol_to_percent(battery_data, voltage, 0);
 	}
 
 	if (pre_capacity != capacity) {
 		pre_capacity = capacity;
 		update_vbat_value(battery_data, adc_value);
+
+		for(i = 0; i < VBAT_CAPACITY_BUFF_CNT; i++) {	//init capacity vbat buffer for cal batttery capacity
+			put_vbat_capacity_value(adc_value);
+		}
 	}
 	if (capacity < 5) {
 		return 1;
@@ -855,11 +885,14 @@ retry_adc:
 			msleep(100);
 			goto retry_adc;
 		} else {
-			put_vbat_value(data, adc_value);
+			put_vbat_value(data, adc_value);	//vbat drop by large current.
 		}
 	}
 	adc_value = get_vbat_value(data);
-	voltage_value = sprd_bat_adc_to_vol(data, adc_value);
+	for(i = 0; i < VBAT_CAPACITY_BUFF_CNT; i++) {	//init capacity vbat buffer for cal batttery capacity
+		put_vbat_capacity_value(adc_value);
+	}
+	voltage_value = sprd_bat_adc_to_vol(data,get_vbat_capacity_value());
 	data->capacity = sprd_vol_to_percent(battery_data, voltage_value, 0);
 	dev_dbg(&pdev->dev, "charger present: %d capacity %d\n",
 		usb_connected(), data->capacity);
@@ -959,12 +992,10 @@ static int sprd_battery_remove(struct platform_device *pdev)
 
 static int sprd_battery_resume(struct platform_device *pdev)
 {
-	int32_t adc_value = 0;
 	uint32_t voltage = 0;
 	struct sprd_battery_data *data = platform_get_drvdata(pdev);
 
-	adc_value = get_vbat_value(battery_data);
-	voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
+	voltage = sprd_bat_adc_to_vol(data,get_vbat_capacity_value());
 	data->capacity = sprd_vol_to_percent(battery_data, voltage, 0);
 	power_supply_changed(&battery_data->battery);
 	return 0;

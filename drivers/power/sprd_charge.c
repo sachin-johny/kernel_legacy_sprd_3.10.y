@@ -60,29 +60,31 @@ uint16_t voltage_capacity_table[][2] = {
 
 uint16_t ac_charging_voltage_capacity_table[][2] = {
 	{4210, 100},
-	{4150, 70},
-	{4010, 60},
-	{3970, 50},
-	{3930, 40},
-	{3900, 30},
-	{3870, 20},
-	{3820, 15},
-	{3770, 5},
+	{4140, 90},
+	{4100, 80},
+	{4030, 70},
+	{3980, 60},
+	{3940, 50},
+	{3900, 40},
+	{3870, 30},
+	{3840, 20},
+	{3790, 15},
+	{3740, 5},
 	{3250, 0},
 };
 
 uint16_t usb_charging_voltage_capacity_table[][2] = {
 	{4200, 100},
 	{4120, 90},
-	{4080, 80},
-	{4005, 70},
-	{3965, 60},
-	{3930, 50},
-	{3890, 40},
-	{3865, 30},
-	{3830, 20},
-	{3810, 15},
-	{3730, 5},
+	{4060, 80},
+	{4000, 70},
+	{3940, 60},
+	{3900, 50},
+	{3860, 40},
+	{3830, 30},
+	{3800, 20},
+	{3750, 15},
+	{3700, 5},
 	{3250, 0},
 };
 
@@ -548,6 +550,32 @@ void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current)
 uint32_t temp_buf[CONFIG_AVERAGE_CNT];
 uint32_t vprog_buf[CONFIG_AVERAGE_CNT];
 uint32_t vbat_buf[CONFIG_AVERAGE_CNT];
+
+uint32_t vbat_capacity_buff[VBAT_CAPACITY_BUFF_CNT];
+
+void put_vbat_capacity_value(uint32_t vbat)
+{
+	int i;
+	static int buff_pointer = 0;
+
+	vbat_capacity_buff[buff_pointer] = vbat;
+	buff_pointer++;
+	if(VBAT_CAPACITY_BUFF_CNT == buff_pointer)
+	{
+		buff_pointer = 0;
+	}
+}
+
+uint32_t get_vbat_capacity_value(void)
+{
+	unsigned long sum = 0;
+	int i;
+	for (i = 0; i < VBAT_CAPACITY_BUFF_CNT; i++)
+		sum += vbat_capacity_buff[i];
+
+	return sum / VBAT_CAPACITY_BUFF_CNT;
+}
+
 void put_temp_value(struct sprd_battery_data *data, uint32_t temp)
 {
 	int i;
