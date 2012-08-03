@@ -2194,7 +2194,7 @@ int __init sc8810_clock_init(void)
 	/* find first available block. */
 	for (index = 0, pstub = pstub_start, pname = pname_start;
 			NULL != pstub->name; pstub++, pname++, index++) {
-		printk("PM clock: %s:%s\n", pstub->name, *pname);
+/*		printk("PM clock: %s:%s\n", pstub->name, *pname); */
 		continue;
 	}
 	/* modem clock end */
@@ -2212,7 +2212,7 @@ int __init sc8810_clock_init(void)
 
 	clk_enable_init_clocks();
 	CLK_FW_INFO("###: sc8810_clock_init() is done.\n");
-
+/*
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 		p = c->lk.clk;
 		printk("clock: [%s], parent = [%s], usecount = %d, rate = %ld.\n",
@@ -2220,7 +2220,7 @@ int __init sc8810_clock_init(void)
 				p->usecount, p->rate);
 	}
 	sc8810_get_clock_info();
-
+*/
 	return 0;
 }
 

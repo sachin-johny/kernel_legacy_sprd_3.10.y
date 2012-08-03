@@ -410,6 +410,8 @@ static int is_dsp_sleep(void)
 
 static int print_thread(void * data)
 {
+	set_current_state(TASK_INTERRUPTIBLE);
+	schedule_timeout(180 * HZ);
 	while(1){
 		wake_lock(&messages_wakelock);
 		print_ahb();
