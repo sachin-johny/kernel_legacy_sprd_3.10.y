@@ -1592,6 +1592,9 @@ CONFIG_FB_CFB_IMAGEBLIT=y
 # CONFIG_FB_MODE_HELPERS is not set
 # CONFIG_FB_TILEBLITTING is not set
 
+#key leds
+CONFIG_LEDS_SC8810_KB=y
+
 #
 # Frame buffer hardware drivers
 #
