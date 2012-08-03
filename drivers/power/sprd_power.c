@@ -924,7 +924,7 @@ retry_adc:
 #if defined(CONFIG_NOTIFY_BY_USB)
 	data->timer_freq = HZ;
 	ret = usb_register_hotplug_callback(&power_cb);
-	data->ac_online = usb_connected();
+	//data->ac_online = usb_connected();
 #else
 	if (usb_connected()) {
 		if (sprd_charger_is_adapter(data)) {
