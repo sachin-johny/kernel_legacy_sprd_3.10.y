@@ -49,6 +49,8 @@
 #endif
 
 static unsigned long nand_base = 0x60000000;
+static char *nandflash_cmdline;
+static int nandflash_parsed = 0;
 
 struct sprd_nand_info {
 	unsigned long			phys_base;
@@ -104,7 +106,6 @@ static void sprd_config_nand_pins16(void)
 /* Size of the block protected by one OOB (Spare Area in Samsung terminology) */
 #define CONFIG_SYS_NAND_ECCSIZE	512
 /* Number of ECC bytes per OOB - S3C6400 calculates 4 bytes ECC in 1-bit mode */
-//#define CONFIG_SYS_NAND_ECCBYTES	4
 #define CONFIG_SYS_NAND_ECCBYTES	4
 /* Number of ECC-blocks per NAND page */
 /* 2 bit correct, sc8810 support 1, 2, 4, 8, 12,14, 24 */
@@ -184,22 +185,7 @@ struct sc8810_nand_page_oob {
 
 #define REG_GR_NFC_MEM_DLY                      (*((volatile unsigned int *)(GR_NFC_MEM_DLY)))
 
-/* only for 4kpage or 8kpage nand flash, no 2kpage */
-static struct sc8810_nand_page_oob nand_config_table[] =
-{
-	{0xec, 0xbc, 0x00, 0x66, 0x56, 4096, 128, 512, 4},
-	{0x2c, 0xb3, 0x90, 0x66, 0x64, 4096, 224, 512, 8},
-	{0x2c, 0xbc, 0x90, 0x66, 0x54, 4096, 224, 512, 8},
-	{0xec, 0xb3, 0x01, 0x66, 0x5a, 4096, 128, 512, 4},
-	{0xec, 0xbc, 0x00, 0x6a, 0x56, 4096, 256, 512, 8}
-};
-
-/* some nand id could not be calculated the pagesize by mtd, replace it with a known id which has the same format. */
-static unsigned char nand_id_replace_table[][10] =
-{
-    {0xad, 0xb3, 0x91, 0x11, 0x00, /*replace with*/ 0xec, 0xbc, 0x00, 0x66, 0x56},
-    {0xad, 0xbc, 0x90, 0x11, 0x00, /*replace with*/ 0xec, 0xbc, 0x00, 0x66, 0x56}
-};
+static struct sc8810_nand_page_oob nand_config_item;
 
 static struct sc8810_nand_info g_info ={0};
 static nand_ecc_modes_t sprd_ecc_mode = NAND_ECC_NONE;
@@ -676,44 +662,6 @@ static void sc8810_nand_data_add(unsigned int bytes, unsigned int bus_width, uns
 	}
 }
 
-static void correct_invalid_id(unsigned char *buf)
-{
-	unsigned char id[5];
-
-	int num = sizeof(nand_id_replace_table) / sizeof(nand_id_replace_table[0]);
-	int index;
-
-	memcpy(id, (void *)NFC_MBUF_ADDR, 5);
-
-	for (index=0; index<num; index++)
-	{
-		if (id[0] == nand_id_replace_table[index][0] &&
-			id[1] == nand_id_replace_table[index][1] &&
-			id[2] == nand_id_replace_table[index][2] &&
-			id[3] == nand_id_replace_table[index][3] &&
-			id[4] == nand_id_replace_table[index][4])
-		{
-			break;
-		}
-	}
-
-	if (index < num)
-	{
-		buf[0] = nand_id_replace_table[index][5];
-		buf[1] = nand_id_replace_table[index][6];
-		buf[2] = nand_id_replace_table[index][7];
-		buf[3] = nand_id_replace_table[index][8];
-		buf[4] = nand_id_replace_table[index][9];
-
-		printk("nand id(%02x,%02x,%02x,%02x,%02x) is invalid, correct it by(%02x,%02x,%02x,%02x,%02x)\n",
-			id[0],id[1],id[2],id[3],id[4], buf[0],buf[1],buf[2],buf[3],buf[4]);
-	}
-	else
-	{
-		memcpy(buf, (void *)NFC_MBUF_ADDR, 5);
-	}
-}
-
 static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 				   unsigned int ctrl)
 {
@@ -740,10 +688,14 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 			nfc_mcr_inst_add(7, NF_MC_RWORD_ID);
 			nfc_mcr_inst_exc_for_id();
 			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
-			//memcpy(io_wr_port, (void *)NFC_MBUF_ADDR, 5);
-			correct_invalid_id(io_wr_port);
-			break;					
-		case NAND_CMD_ERASE1:
+			io_wr_port[0] = nand_config_item.m_c;
+			io_wr_port[1] = nand_config_item.d_c;
+			io_wr_port[2] = nand_config_item.cyc_3;
+			io_wr_port[3] = nand_config_item.cyc_4;
+			io_wr_port[4] = nand_config_item.cyc_5;
+			//printk("\n0x%02x  0x%02x  0x%02x  0x%02x  0x%02x\n", io_wr_port[0], io_wr_port[1], io_wr_port[2], io_wr_port[3], io_wr_port[4]);
+		break;
+        case NAND_CMD_ERASE1:
 			nfc_mcr_inst_init();
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
 			break;
@@ -761,7 +713,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
 			nfc_mcr_inst_add(0, NF_MC_WAIT_ID);			
 			if((!g_info.addr_array[0]) && (!g_info.addr_array[1]) )//main part
-				size = mtd->writesize +mtd->oobsize;
+				size = mtd->writesize + mtd->oobsize;
 			else
 				size = mtd->oobsize;
 			sc8810_nand_data_add(size, chip->options & NAND_BUSWIDTH_16, 1);
@@ -924,22 +876,9 @@ static struct nand_ecclayout _nand_oob_256 = {
 
 void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u8 id[8])
 {
-	int index;
-	int array;
-	
-	for (index = 0; index < 5; index ++)
-		printk(" %02x ", id[index]);
-	printk("\n");
-
-	array = sizeof(nand_config_table) / sizeof(struct sc8810_nand_page_oob);
-	for (index = 0; index < array; index ++) {
-		if ((nand_config_table[index].m_c == id[0]) && (nand_config_table[index].d_c == id[1]) && (nand_config_table[index].cyc_3 == id[2]) && (nand_config_table[index].cyc_4 == id[3]) && (nand_config_table[index].cyc_5 == id[4]))
-			break;
-	}
-
-	if (index < array) {
-		this->ecc.size = nand_config_table[index].eccsize;
-		g_info.ecc_mode = nand_config_table[index].eccbit;
+	if (nand_config_item.pagesize == 4096) {
+		this->ecc.size = nand_config_item.eccsize;
+		g_info.ecc_mode = nand_config_item.eccbit;
 		/* 4 bit ecc, per 512 bytes can creat 13 * 4 = 52 bit , 52 / 8 = 7 bytes
 		   8 bit ecc, per 512 bytes can creat 13 * 8 = 104 bit , 104 / 8 = 13 bytes */
 		switch (g_info.ecc_mode) {
@@ -951,15 +890,14 @@ void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u8 id[8]
 			case 8:
 				/* 8 bit ecc, per 512 bytes can creat 13 * 8 = 104 bit , 104 / 8 = 13 bytes */
 				this->ecc.bytes = 13;
-				if (nand_config_table[index].oobsize == 224)
+				if (nand_config_item.oobsize == 224)
 					this->ecc.layout = &_nand_oob_224;
 				else
 					this->ecc.layout = &_nand_oob_256;
-				mtd->oobsize = nand_config_table[index].oobsize;
+				mtd->oobsize = nand_config_item.oobsize;
 			break;
 		}
-	} else 
-		printk("The type of nand flash is not in table, so use default configuration!\n");
+	}
 }
 
 int board_nand_init(struct nand_chip *this)
@@ -1004,6 +942,105 @@ static struct mtd_info *sprd_mtd = NULL;
 const char *part_probes[] = { "cmdlinepart", NULL };
 #endif
 
+#ifndef MODULE
+/*
+ * Parse the command line.
+ */
+static inline unsigned long my_atoi(const char *name, int base)
+{
+	unsigned long val = 0;
+
+	for (;; name++) {
+		if (((*name >= '0') && (*name <= '9')) || ((*name >= 'a') && (*name <= 'f'))) {
+
+			switch (*name) {
+			case '0' ... '9':
+				val = base * val + (*name - '0');
+			break;
+			case 'a' ... 'f':
+				val = base * val + (*name - 'a' + 10);
+			break;
+			}
+		} else
+			break;
+	}
+
+	return val;
+}
+
+static int nandflash_setup_real(char *s)
+{
+	char *p, *vp;
+	unsigned long cnt;
+
+	nandflash_parsed = 1;
+
+	p = strstr(s, "nandid");
+	p += strlen("nandid");
+
+	for (cnt = 0; cnt < 5; cnt ++) {
+		vp = strstr(p, "0x");
+		vp += strlen("0x");
+		p = vp;
+
+		switch (cnt) {
+		case 0:
+			nand_config_item.m_c = my_atoi(vp, 16);
+		break;
+		case 1:
+			nand_config_item.d_c = my_atoi(vp, 16);
+		break;
+		case 2:
+			nand_config_item.cyc_3 = my_atoi(vp, 16);
+		break;
+		case 3:
+			nand_config_item.cyc_4 = my_atoi(vp, 16);
+		break;
+		case 4:
+			nand_config_item.cyc_5 = my_atoi(vp, 16);
+		break;
+		}
+    }
+    p = strstr(s, "pagesize(");
+	p += strlen("pagesize(");
+	nand_config_item.pagesize = my_atoi(p, 10);
+
+	p = strstr(s, "oobsize(");
+	p += strlen("oobsize(");
+	nand_config_item.oobsize = my_atoi(p, 10);
+
+	p = strstr(s, "eccsize(");
+	p += strlen("eccsize(");
+	nand_config_item.eccsize = my_atoi(p, 10);
+
+	p = strstr(s, "eccbit(");
+	p += strlen("eccbit(");
+	nand_config_item.eccbit = my_atoi(p, 10);
+
+	return 1;
+}
+/**
+ *	nandflash_setup - process command line options
+ *	@options: string of options
+ *
+ *	Process command line options for nand flash subsystem.
+ *
+ *	NOTE: This function is a __setup and __init function.
+ *            It only stores the options.  Drivers have to call
+ *            nandflash_setup_real() as necessary.
+ *
+ *	Returns zero.
+ *
+ */
+static int __init nandflash_setup(char *options)
+{
+	nandflash_cmdline = options;
+
+	return 1;
+}
+__setup("nandflash=", nandflash_setup);
+#endif
+
 static int sprd_nand_probe(struct platform_device *pdev)
 {
 	struct nand_chip *this;
@@ -1020,6 +1057,10 @@ static int sprd_nand_probe(struct platform_device *pdev)
 		goto Err;
 	}
 	nand_base = regs->start;
+	if (!nandflash_parsed)
+		nandflash_setup_real(nandflash_cmdline);
+
+	/*printk("\n0x%02x  0x%02x  0x%02x  0x%02x  0x%02x  %d  %d  %d  %d\n", nand_config_item.m_c, nand_config_item.d_c, nand_config_item.cyc_3, nand_config_item.cyc_4, nand_config_item.cyc_5, nand_config_item.pagesize, nand_config_item.oobsize, nand_config_item.eccsize, nand_config_item.eccbit);*/
 
 	memset(io_wr_port, 0xff, NAND_MAX_PAGESIZE + NAND_MAX_OOBSIZE);
 
