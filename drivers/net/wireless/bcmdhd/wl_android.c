@@ -363,8 +363,10 @@ int wl_android_wifi_on(struct net_device *dev)
 		return -EINVAL;
 	}
 
-/* call start clock */
+/* enable SDIO clock */
+#ifndef SPRD_SPI
         sdhci_device_attach(1);
+#endif
 	dhd_net_if_lock(dev);
 	if (!g_wifi_on) {
 		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_ON);
@@ -399,8 +401,10 @@ int wl_android_wifi_off(struct net_device *dev)
 		g_wifi_on = 0;
 	}
 	dhd_net_if_unlock(dev);
-/* call stop clock */
+/* disale SDIO clock */
+#ifndef SPRD_SPI
         sdhci_device_attach(0);
+#endif
 	return ret;
 }
 
