@@ -38,6 +38,16 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
 	.fifo_size = VBC_FIFO_FRAME_NUM * 2,
 };
 
+#define VBC_MEM_OPTIMIZATION 1
+#ifdef VBC_MEM_OPTIMIZATION
+#define VBC_PAGEDIR_BUF_NUM 5
+static int pagedir_buf_index = 0, pagedir_buf_after = 0;
+static unsigned long dma_phy_addr[VBC_PAGEDIR_BUF_NUM] = {0, 0, 0, 0 ,0};
+static unsigned long dma_virtual_addr[VBC_PAGEDIR_BUF_NUM] = {0, 0, 0, 0, 0};
+#endif
+
+
+
 extern int vbc_resume_late(struct snd_pcm_substream *substream, const char *prefix);
 
 int sc88xx_pcm_open(struct snd_pcm_substream *substream)
@@ -79,9 +89,31 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	rtd = kzalloc(sizeof(*rtd), GFP_KERNEL);
 	if (!rtd)
 		goto out;
+
+#ifdef VBC_MEM_OPTIMIZATION
+        if(pagedir_buf_index < VBC_PAGEDIR_BUF_NUM){
+          rtd->dma_desc_array =
+                dma_alloc_writecombine(substream->pcm->card->dev, 4 * PAGE_SIZE,
+                                        &rtd->dma_desc_array_phys, GFP_KERNEL);
+          dma_phy_addr[pagedir_buf_index] = rtd->dma_desc_array_phys;
+          dma_virtual_addr[pagedir_buf_index] = rtd->dma_desc_array;
+          printk("vbc dma memory allocated: phy=0x%x, virt=0x%x, index=%d\n",
+                    dma_phy_addr[pagedir_buf_index], dma_virtual_addr[pagedir_buf_index],pagedir_buf_index);
+          pagedir_buf_index += 1;
+        }
+        else{
+          rtd->dma_desc_array_phys = dma_phy_addr[pagedir_buf_after];
+          rtd->dma_desc_array = dma_virtual_addr[pagedir_buf_after];
+          printk("vbc dma memory using allocated index=%d\n",pagedir_buf_after);
+          pagedir_buf_after +=1;
+          if(pagedir_buf_after == VBC_PAGEDIR_BUF_NUM)
+             pagedir_buf_after = 0;
+        }
+#else
 	rtd->dma_desc_array =
 		dma_alloc_writecombine(substream->pcm->card->dev, 4 * PAGE_SIZE,
 					&rtd->dma_desc_array_phys, GFP_KERNEL);
+#endif
 	if (!rtd->dma_desc_array)
 		goto err1;
 	rtd->uid_cid_map[0] = rtd->uid_cid_map[1] = -1;
@@ -97,6 +129,7 @@ out:
 
 int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 {
+#ifndef VBC_MEM_OPTIMIZATION
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd = runtime->private_data;
 
@@ -104,6 +137,7 @@ int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 				rtd->dma_desc_array, rtd->dma_desc_array_phys);
 	kfree(rtd);
 
+#endif
 	return 0;
 }
 
