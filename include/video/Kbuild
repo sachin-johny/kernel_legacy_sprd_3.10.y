@@ -7,3 +7,4 @@ header-y += sprd_scale.h
 header-y += sprd_rotation.h
 
 header-y += sprd_fb.h
+header-y += ion_sprd.h

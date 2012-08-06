@@ -201,7 +201,7 @@ void __iomem * __arm_ioremap_pfn_caller(unsigned long pfn,
 	if (pfn >= 0x100000 && (__pfn_to_phys(pfn) & ~SUPERSECTION_MASK))
 		return NULL;
 
-#ifndef CONFIG_ANDROID_PMEM
+#if !(defined(CONFIG_ANDROID_PMEM)||defined(CONFIG_ION))
 	/*
 	 * Don't allow RAM to be mapped - this causes problems with ARMv6+
 	 */
