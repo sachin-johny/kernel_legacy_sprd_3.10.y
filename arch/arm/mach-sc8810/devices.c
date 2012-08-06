@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/android_pmem.h>
+#include <linux/ion.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/board.h>
@@ -371,6 +372,31 @@ struct platform_device sprd_pmem_adsp_device = {
 	.dev = {.platform_data = &sprd_pmem_adsp_pdata},
 };
 #endif
+
+#ifdef CONFIG_ION
+/*if you want to support multiple heaps of the same type,
+change the definition of id.
+*/
+static struct ion_platform_data ion_pdata = {
+	.nr = 1,
+	.heaps = {
+		{
+			.id	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= "ion_carveout_heap",
+			.base   = SPRD_ION_BASE,
+			.size   = SPRD_ION_SIZE,
+		}
+	}
+};
+
+struct platform_device sprd_ion_dev = {
+	.name = "ion-sprd",
+	.id = -1,
+	.dev = { .platform_data = &ion_pdata },
+};
+#endif
+
 static struct resource sprd_dcam_resources[] = {
 	{
 		.start	= SPRD_ISP_BASE,
