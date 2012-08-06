@@ -20,6 +20,12 @@ config MACH_SP8810
 	bool "SP8810 Phone"
 	help
 	  Support for the SC8810 based phone
+config MACH_SP8810G_BRCM
+	depends on ARCH_SC8810
+	default n
+	bool "SP8810 Phone + BRCM4330"
+	help
+	  Support for the SC8810+BRCM4330 based phone
 config MACH_SP8810W
 	depends on ARCH_SC8810
 	default n
