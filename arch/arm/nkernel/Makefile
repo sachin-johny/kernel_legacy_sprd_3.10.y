@@ -28,7 +28,7 @@
 
 obj-y			:= console.o ddi.o perfmon.o
 obj-$(CONFIG_PROC_FS)	+= proc.o nktags.o
-obj-$(CONFIG_SMP)	+= smp.o
+obj-$(CONFIG_SMP)	+= smp.o vuart_tty.o
 
 # Don't use vtimer or vtick
 ifeq (0, 1)

@@ -81,7 +81,7 @@ typedef struct {
 } Fifo;
 
 
-#ifdef CONFIG_TS0710_MUX_UART
+#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
 extern struct mux_ringbuffer rbuf;
 struct tty_driver *serial_for_mux_driver = NULL;
 static int serial_mux_guard = 0;
@@ -432,7 +432,7 @@ vcons_rx_intr (NkPort* port)
     int				i;
     int				count = 0;
 
-#ifdef CONFIG_TS0710_MUX_UART
+#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
     int				line = NKLINE(port->tty);
 #endif
 
@@ -445,7 +445,7 @@ vcons_rx_intr (NkPort* port)
 	    break;
 	}
 
-#ifdef CONFIG_TS0710_MUX_UART
+#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
 	if ( ( 3 == line ) && cmux_opened() ) {
 	    int 		num;
 	    unsigned long	flags;
@@ -479,7 +479,7 @@ vcons_rx_intr (NkPort* port)
     }
 
     if (count > 0) {
-#ifdef CONFIG_TS0710_MUX_UART
+#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
 	if (line == 3) {
 	    unsigned long flags;
 
@@ -510,7 +510,7 @@ vcons_tx_intr (NkPort* port)
     }
     spin_unlock_irqrestore(&port->lock, flags);
 
-#ifdef CONFIG_TS0710_MUX_UART
+#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
     line = NKLINE(port->tty);
     if ((3==line) && cmux_opened()){
 	CON_PRINT("func[%s]:serial_mux_sender\n",__FUNCTION__);
@@ -764,9 +764,9 @@ serial_open (struct tty_struct* tty, struct file* filp)
 
     line = NKLINE(tty);
     port = line + serial_port;
-	
-    printk("serial_open tty addr = %p, filp = %p, port =%p\n", tty, filp, port);
-#ifdef CONFIG_TS0710_MUX_UART
+
+    printk("serial_open tty addr = 0x%x, filp = 0x%x, port = 0x%x\n", (unsigned int)tty, (unsigned int)filp, (unsigned int)port);
+#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
 	if(line == 3){
 
 	        if( serial_mux_guard ) {
@@ -824,16 +824,16 @@ serial_open (struct tty_struct* tty, struct file* filp)
 
     static void
 serial_close (struct tty_struct* tty, struct file* filp)
-{ 
+{
     NkPort* port = (NkPort*)tty->driver_data;
-#ifdef CONFIG_TS0710_MUX_UART
+#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
 	int line = NKLINE(tty);
 	if (line == 3) {
 		serial_mux_guard--;
 	}
 #endif
 
-    printk("serial_close tty addr = %p, filp = %p, port->count=0x%x\n", tty, filp, port->count);
+    printk("serial_close tty addr = 0x%x, filp = 0x%x, port->count=0x%x\n", (unsigned int)tty, (unsigned int)filp, (unsigned int)port->count);
     port->count--;
     if (port->count == 0) {
 
@@ -908,7 +908,7 @@ serial_init (void)
 	printk(KERN_ERR "Couldn't register NK console driver\n");
     }
 
-#ifdef CONFIG_TS0710_MUX_UART
+#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
 	serial_for_mux_driver = &serial_driver;
 	printk("serial_init: serial_for_mux_driver=%p\n",serial_for_mux_driver);
 	//serial_for_mux_tty = &serial_tty;
