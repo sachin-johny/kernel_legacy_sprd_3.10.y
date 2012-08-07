@@ -76,6 +76,12 @@ static int mmc_schedule_delayed_work(struct delayed_work *work,
 	return queue_delayed_work(workqueue, work, delay);
 }
 
+int mmc_schedule_card_removal_work(struct delayed_work *work,
+				     unsigned long delay)
+{
+	return queue_delayed_work(workqueue, work, delay);
+}
+
 /*
  * Internal function. Flush all scheduled work from the MMC work queue.
  */
@@ -1964,8 +1970,10 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	if (!card)
 		return -EINVAL;
 
-	if (!mmc_can_reset(card))
-		return -EOPNOTSUPP;
+	if(!mmc_card_sd(card)){
+		if (!mmc_can_reset(card))
+			return -EOPNOTSUPP;
+	}
 
 	mmc_host_clk_hold(host);
 	mmc_set_clock(host, host->f_init);
@@ -2081,6 +2089,33 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 
 	return ret;
 }
+
+void mmc_remove_sd_card(struct work_struct *work)
+{
+	struct mmc_host *host =
+		container_of(work, struct mmc_host, remove.work);
+	printk(KERN_INFO "%s: %s\n", mmc_hostname(host),
+		__func__);
+
+	if(!mmc_card_sd(host->card))
+		return;
+	wake_lock(&host->detect_wake_lock);
+	mmc_bus_get(host);
+	if (host->bus_ops && !host->bus_dead) {
+		if (host->bus_ops->remove)
+			host->bus_ops->remove(host);
+		mmc_claim_host(host);
+		mmc_detach_bus(host);
+		mmc_release_host(host);
+	}
+	mmc_bus_put(host);
+	mmc_power_off(host);
+	wake_unlock(&host->detect_wake_lock);
+	printk(KERN_INFO "%s: %s exit\n", mmc_hostname(host),
+		__func__);
+
+}
+EXPORT_SYMBOL(mmc_remove_sd_card);
 
 int mmc_detect_card_removed(struct mmc_host *host)
 {
@@ -2480,7 +2515,7 @@ int mmc_resume_host(struct mmc_host *host)
 			printk(KERN_WARNING "%s: error %d during resume "
 					    "(card was removed?)\n",
 					    mmc_hostname(host), err);
-			err = 0;
+			/* err = 0; //original */
 		}
 	}
 /*	host->pm_flags &= ~MMC_PM_KEEP_POWER;

@@ -954,6 +954,7 @@ static int mmc_blk_err_check(struct mmc_card *card,
 	 */
 	if (!mmc_host_is_spi(card->host) && rq_data_dir(req) != READ) {
 		u32 status;
+		unsigned long delay = jiffies + HZ;
 		do {
 			int err = get_card_status(card, &status, 5);
 			if (err) {
@@ -966,6 +967,12 @@ static int mmc_blk_err_check(struct mmc_card *card,
 			 * so make sure to check both the busy
 			 * indication and the card state.
 			 */
+			if(status != 0x900)
+				printk("%s: check cards status: 0x%x\n", mmc_hostname(card->host), status);
+			if (time_after(jiffies, delay)){
+				printk("!!! %s, getting card status timeout\n", mmc_hostname(card->host));
+				break;
+			}
 		} while (!(status & R1_READY_FOR_DATA) ||
 			 (R1_CURRENT_STATE(status) == R1_STATE_PRG));
 	}
@@ -1164,6 +1171,24 @@ static int mmc_blk_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
 	return ret;
 }
 
+static void remove_sd_card(struct mmc_host *host)
+{
+	printk(KERN_INFO "%s: %s\n", mmc_hostname(host), __func__);
+	if (!host->card || host->card->removed) {
+		printk(KERN_INFO "%s: card already removed\n",
+			mmc_hostname(host));
+		return;
+	}
+	if (!mmc_card_present(host->card)) {
+		printk(KERN_INFO "%s: card is not present\n",
+			mmc_hostname(host));
+		return;
+	}
+	host->card->removed = 1;
+	mmc_schedule_card_removal_work(&host->remove, 0);
+}
+
+
 static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 {
 	struct mmc_blk_data *md = mq->data;
@@ -1272,7 +1297,6 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			mmc_start_req(card->host, &mq_rq->mmc_active, NULL);
 		}
 	} while (ret);
-
 	return 1;
 
  cmd_abort:
@@ -1281,7 +1305,12 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		req->cmd_flags |= REQ_QUIET;
 	while (ret)
 		ret = __blk_end_request(req, -EIO, blk_rq_cur_bytes(req));
+
 	spin_unlock_irq(&md->lock);
+	/*
+	* reset host failed, give up, remove card
+	*/
+	remove_sd_card(card->host);
 
  start_new_req:
 	if (rqc) {

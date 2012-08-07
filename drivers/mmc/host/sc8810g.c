@@ -548,6 +548,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 #endif
 	mmc_set_disable_delay(host->mmc, 500);
 #endif
+	host->mmc->caps |= MMC_CAP_HW_RESET;
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
 	if(pdev->id == 1){
@@ -739,13 +740,17 @@ static int sdhci_runtime_suspend(struct device *dev){
 static int sdhci_runtime_resume(struct device *dev){
 	struct sdhci_host *host = dev_get_drvdata(dev);
 	struct mmc_host *mmc = host->mmc;
+	int err = 0;
 
 	if (mmc) {
 		(host->mmc)->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
-		mmc_resume_host(mmc);
+		err = mmc_resume_host(mmc);
+		if(err)
+			printk("%s, runtime resume failed, err:%d\n", mmc_hostname(mmc), err);
 		(host->mmc)->bus_resume_flags |= MMC_BUSRESUME_MANUAL_RESUME;
 	}
-	return 0;
+
+	return err;
 }
 
 #define SPRD_MMC_IDLE_TIMEOUT 5000
