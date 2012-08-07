@@ -304,6 +304,7 @@ struct mmc_host {
 	int			claim_cnt;	/* "claim" nesting count */
 
 	struct delayed_work	detect;
+	struct delayed_work	remove;
 	struct wake_lock	detect_wake_lock;
 	int                     detect_change;  /* card detect flag */
 

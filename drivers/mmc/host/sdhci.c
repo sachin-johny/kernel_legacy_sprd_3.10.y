@@ -1297,6 +1297,17 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
  * MMC callbacks                                                             *
  *                                                                           *
 \*****************************************************************************/
+static void sdhci_hw_reset(struct mmc_host *mmc)
+{
+	int ret = 0;
+	struct sdhci_host *host = mmc_priv(mmc);
+	mmc_power_off(mmc);
+	usleep_range(5000, 5500);
+	mmc_power_up(mmc);
+	sdhci_reinit(host);
+	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
+}
+
 #ifdef CONFIG_PM_RUNTIME
 static int sdhci_enable(struct mmc_host *mmc){
 	int ret = 0;
@@ -1986,6 +1997,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.execute_tuning			= sdhci_execute_tuning,
 	.enable_preset_value		= sdhci_enable_preset_value,
+	.hw_reset 			= sdhci_hw_reset,
 };
 
 /*****************************************************************************\
@@ -2109,7 +2121,10 @@ static void sdhci_timeout_timer(unsigned long data)
 		printk(KERN_ERR "%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
 		sdhci_dumpregs(host);
-
+		if(host->cmd){
+			printk(KERN_ERR "%s, cmd:%d timeout\n",
+					mmc_hostname(host->mmc), host->cmd->opcode);
+		}
 		if (host->data) {
 			host->data->error = -ETIMEDOUT;
 			sdhci_finish_data(host);

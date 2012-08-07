@@ -179,6 +179,7 @@ extern void mmc_do_release_host(struct mmc_host *host);
 extern int mmc_try_claim_host(struct mmc_host *host);
 extern void mmc_set_ios(struct mmc_host *host);
 extern int mmc_detect_card_removed(struct mmc_host *host);
+extern void mmc_remove_sd_card(struct work_struct *work);
 extern int mmc_flush_cache(struct mmc_card *);
 
 /**
