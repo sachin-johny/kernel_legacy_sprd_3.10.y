@@ -3,11 +3,7 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
          dma.o reserve.o pinmap.o adi.o gpio_eic.o adc.o efuse.o dcdc_cal.o \
          watchdog.o
 
-ifeq ($(CONFIG_NKERNEL),y)
-obj-$(CONFIG_PM) += pm_vlx.o pm_sc8810.o standby.o pm_debug.o
-else
 obj-$(CONFIG_PM) += pm.o
-endif
 
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 

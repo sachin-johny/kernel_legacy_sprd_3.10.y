@@ -85,17 +85,8 @@ void sci_adc_enable(void)
 	sci_adi_set(ANA_CTL_ADC_BASE, BIT_ADC_EN);
 }
 
-#ifdef CONFIG_NKERNEL
-#define sci_adc_lock()				\
-		flags = hw_local_irq_save()
-#define sci_adc_unlock()			\
-		hw_local_irq_restore(flags)
-
-#else
 #define sci_adc_lock()
 #define sci_adc_unlock()
-
-#endif
 
 int sci_adc_get_value(unsigned int channel, int scale)
 {

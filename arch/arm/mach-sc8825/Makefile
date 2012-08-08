@@ -5,21 +5,14 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
 
 
 obj-y += glb.o
-obj-$(CONFIG_NKERNEL) += clock_vlx.o
 obj-y += clock.o
 
 obj-y += dcdc_cal.o
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 
-ifeq ($(CONFIG_NKERNEL),)
 obj-$(CONFIG_SMP)		+= platsmp.o headsmp.o
-endif
 
-ifeq ($(CONFIG_NKERNEL),y)
-obj-$(CONFIG_PM)		+= pm_vlx.o
-else
 obj-$(CONFIG_PM)		+= pm.o 
-endif
 obj-$(CONFIG_PM)		+= pm_sc8825.o standby.o pm_debug.o emc_repower.o emc_earlysuspend.o 
 CFLAGS_emc_repower.o += -fPIC
 

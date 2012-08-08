@@ -214,7 +214,6 @@ void sc8825_enable_timer_early(void)
 	__sched_clock_init(26000000);
 }
 
-#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMER)
 #ifdef CONFIG_LOCAL_TIMERS
 /*
  * Setup the local clock events for a CPU.
@@ -227,14 +226,11 @@ int __cpuinit local_timer_setup(struct clock_event_device *evt)
 }
 
 #endif /* CONFIG_LOCAL_TIMERS */
-#endif
 
 void __init sc8825_timer_init(void)
 {
-#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMER)
 #ifdef CONFIG_LOCAL_TIMERS
 	twd_base = (void __iomem *)SC8825_VA_PRIVATE_TIMER;
-#endif
 #endif
 	/* setup timer2 and syscnt as clocksource */
 	__gptimer_clocksource_init("gptimer2", 26000000);

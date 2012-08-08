@@ -984,14 +984,10 @@ int sc8825_enter_lowpower(void)
 #ifdef FORCE_DISABLE_DSP
 	status = 0;
 #else
-#ifdef CONFIG_NKERNEL
-	status = sc8825_get_clock_status();
-#else
 	/*
 	* TODO: get clock status in native version, force deep sleep now
 	*/
 	status = 0;
-#endif
 #endif
 	if (status & DEVICE_AHB)  {
 		printk("###### %s,  DEVICE_AHB ###\n", __func__ );
@@ -1066,10 +1062,6 @@ static void init_gr(void)
 
 	/* remap iram to 0x00000000*/
 	sci_glb_set(REG_AHB_REMAP, BIT(0));
-#ifdef CONFIG_NKERNEL
-	/*force close cp*/
-	__raw_writel(0x00000001, REG_AHB_CP_SLEEP_CTRL);
-#endif
 	/* AHB_PAUSE */
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN);
@@ -1092,38 +1084,6 @@ static void init_gr(void)
 	val |= BUFON_CTRL_HI;
 	sci_glb_write(REG_GLB_CLK_EN, val, -1UL );
 }
-
-#ifdef CONFIG_NKERNEL
-void sc8825_idle(void)
-{
-	int val;
-	if (!need_resched()) {
-		hw_local_irq_disable();
-		if (!arch_local_irq_pending()) {
-			val = os_ctx->idle(os_ctx);
-			if (0 == val) {
-#ifdef CONFIG_CACHE_L2X0
-				/*l2cache power control, standby mode enable*/
-				/*L2X0_POWER_CTRL
-				__raw_writel(1, SPRD_L2_BASE+0xF80);
-				l2x0_suspend();
-				*/
-#endif
-				cpu_do_idle();
-#ifdef CONFIG_CACHE_L2X0
-				/*
-				l2x0_resume(1);
-				*/
-#endif
-			}
-		}
-		hw_local_irq_enable();
-	}
-	local_irq_enable();
-	return;
-}
-
-#else
 
 void sc8825_idle(void)
 {
@@ -1150,7 +1110,6 @@ void sc8825_idle(void)
 	local_irq_enable();
 	return;
 }
-#endif
 
 #ifdef FORCE_DISABLE_DSP
 /* FPGA ONLY */

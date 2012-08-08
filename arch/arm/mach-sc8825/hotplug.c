@@ -100,15 +100,9 @@ void platform_cpu_die(unsigned int cpu)
 {
 	int spurious = 0;
 
-#ifdef CONFIG_NKERNEL_PM_MASTER
-	hw_local_irq_disable();
-#endif
 	flush_cache_all();
 	dsb();
-#ifdef CONFIG_NKERNEL
-	os_ctx->smp_cpu_stop(cpu);
-#endif
-#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NKERNEL_PM_MASTER)
+
 	/*
 	 * we're ready for shutdown now, so do it
 	 */
@@ -121,14 +115,8 @@ void platform_cpu_die(unsigned int cpu)
 	 */
 	//cpu_leave_lowpower();
 
-#ifdef CONFIG_NKERNEL_PM_MASTER
-	os_ctx->smp_cpu_start(cpu, virt_to_phys(secondary_startup));
-#endif
-	printk("cpu%d, %s, after os_ctx->smp_cpu_start at 0\n", cpu, __func__ );
-
 	if (spurious)
 		pr_warn("CPU%u: %u spurious wakeup calls\n", cpu, spurious);
-#endif
 }
 
 int platform_cpu_disable(unsigned int cpu)

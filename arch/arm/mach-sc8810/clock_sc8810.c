@@ -2244,53 +2244,6 @@ char (*pname)[MAX_CLOCK_NAME_LEN];
 #define	RES_CLOCK_STUB_MEM	0
 #define	RES_CLOCK_NAME_MEM	1
 
-#ifdef CONFIG_NKERNEL
-
-#include <nk/nkern.h>
-const char vlink_name_clk_fw[] = "vclock_framework";
-NkPhAddr    plink_clk_fw;
-NkDevVlink* vlink_clk_fw;
-
-static int clk_fw_vlink_init(void)
-{
-	plink_clk_fw = 0;
-	while ((plink_clk_fw = nkops.nk_vlink_lookup(vlink_name_clk_fw, plink_clk_fw))) {
-		if (0 == plink_clk_fw) {
-			CLK_FW_ERR("#####: Can't find the vlink [%s]!\n", vlink_name_clk_fw);
-			return -ENOMEM;
-		}
-		vlink_clk_fw = nkops.nk_ptov(plink_clk_fw);
-		CLK_FW_INFO("#####: clock-framework: vlink info: s_id = %d, c_id = %d.\n",
-				vlink_clk_fw->s_id, vlink_clk_fw->c_id);
-	}
-	return 0;
-}
-
-void *alloc_share_memory(unsigned int size, unsigned int res_id)
-{
-	void *pmem = NULL;
-
-	NkPhAddr     paddr;
-
-	/* Allocate persistent shared memory */
-	paddr  = nkops.nk_pmem_alloc(nkops.nk_vtop(vlink_clk_fw), res_id, size);
-
-	if (paddr == 0) {
-		CLK_FW_ERR("OS#%d->OS#%d link=%d server pmem alloc failed.\n",
-				vlink_clk_fw->c_id, vlink_clk_fw->s_id, vlink_clk_fw->link);
-		return NULL;
-	}
-
-	pmem = (void *) nkops.nk_mem_map(paddr, size);
-	if (pmem == 0) {
-		CLK_FW_ERR("error while mapping\n");
-	}
-	return pmem;
-
-}
-
-#else /* !CONFIG_NKERNEL */
-
 static int clk_fw_vlink_init(void)
 {
 	return 0;
@@ -2301,8 +2254,6 @@ void *alloc_share_memory(unsigned int size, unsigned int res_id)
 	static char pmem[CLOCK_NUM * sizeof(struct clock_stub)];
 	return pmem;
 }
-
-#endif
 
 int __init sc8810_clock_init(void)
 {
@@ -2366,39 +2317,6 @@ int __init sc8810_clock_init(void)
 	return 0;
 }
 
-#ifdef CONFIG_NKERNEL
-extern int is_print_linux_clock;
-extern int is_print_modem_clock;
-#endif
-/* modem clock begin*/
-static int sc8810_get_clock_modem_status(void)
-{
-    int index = 0;
-    int status = 0;
-
-    /* check all clocks, both linux side and RTOS side. */
-    for (index = 0, pstub = pstub_start; pstub[index].name != NULL; index++) {
-        if (pstub[index].usecount) {
-	      status |= pstub[index].flags;
-#ifdef CONFIG_NKERNEL
-		if(is_print_modem_clock){
-#endif
-		    if (pstub[index].flags & DEVICE_AHB)
-		        printk("###: modem clcok[%s] is on AHB.\n", pstub[index].name);
-		    if (pstub[index].flags & DEVICE_APB)
-		        printk("###: modem clcok[%s] is on APB.\n", pstub[index].name);
-		    if (pstub[index].flags & DEVICE_VIR)
-		        printk("###: modem clcok[%s] is on VIR.\n", pstub[index].name);
-		    if (pstub[index].flags & DEVICE_AWAKE)
-		        printk("###: modem clcok[%s] is on AWAKE.\n", pstub[index].name);
-#ifdef CONFIG_NKERNEL
-		}
-#endif
-        }
-    }
-    return status;
-}
-
 static int sc8810_get_clock_modem_info(void)
 {
     int index = 0;
@@ -2432,9 +2350,6 @@ int sc8810_get_clock_status(void)
 		p = c->lk.clk;
 		if (p->usecount) {
 			status |= p->flags;
-#ifdef CONFIG_NKERNEL
-			if(is_print_linux_clock){
-#endif
 				if (p->flags & DEVICE_AHB) {
 					CLK_FW_INFO("###: clcok[%s] is on AHB.\n", p->name);
 				}
@@ -2447,12 +2362,9 @@ int sc8810_get_clock_status(void)
 				if (p->flags & DEVICE_AWAKE) {
 					CLK_FW_INFO("###: clcok[%s] is on AWAKE.\n", p->name);
 				}
-#ifdef CONFIG_NKERNEL
-			}
-#endif
 		}
 	}
-	return status | sc8810_get_clock_modem_status();
+	return status;
 }
 
 int sc8810_get_clock_info(void)

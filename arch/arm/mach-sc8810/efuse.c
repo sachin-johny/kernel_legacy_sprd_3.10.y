@@ -94,34 +94,18 @@ static inline void __raw_bits_and(unsigned int v, unsigned int a)
 {
 	unsigned long flags;
 
-#ifndef CONFIG_NKERNEL
-		spin_lock_irqsave(&lock, flags);
-#else
-		flags = hw_local_irq_save();
-#endif
+	spin_lock_irqsave(&lock, flags);
 	__raw_writel((__raw_readl(a) & v), a);
-#ifndef CONFIG_NKERNEL
-		spin_unlock_irqrestore(&lock, flags);
-#else
-		hw_local_irq_restore(flags);
-#endif
+	spin_unlock_irqrestore(&lock, flags);
 }
 
 static inline void __raw_bits_or(unsigned int v, unsigned int a)
 {
 	unsigned long flags;
 
-#ifndef CONFIG_NKERNEL
-			spin_lock_irqsave(&lock, flags);
-#else
-			flags = hw_local_irq_save();
-#endif
+	spin_lock_irqsave(&lock, flags);
 	__raw_writel((__raw_readl(a) | v), a);
-#ifndef CONFIG_NKERNEL
-			spin_unlock_irqrestore(&lock, flags);
-#else
-			hw_local_irq_restore(flags);
-#endif
+	spin_unlock_irqrestore(&lock, flags);
 }
 
 static void __iomem *ctl_efuse_base = 0;

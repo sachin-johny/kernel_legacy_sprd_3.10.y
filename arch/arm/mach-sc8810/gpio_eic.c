@@ -559,10 +559,6 @@ static void gpio_muxed_handler(unsigned int irq, struct irq_desc *desc)
 		gpio_muxed_handler(IRQ_EIC_INT, irq_to_desc(IRQ_EIC_INT));
 	}
 #endif
-
-#ifdef CONFIG_NKERNEL
-	desc->irq_data.chip->irq_unmask(&desc->irq_data);
-#endif
 }
 
 void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *irqchip)
@@ -598,13 +594,10 @@ static int __init gpio_init(void)
 	gpiochip_add(&a_sci_eic.chip);
 	gpiochip_add(&a_sci_gpio.chip);
 
-#ifndef CONFIG_NKERNEL
 #ifndef CONFIG_ARCH_SC7710
 	irq_set_chip_and_handler(IRQ_EIC_INT, &dummy_irq_chip, handle_level_irq);
 	set_irq_flags(IRQ_EIC_INT, IRQF_VALID);
 #endif
-#endif
-
 	gpio_irq_init(IRQ_EIC_INT, &d_sci_eic.chip, &d_eic_irq_chip);
 	gpio_irq_init(IRQ_GPIO_INT, &d_sci_gpio.chip, &d_gpio_irq_chip);
 	gpio_irq_init(IRQ_ANA_EIC_INT, &a_sci_eic.chip, &a_eic_irq_chip);

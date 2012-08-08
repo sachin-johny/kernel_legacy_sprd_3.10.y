@@ -696,10 +696,6 @@ void cp_do_change_emc_freq(u32 mode, u32 div)
 {
 	u32 value;
 	volatile u32 i;
-#ifdef CONFIG_NKERNEL
-	/*delete close cp*/
-	__raw_writel(0x00000000, REG_AHB_CP_SLEEP_CTRL);
-#endif
 	value = mode | (div << EMC_FREQ_DIV_OFFSET);
 	//tell cp do disable dll mode
 	__raw_writel(value, REG_AHB_JMP_ADDR_CPU0);
@@ -719,10 +715,6 @@ void close_cp(void)
 		value = __raw_readl(REG_AHB_JMP_ADDR_CPU0);
 		udelay(100);
 	}
-#ifdef CONFIG_NKERNEL
-	/*force close cp*/
-	__raw_writel(0x00000001, REG_AHB_CP_SLEEP_CTRL);
-#endif
 	//printk("close_cp---\n");
 }                           
 static u32  emc_freq_early_suspend_times = 0;
@@ -835,26 +827,10 @@ u32 wake_source_stop(void)
 #endif
 static int __init emc_early_suspend_init(void)
 {
-#ifdef CONFIG_NKERNEL
-#ifndef CONFIG_MACH_SP6825GA
-	register_early_suspend(&emc_early_suspend_desc);
-	cp_code_init();
-	//change apb clock to 76.8MHz
-	//sci_glb_set(REG_GLB_CLKDLY, 3 << 14 );
-#ifdef PM_TIMER_TEST
-	pm_test_init(); 
-#endif
-#endif
-#endif
 	return 0;
 }
 static void  __exit emc_early_suspend_exit(void)
 {
-#ifdef CONFIG_NKERNEL
-#ifndef CONFIG_MACH_SP6825GA
-	unregister_early_suspend(&emc_early_suspend_desc);
-#endif
-#endif
 }
 
 module_init(emc_early_suspend_init);
