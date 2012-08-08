@@ -35,8 +35,13 @@ extern struct platform_device sprd_audio_soc_vbc_device;
 extern struct platform_device sprd_audio_vbc_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
+#ifdef CONFIG_ANDROID_PMEM
 extern struct platform_device sprd_pmem_device;
 extern struct platform_device sprd_pmem_adsp_device;
+#endif
+#ifdef CONFIG_ION
+extern struct platform_device sprd_ion_dev;
+#endif
 extern struct platform_device sprd_sdio0_device;
 extern struct platform_device sprd_sdio1_device;
 extern struct platform_device sprd_dcam_device;
