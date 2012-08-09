@@ -15,7 +15,7 @@
 #ifndef __SOUND_AUDIO_PA
 #define __SOUND_AUDIO_PA
 #include <linux/platform_device.h>
-typedef int (*audio_pa_callback)(u32, void *);
+typedef int (*audio_pa_callback)(int, void *);
 typedef int (*audio_pa_init)(void);
 typedef struct {
 	audio_pa_init init;
