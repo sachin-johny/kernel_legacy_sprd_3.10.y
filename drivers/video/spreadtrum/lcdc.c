@@ -456,6 +456,7 @@ static int overlay_start(struct sprdfb_device *dev)
 	}
 */
 	lcdc_write(0x00000000, LCDC_BG_COLOR);
+	lcdc_clear_bits(BIT(2), LCDC_OSD1_CTRL);
 	lcdc_write(0x80, LCDC_OSD1_ALPHA);
 	lcdc_set_bits(BIT(0), LCDC_IMG_CTRL);/* disable the image layer */
 	lcdc.overlay_state = SPRD_OVERLAY_STATUS_STARTED;
@@ -541,6 +542,7 @@ static int overlay_close(struct sprdfb_device *dev)
 	}
 */
 	lcdc_write(0xFFFFFF, LCDC_BG_COLOR);
+	lcdc_set_bits(BIT(2), LCDC_OSD1_CTRL);
 	lcdc_write(0xff, LCDC_OSD1_ALPHA);
 	lcdc_clear_bits(BIT(0), LCDC_IMG_CTRL);	/* disable the image layer */
 	lcdc.overlay_state = SPRD_OVERLAY_STATUS_OFF;
