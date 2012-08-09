@@ -286,7 +286,7 @@ struct platform_device audio_pa_amplifier_device = {
 	.id = -1,
 };
 
-static int audio_pa_amplifier_speaker(u32 cmd, void *data)
+static int audio_pa_amplifier_speaker(int cmd, void *data)
 {
 	int ret = 0;
 	if (cmd < 0) {
