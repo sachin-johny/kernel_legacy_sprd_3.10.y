@@ -510,12 +510,18 @@ void __init sprd_add_otg_device(void)
 	 */
 	if (calibration_mode)
 		return;
-        if(readl(CHIP_ID) == 0x88100001){
-                /*SMIC chip id == 0x88100001*/
-        	__raw_bits_or(BIT_9, USB_PHY_CTRL);
+
+    if (__raw_readl(CHIP_ID) == CHIP_ID_8810S){
+		/*SMIC chip id == 0x88100001*/
+		__raw_bits_and(~(BIT_3 | BIT_2), USB_PHY_CTRL);
+		__raw_bits_or(BIT_1 | BIT_0, USB_PHY_CTRL);
+		__raw_bits_or(BIT_9, USB_PHY_CTRL);
+		__raw_bits_or(BIT_16, USB_PHY_CTRL);
+		__raw_bits_and(~BIT_17, USB_PHY_CTRL);
+		__raw_bits_and(~BIT_13, USB_PHY_CTRL);
+		__raw_bits_and(~( BIT_12), USB_PHY_CTRL);
 		__raw_bits_and(~(BIT_15 | BIT_14), USB_PHY_CTRL);
-		__raw_bits_or(BIT_13 | BIT_12, USB_PHY_CTRL);
-                writel(0x28,USB_SPR_REG);
+		writel(0x28,USB_SPR_REG);
 	}else{
 		/*
 		 * config usb phy controller
