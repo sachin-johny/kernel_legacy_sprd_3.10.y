@@ -279,7 +279,7 @@ static int audio_pa_amplifier_speaker_init(void)
 	return 0;
 }
 
-static int audio_pa_amplifier_speaker(u32 cmd, void *data)
+static int audio_pa_amplifier_speaker(int cmd, void *data)
 {
 	int ret = 0;
 	if (cmd < 0) {
