@@ -220,7 +220,7 @@ static int __gpio_get_pin_data(struct gpio_info *info)
 
 	if (offset_addr != INVALID_REG) {
 		reg_addr += offset_addr;
-		return gpio_reg_get(reg_addr, info->die) & (1 << info->bit_num);
+		return !!(gpio_reg_get(reg_addr, info->die) & (1 << info->bit_num));
 	}
 
 	return -EINVAL;
