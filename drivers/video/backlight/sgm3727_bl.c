@@ -34,25 +34,28 @@ enum {
 };
 
 static unsigned long step_bak = 0;
-
 static void send_cmd(int cmd, int count)
 {
 	unsigned long flags;
 
 	switch(cmd) {
 	case CMD_PULSE:
+		if (step_bak == 0 ){
+			gpio_set_value(GPIO_BK, BK_HIGH);
+			udelay(100);
+		}
 		while(count-- > 0) {
 			local_irq_save(flags);
 			gpio_set_value(GPIO_BK, BK_LOW);
-			udelay(30);
+			udelay(10);
 			gpio_set_value(GPIO_BK, BK_HIGH);
 			local_irq_restore(flags);
-			udelay(30);
+			udelay(10);
 		}
 		break;
 	case CMD_OFF:
 		gpio_set_value(GPIO_BK, BK_LOW);
-		mdelay(3);
+		mdelay(4);
 		break;
 	default:
 		break;
@@ -69,15 +72,15 @@ static int gsm3727_backlight_update_status(struct backlight_device *bldev)
 			bldev->props.brightness == 0) {
 		/* disable backlight */
 		send_cmd(CMD_OFF, 0);
-		step_bak = 31;
+		step_bak = 0;
 	} else {
 		value = bldev->props.brightness & BK_MOD_MAX;
 
 		if(value > 255)
 			value = 255;
-		if(value < 0)
-			value = 0;
-		value_ret = 31 - value/8;
+		if(value < 8)
+			value = 8;
+		value_ret = 32 - value/8;
 
 		send_cmd(CMD_PULSE, (value_ret - step_bak + 32) & 31);
 
