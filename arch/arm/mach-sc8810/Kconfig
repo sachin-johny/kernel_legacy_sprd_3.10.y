@@ -38,7 +38,12 @@ config MACH_SP6820A
 	bool "SP8810 Phone"
 	help
 	  Support for the SC8810 based phone
-
+config MACH_SP6820G_RTL
+	depends on ARCH_SC8810
+	default n
+	bool "SP8810 Phone"
+	help
+	  Support for the SC8810 based phone
 config SC8810_IDLE
 	depends on ARCH_SC8810
 	default n

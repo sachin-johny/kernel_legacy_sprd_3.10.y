@@ -13,6 +13,7 @@ obj-$(CONFIG_MACH_SP8810) += board-sp8810/
 obj-$(CONFIG_MACH_SP8810W) += board-sp8810w/
 obj-$(CONFIG_MACH_SP6820A) += board-sp6820a/
 obj-$(CONFIG_MACH_SP8810G_BRCM) += board-sp8810g-brcm/
+obj-$(CONFIG_MACH_SP6820G_RTL) += board-sp6820g-rtl-hl/
 
 obj-$(CONFIG_PM)		+= pm_vlx.o idle_v7.o pm_devices.o standby.o
 

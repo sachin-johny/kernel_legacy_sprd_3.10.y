@@ -136,7 +136,7 @@ static void sprd_led_enable(struct sprd_lcd_led *led)
 		return;
 */
 	//open lcm backlight
-#ifdef CONFIG_MACH_SC8810OPENPHONE
+#if defined (CONFIG_MACH_SC8810OPENPHONE) || defined (CONFIG_SP6820G_RTL)
     ANA_REG_AND (WHTLED_CTL, ~ (WHTLED_PD_SET|WHTLED_PD_RST));
     ANA_REG_OR (WHTLED_CTL, WHTLED_PD_RST);
 #else
@@ -154,7 +154,7 @@ static void sprd_led_disable(struct sprd_lcd_led *led)
 		return;
 */
 	//close lcm backlight
-#ifdef CONFIG_MACH_SC8810OPENPHONE
+#if defined (CONFIG_MACH_SC8810OPENPHONE) || defined (CONFIG_SP6820G_RTL)
     ANA_REG_AND (WHTLED_CTL, ~ (WHTLED_PD_SET|WHTLED_PD_RST));
     ANA_REG_OR (WHTLED_CTL, WHTLED_PD_SET);
 #else
