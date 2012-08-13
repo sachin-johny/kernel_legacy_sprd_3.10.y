@@ -17,6 +17,7 @@
 #include <linux/irq.h>
 #include <linux/clockchips.h>
 
+#include <asm/sched_clock.h>
 #include <asm/mach/time.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -238,18 +239,31 @@ static void sprd_syscnt_clocksource_init(void)
 
 /* ****************************************************************** */
 
-unsigned long long sched_clock(void)
+static DEFINE_CLOCK_DATA(cd);
+
+unsigned long long notrace sched_clock(void)
 {
 	/* use gptimer2 as highres sched clock tick */
 	struct clocksource *src = &sprd_gptimer_src;
 
-	return clocksource_cyc2ns(src->read(src), src->mult, src->shift);
+	return cyc_to_sched_clock(&cd, src->read(src), (u32)~0);
+}
+
+static void notrace sc8810_update_sched_clock(void)
+{
+	/* use gptimer2 as highres sched clock tick */
+	struct clocksource *src = &sprd_gptimer_src;
+
+	update_sched_clock(&cd, src->read(src), (u32)~0);
 }
 
 void __init sc8810_timer_init(void)
 {
 	/* enable timer & syscnt in global regs */
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_TIMER_EN | GEN0_SYST_EN, GR_GEN0);
+
+	init_sched_clock(&cd, sc8810_update_sched_clock,
+			32, timer_rates[SOURCE_TIMER]);
 
 	/* setup timer2 as clocksource */
 	sprd_gptimer_clocksource_init();
