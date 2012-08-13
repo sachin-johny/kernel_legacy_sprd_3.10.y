@@ -980,6 +980,7 @@ config ARCH_SC8810
 	select CLKDEV_LOOKUP
 	select ARCH_REQUIRE_GPIOLIB
 	select ARCH_HAS_CPUFREQ
+	select HAVE_SCHED_CLOCK
 	help
 	  Support for Spreadtrum sc8810 based systems.
 
