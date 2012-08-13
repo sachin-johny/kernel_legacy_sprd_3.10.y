@@ -872,11 +872,6 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
 	int		rc = 0;
 
-	if (curlun->prevent_medium_removal && fsg_lun_is_open(curlun)) {
-		LDBG(curlun, "eject attempt prevented\n");
-		return -EBUSY;				/* "Door is locked" */
-	}
-
 	/* Remove a trailing newline */
 	if (count > 0 && buf[count-1] == '\n')
 		((char *) buf)[count-1] = 0;		/* Ugh! */
