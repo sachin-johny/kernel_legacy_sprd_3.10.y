@@ -31,7 +31,7 @@
 #include <linux/i2c/tmd2771_pls.h>
 #include <linux/i2c/lis3dh.h>
 
-#include <linux/akm8975.h>
+/*#include <linux/akm8975.h>*/
 #include <linux/spi/spi.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
@@ -226,7 +226,7 @@ static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 static struct tmd2771_pls_platform_data tmd2771_pls_info = {
 	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
 };
-
+/*
 struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_x = -32768,
 	.mag_high_x = 32767,
@@ -236,7 +236,7 @@ struct akm8975_platform_data akm8975_platform_d = {
 	.mag_high_z = 32767,
 	.power_on = vsim3_pwron,
 };
-
+*/
 static struct i2c_board_info i2c2_boardinfo[] = {
 	{
 		I2C_BOARD_INFO(FT5X0X_DEVICE_NAME, 0x3e),
@@ -258,10 +258,10 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 		I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 		.platform_data = &lis3dh_plat_data,
 	},
-	{
+	/*{
 		I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 		.platform_data = &akm8975_platform_d,
-	},
+	},*/
 };
 
 /* config I2C2 SDA/SCL to SIM2 pads */
