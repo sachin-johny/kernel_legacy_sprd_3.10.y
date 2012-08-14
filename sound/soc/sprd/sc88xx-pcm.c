@@ -55,7 +55,9 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd;
 	int ret;
-
+#ifdef VBC_MEM_OPTIMIZATION
+        int buf_index, buf_after;
+#endif
 	runtime->hw = sc88xx_pcm_hardware;
 	/*
 	 * Because VBC only support mono capture and caputer DMA buffer size must be 160*2 bytes,
@@ -91,23 +93,35 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 		goto out;
 
 #ifdef VBC_MEM_OPTIMIZATION
-        if(pagedir_buf_index < VBC_PAGEDIR_BUF_NUM){
+          local_irq_disable();
+          buf_index = pagedir_buf_index;
+          buf_after =  pagedir_buf_after;
+          if(buf_index < VBC_PAGEDIR_BUF_NUM)
+          {
+            pagedir_buf_index += 1;
+          }
+          else
+           {
+            pagedir_buf_after +=1;
+             if(pagedir_buf_after == VBC_PAGEDIR_BUF_NUM)
+             pagedir_buf_after = 0;
+           }
+          local_irq_enable();
+
+          if(buf_index < VBC_PAGEDIR_BUF_NUM){
           rtd->dma_desc_array =
                 dma_alloc_writecombine(substream->pcm->card->dev, 4 * PAGE_SIZE,
                                         &rtd->dma_desc_array_phys, GFP_KERNEL);
-          dma_phy_addr[pagedir_buf_index] = rtd->dma_desc_array_phys;
-          dma_virtual_addr[pagedir_buf_index] = rtd->dma_desc_array;
+          dma_phy_addr[buf_index] = rtd->dma_desc_array_phys;
+          dma_virtual_addr[buf_index] = rtd->dma_desc_array;
           printk("vbc dma memory allocated: phy=0x%x, virt=0x%x, index=%d\n",
-                    dma_phy_addr[pagedir_buf_index], dma_virtual_addr[pagedir_buf_index],pagedir_buf_index);
-          pagedir_buf_index += 1;
+                    dma_phy_addr[buf_index], dma_virtual_addr[buf_index],buf_index);
+          buf_index += 1;
         }
         else{
-          rtd->dma_desc_array_phys = dma_phy_addr[pagedir_buf_after];
-          rtd->dma_desc_array = dma_virtual_addr[pagedir_buf_after];
-          printk("vbc dma memory using allocated index=%d\n",pagedir_buf_after);
-          pagedir_buf_after +=1;
-          if(pagedir_buf_after == VBC_PAGEDIR_BUF_NUM)
-             pagedir_buf_after = 0;
+          rtd->dma_desc_array_phys = dma_phy_addr[buf_after];
+          rtd->dma_desc_array = dma_virtual_addr[buf_after];
+          printk("vbc dma memory using allocated index=%d\n",buf_after);
         }
 #else
 	rtd->dma_desc_array =
