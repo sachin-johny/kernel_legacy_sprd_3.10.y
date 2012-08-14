@@ -106,7 +106,7 @@ static void LCD_SetPwmRatio(unsigned short value)
 static void LCD_SetBackLightBrightness( unsigned long  value)
 {
 #if CONFIG_ARCH_SC8810
-#if defined (CONFIG_MACH_SP8810G_BRCM)
+#if defined (CONFIG_MACH_SP8810G_BRCM) || defined (CONFIG_MACH_SP6820G_RTL)
 	if(value > 255)
 		value = 255;
 
@@ -148,7 +148,7 @@ static void sprd_led_enable(struct sprd_lcd_led *led)
 		return;
 */
 	//open lcm backlight
-#if defined (CONFIG_MACH_SC8810OPENPHONE) || defined (CONFIG_SP6820G_RTL) || defined (CONFIG_MACH_SP8810G_BRCM)
+#if defined (CONFIG_MACH_SC8810OPENPHONE) || defined (CONFIG_MACH_SP6820G_RTL) || defined (CONFIG_MACH_SP8810G_BRCM)
     ANA_REG_AND (WHTLED_CTL, ~ (WHTLED_PD_SET|WHTLED_PD_RST));
     ANA_REG_OR (WHTLED_CTL, WHTLED_PD_RST);
 #else
@@ -166,7 +166,7 @@ static void sprd_led_disable(struct sprd_lcd_led *led)
 		return;
 */
 	//close lcm backlight
-#if defined (CONFIG_MACH_SC8810OPENPHONE) || defined (CONFIG_SP6820G_RTL) || defined (CONFIG_MACH_SP8810G_BRCM)
+#if defined (CONFIG_MACH_SC8810OPENPHONE) || defined (CONFIG_MACH_SP6820G_RTL) || defined (CONFIG_MACH_SP8810G_BRCM)
     ANA_REG_AND (WHTLED_CTL, ~ (WHTLED_PD_SET|WHTLED_PD_RST));
     ANA_REG_OR (WHTLED_CTL, WHTLED_PD_SET);
 #else
