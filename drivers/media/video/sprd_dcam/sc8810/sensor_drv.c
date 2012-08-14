@@ -160,7 +160,7 @@ static unsigned short sensor_sub_default_addr_list[] ={ SENSOR_SUB_I2C_ADDR,I2C_
 		}
 	}
 	printk( KERN_INFO "sensor_probe,this_client->addr =0x%x\n",this_client->addr );
-	mdelay(20);
+	mdelay(1);  //FROM 20 TO 1
 	
 	return 0;
 out:
@@ -329,7 +329,7 @@ PUBLIC void Sensor_Reset(uint32_t level)
 			return ;
 		}
 
-		gpio_direction_output(72,level);	
+		gpio_direction_output(72,level);
 		gpio_set_value(72,level);
 		msleep(40);
 		gpio_set_value(72,!level);		
@@ -1085,22 +1085,20 @@ int32_t Sensor_ReadReg_8bits(uint8_t reg_addr, uint8_t *reg_val)
 PUBLIC ERR_SENSOR_E Sensor_SendRegTabToSensor(SENSOR_REG_TAB_INFO_T * sensor_reg_tab_info_ptr	)
 {
 	uint32_t i;
-	struct timeval  time1, time2;
+/*	struct timeval  time1, time2;*/
 	SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor E.\n");
 
-	do_gettimeofday(&time1);
+/*	do_gettimeofday(&time1);*/
 		
 	for(i = 0; i < sensor_reg_tab_info_ptr->reg_count; i++)
 	{		
 		Sensor_WriteReg(sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_addr, sensor_reg_tab_info_ptr->sensor_reg_tab_ptr[i].reg_value);
 	}	
-	do_gettimeofday(&time2);
+/*	do_gettimeofday(&time2);*/
 	SENSOR_PRINT("SENSOR: Sensor_SendRegValueToSensor -> reg_count = %d, g_is_main_sensor: %d.\n",sensor_reg_tab_info_ptr->reg_count, g_is_main_sensor);
-	SENSOR_PRINT("SENSOR use new time sec: %ld, usec: %ld.\n", time1.tv_sec, time1.tv_usec);
+/*	SENSOR_PRINT("SENSOR use new time sec: %ld, usec: %ld.\n", time1.tv_sec, time1.tv_usec);
 	SENSOR_PRINT("SENSOR use old time sec: %ld, usec: %ld.\n", time2.tv_sec, time2.tv_usec);
-
-	SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor X.\n");
-
+	SENSOR_PRINT("SENSOR: Sensor_SendRegTabToSensor X.\n");*/
 	return SENSOR_SUCCESS;
 }
 
@@ -1420,7 +1418,10 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 					goto IDENTIFY_SEARCH;
 				}
 			}
-			Sensor_PowerOn(SCI_FALSE);
+			else
+			{
+				Sensor_PowerOn(SCI_FALSE);
+			}
 			_Sensor_I2CDeInit(sensor_id);
 			return;
 		}
@@ -1443,13 +1444,12 @@ IDENTIFY_SEARCH:
 		}
 		s_sensor_info_ptr = sensor_info_ptr;		
 		Sensor_PowerOn(SCI_TRUE);
-		SENSOR_PRINT_ERR("SENSOR: Sensor_PowerOn done,this_client=0x%x\n",(uint32_t)this_client);
-		SENSOR_PRINT_ERR("SENSOR: identify ptr =0x%x\n",(uint32_t)sensor_info_ptr->ioctl_func_tab_ptr->identify);
-	//	msleep(20);
+/*		SENSOR_PRINT_ERR("SENSOR: Sensor_PowerOn done,this_client=0x%x\n",(uint32_t)this_client);
+		SENSOR_PRINT_ERR("SENSOR: identify ptr =0x%x\n",(uint32_t)sensor_info_ptr->ioctl_func_tab_ptr->identify);*/
+
 		if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
 		{
-			printk("SENSOR:identify  Sensor 00:this_client=0x%x,this_client->addr=0x%x,0x%x\n",(uint32_t)this_client,(uint32_t)&this_client->addr,this_client->addr);
-	//		msleep(100);
+/*			printk("SENSOR:identify  Sensor 00:this_client=0x%x,this_client->addr=0x%x,0x%x\n",(uint32_t)this_client,(uint32_t)&this_client->addr,this_client->addr);*/
 			if(5 != Sensor_GetCurId())//test by wang bonnie
 				this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
 			SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
@@ -1478,7 +1478,51 @@ IDENTIFY_SEARCH:
 	{
 		SENSOR_PRINT_HIGH("SENSOR TYPE of %d indentify FAILURE",(uint32_t)sensor_id);
 	}
+}
+LOCAL uint32_t _Sensor_Register(SENSOR_ID_E sensor_id)
+{
+	uint32_t sensor_index = 0;
+	SENSOR_INFO_T** sensor_info_tab_ptr = PNULL;
+	uint32_t valid_tab_index_max = 0x00;
+	SENSOR_INFO_T* sensor_info_ptr=PNULL;
 
+	SENSOR_PRINT_HIGH("SENSOR: sensor identifing %d", sensor_id);
+
+	//if already identified
+	if(SCI_TRUE == s_sensor_register_info_ptr->is_register[sensor_id])
+	{
+		SENSOR_PRINT("SENSOR: sensor identified");
+		return SENSOR_SUCCESS;
+	}
+	if(s_sensor_identified && (5 != sensor_id)) {
+		sensor_index = s_sensor_index[sensor_id];
+		printk("_Sensor_Identify:sensor_index=%d.\n",sensor_index);
+		if(0xFF != sensor_index) {
+			valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
+			if(sensor_index>=valid_tab_index_max)
+			{
+				SENSOR_PRINT_ERR("SENSOR: saved index is larger than sensor sum.\n");
+				return SENSOR_FAIL;
+			}
+			sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
+
+			sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
+			if(NULL==sensor_info_ptr)
+			{
+				SENSOR_PRINT_ERR("SENSOR: %d info of Sensor_Init table %d is null", sensor_index, (uint)sensor_id);
+				return SENSOR_FAIL;
+			}
+			s_sensor_info_ptr = sensor_info_ptr;
+			s_sensor_list_ptr[sensor_id]=sensor_info_ptr;
+			s_sensor_register_info_ptr->is_register[sensor_id]=SCI_TRUE;
+			s_sensor_register_info_ptr->img_sensor_num++;
+
+		}
+
+	}
+	
+	return SENSOR_SUCCESS;
+	
 }
 
 LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
@@ -1500,9 +1544,9 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
          		if(5 != Sensor_GetCurId())//bonnie
 				this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
 
-			Sensor_PowerOn(SENSOR_TRUE);
+			//Sensor_PowerOn(SENSOR_TRUE);
 
-			Sensor_SetExportInfo(&s_sensor_exp_info);
+			//Sensor_SetExportInfo(&s_sensor_exp_info);
 
 			Sensor_PowerDown((BOOLEAN)s_sensor_info_ptr->power_down_level);
 
@@ -1512,66 +1556,100 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 		
 }
 
-/*****************************************************************************/
-//  Description:    This function is used to initialize Sensor function    
-//  Author:         Liangwen.Zhen
-//  Note:           
-/*****************************************************************************/
-PUBLIC uint32_t Sensor_Init(uint32_t sensor_id)
+LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr )
 {
-    	uint32_t ret_val=SENSOR_FAIL;    	
-    	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
+	uint32_t ret_val = SENSOR_FAIL;
+	printk("_sensor_com_init: in\n");
+	if (SENSOR_TRUE == sensor_register_info_ptr->is_register[sensor_id]) {
 
-    	SENSOR_PRINT("SENSOR: Sensor_Init, sensor_id: %d.\n", sensor_id);
-
-   	 if(Sensor_IsInit())
-    	{
-       	 	SENSOR_PRINT("SENSOR: Sensor_Init is done\n");        
-       		 return SENSOR_SUCCESS;
-    	}
-
-    	_Sensor_CleanInformation();
-
-	_Sensor_Identify(SENSOR_MAIN);
-
-
-	_Sensor_Identify(SENSOR_SUB);
-         s_sensor_identified = SCI_TRUE;
-	if(5 == sensor_id){
-		msleep(20);  //Jed add them 20111110 bonnie
-		_Sensor_Identify(SENSOR_ATV);
-	}
-	
-	SENSOR_PRINT("SENSOR: Sensor_Init Identify \n");
-
-	if(SENSOR_TRUE == sensor_register_info_ptr->is_register[sensor_id])
-	{
-		_Sensor_SetStatus(sensor_id);		
-        		_Sensor_SetId(sensor_id);
-		s_sensor_info_ptr=s_sensor_list_ptr[sensor_id];
-		Sensor_SetExportInfo(&s_sensor_exp_info);
-		s_sensor_init = SENSOR_TRUE;
+		_Sensor_SetId(sensor_id);
+		s_sensor_info_ptr = s_sensor_list_ptr[sensor_id];
 		Sensor_PowerOn(SENSOR_TRUE);
 
-		if(5 != Sensor_GetCurId())//bonnie
-			this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
-		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n",sensor_id,this_client->addr);
-		ret_val=SENSOR_SUCCESS;		
-		if(SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT))
-		{
-			SENSOR_PRINT_ERR("Sensor set init mode error!\n");
-			ret_val=SENSOR_FAIL;
-		}	
+		_Sensor_SetStatus(sensor_id);
+		_Sensor_SetId(sensor_id);
+		s_sensor_info_ptr = s_sensor_list_ptr[sensor_id];
+		Sensor_SetExportInfo(&s_sensor_exp_info);
 		s_sensor_init = SENSOR_TRUE;
-		SENSOR_PRINT("SENSOR: Sensor_Init  Success \n");					
+		//Sensor_PowerOn(SENSOR_TRUE);
+
+		if (5 != Sensor_GetCurId())
+			this_client->addr =
+			    (this_client->
+			     addr & (~0xFF)) |
+			    (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
+		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n", sensor_id,
+		       this_client->addr);
+		ret_val = SENSOR_SUCCESS;
+
+		printk("_sensor_com_init: before sensor_mode\n");
+		if (SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT)) {
+			SENSOR_PRINT_ERR("Sensor set init mode error!\n");
+			ret_val = SENSOR_FAIL;
+		}
+		printk("_sensor_com_init: after sensor_mode\n");
+		s_sensor_init = SENSOR_TRUE;
+		//SENSOR_PRINT("SENSOR: Sensor_Init  Success \n");
 	}
-	else
-	{
-		SENSOR_PRINT_ERR("Sensor identify fail,sensor_id = %d",sensor_id);
-	}      
+	else {
+		
+		SENSOR_PRINT_ERR("Sensor identify fail,sensor_id = %d",
+				 sensor_id);
+	}
+
+	printk("_sensor_com_init: out\n");
+	return ret_val;
+
 	
-	return ret_val;	
-}	
+}
+
+uint32_t Sensor_Init(uint32_t sensor_id)
+{
+	uint32_t ret_val = SENSOR_FAIL;
+	BOOLEAN reg_flag =  SCI_TRUE;
+	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr =
+	    s_sensor_register_info_ptr;
+
+	SENSOR_PRINT("SENSOR: Sensor_Init, sensor_id: %d.\n", sensor_id);
+
+	if (Sensor_IsInit()) {
+		SENSOR_PRINT("SENSOR: Sensor_Init is done\n");
+		return SENSOR_SUCCESS;
+	}
+	_Sensor_CleanInformation();
+
+	if(s_sensor_identified)
+	{
+		printk("SENSOR:  Sensor_Register\n");
+		_Sensor_Register(SENSOR_MAIN);
+		_Sensor_Register(SENSOR_SUB);
+
+		s_sensor_identified = SCI_TRUE;
+		if (5 == sensor_id) {
+			msleep(20);
+			_Sensor_Identify(SENSOR_ATV);
+		}
+		ret_val = _sensor_com_init(sensor_id, sensor_register_info_ptr);
+	}
+	
+	if(SENSOR_FAIL == ret_val)
+	{
+		_Sensor_Identify(SENSOR_MAIN);
+		_Sensor_Identify(SENSOR_SUB);
+		printk("SENSOR: Sensor_Init Identify \n");
+
+		s_sensor_identified = SCI_TRUE;
+		if (5 == sensor_id) {
+			msleep(20);
+			_Sensor_Identify(SENSOR_ATV);
+		}
+		ret_val = _sensor_com_init(sensor_id, sensor_register_info_ptr);
+	}
+
+
+	printk("Sensor_Init: end init: %d", ret_val);
+	return ret_val;
+}
 
 /*****************************************************************************/
 //  Description:    This function is used to check if sensor has been init    
