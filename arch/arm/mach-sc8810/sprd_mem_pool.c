@@ -18,9 +18,8 @@
 #include <linux/genalloc.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/mm.h>
 
-#define PGD_POOL_ORDER		7			/* 512KB */
-#define THREAD_POOL_ORDER	9			/* 2MB */
 #define THREAD_ENTRY_ORDER	THREAD_SIZE_ORDER	/* 8KB */
 #define PGD_ENTRY_ORDER		2			/* 16KB */
 
@@ -41,19 +40,15 @@ struct sprd_mem_pool {
 };
 
 static struct sprd_mem_pool thread_pool = {
-	.pool_order = THREAD_POOL_ORDER,
-	.pool_size = PAGE_SIZE << THREAD_POOL_ORDER,
 	.entry_order = THREAD_ENTRY_ORDER,
 	.entry_size = PAGE_SIZE << THREAD_ENTRY_ORDER,
-	.omit = 1500
+	.omit = 700
 };
 
 static struct sprd_mem_pool pgd_pool = {
-	.pool_order = PGD_POOL_ORDER,
-	.pool_size = PAGE_SIZE << PGD_POOL_ORDER,
 	.entry_order = PGD_ENTRY_ORDER,
 	.entry_size = PAGE_SIZE << PGD_ENTRY_ORDER,
-	.omit = 600
+	.omit = 500
 };
 
 static unsigned long sprd_mem_pool_alloc(struct sprd_mem_pool *pool_info)
@@ -74,7 +69,6 @@ static unsigned long sprd_mem_pool_alloc(struct sprd_mem_pool *pool_info)
 
 	/* if alloc fail from pool, then try in normal method */
 	if(!buffer) {
-		printk("sprd alloc pool failed, use normal way.\n");
 		return __get_free_pages(mask, pool_info->entry_order);
 	}
 
@@ -184,6 +178,17 @@ static int init_mem_pool(struct sprd_mem_pool *pool_info)
 
 static int __init sprd_mem_pool_init(void)
 {
+	/* calculate memory pool size by total memory size, every 256MB total mem has 2.5MB pool */
+	thread_pool.pool_order = get_order(PAGE_ALIGN(totalram_pages * PAGE_SIZE / 100)) - 1;
+	thread_pool.pool_size = PAGE_SIZE << thread_pool.pool_order;
+	printk("threadinfo memory pool initialized, order: %lu, size: %lu(KB)\n",
+		thread_pool.pool_order, thread_pool.pool_size / 1024);
+
+	pgd_pool.pool_order = thread_pool.pool_order - 2;
+	pgd_pool.pool_size = PAGE_SIZE << pgd_pool.pool_order;
+	printk("pgd table memory pool initialized, order: %lu, size: %lu(KB)\n",
+		pgd_pool.pool_order, pgd_pool.pool_size / 1024);
+
 	init_mem_pool(&thread_pool);
 	init_mem_pool(&pgd_pool);
 	proc_create("sprd_mem_pool", 0, NULL, &sprd_thread_info_pool_fops);
