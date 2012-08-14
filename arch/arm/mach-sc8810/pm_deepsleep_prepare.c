@@ -1030,6 +1030,8 @@ u32 sprd_suspend_interval =  0;
 static int print_thread(void *pdata)
 {
 	u32 val;
+ /* add this delay for reduce machine start time */
+	msleep(1000*60*3);
     while(1) {
 	wake_lock(&messages_wakelock);
 	add_pm_message(get_sys_cnt(), "************* print_thread start. *************", 0, 0, 0); 
@@ -1317,7 +1319,6 @@ static int print_thread(void *pdata)
     }
     return 0;
 }
-
 
 int disable_audio_module(void)
 {
@@ -2983,7 +2984,6 @@ static struct file_operations _idle_deep_fops = {
     write:   sprd_sc8810_idle_deep_write,
 };
 
-
 static void deep_sleep_timeout(unsigned long data)
 {
 	printk("###: deep_sleep_timeout()!\n");
@@ -3025,7 +3025,7 @@ int sc8800g_prepare_deep_sleep(void)
 	}
 
 
-
+#if 0
 	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
 	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
 	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
@@ -3035,7 +3035,7 @@ int sc8800g_prepare_deep_sleep(void)
 	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
 	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
 	printk("##: GR_MPLL_MN = %08x.\n", __raw_readl(GR_MPLL_MN));
-
+#endif
 
 
 #if 0
@@ -3062,10 +3062,12 @@ int sc8800g_prepare_deep_sleep(void)
 	__raw_writel(val, EMC_DCFG2);
 #endif
 
+#if 0
 	printk("####: check EMC channel's setting.\n");
 	printk("####: check EMC channel's setting.\n");
 	printk("####: check EMC channel's setting.\n");
 	printk("####: check EMC channel's setting.\n");
+#endif
 	val = __raw_readl(EMC_CFG0);
 	if (!(val & RF_AUTO_SLEEP_ENABLE)) 
             printk("#####: EMC_CFG0 doesn't set RF_AUTO_SLEEP_ENABLE!\ns");
@@ -3173,19 +3175,22 @@ int sc8800g_prepare_deep_sleep(void)
     //__raw_writel(val, GR_POWCTL1);
 
 
-    printk("####: ioremap space for share IRAM ......\n");
     iram_start = ioremap(IRAM_START_PHY,  IRAM_SIZE);
     if (!iram_start) {
         printk("####: Can't ioremap for IRAM!\n");
         return -ENOMEM;
     }
+#if 0
     else {
         printk("###: iram_start = %p\n", iram_start);
     }
+#endif
 
+#if 0
     /* copy sleep code to IRAM. */
     printk("###: sc8800g_cpu_standby = %p, sc8800g_cpu_standby_end = %p\n", 
         sc8810_standby_iram, sc8810_standby_iram_end);
+#endif
     if ((sc8810_standby_iram_end - sc8810_standby_iram + 128) > SLEEP_CODE_SIZE) {
           panic("##: code size is larger than expected, need more memory!\n");
     }
@@ -3205,11 +3210,11 @@ int sc8800g_prepare_deep_sleep(void)
 	if (pid_number < 0) {
 		printk("Can't crate test thread!\n");
 	}
-
 	wake_lock_init(&messages_wakelock, WAKE_LOCK_SUSPEND,
 			"pm_message_wakelock");
 	wake_lock_init(&idle_wakelock, WAKE_LOCK_SUSPEND,
 			"idle_wakelock");
+
 #ifdef CONFIG_SC8810_NO_DEEP_SLEEP
 	wake_lock(&idle_wakelock);
 #endif

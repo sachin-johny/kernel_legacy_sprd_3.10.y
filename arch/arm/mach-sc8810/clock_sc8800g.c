@@ -2019,8 +2019,10 @@ static int clk_fw_vlink_init(void)
 			return -ENOMEM;
 		}
 	    vlink_clk_fw = nkops.nk_ptov(plink_clk_fw);
+#if 0
         CLK_FW_ERR("#####: clock-framework: vlink info: s_id = %d, c_id = %d.\n",
             vlink_clk_fw->s_id, vlink_clk_fw->c_id);
+#endif
     }
     return 0;
 }
@@ -2173,11 +2175,12 @@ int __init sc8800g2_clock_init(void)
 		pstub[index].usecount);
     }
      */
+#if 0
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 		struct clk * clk = clk_get(NULL, c->lk.con_id);
 		printk("%s : %u\n", clk->name, clk_get_rate(clk));
 	}
-
+#endif
 	return 0;
  }
 
