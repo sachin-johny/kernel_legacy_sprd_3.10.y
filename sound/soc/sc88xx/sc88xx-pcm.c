@@ -55,10 +55,12 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
     .fifo_size          = VBC_FIFO_FRAME_NUM*2,
 };
 
-#define USE_STATIC_DMA_ADDR 0
-
-#if USE_STATIC_DMA_ADDR
-static unsigned long dma_phy_addr = 0, dma_virtual_addr = 0;
+#define VBC_MEM_OPTIMIZATION 1
+#ifdef VBC_MEM_OPTIMIZATION
+#define VBC_PAGEDIR_BUF_NUM 5
+static int pagedir_buf_index = 0, pagedir_buf_after = 0;
+static unsigned long dma_phy_addr[VBC_PAGEDIR_BUF_NUM] = {0, 0, 0, 0 ,0};
+static unsigned long dma_virtual_addr[VBC_PAGEDIR_BUF_NUM] = {0, 0, 0, 0, 0};
 #endif
 
 extern int vbc_set_sleep_mode(int on);
@@ -69,7 +71,9 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd;
 	int ret;
-
+#ifdef VBC_MEM_OPTIMIZATION
+        int buf_index, buf_after;
+#endif
 	runtime->hw = sc88xx_pcm_hardware;
     // Because VBC only support mono capture and caputer DMA buffer size must be 160*2 bytes,
     // so we must force half size sc88xx_pcm_hardware.period_bytes_min and period_bytes_max
@@ -101,19 +105,37 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	rtd = kzalloc(sizeof(*rtd), GFP_KERNEL);
 	if (!rtd)
 		goto out;
-#if USE_STATIC_DMA_ADDR
-	if (dma_phy_addr == 0 && dma_virtual_addr == 0) {
-		dma_virtual_addr =
-			dma_alloc_writecombine(substream->pcm->card->dev, 4*PAGE_SIZE,
-					       &dma_phy_addr, GFP_KERNEL);
-		rtd->dma_desc_array_phys = dma_phy_addr;
-		rtd->dma_desc_array = dma_virtual_addr;
-		printk("vbc dma memory allocated: phy=0x%x, virt=0x%x\n", dma_phy_addr, dma_virtual_addr);
-	} else {
-		rtd->dma_desc_array = dma_virtual_addr;
-		rtd->dma_desc_array_phys = dma_phy_addr;
-		//printk("use memory allocated before: phy=0x%x, virt=0x%x\n", dma_phy_addr, dma_virtual_addr);
-	}
+
+#ifdef VBC_MEM_OPTIMIZATION
+        local_irq_disable();
+        buf_index = pagedir_buf_index;
+        buf_after =  pagedir_buf_after;
+        if(buf_index < VBC_PAGEDIR_BUF_NUM)
+          {
+            pagedir_buf_index += 1;
+          }
+        else
+          {
+            pagedir_buf_after +=1;
+             if(pagedir_buf_after == VBC_PAGEDIR_BUF_NUM)
+             pagedir_buf_after = 0;
+          }
+        local_irq_enable();
+
+        if(buf_index < VBC_PAGEDIR_BUF_NUM){
+          rtd->dma_desc_array =
+                dma_alloc_writecombine(substream->pcm->card->dev, 4 * PAGE_SIZE,
+                                        &rtd->dma_desc_array_phys, GFP_KERNEL);
+          dma_phy_addr[buf_index] = rtd->dma_desc_array_phys;
+          dma_virtual_addr[buf_index] = rtd->dma_desc_array;
+          printk("vbc dma memory allocated: phy=0x%x, virt=0x%x, index=%d\n",
+                    dma_phy_addr[buf_index], dma_virtual_addr[buf_index],buf_index);
+        }
+        else{
+          rtd->dma_desc_array_phys = dma_phy_addr[buf_after];
+          rtd->dma_desc_array = dma_virtual_addr[buf_after];
+          printk("vbc dma memory using allocated index=%d\n",buf_after);
+        }
 #else
 		rtd->dma_desc_array =
 			dma_alloc_writecombine(substream->pcm->card->dev, 4*PAGE_SIZE,
@@ -135,15 +157,14 @@ out:
 
 int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 {
+#ifndef VBC_MEM_OPTIMIZATION
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd = runtime->private_data;
-#if !USE_STATIC_DMA_ADDR
 	dma_free_writecombine(substream->pcm->card->dev, 4*PAGE_SIZE,
 			      rtd->dma_desc_array, rtd->dma_desc_array_phys);
-#endif
 
 	kfree(rtd);
-
+#endif
 	// vbc_set_sleep_mode(1);
     return 0;
 }
