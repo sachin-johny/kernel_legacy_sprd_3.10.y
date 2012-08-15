@@ -645,10 +645,7 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 						    CHARGE_BEFORE_STOP;
 					}
 					if (voltage > CHGMNG_OVER_CHARGE) {
-						battery_data->hw_switch_point =
-						    sprd_get_sw(battery_data);
-						sprd_adjust_sw(battery_data,
-							       false);
+						battery_data->hw_switch_point =sprd_adjust_sw(battery_data,false);
 					}
 				}
 			}
