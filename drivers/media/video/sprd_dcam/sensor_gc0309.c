@@ -507,7 +507,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_GC0309_ioctl_func_tab =
         PNULL,							// extend information about sensor	
         SENSOR_AVDD_2800MV,                     // iovdd
         SENSOR_AVDD_1800MV,                      // dvdd
-        2,
+        0,
         0,
         0,
         2
