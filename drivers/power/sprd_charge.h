@@ -45,8 +45,8 @@
 #define VOL_DIV_P1		(266)
 #define VOL_DIV_P2		1000
 
-#define CV_STOP_CURRENT		130
-#define CC_CV_SWITCH_POINT	120
+#define CV_STOP_CURRENT		135
+#define CC_CV_SWITCH_POINT	125
 
 #define OVP_ADC_VALUE		0x198
 #define OVP_ADC_RECV_VALUE	0x170

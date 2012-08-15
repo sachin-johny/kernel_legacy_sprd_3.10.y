@@ -427,8 +427,7 @@ void sprd_stop_recharge(struct sprd_battery_data *data)
 void sprd_set_sw(struct sprd_battery_data *data, int switchpoint)
 {
 	BUG_ON(switchpoint > 31);
-	sci_adi_set(ANA_CHGR_CTRL1, ((switchpoint << CHAR_SW_POINT_SHIFT) & CHAR_SW_POINT_MSK) |
-		(sci_adi_read(ANA_CHGR_CTRL1) &(~CHAR_SW_POINT_MSK)));
+	sci_adi_write(ANA_CHGR_CTRL1, ((switchpoint << CHAR_SW_POINT_SHIFT) & CHAR_SW_POINT_MSK) ,(CHAR_SW_POINT_MSK));
 }
 
 uint32_t sprd_get_sw(struct sprd_battery_data *data)
@@ -476,9 +475,8 @@ uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
 	}
 
 	chg_switchpoint = (shift_bit << 4) | current_switchpoint;
-	sci_adi_set(ANA_CHGR_CTRL1,
-		    ((chg_switchpoint << CHAR_SW_POINT_SHIFT) &
-		    CHAR_SW_POINT_MSK) | (sci_adi_read(ANA_CHGR_CTRL1) & (~CHAR_SW_POINT_MSK)));
+
+	sci_adi_write(ANA_CHGR_CTRL1,((chg_switchpoint << CHAR_SW_POINT_SHIFT) &CHAR_SW_POINT_MSK) ,(CHAR_SW_POINT_MSK));
 	return chg_switchpoint;
 }
 
@@ -486,26 +484,26 @@ void sprd_set_charger_type(struct sprd_battery_data *data, int mode)
 {
 	if (mode == CHG_DEFAULT_MODE) {
 		/* BIT5 reset USB_500ma_en, BIT3 reset adapter_en */
-		sci_adi_set(ANA_CHGR_CTRL0,
-			    ((CHGR_ADATPER_EN_RST_BIT | CHGR_USB_500MA_EN_RST_BIT) & CHAR_ADAPTER_MODE_MSK) |
-				(sci_adi_read(ANA_CHGR_CTRL0) & (~CHAR_ADAPTER_MODE_MSK)));
+		sci_adi_write(ANA_CHGR_CTRL0,
+			    ((CHGR_ADATPER_EN_RST_BIT | CHGR_USB_500MA_EN_RST_BIT) & CHAR_ADAPTER_MODE_MSK) ,
+			(CHAR_ADAPTER_MODE_MSK));
 	} else if (mode == CHG_NORMAL_ADAPTER) {
 		/* BIT23 reset USB_500ma_en, BIT20 set adapter_en */
-		sci_adi_set(ANA_CHGR_CTRL0,
-			    ((CHGR_ADATPER_EN_BIT | CHGR_USB_500MA_EN_RST_BIT) & CHAR_ADAPTER_MODE_MSK) |
-				(sci_adi_read(ANA_CHGR_CTRL0) & (~CHAR_ADAPTER_MODE_MSK)));
+		sci_adi_write(ANA_CHGR_CTRL0,
+			    ((CHGR_ADATPER_EN_BIT | CHGR_USB_500MA_EN_RST_BIT) & CHAR_ADAPTER_MODE_MSK) ,
+				(CHAR_ADAPTER_MODE_MSK));
 	} else if (mode == CHG_USB_ADAPTER) {
 		/* BIT22 set USB_500ma_en, BIT21 reset adapter_en */
-		sci_adi_set(ANA_CHGR_CTRL0,
-			    ((CHGR_ADATPER_EN_RST_BIT | CHGR_USB_500MA_EN_BIT) & CHAR_ADAPTER_MODE_MSK) |
-				(sci_adi_read(ANA_CHGR_CTRL0) & (~CHAR_ADAPTER_MODE_MSK)));
+		sci_adi_write(ANA_CHGR_CTRL0,
+			    ((CHGR_ADATPER_EN_RST_BIT | CHGR_USB_500MA_EN_BIT) & CHAR_ADAPTER_MODE_MSK) ,
+				 (CHAR_ADAPTER_MODE_MSK));
 	}
 }
 
 void sprd_set_usb_cur(struct sprd_battery_data *data, int set_current)
 {
-	sci_adi_set(ANA_CHGR_CTRL0,
-		    (set_current << CHGR_USB_CHG_SHIFT) | (sci_adi_read(ANA_CHGR_CTRL0)&(~CHGR_USB_CHG_MSK)));
+	sci_adi_write(ANA_CHGR_CTRL0,
+		    (set_current << CHGR_USB_CHG_SHIFT) , (CHGR_USB_CHG_MSK));
 }
 
 void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current)
@@ -517,27 +515,27 @@ void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current)
 		return;
 	case CHG_NOR_400MA:
 		sprd_set_charger_type(data, CHG_NORMAL_ADAPTER);
-		sci_adi_set(ANA_CHGR_CTRL0,
-			    (0 << CHGR_ADAPTER_CHG_SHIFT) |
-			    (sci_adi_read(ANA_CHGR_CTRL0) & (~CHGR_ADAPTER_CHG_MSK)));
+		sci_adi_write(ANA_CHGR_CTRL0,
+			    (0 << CHGR_ADAPTER_CHG_SHIFT),
+			    (CHGR_ADAPTER_CHG_MSK));
 		break;
 	case CHG_NOR_600MA:
 		sprd_set_charger_type(data, CHG_NORMAL_ADAPTER);
-		sci_adi_set(ANA_CHGR_CTRL0,
-			    (1 << CHGR_ADAPTER_CHG_SHIFT) |
-			    (sci_adi_read(ANA_CHGR_CTRL0) & (~CHGR_ADAPTER_CHG_MSK)));
+		sci_adi_write(ANA_CHGR_CTRL0,
+			    (1 << CHGR_ADAPTER_CHG_SHIFT) ,
+			    (CHGR_ADAPTER_CHG_MSK));
 		break;
 	case CHG_NOR_800MA:
 		sprd_set_charger_type(data, CHG_NORMAL_ADAPTER);
-		sci_adi_set(ANA_CHGR_CTRL0,
-			    (2 << CHGR_ADAPTER_CHG_SHIFT) |
-			    (sci_adi_read(ANA_CHGR_CTRL0) & (~CHGR_ADAPTER_CHG_MSK)));
+		sci_adi_write(ANA_CHGR_CTRL0,
+			    (2 << CHGR_ADAPTER_CHG_SHIFT) ,
+			    (CHGR_ADAPTER_CHG_MSK));
 		break;
 	case CHG_NOR_1000MA:
 		sprd_set_charger_type(data, CHG_NORMAL_ADAPTER);
-		sci_adi_set(ANA_CHGR_CTRL0,
-			    (3 << CHGR_ADAPTER_CHG_SHIFT) |
-			    (sci_adi_read(ANA_CHGR_CTRL0) & (~CHGR_ADAPTER_CHG_MSK)));
+		sci_adi_write(ANA_CHGR_CTRL0,
+			    (3 << CHGR_ADAPTER_CHG_SHIFT) ,
+			    (CHGR_ADAPTER_CHG_MSK));
 		break;
 	default:
 		pr_err("mode %d is not supported\n", set_current);
