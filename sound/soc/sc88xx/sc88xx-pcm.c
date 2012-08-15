@@ -71,6 +71,8 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd;
 	int ret;
+	printk("sc88xx_pcm_open start ...\n");
+
 #ifdef VBC_MEM_OPTIMIZATION
         int buf_index, buf_after;
 #endif
@@ -86,26 +88,31 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	 * playback samples are lost if the DMA count is not a multiple
 	 * of the DMA burst size.  Let's add a rule to enforce that.
 	 */
+	printk("sc88xx_pcm_open snd_pcm_hw_constraint_step\n");
 	ret = snd_pcm_hw_constraint_step(runtime, 0,
 		SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 32);
 	if (ret)
 		goto out;
 
+	printk("sc88xx_pcm_open snd_pcm_hw_constraint_step\n");
 	ret = snd_pcm_hw_constraint_step(runtime, 0,
 		SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 32);
 	if (ret)
 		goto out;
 
+	printk("sc88xx_pcm_open snd_pcm_hw_constraint_integer\n");
 	ret = snd_pcm_hw_constraint_integer(runtime,
 					    SNDRV_PCM_HW_PARAM_PERIODS);
 	if (ret < 0)
 		goto out;
 
 	ret = -ENOMEM;
+	printk("sc88xx_pcm_open kzalloc\n");
 	rtd = kzalloc(sizeof(*rtd), GFP_KERNEL);
 	if (!rtd)
 		goto out;
 
+	printk("sc88xx_pcm_open dma memory\n");
 #ifdef VBC_MEM_OPTIMIZATION
         local_irq_disable();
         buf_index = pagedir_buf_index;
@@ -147,11 +154,13 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	runtime->private_data = rtd;
 	vbc_resume_late(substream, "snd_pcm_open");
 	vbc_set_sleep_mode(0);
+	printk("sc88xx_pcm_open end ...\n");
 	return 0;
 
 err1:
 	kfree(rtd);
 out:
+	printk("sc88xx_pcm_open end ...\n");
 	return ret;
 }
 
