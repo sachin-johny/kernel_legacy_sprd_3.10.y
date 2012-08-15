@@ -55,11 +55,11 @@ LOCAL uint32_t _ov5640_ExtFunc(uint32_t ctl_param);
 
 //640X480 YUV
 LOCAL const SENSOR_REG_T ov5640_640X480[] = {
-	{0x4202, 0x0f},		/*kenxu add 20120207 for stream off*/
-	{SENSOR_WRITE_DELAY, 0x64},	/*delay 100ms*/
+	//{0x4202, 0x0f},		/*kenxu add 20120207 for stream off*/
+	//{SENSOR_WRITE_DELAY, 0x64},	/*delay 100ms*/
 	{0x3103, 0x11},
 	{0x3008, 0x82},
-	{SENSOR_WRITE_DELAY, 0x20},	/*delay 32ms*/
+	{SENSOR_WRITE_DELAY, 0x10},	/*delay 32ms*/
 	{0x3008, 0x42},
 	{0x3103, 0x03},
 	{0x3017, 0xff},
@@ -394,11 +394,11 @@ LOCAL const SENSOR_REG_T ov5640_640X480[] = {
 };
 
 LOCAL const SENSOR_REG_T ov5640_common_init[] = {
-	{0x4202, 0x0f},/*kenxu add 20120207 for stream off*/
-	{SENSOR_WRITE_DELAY, 0x64},
+	//{0x4202, 0x0f},/*kenxu add 20120207 for stream off*/
+	//{SENSOR_WRITE_DELAY, 0x64},
 	{0x3103, 0x11},		/* sysclk from pad*/
 	{0x3008, 0x82},		/*software reset*/
-	{SENSOR_WRITE_DELAY, 0x20},
+	{SENSOR_WRITE_DELAY, 0x10},
 	{0x3008, 0x42},		/*software power down*/
 	{0x3103, 0x03},		/*sysclk from pll*/
 	{0x3017, 0xff},		/*Frex, Vsync, Href, PCLK, D[9:6] output*/
@@ -809,8 +809,8 @@ LOCAL const SENSOR_REG_T ov5640_common_init[] = {
 };
 
 LOCAL const SENSOR_REG_T ov5640_640X480_new[] = {
-	{0x4202, 0x0f},		/*kenxu add 20120207 for stream off*/
-	{SENSOR_WRITE_DELAY, 0x64},
+	//{0x4202, 0x0f},		/*kenxu add 20120207 for stream off*/
+	//{SENSOR_WRITE_DELAY, 0x64},
 	{0x3c07, 0x08},		/* lightmeter 1 threshold[7:0]*/
 	{0x3820, 0x41},		/* flip*/
 	{0x3821, 0x07},		/* mirror*/
@@ -1281,7 +1281,7 @@ SENSOR_INFO_T g_ov5640_yuv_info = {
 	NULL,			//&g_ov5640_ext_info,                // extend information about sensor
 	SENSOR_AVDD_2800MV,	// iovdd
 	SENSOR_AVDD_1500MV,	// dvdd
-	3,			// skip frame num before preview
+	0,			// skip frame num before preview
 	3,			// skip frame num before capture
 	0,			// deci frame num during preview
 	0,			// deci frame num during video preview
