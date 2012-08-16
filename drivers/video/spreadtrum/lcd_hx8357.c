@@ -20,6 +20,9 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include "lcdpanel.h"
+#include <linux/init.h>
+#include <linux/string.h>
+
 //#define  LCD_DEBUG
 #ifdef LCD_DEBUG
 #define LCD_PRINT printk
@@ -28,6 +31,9 @@
 #endif
 
 #define  LCD_PANEL_ID_HX8357			(0x8357|0x00)
+
+uint32_t g_bootmode = 0;
+uint32_t g_HwVersion = 0;
 
 static int32_t hx8357_init(struct panel_spec *self)
 {
@@ -38,11 +44,9 @@ static int32_t hx8357_init(struct panel_spec *self)
 	send_data_t send_data = self->info.mcu->ops->send_data;
 
 	LCD_PRINT("hx8357_init\n");
-
-///////////////////CPT 3.5 6ŽúÏßžÄÍž¹ýÂÊpanel////////////// 
-	mdelay(130);
-	send_cmd(0x11);        // Sleep out
-	mdelay(150);
+      //mdelay(130);
+	//send_cmd(0x11);        // Sleep out
+	//mdelay(150);
 	send_cmd(0x21);        // Display Inversion ON
 	send_cmd(0x3A);
 	send_data(0x06);       // Interface
@@ -59,6 +63,10 @@ static int32_t hx8357_init(struct panel_spec *self)
       send_data(0x00);  //TE Mode 0
 #endif
 
+	//send_cmd_data(0x36, 0x00); //tong test
+	//send_cmd_data(0x36, 0xc0); //tong test
+	send_cmd(0x36);
+       send_data(0x00);
 
 	send_cmd(0xB3);
 	//send_data(0x40);
@@ -134,6 +142,8 @@ static int32_t hx8357_init(struct panel_spec *self)
   send_data(0x01); 
       
 	mdelay(130);
+	send_cmd(0x11);        // Sleep out
+	mdelay(150);
 	send_cmd(0x29);    // display on
 	mdelay(5);
 
@@ -248,6 +258,16 @@ static uint32_t hx8357_read_id(struct panel_spec *self)
       uint32_t uICID[5] = {0};
       uint32_t i;
 
+      /*ZTE: added by tong.weili Éú²úÄ£Ê½Ä¬ÈÏÎªhx8357 20120724 ++*/
+      printk("[tong]hx8357_read_id: g_bootmode = 0x%x\n", g_bootmode);     
+      if(g_bootmode)
+      {
+            return LCD_PANEL_ID_HX8357;
+      }
+      /*ZTE: added by tong.weili Éú²úÄ£Ê½Ä¬ÈÏÎªhx8357 20120724 --*/
+
+/*ZTE: modified by tong.weili ¸ü¸ÄLCD ¶ÁÈ¡ID ·½Ê½ 20120720 ++*/
+#if 0
       send_cmd(0xB0);
       send_data(0x00);
 
@@ -267,6 +287,30 @@ static uint32_t hx8357_read_id(struct panel_spec *self)
       {
           printk("[tong]LCD driver IC: hx8357c\n");
       }
+#else
+      send_cmd(0xB9);
+      send_data(0xFF);
+      send_data(0x83);
+      send_data(0x57);
+
+      send_cmd(0xD0);
+      for(i = 0; i < 2; i++)
+      {
+          uICID[i] = read_data();
+          printk("[tong]hx8357_read_id: uICID[%d] = 0x%x\n", i, uICID[i]);
+      }
+
+      if((uICID[1] == 0x90))
+      {
+          printk("[tong]LCD driver IC: hx8357c\n");
+      }
+      else
+      {
+          printk("[tong]LCD driver IC: r61581\n");
+          return -1;
+      }
+#endif
+/*ZTE: modified by tong.weili ¸ü¸ÄLCD ¶ÁÈ¡ID ·½Ê½ 20120720 --*/
 
       send_cmd(0xDA);
       uID = read_data();
@@ -313,7 +357,7 @@ static struct info_mcu lcd_hx8357_info = {
 struct panel_spec lcd_panel_hx8357 = {
 	.width = 320,
 	.height = 480,
-	.fps = 77,
+	.fps = 84, /*ZTE: added by tong.weili ±£Ö¤CTSË¢ÐÂÂÊ²âÊÔÍ¨¹ý 20120808*/
 	.mode = LCD_MODE_MCU,
 	.direction = LCD_DIRECT_NORMAL,
 	.info = {.mcu = &lcd_hx8357_info},
@@ -328,9 +372,48 @@ struct panel_cfg lcd_hx8357 = {
 	.panel = &lcd_panel_hx8357,
 };
 
+/*ZTE: modified by tong.weili ÅÐ¶ÏÉú²úÄ£Ê½ºÍÓ²¼þ°æ±¾ºÅ20120731 ++*/
+static void judgeBootmode_HwVersion(void)
+{
+    char *ptr;
+    int fd;
+
+    ptr = boot_command_line;
+    //printk("[tong]:##############judgeBootmode_HwVersion: boot_command_line=%s\n", boot_command_line);
+
+    g_bootmode = 0;
+    g_HwVersion = 2;
+
+    while (ptr && *ptr) {
+        char *x = strchr(ptr, ' ');
+        if (x != 0) *x++ = 0;
+
+		if(!strncmp(ptr,"boot_mode=1",11))
+		{
+		    g_bootmode = 1;
+		}
+
+            if(!strncmp(ptr,"hardware_zte=2",14))
+            {
+                g_HwVersion = 2;
+            }
+            if(!strncmp(ptr,"hardware_zte=1",14))
+		{
+                g_HwVersion = 1;
+            }
+
+        ptr = x;
+    }
+}
+/*ZTE: modified by tong.weili ÅÐ¶ÏÉú²úÄ£Ê½ºÍÓ²¼þ°æ±¾ºÅ20120731 --*/
+
 static int __init lcd_hx8357_init(void)
 {
-	return sprd_register_panel(&lcd_hx8357);
+      judgeBootmode_HwVersion();
+      printk("[tong]:##############lcd_hx8357_init: g_bootmode=%d\n", g_bootmode);
+      printk("[tong]:##############lcd_hx8357_init: g_HwVersion=%d\n", g_HwVersion);
+
+      return sprd_register_panel(&lcd_hx8357);
 }
 
 subsys_initcall(lcd_hx8357_init);
