@@ -28,8 +28,10 @@
 #define LCD_PRINT(...)
 #endif
 
-//#define  LCD_PANEL_ID_RM61581_TRULY	(0x6158|0xA1)  //信利
-#define  LCD_PANEL_ID_RM61581_TRULY	(0x6158|0x00)  //信利(暂未烧录)
+extern uint32_t g_bootmode;
+
+#define  LCD_PANEL_ID_RM61581_TRULY	(0x6158|0xA1)  //信利
+//#define  LCD_PANEL_ID_RM61581_TRULY	(0x6158|0x00)  //信利(暂未烧录)
 
 static int32_t rm6158_truly_init(struct panel_spec *self)
 {
@@ -38,6 +40,9 @@ static int32_t rm6158_truly_init(struct panel_spec *self)
 
 	LCD_PRINT("rm6158_truly_init\n");
       printk("[tong]rm6158_truly_init~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+
+      send_cmd(0x01);//soft reset
+      mdelay(120);
 
       send_cmd(0xFF);
 	send_cmd(0xFF);
@@ -262,6 +267,17 @@ static uint32_t rm6158_truly_read_id(struct panel_spec *self)
       uint32_t uICID[5] = {0};
       uint32_t i;
 
+      /*ZTE: added by tong.weili 生产模式默认为RM61581 20120724 ++*/
+      printk("[tong]rm6158_truly_read_id: g_bootmode = 0x%x\n", g_bootmode);   
+      if(g_bootmode)
+      {
+            return LCD_PANEL_ID_RM61581_TRULY;
+      }
+      /*ZTE: added by tong.weili 生产模式默认为RM61581 20120724 --*/
+      
+      send_cmd(0x01);//soft reset
+      mdelay(120);
+#if 0
       send_cmd(0xB0);
       send_data(0x00);
       
@@ -281,7 +297,32 @@ static uint32_t rm6158_truly_read_id(struct panel_spec *self)
           printk("[tong]LCD driver IC: rm6158\n");
           return -1;
       }
+#else
+      send_cmd(0xB9);
+      send_data(0xFF);
+      send_data(0x83);
+      send_data(0x57);
         
+      send_cmd(0xD0);
+      for(i = 0; i < 2; i++)
+      {
+          uICID[i] = read_data();
+          printk("[tong]rm6158_truly_read_id: uICID[%d] = 0x%x\n", i, uICID[i]);        
+      }
+      
+      if((uICID[1] == 0x90))
+      {
+          printk("[tong]LCD driver IC: hx8357c\n");
+          return -1;
+      }
+      else
+      {  
+          printk("[tong]LCD driver IC: r61581\n");
+          
+      }
+
+      
+#endif               
       send_cmd(0xA1);
       uID = read_data();
       printk("[tong]rm6158_truly_read_id: 0x%x from addr:0xA1\n", uID);
@@ -301,21 +342,12 @@ static struct panel_operations lcd_rm6158_truly_operations = {
 
 static struct timing_mcu lcd_rm6158_truly_timing[] = {
 [LCD_REGISTER_TIMING] = {                    // read/write register timing
-	#if 0
 		.rcss = 170,  
 		.rlpw = 190,
 		.rhpw = 260,
 		.wcss = 30,
 		.wlpw = 30,
 		.whpw = 30,
-	#else
-    .rcss = 450,  
-		.rlpw = 200,
-		.rhpw = 300,
-		.wcss = 60,
-		.wlpw = 35,
-		.whpw = 35,
-    #endif
 },
 [LCD_GRAM_TIMING] = {                    // read/write gram timing
 	.rcss = 170,
