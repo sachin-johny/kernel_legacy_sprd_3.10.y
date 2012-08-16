@@ -1304,7 +1304,7 @@ static void sdhci_hw_reset(struct mmc_host *mmc)
 	mmc_power_off(mmc);
 	usleep_range(5000, 5500);
 	mmc_power_up(mmc);
-	sdhci_reinit(host);
+	sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
 	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
 }
 
