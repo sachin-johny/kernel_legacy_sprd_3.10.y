@@ -38,6 +38,7 @@ static int debug_mask = ANDROID_ALARM_PRINT_ERROR | \
 			ANDROID_ALARM_PRINT_INIT_STATUS;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 struct work_struct work;
+static struct workqueue_struct *workqueue;
 #define pr_alarm(debug_level_mask, args...) \
 	do { \
 		if (debug_mask & ANDROID_ALARM_PRINT_##debug_level_mask) { \
@@ -104,8 +105,10 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 	base->timer._expires = ktime_add(base->delta, alarm->expires);
 	base->timer._softexpires = ktime_add(base->delta, alarm->softexpires);
 	hrtimer_start_expires(&base->timer, HRTIMER_MODE_ABS);
-       schedule_work(&work);
+       queue_work(workqueue,&work);
+
 }
+
 
 static void dryice_work()
 {
@@ -213,8 +216,8 @@ void alarm_init(struct alarm *alarm,
 	RB_CLEAR_NODE(&alarm->node);
 	alarm->type = type;
 	alarm->function = function;
-       INIT_WORK(&work, dryice_work);
-
+	workqueue = create_singlethread_workqueue("rtc_alarm");
+	INIT_WORK(&work, dryice_work);
 	pr_alarm(FLOW, "created alarm, type %d, func %pF\n", type, function);
 }
 
@@ -716,6 +719,7 @@ static void  __exit alarm_exit(void)
 	class_interface_unregister(&rtc_alarm_interface);
 	wake_lock_destroy(&alarm_rtc_wake_lock);
 	platform_driver_unregister(&alarm_driver);
+	destroy_workqueue(workqueue);
 }
 
 late_initcall(alarm_late_init);
