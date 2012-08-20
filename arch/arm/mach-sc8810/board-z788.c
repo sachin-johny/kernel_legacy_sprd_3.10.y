@@ -38,6 +38,7 @@
 #include <sound/audio_pa.h>
 #include <mach/gpio-z788.h>
 #include <gps/gpsctl.h>
+#include <mach/serial_sprd.h>
 
 #include "devices.h"
 
@@ -205,6 +206,20 @@ static void __init sprd_add_otg_device(void)
 	platform_device_register(&sprd_otg_device);
 }
 
+
+static struct serial_data plat_data0 = {
+	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.clk = 48000000,
+};
+static struct serial_data plat_data1 = {
+	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.clk = 26000000,
+};
+static struct serial_data plat_data2 = {
+	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.clk = 26000000,
+};
+
 static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
@@ -358,14 +373,11 @@ static int sc8810_add_misc_devices(void)
 
 static void __init sc8810_init_machine(void)
 {
-	int clk;
 	regulator_add_devices();
 	sprd_add_otg_device();
-	clk=48000000;
-	platform_device_add_data(&sprd_serial_device0,(const void*)&clk,sizeof(int));
-	clk=26000000;
-	platform_device_add_data(&sprd_serial_device1,(const void*)&clk,sizeof(int));
-	platform_device_add_data(&sprd_serial_device2,(const void*)&clk,sizeof(int));
+	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
+	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
+	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
 	wlan_device_power(1); /*Wlan power enable before MMC Auto scan*/
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();

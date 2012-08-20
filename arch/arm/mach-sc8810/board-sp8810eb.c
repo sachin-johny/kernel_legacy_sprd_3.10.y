@@ -36,6 +36,7 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include <mach/gpio.h>
+#include <mach/serial_sprd.h>
 #include <linux/spi/mxd_cmmb_026x.h>
 #include <gps/gpsctl.h>
 
@@ -190,6 +191,19 @@ static void __init sprd_add_otg_device(void)
 		return;
 	platform_device_register(&sprd_otg_device);
 }
+
+static struct serial_data plat_data0 = {
+	.wakeup_type = BT_NO_WAKE_UP,
+	.clk = 48000000,
+};
+static struct serial_data plat_data1 = {
+	.wakeup_type = BT_NO_WAKE_UP,
+	.clk = 26000000,
+};
+static struct serial_data plat_data2 = {
+	.wakeup_type = BT_NO_WAKE_UP,
+	.clk = 26000000,
+};
 
 static struct pixcir_ts_platform_data pixcir_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
@@ -422,15 +436,12 @@ static int brcm_ldo_enable(void)
 
 static void __init sc8810_init_machine(void)
 {
-	int clk;
 	regulator_add_devices();
 	sprd_add_otg_device();
+	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
+	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
+	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
-	clk=48000000;
-	platform_device_add_data(&sprd_serial_device0,(const void*)&clk,sizeof(int));
-	clk=26000000;
-	platform_device_add_data(&sprd_serial_device1,(const void*)&clk,sizeof(int));
-	platform_device_add_data(&sprd_serial_device2,(const void*)&clk,sizeof(int));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();

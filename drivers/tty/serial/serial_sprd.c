@@ -31,6 +31,13 @@
 #include <linux/slab.h>
 #include <mach/hardware.h>
 #include <linux/clk.h>
+#include <mach/pinmap.h>
+#include <mach/serial_sprd.h>
+#include <linux/wakelock.h>
+
+
+
+#define IRQ_WAKEUP 	0
 
 #define UART_NR_MAX			CONFIG_SERIAL_SPRD_UART_NR
 #define SP_TTY_NAME			"ttyS"
@@ -110,6 +117,12 @@
 #define BAUD_2000000_48M 0x0018
 #define BAUD_2500000_48M 0x0013
 #define BAUD_3000000_48M 0x0010
+
+
+
+static struct wake_lock uart_rx_lock;  // UART0  RX  IRQ
+static bool is_uart_rx_wakeup;
+static struct serial_data plat_data;
 
 static inline unsigned int serial_in(struct uart_port *port, int offset)
 {
@@ -303,6 +316,37 @@ static irqreturn_t serial_sprd_interrupt_chars(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+
+#define SPRD_EICINT_BASE	(SPRD_EIC_BASE+0x80)
+/*
+ *this handles the interrupt from rx0 wakeup
+ */
+static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
+{
+	u32 val;
+
+	printk("%s\n",__func__);
+
+	//SIC polarity 1
+	val = __raw_readl(SPRD_EICINT_BASE+0x10);
+	if((val&BIT(0))==BIT(0))
+		val &= ~BIT(0);
+	else
+		val |= BIT(0);
+	__raw_writel(val, SPRD_EICINT_BASE+0x10);
+
+	//clear interrupt
+	val = __raw_readl(SPRD_EICINT_BASE+0x0C);
+	val |= BIT(0);
+	__raw_writel(val, SPRD_EICINT_BASE+0x0C);
+
+
+	// set wakeup symbol
+	is_uart_rx_wakeup = true;
+
+	return IRQ_HANDLED;
+}
+
 /* FIXME: this pin config should be just defined int general pin mux table */
 static void serial_sprd_pin_config(void)
 {
@@ -343,6 +387,20 @@ static int serial_sprd_startup(struct uart_port *port)
 	if (ret) {
 		printk(KERN_ERR "fail to request serial irq\n");
 		free_irq(port->irq, port);
+	}
+
+	if(BT_RX_WAKE_UP == plat_data.wakeup_type)
+	{
+		int ret2 = 0;
+
+		if (!port->line) {
+			ret2 = request_irq(IRQ_WAKEUP,wakeup_rx_interrupt,IRQF_SHARED,"wakeup_rx",port);
+			if(ret2)
+			{
+				printk("fail to request wakeup irq\n");
+				free_irq(IRQ_WAKEUP,NULL);
+			}
+		}
 	}
 
 	ctrl1 = serial_in(port, ARM_UART_CTL1);
@@ -508,6 +566,7 @@ static int clk_startup(struct platform_device *pdev)
 	char clk_name[10];
 	int ret;
 	int clksrc;
+	struct serial_data plat_local_data;
 
 	sprintf(clk_name,"clk_uart%d",pdev->id);
 	clk = clk_get(NULL, clk_name);
@@ -516,7 +575,8 @@ static int clk_startup(struct platform_device *pdev)
 				clk_name);
 	}
 
-	clksrc = *(int*)(pdev->dev.platform_data);
+	plat_local_data = *(struct serial_data *)(pdev->dev.platform_data);
+	clksrc = plat_local_data.clk;
 
 	if (clksrc == 48000000){
 		clk_parent = clk_get(NULL, "clk_48m");
@@ -541,6 +601,7 @@ static int clk_startup(struct platform_device *pdev)
 static int serial_sprd_setup_port(struct platform_device *pdev, struct resource *mem,
 				   struct resource *irq)
 {
+	struct serial_data plat_local_data;
 	struct uart_port *up;
 	up = kzalloc(sizeof(*up), GFP_KERNEL);
 	if (up == NULL) {
@@ -553,7 +614,8 @@ static int serial_sprd_setup_port(struct platform_device *pdev, struct resource 
 	up->membase = (void *)mem->start;
 	up->mapbase = mem->start;
 
-	up->uartclk = *(int*)(pdev->dev.platform_data);
+	plat_local_data = *(struct serial_data *)(pdev->dev.platform_data);
+	up->uartclk = plat_local_data.clk;
 
 	up->irq = irq->start;
 	up->fifosize = 128;
@@ -653,6 +715,7 @@ static int serial_sprd_probe(struct platform_device *pdev)
 	int ret;
 	struct resource *mem, *irq;
 
+
 	if (unlikely(pdev->id < 0 || pdev->id >= UART_NR_MAX)) {
 		dev_err(&pdev->dev, "does not support id %d\n", pdev->id);
 		return -ENXIO;
@@ -680,6 +743,13 @@ static int serial_sprd_probe(struct platform_device *pdev)
 	if (likely(ret == 0)) {
 		platform_set_drvdata(pdev, serial_sprd_ports[pdev->id]);
 	}
+
+	plat_data = *(struct serial_data *)(pdev->dev.platform_data);
+	printk("bt host wake up type is %d, clk is %d \n",plat_data.wakeup_type,plat_data.clk);
+	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
+		wake_lock_init(&uart_rx_lock, WAKE_LOCK_SUSPEND, "uart_rx_lock");
+	}
+
 	return ret;
 }
 
@@ -699,12 +769,47 @@ static int serial_sprd_remove(struct platform_device *dev)
 static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 {
 	/* TODO */
+	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
+		is_uart_rx_wakeup = false;
+	}else if(BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type){
+		/*when the uart0 going to sleep,config the RTS pin of hardware flow
+		  control as the AF3 to make the pin can be set to high*/
+		unsigned long fc = 0;
+		struct uart_port *port = serial_sprd_ports[0];
+		fc=serial_in(port,ARM_UART_CTL1);
+		fc &=~(RX_HW_FLOW_CTL_EN|TX_HW_FLOW_CTL_EN);
+		serial_out(port,ARM_UART_CTL1,fc);
+		__raw_writel( (BITS_PIN_DS(3)|BITS_PIN_AF(3)|BIT_PIN_WPU|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE), (CTL_PIN_BASE + REG_PIN_U0RTS));
+	}else{
+		pr_debug("BT host wake up feature has not been supported\n");
+	}
+
 	return 0;
 }
 
 static int serial_sprd_resume(struct platform_device *dev)
 {
 	/* TODO */
+	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
+		if(is_uart_rx_wakeup)
+		{
+		    is_uart_rx_wakeup = false;
+		    wake_lock_timeout(&uart_rx_lock, HZ / 5);	// 0.2s
+		}
+	}else if(BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type){
+		/*when the uart0 waking up,reconfig the RTS pin of hardware flow control work
+		  in the hardware flow control mode to make the pin can be controlled by
+		  hardware*/
+		unsigned long fc = 0;
+		struct uart_port *port = serial_sprd_ports[0];
+		__raw_writel( (BITS_PIN_DS(1)|BITS_PIN_AF(0)|BIT_PIN_NUL|BIT_PIN_SLP_NUL|BIT_PIN_SLP_Z), (CTL_PIN_BASE + REG_PIN_U0RTS));
+		fc=serial_in(port,ARM_UART_CTL1);
+		fc |=(RX_HW_FLOW_CTL_EN|TX_HW_FLOW_CTL_EN);
+		serial_out(port,ARM_UART_CTL1,fc);
+	}else{
+		pr_debug("BT host wake up feature has not been supported\n");
+	}
+
 	return 0;
 }
 
