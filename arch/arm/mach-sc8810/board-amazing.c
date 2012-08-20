@@ -33,6 +33,7 @@
 #include "devices.h"
 #include <linux/ktd253b_bl.h>
 #include <mach/gpio.h>
+#include <mach/serial_sprd.h>
 #include <linux/spi/mxd_cmmb_026x.h>
 #include <gps/gpsctl.h>
 #include <mach/adc.h>
@@ -184,6 +185,18 @@ static void __init sprd_add_otg_device(void)
 	platform_device_register(&sprd_otg_device);
 }
 
+static struct serial_data plat_data0 = {
+	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.clk = 48000000,
+};
+static struct serial_data plat_data1 = {
+	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.clk = 26000000,
+};
+static struct serial_data plat_data2 = {
+	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.clk = 26000000,
+};
 static struct i2c_gpio_platform_data pdata_gpio_i2c_p4 = {
 	.sda_pin                = GPIO_I2C_SDA,             /*  SIMCLK3 */
 	.sda_is_open_drain      = 0,
@@ -413,16 +426,13 @@ static int sc8810_add_misc_devices(void)
 
 static void __init sc8810_init_machine(void)
 {
-	int clk;
 	regulator_add_devices();
 	sprd_add_otg_device();
-	platform_device_add_data(&sprd_sdio0_device, &sd_detect_gpio, sizeof(sd_detect_gpio));
-	platform_device_add_data(&sprd_backlight_device,&ktd253b_data,sizeof(ktd253b_data));
-	clk=48000000;
-	platform_device_add_data(&sprd_serial_device0,(const void*)&clk,sizeof(int));
-	clk=26000000;
-	platform_device_add_data(&sprd_serial_device1,(const void*)&clk,sizeof(int));
-	platform_device_add_data(&sprd_serial_device2,(const void*)&clk,sizeof(int));
+        platform_device_add_data(&sprd_sdio0_device, &sd_detect_gpio, sizeof(sd_detect_gpio));
+        platform_device_add_data(&sprd_backlight_device,&ktd253b_data,sizeof(ktd253b_data));
+	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
+	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
+	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
