@@ -1,0 +1,15 @@
+if ARCH_SC8825
+
+comment "SC8825 Board Type"
+
+choice
+	prompt "SC8825 Board"
+
+config MACH_SP8825_FPGA
+	default n
+	bool "SP8825 FPGA"
+	help
+	  SP8825 FPGA board based on SC8825.
+endchoice
+
+endif
