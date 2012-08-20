@@ -984,6 +984,25 @@ config ARCH_SC8810
 	help
 	  Support for Spreadtrum sc8810 based systems.
 
+
+config ARCH_SC8825
+	bool  "SPREADTRUM SC8825 SOC"
+	depends on MMU
+	select CPU_V7
+	select ARM_GIC
+	select HAVE_ARM_SCU
+	select GENERIC_CLOCKEVENTS
+	select HAVE_SCHED_CLOCK
+	select VFP
+	select VFPv3
+	select NEON
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select ARCH_REQUIRE_GPIOLIB
+	select ARCH_HAS_CPUFREQ
+	help
+	  Support for Spreadtrum sc8825 socs based systems.
+
 config ARCH_ARM_OSWARE
 	bool "VLX Generic ARM Virtual Machine"
 	select HAVE_SCHED_CLOCK
@@ -1121,6 +1140,8 @@ source "arch/arm/mach-vt8500/Kconfig"
 source "arch/arm/mach-w90x900/Kconfig"
 
 source "arch/arm/mach-sc8810/Kconfig"
+
+source "arch/arm/mach-sc8825/Kconfig"
 
 # Definitions to make life easier
 config ARCH_ACORN
@@ -1445,7 +1466,7 @@ config SMP
 		 MACH_REALVIEW_PB11MP || MACH_REALVIEW_PBX || ARCH_OMAP4 || \
 		 ARCH_EXYNOS4 || ARCH_TEGRA || ARCH_U8500 || ARCH_VEXPRESS_CA9X4 || \
 		 ARCH_MSM_SCORPIONMP || ARCH_SHMOBILE || ARCH_NE1 || \
-		 MACH_ARM_OSWARE
+		 MACH_ARM_OSWARE || MACH_SC8825
 	select USE_GENERIC_SMP_HELPERS
 	select HAVE_ARM_SCU if (!ARCH_MSM_SCORPIONMP)
 	help
