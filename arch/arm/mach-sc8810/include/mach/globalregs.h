@@ -209,6 +209,9 @@
 #define AHB_DSP_RESET		0x8C
 #define AHB_ENDIAN_EN		0x90
 #define USB_PHY_CTRL		0xA0
+#define USB_SPR_REG		0xC0
+
+#define CHIP_ID			0x1FC
 
 /* AHB_CTL0 bits */
 #define AHB_CTL0_DCAM_EN	BIT(1)
@@ -284,6 +287,9 @@
 #define	DSP_MAHB_SLEEP_EN	BIT(19)
 #define	APB_PRI_EN		BIT(20)
 
+/*********************************************************************/
+#define CHIP_ID_8810S		(0x88100001UL)	//Smic
+/*********************************************************************/
 /* ****************************************************************** */
 
 /* global register types */
@@ -299,4 +305,3 @@ void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset);
 void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset);
 
 #endif
-
