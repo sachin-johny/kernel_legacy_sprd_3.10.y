@@ -219,6 +219,7 @@ machine-$(CONFIG_MACH_SPEAR310)		:= spear3xx
 machine-$(CONFIG_MACH_SPEAR320)		:= spear3xx
 machine-$(CONFIG_MACH_SPEAR600)		:= spear6xx
 machine-$(CONFIG_ARCH_SC8810)		:= sc8810
+machine-$(CONFIG_ARCH_SC8825)		:= sc8825
 machine-$(CONFIG_ARCH_NE1)	        := ne1
 
 # Platform directory name.  This list is sorted alphanumerically
