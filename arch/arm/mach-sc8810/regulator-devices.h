@@ -32,6 +32,10 @@
 #include "regulator-sp8810eb.h"
 #endif
 
+#ifdef CONFIG_MACH_SP8810EC
+#include "regulator-sp8810ec.h"
+#endif
+
 #ifdef CONFIG_MACH_SP8810GA
 #include "regulator-sp8810ga.h"
 #endif

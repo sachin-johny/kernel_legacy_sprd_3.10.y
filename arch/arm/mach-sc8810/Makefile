@@ -12,6 +12,7 @@ endif
 obj-$(CONFIG_DEBUG_FS) += clock_debug.o
 
 obj-$(CONFIG_MACH_SP8810EA) += board-sp8810ea.o
+obj-$(CONFIG_MACH_SP8810EC) += board-sp8810ec.o
 obj-$(CONFIG_MACH_SP8810GA) += board-sp8810ga.o
 obj-$(CONFIG_MACH_SP6820GA) += board-sp6820ga.o
 obj-$(CONFIG_MACH_AMAZING)  += board-amazing.o
