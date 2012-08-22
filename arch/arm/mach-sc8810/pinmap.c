@@ -36,6 +36,10 @@ pinmap_t __initconst pinmap[] = {
 #include "pinmap-sp8810eb.h"
 #endif
 
+#ifdef CONFIG_MACH_SP8810EC
+#include "pinmap-sp8810ec.h"
+#endif
+
 #ifdef CONFIG_MACH_AMAZING
 #include "pinmap-amazing.h"
 #endif

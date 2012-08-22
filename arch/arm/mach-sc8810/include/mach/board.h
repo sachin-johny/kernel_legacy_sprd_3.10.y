@@ -22,6 +22,10 @@
 #include <mach/gpio-sp8810eb.h>
 #endif
 
+#ifdef	CONFIG_MACH_SP8810EC
+#include <mach/gpio-sp8810ec.h>
+#endif
+
 #ifdef	CONFIG_MACH_SP8810GA
 #include <mach/gpio-sp8810ga.h>
 #endif

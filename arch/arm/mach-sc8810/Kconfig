@@ -23,6 +23,12 @@ config MACH_SP8810EB
 	help
 	  SP8810EB phone board based on SC8810.
 
+config MACH_SP8810EC
+	default n
+	bool "SP8810EC Phone"
+	help
+	  SP8810EC phone board based on SC8810.
+
 config MACH_SP8810GA
 	default n
 	bool "SP8810GA Phone"
