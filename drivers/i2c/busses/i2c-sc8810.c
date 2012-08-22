@@ -167,7 +167,7 @@ static inline void sc8810_clr_irq(struct sc8810_i2c *i2c)
 {
 	unsigned int cmd;
 	
-	cmd=__raw_readl(i2c->membase+I2C_CMD); 
+	cmd=__raw_readl(i2c->membase+I2C_CMD)& 0xff00;
 	//clear interrupt
 	__raw_writel(cmd | I2C_CMD_INT_ACK,i2c->membase+I2C_CMD);
 }
