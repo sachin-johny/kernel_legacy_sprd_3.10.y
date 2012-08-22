@@ -1357,7 +1357,6 @@ int pcd_init(
 	}
 
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
-	gadget_wrapper->udc_startup = 1;
 
 	/*
 	 * dwc driver is ok, check if the cable is insert, if no,
