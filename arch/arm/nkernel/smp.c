@@ -494,6 +494,10 @@ smp_prepare_cpus (unsigned int maxcpus)
 	maxcpus = ncores;
     }
 
+	if (maxcpus > 1) { 
+		percpu_timer_setup();
+	}
+
     _maxcpus = maxcpus;
 
     _smp_setup_local_irqs(maxcpus);

@@ -37,6 +37,8 @@
 
 #ifdef CONFIG_NKERNEL
 #include <nk/nk.h>
+extern int nk_balloon_memory;
+extern void __init nk_memblock_reserve (void);
 
 extern void printnk (char* f, ...);
 
@@ -175,66 +177,6 @@ static void __init find_limits(unsigned long *min, unsigned long *max_low,
 			*max_low = end;
 	}
 }
-
-#ifdef CONFIG_NKERNEL
-
-extern NkMapDesc nk_maps[];
-extern int       nk_maps_max;
-
-extern int nk_direct_dma;
-extern int nk_balloon_memory;
-
-/*
- * Reserve the memory blocks used by other VMs.
- *
- * This must be done ASAP and before any other memblock allocation or
- * reservation is done (e.g.: for bootmem, or I/O memory regions),
- * to avoid conflicts on memory dedicated to other VMs.
- */ 
-static void __init nk_memblock_reserve (void)
-{
-	NkMapDesc* map;
-	NkMapDesc* map_limit = &nk_maps[nk_maps_max];
-
-	if (!nk_direct_dma && !nk_balloon_memory) {
-		return;
-	}
-
-	for (map  = &nk_maps[0]; map < map_limit; map++) {
-
-		if ((map->mem_type  == NK_MD_RAM)  &&
-		    (map->mem_owner != os_ctx->id) &&
-		    (nk_direct_dma ||
-		    (nk_balloon_memory && (map->mem_owner == NK_OS_ANON))) &&
-		    ((void*)map->vstart == __va(map->pstart))) {
-
-			NkPhAddr start = map->pstart;
-			NkPhSize size  = map->plimit - map->pstart + 1;
-
-			PRINTNK(("%s: 0x%08lx..0x%08lx\n",
-				 __FUNCTION__, start, start + size - 1));
-
-			if (!memblock_is_region_memory(start, size)) {
-				printnk("%s: 0x%08lx..0x%08lx - no memory."
-					" It cannot be used by another VM\n",
-					__FUNCTION__, start, start + size -1);
-				BUG();
-			}
-			if (memblock_is_region_reserved(start, size)) {
-				printnk("%s: 0x%08lx..0x%08lx - busy."
-					" It cannot be used by another VM\n",
-					__FUNCTION__, start, start + size -1);
-				BUG();
-			} else {
-				long res;
-				res = memblock_reserve(start, size);
-				BUG_ON(res);
-			}
-		}
-	}
-}
-
-#endif /* CONFIG_NKERNEL */
 
 static void __init arm_bootmem_init(unsigned long start_pfn,
 	unsigned long end_pfn)

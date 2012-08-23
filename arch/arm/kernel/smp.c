@@ -41,6 +41,7 @@
 #include <asm/ptrace.h>
 #include <asm/localtimer.h>
 
+
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
  * so we need some other way of telling a new secondary core
@@ -108,6 +109,7 @@ int __cpuinit __cpu_up(unsigned int cpu)
 	secondary_data.stack = task_stack_page(idle) + THREAD_START_SP;
 	secondary_data.pgdir = virt_to_phys(pgd);
 	secondary_data.swapper_pg_dir = virt_to_phys(swapper_pg_dir);
+	
 	__cpuc_flush_dcache_area(&secondary_data, sizeof(secondary_data));
 	outer_clean_range(__pa(&secondary_data), __pa(&secondary_data + 1));
 
@@ -285,7 +287,6 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	struct mm_struct *mm = &init_mm;
 	unsigned int cpu = smp_processor_id();
 
-	printk("CPU%u: Booted secondary processor\n", cpu);
 
 	/*
 	 * All kernel threads share the same mm context; grab a
@@ -298,6 +299,7 @@ asmlinkage void __cpuinit secondary_start_kernel(void)
 	enter_lazy_tlb(mm, current);
 	local_flush_tlb_all();
 
+	printk("CPU%u: Booted secondary processor\n", cpu);
 	cpu_init();
 #if defined(CONFIG_NKERNEL) && defined(CONFIG_PM)
 	if (!preempt_count())
@@ -469,7 +471,7 @@ static void ipi_timer(void)
 
 #ifdef CONFIG_LOCAL_TIMERS
 
-#ifdef CONFIG_NKERNEL
+#if defined(CONFIG_NKERNEL) && !defined(CONFIG_NATIVE_LOCAL_TIMERS)
 
     irqreturn_t
 nk_do_local_timer (int irq, void* dev_id)
@@ -675,6 +677,10 @@ nk_do_IPI (int ipinr, void* dev_id)
 
 	case IPI_CPU_STOP:
 		ipi_cpu_stop(cpu);
+		break;
+
+	case IPI_CPU_BACKTRACE:
+		ipi_cpu_backtrace(cpu, get_irq_regs());
 		break;
 
 	default:
