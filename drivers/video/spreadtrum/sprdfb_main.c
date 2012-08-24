@@ -103,6 +103,9 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 	case SPRD_FB_SET_OVERLAY:
 		result = dev->ctrl->enable_overlay(dev, (overlay_info*)arg, 1);
 		break;
+	case SPRD_FB_DISPLAY_OVERLAY:
+		result = dev->ctrl->display_overlay(dev, (overlay_display*)arg);
+		break;
 	default:
 		break;
 	}
@@ -273,7 +276,7 @@ static void sprdfb_late_resume (struct early_suspend* es)
 
 	fb_set_suspend(fb, FBINFO_STATE_RUNNING);
 }
-#endif
+#else
 
 static int sprdfb_suspend(struct platform_device *pdev,pm_message_t state)
 {
@@ -296,7 +299,7 @@ static int sprdfb_resume(struct platform_device *pdev)
 
 	return 0;
 }
-
+#endif
 
 #ifdef SPRDFB_TEST
 static int sprdfb_test_thread(void * data)

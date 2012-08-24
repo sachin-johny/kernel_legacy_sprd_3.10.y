@@ -49,6 +49,14 @@
 #define LCDC_OSD1_GREY_RGB		(0x006c)
 #define LCDC_OSD1_CK			(0x0070)
 
+#define LCDC_OSD2_BASE_ADDR		(0x0084)
+#define LCDC_OSD2_SIZE_XY		(0x8c)
+#define LCDC_OSD2_PITCH			(0x0090)
+#define LCDC_OSD2_DISP_XY		(0x0094)
+#define LCDC_OSD2_ALPHA			(0x0098)
+#define LCDC_OSD2_GREY_RGB		(0x009c)
+#define LCDC_OSD2_CK			(0x00a0)
+
 #define LCDC_Y2R_CTRL			(0x0160)
 #define LCDC_Y2R_CONTRAST 		(0x0164)
 #define LCDC_Y2R_SATURATION		(0x0168)
@@ -118,6 +126,9 @@ struct sprdfb_device {
 };
 
 #ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
+#define SPRD_LAYER_IMG (0x01)   /*support YUV & RGB*/
+#define SPRD_LAYER_OSD (0x02) /*support RGB only*/
+
 enum {
 	SPRD_DATA_TYPE_YUV422 = 0,
 	SPRD_DATA_TYPE_YUV420,
@@ -151,6 +162,7 @@ typedef struct overlay_rect {
 }overlay_rect;
 
 typedef struct overlay_info{
+	int layer_index;
 	int data_type;
 	int y_endian;
 	int uv_endian;
@@ -158,6 +170,11 @@ typedef struct overlay_info{
 	overlay_rect rect;
 	unsigned char *buffer;
 }overlay_info;
+
+typedef struct overlay_display{
+	int layer_index;
+	overlay_rect rect;
+}overlay_display;
 #endif
 
 
@@ -181,6 +198,7 @@ struct panel_ctrl {
 
 #ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
 	int32_t 	(*enable_overlay) 	(struct sprdfb_device *dev, struct overlay_info* info, int enable);
+	int32_t	(*display_overlay)	(struct sprdfb_device *dev, struct overlay_display* setting);
 #endif
 
 	#if 0

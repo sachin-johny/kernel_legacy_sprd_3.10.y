@@ -13,6 +13,9 @@
 #ifndef _SPRD_FB_H_
 #define _SPRD_FB_H_
 
+#define SPRD_LAYERS_IMG (0x1)   /*support YUV & RGB*/
+#define SPRD_LAYERS_OSD (0x2)   /*support RGB only*/
+
 enum {
 	SPRD_DATA_FORMAT_YUV422 = 0,
 	SPRD_DATA_FORMAT_YUV420,
@@ -39,6 +42,7 @@ typedef struct overlay_setting_rect {
 }overlay_setting_rect;
 
 typedef struct overlay_setting{
+	int layer_index;
 	int data_type;
 	int y_endian;
 	int uv_endian;
@@ -47,6 +51,10 @@ typedef struct overlay_setting{
 	unsigned char *buffer;
 }overlay_setting;
 
+typedef struct overlay_display_setting{
+	int layer_index;
+	overlay_setting_rect rect;
+}overlay_display_setting;
 
 /*
 int sprdfb_IOinit(void);
@@ -56,4 +64,5 @@ int sprdfb_IOdeinit(void);
 
 #define SPRD_FB_IOCTL_MAGIC 'm'
 #define SPRD_FB_SET_OVERLAY _IOW(SPRD_FB_IOCTL_MAGIC, 1, unsigned int)
+#define SPRD_FB_DISPLAY_OVERLAY _IOW(SPRD_FB_IOCTL_MAGIC, 2, unsigned int)
 #endif
