@@ -1227,15 +1227,11 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 
 static void enumeration_enable(void)
 {
-	int plug_irq;
 	struct gadget_wrapper *d;
 
 	pr_info("enable usb enumeration\n");
 	d = gadget_wrapper;
-	plug_irq = usb_get_vbus_irq();
 	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
-	enable_irq(plug_irq);
-
 	return;
 }
 
@@ -1497,9 +1493,11 @@ EXPORT_SYMBOL(usb_gadget_unregister_driver);
 int usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {
 	int ret = 0;
+	int plug_irq = usb_get_vbus_irq();
 
 	if (cb){
 		hotplug_cb = cb;
+		enable_irq(plug_irq);
 	} else {
 		pr_warning("%s, error\n", __func__);
 		ret = -EINVAL;
