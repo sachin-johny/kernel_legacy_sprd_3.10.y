@@ -20,6 +20,7 @@
 #include "sensor_cfg.h"
 #include "sensor_drv.h"
 #include "sensor_cfg.h"
+#include <mach/i2c-sc8810.h>
 
 #define _pard(a) __raw_readl(a)
 
@@ -1178,6 +1179,31 @@ SENSOR_REGISTER_INFO_T_PTR Sensor_GetRegisterInfo(void)
 	return s_sensor_register_info_ptr;
 }
 
+LOCAL void _Sensor_SetI2CSpeed(uint32_t set_i2c_clock)
+{
+	printk("_Sensor_SetI2CSpeed: set_i2c_clock = %d \n", set_i2c_clock);
+
+	if(SENSOR_I2C_FREQ_100 != set_i2c_clock)
+	{
+		if(SENSOR_I2C_FREQ_400 == set_i2c_clock)
+		{
+			sc8810_i2c_set_clk(SENSOR_I2C_ID,400000);
+		}
+		else if(SENSOR_I2C_FREQ_200 == set_i2c_clock)
+		{
+			sc8810_i2c_set_clk(SENSOR_I2C_ID,200000);
+		}
+		else if(SENSOR_I2C_FREQ_50 == set_i2c_clock)
+		{
+			sc8810_i2c_set_clk(SENSOR_I2C_ID,50000);
+		}
+		else if(SENSOR_I2C_FREQ_20 == set_i2c_clock)
+		{
+			sc8810_i2c_set_clk(SENSOR_I2C_ID,20000);
+		}
+	}
+}
+
 LOCAL void _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 {
 	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr =
@@ -1217,36 +1243,6 @@ LOCAL void _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 			} else {
 				SENSOR_PRINT_ERR
 				    ("SENSOR: add I2C driver OK.\n");
-#if 0
-				sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
-				if(sensor_info_tab_ptr)
-				{
-					sensor_info_ptr = sensor_info_tab_ptr[sensor_id];
-				}
-				if(sensor_info_ptr)
-				{
-					set_i2c_clock = sensor_info_ptr->reg_addr_value_bits & SENSOR_I2C_CLOCK_MASK;
-					if(SENSOR_I2C_FREQ_100 != set_i2c_clock)
-					{
-						if(SENSOR_I2C_FREQ_400 == set_i2c_clock)
-						{
-							sc8810_i2c_set_clk(SENSOR_I2C_ID,400000);					
-						}
-						else if(SENSOR_I2C_FREQ_200 == set_i2c_clock)
-						{
-							sc8810_i2c_set_clk(SENSOR_I2C_ID,200000);
-						}
-						else if(SENSOR_I2C_FREQ_50 == set_i2c_clock)
-						{
-							sc8810_i2c_set_clk(SENSOR_I2C_ID,50000);
-						}
-						else if(SENSOR_I2C_FREQ_20 == set_i2c_clock)
-						{
-							sc8810_i2c_set_clk(SENSOR_I2C_ID,20000);
-						}
-					}
-				}
-#endif
 				g_is_register_sensor = 1;
 			}
 		}
@@ -1303,10 +1299,10 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 	uint32_t i = 0;
 	uint32_t get_cfg_flag = 0;
 
-	SENSOR_PRINT_HIGH("SENSOR: sensor identifing %d", sensor_id);
+	SENSOR_PRINT_HIGH("SENSOR: sensor identifing %d \n", sensor_id);
 
 	if (SCI_TRUE == s_sensor_register_info_ptr->is_register[sensor_id]) {
-		SENSOR_PRINT("SENSOR: sensor identified");
+		SENSOR_PRINT_HIGH("SENSOR: sensor identified \n");
 		return;
 	}
 	sensor_list = Sensor_GetList(sensor_id);
@@ -1324,36 +1320,38 @@ LOCAL void _Sensor_Identify(SENSOR_ID_E sensor_id)
 				}
 			}
 			if(1 != get_cfg_flag) {
-				SENSOR_PRINT_ERR("SENSOR: index %d cfg is null", sensor_index);
+				SENSOR_PRINT_ERR("SENSOR: index %d cfg is null \n", sensor_index);
 				goto IDENTIFY_SEARCH;
 			}
 			sensor_info_ptr = cfg->driver_info;
 			if(NULL==sensor_info_ptr)
 			{
-				SENSOR_PRINT_ERR("SENSOR: %d info of Sensor_Init table %d is null", sensor_index, (uint)sensor_id);
+				SENSOR_PRINT_ERR("SENSOR: %d info of Sensor_Init table %d is null \n", sensor_index, (uint)sensor_id);
 				goto IDENTIFY_SEARCH;
 			}
 			_Sensor_I2CInit(sensor_id);
 			s_sensor_info_ptr = sensor_info_ptr;
+			_Sensor_SetI2CSpeed(sensor_info_ptr->reg_addr_value_bits & SENSOR_I2C_CLOCK_MASK);
+
 			Sensor_PowerOn(SCI_TRUE);
 			if(PNULL!=sensor_info_ptr->ioctl_func_tab_ptr->identify)
 			{
 				this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
-				SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
+				SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01 \n");
 				if(SENSOR_SUCCESS==sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
 				{
 					s_sensor_list_ptr[sensor_id]=sensor_info_ptr;
 					s_sensor_register_info_ptr->is_register[sensor_id]=SCI_TRUE;
 					s_sensor_register_info_ptr->img_sensor_num++;
 					Sensor_PowerOn(SCI_FALSE);
-					SENSOR_PRINT_HIGH("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d\n",
+					SENSOR_PRINT_HIGH("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d \n",
 						                                     sensor_id,s_sensor_register_info_ptr->img_sensor_num);
 				}
 				else
 				{
 					Sensor_PowerOn(SCI_FALSE);
 					_Sensor_I2CDeInit(sensor_id);
-					printk("_Sensor_Identify:identify fail!.\n");
+					printk("_Sensor_Identify:identify fail! \n");
 					goto IDENTIFY_SEARCH;
 				}
 			}
@@ -1381,6 +1379,7 @@ IDENTIFY_SEARCH:
 			continue;
 		}
 		s_sensor_info_ptr = sensor_info_ptr;
+		_Sensor_SetI2CSpeed(sensor_info_ptr->reg_addr_value_bits & SENSOR_I2C_CLOCK_MASK);
 		Sensor_PowerOn(SCI_TRUE);
 		SENSOR_PRINT_ERR
 		    ("SENSOR: Sensor_PowerOn done,this_client=0x%x\n",
@@ -1522,6 +1521,7 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
 
 		_Sensor_SetId(sensor_id);
 		s_sensor_info_ptr = s_sensor_list_ptr[sensor_id];
+		_Sensor_SetI2CSpeed(s_sensor_info_ptr->reg_addr_value_bits & SENSOR_I2C_CLOCK_MASK);
 		Sensor_PowerOn(SENSOR_TRUE);
 		
 		_Sensor_SetStatus(sensor_id);
