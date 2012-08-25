@@ -607,6 +607,8 @@ static int overlay_close(struct sprdfb_device *dev)
 	lcdc_write(0xff, LCDC_OSD1_ALPHA);
 	lcdc_clear_bits(BIT(0), LCDC_IMG_CTRL);	/* disable the image layer */
 	lcdc_clear_bits(BIT(0), LCDC_OSD2_CTRL);
+	lcdc_write(0, LCDC_IMG_Y_BASE_ADDR);
+	lcdc_write(0, LCDC_OSD2_BASE_ADDR);
 	lcdc.overlay_state = SPRD_OVERLAY_STATUS_OFF;
 
 	return 0;
