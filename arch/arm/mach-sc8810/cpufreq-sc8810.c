@@ -39,7 +39,7 @@
  *display BogoMIPS instead of the real cpu frequency if CONFIG_CPU_FREQ
  *is not be defined
  */
-int cpufreq_bypass = 0;
+int cpufreq_bypass = 1;
 
 struct sprd_dvfs_table {
 	unsigned long  clk_mcu_mhz;
