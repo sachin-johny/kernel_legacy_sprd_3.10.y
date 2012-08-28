@@ -9,7 +9,7 @@ else
 obj-$(CONFIG_PM) += pm.o
 endif
 
-obj-m += dcdc_debug.o
+obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 
 obj-$(CONFIG_DEBUG_FS) += clock_debug.o
 
