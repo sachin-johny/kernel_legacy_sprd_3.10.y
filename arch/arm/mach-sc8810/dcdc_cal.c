@@ -1,6 +1,7 @@
 #include <linux/bug.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/kthread.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -69,7 +70,7 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 		if (0 != i /* + cal_vol */ )
 			def_vol = dcdc_ctl_vol[i];
 		def_vol += cal_vol * 100 / 32;
-#if 1
+#if 0
 		if (0 != i + cal_vol) {	/* dcdc had been adjusted in uboot-spl */
 			debug("%s default %dmv, from %dmv to %dmv\n",
 			     __FUNCTION__, def_vol, adc_vol, to_vol);
@@ -184,6 +185,10 @@ static void do_dcdc_work(struct work_struct *work)
 		cpu_freq = 1200;
 	}
 
+	if (sprd_greg_read(REG_TYPE_AHB_GLOBAL,CHIP_ID) == CHIP_ID_8810S) {	/*SMIC CHIP*/
+		dcdcarm_to_vol += 100;
+	}
+
 	dcdc_work.cal_typ = sprd_get_adc_cal_type();
 	debug("%s %d %d\n", __FUNCTION__, dcdc_work.cal_typ, cnt);
 
@@ -199,7 +204,7 @@ static void do_dcdc_work(struct work_struct *work)
 	if (sci_syst_read() - dcdc_work.uptime < CALIBRATE_TO * 1000) {
 		schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
 	} else {
-		info("%s maybe timeout\n", __FUNCTION__);
+		info("%s end\n", __FUNCTION__);
 	}
 
 	if (cpu_freq == 1200) {
@@ -224,4 +229,6 @@ static int __init dcdc_init(void)
 	return 0;
 }
 
+EXPORT_SYMBOL(dcdc_calibrate);
+EXPORT_SYMBOL(mpll_calibrate);
 late_initcall(dcdc_init);
