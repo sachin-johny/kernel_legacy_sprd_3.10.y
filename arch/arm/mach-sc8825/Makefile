@@ -6,6 +6,9 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
 obj-y += glb.o
 obj-y += clock.o
 
+obj-y += dcdc_cal.o
+obj-m += dcdc_debug.o
+
 ifeq ($(CONFIG_NKERNEL),)
 obj-$(CONFIG_SMP)		+= platsmp.o headsmp.o
 endif
