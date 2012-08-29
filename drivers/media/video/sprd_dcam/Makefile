@@ -27,4 +27,6 @@ obj-$(CONFIG_DCAM_SENSOR_SR200PC10) += sensor_sr200pc10.o
 obj-$(CONFIG_DCAM_SENSOR_S5KCCGX) += sensor_s5k5ccgx.o
 # ATV
 obj-$(CONFIG_NMI601_ATV) += sensor_nmi601.o
+ifeq ($(CONFIG_ARCH_SC8810),y)
 obj-y += sprd_dcam.o
+endif

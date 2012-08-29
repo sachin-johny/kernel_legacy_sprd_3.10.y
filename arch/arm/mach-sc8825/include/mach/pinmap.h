@@ -20,6 +20,7 @@
    this is offset address, the real address should be REG_PIN_* + CTRL_PIN_BASE.
  */
 #define REG_PIN_SIMCLK0                 ( 0x0018 )
+#define REG_PIN_U0RTS                   ( 0x0134 )
 
 /* bits definitions for register REG_PIN_XXX */
 #define BITS_PIN_DS(_x_)              	( (_x_) << 8 & (BIT(8)|BIT(9)) )

@@ -12,4 +12,15 @@ config MACH_SP8825_FPGA
 	  SP8825 FPGA board based on SC8825.
 endchoice
 
+config SPRD_PMEM_SIZE
+        int "size for /dev/pmem"
+        range 1 16
+        default 8
+	depends on ANDROID_PMEM
+
+config SPRD_PMEM_ADSP_SIZE
+        int "size for /dev/pmem_adsp"
+        range 1 64
+        default 22
+	depends on ANDROID_PMEM
 endif
