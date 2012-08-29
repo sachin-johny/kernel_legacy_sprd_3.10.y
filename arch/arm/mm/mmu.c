@@ -34,7 +34,13 @@
 #include "mm.h"
 
 #ifdef CONFIG_NKERNEL
-#include <asm/nkern.h>
+#include <nk/nkern.h>
+#undef NK_DEBUG
+#ifdef NK_DEBUG
+#define	PRINTNK(x)	printnk x
+#else
+#define	PRINTNK(x)
+#endif
 #endif
 
 /*
@@ -801,6 +807,10 @@ static int __init early_vmalloc(char *arg)
 	}
 
 	vmalloc_min = (void *)(VMALLOC_END - vmalloc_reserve);
+#ifdef CONFIG_NKERNEL	
+	if (nk_highest_addr >  (unsigned long)vmalloc_min)
+		nk_highest_addr = (unsigned long)vmalloc_min;
+#endif
 	return 0;
 }
 early_param("vmalloc", early_vmalloc);
@@ -940,6 +950,59 @@ static inline void prepare_page_table(void)
 	     addr < VMALLOC_END; addr += PGDIR_SIZE)
 		pmd_clear(pmd_off_k(addr));
 }
+#endif /* CONFIG_NKERNEL */
+
+#ifdef CONFIG_NKERNEL
+extern int nk_direct_dma;
+extern int nk_balloon_memory;
+void __init nk_memblock_reserve (void)
+{
+	NkMapDesc* map;
+	NkMapDesc* map_limit = &nk_maps[nk_maps_max];
+	if (!nk_direct_dma && !nk_balloon_memory) {
+		return;
+	}
+	for (map  = &nk_maps[0]; map < map_limit; map++) {
+		if ((map->mem_type  == NK_MD_RAM)  &&
+		    (map->mem_owner != os_ctx->id) &&
+		    (nk_direct_dma ||
+		    (nk_balloon_memory && (map->mem_owner == NK_OS_ANON))) &&
+		    ((void*)map->vstart == __va(map->pstart))) {
+
+			NkPhAddr start = map->pstart;
+			NkPhSize size  = map->plimit - map->pstart + 1;
+
+			if (map->vstart > (NkPhAddr)vmalloc_min) continue;
+
+			if (map->vstart + size > (NkPhSize)vmalloc_min) {
+			    size = (NkPhAddr)vmalloc_min - map->vstart;
+			}
+
+
+			PRINTNK(("%s: 0x%08lx..0x%08lx\n",
+				 __FUNCTION__, start, start + size - 1));
+
+			if (!memblock_is_region_memory(start, size)) {
+				printnk("%s: 0x%08lx..0x%08lx - no memory."
+					" It cannot be used by another VM\n",
+					__FUNCTION__, start, start + size -1);
+				BUG();
+			}
+			if (memblock_is_region_reserved(start, size)) {
+				printnk("%s: 0x%08lx..0x%08lx - busy."
+					" It cannot be used by another VM\n",
+					__FUNCTION__, start, start + size -1);
+				BUG();
+			} else {
+				long res;
+				res = memblock_reserve(start, size);
+				BUG_ON(res);
+			}
+		}
+	}
+}
+
+
 #endif /* CONFIG_NKERNEL */
 
 /*
@@ -1100,6 +1163,12 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 
 		if (map->mem_type == NK_MD_RAM) {
 			md.type = MT_MEMORY;
+			if (md.virtual > (unsigned long)vmalloc_min) continue;
+			if (md.virtual + md.length >
+			    (unsigned long)vmalloc_min) {
+				md.length = (unsigned long)vmalloc_min -
+					md.virtual;
+			}
 		} else if (map->mem_type == NK_MD_ROM) {
 			md.type = MT_ROM;
 		} else if (map->mem_type == NK_MD_IO_MEM) {

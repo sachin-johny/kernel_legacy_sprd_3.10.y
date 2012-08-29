@@ -57,24 +57,15 @@
 
 #define	DASH #
 
-#define	__NK_SIRQ_SAVE_SVC(rcpsr, rwork) 			 \
+#define	NK_SIRQ_SAVE_SVC(rcpsr, rwork) 			         \
 	get_irq_enabled	rwork					;\
 	ldrb	rwork, [rwork]					;\
 	orr	rcpsr, rcpsr, rwork, lsl DASH NK_VPSR_SHIFT
 
-#ifdef CONFIG_SMP
 
-#define	NK_SIRQ_SAVE_SVC(rcpsr, rwork) 	 \
-	cpsid	i			;\
-	__NK_SIRQ_SAVE_SVC(rcpsr, rwork);\
-	cpsie	i
 
-#else
 
-#define	NK_SIRQ_SAVE_SVC(rcpsr, rwork) 	\
-	__NK_SIRQ_SAVE_SVC(rcpsr, rwork)
 
-#endif
 
 #define	NK_SIRQ_RESTORE(rcpsr, rwork1, rwork2)		 \
 	mov	rwork1, rcpsr, lsr DASH NK_VPSR_SHIFT		;\

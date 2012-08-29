@@ -138,7 +138,12 @@ void __cpuinit twd_timer_setup(struct clock_event_device *clk)
 	clk->min_delta_ns = clockevent_delta2ns(0xf, clk);
 
 	/* Make sure our local interrupt controller has this enabled */
+#if defined(CONFIG_NKERNEL) && defined(CONFIG_NATIVE_LOCAL_TIMER)
+	os_ctx->smp_irq_conntect(clk->irq);
+#endif
+
 	gic_enable_ppi(clk->irq);
+
 
 	clockevents_register_device(clk);
 }

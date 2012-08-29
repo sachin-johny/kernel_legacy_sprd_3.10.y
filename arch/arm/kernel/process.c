@@ -212,7 +212,7 @@ static void default_idle(void)
 void (*pm_idle)(void) = default_idle;
 EXPORT_SYMBOL(pm_idle);
 
-#ifdef CONFIG_NKERNEL
+#if defined(CONFIG_NKERNEL) && !defined(CONFIG_NKERNEL_PM_MASTER)
 
 static inline void nkidle(void)
 {
@@ -237,14 +237,82 @@ static inline void nkidle(void)
  * things like cpuidle get called in the same way.  The only difference
  * is that we always respect 'hlt_counter' to prevent low power idle.
  */
+#ifdef CONFIG_NKERNEL_PM_MASTER
+
 void cpu_idle(void)
 {
 	local_fiq_enable();
 
 	/* endless idle loop with no priority at all */
 	while (1) {
+
+		hw_local_irq_disable();
+
+		do {
+		    int pending;
+
+		    local_irq_disable();
+
+		    pending = arch_local_irq_pending();
+
+		    if (need_resched() || pending) {
+		        hw_local_irq_enable();
+			local_irq_enable();
+			preempt_enable_no_resched();
+		        schedule();
+		        preempt_disable();
+		        hw_local_irq_disable();
+			continue;
+		    }
+
+		} while (os_ctx->idle(os_ctx));
+
+		local_irq_disable();
+
 		idle_notifier_call_chain(IDLE_START);
 		tick_nohz_stop_sched_tick(1);
+
+#ifdef CONFIG_HOTPLUG_CPU
+		if (cpu_is_offline(smp_processor_id())) {
+			hw_local_irq_enable();
+			local_irq_enable();
+			cpu_die();
+		}
+#endif
+
+		if (hlt_counter) {
+			local_irq_enable();
+			cpu_relax();
+		} else {
+			stop_critical_timings();
+			pm_idle();
+			start_critical_timings();
+			/*
+			 * This will eventually be removed - pm_idle
+			 * functions should always return with IRQs
+			 * enabled.
+			 */
+			WARN_ON(irqs_disabled());
+			local_irq_enable();
+		}
+
+		tick_nohz_restart_sched_tick();
+		idle_notifier_call_chain(IDLE_END);
+
+		hw_local_irq_enable();
+	}
+}
+
+#else
+
+void cpu_idle(void)
+{
+	local_fiq_enable();
+
+	/* endless idle loop with no priority at all */
+	while (1) {
+		tick_nohz_stop_sched_tick(1);
+		idle_notifier_call_chain(IDLE_START);
 		while (!need_resched()) {
 #ifdef CONFIG_HOTPLUG_CPU
 			if (cpu_is_offline(smp_processor_id()))
@@ -257,7 +325,12 @@ void cpu_idle(void)
 				cpu_relax();
 			} else {
 				stop_critical_timings();
+#ifndef CONFIG_NKERNEL
 				pm_idle();
+#else
+				nkidle();
+#endif
+
 				start_critical_timings();
 				/*
 				 * This will eventually be removed - pm_idle
@@ -276,6 +349,7 @@ void cpu_idle(void)
 	}
 }
 
+#endif
 
 static char reboot_mode = 'h';
 

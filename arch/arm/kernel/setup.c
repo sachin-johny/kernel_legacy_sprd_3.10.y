@@ -724,6 +724,8 @@ static int __init parse_tag_map_desc(const struct tag *t)
 
 	if (tag->mem_type == NK_MD_RAM) {
 		ok = (nk_balloon_memory ? 1 : (tag->mem_owner != NK_OS_ANON));
+	} else if (tag->mem_type == NK_MD_HIGH_RAM) {
+	  ok = (tag->mem_owner == id);
 	} else if ((tag->mem_type == NK_MD_ROM) ||
 		   (tag->mem_type == NK_MD_FAST_RAM)) {
 
@@ -781,10 +783,11 @@ static void __init nk_meminfo_setup(void)
 	NkMapDesc*  map_limit = &nk_maps[nk_maps_max];
 
 	for (map  = &nk_maps[0]; map < map_limit; map++) {
-		if ((((map->mem_owner == id) ||
+	  if ((map->mem_type == NK_MD_HIGH_RAM) ||
+	      ((((map->mem_owner == id) ||
 		      (nk_balloon_memory && (map->mem_owner == NK_OS_ANON)) ||
 		       nk_direct_dma)) &&
-		    (__pa(map->vstart) == map->pstart)) {
+	      (__pa(map->vstart) == map->pstart))) {
 			NkPhAddr  start = map->pstart;
 			NkPhSize  size  = map->plimit - map->pstart + 1;
 

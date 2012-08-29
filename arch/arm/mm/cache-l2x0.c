@@ -148,12 +148,21 @@ static void l2x0_for_each_set_way(void __iomem *reg)
 	int set;
 	int way;
 	unsigned long flags;
+#ifdef CONFIG_NKERNEL
+	unsigned long hw_flags;
+#endif
 
 	for (way = 0; way < l2x0_ways; way++) {
 		spin_lock_irqsave(&l2x0_lock, flags);
+#ifdef CONFIG_NKERNEL
+		hw_flags = hw_local_irq_save();	/* prevent from OS preempt. */
+#endif
 		for (set = 0; set < l2x0_sets; set++)
 			writel_relaxed((way << 28) | (set << 5), reg);
 		cache_sync();
+#ifdef CONFIG_NKERNEL
+		hw_local_irq_restore(hw_flags);
+#endif
 		spin_unlock_irqrestore(&l2x0_lock, flags);
 	}
 }

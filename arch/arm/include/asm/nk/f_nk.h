@@ -624,6 +624,7 @@ struct NkOsCtx {
 #define NK_MD_FAST_RAM	1
 #define NK_MD_ROM	2
 #define NK_MD_IO_MEM	4
+#define NK_MD_HIGH_RAM	8
 
 	/*
 	 * mapping descriptor
