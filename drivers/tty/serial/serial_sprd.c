@@ -743,7 +743,10 @@ static int serial_sprd_probe(struct platform_device *pdev)
 	if (likely(ret == 0)) {
 		platform_set_drvdata(pdev, serial_sprd_ports[pdev->id]);
 	}
-
+	if (!((void *)(pdev->dev.platform_data))) {
+		dev_err(&pdev->dev, "serial driver get platform data failed\n");
+		return -ENODEV;
+	}
 	plat_data = *(struct serial_data *)(pdev->dev.platform_data);
 	printk("bt host wake up type is %d, clk is %d \n",plat_data.wakeup_type,plat_data.clk);
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
