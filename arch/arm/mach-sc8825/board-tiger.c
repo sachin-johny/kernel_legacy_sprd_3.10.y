@@ -42,6 +42,7 @@ extern void __init regulator_add_devices(void);
 extern void __init tiger_clock_init(void);
 
 static struct platform_device *devices[] __initdata = {
+	&sprd_hwspinlock_device0,
 	&sprd_serial_device0,
 	&sprd_serial_device1,
 	&sprd_serial_device2,

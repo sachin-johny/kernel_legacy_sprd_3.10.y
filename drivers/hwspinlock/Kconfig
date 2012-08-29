@@ -4,7 +4,7 @@
 
 config HWSPINLOCK
 	tristate "Generic Hardware Spinlock framework"
-	depends on ARCH_OMAP4
+	depends on ARCH_OMAP4 || ARCH_SC8825
 	help
 	  Say y here to support the generic hardware spinlock framework.
 	  You only need to enable this if you have hardware spinlock module
@@ -19,5 +19,13 @@ config HWSPINLOCK_OMAP
 	help
 	  Say y here to support the OMAP Hardware Spinlock device (firstly
 	  introduced in OMAP4).
+
+	  If unsure, say N.
+config HWSPINLOCK_SPRD
+	tristate "SPRD Hardware Spinlock device"
+	depends on HWSPINLOCK && ARCH_SC8825
+	help
+	  Say y here to support the SPRD Hardware Spinlock device (firstly
+	  introduced in tiger socs).
 
 	  If unsure, say N.
