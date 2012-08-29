@@ -114,6 +114,21 @@ struct platform_device sprd_nand_device = {
 	.resource	= sprd_nand_resources,
 };
 
+static struct resource sprd_hwspinlock_resources[] = {
+	[0] = {
+		.start	= SPRD_HWLOCK_BASE,
+		.end = SPRD_HWLOCK_BASE + SPRD_HWLOCK_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+struct platform_device sprd_hwspinlock_device0 = {
+	.name		= "sprd_hwspinlock",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(sprd_hwspinlock_resources),
+	.resource	= sprd_hwspinlock_resources,
+};
+
 static struct resource sprd_lcd_resources[] = {
 	[0] = {
 		.start = SPRD_LCDC_BASE,
