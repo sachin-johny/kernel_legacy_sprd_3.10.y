@@ -318,6 +318,9 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	return percentum;
 }
+void __weak udc_enable(void)	{ }
+void __weak udc_phy_down(void)	{ }
+void __weak udc_disable(void)	{ }
 
 int sprd_charger_is_adapter(struct sprd_battery_data *data)
 {

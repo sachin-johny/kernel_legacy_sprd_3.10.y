@@ -782,6 +782,8 @@ static char *supply_list[] = {
 	"battery",
 };
 
+int __weak usb_register_hotplug_callback(struct usb_hotplug_callback *cb){}
+
 extern int sci_efuse_calibration_get(unsigned int* p_cal_data);
 static int sprd_battery_probe(struct platform_device *pdev)
 {
