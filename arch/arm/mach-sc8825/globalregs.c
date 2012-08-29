@@ -41,10 +41,7 @@ void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 #ifndef CONFIG_NKERNEL
 	spin_lock_irqsave(&lock, flags);
 #else
-	/*
-	 * TODO: We must use hw spin lock here
-	 * flags = hw_local_irq_save();
-	 */
+	flags = hw_local_irq_save();
 #endif
 	value = __raw_readl(globalregs[type] + reg_offset);
 	value |= bits;
@@ -52,10 +49,7 @@ void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 #ifndef CONFIG_NKERNEL
 	spin_unlock_irqrestore(&lock, flags);
 #else
-	/*
-	 * TODO: We must use hw spin lock here
-	 * hw_local_irq_restore(flags);
-	 */
+	hw_local_irq_restore(flags);
 #endif
 }
 
@@ -67,10 +61,7 @@ void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 #ifndef CONFIG_NKERNEL
 	spin_lock_irqsave(&lock, flags);
 #else
-	/*
-	 * TODO: We must use hw spin lock here
-	 * flags = hw_local_irq_save();
-	 */
+	flags = hw_local_irq_save();
 #endif
 	value = __raw_readl(globalregs[type] + reg_offset);
 	value &= ~bits;
@@ -78,10 +69,7 @@ void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset)
 #ifndef CONFIG_NKERNEL
 	spin_unlock_irqrestore(&lock, flags);
 #else
-	/*
-	 * TODO: We must use hw spin lock here
-	 * hw_local_irq_restore(flags);
-	 */
+	hw_local_irq_restore(flags);
 #endif
 }
 

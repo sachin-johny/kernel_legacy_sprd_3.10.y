@@ -19,7 +19,7 @@
 #ifdef CONFIG_SMP
 #define PLAT_PHYS_OFFSET		UL(0x80000000)
 #else
-#define PLAT_PHYS_OFFSET		UL(0x80000000)
+#define PLAT_PHYS_OFFSET		UL(0x0)
 #endif
 /* bus address and physical addresses are identical */
 #define __virt_to_bus(x)	__virt_to_phys(x)

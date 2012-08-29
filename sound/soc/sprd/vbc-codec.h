@@ -211,8 +211,12 @@ enum {
 #define	ANA_AUDIO_PA_CTRL0	(LDO_REG_BASE  + 0x78)
 #define	ANA_AUDIO_PA_CTRL1	(LDO_REG_BASE  + 0x7C)
 
+#ifndef SPRD_ADI_BASE
 #define SPRD_ADI_BASE           SPRD_MISC_BASE
+#endif
+#ifndef SPRD_ADI_PHYS
 #define SPRD_ADI_PHYS           SPRD_MISC_PHYS
+#endif
 
 #define ANA_REG_ADDR_START      (SPRD_MISC_BASE + 0x40)  /* 0x82000040 */
 #define ANA_REG_ADDR_END        (SPRD_MISC_BASE + 0x780) /* 0x82000780 */

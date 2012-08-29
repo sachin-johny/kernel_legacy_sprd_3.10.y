@@ -11,19 +11,32 @@
  * GNU General Public License for more details.
  */
 
-#include <linux/linkage.h>
-#include <asm/assembler.h>
-#include <asm/vfpmacros.h>
+#include <mach/hardware.h>
 
-ENTRY(arch_init_neon)
-	mrc     p15, 0, r0, c1, c0, 2	/*read CACR into r1*/
-	orr      r0, r0, #(0xf << 20)    /*enable full access for p10 & p11*/
-	mcr    p15, 0, r0, c1, c0, 2      /*write back into CACR */
-	dsb
+	.macro  addruart,rp, rv
+	ldr \rp, =SPRD_UART1_PHYS
+	ldr \rv, =SPRD_UART1_BASE
+	.endm
 
-	/*enable VFP*/
-	mov     r0, #0x40000000
-	/*fmxr    fpexc, r0 TODO*/
-	dsb
+	.macro	senduart,rd,rx
+	and	\rd,\rd,#0xFF
+	str	\rd, [\rx, #0x00]
+	.endm
 
-	bx      lr
+	.macro	waituart,rd,rx
+	@ wait for TX_READY
+1:	ldr	\rd, [\rx, #0x0C]
+	mov	\rd,\rd,lsr #8
+	and	\rd,\rd,#0xFF
+	teq	\rd, #0x00
+	bne	1b
+	.endm
+
+	.macro	busyuart,rd,rx
+	@ wait for TX_READY
+2:	ldr	\rd, [\rx, #0x0C]
+	mov	\rd,\rd,lsr #8
+	and	\rd,\rd,#0xFF
+	teq	\rd, #0x00
+	bne	2b
+	.endm
