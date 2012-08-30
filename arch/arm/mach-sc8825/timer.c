@@ -33,14 +33,11 @@
 #define GPTIMER_FREQ	(32768)
 
 /* timer2 is trigged by PCLK, 26MHZ */
-#define	PCLKTIMER_FREQ	26000000
+#define	PCLKTIMER_FREQ	(26000000)
 
-#if 1//TODO
 #define GEN0_TIMER_EN		BIT(2)
 #define GEN0_SYST_EN		BIT(19)
 #define GR_GEN0             0x0008
-
-#endif
 
 #define	TIMER_LOAD(id)	(SPRD_RTC_BASE + 0x20 * (id) + 0x0000)
 #define	TIMER_VALUE(id)	(SPRD_RTC_BASE + 0x20 * (id) + 0x0004)
@@ -203,17 +200,9 @@ static void sprd_gptimer_clocksource_init(void)
 
 static cycle_t sprd_syscnt_read(struct clocksource *cs)
 {
-	unsigned int val1, val2;
-
+	unsigned int val1;
 	val1 = __raw_readl(SYSCNT_COUNT);
-	val2 = __raw_readl(SYSCNT_COUNT);
-
-	while(val2 != val1){
-		val1 = val2;
-		val2 = __raw_readl(SYSCNT_COUNT);
-	}
-
-	return val2;
+	return val1;
 }
 
 static struct clocksource sprd_syscnt = {
@@ -278,7 +267,7 @@ void tiger_enable_timer_early(void)
 	sprd_greg_set_bits1(GEN0_TIMER_EN | GEN0_SYST_EN, GR_GEN0);
 	tiger_sched_clock_init(26000000);
 }
-
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMER)
 #ifdef CONFIG_LOCAL_TIMERS
 /*
  * Setup the local clock events for a CPU.
@@ -291,13 +280,15 @@ int __cpuinit local_timer_setup(struct clock_event_device *evt)
 }
 
 #endif /* CONFIG_LOCAL_TIMERS */
+#endif
 
 void __init tiger_timer_init(void)
 {
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMER)
 #ifdef CONFIG_LOCAL_TIMERS
-	twd_base = TIGER_VA_PRIVATE_TIMER;
+	twd_base = (void __iomem *)TIGER_VA_PRIVATE_TIMER;
 #endif
-
+#endif
 	/* setup timer2 and syscnt as clocksource */
 	sprd_gptimer_clocksource_init();
 	sprd_syscnt_clocksource_init();
