@@ -31,6 +31,7 @@
 #include <mach/globalregs.h>
 #include <mach/board.h>
 #include <mach/serial_sprd.h>
+#include <mach/adi.h>
 #include "devices.h"
 
 
@@ -224,6 +225,7 @@ static void __init tiger_init_early(void)
 	/* earlier init request than irq and timer */
 	tiger_clock_init();
 	tiger_enable_timer_early();
+	adi_init();	
 }
 
 /*
