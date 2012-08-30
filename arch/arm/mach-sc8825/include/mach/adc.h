@@ -21,31 +21,73 @@
 /* adc channel definition */
 #define ADC_CHANNEL_INVALID	-1
 enum adc_channel {
-	ADC_CHANNEL_0 = 	0,
-	ADC_CHANNEL_TEMP =	1,
-	ADC_CHANNEL_2 =		2,
-	ADC_CHANNEL_3 =		3,
-	ADC_CHANNEL_PROG =	4,
-	ADC_CHANNEL_VBAT =	5,
-	ADC_CHANNEL_VCHG =	6,
-	ADC_CHANNEL_7 =		7,
-	ADC_CHANNEL_8 =		8,
-	ADC_CHANNEL_9 =		ADC_CHANNEL_INVALID,
-	ADC_CHANNEL_10 =	ADC_CHANNEL_INVALID,
-	ADC_CHANNEL_11 =	ADC_CHANNEL_INVALID,
-	ADC_CHANNEL_12 =	ADC_CHANNEL_INVALID,
-	ADC_CHANNEL_13 =	ADC_CHANNEL_INVALID,
-	ADC_CHANNEL_14 =	14,
-	ADC_CHANNEL_15 =	15,
-	ADC_MAX =		16,
+	ADC_CHANNEL_0 = 0,
+	ADC_CHANNEL_1 = 1,
+	ADC_CHANNEL_2 = 2,
+	ADC_CHANNEL_3 = 3,
+	ADC_CHANNEL_PROG = 4,
+	ADC_CHANNEL_VBAT = 5,
+	ADC_CHANNEL_VCHGSEN = 6,
+	ADC_CHANNEL_VCHGBG = 7,
+	ADC_CHANNEL_ISENSE = 8,
+	ADC_CHANNEL_TPYD = 9,
+	ADC_CHANNEL_TPYU = 10,
+	ADC_CHANNEL_TPXR = 11,
+	ADC_CHANNEL_TPXL = 12,
+	ADC_CHANNEL_DCDCCORE = 13,
+	ADC_CHANNEL_DCDCARM = 14,
+	ADC_CHANNEL_DCDCMEM = 15,
+	ADC_CHANNEL_DCDCLDO = 16,
+	ADC_CHANNEL_VBATBK = 17,
+	ADC_CHANNEL_HEADMIC = 18,
+	ADC_MAX = 18,
 };
 
-/* adc scale definition */
-enum adc_scale {
-	ADC_SCALE_3V = 0,
-	ADC_SCALE_1V2 = 1,
+struct adc_sample_data {
+	int sample_num;
+	int sample_bits;	/*0: 10bits mode, 1:12 bits mode */
+	int signal_mode;	/*0:resistance,1:capacitance */
+	int sample_speed;	/*0:quick mode, 1: slow mode */
+	int scale;		/*0:little scale, 1:big scale */
+	int hw_channel_delay;	/*0:disable, 1:enable */
+	int channel_id;		/*channel id of software, Or dedicatid hw channel number */
+	int channel_type;	/*0: software, 1: slow hardware , 2: fast hardware */
+	int *pbuf;
 };
 
-int sci_adc_get_value(unsigned int channel, int scale);
+extern void sci_adc_init(void __iomem * adc_base);
+extern void sci_adc_dump_register(void);
+
+/*
+ * Use this interface to get adc values and could config adc sample behavior.
+ */
+extern int sci_adc_get_values(struct adc_sample_data *adc);
+
+/*
+ * Use this interface to get one adc value and this function have set default
+ * adc sample behavior.
+ */
+static inline int sci_adc_get_value(unsigned int channel, int scale)
+{
+	struct adc_sample_data adc;
+	int32_t result[1];
+
+	adc.channel_id = channel;
+	adc.channel_type = 0;
+	adc.hw_channel_delay = 0;
+	adc.pbuf = &result[0];
+	adc.sample_bits = 0;
+	adc.sample_num = 1;
+	adc.sample_speed = 0;
+	adc.scale = scale;
+	adc.signal_mode = 0;
+
+	if (0 != sci_adc_get_values(&adc)) {
+		printk("sci_adc_get_value, return error\n");
+		BUG();
+	}
+
+	return result[0];
+}
 
 #endif
