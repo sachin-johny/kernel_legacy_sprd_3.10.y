@@ -170,5 +170,6 @@ void __init tiger_init_irq(void)
 			set_irq_flags(n, IRQF_VALID);
 		}
 	}
+	ana_init_irq();
 }
 #endif /* CONFIG_NKERNEL */
