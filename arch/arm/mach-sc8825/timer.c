@@ -147,7 +147,7 @@ static void sprd_gptimer_clockevent_init(void)
 	__raw_writel(TIMER_DISABLE, TIMER_CTL(EVENT_TIMER));
 	__raw_writel(TIMER_INT_CLR, TIMER_INT(EVENT_TIMER));
 
-	setup_irq(IRQ_TIMER1, &sprd_gptimer_irq);//TODO
+	setup_irq(IRQ_TIMER1_INT, &sprd_gptimer_irq);
 
 	sprd_gptimer_event.mult =
 		div_sc(GPTIMER_FREQ, NSEC_PER_SEC, sprd_gptimer_event.shift);

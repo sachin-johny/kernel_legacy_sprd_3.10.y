@@ -17,6 +17,8 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 
+#include <asm/hardware/gic.h>
+
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 
@@ -26,79 +28,91 @@
 #endif
 
 /* general interrupt registers */
-#define	INTCV_REG(off)        (SPRD_INTC0_BASE + (off))
-#define	INTCV_IRQ_STS         INTCV_REG(0x0000)
-#define	INTCV_IRQ_RAW         INTCV_REG(0x0004)
-#define	INTCV_IRQ_EN          INTCV_REG(0x0008)
-#define	INTCV_IRQ_DIS         INTCV_REG(0x000C)
-#define	INTCV_IRQ_SOFT        INTCV_REG(0x0010)
+#define	INTC0_REG(off)		(SPRD_INTC0_BASE + (off))
+#define	INTCV0_IRQ_MSKSTS	INTC0_REG(0x0000)
+#define	INTCV0_IRQ_RAW		INTC0_REG(0x0004)
+#define	INTCV0_IRQ_EN		INTC0_REG(0x0008)
+#define	INTCV0_IRQ_DIS		INTC0_REG(0x000C)
+#define	INTCV0_IRQ_SOFT		INTC0_REG(0x0010)
+
+#define	INTC1_REG(off)		(SPRD_INTC0_BASE + 0x1000 + (off))
+#define	INTCV1_IRQ_MSKSTS	INTC1_REG(0x0000)
+#define	INTCV1_IRQ_RAW		INTC1_REG(0x0004)
+#define	INTCV1_IRQ_EN		INTC1_REG(0x0008)
+#define	INTCV1_IRQ_DIS		INTC1_REG(0x000C)
+#define	INTCV1_IRQ_SOFT		INTC1_REG(0x0010)
+
+#define INTC1_IRQ_NUM_MIN	(32)
+#define INTC_NUM_MAX		(61)
 
 #ifndef CONFIG_NKERNEL
-static void sprd_irq_ack(struct irq_data *data)
+static void sci_irq_eoi(struct irq_data *data)
 {
 	/* nothing to do... */
 }
 
-static void sprd_irq_mask(struct irq_data *data)
-{
-	__raw_writel(1 << (data->irq & 31), INTCV_IRQ_DIS);
-}
-
-static void sprd_irq_unmask(struct irq_data *data)
-{
-	__raw_writel(1 << (data->irq & 31), INTCV_IRQ_EN);
-}
-
-static int sprd_irq_set_wake(struct irq_data *data, unsigned int on)
+#ifdef CONFIG_PM
+static int sci_set_wake(struct irq_data *d, unsigned int on)
 {
 	return 0;
 }
 
-static int sprd_irq_set_type(struct irq_data *data, unsigned int flow_type)
+#else
+#define sci_set_wake	NULL
+#endif
+
+static void sci_irq_mask(struct irq_data *data)
 {
-	/* TODO: make sure our INTCV really has nothing to do with type/polarity */
-	if (flow_type & (IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING)) {
-		irq_set_handler(data->irq, handle_edge_irq);
+	unsigned int irq = SCI_GET_INTC_IRQ(data->irq);
+	if (irq <= INTC_NUM_MAX) {
+		if (irq >= INTC1_IRQ_NUM_MIN) {
+			__raw_writel(1 << (irq - INTC1_IRQ_NUM_MIN),
+				     INTCV1_IRQ_DIS);
+		} else {
+			__raw_writel(1 << irq, INTCV0_IRQ_DIS);
+		}
 	}
-	if (flow_type & (IRQF_TRIGGER_HIGH | IRQF_TRIGGER_LOW)) {
-		irq_set_handler(data->irq, handle_level_irq);
-	}
-	return 0;
 }
 
-static struct irq_chip sprd_irq_chip = {
-	.name = "irq-sprd",
-	.irq_ack = sprd_irq_ack,
-	.irq_mask = sprd_irq_mask,
-	.irq_unmask = sprd_irq_unmask,
-	.irq_set_wake = sprd_irq_set_wake,
-	.irq_set_type = sprd_irq_set_type,
-};
+static void sci_irq_unmask(struct irq_data *data)
+{
+	unsigned int irq = SCI_GET_INTC_IRQ(data->irq);
+	if (irq <= INTC_NUM_MAX) {
+		if (irq >= INTC1_IRQ_NUM_MIN) {
+			__raw_writel(1 << (irq - INTC1_IRQ_NUM_MIN),
+				     INTCV1_IRQ_EN);
+		} else {
+			__raw_writel(1 << irq, INTCV0_IRQ_EN);
+		}
+	}
+}
 
 void __init tiger_init_irq(void)
 {
-	int n;
-	for (n = 0; n < NR_SPRD_IRQS; n++) {
-		irq_set_chip_and_handler(n, &sprd_irq_chip, handle_level_irq);
-		set_irq_flags(n, IRQF_VALID);
-	}
+	gic_init(0, 29, (void __iomem *)TIGER_VA_GIC_DIS,
+		 (void __iomem *)TIGER_VA_GIC_CPU);
+	gic_arch_extn.irq_eoi = sci_irq_eoi;
+	gic_arch_extn.irq_mask = sci_irq_mask;
+	gic_arch_extn.irq_unmask = sci_irq_unmask;
+	gic_arch_extn.irq_set_wake = sci_set_wake;
+	ana_init_irq();
 }
 
 #else /* CONFIG_NKERNEL */
 
-extern NkDevXPic*   nkxpic;		/* virtual XPIC device */
-extern NkOsId       nkxpic_owner;	/* owner of the virtual XPIC device */
-extern NkOsMask     nkosmask;		/* my OS mask */
+extern NkDevXPic *nkxpic;	/* virtual XPIC device */
+extern NkOsId nkxpic_owner;	/* owner of the virtual XPIC device */
+extern NkOsMask nkosmask;	/* my OS mask */
 
 extern void nk_ddi_init(void);
-extern void __nk_xirq_startup  (struct irq_data* d);
-extern void __nk_xirq_shutdown (struct irq_data* d);
+extern void __nk_xirq_startup(struct irq_data *d);
+extern void __nk_xirq_shutdown(struct irq_data *d);
 
-static unsigned int nk_startup_irq (struct irq_data *data)
+static unsigned int nk_startup_irq(struct irq_data *data)
 {
 	__nk_xirq_startup(data);
 #ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
-	nkxpic->irq[data->irq].os_enabled  = nkosmask;
+	nkxpic->irq[data->irq].os_enabled = nkosmask;
 #else
 	nkxpic->irq[data->irq].os_enabled |= nkosmask;
 #endif
@@ -107,18 +121,18 @@ static unsigned int nk_startup_irq (struct irq_data *data)
 	return 0;
 }
 
-static void nk_shutdown_irq (struct irq_data *data)
+static void nk_shutdown_irq(struct irq_data *data)
 {
 	__nk_xirq_shutdown(data);
 #ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
-	nkxpic->irq[data->irq].os_enabled  = 0;
+	nkxpic->irq[data->irq].os_enabled = 0;
 #else
 	nkxpic->irq[irq].os_enabled &= ~nkosmask;
 #endif
 	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
 }
 
-static void nk_sprd_mask_ack_irq (struct irq_data *data)
+static void nk_sprd_mask_ack_irq(struct irq_data *data)
 {
 	/*
 	 * mask_ack() is called only from handle_level_irq.
@@ -130,7 +144,7 @@ static void nk_sprd_mask_ack_irq (struct irq_data *data)
 	 */
 }
 
-static void nk_sprd_ack_irq (struct irq_data *data)
+static void nk_sprd_ack_irq(struct irq_data *data)
 {
 	/*
 	 * ack might be called by some stupid drivers
@@ -138,38 +152,30 @@ static void nk_sprd_ack_irq (struct irq_data *data)
 	 */
 }
 
-static void nk_sprd_unmask_irq (struct irq_data *data)
+static void nk_sprd_unmask_irq(struct irq_data *data)
 {
 #ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
-	if (data->irq > 31 )
+	if (data->irq > 31)
 		printk("nk_sprd_unmask_irq, irq error = 0x%x\n", data->irq);
-	__raw_writel(1 << (data->irq & 31), INTCV_IRQ_EN);
+	__raw_writel(1 << (data->irq & 31), INTCV0_IRQ_EN);
 #else
 	nkops.nk_xirq_trigger(data->irq, nkxpic_owner);
 #endif
 }
 
 static struct irq_chip nk_sprd_irq_chip = {
-	.name		= "irq-sprd",
-	.irq_mask_ack	= nk_sprd_mask_ack_irq,
-	.irq_ack	= nk_sprd_ack_irq,
-	.irq_unmask	= nk_sprd_unmask_irq,
-	.irq_startup	= nk_startup_irq,
-	.irq_shutdown	= nk_shutdown_irq,
+	.name = "irq-sprd",
+	.irq_mask_ack = nk_sprd_mask_ack_irq,
+	.irq_ack = nk_sprd_ack_irq,
+	.irq_unmask = nk_sprd_unmask_irq,
+	.irq_startup = nk_startup_irq,
+	.irq_shutdown = nk_shutdown_irq,
 };
 
 void __init tiger_init_irq(void)
 {
-	int n;
-
 	nk_ddi_init();
-	for (n = 0; n < NR_SPRD_IRQS; ++n) {
-		if (n != IRQ_ANA_INT) {
-			irq_set_chip_and_handler(n, &nk_sprd_irq_chip,
-					handle_level_irq);
-			set_irq_flags(n, IRQF_VALID);
-		}
-	}
+	gic_init(0, 29, TIGER_VA_GIC_DIS, TIGER_VA_GIC_CPU);
 	ana_init_irq();
 }
 #endif /* CONFIG_NKERNEL */
