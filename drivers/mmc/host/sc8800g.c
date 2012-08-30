@@ -17,9 +17,12 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/mmc/host.h>
-#include <linux/mmc/card.h>//wong
-
+#include <linux/mmc/card.h>
+#include <linux/mmc/core.h>
+#include <linux/kernel.h>
+#include <linux/bitops.h>
 #include <linux/gpio.h>
+#include <linux/sysfs.h>
 
 #include <mach/regs_global.h>
 #include <mach/regs_ahb.h>
@@ -27,7 +30,7 @@
 #include "sdhci.h"
 #include "sprdmci.h"
 
-
+#define MMC_CLOCK_SCAILING
 
 #define     SDIO_BASE_CLK_96M       96000000        // 96 MHz
 #define     SDIO_BASE_CLK_80M       80000000        // 80 MHz
@@ -43,6 +46,12 @@
 #define     SDIO_BASE_CLK_8M        8000000         // 8  MHz
 
 #define SDIO_MAX_CLK  SDIO_BASE_CLK_96M  //96Mhz
+#define     SDIO_CLK_MAX            SDIO_BASE_CLK_48M
+#define     SDIO_CLK_375K           375000
+#ifdef MMC_CLOCK_SCAILING
+static struct sdhci_host *g_sdio_host = NULL;
+#endif
+static unsigned int sdhci_sprd_get_base_clock(struct sdhci_host *host);
 
 
 /**
@@ -94,6 +103,38 @@ static void sdhci_sprd_set_base_clock(unsigned int clock)
 		__raw_readl(GR_CLK_GEN5));
 	return;
 }
+static unsigned int sdhci_sprd_get_base_clock(struct sdhci_host *host){
+	unsigned int max_clk = 0;
+	if(!strcmp(host->hw_name, "Spread SDIO host0")){
+		max_clk = __raw_readl(GR_CLK_GEN5) & (BIT_17|BIT_18);
+		max_clk >>= 17;
+	}else{
+		max_clk = __raw_readl(GR_CLK_GEN5) & (BIT_19|BIT_20);
+		max_clk >>= 20;
+	}
+
+	switch(max_clk){
+	case 0:
+		max_clk = SDIO_BASE_CLK_96M;
+		break;
+	case 1:
+		max_clk = SDIO_BASE_CLK_64M;
+		break;
+	case 2:
+		max_clk = SDIO_BASE_CLK_48M;
+		break;
+	case 3:
+		max_clk = SDIO_BASE_CLK_26M;
+		break;
+	default:
+		max_clk = 0;
+		printk("%s, GEN5:0x%x\n", __func__, __raw_readl(GR_CLK_GEN5) );
+		break;
+	}
+
+	return max_clk;
+}
+
 
 static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock){
    unsigned int val = __raw_readl(AHB_CTL0);
@@ -125,6 +166,68 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
    return;	  
 }
 
+#ifdef MMC_CLOCK_SCAILING
+/*
+ *	Here is an unresonable modification for GSM900.
+ *	The base clock of sdio is 96MHz, its harmonic waves may interfere with channel-124
+ */
+static ssize_t sdhci_clk_scailing_show(struct device *dev, struct device_attribute *attr,
+					char *buf)
+{
+	return 0;
+}
+
+static ssize_t sdhci_clk_scailing_store(struct device *dev, struct device_attribute *attr,
+					const char *buf, size_t n)
+{
+	char *end = NULL;
+	unsigned int clk = 0;
+	struct sdhci_host *host = NULL;
+	struct mmc_host *mmc = NULL;
+	if(!g_sdio_host){
+		printk("%s \n", __func__);
+		return n;
+	}
+	host = g_sdio_host;
+	mmc = host->mmc;
+	if(!host->mmc->card)
+		return;
+
+	printk("%s, buf:%s\n", __func__, buf);
+	mmc_claim_host(mmc);
+	clk = simple_strtol(buf, &end, 0);
+	printk("%s, clk wanted:%d\n", __func__, clk);
+	sdhci_set_clock(host, 0);
+	if(clk >= SDIO_CLK_MAX){
+		/* max clock: 48MHz*/
+		clk = SDIO_CLK_MAX;
+		sdhci_sprd_set_base_clock(SDIO_BASE_CLK_96M);
+	}else if(clk >= SDIO_CLK_375K){
+		sdhci_sprd_set_base_clock(clk);
+	}else{
+		/* why below 375KHz ?? */
+		clk = SDIO_CLK_375K;
+		sdhci_sprd_set_base_clock(SDIO_BASE_CLK_96M);
+	}
+	host->max_clk = sdhci_sprd_get_base_clock(host);
+	printk("%s, max_clk:%d, real clk:%d\n", __func__, host->max_clk, clk);
+	sdhci_set_clock(host, clk);
+	mmc_release_host(mmc);
+
+	return n;
+}
+
+static DEVICE_ATTR(mmc_clk_scailing, 0660, sdhci_clk_scailing_show, sdhci_clk_scailing_store);
+
+static struct attribute * mmc_clk_attrs[] = {
+	&dev_attr_mmc_clk_scailing.attr,
+	NULL,
+};
+static struct attribute_group mmc_clk_attr_group = {
+	.name	= "mmc_clk_scailing",
+	.attrs	= mmc_clk_attrs,
+};
+#endif
 
 static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
@@ -167,9 +270,13 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	host->ioaddr = (void __iomem *)res->start;
 #ifdef CONFIG_ARCH_SC8810
-	if (0 == pdev->id)
+	if (0 == pdev->id){
 			host->hw_name = "Spread SDIO host0";
-	else
+#ifdef MMC_CLOCK_SCAILING
+			g_sdio_host = host;
+			sysfs_create_group(&dev->kobj, &mmc_clk_attr_group);
+#endif
+	}else
 			host->hw_name = "Spread SDIO host1";
 #else
 	host->hw_name = "Spread SDIO host";
@@ -212,7 +319,10 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
  err_add_host:
 	sdhci_free_host(host);
-
+#ifdef MMC_CLOCK_SCAILING
+	sysfs_remove_group(&dev->kobj, &mmc_clk_attr_group);
+	g_sdio_host = NULL;
+#endif
 	return ret;
 }
 
