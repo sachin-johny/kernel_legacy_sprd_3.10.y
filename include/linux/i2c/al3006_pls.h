@@ -3,6 +3,7 @@
 
 #include <linux/types.h>
 #include <linux/ioctl.h>
+#include <linux/earlysuspend.h>
 
 #define PLS_DEBUG 1
 #define AL3006_PLS_ADC_LEVEL9

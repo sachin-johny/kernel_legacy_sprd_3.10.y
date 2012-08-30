@@ -24,7 +24,7 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
-#include <linux/i2c/pixcir_i2c_ts.h>
+#include <linux/i2c/qt602240_ts.h>
 #include <linux/i2c/al3006_pls.h>
 #include <linux/i2c/lis3dh.h>
 #include <linux/akm8975.h>
@@ -178,8 +178,8 @@ static void __init sprd_add_otg_device(void)
 	platform_device_register(&sprd_otg_device);
 }
 
-static struct pixcir_ts_platform_data pixcir_ts_info = {
-	.irq_gpio_number	= GPIO_TOUCH_IRQ,
+static struct qt602240_platform_data qt602240_ts_info = {
+	.irq_gpio_number	= EIC_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 };
 
@@ -189,8 +189,8 @@ static struct al3006_pls_platform_data al3006_pls_info = {
 
 static struct i2c_board_info i2c2_boardinfo[] = {
 	{
-		I2C_BOARD_INFO(PIXICR_DEVICE_NAME, 0x5C),
-		.platform_data = &pixcir_ts_info,
+		I2C_BOARD_INFO("qt602240_ts", 0x4a),
+		.platform_data = &qt602240_ts_info,
 	},
 };
 
