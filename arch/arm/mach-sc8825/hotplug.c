@@ -1,4 +1,4 @@
-/* linux arch/arm/mach-exynos4/hotplug.c
+/* linux arch/arm/mach-sc8825/hotplug.c
  *
  *  Cloned from linux/arch/arm/mach-realview/hotplug.c
  *
@@ -103,6 +103,13 @@ void platform_cpu_die(unsigned int cpu)
 {
 	int spurious = 0;
 
+#ifdef CONFIG_NKERNEL_PM_MASTER
+	hw_local_irq_disable();
+#endif
+#ifdef CONFIG_NKERNEL
+	os_ctx->smp_cpu_stop(cpu);
+#endif
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NKERNEL_PM_MASTER)
 	/*
 	 * we're ready for shutdown now, so do it
 	 */
@@ -115,8 +122,13 @@ void platform_cpu_die(unsigned int cpu)
 	 */
 	cpu_leave_lowpower();
 
+#ifdef CONFIG_NKERNEL_PM_MASTER
+	os_ctx->smp_cpu_start(cpu, 0);
+#endif
+
 	if (spurious)
 		pr_warn("CPU%u: %u spurious wakeup calls\n", cpu, spurious);
+#endif
 }
 
 int platform_cpu_disable(unsigned int cpu)

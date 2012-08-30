@@ -1,5 +1,5 @@
 /*
- *  linux/arch/arm/mach-tiger/headsmp.S
+ *  linux/arch/arm/mach-sc8825/headsmp.S
  *
  *
  *  Copyright (c) 2003 ARM Limited
@@ -15,11 +15,11 @@
 	__INIT
 
 /*
- * tiger specific entry point for secondary CPUs.  This provides
+ * sc8825 specific entry point for secondary CPUs.  This provides
  * a "holding pen" into which all secondary cores are held until we're
  * ready for them to initialise.
  */
-ENTRY(tiger_secondary_startup)
+ENTRY(sc8825_secondary_startup)
 	mrc	p15, 0, r0, c0, c0, 5
 	and	r0, r0, #15
 	adr	r4, 1f

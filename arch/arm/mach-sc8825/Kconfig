@@ -8,6 +8,7 @@ choice
 config MACH_SP8825_FPGA
 	default n
 	bool "SP8825 FPGA"
+	select NKERNEL_ARCH_PM_MASTER
 	help
 	  SP8825 FPGA board based on SC8825.
 endchoice
