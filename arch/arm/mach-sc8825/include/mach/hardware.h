@@ -296,4 +296,8 @@
 #define SPRD_MISC_BASE	((unsigned int)SPRD_ADI_BASE)
 #define SPRD_MISC_PHYS	((unsigned int)0X42000000)
 
+#define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x0600 )
+#define ANA_REG_GLB_APB_CLK_EN          ( ANA_CTL_GLB_BASE + 0x0000 )
+
+#define ADC_BASE	((unsigned int)SPRD_ADI_BASE + 0x300)
 #endif
