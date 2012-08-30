@@ -1,4 +1,4 @@
-/* linux/arch/arm/mach-tiger/platsmp.c
+/* linux/arch/arm/mach-sc8825/platsmp.c
  * 
  * Copyright (c) 2010-2012 Spreadtrum Co., Ltd.
  *		http://www.spreadtrum.com
@@ -32,14 +32,20 @@
 
 //#include <plat/cpu.h>
 
-extern void tiger_secondary_startup(void);
+#ifndef CONFIG_NKERNEL
+extern void sc8825_secondary_startup(void);
 
 /*
  * control for which core is the next to come out of the secondary
  * boot "holding pen"
  */
-volatile int __cpuinitdata pen_release = -1;
+volatile int  pen_release = -1;
+#else
+extern volatile int __cpuinitdata pen_release;
+#endif
 
+
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NKERNEL_PM_MASTER)
 /*
  * Write pen_release in a way that is guaranteed to be visible to all
  * observers, irrespective of whether they're taking part in coherency
@@ -53,11 +59,6 @@ static void __cpuinit write_pen_release(int val)
 	outer_clean_range(__pa(&pen_release), __pa(&pen_release + 1));
 }
 
-static void __iomem *scu_base_addr(void)
-{
-	return (void __iomem *)(SPRD_A5MP_BASE);
-}
-
 static DEFINE_SPINLOCK(boot_lock);
 
 #define HOLDING_PEN_VALUE_DEFAULT	(0xaa55abcd)
@@ -69,7 +70,11 @@ static void write_reg_pen(unsigned int val)
 }
 
 
+#ifdef CONFIG_NKERNEL_PM_MASTER
+void __cpuinit phys_platform_secondary_init(unsigned int cpu)
+#else
 void __cpuinit platform_secondary_init(unsigned int cpu)
+#endif
 {
 	/*
 	 * if any interrupts are already enabled for the primary
@@ -91,11 +96,23 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	 */
 	spin_lock(&boot_lock);
 	spin_unlock(&boot_lock);
+#ifdef CONFIG_NKERNEL_PM_MASTER
+	hw_local_irq_enable();
+#endif
 }
 
+#ifdef CONFIG_NKERNEL_PM_MASTER
+int __cpuinit phys_boot_secondary(unsigned int cpu, struct task_struct *idle)
+#else
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
+#endif
 {
 	unsigned long timeout;
+
+#ifdef	CONFIG_NKERNEL
+	if (!cpu || (cpu >= VCPU()->maxvcpus))
+		__WARN();
+#endif
 
 	/*
 	 * Set synchronisation state between this boot processor
@@ -135,6 +152,13 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	spin_unlock(&boot_lock);
 
 	return pen_release != -1 ? -ENOSYS : 0;
+}
+#endif
+
+#ifndef CONFIG_NKERNEL
+static void __iomem *scu_base_addr(void)
+{
+	return (void __iomem *)(SPRD_A5MP_BASE);
 }
 
 /*
@@ -181,6 +205,7 @@ void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 	 * until it receives a soft interrupt, and then the
 	 * secondary CPU branches to this address.
 	 */
-	__raw_writel(BSYM(virt_to_phys(tiger_secondary_startup)),
+	__raw_writel(BSYM(virt_to_phys(sc8825_secondary_startup)),
 			CPU1_JUMP_VADDR);
 }
+#endif
