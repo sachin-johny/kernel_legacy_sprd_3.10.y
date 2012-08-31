@@ -398,7 +398,7 @@ int sprd_probe_panel(struct sprdfb_device *dev, int cs)
 
 int sprd_register_panel(struct panel_cfg *cfg)
 {
-	static struct list_head new;
+	static struct panel_cfg new;
 
 	if (cfg->panel->mode == LCD_MODE_MCU) {
 		cfg->panel->info.mcu->ops = &lcm_mcu_ops;
@@ -411,8 +411,8 @@ int sprd_register_panel(struct panel_cfg *cfg)
 		list_add_tail(&cfg->list, &panel_list1);
 	} else {
 		list_add_tail(&cfg->list, &panel_list0);
-		new = cfg->list;
-		list_add_tail(&new, &panel_list1);
+		new = *cfg;
+		list_add_tail(&new.list, &panel_list1);
 	}
 
 	mutex_unlock(&panel_mutex);
