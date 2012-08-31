@@ -1,0 +1,10 @@
+# to add sprd vsp configs in the future
+config SPRD_BUSMONITOR_CORE
+	tristate "SPRD BusMonitor Core"
+	default y
+
+config SPRD_BUSMONITOR
+	tristate "SPRD BusMonitor Low Level Driver"
+	depends on SPRD_BUSMONITOR_CORE=y
+	default y
+	

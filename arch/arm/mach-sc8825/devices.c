@@ -315,6 +315,173 @@ struct platform_device sprd_spi1_device = {
 };
 
 
+static struct resource sprd_ahb_bm0_res[] = {
+	[0] = {
+		.start = SPRD_BM0_BASE,
+		.end = SPRD_BM0_BASE + SPRD_BM0_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_BM_INT,
+		.end = IRQ_BM_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct resource sprd_ahb_bm1_res[] = {
+	[0] = {
+		.start = SPRD_BM1_BASE,
+		.end = SPRD_BM1_BASE, SPRD_BM1_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_BM_INT,
+		.end = IRQ_BM_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+
+};
+
+static struct resource sprd_ahb_bm2_res[] = {
+	[0] = {
+		.start = SPRD_BM2_BASE,
+		.end = SPRD_BM2_BASE + SPRD_BM2_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_BM_INT,
+		.end = IRQ_BM_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+
+};
+
+static struct resource sprd_ahb_bm3_res[] = {
+	[0] = {
+		.start = SPRD_BM3_BASE,
+		.end = SPRD_BM3_BASE + SPRD_BM3_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_BM_INT,
+		.end = IRQ_BM_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+
+};
+
+static struct resource sprd_ahb_bm4_res[] = {
+	[0] = {
+		.start = SPRD_BM4_BASE,
+		.end = SPRD_BM4_BASE + SPRD_BM4_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_BM_INT,
+		.end = IRQ_BM_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+
+};
+
+static struct resource sprd_axi_bm0_res[] = {
+	[0] = {
+		.start =SPRD_AXIBM0_BASE,
+		.end = SPRD_AXIBM0_BASE + SPRD_AXIBM0_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_AXIBM_INT,
+		.end = IRQ_AXIBM_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct resource sprd_axi_bm1_res[] = {
+	[0] = {
+		.start =SPRD_AXIBM1_BASE,
+		.end = SPRD_AXIBM1_BASE + SPRD_AXIBM1_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_AXIBM_INT,
+		.end = IRQ_AXIBM_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+static struct resource sprd_axi_bm2_res[] = {
+	[0] = {
+		.start =SPRD_AXIBM2_BASE,
+		.end = SPRD_AXIBM2_BASE + SPRD_AXIBM2_SIZE - 1,
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_AXIBM_INT,
+		.end = IRQ_AXIBM_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+};
+
+
+struct platform_device sprd_ahb_bm0_device = {
+	.name = "sprd_ahb_busmonitor",
+	.id = 0,
+	.resource = sprd_ahb_bm0_res,
+	.num_resources = ARRAY_SIZE(sprd_ahb_bm0_res),
+};
+
+struct platform_device sprd_ahb_bm1_device = {
+	.name = "sprd_ahb_busmonitor",
+	.id = 1,
+	.resource = sprd_ahb_bm1_res,
+	.num_resources = ARRAY_SIZE(sprd_ahb_bm1_res),
+};
+
+struct platform_device sprd_ahb_bm2_device = {
+	.name = "sprd_ahb_busmonitor",
+	.id = 2,
+	.resource = sprd_ahb_bm2_res,
+	.num_resources = ARRAY_SIZE(sprd_ahb_bm2_res),
+};
+
+struct platform_device sprd_ahb_bm3_device = {
+	.name = "sprd_ahb_busmonitor",
+	.id = 3,
+	.resource = sprd_ahb_bm3_res,
+	.num_resources = ARRAY_SIZE(sprd_ahb_bm3_res),
+};
+
+struct platform_device sprd_ahb_bm4_device = {
+	.name = "sprd_ahb_busmonitor",
+	.id = 4,
+	.resource = sprd_ahb_bm4_res,
+	.num_resources = ARRAY_SIZE(sprd_ahb_bm4_res),
+
+};
+
+struct platform_device sprd_axi_bm0_device = {
+	.name = "sprd_axi_busmonitor",
+	.id = 0,
+	.resource = sprd_axi_bm0_res,
+	.num_resources = ARRAY_SIZE(sprd_axi_bm0_res),
+};
+
+struct platform_device sprd_axi_bm1_device = {
+	.name = "sprd_axi_busmonitor",
+	.id = 1,
+	.resource = sprd_axi_bm1_res,
+	.num_resources = ARRAY_SIZE(sprd_axi_bm1_res),
+};
+
+struct platform_device sprd_axi_bm2_device = {
+	.name = "sprd_axi_busmonitor",
+	.id = 2,
+	.resource = sprd_axi_bm2_res,
+	.num_resources = ARRAY_SIZE(sprd_axi_bm2_res),
+};
+
+//keypad 
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW7 | SCI_ROW6 | SCI_ROW5 | SCI_ROW4 | SCI_ROW3 |SCI_ROW2)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL7 | SCI_COL6 | SCI_COL5 | SCI_COL4 | SCI_COL3 |SCI_COL2)
 
