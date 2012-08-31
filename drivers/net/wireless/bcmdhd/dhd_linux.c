@@ -2342,6 +2342,9 @@ dhd_open(struct net_device *net)
 #endif
 	int ifidx;
 	int32 ret = 0;
+	int loop_num = 0;
+loop:
+	ret = 0;
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 	/* Update FW path if it was changed */
 	if ((firmware_path != NULL) && (firmware_path[0] != '\0')) {
@@ -2432,6 +2435,17 @@ dhd_open(struct net_device *net)
 	OLD_MOD_INC_USE_COUNT;
 exit:
 	DHD_OS_WAKE_UNLOCK(&dhd->pub);
+	if(ret != 0){
+		DHD_ERROR(("%s: failed to up driver, just try again!loop_num: %d \n",__FUNCTION__,loop_num));
+		mdelay(500);
+		dhd_stop(net);
+		loop_num++;
+		if(loop_num < 2) {
+			goto loop;
+		}
+		else
+			DHD_ERROR(("%s: failed to up driver, retry failure!!!!!\n",__FUNCTION__));
+	}
 	return ret;
 }
 
