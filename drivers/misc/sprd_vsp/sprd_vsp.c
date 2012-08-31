@@ -76,6 +76,8 @@ struct vsp_fh{
 	int is_clock_enabled;
 };
 
+static struct vsp_fh *vsp_fp;
+
 static struct vsp_dev vsp_hw_dev;
 
 struct clock_name_map_t{
@@ -121,7 +123,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	struct clk *clk_parent;
 	char *name_parent;
 	unsigned long frequency;
-	struct vsp_fh *vsp_fp = filp->private_data;
+//	struct vsp_fh *vsp_fp = filp->private_data;
 
 	switch (cmd) {
 	case VSP_CONFIG_FREQ:
@@ -238,6 +240,9 @@ static irqreturn_t vsp_isr(int irq, void *data)
 	__raw_writel((1<<10)|(1<<12)|(1<<15), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
 	vsp_hw_dev.condition_work = 1;
 	wake_up_interruptible(&vsp_hw_dev.wait_queue_work);
+	vsp_ioctl(NULL, VSP_DISABLE,NULL);
+	vsp_ioctl(NULL, VSP_RELEASE,NULL);
+
 	return IRQ_HANDLED;
 }
 #endif
@@ -258,7 +263,7 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static int vsp_open(struct inode *inode, struct file *filp)
 {
-	struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
+	/*struct vsp_fh **/vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
 	if (vsp_fp == NULL) {
 		printk(KERN_ERR "vsp open error occured\n");
 		return  -EINVAL;
@@ -273,7 +278,7 @@ static int vsp_open(struct inode *inode, struct file *filp)
 
 static int vsp_release (struct inode *inode, struct file *filp)
 {
-	struct vsp_fh *vsp_fp = filp->private_data;
+//	struct vsp_fh *vsp_fp = filp->private_data;
 
 	if (vsp_fp->is_clock_enabled) {
 		printk(KERN_ERR "error occured and close clock \n");
@@ -285,7 +290,7 @@ static int vsp_release (struct inode *inode, struct file *filp)
 		up(&vsp_hw_dev.vsp_mutex);
 	}
 
-	kfree(filp->private_data);
+	kfree(vsp_fp);
 	return 0;
 }
 
