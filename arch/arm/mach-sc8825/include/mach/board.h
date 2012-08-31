@@ -14,14 +14,18 @@
 #ifndef __ASM_ARCH_BOARD_H
 #define __ASM_ARCH_BOARD_H
 
+#include <asm/sizes.h>
+
+
 #ifdef CONFIG_MACH_SP8825_FPGA
 #include <mach/gpio-sp8810ga.h>
 #endif
+#include "memory.h"
 
 /*
  * pmem area definition
  */
-#include <asm/sizes.h>
+
 #define SPRD_PMEM_SIZE		(CONFIG_SPRD_PMEM_SIZE*SZ_1M)
 #define SPRD_PMEM_ADSP_SIZE	(CONFIG_SPRD_PMEM_ADSP_SIZE*SZ_1M)
 #define SPRD_ROT_MEM_SIZE	(0)
@@ -29,7 +33,7 @@
 #define SPRD_IO_MEM_SIZE	(SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
 				SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE)
 
-#define SPRD_PMEM_BASE		((256*SZ_1M)-SPRD_IO_MEM_SIZE)
+#define SPRD_PMEM_BASE		(PLAT_PHYS_OFFSET + (256*SZ_1M)-SPRD_IO_MEM_SIZE)
 #define SPRD_PMEM_ADSP_BASE	(SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
 #define SPRD_ROT_MEM_BASE	(SPRD_PMEM_ADSP_BASE+SPRD_PMEM_ADSP_SIZE)
 #define SPRD_SCALE_MEM_BASE	(SPRD_ROT_MEM_BASE+SPRD_ROT_MEM_SIZE)

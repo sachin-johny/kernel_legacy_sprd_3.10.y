@@ -21,20 +21,18 @@
 #include <mach/board.h>
 #include <linux/memblock.h>
 
-int __init sc8810_pmem_reserve_memblock(void)
+static int __init __pmem_reserve_memblock(void)
 {
-#if 0//TODO 
 	if (memblock_is_region_reserved(SPRD_PMEM_BASE, SPRD_IO_MEM_SIZE))
 		return -EBUSY;
 	if (memblock_reserve(SPRD_PMEM_BASE, SPRD_IO_MEM_SIZE))
 		return -ENOMEM;
-#endif 	
 	return 0;
 }
 
-void __init tiger_reserve(void)
+void __init sc8825_reserve(void)
 {
-	int ret;
-	if (ret = sc8810_pmem_reserve_memblock())
+	int ret = __pmem_reserve_memblock();
+	if (ret != 0)
 		pr_err("Fail to reserve mem for pmem. errno=%d\n", ret);
 }

@@ -19,7 +19,7 @@ extern const struct clkops clkops_null;
 int sc88xx_clksel_rournd_rate_clkr(struct clk *clk, unsigned long target_rate,
 					const struct clksel_rate **clkrp, u32 *valid_rate);
 long sc88xx_clksel_round_rate(struct clk *clk, unsigned long target_rate);
-int __init tiger_clock_init(void);
+int __init sc8825_clock_init(void);
 int sc88xx_set_rate_generic(struct clk *clk, unsigned long rate);
 unsigned long sc88xx_recalc_generic(struct clk *clk);
 int sc8800g_get_clock_status(void);

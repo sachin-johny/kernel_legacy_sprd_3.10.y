@@ -87,10 +87,10 @@ static void sci_irq_unmask(struct irq_data *data)
 	}
 }
 
-void __init tiger_init_irq(void)
+void __init sc8825_init_irq(void)
 {
-	gic_init(0, 29, (void __iomem *)TIGER_VA_GIC_DIS,
-		 (void __iomem *)TIGER_VA_GIC_CPU);
+	gic_init(0, 29, (void __iomem *)SC8825_VA_GIC_DIS,
+		 (void __iomem *)SC8825_VA_GIC_CPU);
 	gic_arch_extn.irq_eoi = sci_irq_eoi;
 	gic_arch_extn.irq_mask = sci_irq_mask;
 	gic_arch_extn.irq_unmask = sci_irq_unmask;
@@ -172,10 +172,10 @@ static struct irq_chip nk_sprd_irq_chip = {
 	.irq_shutdown = nk_shutdown_irq,
 };
 
-void __init tiger_init_irq(void)
+void __init sc8825_init_irq(void)
 {
 	nk_ddi_init();
-	gic_init(0, 29, TIGER_VA_GIC_DIS, TIGER_VA_GIC_CPU);
+	gic_init(0, 29, SC8825_VA_GIC_DIS, SC8825_VA_GIC_CPU);
 	ana_init_irq();
 }
 #endif /* CONFIG_NKERNEL */
