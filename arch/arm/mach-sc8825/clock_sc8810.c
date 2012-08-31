@@ -2020,7 +2020,7 @@ static struct clk_functions sc8810_clk_functions = {
 	.clk_disable_unused	= sc88xx_clk_disable_unused,
 };
 
-int __init tiger_clock_init(void)
+int __init sc8825_clock_init(void)
  {
 	struct sc88xx_clk *c;
 	struct clk *p;
@@ -2037,7 +2037,7 @@ int __init tiger_clock_init(void)
 	recalculate_root_clocks();
 
 	clk_enable_init_clocks();
-	CLK_FW_ERR("###: tiger_clock_init() is done.\n");
+	CLK_FW_ERR("###: sc8825_clock_init() is done.\n");
 
 	for (c = sc8800g2_clks; c < (sc8800g2_clks + ARRAY_SIZE(sc8800g2_clks)); c++) {
 					p = c->lk.clk;
