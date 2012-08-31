@@ -519,6 +519,7 @@ config WL127X_RFKILL
 	 TI wl127x chips.
 
 source "drivers/misc/sprd_vsp/Kconfig"
+source "drivers/misc/sprd_busmonitor/Kconfig"
 
 config APANIC
 	bool "Android kernel panic diagnostics driver"

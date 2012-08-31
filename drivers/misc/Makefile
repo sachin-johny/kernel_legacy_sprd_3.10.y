@@ -56,3 +56,4 @@ obj-$(CONFIG_GPS_CTRL)		+= gpsctl.o
 obj-$(CONFIG_GPS_IRQ)		+= brcm_gps_irq.o
 
 obj-y		+= sprd_vsp/
+obj-y		+= sprd_busmonitor/

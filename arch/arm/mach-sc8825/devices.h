@@ -42,5 +42,13 @@ extern struct platform_device sprd_sdio1_device;
 extern struct platform_device sprd_dcam_device;
 extern struct platform_device sprd_scale_device;
 extern struct platform_device sprd_rotation_device;
+extern struct platform_device sprd_ahb_bm0_device;
+extern struct platform_device sprd_ahb_bm1_device;
+extern struct platform_device sprd_ahb_bm2_device;
+extern struct platform_device sprd_ahb_bm3_device;
+extern struct platform_device sprd_ahb_bm4_device;
+extern struct platform_device sprd_axi_bm0_device;
+extern struct platform_device sprd_axi_bm1_device;
+extern struct platform_device sprd_axi_bm2_device;
 
 #endif
