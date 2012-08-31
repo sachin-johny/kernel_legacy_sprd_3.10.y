@@ -8,4 +8,4 @@ obj-$(CONFIG_SMP)		+= platsmp.o headsmp.o
 endif
 
 obj-$(CONFIG_HOTPLUG_CPU)	+= hotplug.o
-obj-$(CONFIG_MACH_SP8825_FPGA) += board-tiger.o
+obj-$(CONFIG_MACH_SP8825_FPGA) += board_sp8825_fpga.o

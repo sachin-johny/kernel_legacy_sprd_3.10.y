@@ -240,15 +240,15 @@ unsigned long long notrace sched_clock(void)
 						SC_MULT, SC_SHIFT);
 }
 
-static void notrace tiger_update_sched_clock(void)
+static void notrace __update_sched_clock(void)
 {
 	u32 cyc = sprd_gptimer_read(NULL);
 	update_sched_clock(&cd, cyc, (u32)~0);
 }
 
-static void __init tiger_sched_clock_init(unsigned long rate)
+static void __init __sched_clock_init(unsigned long rate)
 {
-	init_fixed_sched_clock(&cd, tiger_update_sched_clock,
+	init_fixed_sched_clock(&cd, __update_sched_clock,
 			       32, rate, SC_MULT, SC_SHIFT);
 }
 
@@ -261,11 +261,11 @@ static void sprd_greg_set_bits1(uint32_t bits, uint32_t reg_offset)
         __raw_writel(value, SPRD_GREG_BASE + reg_offset);
 }
 
-void tiger_enable_timer_early(void)
+void sc8825_enable_timer_early(void)
 {
 	/* enable timer & syscnt in global regs */
 	sprd_greg_set_bits1(GEN0_TIMER_EN | GEN0_SYST_EN, GR_GEN0);
-	tiger_sched_clock_init(26000000);
+	__sched_clock_init(26000000);
 }
 #if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMER)
 #ifdef CONFIG_LOCAL_TIMERS
@@ -282,11 +282,11 @@ int __cpuinit local_timer_setup(struct clock_event_device *evt)
 #endif /* CONFIG_LOCAL_TIMERS */
 #endif
 
-void __init tiger_timer_init(void)
+void __init sc8825_timer_init(void)
 {
 #if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMER)
 #ifdef CONFIG_LOCAL_TIMERS
-	twd_base = (void __iomem *)TIGER_VA_PRIVATE_TIMER;
+	twd_base = (void __iomem *)SC8825_VA_PRIVATE_TIMER;
 #endif
 #endif
 	/* setup timer2 and syscnt as clocksource */

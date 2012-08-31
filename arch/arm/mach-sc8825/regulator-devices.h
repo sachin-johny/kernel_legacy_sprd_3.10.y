@@ -29,7 +29,7 @@
 #endif
 
 #ifdef CONFIG_MACH_SP8825_FPGA 
-#include "regulator-tiger.h"
+#include "regulator-sc8825.h"
 #endif
 
 #ifdef CONFIG_MACH_ADD_NEW_ONE_SPECIAL_PRJ
