@@ -14,9 +14,13 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/android_pmem.h>
+#include <linux/input.h>
+#include <linux/input/matrix_keypad.h>
+
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/board.h>
+#include <mach/kpd.h>
 #include "devices.h"
 
 static struct resource sprd_serial_resources0[] = {
@@ -32,6 +36,7 @@ static struct resource sprd_serial_resources0[] = {
 		.flags = IORESOURCE_IRQ,
 	},
 };
+
 struct platform_device sprd_serial_device0 = {
 	.name           = "serial_sprd",
 	.id             =  0,
@@ -52,6 +57,7 @@ static struct resource sprd_serial_resources1[] = {
 		.flags = IORESOURCE_IRQ,
 	},
 };
+
 struct platform_device sprd_serial_device1 = {
 	.name           = "serial_sprd",
 	.id             =  1,
@@ -142,12 +148,14 @@ static struct resource sprd_lcd_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
+
 struct platform_device sprd_lcd_device0 = {
 	.name           = "sprd_fb",
 	.id             =  0,
 	.num_resources  = ARRAY_SIZE(sprd_lcd_resources),
 	.resource       = sprd_lcd_resources,
 };
+
 struct platform_device sprd_lcd_device1 = {
 	.name           = "sprd_fb",
 	.id             =  1,
@@ -307,7 +315,98 @@ struct platform_device sprd_spi1_device = {
 };
 
 
-static struct resource sprd_keypad_resources[] = {
+#define CUSTOM_KEYPAD_ROWS          (SCI_ROW7 | SCI_ROW6 | SCI_ROW5 | SCI_ROW4 | SCI_ROW3 |SCI_ROW2)
+#define CUSTOM_KEYPAD_COLS          (SCI_COL7 | SCI_COL6 | SCI_COL5 | SCI_COL4 | SCI_COL3 |SCI_COL2)
+
+static const unsigned int test_keymap[] = {
+	KEY(0, 0, KEY_F1),
+
+	KEY(0, 3, KEY_COFFEE),
+	KEY(0, 2, KEY_QUESTION),
+	KEY(2, 3, KEY_CONNECT),
+	KEY(1, 2, KEY_SHOP),
+	KEY(1, 1, KEY_PHONE),
+
+	KEY(0, 1, KEY_DELETE),
+	KEY(2, 2, KEY_PLAY),
+	KEY(1, 0, KEY_PAGEUP),
+	KEY(1, 3, KEY_PAGEDOWN),
+	KEY(2, 0, KEY_EMAIL),
+	KEY(2, 1, KEY_STOP),
+
+	KEY(0, 7, KEY_KP1),
+	KEY(0, 6, KEY_KP2),
+	KEY(0, 5, KEY_KP3),
+	KEY(1, 7, KEY_KP4),
+	KEY(1, 6, KEY_KP5),
+	KEY(1, 5, KEY_KP6),
+	KEY(2, 7, KEY_KP7),
+	KEY(2, 6, KEY_KP8),
+	KEY(2, 5, KEY_KP9),
+	KEY(3, 6, KEY_KP0),
+	KEY(3, 7, KEY_KPASTERISK),
+	KEY(3, 5, KEY_KPDOT),
+	KEY(7, 2, KEY_NUMLOCK),
+	KEY(7, 1, KEY_KPMINUS),
+	KEY(6, 1, KEY_KPPLUS),
+	KEY(7, 6, KEY_KPSLASH),
+	KEY(6, 0, KEY_ENTER),
+
+	KEY(7, 4, KEY_CAMERA),
+
+	KEY(0, 4, KEY_F2),
+	KEY(1, 4, KEY_F3),
+	KEY(2, 4, KEY_F4),
+	KEY(7, 7, KEY_F5),
+	KEY(7, 5, KEY_F6),
+
+	KEY(3, 4, KEY_Q),
+	KEY(3, 3, KEY_W),
+	KEY(3, 2, KEY_E),
+	KEY(3, 1, KEY_R),
+	KEY(3, 0, KEY_T),
+	KEY(4, 7, KEY_Y),
+	KEY(4, 6, KEY_U),
+	KEY(4, 5, KEY_I),
+	KEY(4, 4, KEY_O),
+	KEY(4, 3, KEY_P),
+	KEY(4, 2, KEY_A),
+	KEY(4, 1, KEY_S),
+	KEY(4, 0, KEY_D),
+	KEY(5, 7, KEY_F),
+	KEY(5, 6, KEY_G),
+	KEY(5, 5, KEY_H),
+	KEY(5, 4, KEY_J),
+	KEY(5, 3, KEY_K),
+	KEY(5, 2, KEY_L),
+	KEY(5, 1, KEY_Z),
+	KEY(5, 0, KEY_X),
+	KEY(6, 7, KEY_C),
+	KEY(6, 6, KEY_V),
+	KEY(6, 5, KEY_B),
+	KEY(6, 4, KEY_N),
+	KEY(6, 3, KEY_M),
+	KEY(6, 2, KEY_SPACE),
+	KEY(7, 0, KEY_LEFTSHIFT),
+	KEY(7, 3, KEY_LEFTCTRL),
+};
+static const struct matrix_keymap_data test_keymap_data = {
+	.keymap = test_keymap,
+	.keymap_size = ARRAY_SIZE(test_keymap),
+};
+struct sci_keypad_platform_data sci_keypad_data = {
+	.rows_choose_hw = CUSTOM_KEYPAD_ROWS,
+	.cols_choose_hw = CUSTOM_KEYPAD_COLS,
+	.rows = 8,
+	.cols = 8,
+	.keymap_data = &test_keymap_data,
+	.support_long_key = 1,
+	.repeat = 0,
+	.debounce_time = 5000,
+	.keyup_test_interval = 50,
+};
+
+static struct resource sci_keypad_resources[] = {
         {
                 .start = IRQ_KPD_INT,
                 .end = IRQ_KPD_INT,
@@ -316,10 +415,13 @@ static struct resource sprd_keypad_resources[] = {
 };
 
 struct platform_device sprd_keypad_device = {
-        .name           = "sprd-keypad",
+	.name = "sci-keypad",
         .id             = -1,
-        .num_resources  = ARRAY_SIZE(sprd_keypad_resources),
-        .resource       = sprd_keypad_resources,
+	.dev = {
+		.platform_data = &sci_keypad_data,
+		},
+	.num_resources = ARRAY_SIZE(sci_keypad_resources),
+	.resource = sci_keypad_resources,
 };
 
 struct platform_device sprd_audio_soc_device = {
@@ -427,6 +529,7 @@ static struct resource sprd_sdio0_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
+
 struct platform_device sprd_sdio0_device = {
 	.name           = "sprd-sdhci",
 	.id             =  0,

@@ -580,6 +580,15 @@ config KEYBOARD_W90P910
 	  To compile this driver as a module, choose M here: the
 	  module will be called w90p910_keypad.
 
+config KEYBOARD_SC8825
+        tristate "Spreadtrum keypad support"
+        depends on ARCH_SC8825
+        help
+          Say Y here if you want to use the sprd keypad.
+
+          To compile this driver as a module, choose M here: the
+          module will be called tiger_keypad.
+
 config KEYBOARD_SC8810
         tristate "Spreadtrum keypad support"
         depends on ARCH_SC8810

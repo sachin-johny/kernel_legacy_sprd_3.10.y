@@ -34,7 +34,6 @@
 #include <mach/adi.h>
 #include "devices.h"
 
-
 extern void __init tiger_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init tiger_init_irq(void);
