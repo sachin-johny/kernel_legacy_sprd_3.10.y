@@ -1066,13 +1066,9 @@ static int c_show(struct seq_file *m, void *v)
 			   (per_cpu(cpu_data, i).loops_per_jiffy / (5000UL/HZ)) % 100);
 	}
 #else /* CONFIG_SMP */
-#ifdef CONFIG_ARCH_SC8810
-	seq_printf(m, "BogoMIPS\t: 1024.00\n");
-#else
 	seq_printf(m, "BogoMIPS\t: %lu.%02lu\n",
 		   loops_per_jiffy / (500000/HZ),
 		   (loops_per_jiffy / (5000/HZ)) % 100);
-#endif
 #endif
 
 	/* dump out the processor features */
