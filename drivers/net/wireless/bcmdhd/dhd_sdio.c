@@ -1267,6 +1267,7 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 		/* Make sure SD clock is available */
 		if (bus->clkstate == CLK_NONE)
 			dhdsdio_sdclk(bus, TRUE);
+                osl_delay(5*1000);
 		/* Now request HT Avail on the backplane */
 		ret = dhdsdio_htclk(bus, TRUE, pendok);
 		if (ret == BCME_OK) {
@@ -6936,7 +6937,7 @@ dhdsdio_download_firmware(struct dhd_bus *bus, osl_t *osh, void *sdh)
 	dhdsdio_clkctl(bus, CLK_AVAIL, FALSE);
 
 	ret = _dhdsdio_download_firmware(bus) == 0;
-
+	osl_delay(200*1000);
 	dhdsdio_clkctl(bus, CLK_SDONLY, FALSE);
 
 	DHD_OS_WAKE_UNLOCK(bus->dhd);
