@@ -2117,6 +2117,12 @@ void mmc_remove_sd_card(struct work_struct *work)
 	printk(KERN_INFO "%s: %s\n", mmc_hostname(host),
 		__func__);
 
+	if (!host->card || host->card->removed) {
+		printk(KERN_INFO "%s:%s card already removed\n",
+			__func__, mmc_hostname(host));
+		return;
+	}
+
 	if(!mmc_card_sd(host->card))
 		return;
 	wake_lock(&host->detect_wake_lock);
