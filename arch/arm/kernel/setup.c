@@ -1342,8 +1342,11 @@ void __init setup_arch(char **cmdline_p)
 		mdesc->init_early();
 }
 
+#if !defined (CONFIG_ARCH_SC8825)
 /*
- * Pick out the high ram size.  We look for ram=512M,
+ * Pick out the high ram size.  We look for ram=512M, pls fix;
+ * we don't use this method in sc8825 soc, because the external
+ * memory space is linear and useable address from 0x80000000-0xffef_ffff now.
  */
 static int __init high_ram(char *p)
 {
@@ -1352,7 +1355,7 @@ static int __init high_ram(char *p)
 		return 0;
 }
 early_param("ram", high_ram);
-
+#endif
 
 static int __init topology_init(void)
 {
