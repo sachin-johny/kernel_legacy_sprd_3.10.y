@@ -65,6 +65,9 @@
 #define RTC_UPD_TIME_MASK (RTC_SEC_ACK_BIT | RTC_MIN_ACK_BIT | RTC_HOUR_ACK_BIT | RTC_DAY_ACK_BIT)
 #define RTC_INT_ALL_MSK (0xFFFF&(~(BIT(5)|BIT(6)|BIT(7))))
 
+#define RTC_ALM_TIME_MASK (RTC_SEC_ALM_ACK_BIT | RTC_MIN_ALM_ACK_BIT | RTC_HOUR_ALM_ACK_BIT | RTC_DAY_ALM_ACK_BIT)
+
+
 #define RTC_SEC_MASK 0x3F
 #define RTC_MIN_MASK 0x3F
 #define RTC_HOUR_MASK 0x1F
@@ -130,7 +133,7 @@ static unsigned long sprd_rtc_get_sec(void)
 
 	return first;
 }
-static void sprd_rtc_set_sec(unsigned long secs)
+static int sprd_rtc_set_sec(unsigned long secs)
 {
 	unsigned sec, min, hour, day;
 	unsigned set_mask = 0, int_rsts;
@@ -179,12 +182,12 @@ static void sprd_rtc_set_sec(unsigned long secs)
 			msleep(1);
 			i++;
 		}else{
-			break;
+			return 1;
 		}
 	}while(1);
 	sci_adi_set(ANA_RTC_INT_CLR, RTC_UPD_TIME_MASK);
 
-	return;
+	return 0;
 }
 
 static inline unsigned long sprd_rtc_get_alarm_sec(void)
@@ -197,10 +200,12 @@ static inline unsigned long sprd_rtc_get_alarm_sec(void)
 
 	return ((((day*24) + hour)*60 + min)*60 + sec);
 }
-static void sprd_rtc_set_alarm_sec(unsigned long secs)
+static int sprd_rtc_set_alarm_sec(unsigned long secs)
 {
 	unsigned sec, min, hour, day;
 	unsigned long temp;
+	unsigned set_mask = 0, int_rsts;
+	int i = 0;
 
 	sec = secs % 60;
 	temp = (secs - sec)/60;
@@ -209,12 +214,42 @@ static void sprd_rtc_set_alarm_sec(unsigned long secs)
 	hour = temp%24;
 	temp = (temp - hour)/24;
 	day = temp;
-	sci_adi_raw_write(ANA_RTC_SEC_ALM, sec);
-	sci_adi_raw_write(ANA_RTC_MIN_ALM, min);
-	sci_adi_raw_write(ANA_RTC_HOUR_ALM, hour);
-	sci_adi_raw_write(ANA_RTC_DAY_ALM, day);
 
-	return;
+	sci_adi_set(ANA_RTC_INT_CLR, RTC_ALM_TIME_MASK);
+
+
+	sci_adi_raw_write(ANA_RTC_SEC_ALM, sec);
+	set_mask |= RTC_SEC_ALM_ACK_BIT;
+
+	sci_adi_raw_write(ANA_RTC_MIN_ALM, min);
+	set_mask |= RTC_MIN_ALM_ACK_BIT;
+
+	sci_adi_raw_write(ANA_RTC_HOUR_ALM, hour);
+	set_mask |= RTC_HOUR_ALM_ACK_BIT;
+
+	sci_adi_raw_write(ANA_RTC_DAY_ALM, day);
+	set_mask |= RTC_DAY_ALM_ACK_BIT;
+
+	/*
+	 * wait till all update done
+	 */
+
+	do{
+		int_rsts = sci_adi_read(ANA_RTC_INT_RSTS) & RTC_ALM_TIME_MASK;
+
+		if(set_mask == int_rsts)
+			break;
+
+		if(i < SPRD_RTC_SET_MAX){
+			msleep(1);
+			i++;
+		}else{
+			return 1;
+		}
+	}while(1);
+	sci_adi_set(ANA_RTC_INT_CLR, RTC_ALM_TIME_MASK);
+
+	return 0;
 }
 static int sprd_rtc_read_alarm(struct device *dev,
 		struct rtc_wkalrm *alrm)
@@ -236,7 +271,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 	unsigned long secs;
 	unsigned temp;
 	unsigned long read_secs;
-	int i = 0;
+	int i = 0,n;
 
 	rtc_tm_to_time(&alrm->time, &secs);
 	if(secs < secs_start_year_to_1970)
@@ -250,13 +285,13 @@ static int sprd_rtc_set_alarm(struct device *dev,
 		sci_adi_raw_write(ANA_RTC_INT_EN, temp);
 
 		secs = secs - secs_start_year_to_1970;
-		sprd_rtc_set_alarm_sec(secs);
 		wake_lock(&rtc_wake_lock);
-		msleep(150);
+		n = 2;
+		while(sprd_rtc_set_alarm_sec(secs)!=0&&(n--)>0);
 		do {
 			if(i!=0){
-				sprd_rtc_set_alarm_sec(secs);
-				msleep(150);
+				n = 2;
+				while(sprd_rtc_set_alarm_sec(secs)!=0&&(n--)>0);
 			}
 			read_secs = sprd_rtc_get_alarm_sec();
 			msleep(1);
@@ -275,15 +310,17 @@ static int sprd_rtc_read_time(struct device *dev,
 		struct rtc_time *tm)
 {
 	unsigned long secs = sprd_rtc_get_sec();
-
+	int n =2;
 	if(secs > 0x7f000000){
-		sprd_rtc_set_sec(0);
+		while(sprd_rtc_set_sec(0)!=0&&(n--)>0);
+
 		secs = 0;
 	}
 	secs = secs + secs_start_year_to_1970;
 	if(secs > 0x7f000000){
 		secs = secs_start_year_to_1970;
-		sprd_rtc_set_sec(0);
+		n =2;
+		while(sprd_rtc_set_sec(0)!=0&&(n--)>0);
 	}
 	rtc_time_to_tm(secs, tm);
 	return 0;
@@ -293,21 +330,22 @@ static int sprd_rtc_set_time(struct device *dev,
 		struct rtc_time *tm)
 {
 	unsigned long secs;
-
+	int n=2;
 	rtc_tm_to_time(tm, &secs);
 	if(secs < secs_start_year_to_1970)
 		return -1;
 	secs = secs - secs_start_year_to_1970;
-	sprd_rtc_set_sec(secs);
+	while(sprd_rtc_set_sec(secs)!=0&&(n--)>0);
 	return 0;
 }
 
 static int sprd_rtc_set_mmss(struct device *dev, unsigned long secs)
 {
+	int n=2;
 	if(secs < secs_start_year_to_1970)
 		return -1;
 	secs = secs - secs_start_year_to_1970;
-	sprd_rtc_set_sec(secs);
+	while(sprd_rtc_set_sec(secs)!=0&&(n--)>0);
 	return 0;
 }
 
