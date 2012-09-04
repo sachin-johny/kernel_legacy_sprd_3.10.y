@@ -1229,7 +1229,7 @@ CONFIG_I2C_SPRD=y
 CONFIG_SPI=y
 # CONFIG_SPI_DEBUG is not set
 CONFIG_SPI_MASTER=y
-
+CONFIG_SPI_SC8825=y
 #
 # SPI Master Controller Drivers
 #

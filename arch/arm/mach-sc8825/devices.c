@@ -299,6 +299,18 @@ static struct resource spi1_resources[] = {
     },
 };
 
+static struct resource spi2_resources[] = {
+	[0] = {
+	       .start = SPRD_SPI2_BASE,
+	       .end = SPRD_SPI2_BASE + SPRD_SPI2_SIZE - 1,
+	       .flags = IORESOURCE_MEM,
+	       },
+	[1] = {
+	       .start = IRQ_SPI2_INT,
+	       .end = IRQ_SPI2_INT,
+	       .flags = IORESOURCE_IRQ,
+	       },
+};
 
 struct platform_device sprd_spi0_device = {
     .name = "sprd_spi",
@@ -308,12 +320,18 @@ struct platform_device sprd_spi0_device = {
 };
 
 struct platform_device sprd_spi1_device = {
-    .name = "sprd_spi",
-    .id = 1,
-    .resource = spi1_resources,
-    .num_resources = ARRAY_SIZE(spi1_resources),
+	.name = "sprd_spi",
+	.id = 1,
+	.resource = spi1_resources,
+	.num_resources = ARRAY_SIZE(spi1_resources),
 };
 
+struct platform_device sprd_spi2_device = {
+	.name = "sprd_spi",
+	.id = 2,
+	.resource = spi2_resources,
+	.num_resources = ARRAY_SIZE(spi2_resources),
+};
 
 static struct resource sprd_ahb_bm0_res[] = {
 	[0] = {

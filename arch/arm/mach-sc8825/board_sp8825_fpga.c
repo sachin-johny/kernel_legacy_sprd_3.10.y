@@ -57,6 +57,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device3,
 	&sprd_spi0_device,
 	&sprd_spi1_device,
+	&sprd_spi2_device,
 	&sprd_keypad_device,
 	&sprd_audio_soc_device,
 	&sprd_audio_soc_vbc_device,
@@ -177,12 +178,28 @@ static int audio_pa_amplifier_l(u32 cmd, void *data)
 
 static int spi_cs_gpio_map[][2] = {
     {SPI0_CMMB_CS_GPIO,  0},
+    {SPI0_CMMB_CS_GPIO,  0},
+    {SPI0_CMMB_CS_GPIO,  0},
 } ;
 
 static struct spi_board_info spi_boardinfo[] = {
 	{
-	.modalias = "cmmb-dev",
+	.modalias = "spidev",
 	.bus_num = 0,
+	.chip_select = 0,
+	.max_speed_hz = 1000 * 1000,
+	.mode = SPI_CPOL | SPI_CPHA,
+	},
+	{
+	.modalias = "spidev",
+	.bus_num = 1,
+	.chip_select = 0,
+	.max_speed_hz = 1000 * 1000,
+	.mode = SPI_CPOL | SPI_CPHA,
+	},
+	{
+	.modalias = "spidev",
+	.bus_num = 2,
 	.chip_select = 0,
 	.max_speed_hz = 1000 * 1000,
 	.mode = SPI_CPOL | SPI_CPHA,

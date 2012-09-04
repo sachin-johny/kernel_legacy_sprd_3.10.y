@@ -409,6 +409,11 @@ config SPI_SC8810
 	help
 	  SPI driver for Spreadtrum SC8810 series ARM SoCs
 
+config SPI_SC8825
+	tristate "SC8825 SPI controller module support"
+	depends on (ARCH_SC8825)
+	help
+	  SPI driver for Spreadtrum TIGER series ARM SoCs
 #
 # Add new SPI master controllers in alphabetical order above this line
 #
