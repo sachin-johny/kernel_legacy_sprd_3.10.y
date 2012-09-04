@@ -302,7 +302,7 @@ static int mcu_init_panel(struct sprdfb_device *dev)
 {
 	mcu_lcm_configure(dev->panel, dev->csid);
 
-	mcu_set_timing(dev, LCD_REGISTER_TIMING);
+	mcu_set_timing(dev, dev->csid);
 
 	#if 0
 	dev->panel->ops->panel_init(dev->panel);
@@ -405,6 +405,7 @@ int sprd_register_panel(struct panel_cfg *cfg)
 	}
 
 	mutex_lock(&panel_mutex);
+
 	if (cfg->lcd_cs == 0) {
 		list_add_tail(&cfg->list, &panel_list0);
 	} else if (cfg->lcd_cs == 1) {
