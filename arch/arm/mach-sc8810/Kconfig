@@ -35,6 +35,12 @@ config MACH_SP8810GA
 	help
 	  SP8810GA phone board based on SC8810.
 
+config MACH_SP8810GB
+	default n
+	bool "SP8810GB Phone"
+	help
+	  SP8810GB phone board based on SC8810.
+
 config MACH_SP6820GA
 	default n
 	bool "SP6820GA Phone"
