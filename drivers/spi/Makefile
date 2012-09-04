@@ -56,6 +56,7 @@ obj-$(CONFIG_SPI_SH_MSIOF)		+= spi_sh_msiof.o
 obj-$(CONFIG_SPI_STMP3XXX)		+= spi_stmp.o
 obj-$(CONFIG_SPI_NUC900)		+= spi_nuc900.o
 obj-$(CONFIG_SPI_SC8810)		+= spi_sc8810.o
+obj-$(CONFIG_SPI_SC8825)		+= spi_sc8825.o
 
 # special build for s3c24xx spi driver with fiq support
 spi_s3c24xx_hw-y			:= spi_s3c24xx.o

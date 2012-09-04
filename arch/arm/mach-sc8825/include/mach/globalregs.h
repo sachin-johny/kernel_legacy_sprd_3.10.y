@@ -55,6 +55,7 @@
 #define GR_BUSCLK_ALM		GR_BUSCLK
 
 /* the GEN0 register bit */
+#define GEN0_SPI2_EN		BIT(1)
 #define GEN0_TIMER_EN		BIT(2)
 #define GEN0_SIM0_EN		BIT(3)
 #define GEN0_I2C_EN		BIT(4)
@@ -122,6 +123,7 @@
 #define SWRST_PWM2_RST		BIT(26)
 #define SWRST_PWM3_RST		BIT(27)
 #define SWRST_EFUSE_RST		BIT(28)
+#define SWRST_SPI2_RST		BIT(31)
 
 /* the ARM VB CTRL register bit */
 #define ARM_VB_IIS_SEL		BIT(0)
