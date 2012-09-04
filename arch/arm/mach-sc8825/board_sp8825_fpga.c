@@ -54,6 +54,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
+	&sprd_i2c_device3,
 	&sprd_spi0_device,
 	&sprd_spi1_device,
 	&sprd_keypad_device,
