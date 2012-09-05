@@ -1364,6 +1364,7 @@ int pcd_init(
 	 */
 	if (!gadget_wrapper->vbus){
 		pr_debug("vbus is not power now \n");
+		gadget_wrapper->udc_startup = 1;
 		__udc_shutdown();
 	}
 	gadget_wrapper->enabled = 0;
