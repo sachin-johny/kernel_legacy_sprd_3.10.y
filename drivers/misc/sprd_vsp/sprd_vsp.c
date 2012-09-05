@@ -56,6 +56,10 @@
 #define DCAM_INT_CLR_OFF		0x28
 #define DCAM_INT_RAW_OFF		0x2C
 
+struct vsp_fh{
+	int is_vsp_aquired;
+	int is_clock_enabled;
+};
 
 struct vsp_dev{
 	unsigned int freq_div;
@@ -68,15 +72,9 @@ struct vsp_dev{
 
 	struct clk *vsp_clk;
 	struct clk *vsp_parent_clk;
+
+	struct vsp_fh *vsp_fp;
 };
-
-
-struct vsp_fh{
-	int is_vsp_aquired;
-	int is_clock_enabled;
-};
-
-static struct vsp_fh *vsp_fp;
 
 static struct vsp_dev vsp_hw_dev;
 
@@ -117,13 +115,31 @@ static int find_vsp_freq_level(unsigned long freq)
 	return level;
 }
 
+static void disable_vsp (struct vsp_fh *vsp_fp)
+{
+	clk_disable(vsp_hw_dev.vsp_clk);
+	vsp_fp->is_clock_enabled= 0;
+	pr_debug("vsp ioctl VSP_DISABLE\n");
+
+	return;
+}
+
+static void release_vsp(struct vsp_fh *vsp_fp)
+{
+	pr_debug("vsp ioctl VSP_RELEASE\n");
+	vsp_fp->is_vsp_aquired = 0;
+	up(&vsp_hw_dev.vsp_mutex);
+
+	return;
+}
+
 static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int ret;
 	struct clk *clk_parent;
 	char *name_parent;
 	unsigned long frequency;
-//	struct vsp_fh *vsp_fp = filp->private_data;
+	struct vsp_fh *vsp_fp = filp->private_data;
 
 	switch (cmd) {
 	case VSP_CONFIG_FREQ:
@@ -158,9 +174,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		vsp_fp->is_clock_enabled= 1;
 		break;
 	case VSP_DISABLE:
-		clk_disable(vsp_hw_dev.vsp_clk);
-		vsp_fp->is_clock_enabled= 0;
-		pr_debug("vsp ioctl VSP_DISABLE\n");
+		disable_vsp(vsp_fp);
 		break;
 	case VSP_ACQUAIRE:
 		pr_debug("vsp ioctl VSP_ACQUAIRE begin\n");
@@ -185,12 +199,11 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		}
 #endif
 		vsp_fp->is_vsp_aquired = 1;
+		vsp_hw_dev.vsp_fp = vsp_fp;
 		pr_debug("vsp ioctl VSP_ACQUAIRE end\n");
 		break;
 	case VSP_RELEASE:
-		pr_debug("vsp ioctl VSP_RELEASE\n");
-		vsp_fp->is_vsp_aquired = 0;
-		up(&vsp_hw_dev.vsp_mutex);
+		release_vsp(vsp_fp);
 		break;
 #ifdef USE_INTERRUPT
 	case VSP_START:
@@ -240,8 +253,9 @@ static irqreturn_t vsp_isr(int irq, void *data)
 	__raw_writel((1<<10)|(1<<12)|(1<<15), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
 	vsp_hw_dev.condition_work = 1;
 	wake_up_interruptible(&vsp_hw_dev.wait_queue_work);
-	vsp_ioctl(NULL, VSP_DISABLE,NULL);
-	vsp_ioctl(NULL, VSP_RELEASE,NULL);
+
+	disable_vsp(vsp_hw_dev.vsp_fp);
+	release_vsp(vsp_hw_dev.vsp_fp);
 
 	return IRQ_HANDLED;
 }
@@ -263,7 +277,7 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static int vsp_open(struct inode *inode, struct file *filp)
 {
-	/*struct vsp_fh **/vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
+	struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
 	if (vsp_fp == NULL) {
 		printk(KERN_ERR "vsp open error occured\n");
 		return  -EINVAL;
@@ -278,7 +292,7 @@ static int vsp_open(struct inode *inode, struct file *filp)
 
 static int vsp_release (struct inode *inode, struct file *filp)
 {
-//	struct vsp_fh *vsp_fp = filp->private_data;
+	struct vsp_fh *vsp_fp = filp->private_data;
 
 	if (vsp_fp->is_clock_enabled) {
 		printk(KERN_ERR "error occured and close clock \n");
@@ -290,7 +304,7 @@ static int vsp_release (struct inode *inode, struct file *filp)
 		up(&vsp_hw_dev.vsp_mutex);
 	}
 
-	kfree(vsp_fp);
+	kfree(filp->private_data);
 	return 0;
 }
 
