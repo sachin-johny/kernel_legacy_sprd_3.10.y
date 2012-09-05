@@ -1,6 +1,7 @@
 #include <linux/bug.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/kthread.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -111,7 +112,7 @@ static int mpll_calibrate(int cpu_freq)
 {
 	u32 val = 0;
 	unsigned long flags;
-	BUG_ON(cpu_freq != 1200);	/* only upgrade 1.2G */
+//	BUG_ON(cpu_freq != 1200);	/* only upgrade 1.2G */
 	cpu_freq /= 4;
 	hw_local_irq_save(flags);
 	val = __raw_readl(GR_MPLL_MN);
@@ -186,7 +187,7 @@ static void do_dcdc_work(struct work_struct *work)
 	if (sci_syst_read() - dcdc_work.uptime < CALIBRATE_TO * 1000) {
 		schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
 	} else {
-		info("%s maybe timeout\n", __FUNCTION__);
+		info("%s end\n", __FUNCTION__);
 	}
 
 	if (cpu_freq == 1200) {
@@ -211,4 +212,6 @@ static int __init dcdc_init(void)
 	return 0;
 }
 
+EXPORT_SYMBOL(dcdc_calibrate);
+EXPORT_SYMBOL(mpll_calibrate);
 late_initcall(dcdc_init);
