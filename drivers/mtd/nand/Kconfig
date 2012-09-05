@@ -577,4 +577,10 @@ config MTD_NAND_SC8810
 	help
 	  This enables the NAND flash controller with hardware ecc on the SC8810 phone board
 
+config MTD_NAND_SC8825
+	tristate "NAND Flash support for SpreadTrum SC8825 phone board"
+	depends on ARCH_SC8825
+	help
+	  This enables the NAND flash controller with hardware ecc on the SC8825 phone board
+
 endif # MTD_NAND
