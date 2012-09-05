@@ -302,7 +302,7 @@ static int mcu_init_panel(struct sprdfb_device *dev)
 {
 	mcu_lcm_configure(dev->panel, dev->csid);
 
-	mcu_set_timing(dev, dev->csid);
+	mcu_set_timing(dev, LCD_REGISTER_TIMING);
 
 	#if 0
 	dev->panel->ops->panel_init(dev->panel);
