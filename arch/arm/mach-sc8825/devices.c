@@ -723,3 +723,43 @@ struct platform_device sprd_sdio1_device = {
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
 };
+static struct resource sprd_sdio2_resources[] = {
+	[0] = {
+	       .start = SPRD_SDIO2_BASE,
+	       .end = SPRD_SDIO2_BASE + SPRD_SDIO2_SIZE - 1,
+	       .name = "sdio2_res",
+	       .flags = IORESOURCE_MEM,
+	       },
+	[1] = {
+	       .start = IRQ_SDIO2_INT,
+	       .end = IRQ_SDIO2_INT,
+	       .flags = IORESOURCE_IRQ,
+	       }
+};
+
+struct platform_device sprd_sdio2_device = {
+	.name = "sprd-sdhci",
+	.id = 2,
+	.num_resources = ARRAY_SIZE(sprd_sdio2_resources),
+	.resource = sprd_sdio2_resources,
+};
+static struct resource sprd_emmc_resources[] = {
+	[0] = {
+	       .start = SPRD_EMMC_BASE,
+	       .end = SPRD_EMMC_BASE + SPRD_EMMC_SIZE - 1,
+	       .name = "sdio3_res",
+	       .flags = IORESOURCE_MEM,
+	       },
+	[1] = {
+	       .start = IRQ_EMMC_INT,
+	       .end = IRQ_EMMC_INT,
+	       .flags = IORESOURCE_IRQ,
+	       }
+};
+
+struct platform_device sprd_emmc_device = {
+	.name = "sprd-sdhci",
+	.id = 3,
+	.num_resources = ARRAY_SIZE(sprd_emmc_resources),
+	.resource = sprd_emmc_resources,
+};
