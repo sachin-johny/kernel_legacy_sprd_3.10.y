@@ -11,12 +11,14 @@
 #include <mach/adc_drvapi.h>
 #include <mach/regs_global.h>
 #include <mach/regs_ana.h>
+#include <mach/regs_ahb.h>
 
 /* FIXME */
 #define REG_SYST_VALUE                  (SPRD_SYSCNT_BASE + 0x0004)
 #define debug(format, arg...) pr_info("dcdc: " "@@@" format, ## arg)
 #define info(format, arg...) pr_info("dcdc: " "@@@" format, ## arg)
 
+extern u32 sprd_glb_get_chipid(void);
 uint16_t CHGMNG_AdcvalueToVoltage(uint16_t adcvalue);
 int sprd_get_adc_cal_type(void);
 void sci_efuse_poweron(void);
@@ -58,7 +60,7 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 		if (0 != i /* + cal_vol */ )
 			def_vol = dcdc_ctl_vol[i];
 		def_vol += cal_vol * 100 / 32;
-#if 1
+#if 0
 		if (0 != i + cal_vol) {	/* dcdc had been adjusted in uboot-spl */
 			debug("%s default %dmv, from %dmv to %dmv\n",
 			     __FUNCTION__, def_vol, adc_vol, to_vol);
@@ -170,6 +172,10 @@ static void do_dcdc_work(struct work_struct *work)
 		dcdc_to_vol = 1200;
 		dcdcarm_to_vol = 1250;
 		cpu_freq = 1200;
+	}
+
+	if (sprd_glb_get_chipid() == CHIP_ID_8810S) {	/*SMIC CHIP*/
+		dcdcarm_to_vol += 100;
 	}
 
 	dcdc_work.cal_typ = sprd_get_adc_cal_type();
