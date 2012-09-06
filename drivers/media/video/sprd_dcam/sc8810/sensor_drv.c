@@ -139,6 +139,8 @@ static unsigned short sensor_sub_default_addr_list[] ={ SENSOR_SUB_I2C_ADDR,I2C_
  #define SENSOR_INHERIT 0
  #define SENSOR_WAIT_FOREVER 0
 
+LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id);
+
  static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
@@ -334,6 +336,30 @@ PUBLIC void Sensor_Reset(uint32_t level)
 		msleep(40);
 		gpio_set_value(72,!level);		
 	         msleep(20);
+		gpio_free(72);
+	}
+}
+
+void Sensor_QReset(uint32_t level)
+{
+	int err = 0xff;
+	SENSOR_IOCTL_FUNC_PTR reset_func;
+	printk("Sensor_Reset.\n");
+
+	reset_func = s_sensor_info_ptr->ioctl_func_tab_ptr->reset;
+
+	if (PNULL != reset_func) {
+		reset_func(level);
+	} else {
+		err = gpio_request(72, "ccirrst");
+		if (err) {
+			printk("Sensor_Reset failed requesting err=%d\n", err);
+			return;
+		}
+		gpio_direction_output(72, level);
+		gpio_set_value(72, level);
+		msleep(20);
+		gpio_set_value(72, !level);
 		gpio_free(72);
 	}
 }
@@ -642,12 +668,12 @@ PUBLIC void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd
 /*****************************************************************************/
 LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 {
-	BOOLEAN 				power_down;		
+	BOOLEAN 				power_down;
 	SENSOR_AVDD_VAL_E		dvdd_val;
 	SENSOR_AVDD_VAL_E		avdd_val;
-	SENSOR_AVDD_VAL_E		iovdd_val;    
+	SENSOR_AVDD_VAL_E		iovdd_val;
 	SENSOR_IOCTL_FUNC_PTR	power_func;
-	uint32_t                                     rst_lvl = s_sensor_info_ptr->reset_pulse_level;
+	uint32_t rst_lvl = s_sensor_info_ptr->reset_pulse_level;
 
 	power_down = (BOOLEAN)s_sensor_info_ptr->power_down_level;
 	dvdd_val   = s_sensor_info_ptr->dvdd_val;
@@ -663,29 +689,61 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 	}  
 	else
 	{
-		if(power_on)
-		{			
-			Sensor_PowerDown(power_down);	
+		if(power_on) {
+			Sensor_PowerDown(power_down);
 			// Open power
-			Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);    
+			Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);
 			msleep(10);
 			Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
 			msleep(5);
 			Sensor_PowerDown(!power_down);
 			// Reset sensor		
-			Sensor_Reset(rst_lvl);						
-		}			
-		else
-		{
+			Sensor_Reset(rst_lvl);
+		} else {
 			// Power down sensor and maybe close DVDD, DOVDD
 			Sensor_PowerDown(power_down);
 			msleep(20);
-			Sensor_SetMCLK(SENSOR_DISABLE_MCLK);			 
-			Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);	
-		}   		
+			Sensor_SetMCLK(SENSOR_DISABLE_MCLK);
+			Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED);
+		}
 	}
 }
 
+LOCAL void Sensor_PowerOn_Ex(uint32_t sensor_id)
+{
+	BOOLEAN power_down;
+	SENSOR_AVDD_VAL_E dvdd_val;
+	SENSOR_AVDD_VAL_E avdd_val;
+	SENSOR_AVDD_VAL_E iovdd_val;
+	SENSOR_IOCTL_FUNC_PTR power_func;
+	uint32_t rst_lvl = 0;
+
+	_Sensor_SetId((SENSOR_ID_E)sensor_id);
+	s_sensor_info_ptr = s_sensor_list_ptr[sensor_id];
+	s_sensor_info_ptr->reset_pulse_level;
+
+	power_down = (BOOLEAN) s_sensor_info_ptr->power_down_level;
+	dvdd_val = s_sensor_info_ptr->dvdd_val;
+	avdd_val = s_sensor_info_ptr->avdd_val;
+	iovdd_val = s_sensor_info_ptr->iovdd_val;
+	power_func = s_sensor_info_ptr->ioctl_func_tab_ptr->power;
+
+	SENSOR_PRINT
+	    ("SENSOR:  power_down_level = %d, avdd_val = %d\n",
+	     power_down, avdd_val);
+
+	if (PNULL != power_func) {
+		power_func(1);
+	} else {
+
+			Sensor_PowerDown(power_down);
+			Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);
+			msleep(10);
+			Sensor_SetMCLK(SENSOR_DEFALUT_MCLK);
+			msleep(5);
+		
+	}
+}
 
 /*****************************************************************************/
 //  Description:    This function is used to power down sensor     
@@ -766,6 +824,20 @@ PUBLIC BOOLEAN Sensor_SetResetLevel(BOOLEAN plus_level)
          msleep(100);
 	gpio_free(72);
 	return SENSOR_SUCCESS;
+}
+
+void Sensor_Reset_EX(uint32_t power_down, uint32_t level)
+{
+	SENSOR_IOCTL_FUNC_PTR reset_func = 0;
+	printk("Sensor_Reset_EX.\n");
+
+	reset_func = s_sensor_info_ptr->ioctl_func_tab_ptr->reset;
+	Sensor_PowerDown(!power_down);
+	if(NULL != reset_func){
+		reset_func(level);
+	} else {
+		Sensor_Reset(level);
+	}
 }
 
 /*****************************************************************************/
@@ -1144,9 +1216,9 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 			return SENSOR_SUCCESS;
 	}
 	if((SENSOR_MAIN == sensor_id) || (SENSOR_SUB == sensor_id))
-     	{
+	{
 		if(SENSOR_SUB == sensor_id)
-	        {
+		{
 			sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 			sensor_i2c_driver.id_table = sensor_main_id;
 			sensor_i2c_driver.address_list= &sensor_main_default_addr_list[0];
@@ -1158,10 +1230,10 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 			sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 			sensor_i2c_driver.id_table = sensor_sub_id;
 			sensor_i2c_driver.address_list= &sensor_sub_default_addr_list[0];
-	        	}
-	    	else  if(SENSOR_MAIN == sensor_id)
-	    	{
-	    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
+		}
+		else  if(SENSOR_MAIN == sensor_id)
+		{
+			sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 			sensor_i2c_driver.id_table = sensor_sub_id;
 			sensor_i2c_driver.address_list= &sensor_sub_default_addr_list[0];
 			if((1== g_is_register_sensor) && (0 == g_is_main_sensor))
@@ -1173,7 +1245,7 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id)
 			sensor_i2c_driver.id_table = sensor_main_id;
 			sensor_i2c_driver.address_list= &sensor_main_default_addr_list[0];
 			
-	    	}
+		}
 		
 	 	if(i2c_add_driver(&sensor_i2c_driver))
 		{
@@ -1527,33 +1599,58 @@ LOCAL uint32_t _Sensor_Register(SENSOR_ID_E sensor_id)
 
 LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 {
-	uint32_t i = 0;	  
-    	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr=s_sensor_register_info_ptr;
-
-	for( i=0 ; i<=SENSOR_SUB ; i++)
-	{
-		if(i == sensor_id)
-		{
-			continue;
-		}
-		if(SENSOR_TRUE == sensor_register_info_ptr->is_register[i])
-		{
-	   		_Sensor_SetId(i);
-			
-			 s_sensor_info_ptr=s_sensor_list_ptr[i];
-         		if(5 != Sensor_GetCurId())//bonnie
-				this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF); 
-
-			//Sensor_PowerOn(SENSOR_TRUE);
-
-			//Sensor_SetExportInfo(&s_sensor_exp_info);
-
+	uint32_t i = 0;
+	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr = s_sensor_register_info_ptr;
+	uint32_t rst_lvl = 0;
+	/*pwdn all the sensor to avoid confilct as the sensor output*/
+	for ( i=0 ; i<=SENSOR_SUB ; i++) {
+		if(SENSOR_TRUE == sensor_register_info_ptr->is_register[i]) {
+			_Sensor_SetId(i);
+			s_sensor_info_ptr=s_sensor_list_ptr[i];
+			if(5 != Sensor_GetCurId())//bonnie
+				this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
 			Sensor_PowerDown((BOOLEAN)s_sensor_info_ptr->power_down_level);
-
 			SENSOR_PRINT_HIGH("SENSOR: Sensor_sleep of id %d",i);
 		}
 	}
-		
+
+	/*Give votage according the target sensor*/
+	/*For dual sensor solution, the dual sensor should share all the power*/
+	Sensor_PowerOn_Ex(sensor_id);
+
+	//reset other sensor and pwn again
+	//may reset is not useless but still keep there
+	for (i = 0; i <= SENSOR_SUB; i++) {
+		if (i == sensor_id) {
+			continue;
+		}
+		if (SENSOR_TRUE == s_sensor_register_info_ptr->is_register[i]) {
+			
+			_Sensor_SetId(i);
+			s_sensor_info_ptr = s_sensor_list_ptr[i];
+			rst_lvl = s_sensor_info_ptr->reset_pulse_level;
+			if (5 != Sensor_GetCurId())
+				this_client->addr =
+					(this_client->addr & (~0xFF)) |
+					(s_sensor_info_ptr->salve_i2c_addr_w &
+					0xFF);
+
+			//Sensor_PowerOn(SENSOR_TRUE);
+			//Sensor_SetExportInfo(&s_sensor_exp_info);
+			Sensor_PowerDown((BOOLEAN)!s_sensor_info_ptr->power_down_level);
+			Sensor_QReset(rst_lvl);
+			Sensor_PowerDown((BOOLEAN)s_sensor_info_ptr->power_down_level);
+			
+			SENSOR_PRINT_HIGH("SENSOR: Sensor_sleep of id %d", i);
+		}
+	}
+	
+	_Sensor_SetId(sensor_id);
+	s_sensor_info_ptr = s_sensor_list_ptr[sensor_id];
+
+	//reset target sensor. and make normal.
+	Sensor_Reset_EX((BOOLEAN)s_sensor_info_ptr->power_down_level, s_sensor_info_ptr->reset_pulse_level);
+	Sensor_SetExportInfo(&s_sensor_exp_info);
 }
 
 LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr )
@@ -1561,17 +1658,8 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
 	uint32_t ret_val = SENSOR_FAIL;
 	printk("_sensor_com_init: in\n");
 	if (SENSOR_TRUE == sensor_register_info_ptr->is_register[sensor_id]) {
-
-		_Sensor_SetId(sensor_id);
-		s_sensor_info_ptr = s_sensor_list_ptr[sensor_id];
-		Sensor_PowerOn(SENSOR_TRUE);
-
 		_Sensor_SetStatus(sensor_id);
-		_Sensor_SetId(sensor_id);
-		s_sensor_info_ptr = s_sensor_list_ptr[sensor_id];
-		Sensor_SetExportInfo(&s_sensor_exp_info);
 		s_sensor_init = SENSOR_TRUE;
-		//Sensor_PowerOn(SENSOR_TRUE);
 
 		if (5 != Sensor_GetCurId())
 			this_client->addr =
