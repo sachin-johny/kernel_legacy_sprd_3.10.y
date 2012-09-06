@@ -273,7 +273,7 @@ static void pixcir_ts_resume(struct early_suspend *handler)
 {
 	printk(KERN_INFO "==%s==, irq=%d\n", __func__,g_pixcir_ts->pixcir_irq);
 	pixcir_reset(g_pixcir_ts->platform_data->reset_gpio_number);
-	msleep(100);
+	msleep(200);
 	pixcir_tx_config();
 	enable_irq(g_pixcir_ts->pixcir_irq);
 }
@@ -669,7 +669,7 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 
 	//reset TP chip
 	pixcir_reset(pdata->reset_gpio_number);
-	msleep(100);
+	msleep(300);
 
 	//get irq number
 	client->irq = gpio_to_irq(pdata->irq_gpio_number);
@@ -744,6 +744,7 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 
 	if((error=pixcir_tx_config())<0) {
 		printk(KERN_ERR "%s: I2C error\n",__func__);
+		enable_irq(client->irq);
 		goto err_i2c;
 	}
 	pixcir_create_sysfs(client);
