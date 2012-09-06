@@ -246,9 +246,11 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 
 	if (host->ops->platform_reset_enter)
 		host->ops->platform_reset_enter(host, mask);
-
+#ifdef CONFIG_MMC_SDHCI_SC8825
+	sdhci_writeb(host, mask | SDHCI_HW_RESET_CARD, SDHCI_SOFTWARE_RESET);
+#else
 	sdhci_writeb(host, mask, SDHCI_SOFTWARE_RESET);
-
+#endif
 	if (mask & SDHCI_RESET_ALL)
 		host->clock = 0;
 
@@ -1520,7 +1522,12 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		ctrl &= ~SDHCI_CTRL_HISPD;
 
 	if (host->version >= SDHCI_SPEC_300) {
+#ifdef CONFIG_MMC_SDHCI_SC8825
+		u16 clk;
+		u32 ctrl_2;
+#else
 		u16 clk, ctrl_2;
+#endif
 		unsigned int clock;
 
 		/* In case of UHS-I modes, set High Speed Enable */
@@ -1538,6 +1545,9 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			 * We only need to set Driver Strength if the
 			 * preset value enable is not set.
 			 */
+#ifdef CONFIG_MMC_SDHCI_SC8825
+			/*the driver strength is controller by pin, not sd controller in spreadtrum platform*/
+#else
 			ctrl_2 &= ~SDHCI_CTRL_DRV_TYPE_MASK;
 			if (ios->drv_type == MMC_SET_DRIVER_TYPE_A)
 				ctrl_2 |= SDHCI_CTRL_DRV_TYPE_A;
@@ -1545,6 +1555,7 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				ctrl_2 |= SDHCI_CTRL_DRV_TYPE_C;
 
 			sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+#endif
 		} else {
 			/*
 			 * According to SDHC Spec v3.00, if the Preset Value
@@ -1575,6 +1586,23 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		if (host->ops->set_uhs_signaling)
 			host->ops->set_uhs_signaling(host, ios->timing);
 		else {
+#ifdef CONFIG_MMC_SDHCI_SC8825
+			ctrl_2 = sdhci_readl(host, SDHCI_HOST_CONTROL2 & (~0x3));
+			/* Select Bus Speed Mode for host */
+			ctrl_2 &= ~(SDHCI_CTRL_UHS_MASK << 16);
+			if (ios->timing == MMC_TIMING_UHS_SDR12)
+				ctrl_2 |= (SDHCI_CTRL_UHS_SDR12 << 16);
+			else if (ios->timing == MMC_TIMING_UHS_SDR25)
+				ctrl_2 |= (SDHCI_CTRL_UHS_SDR25 << 16);
+			else if (ios->timing == MMC_TIMING_UHS_SDR50)
+				ctrl_2 |= (SDHCI_CTRL_UHS_SDR50 << 16);
+			else if (ios->timing == MMC_TIMING_UHS_SDR104)
+				ctrl_2 |= (SDHCI_CTRL_UHS_SDR104 << 16);
+			else if (ios->timing == MMC_TIMING_UHS_DDR50)
+				ctrl_2 |= (SDHCI_CTRL_UHS_DDR50 << 16);
+
+			sdhci_writel(host, ctrl_2, SDHCI_HOST_CONTROL2 & (~0x3));
+#else
 			ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 			/* Select Bus Speed Mode for host */
 			ctrl_2 &= ~SDHCI_CTRL_UHS_MASK;
@@ -1589,6 +1617,7 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			else if (ios->timing == MMC_TIMING_UHS_DDR50)
 				ctrl_2 |= SDHCI_CTRL_UHS_DDR50;
 			sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+#endif
 		}
 
 		/* Re-enable SD Clock */
@@ -1959,7 +1988,11 @@ out:
 static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 {
 	struct sdhci_host *host;
+#ifdef CONFIG_MMC_SDHCI_SC8825
+	u32 ctrl;
+#else
 	u16 ctrl;
+#endif
 	unsigned long flags;
 
 	host = mmc_priv(mmc);
@@ -1977,11 +2010,21 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 	 * enabled or disabled respectively. Otherwise, we bail out.
 	 */
 	if (enable && !(ctrl & SDHCI_CTRL_PRESET_VAL_ENABLE)) {
+#ifdef CONFIG_MMC_SDHCI_SC8825
+		ctrl |= SDHCI_CTRL_PRESET_VAL_ENABLE << 16;
+		sdhci_writel(host, ctrl, SDHCI_HOST_CONTROL2 & (~0x3));
+#else
 		ctrl |= SDHCI_CTRL_PRESET_VAL_ENABLE;
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
+#endif
 	} else if (!enable && (ctrl & SDHCI_CTRL_PRESET_VAL_ENABLE)) {
+#ifdef CONFIG_MMC_SDHCI_SC8825
+		ctrl &= ~(SDHCI_CTRL_PRESET_VAL_ENABLE << 16);
+		sdhci_writel(host, ctrl, SDHCI_HOST_CONTROL2 & (~0x3));
+#else
 		ctrl &= ~SDHCI_CTRL_PRESET_VAL_ENABLE;
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
+#endif
 	}
 
 	spin_unlock_irqrestore(&host->lock, flags);

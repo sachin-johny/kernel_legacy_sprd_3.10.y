@@ -64,6 +64,8 @@
 #define REGU_NAME_LPLEDA		"V_LPSENSORLEDA"
 #define REGU_NAME_SDHOST0		"V_SDHOST0"
 #define REGU_NAME_SDHOST1		"V_SDHOST1"
+#define REGU_NAME_SDHOST3		"V_SDHOST3"
+#define REGU_NAME_VDD3V			"V_3V"
 #define REGU_NAME_TP			"V_TP"
 #define REGU_NAME_USB			"V_USB"
 #define REGU_NAME_USBD			"V_USBD"
@@ -171,6 +173,8 @@ enum regulator_supply_source{
 	LDO_VDDRTC,		/*	"VDDRTC"	*/
 	LDO_DVDD18,		/*	"DVDD18"	*/
 	LDO_LDO_PA,		/*	"LDO_PA"	*/
+	LDO_VDDSD3,		/*	"VDDSD3"	*/
+	LDO_VDD3V,		/*	"VDD3V"		*/
 	LDO_END_MAX,
 };
 

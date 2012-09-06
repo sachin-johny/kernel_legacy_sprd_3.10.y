@@ -682,7 +682,59 @@ static struct regulator_init_data vddsd1_data = {
 	.regulator_init			= sc8810_regulator_init_reg,
 	.driver_data			= &regulators_init_status[LDO_VDDSD1],
 };
+/*	[ VDDSD3 ]
+	LDO		: 1.8V Power supply for EMMC Card IO
+	Ref consumers	: EMMC card
+	after reset	: OFF
+*/
+static struct regulator_consumer_supply vddsd3_consumers[] = {
+	CONSUMERS_VDDSD3
+};
 
+static struct regulator_init_data vddsd3_data = {
+	.constraints	= {
+		.min_uV	= 1200000,
+		.max_uV	= 1800000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS
+					| REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE,
+	},
+
+	.num_consumer_supplies		= ARRAY_SIZE(vddsd3_consumers),
+	.consumer_supplies		= vddsd3_consumers,
+
+	.regulator_init			= sc8810_regulator_init_reg,
+	.driver_data			= &regulators_init_status[LDO_VDDSD3],
+};
+
+/*	[ VDD3V ]
+	LDO		: 3.0V Power supply for EMMC card VCCQ
+	Ref consumers	: EMMC card
+	after reset	: OFF
+*/
+static struct regulator_consumer_supply vdd3v_consumers[] = {
+	CONSUMERS_VDD3V
+};
+
+static struct regulator_init_data vdd3v_data = {
+	.constraints	= {
+		.min_uV	= 1800000,
+		.max_uV	= 3000000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS
+					| REGULATOR_CHANGE_VOLTAGE
+					| REGULATOR_CHANGE_MODE,
+	},
+
+	.num_consumer_supplies		= ARRAY_SIZE(vdd3v_consumers),
+	.consumer_supplies		= vdd3v_consumers,
+
+	.regulator_init			= sc8810_regulator_init_reg,
+	.driver_data			= &regulators_init_status[LDO_VDD3V],
+};
 
 /*	[ VDDRTC ]
 	LDO		: 2.8V Power supply for RTC
@@ -808,6 +860,8 @@ static struct platform_device regulator_devices[] = {
 	REGULATOR_DEV( LDO_VDDRTC,		vddrtc_data	),
 	REGULATOR_DEV( LDO_DVDD18,		dvdd18_data	),
 	REGULATOR_DEV( LDO_LDO_PA,		ldopa_data	),
+	REGULATOR_DEV( LDO_VDDSD3,		vddsd3_data	),
+	REGULATOR_DEV( LDO_VDD3V,		vdd3v_data	),
 
 /*Platform devices define for regulator vitrual dev debug for sysfs*/
 #ifdef CONFIG_REGULATOR_VIRTUAL_CONSUMER
@@ -838,6 +892,8 @@ static struct platform_device regulator_devices[] = {
 	REGULATOR_DEBUG_DEV( LDO_VDDRTC,	"VDDRTC"	),
 	REGULATOR_DEBUG_DEV( LDO_DVDD18,	"DVDD18"	),
 	REGULATOR_DEBUG_DEV( LDO_LDO_PA,	"LDO_PA"	),
+	REGULATOR_DEBUG_DEV( LDO_VDDSD3,	"VDDSD3"	),
+	REGULATOR_DEBUG_DEV( LDO_VDD3V,		"VDD3V"		),
 #endif
 };
 
@@ -880,6 +936,8 @@ static struct regulator_init_status regulators_init_status[] =
 	REGU_INIT_VDDRTC,
 	REGU_INIT_DVDD18,
 	REGU_INIT_LDO_PA,
+	REGU_INIT_VDDSD3,
+	REGU_INIT_VDD3V,
 };
 
 
