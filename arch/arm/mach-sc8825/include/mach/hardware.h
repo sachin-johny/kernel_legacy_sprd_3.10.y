@@ -28,6 +28,9 @@
 #define SCI_IOMAP(x)	(SCI_IOMAP_BASE + (x))
 #endif
 
+#ifndef SCI_ADDR
+#define SCI_ADDR(_b_, _o_)                              ( (u32)(_b_) + (_o_) )
+#endif
 
 //sc8825 mapping begin.
 #define SPRD_NIC301_BASE	SCI_IOMAP(0)
@@ -292,6 +295,15 @@
 #define ANA_REG_GLB_APB_CLK_EN          ( ANA_CTL_GLB_BASE + 0x0000 )
 
 #define ADC_BASE	((unsigned int)SPRD_ADI_BASE + 0x300)
+
+#ifndef REGS_AHB_BASE
+#define REGS_AHB_BASE                                   ( SPRD_AHB_BASE )
+#endif
+
+#ifndef REGS_GLB_BASE
+#define REGS_GLB_BASE                                   ( SPRD_GREG_BASE )
+#define ANA_REGS_GLB_BASE                               ( SPRD_MISC_BASE + 0x600 )
+#endif
 
 #define CHIP_ID_LOW_REG		(ANA_CTL_GLB_BASE + 0xf8)
 #define CHIP_ID_HIGH_REG	(ANA_CTL_GLB_BASE + 0xfc)
