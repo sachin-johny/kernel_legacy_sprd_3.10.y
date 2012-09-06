@@ -119,7 +119,6 @@ static unsigned short sensor_sub_default_addr_list[] =
 #define SENSOR_INHERIT 0
 #define SENSOR_WAIT_FOREVER 0
 
-
 LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id);
 
 static int sensor_probe(struct i2c_client *client,
@@ -467,11 +466,23 @@ int Sensor_SetMCLK(uint32_t mclk)
 static struct regulator *s_camvio_regulator = NULL;
 static struct regulator *s_camavdd_regulator = NULL;
 static struct regulator *s_camdvdd_regulator = NULL;
+
+static void _sensor_regulator_disable(uint32_t power_on_count, struct regulator * ptr_cam_regulator)
+{
+	if(0 < power_on_count){
+		regulator_disable(ptr_cam_regulator);
+	}
+}
+
 void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		       SENSOR_AVDD_VAL_E iodd_val)
 {
 	int err = 0;
 	uint32_t volt_value = 0;
+	//to make the power on&off be  pairs
+	static uint32_t iopower_on_count = 0;
+	static uint32_t avddpower_on_count = 0;
+	static uint32_t dvddower_on_count = 0;
 
 	SENSOR_PRINT
 	    ("SENSOR:Sensor_SetVoltage,dvdd_val=%d,avdd_val=%d,iodd_val=%d.\n",
@@ -486,10 +497,9 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 	}
 	switch (iodd_val) {
 	case SENSOR_AVDD_2800MV:
-		err =
-		    regulator_set_voltage(s_camvio_regulator,
-					  SENSOER_VDD_2800MV,
-					  SENSOER_VDD_2800MV);
+		err = regulator_set_voltage(s_camvio_regulator,
+					 SENSOER_VDD_2800MV,
+					SENSOER_VDD_2800MV);
 		volt_value = SENSOER_VDD_2800MV;
 		if (err)
 			pr_err("SENSOR:could not set camvio to 2800mv.\n");
@@ -532,6 +542,7 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		return;
 	}
 	if (0 != volt_value) {
+		iopower_on_count++;
 		err = regulator_enable(s_camvio_regulator);
 		if (err) {
 			regulator_put(s_camvio_regulator);
@@ -540,7 +551,9 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 			return;
 		}
 	} else {
-		regulator_disable(s_camvio_regulator);
+		iopower_on_count--;
+		/*regulator_disable(s_camvio_regulator);*/
+		_sensor_regulator_disable(iopower_on_count, s_camvio_regulator);
 		regulator_put(s_camvio_regulator);
 		s_camvio_regulator = NULL;
 		pr_debug("SENSOR:disable camvio.\n");
@@ -601,6 +614,7 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		return;
 	}
 	if (0 != volt_value) {
+		avddpower_on_count++;
 		err = regulator_enable(s_camavdd_regulator);
 		if (err) {
 			regulator_put(s_camavdd_regulator);
@@ -609,7 +623,9 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 			return;
 		}
 	} else {
-		regulator_disable(s_camavdd_regulator);
+		avddpower_on_count--;
+		/*regulator_disable(s_camavdd_regulator);*/
+		_sensor_regulator_disable(avddpower_on_count, s_camavdd_regulator);
 		regulator_put(s_camavdd_regulator);
 		s_camavdd_regulator = NULL;
 		pr_debug("SENSOR:disable camavdd.\n");
@@ -670,6 +686,7 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		return;
 	}
 	if (0 != volt_value) {
+		dvddower_on_count++;
 		err = regulator_enable(s_camdvdd_regulator);
 		if (err) {
 			regulator_put(s_camdvdd_regulator);
@@ -678,7 +695,9 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 			return;
 		}
 	} else {
-		regulator_disable(s_camdvdd_regulator);
+		dvddower_on_count--;
+		/*regulator_disable(s_camdvdd_regulator);*/
+		_sensor_regulator_disable(dvddower_on_count, s_camdvdd_regulator);
 		regulator_put(s_camdvdd_regulator);
 		s_camdvdd_regulator = NULL;
 		pr_debug("SENSOR:disable camdvdd.\n");
@@ -724,8 +743,8 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 			msleep(20);
 			Sensor_SetMCLK(SENSOR_DISABLE_MCLK);
 			Sensor_SetVoltage(SENSOR_AVDD_CLOSED,
-					  SENSOR_AVDD_CLOSED,
-					  SENSOR_AVDD_CLOSED);
+					SENSOR_AVDD_CLOSED,
+					SENSOR_AVDD_CLOSED);
 		}
 	}
 }
@@ -1499,17 +1518,15 @@ IDENTIFY_SEARCH:
 				     0xFF);
 			SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
 			if (SENSOR_SUCCESS ==
-			    sensor_info_ptr->
-			    ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)) {
+				sensor_info_ptr-> ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)) {
 				s_sensor_list_ptr[sensor_id] = sensor_info_ptr;
 				s_sensor_register_info_ptr->is_register[sensor_id] = SCI_TRUE;
 				if(5 != Sensor_GetCurId())//test by wang bonnie
 					s_sensor_index[sensor_id] = sensor_index;
 				s_sensor_register_info_ptr->img_sensor_num++;
-				ImgSensor_PutMutex();
+				//ImgSensor_PutMutex();
 				Sensor_PowerOn(SCI_FALSE);
-				SENSOR_PRINT_HIGH
-				    ("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d,sensor_index=%d.\n",
+				SENSOR_PRINT_HIGH ("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d,sensor_index=%d.\n",
 				     sensor_id,
 				     s_sensor_register_info_ptr->img_sensor_num,sensor_index);
 				break;
@@ -1592,7 +1609,6 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 
 	//pwdn all the sensor to avoid confilct as the sensor output
 	for (i = 0; i <= SENSOR_SUB; i++) {
-
 		if (SENSOR_TRUE == s_sensor_register_info_ptr->is_register[i]) {
 			_Sensor_SetId(i);
 			s_sensor_info_ptr = s_sensor_list_ptr[i];
@@ -1604,14 +1620,12 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 				     0xFF);
 
 			Sensor_PowerDown((BOOLEAN)s_sensor_info_ptr->power_down_level);
-
 			SENSOR_PRINT_HIGH("SENSOR: Sensor_sleep of id %d", i);
 		}
 	}
 
 	//Give votage according the target sensor
 	//For dual sensor solution, the dual sensor should share all the power.
-	
 	Sensor_PowerOn_Ex(sensor_id);
 
 	//reset other sensor and pwn again
@@ -1621,7 +1635,6 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 			continue;
 		}
 		if (SENSOR_TRUE == s_sensor_register_info_ptr->is_register[i]) {
-			
 			_Sensor_SetId(i);
 			s_sensor_info_ptr = s_sensor_list_ptr[i];
 			rst_lvl = s_sensor_info_ptr->reset_pulse_level;
