@@ -271,9 +271,10 @@ static void lcdc_dithering_enable(void)
 
 static int mcu_mount_panel(struct sprdfb_device *dev, struct panel_spec *panel)
 {
-	uint32_t bus_width;
+	/*uint32_t bus_width;*/
 	struct timing_mcu *timing;
 	/* TODO: check whether the mode/res are supported */
+
 	dev->panel = panel;
 
 	if (panel->ops->panel_reset == NULL) {
@@ -284,12 +285,13 @@ static int mcu_mount_panel(struct sprdfb_device *dev, struct panel_spec *panel)
 	}
 
 	dev->bpp = 32;
+/* do this in init panel, for deep sleep case
 	bus_width = (uint32_t)((panel->info.mcu)->bus_width);
 
 	if (bus_width != 24) {
 		lcdc_dithering_enable();
 	}
-
+*/
 	timing = ((panel->info).mcu)->timing;
 	dev->timing[LCD_REGISTER_TIMING] = mcu_calc_timing(timing);
 	timing++;
@@ -300,7 +302,15 @@ static int mcu_mount_panel(struct sprdfb_device *dev, struct panel_spec *panel)
 
 static int mcu_init_panel(struct sprdfb_device *dev)
 {
+	uint32_t bus_width;
+
 	mcu_lcm_configure(dev->panel, dev->csid);
+
+	bus_width = (uint32_t)((dev->panel->info.mcu)->bus_width);
+
+	if (bus_width != 24) {
+		lcdc_dithering_enable();
+	}
 
 	mcu_set_timing(dev, LCD_REGISTER_TIMING);
 
