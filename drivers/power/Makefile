@@ -47,3 +47,7 @@ obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_BATTERY_ANDROID)	+= android_battery.o
 obj-$(CONFIG_SPRD_POWER)	+= sprd_battery.o
 sprd_battery-y := sprd_power.o sprd_charge.o
+obj-$(CONFIG_SPRD_POWER)	+= sprd_8810_battery.o
+sprd_8810_battery-y := sprd_power.o sprd_8810_charge.o
+obj-$(CONFIG_SPRD_8825_POWER)	+= sprd_8825_battery.o
+sprd_8825_battery-y := sprd_power.o sprd_8825_charge.o

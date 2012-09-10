@@ -22,7 +22,7 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/spinlock.h>
-#include "sprd_charge.h"
+#include "sprd_8810_charge.h"
 #include <mach/usb.h>
 #include <linux/delay.h>
 
@@ -503,13 +503,13 @@ void sprd_set_charger_type(struct sprd_battery_data *data, int mode)
 	}
 }
 
-void sprd_set_usb_cur(struct sprd_battery_data *data, int set_current)
+static void sprd_set_usb_cur(struct sprd_battery_data *data, int set_current)
 {
 	sci_adi_write(ANA_CHGR_CTRL0,
 		    (set_current << CHGR_USB_CHG_SHIFT) , (CHGR_USB_CHG_MSK));
 }
 
-void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current)
+static void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current)
 {
 	switch (set_current) {
 	case CHG_NOR_300MA:
@@ -544,6 +544,44 @@ void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current)
 		pr_err("mode %d is not supported\n", set_current);
 		break;
 	}
+}
+
+void sprd_set_chg_cur(uint32_t chg_current)
+{
+	switch (chg_current) {
+	case SPRD_CHG_CUR_300MA:
+		sprd_set_charger_type(NULL, CHG_USB_ADAPTER);
+		sprd_set_usb_cur(NULL, CHG_USB_300MA);
+		break;
+	case SPRD_CHG_CUR_400MA:
+		sprd_set_charger_type(NULL, CHG_USB_ADAPTER);
+		sprd_set_usb_cur(NULL, CHG_USB_400MA);
+		break;
+	case SPRD_CHG_CUR_500MA:
+		sprd_set_charger_type(NULL, CHG_USB_ADAPTER);
+		sprd_set_usb_cur(NULL, CHG_USB_500MA);
+		break;
+	case SPRD_CHG_CUR_600MA:
+		sprd_set_charger_type(NULL, CHG_NORMAL_ADAPTER);
+		sprd_set_noraml_cur(NULL, CHG_NOR_600MA);
+		break;
+	case SPRD_CHG_CUR_800MA:
+		sprd_set_charger_type(NULL, CHG_NORMAL_ADAPTER);
+		sprd_set_noraml_cur(NULL, CHG_NOR_800MA);
+		break;
+	case SPRD_CHG_CUR_1000MA:
+		sprd_set_charger_type(NULL, CHG_NORMAL_ADAPTER);
+		sprd_set_noraml_cur(NULL, CHG_NOR_1000MA);
+		break;
+	default:
+		pr_err("mode %d is not supported\n", chg_current);
+		break;
+	}
+}
+
+void sprd_chg_init(void)
+{
+	;
 }
 
 /* TODO: put these struct into sprd_battery_data */

@@ -319,12 +319,17 @@ config AB8500_BATTERY_THERM_ON_BATCTRL
 	  thermistor connected on BATCTRL ADC.
 
 menuconfig SPRD_POWER
-	tristate "Spreadtrum SoC's power supply& mesurement controller"
+	tristate "Spreadtrum sp8810 SoC's power supply& mesurement controller"
+	help
+	 Say Y to include support for Spreadtrum SoC's power supply and
+	 mesurement controller driver
+menuconfig SPRD_8825_POWER
+	tristate "Spreadtrum sp8825 SoC's power supply& mesurement controller"
 	help
 	 Say Y to include support for Spreadtrum SoC's power supply and
 	 mesurement controller driver
 
-if SPRD_POWER
+if SPRD_POWER || SPRD_8825_POWER
 
 config NOTIFY_BY_USB
 	bool "Get charger plug event from usb module"

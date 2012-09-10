@@ -35,6 +35,18 @@
 #define CHARGE_OVER_TIME		21600	/* set for charge over time, 6 hours */
 
 #define VBAT_CAPACITY_BUFF_CNT	(240/CONFIG_AVERAGE_CNT)
+
+/*charge current type*/
+#define SPRD_CHG_CUR_300MA	300
+#define SPRD_CHG_CUR_400MA	400
+#define SPRD_CHG_CUR_500MA	500
+#define SPRD_CHG_CUR_600MA	600
+#define SPRD_CHG_CUR_800MA	800
+#define SPRD_CHG_CUR_1000MA	1000
+#define SPRD_CHG_CUR_MAX	1000
+
+#define SPRD_USB_CHG_CUR	SPRD_CHG_CUR_400MA
+#define SPRD_AC_CHG_CUR		SPRD_CHG_CUR_600MA
 /*
  battery status define
 */
@@ -190,14 +202,13 @@ void sprd_set_recharge(struct sprd_battery_data *data);
 void sprd_stop_recharge(struct sprd_battery_data *data);
 uint32_t sprd_get_sw(struct sprd_battery_data *data);
 uint32_t sprd_adjust_sw(struct sprd_battery_data *data, bool up_or_down);
-void sprd_set_charger_type(struct sprd_battery_data *data, int mode);
-void sprd_set_usb_cur(struct sprd_battery_data *data, int set_current);
-void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current);
 int sprd_adc_to_temp(struct sprd_battery_data *data, uint16_t adcvalue);
 uint32_t sprd_adc_to_cur(struct sprd_battery_data *data, uint16_t voltage);
 int sprd_charger_is_adapter(struct sprd_battery_data *data);
 int32_t sprd_get_vprog(struct sprd_battery_data *data);
 void sprd_set_sw(struct sprd_battery_data *data, int eswitchpoint);
+void sprd_set_chg_cur(uint32_t chg_current);
+void sprd_chg_init(void);
 uint32_t sprd_vol_to_percent(struct sprd_battery_data *data, uint32_t voltage,
 			     int update);
 void put_temp_value(struct sprd_battery_data *data, uint32_t temp);
