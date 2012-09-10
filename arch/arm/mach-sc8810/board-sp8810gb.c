@@ -33,6 +33,7 @@
 #include <sound/audio_pa.h>
 #include "devices.h"
 #include <mach/serial_sprd.h>
+#include <gps/gpsctl.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -45,6 +46,18 @@ extern int __init sprd_ramconsole_init(void);
 #endif
 
 static struct platform_device kb_backlight_device;
+
+static struct platform_gpsctl_data pdata_gpsctl = {
+	.reset_pin = GPIO_GPS_RESET,
+	.onoff_pin = GPIO_GPS_ONOFF,
+	.clk_type  = "clk_aux0",
+/*	.pwr_type  = "pwr_ldo",*/
+};
+
+static struct platform_device  gpsctl_dev = {
+	.name               = "gpsctl",
+	.dev.platform_data  = &pdata_gpsctl,
+};
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -78,6 +91,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_scale_device,
 	&sprd_rotation_device,
 	&kb_backlight_device,
+	&gpsctl_dev,
 };
 
 /* keypad backlight */
