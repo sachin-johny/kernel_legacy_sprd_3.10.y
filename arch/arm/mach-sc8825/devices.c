@@ -212,7 +212,7 @@ struct platform_device sprd_i2c_device0 = {
 static struct resource sprd_i2c_resources1[] = {
 	[0] = {
 		.start = SPRD_I2C1_BASE,
-		.end   = SPRD_I2C1_BASE + SPRD_I2C1_SIZE -1,
+		.end   = SPRD_I2C1_BASE + SZ_4K -1,
 		.name  = "i2c1_res",
 		.flags = IORESOURCE_MEM,
 	},
@@ -233,7 +233,7 @@ struct platform_device sprd_i2c_device1 = {
 static struct resource sprd_i2c_resources2[] = {
 	[0] = {
 		.start = SPRD_I2C2_BASE,
-		.end   = SPRD_I2C2_BASE + SPRD_I2C2_SIZE -1,
+		.end   = SPRD_I2C2_BASE + SZ_4K -1,
 		.name  = "i2c2_res",
 		.flags = IORESOURCE_MEM,
 	},
@@ -254,7 +254,7 @@ struct platform_device sprd_i2c_device2 = {
 static struct resource sprd_i2c_resources3[] = {
 	[0] = {
 		.start = SPRD_I2C3_BASE,
-		.end   = SPRD_I2C3_BASE + SPRD_I2C3_SIZE -1,
+		.end   = SPRD_I2C3_BASE + SZ_4K -1,
 		.name  = "i2c3_res",
 		.flags = IORESOURCE_MEM,
 	},
@@ -400,7 +400,7 @@ static struct resource sprd_axi_bm0_res[] = {
 static struct resource sprd_axi_bm1_res[] = {
 	[0] = {
 		.start =SPRD_AXIBM1_BASE,
-		.end = SPRD_AXIBM1_BASE + SPRD_AXIBM1_SIZE - 1,
+		.end = SPRD_AXIBM1_BASE + SZ_4K - 1,
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
@@ -413,7 +413,7 @@ static struct resource sprd_axi_bm1_res[] = {
 static struct resource sprd_axi_bm2_res[] = {
 	[0] = {
 		.start =SPRD_AXIBM2_BASE,
-		.end = SPRD_AXIBM2_BASE + SPRD_AXIBM2_SIZE - 1,
+		.end = SPRD_AXIBM2_BASE + SZ_4K - 1,
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
