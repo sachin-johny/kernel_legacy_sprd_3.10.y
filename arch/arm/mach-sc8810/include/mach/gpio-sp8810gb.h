@@ -29,7 +29,7 @@
 #define GPIO_TOUCH_RESET	59
 #define GPIO_TOUCH_IRQ		60
 #define GPIO_PLSENSOR_IRQ	28
-#define MSENSOR_DRDY_GPIO      97
+#define MSENSOR_DRDY_GPIO       97
 
 #define EIC_CHARGER_DETECT	162
 #define EIC_KEY_POWER		163
@@ -38,5 +38,9 @@
 
 #define GPIO_SENSOR_RESET	72
 #define GPIO_MAIN_SENSOR_PWN    73
-#define GPIO_SUB_SENSOR_PWN       74
+#define GPIO_SUB_SENSOR_PWN     74
+
+#define GPIO_GPS_RESET          26
+#define GPIO_GPS_ONOFF          27
+
 #endif
