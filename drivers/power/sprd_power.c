@@ -21,7 +21,11 @@
 #include <linux/interrupt.h>
 #include <asm/io.h>
 #include <linux/hrtimer.h>
-#include "sprd_charge.h"
+#ifdef	CONFIG_SPRD_8825_POWER
+#include "sprd_8825_charge.h"
+#else
+#include "sprd_8810_charge.h"
+#endif
 #include <linux/spinlock.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
@@ -458,9 +462,8 @@ void enable_usb_charge(struct sprd_battery_data *battery_data)
 	battery_data->charge_start_jiffies = get_jiffies_64();
 	battery_data->charging = 1;
 	pluse_charging = 0;
-	sprd_set_charger_type(battery_data, CHG_USB_ADAPTER);
-	sprd_set_usb_cur(battery_data, CHG_USB_400MA);
-	battery_data->cur_type = 400;
+	sprd_set_chg_cur(SPRD_USB_CHG_CUR);
+	battery_data->cur_type = SPRD_USB_CHG_CUR;
 	sprd_set_sw(battery_data, battery_data->hw_switch_point);
 	sprd_start_charge(battery_data);
 	battery_data->in_precharge = 0;
@@ -471,9 +474,8 @@ void enable_ac_charge(struct sprd_battery_data *battery_data)
 	pluse_charge_cnt = CHGMNG_PLUSE_TIMES;
 	hw_switch_update_cnt = CONFIG_AVERAGE_CNT;
 	battery_data->charge_start_jiffies = get_jiffies_64();
-	sprd_set_charger_type(battery_data, CHG_NORMAL_ADAPTER);
-	sprd_set_noraml_cur(battery_data, CHG_NOR_600MA);
-	battery_data->cur_type = 600;
+	sprd_set_chg_cur(SPRD_AC_CHG_CUR);
+	battery_data->cur_type = SPRD_AC_CHG_CUR;
 	battery_data->charging = 1;
 	pluse_charging = 0;
 	sprd_set_sw(battery_data, battery_data->hw_switch_point);
@@ -876,6 +878,8 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	}
 	data->irq = ret;
 #endif
+	sprd_chg_init();
+
 	for (i = 0; i < CONFIG_AVERAGE_CNT; i++) {
 retry_adc:
 		adc_value = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
