@@ -722,6 +722,14 @@ static int32_t sprd_lcdc_display_overlay(struct sprdfb_device *dev, struct overl
 	/* start refresh */
 	lcdc_set_bits((1 << 3), LCDC_CTRL);
 
+#ifdef CONFIG_FB_OVERLAY_SYNC
+	dev->vsync_waiter ++;
+	if (dev->ctrl->sync(dev) != 0) {/* time out??? disable ?? */
+		dev->vsync_waiter = 0;
+		printk("sprdfb  do sprd_lcdc_display_overlay  time out!\n");
+	}
+#endif
+
 	up(&lcdc.overlay_lock);
 
 	pr_debug("LCDC_CTRL: 0x%x\n", lcdc_read(LCDC_CTRL));
