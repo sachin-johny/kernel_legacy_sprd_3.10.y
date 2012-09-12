@@ -2414,6 +2414,7 @@ config FB_PUV3_UNIGFX
 	  framebuffer device. Without the support of PCI & AGP.
 
 source "drivers/video/spreadtrum/Kconfig"
+source "drivers/video/sc8825/Kconfig"
 
 source "drivers/video/omap/Kconfig"
 source "drivers/video/omap2/Kconfig"
