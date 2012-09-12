@@ -26,6 +26,7 @@
 #include <mach/globalregs.h>
 #include "sc8810_nand.h"
 
+static int have_no_nand = 0;
 struct sprd_nand_info {
     unsigned long           phys_base;
 	struct mtd_info		    mtd;
@@ -701,6 +702,8 @@ static int sprd_nand_probe(struct platform_device *pdev)
 
 	return 0;
 release:
+	have_no_nand = 1;
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
 	nand_release(sprd_mtd);
 Err:
 	return 0;
@@ -719,26 +722,34 @@ static int sprd_nand_remove(struct platform_device *pdev)
 static unsigned long nfc_reg_cfg0;
 static int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 {
-	nfc_reg_cfg0 = nfc_reg_read(NFC_CFG0);
-	nfc_reg_write(NFC_CFG0, (nfc_reg_cfg0 | NFC_CS1_SEL)); /* deset CS_SEL */
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
+	if (have_no_nand == 1)
+		return 0;
+	else {
+		nfc_reg_cfg0 = nfc_reg_read(NFC_CFG0);
+		nfc_reg_write(NFC_CFG0, (nfc_reg_cfg0 | NFC_CS1_SEL)); /* deset CS_SEL */
+		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
 
-	return 0;
+		return 0;
+	}
 }
 
 static int sprd_nand_resume(struct platform_device *dev)
 {
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_SOFT_NFC_RST, AHB_SOFT_RST);
-	mdelay(2);
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_SOFT_NFC_RST, AHB_SOFT_RST);
+	if (have_no_nand == 1)
+		return 0;
+	else {
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_SOFT_NFC_RST, AHB_SOFT_RST);
+		mdelay(2);
+		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_SOFT_NFC_RST, AHB_SOFT_RST);
 
-	nfc_reg_write(NFC_CFG0, nfc_reg_cfg0);
-	sc8810_nand_wp_en(0);
-	nfc_reg_write(NFC_TIMING, NFC_DEFAULT_TIMING);
-	nfc_reg_write(NFC_TIEOUT, 0xffffffff);
+		nfc_reg_write(NFC_CFG0, nfc_reg_cfg0);
+		sc8810_nand_wp_en(0);
+		nfc_reg_write(NFC_TIMING, NFC_DEFAULT_TIMING);
+		nfc_reg_write(NFC_TIEOUT, 0xffffffff);
 
-	return 0;
+		return 0;
+	}
 }
 #else
 #define sprd_nand_suspend NULL
