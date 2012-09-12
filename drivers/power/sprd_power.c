@@ -508,9 +508,10 @@ static int plugout_callback(int usb_cable, void *data)
 	return 0;
 }
 
-#define _BUF_SIZE 10
+#define _BUF_SIZE 60 //20//10
 #define _VPROG_BUF_SIZE 8
 #define _VCHG_BUF_SIZE  8
+#define VBAT_BUFF_NUM	30
 uint32_t temp_buf[_BUF_SIZE];
 uint32_t vprog_buf[_VPROG_BUF_SIZE];
 uint32_t vbat_buf[_BUF_SIZE];
@@ -583,11 +584,10 @@ void update_vprog_value(uint32_t vprog)
 void put_vbat_value(uint32_t vbat)
 {
     int i;
-    for(i=0;i<_BUF_SIZE -1;i++){
-        vbat_buf[i] = vbat_buf[i+1];
-    }
-
-    vbat_buf[_BUF_SIZE-1] = vbat;
+    static int index = 0; 
+    /*this module can  speed up*/
+    vbat_buf[index++] = vbat;
+    index %= _BUF_SIZE;
 }
 
 uint32_t get_vbat_value(void)
@@ -595,9 +595,9 @@ uint32_t get_vbat_value(void)
     unsigned long sum=0;
     int i;
     for(i=0; i < _BUF_SIZE; i++)
-      sum += vbat_buf[i];
-
-    return sum/_BUF_SIZE;
+        sum += vbat_buf[i];
+	sum += _BUF_SIZE/2;
+    return sum/_BUF_SIZE ;
 }
 
 void update_vbat_value(uint32_t vbat)
@@ -606,7 +606,19 @@ void update_vbat_value(uint32_t vbat)
     for(i=0; i < _BUF_SIZE; i++)
       vbat_buf[i] = vbat;
 }
-
+void clear_vbat_value(void)
+{
+   int i,j;
+   int32_t adc_value ;
+   for(i=0 ; i < _BUF_SIZE ; i++){
+      adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+      for(j=10 ; j>0 ; j-- )
+	  {
+	      ;
+	  } 
+      put_vbat_value(adc_value);
+   }
+}
 static int pluse_charging = 0;
 static int pluse_charge_cnt = CHGMNG_PLUST_TIMES;
 static int hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
@@ -616,7 +628,7 @@ static int  vchg_vol = 0;
 static int pre_usb_online = 0;
 static int pre_ac_online = 0;
 
-#define CHARGE_LOOP_CNT 10
+#define CHARGE_LOOP_CNT 50
 void enable_usb_charge(struct sprd_battery_data * battery_data)
 {
     pluse_charge_cnt = CHGMNG_PLUST_TIMES;
@@ -697,6 +709,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         }else{
             charge_stop(battery_data);
         }
+	    clear_vbat_value();
         battery_notify = 1;
     }
 
@@ -708,19 +721,18 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         }else{
             charge_stop(battery_data);
         }
+	    clear_vbat_value();
         battery_notify = 1;
     }
 
     if(battery_data->charging || loop_cnt == 0){
 
-        adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
-        if(adc_value >= 0)
-          put_vbat_value(adc_value);
+	adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+	if(adc_value < 0)
+	    goto out;   
+	put_vbat_value(adc_value);
 
-        if(adc_value < 0)
-          goto out;
         adc_value = get_vbat_value();
-
         voltage = CHGMNG_AdcvalueToVoltage(adc_value);
         DEBUG("voltage %d\n", voltage);
 
@@ -753,7 +765,7 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         vchg_adc = ADC_GetValue(ADC_CHANNEL_VCHG, false);
         if(vchg_adc < 0)
           goto out;
-        //DEBUG("%s: vchg_adc %d\n", __func__, vchg_adc);
+        DEBUG("%s: vchg_adc %d\n", __func__, vchg_adc);
         vchg_vol = CHGMNG_ChargerAdcvalueToVoltage(vchg_adc);
         put_vchg_value(vchg_vol);
         vchg_vol = get_vchg_value();
@@ -822,7 +834,10 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
             hw_switch_update_cnt --;
             if(hw_switch_update_cnt <= 0){
                 hw_switch_update_cnt = CHARGE_VBAT_STATISTIC_BUFFERSIZE;
-                
+		if(vprog_current < battery_data->cur_type){
+		    CHG_SetUsbAcChgTable(usb_online, vprog_current);
+		    DEBUG("updata Usb and Ac Charging Table!\n");
+		}
                 if(voltage <= battery_data->precharge_end) {
                     if(vprog_current < CC_CV_SWITCH_POINT){
                         battery_data->hw_switch_point = CHG_UpdateSwitchoverPoint(true);
@@ -876,7 +891,6 @@ out:
         spin_unlock_irqrestore(&battery_data->lock, flag);
 
         if(loop_cnt == 0){
-            voltage = (voltage /10)*10;
 
             if(battery_data->voltage != voltage){
                 battery_data->voltage = voltage;
@@ -917,12 +931,27 @@ void battery_sleep(void)
  */
 int battery_updata(void)
 {
-    int32_t adc_value;
-    int32_t voltage;
+    int32_t  adc_value = 0;
+    int32_t  voltage;
     uint32_t capacity;
+    int32_t  temp_vbat = 0; 
+    int32_t  i,j;
     static uint32_t pre_capacity = 0xffffffff;
     if(battery_data->charging == 0) {
-	    adc_value = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+		for(i = 0; i < VBAT_BUFF_NUM;i++){
+		
+		temp_vbat = ADC_GetValue(ADC_CHANNEL_VBAT, false);
+		if(temp_vbat > adc_value)
+		{
+			adc_value = temp_vbat;
+		}
+		//loop for delay
+		for (j = 9; j >= 0; j--)
+		{
+			;
+		}
+	      }
+
 	    if(adc_value < 0)
 		    return 0;
 	    voltage = CHGMNG_AdcvalueToVoltage(adc_value);
@@ -934,7 +963,7 @@ int battery_updata(void)
 
 	    if(pre_capacity != capacity){
 		    pre_capacity = capacity;
-		    update_vbat_value(adc_value);
+		    put_vbat_value(adc_value);
 	    }
 	    if(capacity <5){
 		    return 1;
@@ -1041,7 +1070,8 @@ retry_adc:
 	update_vprog_value(0);
 	memset(vprog_buf, 0, sizeof(vprog_buf));
 	memset(temp_buf, 0, sizeof(temp_buf));
-
+    CHG_SetUsbAcChgTable(true,false);
+    CHG_SetUsbAcChgTable(false,false);
 	wake_lock_init(&(data->charger_plug_out_lock), WAKE_LOCK_SUSPEND, "charger_plug_out_lock");
 #ifdef BATTERY_USE_WAKE_LOCK
 	wake_lock_init(&(data->charge_wake_lock), WAKE_LOCK_SUSPEND, "charge_wake_lock");
