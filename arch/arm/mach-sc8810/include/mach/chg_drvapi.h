@@ -281,6 +281,12 @@ int CHGMNG_AdcvalueToTemp(uint16_t adcvalue);
 uint32_t CHGMNG_AdcvalueToCurrent(uint16_t vprog_adc, uint16_t cur_type);
 int charger_is_adapter(void);
 int32_t CHG_GetVirtualVprog (void);
+/*****************************************************************************/
+//  Description:    This function is used to set the usb_charging_voltage_capacity_table.
+//  Add        :    yuelin.tang
+//  Note
+/*****************************************************************************/
+void CHG_SetUsbAcChgTable(int is_usb, int32_t vprog);
 
 
 #ifdef __cplusplus
