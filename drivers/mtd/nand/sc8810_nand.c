@@ -686,6 +686,7 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	this->options |= NAND_NO_READRDY;
 
 	board_nand_init(this);
+	this->options |= NAND_USE_FLASH_BBT | NAND_SKIP_BBTSCAN;
 	nand_scan(sprd_mtd, 1);
 
 	sprd_mtd->name = "sprd-nand";
