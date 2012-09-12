@@ -1,0 +1,16 @@
+config FB_SC8825
+	boolean "SC8825 frame buffer support "
+	depends on FB && ARCH_TIGER
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+          Frame buffer driver for sc8825 based boards.
+
+config FB_LCD_HX8369
+	boolean "support HX8369 panel"
+	depends on (FB_SC8825)
+
+config FB_LCD_S6D0139
+	boolean "support S6D0139 panel"
+	depends on FB_SC8825
