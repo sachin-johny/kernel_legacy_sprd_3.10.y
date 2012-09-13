@@ -42,7 +42,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(ROTO),	
 	SPRD_DEVICE(AHB),	
 	SPRD_DEVICE(DRM),
-	SPRD_DEVICE(VSP),
+	SPRD_DEVICE(MEA),//VSP
 	SPRD_DEVICE(EMMC),
 	SPRD_DEVICE(DISPLAY),	
 	SPRD_DEVICE(NFC),
