@@ -303,5 +303,12 @@ config REGULATOR_TPS65910
 	help
 	  This driver supports TPS65910 voltage regulator chips.
 
+config REGULATOR_SPRD
+	tristate "Spreadtrum Power Regulators"
+	depends on ARCH_SC8825
+	default y if ARCH_SC8825
+	help
+	  This driver supports spreadtrum voltage regulator chips.
+
 endif
 

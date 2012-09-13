@@ -38,7 +38,13 @@
 
 #include "sensor_drv_k.h"
 
-
+/* FIXME: Move to camera device platform data later */
+#if defined(CONFIG_ARCH_SC8825)
+#define REGU_NAME_CAMAVDD	"vddcama"
+#define REGU_NAME_CAMVIO	"vddcamio"
+#define REGU_NAME_CAMDVDD	"vddcamcore"
+#define REGU_NAME_CAMMOT	"vddcammot"
+#endif
 
 #define DEBUG_SENSOR_DRV
 #ifdef DEBUG_SENSOR_DRV

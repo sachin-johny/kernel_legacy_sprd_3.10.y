@@ -86,7 +86,7 @@
 #define ANA_REG_GLB_CHIP_ID_LOW         SCI_ADDR(ANA_REGS_GLB_BASE, 0x0f8)
 #define ANA_REG_GLB_CHIP_ID_HIGH        SCI_ADDR(ANA_REGS_GLB_BASE, 0x0fc)
 
-/* bits definitions for register REG_GLB_ANA_APB_CLK_EN */
+/* bits definitions for register ANA_REG_GLB_ANA_APB_CLK_EN */
 #define BIT_ANA_CHGRWDG_EB              ( BIT(15) )
 #define BIT_ANA_CLK_AUXAD_EN            ( BIT(14) )
 #define BIT_ANA_CLK_AUXADC_EN           ( BIT(13) )
@@ -104,7 +104,7 @@
 #define BIT_ANA_RTC_EB                  ( BIT(1) )
 #define BIT_ANA_APB_ARCH_EB             ( BIT(0) )
 
-/* bits definitions for register REG_GLB_ANA_APB_ARM_RST */
+/* bits definitions for register ANA_REG_GLB_ANA_APB_ARM_RST */
 #define BIT_ANA_GPIO_SOFT_RST           ( BIT(7) )
 #define BIT_ANA_EIC_SOFT_RST            ( BIT(6) )
 #define BIT_ANA_TPC_SOFT_RST            ( BIT(5) )
@@ -113,7 +113,7 @@
 #define BIT_ANA_CHGWDG_SOFT_RST         ( BIT(2) )
 #define BIT_ANA_RTC_SOFT_RST            ( BIT(0) )
 
-/* bits definitions for register REG_GLB_LDO_PD_SET */
+/* bits definitions for register ANA_REG_GLB_LDO_PD_SET */
 #define BIT_DCDC_LDO_PD                 ( BIT(9) )
 #define BIT_LDO_VDD25_PD                ( BIT(8) )
 #define BIT_LDO_VDD18_PD                ( BIT(7) )
@@ -125,7 +125,7 @@
 #define BIT_DCDC_PD                     ( BIT(1) )
 #define BIT_BG_PD                       ( BIT(0) )
 
-/* bits definitions for register REG_GLB_LDO_PD_RST */
+/* bits definitions for register ANA_REG_GLB_LDO_PD_RST */
 #define BIT_DCDC_LDO_RST                ( BIT(9) )
 #define BIT_LDO_VDD25_RST               ( BIT(8) )
 #define BIT_LDO_VDD18_RST               ( BIT(7) )
@@ -137,7 +137,7 @@
 #define BIT_DCDC_RST                    ( BIT(1) )
 #define BIT_BG_RST                      ( BIT(0) )
 
-/* bits definitions for register REG_GLB_LDO_PD_CTRL0 */
+/* bits definitions for register ANA_REG_GLB_LDO_PD_CTRL0 */
 #define BIT_LDO_BP_CAMMOT_RST           ( BIT(15) )
 #define BIT_LDO_BPCAMMOT                ( BIT(14) )
 #define BIT_LDO_BPCAMA_RST              ( BIT(13) )
@@ -153,7 +153,7 @@
 #define BIT_LDO_BPUSB_RST               ( BIT(1) )
 #define BIT_LDO_BPUSB                   ( BIT(0) )
 
-/* bits definitions for register REG_GLB_LDO_PD_CTRL1 */
+/* bits definitions for register ANA_REG_GLB_LDO_PD_CTRL1 */
 #define BIT_LDO_BPCMMB1V2_RST           ( BIT(13) )
 #define BIT_LDO_BPCMMB1V2               ( BIT(12) )
 #define BIT_LDO_BPCMMB1P8_RST           ( BIT(11) )
@@ -167,36 +167,36 @@
 #define BIT_LDO_BPSD0_RST               ( BIT(1) )
 #define BIT_LDO_BPSD0                   ( BIT(0) )
 
-/* bits definitions for register REG_GLB_LDO_VCTRL0 */
+/* bits definitions for register ANA_REG_GLB_LDO_VCTRL0 */
 #define BITS_LDO_AVDDBB_VCTL(_x_)       ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_LDO_RF_VCTL(_x_)           ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 #define BITS_LDO_RTC_VCTL(_x_)          ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)) )
 
-/* bits definitions for register REG_GLB_LDO_VCTRL1 */
+/* bits definitions for register ANA_REG_GLB_LDO_VCTRL1 */
 #define BITS_LDO_USB_VCTL(_x_)          ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_LDO_VDD3V_VCTL(_x_)        ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BITS_LDO_SIM1_VCTL(_x_)         ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 #define BITS_LDO_SIM0_VCTL(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)) )
 
-/* bits definitions for register REG_GLB_LDO_VCTRL2 */
+/* bits definitions for register ANA_REG_GLB_LDO_VCTRL2 */
 #define BITS_LDO_CAMMOT_VCTL(_x_)       ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_LDO_CAMA_VCTL(_x_)         ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BITS_LDO_CAMIO_VCTL(_x_)        ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 #define BITS_LDO_CAMCORE_VCTL(_x_)      ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)) )
 
-/* bits definitions for register REG_GLB_LDO_VCTRL3 */
+/* bits definitions for register ANA_REG_GLB_LDO_VCTRL3 */
 #define BITS_LDO_SD0_VCTL(_x_)          ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_LDO_VDD25_VCTL(_x_)        ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BITS_LDO_VDD18_VCTL(_x_)        ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 #define BITS_LDO_VDD28_VCTL(_x_)        ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)) )
 
-/* bits definitions for register REG_GLB_LDO_VCTRL4 */
+/* bits definitions for register ANA_REG_GLB_LDO_VCTRL4 */
 #define BITS_LDO_CMMB1V2_VCTL(_x_)      ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_LDO_CMMB1P8_VCTL(_x_)      ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BITS_LDO_SD3_VCTL(_x_)          ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 #define BITS_LDO_SD1_VCTL(_x_)          ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)) )
 
-/* bits definitions for register REG_GLB_LDO_SLP_CTRL0 */
+/* bits definitions for register ANA_REG_GLB_LDO_SLP_CTRL0 */
 #define BIT_LDOSD3_BP_EN                ( BIT(15) )
 #define BIT_LDOSD1_BP_EN                ( BIT(14) )
 #define BIT_LDOVDD25_BP_EN              ( BIT(13) )
@@ -213,7 +213,7 @@
 #define BIT_LDOSIM0_BP_EN               ( BIT(2) )
 #define BIT_LDORF_BP_EN                 ( BIT(0) )
 
-/* bits definitions for register REG_GLB_LDO_SLP_CTRL1 */
+/* bits definitions for register ANA_REG_GLB_LDO_SLP_CTRL1 */
 #define BIT_FSM_SLPPD_EN                ( BIT(15) )
 #define BIT_SLP_AUDIO_AUXMICBIAS_PD_EN  ( BIT(12) )
 #define BIT_SLP_AUDIO_MICBIAS_PD_EN     ( BIT(11) )
@@ -227,14 +227,14 @@
 #define BIT_LDOCMMB1P8_BP_EN            ( BIT(2) )
 #define BIT_LDOVDD3V_BP_EN              ( BIT(1) )
 
-/* bits definitions for register REG_GLB_LDO_SLP_CTRL2 */
+/* bits definitions for register ANA_REG_GLB_LDO_SLP_CTRL2 */
 #define BITS_ARMDCDC_ISO_ON_NUM(_x_)    ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_ARMDCDC_ISO_OFF_NUM(_x_)   ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 
-/* bits definitions for register REG_GLB_LDO_SLP_CTRL3 */
+/* bits definitions for register ANA_REG_GLB_LDO_SLP_CTRL3 */
 #define BITS_ARMDCDC_PWR_ON_DLY(_x_)    ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDC_CTRL0 */
+/* bits definitions for register ANA_REG_GLB_DCDC_CTRL0 */
 #define BIT_DCDC_FRECUT_RST             ( BIT(15) )
 #define BIT_DCDC_FRECUT                 ( BIT(14) )
 #define BIT_DCDC_PFM_RST                ( BIT(13) )
@@ -246,7 +246,7 @@
 #define BITS_DCDC_CTL_40NM_RST(_x_)     ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)) )
 #define BITS_DCDC_CTL_40NM(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDC_CTRL1 */
+/* bits definitions for register ANA_REG_GLB_DCDC_CTRL1 */
 #define BITS_DCDC_PDRSLOW_RST(_x_)      ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_DCDC_PDRSLOW(_x_)          ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BIT_DCDC_CL_CTRL_RST            ( BIT(7) )
@@ -255,59 +255,59 @@
 #define BIT_DCDC_BP_LP_EN               ( BIT(4) )
 #define BIT_DCDC_OSCSYCEN_SW            ( BIT(0) )
 
-/* bits definitions for register REG_GLB_DCDC_CTRL2 */
+/* bits definitions for register ANA_REG_GLB_DCDC_CTRL2 */
 #define BIT_DCDC_OSCSYCEN_HW_EN         ( BIT(14) )
 #define BIT_DCDC_OSCSYC_DIV_EN          ( BIT(13) )
 #define BITS_DCDC_OSCSYC_DIV(_x_)       ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 #define BITS_DCDC_RESERVER_RST(_x_)     ( (_x_) << 3 & (BIT(3)|BIT(4)|BIT(5)) )
 #define BITS_DCDC_RESERVER(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDC_CTRL_DS */
+/* bits definitions for register ANA_REG_GLB_DCDC_CTRL_DS */
 #define BITS_DCDC_LVL_DLY(_x_)          ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_DCDC_CTL_40NM_DS_RST(_x_)  ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)) )
 #define BITS_DCDC_CTL_40NM_DS(_x_)      ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDC_CTRL_CAL */
+/* bits definitions for register ANA_REG_GLB_DCDC_CTRL_CAL */
 #define BITS_DCDC_CAL_RST(_x_)          ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 #define BITS_DCDC_CAL(_x_)              ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)) )
 
-/* bits definitions for register REG_GLB_PLL_CTRL */
+/* bits definitions for register ANA_REG_GLB_PLL_CTRL */
 #define BIT_APLL_MN_WE                  ( BIT(3) )
 #define BIT_APLL_PD_EN                  ( BIT(2) )
 #define BIT_APLL_FORECE_PD              ( BIT(1) )
 #define BIT_APLL_FORECE_PD_EN           ( BIT(0) )
 
-/* bits definitions for register REG_GLB_APLLMN */
+/* bits definitions for register ANA_REG_GLB_APLLMN */
 #define BITS_APLLM(_x_)                 ( (_x_) << 11 & (BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_APLLN(_x_)                 ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)) )
 
-/* bits definitions for register REG_GLB_APLLWAIT */
+/* bits definitions for register ANA_REG_GLB_APLLWAIT */
 #define BITS_APLLWAIT(_x_)              ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 
-/* bits definitions for register REG_GLB_RTC_CTRL */
+/* bits definitions for register ANA_REG_GLB_RTC_CTRL */
 #define BITS_VBATBK_RES(_x_)            ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_VBATBK_V(_x_)              ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BITS_32K_START_CUR(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 
-/* bits definitions for register REG_GLB_BUF26M_CTRL */
+/* bits definitions for register ANA_REG_GLB_BUF26M_CTRL */
 #define BIT_CLK26M_NORMAL_EN            ( BIT(15) )
 #define BIT_SINDRV_ENA_SQUARE           ( BIT(3) )
 #define BIT_SINDRV_ENA                  ( BIT(2) )
 #define BITS_SINDRV_LVL(_x_)            ( (_x_) << 1 & (BIT(1)|BIT(2)) )
 #define BIT_CLIP_MODE                   ( BIT(0) )
 
-/* bits definitions for register REG_GLB_CHGR_CTRL0 */
+/* bits definitions for register ANA_REG_GLB_CHGR_CTRL0 */
 #define BIT_RECHG                       ( BIT(12) )
 #define BIT_CHGR_PWM_EN_RST             ( BIT(11) )
 #define BIT_CHGR_PWM_EN                 ( BIT(10) )
 #define BIT_CHGR_CC_EN_RST              ( BIT(1) )
 #define BIT_CHGR_CC_EN                  ( BIT(0) )
 
-/* bits definitions for register REG_GLB_CHGR_CTRL1 */
+/* bits definitions for register ANA_REG_GLB_CHGR_CTRL1 */
 #define BITS_CHGR_RTCCTL(_x_)           ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_CHGR_CTL(_x_)              ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 
-/* bits definitions for register REG_GLB_LED_CTRL */
+/* bits definitions for register ANA_REG_GLB_LED_CTRL */
 #define BIT_KPLED_PD_RST                ( BIT(12) )
 #define BIT_KPLED_PD                    ( BIT(11) )
 #define BITS_KPLED_V(_x_)               ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)) )
@@ -315,7 +315,7 @@
 #define BIT_WHTLED_PD                   ( BIT(5) )
 #define BITS_WHTLED_V(_x_)              ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)) )
 
-/* bits definitions for register REG_GLB_VIBRATOR_CTRL0 */
+/* bits definitions for register ANA_REG_GLB_VIBRATOR_CTRL0 */
 #define BITS_VIBR_STABLE_V_B(_x_)       ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_VIBR_INIT_V_A(_x_)         ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BITS_VIBR_V_BP(_x_)             ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
@@ -324,10 +324,10 @@
 #define BIT_VIBR_BD_EN                  ( BIT(1) )
 #define BIT_RTC_VIBR_EN                 ( BIT(0) )
 
-/* bits definitions for register REG_GLB_VIBRATOR_CTRL1 */
+/* bits definitions for register ANA_REG_GLB_VIBRATOR_CTRL1 */
 #define BITS_VIBR_CONVERT_V_COUNT(_x_)  ( (_x_) << 0 )
 
-/* bits definitions for register REG_GLB_ARM_AUD_CLK_RST */
+/* bits definitions for register ANA_REG_GLB_ARM_AUD_CLK_RST */
 #define BIT_AUD_ARM_ACC                 ( BIT(15) )
 #define BIT_AUDRX_ARM_SOFT_RST          ( BIT(10) )
 #define BIT_AUDTX_ARM_SOFT_RST          ( BIT(9) )
@@ -341,7 +341,7 @@
 #define BIT_CLK_AUDIF_ARM_EN            ( BIT(1) )
 #define BIT_AUD_ARM_EN                  ( BIT(0) )
 
-/* bits definitions for register REG_GLB_ANA_MIXED_CTRL */
+/* bits definitions for register ANA_REG_GLB_ANA_MIXED_CTRL */
 #define BIT_PTEST_PD_SET                ( BIT(15) )
 #define BITS_UVHO_T_RST(_x_)            ( (_x_) << 10 & (BIT(10)|BIT(11)) )
 #define BITS_UVHO_T(_x_)                ( (_x_) << 8 & (BIT(8)|BIT(9)) )
@@ -353,7 +353,7 @@
 #define BIT_OTP_EN_RST                  ( BIT(1) )
 #define BIT_OTP_EN                      ( BIT(0) )
 
-/* bits definitions for register REG_GLB_ANA_STATUS */
+/* bits definitions for register ANA_REG_GLB_ANA_STATUS */
 #define BIT_VIBR_PWR_ERR                ( BIT(15) )
 #define BIT_BONDOPT2                    ( BIT(10) )
 #define BIT_STS_VIBR_PD                 ( BIT(9) )
@@ -365,22 +365,22 @@
 #define BIT_BONDOPT1                    ( BIT(1) )
 #define BIT_BONDOPT0                    ( BIT(0) )
 
-/* bits definitions for register REG_GLB_RST_STATUS */
+/* bits definitions for register ANA_REG_GLB_RST_STATUS */
 #define BITS_ALL_HRST_MON(_x_)          ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_POR_HRST_MON(_x_)          ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BITS_WDG_HRST_MON(_x_)          ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)) )
 
-/* bits definitions for register REG_GLB_MCU_WR_PROT */
+/* bits definitions for register ANA_REG_GLB_MCU_WR_PROT */
 #define BITS_MCU_WR_PROT(_x_)           ( (_x_) << 0 )
 
-/* bits definitions for register REG_GLB_VIBR_WR_PROT */
+/* bits definitions for register ANA_REG_GLB_VIBR_WR_PROT */
 #define BITS_VIBR_WR_PROT(_x_)          ( (_x_) << 0 )
 
-/* bits definitions for register REG_GLB_HWRST_RTC */
+/* bits definitions for register ANA_REG_GLB_HWRST_RTC */
 #define BITS_HWRST_RTC_REG(_x_)         ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_HWRST_RTC_SET(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
 
-/* bits definitions for register REG_GLB_DCDCOTP_CTRL */
+/* bits definitions for register ANA_REG_GLB_DCDCOTP_CTRL */
 #define BITS_DCDC_OTP_OPTION(_x_)       ( (_x_) << 14 & (BIT(14)|BIT(15)) )
 #define BIT_DCDC_OTP_INT_CLR            ( BIT(13) )
 #define BIT_DCDC_OPT_STS_RTC            ( BIT(12) )
@@ -391,7 +391,7 @@
 #define BIT_DCDC_OTP_VBEOP_RST          ( BIT(1) )
 #define BIT_DCDC_OTP_VBEOP              ( BIT(0) )
 
-/* bits definitions for register REG_GLB_POR_SRC_STAT */
+/* bits definitions for register ANA_REG_GLB_POR_SRC_STAT */
 #define BIT_POR_PBCHGR_MASK_SET         ( BIT(15) )
 #define BIT_EXT_RSTN_FLAG               ( BIT(10) )
 #define BIT_CHGR_INT_FLAG               ( BIT(9) )
@@ -405,20 +405,20 @@
 #define BIT_PB_INT_1S_SET               ( BIT(1) )
 #define BIT_PB_INT_DEBC                 ( BIT(0) )
 
-/* bits definitions for register REG_GLB_POR_SRC_FLAG_CLR */
+/* bits definitions for register ANA_REG_GLB_POR_SRC_FLAG_CLR */
 #define BIT_EXT_RSTN_FLAG_RST           ( BIT(3) )
 #define BIT_CHGR_INT_FLAG_RST           ( BIT(2) )
 #define BIT_PBINT2_FLAG_RST             ( BIT(1) )
 #define BIT_PBINT_FLAG_RST              ( BIT(0) )
 
-/* bits definitions for register REG_GLB_HW_REBOOT_CTRL */
+/* bits definitions for register ANA_REG_GLB_HW_REBOOT_CTRL */
 #define BIT_PBINT_HW_PD_EN              ( BIT(8) )
 #define BIT_PBINT_6S_FLAG_CLR           ( BIT(7) )
 #define BIT_PBINT_6S_FLAG               ( BIT(6) )
 #define BITS_PBINT_HW_PD_THRESHOLD_RST(_x_)( (_x_) << 3 & (BIT(3)|BIT(4)|BIT(5)) )
 #define BITS_PBINT_HW_PD_THRESHOLD_SET(_x_)( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDCARM_CTRL0 */
+/* bits definitions for register ANA_REG_GLB_DCDCARM_CTRL0 */
 #define BIT_DCDCARM_FRECUT_RST          ( BIT(15) )
 #define BIT_DCDCARM_FRECUT              ( BIT(14) )
 #define BIT_DCDCARM_PFM_RST             ( BIT(13) )
@@ -430,25 +430,25 @@
 #define BITS_DCDCARM_CTL_RST(_x_)       ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)) )
 #define BITS_DCDCARM_CTL(_x_)           ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDCARM_CTRL1 */
+/* bits definitions for register ANA_REG_GLB_DCDCARM_CTRL1 */
 #define BITS_DCDCARM_PDRSLOW_RST(_x_)   ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_DCDCARM_PDRSLOW(_x_)       ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BIT_DCDCARM_CL_CTRL_RST         ( BIT(7) )
 #define BIT_DCDCARM_CL_CTRL             ( BIT(6) )
 #define BIT_DCDCARM_OSCSYCEN_SW         ( BIT(0) )
 
-/* bits definitions for register REG_GLB_DCDCARM_CTRL2 */
+/* bits definitions for register ANA_REG_GLB_DCDCARM_CTRL2 */
 #define BIT_DCDCARM_OSCSYCEN_HW_EN      ( BIT(14) )
 #define BIT_DCDCARM_OSCSYC_DIV_EN       ( BIT(13) )
 #define BITS_DCDCARM_OSCSYC_DIV(_x_)    ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 #define BITS_DCDCARM_RESERVER_RST(_x_)  ( (_x_) << 3 & (BIT(3)|BIT(4)|BIT(5)) )
 #define BITS_DCDCARM_RESERVER(_x_)      ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDCARM_CTRL_CAL */
+/* bits definitions for register ANA_REG_GLB_DCDCARM_CTRL_CAL */
 #define BITS_DCDCARM_CAL_RST(_x_)       ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 #define BITS_DCDCARM_CAL(_x_)           ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)) )
 
-/* bits definitions for register REG_GLB_DCDCMEM_CTRL0 */
+/* bits definitions for register ANA_REG_GLB_DCDCMEM_CTRL0 */
 #define BIT_DCDCMEM_FRECUT_RST          ( BIT(15) )
 #define BIT_DCDCMEM_FRECUT              ( BIT(14) )
 #define BIT_DCDCMEM_PFM_RST             ( BIT(13) )
@@ -460,25 +460,25 @@
 #define BITS_DCDCMEM_CTL_40NM_RST(_x_)  ( (_x_) << 4 & (BIT(4)|BIT(5)) )
 #define BITS_DCDCMEM_CTL_40NM(_x_)      ( (_x_) << 0 & (BIT(0)|BIT(1)) )
 
-/* bits definitions for register REG_GLB_DCDCMEM_CTRL1 */
+/* bits definitions for register ANA_REG_GLB_DCDCMEM_CTRL1 */
 #define BITS_DCDCMEM_PDRSLOW_RST(_x_)   ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_DCDCMEM_PDRSLOW(_x_)       ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BIT_DCDCMEM_CL_CTRL_RST         ( BIT(7) )
 #define BIT_DCDCMEM_CL_CTRL             ( BIT(6) )
 #define BIT_DCDCMEM_OSCSYCEN_SW         ( BIT(0) )
 
-/* bits definitions for register REG_GLB_DCDCMEM_CTRL2 */
+/* bits definitions for register ANA_REG_GLB_DCDCMEM_CTRL2 */
 #define BIT_DCDCMEM_OSCSYCEN_HW_EN      ( BIT(14) )
 #define BIT_DCDCMEM_OSCSYC_DIV_EN       ( BIT(13) )
 #define BITS_DCDCMEM_OSCSYC_DIV(_x_)    ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 #define BITS_DCDCMEM_RESERVER_RST(_x_)  ( (_x_) << 3 & (BIT(3)|BIT(4)|BIT(5)) )
 #define BITS_DCDCMEM_RESERVER(_x_)      ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDCMEM_CTRL_CAL */
+/* bits definitions for register ANA_REG_GLB_DCDCMEM_CTRL_CAL */
 #define BITS_DCDCMEM_CAL_RST(_x_)       ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 #define BITS_DCDCMEM_CAL(_x_)           ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)) )
 
-/* bits definitions for register REG_GLB_DDR2_BUF_CTRL0_DS */
+/* bits definitions for register ANA_REG_GLB_DDR2_BUF_CTRL0_DS */
 #define BITS_DDR2_BUF_CHNS_DS_RST(_x_)  ( (_x_) << 14 & (BIT(14)|BIT(15)) )
 #define BITS_DDR2_BUF_CHNS_DS(_x_)      ( (_x_) << 12 & (BIT(12)|BIT(13)) )
 #define BITS_DDR2_BUF_CHNS_RST(_x_)     ( (_x_) << 10 & (BIT(10)|BIT(11)) )
@@ -488,20 +488,22 @@
 #define BITS_DDR2_BUF_S_RST(_x_)        ( (_x_) << 2 & (BIT(2)|BIT(3)) )
 #define BITS_DDR2_BUF_S(_x_)            ( (_x_) << 0 & (BIT(0)|BIT(1)) )
 
-/* bits definitions for register REG_GLB_DDR2_BUF_CTRL1_DS */
+/* bits definitions for register ANA_REG_GLB_DDR2_BUF_CTRL1_DS */
 #define BIT_DDR2_BUF_PD_HW_RST          ( BIT(3) )
 #define BIT_DDR2_BUF_PD_HW              ( BIT(2) )
 #define BIT_DDR2_BUF_PD_RST             ( BIT(1) )
 #define BIT_DDR2_BUF_PD                 ( BIT(0) )
 
-/* bits definitions for register REG_GLB_EFS_PROT */
+/* bits definitions for register ANA_REG_GLB_EFS_PROT */
+/* write 16hC686 will set ana_efs_prot to 1; write other value will reset ana_efs_prot to 0.
+ */
 #define BITS_ANA_WFS_WD(_x_)            ( (_x_) << 1 & (BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BIT_ANA_EFS_PROT                ( BIT(0) )
 
-/* bits definitions for register REG_GLB_EFS_CTRL */
+/* bits definitions for register ANA_REG_GLB_EFS_CTRL */
 #define BIT_EFS_2P5V_PWR_ON             ( BIT(0) )
 
-/* bits definitions for register REG_GLB_DCDCLDO_CTRL0 */
+/* bits definitions for register ANA_REG_GLB_DCDCLDO_CTRL0 */
 #define BIT_DCDCLDO_FRECUT_RST          ( BIT(15) )
 #define BIT_DCDCLDO_FRECUT              ( BIT(14) )
 #define BIT_DCDCLDO_PFM_RST             ( BIT(13) )
@@ -513,41 +515,52 @@
 #define BITS_DCDCLDO_CTL_RST(_x_)       ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)) )
 #define BITS_DCDCLDO_CTL(_x_)           ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDCLDO_CTRL1 */
+/* bits definitions for register ANA_REG_GLB_DCDCLDO_CTRL1 */
 #define BITS_DCDCLDO_PDRSLOW_RST(_x_)   ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_DCDCLDO_PDRSLOW(_x_)       ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)) )
 #define BIT_DCDCLDO_CL_CTRL_RST         ( BIT(7) )
 #define BIT_DCDCLDO_CL_CTRL             ( BIT(6) )
 #define BIT_DCDCLDO_OSCSYCEN_SW         ( BIT(0) )
 
-/* bits definitions for register REG_GLB_DCDCLDO_CTRL2 */
+/* bits definitions for register ANA_REG_GLB_DCDCLDO_CTRL2 */
 #define BIT_DCDCLDO_OSCSYCEN_HW_EN      ( BIT(14) )
 #define BIT_DCDCLDO_OSCSYC_DIV_EN       ( BIT(13) )
 #define BITS_DCDCLDO_OSCSYC_DIV(_x_)    ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 #define BITS_DCDCLDO_RESERVER_RST(_x_)  ( (_x_) << 3 & (BIT(3)|BIT(4)|BIT(5)) )
 #define BITS_DCDCLDO_RESERVER(_x_)      ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
 
-/* bits definitions for register REG_GLB_DCDCLDO_CTRL_CAL */
+/* bits definitions for register ANA_REG_GLB_DCDCLDO_CTRL_CAL */
 #define BITS_DCDCLDO_CAL_RST(_x_)       ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 #define BITS_DCDCLDO_CAL(_x_)           ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)) )
 
-/* bits definitions for register REG_GLB_AFUSE_CTRL */
+/* bits definitions for register ANA_REG_GLB_AFUSE_CTRL */
+/* prot key is 8ha2, it must write with rd_dly value
+ */
 #define BITS_AFUSE_RD_DLY_PROT(_x_)     ( (_x_) << 8 & (BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
+/* Software write 1 to this bit to issue an afuse read request,
+ * and polling this bit, it will be cleared to 0 when afuse_out data successfully sampled
+ * into AFUSE_OUT_LOW and HIGH register in the following.
+ */
 #define BIT_AFUSE_RD_REQ                ( BIT(8) )
 #define BITS_AFUSE_RD_DLY(_x_)          ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)) )
 
-/* bits definitions for register REG_GLB_AFUSE_OUT_LOW */
+#define SHFT_AFUSE_RD_DLY               ( 0 )
+#define MASK_AFUSE_RD_DLY               ( BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6) )
+
+/* bits definitions for register ANA_REG_GLB_AFUSE_OUT_LOW */
 #define BITS_AFUSE_OUT_LOW(_x_)         ( (_x_) << 0 )
 
-/* bits definitions for register REG_GLB_AFUSE_OUT_HIGH */
+/* bits definitions for register ANA_REG_GLB_AFUSE_OUT_HIGH */
 #define BITS_AFUSE_OUT_HIGH(_x_)        ( (_x_) << 0 )
 
-/* bits definitions for register REG_GLB_CHIP_ID_LOW */
+/* bits definitions for register ANA_REG_GLB_CHIP_ID_LOW */
 #define BITS_CHIP_ID_LOW(_x_)           ( (_x_) << 0 )
 
-/* bits definitions for register REG_GLB_CHIP_ID_HIGH */
+/* bits definitions for register ANA_REG_GLB_CHIP_ID_HIGH */
 #define BITS_CHIP_ID_HIGH(_x_)          ( (_x_) << 0 )
 
 /* vars definitions for controller ANA_REGS_GLB */
+#define KEY_EFS_PROT                    ( 0xc686UL )
+#define KEY_RD_DLY                      ( 0xa2UL )
 
 #endif //__ANA_REGS_GLB_H__

@@ -14,6 +14,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/io.h>
 
@@ -61,3 +62,8 @@ int sci_glb_clr(u32 reg, u32 bit)
 	__raw_writel(bit, REG_GLB_CLR(reg));
 	return 0;
 }
+
+EXPORT_SYMBOL(sci_glb_read);
+EXPORT_SYMBOL(sci_glb_write);
+EXPORT_SYMBOL(sci_glb_set);
+EXPORT_SYMBOL(sci_glb_clr);

@@ -416,7 +416,11 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 		*/
 		if (!strcmp("Spread SDIO host0", host->hw_name)){
 			host->vmmc = regulator_get(mmc_dev(host->mmc),
+#if defined(CONFIG_ARCH_SC8825)
+							"vddsd0");
+#else
 							REGU_NAME_SDHOST0);
+#endif
 			if (IS_ERR(host->vmmc)) {
 				printk(KERN_ERR "%s: no vmmc regulator found\n",
 							mmc_hostname(host->mmc));
@@ -424,7 +428,11 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 			}
 		}else if (!strcmp("Spread SDIO host1", host->hw_name)){
 			host->vmmc = regulator_get(mmc_dev(host->mmc),
+#if defined(CONFIG_ARCH_SC8825)
+							"vddsd1");
+#else
 							REGU_NAME_WIFIIO);
+#endif
 			if (IS_ERR(host->vmmc)) {
 				printk(KERN_ERR "%s: no vmmc regulator found\n",
 							mmc_hostname(host->mmc));
@@ -446,7 +454,11 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 		}
 		else if (!strcmp("Spread EMMC", host->hw_name)){
 			host->vmmc = regulator_get(mmc_dev(host->mmc),
+#if defined(CONFIG_ARCH_SC8825)
+							"vddsd3");
+#else
 							REGU_NAME_SDHOST3);
+#endif
 			if (IS_ERR(host->vmmc)) {
 				printk(KERN_ERR "%s: no vmmc regulator found\n",
 							mmc_hostname(host->mmc));
