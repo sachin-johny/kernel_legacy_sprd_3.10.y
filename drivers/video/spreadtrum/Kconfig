@@ -31,6 +31,10 @@ config FB_LCD_HX8357_OPENPHONE
 	boolean "support HX8357OPENPHONE panel"
 	depends on FB_SC8810
 
+config FB_LCD_NT35516
+	boolean "support NT35516 panel"
+	depends on FB_SC8810
+
 config FB_LCD_OVERLAY_SUPPORT
 	boolean "support lcd overlay"
 	depends on FB_SC8810
