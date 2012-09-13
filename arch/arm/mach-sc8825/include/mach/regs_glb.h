@@ -31,6 +31,7 @@
 #define REG_GLB_M_PLL_CTL0              SCI_ADDR(REGS_GLB_BASE, 0x0024)
 #define REG_GLB_GEN2                    SCI_ADDR(REGS_GLB_BASE, 0x002c)
 #define REG_GLB_ARMBOOT                 SCI_ADDR(REGS_GLB_BASE, 0x0030)
+#define REG_GLB_TD_PLL_CTL              SCI_ADDR(REGS_GLB_BASE, 0x003c)
 #define REG_GLB_D_PLL_CTL               SCI_ADDR(REGS_GLB_BASE, 0x0040)
 #define REG_GLB_BUSCLK                  SCI_ADDR(REGS_GLB_BASE, 0x0044)
 #define REG_GLB_SOFT_RST                SCI_ADDR(REGS_GLB_BASE, 0x004c)
