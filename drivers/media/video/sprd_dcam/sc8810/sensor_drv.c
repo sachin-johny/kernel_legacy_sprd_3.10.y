@@ -1317,6 +1317,8 @@ LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 	SENSOR_INFO_T* sensor_info_ptr= PNULL;
  	uint32_t i2c_clock = 100000;
 	uint32_t set_i2c_clock = 0;
+	uint32_t sensor_index = s_sensor_index[sensor_id];
+	uint32_t valid_tab_index_max = Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
 	sensor_register_info_ptr->cur_id=sensor_id;	
 
 	if(0 == g_is_register_sensor)
@@ -1347,10 +1349,16 @@ LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 			else
 			{
 				SENSOR_PRINT_ERR("SENSOR: add I2C driver OK.\n");	
+				g_is_register_sensor = 1;	
 				sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
 				if(sensor_info_tab_ptr)
 				{
-					sensor_info_ptr = sensor_info_tab_ptr[sensor_id];
+					if(sensor_index>=valid_tab_index_max)
+					{
+						SENSOR_PRINT_ERR("SENSOR: add I2C driver  index error\n");
+						return;
+					}
+					sensor_info_ptr = sensor_info_tab_ptr[sensor_index];
 				}
 				if(sensor_info_ptr)
 				{
@@ -1375,7 +1383,6 @@ LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 						}
 					}
 				}
-				g_is_register_sensor = 1;	
 			}
 		}
 	}
