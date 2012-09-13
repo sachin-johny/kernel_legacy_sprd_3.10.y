@@ -91,15 +91,16 @@ static DEFINE_MUTEX(adie_fuse_lock);
 #ifdef CONFIG_EFUSE_TEST
 static int efuse_auto_test_en = 0;
 #endif
-static __inline void __ddie_fuse_wait_status(u32 bits)
+static __inline void __ddie_fuse_wait_status_clean(u32 bits)
 {
 	unsigned long timeout;
 
 	/* wait for maximum of 300 msec */
 	timeout = jiffies + msecs_to_jiffies(300);
-	while (!(__raw_readl(REG_EFUSE_STATUS) & bits)) {
+	while (__raw_readl(REG_EFUSE_STATUS) & bits) {
 		if (time_after(jiffies, timeout)) {
 			WARN_ON(1);
+			break;
 		}
 		cpu_relax();
 	}
@@ -125,7 +126,7 @@ static __inline int __ddie_fuse_read(u32 blk)
 	__raw_writel(val, REG_EFUSE_BLOCK_INDEX);
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_RD_START,
 		     REG_EFUSE_MODE_CTRL);
-	__ddie_fuse_wait_status(BIT_READ_BUSY);
+	__ddie_fuse_wait_status_clean(BIT_READ_BUSY);
 	val = __raw_readl(REG_EFUSE_DATA_RD);
 	__ddie_fuse_global_close();
 	mutex_unlock(&ddie_fuse_lock);
@@ -147,6 +148,7 @@ static __inline int __adie_fuse_getdata(void)
 	while (BIT_AFUSE_RD_REQ & sci_adi_read(ANA_REG_GLB_AFUSE_CTRL)) {
 		if (time_after(jiffies, timeout)) {
 			WARN_ON(1);
+			break;
 		}
 		cpu_relax();
 	}
@@ -280,7 +282,7 @@ void sci_ddie_fuse_program(u32 blk, int data)
 	__raw_writel(data, REG_EFUSE_DATA_WR);
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_PG_START,
 		     REG_EFUSE_MODE_CTRL);
-	__ddie_fuse_wait_status(BIT_PGM_BUSY);
+	__ddie_fuse_wait_status_clean(BIT_PGM_BUSY);
 
 	if (efuse_auto_test_en)
 		__ddie_fuse_test_clear_blkerrflag(blk);
@@ -331,7 +333,7 @@ void sci_ddie_fuse_bist(u32 start_blk, u32 size)
 
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_BIST_START,
 		     REG_EFUSE_MODE_CTRL);
-	__ddie_fuse_wait_status(BIT_BIST_BUSY);
+	__ddie_fuse_wait_status_clean(BIT_BIST_BUSY);
 	if (__raw_readl(REG_EFUSE_STATUS) & BIT_BIST_FAIL)
 		pr_debug("sci_efuse_bist error\n");
 
