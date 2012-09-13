@@ -34,6 +34,12 @@ enum{
 	SPRD_DATA_ENDIAN_LIMIT
 };
 
+enum{
+	SPRD_DISPLAY_OVERLAY_ASYNC = 0,
+	SPRD_DISPLAY_OVERLAY_SYNC,
+	SPRD_DISPLAY_OVERLAY_LIMIT
+};
+
 typedef struct overlay_setting_rect {
 	uint16_t x; //start point - x
 	uint16_t y; //start point - y
@@ -54,6 +60,7 @@ typedef struct overlay_setting{
 typedef struct overlay_display_setting{
 	int layer_index;
 	overlay_setting_rect rect;
+	int display_mode;
 }overlay_display_setting;
 
 /*
