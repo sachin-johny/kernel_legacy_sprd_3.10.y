@@ -67,7 +67,7 @@
 *   /dev/mux14    14    12    Data
 *   /dev/mux15    15    13    Data
 */
-
+#if 0
 #define MUX_CMD_FILE_VOICE_CALL   "/dev/mux0"
 #define MUX_CMD_FILE_SMS_MO       "/dev/mux1"
 #define MUX_CMD_FILE_SMS_MT       "/dev/mux2"
@@ -89,7 +89,7 @@
 #define NUM_MUX_CMD_FILES 8
 #define NUM_MUX_DATA_FILES 8
 #define NUM_MUX_FILES ( NUM_MUX_CMD_FILES  +  NUM_MUX_DATA_FILES )
-
+#endif
 /* Special ioctl() upon a MUX device file for hanging up a call */
 #define TS0710MUX_IO_MSC_HANGUP 0x54F0
 

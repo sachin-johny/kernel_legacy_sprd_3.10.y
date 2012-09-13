@@ -154,11 +154,11 @@
 #define TS0710MUX_COUNT_MAX_IDX        5
 #define TS0710MUX_COUNT_IDX_NUM (TS0710MUX_COUNT_MAX_IDX + 1)
 
-static char mux_data[TS0710MUX_MAX_BUF_SIZE * 16];
+static char mux_data[TS0710MUX_MAX_BUF_SIZE * NR_MUXS];
 struct mux_ringbuffer rbuf;
 
 static __u8 tty2dlci[NR_MUXS] =
-    { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+    { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
 typedef struct {
 	__u8 cmdtty;
 	__u8 datatty;
@@ -181,6 +181,7 @@ static dlci_tty dlci2tty[] = {
 	{12, 12},		/* DLCI 13 */
 	{13, 13},		/* DLCI 14 */
 	{14, 14},		/* DLCI 15 */
+	{15, 15},		/* DLCI 16 */
 };
 
 typedef struct {
@@ -3190,7 +3191,8 @@ static int mux_receive_thread(void *data)
 
 	while (1) {
 
-		down_interruptible(&receive_sem);
+		if(down_interruptible(&receive_sem))
+			return -ERESTARTSYS;
 
 		if (mux_exiting == 1) {
 			mux_exiting = 2;
@@ -3571,7 +3573,7 @@ static int __init mux_init(void)
 
 	ts0710_init();
 
-	mux_ringbuffer_init(&rbuf, mux_data, TS0710MUX_MAX_BUF_SIZE * 10);
+	mux_ringbuffer_init(&rbuf, mux_data, TS0710MUX_MAX_BUF_SIZE * NR_MUXS);
 
 	for (j = 0; j < NR_MUXS; j++) {
 		mux_send_info_flags[j] = 0;
