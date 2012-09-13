@@ -3,16 +3,13 @@
 
 #include <linux/types.h>
 
-typedef void (*CMMB_POWER_FUNC)(void);
-typedef int  (*CMMB_INIT_FUNC)(void);
-
-
 struct mxd_cmmb_026x_platform_data {
-	CMMB_POWER_FUNC poweron;
-	CMMB_POWER_FUNC poweroff;
-	CMMB_INIT_FUNC  init;
+	void (*poweron)(void);
+	void (*poweroff)(void);
+	int  (*init)(void);
+	void (*set_spi_pin_input)(void);
+	void (*restore_spi_pin_cfg)(void);
 };
-
 
 #endif
 
