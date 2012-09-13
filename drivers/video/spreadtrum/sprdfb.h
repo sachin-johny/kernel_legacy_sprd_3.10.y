@@ -154,6 +154,12 @@ enum{
 	SPRD_OVERLAY_STATUS_MAX
 };
 
+enum{
+	SPRD_OVERLAY_DISPLAY_ASYNC = 0,
+	SPRD_OVERLAY_DISPLAY_SYNC,
+	SPRD_OVERLAY_DISPLAY_MAX
+};
+
 typedef struct overlay_rect {
 	uint16_t x;
 	uint16_t y;
@@ -174,6 +180,7 @@ typedef struct overlay_info{
 typedef struct overlay_display{
 	int layer_index;
 	overlay_rect rect;
+	int display_mode;
 }overlay_display;
 #endif
 
