@@ -374,11 +374,8 @@ struct platform_device sprd_pmem_adsp_device = {
 #endif
 
 #ifdef CONFIG_ION
-/*if you want to support multiple heaps of the same type,
-change the definition of id.
-*/
 static struct ion_platform_data ion_pdata = {
-	.nr = 1,
+	.nr = 2,
 	.heaps = {
 		{
 			.id	= ION_HEAP_TYPE_CARVEOUT,
@@ -386,6 +383,13 @@ static struct ion_platform_data ion_pdata = {
 			.name	= "ion_carveout_heap",
 			.base   = SPRD_ION_BASE,
 			.size   = SPRD_ION_SIZE,
+		},
+		{
+			.id	= ION_HEAP_TYPE_CARVEOUT + 1,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= "ion_carveout_heap_overlay",
+			.base   = SPRD_ION_OVERLAY_BASE,
+			.size   = SPRD_ION_OVERLAY_SIZE,
 		}
 	}
 };
