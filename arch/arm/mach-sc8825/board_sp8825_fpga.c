@@ -39,8 +39,8 @@ extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sc8825_init_irq(void);
 extern void __init sc8825_timer_init(void);
-extern void __init regulator_add_devices(void);
 extern void __init sc8825_clock_init(void);
+static void __init sc8825_regulator_init(void);
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_hwspinlock_device0,
@@ -137,6 +137,7 @@ static struct serial_data plat_data2 = {
 static struct pixcir_ts_platform_data pixcir_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
+	.vdd_name 			= "vddsim2",
 };
 
 static struct i2c_board_info i2c2_boardinfo[] = {
@@ -240,9 +241,18 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
+static void __init sc8825_regulator_init(void)
+{
+	static struct platform_device sc8825_regulator_device = {
+		.name 	= "sprd-regulator",
+		.id	= -1,
+	};
+	platform_device_register(&sc8825_regulator_device);
+}
+
 static void __init sc8825_init_machine(void)
 {
-	regulator_add_devices();
+	sc8825_regulator_init();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));

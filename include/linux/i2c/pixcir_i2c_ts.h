@@ -62,6 +62,7 @@ struct i2c_dev{
 struct pixcir_ts_platform_data {
 	int irq_gpio_number;
 	int reset_gpio_number;
+	const char *vdd_name;
 };
 
 struct point_node_t{

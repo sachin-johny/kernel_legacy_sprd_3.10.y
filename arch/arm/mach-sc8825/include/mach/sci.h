@@ -62,3 +62,6 @@ int sci_glb_clr(u32 reg, u32 bit);
 
 #define sci_glb_raw_read(reg)           sci_glb_read(reg, -1UL)
 #define sci_glb_raw_write(reg, val)     sci_glb_write(reg, val, -1UL)
+
+#define sci_assert(condition)	do { WARN_ON(!(condition)); }while(0)
+

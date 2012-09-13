@@ -366,5 +366,12 @@ config REGULATOR_WM8994
 	  This driver provides support for the voltage regulators on the
 	  WM8994 CODEC.
 
+config REGULATOR_SPRD
+	tristate "Spreadtrum Power Regulators"
+	depends on ARCH_SC8825
+	default y if ARCH_SC8825
+	help
+	  This driver supports spreadtrum voltage regulator chips.
+
 endif
 

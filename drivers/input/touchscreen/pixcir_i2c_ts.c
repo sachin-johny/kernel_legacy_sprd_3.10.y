@@ -662,7 +662,11 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 	pxicir_ts_pininit(pdata->irq_gpio_number,pdata->reset_gpio_number);
 
 	//get regulator
+#if defined(CONFIG_ARCH_SC8825)
+	tsdata->reg_vdd = regulator_get(&client->dev, pdata->vdd_name);
+#else
 	tsdata->reg_vdd = regulator_get(&client->dev, REGU_NAME_TP);
+#endif
 
 	//enable VDD
 	pixcir_ts_pwron(tsdata->reg_vdd);
