@@ -407,7 +407,7 @@ __do_cal:
 }
 
 #if VBC_NOSIE_CURRENT_SOUND_HARDWARE_BUG_FIX
-extern inline void vbc_dma_start(struct snd_pcm_substream *substream);
+extern void vbc_dma_start(struct snd_pcm_substream *substream);
 #endif
 int sc88xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
