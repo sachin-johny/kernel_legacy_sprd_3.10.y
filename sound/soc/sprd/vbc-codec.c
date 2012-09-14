@@ -808,7 +808,7 @@ static void vbc_dma_control(int chs, bool on)
 }
 
 extern u32 sc88xx_get_dma_channel(struct snd_pcm_substream *substream);
-inline void vbc_dma_start(struct snd_pcm_substream *substream)
+void vbc_dma_start(struct snd_pcm_substream *substream)
 {
 	vbc_dma_control(sc88xx_get_dma_channel(substream), 1);
 }
