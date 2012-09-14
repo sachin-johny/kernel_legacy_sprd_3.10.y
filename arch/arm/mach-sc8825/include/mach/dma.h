@@ -12,6 +12,7 @@
  */
 
 #ifndef __ASM_ARCH_SPRD_DMA_H
+#define __ASM_ARCH_SPRD_DMA_H
 
 #include <linux/interrupt.h>
 #include <asm/io.h>

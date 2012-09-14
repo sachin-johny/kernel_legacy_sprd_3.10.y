@@ -1,0 +1,4 @@
+config SND_SPRD_SOC_I2S
+	tristate "I2S"
+	help
+	 use this for i2s likely sc8810

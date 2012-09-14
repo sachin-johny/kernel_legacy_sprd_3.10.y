@@ -323,6 +323,28 @@ struct platform_device sprd_audio_vbc_device = {
 	.id             =  -1,
 };
 
+#ifdef CONFIG_SND_SPRD_SOC_SC881X
+struct platform_device sprd_audio_platform_vbc_pcm_device = {
+	.name           = "sprd-vbc-pcm-audio",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_cpu_dai_vaudio_device = {
+	.name           = "vaudio",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_cpu_dai_vbc_device = {
+	.name           = "vbc",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_codec_dolphin_device = {
+	.name           = "dolphin",
+	.id             =  -1,
+};
+#endif
+
 static struct resource sprd_battery_resources[] = {
         [0] = {
                 .start = EIC_CHARGER_DETECT,

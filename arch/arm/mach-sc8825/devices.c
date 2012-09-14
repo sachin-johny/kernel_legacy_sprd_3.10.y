@@ -609,18 +609,23 @@ struct platform_device sprd_keypad_device = {
 	.resource = sci_keypad_resources,
 };
 
-struct platform_device sprd_audio_soc_device = {
-	.name           = "sc88xx-pcm-audio",
+struct platform_device sprd_audio_platform_vbc_pcm_device = {
+	.name           = "sprd-vbc-pcm-audio",
 	.id             =  -1,
 };
 
-struct platform_device sprd_audio_soc_vbc_device = {
-	.name           = "sc88xx-vbc",
+struct platform_device sprd_audio_cpu_dai_vaudio_device = {
+	.name           = "vaudio",
 	.id             =  -1,
 };
 
-struct platform_device sprd_audio_vbc_device = {
-	.name           = "vbc-codec",
+struct platform_device sprd_audio_cpu_dai_vbc_device = {
+	.name           = "vbc",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_codec_sprd_codec_device = {
+	.name           = "sprd-codec",
 	.id             =  -1,
 };
 

@@ -12,6 +12,7 @@
  */
 
 #ifndef __ASM_ARCH_SPRD_DMA_H
+#define __ASM_ARCH_SPRD_DMA_H
 
 #include <asm/io.h>
 #include <linux/list.h>

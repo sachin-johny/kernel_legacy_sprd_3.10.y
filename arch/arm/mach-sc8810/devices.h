@@ -33,6 +33,12 @@ extern struct platform_device sprd_keypad_device;
 extern struct platform_device sprd_audio_soc_device;
 extern struct platform_device sprd_audio_soc_vbc_device;
 extern struct platform_device sprd_audio_vbc_device;
+#ifdef CONFIG_SND_SPRD_SOC_SC881X
+extern struct platform_device sprd_audio_platform_vbc_pcm_device;
+extern struct platform_device sprd_audio_cpu_dai_vaudio_device;
+extern struct platform_device sprd_audio_cpu_dai_vbc_device;
+extern struct platform_device sprd_audio_codec_dolphin_device;
+#endif
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 #ifdef CONFIG_ANDROID_PMEM
