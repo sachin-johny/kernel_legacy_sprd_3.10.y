@@ -91,6 +91,8 @@
 #define GEN0_I2C3_EN		BIT(31)
 
 /* GR_PCTL */
+#define IIS0_SEL		BIT(31)
+#define IIS1_SEL		BIT(30)
 #define MCU_MPLL_EN		BIT(1)
 
 /* GR_GEN1 */
@@ -112,6 +114,7 @@
 #define SWRST_SPI0_RST		BIT(14)
 #define SWRST_SPI1_RST		BIT(15)
 #define SWRST_IIS_RST		BIT(16)
+#define SWRST_IIS1_RST		BIT(17)
 #define SWRST_SYST_RST		BIT(19)
 #define SWRST_PINREG_RST	BIT(20)
 #define SWRST_GPIO_RST		BIT(21)

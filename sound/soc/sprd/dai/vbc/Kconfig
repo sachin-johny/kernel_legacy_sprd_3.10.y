@@ -1,0 +1,9 @@
+config SND_SPRD_SOC_VBC
+	tristate # "VBC"
+	help
+	 use this for vbc likely sc8810
+
+config SPRD_VBC_INTERLEAVED
+	bool "VBC Support Interleaved"
+	help
+	 say Y then the VBC will support interleaved use the DMA.

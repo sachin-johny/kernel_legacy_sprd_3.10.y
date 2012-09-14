@@ -32,6 +32,7 @@
 #define REG_GLB_GEN2                    SCI_ADDR(REGS_GLB_BASE, 0x002c)
 #define REG_GLB_ARMBOOT                 SCI_ADDR(REGS_GLB_BASE, 0x0030)
 #define REG_GLB_D_PLL_CTL               SCI_ADDR(REGS_GLB_BASE, 0x0040)
+#define REG_GLB_BUSCLK                  SCI_ADDR(REGS_GLB_BASE, 0x0044)
 #define REG_GLB_SOFT_RST                SCI_ADDR(REGS_GLB_BASE, 0x004c)
 #define REG_GLB_G_PLL_CTL               SCI_ADDR(REGS_GLB_BASE, 0x0050)
 #define REG_GLB_CLKDLY                  SCI_ADDR(REGS_GLB_BASE, 0x005c)
@@ -163,6 +164,18 @@
 #define SHFT_DPLL_N                     ( 0 )
 #define MASK_DPLL_N                     ( BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10) )
 
+/* bits definitions for register REG_GLB_BUSCLK */
+#define BIT_ARM_VB_SEL                  ( BIT(28) )
+#define BIT_ARM_VBC_ACC_CP              ( BIT(27) )
+#define BIT_ARM_VBC_ACC                 ( BIT(26) )
+
+#define BIT_ARM_VBC_ANAON               ( BIT(6) )
+#define BIT_ARM_VBC_AD1ON               ( BIT(5) )
+#define BIT_ARM_VBC_AD0ON               ( BIT(4) )
+#define BIT_ARM_VBC_DA1ON               ( BIT(3) )
+#define BIT_ARM_VBC_DA0ON               ( BIT(2) )
+#define BIT_VBC_ARM_RST               	( BIT(1) )
+
 /* bits definitions for register REG_GLB_SOFT_RST */
 #define BIT_SPI2_RST                    ( BIT(31) )
 #define BIT_UART3_RST                   ( BIT(30) )
@@ -176,6 +189,7 @@
 #define BIT_GPIO_RST                    ( BIT(21) )
 #define BIT_PINREG_RST                  ( BIT(20) )
 #define BIT_SYST0_RST                   ( BIT(19) )
+#define BIT_VBC_RST                     ( BIT(18) )
 #define BIT_IIS1_RST                    ( BIT(17) )
 #define BIT_IIS0_RST                    ( BIT(16) )
 #define BIT_SPI1_RST                    ( BIT(15) )
@@ -184,7 +198,9 @@
 #define BIT_UART1_RST                   ( BIT(12) )
 #define BIT_UART0_RST                   ( BIT(11) )
 #define BIT_EPT_RST                     ( BIT(10) )
+#define BIT_AUD_IF_RST                  ( BIT(9) )
 #define BIT_TMR_RST                     ( BIT(8) )
+#define BIT_AUD_TOP_RST                 ( BIT(7) )
 #define BIT_SIM1_RST                    ( BIT(6) )
 #define BIT_SIM0_RST                    ( BIT(5) )
 #define BIT_I2C3_RST                    ( BIT(4) )

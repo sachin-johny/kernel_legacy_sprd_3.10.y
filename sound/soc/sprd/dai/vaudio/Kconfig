@@ -1,0 +1,4 @@
+config SND_SPRD_SOC_VAUDIO
+	tristate "Vaudio"
+	help
+	 use this for DSP
