@@ -39,7 +39,12 @@
  *display BogoMIPS instead of the real cpu frequency if CONFIG_CPU_FREQ
  *is not be defined
  */
-int cpufreq_bypass = 1;
+static int cpufreq_bypass = 1;
+
+/*
+ *  sc8810+ indicator
+ */
+static int sc8810_plus = 0;
 
 struct sprd_dvfs_table {
 	unsigned long  clk_mcu_mhz;
@@ -47,9 +52,15 @@ struct sprd_dvfs_table {
 };
 
 static struct sprd_dvfs_table sc8810g_dvfs_table[] = {
-	[0] = { 1000000 , 1300000 }, /* 1000,000KHz,  1300mv */
-	[1] = { 600000 , 1200000 },  /* 600,000KHz,  1200mv */
-	[2] = { 400000 , 1200000 },  /* 400,000KHz,  1200mv */
+	[0] = { 1000000 , 1200000 }, /* 1000,000KHz,  1200mv */
+	[1] = { 600000 , 1100000 },  /* 600,000KHz,  1100mv */
+	[2] = { 400000 , 1100000 },  /* 400,000KHz,  1100mv */
+};
+
+static struct sprd_dvfs_table sc8810g_plus_dvfs_table[] = {
+	[0] = { 1200000 , 1300000 }, /* 1200,000KHz,  1300mv */
+	[1] = { 1000000 , 1200000 }, /* 1000,000KHz,  1200mv */
+	[2] = { 600000 , 1100000 },  /* 600,000KHz,  1100mv */
 };
 
 static struct cpufreq_frequency_table sc8810g_freq_table[FREQ_TABLE_ENTRY];
@@ -227,9 +238,24 @@ static int sprd_cpufreq_set_rate(struct cpufreq_policy *policy, int index){
 
 }
 
+static int sc8810_is_plus(int cpu){
+	int cpu_clk = 0;
+	int sc8810_is_plus = 0;
+
+	cpu_clk = cpu_clk_get_rate(cpu);
+	/*
+	 * sc8810+ runs at 1.2GHz
+	 */
+	if(cpu_clk == 1200000000)
+		sc8810_is_plus =  1;
+
+	return sc8810_is_plus;
+}
+
 static int sc8810_cpufreq_table_init( void ){
 	int cnt;
 	int cpu = 0;
+
 	scalable_sc8810[cpu].cpu = cpu;
 	scalable_sc8810[cpu].clk = clk_get(NULL, "mpll_ck");
 	scalable_sc8810[cpu].vdd = regulator_get(NULL, "VDDARM");
@@ -241,18 +267,25 @@ static int sc8810_cpufreq_table_init( void ){
 	}
 
 	if (sc8810g_freq_table == NULL) {
-		printk(" sc8810g_freq_table == NULL, cpufreq: No frequency information for this CPU\n");
+		printk(" cpufreq: No frequency information for this CPU\n");
 		return -1;
 	}
 
+	sc8810_plus = sc8810_is_plus(cpu);
 	for (cnt = 0; cnt < FREQ_TABLE_ENTRY-1; cnt++) {
 		sc8810g_freq_table[cnt].index = cnt;
-		sc8810g_freq_table[cnt].frequency = sc8810g_dvfs_table[cnt].clk_mcu_mhz;
+		if(!sc8810_plus)
+			sc8810g_freq_table[cnt].frequency = sc8810g_dvfs_table[cnt].clk_mcu_mhz;
+		else
+			sc8810g_freq_table[cnt].frequency = sc8810g_plus_dvfs_table[cnt].clk_mcu_mhz;
 	}
 	sc8810g_freq_table[cnt].index = cnt;
 	sc8810g_freq_table[cnt].frequency = CPUFREQ_TABLE_END;
 
 	scalable_sc8810[cpu].freq_tbl = sc8810g_freq_table;
+	if(sc8810_plus)
+		scalable_sc8810[cpu].dvfs_tbl = sc8810g_plus_dvfs_table;
+
 
 	for (cnt = 0; cnt < FREQ_TABLE_ENTRY; cnt++) {
 		pr_debug("%s, scalable_sc8810[cpu].freq_tbl[%d].index:%d\n", __func__, cnt,
@@ -260,7 +293,6 @@ static int sc8810_cpufreq_table_init( void ){
 		pr_debug("%s, scalable_sc8810[cpu].freq_tbl[%d].frequency:%d\n", __func__, cnt,
 				scalable_sc8810[cpu].freq_tbl[cnt].frequency);
 	}
-
 	return 0;
 }
 
