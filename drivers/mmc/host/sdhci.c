@@ -2154,8 +2154,10 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 }
 
 static const struct mmc_host_ops sdhci_ops = {
+#ifndef CONFIG_MACH_SP8825_FPGA
 	.enable				= sdhci_enable,
 	.disable			= sdhci_disable,
+#endif
 	.request	= sdhci_request,
 	.set_ios	= sdhci_set_ios,
 	.get_ro		= sdhci_get_ro,
@@ -2164,7 +2166,9 @@ static const struct mmc_host_ops sdhci_ops = {
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.execute_tuning			= sdhci_execute_tuning,
 	.enable_preset_value		= sdhci_enable_preset_value,
+#ifndef CONFIG_MACH_SP8825_FPGA
 	.hw_reset 			= sdhci_hw_reset,
+#endif
 };
 
 /*****************************************************************************\
