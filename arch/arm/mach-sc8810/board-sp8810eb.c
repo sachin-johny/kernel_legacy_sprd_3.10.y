@@ -37,6 +37,7 @@
 #include <mach/regulator.h>
 #include <mach/gpio.h>
 #include <mach/serial_sprd.h>
+#include <mach/pinmap.h>
 #include <linux/spi/mxd_cmmb_026x.h>
 #include <gps/gpsctl.h>
 
@@ -321,6 +322,91 @@ static _audio_pa_control audio_pa_control = {
 	},
 };
 
+#define SPI_PIN_FUNC_MASK  (0x3<<4)
+#define SPI_PIN_FUNC_DEF   (0x0<<4)
+#define SPI_PIN_FUNC_GPIO  (0x3<<4)
+
+struct spi_pin_desc {
+	const char   *name;
+	unsigned int pin_func;
+	unsigned int reg;
+	unsigned int gpio;
+};
+
+static struct spi_pin_desc spi_pin_group[] = {
+	{"SPI_DI",  SPI_PIN_FUNC_DEF,  REG_PIN_SPI_DI   + CTL_PIN_BASE,  29},
+	{"SPI_CLK", SPI_PIN_FUNC_DEF,  REG_PIN_SPI_CLK  + CTL_PIN_BASE,  30},
+	{"SPI_DO",  SPI_PIN_FUNC_DEF,  REG_PIN_SPI_DO   + CTL_PIN_BASE,  31},
+	{"SPI_CS0", SPI_PIN_FUNC_GPIO, REG_PIN_SPI_CSN0 + CTL_PIN_BASE,  32}
+};
+
+static void sprd_restore_spi_pin_cfg(void)
+{
+	unsigned int reg;
+	unsigned int  gpio;
+	unsigned int  pin_func;
+	unsigned int value;
+	unsigned long flags;
+	int i = 0;
+	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
+
+	for (; i < regs_count; i++) {
+	    pin_func = spi_pin_group[i].pin_func;
+	    gpio = spi_pin_group[i].gpio;
+	    if (pin_func == SPI_PIN_FUNC_DEF) {
+		 reg = spi_pin_group[i].reg;
+		 /* free the gpios that have request */
+		 gpio_free(gpio);
+		 local_irq_save(flags);
+		 /* config pin default spi function */
+		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_DEF);
+		 __raw_writel(value, reg);
+		 local_irq_restore(flags);
+	    }
+	    else {
+		 /* CS should config output */
+		 gpio_direction_output(gpio, 1);
+	    }
+	}
+
+}
+
+static void sprd_set_spi_pin_input(void)
+{
+	unsigned int reg;
+	unsigned int value;
+	unsigned int  gpio;
+	unsigned int  pin_func;
+	const char    *name;
+	unsigned long flags;
+	int i = 0;
+
+	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
+
+	for (; i < regs_count; i++) {
+	    pin_func = spi_pin_group[i].pin_func;
+	    gpio = spi_pin_group[i].gpio;
+	    name = spi_pin_group[i].name;
+
+	    /* config pin GPIO function */
+	    if (pin_func == SPI_PIN_FUNC_DEF) {
+		 reg = spi_pin_group[i].reg;
+
+		 local_irq_save(flags);
+		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_GPIO);
+		 __raw_writel(value, reg);
+		 local_irq_restore(flags);
+		 if (gpio_request(gpio, name)) {
+		     printk("smsspi: request gpio %d failed, pin %s\n", gpio, name);
+		 }
+
+	    }
+
+	    gpio_direction_input(gpio);
+	}
+
+}
+
 static void mxd_cmmb_poweron(void)
 {
         regulator_set_voltage(cmmb_regulator_1v8, 1700000, 1800000);
@@ -361,6 +447,8 @@ static struct mxd_cmmb_026x_platform_data mxd_plat_data = {
 	.poweron  = mxd_cmmb_poweron,
 	.poweroff = mxd_cmmb_poweroff,
 	.init     = mxd_cmmb_init,
+	.set_spi_pin_input   = sprd_set_spi_pin_input,
+	.restore_spi_pin_cfg = sprd_restore_spi_pin_cfg,
 };
 
 static int spi_cs_gpio_map[][2] = {

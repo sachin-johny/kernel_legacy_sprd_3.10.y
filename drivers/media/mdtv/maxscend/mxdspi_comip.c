@@ -36,6 +36,15 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/spi/mxd_cmmb_026x.h>
+#include <linux/spi/spi.h>
+#include <linux/gpio.h>
+//#include "smsdbg_prn.h"
+#include <linux/slab.h>
+#include <linux/regulator/consumer.h>
+#include <mach/hardware.h>
+#include <mach/pinmap.h>
+#include <mach/regulator.h>
+
 
 /*
  * This supports acccess to SPI devices using normal userspace I/O calls.
@@ -126,6 +135,7 @@ static int store_irq;
 
 static   struct mxd_cmmb_026x_platform_data  *pcmmbplat =NULL; 
 
+
 static  void mxd_chip_poweron()
 {
 	if(NULL==pcmmbplat)
@@ -160,6 +170,10 @@ int comip_mxd0251_power(int onoff)
     pr_debug("mxd0251 pw %d\n", onoff);
     if(onoff)
     {
+	if( (pcmmbplat!=NULL) && (pcmmbplat->restore_spi_pin_cfg!=NULL) ){
+		pcmmbplat->restore_spi_pin_cfg();
+	}
+
         mxd_chip_poweron();
         msleep(20);
 		//reset chip.
@@ -186,7 +200,10 @@ int comip_mxd0251_power(int onoff)
 #ifdef __MXD_SPI_INTR_SUPPORT__  //for intr enable.
 		gpio_direction_output(MXD_INT_GPIO,0);
 #endif
-		//sprd_set_spi_pin_input();
+		if( (pcmmbplat!=NULL) && (pcmmbplat->set_spi_pin_input!=NULL) ){
+			pcmmbplat->set_spi_pin_input();
+		}
+
 		msleep(10);
     }
 
@@ -916,7 +933,10 @@ static int mxdspidev_probe(struct spi_device *spi)
     if(!pdata)
         return -EINVAL;
 
-    //sprd_set_spi_pin_input();
+	if( (pcmmbplat!=NULL) && (pcmmbplat->set_spi_pin_input!=NULL) ){
+		pcmmbplat->set_spi_pin_input();
+	}
+
     ret = mxdspi_gpio_init();
 	if (ret)
 	{
