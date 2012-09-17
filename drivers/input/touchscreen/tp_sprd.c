@@ -162,6 +162,8 @@ int f= -8445728;
 int g= 65536;
 */
 
+static unsigned short coef_para[4] = {0x86, 0xffd4, 0x367, 0x144};
+
 typedef union
 {
     struct
@@ -591,6 +593,31 @@ static ssize_t cal_coef_sysfs_store(struct device *dev,
 static DEVICE_ATTR(cal_coef, 0666, cal_coef_sysfs_show, cal_coef_sysfs_store); 
 
 
+
+static int __init get_calibration_para(char *str)
+{
+	int num;
+	char *endp,*startp;
+
+
+
+	printk("get_calibration_para str = %s \n",str);
+	startp = endp = (char*)str;
+	num=0;
+	while(*startp && num < 4){
+		
+		coef_para[num++] =simple_strtol(startp, &endp, 16);		
+		if(endp){
+           	   endp++;	
+		   startp=endp;
+        	}		
+	}
+	
+	return 1;
+}
+
+__setup("cal_coef=", get_calibration_para);
+
 /*
  * The functions for inserting/removing us as a module.
  */
@@ -669,6 +696,23 @@ static int sprd_tp_probe(struct platform_device *pdev)
  	if(device_create_file(&tp->input->dev, &dev_attr_cal_coef)) {
  		printk("create touch panel sysfs file cal_coef failed!\n");
  	}
+
+
+	
+
+	ANA_REG_AND (TPC_CALC_CTRL, ~BIT_0);  // calibration mode 
+
+	ANA_REG_SET(TPC_CALC_X_COEF_A, coef_para[0]);
+    ANA_REG_SET(TPC_CALC_X_COEF_B, coef_para[1]);
+   	ANA_REG_SET(TPC_CALC_Y_COEF_A, coef_para[2]);
+   	ANA_REG_SET(TPC_CALC_Y_COEF_B, coef_para[3]);
+
+	cal_coef.x_coef_a = coef_para[0];
+    cal_coef.x_coef_b = coef_para[1];
+    cal_coef.y_coef_a = coef_para[2];
+    cal_coef.y_coef_b = coef_para[3];
+
+	ANA_REG_OR (TPC_CALC_CTRL, BIT_0);   // normal mode 
 
       ANA_REG_OR(TPC_INT_EN,(TPC_UP_IRQ_MSK_BIT |TPC_DOWN_IRQ_MSK_BIT));	
 
