@@ -49,6 +49,7 @@
 #define WKAEUP_SRC_RX0      BIT_0
 #define WAKEUP_SRC_PB		BIT_3
 #define WAKEUP_SRC_CHG		BIT_2
+#define WAKEUP_SRC_HEADSET      BIT_5
 #define SPRD_EICINT_BASE	(SPRD_EIC_BASE+0x80)
 
 extern void sc8800g_cpu_standby(void);
@@ -143,7 +144,8 @@ int sc8800g_set_wakeup_src(void)
 	wakeup_src = (WKAEUP_SRC_KEAPAD |
 				WKAEUP_SRC_RX0 |
 				WAKEUP_SRC_CHG |
-				 WAKEUP_SRC_PB);
+				 WAKEUP_SRC_PB |
+                                 WAKEUP_SRC_HEADSET);
 	if (WKAEUP_SRC_KEAPAD & wakeup_src) {
 		val = __raw_readl(INT_IRQ_EN);
 		irq_enable = val;
@@ -175,7 +177,12 @@ int sc8800g_set_wakeup_src(void)
 		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
 		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_CHG);
 	}
-        
+ 
+        if (WAKEUP_SRC_HEADSET & wakeup_src) {
+		ana_gpio_irq_enable = ANA_REG_GET(ANA_GPIO_IE);
+		ANA_REG_OR(ANA_GPIO_IE, WAKEUP_SRC_HEADSET);
+	}
+       
 	printk("wake_source_set\n");
 	wake_source_set( );
 #endif
