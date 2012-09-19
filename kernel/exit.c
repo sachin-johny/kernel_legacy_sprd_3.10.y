@@ -641,13 +641,11 @@ assign_new_owner:
  * Turn us into a lazy TLB process if we
  * aren't already..
  */
-extern struct task_struct *lowmem_killer_selected;
 static void exit_mm(struct task_struct * tsk)
 {
 	struct mm_struct *mm = tsk->mm;
 	struct core_state *core_state;
 
-        int bypass_coredump = 0;
 	mm_release(tsk, mm);
 	if (!mm)
 		return;
@@ -658,41 +656,36 @@ static void exit_mm(struct task_struct * tsk)
 	 * will increment ->nr_threads for each thread in the
 	 * group with ->mm != NULL.
 	 */
- 	if(lowmem_killer_selected && lowmem_killer_selected == tsk)
- 		bypass_coredump = 1;
- 	if(!bypass_coredump) {
-		down_read(&mm->mmap_sem);
-		core_state = mm->core_state;
-		if (core_state) {
-			struct core_thread self;
-			up_read(&mm->mmap_sem);
-		
-			self.task = tsk;
-			self.next = xchg(&core_state->dumper.next, &self);
-			/*
-		        * Implies mb(), the result of xchg() must be visible
-		        * to core_state->dumper.
-			 */
-			if (atomic_dec_and_test(&core_state->nr_threads))
-				complete(&core_state->startup);
-		
-			for (;;) {
-				set_task_state(tsk, TASK_UNINTERRUPTIBLE);
-				if (!self.task) /* see coredump_finish() */
-					break;
-					schedule();
-				}
-			__set_task_state(tsk, TASK_RUNNING);
-			down_read(&mm->mmap_sem);
+	down_read(&mm->mmap_sem);
+	core_state = mm->core_state;
+	if (core_state) {
+		struct core_thread self;
+		up_read(&mm->mmap_sem);
+
+		self.task = tsk;
+		self.next = xchg(&core_state->dumper.next, &self);
+		/*
+	         * Implies mb(), the result of xchg() must be visible
+	         * to core_state->dumper.
+		 */
+		if (atomic_dec_and_test(&core_state->nr_threads))
+			complete(&core_state->startup);
+
+		for (;;) {
+			set_task_state(tsk, TASK_UNINTERRUPTIBLE);
+			if (!self.task) /* see coredump_finish() */
+				break;
+			schedule();
 		}
+		__set_task_state(tsk, TASK_RUNNING);
+		down_read(&mm->mmap_sem);
 	}
 	atomic_inc(&mm->mm_count);
 	BUG_ON(mm != tsk->active_mm);
 	/* more a memory barrier than a real lock */
 	task_lock(tsk);
 	tsk->mm = NULL;
-	if(!bypass_coredump)
-	   up_read(&mm->mmap_sem);
+        up_read(&mm->mmap_sem);
 	enter_lazy_tlb(mm, current);
 	/* We don't want this task to be frozen prematurely */
 	clear_freeze_flag(tsk);

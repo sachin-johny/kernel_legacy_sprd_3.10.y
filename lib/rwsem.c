@@ -157,7 +157,7 @@ rwsem_down_failed_common(struct rw_semaphore *sem,
 	set_task_state(tsk, TASK_UNINTERRUPTIBLE);
 
 	/* set up my own style of waitqueue */
-	spin_lock_irq(&sem->wait_lock);
+	raw_spin_lock_irq(&sem->wait_lock);
 	waiter->task = tsk;
 	get_task_struct(tsk);
 
@@ -221,7 +221,7 @@ asmregparm struct rw_semaphore *rwsem_wake(struct rw_semaphore *sem)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&sem->wait_lock, flags);
+	raw_spin_lock_irqsave(&sem->wait_lock, flags);
 
 	/* do nothing if list empty */
 	if (!list_empty(&sem->wait_list))
@@ -241,7 +241,7 @@ asmregparm struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&sem->wait_lock, flags);
+	raw_spin_lock_irqsave(&sem->wait_lock, flags);
 
 	/* do nothing if list empty */
 	if (!list_empty(&sem->wait_list))
