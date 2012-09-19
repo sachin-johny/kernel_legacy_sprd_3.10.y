@@ -100,6 +100,7 @@ obj-$(CONFIG_SOC_CAMERA_TW9910)		+= tw9910.o
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_dcam/
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_scale/
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_rotation/
+obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_sensor/
 # And now the v4l2 drivers:
 
 obj-$(CONFIG_VIDEO_BT848) += bt8xx/

@@ -2,7 +2,6 @@
 
 ifeq ($(CONFIG_ARCH_SC8810),y)
 sprd_dcam-objs := common/sensor_drv.o common/sensor_cfg.o common/dc_cfg.o common/dc_product_cfg.o common/isp_control.o sc8810/dcam_service_sc8810.o sc8810/dcam_drv_sc8810.o sc8810/dcam_v4l2.o
-endif
 # sensor
 obj-$(CONFIG_DCAM_SENSOR_OV2640) += sensor_ov2640.o
 obj-$(CONFIG_DCAM_SENSOR_OV2659) += sensor_ov2659.o
@@ -27,6 +26,10 @@ obj-$(CONFIG_DCAM_SENSOR_SR200PC10) += sensor_sr200pc10.o
 obj-$(CONFIG_DCAM_SENSOR_S5KCCGX) += sensor_s5k5ccgx.o
 # ATV
 obj-$(CONFIG_NMI601_ATV) += sensor_nmi601.o
-ifeq ($(CONFIG_ARCH_SC8810),y)
-obj-y += sprd_dcam.o
 endif
+
+ifeq ($(CONFIG_ARCH_SC8825),y)
+sprd_dcam-objs := tiger/dcam_drv_tiger.o tiger/gen_scale_coef.o tiger/sin_cos.o tiger/dcam_v4l2.o
+endif
+
+obj-y += sprd_dcam.o
