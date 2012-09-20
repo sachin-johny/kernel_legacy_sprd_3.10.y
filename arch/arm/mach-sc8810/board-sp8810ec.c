@@ -227,8 +227,7 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
 	},
-	{ I2C_BOARD_INFO(AL3006_PLS_DEVICE,   AL3006_PLS_ADDRESS),
-	  .platform_data = &al3006_pls_info,
+	{ I2C_BOARD_INFO("ewtsa",  0x68),
 	},
 };
 
