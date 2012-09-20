@@ -1673,24 +1673,18 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
 		s_sensor_init = SENSOR_TRUE;
 
 		if (5 != Sensor_GetCurId())
-			this_client->addr =
-			    (this_client->
-			     addr & (~0xFF)) |
-			    (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
-		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n", sensor_id,
-		       this_client->addr);
+			this_client->addr =(this_client->addr & (~0xFF)) |(s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
+		printk("_sensor_com_init: sensor_id :%d,addr=0x%x \n", sensor_id, this_client->addr);
 		ret_val = SENSOR_SUCCESS;
 		if (SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT)) {
-			SENSOR_PRINT_ERR("Sensor set init mode error!\n");
+			SENSOR_PRINT_ERR("Sensor: _sensor_com_init set init mode error!\n");
 			ret_val = SENSOR_FAIL;
 		}
 		s_sensor_init = SENSOR_TRUE;
 		//SENSOR_PRINT("SENSOR: Sensor_Init  Success \n");
 	}
 	else {
-		
-		SENSOR_PRINT_ERR("Sensor identify fail,sensor_id = %d",
-				 sensor_id);
+		SENSOR_PRINT_ERR("_sensor_com_init  fail,sensor_id = %d", sensor_id);
 	}
 
 	return ret_val;
@@ -1764,7 +1758,7 @@ ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 	}
 
 	if (s_sensor_mode[Sensor_GetCurId()] == mode) {
-		SENSOR_PRINT("SENSOR: The sensor mode as before");
+		SENSOR_PRINT("SENSOR: The sensor mode as before \n");
 		return SENSOR_SUCCESS;
 	}
 
@@ -1779,13 +1773,15 @@ ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 		    s_sensor_exp_info.sensor_mode_info[mode].image_format;
 		Sensor_SendRegTabToSensor
 		    (&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
-		s_sensor_mode[Sensor_GetCurId()] = mode;
 	} else {
 		if(set_reg_tab_func)
 			set_reg_tab_func(0);
 		SENSOR_PRINT
-		    ("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
+		    ("SENSOR: Sensor_SetResolution -> No this resolution information !!! \n");
 	}
+
+	s_sensor_mode[Sensor_GetCurId()] = mode;
+
 	return SENSOR_SUCCESS;
 }
 
@@ -1949,6 +1945,26 @@ uint32_t Sensor_SetSensorType(SENSOR_TYPE_E sensor_type)
 
 ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode)
 {
+
+#if 1
+	uint32_t ret_val = SENSOR_FAIL;
+	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr = s_sensor_register_info_ptr;
+	struct timeval time1, time2;
+
+	do_gettimeofday(&time1);
+
+
+	printk("Sensor_SetTiming  start: sensor_id=%d,  mode=%d \n", Sensor_GetCurId(), mode);
+	ret_val = _sensor_com_init(Sensor_GetCurId(), sensor_register_info_ptr);
+	Sensor_SetMode(mode);
+
+	do_gettimeofday(&time2);
+
+	printk("Sensor_SetTiming  end, ret = %d, time=%d ms \n", ret_val,
+		(time2.tv_sec-time1.tv_sec)*1000 + (time2.tv_usec-time1.tv_usec)/1000);
+
+	return ret_val;
+#else
 	uint32_t cur_id = s_sensor_register_info_ptr->cur_id;
 
 	printk("SENSOR: Sensor_SetTiming -> mode = %d,sensor_id=%d.\n", mode,
@@ -1965,7 +1981,9 @@ ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode)
 		SENSOR_PRINT
 		    ("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
 	}
+
 	return SENSOR_SUCCESS;
+#endif
 }
 
 int Sensor_CheckTiming(SENSOR_MODE_E mode)
