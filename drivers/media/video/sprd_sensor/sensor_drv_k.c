@@ -205,11 +205,12 @@ LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 {
 	SENSOR_PRINT("SENSOR: _Sensor_K_PowerDown -> main: power_down %d\n",
 		     power_level);
+/*
 	SENSOR_PRINT("SENSOR: _Sensor_K_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n",
 	     _pard(PIN_CTL_CCIRPD1));
 	SENSOR_PRINT("SENSOR: _Sensor_K_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n",
 	     _pard(PIN_CTL_CCIRPD0));
-
+*/
 	switch (Sensor_K_GetCurId()) {
 	case SENSOR_MAIN:
 		{
@@ -1164,6 +1165,7 @@ int __init sensor_k_init(void)
 		return SENSOR_K_FAIL;
 	}
 	init_MUTEX(&g_sem_sensor);
+	/*
 	reg = __raw_readl((SPRD_AHB_BASE+0x200));
 	reg |= (3 << 1);
 	__raw_writel(reg, (SPRD_AHB_BASE+0x200));
@@ -1171,7 +1173,7 @@ int __init sensor_k_init(void)
 	reg = __raw_readl((SPRD_DCAM_BASE+0x144));
 	reg |= (15 << 4);
 	__raw_writel(reg, (SPRD_DCAM_BASE+0x144));
-	
+	*/
 	return 0;
 }
 
