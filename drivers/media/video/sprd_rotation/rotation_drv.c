@@ -435,12 +435,12 @@ static int rotation_start_copy_data(ROTATION_PARAM_T * param_ptr)
 				     &dma_desc);
 		if (ch_id < 0) {
 			printk
-			    ("SCALE: convert endian request dma fail.ret : %d.\n",
+			    ("rotation: convert endian request dma fail.ret : %d.\n",
 			     ret);
 			msleep(5);
 		} else {
 			printk
-			    ("SCALE: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
+			    ("rotation: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
 			     ch_id, total_len);
 			break;
 		}

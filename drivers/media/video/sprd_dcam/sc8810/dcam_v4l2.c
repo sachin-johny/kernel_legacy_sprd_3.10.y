@@ -159,6 +159,7 @@ static uint32_t g_is_first_frame = 1;	/*store the flag for the first frame */
 DCAM_INFO_T g_dcam_info;	/*store the dcam and sensor config info */
 uint32_t g_zoom_level = 0;	/*zoom level: 0: 1x, 1: 2x, 2: 3x, 3: 4x */
 uint32_t g_is_first_irq = 1;
+static uint32_t s_int_ctrl_flag = 0;
 
 #define DCAM_MODULE_NAME "dcam"
 #define WAKE_NUMERATOR 30
@@ -534,6 +535,32 @@ struct dcam_fh {
 static int dcam_start_timer(struct timer_list *dcam_timer, uint32_t time_val);
 static void dcam_stop_timer(struct timer_list *dcam_timer);
 
+void reset_sensor_param(void)
+{
+	/* Setting sensor parameters */
+	if (INVALID_VALUE != g_dcam_info.wb_param)
+		Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, g_dcam_info.wb_param);
+	if (INVALID_VALUE != g_dcam_info.imageeffect_param)
+		Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT,
+			     g_dcam_info.imageeffect_param);
+	if (INVALID_VALUE != g_dcam_info.previewmode_param)
+		Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE,
+			     g_dcam_info.previewmode_param);
+	if (INVALID_VALUE != g_dcam_info.brightness_param)
+		Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,
+			     g_dcam_info.brightness_param);
+	if (INVALID_VALUE != g_dcam_info.contrast_param)
+		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, g_dcam_info.contrast_param);
+	if (INVALID_VALUE != g_dcam_info.ev_param)
+		Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,
+			     g_dcam_info.ev_param);
+	if (INVALID_VALUE != g_dcam_info.power_freq)
+		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,
+			     g_dcam_info.power_freq);
+	if(INVALID_VALUE != g_dcam_info.sensor_work_mode)
+		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,
+			     g_dcam_info.sensor_work_mode);
+}
 static int init_sensor_parameters(void *priv)
 {
 	uint32_t i, width;
@@ -604,32 +631,8 @@ static int init_sensor_parameters(void *priv)
 	else if (g_dcam_info.snapshot_m < SENSOR_MODE_SNAPSHOT_ONE_FIRST)
 		Sensor_SetMode(g_dcam_info.preview_m);
          /*for preview */
-	if(1 != dev->streamparm.parm.capture.capturemode) {
-	/* Setting sensor parameters */
-	if (INVALID_VALUE != g_dcam_info.wb_param)
-		Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, g_dcam_info.wb_param);
-	if (INVALID_VALUE != g_dcam_info.imageeffect_param)
-		Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT,
-			     g_dcam_info.imageeffect_param);
-	if (INVALID_VALUE != g_dcam_info.previewmode_param)
-		Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE,
-			     g_dcam_info.previewmode_param);
-	if (INVALID_VALUE != g_dcam_info.brightness_param)
-		Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,
-			     g_dcam_info.brightness_param);
-	if (INVALID_VALUE != g_dcam_info.contrast_param)
-		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, g_dcam_info.contrast_param);
-	if (INVALID_VALUE != g_dcam_info.ev_param)
-		Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,
-			     g_dcam_info.ev_param);
-	if (INVALID_VALUE != g_dcam_info.power_freq)
-		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,
-			     g_dcam_info.power_freq);
-		if(INVALID_VALUE != g_dcam_info.sensor_work_mode) {
-		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,
-			     g_dcam_info.sensor_work_mode);
-		}
-	}
+	if(1 != dev->streamparm.parm.capture.capturemode)
+		reset_sensor_param();
 	return 0;
 }
 
@@ -1000,6 +1003,7 @@ static void dcam_stop_handle(int param)
 static void dcam_start_handle(int param)
 {
 	if (param) {
+		s_int_ctrl_flag = 0;
 		dcam_start();
 		dcam_start_timer(&s_dcam_err_info.dcam_timer,
 				 s_dcam_err_info.timeout_val);
@@ -1727,6 +1731,7 @@ static int vidioc_streamon(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_is_first_irq = 1;
 	g_last_buf = 0xFFFFFFFF;
 	g_last_uv_buf = 0xFFFFFFFF;
+	s_int_ctrl_flag = 0;
 
 	if (5 == Sensor_GetCurId()) {
 		printk("v4l2:streamon,sensor is ATV .\n");
@@ -1788,6 +1793,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	dcam_stop();
 	s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
+	s_int_ctrl_flag = 0;
 
 	for (k = 0; k < VIDEO_MAX_FRAME; k++)
 		if ((NULL != fh->vb_vidq.bufs[k])
@@ -1880,6 +1886,12 @@ static void path1_done_buffer(struct dcam_fh *fh)
 	struct dcam_dmaqueue *dma_q = &dev->vidq;
 	unsigned long flags = 0;
 
+	if(1!=s_int_ctrl_flag)
+	{
+	     printk("Warning: SOF is not received, path done return.\n");
+	     return;
+	}
+
 	if (0 == s_dcam_err_info.is_running) {
 		s_dcam_err_info.work_status = DCAM_START_OK;
 	} else {
@@ -1965,6 +1977,7 @@ void dcam_cb_ISRCapSOF(void)
 		printk("dcam_cb_ISRCapSOF return.\n");
 		return;
 	}
+        s_int_ctrl_flag = 1;
 	set_next_buffer(g_fh);
 	dcam_enableint();
 }
@@ -2181,8 +2194,9 @@ static int dcam_scan_status_thread(void *data_ptr)
 				break;
 			}
 			if (DCAM_MODE_TYPE_PREVIEW == info_ptr->mode) {
-				Sensor_SetTiming(SENSOR_MODE_COMMON_INIT);
+				//Sensor_SetTiming(SENSOR_MODE_COMMON_INIT);
 				Sensor_SetTiming(g_dcam_info.preview_m);
+				reset_sensor_param();
 			} else {
 				Sensor_SetTiming(g_dcam_info.snapshot_m);
 			}

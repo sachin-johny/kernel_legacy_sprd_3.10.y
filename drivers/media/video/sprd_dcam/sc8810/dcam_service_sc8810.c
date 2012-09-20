@@ -799,6 +799,11 @@ static int _ISP_ServiceStartJpeg(void)
 					   _ISP_ServiceOnPath1);
 	ISP_RTN_IF_ERR(rtn_drv);
 
+	rtn_drv = ISP_DriverNoticeRegister(s->module_addr,
+					   ISP_IRQ_NOTICE_CAP_SOF,
+					   _ISP_ServiceOnCAPSOF);
+	ISP_RTN_IF_ERR(rtn_drv);
+
 	if (ISP_CAP_MODE_YUV == s->sensor_mode) {
 		rtn_drv = ISP_DriverNoticeRegister(s->module_addr,
 						   ISP_IRQ_NOTICE_CAP_FIFO_OF,
@@ -1268,9 +1273,9 @@ int dcam_stop(void)
 	dcam_dec_user_count();
 	isp_get_path2();
 	if(0 == dcam_get_user_count()) {
-		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ARM); /*switch IRAM to ARM	*/
 		ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
 		ISP_DriverModuleDisable(AHB_GLOBAL_REG_CTL0);
+		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ARM); /*switch IRAM to ARM	*/
 		DCAM_TRACE("DCAM: dcam stop softreset and set clk.\n");
 	}
          isp_put_path2();
