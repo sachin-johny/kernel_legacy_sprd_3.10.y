@@ -85,6 +85,17 @@
 #define	  SPRD_ANA_BASE 	   (SPRD_MISC_BASE + 0x600)
 #define   ANA_REG_BASE         SPRD_ANA_BASE   /*  0x82000600 */
 #define   ANA_AGEN              (ANA_REG_BASE + 0x00)
+static ssize_t sprd_show_caliberate(struct device *dev,
+				    struct device_attribute *attr, char *buf);
+
+#define SPRD_CALIBERATE_ATTR_RO(_name)                         \
+{                                       \
+	.attr = { .name = #_name, .mode = S_IRUGO, },  \
+	.show = sprd_show_caliberate,                  \
+}
+static struct device_attribute sprd_caliberate[] = {
+	SPRD_CALIBERATE_ATTR_RO(default_time),
+};
 static unsigned long secs_start_year_to_1970;
 struct sprd_rtc_data{
 	struct rtc_device *rtc;
@@ -92,9 +103,9 @@ struct sprd_rtc_data{
 	struct clk *clk;
 	struct regulator *regulator;
 };
-
 static struct sprd_rtc_data *rtc_data;
 static struct wake_lock rtc_wake_lock;
+
 static inline unsigned get_sec(void)
 {
 	return sci_adi_read(ANA_RTC_SEC_CNT) & RTC_SEC_MASK;
@@ -369,7 +380,42 @@ static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
 	CLEAR_RTC_INT(RTC_INT_ALL_MSK);
 	return IRQ_HANDLED;
 }
+static ssize_t sprd_show_caliberate(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	ssize_t retval;
+	retval = sprintf(buf, "%lu\n", secs_start_year_to_1970);
+	return retval;
+}
 
+static int sprd_creat_caliberate_attr(struct device dev)
+{
+	int i, rc;
+
+	for (i = 0; i < ARRAY_SIZE(sprd_caliberate); i++) {
+		rc = device_create_file(&dev, &sprd_caliberate[i]);
+		if (rc)
+			goto sprd_attrs_failed;
+	}
+	goto sprd_attrs_succeed;
+
+sprd_attrs_failed:
+	while (i--)
+		device_remove_file(&dev, &sprd_caliberate[i]);
+
+sprd_attrs_succeed:
+	return rc;
+}
+
+static int sprd_remove_caliberate_attr(struct device dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(sprd_caliberate); i++) {
+		device_remove_file(&dev, &sprd_caliberate[i]);
+	}
+	return 0;
+}
 static int sprd_rtc_open(struct device *dev)
 {
 	int temp = 0;
@@ -436,6 +482,7 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		printk(KERN_ERR "RTC regist irq error\n");
 		return ret;
 	}
+	sprd_creat_caliberate_attr(rtc_data->rtc->dev);
 	return 0;
 
 unregister_rtc:
@@ -452,7 +499,7 @@ kfree_data:
 static int __devexit sprd_rtc_remove(struct platform_device *plat_dev)
 {
 	struct sprd_rtc_data *rtc_data = platform_get_drvdata(plat_dev);
-
+	sprd_remove_caliberate_attr(rtc_data->rtc->dev);
 	rtc_device_unregister(rtc_data->rtc);
 	clk_disable(rtc_data->clk);
 	clk_put(rtc_data->clk);
