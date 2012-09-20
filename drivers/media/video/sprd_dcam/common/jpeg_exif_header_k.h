@@ -60,6 +60,8 @@ typedef struct exif_pri_basic_tag {
 	EXIF_RATIONAL_T XResolution;
 	EXIF_RATIONAL_T YResolution;
 	EXIF_SHORT_T ResolutionUnit;
+	EXIF_LONG_T ImageWidth;
+	EXIF_LONG_T ImageLength;
 } EXIF_PRI_BASIC_T;
 
 /*Tags relating to image data structure. Optional*/
