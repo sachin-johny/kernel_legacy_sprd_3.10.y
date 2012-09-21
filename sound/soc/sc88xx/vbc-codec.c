@@ -1867,15 +1867,15 @@ static int vbc_probe(struct platform_device *pdev)
 	if (ret < 0)
 		goto pcm_err;
 
-	vbc_reset(codec, 0, 0);
+	//vbc_reset(codec, 0, 0);
     local_cpu_pa_control(false); // Turn off classD cpu PA
     audio_speaker_enable(false, "vbc_init"); // Mute Speaker
     vbc_reg_VBCR1_set(BTL_MUTE, 1); // Mute earpiece
     vbc_reg_VBCR1_set(HP_DIS, 1); // Mute headphone
 #if VBC_DYNAMIC_POWER_MANAGEMENT
-    vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
+    //vbc_power_down((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_DOWN_FORCE);
 #else
-    vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE | VBC_CODEC_POWER_ON_OUT_MUTE_DAC);
+    //vbc_power_on((SNDRV_PCM_STREAM_LAST+1) | VBC_CODEC_POWER_ON_FORCE | VBC_CODEC_POWER_ON_OUT_MUTE_DAC);
 #endif
 #if 0
     /* vbc_reset() must be initialized twice, or the noise when playing audio */
