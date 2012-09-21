@@ -23,7 +23,17 @@
 	do{ ANA_REG_SET(ANA_RTC_INT_CLR, mask); \
 		while(ANA_REG_GET(ANA_RTC_INT_RSTS) & mask); \
 	}while(0)
+static ssize_t sprd_show_caliberate(struct device *dev,
+				    struct device_attribute *attr, char *buf);
 
+#define SPRD_CALIBERATE_ATTR_RO(_name)                         \
+{                                       \
+	.attr = { .name = #_name, .mode = S_IRUGO, },  \
+	.show = sprd_show_caliberate,                  \
+}
+static struct device_attribute sprd_caliberate[] = {
+	SPRD_CALIBERATE_ATTR_RO(default_time),
+};
 static struct platform_device *sprd0 = NULL;
 static unsigned long sec_2011_to_1970;
 
@@ -310,6 +320,42 @@ static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
     return IRQ_HANDLED;
 }
 
+static ssize_t sprd_show_caliberate(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	ssize_t retval;
+	retval = sprintf(buf, "%lu\n", sec_2011_to_1970);
+	return retval;
+}
+
+static int sprd_creat_caliberate_attr(struct device dev)
+{
+	int i, rc;
+
+	for (i = 0; i < ARRAY_SIZE(sprd_caliberate); i++) {
+		rc = device_create_file(&dev, &sprd_caliberate[i]);
+		if (rc)
+			goto sprd_attrs_failed;
+	}
+	goto sprd_attrs_succeed;
+
+sprd_attrs_failed:
+	while (i--)
+		device_remove_file(&dev, &sprd_caliberate[i]);
+
+sprd_attrs_succeed:
+	return rc;
+}
+
+static int sprd_remove_caliberate_attr(struct device dev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(sprd_caliberate); i++) {
+		device_remove_file(&dev, &sprd_caliberate[i]);
+	}
+	return 0;
+}
 static int sprd_rtc_open(struct device *dev)
 {
     struct platform_device *pdev = to_platform_device(dev);
@@ -345,7 +391,7 @@ static const struct rtc_class_ops sprd_rtc_ops = {
 static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
 	int err;
-    struct rtc_device * rtc = NULL;
+	struct rtc_device * rtc = NULL;
 	ANA_REG_AND(ANA_RTC_INT_EN, ~(RTC_INT_ALL_MSK)); // disable all interrupt
 	ANA_REG_OR(ANA_AGEN, AGEN_RTC_EN | AGEN_RTC_RTC_EN); //enable rtc device
 	CLEAR_RTC_INT(RTC_INT_ALL_MSK);
@@ -355,13 +401,13 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		err = PTR_ERR(rtc);
 		return err;
 	}
-    err = request_irq(IRQ_ANA_RTC_INT, rtc_interrupt_handler, 0, "sprd_rtc", rtc);
-    if(err != 0){
-        printk(" rtc irq request error:%d \n", err);
-        rtc_device_unregister(rtc);
-        return err;
-    }
-
+	err = request_irq(IRQ_ANA_RTC_INT, rtc_interrupt_handler, 0, "sprd_rtc", rtc);
+	sprd_creat_caliberate_attr(rtc->dev);
+	if(err != 0){
+		printk(" rtc irq request error:%d \n", err);
+		rtc_device_unregister(rtc);
+		return err;
+	}
 
 	platform_set_drvdata(plat_dev, rtc);
 
@@ -371,7 +417,7 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 static int __devexit sprd_rtc_remove(struct platform_device *plat_dev)
 {
 	struct rtc_device *rtc = platform_get_drvdata(plat_dev);
-
+	sprd_remove_caliberate_attr(rtc->dev);
 	rtc_device_unregister(rtc);
 
 	return 0;
