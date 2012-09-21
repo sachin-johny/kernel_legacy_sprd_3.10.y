@@ -108,11 +108,10 @@ int32_t dsi_early_int(void)
 	return 0;
 }
 
-static int32_t dsi_edpi_init(struct info_mipi * mipi)
+
+static int32_t dsi_edpi_setbuswidth(struct info_mipi * mipi)
 {
 	dsih_color_coding_t color_coding;
-
-	dsi_core_write_function((uint32_t)SPRD_MIPI_DSIC_BASE,  (uint32_t)DSI_EDPI_CFG, 0x500);
 
 	switch(mipi->video_bus_width){
 	case 16:
@@ -129,7 +128,14 @@ static int32_t dsi_edpi_init(struct info_mipi * mipi)
 		break;
 	}
 
-	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_DPI_CFG, (uint32_t)color_coding);
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_DPI_CFG, ((uint32_t)color_coding<<2));
+	return 0;
+}
+
+
+static int32_t dsi_edpi_init(void)
+{
+	dsi_core_write_function((uint32_t)SPRD_MIPI_DSIC_BASE,  (uint32_t)DSI_EDPI_CFG, 0x10500);
 	return 0;
 }
 
@@ -158,15 +164,15 @@ static int32_t dsi_dpi_init(struct panel_spec* panel)
 		break;
 	}
 
-	if(SPRDFB_POLARITY_NEG == mipi ->h_sync_pol){
+	if(SPRDFB_POLARITY_POS == mipi ->h_sync_pol){
 		dpi_param.h_polarity = 1;
 	}
 
-	if(SPRDFB_POLARITY_NEG == mipi ->v_sync_pol){
+	if(SPRDFB_POLARITY_POS == mipi ->v_sync_pol){
 		dpi_param.v_polarity = 1;
 	}
 
-	if(SPRDFB_POLARITY_NEG == mipi ->de_pol){
+	if(SPRDFB_POLARITY_POS == mipi ->de_pol){
 		dpi_param.data_en_polarity = 1;
 	}
 
@@ -225,16 +231,26 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	dsi_instance->core_write_function = dsi_core_write_function;
 	dsi_instance->log_error = dsi_log_error;
 	dsi_instance->log_info = NULL;
-	dsi_instance->max_bta_cycles = 10;
-	dsi_instance->max_hs_to_lp_cycles = 110;
-	dsi_instance->max_lp_to_hs_cycles = 10;
+	dsi_instance->max_bta_cycles = 0;//10;
+	dsi_instance->max_hs_to_lp_cycles = 4;//110;
+	dsi_instance->max_lp_to_hs_cycles = 15;//10;
 	dsi_instance->max_lanes = mipi->lan_number;
 
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
-		dsi_edpi_init(mipi);
-	}else{
+		dsi_edpi_init();
+	}/*else{
 		dsi_dpi_init(dev->panel);
+	}*/
+
+/*
+	result = mipi_dsih_unregister_all_events(dsi_instance);
+	if(OK != result){
+		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_unregister_all_events fail (%d)!\n", __FUNCTION__, result);
+		return -1;
 	}
+*/
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x1fffff);
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
 
 	result = mipi_dsih_open(dsi_instance);
 	if(OK != result){
@@ -249,6 +265,10 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	}
 
 	while(5 != (dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_STATUS) & 5));
+
+	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
+		dsi_edpi_setbuswidth(mipi);
+	}
 
 	result = mipi_dsih_enable_rx(dsi_instance, 1);
 	if(OK != result){
@@ -272,6 +292,10 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_eotp_tx fail (%d)!\n", __FUNCTION__, result);
 		return -1;
+	}
+
+	if(SPRDFB_MIPI_MODE_VIDEO == mipi->work_mode){
+		dsi_dpi_init(dev->panel);
 	}
 
 	return 0;
@@ -299,8 +323,9 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 	}else{
 		mipi_dsih_video_mode(&(dsi_ctx.dsi_inst), 1);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 0);
-		udelay(10);
+		udelay(100);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 1);
+		mdelay(3);
 	}
 	return 0;
 }
