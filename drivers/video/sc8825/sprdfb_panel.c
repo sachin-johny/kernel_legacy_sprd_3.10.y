@@ -236,6 +236,7 @@ bool sprdfb_panel_get(struct sprdfb_device *dev)
 
 	panel = adapt_panel_from_uboot(dev->dev_id);
 	if (panel) {
+		dev->panel_ready = true;
 		panel_mount(dev, panel);
 		panel_init(dev);
 		printk("sprdfb: [%s] got panel\n", __FUNCTION__);
@@ -275,24 +276,34 @@ void sprdfb_panel_invalidate_rect(struct panel_spec *self,
 				uint16_t left, uint16_t top,
 				uint16_t right, uint16_t bottom)
 {
-	self->ops->panel_invalidate_rect(self, left, top, right, bottom);
+	/*Jessica TODO: */
+	if(NULL != self->ops->panel_invalidate_rect){
+		self->ops->panel_invalidate_rect(self, left, top, right, bottom);
+	}
+	/*Jessica TODO: Need set timing to GRAM timing*/
 }
 
 void sprdfb_panel_invalidate(struct panel_spec *self)
 {
-	self->ops->panel_invalidate(self);
+	/*Jessica TODO:*/
+	if(NULL != self->ops->panel_invalidate){
+		self->ops->panel_invalidate(self);
+	}
+	/*Jessica TODO: Need set timing to GRAM timing*/
 }
 
 void sprdfb_panel_before_refresh(struct sprdfb_device *dev)
 {
-	if(NULL != dev->panel->if_ctrl->panel_if_before_refresh)
+	if(NULL != dev->panel->if_ctrl->panel_if_before_refresh){
 		dev->panel->if_ctrl->panel_if_before_refresh(dev);
+	}
 }
 
 void sprdfb_panel_after_refresh(struct sprdfb_device *dev)
 {
-	if(NULL != dev->panel->if_ctrl->panel_if_after_refresh)
+	if(NULL != dev->panel->if_ctrl->panel_if_after_refresh){
 		dev->panel->if_ctrl->panel_if_after_refresh(dev);
+	}
 }
 
 void sprdfb_panel_suspend(struct sprdfb_device *dev)
@@ -321,7 +332,9 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 		dev->panel->ops->panel_init(dev->panel);
 	}else{
 		/* let lcd sleep out */
-		dev->panel->ops->panel_enter_sleep(dev->panel,0);
+		if(NULL != dev->panel->ops->panel_enter_sleep){
+			dev->panel->ops->panel_enter_sleep(dev->panel,0);
+		}
 	}
 
 }

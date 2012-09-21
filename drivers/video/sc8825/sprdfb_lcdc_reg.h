@@ -84,7 +84,7 @@ static inline void lcdc_set_bits(uint32_t bits, uint32_t reg)
 
 static inline void lcdc_clear_bits(uint32_t bits, uint32_t reg)
 {
-	lcdc_write(lcdc_read(reg) | ~bits, reg);
+	lcdc_write(lcdc_read(reg) & ~bits, reg);
 }
 
 #endif

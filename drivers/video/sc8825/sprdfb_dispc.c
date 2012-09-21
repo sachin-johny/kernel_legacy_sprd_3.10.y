@@ -69,6 +69,7 @@ static irqreturn_t dispc_isr(int irq, void *data)
 	reg_val = dispc_read(DISPC_INT_STATUS);
 
 	if((SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type) && (reg_val & 0x10)){/*dispc update done isr*/
+#if 0
 		if(dispc_ctx->is_first_frame){
 			/*dpi register update with SW and VSync*/
 			dispc_clear_bits(BIT(4), DISPC_DPI_CTRL);
@@ -78,6 +79,7 @@ static irqreturn_t dispc_isr(int irq, void *data)
 
 			dispc_ctx->is_first_frame = false;
 		}
+#endif
 		dispc_write(0x10, DISPC_INT_CLR);
 		done = true;
 	}else if ((SPRDFB_PANEL_IF_DPI !=  dev->panel_if_type) && (reg_val & 0x1)){ /* dispc done isr */
@@ -268,9 +270,34 @@ static void dispc_run(struct sprdfb_device *dev)
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		/*dpi register update*/
 		dispc_set_bits(BIT(5), DISPC_DPI_CTRL);
+
+		udelay(30);
+
+		if(dispc_ctx.is_first_frame){
+			/*dpi register update with SW and VSync*/
+			dispc_clear_bits(BIT(4), DISPC_DPI_CTRL);
+
+			/* start refresh */
+			dispc_set_bits((1 << 4), DISPC_CTRL);
+
+			dispc_ctx.is_first_frame = false;
+		}
 	}else{
 		/* start refresh */
 		dispc_set_bits((1 << 4), DISPC_CTRL);
+	}
+}
+
+static void dispc_stop(struct sprdfb_device *dev)
+{
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		/*dpi register update with SW only*/
+		dispc_set_bits(BIT(4), DISPC_DPI_CTRL);
+
+		/* stop refresh */
+		dispc_clear_bits((1 << 4), DISPC_CTRL);
+
+		dispc_ctx.is_first_frame = true;
 	}
 }
 
@@ -478,6 +505,8 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 		dispc_ctx.vsync_waiter ++;
 		dispc_sync(dev);
 		printk(KERN_INFO "sprdfb:[%s] got sync\n",__FUNCTION__);
+
+		dispc_stop(dev);
 
 		sprdfb_panel_suspend(dev);
 
