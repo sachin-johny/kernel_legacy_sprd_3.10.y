@@ -1453,6 +1453,8 @@ int sc8810_setup_ldo_slpmode(void)
 	 ANA_REG_SET(ANA_LDO_SLP0, 0x26f3);//except v18/28, SIM0,1
 #elif defined(CONFIG_MACH_SP8810)
 	ANA_REG_SET(ANA_LDO_SLP0, 0x26f3);//except v18/28, SIM0,1
+#elif defined(CONFIG_MACH_SP8810G_BRCM)
+	ANA_REG_SET(ANA_LDO_SLP0, 0x26f3);//except v18/28, SIM0,1
 #else
 	ANA_REG_SET(ANA_LDO_SLP0, 0xa7fb);//except v18/28, SIM0
 #endif
