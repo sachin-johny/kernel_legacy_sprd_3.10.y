@@ -13,7 +13,7 @@ config ION_TEGRA
 
 config ION_SPRD
 	tristate "Ion for SPRD"
-	depends on ARCH_SC8810 && ION
+	depends on ION
 	help
 	  Choose this option if you wish to use ion on an SPRD chip.
 

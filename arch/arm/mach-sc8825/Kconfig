@@ -24,4 +24,15 @@ config SPRD_PMEM_ADSP_SIZE
         range 1 64
         default 22
 	depends on ANDROID_PMEM
+config SPRD_ION_SIZE
+        int "size for /dev/ion"
+        range 1 64
+        default 24
+	depends on ION
+
+config SPRD_ION_OVERLAY_SIZE
+        int "size for /dev/ion"
+        range 1 64
+        default 10
+	depends on ION
 endif
