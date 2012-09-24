@@ -64,8 +64,13 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_audio_cpu_dai_vbc_device,
 	&sprd_audio_codec_sprd_codec_device,
 	&sprd_battery_device,
+#ifdef CONFIG_ANDROID_PMEM
 	&sprd_pmem_device,
 	&sprd_pmem_adsp_device,
+#endif
+#ifdef CONFIG_ION
+	&sprd_ion_dev,
+#endif
 	&sprd_sdio0_device,
 	&sprd_sdio1_device,
 	&sprd_sdio2_device,

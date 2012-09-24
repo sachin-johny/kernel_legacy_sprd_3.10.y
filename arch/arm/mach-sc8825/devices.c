@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
 #include <linux/android_pmem.h>
+#include <linux/ion.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
 
@@ -678,6 +679,35 @@ struct platform_device sprd_pmem_adsp_device = {
 	.dev = {.platform_data = &sprd_pmem_adsp_pdata},
 };
 #endif
+
+#ifdef CONFIG_ION
+static struct ion_platform_data ion_pdata = {
+	.nr = 2,
+	.heaps = {
+		{
+			.id	= ION_HEAP_TYPE_CARVEOUT,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= "ion_carveout_heap",
+			.base   = SPRD_ION_BASE,
+			.size   = SPRD_ION_SIZE,
+		},
+		{
+			.id	= ION_HEAP_TYPE_CARVEOUT + 1,
+			.type	= ION_HEAP_TYPE_CARVEOUT,
+			.name	= "ion_carveout_heap_overlay",
+			.base   = SPRD_ION_OVERLAY_BASE,
+			.size   = SPRD_ION_OVERLAY_SIZE,
+		}
+	}
+};
+
+struct platform_device sprd_ion_dev = {
+	.name = "ion-sprd",
+	.id = -1,
+	.dev = { .platform_data = &ion_pdata },
+};
+#endif
+
 static struct resource sprd_dcam_resources[] = {
 	{
 		.start	= SPRD_ISP_BASE,
