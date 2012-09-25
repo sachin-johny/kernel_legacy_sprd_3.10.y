@@ -9,6 +9,8 @@ else
 obj-$(CONFIG_PM) += pm.o
 endif
 
+obj-m += dcdc_debug.o
+
 obj-$(CONFIG_DEBUG_FS) += clock_debug.o
 
 obj-$(CONFIG_MACH_SP8810EA) += board-sp8810ea.o
