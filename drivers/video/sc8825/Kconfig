@@ -16,3 +16,8 @@ config FB_LCD_S6D0139
 	boolean "support S6D0139 panel"
 	depends on FB_SC8825
 	default n
+
+config FB_LCD_NT35516_MIPI
+	boolean "support NT35516 mipi panel"
+	depends on FB_SC8825
+	default n

@@ -76,6 +76,14 @@ typedef int32_t (*send_cmd_data_t)(uint32_t cmd, uint32_t data);
 typedef uint32_t (*read_data_t)(void);
 
 
+typedef int32_t (*mipi_set_cmd_mode_t)(void);
+typedef int32_t (*mipi_set_video_mode_t)(void);
+typedef int32_t (*mipi_gen_write_t)(uint8_t *param, uint16_t param_length);
+typedef int32_t (*mipi_gen_read_t)(uint8_t *param, uint16_t param_length, uint8_t bytes_to_read, uint8_t *read_buffer);
+typedef int32_t (*mipi_dcs_write_t)(uint8_t *param, uint16_t param_length);
+typedef int32_t (*mipi_dcs_read_t)(uint8_t command, uint8_t bytes_to_read, uint8_t *read_buffer);
+
+
 /* LCD operations */
 struct panel_operations {
 	int32_t (*panel_init)(struct panel_spec *self);
@@ -102,7 +110,7 @@ struct panel_operations {
 
 /* MCU LCD specific properties */
 struct timing_mcu {
-	uint16_t rcss;
+	uint16_t rcss; /*unit: ns*/
 	uint16_t rlpw;
 	uint16_t rhpw;
 	uint16_t wcss;
@@ -112,10 +120,10 @@ struct timing_mcu {
 
 /* RGB LCD specific properties */
 struct timing_rgb {
-	uint16_t hfp;
+	uint16_t hfp;/*unit: pixel*/
 	uint16_t hbp;
 	uint16_t hsync;
-	uint16_t vfp;
+	uint16_t vfp; /*unit: line*/
 	uint16_t vbp;
 	uint16_t vsync;
 };
@@ -164,7 +172,7 @@ struct info_mipi {
 	uint16_t work_mode; /*command_mode, video_mode*/
 	uint16_t video_bus_width;
 	uint32_t lan_number;
-	uint32_t phy_feq;
+	uint32_t phy_feq;  /*unit:Hz*/
 	uint16_t h_sync_pol;
 	uint16_t v_sync_pol;
 	uint16_t de_pol;
