@@ -25,7 +25,7 @@
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/qt602240_ts.h>
-#include <linux/i2c/al3006_pls.h>
+#include <linux/i2c/ltr_558als.h>
 #include <linux/i2c/lis3dh.h>
 #include <linux/akm8975.h>
 #include <linux/spi/spi.h>
@@ -183,7 +183,7 @@ static struct qt602240_platform_data qt602240_ts_info = {
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 };
 
-static struct al3006_pls_platform_data al3006_pls_info = {
+static struct ltr558_pls_platform_data ltr558_pls_info = {
 	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
 };
 
@@ -226,6 +226,9 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 	},
 	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
+	},
+	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
+	  .platform_data = &ltr558_pls_info,
 	},
 	{ I2C_BOARD_INFO("ewtsa",  0x68),
 	},

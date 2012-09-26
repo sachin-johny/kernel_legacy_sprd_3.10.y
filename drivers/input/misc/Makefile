@@ -62,3 +62,4 @@ obj-$(CONFIG_INPUT_AL3006_I2C)		+= al3006_pls.o
 obj-$(CONFIG_INPUT_SPRD_HEADSET)	+= headset.o
 obj-$(CONFIG_INPUT_TMD2771_I2C)		+= tmd2771_pls.o
 obj-$(CONFIG_INPUT_EWTSA_I2C)		+= ewtsa.o
+obj-$(CONFIG_INPUT_LTR558_I2C)		+= ltr_558als.o
