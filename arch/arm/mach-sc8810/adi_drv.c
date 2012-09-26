@@ -79,7 +79,15 @@ unsigned short ADI_Analogdie_reg_read(unsigned int addr)
 	addr = __adi_virt_to_phys(addr);
 	
 	SCI_ASSERT((addr >= 0x82000040) && (addr <= 0x82000780));
-	CHIP_REG_SET(ADI_ARM_RD_CMD, addr);
+	do			////ADI_wait_fifo_empty
+	{
+		if (((CHIP_REG_GET(ADI_FIFO_STS) &
+		      ((unsigned int)ADI_FIFO_EMPTY)) != 0)) {
+			break;
+		}
+	}while(1);
+
+        CHIP_REG_SET(ADI_ARM_RD_CMD, addr);
 
 	//wait read operation complete, RD_data[31] will be cleared after the read operation complete
 	do {
