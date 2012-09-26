@@ -352,6 +352,8 @@ static irqreturn_t vsp_isr(int irq, void *data)
 	__raw_writel((1<<10)|(1<<12)|(1<<15),SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
 	dev.condition_work = 1;
 	wake_up_interruptible(&dev.wait_queue_work);
+	vsp_ioctl(NULL,NULL, VSP_DISABLE,NULL);
+	vsp_ioctl(NULL,NULL, VSP_RELEASE,NULL);
 	return IRQ_HANDLED;
 }
 
