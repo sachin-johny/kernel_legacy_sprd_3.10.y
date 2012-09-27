@@ -129,10 +129,12 @@ static int vbc_routing_put_volsw(struct snd_kcontrol *kcontrol,
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
 	SOC_ENUM("Micphone", vbc_mic12_enum),
 	SOC_SINGLE("PCM Playback Switch", VBCR1, DAC_MUTE, 1, 1),
-	/*SOC_DOUBLE_TLV("PCM Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
-	SOC_SINGLE_TLV("PCM Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
-	SOC_SINGLE_TLV("PCM Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
-	*/
+#if VBC_EQ_MODULE_SUPPORT
+	SOC_SINGLE("PCM2 Playback Switch", VBCR1, DAC_MUTE, 1, 1),
+	SOC_DOUBLE_TLV("PCM2 Playback Volume", VBCGR1, 0, 4, 0x0f, 1, dac_tlv),
+	SOC_SINGLE_TLV("PCM2 Left Playback Volume", VBCGR1, 0, 0x0f, 1, dac_tlv),
+	SOC_SINGLE_TLV("PCM2 Right Playback Volume",VBCGR1, 4, 0x0f, 1, dac_tlv),
+#endif
 	SOC_VBC_ROUTING_SOC_SINGLE("Speaker Playback Switch", VBC_CODEC_SPEAKER_PA, 0, 1, 0),
 	SOC_VBC_ROUTING_SOC_SINGLE("Earpiece Playback Switch", VBCR1, BTL_MUTE, 1, 1),
 	SOC_VBC_ROUTING_SOC_SINGLE("Headset Playback Switch", VBCR1, HP_DIS, 1, 1),
