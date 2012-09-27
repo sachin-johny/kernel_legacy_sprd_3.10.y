@@ -348,42 +348,16 @@ uint32_t CHGMNG_VoltageToPercentum (uint32_t voltage, int is_charging, int updat
 int charger_is_adapter(void)
 {
 	uint32_t ret;
-	volatile uint32_t i;
-	unsigned long irq_flag=0;
 
 	udc_enable();
+	mdelay(200);
+	ret = gpio_get_value(USB_DM_GPIO);   ///USB DM:GPIO145 in SC8800G2
+
 	udc_phy_down();
 
-	local_irq_save(irq_flag);
-
-	CHIP_REG_AND(USB_PHY_CTRL,(~(USB_DM_PULLDOWN_BIT|USB_DP_PULLDOWN_BIT)));
-
-	//Identify USB charger
-	CHIP_REG_OR(USB_PHY_CTRL, USB_DM_PULLUP_BIT);
-	mdelay(10);
-	ret = gpio_get_value(USB_DM_GPIO);   ///USB DM:GPIO145 in SC8800G2
-	CHIP_REG_AND(USB_PHY_CTRL,(~USB_DM_PULLUP_BIT));
-
-	//normal charger
-	if(ret) // else usb host
-	{
-		///Identify standard adapter
-		CHIP_REG_OR(USB_PHY_CTRL, USB_DM_PULLDOWN_BIT);
-		for(i = 0;i < 200;i++){;}  ///wait
-		if((gpio_get_value(USB_DM_GPIO)&BIT_1) && (gpio_get_value(USB_DP_GPIO)&BIT_2))
-		{
-			ret = 1; // adapter
-		}
-		else
-		{
-			ret = 1; //non standard adapter
-		}
-		CHIP_REG_AND(USB_PHY_CTRL,(~USB_DM_PULLDOWN_BIT));
-	}
-
-	local_irq_restore(irq_flag);
 	udc_disable();
-	return ret; 
+
+	return ret;
 }
 #define VPROG_RESULT_NUM 10
 #define VBAT_RESULT_DELAY 10
