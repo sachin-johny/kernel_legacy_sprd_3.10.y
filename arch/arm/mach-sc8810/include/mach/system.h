@@ -49,6 +49,7 @@ static inline void arch_reset(char mode, const char *cmd)
 {
 	/* our chip reset code */
     volatile int i;
+	 unsigned hw_rst;
     for(i=0xffff; i>0;i--);
     if(!(strncmp(cmd, "recovery", 8))){
        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_RECOVERY);
@@ -57,7 +58,10 @@ static inline void arch_reset(char mode, const char *cmd)
 	}else if(!strncmp(cmd, "fastsleep", 9)){
        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_SLEEP);
     }else{
-        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
+		  hw_rst = ANA_REG_GET(ANA_RST_STATUS);
+		  hw_rst &= 0xf00;
+		  hw_rst |= HWRST_STATUS_NORMAL;
+        ANA_REG_SET(ANA_RST_STATUS, hw_rst);
     }
     // turn on watch dog clock
     ANA_REG_OR(ANA_AGEN, AGEN_WDG_EN | AGEN_RTC_ARCH_EN | AGEN_RTC_WDG_EN);
