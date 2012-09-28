@@ -248,6 +248,7 @@ int sdhci_device_attach(int on)
 		return 0;
 	}
 }
+EXPORT_SYMBOL_GPL(sdhci_device_attach);
 
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
