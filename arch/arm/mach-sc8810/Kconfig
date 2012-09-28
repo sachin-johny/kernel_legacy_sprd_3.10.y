@@ -2,6 +2,11 @@ if ARCH_SC8810
 
 comment "SC8810 Board Type"
 
+config ARCH_SC7710
+	bool "SPREADTRUM SC7710"
+	help
+	  Support for Spreadtrum sc7710 based systems.
+
 choice
 	prompt "SC8810 Board"
 
@@ -58,6 +63,13 @@ config MACH_Z788
 	bool "Z788 Phone"
 	help
 	  Z788 phone board based on SC8810.
+
+config MACH_SP7710G_OPENPHONE
+	select ARCH_SC7710
+	bool "SP7710G fpga and openphone board"
+	help
+	  SP7710G fpga and openphone based on ARCH_SC7710.
+
 endchoice
 
 config SPRD_PMEM_SIZE

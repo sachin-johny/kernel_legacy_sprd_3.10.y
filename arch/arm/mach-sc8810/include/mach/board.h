@@ -45,6 +45,10 @@
 #ifdef	CONFIG_MACH_Z788
 #include <mach/gpio-z788.h>
 #endif
+
+#ifdef	CONFIG_MACH_SP7710G_OPENPHONE
+#include <mach/gpio-sp7710g_openphone.h>
+#endif
 /*
  * pmem area definition
  */
