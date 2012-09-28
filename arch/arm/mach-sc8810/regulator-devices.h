@@ -60,6 +60,10 @@
 #include "regulator-z788.h"
 #endif
 
+#ifdef CONFIG_MACH_SP7710G_OPENPHONE
+#include "regulator-sp7710g_openphone.h"
+#endif
+
 /*cfg macor layer: here is the base to make up for cfg easier*/
 #ifndef REGU_NAMES_VDDARM
 #define REGU_NAMES_VDDARM

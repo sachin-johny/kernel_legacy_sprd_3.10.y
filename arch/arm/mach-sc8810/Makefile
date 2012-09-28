@@ -21,6 +21,7 @@ obj-$(CONFIG_MACH_SP6820GA) += board-sp6820ga.o
 obj-$(CONFIG_MACH_AMAZING)  += board-amazing.o
 obj-$(CONFIG_MACH_SP8810EB) += board-sp8810eb.o
 obj-$(CONFIG_MACH_Z788)  += board-z788.o
+obj-$(CONFIG_MACH_SP7710G_OPENPHONE)  += board-sp7710g_openphone.o
 obj-$(CONFIG_SC8810_VIBRATOR) += vibrator.o
 obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o
 obj-$(CONFIG_MACH_OPENPHONE_SC6820) += board-sc6820-openphone.o

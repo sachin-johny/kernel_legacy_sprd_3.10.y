@@ -161,21 +161,10 @@ static void sprd_gptimer_clockevent_init(void)
 
 static cycle_t sprd_gptimer_read(struct clocksource *cs)
 {
-	unsigned int val1, val2;
-	unsigned long flags;
-
-	/* read multiple times in case of boundary issue */
-	local_irq_save(flags);
-	val1 = __raw_readl(TIMER_VALUE(SOURCE_TIMER));
-	val2 = __raw_readl(TIMER_VALUE(SOURCE_TIMER));
-	/* NOTE: register access is slower than 26Mhz, need more cycles */
-	while((int)(val1 - val2) & ~15) {
-		val1 = val2;
-		val2 = __raw_readl(TIMER_VALUE(SOURCE_TIMER));
-	}
-	local_irq_restore(flags);
-
-	return (ULONG_MAX - val2);
+	unsigned long val;
+	/* It is driven  by pclk,no boundary issue.*/
+	val = __raw_readl(TIMER_VALUE(SOURCE_TIMER));
+	return (ULONG_MAX - val);
 }
 
 static struct clocksource sprd_gptimer_src = {
