@@ -490,6 +490,7 @@ static int sprd_spi_setup(struct spi_device *spi)
 		data_width = 32;
 
 	sprd_ctrl_data->data_width = (data_width + 7) / 8;
+	sprd_ctrl_data->data_width_order = sprd_ctrl_data->data_width >> 1;
 
 	return 0;
 }
