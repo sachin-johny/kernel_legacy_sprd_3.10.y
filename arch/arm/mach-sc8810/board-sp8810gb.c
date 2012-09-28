@@ -45,6 +45,7 @@ extern void __init sc8810_clock_init(void);
 extern int __init sprd_ramconsole_init(void);
 #endif
 
+static struct platform_device rfkill_device;
 static struct platform_device kb_backlight_device;
 
 static struct platform_gpsctl_data pdata_gpsctl = {
@@ -91,8 +92,27 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_scale_device,
 	&sprd_rotation_device,
 	&kb_backlight_device,
+	&rfkill_device,
 	&gpsctl_dev,
 };
+
+/* RFKILL */
+static struct resource rfkill_resources[] = {
+	{
+		.name   = "bt_reset",
+		.start  = GPIO_BT_RESET,
+		.end    = GPIO_BT_RESET,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct platform_device rfkill_device = {
+     .name = "rfkill",
+     .id = -1,
+     .num_resources  = ARRAY_SIZE(rfkill_resources),
+     .resource   = rfkill_resources,
+};
+
 
 /* keypad backlight */
 static struct platform_device kb_backlight_device = {

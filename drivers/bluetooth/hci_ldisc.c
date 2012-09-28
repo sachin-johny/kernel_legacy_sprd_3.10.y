@@ -558,7 +558,9 @@ static int __init hci_uart_init(void)
 #ifdef CONFIG_BT_HCIUART_ATH3K
 	ath_init();
 #endif
-
+#ifdef CONFIG_BT_HCIUART_RTKH5
+	h5_init();
+#endif
 	return 0;
 }
 
@@ -578,7 +580,9 @@ static void __exit hci_uart_exit(void)
 #ifdef CONFIG_BT_HCIUART_ATH3K
 	ath_deinit();
 #endif
-
+#ifdef CONFIG_BT_HCIUART_RTKH5
+	h5_deinit();
+#endif
 	/* Release tty registration of line discipline */
 	if ((err = tty_unregister_ldisc(N_HCI)))
 		BT_ERR("Can't unregister HCI line discipline (%d)", err);
