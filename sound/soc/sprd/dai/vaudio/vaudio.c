@@ -44,10 +44,32 @@
 static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_card *card = dai->card;
+
 	sprd_vaudio_dbg("Entering %s\n", __func__);
 
 	kfree(snd_soc_dai_get_dma_data(dai, substream));
 	snd_soc_dai_set_dma_data(dai, substream, NULL);
+
+	snd_soc_dapm_force_enable_pin(&card->dapm, "DAC");
+	snd_soc_dapm_force_enable_pin(&card->dapm, "ADC");
+
+	/* cancel any delayed stream shutdown that is pending */
+	if (codec_dai->pop_wait) {
+		codec_dai->pop_wait = 0;
+		cancel_delayed_work(&rtd->delayed_work);
+	}
+
+	snd_soc_dapm_stream_event(rtd,
+			codec_dai->driver->playback.stream_name,
+			SND_SOC_DAPM_STREAM_START);
+	snd_soc_dapm_stream_event(rtd,
+			codec_dai->driver->capture.stream_name,
+			SND_SOC_DAPM_STREAM_START);
+
+	snd_soc_dai_digital_mute(codec_dai, 0);
 
 	sprd_vaudio_dbg("Leaving %s\n", __func__);
 	return 0;
@@ -56,7 +78,23 @@ static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 				 struct snd_soc_dai *dai)
 {
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_card *card = dai->card;
+
 	sprd_vaudio_dbg("Entering %s\n", __func__);
+
+	snd_soc_dapm_stream_event(rtd,
+			codec_dai->driver->playback.stream_name,
+			SND_SOC_DAPM_STREAM_STOP);
+	snd_soc_dapm_stream_event(rtd,
+			codec_dai->driver->capture.stream_name,
+			SND_SOC_DAPM_STREAM_STOP);
+
+	snd_soc_dai_digital_mute(codec_dai, 1);
+
+	snd_soc_dapm_disable_pin(&card->dapm, "DAC");
+	snd_soc_dapm_disable_pin(&card->dapm, "ADC");
 
 	sprd_vaudio_dbg("Leaving %s\n", __func__);
 }
