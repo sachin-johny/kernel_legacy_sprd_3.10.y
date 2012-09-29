@@ -155,7 +155,8 @@ static void __exit rfkill_bluetooth_exit(void)
 	platform_driver_unregister(&rfkill_bluetooth_driver);
 }
 
-late_initcall(rfkill_bluetooth_init);
+//late_initcall(rfkill_bluetooth_init);
+module_init(rfkill_bluetooth_init);
 module_exit(rfkill_bluetooth_exit);
 MODULE_DESCRIPTION("bluetooth rfkill");
 MODULE_AUTHOR("Yale Wu <ye.wu@spreadtrum.com>");
