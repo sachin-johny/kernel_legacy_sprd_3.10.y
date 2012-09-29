@@ -79,7 +79,7 @@ static void update_recvframe_attrib(
 	pattrib->pkt_len = (u16)prxreport->pktlen;
 	pattrib->drvinfo_sz = (u8)(prxreport->drvinfosize << 3);
 	pattrib->physt = (u8)prxreport->physt;
-	//printk("%s dump len:%d drvinfosize:%d\n",
+	//DBG_8192C("%s dump len:%d drvinfosize:%d\n",
 	//	       	__func__, pattrib->pkt_len,
 	//		pattrib->drvinfo_sz);
 
@@ -144,7 +144,7 @@ void update_recvframe_phyinfo(
 			sa = padapter->mlmepriv.cur_network.network.MacAddress;
 			#if 0
 			{
-				printk("==> rx beacon from AP[%02x:%02x:%02x:%02x:%02x:%02x]\n",
+				DBG_8192C("==> rx beacon from AP[%02x:%02x:%02x:%02x:%02x:%02x]\n",
 					sa[0],sa[1],sa[2],sa[3],sa[4],sa[5]);
 			}
 			#endif
@@ -162,7 +162,7 @@ void update_recvframe_phyinfo(
 	if (psta)
 	{
       		pkt_info.StationID = psta->mac_id;
-		//printk("%s ==> StationID(%d)\n",__FUNCTION__,pkt_info.StationID);
+		//DBG_8192C("%s ==> StationID(%d)\n",__FUNCTION__,pkt_info.StationID);
 	}
 	pkt_info.Rate = pattrib->mcs_rate;
 
@@ -324,7 +324,7 @@ static void rtl8723as_recv_tasklet(void *priv)
 			if (0) {
 				u32 i = 0;
 
-				printk("%s dump pkt: len:%d\n", __func__, precvframe->u.hdr.len);
+				DBG_8192C("%s dump pkt: len:%d\n", __func__, precvframe->u.hdr.len);
 				for (i = 0; i < pattrib->pkt_len; i = i + 4) {
 					printk("%8.8x \n", *((u32*)(ptr + i)));
 				}

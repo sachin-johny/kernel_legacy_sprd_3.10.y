@@ -56,7 +56,7 @@ int rtw_wifi_gpio_init(void)
 int rtw_wifi_gpio_deinit(void)
 {
 #ifdef CONFIG_GSPI_HCI
-	if (GPIO_WIFI_IRQ > 0) {
+	if (GPIO_WIFI_IRQ > 0)
 		gpio_free(GPIO_WIFI_IRQ);
 #endif
 	if (GPIO_WIFI_RESET > 0)

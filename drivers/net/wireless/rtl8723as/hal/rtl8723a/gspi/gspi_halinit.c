@@ -63,13 +63,13 @@ static u8 CardEnable(PADAPTER padapter)
 		ret = HalPwrSeqCmdParsing(padapter, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK, rtl8723A_card_enable_flow);
 		if (ret == _SUCCESS) {
 			u8 bMacPwrCtrlOn = _TRUE;
-			printk("===>%s suscess\n", __func__);
+			DBG_8192C("===>%s suscess\n", __func__);
 			padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_APFM_ON_MAC, &bMacPwrCtrlOn);
 		} else {
-			printk("===>%s fail\n", __func__);
+			DBG_8192C("===>%s fail\n", __func__);
 		}
 	} else {
-		printk("===>%s !bMacPwrCtrlOn\n", __func__);
+		DBG_8192C("===>%s !bMacPwrCtrlOn\n", __func__);
 		ret = _SUCCESS;
 	}
 
@@ -742,15 +742,15 @@ void _InitInterrupt(PADAPTER padapter)
 	*/
 	rtw_write8(padapter, SPI_TX_CTRL, (rtw_read8(padapter, SPI_TX_CTRL) & ~(BIT(0) | BIT(1))));
 	tmp_int = rtw_read32(padapter, SPI_TX_CTRL);
-	printk("leonard SPI_TX_CTRL: %x\n", tmp_int);
+	DBG_8192C("leonard SPI_TX_CTRL: %x\n", tmp_int);
 
 	tmp_int =  rtw_read32(padapter, SPI_HIMR);
- 	printk("leonard 00000 SPI_HIMR: %x\n", tmp_int);
+ 	DBG_8192C("leonard 00000 SPI_HIMR: %x\n", tmp_int);
 
 	tmp_char = rtw_read8(padapter, SPI_STATUS_RECOVERY);
-	printk("00000 SPI_STATUS_RECOVERY is %x\n",tmp_char);
+	DBG_8192C("00000 SPI_STATUS_RECOVERY is %x\n",tmp_char);
 	tmp_short = rtw_read16(padapter, SPI_INT_TIMEOUT);
-	printk("00000 SPI_INT_TIMEOUT is %x\n",tmp_short);
+	DBG_8192C("00000 SPI_INT_TIMEOUT is %x\n",tmp_short);
 
 
 	// HISR - turn all off
@@ -803,7 +803,7 @@ static void _InitRFType(PADAPTER padapter)
 
 	if (_FALSE == is92CU) {
 		pHalData->rf_type = RF_1T1R;
-		DBG_8192C("Set RF Chip ID to RF_6052 and RF type to 1T1R.\n");
+		DBG_871X("Set RF Chip ID to RF_6052 and RF type to 1T1R.\n");
 		return;
 	}
 
@@ -1021,7 +1021,7 @@ static BOOLEAN HalDetectPwrDownMode(PADAPTER Adapter)
 		pHalData->pwrdown = _FALSE;
 	}
 
-	DBG_8192C("HalDetectPwrDownMode(): PDN=%d\n", pHalData->pwrdown);
+	DBG_871X("HalDetectPwrDownMode(): PDN=%d\n", pHalData->pwrdown);
 
 	return pHalData->pwrdown;
 }	// HalDetectPwrDownMode
@@ -1142,10 +1142,15 @@ static u32 rtl8723as_hal_init(PADAPTER padapter)
 		rtw_write8(padapter, REG_EARLY_MODE_CONTROL, 0);
 
 #if (MP_DRIVER == 1)
+	if (padapter->registrypriv.mp_mode == 1){
 	_InitRxSetting(padapter);
 	//RT_TRACE(_module_hci_hal_init_c_, _drv_info_, ("%s: Don't Download Firmware!!\n", __FUNCTION__));
 	//padapter->bFWReady = _FALSE;
-#else
+	}
+//#else
+	else
+#endif
+	{
 	ret = rtl8723a_FirmwareDownload(padapter);
 	if (ret != _SUCCESS) {
 		RT_TRACE(_module_hci_hal_init_c_, _drv_err_, ("%s: Download Firmware failed!!\n", __FUNCTION__));
@@ -1157,7 +1162,8 @@ static u32 rtl8723as_hal_init(PADAPTER padapter)
 		padapter->bFWReady = _TRUE;
 		pHalData->fw_ractrl = _TRUE;
 	}
-#endif
+	}
+//#endif
 	rtl8723a_InitializeFirmwareVars(padapter);
 
 //	SIC_Init(padapter);
@@ -1315,9 +1321,14 @@ static u32 rtl8723as_hal_init(PADAPTER padapter)
 #endif
 #endif
 #if (MP_DRIVER == 1)
+	if (padapter->registrypriv.mp_mode == 1){
 	padapter->mppriv.channel = pHalData->CurrentChannel;
 	MPT_InitializeAdapter(padapter, padapter->mppriv.channel);
-#else // MP_DRIVER != 1
+	}
+	else
+#endif
+//#else // MP_DRIVER != 1
+	{
 	// 2010/08/26 MH Merge from 8192CE.
 	if (pwrctrlpriv->rf_pwrstate == rf_on)
 	{
@@ -1340,7 +1351,8 @@ static u32 rtl8723as_hal_init(PADAPTER padapter)
 		rtl8723a_SingleDualAntennaDetection(padapter);
 #endif
 	}
-#endif // MP_DRIVER != 1
+	}//#endif // MP_DRIVER != 1
+
 #if 0
 	//if(pHalData->eRFPowerState == eRfOn)
 	{
@@ -1440,7 +1452,7 @@ static void PowerDownRTL8723ASdio(PADAPTER padapter)
 		if (retry == 1000) break;
 	} while (1);
 	if (retry == 1000)
-		printk(KERN_ERR "%s: can't wait REG_APS_FSMCO BIT9 to 0! (0x%02x)\n", __func__, v8);
+		DBG_8192C(KERN_ERR "%s: can't wait REG_APS_FSMCO BIT9 to 0! (0x%02x)\n", __func__, v8);
 
 	v8 = rtw_read8(padapter, REG_APS_FSMCO+2);
 	v8 &= ~BIT(0);
@@ -1473,7 +1485,7 @@ static void LPSRadioOffRTL8723ASdio(PADAPTER padapter)
 		if (retry == 1000) break;
 	} while (1);
 	if (retry == 1000)
-		printk(KERN_ERR "%s: polling 0x5F8 to 0 fail! (0x%08x)\n", __func__, v32);
+		DBG_8192C(KERN_ERR "%s: polling 0x5F8 to 0 fail! (0x%08x)\n", __func__, v32);
 
 	// 2. 0x02[1:0] = 2b'10	// Reset BB TRX
 	u1bTmp = rtw_read8(padapter, REG_SYS_FUNC_EN);
@@ -1516,7 +1528,7 @@ static void CardDisableRTL8723ASdio(PADAPTER padapter)
 	// Run LPS WL RFOFF flow
 	ret = HalPwrSeqCmdParsing(padapter, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK, rtl8723A_enter_lps_flow);
 	if (ret == _FALSE) {
-		printk(KERN_ERR "%s: run RF OFF flow fail!\n", __func__);
+		DBG_8192C(KERN_ERR "%s: run RF OFF flow fail!\n", __func__);
 	}
 
 	//	==== Reset digital sequence   ======
@@ -1541,7 +1553,7 @@ static void CardDisableRTL8723ASdio(PADAPTER padapter)
 	padapter->HalFunc.SetHwRegHandler(padapter, HW_VAR_APFM_ON_MAC, &bMacPwrCtrlOn);
 	ret = HalPwrSeqCmdParsing(padapter, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK, rtl8723A_card_disable_flow);
 	if (ret == _FALSE) {
-		printk(KERN_ERR "%s: run CARD DISABLE flow fail!\n", __func__);
+		DBG_8192C(KERN_ERR "%s: run CARD DISABLE flow fail!\n", __func__);
 	}
 
 	// Reset MCU IO Wrapper, added by Roger, 2011.08.30
@@ -1979,10 +1991,13 @@ static u32 Hal_readPGDataFromConfigFile(
 	u32 i;
 	struct file *fp;
 	mm_segment_t fs;
-	u8 temp[2];
+	u8 temp[3];
 	loff_t pos = 0;
 
-	fp = filp_open("/system/etc/wifi/wifi_efuse.map", O_RDWR,  0644);
+
+	temp[2] = 0; // add end of string '\0'
+
+	fp = filp_open("/system/etc/wifi/rtk_efuse.map", O_RDONLY,  0);
 	if (IS_ERR(fp)) {
 		RT_TRACE(_module_hci_hal_init_c_, _drv_err_, ("Error, Efuse configure file doesn't exist.\n"));
 		return _FAIL;
@@ -1996,7 +2011,7 @@ static u32 Hal_readPGDataFromConfigFile(
 		vfs_read(fp, temp, 2, &pos);
 		PROMContent[i] = simple_strtoul(temp, NULL, 16 );
 		pos += 1; // Filter the space character
-		DBG_871X("%02X ", PROMContent[i]);
+		DBG_871X("%02X \n", PROMContent[i]);
 	}
 	DBG_871X("\n");
 	set_fs(fs);
@@ -2051,7 +2066,7 @@ Hal_ReadMACAddrFromFile_8723AS(
 				end++;
 				head = end;
 			}
-			DBG_871X("%02x ", pEEPROM->mac_addr[i]);
+			DBG_871X("%02x \n", pEEPROM->mac_addr[i]);
 		}
 		DBG_871X("\n");
 		set_fs(fs);
@@ -2077,25 +2092,6 @@ Hal_ReadMACAddrFromFile_8723AS(
 }
 #endif
 
-unsigned char eeprom_data_8723as[256] = {
-	0x29, 0x81, 0x03, 0x74, 0x2D, 0x00, 0x60, 0x00, 0x00, 0x07, 0x05, 0x85, 0x50, 0x00, 0x00, 0x00,
-	0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x26, 0x26, 0x26, 0x26, 0x26, 0x26, 0x02, 0x02, 0x02, 0x04,
-	0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x12, 0x31, 0x00, 0x00, 0x31, 0x00,
-	0x01, 0x00, 0x00, 0x20, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0x3E, 0x30, 0x01, 0x02, 0x32, 0x00, 0x00, 0xFF, 0x20, 0x04, 0x4C, 0x02, 0x23, 0x87, 0x21, 0x02,
-	0x0C, 0x00, 0x22, 0x04, 0x00, 0x08, 0x00, 0x32, 0xFF, 0x21, 0x02, 0x0C, 0x00, 0x22, 0x2A, 0x01,
-	0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0xFF, 0xFF,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0xEB, 0x00, 0x6E, 0x01, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x00, 0xE0, 0x4C, 0x01, 0xB0, 0x11,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-	0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-};//256
-
 static VOID
 readAdapterInfo(
 	IN PADAPTER			padapter
@@ -2110,25 +2106,19 @@ readAdapterInfo(
 	//
 	// This part read and parse the eeprom/efuse content
 	//
-#if 0//def CONFIG_EFUSE_CONFIG_FILE
-	Hal_readPGDataFromConfigFile(padapter, hwinfo);
-#else
 	Hal_InitPGData(padapter, hwinfo);
+#ifdef CONFIG_EFUSE_CONFIG_FILE
+	Hal_readPGDataFromConfigFile(padapter, hwinfo);
 #endif
-
-	//lzm test temp
-	//init from config file
-	pEEPROM->bautoload_fail_flag = _FALSE;
-	get_random_bytes((eeprom_data_8723as + (EEPROM_MAC_ADDR_8723AS + ETH_ALEN - 1)), 1);
-	_rtw_memcpy(hwinfo, eeprom_data_8723as, HWSET_MAX_SIZE);
 
 	Hal_EfuseParseIDCode(padapter, hwinfo);
 	Hal_EfuseParsePIDVID_8723AS(padapter, hwinfo, pEEPROM->bautoload_fail_flag);
+
+	Hal_EfuseParseMACAddr_8723AS(padapter, hwinfo, pEEPROM->bautoload_fail_flag);
 #ifdef CONFIG_EFUSE_CONFIG_FILE
 	Hal_ReadMACAddrFromFile_8723AS(padapter);
-#else
-	Hal_EfuseParseMACAddr_8723AS(padapter, hwinfo, pEEPROM->bautoload_fail_flag);
 #endif
+
 	Hal_EfuseParseTxPowerInfo_8723A(padapter, hwinfo, pEEPROM->bautoload_fail_flag);
 	Hal_EfuseParseBTCoexistInfo_8723A(padapter, hwinfo, pEEPROM->bautoload_fail_flag);
 	Hal_EfuseParseEEPROMVer(padapter, hwinfo, pEEPROM->bautoload_fail_flag);
@@ -2207,7 +2197,7 @@ static s32 _ReadAdapterInfo8723AS(PADAPTER padapter)
 
 	RT_TRACE(_module_hci_hal_init_c_, _drv_info_, ("+ReadAdapterInfo8723AS\n"));
 
-	// before access eFuse, make sure card enable has been called
+	// before access eFuse, we should enable card
 	CardEnable(padapter);
 
 	start = rtw_get_current_time();
@@ -2348,18 +2338,18 @@ SetHalDefVar8723ASDIO(
 
 				if(dm_func == 0){ //disable all dynamic func
 					podmpriv->SupportAbility = DYNAMIC_FUNC_DISABLE;
-					DBG_8192C("==> Disable all dynamic function...\n");
+					DBG_871X("==> Disable all dynamic function...\n");
 				}
 				else if(dm_func == 1){//disable DIG
 					podmpriv->SupportAbility  &= (~DYNAMIC_BB_DIG);
-					DBG_8192C("==> Disable DIG...\n");
+					DBG_871X("==> Disable DIG...\n");
 				}
 				else if(dm_func == 2){//disable High power
 					podmpriv->SupportAbility  &= (~DYNAMIC_BB_DYNAMIC_TXPWR);
 				}
 				else if(dm_func == 3){//disable tx power tracking
 					podmpriv->SupportAbility  &= (~DYNAMIC_RF_CALIBRATION);
-					DBG_8192C("==> Disable tx power tracking...\n");
+					DBG_871X("==> Disable tx power tracking...\n");
 				}
 				else if(dm_func == 4){//disable BT coexistence
 					pdmpriv->DMFlag &= (~DYNAMIC_FUNC_BT);
@@ -2375,7 +2365,7 @@ SetHalDefVar8723ASDIO(
 					}
 					pdmpriv->DMFlag |= DYNAMIC_FUNC_BT;
 					podmpriv->SupportAbility = DYNAMIC_ALL_FUNC_ENABLE;
-					DBG_8192C("==> Turn on all dynamic function...\n");
+					DBG_871X("==> Turn on all dynamic function...\n");
 				}
 			}
 			break;

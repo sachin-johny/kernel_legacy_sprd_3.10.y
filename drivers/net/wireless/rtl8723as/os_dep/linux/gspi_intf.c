@@ -276,7 +276,7 @@ static int /*__devinit*/  rtw_drv_probe(
 	/* This is the only SPI value that we need to set here, the rest
 	 * comes from the board-peripherals file */
 	spi->bits_per_word = 32;
-	spi->max_speed_hz = 48 * 1000 * 1000;
+	spi->max_speed_hz = 24 * 1000 * 1000;
 	//here mode 0 and 3 all ok,
 	//3 can run under 48M clock when SPI_CTL4 bit14 IS_FST set to 1
 	//0 can run under 24M clock, but can run under 48M when SPI_CTL4 bit14 IS_FST set to 1 and Ctl0_reg[1:0] set to 3.

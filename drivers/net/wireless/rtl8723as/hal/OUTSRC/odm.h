@@ -1314,7 +1314,7 @@ typedef  struct DM_Out_Source_Dynamic_Mechanism_Structure
 	u1Byte			BbSwingIdxCckCurrent;
 	u1Byte			BbSwingIdxCckBase;
 	BOOLEAN			BbSwingFlagCck;
-	u1Byte			*mp_mode; 
+	u1Byte			*mp_mode;
 	//
 	// ODM system resource.
 	//

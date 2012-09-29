@@ -65,17 +65,17 @@
 	// Fw Array
 	#define Rtl8723_FwUMCBCutMPImageArray		Rtl8723SFwUMCBCutMPImgArray
 	#define Rtl8723_UMCBCutMPImgArrayLength		Rtl8723SUMCBCutMPImgArrayLength
-	
+
 	#define Rtl8723_FwImageArray				Rtl8723SFwImgArray
 	#define Rtl8723_FwUMCBCutImageArray		Rtl8723SFwUMCBCutImgArray
 
 	#define Rtl8723_ImgArrayLength				Rtl8723SImgArrayLength
 	#define Rtl8723_UMCBCutImgArrayLength		Rtl8723SUMCBCutImgArrayLength
 
-	
+
 	#define Rtl8723_PHY_REG_Array_PG 			Rtl8723SPHY_REG_Array_PG
 	#define Rtl8723_PHY_REG_Array_PGLength		Rtl8723SPHY_REG_Array_PGLength
-	
+
 #if MP_DRIVER == 1
 	#define Rtl8723E_FwBTImgArray				Rtl8723EFwBTImgArray
 	#define Rtl8723E_FwBTImgArrayLength			Rtl8723EBTImgArrayLength

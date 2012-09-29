@@ -31,7 +31,8 @@
 #define DRV_NAME "rtl8723as"
 
 #define CONFIG_RTL8723A
-#define CONFIG_SDIO_HCI
+//#define CONFIG_GSPI_HCI config from Makefile
+//#define CONFIG_SDIO_HCI config from Makefile
 #define PLATFORM_LINUX
 
 #define CONFIG_EMBEDDED_FWIMG
@@ -47,7 +48,7 @@
 
 #define CONFIG_IOCTL_CFG80211
 #ifdef CONFIG_PLATFORM_ARM_SUN4I
-	#ifndef CONFIG_IOCTL_CFG80211 
+	#ifndef CONFIG_IOCTL_CFG80211
 		#define CONFIG_IOCTL_CFG80211 1
 	#endif
 #endif
@@ -115,11 +116,15 @@
 /*
  * Auto Config Section
  */
+#if defined(CONFIG_RTL8723A) && defined(CONFIG_GSPI_HCI)
+	#define CONFIG_RTL8723A_GSPI
+	#define CONFIG_XMIT_THREAD_MODE
+#endif
+
 #if defined(CONFIG_RTL8723A) && defined(CONFIG_SDIO_HCI)
 #define CONFIG_RTL8723A_SDIO
 #define CONFIG_XMIT_THREAD_MODE
 #endif
-
 
 #ifdef CONFIG_MAC_LOOPBACK_DRIVER
 #undef CONFIG_IOCTL_CFG80211
@@ -150,7 +155,7 @@
 	#define CONFIG_IPS
 	#define CONFIG_LPS
 
-	#if defined(CONFIG_LPS) && defined(CONFIG_SDIO_HCI)
+	#if defined(CONFIG_LPS) && (defined(CONFIG_GSPI_HCI) || defined(CONFIG_SDIO_HCI))
 	#define CONFIG_LPS_LCLK
 	#endif
 #endif // #ifdef CONFIG_POWER_SAVING

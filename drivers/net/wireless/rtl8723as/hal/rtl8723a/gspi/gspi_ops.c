@@ -75,7 +75,7 @@ _func_exit_;
 
 s32 _spi_readN(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, u8 *pbuf)
 {
-	printk("Oops: %s not supported in GSPI\n", __func__);
+	DBG_8192C("Oops: %s not supported in GSPI\n", __func__);
 	return 0;
 }
 
@@ -120,18 +120,18 @@ _func_exit_;
 
 s32 _spi_writeN(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, u8* pbuf)
 {
-	printk("Oops: %s not supported in GSPI\n", __func__);
+	DBG_8192C("Oops: %s not supported in GSPI\n", __func__);
 	return 0;
 }
 
 void _spi_read_mem(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, u8 *rmem)
 {
-	printk("Oops: %s not supported in GSPI\n", __func__);
+	DBG_8192C("Oops: %s not supported in GSPI\n", __func__);
 }
 
 void _spi_write_mem(struct intf_hdl *pintfhdl, u32 addr, u32 cnt, u8 *wmem)
 {
-	printk("Oops: %s not supported in GSPI\n", __func__);
+	DBG_8192C("Oops: %s not supported in GSPI\n", __func__);
 }
 
 /*
@@ -158,7 +158,7 @@ static u32 _spi_read_port(
 {
 	struct spi_more_data more_data = {0};
 
-	printk("%s \n", __func__);
+	DBG_8192C("%s \n", __func__);
 
 	spi_read_rx_fifo(pintfhdl->padapter, mem, cnt, &more_data);
 
@@ -214,7 +214,7 @@ static u32 _spi_write_port(
 	if (remain_len != 0)
 		w_sz += 4 -remain_len;
 
-	//printk("%s fifo:%d cnt:%d w_sz:%d\n", __func__, addr, cnt, w_sz);
+	//DBG_8192C("%s fifo:%d cnt:%d w_sz:%d\n", __func__, addr, cnt, w_sz);
 	spi_write_tx_fifo(pintfhdl->padapter, mem, w_sz, _spi_hwqueue_to_fifoqueue(addr));
 
 	return 0;
@@ -256,7 +256,7 @@ void InitInterrupt8723ASdio(PADAPTER padapter)
 	pHalData = GET_HAL_DATA(padapter);
 	pHalData->sdio_himr = (u32)(			\
 								SPI_HISR_RX_REQUEST			|
-								SPI_HISR_RXFOVW			|
+								//SPI_HISR_RXFOVW			|
 								SPI_HISR_TXERR			|
 #if defined(CONFIG_BT_COEXIST) || defined(CONFIG_MP_INCLUDED)
 								SPI_HISR_C2HCMD				|
@@ -359,7 +359,7 @@ static void spi_clean_rxfifo(PADAPTER padapter, u32 size)
 		if (pbuf) break;
 		bufSize /= 2;
 		if (bufSize == 0) {
-			printk(KERN_ERR "%s: Can't allocate any memory for RX!!\n", __func__);
+			DBG_8192C(KERN_ERR "%s: Can't allocate any memory for RX!!\n", __func__);
 			return;
 		}
 	} while (1);
@@ -375,7 +375,7 @@ static void spi_clean_rxfifo(PADAPTER padapter, u32 size)
 
 		ret = spi_read_rx_fifo(padapter, pbuf, readsize, &more_data);
 		if (ret == _FAIL) {
-			printk(KERN_ERR "%s: read port FAIL! size=%d\n", __func__, readsize);
+			DBG_8192C(KERN_ERR "%s: read port FAIL! size=%d\n", __func__, readsize);
 			break;
 		}
 		size -= readsize;
@@ -417,7 +417,7 @@ static struct recv_buf* spi_recv_rxfifo(PADAPTER padapter, u32 size, struct spi_
 	//3 2. read data from rxfifo
 	preadbuf = skb_put(ppkt, readsize);
 //	rtw_read_port(padapter, WLAN_RX0FF_DEVICE_ID, readsize, preadbuf);
-	//printk("%s readsize:%d\n", __func__, readsize);
+	//DBG_8192C("%s readsize:%d\n", __func__, readsize);
 	ret = spi_read_rx_fifo(padapter, preadbuf, readsize, more_data);
 	if (ret == _FAIL) {
 		dev_kfree_skb_any(ppkt);
@@ -437,9 +437,9 @@ static struct recv_buf* spi_recv_rxfifo(PADAPTER padapter, u32 size, struct spi_
 	if (0) {
 		u32 i = 0;
 
-		printk("%s dump pkt: len:%d\n", __func__, readsize);
+		DBG_8192C("%s dump pkt: len:%d\n", __func__, readsize);
 		for (i = 0; i < readsize; i = i + 4) {
-			printk("%8.8x \n", *((u32*)(ppkt->data + i)));
+			DBG_8192C("%8.8x \n", *((u32*)(ppkt->data + i)));
 		}
 	}
 	//3 4. init recvbuf
@@ -508,32 +508,31 @@ void spi_int_dpc(PADAPTER padapter, u32 sdio_hisr)
 
 		status = rtw_read32(padapter, REG_TXDMA_STATUS);
 		rtw_write32(padapter, REG_TXDMA_STATUS, status);
-		printk("%s: SDIO_HISR_TXERR (0x%08x)\n", __func__, status);
+		DBG_8192C("%s: SDIO_HISR_TXERR (0x%08x)\n", __func__, status);
 	}
 
 	if (sdio_hisr & SPI_HISR_TXBCNOK)
 	{
-		printk("%s: SDIO_HISR_TXBCNOK\n", __func__);
+		DBG_8192C("%s: SDIO_HISR_TXBCNOK\n", __func__);
 	}
 
 	if (sdio_hisr & SPI_HISR_TXBCNERR)
 	{
-		printk("%s: SDIO_HISR_TXBCNERR\n", __func__);
+		DBG_8192C("%s: SDIO_HISR_TXBCNERR\n", __func__);
 	}
 
 	if (sdio_hisr & SPI_HISR_C2HCMD)
 	{
-		printk("%s: C2H Command\n", __func__);
+		DBG_8192C("%s: C2H Command\n", __func__);
 		rtw_c2h_wk_cmd(padapter);
 	}
 
-	if (sdio_hisr & SPI_HISR_RX_REQUEST ||
-			sdio_hisr & SPI_HISR_RXFOVW)
+	if (sdio_hisr & SPI_HISR_RX_REQUEST)// || sdio_hisr & SPI_HISR_RXFOVW)
 	{
 		struct recv_buf *precvbuf;
 		struct spi_more_data more_data = {0};
 
-		//printk("%s: RX Request, size=%d\n", __func__, phal->SdioRxFIFOSize);
+		//DBG_8192C("%s: RX Request, size=%d\n", __func__, phal->SdioRxFIFOSize);
 		sdio_hisr ^= SPI_HISR_RX_REQUEST;
 
 		do {
@@ -548,9 +547,9 @@ void spi_int_dpc(PADAPTER padapter, u32 sdio_hisr)
 				val = spi_read16(padapter, SPI_LOCAL_OFFSET | SPI_REG_RX0_REQ_LEN, &ret);
 				if (!ret) {
 					phal->SdioRxFIFOSize = val;
-					printk("%s: RX_REQUEST, read RXFIFOsize again size=%d\n", __func__, phal->SdioRxFIFOSize);
+					DBG_8192C("%s: RX_REQUEST, read RXFIFOsize again size=%d\n", __func__, phal->SdioRxFIFOSize);
 				} else {
-					printk(KERN_ERR "%s: RX_REQUEST, read RXFIFOsize ERROR!!\n", __func__);
+					DBG_8192C(KERN_ERR "%s: RX_REQUEST, read RXFIFOsize ERROR!!\n", __func__);
 				}
 			}
 
@@ -560,7 +559,7 @@ void spi_int_dpc(PADAPTER padapter, u32 sdio_hisr)
 				sd_recv_loopback(padapter, phal->SdioRxFIFOSize);
 #else
 				if (sdio_hisr & SPI_HISR_RXFOVW)
-					printk("%s RXFOVW RX\n", __func__);
+					DBG_8192C("%s RXFOVW RX\n", __func__);
 				precvbuf = spi_recv_rxfifo(padapter, phal->SdioRxFIFOSize, &more_data);
 				if (precvbuf)
 					spi_rxhandler(padapter, precvbuf);
@@ -594,14 +593,14 @@ void spi_int_hdl(PADAPTER padapter)
 
 	sdio_hisr = spi_read32(padapter, SPI_LOCAL_OFFSET | SDIO_REG_HISR, &ret);
 	//if (sdio_hisr)
-	//	printk("%s hisr:%x\n", __func__, sdio_hisr);
+	//	DBG_8192C("%s hisr:%x\n", __func__, sdio_hisr);
 	if (ret) {
-		printk(KERN_ERR "%s: read SDIO_REG_HISR FAIL!!\n", __func__);
+		DBG_8192C(KERN_ERR "%s: read SDIO_REG_HISR FAIL!!\n", __func__);
 		return;
 	}
 	phal->SdioRxFIFOSize = spi_read16(padapter, SPI_LOCAL_OFFSET | SPI_REG_RX0_REQ_LEN, &ret);
 	if (ret) {
-		printk(KERN_ERR "%s: read SPI_REG_RX0_REQ_LEN FAIL!!\n", __func__);
+		DBG_8192C(KERN_ERR "%s: read SPI_REG_RX0_REQ_LEN FAIL!!\n", __func__);
 		return;
 	}
 

@@ -26,6 +26,11 @@
  *   176 - 207 : A-Die GPIO
  */
 
+#define GPIO_BT_RESET       90
+#define GPIO_BT_POWER       137
+#define GPIO_WIFI_RESET     140
+#define GPIO_WIFI_IRQ	    65
+
 #define GPIO_TOUCH_RESET	59
 #define GPIO_TOUCH_IRQ		60
 #define GPIO_PLSENSOR_IRQ	28
@@ -35,13 +40,6 @@
 #define MSENSOR_DRDY_GPIO      97
 
 
-#define GPIO_BT_RESET       90
-#define GPIO_BT_POWER       136
-#define GPIO_BT2AP_WAKE     94
-#define GPIO_AP2BT_WAKE     140
-
-#define GPIO_WIFI_SHUTDOWN	137
-#define GPIO_WIFI_IRQ		142
 
 #define EIC_CHARGER_DETECT	162
 #define EIC_KEY_POWER		163
