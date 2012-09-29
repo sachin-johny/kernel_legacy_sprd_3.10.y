@@ -135,7 +135,7 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 			n++;
 			if ((n & 0x3FF) == 0) {
 				if (n > 5000) {
-					printk(KERN_NOTICE "%s: FIFO starvation!(%d) len=%d agg=%d page=(R)%d(A)%d\n",
+					DBG_8192C(KERN_NOTICE "%s: FIFO starvation!(%d) len=%d agg=%d page=(R)%d(A)%d\n",
 						__func__, n, pxmitbuf->len, pframe->agg_num, pframe->pg_num, freePage[PageIdx] + freePage[PUBLIC_QUEUE_IDX]);
 				} else {
 					RT_TRACE(_module_hal_xmit_c_, _drv_notice_,
@@ -144,6 +144,7 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 				}
 				rtw_yield_os();
 			}
+			rtw_msleep_os(1);
 
 			// Total number of page is NOT available, so update current FIFO status
 			HalQueryTxBufferStatus8723ASdio(padapter);
@@ -315,7 +316,7 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 					{
 						_exit_critical_bh(&pxmitpriv->lock, &irql);
 #ifdef PLATFORM_LINUX
-						printk("%s: one not triggered pkt in queue when STA sleep\n", __func__);
+						DBG_8192C("%s: one not triggered pkt in queue when STA sleep\n", __func__);
 #endif
 						break;
 					}

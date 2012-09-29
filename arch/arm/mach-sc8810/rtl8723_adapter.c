@@ -57,6 +57,7 @@ static int __init wlan_bt_device_init(void)
 	return wifi_bt_ldo_enable();
 }
 
+#ifdef CONFIG_WLAN_SDIO
 static int __init wlan_bt_late_init(void)
 {
 	int i = 0;
@@ -86,8 +87,11 @@ static int __init wlan_bt_late_init(void)
 	return 0;
 }
 
-device_initcall(wlan_bt_device_init);
 late_initcall(wlan_bt_late_init);
+
+#endif
+
+device_initcall(wlan_bt_device_init);
 
 MODULE_DESCRIPTION("Realtek wlan/bt init driver");
 MODULE_LICENSE("GPL");

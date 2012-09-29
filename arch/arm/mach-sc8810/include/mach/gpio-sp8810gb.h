@@ -27,7 +27,6 @@
  */
 
 #define GPIO_BT_RESET       90
-#define GPIO_BT_POWER       137
 #define GPIO_WIFI_RESET     140
 #define GPIO_WIFI_IRQ	    -1
 

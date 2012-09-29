@@ -52,11 +52,7 @@ extern int __init sprd_ramconsole_init(void);
 #endif
 
 static struct platform_device rfkill_device;
-static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
-/* Control ldo for brcm chip according to HW design */
-static struct regulator *wlan_regulator_18=NULL;
-
 
 /* Control ldo for maxscend cmmb chip according to HW design */
 static struct regulator *cmmb_regulator_1v8 = NULL;
@@ -105,42 +101,12 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_scale_device,
 	&sprd_rotation_device,
 	&rfkill_device,
-	&brcm_bluesleep_device,
 	&kb_backlight_device,
 	&gpsctl_dev,
 };
 
-/* BT suspend/resume */
-static struct resource bluesleep_resources[] = {
-	{
-		.name	= "gpio_host_wake",
-		.start	= GPIO_BT2AP_WAKE,
-		.end	= GPIO_BT2AP_WAKE,
-		.flags	= IORESOURCE_IO,
-	},
-	{
-		.name	= "gpio_ext_wake",
-		.start	= GPIO_AP2BT_WAKE,
-		.end	= GPIO_AP2BT_WAKE,
-		.flags	= IORESOURCE_IO,
-	},
-};
-
-static struct platform_device brcm_bluesleep_device = {
-	.name = "bluesleep",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(bluesleep_resources),
-	.resource	= bluesleep_resources,
-};
-
 /* RFKILL */
 static struct resource rfkill_resources[] = {
-	{
-		.name   = "bt_power",
-		.start  = GPIO_BT_POWER,
-		.end    = GPIO_BT_POWER,
-		.flags  = IORESOURCE_IO,
-	},
 	{
 		.name   = "bt_reset",
 		.start  = GPIO_BT_RESET,
@@ -502,26 +468,6 @@ static int sc8810_add_misc_devices(void)
 	}
 	return 0;
 }
-
-/* Control the BT_VDDIO and WLAN_VDDIO
-Always power on  According to spec
-*/
-static int brcm_ldo_enable(void)
-{
-	int err;
-	wlan_regulator_18 = regulator_get(NULL, REGU_NAME_WIFI);
-	if (IS_ERR(wlan_regulator_18)) {
-		pr_err("can't get 1.8V regulator\n");
-		return -1;
-	}
-	err = regulator_set_voltage(wlan_regulator_18,1800000,1800000);
-	if (err){
-		pr_err("can't set to 1.8V.\n");
-		return -1;
-	}
-        return 0;
-}
-
 static void __init sc8810_init_machine(void)
 {
 	regulator_add_devices();
@@ -533,7 +479,6 @@ static void __init sc8810_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
-        brcm_ldo_enable();
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	sprd_ramconsole_init();
 #endif
