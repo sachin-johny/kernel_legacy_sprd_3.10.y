@@ -1349,7 +1349,7 @@ LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 			else
 			{
 				SENSOR_PRINT_ERR("SENSOR: add I2C driver OK.\n");	
-				g_is_register_sensor = 1;	
+				g_is_register_sensor = 1;
 				sensor_info_tab_ptr=(SENSOR_INFO_T**)Sensor_GetInforTab(sensor_id);
 				if(sensor_info_tab_ptr)
 				{
@@ -1669,27 +1669,21 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
 		s_sensor_init = SENSOR_TRUE;
 
 		if (5 != Sensor_GetCurId())
-			this_client->addr =
-			    (this_client->
-			     addr & (~0xFF)) |
-			    (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
-		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n", sensor_id,
-		       this_client->addr);
+			this_client->addr = (this_client->addr & (~0xFF)) |(s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
+		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n", sensor_id,this_client->addr);
 		ret_val = SENSOR_SUCCESS;
 
 		printk("_sensor_com_init: before sensor_mode\n");
 		if (SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT)) {
-			SENSOR_PRINT_ERR("Sensor set init mode error!\n");
+			SENSOR_PRINT_ERR("Sensor: _sensor_com_init set init mode error!\n");
 			ret_val = SENSOR_FAIL;
 		}
 		printk("_sensor_com_init: after sensor_mode\n");
 		s_sensor_init = SENSOR_TRUE;
-		//SENSOR_PRINT("SENSOR: Sensor_Init  Success \n");
 	}
 	else {
-		
-		SENSOR_PRINT_ERR("Sensor identify fail,sensor_id = %d",
-				 sensor_id);
+
+		SENSOR_PRINT_ERR("_sensor_com_init  fail,sensor_id = %d \n", sensor_id);
 	}
 
 	printk("_sensor_com_init: out\n");
@@ -1763,19 +1757,19 @@ PUBLIC BOOLEAN Sensor_IsInit(void)
 /*****************************************************************************/
 PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 {
-    	uint32_t mclk;
+	uint32_t mclk;
 	SENSOR_IOCTL_FUNC_PTR set_reg_tab_func=s_sensor_info_ptr->ioctl_func_tab_ptr->cus_func_1;
 
-        SENSOR_PRINT("SENSOR: Sensor_SetMode -> mode = %d.\n", mode);        
-        if(SENSOR_FALSE == Sensor_IsInit()){	          
+	SENSOR_PRINT("SENSOR: Sensor_SetMode -> mode = %d.\n", mode);
+	if(SENSOR_FALSE == Sensor_IsInit()){
 		SENSOR_PRINT("SENSOR: Sensor_SetResolution -> sensor has not init");
-            	return SENSOR_OP_STATUS_ERR;
-        }	
-        
-        if(s_sensor_mode[Sensor_GetCurId()] == mode){
-            	SENSOR_PRINT("SENSOR: The sensor mode as before");	 
-            	return SENSOR_SUCCESS;
-        }
+		return SENSOR_OP_STATUS_ERR;
+	}
+
+	if(s_sensor_mode[Sensor_GetCurId()] == mode){
+		SENSOR_PRINT("SENSOR: The sensor mode as before \n");
+		return SENSOR_SUCCESS;
+	}
 
 	if(PNULL != s_sensor_info_ptr->resolution_tab_info_ptr[mode].sensor_reg_tab_ptr)
 	{		
@@ -1789,14 +1783,16 @@ PUBLIC ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 		// send register value to sensor
 		Sensor_SendRegTabToSensor(&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
 
-		s_sensor_mode[Sensor_GetCurId()]=mode;
 	}
 	else
 	{
 		if(set_reg_tab_func)
 			set_reg_tab_func(0);
-		SENSOR_PRINT("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
-	}       
+		SENSOR_PRINT("SENSOR: Sensor_SetResolution -> No this resolution information !!! \n");
+	}
+
+	s_sensor_mode[Sensor_GetCurId()] = mode;
+
 	return SENSOR_SUCCESS;
 }
 /*****************************************************************************/
@@ -1986,17 +1982,32 @@ PUBLIC uint32_t Sensor_SetSensorType(SENSOR_TYPE_E sensor_type)
 }
 PUBLIC ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode)
 {
-	uint32_t mclk;
+#if 1
+	uint32_t ret_val = SENSOR_FAIL;
+	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr = s_sensor_register_info_ptr;
+	struct timeval time1, time2;
+
+	do_gettimeofday(&time1);
+
+
+	printk("Sensor_SetTiming  start: sensor_id=%d,  mode=%d \n", Sensor_GetCurId(), mode);
+	ret_val = _sensor_com_init(Sensor_GetCurId(), sensor_register_info_ptr);
+	Sensor_SetMode(mode);
+
+	do_gettimeofday(&time2);
+
+	printk("Sensor_SetTiming  end, ret = %d, time=%d ms \n", ret_val,
+		(time2.tv_sec-time1.tv_sec)*1000 + (time2.tv_usec-time1.tv_usec)/1000);
+
+	return ret_val;
+#else
 	uint32_t cur_id = s_sensor_register_info_ptr->cur_id;
 	
 	printk("SENSOR: Sensor_SetTiming -> mode = %d,sensor_id=%d.\n", mode,cur_id);        
-       
-	//if(0!=cur_id)
-	//	return 0;
 	
 	if(PNULL != s_sensor_info_ptr->resolution_tab_info_ptr[mode].sensor_reg_tab_ptr)
 	{
-	          // send register value to sensor
+		// send register value to sensor
 		Sensor_SendRegTabToSensor(&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
 
 		s_sensor_mode[Sensor_GetCurId()]=mode;
@@ -2004,8 +2015,9 @@ PUBLIC ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode)
 	else
 	{
 		SENSOR_PRINT("SENSOR: Sensor_SetResolution -> No this resolution information !!!");
-	}       
+	}
 	return SENSOR_SUCCESS;
+#endif
 }
 
 PUBLIC int Sensor_CheckTiming(SENSOR_MODE_E mode)

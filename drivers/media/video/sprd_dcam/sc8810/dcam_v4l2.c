@@ -567,6 +567,34 @@ struct dcam_fh {
 };
 static int dcam_start_timer(struct timer_list *dcam_timer,uint32_t time_val);
 static void dcam_stop_timer(struct timer_list *dcam_timer);
+
+static void reset_sensor_param(void)
+{
+	if(INVALID_VALUE != g_dcam_info.wb_param)
+		Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE, g_dcam_info.wb_param);
+
+	if(INVALID_VALUE != g_dcam_info.imageeffect_param)
+		Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT, g_dcam_info.imageeffect_param);
+
+	if(INVALID_VALUE != g_dcam_info.previewmode_param)
+		Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE, g_dcam_info.previewmode_param);
+
+	if(INVALID_VALUE != g_dcam_info.brightness_param)
+		Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, g_dcam_info.brightness_param);
+
+	if(INVALID_VALUE != g_dcam_info.contrast_param)
+		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, g_dcam_info.contrast_param);
+
+	if(INVALID_VALUE != g_dcam_info.ev_param)
+		Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION, g_dcam_info.ev_param);
+
+	if(INVALID_VALUE != g_dcam_info.power_freq)
+		Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER, g_dcam_info.power_freq);
+
+	if(INVALID_VALUE != g_dcam_info.sensor_work_mode)
+		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE, g_dcam_info.sensor_work_mode);
+}
+
 static int init_sensor_parameters(void *priv)
 {
 	uint32_t i,width;
@@ -594,6 +622,9 @@ static int init_sensor_parameters(void *priv)
 		init_param.input_size.w = fh->height;
 		init_param.input_size.h = fh->width;
 	}
+
+	g_dcam_info.preview_m = SENSOR_MODE_PREVIEW_ONE;
+	g_dcam_info.snapshot_m = SENSOR_MODE_PREVIEW_ONE;
 
 	for(i = SENSOR_MODE_PREVIEW_ONE; i < SENSOR_MODE_MAX; i++)
 	{
@@ -666,41 +697,13 @@ static int init_sensor_parameters(void *priv)
 		Sensor_SetMode(g_dcam_info.preview_m);
 		g_dcam_info.cur_m = g_dcam_info.preview_m;
 
-                printk("parameters: %d, %d, %d, %d, %d, %d, %d, %d \n",
-                                g_dcam_info.wb_param, g_dcam_info.imageeffect_param, g_dcam_info.previewmode_param,
-                                g_dcam_info.brightness_param, g_dcam_info.contrast_param, g_dcam_info.ev_param, 
-                                g_dcam_info.power_freq, g_dcam_info.sensor_work_mode);
+		printk("parameters: %d, %d, %d, %d, %d, %d, %d, %d \n",
+			g_dcam_info.wb_param, g_dcam_info.imageeffect_param, g_dcam_info.previewmode_param,
+			g_dcam_info.brightness_param, g_dcam_info.contrast_param, g_dcam_info.ev_param,
+			g_dcam_info.power_freq, g_dcam_info.sensor_work_mode);
 
 		/* Setting sensor parameters */
-		if(INVALID_VALUE != g_dcam_info.wb_param)
-			Sensor_Ioctl(SENSOR_IOCTL_SET_WB_MODE,              	g_dcam_info.wb_param);
-		
-		if(INVALID_VALUE != g_dcam_info.imageeffect_param)
-			Sensor_Ioctl(SENSOR_IOCTL_IMAGE_EFFECT,        		g_dcam_info.imageeffect_param);
-		
-		if(INVALID_VALUE != g_dcam_info.previewmode_param)
-			Sensor_Ioctl(SENSOR_IOCTL_PREVIEWMODE,              	g_dcam_info.previewmode_param);
-		
-		if(INVALID_VALUE != g_dcam_info.brightness_param)
-			Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,               		g_dcam_info.brightness_param);
-		
-		if(INVALID_VALUE != g_dcam_info.contrast_param)
-			Sensor_Ioctl(SENSOR_IOCTL_CONTRAST,                 		g_dcam_info.contrast_param);
-		
-	//	if(INVALID_VALUE != g_dcam_info.hflip_param)
-	//		Sensor_Ioctl(SENSOR_IOCTL_HMIRROR_ENABLE,           	g_dcam_info.hflip_param);
-		
-	//	if(INVALID_VALUE != g_dcam_info.vflip_param)
-	//		Sensor_Ioctl(SENSOR_IOCTL_VMIRROR_ENABLE,           	g_dcam_info.vflip_param);
-		
-		if(INVALID_VALUE != g_dcam_info.ev_param)
-			Sensor_Ioctl(SENSOR_IOCTL_EXPOSURE_COMPENSATION,	g_dcam_info.ev_param);
-		
-		if(INVALID_VALUE != g_dcam_info.power_freq)
-			Sensor_Ioctl(SENSOR_IOCTL_ANTI_BANDING_FLICKER,     	g_dcam_info.power_freq);
-		
-		if(INVALID_VALUE != g_dcam_info.sensor_work_mode)
-		    Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,g_dcam_info.sensor_work_mode);
+		reset_sensor_param();
 	}
 	return 0;
 }
@@ -1887,7 +1890,7 @@ static int init_dcam_parameters(void *priv)
         	{
 		g_dcam_info.input_size.w =sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].width;
 		g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].height;
-			g_zoom_level = 0;
+		g_zoom_level = 0;
 		trim_start_x = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].trim_start_x;
 		trim_start_y = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].trim_start_y;
 		trim_width = sensor_info_ptr->sensor_mode_info[g_dcam_info.snapshot_m].trim_width;
@@ -1901,7 +1904,7 @@ static int init_dcam_parameters(void *priv)
 		init_param.input_rect.y = trim_start_y;
 	}
 	init_param.input_rect.w = g_dcam_info.input_size.w;
-	init_param.input_rect.h = g_dcam_info.input_size.h;		
+	init_param.input_rect.h = g_dcam_info.input_size.h;
 	init_param.input_size.w = init_param.input_rect.w;
 	init_param.input_size.h = init_param.input_rect.h;
 
@@ -2058,14 +2061,14 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.previewmode_param = INVALID_VALUE;
 	g_dcam_info.ev_param = INVALID_VALUE;	
 	g_dcam_info.power_freq = INVALID_VALUE;
-        //g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
+	//g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;
 
 	//stop timer
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	//stop dcam
 	dcam_stop();
-          s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
-	   for(k = 0; k < VIDEO_MAX_FRAME; k++)
+	s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
+	for(k = 0; k < VIDEO_MAX_FRAME; k++)
 		if((NULL != fh->vb_vidq.bufs[k]) && (VIDEOBUF_IDLE != fh->vb_vidq.bufs[k]->state))
 		{
 			fh->vb_vidq.bufs[k]->state = VIDEOBUF_IDLE;
@@ -2163,7 +2166,7 @@ unlock:
 }
 
 static uint32_t s_print_cnt = 0;
-   static void path1_done_buffer(struct dcam_fh *fh)
+static void path1_done_buffer(struct dcam_fh *fh)
 {
 	struct dcam_buffer *buf; 
 	struct dcam_dev *dev = fh->dev;
@@ -2179,7 +2182,6 @@ static uint32_t s_print_cnt = 0;
 		s_dcam_err_info.work_status = DCAM_OK;
 	}
 	up(&s_dcam_err_info.dcam_thread_sem);
-//	printk("wjp:path1 done.\n");
 	
 	spin_lock_irqsave(&dev->slock, flags);
 
@@ -2188,7 +2190,7 @@ static uint32_t s_print_cnt = 0;
 		goto unlock;
 	}
 	
-         if(NULL == dma_q->active.next){
+	if(NULL == dma_q->active.next){
 		printk("V4L2: path1_done_buffer: the active.next is NULL.\n");
 		goto unlock;
 	}
@@ -2212,11 +2214,10 @@ static uint32_t s_print_cnt = 0;
 	do_gettimeofday(&buf->vb.ts);
 	buf->vb.state = VIDEOBUF_DONE;
 	
-//	DCAM_V4L2_PRINT("V4L2: path1_done_buffer:filled buffer %x, addr: %x.\n", (uint32_t)buf->vb.baddr, _pard(DCAM_ADDR_7));   
-         if(4 == s_print_cnt) {
-         	s_print_cnt = 0;
-         	printk("path1_done_buffer: time = %d \n",(buf->vb.ts.tv_sec*1000+buf->vb.ts.tv_usec/1000));		
-         }
+	if(30 == s_print_cnt) {
+		s_print_cnt = 0;
+		printk("path1_done_buffer: time = %d \n",(buf->vb.ts.tv_sec*1000+buf->vb.ts.tv_usec/1000));
+	}
 	else{
 		s_print_cnt++;
 	}
@@ -2468,10 +2469,9 @@ static int dcam_scan_status_thread(void * data_ptr)
 		printk("v4l2:dcam_scan_status_thread,run error!.\n");
 	}	
 	up(&info_ptr->dcam_thread_wakeup_sem);
-	printk("v4l2:dcam_scan_status_thread,test 0!.\n");
+
 	while (1)
 	{
-		printk("v4l2:dcam_scan_status_thread,test!.\n");
 		down_interruptible(&s_dcam_err_info.dcam_thread_sem);		
 		if(s_dcam_err_info.is_stop)	
 			goto dcam_thread_end;
@@ -2487,12 +2487,10 @@ static int dcam_scan_status_thread(void * data_ptr)
 					dcam_start_timer(&s_dcam_err_info.dcam_timer,info_ptr->timeout_val);
 				}
 				info_ptr->is_running = 1;
-				printk("v4l2:dcam_scan_status_thread,DCAM_START_OK.\n ");
 				break;
 			case DCAM_OK:
 				info_ptr->work_status = DCAM_RUN;
 				info_ptr->restart_cnt = 0;
-				printk("v4l2:dcam_scan_status_thread,DCAM_OK.\n ");
 				break;
 			case DCAM_JPG_BUF_ERR:
 				dcam_stop_timer(&s_dcam_err_info.dcam_timer);
@@ -2526,8 +2524,8 @@ static int dcam_scan_status_thread(void * data_ptr)
 			
 				if(DCAM_MODE_TYPE_PREVIEW == s_dcam_err_info.mode)
 				{
-					Sensor_SetTiming(SENSOR_MODE_COMMON_INIT);
 					Sensor_SetTiming(g_dcam_info.preview_m);
+					reset_sensor_param();
 				}
 				else
 				{

@@ -1198,6 +1198,7 @@ static int ISP_ServiceSetParameters(void)
 		return -1;
 	}
 
+	s->capture_skip_frame_num = sensor_info_ptr->capture_skip_num;
 	s->cap_input_image_format = sensor_info_ptr->image_format;
 	s->cap_input_image_pattern = sensor_info_ptr->image_pattern;
 	s->hsync_polarity = sensor_info_ptr->hsync_polarity;
@@ -1417,9 +1418,9 @@ int dcam_stop(void)
 	isp_get_path2();
 	if(0 == dcam_get_user_count())
 	{		
-		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ARM); //switch IRAM to ARM	
 		ISP_DriverSoftReset(AHB_GLOBAL_REG_CTL0);
 		ISP_DriverModuleDisable(AHB_GLOBAL_REG_CTL0);
+		ISP_DriverIramSwitch(AHB_GLOBAL_REG_CTL0, IRAM_FOR_ARM); /*switch IRAM to ARM */
 		DCAM_TRACE("DCAM: dcam stop softreset and set clk.\n");
 	}	
          isp_put_path2();
