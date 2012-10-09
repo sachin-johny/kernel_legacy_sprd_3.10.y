@@ -66,6 +66,7 @@ static struct _headset headset = {
 	},
 };
 
+
 #ifndef headset_gpio_init
 #define headset_gpio_init(gpio, desc) \
 	do { \
@@ -231,28 +232,32 @@ static enum hrtimer_restart report_headset_button_status(int active, struct _hea
 
 static enum hrtimer_restart report_headset_detect_status(int active, struct _headset_gpio *hgp)
 {
+	struct _headset * ht = hgp->parent;
 	if (active) {
 		headset_hook_detect(1);
-		hgp->parent->headphone = 0;
-		/* hgp->parent->headphone = hgp->parent->button.active_low ^ headset_gpio_get_value(hgp->parent->button.gpio); */
-		if (hgp->parent->headphone) {
-			switch_set_state(&hgp->parent->sdev, BIT_HEADSET_NO_MIC);
+		ht->headphone = 0;
+		/* ht->headphone = ht->button.active_low ^ headset_gpio_get_value(ht->button.gpio); */
+		if (ht->headphone) {
+			ht->type = BIT_HEADSET_NO_MIC;
+			queue_work(ht->switch_workqueue, &ht->switch_work);
 			pr_info("headphone plug in\n");
 		} else {
-			switch_set_state(&hgp->parent->sdev, BIT_HEADSET_MIC);
+			ht->type = BIT_HEADSET_MIC;
+			queue_work(ht->switch_workqueue, &ht->switch_work);
 			pr_info("headset plug in\n");
-			headset_gpio_set_irq_type(hgp->parent->button.irq, hgp->parent->button.irq_type_active);
-			headset_gpio_irq_enable(1, &hgp->parent->button);
+			headset_gpio_set_irq_type(ht->button.irq, ht->button.irq_type_active);
+			headset_gpio_irq_enable(1, &ht->button);
 		}
 	} else {
-		headset_gpio_irq_enable(0, &hgp->parent->button);
-		hgp->parent->button.callback(-1, &hgp->parent->button);
+		headset_gpio_irq_enable(0, &ht->button);
+		ht->button.callback(-1, &ht->button);
 		headset_hook_detect(0);
-		if (hgp->parent->headphone)
+		if (ht->headphone)
 			pr_info("headphone plug out\n");
 		else
 			pr_info("headset plug out\n");
-		switch_set_state(&hgp->parent->sdev, BIT_HEADSET_OUT);
+		ht->type = BIT_HEADSET_OUT;
+		queue_work(ht->switch_workqueue, &ht->switch_work);
 	}
 	/* use below code only when gpio irq misses state, because of the dithering */
 	headset_gpio_set_irq_type(hgp->irq, active ? hgp->irq_type_inactive : hgp->irq_type_active);
@@ -328,6 +333,17 @@ static void headset_gpio_irq_enable(int enable, struct _headset_gpio *hgp)
 	pr_info("%s [ irq=%d ] --- %saction %s\n", __func__, hgp->irq_enabled, action ? "do " : "no ", hgp->desc);
 }
 
+static void headset_switch_state(struct work_struct *work)
+{
+	struct _headset *ht;
+	int type;
+
+	ht = container_of(work, struct _headset, switch_work);
+	type = ht->type;
+	switch_set_state(&headset.sdev, type);
+	pr_info("set headset state to %d\n", type);
+}
+
 static int __init headset_init(void)
 {
 	int ret, i;
@@ -392,7 +408,19 @@ static int __init headset_init(void)
 		pr_err("request_irq gpio %d's irq failed!\n", ht->detect.gpio);
 		goto _headset_button_gpio_irq_handler;
 	}
+
+	INIT_WORK(&ht->switch_work, headset_switch_state);
+	ht->switch_workqueue = create_singlethread_workqueue("headset_switch");
+
+	if (ht->switch_workqueue == NULL) {
+		pr_err("can't create headset switch workqueue\n");
+		ret = -ENOMEM;
+		goto _headset_workqueue;
+	}
+
 	return 0;
+_headset_workqueue:
+	destroy_workqueue(ht->switch_workqueue);
 _headset_button_gpio_irq_handler:
 	free_irq(ht->button.irq, &ht->button);
 	headset_gpio2irq_free(ht->button.irq, &ht->button);
@@ -410,6 +438,7 @@ module_init(headset_init);
 static void __exit headset_exit(void)
 {
 	struct _headset *ht = &headset;
+	destroy_workqueue(ht->switch_workqueue);
 	headset_gpio_irq_enable(0, &ht->button);
 	headset_gpio_irq_enable(0, &ht->detect);
 	free_irq(ht->detect.irq, &ht->detect);
