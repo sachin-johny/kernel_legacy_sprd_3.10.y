@@ -52,6 +52,7 @@ LOCAL uint32_t _ov5640_after_snapshot(uint32_t param);
 LOCAL uint32_t _ov540_flash(uint32_t param);
 LOCAL uint32_t _ov5640_GetExifInfo(uint32_t param);
 LOCAL uint32_t _ov5640_ExtFunc(uint32_t ctl_param);
+LOCAL uint32_t _ov5640_set_iso(uint32_t mode);
 
 //640X480 YUV
 LOCAL const SENSOR_REG_T ov5640_640X480[] = {
@@ -1207,7 +1208,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_ov5640_ioctl_func_tab = {
 	PNULL,
 	_ov5640_set_awb,
 	PNULL,
-	PNULL,
+	_ov5640_set_iso,
 	_ov5640_set_ev,
 	_ov5640_check_image_format_support,
 	PNULL,
@@ -2035,6 +2036,74 @@ LOCAL uint32_t _ov5640_set_awb(uint32_t mode)
 
 	printk("SENSOR: _ov5640_set_awb = 0x%02x,reg_value=0x%x \n", mode,
 		     reg_value);
+	return 0;
+}
+
+/******************************************************************************/
+// Description:
+// mode:
+//           0:auto
+// 	      1:ISO 100
+// 	      2:ISO 200
+// 	      3:ISO 400
+// 	      4:ISO 800
+// 	      5:ISO 1600
+/******************************************************************************/
+LOCAL const SENSOR_REG_BITS_T ov5640_iso_tab[][8] =
+{
+	/*AUTO*/
+	{
+		{0x3a18, 0x00,0xff}, {0x3a19, 0x7c,0xff}, {0xffff, 0xff,0}
+	},
+	/*ISO 100*/
+	{
+		{0x3a18, 0x00,0xff}, {0x3a19, 0x3c,0xff}, {0xffff, 0xff,0}
+	},
+	/*ISO 200*/
+	{
+		{0x3a18, 0x00,0xff}, {0x3a19, 0x7c,0xff}, {0xffff, 0xff,0}
+	},
+	/*ISO 400*/
+	{
+		{0x3a18, 0x00,0xff}, {0x3a19, 0xf8,0xff}, {0xffff, 0xff,0}
+	},
+	/*ISO 800*/
+	{
+		{0x3a18, 0x01,0xff}, {0x3a19, 0xf8,0xff}, {0xffff, 0xff,0}
+	},
+	/*ISO 1600*/
+	{
+		{0x3a18, 0x01,0xff}, {0x3a19, 0xf8,0xff}, {0xffff, 0xff,0}
+	}
+};
+
+LOCAL uint32_t _ov5640_set_iso(uint32_t mode)
+{
+	uint16_t i=0x00;
+	uint32_t reg_bits = 0;
+	uint32_t reg_value = 0;
+	SENSOR_REG_BITS_T_PTR sensor_reg_ptr=(SENSOR_REG_BITS_T_PTR)ov5640_iso_tab[mode];
+	printk("_ov5640_set_iso:mode = %d.\n",mode);
+	if(mode>5)
+		return 0;
+
+	for(i=0; (0xffff!=sensor_reg_ptr[i].reg_addr)||(0xFF!=sensor_reg_ptr[i].reg_value); i++)
+	{
+		if(0xff == sensor_reg_ptr[i].reg_bits)
+		{
+			Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
+		}
+		else
+		{
+			reg_bits = sensor_reg_ptr[i].reg_bits;
+			reg_value = Sensor_ReadReg(sensor_reg_ptr[i].reg_addr);
+			reg_value &= ~reg_bits;
+			reg_value |= sensor_reg_ptr[i].reg_value;
+			Sensor_WriteReg(sensor_reg_ptr[i].reg_addr, (uint16_t)reg_value);
+		}
+	}
+
+	SENSOR_PRINT("SENSOR: _ov5640_set_iso ,read 0x%x,0x%x.\n", Sensor_ReadReg(0x3a18),Sensor_ReadReg(0x3a19));
 	return 0;
 }
 

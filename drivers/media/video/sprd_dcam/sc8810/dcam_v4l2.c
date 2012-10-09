@@ -89,8 +89,8 @@ typedef struct dcam_info {
 	volatile uint8_t v4l2_buf_ctrl_set_next_flag;
 	volatile uint8_t v4l2_buf_ctrl_path_done_flag;
 	volatile uint8_t is_streamoff;
-	uint8_t rsd0;
-	uint16_t rsd1;
+	uint8_t iso_param;
+	uint16_t rsd0;
 } DCAM_INFO_T;
 
 typedef enum {
@@ -411,7 +411,17 @@ static struct v4l2_queryctrl dcam_qctrl[] = {
 	 .step = 0x1,
 	 .default_value = 0,
 	 .flags = V4L2_CTRL_FLAG_SLIDER,
-	 }
+	 },
+	{
+	.id            = V4L2_CID_GAIN,
+	.type          = V4L2_CTRL_TYPE_INTEGER,
+	.name          = "iso",
+	.minimum       = 0,
+	.maximum       = 255,
+	.step          = 1,
+	.default_value = 127,
+	.flags         = V4L2_CTRL_FLAG_SLIDER,
+	}
 };
 
 #define dprintk(dev, level, fmt, arg...)  v4l2_printk(KERN_DEBUG, &dev->v4l2_dev, fmt , ## arg)
@@ -549,6 +559,8 @@ void reset_sensor_param(void)
 	if (INVALID_VALUE != g_dcam_info.brightness_param)
 		Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS,
 			     g_dcam_info.brightness_param);
+	if(INVALID_VALUE != g_dcam_info.iso_param)
+		Sensor_Ioctl(SENSOR_IOCTL_ISO, g_dcam_info.iso_param);
 	if (INVALID_VALUE != g_dcam_info.contrast_param)
 		Sensor_Ioctl(SENSOR_IOCTL_CONTRAST, g_dcam_info.contrast_param);
 	if (INVALID_VALUE != g_dcam_info.ev_param)
@@ -1112,6 +1124,17 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		g_dcam_info.brightness_param = (uint8_t) ctrl->value;
 		dcam_stop_handle(is_previewing);
 		Sensor_Ioctl(SENSOR_IOCTL_BRIGHTNESS, (uint32_t) ctrl->value);
+		dcam_start_handle(is_previewing);
+		break;
+	case V4L2_CID_GAIN:
+		if(g_dcam_info.iso_param == (uint8_t)ctrl->value)
+		{
+			DCAM_V4L2_PRINT("V4L2:don't need handle iso!.\n");
+			break;
+		}
+		g_dcam_info.iso_param = (uint8_t)ctrl->value;
+		dcam_stop_handle(is_previewing);
+		Sensor_Ioctl(SENSOR_IOCTL_ISO, (uint32_t)ctrl->value);
 		dcam_start_handle(is_previewing);
 		break;
 	case V4L2_CID_CONTRAST:
@@ -1780,6 +1803,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.mode = DCAM_MODE_TYPE_IDLE;
 	g_dcam_info.wb_param = INVALID_VALUE;
 	g_dcam_info.brightness_param = INVALID_VALUE;
+	g_dcam_info.iso_param = INVALID_VALUE;
 	g_dcam_info.contrast_param = INVALID_VALUE;
 	g_dcam_info.saturation_param = INVALID_VALUE;
 	g_dcam_info.imageeffect_param = INVALID_VALUE;
@@ -2326,6 +2350,7 @@ static int open(struct file *file)
 	g_fh = fh;
 	g_dcam_info.wb_param = INVALID_VALUE;
 	g_dcam_info.brightness_param = INVALID_VALUE;
+	g_dcam_info.iso_param = INVALID_VALUE;
 	g_dcam_info.contrast_param = INVALID_VALUE;
 	g_dcam_info.saturation_param = INVALID_VALUE;
 	g_dcam_info.imageeffect_param = INVALID_VALUE;
