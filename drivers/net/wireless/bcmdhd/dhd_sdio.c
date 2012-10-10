@@ -616,7 +616,7 @@ dhdsdio_wkwlan(dhd_bus_t *bus, bool on)
 	uint32 regdata;
 	bcmsdh_info_t *sdh = bus->sdh;
 
-	if (bus->sih->buscoretype == SDIOD_CORE_ID) {
+	if ((bus->sih) && (bus->sih->buscoretype == SDIOD_CORE_ID)) { /* check point before use it */
 		/* wake up wlan function :WAKE_UP goes as ht_avail_request and alp_avail_request */
 		regdata = bcmsdh_cfg_read_word(sdh, SDIO_FUNC_0, SPID_CONFIG, NULL);
 		DHD_INFO(("F0 REG0 rd = 0x%x\n", regdata));
@@ -874,7 +874,7 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 		/* Make sure SD clock is available */
 		if (bus->clkstate == CLK_NONE)
 			dhdsdio_sdclk(bus, TRUE);
-                osl_delay(5*1000);
+//                osl_delay(5*1000);/ * reflect throughput */
 		/* Now request HT Avail on the backplane */
 		ret = dhdsdio_htclk(bus, TRUE, pendok);
 		if (ret == BCME_OK) {
@@ -5688,6 +5688,7 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 	int err = 0;
 	uint8 clkctl = 0;
 #endif /* !BCMSPI */
+	uint32 enum_base4;
 
 	bus->alp_only = TRUE;
 
@@ -5697,8 +5698,13 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 	}
 
 #ifndef DHD_DEBUG
+	enum_base4 = bcmsdh_reg_read(bus->sdh, SI_ENUM_BASE, 4);
 	DHD_ERROR(("F1 signature read @0x18000000=0x%4x\n",
-	       bcmsdh_reg_read(bus->sdh, SI_ENUM_BASE, 4)));
+	       enum_base4));
+	 /* return if there are something about SPI or SDIO bus. */
+	if (enum_base4 != 0x16044330) {
+		return FALSE;
+	}
 
 #endif /* DHD_DEBUG */
 
@@ -6131,6 +6137,7 @@ dhdsdio_release_dongle(dhd_bus_t *bus, osl_t *osh, bool dongle_isolation, bool r
 			dhdsdio_clkctl(bus, CLK_NONE, FALSE);
 		}
 		si_detach(bus->sih);
+		bus->sih = NULL;
 		if (bus->vars && bus->varsz)
 			MFREE(osh, bus->vars, bus->varsz);
 		bus->vars = NULL;

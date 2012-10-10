@@ -88,6 +88,7 @@ si_attach(uint devid, osl_t *osh, void *regs,
 	}
 
 	if (si_doattach(sii, devid, osh, regs, bustype, sdh, vars, varsz) == NULL) {
+		SI_ERROR(("si_attach: do attach failed! \n"));
 		MFREE(osh, sii, sizeof(si_info_t));
 		return (NULL);
 	}
@@ -740,6 +741,10 @@ void *
 si_setcore(si_t *sih, uint coreid, uint coreunit)
 {
 	uint idx;
+	if (sih == NULL) {
+		dump_stack();
+		printk("si_setcore\n");
+	}
 
 	idx = si_findcoreidx(sih, coreid, coreunit);
 	if (!GOODIDX(idx))

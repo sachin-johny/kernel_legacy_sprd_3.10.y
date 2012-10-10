@@ -42,12 +42,12 @@
 
 
 static uint32
-get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match)
+get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match, uint32 *eromlim) /* add parameter to avoid dead loop */
 {
 	uint32 ent;
 	uint inv = 0, nom = 0;
 
-	while (TRUE) {
+	while ((*eromptr) <= eromlim) { /* avoid dead loop */
 		ent = R_REG(si_osh(sih), *eromptr);
 		(*eromptr)++;
 
@@ -67,7 +67,10 @@ get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match)
 
 		nom++;
 	}
-
+	if ((*eromptr) > eromlim) {
+		SI_VMSG(("%s: Returning ent error 0x%08x\n", __FUNCTION__, (ER_END | ER_VALID)));
+		return (ER_END | ER_VALID);
+	}
 	SI_VMSG(("%s: Returning ent 0x%08x\n", __FUNCTION__, ent));
 	if (inv + nom) {
 		SI_VMSG(("  after %d invalid and %d non-matching entries\n", inv, nom));
@@ -77,11 +80,11 @@ get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match)
 
 static uint32
 get_asd(si_t *sih, uint32 **eromptr, uint sp, uint ad, uint st, uint32 *addrl, uint32 *addrh,
-        uint32 *sizel, uint32 *sizeh)
+        uint32 *sizel, uint32 *sizeh, uint32 *eromlim)/* add parameter to avoid dead loop */
 {
 	uint32 asd, sz, szd;
 
-	asd = get_erom_ent(sih, eromptr, ER_VALID, ER_VALID);
+	asd = get_erom_ent(sih, eromptr, ER_VALID, ER_VALID, eromlim);
 	if (((asd & ER_TAG1) != ER_ADD) ||
 	    (((asd & AD_SP_MASK) >> AD_SP_SHIFT) != sp) ||
 	    ((asd & AD_ST_MASK) != st)) {
@@ -91,16 +94,16 @@ get_asd(si_t *sih, uint32 **eromptr, uint sp, uint ad, uint st, uint32 *addrl, u
 	}
 	*addrl = asd & AD_ADDR_MASK;
 	if (asd & AD_AG32)
-		*addrh = get_erom_ent(sih, eromptr, 0, 0);
+		*addrh = get_erom_ent(sih, eromptr, 0, 0, eromlim);
 	else
 		*addrh = 0;
 	*sizeh = 0;
 	sz = asd & AD_SZ_MASK;
 	if (sz == AD_SZ_SZD) {
-		szd = get_erom_ent(sih, eromptr, 0, 0);
+		szd = get_erom_ent(sih, eromptr, 0, 0, eromlim);
 		*sizel = szd & SD_SZ_MASK;
 		if (szd & SD_SG32)
-			*sizeh = get_erom_ent(sih, eromptr, 0, 0);
+			*sizeh = get_erom_ent(sih, eromptr, 0, 0, eromlim);
 	} else
 		*sizel = AD_SZ_BASE << (sz >> AD_SZ_SHIFT);
 
@@ -164,14 +167,14 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		br = FALSE;
 
 		
-		cia = get_erom_ent(sih, &eromptr, ER_TAG, ER_CI);
+		cia = get_erom_ent(sih, &eromptr, ER_TAG, ER_CI, eromlim);
 		if (cia == (ER_END | ER_VALID)) {
 			SI_VMSG(("Found END of erom after %d cores\n", sii->numcores));
 			ai_hwfixup(sii);
 			return;
 		}
 		base = eromptr - 1;
-		cib = get_erom_ent(sih, &eromptr, 0, 0);
+		cib = get_erom_ent(sih, &eromptr, 0, 0, eromlim);
 
 		if ((cib & ER_TAG) != ER_CI) {
 			SI_ERROR(("CIA not followed by CIB\n"));
@@ -196,7 +199,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 			
 			if (cid == OOB_ROUTER_CORE_ID) {
 				asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE,
-					&addrl, &addrh, &sizel, &sizeh);
+					&addrl, &addrh, &sizel, &sizeh, eromlim);
 				if (asd != 0) {
 					sii->oob_router = addrl;
 				}
@@ -211,7 +214,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		sii->coreid[idx] = cid;
 
 		for (i = 0; i < nmp; i++) {
-			mpd = get_erom_ent(sih, &eromptr, ER_VALID, ER_VALID);
+			mpd = get_erom_ent(sih, &eromptr, ER_VALID, ER_VALID, eromlim);
 			if ((mpd & ER_TAG) != ER_MP) {
 				SI_ERROR(("Not enough MP entries for component 0x%x\n", cid));
 				goto error;
@@ -222,11 +225,11 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		}
 
 		
-		asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE, &addrl, &addrh, &sizel, &sizeh);
+		asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE, &addrl, &addrh, &sizel, &sizeh, eromlim);
 		if (asd == 0) {
 			
 			asd = get_asd(sih, &eromptr, 0, 0, AD_ST_BRIDGE, &addrl, &addrh,
-			              &sizel, &sizeh);
+			              &sizel, &sizeh, eromlim);
 			if (asd != 0)
 				br = TRUE;
 			else
@@ -242,7 +245,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		j = 1;
 		do {
 			asd = get_asd(sih, &eromptr, 0, j, AD_ST_SLAVE, &addrl, &addrh,
-			              &sizel, &sizeh);
+			              &sizel, &sizeh, eromlim);
 			if ((asd != 0) && (j == 1) && (sizel == SI_CORE_SIZE)) {
 				sii->coresba2[idx] = addrl;
 				sii->coresba2_size[idx] = sizel;
@@ -255,7 +258,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 			j = 0;
 			do {
 				asd = get_asd(sih, &eromptr, i, j++, AD_ST_SLAVE, &addrl, &addrh,
-				              &sizel, &sizeh);
+				              &sizel, &sizeh, eromlim);
 			} while (asd != 0);
 			if (j == 0) {
 				SI_ERROR((" SP %d has no address descriptors\n", i));
@@ -266,7 +269,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		
 		for (i = 0; i < nmw; i++) {
 			asd = get_asd(sih, &eromptr, i, 0, AD_ST_MWRAP, &addrl, &addrh,
-			              &sizel, &sizeh);
+			              &sizel, &sizeh, eromlim);
 			if (asd == 0) {
 				SI_ERROR(("Missing descriptor for MW %d\n", i));
 				goto error;
@@ -283,7 +286,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		for (i = 0; i < nsw; i++) {
 			uint fwp = (nsp == 1) ? 0 : 1;
 			asd = get_asd(sih, &eromptr, fwp + i, 0, AD_ST_SWRAP, &addrl, &addrh,
-			              &sizel, &sizeh);
+			              &sizel, &sizeh, eromlim);
 			if (asd == 0) {
 				SI_ERROR(("Missing descriptor for SW %d\n", i));
 				goto error;

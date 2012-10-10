@@ -115,6 +115,10 @@ extern bool ap_fw_loaded;
 #include <dhd_wlfc.h>
 #endif
 
+#ifndef DHD_REOPEN /* reload firmware in new kernel thread */
+#define DHD_REOPEN 1
+#endif
+
 #include <wl_android.h>
 
 #ifdef ARP_OFFLOAD_SUPPORT
@@ -257,6 +261,9 @@ typedef struct dhd_info {
 #endif /* DHDTHREAD */
 	tsk_ctl_t	thr_sysioc_ctl;
 
+#ifdef DHD_REOPEN
+	tsk_ctl_t	thr_reopen_ctl;
+#endif
 	/* Wakelocks */
 #if defined(CONFIG_HAS_WAKELOCK) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27))
 	struct wake_lock wl_wifi;   /* Wifi wakelock */
@@ -354,6 +361,9 @@ module_param(dhd_watchdog_prio, int, 0);
 int dhd_dpc_prio = 98;
 module_param(dhd_dpc_prio, int, 0);
 
+#ifdef DHD_REOPEN
+int dhd_reopen_prio = 96;
+#endif
 /* DPC thread priority, -1 to use tasklet */
 extern int dhd_dongle_memsize;
 module_param(dhd_dongle_memsize, int, 0);
@@ -1729,6 +1739,37 @@ static void dhd_watchdog(ulong data)
 	DHD_OS_WAKE_UNLOCK(&dhd->pub);
 }
 
+#ifdef DHD_REOPEN
+int dhd_reopen_dev(struct net_device *dev);
+static int dhd_reopen_thread(void *data)
+
+{
+	tsk_ctl_t *tsk = (tsk_ctl_t *)data;
+	struct net_device *dev = (struct net_device *)tsk->parent;
+	if (dhd_reopen_prio > 0)
+	{
+		struct sched_param param;
+		param.sched_priority = (dhd_reopen_prio < MAX_RT_PRIO)?dhd_reopen_prio:(MAX_RT_PRIO-1);
+		setScheduler(current, SCHED_FIFO, &param);
+	}
+	DAEMONIZE("dhd_reboot");
+	/* DHD_OS_WAKE_LOCK is called in dhd_sched_dpc[dhd_linux.c] down below  */
+
+	/*  signal: thread has started */
+	complete(&tsk->completed);
+
+
+	SMP_RD_BARRIER_DEPENDS();
+	printk("get sema and reload firmware\n");
+	dhd_reopen_dev(dev);
+	//dhd_stop(dev);
+	//dhd_open(dev);
+
+	complete_and_exit(&tsk->completed, 0);
+	printk("get sema and reload firmware exit\n");
+}
+#endif
+
 #ifdef DHDTHREAD
 static int
 dhd_dpc_thread(void *data)
@@ -2388,6 +2429,7 @@ loop:
 			ret = wl_android_wifi_on(net);
 			if (ret != 0) {
 				DHD_ERROR(("wl_android_wifi_on failed (%d)\n", ret));
+				wl_android_wifi_off(net); /* make it power off if error */
 				goto exit;
 			}
 		}
@@ -2399,6 +2441,7 @@ loop:
 			if ((ret = dhd_bus_start(&dhd->pub)) != 0) {
 				DHD_ERROR(("%s: failed with code %d\n", __FUNCTION__, ret));
 				ret = -1;
+				wl_android_wifi_off(net);/* make it power off if error */
 				goto exit;
 			}
 
@@ -2419,6 +2462,7 @@ loop:
 		if (unlikely(wl_cfg80211_up(NULL))) {
 			DHD_ERROR(("%s: failed to bring up cfg80211\n", __FUNCTION__));
 			ret = -1;
+			wl_android_wifi_off(net);/* make it power off if error */
 			goto exit;
 		}
 #endif /* WL_CFG80211 */
@@ -2437,8 +2481,7 @@ exit:
 	DHD_OS_WAKE_UNLOCK(&dhd->pub);
 	if(ret != 0){
 		DHD_ERROR(("%s: failed to up driver, just try again!loop_num: %d \n",__FUNCTION__,loop_num));
-		mdelay(500);
-		dhd_stop(net);
+		msleep(20);
 		loop_num++;
 		if(loop_num < 2) {
 			goto loop;
@@ -2615,6 +2658,9 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	dhd->thr_sysioc_ctl.thr_pid = DHD_PID_KT_INVALID;
 	dhd_state |= DHD_ATTACH_STATE_DHD_ALLOC;
 
+#ifdef DHD_REOPEN
+	dhd->thr_reopen_ctl.thr_pid = DHD_PID_KT_INVALID;
+#endif
 	/*
 	 * Save the dhd_info into the priv
 	 */
@@ -3070,6 +3116,10 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	}
 #endif /* GET_CUSTOM_MAC_ENABLE */
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
+
 #ifdef SET_RANDOM_MAC_SOFTAP
 	if ((!op_mode && strstr(fw_path, "_apsta") != NULL) || (op_mode == 0x02)) {
 		uint rand_mac;
@@ -3092,6 +3142,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	}
 #endif /* SET_RANDOM_MAC_SOFTAP */
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 	DHD_TRACE(("Firmware = %s\n", fw_path));
 #if !defined(AP) && defined(WLP2P)
 	/* Check if firmware with WFD support used */
@@ -3153,28 +3206,49 @@ if ((!op_mode && strstr(fw_path, "_p2p") != NULL) || (op_mode == 0x04) ||
 			DHD_ERROR(("%s: country code setting failed\n", __FUNCTION__));
 	}
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 	/* Set Listen Interval */
 	bcm_mkiovar("assoc_listen", (char *)&listen_interval, 4, iovbuf, sizeof(iovbuf));
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
 		DHD_ERROR(("%s assoc_listen failed %d\n", __FUNCTION__, ret));
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 
 	/* Set PowerSave mode */
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode, sizeof(power_mode), TRUE, 0);
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 	/* Match Host and Dongle rx alignment */
 	bcm_mkiovar("bus:txglomalign", (char *)&dongle_align, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 	/* disable glom option per default */
 	bcm_mkiovar("bus:txglom", (char *)&glom, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 	/* Setup timeout if Beacons are lost and roam is off to report link down */
 	bcm_mkiovar("bcn_timeout", (char *)&bcn_timeout, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 	/* Setup assoc_retry_max count to reconnect target AP in dongle */
 	bcm_mkiovar("assoc_retry_max", (char *)&retry_max, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 #if defined(AP) && !defined(WLP2P)
 	/* Turn off MPC in AP mode */
 	bcm_mkiovar("mpc", (char *)&mpc, 4, iovbuf, sizeof(iovbuf));
@@ -3182,6 +3256,9 @@ if ((!op_mode && strstr(fw_path, "_p2p") != NULL) || (op_mode == 0x04) ||
 	bcm_mkiovar("apsta", (char *)&apsta, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 #endif /* defined(AP) && !defined(WLP2P) */
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 
 #if defined(SOFTAP)
 	if (ap_fw_loaded == TRUE) {
@@ -3203,6 +3280,9 @@ if ((!op_mode && strstr(fw_path, "_p2p") != NULL) || (op_mode == 0x04) ||
 	}
 #endif /* defined(KEEP_ALIVE) */
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 
 	/* Read event_msgs mask */
 	bcm_mkiovar("event_msgs", eventmask, WL_EVENTING_MASK_LEN, iovbuf, sizeof(iovbuf));
@@ -3269,6 +3349,9 @@ if ((!op_mode && strstr(fw_path, "_p2p") != NULL) || (op_mode == 0x04) ||
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_SCAN_PASSIVE_TIME, (char *)&scan_passive_time,
 		sizeof(scan_passive_time), TRUE, 0);
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 #ifdef ARP_OFFLOAD_SUPPORT
 	/* Set and enable ARP offload feature for STA only  */
 #if defined(SOFTAP)
@@ -3283,6 +3366,9 @@ if ((!op_mode && strstr(fw_path, "_p2p") != NULL) || (op_mode == 0x04) ||
 		dhd_arp_offload_enable(dhd, FALSE);
 	}
 #endif /* ARP_OFFLOAD_SUPPORT */
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 
 #ifdef PKT_FILTER_SUPPORT
 	/* Setup defintions for pktfilter , enable in suspend */
@@ -3309,6 +3395,9 @@ if ((!op_mode && strstr(fw_path, "_p2p") != NULL) || (op_mode == 0x04) ||
 		goto done;
 	}
 
+#ifdef SPRD_SPI
+	mdelay(10);
+#endif
 	/* query for 'ver' to get version info from firmware */
 	memset(buf, 0, sizeof(buf));
 	ptr = buf;
@@ -4506,6 +4595,8 @@ int net_os_send_hang_message(struct net_device *dev)
 	if (dhd) {
 		if (!dhd->pub.hang_was_sent) {
 			dhd->pub.hang_was_sent = 1;
+/* reload firmware only in dhd driver and will not send message to APP */
+#if 0
 #if defined(CONFIG_WIRELESS_EXT)
 			ret = wl_iw_send_priv_event(dev, "HANG");
 #endif
@@ -4514,6 +4605,14 @@ int net_os_send_hang_message(struct net_device *dev)
 			ret = wl_cfg80211_hang(dev, WLAN_REASON_UNSPECIFIED);
 			dev_close(dev);
 			dev_open(dev);
+#endif
+
+#else
+#ifdef DHD_REOPEN
+		PROC_START(dhd_reopen_thread, dev, &dhd->thr_reopen_ctl, 0);
+#else
+		dhd_reopen_dev(dev);
+#endif/* DHD_REOPEN */
 #endif
 		}
 	}
@@ -4980,6 +5079,19 @@ void dhd_dbg_remove(void)
 
 }
 #endif /* ifdef BCMDBGFS */
+
+int dhd_reopen_dev(struct net_device *dev)
+{
+	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
+	if(dhd->pub.op_mode == HOSTAPD_MASK) {
+		dev_close(dev);
+	} else {
+		printk("net_os_send_hang_message enter2\n");
+		dhd_stop(dev);
+		dhd_open(dev);
+	}
+	return 0;
+}
 
 #ifdef WLMEDIA_HTSF
 
