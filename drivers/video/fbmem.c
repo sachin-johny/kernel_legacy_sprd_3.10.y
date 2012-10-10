@@ -34,6 +34,7 @@
 #include <linux/fb.h>
 
 #include <asm/fb.h>
+#include <mach/board.h>
 
 
     /*
@@ -1040,6 +1041,8 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	void __user *argp = (void __user *)arg;
 	long ret = 0;
 
+ 	static int var_cnt = 0;
+
 	switch (cmd) {
 	case FBIOGET_VSCREENINFO:
 		if (!lock_fb_info(info))
@@ -1056,7 +1059,15 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			return -ENODEV;
 		acquire_console_sem();
 		info->flags |= FBINFO_MISC_USEREVENT;
-		ret = fb_set_var(info, &var);
+
+		if(in_abnormal_mode()){
+			var_cnt++;
+			if(var_cnt > 4)
+				ret = fb_set_var(info, &var);
+		}else{
+			ret = fb_set_var(info, &var);
+		}
+//		ret = fb_set_var(info, &var);
 		info->flags &= ~FBINFO_MISC_USEREVENT;
 		release_console_sem();
 		unlock_fb_info(info);

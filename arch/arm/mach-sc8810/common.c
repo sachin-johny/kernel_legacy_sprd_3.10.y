@@ -487,6 +487,22 @@ int in_calibration(void)
 }
 EXPORT_SYMBOL(in_calibration);
 
+static int abnormal_mode = false;
+static int __init abnormal_start(char *str)
+{
+        if(str)
+                pr_info("abnormal mode!\n");
+        abnormal_mode = true;
+        return 1;
+}
+__setup("abnormal", abnormal_start);
+
+int in_abnormal_mode(void)
+{
+	return (abnormal_mode == true);
+}
+EXPORT_SYMBOL(in_abnormal_mode);
+
 static int factory_mode = false;
 static int __init factory_start(char *str)
 {
