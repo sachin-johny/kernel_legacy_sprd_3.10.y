@@ -370,6 +370,7 @@ int wl_android_wifi_on(struct net_device *dev)
 	dhd_net_if_lock(dev);
 	if (!g_wifi_on) {
 		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_ON);
+		osl_delay(10*1000);
 		//dhd_spi_reset(dev);
 		sdioh_start(NULL, 0);  //shaohua
 		ret = dhd_dev_reset(dev, FALSE);
