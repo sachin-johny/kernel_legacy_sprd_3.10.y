@@ -366,8 +366,12 @@ SENSOR_REG_T gc0309_YUV_640X480[]=
 	{0xb5,0x00},	
 	{0xba,0x00}, 
 	{0xbb,0x00}, 
+#if 1
+        {0x14,0x13},    // aiden
+#else
 	{0x14,0x10},  // Mirror UpsideDown 
-          {SENSOR_WRITE_DELAY, 20},//delay 20ms
+#endif
+	{SENSOR_WRITE_DELAY, 20},//delay 20ms
 };
 
 LOCAL SENSOR_REG_TAB_INFO_T s_GC0309_resolution_Tab_YUV[]=

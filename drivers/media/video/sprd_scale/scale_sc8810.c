@@ -1154,8 +1154,7 @@ int _SCALE_DriverIOInit(void)
 		SCALE_PRINT_ERR("SCALE: DriverIOInit,g_scale_clk = %p.\n",
 				g_scale_clk);
 	} else {
-		SCALE_PRINT_ERR
-		    ("SCALE:_SCALE_DriverIOInit, g_scale_clk clk_get ok\n");
+		SCALE_PRINT("SCALE:_SCALE_DriverIOInit, g_scale_clk clk_get ok\n");
 	}
 	s_scale_mod.module_addr = DCAM_REG_BASE;
 	g_scale_num++;

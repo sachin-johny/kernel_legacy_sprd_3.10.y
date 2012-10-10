@@ -434,13 +434,10 @@ static int rotation_start_copy_data(ROTATION_PARAM_T * param_ptr)
 		    sprd_dma_request(DMA_UID_SOFTWARE, rotation_dma_irq,
 				     &dma_desc);
 		if (ch_id < 0) {
-			printk
-			    ("rotation: convert endian request dma fail.ret : %d.\n",
-			     ret);
+			printk("rotation: convert endian request dma fail.ret : %d.\n", ret);
 			msleep(5);
 		} else {
-			printk
-			    ("rotation: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
+			RTT_PRINT("rotation: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
 			     ch_id, total_len);
 			break;
 		}

@@ -110,7 +110,7 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	}
 
-	printk(KERN_INFO "sprd_fb: [%s]: return %d\n",__FUNCTION__, result);
+	//printk(KERN_INFO "sprd_fb: [%s]: return %d\n",__FUNCTION__, result);
 	return result;
 }
 
