@@ -39,8 +39,9 @@ extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sc8825_init_irq(void);
 extern void __init sc8825_timer_init(void);
-extern void __init sc8825_clock_init(void);
-static void __init sc8825_regulator_init(void);
+extern int __init sc8825_clock_init(void);
+extern int __init sc8825_regulator_init(void);
+extern int __init sci_clock_init(void);
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_hwspinlock_device0,
@@ -241,13 +242,18 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
-static void __init sc8825_regulator_init(void)
+int __init sc8825_regulator_init(void)
 {
 	static struct platform_device sc8825_regulator_device = {
 		.name 	= "sprd-regulator",
 		.id	= -1,
 	};
-	platform_device_register(&sc8825_regulator_device);
+	return platform_device_register(&sc8825_regulator_device);
+}
+
+int __init sc8825_clock_init(void)
+{
+	return sci_clock_init();
 }
 
 static void __init sc8825_init_machine(void)
