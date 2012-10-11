@@ -72,7 +72,7 @@ config LOW_RESOLUTION_CLKSRC
 
 config SPRD_MEM_POOL
 	depends on ARCH_SC8810
-	default y
+	default n
         bool "Using a memory pool to alloc thread stack and pgd table"
 	help
           This option enables memmory pool for allocating thread stack and pgd table.
