@@ -52,6 +52,7 @@ extern struct platform_device sprd_emmc_device;
 extern struct platform_device sprd_dcam_device;
 extern struct platform_device sprd_scale_device;
 extern struct platform_device sprd_rotation_device;
+extern struct platform_device sprd_sensor_device;
 extern struct platform_device sprd_ahb_bm0_device;
 extern struct platform_device sprd_ahb_bm1_device;
 extern struct platform_device sprd_ahb_bm2_device;

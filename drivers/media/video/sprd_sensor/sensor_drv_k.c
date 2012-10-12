@@ -256,7 +256,7 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 	uint32_t volt_value = 0;
 
 	SENSOR_PRINT("SENSOR:_Sensor_K_SetVoltage_AVDD, avdd_val=%d  \n",avdd_val);
-	
+
 	if (NULL == s_camavdd_regulator) {
 		s_camavdd_regulator = regulator_get(NULL, REGU_NAME_CAMAVDD);
 		if (IS_ERR(s_camavdd_regulator)) {
@@ -519,7 +519,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 
 	*clk_src_name = sensor_mclk_tab[mark_src].src_name;
 	*clk_div = mark_div + 1;
-	
+
 	return SENSOR_K_SUCCESS;
 }
 
@@ -645,7 +645,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 LOCAL int _Sensor_K_Reset(uint32_t level)
 {
 	int err;
-	
+
 	SENSOR_PRINT_HIGH("_Sensor_K_Reset.\n");
 
 	err = gpio_request(GPIO_SENSOR_RESET, "ccirrst");
@@ -666,7 +666,7 @@ LOCAL int _Sensor_K_Reset(uint32_t level)
 LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 {
 	g_sensor_id =  sensor_id;
-	
+
 	if (SENSOR_MAIN == sensor_id) {
 		SENSOR_PRINT_HIGH("_Sensor_K_I2CInit,sensor_main_force[1] =%d \n",
 		     							sensor_main_force[1]);
@@ -832,8 +832,8 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 				ret = SENSOR_K_FAIL;
 				continue;
 			} else {
-				//SENSOR_PRINT_HIGH("SENSOR: IIC write reg OK! i2cAddr=%x, 0x%04x, val:0x%04x \n", 
-				//		this_client->addr, subaddr, data); 
+				//SENSOR_PRINT_HIGH("SENSOR: IIC write reg OK! i2cAddr=%x, 0x%04x, val:0x%04x \n",
+				//		this_client->addr, subaddr, data);
 				ret = SENSOR_K_SUCCESS;
 				break;
 			}
@@ -849,7 +849,7 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 {
 	int err = 0xff;
-	
+
 	switch (flash_mode) {
 	case 1:		/*flash on */
 	case 2:		/*for torch */
@@ -887,7 +887,7 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	}
 
 	SENSOR_PRINT_HIGH("_Sensor_K_SetFlash: flash_mode=%d  \n", flash_mode);
-	
+
 	return SENSOR_K_SUCCESS;
 }
 
@@ -953,7 +953,7 @@ sensor_k_read_return:
 		kfree(pBuff);
 
 	SENSOR_PRINT_HIGH("sensor_k_write: done, ret = %d \n", ret);
-	
+
 	return ret;
 }
 
@@ -964,13 +964,13 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 	int ret = 0;
 
 	mutex_lock(sensor_lock);
-	
+
 	switch (cmd) {
 	case SENSOR_IO_PD:
 		{
 			BOOLEAN power_level;
 			ret = copy_from_user(&power_level, (BOOLEAN *) arg, sizeof(BOOLEAN));
-			
+
 			if(0 == ret)
 				ret = _Sensor_K_PowerDown(power_level);
 		}
@@ -1045,7 +1045,7 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&g_sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 		}
 		break;
-	
+
 
 	case SENSOR_IO_RST_LEVEL:
 		{
@@ -1105,7 +1105,7 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 
 	}
 	mutex_unlock(sensor_lock);
-	
+
 	return ret;
 }
 
@@ -1170,8 +1170,8 @@ int __init sensor_k_init(void)
 		printk("platform device register Failed \n");
 		return SENSOR_K_FAIL;
 	}
+
 	init_MUTEX(&g_sem_sensor);
-	/*
 	reg = __raw_readl((SPRD_AHB_BASE+0x200));
 	reg |= (3 << 1);
 	__raw_writel(reg, (SPRD_AHB_BASE+0x200));
@@ -1179,7 +1179,7 @@ int __init sensor_k_init(void)
 	reg = __raw_readl((SPRD_DCAM_BASE+0x144));
 	reg |= (15 << 4);
 	__raw_writel(reg, (SPRD_DCAM_BASE+0x144));
-	*/
+
 	return 0;
 }
 

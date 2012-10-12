@@ -736,6 +736,11 @@ struct platform_device sprd_rotation_device = {
 	.id	= -1,
 };
 
+struct platform_device sprd_sensor_device = {
+	.name	= "sprd_sensor",
+	.id	= -1,
+};
+
 static struct resource sprd_sdio0_resources[] = {
 	[0] = {
 		.start = SPRD_SDIO0_BASE,
