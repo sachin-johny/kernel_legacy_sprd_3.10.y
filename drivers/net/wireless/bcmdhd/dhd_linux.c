@@ -2312,6 +2312,11 @@ dhd_ioctl_entry(struct net_device *net, struct ifreq *ifr, int cmd)
 	int ifidx;
 	int ret;
 
+	if ( !dhd->pub.up || (dhd->pub.busstate == DHD_BUS_DOWN)){
+		printk("%s: dhd is down. skip it.\n", __func__);
+		return -ENODEV;
+	}
+
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 
 	/* send to dongle only if we are not waiting for reload already */
