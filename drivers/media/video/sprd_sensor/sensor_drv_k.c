@@ -1172,14 +1172,14 @@ int __init sensor_k_init(void)
 	}
 
 	init_MUTEX(&g_sem_sensor);
-	reg = __raw_readl((SPRD_AHB_BASE+0x200));
+/*	reg = __raw_readl((SPRD_AHB_BASE+0x200));
 	reg |= (3 << 1);
 	__raw_writel(reg, (SPRD_AHB_BASE+0x200));
 
 	reg = __raw_readl((SPRD_DCAM_BASE+0x144));
 	reg |= (15 << 4);
 	__raw_writel(reg, (SPRD_DCAM_BASE+0x144));
-
+*/
 	return 0;
 }
 
