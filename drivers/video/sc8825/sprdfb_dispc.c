@@ -25,11 +25,11 @@
 #include "sprdfb.h"
 
 #define DISPC_SOFT_RST (20)
-#define DISPC_CLOCK_PARENT ("l3_256m")
+#define DISPC_CLOCK_PARENT ("clk_256m")
 #define DISPC_CLOCK (256*1000000)
-#define DISPC_DBI_CLOCK_PARENT ("l3_256m")
+#define DISPC_DBI_CLOCK_PARENT ("clk_256m")
 #define DISPC_DBI_CLOCK (256*1000000)
-#define DISPC_DPI_CLOCK_PARENT ("l3_384m")
+#define DISPC_DPI_CLOCK_PARENT ("clk_384m")
 #define DISPC_DPI_CLOCK (384*1000000)
 
 
@@ -317,7 +317,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	clk_parent2 = clk_get(NULL, DISPC_DBI_CLOCK_PARENT);
 	clk_parent3 = clk_get(NULL, DISPC_DPI_CLOCK_PARENT);
 
-	dispc_ctx.clk_dispc = clk_get(NULL, "clk_dipsc");
+	dispc_ctx.clk_dispc = clk_get(NULL, "clk_dispc");
 	dispc_ctx.clk_dispc_dbi = clk_get(NULL, "clk_dispc_dbi");
 	dispc_ctx.clk_dispc_dpi = clk_get(NULL, "clk_dispc_dpi");
 

@@ -270,7 +270,7 @@ static int usbd_turn_on(struct regulator_dev *rdev)
 {
 	const struct sci_regulator_regs *regs =
 	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	sci_glb_set(regs->pd_rst, BIT(regs->pd_rst_bit));
+	sci_glb_set(regs->pd_set, regs->pd_set_bit);
 	return 0;
 }
 
@@ -278,7 +278,7 @@ static int usbd_turn_off(struct regulator_dev *rdev)
 {
 	const struct sci_regulator_regs *regs =
 	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	sci_glb_clr(regs->pd_rst, BIT(regs->pd_rst_bit));
+	sci_glb_clr(regs->pd_set, regs->pd_set_bit);
 	return 0;
 }
 
@@ -286,7 +286,7 @@ static int usbd_is_on(struct regulator_dev *rdev)
 {
 	const struct sci_regulator_regs *regs =
 	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	return ! !sci_glb_read(regs->pd_rst, BIT(regs->pd_rst_bit));
+	return ! !sci_glb_read(regs->pd_set, regs->pd_set_bit);
 }
 
 static struct regulator_ops ldo_ops = {
