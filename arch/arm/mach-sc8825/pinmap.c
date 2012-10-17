@@ -331,6 +331,12 @@ pinmap_t __initconst pinmap[] = {
 #ifdef CONFIG_MACH_SP8825_FPGA
 #include "pinmap_sp8825_fpga.h"
 #endif
+#ifdef CONFIG_MACH_SP8825EA
+#include "pinmap_sp8825ea.h"
+#endif
+#ifdef CONFIG_MACH_SP8825EB
+#include "pinmap_sp8825eb.h"
+#endif
 };
 
 static int __init pin_init(void)

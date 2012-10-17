@@ -11,6 +11,18 @@ config MACH_SP8825_FPGA
 	select NKERNEL_ARCH_PM_MASTER
 	help
 	  SP8825 FPGA board based on SC8825.
+config MACH_SP8825EA
+	default n
+	bool "SP8825EA"
+	select NKERNEL_ARCH_PM_MASTER
+	help
+	  SP8825 EA based on SC8825.
+config MACH_SP8825EB
+	default n
+	bool "SP8825EB"
+	select NKERNEL_ARCH_PM_MASTER
+	help
+	  SP8825 EB based on SC8825.
 endchoice
 
 config SPRD_PMEM_SIZE
@@ -27,12 +39,12 @@ config SPRD_PMEM_ADSP_SIZE
 config SPRD_ION_SIZE
         int "size for /dev/ion"
         range 1 64
-        default 24
+        default 1
 	depends on ION
 
 config SPRD_ION_OVERLAY_SIZE
         int "size for /dev/ion"
         range 1 64
-        default 10
+        default 1
 	depends on ION
 endif
