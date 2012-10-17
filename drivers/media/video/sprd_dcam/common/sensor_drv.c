@@ -482,7 +482,7 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 	//to make the power on&off be  pairs
 	static uint32_t iopower_on_count = 0;
 	static uint32_t avddpower_on_count = 0;
-	static uint32_t dvddower_on_count = 0;
+	static uint32_t dvddpower_on_count = 0;
 
 	SENSOR_PRINT
 	    ("SENSOR:Sensor_SetVoltage,dvdd_val=%d,avdd_val=%d,iodd_val=%d.\n",
@@ -542,8 +542,8 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		return;
 	}
 	if (0 != volt_value) {
-		iopower_on_count++;
 		err = regulator_enable(s_camvio_regulator);
+		iopower_on_count++;
 		if (err) {
 			regulator_put(s_camvio_regulator);
 			s_camvio_regulator = NULL;
@@ -551,9 +551,10 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 			return;
 		}
 	} else {
-		iopower_on_count--;
 		/*regulator_disable(s_camvio_regulator);*/
 		_sensor_regulator_disable(iopower_on_count, s_camvio_regulator);
+		if(0 < iopower_on_count)
+			iopower_on_count--;
 		regulator_put(s_camvio_regulator);
 		s_camvio_regulator = NULL;
 		pr_debug("SENSOR:disable camvio.\n");
@@ -614,8 +615,8 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		return;
 	}
 	if (0 != volt_value) {
-		avddpower_on_count++;
 		err = regulator_enable(s_camavdd_regulator);
+		avddpower_on_count++;
 		if (err) {
 			regulator_put(s_camavdd_regulator);
 			s_camavdd_regulator = NULL;
@@ -623,9 +624,10 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 			return;
 		}
 	} else {
-		avddpower_on_count--;
 		/*regulator_disable(s_camavdd_regulator);*/
 		_sensor_regulator_disable(avddpower_on_count, s_camavdd_regulator);
+		if(0 < avddpower_on_count)
+			avddpower_on_count--;
 		regulator_put(s_camavdd_regulator);
 		s_camavdd_regulator = NULL;
 		pr_debug("SENSOR:disable camavdd.\n");
@@ -686,8 +688,8 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		return;
 	}
 	if (0 != volt_value) {
-		dvddower_on_count++;
 		err = regulator_enable(s_camdvdd_regulator);
+		dvddpower_on_count++;
 		if (err) {
 			regulator_put(s_camdvdd_regulator);
 			s_camdvdd_regulator = NULL;
@@ -695,9 +697,10 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 			return;
 		}
 	} else {
-		dvddower_on_count--;
 		/*regulator_disable(s_camdvdd_regulator);*/
-		_sensor_regulator_disable(dvddower_on_count, s_camdvdd_regulator);
+		_sensor_regulator_disable(dvddpower_on_count, s_camdvdd_regulator);
+		if(0 < dvddpower_on_count)
+			dvddpower_on_count--;
 		regulator_put(s_camdvdd_regulator);
 		s_camdvdd_regulator = NULL;
 		pr_debug("SENSOR:disable camdvdd.\n");
@@ -1620,7 +1623,7 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 				     0xFF);
 
 			Sensor_PowerDown((BOOLEAN)s_sensor_info_ptr->power_down_level);
-			SENSOR_PRINT_HIGH("SENSOR: Sensor_sleep of id %d", i);
+			SENSOR_PRINT_HIGH("SENSOR: Sensor_sleep of id %d \n", i);
 		}
 	}
 
@@ -1650,7 +1653,7 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 			Sensor_QReset(rst_lvl);
 			Sensor_PowerDown((BOOLEAN)s_sensor_info_ptr->power_down_level);
 
-			SENSOR_PRINT_HIGH("SENSOR: Sensor_sleep of id %d", i);
+			SENSOR_PRINT_HIGH("SENSOR: Sensor_sleep of id %d \n", i);
 		}
 	}
 
