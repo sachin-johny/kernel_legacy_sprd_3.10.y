@@ -59,27 +59,10 @@
 #include <linux/proc_fs.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
-
-#ifndef USB_FOR_MUX
-#include <linux/serial.h>
-#include <linux/sched.h>
-#include <linux/interrupt.h>
-#include <linux/mm.h>
-#include <linux/slab.h>
-#include <asm/uaccess.h>
-#include <asm/system.h>
-#include <asm/bitops.h>
-#include <linux/workqueue.h>
-#endif
-
-#ifdef USB_FOR_MUX
-//#include <linux/usb.h>
-//#include "ts0710_mux_usb.h"
-#endif
+#include <linux/sprdmux.h>
 
 #include "ts0710.h"
 #include "ts0710_mux.h"
-#include "mux_buffer.h"
 
 #define TS0710MUX_GPRS_SESSION_MAX 3
 #define TS0710MUX_MAJOR 250
@@ -154,11 +137,9 @@
 #define TS0710MUX_COUNT_MAX_IDX        5
 #define TS0710MUX_COUNT_IDX_NUM (TS0710MUX_COUNT_MAX_IDX + 1)
 
-static char mux_data[TS0710MUX_MAX_BUF_SIZE * NR_MUXS];
-struct mux_ringbuffer rbuf;
-
 static __u8 tty2dlci[NR_MUXS] =
     { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
 typedef struct {
 	__u8 cmdtty;
 	__u8 datatty;
@@ -226,50 +207,30 @@ static volatile __u8 mux_recv_info_flags[NR_MUXS];
 static mux_recv_struct *mux_recv_queue = NULL;
 
 static struct tty_driver mux_driver;
-extern struct tty_driver *usb_for_mux_driver;
-extern struct tty_struct *usb_for_mux_tty;
-extern void (*serial_mux_dispatcher) (struct tty_struct * tty);
-extern void (*serial_mux_sender) (void);
 
-void (*COMM_MUX_DISPATCHER) (struct tty_struct * tty);
-void (*COMM_MUX_SENDER) (void);
-#ifdef USB_FOR_MUX
-#define COMM_FOR_MUX_DRIVER usb_for_mux_driver
-#define COMM_FOR_MUX_TTY usb_for_mux_tty
-#define COMM_MUX_DISPATCHER usb_mux_dispatcher
-#define COMM_MUX_SENDER usb_mux_sender
-#else
-#ifdef CONFIG_TS0710_MUX_UART
-#define COMM_FOR_MUX_DRIVER serial_for_mux_driver
-#define COMM_FOR_MUX_TTY serial_for_mux_tty
-#define COMM_MUX_DISPATCHER serial_mux_dispatcher
-#define COMM_MUX_SENDER serial_mux_sender
-#endif
-#ifdef CONFIG_TS0710_MUX_SPI
-extern struct tty_driver *spi_for_mux_driver;
-extern struct tty_struct *spi_for_mux_tty;
-extern void (*spi_mux_dispatcher) (struct tty_struct * tty);
-extern void (*spi_mux_sender) (void);
-#define COMM_FOR_MUX_DRIVER spi_for_mux_driver
-#define COMM_FOR_MUX_TTY spi_for_mux_tty
-#define COMM_MUX_DISPATCHER spi_mux_dispatcher
-#define COMM_MUX_SENDER spi_mux_sender
-#endif
+#define SPRDMUX_MAX	2
+static struct sprdmux iomux[SPRDMUX_MAX];
 
-#endif
+int sprdmux_register(struct sprdmux *mux)
+{
+	iomux[mux->id].id = mux->id;
+	iomux[mux->id].io_read = mux->io_read;
+	iomux[mux->id].io_write = mux->io_write;
+	iomux[mux->id].io_stop = mux->io_stop;
 
-extern struct tty_driver *COMM_FOR_MUX_DRIVER;
-extern struct tty_struct *COMM_FOR_MUX_TTY;
+	return 0;
+}
+
 
 static struct workqueue_struct *muxsend_work_queue;
 static struct workqueue_struct *muxpost_receive_work_queue;
 static struct task_struct *mux_kthread;
 
-static void receive_worker(struct work_struct *private_);
+static int mux_receive_thread(void *data);
+static void receive_worker(int start);
 static void post_recv_worker(struct work_struct *private_);
 static void send_worker(struct work_struct *private_);
 
-static struct semaphore receive_sem;
 static DECLARE_DELAYED_WORK(mux_send_work, send_worker);
 static DECLARE_DELAYED_WORK(mux_post_receive_work, post_recv_worker);
 
@@ -570,28 +531,14 @@ static int basic_write(ts0710_con * ts0710, __u8 * buf, int len)
 	buf[0] = TS0710_BASIC_FLAG;
 	buf[len + 1] = TS0710_BASIC_FLAG;
 
-	if ((COMM_FOR_MUX_DRIVER == 0) || (COMM_FOR_MUX_TTY == 0)) {
-		TS0710_PRINTK
-		    ("MUX basic_write: (COMM_FOR_MUX_DRIVER == 0) || (COMM_FOR_MUX_TTY == 0)\n");
-
-#ifndef USB_FOR_MUX
-		TS0710_PRINTK
-		    ("MUX basic_write: tapisrv might be down!!! (serial_for_mux_driver == 0) || (serial_for_mux_tty == 0)\n");
-		TS0710_SIG2APLOGD();
-#endif
-
-		return -1;
-	}
-
 	TS0710_LOGSTR_FRAME(1, buf, len + 2);
 	TS0710_DEBUGHEX(buf, len + 2);
 	send = 0;
+
 	while (send < len + 2) {
-		res =
-		    COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY,
-						    buf + send, len + 2 - send);
+		res = iomux[0].io_write(buf + send, len + 2 - send);
 		if (res < 0)
-			return -1;
+			return -EIO;
 		else if (res == 0)
 			msleep(2);
 		else
@@ -2247,15 +2194,6 @@ int is_cmux_mode(void)
 /****************************
  * TTY driver routines
 *****************************/
-static int mux_opened = 0;
-int cmux_opened(void)
-{
-	int opened = 0;
-	if (mux_opened) {
-		opened = 1;
-	}
-	return opened;
-}
 
 static void mux_close(struct tty_struct *tty, struct file *filp)
 {
@@ -2277,8 +2215,6 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 	if (mux_tty[line] > 0)
 		mux_tty[line]--;
 
-	mux_opened--;
-
 	dlci = tty2dlci[line];
 	cmdtty = dlci2tty[dlci].cmdtty;
 	datatty = dlci2tty[dlci].datatty;
@@ -2289,6 +2225,10 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 			    ("MUX mux_close: tapisrv might be down!!! Close DLCI 1\n");
 			TS0710_SIG2APLOGD();
 			cmux_mode = 0;
+			/* destroy the receive thread*/
+			iomux[0].io_stop(SPRDMUX_READ);
+			if(!IS_ERR(mux_kthread))
+				kthread_stop(mux_kthread);
 		}
 		ts0710_close_channel(dlci);
 	}
@@ -2456,27 +2396,6 @@ out:
 	return retval;
 }
 
-static int mux_chars_in_serial_buffer(struct tty_struct *tty)
-{
-	UNUSED_PARAM(tty);
-
-	if ((COMM_FOR_MUX_DRIVER == 0) || (COMM_FOR_MUX_TTY == 0)) {
-		TS0710_PRINTK
-		    ("MUX %s: (COMM_FOR_MUX_DRIVER == 0) || (COMM_FOR_MUX_TTY == 0)\n",
-		     __FUNCTION__);
-
-#ifndef USB_FOR_MUX
-		TS0710_PRINTK
-		    ("MUX %s: tapisrv might be down!!! (serial_for_mux_driver == 0) || (serial_for_mux_tty == 0)\n",
-		     __FUNCTION__);
-		TS0710_SIG2APLOGD();
-#endif
-
-		return 0;
-	}
-	return COMM_FOR_MUX_DRIVER->ops->chars_in_buffer(COMM_FOR_MUX_TTY);
-}
-
 static int mux_write(struct tty_struct *tty,
 		     const unsigned char *buf, int count)
 {
@@ -2533,6 +2452,7 @@ static int mux_write(struct tty_struct *tty,
 			return 0;
 
 		if (send_info->filled) {
+			printk("mux_write: send_info filled is set\n");
 			clear_bit(BUF_BUSY, &send_info->flags);
 			return 0;
 		}
@@ -2549,11 +2469,10 @@ static int mux_write(struct tty_struct *tty,
 		send_info->filled = 1;
 		clear_bit(BUF_BUSY, &send_info->flags);
 
-		if (mux_chars_in_serial_buffer(COMM_FOR_MUX_TTY) == 0) {
-			/* Sending bottom half should be
-			   run after return from this function */
-			mux_sched_send();
-		}
+		/* Sending bottom half should be
+		run after return from this function */
+		mux_sched_send();
+
 		return c;
 	} else {
 		TS0710_PRINTK("MUX mux_write: DLCI %d not connected\n", dlci);
@@ -2677,7 +2596,7 @@ static void mux_flush_buffer(struct tty_struct *tty)
 
 static int mux_open(struct tty_struct *tty, struct file *filp)
 {
-	int retval;
+	int retval, err;
 	int line;
 	__u8 dlci;
 	__u8 cmdtty;
@@ -2690,16 +2609,6 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 	UNUSED_PARAM(filp);
 
 	retval = -ENODEV;
-	if ((COMM_FOR_MUX_DRIVER == NULL) || (COMM_FOR_MUX_TTY == NULL)) {
-
-#ifdef USB_FOR_MUX
-		TS0710_PRINTK("MUX: please install and open IPC-USB first\n");
-#else
-		TS0710_PRINTK("MUX: please install and open ttyS0 first\n");
-#endif
-
-		goto out;
-	}
 
 	if (!tty) {
 		goto out;
@@ -2715,57 +2624,36 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 #else
 	mux_tty[line]++;
 	dlci = tty2dlci[line];
-	mux_opened++;
 	if (dlci == 1) {
 		if (cmux_mode == 0) {
 			char buffer[256];
 			char *buff = buffer;
-			int i = 0;
+			int count, i = 0;
 			memset(buffer, 0, 256);
-			mux_ringbuffer_flush(&rbuf);
 			if (mux_mode == 1)
-				COMM_FOR_MUX_DRIVER->
-				    ops->write(COMM_FOR_MUX_TTY,
-					       "AT+SMMSWAP=0\r",
-					       strlen("AT+SMMSWAP=0\r"));
+				iomux[0].io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
 			else
-				COMM_FOR_MUX_DRIVER->
-				    ops->write(COMM_FOR_MUX_TTY, "at\r",
-					       strlen("at\r"));
+				iomux[0].io_write("AT\r", strlen("AT\r"));
 			/*wait for response "OK \r" */
 			printk(KERN_INFO "\n cmux receive:<\n");
 			msleep(1000);
 			while (1) {
-
-				int c = mux_ringbuffer_avail(&rbuf);
-				printk(KERN_INFO "ts mux receive %d chars\n", c);
-				if (c > 0) {
-					if (c > 256)
-						c = 256;
-					mux_ringbuffer_read(&rbuf, buff++, 1,
-							    0);
-					printk(KERN_INFO "%c", *(buff - 1));
-					if (findInBuf(buffer, 256, "OK"))
+				count = iomux[0].io_read(buff, sizeof(buffer) - (buff - buffer));
+				if(count > 0) {
+					buff += count;
+					printk(KERN_INFO "ts mux receive %d chars\n", count);
+					if (findInBuf(buffer, 256, "OK")) {
 						break;
-					if (findInBuf(buffer, 256, "ERROR")) {
-						printk
-						    (KERN_INFO "\n wrong modem state !!!!\n");
+					} else if (findInBuf(buffer, 256, "ERROR")) {
+						printk(KERN_INFO "\n wrong modem state !!!!\n");
 						break;
 					}
-
 				} else {
 					msleep(2000);
 					if (mux_mode == 1)
-						COMM_FOR_MUX_DRIVER->
-						    ops->write(COMM_FOR_MUX_TTY,
-							       "AT+SMMSWAP=0\r",
-							       strlen
-							       ("AT+SMMSWAP=0\r"));
+						iomux[0].io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
 					else
-						COMM_FOR_MUX_DRIVER->
-						    ops->write(COMM_FOR_MUX_TTY,
-							       "at\r",
-							       strlen("at\r"));
+						iomux[0].io_write("AT\r", strlen("AT\r"));
 					i++;
 				}
 				if (i > 5) {
@@ -2774,14 +2662,19 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 					goto out;
 				}
 			}
-			COMM_FOR_MUX_DRIVER->ops->write(COMM_FOR_MUX_TTY,
-							"at+cmux=0\r",
-							strlen("at+cmux=0\r"));
-			msleep(2000);
+			iomux[0].io_write("at+cmux=0\r", strlen("at+cmux=0\r"));
+			iomux[0].io_read(buffer, sizeof(buffer));
 			printk(KERN_INFO "\n cmux receive>\n");
-			/*flush ringbuffer */
-			mux_ringbuffer_flush(&rbuf);
 			cmux_mode = 1;
+			/*create receive thread*/
+			mux_kthread = kthread_create(mux_receive_thread, NULL, "mux_receive");
+			if(IS_ERR(mux_kthread)){
+				printk(KERN_ERR "Unable to create mux_receive thread\n");
+				err = PTR_ERR(mux_kthread);
+				mux_kthread = NULL;
+				return err;
+			}
+			wake_up_process(mux_kthread);
 		}
 
 		/* Open server channel 0 first */
@@ -2879,15 +2772,6 @@ static inline int task_has_rt_policy(struct task_struct *p)
 	return rt_policy(p->policy);
 }
 
-/* mux dispatcher, call from serial.c receiver_chars() */
-void mux_dispatcher(struct tty_struct *tty)
-{
-	UNUSED_PARAM(tty);
-
-	up(&receive_sem);
-
-}
-
 /*For BP UART problem Begin*/
 #ifdef TS0710SEQ2
 static int send_ack(ts0710_con * ts0710, __u8 seq_num, __u8 bp_seq1,
@@ -2919,12 +2803,12 @@ int mux_set_thread_pro(int pro)
 
 /*For BP UART problem End*/
 
-static void receive_worker(struct work_struct *private_)
+static void receive_worker(int start)
 {
 	int count;
-	static unsigned char tbuf[TS0710MUX_MAX_BUF_SIZE];
-	static unsigned char *tbuf_ptr = &tbuf[0];
-	static unsigned char *start_flag = 0;
+	static unsigned char tbuf[TS0710MUX_MAX_BUF_SIZE*NR_MUXS];
+	static unsigned char *tbuf_ptr;
+	static unsigned char *start_flag;
 	unsigned char *search, *to, *from;
 	short_frame *short_pkt;
 	long_frame *long_pkt;
@@ -2935,23 +2819,17 @@ static void receive_worker(struct work_struct *private_)
 	__u8 *uih_data_start;
 	__u32 uih_len;
 	/*For BP UART problem End */
-	UNUSED_PARAM(private_);
 
-	count = mux_ringbuffer_avail(&rbuf);
+	if (start) {
+		memset(tbuf, 0, TS0710MUX_MAX_BUF_SIZE*NR_MUXS);
+		tbuf_ptr = tbuf;
+		start_flag = 0;
+	}
 
-	if (count == 0) {
-
+	count = iomux[0].io_read(tbuf_ptr, TS0710MUX_MAX_BUF_SIZE*NR_MUXS - (tbuf_ptr - tbuf));
+	if (count <= 0) {
 		return;
 	}
-
-	if (count > (TS0710MUX_MAX_BUF_SIZE - (tbuf_ptr - tbuf))) {
-
-		count = (TS0710MUX_MAX_BUF_SIZE - (tbuf_ptr - tbuf));
-		up(&receive_sem);
-
-	}
-
-	mux_ringbuffer_read(&rbuf, tbuf_ptr, count, 0);
 	tbuf_ptr += count;
 
 	if ((start_flag != 0) && (framelen != -1)) {
@@ -3187,20 +3065,18 @@ static void receive_worker(struct work_struct *private_)
 
 static int mux_receive_thread(void *data)
 {
+	int start = 1;
+
 	mux_set_thread_pro(95);
-
-	while (1) {
-
-		if(down_interruptible(&receive_sem))
-			return -ERESTARTSYS;
-
+	while (!kthread_should_stop()) {
 		if (mux_exiting == 1) {
 			mux_exiting = 2;
 			return 0;
 		}
-		receive_worker(0);
-
+		receive_worker(start);
+		start = 0;
 	}
+	return 0;
 }
 
 static void post_recv_worker(struct work_struct *private_)
@@ -3364,41 +3240,11 @@ out:
 	clear_bit(RECV_RUNNING, &mux_recv_flags);
 }
 
-/* mux sender, call from serial.c transmit_chars() */
-void mux_sender(void)
-{
-	mux_send_struct *send_info;
-	int chars;
-	__u8 idx;
-
-	chars = mux_chars_in_serial_buffer(COMM_FOR_MUX_TTY);
-	if (!chars) {
-		/* chars == 0 */
-		TS0710_LOG("<[]\n");
-		mux_sched_send();
-		return;
-	}
-
-	idx = mux_send_info_idx;
-	if ((idx < NR_MUXS) && (mux_send_info_flags[idx])) {
-		send_info = mux_send_info[idx];
-		if ((send_info)
-		    && (send_info->filled)
-		    && (send_info->length <=
-			(TS0710MUX_SERIAL_BUF_SIZE - chars))
-		    && (cmux_mode == 1)) {
-
-			mux_sched_send();
-		}
-	}
-}
-
 static void send_worker(struct work_struct *private_)
 {
 	ts0710_con *ts0710 = &ts0710_connection;
 	__u8 j;
 	mux_send_struct *send_info;
-	int chars;
 	struct tty_struct *tty;
 	__u8 dlci;
 
@@ -3440,8 +3286,8 @@ static void send_worker(struct work_struct *private_)
 			send_info->filled = 0;
 			continue;
 		}
-		chars = mux_chars_in_serial_buffer(COMM_FOR_MUX_TTY);
-		if (send_info->length <= (TS0710MUX_SERIAL_BUF_SIZE - chars)) {
+
+		if (send_info->length <= TS0710MUX_SERIAL_BUF_SIZE) {
 			TS0710_DEBUG("Send queued UIH for /dev/mux%d", j);
 			basic_write(ts0710, (__u8 *) send_info->frame,
 				    send_info->length);
@@ -3569,11 +3415,9 @@ static const struct tty_operations tty_ops = {
 
 static int __init mux_init(void)
 {
-	unsigned int j, err;
+	unsigned int j;
 
 	ts0710_init();
-
-	mux_ringbuffer_init(&rbuf, mux_data, TS0710MUX_MAX_BUF_SIZE * NR_MUXS);
 
 	for (j = 0; j < NR_MUXS; j++) {
 		mux_send_info_flags[j] = 0;
@@ -3584,16 +3428,6 @@ static int __init mux_init(void)
 	mux_send_info_idx = NR_MUXS;
 	mux_recv_queue = NULL;
 	mux_recv_flags = 0;
-
-	sema_init(&receive_sem, 0);
-	mux_kthread = kthread_create(mux_receive_thread, NULL, "mux_receive");
-	if(IS_ERR(mux_kthread)){
-		printk(KERN_ERR "Unable to create mux_receive thread\n");
-		err = PTR_ERR(mux_kthread);
-		mux_kthread = NULL;
-		return err;
-	}
-	wake_up_process(mux_kthread);
 
 	muxsend_work_queue = create_workqueue("muxsend");
 	muxpost_receive_work_queue = create_workqueue("muxpostreceive");
@@ -3623,8 +3457,6 @@ static int __init mux_init(void)
 	if (tty_register_driver(&mux_driver))
 		panic("Couldn't register mux driver");
 	mux_table = mux_driver.ttys;
-	COMM_MUX_DISPATCHER = mux_dispatcher;
-	COMM_MUX_SENDER = mux_sender;
 
 	if (mux_create_proc())
 		printk(KERN_WARNING "create mux proc interface failed!\n");
@@ -3635,9 +3467,6 @@ static int __init mux_init(void)
 static void __exit mux_exit(void)
 {
 	int j;
-
-	COMM_MUX_DISPATCHER = NULL;
-	COMM_MUX_SENDER = NULL;
 
 	mux_send_info_idx = NR_MUXS;
 	mux_recv_queue = NULL;
@@ -3656,7 +3485,7 @@ static void __exit mux_exit(void)
 	}
 	mux_exiting = 1;
 	destroy_workqueue(muxsend_work_queue);
-	up(&receive_sem);
+
 	while (mux_exiting == 1) {
 		msleep(10);
 	}

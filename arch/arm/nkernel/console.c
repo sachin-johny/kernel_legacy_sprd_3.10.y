@@ -40,10 +40,13 @@
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/spinlock.h>
+#include <linux/wait.h>
 
 #include <asm/uaccess.h>
 #include <asm/nkern.h>
 #include <nk/nkern.h>
+
+#include <linux/sprdmux.h>
 
 //#define __TRACE__
 
@@ -81,17 +84,11 @@ typedef struct {
 } Fifo;
 
 
-#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
-extern struct mux_ringbuffer rbuf;
-struct tty_driver *serial_for_mux_driver = NULL;
-static int serial_mux_guard = 0;
-struct tty_struct *serial_for_mux_tty = NULL;
-extern ssize_t mux_ringbuffer_write(struct mux_ringbuffer *rbuf, const u8 *buf, size_t len);
-extern ssize_t mux_ringbuffer_free(struct mux_ringbuffer *rbuf);
-extern int cmux_opened(void);
-extern int is_cmux_mode(void);
-void (*serial_mux_dispatcher)(struct tty_struct *tty) = NULL;
-void (*serial_mux_sender)(void) = NULL;
+#ifdef CONFIG_NKERNEL_MUX_IO
+NkPort* 	sprd_port;
+wait_queue_head_t txwait;
+wait_queue_head_t rxwait;
+static int stopped = 0;
 #endif
 
 struct NkPort {
@@ -432,10 +429,6 @@ vcons_rx_intr (NkPort* port)
     int				i;
     int				count = 0;
 
-#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
-    int				line = NKLINE(port->tty);
-#endif
-
     while ((size = vcons_rxfifo_count(port))) {
 	if (port->count == 0) {
 	    return;
@@ -445,23 +438,10 @@ vcons_rx_intr (NkPort* port)
 	    break;
 	}
 
-#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
-	if ( ( 3 == line ) && cmux_opened() ) {
-	    int 		num;
-	    unsigned long	flags;
-	    num =0;
-
-	    flags = hw_local_irq_save();
-
-	    if  ( (num = os_ctx->cops.read(port->id, port->buf, size)) ) {
-		mux_ringbuffer_write(&rbuf, port->buf, num);
-	    }
-
-	    count += num;
-	    hw_local_irq_restore(flags);
-
-	    CON_TRACE("func[%s]:rev_num=%d\n",__FUNCTION__,num);
-	    continue;
+#ifdef CONFIG_NKERNEL_MUX_IO
+	if (3 == NKLINE(port->tty)) {
+		wake_up_interruptible(&rxwait);
+		return;
 	}
 #endif
 
@@ -470,7 +450,7 @@ vcons_rx_intr (NkPort* port)
 	if (size == 0) {
 	    return;
 	}
-	
+
 	size = os_ctx->cops.read(port->id, port->buf, size);
 	count += size;
 	for (i = 0; i < size; i++) {
@@ -479,18 +459,6 @@ vcons_rx_intr (NkPort* port)
     }
 
     if (count > 0) {
-#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
-	if (line == 3) {
-	    unsigned long flags;
-
-	    flags = hw_local_irq_save();
-	    if (serial_mux_dispatcher && is_cmux_mode()) {
-		serial_mux_dispatcher(port->tty);
-	    }
-	    hw_local_irq_restore(flags);
-	    return;
-	}
-#endif
 	tty_schedule_flip(port->tty);
     }
 }
@@ -510,13 +478,10 @@ vcons_tx_intr (NkPort* port)
     }
     spin_unlock_irqrestore(&port->lock, flags);
 
-#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
+#ifdef CONFIG_NKERNEL_MUX_IO
     line = NKLINE(port->tty);
-    if ((3==line) && cmux_opened()){
-	CON_PRINT("func[%s]:serial_mux_sender\n",__FUNCTION__);
-	if(serial_mux_sender){
-	    serial_mux_sender();
-	}
+    if (3==line){
+	wake_up_interruptible(&txwait);
     }
 #endif
 
@@ -765,21 +730,7 @@ serial_open (struct tty_struct* tty, struct file* filp)
     line = NKLINE(tty);
     port = line + serial_port;
 
-    printk("serial_open tty addr = 0x%x, filp = 0x%x, port = 0x%x\n", (unsigned int)tty, (unsigned int)filp, (unsigned int)port);
-#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
-	if(line == 3){
-
-	        if( serial_mux_guard ) {
-			serial_mux_guard++;
-			printk("Fail to open ttyNK3, it's busy!\n");
-			return -EBUSY;
-		} else {
-			serial_mux_guard++;
-			serial_for_mux_tty = tty;
-			printk("serial_open: serial_for_mux_tty=%p\n",serial_for_mux_tty);
-		}
-	}
-#endif
+    printk("serial_open tty addr = %p, filp = %p, port =%p\n", tty, filp, port);
 
     if (line >= MAX_PORT) {
 	return -ENODEV;
@@ -802,6 +753,13 @@ serial_open (struct tty_struct* tty, struct file* filp)
     port->vlink		= 0;
     port->xid		= 0;
     port->timer.data 	= 0;
+
+#ifdef CONFIG_NKERNEL_MUX_IO
+	if(3 == line){
+		sprd_port = port;
+		stopped = 0;
+	}
+#endif
 
     spin_lock_init(&port->lock);
 
@@ -826,14 +784,8 @@ serial_open (struct tty_struct* tty, struct file* filp)
 serial_close (struct tty_struct* tty, struct file* filp)
 {
     NkPort* port = (NkPort*)tty->driver_data;
-#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
-	int line = NKLINE(tty);
-	if (line == 3) {
-		serial_mux_guard--;
-	}
-#endif
 
-    printk("serial_close tty addr = 0x%x, filp = 0x%x, port->count=0x%x\n", (unsigned int)tty, (unsigned int)filp, (unsigned int)port->count);
+    printk("serial_close tty addr = %p, filp = %p, port->count=0x%x\n", tty, filp, port->count);
     port->count--;
     if (port->count == 0) {
 
@@ -856,6 +808,79 @@ serial_wait_until_sent (struct tty_struct* tty, int timeout)
 {
 }
 
+#ifdef CONFIG_NKERNEL_MUX_IO
+static int nk_io_write(const char *buf, size_t len)
+{
+	ssize_t res;
+	unsigned long flags;
+
+	if(0 == len)
+		return 0;
+
+	wait_event_interruptible(txwait, vcons_write_room(sprd_port) > 0 || 1
+			== stopped);
+	if(1 == stopped)
+		return -1;
+	spin_lock_irqsave(&sprd_port->lock, flags);
+	res = os_ctx->cops.write(sprd_port->id, buf, len);
+	spin_unlock_irqrestore(&sprd_port->lock, flags);
+
+	return res;
+}
+
+static int nk_io_read(char *buf, size_t len)
+{
+	ssize_t res, size;
+	size_t count = 0;
+	unsigned long flags;
+
+	if(0 == len)
+		return 0;
+
+	wait_event_interruptible(rxwait, vcons_rxfifo_count(sprd_port) > 0 ||
+			1 == stopped);
+	if(1 == stopped)
+		return -1;
+
+	while ((size = vcons_rxfifo_count(sprd_port)) && count < len) {
+
+		if (count + size > len)
+			size = len - count;
+
+		flags = hw_local_irq_save();
+		res = os_ctx->cops.read(sprd_port->id, buf, size);
+		hw_local_irq_restore(flags);
+		if(res < 0)
+			return count;
+
+		buf += res;
+		count += res;
+	}
+
+	return count;
+}
+
+static int nk_io_stop(int mode)
+{
+	stopped = 1;
+	if (mode & SPRDMUX_READ) {
+		wake_up_interruptible(&rxwait);
+	}
+
+	if (mode & SPRDMUX_WRITE) {
+		wake_up_interruptible(&txwait);
+	}
+	return 0;
+}
+
+static struct sprdmux sprd_iomux = {
+	.id		= 0,
+	.io_read	= nk_io_read,
+	.io_write	= nk_io_write,
+	.io_stop	= nk_io_stop,
+};
+#endif
+
     static int __init
 serial_init (void)
 {
@@ -863,7 +888,7 @@ serial_init (void)
     serial_driver.magic           = TTY_DRIVER_MAGIC;
     serial_driver.driver_name     = "nkconsole";
     serial_driver.name            = SERIAL_NK_NAME;
-    /* GMv    serial_driver.devfs_name      = SERIAL_NK_NAME; */
+    /* GMv    serial_driver.devfs_name      = SERIAL_NK_NAME; */	
     serial_driver.major           = SERIAL_NK_MAJOR;
     serial_driver.minor_start     = SERIAL_NK_MINOR;
     serial_driver.num             = MAX_PORT;
@@ -908,14 +933,13 @@ serial_init (void)
 	printk(KERN_ERR "Couldn't register NK console driver\n");
     }
 
-#if defined (CONFIG_TS0710_MUX_UART) && !defined(CONFIG_SMP)
-	serial_for_mux_driver = &serial_driver;
-	printk("serial_init: serial_for_mux_driver=%p\n",serial_for_mux_driver);
-	//serial_for_mux_tty = &serial_tty;
-	serial_mux_guard = 0;
+#ifdef CONFIG_NKERNEL_MUX_IO
+	init_waitqueue_head(&txwait);
+	init_waitqueue_head(&rxwait);
+	sprdmux_register(&sprd_iomux);
 #endif
-	return 0;
 
+	return 0;
 }
 
     static void __exit

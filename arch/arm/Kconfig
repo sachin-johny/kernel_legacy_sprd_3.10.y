@@ -64,6 +64,12 @@ config NKERNEL_PM_GLOBAL_SUSPEND
 	help
 	  Select this option in order to suspend to RAM the physical
 	  platform only when all VMs are virtually suspended.
+
+config NKERNEL_MUX_IO
+	bool "VLX vonsole IO interface for ts0710mux"
+	default y
+	help
+	  This option is used to support io interface for ts0710mux driver.
 endif
 
 config TEXT_OFFSET

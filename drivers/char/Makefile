@@ -18,7 +18,7 @@ obj-$(CONFIG_IBM_BSR)		+= bsr.o
 obj-$(CONFIG_SGI_MBCS)		+= mbcs.o
 obj-$(CONFIG_BRIQ_PANEL)	+= briq_panel.o
 obj-$(CONFIG_BFIN_OTP)		+= bfin-otp.o
-obj-$(CONFIG_TS0710_MUX_UART)		+= ts0710_mux.o mux_buffer.o
+obj-$(CONFIG_TS0710_MUX_ENABLE)+= ts0710_mux.o
 
 obj-$(CONFIG_PRINTER)		+= lp.o
 
