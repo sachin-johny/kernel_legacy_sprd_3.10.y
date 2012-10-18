@@ -276,7 +276,7 @@ static int32_t sprdfb_lcdc_early_init(struct sprdfb_device *dev)
 		return 0;
 	}
 
-	lcdc_ctx.clk_lcdc = clk_get(NULL, "clk_lcdc");
+	lcdc_ctx.clk_lcdc = clk_get(NULL, "clk_lcd");
 
 	if(!dev->panel_ready){
 		clk_enable(lcdc_ctx.clk_lcdc);

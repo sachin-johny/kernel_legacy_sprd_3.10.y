@@ -137,11 +137,12 @@ static uint32_t mcu_calc_timing(struct timing_mcu *timing, uint16_t dev_id)
 	}
 
 	if(SPRDFB_MAINLCD_ID == dev_id){
-		clk_get(NULL,"clk_dispc_dbi");
+		clk = clk_get(NULL,"clk_dispc_dbi");
 	}else{
-		clk_get(NULL, "clk_ahb");
+		clk = clk_get(NULL, "clk_ahb");
 	}
-	clk_rate = clk_get_rate(clk) / 1000000;
+//	clk_rate = clk_get_rate(clk) / 1000000;
+	clk_rate = 250;	// dummy 250M Hz
 
 	pr_debug(KERN_INFO "sprdfb: [%s] clk_rate: 0x%x, dev_id = %d\n", __FUNCTION__, clk_rate, dev_id);
 
