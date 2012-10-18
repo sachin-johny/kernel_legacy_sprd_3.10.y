@@ -460,7 +460,7 @@ static int al3006_pls_reg_init(void)
 	}
 
 	/*set time control*/
-	if(al3006_pls_write_data(AL3006_PLS_REG_TIME_CTRL,0x11)<0) {
+	if(al3006_pls_write_data(AL3006_PLS_REG_TIME_CTRL,0x1)<0) {
 		printk(KERN_ERR "%s: I2C Write Reg %x Failed\n", __func__, AL3006_PLS_REG_TIME_CTRL);
 		ret = -1;
 	}
