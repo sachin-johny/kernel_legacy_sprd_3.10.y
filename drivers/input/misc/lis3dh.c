@@ -181,6 +181,8 @@
 #define	RES_FIFO_CTRL_REG	19
 
 #define	RESUME_ENTRIES		20
+#define DEVICE_INFO             "ST, LIS3DH"
+#define DEVICE_INFO_LEN         32
 /* end RESUME STATE INDICES */
 
 #define GSENSOR_GINT1_GPI 0
@@ -1065,7 +1067,23 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 		break;
 
 #endif /* INTERRUPT_MANAGEMENT */
+	case LIS3DH_ACC_IOCTL_GET_CHIP_ID:
+	    {
+	        u8 devid = 0;
+	        u8 devinfo[DEVICE_INFO_LEN] = {0};
+	        err = lis3dh_acc_register_read(acc, &devid, WHO_AM_I);
+	        if (err < 0) {
+	            printk("__func__, error read register WHO_AM_I\n", __func__);
+	            return -EAGAIN;
+	        }
+	        sprintf(devinfo, "%s, %#x", DEVICE_INFO, devid);
 
+	        if (copy_to_user(argp, devinfo, sizeof(devinfo))) {
+	            printk("%s error in copy_to_user(IOCTL_GET_CHIP_ID)\n", __func__);
+	            return -EINVAL;
+	        }
+	    }
+	   break;
 	default:
 		return -EINVAL;
 	}
