@@ -37,6 +37,7 @@
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
 #include <linux/spinlock.h>
+#include <linux/sprdmux.h>
 
 #include <asm/uaccess.h>
 #include <asm/nkern.h>
@@ -633,16 +634,12 @@ ex_exit(void)
 typedef struct NkPort NkPort;
 #define MAX_BUF 128
 
-extern struct mux_ringbuffer rbuf;
-struct tty_driver *serial_for_mux_driver = NULL;
-static int serial_mux_guard = 0;
-struct tty_struct *serial_for_mux_tty = NULL;
-extern ssize_t mux_ringbuffer_write(struct mux_ringbuffer *rbuf, const u8 *buf, size_t len);
-extern ssize_t mux_ringbuffer_free(struct mux_ringbuffer *rbuf);
-extern int cmux_opened(void);
-extern int is_cmux_mode(void);
-void (*serial_mux_dispatcher)(struct tty_struct *tty) = NULL;
-void (*serial_mux_sender)(void) = NULL;
+#ifdef CONFIG_NKERNEL_MUX_IO
+NkPort* 	sprd_port;
+wait_queue_head_t txwait;
+wait_queue_head_t rxwait;
+static int stopped = 0;
+#endif
 
 struct NkPort {
     struct timer_list	timer;
@@ -715,15 +712,12 @@ vcons_rx_intr (NkPort* port)
 
     if (!port->count)
 	return;
-    while (!port->stoprx &&
-	   (size = ex_read(port->ex_dev, port->buf, MAX_BUF))) {
-	while (!cmux_opened());
-	mux_ringbuffer_write(&rbuf, port->buf, size);
-	count += size;
-	CON_TRACE("func[%s]:rev_num=%d\n",__FUNCTION__,num);
+
+#ifdef CONFIG_NKERNEL_MUX_IO
+    if (!port->stoprx) {
+		wake_up_interruptible(&rxwait);
     }
-    if (count && serial_mux_dispatcher && is_cmux_mode())
-	serial_mux_dispatcher(port->tty);
+#endif
 }
 
     static void
@@ -738,12 +732,10 @@ vcons_tx_intr (NkPort* port)
 	    tty_wakeup(port->tty);
     }
     spin_unlock_irqrestore(&port->lock, flags);
-    if (cmux_opened()) {
-	CON_PRINT("func[%s]:serial_mux_sender\n",__FUNCTION__);
-	if (serial_mux_sender) {
-	    serial_mux_sender();	
-	}
-    }
+
+#ifdef CONFIG_NKERNEL_MUX_IO
+	wake_up_interruptible(&txwait);
+#endif
 }
 
     static void 
@@ -892,17 +884,6 @@ serial_open (struct tty_struct* tty, struct file* filp)
     printk("serial_open tty addr = 0x%x, filp = 0x%x, port = 0x%x\n",
 	   (unsigned int)tty, (unsigned int)filp, (unsigned int)port);
 
-     if( serial_mux_guard ) {
-	 serial_mux_guard++;
-	 printk("Fail to open ttyVUART, it's busy!\n");
-	 return -EBUSY;
-     } else {
-	 serial_mux_guard++;
-	 serial_for_mux_tty = tty;
-	 printk("=========serial_for_mux_tty=%p========\n",serial_for_mux_tty);
-     }
-
-
     if (line >= MAX_PORT) {
 	return -ENODEV;
     }
@@ -925,6 +906,10 @@ serial_open (struct tty_struct* tty, struct file* filp)
 
     spin_lock_init(&port->lock);
 
+#ifdef CONFIG_NKERNEL_MUX_IO
+	sprd_port = port;
+	stopped = 0;
+#endif
     /*
      * console specific initialization.
      */
@@ -935,8 +920,6 @@ serial_open (struct tty_struct* tty, struct file* filp)
 serial_close (struct tty_struct* tty, struct file* filp)
 { 
     NkPort* port = (NkPort*)tty->driver_data;
-
-    serial_mux_guard--;
 
     printk("serial_close tty addr = 0x%x, filp = 0x%x, port->count=0x%x\n",
 	   (unsigned int)tty, (unsigned int)filp, (unsigned int)port->count);
@@ -955,6 +938,65 @@ serial_close (struct tty_struct* tty, struct file* filp)
 serial_wait_until_sent (struct tty_struct* tty, int timeout)
 {
 }
+
+#ifdef CONFIG_NKERNEL_MUX_IO
+static int nk_io_write(const char *buf, size_t len)
+{
+	ssize_t res;
+	unsigned long flags;
+
+	if(0 == len)
+		return 0;
+
+	wait_event_interruptible(txwait, vcons_write_room(sprd_port) > 0 || 1
+			== stopped);
+	if(1 == stopped)
+		return -1;
+
+	spin_lock_irqsave(&sprd_port->lock, flags);
+	res = ex_write(sprd_port->ex_dev, buf, len);
+	spin_unlock_irqrestore(&sprd_port->lock, flags);
+
+	return res;
+}
+
+static int nk_io_read(char *buf, size_t len)
+{
+	ssize_t res;
+
+	if(0 == len)
+		return 0;
+
+	wait_event_interruptible(rxwait, vcons_rxfifo_count(sprd_port) > 0 ||
+			1 == stopped);
+	if(1 == stopped)
+		return -1;
+
+	res = ex_read(sprd_port->ex_dev, buf, len);
+
+	return res;
+}
+
+static int nk_io_stop(int mode)
+{
+	stopped = 1;
+	if (mode & SPRDMUX_READ) {
+		wake_up_interruptible(&rxwait);
+	}
+
+	if (mode & SPRDMUX_WRITE) {
+		wake_up_interruptible(&txwait);
+	}
+	return 0;
+}
+
+static struct sprdmux sprd_iomux = {
+	.id		= 0,
+	.io_read	= nk_io_read,
+	.io_write	= nk_io_write,
+	.io_stop	= nk_io_stop,
+};
+#endif
 
     static int __init
 serial_init (void)
@@ -996,10 +1038,12 @@ serial_init (void)
 	printk(KERN_ERR "Couldn't register tty_vuart driver\n");
     }
 
-    serial_for_mux_driver = &serial_driver;
-    printk("=========serial_for_mux_driver=%p========\n",serial_for_mux_driver);
-    //serial_for_mux_tty = &serial_tty;
-    serial_mux_guard = 0;
+#ifdef CONFIG_NKERNEL_MUX_IO
+	init_waitqueue_head(&txwait);
+	init_waitqueue_head(&rxwait);
+	sprdmux_register(&sprd_iomux);
+#endif
+
     return 0;
 
 }

@@ -84,7 +84,7 @@ typedef struct {
 } Fifo;
 
 
-#ifdef CONFIG_NKERNEL_MUX_IO
+#if defined(CONFIG_NKERNEL_MUX_IO) && !defined(CONFIG_SMP)
 NkPort* 	sprd_port;
 wait_queue_head_t txwait;
 wait_queue_head_t rxwait;
@@ -438,7 +438,7 @@ vcons_rx_intr (NkPort* port)
 	    break;
 	}
 
-#ifdef CONFIG_NKERNEL_MUX_IO
+#if defined(CONFIG_NKERNEL_MUX_IO) && !defined(CONFIG_SMP)
 	if (3 == NKLINE(port->tty)) {
 		wake_up_interruptible(&rxwait);
 		return;
@@ -478,7 +478,7 @@ vcons_tx_intr (NkPort* port)
     }
     spin_unlock_irqrestore(&port->lock, flags);
 
-#ifdef CONFIG_NKERNEL_MUX_IO
+#if defined(CONFIG_NKERNEL_MUX_IO) && !defined(CONFIG_SMP)
     line = NKLINE(port->tty);
     if (3==line){
 	wake_up_interruptible(&txwait);
@@ -754,7 +754,7 @@ serial_open (struct tty_struct* tty, struct file* filp)
     port->xid		= 0;
     port->timer.data 	= 0;
 
-#ifdef CONFIG_NKERNEL_MUX_IO
+#if defined(CONFIG_NKERNEL_MUX_IO) && !defined(CONFIG_SMP)
 	if(3 == line){
 		sprd_port = port;
 		stopped = 0;
@@ -808,7 +808,7 @@ serial_wait_until_sent (struct tty_struct* tty, int timeout)
 {
 }
 
-#ifdef CONFIG_NKERNEL_MUX_IO
+#if defined(CONFIG_NKERNEL_MUX_IO) && !defined(CONFIG_SMP)
 static int nk_io_write(const char *buf, size_t len)
 {
 	ssize_t res;
@@ -933,7 +933,7 @@ serial_init (void)
 	printk(KERN_ERR "Couldn't register NK console driver\n");
     }
 
-#ifdef CONFIG_NKERNEL_MUX_IO
+#if defined(CONFIG_NKERNEL_MUX_IO) && !defined(CONFIG_SMP)
 	init_waitqueue_head(&txwait);
 	init_waitqueue_head(&rxwait);
 	sprdmux_register(&sprd_iomux);
