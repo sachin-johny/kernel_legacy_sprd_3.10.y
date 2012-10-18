@@ -90,6 +90,7 @@ Interrupt Management
 
 #define LIS3DH_ACC_IOCTL_GET_COOR_XYZ           _IOW(LIS3DH_ACC_IOCTL_BASE, 22, int)
 
+#define LIS3DH_ACC_IOCTL_GET_CHIP_ID            _IOR(LIS3DH_ACC_IOCTL_BASE, 255, char[32])
 
 /************************************************/
 /* 	Accelerometer defines section	 	*/
