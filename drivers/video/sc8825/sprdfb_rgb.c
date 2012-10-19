@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
@@ -36,7 +37,8 @@ static uint32_t rgb_readid(struct panel_spec *self)
 	if(SPRDFB_RGB_BUS_TYPE_I2C == rgb->cmd_bus_mode){
 		rgb->bus_info.i2c->ops->i2c_read_16bits(0x0, false, &id, false);
 	}else{
-		rgb->bus_info.spi->ops->spi_read(0x0, &id);
+		rgb->bus_info.spi->ops->spi_send_cmd(0x0);
+		rgb->bus_info.spi->ops->spi_read(&id);
 	}
 
 	return id;
@@ -75,8 +77,10 @@ static void rgb_dispc_init_config(struct panel_spec *panel)
 		reg_val |= (1<<2);
 	}
 
-	/*always run mode*/
+#ifdef CONFIG_DPI_SINGLE_RUN
+	/*single run mode*/
 	reg_val |= (1<<3);
+#endif
 
 	/*dpi bits*/
 	switch(panel->info.rgb->video_bus_width){
@@ -203,15 +207,29 @@ static void sprdfb_rgb_panel_mount(struct sprdfb_device *dev)
 	dev->panel_timing.rgb_timing[RGB_LCD_V_TIMING] = rgb_calc_v_timing(dev->panel->info.rgb->timing);
 }
 
-static void sprdfb_rgb_panel_init(struct sprdfb_device *dev)
+static bool sprdfb_rgb_panel_init(struct sprdfb_device *dev)
 {
+	bool ret = false;
 	if(SPRDFB_RGB_BUS_TYPE_I2C == dev->panel->info.rgb->cmd_bus_mode){
-		sprdfb_i2c_init(dev);
+		ret = sprdfb_i2c_init(dev);
 	}else if(SPRDFB_RGB_BUS_TYPE_SPI == dev->panel->info.rgb->cmd_bus_mode) {
-		sprdfb_spi_init(dev);
+		ret = sprdfb_spi_init(dev);
 	}
+
+	if(!ret) {
+		printk(KERN_ERR "sprdfb: [%s]: bus init fail!\n", __FUNCTION__);
+		return false;
+	}
+
 	rgb_dispc_init_config(dev->panel);
 	rgb_dispc_set_timing(dev);
+
+	/*Nt35516 need vsync before panel init*/
+	dispc_set_bits(BIT(4), DISPC_CTRL);
+	udelay(100);
+	dispc_clear_bits(BIT(4), DISPC_CTRL);
+
+	return true;
 }
 
 static void sprdfb_rgb_panel_uninit(struct sprdfb_device *dev)

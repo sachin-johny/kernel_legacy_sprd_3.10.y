@@ -141,7 +141,10 @@ int panel_init(struct sprdfb_device *dev)
 
 	pr_debug("sprdfb: [%s], dev_id= %d, type = %d\n",__FUNCTION__, dev->dev_id, dev->panel->type);
 
-	dev->panel->if_ctrl->panel_if_init(dev);
+	if(!dev->panel->if_ctrl->panel_if_init(dev)){
+		printk(KERN_ERR "sprdfb: [%s]: panel_if_init fail!\n", __FUNCTION__);
+		return -1;
+	}
 
 	return 0;
 }
