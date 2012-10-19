@@ -83,6 +83,15 @@ typedef int32_t (*mipi_gen_read_t)(uint8_t *param, uint16_t param_length, uint8_
 typedef int32_t (*mipi_dcs_write_t)(uint8_t *param, uint16_t param_length);
 typedef int32_t (*mipi_dcs_read_t)(uint8_t command, uint8_t bytes_to_read, uint8_t *read_buffer);
 
+typedef int32_t (*i2c_write_8bits_t)(uint8_t reg, uint8_t val);
+typedef int32_t (*i2c_read_8bits_t)(uint8_t reg, uint8_t *val);
+typedef int32_t (*i2c_write_16bits_t)(uint16_t reg, bool reg_is_8bit, uint16_t val, bool val_is_8bit);
+typedef int32_t (*i2c_read_16bits_t)(uint16_t reg, bool reg_is_8bit, uint16_t *val, bool val_is_8bit);
+typedef int32_t (*i2c_write_burst_t)(uint8_t* buf, int num);
+
+typedef void (*spi_send_cmd_t)(uint32_t cmd);
+typedef void (*spi_send_data_t)(uint32_t data);
+typedef void (*spi_read_t)(uint32_t *data);
 
 /* LCD operations */
 struct panel_operations {
@@ -144,9 +153,9 @@ struct ops_i2c {
 };
 
 struct ops_spi{
-	int32_t (*spi_send_cmd)(uint32_t cmd);
-	int32_t (*spi_send_data)(uint32_t cmd, uint32_t data);
-	int32_t (*spi_read)(uint32_t cmd, uint32_t *data);
+	void (*spi_send_cmd)(uint32_t cmd);
+	void (*spi_send_data)(uint32_t data);
+	void (*spi_read)(uint32_t *data);
 };
 
 struct ops_mipi{
@@ -211,7 +220,7 @@ struct panel_if_ctrl{
 
 	int32_t (*panel_if_check)(struct panel_spec *self);
 	void (*panel_if_mount)(struct sprdfb_device *dev);
-	void (*panel_if_init)(struct sprdfb_device *dev);
+	bool (*panel_if_init)(struct sprdfb_device *dev);
 	void (*panel_if_ready)(struct sprdfb_device *dev);
 	void (*panel_if_uninit)(struct sprdfb_device *dev);
 	void (*panel_if_before_refresh)(struct sprdfb_device *dev);
