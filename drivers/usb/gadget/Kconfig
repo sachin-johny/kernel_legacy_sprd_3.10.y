@@ -1008,4 +1008,12 @@ config USB_G_WEBCAM
 
 endchoice
 
+config USB_CORE_IP_293A
+	boolean "usb core ip version (synophsys)"
+        depends on USB_GADGET_SPRD_DWC
+	
+	help
+	   the new ip version 293a, should write 0 to softdiscon bit.
+
+
 endif # USB_GADGET
