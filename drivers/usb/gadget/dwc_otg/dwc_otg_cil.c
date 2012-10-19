@@ -859,6 +859,7 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 	dwc_otg_dev_if_t *dev_if = core_if->dev_if;
 	dwc_otg_core_params_t *params = core_if->core_params;
 	dcfg_data_t dcfg = {.d32 = 0 };
+	dctl_data_t dctl = {.d32 = 0 };
 	grstctl_t resetctl = {.d32 = 0 };
 	uint32_t rx_fifo_size;
 	fifosize_data_t nptxfifosize;
@@ -868,7 +869,11 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 
 	/* Restart the Phy Clock */
 	dwc_write_reg32(core_if->pcgcctl, 0);
-
+#ifdef CONFIG_USB_CORE_IP_293A
+	dctl.d32 = dwc_read_reg32(&dev_if->dev_global_regs->dctl);
+	dctl.b.sftdiscon = 0;
+	dwc_write_reg32(&dev_if->dev_global_regs->dctl, dctl.d32);
+#endif
 	/* Device configuration register */
 	init_devspd(core_if);
 	dcfg.d32 = dwc_read_reg32(&dev_if->dev_global_regs->dcfg);

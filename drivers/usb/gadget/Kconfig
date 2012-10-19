@@ -596,7 +596,7 @@ config USB_CI13XXX_MSM
 
 config USB_GADGET_SPRD_DWC
 	boolean "SPREADTRUM SC8800G USB2.0 Controller"
-	depends on ARCH_SC8800G || ARCH_SC8810
+	depends on ARCH_SC8800G || ARCH_SC8810 || ARCH_SC8825
 	help
 	   Spreadtrum's usb controller is an integrated high speed
 	   USB 2.0 device controller(with dwc core).
@@ -1085,5 +1085,13 @@ config USB_G_WEBCAM
 	  dynamically linked module called "g_webcam".
 
 endchoice
+
+config USB_CORE_IP_293A
+	boolean "usb core ip version (synophsys)"
+        depends on USB_GADGET_SPRD_DWC
+	
+	help
+	   the new ip version 293a, should write 0 to softdiscon bit.
+
 
 endif # USB_GADGET
