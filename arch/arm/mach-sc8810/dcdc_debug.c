@@ -6,7 +6,6 @@
 #include <linux/debugfs.h>
 #include <mach/hardware.h>
 #include <mach/hardware.h>
-#include <mach/globalregs.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
 
@@ -17,6 +16,7 @@
 #define   ANA_DCDC_CTRL_CAL    (ANA_REG_BASE + 0x40)
 #define   ANA_DCDCARM_CTRL     (ANA_REG_BASE + 0x44)
 #define   ANA_DCDCARM_CTRL_CAL (ANA_REG_BASE + 0x48)
+#define   MPLL_MN				(SPRD_GREG_BASE + 0x0024)
 
 static const int dcdc_ctl_vol[] = {
 	650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400,
@@ -76,7 +76,7 @@ static u32 mpll_freq = 0;
 static int debugfs_mpll_get(void *data, u64 * val)
 {
 	if (0 == mpll_freq) {
-		*(u32 *) data = (__raw_readl(GR_MPLL_MN) & 0x7ff) * 4;	/* default refin */
+		*(u32 *) data = (__raw_readl(MPLL_MN) & 0x7ff) * 4;	/* default refin */
 	}
 	*val = *(u32 *) data;
 	return 0;
@@ -100,6 +100,10 @@ static int __init dcdc_debugfs_init(void)
 {
 	static struct dentry *debug_root = NULL;
 	debug_root = debugfs_create_dir("vol", NULL);
+	if (IS_ERR_OR_NULL(debug_root)) {
+		printk("%s return %p\n", __FUNCTION__, debug_root);
+		return (int)debug_root;
+	}
 	debugfs_create_file("dcdc", S_IRUGO | S_IWUGO,
 			    debug_root, &dcdc_to_vol, &fops_dcdc);
 	debugfs_create_file("dcdcarm", S_IRUGO | S_IWUGO,
