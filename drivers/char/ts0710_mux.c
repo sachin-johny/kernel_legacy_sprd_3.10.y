@@ -67,7 +67,7 @@
 #define TS0710MUX_GPRS_SESSION_MAX 3
 #define TS0710MUX_MAJOR 250
 #define TS0710MUX_MINOR_START 0
-#define NR_MUXS 16
+#define NR_MUXS 32
 
 #define TS0710MUX_TIME_OUT 250	/* 2500ms, for BP UART hardware flow control AP UART  */
 
@@ -76,7 +76,8 @@
 #define TS0710MUX_IO_FC_ON 0x54F4
 #define TS0710MUX_IO_FC_OFF 0x54F5
 
-#define TS0710MUX_MAX_BUF_SIZE 2048
+#define TS0710MUX_MAX_BUF_SIZE		(64*1024)
+#define TS0710MUX_MAX_TOTAL_SIZE	(1024*1024)
 
 #define TS0710MUX_SEND_BUF_OFFSET 10
 #define TS0710MUX_SEND_BUF_SIZE (DEF_TS0710_MTU + TS0710MUX_SEND_BUF_OFFSET + 34)
@@ -138,8 +139,8 @@
 #define TS0710MUX_COUNT_IDX_NUM (TS0710MUX_COUNT_MAX_IDX + 1)
 
 static __u8 tty2dlci[NR_MUXS] =
-    { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
-
+    { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 ,14, 15, 16,
+		17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32};
 typedef struct {
 	__u8 cmdtty;
 	__u8 datatty;
@@ -163,6 +164,22 @@ static dlci_tty dlci2tty[] = {
 	{13, 13},		/* DLCI 14 */
 	{14, 14},		/* DLCI 15 */
 	{15, 15},		/* DLCI 16 */
+	{16, 16},		/* DLCI 17 */
+	{17, 17},		/* DLCI 18 */
+	{18, 18},		/* DLCI 19 */
+	{19, 19},		/* DLCI 20 */
+	{20, 20},		/* DLCI 21 */
+	{21, 21},		/* DLCI 22 */
+	{22, 22},		/* DLCI 23 */
+	{23, 23},		/* DLCI 24 */
+	{24, 24},		/* DLCI 25 */
+	{25, 25},		/* DLCI 26 */
+	{26, 26},		/* DLCI 27 */
+	{27, 27},		/* DLCI 28 */
+	{28, 28},		/* DLCI 29 */
+	{29, 29},		/* DLCI 30 */
+	{30, 30},		/* DLCI 31 */
+	{31, 31},		/* DLCI 32 */
 };
 
 typedef struct {
@@ -192,6 +209,7 @@ struct mux_recv_struct_tag {
 	struct mux_recv_struct_tag *next;
 	int no_tty;
 	volatile __u8 post_unthrottle;
+	struct mutex recv_lock;
 };
 typedef struct mux_recv_struct_tag mux_recv_struct;
 
@@ -204,7 +222,6 @@ static volatile __u8 mux_send_info_idx = NR_MUXS;
 
 static mux_recv_struct *mux_recv_info[NR_MUXS];
 static volatile __u8 mux_recv_info_flags[NR_MUXS];
-static mux_recv_struct *mux_recv_queue = NULL;
 
 static struct tty_driver mux_driver;
 
@@ -1032,7 +1049,7 @@ static void set_uih_hdr(short_frame * uih_pkt, __u8 dlci, __u32 len, __u8 cr)
 
 /* Parses a multiplexer control channel packet */
 
-void process_mcc(__u8 * data, __u32 len, ts0710_con * ts0710, int longpkt)
+static void process_mcc(__u8 * data, __u32 len, ts0710_con * ts0710, int longpkt)
 {
 	__u8 *tbuf = NULL;
 	mcc_short_frame *mcc_short_pkt;
@@ -1170,6 +1187,7 @@ void process_mcc(__u8 * data, __u32 len, ts0710_con * ts0710, int longpkt)
 
 			if ((ts0710->dlci[dlci].state != CONNECTED)
 			    && (ts0710->dlci[dlci].state != FLOW_STOPPED)) {
+			        TS0710_DEBUG("Received Modem status dlci = %d\n",dlci);
 				send_dm(ts0710, dlci);
 				break;
 			}
@@ -1393,10 +1411,7 @@ static void ts0710_flow_off(struct tty_struct *tty, __u8 dlci,
 			    ts0710_con * ts0710)
 {
 	int i;
-
-	if (test_and_set_bit(TTY_THROTTLED, &tty->flags)) {
-		return;
-	}
+	set_bit(TTY_THROTTLED, &tty->flags);
 
 	if ((ts0710->dlci[0].state != CONNECTED)
 	    && (ts0710->dlci[0].state != FLOW_STOPPED)) {
@@ -1415,14 +1430,14 @@ static void ts0710_flow_off(struct tty_struct *tty, __u8 dlci,
 		    (ts0710, EA | FC | RTC | RTR | DV, MCC_CMD, dlci) < 0) {
 			continue;
 		} else {
-			TS0710_LOG("MUX send Flow off on dlci %d\n", dlci);
+			TS0710_DEBUG("send Flow off on dlci %d\n", dlci);
 			ts0710->dlci[dlci].flow_control = 1;
 			break;
 		}
 	}
 }
 
-int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
+static int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 {
 	short_frame *short_pkt;
 	long_frame *long_pkt;
@@ -1437,6 +1452,7 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 	short_pkt = (short_frame *) data;
 
 	dlci = short_pkt->h.addr.server_chn << 1 | short_pkt->h.addr.d;
+	TS0710_DEBUG("MUX ts0710_recv_data dlci = %d\n",dlci);
 	switch (CLR_PF(short_pkt->h.control)) {
 	case SABM:
 		TS0710_DEBUG("SABM-packet received\n");
@@ -1633,8 +1649,8 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 			tty = mux_table[tty_idx];
 			if ((!mux_tty[tty_idx]) || (!tty)) {
 				TS0710_PRINTK
-				    ("MUX: No application waiting for, discard it! tty=%p,/dev/mux%d\n",
-				     tty, tty_idx);
+				    ("MUX: No application waiting for, discard it! /dev/mux%d\n",
+				      tty_idx);
 			} else {	/* Begin processing received data */
 				if ((!mux_recv_info_flags[tty_idx])
 				    || (!mux_recv_info[tty_idx])) {
@@ -1645,11 +1661,20 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 				}
 
 				recv_info = mux_recv_info[tty_idx];
-				if (recv_info->total > 8192) {
-					TS0710_PRINTK
-					    ("MUX : discard data for tty_idx:%d, recv_info->total > 8192 \n",
-					     tty_idx);
+				if(!recv_info) {
+					TS0710_DEBUG("recv_data : recv_info is null\n");
 					break;
+				}
+
+				if (recv_info->total > TS0710MUX_MAX_TOTAL_SIZE) {
+					TS0710_PRINTK
+					    (KERN_INFO "MUX : discard data for tty_idx:%d, recv_info->total = %d!\n",
+					     tty_idx, recv_info->total);
+					break;
+				}
+
+				if (recv_info->total > TS0710MUX_MAX_TOTAL_SIZE/2) {
+					ts0710_flow_off(tty, dlci, ts0710);
 				}
 
 				queue_data = 0;
@@ -1667,7 +1692,7 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 						post_recv = 1;
 					} else if (recv_room < uih_len) {
 						queue_data = 1;
-						flow_control = 1;
+						//flow_control = 1;
 					}
 
 				}
@@ -1689,7 +1714,7 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 
 #ifdef TS0710DEBUG
 					TS0710_DEBUG
-					    ("tty->ldisc->ops->receive_buf:%p,  take ticks: %lu",
+					    ("tty->ldisc->ops->receive_buf:%x,  take ticks: %x\n",
 					     tty->ldisc->ops->receive_buf,
 					     (jiffies - t));
 #endif
@@ -1699,6 +1724,7 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 					TS0710_DEBUG
 					    ("Put received data into recv queue of /dev/mux%d",
 					     tty_idx);
+					mutex_lock(&recv_info->recv_lock);
 					if (recv_info->total) {
 						/* recv_info is already linked into mux_recv_queue */
 
@@ -1709,6 +1735,7 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 							TS0710_PRINTK
 							    ("MUX %s: no memory\n",
 							     __FUNCTION__);
+							mutex_unlock(&recv_info->recv_lock);
 							break;
 						}
 
@@ -1747,18 +1774,22 @@ int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 						       uih_data_start, uih_len);
 						recv_info->length = uih_len;
 						recv_info->total = uih_len;
-
-						add_post_recv_queue
-						    (&mux_recv_queue,
-						     recv_info);
 					}	/* End recv_info->total == 0 */
+					mutex_unlock(&recv_info->recv_lock);
 				}	/* End Queue data */
 
 				if (flow_control) {
+					TS0710_DEBUG("recv_data : send flow off\n");
 					/* Do something for flow control */
 					ts0710_flow_off(tty, dlci, ts0710);
 				}
 
+				if (post_recv) {
+					TS0710_DEBUG("recv_data : enter queue delay work\n");
+					if (queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,0)==0) {
+						queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,10);
+					}
+				}
 			}	/* End processing received data */
 		} else {
 			TS0710_DEBUG("invalid dlci %d\n", dlci);
@@ -1846,7 +1877,7 @@ static void ts0710_close_channel(__u8 dlci)
 #endif
 }
 
-int ts0710_open_channel(__u8 dlci)
+static int ts0710_open_channel(__u8 dlci)
 {
 	ts0710_con *ts0710 = &ts0710_connection;
 	int try;
@@ -2241,7 +2272,7 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 			mux_send_info_flags[line] = 0;
 			kfree(mux_send_info[line]);
 			mux_send_info[line] = 0;
-			TS0710_DEBUG("Free mux_send_info for /dev/mux%d", line);
+			TS0710_DEBUG("Free mux_send_info for /dev/mux%d\n", line);
 		}
 
 		if ((mux_recv_info_flags[line])
@@ -2250,7 +2281,7 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 			mux_recv_info_flags[line] = 0;
 			free_mux_recv_struct(mux_recv_info[line]);
 			mux_recv_info[line] = 0;
-			TS0710_DEBUG("Free mux_recv_info for /dev/mux%d", line);
+			TS0710_DEBUG("Free mux_recv_info for /dev/mux%d\n", line);
 		}
 
 		ts0710_flow_on(dlci, ts0710);
@@ -2273,6 +2304,7 @@ static void mux_throttle(struct tty_struct *tty)
 	int line;
 	int i;
 	__u8 dlci;
+	mux_recv_struct *recv_info;
 
 	if (!tty) {
 		return;
@@ -2296,15 +2328,20 @@ static void mux_throttle(struct tty_struct *tty)
 	}
 
 	if (ts0710->dlci[dlci].flow_control) {
+		TS0710_DEBUG("mux_throttle : just return\n");
 		return;
 	}
+
+	recv_info = mux_recv_info[line];
+	if(recv_info->total < TS0710MUX_MAX_TOTAL_SIZE/2)
+		return;
 
 	for (i = 0; i < 3; i++) {
 		if (ts0710_msc_msg
 		    (ts0710, EA | FC | RTC | RTR | DV, MCC_CMD, dlci) < 0) {
 			continue;
 		} else {
-			TS0710_LOG("MUX Send Flow off on dlci %d\n", dlci);
+			TS0710_DEBUG("MUX Send Flow off on dlci %d\n", dlci);
 			ts0710->dlci[dlci].flow_control = 1;
 			break;
 		}
@@ -2345,7 +2382,10 @@ static void mux_unthrottle(struct tty_struct *tty)
 					   &mux_post_receive_work, 10);
 		}
 	} else {
-		ts0710_flow_on(dlci, ts0710);
+		if(ts0710->dlci[dlci].flow_control == 1) {
+			TS0710_DEBUG("mux_unthrottle : send flow on\n");
+			ts0710_flow_on(dlci, ts0710);
+		}
 	}
 }
 
@@ -2452,7 +2492,7 @@ static int mux_write(struct tty_struct *tty,
 			return 0;
 
 		if (send_info->filled) {
-			printk("mux_write: send_info filled is set\n");
+			TS0710_PRINTK("mux_write: send_info filled is set\n");
 			clear_bit(BUF_BUSY, &send_info->flags);
 			return 0;
 		}
@@ -2604,8 +2644,6 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 	mux_send_struct *send_info;
 	mux_recv_struct *recv_info;
 
-	printk(KERN_INFO "MUX: mux[%d] opened!\n", tty->index);
-
 	UNUSED_PARAM(filp);
 
 	retval = -ENODEV;
@@ -2617,6 +2655,13 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 	if ((line < 0) || (line >= NR_MUXS)) {
 		goto out;
 	}
+	if(line > 0) {
+		if(cmux_mode != 1)
+			return -ENODEV;
+	}
+
+	printk(KERN_INFO "MUX: mux[%d] opened!\n", tty->index);
+
 #ifdef TS0710SERVER
 	/* do nothing as a server */
 	mux_tty[line]++;
@@ -2726,6 +2771,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 		recv_info->next = 0;
 		recv_info->no_tty = line;
 		recv_info->post_unthrottle = 0;
+		mutex_init(&recv_info->recv_lock);
 		mux_recv_info[line] = recv_info;
 		mux_recv_info_flags[line] = 1;
 		TS0710_DEBUG("Allocate mux_recv_info for /dev/mux%d", line);
@@ -2783,7 +2829,7 @@ static int send_ack(ts0710_con * ts0710, __u8 seq_num)
 	return 0;
 }
 
-int mux_set_thread_pro(int pro)
+static int mux_set_thread_pro(int pro)
 {
 	int ret;
 	struct sched_param s;
@@ -2806,7 +2852,7 @@ int mux_set_thread_pro(int pro)
 static void receive_worker(int start)
 {
 	int count;
-	static unsigned char tbuf[TS0710MUX_MAX_BUF_SIZE*NR_MUXS];
+	static unsigned char tbuf[TS0710MUX_MAX_BUF_SIZE];
 	static unsigned char *tbuf_ptr;
 	static unsigned char *start_flag;
 	unsigned char *search, *to, *from;
@@ -2821,12 +2867,12 @@ static void receive_worker(int start)
 	/*For BP UART problem End */
 
 	if (start) {
-		memset(tbuf, 0, TS0710MUX_MAX_BUF_SIZE*NR_MUXS);
+		memset(tbuf, 0, TS0710MUX_MAX_BUF_SIZE);
 		tbuf_ptr = tbuf;
 		start_flag = 0;
 	}
 
-	count = iomux[0].io_read(tbuf_ptr, TS0710MUX_MAX_BUF_SIZE*NR_MUXS - (tbuf_ptr - tbuf));
+	count = iomux[0].io_read(tbuf_ptr, TS0710MUX_MAX_BUF_SIZE - (tbuf_ptr - tbuf));
 	if (count <= 0) {
 		return;
 	}
@@ -3084,12 +3130,11 @@ static void post_recv_worker(struct work_struct *private_)
 	ts0710_con *ts0710 = &ts0710_connection;
 	int tty_idx;
 	struct tty_struct *tty;
-	__u8 post_recv;
 	__u8 flow_control;
 	__u8 dlci;
-	mux_recv_struct *recv_info, *recv_info2, *post_recv_q;
+	mux_recv_struct *recv_info;
 	int recv_room;
-	mux_recv_packet *recv_packet, *recv_packet2;
+	mux_recv_packet *recv_packet;
 
 	UNUSED_PARAM(private_);
 	mux_set_thread_pro(90);
@@ -3106,46 +3151,38 @@ static void post_recv_worker(struct work_struct *private_)
 
 	TS0710_DEBUG("Enter into post_recv_worker");
 
-	post_recv = 0;
-	if (!mux_recv_queue) {
-		goto out;
-	}
-
-	post_recv_q = NULL;
-	recv_info2 = mux_recv_queue;
-	while ((recv_info = recv_info2)) {
-		recv_info2 = recv_info->next;
-
-		if (!(recv_info->total)) {
-			TS0710_PRINTK
-			    ("MUX Error: %s: Should not get here, recv_info->total == 0 \n",
-			     __FUNCTION__);
+	for(tty_idx = 0; tty_idx < NR_MUXS; tty_idx++) {
+		recv_info = mux_recv_info[tty_idx];
+		if(!recv_info) {
 			continue;
 		}
-
-		tty_idx = recv_info->no_tty;
+		mutex_lock(&recv_info->recv_lock);
+		if (!(recv_info->total)) {
+			TS0710_DEBUG
+				("MUX Error: %s: Should not get here, recv_info->total == 0 \n",
+				__FUNCTION__);
+			mutex_unlock(&recv_info->recv_lock);
+			continue;
+		}
 		dlci = tty2dlci[tty_idx];
 		tty = mux_table[tty_idx];
 		if ((!mux_tty[tty_idx]) || (!tty)) {
 			TS0710_PRINTK
-			    ("MUX: No application waiting for, free recv_info! tty_idx:%d\n",
-			     tty_idx);
+				("MUX: No application waiting for, free recv_info! tty_idx:%d\n",
+				tty_idx);
 			mux_recv_info_flags[tty_idx] = 0;
 			free_mux_recv_struct(mux_recv_info[tty_idx]);
 			mux_recv_info[tty_idx] = 0;
 			ts0710_flow_on(dlci, ts0710);
+			mutex_unlock(&recv_info->recv_lock);
 			continue;
 		}
-
-		TS0710_DEBUG("/dev/mux%d recv_info->total is: %d", tty_idx,
-			     recv_info->total);
-
 		if (test_bit(TTY_THROTTLED, &tty->flags)) {
-			add_post_recv_queue(&post_recv_q, recv_info);
+			TS0710_DEBUG("post_recv_worker : TTY_THROTTLED is set\n");
+			mutex_unlock(&recv_info->recv_lock);
 			continue;
 		}
 		flow_control = 0;
-		recv_packet2 = recv_info->mux_packet;
 		while (recv_info->total) {
 			recv_room = 65535;
 			if (tty->receive_room)
@@ -3153,7 +3190,8 @@ static void post_recv_worker(struct work_struct *private_)
 
 			if (recv_info->length) {
 				if (recv_room < recv_info->length) {
-					flow_control = 1;
+					if(recv_info->total >= TS0710MUX_MAX_TOTAL_SIZE/2)
+						flow_control = 1;
 					break;
 				}
 
@@ -3170,13 +3208,11 @@ static void post_recv_worker(struct work_struct *private_)
 				recv_info->total -= recv_info->length;
 				recv_info->length = 0;
 			} else {	/* recv_info->length == 0 */
-				if ((recv_packet = recv_packet2)) {
-					recv_packet2 = recv_packet->next;
+				if ((recv_packet = recv_info->mux_packet)) {
 
 					if (recv_room < recv_packet->length) {
-						flow_control = 1;
-						recv_info->mux_packet =
-						    recv_packet;
+						if(recv_info->total >= TS0710MUX_MAX_TOTAL_SIZE/2)
+							flow_control = 1;
 						break;
 					}
 
@@ -3193,6 +3229,7 @@ static void post_recv_worker(struct work_struct *private_)
 									recv_packet->
 									length);
 					recv_info->total -= recv_packet->length;
+					recv_info->mux_packet = recv_packet->next;
 					free_mux_recv_packet(recv_packet);
 				} else {
 					TS0710_PRINTK
@@ -3201,6 +3238,7 @@ static void post_recv_worker(struct work_struct *private_)
 				}
 			}	/* End recv_info->length == 0 */
 		}		/* End while( recv_info->total ) */
+		mutex_unlock(&recv_info->recv_lock);
 
 		if (!(recv_info->total)) {
 			/* Important clear */
@@ -3208,35 +3246,22 @@ static void post_recv_worker(struct work_struct *private_)
 
 			if (recv_info->post_unthrottle) {
 				/* Do something for post_unthrottle */
-				ts0710_flow_on(dlci, ts0710);
+				if(ts0710->dlci[dlci].flow_control == 1) {
+					ts0710_flow_on(dlci, ts0710);
+					TS0710_DEBUG("post_recv_worker : recv_info is empty & send flow on\n");
+				}
 				recv_info->post_unthrottle = 0;
 			}
 		} else {
-			add_post_recv_queue(&post_recv_q, recv_info);
-
 			if (flow_control) {
-				/* Do something for flow control */
-				if (recv_info->post_unthrottle) {
+				ts0710_flow_off(tty, dlci, ts0710);
+			} else {
+					/* this will trigger up layer(tty_unthrottle) call mux unthrottle */
 					set_bit(TTY_THROTTLED, &tty->flags);
-					recv_info->post_unthrottle = 0;
-				} else {
-					ts0710_flow_off(tty, dlci, ts0710);
-				}
-			}	/* End if( flow_control ) */
+			}
 		}
 	}			/* End while( (recv_info = recv_info2) ) */
 
-	mux_recv_queue = post_recv_q;
-
-out:
-	if (post_recv) {
-		if (queue_delayed_work
-		    (muxpost_receive_work_queue, &mux_post_receive_work,
-		     0) == 0) {
-			queue_delayed_work(muxpost_receive_work_queue,
-					   &mux_post_receive_work, 10);
-		}
-	}
 	clear_bit(RECV_RUNNING, &mux_recv_flags);
 }
 
@@ -3426,7 +3451,6 @@ static int __init mux_init(void)
 		mux_recv_info[j] = 0;
 	}
 	mux_send_info_idx = NR_MUXS;
-	mux_recv_queue = NULL;
 	mux_recv_flags = 0;
 
 	muxsend_work_queue = create_workqueue("muxsend");
@@ -3469,7 +3493,6 @@ static void __exit mux_exit(void)
 	int j;
 
 	mux_send_info_idx = NR_MUXS;
-	mux_recv_queue = NULL;
 	for (j = 0; j < NR_MUXS; j++) {
 		if ((mux_send_info_flags[j]) && (mux_send_info[j])) {
 			kfree(mux_send_info[j]);
