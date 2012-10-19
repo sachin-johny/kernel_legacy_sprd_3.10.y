@@ -65,4 +65,5 @@ obj-$(CONFIG_TOUCHSCREEN_PIXCIR)	+= pixcir_i2c_ts.o
 obj-$(CONFIG_TOUCHSCREEN_FT5X0X)	+= ft5x0x_ts_v1.o
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix_touch.o
 obj-$(CONFIG_TOUCHSCREEN_QT602240)	+= qt602240_ts.o
+obj-$(CONFIG_TOUCHSCREEN_FT5306)	+= ft5306_ts.o
 obj-$(CONFIG_TOUCHSCREEN_SC8810) += tp_sprd.o
