@@ -154,6 +154,10 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
 };
 
+static struct i2c_board_info i2c0_boardinfo[] = {
+	{I2C_BOARD_INFO("sprdfb_i2c", 0x4C),},
+};
+
 /* config I2C2 SDA/SCL to SIM2 pads */
 static void sprd8810_i2c2sel_config(void)
 {
@@ -165,6 +169,7 @@ static int sc8810_add_i2c_devices(void)
 	sprd8810_i2c2sel_config();
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
+	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
 	return 0;
 }
 

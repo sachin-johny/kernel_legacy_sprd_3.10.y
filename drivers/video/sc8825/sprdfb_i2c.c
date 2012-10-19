@@ -98,10 +98,10 @@ bool sprdfb_i2c_init(struct sprdfb_device *dev)
 	sprdfb_i2c_driver.address_list = &panel_i2c_default_addr_list[0];
 
 	if (i2c_add_driver(&sprdfb_i2c_driver)) {
-		printk("sprdfb: [%s]  i2c_add_driver ok\n", __FUNCTION__);
-	}else{
 		printk("sprdfb: [%s]  i2c_add_driver fail\n", __FUNCTION__);
 		return false;
+	}else{
+		printk("sprdfb: [%s]  i2c_add_driver ok\n", __FUNCTION__);
 	}
 
 	return true;

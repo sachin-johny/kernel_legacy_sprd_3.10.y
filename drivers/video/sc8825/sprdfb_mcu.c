@@ -712,7 +712,7 @@ static void sprdfb_mcu_panel_mount(struct sprdfb_device *dev)
 	dev->panel_timing.mcu_timing[MCU_LCD_GRAM_TIMING] = mcu_calc_timing(timing, dev->dev_id);
 }
 
-static void sprdfb_mcu_panel_init(struct sprdfb_device *dev)
+static bool sprdfb_mcu_panel_init(struct sprdfb_device *dev)
 {
 	if(SPRDFB_MAINLCD_ID == dev->dev_id){
 		mcu_dispc_init_config(dev->panel);
@@ -721,6 +721,7 @@ static void sprdfb_mcu_panel_init(struct sprdfb_device *dev)
 		mcu_lcdc_init_config(dev->panel);
 		mcu_lcdc_set_timing(dev, MCU_LCD_REGISTER_TIMING);
 	}
+	return true;
 }
 
 static void sprdfb_mcu_panel_before_refresh(struct sprdfb_device *dev)

@@ -157,12 +157,15 @@ static void sprdfb_mipi_panel_mount(struct sprdfb_device *dev)
 	dev->panel_timing.rgb_timing[RGB_LCD_V_TIMING] = rgb_calc_v_timing(dev->panel->info.mipi->timing);
 }
 
-static void sprdfb_mipi_panel_init(struct sprdfb_device *dev)
+static bool sprdfb_mipi_panel_init(struct sprdfb_device *dev)
 {
-	sprdfb_dsi_init(dev);
+	if(!dev->panel_ready){
+		sprdfb_dsi_init(dev);
+	}
 
 	mipi_dispc_init_config(dev->panel);
 	mipi_dispc_set_timing(dev);
+	return true;
 }
 
 static void sprdfb_mipi_panel_uninit(struct sprdfb_device *dev)

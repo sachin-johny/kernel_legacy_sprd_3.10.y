@@ -21,3 +21,13 @@ config FB_LCD_NT35516_MIPI
 	boolean "support NT35516 mipi panel"
 	depends on FB_SC8825
 	default n
+
+config FB_LCD_NT35516_RGB_I2C
+	boolean "support NT35516 rgb (i2c) panel"
+	depends on FB_SC8825
+	default n
+
+config FB_LCD_NT35516_RGB_SPI
+	boolean "support NT35516 rgb (spi) panel"
+	depends on FB_SC8825
+	default n
