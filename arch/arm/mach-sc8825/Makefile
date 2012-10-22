@@ -7,7 +7,7 @@ obj-y += glb.o
 obj-y += clock.o
 
 obj-y += dcdc_cal.o
-obj-m += dcdc_debug.o
+obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 
 ifeq ($(CONFIG_NKERNEL),)
 obj-$(CONFIG_SMP)		+= platsmp.o headsmp.o

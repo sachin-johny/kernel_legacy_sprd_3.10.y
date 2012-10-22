@@ -47,4 +47,10 @@ config SPRD_ION_OVERLAY_SIZE
         range 1 64
         default 1
 	depends on ION
+config SPRD_DCDC_DEBUG
+	depends on ARCH_SC8825
+	default y
+	tristate "Enable dcdc debug module"
+	help
+		This option select dcdc debug module.
 endif
