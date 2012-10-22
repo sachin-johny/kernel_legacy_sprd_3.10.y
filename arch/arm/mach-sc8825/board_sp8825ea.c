@@ -139,7 +139,7 @@ static struct serial_data plat_data2 = {
 static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
-	.vdd_name 			= "vddsim2",
+	.vdd_name 			= "vdd28",
 };
 
 static struct i2c_board_info i2c2_boardinfo[] = {
