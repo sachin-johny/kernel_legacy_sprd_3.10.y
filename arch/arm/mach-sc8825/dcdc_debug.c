@@ -98,6 +98,10 @@ static int __init dcdc_debugfs_init(void)
 {
 	static struct dentry *debug_root = NULL;
 	debug_root = debugfs_create_dir("vol", NULL);
+	if (IS_ERR_OR_NULL(debug_root)) {
+		printk("%s return %p\n", __FUNCTION__, debug_root);
+		return PTR_ERR(debug_root);
+	}
 	debugfs_create_file("dcdc", S_IRUGO | S_IWUGO,
 			    debug_root, &dcdc_to_vol, &fops_dcdc);
 	debugfs_create_file("dcdcarm", S_IRUGO | S_IWUGO,

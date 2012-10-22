@@ -42,7 +42,7 @@ const int dcdc_ctl_vol[] = {
 	650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400,
 };
 
-static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
+int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 {
 	int i;
 	u32 val[MEASURE_TIMES], sum = 0, adc_vol, ctl_vol, cal_vol;
@@ -121,7 +121,7 @@ static int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	return -1;
 }
 
-static int mpll_calibrate(int cpu_freq)
+int mpll_calibrate(int cpu_freq)
 {
 	u32 val = 0;
 	unsigned long flags;
