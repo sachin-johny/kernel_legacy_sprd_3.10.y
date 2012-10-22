@@ -983,6 +983,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	g_ft5x0x_ts = ft5x0x_ts;
 	ft5x0x_ts->platform_data = pdata;
+	this_client = client;
 	ft5x0x_ts->client = client;
 	ft5x0x_ts_hw_init(ft5x0x_ts);
 	i2c_set_clientdata(client, ft5x0x_ts);
