@@ -42,6 +42,7 @@
 #define LCD_DIRECT_MIR_V		5
 #define LCD_DIRECT_MIR_HV		6
 
+#define LCD_DelayMS      msleep
 
 enum{
 	SPRDFB_PANEL_TYPE_MCU = 0,
