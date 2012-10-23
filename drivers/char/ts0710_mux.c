@@ -2674,6 +2674,8 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			char buffer[256];
 			char *buff = buffer;
 			int count, i = 0;
+			/* tty_lock may stops ptmx_open used by adbd */
+			tty_unlock();
 			memset(buffer, 0, 256);
 			if (mux_mode == 1)
 				iomux[0].io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
@@ -2720,6 +2722,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 				return err;
 			}
 			wake_up_process(mux_kthread);
+			tty_lock();
 		}
 
 		/* Open server channel 0 first */
