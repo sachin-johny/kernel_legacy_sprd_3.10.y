@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/err.h>
 
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
@@ -138,8 +139,18 @@ static uint32_t mcu_calc_timing(struct timing_mcu *timing, uint16_t dev_id)
 
 	if(SPRDFB_MAINLCD_ID == dev_id){
 		clk = clk_get(NULL,"clk_dispc_dbi");
+		if (IS_ERR(clk)) {
+			printk(KERN_WARNING "sprdfb: get clk_dispc_dbi fail!\n");
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
+		}
 	}else{
 		clk = clk_get(NULL, "clk_ahb");
+		if (IS_ERR(clk)) {
+			printk(KERN_WARNING "sprdfb: get clk_ahb fail!\n");
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_ahb ok!\n");
+		}
 	}
 //	clk_rate = clk_get_rate(clk) / 1000000;
 	clk_rate = 250;	// dummy 250M Hz
