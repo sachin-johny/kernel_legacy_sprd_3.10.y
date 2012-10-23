@@ -83,8 +83,8 @@ int32_t dsi_early_int(void)
 		return 0;
 	}
 
-	dsi_ctx.clk_dsi = clk_get(NULL, "clk_dsi");
-	clk_enable(dsi_ctx.clk_dsi);
+//	dsi_ctx.clk_dsi = clk_get(NULL, "clk_dsi");
+//	clk_enable(dsi_ctx.clk_dsi);
 
 	dsi_reset();
 
@@ -93,14 +93,14 @@ int32_t dsi_early_int(void)
 	ret = request_irq(IRQ_DSI_INT0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int0!\n");
-		clk_disable(dsi_ctx.clk_dsi);
+//		clk_disable(dsi_ctx.clk_dsi);
 		return -1;
 	}
 
 	ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int1!\n");
-		clk_disable(dsi_ctx.clk_dsi);
+//		clk_disable(dsi_ctx.clk_dsi);
 		return -1;
 	}
 

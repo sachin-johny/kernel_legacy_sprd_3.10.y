@@ -277,9 +277,21 @@ static int32_t sprdfb_lcdc_early_init(struct sprdfb_device *dev)
 	}
 
 	lcdc_ctx.clk_lcdc = clk_get(NULL, "clk_lcd");
+	if (IS_ERR(lcdc_ctx.clk_lcdc)) {
+		printk(KERN_WARNING "sprdfb: get clk_lcd fail!\n");
+		return 0;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_lcd ok!\n");
+	}
 
 	if(!dev->panel_ready){
-		clk_enable(lcdc_ctx.clk_lcdc);
+		ret = clk_enable(lcdc_ctx.clk_lcdc);
+		if (ret) {
+			printk(KERN_WARNING "sprdfb: enable clk_lcdc fail!\n");
+			return 0;
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_lcdc ok!\n");
+		}
 
 		/*dispc must be enbale before lcdc enable*/
 		sprdfb_dispc_ctrl.early_init(dev);

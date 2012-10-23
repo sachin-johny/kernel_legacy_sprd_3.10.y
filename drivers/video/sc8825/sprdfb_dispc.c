@@ -314,17 +314,80 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	}
 
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
+	if (IS_ERR(clk_parent1)) {
+		printk(KERN_WARNING "sprdfb: get clk_parent1 fail!\n");
+		return 0;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_parent1 ok!\n");
+	}
+
 	clk_parent2 = clk_get(NULL, DISPC_DBI_CLOCK_PARENT);
+	if (IS_ERR(clk_parent2)) {
+		printk(KERN_WARNING "sprdfb: get clk_parent2 fail!\n");
+		return 0;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_parent2 ok!\n");
+	}
+
 	clk_parent3 = clk_get(NULL, DISPC_DPI_CLOCK_PARENT);
+	if (IS_ERR(clk_parent3)) {
+		printk(KERN_WARNING "sprdfb: get clk_parent3 fail!\n");
+		return 0;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_parent3 ok!\n");
+	}
 
 	dispc_ctx.clk_dispc = clk_get(NULL, "clk_dispc");
+	if (IS_ERR(dispc_ctx.clk_dispc)) {
+		printk(KERN_WARNING "sprdfb: get clk_dispc fail!\n");
+		return 0;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_dispc ok!\n");
+	}
+
 	dispc_ctx.clk_dispc_dbi = clk_get(NULL, "clk_dispc_dbi");
+	if (IS_ERR(dispc_ctx.clk_dispc_dbi)) {
+		printk(KERN_WARNING "sprdfb: get clk_dispc_dbi fail!\n");
+		return 0;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
+	}
+
 	dispc_ctx.clk_dispc_dpi = clk_get(NULL, "clk_dispc_dpi");
+	if (IS_ERR(dispc_ctx.clk_dispc_dpi)) {
+		printk(KERN_WARNING "sprdfb: get clk_dispc_dpi fail!\n");
+		return 0;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
+	}
 
 	if(!dev->panel_ready){
-		clk_enable(dispc_ctx.clk_dispc);
+		ret = clk_enable(dispc_ctx.clk_dispc);
+		if (ret) {
+			printk(KERN_WARNING "sprdfb: enable clk_dispc fail!\n");
+			return 0;
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_dispc ok!\n");
+		}
+
 		clk_enable(dispc_ctx.clk_dispc_dbi);
+		if (ret) {
+			printk(KERN_WARNING "sprdfb: enable clk_dispc_dbi fail!\n");
+			clk_disable(dispc_ctx.clk_dispc);
+			return 0;
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
+		}
+
 		clk_enable(dispc_ctx.clk_dispc_dpi);
+		if (ret) {
+			printk(KERN_WARNING "sprdfb: enable clk_dispc_dpi fail!\n");
+			clk_disable(dispc_ctx.clk_dispc);
+			clk_disable(dispc_ctx.clk_dispc_dbi);
+			return 0;
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
+		}
 
 		ret = clk_set_parent(dispc_ctx.clk_dispc, clk_parent1);
 		if(ret){
@@ -370,6 +433,8 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dispcfailed to request irq!\n");
 		clk_disable(dispc_ctx.clk_dispc);
+		clk_disable(dispc_ctx.clk_dispc_dbi);
+		clk_disable(dispc_ctx.clk_dispc_dpi);
 		dispc_ctx.is_inited = false;
 		return -1;
 	}
