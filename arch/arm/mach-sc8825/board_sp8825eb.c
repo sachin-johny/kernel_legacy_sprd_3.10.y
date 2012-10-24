@@ -260,7 +260,7 @@ int __init sc8825_regulator_init(void)
 
 int __init sc8825_clock_init(void)
 {
-	return sci_clock_init();
+	return 0;
 }
 
 static void __init sc8825_init_machine(void)

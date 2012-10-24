@@ -221,6 +221,7 @@
 #define BIT_SLP_AUDIO_VB_PD_EN          ( BIT(9) )
 #define BIT_SLP_AUDIO_BG_IBIAS_PD_EN    ( BIT(8) )
 #define BIT_SLP_AUDIO_BG_PD_EN          ( BIT(7) )
+#define BIT_SLP_AUDIO_VCMBUF_PD_EN      ( BIT(6) )
 #define BIT_SLP_AUDIO_VCM_PD_EN         ( BIT(5) )
 #define BIT_DCDC_ARM_BP_EN              ( BIT(4) )
 #define BIT_LDOCMMB1V2_BP_EN            ( BIT(3) )
@@ -355,15 +356,15 @@
 
 /* bits definitions for register ANA_REG_GLB_ANA_STATUS */
 #define BIT_VIBR_PWR_ERR                ( BIT(15) )
-#define BIT_BONDOPT2                    ( BIT(10) )
+#define BIT_ANA_BONDOPT2                ( BIT(10) )
 #define BIT_STS_VIBR_PD                 ( BIT(9) )
 #define BIT_STS_WHTLED_PD               ( BIT(8) )
 #define BITS_PA_OCP_FLAG(_x_)           ( (_x_) << 6 & (BIT(6)|BIT(7)) )
 #define BITS_PA_OTP_OTP(_x_)            ( (_x_) << 4 & (BIT(4)|BIT(5)) )
 #define BIT_CHGR_ON                     ( BIT(3) )
 #define BIT_CHGR_STDBY                  ( BIT(2) )
-#define BIT_BONDOPT1                    ( BIT(1) )
-#define BIT_BONDOPT0                    ( BIT(0) )
+#define BIT_ANA_BONDOPT1                ( BIT(1) )
+#define BIT_ANA_BONDOPT0                ( BIT(0) )
 
 /* bits definitions for register ANA_REG_GLB_RST_STATUS */
 #define BITS_ALL_HRST_MON(_x_)          ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )

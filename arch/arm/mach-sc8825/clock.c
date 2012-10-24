@@ -29,8 +29,6 @@
 #include "clock.h"
 #include "mach/__clock_tree.h"
 
-#undef CONFIG_DEBUG_FS
-
 const u32 __clkinit2 __clkinit_end = 0xddddeeee;
 
 /* We originally used an mutex here, but some contexts (see resume)
@@ -41,7 +39,7 @@ DEFINE_SPINLOCK(clocks_lock);
 
 int clk_enable(struct clk *clk)
 {
-	if (IS_ERR(clk) || clk == NULL)
+	if (IS_ERR_OR_NULL(clk))
 		return -EINVAL;
 
 	clk_enable(clk->parent);
@@ -57,7 +55,7 @@ EXPORT_SYMBOL(clk_enable);
 
 void clk_disable(struct clk *clk)
 {
-	if (IS_ERR(clk) || clk == NULL)
+	if (IS_ERR_OR_NULL(clk))
 		return;
 
 	spin_lock(&clocks_lock);
@@ -72,7 +70,7 @@ EXPORT_SYMBOL(clk_disable);
 unsigned long clk_get_rate(struct clk *clk)
 {
 	debug("clk %p, rate %lu\n", clk, IS_ERR_OR_NULL(clk) ? -1 : clk->rate);
-	if (IS_ERR(clk))
+	if (IS_ERR_OR_NULL(clk))
 		return 0;
 
 	if (clk->rate != 0)
@@ -91,7 +89,7 @@ EXPORT_SYMBOL(clk_get_rate);
 
 long clk_round_rate(struct clk *clk, unsigned long rate)
 {
-	if (!IS_ERR(clk) && clk->ops && clk->ops->round_rate)
+	if (!IS_ERR_OR_NULL(clk) && clk->ops && clk->ops->round_rate)
 		return (clk->ops->round_rate) (clk, rate);
 
 	return rate;
@@ -103,7 +101,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int ret;
 	debug("clk %p, rate %lu\n", clk, rate);
-	if (IS_ERR(clk))
+	if (IS_ERR_OR_NULL(clk) || rate == 0)
 		return -EINVAL;
 
 	/* We do not default just do a clk->rate = rate as
@@ -135,7 +133,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	int ret = 0;
 	debug("clk %p, parent %p\n", clk, parent);
-	if (IS_ERR(clk) || IS_ERR(parent))
+	if (IS_ERR_OR_NULL(clk) || IS_ERR(parent))
 		return -EINVAL;
 
 	spin_lock(&clocks_lock);
@@ -151,7 +149,6 @@ static int sci_clk_enable(struct clk *c, int enable)
 {
 	debug("clk %p (%s) enb %08x, %s\n", c, c->regs->name,
 	      c->regs->enb.reg, enable ? "enable" : "disable");
-	return 0;
 	(enable) ? sci_glb_set(c->regs->enb.reg, c->regs->enb.mask)
 	    : sci_glb_clr(c->regs->enb.reg, c->regs->enb.mask);
 	return 0;
@@ -167,10 +164,9 @@ static int sci_clk_set_rate(struct clk *c, unsigned long rate)
 	debug("clk %p (%s) pll div reg %08x, val %08x mask %08x\n", c,
 	      c->regs->name, c->regs->div.reg, div << div_shift,
 	      c->regs->div.mask);
-	//sci_glb_write(c->regs->div.reg, div << div_shift, c->regs->div.mask);
+	sci_glb_write(c->regs->div.reg, div << div_shift, c->regs->div.mask);
 
-	c->rate = 0;		/* FIXME: auto update clock rate after new parent */
-	/* FIXME: auto update all children after new rate if need */
+	c->rate = 0;		/* FIXME: auto update all children after new rate if need */
 	return 0;
 }
 
@@ -207,7 +203,7 @@ static unsigned long sci_pll_get_rate(struct clk *c)
 		if (mn)
 			rate = rate / mn;
 	} else {
-		rate = 4 * 1000000;	/* REFIN 4M */
+		rate = 4 * 1000000;	/* FIXME: chip default refin 4M */
 		mn = sci_glb_read(c->regs->div.reg,
 				  c->regs->div.mask) >> mn_shift;
 		if (mn)
@@ -237,7 +233,9 @@ static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 			debug("pll sel reg %08x, val %08x, msk %08x\n",
 			      c->regs->sel.reg, i << sel_shift,
 			      c->regs->sel.mask);
-			//if (c->regs->sel.reg) sci_glb_write(c->regs->sel.reg, i << sel_shift, c->regs->sel.mask);
+			if (c->regs->sel.reg)
+				sci_glb_write(c->regs->sel.reg, i << sel_shift,
+					      c->regs->sel.mask);
 #if defined(CONFIG_DEBUG_FS)
 			if (c->parent && c->parent->dent && c->dent
 			    && parent->dent) {
@@ -251,11 +249,11 @@ static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 			c->parent = parent;
 			if (c->ops)
 				c->rate = 0;	/* FIXME: auto update clock rate after new parent */
-			break;
+			return 0;
 		}
 	}
 
-	return 0;
+	return -EINVAL;
 }
 
 static struct clk_ops generic_clk_ops = {
@@ -314,10 +312,11 @@ int __init sci_clk_register(struct clk_lookup *cl)
 			c->ops = &generic_pll_ops;
 	}
 
-	debug("clk %p (%s) rate %lu enb %08x sel %08x div %08x nr_sources %u\n",
-	      c, c->regs->name, c->rate, c->regs->enb.reg, c->regs->sel.reg,
-	      c->regs->div.reg, c->regs->nr_sources);
-	if (!c->rate) {		/* FIXME: dummy update parent */
+	debug
+	    ("clk %p (%s) rate %lu ops %p enb %08x sel %08x div %08x nr_sources %u\n",
+	     c, c->regs->name, c->rate, c->ops, c->regs->enb.reg,
+	     c->regs->sel.reg, c->regs->div.reg, c->regs->nr_sources);
+	if (!c->rate) {		/* FIXME: dummy update parent and rate */
 		clk_set_parent(c, c->regs->sources[0]);
 		clk_set_rate(c, clk_get_rate(c->parent));
 	}
@@ -358,7 +357,7 @@ int __init sci_clock_init(void)
 	return 0;
 }
 
-//arch_initcall(sci_clock_init);
+arch_initcall(sci_clock_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum Clock Driver");
