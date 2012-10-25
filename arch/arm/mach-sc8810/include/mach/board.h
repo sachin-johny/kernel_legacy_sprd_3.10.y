@@ -57,7 +57,11 @@ int __init sprd_i2c_init(void);
 #elif defined(CONFIG_CAMERA_3M)
 #define SPRD_PMEM_ADSP_SIZE   (13*1024*1024)
 #elif defined(CONFIG_CAMERA_2M)
+#ifdef CONFIG_CAMERA_ROTATION
 #define SPRD_PMEM_ADSP_SIZE   (13*1024*1024)
+#else
+#define SPRD_PMEM_ADSP_SIZE   (8*1024*1024)
+#endif
 #else
 #define SPRD_PMEM_ADSP_SIZE   (19*1024*1024)
 #endif

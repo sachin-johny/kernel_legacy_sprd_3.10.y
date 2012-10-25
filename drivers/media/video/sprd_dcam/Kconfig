@@ -17,6 +17,18 @@ config CAMERA_8M
 
 endchoice
 
+choice
+	prompt "Camera rotation"
+	default CAMERA_NO_ROTATION
+
+config CAMERA_ROTATION
+	bool "sensor rotation"
+
+config CAMERA_NO_ROTATION
+	bool "sensor don't rotate"
+
+endchoice
+
 config SENSOR_DRIVER_FOR_ANDROID2
 	tristate "android version"
 	help
