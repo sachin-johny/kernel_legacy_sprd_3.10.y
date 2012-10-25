@@ -28,6 +28,9 @@
 #include <linux/hwspinlock.h>
 #include <linux/platform_device.h>
 
+#include <mach/sci.h>
+#include <mach/hardware.h>
+#include <mach/regs_ahb.h>
 #include "hwspinlock_internal.h"
 
 #define HWSPINLOCK_MAX_NUM	(32)
@@ -169,6 +172,7 @@ static int __devinit sprd_hwspinlock_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret;
 
+	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res)
 		return -ENODEV;
@@ -223,7 +227,6 @@ static int __devinit sprd_hwspinlock_probe(struct platform_device *pdev)
 		BUG_ON(1);
 	if (readl(state->io_base + HWSPINLOCK_CLEAREN))
 		BUG_ON(1);
-
 	printk("sprd_hwspinlock_probe ok\n");
 	return 0;
 

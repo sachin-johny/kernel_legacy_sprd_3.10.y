@@ -21,8 +21,13 @@
 #include <mach/board.h>
 #include "usb_hw.h"
 
+#if defined(CONFIG_ARCH_SC8825)
+#define  USB_LDO_NAME	"vddusb"
+#define  USB_CLK_NAME    	"clk_usb_ref"
+#else
 #define	 USB_LDO_NAME    "V_USB"
 #define  USB_CLK_NAME    "clk_usb_ref"
+#endif
 
 static void usb_ldo_switch(int is_on)
 {

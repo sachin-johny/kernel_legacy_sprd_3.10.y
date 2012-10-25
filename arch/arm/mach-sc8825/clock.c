@@ -203,7 +203,7 @@ static unsigned long sci_pll_get_rate(struct clk *c)
 		if (mn)
 			rate = rate / mn;
 	} else {
-		rate = 4 * 1000000;	/* FIXME: chip default refin 4M */
+		rate = 2 * 1000000;	/* FIXME: chip default refin 2M */
 		mn = sci_glb_read(c->regs->div.reg,
 				  c->regs->div.mask) >> mn_shift;
 		if (mn)
@@ -254,6 +254,19 @@ static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 	}
 
 	return -EINVAL;
+}
+
+static int sci_clk_get_parent(struct clk *c)
+{
+	int i = 0;
+	u32 sel_shift = __ffs(c->regs->sel.mask);
+	debug("pll sel reg %08x, val %08x, msk %08x\n",
+		  c->regs->sel.reg, i << sel_shift,
+		  c->regs->sel.mask);
+	if (c->regs->sel.reg) {
+		i = sci_glb_read(c->regs->sel.reg, c->regs->sel.mask) >> sel_shift;
+	}
+	return i;
 }
 
 static struct clk_ops generic_clk_ops = {
@@ -317,8 +330,8 @@ int __init sci_clk_register(struct clk_lookup *cl)
 	     c, c->regs->name, c->rate, c->ops, c->regs->enb.reg,
 	     c->regs->sel.reg, c->regs->div.reg, c->regs->nr_sources);
 	if (!c->rate) {		/* FIXME: dummy update parent and rate */
-		clk_set_parent(c, c->regs->sources[0]);
-		clk_set_rate(c, clk_get_rate(c->parent));
+		clk_set_parent(c, c->regs->sources[sci_clk_get_parent(c)]);
+		//clk_set_rate(c, clk_get_rate(c->parent));
 	}
 	clk_get_rate(c);
 

@@ -269,7 +269,7 @@
 #define ADC_BASE	((unsigned int)SPRD_ADI_BASE + 0x300)
 
 #ifndef REGS_AHB_BASE
-#define REGS_AHB_BASE                                   ( SPRD_AHB_BASE )
+#define REGS_AHB_BASE                                   ( SPRD_AHB_BASE  + 0x200)
 #endif
 
 #ifndef REGS_GLB_BASE
