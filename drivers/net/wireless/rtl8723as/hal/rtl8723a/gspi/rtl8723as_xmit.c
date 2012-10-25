@@ -40,9 +40,11 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 	PHAL_DATA_TYPE phal;
 	struct mlme_priv *pmlmepriv;
 	struct xmit_priv *pxmitpriv;
+	struct dvobj_priv *pdvobjpriv;
 	struct xmit_buf *pxmitbuf;
 	struct xmit_frame *pframe;
 	u8 *freePage;
+	u32 deviceId;
 	u32 requiredPage;
 	u8 PageIdx;
 	_irqL irql;
@@ -53,6 +55,7 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 	phal = GET_HAL_DATA(padapter);
 	pmlmepriv = &padapter->mlmepriv;
 	pxmitpriv = &padapter->xmitpriv;
+	pdvobjpriv = adapter_to_dvobj(padapter);
 	freePage = phal->SdioTxFIFOFreePage;
 
 	ret = _rtw_down_sema(&pxmitpriv->xmit_sema);
@@ -64,7 +67,7 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 
 	ret = (padapter->bDriverStopped == _TRUE) || (padapter->bSurpriseRemoved == _TRUE);
 	if (ret) {
-		RT_TRACE(_module_hal_xmit_c_, _drv_notice_,
+		RT_TRACE(_module_hal_xmit_c_, _drv_err_,
 				 ("%s: bDriverStopped(%d) bSurpriseRemoved(%d)!\n",
 				  __FUNCTION__, padapter->bDriverStopped, padapter->bSurpriseRemoved));
 		return _FAIL;
@@ -87,8 +90,11 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 		pframe = (struct xmit_frame*)pxmitbuf->priv_data;
 		requiredPage = pframe->pg_num;
 
-		// translate fifo addr to queue index
-		switch (pxmitbuf->ff_hwaddr)
+		//translate tx queue index to sdio fifo addr
+		deviceId = pdvobjpriv->Queue2Pipe[pxmitbuf->ff_hwaddr];
+
+		//translate sdio fifo addr to tx fifo page index
+		switch (deviceId)
 		{
 			case WLAN_TX_HIQ_DEVICE_ID:
 					PageIdx = HI_QUEUE_IDX;
@@ -154,11 +160,11 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 //		_exit_critical_bh(&phal->SdioTxFIFOFreePageLock, &irql);
 
 		if (padapter->bSurpriseRemoved == _TRUE) {
-			RT_TRACE(_module_hal_xmit_c_, _drv_notice_,
+			RT_TRACE(_module_hal_xmit_c_, _drv_err_,
 				 ("%s: bSurpriseRemoved(wirte port)\n", __FUNCTION__));
 			goto free_xmitbuf;
 		}
-		rtw_write_port(padapter, pxmitbuf->ff_hwaddr, pxmitbuf->len, pxmitbuf->pdata);
+		rtw_write_port(padapter, deviceId, pxmitbuf->len, pxmitbuf->pdata);
 
 free_xmitbuf:
 		rtw_free_xmitframe(pxmitpriv, pframe);
@@ -173,53 +179,6 @@ free_xmitbuf:
 	return _SUCCESS;
 }
 
-/*
- *	Description:
- *		Translate QSEL to hardware tx FIFO address
- */
-#ifndef CONFIG_MAC_LOOPBACK_DRIVER
-static
-#endif
-u32 get_txfifo_hwaddr(struct xmit_frame *pxmitframe)
-{
-	u32 addr;
-	struct pkt_attrib *pattrib;
-	struct registry_priv *pregistrypriv;
-
-
-	pattrib = &pxmitframe->attrib;
-	switch (pattrib->qsel)
-	{
-		case 0:
-		case 3:
-			addr = WLAN_TX_LOQ_DEVICE_ID;
-		 	break;
-		case 1:
-		case 2:
-			pregistrypriv = &pxmitframe->padapter->registrypriv;
-			if (!pregistrypriv->wifi_spec)
-				addr = WLAN_TX_LOQ_DEVICE_ID;
-			else
-				addr = WLAN_TX_MIQ_DEVICE_ID;
-			break;
-		case 4:
-		case 5:
-			addr = WLAN_TX_MIQ_DEVICE_ID;
-			break;
-		case 6:
-		case 7:
-		case 0x10:
-		case 0x11://BC/MC in PS (HIQ)
-		case 0x12:
-			addr = WLAN_TX_HIQ_DEVICE_ID;
-			break;
-		default:
-			addr = WLAN_TX_LOQ_DEVICE_ID;
-			break;
-	}
-
-	return addr;
-}
 
 /*
  * Description:
@@ -328,7 +287,7 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 				_exit_critical_bh(&pxmitpriv->lock, &irql);
 
 				if (k == 0) {
-					pxmitbuf->ff_hwaddr = get_txfifo_hwaddr(pxmitframe);
+					pxmitbuf->ff_hwaddr = rtw_get_ff_hwaddr(pxmitframe);
 					pxmitbuf->priv_data = (u8*)pxmitframe;
 				}
 
@@ -407,66 +366,74 @@ s32 rtl8723as_xmit_handler(PADAPTER padapter)
 {
 	struct xmit_priv *pxmitpriv;
 	PHAL_DATA_TYPE phal;
+	s32 ret;
 	_irqL irql;
-	s32 ret, err;
 
 
 	pxmitpriv = &padapter->xmitpriv;
 	phal = GET_HAL_DATA(padapter);
 
+wait:
 	ret = _rtw_down_sema(&phal->SdioXmitSema);
 	if (_FAIL == ret) {
 		RT_TRACE(_module_hal_xmit_c_, _drv_emerg_, ("%s: down sema fail!\n", __FUNCTION__));
 		return _FAIL;
 	}
 
-	do {
-		if ((padapter->bDriverStopped == _TRUE) ||
-			(padapter->bSurpriseRemoved == _TRUE))
-		{
-			RT_TRACE(_module_hal_xmit_c_, _drv_err_,
+next:
+	if ((padapter->bDriverStopped == _TRUE) ||
+		(padapter->bSurpriseRemoved == _TRUE)) {
+		RT_TRACE(_module_hal_xmit_c_, _drv_notice_,
 				 ("%s: bDriverStopped(%d) bSurpriseRemoved(%d)\n",
 				  __FUNCTION__, padapter->bDriverStopped, padapter->bSurpriseRemoved));
-			ret = _FAIL;
-			break;
-		}
+		return _FAIL;
+	}
 
-		_enter_critical_bh(&pxmitpriv->lock, &irql);
-		ret = rtw_txframes_pending(padapter);
-		if (ret == 0)
-		{
-			_rtw_init_sema(&phal->SdioXmitSema, 0);
-			_exit_critical_bh(&pxmitpriv->lock, &irql);
-			ret = _SUCCESS;
-			break;
-		}
-		_exit_critical_bh(&pxmitpriv->lock, &irql);
+	_enter_critical_bh(&pxmitpriv->lock, &irql);
+	ret = rtw_txframes_pending(padapter);
+	_exit_critical_bh(&pxmitpriv->lock, &irql);
+	if (ret == 0) {
+		return _SUCCESS;
+	}
 
-		// dequeue frame and write to hardware
-		err = xmit_xmitframes(padapter, pxmitpriv);
-		if (err == -2) {
-			_rtw_up_sema(&pxmitpriv->xmit_sema);
-			rtw_msleep_os(1);
-		}
-	} while (1);
+	// dequeue frame and write to hardware
 
-	return ret;
+	ret = xmit_xmitframes(padapter, pxmitpriv);
+	if (ret == -2) {
+		rtw_msleep_os(1);
+		goto next;
+	}
+
+	_enter_critical_bh(&pxmitpriv->lock, &irql);
+	ret = rtw_txframes_pending(padapter);
+	_exit_critical_bh(&pxmitpriv->lock, &irql);
+	if (ret == 1) {
+		rtw_msleep_os(1);
+		goto next;
+	}
+
+	return _SUCCESS;
 }
+
 
 thread_return rtl8723as_xmit_thread(thread_context context)
 {
+	s32 ret;
 	PADAPTER padapter;
 	struct xmit_priv *pxmitpriv;
-	PHAL_DATA_TYPE phal;
-	s32 ret;
+	PHAL_DATA_TYPE pHalData;
 
 
+	ret = _SUCCESS;
 	padapter = (PADAPTER)context;
 	pxmitpriv = &padapter->xmitpriv;
-	phal = GET_HAL_DATA(padapter);
-	ret = _SUCCESS;
+	pHalData = GET_HAL_DATA(padapter);
 
 	thread_enter("RTWHALXT");
+
+	DBG_871X("start %s\n", __FUNCTION__);
+
+	_rtw_up_sema(&pHalData->SdioXmitTerminateSema);
 
 	do {
 		ret = rtl8723as_xmit_handler(padapter);
@@ -475,15 +442,16 @@ thread_return rtl8723as_xmit_thread(thread_context context)
 		}
 	} while (_SUCCESS == ret);
 
-	_rtw_up_sema(&phal->SdioXmitTerminateSema);
+	_rtw_up_sema(&pHalData->SdioXmitTerminateSema);
 
 	RT_TRACE(_module_hal_xmit_c_, _drv_notice_, ("-%s\n", __FUNCTION__));
 
 	thread_exit();
 }
 
-void rtl8723as_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe)
+s32 rtl8723as_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe)
 {
+	s32 ret = _SUCCESS;
 	struct pkt_attrib *pattrib;
 	struct xmit_buf *pxmitbuf;
 
@@ -498,11 +466,16 @@ void rtl8723as_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe)
 	pxmitbuf->len = TXDESC_SIZE + pattrib->last_txcmdsz;
 	pmgntframe->pg_num = (pxmitbuf->len + 127)/128; // 128 is tx page size
 	pxmitbuf->ptail = pmgntframe->buf_addr + pxmitbuf->len;
-	pxmitbuf->ff_hwaddr = get_txfifo_hwaddr(pmgntframe);
+	pxmitbuf->ff_hwaddr = rtw_get_ff_hwaddr(pmgntframe);
 
 	enqueue_pending_xmitbuf(&padapter->xmitpriv, pxmitbuf);
 
 	rtw_count_tx_stats(padapter, pmgntframe, pattrib->last_txcmdsz);
+
+	if  (ret != _SUCCESS)
+		rtw_sctx_done_err(&pxmitbuf->sctx, RTW_SCTX_DONE_UNKNOWN);
+
+	return ret;
 }
 
 /*
@@ -570,15 +543,6 @@ s32 rtl8723as_init_xmit_priv(PADAPTER padapter)
 	_rtw_spinlock_init(&phal->SdioTxFIFOFreePageLock);
 	_rtw_init_sema(&phal->SdioXmitSema, 0);
 	_rtw_init_sema(&phal->SdioXmitTerminateSema, 0);
-#ifdef PLATFORM_LINUX
-	phal->SdioXmitThread = kernel_thread(rtl8723as_xmit_thread, padapter, CLONE_FS|CLONE_FILES);
-	if (phal->SdioXmitThread < 0) {
-		RT_TRACE(_module_hal_xmit_c_, _drv_err_, ("%s: start rtl8723as_xmit_buf_thread FAIL!!\n", __FUNCTION__));
-		return _FAIL;
-	}
-#else
-#error "can not create SdioXmitThread!\n"
-#endif
 
 	return _SUCCESS;
 }
@@ -620,13 +584,6 @@ void rtl8723as_free_xmit_priv(PADAPTER padapter)
 		rtw_free_xmitframe(pxmitpriv, (struct xmit_frame*)pxmitbuf->priv_data);
 		pxmitbuf->priv_data = NULL;
 		rtw_free_xmitbuf(pxmitpriv, pxmitbuf);
-	}
-
-	// stop xmit_buf_thread
-	if (phal->SdioXmitThread >= 0) {
-		_rtw_up_sema(&phal->SdioXmitSema);
-		_rtw_down_sema(&phal->SdioXmitTerminateSema);
-		phal->SdioXmitThread = -1;
 	}
 
 	_rtw_spinlock_free(&phal->SdioTxFIFOFreePageLock);

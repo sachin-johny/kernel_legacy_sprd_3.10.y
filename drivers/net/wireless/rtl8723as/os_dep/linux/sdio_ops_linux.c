@@ -78,7 +78,7 @@ _func_enter_;
 	for (i = 0; i < cnt; i++) {
 		pdata[i] = sdio_readb(func, addr+i, &err);
 		if (err) {
-			DBG_8192C(KERN_ERR "%s: FAIL!(%d) addr=0x%05x\n", __func__, err, addr+i);
+			DBG_871X(KERN_ERR "%s: FAIL!(%d) addr=0x%05x\n", __func__, err, addr);
 			break;
 		}
 	}
@@ -130,7 +130,7 @@ _func_enter_;
 	for (i = 0; i < cnt; i++) {
 		sdio_writeb(func, pdata[i], addr+i, &err);
 		if (err) {
-			DBG_8192C(KERN_ERR "%s: FAIL!(%d) addr=0x%05x val=0x%02x\n", __func__, err, addr+i, pdata[i]);
+			DBG_871X(KERN_ERR "%s: FAIL!(%d) addr=0x%05x val=0x%02x\n", __func__, err, addr, pdata[i]);
 			break;
 		}
 	}

@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
- *
+ *                                        
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
  * published by the Free Software Foundation.
@@ -22,7 +22,7 @@
 
 //
 //	Description:
-//		Callback function of LED BlinkTimer,
+//		Callback function of LED BlinkTimer, 
 //		it just schedules to corresponding BlinkWorkItem/led_blink_hdl
 //
 void BlinkTimerCallback(void *data)
@@ -32,7 +32,7 @@ void BlinkTimerCallback(void *data)
 
 	//DBG_871X("%s\n", __FUNCTION__);
 
-	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))
+	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))	
 	{
 		//DBG_871X("%s bSurpriseRemoved:%d, bDriverStopped:%d\n", __FUNCTION__, padapter->bSurpriseRemoved, padapter->bDriverStopped);
 		return;
@@ -74,7 +74,7 @@ void ResetLedStatus(PLED_871x pLed) {
 
 	pLed->bLedBlinkInProgress = _FALSE; // true if it is blinking, false o.w..
 	pLed->bLedWPSBlinkInProgress = _FALSE;
-
+	
 	pLed->BlinkTimes = 0; // Number of times to toggle led state for blinking.
 	pLed->BlinkingLedState = LED_UNKNOWN; // Next state for blinking, either RTW_LED_ON or RTW_LED_OFF are.
 
@@ -451,7 +451,7 @@ SwLedBlink1(
 				_set_timer(&(pLed->BlinkTimer), LED_BLINK_LINK_INTERVAL_ALPHA);
 				RT_TRACE(_module_rtl8712_led_c_,_drv_info_,("CurrLedState %d\n", pLed->CurrLedState));
 
-				pLed->bLedWPSBlinkInProgress = _FALSE;
+				pLed->bLedWPSBlinkInProgress = _FALSE;	
 			}
 			else
 			{
@@ -2301,7 +2301,7 @@ void BlinkHandler(PLED_871x	 pLed)
 
 	//DBG_871X("%s (%s:%d)\n",__FUNCTION__, current->comm, current->pid);
 
-	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))
+	if( (padapter->bSurpriseRemoved == _TRUE) || ( padapter->bDriverStopped == _TRUE))	
 	{
 		//DBG_871X("%s bSurpriseRemoved:%d, bDriverStopped:%d\n", __FUNCTION__, padapter->bSurpriseRemoved, padapter->bDriverStopped);
 		return;
@@ -2312,22 +2312,22 @@ void BlinkHandler(PLED_871x	 pLed)
 		case SW_LED_MODE0:
 			SwLedBlink(pLed);
 			break;
-
+		
 		case SW_LED_MODE1:
 			SwLedBlink1(pLed);
 			break;
-
+		
 		case SW_LED_MODE2:
 			SwLedBlink2(pLed);
 			break;
-
+			
 		case SW_LED_MODE3:
 			SwLedBlink3(pLed);
 			break;
 
 		case SW_LED_MODE4:
 			SwLedBlink4(pLed);
-			break;
+			break;			
 
 		case SW_LED_MODE5:
 			SwLedBlink5(pLed);
@@ -2390,7 +2390,7 @@ LedControl871x(
 			break;
 		case SW_LED_MODE2:
 			SwLedControlMode2(padapter, LedAction);
-			break;
+                	break;
 
 		case SW_LED_MODE3:
 			SwLedControlMode3(padapter, LedAction);
@@ -2413,7 +2413,6 @@ LedControl871x(
 	}
 
 	RT_TRACE(_module_rtl8712_led_c_,_drv_info_,("LedStrategy:%d, LedAction %d\n", ledpriv->LedStrategy,LedAction));
-	DBG_871X("LedStrategy:%d, LedAction %d\n", ledpriv->LedStrategy,LedAction);
 }
 
 #endif

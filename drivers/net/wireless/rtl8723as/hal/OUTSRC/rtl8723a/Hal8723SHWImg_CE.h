@@ -3,16 +3,23 @@
 
 /*Created on  2012/08/22, 23:43*/
 
+//#ifdef CONFIG_MP_INCLUDED
+#define Rtl8723SUMCBCutImgArrayLength_MP 18396
+//#else
+#define Rtl8723SUMCBCutImgArrayLength 24422
+//#endif
+
 #define Rtl8723SImgArrayLength 20606
 extern const u8 Rtl8723SFwImgArray[Rtl8723SImgArrayLength];
 #define Rtl8723SBTImgArrayLength 1
 extern const u8 Rtl8723SFwBTImgArray[Rtl8723SBTImgArrayLength];
 
-#define Rtl8723SUMCBCutImgArrayLength 23860
-extern const u8 Rtl8723SFwUMCBCutImgArray[Rtl8723SUMCBCutImgArrayLength];
+#ifdef CONFIG_MP_INCLUDED
+#define Rtl8723EBTImgArrayLength 16484
+extern u8 Rtl8723EFwBTImgArray[Rtl8723EBTImgArrayLength] ;
+#endif //CONFIG_MP_INCLUDED
 
-#define Rtl8723SUMCBCutMPImgArrayLength 18396
-extern const u8 Rtl8723SFwUMCBCutMPImgArray[Rtl8723SUMCBCutMPImgArrayLength];
+extern const u8 Rtl8723SFwUMCBCutImgArray[Rtl8723SUMCBCutImgArrayLength];
 
 #ifndef CONFIG_PHY_SETTING_WITH_ODM
 #define Rtl8723SPHY_REG_2TArrayLength 1

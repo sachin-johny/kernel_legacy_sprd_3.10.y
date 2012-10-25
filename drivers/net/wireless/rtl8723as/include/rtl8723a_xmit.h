@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -70,10 +70,15 @@ void rtl8723a_fill_fake_txdesc(PADAPTER padapter, u8 *pDesc, u32 BufferLen, u8 I
 s32 rtl8723as_init_xmit_priv(PADAPTER padapter);
 void rtl8723as_free_xmit_priv(PADAPTER padapter);
 s32 rtl8723as_hal_xmit(PADAPTER padapter, struct xmit_frame *pxmitframe);
-void rtl8723as_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
+s32 rtl8723as_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
 s32 rtl8723as_xmit_buf_handler(PADAPTER padapter);
+thread_return rtl8723as_xmit_thread(thread_context context);
 #define hal_xmit_handler rtl8723as_xmit_buf_handler
 #endif
 
+#ifdef CONFIG_USB_HCI
+s32 rtl8723au_xmit_buf_handler(PADAPTER padapter);
+#define hal_xmit_handler rtl8723au_xmit_buf_handler
+#endif
 #endif
 

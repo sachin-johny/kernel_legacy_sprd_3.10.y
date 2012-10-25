@@ -20,7 +20,8 @@
 #ifndef __RTL8723A_CMD_H__
 #define __RTL8723A_CMD_H__
 
-#define H2C_BT_FW_PATCH_LEN			3
+
+#define H2C_BT_FW_PATCH_LEN 		3
 #define H2C_BT_PWR_FORCE_LEN		3
 
 enum cmd_msg_element_id
@@ -158,10 +159,10 @@ typedef struct _SCAN_EN_PARM {
 // BT_FW_PATCH
 #if 0
 #define SET_H2CCMD_BT_FW_PATCH_ENABLE(__pH2CCmd, __Value)					SET_BITS_TO_LE_1BYTE(__pH2CCmd, 0, 8, __Value)
-#define SET_H2CCMD_BT_FW_PATCH_SIZE(__pH2CCmd, __Value)						SET_BITS_TO_LE_2BYTE((__pH2CCmd)+1, 0, 16, __Value)
+#define SET_H2CCMD_BT_FW_PATCH_SIZE(__pH2CCmd, __Value) 					SET_BITS_TO_LE_2BYTE((__pH2CCmd)+1, 0, 16, __Value)
 #else
 #define SET_H2CCMD_BT_FW_PATCH_ENABLE(__pH2CCmd, __Value)					SET_BITS_TO_LE_4BYTE(__pH2CCmd, 0, 8, __Value) //	SET_BITS_TO_LE_1BYTE(__pH2CCmd, 0, 8, __Value)
-#define SET_H2CCMD_BT_FW_PATCH_SIZE(__pH2CCmd, __Value)						SET_BITS_TO_LE_4BYTE(__pH2CCmd, 8, 16, __Value) //	SET_BITS_TO_LE_2BYTE((__pH2CCmd)+1, 0, 16, __Value)
+#define SET_H2CCMD_BT_FW_PATCH_SIZE(__pH2CCmd, __Value) 					SET_BITS_TO_LE_4BYTE(__pH2CCmd, 8, 16, __Value) //	SET_BITS_TO_LE_2BYTE((__pH2CCmd)+1, 0, 16, __Value)
 #endif
 
 #if 0

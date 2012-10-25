@@ -694,8 +694,8 @@ _func_enter_;
 
 	init_h2fwcmd_w_parm_no_rsp(ph2c, psurveyPara, GEN_CMD_CODE(_SiteSurvey));
 
-	psurveyPara->bsslimit = cpu_to_le32(48);
-	psurveyPara->scan_mode = cpu_to_le32(pmlmepriv->scan_mode);
+	psurveyPara->bsslimit = 48;
+	psurveyPara->scan_mode = pmlmepriv->scan_mode;
 
 	_rtw_memset(psurveyPara->ssid, 0, sizeof(NDIS_802_11_SSID)*RTW_SSID_SCAN_AMOUNT);
 
@@ -718,7 +718,12 @@ _func_enter_;
 
 		pmlmepriv->scan_start_time = rtw_get_current_time();
 
-		_set_timer(&pmlmepriv->scan_to_timer, SCANNING_TIMEOUT);
+#ifdef CONFIG_STA_MODE_SCAN_UNDER_AP_MODE
+		if((padapter->pbuddy_adapter->mlmeextpriv.mlmext_info.state&0x03) == WIFI_FW_AP_STATE)
+			_set_timer(&pmlmepriv->scan_to_timer, SURVEY_TO * ( 38 + ( 38 / RTW_SCAN_NUM_OF_CH ) * RTW_STAY_AP_CH_MILLISECOND ) + 1000 );
+		else
+#endif //CONFIG_STA_MODE_SCAN_UNDER_AP_MODE
+			_set_timer(&pmlmepriv->scan_to_timer, SCANNING_TIMEOUT);
 
 		rtw_led_control(padapter, LED_CTL_SITE_SURVEY);
 
@@ -996,7 +1001,7 @@ void rtw_getbbrfreg_cmdrsp_callback(_adapter*	padapter,  struct cmd_obj *pcmd)
 
 #ifdef CONFIG_MP_INCLUDED
 	if (padapter->registrypriv.mp_mode == 1)
-	padapter->mppriv.workparam.bcompleted= _TRUE;
+		padapter->mppriv.workparam.bcompleted= _TRUE;
 #endif
 _func_exit_;
 }
@@ -1010,7 +1015,7 @@ void rtw_readtssi_cmdrsp_callback(_adapter*	padapter,  struct cmd_obj *pcmd)
 
 #ifdef CONFIG_MP_INCLUDED
 	if (padapter->registrypriv.mp_mode == 1)
-	padapter->mppriv.workparam.bcompleted= _TRUE;
+		padapter->mppriv.workparam.bcompleted= _TRUE;
 #endif
 
 _func_exit_;
@@ -1405,6 +1410,13 @@ _func_enter_;
 	_rtw_memcpy(psetstakey_para->addr, sta->hwaddr,ETH_ALEN);
 
 	if(check_fwstate(pmlmepriv, WIFI_STATION_STATE)){
+#ifndef CONFIG_CONCURRENT_MODE
+#ifdef CONFIG_LPS
+		if (padapter->securitypriv.dot11AuthAlgrthm >= dot11AuthAlgrthm_8021X)
+			rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_CONNECT, 0);
+#endif
+#endif
+
 #ifdef CONFIG_TDLS
 		if(sta->tdls_sta_state&TDLS_LINKED_STATE)
 			psetstakey_para->algorithm=(u8)sta->dot118021XPrivacy;
@@ -2077,7 +2089,7 @@ _func_enter_;
 			if (BT_1Ant(padapter) == _FALSE)
 #endif
 			{
-			LPS_Leave(padapter);
+				LPS_Leave(padapter);
 			}
 			rtw_hal_set_hwreg(padapter, HW_VAR_H2C_FW_JOINBSSRPT, (u8 *)(&mstatus));
 			break;
@@ -2099,7 +2111,7 @@ _func_enter_;
 			if (BT_1Ant(padapter) == _FALSE)
 #endif
 			{
-			LPS_Leave(padapter);
+				LPS_Leave(padapter);
 			}
 			break;
 
@@ -2317,6 +2329,11 @@ u8 rtw_ps_cmd(_adapter*padapter)
 	u8	res = _SUCCESS;
 _func_enter_;
 
+#ifdef CONFIG_CONCURRENT_MODE
+	if (padapter->adapter_type != PRIMARY_ADAPTER)
+		goto exit;
+#endif
+
 	ppscmd = (struct cmd_obj*)rtw_zmalloc(sizeof(struct cmd_obj));
 	if(ppscmd==NULL){
 		res= _FAIL;
@@ -2332,7 +2349,6 @@ _func_enter_;
 
 	pdrvextra_cmd_parm->ec_id = POWER_SAVING_CTRL_WK_CID;
 	pdrvextra_cmd_parm->pbuf = NULL;
-	DBG_871X("==> %s  , enqueue CMD \n",__FUNCTION__);
 	init_h2fwcmd_w_parm_no_rsp(ppscmd, pdrvextra_cmd_parm, GEN_CMD_CODE(_Set_Drv_Extra));
 
 	res = rtw_enqueue_cmd(pcmdpriv, ppscmd);
@@ -2498,12 +2514,12 @@ u8 rtw_drvextra_cmd_hdl(_adapter *padapter, unsigned char *pbuf)
 		case P2P_PS_WK_CID:
 			p2p_ps_wk_hdl(padapter, pdrvextra_cmd->type_size);
 			break;
+#endif // CONFIG_P2P_PS
 		case P2P_PROTO_WK_CID:
 			//	Commented by Albert 2011/07/01
 			//	I used the type_size as the type command
 			p2p_protocol_wk_hdl( padapter, pdrvextra_cmd->type_size );
 			break;
-#endif //CONFIG_P2P
 #ifdef CONFIG_AP_MODE
 		case CHECK_HIQ_WK_CID:
 			rtw_chk_hi_queue_hdl(padapter);
@@ -2627,6 +2643,7 @@ _func_enter_;
 
 	_cancel_timer(&pmlmepriv->assoc_timer, &timer_cancelled);
 
+#ifdef CONFIG_FW_MLMLE
        //endian_convert
 	pnetwork->Length = le32_to_cpu(pnetwork->Length);
   	pnetwork->Ssid.SsidLength = le32_to_cpu(pnetwork->Ssid.SsidLength);
@@ -2643,7 +2660,7 @@ _func_enter_;
 	pnetwork->Configuration.Length = le32_to_cpu(pnetwork->Configuration.Length);
 	pnetwork->InfrastructureMode = le32_to_cpu(pnetwork->InfrastructureMode);
 	pnetwork->IELength = le32_to_cpu(pnetwork->IELength);
-
+#endif
 
 	_enter_critical_bh(&pmlmepriv->lock, &irqL);
 
@@ -2798,7 +2815,7 @@ _func_enter_;
 	rtw_free_cmd_obj(pcmd);
 #ifdef CONFIG_MP_INCLUDED
 	if (padapter->registrypriv.mp_mode == 1)
-	padapter->mppriv.workparam.bcompleted=_TRUE;
+		padapter->mppriv.workparam.bcompleted=_TRUE;
 #endif
 
 _func_exit_;

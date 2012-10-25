@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -23,6 +23,7 @@
 #include <drv_conf.h>
 #include <osdep_service.h>
 #include <drv_types.h>
+
 
 #ifndef OID_802_11_CAPABILITY
 	#define OID_802_11_CAPABILITY                   0x0d010122
@@ -242,11 +243,8 @@ void Set_802_3_MULTICAST_LIST(ADAPTER *pAdapter, UCHAR *MCListbuf, ULONG MCListl
 
 #endif// end of PLATFORM_WINDOWS
 
-
-#ifdef PLATFORM_LINUX
-
+#if defined(PLATFORM_LINUX) && defined(CONFIG_WIRELESS_EXT)
 extern struct iw_handler_def  rtw_handlers_def;
-
 #endif
 
 extern	NDIS_STATUS drv_query_info(

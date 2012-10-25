@@ -829,21 +829,26 @@ ODM_DMWatchdog(
 	odm_FalseAlarmCounterStatistics(pDM_Odm);
 
 #if (DM_ODM_SUPPORT_TYPE == ODM_CE)
-#ifdef CONFIG_PLATFORM_SPRD
+//#ifdef CONFIG_PLATFORM_SPRD
 	//For CE Platform(SPRD or Tablet)
 	//8723AS or 8189ES platform
 	//NeilChen--2012--08--24--
 	//Fix Leave LPS issue
 	if( 	(pDM_Odm->Adapter->pwrctrlpriv.pwr_mode != PS_MODE_ACTIVE) &&// in LPS mode
-		(pDM_Odm->SupportICType & (ODM_RTL8723A |ODM_RTL8188E)) &&
-		((pDM_Odm->SupportInterface  == ODM_ITRF_SDIO)||(pDM_Odm->SupportInterface == ODM_ITRF_GSPI)))
+		(
+			(pDM_Odm->SupportICType & (ODM_RTL8723A ) )||
+		   	(pDM_Odm->SupportICType & (ODM_RTL8188E) &&((pDM_Odm->SupportInterface  == ODM_ITRF_SDIO)||(pDM_Odm->SupportInterface == ODM_ITRF_GSPI)) )
+
+		//&&((pDM_Odm->SupportInterface  == ODM_ITRF_SDIO)||(pDM_Odm->SupportInterface == ODM_ITRF_GSPI))
+	  	)
+	)
 	{
 			ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("----Step1: odm_DIG is in LPS mode\n"));
 			ODM_RT_TRACE(pDM_Odm,ODM_COMP_DIG, ODM_DBG_LOUD, ("---Step2: 8723AS is in LPS mode\n"));
 			odm_DIGbyRSSI_LPS(pDM_Odm);
 	}
 	else
-#endif
+//#endif
 #endif
 	{
 		odm_DIG(pDM_Odm);
@@ -1270,6 +1275,9 @@ odm_CommonInfoSelfInit(
 		pDM_Odm->AntDivType = CGCS_RX_SW_ANTDIV;
 #endif
 	}
+	if(pDM_Odm->SupportICType & (ODM_RTL8723A))
+		pDM_Odm->AntDivType = CGCS_RX_SW_ANTDIV;
+
 	ODM_InitDebugSetting(pDM_Odm);
 }
 
@@ -1754,8 +1762,8 @@ odm_DIGbyRSSI_LPS(
 	if(! (pDM_Odm->SupportICType & (ODM_RTL8723A |ODM_RTL8188E)))
 		return;
 
-	if((pDM_Odm->SupportInterface==ODM_ITRF_PCIE)||(pDM_Odm->SupportInterface ==ODM_ITRF_USB))
-		return;
+	//if((pDM_Odm->SupportInterface==ODM_ITRF_PCIE)||(pDM_Odm->SupportInterface ==ODM_ITRF_USB))
+	//	return;
 
 	CurrentIGI=CurrentIGI+RSSI_OFFSET_DIG;
 #ifdef CONFIG_LPS
@@ -1777,7 +1785,9 @@ odm_DIGbyRSSI_LPS(
 			CurrentIGI = CurrentIGI-1;
 	}
 	else
+	{
 		CurrentIGI = RSSI_Lower;
+	}
 
 	//Lower bound checking
 
@@ -2044,14 +2054,14 @@ odm_DIG(
 						DIG_Dynamic_MIN = DM_DIG_MAX_NIC;
 				else if((pDM_Odm->RSSI_Min - 10) < DM_DIG_MIN_NIC)
 						DIG_Dynamic_MIN = DM_DIG_MIN_NIC;
-				else
+					else
 						DIG_Dynamic_MIN = pDM_Odm->RSSI_Min - 10;
-			}
+				}
 				else
 					DIG_Dynamic_MIN=DM_DIG_MIN_NIC;
 			}
 			else
-			#endif
+#endif
 			{
 				DIG_Dynamic_MIN=DM_DIG_MIN_NIC;
 			}
@@ -2363,7 +2373,8 @@ odm_FalseAlarmCounterStatistics(
 	if(!(pDM_Odm->SupportAbility & ODM_BB_FA_CNT))
 		return;
 
-	if(pDM_Odm->SupportICType != ODM_RTL8812)
+//	if(pDM_Odm->SupportICType != ODM_RTL8812)
+	if(pDM_Odm->SupportICType & ODM_IC_11N_SERIES)
 	{
 
 	//hold ofdm counter
@@ -2463,7 +2474,7 @@ odm_FalseAlarmCounterStatistics(
 	ODM_RT_TRACE(pDM_Odm,ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("Cnt_Crc8_fail=%d, Cnt_Mcs_fail=%d\n",
 		FalseAlmCnt->Cnt_Crc8_fail, FalseAlmCnt->Cnt_Mcs_fail));
 	}
-	else
+	else //FOR ODM_IC_11AC_SERIES
 	{
 		//read OFDM FA counter
 		FalseAlmCnt->Cnt_Ofdm_fail = ODM_GetBBReg(pDM_Odm, ODM_REG_OFDM_FA_11AC, bMaskLWord);
@@ -2474,8 +2485,8 @@ odm_FalseAlarmCounterStatistics(
 		ODM_SetBBReg(pDM_Odm, ODM_REG_OFDM_FA_RST_11AC, BIT17, 1);
 		ODM_SetBBReg(pDM_Odm, ODM_REG_OFDM_FA_RST_11AC, BIT17, 0);
 		// reset CCK FA counter
-		ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_FA_RST_11AC, BIT15, 1);
 		ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_FA_RST_11AC, BIT15, 0);
+		ODM_SetBBReg(pDM_Odm, ODM_REG_CCK_FA_RST_11AC, BIT15, 1);
 	}
 	ODM_RT_TRACE(pDM_Odm,ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("Cnt_Cck_fail=%d\n",	FalseAlmCnt->Cnt_Cck_fail));
 	ODM_RT_TRACE(pDM_Odm,ODM_COMP_FA_CNT, ODM_DBG_LOUD, ("Cnt_Ofdm_fail=%d\n",	FalseAlmCnt->Cnt_Ofdm_fail));
@@ -4441,9 +4452,9 @@ odm_TXPowerTrackingThermalMeterInit(
 	pMgntInfo->bTXPowerTracking = TRUE;
 	pHalData->TXPowercount       = 0;
 	pHalData->bTXPowerTrackingInit = FALSE;
-	//#if	MP_DRIVER != 1					//for mp driver, turn off txpwrtracking as default
+	#if	MP_DRIVER != 1					//for mp driver, turn off txpwrtracking as default
 	pHalData->TxPowerTrackControl = TRUE;
-	//#endif//#if	(MP_DRIVER != 1)
+	#endif//#if	(MP_DRIVER != 1)
 	ODM_RT_TRACE(pDM_Odm,COMP_POWER_TRACKING, DBG_LOUD, ("pMgntInfo->bTXPowerTracking = %d\n", pMgntInfo->bTXPowerTracking));
 #elif (DM_ODM_SUPPORT_TYPE == ODM_CE)
 	#ifdef CONFIG_RTL8188E
@@ -4453,7 +4464,7 @@ odm_TXPowerTrackingThermalMeterInit(
 		pDM_Odm->RFCalibrateInfo.bTXPowerTrackingInit = _FALSE;
 		//#if	(MP_DRIVER != 1)		//for mp driver, turn off txpwrtracking as default
 		if ( *(pDM_Odm->mp_mode) != 1)
-		pDM_Odm->RFCalibrateInfo.TxPowerTrackControl = _TRUE;
+			pDM_Odm->RFCalibrateInfo.TxPowerTrackControl = _TRUE;
 		//#endif//#if	(MP_DRIVER != 1)
 		MSG_8192C("pDM_Odm TxPowerTrackControl = %d\n", pDM_Odm->RFCalibrateInfo.TxPowerTrackControl);
 	}
@@ -4469,8 +4480,9 @@ odm_TXPowerTrackingThermalMeterInit(
 			pdmpriv->TXPowercount = 0;
 			pdmpriv->bTXPowerTrackingInit = _FALSE;
 			//#if	(MP_DRIVER != 1)		//for mp driver, turn off txpwrtracking as default
+
 			if (*(pDM_Odm->mp_mode) != 1)
-			pdmpriv->TxPowerTrackControl = _TRUE;
+				pdmpriv->TxPowerTrackControl = _TRUE;
 			//#endif//#if	(MP_DRIVER != 1)
 		}
 		MSG_8192C("pdmpriv->TxPowerTrackControl = %d\n", pdmpriv->TxPowerTrackControl);
@@ -4695,14 +4707,47 @@ odm_SwAntDivInit(
 	dm_SW_AntennaSwitchInit(pDM_Odm->priv);
 #endif
 }
+#if (RTL8723A_SUPPORT==1)
+// Only for 8723A SW ANT DIV INIT--2012--07--17
+VOID
+odm_SwAntDivInit_NIC_8723A(
+	IN	PDM_ODM_T		pDM_Odm)
+{
+	pSWAT_T		pDM_SWAT_Table = &pDM_Odm->DM_SWAT_Table;
+	PADAPTER		Adapter = pDM_Odm->Adapter;
+	u1Byte 			btAntNum=BT_GetPGAntNum(Adapter);
 
+
+	if(IS_HARDWARE_TYPE_8723A(Adapter))
+	{
+		pDM_SWAT_Table->ANTA_ON =TRUE;
+
+		// Set default antenna B status by PG
+		if(btAntNum == Ant_x2)
+			pDM_SWAT_Table->ANTB_ON = TRUE;
+		else if(btAntNum ==Ant_x1)
+			pDM_SWAT_Table->ANTB_ON = FALSE;
+		else
+			pDM_SWAT_Table->ANTB_ON = TRUE;
+	}
+
+}
+#endif
 VOID
 odm_SwAntDivInit_NIC(
 	IN		PDM_ODM_T		pDM_Odm
 	)
 {
 	pSWAT_T		pDM_SWAT_Table = &pDM_Odm->DM_SWAT_Table;
-
+// Init SW ANT DIV mechanism for 8723AE/AU/AS// Neil Chen--2012--07--17---
+// CE/AP/ADSL no using SW ANT DIV for 8723A Series IC
+//#if (DM_ODM_SUPPORT_TYPE==ODM_MP)
+#if (RTL8723A_SUPPORT==1)
+	if(pDM_Odm->SupportICType == ODM_RTL8723A)
+	{
+		odm_SwAntDivInit_NIC_8723A(pDM_Odm);
+	}
+#endif
 	ODM_RT_TRACE(pDM_Odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("SWAS:Init SW Antenna Switch\n"));
 	pDM_SWAT_Table->RSSI_sum_A = 0;
 	pDM_SWAT_Table->RSSI_cnt_A = 0;
@@ -4848,14 +4893,17 @@ ODM_SetAntenna(
 {
 	ODM_SetBBReg(pDM_Odm, 0x860, BIT8|BIT9, Antenna);
 }
-
+//--------------------------------2012--09--06--
+//Note: Antenna_Main--> Antenna_A
+//        Antenna_Aux---> Antenna_B
+//----------------------------------
 VOID
 odm_SwAntDivChkAntSwitchNIC(
 	IN		PDM_ODM_T		pDM_Odm,
 	IN		u1Byte		Step
 	)
 {
-#if (RTL8192C_SUPPORT==1)
+#if ((RTL8192C_SUPPORT==1)||(RTL8723A_SUPPORT==1))
 	//PMGNT_INFO		pMgntInfo = &(Adapter->MgntInfo);
 	//HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);
 	pSWAT_T		pDM_SWAT_Table = &pDM_Odm->DM_SWAT_Table;
@@ -5006,10 +5054,22 @@ odm_SwAntDivChkAntSwitchNIC(
 	}
 	else
 	{
+#if (DM_ODM_SUPPORT_TYPE &( ODM_MP))
+		//PADAPTER	Adapter = pDM_Odm->Adapter;
+		curTxOkCnt = pAdapter->TxStats.NumTxBytesUnicast - pDM_SWAT_Table->lastTxOkCnt;
+		curRxOkCnt =pAdapter->RxStats.NumRxBytesUnicast - pDM_SWAT_Table->lastRxOkCnt;
+		pDM_SWAT_Table->lastTxOkCnt = pAdapter->TxStats.NumTxBytesUnicast;
+		pDM_SWAT_Table->lastRxOkCnt = pAdapter->RxStats.NumRxBytesUnicast;
+#else
 		curTxOkCnt = *(pDM_Odm->pNumTxBytesUnicast) - pDM_SWAT_Table->lastTxOkCnt;
 		curRxOkCnt = *(pDM_Odm->pNumRxBytesUnicast) - pDM_SWAT_Table->lastRxOkCnt;
 		pDM_SWAT_Table->lastTxOkCnt = *(pDM_Odm->pNumTxBytesUnicast);
 		pDM_SWAT_Table->lastRxOkCnt = *(pDM_Odm->pNumRxBytesUnicast);
+#endif
+             ODM_RT_TRACE(pDM_Odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("curTxOkCnt = %lld\n",curTxOkCnt));
+		ODM_RT_TRACE(pDM_Odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("curRxOkCnt = %lld\n",curRxOkCnt));
+		ODM_RT_TRACE(pDM_Odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("lastTxOkCnt = %lld\n",pDM_SWAT_Table->lastTxOkCnt));
+		ODM_RT_TRACE(pDM_Odm, ODM_COMP_ANT_DIV, ODM_DBG_LOUD, ("lastRxOkCnt = %lld\n",pDM_SWAT_Table->lastRxOkCnt));
 
 		if(pDM_SWAT_Table->try_flag == 1)
 		{

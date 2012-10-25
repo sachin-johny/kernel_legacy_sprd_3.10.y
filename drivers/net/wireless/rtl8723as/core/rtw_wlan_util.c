@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -51,6 +51,23 @@ extern unsigned char RSN_TKIP_CIPHER[4];
 //#define WAIT_FOR_BCN_TO_MIN	(3000)
 #define WAIT_FOR_BCN_TO_MIN	(6000)
 #define WAIT_FOR_BCN_TO_MAX	(20000)
+
+static u8 rtw_basic_rate_cck[4] = {
+	IEEE80211_CCK_RATE_1MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_CCK_RATE_2MB|IEEE80211_BASIC_RATE_MASK,
+	IEEE80211_CCK_RATE_5MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_CCK_RATE_11MB|IEEE80211_BASIC_RATE_MASK
+};
+
+static u8 rtw_basic_rate_ofdm[3] = {
+	IEEE80211_OFDM_RATE_6MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_OFDM_RATE_12MB|IEEE80211_BASIC_RATE_MASK,
+	IEEE80211_OFDM_RATE_24MB|IEEE80211_BASIC_RATE_MASK
+};
+
+static u8 rtw_basic_rate_mix[7] = {
+	IEEE80211_CCK_RATE_1MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_CCK_RATE_2MB|IEEE80211_BASIC_RATE_MASK,
+	IEEE80211_CCK_RATE_5MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_CCK_RATE_11MB|IEEE80211_BASIC_RATE_MASK,
+	IEEE80211_OFDM_RATE_6MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_OFDM_RATE_12MB|IEEE80211_BASIC_RATE_MASK,
+	IEEE80211_OFDM_RATE_24MB|IEEE80211_BASIC_RATE_MASK
+};
 
 
 int cckrates_included(unsigned char *rate, int ratelen)
@@ -279,7 +296,6 @@ unsigned int ratetbl2rateset(_adapter *padapter, unsigned char *rateset)
 	return len;
 }
 
-
 void get_rate_set(_adapter *padapter, unsigned char *pbssrate, int *bssrate_len)
 {
 	unsigned char supportedrates[NumRates];
@@ -287,6 +303,55 @@ void get_rate_set(_adapter *padapter, unsigned char *pbssrate, int *bssrate_len)
 	_rtw_memset(supportedrates, 0, NumRates);
 	*bssrate_len = ratetbl2rateset(padapter, supportedrates);
 	_rtw_memcpy(pbssrate, supportedrates, *bssrate_len);
+}
+
+void UpdateBrateTbl(
+	IN PADAPTER		Adapter,
+	IN u8			*mBratesOS
+)
+{
+	u8	i;
+	u8	rate;
+
+	// 1M, 2M, 5.5M, 11M, 6M, 12M, 24M are mandatory.
+	for(i=0;i<NDIS_802_11_LENGTH_RATES_EX;i++)
+	{
+		rate = mBratesOS[i] & 0x7f;
+		switch(rate)
+		{
+			case IEEE80211_CCK_RATE_1MB:
+			case IEEE80211_CCK_RATE_2MB:
+			case IEEE80211_CCK_RATE_5MB:
+			case IEEE80211_CCK_RATE_11MB:
+			case IEEE80211_OFDM_RATE_6MB:
+			case IEEE80211_OFDM_RATE_12MB:
+			case IEEE80211_OFDM_RATE_24MB:
+				mBratesOS[i] |= IEEE80211_BASIC_RATE_MASK;
+				break;
+		}
+	}
+
+}
+
+void UpdateBrateTblForSoftAP(u8 *bssrateset, u32 bssratelen)
+{
+	u8	i;
+	u8	rate;
+
+	for(i=0;i<bssratelen;i++)
+	{
+		rate = bssrateset[i] & 0x7f;
+		switch(rate)
+		{
+			case IEEE80211_CCK_RATE_1MB:
+			case IEEE80211_CCK_RATE_2MB:
+			case IEEE80211_CCK_RATE_5MB:
+			case IEEE80211_CCK_RATE_11MB:
+				bssrateset[i] |= IEEE80211_BASIC_RATE_MASK;
+				break;
+		}
+	}
+
 }
 
 void Save_DM_Func_Flag(_adapter *padapter)
@@ -752,37 +817,25 @@ void flush_all_cam_entry(_adapter *padapter)
 	}
 	else
 	{
-		if(check_fwstate(pmlmepriv, WIFI_STATION_STATE) == _TRUE)
+		if(check_fwstate(pmlmepriv, WIFI_STATION_STATE))
 		{
 			struct sta_priv	*pstapriv = &padapter->stapriv;
 			struct sta_info	*psta;
 			u8 cam_id;//cam_entry
 
 			psta = rtw_get_stainfo(pstapriv, pmlmeinfo->network.MacAddress);
-
-			if(psta)
-			{
+			if(psta) {
 				if(psta->state & WIFI_AP_STATE)
-				{
-					//clear cam when ap free per sta_info
-				}
-				else
-				{
+				{}   //clear cam when ap free per sta_info
+				else {
 					if(psta->mac_id==2)
-					{
 						cam_id = 5;
-					}
 					else
-					{
 						cam_id = 4;
-					}
-
-					//clear_cam_entry(padapter, cam_id);
-					rtw_clearstakey_cmd(padapter, (u8*)psta, cam_id, _FALSE);
 				}
-
+				//clear_cam_entry(padapter, cam_id);
+				rtw_clearstakey_cmd(padapter, (u8*)psta, cam_id, _FALSE);
 			}
-
 		}
 		else if(check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
 		{
@@ -799,7 +852,7 @@ void flush_all_cam_entry(_adapter *padapter)
 
 }
 
-#ifdef CONFIG_WFD
+#if defined(CONFIG_P2P) && defined(CONFIG_WFD)
 int WFD_info_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs	pIE)
 {
 	struct registry_priv	*pregpriv = &padapter->registrypriv;
@@ -821,8 +874,8 @@ int WFD_info_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs	pIE)
 		rtw_get_wfd_attr_content( wfd_ie, wfd_ielen, WFD_ATTR_DEVICE_INFO, attr_content, &attr_contentlen);
 		if ( attr_contentlen )
 		{
-			pwdinfo->wfd_info.peer_rtsp_ctrlport = RTW_GET_BE16( attr_content + 2 );
-			DBG_8192C( "[%s] Peer PORT NUM = %d\n", __FUNCTION__, pwdinfo->wfd_info.peer_rtsp_ctrlport );
+			pwdinfo->wfd_info->peer_rtsp_ctrlport = RTW_GET_BE16( attr_content + 2 );
+			DBG_8192C( "[%s] Peer PORT NUM = %d\n", __FUNCTION__, pwdinfo->wfd_info->peer_rtsp_ctrlport );
 			return( _TRUE );
 		}
 	}
@@ -949,18 +1002,26 @@ static void bwmode_update_check(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pI
 	unsigned char	 new_bwmode;
 	unsigned char  new_ch_offset;
 	struct HT_info_element	 *pHT_info;
+	struct mlme_priv	*pmlmepriv = &(padapter->mlmepriv);
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-
+	struct registry_priv *pregistrypriv = &padapter->registrypriv;
+	struct ht_priv			*phtpriv = &pmlmepriv->htpriv;
 
 	if(!pIE)
 		return;
 
+	if(phtpriv->ht_option == _FALSE)	return;
+
+	if(pIE->Length > sizeof(struct HT_info_element))
+		return;
+
 	pHT_info = (struct HT_info_element *)pIE->data;
 
-	if(pHT_info->infos[0] & BIT(2))
+	if((pHT_info->infos[0] & BIT(2)) && pregistrypriv->cbw40_enable )
 	{
 		new_bwmode = HT_CHANNEL_WIDTH_40;
+
 		switch (pHT_info->infos[0] & 0x3)
 		{
 			case 1:
@@ -1278,6 +1339,24 @@ void VCS_update(_adapter *padapter, struct sta_info *psta)
 	}
 }
 
+#ifdef CONFIG_TDLS
+int check_ap_tdls_prohibited(u8 *pframe, u8 pkt_len)
+{
+	u8 tdls_prohibited_bit = 0x40; //bit(38); TDLS_prohibited
+
+	if(pkt_len < 5)
+	{
+		return _FALSE;
+	}
+
+	pframe += 4;
+	if( (*pframe) & tdls_prohibited_bit )
+		return _TRUE;
+
+	return _FALSE;
+}
+#endif //CONFIG_TDLS
+
 int rtw_check_bcn_info(ADAPTER *Adapter, u8 *pframe, u32 packet_len)
 {
 	unsigned int		len;
@@ -1299,6 +1378,7 @@ int rtw_check_bcn_info(ADAPTER *Adapter, u8 *pframe, u32 packet_len)
 	u32 bcn_channel;
 	unsigned short 	ht_cap_info;
 	unsigned char	ht_info_infos_0;
+	unsigned char	mask_2nd_chan_offset = BIT(0) | BIT(1);
 
 	if (is_client_associated_to_ap(Adapter) == _FALSE)
 		return _TRUE;
@@ -1347,13 +1427,14 @@ int rtw_check_bcn_info(ADAPTER *Adapter, u8 *pframe, u32 packet_len)
 			ht_info_infos_0 = 0;
 	}
 	if (ht_cap_info != cur_network->BcnInfo.ht_cap_info ||
-		ht_info_infos_0 != cur_network->BcnInfo.ht_info_infos_0) {
-			DBG_871X("%s bcn now: ht_cap_info:%x ht_info_infos_0:%x\n", __func__,
-						   	ht_cap_info, ht_info_infos_0);
-			DBG_871X("%s bcn link: ht_cap_info:%x ht_info_infos_0:%x\n", __func__,
-						   	cur_network->BcnInfo.ht_cap_info, cur_network->BcnInfo.ht_info_infos_0);
-			DBG_871X("%s bw mode change, disconnect\n", __func__);
-			return _FALSE;
+			((ht_info_infos_0 & mask_2nd_chan_offset) !=
+			(cur_network->BcnInfo.ht_info_infos_0 & mask_2nd_chan_offset))) {
+		DBG_871X("%s bcn now: ht_cap_info:%x ht_info_infos_0:%x\n", __func__,
+				ht_cap_info, ht_info_infos_0);
+		DBG_871X("%s bcn link: ht_cap_info:%x ht_info_infos_0:%x\n", __func__,
+				cur_network->BcnInfo.ht_cap_info, cur_network->BcnInfo.ht_info_infos_0);
+		DBG_871X("%s bw mode change, disconnect\n", __func__);
+			goto _mismatch;
 	}
 
 	/* Checking for channel */
@@ -1372,7 +1453,7 @@ int rtw_check_bcn_info(ADAPTER *Adapter, u8 *pframe, u32 packet_len)
 	if (bcn_channel != Adapter->mlmeextpriv.cur_channel) {
 			DBG_871X("%s beacon channel:%d cur channel:%d disconnect\n", __func__,
 						   bcn_channel, Adapter->mlmeextpriv.cur_channel);
-			return _FALSE;
+			goto _mismatch;
 	}
 
 	/* checking SSID */
@@ -1481,7 +1562,6 @@ _mismatch:
 	_func_exit_;
 }
 
-
 void update_beacon_info(_adapter *padapter, u8 *pframe, uint pkt_len, struct sta_info *psta)
 {
 	unsigned int i;
@@ -1523,7 +1603,7 @@ void update_beacon_info(_adapter *padapter, u8 *pframe, uint pkt_len, struct sta
 
 #ifdef CONFIG_TDLS
 			case _EXT_CAP_IE_:
-				if( _rtw_memcmp(pIE->data, tdls_prohibited, 5) == _TRUE )
+				if( check_ap_tdls_prohibited(pIE->data, pIE->Length) == _TRUE )
 					ptdlsinfo->ap_prohibited = _TRUE;
 				break;
 #endif //CONFIG_TDLS
@@ -1870,6 +1950,42 @@ void set_sta_rate(_adapter *padapter, struct sta_info *psta)
 	enable_rate_adaptive(padapter, psta->mac_id);
 }
 
+// Update RRSR and Rate for USERATE
+void update_tx_basic_rate(_adapter *padapter, u8 wirelessmode)
+{
+	NDIS_802_11_RATES_EX	supported_rates;
+#ifdef CONFIG_P2P
+	struct wifidirect_info*	pwdinfo = &padapter->wdinfo;
+
+	//	Added by Albert 2011/03/22
+	//	In the P2P mode, the driver should not support the b mode.
+	//	So, the Tx packet shouldn't use the CCK rate
+	if(!rtw_p2p_chk_state(pwdinfo, P2P_STATE_NONE))
+		return;
+#endif //CONFIG_P2P
+#ifdef CONFIG_INTEL_WIDI
+	if (padapter->mlmepriv.widi_state != INTEL_WIDI_STATE_NONE)
+		return;
+#endif //CONFIG_INTEL_WIDI
+
+	_rtw_memset(supported_rates, 0, NDIS_802_11_LENGTH_RATES_EX);
+
+	if ((wirelessmode & WIRELESS_11B) && (wirelessmode == WIRELESS_11B)) {
+		_rtw_memcpy(supported_rates, rtw_basic_rate_cck, 4);
+	} else if (wirelessmode & WIRELESS_11B) {
+		_rtw_memcpy(supported_rates, rtw_basic_rate_mix, 7);
+	} else {
+		_rtw_memcpy(supported_rates, rtw_basic_rate_ofdm, 3);
+	}
+
+	if (wirelessmode & WIRELESS_11B)
+		update_mgnt_tx_rate(padapter, IEEE80211_CCK_RATE_1MB);
+	else
+		update_mgnt_tx_rate(padapter, IEEE80211_OFDM_RATE_6MB);
+
+	rtw_hal_set_hwreg(padapter, HW_VAR_BASIC_RATE, supported_rates);
+}
+
 unsigned char check_assoc_AP(u8 *pframe, uint len)
 {
 	unsigned int	i;
@@ -2040,7 +2156,7 @@ void update_capinfo(PADAPTER Adapter, u16 updateCap)
 void update_wireless_mode(_adapter *padapter)
 {
 	int ratelen, network_type = 0;
-	u16 SIFS_Timer;
+	u32 SIFS_Timer;
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	WLAN_BSSID_EX 		*cur_network = &(pmlmeinfo->network);
@@ -2084,13 +2200,23 @@ void update_wireless_mode(_adapter *padapter)
 	}
 
 	pmlmeext->cur_wireless_mode = network_type & padapter->registrypriv.wireless_mode;
+/*
 	if((pmlmeext->cur_wireless_mode==WIRELESS_11G) ||
 		(pmlmeext->cur_wireless_mode==WIRELESS_11BG))//WIRELESS_MODE_G)
-		SIFS_Timer = 0x0a0a;
+		SIFS_Timer = 0x0a0a;//CCK
 	else
-		SIFS_Timer = 0x0e0e;//pHalData->SifsTime;
-	rtw_hal_set_hwreg( padapter, HW_VAR_SIFS,  (u8 *)&SIFS_Timer);
+		SIFS_Timer = 0x0e0e;//pHalData->SifsTime; //OFDM
+*/
 
+	SIFS_Timer = 0x0a0a0808; //0x0808 -> for CCK, 0x0a0a -> for OFDM
+                             //change this value if having IOT issues.
+
+	padapter->HalFunc.SetHwRegHandler( padapter, HW_VAR_RESP_SIFS,  (u8 *)&SIFS_Timer);
+
+	if (pmlmeext->cur_wireless_mode & WIRELESS_11B)
+		update_mgnt_tx_rate(padapter, IEEE80211_CCK_RATE_1MB);
+	 else
+		update_mgnt_tx_rate(padapter, IEEE80211_OFDM_RATE_6MB);
 }
 
 void fire_write_MAC_cmd(_adapter *padapter, unsigned int addr, unsigned int value);
@@ -2121,13 +2247,6 @@ void fire_write_MAC_cmd(_adapter *padapter, unsigned int addr, unsigned int valu
 #endif
 }
 
-u8 bmc_support_rate_ofdm[4] =
-	{IEEE80211_OFDM_RATE_6MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_OFDM_RATE_12MB|IEEE80211_BASIC_RATE_MASK,
-	IEEE80211_OFDM_RATE_18MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_OFDM_RATE_24MB|IEEE80211_BASIC_RATE_MASK};
-u8 bmc_support_rate_cck[4] =
-	{IEEE80211_CCK_RATE_1MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_CCK_RATE_2MB|IEEE80211_BASIC_RATE_MASK,
-	IEEE80211_CCK_RATE_5MB|IEEE80211_BASIC_RATE_MASK, IEEE80211_CCK_RATE_11MB|IEEE80211_BASIC_RATE_MASK};
-
 void update_bmc_sta_support_rate(_adapter *padapter, u32 mac_id)
 {
 	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
@@ -2136,11 +2255,11 @@ void update_bmc_sta_support_rate(_adapter *padapter, u32 mac_id)
 	if(pmlmeext->cur_wireless_mode & WIRELESS_11B)
 	{
 		// Only B, B/G, and B/G/N AP could use CCK rate
-		_rtw_memcpy((pmlmeinfo->FW_sta_info[mac_id].SupportedRates), bmc_support_rate_cck, 4);
+		_rtw_memcpy((pmlmeinfo->FW_sta_info[mac_id].SupportedRates), rtw_basic_rate_cck, 4);
 	}
 	else
 	{
-		_rtw_memcpy((pmlmeinfo->FW_sta_info[mac_id].SupportedRates), bmc_support_rate_ofdm, 4);
+		_rtw_memcpy((pmlmeinfo->FW_sta_info[mac_id].SupportedRates), rtw_basic_rate_ofdm, 4);
 	}
 }
 
@@ -2333,4 +2452,54 @@ unsigned int setup_beacon_frame(_adapter *padapter, unsigned char *beacon_frame)
 	return (len + TXDESC_SIZE);
 }
 #endif
+
+static _adapter *pbuddy_padapter = NULL;
+
+int rtw_handle_dualmac(_adapter *adapter, bool init)
+{
+	int status = _SUCCESS;
+	struct dvobj_priv *dvobj = adapter_to_dvobj(adapter);
+
+	if (init) {
+		#if 0
+		/* For SMSP on 92DU-VC, driver do not probe another Interface. */
+		if(dvobj->NumInterfaces == 2 && dvobj->InterfaceNumber != 0 &&
+			adapter->registrypriv.mac_phy_mode == 1) {
+			DBG_871X("%s(): Do not init another USB Interface because SMSP\n",__FUNCTION__);
+			status = _FAIL;
+			goto exit;
+		}
+		#endif
+
+		if (pbuddy_padapter == NULL) {
+			pbuddy_padapter = adapter;
+			DBG_871X("%s(): pbuddy_padapter == NULL, Set pbuddy_padapter\n",__FUNCTION__);
+		} else {
+			adapter->pbuddy_adapter = pbuddy_padapter;
+			pbuddy_padapter->pbuddy_adapter = adapter;
+			// clear global value
+			pbuddy_padapter = NULL;
+			DBG_871X("%s(): pbuddy_padapter exist, Exchange Information\n",__FUNCTION__);
+		}
+#ifdef CONFIG_DUALMAC_CONCURRENT
+		if (dvobj->InterfaceNumber == 0) {
+			//set adapter_type/iface type
+			adapter->isprimary = _TRUE;
+			adapter->adapter_type = PRIMARY_ADAPTER;
+			adapter->iface_type = IFACE_PORT0;
+			DBG_871X("%s(): PRIMARY_ADAPTER\n",__FUNCTION__);
+		} else {
+			//set adapter_type/iface type
+			adapter->isprimary = _FALSE;
+			adapter->adapter_type = SECONDARY_ADAPTER;
+			adapter->iface_type = IFACE_PORT1;
+			DBG_871X("%s(): SECONDARY_ADAPTER\n",__FUNCTION__);
+		}
+#endif
+	}else {
+		pbuddy_padapter = NULL;
+	}
+exit:
+	return status;
+}
 

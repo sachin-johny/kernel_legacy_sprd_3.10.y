@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -37,7 +37,7 @@ int spi_send_msg(PADAPTER Adapter, struct spi_transfer xfers[], u32 IoAction)
 		return 1;
 	}
 
-	psddev = &Adapter->dvobjpriv;
+	psddev = adapter_to_dvobj(Adapter);
 	spi = psddev->intf_data.func;
 
 	spi_message_init(&msg);
@@ -200,10 +200,10 @@ int spi_read_write_reg(PADAPTER pAdapter, int  write_flag, u32 addr, char * buf,
 		xfers[0].len = 4;
 
 		xfers[1].rx_buf = status;
-		xfers[1].len = 2;
+		xfers[1].len = 8;
 
 		xfers[2].rx_buf = &read_data;
-		xfers[2].len = 1;
+		xfers[2].len = 4;
 
 		//DBG_8192C("spi_read_write_reg: read_data is %x\n", read_data);
 		ret = spi_send_msg(pAdapter, xfers, 0);
@@ -236,7 +236,7 @@ int spi_read_write_reg(PADAPTER pAdapter, int  write_flag, u32 addr, char * buf,
 		xfers[1].len = 4;
 
 		xfers[2].rx_buf = status;
-		xfers[2].len = 2;
+		xfers[2].len = 8;
 
 		//DBG_8192C("spi_read_write_reg data_tmp 111: %x\n",data_tmp);
 #ifdef CONFIG_BIG_ENDIAN
@@ -360,7 +360,7 @@ void spi_write_tx_fifo(ADAPTER *Adapter, u8 *buf, int len, u32 fifo)
 	xfers[1].len = len;//len/4;
 
 	xfers[2].rx_buf = status;
-	xfers[2].len = 2;
+	xfers[2].len = 8;
 
 _func_enter_;
 
@@ -403,10 +403,10 @@ int spi_read_rx_fifo(ADAPTER *Adapter, unsigned char *buf, int len, struct spi_m
 	xfers[0].len = 4;
 
 	xfers[1].rx_buf = buf;
-	xfers[1].len = len/4;
+	xfers[1].len = len;
 
 	xfers[2].rx_buf = status;
-	xfers[2].len = 2;
+	xfers[2].len = 8;
 
 	FIFO_LEN_FORMAT(&cmd, len);               //TX Agg len
 	FIFO_DOMAIN_ID_FORMAT(&cmd, domain_id);

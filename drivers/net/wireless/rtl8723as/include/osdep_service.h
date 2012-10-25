@@ -560,7 +560,7 @@ struct urb *rtw_usb_alloc_urb(uint16_t iso_packets, uint16_t mem_flags);
 struct usb_host_endpoint *rtw_usb_find_host_endpoint(struct usb_device *dev, uint8_t type, uint8_t ep);
 struct usb_host_interface *rtw_usb_altnum_to_altsetting(const struct usb_interface *intf, uint8_t alt_index);
 struct usb_interface *rtw_usb_ifnum_to_if(struct usb_device *dev, uint8_t iface_no);
-void *rtw_usb_buffer_alloc(struct usb_device *dev, usb_size_t size, uint16_t mem_flags, uint8_t *dma_addr);
+void *rtw_usb_buffer_alloc(struct usb_device *dev, usb_size_t size, uint8_t *dma_addr);
 void *rtw_usbd_get_intfdata(struct usb_interface *intf);
 void rtw_usb_linux_register(void *arg);
 void rtw_usb_linux_deregister(void *arg);
@@ -612,16 +612,6 @@ typedef unsigned gfp_t;
 
 
 #endif // kenny add Linux compatibility code for Linux USB
-
-
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24))
-	#define DMA_BIT_MASK(n) (((n) == 64) ? ~0ULL : ((1ULL<<(n))-1))
-#endif
-
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22))
-	#define skb_tail_pointer(skb)	skb->tail
-#endif
 
 __inline static _list *get_next(_list	*list)
 {
@@ -862,7 +852,26 @@ __inline static void _set_workitem(_workitem *pwork)
 #endif
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22))
-	#define skb_tail_pointer(skb)	skb->tail
+// Porting from linux kernel, for compatible with old kernel.
+static inline unsigned char *skb_tail_pointer(const struct sk_buff *skb)
+{
+	return skb->tail;
+}
+
+static inline void skb_reset_tail_pointer(struct sk_buff *skb)
+{
+	skb->tail = skb->data;
+}
+
+static inline void skb_set_tail_pointer(struct sk_buff *skb, const int offset)
+{
+	skb->tail = skb->data + offset;
+}
+
+static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
+{
+	return skb->end;
+}
 #endif
 
 __inline static _list *get_next(_list	*list)
@@ -1349,6 +1358,7 @@ extern u32	rtw_end_of_queue_search(_list *queue, _list *pelement);
 
 extern u32	rtw_get_current_time(void);
 extern u32	rtw_systime_to_ms(u32 systime);
+extern u32	rtw_ms_to_systime(u32 ms);
 extern s32	rtw_get_passing_time_ms(u32 start);
 extern s32	rtw_get_time_interval_ms(u32 start, u32 end);
 
@@ -1356,6 +1366,8 @@ extern void	rtw_sleep_schedulable(int ms);
 
 extern void	rtw_msleep_os(int ms);
 extern void	rtw_usleep_os(int us);
+
+extern u32 	rtw_atoi(u8* s);
 
 #ifdef DBG_DELAY_OS
 #define rtw_mdelay_os(ms) _rtw_mdelay_os((ms), __FUNCTION__, __LINE__)
@@ -1536,7 +1548,9 @@ extern void rtw_suspend_lock_init(void);
 extern void rtw_suspend_lock_uninit(void);
 extern void rtw_lock_suspend(void);
 extern void rtw_unlock_suspend(void);
-
+#ifdef CONFIG_WOWLAN
+extern void rtw_lock_suspend_timeout(long timeout);
+#endif //CONFIG_WOWLAN
 
 //Atomic integer operations
 #ifdef PLATFORM_LINUX
@@ -1595,6 +1609,14 @@ extern void rtw_free_netdev(struct net_device * netdev);
 #define rtw_netdev_priv(netdev) (((struct ifnet *)netdev)->if_softc)
 #define rtw_free_netdev(netdev) if_free((netdev))
 #endif //PLATFORM_FREEBSD
+#endif
+
+#ifdef PLATFORM_LINUX
+#define FUNC_NDEV_FMT "%s(%s)"
+#define FUNC_NDEV_ARG(ndev) __func__, ndev->name
+#else
+#define FUNC_NDEV_FMT "%s"
+#define FUNC_NDEV_ARG(ndev) __func__
 #endif
 
 #ifdef PLATFORM_LINUX
