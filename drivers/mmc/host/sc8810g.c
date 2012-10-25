@@ -250,6 +250,26 @@ int sdhci_device_attach(int on)
 }
 EXPORT_SYMBOL_GPL(sdhci_device_attach);
 
+/*
+ *   Slave start sdhci_bus_scan Ops then check SDIO card attach Bus status
+ *
+ *   @ return:  true--- SDIO device attach ready
+ *              false---SDIO device attach not ready
+ */
+int sdhci_device_attached()
+{
+	struct mmc_host *mmc = NULL;
+	if(sdhci_host_g && (sdhci_host_g->mmc)){
+		mmc = sdhci_host_g->mmc;
+		if(mmc->card){
+			return true;
+		}else{
+			return false;
+		}
+	}
+	return false;
+}
+EXPORT_SYMBOL_GPL(sdhci_device_attached);
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
  * @host: The SDHCI host instance.

@@ -71,6 +71,27 @@ inline int RTW_STATUS_CODE(int error_code){
 }
 #endif
 
+u32 rtw_atoi(u8* s)
+{
+
+	int num=0,flag=0;
+	int i;
+	for(i=0;i<=strlen(s);i++)
+	{
+	  if(s[i] >= '0' && s[i] <= '9')
+		 num = num * 10 + s[i] -'0';
+	  else if(s[0] == '-' && i==0)
+		 flag =1;
+	  else
+		  break;
+	 }
+
+	if(flag == 1)
+	   num = num * -1;
+
+	 return(num);
+
+}
 
 inline u8* _rtw_vmalloc(u32 sz)
 {
@@ -149,8 +170,7 @@ u8* _rtw_malloc(u32 sz)
 		pbuf = (u8 *)dvr_malloc(sz);
 	else
 #endif
-	//pbuf = kmalloc(sz, /*GFP_KERNEL*/GFP_ATOMIC);
-	pbuf = kmalloc(sz,in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+		pbuf = kmalloc(sz,in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
 
 #endif
 #ifdef PLATFORM_FREEBSD
@@ -1034,6 +1054,19 @@ inline u32 rtw_systime_to_ms(u32 systime)
 #endif
 }
 
+inline u32 rtw_ms_to_systime(u32 ms)
+{
+#ifdef PLATFORM_LINUX
+	return ms * HZ / 1000;
+#endif
+#ifdef PLATFORM_FREEBSD
+	return ms /1000;
+#endif
+#ifdef PLATFORM_WINDOWS
+	return ms / 10000 ;
+#endif
+}
+
 // the input parameter start use the same unit as returned by rtw_get_current_time
 inline s32 rtw_get_passing_time_ms(u32 start)
 {
@@ -1313,7 +1346,7 @@ inline void rtw_lock_suspend()
 	#endif
 
 	#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
-	DBG_871X("####%s: suspend_lock_count:%d####\n", __FUNCTION__, rtw_suspend_lock.stat.count);
+	//DBG_871X("####%s: suspend_lock_count:%d####\n", __FUNCTION__, rtw_suspend_lock.stat.count);
 	#endif
 }
 
@@ -1333,10 +1366,28 @@ inline void rtw_unlock_suspend()
 	android_unlock_suspend(&rtw_suspend_lock);
 	#endif
 	#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
-	DBG_871X("####%s: suspend_lock_count:%d####\n", __FUNCTION__, rtw_suspend_lock.stat.count);
+	//DBG_871X("####%s: suspend_lock_count:%d####\n", __FUNCTION__, rtw_suspend_lock.stat.count);
 	#endif
 }
 
+#ifdef CONFIG_WOWLAN
+inline void rtw_lock_suspend_timeout(long timeout)
+{
+        #if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
+        DBG_871X_LEVEL(_drv_info_, "##########%s###########\n", __FUNCTION__);
+        if(rtw_suspend_lock.link.next == LIST_POISON1 || rtw_suspend_lock.link.prev == LIST_POISON2) {
+                DBG_871X("##########%s########### list poison!!\n", __FUNCTION__);
+                return;
+        }
+        #endif
+
+        #ifdef CONFIG_WAKELOCK
+        wake_lock_timeout(&rtw_suspend_lock, timeout);
+        #elif defined(CONFIG_ANDROID_POWER)
+        android_lock_suspend_auto_expire(&rtw_suspend_lock, timeout);
+        #endif
+}
+#endif //CONFIG_WOWLAN
 
 inline void ATOMIC_SET(ATOMIC_T *v, int i)
 {
@@ -1778,9 +1829,7 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 #endif
 		unregister_netdevice(cur_pnetdev);
 
-	#ifdef CONFIG_PROC_DEBUG
 	rtw_proc_remove_one(cur_pnetdev);
-	#endif //CONFIG_PROC_DEBUG
 
 	rereg_priv->old_pnetdev=cur_pnetdev;
 
@@ -1790,21 +1839,7 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 		goto error;
 	}
 
-#ifdef CONFIG_USB_HCI
-
-	SET_NETDEV_DEV(pnetdev, &padapter->dvobjpriv.pusbintf->dev);
-
-	usb_set_intfdata(padapter->dvobjpriv.pusbintf, pnetdev);
-
-#elif defined(CONFIG_PCI_HCI)
-
-#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)
-	SET_NETDEV_DEV(pnetdev, &padapter->dvobjpriv.ppcidev->dev);
-#endif
-
-	pci_set_drvdata(padapter->dvobjpriv.ppcidev, pnetdev);
-
-#endif
+	SET_NETDEV_DEV(pnetdev, dvobj_to_dev(adapter_to_dvobj(padapter)));
 
 	rtw_init_netdev_name(pnetdev, ifname);
 
@@ -1822,9 +1857,7 @@ int rtw_change_ifname(_adapter *padapter, const char *ifname)
 		goto error;
 	}
 
-	#ifdef CONFIG_PROC_DEBUG
 	rtw_proc_init_one(pnetdev);
-	#endif //CONFIG_PROC_DEBUG
 
 	return 0;
 

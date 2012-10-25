@@ -32,87 +32,25 @@
 #include <rtl8723a_hal.h>
 
 
-#if 0
-static BOOLEAN
-CheckWriteMSG(
-	IN	PADAPTER		Adapter,
-	IN	u8		BoxNum
-)
-{
-	u8	valHMETFR;
-	BOOLEAN	Result = _FALSE;
-
-	valHMETFR = rtw_read8(Adapter, REG_HMETFR);
-
-	//DbgPrint("CheckWriteH2C(): Reg[0x%2x] = %x\n",REG_HMETFR, valHMETFR);
-
-	if(((valHMETFR>>BoxNum)&BIT0) == 1)
-		Result = _TRUE;
-
-	return Result;
-
-}
-
-static BOOLEAN CheckFwReadLastMSG(
-	IN	PADAPTER		Adapter,
-	IN	u8		BoxNum
-)
-{
-	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);
-	u8	valHMETFR, valMCUTST_1;
-	BOOLEAN	 Result = _FALSE;
-
-	valHMETFR = rtw_read8(Adapter, REG_HMETFR);
-	valMCUTST_1 = rtw_read8(Adapter, (REG_MCUTST_1+BoxNum));
-
-	//DbgPrint("REG[%x] = %x, REG[%x] = %x\n",
-	//	REG_HMETFR, valHMETFR, REG_MCUTST_1+BoxNum, valMCUTST_1 );
-
-	// Do not seperate to 91C and 88C, we use the same setting. Suggested by SD4 Filen. 2009.12.03.
-	if(IS_NORMAL_CHIP(pHalData->VersionID))
-	{
-		if(((valHMETFR>>BoxNum)&BIT0) == 0)
-			Result = _TRUE;
-	}
-	else
-	{
-		if((((valHMETFR>>BoxNum)&BIT0) == 0) && (valMCUTST_1 == 0))
-		{
-			Result = _TRUE;
-		}
-	}
-
-	return Result;
-}
-#endif
-
-
 #define RTL92C_MAX_H2C_BOX_NUMS	4
 #define RTL92C_MAX_CMD_LEN	5
 #define MESSAGE_BOX_SIZE		4
 #define EX_MESSAGE_BOX_SIZE	2
 
 
-static u8 _is_fw_read_cmd_down(_adapter* padapter, u8 isvern, u8 msgbox_num)
+static u8 _is_fw_read_cmd_down(_adapter* padapter, u8 msgbox_num)
 {
 	u8	read_down = _FALSE;
 	int 	retry_cnts = 100;
 
 	u8 valid;
 
-//	DBG_8192C(" _is_fw_read_cmd_down ,isnormal_chip(%x),reg_1cc(%x),msg_box(%d)...\n",isvern,rtw_read8(padapter,REG_HMETFR),msgbox_num);
+	//DBG_8192C(" _is_fw_read_cmd_down ,reg_1cc(%x),msg_box(%d)...\n",rtw_read8(padapter,REG_HMETFR),msgbox_num);
 
 	do{
 		valid = rtw_read8(padapter,REG_HMETFR) & BIT(msgbox_num);
-		if(isvern){
-			if(0 == valid ){
-				read_down = _TRUE;
-			}
-		}
-		else{
-			if((0 == valid) && (0 == rtw_read8(padapter, REG_MCUTST_1+msgbox_num))){
-				read_down = _TRUE;
-			}
+		if(0 == valid ){
+			read_down = _TRUE;
 		}
 	}while( (!read_down) && (retry_cnts--));
 
@@ -135,7 +73,6 @@ s32 FillH2CCmd(PADAPTER padapter, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer)
 	u32	msgbox_addr;
 	u32 msgbox_ex_addr;
 	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(padapter);
-	u8 isnchip = IS_NORMAL_CHIP(pHalData->VersionID);
 	u32	h2c_cmd = 0;
 	u16	h2c_cmd_ex = 0;
 	s32 ret = _FAIL;
@@ -150,8 +87,6 @@ _func_enter_;
 	}
 
 	pHalData = GET_HAL_DATA(padapter);
-	isnchip = IS_NORMAL_CHIP(pHalData->VersionID);
-
 
 	_enter_critical_mutex(padapter->ph2c_fwcmd_mutex, NULL);
 
@@ -170,7 +105,7 @@ _func_enter_;
 	do{
 		h2c_box_num = pHalData->LastHMEBoxNum;
 
-		if(!_is_fw_read_cmd_down(padapter, isnchip, h2c_box_num)){
+		if(!_is_fw_read_cmd_down(padapter, h2c_box_num)){
 			DBG_8192C(" fw read cmd failed...\n");
 			goto exit;
 		}
@@ -196,14 +131,6 @@ _func_enter_;
 		h2c_cmd = le32_to_cpu( h2c_cmd );
 		rtw_write32(padapter,msgbox_addr, h2c_cmd);
 
-		if(!isnchip){//for Test chip
-			if(! (rtw_read8(padapter, REG_HMETFR) & BIT(h2c_box_num))){
-				DBG_8192C("Chip test  - check fw write failed, write again..\n");
-				continue;
-			}
-			// Fill H2C protection register.
-			rtw_write8(padapter,REG_MCUTST_1+h2c_box_num, 0xFF);
-		}
 		bcmd_down = _TRUE;
 
 	//	DBG_8192C("MSG_BOX:%d,CmdLen(%d), reg:0x%x =>h2c_cmd:0x%x, reg:0x%x =>h2c_cmd_ex:0x%x ..\n"
@@ -768,6 +695,9 @@ _func_enter_;
 
 	if(mstatus == 1)
 	{
+		BOOLEAN bRecover = _FALSE;
+		u8 v8;
+
 		// We should set AID, correct TSF, HW seq enable before set JoinBssReport to Fw in 88/92C.
 		// Suggested by filen. Added by tynli.
 		rtw_write16(padapter, REG_BCN_PSR_RPT, (0xC000|pmlmeinfo->aid));
@@ -777,54 +707,48 @@ _func_enter_;
 		//rtw_write16(padapter, REG_NQOS_SEQ, ((pmlmeext->mgnt_seq+100)&0xFFF));
 		//rtw_write8(padapter, REG_HWSEQ_CTRL, 0xFF);
 
-		if(IS_NORMAL_CHIP(pHalData->VersionID))
-		{
-			BOOLEAN bRecover = _FALSE;
-			u8 v8;
+		// set REG_CR bit 8
+		v8 = rtw_read8(padapter, REG_CR+1);
+		v8 |= BIT(0); // ENSWBCN
+		rtw_write8(padapter,  REG_CR+1, v8);
 
-			// set REG_CR bit 8
-			v8 = rtw_read8(padapter, REG_CR+1);
-			v8 |= BIT(0); // ENSWBCN
-			rtw_write8(padapter,  REG_CR+1, v8);
-
-			// Disable Hw protection for a time which revserd for Hw sending beacon.
-			// Fix download reserved page packet fail that access collision with the protection time.
-			// 2010.05.11. Added by tynli.
+		// Disable Hw protection for a time which revserd for Hw sending beacon.
+		// Fix download reserved page packet fail that access collision with the protection time.
+		// 2010.05.11. Added by tynli.
 //			SetBcnCtrlReg(padapter, 0, BIT(3));
 //			SetBcnCtrlReg(padapter, BIT(4), 0);
-			SetBcnCtrlReg(padapter, BIT(4), BIT(3));
+		SetBcnCtrlReg(padapter, BIT(4), BIT(3));
 
-			// Set FWHW_TXQ_CTRL 0x422[6]=0 to tell Hw the packet is not a real beacon frame.
-			if (pHalData->RegFwHwTxQCtrl & BIT(6))
-				bRecover = _TRUE;
+		// Set FWHW_TXQ_CTRL 0x422[6]=0 to tell Hw the packet is not a real beacon frame.
+		if (pHalData->RegFwHwTxQCtrl & BIT(6))
+			bRecover = _TRUE;
 
-			// To tell Hw the packet is not a real beacon frame.
-			//U1bTmp = rtw_read8(padapter, REG_FWHW_TXQ_CTRL+2);
-			rtw_write8(padapter, REG_FWHW_TXQ_CTRL+2, pHalData->RegFwHwTxQCtrl & ~BIT(6));
-			pHalData->RegFwHwTxQCtrl &= ~BIT(6);
-			SetFwRsvdPagePkt(padapter, 0);
+		// To tell Hw the packet is not a real beacon frame.
+		//U1bTmp = rtw_read8(padapter, REG_FWHW_TXQ_CTRL+2);
+		rtw_write8(padapter, REG_FWHW_TXQ_CTRL+2, pHalData->RegFwHwTxQCtrl & ~BIT(6));
+		pHalData->RegFwHwTxQCtrl &= ~BIT(6);
+		SetFwRsvdPagePkt(padapter, 0);
 
-			// 2010.05.11. Added by tynli.
+		// 2010.05.11. Added by tynli.
 //			SetBcnCtrlReg(padapter, BIT3, 0);
 //			SetBcnCtrlReg(padapter, 0, BIT4);
-			SetBcnCtrlReg(padapter, BIT(3), BIT(4));
+		SetBcnCtrlReg(padapter, BIT(3), BIT(4));
 
-			// To make sure that if there exists an adapter which would like to send beacon.
-			// If exists, the origianl value of 0x422[6] will be 1, we should check this to
-			// prevent from setting 0x422[6] to 0 after download reserved page, or it will cause
-			// the beacon cannot be sent by HW.
-			// 2010.06.23. Added by tynli.
-			if(bRecover)
-			{
-				rtw_write8(padapter, REG_FWHW_TXQ_CTRL+2, pHalData->RegFwHwTxQCtrl | BIT(6));
-				pHalData->RegFwHwTxQCtrl |= BIT(6);
-			}
-
-			// Clear CR[8] or beacon packet will not be send to TxBuf anymore.
-			v8 = rtw_read8(padapter, REG_CR+1);
-			v8 &= ~BIT(0); // ~ENSWBCN
-			rtw_write8(padapter, REG_CR+1, v8);
+		// To make sure that if there exists an adapter which would like to send beacon.
+		// If exists, the origianl value of 0x422[6] will be 1, we should check this to
+		// prevent from setting 0x422[6] to 0 after download reserved page, or it will cause
+		// the beacon cannot be sent by HW.
+		// 2010.06.23. Added by tynli.
+		if(bRecover)
+		{
+			rtw_write8(padapter, REG_FWHW_TXQ_CTRL+2, pHalData->RegFwHwTxQCtrl | BIT(6));
+			pHalData->RegFwHwTxQCtrl |= BIT(6);
 		}
+
+		// Clear CR[8] or beacon packet will not be send to TxBuf anymore.
+		v8 = rtw_read8(padapter, REG_CR+1);
+		v8 &= ~BIT(0); // ~ENSWBCN
+		rtw_write8(padapter, REG_CR+1, v8);
 	}
 
 	JoinBssRptParm.OpMode = mstatus;
@@ -1148,8 +1072,7 @@ int rtl8192c_IOL_exec_cmds_sync(ADAPTER *adapter, struct xmit_frame *xmit_frame,
 	if (rtw_IOL_append_END_cmd(xmit_frame) != _SUCCESS)
 		goto exit;
 
-	//rtw_hal_mgnt_xmit(adapter, xmit_frame);
-	rtw_dump_xframe_sync(adapter, xmit_frame);
+	dump_mgntframe_and_wait(adapter, xmit_frame, max_wating_ms);
 
 	IoOffloadLoc.LocCmd = 0;
 	if(_SUCCESS != FillH2CCmd(adapter, H2C_92C_IO_OFFLOAD, sizeof(IO_OFFLOAD_LOC), (u8 *)&IoOffloadLoc))

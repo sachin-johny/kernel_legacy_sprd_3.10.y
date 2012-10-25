@@ -34,7 +34,7 @@
 	#if defined(CONFIG_GSPI_HCI)
 		#define NR_RECVBUFF (32)
 	#else
-		#define NR_RECVBUFF (4)
+	#define NR_RECVBUFF (4)
 	#endif
 
 	#define NR_PREALLOC_RECV_SKB (8)
@@ -71,13 +71,18 @@
 #define RX_MPDU_QUEUE				0
 #define RX_CMD_QUEUE				1
 #define RX_MAX_QUEUE				2
+
+#elif defined(CONFIG_SDIO_HCI)
+
+#define MAX_RECVBUF_SZ (10240)
+
 #endif
 
 
 #define RECV_BULK_IN_ADDR		0x80
 #define RECV_INT_IN_ADDR		0x81
 
-#define PHY_RSSI_SLID_WIN_MAX				20
+#define PHY_RSSI_SLID_WIN_MAX				100
 #define PHY_LINKQUALITY_SLID_WIN_MAX		20
 
 

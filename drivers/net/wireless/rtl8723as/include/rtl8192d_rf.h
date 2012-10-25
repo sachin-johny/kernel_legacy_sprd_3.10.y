@@ -18,24 +18,24 @@
  *
  ******************************************************************************/
 /******************************************************************************
- *
- *
+ * 
+ * 
  * Module:	rtl8192d_rf.h	( Header File)
+ * 
+ * Note:	Collect every HAL RF type exter API or constant.	 
  *
- * Note:	Collect every HAL RF type exter API or constant.
- *
- * Function:
- *
- * Export:
- *
- * Abbrev:
- *
+ * Function:	
+ * 		 
+ * Export:	
+ * 
+ * Abbrev:	
+ * 
  * History:
  * Data			Who		Remark
- *
+ * 
  * 09/25/2008	MHC		Create initial version.
- *
- *
+ * 
+ * 
 ******************************************************************************/
 #ifndef _RTL8192D_RF_H_
 #define _RTL8192D_RF_H_
@@ -53,9 +53,9 @@
 /*--------------------------Define Parameters-------------------------------*/
 
 
-/*------------------------------Define structure----------------------------*/
+/*------------------------------Define structure----------------------------*/ 
 
-/*------------------------------Define structure----------------------------*/
+/*------------------------------Define structure----------------------------*/ 
 
 
 /*------------------------Export global variable----------------------------*/
@@ -71,11 +71,11 @@
 //
 // RF RL6052 Series API
 //
-void		rtl8192d_RF_ChangeTxPath(	IN	PADAPTER	Adapter,
+void		rtl8192d_RF_ChangeTxPath(	IN	PADAPTER	Adapter, 
 										IN	u16		DataRate);
-void		rtl8192d_PHY_RF6052SetBandwidth(
+void		rtl8192d_PHY_RF6052SetBandwidth(	
 										IN	PADAPTER				Adapter,
-										IN	HT_CHANNEL_WIDTH		Bandwidth);
+										IN	HT_CHANNEL_WIDTH		Bandwidth);	
 VOID	rtl8192d_PHY_RF6052SetCckTxPower(
 										IN	PADAPTER	Adapter,
 										IN	u8*		pPowerlevel);

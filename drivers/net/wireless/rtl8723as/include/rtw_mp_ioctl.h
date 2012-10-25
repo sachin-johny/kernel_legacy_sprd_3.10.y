@@ -37,65 +37,6 @@
 #define _BUSCLK_40M			(4 << 2)
 #endif
 //------------------------------------------------------------------------------
-
-typedef enum _PREAMBLE {
-        Long_Preamble	= 0x01,
-        Short_Preamble  	  ,
-        Long_GI     		  ,
-        Short_GI
-} PREAMBLE;
-
-#define RT_DEVICE_ID_INFO_TAG							0x10ec0211
-#define RT_DEVICE_ID_PCI								0x00000000
-#define RT_DEVICE_ID_USB								0x00000001
-#define RT_DEVICE_ID_SDIO								0x00000002
-
-typedef struct _RT_DEVICE_ID_HEADER{
-	//
-	// Identify whether this is a Realtek WLAN device.
-	// RT_DEVICE_ID_INFO_TAG means Realtek WLAN NIC device, other values are not valid.
-	//
-	ULONG	RtWlanDevTag;
-
-	//
-	// Identify which IC.
-	// Examples of (ChipID, ChipVer):
-	// (0x8185, 0x1)	=> 8185
-	// (0x8187, 0x1)	=> 8187
-	// (0x8185, 0x2)	=> 8185B
-	// (0x8187, 0x2)	=> 8187B
-	//
-	ULONG	ChipID;
-	ULONG	ChipVer;
-
-	//
-	// BusType is used to identify BUS type of the device and corresponding data type,
-	// for example:
-	// RT_PCI_DEVICE => struc _RT_PCI_ID_INFO
-	// RT_USB_DEVICE => struc _RT_USB_ID_INFO
-	//
-	ULONG	BusType;
-}RT_DEVICE_ID_HEADER, *PRT_DEVICE_ID_HEADER;
-
-
-typedef struct _RT_SDIO_ID_INFO{
-	RT_DEVICE_ID_HEADER	DevIDHeader;
-
-	//
-	// Vendor ID and Product ID from SDIO Device.
-	//
-	u2Byte VID;
-	u2Byte	PID;
-
-	u2Byte	RevID;
-
-	//
-	// Interface index.
-	//
-	u2Byte	InterfaceIdx;
-}RT_SDIO_ID_INFO, *PRT_SDIO_ID_INFO;
-
-
 typedef struct CFG_DBG_MSG_STRUCT {
 	u32 DebugLevel;
 	u32 DebugComponent_H32;

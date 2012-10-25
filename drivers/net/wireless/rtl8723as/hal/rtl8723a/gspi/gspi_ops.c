@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -16,7 +16,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
  *
  *******************************************************************************/
-#define _SDIO_OPS_C_
+#define _GSPI_OPS_C_
 
 #include <drv_types.h>
 #include <gspi_ops.h>
@@ -166,41 +166,41 @@ static u32 _spi_read_port(
 }
 
 /*
- * Description:
- *	Write to TX FIFO
- *	Align write size block size,
- *	and make sure data could be written in one command.
- *
- * Parameters:
- *	pintfhdl	a pointer of intf_hdl
- *	addr		port ID
- *	cnt			size to write
- *	wmem		data pointer to write
- *
- * Return:
- *	_SUCCESS(1)		Success
- *	_FAIL(0)		Fail
+ *	Description:
+ *		Translate QSEL to hardware tx FIFO address
  */
-u32 _spi_hwqueue_to_fifoqueue(u32 qsel)
+static u32 hwaddr2txfifo(u32 addr)
 {
-	u4Byte fifo_queue = TX_HIQ_DOMAIN;
-	switch(qsel) {
-		case WLAN_TX_HIQ_DEVICE_ID:
-			fifo_queue = TX_HIQ_DOMAIN;
+	u32 qsel;
+	switch (addr)
+	{
+		case 0:
+		case 3:
+			qsel = TX_LOQ_DOMAIN;
+		 	break;
+		case 1:
+		case 2:
+			qsel = TX_LOQ_DOMAIN;
 			break;
-		case WLAN_TX_MIQ_DEVICE_ID:
-			fifo_queue = TX_MIQ_DOMAIN;
+		case 4:
+		case 5:
+			qsel = TX_MIQ_DOMAIN;
 			break;
-		case WLAN_TX_LOQ_DEVICE_ID:
-			fifo_queue = TX_LOQ_DOMAIN;
+		case 6:
+		case 7:
+		case 0x10:
+		case 0x11://BC/MC in PS (HIQ)
+		case 0x12:
+			qsel = TX_HIQ_DOMAIN;
 			break;
 		default:
-			fifo_queue = TX_LOQ_DOMAIN;
+			qsel = TX_LOQ_DOMAIN;
 			break;
-
 	}
-	return fifo_queue;
+
+	return qsel;
 }
+
 static u32 _spi_write_port(
 	struct intf_hdl *pintfhdl,
 	u32 addr,
@@ -215,7 +215,7 @@ static u32 _spi_write_port(
 		w_sz += 4 -remain_len;
 
 	//DBG_8192C("%s fifo:%d cnt:%d w_sz:%d\n", __func__, addr, cnt, w_sz);
-	spi_write_tx_fifo(pintfhdl->padapter, mem, w_sz, _spi_hwqueue_to_fifoqueue(addr));
+	spi_write_tx_fifo(pintfhdl->padapter, mem, w_sz, hwaddr2txfifo(addr));
 
 	return 0;
 }
@@ -287,6 +287,27 @@ void ClearInterrupt8723ASdio(PADAPTER padapter)
 
 //
 //	Description:
+//		Initialize System Host Interrupt Mask configuration variables for future use.
+//
+//	Created by Roger, 2011.08.03.
+//
+void InitSysInterrupt8723ASdio(PADAPTER padapter)
+{
+	PHAL_DATA_TYPE pHalData;
+
+
+	pHalData = GET_HAL_DATA(padapter);
+
+	pHalData->SysIntrMask = (			\
+			//HSIMR_GPIO12_0_INT_EN			|
+			//HSIMR_SPS_OCP_INT_EN			|
+			//HSIMR_RON_INT_EN				|
+			//HSIMR_PDNINT_EN				|
+			//HSIMR_GPIO9_INT_EN				|
+			0);
+}
+//
+//	Description:
 //		Enalbe SDIO Host Interrupt Mask configuration on SDIO local domain.
 //
 //	Assumption:
@@ -353,7 +374,7 @@ static void spi_clean_rxfifo(PADAPTER padapter, u32 size)
 
 
 	pbuf = NULL;
-	bufSize = padapter->dvobjpriv.intf_data.block_transfer_len;
+	bufSize = adapter_to_dvobj(padapter)->intf_data.block_transfer_len;
 	do {
 		pbuf = rtw_malloc(bufSize);
 		if (pbuf) break;
@@ -400,7 +421,7 @@ static struct recv_buf* spi_recv_rxfifo(PADAPTER padapter, u32 size, struct spi_
 
 	//3 1. alloc skb
 	// align to block size
-	allocsize = _RND(readsize, padapter->dvobjpriv.intf_data.block_transfer_len);
+	allocsize = _RND(readsize, adapter_to_dvobj(padapter)->intf_data.block_transfer_len);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)) // http://www.mail-archive.com/netdev@vger.kernel.org/msg17214.html
 	ppkt = dev_alloc_skb(allocsize);
 #else

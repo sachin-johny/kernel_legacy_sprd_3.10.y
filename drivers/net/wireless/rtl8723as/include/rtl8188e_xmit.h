@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -19,18 +19,6 @@
  ******************************************************************************/
 #ifndef __RTL8188E_XMIT_H__
 #define __RTL8188E_XMIT_H__
-
-
-#define VO_QUEUE_INX		0
-#define VI_QUEUE_INX		1
-#define BE_QUEUE_INX		2
-#define BK_QUEUE_INX		3
-#define BCN_QUEUE_INX		4
-#define MGT_QUEUE_INX		5
-#define HIGH_QUEUE_INX		6
-#define TXCMD_QUEUE_INX	7
-
-#define HW_QUEUE_ENTRY	8
 
 #define 	MAX_TX_AGG_PACKET_NUMBER 	0xFF
 //
@@ -225,15 +213,21 @@ typedef struct txdescriptor_8188e
 }TXDESC, *PTXDESC;
 
 
-u32 get_txfifo_hwaddr(struct xmit_frame *pxmitframe);
 void rtl8188e_fill_fake_txdesc(PADAPTER	padapter,u8*pDesc,u32 BufferLen,u8 IsPsPoll,u8	IsBTQosNull);
 #ifdef CONFIG_SDIO_HCI
 s32 rtl8188es_init_xmit_priv(PADAPTER padapter);
 void rtl8188es_free_xmit_priv(PADAPTER padapter);
 s32 rtl8188es_hal_xmit(PADAPTER padapter, struct xmit_frame *pxmitframe);
-void rtl8188es_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
+s32 rtl8188es_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
+thread_return rtl8188es_xmit_thread(thread_context context);
+
+#ifdef CONFIG_SDIO_TX_MULTI_QUEUE
+s32 rtw_sdio_xmit_buf_handler(PADAPTER padapter);
+#define hal_xmit_handler rtw_sdio_xmit_buf_handler
+#else
 s32 rtl8188es_xmit_buf_handler(PADAPTER padapter);
 #define hal_xmit_handler rtl8188es_xmit_buf_handler
+#endif
 #ifdef CONFIG_SDIO_TX_TASKLET
 void rtl8188es_xmit_tasklet(void *priv);
 #endif
@@ -243,7 +237,7 @@ void rtl8188es_xmit_tasklet(void *priv);
 s32 rtl8188eu_init_xmit_priv(PADAPTER padapter);
 void rtl8188eu_free_xmit_priv(PADAPTER padapter);
 s32 rtl8188eu_hal_xmit(PADAPTER padapter, struct xmit_frame *pxmitframe);
-void rtl8188eu_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
+s32 rtl8188eu_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
 s32 rtl8188eu_xmit_buf_handler(PADAPTER padapter);
 #define hal_xmit_handler rtl8188eu_xmit_buf_handler
 void rtl8188eu_xmit_tasklet(void *priv);
@@ -256,7 +250,7 @@ void rtl8188ee_free_xmit_priv(PADAPTER padapter);
 struct xmit_buf *rtl8188ee_dequeue_xmitbuf(struct rtw_tx_ring *ring);
 void	rtl8188ee_xmitframe_resume(_adapter *padapter);
 s32 rtl8188ee_hal_xmit(PADAPTER padapter, struct xmit_frame *pxmitframe);
-void rtl8188ee_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
+s32 rtl8188ee_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
 void rtl8188ee_xmit_tasklet(void *priv);
 #endif
 

@@ -22,7 +22,7 @@
 
 
 //--------------------------------------------
-//3				Host Message Box
+//3				Host Message Box 
 //--------------------------------------------
 
 // User Define Message [31:8]
@@ -63,7 +63,7 @@ struct P2P_PS_Offload_t {
 
 // Description: Determine the types of H2C commands that are the same in driver and Fw.
 // Fisrt constructed by tynli. 2009.10.09.
-typedef enum _RTL8192D_H2C_CMD
+typedef enum _RTL8192D_H2C_CMD 
 {
 	H2C_AP_OFFLOAD = 0,		/*0*/
 	H2C_SETPWRMODE = 1,		/*1*/

@@ -19,7 +19,7 @@
  ******************************************************************************/
 #define CONFIG_ODM_REFRESH_RAMASK
 #define CONFIG_PHY_SETTING_WITH_ODM
-#define CONFIG_CHIP_VER_INTEGRATION
+
 
 /*
  * Automatically generated C config: don't edit
@@ -37,9 +37,6 @@
 
 #define CONFIG_EMBEDDED_FWIMG
 
-#define CONFIG_DEBUG
-
-
 /*
  * Functions Config
  */
@@ -53,6 +50,7 @@
 	#endif
 #endif
 #ifdef CONFIG_IOCTL_CFG80211
+	//#define RTW_USE_CFG80211_STA_EVENT /* Opne this for Android 4.1's wpa_supplicant */
 	#define CONFIG_CFG80211_FORCE_COMPATIBLE_2_6_37_UNDER
 	//#define CONFIG_DEBUG_CFG80211
 #endif
@@ -73,11 +71,11 @@
 	//The CONFIG_WFD is for supporting the Wi-Fi display
 	//#define CONFIG_WFD
 
-	//Unmarked if there is low p2p scanned ratio; Kurt
-	//#define CONFIG_P2P_AGAINST_NOISE
-
-	#define CONFIG_P2P_REMOVE_GROUP_INFO
+	#ifndef CONFIG_WIFI_TEST
+		#define CONFIG_P2P_REMOVE_GROUP_INFO
+	#endif
 	//#define CONFIG_DBG_P2P
+	//#define CONFIG_P2P_IPS
 #endif
 
 // Added by Kurt 20110511
@@ -102,7 +100,9 @@
 /*
  * Interface Related Config
  */
-
+#if defined(CONFIG_SDIO_HCI)
+#define CONFIG_SDIO_RX_COPY
+#endif
 
 /*
  * Others
@@ -110,6 +110,8 @@
 //#define CONFIG_MAC_LOOPBACK_DRIVER
 #define CONFIG_SKB_COPY	//for amsdu
 #define CONFIG_LONG_DELAY_ISSUE
+#define CONFIG_NEW_SIGNAL_STAT_PROCESS
+#define RTW_NOTCH_FILTER 0 /* 0:Disable, 1:Enable, */
 //#define CONFIG_PATCH_JOIN_WRONG_CHANNEL
 
 
@@ -137,6 +139,20 @@
 #endif
 
 
+//#define CONFIG_CONCURRENT_MODE 1
+#ifdef CONFIG_CONCURRENT_MODE
+	#define CONFIG_TSF_RESET_OFFLOAD 1			// For 2 PORT TSF SYNC.
+	#define CONFIG_HWPORT_SWAP				//Port0->Sec , Port1 -> Pri
+	#if	defined (CONFIG_IPS)
+		#undef CONFIG_IPS
+	#endif
+	#if	defined (CONFIG_LPS)
+		#undef CONFIG_LPS
+		#undef CONFIG_LPS_LCLK
+	#endif
+#endif	// CONFIG_CONCURRENT_MODE
+
+
 #ifdef CONFIG_MP_INCLUDED
 	#define MP_DRIVER		1
 	#define CONFIG_MP_IWPRIV_SUPPORT
@@ -157,6 +173,13 @@
 
 	#if defined(CONFIG_LPS) && (defined(CONFIG_GSPI_HCI) || defined(CONFIG_SDIO_HCI))
 	#define CONFIG_LPS_LCLK
+	#endif
+
+	#ifdef CONFIG_LPS_LCLK
+	#define CONFIG_LPS_RPWM_TIMER
+	#ifdef CONFIG_LPS_RPWM_TIMER
+	#define LPS_RPWM_WAIT_MS 30
+	#endif
 	#endif
 #endif // #ifdef CONFIG_POWER_SAVING
 
@@ -187,21 +210,9 @@
 	#define HAL_RF_ENABLE		1
 #endif
 
-
-#ifdef CONFIG_DEBUG
-//#define CONFIG_DEBUG_RTL871X
-//#define CONFIG_PROC_DEBUG
-//#define BT_DEBUG
-//#define WAPI_DEBUG
-#endif
-
-#define DBG_CONFIG_ERROR_DETECT
-
 /*
  * Outsource  Related Config
  */
-
-#define DBG	0
 
 #define 	RTL8192CE_SUPPORT 				0
 #define 	RTL8192CU_SUPPORT 			0
@@ -227,4 +238,18 @@
 #define RATE_ADAPTIVE_SUPPORT 			0
 #define POWER_TRAINING_ACTIVE			0
 //#endif
+
+/*
+ * Debug Related Config
+ */
+#define DBG	0
+
+#define CONFIG_DEBUG /* DBG_871X, etc... */
+#define CONFIG_DEBUG_RTL871X /* RT_TRACE, RT_PRINT_DATA, _func_enter_, _func_exit_ */
+
+#define CONFIG_PROC_DEBUG
+
+#define DBG_CONFIG_ERROR_DETECT
+//#define DBG_XMIT_BUF
+//#define DBG_XMIT_BUF_EXT
 

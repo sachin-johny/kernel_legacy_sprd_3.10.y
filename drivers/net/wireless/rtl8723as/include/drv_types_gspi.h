@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -17,22 +17,15 @@
  *
  *
  ******************************************************************************/
-#ifndef __DRV_TYPES_SDIO_H__
-#define __DRV_TYPES_SDIO_H__
+#ifndef __DRV_TYPES_GSPI_H__
+#define __DRV_TYPES_GSPI_H__
 
 #include <drv_conf.h>
 #include <basic_types.h>
 
-// SDIO Header Files
+// SPI Header Files
 #ifdef PLATFORM_LINUX
-#include <linux/mmc/sdio_func.h>
-#endif
-#ifdef PLATFORM_OS_XP
-#include <wdm.h>
-#include <ntddsd.h>
-#endif
-#ifdef PLATFORM_OS_CE
-#include <sdcardddk.h>
+#include <linux/spi/spi.h>
 #endif
 
 
@@ -46,25 +39,11 @@ typedef struct gspi_data
 
 #ifdef PLATFORM_LINUX
 	struct spi_device *func;
-#endif
 
-#ifdef PLATFORM_OS_XP
-	PDEVICE_OBJECT				pphysdevobj;
-	PDEVICE_OBJECT				pfuncdevobj;
-	PDEVICE_OBJECT				pnextdevobj;
-	SDBUS_INTERFACE_STANDARD	sdbusinft;
-	u8							nextdevstacksz;
-#endif
-
-#ifdef PLATFORM_OS_CE
-	SD_DEVICE_HANDLE			hDevice;
-	SD_CARD_RCA					sd_rca;
-	SD_CARD_INTERFACE			card_intf;
-	BOOLEAN						enableIsarWithStatus;
-	WCHAR						active_path[MAX_ACTIVE_REG_PATH];
-	SD_HOST_BLOCK_CAPABILITY	sd_host_blk_cap;
+	struct workqueue_struct *priv_wq;
+	struct delayed_work irq_work;
 #endif
 } GSPI_DATA, *PGSPI_DATA;
 
-#endif
+#endif // #ifndef __DRV_TYPES_GSPI_H__
 

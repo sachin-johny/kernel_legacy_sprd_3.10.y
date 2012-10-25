@@ -332,7 +332,8 @@ static void getPowerBase(
 {
 	HAL_DATA_TYPE	*pHalData = GET_HAL_DATA(Adapter);
 	u32			powerBase0, powerBase1;
-	u8			Legacy_pwrdiff=0, HT20_pwrdiff=0;
+	u8			Legacy_pwrdiff=0;
+	s8			HT20_pwrdiff=0;
 	u8			i, powerlevel[2];
 
 	for(i=0; i<2; i++)
@@ -686,7 +687,7 @@ phy_RF6052_Config_ParaFile(
 #ifdef CONFIG_EMBEDDED_FWIMG
 			#ifdef CONFIG_PHY_SETTING_WITH_ODM
 			if(HAL_STATUS_FAILURE ==ODM_ConfigRFWithHeaderFile(&pHalData->odmpriv,(ODM_RF_RADIO_PATH_E)eRFPath, (ODM_RF_RADIO_PATH_E)eRFPath))
-				rtStatus= _FAIL;
+				rtStatus= _FAIL;	
 			#else
 			rtStatus = rtl8723a_PHY_ConfigRFWithHeaderFile(Adapter,(RF_RADIO_PATH_E)eRFPath);
 			#endif

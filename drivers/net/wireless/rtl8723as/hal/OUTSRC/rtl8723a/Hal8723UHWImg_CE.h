@@ -8,8 +8,16 @@
 extern u8 Rtl8723UFwImgArray[Rtl8723UImgArrayLength];
 #define Rtl8723UBTImgArrayLength 1
 extern u8 Rtl8723UFwBTImgArray[Rtl8723UBTImgArrayLength];
-#define Rtl8723UUMCBCutImgArrayLength 23860
+#define Rtl8723UUMCBCutImgArrayLength 24422
 extern u8 Rtl8723UFwUMCBCutImgArray[Rtl8723UUMCBCutImgArrayLength];
+
+#ifdef CONFIG_MP_INCLUDED
+#define Rtl8723SUMCBCutMPImgArrayLength 18396
+extern const u8 Rtl8723SFwUMCBCutMPImgArray[Rtl8723SUMCBCutMPImgArrayLength];
+
+#define Rtl8723EBTImgArrayLength 16484
+extern u8 Rtl8723EFwBTImgArray[Rtl8723EBTImgArrayLength] ;
+#endif //CONFIG_MP_INCLUDED
 
 #ifndef CONFIG_PHY_SETTING_WITH_ODM
 #define Rtl8723UPHY_REG_2TArrayLength 1

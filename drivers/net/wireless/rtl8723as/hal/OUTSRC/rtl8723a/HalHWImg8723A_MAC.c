@@ -1,21 +1,21 @@
-/******************************************************************************
-*
-* Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
-*
-* This program is free software; you can redistribute it and/or modify it
-* under the terms of version 2 of the GNU General Public License as
-* published by the Free Software Foundation.
-*
-* This program is distributed in the hope that it will be useful, but WITHOUT
-* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
-* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
-* more details.
-*
-* You should have received a copy of the GNU General Public License along with
-* this program; if not, write to the Free Software Foundation, Inc.,
-* 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA
-*
-*
+/****************************************************************************** 
+* 
+* Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved. 
+* 
+* This program is free software; you can redistribute it and/or modify it 
+* under the terms of version 2 of the GNU General Public License as 
+* published by the Free Software Foundation. 
+* 
+* This program is distributed in the hope that it will be useful, but WITHOUT 
+* ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
+* FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for 
+* more details. 
+* 
+* You should have received a copy of the GNU General Public License along with 
+* this program; if not, write to the Free Software Foundation, Inc., 
+* 51 Franklin Street, Fifth Floor, Boston, MA 02110, USA 
+* 
+* 
 ******************************************************************************/
 
 #include "../odm_precomp.h"
@@ -28,9 +28,12 @@ CheckCondition(
     )
 {
     u4Byte board = Hex & 0xFF;
-    u4Byte interface4Byte = Hex & 0xFF00;
+    u4Byte interfaceValue = Hex & 0xFF00;
     u4Byte platform = Hex & 0xFF0000;
     u4Byte cond = Condition;
+
+    if ( Condition == 0xCDCDCDCD )
+        return TRUE;
 
     cond = Condition & 0xFF;
     if ( (board & cond) == 0 && cond != 0x1F)
@@ -38,7 +41,7 @@ CheckCondition(
 
     cond = Condition & 0xFF00;
     cond = cond >> 8;
-    if ( (interface4Byte & cond) == 0 && cond != 0x07)
+    if ( (interfaceValue & cond) == 0 && cond != 0x07)
         return FALSE;
 
     cond = Condition & 0xFF0000;
@@ -53,7 +56,7 @@ CheckCondition(
 *                           MAC_REG.TXT
 ******************************************************************************/
 
-u4Byte Array_MAC_REG_8723A[] = {
+u4Byte Array_MAC_REG_8723A[] = { 
 		0x420, 0x00000080,
 		0x423, 0x00000000,
 		0x430, 0x00000000,
@@ -128,8 +131,8 @@ u4Byte Array_MAC_REG_8723A[] = {
 		0x609, 0x0000002A,
 		0x652, 0x00000020,
 		0x63C, 0x0000000A,
-		0x63D, 0x0000000E,
-		0x63E, 0x0000000A,
+		0x63D, 0x0000000A,
+		0x63E, 0x0000000E,
 		0x63F, 0x0000000E,
 		0x66E, 0x00000005,
 		0x700, 0x00000021,
@@ -148,24 +151,28 @@ ODM_ReadAndConfig_MAC_REG_8723A(
  	IN   PDM_ODM_T  pDM_Odm
  	)
 {
+	#define READ_NEXT_PAIR(v1, v2, i) do { i += 2; v1 = Array[i]; v2 = Array[i+1]; } while(0)
+
 	u4Byte     hex         = 0;
 	u4Byte     i           = 0;
+	u2Byte     count       = 0;
+	pu4Byte    ptr_array   = NULL;
 	u1Byte     platform    = pDM_Odm->SupportPlatform;
-	u1Byte     interface1Byte   = pDM_Odm->SupportInterface;
-	u1Byte     board       = pDM_Odm->BoardType;
+	u1Byte     interfaceValue   = pDM_Odm->SupportInterface;
+	u1Byte     board       = pDM_Odm->BoardType;  
 	u4Byte     ArrayLen    = sizeof(Array_MAC_REG_8723A)/sizeof(u4Byte);
 	pu4Byte    Array       = Array_MAC_REG_8723A;
 
 
 	hex += board;
-	hex += interface1Byte << 8;
+	hex += interfaceValue << 8;
 	hex += platform << 16;
 	hex += 0xFF000000;
 	for (i = 0; i < ArrayLen; i += 2 )
 	{
 	    u4Byte v1 = Array[i];
 	    u4Byte v2 = Array[i+1];
-
+	
 	    // This (offset, data) pair meets the condition.
 	    if ( v1 < 0xCDCDCDCD )
 	    {
@@ -176,22 +183,37 @@ ODM_ReadAndConfig_MAC_REG_8723A(
 		{ // This line is the start line of branch.
 		    if ( !CheckCondition(Array[i], hex) )
 		    { // Discard the following (offset, data) pairs.
-		        i += 2;
-		        v1 = Array[i];
-		        v2 = Array[i+1];
-		        while (v2 != 0xDEAD &&
-	                   v2 != 0xCDEF &&
-	                   v2 != 0xCDCD)
+		        READ_NEXT_PAIR(v1, v2, i);
+		        while (v2 != 0xDEAD && 
+		               v2 != 0xCDEF && 
+		               v2 != 0xCDCD && i < ArrayLen -2)
 		        {
-		            i += 2;
-		            v1 = Array[i];
-		            v2 = Array[i+1];
+		            READ_NEXT_PAIR(v1, v2, i);
 		        }
+		        i -= 2; // prevent from for-loop += 2
 		    }
-		}
+		    else // Configure matched pairs and skip to end of if-else.
+		    {
+		        READ_NEXT_PAIR(v1, v2, i);
+		        while (v2 != 0xDEAD && 
+		               v2 != 0xCDEF && 
+		               v2 != 0xCDCD && i < ArrayLen -2)
+		        {
+	 				odm_ConfigMAC_8723A(pDM_Odm, v1, (u1Byte)v2);
+		            READ_NEXT_PAIR(v1, v2, i);
+		        }
+
+		        while (v2 != 0xDEAD && i < ArrayLen -2)
+		        {
+		            READ_NEXT_PAIR(v1, v2, i);
+		        }
+		        
+		    }
+		}	
 	}
 
 }
+
 
 #endif // end of HWIMG_SUPPORT
 

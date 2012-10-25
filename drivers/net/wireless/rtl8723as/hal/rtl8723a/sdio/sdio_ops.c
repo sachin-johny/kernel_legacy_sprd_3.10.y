@@ -575,7 +575,7 @@ static u32 sdio_read_port(
 
 
 	padapter = pintfhdl->padapter;
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 	phal = GET_HAL_DATA(padapter);
 
 	HalSdioGetCmdAddr8723ASdio(padapter, addr, phal->SdioRxFIFOCnt++, &addr);
@@ -638,10 +638,10 @@ static u32 sdio_write_port(
 	PADAPTER padapter;
 	PSDIO_DATA psdio;
 	s32 err;
-
+	struct xmit_buf *xmitbuf = (struct xmit_buf *)mem;
 
 	padapter = pintfhdl->padapter;
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 
 	cnt = _RND4(cnt);
 	HalSdioGetCmdAddr8723ASdio(padapter, addr, cnt >> 2, &addr);
@@ -650,7 +650,10 @@ static u32 sdio_write_port(
 		cnt = _RND(cnt, psdio->block_transfer_len);
 //	cnt = sdio_align_size(cnt);
 
-	err = sd_write(psdio, addr, cnt, mem);
+	err = sd_write(psdio, addr, cnt, xmitbuf->pdata);
+
+	rtw_sctx_done_err(&xmitbuf->sctx,
+		err ? RTW_SCTX_DONE_WRITE_PORT_ERR : RTW_SCTX_DONE_SUCCESS);
 
 	if (err) return _FAIL;
 	return _SUCCESS;
@@ -692,16 +695,12 @@ s32 _sdio_local_read(
 	u32 n;
 
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 
 	rtw_hal_get_hwreg(padapter, HW_VAR_APFM_ON_MAC, &bMacPwrCtrlOn);
-	if ((_FALSE == bMacPwrCtrlOn)
-#ifdef CONFIG_LPS_LCLK
-		|| (_TRUE == padapter->pwrctrlpriv.bFwCurrentInPSMode)
-#endif
-		)
+	if (_FALSE == bMacPwrCtrlOn)
 	{
 		err = _sd_cmd52_read(psdio, addr, cnt, pbuf);
 		return err;
@@ -738,7 +737,7 @@ s32 sdio_local_read(
 	u32 n;
 
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 
@@ -782,14 +781,13 @@ s32 _sdio_local_write(
 	s32 err;
 	u8 *ptmpbuf;
 
-
 	if(addr & 0x3)
 		DBG_8192C("%s, address must be 4 bytes alignment\n", __FUNCTION__);
 
 	if(cnt  & 0x3)
 		DBG_8192C("%s, size must be the multiple of 4 \n", __FUNCTION__);
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 
@@ -832,14 +830,13 @@ s32 sdio_local_write(
 	s32 err;
 	u8 *ptmpbuf;
 
-
 	if(addr & 0x3)
 		DBG_8192C("%s, address must be 4 bytes alignment\n", __FUNCTION__);
 
 	if(cnt  & 0x3)
 		DBG_8192C("%s, size must be the multiple of 4 \n", __FUNCTION__);
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 
@@ -874,7 +871,7 @@ u8 SdioLocalCmd52Read1Byte(PADAPTER padapter, u32 addr)
 	u8 val = 0;
 
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 	sd_cmd52_read(psdio, addr, 1, &val);
 
@@ -887,7 +884,7 @@ u16 SdioLocalCmd52Read2Byte(PADAPTER padapter, u32 addr)
 	u16 val = 0;
 
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 	sd_cmd52_read(psdio, addr, 2, (u8*)&val);
 
@@ -902,7 +899,7 @@ u32 SdioLocalCmd52Read4Byte(PADAPTER padapter, u32 addr)
 	u32 val = 0;
 
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 	sd_cmd52_read(psdio, addr, 4, (u8*)&val);
 
@@ -919,7 +916,7 @@ u32 SdioLocalCmd53Read4Byte(PADAPTER padapter, u32 addr)
 
 
 	val = 0;
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 	rtw_hal_get_hwreg(padapter, HW_VAR_APFM_ON_MAC, &bMacPwrCtrlOn);
 	if ((_FALSE == bMacPwrCtrlOn)
@@ -942,7 +939,7 @@ void SdioLocalCmd52Write1Byte(PADAPTER padapter, u32 addr, u8 v)
 	PSDIO_DATA psdio;
 
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 	sd_cmd52_write(psdio, addr, 1, &v);
 }
@@ -952,7 +949,7 @@ void SdioLocalCmd52Write2Byte(PADAPTER padapter, u32 addr, u16 v)
 	PSDIO_DATA psdio;
 
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 	v = cpu_to_le16(v);
 	sd_cmd52_write(psdio, addr, 2, (u8*)&v);
@@ -963,7 +960,7 @@ void SdioLocalCmd52Write4Byte(PADAPTER padapter, u32 addr, u32 v)
 	PSDIO_DATA psdio;
 
 
-	psdio = &padapter->dvobjpriv.intf_data;
+	psdio = &adapter_to_dvobj(padapter)->intf_data;
 	HalSdioGetCmdAddr8723ASdio(padapter, SDIO_LOCAL_DEVICE_ID, addr, &addr);
 	v = cpu_to_le32(v);
 	sd_cmd52_write(psdio, addr, 4, (u8*)&v);
@@ -1150,7 +1147,7 @@ void InitInterrupt8723ASdio(PADAPTER padapter)
 //								SDIO_HIMR_TXBCNOK_MSK				|
 //								SDIO_HIMR_TXBCNERR_MSK			|
 //								SDIO_HIMR_BCNERLY_INT_MSK			|
-#if defined(CONFIG_BT_COEXIST) || defined(CONFIG_MP_INCLUDED)
+#if defined( CONFIG_BT_COEXIST) || defined(CONFIG_MP_INCLUDED)
 								SDIO_HIMR_C2HCMD_MSK				|
 #endif
 #ifdef CONFIG_LPS_LCLK
@@ -1264,7 +1261,11 @@ void EnableInterrupt8723ASdio(PADAPTER padapter)
 	PHAL_DATA_TYPE pHalData;
 	u32 himr;
 
-
+#ifdef CONFIG_CONCURRENT_MODE
+	if ((padapter->isprimary == _FALSE) && padapter->pbuddy_adapter){
+		padapter = padapter->pbuddy_adapter;
+	}
+#endif
 	pHalData = GET_HAL_DATA(padapter);
 
 	himr = cpu_to_le32(pHalData->sdio_himr);
@@ -1299,13 +1300,16 @@ void EnableInterrupt8723ASdio(PADAPTER padapter)
 //
 void DisableInterrupt8723ASdio(PADAPTER padapter)
 {
-#if 0
-	SdioLocalCmd52Write4Byte(padapter, SDIO_REG_HIMR, SDIO_HIMR_DISABLED);
-#else
 	u32 himr;
+
+#ifdef CONFIG_CONCURRENT_MODE
+	if ((padapter->isprimary == _FALSE) && padapter->pbuddy_adapter){
+		padapter = padapter->pbuddy_adapter;
+	}
+#endif
 	himr = cpu_to_le32(SDIO_HIMR_DISABLED);
 	sdio_local_write(padapter, SDIO_REG_HIMR, 4, (u8*)&himr);
-#endif
+
 }
 
 //
@@ -1322,7 +1326,11 @@ void UpdateInterruptMask8723ASdio(PADAPTER padapter, u32 AddMSR, u32 RemoveMSR)
 {
 	HAL_DATA_TYPE *pHalData;
 
-
+#ifdef CONFIG_CONCURRENT_MODE
+	if ((padapter->isprimary == _FALSE) && padapter->pbuddy_adapter){
+		padapter = padapter->pbuddy_adapter;
+	}
+#endif
 	pHalData = GET_HAL_DATA(padapter);
 
 	if (AddMSR)
@@ -1345,7 +1353,7 @@ static void sd_recv_loopback(PADAPTER padapter, u32 size)
 
 	readsize = size;
 	DBG_8192C("%s: read size=%d\n", __func__, readsize);
-	allocsize = _RND(readsize, padapter->dvobjpriv.intf_data.block_transfer_len);
+	allocsize = _RND(readsize, adapter_to_dvobj(padapter)->intf_data.block_transfer_len);
 
 	ploopback = padapter->ploopback;
 	if (ploopback) {
@@ -1380,6 +1388,72 @@ static void sd_recv_loopback(PADAPTER padapter, u32 size)
 }
 #endif // CONFIG_MAC_LOOPBACK_DRIVER
 
+#ifdef CONFIG_SDIO_RX_COPY
+static struct recv_buf* sd_recv_rxfifo(PADAPTER padapter, u32 size)
+{
+	u32 readsize, ret;
+	u8 *preadbuf;
+	struct recv_priv *precvpriv;
+	struct recv_buf	*precvbuf;
+
+
+	readsize = size;
+
+	//3 1. alloc recvbuf
+	precvpriv = &padapter->recvpriv;
+	precvbuf = rtw_dequeue_recvbuf(&precvpriv->free_recv_buf_queue);
+	if (precvbuf == NULL) {
+		RT_TRACE(_module_hci_ops_os_c_, _drv_err_, ("%s: alloc recvbuf FAIL!\n", __FUNCTION__));
+		return NULL;
+	}
+
+	//3 2. alloc skb
+	if (precvbuf->pskb == NULL) {
+		SIZE_PTR tmpaddr=0;
+		SIZE_PTR alignment=0;
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)) // http://www.mail-archive.com/netdev@vger.kernel.org/msg17214.html
+		precvbuf->pskb = dev_alloc_skb(MAX_RECVBUF_SZ + RECVBUFF_ALIGN_SZ);
+#else
+		precvbuf->pskb = netdev_alloc_skb(padapter->pnetdev, MAX_RECVBUF_SZ + RECVBUFF_ALIGN_SZ);
+#endif
+
+		if(precvbuf->pskb)
+		{
+			precvbuf->pskb->dev = padapter->pnetdev;
+
+			tmpaddr = (SIZE_PTR)precvbuf->pskb->data;
+			alignment = tmpaddr & (RECVBUFF_ALIGN_SZ-1);
+			skb_reserve(precvbuf->pskb, (RECVBUFF_ALIGN_SZ - alignment));
+		}
+
+		if (precvbuf->pskb == NULL) {
+			DBG_871X("%s: alloc_skb fail! read=%d\n", __FUNCTION__, readsize);
+			return NULL;
+		}
+	}
+
+	//3 3. read data from rxfifo
+	preadbuf = precvbuf->pskb->data;
+//	rtw_read_port(padapter, WLAN_RX0FF_DEVICE_ID, readsize, preadbuf);
+	ret = sdio_read_port(&padapter->iopriv.intf, WLAN_RX0FF_DEVICE_ID, readsize, preadbuf);
+	if (ret == _FAIL) {
+		RT_TRACE(_module_hci_ops_os_c_, _drv_err_, ("%s: read port FAIL!\n", __FUNCTION__));
+		return NULL;
+	}
+
+
+	//3 4. init recvbuf
+	precvbuf->len = readsize;
+	precvbuf->phead = precvbuf->pskb->head;
+	precvbuf->pdata = precvbuf->pskb->data;
+	skb_set_tail_pointer(precvbuf->pskb, readsize);
+	precvbuf->ptail = skb_tail_pointer(precvbuf->pskb);
+	precvbuf->pend = skb_end_pointer(precvbuf->pskb);
+
+	return precvbuf;
+}
+#else
 static struct recv_buf* sd_recv_rxfifo(PADAPTER padapter, u32 size)
 {
 	u32 readsize, allocsize, ret;
@@ -1393,7 +1467,7 @@ static struct recv_buf* sd_recv_rxfifo(PADAPTER padapter, u32 size)
 
 	//3 1. alloc skb
 	// align to block size
-	allocsize = _RND(readsize, padapter->dvobjpriv.intf_data.block_transfer_len);
+	allocsize = _RND(readsize, adapter_to_dvobj(padapter)->intf_data.block_transfer_len);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,18)) // http://www.mail-archive.com/netdev@vger.kernel.org/msg17214.html
 	ppkt = dev_alloc_skb(allocsize);
 #else
@@ -1430,16 +1504,12 @@ static struct recv_buf* sd_recv_rxfifo(PADAPTER padapter, u32 size)
 
 	precvbuf->phead = ppkt->head;
 	precvbuf->pdata = ppkt->data;
-#ifdef NET_SKBUFF_DATA_USES_OFFSET
-	precvbuf->ptail = ppkt->head + ppkt->tail;
-	precvbuf->pend = ppkt->head + ppkt->end;
-#else
-	precvbuf->ptail = ppkt->tail;
-	precvbuf->pend = ppkt->end;
-#endif
+	precvbuf->ptail = skb_tail_pointer(precvbuf->pskb);
+	precvbuf->pend = skb_end_pointer(precvbuf->pskb);
 
 	return precvbuf;
 }
+#endif
 
 static void sd_rxhandler(PADAPTER padapter, struct recv_buf *precvbuf)
 {
@@ -1468,12 +1538,17 @@ void sd_int_dpc(PADAPTER padapter)
 {
 	HAL_DATA_TYPE *phal;
 
-
+	struct dvobj_priv *dvobj = adapter_to_dvobj(padapter);
 	phal = GET_HAL_DATA(padapter);
 
 	if (phal->sdio_hisr & SDIO_HISR_CPWM1)
 	{
 		struct reportpwrstate_parm report;
+
+#ifdef CONFIG_LPS_RPWM_TIMER
+		u8 bcancelled;
+		_cancel_timer(&padapter->pwrctrlpriv.pwr_rpwm_timer, &bcancelled);
+#endif // CONFIG_LPS_RPWM_TIMER
 
 		_sdio_local_read(padapter, SDIO_REG_HCPWM1, 1, &report.state);
 
@@ -1493,8 +1568,8 @@ void sd_int_dpc(PADAPTER padapter)
 		{
 			addr = REG_TXDMA_STATUS;
 			HalSdioGetCmdAddr8723ASdio(padapter, WLAN_IOREG_DEVICE_ID, addr, &addr);
-			_sd_read(&padapter->dvobjpriv.intf_data, addr, 4, status);
-			_sd_write(&padapter->dvobjpriv.intf_data, addr, 4, status);
+			_sd_read(&dvobj->intf_data, addr, 4, status);
+			_sd_write(&dvobj->intf_data, addr, 4, status);
 			DBG_8192C("%s: SDIO_HISR_TXERR (0x%08x)\n", __func__, le32_to_cpu(*(u32*)status));
 			rtw_mfree(status, 4);
 		} else {
@@ -1521,28 +1596,32 @@ void sd_int_dpc(PADAPTER padapter)
 	if (phal->sdio_hisr & SDIO_HISR_RX_REQUEST)
 	{
 		struct recv_buf *precvbuf;
+		u16 val=0;
 
 //		DBG_8192C("%s: RX Request, size=%d\n", __func__, phal->SdioRxFIFOSize);
 		phal->sdio_hisr ^= SDIO_HISR_RX_REQUEST;
+		do{
+			if (phal->SdioRxFIFOSize == 0)
+			{
 
-		if (phal->SdioRxFIFOSize == 0)
-		{
-			u16 val;
 
+				_sdio_local_read(padapter, SDIO_REG_RX0_REQ_LEN, 2, (u8*)&val);
+				phal->SdioRxFIFOSize = le16_to_cpu(val);
+				DBG_8192C("%s: RX_REQUEST, read RXFIFOsize again size=%d\n", __func__, phal->SdioRxFIFOSize);
+			}
+
+			if (phal->SdioRxFIFOSize != 0)
+			{
+#ifdef CONFIG_MAC_LOOPBACK_DRIVER
+				sd_recv_loopback(padapter, phal->SdioRxFIFOSize);
+#else
+				precvbuf = sd_recv_rxfifo(padapter, phal->SdioRxFIFOSize);
+				if (precvbuf) sd_rxhandler(padapter, precvbuf);
+#endif
+			}
 			_sdio_local_read(padapter, SDIO_REG_RX0_REQ_LEN, 2, (u8*)&val);
 			phal->SdioRxFIFOSize = le16_to_cpu(val);
-			DBG_8192C("%s: RX_REQUEST, read RXFIFOsize again size=%d\n", __func__, phal->SdioRxFIFOSize);
-		}
-
-		if (phal->SdioRxFIFOSize != 0)
-		{
-#ifdef CONFIG_MAC_LOOPBACK_DRIVER
-			sd_recv_loopback(padapter, phal->SdioRxFIFOSize);
-#else
-			precvbuf = sd_recv_rxfifo(padapter, phal->SdioRxFIFOSize);
-			if (precvbuf) sd_rxhandler(padapter, precvbuf);
-#endif
-		}
+		}while(phal->SdioRxFIFOSize !=0);
 	}
 }
 

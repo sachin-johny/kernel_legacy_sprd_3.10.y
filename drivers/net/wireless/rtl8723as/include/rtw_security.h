@@ -35,6 +35,7 @@
 #define _WEP_WPA_MIXED_	0x07  // WEP + WPA
 #define _SMS4_				0x06
 
+#define is_wep_enc(alg) (((alg) == _WEP40_) || ((alg) == _WEP104_))
 
 #define _WPA_IE_ID_	0xdd
 #define _WPA2_IE_ID_	0x30
@@ -140,7 +141,6 @@ struct security_priv
 	unsigned int wpa2_pairwise_cipher;
 #endif
 
-	u8 wps_phase;//for wps
 	u8 wps_ie[MAX_WPS_IE_LEN];//added in assoc req
 	int wps_ie_len;
 
@@ -425,7 +425,7 @@ int wpa_tdls_ftie_mic(u8 *kck, u8 trans_seq,
 						u8 *mic);
 int tdls_verify_mic(u8 *kck, u8 trans_seq,
 						u8 *lnkid, u8 *rsnie, u8 *timeoutie, u8 *ftie);
-#endif
+#endif //CONFIG_TDLS
 
 #ifdef PLATFORM_WINDOWS
 void rtw_use_tkipkey_handler (

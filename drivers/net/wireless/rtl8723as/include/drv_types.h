@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -78,6 +78,8 @@ typedef struct _ADAPTER _adapter, ADAPTER,*PADAPTER;
 #include <rtw_led.h>
 #include <rtw_mlme_ext.h>
 #include <rtw_p2p.h>
+#include <rtw_tdls.h>
+#include <rtw_ap.h>
 
 #ifdef CONFIG_WAPI_SUPPORT
 #include <rtw_wapi.h>
@@ -105,35 +107,6 @@ typedef struct _ADAPTER _adapter, ADAPTER,*PADAPTER;
 #define SPEC_DEV_ID_RF_CONFIG_1T1R BIT(3)
 #define SPEC_DEV_ID_RF_CONFIG_2T2R BIT(4)
 #define SPEC_DEV_ID_ASSIGN_IFNAME BIT(5)
-
-#define i64fmt		"ll"
-#define UINT64_C(v)  (v)
-
-
-#define FillOctetString(_os,_octet,_len)		\
-	(_os).Octet=(u8*)(_octet);			\
-	(_os).Length=(_len);
-
-#if 0
-typedef enum _RT_STATUS
-{
-	RT_STATUS_SUCCESS,
-	RT_STATUS_FAILURE,
-	RT_STATUS_PENDING,
-	RT_STATUS_RESOURCE,
-	RT_STATUS_INVALID_CONTEXT,
-	RT_STATUS_INVALID_PARAMETER,
-	RT_STATUS_NOT_SUPPORT,
-	RT_STATUS_OS_API_FAILED,
-} RT_STATUS, *PRT_STATUS;
-#endif
-
-typedef enum _RT_MEDIA_STATUS {
-	RT_MEDIA_DISCONNECT = 0,
-	RT_MEDIA_CONNECT       = 1
-} RT_MEDIA_STATUS;
-
-
 
 struct specific_device_id{
 
@@ -240,7 +213,11 @@ struct registry_priv
 	u8 enable80211d;
 #endif
 
-	BOOLEAN	bBtFwSupport;
+	u8 ifname[16];
+	u8 if2name[16];
+
+	u8 notch_filter;
+
 };
 
 
@@ -262,11 +239,19 @@ struct registry_priv
 
 struct dvobj_priv
 {
-	PADAPTER padapter;
+	_adapter *if1;
+	_adapter *if2;
 
 	//For 92D, DMDP have 2 interface.
 	u8	InterfaceNumber;
 	u8	NumInterfaces;
+
+	//In /Out Pipe information
+	int	RtInPipe[2];
+	int	RtOutPipe[3];
+	u8	Queue2Pipe[HW_QUEUE_ENTRY];//for out pipe mapping
+
+	u8	irq_alloc;
 
 /*-------- below is for SDIO INTERFACE --------*/
 
@@ -353,7 +338,6 @@ struct dvobj_priv
 
 	u16	irqline;
 	u8	irq_enabled;
-	u8	irq_alloc;
 	RT_ISR_CONTENT	isr_content;
 	_lock	irq_th_lock;
 
@@ -368,11 +352,33 @@ struct dvobj_priv
 	u8 	const_devicepci_aspm_setting;
 	u8 	b_support_aspm; // If it supports ASPM, Offset[560h] = 0x40, otherwise Offset[560h] = 0x00.
 	u8	b_support_backdoor;
+	u8 bdma64;
 #endif//PLATFORM_LINUX
 
 #endif//CONFIG_PCI_HCI
 };
 
+#ifdef PLATFORM_LINUX
+static struct device *dvobj_to_dev(struct dvobj_priv *dvobj)
+{
+	/* todo: get interface type from dvobj and the return the dev accordingly */
+#ifdef RTW_DVOBJ_CHIP_HW_TYPE
+#endif
+
+#ifdef CONFIG_USB_HCI
+	return &dvobj->pusbintf->dev;
+#endif
+#ifdef CONFIG_SDIO_HCI
+	return &dvobj->intf_data.func->dev;
+#endif
+#ifdef CONFIG_GSPI_HCI
+	return &dvobj->intf_data.func->dev;
+#endif
+#ifdef CONFIG_PCI_HCI
+	return &dvobj->ppcidev->dev;
+#endif
+}
+#endif
 
 enum _IFACE_TYPE {
 	IFACE_PORT0, //mapping to port0 for C/D series chips
@@ -443,15 +449,9 @@ struct _ADAPTER{
 	int	bDongle;//build-in module or external dongle
 	u16 	chip_type;
 	u16	HardwareType;
-	u16	interface_type;//USB,SDIO,PCI
+	u16	interface_type;//USB,SDIO,SPI,PCI
 
-#ifdef CONFIG_GSPI_HCI
-	//struct net_device *netdev;
-	struct workqueue_struct *priv_wq;
-	struct delayed_work irq_work;
-#endif // CONFIG_GSPI_HCI
-
-	struct 	dvobj_priv dvobjpriv;
+	struct dvobj_priv *dvobj;
 	struct	mlme_priv mlmepriv;
 	struct	mlme_ext_priv mlmeextpriv;
 	struct	cmd_priv	cmdpriv;
@@ -463,15 +463,12 @@ struct _ADAPTER{
 	struct	sta_priv	stapriv;
 	struct	security_priv	securitypriv;
 	struct	registry_priv	registrypriv;
-	struct	wlan_acl_pool	acl_list;
 	struct	pwrctrl_priv	pwrctrlpriv;
 	struct 	eeprom_priv eeprompriv;
 	struct	led_priv	ledpriv;
 
 #ifdef CONFIG_MP_INCLUDED
-    struct	mp_priv	mppriv;
-    //add radom buffer
-    u8	TXradomBuffer[5000];
+       struct	mp_priv	mppriv;
 #endif
 
 #ifdef CONFIG_DRVEXT_MODULE
@@ -501,6 +498,11 @@ struct _ADAPTER{
 	RT_WAPI_T	wapiInfo;
 #endif
 
+
+#ifdef CONFIG_WFD
+	struct wifi_display_info wfd_info;
+#endif //CONFIG_WFD
+
 	PVOID			HalData;
 	u32 hal_data_sz;
 	struct hal_ops	HalFunc;
@@ -523,14 +525,13 @@ struct _ADAPTER{
 	_thread_hdl_	xmitThread;
 	_thread_hdl_	recvThread;
 
-
-	NDIS_STATUS (*dvobj_init)(_adapter * adapter);
-	void (*dvobj_deinit)(_adapter * adapter);
+#ifndef PLATFORM_LINUX
+	NDIS_STATUS (*dvobj_init)(struct dvobj_priv *dvobj);
+	void (*dvobj_deinit)(struct dvobj_priv *dvobj);
+#endif
 
 	void (*intf_start)(_adapter * adapter);
 	void (*intf_stop)(_adapter * adapter);
-	u32  (*intf_start_irq)(PADAPTER padapter);
-	void (*intf_stop_irq)(PADAPTER padapter);
 
 #ifdef PLATFORM_WINDOWS
 	_nic_hdl		hndis_adapter;//hNdisAdapter(NDISMiniportAdapterHandle);
@@ -583,6 +584,7 @@ struct _ADAPTER{
 
 	_adapter *pbuddy_adapter;
 
+	_mutex *hw_init_mutex;
 #if defined(CONFIG_CONCURRENT_MODE) || defined(CONFIG_DUALMAC_CONCURRENT)
 	u8 isprimary; //is primary adapter or not
 	u8 adapter_type;
@@ -592,7 +594,6 @@ struct _ADAPTER{
 	_mutex *ph2c_fwcmd_mutex;
 	_mutex *psetch_mutex;
 	_mutex *psetbw_mutex;
-	_mutex *hw_init_mutex;
 
 	struct co_data_priv *pcodatapriv;//data buffer shared among interfaces
 #endif
@@ -632,6 +633,10 @@ struct _ADAPTER{
 	unsigned char     in_cta_test;
 
 };
+
+#define adapter_to_dvobj(adapter) (adapter->dvobj)
+
+int rtw_handle_dualmac(_adapter *adapter, bool init);
 
 __inline static u8 *myid(struct eeprom_priv *peepriv)
 {

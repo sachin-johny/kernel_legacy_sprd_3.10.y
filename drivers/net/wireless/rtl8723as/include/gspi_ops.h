@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -159,6 +159,7 @@ extern void spi_set_chip_endian(PADAPTER padapter);
 extern void spi_set_intf_ops(struct _io_ops *pops);
 extern void spi_set_chip_endian(PADAPTER padapter);
 extern void InitInterrupt8723ASdio(PADAPTER padapter);
+extern void InitSysInterrupt8723ASdio(PADAPTER padapter);
 extern void EnableInterrupt8723ASdio(PADAPTER padapter);
 extern void DisableInterrupt8723ASdio(PADAPTER padapter);
 extern void spi_int_hdl(PADAPTER padapter);
