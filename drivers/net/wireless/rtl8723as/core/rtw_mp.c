@@ -237,7 +237,7 @@ static int init_mp_priv_by_os(struct mp_priv *pmp_priv)
 		goto _exit_init_mp_priv;
 	}
 
-	pmp_priv->pmp_xmtframe_buf = pmp_priv->pallocated_mp_xmitframe_buf + 4 - ((uint) (pmp_priv->pallocated_mp_xmitframe_buf) & 3);
+	pmp_priv->pmp_xmtframe_buf = pmp_priv->pallocated_mp_xmitframe_buf + 4 - ((SIZE_PTR) (pmp_priv->pallocated_mp_xmitframe_buf) & 3);
 
 	pmp_xmitframe = (struct mp_xmit_frame*)pmp_priv->pmp_xmtframe_buf;
 
@@ -368,7 +368,7 @@ MPT_InitializeAdapter(
 	PMPT_CONTEXT	pMptCtx = &pAdapter->mppriv.MptCtx;
 	u32		ledsetting;
 	struct mlme_priv *pmlmepriv = &pAdapter->mlmepriv;
-    u16 i=0;
+
 	//-------------------------------------------------------------------------
 	// HW Initialization for 8190 MPT.
 	//-------------------------------------------------------------------------
@@ -405,7 +405,7 @@ MPT_InitializeAdapter(
 	pMptCtx->CurrMptAct = NULL;
 	//-------------------------------------------------------------------------
 
-#if 0
+#if 1
 	// Don't accept any packets
 	rtw_write32(pAdapter, REG_RCR, 0);
 #else
@@ -432,13 +432,13 @@ MPT_InitializeAdapter(
 	}
 	else
 	{
+		//rtw_write32(pAdapter, REG_LEDCFG0, 0x08080);
 		ledsetting = rtw_read32(pAdapter, REG_LEDCFG0);
 
-	#if defined(CONFIG_RTL8192C) || defined(CONFIG_RTL8192D)
-		rtw_write32(pAdapter, REG_LEDCFG0, ledsetting & ~LED0DIS);
+	#if defined (CONFIG_RTL8192C) || defined( CONFIG_RTL8192D )
+			rtw_write32(pAdapter, REG_LEDCFG0, ledsetting & ~LED0DIS);
 	#endif
 	}
-
 
 	PHY_IQCalibrate(pAdapter, _FALSE);
 	dm_CheckTXPowerTracking(&pHalData->odmpriv);	//trigger thermal meter
@@ -468,18 +468,8 @@ MPT_InitializeAdapter(
 	rtw_write16(pAdapter, 0x860, 0x110);
 
 	if (pAdapter->registrypriv.mp_mode == 1)
-	pmlmepriv->fw_state = WIFI_MP_STATE;
+		pmlmepriv->fw_state = WIFI_MP_STATE;
 
-	DBG_871X("create ramdom buffer cotent for MP test:");
-	for(i=0;i<5000;i++)
-		pAdapter->TXradomBuffer[i] = random32() %0xFF;
-#if 0
-	for(i=0;i<5000;i++){
-		printk(" %x ",pAdapter->TXradomBuffer[i]);
-		if(i % 32 == 0)
-			printk("\n");
-	}
-#endif
 	return	rtStatus;
 }
 
@@ -508,10 +498,10 @@ MPT_DeInitAdapter(
 	PMPT_CONTEXT		pMptCtx = &pAdapter->mppriv.MptCtx;
 
 	pMptCtx->bMptDrvUnload = _TRUE;
-#ifdef CONFIG_RTL8723A
+	#ifdef CONFIG_RTL8723A
 	_rtw_free_sema(&(pMptCtx->MPh2c_Sema));
 	_cancel_timer_ex( &pMptCtx->MPh2c_timeout_timer);
-#endif
+	#endif
 #if 0 // for Windows
 	PlatformFreeWorkItem( &(pMptCtx->MptWorkItem) );
 
@@ -603,6 +593,8 @@ s32 mp_start_test(PADAPTER padapter)
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct wlan_network *tgt_network = &pmlmepriv->cur_network;
 
+	padapter->registrypriv.mp_mode = 1;
+	pmppriv->bSetTxPower=0;		//for  manually set tx power
 
 	//3 disable dynamic mechanism
 	disable_dm(padapter);
@@ -663,7 +655,7 @@ s32 mp_start_test(PADAPTER padapter)
 	}
 	pmppriv->prev_fw_state = get_fwstate(pmlmepriv);
 	if (padapter->registrypriv.mp_mode == 1)
-	pmlmepriv->fw_state = WIFI_MP_STATE;
+		pmlmepriv->fw_state = WIFI_MP_STATE;
 #if 0
 	if (pmppriv->mode == _LOOPBOOK_MODE_) {
 		set_fwstate(pmlmepriv, WIFI_MP_LPBK_STATE); //append txdesc
@@ -692,8 +684,7 @@ s32 mp_start_test(PADAPTER padapter)
 	tgt_network->aid = psta->aid = 1;
 	_rtw_memcpy(&tgt_network->network, &bssid, length);
 
-	//mp don't need do it, or some register will be set wrong for mp mode
-	//rtw_indicate_connect(padapter);
+	rtw_indicate_connect(padapter);
 	_clr_fwstate_(pmlmepriv, _FW_UNDER_LINKING);
 
 end_of_mp_start_test:
@@ -736,15 +727,15 @@ void mp_stop_test(PADAPTER padapter)
 
 	_irqL irqL;
 
-
+	if(pmppriv->mode==MP_ON)
+	{
+	pmppriv->bSetTxPower=0;
 	_enter_critical_bh(&pmlmepriv->lock, &irqL);
-
 	if (check_fwstate(pmlmepriv, WIFI_MP_STATE) == _FALSE)
 		goto end_of_mp_stop_test;
 
 	//3 1. disconnect psudo AdHoc
-	//mp don't need do it, or some register will be set wrong for mp mode
-	//rtw_indicate_disconnect(padapter);
+	rtw_indicate_disconnect(padapter);
 
 	//3 2. clear psta used in mp test mode.
 //	rtw_free_assoc_resources(padapter, 1);
@@ -762,6 +753,7 @@ void mp_stop_test(PADAPTER padapter)
 end_of_mp_stop_test:
 
 	_exit_critical_bh(&pmlmepriv->lock, &irqL);
+	}
 }
 /*---------------------------hal\rtl8192c\MPT_Phy.c---------------------------*/
 #if 0
@@ -962,32 +954,55 @@ void GetThermalMeter(PADAPTER pAdapter, u8 *value)
 
 void SetSingleCarrierTx(PADAPTER pAdapter, u8 bStart)
 {
+	PhySetTxPowerLevel(pAdapter);
 	Hal_SetSingleCarrierTx(pAdapter,bStart);
 }
 
 void SetSingleToneTx(PADAPTER pAdapter, u8 bStart)
 {
+	PhySetTxPowerLevel(pAdapter);
 	Hal_SetSingleToneTx(pAdapter,bStart);
 }
 
 void SetCarrierSuppressionTx(PADAPTER pAdapter, u8 bStart)
 {
+	PhySetTxPowerLevel(pAdapter);
 	Hal_SetCarrierSuppressionTx(pAdapter, bStart);
 }
 
 void SetCCKContinuousTx(PADAPTER pAdapter, u8 bStart)
-		{
+{
+	PhySetTxPowerLevel(pAdapter);
 	Hal_SetCCKContinuousTx(pAdapter,bStart);
-		}
+}
 
 void SetOFDMContinuousTx(PADAPTER pAdapter, u8 bStart)
-        {
-   Hal_SetOFDMContinuousTx( pAdapter, bStart);
+{
+	PhySetTxPowerLevel(pAdapter);
+   	Hal_SetOFDMContinuousTx( pAdapter, bStart);
 }/* mpt_StartOfdmContTx */
 
 void SetContinuousTx(PADAPTER pAdapter, u8 bStart)
 {
+	PhySetTxPowerLevel(pAdapter);
 	Hal_SetContinuousTx(pAdapter,bStart);
+}
+
+
+void PhySetTxPowerLevel(PADAPTER pAdapter)
+{
+	struct mp_priv *pmp_priv = &pAdapter->mppriv;
+
+	if (pmp_priv->bSetTxPower==0) // for NO manually set power index
+	{
+#ifdef CONFIG_RTL8188E
+		PHY_SetTxPowerLevel8188E(pAdapter,pmp_priv->channel);
+#elif defined(CONFIG_RTL8192D)
+		PHY_SetTxPowerLevel8192D(pAdapter,pmp_priv->channel);
+#else
+		PHY_SetTxPowerLevel8192C(pAdapter,pmp_priv->channel);
+#endif
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -1008,7 +1023,7 @@ static struct xmit_frame *alloc_mp_xmitframe(struct xmit_priv *pxmitpriv)
 
 	if ((pxmitbuf = rtw_alloc_xmitbuf(pxmitpriv)) == NULL)
 	{
-		rtw_free_xmitframe_ex(pxmitpriv, pmpframe);
+		rtw_free_xmitframe(pxmitpriv, pmpframe);
 		return NULL;
 	}
 
@@ -1082,60 +1097,6 @@ exit:
 	thread_exit();
 }
 
-
-void  mp_xmit_packet(struct mp_priv * pmp_priv)
-{
-	struct xmit_frame *pxmitframe;
-	struct mp_tx *pmptx;
-	//struct mp_priv *pmp_priv;
-	struct xmit_priv *pxmitpriv;
-	PADAPTER padapter;
-
-	//pmp_priv = (struct mp_priv *)context;
-	pmptx = &pmp_priv->tx;
-	padapter = pmp_priv->papdater;
-	pxmitpriv = &(padapter->xmitpriv);
-	DBG_871X("##%s:pkTx Start\n", __func__);
-	while (1) {
-		pxmitframe = alloc_mp_xmitframe(pxmitpriv);
-		if (pxmitframe == NULL) {
-			if (pmptx->stop ||
-    			padapter->bSurpriseRemoved ||
-    			padapter->bDriverStopped) {
-				goto exit;
-			}
-			else {
-				rtw_msleep_os(1);
-				continue;
-			}
-		}
-
-		_rtw_memcpy((u8 *)(pxmitframe->buf_addr+TXDESC_OFFSET), pmptx->buf, pmptx->write_size);
-		_rtw_memcpy(&(pxmitframe->attrib), &(pmptx->attrib), sizeof(struct pkt_attrib));
-
-		//DBG_8192C("----##send pkt count:%d,sended:%d\n",pmptx->count,pmptx->sended);
-		dump_mpframe(padapter, pxmitframe);
-
-		pmptx->sended++;
-		pmp_priv->tx_pktcount++;
-
-		if (pmptx->stop ||
-    		padapter->bSurpriseRemoved ||
-    		padapter->bDriverStopped)
-			goto exit;
-		if ((pmptx->count != 0) &&
-    		(pmptx->count == 1))
-			goto exit;
-	}
-
-exit:
-	DBG_871X("%s:pkTx Exit\n", __func__);
-	rtw_mfree(pmptx->pallocated_buf, pmptx->buf_size);
-	pmptx->pallocated_buf = NULL;
-	pmptx->stop = 1;
-}
-
-
 void fill_txdesc_for_mp(PADAPTER padapter, struct tx_desc *ptxdesc)
 {
 	struct mp_priv *pmp_priv = &padapter->mppriv;
@@ -1145,7 +1106,7 @@ void fill_txdesc_for_mp(PADAPTER padapter, struct tx_desc *ptxdesc)
 void SetPacketTx(PADAPTER padapter)
 {
 	u8 *ptr, *pkt_start, *pkt_end;
-	u32 pkt_size, startPlace=0;
+	u32 pkt_size,offset;
 	struct tx_desc *desc;
 	struct rtw_ieee80211_hdr *hdr;
 	u8 payload;
@@ -1156,14 +1117,9 @@ void SetPacketTx(PADAPTER padapter)
 
 	pmp_priv = &padapter->mppriv;
 	if (pmp_priv->tx.stop) return;
-
-	//in mp tool, we send packet one by one from UI, so xmit thread is not used
-	if (pmp_priv->tx.count == 1)
-		pmp_priv->tx.sended++;
-	else
-		pmp_priv->tx.sended = 0;
+	pmp_priv->tx.sended = 0;
 	pmp_priv->tx.stop = 0;
-	//pmp_priv->tx_pktcount = 0;
+	pmp_priv->tx_pktcount = 0;
 
 	//3 1. update_attrib()
 	pattrib = &pmp_priv->tx.attrib;
@@ -1203,7 +1159,7 @@ void SetPacketTx(PADAPTER padapter)
 
 	//3 3. init TX descriptor
 	// offset 0
-#if  defined(CONFIG_RTL8188E) && !defined(CONFIG_RTL8188E_SDIO)
+#if defined(CONFIG_RTL8188E) && !defined(CONFIG_RTL8188E_SDIO)
 	desc->txdw0 |= cpu_to_le32(OWN | FSG | LSG);
 	desc->txdw0 |= cpu_to_le32(pkt_size & 0x0000FFFF); // packet size
 	desc->txdw0 |= cpu_to_le32(((TXDESC_SIZE + OFFSET_SZ) << OFFSET_SHT) & 0x00FF0000); //32 bytes for TX Desc
@@ -1213,8 +1169,8 @@ void SetPacketTx(PADAPTER padapter)
 #endif
 	// offset 4
 	#ifndef CONFIG_RTL8188E
-	desc->txdw1 |= cpu_to_le32(BK); // don't aggregate(AMPDU)
-	desc->txdw1 |= cpu_to_le32((pattrib->mac_id) & 0x1F); //CAM_ID(MAC_ID)
+		desc->txdw1 |= cpu_to_le32(BK); // don't aggregate(AMPDU)
+		desc->txdw1 |= cpu_to_le32((pattrib->mac_id) & 0x1F); //CAM_ID(MAC_ID)
 	#else
 		desc->txdw1 |= cpu_to_le32((pattrib->mac_id) & 0x3F); //CAM_ID(MAC_ID)
 	#endif
@@ -1227,11 +1183,15 @@ void SetPacketTx(PADAPTER padapter)
 
 	#endif
 	// offset 8
+	//	desc->txdw2 |= cpu_to_le32(AGG_BK);//AGG BK
 	// offset 12
+
 	desc->txdw3 |= cpu_to_le32((pattrib->seqnum<<16)&0x0fff0000);
+//	desc->txdw3 |= cpu_to_le32((pattrib->seqnum & 0xFFF) << SEQ_SHT);
+	//desc->txdw3 |= cpu_to_le32((pattrib->seqnum << SEQ_SHT) & 0xffff0000);
 
 	// offset 16
-	//desc->txdw4 |= cpu_to_le32(QoS);
+	//desc->txdw4 |= cpu_to_le32(QoS)
 	#ifdef CONFIG_RTL8188E
 		desc->txdw4 |= cpu_to_le32(HW_SSN);
 	#else
@@ -1289,32 +1249,23 @@ void SetPacketTx(PADAPTER padapter)
 			break;
 	}
 
-	startPlace = (u32)(random32() % 3450);
-	_rtw_memcpy(ptr, padapter->TXradomBuffer+startPlace, pkt_end - ptr);
-	//_rtw_memset(ptr, payload, pkt_end - ptr);
+	_rtw_memset(ptr, payload, pkt_end - ptr);
 
-	if (pmp_priv->tx.count == 1)
-	{
-		mp_xmit_packet(pmp_priv);
-	}
-	else
-	{
-
-		//3 6. start thread
+	//3 6. start thread
 #ifdef PLATFORM_LINUX
-		pmp_priv->tx.PktTxThread = kernel_thread(mp_xmit_packet_thread, pmp_priv, CLONE_FS|CLONE_FILES);
+	pmp_priv->tx.PktTxThread = kernel_thread(mp_xmit_packet_thread, pmp_priv, CLONE_FS|CLONE_FILES);
 #endif
 #ifdef PLATFORM_FREEBSD
-		{
-			struct proc *p;
-			struct thread *td;
-			pmp_priv->tx.PktTxThread = kproc_kthread_add(mp_xmit_packet_thread, pmp_priv,
-							&p, &td, RFHIGHPID, 0, "MPXmitThread", "MPXmitThread");
-		}
+{
+	struct proc *p;
+	struct thread *td;
+	pmp_priv->tx.PktTxThread = kproc_kthread_add(mp_xmit_packet_thread, pmp_priv,
+					&p, &td, RFHIGHPID, 0, "MPXmitThread", "MPXmitThread");
+}
 #endif
-		if (pmp_priv->tx.PktTxThread < 0)
-			DBG_871X("Create PktTx Thread Fail !!!!!\n");
-	}
+	if (pmp_priv->tx.PktTxThread < 0)
+		DBG_871X("Create PktTx Thread Fail !!!!!\n");
+
 }
 
 void SetPacketRx(PADAPTER pAdapter, u8 bStartRx)
@@ -1465,509 +1416,6 @@ u32 mp_query_psd(PADAPTER pAdapter, u8 *data)
 	#endif
 
 	return strlen(data)+1;
-}
-
-BOOLEAN MPT_IsLegalChannel(PADAPTER pAdapter, u32 ulChannel)
-{
-	BOOLEAN bLegalChannel = _TRUE;
-
-	if(ulChannel > 14 || ulChannel < 1)
-	{
-		bLegalChannel = _FALSE;
-	}
-
-	return bLegalChannel;
-
-}	/* MPT_IsLegalChannel */
-
-
-u32 getPowerDiffByRate(PADAPTER	pAdapter, u8 CurrChannel, u32 RfPath)
-{
-	struct mp_priv *pmppriv = (struct mp_priv *)(&(pAdapter->mppriv));
-	PMPT_CONTEXT	pMptCtx = &(pmppriv->MptCtx);
-	HAL_DATA_TYPE	*pHalData	= GET_HAL_DATA(pAdapter);
-	ULONG	PwrGroup=0;
-	ULONG	TxPower=0, Limit=0;
-	ULONG	Pathmapping = (RfPath == RF90_PATH_A?0:8);
-
-	switch(pHalData->EEPROMRegulatory)
-	{
-		case 0:	// Realtek better performance
-				// increase power diff defined by Realtek for large power
-			PwrGroup = 0;
-			Limit = 0xff;
-			break;
-		case 1:	// Realtek regulatory
-				// increase power diff defined by Realtek for regulatory
-			{
-				if(pHalData->pwrGroupCnt == 1)
-					PwrGroup = 0;
-				if(pHalData->pwrGroupCnt >= 3)
-			{
-				if(CurrChannel <= 3)
-					PwrGroup = 0;
-					else if(CurrChannel >= 4 && CurrChannel <= 9)
-					PwrGroup = 1;
-					else if(CurrChannel > 9)
-					PwrGroup = 2;
-
-					if(pHalData->CurrentChannelBW == HT_CHANNEL_WIDTH_20)
-						PwrGroup++;
-			else
-						PwrGroup+=4;
-				}
-				Limit = 0xff;
-			}
-			break;
-		case 2:	// Better regulatory
-				// don't increase any power diff
-			PwrGroup = 0;
-			Limit = 0;
-			break;
-		case 3:	// Customer defined power diff.
-				// increase power diff defined by customer.
-			PwrGroup = 0;
-			if (pHalData->CurrentChannelBW == HT_CHANNEL_WIDTH_20)
-				Limit = pHalData->PwrGroupHT20[RfPath][CurrChannel-1];
-			else
-				Limit = pHalData->PwrGroupHT40[RfPath][CurrChannel-1];
-			break;
-		default:
-			PwrGroup = 0;
-			Limit = 0xff;
-			break;
-	}
-
-
-	{
-		//DbgPrint("PwrGroup = %d\n", PwrGroup);
-		switch(pMptCtx->MptRateIndex)
-		{
-			case MPT_RATE_1M:
-			case MPT_RATE_2M:
-			case MPT_RATE_55M:
-			case MPT_RATE_11M:
-				//CCK rates, don't add any tx power index.
-				RT_TRACE(_module_mp_, _drv_info_,("CCK rates!\n"));
-				break;
-			case MPT_RATE_6M:	//0xe00 [31:0] = 18M,12M,09M,06M
-				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0+Pathmapping])&0xff);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x, OFDM 6M, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0], TxPower));
-				break;
-			case MPT_RATE_9M:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0+Pathmapping])&0xff00)>>8);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x, OFDM 9M, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0], TxPower));
-				break;
-			case MPT_RATE_12M:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0+Pathmapping])&0xff0000)>>16);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x, OFDM 12M, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0], TxPower));
-				break;
-			case MPT_RATE_18M:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0+Pathmapping])&0xff000000)>>24);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x, OFDM 24M, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0], TxPower));
-				break;
-			case MPT_RATE_24M:	//0xe04[31:0] = 54M,48M,36M,24M
-				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1+Pathmapping])&0xff);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x, OFDM 24M, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1], TxPower));
-				break;
-			case MPT_RATE_36M:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1+Pathmapping])&0xff00)>>8);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x, OFDM 36M, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1], TxPower));
-				break;
-			case MPT_RATE_48M:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1+Pathmapping])&0xff0000)>>16);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x, OFDM 48M, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1], TxPower));
-				break;
-			case MPT_RATE_54M:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1+Pathmapping])&0xff000000)>>24);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x, OFDM 54M, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1], TxPower));
-				break;
-			case MPT_RATE_MCS0:	//0xe10[31:0]= MCS=03,02,01,00
-				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2+Pathmapping])&0xff);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x, MCS0, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2], TxPower));
-				break;
-			case MPT_RATE_MCS1:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2+Pathmapping])&0xff00)>>8);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x, MCS1, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2], TxPower));
-				break;
-			case MPT_RATE_MCS2:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2+Pathmapping])&0xff0000)>>16);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x, MCS2, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2], TxPower));
-				break;
-			case MPT_RATE_MCS3:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2+Pathmapping])&0xff000000)>>24);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x, MCS3, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2], TxPower));
-				break;
-			case MPT_RATE_MCS4:	//0xe14[31:0]= MCS=07,06,05,04
-				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3+Pathmapping])&0xff);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x, MCS4, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3], TxPower));
-				break;
-			case MPT_RATE_MCS5:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3+Pathmapping])&0xff00)>>8);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x, MCS5, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3], TxPower));
-				break;
-			case MPT_RATE_MCS6:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3+Pathmapping])&0xff0000)>>16);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x, MCS6, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3], TxPower));
-				break;
-			case MPT_RATE_MCS7:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3+Pathmapping])&0xff000000)>>24);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x, MCS7, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3], TxPower));
-				break;
-
-			case MPT_RATE_MCS8:	//0xe18[31:0]= MCS=11,10,09,08
-				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4+Pathmapping])&0xff);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x, MCS8, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4], TxPower));
-				break;
-			case MPT_RATE_MCS9:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4+Pathmapping])&0xff00)>>8);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x, MCS9, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4], TxPower));
-				break;
-			case MPT_RATE_MCS10:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4+Pathmapping])&0xff0000)>>16);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x, MCS10, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4], TxPower));
-				break;
-			case MPT_RATE_MCS11:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4+Pathmapping])&0xff000000)>>24);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x, MCS11, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4], TxPower));
-				break;
-			case MPT_RATE_MCS12:	//0xe1c[31:0]= MCS=15,14,13,12
-				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5+Pathmapping])&0xff);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x, MCS12, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5], TxPower));
-				break;
-			case MPT_RATE_MCS13:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5+Pathmapping])&0xff00)>>8);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x, MCS13, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5], TxPower));
-				break;
-			case MPT_RATE_MCS14:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5+Pathmapping])&0xff0000)>>16);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x, MCS14, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5], TxPower));
-				break;
-			case MPT_RATE_MCS15:
-				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5+Pathmapping])&0xff000000)>>24);
-				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x, MCS15, TxPower = %d\n",
-					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5], TxPower));
-				break;
-			default:
-				break;
-		}
-	}
-
-	if(TxPower > Limit)
-		TxPower = Limit;
-
-	return TxPower;
-}
-
-
-u32 mpt_ProQueryCalTxPower(PADAPTER pAdapter, u32 RfPath)
-{
-	HAL_DATA_TYPE *pHalData	= GET_HAL_DATA(pAdapter);
-	u32	TxPower = 1, PowerDiffByRate=0;
-	struct mp_priv *pmppriv = (struct mp_priv *)(&(pAdapter->mppriv));
-	PMPT_CONTEXT pMptCtx = &(pmppriv->MptCtx);
-	u8 CurrChannel = pHalData->CurrentChannel;
-	u32 rf_path = RfPath;
-
-	if(MPT_IsLegalChannel(pAdapter, CurrChannel) == _FALSE)
-	{
-		CurrChannel = 1;
-	}
-
-	if( pMptCtx->MptRateIndex >= MPT_RATE_1M &&
-		pMptCtx->MptRateIndex <= MPT_RATE_11M )
-	{
-		TxPower = pHalData->TxPwrLevelCck[rf_path][CurrChannel-1];
-	}
-	else if(pMptCtx->MptRateIndex >= MPT_RATE_6M &&
-		pMptCtx->MptRateIndex <= MPT_RATE_54M )
-	{
-		TxPower = pHalData->TxPwrLevelHT40_1S[rf_path][CurrChannel-1];
-	}
-	else if(pMptCtx->MptRateIndex >= MPT_RATE_MCS0 &&
-		pMptCtx->MptRateIndex <= MPT_RATE_MCS7 )
-	{
-		TxPower = pHalData->TxPwrLevelHT40_1S[rf_path][CurrChannel-1];
-	}
-	else if(pMptCtx->MptRateIndex >= MPT_RATE_MCS8 &&
-		pMptCtx->MptRateIndex <= MPT_RATE_MCS15 )
-	{
-		TxPower = pHalData->TxPwrLevelHT40_2S[rf_path][CurrChannel-1];
-	}
-	RT_TRACE(_module_mp_, _drv_info_,
-		("HT40 Tx power(RF-%c) = 0x%x\n", ((rf_path==0)?'A':'B'), TxPower));
-
-	if(pMptCtx->MptRateIndex >= MPT_RATE_6M &&
-		pMptCtx->MptRateIndex <= MPT_RATE_54M )
-	{
-		TxPower += pHalData->TxPwrLegacyHtDiff[rf_path][CurrChannel-1];
-		RT_TRACE(_module_mp_, _drv_info_,("+OFDM_PowerDiff(RF-%c) = 0x%x\n",
-			((rf_path==0)?'A':'B'), pHalData->TxPwrLegacyHtDiff[rf_path][CurrChannel-1]));
-	}
-
-		if(pMptCtx->MptRateIndex >= MPT_RATE_MCS0)
-		{
-			if (pHalData->CurrentChannelBW == HT_CHANNEL_WIDTH_20)
-			{
-			//if(pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1]<8)
-			//{
-				TxPower += pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1];
-				RT_TRACE(_module_mp_, _drv_info_,("+HT20_PowerDiff(RF-%c) = 0x%x\n",
-					((rf_path==0)?'A':'B'), pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1]));
-			//}
-			//else
-			//{
-			//	TxPower -= (16-pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1]);
-			//	RTPRINT(FPHY, PHY_TXPWR, ("-HT20_PowerDiff(RF-%c) = 0x%x\n", ((rf_path==0)?'A':'B'),
-			//		(16-pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1])));
-			//}
-		}
-	}
-
-	PowerDiffByRate = getPowerDiffByRate(pAdapter, CurrChannel, RfPath);
-	RT_TRACE(_module_mp_, _drv_info_,("+PowerDiffByRate(RF-%c) = 0x%x\n",
-		((rf_path==0)?'A':'B'), PowerDiffByRate));
-	TxPower += PowerDiffByRate;
-	RT_TRACE(_module_mp_, _drv_info_,("Final TxPower(RF-%c) = %d(0x%x)\n",
-		((rf_path==0)?'A':'B'), TxPower, TxPower));
-
-	if(TxPower > 0x3f)
-		TxPower = 0x3f;
-
-	return TxPower;
-}
-
-#ifdef CONFIG_RTL8723A
-#define BTMP_STATE_POLLING_NUM	20
-
-BOOLEAN BT_MP_WaitC2HBTMPInterrupt(PADAPTER Adapter, u32 Tar_State)
-{
-	struct mp_priv *pmp_priv = (struct mp_priv *)(&(Adapter->mppriv));
-	HAL_DATA_TYPE*	pHalData = GET_HAL_DATA(Adapter);
-	BOOLEAN			bSuccess=_TRUE;
-	u4Byte			count=0;
-
-	if (pmp_priv->BTMP_State == Tar_State)
-		return bSuccess;
-
-	do {
-		rtw_msleep_os(100);
-
-		count++;
-		RT_TRACE(_module_mp_, _drv_info_,("BT_MP_WaitC2HBTMPInterrupt Polling (%d) times."
-			" pmp_priv->BTMP_State =%x\n", count, pmp_priv->BTMP_State));
-	} while ((!(pmp_priv->BTMP_State == Tar_State)) && count < BTMP_STATE_POLLING_NUM);
-
-	if(count == BTMP_STATE_POLLING_NUM) {
-		bSuccess = _FALSE;
-	} else {
-		RT_TRACE(_module_mp_, _drv_info_,("BT_MP_WaitC2HBTMPInterrupt Polling (%d) times. "
-			"Enter/Leave Ok Now. pmp_priv->BTMP_State =%x\n", count, pmp_priv->BTMP_State));
-	}
-
-	return bSuccess;
-}
-
-//WiFi RF on -> off:
-//  1. BB Reg 0x824[3:1] = 0x0 (AGC_TX)
-//  2. BB Reg 0x824[22:20] = 0x0 (AGC_Rx)
-//  3. RF Reg 0x0[19:16] = 0x0
-
-// WiFi RF off->on
-//  1. BB Reg 0x824[22:20] = 0x3 (AGC_Rx)
-//  2. BB Reg 0x824[3:1] = 0x2 (AGC_TX)
-//  3. RF Reg 0x0[19:16] = 0x3
-
-void BT_MP_Close_WiFiRF(PADAPTER Adapter)
-{
-	PHY_SetBBReg(Adapter, 0x824, 0xF, 0x0);
-	PHY_SetBBReg(Adapter, 0x824, 0x700000, 0x0);
-	PHY_SetRFReg(Adapter, RF90_PATH_A, 0x0, 0xF0000, 0x0);
-}
-
-void BT_MP_Open_WiFiRF(PADAPTER	Adapter)
-{
-	PHY_SetBBReg(Adapter, 0x824, 0x700000, 0x3);
-	PHY_SetBBReg(Adapter, 0x824, 0xF, 0x2);
-	PHY_SetRFReg(Adapter, RF90_PATH_A, 0x0, 0xF0000, 0x3);
-}
-
-
-extern s32 FillH2CCmd(PADAPTER padapter, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer);
-
-u4Byte BT_MP_EnterOrLeave(PADAPTER	Adapter, u4Byte Enter)
-{
-	u1Byte	H2C_Parameter[5] ={0};
-	u2Byte	tmp_2byte = 0;
-
-	if (Enter) {
-		////1>. close WiFi RF
-		BT_MP_Close_WiFiRF(Adapter);
-
-		////2>. change ant switch to BT
-		tmp_2byte = rtw_read16(Adapter, 0x860);
-		tmp_2byte = tmp_2byte | BIT(9);
-		tmp_2byte = tmp_2byte & (~BIT(8));
-		rtw_write16(Adapter, 0x860, tmp_2byte);
-		rtw_write16(Adapter, 0x870, 0x300);
-
-		////3>. tell FW to Enter BT MP
-		////1. wifi h2c cmd = 0x3e010000
-		////2. wifi fw mailbox cmd = 0x24010100
-		////3. bt ßMÈëtest mode
-		////4. bt report ready mailbox cmd = 0x24010100
-		////5. wifi fw report c2h cmd = 0x1dxx01   (xx:sequency number)
-		H2C_Parameter[0] = 0x01;
-		FillH2CCmd(Adapter, 0x3e, 5, H2C_Parameter);
-
-		if (BT_MP_WaitC2HBTMPInterrupt(Adapter, 1))
-			return 1;
-	} else {
-		////1>. Open WiFi RF
-		BT_MP_Open_WiFiRF(Adapter);
-
-		////2>. change ant switch back
-		tmp_2byte = rtw_read16(Adapter, 0x860);
-		tmp_2byte = tmp_2byte | BIT(8);
-		tmp_2byte = tmp_2byte & (~BIT(9));
-		rtw_write16(Adapter, 0x860, tmp_2byte);
-		rtw_write16(Adapter, 0x870, 0x300);
-
-		////3>. tell FW to Leave BT MP
-		////1. wifi h2c cmd = 0x3e000000
-		////2. wifi fw mailbox cmd = 0x24010000
-		////3. bt ëxé_test mode
-		////4. bt report ready mailbox cmd = 0x24010000
-		////5. wifi fw report c2h cmd = 0x1dxx00  (xx:sequency number)
-		H2C_Parameter[0] = 0x00;
-		FillH2CCmd(Adapter, 0x3e, 5, H2C_Parameter);
-
-		if (BT_MP_WaitC2HBTMPInterrupt(Adapter, 0))
-			return 1;
-	}
-
-	return 0;
-}
-#endif // CONFIG_RTL8723A
-
-
-u32 rtw_atoi(u8* s)
-{
-
-	int num=0,flag=0;
-	int i;
-	for(i=0;i<=strlen(s);i++)
-	{
-	  if(s[i] >= '0' && s[i] <= '9')
-		 num = num * 10 + s[i] -'0';
-	  else if(s[0] == '-' && i==0)
-		 flag =1;
-	  else
-		  break;
-	 }
-
-	if(flag == 1)
-	   num = num * -1;
-
-	 return(num);
-
-}
-
-u32 rtw_mp_spui_wifirate2_hwdesc(u32 rate)
-{
-	u32 ratedesc = 0;
-
-	switch (rate)
-	{
-		case 1:
-			ratedesc = MPT_RATE_1M;
-			break;
-		case 2:
-			ratedesc = MPT_RATE_2M;
-			break;
-		case 3:
-			ratedesc = MPT_RATE_55M;
-			break;
-		case 4:
-			ratedesc = MPT_RATE_11M;
-			break;
-		case 5:
-			ratedesc = MPT_RATE_6M;
-			break;
-		case 6:
-			ratedesc = MPT_RATE_9M;
-			break;
-		case 7:
-			ratedesc = MPT_RATE_12M;
-			break;
-		case 8:
-			ratedesc = MPT_RATE_18M;
-			break;
-		case 9:
-			ratedesc = MPT_RATE_24M;
-			break;
-		case 10:
-			ratedesc = MPT_RATE_36M;
-			break;
-		case 11:
-			ratedesc = MPT_RATE_48M;
-			break;
-		case 12:
-			ratedesc = MPT_RATE_54M;
-			break;
-		case 13://6.5:
-			ratedesc = MPT_RATE_MCS0;
-			break;
-		case 14:
-			ratedesc = MPT_RATE_MCS1;
-			break;
-		case 15://19.5:
-			ratedesc = MPT_RATE_MCS2;
-			break;
-		case 16:
-			ratedesc = MPT_RATE_MCS3;
-			break;
-		case 17:
-			ratedesc = MPT_RATE_MCS4;
-			break;
-		case 18:
-			ratedesc = MPT_RATE_MCS5;
-			break;
-		case 19://58.5:
-			ratedesc = MPT_RATE_MCS6;
-			break;
-		case 20:
-			ratedesc = MPT_RATE_MCS7;
-			break;
-		default:
-			DBG_8192C("%s:No Match rate\n", __FUNCTION__);
-			return MPT_RATE_1M;
-	}
-
-	return ratedesc;
 }
 
 #endif

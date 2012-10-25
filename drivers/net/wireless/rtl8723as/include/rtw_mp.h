@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -215,7 +215,6 @@ struct mp_tx
 	_thread_hdl_	PktTxThread;
 };
 
-//#if (MP_DRIVER == 1)
 #if defined(CONFIG_RTL8192C) || defined(CONFIG_RTL8192D) || defined(CONFIG_RTL8723A) || defined(CONFIG_RTL8188E)
 #ifdef CONFIG_RTL8192C
 #include <Hal8192CPhyCfg.h>
@@ -230,8 +229,8 @@ struct mp_tx
 #include <Hal8188EPhyCfg.h>
 #endif
 
-#define MP_MAX_LINES			1000
-#define MP_MAX_LINES_BYTES		256
+#define MP_MAX_LINES		1000
+#define MP_MAX_LINES_BYTES	256
 #define u1Byte u8
 #define s1Byte s8
 #define u4Byte u32
@@ -239,10 +238,10 @@ struct mp_tx
 #define u1Byte		u8
 #define pu1Byte 		u8*
 
-#define u2Byte u16
+#define u2Byte		u16
 #define pu2Byte 		u16*
 
-#define u4Byte u32
+#define u4Byte		u32
 #define pu4Byte 		u32*
 
 #define u8Byte		u64
@@ -254,7 +253,7 @@ struct mp_tx
 #define s2Byte		s16
 #define ps2Byte 		s16*
 
-#define s4Byte s32
+#define s4Byte		s32
 #define ps4Byte 		s32*
 
 #define s8Byte		s64
@@ -383,9 +382,14 @@ typedef struct _MPT_CONTEXT
 #define EFUSE_MAP_SIZE		256
 #endif
 #ifdef CONFIG_RTL8188E
-#define EFUSE_MAP_SIZE		256
+#define EFUSE_MAP_SIZE		512
 #endif
+
+#ifdef CONFIG_RTL8188E
+#define EFUSE_MAX_SIZE		256
+#else
 #define EFUSE_MAX_SIZE		512
+#endif
 /* end of E-Fuse */
 
 //#define RTPRIV_IOCTL_MP 					( SIOCIWFIRSTPRIV + 0x17)
@@ -416,21 +420,7 @@ enum {
 	MP_PHYPARA,
 	MP_SetRFPathSwh,
 	MP_QueryDrvStats,
-	MP_EFUSE_UTILIZE,
-	MP_SET_H2C_CMD,
-	MP_GET_TXPOWER_INX,
-	MP_WRITE_MAC,
-	MP_RAED_MAC,
-	MP_SET_PREAMBLE,
-	MP_DEVICE_ID,
-	MP_SET_TX_AGC,
-	MP_AUTOLOAD_STATUS,
-	MP_EEPROM_TYPE,
-	MP_TSSI,
-	MP_DISABLE_BT_COEXIST,
-	MP_SET_BT_NAV,
-	MP_BT_SET_FRAG,
-        MP_SetBT,
+	MP_SetBT,
 	MP_NULL,
 };
 
@@ -438,11 +428,8 @@ struct mp_priv
 {
 	_adapter *papdater;
 
-	u32 BTMP_State;
-
 	//Testing Flag
 	u32 mode;//0 for normal type packet, 1 for loopback packet (16bytes TXCMD)
-	u32 lastmode;  // save last mode for stop
 
 	u32 prev_fw_state;
 
@@ -480,6 +467,7 @@ struct mp_priv
 
 	u8 check_mp_pkt;
 
+	u8 bSetTxPower;
 //	uint ForcedDataRate;
 
 	struct wlan_network mp_network;
@@ -737,6 +725,7 @@ extern void	SetContinuousTx(PADAPTER pAdapter, u8 bStart);
 extern void	SetSingleCarrierTx(PADAPTER pAdapter, u8 bStart);
 extern void	SetSingleToneTx(PADAPTER pAdapter, u8 bStart);
 extern void	SetCarrierSuppressionTx(PADAPTER pAdapter, u8 bStart);
+extern void PhySetTxPowerLevel(PADAPTER pAdapter);
 
 extern void	fill_txdesc_for_mp(PADAPTER padapter, struct tx_desc *ptxdesc);
 extern void	SetPacketTx(PADAPTER padapter);
@@ -750,11 +739,6 @@ extern s32	SetPowerTracking(PADAPTER padapter, u8 enable);
 extern void	GetPowerTracking(PADAPTER padapter, u8 *enable);
 
 extern u32	mp_query_psd(PADAPTER pAdapter, u8 *data);
-
-extern u32 mpt_ProQueryCalTxPower(PADAPTER pAdapter, u32 RfPath);
-extern u4Byte BT_MP_EnterOrLeave(PADAPTER	Adapter, u4Byte Enter);
-
-extern u32	rtw_atoi(u8 *s);
 
 
 extern void Hal_SetAntenna(PADAPTER pAdapter);
@@ -787,6 +771,5 @@ extern void Hal_ProSetCrystalCap (PADAPTER pAdapter , u32 CrystalCapVal);
 
 extern void MP_PHY_SetRFPathSwitch(PADAPTER pAdapter ,BOOLEAN bMain);
 
-extern u32  rtw_mp_spui_wifirate2_hwdesc(u32 rate);
 #endif //_RTW_MP_H_
 

@@ -20,20 +20,25 @@ CONFIG_RTL8188E = n
 
 CONFIG_USB_HCI = n
 CONFIG_PCI_HCI = n
-CONFIG_SDIO_HCI = y
+CONFIG_SDIO_HCI = n
 CONFIG_GSPI_HCI = n
 
 #following from kernel .config
 ifeq ($(CONFIG_RTL8723AS),m)
 ifeq ($(CONFIG_WLAN_SDIO),y)
-CONFIG_SDIO_HCI = y
-CONFIG_GSPI_HCI = n
-EXTRA_CFLAGS += -DCONFIG_SDIO_HCI
+CONFIG_SDIO_HCI=y
+CONFIG_GSPI_HCI=n
 else
-CONFIG_SDIO_HCI = n
-CONFIG_GSPI_HCI = y
-EXTRA_CFLAGS += -DCONFIG_GSPI_HCI
+CONFIG_SDIO_HCI=n
+CONFIG_GSPI_HCI=y
 endif
+endif
+
+ifeq ($(CONFIG_SDIO_HCI), y)
+EXTRA_CFLAGS += -DCONFIG_SDIO_HCI
+endif
+ifeq ($(CONFIG_GSPI_HCI), y)
+EXTRA_CFLAGS += -DCONFIG_GSPI_HCI
 endif
 
 CONFIG_MP_INCLUDED = y
@@ -48,6 +53,7 @@ CONFIG_WAPI_SUPPORT = y
 CONFIG_EFUSE_CONFIG_FILE = y
 CONFIG_EXT_CLK = y
 CONFIG_FTP_PROTECT = n
+CONFIG_WOWLAN = n
 
 #CONFIG_PLATFORM_I386_PC = n
 CONFIG_PLATFORM_SPREADTRUM_6820 = n
@@ -134,6 +140,10 @@ OUTSRC_FILES += hal/OUTSRC/$(RTL871X)/HalHWImg8188E_MAC.o\
 		hal/OUTSRC/$(RTL871X)/odm_RegConfig8188E.o\
 		hal/OUTSRC/$(RTL871X)/Hal8188ERateAdaptive.o\
 		hal/OUTSRC/$(RTL871X)/odm_RTL8188E.o
+
+ifeq ($(CONFIG_WOWLAN), y)
+OUTSRC_FILES += hal/OUTSRC/$(RTL871X)/HalHWImg8188E_FW.o
+endif
 
 PWRSEQ_FILES := hal/HalPwrSeqCmd.o \
 				hal/$(RTL871X)/Hal8188EPwrSeq.o
@@ -261,6 +271,10 @@ ifeq ($(CONFIG_FTP_PROTECT), y)
 EXTRA_CFLAGS += -DCONFIG_FTP_PROTECT
 endif
 
+ifeq ($(CONFIG_WOWLAN), y)
+EXTRA_CFLAGS += -DCONFIG_WOWLAN
+endif
+
 # Platfrom setting
 ifeq ($(CONFIG_PLATFORM_SPREADTRUM_6820), y)
 ifeq ($(CONFIG_ANDROID_2X), y)
@@ -297,11 +311,14 @@ rtk_core :=	core/rtw_cmd.o \
 		core/rtw_rf.o \
 		core/rtw_recv.o \
 		core/rtw_sta_mgt.o \
+		core/rtw_ap.o \
 		core/rtw_xmit.o	\
 		core/rtw_p2p.o \
+		core/rtw_tdls.o \
 		core/rtw_br_ext.o \
 		core/rtw_iol.o \
-		core/rtw_led.o
+		core/rtw_led.o \
+		core/rtw_sreset.o
 
 $(MODULE_NAME)-y += $(rtk_core)
 

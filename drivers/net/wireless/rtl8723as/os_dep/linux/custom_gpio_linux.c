@@ -1,7 +1,7 @@
 /******************************************************************************
  * Customer code to add GPIO control during WLAN start/stop
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -22,16 +22,21 @@
 #include "drv_types.h"
 #include "custom_gpio.h"
 
+#ifdef CONFIG_PLATFORM_SPRD
+
 //gspi func & GPIO define
 #include <mach/gpio.h>//0915
 #include <mach/board.h>
-
-#ifdef CONFIG_PLATFORM_SPRD
 
 #if !(defined ANDROID_2X)
 
 #ifdef CONFIG_GSPI_HCI
 extern unsigned int oob_irq;
+#else
+/* sprd api related with sdio clock & power */
+/* for realtek it can fix clock close issue
+ * after resume in Android 4.0.3*/
+extern int sdhci_device_attach(int on);
 #endif //CONFIG_GSPI_HCI
 
 int rtw_wifi_gpio_init(void)
@@ -74,11 +79,18 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 				__FUNCTION__);
 			if (GPIO_WIFI_RESET > 0)
 				gpio_direction_output(GPIO_WIFI_RESET , 0);
+#ifdef CONFIG_SDIO_HCI
+			sdhci_device_attach(0);
+#endif
 		break;
 
 		case WLAN_PWDN_ON:
 			DBG_8192C("%s: callc customer specific GPIO to set wifi power down pin to 1\n",
 				__FUNCTION__);
+#ifdef CONFIG_SDIO_HCI
+			sdhci_device_attach(1);
+#endif
+
 			if (GPIO_WIFI_RESET > 0)
 				gpio_direction_output(GPIO_WIFI_RESET , 1);
 		break;
@@ -123,7 +135,8 @@ int rtw_wifi_gpio_deinit(void)
 /* Customer function to control hw specific wlan gpios */
 void rtw_wifi_gpio_wlan_ctrl(int onoff)
 {
-	switch (onoff) {
+	switch (onoff)
+	{
 		case WLAN_PWDN_OFF:
 			DBG_8192C("%s: call customer specific GPIO to set wifi power down pin to 0\n",
 				__FUNCTION__);
@@ -146,6 +159,7 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 				gpio_set_value(sprd_3rdparty_gpio_wifi_power, 0);
 #endif
 		break;
+
 		case WLAN_POWER_ON:
 			DBG_8192C("%s: call customer specific GPIO to turn on wifi power\n",
 				__FUNCTION__);
@@ -153,6 +167,7 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 			if (sprd_3rdparty_gpio_wifi_power > 0)
 				gpio_set_value(sprd_3rdparty_gpio_wifi_power, 1);
 #endif
+		break;
 
 		case WLAN_BT_PWDN_OFF:
 			DBG_8192C("%s: call customer specific GPIO to set bt power down pin to 0\n",
@@ -170,7 +185,6 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 			if (sprd_3rdparty_gpio_bt_reset > 0)
 				gpio_set_value(sprd_3rdparty_gpio_bt_reset, 1);
 #endif
-		break;
 		break;
 	}
 }

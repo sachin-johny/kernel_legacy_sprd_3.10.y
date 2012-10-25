@@ -63,12 +63,12 @@ extern char* ifname;
 typedef struct _driver_priv {
 	int drv_registered;
 
+	_mutex hw_init_mutex;
 #if defined(CONFIG_CONCURRENT_MODE) || defined(CONFIG_DUALMAC_CONCURRENT)
 	//global variable
 	_mutex h2c_fwcmd_mutex;
 	_mutex setch_mutex;
 	_mutex setbw_mutex;
-	_mutex hw_init_mutex;
 #endif
 } drv_priv, *pdrv_priv;
 
@@ -77,200 +77,124 @@ static drv_priv drvpriv = {
 
 };
 
-static void decide_chip_type_by_device_id(PADAPTER padapter, u32 id)
+static void decide_chip_type_by_device_id(PADAPTER padapter)
 {
 	padapter->chip_type = NULL_CHIP_TYPE;
 
-	switch (id)
-	{
-		case 0x8723:
-			padapter->chip_type = RTL8188C_8192C;
-			padapter->HardwareType = HARDWARE_TYPE_RTL8723AS;
-			break;
-		case 0x8179:
-			padapter->chip_type = RTL8188E;
-			padapter->HardwareType = HARDWARE_TYPE_RTL8188ES;
-			break;
-	}
+#if defined(CONFIG_RTL8723A)
+	padapter->chip_type = RTL8723A;
+	padapter->HardwareType = HARDWARE_TYPE_RTL8723AS;
+#elif defined(CONFIG_RTL8188E)
+	padapter->chip_type = RTL8188E;
+	padapter->HardwareType = HARDWARE_TYPE_RTL8188ES;
+#endif
 }
 
 static irqreturn_t spi_interrupt_thread(int irq, void *data)
 {
-	PADAPTER padapter = (PADAPTER)data;
+	struct dvobj_priv *dvobj;
+	PGSPI_DATA pgspi_data;
+
+
+	dvobj = (struct dvobj_priv*)data;
+	pgspi_data = &dvobj->intf_data;
 
 	//spi_int_hdl(padapter);
-	if (padapter->priv_wq)
-		queue_delayed_work(padapter->priv_wq, &padapter->irq_work, 0);
+	if (pgspi_data->priv_wq)
+		queue_delayed_work(pgspi_data->priv_wq, &pgspi_data->irq_work, 0);
 
 	return IRQ_HANDLED;
 }
 
-static u32 gspi_init(PADAPTER padapter)
+static u8 gspi_alloc_irq(struct dvobj_priv *dvobj)
 {
-	struct dvobj_priv *psddev;
 	PGSPI_DATA pgspi_data;
 	struct spi_device *spi;
 	int err;
-	int g_irq = 0;
 
-	_func_enter_;
 
-	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("+gspi_init\n"));
-	if (padapter == NULL) {
-		DBG_8192C(KERN_ERR "%s: padapter is NULL!\n", __func__);
-		err = -1;
-		goto exit;
-	}
-
-	psddev = &padapter->dvobjpriv;
-	pgspi_data = &psddev->intf_data;
+	pgspi_data = &dvobj->intf_data;
 	spi = pgspi_data->func;
-
-#if 0
-	//3 1. init SDIO bus
-	sdio_claim_host(func);
-
-	err = sdio_enable_func(func);
-	if (err) {
-		DBG_8192C(KERN_CRIT "%s: sdio_enable_func FAIL(%d)!\n", __func__, err);
-		goto release;
-	}
-	err = sdio_set_block_size(func, 512);
-	if (err) {
-		DBG_8192C(KERN_CRIT "%s: sdio_set_block_size FAIL(%d)!\n", __func__, err);
-		goto release;
-	}
-#endif
-	pgspi_data->block_transfer_len = 512;
-	pgspi_data->tx_block_mode = 0;
-	pgspi_data->rx_block_mode = 0;
 
 	err = request_irq(oob_irq, spi_interrupt_thread,
 			IRQF_TRIGGER_FALLING,//IRQF_TRIGGER_HIGH;//|IRQF_ONESHOT,
-		       	DRV_NAME, padapter);
+		       	DRV_NAME, dvobj);
 	//err = request_threaded_irq(oob_irq, NULL, spi_interrupt_thread,
 	//		IRQF_TRIGGER_FALLING,
-	//		DRV_NAME, padapter);
+	//		DRV_NAME, dvobj);
 	if (err < 0) {
-		DBG_8192C("Oops: can't allocate irq %d err:%d\n", oob_irq, err);
+		DBG_871X("Oops: can't allocate irq %d err:%d\n", oob_irq, err);
 		goto exit;
 	}
 	enable_irq_wake(oob_irq);
 	disable_irq(oob_irq);
-release:
-	//sdio_release_host(func);
 
 exit:
-	_func_exit_;
+	return err?_FAIL:_SUCCESS;
+}
+
+static u8 gspi_init(struct dvobj_priv *dvobj)
+{
+	PGSPI_DATA pgspi_data;
+	int err = 0;
+
+_func_enter_;
+
+	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("+gspi_init\n"));
+
+	if (NULL == dvobj) {
+		DBG_8192C(KERN_ERR "%s: driver object is NULL!\n", __func__);
+		err = -1;
+		goto exit;
+	}
+
+	pgspi_data = &dvobj->intf_data;
+
+	pgspi_data->block_transfer_len = 512;
+	pgspi_data->tx_block_mode = 0;
+	pgspi_data->rx_block_mode = 0;
+
+exit:
+_func_exit_;
 
 	if (err) return _FAIL;
 	return _SUCCESS;
 }
 
-static void gspi_deinit(PADAPTER padapter)
+static void gspi_deinit(struct dvobj_priv *dvobj)
 {
-	struct dvobj_priv *psddev;
+	PGSPI_DATA pgspi_data;
 	struct spi_device *spi;
 	int err;
 
 
 	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("+gspi_deinit\n"));
 
-	if (padapter == NULL) {
-		DBG_8192C(KERN_ERR "%s: padapter is NULL!\n", __func__);
+	if (NULL == dvobj) {
+		DBG_8192C(KERN_ERR "%s: driver object is NULL!\n", __FUNCTION__);
 		return;
 	}
-	psddev = &padapter->dvobjpriv;
-	spi = psddev->intf_data.func;
 
+	pgspi_data = &dvobj->intf_data;
+	spi = pgspi_data->func;
 
 	if (spi) {
-		free_irq(oob_irq, padapter);
+		free_irq(oob_irq, dvobj);
 	}
 }
 
-static void spi_irq_work(void *data)
+static struct dvobj_priv *gspi_dvobj_init(struct spi_device *spi)
 {
-	struct delayed_work *dwork;
-	PADAPTER padapter;
-
-	dwork = container_of(data, struct delayed_work, work);
-	padapter = container_of(dwork, struct _ADAPTER, irq_work);
-
-	spi_int_hdl(padapter);
-}
-
-static void sd_intf_start(PADAPTER padapter)
-{
-	if (padapter == NULL) {
-		DBG_8192C(KERN_ERR "%s: padapter is NULL!\n", __func__);
-		return;
-	}
-
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
-	padapter->priv_wq = alloc_workqueue("spi_wq", 0, 0);
-#else
-	padapter->priv_wq = create_workqueue("spi_wq");
-#endif
-	INIT_DELAYED_WORK(&padapter->irq_work, (void*)spi_irq_work);
-
-	enable_irq(oob_irq);
-	//hal dep
-	rtw_hal_enable_interrupt(padapter);
-
-	return;
-}
-
-static void sd_intf_stop(PADAPTER padapter)
-{
-	if (padapter == NULL) {
-		DBG_8192C(KERN_ERR "%s: padapter is NULL!\n", __func__);
-		return;
-	}
-
-	if (padapter->priv_wq) {
-		cancel_delayed_work_sync(&padapter->irq_work);
-		flush_workqueue(padapter->priv_wq);
-		destroy_workqueue(padapter->priv_wq);
-		padapter->priv_wq = NULL;
-	}
-
-	//hal dep
-	rtw_hal_disable_interrupt(padapter);
-	disable_irq(oob_irq);
-}
-/*
- * drv_init() - a device potentially for us
- *
- * notes: drv_init() is called when the bus driver has located a card for us to support.
- *        We accept the new device by returning 0.
- */
-static int /*__devinit*/  rtw_drv_probe(
-	struct spi_device *spi)
-{
-	struct net_device *pnetdev;
-	PADAPTER padapter;
-	struct dvobj_priv *pdvobjpriv;
+	int status = _FAIL;
+	struct dvobj_priv *dvobj = NULL;
 	PGSPI_DATA pgspi;
 
+_func_enter_;
 
-	DBG_8192C("RTW: %s line:%d", __FUNCTION__, __LINE__);
-
-	//3 1. init network device data
-	pnetdev = rtw_init_netdev(NULL);
-	if (!pnetdev) goto error;
-
-	SET_NETDEV_DEV(pnetdev, &spi->dev);
-
-	padapter = rtw_netdev_priv(pnetdev);
-	pdvobjpriv = &padapter->dvobjpriv;
-	pdvobjpriv->padapter = padapter;
-	pgspi = &pdvobjpriv->intf_data;
-	pgspi->func = spi;
-
-#ifdef CONFIG_IOCTL_CFG80211
-	rtw_wdev_alloc(padapter, &spi->dev);
-#endif
+	dvobj = (struct dvobj_priv*)rtw_zmalloc(sizeof(*dvobj));
+	if (NULL == dvobj) {
+		goto exit;
+	}
 
 	//spi init
 	/* This is the only SPI value that we need to set here, the rest
@@ -286,137 +210,117 @@ static int /*__devinit*/  rtw_drv_probe(
 #if 1
 	//DBG_8192C("set spi ==========================%d \n", spi_setup(spi));
 
-	DBG_8192C("%s, mode = %d \n", __func__, spi->mode);
-	DBG_8192C("%s, bit_per_word = %d \n", __func__, spi->bits_per_word);
-	DBG_8192C("%s, speed = %d \n", __func__, spi->max_speed_hz);
-	DBG_8192C("%s, chip_select = %d \n", __func__, spi->chip_select);
-	DBG_8192C("%s, controller_data = %d \n", __func__, *(int *)spi->controller_data);
-
-	DBG_8192C("%s, irq= %d \n", __func__, oob_irq);
-
-#endif
-	DBG_8192C("RTW: %s line:%d", __FUNCTION__, __LINE__);
-
-	//3 2. set interface private data
-	spi_set_drvdata(spi, padapter);
-
-	//3 3. init driver special setting, interface, OS and hardware relative
-	// set interface_type to gspi
-	padapter->interface_type = RTW_SPI;
-	decide_chip_type_by_device_id(padapter, 0x8723);
-
-	//4 3.1 set hardware operation functions
-	padapter->HalData = rtw_zmalloc(sizeof(HAL_DATA_TYPE));
-	if (padapter->HalData == NULL) {
-		RT_TRACE(_module_hci_intfs_c_, _drv_err_,
-			 ("rtw_drv_init: can't alloc memory for HAL DATA\n"));
-		goto error;
-	}
-        padapter->hal_data_sz = sizeof(HAL_DATA_TYPE);
-	set_hal_ops(padapter);
-
-	//3 4. interface init
-	if (gspi_init(padapter) != _SUCCESS) {
-		RT_TRACE(_module_hci_intfs_c_, _drv_err_,
-			 ("rtw_drv_init: initialize device object priv Failed!\n"));
-		goto error;
-	}
-	padapter->intf_start = &sd_intf_start;
-	padapter->intf_stop = &sd_intf_stop;
-
-
-	//3 5. register I/O operations
-	if (rtw_init_io_priv(padapter) == _FAIL)
-	{
-		RT_TRACE(_module_hci_intfs_c_, _drv_err_,
-			("rtw_drv_init: Can't init io_priv\n"));
-		goto deinit;
-	}
-
-	{
-		u32 ret = 0;
-		DBG_8192C("read start:\n");
-		//spi_write8_endian(padapter, SPI_LOCAL_OFFSET | 0xF0, 0x01, 1);
-		rtw_write8(padapter, SPI_LOCAL_OFFSET | 0xF0, 0x03);
-		ret = rtw_read32(padapter, SPI_LOCAL_OFFSET | 0xF0);
-		DBG_8192C("read end 0xF0 read32:%x:\n", ret);
-		DBG_8192C("read end 0xF0 read8:%x:\n", rtw_read8(padapter, SPI_LOCAL_OFFSET | 0xF0));
-
-	}
-	//goto deinit;
-	//3 6.
-	intf_read_chip_version(padapter);
-
-	//3 7.
-	intf_chip_configure(padapter);
-
-	//3 8. read efuse/eeprom data
-	intf_read_chip_info(padapter);
-
-	//3 9. init driver common data
-	if (rtw_init_drv_sw(padapter) == _FAIL) {
-		RT_TRACE(_module_hci_intfs_c_, _drv_err_,
-			 ("rtw_drv_init: Initialize driver software resource Failed!\n"));
-		goto deinit;
-	}
-
-	//3 10. get WLan MAC address
-	// alloc dev name after read efuse.
-	rtw_init_netdev_name(pnetdev, ifname);
-
-	rtw_macaddr_cfg(padapter->eeprompriv.mac_addr);
-	_rtw_memcpy(pnetdev->dev_addr, padapter->eeprompriv.mac_addr, ETH_ALEN);
-
-
-#ifdef CONFIG_PROC_DEBUG
-#ifdef RTK_DMP_PLATFORM
-	rtw_proc_init_one(pnetdev);
-#endif
+	DBG_871X("%s, mode = %d \n", __func__, spi->mode);
+	DBG_871X("%s, bit_per_word = %d \n", __func__, spi->bits_per_word);
+	DBG_871X("%s, speed = %d \n", __func__, spi->max_speed_hz);
+	DBG_871X("%s, chip_select = %d \n", __func__, spi->chip_select);
+	DBG_871X("%s, controller_data = %d \n", __func__, *(int *)spi->controller_data);
+	DBG_871X("%s, irq= %d \n", __func__, oob_irq);
 #endif
 
-#ifdef CONFIG_HOSTAPD_MLME
-	hostapd_mode_init(padapter);
+	spi_set_drvdata(spi, dvobj);
+	pgspi = &dvobj->intf_data;
+	pgspi->func = spi;
+
+	if (gspi_init(dvobj) != _SUCCESS) {
+		DBG_871X("%s: initialize GSPI Failed!\n", __FUNCTION__);
+		goto free_dvobj;
+	}
+
+	status = _SUCCESS;
+
+free_dvobj:
+	if (status != _SUCCESS && dvobj) {
+		spi_set_drvdata(spi, NULL);
+		rtw_mfree((u8*)dvobj, sizeof(*dvobj));
+		dvobj = NULL;
+	}
+
+exit:
+_func_exit_;
+
+	return dvobj;
+}
+
+static void gspi_dvobj_deinit(struct spi_device *spi)
+{
+	struct dvobj_priv *dvobj = spi_get_drvdata(spi);
+
+_func_enter_;
+
+	spi_set_drvdata(spi, NULL);
+	if (dvobj) {
+		gspi_deinit(dvobj);
+		rtw_mfree((u8*)dvobj, sizeof(*dvobj));
+	}
+
+_func_exit_;
+}
+
+static void spi_irq_work(void *data)
+{
+	struct delayed_work *dwork;
+	PGSPI_DATA pgspi;
+	struct dvobj_priv *dvobj;
+
+
+	dwork = container_of(data, struct delayed_work, work);
+	pgspi = container_of(dwork, GSPI_DATA, irq_work);
+
+	dvobj = spi_get_drvdata(pgspi->func);
+	if (!dvobj->if1) {
+		DBG_871X("%s if1 == NULL !!\n", __FUNCTION__);
+		return;
+	}
+	spi_int_hdl(dvobj->if1);
+}
+
+static void gspi_intf_start(PADAPTER padapter)
+{
+	PGSPI_DATA pgspi;
+
+
+	if (padapter == NULL) {
+		DBG_871X(KERN_ERR "%s: padapter is NULL!\n", __FUNCTION__);
+		return;
+	}
+
+	pgspi = &adapter_to_dvobj(padapter)->intf_data;
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
+	pgspi->priv_wq = alloc_workqueue("spi_wq", 0, 0);
+#else
+	pgspi->priv_wq = create_workqueue("spi_wq");
 #endif
+	INIT_DELAYED_WORK(&pgspi->irq_work, (void*)spi_irq_work);
 
-	DBG_871X("bDriverStopped:%d, bSurpriseRemoved:%d, bup:%d, hw_init_completed:%d\n"
-		,padapter->bDriverStopped
-		,padapter->bSurpriseRemoved
-		,padapter->bup
-		,padapter->hw_init_completed
-	);
+	enable_irq(oob_irq);
+	//hal dep
+	rtw_hal_enable_interrupt(padapter);
+}
+
+static void gspi_intf_stop(PADAPTER padapter)
+{
+	PGSPI_DATA pgspi;
 
 
-	//3 8. Tell the network stack we exist
-	if (register_netdev(pnetdev) != 0) {
-		RT_TRACE(_module_hci_intfs_c_, _drv_err_,
-			 ("rtw_drv_init: register_netdev() failed\n"));
-		goto deinit;
+	if (padapter == NULL) {
+		DBG_871X(KERN_ERR "%s: padapter is NULL!\n", __FUNCTION__);
+		return;
 	}
 
-	RT_TRACE(_module_hci_intfs_c_, _drv_info_,
-		 ("-rtw_drv_init: Success. bDriverStopped=%d bSurpriseRemoved=%d\n",
-		  padapter->bDriverStopped, padapter->bSurpriseRemoved));
+	pgspi = &adapter_to_dvobj(padapter)->intf_data;
 
-	return 0;
-
-deinit:
-	gspi_deinit(padapter);
-
-error:
-	if (padapter)
-	{
-		if (padapter->HalData && padapter->hal_data_sz>0) {
-			rtw_mfree(padapter->HalData, padapter->hal_data_sz);
-			padapter->HalData = NULL;
-		}
+	if (pgspi->priv_wq) {
+		cancel_delayed_work_sync(&pgspi->irq_work);
+		flush_workqueue(pgspi->priv_wq);
+		destroy_workqueue(pgspi->priv_wq);
+		pgspi->priv_wq = NULL;
 	}
 
-	if (pnetdev)
-		rtw_free_netdev(pnetdev);
-
-	RT_TRACE(_module_hci_intfs_c_, _drv_crit_, ("-rtw_drv_init: FAIL!\n"));
-
-	return -1;
+	//hal dep
+	rtw_hal_disable_interrupt(padapter);
+	disable_irq(oob_irq);
 }
 
 /*
@@ -437,7 +341,7 @@ static void rtw_dev_unload(PADAPTER padapter)
 		if (padapter->intf_stop)
 			padapter->intf_stop(padapter);
 #else
-		sd_intf_stop(padapter);
+		gspi_intf_stop(padapter);
 #endif
 		RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("@ rtw_dev_unload: stop intf complete!\n"));
 
@@ -455,22 +359,7 @@ static void rtw_dev_unload(PADAPTER padapter)
 			else
 #endif
 			{
-#ifdef CONFIG_IPS
-				/* IPS will make wifi power state enter suspend, we
-				 * need leave suspend state first, then enter
-				 * power down state. */
-				if ((check_fwstate(pmlmepriv, _FW_LINKED) == _FALSE)
-					&& (padapter->pwrctrlpriv.rf_pwrstate== rf_off)) {
-					// unlock ISO/CLK/Power control register
-					rtw_write8(padapter, REG_RSV_CTRL, 0x0);
-					HalPwrSeqCmdParsing(padapter, PWR_CUT_ALL_MSK, PWR_FAB_ALL_MSK, PWR_INTF_SDIO_MSK,
-							rtl8723A_ips_to_hwpdn_flow);
-				} else
-#endif
-				{
-					//amy modify 20120221 for power seq is different between driver open and ips
-					rtw_hal_deinit(padapter);
-				}
+				rtw_hal_deinit(padapter);
 			}
 			padapter->bSurpriseRemoved = _TRUE;
 		}
@@ -485,106 +374,302 @@ static void rtw_dev_unload(PADAPTER padapter)
 	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("-rtw_dev_unload\n"));
 }
 
+static PADAPTER rtw_gspi_if1_init(struct dvobj_priv *dvobj)
+{
+	int status = _FAIL;
+	struct net_device *pnetdev;
+	PADAPTER padapter = NULL;
+
+
+	padapter = (PADAPTER)rtw_zvmalloc(sizeof(*padapter));
+	if (NULL == padapter) {
+		goto exit;
+	}
+
+	padapter->dvobj = dvobj;
+	dvobj->if1 = padapter;
+
+	padapter->bDriverStopped = _TRUE;
+
+#if defined(CONFIG_CONCURRENT_MODE) || defined(CONFIG_DUALMAC_CONCURRENT)
+	//set adapter_type/iface type for primary padapter
+	padapter->isprimary = _TRUE;
+	padapter->adapter_type = PRIMARY_ADAPTER;
+	#ifndef CONFIG_HWPORT_SWAP
+	padapter->iface_type = IFACE_PORT0;
+	#else
+	padapter->iface_type = IFACE_PORT1;
+	#endif
+#endif
+
+	padapter->hw_init_mutex = &drvpriv.hw_init_mutex;
+#ifdef CONFIG_CONCURRENT_MODE
+	//set global variable to primary adapter
+	padapter->ph2c_fwcmd_mutex = &drvpriv.h2c_fwcmd_mutex;
+	padapter->psetch_mutex = &drvpriv.setch_mutex;
+	padapter->psetbw_mutex = &drvpriv.setbw_mutex;
+#endif
+
+	padapter->interface_type = RTW_SPI;
+	decide_chip_type_by_device_id(padapter);
+
+	//3 1. init network device data
+	pnetdev = rtw_init_netdev(padapter);
+	if (!pnetdev)
+		goto free_adapter;
+
+	SET_NETDEV_DEV(pnetdev, dvobj_to_dev(dvobj));
+
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_wdev_alloc(padapter, dvobj_to_dev(dvobj));
+#endif
+
+
+	//3 3. init driver special setting, interface, OS and hardware relative
+	//4 3.1 set hardware operation functions
+	hal_set_hal_ops(padapter);
+
+
+	//3 5. initialize Chip version
+	padapter->intf_start = &gspi_intf_start;
+	padapter->intf_stop = &gspi_intf_stop;
+
+	if (rtw_init_io_priv(padapter, spi_set_intf_ops) == _FAIL)
+	{
+		RT_TRACE(_module_hci_intfs_c_, _drv_err_,
+			("rtw_drv_init: Can't init io_priv\n"));
+		goto free_hal_data;
+	}
+
+	{
+		u32 ret = 0;
+		DBG_8192C("read start:\n");
+		//spi_write8_endian(padapter, SPI_LOCAL_OFFSET | 0xF0, 0x01, 1);
+		rtw_write8(padapter, SPI_LOCAL_OFFSET | 0xF0, 0x03);
+		ret = rtw_read32(padapter, SPI_LOCAL_OFFSET | 0xF0);
+		DBG_8192C("read end 0xF0 read32:%x:\n", ret);
+		DBG_8192C("read end 0xF0 read8:%x:\n", rtw_read8(padapter, SPI_LOCAL_OFFSET | 0xF0));
+
+	}
+
+	rtw_hal_read_chip_version(padapter);
+
+	rtw_hal_chip_configure(padapter);
+
+
+	//3 6. read efuse/eeprom data
+	rtw_hal_read_chip_info(padapter);
+
+
+	//3 7. init driver common data
+	if (rtw_init_drv_sw(padapter) == _FAIL) {
+		RT_TRACE(_module_hci_intfs_c_, _drv_err_,
+			 ("rtw_drv_init: Initialize driver software resource Failed!\n"));
+		goto free_hal_data;
+	}
+
+
+	//3 8. get WLan MAC address
+	// alloc dev name after read efuse.
+	rtw_init_netdev_name(pnetdev, padapter->registrypriv.ifname);
+
+	rtw_macaddr_cfg(padapter->eeprompriv.mac_addr);
+	_rtw_memcpy(pnetdev->dev_addr, padapter->eeprompriv.mac_addr, ETH_ALEN);
+
+	rtw_hal_disable_interrupt(padapter);
+
+
+	//3 9. Tell the network stack we exist
+	if (register_netdev(pnetdev) != 0) {
+		RT_TRACE(_module_hci_intfs_c_, _drv_err_,
+			 ("rtw_drv_init: register_netdev() failed\n"));
+		goto free_hal_data;
+	}
+
+	DBG_871X("bDriverStopped:%d, bSurpriseRemoved:%d, bup:%d, hw_init_completed:%d\n"
+		,padapter->bDriverStopped
+		,padapter->bSurpriseRemoved
+		,padapter->bup
+		,padapter->hw_init_completed
+	);
+
+#ifdef CONFIG_HOSTAPD_MLME
+	hostapd_mode_init(padapter);
+#endif
+
+	status = _SUCCESS;
+
+free_hal_data:
+	if (status != _SUCCESS && padapter->HalData)
+		rtw_mfree(padapter->HalData, sizeof(*(padapter->HalData)));
+
+free_wdev:
+	if (status != _SUCCESS) {
+		#ifdef CONFIG_IOCTL_CFG80211
+		rtw_wdev_free(padapter->rtw_wdev);
+		#endif
+	}
+
+free_adapter:
+	if (status != _SUCCESS) {
+		if (pnetdev)
+			rtw_free_netdev(pnetdev);
+		else if (padapter)
+			rtw_vmfree((u8*)padapter, sizeof(*padapter));
+		padapter = NULL;
+	}
+
+exit:
+	return padapter;
+}
+
+static void rtw_gspi_if1_deinit(PADAPTER if1)
+{
+	struct net_device *pnetdev = if1->pnetdev;
+	struct mlme_priv *pmlmepriv = &if1->mlmepriv;
+
+
+#if defined(CONFIG_HAS_EARLYSUSPEND ) || defined(CONFIG_ANDROID_POWER)
+	rtw_unregister_early_suspend(&if1->pwrctrlpriv);
+#endif
+
+	rtw_pm_set_ips(if1, IPS_NONE);
+	rtw_pm_set_lps(if1, PS_MODE_ACTIVE);
+
+	LeaveAllPowerSaveMode(if1);
+
+	if (check_fwstate(pmlmepriv, _FW_LINKED))
+		disconnect_hdl(if1, NULL);
+
+#ifdef CONFIG_AP_MODE
+	free_mlme_ap_info(if1);
+	#ifdef CONFIG_HOSTAPD_MLME
+	hostapd_mode_unload(if1);
+	#endif
+#endif
+
+	if(if1->DriverState != DRIVER_DISAPPEAR) {
+		if(pnetdev) {
+			unregister_netdev(pnetdev); //will call netdev_close()
+			rtw_proc_remove_one(pnetdev);
+		}
+	}
+
+	rtw_cancel_all_timer(if1);
+
+	rtw_dev_unload(if1);
+	DBG_871X("+r871xu_dev_remove, hw_init_completed=%d\n", if1->hw_init_completed);
+
+	rtw_handle_dualmac(if1, 0);
+
+#ifdef CONFIG_IOCTL_CFG80211
+	rtw_wdev_free(if1->rtw_wdev);
+#endif
+
+	rtw_free_drv_sw(if1);
+
+	if(pnetdev)
+		rtw_free_netdev(pnetdev);
+}
+
+/*
+ * drv_init() - a device potentially for us
+ *
+ * notes: drv_init() is called when the bus driver has located a card for us to support.
+ *        We accept the new device by returning 0.
+ */
+static int /*__devinit*/  rtw_drv_probe(struct spi_device *spi)
+{
+	int status = _FAIL;
+	struct dvobj_priv *dvobj;
+	struct net_device *pnetdev;
+	PADAPTER if1 = NULL, if2 = NULL;
+
+
+	DBG_8192C("RTW: %s line:%d", __FUNCTION__, __LINE__);
+
+	if ((dvobj = gspi_dvobj_init(spi)) == NULL) {
+		DBG_871X("%s: Initialize device object priv Failed!\n", __FUNCTION__);
+		goto exit;
+	}
+
+	if ((if1 = rtw_gspi_if1_init(dvobj)) == NULL) {
+		DBG_871X("rtw_init_primary_adapter Failed!\n");
+		goto free_dvobj;
+	}
+
+#ifdef CONFIG_CONCURRENT_MODE
+	if ((if2 = rtw_drv_if2_init(if1, NULL, spi_set_intf_ops)) == NULL) {
+		goto free_if1;
+	}
+#endif
+
+	if (gspi_alloc_irq(dvobj) != _SUCCESS)
+		goto free_if2;
+
+#ifdef CONFIG_GLOBAL_UI_PID
+	if(ui_pid[1]!=0) {
+		DBG_871X("ui_pid[1]:%d\n",ui_pid[1]);
+		rtw_signal_process(ui_pid[1], SIGUSR2);
+	}
+#endif
+
+	RT_TRACE(_module_hci_intfs_c_,_drv_err_,("-871x_drv - drv_init, success!\n"));
+
+	status = _SUCCESS;
+
+free_if2:
+	if (status != _SUCCESS && if2) {
+		#ifdef CONFIG_CONCURRENT_MODE
+		rtw_drv_if2_free(if1);
+		#endif
+	}
+
+free_if1:
+	if (status != _SUCCESS && if1) {
+		rtw_gspi_if1_deinit(if1);
+	}
+
+free_dvobj:
+	if (status != _SUCCESS)
+		gspi_dvobj_deinit(spi);
+
+exit:
+	return status == _SUCCESS?0:-ENODEV;
+}
+
 static int /*__devexit*/  rtw_dev_remove(struct spi_device *spi)
 {
-	PADAPTER padapter = spi_get_drvdata(spi);
-	struct net_device *pnetdev;
-	u32 value;
-#ifdef CONFIG_IOCTL_CFG80211
-	struct wireless_dev *wdev;
-#endif
+	struct dvobj_priv *dvobj = spi_get_drvdata(spi);
+	PADAPTER padapter = dvobj->if1;
 
 _func_enter_;
 
 	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("+rtw_dev_remove\n"));
 
-	//padapter = ((struct dvobj_priv*)sdio_get_drvdata(func))->padapter;
-#ifdef CONFIG_IOCTL_CFG80211
-	wdev = padapter->rtw_wdev;
+#ifdef CONFIG_CONCURRENT_MODE
+	rtw_drv_if2_free(padapter);
 #endif
 
-#if defined(CONFIG_HAS_EARLYSUSPEND ) || defined(CONFIG_ANDROID_POWER)
-	rtw_unregister_early_suspend(&padapter->pwrctrlpriv);
-#endif
+	rtw_gspi_if1_deinit(padapter);
 
-	if (padapter->bSurpriseRemoved == _FALSE)
-	{
-		// test surprise remove
-		int err;
-
-#if 0
-		sdio_claim_host(func);
-		sdio_readb(func, 0, &err);
-		sdio_release_host(func);
-		if (err == -ENOMEDIUM) {
-			padapter->bSurpriseRemoved = _TRUE;
-			DBG_871X(KERN_NOTICE "%s: device had been removed!\n", __func__);
-		}
-#endif
-	}
-
-#ifdef CONFIG_HOSTAPD_MLME
-	hostapd_mode_unload(padapter);
-#endif
-
-	LeaveAllPowerSaveMode(padapter);
-
-	pnetdev = (struct net_device*)padapter->pnetdev;
-	if (pnetdev) {
-		unregister_netdev(pnetdev); //will call netdev_close()
-		RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("rtw_dev_remove: unregister netdev\n"));
-#ifdef CONFIG_PROC_DEBUG
-		rtw_proc_remove_one(pnetdev);
-#endif
-	} else {
-		RT_TRACE(_module_hci_intfs_c_, _drv_err_, ("rtw_dev_remove: NO padapter->pnetdev!\n"));
-	}
-
-	rtw_cancel_all_timer(padapter);
-
-	rtw_dev_unload(padapter);
-
-#if 1
-	//WILL OUT
-	/* enable power down pin detection preparing for entering
-	 * power down mode in rtw_drv_halt() function. */
-	// unlock ISO/CLK/Power control register
-	rtw_write8(padapter, REG_RSV_CTRL, 0x0);
-	// enable power down pin input detection
-	value = rtw_read32(padapter, 0x4);
-	value |= BIT15;
-	rtw_write32(padapter, 0x4, value);
-#endif
-
-	// interface deinit
-	gspi_deinit(padapter);
-	spi_set_drvdata(spi, NULL);
-	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("rtw_dev_remove: deinit intf complete!\n"));
-
-#ifdef CONFIG_GSPI_HCI
-	rtw_write8(padapter, SPI_LOCAL_OFFSET | 0xF0, 0x03);
-#endif
-	rtw_free_drv_sw(padapter);
-
-#ifdef CONFIG_IOCTL_CFG80211
-	rtw_wdev_free(wdev);
-#endif
+	gspi_dvobj_deinit(spi);
 
 	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("-rtw_dev_remove\n"));
 
 _func_exit_;
+
 	return 0;
 }
 
-
 static int rtw_gspi_suspend(struct spi_device *spi, pm_message_t mesg)
 {
-	PADAPTER padapter = spi_get_drvdata(spi);
+	struct dvobj_priv *dvobj = spi_get_drvdata(spi);
+	PADAPTER padapter = dvobj->if1;
 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct net_device *pnetdev = padapter->pnetdev;
 	int ret = 0;
-	u32 value;
 
 	u32 start_time = rtw_get_current_time();
 
@@ -655,8 +740,8 @@ static int rtw_gspi_suspend(struct spi_device *spi, pm_message_t mesg)
 		rtw_indicate_disconnect(padapter);
 
 	// interface deinit
-	gspi_deinit(padapter);
-	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("%s: deinit SDIO complete!\n", __FUNCTION__));
+	gspi_deinit(dvobj);
+	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("%s: deinit GSPI complete!\n", __FUNCTION__));
 
 	rtw_wifi_gpio_wlan_ctrl(WLAN_PWDN_OFF);
 	rtw_mdelay_os(1);
@@ -705,10 +790,17 @@ int rtw_resume_process(_adapter *padapter)
 	}
 
 	// interface init
-	if (gspi_init(padapter) != _SUCCESS)
+	if (gspi_init(adapter_to_dvobj(padapter)) != _SUCCESS)
 	{
 		ret = -1;
 		RT_TRACE(_module_hci_intfs_c_, _drv_err_, ("%s: initialize SDIO Failed!!\n", __FUNCTION__));
+		goto exit;
+	}
+	rtw_hal_disable_interrupt(padapter);
+	if (gspi_alloc_irq(adapter_to_dvobj(padapter)) != _SUCCESS)
+	{
+		ret = -1;
+		RT_TRACE(_module_hci_intfs_c_, _drv_err_, ("%s: gspi_alloc_irq Failed!!\n", __FUNCTION__));
 		goto exit;
 	}
 
@@ -749,9 +841,11 @@ exit:
 
 static int rtw_gspi_resume(struct spi_device *spi)
 {
-	PADAPTER padapter = spi_get_drvdata(spi);
+	struct dvobj_priv *dvobj = spi_get_drvdata(spi);
+	PADAPTER padapter = dvobj->if1;
 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
-	 int ret = 0;
+	int ret = 0;
+
 
 	DBG_871X("==> %s (%s:%d)\n",__FUNCTION__, current->comm, current->pid);
 
@@ -801,12 +895,12 @@ static int __init rtw_drv_entry(void)
 
 	rtw_suspend_lock_init();
 
+	_rtw_mutex_init(&drvpriv.hw_init_mutex);
 #if defined(CONFIG_CONCURRENT_MODE) || defined(CONFIG_DUALMAC_CONCURRENT)
 	//init global variable
 	_rtw_mutex_init(&drvpriv.h2c_fwcmd_mutex);
 	_rtw_mutex_init(&drvpriv.setch_mutex);
 	_rtw_mutex_init(&drvpriv.setbw_mutex);
-	_rtw_mutex_init(&drvpriv.hw_init_mutex);
 #endif
 
 	drvpriv.drv_registered = _TRUE;
@@ -830,11 +924,11 @@ static void __exit rtw_drv_halt(void)
 
 	spi_unregister_driver(&rtw_spi_drv);
 
+	_rtw_mutex_free(&drvpriv.hw_init_mutex);
 #if defined(CONFIG_CONCURRENT_MODE) || defined(CONFIG_DUALMAC_CONCURRENT)
 	_rtw_mutex_free(&drvpriv.h2c_fwcmd_mutex);
 	_rtw_mutex_free(&drvpriv.setch_mutex);
 	_rtw_mutex_free(&drvpriv.setbw_mutex);
-	_rtw_mutex_free(&drvpriv.hw_init_mutex);
 #endif
 
 	rtw_wifi_gpio_wlan_ctrl(WLAN_PWDN_OFF);

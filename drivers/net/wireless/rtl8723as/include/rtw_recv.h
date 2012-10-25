@@ -242,6 +242,7 @@ struct recv_priv
 	//_queue	blk_strms[MAX_RX_NUMBLKS];    // keeping the block ack frame until return ack
 	_queue	free_recv_queue;
 	_queue	recv_pending_queue;
+	_queue	uc_swdec_pending_queue;
 
 
 	u8 *pallocated_frame_buf;
@@ -492,12 +493,17 @@ union recv_frame{
 };
 
 
+extern union recv_frame *_rtw_alloc_recvframe (_queue *pfree_recv_queue);  //get a free recv_frame from pfree_recv_queue
 extern union recv_frame *rtw_alloc_recvframe (_queue *pfree_recv_queue);  //get a free recv_frame from pfree_recv_queue
 extern void rtw_init_recvframe(union recv_frame *precvframe ,struct recv_priv *precvpriv);
 extern int	 rtw_free_recvframe(union recv_frame *precvframe, _queue *pfree_recv_queue);
-extern union recv_frame *rtw_dequeue_recvframe (_queue *queue);
-extern int	rtw_enqueue_recvframe(union recv_frame *precvframe, _queue *queue);
+
+#define rtw_dequeue_recvframe(queue) rtw_alloc_recvframe(queue)
+extern int _rtw_enqueue_recvframe(union recv_frame *precvframe, _queue *queue);
+extern int rtw_enqueue_recvframe(union recv_frame *precvframe, _queue *queue);
+
 extern void rtw_free_recvframe_queue(_queue *pframequeue,  _queue *pfree_recv_queue);
+u32 rtw_free_uc_swdec_pending_queue(_adapter *adapter);
 
 sint rtw_enqueue_recvbuf_to_head(struct recv_buf *precvbuf, _queue *queue);
 sint rtw_enqueue_recvbuf(struct recv_buf *precvbuf, _queue *queue);
