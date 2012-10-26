@@ -70,7 +70,7 @@ static irqreturn_t dispc_isr(int irq, void *data)
 
 	reg_val = dispc_read(DISPC_INT_STATUS);
 
-	printk("Jessica: dispc_isr (0x%x)\n",reg_val );
+	pr_debug("dispc_isr (0x%x)\n",reg_val );
 
 	if((SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type) && (reg_val & 0x10)){/*dispc update done isr*/
 #if 0
@@ -504,11 +504,11 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 
 	uint32_t base = fb->fix.smem_start + fb->fix.line_length * fb->var.yoffset;
 
-	printk(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
 	dispc_ctx.vsync_waiter ++;
 	dispc_sync(dev);
-	printk(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
+	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
 	dispc_ctx.dev = dev;
 	dispc_ctx.vsync_done = 0;
