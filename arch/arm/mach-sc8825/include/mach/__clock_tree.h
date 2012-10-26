@@ -53,19 +53,19 @@ SCI_CLK_ADD(clk_225m, 0, 0, 0,
 	4, 0, 0, 0,
 	1, &clk_mpll);
 
-SCI_CLK_ADD(clk_384m, 0, REG_GLB_TD_PLL_CTL, BIT(11),
+SCI_CLK_ADD(clk_384m, 0, 0, 0,
 	2, 0, 0, 0,
 	1, &clk_tdpll);
 
-SCI_CLK_ADD(clk_256m, 0, REG_GLB_TD_PLL_CTL, BIT(10),
+SCI_CLK_ADD(clk_256m, 0, 0, 0,
 	3, 0, 0, 0,
 	1, &clk_tdpll);
 
-SCI_CLK_ADD(clk_192m, 0, REG_GLB_TD_PLL_CTL, BIT(9),
+SCI_CLK_ADD(clk_192m, 0, 0, 0,
 	4, 0, 0, 0,
 	1, &clk_tdpll);
 
-SCI_CLK_ADD(clk_153p6m, 0, REG_GLB_TD_PLL_CTL, BIT(8),
+SCI_CLK_ADD(clk_153p6m, 0, 0, 0,
 	5, 0, 0, 0,
 	1, &clk_tdpll);
 

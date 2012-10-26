@@ -32,6 +32,8 @@
 #define DISPC_DPI_CLOCK_PARENT ("clk_384m")
 #define DISPC_DPI_CLOCK (384*1000000)
 
+#define DISPMTX_CLK_EN (11)
+#define DISPC_CORE_CLK_EN (9)
 
 struct sprdfb_dispc_context {
 	struct clk		*clk_dispc;
@@ -67,6 +69,8 @@ static irqreturn_t dispc_isr(int irq, void *data)
 	bool done = false;
 
 	reg_val = dispc_read(DISPC_INT_STATUS);
+
+	printk("Jessica: dispc_isr (0x%x)\n",reg_val );
 
 	if((SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type) && (reg_val & 0x10)){/*dispc update done isr*/
 #if 0
@@ -313,6 +317,10 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		return 0;
 	}
 
+	/*usesd to open dipsc matix clock*/
+	__raw_writel((__raw_readl(REG_AHB_MATRIX_CLOCK)) | (1<<DISPC_CORE_CLK_EN) | (1<<DISPMTX_CLK_EN), 
+			REG_AHB_MATRIX_CLOCK);
+
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
 	if (IS_ERR(clk_parent1)) {
 		printk(KERN_WARNING "sprdfb: get clk_parent1 fail!\n");
@@ -362,33 +370,6 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	}
 
 	if(!dev->panel_ready){
-		ret = clk_enable(dispc_ctx.clk_dispc);
-		if (ret) {
-			printk(KERN_WARNING "sprdfb: enable clk_dispc fail!\n");
-			return 0;
-		} else {
-			pr_debug(KERN_INFO "sprdfb: get clk_dispc ok!\n");
-		}
-
-		clk_enable(dispc_ctx.clk_dispc_dbi);
-		if (ret) {
-			printk(KERN_WARNING "sprdfb: enable clk_dispc_dbi fail!\n");
-			clk_disable(dispc_ctx.clk_dispc);
-			return 0;
-		} else {
-			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
-		}
-
-		clk_enable(dispc_ctx.clk_dispc_dpi);
-		if (ret) {
-			printk(KERN_WARNING "sprdfb: enable clk_dispc_dpi fail!\n");
-			clk_disable(dispc_ctx.clk_dispc);
-			clk_disable(dispc_ctx.clk_dispc_dbi);
-			return 0;
-		} else {
-			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
-		}
-
 		ret = clk_set_parent(dispc_ctx.clk_dispc, clk_parent1);
 		if(ret){
 			printk(KERN_ERR "sprdfb: dispc set clk parent fail\n");
@@ -414,6 +395,33 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, DISPC_DPI_CLOCK);
 		if(ret){
 			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
+		}
+
+		ret = clk_enable(dispc_ctx.clk_dispc);
+		if (ret) {
+			printk(KERN_WARNING "sprdfb: enable clk_dispc fail!\n");
+			return 0;
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_dispc ok!\n");
+		}
+
+		ret = clk_enable(dispc_ctx.clk_dispc_dbi);
+		if (ret) {
+			printk(KERN_WARNING "sprdfb: enable clk_dispc_dbi fail!\n");
+			clk_disable(dispc_ctx.clk_dispc);
+			return 0;
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
+		}
+
+		ret = clk_enable(dispc_ctx.clk_dispc_dpi);
+		if (ret) {
+			printk(KERN_WARNING "sprdfb: enable clk_dispc_dpi fail!\n");
+			clk_disable(dispc_ctx.clk_dispc);
+			clk_disable(dispc_ctx.clk_dispc_dbi);
+			return 0;
+		} else {
+			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
 		}
 
 		dispc_reset();
@@ -496,11 +504,11 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 
 	uint32_t base = fb->fix.smem_start + fb->fix.line_length * fb->var.yoffset;
 
-	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+	printk(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
 	dispc_ctx.vsync_waiter ++;
 	dispc_sync(dev);
-	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
+	printk(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
 	dispc_ctx.dev = dev;
 	dispc_ctx.vsync_done = 0;
