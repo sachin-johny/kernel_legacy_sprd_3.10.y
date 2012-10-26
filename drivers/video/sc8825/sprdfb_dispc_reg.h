@@ -68,6 +68,9 @@
 
 #define DISPC_TE_SYNC_DELAY	(0x00bc)
 
+#define AHB_MATRIX_CLOCK (0x0208)
+#define REG_AHB_MATRIX_CLOCK (AHB_MATRIX_CLOCK + SPRD_AHB_BASE)
+
 static inline uint32_t dispc_read(uint32_t reg)
 {
 	return __raw_readl(SPRD_DISPLAY_BASE + reg);

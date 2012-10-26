@@ -28,6 +28,9 @@
 
 #define LCDC_SOFT_RST (3)
 
+#define LCDC_CORE_CLK_EN (9)
+
+
 struct sprdfb_lcdc_context {
 	struct clk		*clk_lcdc;
 	bool			is_inited;
@@ -283,6 +286,10 @@ static int32_t sprdfb_lcdc_early_init(struct sprdfb_device *dev)
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_lcd ok!\n");
 	}
+
+	/*usesd to open dipsc matix clock*/
+	__raw_writel(__raw_readl((REG_AHB_MATRIX_CLOCK) | (1<<LCDC_CORE_CLK_EN) ), 
+			REG_AHB_MATRIX_CLOCK);
 
 	if(!dev->panel_ready){
 		ret = clk_enable(lcdc_ctx.clk_lcdc);
