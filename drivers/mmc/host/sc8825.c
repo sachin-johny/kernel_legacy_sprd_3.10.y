@@ -358,7 +358,7 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host, unsigned int cloc
 		} else if (clock >= EMMC_BASE_CLK_256M) {
 			clk_parent = clk_get(NULL, "clk_256m");
 		} else if (clock >= EMMC_BASE_CLK_153M600K) {
-			clk_parent = clk_get(NULL, "clk_153m600k");
+			clk_parent = clk_get(NULL, "clk_153p6m");
 		} else {
 			clk_parent = clk_get(NULL, "clk_26m");
 		}
@@ -391,11 +391,17 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host, unsigned int cloc
 static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 {
 	if(clock == 0){
+		#ifndef CONFIG_ARCH_SC8825
 		clk_disable(host->clk);
+		#endif
 		host->clock = 0;
 	}else{
 		if(!host->clock){
 			clk_enable(host->clk);
+		}else{
+			printk("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
+						sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0));
+			
 		}
 	}
 	pr_debug("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
@@ -598,7 +604,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		host->hw_name = "Spread SDIO host2";
 		break;
 	case 3:
-		host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
+		//host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
 		host->hw_name = "Spread EMMC";
 		break;
 	default:
