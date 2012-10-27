@@ -843,7 +843,9 @@ static int dolphin_digital_mute(struct snd_soc_dai *dai, int mute)
 
 	ret = snd_soc_update_bits(codec, SOC_REG(VBCR1), (1 << DAC_MUTE),
 				  ((mute ? 1 : 0) << DAC_MUTE));
-	dolphin_wait(DOLPHIN_DAC_MUTE_WAIT_TIME);
+	if (mute) {
+		dolphin_wait(DOLPHIN_DAC_MUTE_WAIT_TIME);
+	}
 
 	dol_dbg("return %i\n", ret);
 	dol_dbg("Leaving %s\n", __func__);
