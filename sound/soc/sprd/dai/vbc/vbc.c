@@ -27,7 +27,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/firmware.h>
-#include <linux/async.h>
+#include <linux/workqueue.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -54,6 +54,13 @@ struct vbc_eq_profile {
 	char magic[VBC_EQ_FIRMWARE_MAGIC_LEN];
 	char name[VBC_EQ_PROFILE_NAME_MAX];
 	/* TODO */
+	u32 effect_paras[VBC_EFFECT_PARAS_LEN];
+};
+
+struct vbc_eq_delayed_work {
+	struct workqueue_struct *workqueue;
+	struct delayed_work delayed_work;
+	struct snd_soc_codec *codec;
 };
 
 struct vbc_equ {
@@ -61,13 +68,14 @@ struct vbc_equ {
 	int is_active;
 	int is_loaded;
 	int is_loading;
-	int da_digital_gain;
-	int ad_digital_gain;
+	struct snd_soc_dai *codec_dai;
 	int now_profile;
 	struct vbc_fw_header hdr;
 	struct vbc_eq_profile *data;
+	void (*vbc_eq_apply) (struct snd_soc_dai * codec_dai, void *data);
 	struct soc_enum equalizer_enum;
 	struct snd_kcontrol_new equalizer_control;
+	struct vbc_eq_delayed_work *delay_work;
 };
 
 typedef int (*vbc_dma_set) (int enable);
@@ -81,7 +89,10 @@ struct vbc_priv {
 };
 
 static DEFINE_MUTEX(load_mutex);
-static struct vbc_equ vbc_eq_setting;
+static struct vbc_equ vbc_eq_setting = { 0 };
+
+static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai);
+static void vbc_eq_delay_work(struct work_struct *work);
 static struct vbc_priv vbc[2];
 static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 	.name = "VBC PCM Stereo out",
@@ -337,6 +348,9 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
 {
 	int vbc_idx;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+
 	vbc_dbg("Entering %s\n", __func__);
 	vbc_idx = vbc_str_2_index(substream->stream);
 
@@ -348,10 +362,9 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		vbc_da_buffer_clear_all(dai);
-	}
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		vbc_set_buffer_size(0, VBC_FIFO_FRAME_NUM);
+		vbc_eq_setting.codec_dai = codec_dai;
+		vbc_eq_try_apply(codec_dai);
 	} else {
 		vbc_set_buffer_size(VBC_FIFO_FRAME_NUM, 0);
 	}
@@ -382,6 +395,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 	/* vbc da close MUST clear da buffer */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		vbc_da_buffer_clear_all(dai);
+		vbc_eq_setting.codec_dai = 0;
 	}
 
 	vbc_idx = vbc_str_2_index(substream->stream);
@@ -514,6 +528,7 @@ static int vbc_drv_probe(struct platform_device *pdev)
 {
 	int i;
 	int ret;
+	struct vbc_eq_delayed_work *delay_work = 0;
 
 	vbc_dbg("Entering %s\n", __func__);
 
@@ -526,6 +541,30 @@ static int vbc_drv_probe(struct platform_device *pdev)
 
 	ret = snd_soc_register_dai(&pdev->dev, &vbc_dai);
 
+	if (ret < 0) {
+		pr_err("%s err!\n", __func__);
+		goto probe_err;
+	}
+
+	delay_work = kzalloc(sizeof(struct vbc_eq_delayed_work), GFP_KERNEL);
+	if (!delay_work) {
+		ret = -ENOMEM;
+		goto probe_err;
+	}
+
+	delay_work->workqueue = create_singlethread_workqueue("vbc_eq_wq");
+	if (!delay_work->workqueue) {
+		ret = -ENOMEM;
+		goto work_err;
+	}
+
+	INIT_DELAYED_WORK(&delay_work->delayed_work, vbc_eq_delay_work);
+	vbc_eq_setting.delay_work = delay_work;
+	goto probe_err;
+
+work_err:
+	kfree(delay_work);
+probe_err:
 	vbc_dbg("return %i\n", ret);
 	vbc_dbg("Leaving %s\n", __func__);
 
@@ -535,6 +574,9 @@ static int vbc_drv_probe(struct platform_device *pdev)
 static int __devexit vbc_drv_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_dai(&pdev->dev);
+	vbc_eq_setting.dev = 0;
+	destroy_workqueue(vbc_eq_setting.delay_work->workqueue);
+	vbc_safe_kfree(&vbc_eq_setting.delay_work);
 	vbc_safe_kfree(&vbc_eq_setting.data);
 	vbc_safe_kfree(&vbc_eq_setting.equalizer_enum.values);
 	return 0;
@@ -550,6 +592,80 @@ static struct platform_driver vbc_driver = {
 		   },
 };
 
+static int vbc_eq_reg_offset(u32 reg)
+{
+	int i = 0;
+	if ((reg >= DAPATCHCTL) && (reg <= ADDGCTL)) {
+		i = (reg - DAPATCHCTL) >> 2;
+	} else if ((reg >= HPCOEF0) && (reg <= HPCOEF42)) {
+		i = ((reg - HPCOEF0) + (ADDGCTL - DAPATCHCTL)) >> 2;
+	}
+	BUG_ON(i >= VBC_EFFECT_PARAS_LEN);
+	return i;
+}
+
+static inline void vbc_eq_reg_set(u32 reg, void *data)
+{
+	u32 *effect_paras = data;
+	vbc_dbg("reg(0x%x) = (0x%x)\n", reg,
+		effect_paras[vbc_eq_reg_offset(reg)]);
+	__raw_writel(effect_paras[vbc_eq_reg_offset(reg)], reg);
+}
+
+static inline void vbc_eq_reg_set_range(u32 reg_start, u32 reg_end, void *data)
+{
+	u32 reg_addr;
+	for (reg_addr = reg_start; reg_addr <= reg_end; reg_addr += 4) {
+		vbc_eq_reg_set(reg_addr, data);
+	}
+}
+
+static void vbc_eq_reg_apply(struct snd_soc_dai *codec_dai, void *data)
+{
+	snd_soc_dai_digital_mute(codec_dai, 1);
+
+	vbc_eq_reg_set(DADGCTL, data);
+
+	vbc_eq_reg_set_range(DAALCCTL0, DAALCCTL10, data);
+	vbc_eq_reg_set_range(HPCOEF0, HPCOEF42, data);
+
+	vbc_eq_reg_set(DAHPCTL, data);
+	vbc_eq_reg_set(DAPATCHCTL, data);
+
+	vbc_eq_reg_set(STCTL0, data);
+	vbc_eq_reg_set(STCTL1, data);
+
+	vbc_eq_reg_set(ADDGCTL, data);
+	vbc_eq_reg_set(ADPATCHCTL, data);
+
+	snd_soc_dai_digital_mute(codec_dai, 0);
+}
+
+static void vbc_eq_profile_apply(struct snd_soc_dai *codec_dai, void *data)
+{
+	if (vbc_eq_setting.codec_dai) {
+		vbc_eq_reg_apply(codec_dai, data);
+	}
+}
+
+static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai)
+{
+	u32 *data;
+	vbc_dbg("Entering %s 0x%x\n", __func__,
+		(int)vbc_eq_setting.vbc_eq_apply);
+	if (vbc_eq_setting.vbc_eq_apply) {
+		mutex_lock(&load_mutex);
+		if (vbc_eq_setting.is_loaded) {
+			data =
+			    vbc_eq_setting.data[vbc_eq_setting.
+						now_profile].effect_paras;
+			vbc_eq_setting.vbc_eq_apply(codec_dai, data);
+		}
+		mutex_unlock(&load_mutex);
+	}
+	vbc_dbg("Leaving %s\n", __func__);
+}
+
 static int vbc_eq_profile_get(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
@@ -560,15 +676,20 @@ static int vbc_eq_profile_get(struct snd_kcontrol *kcontrol,
 static int vbc_eq_profile_put(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
-	int ret;
+	int ret = 0;
+
 	vbc_dbg("Entering %s %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	ret = ucontrol->value.integer.value[0];
+	if (ret == vbc_eq_setting.now_profile) {
+		return ret;
+	}
 	if (ret < vbc_eq_setting.hdr.num_profile) {
 		vbc_eq_setting.now_profile = ret;
 	}
-	/* TODO */
+
+	vbc_eq_try_apply(vbc_eq_setting.codec_dai);
 
 	vbc_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -592,9 +713,14 @@ int snd_soc_info_enum_ext1(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static void vbc_eq_profile_add_async(void *data, async_cookie_t cookie)
+static void vbc_eq_delay_work(struct work_struct *work)
 {
-	struct snd_soc_codec *codec = data;
+	struct vbc_eq_delayed_work *delay_work = container_of(work,
+							      struct
+							      vbc_eq_delayed_work,
+							      delayed_work.
+							      work);
+	struct snd_soc_codec *codec = delay_work->codec;
 	int ret;
 	ret = snd_soc_add_controls(codec, &vbc_eq_setting.equalizer_control, 1);
 	if (ret < 0)
@@ -605,8 +731,11 @@ static void vbc_eq_profile_add_async(void *data, async_cookie_t cookie)
 
 static int vbc_eq_profile_add_action(struct snd_soc_codec *codec)
 {
-	LIST_HEAD(async_domain);
-	async_schedule_domain(vbc_eq_profile_add_async, codec, &async_domain);
+	struct vbc_eq_delayed_work *delay_work;
+	delay_work = vbc_eq_setting.delay_work;
+	delay_work->codec = codec;
+	queue_delayed_work(delay_work->workqueue, &delay_work->delayed_work,
+			   msecs_to_jiffies(5));
 	return 0;
 }
 
@@ -664,6 +793,7 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 	int i;
 	int offset = 0;
 	int len = 0;
+	int old_num_profile;
 
 	vbc_dbg("Entering %s\n", __func__);
 	mutex_lock(&load_mutex);
@@ -676,6 +806,7 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 		goto req_fw_err;
 	}
 	fw_data = fw->data;
+	old_num_profile = vbc_eq_setting.hdr.num_profile;
 	memcpy(&vbc_eq_setting.hdr, fw_data, sizeof(vbc_eq_setting.hdr));
 
 	if (strncmp(vbc_eq_setting.hdr.magic, VBC_EQ_FIRMWARE_MAGIC_ID,
@@ -701,6 +832,9 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 
 	len = vbc_eq_setting.hdr.num_profile * sizeof(struct vbc_eq_profile);
 
+	if (old_num_profile != vbc_eq_setting.hdr.num_profile) {
+		vbc_safe_kfree(&vbc_eq_setting.data);
+	}
 	if (vbc_eq_setting.data == NULL) {
 		vbc_eq_setting.data = kzalloc(len, GFP_KERNEL);
 		if (vbc_eq_setting.data == NULL) {
@@ -779,9 +913,18 @@ static int vbc_eq_switch_put(struct snd_kcontrol *kcontrol,
 		ucontrol->value.integer.value[0]);
 
 	ret = ucontrol->value.integer.value[0];
+	if (ret == vbc_eq_setting.is_active) {
+		return ret;
+	}
 	if ((ret == 0) || (ret == 1)) {
 		vbc_eq_setting.is_active = ret;
-		/* TODO */
+		if (vbc_eq_setting.is_active) {
+			vbc_eq_setting.vbc_eq_apply = vbc_eq_profile_apply;
+			vbc_eq_try_apply(vbc_eq_setting.codec_dai);
+		} else {
+			vbc_eq_setting.vbc_eq_apply = 0;
+			/* TODO close vbc eq */
+		}
 	}
 
 	vbc_dbg("Leaving %s\n", __func__);
