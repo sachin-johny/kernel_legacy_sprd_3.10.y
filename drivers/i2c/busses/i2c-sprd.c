@@ -258,6 +258,7 @@ sprd_i2c_send_target_addr (struct sprd_i2c *pi2c, struct i2c_msg *msg)
   int rc;
   int cmd;
   int cmd2;
+  int tmp;
 
   if (msg->flags & I2C_M_TEN)
     {
@@ -272,27 +273,36 @@ sprd_i2c_send_target_addr (struct sprd_i2c *pi2c, struct i2c_msg *msg)
   if (msg->flags & I2C_M_RD)
     cmd |= 1;
 
+  tmp = __raw_readl (pi2c->membase + I2C_CTL);  
+//  dev_info (&pi2c->adap.dev, "%s() ctl=%x\n", __func__, tmp);
+  
+  tmp = __raw_readl (pi2c->membase + I2C_CTL);
+  __raw_writel (tmp | I2C_CTL_EN | I2C_CTL_IE, pi2c->membase + I2C_CTL);
+
+  tmp = __raw_readl (pi2c->membase + I2C_CTL);  
+// dev_info (&pi2c->adap.dev, "%s() ctl=%x\n", __func__, tmp);
+
   cmd = (cmd << 8) | I2C_CMD_START | I2C_CMD_WRITE;
-  dev_dbg (&pi2c->adap.dev, "%s() cmd=%x\n", __func__, cmd);
+//  dev_info (&pi2c->adap.dev, "%s() cmd=%x\n", __func__, cmd);
   __raw_writel (cmd, pi2c->membase + I2C_CMD);
 
   rc = sprd_wait_trx_done (pi2c);
   if (rc < 0)
     {
-      dev_err (&pi2c->adap.dev, "%s() rc=%d\n", __func__, rc);
+//      dev_err (&pi2c->adap.dev, "%s() rc=%d\n", __func__, rc);
       return rc;
     }
 
   if ((msg->flags & I2C_M_TEN) && (!(msg->flags & I2C_M_RD)))
     {
       cmd2 = (cmd2 << 8) | I2C_CMD_WRITE;
-      dev_dbg (&pi2c->adap.dev, "%s() cmd2=%x\n", __func__, cmd2);
+//      dev_info (&pi2c->adap.dev, "%s() cmd2=%x\n", __func__, cmd2);
       __raw_writel (cmd2, pi2c->membase + I2C_CMD);
 
       rc = sprd_wait_trx_done (pi2c);
       if (rc < 0)
 	{
-	  dev_err (&pi2c->adap.dev, "%s() rc=%d\n", __func__, rc);
+//	  dev_err (&pi2c->adap.dev, "%s() rc=%d\n", __func__, rc);
 	  return rc;
 	}
     }

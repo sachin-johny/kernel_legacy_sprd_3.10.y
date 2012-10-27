@@ -59,8 +59,8 @@
 #define DCAM_AHB_CTL0                                  (DCAM_AHB_BASE + 0x0000UL)
 #define DCAM_EB                                        (DCAM_AHB_CTL0 + 0x0000UL)
 #define CSI2_DPHY_EB                                   (DCAM_AHB_CTL0 + 0x0000UL)
-#define DCAM_RST                                       (DCAM_AHB_CTL0 + 0x0210UL)
-
+#define DCAM_RST                                       (DCAM_AHB_CTL0 + 0x0010UL)
+#define DCAM_MATRIX_EB                                 (DCAM_AHB_CTL0 + 0x0008UL)
 
 #define IRQ_BASE                                       SPRD_ASHB_BASE
 #define INT_IRQ_EN                                     (IRQ_BASE + 0x008UL)
