@@ -36,13 +36,13 @@
 #include <mach/regulator.h>
 
 #define I2C_BOARD_INFO_METHOD   1
-#define TS_DATA_THRESHOLD_CHECK	1
+#define TS_DATA_THRESHOLD_CHECK	0
 #define TS_WIDTH_MAX			539
 #define	TS_HEIGHT_MAX			1060
 #define TOUCH_VIRTUAL_KEYS
 #define CONFIG_FT5X0X_MULTITOUCH 1
 
-static int debug_level=1;
+static int debug_level=0;
 
 #define TS_DBG(format, ...)	\
 	if(debug_level == 1)	\
@@ -95,6 +95,7 @@ struct ft5x0x_ts_data {
 	struct workqueue_struct	*ts_workqueue;
 	struct early_suspend	early_suspend;
 	struct ft5x0x_ts_platform_data	*platform_data;
+	struct timer_list touch_timer;
 };
 
 
@@ -566,7 +567,7 @@ E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
     ft5x0x_write_reg(0xfc,0x55);
     printk("[TSP] Step 1: Reset CTPM test, bin-length=%d\n",dw_lenth);
 
-    msleep(80);
+    msleep(100);
 
     /*********Step 2:Enter upgrade mode *****/
     auc_i2c_write_buf[0] = 0x55;
@@ -577,7 +578,6 @@ E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
         i_ret = ft5x0x_i2c_txdata(auc_i2c_write_buf, 2);
         msleep(5);
     }while(i_ret <= 0 && i < 5 );
-
     /*********Step 3:check READ-ID***********************/
     cmd_write(0x90,0x00,0x00,0x00,4);
     byte_read(reg_val,2);
@@ -819,12 +819,12 @@ static int ft5x0x_read_data(void)
 		   (event->x3>TS_WIDTH_MAX || event->y3>TS_HEIGHT_MAX)||
 		   (event->x4>TS_WIDTH_MAX || event->y4>TS_HEIGHT_MAX)||
 		   (event->x5>TS_WIDTH_MAX || event->y5>TS_HEIGHT_MAX)) {
-				printk("%s: get dirty data x1=%d,y1=%d\n",__func__, event->x1, event->y1);
+				//printk("%s: get dirty data x1=%d,y1=%d\n",__func__, event->x1, event->y1);
 				return -1;
 		}
 	#else
 		if(event->x1>TS_WIDTH_MAX || event->y1>TS_HEIGHT_MAX){
-				printk("%s: get dirty data x1=%d,y1=%d\n",__func__, event->x1, event->y1);
+				//printk("%s: get dirty data x1=%d,y1=%d\n",__func__, event->x1, event->y1);
 				return -1;
 		}
 	#endif
@@ -895,13 +895,13 @@ static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
 {
 
 	int ret = -1;
-
+	//printk("ft5x0x_ts_pen_irq_work \n");
 	ret = ft5x0x_read_data();
 	if (ret == 0) {
 		ft5x0x_report_value();
 	}
 
-	enable_irq(this_client->irq);
+//	enable_irq(this_client->irq);
 }
 
 static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
@@ -915,6 +915,17 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 	}
 	//printk("==int=, 11irq=%d\n", this_client->irq);
 	return IRQ_HANDLED;
+}
+
+void ft5x0x_tpd_polling(void)
+{
+    struct ft5x0x_ts_data *data = i2c_get_clientdata(this_client);
+
+   // if (!work_pending(&data->pen_event_work)) {
+    	queue_work(data->ts_workqueue, &data->pen_event_work);
+    //}
+	data->touch_timer.expires = jiffies + 2;
+	add_timer(&data->touch_timer);
 }
 
 static void ft5x0x_ts_reset(void)
@@ -969,6 +980,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	unsigned char uc_reg_value;
 
 	printk(KERN_INFO "%s: probe\n",__func__);
+	printk("%d probe\n",client->adapter->nr);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
@@ -991,12 +1003,9 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	ft5x0x_read_reg(FT5X0X_REG_FT5201ID, &uc_reg_value);
 	TS_DBG("FT5X0X_REG_FT5201ID = 0x%x\n",uc_reg_value);
-	if(uc_reg_value != 0x5a && uc_reg_value != 0x79)
-	{
-		err = -ENODEV;
-		goto exit_check_functionality_failed;
-	}
 
+	ft5x0x_read_reg(0xa3, &uc_reg_value);
+	TS_DBG("0xa3 = 0x%x\n",uc_reg_value);
 	ft5x0x_write_reg(FT5X0X_REG_MODE, 0); //interrupt mode
 
 	INIT_WORK(&ft5x0x_ts->pen_event_work, ft5x0x_ts_pen_irq_work);
@@ -1006,15 +1015,15 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		err = -ESRCH;
 		goto exit_create_singlethread;
 	}
-
+#if 0
 	err = request_irq(client->irq, ft5x0x_ts_interrupt, IRQF_TRIGGER_LOW, client->name, ft5x0x_ts);
 	if (err < 0) {
-		dev_err(&client->dev, "ft5x0x_probe: request irq failed\n");
-		goto exit_irq_request_failed;
+		dev_err(&client->dev, "ft5x0x_probe: request irq failed %d\n",err);
+		//goto exit_irq_request_failed;
 	}
 
 	disable_irq(client->irq);
-
+#endif
 	input_dev = input_allocate_device();
 	if (!input_dev) {
 		err = -ENOMEM;
@@ -1083,12 +1092,20 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	if(uc_reg_value < 0x10)
 	{
-		fts_ctpm_fw_update();
+		//fts_ctpm_fw_update();
 	}
+
+#if 1
+	ft5x0x_ts->touch_timer.function = ft5x0x_tpd_polling;
+	ft5x0x_ts->touch_timer.data = 0;
+	init_timer(&ft5x0x_ts->touch_timer);
+	ft5x0x_ts->touch_timer.expires = jiffies + HZ*3;
+	add_timer(&ft5x0x_ts->touch_timer);
+#endif
 
 	ft5x0x_create_sysfs(client);
 
-	enable_irq(client->irq);
+	//enable_irq(client->irq);
 	return 0;
 
 exit_input_register_device_failed:

@@ -144,8 +144,8 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 
 static struct i2c_board_info i2c2_boardinfo[] = {
 	{
-		I2C_BOARD_INFO(FT5206_TS_DEVICE, FT5206_TS_ADDR),
-		.platform_data = &ft5x0x_ts_info,
+		//I2C_BOARD_INFO(FT5206_TS_DEVICE, FT5206_TS_ADDR),
+		//.platform_data = &ft5x0x_ts_info,
 	},
 };
 
@@ -155,7 +155,10 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 };
 
 static struct i2c_board_info i2c0_boardinfo[] = {
-	{I2C_BOARD_INFO("sprdfb_i2c", 0x4C),},
+	{
+		I2C_BOARD_INFO(FT5206_TS_DEVICE, FT5206_TS_ADDR),
+		.platform_data = &ft5x0x_ts_info,
+	},
 };
 
 
