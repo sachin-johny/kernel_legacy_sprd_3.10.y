@@ -15,7 +15,7 @@
 #define _SCALE_DRV_H_
 
 #include <linux/types.h>
-#include "tiger_reg_scale.h"
+#include "sc8825_reg_scale.h"
 
 //#define SCALE_DEBUG
 

@@ -13,7 +13,7 @@
 #ifndef _REG_SCALE_TIGER_H_
 #define _REG_SCALE_TIGER_H_
 
-#include <mach/irqs.h>
+#include <mach/globalregs.h>
 
 #ifdef   __cplusplus
 extern   "C"

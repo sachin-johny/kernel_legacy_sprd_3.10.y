@@ -19,9 +19,9 @@
 #include <asm/io.h>
 #include "scale_drv.h"
 #include "gen_scale_coef.h"
-#include "../sprd_dcam/tiger/dcam_drv_tiger.h"
+#include "../sprd_dcam/sc8825/dcam_drv_sc8825.h"
 
-//#define SCALE_DRV_DEBUG
+#define SCALE_DRV_DEBUG
 #define SCALE_LOWEST_ADDR                              0x800
 #define SCALE_ADDR_INVALIDE(addr)                     ((addr) < SCALE_LOWEST_ADDR)
 #define SCALE_YUV_ADDR_INVALIDE(y,u,v)                  \
@@ -735,9 +735,12 @@ static irqreturn_t _scale_isr_root(int irq, void *dev_id)
 		up(&scale_done_sema);
 		s_wait_flag = 0;
 	}
+	if (SCALE_MODE_NORMAL == g_path->scale_mode ||
+		(SCALE_MODE_SLICE == g_path->scale_mode && g_path->output_size.h == g_path->slice_out_height)) {
+		dcam_resize_end();
+	}
 	spin_unlock_irqrestore(&scale_lock, flag);
 
-	dcam_resize_end();
 	return IRQ_HANDLED;
 }
 
@@ -772,6 +775,7 @@ int32_t    _scale_alloc_tmp_buf(void)
 			0 == phy_addr->uaddr ||
 			0 == phy_addr->vaddr) {
 			mem_szie = g_path->output_size.w * g_path->slice_height;
+			SCALE_TRACE("SCALE DRV: alloc_tmp_buf, swap buffer size, 0x%x \n", mem_szie);
 			g_path->mem_order[0] = get_order(mem_szie);
 			vir_addr->yaddr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP,
 							g_path->mem_order[0]);
@@ -794,6 +798,7 @@ int32_t    _scale_alloc_tmp_buf(void)
 			phy_addr->uaddr = virt_to_phys((void*)vir_addr->uaddr);
 
 			mem_szie = g_path->output_size.w * 8;
+			SCALE_TRACE("SCALE DRV: alloc_tmp_buf, line buffer size, 0x%x \n", mem_szie);
 			g_path->mem_order[2] = get_order(mem_szie);
 			vir_addr->vaddr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP,
 							g_path->mem_order[2]);
@@ -822,22 +827,26 @@ int32_t    _scale_alloc_tmp_buf(void)
 int32_t     _scale_free_tmp_buf(void)
 {
 	struct scale_addr       *vir_addr = &g_path->temp_buf_addr_vir;
+	struct scale_addr       *phy_addr = &g_path->temp_buf_addr;
 
 	SCALE_TRACE("SCALE DRV: free tmp buf \n");
 
 	if (vir_addr->yaddr) {
 		free_pages(vir_addr->yaddr, g_path->mem_order[0]);
 		vir_addr->yaddr = 0;
+		phy_addr->yaddr = 0;
 	}
 
 	if (vir_addr->uaddr) {
 		free_pages(vir_addr->uaddr, g_path->mem_order[1]);
 		vir_addr->uaddr = 0;
+		phy_addr->uaddr = 0;
 	}
 
 	if (vir_addr->vaddr) {
 		free_pages(vir_addr->vaddr, g_path->mem_order[2]);
 		vir_addr->vaddr = 0;
+		phy_addr->vaddr = 0;
 	}
 
 	return SCALE_RTN_SUCCESS;

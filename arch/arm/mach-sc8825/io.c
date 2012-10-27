@@ -83,11 +83,13 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(SPI1),
 	SPRD_DEVICE(SPI2),
 	SPRD_DEVICE(MIPI_DSIC),
+
 	SPRD_DEVICE(LPDDR2C),
 	
 #ifdef CONFIG_CACHE_L2X0	
 	SPRD_DEVICE(L2),
 #endif	
+	SPRD_DEVICE(CSI)
 };
 
 void __init sci_map_io(void)

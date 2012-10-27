@@ -15,7 +15,7 @@
 #define _DCAM_DRV_TIGER_H_
 
 #include <linux/types.h>
-#include "tiger_reg_dcam.h"
+#include "sc8825_reg_dcam.h"
 //#include "SC8810_reg_dcam.h"
 
 #define DCAM_DEBUG

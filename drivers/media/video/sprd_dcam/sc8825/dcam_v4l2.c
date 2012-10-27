@@ -35,8 +35,8 @@
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
 
-#include "dcam_drv_tiger.h"
-//#include "csi_api.h"
+#include "dcam_drv_sc8825.h"
+#include "csi2/csi_api.h"
 
 #define DCAM_MODULE_NAME                        "DCAM"
 #define DCAM_MINOR                              MISC_DYNAMIC_MINOR
@@ -116,7 +116,7 @@ struct dcam_info {
 	uint32_t                   sn_mode;
 	uint32_t                   yuv_ptn;
 	uint32_t                   data_bits;
-	uint32_t                   is_packet;
+	uint32_t                   is_loose;
 	uint32_t                   lane_num;
 	struct dcam_cap_sync_pol   sync_pol;
 	uint32_t                   frm_deci;
@@ -632,7 +632,7 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 
 		if (DCAM_CAP_MODE_RAWRGB == info->sn_mode) {
 			path->is_from_isp = 1;
-		} 
+		}
 
 		if (tempw != f->fmt.pix.width || temph != f->fmt.pix.height) {
 			/*scaling needed*/
@@ -699,7 +699,7 @@ static int sprd_v4l2_cap_cfg(struct dcam_info* info)
 
 	if (NULL == info)
 		return -EINVAL;
-	
+
 	ret = dcam_cap_cfg(DCAM_CAP_SYNC_POL, &info->sync_pol);
 	V4L2_RTN_IF_ERR(ret);
 
@@ -721,7 +721,7 @@ static int sprd_v4l2_cap_cfg(struct dcam_info* info)
 	if (DCAM_CAP_MODE_RAWRGB == info->sn_mode &&
 		DCAM_CAP_IF_CSI2 == info->if_mode)
 	{
-		ret = dcam_cap_cfg(DCAM_CAP_DATA_PACKET, &info->is_packet);
+		ret = dcam_cap_cfg(DCAM_CAP_DATA_PACKET, &info->is_loose);
 		V4L2_RTN_IF_ERR(ret);
 	}
 
@@ -769,7 +769,7 @@ static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 		path = &dev->dcam_cxt.dcam_path[0];
 		if (DCAM_CAP_MODE_JPEG == dev->dcam_cxt.sn_mode) {
 			dcam_cap_get_info(DCAM_CAP_JPEG_GET_LENGTH, &node.reserved);
-			DCAM_TRACE("V4L2: sprd_v4l2_tx_done, JPEG length 0x%x", node.reserved);
+			DCAM_TRACE("V4L2: sprd_v4l2_tx_done, JPEG length 0x%x \n", node.reserved);
 		}
 
 	} else {
@@ -838,6 +838,8 @@ static int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)
 	if (NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
+	DCAM_TRACE("V4L2: sprd_v4l2_csi2_error \n");
+
 	node.irq_flag = V4L2_CSI2_ERR;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
@@ -887,7 +889,7 @@ static int sprd_v4l2_path_cfg(path_cfg_func path_cfg,
 	V4L2_RTN_IF_ERR(ret);
 
 	ret = path_cfg(DCAM_PATH_OUTPUT_SIZE, &path_spec->out_size);
-	V4L2_RTN_IF_ERR(ret);	
+	V4L2_RTN_IF_ERR(ret);
 
 	ret = path_cfg(DCAM_PATH_OUTPUT_FORMAT, &path_spec->out_fmt);
 	V4L2_RTN_IF_ERR(ret);
@@ -1001,6 +1003,9 @@ static int v4l2_g_parm(struct file *file,
 	} else {
 		streamparm->parm.capture.reserved[1] = dev->dcam_cxt.dcam_path[1].frm_id_base;
 	}
+	streamparm->parm.capture.reserved[2] = dev->dcam_cxt.cap_in_size.w;
+	streamparm->parm.capture.reserved[3] = dev->dcam_cxt.cap_in_size.h;
+
 	return 0;
 }
 
@@ -1023,6 +1028,21 @@ static int v4l2_s_parm(struct file *file,
 	} else {
 		dev->dcam_cxt.dcam_path[1].frm_id_base = streamparm->parm.capture.reserved[1];
 	}
+
+	dev->dcam_cxt.cap_in_size.w  = streamparm->parm.capture.reserved[2];
+	dev->dcam_cxt.cap_in_size.h  = streamparm->parm.capture.reserved[3];
+
+	DCAM_TRACE("V4L2: v4l2_s_parm, set the output of sensor, %d %d \n",
+		streamparm->parm.capture.reserved[2],
+		streamparm->parm.capture.reserved[3]);
+
+	dev->dcam_cxt.cap_in_rect.x  = 0;
+	dev->dcam_cxt.cap_in_rect.y  = 0;
+	dev->dcam_cxt.cap_in_rect.w  = dev->dcam_cxt.cap_in_size.w;
+	dev->dcam_cxt.cap_in_rect.h  = dev->dcam_cxt.cap_in_size.h;
+
+	dev->dcam_cxt.cap_out_size.w = dev->dcam_cxt.cap_in_rect.w;
+	dev->dcam_cxt.cap_out_size.h = dev->dcam_cxt.cap_in_rect.h;
 	dev->stream_mode = streamparm->parm.capture.extendedmode; /* 0 normal, 1 lightly stream on/off */
 	mutex_unlock(&dev->dcam_mutex);
 
@@ -1120,7 +1140,7 @@ static int  v4l2_g_crop(struct file *file,
 
 	if (unlikely(crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE))
 		return -EINVAL;
-	
+
 	DCAM_TRACE("V4L2: v4l2_g_crop %d %d %d %d \n",
 		dev->dcam_cxt.cap_in_rect.x,
 		dev->dcam_cxt.cap_in_rect.y,
@@ -1341,16 +1361,6 @@ static int v4l2_streamon(struct file *file,
 		V4L2_RTN_IF_ERR(ret);
 		ret = dcam_resume();
 	} else {
-		if (1 == dev->dcam_cxt.if_mode) {
-	//		ret = csi_api_init();
-			V4L2_RTN_IF_ERR(ret);
-	//		ret = csi_api_start();
-			V4L2_RTN_IF_ERR(ret);
-	//		ret = csi_reg_isr(sprd_v4l2_csi2_error, dev);
-			V4L2_RTN_IF_ERR(ret);
-			//ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
-			V4L2_RTN_IF_ERR(ret);
-		}
 
 		ret = dcam_module_init(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 		V4L2_RTN_IF_ERR(ret);
@@ -1386,6 +1396,7 @@ static int v4l2_streamon(struct file *file,
 		}
 
 		ret = dcam_start();
+
 	}
 
 exit:
@@ -1410,7 +1421,9 @@ static int v4l2_streamoff(struct file *file,
 	struct dcam_path_spec    *path = &dev->dcam_cxt.dcam_path[1];
 	int                      ret = DCAM_RTN_SUCCESS;
 
-	DCAM_TRACE("v4l2_streamoff, stream mode %d \n", dev->stream_mode);
+	DCAM_TRACE("v4l2_streamoff, stream mode %d, if mode %d \n",
+		dev->stream_mode,
+		dev->dcam_cxt.if_mode);
 
 	mutex_lock(&dev->dcam_mutex);
 
@@ -1423,13 +1436,13 @@ static int v4l2_streamoff(struct file *file,
 	if (dev->stream_mode) {
 		ret = dcam_pause();
 	} else {
-		if (1 == dev->dcam_cxt.if_mode) {
-			//ret = csi_api_close();
-			V4L2_RTN_IF_ERR(ret);
-		}
-
 		ret = dcam_stop();
 		V4L2_RTN_IF_ERR(ret);
+
+		if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
+			ret = csi_api_close();
+			V4L2_RTN_IF_ERR(ret);
+		}
 
 		ret = dcam_module_deinit(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 		V4L2_RTN_IF_ERR(ret);
@@ -1477,7 +1490,7 @@ timing_param[6]       ccir.pclk_pol
 if(MIPI)
 timing_param[4]       mipi.use_href
 timing_param[5]       mipi.bits_per_pxl
-timing_param[6]       mipi.is_packet
+timing_param[6]       mipi.is_loose
 timing_param[7]       mipi.lane_num
 
 timing_param[7]       width
@@ -1498,7 +1511,8 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 
 	if (unlikely(ret)) {
 		DCAM_TRACE("V4L2: v4l2_s_ctrl, error, 0x%x \n", ctrl->value);
-		return -EFAULT;
+		ret = -EFAULT;
+		V4L2_RTN_IF_ERR(ret);
 	}
 
 	dev->dcam_cxt.if_mode     = timing_param[DCAM_TIMING_LEN-1];
@@ -1506,38 +1520,45 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 	dev->dcam_cxt.yuv_ptn     = timing_param[1];
 	dev->dcam_cxt.frm_deci    = timing_param[3];
 
+	DCAM_TRACE("V4L2: interface %d, mode %d frm_deci %d \n",
+		dev->dcam_cxt.if_mode,
+		dev->dcam_cxt.sn_mode,
+		dev->dcam_cxt.frm_deci);
+
 	if (0 == dev->dcam_cxt.if_mode) {
 		/* CCIR interface */
 		dev->dcam_cxt.sync_pol.vsync_pol = timing_param[4];
 		dev->dcam_cxt.sync_pol.hsync_pol = timing_param[5];
 		dev->dcam_cxt.sync_pol.pclk_pol  = timing_param[6];
 		dev->dcam_cxt.data_bits          = 8;
+		DCAM_TRACE("V4L2: CIR interface, vsync %d hsync %d pclk %d bits %d \n",
+			dev->dcam_cxt.sync_pol.vsync_pol,
+			dev->dcam_cxt.sync_pol.hsync_pol,
+			dev->dcam_cxt.sync_pol.pclk_pol,
+			dev->dcam_cxt.data_bits);
 	} else {
 		/* MIPI interface */
 		dev->dcam_cxt.sync_pol.need_href = timing_param[4];
-		dev->dcam_cxt.is_packet          = timing_param[6];
+		dev->dcam_cxt.is_loose           = timing_param[6];
 		dev->dcam_cxt.data_bits          = timing_param[5];
 		dev->dcam_cxt.lane_num           = timing_param[7];
+		DCAM_TRACE("V4L2: MIPI interface, ref %d is_loose %d bits %d lanes %d \n",
+			dev->dcam_cxt.sync_pol.need_href,
+			dev->dcam_cxt.is_loose,
+			dev->dcam_cxt.data_bits,
+			dev->dcam_cxt.lane_num);
+		ret = csi_api_init();
+		V4L2_RTN_IF_ERR(ret);
+		ret = csi_api_start();
+		V4L2_RTN_IF_ERR(ret);
+		ret = csi_reg_isr(sprd_v4l2_csi2_error, dev);
+		V4L2_RTN_IF_ERR(ret);
+		ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
+
 	}
-
-	dev->dcam_cxt.cap_in_size.w  = timing_param[8];
-	dev->dcam_cxt.cap_in_size.h  = timing_param[9];
-
-	dev->dcam_cxt.cap_in_rect.x  = 0;
-	dev->dcam_cxt.cap_in_rect.y  = 0;
-	dev->dcam_cxt.cap_in_rect.w  = dev->dcam_cxt.cap_in_size.w;
-	dev->dcam_cxt.cap_in_rect.h  = dev->dcam_cxt.cap_in_size.h;
-
-	dev->dcam_cxt.cap_out_size.w = dev->dcam_cxt.cap_in_rect.w;
-	dev->dcam_cxt.cap_out_size.h = dev->dcam_cxt.cap_in_rect.h;
-
+	
+exit:
 	mutex_unlock(&dev->dcam_mutex);
-
-	DCAM_TRACE("V4L2: set dv timing, %d %d %d \n",
-		timing_param[DCAM_TIMING_LEN-1],
-		timing_param[8],
-		timing_param[9]);
-
 	return ret;
 }
 
@@ -1601,7 +1622,7 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
 {
-	struct dcam_dev          *dev = video_drvdata(file);	
+	struct dcam_dev          *dev = video_drvdata(file);
 	int                      ret = 0;
 
 	DCAM_TRACE("sprd_v4l2_write %d, dev 0x%x \n", cnt, (uint32_t)dev);
@@ -1707,7 +1728,7 @@ static int  sprd_v4l2_proc_read(char           *page,
 		len += sprintf(page + len, "3. output format %d \n",
 			dev->dcam_cxt.dcam_path[1].out_fmt);
 		len += sprintf(page + len, "4. frame index based on 0x%x \n", dev->dcam_cxt.dcam_path[0].frm_id_base);
-		len += sprintf(page + len, "5. frame countn 0x%x \n", dev->dcam_cxt.dcam_path[0].frm_cnt_act);
+		len += sprintf(page + len, "5. frame count 0x%x \n", dev->dcam_cxt.dcam_path[0].frm_cnt_act);
 		len += sprintf(page + len, "6. frame type 0x%x \n", dev->dcam_cxt.dcam_path[0].frm_type);
 		for (print_cnt = 0; print_cnt < DCAM_FRM_CNT_MAX; print_cnt ++) {
 			len += sprintf(page + len, "%d. frame buffer %d,  0x%x 0x%x 0x%x \n",
@@ -1765,7 +1786,7 @@ static const struct v4l2_ioctl_ops sprd_v4l2_ioctl_ops = {
 	.vidioc_streamoff             = v4l2_streamoff,
 	.vidioc_g_crop                = v4l2_g_crop,
 	.vidioc_g_output              = v4l2_g_output,
-	.vidioc_s_ctrl                = v4l2_s_ctrl,
+	.vidioc_s_ctrl                = v4l2_s_ctrl
 };
 
 static const struct v4l2_file_operations sprd_v4l2_fops = {

@@ -57,5 +57,6 @@ enum {
 #define ISP_IO_RST	_IOW(ISP_IO_MAGIC, 3, uint32_t)
 #define ISP_IO_SETCLK	_IOW(ISP_IO_MAGIC, 4, enum isp_clk_sel)
 #define ISP_IO_STOP	_IOW(ISP_IO_MAGIC, 5, uint32_t)
+#define ISP_IO_INT	_IOW(ISP_IO_MAGIC, 6, uint32_t)
 
 #endif
