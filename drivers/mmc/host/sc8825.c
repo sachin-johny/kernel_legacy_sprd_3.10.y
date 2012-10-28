@@ -24,32 +24,16 @@
 #include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
-#include <mach/globalregs.h>
+#include <mach/sci.h>
 #include <mach/regulator.h>
 #include <mach/hardware.h>
+#include <mach/regs_ahb.h>
+#include <mach/regs_glb.h>
 #include <linux/interrupt.h>
 
 #include "sc8825.h"
 
-
-#define     SDIO0_SOFT_RESET        BIT(12)
-#define     SDIO1_SOFT_RESET        BIT(16)
-#define     EMMC_SOFT_RESET         BIT(21)
-#define     SDIO2_SOFT_RESET        BIT(22)
-
-#define     EMMC_BASE_CLK_384M      384000000
-#define     EMMC_BASE_CLK_256M      256000000
-#define     EMMC_BASE_CLK_153M600K  153600000
-#define     EMMC_BASE_CLK_26M        26000000
-
-#define     SDIO_BASE_CLK_96M       96000000
-#define     SDIO_BASE_CLK_64M       64000000
-#define     SDIO_BASE_CLK_48M       48000000
-#define     SDIO_BASE_CLK_32M       32000000
-#define     SDIO_BASE_CLK_16M       16000000
-#define     SDIO_BASE_CLK_26M       26000000
-//#define     SDIO_MAX_CLK            SDIO_BASE_CLK_96M
-#define     SDIO_MAX_CLK            SDIO_BASE_CLK_16M
+#define     SDIO_MAX_CLK            16000000
 
 /* regulator use uv to set voltage */
 #define     SDIO_VDD_VOLT_1V8       1800000
@@ -75,103 +59,56 @@ static unsigned int sdio_wakeup_irq;
 static struct sdhci_host *sdhci_host_g = NULL;
 #endif
 
-#ifdef MMC_RESTORE_REGS
-static unsigned int host_addr = 0;
-static unsigned int host_blk_size = 0;
-static unsigned int host_blk_cnt = 0;
-static unsigned int host_arg = 0;
-static unsigned int host_tran_mode = 0;
-static unsigned int host_ctrl = 0;
-static unsigned int host_power = 0;
-static unsigned int host_clk = 0;
-static unsigned int host3_addr = 0;
-static unsigned int host3_blk_size = 0;
-static unsigned int host3_blk_cnt = 0;
-static unsigned int host3_arg = 0;
-static unsigned int host3_tran_mode = 0;
-static unsigned int host3_ctrl = 0;
-static unsigned int host3_power = 0;
-static unsigned int host3_clk = 0;
-#endif
-
 extern void mmc_power_off(struct mmc_host* mmc);
 extern void mmc_power_up(struct mmc_host* mmc);
+
+static void *sdhci_get_platdata(struct sdhci_host *host)
+{
+	return ((struct sprd_host_data *)sdhci_priv(host))->platdata;
+}
 
 /* we don't need to restore sdio0, because of CONFIG_MMC_BLOCK_DEFERED_RESUME=y */
 #ifdef MMC_RESTORE_REGS
 static void sdhci_save_regs(struct sdhci_host *host)
 {
-	if (!strcmp("Spread SDIO host1", host->hw_name)){
-		host_addr = sdhci_readl(host, SDHCI_DMA_ADDRESS);
-		host_blk_size = sdhci_readw(host, SDHCI_BLOCK_SIZE);
-		host_blk_cnt = sdhci_readw(host, SDHCI_BLOCK_COUNT);
-		host_arg = sdhci_readl(host, SDHCI_ARGUMENT);
-		host_tran_mode = sdhci_readw(host, SDHCI_TRANSFER_MODE);
-		host_ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
-		host_power = sdhci_readb(host, SDHCI_POWER_CONTROL);
-		host_clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-	}
-	if (!strcmp("Spread EMMC", host->hw_name)){
-		printk("%s, entry\n", __func__);
-		host3_addr = sdhci_readl(host, SDHCI_DMA_ADDRESS);
-		host3_blk_size = sdhci_readw(host, SDHCI_BLOCK_SIZE);
-		host3_blk_cnt = sdhci_readw(host, SDHCI_BLOCK_COUNT);
-		host3_arg = sdhci_readl(host, SDHCI_ARGUMENT);
-		host3_tran_mode = sdhci_readw(host, SDHCI_TRANSFER_MODE);
-		host3_ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
-		host3_power = sdhci_readb(host, SDHCI_POWER_CONTROL);
-		host3_clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-	}
+	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
+	if (!host_pdata->regs.is_valid) return;
+	host_pdata->regs.addr = sdhci_readl(host, SDHCI_DMA_ADDRESS);
+	host_pdata->regs.blk_size = sdhci_readw(host, SDHCI_BLOCK_SIZE);
+	host_pdata->regs.blk_cnt = sdhci_readw(host, SDHCI_BLOCK_COUNT);
+	host_pdata->regs.arg = sdhci_readl(host, SDHCI_ARGUMENT);
+	host_pdata->regs.tran_mode = sdhci_readw(host, SDHCI_TRANSFER_MODE);
+	host_pdata->regs.ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+	host_pdata->regs.power = sdhci_readb(host, SDHCI_POWER_CONTROL);
+	host_pdata->regs.clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
 }
 
 static void sdhci_restore_regs(struct sdhci_host *host)
 {
-	if (!strcmp("Spread SDIO host1", host->hw_name)){
-		sdhci_writel(host, host_addr, SDHCI_DMA_ADDRESS);
-		sdhci_writew(host, host_blk_size, SDHCI_BLOCK_SIZE);
-		sdhci_writew(host, host_blk_cnt, SDHCI_BLOCK_COUNT);
-		sdhci_writel(host, host_arg, SDHCI_ARGUMENT);
-		sdhci_writew(host, host_tran_mode, SDHCI_TRANSFER_MODE);
-		sdhci_writeb(host, host_ctrl, SDHCI_HOST_CONTROL);
-		sdhci_writeb(host, host_power, SDHCI_POWER_CONTROL);
-		sdhci_writew(host, host_clk, SDHCI_CLOCK_CONTROL);
-	}
-	if (!strcmp("Spread EMMC", host->hw_name)){
-		printk("%s, entry\n", __func__);
-		sdhci_writel(host, host3_addr, SDHCI_DMA_ADDRESS);
-		sdhci_writew(host, host3_blk_size, SDHCI_BLOCK_SIZE);
-		sdhci_writew(host, host3_blk_cnt, SDHCI_BLOCK_COUNT);
-		sdhci_writel(host, host3_arg, SDHCI_ARGUMENT);
-		sdhci_writew(host, host3_tran_mode, SDHCI_TRANSFER_MODE);
-		sdhci_writeb(host, host3_ctrl, SDHCI_HOST_CONTROL);
-		sdhci_writeb(host, host3_power, SDHCI_POWER_CONTROL);
-		sdhci_writew(host, host3_clk, SDHCI_CLOCK_CONTROL);
-	}
+	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
+	if (!host_pdata->regs.is_valid) return;
+	sdhci_writel(host, host_pdata->regs.addr, SDHCI_DMA_ADDRESS);
+	sdhci_writew(host, host_pdata->regs.blk_size, SDHCI_BLOCK_SIZE);
+	sdhci_writew(host, host_pdata->regs.blk_cnt, SDHCI_BLOCK_COUNT);
+	sdhci_writel(host, host_pdata->regs.arg, SDHCI_ARGUMENT);
+	sdhci_writew(host, host_pdata->regs.tran_mode, SDHCI_TRANSFER_MODE);
+	sdhci_writeb(host, host_pdata->regs.ctrl, SDHCI_HOST_CONTROL);
+	sdhci_writeb(host, host_pdata->regs.power, SDHCI_POWER_CONTROL);
+	sdhci_writew(host, host_pdata->regs.clk, SDHCI_CLOCK_CONTROL);
 }
 #ifdef CONFIG_MMC_DEBUG
 static void sdhci_dump_saved_regs(struct sdhci_host *host)
 {
-	if (!strcmp("Spread SDIO host1", host->hw_name)){
-		printk("%s, host_addr:0x%x\n", host->hw_name, host_addr);
-		printk("%s, host_blk_size:0x%x\n", host->hw_name, host_blk_size);
-		printk("%s, host_blk_cnt:0x%x\n", host->hw_name, host_blk_cnt);
-		printk("%s, host_arg:0x%x\n", host->hw_name, host_arg);
-		printk("%s, host_tran_mode:0x%x\n", host->hw_name, host_tran_mode);
-		printk("%s, host_ctrl:0x%x\n", host->hw_name, host_ctrl);
-		printk("%s, host_power:0x%x\n", host->hw_name, host_power);
-		printk("%s, host_clk:0x%x\n", host->hw_name, host_clk);
-	}
-	if (!strcmp("Spread EMMC", host->hw_name)){
-		printk("%s, entry\n", __func__);
-		printk("%s, host3_addr:0x%x\n", host->hw_name, host3_addr);
-		printk("%s, host3_blk_size:0x%x\n", host->hw_name, host3_blk_size);
-		printk("%s, host3_blk_cnt:0x%x\n", host->hw_name, host3_blk_cnt);
-		printk("%s, host3_arg:0x%x\n", host->hw_name, host3_arg);
-		printk("%s, host3_tran_mode:0x%x\n", host->hw_name, host3_tran_mode);
-		printk("%s, host3_ctrl:0x%x\n", host->hw_name, host3_ctrl);
-		printk("%s, host3_power:0x%x\n", host->hw_name, host3_power);
-		printk("%s, host3_clk:0x%x\n", host->hw_name, host3_clk);
-	}
+	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
+	if (!host_pdata->regs.is_valid) return;
+	printk("%s, host_addr:0x%x\n", host->hw_name, host_pdata->regs.addr);
+	printk("%s, host_blk_size:0x%x\n", host->hw_name, host_pdata->regs.blk_size);
+	printk("%s, host_blk_cnt:0x%x\n", host->hw_name, host_pdata->regs.blk_cnt);
+	printk("%s, host_arg:0x%x\n", host->hw_name, host_pdata->regs.arg);
+	printk("%s, host_tran_mode:0x%x\n", host->hw_name, host_pdata->regs.tran_mode);
+	printk("%s, host_ctrl:0x%x\n", host->hw_name, host_pdata->regs.ctrl);
+	printk("%s, host_power:0x%x\n", host->hw_name, host_pdata->regs.power);
+	printk("%s, host_clk:0x%x\n", host->hw_name, host_pdata->regs.clk);
 }
 #endif
 #endif
@@ -299,6 +236,7 @@ int sdhci_device_attach(int on)
 		}
 		return 0;
 	}
+	return 0;
 }
 
 /**
@@ -309,12 +247,12 @@ int sdhci_device_attach(int on)
 */
 static unsigned int sdhci_sprd_get_max_clk(struct sdhci_host *host)
 {
-	if (!strcmp("Spread EMMC", host->hw_name)) {
-		return EMMC_BASE_CLK_384M;
-	}
-	else {
+	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
+
+	if (host_pdata->max_clock)
+		return host_pdata->max_clock;
+	else
 		return SDIO_MAX_CLK;
-	}
 }
 
 /**
@@ -322,63 +260,18 @@ static unsigned int sdhci_sprd_get_max_clk(struct sdhci_host *host)
  * @host:  sdio host to be set.
  * @clock: The clock rate being requested.
 */
-static void sdhci_sprd_set_base_clock(struct sdhci_host *host, unsigned int clock)
+static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 {
 	struct clk *clk_parent;
-	u32 max_clk;
-	/* don't bother if the clock is going off. */
-	if (clock == 0)
-		return;
-	if (!strcmp("Spread EMMC", host->hw_name)) {
-		max_clk = EMMC_BASE_CLK_384M;
-	}
-	else {
-		max_clk = SDIO_MAX_CLK;
-	}
-
-	if (clock > max_clk)
-		clock = max_clk;
+	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
 
 	/* Select the clk source of SDIO, default is 96MHz */
-	if( !strcmp(host->hw_name, "Spread SDIO host0") ){
-		host->clk = clk_get(NULL, "clk_sdio0");
-	}else if( !strcmp(host->hw_name, "Spread SDIO host1") ){
-		host->clk = clk_get(NULL, "clk_sdio1");
-	}
-	else if( !strcmp(host->hw_name, "Spread SDIO host2") ){
-		host->clk = clk_get(NULL, "clk_sdio2");
-	}
-	else if( !strcmp(host->hw_name, "Spread EMMC") ){
-		host->clk = clk_get(NULL, "clk_emmc");
-	}
-
-	if (!strcmp("Spread EMMC", host->hw_name)) {
-		if (clock >= EMMC_BASE_CLK_384M) {
-			clk_parent = clk_get(NULL, "clk_384m");
-		} else if (clock >= EMMC_BASE_CLK_256M) {
-			clk_parent = clk_get(NULL, "clk_256m");
-		} else if (clock >= EMMC_BASE_CLK_153M600K) {
-			clk_parent = clk_get(NULL, "clk_153p6m");
-		} else {
-			clk_parent = clk_get(NULL, "clk_26m");
-		}
-	}
-	else {
-		if (clock >= SDIO_BASE_CLK_96M) {
-			clk_parent = clk_get(NULL, "clk_96m");
-		} else if (clock >= SDIO_BASE_CLK_64M) {
-			clk_parent = clk_get(NULL, "clk_64m");
-		} else if (clock >= SDIO_BASE_CLK_48M) {
-			clk_parent = clk_get(NULL, "clk_48m");
-		} else {
-			clk_parent = clk_get(NULL, "clk_26m");
-		}
-	}
-
+	host->clk = clk_get(NULL, host_pdata->clk_name);
+	clk_parent = clk_get(NULL, host_pdata->clk_parent);
+	BUG_ON(IS_ERR(host->clk) || IS_ERR(clk_parent));
 	clk_set_parent(host->clk, clk_parent);
 
-	pr_debug("after set sd clk, CLK_GEN5:0x%x\n", sprd_greg_read(REG_TYPE_GLOBAL, GR_CLK_GEN5));
-
+	pr_debug("after set sd clk, CLK_GEN5:0x%x\n", sci_glb_raw_read(REG_GLB_CLK_GEN5));
 	return;
 }
 
@@ -400,12 +293,12 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 			clk_enable(host->clk);
 		}else{
 			printk("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
-						sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0));
+						sci_glb_raw_read(REG_AHB_AHB_CTL0));
 			
 		}
 	}
 	pr_debug("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
-			sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL0));
+			sci_glb_raw_read(REG_AHB_AHB_CTL0));
 	return;
 }
 
@@ -416,60 +309,17 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 {
 	unsigned int volt_level = 0;
 	int ret;
+	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
+
 	if(host->vmmc == NULL){
 		/* in chip tiger, sdio_vdd is not supplied by host,
 		 * but regulator(LDO)
 		*/
-		if (!strcmp("Spread SDIO host0", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-#if defined(CONFIG_ARCH_SC8825)
-							"vddsd0");
-#else
-							REGU_NAME_SDHOST0);
-#endif
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
-		}else if (!strcmp("Spread SDIO host1", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-#if defined(CONFIG_ARCH_SC8825)
-							"vddsd1");
-#else
-							REGU_NAME_WIFIIO);
-#endif
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
-		}
-		else if (!strcmp("Spread SDIO host2", host->hw_name)){
-			/*To do*/
-			return ;
-#if 0
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-							REGU_NAME_SDHOST3);
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
-#endif
-		}
-		else if (!strcmp("Spread EMMC", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-#if defined(CONFIG_ARCH_SC8825)
-							"vddsd3");
-#else
-							REGU_NAME_SDHOST3);
-#endif
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
+		host->vmmc = regulator_get(NULL, host_pdata->vdd_name);
+		if (IS_ERR(host->vmmc)) {
+			printk(KERN_ERR "%s: no vmmc regulator found\n",
+						mmc_hostname(host->mmc));
+			host->vmmc = NULL;
 		}
 	}
 
@@ -516,45 +366,21 @@ static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
 	.set_clock		= sdhci_sprd_enable_clock,
 	.set_power		= sdhci_sprd_set_power,
+	.save_regs		= sdhci_save_regs,
+	.restore_regs	= sdhci_restore_regs,
 };
 
 static void sdhci_module_init(struct sdhci_host* host)
 {
-	if(!strcmp(host->hw_name, "Spread SDIO host0")){
-		/* Enable SDIO0 Module */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_SDIO0_EN, AHB_CTL0);
-		/* reset sdio0 module*/
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, SDIO0_SOFT_RESET, AHB_SOFT_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, SDIO0_SOFT_RESET, AHB_SOFT_RST);
-		sdhci_sprd_set_base_clock(host, SDIO_BASE_CLK_96M);
-	}
-	if(!strcmp(host->hw_name, "Spread SDIO host1")){
-		/* Enable SDIO1 Module */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_SDIO1_EN, AHB_CTL0);
-		/* reset sdio1 module*/
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, SDIO1_SOFT_RESET, AHB_SOFT_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, SDIO1_SOFT_RESET, AHB_SOFT_RST);
-		sdhci_sprd_set_base_clock(host, SDIO_BASE_CLK_96M);
-	}
-
-	if(!strcmp(host->hw_name, "Spread SDIO host2")){
-		/* Enable SDIO2 Module */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_SDIO2_EN, AHB_CTL0);
-		/* reset sdio2 module*/
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, SDIO2_SOFT_RESET, AHB_SOFT_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, SDIO2_SOFT_RESET, AHB_SOFT_RST);
-		sdhci_sprd_set_base_clock(host, EMMC_BASE_CLK_384M);
-	}
-	if(!strcmp(host->hw_name, "Spread EMMC")){
-		/* Enable EMMC Module */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_EMMC_EN, AHB_CTL0);
-		/* reset emmc module*/
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, EMMC_SOFT_RESET, AHB_SOFT_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, EMMC_SOFT_RESET, AHB_SOFT_RST);
-		sdhci_sprd_set_base_clock(host, EMMC_BASE_CLK_384M);
-	}
-
-	sdhci_sprd_enable_clock(host, true);
+	struct sprd_host_platdata *host_pdata;
+	host_pdata = sdhci_get_platdata(host);
+	/* Enable SDIO Module */
+	sci_glb_set(REG_AHB_AHB_CTL0, host_pdata->enb_bit);
+	/* Reset SDIO Module */
+	sci_glb_set(REG_AHB_SOFT_RST, host_pdata->rst_bit);
+	sci_glb_clr(REG_AHB_SOFT_RST, host_pdata->rst_bit);
+	sdhci_sprd_set_base_clock(host);
+	host->ops->set_clock(host, true);
 
 }
 
@@ -587,25 +413,31 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		dev_err(dev, "sdhci_alloc_host() failed\n");
 		return PTR_ERR(host);
 	}
+
 	host_data = sdhci_priv(host);
+	host_data->platdata = dev_get_platdata(dev);
+	BUG_ON(NULL == host_data->platdata);
+	printk("sdio probe %s, vdd %s (%d), clk %s parent %s\n",
+		host_data->platdata->hw_name,
+		host_data->platdata->vdd_name,	host_data->platdata->volt_level,
+		host_data->platdata->clk_name, host_data->platdata->clk_parent);
+
 	platform_set_drvdata(pdev, host);
 	host->vmmc = NULL;
 	host->ioaddr = (void __iomem *)res->start;
 	pr_debug("sdio: host->ioaddr:0x%x\n", (u32)host->ioaddr);
+	host->hw_name = (host_data->platdata->hw_name)?
+		host_data->platdata->hw_name:pdev->name;
 	switch(pdev->id) {
 	case 0:
-		host->hw_name = "Spread SDIO host0";
 		break;
 	case 1:
-		host->hw_name = "Spread SDIO host1";
 		break;
 	case 2:
 		host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
-		host->hw_name = "Spread SDIO host2";
 		break;
 	case 3:
 		//host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
-		host->hw_name = "Spread EMMC";
 		break;
 	default:
 		BUG();
@@ -623,9 +455,8 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
 	host->irq = irq;
 #ifdef CONFIG_MMC_CARD_HOTPLUG
-	sd_detect = dev_get_platdata(dev);
-	if(sd_detect && (*sd_detect > 0)){
-		sd_detect_gpio = *sd_detect;
+	sd_detect_gpio = host_data->detect_gpio;
+	if(sd_detect_gpio > 0){
 		pr_info("%s, sd_detect_gpio:%d\n", __func__, sd_detect_gpio);
 
 		if (0 == pdev->id){
@@ -757,10 +588,10 @@ static int sdhci_sprd_suspend(struct platform_device *dev, pm_message_t pm)
 	sdhci_dumpregs(host);
 #endif
 if(host->mmc && host->mmc->card)
-	sdhci_save_regs(host);
+	host->ops->save_regs(host);
 
 #ifdef CONFIG_MMC_DEBUG
-	sdhci_dump_saved_regs(host);
+	host->ops->dump_saved_regs(host);
 #endif
 #endif
 #ifdef CONFIG_PM_RUNTIME
@@ -835,7 +666,7 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 	sdhci_dumpregs(host);
 #endif
 if(host->mmc && host->mmc->card)
-	sdhci_restore_regs(host);
+	host->ops->restore_regs(host);
 #endif
 
 	return 0;
@@ -915,7 +746,7 @@ static int sdhci_pm_suspend(struct device *dev)
 	sdhci_dumpregs(host);
 #endif
 if(host->mmc && host->mmc->card)
-	sdhci_save_regs(host);
+	host->ops->save_regs(host);
 
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dump_saved_regs(host);
@@ -1011,7 +842,7 @@ static int sdhci_pm_resume(struct device *dev)
 	sdhci_dumpregs(host);
 #endif
 	if(host->mmc && host->mmc->card)
-		sdhci_restore_regs(host);
+		host->ops->restore_regs(host);
 #endif
 
 #ifdef CONFIG_MMC_DEBUG

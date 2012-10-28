@@ -17,6 +17,31 @@
 #include <linux/io.h>
 #include <linux/mmc/host.h>
 
+struct sprd_host_platdata {
+	/* Data set by board or device resources */
+	int detect_gpio;
+	const char *hw_name;	/* Hardware bus name */
+	const char *vdd_name;
+	int volt_level;
+	const char *clk_name;
+	const char *clk_parent;
+	int max_clock;
+	int enb_bit, rst_bit;
+
+	/*Save/Restore host context */
+	struct {
+		unsigned int is_valid;
+		unsigned int addr;
+		unsigned int blk_size;
+		unsigned int blk_cnt;
+		unsigned int arg;
+		unsigned int tran_mode;
+		unsigned int ctrl;
+		unsigned int power;
+		unsigned int clk;
+	} regs;
+};
+
 struct sdhci_host {
 	/* Data set by hardware interface driver */
 	const char *hw_name;	/* Hardware bus name */
