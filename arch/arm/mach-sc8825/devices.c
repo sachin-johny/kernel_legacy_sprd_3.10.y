@@ -17,8 +17,11 @@
 #include <linux/ion.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
+#include <linux/mmc/sdhci.h>
 
 #include <mach/hardware.h>
+#include <mach/regs_ahb.h>
+#include <mach/regs_glb.h>
 #include <mach/irqs.h>
 #include <mach/board.h>
 #include <mach/kpd.h>
@@ -350,7 +353,7 @@ static struct resource sprd_ahb_bm0_res[] = {
 static struct resource sprd_ahb_bm1_res[] = {
 	[0] = {
 		.start = SPRD_BM1_BASE,
-		.end = SPRD_BM1_BASE, SPRD_BM1_SIZE - 1,
+		.end = SPRD_BM1_BASE + SPRD_BM1_SIZE - 1,
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
@@ -759,11 +762,20 @@ static struct resource sprd_sdio0_resources[] = {
 	}
 };
 
+static struct sprd_host_platdata sprd_sdio0_pdata = {
+	.vdd_name = "vddsd0",
+	.clk_name = "clk_sdio0",
+	.clk_parent = "clk_sdio_src",
+	.enb_bit = BIT_SDIO0_EB,
+	.rst_bit = BIT_SD0_SOFT_RST,
+};
+
 struct platform_device sprd_sdio0_device = {
 	.name           = "sprd-sdhci",
 	.id             =  0,
 	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
 	.resource       = sprd_sdio0_resources,
+	.dev = { .platform_data = &sprd_sdio0_pdata },
 };
 
 static struct resource sprd_sdio1_resources[] = {
@@ -779,12 +791,24 @@ static struct resource sprd_sdio1_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
+
+static struct sprd_host_platdata sprd_sdio1_pdata = {
+	.vdd_name = "vddsd1",
+	.clk_name = "clk_sdio1",
+	.clk_parent = "clk_64m",
+	.enb_bit = BIT_SDIO1_EB,
+	.rst_bit = BIT_SD1_SOFT_RST,
+	.regs.is_valid = 1,
+};
+
 struct platform_device sprd_sdio1_device = {
 	.name           = "sprd-sdhci",
 	.id             =  1,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
+	.dev = { .platform_data = &sprd_sdio1_pdata },
 };
+
 static struct resource sprd_sdio2_resources[] = {
 	[0] = {
 	       .start = SPRD_SDIO2_BASE,
@@ -799,11 +823,19 @@ static struct resource sprd_sdio2_resources[] = {
 	       }
 };
 
+static struct sprd_host_platdata sprd_sdio2_pdata = {
+	.clk_name = "clk_sdio2",
+	.clk_parent = "clk_192m",
+	.enb_bit = BIT_SDIO2_EB,
+	.rst_bit = BIT_SD2_SOFT_RST,
+};
+
 struct platform_device sprd_sdio2_device = {
 	.name = "sprd-sdhci",
 	.id = 2,
 	.num_resources = ARRAY_SIZE(sprd_sdio2_resources),
 	.resource = sprd_sdio2_resources,
+	.dev = { .platform_data = &sprd_sdio2_pdata },
 };
 static struct resource sprd_emmc_resources[] = {
 	[0] = {
@@ -819,9 +851,22 @@ static struct resource sprd_emmc_resources[] = {
 	       }
 };
 
+static struct sprd_host_platdata sprd_emmc_pdata = {
+	.hw_name = "sprd-emmc",
+	.vdd_name = "vddsd3",
+	.clk_name = "clk_emmc",
+	.clk_parent = "clk_384m",
+	.max_clock = 384000000,
+	.enb_bit = BIT_EMMC_EB,
+	.rst_bit = BIT_EMMC_SOFT_RST,
+	.regs.is_valid = 1,
+};
+
 struct platform_device sprd_emmc_device = {
 	.name = "sprd-sdhci",
 	.id = 3,
 	.num_resources = ARRAY_SIZE(sprd_emmc_resources),
 	.resource = sprd_emmc_resources,
+	.dev = { .platform_data = &sprd_emmc_pdata },
 };
+
