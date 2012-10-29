@@ -41,9 +41,9 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
 #define VBC_MEM_OPTIMIZATION 1
 #ifdef VBC_MEM_OPTIMIZATION
 #define VBC_PAGEDIR_BUF_NUM 5
-static int pagedir_buf_index = 0, pagedir_buf_after = 0;
-static unsigned long dma_phy_addr[VBC_PAGEDIR_BUF_NUM] = {0, 0, 0, 0 ,0};
-static unsigned long dma_virtual_addr[VBC_PAGEDIR_BUF_NUM] = {0, 0, 0, 0, 0};
+static int pagedir_buf_index[SNDRV_PCM_STREAM_LAST + 1] = {0, 0}, pagedir_buf_after[SNDRV_PCM_STREAM_LAST + 1] = {0, 0};
+static unsigned long dma_phy_addr[SNDRV_PCM_STREAM_LAST + 1][VBC_PAGEDIR_BUF_NUM] ={{0, 0, 0, 0 ,0}, {0, 0, 0, 0 ,0}};
+static unsigned long dma_virtual_addr[SNDRV_PCM_STREAM_LAST + 1][VBC_PAGEDIR_BUF_NUM] = {{0, 0, 0, 0, 0}, {0, 0, 0, 0 ,0}};
 #endif
 
 
@@ -56,8 +56,9 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	struct sc88xx_runtime_data *rtd;
 	int ret;
 #ifdef VBC_MEM_OPTIMIZATION
-        int buf_index, buf_after;
+	int buf_index, buf_after;
 #endif
+
 	runtime->hw = sc88xx_pcm_hardware;
 	/*
 	 * Because VBC only support mono capture and caputer DMA buffer size must be 160*2 bytes,
@@ -93,36 +94,31 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 		goto out;
 
 #ifdef VBC_MEM_OPTIMIZATION
-          local_irq_disable();
-          buf_index = pagedir_buf_index;
-          buf_after =  pagedir_buf_after;
-          if(buf_index < VBC_PAGEDIR_BUF_NUM)
-          {
-            pagedir_buf_index += 1;
-          }
-          else
-           {
-            pagedir_buf_after +=1;
-             if(pagedir_buf_after == VBC_PAGEDIR_BUF_NUM)
-             pagedir_buf_after = 0;
-           }
-          local_irq_enable();
+	local_irq_disable();
+	buf_index = pagedir_buf_index[substream->stream];
+	buf_after =  pagedir_buf_after[substream->stream];
+	if(buf_index < VBC_PAGEDIR_BUF_NUM)
+	{
+		pagedir_buf_index[substream->stream]++;
+	} else {
+		pagedir_buf_after[substream->stream]++;
+		if(pagedir_buf_after[substream->stream] == VBC_PAGEDIR_BUF_NUM)
+			pagedir_buf_after[substream->stream] = 0;
+	}
+	local_irq_enable();
 
-          if(buf_index < VBC_PAGEDIR_BUF_NUM){
-          rtd->dma_desc_array =
-                dma_alloc_writecombine(substream->pcm->card->dev, 4 * PAGE_SIZE,
-                                        &rtd->dma_desc_array_phys, GFP_KERNEL);
-          dma_phy_addr[buf_index] = rtd->dma_desc_array_phys;
-          dma_virtual_addr[buf_index] = rtd->dma_desc_array;
-          printk("vbc dma memory allocated: phy=0x%x, virt=0x%x, index=%d\n",
-                    dma_phy_addr[buf_index], dma_virtual_addr[buf_index],buf_index);
-          buf_index += 1;
-        }
-        else{
-          rtd->dma_desc_array_phys = dma_phy_addr[buf_after];
-          rtd->dma_desc_array = dma_virtual_addr[buf_after];
-          printk("vbc dma memory using allocated index=%d\n",buf_after);
-        }
+	if(buf_index < VBC_PAGEDIR_BUF_NUM){
+		rtd->dma_desc_array = dma_alloc_writecombine(substream->pcm->card->dev, 4 * PAGE_SIZE,
+				&rtd->dma_desc_array_phys, GFP_KERNEL);
+		dma_phy_addr[substream->stream][buf_index] = rtd->dma_desc_array_phys;
+		dma_virtual_addr[substream->stream][buf_index] = rtd->dma_desc_array;
+		printk("vbc dma memory allocated: phy=0x%x, virt=0x%x, index=%d\n",
+                    dma_phy_addr[substream->stream][buf_index], dma_virtual_addr[substream->stream][buf_index], buf_index);
+    }else {
+		rtd->dma_desc_array_phys = dma_phy_addr[substream->stream][buf_after];
+		rtd->dma_desc_array = dma_virtual_addr[substream->stream][buf_after];
+		printk("vbc dma memory using allocated index=%d\n",buf_after);
+    }
 #else
 	rtd->dma_desc_array =
 		dma_alloc_writecombine(substream->pcm->card->dev, 4 * PAGE_SIZE,
@@ -143,15 +139,15 @@ out:
 
 int sc88xx_pcm_close(struct snd_pcm_substream *substream)
 {
-#ifndef VBC_MEM_OPTIMIZATION
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sc88xx_runtime_data *rtd = runtime->private_data;
 
+#ifndef VBC_MEM_OPTIMIZATION
 	dma_free_writecombine(substream->pcm->card->dev, 4 * PAGE_SIZE,
 				rtd->dma_desc_array, rtd->dma_desc_array_phys);
+#endif
 	kfree(rtd);
 
-#endif
 	return 0;
 }
 
