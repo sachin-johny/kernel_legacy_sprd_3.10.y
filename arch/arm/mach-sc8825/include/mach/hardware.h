@@ -89,7 +89,7 @@
 #define SPRD_ROTO_PHYS		0X20800000
 #define SPRD_ROTO_SIZE		SZ_4K
 
-#define SPRD_AHB_BASE		SCI_IOMAP(0x2e0000)
+#define SPRD_AHB_BASE		SCI_IOMAP(0x400000)//NOTE
 #define SPRD_AHB_PHYS		0X20900000
 #define SPRD_AHB_SIZE		SZ_64K
 
@@ -267,7 +267,6 @@
 #define SPRD_MISC_PHYS	((unsigned int)0X42000000)
 
 #define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x0600 )
-#define ANA_REG_GLB_APB_CLK_EN          ( ANA_CTL_GLB_BASE + 0x0000 )
 
 #define ADC_BASE	((unsigned int)SPRD_ADI_BASE + 0x300)
 
