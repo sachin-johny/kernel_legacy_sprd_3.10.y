@@ -17,6 +17,8 @@
 #include <linux/irqflags.h>
 #include <linux/irq.h>
 #include <linux/io.h>
+#include <linux/interrupt.h>
+
 #include <asm/delay.h>
 
 #include <mach/hardware.h>
@@ -78,7 +80,7 @@ static struct irq_chip sprd_muxed_ana_chip = {
 	.irq_unmask = sprd_unmask_ana_irq,
 };
 
-static void sprd_muxed_ana_handler(unsigned int irq, struct irq_desc *desc)
+static irqreturn_t sprd_muxed_ana_handler(int irq, void *dev_id)
 {
 	uint32_t irq_ana, status;
 	int i;
@@ -92,13 +94,20 @@ static void sprd_muxed_ana_handler(unsigned int irq, struct irq_desc *desc)
 		pr_debug("%s generic_handle_irq %d\n", __FUNCTION__, irq_ana);
 		generic_handle_irq(irq_ana);
 	}
+	return IRQ_HANDLED;
 }
+
+static struct irqaction __adie_mux_irq = {
+	.name		= "adie_mux",
+	.flags		= IRQF_DISABLED | IRQF_NO_SUSPEND,
+	.handler	= sprd_muxed_ana_handler,
+};
 
 void __init ana_init_irq(void)
 {
 	int n;
 
-	irq_set_chained_handler(IRQ_ANA_INT, sprd_muxed_ana_handler);
+	setup_irq(IRQ_ANA_INT, &__adie_mux_irq);
 	for (n = IRQ_ANA_INT_START; n < IRQ_ANA_INT_START + NR_ANA_IRQS; n++) {
 		irq_set_chip_and_handler(n, &sprd_muxed_ana_chip,
 					 handle_level_irq);

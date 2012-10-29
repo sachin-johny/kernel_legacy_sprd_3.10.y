@@ -23,6 +23,8 @@
 #include <mach/globalregs.h>
 #include <mach/adi.h>
 #include <mach/irqs.h>
+#include <mach/sci.h>
+#include <mach/regs_glb.h>
 
 #define CTL_ADI_BASE			( SPRD_MISC_BASE )
 
@@ -207,6 +209,7 @@ EXPORT_SYMBOL(sci_adi_write_fast);
 int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
 {
 	unsigned long flags;
+	
 	ADDR_VERIFY(reg);
 	sci_adi_lock();
 	__sci_adi_write(reg,
@@ -238,12 +241,12 @@ static void __init __sci_adi_init(void)
 int __init adi_init(void)
 {
 	/* enable adi in global regs */
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_ADI_EN, GR_GEN0);
+	sci_glb_set(REG_GLB_GEN0,BIT_ADI_EB);
 
 	/* reset adi */
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, SWRST_ADI_RST, GR_SOFT_RST);
+	sci_glb_set(REG_GLB_SOFT_RST,BIT_ADI_RST);
 	udelay(2);
-	sprd_greg_clear_bits(REG_TYPE_GLOBAL, SWRST_ADI_RST, GR_SOFT_RST);
+	sci_glb_clr(REG_GLB_SOFT_RST,BIT_ADI_RST);
 
 	__sci_adi_init();
 

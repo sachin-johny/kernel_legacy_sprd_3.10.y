@@ -22,6 +22,9 @@
 #include <mach/irqs.h>
 #include <mach/adi.h>
 #include <mach/gpio.h>
+#include <mach/regs_glb.h>
+#include <mach/sci.h>
+#include <mach/regs_ana_glb.h>
 
 /*
  * SC8810 GPIO bank and number summary:
@@ -49,7 +52,7 @@
 
 /* Analog GPIO/EIC base address */
 #define ANA_CTL_GPIO_BASE	(SPRD_MISC_BASE + 0x0480)
-#define ANA_CTL_EIC_BASE	(SPRD_MISC_BASE + 0x0700)
+#define ANA_CTL_EIC_BASE	(SPRD_MISC_BASE + 0x0100)
 
 /* 16 GPIO share a group of registers */
 #define	GPIO_GROUP_NR		(16)
@@ -476,17 +479,8 @@ static struct irq_chip a_eic_irq_chip = {
 	.irq_set_type	= sci_eic_irq_set_type,
 };
 
-/*
- * We set IRQ_EIC_INT as the last reserved IRQ NR, because D-Die EIC chip
- * share the IRQ number IRQ_GPIO_INT with D-Die GPIO. It's handled in the
- * muxed handler.
- */
-#define	IRQ_EIC_INT	(NR_IRQS - 1)
-
-/* gpio/eic cascaded irq handler */
-static void gpio_muxed_handler(unsigned int irq, struct irq_desc *desc)
+static void gpio_eic_handler(int irq, struct gpio_chip *chip)
 {
-	struct gpio_chip *chip = irq_get_handler_data(irq);
 	struct sci_gpio_chip *sci_gpio = to_sci_gpio(chip);
 	int group, n, addr, value, count = 0;
 
@@ -505,15 +499,37 @@ static void gpio_muxed_handler(unsigned int irq, struct irq_desc *desc)
 		}
 	}
 
-	/* handle the shared D-Die EIC */
-	if (irq == IRQ_GPIO_INT && count == 0) {
-		gpio_muxed_handler(IRQ_EIC_INT, irq_to_desc(IRQ_EIC_INT));
+}
+static irqreturn_t gpio_muxed_handler(int irq, void *dev_id)
+{
+	struct gpio_chip *chip = dev_id;
+	gpio_eic_handler(irq, chip);
+	return IRQ_HANDLED;
 	}
 
+/* gpio/eic cascaded irq handler */
+static void gpio_muxed_flow_handler(unsigned int irq, struct irq_desc *desc)
+{
+	struct gpio_chip *chip = irq_get_handler_data(irq);
+
+	gpio_eic_handler(irq, chip);
 #ifdef CONFIG_NKERNEL
 	desc->irq_data.chip->irq_unmask(&desc->irq_data);
 #endif
 }
+
+static struct irqaction __d_gpio_irq = {
+	.name		= "gpio",
+	.flags		= IRQF_DISABLED | IRQF_NO_SUSPEND,
+	.handler	= gpio_muxed_handler,
+	.dev_id		= &d_sci_gpio.chip,
+};
+static struct irqaction __d_eic_irq = {
+	.name		= "eic",
+	.flags		= IRQF_DISABLED | IRQF_NO_SUSPEND,
+	.handler	= gpio_muxed_handler,
+	.dev_id		= &d_sci_eic.chip,
+};
 
 void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *irqchip)
 {
@@ -521,8 +537,10 @@ void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *
 	int irqend = n + gpiochip->ngpio;
 
 	/* setup the cascade irq handlers */
-	irq_set_chained_handler(irq, gpio_muxed_handler);
+	if (irq >= NR_SCI_PHY_IRQS) {
+		irq_set_chained_handler(irq, gpio_muxed_flow_handler);
 	irq_set_handler_data(irq, gpiochip);
+	}
 
 	for (; n < irqend; n++) {
 		irq_set_chip_and_handler(n, irqchip, handle_level_irq);
@@ -531,26 +549,27 @@ void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *
 	}
 }
 
-#define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x0600 )
-#define ANA_REG_GLB_APB_CLK_EN          ( ANA_CTL_GLB_BASE + 0x0000 )
-#define BIT_RTC_EIC_EB                  ( BIT(11) )
-#define BIT_EIC_EB                      ( BIT(3) )
-
 static int __init gpio_init(void)
 {
 	/* enable EIC */
-	sci_adi_set(ANA_REG_GLB_APB_CLK_EN, BIT_EIC_EB | BIT_RTC_EIC_EB);
+	sci_glb_set(REG_GLB_GEN0, BIT_EIC_EB);
+	sci_glb_set(REG_GLB_GEN0, BIT_GPIO_EB);
+	sci_glb_set(REG_GLB_GEN0, BIT_RTC_EIC_EB);
+	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN, BIT_ANA_EIC_EB | BIT_ANA_GPIO_EB | BIT_ANA_RTC_EIC_EB);
 
 	gpiochip_add(&d_sci_eic.chip);
 	gpiochip_add(&d_sci_gpio.chip);
 	gpiochip_add(&a_sci_eic.chip);
 	gpiochip_add(&a_sci_gpio.chip);
-#if 0//TODO
-	gpio_irq_init(IRQ_EIC_INT, &d_sci_eic.chip, &d_eic_irq_chip);
+
+	setup_irq(IRQ_GPIO_INT, &__d_gpio_irq);
+	setup_irq(IRQ_EIC_INT, &__d_eic_irq);
+
 	gpio_irq_init(IRQ_GPIO_INT, &d_sci_gpio.chip, &d_gpio_irq_chip);
-	gpio_irq_init(IRQ_ANA_EIC_INT, &a_sci_eic.chip, &a_eic_irq_chip);
+	gpio_irq_init(IRQ_EIC_INT, &d_sci_eic.chip, &d_eic_irq_chip);
 	gpio_irq_init(IRQ_ANA_GPIO_INT, &a_sci_gpio.chip, &a_gpio_irq_chip);
-#endif
+	gpio_irq_init(IRQ_ANA_EIC_INT, &a_sci_eic.chip, &a_eic_irq_chip);
+
 	return 0;
 }
 

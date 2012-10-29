@@ -21,6 +21,7 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
+#include <mach/regs_ana_glb.h>
 
 static DEFINE_SPINLOCK(adc_lock);
 static u32 io_base;		/* Mapped base address */
@@ -89,8 +90,9 @@ static unsigned adc_read(unsigned addr)
 #define BIT_CLK_AUXAD_EN						( BIT(14) )
 static void sci_adc_enable(void)
 {
-	sci_adi_set(ANA_REG_GLB_APB_CLK_EN,
-		    BIT_ADC_EB | BIT_CLK_AUXADC_EN | BIT_CLK_AUXAD_EN);
+	/* enable adc */
+	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
+		    BIT_ANA_ADC_EB | BIT_ANA_CLK_AUXADC_EN | BIT_ANA_CLK_AUXAD_EN);
 }
 
 void sci_adc_dump_register()

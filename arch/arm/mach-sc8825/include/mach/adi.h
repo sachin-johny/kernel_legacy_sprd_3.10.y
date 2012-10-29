@@ -35,7 +35,7 @@ static inline int sci_adi_raw_write(u32 reg, u16 val)
 
 static inline int sci_adi_set(u32 reg, u16 bits)
 {
-	return sci_adi_write(reg, bits, (u16) ~ 0);
+	return sci_adi_write(reg, bits, 0);
 }
 
 static inline int sci_adi_clr(u32 reg, u16 bits)
