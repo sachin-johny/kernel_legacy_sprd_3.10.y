@@ -130,10 +130,7 @@ struct sprd_codec_pa_setting {
 };
 
 static DEFINE_MUTEX(inter_pa_mutex);
-static struct sprd_codec_pa_setting inter_pa = {
-	.LDO_V_sel = 0x03,
-	.DTRI_F_sel = 0x01,
-};
+static struct sprd_codec_pa_setting inter_pa;
 
 /* codec private data */
 struct sprd_codec_priv {
@@ -585,7 +582,7 @@ static inline void sprd_codec_pa_ldo_v_sel(int v_sel)
 {
 	int mask;
 	int val;
-	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, v_sel);
 	mask = PA_LDO_V_MASK << PA_LDO_V;
 	val = (v_sel << PA_LDO_V) & mask;
 	arch_audio_codec_write_mask(PMUR4, val, mask);
@@ -595,7 +592,7 @@ static inline void sprd_codec_pa_dtri_f_sel(int f_sel)
 {
 	int mask;
 	int val;
-	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, f_sel);
 	mask = PA_DTRI_F_MASK << PA_DTRI_F;
 	val = (f_sel << PA_DTRI_F) & mask;
 	arch_audio_codec_write_mask(DCR2, val, mask);
@@ -616,6 +613,12 @@ static inline void sprd_codec_pa_en(int on)
 	arch_audio_codec_write_mask(PMUR2, val, mask);
 }
 
+static inline void sprd_codec_inter_pa_init(void)
+{
+	inter_pa.setting.LDO_V_sel = 0x03;
+	inter_pa.setting.DTRI_F_sel = 0x01;
+}
+
 int sprd_inter_speaker_pa(int on)
 {
 	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
@@ -628,6 +631,7 @@ int sprd_inter_speaker_pa(int on)
 		    && !inter_pa.setting.is_auto_LDO_mode) {
 			sprd_codec_pa_ldo_v_sel(inter_pa.setting.LDO_V_sel);
 		}		/* FIXME auto adjust voltage */
+		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
 		sprd_codec_pa_en(1);
 		inter_pa.set = 1;
 	} else {
@@ -1896,6 +1900,7 @@ static struct platform_driver sprd_codec_codec_driver = {
 
 static int sprd_codec_init(void)
 {
+	sprd_codec_inter_pa_init();
 	arch_audio_codec_switch(AUDIO_TO_ARM_CTRL);
 	return platform_driver_register(&sprd_codec_codec_driver);
 }
