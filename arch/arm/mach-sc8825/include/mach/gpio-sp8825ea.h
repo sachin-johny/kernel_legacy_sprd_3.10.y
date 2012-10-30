@@ -26,18 +26,18 @@
  *   176 - 207 : A-Die GPIO
  */
 
-#define GPIO_TOUCH_RESET	142
-#define GPIO_TOUCH_IRQ		141
+#define GPIO_TOUCH_RESET         142
+#define GPIO_TOUCH_IRQ           141
 
-#define GPIO_SENSOR_RESET	72
-#define GPIO_MAIN_SENSOR_PWN  73
-#define GPIO_SUB_SENSOR_PWN   74
+#define GPIO_SENSOR_RESET        41
+#define GPIO_MAIN_SENSOR_PWN     42
+#define GPIO_SUB_SENSOR_PWN      43
 
-#define EIC_CHARGER_DETECT	162
-#define EIC_KEY_POWER		163
+#define EIC_CHARGER_DETECT       162
+#define EIC_KEY_POWER            163
 
-#define SPI0_CMMB_CS_GPIO  	32
-#define SPI1_WIFI_CS_GPIO  	44
+#define SPI0_CMMB_CS_GPIO        32
+#define SPI1_WIFI_CS_GPIO        44
 
-#define GPIO_BK		143
+#define GPIO_BK                  143
 #endif
