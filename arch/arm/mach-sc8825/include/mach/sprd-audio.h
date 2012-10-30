@@ -325,12 +325,23 @@ static inline int arch_audio_vbc_is_da_int(void)
 /* ------------------------------------------------------------------------- */
 
 /* codec setting */
+static inline int arch_audio_codec_write_mask(int reg, int val, int mask)
+{
+	int ret = 0;
+
+#if FIXED_AUDIO
+	ret = sci_adi_write(reg, val, mask);
+#endif
+
+	return ret;
+}
+
 static inline int arch_audio_codec_write(int reg, int val)
 {
 	int ret = 0;
 
 #if FIXED_AUDIO
-	ret = sci_adi_write(reg, val, 1);
+	ret = sci_adi_write(reg, val, 0xFFFF);
 #endif
 
 	return ret;

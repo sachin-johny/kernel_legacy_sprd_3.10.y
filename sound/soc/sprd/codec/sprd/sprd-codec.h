@@ -83,6 +83,15 @@
 #define OVP_PD			(1)
 #define OVP_LDO_EN		(0)
 
+/* PMUR4 */
+#define PA_SWOCP_PD		(7)
+#define PA_LDOOCP_PD		(6)
+#define PA_LDO_V		(3)
+#define PA_LDO_V_MASK		(0x7)
+#define BG_RST			(2)
+#define BG_I			(0)
+#define BG_I_MASK		(0x3)
+
 /* AACR1 */
 #define ADC_IBUF_PD		(7)
 #define ADC_VREF1P5		(6)
@@ -172,6 +181,21 @@
 #define AOL_EN			(4)
 #define AOR_EN			(3)
 #define DIFF_EN			(2)
+
+/* DCR2 */
+#define PA_D_EN			(7)
+#define PA_DTRI_F		(5)
+#define PA_DTRI_F_MASK		(0x03)
+#define PA_DEMI_EN		(4)
+#define PA_SS_EN		(3)
+#define PA_SS_RST		(2)
+#define DRV_STOP_EN		(1)
+
+/* DCR3 */
+#define DRV_OCP_AOL_PD		(7)
+#define DRV_OCP_AOR_PD		(6)
+#define DRV_OCP_EAR_PD		(5)
+#define DRV_OCP_HP_PD		(4)
 
 /* PNRCR1 */
 #define HP_POP_CTL		(6)

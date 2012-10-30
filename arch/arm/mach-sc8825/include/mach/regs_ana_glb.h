@@ -337,9 +337,9 @@
 #define BIT_AUD6M5_CLK_TX_INV_ARM_EN    ( BIT(6) )
 #define BIT_AUDIF_CLK_RX_INV_ARM_EN     ( BIT(5) )
 #define BIT_AUDIF_CLK_TXT_INV_ARM_EN    ( BIT(4) )
-#define BIT_RTC_AUD_ARM_EN              ( BIT(3) )
-#define BIT_CLK_AUD_6M5_ARM_EN          ( BIT(2) )
-#define BIT_CLK_AUDIF_ARM_EN            ( BIT(1) )
+#define BIT_CLK_AUD_6M5_ARM_EN          ( BIT(3) )
+#define BIT_CLK_AUDIF_ARM_EN            ( BIT(2) )
+#define BIT_RTC_AUD_ARM_EN              ( BIT(1) )
 #define BIT_AUD_ARM_EN                  ( BIT(0) )
 
 /* bits definitions for register ANA_REG_GLB_ANA_MIXED_CTRL */

@@ -76,13 +76,11 @@ static void sc882x_ext_control(struct snd_soc_dapm_context *dapm)
 	snd_soc_dapm_sync(dapm);
 }
 
+int sprd_inter_speaker_pa(int on);
 static inline void local_cpu_pa_control(bool enable)
 {
 	int ret = 0;
-	/* TODO how control the inter pa */
-	if (enable) {
-	} else {
-	}
+	ret = sprd_inter_speaker_pa(enable);
 	if (ret < 0)
 		pr_err("sc882x audio inter pa control error: %d\n", enable);
 }
@@ -96,29 +94,29 @@ static void audio_speaker_enable(int enable)
 }
 
 static int sc882x_hp_event(struct snd_soc_dapm_widget *w,
-			  struct snd_kcontrol *k, int event)
+			   struct snd_kcontrol *k, int event)
 {
 	sc882x_dbg("Entering %s e=0x%x\n", __func__, event);
 	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
-		audio_pa_amplifier->
-		    headset.control(SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->headset.
+		    control(SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc882x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
 
 static int sc882x_ear_event(struct snd_soc_dapm_widget *w,
-			   struct snd_kcontrol *k, int event)
+			    struct snd_kcontrol *k, int event)
 {
 	sc882x_dbg("Entering %s e=0x%x\n", __func__, event);
 	if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
-		audio_pa_amplifier->
-		    earpiece.control(SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->earpiece.
+		    control(SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc882x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
 
 static int sc882x_amp_event(struct snd_soc_dapm_widget *w,
-			   struct snd_kcontrol *k, int event)
+			    struct snd_kcontrol *k, int event)
 {
 	sc882x_dbg("Entering %s e=0x%x\n", __func__, event);
 	audio_speaker_enable(SND_SOC_DAPM_EVENT_ON(event));
@@ -152,7 +150,7 @@ static const struct snd_soc_dapm_route sc882x_audio_map[] = {
 };
 
 static int sc882x_func_get(struct snd_kcontrol *kcontrol,
-			  struct snd_ctl_elem_value *ucontrol)
+			   struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
@@ -162,7 +160,7 @@ static int sc882x_func_get(struct snd_kcontrol *kcontrol,
 }
 
 static int sc882x_func_set(struct snd_kcontrol *kcontrol,
-			  struct snd_ctl_elem_value *ucontrol)
+			   struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
@@ -174,7 +172,7 @@ static int sc882x_func_set(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	sc882x_dbg("Entering %s %d = %ld\n", __func__, id,
-		  ucontrol->value.integer.value[0]);
+		   ucontrol->value.integer.value[0]);
 	sc882x.func[id] = ucontrol->value.integer.value[0];
 	sc882x_ext_control(&card->dapm);
 	sc882x_dbg("Leaving %s\n", __func__);
