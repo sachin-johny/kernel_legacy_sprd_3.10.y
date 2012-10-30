@@ -20,7 +20,7 @@
  * We have the following mapping according to asic spec.
  * We have set some trap gaps in the vaddr.
  */
-#define SCI_IOMAP_BASE	0xE0000000
+#define SCI_IOMAP_BASE	0xEB000000
 
 #define SCI_IOMAP(x)	(SCI_IOMAP_BASE + (x))
 
