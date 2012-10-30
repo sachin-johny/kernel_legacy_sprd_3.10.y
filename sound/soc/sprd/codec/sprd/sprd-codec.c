@@ -110,6 +110,31 @@ struct sprd_codec_mixer {
 	sprd_codec_mixer_set set;
 };
 
+struct sprd_codec_inter_pa {
+	/* FIXME little endian */
+	int is_classD_mode:1;
+	int is_LDO_mode:1;
+	int is_DEMI_mode:1;
+	int is_auto_LDO_mode:1;
+	int LDO_V_sel:4;
+	int DTRI_F_sel:4;
+	int RESV:21;
+};
+
+struct sprd_codec_pa_setting {
+	union {
+		struct sprd_codec_inter_pa setting;
+		u32 value;
+	};
+	int set;
+};
+
+static DEFINE_MUTEX(inter_pa_mutex);
+static struct sprd_codec_pa_setting inter_pa = {
+	.LDO_V_sel = 0x03,
+	.DTRI_F_sel = 0x01,
+};
+
 /* codec private data */
 struct sprd_codec_priv {
 	struct snd_soc_codec *codec;
@@ -228,6 +253,7 @@ static int ailadcl_set(struct snd_soc_codec *codec, int on)
 {
 	int ret;
 	int need_on;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIL_ADCL),
 				  on << AIL_ADCL);
 	if (ret < 0)
@@ -241,6 +267,7 @@ static int ailadcr_set(struct snd_soc_codec *codec, int on)
 {
 	int ret;
 	int need_on;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIL_ADCR),
 				  on << AIL_ADCR);
 	if (ret < 0)
@@ -254,6 +281,7 @@ static int airadcl_set(struct snd_soc_codec *codec, int on)
 {
 	int ret;
 	int need_on;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIR_ADCL),
 				  on << AIR_ADCL);
 	if (ret < 0)
@@ -267,6 +295,7 @@ static int airadcr_set(struct snd_soc_codec *codec, int on)
 {
 	int ret;
 	int need_on;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIR_ADCR),
 				  on << AIR_ADCR);
 	if (ret < 0)
@@ -279,6 +308,7 @@ static int airadcr_set(struct snd_soc_codec *codec, int on)
 static int mainmicadcl_set(struct snd_soc_codec *codec, int on)
 {
 	int mask;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	mask = BIT(MICP_ADCL) | BIT(MICN_ADCL);
 	return snd_soc_update_bits(codec, SOC_REG(AAICR1), mask, on ? mask : 0);
 }
@@ -286,6 +316,7 @@ static int mainmicadcl_set(struct snd_soc_codec *codec, int on)
 static int mainmicadcr_set(struct snd_soc_codec *codec, int on)
 {
 	int mask;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	mask = BIT(MICP_ADCR) | BIT(MICN_ADCR);
 	return snd_soc_update_bits(codec, SOC_REG(AAICR1), mask, on ? mask : 0);
 }
@@ -293,6 +324,7 @@ static int mainmicadcr_set(struct snd_soc_codec *codec, int on)
 static int auxmicadcl_set(struct snd_soc_codec *codec, int on)
 {
 	int mask;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	mask = BIT(AUXMICP_ADCL) | BIT(AUXMICN_ADCL);
 	return snd_soc_update_bits(codec, SOC_REG(AAICR2), mask, on ? mask : 0);
 }
@@ -300,6 +332,7 @@ static int auxmicadcl_set(struct snd_soc_codec *codec, int on)
 static int auxmicadcr_set(struct snd_soc_codec *codec, int on)
 {
 	int mask;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	mask = BIT(AUXMICP_ADCR) | BIT(AUXMICN_ADCR);
 	return snd_soc_update_bits(codec, SOC_REG(AAICR2), mask, on ? mask : 0);
 }
@@ -307,6 +340,7 @@ static int auxmicadcr_set(struct snd_soc_codec *codec, int on)
 static int hpmicadcl_set(struct snd_soc_codec *codec, int on)
 {
 	int mask;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	mask = BIT(HPMICP_ADCL) | BIT(HPMICN_ADCL);
 	return snd_soc_update_bits(codec, SOC_REG(AAICR1), mask, on ? mask : 0);
 }
@@ -314,6 +348,7 @@ static int hpmicadcl_set(struct snd_soc_codec *codec, int on)
 static int hpmicadcr_set(struct snd_soc_codec *codec, int on)
 {
 	int mask;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	mask = BIT(HPMICP_ADCR) | BIT(HPMICN_ADCR);
 	return snd_soc_update_bits(codec, SOC_REG(AAICR1), mask, on ? mask : 0);
 }
@@ -321,23 +356,31 @@ static int hpmicadcr_set(struct snd_soc_codec *codec, int on)
 /* adcpga*_en setting */
 static int adcpgax_auto_setting(struct snd_soc_codec *codec)
 {
-	int reg1, reg2, reg3;
-	int val = 0;
-	int mask = ADCPGAL_P_EN | ADCPGAL_N_EN | ADCPGAR_P_EN | ADCPGAR_N_EN;
+	unsigned int reg1, reg2, reg3;
+	int val;
+	int mask;
 	reg1 = snd_soc_read(codec, DAOCR1);
 	reg2 = snd_soc_read(codec, DAOCR2);
 	reg3 = snd_soc_read(codec, DAOCR3);
-	if ((reg1 & ADCL_P_HPL) || (reg2 & ADCL_P_AOLP) || (reg3 & ADCL_P_AORP)) {
-		val |= ADCPGAL_P_EN;
-	} else if ((reg1 & ADCL_N_HPR) || (reg2 & ADCL_N_AOLN)
-		   || (reg3 & ADCL_N_AORN)) {
-		val |= ADCPGAL_N_EN;
-	} else if ((reg1 & (ADCR_P_HPL | ADCR_P_HPR))
-		   || (reg2 & ADCR_P_AOLP) || (reg3 & ADCR_P_AORP)) {
-		val |= ADCPGAR_P_EN;
-	} else if ((reg2 & ADCR_N_AOLN) || (reg3 & ADCR_N_AORN)) {
-		val |= ADCPGAR_N_EN;
+	val = 0;
+	if ((reg1 & BIT(ADCL_P_HPL)) || (reg2 & BIT(ADCL_P_AOLP))
+	    || (reg3 & BIT(ADCL_P_AORP))) {
+		val |= BIT(ADCPGAL_P_EN);
 	}
+	if ((reg1 & BIT(ADCL_N_HPR)) || (reg2 & BIT(ADCL_N_AOLN))
+	    || (reg3 & BIT(ADCL_N_AORN))) {
+		val |= BIT(ADCPGAL_N_EN);
+	}
+	if ((reg1 & (BIT(ADCR_P_HPL) | BIT(ADCR_P_HPR)))
+	    || (reg2 & BIT(ADCR_P_AOLP)) || (reg3 & BIT(ADCR_P_AORP))) {
+		val |= BIT(ADCPGAR_P_EN);
+	}
+	if ((reg2 & BIT(ADCR_N_AOLN)) || (reg3 & BIT(ADCR_N_AORN))) {
+		val |= BIT(ADCPGAR_N_EN);
+	}
+	mask =
+	    BIT(ADCPGAL_P_EN) | BIT(ADCPGAL_N_EN) | BIT(ADCPGAR_P_EN) |
+	    BIT(ADCPGAR_N_EN);
 	return snd_soc_update_bits(codec, SOC_REG(AACR2), mask, val);
 }
 
@@ -345,30 +388,35 @@ static int adcpgax_auto_setting(struct snd_soc_codec *codec)
 
 static int daclhpl_set(struct snd_soc_codec *codec, int on)
 {
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR1), BIT(DACL_P_HPL),
 				   on << DACL_P_HPL);
 }
 
 static int daclhpr_set(struct snd_soc_codec *codec, int on)
 {
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR1), BIT(DACL_N_HPR),
 				   on << DACL_N_HPR);
 }
 
 static int dacrhpl_set(struct snd_soc_codec *codec, int on)
 {
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR1), BIT(DACR_P_HPL),
 				   on << DACR_P_HPL);
 }
 
 static int dacrhpr_set(struct snd_soc_codec *codec, int on)
 {
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR1), BIT(DACR_P_HPR),
 				   on << DACR_P_HPR);
 }
 
 static int adclhpl_set(struct snd_soc_codec *codec, int on)
 {
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	snd_soc_update_bits(codec, SOC_REG(DAOCR1), BIT(ADCL_P_HPL),
 			    on << ADCL_P_HPL);
 	return adcpgax_auto_setting(codec);
@@ -376,6 +424,7 @@ static int adclhpl_set(struct snd_soc_codec *codec, int on)
 
 static int adclhpr_set(struct snd_soc_codec *codec, int on)
 {
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	snd_soc_update_bits(codec, SOC_REG(DAOCR1), BIT(ADCL_N_HPR),
 			    on << ADCL_N_HPR);
 	return adcpgax_auto_setting(codec);
@@ -383,6 +432,7 @@ static int adclhpr_set(struct snd_soc_codec *codec, int on)
 
 static int adcrhpl_set(struct snd_soc_codec *codec, int on)
 {
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	snd_soc_update_bits(codec, SOC_REG(DAOCR1), BIT(ADCR_P_HPL),
 			    on << ADCR_P_HPL);
 	return adcpgax_auto_setting(codec);
@@ -390,6 +440,7 @@ static int adcrhpl_set(struct snd_soc_codec *codec, int on)
 
 static int adcrhpr_set(struct snd_soc_codec *codec, int on)
 {
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	snd_soc_update_bits(codec, SOC_REG(DAOCR1), BIT(ADCR_P_HPR),
 			    on << ADCR_P_HPR);
 	return adcpgax_auto_setting(codec);
@@ -400,18 +451,21 @@ static int adcrhpr_set(struct snd_soc_codec *codec, int on)
 static int daclspkl_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(DACL_P_AOLP) | BIT(DACL_N_AOLN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR2), mask, on ? mask : 0);
 }
 
 static int dacrspkl_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(DACR_P_AOLP) | BIT(DACR_N_AOLN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR2), mask, on ? mask : 0);
 }
 
 static int adclspkl_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(ADCL_P_AOLP) | BIT(ADCL_N_AOLN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	snd_soc_update_bits(codec, SOC_REG(DAOCR2), mask, on ? mask : 0);
 	return adcpgax_auto_setting(codec);
 }
@@ -419,6 +473,7 @@ static int adclspkl_set(struct snd_soc_codec *codec, int on)
 static int adcrspkl_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(ADCR_P_AOLP) | BIT(ADCR_N_AOLN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	snd_soc_update_bits(codec, SOC_REG(DAOCR2), mask, on ? mask : 0);
 	return adcpgax_auto_setting(codec);
 }
@@ -428,18 +483,21 @@ static int adcrspkl_set(struct snd_soc_codec *codec, int on)
 static int daclspkr_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(DACL_P_AORP) | BIT(DACL_N_AORN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR3), mask, on ? mask : 0);
 }
 
 static int dacrspkr_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(DACR_P_AORP) | BIT(DACR_N_AORN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR3), mask, on ? mask : 0);
 }
 
 static int adclspkr_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(ADCL_P_AORP) | BIT(ADCL_N_AORN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	snd_soc_update_bits(codec, SOC_REG(DAOCR3), mask, on ? mask : 0);
 	return adcpgax_auto_setting(codec);
 }
@@ -447,6 +505,7 @@ static int adclspkr_set(struct snd_soc_codec *codec, int on)
 static int adcrspkr_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(ADCR_P_AORP) | BIT(ADCR_N_AORN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	snd_soc_update_bits(codec, SOC_REG(DAOCR3), mask, on ? mask : 0);
 	return adcpgax_auto_setting(codec);
 }
@@ -456,6 +515,7 @@ static int adcrspkr_set(struct snd_soc_codec *codec, int on)
 static int daclear_set(struct snd_soc_codec *codec, int on)
 {
 	int mask = BIT(DACL_P_EARP) | BIT(DACL_N_EARN);
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	return snd_soc_update_bits(codec, SOC_REG(DAOCR4), mask, on ? mask : 0);
 }
 
@@ -479,6 +539,107 @@ static sprd_codec_mixer_set mixer_setting[SPRD_CODEC_MIXER_MAX] = {
 	/* ear mixer */
 	daclear_set, 0,
 };
+
+/* inter PA */
+
+static inline void sprd_codec_pa_d_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(PA_D_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR2, val, mask);
+}
+
+static inline void sprd_codec_pa_demi_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(PA_DEMI_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR2, val, mask);
+
+	mask = BIT(DRV_OCP_AOL_PD) | BIT(DRV_OCP_AOR_PD);
+	val = mask;
+	arch_audio_codec_write_mask(DCR3, val, mask);
+}
+
+static inline void sprd_codec_pa_ldo_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(PA_LDO_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(PMUR2, val, mask);
+	if (on) {
+		mask = BIT(PA_SW_EN);
+		val = 0;
+		arch_audio_codec_write_mask(PMUR2, val, mask);
+	}
+}
+
+static inline void sprd_codec_pa_ldo_v_sel(int v_sel)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = PA_LDO_V_MASK << PA_LDO_V;
+	val = (v_sel << PA_LDO_V) & mask;
+	arch_audio_codec_write_mask(PMUR4, val, mask);
+}
+
+static inline void sprd_codec_pa_dtri_f_sel(int f_sel)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = PA_DTRI_F_MASK << PA_DTRI_F;
+	val = (f_sel << PA_DTRI_F) & mask;
+	arch_audio_codec_write_mask(DCR2, val, mask);
+}
+
+static inline void sprd_codec_pa_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	if (on) {
+		mask = BIT(PA_EN);
+		val = mask;
+	} else {
+		mask = BIT(PA_EN) | BIT(PA_SW_EN) | BIT(PA_LDO_EN);
+		val = 0;
+	}
+	arch_audio_codec_write_mask(PMUR2, val, mask);
+}
+
+int sprd_inter_speaker_pa(int on)
+{
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mutex_lock(&inter_pa_mutex);
+	if (on) {
+		sprd_codec_pa_d_en(inter_pa.setting.is_classD_mode);
+		sprd_codec_pa_d_en(inter_pa.setting.is_DEMI_mode);
+		sprd_codec_pa_ldo_en(inter_pa.setting.is_LDO_mode);
+		if (inter_pa.setting.is_LDO_mode
+		    && !inter_pa.setting.is_auto_LDO_mode) {
+			sprd_codec_pa_ldo_v_sel(inter_pa.setting.LDO_V_sel);
+		}		/* FIXME auto adjust voltage */
+		sprd_codec_pa_en(1);
+		inter_pa.set = 1;
+	} else {
+		inter_pa.set = 0;
+		sprd_codec_pa_en(0);
+		sprd_codec_pa_ldo_en(0);
+	}
+	mutex_unlock(&inter_pa_mutex);
+	return 0;
+}
+
+EXPORT_SYMBOL(sprd_inter_speaker_pa);
 
 static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
 				      int mask, int shift)
@@ -601,7 +762,8 @@ static int sprd_codec_open(struct snd_soc_codec *codec)
 
 	sprd_codec_dbg("Entering %s\n", __func__);
 
-	snd_soc_write(codec, AUDIF_SHUTDOWN_CTL, 0x00);
+	/* FIXME this default value maybe work */
+	/* snd_soc_write(codec, AUDIF_SHUTDOWN_CTL, 0x00); */
 	sprd_codec_sample_rate_setting(sprd_codec);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
@@ -724,12 +886,13 @@ static int adie_adc_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
-static int _mixer_set_mixer(struct snd_soc_codec *codec, int id, int lr)
+static int _mixer_set_mixer(struct snd_soc_codec *codec, int id, int lr,
+			    int try_on)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int reg = ID_FUN(id, lr);
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[reg]);
-	if (mixer->on) {
+	if (try_on) {
 		mixer->set = mixer_setting[reg];
 		return mixer->set(codec, mixer->on);
 	} else {
@@ -740,20 +903,21 @@ static int _mixer_set_mixer(struct snd_soc_codec *codec, int id, int lr)
 }
 
 static inline int _mixer_setting(struct snd_soc_codec *codec, int start,
-				 int end, int lr)
+				 int end, int lr, int try_on)
 {
 	int id;
 	for (id = start; id < end; id++) {
-		_mixer_set_mixer(codec, id, lr);
+		_mixer_set_mixer(codec, id, lr, try_on);
 	}
 	return 0;
 }
 
-static inline int _mixer_setting_one(struct snd_soc_codec *codec, int id)
+static inline int _mixer_setting_one(struct snd_soc_codec *codec, int id,
+				     int try_on)
 {
 	int lr = id & 0x1;
 	id >>= 1;
-	return _mixer_setting(codec, id, id + 1, lr);
+	return _mixer_setting(codec, id, id + 1, lr, try_on);
 }
 
 static inline int is_hp_pop_compelet(struct snd_soc_codec *codec)
@@ -821,12 +985,16 @@ static int hp_pop_event(struct snd_soc_dapm_widget *w,
 		mask = HP_POP_CTL_MASK << HP_POP_CTL;
 		snd_soc_update_bits(codec, SOC_REG(PNRCR1), mask,
 				    HP_POP_CTL_HOLD << HP_POP_CTL);
+		sprd_codec_dbg("HOLD PNRCR1 = 0x%x\n",
+			       snd_soc_read(codec, PNRCR1));
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		ret = hp_pop_wait_for_compelet(codec);
 		mask = HP_POP_CTL_MASK << HP_POP_CTL;
 		snd_soc_update_bits(codec, SOC_REG(PNRCR1), mask,
 				    HP_POP_CTL_DIS << HP_POP_CTL);
+		sprd_codec_dbg("DIS PNRCR1 = 0x%x\n",
+			       snd_soc_read(codec, PNRCR1));
 		break;
 	default:
 		BUG();
@@ -843,7 +1011,6 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	int mask;
-	int need_on;
 	int ret = 0;
 
 	sprd_codec_dbg("Entering %s\n", __func__);
@@ -856,34 +1023,36 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 		mask = HP_POP_CTL_MASK << HP_POP_CTL;
 		snd_soc_update_bits(codec, SOC_REG(PNRCR1), mask,
 				    HP_POP_CTL_DIS << HP_POP_CTL);
+		sprd_codec_dbg("DIS(en) PNRCR1 = 0x%x\n",
+			       snd_soc_read(codec, PNRCR1));
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, SOC_REG(DCR1), BIT(DIFF_EN), 0);
+
+		mask = HP_POP_CTL_MASK << HP_POP_CTL;
+		snd_soc_update_bits(codec, SOC_REG(PNRCR1), mask,
+				    HP_POP_CTL_HOLD << HP_POP_CTL);
+		sprd_codec_dbg("HOLD(en) PNRCR1 = 0x%x\n",
+			       snd_soc_read(codec, PNRCR1));
+		goto _pre_pmd;
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		need_on =
-		    snd_soc_read(codec, DCR1) & (BIT(HPL_EN) | BIT(HPR_EN));
-		if (! !need_on) {
-			snd_soc_update_bits(codec, SOC_REG(DCR1), BIT(DIFF_EN),
-					    0);
-
-			mask = HP_POP_CTL_MASK << HP_POP_CTL;
-			snd_soc_update_bits(codec, SOC_REG(PNRCR1), mask,
-					    HP_POP_CTL_HOLD << HP_POP_CTL);
-		}
+		/* do nothing now */
 		break;
 	default:
 		BUG();
 		ret = -EINVAL;
 	}
 
-	if (snd_soc_read(codec, DCR1) & BIT(HPL_EN)) {
-		_mixer_setting(codec, SPRD_CODEC_HP_DACL,
-			       SPRD_CODEC_HP_MIXER_MAX, SPRD_CODEC_LEFT);
-	}
+	_mixer_setting(codec, SPRD_CODEC_HP_DACL,
+		       SPRD_CODEC_HP_MIXER_MAX, SPRD_CODEC_LEFT,
+		       snd_soc_read(codec, DCR1) & BIT(HPL_EN));
 
-	if (snd_soc_read(codec, DCR1) & BIT(HPR_EN)) {
-		_mixer_setting(codec, SPRD_CODEC_HP_DACL,
-			       SPRD_CODEC_HP_MIXER_MAX, SPRD_CODEC_RIGHT);
-	}
+	_mixer_setting(codec, SPRD_CODEC_HP_DACL,
+		       SPRD_CODEC_HP_MIXER_MAX, SPRD_CODEC_RIGHT,
+		       snd_soc_read(codec, DCR1) & BIT(HPR_EN));
 
+_pre_pmd:
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
 	return ret;
@@ -901,13 +1070,12 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 				     SND_SOC_DAPM_POST_PMU) ? BIT(PA_SW_EN) :
 				    0);
 		_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
-			       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT);
+			       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT, 1);
 	}
 
-	if (snd_soc_read(codec, DCR1) & BIT(AOR_EN)) {
-		_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
-			       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_RIGHT);
-	}
+	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
+		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_RIGHT,
+		       (snd_soc_read(codec, DCR1) & BIT(AOR_EN)));
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
@@ -920,15 +1088,13 @@ static int adc_switch_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	sprd_codec_dbg("Entering %s\n", __func__);
 
-	if (!(snd_soc_read(codec, AACR1) & BIT(ADCL_PD))) {
-		_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
-			       SPRD_CODEC_LEFT);
-	}
+	_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
+		       SPRD_CODEC_LEFT,
+		       (!(snd_soc_read(codec, AACR1) & BIT(ADCL_PD))));
 
-	if (!(snd_soc_read(codec, AACR1) & BIT(ADCR_PD))) {
-		_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
-			       SPRD_CODEC_RIGHT);
-	}
+	_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
+		       SPRD_CODEC_RIGHT,
+		       (!(snd_soc_read(codec, AACR1) & BIT(ADCR_PD))));
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
@@ -989,7 +1155,7 @@ static int mixer_event(struct snd_soc_dapm_widget *w,
 		ret = -EINVAL;
 	}
 	if (ret >= 0)
-		_mixer_setting_one(codec, id);
+		_mixer_setting_one(codec, id, mixer->on);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
@@ -1149,10 +1315,12 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_S("HPL Switch", 2, SOC_REG(DCR1), HPL_EN, 0,
 			   hp_switch_event,
-			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
+			   SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_S("HPR Switch", 2, SOC_REG(DCR1), HPR_EN, 0,
 			   hp_switch_event,
-			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
+			   SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_S("HPL Mute", 3, FUN_REG(SPRD_CODEC_PGA_HPL), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
@@ -1387,6 +1555,53 @@ static int sprd_codec_vol_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sprd_codec_inter_pa_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val;
+	int ret = 0;
+
+	sprd_codec_dbg("Entering %s %ld\n", __func__,
+		       ucontrol->value.integer.value[0]);
+	val = (ucontrol->value.integer.value[0] & mask);
+	if (invert)
+		val = max - val;
+	mutex_lock(&inter_pa_mutex);
+	inter_pa.value = (u32) val;
+	if (inter_pa.set) {
+		mutex_unlock(&inter_pa_mutex);
+		sprd_inter_speaker_pa(1);
+	} else {
+		mutex_unlock(&inter_pa_mutex);
+	}
+	sprd_codec_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
+static int sprd_codec_inter_pa_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int max = mc->max;
+	unsigned int invert = mc->invert;
+
+	mutex_lock(&inter_pa_mutex);
+	ucontrol->value.integer.value[0] = inter_pa.value;
+	mutex_unlock(&inter_pa_mutex);
+	if (invert) {
+		ucontrol->value.integer.value[0] =
+		    max - ucontrol->value.integer.value[0];
+	}
+
+	return 0;
+}
+
 static const DECLARE_TLV_DB_SCALE(adc_tlv, -600, 300, 0);
 static const DECLARE_TLV_DB_SCALE(hp_tlv, -3600, 300, 1);
 static const DECLARE_TLV_DB_SCALE(ear_tlv, -3600, 300, 1);
@@ -1404,6 +1619,9 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SPRD_CODEC_PGA("ADCL Capture Volume", SPRD_CODEC_PGA_ADCL, adc_tlv),
 	SPRD_CODEC_PGA("ADCR Capture Volume", SPRD_CODEC_PGA_ADCR, adc_tlv),
+
+	SOC_SINGLE_EXT("Inter PA Config", 0, 0, LONG_MAX, 0,
+		       sprd_codec_inter_pa_get, sprd_codec_inter_pa_put),
 };
 
 #define SPRD_CODEC_AP_BASE_HI (SPRD_CODEC_AP_BASE & 0xFFFF0000)
