@@ -29,14 +29,17 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
+
 #include <mach/globalregs.h>
 #include <mach/hardware.h>
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/adi.h>
 #include <mach/kpd.h>
+#include <mach/regs_glb.h>
+#include <mach/sci.h>
 
-#define DEBUG_KEYPAD	1
+#define DEBUG_KEYPAD	0
 
 #define KPD_REG_BASE                (SPRD_KPD_BASE)
 
@@ -251,16 +254,16 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 	}
 
 	if (value) {
-		/* Release : HIGHT level */
+		/* Press : HIGHT level */
 		input_report_key(sci_kpd->input_dev, key, 0);
 		input_sync(sci_kpd->input_dev);
-		printk("%dU\n", key);
+		printk("Powerkey:%dD\n", key);
 		irq_set_irq_type(irq, IRQF_TRIGGER_LOW);
 	} else {
-		/* Press : LOW level */
+		/* Release : LOW level */
 		input_report_key(sci_kpd->input_dev, key, 1);
 		input_sync(sci_kpd->input_dev);
-		printk("%dD\n", key);
+		printk("Powerkey:%dU\n", key);
 		irq_set_irq_type(irq, IRQF_TRIGGER_HIGH);
 	}
 
@@ -271,6 +274,7 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 
 static int __devinit sci_keypad_probe(struct platform_device *pdev)
 {
+
 	struct sci_keypad_t *sci_kpd;
 	struct input_dev *input_dev;
 	struct sci_keypad_platform_data *pdata = pdev->dev.platform_data;
@@ -297,11 +301,10 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	sci_kpd->rows = pdata->rows;
 	sci_kpd->cols = pdata->cols;
 
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, SWRST_KPD_RST, GR_SOFT_RST);
+	sci_glb_set(REG_GLB_SOFT_RST,BIT_KPD_RST);
 	mdelay(2);
-	sprd_greg_clear_bits(REG_TYPE_GLOBAL, SWRST_KPD_RST, GR_SOFT_RST);
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_KPD_EN | GEN0_KPD_RTC_EN,
-			   GR_GEN0);
+	sci_glb_clr(REG_GLB_SOFT_RST,BIT_KPD_RST);
+	sci_glb_set(REG_GLB_GEN0,BIT_KPD_EB | BIT_RTC_KPD_EB);
 
 	keypad_writel(KPD_INT_CLR, KPD_INT_ALL);
 	value = CFG_ROW_POLARITY | CFG_COL_POLARITY;
@@ -366,21 +369,19 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	if (pdata->support_long_key)
 		value |= KPD_LONG_KEY_EN;
 	value |= KPD_EN;
-	printk("value ctl = 0x%x\n", value);
 	keypad_writel(KPD_CTRL, value);
 
-/*
 	gpio_request(ANA_GPI_PB, "powerkey");
 	gpio_direction_input(ANA_GPI_PB);
 
 	error = request_irq(gpio_to_irq(ANA_GPI_PB), sci_powerkey_isr,
-			IRQF_TRIGGER_LOW, "powerkey", sci_kpd);
+			IRQF_TRIGGER_HIGH, "powerkey", sci_kpd);
 	if (error) {
 		dev_err(&pdev->dev, "unable to claim irq %d\n",
 			gpio_to_irq(ANA_GPI_PB));
 		goto out2;
 	}
-*/
+
 
 	dump_keypad_register();
 

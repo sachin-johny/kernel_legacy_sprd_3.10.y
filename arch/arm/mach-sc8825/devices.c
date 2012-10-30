@@ -504,8 +504,23 @@ struct platform_device sprd_axi_bm2_device = {
 };
 
 //keypad 
+#if defined(CONFIG_MACH_SP8825EB) || defined(CONFIG_MACH_SP8825EA)
+#define CUSTOM_KEYPAD_ROWS          (SCI_ROW2)
+#define CUSTOM_KEYPAD_COLS          (SCI_COL2)
+#define ROWS	(2)
+#define COLS	(2)
+
+static const unsigned int test_keymap[] = {
+	KEY(1, 0, KEY_VOLUMEUP),
+	KEY(0, 0, KEY_VOLUMEDOWN),
+	KEY(0, 1, KEY_CAMERA),
+};
+
+#else
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW7 | SCI_ROW6 | SCI_ROW5 | SCI_ROW4 | SCI_ROW3 |SCI_ROW2)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL7 | SCI_COL6 | SCI_COL5 | SCI_COL4 | SCI_COL3 |SCI_COL2)
+#define ROWS	(8)
+#define COLS	(8)
 
 static const unsigned int test_keymap[] = {
 	KEY(0, 0, KEY_F1),
@@ -579,6 +594,8 @@ static const unsigned int test_keymap[] = {
 	KEY(7, 0, KEY_LEFTSHIFT),
 	KEY(7, 3, KEY_LEFTCTRL),
 };
+#endif
+
 static const struct matrix_keymap_data test_keymap_data = {
 	.keymap = test_keymap,
 	.keymap_size = ARRAY_SIZE(test_keymap),
@@ -586,8 +603,8 @@ static const struct matrix_keymap_data test_keymap_data = {
 struct sci_keypad_platform_data sci_keypad_data = {
 	.rows_choose_hw = CUSTOM_KEYPAD_ROWS,
 	.cols_choose_hw = CUSTOM_KEYPAD_COLS,
-	.rows = 8,
-	.cols = 8,
+	.rows = ROWS,
+	.cols = COLS,
 	.keymap_data = &test_keymap_data,
 	.support_long_key = 1,
 	.repeat = 0,
