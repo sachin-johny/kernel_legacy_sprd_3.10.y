@@ -241,7 +241,7 @@ int sprdmux_register(struct sprdmux *mux)
 
 static struct workqueue_struct *muxsend_work_queue;
 static struct workqueue_struct *muxpost_receive_work_queue;
-static struct task_struct *mux_kthread;
+static struct task_struct *mux_kthread = NULL;
 
 static int mux_receive_thread(void *data);
 static void receive_worker(int start);
@@ -2258,8 +2258,10 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 			cmux_mode = 0;
 			/* destroy the receive thread*/
 			iomux[0].io_stop(SPRDMUX_READ);
-			if(!IS_ERR(mux_kthread))
+			if(mux_kthread) {
 				kthread_stop(mux_kthread);
+				mux_kthread = NULL;
+			}
 		}
 		ts0710_close_channel(dlci);
 	}
@@ -2715,7 +2717,7 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			cmux_mode = 1;
 			/*create receive thread*/
 			mux_kthread = kthread_create(mux_receive_thread, NULL, "mux_receive");
-			if(IS_ERR(mux_kthread)){
+			if(IS_ERR(mux_kthread)) {
 				printk(KERN_ERR "Unable to create mux_receive thread\n");
 				err = PTR_ERR(mux_kthread);
 				mux_kthread = NULL;
@@ -3516,8 +3518,10 @@ static void __exit mux_exit(void)
 		msleep(10);
 	}
 	destroy_workqueue(muxpost_receive_work_queue);
-	if(!IS_ERR(mux_kthread))
+	if(mux_kthread) {
 		kthread_stop(mux_kthread);
+		mux_kthread = NULL;
+	}
 
 	if (tty_unregister_driver(&mux_driver))
 		panic("Couldn't unregister mux driver");
