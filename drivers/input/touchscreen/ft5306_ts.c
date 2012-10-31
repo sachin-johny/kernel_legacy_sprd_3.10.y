@@ -70,7 +70,7 @@ static unsigned char ft5x0x_read_fw_ver(void);
 static void ft5x0x_ts_suspend(struct early_suspend *handler);
 static void ft5x0x_ts_resume(struct early_suspend *handler);
 static int fts_ctpm_fw_update(void);
-//static int fts_ctpm_fw_upgrade_with_i_file(void);
+static int fts_ctpm_fw_upgrade_with_i_file(void);
 
 struct ts_event {
 	u16	x1;
@@ -188,8 +188,8 @@ static ssize_t ft5x0x_update(struct device* cd, struct device_attribute *attr,
 	if(on_off==1)
 	{
 		printk("ft5x0x update, current firmware id is V%x\n", uc_reg_value);
-		fts_ctpm_fw_update();
-		//fts_ctpm_fw_upgrade_with_i_file();
+		//fts_ctpm_fw_update();
+		fts_ctpm_fw_upgrade_with_i_file();
 	}
 
 	return len;
@@ -538,10 +538,10 @@ FTS_BOOL byte_read(FTS_BYTE* pbt_buf, FTS_BYTE bt_len)
 
 #define    FTS_PACKET_LENGTH        128
 
-#if 0
+#if 1
 static unsigned char CTPM_FW[]=
 {
-#include "Z8805_ft5206_WKD_Va5_2011_05_30.i"
+#include "ft5306_qHD.i"
 };
 #endif
 
@@ -681,7 +681,7 @@ E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
     return ERR_OK;
 }
 
-#if 0
+#if 1
 int fts_ctpm_fw_upgrade_with_i_file(void)
 {
    FTS_BYTE*     pbt_buf = FTS_NULL;
@@ -1097,7 +1097,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	if(uc_reg_value < 0x10)
 	{
-		//fts_ctpm_fw_update();
+		fts_ctpm_fw_upgrade_with_i_file();
 	}
 
 #if 0
