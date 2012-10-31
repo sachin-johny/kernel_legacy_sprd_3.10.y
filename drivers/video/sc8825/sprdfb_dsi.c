@@ -33,6 +33,10 @@
 
 #define DSI_EDPI_CFG (0x6c)
 
+#define MIPI_DPHY_EN (0)
+#define AHB_MIPI_PHY_CTRL (0x021c)
+#define REG_AHB_MIPI_PHY_CTRL (AHB_MIPI_PHY_CTRL + SPRD_AHB_BASE)
+
 
 struct sprdfb_dsi_context {
 	struct clk		*clk_dsi;
@@ -147,7 +151,7 @@ static int32_t dsi_dpi_init(struct panel_spec* panel)
 
 	dpi_param.no_of_lanes = mipi->lan_number;
 	dpi_param.byte_clock = mipi->phy_feq / 8;
-	dpi_param.pixel_clock = DSI_PHY_REF_CLOCK / 4;
+	dpi_param.pixel_clock = 32000;//16000;//DSI_PHY_REF_CLOCK / 4;
 
 	switch(mipi->video_bus_width){
 	case 16:
@@ -214,6 +218,9 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	struct info_mipi * mipi = dev->panel->info.mipi;
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
+
+	/*enable dphy*/
+	__raw_writel(__raw_readl(REG_AHB_MIPI_PHY_CTRL) | (1<<MIPI_DPHY_EN), REG_AHB_MIPI_PHY_CTRL);
 
 	dsi_early_int();
 
