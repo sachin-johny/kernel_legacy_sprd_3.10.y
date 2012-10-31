@@ -437,7 +437,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
 		break;
 	case 3:
-		//host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
+		host->mmc->caps |= MMC_CAP_8_BIT_DATA /*| MMC_CAP_1_8V_DDR*/;
 		break;
 	default:
 		BUG();
