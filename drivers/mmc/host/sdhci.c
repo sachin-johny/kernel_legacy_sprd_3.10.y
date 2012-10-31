@@ -1194,6 +1194,11 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 				}
 			}
 			div >>= 1;
+#ifdef CONFIG_ARCH_SC8825
+			if(div > 1) {
+				div --;/*for sc8825 freq = (clk_max / ((div +1) * 2))*/
+			}
+#endif
 		}
 	} else {
 		/* Version 2.00 divisors must be a power of 2. */
@@ -1203,10 +1208,6 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		}
 		div >>= 1;
 	}
-	#ifdef CONFIG_ARCH_SC8825
-	div = 0x80;
-	#endif
-	clk |= (div & SDHCI_DIV_MASK) << SDHCI_DIVIDER_SHIFT;
 	clk |= ((div & SDHCI_DIV_HI_MASK) >> SDHCI_DIV_MASK_LEN)
 		<< SDHCI_DIVIDER_HI_SHIFT;
 	clk |= SDHCI_CLOCK_INT_EN;
