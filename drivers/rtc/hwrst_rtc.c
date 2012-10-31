@@ -99,7 +99,7 @@ static ssize_t hwrst_show(struct device *dev,
 	return ret;
 }
 
-static DEVICE_ATTR(hwrst, 0x666, hwrst_show, hwrst_store);
+static DEVICE_ATTR(hwrst, 0660, hwrst_show, hwrst_store);
 
 static ssize_t hwrst_status_store(struct device *dev,
 			struct device_attribute *attr,
@@ -121,7 +121,7 @@ static ssize_t hwrst_status_show(struct device *dev,
 {
 }
 */
-static DEVICE_ATTR(hwrst_status, 0x666, NULL/*hwrst_status_show*/, hwrst_status_store);
+static DEVICE_ATTR(hwrst_status, 0660, NULL/*hwrst_status_show*/, hwrst_status_store);
 
 
 static int sprd_creat_hwrst_sysfs(struct device *dev)
