@@ -26,12 +26,6 @@
 #include <mach/adi.h>
 #include <mach/irqs.h>
 
-#ifdef CONFIG_NKERNEL
-#include <nk/nkern.h>
-#define CONFIG_NKERNEL_NO_SHARED_IRQ
-#endif
-
-#ifndef CONFIG_NKERNEL
 
 /* Analog Die interrupt registers */
 #define ANA_CTL_INT_BASE		( SPRD_MISC_BASE + 0x380 )
@@ -115,72 +109,3 @@ void __init ana_init_irq(void)
 	}
 }
 
-#else /* CONFIG_NKERNEL */
-
-extern NkDevXPic *nkxpic;	/* virtual XPIC device */
-extern NkOsId nkxpic_owner;	/* owner of the virtual XPIC device */
-extern NkOsMask nkosmask;	/* my OS mask */
-
-extern void __nk_xirq_startup(struct irq_data *d);
-extern void __nk_xirq_shutdown(struct irq_data *d);
-
-static unsigned int nk_startup_irq(struct irq_data *data)
-{
-	__nk_xirq_startup(data);
-#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
-	nkxpic->irq[data->irq].os_enabled = nkosmask;
-#else
-	nkxpic->irq[data->irq].os_enabled |= nkosmask;
-#endif
-	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
-
-	return 0;
-}
-
-static void nk_shutdown_irq(struct irq_data *data)
-{
-	__nk_xirq_shutdown(data);
-#ifdef CONFIG_NKERNEL_NO_SHARED_IRQ
-	nkxpic->irq[data->irq].os_enabled = 0;
-#else
-	nkxpic->irq[irq].os_enabled &= ~nkosmask;
-#endif
-	nkops.nk_xirq_trigger(nkxpic->xirq, nkxpic_owner);
-}
-
-static void nk_sprd_ack_ana_irq(struct irq_data *data)
-{
-	/* nothing to do... */
-}
-
-static void nk_sprd_mask_ana_irq(struct irq_data *data)
-{
-	/* nothing to do... */
-}
-
-static void nk_sprd_unmask_ana_irq(struct irq_data *data)
-{
-	nkops.nk_xirq_trigger(data->irq, nkxpic_owner);
-}
-
-static struct irq_chip nk_sprd_muxed_ana_chip = {
-	.name = "irq-ANA",
-	.irq_ack = nk_sprd_ack_ana_irq,
-	.irq_mask = nk_sprd_mask_ana_irq,
-	.irq_unmask = nk_sprd_unmask_ana_irq,
-	.irq_startup = nk_startup_irq,
-	.irq_shutdown = nk_shutdown_irq,
-};
-
-void __init ana_init_irq(void)
-{
-	int n;
-
-	for (n = IRQ_ANA_ADC_INT; n < IRQ_ANA_ADC_INT + NR_ANA_IRQS; ++n) {
-		irq_set_chip_and_handler(n, &nk_sprd_muxed_ana_chip,
-					 handle_level_irq);
-		set_irq_flags(n, IRQF_VALID);
-	}
-}
-
-#endif /* CONFIG_NKERNEL */

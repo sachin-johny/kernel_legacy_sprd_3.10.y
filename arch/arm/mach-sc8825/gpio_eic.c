@@ -505,17 +505,13 @@ static irqreturn_t gpio_muxed_handler(int irq, void *dev_id)
 	struct gpio_chip *chip = dev_id;
 	gpio_eic_handler(irq, chip);
 	return IRQ_HANDLED;
-	}
+}
 
 /* gpio/eic cascaded irq handler */
 static void gpio_muxed_flow_handler(unsigned int irq, struct irq_desc *desc)
 {
 	struct gpio_chip *chip = irq_get_handler_data(irq);
-
 	gpio_eic_handler(irq, chip);
-#ifdef CONFIG_NKERNEL
-	desc->irq_data.chip->irq_unmask(&desc->irq_data);
-#endif
 }
 
 static struct irqaction __d_gpio_irq = {
@@ -524,6 +520,7 @@ static struct irqaction __d_gpio_irq = {
 	.handler	= gpio_muxed_handler,
 	.dev_id		= &d_sci_gpio.chip,
 };
+
 static struct irqaction __d_eic_irq = {
 	.name		= "eic",
 	.flags		= IRQF_DISABLED | IRQF_NO_SUSPEND,
@@ -539,7 +536,7 @@ void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *
 	/* setup the cascade irq handlers */
 	if (irq >= NR_SCI_PHY_IRQS) {
 		irq_set_chained_handler(irq, gpio_muxed_flow_handler);
-	irq_set_handler_data(irq, gpiochip);
+		irq_set_handler_data(irq, gpiochip);
 	}
 
 	for (; n < irqend; n++) {
