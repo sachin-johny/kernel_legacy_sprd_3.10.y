@@ -92,6 +92,8 @@ static struct proc_dir_entry*  isp_proc_file;
 
 struct isp_device_t g_isp_device = { 0 };
 
+uint32_t s_dcam_int_eb = 0x00;
+
 static DEFINE_SPINLOCK(isp_spin_lock);
 
 static int32_t _isp_module_eb(void);
@@ -105,6 +107,9 @@ static int _isp_queue_write(struct isp_queue *queue, struct isp_node *node);
 static int _isp_queue_read(struct isp_queue *queue, struct isp_node *node);
 static inline void _isp_regread(char *dst,  char *src, size_t n);
 static inline void  _isp_regwrite(char *dst,  char *src, size_t n);
+static void _read_reg(struct isp_reg_bits *reg_bits_ptr, uint32_t counts);
+static void _write_reg(struct isp_reg_bits *reg_bits_ptr, uint32_t counts);
+
 /**file operation functions declare**/
 static int32_t _isp_kernel_open(struct inode *node, struct file *filp);
 static int32_t _isp_kernel_release(struct inode *node, struct file *filp);
@@ -149,7 +154,28 @@ static struct platform_driver isp_driver = {
 static int32_t _isp_module_eb(void)
 {
 	int32_t	ret = 0;
+	uint32_t value=0x00;
 	if (atomic_inc_return(&s_isp_users) == 1) {
+		value=ISP_READL(0x4b000070);
+		ISP_PRINT("ISP_RAW:_isp_module_eb0 0x4b000070=0x%x!\n", value);
+		ISP_NAWR(0x4b000070, BIT_3|BIT_2);
+		value=ISP_READL(0x4b000070);
+		ISP_PRINT("ISP_RAW:_isp_module_eb1 0x4b000070=0x%x!\n", value);
+
+		value=ISP_READL(0x20900038);
+		ISP_PRINT("ISP_RAW:_isp_module_eb0 0x20900038=0x%x!\n", value);
+		ISP_NAWR(0x20900038, BIT_12|BIT_11);
+		ISP_OWR(0x20900038, BIT_11);
+		value=ISP_READL(0x20900038);
+		ISP_PRINT("ISP_RAW:_isp_module_eb1 0x20900038=0x%x!\n", value);
+
+		value=ISP_READL(0x20900224);
+		ISP_PRINT("ISP_RAW:_isp_module_eb0 0x20900224=0x%x!\n", value);
+		ISP_NAWR(0x20900224, BIT_24|BIT_23|BIT_19|BIT_18|BIT_17|BIT_16|BIT_15|BIT_14|BIT_6|BIT_5|BIT_4);
+		ISP_OWR(0x20900224,BIT_17|BIT_15|BIT_14|BIT_5|BIT_4);
+		value=ISP_READL(0x20900224);
+		ISP_PRINT("ISP_RAW:_isp_module_eb1 0x20900224=0x%x!\n", value);
+
 		ISP_OWR(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 		ISP_OWR(ISP_MODULE_EB, ISP_EB_BIT);
 
@@ -178,6 +204,26 @@ static int32_t _isp_module_rst(void)
 		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_BIT);
 		msleep(10);
 	}
+	return ret;
+}
+
+static int32_t _isp_lnc_param_load(uint32 )
+{
+	int32_t ret = 0;
+	struct isp_reg_bits reg_bits = {0x00};
+
+	reg_bits.reg_addr=ISP_INT_LNC;
+	reg_bits.reg_value=0x0001;
+	_write_reg(&reg_bits, 0x01);
+
+	reg_bits.reg_addr=ISP_INT_RAW;
+	reg_bits.reg_value=0x0000;
+	while(0x00!=(reg_bits.reg_value&ISP_INT_LEN_S_LOAD))
+	{
+		msleep(1);
+		_read_reg(&reg_bits, 0x01);
+	}
+
 	return ret;
 }
 
@@ -239,12 +285,12 @@ static int _isp_queue_read(struct isp_queue *queue, struct isp_node *node)
 	//ISP_PRINT("_isp_queue_read called!\n");
 	if (queue->read != queue->write) {
 		*node = *queue->read++;
-		if (queue->read > &queue->node[ISP_QUEUE_LENGTH-1]) {
-			queue->read = &queue->node[0];
-		}
-	} else {
-		ret = -EAGAIN;
+	if (queue->read > &queue->node[ISP_QUEUE_LENGTH-1]) {
+		queue->read = &queue->node[0];
 	}
+	} /*else {
+	ret = -EAGAIN;
+	}*/
 	//ISP_PRINT("_isp_queue_read finished!\n");
 	return ret;
 }
@@ -356,6 +402,17 @@ static void _isp_unregisterirq(void)
 {
 	//free_irq (DCAM_IRQ, &g_dcam_irq);
 	free_irq (ISP_IRQ, &g_isp_irq);
+}
+
+static int _isp_cfg_dcam_int(uint32_t param)
+{
+	uint32_t ret = 0;
+
+	s_dcam_int_eb = param;
+
+	ISP_PRINT("ISP_RAW:isp_k: _isp_cfg_dcam_int, %d, %d", param, s_dcam_int_eb);
+
+	return ret;
 }
 
 static void _read_reg(struct isp_reg_bits *reg_bits_ptr, uint32_t counts)
@@ -750,13 +807,18 @@ void _dcam_isp_root(void)
 	uint32_t	 flag = 0, i = 0;
 	struct isp_node node = { 0 };
 
-	spin_lock_irqsave(&isp_spin_lock,flag);
-	node.dcam_irq_val = 0x01;
+	ISP_PRINT ("ISP_RAW: isp_k: _dcam_isp_root %d \n", s_dcam_int_eb);
 
-	//ISP_PRINT("isp_k: dcam sof irq :0x%x\n", node.dcam_irq_val);
-	ret = _isp_queue_write((struct isp_queue *)&g_isp_device.queue, (struct isp_node*)&node);
-	spin_unlock_irqrestore(&isp_spin_lock, flag);
-	up(&g_isp_device.sem_isr);
+	if(0x00 !=s_dcam_int_eb)
+	{
+		spin_lock_irqsave(&isp_spin_lock,flag);
+		node.dcam_irq_val = 0x01;
+
+		//ISP_PRINT("isp_k: dcam sof irq :0x%x\n", node.dcam_irq_val);
+		ret = _isp_queue_write((struct isp_queue *)&g_isp_device.queue, (struct isp_node*)&node);
+		spin_unlock_irqrestore(&isp_spin_lock, flag);
+		up(&g_isp_device.sem_isr);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -946,7 +1008,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			break;
 
 			case ISP_IO_RST: {
-			//ISP_PRINT(" isp_k:ioctl restet called \n");
+			ISP_PRINT(" isp_k:ioctl restet called \n");
 			ret = _isp_module_rst();
 			if (ret) {
 				ISP_PRINT("isp_k: ioctl restet failed!\n");
@@ -968,7 +1030,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			case ISP_IO_STOP: {
 			uint32_t flag = 0;
 			struct isp_node node = { 0 };
-			//ISP_PRINT("isp_k: ioctl  stop called !\n");
+			ISP_PRINT("isp_k: ioctl  stop called !\n");
 			spin_lock_irqsave(&isp_spin_lock,flag);
 			node.dcam_irq_val = ISP_INT_STOP_BIT;
 			ret = _isp_queue_write((struct isp_queue *)&g_isp_device.queue, (struct isp_node*)&node);
@@ -984,6 +1046,26 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				ret = _isp_registerirq();
 				if (unlikely(ret)) {
 					ISP_PRINT ("isp_k:register interrupt failed \n");
+					return -EFAULT;
+				}
+			}
+			break;
+
+			case ISP_IO_DCAM_INT: {
+				unsigned long int_param;
+				ret = copy_from_user((void*)&int_param, (void*)param, 0x04);
+				ret = _isp_cfg_dcam_int(int_param);
+				if (unlikely(ret)) {
+					ISP_PRINT ("isp_k:cfg dcam interrupt failed \n");
+					return -EFAULT;
+				}
+			}
+			break;
+
+			case ISP_IO_LNC: {
+				ret = _isp_lnc_param_load();
+				if (unlikely(ret)) {
+					ISP_PRINT ("isp_k:register load lnc failed \n");
 					return -EFAULT;
 				}
 			}
