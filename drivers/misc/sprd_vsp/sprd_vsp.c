@@ -56,6 +56,20 @@
 #define DCAM_INT_CLR_OFF		0x28
 #define DCAM_INT_RAW_OFF		0x2C
 
+
+#if defined(CONFIG_ARCH_SC8825)
+#ifdef USE_INTERRUPT
+#undef USE_INTERRUPT
+#endif
+
+#define DCAM_CLOCK_EN		SPRD_AHB_BASE+0x0200//0x20900000
+#define AHB_CTRL2                       SPRD_AHB_BASE+0x0208
+//#define DCAM_CLK_FREQUENCE	0x8b00000c
+#define PLL_SRC                            SPRD_GREG_BASE+0x0070  //0x4B000070
+
+#endif
+
+
 struct vsp_fh{
 	int is_vsp_aquired;
 	int is_clock_enabled;
@@ -83,13 +97,22 @@ struct clock_name_map_t{
 	char *name;
 };
 
+#if defined(CONFIG_ARCH_SC8825)
+static struct clock_name_map_t clock_name_map[] = {
+						{192000000,"clk_192m"},
+						{153600000,"clk_153p6m"},
+						{64000000,"clk_64m"},
+						{48000000,"clk_48m"}
+						};
+
+#else
 static struct clock_name_map_t clock_name_map[] = {
 						{153600000,"l3_153m600k"},
 						{128000000,"clk_128m"},
 						{64000000,"clk_64m"},
 						{48000000,"clk_48m"}
 						};
-
+#endif
 static int max_freq_level = ARRAY_SIZE(clock_name_map);
 
 static char *vsp_get_clk_src_name(unsigned int freq_level)
@@ -135,7 +158,7 @@ static void release_vsp(struct vsp_fh *vsp_fp)
 
 static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	int ret;
+	int ret, cmd0;
 	struct clk *clk_parent;
 	char *name_parent;
 	unsigned long frequency;
@@ -146,7 +169,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		get_user(vsp_hw_dev.freq_div, (int __user *)arg);
 		name_parent = vsp_get_clk_src_name(vsp_hw_dev.freq_div);
 		clk_parent = clk_get(NULL, name_parent);
-		if (!clk_parent) {
+		if ((!clk_parent )|| IS_ERR(clk_parent)) {
 			printk(KERN_ERR "clock[%s]: failed to get parent [%s] \
 by clk_get()!\n", "clk_vsp", name_parent);
 			return -EINVAL;
@@ -330,6 +353,7 @@ static int vsp_probe(struct platform_device *pdev)
 	char *name_parent;
 	int ret_val;
 	int ret;
+	int cmd0;
 
 	sema_init(&vsp_hw_dev.vsp_mutex, 1);
 
@@ -342,8 +366,23 @@ static int vsp_probe(struct platform_device *pdev)
 	vsp_hw_dev.vsp_clk = NULL;
 	vsp_hw_dev.vsp_parent_clk = NULL;
 
+#if defined(CONFIG_ARCH_SC8825)
+		cmd0 = __raw_readl(AHB_CTRL2);//,"AHB_CTRL2:Read the AHB_CTRL2 CLOCK");
+		cmd0 |= 0xfe0;
+		__raw_writel(cmd0,AHB_CTRL2);//,"AHB_CTRL2:enable MMMTX_CLK_EN");
+
+		//cmd0 = __raw_readl(PLL_SRC);//"PLL_SRC:Read the PLL_SRC CLOCK");
+		//cmd0 &=~(0xc);//192M
+		//__raw_writel(cmd0,PLL_SRC);//"PLL_SRC:set vsp clock");
+
+		//cmd0 = __raw_readl(DCAM_CLOCK_EN);//,"DCAM_CLOCK_EN:Read the DCAM_CLOCK_EN ");
+		//cmd0 = 0xFFFFFFFF;
+		//__raw_writel(cmd0,DCAM_CLOCK_EN);//"DCAM_CLOCK_EN:enable DCAM_CLOCK_EN");
+
+#endif
+
 	clk_vsp = clk_get(NULL, "clk_vsp");
-	if (IS_ERR(clk_vsp)) {
+	if (IS_ERR(clk_vsp) || (!clk_vsp)) {
 		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
 			"clk_vsp");
 		printk(KERN_ERR "###: vsp_clk =  %p\n", clk_vsp);
@@ -355,7 +394,7 @@ static int vsp_probe(struct platform_device *pdev)
 
 	name_parent = vsp_get_clk_src_name(vsp_hw_dev.freq_div);
 	clk_parent = clk_get(NULL, name_parent);
-	if (!clk_parent) {
+	if ((!clk_parent )|| IS_ERR(clk_parent) ) {
 		printk(KERN_ERR "clock[%s]: failed to get parent in probe[%s] \
 by clk_get()!\n", "clk_vsp", name_parent);
 		ret = -EINVAL;
