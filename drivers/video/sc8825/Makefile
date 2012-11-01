@@ -12,3 +12,4 @@ obj-$(CONFIG_FB_LCD_NT35516_MCU) += lcd_nt35516_mcu.o
 obj-$(CONFIG_FB_LCD_NT35516_MIPI) += lcd_nt35516_mipi.o
 obj-$(CONFIG_FB_LCD_NT35516_RGB_I2C) += lcd_nt35516_rgb_i2c.o
 obj-$(CONFIG_FB_LCD_NT35516_RGB_SPI) += lcd_nt35516_rgb_spi.o
+obj-$(CONFIG_FB_LCD_OTM8018B_MIPI) += lcd_otm_8018b_mipi.o

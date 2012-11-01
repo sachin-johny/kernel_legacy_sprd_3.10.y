@@ -36,3 +36,8 @@ config FB_LCD_NT35516_MCU
 	boolean "support NT35516 mcu panel"
 	depends on FB_SC8825
 	default n
+
+config FB_LCD_OTM8018B_MIPI
+	boolean "support otm 8018b mipi panel"
+	depends on FB_SC8825
+	default n
