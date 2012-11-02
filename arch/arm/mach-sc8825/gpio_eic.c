@@ -26,26 +26,6 @@
 #include <mach/sci.h>
 #include <mach/regs_ana_glb.h>
 
-/*
- * SC8810 GPIO bank and number summary:
- *
- * Bank	  From	  To	NR	Type
- * 1	  0   ~	  15	16	EIC
- * 2	  16  ~	  159	144	GPIO
- * 3	  160 ~	  175	16	ANA EIC
- * 4	  176 ~	  207	32	ANA GPIO
- */
-
-#define	D_GPIO_START		16
-#define	D_GPIO_NR		144
-#define	A_GPIO_START		176
-#define	A_GPIO_NR		32
-
-#define	D_EIC_START		0
-#define	D_EIC_NR		16
-#define	A_EIC_START		160
-#define	A_EIC_NR		16
-
 /* Digital GPIO/EIC base address */
 #define CTL_GPIO_BASE		(SPRD_GPIO_BASE)
 #define CTL_EIC_BASE		(SPRD_EIC_BASE)
