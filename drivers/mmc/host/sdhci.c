@@ -1135,6 +1135,10 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	int div = 0; /* Initialized for compiler warning */
 	u16 clk = 0;
+	/*For Hynix 4GB+4Gb LPDDR CiMCP EMMC*/
+#ifdef CONFIG_EMMC_HYNIX_LPDDR
+	u16 clk_temp = 0;
+#endif
 	unsigned long timeout;
 
 	if (clock && clock == host->clock)
@@ -1148,7 +1152,12 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	if (clock == host->clock)
 		return;
-
+#ifdef CONFIG_EMMC_HYNIX_LPDDR
+	clk_temp = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+	clk_temp &= ~SDHCI_CLOCK_INT_EN;
+	sdhci_writew(host, clk_temp, SDHCI_CLOCK_CONTROL);
+	mdelay(1);
+#endif
 	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 
 	if (clock == 0)
@@ -1211,9 +1220,17 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	clk |= (div & SDHCI_DIV_MASK) << SDHCI_DIVIDER_SHIFT;
 	clk |= ((div & SDHCI_DIV_HI_MASK) >> SDHCI_DIV_MASK_LEN)
 		<< SDHCI_DIVIDER_HI_SHIFT;
+#ifdef CONFIG_EMMC_HYNIX_LPDDR
+	clk |= SDHCI_CLOCK_CARD_EN;
+#else
 	clk |= SDHCI_CLOCK_INT_EN;
+#endif
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 
+#ifdef CONFIG_EMMC_HYNIX_LPDDR
+	mdelay(1);
+	clk |= SDHCI_CLOCK_INT_EN;
+#else
 	/* Wait max 20 ms */
 	timeout = 20;
 	while (!((clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL))
@@ -1229,6 +1246,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	}
 
 	clk |= SDHCI_CLOCK_CARD_EN;
+#endif
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 
 out:

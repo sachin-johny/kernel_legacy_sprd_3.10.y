@@ -276,6 +276,18 @@ config MMC_CARD_HOTPLUG
 	  If you have SC8810 platform support hot-plug, say Y here.
 	  If unsure, say N.
 
+config EMMC_HYNIX_LPDDR
+	bool "Spreadtrum SC8810 HYNIX LPDDR EMMC Host Controller support"
+	depends on MMC_SDHCI_SC8810
+	default n
+	help
+	  This selects the Secure Digital Host Controller Interface (SDHCI) to
+	  Support SK Hynix 4GB+4Gb LPDDR CiMCP of MMC Memory Card in
+          Spreadtrum's SC8810 SoC seriels.
+
+	  If you have SC8810 platform support HYNIX LPDDR EMMC, say Y here.
+	  If unsure, say N.
+
 config MMC_SDHCI_SC8825
 	tristate "Spreadtrum SC8825 SD Host Controller support"
 	depends on  ARCH_SC8825
