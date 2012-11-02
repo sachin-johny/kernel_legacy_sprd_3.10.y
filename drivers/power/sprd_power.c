@@ -247,14 +247,17 @@ static ssize_t sprd_set_caliberate(struct device *dev,
 		battery_data->ac_online = 0;
 		break;
 	case BATTERY_0:
+#ifndef	CONFIG_SPRD_8825_POWER  //mingwei temp,modify it later
 		spin_lock_irqsave(&battery_data->lock, flag);
 		if(battery_data->adc_cal_updated != ADC_CAL_TYPE_NV) {
 			adc_voltage_table[0][1] = set_value & 0xffff;
 			adc_voltage_table[0][0] = (set_value >> 16) & 0xffff;
 		}
 		spin_unlock_irqrestore(&battery_data->lock, flag);
+#endif
 		break;
 	case BATTERY_1:
+#ifndef	CONFIG_SPRD_8825_POWER  //mingwei temp,modify it later
 		spin_lock_irqsave(&battery_data->lock, flag);
 		if(battery_data->adc_cal_updated != ADC_CAL_TYPE_NV) {
 			adc_voltage_table[1][1] = set_value & 0xffff;
@@ -263,6 +266,7 @@ static ssize_t sprd_set_caliberate(struct device *dev,
 			battery_data->adc_cal_updated = ADC_CAL_TYPE_NV;
 		}
 		spin_unlock_irqrestore(&battery_data->lock, flag);
+#endif
 		break;
 	case HW_SWITCH_POINT:
 		battery_data->hw_switch_point = set_value;

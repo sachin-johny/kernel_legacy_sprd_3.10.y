@@ -70,8 +70,8 @@
 #define CV_STOP_CURRENT		135
 #define CC_CV_SWITCH_POINT	125
 
-#define OVP_ADC_VALUE		0x198
-#define OVP_ADC_RECV_VALUE	0x170
+#define OVP_ADC_VALUE		1670
+#define OVP_ADC_RECV_VALUE	1500
 
 #define ADC_CAL_TYPE_NO         0
 #define ADC_CAL_TYPE_NV         1
