@@ -208,6 +208,7 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 			_dcam_link_frm(0); /* set default base frame index as 0 */
 			cap_desc->interface = if_mode;
 			cap_desc->input_format = sn_mode;
+			REG_OWR(DCAM_EB, BIT_13);//MM_EB
 			REG_OWR(DCAM_MATRIX_EB, BIT_10|BIT_5);
 			if (DCAM_CAP_IF_CSI2 == if_mode) {
 				REG_OWR(CSI2_DPHY_EB, MIPI_EB_BIT);
