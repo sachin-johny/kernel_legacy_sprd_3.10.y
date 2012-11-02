@@ -34,13 +34,13 @@
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
-    {928, 4200},
-    {796, 3600},
+    {3750, 4200},
+    {3210, 3600},
 };
 
 uint16_t charger_adc_voltage_table[2][2] = {
-	{0x198, 6500},
-	{0x170, 5800},
+	{1670, 6500},
+	{1500, 5800},
 };
 
 uint16_t voltage_capacity_table[][2] = {
@@ -409,7 +409,7 @@ int32_t sprd_get_vprog(struct sprd_battery_data * data)
 
 void sprd_stop_charge(struct sprd_battery_data *data)
 {
-	//sci_adi_set(ANA_CHGR_CTRL1, CHGR_PD_BIT);mingwei
+	sci_adi_set(ANA_CHGR_CTRL1, CHGR_PD_BIT);
 }
 
 void sprd_start_charge(struct sprd_battery_data *data)
@@ -424,7 +424,7 @@ void sprd_set_recharge(struct sprd_battery_data *data)
 
 void sprd_stop_recharge(struct sprd_battery_data *data)
 {
-	//sci_adi_clr(ANA_CHGR_CTRL0, CHGR_RECHG_BIT);mingwei
+	sci_adi_clr(ANA_CHGR_CTRL0, CHGR_RECHG_BIT);
 }
 
 void sprd_set_sw(struct sprd_battery_data *data, int switchpoint)
@@ -486,8 +486,7 @@ uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
 void sprd_set_chg_cur(uint32_t chg_current)
 {
 	uint32_t temp;
-        chg_current = SPRD_CHG_CUR_500MA; //mingwei
-        
+
 	if (chg_current > SPRD_CHG_CUR_MAX){
 		chg_current = SPRD_CHG_CUR_MAX;
 	}
@@ -501,12 +500,6 @@ void sprd_set_chg_cur(uint32_t chg_current)
 void sprd_chg_init(void)
 {
 	sci_adi_write(ANA_CHGR_CTRL0,CHGR_CC_EN_BIT,(CHGR_CC_EN_BIT | CHGR_CC_EN_RST_BIT));
-
-//for debug
-    sci_adi_clr(ANA_CHGR_CTRL1, CHGR_PD_BIT);//mingwei
-    sci_adi_set(ANA_CHGR_CTRL0, CHGR_RECHG_BIT);///mingwei
-    sprd_set_chg_cur(SPRD_CHG_CUR_500MA);
-//end for debug    
 }
 
 /* TODO: put these struct into sprd_battery_data */
