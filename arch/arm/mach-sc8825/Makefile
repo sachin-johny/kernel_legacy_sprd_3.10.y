@@ -3,7 +3,9 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
          dma.o reserve.o pinmap.o adi.o adie_irq.o gpio_eic.o adc.o efuse.o \
          watchdog.o
 
+
 obj-y += glb.o
+obj-$(CONFIG_NKERNEL) += clock_vlx.o
 obj-y += clock.o
 
 obj-y += dcdc_cal.o

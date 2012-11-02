@@ -29,6 +29,7 @@
 #include "clock.h"
 #include "mach/__clock_tree.h"
 
+const u32 __clkinit0 __clkinit_begin = 0xeeeebbbb;
 const u32 __clkinit2 __clkinit_end = 0xddddeeee;
 
 /* We originally used an mutex here, but some contexts (see resume)
@@ -62,8 +63,8 @@ void clk_disable(struct clk *clk)
 	spin_lock(&clocks_lock);
 	if ((--clk->usage) == 0 && clk->enable)
 		(clk->enable) (clk, 0);
-	if (clk->usage < 0)
-		dump_stack();
+	if (WARN_ON(clk->usage < 0))
+		clk->usage = 0;	/* FIXME: force reset clock refcnt */
 	spin_unlock(&clocks_lock);
 	debug0("clk %p, usage %d\n", clk, clk->usage);
 	clk_disable(clk->parent);
@@ -200,7 +201,7 @@ static unsigned long sci_clk_get_rate(struct clk *c)
 	debug0("clk %p (%s) parent rate %lu, div %u\n", c, c->regs->name, rate,
 	       div + 1);
 	c->rate = rate = rate / (div + 1);	//FIXME:
-	debug("clk %p (%s) get real rate %lu\n", c, c->regs->name, rate);
+	debug0("clk %p (%s) get real rate %lu\n", c, c->regs->name, rate);
 	return rate;
 }
 
@@ -233,7 +234,7 @@ static unsigned long sci_pll_get_rate(struct clk *c)
 			rate = rate * mn;
 	}
 	c->rate = rate;
-	debug("pll %p (%s) get real rate %lu\n", c, c->regs->name, rate);
+	debug0("pll %p (%s) get real rate %lu\n", c, c->regs->name, rate);
 	return rate;
 }
 
@@ -246,8 +247,8 @@ static unsigned long sci_clk_round_rate(struct clk *c, unsigned long rate)
 static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 {
 	int i;
-	debug("clk %p (%s) parent %p (%s)\n", c, c->regs->name,
-	      parent, parent ? parent->regs->name : 0);
+	debug0("clk %p (%s) parent %p (%s)\n", c, c->regs->name,
+	       parent, parent ? parent->regs->name : 0);
 
 	for (i = 0; i < c->regs->nr_sources; i++) {
 		if (c->regs->sources[i] == parent) {
@@ -275,6 +276,7 @@ static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 		}
 	}
 
+	WARN_ON(1);
 	return -EINVAL;
 }
 
@@ -318,8 +320,8 @@ static int __init clk_debugfs_register(struct clk *c)
 					       c->parent ? c->parent->dent :
 					       clk_debugfs_root))))
 		goto err_exit;
-	if (IS_ERR_OR_NULL(debugfs_create_u8
-			   ("usecount", S_IRUGO, c->dent, (u8 *) & c->usage)))
+	if (IS_ERR_OR_NULL(debugfs_create_u32
+			   ("usecount", S_IRUGO, c->dent, (u32 *) & c->usage)))
 		goto err_exit;
 	if (IS_ERR_OR_NULL(debugfs_create_u32
 			   ("rate", S_IRUGO, c->dent, (u32 *) & c->rate)))
@@ -334,7 +336,6 @@ err_exit:
 
 int __init sci_clk_register(struct clk_lookup *cl)
 {
-	struct clk *p;
 	struct clk *c = cl->clk;
 
 	if (c->ops == NULL) {
@@ -347,7 +348,7 @@ int __init sci_clk_register(struct clk_lookup *cl)
 		}
 	}
 
-	debug
+	debug0
 	    ("clk %p (%s) rate %lu ops %p enb %08x sel %08x div %08x nr_sources %u\n",
 	     c, c->regs->name, c->rate, c->ops, c->regs->enb.reg,
 	     c->regs->sel.reg, c->regs->div.reg, c->regs->nr_sources);
@@ -364,10 +365,6 @@ int __init sci_clk_register(struct clk_lookup *cl)
 		//clk_set_rate(c, clk_get_rate(c->parent));
 	}
 
-	printk("register clock (%s) rate %lu, parent (%s)\n",
-	       c->regs->name, clk_get_rate(c),
-	       (p = clk_get_parent(c)) ? p->regs->name : "null");
-
 	spin_lock(&clocks_lock);
 	clkdev_add(cl);
 	spin_unlock(&clocks_lock);
@@ -378,18 +375,32 @@ int __init sci_clk_register(struct clk_lookup *cl)
 	return 0;
 }
 
+static void __init sci_clock_dump(void)
+{
+	struct clk_lookup *cl = (struct clk_lookup *)(&__clkinit_begin + 1);
+	while (cl < (struct clk_lookup *)&__clkinit_end) {
+		struct clk *c = cl->clk;
+		struct clk *p = clk_get_parent(c);
+		printk
+		    ("@@@clock[%s] is %sactive, usage %d, rate %lu, parent[%s]\n",
+		     c->regs->name,
+		     (c->enable == NULL || sci_clk_is_enable(c)) ? "" : "in",
+		     c->usage, clk_get_rate(c), p ? p->regs->name : "none");
+		cl++;
+	}
+}
+
 int __init sci_clock_init(void)
 {
 
 #if defined(CONFIG_DEBUG_FS)
-	clk_debugfs_root = debugfs_create_dir("sprd-clock", NULL);
+	clk_debugfs_root = debugfs_create_dir("clock", NULL);
 	if (IS_ERR_OR_NULL(clk_debugfs_root))
 		return -ENOMEM;
 #endif
 
 	/* register all clock sources */
 	{
-		static const u32 __clkinit0 __clkinit_begin = 0xeeeebbbb;
 		struct clk_lookup *cl =
 		    (struct clk_lookup *)(&__clkinit_begin + 1);
 		debug0("%p (%x) -- %p -- %p (%x)\n",
@@ -404,6 +415,8 @@ int __init sci_clock_init(void)
 }
 
 arch_initcall(sci_clock_init);
+late_initcall_sync(sci_clock_dump);
+
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum Clock Driver");

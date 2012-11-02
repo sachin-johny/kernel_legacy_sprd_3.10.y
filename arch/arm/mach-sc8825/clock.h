@@ -14,7 +14,7 @@
  */
 
 #undef debug
-#define debug(format, arg...) pr_info("clk: " "@@@%s: " format, __func__, ## arg)
+#define debug(format, arg...) pr_debug("clk: " "@@@%s: " format, __func__, ## arg)
 #define debug0(format, arg...)
 
 /**

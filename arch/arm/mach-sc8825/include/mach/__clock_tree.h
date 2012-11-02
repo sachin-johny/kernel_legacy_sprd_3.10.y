@@ -141,7 +141,7 @@ SCI_CLK_ADD(clk_emc, 0, REG_AHB_AHB_CTL0, BIT(28),
 	REG_AHB_ARM_CLK, BIT(8)|BIT(9)|BIT(10)|BIT(11), REG_AHB_ARM_CLK, BIT(12)|BIT(13),
 	4, &clk_450m, &clk_dpll, &clk_256m, &ext_26m);
 
-SCI_CLK_ADD(clk_apb, 0, REG_AHB_AHB_CTL1, BIT(10),
+SCI_CLK_ADD(clk_apb, 0, REG_AHB_AHB_CTL1+1, BIT(10),
 	0, 0, REG_GLB_CLKDLY, BIT(14)|BIT(15),
 	4, &ext_26m, &clk_51p2m, &clk_76p8m, &clk_76p8m);
 
