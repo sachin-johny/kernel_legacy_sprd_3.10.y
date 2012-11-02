@@ -100,9 +100,34 @@
 #define IRQ_ANA_INT_START		IRQ_ANA_ADC_INT
 #define NR_ANA_IRQS			(7)
 
-/* gpio pin interrupt number */
+/*
+ * SC8825 GPIO&EIC bank and number summary:
+ *
+ * Bank	  From	  To	NR	Type
+ * 1	  0   ~	  15		16	EIC
+ * 2	  16  ~	  271	256	GPIO
+ * 3	  272 ~	  287	16	ANA EIC
+ * 4	  288 ~	  319	32	ANA GPIO
+ */
+
+#define	D_EIC_START		0
+#define	D_EIC_NR		16
+
+#define	D_GPIO_START	( D_EIC_START + D_EIC_NR )
+#define	D_GPIO_NR		256
+
+#define	A_EIC_START		( D_GPIO_START + D_GPIO_NR )
+#define	A_EIC_NR		16
+
+#define	A_GPIO_START	( A_EIC_START + A_EIC_NR )
+#define	A_GPIO_NR		32
+
+#define ARCH_NR_GPIOS	( D_EIC_NR + D_GPIO_NR + A_EIC_NR + A_GPIO_NR )
+
+/* sc8825 gpio&eic pin interrupt number, total is 320, which is bigger than 256 */
 #define GPIO_IRQ_START			SCI_EXT_IRQ(7)
-#define NR_GPIO_IRQS			(208)
+
+#define NR_GPIO_IRQS	( ARCH_NR_GPIOS )
 
 #define NR_IRQS				(NR_SCI_PHY_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
 
