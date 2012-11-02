@@ -17,6 +17,7 @@
 #include <linux/irqflags.h>
 #include <linux/irq.h>
 #include <linux/io.h>
+#include <linux/hwspinlock.h>
 #include <asm/delay.h>
 
 #include <mach/hardware.h>
@@ -69,14 +70,16 @@
 #define BIT_FIFO_EMPTY                  ( BIT(10) )
 
 static DEFINE_SPINLOCK(adi_lock);
+static struct hwspinlock *adi_hwlock = NULL;
 
 #ifdef CONFIG_NKERNEL
 #define sci_adi_lock()				\
-		unsigned long hw_flags;			\
 		spin_lock_irqsave(&adi_lock, flags);\
+		if (adi_hwlock) WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(adi_hwlock, -1)));\
 		hw_flags = hw_local_irq_save()
 #define sci_adi_unlock()			\
 		hw_local_irq_restore(hw_flags);		\
+		if (adi_hwlock) hwspin_unlock(adi_hwlock);	\
 		spin_unlock_irqrestore(&adi_lock, flags)
 #else
 #define sci_adi_lock() do {spin_lock_irqsave(&adi_lock,flags);} while(0)
@@ -133,7 +136,7 @@ static int __sci_adi_read(u32 regPddr)
 int sci_adi_read(u32 reg)
 {
 	unsigned long val;
-	unsigned long flags;
+	unsigned long flags, hw_flags;
 	ADDR_VERIFY(reg);
 	reg = __sci_adi_translate_addr(reg);
 	sci_adi_lock();
@@ -196,7 +199,7 @@ static int __sci_adi_write(u32 reg, u16 val, u32 sync)
 
 int sci_adi_write_fast(u32 reg, u16 val, u32 sync)
 {
-	unsigned long flags;
+	unsigned long flags, hw_flags;
 	ADDR_VERIFY(reg);
 	sci_adi_lock();
 	__sci_adi_write(reg, val, sync);
@@ -208,7 +211,7 @@ EXPORT_SYMBOL(sci_adi_write_fast);
 
 int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
 {
-	unsigned long flags;
+	unsigned long flags, hw_flags;
 	
 	ADDR_VERIFY(reg);
 	sci_adi_lock();
@@ -252,3 +255,17 @@ int __init adi_init(void)
 
 	return 0;
 }
+
+static int __init adi_hwlock_init(void)
+{
+	adi_hwlock = hwspin_lock_request_specific(0);
+	if (WARN_ON(IS_ERR_OR_NULL(adi_hwlock)))
+		adi_hwlock = NULL;
+	else
+		pr_info("adi hwspinlock id %d\n", hwspin_lock_get_id(adi_hwlock));
+	return 0;
+}
+
+/* FIXME: Better not to access a-die before hwspinlock device driver ready */
+arch_initcall_sync(adi_hwlock_init);
+

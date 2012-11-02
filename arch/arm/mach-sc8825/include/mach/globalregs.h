@@ -304,10 +304,10 @@ enum {
 	REG_TYPE_MAX
 };
 
-int32_t sprd_greg_read(uint32_t type, uint32_t reg_offset);
-void sprd_greg_write(uint32_t type, uint32_t value, uint32_t reg_offset);
-void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset);
-void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset);
+int32_t sprd_greg_read(uint32_t type, uint32_t reg_offset) __deprecated;
+void sprd_greg_write(uint32_t type, uint32_t value, uint32_t reg_offset) __deprecated;
+void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset) __deprecated;
+void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset) __deprecated;
 
 #endif
 
