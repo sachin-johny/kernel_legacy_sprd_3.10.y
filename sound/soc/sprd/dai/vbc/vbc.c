@@ -57,6 +57,29 @@ struct vbc_eq_profile {
 	u32 effect_paras[VBC_EFFECT_PARAS_LEN];
 };
 
+static const u32 vbc_eq_profile_default[VBC_EFFECT_PARAS_LEN] = {
+/* TODO the default register value */
+	0x00000000,		/*  DAPATCHCTL      */
+	0x00001818,		/*  DADGCTL         */
+	0x0000007F,		/*  DAHPCTL         */
+	0x00000000,		/*  DAALCCTL0       */
+	0x00000000,		/*  DAALCCTL1       */
+	0x00000000,		/*  DAALCCTL2       */
+	0x00000000,		/*  DAALCCTL3       */
+	0x00000000,		/*  DAALCCTL4       */
+	0x00000000,		/*  DAALCCTL5       */
+	0x00000000,		/*  DAALCCTL6       */
+	0x00000000,		/*  DAALCCTL7       */
+	0x00000000,		/*  DAALCCTL8       */
+	0x00000000,		/*  DAALCCTL9       */
+	0x00000000,		/*  DAALCCTL10      */
+	0x00000183,		/*  STCTL0          */
+	0x00000183,		/*  STCTL1          */
+	0x00000000,		/*  ADPATCHCTL      */
+	0x00001818,		/*  ADDGCTL         */
+	0x00000000,		/*  HPCOEF0         */
+};
+
 struct vbc_eq_delayed_work {
 	struct workqueue_struct *workqueue;
 	struct delayed_work delayed_work;
@@ -598,7 +621,7 @@ static int vbc_eq_reg_offset(u32 reg)
 	if ((reg >= DAPATCHCTL) && (reg <= ADDGCTL)) {
 		i = (reg - DAPATCHCTL) >> 2;
 	} else if ((reg >= HPCOEF0) && (reg <= HPCOEF42)) {
-		i = ((reg - HPCOEF0) + (ADDGCTL - DAPATCHCTL)) >> 2;
+		i = ((reg - HPCOEF0) >> 2) + ((ADDGCTL - DAPATCHCTL) >> 2) + 1;
 	}
 	BUG_ON(i >= VBC_EFFECT_PARAS_LEN);
 	return i;
@@ -648,6 +671,11 @@ static void vbc_eq_profile_apply(struct snd_soc_dai *codec_dai, void *data)
 	}
 }
 
+static void vbc_eq_profile_close(void)
+{
+	vbc_eq_profile_apply(vbc_eq_setting.codec_dai, &vbc_eq_profile_default);
+}
+
 static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai)
 {
 	u32 *data;
@@ -657,8 +685,8 @@ static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai)
 		mutex_lock(&load_mutex);
 		if (vbc_eq_setting.is_loaded) {
 			data =
-			    vbc_eq_setting.data[vbc_eq_setting.
-						now_profile].effect_paras;
+			    vbc_eq_setting.data[vbc_eq_setting.now_profile].
+			    effect_paras;
 			vbc_eq_setting.vbc_eq_apply(codec_dai, data);
 		}
 		mutex_unlock(&load_mutex);
@@ -713,16 +741,41 @@ int snd_soc_info_enum_ext1(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/**
+ * vbc_replace_controls - code copy from snd_soc_add_controls
+ */
+static int vbc_replace_controls(struct snd_soc_codec *codec,
+				const struct snd_kcontrol_new *controls,
+				int num_controls)
+{
+	struct snd_card *card = codec->card->snd_card;
+	int err, i;
+
+	for (i = 0; i < num_controls; i++) {
+		const struct snd_kcontrol_new *control = &controls[i];
+		err = snd_ctl_replace(card, snd_soc_cnew(control, codec,
+							 control->name,
+							 codec->name_prefix),
+				      true);
+		if (err < 0) {
+			vbc_dbg("%s: Failed to add %s: %d\n",
+				codec->name, control->name, err);
+			return err;
+		}
+	}
+
+	return 0;
+}
+
 static void vbc_eq_delay_work(struct work_struct *work)
 {
 	struct vbc_eq_delayed_work *delay_work = container_of(work,
 							      struct
 							      vbc_eq_delayed_work,
-							      delayed_work.
-							      work);
+							      delayed_work.work);
 	struct snd_soc_codec *codec = delay_work->codec;
 	int ret;
-	ret = snd_soc_add_controls(codec, &vbc_eq_setting.equalizer_control, 1);
+	ret = vbc_replace_controls(codec, &vbc_eq_setting.equalizer_control, 1);
 	if (ret < 0)
 		pr_err("add the vbc eq profile failed");
 	else
@@ -749,12 +802,13 @@ static int vbc_eq_profile_add_widgets(struct snd_soc_codec *codec)
 	int j;
 	int ret = 0;
 
-	if (vbc_eq_setting.is_loaded)
-		return 0;
-	vbc_dbg("Entering %s\n", __func__);
-	count = vbc_eq_setting.hdr.num_profile;
-	if (count <= 1)
-		return 0;
+	vbc_eq_setting.is_loaded = 0;
+	vbc_dbg("Entering %s %d\n", __func__, vbc_eq_setting.is_loading);
+	if (vbc_eq_setting.is_loading) {
+		count = vbc_eq_setting.hdr.num_profile;
+	} else {
+		count = 1;
+	}
 
 	equalizer_enum->max = count;
 	dtexts = kzalloc(count * sizeof(char *), GFP_KERNEL);
@@ -762,10 +816,16 @@ static int vbc_eq_profile_add_widgets(struct snd_soc_codec *codec)
 		ret = -ENOMEM;
 		goto err_texts;
 	}
-	for (j = 0; j < count; j++) {
-		vbc_dbg("profile[%d] name is %s\n", j,
-			vbc_eq_setting.data[j].name);
-		dtexts[j] = vbc_eq_setting.data[j].name;
+
+	if (vbc_eq_setting.is_loading) {
+		for (j = 0; j < count; j++) {
+			vbc_dbg("profile[%d] name is %s\n", j,
+				vbc_eq_setting.data[j].name);
+			dtexts[j] = vbc_eq_setting.data[j].name;
+		}
+	} else {
+		static char default_str[] = "null";
+		dtexts[0] = default_str;
 	}
 	vbc_safe_kfree(&equalizer_enum->values);
 	equalizer_enum->values = (const unsigned int *)dtexts;
@@ -854,9 +914,7 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 			goto eq_err;
 		}
 	}
-	if (vbc_eq_setting.hdr.num_profile > 1) {
-		ret = vbc_eq_profile_add_widgets(codec);
-	}
+	ret = vbc_eq_profile_add_widgets(codec);
 	goto eq_out;
 
 eq_err:
@@ -923,7 +981,7 @@ static int vbc_eq_switch_put(struct snd_kcontrol *kcontrol,
 			vbc_eq_try_apply(vbc_eq_setting.codec_dai);
 		} else {
 			vbc_eq_setting.vbc_eq_apply = 0;
-			/* TODO close vbc eq */
+			vbc_eq_profile_close();
 		}
 	}
 
@@ -976,8 +1034,17 @@ static const struct snd_kcontrol_new vbc_controls[] = {
 
 int vbc_add_controls(struct snd_soc_codec *codec)
 {
-	return snd_soc_add_controls(codec, vbc_controls,
-				    ARRAY_SIZE(vbc_controls));
+	int ret;
+	ret = vbc_eq_profile_add_widgets(codec);
+	if (ret < 0) {
+		pr_err("Failed to VBC add default profile\n");
+	}
+	ret = snd_soc_add_controls(codec, vbc_controls,
+				   ARRAY_SIZE(vbc_controls));
+	if (ret < 0) {
+		pr_err("Failed to VBC add controls\n");
+	}
+	return ret;
 }
 
 EXPORT_SYMBOL_GPL(vbc_add_controls);
