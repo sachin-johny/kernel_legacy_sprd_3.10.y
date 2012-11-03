@@ -109,11 +109,15 @@ static __inline void __ddie_fuse_wait_status_clean(u32 bits)
 static __inline void __ddie_fuse_global_init(void)
 {
 	sci_glb_set(REG_GLB_GEN0, BIT_EFUSE_EB);
+	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) | BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN,
+		     REG_EFUSE_PGM_PARA);
 }
 
 static __inline void __ddie_fuse_global_close(void)
 {
 	sci_glb_clr(REG_GLB_GEN0, BIT_EFUSE_EB);
+	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) & ~(BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN),
+		     REG_EFUSE_PGM_PARA);
 }
 
 static __inline int __ddie_fuse_read(u32 blk)
@@ -185,7 +189,7 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 
 	data &= ~(1 << 31);
 
-	pr_debug("sci_efuse_calibration data:0x%x\n", data);
+	pr_info("sci_efuse_calibration data:0x%x\n", data);
 	if ((!data) || (p_cal_data == NULL)) {
 		return 0;
 	}
