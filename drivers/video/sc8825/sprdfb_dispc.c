@@ -72,6 +72,11 @@ static irqreturn_t dispc_isr(int irq, void *data)
 
 	pr_debug("dispc_isr (0x%x)\n",reg_val );
 
+	if(reg_val & 0x04){
+		printk("Warning: dispc underflow (0x%x)!\n",reg_val);
+		dispc_write(0x04, DISPC_INT_CLR);
+	}
+
 	if((SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type) && (reg_val & 0x10)){/*dispc update done isr*/
 #if 0
 		if(dispc_ctx->is_first_frame){
@@ -269,9 +274,15 @@ static int32_t dispc_sync(struct sprdfb_device *dev)
 	return 0;
 }
 
+
 static void dispc_run(struct sprdfb_device *dev)
 {
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		if(!dispc_ctx.is_first_frame){
+			dispc_ctx.vsync_done = 0;
+			dispc_ctx.vsync_waiter ++;
+		}
+
 		/*dpi register update*/
 		dispc_set_bits(BIT(5), DISPC_DPI_CTRL);
 
@@ -285,6 +296,8 @@ static void dispc_run(struct sprdfb_device *dev)
 			dispc_set_bits((1 << 4), DISPC_CTRL);
 
 			dispc_ctx.is_first_frame = false;
+		}else{
+			dispc_sync(dev);
 		}
 	}else{
 		/* start refresh */
@@ -482,6 +495,7 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 		/* enable dispc DONE  INT*/
 		dispc_write((1<<0), DISPC_INT_EN);
 	}
+	dispc_set_bits(BIT(2), DISPC_INT_EN);
 	dev->enable = 1;
 	return 0;
 }
@@ -506,12 +520,15 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
-	dispc_ctx.vsync_waiter ++;
-	dispc_sync(dev);
+	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
+		dispc_ctx.vsync_waiter ++;
+		dispc_sync(dev);
+		dispc_ctx.vsync_done = 0;
+	}
+
 	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
 	dispc_ctx.dev = dev;
-	dispc_ctx.vsync_done = 0;
 
 #ifdef LCD_UPDATE_PARTLY
 	if ((fb->var.reserved[0] == 0x6f766572) &&(SPRDFB_PANEL_IF_DPI != dev->panel_if_type)) {
