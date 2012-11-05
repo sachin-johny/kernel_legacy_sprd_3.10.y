@@ -331,6 +331,15 @@ config IMX2_WDT
 	  To compile this driver as a module, choose M here: the
 	  module will be called imx2_wdt.
 
+config SPRD_WATCHDOG
+	bool "Spreadtrum watchdog"
+	depends on ARCH_SC8810
+	help
+	  This is the driver for the hardware watchdog
+	  on Spreadtrum SC8810 chip.
+	  If you wish to have watchdog support enabled,
+          say Y, otherwise say N.
+
 # AVR32 Architecture
 
 config AT32AP700X_WDT

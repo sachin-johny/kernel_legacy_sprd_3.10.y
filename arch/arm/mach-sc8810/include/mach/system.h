@@ -16,7 +16,8 @@
 #include <mach/hardware.h>
 #include <mach/watchdog.h>
 
-extern void sc8810_idle(void);
+void sc8810_idle(void);
+
 static inline void arch_idle(void)
 {
 	sc8810_idle();
