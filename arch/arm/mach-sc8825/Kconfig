@@ -8,19 +8,16 @@ choice
 config MACH_SP8825_FPGA
 	default n
 	bool "SP8825 FPGA"
-	select NKERNEL_ARCH_PM_MASTER
 	help
 	  SP8825 FPGA board based on SC8825.
 config MACH_SP8825EA
 	default n
 	bool "SP8825EA"
-	select NKERNEL_ARCH_PM_MASTER
 	help
 	  SP8825 EA based on SC8825.
 config MACH_SP8825EB
 	default n
 	bool "SP8825EB"
-	select NKERNEL_ARCH_PM_MASTER
 	help
 	  SP8825 EB based on SC8825.
 endchoice
@@ -30,25 +27,24 @@ config SPRD_PMEM_SIZE
         range 1 16
         default 8
 	depends on ANDROID_PMEM
-
 config SPRD_PMEM_ADSP_SIZE
         int "size for /dev/pmem_adsp"
         range 1 64
         default 22
 	depends on ANDROID_PMEM
+
 config SPRD_ION_SIZE
-        int "size for /dev/ion"
+        int "size for ion"
+        range 1 64
+        default 1
+	depends on ION
+config SPRD_ION_OVERLAY_SIZE
+        int "size for ion overlay"
         range 1 64
         default 1
 	depends on ION
 
-config SPRD_ION_OVERLAY_SIZE
-        int "size for /dev/ion"
-        range 1 64
-        default 1
-	depends on ION
 config SPRD_DCDC_DEBUG
-	depends on ARCH_SC8825
 	default y
 	tristate "Enable dcdc debug module"
 	help

@@ -16,10 +16,10 @@
 #ifndef __ASM_ARCH_MEMORY_H
 #define __ASM_ARCH_MEMORY_H __FILE__
 
-#ifdef CONFIG_SMP
+#ifdef CONFIG_NKERNEL
 #define PLAT_PHYS_OFFSET		UL(0x80000000)
 #else
-#define PLAT_PHYS_OFFSET		UL(0x80000000)
+#define PLAT_PHYS_OFFSET		UL(0x82000000)
 #endif
 /* bus address and physical addresses are identical */
 #define __virt_to_bus(x)	__virt_to_phys(x)
