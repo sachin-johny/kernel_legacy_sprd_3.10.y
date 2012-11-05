@@ -523,16 +523,14 @@ vser_function_unbind(struct usb_configuration *c, struct usb_function *f)
 	struct usb_request *req;
 
 	pr_info("%s\n", __func__);
-	spin_lock_irq(&dev->lock);
-
+	//spin_lock_irq(&dev->lock);
 	vser_request_free(dev->rx_req, dev->ep_out);
 	while ((req = vser_req_get(dev, &dev->tx_idle)))
 		vser_request_free(req, dev->ep_in);
-
 	dev->online = 0;
 	dev->wr_error = 1;
 	dev->rd_error = 1;
-	spin_unlock_irq(&dev->lock);
+	//spin_unlock_irq(&dev->lock);
 }
 
 static int vser_function_set_alt(struct usb_function *f,
