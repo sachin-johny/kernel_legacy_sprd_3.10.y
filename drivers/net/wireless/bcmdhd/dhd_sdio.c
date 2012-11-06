@@ -710,12 +710,20 @@ dhdsdio_htclk(dhd_bus_t *bus, bool on, bool pendok)
 			DHD_ERROR(("%s: HT Avail request error: %d\n", __FUNCTION__, err));
 			return BCME_ERROR;
 		}
-		if (!SBSDIO_CLKAV(clkctl, bus->alp_only)) {
+		{ /* for softap on/off */
+			int i = 0;
+			do {
+				if (SBSDIO_CLKAV(clkctl, bus->alp_only))
+					break;
+				msleep(100);
+				i++;
+			}while(i < 3);
+		if ( 3 == i) {
 			DHD_ERROR(("%s: HT Avail timeout (%d): clkctl 0x%02x\n",
 			           __FUNCTION__, PMU_MAX_TRANSITION_DLY, clkctl));
 			return BCME_ERROR;
 		}
-
+		}
 
 		/* Mark clock available */
 		bus->clkstate = CLK_AVAIL;

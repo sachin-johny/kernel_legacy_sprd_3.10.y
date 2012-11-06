@@ -121,6 +121,8 @@ u32 wl_dbg_level = WL_DBG_ERR;
  */
 #define ENABLE_P2P_INTERFACE	0
 
+int g_p2p_intf_flag = 0;
+
 /* This is to override regulatory domains defined in cfg80211 module (reg.c)
  * By default world regulatory domain defined in reg.c puts the flags NL80211_RRF_PASSIVE_SCAN
  * and NL80211_RRF_NO_IBSS for 5GHz channels (for 36..48 and 149..165).
@@ -823,6 +825,11 @@ wl_cfg80211_add_virtual_iface(struct wiphy *wiphy, char *name,
 	_ndev = wl_to_prmry_ndev(wl);
 
 	WL_DBG(("if name: %s, type: %d\n", name, type));
+	if(strstr(name, "p2p") != NULL) {
+		rtnl_unlock();
+		msleep(1000);
+		rtnl_lock();
+	}
 	switch (type) {
 	case NL80211_IFTYPE_ADHOC:
 	case NL80211_IFTYPE_AP_VLAN:
@@ -936,6 +943,7 @@ wl_cfg80211_add_virtual_iface(struct wiphy *wiphy, char *name,
 			vwdev->netdev = _ndev;
 			wl_set_drv_status(wl, READY, _ndev);
 			wl->p2p->vif_created = true;
+			g_p2p_intf_flag = 1;
 			wl_set_mode_by_netdev(wl, _ndev, mode);
 			net_attach =  wl_to_p2p_bss_private(wl, P2PAPI_BSSCFG_CONNECTION);
 			if (rtnl_is_locked()) {
@@ -976,7 +984,7 @@ wl_cfg80211_del_virtual_iface(struct wiphy *wiphy, struct net_device *dev)
 	s32 timeout = -1;
 	s32 ret = 0;
 	WL_DBG(("Enter\n"));
-
+	g_p2p_intf_flag = 0;
 	if (wl->p2p_net == dev) {
 		/* Since there is no ifidx corresponding to p2p0, cmds to
 		 * firmware should be routed through primary I/F
@@ -988,7 +996,9 @@ wl_cfg80211_del_virtual_iface(struct wiphy *wiphy, struct net_device *dev)
 		memcpy(p2p_mac.octet, wl->p2p->int_addr.octet, ETHER_ADDR_LEN);
 		if (wl->p2p->vif_created) {
 			if (wl_get_drv_status(wl, SCANNING, dev)) {
-				wl_cfg80211_scan_abort(wl, dev);
+				//wl_cfg80211_scan_abort(wl, dev);
+				wl_clr_drv_status(wl, SCANNING, dev);
+				wl->scan_request = NULL;
 			}
 			wldev_iovar_setint(dev, "mpc", 1);
 			wl_set_p2p_status(wl, IF_DELETING);
@@ -3426,6 +3436,9 @@ wl_cfg80211_remain_on_channel(struct wiphy *wiphy, struct net_device *dev,
 	*cookie = id;
 	cfg80211_ready_on_channel(dev, *cookie, channel,
 		channel_type, duration, GFP_KERNEL);
+	if (wl->p2p == NULL) {
+		printk("%s: error wl->p2p == NULL\n", __func__);
+	}
 	if ((wl->p2p) && !p2p_is_on(wl)) {
 		get_primary_mac(wl, &primary_mac);
 		wl_cfgp2p_generate_bss_mac(&primary_mac, &wl->p2p->dev_addr, &wl->p2p->int_addr);

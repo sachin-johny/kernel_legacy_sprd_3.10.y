@@ -518,6 +518,8 @@ osl_pktfree(osl_t *osh, void *p, bool send)
 	struct sk_buff *skb, *nskb;
 
 	skb = (struct sk_buff*) p;
+	if (skb == NULL)
+	printk("skb is NULL\n");
 
 	if (send && osh->pub.tx_fn)
 		osh->pub.tx_fn(osh->pub.tx_ctx, p, 0);

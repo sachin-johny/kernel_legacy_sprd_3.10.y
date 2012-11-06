@@ -743,7 +743,7 @@ si_setcore(si_t *sih, uint coreid, uint coreunit)
 	uint idx;
 	if (sih == NULL) {
 		dump_stack();
-		printk("si_setcore\n");
+		return NULL;
 	}
 
 	idx = si_findcoreidx(sih, coreid, coreunit);
