@@ -32,7 +32,8 @@
 #include <mach/adi.h>
 
 #undef debug
-#define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug(format, arg...) pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug0(format, arg...)
 
 #ifndef	ANA_REG_OR
 #define	ANA_REG_OR(_r, _b)	sci_adi_write(_r, _b, 0)
@@ -109,7 +110,7 @@ int sci_ldo_op(const struct sci_regulator_regs *regs, int op)
 {
 	int ret = 0;
 
-	debug("regu %p op(%d), set %08x[%d], rst %08x[%d]\n", regs, op,
+	debug0("regu %p op(%d), set %08x[%d], rst %08x[%d]\n", regs, op,
 	      regs->pd_set, __ffs(regs->pd_set_bit), regs->pd_rst,
 	      __ffs(regs->pd_rst_bit));
 
@@ -207,8 +208,8 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	u32 vol, vol_bits;
 	int i, shft = __ffs(regs->vol_ctl_bits);
 
-	debug("regu %p (%s), vol ctl %08x, shft %d, mask %08x\n",
-	      regs, desc->desc.name, regs->vol_ctl, shft, regs->vol_ctl_bits);
+	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x\n",
+	       regs, desc->desc.name, regs->vol_ctl, shft, regs->vol_ctl_bits);
 
 	if (!regs->vol_ctl)
 		return -EACCES;
@@ -238,7 +239,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	int max = regs->vol_ctl_bits >> shft;
 
 	BUG_ON(shft != 0);
-	debug("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
+	debug0("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
 	return -EACCES;
 
 	if (!regs->vol_ctl)
@@ -258,10 +259,6 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 
 static int dcdc_get_voltage(struct regulator_dev *rdev)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
-	const struct sci_regulator_regs *regs = desc->regs;
-	debug("regu %p (%s)\n", regs, desc->desc.name);
 	return -EACCES;
 }
 
@@ -270,7 +267,7 @@ static int usbd_turn_on(struct regulator_dev *rdev)
 {
 	const struct sci_regulator_regs *regs =
 	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	sci_glb_set(regs->pd_set, regs->pd_set_bit);
+	sci_glb_clr(regs->pd_set, regs->pd_set_bit);
 	return 0;
 }
 
@@ -278,7 +275,7 @@ static int usbd_turn_off(struct regulator_dev *rdev)
 {
 	const struct sci_regulator_regs *regs =
 	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	sci_glb_clr(regs->pd_set, regs->pd_set_bit);
+	sci_glb_set(regs->pd_set, regs->pd_set_bit);
 	return 0;
 }
 
@@ -286,7 +283,7 @@ static int usbd_is_on(struct regulator_dev *rdev)
 {
 	const struct sci_regulator_regs *regs =
 	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	return ! !sci_glb_read(regs->pd_set, regs->pd_set_bit);
+	return !sci_glb_read(regs->pd_set, regs->pd_set_bit);
 }
 
 static struct regulator_ops ldo_ops = {
@@ -348,7 +345,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		desc->desc.ops = __regs_ops[desc->regs->typ];
 
 	desc->desc.id = idx++;
-	debug("regu %p (%s)\n", desc->regs, desc->desc.name);
+	debug0("regu %p (%s)\n", desc->regs, desc->desc.name);
 	return regulator_register(&desc->desc, &pdev->dev, &init_data, 0);
 }
 
@@ -361,7 +358,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
  */
 static int __devinit sci_regulator_probe(struct platform_device *pdev)
 {
-	debug("platform device %p\n", pdev);
+	debug0("platform device %p\n", pdev);
 #include "mach/__regulator_map.h"
 	return 0;
 }
