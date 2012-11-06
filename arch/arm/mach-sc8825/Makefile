@@ -15,6 +15,8 @@ ifeq ($(CONFIG_NKERNEL),)
 obj-$(CONFIG_SMP)		+= platsmp.o headsmp.o
 endif
 
+obj-$(CONFIG_SIPC)		+= sipc.o
+
 obj-$(CONFIG_HOTPLUG_CPU)	+= hotplug.o
 obj-$(CONFIG_MACH_SP8825_FPGA) += board_sp8825_fpga.o
 obj-$(CONFIG_MACH_SP8825EA) += board_sp8825ea.o
