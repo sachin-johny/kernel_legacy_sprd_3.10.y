@@ -12,7 +12,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -DLINUX -DBCMDRIVER 		\
 	-Dlinux -DOEM_ANDROID -DBCMDBG -DCONFIG_DHD_STATIC_BUF 			\
 	-DCUSTOMER_HW2 -DBCMOKC -DKEEP_ALIVE -DBCMSDIO -DBCMLXSDMMC 		\
 	-DBCMPLATFORM_BUS -DEMBEDDED_PLATFOR -DWL_CFG80211 -DWLP2P 		\
-	-DWIFI_ACT_FRAM	-DGET_CUSTOM_MAC_ENABLE					\
+	-DWIFI_ACT_FRAM	-DGET_CUSTOM_MAC_ENABLE	-DPKT_FILTER_SUPPORT		\
 	-Idrivers/net/wireless/bcmdhd/	-Idrivers/net/wireless/bcmdhd/include
 
 DHDOFILES = aiutils.o bcmsdh_sdmmc_linux.o dhd_linux.o siutils.o bcmutils.o   \

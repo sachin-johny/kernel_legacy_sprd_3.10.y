@@ -291,11 +291,15 @@ dhd_wl_ioctl_cmd(dhd_pub_t *dhd_pub, int cmd, void *arg, int len, uint8 set, int
 	return dhd_wl_ioctl(dhd_pub, ifindex, &ioc, arg, len);
 }
 
+extern int g_p2p_intf_flag;
 
 int
 dhd_wl_ioctl(dhd_pub_t *dhd_pub, int ifindex, wl_ioctl_t *ioc, void *buf, int len)
 {
 	int ret;
+
+	if((0 != ifindex) && (1 != g_p2p_intf_flag))
+		return -1;
 
 	dhd_os_proto_block(dhd_pub);
 
