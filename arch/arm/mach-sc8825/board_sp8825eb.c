@@ -91,6 +91,11 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm0_device,
 	&sprd_axi_bm1_device,
 	&sprd_axi_bm2_device,
+#ifdef CONFIG_SIPC
+	&sprd_spipe_td_device,
+	&sprd_slog_td_device,
+	&sprd_stty_td_device,
+#endif
 };
 
 
