@@ -1362,7 +1362,6 @@ int pcd_init(
 	}
 
 	dwc_otg_pcd_start(gadget_wrapper->pcd, &fops);
-	gadget_wrapper->udc_startup = 1;
 
 	/*
 	 * dwc driver is ok, check if the cable is insert, if no,
@@ -1370,6 +1369,7 @@ int pcd_init(
 	 */
 	if (!gadget_wrapper->vbus){
 		pr_debug("vbus is not power now \n");
+		gadget_wrapper->udc_startup = 1;
 		__udc_shutdown();
 	}
 	gadget_wrapper->enabled = 0;
