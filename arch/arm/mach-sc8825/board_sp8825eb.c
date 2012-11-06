@@ -27,6 +27,8 @@
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/ft5306_ts.h>
+#include <linux/i2c/lis3dh.h>
+#include <linux/akm8975.h>
 #include <linux/spi/spi.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
@@ -142,10 +144,33 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.vdd_name 			= "vdd28",
 };
 
+static struct lis3dh_acc_platform_data lis3dh_plat_data = {
+	.poll_interval = 100,
+	.min_interval = 100,
+	.g_range = LIS3DH_ACC_G_2G,
+	.axis_map_x = 1,
+	.axis_map_y = 0,
+	.axis_map_z = 2,
+	.negate_x = 0,
+	.negate_y = 0,
+	.negate_z = 1
+};
+
+struct akm8975_platform_data akm8975_platform_d = {
+	.mag_low_x = -20480,
+	.mag_high_x = 20479,
+	.mag_low_y = -20480,
+	.mag_high_y = 20479,
+	.mag_low_z = -20480,
+	.mag_high_z = 20479,
+};
+
 static struct i2c_board_info i2c2_boardinfo[] = {
-	{
-		//I2C_BOARD_INFO(FT5206_TS_DEVICE, FT5206_TS_ADDR),
-		//.platform_data = &ft5x0x_ts_info,
+	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
+	  .platform_data = &lis3dh_plat_data,
+	},
+	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+	  .platform_data = &akm8975_platform_d,
 	},
 };
 
