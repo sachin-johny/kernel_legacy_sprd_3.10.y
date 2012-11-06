@@ -19,6 +19,8 @@
 #include <linux/input/matrix_keypad.h>
 #include <linux/mmc/sdhci.h>
 
+#include <linux/sipc.h>
+#include <linux/spipe.h>
 #include <mach/hardware.h>
 #include <mach/regs_ahb.h>
 #include <mach/regs_glb.h>
@@ -885,5 +887,48 @@ struct platform_device sprd_emmc_device = {
 	.num_resources = ARRAY_SIZE(sprd_emmc_resources),
 	.resource = sprd_emmc_resources,
 	.dev = { .platform_data = &sprd_emmc_pdata },
+};
+
+static struct spipe_init_data sprd_spipe_td_pdata = {
+	.name		= "spipe_td",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_PIPE,
+	.ringnr		= 4,
+	.txbuf_size	= 4096,
+	.rxbuf_size	= 4096,
+};
+struct platform_device sprd_spipe_td_device = {
+	.name           = "spipe",
+	.id             = 0,
+	.dev		= {.platform_data = &sprd_spipe_td_pdata},
+};
+
+static struct spipe_init_data sprd_slog_td_pdata = {
+	.name		= "slog_td",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_PLOG,
+	.ringnr		= 1,
+	.txbuf_size	= 16,
+	.rxbuf_size	= 16 * 1024,
+};
+struct platform_device sprd_slog_td_device = {
+	.name           = "spipe",
+	.id             = 1,
+	.dev		= {.platform_data = &sprd_slog_td_pdata},
+};
+
+static struct spipe_init_data sprd_stty_td_pdata = {
+	/* to be compatible with vlx mux dev nodes */
+	.name		= "ts0710mux",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_TTY,
+	.ringnr		= 32,
+	.txbuf_size	= 1024,
+	.rxbuf_size	= 1024,
+};
+struct platform_device sprd_stty_td_device = {
+	.name           = "spipe",
+	.id             = 2,
+	.dev		= {.platform_data = &sprd_stty_td_pdata},
 };
 

@@ -125,3 +125,5 @@ obj-y				+= ieee802154/
 obj-y				+= clk/
 
 obj-$(CONFIG_HWSPINLOCK)	+= hwspinlock/
+
+obj-$(CONFIG_SIPC)		+= sipc/
