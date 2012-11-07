@@ -344,6 +344,9 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	matrix_keypad_build_keymap(pdata->keymap_data, row_shift,
 				   input_dev->keycode, input_dev->keybit);
 
+	/* there are keys from hw other than keypad controller */
+	__set_bit(KEY_POWER, input_dev->keybit);
+
 	__set_bit(EV_KEY, input_dev->evbit);
 	if (pdata->repeat)
 		__set_bit(EV_REP, input_dev->evbit);
