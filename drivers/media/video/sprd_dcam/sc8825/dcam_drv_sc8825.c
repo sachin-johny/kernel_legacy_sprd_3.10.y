@@ -342,6 +342,9 @@ int32_t dcam_start(void)
 
 	DCAM_TRACE("DCAM DRV: dcam_start: %x \n", s_dcam_mod.dcam_mode);
 
+	REG_MWR(CAP_CCIR_FRM_CTRL, BIT_5 | BIT_4, 2 << 4);
+	REG_MWR(CAP_MIPI_FRM_CTRL, BIT_5 | BIT_4, 2 << 4);
+
 	REG_WR(DCAM_INT_CLR,  DCAM_IRQ_LINE_MASK);
 	REG_WR(DCAM_INT_MASK, DCAM_IRQ_LINE_MASK);
 	ret = request_irq(DCAM_IRQ,
