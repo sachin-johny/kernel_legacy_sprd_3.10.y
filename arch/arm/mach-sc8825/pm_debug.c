@@ -27,3 +27,37 @@ void inc_irq(int irq)
 {
 
 }
+
+#include <linux/regulator/consumer.h>
+int __init sc8825_ldo_slp_init(void)
+{
+	int i;
+
+	static struct {
+		const char *vdd_name;
+		/*
+		  * 0: slp pd disable, very light loads when in STANDBY mode
+		  * 1: slp pd enable, this is chip default config for most of LDOs
+		  */
+		bool pd_en;
+	} ldo_slp_config[] __initdata = {
+		{"vddsim0",		0},
+		{"vddsim1",		0},
+		{"avddvb",		0},
+	};
+
+	for (i = 0; i < ARRAY_SIZE(ldo_slp_config); i++) {
+		if (0 == ldo_slp_config[i].pd_en) {
+			struct regulator *ldo =
+			    regulator_get(NULL, ldo_slp_config[i].vdd_name);
+			if (!WARN_ON(IS_ERR(ldo))) {
+				regulator_set_mode(ldo, REGULATOR_MODE_STANDBY);
+				regulator_put(ldo);
+			}
+			pr_info("%s slp pd disable\n", ldo_slp_config[i].vdd_name);
+		}
+	}
+	return 0;
+}
+
+late_initcall(sc8825_ldo_slp_init);

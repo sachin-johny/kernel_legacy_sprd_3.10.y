@@ -257,6 +257,10 @@ SCI_CLK_ADD(clk_iis1, 0, REG_GLB_GEN0, BIT(25),
 	REG_GLB_GEN3, BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15), REG_GLB_PLL_SCR, BIT(14)|BIT(15),
 	4, &clk_128m, &clk_51p2m, &ext_26m, &ext_26m);
 
+SCI_CLK_ADD(clk_vbc, 0, REG_GLB_GEN1, BIT(14),
+	0, 0, 0, 0,
+	1, &clk_apb);
+
 SCI_CLK_ADD(clk_aud, 0, REG_GLB_GEN1, BIT(13),
 	0, 0, 0, 0,
 	1, &ext_26m);
