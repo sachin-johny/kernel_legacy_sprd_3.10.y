@@ -34,4 +34,13 @@
 #define SPI1_WIFI_CS_GPIO        44
 
 #define GPIO_BK                  143
+
+#define GPIO_BT_RESET       194
+#define GPIO_BT_POWER       190
+#define GPIO_BT2AP_WAKE     58
+#define GPIO_AP2BT_WAKE     51
+
+#define GPIO_WIFI_SHUTDOWN	189
+#define GPIO_WIFI_IRQ		52
+
 #endif
