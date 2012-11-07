@@ -332,7 +332,7 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 		printk("nfc cmd[0x%08x] timeout[0x%08x] and reset nand controller.\n", cmd, counter);
 		sc8810_nand_hw_init();
 	} else if (counter >= NFC_TIMEOUT_VAL)
-		panic("nfc cmd timeout!!!");
+		printk("nfc cmd timeout!!!\n");
 
 	return 0;
 }
