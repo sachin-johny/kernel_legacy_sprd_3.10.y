@@ -35,6 +35,9 @@
 #define GPIO_PLSENSOR_IRQ	28
 #define MSENSOR_DRDY_GPIO       97
 
+#define GPIO_CMMB_RESET         33
+#define GPIO_CMMB_INT           136
+#define GPIO_CMMB_26M_CLK_EN    93
 #define EIC_CHARGER_DETECT	162
 #define EIC_KEY_POWER		163
 
