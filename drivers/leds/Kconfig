@@ -403,6 +403,9 @@ config LEDS_OT200
 
 config LEDS_SC8810_KB
 	tristate "LED Support for SC8810 keyboard backlight"
+
+config LEDS_SPRD_KB
+	tristate "LED Support for sprd keyboard backlight"
 	depends on LEDS_CLASS
 	default n
 	help

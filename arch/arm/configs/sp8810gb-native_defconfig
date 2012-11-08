@@ -1551,7 +1551,7 @@ CONFIG_FB_CFB_IMAGEBLIT=y
 # CONFIG_FB_TILEBLITTING is not set
 
 # Keypad leds
-CONFIG_LEDS_SC8810_KB=y
+CONFIG_LEDS_SPRD_KB=y
 
 #
 # Frame buffer hardware drivers

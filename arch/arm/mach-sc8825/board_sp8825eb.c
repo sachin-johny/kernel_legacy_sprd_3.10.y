@@ -45,6 +45,8 @@ extern int __init sc8825_clock_init(void);
 extern int __init sc8825_regulator_init(void);
 extern int __init sci_clock_init(void);
 
+static struct platform_device kb_backlight_device;
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_hwspinlock_device0,
 	&sprd_serial_device0,
@@ -96,8 +98,15 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_slog_td_device,
 	&sprd_stty_td_device,
 #endif
+	&kb_backlight_device,
 };
 
+
+/* keypad backlight */
+static struct platform_device kb_backlight_device = {
+	.name           = "keyboard-backlight",
+	.id             =  -1,
+};
 
 static struct sys_timer sc8825_timer = {
 	.init = sc8825_timer_init,

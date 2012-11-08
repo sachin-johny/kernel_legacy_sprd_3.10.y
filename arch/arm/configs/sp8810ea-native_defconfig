@@ -1555,7 +1555,7 @@ CONFIG_FB_CFB_IMAGEBLIT=y
 # Keypad leds
 CONFIG_NEW_LEDS=y
 CONFIG_LEDS_CLASS=y
-CONFIG_LEDS_SC8810_KB=y
+CONFIG_LEDS_SPRD_KB=y
 
 #
 # Frame buffer hardware drivers
