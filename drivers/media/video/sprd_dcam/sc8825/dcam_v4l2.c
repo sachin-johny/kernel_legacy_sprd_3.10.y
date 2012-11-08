@@ -1361,7 +1361,16 @@ static int v4l2_streamon(struct file *file,
 		V4L2_RTN_IF_ERR(ret);
 		ret = dcam_resume();
 	} else {
-
+		if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
+			ret = csi_api_init();
+			V4L2_RTN_IF_ERR(ret);
+			ret = csi_api_start();
+			V4L2_RTN_IF_ERR(ret);
+			ret = csi_reg_isr(sprd_v4l2_csi2_error, dev);
+			V4L2_RTN_IF_ERR(ret);
+			ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
+			V4L2_RTN_IF_ERR(ret);
+		}
 		ret = dcam_module_init(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 		V4L2_RTN_IF_ERR(ret);
 
@@ -1447,7 +1456,6 @@ static int v4l2_streamoff(struct file *file,
 		ret = dcam_module_deinit(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 		V4L2_RTN_IF_ERR(ret);
 
-
 		if (path->is_work) {
 			dcam_rel_resizer();
 		}
@@ -1525,7 +1533,7 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 		dev->dcam_cxt.sn_mode,
 		dev->dcam_cxt.frm_deci);
 
-	if (0 == dev->dcam_cxt.if_mode) {
+	if (DCAM_CAP_IF_CCIR == dev->dcam_cxt.if_mode) {
 		/* CCIR interface */
 		dev->dcam_cxt.sync_pol.vsync_pol = timing_param[4];
 		dev->dcam_cxt.sync_pol.hsync_pol = timing_param[5];
@@ -1547,14 +1555,6 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 			dev->dcam_cxt.is_loose,
 			dev->dcam_cxt.data_bits,
 			dev->dcam_cxt.lane_num);
-		ret = csi_api_init();
-		V4L2_RTN_IF_ERR(ret);
-		ret = csi_api_start();
-		V4L2_RTN_IF_ERR(ret);
-		ret = csi_reg_isr(sprd_v4l2_csi2_error, dev);
-		V4L2_RTN_IF_ERR(ret);
-		ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
-
 	}
 	
 exit:
