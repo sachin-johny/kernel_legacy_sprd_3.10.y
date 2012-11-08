@@ -28,6 +28,7 @@
 #include <linux/sysfs.h>
 #include <linux/stat.h>
 #include <linux/atomic.h>
+#include <linux/regulator/consumer.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -49,6 +50,18 @@
 #define SOC_REG(r) ((unsigned short)(r))
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
 #define ID_FUN(id, lr) ((unsigned short)(((id) << 1) | (lr)))
+
+#define SPRD_CODEC_NUM_SUPPLIES 8
+static const char *sprd_codec_supply_names[SPRD_CODEC_NUM_SUPPLIES] = {
+	"audio_auxmicbias",	/* AUXMICBIAS_EN        (0) */
+	"audio_micbias",	/* MICBIAS_EN           (1) */
+	"audio_vbo",		/* VBO_EN               (2) */
+	"audio_vcmbuf",		/* VCM_BUF_EN           (3) */
+	"audio_vcm",		/* VCM_EN               (4) */
+	"audio_bg_ibias",	/* BG_IBIAS_EN          (5) */
+	"audio_bg",		/* BG_EN                (6) */
+	"audio_vb",		/* VB_EN                (7) */
+};
 
 enum {
 	SPRD_CODEC_PGA_SPKL = 0,
@@ -142,6 +155,7 @@ struct sprd_codec_priv {
 	int ad_sample_val;
 	struct sprd_codec_mixer mixer[SPRD_CODEC_MIXER_MAX];
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
+	struct regulator_bulk_data supplies[SPRD_CODEC_NUM_SUPPLIES];
 };
 
 static void sprd_codec_wait(u32 wait_time)
@@ -716,6 +730,7 @@ static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 
 static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 {
+	int i;
 	struct snd_soc_codec *codec = sprd_codec->codec;
 	sprd_codec_dbg("Entering %s\n", __func__);
 
@@ -723,8 +738,14 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 	arch_audio_codec_enable();
 	arch_audio_codec_reset();
 
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_IBAIS_EN),
-			    BIT(BG_IBAIS_EN));
+	regulator_bulk_enable(ARRAY_SIZE(sprd_codec->supplies),
+			      sprd_codec->supplies);
+	for (i = 0; i < ARRAY_SIZE(sprd_codec->supplies); i++)
+		regulator_set_mode(sprd_codec->supplies[i].consumer,
+				   REGULATOR_MODE_STANDBY);
+
+	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_IBIAS_EN),
+			    BIT(BG_IBIAS_EN));
 	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_EN), BIT(BG_EN));
 	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_EN), BIT(VCM_EN));
 	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_BUF_EN),
@@ -740,6 +761,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 
 static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 {
+	int i;
 	struct snd_soc_codec *codec = sprd_codec->codec;
 	sprd_codec_dbg("Entering %s\n", __func__);
 
@@ -748,8 +770,14 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_BUF_EN), 0);
 	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VB_EN), 0);
 	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VBO_EN), 0);
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_IBAIS_EN), 0);
+	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_IBIAS_EN), 0);
 	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_EN), 0);
+
+	regulator_bulk_disable(ARRAY_SIZE(sprd_codec->supplies),
+			       sprd_codec->supplies);
+	for (i = 0; i < ARRAY_SIZE(sprd_codec->supplies); i++)
+		regulator_set_mode(sprd_codec->supplies[i].consumer,
+				   REGULATOR_MODE_NORMAL);
 
 	arch_audio_codec_reset();
 	arch_audio_codec_disable();
@@ -1811,6 +1839,7 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 
 static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 {
+	int i;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
@@ -1820,6 +1849,15 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 
 	sprd_codec->codec = codec;
 
+	for (i = 0; i < ARRAY_SIZE(sprd_codec->supplies); i++)
+		sprd_codec->supplies[i].supply = sprd_codec_supply_names[i];
+
+	ret = regulator_bulk_get(NULL, ARRAY_SIZE(sprd_codec->supplies),
+				 sprd_codec->supplies);
+	if (ret != 0) {
+		pr_err("Failed to request supplies: %d\n", ret);
+	}
+
 	sprd_codec_dbg("return %i\n", ret);
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -1828,7 +1866,13 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 /* power down chip */
 static int sprd_codec_soc_remove(struct snd_soc_codec *codec)
 {
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	sprd_codec_dbg("Entering %s\n", __func__);
+
+	regulator_bulk_disable(ARRAY_SIZE(sprd_codec->supplies),
+			       sprd_codec->supplies);
+	regulator_bulk_free(ARRAY_SIZE(sprd_codec->supplies),
+			    sprd_codec->supplies);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return 0;

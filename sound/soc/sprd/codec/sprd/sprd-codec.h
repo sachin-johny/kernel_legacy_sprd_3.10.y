@@ -66,7 +66,7 @@
 /* PMUR1 */
 #define VB_EN			(7)
 #define BG_EN			(6)
-#define BG_IBAIS_EN		(5)
+#define BG_IBIAS_EN		(5)
 #define VCM_EN			(4)
 #define VCM_BUF_EN		(3)
 #define VBO_EN			(2)
