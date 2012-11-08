@@ -57,4 +57,5 @@ int rotation_IOdeinit(void);
 #define SPRD_ROTATION_IOCTL_MAGIC 'm'
 #define SPRD_ROTATION_DONE _IOW(SPRD_ROTATION_IOCTL_MAGIC, 1, unsigned int)
 #define SPRD_ROTATION_DATA_COPY _IOW(SPRD_ROTATION_IOCTL_MAGIC, 2, unsigned int)
+#define SPRD_ROTATION_DATA_COPY_VIRTUAL _IOW(SPRD_ROTATION_IOCTL_MAGIC, 3, unsigned int)
 #endif
