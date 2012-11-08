@@ -27,6 +27,7 @@
 #include <video/sprd_rotation.h>
 #include "rotation_reg.h"
 #include <linux/slab.h>
+#include <linux/dma-mapping.h>
 
 #define RTT_PRINT pr_debug
 
@@ -470,6 +471,159 @@ static int rotation_start_copy_data(ROTATION_PARAM_T * param_ptr)
 	return ret;
 }
 
+static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
+{
+        pgd_t *pgd = pgd_offset(mm, addr);
+        uint32_t pa = 0;
+
+        if (!pgd_none(*pgd)) {
+                pud_t *pud = pud_offset(pgd, addr);
+                if (!pud_none(*pud)) {
+                        pmd_t *pmd = pmd_offset(pud, addr);
+                        if (!pmd_none(*pmd)) {
+                                pte_t *ptep, pte;
+
+                                ptep = pte_offset_map(pmd, addr);
+                                pte = *ptep;
+                                if (pte_present(pte))
+                                        pa = pte_val(pte) & PAGE_MASK;
+                                pte_unmap(ptep);
+                        }
+                }
+        }
+
+		//printk("user_va2pa: vir=%x, phy=%x \n", addr, pa);
+        return pa;
+}
+
+struct sprd_dma_linklist_desc {
+	u32 cfg;
+	u32 total_len;
+	u32 src_addr;
+	u32 dst_addr;
+	u32 llist_ptr;
+	u32 elem_postm;
+	u32 src_blk_postm;
+	u32 dst_blk_postm;
+};
+
+static int rotation_start_copy_data_to_virtual(ROTATION_PARAM_T * param_ptr)
+{
+	struct sprd_dma_channel_desc dma_desc;
+	uint32_t byte_per_pixel = 1;
+	uint32_t src_img_postm = 0;
+	uint32_t dst_img_postm = 0;
+	uint32_t dma_src_phy = param_ptr->src_addr.y_addr;
+	uint32_t dst_vir_addr = param_ptr->dst_addr.y_addr;
+	uint32_t dma_dst_phy;
+	uint32_t block_len;
+	uint32_t total_len;
+	int32_t ret = 0;
+	int ch_id = 0;
+	int i;
+	uint32_t list_size;
+	uint32_t list_copy_size = 4096;
+	struct sprd_dma_linklist_desc *dma_cfg;
+	dma_addr_t dma_cfg_phy;
+	struct timeval time1, time2;
+
+
+	/*struct timeval ts;*/
+	/*struct timeval te;*/
+	/*printk("wjp:rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);*/
+	if (ROTATION_YUV420 == param_ptr->data_format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+	} else {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
+	}
+
+	total_len = block_len;
+
+	//do_gettimeofday(&ts);
+	//RTT_PRINT("convert endian   %d,%d,%x,%x\n", width,height,input_addr,output_addr);
+
+	if(0 != dst_vir_addr%list_copy_size){
+		printk("rotation_start_copy_data_to_virtual: dst_vir_addr = %x not 4K bytes align, error \n", dst_vir_addr);
+		return -ENOMEM;
+	}
+
+	list_size = (total_len + list_copy_size -1)/list_copy_size;
+
+	printk("rotation_start_copy_data_to_virtual: dst_vir_addr = %x, list_copy_size=%x, list_size=%x \n", dst_vir_addr, list_copy_size, list_size);
+
+	while (1) {
+		ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rotation_dma_irq, &dma_desc);
+		if (ch_id < 0) {
+			printk("rotation: convert endian request dma fail.ret : %d.\n", ret);
+			msleep(5);
+		} else {
+			RTT_PRINT("rotation: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
+			     ch_id, total_len);
+			break;
+		}
+	}
+	memset(&dma_desc, 0, sizeof(struct sprd_dma_channel_desc));
+
+	dma_cfg = (struct sprd_dma_linklist_desc *)dma_alloc_writecombine(NULL,
+										sizeof(*dma_cfg) * list_size,
+										&dma_cfg_phy,
+										GFP_KERNEL);
+	if (!dma_cfg) {
+		printk("rotation_start_copy_data_to_virtual allocate failed, size=%d \n", sizeof(*dma_cfg) * list_size);
+		return -ENOMEM;
+	}
+
+	memset(dma_cfg, 0x0, sizeof(*dma_cfg) * list_size);
+
+	do_gettimeofday(&time1);
+	//printk("pid = %d = 0x%x \n", current->pid, current->pid);
+	for (i = 0; i < list_size; i++) {
+		dma_dst_phy = user_va2pa(current->mm, dst_vir_addr+i*list_copy_size);
+		//sprd_dma_default_linklist_setting(dma_cfg + i);
+		dma_cfg[i].cfg = DMA_LIT_ENDIAN | DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH32 | DMA_REQMODE_LIST;
+		dma_cfg[i].elem_postm = 0x4 << 16 | 0x4;
+		dma_cfg[i].src_blk_postm = SRC_BURST_MODE_8;
+		dma_cfg[i].dst_blk_postm = SRC_BURST_MODE_8;
+
+		dma_cfg[i].llist_ptr = (u32) ((char *)dma_cfg_phy + sizeof(*dma_cfg) * (i + 1));
+		dma_cfg[i].src_addr = dma_src_phy + i * list_copy_size;
+		dma_cfg[i].dst_addr = dma_dst_phy;
+		dma_cfg[i].total_len = (block_len > list_copy_size) ? list_copy_size : block_len;
+		/* block length */
+		dma_cfg[i].cfg |= list_copy_size & CFG_BLK_LEN_MASK;
+	}
+	do_gettimeofday(&time2);
+	//printk("virtual:%x, physical:%x \n", dst_vir_addr, dma_cfg[0].dst_addr);
+	RTT_PRINT("virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
+
+	dma_cfg[list_size - 1].cfg |= DMA_LLEND;
+
+	dma_desc.llist_ptr = (uint32_t)dma_cfg_phy;
+	sprd_dma_channel_config(ch_id, DMA_LINKLIST, &dma_desc);
+
+	//sprd_dma_linklist_config(ch_id, dma_cfg_phy);
+
+	sprd_dma_set_irq_type(ch_id, LINKLIST_DONE, 1);
+
+	condition = 0;
+
+	sprd_dma_channel_start(ch_id);
+
+	if (wait_event_interruptible(wait_queue, condition)) {
+		ret = -EFAULT;
+	}
+
+	sprd_dma_channel_stop(ch_id);
+
+	sprd_dma_free(ch_id);
+
+	dma_free_writecombine(NULL, sizeof(*dma_cfg) * list_size, dma_cfg, dma_cfg_phy);
+
+	/* do_gettimeofday(&te);*/
+	/*printk("wjp:dma endian time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));*/
+	return ret;
+}
+
 static int rotation_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
@@ -491,6 +645,12 @@ static int rotation_ioctl(struct file *file, unsigned int cmd,
 			ret = -EFAULT;
 		}
 		break;
+	case SPRD_ROTATION_DATA_COPY_VIRTUAL:
+		if (rotation_start_copy_data_to_virtual(params)) {
+			ret = -EFAULT;
+		}
+		break;
+
 	default:
 		break;
 	}
