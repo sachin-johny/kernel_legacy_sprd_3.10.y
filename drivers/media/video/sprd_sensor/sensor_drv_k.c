@@ -887,8 +887,58 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	}
 
 	SENSOR_PRINT_HIGH("_Sensor_K_SetFlash: flash_mode=%d  \n", flash_mode);
-
+	
 	return SENSOR_K_SUCCESS;
+}
+
+LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
+{
+	char *pBuff = PNULL;
+	uint32_t cnt = pRegTab->reg_count;
+	int ret = SENSOR_K_SUCCESS;
+	uint32_t size;
+	SENSOR_REG_T_PTR sensor_reg_ptr;
+	SENSOR_REG_BITS_T reg_bit;
+	uint32_t i;
+	int rettmp;
+	
+	size = cnt*sizeof(SENSOR_REG_T);
+	pBuff = kmalloc(size, GFP_KERNEL);
+	if(PNULL == pBuff){
+		ret = SENSOR_K_FAIL;
+		SENSOR_PRINT_ERR("_Sensor_K_WriteRegTab ERROR:kmalloc is fail, cnt=%d, size = %d \n", cnt, size);
+		goto _Sensor_K_WriteRegTab_return;
+	}else{
+		SENSOR_PRINT_HIGH("_Sensor_K_WriteRegTab: kmalloc success, cnt=%d, size = %d \n",cnt, size); 
+	}
+
+	if (copy_from_user(pBuff, pRegTab->sensor_reg_tab_ptr, size)){
+		ret = SENSOR_K_FAIL;
+		SENSOR_PRINT_ERR("sensor_k_write ERROR:copy_from_user fail, size = %d \n", size);
+		goto _Sensor_K_WriteRegTab_return;
+	}
+
+	sensor_reg_ptr = (SENSOR_REG_T_PTR)pBuff;
+	
+	if(0 == pRegTab->burst_mode){
+		for(i=0; i<cnt; i++){
+			reg_bit.reg_addr  = sensor_reg_ptr[i].reg_addr;
+			reg_bit.reg_value = sensor_reg_ptr[i].reg_value;
+			reg_bit.reg_bits  = pRegTab->reg_bits;
+			
+			rettmp = _Sensor_K_WriteReg(&reg_bit);
+			if(SENSOR_K_FAIL == rettmp)
+				ret = SENSOR_K_FAIL;
+		}
+	}
+
+_Sensor_K_WriteRegTab_return:
+	if(PNULL != pBuff)
+		kfree(pBuff);
+
+	SENSOR_PRINT_HIGH("_Sensor_K_WriteRegTab: done, ret = %d \n", ret);
+	
+	return ret;
 }
 
 int sensor_k_open(struct inode *node, struct file *file)
@@ -923,7 +973,7 @@ static ssize_t sensor_k_write(struct file *filp, char __user *ubuf, size_t cnt, 
 		pBuff = kmalloc(cnt, GFP_KERNEL);
 		if(PNULL == pBuff){
 			SENSOR_PRINT_ERR("sensor_k_write ERROR:kmalloc is fail, size = %d \n", cnt);
-			goto sensor_k_read_return;
+			goto sensor_k_write_return;
 		}
 		else{
 			SENSOR_PRINT_HIGH("sensor_k_write: kmalloc success, size = %d \n", cnt);
@@ -932,7 +982,7 @@ static ssize_t sensor_k_write(struct file *filp, char __user *ubuf, size_t cnt, 
 
 	if (copy_from_user(pBuff, ubuf, cnt)){
 		SENSOR_PRINT_ERR("sensor_k_write ERROR:copy_from_user fail, size = %d \n", cnt);
-		goto sensor_k_read_return;
+		goto sensor_k_write_return;
 	}
 
 	msg_w.addr = this_client->addr;
@@ -948,7 +998,7 @@ static ssize_t sensor_k_write(struct file *filp, char __user *ubuf, size_t cnt, 
 		ret = SENSOR_K_SUCCESS;
 	}
 
-sensor_k_read_return:
+sensor_k_write_return:
 	if((PNULL != pBuff) && need_alloc)
 		kfree(pBuff);
 
@@ -1045,7 +1095,7 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&g_sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 		}
 		break;
-
+	
 
 	case SENSOR_IO_RST_LEVEL:
 		{
@@ -1100,6 +1150,15 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&flash_mode, (uint32_t *) arg, sizeof(uint32_t));
 			if(0 == ret)
 				ret = _Sensor_K_SetFlash(flash_mode);
+		}
+		break;
+
+	case SENSOR_IO_I2C_WRITE_REGS:
+		{
+			SENSOR_REG_TAB_T regTab;
+			ret = copy_from_user(&regTab, (SENSOR_REG_TAB_T *) arg, sizeof(SENSOR_REG_TAB_T));
+			if(0 == ret)
+				ret = _Sensor_K_WriteRegTab(&regTab);
 		}
 		break;
 
@@ -1164,22 +1223,12 @@ static struct platform_driver sensor_dev_driver = {
 
 int __init sensor_k_init(void)
 {
-	volatile uint32_t    reg;
 	printk(KERN_INFO "sensor_k_init called !\n");
 	if (platform_driver_register(&sensor_dev_driver) != 0) {
 		printk("platform device register Failed \n");
 		return SENSOR_K_FAIL;
 	}
-
 	init_MUTEX(&g_sem_sensor);
-/*	reg = __raw_readl((SPRD_AHB_BASE+0x200));
-	reg |= (3 << 1);
-	__raw_writel(reg, (SPRD_AHB_BASE+0x200));
-
-	reg = __raw_readl((SPRD_DCAM_BASE+0x144));
-	reg |= (15 << 4);
-	__raw_writel(reg, (SPRD_DCAM_BASE+0x144));
-*/
 	return 0;
 }
 

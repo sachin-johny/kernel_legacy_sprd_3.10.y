@@ -528,9 +528,8 @@ static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
 	uint32_t total_len;
 	int32_t ret = 0;
 	int ch_id = 0;
-	/*struct timeval ts;*/
-	/*struct timeval te;*/
-	printk("wjp:rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);
+
+	RTT_PRINT("rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);
 	if (ROT_YUV420 == param_ptr->format) {
 		block_len =
 		    param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
@@ -539,20 +538,17 @@ static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
 	}
 	total_len = block_len;
 
-	//do_gettimeofday(&ts);
-	//RTT_PRINT("convert endian   %d,%d,%x,%x\n", width,height,input_addr,output_addr);
-
 	while (1) {
 		ch_id =
 		    sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq,
 				     &dma_desc);
 		if (ch_id < 0) {
-			printk
+			RTT_PRINT
 			    ("SCALE: convert endian request dma fail.ret : %d.\n",
 			     ret);
 			msleep(5);
 		} else {
-			printk
+			RTT_PRINT
 			    ("SCALE: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
 			     ch_id, total_len);
 			break;
@@ -574,15 +570,13 @@ static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
 	dma_desc.dst_elem_postm = 0x0004;
 	sprd_dma_channel_config(ch_id, DMA_NORMAL, &dma_desc);
 	sprd_dma_set_irq_type(ch_id, TRANSACTION_DONE, 1);
-	printk("wjp:before rotation_start_copy_data start!\n");
+	RTT_PRINT("rotation_start_copy_data E!\n");
 	sprd_dma_channel_start(ch_id);
 	if (wait_event_interruptible(wait_queue, g_copy_done)) {
 		ret = -EFAULT;
 	}
 	sprd_dma_channel_stop(ch_id);
 	sprd_dma_free(ch_id);
-	/* do_gettimeofday(&te);*/
-	/*printk("wjp:dma endian time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));*/
 	return ret;
 }
 

@@ -16,22 +16,17 @@ static void dphy_write(u8 test_code, u8 test_data, u8* test_out)
 	csi_core_write_part(PHY_TST_CRTL0,1, PHY_TESTCLK, 1); //phy_testclk = 1
 
 	csi_core_write_part(PHY_TST_CRTL1, test_code, PHY_TESTDIN, PHY_TESTDIN_W); //phy_testdin
-	msleep(1);
 
 	csi_core_write_part(PHY_TST_CRTL1, 1, PHY_TESTEN, 1);//phy_testen = 1
-	msleep(1);
 
 	csi_core_write_part(PHY_TST_CRTL0, 0, PHY_TESTCLK, 1);//phy_testclk = 0
-	msleep(1);
 
 	temp = csi_core_read_part(PHY_TST_CRTL1, PHY_TESTDOUT,PHY_TESTDOUT_W);
 	*test_out = (u8)temp;
 
 	csi_core_write_part(PHY_TST_CRTL1, 0, PHY_TESTEN, 1); //phy_testen = 0
-	msleep(1);
 
 	csi_core_write_part(PHY_TST_CRTL1, test_data, PHY_TESTDIN, PHY_TESTDIN_W);//phy_testdin
-	msleep(1);
 
 	csi_core_write_part(PHY_TST_CRTL0,1, PHY_TESTCLK, 1);//phy_testclk = 1
     
@@ -49,13 +44,10 @@ static void dphy_cfg_done(void)
 	csi_core_write_part(PHY_TST_CRTL0,1, PHY_TESTCLK, 1); //phy_testclk = 1
 
 	csi_core_write_part(PHY_TST_CRTL1, 0, PHY_TESTDIN, PHY_TESTDIN_W);//phy_testdin
-	msleep(1);
 
 	csi_core_write_part(PHY_TST_CRTL1, 1, PHY_TESTEN, 1);//phy_testen = 1
-	msleep(1);
 
 	csi_core_write_part(PHY_TST_CRTL0, 0, PHY_TESTCLK, 1);//phy_testclk = 0
-	msleep(2);
 }
 
 void dphy_init(void)
@@ -65,13 +57,11 @@ void dphy_init(void)
     csi_core_write_part(PHY_SHUTDOWNZ,  0, 0, 1);
     csi_core_write_part(DPHY_RSTZ, 0, 0, 1);
     csi_core_write_part(PHY_TST_CRTL0, 1, PHY_TESTCLR, 1);
-    msleep(1);
+    udelay(1);
     csi_core_write_part(PHY_TST_CRTL0, 0, PHY_TESTCLR, 1);
-    msleep(1);
 
     dphy_cfg_start();
 
-//    DPHY_Write(0xB0, 0x1f, &temp);
     dphy_write(0x34, 0x14, &temp);
     dphy_write(0x44, 0x14, &temp);
     dphy_write(0x54, 0x14, &temp);

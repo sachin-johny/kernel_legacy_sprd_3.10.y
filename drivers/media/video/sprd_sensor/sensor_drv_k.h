@@ -43,11 +43,23 @@ unsigned short addr;
 uint32_t clock;
 };
 
+typedef struct sensor_reg_tag {
+	uint16_t reg_addr;
+	uint16_t reg_value;
+} SENSOR_REG_T, *SENSOR_REG_T_PTR;
+
 typedef struct sensor_reg_bits_tag {
 	uint16_t reg_addr;
 	uint16_t reg_value;
 	uint32_t reg_bits;
 } SENSOR_REG_BITS_T, *SENSOR_REG_BITS_T_PTR;
+
+typedef struct sensor_reg_tab_tag {
+	SENSOR_REG_T_PTR sensor_reg_tab_ptr;
+	uint32_t reg_count;
+	uint32_t reg_bits;
+	uint32_t burst_mode;
+} SENSOR_REG_TAB_T, *SENSOR_REG_TAB_PTR;
 
 
 #define SENSOR_MAIN_I2C_NAME "sensor_main"
@@ -71,7 +83,7 @@ typedef struct sensor_reg_bits_tag {
 #define AHB_GLOBAL_REG_CTL0 AHB_BASE + 0x200UL
 #define AHB_GLOBAL_REG_SOFTRST AHB_BASE + 0x210UL
 
-#define PIN_CTL_BASE SPRD_PIN_BASE	/*0xE002F000<-->0x8C000000UL */
+#define PIN_CTL_BASE SPRD_CPC_BASE	/*0xE002F000<-->0x8C000000UL */
 #define PIN_CTL_CCIRPD1 PIN_CTL_BASE + 0x344UL
 #define PIN_CTL_CCIRPD0 PIN_CTL_BASE + 0x348UL
 
@@ -87,22 +99,23 @@ typedef struct sensor_reg_bits_tag {
 #endif
 
 #define BOOLEAN 					char
-#define SENSOR_IOC_MAGIC		'R'
+#define SENSOR_IOC_MAGIC			'R'
 
 #define SENSOR_IO_PD				_IOW(SENSOR_IOC_MAGIC, 0,  BOOLEAN)
-#define SENSOR_IO_SET_AVDD		_IOW(SENSOR_IOC_MAGIC, 1,  uint32_t)
-#define SENSOR_IO_SET_DVDD		_IOW(SENSOR_IOC_MAGIC, 2,  uint32_t)
-#define SENSOR_IO_SET_IOVDD		_IOW(SENSOR_IOC_MAGIC, 3,  uint32_t)
-#define SENSOR_IO_SET_MCLK		_IOW(SENSOR_IOC_MAGIC, 4,  uint32_t)
-#define SENSOR_IO_RST			_IOW(SENSOR_IOC_MAGIC, 5,  uint32_t)
-#define SENSOR_IO_I2C_INIT		_IOW(SENSOR_IOC_MAGIC, 6,  uint32_t)
+#define SENSOR_IO_SET_AVDD			_IOW(SENSOR_IOC_MAGIC, 1,  uint32_t)
+#define SENSOR_IO_SET_DVDD			_IOW(SENSOR_IOC_MAGIC, 2,  uint32_t)
+#define SENSOR_IO_SET_IOVDD			_IOW(SENSOR_IOC_MAGIC, 3,  uint32_t)
+#define SENSOR_IO_SET_MCLK			_IOW(SENSOR_IOC_MAGIC, 4,  uint32_t)
+#define SENSOR_IO_RST				_IOW(SENSOR_IOC_MAGIC, 5,  uint32_t)
+#define SENSOR_IO_I2C_INIT			_IOW(SENSOR_IOC_MAGIC, 6,  uint32_t)
 #define SENSOR_IO_I2C_DEINIT		_IOW(SENSOR_IOC_MAGIC, 7,  uint32_t)
 #define SENSOR_IO_SET_ID			_IOW(SENSOR_IOC_MAGIC, 8,  uint32_t)
-#define SENSOR_IO_RST_LEVEL		_IOW(SENSOR_IOC_MAGIC, 9,  uint32_t)
-#define SENSOR_IO_I2C_ADDR		_IOW(SENSOR_IOC_MAGIC, 10, uint16_t)
-#define SENSOR_IO_I2C_READ		_IOWR(SENSOR_IOC_MAGIC, 11, SENSOR_REG_BITS_T)
-#define SENSOR_IO_I2C_WRITE		_IOW(SENSOR_IOC_MAGIC, 12, SENSOR_REG_BITS_T)
-#define SENSOR_IO_SET_FLASH		_IOW(SENSOR_IOC_MAGIC, 13, uint32_t)
+#define SENSOR_IO_RST_LEVEL			_IOW(SENSOR_IOC_MAGIC, 9,  uint32_t)
+#define SENSOR_IO_I2C_ADDR			_IOW(SENSOR_IOC_MAGIC, 10, uint16_t)
+#define SENSOR_IO_I2C_READ			_IOWR(SENSOR_IOC_MAGIC, 11, SENSOR_REG_BITS_T)
+#define SENSOR_IO_I2C_WRITE			_IOW(SENSOR_IOC_MAGIC, 12, SENSOR_REG_BITS_T)
+#define SENSOR_IO_SET_FLASH			_IOW(SENSOR_IOC_MAGIC, 13, uint32_t)
+#define SENSOR_IO_I2C_WRITE_REGS	_IOW(SENSOR_IOC_MAGIC, 14, SENSOR_REG_TAB_T)
 
 
 #endif //_SENSOR_DRV_K_H_
