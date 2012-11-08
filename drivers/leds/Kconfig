@@ -399,8 +399,8 @@ config LEDS_ASIC3
 	  cannot be used. This driver supports hardware blinking with an on+off
 	  period from 62ms to 125s. Say Y to enable LEDs on the HP iPAQ hx4700.
 
-config LEDS_SC8810_KB
-	tristate "LED Support for SC8810 keyboard backlight"
+config LEDS_SPRD_KB
+	tristate "LED Support for sprd keyboard backlight"
 	depends on LEDS_CLASS
 	default n
 	help

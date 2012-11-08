@@ -43,8 +43,8 @@ obj-$(CONFIG_LEDS_MC13783)		+= leds-mc13783.o
 obj-$(CONFIG_LEDS_NS2)			+= leds-ns2.o
 obj-$(CONFIG_LEDS_NETXBIG)		+= leds-netxbig.o
 obj-$(CONFIG_LEDS_ASIC3)		+= leds-asic3.o
-# SC8810 keyboard-backlight Drivers
-obj-$(CONFIG_LEDS_SC8810_KB)	+= leds-sc8810-kb.o
+# SPRD keyboard-backlight Drivers
+obj-$(CONFIG_LEDS_SPRD_KB)	+= leds-sprd-kb.o
 
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o

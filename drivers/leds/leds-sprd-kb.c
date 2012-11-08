@@ -31,7 +31,11 @@
 
 #define SPRD_ANA_BASE 	        (SPRD_MISC_BASE + 0x600)
 #define ANA_REG_BASE            SPRD_ANA_BASE
+#ifndef CONFIG_ARCH_SC8825
 #define ANA_LED_CTRL           (ANA_REG_BASE + 0X68)
+#else
+#define ANA_LED_CTRL           (ANA_REG_BASE + 0X70)
+#endif
 #define KPLED_CTL               ANA_LED_CTRL
 #define KPLED_PD_SET            (1 << 11)
 #define KPLED_PD_RST            (1 << 12)
@@ -213,7 +217,7 @@ module_init(sprd_kb_led_init);
 module_exit(sprd_kb_led_exit);
 
 MODULE_AUTHOR("Ye Wu <ye.wu@spreadtrum.com>");
-MODULE_DESCRIPTION("Sprd SC8810 Keyboard backlight driver");
+MODULE_DESCRIPTION("Sprd Keyboard backlight driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:keyboard-backlight");
 

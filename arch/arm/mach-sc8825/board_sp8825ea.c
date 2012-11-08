@@ -45,6 +45,7 @@ extern int __init sci_clock_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
+static struct platform_device kb_backlight_device;
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_hwspinlock_device0,
@@ -94,6 +95,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm2_device,
 	&rfkill_device,
 	&brcm_bluesleep_device,
+	&kb_backlight_device,
 };
 
 /* BT suspend/resume */
@@ -140,6 +142,12 @@ static struct platform_device rfkill_device = {
 	.id = -1,
 	.num_resources	= ARRAY_SIZE(rfkill_resources),
 	.resource	= rfkill_resources,
+};
+
+/* keypad backlight */
+static struct platform_device kb_backlight_device = {
+	.name           = "keyboard-backlight",
+	.id             =  -1,
 };
 
 static struct sys_timer sc8825_timer = {
