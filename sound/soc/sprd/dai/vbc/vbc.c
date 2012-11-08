@@ -28,6 +28,7 @@
 #include <linux/slab.h>
 #include <linux/firmware.h>
 #include <linux/workqueue.h>
+#include <linux/clk.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -117,6 +118,7 @@ static struct vbc_equ vbc_eq_setting = { 0 };
 static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai);
 static void vbc_eq_delay_work(struct work_struct *work);
 static struct vbc_priv vbc[2];
+static struct clk *s_vbc_clk = 0;
 static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 	.name = "VBC PCM Stereo out",
 	.workmode = DMA_LINKLIST,
@@ -367,6 +369,24 @@ static inline int vbc_str_2_index(int stream)
 	return 0;
 }
 
+static inline void vbc_reg_enable(void)
+{
+	if (s_vbc_clk) {
+		clk_enable(s_vbc_clk);
+	} else {
+		arch_audio_vbc_reg_enable();
+	}
+}
+
+static inline void vbc_reg_disable(void)
+{
+	if (s_vbc_clk) {
+		clk_disable(s_vbc_clk);
+	} else {
+		arch_audio_vbc_reg_disable();
+	}
+}
+
 static int vbc_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
 {
@@ -381,7 +401,7 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 		pr_err("vbc is actived:%d\n", substream->stream);
 	}
 
-	arch_audio_vbc_reg_enable();
+	vbc_reg_enable();
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		vbc_da_buffer_clear_all(dai);
@@ -432,7 +452,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 		vbc_enable_set(0);
 		arch_audio_vbc_reset();
 		arch_audio_vbc_disable();
-		arch_audio_vbc_reg_disable();
+		vbc_reg_disable();
 		vbc_dbg("Real close the VBC\n");
 	}
 
@@ -551,6 +571,7 @@ static int vbc_drv_probe(struct platform_device *pdev)
 {
 	int i;
 	int ret;
+	struct clk *vbc_clk;
 	struct vbc_eq_delayed_work *delay_work = 0;
 
 	vbc_dbg("Entering %s\n", __func__);
@@ -583,6 +604,14 @@ static int vbc_drv_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&delay_work->delayed_work, vbc_eq_delay_work);
 	vbc_eq_setting.delay_work = delay_work;
+
+	vbc_clk = clk_get(&pdev->dev, "clk_vbc");
+	if (IS_ERR(vbc_clk)) {
+		pr_err("Cannot request clk_vbc\n");
+	} else {
+		s_vbc_clk = vbc_clk;
+	}
+
 	goto probe_err;
 
 work_err:
@@ -602,6 +631,10 @@ static int __devexit vbc_drv_remove(struct platform_device *pdev)
 	vbc_safe_kfree(&vbc_eq_setting.delay_work);
 	vbc_safe_kfree(&vbc_eq_setting.data);
 	vbc_safe_kfree(&vbc_eq_setting.equalizer_enum.values);
+	if (s_vbc_clk) {
+		clk_put(s_vbc_clk);
+		s_vbc_clk = 0;
+	}
 	return 0;
 }
 
