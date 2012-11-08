@@ -92,7 +92,7 @@ config SPRD_ION_SIZE
 
 config SPRD_ION_OVERLAY_SIZE
         int "size for /dev/ion"
-        range 1 64
+        range 0 64
         default 10
 	depends on ION
 
