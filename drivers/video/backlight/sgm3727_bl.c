@@ -21,7 +21,9 @@
 #include <mach/board.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
-
+#ifdef CONFIG_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
 
 /* register definitions */
 #define	BK_MOD_MAX	0xff
@@ -34,6 +36,11 @@ enum {
 };
 
 static unsigned long step_bak = 0;
+static unsigned long last_backlight = 0;
+static unsigned int  bl_suspend = 0;
+
+static struct early_suspend early_suspend_desc;
+
 static void send_cmd(int cmd, int count)
 {
 	unsigned long flags;
@@ -62,20 +69,13 @@ static void send_cmd(int cmd, int count)
 	}
 }
 
-static int gsm3727_backlight_update_status(struct backlight_device *bldev)
+static void gsm3727_backlight_set(int is_on,int val)
 {
 	uint32_t value;
 	uint32_t value_ret;
 
-	if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
-			bldev->props.power != FB_BLANK_UNBLANK ||
-			bldev->props.brightness == 0) {
-		/* disable backlight */
-		send_cmd(CMD_OFF, 0);
-		step_bak = 0;
-	} else {
-		value = bldev->props.brightness & BK_MOD_MAX;
-
+	if (is_on) {
+		value = val;
 		if(value > 255)
 			value = 255;
 		if(value < 8)
@@ -85,10 +85,32 @@ static int gsm3727_backlight_update_status(struct backlight_device *bldev)
 		send_cmd(CMD_PULSE, (value_ret - step_bak + 32) & 31);
 
 		step_bak = value_ret;
+	} else {
+		send_cmd(CMD_OFF, 0);
+		step_bak = 0;
+	}
+}
+
+static int gsm3727_backlight_update_status(struct backlight_device *bldev)
+{
+	last_backlight=bldev->props.brightness & BK_MOD_MAX;
+
+	if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
+			bldev->props.power != FB_BLANK_UNBLANK ||
+			bldev->props.brightness == 0) {
+		gsm3727_backlight_set(0,0);
+	} else {
+#ifdef CONFIG_EARLYSUSPEND
+		if (!bl_suspend )
+#endif
+		{
+			gsm3727_backlight_set(1,last_backlight);
+		}
 	}
 
 	return 0;
 }
+
 static int gsm3727_backlight_get_brightness(struct backlight_device *bldev)
 {
 	return 0;
@@ -98,6 +120,20 @@ static const struct backlight_ops gsm3727_backlight_ops = {
 	.update_status = gsm3727_backlight_update_status,
 	.get_brightness = gsm3727_backlight_get_brightness,
 };
+
+#ifdef CONFIG_EARLYSUSPEND
+static void gsm3727_backlight_earlysuspend(struct early_suspend *h)
+{
+	bl_suspend = 1;
+}
+
+static void gsm3727_backlight_lateresume(struct early_suspend *h)
+{
+	bl_suspend = 0;
+	gsm3727_backlight_set(1,last_backlight);
+}
+#endif
+
 
 static int __devinit gsm3727_backlight_probe(struct platform_device *pdev)
 {
@@ -131,6 +167,13 @@ static int __devinit gsm3727_backlight_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, bldev);
 
+#ifdef CONFIG_EARLYSUSPEND
+	early_suspend_desc.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	early_suspend_desc.suspend = gsm3727_backlight_earlysuspend;
+	early_suspend_desc.resume  = gsm3727_backlight_lateresume;
+	register_early_suspend(&early_suspend_desc);
+#endif
+
 	return 0;
 
 err_bk_gpio:
@@ -149,6 +192,9 @@ static int __devexit gsm3727_backlight_remove(struct platform_device *pdev)
 	backlight_device_unregister(bldev);
 	platform_set_drvdata(pdev, NULL);
 
+#ifdef CONFIG_EARLYSUSPEND
+	unregister_early_suspend(&early_suspend_desc);
+#endif
 	return 0;
 }
 
