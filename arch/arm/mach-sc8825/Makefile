@@ -21,5 +21,6 @@ obj-$(CONFIG_HOTPLUG_CPU)	+= hotplug.o
 obj-$(CONFIG_MACH_SP8825_FPGA) += board_sp8825_fpga.o
 obj-$(CONFIG_MACH_SP8825EA) += board_sp8825ea.o
 obj-$(CONFIG_MACH_SP8825EB) += board_sp8825eb.o
+obj-$(CONFIG_MACH_GARDA) += board_garda.o
 obj-$(CONFIG_BCMDHD)  += dhd_adapter.o
 obj-$(CONFIG_SC8825_VIBRATOR) += vibrator.o
