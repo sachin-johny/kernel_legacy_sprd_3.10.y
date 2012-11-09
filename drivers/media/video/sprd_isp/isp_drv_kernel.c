@@ -85,7 +85,7 @@ struct isp_device_t
 				/*controll/read/write functions*/
 };
 
-static atomic_t                    s_isp_users = ATOMIC_INIT(0);
+static atomic_t s_isp_users = ATOMIC_INIT(0);
 
 struct mutex s_isp_lock;	/*for the isp driver, protect the isp module; protect only one user open this module*/
 static struct proc_dir_entry*  isp_proc_file;
@@ -156,26 +156,6 @@ static int32_t _isp_module_eb(void)
 	int32_t	ret = 0;
 	uint32_t value=0x00;
 	if (atomic_inc_return(&s_isp_users) == 1) {
-		value=ISP_READL(0x4b000070);
-		ISP_PRINT("ISP_RAW:_isp_module_eb0 0x4b000070=0x%x!\n", value);
-		ISP_NAWR(0x4b000070, BIT_3|BIT_2);
-		value=ISP_READL(0x4b000070);
-		ISP_PRINT("ISP_RAW:_isp_module_eb1 0x4b000070=0x%x!\n", value);
-
-		value=ISP_READL(0x20900038);
-		ISP_PRINT("ISP_RAW:_isp_module_eb0 0x20900038=0x%x!\n", value);
-		ISP_NAWR(0x20900038, BIT_12|BIT_11);
-		ISP_OWR(0x20900038, BIT_11);
-		value=ISP_READL(0x20900038);
-		ISP_PRINT("ISP_RAW:_isp_module_eb1 0x20900038=0x%x!\n", value);
-
-		value=ISP_READL(0x20900224);
-		ISP_PRINT("ISP_RAW:_isp_module_eb0 0x20900224=0x%x!\n", value);
-		ISP_NAWR(0x20900224, BIT_24|BIT_23|BIT_19|BIT_18|BIT_17|BIT_16|BIT_15|BIT_14|BIT_6|BIT_5|BIT_4);
-		ISP_OWR(0x20900224,BIT_17|BIT_15|BIT_14|BIT_5|BIT_4);
-		value=ISP_READL(0x20900224);
-		ISP_PRINT("ISP_RAW:_isp_module_eb1 0x20900224=0x%x!\n", value);
-
 		ISP_OWR(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 		ISP_OWR(ISP_MODULE_EB, ISP_EB_BIT);
 
@@ -285,9 +265,9 @@ static int _isp_queue_read(struct isp_queue *queue, struct isp_node *node)
 	//ISP_PRINT("_isp_queue_read called!\n");
 	if (queue->read != queue->write) {
 		*node = *queue->read++;
-	if (queue->read > &queue->node[ISP_QUEUE_LENGTH-1]) {
-		queue->read = &queue->node[0];
-	}
+		if (queue->read > &queue->node[ISP_QUEUE_LENGTH-1]) {
+			queue->read = &queue->node[0];
+		}
 	} /*else {
 	ret = -EAGAIN;
 	}*/
@@ -311,7 +291,7 @@ static inline void _isp_regread(char *dst,  char *src, size_t n)
 		*d2++ = tmp2;
 		int_src++;
 	}
-#if 1
+
 	if(res_counts) {
 		d = (char*) d2;
 		char_src = (char*) int_src;
@@ -321,8 +301,6 @@ static inline void _isp_regread(char *dst,  char *src, size_t n)
 			char_src++;
 		}
 	}
-#endif
-
 }
 
 static inline void _isp_regwrite(char *dst,  char *src, size_t n)
@@ -343,19 +321,18 @@ static inline void _isp_regwrite(char *dst,  char *src, size_t n)
 		ISP_WRITEL(d2, tmp2);
 		d2++;
 	}
-#if 1
+
 	if(res_counts) {
-	d = (char*) d2;
-	char_src = (char*) int_src;
+		d = (char*) d2;
+		char_src = (char*) int_src;
 
-	while(res_counts--) {
-		tmp2 = *char_src++;
-		 __raw_writeb(tmp2, d);
-		d++;
+		while(res_counts--) {
+			tmp2 = *char_src++;
+			 __raw_writeb(tmp2, d);
+			d++;
+		}
 	}
 
-	}
-#endif
 }
 static int32_t _isp_get_ctlr(void *param)
 {
@@ -377,7 +354,6 @@ static int _isp_en_irq(unsigned long int_num)
 	uint32_t ret = 0;
 
 	ISP_PRINT("ISP_RAW:_isp_en_irq----------- %x\n", int_num);
-
 	ISP_WRITEL((ISP_BASE_ADDR+0x2078), int_num);
 
 	return ret;
@@ -437,7 +413,8 @@ static void _write_reg(struct isp_reg_bits *reg_bits_ptr, uint32_t counts)
 	for (i = 0; i<counts; ++i) {
 		reg_addr = reg_bits_ptr[i].reg_addr+ISP_BASE_ADDR;
 		reg_val = reg_bits_ptr[i].reg_value;
-		//printk("reg_addr 0x%x, reg_val 0x%x \n",reg_addr, reg_val);
+//		printk("ISP_RAW: reg_addr 0x%x, reg_val 0x%x \n",reg_addr, reg_val);
+//		msleep(2);
 		ISP_WRITEL(reg_addr, reg_val);
 	}
 }
