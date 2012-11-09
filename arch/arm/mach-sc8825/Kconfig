@@ -20,6 +20,11 @@ config MACH_SP8825EB
 	bool "SP8825EB"
 	help
 	  SP8825 EB based on SC8825.
+config MACH_GARDA
+	default n
+	bool "GARDA"
+	help
+	  GARDA based on SC8825.
 endchoice
 
 config SPRD_PMEM_SIZE

@@ -294,6 +294,9 @@ pinmap_t __initconst pinmap[] = {
 #ifdef CONFIG_MACH_SP8825EB
 #include "pinmap_sp8825eb.h"
 #endif
+#ifdef CONFIG_MACH_GARDA
+#include "pinmap_garda.h"
+#endif
 };
 
 static int __init pin_init(void)
