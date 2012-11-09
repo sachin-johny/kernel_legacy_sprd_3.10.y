@@ -58,6 +58,8 @@ extern   "C"
 #define ISP_DCAM_INT_CLR		(ISP_DCAM_BASE + 0x0038UL)
 
 #define ISP_BASE_ADDR		SPRD_ISP_BASE
+#define ISP_INT_LNC		(ISP_BASE_ADDR+0x0220UL)
+#define ISP_INT_RAW		(ISP_BASE_ADDR+0x2080UL)
 #define ISP_INT_STATUS		(ISP_BASE_ADDR+0x2084UL)
 #define ISP_INT_CLEAR		(ISP_BASE_ADDR+0x207cUL)
 #define ISP_REG_MAX_SIZE		SPRD_ISP_SIZE
@@ -77,8 +79,7 @@ extern   "C"
 #define ISP_RST_BIT		BIT_8
 #define ISP_CORE_CLK_EB_BIT	BIT_7
 
-
-#ifdef   __cplusplus
+#ifdef __cplusplus
 }
 #endif
 
