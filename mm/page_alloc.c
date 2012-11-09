@@ -2112,6 +2112,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned long did_some_progress;
 	bool sync_migration = false;
 	int retry_times = 0;
+	bool retry_timeout_flag = false;
 
 	/*
 	 * In the slowpath, we sanity check order to avoid ever trying to
@@ -2242,6 +2243,9 @@ no_progress:
 			}
 
 			goto restart;
+		} else if(retry_timeout_flag){
+		       retry_timeout_flag = false;
+		       goto nopage;
 		}
 
 		/*
@@ -2258,6 +2262,7 @@ no_progress:
 	if (should_alloc_retry(gfp_mask, order, pages_reclaimed)) {
 		if(retry_times++ > 5) {
 			retry_times = 0;
+			retry_timeout_flag = true;
 			goto no_progress;
 		}
 		/* Wait for some write requests to complete then retry */
