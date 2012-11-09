@@ -52,6 +52,8 @@ static size_t lowmem_minfree[6] = {
 };
 static int lowmem_minfree_size = 4;
 
+static pid_t last_killed_pid = 0;
+
 static struct task_struct *lowmem_deathpending;
 static unsigned long lowmem_deathpending_timeout;
 
@@ -173,6 +175,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_deathpending = selected;
 		lowmem_deathpending_timeout = jiffies + HZ;
 		force_sig(SIGKILL, selected);
+		if(selected->pid == last_killed_pid && selected->signal->oom_adj > 2) {
+			selected->signal->oom_adj--;
+		} else
+			last_killed_pid = selected->pid;
 		rem -= selected_tasksize;
 	}
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
