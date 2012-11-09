@@ -1562,17 +1562,18 @@ static int vidioc_querymenu(struct file *file, void *priv,
 	printk("V4l2:vidioc_querymenu start \n");
 	size = qm->index;
 
-	pr_debug("DCAM V4L2:vidioc_querymenu,addr=0x%x,size=0x%x.\n", qm->id,
-		 qm->index);
-	p_memptr = (unsigned int)ioremap(qm->id, qm->index);
+	if(size >10*1024)
+		size = 10*1024;
+
+	printk("DCAM V4L2:vidioc_querymenu,addr=0x%x,size=0x%x, real_size=0x%x \n", qm->id,
+		 qm->index, size);
+	p_memptr = (unsigned int)ioremap(qm->id, size);
 	if (0 == p_memptr) {
-		printk
-		    ("V4L2: vidioc_querymenu error ####: Can't ioremap for PMEM_BASE_PHY_ADDR!\n");
+		printk("V4L2: vidioc_querymenu error ####: Can't ioremap for PMEM_BASE_PHY_ADDR!\n");
 		return -ENOMEM;
 	}
 	g_dc_exif_info_ptr = (JINF_EXIF_INFO_T *) p_memptr;
-	printk
-	    ("V4l2:vidioc_querymenu set: id=%x, index = %x, g_dc_exif_info_ptr=%x \n",
+	printk("V4l2:vidioc_querymenu set: id=%x, index = %x, g_dc_exif_info_ptr=%x \n",
 	     qm->id, qm->index, (uint32_t) g_dc_exif_info_ptr);
 
 	vidioc_get_exif(g_dc_exif_info_ptr, size);
