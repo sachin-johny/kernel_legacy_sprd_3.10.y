@@ -382,7 +382,7 @@ static int16_t CalUV_ScalingCoef(int16_t	tap	,		/*lint !e578 */
         	}			
 		else
         	{
-            		uv_coef_lenght = (int16_t) (4 * 8);
+            		uv_coef_lenght = (int16_t) (2 * 8);
        	 	}
 		CalYmodelCoef(uv_coef_lenght, uv_coef_data_ptr, I, D, pool_ptr);
 	}
@@ -763,12 +763,12 @@ uint8_t Dcam_GenScaleCoeff(int16_t	i_w, int16_t i_h, int16_t o_w,  int16_t o_h,
     SCI_MEMSET(uv_coef_ptr, 0, coef_buf_size);
 	
 	//////////////////////////////////////////////////////////
-    is_scaling_up = (I_ver < D_ver) ? FALSE : TRUE;
+    is_scaling_up = (2*I_ver <= D_ver) ? FALSE : TRUE;
 
 	/* calculate tap number in veritcal direction*/
 	tap = ((uint8_t)(D_ver / I_ver)) * 2;
 	tap = (tap > 8) ? 8 : tap;
-	tap = (tap < 2) ? 4 : tap;
+	tap = (tap <= 2) ? 4 : tap;
 	
 	//////////////////////////////////////////////////////////	
 	/* calculate coefficients of Y component in vertical direction*/
@@ -784,13 +784,13 @@ uint8_t Dcam_GenScaleCoeff(int16_t	i_w, int16_t i_h, int16_t o_w,  int16_t o_h,
 	CheckCoefRange(uv_coef_ptr, 8, tap);
 
 	/* calculate edge coefficients of Y component in vertical direction*/
-	if(I_ver < D_ver) 	//only scale down
+	if(2*I_ver <= D_ver) 	//only scale down
 	{
 		CalcVerEdgeCoef(y_coef_ptr, D_ver, I_ver, tap);
 	}
 	
 	/* calculate edge coefficients of UV component in vertical direction*/
-	if(I_ver < D_ver)	//only scale down
+	if(2*I_ver <= D_ver)	//only scale down
 	{
 		CalcVerEdgeCoef(uv_coef_ptr, D_ver, I_ver, tap);
 	}
