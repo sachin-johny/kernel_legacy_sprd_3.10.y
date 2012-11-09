@@ -64,13 +64,13 @@
 
 void sprd_set_reboot_mode(const char *cmd)
 {
-	if (!(strncmp(cmd, "recovery", 8))) {
+	if (cmd && !(strncmp(cmd, "recovery", 8))) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_RECOVERY);
-	} else if (!strncmp(cmd, "alarm", 5)) {
+	} else if (cmd && !strncmp(cmd, "alarm", 5)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_ALARM);
-	} else if (!strncmp(cmd, "fastsleep", 9)) {
+	} else if (cmd && !strncmp(cmd, "fastsleep", 9)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SLEEP);
-	} else if (!strncmp(cmd, "bootloader", 10)) {
+	} else if (cmd && !strncmp(cmd, "bootloader", 10)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_FASTBOOT);
 	} else {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
@@ -87,7 +87,7 @@ void sprd_turnon_watchdog(unsigned int ms)
 	sci_adi_raw_write(WDG_LOCK, WDG_UNLOCK_KEY);
 	sci_adi_clr(WDG_CTRL, WDG_INT_EN_BIT);
 	WDG_LOAD_TIMER_VALUE(cnt);
-	sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT);
+	sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT | BIT(3));
 	sci_adi_raw_write(WDG_LOCK, (uint16_t) (~WDG_UNLOCK_KEY));
 }
 
