@@ -30,7 +30,7 @@
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")
 #define DISPC_DBI_CLOCK (256*1000000)
 #define DISPC_DPI_CLOCK_PARENT ("clk_384m")
-#define DISPC_DPI_CLOCK (384*1000000/12)
+#define DISPC_DPI_CLOCK (384*1000000/11)
 
 #define DISPMTX_CLK_EN (11)
 #define DISPC_CORE_CLK_EN (9)
@@ -77,7 +77,11 @@ static irqreturn_t dispc_isr(int irq, void *data)
 		dispc_write(0x04, DISPC_INT_CLR);
 	}
 
-	if((SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type) && (reg_val & 0x10)){/*dispc update done isr*/
+	if(NULL == dev){
+		return IRQ_HANDLED;
+	}
+
+	if((reg_val & 0x10) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){/*dispc update done isr*/
 #if 0
 		if(dispc_ctx->is_first_frame){
 			/*dpi register update with SW and VSync*/
@@ -91,7 +95,7 @@ static irqreturn_t dispc_isr(int irq, void *data)
 #endif
 		dispc_write(0x10, DISPC_INT_CLR);
 		done = true;
-	}else if ((SPRDFB_PANEL_IF_DPI !=  dev->panel_if_type) && (reg_val & 0x1)){ /* dispc done isr */
+	}else if ((reg_val & 0x1) && (SPRDFB_PANEL_IF_DPI !=  dev->panel_if_type)){ /* dispc done isr */
 			dispc_write(1, DISPC_INT_CLR);
 			dispc_ctx->is_first_frame = false;
 			done = true;
@@ -269,6 +273,14 @@ static int32_t dispc_sync(struct sprdfb_device *dev)
 	if (!ret) { /* time out */
 		dispc_ctx.vsync_done = 1; /*error recovery */
 		printk(KERN_ERR "sprdfb: dispc_sync time out!!!!!\n");
+		{/*for debug*/
+			int32_t i;
+			for(i=0;i<256;i+=16){
+				printk("sprdfb: %x: 0x%x, 0x%x, 0x%x, 0x%x\n", i, dispc_read(i), dispc_read(i+4), dispc_read(i+8), dispc_read(i+12));
+			}
+			printk("**************************************\n");
+		}
+
 		return -1;
 	}
 	return 0;
