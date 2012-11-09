@@ -1122,11 +1122,11 @@ static int adc_switch_event(struct snd_soc_dapm_widget *w,
 
 	_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
 		       SPRD_CODEC_LEFT,
-		       (!(snd_soc_read(codec, AACR1) & BIT(ADCL_PD))));
+		       (!(snd_soc_read(codec, AACR2) & BIT(ADCPGAL_PD))));
 
 	_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
 		       SPRD_CODEC_RIGHT,
-		       (!(snd_soc_read(codec, AACR1) & BIT(ADCR_PD))));
+		       (!(snd_soc_read(codec, AACR2) & BIT(ADCPGAR_PD))));
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
@@ -1409,14 +1409,16 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("ADie Digital ADCR Switch", 2, SND_SOC_NOPM, 0, 0,
 			   adie_adc_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("ADCL Switch", 1, SOC_REG(AACR1), ADCL_PD, 1,
+	SND_SOC_DAPM_PGA_S("ADCL Switch", 1, SOC_REG(AACR1), ADCL_PD, 1, NULL,
+			   0),
+	SND_SOC_DAPM_PGA_S("ADCR Switch", 1, SOC_REG(AACR1), ADCR_PD, 1, NULL,
+			   0),
+	SND_SOC_DAPM_PGA_E("ADCL PGA", SOC_REG(AACR2), ADCPGAL_PD, 1, NULL, 0,
 			   adc_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("ADCR Switch", 1, SOC_REG(AACR1), ADCR_PD, 1,
+	SND_SOC_DAPM_PGA_E("ADCR PGA", SOC_REG(AACR2), ADCPGAR_PD, 1, NULL, 0,
 			   adc_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA("ADCL PGA", SOC_REG(AACR2), ADCPGAL_PD, 1, NULL, 0),
-	SND_SOC_DAPM_PGA("ADCR PGA", SOC_REG(AACR2), ADCPGAR_PD, 1, NULL, 0),
 	SND_SOC_DAPM_PGA_S("ADCL Mute", 3, FUN_REG(SPRD_CODEC_PGA_ADCL), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
@@ -1451,6 +1453,9 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"AD IBUF", NULL, "Power"},
 	{"AD Clk", NULL, "AD IBUF"},
 	{"ADC", NULL, "AD Clk"},
+
+	{"ADCL PGA", NULL, "AD Clk"},
+	{"ADCR PGA", NULL, "AD Clk"},
 
 	{"HP POP", NULL, "DRV Clk"},
 	{"HPL Switch", NULL, "DRV Clk"},
