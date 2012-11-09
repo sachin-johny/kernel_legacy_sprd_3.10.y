@@ -89,6 +89,7 @@ obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_dcam/
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_scale/
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_rotation/
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_sensor/
+obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_isp/
 # And now the v4l2 drivers:
 
 obj-$(CONFIG_VIDEO_BT848) += bt8xx/
