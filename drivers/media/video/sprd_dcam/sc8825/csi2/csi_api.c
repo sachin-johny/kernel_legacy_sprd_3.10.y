@@ -28,7 +28,7 @@ static void csi_enable()
     *(volatile u32*)CSI2_EB |= CSI2_EB_BIT; //enable CSI DPHY, actually enable cfg_clk(26M) for CSI DPHY
 
     *(volatile u32*)CSI2_RST |= CSI2_RST_BIT; //CSI host reset
-    msleep(1);
+    udelay(1);
     *(volatile u32*)CSI2_RST &= ~CSI2_RST_BIT; //CSI host reset
 }
 
@@ -125,7 +125,7 @@ u8 csi_api_start(void)
                                                                                                                            
 u8 csi_api_close(void)                                                                                                         
 {
-    LOG_ERROR("exit");                                                                           
+    LOG_DEBUG("exit");
     csi_api_unregister_all_events();                                                                                       
     csi_shut_down_phy(1);    
     free_irq(IRQ_CSI_INT0, &g_csi2_irq);

@@ -144,8 +144,9 @@ static long img_scale_ioctl(struct file *file,
 	}
 
 	if (SCALE_IO_IS_DONE == cmd) {
-		if (down_interruptible(&scale_irq_sem)) {
-			SCALE_TRACE("img_scale_ioctl, failed to down \n");
+		ret = down_interruptible(&scale_irq_sem);
+		if (ret) {
+			SCALE_TRACE("img_scale_ioctl, failed to down, 0x%x \n", ret);
 			ret = -ERESTARTSYS;
 			goto exit;
 		} else {
