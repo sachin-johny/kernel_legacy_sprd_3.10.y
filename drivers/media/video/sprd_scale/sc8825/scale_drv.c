@@ -165,7 +165,10 @@ int32_t    scale_start(void)
 		SCALE_RTN_IF_ERR;
 	}
 	rtn = _scale_alloc_tmp_buf();
-	if(rtn) goto exit;
+	if(rtn) {
+		SCALE_TRACE("SCALE DRV: No mem to alloc tmp buf \n");
+		goto exit;
+	}
 
 	g_path->slice_in_height  = 0;
 	g_path->slice_out_height = 0;
@@ -608,6 +611,7 @@ static int32_t _scale_calc_sc_size(void)
 	    g_path->input_rect.h > (g_path->output_size.h * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
 	    g_path->input_rect.w * SCALE_SC_COEFF_MAX < g_path->output_size.w ||
 	    g_path->input_rect.h * SCALE_SC_COEFF_MAX < g_path->output_size.h) {
+		SCALE_TRACE("SCALE DRV: Target too small or large \n");
 		rtn = SCALE_RTN_SC_ERR;
 	} else {
 		g_path->sc_input_size.w = g_path->input_rect.w;
@@ -626,8 +630,10 @@ static int32_t _scale_calc_sc_size(void)
 			g_path->sc_input_size.h = g_path->input_rect.h >> (1 + i);
 			if ((g_path->sc_input_size.w % SCALE_PIXEL_ALIGNED) ||
 				(g_path->sc_input_size.h % SCALE_PIXEL_ALIGNED)) {
+				SCALE_TRACE("SCALE DRV: Unsupported aligned w ,h %d %d \n",
+					g_path->sc_input_size.w,
+					g_path->sc_input_size.h);
 				rtn = SCALE_RTN_SUB_SAMPLE_ERR;
-				
 			}
 		} 
 
@@ -651,6 +657,7 @@ static int32_t _scale_set_sc_coeff(void)
 
 	tmp_buf = (uint32_t *)kmalloc(SC_COEFF_BUF_SIZE, GFP_KERNEL);
 	if (NULL == tmp_buf) {
+		SCALE_TRACE("SCALE DRV: No mem to alloc coeff buffer! \n");
 		return SCALE_RTN_NO_MEM;
 	}
 
