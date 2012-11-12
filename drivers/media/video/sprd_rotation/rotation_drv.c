@@ -549,7 +549,7 @@ static int rotation_start_copy_data_to_virtual(ROTATION_PARAM_T * param_ptr)
 
 	list_size = (total_len + list_copy_size -1)/list_copy_size;
 
-	printk("rotation_start_copy_data_to_virtual: dst_vir_addr = %x, list_copy_size=%x, list_size=%x \n", dst_vir_addr, list_copy_size, list_size);
+	RTT_PRINT("rotation_start_copy_data_to_virtual: dst_vir_addr = %x, list_copy_size=%x, list_size=%x \n", dst_vir_addr, list_copy_size, list_size);
 
 	while (1) {
 		ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rotation_dma_irq, &dma_desc);
@@ -591,6 +591,7 @@ static int rotation_start_copy_data_to_virtual(ROTATION_PARAM_T * param_ptr)
 		dma_cfg[i].total_len = (block_len > list_copy_size) ? list_copy_size : block_len;
 		/* block length */
 		dma_cfg[i].cfg |= list_copy_size & CFG_BLK_LEN_MASK;
+		block_len -= dma_cfg[i].total_len;
 	}
 	do_gettimeofday(&time2);
 	//printk("virtual:%x, physical:%x \n", dst_vir_addr, dma_cfg[0].dst_addr);
