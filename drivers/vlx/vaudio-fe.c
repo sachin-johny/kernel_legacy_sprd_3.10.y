@@ -1384,16 +1384,16 @@ vaudio_init (void)
 {
     ADEBUG();
     sema_init(&vaudio_thread_sem, 0);
+    if (vaudio_snd_probe() < 0) {
+	ETRACE ("virtual audio ALSA card initialization failed\n");
+	return -ENODEV;
+    }
     vaudio_thread_id = kernel_thread(vaudio_thread, 0, 0);
     if (vaudio_thread_id < 0) {
 	ETRACE ("virtual audio kernel thread creation failure \n");
 	return vaudio_thread_id;
     }
 
-    if (vaudio_snd_probe() < 0) {
-	ETRACE ("virtual audio ALSA card initialization failed\n");
-	return -ENODEV;
-    }
 #if VAUDIO_PROC_SYNC
     vaudio_proc_create("close");
 #endif
