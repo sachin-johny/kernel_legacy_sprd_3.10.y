@@ -290,11 +290,11 @@ u32 dma_check_channel(u32 uid)
 		}
 	}else{
 		/* return the same channel if not freed */
-		for(chn=DMA_CHN_MIN; chn<DMA_CHN_NUM; chn++){
+		for(chn=DMA_CHN_MIN+1; chn<DMA_CHN_NUM; chn++){
 			if(sprd_irq_handlers[chn].dma_uid==uid)
 				return chn;
 		}
-		for(chn=DMA_CHN_MIN; chn<DMA_CHN_NUM; chn++){
+		for(chn=DMA_CHN_MIN+1; chn<DMA_CHN_NUM; chn++){
 			if((sprd_irq_handlers[chn].handler==NULL) &&
 				(sprd_irq_handlers[chn].used!=1)) {
 				return chn;
