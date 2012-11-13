@@ -250,6 +250,88 @@ LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 static struct regulator *s_camvio_regulator = NULL;
 static struct regulator *s_camavdd_regulator = NULL;
 static struct regulator *s_camdvdd_regulator = NULL;
+static struct regulator *s_cammot_regulator = NULL;
+
+LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
+{
+	int err = 0;
+	uint32_t volt_value = 0;
+
+	SENSOR_PRINT("SENSOR:_Sensor_K_SetVoltage_CAMMOT, cammot_val=%d  \n",cammot_val);
+
+	if (NULL == s_cammot_regulator) {
+		s_cammot_regulator = regulator_get(NULL, REGU_NAME_CAMMOT);
+		if (IS_ERR(s_cammot_regulator)) {
+			SENSOR_PRINT_ERR("SENSOR:could not get cammot.\n");
+			return SENSOR_K_FAIL;
+		}
+	}
+
+	switch (cammot_val) {
+	case SENSOR_VDD_2800MV:
+		err =
+		    regulator_set_voltage(s_cammot_regulator,
+					  SENSOER_VDD_2800MV,
+					  SENSOER_VDD_2800MV);
+		volt_value = SENSOER_VDD_2800MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set cammot to 2800mv.\n");
+		break;
+	case SENSOR_VDD_3000MV:
+		err =
+		    regulator_set_voltage(s_cammot_regulator,
+					  SENSOER_VDD_3000MV,
+					  SENSOER_VDD_3000MV);
+		volt_value = SENSOER_VDD_3000MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set cammot to 3800mv.\n");
+		break;
+	case SENSOR_VDD_2500MV:
+		err =
+		    regulator_set_voltage(s_cammot_regulator,
+					  SENSOER_VDD_2500MV,
+					  SENSOER_VDD_2500MV);
+		volt_value = SENSOER_VDD_2500MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set cammot to 1800mv.\n");
+		break;
+	case SENSOR_VDD_1800MV:
+		err =
+		    regulator_set_voltage(s_cammot_regulator,
+					  SENSOER_VDD_1800MV,
+					  SENSOER_VDD_1800MV);
+		volt_value = SENSOER_VDD_1800MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set cammot to 1200mv.\n");
+		break;
+	case SENSOR_VDD_CLOSED:
+	case SENSOR_VDD_UNUSED:
+	default:
+		volt_value = 0;
+		break;
+	}
+	if (err) {
+		SENSOR_PRINT_ERR("SENSOR:set cammot error!.\n");
+		return SENSOR_K_FAIL;
+	}
+	if (0 != volt_value) {
+		err = regulator_enable(s_cammot_regulator);
+		if (err) {
+			regulator_put(s_cammot_regulator);
+			s_cammot_regulator = NULL;
+			SENSOR_PRINT_ERR("SENSOR:could not enable cammot.\n");
+			return SENSOR_K_FAIL;
+		}
+	} else {
+		regulator_disable(s_cammot_regulator);
+		regulator_put(s_cammot_regulator);
+		s_cammot_regulator = NULL;
+		SENSOR_PRINT("SENSOR:disable cammot.\n");
+	}
+
+	return SENSOR_K_SUCCESS;
+}
+
 LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 {
 	int err = 0;
@@ -854,32 +936,32 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	case 1:		/*flash on */
 	case 2:		/*for torch */
 		/*low light */
-		gpio_request(135, "gpio135");
-		gpio_direction_output(135, 1);
-		gpio_set_value(135, 1);
-		gpio_request(144, "gpio144");
-		gpio_direction_output(144, 0);
-		gpio_set_value(144, 0);
+		gpio_request(138, "gpio138");
+		gpio_direction_output(138, 1);
+		gpio_set_value(138, 1);
+		gpio_request(137, "gpio137");
+		gpio_direction_output(137, 0);
+		gpio_set_value(137, 0);
 		break;
 	case 0x11:
 		/*high light */
-		gpio_request(135, "gpio135");
-		gpio_direction_output(135, 1);
-		gpio_set_value(135, 1);
+		gpio_request(138, "gpio138");
+		gpio_direction_output(138, 1);
+		gpio_set_value(138, 1);
 
-		gpio_request(144, "gpio144");
-		gpio_direction_output(144, 1);
-		gpio_set_value(144, 1);
+		gpio_request(137, "gpio137");
+		gpio_direction_output(137, 1);
+		gpio_set_value(137, 1);
 		break;
 	case 0x10:		/*close flash */
 	case 0x0:
 		/*close the light */
-		gpio_request(135, "gpio135");
-		gpio_direction_output(135, 0);
-		gpio_set_value(135, 0);
-		gpio_request(144, "gpio144");
-		gpio_direction_output(144, 0);
-		gpio_set_value(144, 0);
+		gpio_request(138, "gpio138");
+		gpio_direction_output(138, 0);
+		gpio_set_value(138, 0);
+		gpio_request(137, "gpio137");
+		gpio_direction_output(137, 0);
+		gpio_set_value(137, 0);
 		break;
 	default:
 		SENSOR_PRINT_HIGH("_Sensor_K_SetFlash unknow mode:flash_mode=%d \n", flash_mode);
@@ -1023,6 +1105,14 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 
 			if(0 == ret)
 				ret = _Sensor_K_PowerDown(power_level);
+		}
+		break;
+	case SENSOR_IO_SET_CAMMOT:
+		{
+			uint32_t vdd_val;
+			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
+			if(0 == ret)
+				ret = _Sensor_K_SetVoltage_CAMMOT(vdd_val);
 		}
 		break;
 
