@@ -27,6 +27,7 @@
 #include <if_ether.h>
 #endif //PLATFORM_FREEBSD
 
+// used for data tx which is from uplayer like xmit entry
 #if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
 //#define MAX_XMITBUF_SZ (30720)//	(2048)
 #ifdef CONFIG_TX_AGGREGATION
@@ -35,11 +36,20 @@
 #define MAX_XMITBUF_SZ (12288)  //12k 1536*8
 #endif
 
-#if defined CONFIG_SDIO_HCI
 #define NR_XMITBUFF	(16)
+
+#if defined(CONFIG_SDIO_HCI)
+#define SDIO_TX_AGG_MAX	(5)
+#elif defined(CONFIG_GSPI_HCI)
+#define SDIO_TX_AGG_MAX	(1)
 #endif
-#if defined(CONFIG_GSPI_HCI)
-#define NR_XMITBUFF	(128)
+
+#if defined(CONFIG_DONT_CARE_TP) || defined(CONFIG_GSPI_HCI)
+#undef NR_XMITBUFF
+#undef MAX_XMITBUF_SZ
+
+#define MAX_XMITBUF_SZ 	(1536) //1 max data pkts
+#define NR_XMITBUFF	(64)
 #endif
 
 #elif defined (CONFIG_USB_HCI)
@@ -63,11 +73,12 @@
 #ifdef CONFIG_PCI_HCI
 #define XMITBUF_ALIGN_SZ 4
 #else
-#define XMITBUF_ALIGN_SZ 512
+#define XMITBUF_ALIGN_SZ 32
 #endif
 #endif
 
 // xmit extension buff defination
+// used for mng tx which is formed in driver
 #define MAX_XMIT_EXTBUF_SZ	(1536)
 #define NR_XMIT_EXTBUFF	(32)
 
@@ -641,6 +652,7 @@ struct	xmit_priv	{
 	u8 *pallocated_xmitbuf;
 	u8 *pxmitbuf;
 	uint free_xmitbuf_cnt;
+	uint real_allocate_xmitbuf_cnt;//used for xmit buf alloc fail
 
 	_queue free_xmit_extbuf_queue;
 	u8 *pallocated_xmit_extbuf;

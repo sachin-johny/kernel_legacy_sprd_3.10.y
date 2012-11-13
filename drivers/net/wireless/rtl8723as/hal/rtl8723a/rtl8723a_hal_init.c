@@ -745,7 +745,6 @@ s32 rtl8723a_FirmwareDownload(PADAPTER padapter)
 			FwImage = (u8*)Rtl8723_FwUMCBCutImageArray;
 			FwImageLen = Rtl8723_UMCBCutImgArrayLength;
 			RT_TRACE(_module_hal_init_c_, _drv_info_, ("rtl8723a_FirmwareDownload: R8723FwImageArray_UMC_B for RTL8723A B CUT\n"));
-			printk("rtl8723a_FirmwareDownload: R8723FwImageArray_UMC_B for RTL8723A B CUT\n")	;
 		}
 		else
 		{
@@ -2708,7 +2707,9 @@ s32 _LLTWrite(PADAPTER padapter, u32 address, u32 data)
 	u16	LLTReg = REG_LLT_INIT;
 
 
-	rtw_write32(padapter, LLTReg, value);
+	status = rtw_write32(padapter, LLTReg, value);
+	if (_FAIL == status)
+		return _FAIL;
 
 	//polling
 	do {
@@ -4554,7 +4555,8 @@ static void process_c2h_event(PADAPTER padapter, PC2H_EVT_HDR pC2hEvent, u8 *c2h
 {
 	u8				index = 0;
 	PHAL_DATA_TYPE	pHalData=GET_HAL_DATA(padapter);
-
+	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
+	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 
 	if (c2hBuf == NULL) {
 		DBG_8192C("%s c2hbuff is NULL\n",__FUNCTION__);
@@ -4591,6 +4593,27 @@ static void process_c2h_event(PADAPTER padapter, PC2H_EVT_HDR pC2hEvent, u8 *c2h
 #endif
 	switch (pC2hEvent->CmdID)
 	{
+		case C2H_AP_RPT_RSP:
+			{
+				u4Byte c2h_ap_keeplink = _TRUE;
+				if (c2hBuf[2] == 0 && c2hBuf[3] == 0)
+					c2h_ap_keeplink = _FALSE;
+				else
+					c2h_ap_keeplink = _TRUE;
+
+				if (_TRUE == pmlmeext->try_ap_c2h_wait) {
+					if (_FALSE == c2h_ap_keeplink) {
+						pmlmeext->try_ap_c2h_wait = _FALSE;
+						RT_TRACE(_module_hal_init_c_, _drv_err_,("fw tell us link is off\n"));
+						receive_disconnect(padapter, pmlmeinfo->network.MacAddress , 65535);
+					} else  {
+						RT_TRACE(_module_hal_init_c_, _drv_err_,("fw tell us link is on\n"));
+					}
+				} else {
+					RT_TRACE(_module_hal_init_c_, _drv_err_,("we don't need this C2H\n"));
+				}
+			}
+			break;
 		case C2H_DBG:
 			{
 				RT_TRACE(_module_hal_init_c_, _drv_info_, ("C2HCommandHandler: %s\n", c2hBuf));

@@ -511,6 +511,7 @@ void set_channel_bwmode(_adapter *padapter, unsigned char channel, unsigned char
 	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
 
 
+	DBG_871X("%s channel:%d channel_offset:%d bwmode:%d\n", __func__, channel, channel_offset, bwmode);
 	if((bwmode == HT_CHANNEL_WIDTH_20)||(channel_offset == HAL_PRIME_CHNL_OFFSET_DONT_CARE))
 	{
 		//SelectChannel(padapter, channel);
@@ -1050,6 +1051,9 @@ static void bwmode_update_check(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pI
 
 		pmlmeext->cur_bwmode = new_bwmode;
 		pmlmeext->cur_ch_offset = new_ch_offset;
+
+		//update HT info also
+		HT_info_handler(padapter, pIE);
 	}
 	else
 	{

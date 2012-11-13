@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright(c) 2007 - 2011 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2007 - 2012 Realtek Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as
@@ -120,8 +120,14 @@ _func_enter_;
 			RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_info_,("rtw_do_join(): site survey if scanned_queue is empty\n."));
 			// submit site_survey_cmd
 			if(_SUCCESS!=(ret=rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1)) ) {
+				pmlmepriv->to_join = _FALSE;
 				RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_err_,("rtw_do_join(): site survey return error\n."));
 			}
+		}
+		else
+		{
+			pmlmepriv->to_join = _FALSE;
+			ret = _FAIL;
 		}
 
 		goto exit;
@@ -134,12 +140,6 @@ _func_enter_;
 		{
 			pmlmepriv->to_join = _FALSE;
 			_set_timer(&pmlmepriv->assoc_timer, MAX_JOIN_TIMEOUT);
-		}
-		else if(ret == 2)//there is no need to wait for join
-		{
-			ret = _SUCCESS;
-			clr_fwstate(pmlmepriv, _FW_UNDER_LINKING);
-			rtw_indicate_connect(padapter);
 		}
 		else
 		{
@@ -203,11 +203,15 @@ _func_enter_;
 				{
 					//DBG_871X("rtw_do_join() when   no desired bss in scanning queue \n");
 					if( _SUCCESS!=(ret=rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1)) ){
+						pmlmepriv->to_join = _FALSE;
 						RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_err_,("do_join(): site survey return error\n."));
 					}
 				}
-
-
+				else
+				{
+					ret = _FAIL;
+					pmlmepriv->to_join = _FALSE;
+				}
 			}
 
 		}
@@ -1233,6 +1237,7 @@ _func_enter_;
 				RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_err_,("\n rtw_set_802_11_add_key:rtw_setstakey_cmd(group)\n"));
 			}
 			else{
+				padapter->securitypriv.bStaInstallPairwiseKey = _TRUE;
 				res=rtw_setstakey_cmd(padapter, (unsigned char *)stainfo, _TRUE);
 				RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_err_,("\n rtw_set_802_11_add_key:rtw_setstakey_cmd(unicast)\n"));
 			}
@@ -1340,7 +1345,7 @@ u16 rtw_get_cur_max_rate(_adapter *adapter)
 		return 0;
 
 	p = rtw_get_ie(&pcur_bss->IEs[12], _HT_CAPABILITY_IE_, &ht_ielen, pcur_bss->IELength-12);
-	if(p && ht_ielen>0)
+	if((p && ht_ielen>0) && !is_ap_in_tkip(adapter) && !is_ap_in_wep(adapter))
 	{
 		ht_cap = _TRUE;
 		pht_capie = (struct rtw_ieee80211_ht_cap *)(p+2);
@@ -1349,7 +1354,11 @@ u16 rtw_get_cur_max_rate(_adapter *adapter)
 
 		//bw_40MHz = (pht_capie->cap_info&IEEE80211_HT_CAP_SUP_WIDTH) ? 1:0;
 		//cur_bwmod is updated by beacon, pmlmeinfo is updated by association response
-		bw_40MHz = (pmlmeext->cur_bwmode && (HT_INFO_HT_PARAM_REC_TRANS_CHNL_WIDTH & pmlmeinfo->HT_info.infos[0])) ? 1:0;
+		//
+		//some times dlink 655 set 20/40, but tell us use 20M in pmlmeinfo->HT_info.infos[0],
+		//so we have to use 20M in hw, but we should show 40M rate, or it's weird for users.
+		//bw_40MHz = (pmlmeext->cur_bwmode && (HT_INFO_HT_PARAM_REC_TRANS_CHNL_WIDTH & pmlmeinfo->HT_info.infos[0])) ? 1:0;
+		bw_40MHz = (pht_capie->cap_info&IEEE80211_HT_CAP_SUP_WIDTH) ? 1 : 0;
 
 		//short_GI = (pht_capie->cap_info&(IEEE80211_HT_CAP_SGI_20|IEEE80211_HT_CAP_SGI_40)) ? 1:0;
 		short_GI_20 = (pmlmeinfo->HT_caps.u.HT_cap_element.HT_caps_info&IEEE80211_HT_CAP_SGI_20) ? 1:0;

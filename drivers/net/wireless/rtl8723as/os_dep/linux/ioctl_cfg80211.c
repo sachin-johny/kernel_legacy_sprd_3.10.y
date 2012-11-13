@@ -1196,7 +1196,7 @@ _func_enter_;
 
 					//DEBUG_ERR((" param->u.crypt.key_len=%d\n",param->u.crypt.key_len));
 					DBG_871X(" ~~~~set sta key:unicastkey\n");
-
+					padapter->securitypriv.bStaInstallPairwiseKey = _TRUE;
 					rtw_setstakey_cmd(padapter, (unsigned char *)psta, _TRUE);
 				}
 				else//group key
@@ -1204,7 +1204,7 @@ _func_enter_;
 					_rtw_memcpy(padapter->securitypriv.dot118021XGrpKey[param->u.crypt.idx].skey,  param->u.crypt.key,(param->u.crypt.key_len>16 ?16:param->u.crypt.key_len));
 					_rtw_memcpy(padapter->securitypriv.dot118021XGrptxmickey[param->u.crypt.idx].skey,&(param->u.crypt.key[16]),8);
 					_rtw_memcpy(padapter->securitypriv.dot118021XGrprxmickey[param->u.crypt.idx].skey,&(param->u.crypt.key[24]),8);
-                                        padapter->securitypriv.binstallGrpkey = _TRUE;
+					padapter->securitypriv.binstallGrpkey = _TRUE;
 					//DEBUG_ERR((" param->u.crypt.key_len=%d\n", param->u.crypt.key_len));
 					DBG_871X(" ~~~~set sta key:groupkey\n");
 
@@ -1277,6 +1277,7 @@ _func_enter_;
 					if (psecuritypriv->sw_encrypt== false || psecuritypriv->sw_decrypt == false)
 					{
 						//set unicast key for ASUE
+						padapter->securitypriv.bStaInstallPairwiseKey = _TRUE;
 						rtw_wapi_set_key(padapter, &pWapiSta->wapiUsk, pWapiSta, false, false);
 					}
 				}
@@ -1301,6 +1302,7 @@ _func_enter_;
 					if (psecuritypriv->sw_decrypt == false)
 					{
 						//set rx broadcast key for ASUE
+						padapter->securitypriv.binstallGrpkey = _TRUE;
 						rtw_wapi_set_key(padapter, &pWapiSta->wapiMsk, pWapiSta, true, false);
 					}
 				}
@@ -1906,6 +1908,14 @@ if (padapter->registrypriv.mp_mode == 1)
 }
 #endif
 
+#ifdef CONFIG_DISCONNECT_H2CWAY
+	//scan should be forbidden between two h2c command when checking whether ap is alive
+	if(padapter->mlmeextpriv.check_ap_processing == _TRUE)
+	{
+		ret = -EPERM;
+		goto exit;	
+	}
+#endif
 	_enter_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
 	pwdev_priv->scan_request = request;
 	_exit_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
@@ -1963,17 +1973,17 @@ if (padapter->registrypriv.mp_mode == 1)
 		rtw_cfg80211_set_probe_req_wpsp2pie( ndev, (u8 *)request->ie, request->ie_len );
 	}
 
-	if (pmlmepriv->LinkDetectInfo.bBusyTraffic == _TRUE)
+	if (pmlmepriv->LinkDetectInfo.bCanNotScan == _TRUE)
 	{
-		DBG_8192C("%s, bBusyTraffic == _TRUE\n", __func__);
+		DBG_8192C("%s, bCanNotScan == _TRUE\n", __func__);
 		need_indicate_scan_done = _TRUE;
 		goto check_need_indicate_scan_done;
 	}
 
 #ifdef CONFIG_CONCURRENT_MODE
-	if(pbuddy_mlmepriv->LinkDetectInfo.bBusyTraffic == _TRUE)
+	if(pbuddy_mlmepriv->LinkDetectInfo.bCanNotScan == _TRUE)
 	{
-		DBG_8192C("%s, bBusyTraffic == _TRUE at buddy_intf\n", __func__);
+		DBG_8192C("%s, bCanNotScan == _TRUE at buddy_intf\n", __func__);
 		need_indicate_scan_done = _TRUE;
 		goto check_need_indicate_scan_done;
 	}
@@ -2770,9 +2780,14 @@ static int cfg80211_rtw_connect(struct wiphy *wiphy, struct net_device *ndev,
 
 	DBG_8192C("%s, ie_len=%zu\n", __func__, sme->ie_len);
 
-	ret = rtw_cfg80211_set_wpa_ie(padapter, sme->ie, sme->ie_len);
-	if (ret < 0)
-		goto exit;
+#ifdef CONFIG_WAPI_SUPPORT
+	if (!padapter->wapiInfo.bWapiEnable) 
+#endif
+	{
+		ret = rtw_cfg80211_set_wpa_ie(padapter, sme->ie, sme->ie_len);
+			if (ret < 0)
+				goto exit;
+	}
 
 	authmode = psecuritypriv->ndisauthtype;
 	rtw_set_802_11_authentication_mode(padapter, authmode);
@@ -2878,6 +2893,9 @@ static int cfg80211_rtw_set_power_mgmt(struct wiphy *wiphy,
 	return -EPERM;
 #endif /* defined(CONFIG_CONCURRENT_MODE) */
 
+#ifdef CONFIG_BT_COEXIST
+	return -EPERM;
+#endif
 	if(enabled)
 		rtw_pm_set_lps(padapter, PS_MODE_MIN);
 	else
@@ -5018,6 +5036,7 @@ int rtw_wdev_alloc(_adapter *padapter, struct device *dev)
 	pwdev_priv->provdisc_req_issued = _FALSE;
 
 	pwdev_priv->bandroid_scan = _FALSE;
+	pwdev_priv->bandroid_dhcp = _FALSE;
 
 #ifdef CONFIG_CONCURRENT_MODE
 	ATOMIC_SET(&pwdev_priv->switch_ch_to, 1);

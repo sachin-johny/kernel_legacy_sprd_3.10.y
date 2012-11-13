@@ -42,6 +42,7 @@ struct rtw_wdev_priv
 	u8 provdisc_req_issued;
 
 	u8 bandroid_scan;
+	u8 bandroid_dhcp;
 	bool block;
 
 #ifdef CONFIG_CONCURRENT_MODE

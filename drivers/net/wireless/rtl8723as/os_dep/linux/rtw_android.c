@@ -439,17 +439,20 @@ int rtw_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	case ANDROID_WIFI_CMD_BTCOEXSCAN_STOP:
 		/* TBD: BTCOEXSCAN-STOP */
 		break;
-	case ANDROID_WIFI_CMD_BTCOEXMODE:
-		#if 0
-		uint mode = *(command + strlen(CMD_BTCOEXMODE) + 1) - '0';
-		if (mode == 1)
-			net_os_set_packet_filter(net, 0); /* DHCP starts */
-		else
-			net_os_set_packet_filter(net, 1); /* DHCP ends */
-#ifdef WL_CFG80211
-		bytes_written = wl_cfg80211_set_btcoex_dhcp(net, command);
-#endif
-		#endif
+	case ANDROID_WIFI_CMD_BTCOEXMODE: {
+		unsigned long mode = *(command + strlen(android_wifi_cmd_str[ANDROID_WIFI_CMD_BTCOEXMODE]) + 1) - '0';
+		unsigned char bdhcp = _FALSE;
+		if (mode == 1) {
+			DBG_871X_LEVEL(_drv_always_,"%s DHCP starts\n", __func__);
+			bdhcp = _TRUE;
+		} else {
+			bdhcp = _FALSE;
+			DBG_871X_LEVEL(_drv_always_,"%s DHCP ends\n", __func__);
+		}
+#ifdef CONFIG_IOCTL_CFG80211
+		(wdev_to_priv(net->ieee80211_ptr))->bandroid_dhcp = bdhcp;
+#endif //CONFIG_IOCTL_CFG80211
+	}
 		break;
 
 	case ANDROID_WIFI_CMD_SETSUSPENDOPT:

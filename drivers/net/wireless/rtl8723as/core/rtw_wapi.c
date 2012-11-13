@@ -953,6 +953,14 @@ void rtw_wapi_set_key(_adapter *padapter, RT_WAPI_KEY *pWapiKey, RT_WAPI_STA_INF
 					bGroupKey, //pairwise or group key
 					pWapiKey->micKey);
 
+#ifndef CONFIG_CONCURRENT_MODE
+#ifdef CONFIG_LPS
+	//wapi will update unicast key, so the first set key need follwing action
+	if (!bGroupKey && !padapter->securitypriv.binstallGrpkey)
+		rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_CONNECT, 0);
+#endif
+#endif
+
 	WAPI_TRACE(WAPI_API, "Set Wapi Key :KeyId:%d,EntryId:%d,PairwiseKey:%d.\n",pWapiKey->keyId,EntryId,!bGroupKey);
 	WAPI_TRACE(WAPI_API, "===========> %s\n", __FUNCTION__);
 

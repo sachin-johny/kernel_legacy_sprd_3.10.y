@@ -253,6 +253,7 @@ struct hal_ops {
 #endif
 	void (*hal_notch_filter)(_adapter * adapter, bool enable);
 	void (*hal_reset_security_engine)(_adapter * adapter);
+	void (*fw_try_ap_cmd)(_adapter * adapter, u32 need_ack);
 };
 
 typedef	enum _RT_EEPROM_TYPE{

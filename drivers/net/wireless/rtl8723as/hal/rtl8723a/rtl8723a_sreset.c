@@ -197,7 +197,6 @@ void rtl8723a_sreset_xmit_status_check(_adapter *padapter)
 #ifdef CONFIG_USB_HCI
 	//total xmit irp = 4
 	//DBG_8192C("==>%s free_xmitbuf_cnt(%d),txirp_cnt(%d)\n",__FUNCTION__,pxmitpriv->free_xmitbuf_cnt,pxmitpriv->txirp_cnt);
-	//if(pxmitpriv->txirp_cnt == NR_XMITBUFF+1)
 	current_time = rtw_get_current_time();
 	if(0==pxmitpriv->free_xmitbuf_cnt)
 	{

@@ -1288,8 +1288,12 @@ void rtw_yield_os()
 #define RTW_SUSPEND_LOCK_NAME "rtw_wifi"
 
 #ifdef CONFIG_WAKELOCK
+_lock rtw_wakelock_spinlock;
+static int rtw_wakelock_counter = 0;
 static struct wake_lock rtw_suspend_lock;
 #elif defined(CONFIG_ANDROID_POWER)
+_lock rtw_wakelock_spinlock;
+static int rtw_wakelock_counter = 0;
 static android_suspend_lock_t rtw_suspend_lock ={
 	.name = RTW_SUSPEND_LOCK_NAME
 };
@@ -1302,8 +1306,10 @@ inline void rtw_suspend_lock_init()
 	#endif
 
 	#ifdef CONFIG_WAKELOCK
+	_rtw_spinlock_init(&rtw_wakelock_spinlock);
 	wake_lock_init(&rtw_suspend_lock, WAKE_LOCK_SUSPEND, RTW_SUSPEND_LOCK_NAME);
 	#elif defined(CONFIG_ANDROID_POWER)
+	_rtw_spinlock_init(&rtw_wakelock_spinlock);
 	android_init_suspend_lock(&rtw_suspend_lock);
 	#endif
 
@@ -1322,13 +1328,15 @@ inline void rtw_suspend_lock_uninit()
 
 	#ifdef CONFIG_WAKELOCK
 	wake_lock_destroy(&rtw_suspend_lock);
+	_rtw_spinlock_free(&rtw_wakelock_spinlock);
 	#elif defined(CONFIG_ANDROID_POWER)
 	android_uninit_suspend_lock(&rtw_suspend_lock);
+	_rtw_spinlock_free(&rtw_wakelock_spinlock);
 	#endif
 }
 
 
-inline void rtw_lock_suspend()
+inline static void _rtw_lock_suspend(void)
 {
 
 	#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
@@ -1346,11 +1354,11 @@ inline void rtw_lock_suspend()
 	#endif
 
 	#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
-	//DBG_871X("####%s: suspend_lock_count:%d####\n", __FUNCTION__, rtw_suspend_lock.stat.count);
+	DBG_871X("####%s: suspend_lock_count:%d####\n", __FUNCTION__, rtw_suspend_lock.stat.count);
 	#endif
 }
 
-inline void rtw_unlock_suspend()
+inline static void _rtw_unlock_suspend(void)
 {
 	#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
 	//DBG_871X("##########%s###########\n", __FUNCTION__);
@@ -1366,15 +1374,39 @@ inline void rtw_unlock_suspend()
 	android_unlock_suspend(&rtw_suspend_lock);
 	#endif
 	#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
-	//DBG_871X("####%s: suspend_lock_count:%d####\n", __FUNCTION__, rtw_suspend_lock.stat.count);
+	DBG_871X("####%s: suspend_lock_count:%d####\n", __FUNCTION__, rtw_suspend_lock.stat.count);
 	#endif
 }
 
+//just lock/unlock it once
+inline void rtw_lock_suspend()
+{
+#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
+	_rtw_spinlock(&rtw_wakelock_spinlock);
+	if (!rtw_wakelock_counter)
+		_rtw_lock_suspend();
+	rtw_wakelock_counter ++;
+	_rtw_spinunlock(&rtw_wakelock_spinlock);
+#endif
+}
+
+inline void rtw_unlock_suspend()
+{
+#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
+	_rtw_spinlock(&rtw_wakelock_spinlock);
+	if (rtw_wakelock_counter > 0) {
+		rtw_wakelock_counter--;
+		if (!rtw_wakelock_counter)
+			_rtw_unlock_suspend();
+	}
+	_rtw_spinunlock(&rtw_wakelock_spinlock);
+#endif
+}
 #ifdef CONFIG_WOWLAN
 inline void rtw_lock_suspend_timeout(long timeout)
 {
         #if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
-        DBG_871X_LEVEL(_drv_info_, "##########%s###########\n", __FUNCTION__);
+        DBG_871X("##########%s###########\n", __FUNCTION__);
         if(rtw_suspend_lock.link.next == LIST_POISON1 || rtw_suspend_lock.link.prev == LIST_POISON2) {
                 DBG_871X("##########%s########### list poison!!\n", __FUNCTION__);
                 return;
