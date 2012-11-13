@@ -25,7 +25,9 @@
 #undef bEnable
 #endif
 
-//#define BT_DEBUG
+#ifdef CONFIG_DEBUG
+#define BT_DEBUG
+#endif
 
 #define CHECK_BT_EXIST_FROM_REG
 #define DIS_PS_RX_BCN
@@ -5343,9 +5345,14 @@ bthci_CmdWIFIConnectionStatus(
 		else
 			connectStatus = HCI_WIFI_NOT_CONNECTED;
 	}
-	else if (check_fwstate(&padapter->mlmepriv, WIFI_ADHOC_STATE|WIFI_ADHOC_MASTER_STATE|WIFI_ASOC_STATE) == _TRUE)
-		connectStatus = HCI_WIFI_CONNECTED;
-	else if (check_fwstate(&padapter->mlmepriv, WIFI_UNDER_LINKING) == _TRUE)
+	else if (check_fwstate(&padapter->mlmepriv, WIFI_ADHOC_STATE|WIFI_ADHOC_MASTER_STATE|WIFI_ASOC_STATE) == _TRUE) {
+		if((padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X ||
+			padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI) && 
+			(padapter->securitypriv.bStaInstallPairwiseKey == _FALSE))
+			connectStatus = HCI_WIFI_CONNECT_IN_PROGRESS;
+		else
+			connectStatus = HCI_WIFI_CONNECTED;
+	} else if (check_fwstate(&padapter->mlmepriv, WIFI_UNDER_LINKING) == _TRUE)
 		connectStatus = HCI_WIFI_CONNECT_IN_PROGRESS;
 	else
 		connectStatus = HCI_WIFI_NOT_CONNECTED;
@@ -8420,7 +8427,7 @@ void _btdm_1AntSetPSTDMA(PADAPTER padapter, u8 bPSEn, u8 smartps, u8 psOption, u
 				if ((BT_IsBtDisabled(padapter) == _TRUE) ||
 					(pHalData->bt_coexist.halCoex8723.c2hBtInfo == BT_INFO_STATE_NO_CONNECTION) ||
 					(pHalData->bt_coexist.halCoex8723.c2hBtInfo == BT_INFO_STATE_CONNECT_IDLE))
-				btdm_1AntPsTdma(padapter, _FALSE, 9);
+					btdm_1AntPsTdma(padapter, _FALSE, 9);
 				else
 					btdm_1AntPsTdma(padapter, _FALSE, 0);
 			}
@@ -8876,10 +8883,10 @@ void btdm_1AntCoexProcessForWifiConnect(PADAPTER padapter)
 		switch (BtState)
 		{
 			case BT_INFO_STATE_NO_CONNECTION:
-				_btdm_1AntSetPSTDMA(padapter, _TRUE, 2, 3, _FALSE, 9);
+				_btdm_1AntSetPSTDMA(padapter, _TRUE, padapter->registrypriv.smart_ps, 3, _FALSE, 9);
 				break;
 			case BT_INFO_STATE_CONNECT_IDLE:
-				_btdm_1AntSetPSTDMA(padapter, _TRUE, 2, 7, _FALSE, 0);
+				_btdm_1AntSetPSTDMA(padapter, _TRUE, padapter->registrypriv.smart_ps, 7, _FALSE, 0);
 				break;
 		}
 	}
@@ -9025,7 +9032,7 @@ void btdm_1AntBtCoexistHandler(PADAPTER padapter)
 			else
 			{
 				RTPRINT(FBT, BT_TRACE, ("[BTCoex], Wifi is idle\n"));
-				_btdm_1AntSetPSTDMA(padapter, _TRUE, 2, 1, _FALSE, 9);
+				_btdm_1AntSetPSTDMA(padapter, _TRUE, padapter->registrypriv.smart_ps, 1, _FALSE, 9);
 			}
 		}
 		else
@@ -9430,7 +9437,20 @@ void BTDM_1AntBtCoexist8723A(PADAPTER padapter)
 		return;
 	}
 
-	// under DHCP(Special packet)
+	if( (padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X ||
+		padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI) && 
+		(padapter->securitypriv.bStaInstallPairwiseKey == _FALSE)) {
+		RTPRINT(FBT, BT_TRACE, ("[BTCoex], wifi is under 4-way handshake!!\n"));
+		return;
+	}
+
+#ifdef CONFIG_IOCTL_CFG80211
+	if((wdev_to_priv(padapter->rtw_wdev))->bandroid_dhcp == _TRUE) {
+		RTPRINT(FBT, BT_TRACE, ("[BTCoex], wifi is under dhcp!!\n"));
+		return;
+	}
+#endif
+
 	curr_time = rtw_get_current_time();
 	delta_time = curr_time - padapter->pwrctrlpriv.DelayLPSLastTimeStamp;
 	delta_time = rtw_systime_to_ms(delta_time);
@@ -13210,7 +13230,7 @@ void btdm_BTCoexist8723AHandler(PADAPTER padapter)
 
 	if (!BTDM_IsSameCoexistState(padapter))
 	{
-		RTPRINT(FBT, BT_TRACE, ("[BTCoex], Coexist State[bitMap] change from 0x%x to 0x%x\n",
+		RTPRINT(FBT, BT_TRACE, ("[BTCoex], Coexist State[bitMap] change from 0x%llx to 0x%llx\n",
 			pHalData->bt_coexist.PreviousState,
 			pHalData->bt_coexist.CurrentState));
 		pHalData->bt_coexist.PreviousState = pHalData->bt_coexist.CurrentState;
@@ -14235,7 +14255,7 @@ void btdm_SCOActionBC81Ant(PADAPTER padapter)
 	u8	btRssiState;
 
 	if ((pmlmepriv->LinkDetectInfo.bTxBusyTraffic) ||
-		!(pmlmepriv->LinkDetectInfo.bBusyTraffic))
+		!(BTDM_IsWifiBusy(padapter)))
 	{
 		RTPRINT(FBT, BT_TRACE, ("Wifi Uplink or Wifi is idle\n"));
 		if (BTDM_IsSameCoexistState(padapter))
@@ -15523,7 +15543,7 @@ void btdm_A2DPActionBC82Ant(PADAPTER padapter)
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(padapter);
 	u8			btRssiState;
 
-	if (pBtMgnt->ExtConfig.bBTA2DPBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic)
+	if (pBtMgnt->ExtConfig.bBTA2DPBusy && BTDM_IsWifiBusy(padapter))
 	{
 		RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle!\n"));
 		btRssiState = BTDM_CheckCoexRSSIState(padapter, 2, BT_FW_COEX_THRESH_47, 0);
@@ -15597,7 +15617,7 @@ void btdm_A2DPActionBC82Ant92d(PADAPTER padapter)
 	PHAL_DATA_TYPE	pHalData = GET_HAL_DATA(padapter);
 	u8			btRssiState, rssiState1;
 
-	if (pBtMgnt->ExtConfig.bBTA2DPBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic)
+	if (pBtMgnt->ExtConfig.bBTA2DPBusy && BTDM_IsWifiBusy(padapter))
 	{
 		RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle!\n"));
 		if (BTDM_IsHT40(padapter))
@@ -15755,7 +15775,7 @@ void btdm_PANActionBC42Ant(PADAPTER padapter)
 	else
 	{
 		RTPRINT(FBT, BT_TRACE, ("[BT 2.1]\n"));
-		if (pBtMgnt->ExtConfig.bBTBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic)
+		if (pBtMgnt->ExtConfig.bBTBusy && BTDM_IsWifiBusy(padapter))
 		{
 			RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle!\n"));
 			BTDM_Balance(padapter, _TRUE, 0x20, 0x10);
@@ -15795,7 +15815,7 @@ void btdm_PANActionBC82Ant(PADAPTER padapter)
 		if (pHalData->bt_coexist.PreviousState == pHalData->bt_coexist.CurrentState)
 			return;
 
-		if (pBtMgnt->ExtConfig.bBTBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic)
+		if (pBtMgnt->ExtConfig.bBTBusy && BTDM_IsWifiBusy(padapter))
 		{
 			RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle!\n"));
 
@@ -15911,7 +15931,7 @@ void btdm_PANActionBC82Ant(PADAPTER padapter)
 			}
 		}
 		else if (pBtMgnt->ExtConfig.bBTBusy &&
-				!pmlmepriv->LinkDetectInfo.bBusyTraffic &&
+				!BTDM_IsWifiBusy(padapter) &&
 				(BTDM_GetRxSS(padapter) < 30))
 		{
 			RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is idle!\n"));
@@ -15964,7 +15984,7 @@ void btdm_PANActionBC82Ant92d(PADAPTER padapter)
 		if (!BTDM_IsCoexistStateChanged(padapter))
 			return;
 
-		if (pBtMgnt->ExtConfig.bBTBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic)
+		if (pBtMgnt->ExtConfig.bBTBusy && BTDM_IsWifiBusy(padapter))
 		{
 			RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle!\n"));
 
@@ -16088,7 +16108,7 @@ void btdm_PANActionBC82Ant92d(PADAPTER padapter)
 			}
 		}
 		else if (pBtMgnt->ExtConfig.bBTBusy &&
-				!pmlmepriv->LinkDetectInfo.bBusyTraffic &&
+				!BTDM_IsWifiBusy(padapter) &&
 				(BTDM_GetRxSS(padapter) < 30))
 		{
 			RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is idle!\n"));
@@ -16178,7 +16198,7 @@ void btdm_HIDActionBC42Ant(PADAPTER padapter)
 		RTPRINT(FBT, BT_TRACE, ("Wifi Downlink\n"));
 		btdm_WLANActOff(padapter);
 	}
-	else if (!pmlmepriv->LinkDetectInfo.bBusyTraffic)
+	else if (!BTDM_IsWifiBusy(padapter))
 	{
 		RTPRINT(FBT, BT_TRACE, ("Wifi Idel \n"));
 		btdm_WLANActOff(padapter);
@@ -16217,7 +16237,7 @@ void btdm_HIDActionBC82Ant(PADAPTER padapter)
 	if (pHalData->bt_coexist.PreviousState == pHalData->bt_coexist.CurrentState)
 		return;
 
-	if (pBtMgnt->ExtConfig.bBTBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic)
+	if (pBtMgnt->ExtConfig.bBTBusy && BTDM_IsWifiBusy(padapter))
 	{
 		RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle!\n"));
 		// Do the FW mechanism first
@@ -16272,7 +16292,7 @@ void btdm_HIDActionBC82Ant92d(PADAPTER padapter)
 	if (pHalData->bt_coexist.PreviousState == pHalData->bt_coexist.CurrentState)
 		return;
 
-	if (pBtMgnt->ExtConfig.bBTBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic)
+	if (pBtMgnt->ExtConfig.bBTBusy && BTDM_IsWifiBusy(padapter))
 	{
 		RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle!\n"));
 		if ((btRssiState == BT_RSSI_STATE_HIGH) ||
@@ -16815,7 +16835,7 @@ void btdm_HIDPANActionBC42Ant(PADAPTER padapter)
 			BTDM_Balance(padapter, _TRUE, 0x20, 0x10);
 			BTDM_DiminishWiFi(padapter, _TRUE, _FALSE, 0x20, BT_FW_NAV_OFF);
 		}
-		else if (!pmlmepriv->LinkDetectInfo.bBusyTraffic)
+		else if (!BTDM_IsWifiBusy(padapter))
 		{
 			RTPRINT(FBT, BT_TRACE, ("Wifi Idel \n"));
 			btdm_WLANActOff(padapter);
@@ -16840,7 +16860,7 @@ void btdm_HIDPANActionBC82Ant(PADAPTER padapter)
 		if (pHalData->bt_coexist.PreviousState == pHalData->bt_coexist.CurrentState)
 			return;
 
-		if ((pBtMgnt->ExtConfig.bBTBusy && padapter->mlmepriv.LinkDetectInfo.bBusyTraffic))
+		if ((pBtMgnt->ExtConfig.bBTBusy && BTDM_IsWifiBusy(padapter)))
 		{
 			RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle, "));
 
@@ -17003,7 +17023,7 @@ void btdm_PANA2DPActionBC42Ant(PADAPTER padapter)
 	else
 	{
 		RTPRINT(FBT, BT_TRACE, ("[BT 2.1]\n"));
-		if (pBtMgnt->ExtConfig.bBTBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic)
+		if (pBtMgnt->ExtConfig.bBTBusy && BTDM_IsWifiBusy(padapter))
 		{
 			RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle!\n"));
 			BTDM_Balance(padapter, _TRUE, 0x20, 0x10);
@@ -17036,7 +17056,7 @@ void btdm_PANA2DPActionBC82Ant(PADAPTER padapter)
 		if (pHalData->bt_coexist.PreviousState == pHalData->bt_coexist.CurrentState)
 			return;
 
-		if ((pBtMgnt->ExtConfig.bBTBusy && pmlmepriv->LinkDetectInfo.bBusyTraffic))
+		if ((pBtMgnt->ExtConfig.bBTBusy && BTDM_IsWifiBusy(padapter)))
 		{
 			RTPRINT(FBT, BT_TRACE, ("BT is non-idle && Wifi is non-idle, "));
 
@@ -17799,7 +17819,7 @@ void BTDM_CheckWiFiState(PADAPTER padapter)
 	pBTInfo = GET_BT_INFO(padapter);
 	pBtMgnt = &pBTInfo->BtMgnt;
 
-	if (pmlmepriv->LinkDetectInfo.bBusyTraffic)
+	if (BTDM_IsWifiBusy(padapter))
 	{
 		pHalData->bt_coexist.CurrentState &= ~BT_COEX_STATE_WIFI_IDLE;
 

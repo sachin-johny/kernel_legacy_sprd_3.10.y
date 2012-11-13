@@ -99,6 +99,9 @@ _func_enter_;
 	#ifdef CONFIG_FTP_PROTECT
 	pmlmepriv->ftp_lock_flag = 0;
 	#endif //CONFIG_FTP_PROTECT
+	#ifdef CONFIG_LINKED_LCOK
+	pmlmepriv->linked_lock_flag = 0;
+	#endif //CONFIG_LINKED_LCOK
 
 	rtw_init_mlme_timer(padapter);
 
@@ -115,6 +118,13 @@ void rtw_mfree_mlme_priv_lock (struct mlme_priv *pmlmepriv)
 	_rtw_spinlock_free(&pmlmepriv->lock);
 	_rtw_spinlock_free(&(pmlmepriv->free_bss_pool.lock));
 	_rtw_spinlock_free(&(pmlmepriv->scanned_queue.lock));
+
+#ifdef CONFIG_LINKED_LCOK
+	if (pmlmepriv->linked_lock_flag){
+		pmlmepriv->linked_lock_flag = 0;
+		rtw_unlock_suspend();
+	}
+#endif
 }
 
 static void rtw_free_mlme_ie_data(u8 **ppie, u32 *plen)
@@ -1482,8 +1492,9 @@ void rtw_indicate_disconnect( _adapter *padapter )
 _func_enter_;
 
 	RT_TRACE(_module_rtl871x_mlme_c_, _drv_err_, ("+rtw_indicate_disconnect\n"));
-
 	_clr_fwstate_(pmlmepriv, _FW_LINKED|_FW_UNDER_LINKING|WIFI_UNDER_WPS);
+
+	pmlmeext->check_ap_processing = _FALSE; //for check whether ap alive
 
 	rtw_led_control(padapter, LED_CTL_NO_LINK);
 
@@ -1580,6 +1591,7 @@ static struct sta_info *rtw_joinbss_update_stainfo(_adapter *padapter, struct wl
 		//security related
 		if(padapter->securitypriv.dot11AuthAlgrthm== dot11AuthAlgrthm_8021X)
 		{
+			padapter->securitypriv.bStaInstallPairwiseKey = _FALSE;
 			padapter->securitypriv.binstallGrpkey=_FALSE;
 			padapter->securitypriv.busetkipkey=_FALSE;
 			padapter->securitypriv.bgrpkey_handshake=_FALSE;
@@ -2473,6 +2485,24 @@ void rtw_dynamic_check_timer_handlder(_adapter *adapter)
 	PADAPTER pbuddy_adapter = adapter->pbuddy_adapter;
 #endif
 
+	//put here to avoid ips effect
+#ifdef CONFIG_LINKED_LCOK
+	if((check_fwstate(&adapter->mlmepriv, _FW_LINKED)== _TRUE) ||
+		(check_fwstate(&adapter->mlmepriv, WIFI_AP_STATE) == _TRUE)) {
+		if (!adapter->mlmepriv.linked_lock_flag) {
+			DBG_871X("%s lock suspend\n", __func__);
+			adapter->mlmepriv.linked_lock_flag = 1;
+			rtw_lock_suspend();
+		}
+	} else {
+		if (adapter->mlmepriv.linked_lock_flag){
+			DBG_871X("%s unlock suspend\n", __func__);
+			adapter->mlmepriv.linked_lock_flag = 0;
+			rtw_unlock_suspend();
+		}
+	}
+#endif //CONFIG_LINKED_LCOK
+
 	if(!adapter)
 		return;
 
@@ -3291,6 +3321,9 @@ _func_enter_;
 #endif
 	}
 
+//sherry masked 20121105
+//802.1x relink fail with RSN-IE is different
+#if 0
 	iEntry = SecIsInPMKIDList(adapter, pmlmepriv->assoc_bssid);
 	if(iEntry<0)
 	{
@@ -3303,6 +3336,7 @@ _func_enter_;
 			ielength=rtw_append_pmkid(adapter, iEntry, out_ie, ielength);
 		}
 	}
+#endif
 
 _func_exit_;
 

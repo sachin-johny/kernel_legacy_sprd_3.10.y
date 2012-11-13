@@ -10,7 +10,9 @@
 //#include "rtl819x_Qos.h"
 
 #define CONFIG_WAPI_SW_SMS4
+#ifdef CONFIG_DEBUG
 #define WAPI_DEBUG
+#endif
 
 #define SMS4_MIC_LEN                16
 #define WAPI_EXT_LEN                18

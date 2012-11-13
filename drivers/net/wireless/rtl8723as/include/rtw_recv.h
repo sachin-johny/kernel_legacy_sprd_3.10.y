@@ -25,7 +25,11 @@
 #include <drv_types.h>
 
 
+#ifdef CONFIG_DONT_CARE_TP
+#define NR_RECVFRAME 64
+#else
 #define NR_RECVFRAME 256
+#endif
 
 #define RXFRAME_ALIGN	8
 #define RXFRAME_ALIGN_SZ	(1<<RXFRAME_ALIGN)

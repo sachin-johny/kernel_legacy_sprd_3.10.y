@@ -681,7 +681,9 @@ _func_enter_;
 	registry_par->scan_mode = (u8)rtw_scan_mode;
 	registry_par->adhoc_tx_pwr = (u8)rtw_adhoc_tx_pwr;
 	registry_par->soft_ap=  (u8)rtw_soft_ap;
+#if !((defined CONFIG_BT_COEXIST && defined CONFIG_RTL8723A))
 	registry_par->smart_ps =  (u8)rtw_smart_ps;
+#endif
 	registry_par->power_mgnt = (u8)rtw_power_mgnt;
 	registry_par->ips_mode = (u8)rtw_ips_mode;
 	registry_par->radio_enable = (u8)rtw_radio_enable;
@@ -1105,6 +1107,7 @@ u8 rtw_init_default_value(_adapter *padapter)
 	//security_priv
 	//rtw_get_encrypt_decrypt_from_registrypriv(padapter);
 	psecuritypriv->binstallGrpkey = _FAIL;
+	psecuritypriv->bStaInstallPairwiseKey = _FALSE;
 	psecuritypriv->sw_encrypt=pregistrypriv->software_encrypt;
 	psecuritypriv->sw_decrypt=pregistrypriv->software_decrypt;
 
@@ -1160,6 +1163,7 @@ u8 rtw_reset_drv_sw(_adapter *padapter)
 	padapter->recvpriv.rx_pkts = 0;
 
 	pmlmepriv->LinkDetectInfo.bBusyTraffic = _FALSE;
+	pmlmepriv->LinkDetectInfo.bCanNotScan = _FALSE;
 
 	_clr_fwstate_(pmlmepriv, _FW_UNDER_SURVEY |_FW_UNDER_LINKING);
 
@@ -1579,6 +1583,7 @@ static int netdev_if2_close(struct net_device *pnetdev)
 #ifdef CONFIG_IOCTL_CFG80211
 	rtw_scan_abort(padapter);
 	wdev_to_priv(padapter->rtw_wdev)->bandroid_scan = _FALSE;
+	wdev_to_priv(padapter->rtw_wdev)->bandroid_dhcp = _FALSE;
 #endif
 
 	return 0;
@@ -2186,6 +2191,7 @@ static int netdev_close(struct net_device *pnetdev)
 #ifdef CONFIG_IOCTL_CFG80211
 	rtw_scan_abort(padapter);
 	wdev_to_priv(padapter->rtw_wdev)->bandroid_scan = _FALSE;
+	wdev_to_priv(padapter->rtw_wdev)->bandroid_dhcp = _FALSE;
 	padapter->rtw_wdev->iftype = NL80211_IFTYPE_MONITOR; //set this at the end
 #endif //CONFIG_IOCTL_CFG80211
 

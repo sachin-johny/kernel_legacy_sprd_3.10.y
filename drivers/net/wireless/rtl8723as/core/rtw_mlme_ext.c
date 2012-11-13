@@ -300,6 +300,7 @@ static void init_mlme_ext_priv_value(_adapter* padapter)
 	ATOMIC_SET(&pmlmeext->event_seq, 0);
 	pmlmeext->mgnt_seq = 0;//reset to zero when disconnect at client mode
 
+	pmlmeext->check_ap_processing = _FALSE; //for check whether ap alive
 	pmlmeext->cur_channel = padapter->registrypriv.channel;
 	pmlmeext->cur_bwmode = HT_CHANNEL_WIDTH_20;
 	pmlmeext->cur_ch_offset = HAL_PRIME_CHNL_OFFSET_DONT_CARE;
@@ -925,6 +926,7 @@ unsigned int OnBeacon(_adapter *padapter, union recv_frame *precv_frame)
 	{
 		if (pmlmeinfo->state & WIFI_FW_AUTH_NULL)
 		{
+#ifndef CONFIG_AUTH_DIRECT_WITHOUT_BCN
 			//we should update current network before auth, or some IE is wrong
 			pbss = (WLAN_BSSID_EX*)rtw_malloc(sizeof(WLAN_BSSID_EX));
 			if (pbss) {
@@ -934,15 +936,17 @@ unsigned int OnBeacon(_adapter *padapter, union recv_frame *precv_frame)
 				}
 				rtw_mfree((u8*)pbss, sizeof(WLAN_BSSID_EX));
 			}
-
+#endif
 			//check the vendor of the assoc AP
 			pmlmeinfo->assoc_AP_vendor = check_assoc_AP(pframe+sizeof(struct rtw_ieee80211_hdr_3addr), len-sizeof(struct rtw_ieee80211_hdr_3addr));
 
 			//update TSF Value
 			update_TSF(pmlmeext, pframe, len);
 
+#ifndef CONFIG_AUTH_DIRECT_WITHOUT_BCN
 			//start auth
 			start_clnt_auth(padapter);
+#endif
 
 			return _SUCCESS;
 		}
@@ -7086,7 +7090,7 @@ void issue_assocreq(_adapter *padapter)
 	if(padapter->mlmepriv.htpriv.ht_option==_TRUE)
 	{
 		p = rtw_get_ie((pmlmeinfo->network.IEs + sizeof(NDIS_802_11_FIXED_IEs)), _HT_CAPABILITY_IE_, &ie_len, (pmlmeinfo->network.IELength - sizeof(NDIS_802_11_FIXED_IEs)));
-		if ((p != NULL) && (!(is_ap_in_tkip(padapter))))
+		if ((p != NULL) && (!(is_ap_in_tkip(padapter))) && (!(is_ap_in_wep(padapter))))
 		{
 			_rtw_memcpy(&(pmlmeinfo->HT_caps), (p + 2), sizeof(struct HT_caps_element));
 
@@ -8676,11 +8680,18 @@ void start_clnt_join(_adapter* padapter)
 		//switch channel
 		set_channel_bwmode(padapter, pmlmeext->cur_channel, pmlmeext->cur_ch_offset, pmlmeext->cur_bwmode);
 
+#ifndef CONFIG_AUTH_DIRECT_WITHOUT_BCN
 		//here wait for receiving the beacon to start auth
 		//and enable a timer
 		set_link_timer(pmlmeext, decide_wait_for_beacon_timeout(pmlmeinfo->bcn_interval));
+#endif
 
 		pmlmeinfo->state = WIFI_FW_AUTH_NULL | WIFI_FW_STATION_STATE;
+
+#ifdef CONFIG_AUTH_DIRECT_WITHOUT_BCN
+		//start auth without waite a beacon
+		start_clnt_auth(padapter);
+#endif
 	}
 	else if (caps&cap_IBSS) //adhoc client
 	{
@@ -8767,7 +8778,7 @@ unsigned int receive_disconnect(_adapter *padapter, unsigned char *MacAddr, unsi
 {
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-
+	
 	//check A3
 	if (!(_rtw_memcmp(MacAddr, get_my_bssid(&pmlmeinfo->network), ETH_ALEN)))
 		return _SUCCESS;
@@ -9504,8 +9515,10 @@ void mlmeext_joinbss_event_callback(_adapter *padapter, int join_res)
 
 #ifndef CONFIG_CONCURRENT_MODE
 #ifdef CONFIG_LPS
-	if (padapter->securitypriv.dot11AuthAlgrthm < dot11AuthAlgrthm_8021X)
+	if (padapter->securitypriv.dot11AuthAlgrthm != dot11AuthAlgrthm_8021X &&
+		padapter->securitypriv.dot11AuthAlgrthm != dot11AuthAlgrthm_WAPI) {
 		rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_CONNECT, 0);
+	}
 #endif
 #endif
 
@@ -9676,7 +9689,7 @@ void linked_status_chk(_adapter *padapter)
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	struct sta_priv		*pstapriv = &padapter->stapriv;
-
+	static u32 nobcn_times = 0;
 	//
 	if(padapter->bRxRSSIDisplay)
 		 _linked_rx_signal_strehgth_display(padapter);
@@ -9694,7 +9707,7 @@ void linked_status_chk(_adapter *padapter)
 				, pmlmeext->retry
 			);
 			#endif
-
+#ifndef CONFIG_DISCONNECT_H2CWAY
 			/*to monitor whether the AP is alive or not*/
 			if (sta_last_rx_pkts(psta) == sta_rx_pkts(psta))
 			{
@@ -9752,6 +9765,65 @@ void linked_status_chk(_adapter *padapter)
 				sta_update_last_rx_pkts(psta);
 				//set_link_timer(pmlmeext, DISCONNECT_TO);
 			}
+#else
+			/*to monitor whether the AP is alive or not*/
+			if (sta_last_rx_pkts(psta) == sta_rx_pkts(psta))
+			{
+				if(nobcn_times < (TRY_AP_TIMES-1))
+				{
+					nobcn_times++;
+					DBG_871X("%s nobcn_times:%d\n", __FUNCTION__, nobcn_times);
+				}
+				else if((pmlmeext->sitesurvey_res.state == SCAN_DISABLE))
+				{
+					nobcn_times++;
+					DBG_871X("%s nobcn_times:%d\n", __FUNCTION__, nobcn_times);
+					if (nobcn_times == TRY_AP_TIMES)
+					{
+						pmlmeext->check_ap_processing = _TRUE;
+						//becaue in lps mode, we even send probe req, resp may cannot be received,
+						//and in no lps mode, this case will not happen, so we should ask fw is link is keep.
+
+						DBG_871X("%s no beacon and unicast ask fw reset tx/rx stats\n",__FUNCTION__);
+						if (padapter->HalFunc.fw_try_ap_cmd)
+						{
+							padapter->HalFunc.fw_try_ap_cmd(padapter, 0);
+							pmlmeext->try_ap_c2h_wait = _FALSE;
+						}
+
+						DBG_871X("%s no beacon and unicast Driver try AP now\n",__FUNCTION__);
+						if (padapter->pwrctrlpriv.pwr_mode == PS_MODE_ACTIVE)
+						{
+							issue_nulldata(padapter, 0);
+							issue_nulldata(padapter, 0);
+						}
+						else 
+						{
+							issue_nulldata(padapter, 1);
+							issue_nulldata(padapter, 1);
+						}
+					} else if (nobcn_times == TRY_AP_TIMES + 1) {
+						//becaue in lps mode, we even send probe req, resp may cannot be received,
+						//and in no lps mode, this case will not happen, so we should ask fw is link is keep.
+
+						DBG_871X_LEVEL(_drv_warning_, "%s no beacon and unicast ask fw try AP now\n",__FUNCTION__);
+						if (padapter->HalFunc.fw_try_ap_cmd) 
+						{
+							padapter->HalFunc.fw_try_ap_cmd(padapter, 1);
+							pmlmeext->try_ap_c2h_wait = _TRUE;
+						}
+						pmlmeext->check_ap_processing = _FALSE;
+						nobcn_times = 0;
+					}
+				}
+			}
+			else
+			{
+				pmlmeext->check_ap_processing = _FALSE;
+				nobcn_times = 0;
+				sta_update_last_rx_pkts(psta);
+			}
+#endif
 
 			#ifdef DBG_EXPIRATION_CHK
 			DBG_871X("%s tx_pkts:%llu, link_count:%u\n", __FUNCTION__
@@ -10239,6 +10311,7 @@ u8 join_cmd_hdl(_adapter *padapter, u8 *pbuf)
 	pmlmeinfo->bwmode_updated = _FALSE;
 	//pmlmeinfo->assoc_AP_vendor = HT_IOT_PEER_MAX;
 
+	//NOTICE: pbuf is copy from scan list network, but not all IEs are inclued
 	_rtw_memcpy(pnetwork, pbuf, FIELD_OFFSET(WLAN_BSSID_EX, IELength));
 	pnetwork->IELength = ((WLAN_BSSID_EX *)pbuf)->IELength;
 
