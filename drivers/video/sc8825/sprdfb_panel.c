@@ -47,22 +47,22 @@ __setup("lcd_id=", lcd_id_get);
 static int32_t panel_reset_dispc(struct panel_spec *self)
 {
 	dispc_write(0, DISPC_RSTN);
-	udelay(100);
+	mdelay(20);
 	dispc_write(1, DISPC_RSTN);
 
 	/* wait 10ms util the lcd is stable */
-	msleep(10);
+	msleep(20);
 	return 0;
 }
 
 static int32_t panel_reset_lcdc(struct panel_spec *self)
 {
 	lcdc_write(0, LCM_RSTN);
-	udelay(100);
+	mdelay(20);
 	lcdc_write(1, LCM_RSTN);
 
 	/* wait 10ms util the lcd is stable */
-	msleep(10);
+	msleep(20);
 	return 0;
 }
 
@@ -210,8 +210,8 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 	}
 
 	list_for_each_entry(cfg, panel_list, list) {
-		panel_reset(dev->dev_id, cfg->panel);
 		panel_mount(dev, cfg->panel);
+		dev->panel->ops->panel_reset(cfg->panel);
 		panel_init(dev);
 		dev->panel->ops->panel_init(dev->panel);
 		id = dev->panel->ops->panel_readid(dev->panel);
@@ -311,19 +311,24 @@ void sprdfb_panel_after_refresh(struct sprdfb_device *dev)
 
 void sprdfb_panel_suspend(struct sprdfb_device *dev)
 {
+	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 	/*Jessica TODO: Need do some I2c, SPI, mipi sleep here*/
 	/* let lcdc sleep in */
+	if (dev->panel->ops->panel_enter_sleep != NULL) {
+		dev->panel->ops->panel_enter_sleep(dev->panel,1);
+	}
+
+	msleep(100);
+
 	if(NULL != dev->panel->if_ctrl->panel_if_suspend){
 		dev->panel->if_ctrl->panel_if_suspend(dev);
 	}
-
-	if (dev->panel->ops->panel_enter_sleep != NULL) {
-		dev->panel->ops->panel_enter_sleep(dev->panel,1);
-		}
 }
 
 void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 {
+	printk(KERN_INFO "sprdfb:[%s], dev->enable= %d, from_deep_sleep = %d\n",__FUNCTION__, dev->enable, from_deep_sleep);
+
 	/*Jessica TODO: resume i2c, spi, mipi*/
 	if(NULL != dev->panel->if_ctrl->panel_if_resume){
 		dev->panel->if_ctrl->panel_if_resume(dev);
