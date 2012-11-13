@@ -671,7 +671,11 @@ u8 rtw_sitesurvey_cmd(_adapter  *padapter, NDIS_802_11_SSID *pssid, int ssid_max
 _func_enter_;
 
 #ifdef CONFIG_LPS
+#ifndef CONFIG_BT_COEXIST 
+	//we have done it in HW_VAR_MLME_SITESURVEY
+	//so dont do it two times, or TDMA will wrong
 	rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_SCAN, 1);
+#endif
 #endif
 
 #ifdef CONFIG_P2P
@@ -1100,6 +1104,7 @@ _func_exit_;
 	return res;
 }
 
+//pnetwork is from scan list
 u8 rtw_joinbss_cmd(_adapter  *padapter, struct wlan_network* pnetwork)
 {
 	u8	*auth, res = _SUCCESS;
@@ -1245,6 +1250,14 @@ _func_enter_;
 
 	pmlmeinfo->assoc_AP_vendor = check_assoc_AP(pnetwork->network.IEs, pnetwork->network.IELength);
 
+#ifdef CONFIG_AUTH_DIRECT_WITHOUT_BCN
+	//it's too late current network just update from linked scan action, 
+	//so here we update current network before linking, it's from scan list,
+	//if not update here IEs is wrong between linking and linked scan,
+	update_network(&(pmlmepriv->cur_network.network), &pnetwork->network, padapter, _TRUE);
+	rtw_get_bcn_info(&(pmlmepriv->cur_network));
+#endif
+
 	#if 0
 	psecuritypriv->supplicant_ie[0]=(u8)psecnetwork->IELength;
 
@@ -1279,6 +1292,8 @@ _func_enter_;
 	psecnetwork->IELength = cpu_to_le32(psecnetwork->IELength);
 #endif
 
+	//NOTICE: not all IEs in scan list are copyed to psecnetwork,
+	//we just copyed some we want
 	_rtw_init_listhead(&pcmd->list);
 	pcmd->cmdcode = _JoinBss_CMD_;//GEN_CMD_CODE(_JoinBss)
 	pcmd->parmbuf = (unsigned char *)psecnetwork;
@@ -1412,8 +1427,10 @@ _func_enter_;
 	if(check_fwstate(pmlmepriv, WIFI_STATION_STATE)){
 #ifndef CONFIG_CONCURRENT_MODE
 #ifdef CONFIG_LPS
-		if (padapter->securitypriv.dot11AuthAlgrthm >= dot11AuthAlgrthm_8021X)
+		if (padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X ||
+			padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI) {
 			rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_CONNECT, 0);
+		}
 #endif
 #endif
 
@@ -1892,7 +1909,7 @@ static void traffic_status_watchdog(_adapter *padapter)
 #ifdef CONFIG_LPS
 	u8	bEnterPS;
 #endif
-	u8	bBusyTraffic = _FALSE, bTxBusyTraffic = _FALSE, bRxBusyTraffic = _FALSE;
+	u8	bBusyTraffic = _FALSE, bTxBusyTraffic = _FALSE, bRxBusyTraffic = _FALSE, bCanNotScan = _FALSE;
 	u8	bHigherBusyTraffic = _FALSE, bHigherBusyRxTraffic = _FALSE, bHigherBusyTxTraffic = _FALSE;
 #ifdef CONFIG_FTP_PROTECT
 	u16	bPktCount = 0;
@@ -1910,8 +1927,8 @@ static void traffic_status_watchdog(_adapter *padapter)
 	{
 
 #ifdef CONFIG_BT_COEXIST
-		if( pmlmepriv->LinkDetectInfo.NumRxOkInPeriod > 50 ||
-			pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 50 )
+		if( pmlmepriv->LinkDetectInfo.NumRxOkInPeriod > 10 ||
+			pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 10 )
 #else // !CONFIG_BT_COEXIST
 		if( pmlmepriv->LinkDetectInfo.NumRxOkInPeriod > 100 ||
 			pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 100 )
@@ -1923,6 +1940,10 @@ static void traffic_status_watchdog(_adapter *padapter)
 				bRxBusyTraffic = _TRUE;
 			else
 				bTxBusyTraffic = _TRUE;
+
+			if (pmlmepriv->LinkDetectInfo.NumRxOkInPeriod > 100 ||
+				pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 100)
+				bCanNotScan = _TRUE;
 		}
 
 		// Higher Tx/Rx data.
@@ -2001,6 +2022,7 @@ static void traffic_status_watchdog(_adapter *padapter)
 	pmlmepriv->LinkDetectInfo.NumTxOkInPeriod = 0;
 	pmlmepriv->LinkDetectInfo.NumRxUnicastOkInPeriod = 0;
 	pmlmepriv->LinkDetectInfo.bBusyTraffic = bBusyTraffic;
+	pmlmepriv->LinkDetectInfo.bCanNotScan = bCanNotScan;
 	pmlmepriv->LinkDetectInfo.bTxBusyTraffic = bTxBusyTraffic;
 	pmlmepriv->LinkDetectInfo.bRxBusyTraffic = bRxBusyTraffic;
 	pmlmepriv->LinkDetectInfo.bHigherBusyTraffic = bHigherBusyTraffic;

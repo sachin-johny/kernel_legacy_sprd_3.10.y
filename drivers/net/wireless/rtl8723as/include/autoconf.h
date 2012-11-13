@@ -239,13 +239,22 @@
 #define POWER_TRAINING_ACTIVE			0
 //#endif
 
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+	#define CONFIG_LINKED_LCOK
+	#define CONFIG_AUTH_DIRECT_WITHOUT_BCN
+	#define CONFIG_DISCONNECT_H2CWAY
+	#define CONFIG_DONT_CARE_TP
+#endif
+
 /*
  * Debug Related Config
  */
 #define DBG	0
 
-#define CONFIG_DEBUG /* DBG_871X, etc... */
+//CONFIG_DEBUG is in MakeFile /* DBG_871X, etc... */
+#ifdef CONFIG_DEBUG
 #define CONFIG_DEBUG_RTL871X /* RT_TRACE, RT_PRINT_DATA, _func_enter_, _func_exit_ */
+#endif
 
 #define CONFIG_PROC_DEBUG
 

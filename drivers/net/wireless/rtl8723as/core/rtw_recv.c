@@ -520,7 +520,7 @@ _func_enter_;
 			}
 			else{
 				mickey=&stainfo->dot11tkiprxmickey.skey[0];
-				RT_TRACE(_module_rtl871x_recv_c_,_drv_err_,("\n recvframe_chkmic: unicast key \n"));
+				RT_TRACE(_module_rtl871x_recv_c_,_drv_notice_,("\n recvframe_chkmic: unicast key \n"));
 			}
 
 			datalen=precvframe->u.hdr.len-prxattrib->hdrlen-prxattrib->iv_len-prxattrib->icv_len-8;//icv_len included the mic code
@@ -3952,7 +3952,7 @@ int recv_func_posthandle(_adapter *padapter, union recv_frame *prframe)
 	ret = process_recv_indicatepkts(padapter, prframe);
 	if (ret != _SUCCESS)
 	{
-		RT_TRACE(_module_rtl871x_recv_c_,_drv_err_,("recv_func: process_recv_indicatepkts fail! \n"));
+		RT_TRACE(_module_rtl871x_recv_c_,_drv_notice_,("recv_func: process_recv_indicatepkts fail! \n"));
 		#ifdef DBG_RX_DROP_FRAME
 		DBG_871X("DBG_RX_DROP_FRAME %s process_recv_indicatepkts fail!\n", __FUNCTION__);
 		#endif

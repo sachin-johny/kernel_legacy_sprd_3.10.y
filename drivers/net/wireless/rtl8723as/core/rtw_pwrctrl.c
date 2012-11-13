@@ -33,11 +33,20 @@ void ips_enter(_adapter * padapter)
 {
 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
 	struct mlme_priv *pmlmepriv = &(padapter->mlmepriv);
+	struct xmit_priv *pxmit_priv = &padapter->xmitpriv;
 
 #if (MP_DRIVER == 1)
 	if (padapter->registrypriv.mp_mode == 1)
 		return;
 #endif
+
+	if (pxmit_priv->free_xmitbuf_cnt != pxmit_priv->real_allocate_xmitbuf_cnt ||
+		pxmit_priv->free_xmit_extbuf_cnt != NR_XMIT_EXTBUFF) {
+		DBG_871X("There are some pkts to transmit\n");
+		DBG_871X("free_xmitbuf_cnt: %d, free_xmit_extbuf_cnt: %d\n", 
+			pxmit_priv->free_xmitbuf_cnt, pxmit_priv->free_xmit_extbuf_cnt);	
+		return;
+	}
 
 	_enter_pwrlock(&pwrpriv->lock);
 
@@ -54,7 +63,7 @@ void ips_enter(_adapter * padapter)
 	if(rf_off == pwrpriv->change_rfpwrstate )
 	{
 		pwrpriv->bpower_saving = _TRUE;
-		DBG_871X_LEVEL(_drv_always_, "nolinked power save enter\n");
+		DBG_871X("nolinked power save enter\n");
 
 		if(pwrpriv->ips_mode == IPS_LEVEL_2)
 			pwrpriv->bkeepfwalive = _TRUE;
@@ -89,7 +98,7 @@ int ips_leave(_adapter * padapter)
 		if ((result = rtw_ips_pwr_up(padapter)) == _SUCCESS) {
 			pwrpriv->rf_pwrstate = rf_on;
 		}
-		DBG_871X_LEVEL(_drv_always_, "nolinked power save leave\n");
+		DBG_871X("nolinked power save leave\n");
 
 		if((_WEP40_ == psecuritypriv->dot11PrivacyAlgrthm) ||(_WEP104_ == psecuritypriv->dot11PrivacyAlgrthm))
 		{
@@ -462,10 +471,14 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 
 	delta_time = curr_time -pwrpriv->DelayLPSLastTimeStamp;
 
+	//under BT coex, we should enter LPS when we want
+	//or, TDMA will wrong
+#ifdef CONFIG_BT_COEXIST
 	if(delta_time < LPS_DELAY_TIME)
 	{
 		return _FALSE;
 	}
+#endif
 
 	if ((check_fwstate(pmlmepriv, _FW_LINKED) == _FALSE) ||
 		(check_fwstate(pmlmepriv, _FW_UNDER_SURVEY) == _TRUE) ||
@@ -473,12 +486,20 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 		(check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE) == _TRUE) ||
 		(check_fwstate(pmlmepriv, WIFI_ADHOC_STATE) == _TRUE) )
 		return _FALSE;
-
+#ifdef CONFIG_WOWLAN
+	if(_TRUE == pwrpriv->bInSuspend && pwrpriv->wowlan_mode)
+		return _TRUE;
+	else
+		return _FALSE;
+#else
 	if(_TRUE == pwrpriv->bInSuspend )
 		return _FALSE;
-
-	if( (padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X) && (padapter->securitypriv.binstallGrpkey == _FALSE) )
+#endif
+	if( (padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X ||
+		padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI) && 
+		(padapter->securitypriv.bStaInstallPairwiseKey == _FALSE) )
 	{
+		//when bStaInstallPairwiseKey, hand shake is complete
 		DBG_871X("Group handshake still in progress !!!\n");
 		return _FALSE;
 	}

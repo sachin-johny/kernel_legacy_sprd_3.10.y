@@ -25,8 +25,7 @@
 #include <sdio_ops.h>
 #include <rtl8723a_hal.h>
 
-#define SDIO_TX_AGG_MAX	5
-
+//#define DBG_XMITBUF_ENOUGH
 
 s32 rtl8723_dequeue_writeport(PADAPTER padapter, u8 *freePage)
 {
@@ -112,7 +111,7 @@ s32 rtl8723_dequeue_writeport(PADAPTER padapter, u8 *freePage)
 		}
 
 		n++;
-		if ((n & 0x3FF) == 0) {
+		if ((n & 0xFF) == 0) {
 			if (n > 5000) {
 				DBG_8192C(KERN_NOTICE "%s: FIFO starvation!(%d) len=%d agg=%d page=(R)%d(A)%d\n",
 					__func__, n, pxmitbuf->len, pframe->agg_num, pframe->pg_num, freePage[PageIdx] + freePage[PUBLIC_QUEUE_IDX]);
@@ -299,7 +298,9 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 
 					pxmitbuf = rtw_alloc_xmitbuf(pxmitpriv);
 					if (pxmitbuf == NULL) {
+#ifdef DBG_XMITBUF_ENOUGH
 						RT_TRACE(_module_hal_xmit_c_, _drv_err_, ("%s: xmit_buf is not enough!\n", __FUNCTION__));
+#endif
 						err = -2;
 						break;
 					}
@@ -441,7 +442,10 @@ next:
 
 	ret = xmit_xmitframes(padapter, pxmitpriv);
 	if (ret == -2) {
-		rtw_msleep_os(1);
+		//here sleep 1ms will cause big TP loss of TX
+		//from 50+ to 40+
+		//rtw_msleep_os(1);
+		rtw_yield_os();
 		goto next;
 	}
 
@@ -449,7 +453,7 @@ next:
 	ret = rtw_txframes_pending(padapter);
 	_exit_critical_bh(&pxmitpriv->lock, &irql);
 	if (ret == 1) {
-		rtw_msleep_os(1);
+		//rtw_msleep_os(1);
 		goto next;
 	}
 

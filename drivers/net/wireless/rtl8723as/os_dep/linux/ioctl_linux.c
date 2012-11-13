@@ -858,7 +858,7 @@ _func_enter_;
 
 					//DEBUG_ERR((" param->u.crypt.key_len=%d\n",param->u.crypt.key_len));
 					DBG_871X(" ~~~~set sta key:unicastkey\n");
-
+					padapter->securitypriv.bStaInstallPairwiseKey = _TRUE;
 					rtw_setstakey_cmd(padapter, (unsigned char *)psta, _TRUE);
 				}
 				else//group key
@@ -866,7 +866,7 @@ _func_enter_;
 					_rtw_memcpy(padapter->securitypriv.dot118021XGrpKey[param->u.crypt.idx].skey,  param->u.crypt.key,(param->u.crypt.key_len>16 ?16:param->u.crypt.key_len));
 					_rtw_memcpy(padapter->securitypriv.dot118021XGrptxmickey[param->u.crypt.idx].skey,&(param->u.crypt.key[16]),8);
 					_rtw_memcpy(padapter->securitypriv.dot118021XGrprxmickey[param->u.crypt.idx].skey,&(param->u.crypt.key[24]),8);
-                                        padapter->securitypriv.binstallGrpkey = _TRUE;
+					padapter->securitypriv.binstallGrpkey = _TRUE;
 					//DEBUG_ERR((" param->u.crypt.key_len=%d\n", param->u.crypt.key_len));
 					DBG_871X(" ~~~~set sta key:groupkey\n");
 
@@ -939,6 +939,7 @@ _func_enter_;
 					if (psecuritypriv->sw_encrypt== false || psecuritypriv->sw_decrypt == false)
 					{
 						//set unicast key for ASUE
+						padapter->securitypriv.bStaInstallPairwiseKey = _TRUE;
 						rtw_wapi_set_key(padapter, &pWapiSta->wapiUsk, pWapiSta, false, false);
 					}
 				}
@@ -963,6 +964,7 @@ _func_enter_;
 					if (psecuritypriv->sw_decrypt == false)
 					{
 						//set rx broadcast key for ASUE
+						padapter->securitypriv.binstallGrpkey = _TRUE;
 						rtw_wapi_set_key(padapter, &pWapiSta->wapiMsk, pWapiSta, true, false);
 					}
 				}
@@ -1878,6 +1880,16 @@ if (padapter->registrypriv.mp_mode == 1)
 	}
 }
 #endif
+
+#ifdef CONFIG_DISCONNECT_H2CWAY
+//scan should be forbidden between two h2c command when checking whether ap is alive
+	if(padapter->mlmeextpriv.check_ap_processing == _TRUE)
+	{
+		ret = -EPERM;
+		goto exit;	
+	}
+#endif
+
 	if(_FAIL == rtw_pwr_wakeup(padapter))
 	{
 		ret= -1;
@@ -1903,7 +1915,7 @@ if (padapter->registrypriv.mp_mode == 1)
 	// When Busy Traffic, driver do not site survey. So driver return success.
 	// wpa_supplicant will not issue SIOCSIWSCAN cmd again after scan timeout.
 	// modify by thomas 2011-02-22.
-	if (pmlmepriv->LinkDetectInfo.bBusyTraffic == _TRUE)
+	if (pmlmepriv->LinkDetectInfo.bCanNotScan == _TRUE)
 	{
 		indicate_wx_scan_complete_event(padapter);
 		goto exit;
@@ -5889,6 +5901,36 @@ static int rtw_p2p_get2(struct net_device *dev,
 	return ret;
 
 }
+
+static int rtw_cta_test_start(struct net_device *dev,
+							   struct iw_request_info *info,
+							   union iwreq_data *wrqu, char *extra)
+{
+	int ret = 0;
+	_adapter	*padapter = (_adapter *)rtw_netdev_priv(dev);
+	DBG_871X("%s %s\n", __func__, extra);
+	if (!strcmp(extra, "1"))
+		padapter->in_cta_test = 1;
+	else
+		padapter->in_cta_test = 0;
+
+	if(padapter->in_cta_test)
+	{
+		u32 v = rtw_read32(padapter, REG_RCR);
+		v &= ~(RCR_CBSSID_DATA | RCR_CBSSID_BCN );//| RCR_ADF
+		rtw_write32(padapter, REG_RCR, v);
+		DBG_871X("enable RCR_ADF\n");
+	}
+	else
+	{
+		u32 v = rtw_read32(padapter, REG_RCR);
+		v |= RCR_CBSSID_DATA | RCR_CBSSID_BCN ;//| RCR_ADF
+		rtw_write32(padapter, REG_RCR, v);
+		DBG_871X("disable RCR_ADF\n");
+	}
+	return ret;
+}
+
 
 extern int rtw_change_ifname(_adapter *padapter, const char *ifname);
 static int rtw_rereg_nd_name(struct net_device *dev,
@@ -10564,7 +10606,10 @@ static int rtw_mp_set(struct net_device *dev,
 			DBG_871X("set MP_SetRFPathSwitch \n");
 			rtw_mp_SetRFPath  (dev,info,wdata,extra);
 			break;
-
+	case CTA_TEST:
+			DBG_871X("set CTA_TEST\n");
+			rtw_cta_test_start (dev, info, wdata, extra);
+			break;
 	}
 
 
@@ -12385,6 +12430,7 @@ static const struct iw_priv_args rtw_private_args[] = {
 #ifdef CONFIG_RTL8723A
 		{ MP_SetBT, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_setbt" },
 #endif
+		{ CTA_TEST, IW_PRIV_TYPE_CHAR | 1024, 0, "cta_test"},
 #endif
 };
 

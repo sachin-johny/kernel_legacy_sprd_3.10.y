@@ -1752,14 +1752,20 @@ static u32 Hal_readPGDataFromConfigFile(
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 
+#ifdef CONFIG_DEBUG
 	DBG_871X("Efuse configure file:\n");
 	for (i=0; i<HWSET_MAX_SIZE; i++) {
+		if (i % 16 == 0)
+			printk("\n");
+
 		vfs_read(fp, temp, 2, &pos);
 		PROMContent[i] = simple_strtoul(temp, NULL, 16 );
 		pos += 1; // Filter the space character
-		DBG_871X("%02X \n", PROMContent[i]);
+		printk("%02X ", PROMContent[i]);
 	}
+	printk("\n");
 	DBG_871X("\n");
+#endif
 	set_fs(fs);
 
 	filp_close(fp, NULL);
@@ -2296,7 +2302,7 @@ _func_enter_;
 	pHalFunc->hostap_mgnt_xmit_entry = NULL;
 //	pHalFunc->hostap_mgnt_xmit_entry = &rtl8192cu_hostap_mgnt_xmit_entry;
 #endif
-
+	pHalFunc->fw_try_ap_cmd = &rtl8723as_fw_try_ap_cmd;
 
 _func_exit_;
 }

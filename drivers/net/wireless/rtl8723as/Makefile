@@ -54,6 +54,7 @@ CONFIG_EFUSE_CONFIG_FILE = y
 CONFIG_EXT_CLK = y
 CONFIG_FTP_PROTECT = n
 CONFIG_WOWLAN = n
+CONFIG_DEBUG = n
 
 #CONFIG_PLATFORM_I386_PC = n
 CONFIG_PLATFORM_SPREADTRUM_6820 = n
@@ -296,6 +297,9 @@ EXTRA_CFLAGS += -DCONFIG_LITTLE_ENDIAN
 EXTRA_LDFLAGS += --strip-debug
 endif
 
+ifeq ($(CONFIG_DEBUG), y)
+EXTRA_CFLAGS += -DCONFIG_DEBUG
+endif
 
 rtk_core :=	core/rtw_cmd.o \
 		core/rtw_security.o \

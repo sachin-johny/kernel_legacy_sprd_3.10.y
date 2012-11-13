@@ -211,7 +211,14 @@ _func_enter_;
 			rtw_msleep_os(10);
 			res = rtw_os_xmit_resource_alloc(padapter, pxmitbuf,(MAX_XMITBUF_SZ + XMITBUF_ALIGN_SZ));
 			if (res == _FAIL) {
-				goto exit;
+				if(i >= 8){					
+					DBG_871X_LEVEL(_drv_always_,"%s,memory is not enough,but driver can run,real_allocate_xmitbuf_cnt=%d\n",__func__,i);
+					break;
+				}
+				else{
+					DBG_871X_LEVEL(_drv_always_,"%s, kmalloc memory failed!\n",__func__);
+					goto exit;
+				}
 			}
 		}
 
@@ -233,7 +240,8 @@ _func_enter_;
 
 	}
 
-	pxmitpriv->free_xmitbuf_cnt = NR_XMITBUFF;
+	pxmitpriv->real_allocate_xmitbuf_cnt = i; //real cnt.
+	pxmitpriv->free_xmitbuf_cnt = pxmitpriv->real_allocate_xmitbuf_cnt;//NR_XMITBUFF;
 
 	// Init xmit extension buff
 	_rtw_init_queue(&pxmitpriv->free_xmit_extbuf_queue);
@@ -373,7 +381,7 @@ void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv)
 		pxmitframe++;
 	}
 
-	for(i=0; i<NR_XMITBUFF; i++)
+	for(i=0; i<pxmitpriv->real_allocate_xmitbuf_cnt; i++)
 	{
 		rtw_os_xmit_resource_free(padapter, pxmitbuf,(MAX_XMITBUF_SZ + XMITBUF_ALIGN_SZ));
 
@@ -705,8 +713,8 @@ static s32 update_attrib(_adapter *padapter, _pkt *pkt, struct pkt_attrib *pattr
 #ifdef CONFIG_LPS
 	// If EAPOL , ARP , OR DHCP packet, driver must be in active mode.
 	//if ( (pattrib->ether_type == 0x88B4) || (pattrib->ether_type == 0x0806) || (pattrib->ether_type == 0x888e) || (pattrib->dhcp_pkt == 1) )
-	//before 4-way success, we can not enter LPS, so 888E is not needed here
-	if ( (pattrib->ether_type == 0x88B4) || (pattrib->ether_type == 0x0806) || (pattrib->dhcp_pkt == 1) )
+	//before 4-way success, we can not enter LPS, so 888E for EAPOL and 88B4 for WAPI is not needed here
+	if ((pattrib->ether_type == 0x0806) || (pattrib->dhcp_pkt == 1))
 	{
 		rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_SPECIAL_PACKET, 1);
 	}
@@ -997,11 +1005,11 @@ _func_enter_;
 
 			for(curfragnum=0;curfragnum<pattrib->nr_frags;curfragnum++){
 				payload=(u8 *)RND4((SIZE_PTR)(payload));
-				RT_TRACE(_module_rtl871x_xmit_c_,_drv_err_,("===curfragnum=%d, pframe= 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x,!!!\n",
+				RT_TRACE(_module_rtl871x_xmit_c_,_drv_notice_,("===curfragnum=%d, pframe= 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x, 0x%.2x,!!!\n",
 					curfragnum,*payload, *(payload+1),*(payload+2),*(payload+3),*(payload+4),*(payload+5),*(payload+6),*(payload+7)));
 
 				payload=payload+pattrib->hdrlen+pattrib->iv_len;
-				RT_TRACE(_module_rtl871x_xmit_c_,_drv_err_,("curfragnum=%d pattrib->hdrlen=%d pattrib->iv_len=%d",curfragnum,pattrib->hdrlen,pattrib->iv_len));
+				RT_TRACE(_module_rtl871x_xmit_c_,_drv_notice_,("curfragnum=%d pattrib->hdrlen=%d pattrib->iv_len=%d",curfragnum,pattrib->hdrlen,pattrib->iv_len));
 				if((curfragnum+1)==pattrib->nr_frags){
 					length=pattrib->last_txcmdsz-pattrib->hdrlen-pattrib->iv_len-( (pattrib->bswenc) ? pattrib->icv_len : 0);
 					rtw_secmicappend(&micdata, payload,length);
@@ -1015,9 +1023,9 @@ _func_enter_;
 				}
 			}
 			rtw_secgetmic(&micdata,&(mic[0]));
-			RT_TRACE(_module_rtl871x_xmit_c_,_drv_err_,("xmitframe_addmic: before add mic code!!!\n"));
-			RT_TRACE(_module_rtl871x_xmit_c_,_drv_err_,("xmitframe_addmic: pattrib->last_txcmdsz=%d!!!\n",pattrib->last_txcmdsz));
-			RT_TRACE(_module_rtl871x_xmit_c_,_drv_err_,("xmitframe_addmic: mic[0]=0x%.2x ,mic[1]=0x%.2x ,mic[2]=0x%.2x ,mic[3]=0x%.2x \n\
+			RT_TRACE(_module_rtl871x_xmit_c_,_drv_notice_,("xmitframe_addmic: before add mic code!!!\n"));
+			RT_TRACE(_module_rtl871x_xmit_c_,_drv_notice_,("xmitframe_addmic: pattrib->last_txcmdsz=%d!!!\n",pattrib->last_txcmdsz));
+			RT_TRACE(_module_rtl871x_xmit_c_,_drv_notice_,("xmitframe_addmic: mic[0]=0x%.2x ,mic[1]=0x%.2x ,mic[2]=0x%.2x ,mic[3]=0x%.2x \n\
   mic[4]=0x%.2x ,mic[5]=0x%.2x ,mic[6]=0x%.2x ,mic[7]=0x%.2x !!!!\n",
 				mic[0],mic[1],mic[2],mic[3],mic[4],mic[5],mic[6],mic[7]));
 			//add mic code  and add the mic code length in last_txcmdsz

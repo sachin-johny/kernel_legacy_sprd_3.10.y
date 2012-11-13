@@ -421,6 +421,7 @@ enum {
 	MP_SetRFPathSwh,
 	MP_QueryDrvStats,
 	MP_SetBT,
+	CTA_TEST,
 	MP_NULL,
 };
 

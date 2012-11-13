@@ -91,8 +91,8 @@
 enum dot11AuthAlgrthmNum {
  dot11AuthAlgrthm_Open = 0,
  dot11AuthAlgrthm_Shared,
- dot11AuthAlgrthm_Auto,
  dot11AuthAlgrthm_8021X,
+ dot11AuthAlgrthm_Auto,
  dot11AuthAlgrthm_WAPI,
  dot11AuthAlgrthm_MaxNum
 };
@@ -135,6 +135,7 @@ typedef struct _RT_LINK_DETECT_T{
 	u32				NumTxOkInPeriod;
 	u32				NumRxOkInPeriod;
 	u32				NumRxUnicastOkInPeriod;
+	BOOLEAN			bCanNotScan;
 	BOOLEAN			bBusyTraffic;
 	BOOLEAN			bTxBusyTraffic;
 	BOOLEAN			bRxBusyTraffic;
@@ -507,6 +508,9 @@ struct mlme_priv {
 #ifdef CONFIG_FTP_PROTECT
 	u8	ftp_lock_flag;
 #endif //CONFIG_FTP_PROTECT
+#ifdef CONFIG_LINKED_LCOK
+	u8	linked_lock_flag;
+#endif //CONFIG_LINKED_LCOK
 };
 
 #ifdef CONFIG_AP_MODE

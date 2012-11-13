@@ -177,7 +177,7 @@ int sdio_alloc_irq(struct dvobj_priv *dvobj)
 
 	err = sdio_claim_irq(func, &sd_sync_int_hdl);
 	if (err)
-		printk(KERN_CRIT "%s: sdio_claim_irq FAIL(%d)!\n", __func__, err);
+		DBG_871X_LEVEL(_drv_err_,"%s: sdio_claim_irq FAIL(%d)!\n", __func__, err);
 	else
 		dvobj->irq_alloc = 1;
 
@@ -202,13 +202,13 @@ _func_enter_;
 
 	err = sdio_enable_func(func);
 	if (err) {
-		DBG_8192C(KERN_CRIT "%s: sdio_enable_func FAIL(%d)!\n", __func__, err);
+		DBG_871X_LEVEL(_drv_err_, "%s: sdio_enable_func FAIL(%d)!\n", __func__, err);
 		goto release;
 	}
 
 	err = sdio_set_block_size(func, 512);
 	if (err) {
-		DBG_8192C(KERN_CRIT "%s: sdio_set_block_size FAIL(%d)!\n", __func__, err);
+		DBG_871X_LEVEL(_drv_err_, "%s: sdio_set_block_size FAIL(%d)!\n", __func__, err);
 		goto release;
 	}
 	psdio_data->block_transfer_len = 512;
@@ -391,7 +391,7 @@ static void rtw_dev_unload(PADAPTER padapter)
 #ifdef CONFIG_WOWLAN
 			if (padapter->pwrctrlpriv.bSupportRemoteWakeup == _TRUE &&
 				padapter->pwrctrlpriv.wowlan_mode ==_TRUE) {
-				DBG_871X_LEVEL(_drv_always_, "%s bSupportWakeOnWlan==_TRUE  do not run rtw_hal_deinit()\n",__FUNCTION__);
+				DBG_871X("%s bSupportWakeOnWlan==_TRUE  do not run rtw_hal_deinit()\n",__FUNCTION__);
 			}
 			else
 #endif
@@ -606,7 +606,7 @@ static void rtw_sdio_if1_deinit(_adapter *if1)
 
 #ifdef CONFIG_WOWLAN
 	if1->pwrctrlpriv.wowlan_mode=_FALSE;
-	DBG_871X_LEVEL(_drv_always_, "%s wowlan_mode:%d\n", __func__, if1->pwrctrlpriv.wowlan_mode);
+	DBG_871X("%s wowlan_mode:%d\n", __func__, if1->pwrctrlpriv.wowlan_mode);
 #endif //CONFIG_WOWLAN
 
 	rtw_dev_unload(if1);
@@ -743,6 +743,14 @@ static int rtw_sdio_suspend(struct device *dev)
 	DBG_871X_LEVEL(_drv_always_, "sdio suspend start\n");
 	DBG_871X("==> %s (%s:%d)\n",__FUNCTION__, current->comm, current->pid);
 
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+	if(check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE) {
+		//we should not suspend softap, bcm also do like this
+		DBG_871X("%s should not suspend hw and system in AP mode\n",__FUNCTION__);
+		goto exit;
+	}
+#endif
+					
 #ifdef CONFIG_WOWLAN
 	if (check_fwstate(pmlmepriv, _FW_LINKED))
 		padapter->pwrctrlpriv.wowlan_mode = _TRUE;
@@ -768,7 +776,7 @@ static int rtw_sdio_suspend(struct device *dev)
 
 	} else {
 		rtw_cancel_dynamic_chk_timer(padapter);
-		DBG_871X_LEVEL(_drv_always_, "wowlan_mode: cancel dynamic timmer only\n");
+		DBG_871X("wowlan_mode: cancel dynamic timmer only\n");
 	}
 #else
 	rtw_cancel_all_timer(padapter);
@@ -785,7 +793,7 @@ static int rtw_sdio_suspend(struct device *dev)
 		netif_carrier_off(pnetdev);
 		rtw_netif_stop_queue(pnetdev);
 	} else {
-		DBG_871X_LEVEL(_drv_always_, "wowlan_mode: NO netif_off and stop queuq\n");
+		DBG_871X("wowlan_mode: NO netif_off and stop queuq\n");
 	}
 #else
 	if(pnetdev)
@@ -795,13 +803,13 @@ static int rtw_sdio_suspend(struct device *dev)
 	}
 #endif
 #ifdef CONFIG_WOWLAN
-	DBG_871X_LEVEL(_drv_always_, "wowlan_mode: %d\n", padapter->pwrctrlpriv.wowlan_mode);
+	DBG_871X("wowlan_mode: %d\n", padapter->pwrctrlpriv.wowlan_mode);
  	if(padapter->pwrctrlpriv.bSupportRemoteWakeup==_TRUE &&
 		padapter->pwrctrlpriv.wowlan_mode==_TRUE){
 		poidparam.subcode=WOWLAN_ENABLE;
 		padapter->HalFunc.SetHwRegHandler(padapter,HW_VAR_WOWLAN,(u8 *)&poidparam);
 		padapter->pwrctrlpriv.wowlan_wake_reason = rtw_read8(padapter, REG_WOWLAN_WAKE_REASON);
-		DBG_871X_LEVEL(_drv_always_, "wowlan_wake_reason: 0x%02x\n",
+		DBG_871X("wowlan_wake_reason: 0x%02x\n",
 					padapter->pwrctrlpriv.wowlan_wake_reason);
 	} else
 #else
@@ -841,27 +849,29 @@ static int rtw_sdio_suspend(struct device *dev)
 		rtw_dev_unload(padapter);
 
 		if(check_fwstate(pmlmepriv, _FW_UNDER_SURVEY)){
-			DBG_871X_LEVEL(_drv_always_, "%s: fw_under_survey\n", __func__);
+			DBG_871X("%s: fw_under_survey\n", __func__);
 			rtw_indicate_scan_done(padapter, 1);
 		}
 
 		if(check_fwstate(pmlmepriv, _FW_UNDER_LINKING)){
-			DBG_871X_LEVEL(_drv_always_, "%s: fw_under_linking\n", __func__);
+			DBG_871X("%s: fw_under_linking\n", __func__);
 			rtw_indicate_disconnect(padapter);
 		}
 
 		sdio_deinit(adapter_to_dvobj(padapter));
 	} else {
-		DBG_871X_LEVEL(_drv_always_, "%s: wowmode suspending\n", __func__);
+		DBG_871X("%s: wowmode suspending\n", __func__);
 
 		if(check_fwstate(pmlmepriv, _FW_UNDER_SURVEY)){
-			DBG_871X_LEVEL(_drv_always_, "%s: fw_under_survey\n", __func__);
+			DBG_871X("%s: fw_under_survey\n", __func__);
 			rtw_indicate_scan_done(padapter, 1);
 		}
 		if(check_fwstate(pmlmepriv, _FW_UNDER_LINKING)){
-			DBG_871X_LEVEL(_drv_always_, "%s: fw_under_linking\n", __func__);
+			DBG_871X("%s: fw_under_linking\n", __func__);
 			rtw_indicate_disconnect(padapter);
 		}
+
+		rtw_set_ps_mode(padapter, PS_MODE_MIN, 0, 0);
 	}
 #else
 	//s2-2.  indicate disconnect to os
@@ -885,7 +895,7 @@ static int rtw_sdio_suspend(struct device *dev)
 	// interface deinit
 	sdio_deinit(adapter_to_dvobj(padapter));
 #endif
-	DBG_871X_LEVEL(_drv_always_, "sdio suspend success in %d ms\n",
+	DBG_871X("sdio suspend success in %d ms\n",
 			rtw_get_passing_time_ms(start_time));
 
 exit:
@@ -949,21 +959,10 @@ int rtw_resume_process(_adapter *padapter)
 	DBG_871X("==> %s (%s:%d)\n",__FUNCTION__, current->comm, current->pid);
 
 #ifdef CONFIG_WOWLAN
-	DBG_871X_LEVEL(_drv_always_, "wakeup_reason: 0x%02x\n", padapter->pwrctrlpriv.wowlan_wake_reason);
+	DBG_871X("wakeup_reason: 0x%02x\n", padapter->pwrctrlpriv.wowlan_wake_reason);
 
-	if(padapter->pwrctrlpriv.wowlan_mode){
-		value = rtw_read32(padapter, SDIO_LOCAL_BASE+SDIO_REG_HISR);
-		DBG_871X_LEVEL(_drv_always_, "Reset SDIO HISR(0x%08x) original:0x%08x\n",
-			SDIO_LOCAL_BASE+SDIO_REG_HISR, value);
-		//value |= BIT19;
-		rtw_write32(padapter, SDIO_LOCAL_BASE+SDIO_REG_HISR, 0xffffffff);
-
-		value = rtw_read8(padapter, SDIO_LOCAL_BASE+SDIO_REG_HIMR+2);
-		DBG_871X_LEVEL(_drv_always_, "Reset SDIO HIMR CPWM2(0x%08x) original:0x%02x\n",
-			SDIO_LOCAL_BASE+SDIO_REG_HIMR + 2, value);
-	} else {
-		DBG_871X_LEVEL(_drv_always_, "wowlan mode is off\n");
-	}
+	rtw_set_ps_mode(padapter, PS_MODE_ACTIVE, 0, 0);
+	LPS_RF_ON_check(padapter, 100);
 
 	if (!padapter->pwrctrlpriv.wowlan_mode){
 		if (padapter) {
@@ -1099,6 +1098,7 @@ static int rtw_sdio_resume(struct device *dev)
 	struct sdio_func *func =dev_to_sdio_func(dev);
 	struct dvobj_priv *psdpriv = sdio_get_drvdata(func);
 	_adapter *padapter = psdpriv->if1;
+	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
 	 int ret = 0;
 
@@ -1123,6 +1123,11 @@ static int rtw_sdio_resume(struct device *dev)
 #endif //CONFIG_WOWLAN
 			//jeff: bypass resume here, do in late_resume
 			pwrpriv->do_late_resume = _TRUE;
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+			//we should not suspend/resume softap, bcm also do like this
+			if(check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
+				pwrpriv->do_late_resume = _FALSE;
+#endif
 		} else {
 #ifdef CONFIG_WOWLAN
 			rtw_lock_suspend_timeout(15 * HZ);
@@ -1222,7 +1227,7 @@ static int __init rtw_drv_entry(void)
 			msleep(10);
 			if (sdhci_device_attached())
 				break;
-			printk("%s delay times:%d\n", __func__, i);
+			DBG_871X("%s delay times:%d\n", __func__, i);
 		}
 	}
 #endif

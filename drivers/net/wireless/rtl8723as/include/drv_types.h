@@ -631,7 +631,6 @@ struct _ADAPTER{
         u8    fix_rate;
 
 	unsigned char     in_cta_test;
-
 };
 
 #define adapter_to_dvobj(adapter) (adapter->dvobj)

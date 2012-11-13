@@ -1100,6 +1100,9 @@ static u32 rtl8723as_hal_init(PADAPTER padapter)
 //		RT_TRACE(COMP_INIT, DBG_SERIOUS, ("Initializepadapter8192CSdio(): Fail to configure BB!!\n"));
 		return ret;
 	}
+#ifdef CONFIG_BT_COEXIST
+	rtw_write16(padapter, 0x860, 0x210);
+#endif
 #endif
 	// If RF is on, we need to init RF. Otherwise, skip the procedure.
 	// We need to follow SU method to change the RF cfg.txt. Default disable RF TX/RX mode.
@@ -1790,14 +1793,20 @@ static u32 Hal_readPGDataFromConfigFile(
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 
+#ifdef CONFIG_DEBUG
 	DBG_871X("Efuse configure file:\n");
 	for (i=0; i<HWSET_MAX_SIZE; i++) {
+		if (i % 16 == 0)
+			printk("\n");
+
 		vfs_read(fp, temp, 2, &pos);
 		PROMContent[i] = simple_strtoul(temp, NULL, 16 );
 		pos += 1; // Filter the space character
-		DBG_871X("%02X \n", PROMContent[i]);
+		printk("%02X ", PROMContent[i]);
 	}
+	printk("\n");
 	DBG_871X("\n");
+#endif
 	set_fs(fs);
 
 	filp_close(fp, NULL);
@@ -2282,6 +2291,17 @@ void UpdateHalRAMask8192CUsb(PADAPTER padapter, u32 mac_id, u8 rssi_level)
 	//set correct initial date rate for each mac_id
 	pdmpriv->INIDATA_RATE[mac_id] = init_rate;
 }
+extern s32 FillH2CCmd(PADAPTER padapter, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer);
+static void rtl8723as_fw_try_ap_cmd(PADAPTER padapter, u32 need_ack) 
+{
+	u1Byte	H2C_Parameter[5] ={0};
+
+	H2C_Parameter[0] = 0x00;	
+	H2C_Parameter[1] = 0x01;
+	H2C_Parameter[2] = 0x00;
+	FillH2CCmd(padapter, H2C_AP_REQ_RPT, 5, H2C_Parameter);
+}
+
 
 void rtl8723as_set_hal_ops(PADAPTER padapter)
 {
@@ -2337,6 +2357,7 @@ _func_enter_;
 	pHalFunc->hostap_mgnt_xmit_entry = NULL;
 //	pHalFunc->hostap_mgnt_xmit_entry = &rtl8192cu_hostap_mgnt_xmit_entry;
 #endif
+	pHalFunc->fw_try_ap_cmd = &rtl8723as_fw_try_ap_cmd;
 
 
 _func_exit_;

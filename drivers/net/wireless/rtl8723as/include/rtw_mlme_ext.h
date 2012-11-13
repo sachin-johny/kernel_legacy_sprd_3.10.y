@@ -492,6 +492,10 @@ struct mlme_ext_priv
 
 	u64 TSFValue;
 
+	//follwing for fw try AP function
+	u8 check_ap_processing;
+	u8 try_ap_c2h_wait;
+
 #ifdef CONFIG_AP_MODE
 	unsigned char bstart_bss;
 #endif

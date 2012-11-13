@@ -145,6 +145,7 @@ struct security_priv
 	int wps_ie_len;
 
 
+	u8	bStaInstallPairwiseKey;
 	u8	binstallGrpkey;
 	u8	busetkipkey;
 	//_timer tkip_timer;

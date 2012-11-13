@@ -25,8 +25,6 @@
 #include <gspi_ops.h>
 #include <rtl8723a_hal.h>
 
-#define SDIO_TX_AGG_MAX	1
-
 /*
  * Description
  *	Transmit xmitbuf to hardware tx fifo
@@ -139,7 +137,7 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 			}
 
 			n++;
-			if ((n & 0x3FF) == 0) {
+			if ((n & 0xFF) == 0) {
 				if (n > 5000) {
 					DBG_8192C(KERN_NOTICE "%s: FIFO starvation!(%d) len=%d agg=%d page=(R)%d(A)%d\n",
 						__func__, n, pxmitbuf->len, pframe->agg_num, pframe->pg_num, freePage[PageIdx] + freePage[PUBLIC_QUEUE_IDX]);
@@ -150,7 +148,6 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 				}
 				rtw_yield_os();
 			}
-			rtw_msleep_os(1);
 
 			// Total number of page is NOT available, so update current FIFO status
 			HalQueryTxBufferStatus8723ASdio(padapter);
@@ -400,7 +397,10 @@ next:
 
 	ret = xmit_xmitframes(padapter, pxmitpriv);
 	if (ret == -2) {
-		rtw_msleep_os(1);
+		//here sleep 1ms will cause big TP loss of TX
+		//from 50+ to 40+
+		//rtw_msleep_os(1);
+		rtw_yield_os();
 		goto next;
 	}
 
@@ -408,7 +408,7 @@ next:
 	ret = rtw_txframes_pending(padapter);
 	_exit_critical_bh(&pxmitpriv->lock, &irql);
 	if (ret == 1) {
-		rtw_msleep_os(1);
+		//rtw_msleep_os(1);
 		goto next;
 	}
 
