@@ -44,7 +44,7 @@ struct sc8810bl {
 
 static struct sc8810bl sc8810bl;
 
-static inline pwm_read(int index, uint32_t reg)
+static inline uint32_t pwm_read(int index, uint32_t reg)
 {
        return __raw_readl(SPRD_PWM_BASE + index * 0x20 + reg);
 }
@@ -81,6 +81,13 @@ static int sc8810_backlight_update_status(struct backlight_device *bldev)
        struct sc8810bl *bl = bl_get_data(bldev);
        uint32_t value;
 
+       value = bldev->props.brightness & PWM_MOD_MAX;
+       if(value <0x20){
+	       value = 0x20;
+       }
+       value = (value << 8) | PWM_MOD_MAX;
+       sc8810bl.value = value;
+
        if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
                        bldev->props.power != FB_BLANK_UNBLANK ||
                        sc8810bl.suspend ||
@@ -88,12 +95,6 @@ static int sc8810_backlight_update_status(struct backlight_device *bldev)
                /* disable backlight */
                pwm_write(bl->pwm, 0, PWM_PRESCALE);
        } else {
-               value = bldev->props.brightness & PWM_MOD_MAX;
-		 if(value <0x20){
-		   value = 0x20;
-		 }
-               value = (value << 8) | PWM_MOD_MAX;
-               sc8810bl.value = value;
 
                pwm_write(bl->pwm, PWM_SCALE, PWM_PRESCALE);
                pwm_write(bl->pwm, value, PWM_CNT);
