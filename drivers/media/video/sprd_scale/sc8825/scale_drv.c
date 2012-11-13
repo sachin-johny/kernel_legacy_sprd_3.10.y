@@ -76,6 +76,7 @@ struct scale_desc {
 	uint32_t                   input_format;
 	struct scale_addr          temp_buf_addr;
 	struct scale_addr          temp_buf_addr_vir;
+	uint32_t                   temp_buf_src;
 	uint32_t                   mem_order[3];
 	struct scale_size          output_size;
 	struct scale_addr          output_addr;
@@ -482,6 +483,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 		if (SCALE_YUV_ADDR_INVALIDE(p_addr->yaddr, p_addr->uaddr, p_addr->vaddr)) {
 			rtn = SCALE_RTN_ADDR_ERR;   
 		} else {
+			g_path->temp_buf_src = 1;
 			g_path->temp_buf_addr.yaddr = p_addr->yaddr;
 			g_path->temp_buf_addr.uaddr = p_addr->uaddr;
 			g_path->temp_buf_addr.vaddr = p_addr->vaddr;
@@ -838,23 +840,24 @@ int32_t     _scale_free_tmp_buf(void)
 
 	SCALE_TRACE("SCALE DRV: free tmp buf \n");
 
-	if (vir_addr->yaddr) {
-		free_pages(vir_addr->yaddr, g_path->mem_order[0]);
-		vir_addr->yaddr = 0;
-		phy_addr->yaddr = 0;
+	if (g_path->temp_buf_src == 0) {
+		if (vir_addr->yaddr) {
+			free_pages(vir_addr->yaddr, g_path->mem_order[0]);
+		}
+
+		if (vir_addr->uaddr) {
+			free_pages(vir_addr->uaddr, g_path->mem_order[1]);
+		}
+
+		if (vir_addr->vaddr) {
+			free_pages(vir_addr->vaddr, g_path->mem_order[2]);
+		}
+	} else {
+		g_path->temp_buf_src = 0;
 	}
 
-	if (vir_addr->uaddr) {
-		free_pages(vir_addr->uaddr, g_path->mem_order[1]);
-		vir_addr->uaddr = 0;
-		phy_addr->uaddr = 0;
-	}
-
-	if (vir_addr->vaddr) {
-		free_pages(vir_addr->vaddr, g_path->mem_order[2]);
-		vir_addr->vaddr = 0;
-		phy_addr->vaddr = 0;
-	}
+	memset((void*)vir_addr, 0, sizeof(struct scale_addr));
+	memset((void*)phy_addr, 0, sizeof(struct scale_addr));
 
 	return SCALE_RTN_SUCCESS;
 }
