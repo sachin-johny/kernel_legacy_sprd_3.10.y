@@ -242,7 +242,7 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 {				//TODO: if usign gpio(eic), need add row , cols to platform data.
 	static unsigned long last_value = 1;
 	unsigned short key = KEY_POWER;
-	unsigned long value = gpio_get_value(ANA_GPI_PB);
+	unsigned long value = !(gpio_get_value(ANA_GPI_PB));
 	struct sci_keypad_t *sci_kpd = dev_id;
 
 	if (last_value == value) {
@@ -257,13 +257,13 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 		/* Press : HIGHT level */
 		input_report_key(sci_kpd->input_dev, key, 0);
 		input_sync(sci_kpd->input_dev);
-		printk("Powerkey:%dD\n", key);
+		printk("Powerkey:%dU\n", key);
 		irq_set_irq_type(irq, IRQF_TRIGGER_LOW);
 	} else {
 		/* Release : LOW level */
 		input_report_key(sci_kpd->input_dev, key, 1);
 		input_sync(sci_kpd->input_dev);
-		printk("Powerkey:%dU\n", key);
+		printk("Powerkey:%dD\n", key);
 		irq_set_irq_type(irq, IRQF_TRIGGER_HIGH);
 	}
 
