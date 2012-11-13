@@ -28,6 +28,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/ft5306_ts.h>
 #include <linux/i2c/lis3dh.h>
+#include <linux/i2c/ltr_558als.h>
 #include <linux/akm8975.h>
 #include <linux/spi/spi.h>
 #include <mach/globalregs.h>
@@ -36,6 +37,13 @@
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include "devices.h"
+#include <linux/gpio.h>
+#include <linux/mpu.h>
+#include <linux/akm8975.h>
+#include <linux/irq.h>
+
+/* IRQ's for the multi sensor board */
+#define MPUIRQ_GPIO 212
 
 extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
@@ -159,9 +167,13 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.vdd_name 			= "vdd28",
 };
 
+static struct ltr558_pls_platform_data ltr558_pls_info = {
+	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+};
+
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
-	.poll_interval = 100,
-	.min_interval = 100,
+	.poll_interval = 10,
+	.min_interval = 10,
 	.g_range = LIS3DH_ACC_G_2G,
 	.axis_map_x = 1,
 	.axis_map_y = 0,
@@ -180,13 +192,37 @@ struct akm8975_platform_data akm8975_platform_d = {
 	.mag_high_z = 20479,
 };
 
+static struct mpu_platform_data mpu9150_platform_data = {
+	.int_config = 0x00,
+	.level_shifter = 0,
+	.orientation = { -1, 0, 0,
+					  0, -1, 0,
+					  0, 0, +1 },
+	.sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
+	.sec_slave_id = COMPASS_ID_AK8963,
+	.secondary_i2c_addr = 0x0C,
+	.secondary_orientation = { 0, -1, 0,
+					1, 0, 0,
+					0, 0, 1 },
+	.key = {0xec, 0x06, 0x17, 0xdf, 0x77, 0xfc, 0xe6, 0xac,
+			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
+};
+
+
 static struct i2c_board_info i2c2_boardinfo[] = {
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
 	},
-	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
-	  .platform_data = &akm8975_platform_d,
+	{ I2C_BOARD_INFO("mpu9150", 0x68),
+	  .irq = MPUIRQ_GPIO,
+	  .platform_data = &mpu9150_platform_data,
 	},
+	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
+	  .platform_data = &ltr558_pls_info,
+	},
+/*	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+	  .platform_data = &akm8975_platform_d,
+	},*/
 };
 
 static struct i2c_board_info i2c1_boardinfo[] = {
@@ -291,6 +327,7 @@ static int sc8810_add_misc_devices(void)
 	}
 	return 0;
 }
+
 
 int __init sc8825_regulator_init(void)
 {

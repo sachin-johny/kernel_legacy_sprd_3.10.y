@@ -35,4 +35,5 @@
 
 #define GPIO_BK                  143
 #define MSENSOR_DRDY_GPIO        53
+#define GPIO_PLSENSOR_IRQ	213
 #endif
