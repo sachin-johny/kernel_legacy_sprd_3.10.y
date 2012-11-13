@@ -1730,11 +1730,13 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 		_Sensor_Identify(SENSOR_SUB);
 		printk("SENSOR: Sensor_Init Identify \n");
 
-		s_sensor_identified = SCI_TRUE;
-		if (5 == sensor_id) {
+		if (5 == sensor_id||!s_sensor_identified) {
 			msleep(20);
 			_Sensor_Identify(SENSOR_ATV);
 		}
+
+		s_sensor_identified = SCI_TRUE;
+
 		ret_val = _sensor_com_init(sensor_id, sensor_register_info_ptr);
 	}
 
@@ -1776,6 +1778,13 @@ ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 		    s_sensor_exp_info.sensor_mode_info[mode].image_format;
 		Sensor_SendRegTabToSensor
 		    (&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
+
+		//confirm camera identify OK
+		if(SENSOR_SUCCESS != s_sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)){
+			SENSOR_PRINT("SENSOR: sensor identify not correct!!");
+			return SENSOR_OP_STATUS_ERR;
+		}
+
 	} else {
 		if(set_reg_tab_func)
 			set_reg_tab_func(0);
