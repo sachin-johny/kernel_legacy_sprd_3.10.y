@@ -26,7 +26,6 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
-#include <linux/i2c/ft5306_ts.h>
 #include <linux/spi/spi.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
@@ -186,12 +185,6 @@ static struct serial_data plat_data2 = {
 	.clk = 26000000,
 };
 
-static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
-	.irq_gpio_number	= GPIO_TOUCH_IRQ,
-	.reset_gpio_number	= GPIO_TOUCH_RESET,
-	.vdd_name 			= "vdd28",
-};
-
 static struct i2c_board_info i2c2_boardinfo[] = {
 	{
 	//	I2C_BOARD_INFO(FT5206_TS_DEVICE, FT5206_TS_ADDR),
@@ -205,10 +198,8 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 };
 
 static struct i2c_board_info i2c0_boardinfo[] = {
-	{
-		I2C_BOARD_INFO(FT5206_TS_DEVICE, FT5206_TS_ADDR),
-		.platform_data = &ft5x0x_ts_info,
-	},
+	{I2C_BOARD_INFO("zinitix_isp", 0x50),},
+	{I2C_BOARD_INFO("Zinitix_tsp", 0x20),},
 };
 
 /* config I2C2 SDA/SCL to SIM2 pads */

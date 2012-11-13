@@ -922,4 +922,16 @@ config TOUCHSCREEN_SC8810
          To compile this driver as a module, choose M here: the
          module will be called tp_sprd.
 
+config TOUCHSCREEN_ZINITIX_BT404
+        tristate "ZINITIX_BT404 touchscreen driver"
+        depends on I2C
+        help
+          Say Y here if you have a ZINITIX_BT404 based touchscreen
+          controller.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called zinitix_touch_bt404.c.
+
 endif
