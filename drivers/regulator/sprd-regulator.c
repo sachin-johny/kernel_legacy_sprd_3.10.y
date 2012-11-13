@@ -111,8 +111,8 @@ int sci_ldo_op(const struct sci_regulator_regs *regs, int op)
 	int ret = 0;
 
 	debug0("regu %p op(%d), set %08x[%d], rst %08x[%d]\n", regs, op,
-	      regs->pd_set, __ffs(regs->pd_set_bit), regs->pd_rst,
-	      __ffs(regs->pd_rst_bit));
+	       regs->pd_set, __ffs(regs->pd_set_bit), regs->pd_rst,
+	       __ffs(regs->pd_rst_bit));
 
 	if (!regs->pd_rst || !regs->pd_set)
 		return -EACCES;
@@ -309,14 +309,49 @@ static struct regulator_ops dcdc_ops = {
 	.get_voltage = dcdc_get_voltage,
 };
 
+static struct regulator_consumer_supply *set_supply_map(struct device *dev,
+							const char *supply_name,
+							int *num)
+{
+	char **map = (char **)dev_get_platdata(dev);
+	int i, n;
+	struct regulator_consumer_supply *consumer_supplies = NULL;
+
+	if (!supply_name || !(map && map[0]))
+		return NULL;
+
+	for (i = 0; map[i] || map[i + 1]; i++) {
+		if (map[i] && 0 == strcmp(map[i], supply_name))
+			break;
+	}
+
+	/* i++; *//* Do not skip supply name */
+
+	for (n = 0; map[i + n]; n++) ;
+
+	if (n) {
+		pr_info("supply %s consumers %d - %d\n", supply_name, i, n);
+		consumer_supplies =
+		    kzalloc(n * sizeof(*consumer_supplies), GFP_KERNEL);
+		BUG_ON(!consumer_supplies);
+		for (n = 0; map[i]; i++, n++) {
+			consumer_supplies[n].supply = map[i];
+		}
+		if (num)
+			*num = n;
+	}
+	return consumer_supplies;
+}
+
 void *__devinit sci_regulator_register(struct platform_device *pdev,
 				       struct sci_regulator_desc *desc)
 {
 	static int __devinitdata idx = 0;
+	struct regulator_dev *rdev;
 	struct regulator_ops *__regs_ops[] = {
 		&ldo_ops, &usbd_ops, &dcdc_ops, 0,
 	};
-	struct regulator_consumer_supply consumer_supplies[] = {
+	struct regulator_consumer_supply consumer_supplies_default[] = {
 		[0] = {
 		       .dev = 0,
 		       .dev_name = 0,
@@ -335,7 +370,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 				REGULATOR_CHANGE_MODE,
 				},
 		.num_consumer_supplies = 1,
-		.consumer_supplies = consumer_supplies,
+		.consumer_supplies = consumer_supplies_default,
 		.regulator_init = 0,
 		.driver_data = 0,
 	};
@@ -345,8 +380,19 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		desc->desc.ops = __regs_ops[desc->regs->typ];
 
 	desc->desc.id = idx++;
+
+	init_data.consumer_supplies =
+	    set_supply_map(&pdev->dev, desc->desc.name,
+			   &init_data.num_consumer_supplies);
+
+	if (!init_data.consumer_supplies)
+		init_data.consumer_supplies = consumer_supplies_default;
+
 	debug0("regu %p (%s)\n", desc->regs, desc->desc.name);
-	return regulator_register(&desc->desc, &pdev->dev, &init_data, 0);
+	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, 0);
+	if (init_data.consumer_supplies != consumer_supplies_default)
+		kfree(init_data.consumer_supplies);
+	return rdev;
 }
 
 /**

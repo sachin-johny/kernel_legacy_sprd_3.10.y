@@ -285,6 +285,83 @@
 #define BITS_CLK_ISP_DIV(_x_)           ( (_x_) << 2 & (BIT(2)|BIT(3)|BIT(4)) )
 #define BITS_CLK_ISPPLL_SEL(_x_)        ( (_x_) << 0 & (BIT(0)|BIT(1)) )
 
+/* bits definitions for register REG_AHB_CP_AHB_ARM_CLK */
+#define BITS_CP_AHB_DIV_INUSE(_x_)      ( (_x_) << 27 & (BIT(27)|BIT(28)|BIT(29)) )
+#define BIT_CP_AHB_ERR_YET              ( BIT(26) )
+#define BIT_CP_AHB_ERR_CLR              ( BIT(25) )
+#define BITS_CLK_CP_MCU_SEL(_x_)        ( (_x_) << 23 & (BIT(23)|BIT(24)) )
+#define BITS_CLK_CP_AHB_DIV(_x_)        ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)) )
+#define BITS_CLK_CP_ARM_DIV(_x_)        ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
+
+/* bits definitions for register REG_AHB_CP_AHB_CTL */
+#define BIT_CP_AP_JTAG_CHAIN_EN         ( BIT(3) )
+#define BIT_ASHB_CPTOAP_EN_I            ( BIT(2) )
+#define BIT_CP_RAM_SEL                  ( BIT(1) )
+#define BIT_CLK_CP_EN                   ( BIT(0) )
+
+/* bits definitions for register REG_AHB_CP_RST */
+#define BIT_CP_CORE_SRST_N              ( BIT(0) )
+
+/* bits definitions for register REG_AHB_CP_SLEEP_CTRL */
+#define BIT_FORCE_CP_DEEP_SLEEP_EN      ( BIT(0) )
+
+/* bits definitions for register REG_AHB_DEEPSLEEP_STATUS */
+#define BITS_CP_SLEEP_FLAG(_x_)         ( (_x_) << 16 & (BIT(16)|BIT(17)|BIT(18)|BIT(19)|BIT(20)|BIT(21)|BIT(22)|BIT(23)|BIT(24)|BIT(25)|BIT(26)|BIT(27)|BIT(28)|BIT(29)|BIT(30)|BIT(31)) )
+#define BITS_AP_SLEEP_FLAG(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
+
+/* bits definitions for register REG_AHB_DDR_PHY_Z_VALUE */
+#define BITS_DDR_PHY_Z_VALUE(_x_)       ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)|BIT(16)|BIT(17)|BIT(18)|BIT(19)) )
+
+/* bits definitions for register REG_AHB_DSP_JTAG_CTRL */
+#define BIT_CEVA_SW_JTAG_ENA            ( BIT(8) )
+#define BIT_STDO                        ( BIT(4) )
+#define BIT_STCK                        ( BIT(3) )
+#define BIT_STMS                        ( BIT(2) )
+#define BIT_STDI                        ( BIT(1) )
+#define BIT_STRTCK                      ( BIT(0) )
+
+/* bits definitions for register REG_AHB_DSP_BOOT_EN */
+#define BIT_ASHB_ARMTODSP_EN_I          ( BIT(2) )
+#define BIT_FRC_CLK_DSP_EN              ( BIT(1) )
+#define BIT_DSP_BOOT_EN                 ( BIT(0) )
+
+/* bits definitions for register REG_AHB_DSP_RST */
+#define BIT_DSP_SYS_SRST                ( BIT(1) )
+#define BIT_DSP_CORE_SRST_N             ( BIT(0) )
+
+/* bits definitions for register REG_AHB_BIGEND_PORT */
+#define BIT_AHB_BIGEND_PROT             ( BIT(31) )
+#define BITS_BIGEND_PROT_VAL(_x_)       ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
+
+/* bits definitions for register REG_AHB_USB_PHY_TUNE */
+#define BITS_OTGTUNE(_x_)               ( (_x_) << 28 & (BIT(28)|BIT(29)|BIT(30)) )
+#define BITS_COMPDISTUNE(_x_)           ( (_x_) << 24 & (BIT(24)|BIT(25)|BIT(26)) )
+#define BIT_TXPREEMPPULSETUNE           ( BIT(20) )
+#define BITS_TXRESTUNE(_x_)             ( (_x_) << 18 & (BIT(18)|BIT(19)) )
+#define BITS_TXHSXVTUNE(_x_)            ( (_x_) << 16 & (BIT(16)|BIT(17)) )
+#define BITS_TXVREFTUNE(_x_)            ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)) )
+#define BITS_TXPREEMPAMP(_x_)           ( (_x_) << 10 & (BIT(10)|BIT(11)) )
+#define BITS_TXRISETUNE(_x_)            ( (_x_) << 8 & (BIT(8)|BIT(9)) )
+#define BITS_TXFSLSTUNE(_x_)            ( (_x_) << 4 & (BIT(4)|BIT(5)|BIT(6)|BIT(7)) )
+#define BITS_SQRXTUNE(_x_)              ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
+
+/* bits definitions for register REG_AHB_USB_PHY_CTRL */
+#define BIT_TXBITSTUFFENH               ( BIT(23) )
+#define BIT_TXBITSTUFFEN                ( BIT(22) )
+#define BIT_DMPULLDOWN                  ( BIT(21) )
+#define BIT_DPPULLDOWN                  ( BIT(20) )
+#define BIT_DMPULLUP                    ( BIT(9) )
+#define BIT_COMMONONN                   ( BIT(8) )
+#define BITS_REFCLKSEL(_x_)             ( (_x_) << 4 & (BIT(4)|BIT(5)) )
+#define BITS_USBPHY_FSEL(_x_)           ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
+
+/* bits definitions for register REG_AHB_MTX_CTRL */
+#define BIT_DSPP_BUF_EN                 ( BIT(10) )
+#define BIT_DSPD_BUF_EN                 ( BIT(9) )
+#define BIT_DSP_MTX_DMA_BUF_EN          ( BIT(8) )
+#define BIT_MST_MTX_MST_BUF_EN          ( BIT(7) )
+#define BIT_MST_MTX_MST_BUF_FRC_EN      ( BIT(6) )
+
 /* vars definitions for controller REGS_AHB */
 #define REG_AHB_SET(A)                  ( A + 0x1000 )
 #define REG_AHB_CLR(A)                  ( A + 0x2000 )
