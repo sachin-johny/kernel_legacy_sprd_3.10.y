@@ -22,6 +22,8 @@ extern struct ops_mipi sprdfb_mipi_ops;
 extern int32_t sprdfb_dsi_init(struct sprdfb_device *dev);
 extern int32_t sprdfb_dsi_uninit(struct sprdfb_device *dev);
 extern int32_t sprdfb_dsi_ready(struct sprdfb_device *dev);
+extern int32_t sprdfb_dsi_suspend(struct sprdfb_device *dev);
+extern int32_t sprdfb_dsi_resume(struct sprdfb_device *dev);
 
 extern uint32_t rgb_calc_h_timing(struct timing_rgb *timing);
 extern uint32_t rgb_calc_v_timing(struct timing_rgb *timing);
@@ -159,9 +161,7 @@ static void sprdfb_mipi_panel_mount(struct sprdfb_device *dev)
 
 static bool sprdfb_mipi_panel_init(struct sprdfb_device *dev)
 {
-	if(!dev->panel_ready){
-		sprdfb_dsi_init(dev);
-	}
+	sprdfb_dsi_init(dev);
 
 	mipi_dispc_init_config(dev->panel);
 	mipi_dispc_set_timing(dev);
@@ -180,12 +180,16 @@ static void sprdfb_mipi_panel_ready(struct sprdfb_device *dev)
 
 static void sprdfb_mipi_panel_suspend(struct sprdfb_device *dev)
 {
-	sprdfb_dsi_uninit(dev);
+	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
+	//sprdfb_dsi_uninit(dev);
+	sprdfb_dsi_suspend(dev);
 }
 
 static void sprdfb_mipi_panel_resume(struct sprdfb_device *dev)
 {
-	sprdfb_dsi_init(dev);
+	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
+	//sprdfb_dsi_init(dev);
+	sprdfb_dsi_resume(dev);
 }
 
 

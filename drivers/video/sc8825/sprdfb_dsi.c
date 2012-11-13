@@ -90,6 +90,9 @@ int32_t dsi_early_int(void)
 //	dsi_ctx.clk_dsi = clk_get(NULL, "clk_dsi");
 //	clk_enable(dsi_ctx.clk_dsi);
 
+	/*enable dphy*/
+	__raw_writel(__raw_readl(REG_AHB_MIPI_PHY_CTRL) | (1<<MIPI_DPHY_EN), REG_AHB_MIPI_PHY_CTRL);
+
 	dsi_reset();
 
 //	memset(&(dsi_ctx.dsi_inst), 0, sizeof(dsi_ctx.dsi_inst));
@@ -219,10 +222,11 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
 
-	/*enable dphy*/
-	__raw_writel(__raw_readl(REG_AHB_MIPI_PHY_CTRL) | (1<<MIPI_DPHY_EN), REG_AHB_MIPI_PHY_CTRL);
-
-	dsi_early_int();
+	if(dev->panel_ready){
+		dsi_ctx.is_inited = true;
+	}else{
+		dsi_early_int();
+	}
 
 	phy->address = SPRD_MIPI_DSIC_BASE;
 	phy->core_read_function = dsi_core_read_function;
@@ -242,6 +246,12 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	dsi_instance->max_hs_to_lp_cycles = 4;//110;
 	dsi_instance->max_lp_to_hs_cycles = 15;//10;
 	dsi_instance->max_lanes = mipi->lan_number;
+
+	if(dev->panel_ready){
+		printk(KERN_INFO "sprdfb:[%s]: dsi has alread initialized\n", __FUNCTION__);
+		dsi_instance->status = INITIALIZED;
+		return 0;
+	}
 
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
 		dsi_edpi_init();
@@ -311,11 +321,53 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 int32_t sprdfb_dsi_uninit(struct sprdfb_device *dev)
 {
 	dsih_error_t result;
+	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 	result = mipi_dsih_close(&(dsi_ctx.dsi_inst));
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: sprdfb_dsi_uninit fail (%d)!\n", __FUNCTION__, result);
 		return -1;
 	}
+	return 0;
+}
+
+int32_t sprdfb_dsi_suspend(struct sprdfb_device *dev)
+{
+	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
+	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
+//	sprdfb_dsi_uninit(dev);
+//	mipi_dsih_dphy_close(&(dsi_instance->phy_instance));
+//	mipi_dsih_dphy_shutdown(&(dsi_instance->phy_instance), 0);
+	mipi_dsih_hal_power(dsi_instance, 0);
+
+	return 0;
+}
+
+int32_t sprdfb_dsi_resume(struct sprdfb_device *dev)
+{
+	dsih_error_t result = OK;
+	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
+	dphy_t *phy = &(dsi_instance->phy_instance);
+	struct info_mipi * mipi = dev->panel->info.mipi;
+
+	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
+
+#if 0
+	result = mipi_dsih_dphy_open(&(dsi_instance->phy_instance));
+	if(0 != result){
+		printk("Jessica: mipi_dsih_dphy_open fail!(%d)\n",result);
+	}
+	udelay(100);
+#endif
+//	mipi_dsih_dphy_shutdown(&(dsi_instance->phy_instance), 1);
+	mipi_dsih_hal_power(dsi_instance, 1);
+
+#if 0
+	result = mipi_dsih_dphy_configure(phy,  mipi->lan_number, mipi->phy_feq);
+	if(OK != result){
+		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_dphy_configure fail (%d)!\n", __FUNCTION__, result);
+		return -1;
+	}
+#endif
 	return 0;
 }
 
