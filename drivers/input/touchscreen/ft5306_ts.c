@@ -42,7 +42,7 @@
 #define TOUCH_VIRTUAL_KEYS
 #define CONFIG_FT5X0X_MULTITOUCH 1
 
-static int debug_level=1;
+static int debug_level=0;
 
 #define TS_DBG(format, ...)	\
 	if(debug_level == 1)	\
