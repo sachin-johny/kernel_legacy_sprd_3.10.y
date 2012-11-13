@@ -54,15 +54,27 @@ int sci_glb_write(u32 reg, u32 val, u32 msk)
 	return 0;
 }
 
+static int __is_glb(u32 reg)
+{
+	return rounddown(reg, SZ_64K) == rounddown(REGS_GLB_BASE, SZ_64K) ||
+	    rounddown(reg, SZ_64K) == rounddown(REGS_AHB_BASE, SZ_64K);
+}
+
 int sci_glb_set(u32 reg, u32 bit)
 {
-	__raw_writel(bit, REG_GLB_SET(reg));
+	if (__is_glb(reg))
+		__raw_writel(bit, REG_GLB_SET(reg));
+	else
+		WARN_ON(1);
 	return 0;
 }
 
 int sci_glb_clr(u32 reg, u32 bit)
 {
-	__raw_writel(bit, REG_GLB_CLR(reg));
+	if (__is_glb(reg))
+		__raw_writel(bit, REG_GLB_CLR(reg));
+	else
+		WARN_ON(1);
 	return 0;
 }
 
@@ -77,9 +89,9 @@ static int __init glb_hwlock_init(void)
 	if (WARN_ON(IS_ERR_OR_NULL(glb_hwlock)))
 		glb_hwlock = NULL;
 	else
-		pr_info("glb hwspinlock id %d\n", hwspin_lock_get_id(glb_hwlock));
+		pr_info("glb hwspinlock id %d\n",
+			hwspin_lock_get_id(glb_hwlock));
 	return 0;
 }
 
 arch_initcall_sync(glb_hwlock_init);
-

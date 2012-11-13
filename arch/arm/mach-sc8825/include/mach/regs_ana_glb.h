@@ -224,8 +224,8 @@
 #define BIT_SLP_AUDIO_VCMBUF_PD_EN      ( BIT(6) )
 #define BIT_SLP_AUDIO_VCM_PD_EN         ( BIT(5) )
 #define BIT_DCDC_ARM_BP_EN              ( BIT(4) )
-#define BIT_LDOCMMB1V2_BP_EN            ( BIT(3) )
-#define BIT_LDOCMMB1P8_BP_EN            ( BIT(2) )
+#define BIT_LDOCMMB1P8_BP_EN            ( BIT(3) )
+#define BIT_LDOCMMB1V2_BP_EN            ( BIT(2) )
 #define BIT_LDOVDD3V_BP_EN              ( BIT(1) )
 
 /* bits definitions for register ANA_REG_GLB_LDO_SLP_CTRL2 */

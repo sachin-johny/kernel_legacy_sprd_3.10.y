@@ -292,11 +292,21 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
+const char * sc8825_regulator_map[] = {
+	/*supply source, consumer0, consumer1, ..., NULL */
+	"vdd28", "iic_vdd", "ctp_vdd", NULL,
+	"vddsd0", "tflash_vcc", NULL,
+	"vddsim0", "nfc_vcc", NULL,
+	"vddsim1", "sim_vcc", NULL,
+	NULL,
+};
+
 int __init sc8825_regulator_init(void)
 {
 	static struct platform_device sc8825_regulator_device = {
 		.name 	= "sprd-regulator",
 		.id	= -1,
+		.dev = {.platform_data = sc8825_regulator_map},
 	};
 	return platform_device_register(&sc8825_regulator_device);
 }

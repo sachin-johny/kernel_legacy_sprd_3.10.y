@@ -93,7 +93,6 @@ int __init sc8825_ldo_slp_init(void)
 	} ldo_slp_config[] __initdata = {
 		{"vddsim0",		0},
 		{"vddsim1",		0},
-		{"avddvb",		0},
 	};
 
 	for (i = 0; i < ARRAY_SIZE(ldo_slp_config); i++) {
@@ -104,7 +103,7 @@ int __init sc8825_ldo_slp_init(void)
 				regulator_set_mode(ldo, REGULATOR_MODE_STANDBY);
 				regulator_put(ldo);
 			}
-			pr_info("%s slp pd disable\n", ldo_slp_config[i].vdd_name);
+			pr_info("ldo %s slp_pd disable\n", ldo_slp_config[i].vdd_name);
 		}
 	}
 	return 0;
