@@ -526,6 +526,10 @@ void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *
 	}
 }
 
+#if (NR_GPIO_IRQS < ARCH_NR_GPIOS)
+#error "NR_GPIO_IRQS is not match with the sum of builtin/SoC GPIOs and EICs"
+#endif
+
 static int __init gpio_init(void)
 {
 	/* enable EIC */
