@@ -30,12 +30,23 @@
 #include <linux/i2c/lis3dh.h>
 #include <linux/akm8975.h>
 #include <linux/spi/spi.h>
-#include <mach/globalregs.h>
 #include <mach/board.h>
 #include <mach/serial_sprd.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include "devices.h"
+#include <linux/gpio.h>
+#include <linux/mpu.h>
+#include <linux/akm8975.h>
+#include <linux/irq.h>
+
+#include <mach/sci.h>
+#include <mach/hardware.h>
+#include <mach/regs_glb.h>
+#include <mach/regs_ahb.h>
+
+/* IRQ's for the multi sensor board */
+#define MPUIRQ_GPIO 212
 
 extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
@@ -202,15 +213,8 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 };
 
 
-/* config I2C2 SDA/SCL to SIM2 pads */
-static void sprd8810_i2c2sel_config(void)
-{
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, PINCTRL_I2C2_SEL, GR_PIN_CTL);
-}
-
 static int sc8810_add_i2c_devices(void)
 {
-	sprd8810_i2c2sel_config();
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
@@ -313,6 +317,102 @@ int __init sc8825_regulator_init(void)
 
 int __init sc8825_clock_init(void)
 {
+	/* FIXME: Force disable all unused clocks */
+	sci_glb_clr(REG_AHB_AHB_CTL0,
+		BIT_AXIBUSMON2_EB	|
+		BIT_AXIBUSMON1_EB	|
+		BIT_AXIBUSMON0_EB	|
+//		BIT_EMC_EB       	|
+//		BIT_AHB_ARCH_EB  	|
+//		BIT_SPINLOCK_EB  	|
+		BIT_SDIO2_EB     	|
+		BIT_EMMC_EB      	|
+//		BIT_DISPC_EB     	|
+		BIT_G3D_EB       	|
+		BIT_SDIO1_EB     	|
+		BIT_DRM_EB       	|
+		BIT_BUSMON4_EB   	|
+		BIT_BUSMON3_EB   	|
+		BIT_BUSMON2_EB   	|
+		BIT_ROT_EB       	|
+		BIT_VSP_EB       	|
+		BIT_ISP_EB       	|
+		BIT_BUSMON1_EB   	|
+		BIT_DCAM_MIPI_EB 	|
+		BIT_CCIR_EB      	|
+		BIT_NFC_EB       	|
+		BIT_BUSMON0_EB   	|
+//		BIT_DMA_EB       	|
+//		BIT_USBD_EB      	|
+		BIT_SDIO0_EB     	|
+//		BIT_LCDC_EB      	|
+		BIT_CCIR_IN_EB   	|
+		BIT_DCAM_EB      	|
+		0);
+	sci_glb_clr(REG_AHB_AHB_CTL2,
+//		BIT_DISPMTX_CLK_EN	|
+		BIT_MMMTX_CLK_EN    |
+//		BIT_DISPC_CORE_CLK_EN|
+//		BIT_LCDC_CORE_CLK_EN|
+		BIT_ISP_CORE_CLK_EN |
+		BIT_VSP_CORE_CLK_EN |
+		BIT_DCAM_CORE_CLK_EN|
+		0);
+	sci_glb_clr(REG_AHB_AHB_CTL3,
+//		BIT_CLK_ULPI_EN		|
+//		BIT_CLK_USB_REF_EN	|
+		0);
+	sci_glb_clr(REG_GLB_GEN0,
+		BIT_IC3_EB          |
+		BIT_IC2_EB          |
+		BIT_IC1_EB          |
+//		BIT_RTC_TMR_EB      |
+//		BIT_RTC_SYST0_EB    |
+		BIT_RTC_KPD_EB      |
+		BIT_IIS1_EB         |
+//		BIT_RTC_EIC_EB      |
+		BIT_UART2_EB        |
+//		BIT_UART1_EB        |
+		BIT_UART0_EB        |
+//		BIT_SYST0_EB        |
+		BIT_SPI1_EB         |
+		BIT_SPI0_EB         |
+//		BIT_SIM1_EB         |
+//		BIT_EPT_EB          |
+		BIT_CCIR_MCLK_EN    |
+//		BIT_PINREG_EB       |
+		BIT_IIS0_EB         |
+//		BIT_MCU_DSP_RST		|
+//		BIT_EIC_EB     		|
+		BIT_KPD_EB     		|
+		BIT_EFUSE_EB   		|
+//		BIT_ADI_EB     		|
+//		BIT_GPIO_EB    		|
+		BIT_I2C0_EB    		|
+//		BIT_SIM0_EB    		|
+//		BIT_TMR_EB     		|
+		BIT_SPI2_EB    		|
+		BIT_UART3_EB   		|
+		0);
+	sci_glb_clr(REG_AHB_CA5_CFG,
+//		BIT_CA5_CLK_DBG_EN	|
+		0);
+	sci_glb_clr(REG_GLB_GEN1,
+		BIT_AUDIF_AUTO_EN	|
+		BIT_VBC_EN			|
+		BIT_AUD_TOP_EB		|
+		BIT_AUD_IF_EB		|
+		BIT_CLK_AUX1_EN		|
+		BIT_CLK_AUX0_EN		|
+		0);
+	sci_glb_clr(REG_GLB_CLK_EN,
+		BIT_PWM3_EB			|
+		BIT_PWM2_EB			|
+		BIT_PWM1_EB			|
+//		BIT_PWM0_EB			|
+		0);
+
+	printk("sc8825 clock module init ok\n");
 	return 0;
 }
 
@@ -335,20 +435,20 @@ static void __init sc8825_init_early(void)
 	/* earlier init request than irq and timer */
 	sc8825_clock_init();
 	sc8825_enable_timer_early();
-	adi_init();	
+	adi_init();
 	sci_adc_init((void __iomem *)ADC_BASE);
 }
 
 /*
  * Setup the memory banks.
  */
- 
+
 static void __init sc8825_fixup(struct machine_desc *desc,
 	struct tag *tags, char **cmdline, struct meminfo *mi)
 {
 }
 
-MACHINE_START(SC8825OPENPHONE, "sc8825")	
+MACHINE_START(SC8825OPENPHONE, "sc8825")
 	.reserve	= sc8825_reserve,
 	.map_io		= sci_map_io,
 	.fixup		= sc8825_fixup,
