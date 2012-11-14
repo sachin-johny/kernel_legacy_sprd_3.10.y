@@ -67,6 +67,8 @@ typedef struct sensor_reg_tab_tag {
 #define SENSOR_MAIN_I2C_ADDR 0x30
 #define SENSOR_SUB_I2C_ADDR 0x21
 
+#define SENSOR_I2C_ID			1
+
 
 #define SENSOR_MAX_MCLK						96	// MHZ
 
@@ -117,6 +119,7 @@ typedef struct sensor_reg_tab_tag {
 #define SENSOR_IO_SET_FLASH			_IOW(SENSOR_IOC_MAGIC, 13, uint32_t)
 #define SENSOR_IO_I2C_WRITE_REGS	_IOW(SENSOR_IOC_MAGIC, 14, SENSOR_REG_TAB_T)
 #define SENSOR_IO_SET_CAMMOT		_IOW(SENSOR_IOC_MAGIC, 15,  uint32_t)
+#define SENSOR_IO_SET_I2CCLOCK		_IOW(SENSOR_IOC_MAGIC, 16,  uint32_t)
 
 
 #endif //_SENSOR_DRV_K_H_

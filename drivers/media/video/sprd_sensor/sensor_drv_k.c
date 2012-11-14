@@ -34,7 +34,7 @@
 #include <mach/board.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
-
+#include <mach/i2c-sprd.h>
 
 #include "sensor_drv_k.h"
 
@@ -983,6 +983,9 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 	SENSOR_REG_BITS_T reg_bit;
 	uint32_t i;
 	int rettmp;
+	struct timeval time1, time2;
+
+	do_gettimeofday(&time1);
 	
 	size = cnt*sizeof(SENSOR_REG_T);
 	pBuff = kmalloc(size, GFP_KERNEL);
@@ -1018,7 +1021,10 @@ _Sensor_K_WriteRegTab_return:
 	if(PNULL != pBuff)
 		kfree(pBuff);
 
-	SENSOR_PRINT_HIGH("_Sensor_K_WriteRegTab: done, ret = %d \n", ret);
+	do_gettimeofday(&time2);
+	
+	SENSOR_PRINT_HIGH("_Sensor_K_WriteRegTab: done, ret = %d, cnt=%d, time=%d us \n", ret, cnt,
+		(time2.tv_sec - time1.tv_sec)*1000000+(time2.tv_usec - time1.tv_usec));
 	
 	return ret;
 }
@@ -1252,7 +1258,24 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 		}
 		break;
 
+	case SENSOR_IO_SET_I2CCLOCK:
+		{
+			uint32_t clock;
+			ret = copy_from_user(&clock, (uint32_t *) arg, sizeof(uint32_t));
+			if(0 == ret){
+				sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
+				SENSOR_PRINT("sensor_k_ioctl: set i2c clock to %d  \n", clock);
+			}
+		}
+		break;
+
+	default:
+		SENSOR_PRINT("sensor_k_ioctl: invalid command %x  \n", cmd);
+		break;
+
 	}
+
+
 	mutex_unlock(sensor_lock);
 
 	return ret;
