@@ -34,7 +34,12 @@
 #include <mach/board.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
+
+#ifdef CONFIG_ARCH_SC8825
 #include <mach/i2c-sprd.h>
+#else
+#include <mach/i2c-sc8810.h>
+#endif
 
 #include "sensor_drv_k.h"
 
@@ -1029,6 +1034,19 @@ _Sensor_K_WriteRegTab_return:
 	return ret;
 }
 
+LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
+{
+#ifdef CONFIG_ARCH_SC8825
+	sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
+#else
+	sc8810_i2c_set_clk(SENSOR_I2C_ID, clock);
+#endif
+
+	SENSOR_PRINT("_Sensor_K_SetI2CClock: set i2c clock to %d  \n", clock);
+
+	return SENSOR_K_SUCCESS;
+}
+
 int sensor_k_open(struct inode *node, struct file *file)
 {
 	return 0;
@@ -1263,8 +1281,7 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t clock;
 			ret = copy_from_user(&clock, (uint32_t *) arg, sizeof(uint32_t));
 			if(0 == ret){
-				sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
-				SENSOR_PRINT("sensor_k_ioctl: set i2c clock to %d  \n", clock);
+				_Sensor_K_SetI2CClock(clock);
 			}
 		}
 		break;
