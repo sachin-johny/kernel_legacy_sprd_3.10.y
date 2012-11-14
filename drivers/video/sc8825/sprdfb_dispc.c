@@ -603,14 +603,18 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 	printk(KERN_INFO "sprdfb:[%s], dev->enable = %d\n",__FUNCTION__, dev->enable);
 
 	if (0 != dev->enable){
-		/* must wait ,dispc_sync() */
-		dispc_ctx.vsync_waiter ++;
-		dispc_sync(dev);
-		printk(KERN_INFO "sprdfb:[%s] got sync\n",__FUNCTION__);
+		if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
+			/* must wait ,dispc_sync() */
+			dispc_ctx.vsync_waiter ++;
+			dispc_sync(dev);
+			printk(KERN_INFO "sprdfb:[%s] got sync\n",__FUNCTION__);
+		}
 
 		sprdfb_panel_suspend(dev);
 
 		dispc_stop(dev);
+
+		mdelay(50); /*fps>20*/
 
 		dev->enable = 0;
 		clk_disable(dispc_ctx.clk_dispc);
