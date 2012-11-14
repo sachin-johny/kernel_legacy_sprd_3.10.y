@@ -16,6 +16,7 @@
 
 #include <asm/sizes.h>
 
+#include <mach/gpio.h>
 
 #ifdef CONFIG_MACH_SP8825_FPGA
 #include <mach/gpio-sp8810ga.h>
