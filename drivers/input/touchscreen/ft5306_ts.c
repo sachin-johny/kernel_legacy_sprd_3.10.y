@@ -328,7 +328,7 @@ static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *at
 {
 	return sprintf(buf,
          __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":100:1020:80:65"
-	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOME)   ":280:1020:80:65"
+	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":280:1020:80:65"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":470:1020:80:65"
 	 "\n");
 }
@@ -800,7 +800,7 @@ static int ft5x0x_read_data(void)
 		case 1:
 			event->x1 = (s16)(buf[3] & 0x0F)<<8 | (s16)buf[4];
 			event->y1 = (s16)(buf[5] & 0x0F)<<8 | (s16)buf[6];
-			printk("===x1 = %d,y1 = %d ====",event->x1,event->y1);
+			TS_DBG("===x1 = %d,y1 = %d ====",event->x1,event->y1);
             break;
 		default:
 		    return -1;
@@ -1047,7 +1047,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	__set_bit(ABS_MT_WIDTH_MAJOR, input_dev->absbit);
 	__set_bit(KEY_MENU,  input_dev->keybit);
 	__set_bit(KEY_BACK,  input_dev->keybit);
-	__set_bit(KEY_HOME,  input_dev->keybit);
+	__set_bit(KEY_HOMEPAGE,  input_dev->keybit);
 
 	input_set_abs_params(input_dev,
 			     ABS_MT_POSITION_X, 0, SCREEN_MAX_X, 0, 0);
@@ -1064,7 +1064,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	__set_bit(BTN_TOUCH, input_dev->keybit);
 	__set_bit(KEY_MENU,  input_dev->keybit);
 	__set_bit(KEY_BACK,  input_dev->keybit);
-	__set_bit(KEY_HOME,  input_dev->keybit);
+	__set_bit(KEY_HOMEPAGE,  input_dev->keybit);
 
 	input_set_abs_params(input_dev, ABS_X, 0, SCREEN_MAX_X, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, SCREEN_MAX_Y, 0, 0);

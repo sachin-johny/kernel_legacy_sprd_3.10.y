@@ -278,7 +278,7 @@ static int ltr558_als_read(int gainrange)
 	if (gainrange == ALS_RANGE1_320)
 		luxdata_flt = luxdata_flt / 150;
 
-	luxdata_int = luxdata_flt;
+	luxdata_int = luxdata_flt * 50;
 
 	return luxdata_int;
 }
@@ -393,17 +393,17 @@ static void ltr558_work(struct work_struct *work)
 		val = ltr558_ps_read();
 		dbg_mesg("p -> val=0x%04x\n", val);
 
-		if (val >= 0x6b9) {	// 3cm
+		if (val >= 0x49d) {	// 3cm
 			ltr558_i2c_write_reg(0x90, 0xff);
 			ltr558_i2c_write_reg(0x91, 0x07);
-			ltr558_i2c_write_reg(0x92, 0xa0);
-			ltr558_i2c_write_reg(0x93, 0x06);
+			ltr558_i2c_write_reg(0x92, 0x6d);
+			ltr558_i2c_write_reg(0x93, 0x05);
 
 			input_report_abs(pls->input, ABS_DISTANCE, 0);
 			input_sync(pls->input);
-		} else if (val <= 0x6a0) {	// 5cm
-			ltr558_i2c_write_reg(0x90, 0xb9);
-			ltr558_i2c_write_reg(0x91, 0x06);
+		} else if (val <= 0x56d) {	// 5cm
+			ltr558_i2c_write_reg(0x90, 0x9d);
+			ltr558_i2c_write_reg(0x91, 0x04);
 			ltr558_i2c_write_reg(0x92, 0x00);
 			ltr558_i2c_write_reg(0x93, 0x00);
 
@@ -416,8 +416,8 @@ static void ltr558_work(struct work_struct *work)
 		val = ltr558_als_read(l_gainrange);
 		dbg_mesg("l -> val=0x%04x\n", val);
 
-		logpval = ltr558_ps_read();
-		dbg_mesg("p -> logpval=0x%04x\n", logpval);
+//		logpval = ltr558_ps_read();
+//		dbg_mesg("p -> logpval=0x%04x\n", logpval);
 
 		input_report_abs(pls->input, ABS_MISC, val);
 		input_sync(pls->input);
