@@ -103,7 +103,7 @@
 /* sc8825 gpio&eic pin interrupt number, total is 320, which is bigger than 256 */
 #define GPIO_IRQ_START			SCI_EXT_IRQ(7)
 
-#define NR_GPIO_IRQS	( ARCH_NR_GPIOS )
+#define NR_GPIO_IRQS	( 320 )
 
 #define NR_IRQS				(NR_SCI_PHY_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
 
