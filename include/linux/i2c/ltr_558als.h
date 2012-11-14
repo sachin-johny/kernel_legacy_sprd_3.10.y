@@ -11,7 +11,7 @@
 #define LTR558_I2C_ADDR	            0x23 
 #define LTR558_PLS_IRQ_PIN          "ltr558_irq_pin"
 
-#define LTR558_DRV_DEBUG
+//#define LTR558_DRV_DEBUG
 
 #if defined(LTR558_DRV_DEBUG)
         #define dbg_mesg(format, arg...) \
