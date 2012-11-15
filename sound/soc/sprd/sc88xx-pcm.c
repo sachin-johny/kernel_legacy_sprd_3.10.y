@@ -31,7 +31,7 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
 	/* 16bits, stereo-2-channels */
 	.period_bytes_min = VBC_FIFO_FRAME_NUM * 2 * 2,
 	.period_bytes_max = VBC_FIFO_FRAME_NUM * 2 * 2,
-	.periods_min = 64,
+	.periods_min = 2,
 	/* DA0, DA1 sg are combined */
 	.periods_max = 4 * PAGE_SIZE / (2 * sizeof(sprd_dma_desc)),
 	.buffer_bytes_max = 256 * 1024,
@@ -74,12 +74,12 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	 * of the DMA burst size.  Let's add a rule to enforce that.
 	 */
 	ret = snd_pcm_hw_constraint_step(runtime, 0,
-		SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 32);
+		SNDRV_PCM_HW_PARAM_PERIOD_BYTES, runtime->hw.period_bytes_min);
 	if (ret)
 		goto out;
 
 	ret = snd_pcm_hw_constraint_step(runtime, 0,
-						SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 32);
+						SNDRV_PCM_HW_PARAM_BUFFER_BYTES, runtime->hw.period_bytes_min);
 	if (ret)
 		goto out;
 
