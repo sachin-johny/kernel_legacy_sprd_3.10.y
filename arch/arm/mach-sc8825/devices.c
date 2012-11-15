@@ -517,7 +517,17 @@ static const unsigned int test_keymap[] = {
 	KEY(0, 0, KEY_VOLUMEDOWN),
 	KEY(0, 1, KEY_CAMERA),
 };
+#elif defined(CONFIG_MACH_GARDA)
+#define CUSTOM_KEYPAD_ROWS          (SCI_ROW3)
+#define CUSTOM_KEYPAD_COLS          (SCI_COL2)
+#define ROWS	(3)
+#define COLS	(2)
 
+static const unsigned int test_keymap[] = {
+	KEY(0, 0, KEY_VOLUMEUP),
+	KEY(0, 1, KEY_VOLUMEDOWN),
+	KEY(1, 2, KEY_HOMEPAGE),
+};
 #else
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW7 | SCI_ROW6 | SCI_ROW5 | SCI_ROW4 | SCI_ROW3 |SCI_ROW2)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL7 | SCI_COL6 | SCI_COL5 | SCI_COL4 | SCI_COL3 |SCI_COL2)
