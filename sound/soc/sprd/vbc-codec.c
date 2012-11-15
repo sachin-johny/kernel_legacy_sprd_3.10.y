@@ -1391,7 +1391,7 @@ struct snd_soc_dai_driver vbc_dai[] = {
 		.rates = VBC_PCM_RATES,
 		.formats = VBC_PCM_FORMATS,},
 	.ops = &vbc_dai_ops,
-	.symmetric_rates = 1,
+	/* .symmetric_rates = 1, */
 },
 };
 
