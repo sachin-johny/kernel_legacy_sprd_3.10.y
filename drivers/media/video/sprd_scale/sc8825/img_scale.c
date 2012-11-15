@@ -31,7 +31,7 @@ static struct scale_frame       frm_rtn;
 
 static void scale_done(struct scale_frame* frame, void* u_data)
 {
-	SCALE_TRACE("scale_done \n");
+	printk("sc done \n");
 	(void)u_data;
 	memcpy(&frm_rtn, frame, sizeof(struct scale_frame));
 	frm_rtn.type = 0;
@@ -54,14 +54,14 @@ static int img_scale_open(struct inode *node, struct file *pf)
 
 	ret = scale_module_en();
 	if (unlikely(ret)) {
-		SCALE_TRACE("Failed to enable scale module \n");
+		printk("Failed to enable scale module \n");
 		ret = -EIO;
 		goto faile;
 	}
 	
 	ret = scale_reg_isr(SCALE_TX_DONE, scale_done, NULL);
 	if (unlikely(ret)) {
-		SCALE_TRACE("Failed to register ISR \n");
+		printk("Failed to register ISR \n");
 		ret = -EACCES;
 		goto reg_faile;
 	} else {
@@ -97,7 +97,7 @@ ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_
 	uint32_t                 threshold = SCALE_LINE_BUF_LENGTH;
 
 	if (cnt < sizeof(uint32_t)) {
-		SCALE_TRACE("img_scale_read , wrong size of u_data %d \n", cnt);
+		printk("img_scale_read , wrong size of u_data %d \n", cnt);
 		return -1;
 	}
 	
@@ -137,7 +137,7 @@ static long img_scale_ioctl(struct file *file,
 
 	if (param_size) {
 		if (copy_from_user(data, (void*)arg, param_size)) {
-			SCALE_TRACE("img_scale_ioctl, failed to copy_from_user \n");
+			printk("img_scale_ioctl, failed to copy_from_user \n");
 			ret = -EFAULT;
 			goto exit;
 		}
@@ -146,7 +146,7 @@ static long img_scale_ioctl(struct file *file,
 	if (SCALE_IO_IS_DONE == cmd) {
 		ret = down_interruptible(&scale_irq_sem);
 		if (ret) {
-			SCALE_TRACE("img_scale_ioctl, failed to down, 0x%x \n", ret);
+			printk("img_scale_ioctl, failed to down, 0x%x \n", ret);
 			ret = -ERESTARTSYS;
 			goto exit;
 		} else {
@@ -156,7 +156,7 @@ static long img_scale_ioctl(struct file *file,
 				goto exit;
 			}
 			if (copy_to_user((void*)arg, &frm_rtn, sizeof(struct scale_frame))) {
-				SCALE_TRACE("img_scale_ioctl, failed to copy_to_user \n");
+				printk("img_scale_ioctl, failed to copy_to_user \n");
 				ret = -EFAULT;
 				goto exit;
 			}
@@ -248,7 +248,7 @@ int img_scale_probe(struct platform_device *pdev)
 						img_scale_proc_read,
 						NULL);
 	if (unlikely(NULL == img_scale_proc_file)) {
-		SCALE_TRACE("Can't create an entry for scale in /proc \n");
+		printk("Can't create an entry for scale in /proc \n");
 		ret = ENOMEM;
 		goto exit;
 	}

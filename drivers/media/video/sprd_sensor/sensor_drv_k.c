@@ -58,7 +58,7 @@
 #define SENSOR_PRINT(...)
 #endif
 #define SENSOR_PRINT_ERR   printk
-#define SENSOR_PRINT_HIGH printk
+#define SENSOR_PRINT_HIGH  pr_debug
 
 #define SENSOR_K_SUCCESS 		0
 #define SENSOR_K_FAIL 			(-1)

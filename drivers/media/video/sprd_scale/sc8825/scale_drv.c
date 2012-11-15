@@ -21,7 +21,7 @@
 #include "gen_scale_coef.h"
 #include "../sprd_dcam/sc8825/dcam_drv_sc8825.h"
 
-#define SCALE_DRV_DEBUG
+//#define SCALE_DRV_DEBUG
 #define SCALE_LOWEST_ADDR                              0x800
 #define SCALE_ADDR_INVALIDE(addr)                     ((addr) < SCALE_LOWEST_ADDR)
 #define SCALE_YUV_ADDR_INVALIDE(y,u,v)                  \
@@ -115,7 +115,7 @@ int32_t    scale_module_en(void)
 
 	ret = dcam_get_resizer(0);
 	if (ret) {
-		SCALE_TRACE("scale_module_en, failed to get review path %d \n", ret);
+		printk("scale_module_en, failed to get review path %d \n", ret);
 		return ret;
 	}
 	ret = dcam_module_en();
@@ -131,7 +131,7 @@ int32_t    scale_module_dis(void)
 	REG_MWR(SCALE_BASE,  1 << 2, 0 << 2);
 	ret = dcam_module_dis();
 	if (ret) {
-		SCALE_TRACE("scale_module_dis, failed to disable scale module %d \n", ret);
+		printk("scale_module_dis, failed to disable scale module %d \n", ret);
 		return ret;
 	}
 	
@@ -167,7 +167,7 @@ int32_t    scale_start(void)
 	}
 	rtn = _scale_alloc_tmp_buf();
 	if(rtn) {
-		SCALE_TRACE("SCALE DRV: No mem to alloc tmp buf \n");
+		printk("SCALE DRV: No mem to alloc tmp buf \n");
 		goto exit;
 	}
 
@@ -188,7 +188,7 @@ int32_t    scale_start(void)
 			"SCALE", 
 			&g_scale_irq);
 	if (ret) {
-		SCALE_TRACE("SCALE DRV: scale_start,error %d \n", ret);
+		printk("SCALE DRV: scale_start,error %d \n", ret);
 		rtn = SCALE_RTN_MAX;
 	}
 
@@ -659,7 +659,7 @@ static int32_t _scale_set_sc_coeff(void)
 
 	tmp_buf = (uint32_t *)kmalloc(SC_COEFF_BUF_SIZE, GFP_KERNEL);
 	if (NULL == tmp_buf) {
-		SCALE_TRACE("SCALE DRV: No mem to alloc coeff buffer! \n");
+		printk("SCALE DRV: No mem to alloc coeff buffer! \n");
 		return SCALE_RTN_NO_MEM;
 	}
 
@@ -675,7 +675,7 @@ static int32_t _scale_set_sc_coeff(void)
 	                    tmp_buf + (SC_COEFF_COEF_SIZE/2), 
 	                    SC_COEFF_TMP_SIZE))) {
 		kfree(tmp_buf);
-		SCALE_TRACE("SCALE DRV: _scale_set_sc_coeff error! \n");    
+		printk("SCALE DRV: _scale_set_sc_coeff error! \n");    
 		return SCALE_RTN_GEN_COEFF_ERR;
 	}	
 
@@ -760,7 +760,7 @@ static void    _scale_reg_trace(void)
 
 	SCALE_TRACE("SCALE DRV: Register list");
 	for (addr = SCALE_BASE; addr <= SCALE_END; addr += 16) {
-		SCALE_TRACE("\n 0x%x: 0x%x 0x%x 0x%x 0x%x", 
+		printk("\n 0x%x: 0x%x 0x%x 0x%x 0x%x", 
 			 addr,
 		         REG_RD(addr),
 		         REG_RD(addr + 4),
@@ -789,7 +789,7 @@ int32_t    _scale_alloc_tmp_buf(void)
 			vir_addr->yaddr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP,
 							g_path->mem_order[0]);
 			if (NULL == (void*)vir_addr->yaddr) {
-				SCALE_TRACE("SCALE DRV: alloc_tmp_buf, y, no mem, 0x%x 0x%x \n",
+				printk("SCALE DRV: alloc_tmp_buf, y, no mem, 0x%x 0x%x \n",
 					mem_szie, g_path->mem_order[0]);
 				return SCALE_RTN_NO_MEM;
 			}
@@ -799,7 +799,7 @@ int32_t    _scale_alloc_tmp_buf(void)
 			vir_addr->uaddr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP,
 							g_path->mem_order[1]);
 			if (NULL == (void*)vir_addr->uaddr) {
-				SCALE_TRACE("SCALE DRV: alloc_tmp_buf, u, no mem, 0x%x 0x%x \n",
+				printk("SCALE DRV: alloc_tmp_buf, u, no mem, 0x%x 0x%x \n",
 					mem_szie, g_path->mem_order[1]);
 				_scale_free_tmp_buf();
 				return SCALE_RTN_NO_MEM;
@@ -812,7 +812,7 @@ int32_t    _scale_alloc_tmp_buf(void)
 			vir_addr->vaddr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP,
 							g_path->mem_order[2]);
 			if (NULL == (void*)vir_addr->vaddr) {
-				SCALE_TRACE("SCALE DRV: alloc_tmp_buf, v, no mem, 0x%x 0x%x \n",
+				printk("SCALE DRV: alloc_tmp_buf, v, no mem, 0x%x 0x%x \n",
 					mem_szie, g_path->mem_order[2]);
 				_scale_free_tmp_buf();
 				return SCALE_RTN_NO_MEM;

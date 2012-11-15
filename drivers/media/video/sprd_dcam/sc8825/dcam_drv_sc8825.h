@@ -18,7 +18,7 @@
 #include "sc8825_reg_dcam.h"
 //#include "SC8810_reg_dcam.h"
 
-#define DCAM_DEBUG
+//#define DCAM_DEBUG
 
 #ifdef DCAM_DEBUG
 	#define DCAM_TRACE             printk
