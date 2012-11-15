@@ -29,8 +29,8 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 
-//#define RTT_PRINT pr_debug
-#define RTT_PRINT printk
+#define RTT_PRINT pr_debug
+//#define RTT_PRINT printk
 
 //#define ROTATION_DEBUG		0
 

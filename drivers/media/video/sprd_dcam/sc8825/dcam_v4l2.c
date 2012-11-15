@@ -58,6 +58,7 @@ enum
 	V4L2_NO_MEM   = 0x01,
 	V4L2_TX_ERR   = 0x02,
 	V4L2_CSI2_ERR = 0x03,
+	V4L2_TIMEOUT  = 0x10,
 	V4L2_TX_STOP  = 0xFF
 };
 
@@ -363,7 +364,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 	
 	DCAM_TRACE("V4L2: check format for path1 \n");
 	if (unlikely(V4L2_BUF_TYPE_VIDEO_CAPTURE != f->type)) {
-		DCAM_TRACE("V4L2: unsupported video type, %d \n", f->type);
+		printk("V4L2: unsupported video type, %d \n", f->type);
 		return -EINVAL;
 	}
 
@@ -391,7 +392,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 		if (unlikely(f->fmt.pix.width != tempw ||
 			f->fmt.pix.height != temph)) {
 			/*need need scaling or triming*/
-			DCAM_TRACE("V4L2: Can not scaling for this image fmt src %d %d, dst %d %d \n",
+			printk("V4L2: Can not scaling for this image fmt src %d %d, dst %d %d \n",
 					tempw,
 					temph,
 					f->fmt.pix.width,
@@ -402,14 +403,14 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 		if (unlikely(DCAM_CAP_MODE_JPEG != info->sn_mode &&
 			V4L2_PIX_FMT_JPEG == fourcc)) {
 			/* the output of sensor is not JPEG which is needed by app*/
-			DCAM_TRACE("V4L2: It's not JPEG sensor \n");
+			printk("V4L2: It's not JPEG sensor \n");
 			return -EINVAL;
 		}
 
 		if (unlikely(DCAM_CAP_MODE_RAWRGB != info->sn_mode &&
 			V4L2_PIX_FMT_GREY == fourcc)) {
 			/* the output of sensor is not RawRGB which is needed by app*/
-			DCAM_TRACE("V4L2: It's not RawRGB sensor \n");
+			printk("V4L2: It's not RawRGB sensor \n");
 			return -EINVAL;
 		}
 
@@ -439,7 +440,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				/*scaling needed*/
 				if (unlikely(f->fmt.pix.width > DCAM_SC_LINE_BUF_LENGTH)) {
 					/*out of scaling capbility*/
-					DCAM_TRACE("V4L2: the output width %d can not be more than %d \n",
+					printk("V4L2: the output width %d can not be more than %d \n",
 						f->fmt.pix.width,
 						DCAM_SC_LINE_BUF_LENGTH);
 					return -EINVAL;
@@ -450,7 +451,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				maxh = temph * DCAM_SC_COEFF_MAX;
 				if (unlikely(f->fmt.pix.width > maxw || f->fmt.pix.height > maxh)) {
 					/*out of scaling capbility*/
-					DCAM_TRACE("V4L2: the output size is too large, %d %d \n",
+					printk("V4L2: the output size is too large, %d %d \n",
 						f->fmt.pix.width,
 						f->fmt.pix.height);
 					return -EINVAL;
@@ -462,7 +463,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				if (unlikely( tempw > maxw)) {
 					info->img_deci.x_factor = sprd_v4l2_get_deci_factor(tempw, maxw);
 					if (info->img_deci.x_factor >= DCAM_CAP_X_DECI_FAC_MAX) {
-						DCAM_TRACE("V4L2: the output size is too small, %d %d \n",
+						printk("V4L2: the output size is too small, %d %d \n",
 							f->fmt.pix.width,
 							f->fmt.pix.height);
 						return -EINVAL;
@@ -474,7 +475,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				if (unlikely(temph > maxh)) {
 					info->img_deci.y_factor = sprd_v4l2_get_deci_factor(temph, maxh);
 					if (info->img_deci.y_factor >= DCAM_CAP_Y_DECI_FAC_MAX) {
-						DCAM_TRACE("V4L2: the output size is too small, %d %d \n",
+						printk("V4L2: the output size is too small, %d %d \n",
 							f->fmt.pix.width,
 							f->fmt.pix.height);
 						return -EINVAL;
@@ -503,7 +504,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 					/*scaling needed*/
 					if (unlikely(f->fmt.pix.width > DCAM_SC_LINE_BUF_LENGTH)) {
 						/*out of scaling capbility*/
-						DCAM_TRACE("V4L2: the output width %d can not be more than %d \n",
+						printk("V4L2: the output width %d can not be more than %d \n",
 							f->fmt.pix.width,
 							DCAM_SC_LINE_BUF_LENGTH);
 						return -EINVAL;
@@ -515,7 +516,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				if (unlikely(tempw > DCAM_ISP_LINE_BUF_LENGTH)) {
 					if (0 == info->if_mode) {
 						/*CCIR CAP, no bining*/
-						DCAM_TRACE("V4L2: CCIR CAP, no bining for this path, %d %d \n",
+						printk("V4L2: CCIR CAP, no bining for this path, %d %d \n",
 							f->fmt.pix.width,
 							f->fmt.pix.height);
 						return -EINVAL;
@@ -523,7 +524,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 						/*MIPI CAP, support 1/2 bining*/
 						tempw = tempw >> 1;
 						if (unlikely(tempw > DCAM_ISP_LINE_BUF_LENGTH)) {
-							DCAM_TRACE("V4L2: the width is out of ISP line buffer, %d %d \n",
+							printk("V4L2: the width is out of ISP line buffer, %d %d \n",
 								tempw,
 								DCAM_ISP_LINE_BUF_LENGTH);
 							return -EINVAL;
@@ -546,7 +547,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 					maxh = maxh * (1 << (DCAM_PATH_DECI_FAC_MAX - 1));
 					if (unlikely(tempw > maxw || temph > maxh)) {
 						/*out of scaling capbility*/
-						DCAM_TRACE("V4L2: the output size is too small, %d %d \n",
+						printk("V4L2: the output size is too small, %d %d \n",
 								f->fmt.pix.width,
 								f->fmt.pix.height);
 						return -EINVAL;
@@ -554,7 +555,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 
 					if (unlikely(f->fmt.pix.width > DCAM_SC_LINE_BUF_LENGTH)) {
 						/*out of scaling capbility*/
-						DCAM_TRACE("V4L2: the output width %d can not be more than %d \n",
+						printk("V4L2: the output width %d can not be more than %d \n",
 							f->fmt.pix.width,
 							DCAM_SC_LINE_BUF_LENGTH);
 						return -EINVAL;
@@ -564,7 +565,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 					maxh = temph * DCAM_SC_COEFF_MAX;
 					if (unlikely(f->fmt.pix.width > maxw || f->fmt.pix.height > maxh)) {
 						/*out of scaling capbility*/
-						DCAM_TRACE("V4L2: the output size is too large, %d %d \n",
+						printk("V4L2: the output size is too large, %d %d \n",
 							f->fmt.pix.width,
 							f->fmt.pix.height);
 						return -EINVAL;
@@ -572,7 +573,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				}
 			} else {
 				/*no ISP ,only RawRGB data can be sampled*/
-				DCAM_TRACE("V4L2: RawRGB sensor, no ISP, format 0x%x can't be supported \n",
+				printk("V4L2: RawRGB sensor, no ISP, format 0x%x can't be supported \n",
 						fourcc);
 				return -EINVAL;
 			}
@@ -581,7 +582,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 		depth_pixel = sprd_v4l2_endian_sel(fourcc, path);
 		break;
 	default:
-		DCAM_TRACE("V4L2: unsupported image format for path2 0x%x \n", fourcc);
+		printk("V4L2: unsupported image format for path2 0x%x \n", fourcc);
 		return -EINVAL;
 	}
 
@@ -606,7 +607,7 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 
 	DCAM_TRACE("V4L2: check format for path2 \n");
 	if (unlikely(V4L2_BUF_TYPE_PRIVATE != f->type)) {
-		DCAM_TRACE("V4L2: unsupported video type, %d \n", f->type);
+		printk("V4L2: unsupported video type, %d \n", f->type);
 		return -EINVAL;
 	}
 
@@ -638,7 +639,7 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 			/*scaling needed*/
 			if (unlikely(f->fmt.pix.width > DCAM_SC_LINE_BUF_LENGTH)) {
 				/*out of scaling capbility*/
-				DCAM_TRACE("V4L2: the output width %d can not be more than %d \n",
+				printk("V4L2: the output width %d can not be more than %d \n",
 					f->fmt.pix.width,
 					DCAM_SC_LINE_BUF_LENGTH);
 				return -EINVAL;
@@ -648,7 +649,7 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 			maxh = temph * DCAM_SC_COEFF_MAX;
 			if (unlikely(f->fmt.pix.width > maxw || f->fmt.pix.height > maxh)) {
 				/*out of scaling capbility*/
-				DCAM_TRACE("V4L2: the output size is too large, %d %d \n",
+				printk("V4L2: the output size is too large, %d %d \n",
 					f->fmt.pix.width,
 					f->fmt.pix.height);
 				return -EINVAL;
@@ -660,7 +661,7 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 			maxh = maxh * (1 << (DCAM_PATH_DECI_FAC_MAX - 1));
 			if (unlikely(tempw > maxw || temph > maxh)) {
 				/*out of scaling capbility*/
-				DCAM_TRACE("V4L2: the output size is too small, %d %d \n",
+				printk("V4L2: the output size is too small, %d %d \n",
 						f->fmt.pix.width,
 						f->fmt.pix.height);
 				return -EINVAL;
@@ -671,7 +672,7 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 		depth_pixel = sprd_v4l2_endian_sel(fourcc, path);
 		break;
 	default:
-		DCAM_TRACE("V4L2: unsupported image format for path2 0x%x \n", fourcc);
+		printk("V4L2: unsupported image format for path2 0x%x \n", fourcc);
 		return -EINVAL;
 	}
 
@@ -838,7 +839,7 @@ static int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)
 	if (NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_csi2_error \n");
+	printk("V4L2: sprd_v4l2_csi2_error \n");
 
 	node.irq_flag = V4L2_CSI2_ERR;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
@@ -1028,6 +1029,7 @@ static int v4l2_s_parm(struct file *file,
 	} else {
 		dev->dcam_cxt.dcam_path[1].frm_id_base = streamparm->parm.capture.reserved[1];
 	}
+	DCAM_TRACE("V4L2: v4l2_s_parm, base frame id, 0x%x \n", streamparm->parm.capture.reserved[1]);
 
 	dev->dcam_cxt.cap_in_size.w  = streamparm->parm.capture.reserved[2];
 	dev->dcam_cxt.cap_in_size.h  = streamparm->parm.capture.reserved[3];
@@ -1210,7 +1212,7 @@ static int v4l2_try_fmt_vid_cap(struct file *file,
 
 	fmt = sprd_v4l2_get_format(f);
 	if (unlikely(!fmt)) {
-		DCAM_TRACE("V4L2: Fourcc format (0x%08x) invalid. \n",
+		printk("V4L2: Fourcc format (0x%08x) invalid. \n",
 			f->fmt.pix.pixelformat);
 		return -EINVAL;
 	}
@@ -1222,7 +1224,7 @@ static int v4l2_try_fmt_vid_cap(struct file *file,
 	} else if (V4L2_BUF_TYPE_PRIVATE == f->type) {
 		if (unlikely(dcam_get_resizer(0))) {
 			/*no wait to get the controller of resizer, failed*/
-			DCAM_TRACE("V4L2: path2 has been occupied by other app \n");
+			printk("V4L2: path2 has been occupied by other app \n");
 			return -EIO;
 		}
 		mutex_lock(&dev->dcam_mutex);
@@ -1233,7 +1235,7 @@ static int v4l2_try_fmt_vid_cap(struct file *file,
 			dcam_rel_resizer();
 		}
 	} else {
-		DCAM_TRACE("V4L2: Buf type invalid. \n");
+		printk("V4L2: Buf type invalid. \n");
 		return -EINVAL;
 	}
 
@@ -1271,7 +1273,7 @@ static int v4l2_qbuf(struct file *file,
 
 	if (0 == atomic_read(&dev->stream_on)) {
 		if (unlikely(0 == p->m.userptr)) {
-			DCAM_TRACE("V4L2: No yaddr \n");
+			printk("V4L2: No yaddr \n");
 			ret = -EINVAL;
 		} else {
 			if (unlikely(path->frm_cnt_act < DCAM_FRM_CNT_MAX)) {
@@ -1281,13 +1283,13 @@ static int v4l2_qbuf(struct file *file,
 				path->frm_addr[path->frm_cnt_act].vaddr = p->reserved;
 				path->frm_cnt_act++;
 			} else {
-				DCAM_TRACE("V4L2: frm_cnt_act error %d \n", path->frm_cnt_act);
+				printk("V4L2: frm_cnt_act error %d \n", path->frm_cnt_act);
 				ret = -EMLINK;
 			}
 		}
 	} else {
 		if (unlikely(p->index > path->frm_id_base + path->frm_cnt_act - 1)) {
-			DCAM_TRACE("V4L2: error, index %d, frm_id_base %d frm_cnt_act %d \n",
+			printk("V4L2: error, index %d, frm_id_base %d frm_cnt_act %d \n",
 				p->index, path->frm_id_base, path->frm_cnt_act);
 			ret = -EINVAL;
 		} else {
@@ -1309,15 +1311,19 @@ static int v4l2_dqbuf(struct file *file,
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct dcam_node         node;
 	struct dcam_path_spec    *path;
+	int                      ret = 0;
 
 	DCAM_TRACE("V4L2: v4l2_dqbuf \n");
 
-	if (down_interruptible(&dev->irq_sem)) {
-		DCAM_TRACE("V4L2: v4l2_dqbuf, failed to down \n");
+	ret = down_interruptible(&dev->irq_sem);
+	if (ret) {
+		printk("V4L2: v4l2_dqbuf, failed to down, %d \n", ret);
+		p->flags = V4L2_TIMEOUT;
 		return -ERESTARTSYS;
 	}
 	if (sprd_v4l2_queue_read(&dev->queue, &node)) {
-		DCAM_TRACE("V4L2: v4l2_dqbuf, failed read queue \n");
+		printk("V4L2: v4l2_dqbuf, failed read queue \n");
+		p->flags = V4L2_TX_ERR;
 		return -ERESTARTSYS;
 	}
 
@@ -1411,7 +1417,7 @@ static int v4l2_streamon(struct file *file,
 exit:
 
 	if (ret) {
-		DCAM_TRACE("V4L2: Failed to start stream %d \n", ret);
+		printk("V4L2: Failed to start stream %d \n", ret);
 	} else {
 		atomic_set(&dev->stream_on, 1);
 	}
@@ -1518,7 +1524,7 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 		(uint32_t)(DCAM_TIMING_LEN*sizeof(uint32_t)));
 
 	if (unlikely(ret)) {
-		DCAM_TRACE("V4L2: v4l2_s_ctrl, error, 0x%x \n", ctrl->value);
+		printk("V4L2: v4l2_s_ctrl, error, 0x%x \n", ctrl->value);
 		ret = -EFAULT;
 		V4L2_RTN_IF_ERR(ret);
 	}
@@ -1578,14 +1584,14 @@ static int sprd_v4l2_open(struct file *file)
 	DCAM_TRACE("sprd_v4l2_open \n");
 	ret = dcam_module_en();
 	if (unlikely(0 != ret)) {
-		DCAM_TRACE("V4L2: Failed to enable dcam module \n");
+		printk("V4L2: Failed to enable dcam module \n");
 		ret = -EIO;
 		goto exit;
 	}
 
 	ret = dcam_reset(DCAM_RST_PATH1);
 	if (unlikely(0 != ret)) {
-		DCAM_TRACE("V4L2: Failed to reset dcam path1 \n");
+		printk("V4L2: Failed to reset dcam path1 \n");
 		ret = -EIO;
 		goto exit;
 	}
@@ -1611,7 +1617,7 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 	uint32_t                 threshold = DCAM_SC_LINE_BUF_LENGTH;
 
 	if (cnt < sizeof(uint32_t)) {
-		DCAM_TRACE("sprd_v4l2_read , wrong size of u_data %d \n", cnt);
+		printk("sprd_v4l2_read , wrong size of u_data %d \n", cnt);
 		return -1;
 	}
 
@@ -1651,7 +1657,7 @@ static int sprd_v4l2_close(struct file *file)
 	mutex_lock(&dev->dcam_mutex);
 	ret = dcam_module_dis();
 	if (unlikely(0 != ret)) {
-		DCAM_TRACE("V4L2: Failed to enable dcam module \n");
+		printk("V4L2: Failed to enable dcam module \n");
 		ret = -EIO;
 	}
 	atomic_dec(&dev->users);
@@ -1879,7 +1885,7 @@ static int __init create_instance(int inst)
 						sprd_v4l2_proc_read,
 						(void*)dev);
 	if (unlikely(NULL == v4l2_proc_file)) {
-		DCAM_TRACE("V4L2: Can't create an entry for video0 in /proc \n");
+		printk("V4L2: Can't create an entry for video0 in /proc \n");
 		ret = ENOMEM;
 		goto rel_vdev;
 	}

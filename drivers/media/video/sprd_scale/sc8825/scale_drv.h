@@ -17,7 +17,7 @@
 #include <linux/types.h>
 #include "sc8825_reg_scale.h"
 
-#define SCALE_DEBUG
+//#define SCALE_DEBUG
 
 #ifdef SCALE_DEBUG
 	#define SCALE_TRACE             printk

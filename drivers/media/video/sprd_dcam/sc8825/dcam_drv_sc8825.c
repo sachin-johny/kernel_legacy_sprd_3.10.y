@@ -342,9 +342,6 @@ int32_t dcam_start(void)
 
 	DCAM_TRACE("DCAM DRV: dcam_start: %x \n", s_dcam_mod.dcam_mode);
 
-	REG_MWR(CAP_CCIR_FRM_CTRL, BIT_5 | BIT_4, 2 << 4);
-	REG_MWR(CAP_MIPI_FRM_CTRL, BIT_5 | BIT_4, 2 << 4);
-
 	REG_WR(DCAM_INT_CLR,  DCAM_IRQ_LINE_MASK);
 	REG_WR(DCAM_INT_MASK, DCAM_IRQ_LINE_MASK);
 	ret = request_irq(DCAM_IRQ,
@@ -955,6 +952,7 @@ int32_t dcam_path1_cfg(enum dcam_cfg_id id, void *param)
 		
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
+		DCAM_TRACE("DCAM DRV: DCAM_PATH_FRAME_BASE_ID 0x%x \n", base_id);
 		for (i = 0; i < DCAM_FRM_CNT_MAX; i++) {
 			frame->fid = base_id + i;
 			frame = frame->next;
@@ -991,7 +989,8 @@ int32_t dcam_path1_cfg(enum dcam_cfg_id id, void *param)
 		uint32_t          frm_type = *(uint32_t*)param, i;
 		
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
-		
+
+		DCAM_TRACE("DCAM DRV: DCAM_PATH_FRAME_TYPE 0x%x \n", frm_type);
 		for (i = 0; i < DCAM_FRM_CNT_MAX; i++) {
 			frame->type = frm_type;
 			frame = frame->next;
@@ -1147,6 +1146,7 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
+		DCAM_TRACE("DCAM DRV: DCAM_PATH_FRAME_BASE_ID 0x%x \n", base_id);
 		for (i = 0; i < DCAM_FRM_CNT_MAX; i++) {
 			frame->fid = base_id + i;
 			frame = frame->next;
@@ -1186,6 +1186,7 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
+		DCAM_TRACE("DCAM DRV: DCAM_PATH_FRAME_TYPE 0x%x \n", frm_type);
 		for (i = 0; i < DCAM_FRM_CNT_MAX; i++) {
 			frame->type = frm_type;
 			frame = frame->next;
@@ -1334,7 +1335,7 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 	irq_line = status;
 	if (unlikely(DCAM_IRQ_ERR_MASK & status)) {
 		err_flag = 1;
-		DCAM_TRACE("DCAM DRV: error happened, 0x%x, %d \n", status, s_dcam_mod.dcam_path2.valide);
+		printk("DCAM DRV: error happened, 0x%x, %d \n", status, s_dcam_mod.dcam_path2.valide);
 		_dcam_stopped();
 		if (s_dcam_mod.dcam_path2.valide) {
 			/* both dcam paths have been working, it's safe to reset the whole dcam module*/
@@ -1348,8 +1349,6 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 		status &= ~((1 << PATH2_DONE) | (1 << PATH2_OV));
 		irq_line = status;
 	}
-
-	//DCAM_TRACE("dcam_isr_root, 0x%x \n", status);
 
 	spin_lock_irqsave(&dcam_lock,flag);
 
@@ -1731,6 +1730,8 @@ static void    _path1_done(void)
 	struct dcam_path_desc   *path = &s_dcam_mod.dcam_path1;
 	struct dcam_frame       *frame = path->output_frame_cur->prev->prev;
 
+	printk("DCAM 1 done \n");
+
 	DCAM_TRACE("DCAM DRV: _path1_done, frame 0x%x, y uv, 0x%x 0x%x \n",
 		frame, frame->yaddr, frame->uaddr);
 
@@ -1794,7 +1795,7 @@ static void    _path2_done(void)
 		return;
 	}
 
-	DCAM_TRACE("DCAM DRV: _path2_done \n");
+	printk("DCAM 2 done \n");
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH2, false);
 	if (rtn) {
