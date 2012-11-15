@@ -36,7 +36,7 @@
 #define	SUPPORTED_BUTTON_NUM		0
 
 /* Upgrade Method*/
-#define	TOUCH_ONESHOT_UPGRADE		0
+#define	TOUCH_ONESHOT_UPGRADE		1
 /* if you use isp mode, you must add i2c device :
 name = "zinitix_isp" , addr 0x50*/
 
@@ -44,7 +44,7 @@ name = "zinitix_isp" , addr 0x50*/
 #define	ABS_PT_OFFSET			1
 
 #define	TOUCH_FORCE_UPGRADE		1
-#define	USE_CHECKSUM			1	// BT4x3 only
+#define	USE_CHECKSUM			0	// BT4x3 only
 
 #define	CHIP_POWER_OFF_DELAY		100	/*ms*/
 #define	CHIP_POWER_OFF_AF_FZ_DELAY	250	/*ms*/

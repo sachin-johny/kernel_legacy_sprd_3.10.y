@@ -120,6 +120,7 @@ static int32_t nt35510_mipi_init(struct panel_spec *self)
 
 	mipi_set_cmd_mode_t mipi_set_cmd_mode = self->info.mipi->ops->mipi_set_cmd_mode;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
+	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
 
 	pr_debug(KERN_DEBUG "nt35510_mipi_init\n");
 
@@ -128,7 +129,7 @@ static int32_t nt35510_mipi_init(struct panel_spec *self)
 	for(i = 0; i < ARRAY_SIZE(init_data); i++){
 		tag = (init->tag >>24);
 		if(tag & LCM_TAG_SEND){
-			mipi_gen_write(init->data, (init->tag & LCM_TAG_MASK));
+			mipi_dcs_write(init->data, (init->tag & LCM_TAG_MASK));
 		}else if(tag & LCM_TAG_SLEEP){
 			udelay((init->tag & LCM_TAG_MASK) * 1000);
 		}
@@ -149,16 +150,16 @@ static struct panel_operations lcd_nt35510_mipi_operations = {
 };
 
 static struct timing_rgb lcd_nt35510_mipi_timing = {
-	.hfp = 200,  /* unit: pixel */
-	.hbp = 200,
-	.hsync = 8,
+	.hfp = 20,  /* unit: pixel */
+	.hbp = 20,
+	.hsync = 4,
 	.vfp = 10, /*unit: line*/
 	.vbp = 10,
 	.vsync = 6,
 };
 
 static struct info_mipi lcd_nt35510_mipi_info = {
-	.work_mode  = SPRDFB_MIPI_MODE_VIDEO,
+	.work_mode  = SPRDFB_MIPI_MODE_CMD,
 	.video_bus_width = 24, /*18,16*/
 	.lan_number = 2,
 	.phy_feq = 500*1000,

@@ -314,7 +314,9 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 		SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT | SDHCI_INT_INDEX |
 		SDHCI_INT_END_BIT | SDHCI_INT_CRC | SDHCI_INT_TIMEOUT |
 		SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE);
-
+ sdhci_writel(host,0x22,0x80);
+ sdhci_writel(host,0x11,0x84);
+ sdhci_writel(host,0x11,0x88);
 	if (soft) {
 		/* force clock reconfiguration */
 		host->clock = 0;
