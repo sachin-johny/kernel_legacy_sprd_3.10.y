@@ -391,10 +391,10 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 				memcpy(buf + rxsize - tail, ring->rxbuf_virt, tail);
 			} else {
 				/* handle the user space address */
-				if(copy_from_user((void __user *)buf, rxpos, rxsize - tail) ||
-				    copy_from_user((void __user *)(buf + rxsize - tail),
+				if(copy_to_user((void __user *)buf, rxpos, rxsize - tail) ||
+				    copy_to_user((void __user *)(buf + rxsize - tail),
 				    ring->rxbuf_virt, tail)) {
-					printk(KERN_ERR "sbuf_read: failed to copy from user!\n");
+					printk(KERN_ERR "sbuf_read: failed to copy to user!\n");
 					rval = -EFAULT;
 					break;
 				}
