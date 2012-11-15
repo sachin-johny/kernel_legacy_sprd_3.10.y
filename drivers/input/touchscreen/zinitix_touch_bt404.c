@@ -701,11 +701,13 @@ static void ts_power_control(u8 ctl)
 	if (ctl == POWER_OFF)
 	{
 		printk("Tsp off\n");
-		regulator_disable(tsp_regulator_28);				 		
+		//regulator_disable(tsp_regulator_28);				 		
 	}
 	else if (ctl == POWER_ON)
 	{
-		regulator_enable(tsp_regulator_28);
+		
+		//regulator_set_voltage(tsp_regulator_28, 2800000, 2800000);
+		//regulator_enable(tsp_regulator_28);
 		udelay(100);
 		printk("Tsp on\n");
 	}
@@ -3121,7 +3123,6 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	struct zinitix_touch_dev *touch_dev;
 	int i;
 	
-	zinitix_regulator();
 
 	zinitix_debug_msg("zinitix_touch_probe+\r\n");
 
@@ -3290,14 +3291,12 @@ static int zinitix_touch_probe(struct i2c_client *client,
 
 	touch_dev->int_gpio_num = GPIO_TOUCH_PIN_NUM;
 
-#ifdef	GPIO_TOUCH_IRQ
-	touch_dev->irq = GPIO_TOUCH_IRQ;
-#else
+
 	touch_dev->irq = gpio_to_irq(touch_dev->int_gpio_num);
 	if (touch_dev->irq < 0)
 		printk(KERN_INFO "error. gpio_to_irq(..) function is not \
 			supported? you should define GPIO_TOUCH_IRQ.\r\n");
-#endif
+
 	zinitix_debug_msg("request irq (irq = %d, pin = %d) \r\n",
 		touch_dev->irq, touch_dev->int_gpio_num);
 
