@@ -124,7 +124,7 @@ static int sc882x_amp_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static const struct snd_soc_dapm_widget dolphin_dapm_widgets[] = {
+static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Mic Jack", NULL),
 	SND_SOC_DAPM_MIC("Aux Mic Jack", NULL),
 	SND_SOC_DAPM_MIC("HP Mic Jack", NULL),
@@ -182,7 +182,7 @@ static int sc882x_func_set(struct snd_kcontrol *kcontrol,
 #define SC882X_CODEC_FUNC(xname, xreg) \
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, sc882x_func_get, sc882x_func_set)
 
-static const struct snd_kcontrol_new dolphin_sc882x_controls[] = {
+static const struct snd_kcontrol_new sprd_codec_sc882x_controls[] = {
 	SC882X_CODEC_FUNC("Speaker Function", SC882X_FUNC_SPKL),
 	SC882X_CODEC_FUNC("Speaker2 Function", SC882X_FUNC_SPKR),
 	SC882X_CODEC_FUNC("Earpiece Function", SC882X_FUNC_EAR),
@@ -241,10 +241,10 @@ static struct snd_soc_card sc882x_card = {
 	.num_links = ARRAY_SIZE(sc882x_dai),
 	.owner = THIS_MODULE,
 
-	.controls = dolphin_sc882x_controls,
-	.num_controls = ARRAY_SIZE(dolphin_sc882x_controls),
-	.dapm_widgets = dolphin_dapm_widgets,
-	.num_dapm_widgets = ARRAY_SIZE(dolphin_dapm_widgets),
+	.controls = sprd_codec_sc882x_controls,
+	.num_controls = ARRAY_SIZE(sprd_codec_sc882x_controls),
+	.dapm_widgets = sprd_codec_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(sprd_codec_dapm_widgets),
 	.dapm_routes = sc882x_audio_map,
 	.num_dapm_routes = ARRAY_SIZE(sc882x_audio_map),
 	.late_probe = sc882x_late_probe,
