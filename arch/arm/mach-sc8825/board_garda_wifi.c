@@ -24,6 +24,8 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 
+#include <linux/clk.h>
+#include <linux/fs.h>
 #include <linux/mmc/host.h>
 
 #define GET_WIFI_MAC_ADDR_FROM_NV_ITEM	        1
@@ -107,6 +109,8 @@ Always power on  According to spec
 */
 static int wlan_ldo_enable(void)
 {
+//wlan ldo is already on
+#if 0
 	int err;
 	wlan_regulator_18 = regulator_get(NULL, "vddsd1");
 
@@ -121,6 +125,27 @@ static int wlan_ldo_enable(void)
 		return -1;
 	}
 	regulator_enable(wlan_regulator_18);
+	return err;
+#endif
+}
+
+static void wlan_clk_init(void)
+{
+	struct clk *wlan_clk;
+	struct clk *clk_parent;
+	wlan_clk = clk_get(NULL, "clk_aux1");
+	if (IS_ERR(wlan_clk)) {
+		printk("clock: failed to get clk_aux1\n");
+	}
+
+	clk_parent = clk_get(NULL, "ext_32k");
+	if (IS_ERR(clk_parent)) {
+		printk("failed to get parent ext_32k\n");
+	}
+
+	clk_set_parent(wlan_clk, clk_parent);
+	clk_set_rate(wlan_clk, 32000);
+	clk_enable(wlan_clk);
 }
 
 int wlan_device_power(int on)
@@ -289,6 +314,7 @@ static int __init wlan_device_init(void)
 
 	init_wifi_mem();
 	wlan_ldo_enable();
+	wlan_clk_init();
 	gpio_request(GPIO_WIFI_IRQ, "oob_irq");
 	gpio_direction_input(GPIO_WIFI_IRQ);
 
