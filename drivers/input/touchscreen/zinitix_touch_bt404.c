@@ -133,8 +133,8 @@ Version 3.0.23 : [20120517]
 
 static int m_ts_debug_mode = ZINITIX_DEBUG;
 
-#define	SYSTEM_MAX_X_RESOLUTION	800
-#define	SYSTEM_MAX_Y_RESOLUTION	480
+#define	SYSTEM_MAX_X_RESOLUTION	480
+#define	SYSTEM_MAX_Y_RESOLUTION	920
 
 
 /* interrupt pin number*/
@@ -283,6 +283,57 @@ struct regulator *tsp_regulator_28 = NULL;
 /*<= you must set key button mapping*/
 u32 BUTTON_MAPPING_KEY[MAX_SUPPORTED_BUTTON_NUM] = {
 	KEY_SEARCH, KEY_BACK, KEY_HOME, KEY_MENU,};
+
+#define  TOUCH_VIRTUAL_KEYS
+#ifdef TOUCH_VIRTUAL_KEYS
+
+static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	return sprintf(buf,
+	 __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":30:859:100:55"
+	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":460:859:100:55"
+	 "\n");
+}
+
+static struct kobj_attribute virtual_keys_attr = {
+    .attr = {
+        .name = "virtualkeys.Zinitix_tsp",
+        .mode = S_IRUGO,
+    },
+    .show = &virtual_keys_show,
+};
+
+static struct attribute *properties_attrs[] = {
+    &virtual_keys_attr.attr,
+    NULL
+};
+
+static struct attribute_group properties_attr_group = {
+    .attrs = properties_attrs,
+};
+
+
+/* zinitix_ts_virtual_keys_init --  register virutal keys to system
+ * @return: none
+ */
+static void zinitix_ts_virtual_keys_init(void)
+{
+    int ret;
+    struct kobject *properties_kobj;
+
+    //PIXCIR_DBG("%s",__func__);
+
+    properties_kobj = kobject_create_and_add("board_properties", NULL);
+    if (properties_kobj)
+        ret = sysfs_create_group(properties_kobj,
+                     &properties_attr_group);
+    if (!properties_kobj || ret)
+        pr_err("failed to create board_properties\n");
+}
+
+
+#endif
+
 
 /* define i2c sub functions*/
 static inline s32 ts_read_data(struct i2c_client *client,
@@ -3234,20 +3285,20 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	if (touch_dev->cap_info.Orientation & TOUCH_XY_SWAP) {
 		input_set_abs_params(touch_dev->input_dev, ABS_MT_POSITION_Y,
 			touch_dev->cap_info.MinX,
-			touch_dev->cap_info.MaxX + ABS_PT_OFFSET,
+			480 + ABS_PT_OFFSET,
 			0, 0);
 		input_set_abs_params(touch_dev->input_dev, ABS_MT_POSITION_X,
 			touch_dev->cap_info.MinY,
-			touch_dev->cap_info.MaxY + ABS_PT_OFFSET,
+			800 + ABS_PT_OFFSET,
 			0, 0);
 	} else {
 		input_set_abs_params(touch_dev->input_dev, ABS_MT_POSITION_X,
 			touch_dev->cap_info.MinX,
-			touch_dev->cap_info.MaxX + ABS_PT_OFFSET,
+			480 + ABS_PT_OFFSET,
 			0, 0);
 		input_set_abs_params(touch_dev->input_dev, ABS_MT_POSITION_Y,
 			touch_dev->cap_info.MinY,
-			touch_dev->cap_info.MaxY + ABS_PT_OFFSET,
+			800 + ABS_PT_OFFSET,
 			0, 0);
 	}
 
@@ -3278,7 +3329,7 @@ static int zinitix_touch_probe(struct i2c_client *client,
 			touch_dev->input_dev->name);
 		goto err_input_register_device;
 	}
-
+	zinitix_ts_virtual_keys_init();
 	/* configure touchscreen interrupt gpio */
 	ret = gpio_request(GPIO_TOUCH_PIN_NUM, "zinitix_irq_gpio");
 	if (ret) {
