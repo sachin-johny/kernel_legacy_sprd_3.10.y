@@ -17,13 +17,14 @@
 #include <linux/module.h>
 #include <linux/irqflags.h>
 #include <linux/delay.h>
+#include <linux/hwspinlock.h>
 
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include <mach/regs_ana_glb.h>
+#include <mach/arch_lock.h>
 
-static DEFINE_SPINLOCK(adc_lock);
 static u32 io_base;		/* Mapped base address */
 
 #define adc_write(val,reg) \
@@ -37,14 +38,17 @@ static unsigned adc_read(unsigned addr)
 
 #ifdef CONFIG_NKERNEL
 #define sci_adc_lock()				\
-		flags = hw_local_irq_save()
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADC), -1, &flags))); \
+		hw_flags = hw_local_irq_save()
 #define sci_adc_unlock()			\
-		hw_local_irq_restore(flags)
+		hw_local_irq_restore(hw_flags);	\
+		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADC), &flags)
 
 #else
-#define sci_adc_lock() do {spin_lock_irqsave(&adc_lock,flags);} while(0)
-#define sci_adc_unlock() do {spin_unlock_irqrestore(&adc_lock,flags);} while(0)
-
+/*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
+#define sci_adc_lock() 		do { \
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADC), -1, &flags)));} while(0)
+#define sci_adc_unlock() 	do {hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADC), &flags);} while(0)
 #endif
 
 #define ADC_CTL		(0x00)
@@ -156,7 +160,7 @@ static int sci_adc_config(struct adc_sample_data *adc)
 
 int sci_adc_get_values(struct adc_sample_data *adc)
 {
-	unsigned long flags;
+	unsigned long flags, hw_flags;
 	int cnt = 12;
 	unsigned addr = 0;
 	unsigned val = 0;

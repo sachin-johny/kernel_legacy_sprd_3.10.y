@@ -59,7 +59,6 @@ extern int __init sci_clock_init(void);
 static struct platform_device kb_backlight_device;
 
 static struct platform_device *devices[] __initdata = {
-	&sprd_hwspinlock_device0,
 	&sprd_serial_device0,
 	&sprd_serial_device1,
 	&sprd_serial_device2,
@@ -418,6 +417,7 @@ int __init sc8825_clock_init(void)
 
 static void __init sc8825_init_machine(void)
 {
+	sci_adc_init((void __iomem *)ADC_BASE);
 	sc8825_regulator_init();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
@@ -435,8 +435,7 @@ static void __init sc8825_init_early(void)
 	/* earlier init request than irq and timer */
 	sc8825_clock_init();
 	sc8825_enable_timer_early();
-	adi_init();
-	sci_adc_init((void __iomem *)ADC_BASE);
+	sci_adi_init();
 }
 
 /*
