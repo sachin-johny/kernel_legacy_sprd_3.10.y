@@ -16,6 +16,7 @@
 #include <linux/bitops.h>
 #include <linux/semaphore.h>
 #include <linux/delay.h>
+#include <linux/clk.h>
 #include <asm/io.h>
 #include <mach/irqs.h>
 #include "dcam_drv_sc8825.h"
@@ -192,11 +193,13 @@ static const dcam_isr isr_list[IRQ_NUMBER] = {
 	_isp_ov,
 	_mipi_ov
 };
+static 	struct clk *s_mm_clk;
 int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 	              enum dcam_cap_sensor_mode sn_mode)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct dcam_cap_desc    *cap_desc = &s_dcam_mod.dcam_cap;
+	int ret = 0;
 
 	if (if_mode >= DCAM_CAP_IF_MODE_MAX) {
 		rtn = -DCAM_RTN_CAP_IF_MODE_ERR;
@@ -208,7 +211,12 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 			_dcam_link_frm(0); /* set default base frame index as 0 */
 			cap_desc->interface = if_mode;
 			cap_desc->input_format = sn_mode;
-			REG_OWR(DCAM_EB, BIT_13);//MM_EB
+			s_mm_clk = clk_get(NULL, "clk_vsp");
+			ret = clk_enable(s_mm_clk);
+			if (ret) {
+				printk("enable mm clk error.\n");
+			}
+			/*REG_OWR(DCAM_EB, BIT_13);//MM_EB*/
 			REG_OWR(DCAM_MATRIX_EB, BIT_10|BIT_5);
 			if (DCAM_CAP_IF_CSI2 == if_mode) {
 				REG_OWR(CSI2_DPHY_EB, MIPI_EB_BIT);
@@ -239,6 +247,10 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 		REG_MWR(DCAM_EB, CCIR_IN_EB_BIT, 0 << 2);
 		REG_MWR(DCAM_EB, CCIR_EB_BIT, 0 << 9);
 		REG_MWR(DCAM_CFG, BIT_9, 0 << 9);
+	}
+	if (s_mm_clk) {
+		clk_disable(s_mm_clk);
+		clk_put(s_mm_clk);
 	}
 
 	return -rtn;
