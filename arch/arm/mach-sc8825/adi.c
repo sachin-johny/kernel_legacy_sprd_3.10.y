@@ -26,6 +26,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include <mach/regs_glb.h>
+#include <mach/arch_lock.h>
 
 #define CTL_ADI_BASE			( SPRD_MISC_BASE )
 
@@ -69,21 +70,18 @@
 
 #define BIT_FIFO_EMPTY                  ( BIT(10) )
 
-static DEFINE_SPINLOCK(adi_lock);
-static struct hwspinlock *adi_hwlock = NULL;
-
 #ifdef CONFIG_NKERNEL
 #define sci_adi_lock()				\
-		spin_lock_irqsave(&adi_lock, flags);\
-		if (adi_hwlock) WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(adi_hwlock, -1)));\
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADI), -1, &flags)));\
 		hw_flags = hw_local_irq_save()
 #define sci_adi_unlock()			\
 		hw_local_irq_restore(hw_flags);		\
-		if (adi_hwlock) hwspin_unlock(adi_hwlock);	\
-		spin_unlock_irqrestore(&adi_lock, flags)
+		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADI), &flags);
 #else
-#define sci_adi_lock() do {spin_lock_irqsave(&adi_lock,flags);} while(0)
-#define sci_adi_unlock() do {spin_unlock_irqrestore(&adi_lock,flags);} while(0)
+/*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
+#define sci_adi_lock() do { \
+	WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADI), -1, &flags)));} while(0)
+#define sci_adi_unlock() do {hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADI), &flags);} while(0)
 #endif
 
 static int sci_adi_fifo_drain(void)
@@ -241,7 +239,7 @@ static void __init __sci_adi_init(void)
 	__raw_writel(value, REG_ADI_CHNL_PRI);
 }
 
-int __init adi_init(void)
+int __init sci_adi_init(void)
 {
 	/* enable adi in global regs */
 	sci_glb_set(REG_GLB_GEN0,BIT_ADI_EB);
@@ -255,17 +253,4 @@ int __init adi_init(void)
 
 	return 0;
 }
-
-static int __init adi_hwlock_init(void)
-{
-	adi_hwlock = hwspin_lock_request_specific(0);
-	if (WARN_ON(IS_ERR_OR_NULL(adi_hwlock)))
-		adi_hwlock = NULL;
-	else
-		pr_info("adi hwspinlock id %d\n", hwspin_lock_get_id(adi_hwlock));
-	return 0;
-}
-
-/* FIXME: Better not to access a-die before hwspinlock device driver ready */
-arch_initcall_sync(adi_hwlock_init);
 

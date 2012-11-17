@@ -22,22 +22,20 @@
 #include <mach/sci.h>
 #include <mach/hardware.h>
 #include <mach/regs_glb.h>
-
-static DEFINE_SPINLOCK(glb_lock);
-static struct hwspinlock *glb_hwlock = NULL;
+#include <mach/arch_lock.h>
 
 #ifdef CONFIG_NKERNEL
 #define sci_glb_lock()				\
-		spin_lock_irqsave(&glb_lock, flags);\
-		if (glb_hwlock) WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(glb_hwlock, -1)));\
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_GLB), -1, &flags)));\
 		hw_flags = hw_local_irq_save()
 #define sci_glb_unlock()			\
 		hw_local_irq_restore(hw_flags);		\
-		if (glb_hwlock) hwspin_unlock(glb_hwlock);	\
-		spin_unlock_irqrestore(&glb_lock, flags)
+		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_GLB), &flags);
 #else
-#define sci_glb_lock() 		do {spin_lock_irqsave(&glb_lock,flags);} while(0)
-#define sci_glb_unlock() 	do {spin_unlock_irqrestore(&glb_lock,flags);} while(0)
+/*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
+#define sci_glb_lock() 		do { \
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_GLB), -1, &flags)));} while(0)
+#define sci_glb_unlock() 	do {hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_GLB), &flags);} while(0)
 #endif
 
 u32 sci_glb_read(u32 reg, u32 msk)
@@ -83,15 +81,3 @@ EXPORT_SYMBOL(sci_glb_write);
 EXPORT_SYMBOL(sci_glb_set);
 EXPORT_SYMBOL(sci_glb_clr);
 
-static int __init glb_hwlock_init(void)
-{
-	glb_hwlock = hwspin_lock_request_specific(1);
-	if (WARN_ON(IS_ERR_OR_NULL(glb_hwlock)))
-		glb_hwlock = NULL;
-	else
-		pr_info("glb hwspinlock id %d\n",
-			hwspin_lock_get_id(glb_hwlock));
-	return 0;
-}
-
-arch_initcall_sync(glb_hwlock_init);
