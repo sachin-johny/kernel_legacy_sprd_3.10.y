@@ -122,8 +122,6 @@ Version 3.0.23 : [20120517]
 #include <linux/delay.h>
 #include <mach/gpio.h>
 #include <linux/uaccess.h>
-#include <linux/regulator/consumer.h>
-#include <mach/regulator.h>
 
 #include "zinitix_touch_bt404.h"
 #include "zinitix_touch_bt4x4_firmware.h"
@@ -134,7 +132,7 @@ Version 3.0.23 : [20120517]
 static int m_ts_debug_mode = ZINITIX_DEBUG;
 
 #define	SYSTEM_MAX_X_RESOLUTION	480
-#define	SYSTEM_MAX_Y_RESOLUTION	920
+#define	SYSTEM_MAX_Y_RESOLUTION	870
 
 
 /* interrupt pin number*/
@@ -278,7 +276,6 @@ struct device *sec_touchscreen_dev;
 struct device *sec_touchkey_dev;
 #endif
 
-struct regulator *tsp_regulator_28 = NULL;
 
 /*<= you must set key button mapping*/
 u32 BUTTON_MAPPING_KEY[MAX_SUPPORTED_BUTTON_NUM] = {
@@ -291,7 +288,7 @@ static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *at
 {
 	return sprintf(buf,
 	 __stringify(EV_KEY) ":" __stringify(KEY_MENU) ":30:859:100:55"
-	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":460:859:100:55"
+	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":430:859:100:55"
 	 "\n");
 }
 
@@ -750,18 +747,9 @@ static irqreturn_t ts_int_handler(int irq, void *dev)
 static void ts_power_control(u8 ctl)
 {
 	if (ctl == POWER_OFF)
-	{
-		printk("Tsp off\n");
-		//regulator_disable(tsp_regulator_28);				 		
-	}
+		;
 	else if (ctl == POWER_ON)
-	{
-		
-		//regulator_set_voltage(tsp_regulator_28, 2800000, 2800000);
-		//regulator_enable(tsp_regulator_28);
-		udelay(100);
-		printk("Tsp on\n");
-	}
+		;
 
 }
 
@@ -3151,21 +3139,6 @@ fail_hw_cal2:
 }
 
 
-static int zinitix_regulator(void)
-{
-	int err;
-
-	tsp_regulator_28 = regulator_get(NULL, "vdd28");
-	if (IS_ERR(tsp_regulator_28)) {
-		pr_err("zinitix:could not get 1.8v regulator\n");
-		return -1;
-	}
-	err = regulator_set_voltage(tsp_regulator_28,2800000,2800000);
-	if (err)
-		pr_err("zinitix:could not set to 2800mv.\n");
-
-	return 0;
-}
 
 static int zinitix_touch_probe(struct i2c_client *client,
 		const struct i2c_device_id *i2c_id)
@@ -3173,7 +3146,6 @@ static int zinitix_touch_probe(struct i2c_client *client,
 	int ret = 0;
 	struct zinitix_touch_dev *touch_dev;
 	int i;
-	
 
 	zinitix_debug_msg("zinitix_touch_probe+\r\n");
 
@@ -3189,15 +3161,6 @@ static int zinitix_touch_probe(struct i2c_client *client,
 		m_isp_client = client;
 		return 0;
 	}
-
-	ts_power_control(1); 
-	mdelay(CHIP_ON_DELAY);
-	mdelay(500);
-	ts_power_control(0); 
-	mdelay(1000);
-	ts_power_control(1); 
-	mdelay(CHIP_ON_DELAY);
-	mdelay(500);
 
 	zinitix_debug_msg("i2c check function \r\n");
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -3329,7 +3292,10 @@ static int zinitix_touch_probe(struct i2c_client *client,
 			touch_dev->input_dev->name);
 		goto err_input_register_device;
 	}
+
+#ifdef TOUCH_VIRTUAL_KEYS
 	zinitix_ts_virtual_keys_init();
+#endif
 	/* configure touchscreen interrupt gpio */
 	ret = gpio_request(GPIO_TOUCH_PIN_NUM, "zinitix_irq_gpio");
 	if (ret) {

@@ -948,12 +948,14 @@ static void ft5x0x_ts_reset(void)
 
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
+	return;
 	printk("==ft5x0x_ts_suspend=\n");
 	ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
 }
 
 static void ft5x0x_ts_resume(struct early_suspend *handler)
 {
+	return;
 	printk("==%s==\n", __FUNCTION__);
 	ft5x0x_ts_reset();
 }
@@ -1048,6 +1050,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	__set_bit(KEY_MENU,  input_dev->keybit);
 	__set_bit(KEY_BACK,  input_dev->keybit);
 	__set_bit(KEY_HOMEPAGE,  input_dev->keybit);
+	__set_bit(BTN_TOUCH, input_dev->keybit);
 
 	input_set_abs_params(input_dev,
 			     ABS_MT_POSITION_X, 0, SCREEN_MAX_X, 0, 0);
