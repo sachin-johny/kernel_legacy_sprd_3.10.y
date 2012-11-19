@@ -13,10 +13,14 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/smp.h>
+#include <linux/io.h>
 
 #include <asm/cacheflush.h>
+#include <mach/common.h>
+#include <mach/hardware.h>
 
 extern volatile int pen_release;
+extern void secondary_startup(void);
 
 static inline void cpu_enter_lowpower(void)
 {
@@ -63,14 +67,7 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 	 * code will have already disabled interrupts
 	 */
 	for (;;) {
-		/*
-		 * here's the WFI
-		 */
-		asm(".word	0xe320f003\n"
-		    :
-		    :
-		    : "memory", "cc");
-
+		sprd_pm_cpu_enter_lowpower(cpu);
 		if (pen_release == cpu) {
 			/*
 			 * OK, proper wakeup, we're done
@@ -106,6 +103,8 @@ void platform_cpu_die(unsigned int cpu)
 #ifdef CONFIG_NKERNEL_PM_MASTER
 	hw_local_irq_disable();
 #endif
+	flush_cache_all();
+	dsb();
 #ifdef CONFIG_NKERNEL
 	os_ctx->smp_cpu_stop(cpu);
 #endif
@@ -113,18 +112,19 @@ void platform_cpu_die(unsigned int cpu)
 	/*
 	 * we're ready for shutdown now, so do it
 	 */
-	cpu_enter_lowpower();
+	printk("cpu%d, %s, call platform_do_lowpower\n", cpu, __func__ );
 	platform_do_lowpower(cpu, &spurious);
 
 	/*
 	 * bring this CPU back into the world of cache
 	 * coherency, and then restore interrupts
 	 */
-	cpu_leave_lowpower();
+	//cpu_leave_lowpower();
 
 #ifdef CONFIG_NKERNEL_PM_MASTER
-	os_ctx->smp_cpu_start(cpu, 0);
+	os_ctx->smp_cpu_start(cpu, virt_to_phys(secondary_startup));
 #endif
+	printk("cpu%d, %s, after os_ctx->smp_cpu_start at 0\n", cpu, __func__ );
 
 	if (spurious)
 		pr_warn("CPU%u: %u spurious wakeup calls\n", cpu, spurious);

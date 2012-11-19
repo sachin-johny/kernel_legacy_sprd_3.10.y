@@ -38,6 +38,7 @@
 #include <asm/div64.h>
 #include <asm/nkern.h>
 #include <asm/localtimer.h>
+#include <asm/cacheflush.h>
 
     extern void
 secondary_startup (void);
@@ -334,7 +335,38 @@ phys_platform_secondary_init (unsigned int cpu)
     int __cpuinit __attribute__ ((weak))
 phys_boot_secondary (unsigned int cpu, struct task_struct* idle)
 {
-    return virt_boot_secondary(cpu, idle);
+    unsigned long timeout;
+    //return virt_boot_secondary(cpu, idle);// original code
+
+	/*
+	*  comment out virt_boot_secondary.
+	*  add IPI code to wake pcpu1
+	*/
+	/* indicate pcpu1 can run */
+	pen_release = cpu;
+	__raw_writel( 1, 0xeb400240);
+	smp_wmb();
+	__cpuc_flush_dcache_area((void *)&pen_release, sizeof(pen_release));
+	outer_clean_range(__pa(&pen_release), __pa(&pen_release + 1));
+	
+	/* send IPI15 to cpu1 */
+	__raw_writel( (1<<17)|15, 0xeb021f00);
+	asm volatile( "sev\n"
+			:
+			:
+			: "memory", "cc");
+
+	timeout = jiffies + (10 * HZ);
+	while (time_before(jiffies, timeout)) {
+		smp_rmb();
+		if (pen_release == -1) {
+			printk("****** pen_release:%d ***** %s, cpu:%d ********** pen_release:%d ********\n",
+					pen_release, __func__, cpu, pen_release);
+			break;
+		}
+		udelay(10);
+	}
+	return (pen_release != -1 ? -ENOSYS : 0);
 }
 
     void __cpuinit

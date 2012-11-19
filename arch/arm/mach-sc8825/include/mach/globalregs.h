@@ -55,6 +55,7 @@
 #define GR_BUSCLK_ALM		GR_BUSCLK
 
 /* the GEN0 register bit */
+#define GEN0_UART3_EN		BIT(0)
 #define GEN0_SPI2_EN		BIT(1)
 #define GEN0_TIMER_EN		BIT(2)
 #define GEN0_SIM0_EN		BIT(3)
@@ -99,6 +100,9 @@
 #define GEN1_CLK_AUX0_EN	BIT(10)
 #define GEN1_CLK_AUX1_EN	BIT(11)
 #define GEN1_RTC_ARCH_EN	BIT(18)
+#define GEN1_VBC_EN		BIT(14)
+#define GEN1_AUX0_EN		BIT(11)
+#define GEN1_AUX1_EN		BIT(10)
 
 /* the APB Soft Reset register bit */
 #define SWRST_I2C_RST		BIT(0)
@@ -133,7 +137,8 @@
 #define ARM_VB_AD0ON		BIT(4)
 #define ARM_VB_AD1ON		BIT(5)
 #define ARM_VB_ANAON		BIT(6)
-#define ARM_VB_ACC		BIT(7)
+#define ARM_VB_ACC		BIT(27)
+#define ARM_VB_SEL		BIT(28)
 #define ARM_VB_ADCON		ARM_VB_AD0ON
 
 /* the Interrupt control register bit */
@@ -154,6 +159,11 @@
 #define ICLR_VBCDA_IRQ_CLR	BIT(6)
 #define ICLR_RFT_INT_CLR	BIT(12)
 
+#define CP2AP_IRQ0_CLR		BIT(0)
+#define CP2AP_FRQ0_CLR		BIT(1)
+#define CP2AP_IRQ1_CLR		BIT(2)
+#define CP2AP_FRQ1_CLR		BIT(3)
+
 /* the Clock enable register bit */
 #define CLK_PWM0_EN		BIT(21)
 #define CLK_PWM1_EN		BIT(22)
@@ -166,8 +176,12 @@
 
 /* POWER CTL1 */
 #define POWCTL1_CONFIG		0x0423F91E  /* isolation number 1ms:30cycles */
+#define DSP_ROM_SLP_PD_EN	BIT(2)
+#define MCU_ROM_SLP_PD_EN	BIT(0)
 
 /* bits definition for CLK_EN. */
+#define BUFON_CTRL_LOW		BIT(16)
+#define BUFON_CTRL_HI		BIT(17)
 #define	MCU_XTLEN_AUTOPD_EN	BIT(18)
 #define	APB_PERI_FRC_CLP	BIT(19)
 
@@ -206,6 +220,9 @@
 #define AHB_ENDIAN_SEL		0x30
 #define AHB_STS			0x34
 #define AHB_CA5_CFG		0x38
+#define AHB_HOLDING_PEN		0x40
+#define AHB_JUMP_ADDR_CPU0	0x44
+#define AHB_JUMP_ADDR_CPU1	0x48
 #define AHB_DSP_BOOT_EN		0x84
 #define AHB_DSP_BOOT_VECTOR	0x88
 #define AHB_DSP_RESET		0x8C
@@ -216,7 +233,7 @@
 
 /* AHB_CTL0 bits */
 #define AHB_CTL0_DCAM_EN	BIT(1)
-#define AHB_CTL0_CCIR_EN	BIT(2)
+#define AHB_CTL0_CCIR_IN_EN	BIT(2)
 #define AHB_CTL0_LCDC_EN	BIT(3)
 #define AHB_CTL0_SDIO_EN	BIT(4)
 #define AHB_CTL0_SDIO0_EN	AHB_CTL0_SDIO_EN
@@ -224,7 +241,10 @@
 #define AHB_CTL0_DMA_EN		BIT(6)
 #define AHB_CTL0_BM0_EN		BIT(7)
 #define AHB_CTL0_NFC_EN		BIT(8)
+#define AHB_CTL0_CCIR_EN	BIT(9)
+#define AHB_CTL0_DCAM_MIPI_EN	BIT(10)
 #define AHB_CTL0_BM1_EN		BIT(11)
+#define AHB_CTL0_ISP_EN		BIT(12)
 #define AHB_CTL0_VSP_EN		BIT(13)
 #define AHB_CTL0_ROT_EN		BIT(14)
 #define AHB_CTL0_BM2_EN		BIT(15)
@@ -234,9 +254,11 @@
 #define AHB_CTL0_SDIO1_EN	BIT(19)
 #define AHB_CTL0_G2D_EN		BIT(20)
 #define AHB_CTL0_G3D_EN		BIT(21)
-#define AHB_CTL0_AHB_ARCH_EB	BIT(15)
+#define AHB_CTL0_DISPC_EN	BIT(22)
 #define AHB_CTL0_EMMC_EN	BIT(23)
 #define AHB_CTL0_SDIO2_EN	BIT(24)
+#define AHB_CTL0_SPINLOCK_EN	BIT(25)
+#define AHB_CTL0_AHB_ARCH_EB	BIT(27)
 #define AHB_CTL0_EMC_EN		BIT(28)
 #define AHB_CTL0_AXIBUSMON0_EN	BIT(29)
 #define AHB_CTL0_AXIBUSMON1_EN	BIT(30)
@@ -255,6 +277,13 @@
 #define AHB_SOFT_RST_CCIR_SOFT_RST		BIT(2)
 #define AHB_SOFT_RST_DCAM_SOFT_RST	BIT(1)
 
+#define AHB_CTL2_DISPMTX_CLK_EN 	BIT(11)
+#define AHB_CTL2_MMMTX_CLK_EN 		BIT(10)
+#define AHB_CTL2_DISPC_CORE_CLK_EN 	BIT(9)
+#define AHB_CTL2_LCDC_CORE_CLK_EN 	BIT(8)
+#define AHB_CTL2_ISP_CORE_CLK_EN 	BIT(7)
+#define AHB_CTL2_VSP_CORE_CLK_EN 	BIT(6)
+#define AHB_CTL2_DCAM_CORE_CLK_EN 	BIT(5)
 /* USB_PHY_CTRL bits */
 #define USB_DM_PULLUP_BIT	BIT(19)
 #define USB_DP_PULLDOWN_BIT	BIT(20)
