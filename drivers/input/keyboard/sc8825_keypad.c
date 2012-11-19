@@ -254,17 +254,17 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 	}
 
 	if (value) {
-		/* Press : HIGHT level */
+		/* Release : low level */
 		input_report_key(sci_kpd->input_dev, key, 0);
 		input_sync(sci_kpd->input_dev);
 		printk("Powerkey:%dU\n", key);
-		irq_set_irq_type(irq, IRQF_TRIGGER_LOW);
+		irq_set_irq_type(irq, IRQF_TRIGGER_HIGH);
 	} else {
-		/* Release : LOW level */
+		/* Press : high level */
 		input_report_key(sci_kpd->input_dev, key, 1);
 		input_sync(sci_kpd->input_dev);
 		printk("Powerkey:%dD\n", key);
-		irq_set_irq_type(irq, IRQF_TRIGGER_HIGH);
+		irq_set_irq_type(irq, IRQF_TRIGGER_LOW);
 	}
 
 	last_value = value;
