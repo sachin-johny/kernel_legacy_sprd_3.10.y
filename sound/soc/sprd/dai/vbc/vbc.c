@@ -91,6 +91,7 @@ struct vbc_equ {
 	struct device *dev;
 	int is_active;
 	int is_loaded;
+	int is_active_loaded;
 	int is_loading;
 	struct snd_soc_dai *codec_dai;
 	int now_profile;
@@ -812,7 +813,10 @@ static void vbc_eq_delay_work(struct work_struct *work)
 	if (ret < 0)
 		pr_err("add the vbc eq profile failed");
 	else
-		vbc_eq_setting.is_loaded = 1;
+		if (vbc_eq_setting.is_active_loaded) {
+			vbc_eq_setting.is_loaded = 1;
+			vbc_eq_setting.is_active_loaded = 0;
+		}
 }
 
 static int vbc_eq_profile_add_action(struct snd_soc_codec *codec)
@@ -836,6 +840,7 @@ static int vbc_eq_profile_add_widgets(struct snd_soc_codec *codec)
 	int ret = 0;
 
 	vbc_eq_setting.is_loaded = 0;
+	vbc_eq_setting.is_active_loaded = 0;
 	vbc_dbg("Entering %s %d\n", __func__, vbc_eq_setting.is_loading);
 	if (vbc_eq_setting.is_loading) {
 		count = vbc_eq_setting.hdr.num_profile;
@@ -856,6 +861,7 @@ static int vbc_eq_profile_add_widgets(struct snd_soc_codec *codec)
 				vbc_eq_setting.data[j].name);
 			dtexts[j] = vbc_eq_setting.data[j].name;
 		}
+		vbc_eq_setting.is_active_loaded = 1;
 	} else {
 		static char default_str[] = "null";
 		dtexts[0] = default_str;
