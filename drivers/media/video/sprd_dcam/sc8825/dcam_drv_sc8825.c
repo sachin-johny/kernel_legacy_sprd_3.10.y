@@ -177,9 +177,10 @@ static void    _mipi_ov(void);
 static irqreturn_t dcam_isr_root(int irq, void *dev_id);
 static void    _dcam_wait_for_stop(void);
 static void    _dcam_stopped(void);
+extern void _dcam_isp_root(void);
 
 static const dcam_isr isr_list[IRQ_NUMBER] = {
-	_sensor_sof,
+	_dcam_isp_root,
 	_sensor_eof,
 	_cap_sof,
 	_cap_eof,

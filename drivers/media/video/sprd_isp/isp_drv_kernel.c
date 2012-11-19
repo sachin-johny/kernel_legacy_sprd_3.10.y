@@ -125,27 +125,25 @@ static int32_t __init isp_kernel_init(void);
 static void isp_kernel_exit(void);
 
 static struct file_operations isp_fops = {
-	.owner	=  THIS_MODULE,
-	.llseek      = _isp_kernel_seek,
-	.open	    =  _isp_kernel_open,
-	.unlocked_ioctl        =  _isp_kernel_ioctl,
-	.release	=  _isp_kernel_release,
-	#if 1
-	.read	     = _isp_kernel_read,
-	#endif
-	.write	     = _isp_kernel_write,
+	.owner	= THIS_MODULE,
+	.llseek	= _isp_kernel_seek,
+	.open	= _isp_kernel_open,
+	.unlocked_ioctl	= _isp_kernel_ioctl,
+	.release	= _isp_kernel_release,
+	.read	= _isp_kernel_read,
+	.write	= _isp_kernel_write,
 };
 
 static struct miscdevice isp_dev = {
-	.minor	 = ISP_MINOR,
+	.minor	= ISP_MINOR,
 	.name	= "sprd_isp",
 	.fops	= &isp_fops,
 };
 
 static struct platform_driver isp_driver = {
-	.probe	  = _isp_probe,
-	.remove   = _isp_remove,
-	.driver   = {
+	.probe	= _isp_probe,
+	.remove	= _isp_remove,
+	.driver	= {
 		.owner = THIS_MODULE,
 		.name = "sprd_isp",
 	},
@@ -153,12 +151,11 @@ static struct platform_driver isp_driver = {
 
 static int32_t _isp_module_eb(void)
 {
-	int32_t	ret = 0;
+	int32_t ret = 0;
 	uint32_t value=0x00;
-	if (atomic_inc_return(&s_isp_users) == 1) {
+	if (0x01 == atomic_inc_return(&s_isp_users)) {
 		ISP_OWR(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 		ISP_OWR(ISP_MODULE_EB, ISP_EB_BIT);
-
 	}
 	return ret;
 }
@@ -167,7 +164,7 @@ static int32_t _isp_module_dis(void)
 {
 	int32_t	ret = 0;
 
-	if (atomic_dec_return(&s_isp_users) == 0) {
+	if (0x00 == atomic_dec_return(&s_isp_users)) {
 		ISP_AWR(ISP_MODULE_EB, ~ISP_EB_BIT);
 		ISP_AWR(ISP_CORE_CLK_EB, ~ISP_CORE_CLK_EB_BIT);
 	}
@@ -178,11 +175,12 @@ static int32_t _isp_module_rst(void)
 {
 	int32_t	ret = 0;
 
-	if (atomic_read(&s_isp_users) == 0) {
+	if (0x00 != atomic_read(&s_isp_users)) {
+		ISP_WRITEL(ISP_INT_CLEAR, 0x0fff);
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
-		msleep(10);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
 		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_BIT);
-		msleep(10);
 	}
 	return ret;
 }
@@ -192,7 +190,7 @@ static int32_t _isp_lnc_param_load(uint32 )
 	int32_t ret = 0;
 	struct isp_reg_bits reg_bits = {0x00};
 
-	reg_bits.reg_addr=ISP_INT_LNC;
+	reg_bits.reg_addr=ISP_LNC_LOAD;
 	reg_bits.reg_value=0x0001;
 	_write_reg(&reg_bits, 0x01);
 
@@ -203,6 +201,8 @@ static int32_t _isp_lnc_param_load(uint32 )
 		msleep(1);
 		_read_reg(&reg_bits, 0x01);
 	}
+
+	ISP_OWR(ISP_INT_CLEAR, ISP_INT_LEN_S_LOAD);
 
 	return ret;
 }
@@ -268,9 +268,7 @@ static int _isp_queue_read(struct isp_queue *queue, struct isp_node *node)
 		if (queue->read > &queue->node[ISP_QUEUE_LENGTH-1]) {
 			queue->read = &queue->node[0];
 		}
-	} /*else {
-	ret = -EAGAIN;
-	}*/
+	}
 	//ISP_PRINT("_isp_queue_read finished!\n");
 	return ret;
 }
@@ -354,13 +352,14 @@ static int _isp_en_irq(unsigned long int_num)
 	uint32_t ret = 0;
 
 	ISP_PRINT("ISP_RAW:_isp_en_irq----------- %x\n", int_num);
-	ISP_WRITEL((ISP_BASE_ADDR+0x2078), int_num);
+	ISP_WRITEL(ISP_INT_CLEAR, 0x0fff);
+	ISP_WRITEL(ISP_INT_EN, int_num);
 
 	return ret;
 }
 static void _isp_dis_irq(unsigned long int_num)
 {
-	ISP_NAWR((ISP_BASE_ADDR+0x2078), int_num);
+	ISP_NAWR(ISP_INT_EN, int_num);
 
 }
 
@@ -414,7 +413,6 @@ static void _write_reg(struct isp_reg_bits *reg_bits_ptr, uint32_t counts)
 		reg_addr = reg_bits_ptr[i].reg_addr+ISP_BASE_ADDR;
 		reg_val = reg_bits_ptr[i].reg_value;
 //		printk("ISP_RAW: reg_addr 0x%x, reg_val 0x%x \n",reg_addr, reg_val);
-//		msleep(2);
 		ISP_WRITEL(reg_addr, reg_val);
 	}
 }
@@ -518,7 +516,7 @@ static loff_t _isp_kernel_seek (struct file *pf, loff_t offset, int orig)
 	return retval;
 
 }
-#if 1
+
 /**********************************************************
 *read info from  file
 *size_t size:
@@ -611,7 +609,6 @@ free_tmp_buf:
 	return ret;
 
 }
-#endif
 
 /**********************************************************
 *write info to file
@@ -736,46 +733,6 @@ static irqreturn_t _isp_irq_root(int irq, void *dev_id)
 }
 //static irqreturn_t _dcam_irq_root(int irq, void *dev_id)
 void _dcam_isp_root(void)
-#if 0
-{
-	int32_t	ret = 0;
-	uint32_t	irq_line = 0;
-	uint32_t	status = 0;
-	uint32_t	irq_status = 0;
-	uint32_t	 flag = 0, i = 0;
-	struct isp_node	node = { 0 };
-
-	irq_status=0x01
-/*
-	status = ISP_REG_RD(ISP_DCAM_INT_STS);
-	irq_line = status&ISP_DCAM_IRQ_MASK;
-
-	ISP_PRINT("isp_k: dcam irq: 0x%x\n", irq_line);
-
-	if ( 0 == irq_line) {
-		return IRQ_HANDLED;
-	}
-
-	for (i = ISP_DCAM_IRQ_NUM- 1; i >= 0; i--) {
-		if (irq_line & (1 << (uint32_t)i)) {
-			irq_status |= 1 << (uint32_t)i;
-		}
-		irq_line &= ~(uint32_t)(1 << (uint32_t)i); //clear the interrupt flag
-		if(!irq_line) //no interrupt source left
-			break;
-	}
-*/
-	spin_lock_irqsave(&isp_spin_lock,flag);
-//	ISP_WRITEL(ISP_DCAM_INT_CLR, irq_status);
-	node.dcam_irq_val = irq_status;
-	ret = _isp_queue_write((struct isp_queue *)&g_isp_device.queue, (struct isp_node*)&node);
-	spin_unlock_irqrestore(&isp_spin_lock, flag);
-	up(&g_isp_device.sem_isr);
-
-	return IRQ_HANDLED;
-}
-
-#else
 {
 	int32_t	ret = 0;
 	uint32_t	irq_line = 0;
@@ -784,7 +741,7 @@ void _dcam_isp_root(void)
 	uint32_t	 flag = 0, i = 0;
 	struct isp_node node = { 0 };
 
-	ISP_PRINT ("ISP_RAW: isp_k: _dcam_isp_root %d \n", s_dcam_int_eb);
+	//ISP_PRINT ("ISP_RAW: isp_k: _dcam_isp_root %d \n", s_dcam_int_eb);
 
 	if(0x00 !=s_dcam_int_eb)
 	{
@@ -799,7 +756,6 @@ void _dcam_isp_root(void)
 
 	return IRQ_HANDLED;
 }
-#endif
 
 /**********************************************************
 *release the device
