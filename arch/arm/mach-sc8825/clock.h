@@ -114,13 +114,13 @@ static const struct clk_regs REGS_##ID = {  \
 	.name = #ID,                            \
 	.id = 0,                                \
 	.enb = {                                \
-		.reg = ENB,.mask = ENB_BIT,      	\
+		.reg = (u32)ENB,.mask = ENB_BIT,      	\
 		},                                  \
 	.div = {                                \
-		.reg = DIV,.mask = DIV_MSK,			\
+		.reg = (u32)DIV,.mask = DIV_MSK,			\
 		},                                  \
 	.sel = {                                \
-		.reg = SEL,.mask = SEL_MSK,			\
+		.reg = (u32)SEL,.mask = SEL_MSK,			\
 		},                                  \
 	.nr_sources = NR_CLKS,                  \
 	.sources = {__VA_ARGS__},               \
