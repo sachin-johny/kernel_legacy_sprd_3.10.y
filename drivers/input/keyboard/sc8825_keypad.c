@@ -378,7 +378,7 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	gpio_direction_input(ANA_GPI_PB);
 
 	error = request_irq(gpio_to_irq(ANA_GPI_PB), sci_powerkey_isr,
-			IRQF_TRIGGER_HIGH, "powerkey", sci_kpd);
+			IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND, "powerkey", sci_kpd);
 	if (error) {
 		dev_err(&pdev->dev, "unable to claim irq %d\n",
 			gpio_to_irq(ANA_GPI_PB));
