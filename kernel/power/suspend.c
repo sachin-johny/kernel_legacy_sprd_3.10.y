@@ -96,8 +96,10 @@ static int suspend_prepare(void)
 	if (!suspend_ops || !suspend_ops->enter)
 		return -EPERM;
 
+	printk("PM:  before pm_prepare_consol ... \n");
 	pm_prepare_console();
 
+	printk("PM:  before pm_notifier_call_chain  ... \n");
 	error = pm_notifier_call_chain(PM_SUSPEND_PREPARE);
 	if (error)
 		goto Finish;

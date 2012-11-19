@@ -1230,8 +1230,9 @@ int dpm_suspend(pm_message_t state)
 
 		get_device(dev);
 		mutex_unlock(&dpm_list_mtx);
-
+		printk("********** %s, device: %s suspend start ********\n", __func__, (dev->kobj).name );
 		error = device_suspend(dev);
+		printk("********** %s, device: %s suspend done ********\n", __func__, (dev->kobj).name );
 
 		mutex_lock(&dpm_list_mtx);
 		if (error) {

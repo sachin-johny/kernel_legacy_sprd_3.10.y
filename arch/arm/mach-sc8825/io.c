@@ -25,6 +25,12 @@
 	.length = SPRD_##name##_SIZE, \
 	.type = MT_DEVICE_NONSHARED, \
 	}
+#define SPRD_IRAM(name) { \
+	.virtual = SPRD_##name##_BASE, \
+	.pfn = __phys_to_pfn(SPRD_##name##_PHYS), \
+	.length = SPRD_##name##_SIZE, \
+	.type = MT_MEMORY, \
+	}
 
 static struct map_desc sprd_io_desc[] __initdata = {	
 	SPRD_DEVICE(CORESIGHT),
@@ -86,9 +92,9 @@ static struct map_desc sprd_io_desc[] __initdata = {
 
 	SPRD_DEVICE(LPDDR2C),
 	
-#ifdef CONFIG_CACHE_L2X0	
 	SPRD_DEVICE(L2),
-#endif	
+	SPRD_IRAM(IRAM),
+
 	SPRD_DEVICE(CSI)
 };
 
