@@ -29,6 +29,8 @@
 #define  USB_CLK_NAME    "clk_usb_ref"
 #endif
 
+static int usb_clk_status = 0;
+
 static void usb_ldo_switch(int is_on)
 {
 	struct regulator *usb_regulator = NULL;
@@ -52,9 +54,15 @@ static int usb_clock_enable(int is_on)
 	usb_clock = clk_get(NULL,USB_CLK_NAME);
 	if (usb_clock) {
 		if (is_on) {
-			clk_enable(usb_clock);
+			if(usb_clk_status == 0){
+				clk_enable(usb_clock);
+				usb_clk_status = 1;
+			}
 		} else {
-			clk_disable(usb_clock);
+			if(usb_clk_status == 1){
+				clk_disable(usb_clock);
+				usb_clk_status = 0;
+			}
 		}
 	}
 	return 0;
