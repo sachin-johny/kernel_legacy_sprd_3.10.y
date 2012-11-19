@@ -154,17 +154,41 @@ static int sci_clk_enable(struct clk *c, int enable)
 {
 	debug("clk %p (%s) enb %08x, %s\n", c, c->regs->name,
 	      c->regs->enb.reg, enable ? "enable" : "disable");
+
+	BUG_ON(!c->regs->enb.reg);
 	if (c->regs->enb.reg & 1)
 		enable = !enable;
-	(enable) ? sci_glb_set(c->regs->enb.reg & ~1, c->regs->enb.mask)
-	    : sci_glb_clr(c->regs->enb.reg & ~1, c->regs->enb.mask);
+
+	if (!c->regs->enb.mask) {	/* enable matrix clock */
+		spin_unlock(&clocks_lock);
+		if (enable)
+			clk_enable((struct clk *)c->regs->enb.reg);
+		else
+			clk_disable((struct clk *)c->regs->enb.reg);
+		spin_lock(&clocks_lock);
+	} else {
+		if (enable)
+			sci_glb_set(c->regs->enb.reg & ~1, c->regs->enb.mask);
+		else
+			sci_glb_clr(c->regs->enb.reg & ~1, c->regs->enb.mask);
+	}
 	return 0;
 }
 
 static int sci_clk_is_enable(struct clk *c)
 {
 	int enable;
-	enable = ! !sci_glb_read(c->regs->enb.reg & ~1, c->regs->enb.mask);
+
+	debug0("clk %p (%s) enb %08x\n", c, c->regs->name, c->regs->enb.reg);
+
+	BUG_ON(!c->regs->enb.reg);
+	if (!c->regs->enb.mask) {	/* check matrix clock */
+		enable = ! !sci_clk_is_enable((struct clk *)c->regs->enb.reg);
+	} else {
+		enable =
+		    ! !sci_glb_read(c->regs->enb.reg & ~1, c->regs->enb.mask);
+	}
+
 	if (c->regs->enb.reg & 1)
 		enable = !enable;
 	return enable;
@@ -342,7 +366,7 @@ int __init sci_clk_register(struct clk_lookup *cl)
 		c->ops = &generic_clk_ops;
 		if (c->rate)	/* fixed OSC */
 			c->ops = NULL;
-		else if ((c->regs->div.reg > 0 && c->regs->div.reg < MAX_DIV) ||
+		else if ((c->regs->div.reg >= 0 && c->regs->div.reg < MAX_DIV) ||
 			 strstr(c->regs->name, "pll")) {
 			c->ops = &generic_pll_ops;
 		}
@@ -362,7 +386,7 @@ int __init sci_clk_register(struct clk_lookup *cl)
 
 	if (!c->rate) {		/* FIXME: dummy update parent and rate */
 		clk_set_parent(c, c->regs->sources[sci_clk_get_parent(c)]);
-		//clk_set_rate(c, clk_get_rate(c->parent));
+		//clk_set_rate(c, clk_get_rate(c));
 	}
 
 	spin_lock(&clocks_lock);
@@ -375,7 +399,7 @@ int __init sci_clk_register(struct clk_lookup *cl)
 	return 0;
 }
 
-static void __init sci_clock_dump(void)
+static int __init sci_clock_dump(void)
 {
 	struct clk_lookup *cl = (struct clk_lookup *)(&__clkinit_begin + 1);
 	while (cl < (struct clk_lookup *)&__clkinit_end) {
@@ -388,6 +412,7 @@ static void __init sci_clock_dump(void)
 		     c->usage, clk_get_rate(c), p ? p->regs->name : "none");
 		cl++;
 	}
+	return 0;
 }
 
 int __init sci_clock_init(void)
@@ -416,7 +441,6 @@ int __init sci_clock_init(void)
 
 arch_initcall(sci_clock_init);
 late_initcall_sync(sci_clock_dump);
-
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum Clock Driver");
