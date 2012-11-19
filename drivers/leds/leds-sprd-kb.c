@@ -20,6 +20,7 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
+#include <linux/earlysuspend.h>
 
 #define KPLED_DBG 0
 
@@ -51,6 +52,10 @@ struct sprd_kb_led {
 	enum led_brightness value;
 	struct led_classdev cdev;
 	int enabled;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend	early_suspend;
+#endif
+
 };
 
 #define to_sprd_led(led_cdev) \
@@ -138,6 +143,23 @@ static void sprd_kb_led_shutdown(struct platform_device *dev)
 	mutex_unlock(&led->mutex);
 }
 
+#ifdef CONFIG_EARLYSUSPEND
+static void sprd_led_early_suspend(struct early_suspend *es)
+{
+	struct sprd_kb_led *led = container_of(es, struct sprd_kb_led, early_suspend);
+	printk(KERN_INFO "sprd_led_early_suspend\n");
+	sprd_led_disable(led);
+}
+
+static void sprd_led_late_resume(struct early_suspend *es)
+{
+ 	struct sprd_kb_led *led = container_of(es, struct sprd_kb_led, early_suspend);
+	printk(KERN_INFO "sprd_led_late_resume\n");
+	sprd_led_enable(led);
+}
+#endif
+
+
 static int sprd_kb_led_probe(struct platform_device *dev)
 {
 	struct sprd_kb_led *led;
@@ -174,6 +196,12 @@ static int sprd_kb_led_probe(struct platform_device *dev)
 	
 	led->value = LED_FULL;
 	led->enabled = 0;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	led->early_suspend.suspend = sprd_led_early_suspend;
+	led->early_suspend.resume  = sprd_led_late_resume;
+	led->early_suspend.level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	register_early_suspend(&led->early_suspend);
+#endif
 	schedule_work(&led->work);
 
 	return 0;
