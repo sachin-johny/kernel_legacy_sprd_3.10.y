@@ -31,7 +31,10 @@
 #include <mach/sci.h>
 #include <mach/hardware.h>
 #include <mach/regs_ahb.h>
+#include <mach/arch_lock.h>
+
 #include "hwspinlock_internal.h"
+
 
 #define HWSPINLOCK_MAX_NUM	(32)
 
@@ -45,7 +48,7 @@
 
 #define HWSPINLOCK_TOKEN(_X_)	(0x80 + 0x4*(_X_))
 
-#define THIS_PROCESSOR_KEY	(0x11111111)	/*first processor */
+#define THIS_PROCESSOR_KEY	(HWSPINLOCK_WRITE_KEY)	/*first processor */
 static void __iomem *hwspinlock_base;
 
 #define SPINLOCKS_BUSY()	(readl(hwspinlock_base + HWSPINLOCK_TTLSTS))
@@ -122,7 +125,7 @@ static void sprd_hwspinlock_unlock(struct hwspinlock *lock)
  */
 static void sprd_hwspinlock_relax(struct hwspinlock *lock)
 {
-	ndelay(50);
+	ndelay(10);
 }
 
 static const struct hwspinlock_ops sprd_hwspinlock_ops = {
@@ -152,16 +155,6 @@ static void hwspinlock_clear_all(void)
 		writel(1<<lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
 	} while (lockid++ < HWSPINLOCK_MAX_NUM);
 	SPINLOCKS_DISABLE_CLEAR();
-}
-
-/*
- * do initialize check
- */
-static void __devinit check_sanity(struct sprd_hwspinlock *sprd_lock)
-{
-	if (HWSPINLOCK_NOTTAKEN ^ readl(sprd_lock->addr)) {
-		BUG_ON(1);
-	}
 }
 
 static int __devinit sprd_hwspinlock_probe(struct platform_device *pdev)
@@ -217,16 +210,8 @@ static int __devinit sprd_hwspinlock_probe(struct platform_device *pdev)
 			kfree(sprd_lock);
 			goto free_locks;
 		}
-		check_sanity(sprd_lock);
 	}
 
-	/*
-	 * do initialize check
-	 */
-	if (hwspinlocks_isbusy())
-		BUG_ON(1);
-	if (readl(state->io_base + HWSPINLOCK_CLEAREN))
-		BUG_ON(1);
 	printk("sprd_hwspinlock_probe ok\n");
 	return 0;
 
