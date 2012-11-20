@@ -8,7 +8,6 @@
 //#include "clock_sc8810.h"
 #include <mach/adi.h>
 #include <linux/io.h>
-#include <asm/hardware/cache-l2x0.h>
 #include <asm/cacheflush.h>
 #include <linux/delay.h>
 #include <linux/wakelock.h>
@@ -33,6 +32,7 @@
 #define GATE_EARLY_LATE   2
 //#define mem_drv         34
 #define EMC_FREQ          200   //ddr clock 
+
 //#define EMC_SINGLE_CS         //single ddr cs
 
 //const static u32 mem_drv  = 34;
@@ -108,8 +108,8 @@ typedef enum
 	DXN_MAX = 3,
 }DXN_E;
 
-#define MEMORY_TYPE    LPDDR2   //typedef enum int {LPDDR2,LPDDR1,DDR3} MEM_TYPE_ENUM; 
-#define MEM_WIDTH      X32
+//#define MEMORY_TYPE    LPDDR2   //typedef enum int {LPDDR2,LPDDR1,DDR3} MEM_TYPE_ENUM; 
+//#define MEM_WIDTH      X32
 
 //umctl/upctl registers declaration//{{{
 #define UMCTL_CFG_ADD_SCFG            0x000
@@ -266,8 +266,6 @@ typedef enum
 #define EMC_TRAINING_ERR	"emc_training error"
 #define EMC_TRAINING_SUCESS	"emc training ok"
 
-#pragma GCC push_options
-//#pragma GCC optimize ("O0")
 
 static void reset_ddrphy_dll(void);
 static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param);
@@ -337,7 +335,7 @@ static void move_upctl_state_to_initmem(void)
 					tmp_val = upctl_state ;
 					break;
 				}
-			default:   //transitional state
+			default://transitional state
 				{
 					tmp_val = REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_STAT);
 					break;
@@ -379,7 +377,7 @@ static void move_upctl_state_to_config(void)
 					upctl_state = Config;
 					break;
 				}
-			default:   //transitional state
+			default://transitional state
 				{
 					tmp_val = REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_STAT);
 					upctl_state = tmp_val & 0x7;
@@ -420,7 +418,7 @@ static void move_upctl_state_to_low_power(void)
 					upctl_state = Config;
 					break;
 				}
-			default:   //transitional state
+			default://transitional state
 				{
 					tmp_val = REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_STAT);
 					upctl_state = tmp_val & 0x7;
@@ -466,7 +464,7 @@ static inline void move_upctl_state_to_access(void)
 					upctl_state = Access;
 					break;
 				}
-			default:   //transitional state
+			default://transitional state
 				{
 					tmp_val = REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_STAT);
 					upctl_state = tmp_val & 0x7;
@@ -514,14 +512,17 @@ static void emc_publ_do_gate_training(void)
 	//uart_trace(EMC_TRAINING_SUCESS, sizeof(EMC_TRAINING_SUCESS));
 }
 
-static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
-		MEM_WIDTH_ENUM mem_width_enum,
-		struct emc_repower_param *param)
+static void emc_init_common_reg(struct emc_repower_param *param)
 {
 	u32  value_temp;
 	u32 TOGCNT100N;
 	u32 TOGCNT1U;
-	if(param->mem_type == LPDDR1) {
+	MEM_TYPE_ENUM mem_type_enum;
+	MEM_WIDTH_ENUM mem_width_enum;
+	mem_type_enum = param->mem_type;
+	mem_width_enum = param->mem_width;
+
+	if(mem_type_enum == LPDDR1) {
 		value_temp = (1 << 31) | (1 << 28) | (0xc << 5) | (0xc); //zq power down and override
 		REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ZQ0CR0) = value_temp;
 	}
@@ -532,10 +533,10 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	value_temp &= ~(0x1 << 17);
 	value_temp &= ~(0x3 << 22);
 	value_temp &= ~(0x3 << 20);
-	
+
 	//int i;
 	//for(i=0; i<0x80000000; i++);
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR1:
 			{
@@ -574,7 +575,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 
 	value_temp = REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_PPCFG);
 	value_temp &= ~0x1;
-	switch(param->mem_width)
+	switch(mem_width_enum)
 	{
 		case X16:
 			{
@@ -586,7 +587,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 			break;
 	}
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_PPCFG) =       value_temp;
-	
+
 	if(1)
 	{
 		TOGCNT100N = 100;
@@ -610,7 +611,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 			default:
 				while(1);
 		}
-	}	
+	}
 
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TOGCNT1U) =    TOGCNT1U;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TOGCNT100N) =  TOGCNT100N;
@@ -707,8 +708,8 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 			value_temp |= (0x6 << 2);
 			break;
 	}
-	value_temp |= (param->mem_width == X32) ? 0x3 :
-		(param->mem_width == X16) ? 0x2 :
+	value_temp |= (mem_width_enum == X32) ? 0x3 :
+		(mem_width_enum == X16) ? 0x2 :
 		0x0;  //dram_io_width
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_DCFG_CS0) = value_temp;
 
@@ -749,7 +750,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	value_temp = (mem_type_enum == LPDDR2 ) ? 3 : 0; //WL-1, see PUBL P143
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_DFITPHYWRLAT) = value_temp;
 
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR2:
 			{
@@ -852,7 +853,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	value_temp |= (0x1 << 6); //st_fw_en
 	value_temp |= (0x1 << 5); //bp_rd_en, as per the coreconsultant
 	value_temp |= (0x1 << 4); //bp_wr_en
-	value_temp |= 1;        //qos:LL
+	value_temp |= 1;//qos:LL
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_PCFG_6) =      value_temp;
 
 	value_temp = REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_PCFG_7);
@@ -869,21 +870,21 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	//REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DTAR) = (0x7<<28)|(0x3fff<<12)|(0x3f0<<0);
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DTAR) = (0x0 << 28) | (0x0 << 12) | (0x0 << 0);
 
-        value_temp = REG32(PUBL_REG_BASE+PUBL_CFG_ADD_ZQ0CR1);
-        switch(param->mem_type) 
-        {
-        	case LPDDR2:
-        		value_temp &= ~(0xf << 4);
-        		break;
-        	case LPDDR1:
-        		value_temp &= ~(0xf << 4);
-        		break;
-        	default:
-        		while(1);
-        }
-        
-        
-        value_temp &= ~0xf;
+	value_temp = REG32(PUBL_REG_BASE+PUBL_CFG_ADD_ZQ0CR1);
+	switch(mem_type_enum) 
+	{
+		case LPDDR2:
+			value_temp &= ~(0xf << 4);
+			break;
+		case LPDDR1:
+			value_temp &= ~(0xf << 4);
+			break;
+		default:
+			while(1);
+	}
+
+
+	value_temp &= ~0xf;
 
 	switch (param->mem_drv)
 	{
@@ -906,7 +907,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 			while(1);
 	}
 
-        REG32(PUBL_REG_BASE+PUBL_CFG_ADD_ZQ0CR1) = value_temp;
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_ZQ0CR1) = value_temp;
 	value_temp = (8<<18) | (2750<<6) |27;	//per 533MHz
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PTR0) = value_temp;
 
@@ -920,7 +921,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	//PTR2
 	//value_temp[16:0] = count((200us_for_ddr3 or 11us_for_lpddr2) /clk_emc_period);
 	//value_temp[26:17] = count(1us/clk_emc_period);
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR1:
 			{
@@ -942,11 +943,11 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	}
 	value_temp |= ((1 * 1000 * 10) / 25) << 17;
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PTR2 ) = value_temp;
-	
+
 	//ACIOCR
 	value_temp = (mem_type_enum == LPDDR1) ? 0x1 : 0x0;
 	modify_reg_field(PUBL_REG_BASE + PUBL_CFG_ADD_ACIOCR, 0, 1, value_temp);
-	
+
 
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DCR);
 	value_temp &= ~(0x7);
@@ -959,7 +960,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 
 	//MR0
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_MR0);
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR2:
 			{
@@ -990,7 +991,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 
 	//MR1
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_MR1);
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR2:
 			{
@@ -1012,7 +1013,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_MR1) = value_temp;
 
 	//MR2
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR1:
 			{
@@ -1036,7 +1037,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_MR3) = value_temp;
 	//0DTCR. disable 0DT for write and read for LPDDR2/LPDDR1
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ODTCR);
-	switch(MEMORY_TYPE)
+	switch(mem_type_enum)
 	{
 		case LPDDR1:
 			value_temp &= ~0xff;
@@ -1050,10 +1051,10 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 			while(1);
 	}
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ODTCR) = value_temp;
-	
+
 	//DTPR0
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DTPR0);
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR1:
 			{
@@ -1084,7 +1085,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DTPR1);
 	value_temp &= ~0x3;
 	value_temp &= ~(0xff << 16);
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR1:
 			{
@@ -1104,7 +1105,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 
 	//DTPR2
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DTPR2);
-	switch(param->mem_type)
+	switch(mem_type_enum)
 	{
 		case LPDDR2:
 			{
@@ -1172,7 +1173,7 @@ static void emc_init_common_reg(MEM_TYPE_ENUM mem_type_enum,
 
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DSGCR);
 	value_temp &= ~0xfff;
-	
+
 	//CAUTION:[7:5] DQSGX, [10:8] DQSGE
 	value_temp |= (0x1f | ((GATE_EARLY_LATE)<<8) | ((GATE_EARLY_LATE<<5)));
 	value_temp &= ~(1<<2); // zq Update Enable,CHECK!!!!
@@ -1190,14 +1191,13 @@ static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)
 	u32 volatile  i;
 	u32  value_temp1;
 	MEM_TYPE_ENUM mem_type_enum;
-	MEM_WIDTH_ENUM mem_width_enum;
-	mem_width_enum = MEM_WIDTH;
+
 	//MEM_DENSITY_ENUM mem_density_enum;
-	//mem_type_enum = MEMORY_TYPE;
+	mem_type_enum = param->mem_type;
 
 	//cfg clk emc to 200MHz if lpddr1
 	//it must use AHB to config
-	if(param->mem_type == LPDDR1)
+	if(mem_type_enum == LPDDR1)
 	{
 		value_temp = REG32(ADDR_AHBREG_ARMCLK);
 		value_temp &= ~(0x3 << 12);
@@ -1215,7 +1215,7 @@ static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)
 	//value_temp[9] = 0x1;
 	//REG32(0x2090_0308) = value_temp;
 	if(power_off) {
-		emc_init_common_reg(mem_type_enum, mem_width_enum, param);
+		emc_init_common_reg(param);
 	}
 
 	do  value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
@@ -1248,7 +1248,7 @@ static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)
 	{
 		value_temp = REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_POWSTAT);
 	} while((value_temp&1)==0);
-        */
+	*/
 
 	value_temp1 = REG32(0x20900260);  //read the pre-retention value
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ZQ0CR0);
@@ -1293,7 +1293,7 @@ static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)
 		move_upctl_state_to_low_power();
 	}
 	move_upctl_state_to_access();
-	
+
 #if 0
 	value_temp = 0x4;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_SCTL) = value_temp;
@@ -1400,7 +1400,7 @@ static void modify_emc_clk(u32 freq)
 	modify_reg_field(ADDR_AHBREG_ARMCLK, 12, 2, 1);
 	modify_reg_field(ADDR_AHBREG_ARMCLK, 8, 4, 0);	//
 	modify_reg_field(ADDR_AHBREG_ARMCLK, 3, 1, 1);	//
-	
+
 	wait_us(150);
 
 	enable_clk_emc();
@@ -1500,7 +1500,7 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 		value = REG32(umctl_base + UMCTL_CFG_ADD_DCFG_CS1);
 		value = (value >> 2);
 		value &= 0xf;
-		param->cs1_size = get_emc_size(value);		
+		param->cs1_size = get_emc_size(value);
 	}
 	value = sci_glb_read(REG_GLB_D_PLL_CTL, -1UL);
 	value &= 0x3ff;
@@ -1525,20 +1525,11 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 	printk("emc repower param cs0_training_addr_v %x\r\n", param->cs0_training_addr_v);
 	printk("emc repower param cs0_training_addr_p %x\r\n", param->cs0_training_addr_p);
 	printk("emc repower param cs0_training_data_size %x\r\n", param->cs0_training_data_size);
-		
+
 	printk("emc repower param cs1_training_addr_v %x\r\n", param->cs1_training_addr_v);
 	printk("emc repower param cs1_training_addr_p %x\r\n", param->cs1_training_addr_p);
 	printk("emc repower param cs1_training_data_size %x\r\n", param->cs1_training_data_size);
 }
-/*
-void save_emc_trainig_data(struct emc_repower_param *param)
-{
-	memcpy(param->cs0_saved_data, param->cs0_training_addr_v, param->cs0_training_data_size);
-	if(param->cs_number == 2) {
-		memcpy(param->cs1_saved_data, param->cs1_training_addr_v, param->cs1_training_data_size);
-	}
-}
-*/
 void save_emc_trainig_data(struct emc_repower_param *param)
 {
 	u8 *dst;
@@ -1549,13 +1540,13 @@ void save_emc_trainig_data(struct emc_repower_param *param)
 	for(i = 0; i < param->cs0_training_data_size; i++) {
 		*(dst + i) = *(src + i);
 	}
-        if(param->cs_number == 2) {
+	if(param->cs_number == 2) {
 		dst = (u8 *)param->cs1_saved_data;
 		src = (u8 *)param->cs1_training_addr_v;
 		for(i = 0; i < param->cs1_training_data_size; i++) {
-                	*(dst + i) = *(src + i);
-         	}
-        }
+			*(dst + i) = *(src + i);
+		}
+	}
 }
 inline static void restore_emc_training_data(struct emc_repower_param *param)
 {
@@ -1567,13 +1558,13 @@ inline static void restore_emc_training_data(struct emc_repower_param *param)
 	for(i = 0; i < param->cs0_training_data_size; i++) {
 		*(dst + i) = *(src + i);
 	}
-        if(param->cs_number == 2) {
+	if(param->cs_number == 2) {
 		dst = (u8 *)param->cs1_training_addr_p;
 		src = (u8 *)param->cs1_saved_data;
 		for(i = 0; i < param->cs1_training_data_size; i++) {
-                	*(dst + i) = *(src + i);
-         	}
-        }
+			*(dst + i) = *(src + i);
+		}
+	}
 }
 inline struct emc_repower_param * get_emc_repower_param(void)
 {
@@ -1586,13 +1577,13 @@ inline struct emc_repower_param * get_emc_repower_param(void)
 void emc_init_repowered(u32 power_off)
 {
 	u32 i;
+	struct emc_repower_param param;
 	struct emc_repower_param *param_p;
-	param_p = (struct emc_repower_param *)(0x7c00);
+	struct emc_repower_param *param_p1;
+	param_p = (struct emc_repower_param *)(SPRD_IRAM_PHYS + 15 * 1024);
 
-        reset_ddrphy_dll();
-        __emc_init_repowered(power_off, param_p);
+	reset_ddrphy_dll();
+	__emc_init_repowered(power_off, param_p);
 	//if(power_off)
-	 //       restore_emc_training_data(param_p);
+	//       restore_emc_training_data(param_p);
 }
-#pragma GCC pop_options
-

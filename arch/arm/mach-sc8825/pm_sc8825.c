@@ -647,19 +647,9 @@ static void pm_debug_dump_ahb_glb_regs(void)
 
 static void dump_intc_regs(void)
 {
-	u32 time  = get_sys_cnt();	
-	printk("*** time:%u *** \n", time);
 	printk("*** INTC0_MSK_STATUS:  0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x0000) );
-	printk("*** INT0_IRQ_RAW: 0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x0004) );
-	printk("*** INT0_IRQ_ENB: 0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x0008) );
-	printk("*** INT0_IRQ_DIS: 0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x000c) );
-
 
 	printk("*** INTC1_MSK_STATUS:  0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x1000) );
-	printk("*** INT1_IRQ_RAW: 0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x1004) );
-	printk("*** INT1_IRQ_ENB: 0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x1008) );
-	printk("*** INT1_IRQ_DIS: 0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x100c) );
-
 }
 
 static int emc_repower_init(void)
@@ -816,8 +806,6 @@ int deep_sleep(void)
 	u32 val, ret = 0;
 	u32 holding;
 
-	sci_glb_set(REG_AHB_REMAP, BIT(0));
-
 	SAVE_GLOBAL_REG;
 	disable_audio_module();
 	disable_apb_module();
@@ -840,7 +828,9 @@ int deep_sleep(void)
 	*/
 	dsp_and_modem_force_close();
 #endif
-	//pm_debug_set_wakeup_timer();
+	/*
+	 * pm_debug_set_wakeup_timer();
+	*/
 
 	/* FIXME: enable emc auto gate in final version 
 	val = sci_glb_read(REG_AHB_AHB_CTL1, -1UL);
@@ -853,8 +843,8 @@ int deep_sleep(void)
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
 	/* FIXME: enable sys sleep and deep sleep in final version 
 	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
-	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL);
 	*/
+	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL);
 
 	/* set entry when deepsleep return*/
 	save_reset_vector();
@@ -877,7 +867,6 @@ int deep_sleep(void)
 	/*clear the deep sleep status*/
 	sci_glb_write(REG_AHB_HOLDING_PEN, holding & (~CORE1_RUN) & (~AP_ENTER_DEEP_SLEEP), -1UL );
 
-
 /*
 * just for debug,
 */	
@@ -886,26 +875,27 @@ int deep_sleep(void)
 	__raw_writel(val, INT0_IRQ_ENB);
 /*
 * just for debug,
-*/	
-		
+*/
+
+	/* FIXME: clear emc auto gate in final version
+	val = sci_glb_read(REG_AHB_AHB_CTL1, -1UL);
+	val &= ~AHB_CTRL1_EMC_AUTO_GATE_EN;
+	sci_glb_write(REG_AHB_AHB_CTL1, val, -1UL);
+	*/
+
 	restore_reset_vector();	
 	RESTORE_GLOBAL_REG;
-	
-	pm_debug_dump_ahb_glb_regs();
-	dump_intc_regs();
+
 	hard_irq_set();
 
-	udelay(20);
+	udelay(5);
 	if (ret) cpu_init();
 
 #ifdef CONFIG_CACHE_L2X0
 	l2x0_resume(ret);
 #endif
-	sci_glb_set(REG_GLB_GEN0, GEN0_UART0_EN|GEN0_UART1_EN|GEN0_UART2_EN|GEN0_UART3_EN);
-	mdelay(10);
-	printk("******** %s, ret form sp_pm_collapse is %d **********\n", __func__, ret);
-	
 	pm_debug_dump_ahb_glb_regs();
+
 	return ret;
 }
 
@@ -962,7 +952,8 @@ int sc8825_enter_lowpower(void)
 {
 	int status, ret = 0;
 	unsigned long flags, time;
-	unsigned int cpu = smp_processor_id();	
+	unsigned int cpu = smp_processor_id();
+
 #ifdef CONFIG_SPRD_PM_DEBUG
 	__raw_writel(0xfdffbfff, SPRD_INTC0_BASE + 0xc);//intc0
 	__raw_writel(0x02004000, SPRD_INTC0_BASE + 0x8);//intc0
@@ -1053,6 +1044,10 @@ void sprd_pm_cpu_enter_lowpower(unsigned int cpu)
 static void init_gr(void)
 {
 	int val;
+
+	/* remap iram to 0x00000000*/
+	sci_glb_set(REG_AHB_REMAP, BIT(0));
+
 	/*force close cp*/
 	__raw_writel(0x00000001, SPRD_AHB_BASE + 0x258);
 

@@ -67,13 +67,6 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 		goto enter_exit;
 	}
 
-	printk("************* %s, before enter sleep  ***************** \n", __func__ );
-	printk("************* %s, intc0 mask_status:0x%x ***************** \n", __func__, __raw_readl(0xeb254000) );
-	printk("************* %s, intc0 raw_status:0x%x ***************** \n", __func__, __raw_readl(0xeb254004) );
-	printk("************* %s, intc0 irq_enable:0x%x ***************** \n", __func__, __raw_readl(0xeb254008) );
-	printk("************* %s, intc1 mask_status:0x%x ***************** \n", __func__, __raw_readl(0xeb255000) );
-	printk("************* %s, intc1 raw_status:0x%x ***************** \n", __func__, __raw_readl(0xeb255004) );
-	printk("************* %s, intc1 irq_enable:0x%x ***************** \n", __func__, __raw_readl(0xeb255008) );
 	while(1){
 		hw_local_irq_disable();
 		local_fiq_disable();
@@ -86,13 +79,6 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 			local_irq_restore(flags);
 			hw_local_irq_enable();
 			local_fiq_enable();
-			printk("************* %s, after irq enable  ***************** \n", __func__ );
-			printk("************* %s, intc0 mask_status:0x%x ***************** \n", __func__, __raw_readl(0xeb254000) );
-			printk("************* %s, intc0 raw_status:0x%x ***************** \n", __func__, __raw_readl(0xeb254004) );
-			printk("************* %s, intc0 irq_enable:0x%x ***************** \n", __func__, __raw_readl(0xeb254008) );
-			printk("************* %s, intc1 mask_status:0x%x ***************** \n", __func__, __raw_readl(0xeb255000) );
-			printk("************* %s, intc1 raw_status:0x%x ***************** \n", __func__, __raw_readl(0xeb255004) );
-			printk("************* %s, intc1 irq_enable:0x%x ***************** \n", __func__, __raw_readl(0xeb255008) );
 			break;
 		}else{
 			local_irq_restore(flags);
@@ -117,13 +103,6 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 #else
 			sprd_cpu_deep_sleep(cpu);
 #endif
-			printk("************* %s, intc0 mask_status:0x%x ***************** \n", __func__, __raw_readl(0xeb254000) );
-			printk("************* %s, intc0 raw_status:0x%x ***************** \n", __func__, __raw_readl(0xeb254004) );
-			printk("************* %s, intc0 irq_enable:0x%x ***************** \n", __func__, __raw_readl(0xeb254008) );
-			printk("************* %s, intc1 mask_status:0x%x ***************** \n", __func__, __raw_readl(0xeb255000) );
-			printk("************* %s, intc1 raw_status:0x%x ***************** \n", __func__, __raw_readl(0xeb255004) );
-			printk("************* %s, intc1 irq_enable:0x%x ***************** \n", __func__, __raw_readl(0xeb255008) );
-			printk("************* %s, after sleep, before irq enable  ***************** \n", __func__ );
 			hw_local_irq_enable();
 			local_fiq_enable();
 		}
