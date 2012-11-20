@@ -681,6 +681,40 @@ E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
     return ERR_OK;
 }
 
+int fts_ctpm_auto_clb(void)
+{
+    unsigned char uc_temp;
+    unsigned char i ;
+
+    printk("[FTS] start auto CLB.\n");
+    msleep(200);
+    ft5x0x_write_reg(0, 0x40);
+    msleep(100);   //make sure already enter factory mode
+    ft5x0x_write_reg(2, 0x4);  //write command to start calibration
+    msleep(300);
+    for(i=0;i<100;i++)
+    {
+        ft5x0x_read_reg(0,&uc_temp);
+        if ( ((uc_temp&0x70)>>4) == 0x0)  //return to normal mode, calibration finish
+        {
+            break;
+        }
+        msleep(200);
+        printk("[FTS] waiting calibration %d\n",i);
+    }
+    printk("[FTS] calibration OK.\n");
+
+    msleep(300);
+    ft5x0x_write_reg(0, 0x40);  //goto factory mode
+    msleep(100);   //make sure already enter factory mode
+    ft5x0x_write_reg(2, 0x5);  //store CLB result
+    msleep(300);
+    ft5x0x_write_reg(0, 0x0); //return to normal mode
+    msleep(300);
+    printk("[FTS] store CLB result OK.\n");
+    return 0;
+}
+
 #if 1
 int fts_ctpm_fw_upgrade_with_i_file(void)
 {
@@ -693,9 +727,17 @@ int fts_ctpm_fw_upgrade_with_i_file(void)
    i_ret =  fts_ctpm_fw_upgrade(pbt_buf,sizeof(CTPM_FW));
    if (i_ret != 0)
    {
+	printk("[FTS] upgrade failed i_ret = %d.\n", i_ret);
        //error handling ...
        //TBD
    }
+   else
+   {
+       printk("[FTS] upgrade successfully.\n");
+       fts_ctpm_auto_clb();  //start auto CLB
+   }
+
+   return i_ret;
 }
 #endif
 
@@ -742,7 +784,6 @@ static void ft5x0x_ts_release(void)
 #ifdef CONFIG_FT5X0X_MULTITOUCH
 	//input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 	input_report_key(data->input_dev, BTN_TOUCH, 0);
-	input_mt_sync(data->input_dev);
 #else
 	input_report_abs(data->input_dev, ABS_PRESSURE, 0);
 	input_report_key(data->input_dev, BTN_TOUCH, 0);
@@ -846,38 +887,38 @@ static void ft5x0x_report_value(void)
 #ifdef CONFIG_FT5X0X_MULTITOUCH
 	switch(event->touch_point) {
 		case 5:
-			//input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, event->x5);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, event->y5);
-			//input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
+			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input_dev);
 
 		case 4:
-			//input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, event->x4);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, event->y4);
-			//input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
+			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input_dev);
 
 		case 3:
-			//input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, event->x3);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, event->y3);
-			//input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
+			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input_dev);
 
 		case 2:
-			//input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, event->x2);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, event->y2);
-			//input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
+			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input_dev);
 
 		case 1:
-			//input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, event->pressure);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, event->x1);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, event->y1);
-			//input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
+			input_report_abs(data->input_dev, ABS_MT_WIDTH_MAJOR, 1);
 			input_mt_sync(data->input_dev);
 
 		default:
@@ -938,7 +979,7 @@ static void ft5x0x_ts_reset(void)
 {
 	struct ft5x0x_ts_platform_data *pdata = g_ft5x0x_ts->platform_data;
 
-	gpio_set_value(pdata->reset_gpio_number, 1);
+	gpio_direction_output(pdata->reset_gpio_number, 1);
 	msleep(1);
 	gpio_set_value(pdata->reset_gpio_number, 0);
 	msleep(10);
@@ -948,14 +989,12 @@ static void ft5x0x_ts_reset(void)
 
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
-	return;
 	printk("==ft5x0x_ts_suspend=\n");
 	ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
 }
 
 static void ft5x0x_ts_resume(struct early_suspend *handler)
 {
-	return;
 	printk("==%s==\n", __FUNCTION__);
 	ft5x0x_ts_reset();
 }
@@ -969,6 +1008,8 @@ static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 	printk(KERN_INFO "%s [irq=%d];[rst=%d]\n",__func__,pdata->irq_gpio_number,pdata->reset_gpio_number);
 	gpio_request(pdata->irq_gpio_number, "ts_irq_pin");
 	gpio_request(pdata->reset_gpio_number, "ts_rst_pin");
+	gpio_direction_output(pdata->reset_gpio_number, 1);
+	gpio_direction_input(pdata->irq_gpio_number);
 	//vdd power on
 	reg_vdd = regulator_get(&client->dev, pdata->vdd_name);
 	regulator_set_voltage(reg_vdd, 2700000, 2800000);
@@ -1098,7 +1139,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	uc_reg_value = ft5x0x_read_fw_ver();
 	TS_DBG("[FST] Firmware version = 0x%x", uc_reg_value);
 
-	if(uc_reg_value < 0x10)
+	if(uc_reg_value < 0x25)
 	{
 		fts_ctpm_fw_upgrade_with_i_file();
 	}
