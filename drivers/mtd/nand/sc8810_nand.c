@@ -765,7 +765,7 @@ void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u8 id[8]
 				this->ecc.layout = &_nand_oob_128;
 			break;
 			case 8:
-				/* 8 bit ecc, per 512 bytes can creat 13 * 8 = 104 bit , 104 / 8 = 13 bytes */
+				/* 8 bit ecc, per 512 bytes can creat 13 * 8 = 104 bit , 104 / 8 = 14 bytes */
 				this->ecc.bytes = 14;
 				if (nand_config_table[index].oobsize == 224)
 					this->ecc.layout = &_nand_oob_224;
