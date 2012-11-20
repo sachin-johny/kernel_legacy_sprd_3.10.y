@@ -169,13 +169,18 @@ static LCM_Init_Code init_data[] = {
 static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
 
 static LCM_Init_Code sleep_in[] =  {
+{LCM_SEND(1), {0x28}},
+{LCM_SLEEP(10)},
 {LCM_SEND(1), {0x10}},
-{LCM_SLEEP(200)},
+{LCM_SLEEP(120)},
+{LCM_SEND(2), {0x4f, 0x01}},
 };
 
 static LCM_Init_Code sleep_out[] =  {
 {LCM_SEND(1), {0x11}},
-{LCM_SLEEP(200)},
+{LCM_SLEEP(120)},
+{LCM_SEND(1), {0x29}},
+{LCM_SLEEP(20)},
 };
 
 static int32_t nt35516_mipi_init(struct panel_spec *self)
@@ -195,6 +200,7 @@ static int32_t nt35516_mipi_init(struct panel_spec *self)
 		tag = (init->tag >>24);
 		if(tag & LCM_TAG_SEND){
 			mipi_gen_write(init->data, (init->tag & LCM_TAG_MASK));
+			udelay(5);
 		}else if(tag & LCM_TAG_SLEEP){
 			udelay((init->tag & LCM_TAG_MASK) * 1000);
 		}
@@ -217,6 +223,7 @@ static int32_t nt35516_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	int32_t size = 0;
 
 	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
+	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
 
 	printk(KERN_DEBUG "nt35516_enter_sleep, is_sleep = %d\n", is_sleep);
 
@@ -231,7 +238,7 @@ static int32_t nt35516_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	for(i = 0; i <size ; i++){
 		tag = (sleep_in_out->tag >>24);
 		if(tag & LCM_TAG_SEND){
-			mipi_dcs_write(sleep_in_out->data, (sleep_in_out->tag & LCM_TAG_MASK));
+			mipi_gen_write(sleep_in_out->data, (sleep_in_out->tag & LCM_TAG_MASK));
 		}else if(tag & LCM_TAG_SLEEP){
 			udelay((sleep_in_out->tag & LCM_TAG_MASK) * 1000);
 		}

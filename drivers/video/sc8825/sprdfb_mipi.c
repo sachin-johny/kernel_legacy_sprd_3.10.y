@@ -181,15 +181,15 @@ static void sprdfb_mipi_panel_ready(struct sprdfb_device *dev)
 static void sprdfb_mipi_panel_suspend(struct sprdfb_device *dev)
 {
 	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
-	//sprdfb_dsi_uninit(dev);
-	sprdfb_dsi_suspend(dev);
+	sprdfb_dsi_uninit(dev);
+	//sprdfb_dsi_suspend(dev);
 }
 
 static void sprdfb_mipi_panel_resume(struct sprdfb_device *dev)
 {
 	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
-	//sprdfb_dsi_init(dev);
-	sprdfb_dsi_resume(dev);
+	sprdfb_dsi_init(dev);
+	//sprdfb_dsi_resume(dev);
 }
 
 

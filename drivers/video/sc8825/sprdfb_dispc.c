@@ -449,6 +449,11 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
 		}
 
+	printk("0x20900200 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x200));
+	printk("0x20900208 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x208));
+	printk("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x220));
+
+
 		dispc_reset();
 		dispc_module_enable();
 		dispc_ctx.is_first_frame = true;
@@ -631,7 +636,8 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 	if (dev->enable == 0) {
 		clk_enable(dispc_ctx.clk_dispc);
 		dispc_ctx.vsync_done = 1;
-		if (0 == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
+		if (dispc_read(DISPC_SIZE_XY) == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
+			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
 			dispc_reset();
 			dispc_module_enable();
 			dispc_ctx.is_first_frame = true;
@@ -639,6 +645,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 
 			sprdfb_panel_resume(dev, true);
 		} else {
+			printk(KERN_INFO "sprdfb:[%s]  not from deep sleep\n",__FUNCTION__);
 			sprdfb_panel_resume(dev, false);
 		}
 

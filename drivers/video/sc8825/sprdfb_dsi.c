@@ -219,8 +219,13 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
 	dphy_t *phy = &(dsi_instance->phy_instance);
 	struct info_mipi * mipi = dev->panel->info.mipi;
+	bool resume = false;
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
+
+	if(dev->panel_ready && dsi_ctx.is_inited){
+		resume = true;
+	}
 
 	if(dev->panel_ready){
 		dsi_ctx.is_inited = true;
@@ -247,7 +252,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	dsi_instance->max_lp_to_hs_cycles = 15;//10;
 	dsi_instance->max_lanes = mipi->lan_number;
 
-	if(dev->panel_ready){
+	if(dev->panel_ready && !resume){
 		printk(KERN_INFO "sprdfb:[%s]: dsi has alread initialized\n", __FUNCTION__);
 		dsi_instance->status = INITIALIZED;
 		return 0;
@@ -321,8 +326,11 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 int32_t sprdfb_dsi_uninit(struct sprdfb_device *dev)
 {
 	dsih_error_t result;
+	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
 	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 	result = mipi_dsih_close(&(dsi_ctx.dsi_inst));
+	dsi_instance->status = NOT_INITIALIZED;
+
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: sprdfb_dsi_uninit fail (%d)!\n", __FUNCTION__, result);
 		return -1;
