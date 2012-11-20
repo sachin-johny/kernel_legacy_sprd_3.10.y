@@ -3230,6 +3230,11 @@ ident_done:
 	       nand_manuf_ids[maf_idx].name, type->name);
 #endif
 
+#ifdef	CONFIG_ARCH_SC8810
+	extern void nand_hardware_config(struct mtd_info *mtd, struct nand_chip*, u8[8]);
+	nand_hardware_config(mtd, chip, id_data);
+#endif
+
 	return type;
 }
 
