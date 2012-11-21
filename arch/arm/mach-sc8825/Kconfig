@@ -10,6 +10,11 @@ config MACH_SP8825_FPGA
 	bool "SP8825 FPGA"
 	help
 	  SP8825 FPGA board based on SC8825.
+config MACH_SP8825_OPENPHONE
+	default n
+	bool "SP8825 OPENPHONE"
+	help
+	  SP8825 OPENPHONE board based on SC8825.
 config MACH_SP8825EA
 	default n
 	bool "SP8825EA"

@@ -297,6 +297,9 @@ pinmap_t __initconst pinmap[] = {
 #ifdef CONFIG_MACH_GARDA
 #include "pinmap_garda.h"
 #endif
+#ifdef CONFIG_MACH_GARDA
+#include "pinmap_sp8825_openphone.h"
+#endif
 };
 
 static int __init pin_init(void)
