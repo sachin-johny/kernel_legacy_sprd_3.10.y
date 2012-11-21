@@ -15,8 +15,14 @@ ifeq ($(CONFIG_NKERNEL),)
 obj-$(CONFIG_SMP)		+= platsmp.o headsmp.o
 endif
 
-obj-$(CONFIG_PM)		+= pm.o pm_sc8825.o standby.o pm_debug.o emc_repower.o 
+ifeq ($(CONFIG_NKERNEL),y)
+obj-$(CONFIG_PM)		+= pm_vlx.o
+else
+obj-$(CONFIG_PM)		+= pm.o 
+endif
+obj-$(CONFIG_PM)		+= pm_sc8825.o standby.o pm_debug.o emc_repower.o 
 CFLAGS_emc_repower.o += -fPIC
+
 
 obj-$(CONFIG_SIPC)		+= sipc.o
 

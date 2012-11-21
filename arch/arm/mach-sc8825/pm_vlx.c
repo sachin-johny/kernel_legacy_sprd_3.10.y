@@ -19,7 +19,6 @@
 #include <mach/pm_debug.h>
 #include <mach/globalregs.h>
 
-extern unsigned int sprd_irq_pending(void);
 extern int sprd_cpu_deep_sleep(unsigned int cpu);
 extern void sc8825_pm_init(void);
 extern void check_ldo(void);
@@ -28,6 +27,7 @@ extern void check_pd(void);
 /*for battery*/
 #define BATTERY_CHECK_INTERVAL 30000
 extern int battery_updata(void);
+extern void battery_sleep(void);
 
 static int sprd_check_battery(void)
 {
@@ -38,8 +38,7 @@ static int sprd_check_battery(void)
 	return ret_val;
 }
 
-static void sprd_pm_standby(void)
-{
+static void sprd_pm_standby(void){
 	cpu_do_idle();
 }
 
@@ -55,30 +54,60 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 	clr_sleep_mode();
 	time_statisic_begin();
 
+#if defined(CONFIG_NKERNEL) && !defined(CONFIG_NKERNEL_PM_MASTER)
+	hw_local_irq_disable();
+	os_ctx->suspend_to_memory(os_ctx);
+	hw_local_irq_enable();
+#else
 	/*
 	* when we get here, only boot cpu still alive
 	*/
-	if( cpu ){
+	if (smp_processor_id()) {
 		__WARN();
 		goto enter_exit;
 	}
-	printk("cpu%d, enter %s\n", cpu, __func__ );
 
 	while(1){
+		hw_local_irq_disable();
 		local_fiq_disable();
 		local_irq_save(flags);
-		WARN_ONCE(!irqs_disabled(), "#####: Interrupts enabled in pm_enter()!\n");
 
-		sprd_cpu_deep_sleep(cpu);
-
-		if( sprd_irq_pending() ){
+		if (arch_local_irq_pending()) {
+			/* add for debug & statisic*/
 			irq_wakeup_set();
+
 			local_irq_restore(flags);
+			hw_local_irq_enable();
 			local_fiq_enable();
 			break;
+		}else{
+			local_irq_restore(flags);
+			WARN_ONCE(!irqs_disabled(), "#####: Interrupts enabled in pm_enter()!\n");
+			printk("cpu%d, enter %s\n", cpu, __func__ );
+#if defined(CONFIG_NKERNEL)
+			/*
+			* return value 0 means that other guest OS  are all idle
+			*/
+			ret_val = os_ctx->idle(os_ctx);
+			if (0 == ret_val) {
+#ifdef CONFIG_NKERNEL_PM_MASTER
+				os_ctx->smp_cpu_stop(0);
+#endif
+				sprd_cpu_deep_sleep(cpu);
+#ifdef CONFIG_NKERNEL_PM_MASTER
+				os_ctx->smp_cpu_start(0, 0);/* the 2nd parameter is meaningless*/
+#endif
+			} else {
+				printk("******** os_ctx->idle return %d ********\n", ret_val);
+			}
+#else
+			sprd_cpu_deep_sleep(cpu);
+#endif
+			hw_local_irq_enable();
+			local_fiq_enable();
 		}
 
-		/*TODO: charging in power down
+		battery_sleep();
 		cur_time = get_sys_cnt();
 		if ((cur_time -  battery_time) > BATTERY_CHECK_INTERVAL) {
 			battery_time = cur_time;
@@ -87,11 +116,10 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 				break;
 			}
 		}
-		*/
-		
 	}/*end while*/
 
 	time_statisic_end();
+#endif
 
 enter_exit:
 	return ret_val;
@@ -139,6 +167,7 @@ static int sprd_pm_prepare(void)
 static void sprd_pm_finish(void)
 {
 	pr_debug("enter %s\n", __func__);
+	printk("enter %s\n", __func__);
 	print_statisic();
 }
 

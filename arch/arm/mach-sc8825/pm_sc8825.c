@@ -645,11 +645,15 @@ static void pm_debug_dump_ahb_glb_regs(void)
 	printk("*** GR_CLK_DLY:  0x%x ***\n", debug_status[8] );
 }
 
-static void dump_intc_regs(void)
+unsigned int sprd_irq_pending(void)
 {
-	printk("*** INTC0_MSK_STATUS:  0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x0000) );
+	u32 status;
 
-	printk("*** INTC1_MSK_STATUS:  0x%x ***\n", __raw_readl(SPRD_INTC0_BASE + 0x1000) );
+	status = __raw_readl(SPRD_INTC0_BASE + 0x0000);
+	if(status)
+		return status;
+	status = __raw_readl(SPRD_INTC0_BASE + 0x1000);
+	return status;
 }
 
 static int emc_repower_init(void)
@@ -972,7 +976,14 @@ int sc8825_enter_lowpower(void)
 #ifdef FORCE_DISABLE_DSP
 	status = 0;
 #else
+#ifdef CONFIG_NKERNEL
 	status = sc8825_get_clock_status();
+#else
+	/*
+	* TODO: get clock status in native version, force deep sleep now
+	*/
+	status = 0;
+#endif
 #endif
 	if (status & DEVICE_AHB)  {
 		printk("###### %s,  DEVICE_AHB ###\n", __func__ );
@@ -1099,6 +1110,29 @@ void sc8825_idle(void)
 	local_irq_enable();
 	return;
 }
+
+#ifndef CONFIG_NKERNEL
+void sc8825_idle(void)
+{
+	if (!need_resched()) {
+		local_irq_disable();
+		if (!sprd_irq_pending()) {
+#ifdef CONFIG_CACHE_L2X0
+			/*l2cache power control, standby mode enable*/
+			/*L2X0_POWER_CTRL*/
+			__raw_writel(1, SPRD_L2_BASE+0xF80);
+			l2x0_suspend();
+#endif
+			cpu_do_idle();
+#ifdef CONFIG_CACHE_L2X0
+			l2x0_resume(1);
+#endif
+		}
+		local_irq_enable();
+	}
+	return;
+}
+#endif
 
 #ifdef FORCE_DISABLE_DSP
 /* FPGA ONLY */
