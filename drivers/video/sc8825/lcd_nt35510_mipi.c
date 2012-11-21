@@ -108,9 +108,20 @@ static LCM_Init_Code init_data[] = {
 
 static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
 
-static LCM_Init_Code sleep_in =  {LCM_SEND(1), {0x10}};
+static LCM_Init_Code sleep_in[] =  {
+{LCM_SEND(1), {0x28}},
+{LCM_SLEEP(10)},
+{LCM_SEND(1), {0x10}},
+{LCM_SLEEP(120)},
+{LCM_SEND(2), {0x4f, 0x01}},
+};
 
-static LCM_Init_Code sleep_out =  {LCM_SEND(1), {0x11}};
+static LCM_Init_Code sleep_out[] =  {
+{LCM_SEND(1), {0x11}},
+{LCM_SLEEP(120)},
+{LCM_SEND(1), {0x29}},
+{LCM_SLEEP(20)},
+};
 
 static int32_t nt35510_mipi_init(struct panel_spec *self)
 {
@@ -129,7 +140,8 @@ static int32_t nt35510_mipi_init(struct panel_spec *self)
 	for(i = 0; i < ARRAY_SIZE(init_data); i++){
 		tag = (init->tag >>24);
 		if(tag & LCM_TAG_SEND){
-			mipi_dcs_write(init->data, (init->tag & LCM_TAG_MASK));
+			mipi_gen_write(init->data, (init->tag & LCM_TAG_MASK));
+			udelay(30);
 		}else if(tag & LCM_TAG_SLEEP){
 			udelay((init->tag & LCM_TAG_MASK) * 1000);
 		}
@@ -144,9 +156,42 @@ static uint32_t nt35510_readid(struct panel_spec *self)
 	return 0x10;
 }
 
+static int32_t nt35510_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
+{
+	int32_t i;
+	LCM_Init_Code *sleep_in_out = NULL;
+	unsigned int tag;
+	int32_t size = 0;
+
+	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
+	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
+
+	printk(KERN_DEBUG "nt35516_enter_sleep, is_sleep = %d\n", is_sleep);
+
+	if(is_sleep){
+		sleep_in_out = sleep_in;
+		size = ARRAY_SIZE(sleep_in);
+	}else{
+		sleep_in_out = sleep_out;
+		size = ARRAY_SIZE(sleep_out);
+	}
+
+	for(i = 0; i <size ; i++){
+		tag = (sleep_in_out->tag >>24);
+		if(tag & LCM_TAG_SEND){
+			mipi_gen_write(sleep_in_out->data, (sleep_in_out->tag & LCM_TAG_MASK));
+		}else if(tag & LCM_TAG_SLEEP){
+			udelay((sleep_in_out->tag & LCM_TAG_MASK) * 1000);
+		}
+		sleep_in_out++;
+	}
+	return 0;
+}
+
 static struct panel_operations lcd_nt35510_mipi_operations = {
 	.panel_init = nt35510_mipi_init,
 	.panel_readid = nt35510_readid,
+	.panel_enter_sleep = nt35510_enter_sleep,
 };
 
 static struct timing_rgb lcd_nt35510_mipi_timing = {
