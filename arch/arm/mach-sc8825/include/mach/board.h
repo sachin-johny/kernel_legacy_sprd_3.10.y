@@ -21,6 +21,9 @@
 #ifdef CONFIG_MACH_SP8825_FPGA
 #include <mach/gpio-sp8810ga.h>
 #endif
+#ifdef CONFIG_MACH_SP8825_OPENPHONE
+#include <mach/gpio-sp8825openphone.h>
+#endif
 #ifdef CONFIG_MACH_SP8825EA
 #include <mach/gpio-sp8825ea.h>
 #endif
