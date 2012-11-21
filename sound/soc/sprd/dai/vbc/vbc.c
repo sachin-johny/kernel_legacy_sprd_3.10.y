@@ -39,6 +39,10 @@
 #include "sprd-vbc-pcm.h"
 #include "vbc.h"
 
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
+#define CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
+#endif
+
 #ifdef CONFIG_SPRD_AUDIO_DEBUG
 #define vbc_dbg pr_debug
 #else
@@ -81,26 +85,30 @@ static const u32 vbc_eq_profile_default[VBC_EFFECT_PARAS_LEN] = {
 	0x00000000,		/*  HPCOEF0         */
 };
 
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 struct vbc_eq_delayed_work {
 	struct workqueue_struct *workqueue;
 	struct delayed_work delayed_work;
 	struct snd_soc_codec *codec;
 };
+#endif
 
 struct vbc_equ {
 	struct device *dev;
 	int is_active;
 	int is_loaded;
-	int is_active_loaded;
 	int is_loading;
 	struct snd_soc_dai *codec_dai;
 	int now_profile;
 	struct vbc_fw_header hdr;
 	struct vbc_eq_profile *data;
 	void (*vbc_eq_apply) (struct snd_soc_dai * codec_dai, void *data);
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
+	int is_active_loaded;
 	struct soc_enum equalizer_enum;
 	struct snd_kcontrol_new equalizer_control;
 	struct vbc_eq_delayed_work *delay_work;
+#endif
 };
 
 typedef int (*vbc_dma_set) (int enable);
@@ -117,7 +125,9 @@ static DEFINE_MUTEX(load_mutex);
 static struct vbc_equ vbc_eq_setting = { 0 };
 
 static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai);
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 static void vbc_eq_delay_work(struct work_struct *work);
+#endif
 static struct vbc_priv vbc[2];
 static struct clk *s_vbc_clk = 0;
 static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
@@ -573,7 +583,9 @@ static int vbc_drv_probe(struct platform_device *pdev)
 	int i;
 	int ret;
 	struct clk *vbc_clk;
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	struct vbc_eq_delayed_work *delay_work = 0;
+#endif
 
 	vbc_dbg("Entering %s\n", __func__);
 
@@ -590,7 +602,7 @@ static int vbc_drv_probe(struct platform_device *pdev)
 		pr_err("%s err!\n", __func__);
 		goto probe_err;
 	}
-
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	delay_work = kzalloc(sizeof(struct vbc_eq_delayed_work), GFP_KERNEL);
 	if (!delay_work) {
 		ret = -ENOMEM;
@@ -605,6 +617,7 @@ static int vbc_drv_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&delay_work->delayed_work, vbc_eq_delay_work);
 	vbc_eq_setting.delay_work = delay_work;
+#endif
 
 	vbc_clk = clk_get(&pdev->dev, "clk_vbc");
 	if (IS_ERR(vbc_clk)) {
@@ -613,10 +626,12 @@ static int vbc_drv_probe(struct platform_device *pdev)
 		s_vbc_clk = vbc_clk;
 	}
 
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	goto probe_err;
 
 work_err:
 	kfree(delay_work);
+#endif
 probe_err:
 	vbc_dbg("return %i\n", ret);
 	vbc_dbg("Leaving %s\n", __func__);
@@ -628,10 +643,12 @@ static int __devexit vbc_drv_remove(struct platform_device *pdev)
 {
 	snd_soc_unregister_dai(&pdev->dev);
 	vbc_eq_setting.dev = 0;
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	destroy_workqueue(vbc_eq_setting.delay_work->workqueue);
 	vbc_safe_kfree(&vbc_eq_setting.delay_work);
-	vbc_safe_kfree(&vbc_eq_setting.data);
 	vbc_safe_kfree(&vbc_eq_setting.equalizer_enum.values);
+#endif
+	vbc_safe_kfree(&vbc_eq_setting.data);
 	if (s_vbc_clk) {
 		clk_put(s_vbc_clk);
 		s_vbc_clk = 0;
@@ -718,9 +735,10 @@ static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai)
 	if (vbc_eq_setting.vbc_eq_apply) {
 		mutex_lock(&load_mutex);
 		if (vbc_eq_setting.is_loaded) {
-			data =
-			    vbc_eq_setting.data[vbc_eq_setting.now_profile].
-			    effect_paras;
+			struct vbc_eq_profile *now =
+			    &vbc_eq_setting.data[vbc_eq_setting.now_profile];
+			data = now->effect_paras;
+			pr_info("vbc eq apply is '%s'\n", now->name);
 			vbc_eq_setting.vbc_eq_apply(codec_dai, data);
 		}
 		mutex_unlock(&load_mutex);
@@ -757,6 +775,7 @@ static int vbc_eq_profile_put(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 int snd_soc_info_enum_ext1(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_info *uinfo)
 {
@@ -812,11 +831,11 @@ static void vbc_eq_delay_work(struct work_struct *work)
 	ret = vbc_replace_controls(codec, &vbc_eq_setting.equalizer_control, 1);
 	if (ret < 0)
 		pr_err("add the vbc eq profile failed");
-	else
-		if (vbc_eq_setting.is_active_loaded) {
-			vbc_eq_setting.is_loaded = 1;
-			vbc_eq_setting.is_active_loaded = 0;
-		}
+	else if (vbc_eq_setting.is_active_loaded) {
+		vbc_eq_setting.is_loaded = 1;
+		vbc_eq_setting.is_active_loaded = 0;
+		vbc_eq_try_apply(vbc_eq_setting.codec_dai);
+	}
 }
 
 static int vbc_eq_profile_add_action(struct snd_soc_codec *codec)
@@ -883,6 +902,7 @@ err_texts:
 	vbc_dbg("Leaving %s\n", __func__);
 	return ret;
 }
+#endif
 
 static int vbc_eq_loading(struct snd_soc_codec *codec)
 {
@@ -953,7 +973,11 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 			goto eq_err;
 		}
 	}
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	ret = vbc_eq_profile_add_widgets(codec);
+#else
+	ret = 0;
+#endif
 	goto eq_out;
 
 eq_err:
@@ -964,6 +988,10 @@ load_err:
 req_fw_err:
 	vbc_eq_setting.is_loading = 0;
 	mutex_unlock(&load_mutex);
+#ifdef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
+	vbc_eq_setting.is_loaded = 1;
+	vbc_eq_try_apply(vbc_eq_setting.codec_dai);
+#endif
 	vbc_dbg("return %i\n", ret);
 	vbc_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -1069,15 +1097,22 @@ static const struct snd_kcontrol_new vbc_controls[] = {
 		     vbc_eq_switch_put),
 	SOC_ENUM_EXT("VBC EQ Update", vbc_enum[2], vbc_eq_load_get,
 		     vbc_eq_load_put),
+
+#ifdef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
+	SOC_SINGLE_EXT("VBC EQ Profile Select", 0, 0, VBC_EQ_PROFILE_CNT_MAX, 0,
+		       vbc_eq_profile_get, vbc_eq_profile_put),
+#endif
 };
 
 int vbc_add_controls(struct snd_soc_codec *codec)
 {
 	int ret;
+#ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	ret = vbc_eq_profile_add_widgets(codec);
 	if (ret < 0) {
 		pr_err("Failed to VBC add default profile\n");
 	}
+#endif
 	ret = snd_soc_add_controls(codec, vbc_controls,
 				   ARRAY_SIZE(vbc_controls));
 	if (ret < 0) {
