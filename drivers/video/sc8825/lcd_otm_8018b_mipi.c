@@ -161,9 +161,19 @@ static LCM_Init_Code init_data[] = {
 
 static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
 
-static LCM_Init_Code sleep_in =  {LCM_SEND(1), {0x10}};
+static LCM_Init_Code sleep_in[] =  {
+{LCM_SEND(1), {0x28}},
+{LCM_SLEEP(10)},
+{LCM_SEND(1), {0x10}},
+{LCM_SLEEP(120)},
+};
 
-static LCM_Init_Code sleep_out =  {LCM_SEND(1), {0x11}};
+static LCM_Init_Code sleep_out[] =  {
+{LCM_SEND(1), {0x11}},
+{LCM_SLEEP(120)},
+{LCM_SEND(1), {0x29}},
+{LCM_SLEEP(20)},
+};
 
 static int32_t otm8018b_mipi_init(struct panel_spec *self)
 {
@@ -174,7 +184,7 @@ static int32_t otm8018b_mipi_init(struct panel_spec *self)
 	mipi_set_cmd_mode_t mipi_set_cmd_mode = self->info.mipi->ops->mipi_set_cmd_mode;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
 
-	pr_debug(KERN_DEBUG "s6d0139_init\n");
+	pr_debug(KERN_DEBUG "otm8018b_mipi_init\n");
 
 	mipi_set_cmd_mode();
 
@@ -182,6 +192,7 @@ static int32_t otm8018b_mipi_init(struct panel_spec *self)
 		tag = (init->tag >>24);
 		if(tag & LCM_TAG_SEND){
 			mipi_gen_write(init->data, (init->tag & LCM_TAG_MASK));
+			udelay(10);
 		}else if(tag & LCM_TAG_SLEEP){
 			udelay((init->tag & LCM_TAG_MASK) * 1000);
 		}
@@ -196,9 +207,42 @@ static uint32_t otm8018b_readid(struct panel_spec *self)
 	return 0x18;
 }
 
+static int32_t otm8018b_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
+{
+	int32_t i;
+	LCM_Init_Code *sleep_in_out = NULL;
+	unsigned int tag;
+	int32_t size = 0;
+
+	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
+	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
+
+	printk(KERN_DEBUG "otm8018b_enter_sleep, is_sleep = %d\n", is_sleep);
+
+	if(is_sleep){
+		sleep_in_out = sleep_in;
+		size = ARRAY_SIZE(sleep_in);
+	}else{
+		sleep_in_out = sleep_out;
+		size = ARRAY_SIZE(sleep_out);
+	}
+
+	for(i = 0; i <size ; i++){
+		tag = (sleep_in_out->tag >>24);
+		if(tag & LCM_TAG_SEND){
+			mipi_gen_write(sleep_in_out->data, (sleep_in_out->tag & LCM_TAG_MASK));
+		}else if(tag & LCM_TAG_SLEEP){
+			udelay((sleep_in_out->tag & LCM_TAG_MASK) * 1000);
+		}
+		sleep_in_out++;
+	}
+	return 0;
+}
+
 static struct panel_operations lcd_otm8018b_mipi_operations = {
 	.panel_init = otm8018b_mipi_init,
 	.panel_readid = otm8018b_readid,
+	.panel_enter_sleep = otm8018b_enter_sleep,
 };
 
 static struct timing_rgb lcd_otm8018b_mipi_timing = {
