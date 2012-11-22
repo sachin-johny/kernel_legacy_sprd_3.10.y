@@ -1085,6 +1085,7 @@ static void init_gr(void)
 	sci_glb_write(REG_GLB_CLK_EN, val, -1UL );
 }
 
+#ifdef CONFIG_NKERNEL
 void sc8825_idle(void)
 {
 	int val;
@@ -1111,7 +1112,8 @@ void sc8825_idle(void)
 	return;
 }
 
-#ifndef CONFIG_NKERNEL
+#else
+
 void sc8825_idle(void)
 {
 	if (!need_resched()) {
