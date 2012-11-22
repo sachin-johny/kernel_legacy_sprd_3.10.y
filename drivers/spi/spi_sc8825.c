@@ -530,6 +530,7 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 	int irq, ret;
 	struct spi_master *master;
 	struct sprd_spi_data *sprd_data;
+	struct clk *clk_parent;
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!regs)
@@ -565,10 +566,18 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 	if (!sprd_data->regs)
 		goto out_free_buffer;
 
+	clk_parent = clk_get(&pdev->dev, "clk_96m");
+	 if (IS_ERR(clk_parent))
+		goto out_free_buffer;
+
 	/* Initialize the hardware */
 	switch (pdev->id) {
 	case 0:
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI_EN, GR_GEN0);
+		sprd_data->spi_clk = clk_get(&pdev->dev, "clk_spi0");
+		if (IS_ERR(sprd_data->spi_clk))
+			goto out_free_buffer;
+		clk_enable(sprd_data->spi_clk);
+
 		sprd_greg_set_bits(REG_TYPE_GLOBAL, SWRST_SPI0_RST,
 				   GR_SOFT_RST);
 		msleep(1);
@@ -576,38 +585,44 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 				     GR_SOFT_RST);
 
 		spi_writel(0, SPI_INT_EN);
+
 		/* clk source selected to 96M */
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x03 << 26), GR_CLK_DLY);
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, 2 << 26, GR_CLK_DLY);
-		/*
-		 * clk_spi_div sets to 1, so clk_spi=96M/2=48M,
-		 * and clk_spi is SPI_CTL5 interval base clock.[luther.ge]
-		 */
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x07 << 21), GR_GEN2);
+		clk_set_parent(sprd_data->spi_clk, clk_parent);
+		clk_set_rate(sprd_data->spi_clk, 96*1000*1000);
 		break;
 	case 1:
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
+		sprd_data->spi_clk = clk_get(&pdev->dev, "clk_spi1");
+		if (IS_ERR(sprd_data->spi_clk))
+			goto out_free_buffer;
+		clk_enable(sprd_data->spi_clk);
+
 		sprd_greg_set_bits(REG_TYPE_GLOBAL, SWRST_SPI1_RST,
 				   GR_SOFT_RST);
 		msleep(1);
 		sprd_greg_clear_bits(REG_TYPE_GLOBAL, SWRST_SPI1_RST,
 				     GR_SOFT_RST);
 		spi_writel(0, SPI_INT_EN);
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x03 << 30), GR_CLK_DLY);
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, 2 << 30, GR_CLK_DLY);
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x07 << 11), GR_GEN2);
+
+		/* clk source selected to 96M */
+		clk_set_parent(sprd_data->spi_clk, clk_parent);
+		clk_set_rate(sprd_data->spi_clk, 96*1000*1000);
 		break;
 	case 2:
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI2_EN, GR_GEN0);
+		sprd_data->spi_clk = clk_get(&pdev->dev, "clk_spi2");
+		if (IS_ERR(sprd_data->spi_clk))
+			goto out_free_buffer;
+		clk_enable(sprd_data->spi_clk);
+
 		sprd_greg_set_bits(REG_TYPE_GLOBAL, SWRST_SPI2_RST,
 				   GR_SOFT_RST);
 		msleep(1);
 		sprd_greg_clear_bits(REG_TYPE_GLOBAL, SWRST_SPI2_RST,
 				     GR_SOFT_RST);
 		spi_writel(0, SPI_INT_EN);
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x03 << 3), GR_GEN3);
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, 2 << 3, GR_GEN3);
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x07 << 5), GR_GEN3);
+
+		/* clk source selected to 96M */
+		clk_set_parent(sprd_data->spi_clk, clk_parent);
+		clk_set_rate(sprd_data->spi_clk, 96*1000*1000);
 		break;
 	}
 
@@ -647,13 +662,34 @@ static int __exit sprd_spi_remove(struct platform_device *pdev)
 		msg->complete(msg->context);
 	}
 
+	switch (pdev->id) {
+	case 0:
+		sprd_data->spi_clk = clk_get(&pdev->dev, "clk_spi0");
+		if (IS_ERR(sprd_data->spi_clk))
+			goto out_clk;
+		clk_disable(sprd_data->spi_clk);
+		break;
+	case 1:
+		sprd_data->spi_clk = clk_get(&pdev->dev, "clk_spi1");
+		if (IS_ERR(sprd_data->spi_clk))
+			goto out_clk;
+		clk_disable(sprd_data->spi_clk);
+		break;
+	case 2:
+		sprd_data->spi_clk = clk_get(&pdev->dev, "clk_spi2");
+		if (IS_ERR(sprd_data->spi_clk))
+			goto out_clk;
+		clk_disable(sprd_data->spi_clk);
+		break;
+	}
+
+	clk_put(sprd_data->spi_clk);
+out_clk:
 	free_irq(sprd_data->irq, master);
 
 	iounmap(sprd_data->regs);
 
 	spi_unregister_master(master);
-
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI_EN, GR_GEN0);
 
 	return 0;
 }
