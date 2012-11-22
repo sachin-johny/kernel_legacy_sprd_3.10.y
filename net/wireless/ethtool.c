@@ -69,7 +69,7 @@ static int cfg80211_set_ringparam(struct net_device *dev,
 }
 
 const struct ethtool_ops cfg80211_ethtool_ops = {
-	.get_drvinfo = cfg80211_get_drvinfo,
+	//.get_drvinfo = cfg80211_get_drvinfo,  /* work around solution */
 	.get_regs_len = cfg80211_get_regs_len,
 	.get_regs = cfg80211_get_regs,
 	.get_link = ethtool_op_get_link,
