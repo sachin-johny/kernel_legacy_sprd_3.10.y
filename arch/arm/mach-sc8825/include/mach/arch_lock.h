@@ -22,7 +22,7 @@
 extern struct hwspinlock *hwlocks[];
 
 //Configs lock id
-#define HWSPINLOCK_WRITE_KEY	(0x11111111)	/*processor specific write lock id */
+#define HWSPINLOCK_WRITE_KEY	(0x1)	/*processor specific write lock id */
 
 #define HWLOCK_ADI	(0)
 #define HWLOCK_GLB	(1)

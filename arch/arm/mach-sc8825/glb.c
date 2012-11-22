@@ -25,12 +25,15 @@
 #include <mach/arch_lock.h>
 
 #ifdef CONFIG_NKERNEL
+static DEFINE_SPINLOCK(glb_lock);
 #define sci_glb_lock()				\
-		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_GLB), -1, &flags)));\
-		hw_flags = hw_local_irq_save()
+		spin_lock_irqsave(&glb_lock, flags); \
+		hw_flags = hw_local_irq_save(); \
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_GLB), -1)))
 #define sci_glb_unlock()			\
-		hw_local_irq_restore(hw_flags);		\
-		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_GLB), &flags);
+		hwspin_unlock(arch_get_hwlock(HWLOCK_GLB)); \
+		hw_local_irq_restore(hw_flags);	\
+		spin_unlock_irqrestore(&glb_lock, flags)
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
 #define sci_glb_lock() 		do { \
