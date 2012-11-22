@@ -646,7 +646,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 			sprdfb_panel_resume(dev, true);
 		} else {
 			printk(KERN_INFO "sprdfb:[%s]  not from deep sleep\n",__FUNCTION__);
-			sprdfb_panel_resume(dev, false);
+			sprdfb_panel_resume(dev, true);
 		}
 
 		dev->enable = 1;
