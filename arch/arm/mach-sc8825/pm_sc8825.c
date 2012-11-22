@@ -29,6 +29,7 @@
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
 #include <mach/adi.h>
+#include <mach/irqs.h>
 #include <mach/sci.h>
 #include <mach/emc_repower.h>
 
@@ -814,6 +815,11 @@ int deep_sleep(void)
 	disable_audio_module();
 	disable_apb_module();
 	disable_ahb_module();
+
+	/* for dsp wake-up */
+        val = __raw_readl(INT0_IRQ_ENB);
+        val |= (IRQ_DSP0_INT | IRQ_DSP1_INT);
+        __raw_writel(val, INT0_IRQ_ENB);
 
 	/* prevent uart1 */
 	__raw_writel(INT0_IRQ_MASK, INT0_IRQ_DIS);
