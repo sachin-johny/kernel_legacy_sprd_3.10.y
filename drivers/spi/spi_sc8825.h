@@ -14,6 +14,7 @@
 #define __SPI_SC88XX_H__
 
 #include <linux/semaphore.h>
+#include <linux/clk.h>
 #include <mach/dma.h>
 
 #define SPI_TXD                     0x0000
@@ -134,6 +135,7 @@ struct sprd_spi_data {
 	dma_addr_t rx_buffer_dma;
 
 	int irq;
+	struct clk *spi_clk;
 	struct platform_device *pdev;
 	void __iomem *regs;
 	int tx_rx_finish;
