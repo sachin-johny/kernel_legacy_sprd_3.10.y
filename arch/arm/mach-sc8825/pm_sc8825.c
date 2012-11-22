@@ -1058,10 +1058,10 @@ static void init_gr(void)
 
 	/* remap iram to 0x00000000*/
 	sci_glb_set(REG_AHB_REMAP, BIT(0));
-
+#ifdef CONFIG_NKERNEL
 	/*force close cp*/
-	__raw_writel(0x00000001, SPRD_AHB_BASE + 0x258);
-
+	__raw_writel(0x00000001, REG_AHB_CP_SLEEP_CTRL);
+#endif
 	/* AHB_PAUSE */
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN);
