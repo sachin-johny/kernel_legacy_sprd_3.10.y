@@ -71,12 +71,15 @@
 #define BIT_FIFO_EMPTY                  ( BIT(10) )
 
 #ifdef CONFIG_NKERNEL
+static DEFINE_SPINLOCK(adi_lock);
 #define sci_adi_lock()				\
-		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADI), -1, &flags)));\
-		hw_flags = hw_local_irq_save()
+		spin_lock_irqsave(&adi_lock, flags); \
+		hw_flags = hw_local_irq_save(); \
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_ADI), -1)))
 #define sci_adi_unlock()			\
-		hw_local_irq_restore(hw_flags);		\
-		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADI), &flags);
+		hwspin_unlock(arch_get_hwlock(HWLOCK_ADI)); \
+		hw_local_irq_restore(hw_flags);	\
+		spin_unlock_irqrestore(&adi_lock, flags)
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
 #define sci_adi_lock() do { \
