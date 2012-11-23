@@ -3,4 +3,3 @@
 #
 
 source "drivers/media/mdtv/maxscend/Kconfig"
-source "drivers/media/mdtv/siano/Kconfig"
