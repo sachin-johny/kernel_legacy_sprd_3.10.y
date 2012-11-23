@@ -99,7 +99,8 @@ struct dcam_queue {
 struct dcam_path_spec {
 	uint32_t                   is_work;
 	uint32_t                   is_from_isp;
-	struct dcam_size           in_size;	
+	struct dcam_size           in_size;
+	struct dcam_path_dec       img_deci;
 	struct dcam_rect           in_rect;
 	struct dcam_size           out_size;
 	enum   dcam_fmt            out_fmt;
@@ -126,7 +127,7 @@ struct dcam_info {
 	struct dcam_rect           cap_in_rect;
 	struct dcam_size           cap_out_size;
 	
-	struct dcam_path_spec      dcam_path[2];
+	struct dcam_path_spec      dcam_path[DCAM_PATH_NUM];
 
 	uint32_t                   capture_mode;
 	uint32_t                   skip_number;
@@ -374,8 +375,8 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 	path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE;
 	path->is_work = 0;
 	path->pixel_depth = 0;
-	info->img_deci.x_factor = 0;
-	info->img_deci.y_factor = 0;
+	path->img_deci.x_factor = 0;
+	path->img_deci.y_factor = 0;
 	tempw = path->in_rect.w;
 	temph = path->in_rect.h;
 
@@ -459,10 +460,9 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 
 				/* To check whether the output size is too small*/
 				maxw = f->fmt.pix.width * DCAM_SC_COEFF_MAX;
-				maxw = maxw * (1 << (DCAM_PATH_DECI_FAC_MAX - 1));
 				if (unlikely( tempw > maxw)) {
-					info->img_deci.x_factor = sprd_v4l2_get_deci_factor(tempw, maxw);
-					if (info->img_deci.x_factor >= DCAM_CAP_X_DECI_FAC_MAX) {
+					path->img_deci.x_factor = sprd_v4l2_get_deci_factor(tempw, maxw);
+					if (path->img_deci.x_factor >= DCAM_PATH_DECI_FAC_MAX) {
 						printk("V4L2: the output size is too small, %d %d \n",
 							f->fmt.pix.width,
 							f->fmt.pix.height);
@@ -471,10 +471,9 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				}
 
 				maxh = f->fmt.pix.height * DCAM_SC_COEFF_MAX;
-				maxh = maxh * (1 << (DCAM_PATH_DECI_FAC_MAX - 1));
 				if (unlikely(temph > maxh)) {
-					info->img_deci.y_factor = sprd_v4l2_get_deci_factor(temph, maxh);
-					if (info->img_deci.y_factor >= DCAM_CAP_Y_DECI_FAC_MAX) {
+					path->img_deci.y_factor = sprd_v4l2_get_deci_factor(temph, maxh);
+					if (path->img_deci.y_factor >= DCAM_PATH_DECI_FAC_MAX) {
 						printk("V4L2: the output size is too small, %d %d \n",
 							f->fmt.pix.width,
 							f->fmt.pix.height);
@@ -482,21 +481,13 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 					}
 				}
 
-				if (info->img_deci.x_factor) {
-					info->cap_out_size.w = info->cap_out_size.w / (1 << info->img_deci.x_factor);
-					path->in_size.w = info->cap_out_size.w;
-					path->in_rect.w = path->in_rect.w / (1 << info->img_deci.x_factor);
-					path->in_rect.x = path->in_rect.x / (1 << info->img_deci.x_factor);
-					tempw           = path->in_rect.w;
+				if (path->img_deci.x_factor) {
+					tempw           = path->in_rect.w >> 1;
 					need_recal      = 1;
 				}
 
-				if (info->img_deci.y_factor) {
-					info->cap_out_size.h = info->cap_out_size.h / (1 << info->img_deci.y_factor);
-					path->in_size.h = info->cap_out_size.h;
-					path->in_rect.h = path->in_rect.h / (1 << info->img_deci.y_factor);
-					path->in_rect.y = path->in_rect.y / (1 << info->img_deci.y_factor);
-					temph           = path->in_rect.h;
+				if (path->img_deci.y_factor) {
+					temph           = path->in_rect.h >> 1;
 					need_recal      = 1;
 				}
 
@@ -529,11 +520,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 								DCAM_ISP_LINE_BUF_LENGTH);
 							return -EINVAL;
 						}
-						info->img_deci.x_factor = 1;
-						info->cap_out_size.w = info->cap_out_size.w >> 1;
-						path->in_size.w = info->cap_out_size.w;
-						path->in_rect.w = path->in_rect.w >> 1;
-						path->in_rect.x = path->in_rect.x >> 1;
+						path->img_deci.x_factor = 1;
 					
 					}
 				}
@@ -589,8 +576,6 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 	path->pixel_depth = depth_pixel;
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * depth_pixel) >> 3;
 	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
-	path->in_size.w  = info->cap_out_size.w;
-	path->in_size.h  = info->cap_out_size.h;
 	path->out_size.w = f->fmt.pix.width;
 	path->out_size.h = f->fmt.pix.height;
 	path->is_work = 1;
@@ -604,6 +589,9 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 	uint32_t                 maxw, maxh, tempw,temph;
 	uint32_t                 depth_pixel = 0;
 	struct dcam_path_spec    *path = &info->dcam_path[1];
+	uint32_t                 need_recal = 0;
+
+	return -EINVAL;
 
 	DCAM_TRACE("V4L2: check format for path2 \n");
 	if (unlikely(V4L2_BUF_TYPE_PRIVATE != f->type)) {
@@ -617,8 +605,8 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 	path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE;
 	path->is_work = 0;
 	path->pixel_depth = 0;
-	tempw = info->cap_out_size.w;
-	temph = info->cap_out_size.h;
+	tempw = path->in_rect.w;
+	temph = path->in_rect.h;
 	switch (fourcc) {
 	case V4L2_PIX_FMT_YUV422P:
 	case V4L2_PIX_FMT_YUV420:
@@ -655,16 +643,48 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 				return -EINVAL;
 			}
 
+			/* To check whether the output size is too small*/
 			maxw = f->fmt.pix.width * DCAM_SC_COEFF_MAX;
-			maxw = maxw * (1 << (DCAM_PATH_DECI_FAC_MAX - 1));
-			maxh = f->fmt.pix.height * DCAM_SC_COEFF_MAX;
-			maxh = maxh * (1 << (DCAM_PATH_DECI_FAC_MAX - 1));
-			if (unlikely(tempw > maxw || temph > maxh)) {
-				/*out of scaling capbility*/
-				printk("V4L2: the output size is too small, %d %d \n",
+			if (unlikely( tempw > maxw)) {
+				path->img_deci.x_factor = sprd_v4l2_get_deci_factor(tempw, maxw);
+				if (path->img_deci.x_factor >= DCAM_PATH_DECI_FAC_MAX) {
+					printk("V4L2: the output size is too small, %d %d \n",
 						f->fmt.pix.width,
 						f->fmt.pix.height);
-				return -EINVAL;
+					return -EINVAL;
+				}
+			}
+
+			maxh = f->fmt.pix.height * DCAM_SC_COEFF_MAX;
+			if (unlikely(temph > maxh)) {
+				path->img_deci.y_factor = sprd_v4l2_get_deci_factor(temph, maxh);
+				if (path->img_deci.y_factor >= DCAM_PATH_DECI_FAC_MAX) {
+					printk("V4L2: the output size is too small, %d %d \n",
+						f->fmt.pix.width,
+						f->fmt.pix.height);
+					return -EINVAL;
+				}
+			}
+
+			if (path->img_deci.x_factor) {
+				tempw           = path->in_rect.w >> 1;
+				need_recal      = 1;
+			}
+
+			if (path->img_deci.y_factor) {
+				temph           = path->in_rect.h >> 1;
+				need_recal      = 1;
+			}
+
+			if (need_recal && (tempw != f->fmt.pix.width || temph != f->fmt.pix.height)) {
+				/*scaling needed*/
+				if (unlikely(f->fmt.pix.width > DCAM_SC_LINE_BUF_LENGTH)) {
+					/*out of scaling capbility*/
+					printk("V4L2: the output width %d can not be more than %d \n",
+						f->fmt.pix.width,
+						DCAM_SC_LINE_BUF_LENGTH);
+					return -EINVAL;
+				}
 			}
 
 		}
@@ -680,12 +700,6 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 	path->pixel_depth = depth_pixel;
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * depth_pixel) >> 3;
 	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
-	path->in_size.w  = info->cap_out_size.w;
-	path->in_size.h  = info->cap_out_size.h;
-	path->in_rect.x  = path->in_rect.x / (1 << info->img_deci.x_factor);
-	path->in_rect.y  = path->in_rect.y / (1 << info->img_deci.y_factor);
-	path->in_rect.w  = path->in_rect.w / (1 << info->img_deci.x_factor);
-	path->in_rect.h  = path->in_rect.h / (1 << info->img_deci.y_factor);
 	path->out_size.w = f->fmt.pix.width;
 	path->out_size.h = f->fmt.pix.height;
 	path->is_work = 1;
@@ -927,6 +941,7 @@ static int sprd_v4l2_local_deinit(struct dcam_dev *dev)
 	path = &dev->dcam_cxt.dcam_path[1];
 	if (unlikely(NULL == path))
 		return -EINVAL;
+	path->is_work = 0;
 	path->frm_cnt_act = 0;
 	DCAM_TRACE("V4L2: sprd_v4l2_local_deinit, frm_cnt_act %d \n", path->frm_cnt_act);
 
@@ -1100,6 +1115,8 @@ static int v4l2_s_crop(struct file *file,
 {
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct dcam_rect         *input_rect;
+	struct dcam_size         *input_size;
+	uint32_t                 i;
 
 	if (unlikely(crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
 		unlikely(crop->type != V4L2_BUF_TYPE_PRIVATE))
@@ -1120,15 +1137,16 @@ static int v4l2_s_crop(struct file *file,
 		crop->c.height);
 
 	mutex_lock(&dev->dcam_mutex);
-	if (crop->type == V4L2_BUF_TYPE_VIDEO_CAPTURE) {
-		input_rect = &dev->dcam_cxt.dcam_path[0].in_rect;
-	} else {
-		input_rect = &dev->dcam_cxt.dcam_path[1].in_rect;
+	for (i = 0; i < DCAM_PATH_NUM; i++) {
+		input_size = &dev->dcam_cxt.dcam_path[i].in_size;
+		input_size->w = dev->dcam_cxt.cap_out_size.w;
+		input_size->h = dev->dcam_cxt.cap_out_size.h;
+		input_rect = &dev->dcam_cxt.dcam_path[i].in_rect;
+		input_rect->x = (uint32_t)crop->c.left;
+		input_rect->y = (uint32_t)crop->c.top;
+		input_rect->w = (uint32_t)crop->c.width;
+		input_rect->h = (uint32_t)crop->c.height;
 	}
-	input_rect->x = (uint32_t)crop->c.left;
-	input_rect->y = (uint32_t)crop->c.top;
-	input_rect->w = (uint32_t)crop->c.width;
-	input_rect->h = (uint32_t)crop->c.height;
 	mutex_unlock(&dev->dcam_mutex);
 
 	return 0;
@@ -1292,6 +1310,10 @@ static int v4l2_qbuf(struct file *file,
 			printk("V4L2: error, index %d, frm_id_base %d frm_cnt_act %d \n",
 				p->index, path->frm_id_base, path->frm_cnt_act);
 			ret = -EINVAL;
+		} else if (p->index < path->frm_id_base) {
+			printk("V4L2: error, index %d, frm_id_base %d \n",
+						p->index, path->frm_id_base);
+			ret = -EINVAL;		
 		} else {
 			index = p->index - path->frm_id_base;
 			dcam_frame_unlock(path->frm_ptr[index]);
