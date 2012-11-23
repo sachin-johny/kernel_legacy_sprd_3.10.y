@@ -3217,12 +3217,15 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 		dhd_os_sdlock(bus->dhd);
 
 	/* Make sure backplane clock is on, needed to generate F2 interrupt */
-	dhdsdio_clkctl(bus, CLK_AVAIL, FALSE);
+	ret = dhdsdio_clkctl(bus, CLK_AVAIL, FALSE);
 	if (bus->clkstate != CLK_AVAIL) {
 		DHD_ERROR(("%s: clock state is wrong. state = %d\n", __FUNCTION__, bus->clkstate));
 		goto exit;
 	}
-
+	if (ret) {
+		DHD_ERROR(("%s: clock set avail error\n", __FUNCTION__ ));
+		goto exit;
+	}
 #ifdef BCMSPI
 	/* fake "ready" for spi, wake-wlan would have already enabled F1 and F2 */
 	ready = (SDIO_FUNC_ENABLE_1 | SDIO_FUNC_ENABLE_2);
@@ -3333,7 +3336,7 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 
 	/* If we didn't come up, turn off backplane clock */
 	if (dhdp->busstate != DHD_BUS_DATA)
-		dhdsdio_clkctl(bus, CLK_NONE, FALSE);
+		ret = dhdsdio_clkctl(bus, CLK_NONE, FALSE);
 
 exit:
 	if (enforce_mutex)
