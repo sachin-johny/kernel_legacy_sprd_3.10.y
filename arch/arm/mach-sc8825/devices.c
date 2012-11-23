@@ -19,6 +19,7 @@
 #include <linux/input/matrix_keypad.h>
 #include <linux/mmc/sdhci.h>
 
+#include <linux/sprd_cproc.h>
 #include <linux/sipc.h>
 #include <linux/spipe.h>
 #include <mach/hardware.h>
@@ -899,6 +900,54 @@ struct platform_device sprd_emmc_device = {
 	.dev = { .platform_data = &sprd_emmc_pdata },
 };
 
+
+#define TD_REG_CLK_ADDR				(SPRD_AHB_BASE + 0x250)
+#define TD_REG_RESET_ADDR			(SPRD_AHB_BASE + 0x254)
+#define TD_CTL_ENABLE				(0x01)
+#define TD_CTL_DISENABLE			(0x00)
+#define TD_CTL_CLK_VAL				(0x0F)
+
+static int native_tdmodem_start(void *arg)
+{
+	u32 cpdata[3] = {0xe59f0000, 0xe12fff10, 0x80500000};
+	/*disbale cp clock */
+	__raw_writel(TD_CTL_DISENABLE, TD_REG_CLK_ADDR);
+	/* hold stop cp */
+	__raw_writel(TD_CTL_DISENABLE, TD_REG_RESET_ADDR);
+	/*cp iram select to ap */
+	memcpy((volatile u32*)SPRD_TDPROC_BASE, cpdata, sizeof(cpdata));
+	/*enbale cp clock */
+	__raw_writel(TD_CTL_CLK_VAL, TD_REG_CLK_ADDR);
+	/* reset cp */
+	__raw_writel(TD_CTL_ENABLE, TD_REG_RESET_ADDR);
+
+	return 0;
+}
+static struct cproc_init_data sprd_cproc_td_pdata = {
+	.devname	= "cproc_td",
+	.base		= 0x80000000,
+	.maxsz		= 0x02000000,
+	.start		= native_tdmodem_start,
+	.segnr		= 2,
+	.segs		= {
+		{
+			.name  = "modem",
+			.base  = 0x80500000,
+			.maxsz = 0x00800000,
+		},
+		{
+			.name  = "dsp",
+			.base  = 0x80020000,
+			.maxsz = 0x003E0000,
+		},
+	},
+};
+
+struct platform_device sprd_cproc_td_device = {
+	.name           = "sprd_cproc",
+	.id             = 0,
+	.dev		= {.platform_data = &sprd_cproc_td_pdata},
+};
 static struct spipe_init_data sprd_spipe_td_pdata = {
 	.name		= "spipe_td",
 	.dst		= SIPC_ID_CPT,
