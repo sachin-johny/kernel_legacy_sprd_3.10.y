@@ -65,5 +65,6 @@ extern struct platform_device sprd_axi_bm2_device;
 extern struct platform_device sprd_spipe_td_device;
 extern struct platform_device sprd_slog_td_device;
 extern struct platform_device sprd_stty_td_device;
+extern struct platform_device sprd_cproc_td_device;
 
 #endif

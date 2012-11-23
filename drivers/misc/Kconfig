@@ -520,6 +520,7 @@ config WL127X_RFKILL
 
 source "drivers/misc/sprd_vsp/Kconfig"
 source "drivers/misc/sprd_busmonitor/Kconfig"
+source "drivers/misc/sprd_cproc/Kconfig"
 
 config APANIC
 	bool "Android kernel panic diagnostics driver"

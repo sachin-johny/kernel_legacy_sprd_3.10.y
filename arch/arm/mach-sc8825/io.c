@@ -68,6 +68,8 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(UART1),
 	SPRD_DEVICE(UART2),	
 	SPRD_DEVICE(UART3), 
+
+	SPRD_DEVICE(TDPROC),
 	
 	SPRD_DEVICE(SIM0),
 	SPRD_DEVICE(SIM1),	
