@@ -335,6 +335,9 @@ int32_t sprdfb_dsi_uninit(struct sprdfb_device *dev)
 		printk(KERN_ERR "sprdfb: [%s]: sprdfb_dsi_uninit fail (%d)!\n", __FUNCTION__, result);
 		return -1;
 	}
+
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0);
+	mdelay(10);
 	return 0;
 }
 

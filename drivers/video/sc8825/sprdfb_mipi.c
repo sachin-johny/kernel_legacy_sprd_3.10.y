@@ -38,7 +38,7 @@ static uint32_t mipi_readid(struct panel_spec *self)
 
 static void mipi_dispc_init_config(struct panel_spec *panel)
 {
-	uint32_t reg_val = 0;
+	uint32_t reg_val = dispc_read(DISPC_DPI_CTRL);
 
 	pr_debug("sprdfb: [%s]\n", __FUNCTION__);
 
