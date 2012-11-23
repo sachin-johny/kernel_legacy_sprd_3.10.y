@@ -1935,7 +1935,7 @@ static int zinitix_resume(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct zinitix_touch_dev *touch_dev = i2c_get_clientdata(client);
 	if (touch_dev == NULL)
-		return -1;
+		return 0;
 
 	zinitix_debug_msg("resume++\n");
 	down(&touch_dev->work_proceedure_lock);
@@ -1969,7 +1969,7 @@ static int zinitix_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct zinitix_touch_dev *touch_dev = i2c_get_clientdata(client);
 	if (touch_dev == NULL)
-		return -1;
+		return 0;
 
 	zinitix_debug_msg("suspend++\n");
 	
