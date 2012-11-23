@@ -237,6 +237,12 @@ struct dcam_cap_dec {
 	uint8_t                reserved;
 };
 
+struct dcam_path_dec {
+	uint8_t                x_factor;
+	uint8_t                y_factor;
+	uint8_t                reserved[2];
+};
+
 struct dcam_size {
 	uint32_t               w;
 	uint32_t               h;

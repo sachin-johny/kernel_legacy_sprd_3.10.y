@@ -205,6 +205,7 @@ int32_t    scale_start(void)
 exit:
 	dcam_resize_end();
 	_scale_free_tmp_buf();
+	printk("SCALE DRV: ret %d \n", rtn);
 	return rtn;
 }
 
@@ -431,7 +432,6 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 			REG_MWR(SCALE_CFG, (3 << 6), 0 << 6);
 		} else if (SCALE_YUV420 == format) {
 			REG_MWR(SCALE_CFG, (3 << 6), 1 << 6);
-			REG_OWR(SCALE_CFG, (1 << 18));
 		} else if (SCALE_RGB565 == format) {
 			REG_MWR(SCALE_CFG, (3 << 6), 2 << 6);
 		} else {
@@ -606,7 +606,9 @@ static int32_t _scale_cfg_scaler(void)
 
 static int32_t _scale_calc_sc_size(void)
 {
+	uint32_t                reg_val = 0;
 	enum scale_drv_rtn      rtn = SCALE_RTN_SUCCESS;
+	uint32_t                div_factor = 1;
 	uint32_t                i;
 		
 	if (g_path->input_rect.w > (g_path->output_size.w * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
@@ -621,8 +623,9 @@ static int32_t _scale_calc_sc_size(void)
 		if (g_path->input_rect.w > g_path->output_size.w * SCALE_SC_COEFF_MAX ||
 			g_path->input_rect.h > g_path->output_size.h * SCALE_SC_COEFF_MAX) {
 			for (i = 0; i < SCALE_DECI_FAC_MAX; i++) {
-				if (g_path->input_rect.w < (g_path->output_size.w * SCALE_SC_COEFF_MAX * (1 << i)) &&
-					g_path->input_rect.h < (g_path->output_size.h * SCALE_SC_COEFF_MAX * (1 << i))) {
+				div_factor = (uint32_t)(SCALE_SC_COEFF_MAX * (1 << (1 + i)));
+				if (g_path->input_rect.w < (g_path->output_size.w * div_factor) &&
+					g_path->input_rect.h < (g_path->output_size.h * div_factor)) {
 					break;
 				}
 			}
@@ -630,12 +633,23 @@ static int32_t _scale_calc_sc_size(void)
 			REG_MWR(SCALE_CFG, (3 << 9), i << 9);
 			g_path->sc_input_size.w = g_path->input_rect.w >> (1 + i);
 			g_path->sc_input_size.h = g_path->input_rect.h >> (1 + i);
-			if ((g_path->sc_input_size.w % SCALE_PIXEL_ALIGNED) ||
-				(g_path->sc_input_size.h % SCALE_PIXEL_ALIGNED)) {
-				SCALE_TRACE("SCALE DRV: Unsupported aligned w ,h %d %d \n",
+			if ((g_path->sc_input_size.w & (SCALE_PIXEL_ALIGNED - 1)) ||
+				(g_path->sc_input_size.h & (SCALE_PIXEL_ALIGNED - 1))) {
+				SCALE_TRACE("SCALE DRV: Unsupported sc aligned w ,h %d %d \n",
 					g_path->sc_input_size.w,
 					g_path->sc_input_size.h);
-				rtn = SCALE_RTN_SUB_SAMPLE_ERR;
+				g_path->sc_input_size.w = g_path->sc_input_size.w & ~(SCALE_PIXEL_ALIGNED - 1);
+				g_path->sc_input_size.h = g_path->sc_input_size.h & ~(SCALE_PIXEL_ALIGNED - 1);
+				g_path->input_rect.w = g_path->sc_input_size.w << (1 + i);
+				g_path->input_rect.h = g_path->sc_input_size.h << (1 + i);
+				SCALE_TRACE("SCALE DRV: after rearranged w ,h %d %d, sc w h %d %d \n",
+					g_path->input_rect.w,
+					g_path->input_rect.h,
+					g_path->sc_input_size.w,
+					g_path->sc_input_size.h);
+				reg_val = g_path->input_rect.w | (g_path->input_rect.h << 16);
+				REG_OWR(SCALE_CFG, 1 << 1);
+				REG_WR(SCALE_TRIM_SIZE, reg_val);
 			}
 		} 
 
@@ -655,7 +669,6 @@ static int32_t _scale_set_sc_coeff(void)
 
 	h_coeff_addr += SC_COEFF_H_TAB_OFFSET;
 	v_coeff_addr += SC_COEFF_V_TAB_OFFSET;
-
 
 	tmp_buf = (uint32_t *)kmalloc(SC_COEFF_BUF_SIZE, GFP_KERNEL);
 	if (NULL == tmp_buf) {
@@ -695,7 +708,7 @@ static int32_t _scale_set_sc_coeff(void)
 		v_coeff++;
 	}
 
-	REG_MWR(SCALE_CFG, (0xF << 14), ((*v_coeff) & 0x0F) << 14);
+	REG_MWR(SCALE_CFG, (0xF << 16), ((*v_coeff) & 0x0F) << 16);
 	SCALE_TRACE("SCALE DRV: _scale_set_sc_coeff V[%d] = 0x%x \n", i,  (*v_coeff) & 0x0F);
 
 	do {
@@ -703,7 +716,7 @@ static int32_t _scale_set_sc_coeff(void)
 	} while (0 != ((1 << 6) & REG_RD(SCALE_BASE))); 
 	
 	kfree(tmp_buf);
-	
+
 	return SCALE_RTN_SUCCESS;	
 }
 
@@ -758,7 +771,7 @@ static void    _scale_reg_trace(void)
 #ifdef SCALE_DRV_DEBUG
 	uint32_t                addr = 0;
 
-	SCALE_TRACE("SCALE DRV: Register list");
+	printk("SCALE DRV: Register list");
 	for (addr = SCALE_BASE; addr <= SCALE_END; addr += 16) {
 		printk("\n 0x%x: 0x%x 0x%x 0x%x 0x%x", 
 			 addr,
@@ -767,8 +780,7 @@ static void    _scale_reg_trace(void)
 		         REG_RD(addr + 8),
 		         REG_RD(addr + 12));
 	}
-
-	SCALE_TRACE("\n"); 
+	printk("\n"); 
 #endif	
 }
 

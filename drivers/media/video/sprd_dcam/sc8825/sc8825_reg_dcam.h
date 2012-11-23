@@ -133,6 +133,7 @@
 #define PATH1_RST_BIT                                  BIT_23
 #define PATH2_RST_BIT                                  BIT_24
 
+#define DCAM_PATH_NUM                                  2
 #define DCAM_CAP_SKIP_FRM_MAX                          16
 #define DCAM_FRM_DECI_FAC_MAX                          4
 #define DCAM_CAP_FRAME_WIDTH_MAX                       4092

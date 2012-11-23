@@ -22,7 +22,7 @@
 #include "dcam_drv_sc8825.h"
 #include "gen_scale_coef.h"
 
-#define DCAM_DRV_DEBUG
+//#define DCAM_DRV_DEBUG
 #define DCAM_LOWEST_ADDR                               0x800
 #define DCAM_ADDR_INVALIDE(addr)                       ((addr) < DCAM_LOWEST_ADDR)
 #define DCAM_YUV_ADDR_INVALIDE(y,u,v)                  \
@@ -433,6 +433,7 @@ int32_t dcam_start(void)
 		rtn = _dcam_path_set_next_frm(DCAM_PATH2, true);
 		DCAM_RTN_IF_ERR;
 		REG_OWR(DCAM_CFG, BIT_1);
+		REG_OWR(DCAM_BURST_GAP, BIT_20);
 	}
 
 	_dcam_force_copy();
@@ -1150,11 +1151,13 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
 		path->output_format = format;
+		REG_MWR(REV_PATH_CFG, BIT_8, 0 << 8);
 		if (DCAM_YUV422 == format) {
 			REG_MWR(REV_PATH_CFG, BIT_7 | BIT_6, 0 << 6);
 		} else if (DCAM_YUV420 == format) {
 			REG_MWR(REV_PATH_CFG, BIT_7 | BIT_6, 1 << 6);
 		} else if (DCAM_RGB565 == format) {
+			REG_MWR(REV_PATH_CFG, BIT_8, 1 << 8);
 			REG_MWR(REV_PATH_CFG, BIT_7 | BIT_6, 2 << 6);
 		} else if (DCAM_YUV420_3FRAME == format) {
 			REG_MWR(REV_PATH_CFG, BIT_7 | BIT_6, 3 << 6);
@@ -1550,7 +1553,7 @@ static int32_t _dcam_path_trim(uint32_t path_index)
 
 	if (path->input_size.w != path->input_rect.w ||
 		path->input_size.h != path->input_rect.h) {
-		REG_OWR(cfg_reg, 1 << ctrl_bit);
+//		REG_OWR(cfg_reg, 1 << ctrl_bit);
 	} else {
 		REG_MWR(cfg_reg, 1 << ctrl_bit, 0 << ctrl_bit);
 	}
@@ -1741,9 +1744,9 @@ static void _dcam_reg_trace(void)
 #ifdef DCAM_DRV_DEBUG
 	uint32_t                addr = 0;
 
-	DCAM_TRACE("DCAM DRV: Register list");
+	printk("DCAM DRV: Register list");
 	for (addr = DCAM_CFG; addr <= CAP_SENSOR_CTRL; addr += 16) {
-		DCAM_TRACE("\n 0x%x: 0x%x 0x%x 0x%x 0x%x",
+		printk("\n 0x%x: 0x%x 0x%x 0x%x 0x%x",
 			addr,
 			REG_RD(addr),
 			REG_RD(addr + 4),
@@ -1751,8 +1754,8 @@ static void _dcam_reg_trace(void)
 			REG_RD(addr + 12));
 	}
 
-	DCAM_TRACE("\n");
-#endif
+	printk("\n");
+#endif	
 }
 
 static void    _sensor_sof(void)
@@ -1817,28 +1820,28 @@ static void    _path1_done(void)
 
 static void    _path1_overflow(void)
 {
-	DCAM_TRACE("DCAM DRV: _path1_overflow \n");
+	printk("DCAM DRV: _path1_overflow \n");
 
 	return;
 }
 
 static void    _sensor_line_err(void)
 {
-	DCAM_TRACE("DCAM DRV: _sensor_line_err \n");
+	printk("DCAM DRV: _sensor_line_err \n");
 
 	return;
 }
 
 static void    _sensor_frame_err(void)
 {
-	DCAM_TRACE("DCAM DRV: _sensor_eof \n");
+	printk("DCAM DRV: _sensor_eof \n");
 
 	return;
 }
 
 static void    _jpeg_buf_ov(void)
 {
-	DCAM_TRACE("DCAM DRV: _jpeg_buf_ov \n");
+	printk("DCAM DRV: _jpeg_buf_ov \n");
 
 	return;
 }
@@ -1867,7 +1870,7 @@ static void    _path2_done(void)
 
 	frame->width = path->output_size.w;
 	frame->height = path->output_size.h;
-
+	
 
 	if(user_func)
 	{
@@ -1878,21 +1881,21 @@ static void    _path2_done(void)
 
 static void    _path2_ov(void)
 {
-	DCAM_TRACE("DCAM DRV: _path2_ov \n");
+	printk("DCAM DRV: _path2_ov \n");
 
 	return;
 }
 
 static void    _isp_ov(void)
 {
-	DCAM_TRACE("DCAM DRV: _isp_ov \n");
+	printk("DCAM DRV: _isp_ov \n");
 
 	return;
 }
 
 static void    _mipi_ov(void)
 {
-	DCAM_TRACE("DCAM DRV: _mipi_ov \n");
+	printk("DCAM DRV: _mipi_ov \n");
 
 	return;
 }
