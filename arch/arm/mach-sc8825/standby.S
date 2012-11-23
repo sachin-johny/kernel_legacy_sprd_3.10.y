@@ -219,7 +219,6 @@ emc_repower:
 	* to address (0x00004000 + 8K).
 	*   After remapped( AHB_REMAP = 0x1 ), iram physical address is 0x00000000
 	*/	
-1:	b	1b
 	ldr r0, =SPRD_IRAM_PHYS
 	ldr r1, =EMC_REINIT_OFFSET
 	add r1, r1, r0
@@ -235,7 +234,6 @@ emc_repower:
 	*  need to find a more elegent way.
 	*/
 context_restore:
-2:	b	2b
 	ldr	r0, =sp_pm_collapse_exit
 	ldr	r1, =0xc0000000
 	sub	r0, r0, r1

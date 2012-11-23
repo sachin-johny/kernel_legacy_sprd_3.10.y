@@ -818,7 +818,8 @@ int deep_sleep(void)
 
 	/* for dsp wake-up */
         val = __raw_readl(INT0_IRQ_ENB);
-        val |= (IRQ_DSP0_INT | IRQ_DSP1_INT);
+        val |= SCI_INTC_IRQ_BIT(IRQ_DSP0_INT);
+        val |= SCI_INTC_IRQ_BIT(IRQ_DSP1_INT);
         __raw_writel(val, INT0_IRQ_ENB);
 
 	/* prevent uart1 */
