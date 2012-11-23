@@ -2465,6 +2465,11 @@ loop:
 
 #if defined(WL_CFG80211)
 		if (unlikely(wl_cfg80211_up(NULL))) {
+			wl_cfg80211_down(NULL);
+			if ((dhd->dhd_state & DHD_ATTACH_STATE_ADD_IF) &&
+				(dhd->dhd_state & DHD_ATTACH_STATE_CFG80211)) {
+				dhd_cleanup_virt_ifaces(dhd);
+			}
 			DHD_ERROR(("%s: failed to bring up cfg80211\n", __FUNCTION__));
 			ret = -1;
 			wl_android_wifi_off(net);/* make it power off if error */
