@@ -30,10 +30,14 @@
 #define HEADSET_BUTTON_GPIO		(A_EIC_START + 4)
 #define HEADSET_DETECT_GPIO		139
 
-#define SPI0_CMMB_CS_GPIO        32
+#define SPI0_CMMB_CS_GPIO        156
 #define SPI1_WIFI_CS_GPIO        44
 
-#define GPIO_BK                  143
+#define GPIO_BK                  136
+
+#define GPIO_CMMB_RESET         144
+#define GPIO_CMMB_INT           143
+#define GPIO_CMMB_26M_CLK_EN    197
 
 #define GPIO_BT_RESET       194
 #define GPIO_BT_POWER       190

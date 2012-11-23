@@ -194,7 +194,7 @@ static int sprd_spi_direct_transfer(void *data_in, const void *data_out,
 			}
 
 			spi_writel(0x0000, SPI_CTL4);	/* stop only rx */
-			spi_writel((1 << 9) | block, SPI_CTL4);
+			spi_writel((1<<15) | (1 << 9) | block, SPI_CTL4);
 
 			for (j = 0; j < block; j++) {
 				for (timeout = 0;
