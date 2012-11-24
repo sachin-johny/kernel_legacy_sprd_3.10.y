@@ -87,7 +87,9 @@
 
 /* translate gic irq number(user using ) to intc number */
 #define SCI_GET_INTC_IRQ(_IRQ_NUM_)	((_IRQ_NUM_) - IRQ_GIC_START)
-#define SCI_INTC_IRQ_BIT(_IRQ_NUM_)	(1<<SCI_GET_INTC_IRQ(_IRQ_NUM_))
+#define SCI_INTC_IRQ_BIT(_IRQ_NUM_)	((SCI_GET_INTC_IRQ(_IRQ_NUM_)<IRQ_GIC_START)	? \
+					(1<<SCI_GET_INTC_IRQ(_IRQ_NUM_))		: \
+					(1<<(SCI_GET_INTC_IRQ(_IRQ_NUM_)-IRQ_GIC_START)))
 
 /* analog die interrupt number */
 #define IRQ_ANA_ADC_INT			SCI_EXT_IRQ(0)
