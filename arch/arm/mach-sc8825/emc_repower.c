@@ -496,12 +496,12 @@ static void emc_publ_do_gate_training(void)
 	{
 		if((value_temp & 0x40) != 0)
 		{
-			uart_trace(EMC_TRAINING_ERR, sizeof(EMC_TRAINING_ERR));
+			//uart_trace(EMC_TRAINING_ERR, sizeof(EMC_TRAINING_ERR));
 			while(1);
 		}
 		if((value_temp & 0x20) != 0)
 		{
-			uart_trace(EMC_TRAINING_ERR, sizeof(EMC_TRAINING_ERR));
+			//uart_trace(EMC_TRAINING_ERR, sizeof(EMC_TRAINING_ERR));
 			while(1);
 		}
 	}
@@ -1380,7 +1380,7 @@ static void wait_100ns(void)
 static void wait_1us(void)
 {
 	u32 volatile i;
-	for (i=0; i<(1000 / 50); i++);
+	for (i=0; i<(1000 / 100); i++);
 }
 
 static void wait_us(u32 us)
@@ -1410,7 +1410,7 @@ static void modify_emc_clk(u32 freq)
 }
 static void reset_ddrphy_dll(void)
 {
-	uart_init();
+	//uart_init();
 	disable_clk_emc();
 	assert_reset_acdll();
 	assert_reset_dxdll();
