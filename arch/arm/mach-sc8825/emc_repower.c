@@ -1195,21 +1195,21 @@ static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)
 	//MEM_DENSITY_ENUM mem_density_enum;
 	mem_type_enum = param->mem_type;
 
-	//cfg clk emc to 200MHz if lpddr1
-	//it must use AHB to config
-	if(mem_type_enum == LPDDR1)
-	{
-		value_temp = REG32(ADDR_AHBREG_ARMCLK);
-		value_temp &= ~(0x3 << 12);
-		value_temp &= ~(0xf << 8);
-		value_temp |= 1 << 12; //clk_emc_sel 0->(mpll/2), 1->dpll 2->256 3->26
-		value_temp |= 1 << 8;
-		REG32(ADDR_AHBREG_ARMCLK) = value_temp;
-	}
+	////cfg clk emc to 200MHz if lpddr1
+	////it must use AHB to config
+	//if(mem_type_enum == LPDDR1)
+	//{
+	//	value_temp = REG32(ADDR_AHBREG_ARMCLK);
+	//	value_temp &= ~(0x3 << 12);
+	//	value_temp &= ~(0xf << 8);
+	//	value_temp |= 1 << 12; //clk_emc_sel 0->(mpll/2), 1->dpll 2->256 3->26
+	//	value_temp |= 1 << 8;
+	//	REG32(ADDR_AHBREG_ARMCLK) = value_temp;
+	//}
 
-	value_temp = REG32(0x4B000080);
-	value_temp |= 0x1 << 1;
-	REG32(0x4B000080) = value_temp;
+	//value_temp = REG32(0x4B000080);
+	//value_temp |= 0x1 << 1;
+	//REG32(0x4B000080) = value_temp;
 
 	//value_temp = REG32(0x2090_0308);
 	//value_temp[9] = 0x1;
@@ -1225,7 +1225,7 @@ static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)
 	value_temp = 0x0;
 	value_temp |= 1 << 30; //zq calibration bypass
 	value_temp |= 1 << 18; //Controller DRAM Initialization
-	value_temp |= 7;
+	value_temp |= 1;
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = value_temp;
 
 	//according to PUBL databook on PIR operation.
@@ -1305,10 +1305,10 @@ static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)
 		emc_publ_do_gate_training();
 	}
 
-	//disable emc auto self-refresh
-	value_temp = REG32(0x20900308);
-	value_temp &= ~(0x1 << 8);
-	REG32(0x20900308) = value_temp;
+	////disable emc auto self-refresh
+	//value_temp = REG32(0x20900308);
+	//value_temp &= ~(0x1 << 8);
+	//REG32(0x20900308) = value_temp;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_SCFG) = 0x00000421;
 	move_upctl_state_to_access();
 }
@@ -1380,7 +1380,7 @@ static void wait_100ns(void)
 static void wait_1us(void)
 {
 	u32 volatile i;
-	for (i=0; i<1000; i++);
+	for (i=0; i<(1000 / 50); i++);
 }
 
 static void wait_us(u32 us)
@@ -1579,7 +1579,6 @@ void emc_init_repowered(u32 power_off)
 	u32 i;
 	struct emc_repower_param param;
 	struct emc_repower_param *param_p;
-	struct emc_repower_param *param_p1;
 	param_p = (struct emc_repower_param *)(SPRD_IRAM_PHYS + 15 * 1024);
 
 	reset_ddrphy_dll();
