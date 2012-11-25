@@ -464,9 +464,13 @@ static DEFINE_PER_CPU(struct clock_event_device, percpu_clockevent);
 static void ipi_timer(void)
 {
 	struct clock_event_device *evt = &__get_cpu_var(percpu_clockevent);
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMERS)
 	irq_enter();
+#endif
 	evt->event_handler(evt);
+#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMERS)
 	irq_exit();
+#endif
 }
 
 #ifdef CONFIG_LOCAL_TIMERS
