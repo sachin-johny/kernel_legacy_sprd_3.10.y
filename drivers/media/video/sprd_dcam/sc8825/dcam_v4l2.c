@@ -1636,16 +1636,18 @@ exit:
 
 ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_t *cnt_ret)
 {
-	uint32_t                 threshold = DCAM_SC_LINE_BUF_LENGTH;
+	uint32_t                 rt_word[2];
 
 	if (cnt < sizeof(uint32_t)) {
 		printk("sprd_v4l2_read , wrong size of u_data %d \n", cnt);
 		return -1;
 	}
 
-	DCAM_TRACE("sprd_v4l2_read %d, \n", threshold);
+	rt_word[0] = DCAM_SC_LINE_BUF_LENGTH;
+	rt_word[1] = DCAM_SC_COEFF_MAX;
+	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor \n", rt_word[0], rt_word[1]);
 	(void)file; (void)cnt; (void)cnt_ret;
-	return copy_to_user(u_data, (void*)&threshold, sizeof(uint32_t));
+	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
 }
 
 ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
