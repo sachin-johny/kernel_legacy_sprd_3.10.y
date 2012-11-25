@@ -24,6 +24,7 @@
 #include <mach/globalregs.h>
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
+#include <mach/regs_ana_glb.h>
 #include <mach/sci.h>
 #include <mach/adi.h>
 
@@ -281,6 +282,28 @@ static void print_ahb(void)
 	if (val & AHB_CTL0_AXIBUSMON0_EN) printk("AHB_CTL0_AXIBUSMON0_EN =1.\n");
 	if (val & AHB_CTL0_AXIBUSMON1_EN) printk("AHB_CTL0_AXIBUSMON1_EN =1.\n");	
 	if (val & AHB_CTL0_AXIBUSMON2_EN) printk("AHB_CTL0_AXIBUSMON2_EN =1.\n");
+
+	val = sci_glb_read(REG_AHB_AHB_CTL1, -1UL);
+	printk("##: REG_AHB_AHB_CTL1 = %08x.\n", val);
+
+	val = sci_glb_read(REG_AHB_AHB_CTL2, -1UL);
+	printk("##: REG_AHB_AHB_CTL2 = %08x.\n", val);
+	if (val & AHB_CTL2_DISPMTX_CLK_EN ) printk("AHB_CTL2_DISPMTX_CLK_EN =1.\n");
+	if (val & AHB_CTL2_MMMTX_CLK_EN ) printk("AHB_CTL2_MMMTX_CLK_EN =1.\n");
+	if (val & AHB_CTL2_DISPC_CORE_CLK_EN) printk("AHB_CTL2_DISPC_CORE_CLK_EN=1.\n");
+	if (val & AHB_CTL2_LCDC_CORE_CLK_EN) printk("AHB_CTL2_LCDC_CORE_CLK_EN=1.\n");
+	if (val & AHB_CTL2_ISP_CORE_CLK_EN) printk("AHB_CTL2_ISP_CORE_CLK_EN=1.\n");
+	if (val & AHB_CTL2_VSP_CORE_CLK_EN) printk("AHB_CTL2_VSP_CORE_CLK_EN=1.\n");
+	if (val & AHB_CTL2_DCAM_CORE_CLK_EN) printk("AHB_CTL2_DCAM_CORE_CLK_EN=1.\n");
+
+	val = sci_glb_read(REG_AHB_AHB_CTL3, -1UL);
+	printk("##: REG_AHB_AHB_CTL3 = %08x.\n", val);
+
+	val = sci_glb_read(REG_AHB_MIPI_PHY_CTRL, -1UL);
+	printk("##: REG_AHB_MIPI_PHY_CTRL= %08x.\n", val);
+
+	val = sci_glb_read(REG_AHB_AHB_STATUS, -1UL);
+	printk("##:REG_AHB_AHB_STATUS = %08x.\n", val);
 }
 static void print_gr(void)
 {
@@ -340,6 +363,9 @@ static void print_gr(void)
 	val = sci_glb_read(REG_GLB_POWCTL1, -1UL);
 	printk("##: GR_POWCTL1 = %08x.\n", val);
 
+	val = sci_glb_read(REG_GLB_M_PLL_CTL0, -1UL);
+	printk("##: REG_GLB_M_PLL_CTL0 = %08x.\n", val);
+
 	val = sci_glb_read(REG_GLB_MM_PWR_CTL, -1UL);
 	printk("##: REG_GLB_MM_PWR_CTL = %08x.\n", val);
 	val = sci_glb_read(REG_GLB_CEVA_L1RAM_PWR_CTL, -1UL);
@@ -382,46 +408,56 @@ static void print_gr(void)
 #define	ANA_AUD_CLK_RST		(LDO_REG_BASE  + 0x7C)
 static void print_ana(void)
 {
-	u32 val = sci_adi_read(ANA_LDO_PD_CTL0);
-	printk("##: ANA_LDO_PD_CTL0 = %04x.\n", val);
-	if ((val & LDO_USB_CTL)) printk("##: LDO_USB_CTL is on.\n");
-	else if(!(val & (LDO_USB_CTL >> 1))) printk("##: LDO_USB_CTL is not off.\n");
-	if ((val & LDO_SIM0_CTL)) printk("##: LDO_SIM0_CTL is on.\n");
-	else if(!(val & (LDO_SIM0_CTL >> 1))) printk("##: LDO_SIM0_CTL is not off.\n");
-	if ((val & LDO_SIM1_CTL)) printk("##: LDO_SIM1_CTL is on.\n");
-	else if(!(val & (LDO_SIM1_CTL >> 1))) printk("##: LDO_SIM1_CTL is not off.\n");
-	if ((val & LDO_BPCAMCORE_CTL)) printk("##: LDO_BPCAMCORE_CTL is on.\n");
-	else if(!(val & (LDO_BPCAMCORE_CTL >> 1))) printk("##: LDO_BPCAMCORE_CTL is not off.\n");
-	if ((val & LDO_BPCAMIO_CTL)) printk("##: LDO_BPCAMIO_CTL is on.\n");
-	else if(!(val & (LDO_BPCAMIO_CTL >> 1))) printk("##: LDO_BPCAMIO_CTL is not off.\n");
-	if ((val & LDO_BPCAMA_CTL)) printk("##: LDO_BPCAMA_CTL is on.\n");
-	else if(!(val & (LDO_BPCAMA_CTL >> 1))) printk("##: LDO_BPCAMA_CTL is not off.\n");
-	if ((val & LDO_BPCAMMOT_CTL)) printk("##: LDO_BPCAMMOT_CTL is on.\n");
-	else if(!(val & (LDO_BPCAMMOT_CTL >> 1))) printk("##: LDO_BPCAMMOT_CTL is not off.\n");
-	val = sci_adi_read(ANA_LDO_PD_CTL1);
-	printk("##: ANA_LDO_PD_CTL1 = %04x.\n", val);
-	if ((val & LDO_SDIO0_CTL)) printk("##: LDO_SDIO0_CTL is on.\n");
-	else if(!(val & (LDO_SDIO0_CTL >> 1))) printk("##: LDO_SDIO0_CTL is not off.\n");
-	if ((val & LDO_SDIO1_CTL)) printk("##: LDO_SDIO1_CTL is on.\n");
-	else if(!(val & (LDO_SDIO1_CTL >> 1))) printk("##: LDO_SDIO1_CTL is not off.\n");
-	if ((val & LDO_SDIO3_CTL)) printk("##: LDO_SDIO3_CTL is on.\n");
-	else if(!(val & (LDO_SDIO3_CTL >> 1))) printk("##: LDO_SDIO3_CTL is not off.\n");
-	if ((val & LDO_VDD3V_CTL)) printk("##: LDO_VDD3V_CTL is on.\n");
-	else if(!(val & (LDO_VDD3V_CTL >> 1))) printk("##: LDO_VDD3V_CTL is not off.\n");
-	if ((val & LDO_CMMB1P8_CTL)) printk("##: LDO_CMMB1P8_CTL is on.\n");
-	else if(!(val & (LDO_CMMB1P8_CTL >> 1))) printk("##: LDO_CMMB1P8_CTL is not off.\n");
-	if ((val & LDO_CMMB1V2_CTL)) printk("##: LDO_CMMB1V2_CTL is on.\n");
-	else if(!(val & (LDO_CMMB1V2_CTL >> 1))) printk("##: LDO_CMMB1V2_CTL is not off.\n");
+	u32 val;
+	val = sci_adi_read(ANA_REG_GLB_ANA_APB_CLK_EN);
+	printk("##: ANA_REG_GLB_ANA_APB_CLK_EN = %08x.\n", val);
+
+	val = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL0);
+	printk("##: ANA_REG_GLB_LDO_PD_CTRL0 = %04x.\n", val);
+	if ((val & BIT_LDO_BP_CAMMOT_RST)) printk("##:LDO_CAMMOT is on.\n");
+	else if((val & BIT_LDO_BPCAMMOT)) printk("##: LDO_CAMMOT is off.\n");
+	if ((val & BIT_LDO_BPCAMA_RST)) printk("## LDO_BPCAMA:is on.\n");
+	else if((val & BIT_LDO_BPCAMA)) printk("##: LDO_BPCAMA is off.\n");
+	if ((val & BIT_LDO_BPCAMIO_RST)) printk("## LDO_BPCAMIO :is on.\n");
+	else if((val & BIT_LDO_BPCAMIO)) printk("## LDO_BPCAMIO : is off.\n");
+	if ((val & BIT_LDO_BPCAMCORE_RST)) printk("## LDO_BPCAMCORE :is on.\n");
+	else if((val & BIT_LDO_BPCAMCORE)) printk("## LDO_BPCAMCORE : is off.\n");
+	if ((val & BIT_LDO_BPSIM1_RST)) printk("## LDO_BPSIM1 :is on.\n");
+	else if((val & BIT_LDO_BPSIM1)) printk("## LDO_BPSIM1 : is off.\n");
+	if ((val & BIT_LDO_BPSIM0_RST)) printk("## LDO_BPSIM0 :is on.\n");
+	else if((val & BIT_LDO_BPSIM0)) printk("## LDO_BPSIM0 : is off.\n");
+	if ((val & BIT_LDO_BPUSB_RST)) printk("## LDO_BPUSB :is on.\n");
+	else if((val & BIT_LDO_BPUSB)) printk("## LDO_BPUSB : is off.\n");
+
+	val = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL1);
+	printk("##:ANA_REG_GLB_LDO_PD_CTRL1 = %04x.\n", val);
+	if ((val & BIT_LDO_BPCMMB1V2_RST)) printk("## LDO_BPCMMB1V2: is on.\n");
+	else if((val & BIT_LDO_BPCMMB1V2)) printk("## LDO_BPCMMB1V2: is off.\n");
+	if ((val & BIT_LDO_BPCMMB1P8_RST)) printk("## LDO_BPCMMB1P8: is on.\n");
+	else if((val & BIT_LDO_BPCMMB1P8)) printk("## LDO_BPCMMB1P8: is off.\n");
+	if ((val & BIT_LDO_BPVDD3V_RST)) printk("## LDO_BPVDD3V: is on.\n");
+	else if((val & BIT_LDO_BPVDD3V)) printk("## LDO_BPVDD3V: is off.\n");
+	if ((val & BIT_LDO_BPSD3_RST)) printk("## LDO_BPSD3: is on.\n");
+	else if((val & BIT_LDO_BPSD3)) printk("## LDO_BPSD3: is off.\n");
+	if ((val & BIT_LDO_BPSD1_RST)) printk("## LDO_BPSD1: is on.\n");
+	else if((val & BIT_LDO_BPSD1)) printk("## LDO_BPSD1: is off.\n");
+	if ((val & BIT_LDO_BPSD0_RST)) printk("## LDO_BPSD0: is on.\n");
+	else if((val & BIT_LDO_BPSD0)) printk("## LDO_BPSD0: is off.\n");
+
 	val = sci_adi_read(ANA_LED_CTL);
-	printk("##: ANA_LED_CTL = %04x.\n", val);
-	printk("\n===========================\n");
+	printk("##: ANA_LED_CTL = 0x%x.\n", val);
+
 	val = sci_adi_read(ANA_VIBRATOR_CTRL0);
-	printk("##: ANA_VIBRATOR_CTRL0 = %04x.\n", val);
+	printk("##: ANA_VIBRATOR_CTRL0 = 0x%x.\n", val);
 	if (val & VIBR_PD_RST)	 printk("##: vibrator is power on.\n");	
 	else if (val & VIBR_PD) printk("##: vibrator is power off.\n");
+
 	val = sci_adi_read(ANA_AUD_CLK_RST);
-	printk("##: ANA_AUD_CLK_RST = %04x.\n", val);
-	printk("\n===========================\n");
+	printk("##: ANA_AUD_CLK_RST = 0x%x.\n", val);
+
+	val = sci_adi_read(ANA_REG_GLB_DCDCARM_CTRL0);
+	printk("##: ANA_REG_GLB_DCDCARM_CTRL0 = 0x%x.\n", val);
+
 }
 static int is_dsp_sleep(void)
 {
