@@ -208,8 +208,11 @@ int sbuf_write(uint8_t dst, uint8_t channel, uint32_t bufid,
 	void *txpos;
 	int rval, left, tail, txsize;
 
+	if (!sbuf) {
+		return -ENODEV;
+	}
 	if (sbuf->state != SBUF_STATE_READY) {
-		printk(KERN_ERR "sbuf-%d-%d not ready!\n", dst, channel);
+		printk(KERN_ERR "sbuf-%d-%d not ready to write!\n", dst, channel);
 		return -ENODEV;
 	}
 
@@ -326,7 +329,11 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 	void *rxpos;
 	int rval, left, tail, rxsize;
 
+	if (!sbuf) {
+		return -ENODEV;
+	}
 	if (sbuf->state != SBUF_STATE_READY) {
+		printk(KERN_ERR "sbuf-%d-%d not ready to read!\n", dst, channel);
 		return -ENODEV;
 	}
 
@@ -440,6 +447,14 @@ int sbuf_poll_wait(uint8_t dst, uint8_t channel, uint32_t bufid,
 	volatile struct sbuf_ring_header *ringhd = ring->header;
 	unsigned int mask = 0;
 
+	if (!sbuf) {
+		return -ENODEV;
+	}
+	if (sbuf->state != SBUF_STATE_READY) {
+		printk(KERN_ERR "sbuf-%d-%d not ready to poll !\n", dst, channel);
+		return -ENODEV;
+	}
+
 	poll_wait(filp, &ring->txwait, wait);
 	poll_wait(filp, &ring->rxwait, wait);
 
@@ -454,11 +469,26 @@ int sbuf_poll_wait(uint8_t dst, uint8_t channel, uint32_t bufid,
 	return mask;
 }
 
+int sbuf_status(uint8_t dst, uint8_t channel)
+{
+	struct sbuf_mgr *sbuf = sbufs[dst][channel];
+
+	if (!sbuf) {
+		return -ENODEV;
+	}
+	if (sbuf->state != SBUF_STATE_READY) {
+		return -ENODEV;
+	}
+
+	return 0;
+}
+
 EXPORT_SYMBOL(sbuf_create);
 EXPORT_SYMBOL(sbuf_destroy);
 EXPORT_SYMBOL(sbuf_write);
 EXPORT_SYMBOL(sbuf_read);
 EXPORT_SYMBOL(sbuf_poll_wait);
+EXPORT_SYMBOL(sbuf_status);
 
 MODULE_AUTHOR("Chen Gaopeng");
 MODULE_DESCRIPTION("SIPC/SBUF driver");

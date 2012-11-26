@@ -215,6 +215,15 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 int sbuf_poll_wait(uint8_t dst, uint8_t channel, uint32_t bufid,
 		struct file *file, poll_table *wait);
 
+/**
+ * sbuf_status -- get sbuf status
+ *
+ * @dst: dest processor ID
+ * @channel: channel ID
+ * @return: 0 when ready, <0 when broken
+ */
+int sbuf_status(uint8_t dst, uint8_t channel);
+
 
 /* ****************************************************************** */
 /* SBLOCK interfaces */
