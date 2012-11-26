@@ -43,6 +43,12 @@ static int spipe_open(struct inode *inode, struct file *filp)
 	struct spipe_sbuf *sbuf;
 
 	spipe = container_of(inode->i_cdev, struct spipe_device, cdev);
+	if (sbuf_status(spipe->init->dst, spipe->init->channel) != 0) {
+		printk(KERN_ERR "spipe not ready to open!\n");
+		filp->private_data = NULL;
+		return -ENODEV;
+	}
+
 	sbuf = kmalloc(sizeof(struct spipe_sbuf), GFP_KERNEL);
 	if (!sbuf) {
 		return -ENOMEM;
@@ -60,7 +66,9 @@ static int spipe_release(struct inode *inode, struct file *filp)
 {
 	struct spipe_sbuf *sbuf = filp->private_data;
 
-	kfree(sbuf);
+	if (sbuf) {
+		kfree(sbuf);
+	}
 
 	return 0;
 }
