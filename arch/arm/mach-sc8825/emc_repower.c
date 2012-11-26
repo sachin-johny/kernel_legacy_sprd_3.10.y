@@ -1160,6 +1160,7 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 	value_temp |= (mem_type_enum == LPDDR2 ) ? 0x0 : 0x1; //0 = ITMS uses DQS and DQS#
 	//1 = ITMS uses DQS only
 	value_temp |= (0x1 << 1);
+#if 0
 	if(param->cs_number == 1)
 	{
 		value_temp |= (0x1<<18); //only enable CS0 for data training
@@ -1168,7 +1169,9 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 	{
 		value_temp |= (0x3 << 18); //enable CS0/1 for data training
 	}
-
+#else
+	value_temp |= (0x1<<18); //only enable CS0 for data training
+#endif
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGCR) = value_temp;
 
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DSGCR);
