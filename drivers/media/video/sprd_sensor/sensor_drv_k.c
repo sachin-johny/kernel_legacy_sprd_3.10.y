@@ -977,6 +977,7 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	
 	return SENSOR_K_SUCCESS;
 }
+int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size);
 
 LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 {
@@ -1020,7 +1021,12 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 			if(SENSOR_K_FAIL == rettmp)
 				ret = SENSOR_K_FAIL;
 		}
+	}else if(7 == pRegTab->burst_mode){
+		printk("CAM %s, Line %d, burst_mode=%d, cnt=%d, start \n", __FUNCTION__, __LINE__, pRegTab->burst_mode, cnt);
+		ret = hi351_init_write(pRegTab->sensor_reg_tab_ptr, pRegTab->reg_count);
+		printk("CAM %s, Line %d, burst_mode=%d, cnt=%d end\n", __FUNCTION__, __LINE__, pRegTab->burst_mode, cnt);
 	}
+
 
 _Sensor_K_WriteRegTab_return:
 	if(PNULL != pBuff)
@@ -1070,7 +1076,7 @@ static ssize_t sensor_k_write(struct file *filp, char __user *ubuf, size_t cnt, 
 	int ret = SENSOR_K_FAIL;
 	int need_alloc = 1;
 
-	SENSOR_PRINT_HIGH("aiden: sensor_k_write: cnt=%d, buf=%d \n", cnt, sizeof(buf));
+	SENSOR_PRINT_HIGH("sensor_k_write: cnt=%d, buf=%d \n", cnt, sizeof(buf));
 
 	if (cnt < sizeof(buf)){
 		pBuff = buf;
@@ -1112,6 +1118,124 @@ sensor_k_write_return:
 
 	return ret;
 }
+
+#if 1	//wujinyou
+#define I2C_WRITE_BURST_LENGTH    512
+
+int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
+{
+	uint32_t              rtn = 0;
+	int ret = 0;
+	uint32_t              i = 0;
+	uint32_t              written_num = 0;
+	uint16_t              wr_reg = 0;
+	uint16_t              wr_val = 0;
+	uint32_t              wr_num_once = 0;
+	uint32_t              wr_num_once_ret = 0;
+	//uint32_t              init_table_size = (sizeof(HI351_common)/sizeof(HI351_common[0]));	//NUMBER_OF_ARRAY(HI351_common);
+	//SENSOR_REG_T_PTR    p_reg_table = HI351_common;
+	uint8_t               *p_reg_val_tmp = 0;
+	struct i2c_msg msg_w;
+	struct i2c_client *i2c_client = this_client;	//Sensor_GetI2CClien();
+	printk("++++SENSOR: HI351_InitExt\n");
+	if(0 == i2c_client)
+	{
+		printk("SENSOR: HI351_InitExt:error,i2c_client is NULL!.\n");
+	}
+	p_reg_val_tmp = (uint8_t*)kzalloc(init_table_size*sizeof(uint16_t) + 16, GFP_KERNEL);
+
+	if(PNULL == p_reg_val_tmp){
+		SENSOR_PRINT_ERR("hi351_init_write ERROR:kmalloc is fail, size = %d \n", init_table_size*sizeof(uint16_t) + 16);
+		return -1;
+	}
+	else{
+		SENSOR_PRINT_HIGH("hi351_init_write: kmalloc success, size = %d \n", init_table_size*sizeof(uint16_t) + 16);
+	}
+
+
+	while(written_num < init_table_size)
+	{
+		wr_num_once = 2;
+
+		wr_reg = p_reg_table[written_num].reg_addr;
+		wr_val = p_reg_table[written_num].reg_value;
+		if(SENSOR_WRITE_DELAY == wr_reg)
+		{
+			if(wr_val >= 10)
+			{
+				msleep(wr_val);
+			}
+			else
+			{
+				mdelay(wr_val);
+			}
+		}
+		else
+		{
+			p_reg_val_tmp[0] = (uint8_t)(wr_reg);
+		//	SENSOR_PRINT("SENSOR: HI351_InitExt, val 0x%x.\n",p_reg_val_tmp[0]);
+			p_reg_val_tmp[1] = (uint8_t)(wr_val);
+		//	SENSOR_PRINT("SENSOR: HI351_InitExt, val 0x%x.\n",p_reg_val_tmp[1]);
+
+			if ((0x0e == wr_reg) && (0x01 == wr_val))
+			{
+				for(i = written_num + 1; i< init_table_size; i++)
+				{
+					if((0x0e == wr_reg) && (0x00 == wr_val))
+					{
+						break;
+					}
+					else
+					{
+						wr_val = p_reg_table[i].reg_value;
+						p_reg_val_tmp[wr_num_once+1] = (uint8_t)(wr_val);
+						wr_num_once ++;
+					}
+				/*SENSOR_PRINT("SENSOR: HI351_InitExt senderror, val {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x}.\n",
+				        p_reg_val_tmp[0],p_reg_val_tmp[1],p_reg_val_tmp[2],p_reg_val_tmp[3],
+				        p_reg_val_tmp[4],p_reg_val_tmp[5],p_reg_val_tmp[6],p_reg_val_tmp[7],
+				        p_reg_val_tmp[8],p_reg_val_tmp[9],p_reg_val_tmp[10],p_reg_val_tmp[11]);  */
+				}
+				//printk("aiden: write length=%d \n", wr_num_once);
+			}
+			msg_w.addr = i2c_client->addr;
+			msg_w.flags = 0;
+			msg_w.buf = p_reg_val_tmp;
+			msg_w.len = (uint32_t)(wr_num_once);
+			ret = i2c_transfer(i2c_client->adapter, &msg_w, 1);
+			if(ret!=1)
+			{
+				SENSOR_PRINT("SENSOR: HI351_InitExt senderror, val {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x}.\n",
+				        p_reg_val_tmp[0],p_reg_val_tmp[1],p_reg_val_tmp[2],p_reg_val_tmp[3],
+				        p_reg_val_tmp[4],p_reg_val_tmp[5],p_reg_val_tmp[6],p_reg_val_tmp[7],
+				        p_reg_val_tmp[8],p_reg_val_tmp[9],p_reg_val_tmp[10],p_reg_val_tmp[11]);
+				SENSOR_PRINT("SENSOR: HI351_InitExt, i2c write once error\n");
+				rtn = 1;
+				break;
+			}
+			else
+			{
+#if 0
+				SENSOR_PRINT("SENSOR: HI351_InitExt, i2c write once from %d {0x%x 0x%x}, total %d registers {0x%x 0x%x}\n",
+				      written_num,cmd[0],cmd[1],wr_num_once,p_reg_val_tmp[0],p_reg_val_tmp[1]);
+				if(wr_num_once > 1)
+				{
+					SENSOR_PRINT("SENSOR: HI351_InitExt, val {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x}.\n",
+				          p_reg_val_tmp[0],p_reg_val_tmp[1],p_reg_val_tmp[2],p_reg_val_tmp[3],
+				          p_reg_val_tmp[4],p_reg_val_tmp[5],p_reg_val_tmp[6],p_reg_val_tmp[7],
+				          p_reg_val_tmp[8],p_reg_val_tmp[9],p_reg_val_tmp[10],p_reg_val_tmp[11]);
+
+				}
+#endif
+			}
+		}
+		written_num += wr_num_once-1;
+	}
+    SENSOR_PRINT("SENSOR: HI351_InitExt, success\n");
+    kfree(p_reg_val_tmp);
+    return rtn;
+}
+#endif
 
 
 static int sensor_k_ioctl(struct file *file, unsigned int cmd,

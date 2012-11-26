@@ -22,7 +22,7 @@
 #define GPIO_TOUCH_IRQ           141
 
 #define GPIO_SENSOR_RESET        41
-#define GPIO_MAIN_SENSOR_PWN     42
+#define GPIO_MAIN_SENSOR_PWN     43 /* Garda use CCIR_PD0 (GPIO_43) as CAM_STBY */
 #define GPIO_SUB_SENSOR_PWN      43
 
 #define EIC_CHARGER_DETECT		(A_EIC_START + 2)
