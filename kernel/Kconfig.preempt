@@ -52,3 +52,10 @@ config PREEMPT
 
 endchoice
 
+config SCHED_INFLUENCE_LOAD_BALANCING
+	bool "Scheduler Influence Load Balancing"
+	help
+	  This option allows to influence balancing of threads over CPUs,
+	  in the CFS scheduler in SMP.
+	  Select no unless you are sure of what you are doing.
+	default n

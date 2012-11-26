@@ -47,7 +47,11 @@ SCHED_FEAT(CACHE_HOT_BUDDY, 1)
 /*
  * Use arch dependent cpu power functions
  */
+#if defined(CONFIG_SCHED_INFLUENCE_LOAD_BALANCING)
+SCHED_FEAT(ARCH_POWER, 1)
+#else
 SCHED_FEAT(ARCH_POWER, 0)
+#endif
 
 SCHED_FEAT(HRTICK, 0)
 SCHED_FEAT(DOUBLE_TICK, 0)
