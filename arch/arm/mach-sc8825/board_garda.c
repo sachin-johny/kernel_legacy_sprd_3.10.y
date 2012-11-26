@@ -34,6 +34,8 @@
 #include <mach/adc.h>
 #include "devices.h"
 #include <linux/ktd253b_bl.h>
+#include <sound/audio_pa.h>
+#include <linux/headset.h>
 
 extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
@@ -228,17 +230,36 @@ struct platform_device audio_pa_amplifier_device = {
 	.id = -1,
 };
 
-static int audio_pa_amplifier_l(u32 cmd, void *data)
+static int audio_pa_amplifier_headset_init(void)
 {
-	int ret = 0;
-	if (cmd < 0) {
-		/* get speaker amplifier status : enabled or disabled */
-		ret = 0;
-	} else {
-		/* set speaker amplifier */
+	if (gpio_request(HEADSET_PA_CTL_GPIO, "headset outside pa")) {
+		pr_err("failed to alloc gpio %d\n", HEADSET_PA_CTL_GPIO);
+		return -1;
 	}
-	return ret;
+	gpio_direction_output(HEADSET_PA_CTL_GPIO, 0);
+	return 0;
 }
+
+static int audio_pa_amplifier_headset(u32 cmd, void *data)
+{
+	gpio_direction_output(HEADSET_PA_CTL_GPIO, cmd);
+	return 0;
+}
+
+static _audio_pa_control audio_pa_control = {
+	.speaker = {
+		    .init = NULL,
+		    .control = NULL,
+		    },
+	.earpiece = {
+		     .init = NULL,
+		     .control = NULL,
+		     },
+	.headset = {
+		    .init = audio_pa_amplifier_headset_init,
+		    .control = audio_pa_amplifier_headset,
+		    },
+};
 
 static int spi_cs_gpio_map[][2] = {
     {SPI0_CMMB_CS_GPIO,  0},
@@ -290,8 +311,11 @@ static void sprd_spi_init(void)
 
 static int sc8810_add_misc_devices(void)
 {
-	if (0) {
-		platform_set_drvdata(&audio_pa_amplifier_device, audio_pa_amplifier_l);
+	if (audio_pa_control.speaker.control
+	    || audio_pa_control.earpiece.control
+	    || audio_pa_control.headset.control) {
+		platform_set_drvdata(&audio_pa_amplifier_device,
+				     &audio_pa_control);
 		if (platform_device_register(&audio_pa_amplifier_device))
 			pr_err("faile to install audio_pa_amplifier_device\n");
 	}
