@@ -29,6 +29,7 @@
 #define EIC_KEY_POWER           (A_EIC_START + 3)
 #define HEADSET_BUTTON_GPIO		(A_EIC_START + 4)
 #define HEADSET_DETECT_GPIO		139
+#define HEADSET_PA_CTL_GPIO		200
 
 #define SPI0_CMMB_CS_GPIO        32
 #define SPI1_WIFI_CS_GPIO        44
