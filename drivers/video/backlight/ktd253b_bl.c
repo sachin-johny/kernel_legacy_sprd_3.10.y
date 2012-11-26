@@ -242,7 +242,7 @@ static void lcd_backlight_control(int num)
 
 /* input: intensity in percentage 0% - 100% */
 int CurrDimmingPulse = 0;
-int PrevDimmingPulse = 15;
+int PrevDimmingPulse = 0;
 static int ktd253b_backlight_update_status(struct backlight_device *bd)
 {
 	//struct ktd253b_bl_data *ktd253b= dev_get_drvdata(&bd->dev);
