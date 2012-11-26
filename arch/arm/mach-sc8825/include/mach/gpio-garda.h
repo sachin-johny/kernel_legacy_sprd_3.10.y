@@ -33,7 +33,7 @@
 #define SPI0_CMMB_CS_GPIO        32
 #define SPI1_WIFI_CS_GPIO        44
 
-#define GPIO_BK                  143
+#define GPIO_BK                  136
 
 #define GPIO_BT_RESET       194
 #define GPIO_BT_POWER       190

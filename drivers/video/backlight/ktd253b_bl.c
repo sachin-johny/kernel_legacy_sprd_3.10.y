@@ -42,7 +42,7 @@
 //#include <linux/broadcom/PowerManager.h>
 
 int current_intensity;
-static int backlight_pin = 138;
+static int backlight_pin = 136;
 
 static DEFINE_SPINLOCK(bl_ctrl_lock);
 static int lcd_brightness = 0;
@@ -67,9 +67,9 @@ static int backlight_mode=1;
 #define DIMMING_VALUE		1
 #endif
 #define MAX_BRIGHTNESS_VALUE	255
-#define MIN_BRIGHTNESS_VALUE	30
+#define MIN_BRIGHTNESS_VALUE	5
 #define BACKLIGHT_DEBUG 0
-#define BACKLIGHT_SUSPEND 0
+#define BACKLIGHT_SUSPEND 1
 #define BACKLIGHT_RESUME 1
 
 #if BACKLIGHT_DEBUG

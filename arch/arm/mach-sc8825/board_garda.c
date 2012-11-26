@@ -33,6 +33,7 @@
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include "devices.h"
+#include <linux/ktd253b_bl.h>
 
 extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
@@ -92,6 +93,12 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm2_device,
 	&rfkill_device,
 	&brcm_bluesleep_device,
+};
+
+static struct platform_ktd253b_backlight_data ktd253b_data = {
+       .max_brightness = 255,
+       .dft_brightness = 50,
+       .ctrl_pin       = GPIO_BK,
 };
 
 /* BT suspend/resume */
@@ -323,6 +330,7 @@ static void __init sc8825_init_machine(void)
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
+	platform_device_add_data(&sprd_backlight_device,&ktd253b_data,sizeof(ktd253b_data));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
