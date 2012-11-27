@@ -168,11 +168,11 @@ static int sc882x_func_set(struct snd_kcontrol *kcontrol,
 	struct snd_soc_card *card = codec->card;
 	int id = FUN_REG(mc->reg);
 
+	pr_info("Entering %s %d = %ld\n", __func__, id,
+		   ucontrol->value.integer.value[0]);
 	if (sc882x.func[id] == ucontrol->value.integer.value[0])
 		return 0;
 
-	sc882x_dbg("Entering %s %d = %ld\n", __func__, id,
-		   ucontrol->value.integer.value[0]);
 	sc882x.func[id] = ucontrol->value.integer.value[0];
 	sc882x_ext_control(&card->dapm);
 	sc882x_dbg("Leaving %s\n", __func__);

@@ -617,7 +617,7 @@ static int dolphin_vol_put(struct snd_kcontrol *kcontrol,
 	struct dolphin_pga_lr *pga = &(dolphin->pga[reg]);
 	int ret = 0;
 
-	dol_dbg("Entering %s %ld\n", __func__,
+	pr_info("Entering %s %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 	val = (ucontrol->value.integer.value[0] & mask);
 	if (invert)
@@ -678,6 +678,10 @@ static int dolphin_vol_put_2r(struct snd_kcontrol *kcontrol,
 	int ret = 0;
 	unsigned int val, val2;
 	struct dolphin_pga_lr *pga = &(dolphin->pga[reg]);
+
+	pr_info("Entering %s %ld %ld\n", __func__,
+		ucontrol->value.integer.value[0],
+		ucontrol->value.integer.value[1]);
 
 	val = (ucontrol->value.integer.value[0] & mask);
 	val2 = (ucontrol->value.integer.value[1] & mask);
@@ -815,10 +819,10 @@ static int dolphin_pcm_hw_params(struct snd_pcm_substream *substream,
 		shift = 4;
 		mask <<= shift;
 		dolphin->da_sample_val = rate;
-		pr_warn("dolphin da sample rate is [%d]\n", rate);
+		pr_info("dolphin da sample rate is [%d]\n", rate);
 	} else {
 		dolphin->ad_sample_val = rate;
-		pr_warn("dolphin ad sample rate is [%d]\n", rate);
+		pr_info("dolphin ad sample rate is [%d]\n", rate);
 	}
 	dolphin_set_sample_rate(codec, rate, mask, shift);
 
