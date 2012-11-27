@@ -145,6 +145,12 @@ struct sprd_codec_pa_setting {
 static DEFINE_MUTEX(inter_pa_mutex);
 static struct sprd_codec_pa_setting inter_pa;
 
+enum {
+	SPRD_CODEC_MIC_BIAS,
+	SPRD_CODEC_AUXMIC_BIAS,
+	SPRD_CODEC_MIC_BIAS_MAX
+};
+
 /* codec private data */
 struct sprd_codec_priv {
 	struct snd_soc_codec *codec;
@@ -156,6 +162,7 @@ struct sprd_codec_priv {
 	struct sprd_codec_mixer mixer[SPRD_CODEC_MIXER_MAX];
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
 	struct regulator_bulk_data supplies[SPRD_CODEC_NUM_SUPPLIES];
+	int mic_bias[SPRD_CODEC_MIC_BIAS_MAX];
 };
 
 static void sprd_codec_wait(u32 wait_time)
@@ -1541,6 +1548,9 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"ADC", NULL, "Digital ADCR Switch"},
 	{"Mic Bias", NULL, "MIC"},
 	{"AuxMic Bias", NULL, "AUXMIC"},
+	/* Bias independent */
+	{"Mic Bias", NULL, "Power"},
+	{"AuxMic Bias", NULL, "Power"},
 };
 
 static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,
@@ -1639,13 +1649,81 @@ static int sprd_codec_inter_pa_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static const char *mic_bias_name[SPRD_CODEC_MIC_BIAS_MAX] = {
+	"Mic Bias",
+	"AuxMic Bias",
+};
+
+static int sprd_codec_mic_bias_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	unsigned int reg = FUN_REG(mc->reg);
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val;
+	int ret = 0;
+	int id = reg;
+
+	pr_info("Entering %s id %d %ld\n", __func__, id,
+		ucontrol->value.integer.value[0]);
+	val = (ucontrol->value.integer.value[0] & mask);
+	if (invert)
+		val = max - val;
+	if (sprd_codec->mic_bias[id] == val) {
+		return 0;
+	}
+	sprd_codec->mic_bias[id] = val;
+	if (val) {
+		ret =
+		    snd_soc_dapm_force_enable_pin(&codec->card->dapm,
+						  mic_bias_name[id]);
+	} else {
+		ret =
+		    snd_soc_dapm_disable_pin(&codec->card->dapm,
+					     mic_bias_name[id]);
+	}
+	sprd_codec_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
+static int sprd_codec_mic_bias_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	unsigned int reg = FUN_REG(mc->reg);
+	int max = mc->max;
+	unsigned int invert = mc->invert;
+	int id = reg;
+
+	ucontrol->value.integer.value[0] = sprd_codec->mic_bias[id];
+	if (invert) {
+		ucontrol->value.integer.value[0] =
+		    max - ucontrol->value.integer.value[0];
+	}
+
+	return 0;
+}
+
 static const DECLARE_TLV_DB_SCALE(adc_tlv, -600, 300, 0);
 static const DECLARE_TLV_DB_SCALE(hp_tlv, -3600, 300, 1);
 static const DECLARE_TLV_DB_SCALE(ear_tlv, -3600, 300, 1);
 static const DECLARE_TLV_DB_SCALE(spk_tlv, -2400, 300, 1);
 
 #define SPRD_CODEC_PGA(xname, xreg, tlv_array) \
-	SOC_SINGLE_EXT_TLV(xname, FUN_REG(xreg), 0, 15, 0, sprd_codec_vol_get, sprd_codec_vol_put, tlv_array)
+	SOC_SINGLE_EXT_TLV(xname, FUN_REG(xreg), 0, 15, 0, \
+			sprd_codec_vol_get, sprd_codec_vol_put, tlv_array)
+
+#define SPRD_CODEC_MIC_BIAS(xname, xreg) \
+	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, \
+			sprd_codec_mic_bias_get, sprd_codec_mic_bias_put)
 
 static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 	SPRD_CODEC_PGA("SPKL Playback Volume", SPRD_CODEC_PGA_SPKL, spk_tlv),
@@ -1659,6 +1737,10 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SOC_SINGLE_EXT("Inter PA Config", 0, 0, LONG_MAX, 0,
 		       sprd_codec_inter_pa_get, sprd_codec_inter_pa_put),
+
+	SPRD_CODEC_MIC_BIAS("MIC Bias Switch", SPRD_CODEC_MIC_BIAS),
+
+	SPRD_CODEC_MIC_BIAS("AUXMIC Bias Switch", SPRD_CODEC_AUXMIC_BIAS),
 };
 
 #define SPRD_CODEC_AP_BASE_HI (SPRD_CODEC_AP_BASE & 0xFFFF0000)
