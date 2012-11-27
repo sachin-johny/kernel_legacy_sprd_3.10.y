@@ -193,7 +193,7 @@ static int sc881x_func_set(struct snd_kcontrol *kcontrol,
 	if (sc881x.func[id] == ucontrol->value.integer.value[0])
 		return 0;
 
-	sc881x_dbg("Entering %s %d = %ld\n", __func__, id,
+	pr_info("Entering %s %d = %ld\n", __func__, id,
 		   ucontrol->value.integer.value[0]);
 	sc881x.func[id] = ucontrol->value.integer.value[0];
 	sc881x_ext_control(&card->dapm);

@@ -642,7 +642,7 @@ static inline void sprd_codec_inter_pa_init(void)
 
 int sprd_inter_speaker_pa(int on)
 {
-	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	pr_info("Entering %s set %d\n", __func__, on);
 	mutex_lock(&inter_pa_mutex);
 	if (on) {
 		sprd_codec_pa_d_en(inter_pa.setting.is_classD_mode);
@@ -842,6 +842,8 @@ static int power_event(struct snd_soc_dapm_widget *w,
 	struct snd_soc_codec *codec = w->codec;
 	int ret = 0;
 
+	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		sprd_codec_power_enable(codec);
@@ -864,7 +866,7 @@ static int adie_dac_event(struct snd_soc_dapm_widget *w,
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s\n", __func__);
+	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -898,7 +900,7 @@ static int adie_adc_event(struct snd_soc_dapm_widget *w,
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s\n", __func__);
+	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -997,7 +999,8 @@ static int hp_pop_event(struct snd_soc_dapm_widget *w,
 	int mask;
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s\n", __func__);
+	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		mask = HP_POP_STEP_MASK << HP_POP_STEP;
@@ -1052,7 +1055,7 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 	int mask;
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s\n", __func__);
+	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
@@ -1101,7 +1104,7 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	sprd_codec_dbg("Entering %s\n", __func__);
+	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
 
 	if (snd_soc_read(codec, DCR1) & BIT(AOL_EN)) {
 		snd_soc_update_bits(codec, SOC_REG(PMUR2), BIT(PA_SW_EN),
@@ -1125,7 +1128,7 @@ static int adc_switch_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	sprd_codec_dbg("Entering %s\n", __func__);
+	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
 
 	_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
 		       SPRD_CODEC_LEFT,
@@ -1150,7 +1153,7 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 	int ret = 0;
 	int min = sprd_codec_pga_cfg[id].min;
 
-	sprd_codec_dbg("Entering %s id = %d \n", __func__, id);
+	sprd_codec_dbg("Entering %s id = %d event = 0x%x\n", __func__, id, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1180,7 +1183,7 @@ static int mixer_event(struct snd_soc_dapm_widget *w,
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s id = %d \n", __func__, id);
+	pr_info("Entering %s id = %d event =0x%x\n", __func__, id, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1226,7 +1229,7 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s id = %d \n", __func__, id);
+	pr_info("Entering %s id = %d %ld\n", __func__, id, ucontrol->value.integer.value[0]);
 
 	if (mixer->on == ucontrol->value.integer.value[0])
 		return 0;
@@ -1568,8 +1571,9 @@ static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,
 	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[reg]);
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s %ld\n", __func__,
-		       ucontrol->value.integer.value[0]);
+	pr_info("Entering %s id %d %ld\n", __func__, reg,
+			ucontrol->value.integer.value[0]);
+
 	val = (ucontrol->value.integer.value[0] & mask);
 	if (invert)
 		val = max - val;
@@ -1613,7 +1617,7 @@ static int sprd_codec_inter_pa_put(struct snd_kcontrol *kcontrol,
 	unsigned int val;
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s %ld\n", __func__,
+	pr_info("Entering %s %ld\n", __func__,
 		       ucontrol->value.integer.value[0]);
 	val = (ucontrol->value.integer.value[0] & mask);
 	if (invert)

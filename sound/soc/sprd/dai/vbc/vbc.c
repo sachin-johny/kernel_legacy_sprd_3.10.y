@@ -457,7 +457,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 		if (!s_vbc_clk) {
 			arch_audio_vbc_reg_disable();
 		}
-		vbc_dbg("Real close the VBC\n");
+		pr_info("Real close the VBC\n");
 	}
 
 	if (s_vbc_clk) {
@@ -755,7 +755,7 @@ static int vbc_eq_profile_put(struct snd_kcontrol *kcontrol,
 {
 	int ret = 0;
 
-	vbc_dbg("Entering %s %ld\n", __func__,
+	pr_info("Entering %s %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	ret = ucontrol->value.integer.value[0];
@@ -1011,7 +1011,7 @@ static int vbc_switch_put(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
 	int ret;
-	vbc_dbg("Entering %s %ld\n", __func__,
+	pr_info("Entering %s %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	ret = ucontrol->value.integer.value[0];
@@ -1033,7 +1033,7 @@ static int vbc_eq_switch_put(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
 	int ret;
-	vbc_dbg("Entering %s %ld\n", __func__,
+	pr_info("Entering %s %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	ret = ucontrol->value.integer.value[0];
@@ -1067,7 +1067,7 @@ static int vbc_eq_load_put(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	int ret;
-	vbc_dbg("Entering %s %ld\n", __func__,
+	pr_info("Entering %s %ld\n", __func__,
 		ucontrol->value.integer.value[0]);
 
 	ret = ucontrol->value.integer.value[0];
