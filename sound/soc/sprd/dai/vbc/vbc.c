@@ -389,15 +389,6 @@ static inline void vbc_reg_enable(void)
 	}
 }
 
-static inline void vbc_reg_disable(void)
-{
-	if (s_vbc_clk) {
-		clk_disable(s_vbc_clk);
-	} else {
-		arch_audio_vbc_reg_disable();
-	}
-}
-
 static int vbc_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
 {
@@ -463,8 +454,14 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 		vbc_enable_set(0);
 		arch_audio_vbc_reset();
 		arch_audio_vbc_disable();
-		vbc_reg_disable();
+		if (!s_vbc_clk) {
+			arch_audio_vbc_reg_disable();
+		}
 		vbc_dbg("Real close the VBC\n");
+	}
+
+	if (s_vbc_clk) {
+		clk_disable(s_vbc_clk);
 	}
 
 	vbc_dbg("Leaving %s\n", __func__);
