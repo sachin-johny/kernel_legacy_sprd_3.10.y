@@ -112,6 +112,7 @@ typedef enum {
 	FLASH_CLOSE = 0x0,
 	FLASH_OPEN = 0x1,
 	FLASH_TORCH = 0x2,	/*user only set flash to close/open/torch state */
+	FLASH_AUTO = 0x3,
 	FLASH_CLOSE_AFTER_OPEN = 0x10,	/* following is set to sensor */
 	FLASH_HIGH_LIGHT = 0x11,
 	FLASH_OPEN_ON_RECORDING = 0x22,
@@ -1177,8 +1178,15 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		if (SENSOR_MAIN != Sensor_GetCurId()) {
 			break;
 		}
+		if (FLASH_AUTO == g_dcam_info.flash_mode){
+						printk("V4L2:vidioc_handle_ctrl FLASH_AUTO.\n.");
+			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_AUTO);
+		}
+		else{
 		if (g_dcam_info.flash_mode) {
+			printk("V4L2:vidioc_handle_ctrl FLASH_OPEN.\n.");
 			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
+		}
 		}
 		copy_from_user(&focus_param[0], (uint16_t *) ctrl->value,
 			       FOCUS_PARAM_LEN);
@@ -1193,6 +1201,9 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 					 (uint32_t) & af_param)) {
 				ret = -1;
 				if (g_dcam_info.flash_mode) {
+					Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
+				}
+				if (FLASH_AUTO == g_dcam_info.flash_mode){
 					Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
 				}
 				DCAM_V4L2_ERR("v4l2:auto foucs init fail.\n");
@@ -1245,6 +1256,9 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 			ret = -1;
 		}
 		if (g_dcam_info.flash_mode) {
+			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
+		}
+		if (FLASH_AUTO == g_dcam_info.flash_mode){
 			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
 		}
 #endif
@@ -1785,6 +1799,14 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.recording_start = 0;
 
 	if (g_dcam_info.flash_mode) {
+#ifdef FLASH_DV_OPEN_ALWAYS
+		if (FLASH_TORCH != g_dcam_info.flash_mode)
+#endif
+		{
+			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
+		}
+	}
+		if (FLASH_AUTO == g_dcam_info.flash_mode){
 #ifdef FLASH_DV_OPEN_ALWAYS
 		if (FLASH_TORCH != g_dcam_info.flash_mode)
 #endif
@@ -2404,6 +2426,10 @@ static int close(struct file *file)
 		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE);	/*close flash */
 		printk("V2L4:close the flash \n");
 	}
+		if (FLASH_AUTO == g_dcam_info.flash_mode){
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE);	/*close flash */
+		printk("V2L4:close the flash \n");
+	}
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	printk("v4l2:close,stop timer.\n");
 	s_dcam_err_info.is_stop = 1;
@@ -2444,9 +2470,16 @@ uint32_t video_write (struct file *fd, uint8_t *buf, size_t len, loff_t * offset
 	if (SENSOR_MAIN != Sensor_GetCurId()) {
 		return 0;
 	}
-	if (g_dcam_info.flash_mode) {
-		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
-	}
+		if (FLASH_AUTO == g_dcam_info.flash_mode){
+									printk("V4L2: video_write FLASH_AUTO.\n.");
+			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_AUTO);
+		}
+		else{
+				if (g_dcam_info.flash_mode) {
+											printk("V4L2:video_write FLASH_OPEN.\n.");
+					Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
+				}
+		}
 	copy_from_user(&focus_param[0], (uint16_t *) buf,FOCUS_PARAM_LEN);
 	printk("V4L2:focus kernel,type=%d,zone_cnt=%d.\n",
 	       focus_param[0], focus_param[1]);
@@ -2457,6 +2490,9 @@ uint32_t video_write (struct file *fd, uint8_t *buf, size_t len, loff_t * offset
 		af_param.param = SENSOR_EXT_FOCUS_TRIG;
 		if (SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS,(uint32_t) & af_param)) {
 			if (g_dcam_info.flash_mode) {
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
+			}
+			if (FLASH_AUTO == g_dcam_info.flash_mode){
 				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
 			}
 			s_auto_focus = DCAM_AF_ERR;
@@ -2510,6 +2546,9 @@ uint32_t video_write (struct file *fd, uint8_t *buf, size_t len, loff_t * offset
 		s_auto_focus = DCAM_AF_ERR;
 	}
 	if (g_dcam_info.flash_mode) {
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
+	}
+	if (FLASH_AUTO == g_dcam_info.flash_mode){
 		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
 	}
 VIDEO_WRITE_END:

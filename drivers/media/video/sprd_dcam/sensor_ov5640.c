@@ -31,6 +31,7 @@
 #define CMD_PARAM3 0x3027
 #define CMD_PARAM4 0x3028
 static uint32_t g_flash_mode_en = 0;
+static uint32_t g_auto_flash_mode_en = 0;
 LOCAL uint32_t _ov5640_InitExifInfo(void);
 LOCAL uint32_t _ov5640_GetResolutionTrimTab(uint32_t param);
 LOCAL uint32_t _ov5640_PowerOn(uint32_t power_on);
@@ -49,7 +50,7 @@ LOCAL uint32_t _ov5640_BeforeSnapshot(uint32_t param);
 LOCAL uint32_t _ov5640_check_image_format_support(uint32_t param);
 LOCAL uint32_t _ov5640_pick_out_jpeg_stream(uint32_t param);
 LOCAL uint32_t _ov5640_after_snapshot(uint32_t param);
-LOCAL uint32_t _ov540_flash(uint32_t param);
+LOCAL uint32_t _ov5640_flash(uint32_t param);
 LOCAL uint32_t _ov5640_GetExifInfo(uint32_t param);
 LOCAL uint32_t _ov5640_ExtFunc(uint32_t ctl_param);
 LOCAL uint32_t _ov5640_set_iso(uint32_t mode);
@@ -1197,7 +1198,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_ov5640_ioctl_func_tab = {
 
 	_ov5640_BeforeSnapshot,
 	_ov5640_after_snapshot,
-	_ov540_flash,
+	_ov5640_flash,
 	PNULL,
 	PNULL,
 	PNULL,
@@ -2295,12 +2296,23 @@ LOCAL uint32_t _ov5640_BeforeSnapshot(uint32_t param)
 	uint8_t ret_l, ret_m, ret_h, Gain, Lines_10ms;
 	uint16_t ulCapture_Exposure, Preview_Maxlines;
 	uint32_t Capture_MaxLines, g_preview_exposure;
-
+	uint16_t value;
 	printk("SENSOR: set flash on beforeSnapShot, g_flash_mode = %d \n",
 	       g_flash_mode_en);
 	if (g_flash_mode_en) {
 		//Sensor_SetFlash(0x11);  // high light
-		Sensor_SetFlash(1);
+		value = Sensor_ReadReg(0x56a1);
+		printk("%s: g_flash_mode_en: %d\n",__func__, g_flash_mode_en);
+		if(g_auto_flash_mode_en) {  //40
+			//open flash led
+		printk("%s: g_auto_flash_mode_en: %d\n",__func__, g_auto_flash_mode_en);
+			Sensor_SetFlash(1);
+			g_auto_flash_mode_en = 1;
+		}else {
+			//close flash led
+		printk("%s: g_auto_flash_mode_en: %d\n",__func__, g_auto_flash_mode_en);
+			Sensor_SetFlash(0);
+		}
 	}
 
 	if (SENSOR_MODE_PREVIEW_ONE >= param) {
@@ -2457,14 +2469,39 @@ LOCAL uint32_t _ov5640_after_snapshot(uint32_t param)
 	return SENSOR_SUCCESS;
 }
 
-LOCAL uint32_t _ov540_flash(uint32_t param)
+LOCAL uint32_t _ov5640_flash(uint32_t param)
 {
-	printk("SENSOR: _ov540_flash:param=%d .\n", param);
+	uint16_t value = 0;
+	printk("SENSOR: 0608 _ov5640_flash:param=0x%x.\n", param);
 
 	/* enable flash, disable in _ov5640_BeforeSnapshot */
 	g_flash_mode_en = param;
-	Sensor_SetFlash(param);
-	printk("SENSOR: _ov540_flash:end .\n");
+	if(param == 3) //auto flash mode
+	{
+		value = Sensor_ReadReg(0x56a1);
+		printk("%s: auto flash mode, reg: 0x56a1; value: %d\n",__func__, value);
+		//if((value < 15) && ( (param == 1)||(param == 2)||(param == 0x11))) {  //40
+			if(value < 15) {  //40
+			//open flash led
+			printk("_ov5640_flash: open flash\n");
+			g_auto_flash_mode_en = 1;
+			Sensor_SetFlash(1);
+		}else {
+			//close flash led
+			printk("_ov5640_flash: close flash\n");
+			g_auto_flash_mode_en = 0;
+			Sensor_SetFlash(0);
+		}
+	}
+	else
+	{
+		if(1 == param){
+			g_auto_flash_mode_en = 1;
+		printk("%s: param: %d g_auto_flash_mode_en: %d\n",__func__, param,g_auto_flash_mode_en);
+		}
+		Sensor_SetFlash(param);
+	}
+	printk("SENSOR: _ov5640_flash:end .\n");
 	return SENSOR_SUCCESS;
 }
 
