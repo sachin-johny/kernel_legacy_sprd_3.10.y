@@ -480,9 +480,9 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 	int err = 0;
 	uint32_t volt_value = 0;
 	//to make the power on&off be  pairs
-	static uint32_t iopower_on_count = 0;
-	static uint32_t avddpower_on_count = 0;
-	static uint32_t dvddpower_on_count = 0;
+	static int32_t iopower_on_count = 0;
+	static int32_t avddpower_on_count = 0;
+	static int32_t dvddpower_on_count = 0;
 
 	SENSOR_PRINT
 	    ("SENSOR:Sensor_SetVoltage,dvdd_val=%d,avdd_val=%d,iodd_val=%d.\n",
@@ -552,9 +552,11 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		}
 	} else {
 		/*regulator_disable(s_camvio_regulator);*/
-		_sensor_regulator_disable(iopower_on_count, s_camvio_regulator);
-		if(0 < iopower_on_count)
+		while(0 < iopower_on_count){
+			_sensor_regulator_disable(iopower_on_count, s_camvio_regulator);
 			iopower_on_count--;
+		}
+
 		regulator_put(s_camvio_regulator);
 		s_camvio_regulator = NULL;
 		pr_debug("SENSOR:disable camvio.\n");
@@ -625,9 +627,11 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		}
 	} else {
 		/*regulator_disable(s_camavdd_regulator);*/
-		_sensor_regulator_disable(avddpower_on_count, s_camavdd_regulator);
-		if(0 < avddpower_on_count)
+		while(0 < avddpower_on_count){
+			_sensor_regulator_disable(avddpower_on_count, s_camavdd_regulator);
 			avddpower_on_count--;
+		}
+
 		regulator_put(s_camavdd_regulator);
 		s_camavdd_regulator = NULL;
 		pr_debug("SENSOR:disable camavdd.\n");
@@ -698,9 +702,11 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		}
 	} else {
 		/*regulator_disable(s_camdvdd_regulator);*/
-		_sensor_regulator_disable(dvddpower_on_count, s_camdvdd_regulator);
-		if(0 < dvddpower_on_count)
+		while(0 < dvddpower_on_count){
+			_sensor_regulator_disable(dvddpower_on_count, s_camdvdd_regulator);
 			dvddpower_on_count--;
+		}
+
 		regulator_put(s_camdvdd_regulator);
 		s_camdvdd_regulator = NULL;
 		pr_debug("SENSOR:disable camdvdd.\n");
@@ -1961,13 +1967,19 @@ ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode)
 #if 1
 	uint32_t ret_val = SENSOR_FAIL;
 	SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr = s_sensor_register_info_ptr;
+	SENSOR_ID_E cur_sensor_id = SENSOR_MAIN;
 	struct timeval time1, time2;
 
 	do_gettimeofday(&time1);
 
 
 	printk("Sensor_SetTiming  start: sensor_id=%d,  mode=%d \n", Sensor_GetCurId(), mode);
-	ret_val = _sensor_com_init(Sensor_GetCurId(), sensor_register_info_ptr);
+
+	cur_sensor_id = Sensor_GetCurId();
+
+	Sensor_Close();
+
+	ret_val = _sensor_com_init(cur_sensor_id, sensor_register_info_ptr);
 	Sensor_SetMode(mode);
 
 	do_gettimeofday(&time2);
