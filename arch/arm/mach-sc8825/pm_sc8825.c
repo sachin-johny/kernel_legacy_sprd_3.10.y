@@ -525,7 +525,7 @@ static void disable_ahb_module(void)
 
 
 /*save/restore global regs*/
-u32 reg_gen_clk_en, reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_ahb_ctl2_val;
+u32 reg_gen_clk_en, reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_ahb_ctl2_val, reg_gen1_val;
 
 /*register save*/
 #define SAVE_GR_REG(_reg_save,_reg_addr, _reg_mask)  \
@@ -534,6 +534,7 @@ u32 reg_gen_clk_en, reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_ahb_ctl2
 #define SAVE_GLOBAL_REG  do{ \
         SAVE_GR_REG(reg_gen_clk_en, REG_GLB_CLK_EN, GR_CLK_EN_MASK); \
         SAVE_GR_REG(reg_gen0_val, REG_GLB_GEN0, GR_GEN0_MASK);   \
+	SAVE_GR_REG(reg_gen1_val, REG_GLB_GEN1, GR_GEN1_MASK);   \
         SAVE_GR_REG(reg_busclk_alm, REG_GLB_BUSCLK, BUSCLK_ALM_MASK);    \
         SAVE_GR_REG(reg_ahb_ctl0_val, REG_AHB_AHB_CTL0, AHB_CTL0_MASK);\
         SAVE_GR_REG(reg_ahb_ctl2_val, REG_AHB_AHB_CTL2, AHB_CTL2_MASK);\
@@ -548,6 +549,7 @@ u32 reg_gen_clk_en, reg_gen0_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_ahb_ctl2
         RESTORE_GR_REG(REG_GLB_CLK_EN, GR_CLK_EN_MASK, reg_gen_clk_en);   \
         RESTORE_GR_REG(REG_GLB_BUSCLK, BUSCLK_ALM_MASK, reg_busclk_alm); \
         RESTORE_GR_REG(REG_GLB_GEN0, GR_GEN0_MASK, reg_gen0_val); \
+	RESTORE_GR_REG(REG_GLB_GEN1, GR_GEN1_MASK, reg_gen1_val); \
         RESTORE_GR_REG(REG_AHB_AHB_CTL0, AHB_CTL0_MASK, reg_ahb_ctl0_val); \
         RESTORE_GR_REG(REG_AHB_AHB_CTL2, AHB_CTL2_MASK, reg_ahb_ctl2_val); \
     }while(0)
