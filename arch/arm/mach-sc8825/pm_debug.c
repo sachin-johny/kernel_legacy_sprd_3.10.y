@@ -340,6 +340,15 @@ static void print_gr(void)
 	if (val & GEN0_I2C2_EN) printk("GEN0_I2C2_EN =1.\n");
 	if (val & GEN0_I2C3_EN) printk("GEN0_I2C3_EN =1.\n");
 
+	val = sci_glb_read(REG_GLB_GEN1, -1UL);
+	printk("##: REG_GLB_GEN1 = %08x.\n", val);
+	if (val & BIT_CLK_AUX0_EN ) printk(" CLK_AUX0_EN =1.\n");
+	if (val & BIT_CLK_AUX1_EN ) printk(" CLK_AUX1_EN =1.\n");
+	if (val & BIT_AUD_IF_EB ) printk(" AUD_IF_EB =1.\n");
+	if (val & BIT_AUD_TOP_EB ) printk(" AUD_TOP_EB =1.\n");
+	if (val & BIT_VBC_EN ) printk(" VBC_EN =1.\n");
+	if (val & BIT_AUDIF_AUTO_EN ) printk(" AUDIF_AUTO_EN =1.\n");
+
 	val = sci_glb_read(REG_GLB_CLK_EN, -1UL);
 	printk("##: GR_CLK_EN = %08x.\n", val);
 	if (val & CLK_PWM0_EN) printk("CLK_PWM0_EN =1.\n");
