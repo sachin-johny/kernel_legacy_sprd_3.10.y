@@ -52,7 +52,7 @@ extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sc8825_init_irq(void);
 extern void __init sc8825_timer_init(void);
-extern int __init sc8825_clock_init(void);
+extern int __init sc8825_clock_init_early(void);
 extern int __init sc8825_regulator_init(void);
 extern int __init sci_clock_init(void);
 
@@ -315,7 +315,7 @@ int __init sc8825_regulator_init(void)
 	return platform_device_register(&sc8825_regulator_device);
 }
 
-int __init sc8825_clock_init(void)
+int __init sc8825_clock_init_early(void)
 {
 	/* FIXME: Force disable all unused clocks */
 	sci_glb_clr(REG_AHB_AHB_CTL0,
@@ -412,7 +412,7 @@ int __init sc8825_clock_init(void)
 //		BIT_PWM0_EB			|
 		0);
 
-	printk("sc8825 clock module init ok\n");
+	printk("sc8825 clock module early init ok\n");
 	return 0;
 }
 
@@ -434,7 +434,7 @@ extern void sc8825_enable_timer_early(void);
 static void __init sc8825_init_early(void)
 {
 	/* earlier init request than irq and timer */
-	sc8825_clock_init();
+	sc8825_clock_init_early();
 	sc8825_enable_timer_early();
 	sci_adi_init();
 }
