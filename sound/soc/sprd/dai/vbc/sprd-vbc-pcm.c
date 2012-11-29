@@ -101,7 +101,7 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	struct sprd_runtime_data *rtd;
 	int ret;
 
-	sprd_pcm_dbg("Entering %s\n", __func__);
+	pr_info("Entering %s %d\n", __func__, substream->stream);
 
 	snd_soc_set_runtime_hwparams(substream, &sprd_pcm_hardware);
 
@@ -154,7 +154,7 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sprd_runtime_data *rtd = runtime->private_data;
 
-	sprd_pcm_dbg("Entering %s\n", __func__);
+	pr_info("Entering %s %d\n", __func__, substream->stream);
 
 	dma_free_writecombine(substream->pcm->card->dev, 2 * PAGE_SIZE,
 			      rtd->dma_desc_array, rtd->dma_desc_array_phys);
@@ -259,7 +259,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		goto no_dma;
 
 	used_chan_count = params_channels(params);
-	sprd_pcm_dbg("chan=%d totsize=%d period=%d\n", used_chan_count, totsize,
+	pr_info("chan=%d totsize=%d period=%d\n", used_chan_count, totsize,
 		     period);
 
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
