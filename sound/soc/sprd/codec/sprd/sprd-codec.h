@@ -23,16 +23,25 @@
 #include <mach/adi.h>
 #include <asm/io.h>
 
-#if 0
-#define CONFIG_SPRD_CODEC_USE_INT
+#ifndef CONFIG_SPRD_CODEC_USE_INT
+/* #define CONFIG_SPRD_CODEC_USE_INT */
+#endif
+#ifndef CONFIG_CODEC_DAC_MUTE_WAIT
+/* #define CONFIG_CODEC_DAC_MUTE_WAIT */
 #endif
 
 /* unit: ms */
 #define SPRD_CODEC_LDO_WAIT_TIME	(5)
 #define SPRD_CODEC_LDO_VCM_TIME		(2)
-#define SPRD_CODEC_DAC_MUTE_WAIT_TIME	(0)	/* (40) */
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+#define SPRD_CODEC_DAC_MUTE_TIMEOUT	(600)
+#else
+#define SPRD_CODEC_DAC_MUTE_WAIT_TIME	(40)
+#endif
 
-#ifndef CONFIG_SPRD_CODEC_USE_INT
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+#define SPRD_CODEC_HP_POP_TIMEOUT	(1000)
+#else
 #define SPRD_CODEC_HP_POP_TIME_STEP	(10)
 #define SPRD_CODEC_HP_POP_TIME_COUNT	(80)	/* max 800ms will timeout */
 #endif
@@ -59,9 +68,35 @@
 #define DAC_MUTE_START		(14)
 #define DAC_MUTE_EN		(15)
 
+/* AUD_AUD_STS0 */
+#define DAC_MUTE_U_MASK		(5)
+#define DAC_MUTE_D_MASK		(4)
+#define DAC_MUTE_U_RAW		(3)
+#define DAC_MUTE_D_RAW		(2)
+#define DAC_MUTE_ST		(0)
+#define DAC_MUTE_ST_MASK	(0)
+
+/* AUD_INT_CLR */
+/* AUD_INT_EN */
+#define DAC_MUTE_U		(1)
+#define DAC_MUTE_D		(0)
+
 /* AUDIF_ENB */
 #define AUDIFA_DAC_EN		(0)
 #define AUDIFA_ADC_EN		(1)
+
+/* AUDIF_INT_EN */
+/* AUDIF_INT_CLR */
+/* AUDIF_INT_RAW */
+/* AUDIF_INT_MASK */
+#define AUDIO_POP_IRQ		(7)
+#define OVP_IRQ			(6)
+#define OTP_IRQ			(5)
+#define PA_OCP_IRQ		(4)
+#define LOR_OCP_IRQ		(3)
+#define LOL_OCP_IRQ		(2)
+#define EAR_OCP_IRQ		(1)
+#define HP_OCP_IRQ		(0)
 
 /* PMUR1 */
 #define VB_EN			(7)

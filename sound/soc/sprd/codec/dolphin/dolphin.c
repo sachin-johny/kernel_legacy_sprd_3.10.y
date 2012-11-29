@@ -840,18 +840,25 @@ static int dolphin_pcm_hw_free(struct snd_pcm_substream *substream,
 static int dolphin_digital_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct snd_soc_codec *codec = dai->codec;
+	struct dolphin_priv *dolphin = snd_soc_codec_get_drvdata(codec);
 	int ret;
 
 	dol_dbg("Entering %s\n", __func__);
-	dol_dbg("mute %i\n", mute);
+	if (atomic_read(&dolphin->sb_refcount) >= 1) {
+		dol_dbg("mute %i\n", mute);
 
-	ret = snd_soc_update_bits(codec, SOC_REG(VBCR1), (1 << DAC_MUTE),
-				  ((mute ? 1 : 0) << DAC_MUTE));
-	if (mute) {
-		dolphin_wait(DOLPHIN_DAC_MUTE_WAIT_TIME);
+		ret =
+		    snd_soc_update_bits(codec, SOC_REG(VBCR1), (1 << DAC_MUTE),
+					((mute ? 1 : 0) << DAC_MUTE));
+
+#ifdef CONFIG_CODEC_DAC_MUTE_WAIT
+		if (mute && ret) {
+			dolphin_wait(DOLPHIN_DAC_MUTE_WAIT_TIME);
+		}
+#endif
+
+		dol_dbg("return %i\n", ret);
 	}
-
-	dol_dbg("return %i\n", ret);
 	dol_dbg("Leaving %s\n", __func__);
 
 	return ret;

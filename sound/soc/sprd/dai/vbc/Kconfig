@@ -5,5 +5,6 @@ config SND_SPRD_SOC_VBC
 
 config SPRD_VBC_INTERLEAVED
 	bool "VBC Support Interleaved"
+	default y
 	help
 	 say Y then the VBC will support interleaved use the DMA.
