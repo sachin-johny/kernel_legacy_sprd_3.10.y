@@ -59,6 +59,7 @@
 #include <linux/proc_fs.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
+#include <linux/completion.h>
 #include <linux/sprdmux.h>
 
 #include "ts0710.h"
@@ -238,18 +239,15 @@ int sprdmux_register(struct sprdmux *mux)
 	return 0;
 }
 
+static struct completion send_completion;
+static struct completion post_recv_completion;
 
-static struct workqueue_struct *muxsend_work_queue;
-static struct workqueue_struct *muxpost_receive_work_queue;
-static struct task_struct *mux_kthread = NULL;
+static struct task_struct *mux_recv_kthread = NULL;
+static struct task_struct *mux_send_kthread = NULL;
+static struct task_struct *mux_post_recv_kthread = NULL;
 
 static int mux_receive_thread(void *data);
 static void receive_worker(int start);
-static void post_recv_worker(struct work_struct *private_);
-static void send_worker(struct work_struct *private_);
-
-static DECLARE_DELAYED_WORK(mux_send_work, send_worker);
-static DECLARE_DELAYED_WORK(mux_post_receive_work, post_recv_worker);
 
 static struct tty_struct **mux_table;
 static volatile short int mux_tty[NR_MUXS];
@@ -1786,9 +1784,7 @@ static int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 
 				if (post_recv) {
 					TS0710_DEBUG("recv_data : enter queue delay work\n");
-					if (queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,0)==0) {
-						queue_delayed_work(muxpost_receive_work_queue, &mux_post_receive_work,10);
-					}
+					complete(&post_recv_completion);
 				}
 			}	/* End processing received data */
 		} else {
@@ -2181,11 +2177,7 @@ static int ts0710_exec_test_cmd(void)
 
 static void mux_sched_send(void)
 {
-
-	if (queue_delayed_work(muxsend_work_queue, &mux_send_work, 0) == 0) {
-		queue_delayed_work(muxsend_work_queue, &mux_send_work, 10);
-	}
-
+	complete(&send_completion);
 }
 
 /*
@@ -2258,9 +2250,9 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 			cmux_mode = 0;
 			/* destroy the receive thread*/
 			iomux[0].io_stop(SPRDMUX_READ);
-			if(mux_kthread) {
-				kthread_stop(mux_kthread);
-				mux_kthread = NULL;
+			if(mux_recv_kthread) {
+				kthread_stop(mux_recv_kthread);
+				mux_recv_kthread = NULL;
 			}
 		}
 		ts0710_close_channel(dlci);
@@ -2287,12 +2279,7 @@ static void mux_close(struct tty_struct *tty, struct file *filp)
 		}
 
 		ts0710_flow_on(dlci, ts0710);
-		if (queue_delayed_work
-		    (muxpost_receive_work_queue, &mux_post_receive_work,
-		     0) == 0) {
-			queue_delayed_work(muxpost_receive_work_queue,
-					   &mux_post_receive_work, 10);
-		}
+		complete(&post_recv_completion);
 		wake_up_interruptible(&tty->read_wait);
 		wake_up_interruptible(&tty->write_wait);
 		tty->packet = 0;
@@ -2377,12 +2364,7 @@ static void mux_unthrottle(struct tty_struct *tty)
 
 	if (recv_info->total) {
 		recv_info->post_unthrottle = 1;
-		if (queue_delayed_work
-		    (muxpost_receive_work_queue, &mux_post_receive_work,
-		     0) == 0) {
-			queue_delayed_work(muxpost_receive_work_queue,
-					   &mux_post_receive_work, 10);
-		}
+		complete(&post_recv_completion);
 	} else {
 		if(ts0710->dlci[dlci].flow_control == 1) {
 			TS0710_DEBUG("mux_unthrottle : send flow on\n");
@@ -2716,14 +2698,14 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			printk(KERN_INFO "\n cmux receive>\n");
 			cmux_mode = 1;
 			/*create receive thread*/
-			mux_kthread = kthread_create(mux_receive_thread, NULL, "mux_receive");
-			if(IS_ERR(mux_kthread)) {
+			mux_recv_kthread = kthread_create(mux_receive_thread, NULL, "mux_receive");
+			if(IS_ERR(mux_recv_kthread)) {
 				printk(KERN_ERR "Unable to create mux_receive thread\n");
-				err = PTR_ERR(mux_kthread);
-				mux_kthread = NULL;
+				err = PTR_ERR(mux_recv_kthread);
+				mux_recv_kthread = NULL;
 				return err;
 			}
-			wake_up_process(mux_kthread);
+			wake_up_process(mux_recv_kthread);
 			tty_lock();
 		}
 
@@ -3130,7 +3112,7 @@ static int mux_receive_thread(void *data)
 	return 0;
 }
 
-static void post_recv_worker(struct work_struct *private_)
+static int mux_post_recv_thread(void *private_)
 {
 	ts0710_con *ts0710 = &ts0710_connection;
 	int tty_idx;
@@ -3144,78 +3126,54 @@ static void post_recv_worker(struct work_struct *private_)
 	UNUSED_PARAM(private_);
 	mux_set_thread_pro(90);
 
-	if (test_and_set_bit(RECV_RUNNING, &mux_recv_flags)) {
-		if (queue_delayed_work
-		    (muxpost_receive_work_queue, &mux_post_receive_work,
-		     0) == 0) {
-			queue_delayed_work(muxpost_receive_work_queue,
-					   &mux_post_receive_work, 10);
-		}
-		return;
-	}
+	TS0710_DEBUG("Enter into post_recv_thread");
+	while (!kthread_should_stop()) {
 
-	TS0710_DEBUG("Enter into post_recv_worker");
+		wait_for_completion_interruptible(&post_recv_completion);
 
-	for(tty_idx = 0; tty_idx < NR_MUXS; tty_idx++) {
-		recv_info = mux_recv_info[tty_idx];
-		if(!recv_info) {
-			continue;
+		if (test_and_set_bit(RECV_RUNNING, &mux_recv_flags)) {
+			return 0;
 		}
-		mutex_lock(&recv_info->recv_lock);
-		if (!(recv_info->total)) {
-			TS0710_DEBUG
-				("MUX Error: %s: Should not get here, recv_info->total == 0 \n",
-				__FUNCTION__);
-			mutex_unlock(&recv_info->recv_lock);
-			continue;
-		}
-		dlci = tty2dlci[tty_idx];
-		tty = mux_table[tty_idx];
-		if ((!mux_tty[tty_idx]) || (!tty)) {
-			TS0710_PRINTK
-				("MUX: No application waiting for, free recv_info! tty_idx:%d\n",
-				tty_idx);
-			mux_recv_info_flags[tty_idx] = 0;
-			free_mux_recv_struct(mux_recv_info[tty_idx]);
-			mux_recv_info[tty_idx] = 0;
-			ts0710_flow_on(dlci, ts0710);
-			mutex_unlock(&recv_info->recv_lock);
-			continue;
-		}
-		if (test_bit(TTY_THROTTLED, &tty->flags)) {
-			TS0710_DEBUG("post_recv_worker : TTY_THROTTLED is set\n");
-			mutex_unlock(&recv_info->recv_lock);
-			continue;
-		}
-		flow_control = 0;
-		while (recv_info->total) {
-			recv_room = 65535;
-			if (tty->receive_room)
-				recv_room = tty->receive_room;
 
-			if (recv_info->length) {
-				if (recv_room < recv_info->length) {
-					if(recv_info->total >= TS0710MUX_MAX_TOTAL_SIZE/2)
-						flow_control = 1;
-					break;
-				}
-
-				/* Put queued data into read buffer of tty */
+		for(tty_idx = 0; tty_idx < NR_MUXS; tty_idx++) {
+			recv_info = mux_recv_info[tty_idx];
+			if(!recv_info) {
+				continue;
+			}
+			mutex_lock(&recv_info->recv_lock);
+			if (!(recv_info->total)) {
 				TS0710_DEBUG
-				    ("Put queued recv data into read buffer of /dev/mux%d\n",
-				     tty_idx);
-				TS0710_DEBUGHEX(recv_info->data,
-						recv_info->length);
-				(tty->ldisc->ops->receive_buf) (tty,
-								recv_info->data,
-								NULL,
-								recv_info->length);
-				recv_info->total -= recv_info->length;
-				recv_info->length = 0;
-			} else {	/* recv_info->length == 0 */
-				if ((recv_packet = recv_info->mux_packet)) {
+					("MUX Error: %s: Should not get here, recv_info->total == 0 \n",
+					__FUNCTION__);
+				mutex_unlock(&recv_info->recv_lock);
+				continue;
+			}
+			dlci = tty2dlci[tty_idx];
+			tty = mux_table[tty_idx];
+			if ((!mux_tty[tty_idx]) || (!tty)) {
+				TS0710_PRINTK
+					("MUX: No application waiting for, free recv_info! tty_idx:%d\n",
+					tty_idx);
+				mux_recv_info_flags[tty_idx] = 0;
+				free_mux_recv_struct(mux_recv_info[tty_idx]);
+				mux_recv_info[tty_idx] = 0;
+				ts0710_flow_on(dlci, ts0710);
+				mutex_unlock(&recv_info->recv_lock);
+				continue;
+			}
+			if (test_bit(TTY_THROTTLED, &tty->flags)) {
+				TS0710_DEBUG("post_recv_thread : TTY_THROTTLED is set\n");
+				mutex_unlock(&recv_info->recv_lock);
+				continue;
+			}
+			flow_control = 0;
+			while (recv_info->total) {
+				recv_room = 65535;
+				if (tty->receive_room)
+					recv_room = tty->receive_room;
 
-					if (recv_room < recv_packet->length) {
+				if (recv_info->length) {
+					if (recv_room < recv_info->length) {
 						if(recv_info->total >= TS0710MUX_MAX_TOTAL_SIZE/2)
 							flow_control = 1;
 						break;
@@ -3223,54 +3181,76 @@ static void post_recv_worker(struct work_struct *private_)
 
 					/* Put queued data into read buffer of tty */
 					TS0710_DEBUG
-					    ("Put queued recv data into read buffer2 of /dev/mux%d \n",
-					     tty_idx);
-					TS0710_DEBUGHEX(recv_packet->data,
-							recv_packet->length);
+						("Put queued recv data into read buffer of /dev/mux%d\n",
+						tty_idx);
+					TS0710_DEBUGHEX(recv_info->data,
+							recv_info->length);
 					(tty->ldisc->ops->receive_buf) (tty,
-									recv_packet->
-									data,
+									recv_info->data,
 									NULL,
-									recv_packet->
-									length);
-					recv_info->total -= recv_packet->length;
-					recv_info->mux_packet = recv_packet->next;
-					free_mux_recv_packet(recv_packet);
-				} else {
-					TS0710_PRINTK
-					    ("MUX Error: %s: Should not get here, recv_info->total is:%u \n",
-					     __FUNCTION__, recv_info->total);
-				}
-			}	/* End recv_info->length == 0 */
-		}		/* End while( recv_info->total ) */
-		mutex_unlock(&recv_info->recv_lock);
+									recv_info->length);
+					recv_info->total -= recv_info->length;
+					recv_info->length = 0;
+				} else {	/* recv_info->length == 0 */
+					if ((recv_packet = recv_info->mux_packet)) {
 
-		if (!(recv_info->total)) {
-			/* Important clear */
-			recv_info->mux_packet = 0;
+						if (recv_room < recv_packet->length) {
+							if(recv_info->total >= TS0710MUX_MAX_TOTAL_SIZE/2)
+								flow_control = 1;
+							break;
+						}
 
-			if (recv_info->post_unthrottle) {
-				/* Do something for post_unthrottle */
-				if(ts0710->dlci[dlci].flow_control == 1) {
-					ts0710_flow_on(dlci, ts0710);
-					TS0710_DEBUG("post_recv_worker : recv_info is empty & send flow on\n");
+						/* Put queued data into read buffer of tty */
+						TS0710_DEBUG
+							("Put queued recv data into read buffer2 of /dev/mux%d \n",
+							tty_idx);
+						TS0710_DEBUGHEX(recv_packet->data,
+								recv_packet->length);
+						(tty->ldisc->ops->receive_buf) (tty,
+										recv_packet->
+										data,
+										NULL,
+										recv_packet->
+										length);
+						recv_info->total -= recv_packet->length;
+						recv_info->mux_packet = recv_packet->next;
+						free_mux_recv_packet(recv_packet);
+					} else {
+						TS0710_PRINTK
+							("MUX Error: %s: Should not get here, recv_info->total is:%u \n",
+							__FUNCTION__, recv_info->total);
+					}
+				}	/* End recv_info->length == 0 */
+			}		/* End while( recv_info->total ) */
+			mutex_unlock(&recv_info->recv_lock);
+
+			if (!(recv_info->total)) {
+				/* Important clear */
+				recv_info->mux_packet = 0;
+
+				if (recv_info->post_unthrottle) {
+					/* Do something for post_unthrottle */
+					if(ts0710->dlci[dlci].flow_control == 1) {
+						ts0710_flow_on(dlci, ts0710);
+						TS0710_DEBUG("post_recv_thread : recv_info is empty & send flow on\n");
+					}
+					recv_info->post_unthrottle = 0;
 				}
-				recv_info->post_unthrottle = 0;
-			}
-		} else {
-			if (flow_control) {
-				ts0710_flow_off(tty, dlci, ts0710);
 			} else {
+				if (flow_control) {
+					ts0710_flow_off(tty, dlci, ts0710);
+				} else {
 					/* this will trigger up layer(tty_unthrottle) call mux unthrottle */
 					set_bit(TTY_THROTTLED, &tty->flags);
+				}
 			}
-		}
-	}			/* End while( (recv_info = recv_info2) ) */
-
-	clear_bit(RECV_RUNNING, &mux_recv_flags);
+		}			/* End while( (recv_info = recv_info2) ) */
+		clear_bit(RECV_RUNNING, &mux_recv_flags);
+	}
+	return 0;
 }
 
-static void send_worker(struct work_struct *private_)
+static int mux_send_thread(void *private_)
 {
 	ts0710_con *ts0710 = &ts0710_connection;
 	__u8 j;
@@ -3280,108 +3260,111 @@ static void send_worker(struct work_struct *private_)
 
 	UNUSED_PARAM(private_);
 
-	TS0710_DEBUG("Enter into send_worker");
+	TS0710_DEBUG("Enter into mux_send_thread\n");
 
 	mux_send_info_idx = NR_MUXS;
 
 	if (ts0710->dlci[0].state == FLOW_STOPPED) {
 		TS0710_DEBUG("Flow stopped on all channels\n");
-		return;
+		return 0;
 	}
 
 	mux_set_thread_pro(80);
 
-	for (j = 0; j < NR_MUXS; j++) {
+	while (!kthread_should_stop()) {
 
-		if (!(mux_send_info_flags[j])) {
-			continue;
-		}
+		wait_for_completion_interruptible(&send_completion);
 
-		send_info = mux_send_info[j];
-		if (!send_info) {
-			continue;
-		}
+		for (j = 0; j < NR_MUXS; j++) {
+			if (!(mux_send_info_flags[j])) {
+				continue;
+			}
 
-		if (!(send_info->filled)) {
-			continue;
-		}
+			send_info = mux_send_info[j];
+			if (!send_info) {
+				continue;
+			}
 
-		dlci = tty2dlci[j];
-		if (ts0710->dlci[dlci].state == FLOW_STOPPED) {
-			TS0710_DEBUG("Flow stopped on channel DLCI: %d\n",
-				     dlci);
-			continue;
-		} else if (ts0710->dlci[dlci].state != CONNECTED) {
-			TS0710_DEBUG("DLCI %d not connected\n", dlci);
-			send_info->filled = 0;
-			continue;
-		}
+			if (!(send_info->filled)) {
+				continue;
+			}
 
-		if (send_info->length <= TS0710MUX_SERIAL_BUF_SIZE) {
-			TS0710_DEBUG("Send queued UIH for /dev/mux%d", j);
-			basic_write(ts0710, (__u8 *) send_info->frame,
-				    send_info->length);
-			send_info->length = 0;
-			send_info->filled = 0;
-		} else {
-			mux_send_info_idx = j;
-			break;
-		}
-	}			/* End for() loop */
+			dlci = tty2dlci[j];
+			if (ts0710->dlci[dlci].state == FLOW_STOPPED) {
+				TS0710_DEBUG("Flow stopped on channel DLCI: %d\n",
+					dlci);
+				continue;
+			} else if (ts0710->dlci[dlci].state != CONNECTED) {
+				TS0710_DEBUG("DLCI %d not connected\n", dlci);
+				send_info->filled = 0;
+				continue;
+			}
 
-	/* Queue UIH data to be transmitted */
-	for (j = 0; j < NR_MUXS; j++) {
+			if (send_info->length <= TS0710MUX_SERIAL_BUF_SIZE) {
+				TS0710_DEBUG("Send queued UIH for /dev/mux%d", j);
+				basic_write(ts0710, (__u8 *) send_info->frame,
+					send_info->length);
+				send_info->length = 0;
+				send_info->filled = 0;
+			} else {
+				mux_send_info_idx = j;
+				break;
+			}
+		}			/* End for() loop */
 
-		if (!(mux_send_info_flags[j])) {
-			continue;
-		}
+		/* Queue UIH data to be transmitted */
+		for (j = 0; j < NR_MUXS; j++) {
+			if (!(mux_send_info_flags[j])) {
+				continue;
+			}
 
-		send_info = mux_send_info[j];
-		if (!send_info) {
-			continue;
-		}
+			send_info = mux_send_info[j];
+			if (!send_info) {
+				continue;
+			}
 
-		if (send_info->filled) {
-			continue;
-		}
+			if (send_info->filled) {
+				continue;
+			}
 
-		/* Now queue UIH data to send_info->buf */
+			/* Now queue UIH data to send_info->buf */
+			if (!mux_tty[j]) {
+				continue;
+			}
 
-		if (!mux_tty[j]) {
-			continue;
-		}
+			tty = mux_table[j];
+			if (!tty) {
+				continue;
+			}
 
-		tty = mux_table[j];
-		if (!tty) {
-			continue;
-		}
+			dlci = tty2dlci[j];
+			if (ts0710->dlci[dlci].state == FLOW_STOPPED) {
+				TS0710_DEBUG("Flow stopped on channel DLCI: %d\n",
+					dlci);
+				continue;
+			} else if (ts0710->dlci[dlci].state != CONNECTED) {
+				TS0710_DEBUG("DLCI %d not connected\n", dlci);
+				continue;
+			}
 
-		dlci = tty2dlci[j];
-		if (ts0710->dlci[dlci].state == FLOW_STOPPED) {
-			TS0710_DEBUG("Flow stopped on channel DLCI: %d\n",
-				     dlci);
-			continue;
-		} else if (ts0710->dlci[dlci].state != CONNECTED) {
-			TS0710_DEBUG("DLCI %d not connected\n", dlci);
-			continue;
-		}
-
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP))
-		    && tty->ldisc->ops->write_wakeup) {
-			(tty->ldisc->ops->write_wakeup) (tty);
-		}
-		wake_up_interruptible(&tty->write_wait);
+			if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP))
+				&& tty->ldisc->ops->write_wakeup) {
+				(tty->ldisc->ops->write_wakeup) (tty);
+			}
+			wake_up_interruptible(&tty->write_wait);
 
 #ifdef SERIAL_HAVE_POLL_WAIT
-		wake_up_interruptible(&tty->poll_wait);
+			wake_up_interruptible(&tty->poll_wait);
 #endif
 
-		if (send_info->filled) {
-			if (j < mux_send_info_idx) {
-				mux_send_info_idx = j;
+			if (send_info->filled) {
+				if (j < mux_send_info_idx) {
+					mux_send_info_idx = j;
+				}
 			}
-		}
-	}			/* End for() loop */
+		}			/* End for() loop */
+	}
+	return 0;
 }
 
 static int mux_proc_read(char *page, char **start, off_t off, int count,
@@ -3446,6 +3429,7 @@ static const struct tty_operations tty_ops = {
 static int __init mux_init(void)
 {
 	unsigned int j;
+	int err;
 
 	ts0710_init();
 
@@ -3458,8 +3442,28 @@ static int __init mux_init(void)
 	mux_send_info_idx = NR_MUXS;
 	mux_recv_flags = 0;
 
-	muxsend_work_queue = create_workqueue("muxsend");
-	muxpost_receive_work_queue = create_workqueue("muxpostreceive");
+	init_completion(&send_completion);
+	init_completion(&post_recv_completion);
+
+	/*create mux_send thread*/
+	mux_send_kthread = kthread_create(mux_send_thread, NULL, "mux_send");
+	if(IS_ERR(mux_send_kthread)) {
+		printk(KERN_ERR "Unable to create mux_send thread\n");
+		err = PTR_ERR(mux_send_kthread);
+		mux_send_kthread = NULL;
+		return err;
+	}
+	wake_up_process(mux_send_kthread);
+
+	/*create mux_post_recv thread*/
+	mux_post_recv_kthread = kthread_create(mux_post_recv_thread, NULL, "mux_post_recv");
+	if(IS_ERR(mux_post_recv_kthread)) {
+		printk(KERN_ERR "Unable to create mux_post_recv thread\n");
+		err = PTR_ERR(mux_post_recv_kthread);
+		mux_post_recv_kthread = NULL;
+		return err;
+	}
+	wake_up_process(mux_post_recv_kthread);
 
 	memset(&mux_driver, 0, sizeof(struct tty_driver));
 	memset(&mux_tty, 0, sizeof(mux_tty));
@@ -3512,15 +3516,24 @@ static void __exit mux_exit(void)
 		mux_recv_info[j] = 0;
 	}
 	mux_exiting = 1;
-	destroy_workqueue(muxsend_work_queue);
 
 	while (mux_exiting == 1) {
 		msleep(10);
 	}
-	destroy_workqueue(muxpost_receive_work_queue);
-	if(mux_kthread) {
-		kthread_stop(mux_kthread);
-		mux_kthread = NULL;
+
+	if(mux_recv_kthread) {
+		kthread_stop(mux_recv_kthread);
+		mux_recv_kthread = NULL;
+	}
+
+	if(mux_send_kthread) {
+		kthread_stop(mux_send_kthread);
+		mux_send_kthread = NULL;
+	}
+
+	if(mux_post_recv_kthread) {
+		kthread_stop(mux_post_recv_kthread);
+		mux_post_recv_kthread = NULL;
 	}
 
 	if (tty_unregister_driver(&mux_driver))
