@@ -46,7 +46,7 @@
 #define BIT_ANA_ADC_INT                 ( BIT(0) )
 
 /* vars definitions for controller ANA_CTL_INT */
-#define MASK_ANA_INT                    ( 0x7F )
+#define MASK_ANA_INT                    ( 0xFF )
 
 void sprd_ack_ana_irq(struct irq_data *data)
 {
