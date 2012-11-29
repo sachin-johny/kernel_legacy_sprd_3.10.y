@@ -36,4 +36,10 @@
 #define GPIO_BK                  143
 #define MSENSOR_DRDY_GPIO        53
 #define GPIO_PLSENSOR_IRQ	213
+
+#define GPIO_BT_RESET		194
+#define GPIO_WIFI_POWERON	189
+#define GPIO_WIFI_RESET		190
+#define GPIO_WIFI_IRQ	    -1
+
 #endif

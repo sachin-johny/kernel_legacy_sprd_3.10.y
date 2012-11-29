@@ -57,6 +57,7 @@ extern int __init sc8825_clock_init_early(void);
 extern int __init sc8825_regulator_init(void);
 extern int __init sci_clock_init(void);
 
+static struct platform_device rfkill_device;
 static struct platform_device kb_backlight_device;
 
 static struct platform_device *devices[] __initdata = {
@@ -112,8 +113,25 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_stty_td_device,
 #endif
 	&kb_backlight_device,
+	&rfkill_device,
 };
 
+/* RFKILL */
+static struct resource rfkill_resources[] = {
+	{
+		.name   = "bt_reset",
+		.start  = GPIO_BT_RESET,
+		.end    = GPIO_BT_RESET,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct platform_device rfkill_device = {
+     .name = "rfkill",
+     .id = -1,
+     .num_resources  = ARRAY_SIZE(rfkill_resources),
+     .resource   = rfkill_resources,
+};
 
 /* keypad backlight */
 static struct platform_device kb_backlight_device = {
