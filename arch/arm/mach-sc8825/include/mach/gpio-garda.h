@@ -44,4 +44,6 @@
 #define GPIO_WIFI_SHUTDOWN	189
 #define GPIO_WIFI_IRQ		52
 
+#define GPIO_GPS_RESET          167
+#define GPIO_GPS_ONOFF          174
 #endif
