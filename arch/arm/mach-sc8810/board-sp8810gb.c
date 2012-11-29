@@ -194,6 +194,9 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 		I2C_BOARD_INFO(PIXICR_DEVICE_NAME, 0x5C),
 		.platform_data = &pixcir_ts_info,
 	},
+	{
+		I2C_BOARD_INFO("BEKEN_FM", 0x70),
+	},
 };
 
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
@@ -243,6 +246,7 @@ static void sprd8810_i2c2sel_config(void)
 static int sc8810_add_i2c_devices(void)
 {
 	sprd8810_i2c2sel_config();
+	printk("alex:sc8810_add_i2c_device:%d,%d \n",ARRAY_SIZE(i2c2_boardinfo),ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
