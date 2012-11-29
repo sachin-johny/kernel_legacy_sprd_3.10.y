@@ -48,7 +48,11 @@ int gps_power_ctl(int is_on)
 		gpio_set_value(data->power_pin, is_on);
 	} else {
 		if (is_on) {
+		#if defined(CONFIG_ARCH_SC8825)
+			gps_regulator = regulator_get(NULL, data->pwr_type);
+		#else
 			gps_regulator = regulator_get(NULL, REGU_NAME_GPS);
+		#endif
 			if (IS_ERR(gps_regulator)) {
 				pr_err("gpsctl:could not get 1.8v regulator\n");
 				return -1;

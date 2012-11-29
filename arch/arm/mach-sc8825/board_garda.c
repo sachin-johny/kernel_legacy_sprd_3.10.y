@@ -36,6 +36,7 @@
 #include <linux/ktd253b_bl.h>
 #include <sound/audio_pa.h>
 #include <linux/headset.h>
+#include <gps/gpsctl.h>
 
 extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
@@ -47,6 +48,18 @@ extern int __init sci_clock_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
+
+static struct platform_gpsctl_data pdata_gpsctl = {
+	.reset_pin = GPIO_GPS_RESET,
+	.onoff_pin = GPIO_GPS_ONOFF,
+	.clk_type = "clk_aux0",
+	.pwr_type = "vdd18",
+};
+
+static struct platform_device gpsctl_dev = {
+	.name = "gpsctl",
+	.dev.platform_data = &pdata_gpsctl,
+};
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -95,6 +108,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm2_device,
 	&rfkill_device,
 	&brcm_bluesleep_device,
+	&gpsctl_dev,
 };
 
 static struct platform_ktd253b_backlight_data ktd253b_data = {
