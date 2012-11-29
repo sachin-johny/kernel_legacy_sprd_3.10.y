@@ -20,8 +20,11 @@
 #include <mach/hardware.h>
 #include <mach/globalregs.h>
 #include <mach/irqs.h>
+#include <mach/pinmap.h>
 
 #include "sprdfb.h"
+
+
 
 struct sprd_lcd_controller {
 	/* only one device can work one time */
@@ -48,6 +51,28 @@ static struct sprd_lcd_controller lcdc;
 static int overlay_start(struct sprdfb_device *dev, uint32_t layer_index);
 static int overlay_close(struct sprdfb_device *dev);
 #endif
+
+typedef struct {
+	uint32_t reg;
+	uint32_t val;
+} lcd_pinmap_t;
+
+lcd_pinmap_t lcd_rstpin_map[] = {
+	{REG_PIN_LCD_RSTN, BITS_PIN_DS(1)|BITS_PIN_AF(0)|BIT_PIN_NUL|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},
+	{REG_PIN_LCD_RSTN, BITS_PIN_DS(3)|BITS_PIN_AF(3)|BIT_PIN_NUL|BIT_PIN_NUL|BIT_PIN_SLP_OE},
+};
+
+static void sprd_lcdc_set_rstn_prop(unsigned int if_slp)
+{
+	int i;
+
+	if (if_slp)
+		i = 0;
+	else
+		i = 1;
+
+	__raw_writel(lcd_rstpin_map[i].val, CTL_PIN_BASE + lcd_rstpin_map[i].reg);
+}
 
 /* lcdc soft reset */
 static void sprd_lcdc_reset(void)
@@ -390,6 +415,8 @@ static int32_t sprd_lcdc_suspend(struct sprdfb_device *dev)
 			dev->panel->ops->panel_enter_sleep(dev->panel,1);
 		}
 
+		sprd_lcdc_set_rstn_prop(1);		/*modify reset pin status  for lcdc reset pin  sleep power issue */
+
 		dev->enable = 0;
 		clk_disable(lcdc.clk_lcdc);
 	}
@@ -403,6 +430,9 @@ static int32_t sprd_lcdc_resume(struct sprdfb_device *dev)
 	if (dev->enable == 0) {
 		clk_enable(lcdc.clk_lcdc);
 		lcdc.vsync_done = 1;
+
+		sprd_lcdc_set_rstn_prop(0);		/*resume for lcdc reset pin  sleep power issue */
+
 		if (lcdc_read(LCDC_CTRL) == 0) { /* resume from deep sleep */
 			sprd_lcdc_reset();
 			lcdc_hw_init();
