@@ -367,9 +367,9 @@ static int vsp_probe(struct platform_device *pdev)
 	vsp_hw_dev.vsp_parent_clk = NULL;
 
 #if defined(CONFIG_ARCH_SC8825)
-		cmd0 = __raw_readl(AHB_CTRL2);//,"AHB_CTRL2:Read the AHB_CTRL2 CLOCK");
-		cmd0 |= 0xfe0;
-		__raw_writel(cmd0,AHB_CTRL2);//,"AHB_CTRL2:enable MMMTX_CLK_EN");
+		//cmd0 = __raw_readl(AHB_CTRL2);//,"AHB_CTRL2:Read the AHB_CTRL2 CLOCK");
+		//cmd0 |= 0x440;
+		//__raw_writel(cmd0,AHB_CTRL2);//,"AHB_CTRL2:enable MMMTX_CLK_EN");
 
 		//cmd0 = __raw_readl(PLL_SRC);//"PLL_SRC:Read the PLL_SRC CLOCK");
 		//cmd0 &=~(0xc);//192M
