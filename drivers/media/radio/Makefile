@@ -27,5 +27,6 @@ obj-$(CONFIG_RADIO_TIMBERDALE) += radio-timb.o
 obj-$(CONFIG_RADIO_WL1273) += radio-wl1273.o
 obj-$(CONFIG_RADIO_WL128X) += wl128x/
 obj-$(CONFIG_RADIO_KT0812G) += kt0812g_fm_ctrl.o
+obj-$(CONFIG_RADIO_BEKEN) += beken_fm_ctrl.o
 
 EXTRA_CFLAGS += -Isound
