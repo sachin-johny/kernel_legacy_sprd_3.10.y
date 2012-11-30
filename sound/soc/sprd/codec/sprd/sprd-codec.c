@@ -29,6 +29,8 @@
 #include <linux/stat.h>
 #include <linux/atomic.h>
 #include <linux/regulator/consumer.h>
+#include <linux/completion.h>
+#include <linux/interrupt.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -163,6 +165,13 @@ struct sprd_codec_priv {
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
 	struct regulator_bulk_data supplies[SPRD_CODEC_NUM_SUPPLIES];
 	int mic_bias[SPRD_CODEC_MIC_BIAS_MAX];
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+	int ap_irq;
+	struct completion completion_hp_pop;
+
+	int dp_irq;
+	struct completion completion_dac_mute;
+#endif
 };
 
 static void sprd_codec_wait(u32 wait_time)
@@ -176,7 +185,7 @@ static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 {
 	int reg;
 	pr_warn("sprd_codec register digital part\n");
-	for (reg = SPRD_CODEC_DP_BASE; reg <= SPRD_CODEC_DP_END; reg += 0x10) {
+	for (reg = SPRD_CODEC_DP_BASE; reg < SPRD_CODEC_DP_END; reg += 0x10) {
 		pr_warn("0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
 			(reg - SPRD_CODEC_DP_BASE)
 			, snd_soc_read(codec, reg + 0x00)
@@ -186,7 +195,7 @@ static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 		    );
 	}
 	pr_warn("sprd_codec register analog part\n");
-	for (reg = SPRD_CODEC_AP_BASE; reg <= SPRD_CODEC_AP_END; reg += 0x10) {
+	for (reg = SPRD_CODEC_AP_BASE; reg < SPRD_CODEC_AP_END; reg += 0x10) {
 		pr_warn("0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
 			(reg - SPRD_CODEC_AP_BASE)
 			, snd_soc_read(codec, reg + 0x00)
@@ -801,8 +810,6 @@ static int sprd_codec_open(struct snd_soc_codec *codec)
 
 	sprd_codec_dbg("Entering %s\n", __func__);
 
-	/* FIXME this default value maybe work */
-	/* snd_soc_write(codec, AUDIF_SHUTDOWN_CTL, 0x00); */
 	sprd_codec_sample_rate_setting(sprd_codec);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
@@ -961,6 +968,7 @@ static inline int _mixer_setting_one(struct snd_soc_codec *codec, int id,
 	return _mixer_setting(codec, id, id + 1, lr, try_on);
 }
 
+#ifndef CONFIG_CODEC_NO_HP_POP
 static inline int is_hp_pop_compelet(struct snd_soc_codec *codec)
 {
 	int val;
@@ -970,10 +978,60 @@ static inline int is_hp_pop_compelet(struct snd_soc_codec *codec)
 	return HP_POP_FLG_NEAR_CMP == val;
 }
 
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+static void sprd_codec_hp_pop_irq_enable(struct snd_soc_codec *codec)
+{
+	int mask = BIT(AUDIO_POP_IRQ);
+	snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_CLR), mask, mask);
+	snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_EN), mask, mask);
+}
+
+static irqreturn_t sprd_codec_ap_irq(int irq, void *dev_id)
+{
+	int mask;
+	struct sprd_codec_priv *sprd_codec = dev_id;
+	struct snd_soc_codec *codec = sprd_codec->codec;
+	mask = snd_soc_read(codec, AUDIF_INT_MASK);
+	sprd_codec_dbg("hp pop irq mask = 0x%x\n", mask);
+	if (BIT(AUDIO_POP_IRQ) & mask) {
+		mask = BIT(AUDIO_POP_IRQ);
+		snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_EN), mask, 0);
+		complete(&sprd_codec->completion_hp_pop);
+	}
+	return IRQ_HANDLED;
+}
+#endif
+
 static inline int hp_pop_wait_for_compelet(struct snd_soc_codec *codec)
 {
 #ifdef CONFIG_SPRD_CODEC_USE_INT
-	/* TODO add wait compelet */
+	int i;
+	int hp_pop_complete;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	hp_pop_complete = msecs_to_jiffies(SPRD_CODEC_HP_POP_TIMEOUT);
+	for (i = 0; i < 2; i++) {
+		sprd_codec_dbg("hp pop %d irq enable\n", i);
+		sprd_codec_hp_pop_irq_enable(codec);
+		init_completion(&sprd_codec->completion_hp_pop);
+		hp_pop_complete =
+		    wait_for_completion_timeout(&sprd_codec->completion_hp_pop,
+						hp_pop_complete);
+		sprd_codec_dbg("hp pop %d completion %d\n", i, hp_pop_complete);
+		if (!hp_pop_complete) {
+			if (!is_hp_pop_compelet(codec)) {
+				pr_err("hp pop %d timeout not complete\n", i);
+			} else {
+				pr_err("hp pop %d timeout but complete\n", i);
+			}
+		} else {
+			/* 01 change to 10 maybe walk to 11 shortly,
+			   so, check it double. */
+			sprd_codec_wait(2);
+			if (is_hp_pop_compelet(codec)) {
+				return 0;
+			}
+		}
+	}
 #else
 	int times;
 	for (times = 0; times < SPRD_CODEC_HP_POP_TIME_COUNT; times++) {
@@ -987,9 +1045,9 @@ static inline int hp_pop_wait_for_compelet(struct snd_soc_codec *codec)
 		}
 		sprd_codec_wait(SPRD_CODEC_HP_POP_TIME_STEP);
 	}
-	sprd_codec_dbg("hp pop wait timeout: times = %d \n", times);
+	pr_err("hp pop wait timeout: times = %d \n", times);
 #endif
-	return -EBUSY;
+	return 0;
 }
 
 static int hp_pop_event(struct snd_soc_dapm_widget *w,
@@ -1047,6 +1105,7 @@ static int hp_pop_event(struct snd_soc_dapm_widget *w,
 
 	return ret;
 }
+#endif
 
 static int hp_switch_event(struct snd_soc_dapm_widget *w,
 			   struct snd_kcontrol *kcontrol, int event)
@@ -1062,20 +1121,24 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, SOC_REG(DCR1), BIT(DIFF_EN),
 				    BIT(DIFF_EN));
 
+#ifndef CONFIG_CODEC_NO_HP_POP
 		mask = HP_POP_CTL_MASK << HP_POP_CTL;
 		snd_soc_update_bits(codec, SOC_REG(PNRCR1), mask,
 				    HP_POP_CTL_DIS << HP_POP_CTL);
 		sprd_codec_dbg("DIS(en) PNRCR1 = 0x%x\n",
 			       snd_soc_read(codec, PNRCR1));
+#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, SOC_REG(DCR1), BIT(DIFF_EN), 0);
 
+#ifndef CONFIG_CODEC_NO_HP_POP
 		mask = HP_POP_CTL_MASK << HP_POP_CTL;
 		snd_soc_update_bits(codec, SOC_REG(PNRCR1), mask,
 				    HP_POP_CTL_HOLD << HP_POP_CTL);
 		sprd_codec_dbg("HOLD(en) PNRCR1 = 0x%x\n",
 			       snd_soc_read(codec, PNRCR1));
+#endif
 		goto _pre_pmd;
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -1153,7 +1216,8 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 	int ret = 0;
 	int min = sprd_codec_pga_cfg[id].min;
 
-	sprd_codec_dbg("Entering %s id = %d event = 0x%x\n", __func__, id, event);
+	sprd_codec_dbg("Entering %s id = %d event = 0x%x\n", __func__, id,
+		       event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1229,7 +1293,8 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
 
-	pr_info("Entering %s id = %d %ld\n", __func__, id, ucontrol->value.integer.value[0]);
+	pr_info("Entering %s id = %d %ld\n", __func__, id,
+		ucontrol->value.integer.value[0]);
 
 	if (mixer->on == ucontrol->value.integer.value[0])
 		return 0;
@@ -1352,9 +1417,13 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("DACR Switch", 3, SOC_REG(DACR), DACR_EN, 0, NULL,
 			   0),
 	SND_SOC_DAPM_DAC_E("DAC", "Playback", SND_SOC_NOPM, 0, 0, NULL, 0),
+#ifdef CONFIG_CODEC_NO_HP_POP
+	SND_SOC_DAPM_SUPPLY_S("HP POP", 3, SND_SOC_NOPM, 0, 0, NULL, 0),
+#else
 	SND_SOC_DAPM_SUPPLY_S("HP POP", 3, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
 			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+#endif
 	SND_SOC_DAPM_PGA_S("HPL Switch", 2, SOC_REG(DCR1), HPL_EN, 0,
 			   hp_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
@@ -1572,7 +1641,7 @@ static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,
 	int ret = 0;
 
 	pr_info("Entering %s id %d %ld\n", __func__, reg,
-			ucontrol->value.integer.value[0]);
+		ucontrol->value.integer.value[0]);
 
 	val = (ucontrol->value.integer.value[0] & mask);
 	if (invert)
@@ -1618,7 +1687,7 @@ static int sprd_codec_inter_pa_put(struct snd_kcontrol *kcontrol,
 	int ret = 0;
 
 	pr_info("Entering %s %ld\n", __func__,
-		       ucontrol->value.integer.value[0]);
+		ucontrol->value.integer.value[0]);
 	val = (ucontrol->value.integer.value[0] & mask);
 	if (invert)
 		val = max - val;
@@ -1841,21 +1910,77 @@ static int sprd_codec_pcm_hw_free(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+static void sprd_codec_dac_mute_irq_enable(struct snd_soc_codec *codec)
+{
+	int mask = BIT(DAC_MUTE_D);
+	snd_soc_update_bits(codec, SOC_REG(AUD_INT_CLR), mask, mask);
+	snd_soc_update_bits(codec, SOC_REG(AUD_INT_EN), mask, mask);
+}
+
+static irqreturn_t sprd_codec_dp_irq(int irq, void *dev_id)
+{
+	int mask;
+	struct sprd_codec_priv *sprd_codec = dev_id;
+	struct snd_soc_codec *codec = sprd_codec->codec;
+	mask = snd_soc_read(codec, AUD_AUD_STS0);
+	sprd_codec_dbg("dac mute irq mask = 0x%x\n", mask);
+	if (BIT(DAC_MUTE_D_MASK) & mask) {
+		mask = BIT(DAC_MUTE_D);
+		complete(&sprd_codec->completion_dac_mute);
+	}
+	if (BIT(DAC_MUTE_U_MASK) & mask) {
+		mask = BIT(DAC_MUTE_U);
+	}
+	snd_soc_update_bits(codec, SOC_REG(AUD_INT_EN), mask, 0);
+	return IRQ_HANDLED;
+}
+#endif
+
 static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct snd_soc_codec *codec = dai->codec;
-	int ret;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
 
 	sprd_codec_dbg("Entering %s\n", __func__);
-	sprd_codec_dbg("mute %i\n", mute);
 
-	ret =
-	    snd_soc_update_bits(codec, SOC_REG(AUD_DAC_CTL),
-				BIT(DAC_MUTE_START),
-				mute ? BIT(DAC_MUTE_START) : 0);
-	sprd_codec_wait(SPRD_CODEC_DAC_MUTE_WAIT_TIME);
+	if (atomic_read(&sprd_codec->power_refcount) >= 1) {
+		sprd_codec_dbg("mute %i\n", mute);
 
-	sprd_codec_dbg("return %i\n", ret);
+		ret =
+		    snd_soc_update_bits(codec, SOC_REG(AUD_DAC_CTL),
+					BIT(DAC_MUTE_START),
+					mute ? BIT(DAC_MUTE_START) : 0);
+#ifdef CONFIG_CODEC_DAC_MUTE_WAIT
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+		if (mute && ret) {
+			int dac_mute_complete;
+			struct sprd_codec_priv *sprd_codec =
+			    snd_soc_codec_get_drvdata(codec);
+			sprd_codec_dbg("dac mute irq enable\n");
+			sprd_codec_dac_mute_irq_enable(codec);
+			init_completion(&sprd_codec->completion_dac_mute);
+			dac_mute_complete =
+			    wait_for_completion_timeout
+			    (&sprd_codec->completion_dac_mute,
+			     msecs_to_jiffies(SPRD_CODEC_DAC_MUTE_TIMEOUT));
+			sprd_codec_dbg("dac mute completion %d\n",
+				       dac_mute_complete);
+			if (!dac_mute_complete) {
+				pr_err("dac mute timeout\n");
+			}
+		}
+#else
+		if (mute && ret) {
+			sprd_codec_wait(SPRD_CODEC_DAC_MUTE_WAIT_TIME);
+		}
+#endif
+#endif
+
+		sprd_codec_dbg("return %i\n", ret);
+	}
+
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
 	return ret;
@@ -2011,15 +2136,48 @@ static __devinit int sprd_codec_probe(struct platform_device *pdev)
 		pr_err("Failed to register CODEC: %d\n", ret);
 		return ret;
 	}
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+	sprd_codec->ap_irq = CODEC_AP_IRQ;
+
+	ret =
+	    request_irq(sprd_codec->ap_irq, sprd_codec_ap_irq, 0,
+			"sprd_codec_ap", sprd_codec);
+	if (ret) {
+		pr_err("request_irq ap failed!\n");
+		goto err_irq;
+	}
+
+	sprd_codec->dp_irq = CODEC_DP_IRQ;
+
+	ret =
+	    request_irq(sprd_codec->dp_irq, sprd_codec_dp_irq, 0,
+			"sprd_codec_dp", sprd_codec);
+	if (ret) {
+		pr_err("request_irq dp failed!\n");
+		goto dp_err_irq;
+	}
+#endif
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
 	return 0;
 
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+dp_err_irq:
+	free_irq(sprd_codec->ap_irq, sprd_codec);
+err_irq:
+	snd_soc_unregister_codec(&pdev->dev);
+	return -EINVAL;
+#endif
 }
 
 static int __devexit sprd_codec_remove(struct platform_device *pdev)
 {
+#ifdef CONFIG_SPRD_CODEC_USE_INT
+	struct sprd_codec_priv *sprd_codec = platform_get_drvdata(pdev);
+	free_irq(sprd_codec->ap_irq, sprd_codec);
+	free_irq(sprd_codec->dp_irq, sprd_codec);
+#endif
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }

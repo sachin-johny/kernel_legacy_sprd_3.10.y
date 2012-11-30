@@ -99,12 +99,13 @@
 #define IRQ_ANA_TPC_INT			SCI_EXT_IRQ(4)
 #define IRQ_ANA_EIC_INT			SCI_EXT_IRQ(5)
 #define IRQ_ANA_CHGRWDG_INT		SCI_EXT_IRQ(6)
+#define IRQ_ANA_AUD_INT			SCI_EXT_IRQ(7)
 
 #define IRQ_ANA_INT_START		IRQ_ANA_ADC_INT
-#define NR_ANA_IRQS			(7)
+#define NR_ANA_IRQS			(8)
 
 /* sc8825 gpio&eic pin interrupt number, total is 320, which is bigger than 256 */
-#define GPIO_IRQ_START			SCI_EXT_IRQ(7)
+#define GPIO_IRQ_START			SCI_EXT_IRQ(8)
 
 #define NR_GPIO_IRQS	( 320 )
 

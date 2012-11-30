@@ -21,6 +21,7 @@
 #include <mach/regs_ana_glb.h>
 #include <mach/adi.h>
 #include <mach/dma.h>
+#include <mach/irqs.h>
 
 /* OKAY, this is for other else owner
    if you do not care the audio config
@@ -44,6 +45,8 @@ enum {
 #define VBC_PHY_BASE		SPRD_VB_PHYS
 #define CODEC_DP_PHY_BASE	(SPRD_VB_PHYS + 0x1000)
 #define CODEC_AP_PHY_BASE	(SPRD_MISC_PHYS + 0x0700)
+#define CODEC_AP_IRQ		(IRQ_ANA_AUD_INT)
+#define CODEC_DP_IRQ		(IRQ_REQ_AUD_INT)
 #endif
 
 /* ------------------------------------------------------------------------- */

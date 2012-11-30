@@ -19,6 +19,10 @@
 
 #include <mach/sprd-audio.h>
 
+#ifndef CONFIG_CODEC_DAC_MUTE_WAIT
+/* #define CONFIG_CODEC_DAC_MUTE_WAIT */
+#endif
+
 /* unit: ms */
 #define DOLPHIN_LDO_WAIT_TIME			(5)
 #define DOLPHIN_TSBYU_WAIT_TIME			(120)
