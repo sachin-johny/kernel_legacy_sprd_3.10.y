@@ -1351,7 +1351,7 @@ void __init setup_arch(char **cmdline_p)
 static int __init high_ram(char *p)
 {
     	if(p && strstr(p,"512M"))
-			arm_add_memory(0xA0000000, 0x10000000);
+			arm_add_memory(0xE0000000, 0x10000000);
 		return 0;
 }
 early_param("ram", high_ram);
