@@ -25,6 +25,11 @@ config MACH_SP8825EB
 	bool "SP8825EB"
 	help
 	  SP8825 EB based on SC8825.
+config MACH_SP6825GA
+	default n
+	bool "SP6825GA"
+	help
+	  SP6825 GA based on SC8825.
 config MACH_GARDA
 	default n
 	bool "GARDA"
