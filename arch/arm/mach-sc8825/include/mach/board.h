@@ -30,6 +30,9 @@
 #ifdef CONFIG_MACH_SP8825EB
 #include <mach/gpio-sp8825eb.h>
 #endif
+#ifdef CONFIG_MACH_SP6825GA
+#include <mach/gpio-sp6825ga.h>
+#endif
 #ifdef CONFIG_MACH_GARDA
 #include <mach/gpio-garda.h>
 #endif
