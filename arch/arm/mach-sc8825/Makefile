@@ -31,6 +31,7 @@ obj-$(CONFIG_MACH_SP8825_FPGA) += board_sp8825_fpga.o
 obj-$(CONFIG_MACH_SP8825_OPENPHONE) += board_sp8825_openphone.o board_sp8825_openphone_wifi.o
 obj-$(CONFIG_MACH_SP8825EA) += board_sp8825ea.o board_sp8825ea_wifi.o
 obj-$(CONFIG_MACH_SP8825EB) += board_sp8825eb.o
+obj-$(CONFIG_MACH_SP6825GA) += board_sp6825ga.o
 obj-$(CONFIG_MACH_GARDA) += board_garda.o board_garda_wifi.o
 obj-$(CONFIG_SC8825_VIBRATOR) += vibrator.o
 ifeq ($(CONFIG_RTL8723AS),m)
