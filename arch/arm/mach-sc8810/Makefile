@@ -3,7 +3,8 @@ obj-y += io.o idle.o irq.o timer.o gpio.o gpio_phy.o\
 	dma.o ldo.o adi_drv.o efuse_drv.o dcdc_drv.o \
 	rfkill_dummy.o gpio_set.o adc.o chg_phy.o eic.o arch_init.o arch_asm.o pm_wakesource.o
 obj-m +=driver_rw.o
-obj-m +=dcdc_debug.o
+obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
+
 obj-$(CONFIG_TS0710_MUX_UART)+= ts0710_mux.o mux_buffer.o 
 # Common code for board init
 obj-y += common.o clock_common.o clock_sc8800g.o power_domain.o clock_test.o i2c.o \

@@ -139,16 +139,6 @@ typedef enum {
 } nand_ecc_modes_t;
 
 /*
- * Constants for SPRD nand controller operation status
- */
-#ifdef CONFIG_MTD_NAND_SC8810
-typedef enum {
-	NFC_CMD_OPER_OK,
-	NFC_CMD_OPER_TIMEOUT,
-} nfc_status_t;
-#endif
-
-/*
  * Constants for Hardware ECC
  */
 /* Reset Hardware ECC for read */
@@ -413,7 +403,6 @@ struct nand_chip {
 	char  		flashname[100];
 #endif
 #ifdef CONFIG_MTD_NAND_SC8810
-	nfc_status_t 	(*nfc_operation_status)(struct mtd_info *mtd);
 	char  		flashname[100];
 #endif
 

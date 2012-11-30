@@ -119,15 +119,15 @@ void CHG_SetUsbAcChgTable(int is_usb ,int32_t vprog)
     vol = (Resistance * current) / 1000;
     printk("############################################# vol=%d\n",vol);
     table_size = ARRAY_SIZE(voltage_capacity_table);
-    for(pos=table_size-1 ; pos >= 0 ;pos--){
+    for(pos=0 ; pos < table_size ; pos++){
 	    if(is_usb){
 	            usb_charging_voltage_capacity_table[pos][0] = voltage_capacity_table[pos][0] + vol ;
 	            usb_charging_voltage_capacity_table[pos][1] = voltage_capacity_table[pos][1] ;
-		    if(vprog && (pos ==table_size-2)) break ;
+		    if(vprog && (pos >= 2)) break ;
 	    }else{
 	            ac_charging_voltage_capacity_table[pos][0]  = voltage_capacity_table[pos][0] + vol ;
 	            ac_charging_voltage_capacity_table[pos][1]  = voltage_capacity_table[pos][1] ;
-		    if(vprog && (pos ==table_size-2)) break ;
+		    if(vprog && (pos >= 2)) break ;
 	    }
 	}
 }

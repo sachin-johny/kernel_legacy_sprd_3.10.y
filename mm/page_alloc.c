@@ -1973,6 +1973,7 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	unsigned long did_some_progress;
 	struct task_struct *p = current;
 	int retry_times = 0;
+	bool retry_timeout_flag = false;
 
 	/*
 	 * In the slowpath, we sanity check order to avoid ever trying to
@@ -2006,6 +2007,7 @@ restart:
 	 */
 	alloc_flags = gfp_to_alloc_flags(gfp_mask);
 
+rebalance:
 	/* This is the last chance, in general, before the goto nopage. */
 	page = get_page_from_freelist(gfp_mask, nodemask, order, zonelist,
 			high_zoneidx, alloc_flags & ~ALLOC_NO_WATERMARKS,
@@ -2013,7 +2015,6 @@ restart:
 	if (page)
 		goto got_pg;
 
-rebalance:
 	/* Allocate without watermarks if the context allows */
 	if (alloc_flags & ALLOC_NO_WATERMARKS) {
 		page = __alloc_pages_high_priority(gfp_mask, order,
@@ -2080,6 +2081,9 @@ no_progress:
 				goto nopage;
 
 			goto restart;
+		} else if(retry_timeout_flag){
+		       retry_timeout_flag = false;
+                       goto nopage;
 		}
 	}
 
@@ -2088,6 +2092,7 @@ no_progress:
 	if (should_alloc_retry(gfp_mask, order, pages_reclaimed)) {
 		if(retry_times++ > 5) {
 			retry_times = 0;
+			retry_timeout_flag = true;
 			goto no_progress;
 		}
 		/* Wait for some write requests to complete then retry */

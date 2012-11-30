@@ -1695,6 +1695,7 @@ enum {
     MODE_NORMAL = 0,
     MODE_RINGTONE,
     MODE_IN_CALL,
+    MODE_IN_COMMUNICATION,
     MODE_WAITING,
     MODE_MAX
 };
@@ -1706,6 +1707,7 @@ ssize_t android_mode_show(struct class *class, struct class_attribute *attr, cha
     switch (android_mode) {
         case MODE_RINGTONE: mode_name = "ringtone"; break;
         case MODE_IN_CALL:  mode_name = "incall"; break;
+	case MODE_IN_COMMUNICATION: mode_name = "communication"; break;
         case MODE_WAITING:  mode_name = "waiting"; break;
         default: android_mode = MODE_NORMAL; mode_name = "normal"; break;
     }
