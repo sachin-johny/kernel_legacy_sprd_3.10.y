@@ -1192,7 +1192,7 @@ void pm_ana_ldo_config(void)
 	unsigned int val;
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
-	val |= 0xc7fd;
+	val |= 0xc7f1;
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
