@@ -34,6 +34,7 @@
 #include <linux/sched.h>
 #include <linux/wait.h>
 #include <linux/slab.h>
+#include <linux/wakelock.h>
 #include <asm/system.h>
 #include <asm/uaccess.h>
 #include <asm/ioctls.h>
@@ -213,6 +214,7 @@ typedef struct ExDev {
     unsigned	 writes;
     unsigned long long read_bytes;
     unsigned long long written_bytes;
+    struct wake_lock wake_lock; /* lock to keep android system awake */
 } ExDev;
 
 #define WAIT_ONLY_ON_EMPTY   0x1  /* The read waits only on empty buffer */
@@ -414,6 +416,8 @@ ex_xirq_hdl (void* cookie, NkXIrq xirq)
 
     (void) xirq;
     wake_up_interruptible(&ex_dev->wait);
+
+    wake_lock_timeout(&ex_dev->wake_lock, 2 * HZ);
 }
 
     /*
@@ -502,6 +506,7 @@ ex_open (struct inode* inode, struct file* file)
 {
     unsigned int minor   = iminor(inode);
     ExDev*       ex_dev;
+    char         wl_name[10];
 
 	/*
 	 * Check for "legal" minor
@@ -563,6 +568,12 @@ ex_open (struct inode* inode, struct file* file)
     }
     ++ex_dev->opens;
 
+	/*
+	 * init wake_lock for this vbpipe
+	 */
+    sprintf(wl_name, "vbpipe%d", minor);
+    wake_lock_init(&ex_dev->wake_lock, WAKE_LOCK_SUSPEND, wl_name);
+
 #ifdef TRACE_SYSCONF
     printk(VBPIPE_MSG "ex_open for minor=%u is ok\n", minor);
 #endif
@@ -620,6 +631,8 @@ ex_release (struct inode* inode, struct file* file)
 	printk(VBPIPE_MSG "ex_release for minor=%u is ok\n", minor);
 #endif
     }
+
+    wake_lock_destroy(&ex_dev->wake_lock);
 
     mutex_unlock(&ex_dev->olock);
 
@@ -715,7 +728,9 @@ ex_read (struct file* file, char __user* buf,
             if (wait_event_interruptible(ex_dev->wait,
                                          (RING_C_ROOM(sring) != 0)  ||
                                          (slink->c_state != NK_DEV_VLINK_ON))) {
+                /* we need notification from the peer side even in deep sleep
                 sring->s_wait = 0;
+                */
                 done = -EINTR;
                 break;
             }
@@ -800,6 +815,9 @@ ex_read (struct file* file, char __user* buf,
 	++ex_dev->reads;
 	ex_dev->read_bytes += done;
     }
+    if (RING_C_ROOM(sring) == 0)
+        wake_unlock(&ex_dev->wake_lock);
+
     mutex_unlock(&ex_dev->rlock);
 
     return done;
