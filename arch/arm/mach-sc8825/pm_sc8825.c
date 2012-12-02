@@ -47,6 +47,13 @@ void pm_ana_ldo_config(void);
 
 //#define FORCE_DISABLE_DSP
 
+/* disable l2cache in cpu_idle */
+static unsigned int cpus_idle;
+#ifdef CONFIG_CACHE_L2X0
+static unsigned int l2cache_standby;
+#endif
+#define CPU_IDLE(cpu) (1<<cpu)
+#define CPUS_ALL_IDLE (CPU_IDLE(0)|CPU_IDLE(1))
 
 #define SPRD_IPI_REG(val)               (SPRD_IPI_BASE+val)
 #define SPRD_IPI_INT                    SPRD_IPI_REG(0x10)
@@ -1099,21 +1106,33 @@ static void init_gr(void)
 void sc8825_idle(void)
 {
 	int val;
+	unsigned int cpu;
+
+	cpu = smp_processor_id();
 	if (!need_resched()) {
 		hw_local_irq_disable();
 		if (!arch_local_irq_pending()) {
 			val = os_ctx->idle(os_ctx);
 			if (0 == val) {
+				cpus_idle |= CPU_IDLE(cpu);
 #ifdef CONFIG_CACHE_L2X0
-				/*l2cache power control, standby mode enable*/
+				/* TODO:l2cache power control, standby mode enable */
 				/*L2X0_POWER_CTRL*/
-				__raw_writel(1, SPRD_L2_BASE+0xF80);
-				l2x0_suspend();
+				if(cpus_idle == CPUS_ALL_IDLE){
+					/*__raw_writel(1, SPRD_L2_BASE+0xF80);
+					l2x0_suspend();
+					*/
+					l2cache_standby = 1;
+				}
 #endif
 				cpu_do_idle();
 #ifdef CONFIG_CACHE_L2X0
-				l2x0_resume(1);
+				if(l2cache_standby == 1){
+					/*l2x0_resume(0);*/
+					l2cache_standby = 0;
+				}
 #endif
+				cpus_idle &= ~CPU_IDLE(cpu);
 			}
 		}
 		hw_local_irq_enable();
@@ -1132,12 +1151,12 @@ void sc8825_idle(void)
 #ifdef CONFIG_CACHE_L2X0
 			/*l2cache power control, standby mode enable*/
 			/*L2X0_POWER_CTRL*/
-			__raw_writel(1, SPRD_L2_BASE+0xF80);
-			l2x0_suspend();
+			/*__raw_writel(1, SPRD_L2_BASE+0xF80);*/
+			/*l2x0_suspend();*/
 #endif
 			cpu_do_idle();
 #ifdef CONFIG_CACHE_L2X0
-			l2x0_resume(1);
+			/*l2x0_resume(1);*/
 #endif
 		}
 		local_irq_enable();
