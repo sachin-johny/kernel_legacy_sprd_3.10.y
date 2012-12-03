@@ -415,7 +415,14 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 			return -EINVAL;
 		}
 
-		if (V4L2_PIX_FMT_GREY == fourcc || V4L2_PIX_FMT_JPEG == fourcc) {
+		if (V4L2_PIX_FMT_GREY == fourcc) {
+			if (DCAM_CAP_IF_CSI2 == info->if_mode && 0 == info->is_loose) {
+				depth_pixel = 10;
+			} else {
+				depth_pixel = 16;
+			}
+			DCAM_TRACE("V4L2: RawRGB sensor, %d %d \n", info->is_loose, depth_pixel);
+		} else if (V4L2_PIX_FMT_JPEG == fourcc) {
 			depth_pixel = 8;
 		} else {
 			depth_pixel = 16;
