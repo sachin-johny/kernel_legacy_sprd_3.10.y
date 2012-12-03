@@ -61,6 +61,9 @@ extern void __init sc8825_timer_init(void);
 extern int __init sc8825_clock_init_early(void);
 extern int __init sc8825_regulator_init(void);
 extern int __init sci_clock_init(void);
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+extern int __init sprd_ramconsole_init(void);
+#endif
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -627,6 +630,9 @@ int __init sc8825_clock_init_early(void)
 
 static void __init sc8825_init_machine(void)
 {
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	sprd_ramconsole_init();
+#endif
 	sci_adc_init((void __iomem *)ADC_BASE);
 	sc8825_regulator_init();
 	sprd_add_otg_device();

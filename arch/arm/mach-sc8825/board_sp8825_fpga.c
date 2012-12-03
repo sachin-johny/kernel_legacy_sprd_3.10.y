@@ -42,6 +42,9 @@ extern void __init sc8825_timer_init(void);
 extern int __init sc8825_clock_init(void);
 extern int __init sc8825_regulator_init(void);
 extern int __init sci_clock_init(void);
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+extern int __init sprd_ramconsole_init(void);
+#endif
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_hwspinlock_device0,
@@ -265,6 +268,9 @@ int __init sc8825_clock_init(void)
 
 static void __init sc8825_init_machine(void)
 {
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	sprd_ramconsole_init();
+#endif
 	sc8825_regulator_init();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
