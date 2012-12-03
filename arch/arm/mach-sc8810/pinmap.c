@@ -28,6 +28,10 @@ pinmap_t __initconst pinmap[] = {
 #include "pinmap-sp8810ga.h"
 #endif
 
+#ifdef CONFIG_MACH_SP6820GA
+#include "pinmap-sp6820ga.h"
+#endif
+
 #ifdef CONFIG_MACH_SP8810GB
 #include "pinmap-sp8810gb.h"
 #endif
