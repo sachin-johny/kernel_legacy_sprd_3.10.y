@@ -27,6 +27,8 @@
 #define VSP_RELEASE     _IO(SPRD_VSP_IOCTL_MAGIC, 6)
 #define VSP_START       _IO(SPRD_VSP_IOCTL_MAGIC, 7)
 #define VSP_RESET       _IO(SPRD_VSP_IOCTL_MAGIC, 8)
+#define VSP_REG_IRQ       _IO(SPRD_VSP_IOCTL_MAGIC,9)
+#define VSP_UNREG_IRQ       _IO(SPRD_VSP_IOCTL_MAGIC,10)
 
 enum sprd_vsp_frequency_e{ 
 	VSP_FREQENCY_LEVEL_0 = 0,
