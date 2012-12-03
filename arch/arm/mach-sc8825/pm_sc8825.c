@@ -1098,7 +1098,7 @@ static void init_gr(void)
 	/* enable XTL auto power down, set bufon_ctrl[17:16] 0 */
 	val = sci_glb_read(REG_GLB_CLK_EN, -1UL);
 	val |= MCU_XTLEN_AUTOPD_EN;
-	val &= ~BUFON_CTRL_HI;
+	val |= BUFON_CTRL_HI;
 	sci_glb_write(REG_GLB_CLK_EN, val, -1UL );
 }
 
