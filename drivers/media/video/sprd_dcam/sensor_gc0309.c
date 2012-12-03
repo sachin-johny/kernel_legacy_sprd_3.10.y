@@ -740,7 +740,8 @@ LOCAL uint32_t set_gc0309_video_mode(uint32_t mode)
         if(0 == mode)
                 GC0309_WriteReg(0xec,0x20);
         else if(1 == mode)
-                GC0309_WriteReg(0xec,0x00);
+				GC0309_WriteReg(0xec,0x20); 	// 100ms
+                //GC0309_WriteReg(0xec,0x00); // 60ms
         SENSOR_TRACE("SENSOR: GC0309_ReadReg(0xec) = %x\n", GC0309_ReadReg(0xec));
         SENSOR_TRACE("SENSOR: set_video_mode: mode = %d\n", mode);
         return 0;
