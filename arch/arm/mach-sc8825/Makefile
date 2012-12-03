@@ -37,3 +37,4 @@ obj-$(CONFIG_SC8825_VIBRATOR) += vibrator.o
 ifeq ($(CONFIG_RTL8723AS),m)
 	obj-y  += rtl8723_adapter.o
 endif
+obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o
