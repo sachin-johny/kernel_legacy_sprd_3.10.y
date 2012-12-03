@@ -57,7 +57,7 @@
 #define DCAM_INT_RAW_OFF		0x2C
 
 
-#if defined(CONFIG_ARCH_SC8825)
+#if 0//defined(CONFIG_ARCH_SC8825)
 #ifdef USE_INTERRUPT
 #undef USE_INTERRUPT
 #endif
@@ -155,7 +155,11 @@ static void release_vsp(struct vsp_fh *vsp_fp)
 
 	return;
 }
-
+#if defined(CONFIG_ARCH_SC8825)
+#ifdef USE_INTERRUPT
+static irqreturn_t vsp_isr(int irq, void *data);
+#endif
+#endif
 static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	int ret, cmd0;
@@ -263,6 +267,23 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT(15), AHB_SOFT_RST);
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
 		break;
+#if defined(CONFIG_ARCH_SC8825)		
+#ifdef USE_INTERRUPT
+	case VSP_REG_IRQ:
+	/* register isr */
+	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &vsp_hw_dev);
+	if (ret) {
+		printk(KERN_ERR "vsp: failed to request irq!\n");
+		ret = -EINVAL;
+		return -EINVAL;
+	}
+	break;
+
+	case VSP_UNREG_IRQ:
+		free_irq(IRQ_VSP_INT, &vsp_hw_dev);
+		break;
+#endif
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -421,7 +442,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			VSP_MINOR, ret);
 		goto errout;
 	}
-
+#if !defined(CONFIG_ARCH_SC8825)
 #ifdef USE_INTERRUPT
 	/* register isr */
 	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &vsp_hw_dev);
@@ -430,6 +451,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		ret = -EINVAL;
 		goto errout2;
 	}
+#endif
 #endif
 
 	return 0;
@@ -455,9 +477,10 @@ static int vsp_remove(struct platform_device *pdev)
 	printk(KERN_INFO "vsp_remove called !\n");
 
 	misc_deregister(&vsp_dev);
-
+#if !defined(CONFIG_ARCH_SC8825)
 #ifdef USE_INTERRUPT
 	free_irq(IRQ_VSP_INT, &vsp_hw_dev);
+#endif
 #endif
 
 	if (vsp_hw_dev.vsp_clk) {
