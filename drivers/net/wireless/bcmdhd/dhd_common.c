@@ -929,6 +929,7 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 		/* Display the trace buffer. Advance from \n to \n to avoid display big
 		 * printf (issue with Linux printk )
 		 */
+#if 0
 		p = (char *)&buf[MSGTRACE_HDRLEN];
 		while ((s = strstr(p, "\n")) != NULL) {
 			*s = '\0';
@@ -936,6 +937,7 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 			p = s+1;
 		}
 		printf("%s\n", p);
+#endif
 
 		/* Reset datalen to avoid display below */
 		datalen = 0;
@@ -954,6 +956,7 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 		break;
 	}
 
+#if 0
 	/* show any appended data */
 	if (datalen) {
 		buf = (uchar *) event_data;
@@ -962,6 +965,7 @@ wl_show_host_event(wl_event_msg_t *event, void *event_data)
 			DHD_EVENT((" 0x%02x ", *buf++));
 		DHD_EVENT(("\n"));
 	}
+#endif
 }
 #endif /* SHOW_EVENTS */
 

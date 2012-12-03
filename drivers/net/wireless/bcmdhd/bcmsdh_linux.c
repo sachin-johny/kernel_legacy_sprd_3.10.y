@@ -924,7 +924,7 @@ void bcmsdh_unregister_oob_intr(void)
 	printk("sdhcinfo->oob_irq_registered = %d\n",sdhcinfo->oob_irq_registered);
 
 	if (sdhcinfo->oob_irq_registered == TRUE) {
-		//bcmsdh_set_irq(FALSE);
+		bcmsdh_set_irq(FALSE);
 		free_irq(sdhcinfo->oob_irq, NULL);
 		sdhcinfo->oob_irq_registered = FALSE;
 	}

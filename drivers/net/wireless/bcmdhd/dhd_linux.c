@@ -119,6 +119,8 @@ extern bool ap_fw_loaded;
 #define DHD_REOPEN 1
 #endif
 
+int dev_close_flag = 0;
+
 #include <wl_android.h>
 
 #ifdef ARP_OFFLOAD_SUPPORT
@@ -1037,12 +1039,19 @@ dhd_op_if(dhd_if_t *ifp)
 			DHD_TRACE(("\n%s: got 'DHD_IF_DEL' state\n", __FUNCTION__));
 #ifdef WL_CFG80211
 			if (dhd->dhd_state & DHD_ATTACH_STATE_CFG80211) {
-				wl_cfg80211_notify_ifdel(ifp->net);
+				wl_cfg80211_ifdel_ops(ifp->net);
 			}
 #endif
+			msleep(300);
 			netif_stop_queue(ifp->net);
 			unregister_netdev(ifp->net);
 			ret = DHD_DEL_IF;	/* Make sure the free_netdev() is called */
+
+#ifdef WL_CFG80211
+			if (dhd->dhd_state & DHD_ATTACH_STATE_CFG80211) {
+				wl_cfg80211_notify_ifdel();
+			}
+#endif
 		}
 		break;
 	case DHD_IF_DELETING:
@@ -2094,6 +2103,10 @@ dhd_ioctl_entry(struct net_device *net, struct ifreq *ifr, int cmd)
 		printk("%s: dhd is down. skip it.\n", __func__);
 		return -ENODEV;
 	}
+	if(dev_close_flag) {
+		printk("%s: dhd is closed. skip it.\n", __func__);
+		return -ENODEV;
+	}
 
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 
@@ -2332,7 +2345,7 @@ dhd_cleanup_virt_ifaces(dhd_info_t *dhd)
 static int
 dhd_stop(struct net_device *net)
 {
-	int ifidx;
+	int ifidx = 0;
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(net);
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 	DHD_TRACE(("%s: Enter %p\n", __FUNCTION__, net));
@@ -2366,14 +2379,15 @@ dhd_stop(struct net_device *net)
 	/* Stop the protocol module */
 	dhd_prot_stop(&dhd->pub);
 
+	OLD_MOD_DEC_USE_COUNT;
+exit:
+
 #if defined(WL_CFG80211)
 	if (ifidx == 0 && !dhd_download_fw_on_driverload)
 		wl_android_wifi_off(net);
 #endif 
 	dhd->pub.rxcnt_timeout = 0;
 	dhd->pub.txcnt_timeout = 0;
-	OLD_MOD_DEC_USE_COUNT;
-exit:
 	DHD_OS_WAKE_UNLOCK(&dhd->pub);
 	return 0;
 }
@@ -2390,6 +2404,7 @@ dhd_open(struct net_device *net)
 	int32 ret = 0;
 	int loop_num = 0;
 loop:
+	dev_close_flag = 0;
 	ret = 0;
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 	/* Update FW path if it was changed */
@@ -2446,7 +2461,7 @@ loop:
 			if ((ret = dhd_bus_start(&dhd->pub)) != 0) {
 				DHD_ERROR(("%s: failed with code %d\n", __FUNCTION__, ret));
 				ret = -1;
-				wl_android_wifi_off(net);/* make it power off if error */
+				/*wl_android_wifi_off(net);*/
 				goto exit;
 			}
 
@@ -2465,14 +2480,16 @@ loop:
 
 #if defined(WL_CFG80211)
 		if (unlikely(wl_cfg80211_up(NULL))) {
+#if 0 /*modified by xinrui 1129 start*/
 			wl_cfg80211_down(NULL);
 			if ((dhd->dhd_state & DHD_ATTACH_STATE_ADD_IF) &&
 				(dhd->dhd_state & DHD_ATTACH_STATE_CFG80211)) {
 				dhd_cleanup_virt_ifaces(dhd);
 			}
+			wl_android_wifi_off(net);
+#endif /*modified by xinrui 1129 end */
 			DHD_ERROR(("%s: failed to bring up cfg80211\n", __FUNCTION__));
 			ret = -1;
-			wl_android_wifi_off(net);/* make it power off if error */
 			goto exit;
 		}
 #endif /* WL_CFG80211 */
@@ -2491,6 +2508,7 @@ exit:
 	DHD_OS_WAKE_UNLOCK(&dhd->pub);
 	if(ret != 0){
 		DHD_ERROR(("%s: failed to up driver, just try again!loop_num: %d \n",__FUNCTION__,loop_num));
+		dhd_stop(net); /*modified by xinrui 1129*/
 		msleep(20);
 		loop_num++;
 		if(loop_num < 2) {
@@ -2960,6 +2978,7 @@ DHD_ERROR(("%s: dhdsdio_probe_download . firmware = %s nvram = %s\n",
 	if (dhd->threads_only)
 		dhd_os_sdunlock(dhdp);
 #endif /* DHDTHREAD */
+#if 0
 #ifdef EMBEDDED_PLATFORM
 	bcm_mkiovar("event_msgs", dhdp->eventmask, WL_EVENTING_MASK_LEN, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhdp, WLC_GET_VAR, iovbuf, sizeof(iovbuf), FALSE, 0);
@@ -3003,6 +3022,7 @@ DHD_ERROR(("%s: dhdsdio_probe_download . firmware = %s nvram = %s\n",
 	dhdp->pktfilter[2] = NULL;
 	dhdp->pktfilter[3] = NULL;
 #endif /* EMBEDDED_PLATFORM */
+#endif
 
 #ifdef READ_MACADDR
 	dhd_read_macaddr(dhd);
@@ -4475,6 +4495,15 @@ int net_os_set_suspend_disable(struct net_device *dev, int val)
 	return ret;
 }
 
+int net_os_get_suspend(struct net_device *dev)
+{
+	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
+	if (dhd) {
+		return dhd->pub.in_suspend;
+	} else
+		return -1;
+}
+
 int net_os_set_suspend(struct net_device *dev, int val)
 {
 	int ret = 0;
@@ -5094,6 +5123,8 @@ int dhd_reopen_dev(struct net_device *dev)
 {
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
 	if(dhd->pub.op_mode == HOSTAPD_MASK) {
+		printk("net_os_send_hang_message softAP enter\n");
+		dev_close_flag = 1;
 		dev_close(dev);
 	} else {
 		printk("net_os_send_hang_message enter2\n");

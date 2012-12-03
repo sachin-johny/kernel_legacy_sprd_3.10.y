@@ -827,7 +827,7 @@ wl_cfg80211_add_virtual_iface(struct wiphy *wiphy, char *name,
 	WL_DBG(("if name: %s, type: %d\n", name, type));
 	if(strstr(name, "p2p") != NULL) {
 		rtnl_unlock();
-		msleep(1000);
+		msleep(100);
 		rtnl_lock();
 	}
 	switch (type) {
@@ -1145,7 +1145,18 @@ wl_cfg80211_notify_ifadd(struct net_device *ndev, s32 idx, s32 bssidx,
 }
 
 s32
-wl_cfg80211_notify_ifdel(struct net_device *ndev)
+wl_cfg80211_notify_ifdel(void)
+{
+	struct wl_priv *wl = wlcfg_drv_priv;
+
+	WL_DBG(("Enter \n"));
+	wl_clr_p2p_status(wl, IF_DELETING);
+
+	return 0;
+}
+
+s32
+wl_cfg80211_ifdel_ops(struct net_device *ndev)
 {
 	struct wl_priv *wl = wlcfg_drv_priv;
 	bool rollback_lock = false;
@@ -1180,7 +1191,6 @@ wl_cfg80211_notify_ifdel(struct net_device *ndev)
 		wl->p2p->vif_created = false;
 		wl_cfgp2p_clear_management_ie(wl,
 			index);
-		wl_clr_p2p_status(wl, IF_DELETING);
 		WL_DBG(("index : %d\n", index));
 
 	}
@@ -3085,6 +3095,8 @@ get_station_err:
 	return err;
 }
 
+extern int net_os_get_suspend(struct net_device *dev);
+
 static s32
 wl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
 	bool enabled, s32 timeout)
@@ -3104,7 +3116,9 @@ wl_cfg80211_set_power_mgmt(struct wiphy *wiphy, struct net_device *dev,
 	if (wl->p2p && wl->p2p->vif_created) {
 		WL_DBG(("Do not enable the power save for p2p interfaces even after assoc\n"));
 		pm = PM_OFF;
-	}
+	} else if(net_os_get_suspend(dev) == 1 && (pm == PM_FAST))
+		pm = PM_MAX;
+
 	pm = htod32(pm);
 	WL_DBG(("power save %s\n", (pm ? "enabled" : "disabled")));
 	err = wldev_ioctl(dev, WLC_SET_PM, &pm, sizeof(pm), true);
