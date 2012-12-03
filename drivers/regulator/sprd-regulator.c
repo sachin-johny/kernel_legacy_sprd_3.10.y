@@ -363,7 +363,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		.constraints = {
 				.min_uV = 0,
 				.max_uV = 4200 * 1000,
-				.valid_modes_mask = REGULATOR_MODE_NORMAL,
+				.valid_modes_mask = REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY,
 				.valid_ops_mask =
 				REGULATOR_CHANGE_STATUS |
 				REGULATOR_CHANGE_VOLTAGE |
