@@ -588,14 +588,14 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 	}
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_PPCFG) =       value_temp;
 
-	if(1)
+	if(0)
 	{
 		TOGCNT100N = 100;
 		TOGCNT1U = 1000;
 	}
 	else
 	{
-		switch(EMC_FREQ) {
+		switch(param->emc_freq) {
 			case 100:
 				TOGCNT100N = 0xa;
 				TOGCNT1U = 0x64;
@@ -617,14 +617,14 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TOGCNT100N) =  TOGCNT100N;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TRFC) =        0x00000034;
 
-	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TINIT) =       0x00000001;
+	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TINIT) =       0x000000c8;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TRSTH) =       0x00000000;
 
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TREFI) =       0x00000027;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TMRD) =        0x00000005;
 
 
-	value_temp = (mem_type_enum == LPDDR2 ) ? 0x0001000a : 00000004 ; //compenstate for clk jitter
+	value_temp = (mem_type_enum == LPDDR2 ) ? 0x00010008 : 0x00000004 ; //compenstate for clk jitter
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TRP) =         value_temp;
 
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TRTW) =        0x00000003;
@@ -639,10 +639,10 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 
 	value_temp = (mem_type_enum == LPDDR2 ) ? 0x00000011 : 0x00000008;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TRAS) =        value_temp;
-	value_temp = (mem_type_enum == LPDDR2 ) ? 0x0000001b : 0x0000000c;
+	value_temp = (mem_type_enum == LPDDR2 ) ? 0x00000019 : 0x0000000c;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TRC) =         value_temp;
 
-	value_temp = (mem_type_enum == LPDDR2 ) ? 0x00000006 : 0x00000003; //compenstate for clk jitter
+	value_temp = (mem_type_enum == LPDDR2 ) ? 0x00000008 : 0x00000003; //compenstate for clk jitter
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TRCD) =        value_temp;
 	value_temp = (mem_type_enum == LPDDR2 ) ? 0x00000004 : 0x00000002;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TRRD) =        value_temp;
@@ -652,7 +652,7 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TWR) =         value_temp;
 
 	//xiaohui change from 3 to 4 due to tWTR=7.5ns whereas clk_emc=2.348ns
-	value_temp = (mem_type_enum == LPDDR2 ) ? 0x00000004 : 0x00000002;
+	value_temp = (mem_type_enum == LPDDR2 ) ? 0x00000003 : 0x00000002;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TWTR) =        value_temp;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TEXSR) =       0x00000038;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TXP) =         0x00000004;
@@ -660,7 +660,9 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 	//xiaohui change from 0x24 to 0x27 due to tZQCS=90ns whereas clk_emc=2.348ns
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TZQCS) =       0x00000027;
 
-	value_temp = mem_type_enum == LPDDR2 ? 0x5 : 0x0;
+	//value_temp = mem_type_enum == LPDDR2 ? 0x5 : 0x0;
+	value_temp = 0;//assume 0.4s need one calibration, see samsung lpddr2 on page 140
+
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TZQCSI) =      value_temp;
 
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TDQS) =        0x00000001;
@@ -1068,7 +1070,7 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 				//value_temp[30:25] = 12;    //tRC
 				//value_temp[31] = 0x0;    //tCCD: BL/2
 				value_temp = (0x0 << 31) | (12 << 25) | (2 << 21) | (8 << 16) | (4 << 12) | (4 << 8) | (2 << 2) | (2);
-				value_temp |= ((mem_type_enum == LPDDR2 ) ? 0x00000004 : 0x00000002) << 5;
+				value_temp |= 0x00000002 << 5;
 				break;
 			}
 		case LPDDR2:
@@ -1160,7 +1162,7 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 	value_temp |= (mem_type_enum == LPDDR2 ) ? 0x0 : 0x1; //0 = ITMS uses DQS and DQS#
 	//1 = ITMS uses DQS only
 	value_temp |= (0x1 << 1);
-#if 0
+#if 1
 	if(param->cs_number == 1)
 	{
 		value_temp |= (0x1<<18); //only enable CS0 for data training
@@ -1413,7 +1415,6 @@ static void modify_emc_clk(u32 freq)
 }
 static void reset_ddrphy_dll(void)
 {
-	//uart_init();
 	disable_clk_emc();
 	assert_reset_acdll();
 	assert_reset_dxdll();
@@ -1506,10 +1507,10 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 		param->cs1_size = get_emc_size(value);
 	}
 	value = sci_glb_read(REG_GLB_D_PLL_CTL, -1UL);
-	value &= 0x3ff;
+	value &= 0x7ff;
 	div = sci_glb_read(REG_AHB_ARM_CLK, -1UL);
 	div >>= 8;
-	div &= 0xff;	
+	div &= 0xf;
 	param->emc_freq = (value * 0x4) / (div + 1);
 	param->cs0_training_addr_v = 0;
 	param->cs0_training_addr_p = EMC_MEM_BASE_ADDR;
@@ -1519,52 +1520,58 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 	param->cs1_training_addr_p = EMC_MEM_BASE_ADDR + param->cs0_size;
 	param->cs1_training_data_size = 32;
 	printk("emc repower param\r\n");
-	printk("emc repower param mem_type %x\r\n", param->mem_type);
-	printk("emc repower param emc_freq %x\r\n", param->emc_freq);
-	printk("emc repower param mem_drv %x\r\n", param->mem_drv);
-	printk("emc repower param cs_number %x\r\n", param->cs_number);
-	printk("emc repower param cs0_size %x\r\n", param->cs0_size);
-	printk("emc repower param cs1_size %x\r\n", param->cs1_size);
-	printk("emc repower param cs0_training_addr_v %x\r\n", param->cs0_training_addr_v);
-	printk("emc repower param cs0_training_addr_p %x\r\n", param->cs0_training_addr_p);
-	printk("emc repower param cs0_training_data_size %x\r\n", param->cs0_training_data_size);
+	printk("emc repower param mem_type %x\n", param->mem_type);
+	printk("emc repower param emc_freq %dMHz\n", param->emc_freq);
+	printk("emc repower param mem_drv %x\n", param->mem_drv);
+	printk("emc repower param cs_number %x\n", param->cs_number);
+	printk("emc repower param cs0_size %x\n", param->cs0_size);
+	printk("emc repower param cs1_size %x\n", param->cs1_size);
+	printk("emc repower param cs0_training_addr_v %x\n", param->cs0_training_addr_v);
+	printk("emc repower param cs0_training_addr_p %x\n", param->cs0_training_addr_p);
+	printk("emc repower param cs0_training_data_size %x\n", param->cs0_training_data_size);
 
-	printk("emc repower param cs1_training_addr_v %x\r\n", param->cs1_training_addr_v);
-	printk("emc repower param cs1_training_addr_p %x\r\n", param->cs1_training_addr_p);
-	printk("emc repower param cs1_training_data_size %x\r\n", param->cs1_training_data_size);
+	printk("emc repower param cs1_training_addr_v %x\n", param->cs1_training_addr_v);
+	printk("emc repower param cs1_training_addr_p %x\n", param->cs1_training_addr_p);
+	printk("emc repower param cs1_training_data_size %x\n", param->cs1_training_data_size);
 }
 void save_emc_trainig_data(struct emc_repower_param *param)
 {
-	u8 *dst;
-	u8 *src;
+	u32 *dst;
+	u32 *src;
 	u32 i;
 	dst = (u8 *)param->cs0_saved_data;
 	src = (u8 *)param->cs0_training_addr_v;
+#if 0
+	//CS0 traininig data saved by DSP code
 	for(i = 0; i < param->cs0_training_data_size; i++) {
 		*(dst + i) = *(src + i);
 	}
+#endif
 	if(param->cs_number == 2) {
-		dst = (u8 *)param->cs1_saved_data;
-		src = (u8 *)param->cs1_training_addr_v;
-		for(i = 0; i < param->cs1_training_data_size; i++) {
+		dst = (u32 *)param->cs1_saved_data;
+		src = (u32 *)param->cs1_training_addr_v;
+		for(i = 0; i < param->cs1_training_data_size / 4; i++) {
 			*(dst + i) = *(src + i);
 		}
 	}
 }
 inline static void restore_emc_training_data(struct emc_repower_param *param)
 {
-	u8 *dst;
-	u8 *src;
+	u32 *dst;
+	u32 *src;
 	u32 i;
 	dst = (u8 *)param->cs0_training_addr_p;
 	src = (u8 *)param->cs0_saved_data;
+#if 0
+	//CS0 traininig data restored by DSP code
 	for(i = 0; i < param->cs0_training_data_size; i++) {
 		*(dst + i) = *(src + i);
 	}
+#endif
 	if(param->cs_number == 2) {
-		dst = (u8 *)param->cs1_training_addr_p;
-		src = (u8 *)param->cs1_saved_data;
-		for(i = 0; i < param->cs1_training_data_size; i++) {
+		dst = (u32 *)param->cs1_training_addr_p;
+		src = (u32 *)param->cs1_saved_data;
+		for(i = 0; i < param->cs1_training_data_size / 4; i++) {
 			*(dst + i) = *(src + i);
 		}
 	}
@@ -1580,12 +1587,11 @@ inline struct emc_repower_param * get_emc_repower_param(void)
 void emc_init_repowered(u32 power_off)
 {
 	u32 i;
-	struct emc_repower_param param;
 	struct emc_repower_param *param_p;
 	param_p = (struct emc_repower_param *)(SPRD_IRAM_PHYS + 15 * 1024);
 
 	reset_ddrphy_dll();
 	__emc_init_repowered(power_off, param_p);
-	//if(power_off)
-	//       restore_emc_training_data(param_p);
+	if(power_off)
+	       restore_emc_training_data(param_p);
 }
