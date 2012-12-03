@@ -62,7 +62,7 @@
 
 #else /* defined(BCMDBG) || defined(DHD_DEBUG) */
 
-#define DHD_ERROR(args)    	printf args //do {if (net_ratelimit()) printk args;} while (0)
+#define DHD_ERROR(args)    	printk args //do {if (net_ratelimit()) printk args;} while (0)
 #define DHD_TRACE(args)		//printf args //do { printk args;} while (0)
 #define DHD_INFO(args)		//printf args //do { printk args;} while (0)
 #define DHD_DATA(args)		//do { printk args;} while (0)
@@ -72,7 +72,7 @@
 #define DHD_BYTES(args)
 #define DHD_INTR(args)
 #define DHD_GLOM(args)
-#define DHD_EVENT(args)
+#define DHD_EVENT(args) printk args
 #define DHD_BTA(args)
 #define DHD_ISCAN(args)
 #define DHD_ARPOE(args)

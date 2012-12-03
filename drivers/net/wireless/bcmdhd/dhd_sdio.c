@@ -2221,6 +2221,7 @@ dhdsdio_checkdied(dhd_bus_t *bus, char *data, uint size)
 				}
 			}
 		}
+		dhd_os_check_hang(bus->dhd, 0, -ETIMEDOUT);
 	}
 
 printbuf:
@@ -3227,6 +3228,7 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 		goto exit;
 	}
 #ifdef BCMSPI
+	msleep(10);
 	/* fake "ready" for spi, wake-wlan would have already enabled F1 and F2 */
 	ready = (SDIO_FUNC_ENABLE_1 | SDIO_FUNC_ENABLE_2);
 	enable = 0;
@@ -4273,7 +4275,7 @@ dhdsdio_readframes(dhd_bus_t *bus, uint maxframes, bool *finished)
 #endif /* BCMSPI */
 					DHD_ERROR(("%s: got unlikely tx max %d with tx_seq %d\n",
 						__FUNCTION__, txmax, bus->tx_seq));
-					txmax = bus->tx_seq;
+					txmax = bus->tx_max;
 #ifdef BCMSPI
 				}
 #endif /* BCMSPI */
@@ -6051,7 +6053,7 @@ dhdsdio_download_firmware(struct dhd_bus *bus, osl_t *osh, void *sdh)
 	dhdsdio_clkctl(bus, CLK_AVAIL, FALSE);
 
 	ret = _dhdsdio_download_firmware(bus) == 0;
-	osl_delay(200*1000);
+	osl_delay(20*1000);
 	dhdsdio_clkctl(bus, CLK_SDONLY, FALSE);
 	DHD_OS_WAKE_UNLOCK(bus->dhd);
 	return ret;
@@ -6553,11 +6555,6 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 		if (!bus->dhd->dongle_reset) {
 			dhd_os_sdlock(dhdp);
 			dhd_os_wd_timer(dhdp, 0);
-#if defined(OOB_INTR_ONLY)
-			/* Clean up any pending IRQ */
-			bcmsdh_set_irq(FALSE);
-#endif /* defined(OOB_INTR_ONLY) */
-
 #if !defined(IGNORE_ETH0_DOWN)
 			/* Force flow control as protection when stop come before ifconfig_down */
 			dhd_txflowcontrol(bus->dhd, ALL_INTERFACES, ON);
@@ -6565,6 +6562,11 @@ dhd_bus_devreset(dhd_pub_t *dhdp, uint8 flag)
 			/* Expect app to have torn down any connection before calling */
 			/* Stop the bus, disable F2 */
 			dhd_bus_stop(bus, FALSE);
+
+#if defined(OOB_INTR_ONLY)
+			/* Clean up any pending IRQ */
+			bcmsdh_set_irq(FALSE);
+#endif /* defined(OOB_INTR_ONLY) */
 
 			/* Clean tx/rx buffer pointers, detach from the dongle */
 			dhdsdio_release_dongle(bus, bus->dhd->osh, TRUE, TRUE);
