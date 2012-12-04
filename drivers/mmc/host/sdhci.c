@@ -314,9 +314,6 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 		SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT | SDHCI_INT_INDEX |
 		SDHCI_INT_END_BIT | SDHCI_INT_CRC | SDHCI_INT_TIMEOUT |
 		SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE);
- sdhci_writel(host,0x22,0x80);
- sdhci_writel(host,0x11,0x84);
- sdhci_writel(host,0x11,0x88);
 	if (soft) {
 		/* force clock reconfiguration */
 		host->clock = 0;
@@ -1605,16 +1602,18 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		unsigned int clock;
 
 		/* In case of UHS-I modes, set High Speed Enable */
-		if ((ios->timing == MMC_TIMING_MMC_HS200) ||
-		    (ios->timing == MMC_TIMING_UHS_SDR50) ||
-		    (ios->timing == MMC_TIMING_UHS_SDR104) ||
-		    (ios->timing == MMC_TIMING_UHS_DDR50) ||
-		    (ios->timing == MMC_TIMING_UHS_SDR25))
+		if ((ios->timing == MMC_TIMING_UHS_SDR50)
+			|| (ios->timing == MMC_TIMING_UHS_SDR104) )
+			//|| (ios->timing == MMC_TIMING_UHS_DDR50) 
+			//||(ios->timing == MMC_TIMING_UHS_SDR25) 
+			//||(ios->timing == MMC_TIMING_UHS_SDR12))
 			ctrl |= SDHCI_CTRL_HISPD;
-
+		else	/* DDR50 this bit set 0 */
+			ctrl &= ~SDHCI_CTRL_HISPD;
+		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
+		
 		ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		if (!(ctrl_2 & SDHCI_CTRL_PRESET_VAL_ENABLE)) {
-			sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 			/*
 			 * We only need to set Driver Strength if the
 			 * preset value enable is not set.
@@ -1639,11 +1638,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			 */
 
 			/* Reset SD Clock Enable */
-			clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-			clk &= ~SDHCI_CLOCK_CARD_EN;
-			sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
-
-			sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
+			//clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+			//clk &= ~SDHCI_CLOCK_CARD_EN;
+			//sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 
 			/* Re-enable SD Clock */
 			clock = host->clock;
@@ -1653,9 +1650,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 
 		/* Reset SD Clock Enable */
-		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-		clk &= ~SDHCI_CLOCK_CARD_EN;
-		sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+		//clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+		//clk &= ~SDHCI_CLOCK_CARD_EN;
+		//sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 
 		if (host->ops->set_uhs_signaling)
 			host->ops->set_uhs_signaling(host, ios->timing);
@@ -1668,13 +1665,21 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR12 << 16);
 			else if (ios->timing == MMC_TIMING_UHS_SDR25)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR25 << 16);
-			else if (ios->timing == MMC_TIMING_UHS_SDR50)
+			else if (ios->timing == MMC_TIMING_UHS_SDR50) {
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR50 << 16);
+				sdhci_writel(host, 0x33, 0x80);
+				sdhci_writel(host, 0x08, 0x84);
+				sdhci_writel(host, 0x08, 0x88);
+			}
 			else if (ios->timing == MMC_TIMING_UHS_SDR104)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR104 << 16);
-			else if (ios->timing == MMC_TIMING_UHS_DDR50)
+			else if (ios->timing == MMC_TIMING_UHS_DDR50){
 				ctrl_2 |= (SDHCI_CTRL_UHS_DDR50 << 16);
-
+				/* set write/read delay value . 0x0080, 0x0084, 0x0088*/
+				sdhci_writel(host, 0x18 , 0x0080);
+				sdhci_writel(host, 0x0E , 0x0084);
+				sdhci_writel(host, 0x0A , 0x0088);
+			}
 			sdhci_writel(host, ctrl_2, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
 			ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
@@ -1697,9 +1702,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		}
 
 		/* Re-enable SD Clock */
-		clock = host->clock;
-		host->clock = 0;
-		sdhci_set_clock(host, clock);
+		//clock = host->clock;
+		//host->clock = 0;
+		//sdhci_set_clock(host, clock);
 	} else
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
