@@ -1684,6 +1684,14 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
 		if (5 != Sensor_GetCurId())
 			this_client->addr =(this_client->addr & (~0xFF)) |(s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
 		printk("_sensor_com_init: sensor_id :%d,addr=0x%x \n", sensor_id, this_client->addr);
+
+		//confirm camera identify OK
+		if(SENSOR_SUCCESS != s_sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)){
+			sensor_register_info_ptr->is_register[sensor_id] = SENSOR_FALSE;
+			SENSOR_PRINT("SENSOR: Sensor_Open: sensor identify not correct!!");
+			return SENSOR_FAIL;
+		}
+
 		ret_val = SENSOR_SUCCESS;
 		if (SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT)) {
 			SENSOR_PRINT_ERR("Sensor: _sensor_com_init set init mode error!\n");
