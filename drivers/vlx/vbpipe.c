@@ -630,9 +630,9 @@ ex_release (struct inode* inode, struct file* file)
 #ifdef TRACE_SYSCONF
 	printk(VBPIPE_MSG "ex_release for minor=%u is ok\n", minor);
 #endif
+        wake_lock_destroy(&ex_dev->wake_lock);
     }
 
-    wake_lock_destroy(&ex_dev->wake_lock);
 
     mutex_unlock(&ex_dev->olock);
 
