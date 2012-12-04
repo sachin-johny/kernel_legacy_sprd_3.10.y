@@ -524,6 +524,8 @@ static int32_t sprdfb_dispc_uninit(struct sprdfb_device *dev)
 	dev->enable = 0;
 	if(dispc_ctx.is_inited){
 		clk_disable(dispc_ctx.clk_dispc);
+		clk_disable(dispc_ctx.clk_dispc_dpi);
+		clk_disable(dispc_ctx.clk_dispc_dbi);
 		dispc_ctx.is_inited = false;
 	}
 	return 0;
@@ -623,6 +625,8 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 		dev->enable = 0;
 		clk_disable(dispc_ctx.clk_dispc);
+		clk_disable(dispc_ctx.clk_dispc_dpi);
+		clk_disable(dispc_ctx.clk_dispc_dbi);
 	}else{
 		printk(KERN_ERR "sprdfb: [%s]: Invalid device status %d\n", __FUNCTION__, dev->enable);
 	}
@@ -635,6 +639,8 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 
 	if (dev->enable == 0) {
 		clk_enable(dispc_ctx.clk_dispc);
+		clk_enable(dispc_ctx.clk_dispc_dpi);
+		clk_enable(dispc_ctx.clk_dispc_dbi);
 		dispc_ctx.vsync_done = 1;
 		if (dispc_read(DISPC_SIZE_XY) == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
