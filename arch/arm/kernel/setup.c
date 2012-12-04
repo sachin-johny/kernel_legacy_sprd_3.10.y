@@ -995,7 +995,6 @@ void __init setup_arch(char **cmdline_p)
 		mdesc->init_early();
 }
 
-
 static int __init topology_init(void)
 {
 	int cpu;
