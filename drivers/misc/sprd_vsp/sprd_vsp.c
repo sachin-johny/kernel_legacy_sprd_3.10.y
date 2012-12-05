@@ -283,6 +283,71 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		free_irq(IRQ_VSP_INT, &vsp_hw_dev);
 		break;
 #endif
+	case VSP_ACQUAIRE_MEA_DONE:
+		cmd0 = 0;
+		printk(KERN_ERR "VSP_ACQUAIRE_MEA_DONE in !\n");
+		ret= __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
+		
+		while(!((ret & 0x80)|| (ret &0x4000)||(ret & 0x100)  ) && (cmd0 < (int)arg))
+		{ 
+			ret = __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
+			//printk(KERN_INFO "DCAM_INT_RAW_OFF %x !\n",ret);
+			cmd0++;
+			msleep(1);
+		}
+
+		if(ret & 0x80)
+		{
+			printk(KERN_INFO "vsp stream buffer is full!\n");
+			return 2;//
+		}else if(ret & 0x4000)
+		{
+			printk(KERN_INFO "vsp MEA DONE!\n");
+			return 0;
+		}else if(ret & 0x100)
+		{
+			printk(KERN_INFO "vsp VLC DONE!\n");
+			return 4;
+		}else  if(cmd0 >=  (int)arg)
+        	{
+              		 printk(KERN_INFO "vsp: VSP_ACQUAIRE_MEA_DONE time out\n");
+                   	return 1;
+		}else{
+			printk(KERN_INFO "vsp: ERR\n");
+			return -EINVAL;
+		}
+               break;
+			   
+	case VSP_ACQUAIRE_MP4ENC_DONE:
+		cmd0 = 0;
+		printk(KERN_ERR "VSP_ACQUAIRE_MP4ENC_DONE in !\n");
+		ret= __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
+		
+		while(!((ret & 0x80)|| (ret & 0x10000)  ) && (cmd0 < (int)arg))
+		{ 
+			ret = __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
+			//printk(KERN_INFO "DCAM_INT_RAW_OFF %x !\n",ret);
+			cmd0++;
+			msleep(1);
+		}
+
+		if(ret & 0x80)
+		{
+			printk(KERN_INFO "vsp stream buffer is full!\n");
+			return 2;//
+		}else if(ret & 0x10000)
+		{
+			printk(KERN_INFO "VSP MP4ENC_DONE DONE!\n");
+			return 0;
+		}else  if(cmd0 >=  (int)arg)
+        	{
+              		 printk(KERN_INFO "VSP_ACQUAIRE_MP4ENC_DONE time out\n");
+                   	return 1;
+		}else{
+			printk(KERN_INFO "vsp: ERR\n");
+			return -EINVAL;
+		}
+		break;
 #endif
 	default:
 		return -EINVAL;
