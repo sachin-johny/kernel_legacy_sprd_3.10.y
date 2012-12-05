@@ -1355,12 +1355,14 @@ static int __init high_ram(char *p)
 		return 0;
 }
 early_param("ram", high_ram);
-#elif defined (CONFIG_MACH_GARDA)
+#else
 static int __init high_ram(char *p)
 {
     	if(p && strstr(p,"512M"))
-			arm_add_memory(0xA0000000, 0x10000000);
-		return 0;
+		arm_add_memory(0x90000000, 0x10000000);
+	else if(p && strstr(p,"768M"))
+		arm_add_memory(0x90000000, 0x20000000);
+	return 0;
 }
 early_param("ram", high_ram);
 #endif
