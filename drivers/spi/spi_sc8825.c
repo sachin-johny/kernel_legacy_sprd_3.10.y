@@ -697,11 +697,29 @@ out_clk:
 #ifdef CONFIG_PM
 static int sprd_spi_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct sprd_spi_data *sprd_data = spi_master_get_devdata(master);
+	if (IS_ERR(sprd_data->spi_clk)) {
+		pr_err("can't get spi_clk when suspend()\n");
+		return -1;
+	}
+
+	clk_disable(sprd_data->spi_clk);
+
 	return 0;
 }
 
 static int sprd_spi_resume(struct platform_device *pdev)
 {
+	struct spi_master *master = platform_get_drvdata(pdev);
+	struct sprd_spi_data *sprd_data = spi_master_get_devdata(master);
+	if (IS_ERR(sprd_data->spi_clk)) {
+		pr_err("can't get spi_clk when resume()\n");
+		return -1;
+	}
+
+	clk_enable(sprd_data->spi_clk);
+
 	return 0;
 }
 #else
