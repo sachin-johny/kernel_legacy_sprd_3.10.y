@@ -46,6 +46,9 @@
 
 #define WDG_INT_EN_BIT          BIT(0)
 #define WDG_CNT_EN_BIT          BIT(1)
+#ifdef  CONFIG_ARCH_SC8825
+#define WDG_RST_EN_BIT          BIT(3)
+#endif
 #define WDG_INT_CLEAR_BIT       BIT(0)
 #define WDG_LD_BUSY_BIT         BIT(4)
 
@@ -286,8 +289,11 @@ static int __init sci_wdt_init(void)
     sci_adi_raw_write (WDG_LOCK, WDG_UNLOCK_KEY);
     sci_adi_clr (WDG_CTRL, WDG_INT_EN_BIT);
     WDG_LOAD_TIMER_VALUE(margin * WDT_FREQ);
+#ifdef CONFIG_ARCH_SC8825
+    sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT | WDG_RST_EN_BIT);
+#else
     sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT);
-
+#endif
     ret = misc_register(&sci_miscdev);
     if (ret != 0)
         goto _out;
