@@ -33,6 +33,8 @@
 static void __iomem *l2x0_base;
 static uint32_t aux_ctrl_save;
 static uint32_t data_latency_ctrl;
+static uint32_t prefetch_ctrl;
+static uint32_t pwr_ctrl;
 
 static DEFINE_SPINLOCK(l2x0_lock);
 static uint32_t l2x0_way_mask;	/* Bitmask of active ways */
@@ -543,9 +545,15 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 /* add for powermanager control l2 cache*/
 void l2x0_suspend(void)
 {
+	u32 l2x0_revision = readl_relaxed(l2x0_base + L2X0_CACHE_ID) & 0x3f;
 	/* Save aux control register value */
 	aux_ctrl_save = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
 	data_latency_ctrl = readl_relaxed(l2x0_base + L2X0_DATA_LATENCY_CTRL);
+	if (l2x0_revision >= 0x4) {
+		prefetch_ctrl = readl_relaxed(l2x0_base + L2X0_PREFETCH_CTRL);
+		if (l2x0_revision >= 0x5)
+			pwr_ctrl = readl_relaxed(l2x0_base + L2X0_POWER_CTRL);
+	}
 	/* Flush all cache */
 	l2x0_flush_all();
 	/* Disable the cache */
@@ -558,13 +566,22 @@ void l2x0_suspend(void)
 void l2x0_resume(int collapsed)
 {
 	if (collapsed) {
+		u32 l2x0_revision = readl_relaxed(l2x0_base + L2X0_CACHE_ID) & 0x3f;
+
 		/* Disable the cache */
 		writel_relaxed(0, l2x0_base + L2X0_CTRL);
 
-		/* Restore aux control register value */
-		writel_relaxed(aux_ctrl_save, l2x0_base + L2X0_AUX_CTRL);
+		if (l2x0_revision >= 0x4) {
+			writel_relaxed(prefetch_ctrl,l2x0_base + L2X0_PREFETCH_CTRL);
+			if (l2x0_revision >= 0x5)
+				writel_relaxed(pwr_ctrl,l2x0_base + L2X0_POWER_CTRL);
+		}
+
 		writel_relaxed(data_latency_ctrl, l2x0_base +
 				L2X0_DATA_LATENCY_CTRL);
+
+		/* Restore aux control register value */
+		writel_relaxed(aux_ctrl_save, l2x0_base + L2X0_AUX_CTRL);
 
 		/* Invalidate the cache */
 		l2x0_inv_all();

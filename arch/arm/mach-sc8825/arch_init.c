@@ -17,8 +17,8 @@
 #include <asm/io.h>
 
 #define CACHE_EARLY_BRESP_ENABLE	((0) << 30)
-#define CACHE_I_P_ENABLE		((0) << 29)
-#define CACHE_D_P_ENABLE		((0) << 28)
+#define CACHE_I_P_ENABLE		((1) << 29)
+#define CACHE_D_P_ENABLE		((1) << 28)
 #define CACHE_N_S_ACCESS		((0) << 27)
 #define CACHE_N_L_ENABLE		((0) << 26)
 #define CACHE_REPLACE_POLICY 		((1) << 25)
@@ -43,22 +43,21 @@
 		CACHE_STORE_BUFFER_LIMI_ENABLE | CACHE_HIGH_PRIORITY_SO_DEV | CACHE_FULL_LINE_ZERO_ENABLE)
 
 #define PL310_CACHE_AUX_VALUE	AUX_VALUE
-#define PL310_CACHE_AUX_MASK	0xffffffff
+#define PL310_CACHE_AUX_MASK	0x0
 
 extern void arch_init_neon(void);
 
 static int __init arch_init(void)
 {
-	arch_init_neon();
-
 #ifdef CONFIG_CACHE_L2X0
 	/* L2X0 Power Control */
 	__raw_writel(L2X0_DYNAMIC_CLK_GATING_EN | L2X0_STNDBY_MODE_EN,
 		     SPRD_L2_BASE + L2X0_POWER_CTRL);
 
+	__raw_writel((7<<28) | (1<<23),SPRD_L2_BASE + L2X0_PREFETCH_CTRL);
 	/* Now, using L2X0 default Control configs*/
 	l2x0_init((void __iomem *)SPRD_L2_BASE,
-			0, PL310_CACHE_AUX_MASK);
+			PL310_CACHE_AUX_VALUE, PL310_CACHE_AUX_MASK);
 #endif
 
 	return 0;
