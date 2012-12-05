@@ -72,6 +72,28 @@ void clk_disable(struct clk *clk)
 
 EXPORT_SYMBOL(clk_disable);
 
+/**
+ * clk_force_disable - force disable clock output
+ * @clk: clock source
+ *
+ * Forcibly disable the clock output.
+ * NOTE: this *will* disable the clock output even if other consumer
+ * devices have it enabled. This should be used for situations when device
+ * suspend or damage will likely occur if the devices is not disabled.
+ */
+void clk_force_disable(struct clk *clk)
+{
+	if (IS_ERR_OR_NULL(clk))
+		return;
+
+	debug("clk %p, usage %d\n", clk, clk->usage);
+	while (clk->usage > 0) {
+		clk_disable(clk);
+	}
+}
+
+EXPORT_SYMBOL(clk_force_disable);
+
 unsigned long clk_get_rate(struct clk *clk)
 {
 	debug0("clk %p, rate %lu\n", clk, IS_ERR_OR_NULL(clk) ? -1 : clk->rate);
@@ -358,6 +380,11 @@ err_exit:
 }
 #endif
 
+int sci_clk_is_pll(struct clk *c)
+{
+	return strstr(c->regs->name, "pll") || c->regs->enb.reg & 1;
+}
+
 int __init sci_clk_register(struct clk_lookup *cl)
 {
 	struct clk *c = cl->clk;
@@ -366,8 +393,8 @@ int __init sci_clk_register(struct clk_lookup *cl)
 		c->ops = &generic_clk_ops;
 		if (c->rate)	/* fixed OSC */
 			c->ops = NULL;
-		else if ((c->regs->div.reg >= 0 && c->regs->div.reg < MAX_DIV) ||
-			 strstr(c->regs->name, "pll")) {
+		else if ((c->regs->div.reg >= 0 && c->regs->div.reg < MAX_DIV)
+			 || strstr(c->regs->name, "pll")) {
 			c->ops = &generic_pll_ops;
 		}
 	}
@@ -379,9 +406,10 @@ int __init sci_clk_register(struct clk_lookup *cl)
 
 	if (c->enable == NULL && c->regs->enb.reg) {
 		c->enable = sci_clk_enable;
-		/* FIXME: dummy update clock usage */
-		if (sci_clk_is_enable(c))
+		/* FIXME: dummy update pll clock usage */
+		if (sci_clk_is_pll(c) && sci_clk_is_enable(c)) {
 			clk_enable(c);
+		}
 	}
 
 	if (!c->rate) {		/* FIXME: dummy update parent and rate */

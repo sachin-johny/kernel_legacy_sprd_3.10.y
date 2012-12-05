@@ -157,19 +157,19 @@ SCI_CLK_ADD(clk_mm, 0, REG_AHB_AHB_CTL0, BIT(13),
 	0, 0, 0, 0,
 	1, &clk_mm_mtx);
 
-SCI_CLK_ADD(clk_isp_h, 0, REG_AHB_AHB_CTL0, BIT(12),
+SCI_CLK_ADD(clk_isp_i, 0, REG_AHB_AHB_CTL0, BIT(12),
 	0, 0, 0, 0,
 	1, &clk_mm);
 
-SCI_CLK_ADD(clk_dcam_h, 0, REG_AHB_AHB_CTL0, BIT(1),
+SCI_CLK_ADD(clk_dcam_i, 0, REG_AHB_AHB_CTL0, BIT(1),
 	0, 0, 0, 0,
 	1, &clk_mm);
 
-SCI_CLK_ADD(clk_dispc_h, 0, REG_AHB_AHB_CTL0, BIT(22),
+SCI_CLK_ADD(clk_dispc_i, 0, REG_AHB_AHB_CTL0, BIT(22),
 	0, 0, 0, 0,
-	1, &clk_ahb);
+	1, &clk_disp_mtx);
 
-SCI_CLK_ADD(clk_lcdc_h, 0, REG_AHB_AHB_CTL0, BIT(3),
+SCI_CLK_ADD(clk_lcdc_i, 0, REG_AHB_AHB_CTL0, BIT(3),
 	0, 0, 0, 0,
 	1, &clk_ahb);
 
@@ -179,19 +179,19 @@ SCI_CLK_ADD(clk_vsp_core, 0, REG_AHB_AHB_CTL2, BIT(6),
 
 SCI_CLK_ADD(clk_isp_core, 0, REG_AHB_AHB_CTL2, BIT(7),
 	0, 0, 0, 0,
-	1, &clk_isp_h);
+	1, &clk_isp_i);
 
 SCI_CLK_ADD(clk_dcam_core, 0, REG_AHB_AHB_CTL2, BIT(5),
 	0, 0, 0, 0,
-	1, &clk_dcam_h);
+	1, &clk_dcam_i);
 
 SCI_CLK_ADD(clk_dispc_core, 0, REG_AHB_AHB_CTL2, BIT(9),
 	0, 0, 0, 0,
-	1, &clk_dispc_h);
+	1, &clk_dispc_i);
 
 SCI_CLK_ADD(clk_lcdc_core, 0, REG_AHB_AHB_CTL2, BIT(8),
 	0, 0, 0, 0,
-	1, &clk_lcdc_h);
+	1, &clk_lcdc_i);
 
 SCI_CLK_ADD(clk_gpu_axi, 0, REG_AHB_AHB_CTL0, BIT(21),
 	REG_GLB_GEN2, BIT(14)|BIT(15)|BIT(16), REG_GLB_GEN2, BIT(0)|BIT(1),
