@@ -38,7 +38,7 @@
 #define SC_COEFF_V_NUM                                 68
 #define SCALE_AXI_STOP_TIMEOUT                         100
 #define SCALE_PIXEL_ALIGNED                            4
-#define SCALE_SLICE_HEIGHT_ALIGNED                     64
+#define SCALE_SLICE_HEIGHT_ALIGNED                     4
 
 #define REG_RD(a)                                      __raw_readl(a)
 #define REG_WR(a,v)                                    __raw_writel(v,a)
@@ -235,9 +235,9 @@ int32_t    scale_continue(void)
 	REG_WR(SCALE_FRM_SWAP_U, g_path->temp_buf_addr.uaddr);
 	REG_WR(SCALE_FRM_LINE,   g_path->temp_buf_addr.vaddr);
 	
+	_scale_reg_trace();
 	REG_OWR(SCALE_CFG, 1);
 	atomic_inc(&g_path->start_flag);
-	_scale_reg_trace();	
 	SCALE_TRACE("SCALE DRV: continue %x.\n", REG_RD(SCALE_CFG));
 
 	return rtn;
@@ -562,7 +562,7 @@ int32_t    scale_read_registers(uint32_t* reg_buf, uint32_t *buf_len)
 		return -1;
 	}
 
-	while (buf_len != 0 && (uint32_t)reg_addr < SCALE_END) {
+	while (buf_len != 0 && (uint32_t)reg_addr < SCALE_REG_END) {
 		*reg_buf++ = REG_RD(reg_addr);
 		reg_addr++;
 		*buf_len -= 4;
@@ -771,16 +771,14 @@ static void    _scale_reg_trace(void)
 #ifdef SCALE_DRV_DEBUG
 	uint32_t                addr = 0;
 
-	printk("SCALE DRV: Register list");
-	for (addr = SCALE_BASE; addr <= SCALE_END; addr += 16) {
-		printk("\n 0x%x: 0x%x 0x%x 0x%x 0x%x", 
+	for (addr = SCALE_REG_START; addr <= SCALE_REG_END; addr += 16) {
+		printk("%x: %x %x %x %x \n",
 			 addr,
 		         REG_RD(addr),
 		         REG_RD(addr + 4),
 		         REG_RD(addr + 8),
 		         REG_RD(addr + 12));
 	}
-	printk("\n"); 
 #endif	
 }
 
