@@ -529,6 +529,12 @@ int __init sc8825_regulator_init(void)
 
 int __init sc8825_clock_init_early(void)
 {
+	pr_info("ahb ctl0 %08x, ctl2 %08x glb gen0 %08x gen1 %08x clk_en %08x\n",
+		sci_glb_raw_read(REG_AHB_AHB_CTL0),
+		sci_glb_raw_read(REG_AHB_AHB_CTL2),
+		sci_glb_raw_read(REG_GLB_GEN0),
+		sci_glb_raw_read(REG_GLB_GEN1),
+		sci_glb_raw_read(REG_GLB_CLK_EN));
 	/* FIXME: Force disable all unused clocks */
 	sci_glb_clr(REG_AHB_AHB_CTL0,
 		BIT_AXIBUSMON2_EB	|
