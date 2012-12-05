@@ -1090,6 +1090,11 @@ config RTC_DRV_SPRD
 	help
 	  Real Timer driver for SC8800G on chip RTC
 
+config RTC_CHN_ALARM_BOOT
+	tristate "Alarm Boot"
+	depends on RTC_DRV_SPRD
+	
+
 config RTC_START_YEAR
 	int "set rtc count start year"
 	default "2012"

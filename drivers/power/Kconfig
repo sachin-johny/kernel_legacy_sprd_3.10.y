@@ -219,6 +219,57 @@ config CHARGER_MAX8903
 	  pins based on the status of charger connections with interrupt
 	  handlers.
 
+config SPA
+        tristate "Samsung Power&Accessory"
+	default n
+        help
+         Samsung Power&Accessory
+
+config SPA_FUEL_GAUGE_TEST	
+	tristate "fuel gauge test binary"	
+	depends on SPA	
+	help	 
+	fuel gauge test binary
+
+config BQ27425_FUELGAUGE
+        tristate "BQ27425_FUELGAUGE"
+        help
+         BQ27425_FUELGAUGE
+
+config STC3115_FUELGAUGE
+        tristate "STC3115_FUELGAUGE"
+        help
+         STC3115_FUELGAUGE
+
+config STC3115_READ_VF
+        tristate "STC3115_READ_VF"
+	depends on BQ27425_FUELGAUGE
+        help
+         STC3115_READ_VF
+
+config BQ27425_READ_VF
+        tristate "BQ27425_READ_VF"
+	depends on BQ27425_FUELGAUGE
+        help
+         BQ27425_READ_VF
+
+config BQ27425_SOC_COMPENSATION_FOR_DISCHARGING
+        tristate "BQ27425_SOC_COMPENSATION_FOR_DISCHARGING"
+	depends on BQ27425_FUELGAUGE
+        help
+         BQ27425_SOC_COMPENSATION_FOR_DISCHARGING
+         
+config SS6000_CHARGER
+	tristate "SS6000_CHARGER"
+	default n
+	help
+	 SS6000_CHARGER
+
+config BQ24157_CHARGER
+	tristate "BQ24157_CHARGER"
+	help
+	 BQ24157_CHARGER
+
 config CHARGER_TWL4030
 	tristate "OMAP TWL4030 BCI charger driver"
 	depends on TWL4030_CORE
