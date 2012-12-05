@@ -51,7 +51,7 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	}
 	sum /= ARRAY_SIZE(val);	/* get average value */
 	info("adc chan %d, value %d\n", adc_chan, sum);
-	adc_vol = sprd_get_adc_to_vol(sum) * (8 * 5) / (30 * 4);
+	adc_vol = DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(sum) * (8 * 5), (30 * 4));
 	if (!def_vol) {
 		switch (adc_chan) {
 		case ADC_CHANNEL_DCDCCORE:
@@ -89,7 +89,7 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 		return 0;
 	}
 
-	ctl_vol = def_vol * to_vol / adc_vol;
+	ctl_vol = DIV_ROUND_CLOSEST(def_vol * to_vol, adc_vol);
 	for (i = 0; i < ARRAY_SIZE(dcdc_ctl_vol) - 1; i++) {
 		if (ctl_vol < dcdc_ctl_vol[i + 1])
 			break;
@@ -97,7 +97,7 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	if (i >= ARRAY_SIZE(dcdc_ctl_vol) - 1)
 		goto exit;
 
-	cal_vol = ((ctl_vol - dcdc_ctl_vol[i]) * 32 / 100) % 32;
+	cal_vol = DIV_ROUND_CLOSEST((ctl_vol - dcdc_ctl_vol[i]) * 32, 100) % 32;
 	debug("%s cal_vol %dmv: %d, 0x%02x\n", __FUNCTION__,
 	      dcdc_ctl_vol[i] + cal_vol * 100 / 32, i, cal_vol);
 	switch (adc_chan) {
