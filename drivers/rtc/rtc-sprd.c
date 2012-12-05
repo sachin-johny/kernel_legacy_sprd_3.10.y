@@ -25,6 +25,10 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 #include <linux/wakelock.h>
+#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
+#include <linux/reboot.h>
+#include <linux/workqueue.h>
+#endif
 
 /* RTC_BASE      0x82000080 */
 #define RTC_BASE (SPRD_MISC_BASE + 0x80)
@@ -45,6 +49,9 @@
 #define ANA_RTC_INT_CLR                 (RTC_BASE + 0x38)
 #define ANA_RTC_INT_MSK                 (RTC_BASE + 0x3C)
 
+#define ANA_RTC_SPG_CNT                 (RTC_BASE + 0x50)
+#define ANA_RTC_SPG_CNT_UPD             (RTC_BASE + 0x54)
+
 /* The corresponding bit of RTC_CTL register. */
 #define RTC_SEC_BIT                 BIT(0)        /* Sec int enable */
 #define RTC_MIN_BIT                 BIT(1)        /* Min int enable */
@@ -53,6 +60,7 @@
 #define RTC_ALARM_BIT               BIT(4)        /* Alarm int enable */
 #define RTCCTL_HOUR_FMT_SEL         BIT(5)        /* Hour format select */
 
+#define RTC_SPG_CNT_ACK_BIT         BIT(7)        /* spg counter int enable */
 #define RTC_SEC_ACK_BIT             BIT(8)        /* Sec ack int enable */
 #define RTC_MIN_ACK_BIT             BIT(9)        /* Min ack int enable */
 #define RTC_HOUR_ACK_BIT            BIT(10)        /* Hour ack int enable */
@@ -73,6 +81,18 @@
 #define RTC_HOUR_MASK 0x1F
 #define RTC_DAY_MASK 0xFFFF
 
+#define RTC_SPG_CNT_MASK 0xFF
+
+#define RTC_HWRST_SET_MASK 0x01
+#define RTC_HWRST_REG_MASK 0x0100
+#define RTC_HWRST_SHIFT    8
+
+/* ANA_RTC_SPG_CNT register map */
+#define SPG_CNT_8SECS_RESET	BIT(0)
+#define SPG_CNT_ALARM_BOOT	BIT(1)
+#define SPG_CNT_MAX	(SPG_CNT_8SECS_RESET | SPG_CNT_ALARM_BOOT)
+/* SPG_CNT_MAX should be increased if add more case */
+
 #define SPRD_RTC_GET_MAX 10
 #define SPRD_RTC_SET_MAX 150
 
@@ -85,6 +105,13 @@
 #define	  SPRD_ANA_BASE 	   (SPRD_MISC_BASE + 0x600)
 #define   ANA_REG_BASE         SPRD_ANA_BASE   /*  0x82000600 */
 #define   ANA_AGEN              (ANA_REG_BASE + 0x00)
+#define ANA_HWRST_RTC_REG		(SPRD_ANA_BASE + 0x98)
+
+#if(CONFIG_RTC_START_YEAR==1999)
+#define RTC_START_YEAR_2000	946634400
+#define RTC_START_YEAR_2012	1325347200
+#endif
+
 static ssize_t sprd_show_caliberate(struct device *dev,
 				    struct device_attribute *attr, char *buf);
 
@@ -144,6 +171,80 @@ static unsigned long sprd_rtc_get_sec(void)
 
 	return first;
 }
+
+void sprd_rtc_set_spg_counter(u16 value)
+{
+	u16 spg_cnt = 0;
+	u32 int_sts = 0;
+	int timeout = SPRD_RTC_SET_MAX;
+
+	spg_cnt = sci_adi_read(ANA_RTC_SPG_CNT)&RTC_SPG_CNT_MASK;
+	if (spg_cnt == value)
+		return;
+
+	sci_adi_set(ANA_RTC_INT_CLR, RTC_SPG_CNT_ACK_BIT);
+	sci_adi_raw_write(ANA_RTC_SPG_CNT_UPD, (value&RTC_SPG_CNT_MASK));
+
+	for(;;) {
+		if (timeout && int_sts != RTC_SPG_CNT_ACK_BIT) {
+			int_sts = sci_adi_read(ANA_RTC_INT_RSTS)&RTC_SPG_CNT_ACK_BIT;
+			msleep(1);
+			timeout--;
+		}
+		else
+			break;
+	}
+
+	sci_adi_set(ANA_RTC_INT_CLR, RTC_SPG_CNT_ACK_BIT);
+}
+EXPORT_SYMBOL(sprd_rtc_set_spg_counter);
+
+
+u16 sprd_rtc_get_spg_counter(void)
+{
+	u16 i = 0;
+
+	i = sci_adi_read(ANA_RTC_SPG_CNT) & RTC_SPG_CNT_MASK;
+
+	return i;
+}
+EXPORT_SYMBOL(sprd_rtc_get_spg_counter);
+
+void sprd_rtc_set_bit_spg_counter(u16 mask, u16 value)
+{
+	u16 i = sprd_rtc_get_spg_counter();
+
+/* only for old version. because old version has 0x5a or 0xa5 */
+	if(i > SPG_CNT_MAX)
+		i = 0;		
+/* this block should be deleted after release official version */
+
+	i&=(~mask);
+	if(value)
+		i|=mask;
+
+	sprd_rtc_set_spg_counter(i);
+}
+EXPORT_SYMBOL(sprd_rtc_set_bit_spg_counter);
+
+void sprd_rtc_hwrst_set(u16 value)
+{
+	sci_adi_set(ANA_HWRST_RTC_REG, (value&RTC_HWRST_SET_MASK));
+}
+EXPORT_SYMBOL(sprd_rtc_hwrst_set);
+
+
+u16 sprd_rtc_hwrst_get(void)
+{
+	u16 i = 0;
+
+	i = sci_adi_read(ANA_HWRST_RTC_REG) & RTC_HWRST_REG_MASK;
+
+	i >>= RTC_HWRST_SHIFT;
+
+	return i;
+}
+EXPORT_SYMBOL(sprd_rtc_hwrst_get);
 static int sprd_rtc_set_sec(unsigned long secs)
 {
 	unsigned sec, min, hour, day;
@@ -239,6 +340,7 @@ static int sprd_rtc_set_alarm_sec(unsigned long secs)
 	set_mask |= RTC_HOUR_ALM_ACK_BIT;
 
 	sci_adi_raw_write(ANA_RTC_DAY_ALM, day);
+
 	set_mask |= RTC_DAY_ALM_ACK_BIT;
 
 	/*
@@ -259,7 +361,9 @@ static int sprd_rtc_set_alarm_sec(unsigned long secs)
 		}
 	}while(1);
 	sci_adi_set(ANA_RTC_INT_CLR, RTC_ALM_TIME_MASK);
-
+	#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
+		sprd_rtc_set_bit_spg_counter(SPG_CNT_ALARM_BOOT, 0);
+	#endif
 	return 0;
 }
 static int sprd_rtc_read_alarm(struct device *dev,
@@ -333,6 +437,13 @@ static int sprd_rtc_read_time(struct device *dev,
 		n =2;
 		while(sprd_rtc_set_sec(0)!=0&&(n--)>0);
 	}
+#if(CONFIG_RTC_START_YEAR==1999)
+	if(secs < RTC_START_YEAR_2000)
+	{
+		secs = RTC_START_YEAR_2012;
+		sprd_rtc_set_sec(secs - secs_start_year_to_1970);
+	}
+#endif
 	rtc_time_to_tm(secs, tm);
 	return 0;
 }
@@ -370,6 +481,14 @@ static int sprd_rtc_proc(struct device *dev, struct seq_file *seq)
 	return 0;
 }
 void rtc_aie_update_irq(void *private);
+#if defined(CONFIG_RTC_CHN_ALARM_BOOT) && defined(CONFIG_SPA)
+extern int spa_lpm_charging_mode_get(void);
+struct work_struct reboot_work;
+static void sprd_rtc_reboot_work(struct work_struct *work)
+{
+	kernel_restart("alarmboot");
+}
+#endif
 static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
 {
 	struct rtc_device *rdev = dev_id;
@@ -378,6 +497,11 @@ static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
 	//rtc_update_irq(rdev, 1, RTC_AF | RTC_IRQF);
 	rtc_aie_update_irq(rdev);
 	CLEAR_RTC_INT(RTC_INT_ALL_MSK);
+
+#if defined(CONFIG_RTC_CHN_ALARM_BOOT) && defined(CONFIG_SPA)
+	if(spa_lpm_charging_mode_get())
+		schedule_work(&reboot_work);
+#endif
 	return IRQ_HANDLED;
 }
 static ssize_t sprd_show_caliberate(struct device *dev,
@@ -441,7 +565,6 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
 	int err = -ENODEV;
 	struct resource *irq;
-	int ret = 0;
 
 	rtc_data = kzalloc(sizeof(*rtc_data), GFP_KERNEL);
 	if(IS_ERR(rtc_data)){
@@ -477,12 +600,22 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 	rtc_data->irq_no = irq->start;
 	platform_set_drvdata(plat_dev, rtc_data);
 
-	ret = request_irq(rtc_data->irq_no, rtc_interrupt_handler, 0, "sprd_rtc", rtc_data->rtc);
-	if(ret){
+	err = request_irq(rtc_data->irq_no, rtc_interrupt_handler, 0, "sprd_rtc", rtc_data->rtc);
+	if(err){
 		printk(KERN_ERR "RTC regist irq error\n");
-		return ret;
+		goto unregister_rtc;
 	}
 	sprd_creat_caliberate_attr(rtc_data->rtc->dev);
+#if defined(CONFIG_RTC_CHN_ALARM_BOOT) && defined(CONFIG_SPA)
+	if(spa_lpm_charging_mode_get())
+	{
+		INIT_WORK(&reboot_work, sprd_rtc_reboot_work);
+		sprd_rtc_open(&plat_dev->dev);
+	}
+#endif
+
+	sprd_rtc_hwrst_set(1);
+	sprd_rtc_set_bit_spg_counter(SPG_CNT_8SECS_RESET, 1);
 	return 0;
 
 unregister_rtc:
@@ -508,6 +641,16 @@ static int __devexit sprd_rtc_remove(struct platform_device *plat_dev)
 	return 0;
 }
 
+static void sprd_rtc_shutdown(struct platform_device *pdev)
+{
+	sprd_rtc_set_bit_spg_counter(SPG_CNT_8SECS_RESET, 0);
+
+#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
+	sprd_rtc_set_alarm(&pdev->dev, &autoboot_alm_exit);
+	sprd_rtc_set_bit_spg_counter(SPG_CNT_ALARM_BOOT, 1);
+#endif 
+}
+
 static struct platform_driver sprd_rtc_driver = {
 	.probe	= sprd_rtc_probe,
 	.remove = __devexit_p(sprd_rtc_remove),
@@ -515,6 +658,7 @@ static struct platform_driver sprd_rtc_driver = {
 		.name = "sprd_rtc",
 		.owner = THIS_MODULE,
 	},
+	.shutdown = sprd_rtc_shutdown,
 };
 
 static int __init sprd_rtc_init(void)

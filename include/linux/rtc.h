@@ -278,6 +278,10 @@ extern int rtc_hctosys_ret;
 #define rtc_hctosys_ret -ENODEV
 #endif
 
+#if defined(CONFIG_RTC_CHN_ALARM_BOOT)
+extern struct rtc_wkalrm autoboot_alm_exit;
+#endif
+
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_RTC_H_ */
