@@ -45,6 +45,8 @@
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
 
+#include <gps/gpsctl.h>
+
 /* IRQ's for the multi sensor board */
 #define MPUIRQ_GPIO 212
 
@@ -61,6 +63,7 @@ extern int __init sprd_ramconsole_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device kb_backlight_device;
+static struct platform_device gpsctl_dev;
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -115,6 +118,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_stty_td_device,
 #endif
 	&kb_backlight_device,
+        &gpsctl_dev,
 	&rfkill_device,
 };
 
@@ -182,7 +186,7 @@ static struct serial_data plat_data1 = {
 };
 static struct serial_data plat_data2 = {
 	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
-	.clk = 26000000,
+	.clk = 96000000,
 };
 
 static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
@@ -210,6 +214,36 @@ struct akm8975_platform_data akm8975_platform_d = {
 	.mag_high_y = 20479,
 	.mag_low_z = -20480,
 	.mag_high_z = 20479,
+};
+
+static struct mpu_platform_data mpu9150_platform_data = {
+	.int_config = 0x00,
+	.level_shifter = 0,
+	.orientation = { -1, 0, 0,
+					  0, -1, 0,
+					  0, 0, +1 },
+	.sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
+	.sec_slave_id = COMPASS_ID_AK8963,
+	.secondary_i2c_addr = 0x0C,
+	.secondary_orientation = { 0, -1, 0,
+					1, 0, 0,
+					0, 0, 1 },
+	.key = {0xec, 0x06, 0x17, 0xdf, 0x77, 0xfc, 0xe6, 0xac,
+			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
+};
+
+static struct platform_gpsctl_data gps_ublox_data = {
+        .reset_pin  	= 0xffffffff,
+        .onoff_pin	= GPIO_GPS_ONOFF,
+        .power_pin	= 0xffffffff,
+	.clk_type	= "clk_aux0",
+};
+
+/* gps ctl*/
+static struct platform_device gpsctl_dev = {
+	.name           = "gpsctl",
+	.id             =  -1,
+        .dev.platform_data  = &gps_ublox_data,
 };
 
 static struct i2c_board_info i2c2_boardinfo[] = {
@@ -452,6 +486,7 @@ static void __init sc8825_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+
 }
 
 extern void sc8825_enable_timer_early(void);
