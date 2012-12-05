@@ -49,6 +49,15 @@
 #define vbc_dbg(...)
 #endif
 
+#define FUN_REG(f) ((unsigned short)(-((f) + 1)))
+
+enum {
+	VBC_LEFT = 0,
+	VBC_RIGHT = 1,
+};
+
+#define VBC_DG_VAL_MAX (0x7F)
+
 struct vbc_fw_header {
 	char magic[VBC_EQ_FIRMWARE_MAGIC_LEN];
 	u32 profile_version;
@@ -112,6 +121,7 @@ struct vbc_equ {
 };
 
 typedef int (*vbc_dma_set) (int enable);
+typedef int (*vbc_dg_set) (int enable, int dg);
 struct vbc_priv {
 	vbc_dma_set dma_set[2];
 
@@ -119,6 +129,9 @@ struct vbc_priv {
 	int (*arch_disable) (int chan);
 	int is_active:1;
 	int used_chan_count;
+	int dg_switch[2];
+	int dg_val[2];
+	vbc_dg_set dg_set[2];
 };
 
 static DEFINE_MUTEX(load_mutex);
@@ -353,18 +366,75 @@ static int vbc_ad_arch_disable(int chan)
 	return ret;
 }
 
+static inline int vbc_da0_dg_set(int enable, int dg)
+{
+	if (enable) {
+		vbc_reg_write(DADGCTL, 0x80 | (0xFF & dg), 0xFF);
+	} else {
+		vbc_reg_write(DADGCTL, 0, 0x80);
+	}
+	return 0;
+}
+
+static inline int vbc_da1_dg_set(int enable, int dg)
+{
+	if (enable) {
+		vbc_reg_write(DADGCTL, (0x80 | (0xFF & dg)) << 8, 0xFF00);
+	} else {
+		vbc_reg_write(DADGCTL, 0, 0x8000);
+	}
+	return 0;
+}
+
+static inline int vbc_ad0_dg_set(int enable, int dg)
+{
+	if (enable) {
+		vbc_reg_write(ADDGCTL, 0x80 | (0xFF & dg), 0xFF);
+	} else {
+		vbc_reg_write(ADDGCTL, 0, 0x80);
+	}
+	return 0;
+}
+
+static inline int vbc_ad1_dg_set(int enable, int dg)
+{
+	if (enable) {
+		vbc_reg_write(ADDGCTL, (0x80 | (0xFF & dg)) << 8, 0xFF00);
+	} else {
+		vbc_reg_write(ADDGCTL, 0, 0x8000);
+	}
+	return 0;
+}
+
+static int vbc_try_dg_set(int vbc_idx, int id)
+{
+	int dg = vbc[vbc_idx].dg_val[id];
+	if (vbc[vbc_idx].dg_switch[id] && vbc[vbc_idx].is_active) {
+		vbc[vbc_idx].dg_set[id] (1, dg);
+	} else {
+		vbc[vbc_idx].dg_set[id] (0, dg);
+	}
+	return 0;
+}
+
 static struct vbc_priv vbc[2] = {
 	{			/*PlayBack */
 	 .dma_set = {vbc_da0_dma_set, vbc_da1_dma_set},
 	 .arch_enable = vbc_da_arch_enable,
 	 .arch_disable = vbc_da_arch_disable,
 	 .is_active = 0,
+	 .dg_switch = {0, 0},
+	 .dg_val = {0x18, 0x18},
+	 .dg_set = {vbc_da0_dg_set, vbc_da1_dg_set},
 	 },
 	{			/*Capture */
 	 .dma_set = {vbc_ad0_dma_set, vbc_ad1_dma_set},
 	 .arch_enable = vbc_ad_arch_enable,
 	 .arch_disable = vbc_ad_arch_disable,
 	 .is_active = 0,
+	 .dg_switch = {0, 0},
+	 .dg_val = {0x18, 0x18},
+	 .dg_set = {vbc_ad0_dg_set, vbc_ad1_dg_set},
 	 },
 };
 
@@ -413,6 +483,9 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 	} else {
 		vbc_set_buffer_size(VBC_FIFO_FRAME_NUM, 0);
 	}
+
+	vbc_try_dg_set(vbc_idx, VBC_LEFT);
+	vbc_try_dg_set(vbc_idx, VBC_RIGHT);
 
 	WARN_ON(!vbc[vbc_idx].arch_enable);
 	WARN_ON(!vbc[vbc_idx].arch_disable);
@@ -693,10 +766,6 @@ static inline void vbc_eq_reg_set_range(u32 reg_start, u32 reg_end, void *data)
 
 static void vbc_eq_reg_apply(struct snd_soc_dai *codec_dai, void *data)
 {
-	snd_soc_dai_digital_mute(codec_dai, 1);
-
-	vbc_eq_reg_set(DADGCTL, data);
-
 	vbc_eq_reg_set_range(DAALCCTL0, DAALCCTL10, data);
 	vbc_eq_reg_set_range(HPCOEF0, HPCOEF42, data);
 
@@ -706,10 +775,7 @@ static void vbc_eq_reg_apply(struct snd_soc_dai *codec_dai, void *data)
 	vbc_eq_reg_set(STCTL0, data);
 	vbc_eq_reg_set(STCTL1, data);
 
-	vbc_eq_reg_set(ADDGCTL, data);
 	vbc_eq_reg_set(ADPATCHCTL, data);
-
-	snd_soc_dai_digital_mute(codec_dai, 0);
 }
 
 static void vbc_eq_profile_apply(struct snd_soc_dai *codec_dai, void *data)
@@ -1079,23 +1145,121 @@ static int vbc_eq_load_put(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
+static int vbc_dg_get(struct snd_kcontrol *kcontrol,
+		      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+	int vbc_idx = vbc_str_2_index(mc->shift);
+	ucontrol->value.integer.value[0] = vbc[vbc_idx].dg_val[id];
+	return 0;
+}
+
+static int vbc_dg_put(struct snd_kcontrol *kcontrol,
+		      struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+	int vbc_idx = vbc_str_2_index(mc->shift);
+
+	pr_info("Entering %s %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+
+	ret = ucontrol->value.integer.value[0];
+	if (ret == vbc[vbc_idx].dg_val[id]) {
+		return ret;
+	}
+	if (ret <= VBC_DG_VAL_MAX) {
+		vbc[vbc_idx].dg_val[id] = ret;
+	}
+
+	vbc_try_dg_set(vbc_idx, id);
+
+	vbc_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
+static int vbc_dg_switch_get(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+	int vbc_idx = vbc_str_2_index(mc->shift);
+	ucontrol->value.integer.value[0] = vbc[vbc_idx].dg_switch[id];
+	return 0;
+}
+
+static int vbc_dg_switch_put(struct snd_kcontrol *kcontrol,
+			     struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+	int vbc_idx = vbc_str_2_index(mc->shift);
+
+	pr_info("Entering %s %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+
+	ret = ucontrol->value.integer.value[0];
+	if (ret == vbc[vbc_idx].dg_switch[id]) {
+		return ret;
+	}
+
+	vbc[vbc_idx].dg_switch[id] = ret;
+
+	vbc_try_dg_set(vbc_idx, id);
+
+	vbc_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
 static const char *switch_function[] = { "dsp", "arm" };
-static const char *eq_switch_function[] = { "off", "on" };
 static const char *eq_load_function[] = { "idle", "loading" };
 
 static const struct soc_enum vbc_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, switch_function),
-	SOC_ENUM_SINGLE_EXT(2, eq_switch_function),
 	SOC_ENUM_SINGLE_EXT(2, eq_load_function),
 };
 
 static const struct snd_kcontrol_new vbc_controls[] = {
 	SOC_ENUM_EXT("VBC Switch", vbc_enum[0], vbc_switch_get,
 		     vbc_switch_put),
-	SOC_ENUM_EXT("VBC EQ Switch", vbc_enum[1], vbc_eq_switch_get,
-		     vbc_eq_switch_put),
-	SOC_ENUM_EXT("VBC EQ Update", vbc_enum[2], vbc_eq_load_get,
+	SOC_SINGLE_EXT("VBC EQ Switch", SND_SOC_NOPM, 0, 1, 0,
+		       vbc_eq_switch_get,
+		       vbc_eq_switch_put),
+	SOC_ENUM_EXT("VBC EQ Update", vbc_enum[1], vbc_eq_load_get,
 		     vbc_eq_load_put),
+
+	SOC_SINGLE_EXT("VBC DACL DG Set", FUN_REG(VBC_LEFT),
+		       SNDRV_PCM_STREAM_PLAYBACK, VBC_DG_VAL_MAX, 0, vbc_dg_get,
+		       vbc_dg_put),
+	SOC_SINGLE_EXT("VBC DACR DG Set", FUN_REG(VBC_RIGHT),
+		       SNDRV_PCM_STREAM_PLAYBACK, VBC_DG_VAL_MAX, 0, vbc_dg_get,
+		       vbc_dg_put),
+	SOC_SINGLE_EXT("VBC ADCL DG Set", FUN_REG(VBC_LEFT),
+		       SNDRV_PCM_STREAM_CAPTURE, VBC_DG_VAL_MAX, 0, vbc_dg_get,
+		       vbc_dg_put),
+	SOC_SINGLE_EXT("VBC ADCR DG Set", FUN_REG(VBC_RIGHT),
+		       SNDRV_PCM_STREAM_CAPTURE, VBC_DG_VAL_MAX, 0, vbc_dg_get,
+		       vbc_dg_put),
+
+	SOC_SINGLE_EXT("VBC DACL DG Switch", FUN_REG(VBC_LEFT),
+		       SNDRV_PCM_STREAM_PLAYBACK, 1, 0, vbc_dg_switch_get,
+		       vbc_dg_switch_put),
+	SOC_SINGLE_EXT("VBC DACR DG Switch", FUN_REG(VBC_RIGHT),
+		       SNDRV_PCM_STREAM_PLAYBACK, 1, 0, vbc_dg_switch_get,
+		       vbc_dg_switch_put),
+	SOC_SINGLE_EXT("VBC ADCL DG Switch", FUN_REG(VBC_LEFT),
+		       SNDRV_PCM_STREAM_CAPTURE, 1, 0, vbc_dg_switch_get,
+		       vbc_dg_switch_put),
+	SOC_SINGLE_EXT("VBC ADCR DG Switch", FUN_REG(VBC_RIGHT),
+		       SNDRV_PCM_STREAM_CAPTURE, 1, 0, vbc_dg_switch_get,
+		       vbc_dg_switch_put),
 
 #ifdef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	SOC_SINGLE_EXT("VBC EQ Profile Select", 0, 0, VBC_EQ_PROFILE_CNT_MAX, 0,
