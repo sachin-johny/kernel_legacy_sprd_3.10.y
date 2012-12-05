@@ -351,7 +351,7 @@ config IMX2_WDT
 
 config SPRD_WATCHDOG
 	bool "Spreadtrum watchdog"
-	depends on ARCH_SC8810
+	depends on ARCH_SC8810 || ARCH_SC8825
 	help
 	  This is the driver for the hardware watchdog
 	  on Spreadtrum SC8810 chip.
