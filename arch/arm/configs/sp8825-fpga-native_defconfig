@@ -1515,6 +1515,8 @@ CONFIG_VIDEO_DCAM_SPRD=y
 # CONFIG_MXD_MDTV is not set
 # CONFIG_SMS_SIANO_MDTV is not set
 
+CONFIG_CAMERA_5M=y
+
 #
 # Graphics support
 #

@@ -106,9 +106,16 @@ static void sprd_dma_set_uid(u32 dma_chn, u32 dma_uid)
  **/
 static int sprd_dma_request_channel(u32 uid)
 {
-	int chn;
+	int chn = DMA_CHN_MIN;
 
-	for( chn = DMA_CHN_MIN; chn < DMA_CHN_NUM; chn++) {
+#if 1
+	if(uid == DMA_UID_SOFTWARE)
+		chn = DMA_CHN_MIN;
+	else
+		chn = DMA_CHN_MIN + 1;
+#endif
+
+	for(; chn < DMA_CHN_NUM; chn++) {
 		if (sprd_irq_handlers[chn].used == 0)
 			return chn;
 
@@ -225,6 +232,8 @@ int sprd_dma_request(u32 uid, irq_handler_t irq_handler, void *data)
 
 	spin_unlock_irqrestore(&dma_lock, flags);
 
+	//printk("DMA: malloc: ch_id=%d, dma_uid=%d \n", ch_id, uid);
+
 	return ch_id;
 }
 EXPORT_SYMBOL_GPL(sprd_dma_request);
@@ -242,6 +251,8 @@ void sprd_dma_free(u32 chn_id)
 							DMA_CHN_MIN, DMA_CHN_MAX);
 		return;
 	}
+
+	//printk("DMA: free  : ch_id=%d, dma_uid=%d \n", chn_id, sprd_irq_handlers[chn_id].dma_uid);
 
 	/* disable channels*/
 	sprd_dma_channel_disable(chn_id);

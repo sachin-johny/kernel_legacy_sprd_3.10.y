@@ -56,4 +56,5 @@ typedef struct _rot_cfg_tag {
 #define ROT_IO_START 				_IOW(SPRD_ROT_IOCTL_MAGIC, 2, unsigned int)
 #define ROT_IO_IS_DONE 				_IOW(SPRD_ROT_IOCTL_MAGIC, 3, unsigned int)
 #define ROT_IO_DATA_COPY 		    	_IOW(SPRD_ROT_IOCTL_MAGIC, 4, ROT_CFG_T)
+#define ROT_IO_DATA_COPY_VIRTUAL   	_IOW(SPRD_ROT_IOCTL_MAGIC, 5, ROT_CFG_T)
 #endif

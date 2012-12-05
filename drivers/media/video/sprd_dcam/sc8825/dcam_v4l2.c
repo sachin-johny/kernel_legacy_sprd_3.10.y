@@ -1717,6 +1717,7 @@ static int  sprd_v4l2_proc_read(char           *page,
 
 	len += sprintf(page + len, "Context for DCAM device \n");
 	len += sprintf(page + len, "********************************************* \n");
+	len += sprintf(page + len, "SPRD_ION_SIZE: 0x%x \n", SPRD_ION_SIZE);
 	len += sprintf(page + len, "the configuration of CAP \n");
 	len += sprintf(page + len, "1. interface mode %d \n", dev->dcam_cxt.if_mode);
 	len += sprintf(page + len, "2. sensor mode %d \n", dev->dcam_cxt.sn_mode);
