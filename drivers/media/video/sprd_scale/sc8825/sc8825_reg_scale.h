@@ -41,7 +41,8 @@ extern   "C"
 #define SCALE_FRM_SWAP_U                               (SCALE_BASE + 0x004CUL)
 #define SCALE_FRM_LINE                                 (SCALE_BASE + 0x0058UL)
 #define SCALE_ENDIAN_SEL                               (SCALE_BASE + 0x0064UL)
-#define SCALE_END                                      (SCALE_BASE + 0x0200UL)
+#define SCALE_REG_START                                (SCALE_BASE + 0x0010UL)
+#define SCALE_REG_END                                  (SCALE_BASE + 0x0070UL)
 
 
 #define SCALE_FRAME_WIDTH_MAX                          4092
