@@ -305,9 +305,7 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 {
 	if(clock == 0){
-		#ifndef CONFIG_ARCH_SC8825
 		clk_disable(host->clk);
-		#endif
 		host->clock = 0;
 	}else{
 		if(!host->clock){
