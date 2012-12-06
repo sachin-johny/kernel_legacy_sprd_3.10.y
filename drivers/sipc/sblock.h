@@ -26,12 +26,12 @@
 #define SBLOCK_STATE_READY		1
 
 struct sblock_blks {
-	uint32_t		index;
+	uint32_t		addr; /*phy address*/
 	uint32_t		length;
 };
 
 struct sblock_txunit {
-	uint32_t		index;
+	void*			addr; /*virt address*/
 	struct list_head	list;
 };
 
