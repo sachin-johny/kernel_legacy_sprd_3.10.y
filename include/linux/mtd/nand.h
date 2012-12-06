@@ -519,6 +519,7 @@ struct nand_chip {
 
 #ifdef CONFIG_MTD_NAND_SC8810
 	nfc_status_t 	(*nfc_operation_status)(struct mtd_info *mtd);
+	void		(*nfc_hardware_config)(struct mtd_info *mtd, struct nand_chip *this, u8 id[8]);
 	char  		flashname[100];
 #endif
 	int chip_delay;

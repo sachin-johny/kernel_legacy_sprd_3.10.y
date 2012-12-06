@@ -113,8 +113,8 @@
 #define NFC_ECC_LOC_MAIN			(1 << 15)
 #define NFC_ECC_ERR_NUM_MASK		(0x1f)
 
-#define NFC_DEFAULT_TIMING			((6 << 0) | (6 << 5) | (10 << 10) | \
-                                    (6 << 16) | (5 << 21) | (5 << 26))
+#define NFC_DEFAULT_TIMING			((12 << 0) | (7 << 5) | (10 << 10) | \
+                                    (6 << 16) | (5 << 21) | (7 << 26))
 
  /* TODO : use global interface */
 #define AHB_SOFT_NFC_RST			(1 << 5)
