@@ -29,9 +29,13 @@
 
 static struct sblock_mgr *sblocks[SIPC_ID_NR][SMSG_CH_NR];
 
-static void __sblock_put(struct sblock_mgr *sblock, int index)
+static void __sblock_put(struct sblock_mgr *sblock, uint32_t addr)
 {
+	void* virt_addr;
+	uint32_t index;
 	spin_lock(&sblock->ring->plock);
+	virt_addr = addr - sblock->smem_addr + sblock->smem_virt;
+	index = (virt_addr - sblock->smem_virt) / sblock->ring->header->txblk_size;
 	list_add(&sblock->ring->txunits[index].list, &sblock->ring->txpool);
 	spin_unlock(&sblock->ring->plock);
 }
@@ -193,7 +197,7 @@ int sblock_create(uint8_t dst, uint8_t channel,
 	}
 	INIT_LIST_HEAD(&sblock->ring->txpool);
 	for (i = 0; i < txblocknum; i++) {
-		sblock->ring->txunits[i].index = i;
+		sblock->ring->txunits[i].addr = sblock->ring->txblk_virt + i * txblocksize;
 		list_add_tail(&sblock->ring->txunits[i].list, &sblock->ring->txpool);
 	}
 
@@ -309,7 +313,7 @@ int sblock_get(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout)
 	spin_lock(&ring->plock);
 	if (!list_empty(head)) {
 		txunit = list_entry(head->next, struct sblock_txunit, list);
-		blk->addr = ring->txblk_virt + txunit->index * sblock->txblksz;
+		blk->addr = txunit->addr;
 		blk->length = sblock->txblksz;
 		list_del(head->next);
 	} else {
@@ -342,10 +346,10 @@ int sblock_send(uint8_t dst, uint8_t channel, struct sblock *blk)
 	mutex_lock(&ring->txlock);
 
 	txpos = ringhd->txblk_wrptr % ringhd->txblk_count;
-	ring->txblks[txpos].index = (blk->addr - ring->txblk_virt) / sblock->txblksz;
+	ring->txblks[txpos].addr = blk->addr - sblock->smem_virt + sblock->smem_addr;
 	ring->txblks[txpos].length = blk->length;
-	pr_debug("sblock_send: wrptr=%d, txpos=%d, index=%d\n",
-			ringhd->txblk_wrptr, txpos, ring->txblks[txpos].index);
+	pr_debug("sblock_send: wrptr=%d, txpos=%d, addr=%x\n",
+			ringhd->txblk_wrptr, txpos, ring->txblks[txpos].addr);
 	ringhd->txblk_wrptr = ringhd->txblk_wrptr + 1;
 	smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_SEND, 0);
 	smsg_send(dst, &mevt, -1);
@@ -407,9 +411,9 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
 
 	/* multi-receiver may cause recv failure */
 	mutex_lock(&ring->rxlock);
-	if (ringhd->rxblk_wrptr != ringhd->rxblk_rdptr) {
-		rxpos = ringhd->rxblk_rdptr % ringhd->txblk_count;
-		blk->addr = ring->rxblk_virt + ring->rxblks[rxpos].index * sblock->rxblksz;
+	if (ringhd->rxblk_wrptr != ringhd->rxblk_rdptr){
+		rxpos = ringhd->rxblk_rdptr % ringhd->rxblk_count;
+		blk->addr = ring->rxblks[rxpos].addr - sblock->smem_addr + sblock->smem_virt;
 		blk->length = ring->rxblks[rxpos].length;
 		ringhd->rxblk_rdptr = ringhd->rxblk_rdptr + 1;
 		pr_debug("sblock_receive: rxpos=%d, addr=%p, len=%d\n",
@@ -428,7 +432,7 @@ int sblock_release(uint8_t dst, uint8_t channel, struct sblock *blk)
 	struct sblock_ring *ring;
 	volatile struct sblock_ring_header *ringhd;
 	struct smsg mevt;
-	int index;
+	uint32_t addr;
 
 	if (!sblock || sblock->state != SBLOCK_STATE_READY) {
 		printk(KERN_ERR "sblock-%d-%d not ready!\n", dst, channel);
@@ -441,11 +445,11 @@ int sblock_release(uint8_t dst, uint8_t channel, struct sblock *blk)
 	ring = sblock->ring;
 	ringhd = ring->header;
 
-	index = (blk->addr - ring->rxblk_virt) / sblock->rxblksz;
-	pr_debug("sblock_release: index=%d\n", index);
+	addr = blk->addr - sblock->smem_virt + sblock->smem_addr;
+	pr_debug("sblock_release: addr=%x\n", addr);
 
 	/* send released rx block index */
-	smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_RELEASE, index);
+	smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_RELEASE, addr);
 	smsg_send(dst, &mevt, -1);
 
 	return 0;
