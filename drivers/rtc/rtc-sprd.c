@@ -48,6 +48,7 @@
 #define ANA_RTC_INT_RSTS                (RTC_BASE + 0x34)
 #define ANA_RTC_INT_CLR                 (RTC_BASE + 0x38)
 #define ANA_RTC_INT_MSK                 (RTC_BASE + 0x3C)
+#define ANA_RTC_SPG_UPD			(RTC_BASE + 0x54)
 
 #define ANA_RTC_SPG_CNT                 (RTC_BASE + 0x50)
 #define ANA_RTC_SPG_CNT_UPD             (RTC_BASE + 0x54)
@@ -95,6 +96,9 @@
 
 #define SPRD_RTC_GET_MAX 10
 #define SPRD_RTC_SET_MAX 150
+#define SPRD_RTC_UNLOCK	0xa5
+#define SPRD_RTC_LOCK	(~SPRD_RTC_UNLOCK)
+
 
 #define CLEAR_RTC_INT(mask) \
 	do{ sci_adi_raw_write(ANA_RTC_INT_CLR, mask); \
@@ -412,9 +416,11 @@ static int sprd_rtc_set_alarm(struct device *dev,
 			msleep(1);
 			i++;
 		}while(read_secs != secs && i < SPRD_RTC_SET_MAX);
+		sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
 		wake_unlock(&rtc_wake_lock);
 	}else{
 		sci_adi_clr(ANA_RTC_INT_EN, RTC_ALARM_BIT);
+		sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_LOCK);
 		msleep(150);
 	}
 
@@ -571,6 +577,11 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		err = PTR_ERR(rtc_data);
 		return err;
 	};
+
+	/*ensure the rtc interrupt don't be send to Adie when there's no
+	  *rtc alarm int occur.
+	  */
+	sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_LOCK);
 	/* disable all interrupt */
 	sci_adi_clr(ANA_RTC_INT_EN, RTC_INT_ALL_MSK);
 	/* enable rtc device */
