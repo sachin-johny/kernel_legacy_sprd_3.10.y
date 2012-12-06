@@ -997,6 +997,7 @@ static void ft5x0x_ts_resume(struct early_suspend *handler)
 {
 	printk("==%s==\n", __FUNCTION__);
 	ft5x0x_ts_reset();
+	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
 }
 
 static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
@@ -1052,9 +1053,13 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	ft5x0x_read_reg(FT5X0X_REG_FT5201ID, &uc_reg_value);
 	TS_DBG("FT5X0X_REG_FT5201ID = 0x%x\n",uc_reg_value);
 
-	ft5x0x_read_reg(0xa3, &uc_reg_value);
-	TS_DBG("0xa3 = 0x%x\n",uc_reg_value);
-	ft5x0x_write_reg(FT5X0X_REG_MODE, 0); //interrupt mode
+	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
+	if(uc_reg_value != 0x55)
+	{
+		printk("chip id error%x\n",uc_reg_value);
+	}
+
+	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
 
 	INIT_WORK(&ft5x0x_ts->pen_event_work, ft5x0x_ts_pen_irq_work);
 
@@ -1064,7 +1069,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_create_singlethread;
 	}
 
-	err = request_irq(client->irq, ft5x0x_ts_interrupt, IRQF_TRIGGER_LOW, client->name, ft5x0x_ts);
+	err = request_irq(client->irq, ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING, client->name, ft5x0x_ts);
 	if (err < 0) {
 		dev_err(&client->dev, "ft5x0x_probe: request irq failed %d\n",err);
 		goto exit_irq_request_failed;
