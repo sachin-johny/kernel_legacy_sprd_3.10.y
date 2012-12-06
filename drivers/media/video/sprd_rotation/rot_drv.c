@@ -658,7 +658,7 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	list_size = (total_len + list_copy_size -1)/list_copy_size;
 
-	printk("rot_k_start_copy_data_to_virtual: dst_vir_addr = %x, list_copy_size=%x, list_size=%x,  \n", dst_vir_addr, list_copy_size, list_size);
+	RTT_PRINT("rot_k_start_copy_data_to_virtual: dst_vir_addr = %x, list_copy_size=%x, list_size=%x,  \n", dst_vir_addr, list_copy_size, list_size);
 
 	while (1) {
 		ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
@@ -685,7 +685,7 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 	memset(dma_cfg, 0x0, sizeof(*dma_cfg) * list_size);
 
 	do_gettimeofday(&time1);
-	printk("pid = %d = 0x%x \n", current->pid, current->pid);
+	RTT_PRINT("pid = %d = 0x%x \n", current->pid, current->pid);
 	for (i = 0; i < list_size; i++) {
 		dma_dst_phy = user_va2pa(current->mm, dst_vir_addr+i*list_copy_size);
 		//sprd_dma_default_linklist_setting(dma_cfg + i);
@@ -703,8 +703,8 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 		block_len -= dma_cfg[i].total_len;
 	}
 	do_gettimeofday(&time2);
-	//printk("virtual:%x, physical:%x \n", dst_vir_addr, dma_cfg[0].dst_addr);
-	printk("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
+	//RTT_PRINT("virtual:%x, physical:%x \n", dst_vir_addr, dma_cfg[0].dst_addr);
+	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
 
 	dma_cfg[list_size - 1].cfg |= DMA_LLEND;
 
@@ -732,7 +732,7 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	dma_free_writecombine(NULL, sizeof(*dma_cfg) * list_size, dma_cfg, dma_cfg_phy);
 
-	printk("rot_k_start_copy_data_to_virtual done \n");
+	RTT_PRINT("rot_k_start_copy_data_to_virtual done \n");
 
 	/* do_gettimeofday(&te);*/
 	/*printk("wjp:dma endian time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));*/

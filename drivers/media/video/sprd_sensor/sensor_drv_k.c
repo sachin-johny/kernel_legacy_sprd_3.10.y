@@ -53,12 +53,12 @@
 
 #define DEBUG_SENSOR_DRV
 #ifdef DEBUG_SENSOR_DRV
-#define SENSOR_PRINT   printk
+#define SENSOR_PRINT   pr_debug
 #else
 #define SENSOR_PRINT(...)
 #endif
 #define SENSOR_PRINT_ERR   printk
-#define SENSOR_PRINT_HIGH  pr_debug
+#define SENSOR_PRINT_HIGH  printk
 
 #define SENSOR_K_SUCCESS 		0
 #define SENSOR_K_FAIL 			(-1)
@@ -252,10 +252,42 @@ LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 	return SENSOR_K_SUCCESS;
 }
 
+
+static uint32_t iopower_on_count = 0;
+static uint32_t avddpower_on_count = 0;
+static uint32_t dvddpower_on_count = 0;
+static uint32_t motpower_on_count = 0;
+
 static struct regulator *s_camvio_regulator = NULL;
 static struct regulator *s_camavdd_regulator = NULL;
 static struct regulator *s_camdvdd_regulator = NULL;
 static struct regulator *s_cammot_regulator = NULL;
+
+static void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
+{
+	SENSOR_PRINT("_sensor_regulator_disable start: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
+		iopower_on_count, avddpower_on_count, dvddpower_on_count, motpower_on_count);
+	if(*power_on_count > 0){
+		regulator_disable(ptr_cam_regulator);
+		(*power_on_count)--;
+	}
+	SENSOR_PRINT("_sensor_regulator_disable done: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
+		iopower_on_count, avddpower_on_count, dvddpower_on_count, motpower_on_count);
+
+}
+
+static int _sensor_regulator_enable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
+{
+	int err;
+
+	err = regulator_enable(ptr_cam_regulator);
+	(*power_on_count)++;
+
+	SENSOR_PRINT("_sensor_regulator_enable done: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
+		iopower_on_count, avddpower_on_count, dvddpower_on_count, motpower_on_count);
+
+	return err;
+}
 
 LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 {
@@ -320,7 +352,8 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 		return SENSOR_K_FAIL;
 	}
 	if (0 != volt_value) {
-		err = regulator_enable(s_cammot_regulator);
+		/* err = regulator_enable(s_cammot_regulator); */
+		err = _sensor_regulator_enable(&motpower_on_count,   s_cammot_regulator);
 		if (err) {
 			regulator_put(s_cammot_regulator);
 			s_cammot_regulator = NULL;
@@ -328,7 +361,8 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 			return SENSOR_K_FAIL;
 		}
 	} else {
-		regulator_disable(s_cammot_regulator);
+		/* regulator_disable(s_cammot_regulator); */
+		_sensor_regulator_disable(&motpower_on_count,   s_cammot_regulator);
 		regulator_put(s_cammot_regulator);
 		s_cammot_regulator = NULL;
 		SENSOR_PRINT("SENSOR:disable cammot.\n");
@@ -399,7 +433,8 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 		return SENSOR_K_FAIL;
 	}
 	if (0 != volt_value) {
-		err = regulator_enable(s_camavdd_regulator);
+		/* err = regulator_enable(s_camavdd_regulator);*/
+		err = _sensor_regulator_enable(&avddpower_on_count,  s_camavdd_regulator);
 		if (err) {
 			regulator_put(s_camavdd_regulator);
 			s_camavdd_regulator = NULL;
@@ -407,7 +442,8 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 			return SENSOR_K_FAIL;
 		}
 	} else {
-		regulator_disable(s_camavdd_regulator);
+		/* regulator_disable(s_camavdd_regulator); */
+		_sensor_regulator_disable(&avddpower_on_count,  s_camavdd_regulator);
 		regulator_put(s_camavdd_regulator);
 		s_camavdd_regulator = NULL;
 		SENSOR_PRINT("SENSOR:disable camavdd.\n");
@@ -478,7 +514,8 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 		return SENSOR_K_FAIL;
 	}
 	if (0 != volt_value) {
-		err = regulator_enable(s_camdvdd_regulator);
+		/* err = regulator_enable(s_camdvdd_regulator); */
+		err = _sensor_regulator_enable(&dvddpower_on_count,  s_camdvdd_regulator);
 		if (err) {
 			regulator_put(s_camdvdd_regulator);
 			s_camdvdd_regulator = NULL;
@@ -486,7 +523,8 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 			return SENSOR_K_FAIL;
 		}
 	} else {
-		regulator_disable(s_camdvdd_regulator);
+		/* regulator_disable(s_camdvdd_regulator); */
+		_sensor_regulator_disable(&dvddpower_on_count,  s_camdvdd_regulator);
 		regulator_put(s_camdvdd_regulator);
 		s_camdvdd_regulator = NULL;
 		SENSOR_PRINT("SENSOR:disable camdvdd.\n");
@@ -557,7 +595,8 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 		return SENSOR_K_FAIL;
 	}
 	if (0 != volt_value) {
-		err = regulator_enable(s_camvio_regulator);
+		/* err = regulator_enable(s_camvio_regulator); */
+		err = _sensor_regulator_enable(&iopower_on_count,    s_camvio_regulator);
 		if (err) {
 			regulator_put(s_camvio_regulator);
 			s_camvio_regulator = NULL;
@@ -565,7 +604,8 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 			return SENSOR_K_FAIL;
 		}
 	} else {
-		regulator_disable(s_camvio_regulator);
+		/* regulator_disable(s_camvio_regulator); */
+		_sensor_regulator_disable(&iopower_on_count,    s_camvio_regulator);
 		regulator_put(s_camvio_regulator);
 		s_camvio_regulator = NULL;
 		SENSOR_PRINT("SENSOR:disable camvio.\n");
@@ -862,8 +902,8 @@ LOCAL int _Sensor_K_ReadReg(SENSOR_REG_BITS_T_PTR pReg)
 			ret = SENSOR_K_FAIL;
 		} else {
 			pReg->reg_value = (r_cmd_num == 1) ? (uint16_t) buf_r[0] : (uint16_t) ((buf_r[0] << 8) + buf_r[1]);
-			SENSOR_PRINT_HIGH("_Sensor_K_ReadReg: i2cAddr=%x, addr=%x, value=%x, bit=%d \n",
-					this_client->addr, pReg->reg_addr, pReg->reg_value, pReg->reg_bits);
+			//SENSOR_PRINT_HIGH("_Sensor_K_ReadReg: i2cAddr=%x, addr=%x, value=%x, bit=%d \n",
+			//		this_client->addr, pReg->reg_addr, pReg->reg_value, pReg->reg_bits);
 			ret = SENSOR_K_SUCCESS;
 			break;
 		}
