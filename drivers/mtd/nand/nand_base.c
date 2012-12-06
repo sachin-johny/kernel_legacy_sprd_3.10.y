@@ -395,7 +395,7 @@ static int nand_block_bad(struct mtd_info *mtd, loff_t ofs, int getchip)
 static int nand_default_block_markbad(struct mtd_info *mtd, loff_t ofs)
 {
 	struct nand_chip *chip = mtd->priv;
-	uint8_t buf[2] = { 0, 0 };
+	uint8_t buf[2] = { 0x55, 0xaa };
 	int block, ret, i = 0;
 
 	if (chip->options & NAND_BBT_SCANLASTPAGE)
@@ -3229,8 +3229,7 @@ ident_done:
 #endif
 
 #ifdef	CONFIG_ARCH_SC8810
-	extern void nand_hardware_config(struct mtd_info *mtd, struct nand_chip*, u8[8]);
-	nand_hardware_config(mtd, chip, id_data);
+	chip->nfc_hardware_config(mtd, chip, id_data);
 #endif
 
 	return type;
