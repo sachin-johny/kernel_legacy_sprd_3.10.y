@@ -85,6 +85,10 @@ EXPORT_SYMBOL(saved_command_line);
 #define MEM_SIZE	(16*1024*1024)
 #endif
 
+/* used to correct ram size passed from vmjaluna */
+unsigned long ram_size = 0;
+
+
 #if defined(CONFIG_FPE_NWFPE) || defined(CONFIG_FPE_FASTFPE)
 char fpe_type[8];
 
@@ -790,7 +794,10 @@ static void __init nk_meminfo_setup(void)
 	      (__pa(map->vstart) == map->pstart))) {
 			NkPhAddr  start = map->pstart;
 			NkPhSize  size  = map->plimit - map->pstart + 1;
-
+			/* we use 512M vmjaluna for all boards, so we need to
+			 * correct it here for 256M ones */
+			if (ram_size == SZ_256M && map->plimit > PLAT_PHYS_OFFSET + SZ_256M)
+				size = PLAT_PHYS_OFFSET + SZ_256M -start;
 			if (arm_add_memory(start, size) == 0) {
 				PRINTNK(("%s: [%d] added: 0x%08x..0x%08x\n",
 					 __FUNCTION__, id, start,
@@ -1362,6 +1369,8 @@ static int __init high_ram(char *p)
 		arm_add_memory(0x90000000, 0x10000000);
 	else if(p && strstr(p,"768M"))
 		arm_add_memory(0x90000000, 0x20000000);
+	else if(p && strstr(p,"256M"))
+		ram_size = SZ_256M;
 	return 0;
 }
 early_param("ram", high_ram);
