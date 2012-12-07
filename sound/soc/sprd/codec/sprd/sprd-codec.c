@@ -1911,12 +1911,14 @@ static int sprd_codec_pcm_hw_free(struct snd_pcm_substream *substream,
 }
 
 #ifdef CONFIG_SPRD_CODEC_USE_INT
+#ifdef CONFIG_CODEC_DAC_MUTE_WAIT
 static void sprd_codec_dac_mute_irq_enable(struct snd_soc_codec *codec)
 {
 	int mask = BIT(DAC_MUTE_D);
 	snd_soc_update_bits(codec, SOC_REG(AUD_INT_CLR), mask, mask);
 	snd_soc_update_bits(codec, SOC_REG(AUD_INT_EN), mask, mask);
 }
+#endif
 
 static irqreturn_t sprd_codec_dp_irq(int irq, void *dev_id)
 {
@@ -2015,6 +2017,54 @@ int sprd_codec_soc_resume(struct snd_soc_codec *codec)
 #define sprd_codec_soc_resume  NULL
 #endif
 
+/*
+ * proc interface
+ */
+
+#ifdef CONFIG_PROC_FS
+static void sprd_codec_proc_read(struct snd_info_entry *entry,
+				 struct snd_info_buffer *buffer)
+{
+	struct sprd_codec_priv *sprd_codec = entry->private_data;
+	struct snd_soc_codec *codec = sprd_codec->codec;
+	int reg;
+
+	snd_iprintf(buffer, "%s digital part\n", codec->name);
+	for (reg = SPRD_CODEC_DP_BASE; reg < SPRD_CODEC_DP_END; reg += 0x10) {
+		snd_iprintf(buffer, "0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
+			    (reg - SPRD_CODEC_DP_BASE)
+			    , snd_soc_read(codec, reg + 0x00)
+			    , snd_soc_read(codec, reg + 0x04)
+			    , snd_soc_read(codec, reg + 0x08)
+			    , snd_soc_read(codec, reg + 0x0C)
+		    );
+	}
+	snd_iprintf(buffer, "%s analog part\n", codec->name);
+	for (reg = SPRD_CODEC_AP_BASE; reg < SPRD_CODEC_AP_END; reg += 0x10) {
+		snd_iprintf(buffer, "0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
+			    (reg - SPRD_CODEC_AP_BASE)
+			    , snd_soc_read(codec, reg + 0x00)
+			    , snd_soc_read(codec, reg + 0x04)
+			    , snd_soc_read(codec, reg + 0x08)
+			    , snd_soc_read(codec, reg + 0x0C)
+		    );
+	}
+}
+
+static void sprd_codec_proc_init(struct sprd_codec_priv *sprd_codec)
+{
+	struct snd_info_entry *entry;
+	struct snd_soc_codec *codec = sprd_codec->codec;
+
+	if (!snd_card_proc_new(codec->card->snd_card, "sprd-codec", &entry))
+		snd_info_set_text_ops(entry, sprd_codec, sprd_codec_proc_read);
+}
+#else /* !CONFIG_PROC_FS */
+static inline void sprd_codec_proc_init(struct sprd_codec_priv *sprd_codec)
+{
+}
+#endif
+
 #define SPRD_CODEC_PCM_RATES 	\
 	(SNDRV_PCM_RATE_8000 |  \
 	 SNDRV_PCM_RATE_11025 | \
@@ -2073,6 +2123,8 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 	if (ret != 0) {
 		pr_err("Failed to request supplies: %d\n", ret);
 	}
+
+	sprd_codec_proc_init(sprd_codec);
 
 	sprd_codec_dbg("return %i\n", ret);
 	sprd_codec_dbg("Leaving %s\n", __func__);
