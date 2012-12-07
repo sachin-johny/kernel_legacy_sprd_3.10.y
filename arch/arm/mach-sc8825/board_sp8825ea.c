@@ -625,7 +625,7 @@ int __init sc8825_clock_init_early(void)
 		0);
 	sci_glb_clr(REG_GLB_CLK_EN,
 		BIT_PWM3_EB			|
-		BIT_PWM2_EB			|
+//		BIT_PWM2_EB			|
 		BIT_PWM1_EB			|
 //		BIT_PWM0_EB			|
 		0);
