@@ -54,6 +54,9 @@
 
 #ifdef CONFIG_ION
 //#define SPRD_ION_SIZE           (CONFIG_SPRD_ION_SIZE*SZ_1M)
+
+	#define SPRD_ION_SIZE   (24*1024*1024) // 1280x720 H264 HW Decoding needs 24M
+/*
     #if defined(CONFIG_CAMERA_8M)
     #define SPRD_ION_SIZE   (23*1024*1024)
     #elif defined(CONFIG_CAMERA_5M)
@@ -69,6 +72,7 @@
     #else
     #define SPRD_ION_SIZE   (19*1024*1024)
     #endif
+*/
 
     #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE*SZ_1M)
 #else
