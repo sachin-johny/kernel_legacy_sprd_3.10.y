@@ -6,32 +6,30 @@ choice
 	prompt "SC8825 Board"
 
 config MACH_SP8825_FPGA
-	default n
 	bool "SP8825 FPGA"
 	help
 	  SP8825 FPGA board based on SC8825.
 config MACH_SP8825_OPENPHONE
-	default n
 	bool "SP8825 OPENPHONE"
 	help
 	  SP8825 OPENPHONE board based on SC8825.
+config MACH_SP8825GA_OPENPHONE
+	bool "SP8825GA OPENPHONE (NAND)"
+	help
+	  SP8825 OPENPHONE board based on SC8825.
 config MACH_SP8825EA
-	default n
 	bool "SP8825EA"
 	help
 	  SP8825 EA based on SC8825.
 config MACH_SP8825EB
-	default n
 	bool "SP8825EB"
 	help
 	  SP8825 EB based on SC8825.
 config MACH_SP6825GA
-	default n
 	bool "SP6825GA"
 	help
 	  SP6825 GA based on SC8825.
 config MACH_GARDA
-	default n
 	bool "GARDA"
 	help
 	  GARDA based on SC8825.
