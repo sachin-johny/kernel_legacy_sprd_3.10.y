@@ -841,7 +841,7 @@ static int dolphin_digital_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct snd_soc_codec *codec = dai->codec;
 	struct dolphin_priv *dolphin = snd_soc_codec_get_drvdata(codec);
-	int ret;
+	int ret = 0;
 
 	dol_dbg("Entering %s\n", __func__);
 	if (atomic_read(&dolphin->sb_refcount) >= 1) {
@@ -891,6 +891,44 @@ int dolphin_soc_resume(struct snd_soc_codec *codec)
 #else
 #define dolphin_soc_suspend NULL
 #define dolphin_soc_resume  NULL
+#endif
+
+/*
+ * proc interface
+ */
+
+#ifdef CONFIG_PROC_FS
+static void dolphin_proc_read(struct snd_info_entry *entry,
+			      struct snd_info_buffer *buffer)
+{
+	struct dolphin_priv *dolphin = entry->private_data;
+	struct snd_soc_codec *codec = dolphin->codec;
+	int reg;
+
+	snd_iprintf(buffer, "%s\n", codec->name);
+	for (reg = VBAICR; reg <= VBTR2; reg += 0x10) {
+		snd_iprintf(buffer, "0x%04x | 0x%02x 0x%02x 0x%02x 0x%02x\n",
+			    (reg - VBAICR)
+			    , snd_soc_read(codec, reg + 0x00)
+			    , snd_soc_read(codec, reg + 0x04)
+			    , snd_soc_read(codec, reg + 0x08)
+			    , snd_soc_read(codec, reg + 0x0C)
+		    );
+	}
+}
+
+static void dolphin_proc_init(struct dolphin_priv *dolphin)
+{
+	struct snd_info_entry *entry;
+	struct snd_soc_codec *codec = dolphin->codec;
+
+	if (!snd_card_proc_new(codec->card->snd_card, "dolphin", &entry))
+		snd_info_set_text_ops(entry, dolphin, dolphin_proc_read);
+}
+#else /* !CONFIG_PROC_FS */
+static inline void dolphin_proc_init(struct dolphin_priv *dolphin)
+{
+}
 #endif
 
 #define DOLPHIN_PCM_RATES 	\
@@ -946,6 +984,8 @@ static int dolphin_soc_probe(struct snd_soc_codec *codec)
 		goto probe_out;
 	}
 	dolphin->ldo_status = DOLPHIN_LDO_INIT;
+
+	dolphin_proc_init(dolphin);
 
 probe_out:
 	dol_dbg("return %i\n", ret);
