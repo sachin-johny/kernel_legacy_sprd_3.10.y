@@ -52,7 +52,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(EMMC),
 	SPRD_DEVICE(DISPLAY),	
 	SPRD_DEVICE(NFC),
-	SPRD_DEVICE(RTC),
+	SPRD_DEVICE(GPTIMER),
 	SPRD_DEVICE(ISP),
 	SPRD_DEVICE(GREG),
 	SPRD_DEVICE(PIN),
