@@ -196,9 +196,10 @@ irq_ret:
 static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 {
 	struct sprd_runtime_data *rtd = substream->runtime->private_data;
+	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sprd_pcm_dma_params *dma;
-	struct sprd_dma_channel_desc dma_cfg;
-	sprd_dma_desc *dma_desc[2];
+	struct sprd_dma_channel_desc dma_cfg = {0};
+	dma_addr_t next_desc_phys[2];
 	int i;
 
 	sprd_pcm_dbg("Entering %s\n", __func__);
@@ -209,23 +210,12 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 	dma = rtd->params;
 	dma_cfg = dma->desc;
 
-	dma_desc[0] = rtd->dma_desc_array;
-	dma_desc[1] = rtd->dma_desc_array + substream->runtime->hw.periods_max;
+	next_desc_phys[0] = rtd->dma_desc_array_phys;
+	next_desc_phys[1] = rtd->dma_desc_array_phys +
+	    runtime->hw.periods_max * sizeof(sprd_dma_desc);
 	for (i = 0; i < 2; i++) {
 		if (rtd->uid_cid_map[i] >= 0) {
-			dma_cfg.cfg_blk_len =
-			    dma_desc[i]->cfg & CFG_BLK_LEN_MASK;
-			dma_cfg.total_len = dma_desc[i]->tlen;
-			dma_cfg.src_addr = dma_desc[i]->dsrc;
-			dma_cfg.dst_addr = dma_desc[i]->ddst;
-			dma_cfg.llist_ptr = dma_desc[i]->llptr;
-#ifdef CONFIG_SPRD_VBC_INTERLEAVED
-			dma_cfg.src_elem_postm =
-			    (dma_desc[i]->pmod >> SRC_ELEM_POSTM_SHIFT)
-			    & SRC_ELEM_POSTM_MASK;
-			dma_cfg.dst_elem_postm =
-			    dma_desc[i]->pmod & DST_ELEM_POSTM_MASK;
-#endif
+			dma_cfg.llist_ptr = next_desc_phys[i];
 			sprd_dma_channel_config(rtd->uid_cid_map[i],
 						dma->workmode, &dma_cfg);
 		}
