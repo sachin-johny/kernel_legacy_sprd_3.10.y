@@ -126,15 +126,11 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * that it has been released by resetting pen_release.
 	 *
 	 */
-	write_reg_pen(cpu);
+	write_reg_pen(1 << (cpu * 4));
 	write_pen_release(cpu);
 
-	/*
-	 * Send the secondary CPU a soft interrupt, thereby causing
-	 * the boot monitor to read the system wide flags register,
-	 * and branch to the address found there.
-	 */	 
-	gic_raise_softirq(cpumask_of(cpu), 1);
+	/* use sev to wake up cpu1 and wait for pen released */
+	dsb_sev();
 	timeout = jiffies + (1 * HZ);
 
 	while (time_before(jiffies, timeout)) {
