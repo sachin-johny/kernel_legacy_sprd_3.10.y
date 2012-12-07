@@ -82,4 +82,14 @@ config CODEC_NO_HP_POP
 	  some customer use the external hp amplifier will need this feature,
 	  or will cause hp pop noise serious.
 
+config HP_POP_DELAY_TIME
+	int "hp switch delay time(0-1000) unit(MS)"
+	depends on CODEC_NO_HP_POP
+	range 0 1000
+	default 350
+	help
+	  if defined CODEC_NO_HP_POP , maybe need this delay
+	  for reduce external hp amp noise.
+	  this delay time value, unit is MS.
+
 endmenu

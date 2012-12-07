@@ -968,23 +968,15 @@ static inline int _mixer_setting_one(struct snd_soc_codec *codec, int id,
 	return _mixer_setting(codec, id, id + 1, lr, try_on);
 }
 
-#ifndef CONFIG_CODEC_NO_HP_POP
-static inline int is_hp_pop_compelet(struct snd_soc_codec *codec)
-{
-	int val;
-	val = snd_soc_read(codec, IFR1);
-	val = (val >> HP_POP_FLG) & HP_POP_FLG_MASK;
-	sprd_codec_dbg("HP POP= 0x%x\n", val);
-	return HP_POP_FLG_NEAR_CMP == val;
-}
-
 #ifdef CONFIG_SPRD_CODEC_USE_INT
+#ifndef CONFIG_CODEC_NO_HP_POP
 static void sprd_codec_hp_pop_irq_enable(struct snd_soc_codec *codec)
 {
 	int mask = BIT(AUDIO_POP_IRQ);
 	snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_CLR), mask, mask);
 	snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_EN), mask, mask);
 }
+#endif
 
 static irqreturn_t sprd_codec_ap_irq(int irq, void *dev_id)
 {
@@ -1001,6 +993,16 @@ static irqreturn_t sprd_codec_ap_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 #endif
+
+#ifndef CONFIG_CODEC_NO_HP_POP
+static inline int is_hp_pop_compelet(struct snd_soc_codec *codec)
+{
+	int val;
+	val = snd_soc_read(codec, IFR1);
+	val = (val >> HP_POP_FLG) & HP_POP_FLG_MASK;
+	sprd_codec_dbg("HP POP= 0x%x\n", val);
+	return HP_POP_FLG_NEAR_CMP == val;
+}
 
 static inline int hp_pop_wait_for_compelet(struct snd_soc_codec *codec)
 {
@@ -1105,13 +1107,35 @@ static int hp_pop_event(struct snd_soc_dapm_widget *w,
 
 	return ret;
 }
+#else
+#ifndef CONFIG_HP_POP_DELAY_TIME
+#define CONFIG_HP_POP_DELAY_TIME (0)
+#endif
+static int hp_pop_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *kcontrol, int event)
+{
+	int ret = 0;
+	sprd_codec_dbg("Entering %s event =0x%x wait %d\n", __func__, event, CONFIG_HP_POP_DELAY_TIME);
+	switch (event) {
+		case SND_SOC_DAPM_POST_PMU:
+			sprd_codec_wait(CONFIG_HP_POP_DELAY_TIME);
+			break;
+		default:
+			BUG();
+			ret = -EINVAL;
+	}
+	sprd_codec_dbg("Leaving %s\n", __func__);
+	return ret;
+}
 #endif
 
 static int hp_switch_event(struct snd_soc_dapm_widget *w,
 			   struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+#ifndef CONFIG_CODEC_NO_HP_POP
 	int mask;
+#endif
 	int ret = 0;
 
 	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
@@ -1402,40 +1426,40 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY_S("AD Clk", 2, SOC_REG(CCR), ADC_CLK_PD, 1, NULL,
 			      0),
 
-	SND_SOC_DAPM_PGA_S("Digital DACL Switch", 1, SOC_REG(AUD_TOP_CTL),
+	SND_SOC_DAPM_PGA_S("Digital DACL Switch", 4, SOC_REG(AUD_TOP_CTL),
 			   DAC_EN_L, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("Digital DACR Switch", 1, SOC_REG(AUD_TOP_CTL),
+	SND_SOC_DAPM_PGA_S("Digital DACR Switch", 4, SOC_REG(AUD_TOP_CTL),
 			   DAC_EN_R, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("ADie Digital DACL Switch", 2, SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_PGA_S("ADie Digital DACL Switch", 5, SND_SOC_NOPM, 0, 0,
 			   adie_dac_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("ADie Digital DACR Switch", 2, SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_PGA_S("ADie Digital DACR Switch", 5, SND_SOC_NOPM, 0, 0,
 			   adie_dac_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("DACL Switch", 3, SOC_REG(DACR), DACL_EN, 0, NULL,
+	SND_SOC_DAPM_PGA_S("DACL Switch", 6, SOC_REG(DACR), DACL_EN, 0, NULL,
 			   0),
-	SND_SOC_DAPM_PGA_S("DACR Switch", 3, SOC_REG(DACR), DACR_EN, 0, NULL,
+	SND_SOC_DAPM_PGA_S("DACR Switch", 6, SOC_REG(DACR), DACR_EN, 0, NULL,
 			   0),
 	SND_SOC_DAPM_DAC_E("DAC", "Playback", SND_SOC_NOPM, 0, 0, NULL, 0),
 #ifdef CONFIG_CODEC_NO_HP_POP
-	SND_SOC_DAPM_SUPPLY_S("HP POP", 3, SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_S("HP POP", 6, SND_SOC_NOPM, 0, 0, hp_pop_event, SND_SOC_DAPM_POST_PMU),
 #else
 	SND_SOC_DAPM_SUPPLY_S("HP POP", 3, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
 			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 #endif
-	SND_SOC_DAPM_PGA_S("HPL Switch", 2, SOC_REG(DCR1), HPL_EN, 0,
+	SND_SOC_DAPM_PGA_S("HPL Switch", 5, SOC_REG(DCR1), HPL_EN, 0,
 			   hp_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
 			   SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("HPR Switch", 2, SOC_REG(DCR1), HPR_EN, 0,
+	SND_SOC_DAPM_PGA_S("HPR Switch", 5, SOC_REG(DCR1), HPR_EN, 0,
 			   hp_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
 			   SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("HPL Mute", 3, FUN_REG(SPRD_CODEC_PGA_HPL), 0, 0,
+	SND_SOC_DAPM_PGA_S("HPL Mute", 6, FUN_REG(SPRD_CODEC_PGA_HPL), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("HPR Mute", 3, FUN_REG(SPRD_CODEC_PGA_HPR), 0, 0,
+	SND_SOC_DAPM_PGA_S("HPR Mute", 6, FUN_REG(SPRD_CODEC_PGA_HPR), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_MIXER("HPL Mixer", SND_SOC_NOPM, 0, 0,
@@ -1450,25 +1474,25 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("SPKR Mixer", SND_SOC_NOPM, 0, 0,
 			   &spkr_mixer_controls[0],
 			   ARRAY_SIZE(spkr_mixer_controls)),
-	SND_SOC_DAPM_PGA_S("SPKL Switch", 2, SOC_REG(DCR1), AOL_EN, 0,
+	SND_SOC_DAPM_PGA_S("SPKL Switch", 5, SOC_REG(DCR1), AOL_EN, 0,
 			   spk_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("SPKR Switch", 2, SOC_REG(DCR1), AOR_EN, 0,
+	SND_SOC_DAPM_PGA_S("SPKR Switch", 5, SOC_REG(DCR1), AOR_EN, 0,
 			   spk_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("SPKL Mute", 3, FUN_REG(SPRD_CODEC_PGA_SPKL), 0, 0,
+	SND_SOC_DAPM_PGA_S("SPKL Mute", 6, FUN_REG(SPRD_CODEC_PGA_SPKL), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("SPKR Mute", 3, FUN_REG(SPRD_CODEC_PGA_SPKR), 0, 0,
+	SND_SOC_DAPM_PGA_S("SPKR Mute", 6, FUN_REG(SPRD_CODEC_PGA_SPKR), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("EAR Mixer", 2,
+	SND_SOC_DAPM_PGA_S("EAR Mixer", 5,
 			   FUN_REG(ID_FUN
 				   (SPRD_CODEC_EAR_DACL, SPRD_CODEC_LEFT)), 0,
 			   0, mixer_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("EAR Switch", 3, SOC_REG(DCR1), EAR_EN, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("EAR Mute", 4, FUN_REG(SPRD_CODEC_PGA_EAR), 0, 0,
+	SND_SOC_DAPM_PGA_S("EAR Switch", 6, SOC_REG(DCR1), EAR_EN, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_S("EAR Mute", 7, FUN_REG(SPRD_CODEC_PGA_EAR), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
@@ -1562,8 +1586,15 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"HPR Mixer", "ADCLHPR Switch", "ADCL PGA"},
 	{"HPR Mixer", "ADCRHPR Switch", "ADCR PGA"},
 
+#ifdef CONFIG_CODEC_NO_HP_POP
+	{"HEAD_P_L", NULL, "HP POP"},
+	{"HEAD_P_R", NULL, "HP POP"},
+	{"HP POP", NULL, "HPL Switch"},
+	{"HP POP", NULL, "HPR Switch"},
+#else
 	{"HPL Switch", NULL, "HP POP"},
 	{"HPR Switch", NULL, "HP POP"},
+#endif
 	{"HPL Switch", NULL, "HPL Mixer"},
 	{"HPR Switch", NULL, "HPR Mixer"},
 	{"HPL Mute", NULL, "HPL Switch"},
