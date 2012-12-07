@@ -440,6 +440,14 @@ config RADIO_KT0812G
 
           To compile this driver as a module, choose M here: the
           module will be called radio_kt0812g.
+config RADIO_BEKEN
+        tristate "beken FM Radio receiver support"
+        depends on I2C
+        ---help---
+          Say Y here if you want support to beken FM Radio receiver.
+
+          To compile this driver as a module, choose M here: the
+          module will be called radio_beken.
 
 config RADIO_BEKEN
         tristate "beken FM Radio receiver support"

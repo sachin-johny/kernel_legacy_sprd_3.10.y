@@ -28,6 +28,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c/ft5306_ts.h>
 #include <linux/i2c/lis3dh.h>
+#include <linux/i2c/ltr_558als.h>
 #include <linux/akm8975.h>
 #include <linux/spi/spi.h>
 #include <mach/board.h>
@@ -44,6 +45,7 @@
 #include <mach/hardware.h>
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
+#include <mach/pinmap.h>
 
 #include <gps/gpsctl.h>
 
@@ -195,9 +197,13 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.vdd_name 			= "vdd28",
 };
 
+static struct ltr558_pls_platform_data ltr558_pls_info = {
+	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+};
+
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
-	.poll_interval = 100,
-	.min_interval = 100,
+	.poll_interval = 10,
+	.min_interval = 10,
 	.g_range = LIS3DH_ACC_G_2G,
 	.axis_map_x = 1,
 	.axis_map_y = 0,
@@ -250,9 +256,18 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
 	},
-	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
-	  .platform_data = &akm8975_platform_d,
+	{ I2C_BOARD_INFO("mpu9150", 0x68),
+	  .irq = MPUIRQ_GPIO,
+	  .platform_data = &mpu9150_platform_data,
 	},
+	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
+	  .platform_data = &ltr558_pls_info,
+	},
+        {  I2C_BOARD_INFO("BEKEN_FM", 0x70),
+        },
+/*	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+	  .platform_data = &akm8975_platform_d,
+	},*/
 };
 
 static struct i2c_board_info i2c1_boardinfo[] = {
@@ -466,7 +481,7 @@ int __init sc8825_clock_init_early(void)
 		BIT_PWM1_EB			|
 //		BIT_PWM0_EB			|
 		0);
-
+       
 	printk("sc8825 clock module early init ok\n");
 	return 0;
 }
