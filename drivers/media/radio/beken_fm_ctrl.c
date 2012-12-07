@@ -26,6 +26,14 @@
 #include <mach/regulator.h>
 #include "beken_fm_ctrl.h"
 
+#ifdef CONFIG_ARCH_SC8825 
+#include <mach/pinmap.h>
+#include <mach/sci.h>
+#include <mach/hardware.h>
+#include <mach/regs_glb.h>
+#include <linux/clk.h>
+#endif
+
 #define BEKEN_DEBUG 1
 
 #define I2C_RETRY_DELAY                   5
@@ -33,6 +41,10 @@
 
 #define BEKEN_DEV_NAME	"BEKEN_FM"
 #define BEKEN_I2C_NAME    BEKEN_DEV_NAME
+
+#ifdef CONFIG_ARCH_SC8825
+struct clk *fm_clk;
+#endif
 
 struct beken_drv_data {
     struct i2c_client *client;
@@ -232,8 +244,7 @@ static int beken_check_chip_id(struct beken_drv_data *cxt, u16 *chip_id)
 
 static void beken_chip_vdd_input(struct beken_drv_data *cxt,bool turn_on)
 {
-    static unsigned int reg_value = 0;
-
+  
     if (turn_on) {
         if(cxt->regu != NULL) {
             regulator_set_mode(cxt->regu,REGULATOR_MODE_NORMAL);
@@ -257,11 +268,11 @@ static void beken_chip_vdd_input(struct beken_drv_data *cxt,bool turn_on)
  * protect. */
 static int beken_fm_power_on(struct beken_drv_data *cxt)
 {
-    u16     reg_value        = 0x0;
-    int     check_times      = 0;
+ //   u16     reg_value        = 0x0;
+    //int     check_times      = 0;
     int     ret              = -EINVAL;
-    ulong   jiffies_comp     = 0;
-    u8      is_timeout;
+    //ulong   jiffies_comp     = 0;
+    //u8      is_timeout;
 
     dev_info(&cxt->client->dev, "%s\n", __func__);
 
@@ -276,7 +287,7 @@ static int beken_fm_power_on(struct beken_drv_data *cxt)
 
 static int beken_fm_close(struct beken_drv_data *cxt)
 {
-    u16 reg_value = 0x0;
+   // u16 reg_value = 0x0;
     int ret = -EINVAL;
     u8 TmpData8[2];
 
@@ -293,14 +304,21 @@ static int beken_fm_close(struct beken_drv_data *cxt)
     TmpData8[1]=TmpData8[1]|0x41;
     ret = bk1080_register_write(cxt, 0x2, TmpData8,2);
 
+#ifdef CONFIG_ARCH_SC8825
+
+#else    
     /* turn off vdd */
-    beken_chip_vdd_input(cxt,false);
+    beken_chip_vdd_input(cxt,false); 
+#endif
 
     if (atomic_read(&cxt->fm_opened))
     {
         atomic_cmpxchg(&cxt->fm_opened, 1, 0);
     }
-	
+
+#ifdef CONFIG_ARCH_SC8825   
+    clk_disable(fm_clk);//alvindebug
+#endif 
     //beken_chip_32k_clk_input(false); 
     dev_info(&cxt->client->dev, "FM close: beken will run standby.\n");
 
@@ -313,7 +331,7 @@ static int beken_fm_close(struct beken_drv_data *cxt)
  **/
 static int beken_fm_open(struct beken_drv_data *cxt)
 {
-    u16 reg_value = 0x0;
+    //u16 reg_value = 0x0;
     int ret = -EINVAL;
     u8 writeData8[68],xbTemp;	
 	dev_err(&cxt->client->dev, "FM chip open!!!!\n");
@@ -352,7 +370,10 @@ static int beken_fm_open(struct beken_drv_data *cxt)
 	msleep(80);
 
     atomic_cmpxchg(&cxt->fm_opened, 0, 1);
-
+    
+#ifdef CONFIG_ARCH_SC8825    
+    clk_enable(fm_clk); //alvindebug
+#endif
     dev_err(&cxt->client->dev, "FM open: FM is opened\n");
 
     return 0;
@@ -367,14 +388,14 @@ static int beken_fm_open(struct beken_drv_data *cxt)
 static int beken_fm_set_tune(struct beken_drv_data *cxt, u16 frequency)
 {
     u16  channel = 0;
-    u16  reg_value = 0x0;
+    //u16  reg_value = 0x0;
     int  ret = -EPERM;
     u8 writeData8[2];
     u16 curChan = 0;
 
 	dev_info(&cxt->client->dev, "set_tune %d\n", frequency);
     if (!atomic_read(&cxt->fm_opened)) {
-        dev_err(&cxt->client->dev, "Set tune: FM not open\n");
+        dev_err(&cxt->client->dev, "Set tune:FM not open\n");
         return ret;
     }
 
@@ -403,7 +424,7 @@ static int beken_fm_set_tune(struct beken_drv_data *cxt, u16 frequency)
  */
 static int beken_fm_get_frequency(struct beken_drv_data *cxt)
 {
-    u16 reg_value = 0;
+    //u16 reg_value = 0;
     u16 frequency = 0;
     int       ret = -EPERM;
     u8 readData8[2];
@@ -425,7 +446,7 @@ static int beken_fm_get_frequency(struct beken_drv_data *cxt)
 
 static int beken_fm_set_mute(struct beken_drv_data *cxt, u16 mute)
 {
-    u16 reg_value = 0x0;
+    //u16 reg_value = 0x0;
     int  ret = -EPERM;
     u8 tempData8[2];
 
@@ -445,7 +466,7 @@ static int beken_fm_set_mute(struct beken_drv_data *cxt, u16 mute)
 	
 	return 0;
 }
-
+#if 0
 /*
  * NOTES: Start searching process. Different "from beken_fm_full_search",
  * this function just do seek, NOT read channel found. */
@@ -453,7 +474,7 @@ static int beken_fm_do_seek(struct beken_drv_data *cxt,
         u16 frequency,
         u8  seek_dir)
 {
-    u16 reg_value = 0x0;
+    //u16 reg_value = 0x0;
     int  ret = -EPERM;
     u8 tempData8[2];
 	//return 0;//Jed
@@ -509,13 +530,14 @@ static int beken_fm_do_seek(struct beken_drv_data *cxt,
     return 0;
 }
 
+#endif
 
 /* NOTES:
  * Stop fm search and clear search status */
 static int beken_fm_stop_search(struct beken_drv_data *cxt)
 {
     int ret = -EPERM;
-    u16 reg_value = 0x0;
+    //u16 reg_value = 0x0;
 	u8 tempData8[2];
 	printk("beken_fm_stop_search\n");
     if (atomic_read(&cxt->fm_searching)) {
@@ -548,7 +570,7 @@ u16 bk1080_ChanToFreq(struct beken_drv_data *cxt,u16 channel)
 {
 	int ret = -EPERM;
 	u16 channelSpacing = 1;
-	u16 bottomOfBand;
+	u16 bottomOfBand =0;
 	u16 frequency;
 	u8 readData8[2];
 	
@@ -571,6 +593,8 @@ u16 bk1080_ChanToFreq(struct beken_drv_data *cxt,u16 channel)
 	frequency = (bottomOfBand + channelSpacing * channel);
 	return (frequency);
 }
+
+#if 0
 
 u16 bk1080_FreqToChan(struct beken_drv_data *cxt,u16 frequency) 
 {
@@ -601,12 +625,14 @@ u16 bk1080_FreqToChan(struct beken_drv_data *cxt,u16 frequency)
 	return (channel);
 }
 
+#endif
+
 static u8 bk1080_Seek(struct beken_drv_data *cxt,u8 seekDirection)
 {
 	int ret = -EPERM;
-	u16 readData1 = 0;
-	u16 readData2 = 0;
-	u16 writeData8[4];
+	//u16 readData1 = 0;
+	//u16 readData2 = 0;
+	//u16 writeData8[4];
 	u8 tempdata[4];
 	u8 fTemp=0;
 	u8 i=0;
@@ -708,10 +734,10 @@ static int beken_fm_full_search(struct beken_drv_data *cxt,
         u16 *freq_found)
 {
     int      ret               = -EPERM;
-    u16      reg_value         = 0x0;
-    ulong    jiffies_comp      = 0;
-    u8       is_timeout;
-    u8       is_search_end;
+    //u16      reg_value         = 0x0;
+    //ulong    jiffies_comp      = 0;
+    //u8       is_timeout;
+    //u8       is_search_end;
     u8       fTemp = 0;
 	printk("beken_fm_full_search freq=%d\n",frequency);
     if (!atomic_read(&cxt->fm_opened)) {                 
@@ -737,26 +763,28 @@ static int beken_fm_full_search(struct beken_drv_data *cxt,
 	    {
 			beken_fm_set_tune(cxt,  cxt->current_freq );
 	    }
-    }
-    else
-    {
-#if (BEKEN_DEBUG)
-        dev_info(&cxt->client->dev, "%s, busy searching!", __func__);
-#endif
-        return -EBUSY;
-    }
+    
+    
 	
     if(seek_dir)
     {
 		fTemp=bk1080_Seek(cxt,1);
 		dev_err(&cxt->client->dev, "11 Full search: ftemp %d\n",fTemp);
     }
-	else
-	{
-		fTemp=bk1080_Seek(cxt,0);
-		dev_err(&cxt->client->dev, "22 Full search: ftemp %d\n",fTemp);
-		
-	}
+     else
+        {
+                fTemp=bk1080_Seek(cxt,0);
+                dev_err(&cxt->client->dev, "22 Full search: ftemp %d\n",fTemp);
+                
+        }
+    }
+    else
+        {
+#if (BEKEN_DEBUG)
+                dev_info(&cxt->client->dev, "%s, busy searching!", __func__);
+#endif
+                return -EBUSY;
+        }
 
     //atomic_cmpxchg(&cxt->fm_searching, 1, 0);
 
@@ -764,7 +792,9 @@ static int beken_fm_full_search(struct beken_drv_data *cxt,
             ret = -EAGAIN;
         else
             ret = 0;
-		
+        
+    atomic_cmpxchg(&cxt->fm_searching, 1, 0);	
+    
     *freq_found = beken_fm_get_frequency(cxt);
     cxt->current_freq = *freq_found;
    
@@ -780,7 +810,7 @@ static int beken_fm_full_search(struct beken_drv_data *cxt,
 static int beken_fm_set_volume(struct beken_drv_data *cxt, u8 volume)
 {
     int ret       =  -EPERM;
-    u16 reg_value =  0x0;
+    //u16 reg_value =  0x0;
     u8 tempdata8[2];
 
     if (!atomic_read(&cxt->fm_opened)) {
@@ -864,7 +894,7 @@ static int beken_fm_misc_open(struct inode *inode, struct file *filep)
 }
 
 
-static int beken_fm_misc_ioctl(struct file *filep,
+static long beken_fm_misc_ioctl(struct file *filep,
         unsigned int cmd, unsigned long arg)
 {
     void __user              *argp       = (void __user *)arg;
@@ -875,7 +905,7 @@ static int beken_fm_misc_ioctl(struct file *filep,
 	
     struct beken_drv_data  *dev_data   = filep->private_data;
 
-	printk(KERN_ERR "beken_fm_misc_ioctl:cmd=%x,enable=%x",cmd,BEKEN_FM_IOCTL_ENABLE);
+	printk(KERN_ERR "beken_fm_misc_ioctl:cmd=%x,enable=%x\n",cmd,BEKEN_FM_IOCTL_ENABLE);
 
     switch (cmd) {
         case BEKEN_FM_IOCTL_ENABLE:
@@ -1204,13 +1234,14 @@ static void beken_early_suspend (struct early_suspend* es)
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 
-static int beken_probe(struct i2c_client *client,
+static int beken_probe(struct i2c_client * client,
         const struct i2c_device_id *id)
 {
     u16    reg_value = 0x0;
     int    ret = -EINVAL;
 
     struct beken_drv_data *cxt = NULL;
+
 
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
         dev_err(&client->dev, "beken driver: client is not i2c capable.\n");
@@ -1224,8 +1255,38 @@ static int beken_probe(struct i2c_client *client,
         ret = -ENOMEM;
         goto alloc_data_failed;
     }
+   
+    {
+#ifdef CONFIG_ARCH_SC8825
 
-    cxt->regu =regulator_get(&client->dev,REGU_NAME_FM);
+     
+        struct clk *clk_parent;
+
+        fm_clk = clk_get(NULL,"clk_aux0");
+
+        if (IS_ERR(fm_clk)) {
+            printk("clock: failed to get clk_aux0\n");
+        }
+
+        clk_parent = clk_get(NULL, "ext_32k");
+        if (IS_ERR(clk_parent)) {
+                printk("failed to get parent ext_32k\n");
+        }
+
+        clk_set_parent(fm_clk, clk_parent);
+ 	clk_set_rate(fm_clk, 32000);
+	 // sci_glb_write(REG_GLB_GEN1,BIT_CLK_AUX0_EN,-1UL);
+    
+        cxt->regu =regulator_get(&client->dev,"vdd28");
+
+#else
+         
+      cxt->regu =regulator_get(&client->dev,REGU_NAME_FM);
+
+#endif
+
+    }
+    
 
     mutex_init(&cxt->mutex);
     mutex_lock(&cxt->mutex);
@@ -1318,14 +1379,12 @@ static struct i2c_driver beken_i2c_driver = {
 
 static int __init beken_driver_init(void)
 {
-    int  ret = 0;
+    //int  ret = 0;
 
     pr_debug("BEKEN driver: init\n");
 
     return i2c_add_driver(&beken_i2c_driver);
 
-init_err:
-    return ret;
 }
 
 static void __exit beken_driver_exit(void)
@@ -1343,3 +1402,4 @@ module_exit(beken_driver_exit);
 
 MODULE_DESCRIPTION("BEKEN FM radio driver");
 MODULE_AUTHOR("Spreadtrum Inc.");
+MODULE_LICENSE("GPL");

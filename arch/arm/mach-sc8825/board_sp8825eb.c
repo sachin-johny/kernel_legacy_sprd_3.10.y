@@ -45,6 +45,7 @@
 #include <mach/hardware.h>
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
+#include <mach/pinmap.h>
 
 #include <gps/gpsctl.h>
 
@@ -262,6 +263,8 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
 	  .platform_data = &ltr558_pls_info,
 	},
+        {  I2C_BOARD_INFO("BEKEN_FM", 0x70),
+        },
 /*	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
 	},*/
@@ -478,7 +481,7 @@ int __init sc8825_clock_init_early(void)
 		BIT_PWM1_EB			|
 //		BIT_PWM0_EB			|
 		0);
-
+       
 	printk("sc8825 clock module early init ok\n");
 	return 0;
 }
