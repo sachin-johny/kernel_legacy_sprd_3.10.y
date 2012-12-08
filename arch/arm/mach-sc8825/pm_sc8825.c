@@ -829,10 +829,10 @@ int deep_sleep(void)
 	__raw_writel(INT0_IRQ_MASK, INT0_IRQ_DIS);
 
 #ifdef CONFIG_CACHE_L2X0
-	__raw_writel(1, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
+	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
 	l2x0_suspend();
 #else
-	__raw_writel(1, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
+	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
 #endif
 
 #ifdef FORCE_DISABLE_DSP
@@ -906,6 +906,8 @@ int deep_sleep(void)
 	if (ret) cpu_init();
 
 #ifdef CONFIG_CACHE_L2X0
+	/*L2X0_POWER_CTRL, auto_clock_gate, standby_mode_enable*/
+	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
 	l2x0_resume(ret);
 #endif
 	pm_debug_dump_ahb_glb_regs();
