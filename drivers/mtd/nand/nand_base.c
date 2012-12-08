@@ -485,7 +485,7 @@ static int nand_block_bad(struct mtd_info *mtd, loff_t ofs, int getchip)
 static int nand_default_block_markbad(struct mtd_info *mtd, loff_t ofs)
 {
 	struct nand_chip *chip = mtd->priv;
-	uint8_t buf[2] = { 0, 0 };
+	uint8_t buf[2] = {0x55, 0xaa};
 	int block, ret;
 
 	if (chip->options & NAND_BB_LAST_PAGE)
