@@ -954,7 +954,7 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 
 	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
 
-    disable_irq_nosync(this_client->irq);
+	disable_irq_nosync(this_client->irq);
 	if (!work_pending(&ft5x0x_ts->pen_event_work)) {
 		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
 	}
@@ -1057,6 +1057,8 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	if(uc_reg_value != 0x55)
 	{
 		printk("chip id error%x\n",uc_reg_value);
+		err = -ENODEV;
+		goto exit_alloc_data_failed;
 	}
 
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
@@ -1068,14 +1070,6 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		err = -ESRCH;
 		goto exit_create_singlethread;
 	}
-
-	err = request_irq(client->irq, ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING, client->name, ft5x0x_ts);
-	if (err < 0) {
-		dev_err(&client->dev, "ft5x0x_probe: request irq failed %d\n",err);
-		goto exit_irq_request_failed;
-	}
-
-	disable_irq(client->irq);
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
@@ -1132,6 +1126,14 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		dev_name(&client->dev));
 		goto exit_input_register_device_failed;
 	}
+
+	err = request_irq(client->irq, ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING, client->name, ft5x0x_ts);
+	if (err < 0) {
+		dev_err(&client->dev, "ft5x0x_probe: request irq failed %d\n",err);
+		goto exit_irq_request_failed;
+	}
+
+	disable_irq_nosync(client->irq);
 
 	TS_DBG("==register_early_suspend =");
 	ft5x0x_ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
