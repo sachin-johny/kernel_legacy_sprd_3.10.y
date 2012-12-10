@@ -414,12 +414,6 @@ int32_t dcam_start(void)
 		DCAM_TRACE("dcam_start, error %d \n", ret);
 		return -DCAM_RTN_MAX;
 	}
-
-	if (s_dcam_mod.dcam_cap.interface == DCAM_CAP_IF_CSI2 &&
-		s_dcam_mod.dcam_cap.input_format == DCAM_CAP_MODE_RAWRGB &&
-		0 == (REG_RD(CAP_MIPI_CTRL) & BIT_6)) {
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_9 | BIT_8, DCAM_ENDIAN_BIG << 8);
-	}
 	if (s_dcam_mod.dcam_path1.valide) {
 		rtn = _dcam_path_trim(DCAM_PATH1);
 		DCAM_RTN_IF_ERR;
