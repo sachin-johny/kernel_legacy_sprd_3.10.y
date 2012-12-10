@@ -430,6 +430,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 
 		if (V4L2_PIX_FMT_GREY == fourcc) {
 			path->out_fmt = DCAM_RAWRGB;
+			path->end_sel.y_endian = DCAM_ENDIAN_BIG;
 		} else {
 			path->out_fmt = DCAM_JPEG;
 		}
