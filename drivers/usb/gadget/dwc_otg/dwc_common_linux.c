@@ -231,19 +231,19 @@ void __DWC_FREE(void *addr)
 
 uint32_t DWC_READ_REG32(uint32_t volatile *reg)
 {
-	return readl(reg);
+	return __raw_readl(reg);
 }
 
 
 void DWC_WRITE_REG32(uint32_t volatile *reg, uint32_t value)
 {
-	writel(value, reg);
+	__raw_writel(value, reg);
 }
 
 
 void DWC_MODIFY_REG32(uint32_t volatile *reg, uint32_t clear_mask, uint32_t set_mask)
 {
-	writel( (readl(reg) & ~clear_mask) | set_mask, reg );
+	__raw_writel( (readl(reg) & ~clear_mask) | set_mask, reg );
 }
 
 /* Threading */

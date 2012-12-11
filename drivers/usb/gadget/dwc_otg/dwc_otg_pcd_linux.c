@@ -101,6 +101,7 @@ static struct gadget_wrapper {
 	int udc_startup;
 	int enabled;
 	int vbus;
+	spinlock_t lock;
 } *gadget_wrapper;
 
 static struct wake_lock usb_wake_lock;
@@ -1179,9 +1180,9 @@ static void usb_detect_works(struct work_struct *work)
 
 	d = gadget_wrapper;
 
-	local_irq_save(flags);
+	spin_lock_irqsave(&d->lock, flags);
 	plug_in = d->vbus;
-	local_irq_restore(flags);
+	spin_unlock_irqrestore(&d->lock, flags);
 
 	mutex_lock(&udc_lock);
 	if (plug_in){
@@ -1347,6 +1348,7 @@ int pcd_init(
 		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED,
 				"usb detect", otg_dev->pcd);
 	}
+	spin_lock_init(&gadget_wrapper->lock);
 
 	INIT_WORK(&gadget_wrapper->detect_work, usb_detect_works);
 	gadget_wrapper->detect_wq = create_singlethread_workqueue("usb detect wq");

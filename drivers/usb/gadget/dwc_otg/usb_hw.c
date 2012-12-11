@@ -80,6 +80,20 @@ static void usb_enable_module(int en)
 }
 void usb_phy_init(void)
 {
+#ifdef CONFIG_USB_CORE_IP_293A
+		/*
+		* tiger PHY reg is different with previous ,
+		*7710 has the same core IP with tiger,but PHY reg also diff
+		*/
+        sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(11), USB_PHY_CTRL);
+        sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(10), USB_PHY_CTRL);
+        sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(20), USB_PHY_CTRL);
+        sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(9), USB_PHY_CTRL);
+        sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(8), USB_PHY_CTRL);
+        sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(13), USB_PHY_CTRL);
+		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(12), USB_PHY_CTRL);
+        sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15)|BIT(14), USB_PHY_CTRL);
+#else
     if (sprd_greg_read(REG_TYPE_AHB_GLOBAL,CHIP_ID) == CHIP_ID_8810S){
                 /*SMIC chip id == 0x88100001*/
                 sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(3)|BIT(2), USB_PHY_CTRL);
@@ -101,6 +115,7 @@ void usb_phy_init(void)
                 sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(13)|BIT(12), USB_PHY_CTRL);
                 sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(15)|BIT(14), USB_PHY_CTRL);
         }
+#endif
 }
 static void usb_startup(void)
 {
@@ -111,8 +126,8 @@ static void usb_startup(void)
 	usb_ldo_switch(1);
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6),AHB_CTL3);
 
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(8)|BIT(14)|BIT(15)|BIT(17),AHB_CTL3);
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(12)|BIT(13)|BIT(16),AHB_CTL3);
+//	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(8)|BIT(14)|BIT(15)|BIT(17),AHB_CTL3);
+//	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(12)|BIT(13)|BIT(16),AHB_CTL3);
 
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6)|BIT(7),AHB_SOFT_RST);
 	mdelay(5);
