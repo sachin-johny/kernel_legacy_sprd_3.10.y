@@ -1247,6 +1247,7 @@ static void sc8825_machine_restart(char mode, const char *cmd)
 void sc8825_pm_init(void)
 {
 	unsigned int cpu1_jump_addrss;
+	unsigned int val;
 	
 	init_reset_vector();
 	pm_power_off = sc8825_power_off;
@@ -1267,5 +1268,8 @@ void sc8825_pm_init(void)
 #ifndef CONFIG_SPRD_PM_DEBUG
 	pm_debug_init();
 #endif
+	val = __raw_readl(sprd_get_scu_base());
+	val |= (INTC_DYNAMIC_CLK_GATE_EN | SCU_DYNAMIC_CLK_GATE_EN);
+	__raw_writel(val, sprd_get_scu_base());
 
 }
