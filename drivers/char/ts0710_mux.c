@@ -552,11 +552,13 @@ static int basic_write(ts0710_con * ts0710, __u8 * buf, int len)
 
 	while (send < len + 2) {
 		res = iomux[0].io_write(buf + send, len + 2 - send);
-		if (res < 0)
+		if (res < 0) {
+			printk(KERN_ERR "MUX: io_write error!!\n");
 			return -EIO;
-		else if (res == 0)
+		} else if (res == 0) {
+			printk(KERN_WARNING "MUX: io_write warning!!\n");
 			msleep(2);
-		else
+		} else
 			send = send + res;
 	}
 	return len + 2;
