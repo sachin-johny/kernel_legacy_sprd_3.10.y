@@ -125,7 +125,13 @@
 #define	NFC_RX_DMA_EVENT			(8)
 #define	NFC_ERR_EVENT				(16)
 #define	NFC_TIMEOUT_EVENT			(32)
-#define NFC_TIMEOUT_VAL				(0x1000000)
+/* #define NFC_TIMEOUT_VAL				(0x1000000) */
+#define NFC_TIMEOUT_VAL 			(0xf0000)
+#define NFC_ECCENCODE_TIMEOUT			(0xfff)
+#define NFC_ECCDECODE_TIMEOUT			(0xfff)
+#define NFC_RESET_TIMEOUT			(0x1ff)
+#define NFC_STATUS_TIMEOUT			(0x1ff)
+#define NFC_READID_TIMEOUT			(0x1ff)
 #define NFC_ERASE_TIMEOUT			(0xc000)
 #define NFC_READ_TIMEOUT			(0x2000)
 #define NFC_WRITE_TIMEOUT			(0x4000)
@@ -142,6 +148,9 @@
 #define CONFIG_SYS_NAND_ECCSIZE		(512)
 #define CONFIG_SYS_NAND_ECCBYTES	(4)
 #define CONFIG_SYS_NAND_ECC_MODE	(2)
+
+#define NFC_CMD_ENCODE		(0x0000ffff)
+#define NFC_CMD_DECODE		(NFC_CMD_ENCODE + 1)
 
 struct sc8810_ecc_param {
 	u8 mode;
