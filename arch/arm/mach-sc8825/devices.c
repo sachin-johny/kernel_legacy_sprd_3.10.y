@@ -823,7 +823,6 @@ static struct resource sprd_sdio1_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio1_pdata = {
-	.vdd_name = "vddsd1",
 	.clk_name = "clk_sdio1",
 	.clk_parent = "clk_64m",
 	.enb_bit = BIT_SDIO1_EB,
