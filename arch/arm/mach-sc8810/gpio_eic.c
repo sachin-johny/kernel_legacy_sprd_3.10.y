@@ -440,12 +440,18 @@ static int sci_eic_irq_set_type(struct irq_data *data, unsigned int flow_type)
 	return 0;
 }
 
+static int sci_gpio_irq_set_wake(struct irq_data *data, unsigned int on)
+{
+	return on ? 0 : -EPERM;
+}
+
 static struct irq_chip d_gpio_irq_chip = {
 	.name		= "irq-d-gpio",
 	.irq_ack	= sci_gpio_irq_ack,
 	.irq_mask	= sci_gpio_irq_mask,
 	.irq_unmask	= sci_gpio_irq_unmask,
 	.irq_set_type	= sci_gpio_irq_set_type,
+	.irq_set_wake	= sci_gpio_irq_set_wake,
 };
 
 static struct irq_chip a_gpio_irq_chip = {
@@ -454,6 +460,7 @@ static struct irq_chip a_gpio_irq_chip = {
 	.irq_mask	= sci_gpio_irq_mask,
 	.irq_unmask	= sci_gpio_irq_unmask,
 	.irq_set_type	= sci_gpio_irq_set_type,
+	.irq_set_wake	= sci_gpio_irq_set_wake,
 };
 
 /*

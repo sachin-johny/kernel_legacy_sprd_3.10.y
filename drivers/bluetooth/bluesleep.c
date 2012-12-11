@@ -387,14 +387,12 @@ static int bluesleep_start(void)
                 BT_SLEEP_DBG("Couldn't acquire BT_HOST_WAKE IRQ err (%d)", retval);
                 goto fail;
         }
-/*
+
         retval = enable_irq_wake(bsi->host_wake_irq);
         if (retval < 0) {
                 BT_SLEEP_DBG("Couldn't enable BT_HOST_WAKE as wakeup interrupt (%d)", retval);
-                free_irq(bsi->host_wake_irq, NULL);
-                goto fail;
         }
-*/
+
 	BT_SLEEP_DBG("set BT_PROTO");
         set_bit(BT_PROTO, &flags);
         wake_lock(&bsi->wake_lock);

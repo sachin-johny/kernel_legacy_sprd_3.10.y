@@ -124,6 +124,7 @@ static int wlan_ldo_enable(void)
 	}
 	regulator_set_mode(wlan_regulator_18, REGULATOR_MODE_STANDBY);
 	regulator_enable(wlan_regulator_18);
+	return 0;
 }
 
 static void wlan_clk_init(void)
