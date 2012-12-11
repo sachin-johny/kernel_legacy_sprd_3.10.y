@@ -109,8 +109,6 @@ Always power on  According to spec
 */
 static int wlan_ldo_enable(void)
 {
-//wlan ldo is already on
-#if 0
 	int err;
 	wlan_regulator_18 = regulator_get(NULL, "vddsd1");
 
@@ -124,9 +122,9 @@ static int wlan_ldo_enable(void)
 		pr_err("can't set wlan to 1.8V.\n");
 		return -1;
 	}
+	regulator_set_mode(wlan_regulator_18, REGULATOR_MODE_STANDBY);
 	regulator_enable(wlan_regulator_18);
-	return err;
-#endif
+	return 0;
 }
 
 static void wlan_clk_init(void)
