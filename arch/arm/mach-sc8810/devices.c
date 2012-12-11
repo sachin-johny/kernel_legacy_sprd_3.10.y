@@ -518,3 +518,7 @@ struct platform_device sprd_tp_device = {
         .resource       = sprd_tp_resources,
 };
 
+struct platform_device sprd_peer_state_device = {
+        .name           = "peer_state",
+        .id             = -1,
+};

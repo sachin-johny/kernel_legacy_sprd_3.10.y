@@ -54,5 +54,6 @@ extern struct platform_device sprd_dcam_device;
 extern struct platform_device sprd_scale_device;
 extern struct platform_device sprd_rotation_device;
 extern struct platform_device sprd_tp_device;
+extern struct platform_device sprd_peer_state_device;
 
 #endif

@@ -279,6 +279,10 @@ static long __init_memblock memblock_add_region(struct memblock_type *type,
 	phys_addr_t end = base + size;
 	int i, slot = -1;
 
+#ifdef CONFIG_SC8810_DDR_6G /*for optimize booting, because these region have not overlap and coalesce*/
+	phys_addr_t _base = (base >> 28) & 0xf;
+	if (!(_base == 0x3 || _base == 0xe))
+#endif
 	/* First try and coalesce this MEMBLOCK with others */
 	for (i = 0; i < type->cnt; i++) {
 		struct memblock_region *rgn = &type->regions[i];
