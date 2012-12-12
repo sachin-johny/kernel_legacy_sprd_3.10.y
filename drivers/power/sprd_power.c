@@ -805,6 +805,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, data);
 	battery_data = data;
 
+#ifdef CONFIG_MUSB_FSA880
 	spin_lock_init(&data->lock);
 
 	data->charging = 0;
@@ -919,7 +920,8 @@ retry_adc:
 	ret = power_supply_register(&pdev->dev, &data->battery);
 	if (ret)
 		goto err_battery_failed;
-
+#endif
+	wake_lock_init(&(data->charger_plug_out_lock), WAKE_LOCK_SUSPEND, "charger_plug_out_lock");
 	data->usb_online = 0;
 	data->ac_online = 0;
 	data->charge_start_jiffies = 0;
@@ -949,8 +951,11 @@ retry_adc:
 		goto err_request_irq_failed;
 #endif
 
+#ifdef CONFIG_MUSB_FSA880
 	sprd_creat_caliberate_attr(data->battery.dev);
 	mod_timer(&data->battery_timer, jiffies + data->timer_freq);
+#endif
+
 	return 0;
 
 err_battery_failed:

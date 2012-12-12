@@ -189,6 +189,38 @@ struct brt_value brt_table_ktd[] = {
 		{ MAX_BRIGHTNESS_VALUE,  29 }, // Max pulse
 
 };
+#elif defined(CONFIG_BACKLIGHT_KYLETD)
+struct brt_value brt_table_ktd[] = {
+	{ MIN_BRIGHTNESS_VALUE,  1 }, // Min pulse
+	{ 38,  2 }, 
+	{ 47,  3 }, 
+	{ 55,  4 },
+	{ 63,  5 }, 
+	{ 71,  6 }, 
+	{ 79,  7 }, 
+	{ 87,  8 }, 
+	{ 95,  9 },  
+	{ 103,	10 }, 
+	{ 111,	11 }, 
+	{ 120,	12 },	
+	{ 129,	13 }, 
+	{ 138,	14 }, 
+	{ 147,	15 }, //default value  
+	{ 154,	15 },
+	{ 162,	16 },
+	{ 170,	16 },  
+	{ 177,	17 },  
+	{ 185,	17 },
+	{ 193,	18 },
+	{ 200,	18 }, 
+	{ 208,	19 },
+	{ 216,	20 },  
+	{ 224,	22 }, 
+	{ 231,	24 }, 
+	{ 239,	26 },
+	{ 247,	28 },  
+	{ MAX_BRIGHTNESS_VALUE,  29 }, // Max pulse
+};
 #else
 struct brt_value brt_table_ktd[] = {
 	  { MIN_BRIGHTNESS_VALUE,  2 }, // Min pulse 27(33-6) by HW 
@@ -221,6 +253,9 @@ struct brt_value brt_table_ktd[] = {
 
 #define MAX_BRT_STAGE_KTD (int)(sizeof(brt_table_ktd)/sizeof(struct brt_value))
 
+#if defined(CONFIG_SPA)
+extern int isLpmMode;
+#endif
 
 static void lcd_backlight_control(int num)
 {
@@ -304,7 +339,15 @@ static int ktd253b_backlight_update_status(struct backlight_device *bd)
 		    {
 			    if(PrevDimmingPulse == 0)
 			    {
-					mdelay(200);
+					//mdelay(200);
+					usleep_range(200000, 200000);
+				#if defined(CONFIG_SPA)
+					if(isLpmMode==1)
+					{
+						printk("[BACKLIGHT]======isLpmMode:%d ADD 400ms\n", PrevDimmingPulse, CurrDimmingPulse,user_intensity);
+						mdelay(400);
+					}
+				#endif
 
 					//When backlight OFF->ON, only first pulse should have 2ms HIGH level.
 					gpio_set_value(backlight_pin,1);
@@ -425,6 +468,7 @@ static int ktd253b_backlight_probe(struct platform_device *pdev)
     
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = data->max_brightness;
+	props.type = BACKLIGHT_RAW;
 
 	bl = backlight_device_register(pdev->name, &pdev->dev, ktd253b, &ktd253b_backlight_ops, &props);
 	if (IS_ERR(bl)) 

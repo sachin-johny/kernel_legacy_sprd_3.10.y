@@ -1350,12 +1350,25 @@ void __init setup_arch(char **cmdline_p)
  * we don't use this method in sc8825 soc, because the external
  * memory space is linear and useable address from 0x80000000-0xffef_ffff now.
  */
+#ifdef CONFIG_MACH_KYLETD
+static int __init high_ram(char *p)
+{
+        if(p && strstr(p,"512M")) {
+                arm_add_memory(0x10000000, SZ_256M);
+                arm_add_memory(0x30000000, SZ_256M);
+                arm_add_memory(0xe0000000, SZ_256M);
+        }
+
+        return 0;
+}
+#else
 static int __init high_ram(char *p)
 {
     	if(p && strstr(p,"512M"))
 			arm_add_memory(0xE0000000, 0x10000000);
 		return 0;
 }
+#endif
 early_param("ram", high_ram);
 #else
 static int __init high_ram(char *p)
