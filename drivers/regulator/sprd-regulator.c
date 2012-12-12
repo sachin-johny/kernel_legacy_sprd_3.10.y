@@ -309,6 +309,26 @@ static struct regulator_ops dcdc_ops = {
 	.get_voltage = dcdc_get_voltage,
 };
 
+/*
+ * Consider the following machine :-
+ *
+ *   Regulator-1 -+-> [Consumer A @ 1.8V]
+ *                |
+ *                +-> [Consumer B @ 1.8V]
+ *
+ *   Regulator-2 ---> [Consumer C @ 3.3V]
+ *
+ * The drivers for consumers A & B must be mapped to the correct regulator in
+ * order to control their power supply. This mapping can be achieved in board/machine
+ * initialisation code by creating a struct regulator_consumer_supply for each regulator.
+ * Alternatively, we built a regulator supply-consumers map, the format is as follow:
+ *
+ *      supply source-1, consumer A, consumer B, ..., NULL
+ *      supply source-2, consumer C, ..., NULL
+ *      ...
+ *      NULL
+ *
+ */
 static struct regulator_consumer_supply *set_supply_map(struct device *dev,
 							const char *supply_name,
 							int *num)
@@ -363,7 +383,8 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		.constraints = {
 				.min_uV = 0,
 				.max_uV = 4200 * 1000,
-				.valid_modes_mask = REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY,
+				.valid_modes_mask =
+				REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY,
 				.valid_ops_mask =
 				REGULATOR_CHANGE_STATUS |
 				REGULATOR_CHANGE_VOLTAGE |
@@ -398,9 +419,9 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 /**
  * IMPORTANT!!!
  * spreadtrum power regulators is intergrated on the chip, include LDOs and DCDCs.
- * so i autogen all regulators invariable description in platform directory,
+ * so i autogen all regulators non-variable description in plat or mach directory,
  * which named __regulator_map.h, BUT register all in regulator driver probe func,
- * just like other regulator drivers.
+ * just like other regulator vendor drivers.
  */
 static int __devinit sci_regulator_probe(struct platform_device *pdev)
 {

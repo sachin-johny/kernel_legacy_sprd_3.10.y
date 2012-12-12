@@ -98,10 +98,10 @@ struct clk {
 	struct clk *parent;
 	int usage;
 	unsigned long rate;
-	const struct clk_regs *regs;
-
 	struct clk_ops *ops;
-	int (*enable) (struct clk *, int enable);
+	int (*enable) (struct clk *, int enable, unsigned long *);
+
+	const struct clk_regs *regs;
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry *dent;	/* For visible tree hierarchy */
 #endif

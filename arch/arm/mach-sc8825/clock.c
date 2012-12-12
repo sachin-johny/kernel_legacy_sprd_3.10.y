@@ -32,23 +32,20 @@
 const u32 __clkinit0 __clkinit_begin = 0xeeeebbbb;
 const u32 __clkinit2 __clkinit_end = 0xddddeeee;
 
-/* We originally used an mutex here, but some contexts (see resume)
- * are calling functions such as clk_set_parent() with IRQs disabled
- * causing an BUG to be triggered.
- */
 DEFINE_SPINLOCK(clocks_lock);
 
 int clk_enable(struct clk *clk)
 {
+	unsigned long flags;
 	if (IS_ERR_OR_NULL(clk))
 		return -EINVAL;
 
 	clk_enable(clk->parent);
 
-	spin_lock(&clocks_lock);
+	spin_lock_irqsave(&clocks_lock, flags);
 	if ((clk->usage++) == 0 && clk->enable)
-		(clk->enable) (clk, 1);
-	spin_unlock(&clocks_lock);
+		(clk->enable) (clk, 1, &flags);
+	spin_unlock_irqrestore(&clocks_lock, flags);
 	debug0("clk %p, usage %d\n", clk, clk->usage);
 	return 0;
 }
@@ -57,15 +54,19 @@ EXPORT_SYMBOL(clk_enable);
 
 void clk_disable(struct clk *clk)
 {
+	unsigned long flags;
 	if (IS_ERR_OR_NULL(clk))
 		return;
 
-	spin_lock(&clocks_lock);
+	spin_lock_irqsave(&clocks_lock, flags);
 	if ((--clk->usage) == 0 && clk->enable)
-		(clk->enable) (clk, 0);
-	if (WARN_ON(clk->usage < 0))
+		(clk->enable) (clk, 0, &flags);
+	if (WARN_ON(clk->usage < 0)) {
 		clk->usage = 0;	/* FIXME: force reset clock refcnt */
-	spin_unlock(&clocks_lock);
+		spin_unlock_irqrestore(&clocks_lock, flags);
+		return;
+	}
+	spin_unlock_irqrestore(&clocks_lock, flags);
 	debug0("clk %p, usage %d\n", clk, clk->usage);
 	clk_disable(clk->parent);
 }
@@ -127,6 +128,7 @@ EXPORT_SYMBOL(clk_round_rate);
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
 	int ret;
+	unsigned long flags;
 	debug0("clk %p, rate %lu\n", clk, rate);
 	if (IS_ERR_OR_NULL(clk) || rate == 0)
 		return -EINVAL;
@@ -141,9 +143,9 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	if (clk->ops == NULL || clk->ops->set_rate == NULL)
 		return -EINVAL;
 
-	spin_lock(&clocks_lock);
+	spin_lock_irqsave(&clocks_lock, flags);
 	ret = (clk->ops->set_rate) (clk, rate);
-	spin_unlock(&clocks_lock);
+	spin_unlock_irqrestore(&clocks_lock, flags);
 	return ret;
 }
 
@@ -159,20 +161,21 @@ EXPORT_SYMBOL(clk_get_parent);
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	int ret = 0;
+	unsigned long flags;
 	debug0("clk %p, parent %p\n", clk, parent);
 	if (IS_ERR_OR_NULL(clk) || IS_ERR(parent))
 		return -EINVAL;
 
-	spin_lock(&clocks_lock);
+	spin_lock_irqsave(&clocks_lock, flags);
 	if (clk->ops && clk->ops->set_parent)
 		ret = (clk->ops->set_parent) (clk, parent);
-	spin_unlock(&clocks_lock);
+	spin_unlock_irqrestore(&clocks_lock, flags);
 	return ret;
 }
 
 EXPORT_SYMBOL(clk_set_parent);
 
-static int sci_clk_enable(struct clk *c, int enable)
+static int sci_clk_enable(struct clk *c, int enable, unsigned long *pflags)
 {
 	debug("clk %p (%s) enb %08x, %s\n", c, c->regs->name,
 	      c->regs->enb.reg, enable ? "enable" : "disable");
@@ -182,12 +185,14 @@ static int sci_clk_enable(struct clk *c, int enable)
 		enable = !enable;
 
 	if (!c->regs->enb.mask) {	/* enable matrix clock */
-		spin_unlock(&clocks_lock);
+		if (pflags)
+			spin_unlock_irqrestore(&clocks_lock, *pflags);
 		if (enable)
 			clk_enable((struct clk *)c->regs->enb.reg);
 		else
 			clk_disable((struct clk *)c->regs->enb.reg);
-		spin_lock(&clocks_lock);
+		if (pflags)
+			spin_lock_irqsave(&clocks_lock, *pflags);
 	} else {
 		if (enable)
 			sci_glb_set(c->regs->enb.reg & ~1, c->regs->enb.mask);
@@ -251,10 +256,13 @@ static unsigned long sci_clk_get_rate(struct clk *c)
 	return rate;
 }
 
+#define SHFT_PLL_REFIN                 ( 16 )
+#define MASK_PLL_REFIN                 ( BIT(16)|BIT(17) )
 static unsigned long sci_pll_get_refin_rate(struct clk *c)
 {
+	int i;
 	const unsigned long refin[4] = { 2, 4, 4, 13 };	/* default refin 4M */
-	int i = sci_glb_read(c->regs->div.reg, BIT(16) | BIT(17)) >> 16;
+	i = sci_glb_read(c->regs->div.reg, MASK_PLL_REFIN) >> SHFT_PLL_REFIN;
 	debug0("pll %p (%s) refin %d\n", c, c->regs->name, i);
 	return refin[i] * 1000000;
 }
@@ -380,9 +388,9 @@ err_exit:
 }
 #endif
 
-int sci_clk_is_pll(struct clk *c)
+static __init int __clk_is_dummy_pll(struct clk *c)
 {
-	return strstr(c->regs->name, "pll") || c->regs->enb.reg & 1;
+	return (c->regs->enb.reg & 1) || strstr(c->regs->name, "pll");
 }
 
 int __init sci_clk_register(struct clk_lookup *cl)
@@ -406,15 +414,15 @@ int __init sci_clk_register(struct clk_lookup *cl)
 
 	if (c->enable == NULL && c->regs->enb.reg) {
 		c->enable = sci_clk_enable;
-		/* FIXME: dummy update pll clock usage */
-		if (sci_clk_is_pll(c) && sci_clk_is_enable(c)) {
+		/* FIXME: dummy update some pll clocks usage */
+		if (sci_clk_is_enable(c) && __clk_is_dummy_pll(c)) {
 			clk_enable(c);
 		}
 	}
 
-	if (!c->rate) {		/* FIXME: dummy update parent and rate */
+	if (!c->rate) {		/* FIXME: dummy update clock parent and rate */
 		clk_set_parent(c, c->regs->sources[sci_clk_get_parent(c)]);
-		//clk_set_rate(c, clk_get_rate(c));
+		/* clk_set_rate(c, clk_get_rate(c)); */
 	}
 
 	spin_lock(&clocks_lock);
