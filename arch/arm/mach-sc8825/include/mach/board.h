@@ -58,24 +58,67 @@
 #ifdef CONFIG_ION
 //#define SPRD_ION_SIZE           (CONFIG_SPRD_ION_SIZE*SZ_1M)
 
-	#define SPRD_ION_SIZE   (24*1024*1024) // 1280x720 H264 HW Decoding needs 24M
-/*
-    #if defined(CONFIG_CAMERA_8M)
-    #define SPRD_ION_SIZE   (23*1024*1024)
-    #elif defined(CONFIG_CAMERA_5M)
-    #define SPRD_ION_SIZE   (19*1024*1024)
-    #elif defined(CONFIG_CAMERA_3M)
-    #define SPRD_ION_SIZE   (19*1024*1024) // 13
-    #elif defined(CONFIG_CAMERA_2M)
-        #ifdef CONFIG_CAMERA_ROTATION
-        #define SPRD_ION_SIZE   (19*1024*1024) // 13
-        #else
-        #define SPRD_ION_SIZE   (19*1024*1024) // 8
-        #endif
+/*	#define SPRD_ION_SIZE   (24*1024*1024) // 1280x720 H264 HW Decoding needs 24M*/
+
+#if defined(CONFIG_CAMERA_8M)
+	#ifdef CONFIG_CAMERA_ROTATION
+		#ifdef CONFIG_SENSOR_OUTPUT_RAW
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#endif
     #else
-    #define SPRD_ION_SIZE   (19*1024*1024)
+		#ifdef CONFIG_SENSOR_OUTPUT_RAW
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#endif
     #endif
-*/
+#elif defined(CONFIG_CAMERA_5M)
+	#ifdef CONFIG_CAMERA_ROTATION
+		#ifdef CONFIG_SENSOR_OUTPUT_RAW
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#endif
+	#else
+		#ifdef CONFIG_SENSOR_OUTPUT_RAW
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#endif
+	#endif
+#elif defined(CONFIG_CAMERA_3M)
+	#ifdef CONFIG_CAMERA_ROTATION
+		#ifdef CONFIG_SENSOR_OUTPUT_RAW
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#endif
+	#else
+		#ifdef CONFIG_SENSOR_OUTPUT_RAW
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#endif
+	#endif
+#elif defined(CONFIG_CAMERA_2M)
+	#ifdef CONFIG_CAMERA_ROTATION
+		#ifdef CONFIG_SENSOR_OUTPUT_RAW
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#endif
+	#else
+		#ifdef CONFIG_SENSOR_OUTPUT_RAW
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (24*1024*1024)
+		#endif
+	#endif
+#else
+#define SPRD_ION_SIZE   (24*1024*1024)
+#endif
 
     #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE*SZ_1M)
 #else

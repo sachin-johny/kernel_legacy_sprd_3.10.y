@@ -30,6 +30,18 @@ config CAMERA_NO_ROTATION
 
 endchoice
 
+choice
+	prompt "Sensor Output"
+	default SENSOR_OUTPUT_YUV
+
+config SENSOR_OUTPUT_RAW
+	bool "sensor outputs raw"
+
+config SENSOR_OUTPUT_YUV
+	bool "sensor outputs yuv"
+
+endchoice
+
 config DCAM_SENSOR_OV5640
 	tristate "Add sensor driver of OV5640"
 
