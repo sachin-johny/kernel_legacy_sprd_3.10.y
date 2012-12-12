@@ -54,6 +54,7 @@ enum perf_hw_id {
 	PERF_COUNT_HW_BUS_CYCLES		= 6,
 	PERF_COUNT_HW_STALLED_CYCLES_FRONTEND	= 7,
 	PERF_COUNT_HW_STALLED_CYCLES_BACKEND	= 8,
+	PERF_COUNT_HW_REF_CPU_CYCLES		= 9,
 
 	PERF_COUNT_HW_MAX,			/* non-ABI */
 };
@@ -61,7 +62,7 @@ enum perf_hw_id {
 /*
  * Generalized hardware cache events:
  *
- *       { L1-D, L1-I, LLC, ITLB, DTLB, BPU } x
+ *       { L1-D, L1-I, LLC, ITLB, DTLB, BPU, NODE } x
  *       { read, write, prefetch } x
  *       { accesses, misses }
  */
@@ -72,6 +73,7 @@ enum perf_hw_cache_id {
 	PERF_COUNT_HW_CACHE_DTLB		= 3,
 	PERF_COUNT_HW_CACHE_ITLB		= 4,
 	PERF_COUNT_HW_CACHE_BPU			= 5,
+	PERF_COUNT_HW_CACHE_NODE		= 6,
 
 	PERF_COUNT_HW_CACHE_MAX,		/* non-ABI */
 };
@@ -127,8 +129,9 @@ enum perf_event_sample_format {
 	PERF_SAMPLE_PERIOD			= 1U << 8,
 	PERF_SAMPLE_STREAM_ID			= 1U << 9,
 	PERF_SAMPLE_RAW				= 1U << 10,
+	PERF_SAMPLE_BRANCH_STACK		= 1U << 11,
 
-	PERF_SAMPLE_MAX = 1U << 11,		/* non-ABI */
+	PERF_SAMPLE_MAX = 1U << 12,		/* non-ABI */
 };
 
 /*
