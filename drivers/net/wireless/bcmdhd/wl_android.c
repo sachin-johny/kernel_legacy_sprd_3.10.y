@@ -404,10 +404,6 @@ int wl_android_wifi_off(struct net_device *dev)
 		g_wifi_on = 0;
 	}
 	dhd_net_if_unlock(dev);
-/* disale SDIO clock */
-#ifndef SPRD_SPI
-        sdhci_device_attach(0);
-#endif
 	bcm_mdelay(500);
 	return ret;
 }
