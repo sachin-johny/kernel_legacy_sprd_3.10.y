@@ -22,6 +22,7 @@
 #include <linux/sprd_cproc.h>
 #include <linux/sipc.h>
 #include <linux/spipe.h>
+#include <asm/pmu.h>
 #include <mach/hardware.h>
 #include <mach/regs_ahb.h>
 #include <mach/regs_glb.h>
@@ -990,3 +991,30 @@ struct platform_device sprd_stty_td_device = {
 	.dev		= {.platform_data = &sprd_stty_td_pdata},
 };
 
+#ifdef CONFIG_ARCH_SC8825
+static struct resource sprd_pmu_resource[] = {
+	[0] = {
+		.start		= IRQ_CA5PMU_NCT_INT0,
+		.end		= IRQ_CA5PMU_NCT_INT0,
+		.flags		= IORESOURCE_IRQ,
+	},
+	[1] = {
+		.start		= IRQ_CA5PMU_NCT_INT1,
+		.end		= IRQ_CA5PMU_NCT_INT1,
+		.flags		= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device sprd_pmu_device = {
+	.name		= "arm-pmu",
+	.id		= ARM_PMU_DEVICE_CPU,
+	.resource = sprd_pmu_resource,
+	.num_resources	= ARRAY_SIZE(sprd_pmu_resource),
+};
+
+static void sprd_init_pmu(void)
+{
+	platform_device_register(&sprd_pmu_device);
+}
+arch_initcall(sprd_init_pmu);
+#endif /* CONFIG_ARCH_SC8825 */
