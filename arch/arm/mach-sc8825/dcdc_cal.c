@@ -39,8 +39,22 @@ uint16_t sprd_get_adc_to_vol(uint16_t data);
 #define CALIBRATE_TO	(60 * 1)	/* one minute */
 #define MEASURE_TIMES	(128)
 const int dcdc_ctl_vol[] = {
-	650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400,
+	1100, 700, 800, 900, 1000, 650, 1200, 1300, 1400,
 };
+
+static int __match_dcdc_vol(int vol)
+{
+	int i, j = -1;
+	int ds, min_ds = 4200;
+	for (i = 0; i < ARRAY_SIZE(dcdc_ctl_vol); i++) {
+		ds = vol - dcdc_ctl_vol[i];
+		if (ds >= 0 && ds < min_ds) {
+			min_ds = ds;
+			j = i;
+		}
+	}
+	return j;
+}
 
 int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 {
@@ -51,7 +65,8 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	}
 	sum /= ARRAY_SIZE(val);	/* get average value */
 	info("adc chan %d, value %d\n", adc_chan, sum);
-	adc_vol = DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(sum) * (8 * 5), (30 * 4));
+	adc_vol =
+	    DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(sum) * (8 * 5), (30 * 4));
 	if (!def_vol) {
 		switch (adc_chan) {
 		case ADC_CHANNEL_DCDCCORE:
@@ -73,7 +88,7 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 #if 0
 		if (0 != i + cal_vol) {	/* dcdc had been adjusted in uboot-spl */
 			debug("%s default %dmv, from %dmv to %dmv\n",
-			     __FUNCTION__, def_vol, adc_vol, to_vol);
+			      __FUNCTION__, def_vol, adc_vol, to_vol);
 			goto exit;
 		}
 #endif
@@ -90,12 +105,11 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	}
 
 	ctl_vol = DIV_ROUND_CLOSEST(def_vol * to_vol, adc_vol);
-	for (i = 0; i < ARRAY_SIZE(dcdc_ctl_vol) - 1; i++) {
-		if (ctl_vol < dcdc_ctl_vol[i + 1])
-			break;
-	}
-	if (i >= ARRAY_SIZE(dcdc_ctl_vol) - 1)
+	i = __match_dcdc_vol(ctl_vol);
+	if (i >= ARRAY_SIZE(dcdc_ctl_vol) - 1 || i < 0) {
+		info("%d out of voltage range\n", ctl_vol);
 		goto exit;
+	}
 
 	cal_vol = DIV_ROUND_CLOSEST((ctl_vol - dcdc_ctl_vol[i]) * 32, 100) % 32;
 	debug("%s cal_vol %dmv: %d, 0x%02x\n", __FUNCTION__,
@@ -116,7 +130,7 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	}
 
 	return dcdc_ctl_vol[i] + cal_vol * 100 / 32;
-      exit:
+exit:
 	info("%s failure\n", __FUNCTION__);
 	return -1;
 }
@@ -125,7 +139,7 @@ int mpll_calibrate(int cpu_freq)
 {
 	u32 val = 0;
 	unsigned long flags;
-	//BUG_ON(cpu_freq != 1200);	/* only upgrade 1.2G */
+	//BUG_ON(cpu_freq != 1200);     /* only upgrade 1.2G */
 	cpu_freq /= 4;
 	flags = hw_local_irq_save();
 	val = sci_glb_raw_read(GR_MPLL_MN);
@@ -194,7 +208,7 @@ static void do_dcdc_work(struct work_struct *work)
 	if (ret > 0)
 		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, dcdcarm_to_vol);
 
-      exit:
+exit:
 	if (sci_syst_read() - dcdc_work.uptime < CALIBRATE_TO * 1000) {
 		schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
 	} else {
