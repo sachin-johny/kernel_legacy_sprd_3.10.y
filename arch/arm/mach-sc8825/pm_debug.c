@@ -395,6 +395,20 @@ static void print_gr(void)
 	printk("##: GR_CLK_GEN5 = %08x.\n", val);
 	if (val & BIT(9)) printk("LDO_USB_PD =1.\n");
 
+	val = sci_glb_raw_read(REG_GLB_PCTRL);
+	printk("##: GLB_PCTL = %08x.\n", val);
+	if (val & BIT_MCU_MPLL_EN) printk("MCU_MPLL = 1.\n");
+	if (val & BIT_MCU_GPLL_EN) printk("MCU_GPLL = 1.\n");
+	if (val & BIT_MCU_DPLL_EN) printk("MCU_DPLL = 1.\n");
+	if (val & BIT_MCU_TDPLL_EN) printk("MCU_TDPLL = 1.\n");
+
+	val = sci_glb_raw_read(REG_GLB_TD_PLL_CTL);
+	printk("##: GLB_TD_PLL_CTL = %08x.\n", val);
+	if (!(val & BIT_TDPLL_DIV2OUT_FORCE_PD)) printk("clk_384m = 1.\n");
+	if (!(val & BIT_TDPLL_DIV3OUT_FORCE_PD)) printk("clk_256m = 1.\n");
+	if (!(val & BIT_TDPLL_DIV4OUT_FORCE_PD)) printk("clk_192m = 1.\n");
+	if (!(val & BIT_TDPLL_DIV5OUT_FORCE_PD)) printk("clk_153p6m = 1.\n");
+
 	val = sci_glb_read(REG_GLB_POWCTL1, -1UL);
 	printk("##: GR_POWCTL1 = %08x.\n", val);
 
