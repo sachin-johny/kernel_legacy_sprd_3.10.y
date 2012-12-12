@@ -533,13 +533,7 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 		counter ++;
 
 		if (flag == NFC_DONE_EVENT) {
-			if ((cmd == NAND_CMD_RESET) && (counter >= NFC_RESET_TIMEOUT))
-				is_timeout = 1;
-			else if ((cmd == NAND_CMD_STATUS) && (counter >= NFC_STATUS_TIMEOUT))
-				is_timeout = 1;
-			else if ((cmd == NAND_CMD_READID) && (counter >= NFC_READID_TIMEOUT))
-				is_timeout = 1;
-			else if ((cmd == NAND_CMD_ERASE2) && (counter >= NFC_ERASE_TIMEOUT))
+			if ((cmd == NAND_CMD_ERASE2) && (counter >= NFC_ERASE_TIMEOUT))
 				is_timeout = 1;
 			else if ((cmd == NAND_CMD_READSTART) && (counter >= NFC_READ_TIMEOUT))
 				is_timeout = 1;
