@@ -5,6 +5,8 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
 
 
 obj-y += sys_debug.o 
+obj-y += sec-common.o
+
 ifeq ($(CONFIG_NKERNEL),y)
 obj-$(CONFIG_PM) += pm_vlx.o pm_sc8810.o standby.o pm_debug.o
 else
@@ -32,7 +34,7 @@ obj-$(CONFIG_SS_VIBRATOR) += ss_vibra.o
 obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o
 obj-$(CONFIG_MACH_OPENPHONE_SC6820) += board-sc6820-openphone.o
 obj-$(CONFIG_CPU_FREQ_SC8810) += cpufreq-sc8810.o
-obj-$(CONFIG_SEC_DEBUG) += sec-common.o sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
+obj-$(CONFIG_SEC_DEBUG) += sec_debug.o sec_gaf.o sec_getlog.o sec-common.o sec-reboot.o
 obj-$(CONFIG_BCMDHD)  += dhd_adapter.o
 obj-$(CONFIG_BCMDHD89)  += dhd_adapter.o
 obj-$(CONFIG_SPRD_MEM_POOL)    += sprd_mem_pool.o

@@ -63,6 +63,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
 	&sprd_serial_device2,
+	&sprd_serial_device3,
 	&sprd_device_rtc,
 	&sprd_nand_device,
 	&sprd_lcd_device1,
@@ -91,8 +92,10 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_ION
 	&sprd_ion_dev,
 #endif
+	&sprd_emmc0_device,
 	&sprd_sdio0_device,
 	&sprd_sdio1_device,
+	&sprd_sdio2_device,
 	&sprd_vsp_device,
 	&sprd_dcam_device,
 	&sprd_scale_device,
@@ -147,6 +150,11 @@ static struct serial_data plat_data1 = {
 	.clk = 26000000,
 };
 static struct serial_data plat_data2 = {
+	.wakeup_type = BT_NO_WAKE_UP,
+	.clk = 26000000,
+};
+
+static struct serial_data plat_data3 = {
 	.wakeup_type = BT_NO_WAKE_UP,
 	.clk = 26000000,
 };
@@ -302,6 +310,7 @@ static void __init sc8810_init_machine(void)
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
+	platform_device_add_data(&sprd_serial_device3,(const void*)&plat_data3,sizeof(plat_data3));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();

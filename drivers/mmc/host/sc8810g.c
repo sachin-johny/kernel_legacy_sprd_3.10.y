@@ -299,18 +299,32 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host, unsigned int cloc
 	/* Select the clk source of SDIO, default is 96MHz */
 	if( !strcmp(host->hw_name, "Spread SDIO host0") ){
 		host->clk = clk_get(NULL, "clk_sdio0");
+		if (clock >= SDIO_BASE_CLK_96M) {
+			clk_parent = clk_get(NULL, "clk_96m");
+		} else if (clock >= SDIO_BASE_CLK_64M) {
+			clk_parent = clk_get(NULL, "clk_64m");
+		} else if (clock >= SDIO_BASE_CLK_48M) {
+			clk_parent = clk_get(NULL, "clk_48m");
+		} else {
+			clk_parent = clk_get(NULL, "clk_26m");
+		}
 	}else if( !strcmp(host->hw_name, "Spread SDIO host1") ){
 		host->clk = clk_get(NULL, "clk_sdio1");
-	}
-
-	if (clock >= SDIO_BASE_CLK_96M) {
+		if (clock >= SDIO_BASE_CLK_96M) {
+			clk_parent = clk_get(NULL, "clk_96m");
+		} else if (clock >= SDIO_BASE_CLK_64M) {
+			clk_parent = clk_get(NULL, "clk_64m");
+		} else if (clock >= SDIO_BASE_CLK_48M) {
+			clk_parent = clk_get(NULL, "clk_48m");
+		} else {
+			clk_parent = clk_get(NULL, "clk_26m");
+		}
+	}else  if( !strcmp(host->hw_name, "Spread SDIO host2") ){
+		host->clk = clk_get(NULL, "clk_sdio2");
 		clk_parent = clk_get(NULL, "clk_96m");
-	} else if (clock >= SDIO_BASE_CLK_64M) {
-		clk_parent = clk_get(NULL, "clk_64m");
-	} else if (clock >= SDIO_BASE_CLK_48M) {
-		clk_parent = clk_get(NULL, "clk_48m");
-	} else {
-		clk_parent = clk_get(NULL, "clk_24m");
+	}else if( !strcmp(host->hw_name, "Spread EMMC host0") ){
+		host->clk = clk_get(NULL, "clk_emmc0");
+		clk_parent = clk_get(NULL, "clk_26m");
 	}
 	clk_set_parent(host->clk, clk_parent);
 
@@ -361,6 +375,24 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 				host->vmmc = NULL;
 			}
 		}else if (!strcmp("Spread SDIO host1", host->hw_name)){
+			host->vmmc = regulator_get(mmc_dev(host->mmc),
+							REGU_NAME_WIFIIO);
+			if (IS_ERR(host->vmmc)) {
+				printk(KERN_ERR "%s: no vmmc regulator found\n",
+							mmc_hostname(host->mmc));
+				host->vmmc = NULL;
+			}
+		}
+		else if (!strcmp("Spread SDIO host2", host->hw_name)){
+			host->vmmc = regulator_get(mmc_dev(host->mmc),
+							REGU_NAME_WIFIIO);
+			if (IS_ERR(host->vmmc)) {
+				printk(KERN_ERR "%s: no vmmc regulator found\n",
+							mmc_hostname(host->mmc));
+				host->vmmc = NULL;
+			}
+		}
+		else if (!strcmp("Spread EMMC host0", host->hw_name)){
 			host->vmmc = regulator_get(mmc_dev(host->mmc),
 							REGU_NAME_WIFIIO);
 			if (IS_ERR(host->vmmc)) {
@@ -441,10 +473,67 @@ static void sdhci_module_init(struct sdhci_host* host)
 		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, SDIO1_SOFT_RESET, AHB_SOFT_RST);
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, SDIO1_SOFT_RESET, AHB_SOFT_RST);
 	}
-
+	if(!strcmp(host->hw_name, "Spread SDIO host2")){
+		/* Enable SDIO1 Module */
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_SDIO2_EB, AHB_CTL6);
+		/* reset sdio1 module*/
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_SD2_SOFT_RST, AHB_SOFT2_RST);
+		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, BIT_SD2_SOFT_RST, AHB_SOFT2_RST);
+	}
+	if(!strcmp(host->hw_name, "Spread EMMC host0")){
+		/* Enable SDIO1 Module */
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_EMMC_EB, AHB_CTL6);
+		/* reset sdio1 module*/
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_EMMC_SOFT_RST, AHB_SOFT2_RST);
+		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, BIT_EMMC_SOFT_RST, AHB_SOFT2_RST);
+	}
 
 	sdhci_sprd_set_base_clock(host, SDIO_MAX_CLK);
 
+}
+
+extern struct class *sec_class;
+static struct device *sd_detection_cmd_dev;
+int gpio_detect;
+
+static ssize_t sd_detection_cmd_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	unsigned int	detect;
+	if(gpio_detect != 777)
+	{
+		detect = gpio_get_value(gpio_detect);
+
+		/* File Location : /sys/class/sec/sdcard/status */
+		pr_info("%s : detect = %d.\n", __func__,  detect);
+		detect = !detect;
+		if (detect)
+		{
+			pr_info("sdhci: card inserted.\n");
+			return sprintf(buf, "Insert\n");
+		}
+		else
+		{
+			pr_info("sdhci: card removed.\n");
+			return sprintf(buf, "Remove\n");
+		}
+	}
+	else
+	{
+		pr_info("sdhci: card removed.\n");
+		return sprintf(buf, "Remove\n");
+	}
+}
+
+static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
+
+void sdhci_sprd_fix_controller_1p8v(struct sdhci_host *host) {
+    local_irq_disable();
+    host->mmc->ocr_avail |= MMC_VDD_165_195;
+    host->mmc->ocr_avail_sdio |= MMC_VDD_165_195;
+    host->mmc->ocr_avail_sd |= MMC_VDD_165_195;
+    host->mmc->ocr_avail_mmc |= MMC_VDD_165_195;
+    local_irq_enable();
 }
 
 static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
@@ -482,8 +571,15 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	pr_debug("sdio: host->ioaddr:0x%x\n", (unsigned int)host->ioaddr);
 	if (0 == pdev->id){
 		host->hw_name = "Spread SDIO host0";
-	}else{
+	}else if(1 == pdev->id){
 		host->hw_name = "Spread SDIO host1";
+	}
+	else if(2 == pdev->id){
+		host->hw_name = "Spread SDIO host2";
+	}
+	else if(3 == pdev->id){
+		host->hw_name = "Spread EMMC host0";
+		host->mmc->caps |= MMC_CAP_8_BIT_DATA /*| MMC_CAP_1_8V_DDR*/;
 	}
 	host->ops = &sdhci_sprd_ops;
 	/*
@@ -497,6 +593,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
 	host->irq = irq;
 #ifdef CONFIG_MMC_CARD_HOTPLUG
+	gpio_detect = 777;
 	sd_detect = dev_get_platdata(dev);
 	if(sd_detect && (*sd_detect > 0)){
 		sd_detect_gpio = *sd_detect;
@@ -507,6 +604,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		}else{
 			ret = gpio_request(sd_detect_gpio, "sdio1_detect");
 		}
+
 
 		if (ret) {
 			dev_err(dev, "cannot request gpio\n");
@@ -524,11 +622,23 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 			dev_err(dev, "cannot alloc detect irq\n");
 			return -1;
 		}
+                gpio_detect = sd_detect_gpio;
 		host_data->detect_irq = detect_irq;
 	}else{
 		printk("%s, sd_detect_gpio == 0 \n", __func__ );
 	}
 #endif
+	if (sd_detection_cmd_dev == NULL)
+	{
+		sd_detection_cmd_dev = device_create(sec_class, NULL, 0, NULL, "sdcard");
+
+		if (IS_ERR(sd_detection_cmd_dev))
+			pr_err("Fail to create sysfs dev\n");
+
+		if (device_create_file(sd_detection_cmd_dev,&dev_attr_status) < 0)
+			pr_err("Fail to create sysfs file\n");
+	}
+
 	host->clk = NULL;
 	sdhci_module_init(host);
 
@@ -572,16 +682,35 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->mmc->caps |= MMC_CAP_HW_RESET;
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
+#ifdef CONFIG_MACH_KYLEW
+	if(pdev->id == 1){
+		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
+		pm_runtime_disable(&(pdev)->dev); /* temprarily disable runtime case because of error arising when turn on*/
+	} else if(pdev->id == 0) {
+		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
+		pm_runtime_disable(&(pdev)->dev);
+	}
+#elif defined (CONFIG_ARCH_SC7710)
+	if(pdev->id == 1){
+		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
+//		pm_runtime_disable(&(pdev)->dev);
+	} else if(pdev->id == 2) {
+		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
+//		pm_runtime_disable(&(pdev)->dev);
+	}
+#else
 	if(pdev->id == 1){
 		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
 	}
-
+#endif
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");
 		goto err_add_host;
 	}
-
+#ifdef CONFIG_MACH_KYLEW
+	sdhci_sprd_fix_controller_1p8v(host);
+#endif
 #ifdef CONFIG_MMC_BUS_SCAN
 	if (pdev->id == 1)
 		sdhci_host_g = host;
