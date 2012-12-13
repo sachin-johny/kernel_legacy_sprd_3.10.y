@@ -22,7 +22,41 @@
 #include <mach/irqs.h>
 #include <mach/adi.h>
 #include <mach/gpio.h>
+#include <mach/globalregs.h>
 
+#ifdef CONFIG_ARCH_SC7710
+/*
+ * SC8810 GPIO bank and number summary:
+ *
+ * 	Bank		log-s		 To		NR		phy_s	to		Type
+ *	1		0   ~			223		224		0~		223		D-GPIO
+ *	2		224 ~		255		32		0~		31		ANA GPIO
+ *	3		256 ~		271		16		0~		15		ANA EIC
+ *	4		272~		287		16		0~		15		D-EIC
+ *	5		288~		?		?		0~		?		D-EIC2
+ */
+
+
+
+#define	D_GPIO_START				0
+#define	D_GPIO_NR					224
+
+#define	A_GPIO_START				224
+#define	A_GPIO_NR					32
+
+#define	A_EIC_START				256
+#define	A_EIC_NR					16
+
+#define	D_EIC_START				272
+#define	D_EIC_NR					16
+
+//#define	D_EIC2_START		288
+//#define	D_EIC2_NR			?
+
+#define	GPIO_RESERVED0_START	203
+#define	GPIO_RESERVED0_NR		5
+
+#else
 /*
  * SC8810 GPIO bank and number summary:
  *
@@ -42,11 +76,15 @@
 #define	D_EIC_NR		16
 #define	A_EIC_START		160
 #define	A_EIC_NR		16
+#endif
+
 
 /* Digital GPIO/EIC base address */
 #define CTL_GPIO_BASE		(SPRD_GPIO_BASE)
 #define CTL_EIC_BASE		(SPRD_EIC_BASE)
-
+#ifdef CONFIG_ARCH_SC7710
+#define CTL_EIC2_BASE		(SPRD_EIC2_BASE)
+#endif
 /* Analog GPIO/EIC base address */
 #define ANA_CTL_GPIO_BASE	(SPRD_MISC_BASE + 0x0480)
 #define ANA_CTL_EIC_BASE	(SPRD_MISC_BASE + 0x0700)
@@ -488,7 +526,10 @@ static struct irq_chip a_eic_irq_chip = {
  * share the IRQ number IRQ_GPIO_INT with D-Die GPIO. It's handled in the
  * muxed handler.
  */
+#ifndef CONFIG_ARCH_SC7710
+/*In 7710g chip, it has independent EIC interrupt bit in interrupt controller*/
 #define	IRQ_EIC_INT	(NR_IRQS - 1)
+#endif
 
 /* gpio/eic cascaded irq handler */
 static void gpio_muxed_handler(unsigned int irq, struct irq_desc *desc)
@@ -512,10 +553,12 @@ static void gpio_muxed_handler(unsigned int irq, struct irq_desc *desc)
 		}
 	}
 
+#ifndef CONFIG_ARCH_SC7710
 	/* handle the shared D-Die EIC */
 	if (irq == IRQ_GPIO_INT && count == 0) {
 		gpio_muxed_handler(IRQ_EIC_INT, irq_to_desc(IRQ_EIC_INT));
 	}
+#endif
 
 #ifdef CONFIG_NKERNEL
 	desc->irq_data.chip->irq_unmask(&desc->irq_data);
@@ -547,22 +590,25 @@ static int __init gpio_init(void)
 {
 	/* enable EIC */
 	sci_adi_set(ANA_REG_GLB_APB_CLK_EN, BIT_EIC_EB | BIT_RTC_EIC_EB);
-
+#ifdef CONFIG_ARCH_SC7710
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_EIC_EN | GEN0_EIC_RTC_EN, GR_GEN0);
+#endif
 	gpiochip_add(&d_sci_eic.chip);
 	gpiochip_add(&d_sci_gpio.chip);
 	gpiochip_add(&a_sci_eic.chip);
 	gpiochip_add(&a_sci_gpio.chip);
 
 #ifndef CONFIG_NKERNEL
+#ifndef CONFIG_ARCH_SC7710
 	irq_set_chip_and_handler(IRQ_EIC_INT, &dummy_irq_chip, handle_level_irq);
 	set_irq_flags(IRQ_EIC_INT, IRQF_VALID);
+#endif
 #endif
 
 	gpio_irq_init(IRQ_EIC_INT, &d_sci_eic.chip, &d_eic_irq_chip);
 	gpio_irq_init(IRQ_GPIO_INT, &d_sci_gpio.chip, &d_gpio_irq_chip);
 	gpio_irq_init(IRQ_ANA_EIC_INT, &a_sci_eic.chip, &a_eic_irq_chip);
 	gpio_irq_init(IRQ_ANA_GPIO_INT, &a_sci_gpio.chip, &a_gpio_irq_chip);
-
 	return 0;
 }
 

@@ -323,7 +323,7 @@ static void __init sc8810_init_early(void)
 
 }
 
-MACHINE_START(SC8810OPENPHONE, "sp7710g")
+MACHINE_START(SC8810OPENPHONE, "sp7710g2")
 	.reserve	= sc8810_reserve,
 	.map_io		= sc8810_map_io,
 	.init_irq	= sc8810_init_irq,
