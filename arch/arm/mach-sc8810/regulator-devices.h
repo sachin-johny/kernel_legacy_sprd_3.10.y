@@ -60,18 +60,6 @@
 #include "regulator-amazing.h"
 #endif
 
-#ifdef CONFIG_MACH_CORI2G
-#include "regulator-cori2g.h"
-#endif
-
-#ifdef CONFIG_MACH_KYLETD
-#include "regulator-kyletd.h"
-#endif
-
-#ifdef CONFIG_MACH_VASTOI
-#include "regulator-vastoi.h"
-#endif
-
 #ifdef CONFIG_MACH_Z788
 #include "regulator-z788.h"
 #endif

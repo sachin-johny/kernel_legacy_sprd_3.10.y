@@ -65,15 +65,6 @@ config ANDROID_PMEM
 	bool "Android pmem allocator"
 	default y
 
-
-config MUSB_FSA880
-	bool "FSA880 mUSB Driver"
-	default n
-	
-config MUSB_TSU8111
-	bool "TSU8111 mUSB Driver"
-	default n
-
 config ATMEL_PWM
 	tristate "Atmel AT32/AT91 PWM support"
 	depends on AVR32 || ARCH_AT91SAM9263 || ARCH_AT91SAM9RL || ARCH_AT91CAP9
@@ -181,12 +172,6 @@ config SGI_IOC4
 
 	  If you have an SGI Altix with an IOC4-based card say Y.
 	  Otherwise say N.
-
-config SPRD_PEER_STATE
-	tristate "SPRD Peer-state device"
-	depends on NKERNEL && ARCH_SC8810
-	help
-	  This virtual device is for AP and CP to know the peer side state
 
 config TIFM_CORE
 	tristate "TI Flash Media interface support (EXPERIMENTAL)"
@@ -418,32 +403,6 @@ config SENSORS_AK8975
 	  If you say yes here you get support for Asahi Kasei's
 	  orientation sensor AK8975.
 
-config SENSORS_K3DH
-	tristate "K3DH acceleration sensor support"
-	depends on I2C
-	default n
-	help
-	  Driver for STMicroelectronic K3DH accelerometer.
-
-config SENSORS_GP2A
-	tristate "GP2A sensor support"
-	depends on I2C
-	default n
-	help
-	  If you say yes here you get support for Sharp's sensor GP2A.
-
-config SENSORS_HSCD
-	tristate "ALPS Magnetic Sensor HSCD Driver Support"
-         depends on I2C
-	default n
-         help
-	  If you say yes here you get support for the ALPS magnateic sensor
-
-config YAS_532_ENABLE
-	bool "yas 532 sensor YAS 4.2.602"
-	depends on I2C
-	default n
-
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
@@ -558,14 +517,6 @@ source "drivers/misc/sprd_vsp/Kconfig"
 source "drivers/misc/sprd_busmonitor/Kconfig"
 source "drivers/misc/sprd_cproc/Kconfig"
 
-config BTHID
-	tristate "Bluetooth HID"
-	depends on HID
-	default n
-	---help---
-	This driver adds support for HID for Broadcom bluetooth
-	devices.
-
 config APANIC
 	bool "Android kernel panic diagnostics driver"
 	default n
@@ -600,6 +551,5 @@ source "drivers/misc/iwmc3200top/Kconfig"
 source "drivers/misc/ti-st/Kconfig"
 source "drivers/misc/lis3lv02d/Kconfig"
 source "drivers/misc/carma/Kconfig"
-source "drivers/misc/yas532/Kconfig"
 
 endif # MISC_DEVICES

@@ -52,18 +52,6 @@ pinmap_t __initconst pinmap[] = {
 #include "pinmap-amazing.h"
 #endif
 
-#ifdef CONFIG_MACH_CORI2G
-#include "pinmap-cori2g.h"
-#endif
-
-#ifdef CONFIG_MACH_KYLETD
-#include "pinmap-kyletd.h"
-#endif
-
-#ifdef CONFIG_MACH_VASTOI
-#include "pinmap-vastoi.h"
-#endif
-
 #ifdef CONFIG_MACH_Z788
 #include "pinmap-z788.h"
 #endif
