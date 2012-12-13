@@ -248,6 +248,7 @@
 struct sprd_host_data {
 	int detect_irq;
 	struct sprd_host_platdata *platdata;
+	unsigned char clk_enable;
 };
 /*
  * Host SDMA buffer boundary. Valid values from 4K to 512K in powers of 2.
