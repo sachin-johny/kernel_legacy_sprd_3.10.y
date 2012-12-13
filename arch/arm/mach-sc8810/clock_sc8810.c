@@ -42,10 +42,17 @@
 #define AHB_CTL1		(AHB_REG_BASE + 0x04)
 #define AHB_CTL2		(AHB_REG_BASE + 0x08)
 #define AHB_CTL3		(AHB_REG_BASE + 0x0C)
+#ifdef CONFIG_ARCH_SC7710
+#define AHB_CTL6		(AHB_REG_BASE + 0x3C)
+#endif
 #define AHB_ARM_CLK		(AHB_REG_BASE + 0x24)
 
 #define GR_GEN4			(GREG_BASE + 0x0060)
 #define GR_CLK_GEN5		(GREG_BASE + 0x007C)
+#ifdef CONFIG_ARCH_SC7710
+#define GR_CLK_GEN6		(GREG_BASE + 0x00A4)
+#define GR_CLK_GEN7		(GREG_BASE + 0x00B4)
+#endif
 #define GR_CLK_DLY		(GREG_BASE + 0x005C)
 #define GR_GEN2			(GREG_BASE + 0x002C)
 #define GR_GEN1			(GREG_BASE + 0x0018)
@@ -423,6 +430,13 @@ static const struct clksel_rate rates_clk_384m_4div[] = {
 		{.div = 0},
 };
 
+#ifdef CONFIG_ARCH_SC7710
+static const struct clksel_rate rates_clk_384m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8810},
+		{.div = 0},
+};
+#endif
+
 static const struct clksel_rate rates_clk_333m_4div[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8810},
 		{.div = 2, .val = 1, .flags = RATE_IN_SC8810},
@@ -438,6 +452,13 @@ static const struct clksel_rate rates_clk_256m_4div[] = {
 		{.div = 4, .val = 3, .flags = RATE_IN_SC8810},
 		{.div = 0},
 };
+
+#ifdef CONFIG_ARCH_SC7710
+static const struct clksel_rate rates_clk_256m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8810},
+		{.div = 0},
+};
+#endif
 
 static const struct clksel_rate rates_clk_48m_4div[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8810},
@@ -484,6 +505,13 @@ static const struct clksel_rate rates_clk_192m_8div[] = {
 		{.div = 8, .val = 7, .flags = RATE_IN_SC8810},
 		{.div = 0},
 };
+
+#ifdef CONFIG_ARCH_SC7710
+static const struct clksel_rate rates_clk_192m_nodiv[] = {
+		{.div = 1, .val = 0, .flags = RATE_IN_SC8810},
+		{.div = 0},
+};
+#endif
 
 static const struct clksel_rate rates_clk_153m600k_8div[] = {
 		{.div = 1, .val = 0, .flags = RATE_IN_SC8810},
@@ -892,6 +920,76 @@ static struct clk clk_sdio1 = {
 	*/
 };
 
+#ifdef CONFIG_ARCH_SC7710
+static const struct clksel clk_sdio2_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
+		{.parent = &l3_192m,		.val = 1,	.rates = rates_clk_192m_nodiv},
+		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_nodiv},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_sdio2 = {
+	.name = "clk_sdio2",
+	.flags = DEVICE_AHB,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+	.divisor = 1,
+
+	.recalc = &sc88xx_recalc_generic,
+	.set_rate = &sc88xx_set_rate_generic,
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_sdio2_clksel,
+	.clksel_reg = __io(GR_CLK_GEN7),
+	.clksel_mask = CLK_SDIO2_CLKSEL_MASK,
+
+	.enable_reg = __io(AHB_CTL6),
+	.enable_bit = CLK_SDIO2_EN_SHIFT,
+	/*
+	.clkdiv_reg = __io(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+
+static const struct clksel clk_emmc0_clksel[] = {
+		{.parent = &ext_26m,		.val = 0,	.rates = rates_clk_26m_nodiv},
+		{.parent = &l3_384m,		.val = 1,	.rates = rates_clk_384m_nodiv},
+		{.parent = &l3_256m,		.val = 2,	.rates = rates_clk_256m_nodiv},
+		{.parent = &l3_153m600k,.val = 3,	.rates = rates_clk_153m600k_nodiv},
+		{.parent = NULL}
+};
+
+static struct clk clk_emmc0 = {
+	.name = "clk_emmc0",
+	.flags = DEVICE_AHB,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &ext_26m,
+	.clkdm_name = "peripheral",
+	.divisor = 1,
+
+	.recalc = &sc88xx_recalc_generic,
+	.set_rate = &sc88xx_set_rate_generic,
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_emmc0_clksel,
+	.clksel_reg = __io(GR_CLK_GEN7),
+	.clksel_mask = CLK_EMMC0_CLKSEL_MASK,
+
+	.enable_reg = __io(AHB_CTL6),
+	.enable_bit = CLK_EMMC0_EN_SHIFT,
+	/*
+	.clkdiv_reg = __io(GEN3),
+	.clkdiv_mask = CCIR_MCLK_CLKDIV_MASK,
+	*/
+};
+#endif
+
 static const struct clksel clk_uart0_clksel[] = {
 		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_8div},
 		{.parent = &clk_51m200k,	.val = 1,	.rates = rates_clk_51m200k_8div},
@@ -1000,6 +1098,43 @@ static struct clk clk_uart2 = {
 	.clkdiv_mask = CLK_UART2_CLKDIV_MASK,
 };
 
+#ifdef CONFIG_ARCH_SC7710
+static const struct clksel clk_uart3_clksel[] = {
+		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_8div},
+		{.parent = &clk_51m200k,	.val = 1,	.rates = rates_clk_51m200k_8div},
+		{.parent = &clk_48m,		.val = 2,	.rates = rates_clk_48m_8div},
+		{.parent = &ext_26m,		.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_uart3 = {
+	.name = "clk_uart3",
+/*
+	.flags = DEVICE_APB,
+*/
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &clk_96m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_uart3_clksel,
+	.clksel_reg = __io(GR_CLK_GEN6),
+	.clksel_mask = CLK_UART3_CLKSEL_MASK,
+
+	.enable_reg = __io(GR_CLK_GEN7),
+	.enable_bit = CLK_UART3_EN_SHIFT,
+
+	.clkdiv_reg = __io(GR_CLK_GEN7),
+	.clkdiv_mask = CLK_UART3_CLKDIV_MASK,
+};
+#endif
 
 static const struct clksel clk_spi_clksel[] = {
 		{.parent = &l3_192m,		.val = 0,	.rates = rates_clk_192m_8div},
@@ -1568,9 +1703,16 @@ static struct sc88xx_clk sc8800g2_clks[] = {
 	CLK(NULL, "clk_lcdc", &clk_lcdc, CK_SC8800G2),
 	CLK(NULL, "clk_sdio0", &clk_sdio0, CK_SC8800G2),
 	CLK(NULL, "clk_sdio1", &clk_sdio1, CK_SC8800G2),
+#ifdef CONFIG_ARCH_SC7710
+	CLK(NULL, "clk_sdio2", &clk_sdio2, CK_SC8800G2),
+	CLK(NULL, "clk_emmc0", &clk_emmc0, CK_SC8800G2),
+#endif
 	CLK(NULL, "clk_uart0", &clk_uart0, CK_SC8800G2),
 	CLK(NULL, "clk_uart1", &clk_uart1, CK_SC8800G2),
 	CLK(NULL, "clk_uart2", &clk_uart2, CK_SC8800G2),
+#ifdef CONFIG_ARCH_SC7710
+	CLK(NULL, "clk_uart3", &clk_uart3, CK_SC8800G2),
+#endif
 	CLK(NULL, "clk_spi", &clk_spi, CK_SC8800G2),
 	CLK(NULL, "clk_iis", &clk_iis, CK_SC8800G2),
 	CLK(NULL, "clk_adi_m", &clk_adi_m, CK_SC8800G2),

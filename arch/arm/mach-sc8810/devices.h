@@ -17,6 +17,7 @@
 extern struct platform_device sprd_serial_device0;
 extern struct platform_device sprd_serial_device1;
 extern struct platform_device sprd_serial_device2;
+extern struct platform_device sprd_serial_device3;
 extern struct platform_device sprd_device_rtc;
 extern struct platform_device sprd_nand_device;
 extern struct platform_device sprd_lcd_device0;
@@ -50,6 +51,8 @@ extern struct platform_device sprd_ion_dev;
 #endif
 extern struct platform_device sprd_sdio0_device;
 extern struct platform_device sprd_sdio1_device;
+extern struct platform_device sprd_sdio2_device;
+extern struct platform_device sprd_emmc0_device;
 extern struct platform_device sprd_dcam_device;
 extern struct platform_device sprd_scale_device;
 extern struct platform_device sprd_rotation_device;

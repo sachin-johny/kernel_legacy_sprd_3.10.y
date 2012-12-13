@@ -14,6 +14,10 @@
 #ifndef __ASM_ARM_ARCH_GPIO_H
 #define __ASM_ARM_ARCH_GPIO_H
 
+#ifdef CONFIG_ARCH_SC7710
+#define ARCH_NR_GPIOS		320
+#endif
+
 #include <asm-generic/gpio.h>
 #include <mach/irqs.h>
 

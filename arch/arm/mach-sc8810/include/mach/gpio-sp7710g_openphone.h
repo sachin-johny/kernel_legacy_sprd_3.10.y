@@ -43,4 +43,16 @@
 #define GPIO_GPS_RESET          26
 #define GPIO_GPS_ONOFF          27
 
+
+/*ap: gpio208-223*/
+/*cp: gpio 0 - 15*/
+#define GPIO_AP_TO_CP_RTS	208	/*cp gpio 0*/
+#define GPIO_CP_TO_AP_RDY	209	/*cp gpio 1*/
+#define GPIO_CP_TO_AP_RTS	210	/*cp gpio 2*/
+#define GPIO_AP_STATUS		211	/*cp gpio 3*/
+
+#define GPIO_MODEM_DETECT	212	/*cp gpio 4*/
+#define GPIO_MODEM_BOOT		213	/*cp gpio 5*/
+#define GPIO_MODEM_CRASH	214	/*cp gpio 6*/
+
 #endif

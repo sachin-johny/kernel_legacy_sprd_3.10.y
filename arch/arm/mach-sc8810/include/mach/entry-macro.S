@@ -26,9 +26,23 @@
 	.endm
 
 	.macro	get_irqnr_and_base, irqnr, irqstat, base, tmp
-	@ldr	\irqstat, [\base, #0x0004]
+#ifdef CONFIG_ARCH_SC7710
 	ldr	\irqstat, [\base]
 	cmp	\irqstat, #0
 	clzne	\irqnr, \irqstat
 	rsbne	\irqnr, \irqnr, #31
+	bne 2f
+
+	ldr	\base, =SPRD_INTCV1_BASE
+	ldr	\irqstat, [\base]
+	cmp	\irqstat, #0
+	clzne	\irqnr, \irqstat
+	rsbne	\irqnr, \irqnr, #63
+2:
+#else
+        ldr     \irqstat, [\base]
+        cmp     \irqstat, #0
+        clzne   \irqnr, \irqstat
+        rsbne   \irqnr, \irqnr, #31
+#endif
 	.endm
