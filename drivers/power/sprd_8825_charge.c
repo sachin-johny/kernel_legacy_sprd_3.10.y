@@ -17,6 +17,7 @@
 #include <mach/gpio.h>
 #include <linux/gpio.h>
 #include <mach/globalregs.h>
+#include <mach/regs_ahb.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include <linux/errno.h>
@@ -25,12 +26,10 @@
 #include "sprd_8825_charge.h"
 #include <mach/usb.h>
 #include <linux/delay.h>
+#include <mach/sci.h>
 
-#define USB_DM_PULLUP_BIT       BIT(19)
-#define USB_DP_PULLDOWN_BIT     BIT(20)
-#define USB_DM_PULLDOWN_BIT     BIT(21)
-#define USB_DM_GPIO 145
-#define USB_DP_GPIO 146
+#define USB_DM_GPIO 215
+#define USB_DP_GPIO 216
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
@@ -328,6 +327,8 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	volatile uint32_t i;
 	unsigned long irq_flag = 0;
 
+       mdelay(300);
+
 	gpio_request(USB_DM_GPIO, "sprd_charge");
 	gpio_request(USB_DP_GPIO, "sprd_charge");
 	gpio_direction_input(USB_DM_GPIO);
@@ -337,35 +338,30 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	udc_phy_down();
 	local_irq_save(irq_flag);
 
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,
-			     (USB_DM_PULLDOWN_BIT | USB_DP_PULLDOWN_BIT),
-			     USB_PHY_CTRL);
+	sci_glb_clr(REG_AHB_USB_PHY_CTRL,
+			     (BIT_DMPULLDOWN | BIT_DPPULLDOWN));
 
 	/* Identify USB charger */
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, USB_DM_PULLUP_BIT,
-			   USB_PHY_CTRL);
+	sci_glb_set(REG_AHB_USB_PHY_CTRL, BIT_DMPULLUP);
 	mdelay(10);
 	ret = gpio_get_value(USB_DM_GPIO);
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, (USB_DM_PULLUP_BIT),
-			     USB_PHY_CTRL);
-
+	sci_glb_clr(REG_AHB_USB_PHY_CTRL, (BIT_DMPULLUP));
+#if 0
 	/* normal charger */
 	if (ret) {
 		/* Identify standard adapter */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, USB_DM_PULLDOWN_BIT,
-				   USB_PHY_CTRL);
+		sci_glb_set(REG_AHB_USB_PHY_CTRL, BIT_DMPULLDOWN);
 		for (i = 0; i < 200; i++) {;
 		}
-		if ((gpio_get_value(USB_DM_GPIO) & BIT(1))
-		    && (gpio_get_value(USB_DP_GPIO) & BIT(2))) {
+		if (gpio_get_value(USB_DM_GPIO)
+		    && gpio_get_value(USB_DP_GPIO)) {
 			ret = 1;	/* adapter */
 		} else {
 			ret = 1;	/* non standard adapter */
 		}
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, (USB_DM_PULLDOWN_BIT),
-				     USB_PHY_CTRL);
+		sci_glb_clr(REG_AHB_USB_PHY_CTRL, (BIT_DMPULLDOWN));
 	}
-
+#endif
 	local_irq_restore(irq_flag);
 	udc_disable();
 	gpio_free(USB_DM_GPIO);
