@@ -304,18 +304,17 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 */
 static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 {
+	struct sprd_host_data *host_data= sdhci_priv(host);
 	if(clock == 0){
-		#ifndef CONFIG_ARCH_SC8825
-		clk_disable(host->clk);
-		#endif
-		host->clock = 0;
+		if (host_data->clk_enable) {
+			clk_disable(host->clk);
+			host->clock = 0;
+			host_data->clk_enable = 0;
+		}
 	}else{
-		if(!host->clock){
+		if (0 == host_data->clk_enable) {
 			clk_enable(host->clk);
-		}else{
-			printk("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
-						sci_glb_raw_read(REG_AHB_AHB_CTL0));
-			
+			host_data->clk_enable = 1;
 		}
 	}
 	pr_debug("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
@@ -437,6 +436,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	host_data = sdhci_priv(host);
 	host_data->platdata = dev_get_platdata(dev);
+	host_data->clk_enable = 0;
 	BUG_ON(NULL == host_data->platdata);
 	printk("sdio probe %s, vdd %s (%d), clk %s parent %s\n",
 		host_data->platdata->hw_name,
@@ -571,6 +571,10 @@ err_add_host:
 	pm_runtime_disable(&(pdev)->dev);
 	pm_runtime_set_suspended(&(pdev)->dev);
 #endif
+	if (host_data->clk_enable) {
+		clk_disable(host->clk);
+		host_data->clk_enable = 0;
+	}
 	sdhci_free_host(host);
 	return ret;
 }
@@ -582,6 +586,7 @@ err_add_host:
 static int __devexit sdhci_sprd_remove(struct platform_device *pdev)
 {
 	struct sdhci_host *host = platform_get_drvdata(pdev);
+	struct sprd_host_data *host_data = sdhci_priv(host);
 
 #ifdef CONFIG_PM_RUNTIME
 	if (pm_runtime_suspended(&(pdev)->dev))
@@ -589,6 +594,11 @@ static int __devexit sdhci_sprd_remove(struct platform_device *pdev)
 #endif
 	sdhci_remove_host(host, 1);
 	sdhci_free_host(host);
+
+	if (host_data->clk_enable) {
+		clk_disable(host->clk);
+		host_data->clk_enable = 0;
+	}
 
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_disable(&(pdev)->dev);
@@ -808,12 +818,11 @@ if(host->mmc && host->mmc->card)
 	}
 #endif
 
-
-
-	/* disable ahb clock */
-	if(host->ops->set_clock){
-		host->ops->set_clock(host, 0);
-	}
+	/* check runtime support or not . disable ahb clock */
+	if (!pm_runtime_suspended(dev))
+		if(host->ops->set_clock){
+			host->ops->set_clock(host, 0);
+		}
 
 	return 0;
 }
@@ -870,10 +879,11 @@ static int sdhci_pm_resume(struct device *dev)
 	sdhci_dumpregs(host);
 #endif
 
-	if(host->ops->set_clock){
-		clock = host->clock;
-		host->ops->set_clock(host, 0);
-	}
+	if (!pm_runtime_suspended(dev))
+		if(host->ops->set_clock){
+			clock = host->clock;
+			host->ops->set_clock(host, 0);
+		}
 	return 0;
 }
 
