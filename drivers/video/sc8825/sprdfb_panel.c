@@ -313,6 +313,10 @@ void sprdfb_panel_after_refresh(struct sprdfb_device *dev)
 
 void sprdfb_panel_suspend(struct sprdfb_device *dev)
 {
+	if(NULL == dev->panel){
+		return;
+	}
+
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 	/*Jessica TODO: Need do some I2c, SPI, mipi sleep here*/
 	/* let lcdc sleep in */
@@ -329,6 +333,10 @@ void sprdfb_panel_suspend(struct sprdfb_device *dev)
 
 void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 {
+	if(NULL == dev->panel){
+		return;
+	}
+
 	printk(KERN_INFO "sprdfb:[%s], dev->enable= %d, from_deep_sleep = %d\n",__FUNCTION__, dev->enable, from_deep_sleep);
 #if 0
 	/*Jessica TODO: resume i2c, spi, mipi*/
@@ -358,6 +366,10 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 
 void sprdfb_panel_remove(struct sprdfb_device *dev)
 {
+	if(NULL == dev->panel){
+		return;
+	}
+
 	/*Jessica TODO:close panel, i2c, spi, mipi*/
 	if(NULL != dev->panel->if_ctrl->panel_if_uninit){
 		dev->panel->if_ctrl->panel_if_uninit(dev);
