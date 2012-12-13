@@ -48,6 +48,9 @@
 #endif
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
 
+/* WiFi driver Set flags for enable/disable SDIO Clock */
+extern int sdhci_device_attach(int on);
+
 /*
  * Android private command strings, PLEASE define new private commands here
  * so they can be updated easily in the future (if needed)
