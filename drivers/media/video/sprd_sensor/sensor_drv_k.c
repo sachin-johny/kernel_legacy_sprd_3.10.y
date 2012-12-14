@@ -833,7 +833,8 @@ LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 		sensor_i2c_driver.id_table = sensor_sub_id;
 		sensor_i2c_driver.address_list = &sensor_sub_default_addr_list[0];
 	}
-
+    SENSOR_PRINT_HIGH("I2cDeInit:id %d,address_list 0x%x.\n",
+		sensor_id,sensor_i2c_driver.address_list);
 	i2c_del_driver(&sensor_i2c_driver);
 
 	g_sensor_id =  SENSOR_ID_MAX;
