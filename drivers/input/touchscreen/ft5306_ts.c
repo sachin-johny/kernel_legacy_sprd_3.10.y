@@ -984,7 +984,7 @@ static void ft5x0x_ts_reset(void)
 	gpio_set_value(pdata->reset_gpio_number, 0);
 	msleep(10);
 	gpio_set_value(pdata->reset_gpio_number, 1);
-	msleep(1);
+	msleep(200);
 }
 
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
@@ -1049,9 +1049,6 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	ft5x0x_ts_hw_init(ft5x0x_ts);
 	i2c_set_clientdata(client, ft5x0x_ts);
 	client->irq = gpio_to_irq(pdata->irq_gpio_number);
-
-	ft5x0x_read_reg(FT5X0X_REG_FT5201ID, &uc_reg_value);
-	TS_DBG("FT5X0X_REG_FT5201ID = 0x%x\n",uc_reg_value);
 
 	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
 	if(uc_reg_value != 0x55)
@@ -1144,9 +1141,10 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	msleep(100);
 	//get some register information
 	uc_reg_value = ft5x0x_read_fw_ver();
-	TS_DBG("[FST] Firmware version = 0x%x", uc_reg_value);
+	printk("[FST] Firmware version = 0x%x\n", uc_reg_value);
+	printk("[FST] New Firmware version = 0x%x\n", CTPM_FW[sizeof(CTPM_FW)-2]);
 
-	if(uc_reg_value < 0x25)
+	if(uc_reg_value != CTPM_FW[sizeof(CTPM_FW)-2])
 	{
 		fts_ctpm_fw_upgrade_with_i_file();
 	}
