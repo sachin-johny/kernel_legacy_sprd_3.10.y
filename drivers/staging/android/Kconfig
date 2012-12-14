@@ -90,6 +90,16 @@ config ANDROID_LOW_MEMORY_KILLER
 	---help---
 	  Register processes to be killed when memory is low
 
+if ANDROID_LOW_MEMORY_KILLER
+config ANDROID_LMK_THREAD
+        bool "Android Low Memory Killer Thread"
+        default n
+
+config ANDROID_LMK_ENHANCE
+        bool "Android Low Memory Killer Enhance"
+        default n
+endif
+
 endif # if ANDROID
 
 endmenu
