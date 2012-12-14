@@ -815,8 +815,6 @@ ex_read (struct file* file, char __user* buf,
 	++ex_dev->reads;
 	ex_dev->read_bytes += done;
     }
-    if (RING_C_ROOM(sring) == 0)
-        wake_unlock(&ex_dev->wake_lock);
 
     mutex_unlock(&ex_dev->rlock);
 
