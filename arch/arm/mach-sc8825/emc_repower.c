@@ -40,7 +40,7 @@
 #define ANALOG_DIE_REG_BASE  0x42000600
 #define ANALOG_DCDC_CTRL_CAL 0x50
 #define ANALOG_DCDC_CTRL_DS  0x4C
-static void modify_reg_field(u32 addr, u32 start_bit, u32 bit_num, u32 value);
+static inline void modify_reg_field(u32 addr, u32 start_bit, u32 bit_num, u32 value);
 //=====================================================================================
 //CAUTIONS:
 //There are some configuration restrictions for SNPS uMCTL/uPCTL controller
@@ -267,13 +267,13 @@ typedef enum
 #define EMC_TRAINING_SUCESS	"emc training ok"
 
 
-static void reset_ddrphy_dll(void);
-static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param);
-static void uart_init(void)
+static inline void reset_ddrphy_dll(void);
+static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param *param);
+static inline void uart_init(void)
 {
 	REG32(0x4b000008) |= (1 << 20) | (1 << 21);
 }
-static void uart_trace(u8 *ch, u32 len)
+static inline void uart_trace(u8 *ch, u32 len)
 {
 	u32 i;
 	for(i = 0 ;i < len; i++)
@@ -281,12 +281,12 @@ static void uart_trace(u8 *ch, u32 len)
 		REG32(0x44000000) = ch[i];
 	}
 }
-static void write_upctl_state_cmd(uPCTL_STATE_CMD_ENUM cmd)
+static inline void write_upctl_state_cmd(uPCTL_STATE_CMD_ENUM cmd)
 {
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_SCTL) = cmd;
 }
 
-static void poll_upctl_state (uPCTL_STATE_ENUM state)
+static inline void poll_upctl_state (uPCTL_STATE_ENUM state)
 {
 	uPCTL_STATE_ENUM state_poll;
 	u32 value_temp;
@@ -299,7 +299,7 @@ static void poll_upctl_state (uPCTL_STATE_ENUM state)
 	return;
 }
 
-static void move_upctl_state_to_initmem(void)
+static inline void move_upctl_state_to_initmem(void)
 {
 	uPCTL_STATE_ENUM upctl_state;
 	//uPCTL_STATE_CMD_ENUM  upctl_state_cmd;
@@ -344,7 +344,7 @@ static void move_upctl_state_to_initmem(void)
 	}
 }
 
-static void move_upctl_state_to_config(void)
+static inline void move_upctl_state_to_config(void)
 {
 	uPCTL_STATE_ENUM upctl_state;
 	//uPCTL_STATE_CMD_ENUM  upctl_state_cmd;
@@ -386,7 +386,7 @@ static void move_upctl_state_to_config(void)
 	}
 }
 
-static void move_upctl_state_to_low_power(void)
+static inline void move_upctl_state_to_low_power(void)
 {
 	uPCTL_STATE_ENUM upctl_state;
 	//uPCTL_STATE_CMD_ENUM  upctl_state_cmd;
@@ -473,7 +473,7 @@ static inline void move_upctl_state_to_access(void)
 	}
 }
 
-static void emc_publ_do_gate_training(void)
+static inline void emc_publ_do_gate_training(void)
 {
 	u32  value_temp;
 	u32 volatile i;
@@ -512,7 +512,7 @@ static void emc_publ_do_gate_training(void)
 	//uart_trace(EMC_TRAINING_SUCESS, sizeof(EMC_TRAINING_SUCESS));
 }
 
-static void emc_init_common_reg(struct emc_repower_param *param)
+static inline void emc_init_common_reg(struct emc_repower_param *param)
 {
 	u32  value_temp;
 	u32 TOGCNT100N;
@@ -1190,7 +1190,7 @@ static void emc_init_common_reg(struct emc_repower_param *param)
 //the argument power_off should be 0x1 if EMC controller power is shut down in deep sleep mode.
 //otherwise it should be 0x0.This argument indicates whether the common control register should be
 //re-programmed
-static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)   //{{{
+static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)   //{{{
 {
 	u32  value_temp;
 	u32 volatile  i;
@@ -1319,7 +1319,7 @@ static void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)
 }
 
 
-static void modify_reg_field(u32 addr, u32 start_bit, u32 bit_num, u32 value)
+static inline void modify_reg_field(u32 addr, u32 start_bit, u32 bit_num, u32 value)
 {
 	u32 temp, i;
 	temp = REG32(addr);
@@ -1331,27 +1331,27 @@ static void modify_reg_field(u32 addr, u32 start_bit, u32 bit_num, u32 value)
 	REG32(addr) = temp;
 }
 
-static void disable_clk_emc(void)
+static inline void disable_clk_emc(void)
 {
 	modify_reg_field(ADDR_AHBREG_AHB_CTRL0, 28, 1, 0);
 }
 
-static void enable_clk_emc(void)
+static inline void enable_clk_emc(void)
 {
 	modify_reg_field(ADDR_AHBREG_AHB_CTRL0, 28, 1, 1);
 }
 
-static void assert_reset_acdll(void)
+static inline void assert_reset_acdll(void)
 {
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_ACDLLCR, 30, 1, 0);
 }
 
-static void deassert_reset_acdll(void)
+static inline void deassert_reset_acdll(void)
 {
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_ACDLLCR, 30, 1, 1);
 }
 
-static void assert_reset_dxdll(void)
+static inline void assert_reset_dxdll(void)
 {
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX0DLLCR, 30, 1, 0);
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX1DLLCR, 30, 1, 0);
@@ -1359,7 +1359,7 @@ static void assert_reset_dxdll(void)
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX3DLLCR, 30, 1, 0);
 }
 
-static void deassert_reset_dxdll(void)
+static inline void deassert_reset_dxdll(void)
 {
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX0DLLCR, 30, 1, 1);
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX1DLLCR, 30, 1, 1);
@@ -1367,7 +1367,7 @@ static void deassert_reset_dxdll(void)
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX3DLLCR, 30, 1, 1);
 }
 
-static void modify_dpll_freq(u32 freq)
+static inline void modify_dpll_freq(u32 freq)
 {
 	u32 temp;
 	modify_reg_field(GLB_REG_WR_REG_GEN1, 9, 1, 1);
@@ -1376,26 +1376,26 @@ static void modify_dpll_freq(u32 freq)
 	modify_reg_field(GLB_REG_WR_REG_GEN1, 9, 1, 0);
 }
 
-static void wait_100ns(void)
+static inline void wait_100ns(void)
 {
 	u32 volatile i;
 	for (i=0; i<100; i++);
 }
 
-static void wait_1us(void)
+static inline void wait_1us(void)
 {
 	u32 volatile i;
 	for (i=0; i<(1000 / 100); i++);
 }
 
-static void wait_us(u32 us)
+static inline void wait_us(u32 us)
 {
 	u32 volatile i;
 	for (i=0; i<us; i++)
 		wait_1us();
 }
 
-static void modify_emc_clk(u32 freq)
+static inline void modify_emc_clk(u32 freq)
 {
 	disable_clk_emc();
 	assert_reset_acdll();
@@ -1413,7 +1413,7 @@ static void modify_emc_clk(u32 freq)
 	deassert_reset_dxdll();
 	wait_us(10);
 }
-static void reset_ddrphy_dll(void)
+static inline void reset_ddrphy_dll(void)
 {
 	disable_clk_emc();
 	assert_reset_acdll();
@@ -1423,7 +1423,7 @@ static void reset_ddrphy_dll(void)
 	deassert_reset_dxdll();
 	wait_us(10);
 }
-static u32 get_emc_size(u32 reg_value)
+static inline u32 get_emc_size(u32 reg_value)
 {
 	u32 size;
 	size = 1 << (reg_value + 23);
@@ -1555,7 +1555,7 @@ void save_emc_trainig_data(struct emc_repower_param *param)
 		}
 	}
 }
-inline static void restore_emc_training_data(struct emc_repower_param *param)
+static inline void restore_emc_training_data(struct emc_repower_param *param)
 {
 	u32 *dst;
 	u32 *src;
