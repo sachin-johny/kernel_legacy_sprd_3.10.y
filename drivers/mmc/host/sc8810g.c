@@ -473,6 +473,7 @@ static void sdhci_module_init(struct sdhci_host* host)
 		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, SDIO1_SOFT_RESET, AHB_SOFT_RST);
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, SDIO1_SOFT_RESET, AHB_SOFT_RST);
 	}
+#ifdef CONFIG_ARCH_SC7710
 	if(!strcmp(host->hw_name, "Spread SDIO host2")){
 		/* Enable SDIO1 Module */
 		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_SDIO2_EB, AHB_CTL6);
@@ -487,7 +488,7 @@ static void sdhci_module_init(struct sdhci_host* host)
 		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_EMMC_SOFT_RST, AHB_SOFT2_RST);
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, BIT_EMMC_SOFT_RST, AHB_SOFT2_RST);
 	}
-
+#endif
 	sdhci_sprd_set_base_clock(host, SDIO_MAX_CLK);
 
 }

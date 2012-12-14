@@ -4,7 +4,6 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
          watchdog.o
 
 
-obj-y += sys_debug.o 
 obj-y += sec-common.o
 
 ifeq ($(CONFIG_NKERNEL),y)
