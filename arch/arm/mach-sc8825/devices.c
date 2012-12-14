@@ -968,7 +968,7 @@ static struct spipe_init_data sprd_slog_td_pdata = {
 	.channel	= SMSG_CH_PLOG,
 	.ringnr		= 1,
 	.txbuf_size	= 16,
-	.rxbuf_size	= 16 * 1024,
+	.rxbuf_size	= 256 * 1024,
 };
 struct platform_device sprd_slog_td_device = {
 	.name           = "spipe",
