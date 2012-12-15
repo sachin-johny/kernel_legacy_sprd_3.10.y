@@ -621,7 +621,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	int clk_tmp, src_delta, src_delta_min = NUMBER_MAX;
 	int div_delta_min = NUMBER_MAX;
 
-	SENSOR_PRINT_HIGH("SENSOR:select_sensor_mclk,clk_set=%d.\n", clk_set);
+	SENSOR_PRINT_HIGH("SENSOR mclk %d.\n", clk_set);
 	if (clk_set > 96 || !clk_src_name || !clk_div) {
 		return SENSOR_K_FAIL;
 	}
@@ -641,7 +641,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 			mark_div = i;
 		}
 	}
-	SENSOR_PRINT_HIGH("SENSOR:select_sensor_mclk,clk_src=%d,clk_div=%d .\n", mark_src,
+	SENSOR_PRINT_HIGH("src %d, div=%d .\n", mark_src,
 	       mark_div);
 
 	*clk_src_name = sensor_mclk_tab[mark_src].src_name;
@@ -773,7 +773,7 @@ LOCAL int _Sensor_K_Reset(uint32_t level)
 {
 	int err;
 
-	SENSOR_PRINT_HIGH("_Sensor_K_Reset.\n");
+	SENSOR_PRINT("_Sensor_K_Reset.\n");
 
 	err = gpio_request(GPIO_SENSOR_RESET, "ccirrst");
 	if (err) {
@@ -782,9 +782,8 @@ LOCAL int _Sensor_K_Reset(uint32_t level)
 	}
 	gpio_direction_output(GPIO_SENSOR_RESET, level);
 	gpio_set_value(GPIO_SENSOR_RESET, level);
-	SLEEP_MS(40);
+	SLEEP_MS(10);
 	gpio_set_value(GPIO_SENSOR_RESET, !level);
-	SLEEP_MS(20);
 	gpio_free(GPIO_SENSOR_RESET);
 
 	return SENSOR_K_SUCCESS;
@@ -795,13 +794,13 @@ LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 	g_sensor_id =  sensor_id;
 
 	if (SENSOR_MAIN == sensor_id) {
-		SENSOR_PRINT_HIGH("_Sensor_K_I2CInit,sensor_main_force[1] =%d \n",
+		SENSOR_PRINT("_Sensor_K_I2CInit,sensor_main_force[1] =%d \n",
 		     							sensor_main_force[1]);
 		sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 		sensor_i2c_driver.id_table = sensor_main_id;
 		sensor_i2c_driver.address_list = &sensor_main_default_addr_list[0];
 	} else if (SENSOR_SUB == sensor_id) {
-		SENSOR_PRINT_HIGH("_Sensor_K_I2CInit,sensor_sub_force[1] =%d \n",
+		SENSOR_PRINT("_Sensor_K_I2CInit,sensor_sub_force[1] =%d \n",
 		     							sensor_sub_force[1]);
 		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 		sensor_i2c_driver.id_table = sensor_sub_id;
@@ -812,7 +811,7 @@ LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 		SENSOR_PRINT_ERR("SENSOR: add I2C %d driver error \n", sensor_id);
 		return SENSOR_K_FAIL;
 	} else {
-		SENSOR_PRINT_HIGH("SENSOR: add I2C %d driver OK \n", sensor_id);
+		SENSOR_PRINT("SENSOR: add I2C %d driver OK \n", sensor_id);
 	}
 
 	return SENSOR_K_SUCCESS;
@@ -821,13 +820,13 @@ LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 {
 	if (SENSOR_MAIN == sensor_id) {
-		SENSOR_PRINT_HIGH("_Sensor_K_I2CDeInit,sensor_main_force[1] =%d \n",
+		SENSOR_PRINT("_Sensor_K_I2CDeInit,sensor_main_force[1] =%d \n",
 		     							sensor_main_force[1]);
 		sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 		sensor_i2c_driver.id_table = sensor_main_id;
 		sensor_i2c_driver.address_list = &sensor_main_default_addr_list[0];
 	} else if (SENSOR_SUB == sensor_id) {
-		SENSOR_PRINT_HIGH("_Sensor_K_I2CDeInit,sensor_sub_force[1] =%d \n",
+		SENSOR_PRINT("_Sensor_K_I2CDeInit,sensor_sub_force[1] =%d \n",
 		     							sensor_sub_force[1]);
 		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 		sensor_i2c_driver.id_table = sensor_sub_id;
@@ -839,7 +838,7 @@ LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 
 	g_sensor_id =  SENSOR_ID_MAX;
 
-	SENSOR_PRINT_HIGH("SENSOR: delete I2C %d driver OK.\n", sensor_id);
+	SENSOR_PRINT("SENSOR: delete I2C %d driver OK.\n", sensor_id);
 
 	return SENSOR_K_SUCCESS;
 }
@@ -854,7 +853,7 @@ LOCAL int _Sensor_K_SetResetLevel(uint32_t plus_level)
 	}
 	gpio_direction_output(GPIO_SENSOR_RESET, plus_level);
 	gpio_set_value(GPIO_SENSOR_RESET, plus_level);
-	SLEEP_MS(100);
+	SLEEP_MS(10);
 	gpio_free(GPIO_SENSOR_RESET);
 
 	return SENSOR_K_SUCCESS;
@@ -1014,7 +1013,7 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 		break;
 	}
 
-	SENSOR_PRINT_HIGH("_Sensor_K_SetFlash: flash_mode=%d  \n", flash_mode);
+	SENSOR_PRINT("_Sensor_K_SetFlash: flash_mode=%d  \n", flash_mode);
 	
 	return SENSOR_K_SUCCESS;
 }
@@ -1041,7 +1040,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 		SENSOR_PRINT_ERR("_Sensor_K_WriteRegTab ERROR:kmalloc is fail, cnt=%d, size = %d \n", cnt, size);
 		goto _Sensor_K_WriteRegTab_return;
 	}else{
-		SENSOR_PRINT_HIGH("_Sensor_K_WriteRegTab: kmalloc success, cnt=%d, size = %d \n",cnt, size); 
+		SENSOR_PRINT("_Sensor_K_WriteRegTab: kmalloc success, cnt=%d, size = %d \n",cnt, size); 
 	}
 
 	if (copy_from_user(pBuff, pRegTab->sensor_reg_tab_ptr, size)){
@@ -1075,7 +1074,7 @@ _Sensor_K_WriteRegTab_return:
 
 	do_gettimeofday(&time2);
 	
-	SENSOR_PRINT_HIGH("_Sensor_K_WriteRegTab: done, ret = %d, cnt=%d, time=%d us \n", ret, cnt,
+	SENSOR_PRINT("_Sensor_K_WriteRegTab: done, ret = %d, cnt=%d, time=%d us \n", ret, cnt,
 		(time2.tv_sec - time1.tv_sec)*1000000+(time2.tv_usec - time1.tv_usec));
 	
 	return ret;
@@ -1117,7 +1116,7 @@ static ssize_t sensor_k_write(struct file *filp, char __user *ubuf, size_t cnt, 
 	int ret = SENSOR_K_FAIL;
 	int need_alloc = 1;
 
-	SENSOR_PRINT_HIGH("sensor_k_write: cnt=%d, buf=%d \n", cnt, sizeof(buf));
+	SENSOR_PRINT("sensor_k_write: cnt=%d, buf=%d \n", cnt, sizeof(buf));
 
 	if (cnt < sizeof(buf)){
 		pBuff = buf;
@@ -1129,7 +1128,7 @@ static ssize_t sensor_k_write(struct file *filp, char __user *ubuf, size_t cnt, 
 			goto sensor_k_write_return;
 		}
 		else{
-			SENSOR_PRINT_HIGH("sensor_k_write: kmalloc success, size = %d \n", cnt);
+			SENSOR_PRINT("sensor_k_write: kmalloc success, size = %d \n", cnt);
 		}
 	}
 
@@ -1155,7 +1154,7 @@ sensor_k_write_return:
 	if((PNULL != pBuff) && need_alloc)
 		kfree(pBuff);
 
-	SENSOR_PRINT_HIGH("sensor_k_write: done, ret = %d \n", ret);
+	SENSOR_PRINT("sensor_k_write: done, ret = %d \n", ret);
 
 	return ret;
 }
@@ -1391,7 +1390,7 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&i2c_addr, (uint16_t *) arg, sizeof(uint16_t));
 			if(0 == ret){
 				this_client->addr = (this_client->addr & (~0xFF)) |i2c_addr;
-				SENSOR_PRINT_HIGH("SENSOR_IO_I2C_ADDR: addr = %x, %x \n", i2c_addr, this_client->addr);
+				SENSOR_PRINT("SENSOR_IO_I2C_ADDR: addr = %x, %x \n", i2c_addr, this_client->addr);
 			}
 		}
 		break;
