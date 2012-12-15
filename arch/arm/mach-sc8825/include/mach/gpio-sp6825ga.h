@@ -41,5 +41,6 @@
 #define GPIO_WIFI_POWERON	189
 #define GPIO_WIFI_RESET		190
 #define GPIO_WIFI_IRQ	    -1
+#define GPIO_GPS_ONOFF	        174
 
 #endif
