@@ -14,6 +14,9 @@
 #ifndef __ASM_ARCH_SPRD_COMMON_H
 #define __ASM_ARCH_SPRD_COMMON_H
 
+#define INTC_DYNAMIC_CLK_GATE_EN (1<<6)
+#define SCU_DYNAMIC_CLK_GATE_EN  (1<<5)
+
 extern void __iomem *sprd_get_gic_dist_base(void);
 extern void __iomem *sprd_get_gic_cpu_base(void);
 
