@@ -46,6 +46,7 @@
 #define DCAM_RELEASE                            0
 #define DCAM_QUEUE_LENGTH                       8
 #define DCAM_TIMING_LEN                         16
+#define DCAM_TIMEOUT							1000
 #define V4L2_RTN_IF_ERR(n)                      if(unlikely(n))  goto exit
 #define DCAM_VERSION \
 	KERNEL_VERSION(DCAM_MAJOR_VERSION, DCAM_MINOR_VERSION, DCAM_RELEASE)
@@ -144,6 +145,8 @@ struct dcam_dev {
 	atomic_t                 stream_on;
 	uint32_t                 stream_mode;
 	struct dcam_queue        queue;
+	struct timer_list        dcam_timer;
+	atomic_t                 run_flag;
 };
 
 #ifndef __SIMULATOR__
@@ -152,7 +155,8 @@ static int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param);
 static int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param);
 static int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node);
 static int sprd_v4l2_queue_read(struct dcam_queue *queue, struct dcam_node *node);
-
+static int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val);
+static void sprd_stop_timer(struct timer_list *dcam_timer);
 
 static const dcam_isr_func sprd_v4l2_isr[] = {
 	sprd_v4l2_tx_done,
@@ -768,7 +772,6 @@ static int sprd_v4l2_cap_cfg(struct dcam_info* info)
 exit:
 	return ret;
 }
-
 static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
@@ -780,6 +783,7 @@ static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	if (NULL == frame || NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
+	atomic_set(&dev->run_flag, 1);
 	node.irq_flag = V4L2_TX_DONE;
 	node.f_type   = frame->type;
 	node.index    = frame->fid;
@@ -1439,7 +1443,6 @@ static int v4l2_streamon(struct file *file,
 			ret = dcam_reg_isr(i, sprd_v4l2_isr[i], dev);
 			V4L2_RTN_IF_ERR(ret);
 		}
-
 		ret = dcam_start();
 
 	}
@@ -1450,6 +1453,8 @@ exit:
 		printk("V4L2: Failed to start stream %d \n", ret);
 	} else {
 		atomic_set(&dev->stream_on, 1);
+		atomic_set(&dev->run_flag, 0);
+		sprd_start_timer(&dev->dcam_timer, DCAM_TIMEOUT);
 	}
 
 	mutex_unlock(&dev->dcam_mutex);
@@ -1477,6 +1482,7 @@ static int v4l2_streamoff(struct file *file,
 		goto exit;
 	}
 	atomic_set(&dev->stream_on, 0);
+	sprd_stop_timer(&dev->dcam_timer);
 
 	if (dev->stream_mode) {
 		ret = dcam_pause();
@@ -1495,7 +1501,6 @@ static int v4l2_streamoff(struct file *file,
 		if (path->is_work) {
 			dcam_rel_resizer();
 		}
-
 		ret = sprd_v4l2_local_deinit(dev);
 	}
 
@@ -1598,7 +1603,48 @@ exit:
 	return ret;
 }
 
+static void sprd_timer_callback(unsigned long data)
+{
+	int ret = 0;
+	struct dcam_dev 	*dev = (struct dcam_dev*)data;
+	struct dcam_node    node;
+	printk("v4l2:sprd_timer_callback.\n");
 
+	if (NULL == data || 0 == atomic_read(&dev->stream_on)) {
+		printk("timer callback error.");
+		return;
+	}
+
+	if (0 == atomic_read(&dev->run_flag)) {
+		node.irq_flag = V4L2_TX_ERR;
+		ret = sprd_v4l2_queue_write(&dev->queue, &node);
+		if (ret) {
+			printk("timer callback write queue error.");
+		}
+	}
+}
+static int sprd_init_timer(struct timer_list *dcam_timer,unsigned long data)
+{
+	DCAM_TRACE("v4l2:Timer init s.\n");
+	setup_timer(dcam_timer, sprd_timer_callback, data);
+	DCAM_TRACE("v4l2:Timer init e.\n");
+	return 0;
+}
+static int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val)
+{
+	int ret;
+	printk("v4l2:starting timer%ld. \n",jiffies);
+	ret = mod_timer(dcam_timer, jiffies + msecs_to_jiffies(time_val));
+	if (ret)
+		printk("v4l2:Error in mod_timer %d.\n",ret);
+	return 0;
+}
+
+static void sprd_stop_timer(struct timer_list *dcam_timer)
+{
+	printk("v4l2: stop timer.\n");
+	del_timer_sync(dcam_timer);
+}
 static int sprd_v4l2_open(struct file *file)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
@@ -1627,6 +1673,8 @@ static int sprd_v4l2_open(struct file *file)
 	}
 
 	ret = sprd_v4l2_queue_init(&dev->queue);
+
+	ret = sprd_init_timer(&dev->dcam_timer,(unsigned long)dev);
 	
 	DCAM_TRACE("V4L2: open /dev/video%d type=%s \n", dev->vfd->num,
 		v4l2_type_names[V4L2_BUF_TYPE_VIDEO_CAPTURE]);
@@ -1663,7 +1711,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 	struct dcam_dev          *dev = video_drvdata(file);
 	int                      ret = 0;
 
-	DCAM_TRACE("sprd_v4l2_write %d, dev 0x%x \n", cnt, (uint32_t)dev);
+	printk("sprd_v4l2_write %d, dev 0x%x \n", cnt, (uint32_t)dev);
 
 	mutex_lock(&dev->dcam_mutex);
 
@@ -1692,6 +1740,7 @@ static int sprd_v4l2_close(struct file *file)
 		printk("V4L2: Failed to enable dcam module \n");
 		ret = -EIO;
 	}
+	sprd_stop_timer(&dev->dcam_timer);
 	atomic_dec(&dev->users);
 	mutex_unlock(&dev->dcam_mutex);
 
