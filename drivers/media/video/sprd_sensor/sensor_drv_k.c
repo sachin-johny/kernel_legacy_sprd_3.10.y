@@ -769,11 +769,11 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 
 	return 0;
 }
-LOCAL int _Sensor_K_Reset(uint32_t level)
+LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 {
 	int err;
 
-	SENSOR_PRINT("_Sensor_K_Reset.\n");
+	SENSOR_PRINT_HIGH("Sensor rst, level %d width %d.\n", level, width);
 
 	err = gpio_request(GPIO_SENSOR_RESET, "ccirrst");
 	if (err) {
@@ -782,8 +782,9 @@ LOCAL int _Sensor_K_Reset(uint32_t level)
 	}
 	gpio_direction_output(GPIO_SENSOR_RESET, level);
 	gpio_set_value(GPIO_SENSOR_RESET, level);
-	SLEEP_MS(10);
+	SLEEP_MS(width);
 	gpio_set_value(GPIO_SENSOR_RESET, !level);
+	mdelay(1);
 	gpio_free(GPIO_SENSOR_RESET);
 
 	return SENSOR_K_SUCCESS;
@@ -853,7 +854,7 @@ LOCAL int _Sensor_K_SetResetLevel(uint32_t plus_level)
 	}
 	gpio_direction_output(GPIO_SENSOR_RESET, plus_level);
 	gpio_set_value(GPIO_SENSOR_RESET, plus_level);
-	SLEEP_MS(10);
+	SLEEP_MS(100);
 	gpio_free(GPIO_SENSOR_RESET);
 
 	return SENSOR_K_SUCCESS;
@@ -1343,10 +1344,10 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 
 	case SENSOR_IO_RST:
 		{
-			uint32_t level;
-			ret = copy_from_user(&level, (uint32_t *) arg, sizeof(uint32_t));
+			uint32_t rst_val[2];
+			ret = copy_from_user(rst_val, (uint32_t *) arg, 2*sizeof(uint32_t));
 			if(0 == ret)
-				ret = _Sensor_K_Reset(level);
+				ret = _Sensor_K_Reset(rst_val[0], rst_val[1]);
 		}
 		break;
 
