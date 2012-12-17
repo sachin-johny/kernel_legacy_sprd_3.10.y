@@ -75,6 +75,9 @@ static int sblock_thread(void *data)
 			smsg_set(&mcmd, sblock->channel, SMSG_TYPE_DONE,
 					SMSG_DONE_SBLOCK_INIT, sblock->smem_addr);
 			smsg_send(sblock->dst, &mcmd, -1);
+			if (sblock->handler) {
+				sblock->handler(SBLOCK_NOTIFY_STATUS, sblock->data);
+			}
 			sblock->state = SBLOCK_STATE_READY;
 			break;
 		case SMSG_TYPE_EVENT:
