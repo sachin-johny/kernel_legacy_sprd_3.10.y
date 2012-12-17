@@ -22,6 +22,7 @@
 #include <linux/sprd_cproc.h>
 #include <linux/sipc.h>
 #include <linux/spipe.h>
+#include <linux/seth.h>
 #include <asm/pmu.h>
 #include <mach/hardware.h>
 #include <mach/regs_ahb.h>
@@ -1018,3 +1019,14 @@ static void sprd_init_pmu(void)
 }
 arch_initcall(sprd_init_pmu);
 #endif /* CONFIG_ARCH_SC8825 */
+
+static struct seth_init_data sprd_seth_td_pdata = {
+	.name		= "veth0",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA,
+};
+struct platform_device sprd_seth_td_device = {
+	.name           = "seth",
+	.id             =  0,
+	.dev		= {.platform_data = &sprd_seth_td_pdata},
+};

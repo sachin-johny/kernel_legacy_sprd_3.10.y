@@ -122,6 +122,7 @@ static struct platform_device *devices[] __initdata = {
         &sprd_spipe_td_device,
         &sprd_slog_td_device,
         &sprd_stty_td_device,
+		  &sprd_seth_td_device,
 #endif
 	&kb_backlight_device,
 };
