@@ -635,5 +635,17 @@ config TILE_SROM
 	  device appear much like a simple EEPROM, and knows
 	  how to partition a single ROM for multiple purposes.
 
+config MODEM_INTF
+        bool "MODEM interface"
+        default n
+        help
+          This module supports to connect AP with CP by SPI or SDIO bus.
+
+config MUX_SDIO_HAL
+        bool "MUX SDIO HAL"
+        default n
+        help
+          This module supports to connect AP with CP use SDIO bus.
+
 endmenu
 

@@ -18,6 +18,9 @@
 #error  "Don't include this file directly, include <mach/board.h>"
 #endif
 
+
+#define GPIO_INVALID		0xFFFFFFFF
+
 /*
  * GPIO NR:
  *   0   - 15  : D-Die EIC
