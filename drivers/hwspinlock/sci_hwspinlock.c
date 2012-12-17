@@ -1,5 +1,5 @@
 /*
- * SPRD hardware spinlock driver
+ * SCI hardware spinlock driver
  *
  * Copyright (C) 2012 Spreadtrum  - http://www.spreadtrum.com
  * Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com
@@ -35,10 +35,8 @@
 
 #include "hwspinlock_internal.h"
 
-
 #define HWSPINLOCK_MAX_NUM	(32)
 
-#define HWSPINLOCK_NOTTAKEN		(0x524c534c)	/*free: RLSL */
 #define HWSPINLOCK_ENABLE_CLEAR		(0x454e434c)
 
 #define HWSPINLOCK_CLEAR		(0x0)
@@ -46,28 +44,17 @@
 #define HWSPINLOCK_DTLSTL		(0x8)
 #define HWSPINLOCK_CLEAREN		(0xc)
 
-#define HWSPINLOCK_TOKEN(_X_)	(0x80 + 0x4*(_X_))
+#define HWSPINLOCK_TOKEN_V0(_X_)	(0x80 + 0x4*(_X_))
+#define HWSPINLOCK_TOKEN_V1(_X_)	(0x800 + 0x4*(_X_))
 
 #define THIS_PROCESSOR_KEY	(HWSPINLOCK_WRITE_KEY)	/*first processor */
 static void __iomem *hwspinlock_base;
+static int hwspinlock_vid = 0;
 
 #define SPINLOCKS_BUSY()	(readl(hwspinlock_base + HWSPINLOCK_TTLSTS))
 #define SPINLOCKS_DETAIL_STATUS(_X_)	(_X_ = readl(hwspinlock_base + HWSPINLOCK_DTLSTL))
 #define SPINLOCKS_ENABLE_CLEAR()	writel(HWSPINLOCK_ENABLE_CLEAR,hwspinlock_base + HWSPINLOCK_CLEAREN)
 #define SPINLOCKS_DISABLE_CLEAR()	writel(~HWSPINLOCK_ENABLE_CLEAR, hwspinlock_base + HWSPINLOCK_CLEAREN)
-
-#define to_sprd_hwspinlock(lock)	\
-	container_of(lock, struct sprd_hwspinlock, lock)
-
-struct sprd_hwspinlock {
-	struct hwspinlock lock;
-	void __iomem *addr;
-};
-
-struct sprd_hwspinlock_state {
-	int num_locks;		/* Total number of locks in system */
-	void __iomem *io_base;	/* Mapped base address */
-};
 
 static int hwspinlock_isbusy(unsigned int lockid)
 {
@@ -81,40 +68,49 @@ static int hwspinlocks_isbusy(void)
 	return ((SPINLOCKS_BUSY())? 1 : 0);
 }
 
-static unsigned int do_lock_key(void *k)
+static unsigned int do_lock_key(struct hwspinlock *lock)
 {
 	unsigned int key = THIS_PROCESSOR_KEY;
 	return key;
 }
 
-static int sprd_hwspinlock_trylock(struct hwspinlock *lock)
+static int __hwspinlock_trylock(struct hwspinlock *lock)
 {
-	struct sprd_hwspinlock *sprd_lock = to_sprd_hwspinlock(lock);
-	unsigned int key = do_lock_key(sprd_lock->addr);
+	void __iomem *addr = lock->priv;
 
-	if (!(key ^ HWSPINLOCK_NOTTAKEN))
-		BUG_ON(1);
-
-	if (HWSPINLOCK_NOTTAKEN == readl(sprd_lock->addr)) {
-		writel(key, sprd_lock->addr);
-		return (key == readl(sprd_lock->addr));
+	if (hwspinlock_vid == 0x100) {
+		return (!readl(addr));
 	} else {
-		return 0;
+		unsigned int key = do_lock_key(lock);
+		if (!(key ^ HWSPINLOCK_NOTTAKEN_V0))
+			BUG_ON(1);
+
+		if (HWSPINLOCK_NOTTAKEN_V0 == readl(addr)) {
+			writel(key, addr);
+			return (key == readl(addr));
+		} else {
+			return 0;
+		}
 	}
 }
 
-static void sprd_hwspinlock_unlock(struct hwspinlock *lock)
+static void __hwspinlock_unlock(struct hwspinlock *lock)
 {
-	int key;
-	struct sprd_hwspinlock *sprd_lock = to_sprd_hwspinlock(lock);
-	key = readl(sprd_lock->addr);
-	if (!(key ^ HWSPINLOCK_NOTTAKEN))
-		BUG_ON(1);
-	writel(HWSPINLOCK_NOTTAKEN, sprd_lock->addr);
+	void __iomem *lock_addr = lock->priv;
+	int unlock_key = 0;
+
+	if (hwspinlock_vid == 0x100) {
+		unlock_key = HWSPINLOCK_NOTTAKEN_V1;
+	} else {
+		unlock_key = HWSPINLOCK_NOTTAKEN_V0;
+		if (!(readl(lock_addr) ^ unlock_key))
+			BUG_ON(1);
+	}
+	writel(unlock_key, lock_addr);
 }
 
 /*
- * relax the SPRD interconnect while spinning on it.
+ * relax the  interconnect while spinning on it.
  *
  * The specs recommended that the retry delay time will be
  * just over half of the time that a requester would be
@@ -123,24 +119,24 @@ static void sprd_hwspinlock_unlock(struct hwspinlock *lock)
  * The number below is taken from an hardware specs example,
  * obviously it is somewhat arbitrary.
  */
-static void sprd_hwspinlock_relax(struct hwspinlock *lock)
+static void __hwspinlock_relax(struct hwspinlock *lock)
 {
 	ndelay(10);
 }
 
-static const struct hwspinlock_ops sprd_hwspinlock_ops = {
-	.trylock = sprd_hwspinlock_trylock,
-	.unlock = sprd_hwspinlock_unlock,
-	.relax = sprd_hwspinlock_relax,
+static const struct hwspinlock_ops sci_hwspinlock_ops = {
+	.trylock = __hwspinlock_trylock,
+	.unlock = __hwspinlock_unlock,
+	.relax = __hwspinlock_relax,
 };
 
 static void hwspinlock_clear(unsigned int lockid)
 {
 	/*setting the abnormal clear bit to 1 makes the corresponding
-	  *lock to Not Taken state 
-	  */
+	 *lock to Not Taken state 
+	 */
 	SPINLOCKS_ENABLE_CLEAR();
-	writel(1<<lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
+	writel(1 << lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
 	SPINLOCKS_DISABLE_CLEAR();
 }
 
@@ -148,140 +144,112 @@ static void hwspinlock_clear_all(void)
 {
 	unsigned int lockid = 0;
 	/*setting the abnormal clear bit to 1 makes the corresponding
-	  *lock to Not Taken state
-	  */
+	 *lock to Not Taken state
+	 */
 	SPINLOCKS_ENABLE_CLEAR();
 	do {
-		writel(1<<lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
+		writel(1 << lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
 	} while (lockid++ < HWSPINLOCK_MAX_NUM);
 	SPINLOCKS_DISABLE_CLEAR();
 }
 
-static int __devinit sprd_hwspinlock_probe(struct platform_device *pdev)
+static int __devinit sci_hwspinlock_probe(struct platform_device *pdev)
 {
-	struct sprd_hwspinlock *sprd_lock;
-	struct sprd_hwspinlock_state *state;
-	struct hwspinlock *lock;
+	struct hwspinlock_device *bank;
+	struct hwspinlock *hwlock;
 	struct resource *res;
-	int i, ret;
+	int i, ret, num_locks;
 
 	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
+	if (!res || (!res->start))
 		return -ENODEV;
 
-	state = kzalloc(sizeof(*state), GFP_KERNEL);
-	if (!state)
-		return -ENOMEM;
+	num_locks = HWSPINLOCK_MAX_NUM;
+	hwspinlock_base = (void __iomem *)res->start;
+	hwspinlock_vid = __raw_readl(hwspinlock_base + 0xffc);
 
-	if (!res->start) {
+	bank = kzalloc(sizeof(*bank) + num_locks * sizeof(*hwlock), GFP_KERNEL);
+	if (!bank) {
 		ret = -ENOMEM;
-		goto free_state;
+		goto exit;
 	}
 
-	state->num_locks = HWSPINLOCK_MAX_NUM;
-	state->io_base = (void __iomem *)res->start;
-	hwspinlock_base = state->io_base;
+	platform_set_drvdata(pdev, bank);
 
-	platform_set_drvdata(pdev, state);
-
+	for (i = 0, hwlock = &bank->lock[0]; i < num_locks; i++, hwlock++) {
+		if (hwspinlock_vid == 0x100)
+			hwlock->priv =
+			    (void __iomem *)(res->start +
+					     HWSPINLOCK_TOKEN_V1(i));
+		else
+			hwlock->priv =
+			    (void __iomem *)(res->start +
+					     HWSPINLOCK_TOKEN_V0(i));
+	}
 	/*
 	 * runtime PM will make sure the clock of this module is
 	 * enabled if at least one lock is requested
 	 */
 	pm_runtime_enable(&pdev->dev);
 
-	for (i = 0; i < state->num_locks; i++) {
-		sprd_lock = kzalloc(sizeof(*sprd_lock), GFP_KERNEL);
-		if (!sprd_lock) {
-			ret = -ENOMEM;
-			goto free_locks;
-		}
+	ret = hwspin_lock_register(bank, &pdev->dev, &sci_hwspinlock_ops,
+				   0, num_locks);
 
-		sprd_lock->lock.dev = &pdev->dev;
-		sprd_lock->lock.owner = THIS_MODULE;
-		sprd_lock->lock.id = i;
-		sprd_lock->lock.ops = &sprd_hwspinlock_ops;
-		sprd_lock->addr =
-		    (void __iomem *)(res->start + HWSPINLOCK_TOKEN(i));
+	if (ret)
+		goto reg_fail;
 
-		ret = hwspin_lock_register(&sprd_lock->lock);
-		if (ret) {
-			kfree(sprd_lock);
-			goto free_locks;
-		}
-	}
-
-	printk("sprd_hwspinlock_probe ok\n");
+	printk("sci_hwspinlock_probe ok, hwspinlock_vid = 0x%x\n",
+	       hwspinlock_vid);
 	return 0;
 
-free_locks:
-	while (--i >= 0) {
-		lock = hwspin_lock_unregister(i);
-		/* this should't happen, but let's give our best effort */
-		if (!lock) {
-			dev_err(&pdev->dev, "%s: cleanups failed\n", __func__);
-			continue;
-		}
-		sprd_lock = to_sprd_hwspinlock(lock);
-		kfree(sprd_lock);
-	}
-
+reg_fail:
 	pm_runtime_disable(&pdev->dev);
-
-free_state:
-	kfree(state);
+	kfree(bank);
+exit:
 	return ret;
 }
 
-static int sprd_hwspinlock_remove(struct platform_device *pdev)
+static int sci_hwspinlock_remove(struct platform_device *pdev)
 {
-	struct sprd_hwspinlock_state *state = platform_get_drvdata(pdev);
-	struct hwspinlock *lock;
-	struct sprd_hwspinlock *sprd_lock;
-	int i;
+	struct hwspinlock_device *bank = platform_get_drvdata(pdev);
+	int ret;
 
-	for (i = 0; i < state->num_locks; i++) {
-		lock = hwspin_lock_unregister(i);
-		/* this shouldn't happen at this point. if it does, at least
-		 * don't continue with the remove */
-		if (!lock) {
-			dev_err(&pdev->dev, "%s: failed on %d\n", __func__, i);
-			return -EBUSY;
-		}
-
-		sprd_lock = to_sprd_hwspinlock(lock);
-		kfree(sprd_lock);
+	ret = hwspin_lock_unregister(bank);
+	if (ret) {
+		dev_err(&pdev->dev, "%s failed: %d\n", __func__, ret);
+		return ret;
 	}
 
 	pm_runtime_disable(&pdev->dev);
-	kfree(state);
+	kfree(bank);
 
 	return 0;
 }
 
-static struct platform_driver sprd_hwspinlock_driver = {
-	.probe = sprd_hwspinlock_probe,
-	.remove = sprd_hwspinlock_remove,
+static struct platform_driver sci_hwspinlock_driver = {
+	.probe = sci_hwspinlock_probe,
+	.remove = __devexit_p(sci_hwspinlock_remove),
 	.driver = {
-		   .name = "sprd_hwspinlock",
+		   .name = "sci_hwspinlock",
+		   .owner = THIS_MODULE,
 		   },
 };
 
-static int __init sprd_hwspinlock_init(void)
+static int __init sci_hwspinlock_init(void)
 {
-	return platform_driver_register(&sprd_hwspinlock_driver);
+	return platform_driver_register(&sci_hwspinlock_driver);
 }
 
 /* board init code might need to reserve hwspinlocks for predefined purposes */
-postcore_initcall(sprd_hwspinlock_init);
+postcore_initcall(sci_hwspinlock_init);
 
-static void __exit sprd_hwspinlock_exit(void)
+static void __exit sci_hwspinlock_exit(void)
 {
-	platform_driver_unregister(&sprd_hwspinlock_driver);
+	platform_driver_unregister(&sci_hwspinlock_driver);
 }
 
-module_exit(sprd_hwspinlock_exit);
+module_exit(sci_hwspinlock_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Hardware spinlock driver for Spreadtrum");

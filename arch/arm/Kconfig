@@ -1009,6 +1009,16 @@ config ARCH_ZYNQ
 	select USE_OF
 	help
 	  Support for Xilinx Zynq ARM Cortex A9 Platform
+
+config ARCH_SC
+	bool "Spreadtrum SOC"
+	select ARCH_REQUIRE_GPIOLIB
+	select CLKDEV_LOOKUP
+	select GENERIC_CLOCKEVENTS
+	select HAVE_CLK
+	help
+	  Support for Spreadtrum sci based systems.
+
 endchoice
 
 #
@@ -1126,6 +1136,8 @@ source "arch/arm/plat-versatile/Kconfig"
 source "arch/arm/mach-vt8500/Kconfig"
 
 source "arch/arm/mach-w90x900/Kconfig"
+
+source "arch/arm/mach-sc/Kconfig"
 
 # Definitions to make life easier
 config ARCH_ACORN
@@ -1491,7 +1503,7 @@ config SMP
 	depends on HAVE_SMP
 	depends on MMU
 	select USE_GENERIC_SMP_HELPERS
-	select HAVE_ARM_SCU if !ARCH_MSM_SCORPIONMP
+	select HAVE_ARM_SCU if (!ARCH_MSM_SCORPIONMP && !ARCH_SC8830)
 	help
 	  This enables support for systems with more than one CPU. If you have
 	  a system with only one CPU, like most personal computers, say N. If
@@ -1599,7 +1611,7 @@ config LOCAL_TIMERS
 	bool "Use local timer interrupts"
 	depends on SMP
 	default y
-	select HAVE_ARM_TWD if (!ARCH_MSM_SCORPIONMP && !EXYNOS4_MCT)
+	select HAVE_ARM_TWD if (!ARCH_MSM_SCORPIONMP && !EXYNOS4_MCT && !ARCH_SC8830)
 	help
 	  Enable support for local timers on SMP platforms, rather then the
 	  legacy IPI broadcast method.  Local timers allows the system

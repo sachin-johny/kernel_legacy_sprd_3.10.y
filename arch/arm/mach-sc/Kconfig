@@ -1,0 +1,106 @@
+if ARCH_SC
+
+comment "Spreadtrum SoC Type"
+
+choice
+	prompt "Spreadtrum SoC Type"
+
+config  ARCH_SC8825
+	bool "sc8830 series(tiger)"
+	select CPU_V7
+	select HAVE_SMP
+	select ARM_GIC
+	select HAVE_SCHED_CLOCK
+	select LOCAL_TIMERS if SMP
+	select VFP
+	select VFPv3
+	select NEON
+	select GENERIC_TIME
+	select CLKSRC_MMIO
+	select ARCH_HAS_CPUFREQ
+	select NEED_MACH_IO_H
+
+config  ARCH_SC8830
+	bool "sc8830 series(shark)"
+	select CPU_V7
+	select HAVE_SMP
+	select ARM_GIC
+	select HAVE_SCHED_CLOCK
+	select LOCAL_TIMERS if SMP
+	select VFP
+	select VFPv3
+	select NEON
+	select GENERIC_TIME
+	select CLKSRC_MMIO
+	select ARCH_HAS_CPUFREQ
+	select NEED_MACH_IO_H
+
+config  ARCH_DOLPHIN
+	bool "sc8830 series(dolphin)"
+	select CPU_V7
+	select HAVE_SMP
+	select ARM_GIC
+	select HAVE_SCHED_CLOCK
+	select LOCAL_TIMERS if SMP
+	select VFP
+	select VFPv3
+	select NEON
+	select GENERIC_TIME
+	select CLKSRC_MMIO
+	select ARCH_HAS_CPUFREQ
+	select NEED_MACH_IO_H
+
+endchoice
+
+
+menu "Spreadtrum Board Type"
+
+config MACH_SP8825EA
+	depends on ARCH_SC
+	depends on ARCH_SC8825
+	bool "MACH_SP8825EA"
+	default y
+	help
+	  sp8825 EB board based on SC8825 serial.
+
+config MACH_SP8830FPGA
+	depends on ARCH_SC
+	depends on ARCH_SC8830
+	bool "MACH_SP8830FPGA"
+	default n
+	help
+	  SP8830 fpga board based on SC8830 serial.
+
+config MACH_SP8830EA
+	depends on ARCH_SC
+	depends on ARCH_SC8830
+	bool "MACH_SP8830EA"
+	default y
+	help
+	  SP8830 EB board based on SC8830 serial.
+
+endmenu
+
+config SPRD_ION_SIZE
+        int "size for ion"
+        range 1 64
+        default 1
+	depends on ION
+
+config SPRD_ION_OVERLAY_SIZE
+        int "size for ion overlay"
+        range 1 64
+        default 1
+	depends on ION
+
+config SC_VIBRATOR
+        select ANDROID_TIMED_OUTPUT
+        default n
+        bool "vibrator for SC serials"
+
+config SPRD_DCDC_DEBUG
+	default n
+	tristate "Enable dcdc debug module"
+	help
+	  This option select dcdc debug module.
+endif
