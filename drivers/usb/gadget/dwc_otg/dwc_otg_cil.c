@@ -2281,8 +2281,8 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 
 	depctl.d32 = dwc_read_reg32(addr);
 
-	depctl.b.usbactep = 0;
-
+//	depctl.b.usbactep = 0;
+	depctl.b.snak = 1;
 	if (core_if->dma_desc_enable)
 		depctl.b.epdis = 1;
 

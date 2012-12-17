@@ -30,6 +30,7 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
+#include <asm/current.h>
 
 #include "gadget_chips.h"
 
@@ -877,6 +878,7 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 	char buf[256], *b;
 	int err;
 
+	printk("%s(%d) %s(%s) \n",current->comm,current->pid,__func__,buff);
 	mutex_lock(&dev->mutex);
 
 	if (dev->enabled) {
@@ -922,6 +924,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	mutex_lock(&dev->mutex);
 
 	sscanf(buff, "%d", &enabled);
+	printk("%s(%d) call %s(%d) \n",current->comm,current->pid,__func__,enabled);
 	if (enabled && !dev->enabled) {
 		cdev->next_string_id = 0;
 		/* update values in composite driver's copy of device descriptor */
