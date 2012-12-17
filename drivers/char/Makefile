@@ -63,5 +63,7 @@ obj-$(CONFIG_DCC_TTY)		+= dcc_tty.o
 obj-$(CONFIG_PS3_FLASH)		+= ps3flash.o
 obj-$(CONFIG_RAMOOPS)		+= ramoops.o
 
+obj-$(CONFIG_MODEM_INTF)	+= modem_interface/
+obj-$(CONFIG_MUX_SDIO_HAL)	+= mux_sdio_hal/
 obj-$(CONFIG_JS_RTC)		+= js-rtc.o
 js-rtc-y = rtc.o

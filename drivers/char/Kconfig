@@ -639,5 +639,17 @@ config MSM_SMD_PKT
 	  Enables userspace clients to read and write to some packet SMD
 	  ports via device interface for MSM chipset.
 
+config MODEM_INTF
+        bool "MODEM interface"
+        default n
+        help
+          This module supports to connect AP with CP by SPI or SDIO bus.
+
+config MUX_SDIO_HAL
+        bool "MUX SDIO HAL"
+        default n
+        help
+          This module supports to connect AP with CP use SDIO bus.
+
 endmenu
 
