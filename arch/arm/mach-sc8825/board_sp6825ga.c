@@ -45,6 +45,7 @@
 #include <mach/hardware.h>
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
+#include <mach/pinmap.h>
 
 /* IRQ's for the multi sensor board */
 #define MPUIRQ_GPIO 212
@@ -245,6 +246,8 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
 	  .platform_data = &ltr558_pls_info,
 	},
+        {  I2C_BOARD_INFO("BEKEN_FM", 0x70),
+        },
 /*	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
 	},*/
