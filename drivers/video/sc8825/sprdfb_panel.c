@@ -214,8 +214,8 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 	list_for_each_entry(cfg, panel_list, list) {
 		printk("sprdfb: [%s]: try panel 0x%x\n", __FUNCTION__, cfg->lcd_id);
 		panel_mount(dev, cfg->panel);
-		dev->panel->ops->panel_reset(cfg->panel);
 		panel_init(dev);
+		dev->panel->ops->panel_reset(cfg->panel);
 		id = dev->panel->ops->panel_readid(dev->panel);
 		if(id == cfg->lcd_id) {
 			pr_debug(KERN_INFO "sprdfb: [%s]: LCD Panel 0x%x is attached!\n", __FUNCTION__, cfg->lcd_id);
@@ -347,8 +347,8 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 #endif
 
 	if(from_deep_sleep){
-		dev->panel->ops->panel_reset(dev->panel);
 		panel_init(dev);
+		dev->panel->ops->panel_reset(dev->panel);
 		dev->panel->ops->panel_init(dev->panel);
 		panel_ready(dev);
 	}else{
