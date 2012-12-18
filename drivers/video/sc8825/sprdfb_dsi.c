@@ -456,7 +456,28 @@ static int32_t sprdfb_dsi_dcs_read(uint8_t command, uint8_t bytes_to_read, uint8
 	return 0;
 }
 
+static int32_t sprd_dsi_force_write(uint8_t data_type, uint8_t *p_params, uint16_t param_length)
+{
+	int32_t iRtn = 0;
+	iRtn = mipi_dsih_gen_wr_packet(&(dsi_ctx.dsi_inst), 0, data_type,  p_params, param_length);
+	return iRtn;
+}
 
+static int32_t sprd_dsi_force_read(uint8_t command, uint8_t bytes_to_read, uint8_t * read_buffer)
+{
+	int32_t iRtn = 0;
+	dsih_ctrl_t *curInstancePtr = &(dsi_ctx.dsi_inst);
+
+	mipi_dsih_eotp_rx(curInstancePtr, 0);
+	mipi_dsih_eotp_tx(curInstancePtr, 0);
+
+	iRtn = mipi_dsih_gen_rd_packet(&(dsi_ctx.dsi_inst),  0,  6,  0, command,  bytes_to_read, read_buffer);
+
+	mipi_dsih_eotp_rx(curInstancePtr, 1);
+	mipi_dsih_eotp_tx(curInstancePtr, 1);
+
+	return iRtn;
+}
 
 struct ops_mipi sprdfb_mipi_ops = {
 	.mipi_set_cmd_mode = sprdfb_dsi_set_cmd_mode,
@@ -465,6 +486,8 @@ struct ops_mipi sprdfb_mipi_ops = {
 	.mipi_gen_read = sprdfb_dsi_gen_read,
 	.mipi_dcs_write = sprdfb_dsi_dcs_write,
 	.mipi_dcs_read = sprdfb_dsi_dcs_read,
+	.mipi_force_write = sprd_dsi_force_write,
+	.mipi_force_read = sprd_dsi_force_read,
 };
 
 
