@@ -101,11 +101,11 @@ void __init ana_init_irq(void)
 {
 	int n;
 
-	setup_irq(IRQ_ANA_INT, &__adie_mux_irq);
 	for (n = IRQ_ANA_INT_START; n < IRQ_ANA_INT_START + NR_ANA_IRQS; n++) {
 		irq_set_chip_and_handler(n, &sprd_muxed_ana_chip,
 					 handle_level_irq);
 		set_irq_flags(n, IRQF_VALID);
 	}
+	setup_irq(IRQ_ANA_INT, &__adie_mux_irq);
 }
 

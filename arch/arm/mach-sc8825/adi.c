@@ -72,19 +72,40 @@
 
 #ifdef CONFIG_NKERNEL
 static DEFINE_SPINLOCK(adi_lock);
-#define sci_adi_lock()				\
-		spin_lock_irqsave(&adi_lock, flags); \
-		hw_flags = hw_local_irq_save(); \
-		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_ADI), -1)))
-#define sci_adi_unlock()			\
-		hwspin_unlock(arch_get_hwlock(HWLOCK_ADI)); \
-		hw_local_irq_restore(hw_flags);	\
-		spin_unlock_irqrestore(&adi_lock, flags)
+static void sci_adi_lock(void *flags, void *hw_flags)
+{
+	spin_lock_irqsave(&adi_lock, *flags);
+	*hw_flags = hw_local_irq_save();
+	if (arch_get_hwlock(HWLOCK_ADI))
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_ADI), -1)));
+	else
+		arch_hwlock_fast(HWLOCK_ADI);
+}
+static void sci_adi_unlock(void *flags, void *hw_flags)
+{
+	if (arch_get_hwlock(HWLOCK_ADI))
+		hwspin_unlock(arch_get_hwlock(HWLOCK_ADI));
+	else
+		arch_hwunlock_fast(HWLOCK_ADI);
+	hw_local_irq_restore(*hw_flags);
+	spin_unlock_irqrestore(&adi_lock, *flags);
+}
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
-#define sci_adi_lock() do { \
-	WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADI), -1, &flags)));} while(0)
-#define sci_adi_unlock() do {hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADI), &flags);} while(0)
+static void sci_adi_lock(void *flags, void *hw_flags)
+{
+	if (arch_get_hwlock(HWLOCK_ADI))
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADI), -1, flags)));
+	else
+		arch_hwlock_fast(HWLOCK_ADI);
+}
+static void sci_adi_unlock(void *flags, void *hw_flags)
+{
+	if (arch_get_hwlock(HWLOCK_ADI))
+		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADI), flags);
+	else
+		arch_hwunlock_fast(HWLOCK_ADI);
+}
 #endif
 
 static int sci_adi_fifo_drain(void)
@@ -140,9 +161,9 @@ int sci_adi_read(u32 reg)
 	unsigned long flags, hw_flags;
 	ADDR_VERIFY(reg);
 	reg = __sci_adi_translate_addr(reg);
-	sci_adi_lock();
+	sci_adi_lock(&flags, &hw_flags);
 	val = __sci_adi_read(reg);
-	sci_adi_unlock();
+	sci_adi_unlock(&flags, &hw_flags);
 	return val;
 }
 
@@ -202,9 +223,9 @@ int sci_adi_write_fast(u32 reg, u16 val, u32 sync)
 {
 	unsigned long flags, hw_flags;
 	ADDR_VERIFY(reg);
-	sci_adi_lock();
+	sci_adi_lock(&flags, &hw_flags);
 	__sci_adi_write(reg, val, sync);
-	sci_adi_unlock();
+	sci_adi_unlock(&flags, &hw_flags);
 	return 0;
 }
 
@@ -215,11 +236,11 @@ int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
 	unsigned long flags, hw_flags;
 	
 	ADDR_VERIFY(reg);
-	sci_adi_lock();
+	sci_adi_lock(&flags, &hw_flags);
 	__sci_adi_write(reg,
 			(__sci_adi_read(__sci_adi_translate_addr(reg)) &
 			 ~clear_msk) | or_val, 1);
-	sci_adi_unlock();
+	sci_adi_unlock(&flags, &hw_flags);
 	return 0;
 }
 
