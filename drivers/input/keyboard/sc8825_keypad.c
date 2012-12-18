@@ -29,6 +29,7 @@
 #include <linux/platform_device.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
+#include <linux/sysrq.h>
 
 #include <mach/globalregs.h>
 #include <mach/hardware.h>
@@ -159,6 +160,29 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 	value = keypad_readl(KPD_INT_CLR);
 	value |= KPD_INT_ALL;
 	keypad_writel(KPD_INT_CLR, value);
+
+#ifdef CONFIG_MAGIC_SYSRQ
+	{
+		static unsigned long key_status_prev = 0;
+		if (key_status == 0x77779081 && key_status != key_status_prev) {
+			unsigned long flags;
+			static int rebooted = 0;
+			local_irq_save(flags);
+			if (rebooted == 0) {
+				rebooted = 1;
+				pr_warn("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
+				/* handle_sysrq('t'); */
+				handle_sysrq('m');
+				handle_sysrq('w');
+				handle_sysrq('b');
+				pr_warn("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
+				rebooted = 0;
+			}
+			local_irq_restore(flags);
+		}
+		key_status_prev = key_status;
+	}
+#endif
 
 	if ((int_status & KPD_PRESS_INT0)) {
 		col = KPD_INT0_COL(key_status);
