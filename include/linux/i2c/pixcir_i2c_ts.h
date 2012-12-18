@@ -11,10 +11,14 @@
 
 #define TS_IRQ_PIN			"ts_irq_pin"
 #define TS_RESET_PIN		"ts_rst_pin"
-
-
+/*debug UUI HVGA effect on the 8810ea project*/
+#ifdef CONFIG_TOUCHSCREEN_PIXCIR_HVGA_TEST
+#define X_MAX 				320
+#define Y_MAX 				480
+#else
 #define X_MAX 				480
 #define Y_MAX 				800
+#endif
 #define DIS_THRESHOLD		40
 
 #define SLAVE_ADDR			0x5c
