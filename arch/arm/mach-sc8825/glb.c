@@ -26,19 +26,42 @@
 
 #ifdef CONFIG_NKERNEL
 static DEFINE_SPINLOCK(glb_lock);
-#define sci_glb_lock()				\
-		spin_lock_irqsave(&glb_lock, flags); \
-		hw_flags = hw_local_irq_save(); \
-		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_GLB), -1)))
-#define sci_glb_unlock()			\
-		hwspin_unlock(arch_get_hwlock(HWLOCK_GLB)); \
-		hw_local_irq_restore(hw_flags);	\
-		spin_unlock_irqrestore(&glb_lock, flags)
+static void sci_glb_lock(void *flags, void *hw_flags)
+{
+	spin_lock_irqsave(&glb_lock, *flags);
+	*hw_flags = hw_local_irq_save();
+	if (arch_get_hwlock(HWLOCK_GLB))
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_GLB), -1)));
+	else
+		arch_hwlock_fast(HWLOCK_GLB);
+}
+
+static void sci_glb_unlock(void *flags, void *hw_flags)
+{
+	if (arch_get_hwlock(HWLOCK_GLB))
+		hwspin_unlock(arch_get_hwlock(HWLOCK_GLB));
+	else
+		arch_hwunlock_fast(HWLOCK_GLB);
+	hw_local_irq_restore(*hw_flags);
+	spin_unlock_irqrestore(&glb_lock, *flags);
+}
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
-#define sci_glb_lock() 		do { \
-		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_GLB), -1, &flags)));} while(0)
-#define sci_glb_unlock() 	do {hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_GLB), &flags);} while(0)
+static void sci_glb_lock(void *flags, void *hw_flags)
+{
+	if (arch_get_hwlock(HWLOCK_GLB))
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_GLB), -1, flags)));
+	else
+		arch_hwlock_fast(HWLOCK_GLB);
+}
+
+static void sci_glb_unlock(void *flags, void *hw_flags)
+{
+	if (arch_get_hwlock(HWLOCK_GLB))
+		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_GLB), flags);
+	else
+		arch_hwunlock_fast(HWLOCK_GLB);
+}
 #endif
 
 u32 sci_glb_read(u32 reg, u32 msk)
@@ -49,9 +72,9 @@ u32 sci_glb_read(u32 reg, u32 msk)
 int sci_glb_write(u32 reg, u32 val, u32 msk)
 {
 	unsigned long flags, hw_flags;
-	sci_glb_lock();
+	sci_glb_lock(&flags, &hw_flags);
 	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
-	sci_glb_unlock();
+	sci_glb_unlock(&flags, &hw_flags);
 	return 0;
 }
 
