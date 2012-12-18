@@ -370,7 +370,7 @@ ex_write (ExDev *ex_dev, const char *buf, int count)
 	    ex_dev->c_pos = 0;
     }
     /* send a rx-xirq if cring was empty */
-    //if (RING_C_ROOM(cring) == done && cring->s_wait == 1) {
+   // if (RING_C_ROOM(cring) == done && cring->s_wait == 1) {
     if (cring->s_wait == 1) {
 	CON_PRINT(VUART_MSG
 		  "%s : cring no longer empty, sending rx-xirq\n",
@@ -637,6 +637,7 @@ typedef struct NkPort NkPort;
 
 #ifdef CONFIG_NKERNEL_MUX_IO
 NkPort* 	sprd_port;
+wait_queue_head_t txwait;
 wait_queue_head_t rxwait;
 static int stopped = 0;
 #endif
@@ -732,6 +733,10 @@ vcons_tx_intr (NkPort* port)
 	    tty_wakeup(port->tty);
     }
     spin_unlock_irqrestore(&port->lock, flags);
+
+#ifdef CONFIG_NKERNEL_MUX_IO
+	wake_up_interruptible(&txwait);
+#endif
 }
 
     static void 
@@ -944,6 +949,11 @@ static int nk_io_write(const char *buf, size_t len)
 	if(0 == len)
 		return 0;
 
+	wait_event_interruptible(txwait, vcons_write_room(sprd_port) > 0 || 1
+			== stopped);
+	if(1 == stopped)
+		return -1;
+
 	spin_lock_irqsave(&sprd_port->lock, flags);
 	res = ex_write(sprd_port->ex_dev, buf, len);
 	spin_unlock_irqrestore(&sprd_port->lock, flags);
@@ -975,6 +985,9 @@ static int nk_io_stop(int mode)
 		wake_up_interruptible(&rxwait);
 	}
 
+	if (mode & SPRDMUX_WRITE) {
+		wake_up_interruptible(&txwait);
+	}
 	return 0;
 }
 
@@ -1027,6 +1040,7 @@ serial_init (void)
     }
 
 #ifdef CONFIG_NKERNEL_MUX_IO
+	init_waitqueue_head(&txwait);
 	init_waitqueue_head(&rxwait);
 	sprdmux_register(&sprd_iomux);
 #endif
