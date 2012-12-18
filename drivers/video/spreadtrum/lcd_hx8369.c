@@ -365,8 +365,13 @@ static struct info_mcu lcd_hx8369_info = {
 };
 
 struct panel_spec lcd_hx8369_spec = {
+#ifdef CONFIG_FB_LCD_HX8369_HVGA_TEST
+	.width = 320,
+	.height = 480,
+#else
 	.width = 480,
 	.height = 800,
+#endif
 	.mode = LCD_MODE_MCU,
 	.direction = LCD_DIRECT_NORMAL,
 	.info = {
