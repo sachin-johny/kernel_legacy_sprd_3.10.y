@@ -20,6 +20,9 @@
 #include <mach/board.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
+#ifdef CONFIG_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+#endif
 
 #include <mach/globalregs.h>
 #include <mach/hardware.h>
@@ -48,6 +51,13 @@
 #define        PWM_REG_MSK     0xffff
 #define        PWM_MOD_MAX     0xff
 
+struct sprd_backlight{
+	struct backlight_device *bldev;
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	struct early_suspend	early_suspend;
+#endif
+};
+static unsigned int  bl_suspend = 0;
 static inline void __raw_bits_or(unsigned int v, unsigned int a)
 {
 	__raw_writel((__raw_readl(a) | v), a);
@@ -81,15 +91,20 @@ static int sprd_pwm_backlight_update_status(struct backlight_device *bldev)
 		/* disable backlight */
 		BK_SetPwmRatio(0);
 	} else {
-		value = bldev->props.brightness & BK_MOD_MAX;
-		if(value > BK_MOD_MAX)
-			value = BK_MOD_MAX;
+		#ifdef CONFIG_EARLYSUSPEND
+		if(!bl_suspend)
+		#endif
+		{
+			value = bldev->props.brightness & BK_MOD_MAX;
+			if(value > BK_MOD_MAX)
+				value = BK_MOD_MAX;
 
-		if(value < 0)
-			value = 0;
+			if(value < 0)
+				value = 0;
 
-		duty_mod = (value << 8) | BK_MOD_MAX;
-		BK_SetPwmRatio(duty_mod);
+			duty_mod = (value << 8) | BK_MOD_MAX;
+			BK_SetPwmRatio(duty_mod);
+		}
 
 	}
 	//mutex_unlock(&mutex);
@@ -105,11 +120,33 @@ static const struct backlight_ops sprd_pwm_backlight_ops = {
 	.get_brightness = sprd_pwm_backlight_get_brightness,
 };
 
+#ifdef CONFIG_EARLYSUSPEND
+static void sprd_backlight_early_suspend(struct early_suspend *es)
+{
+	printk(KERN_INFO "sprd_backlight_early_suspend\n");
+	bl_suspend = 1;
+}
+
+static void sprd_backlight_late_resume(struct early_suspend *es)
+{
+ 	struct sprd_backlight *sprd_bk = container_of(es, struct sprd_backlight, early_suspend);
+	printk(KERN_INFO "sprd_backlight_late_resume\n");
+	bl_suspend = 0;
+	sprd_pwm_backlight_update_status(sprd_bk->bldev);
+}
+#endif
+
 static int __devinit sprd_pwm_backlight_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
 	struct backlight_device *bldev;
-
+	struct sprd_backlight *sprd_bk;
+		
+	sprd_bk = kzalloc(sizeof(struct sprd_backlight), GFP_KERNEL);
+	if (sprd_bk == NULL) {
+		dev_err(&pdev->dev, "No memory for device\n");
+		return -ENOMEM;
+	}
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = BK_MOD_MAX;
 	props.type = BACKLIGHT_RAW;
@@ -124,10 +161,16 @@ static int __devinit sprd_pwm_backlight_probe(struct platform_device *pdev)
 		printk(KERN_ERR "Failed to register backlight device\n");
 		return -ENOMEM;
 	}
-
-	platform_set_drvdata(pdev, bldev);
+	sprd_bk->bldev = bldev;
+	platform_set_drvdata(pdev, sprd_bk);
 	BK_SetPwmRatio(50<<8);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	sprd_bk->early_suspend.suspend = sprd_backlight_early_suspend;
+	sprd_bk->early_suspend.resume  = sprd_backlight_late_resume;
+	sprd_bk->early_suspend.level   = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+	register_early_suspend(&sprd_bk->early_suspend);
+#endif
 	return 0;
 
 }
@@ -135,14 +178,16 @@ static int __devinit sprd_pwm_backlight_probe(struct platform_device *pdev)
 static int __devexit sprd_pwm_backlight_remove(struct platform_device *pdev)
 {
 	struct backlight_device *bldev;
-
-	bldev = platform_get_drvdata(pdev);
+	struct sprd_backlight *sprd_bk;
+	sprd_bk = platform_get_drvdata(pdev);
+	bldev = sprd_bk->bldev;
 	bldev->props.power = FB_BLANK_UNBLANK;
 	bldev->props.brightness = BK_MOD_MAX;
 	backlight_update_status(bldev);
 	backlight_device_unregister(bldev);
 	platform_set_drvdata(pdev, NULL);
 
+	kfree(sprd_bk);
 	return 0;
 }
 
