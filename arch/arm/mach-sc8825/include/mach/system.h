@@ -17,8 +17,10 @@
 #include <mach/hardware.h>
 #include <mach/watchdog.h>
 
+extern void sc8825_idle(void);
 static inline void arch_idle(void)
 {
+	sc8825_idle();
 }
 
 static inline void arch_reset(char mode, const char *cmd)

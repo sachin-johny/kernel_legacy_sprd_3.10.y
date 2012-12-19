@@ -84,6 +84,7 @@ static void sci_irq_unmask(struct irq_data *data)
 void __init sc8825_init_irq(void)
 {
 #ifdef CONFIG_NKERNEL
+	unsigned int val;
 	extern void nk_ddi_init(void);
 	nk_ddi_init();
 #endif
@@ -94,5 +95,16 @@ void __init sc8825_init_irq(void)
 	gic_arch_extn.irq_unmask = sci_irq_unmask;
 	gic_arch_extn.irq_set_wake = sci_set_wake;
 	ana_init_irq();
+#ifdef CONFIG_NKERNEL
+	/*
+	 *  gic clock will be stopped after 2 cores enter standby in the same time,
+	 * dsp assert if IRQ_DSP0_INT and IRQ_DSP1_INT are disabled. so enable IRQ_DSP0_INT
+	 * and IRQ_DSP1_INT in INTC0 here.
+	 */
+	val = __raw_readl(INTCV0_IRQ_EN);
+	val |= (SCI_INTC_IRQ_BIT(IRQ_DSP0_INT) | SCI_INTC_IRQ_BIT(IRQ_DSP1_INT));
+	__raw_writel(val, INTCV0_IRQ_EN);
+#endif
+
 }
 
