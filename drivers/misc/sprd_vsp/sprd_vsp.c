@@ -358,13 +358,25 @@ by clk_get()!\n", "clk_vsp", name_parent);
 #ifdef USE_INTERRUPT
 static irqreturn_t vsp_isr(int irq, void *data)
 {
-	vsp_hw_dev.vsp_int_status = __raw_readl(SPRD_VSP_BASE+DCAM_INT_STS_OFF);
-	__raw_writel((1<<10)|(1<<12)|(1<<15), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+	int int_status;
+	
+	int_status = vsp_hw_dev.vsp_int_status = __raw_readl(SPRD_VSP_BASE+DCAM_INT_STS_OFF);
+	printk(KERN_INFO, "DCAM_INT_STS_OFF %x\n",int_status);
+	if((int_status >> 15) & 0x1) // CMD DONE
+	{
+		__raw_writel((1<<10)|(1<<12)|(1<<15), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+
+		disable_vsp(vsp_hw_dev.vsp_fp);
+		release_vsp(vsp_hw_dev.vsp_fp);
+	}
+	else if((int_status >> 16) & 0x1) // MPEG4 ENC DONE
+	{
+		__raw_writel((1<<16), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+	}
 	vsp_hw_dev.condition_work = 1;
 	wake_up_interruptible(&vsp_hw_dev.wait_queue_work);
 
-	disable_vsp(vsp_hw_dev.vsp_fp);
-	release_vsp(vsp_hw_dev.vsp_fp);
+
 
 	return IRQ_HANDLED;
 }
