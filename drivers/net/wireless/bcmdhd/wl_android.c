@@ -112,7 +112,7 @@ typedef struct android_wifi_priv_cmd {
  */
 void dhd_customer_gpio_wlan_ctrl(int onoff);
 uint dhd_dev_reset(struct net_device *dev, uint8 flag);
-void dhd_dev_init_ioctl(struct net_device *dev);
+int dhd_dev_init_ioctl(struct net_device *dev);
 #ifdef WL_CFG80211
 int wl_cfg80211_get_p2p_dev_addr(struct net_device *net, struct ether_addr *p2pdev_addr);
 int wl_cfg80211_set_btcoex_dhcp(struct net_device *dev, char *command);
@@ -374,11 +374,11 @@ int wl_android_wifi_on(struct net_device *dev)
 		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_ON);
 		osl_delay(10*1000);
 		//dhd_spi_reset(dev);
-		sdioh_start(NULL, 0);  //shaohua
+		sdioh_start(NULL, 0);
 		ret = dhd_dev_reset(dev, FALSE);
 		sdioh_start(NULL, 1);
 		if (!ret)
-			dhd_dev_init_ioctl(dev);
+			ret = dhd_dev_init_ioctl(dev);
 		g_wifi_on = 1;
 	}
 	dhd_net_if_unlock(dev);
@@ -404,6 +404,10 @@ int wl_android_wifi_off(struct net_device *dev)
 		g_wifi_on = 0;
 	}
 	dhd_net_if_unlock(dev);
+/* disale SDIO clock */
+#ifndef SPRD_SPI
+        sdhci_device_attach(0);
+#endif
 	bcm_mdelay(500);
 	return ret;
 }
