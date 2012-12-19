@@ -795,6 +795,8 @@ static struct resource sprd_sdio0_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio0_pdata = {
+	.hw_name = "sprd-sdcard",
+	.detect_gpio = 140,
 	.vdd_name = "vddsd0",
 	.clk_name = "clk_sdio0",
 	.clk_parent = "clk_sdio_src",

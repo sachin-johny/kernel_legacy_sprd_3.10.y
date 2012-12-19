@@ -413,7 +413,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	int ret, irq;
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	int sd_detect_gpio;
-	int *sd_detect;
 	int detect_irq;
 #endif
 	struct sprd_host_data *host_data;
@@ -476,7 +475,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
 	host->irq = irq;
 #ifdef CONFIG_MMC_CARD_HOTPLUG
-	sd_detect_gpio = host_data->detect_gpio;
+	sd_detect_gpio = host_data->platdata->detect_gpio;
 	if(sd_detect_gpio > 0){
 		pr_info("%s, sd_detect_gpio:%d\n", __func__, sd_detect_gpio);
 
@@ -759,7 +758,7 @@ static int sdhci_runtime_resume(struct device *dev){
 		(host->mmc)->bus_resume_flags |= MMC_BUSRESUME_MANUAL_RESUME;
 	}
 
-	return err;
+	return 0;
 }
 
 #define SPRD_MMC_IDLE_TIMEOUT 5000
