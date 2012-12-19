@@ -56,7 +56,6 @@ extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sc8825_init_irq(void);
 extern void __init sc8825_timer_init(void);
-extern int __init sc8825_clock_init_early(void);
 extern int __init sc8825_regulator_init(void);
 extern int __init sci_clock_init(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
@@ -482,7 +481,20 @@ int __init sc8825_clock_init_early(void)
 		BIT_PWM1_EB			|
 //		BIT_PWM0_EB			|
 		0);
-       
+
+	sci_glb_clr(REG_GLB_PCTRL,
+//		BIT_MCU_MPLL_EN		|
+//		BIT_MCU_TDPLL_EN	|
+//		BIT_MCU_DPLL_EN		|
+		BIT_MCU_GPLL_EN);	/* clk_gpu */
+
+	sci_glb_set(REG_GLB_TD_PLL_CTL,
+//		BIT_TDPLL_DIV2OUT_FORCE_PD	|	/* clk_384m */
+//		BIT_TDPLL_DIV3OUT_FORCE_PD	|	/* clk_256m */
+//		BIT_TDPLL_DIV4OUT_FORCE_PD	|	/* clk_192m */
+//		BIT_TDPLL_DIV5OUT_FORCE_PD	|	/* clk_153p6m */
+		0);
+
 	printk("sc8825 clock module early init ok\n");
 	return 0;
 }
