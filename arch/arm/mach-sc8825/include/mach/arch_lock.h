@@ -67,4 +67,11 @@ static inline void arch_hwlock_fast_unlock(unsigned int lock_id)
 	__raw_writel(HWSPINLOCK_NOTTAKEN, addr);
 }
 
+#define arch_hwlock_fast(_LOCK_ID_) do { \
+	while (!arch_hwlock_fast_trylock(_LOCK_ID_)) \
+	cpu_relax();} while (0)
+
+#define arch_hwunlock_fast(_LOCK_ID_) do { \
+				arch_hwlock_fast_unlock(_LOCK_ID_);} while (0)
+
 #endif

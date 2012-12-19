@@ -44,11 +44,8 @@ static unsigned int l2x0_sets;
 static unsigned int l2x0_ways;
 
 #if defined (CONFIG_NKERNEL) && defined (CONFIG_ARCH_SC8825)
-#define arch_hwlock_l2() do { \
-	while (!arch_hwlock_fast_trylock(HWLOCK_CACHE)) \
-	cpu_relax();} while (0)
-#define arch_hwunlock_l2() do { \
-			arch_hwlock_fast_unlock(HWLOCK_CACHE);} while (0)
+#define arch_hwlock_l2() arch_hwlock_fast(HWLOCK_CACHE)
+#define arch_hwunlock_l2() arch_hwunlock_fast(HWLOCK_CACHE)
 #else
 #define arch_hwlock_l2() NULL
 #define arch_hwunlock_l2() NULL
