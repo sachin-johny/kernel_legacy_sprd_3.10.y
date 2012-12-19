@@ -887,6 +887,7 @@ int bcmsdh_register_oob_intr(void * dhdp)
 			return -ENODEV;
 
 		enable_irq_wake(sdhcinfo->oob_irq);
+		bcmsdh_oob_intr_set(1);
 		sdhcinfo->oob_irq_registered = TRUE;
 		sdhcinfo->oob_irq_enable_flag = TRUE;
 	}
