@@ -1108,13 +1108,16 @@ void sc8825_idle(void)
 			if (0 == val) {
 #ifdef CONFIG_CACHE_L2X0
 				/*l2cache power control, standby mode enable*/
-				/*L2X0_POWER_CTRL*/
+				/*L2X0_POWER_CTRL
 				__raw_writel(1, SPRD_L2_BASE+0xF80);
 				l2x0_suspend();
+				*/
 #endif
 				cpu_do_idle();
 #ifdef CONFIG_CACHE_L2X0
+				/*
 				l2x0_resume(1);
+				*/
 #endif
 			}
 		}
@@ -1133,13 +1136,16 @@ void sc8825_idle(void)
 		if (!sprd_irq_pending()) {
 #ifdef CONFIG_CACHE_L2X0
 			/*l2cache power control, standby mode enable*/
-			/*L2X0_POWER_CTRL*/
+			/*L2X0_POWER_CTRL
 			__raw_writel(1, SPRD_L2_BASE+0xF80);
 			l2x0_suspend();
+			*/
 #endif
 			cpu_do_idle();
 #ifdef CONFIG_CACHE_L2X0
+			/*
 			l2x0_resume(1);
+			*/
 #endif
 		}
 		local_irq_enable();
