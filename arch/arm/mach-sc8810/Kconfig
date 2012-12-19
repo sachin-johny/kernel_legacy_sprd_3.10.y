@@ -70,6 +70,12 @@ config MACH_SP7710G_OPENPHONE
 	help
 	  SP7710G fpga and openphone based on ARCH_SC7710.
 
+config MACH_SP7702
+	default n
+	bool "SP7702 phone"
+	help
+	  SP7702 phone board base on SC8810 with sc7701 modem.
+
 endchoice
 
 config SPRD_PMEM_SIZE

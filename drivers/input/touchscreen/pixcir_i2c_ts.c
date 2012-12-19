@@ -354,7 +354,7 @@ static void pxicir_ts_pininit(int irq_pin, int rst_pin)
 static void pixcir_ts_pwron(struct regulator *reg_vdd)
 {
 	printk(KERN_INFO "%s\n",__func__);
-	regulator_set_voltage(reg_vdd, 2700000, 2800000);
+	regulator_set_voltage(reg_vdd, 2800000, 2900000);
 	regulator_enable(reg_vdd);
 	msleep(20);
 }
