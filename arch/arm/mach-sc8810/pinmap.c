@@ -60,6 +60,10 @@ pinmap_t __initconst pinmap[] = {
 #include "pinmap-sc6820-openphone.h"
 #endif
 
+#ifdef CONFIG_MACH_SP7702
+#include "pinmap-sp7702.h"
+#endif
+
 #ifdef CONFIG_MACH_SP7710G_OPENPHONE
 #endif
 };

@@ -68,6 +68,10 @@
 #include "regulator-sp7710g_openphone.h"
 #endif
 
+#ifdef CONFIG_MACH_SP7702
+#include "regulator-sp7702.h"
+#endif
+
 /*cfg macor layer: here is the base to make up for cfg easier*/
 #ifndef REGU_NAMES_VDDARM
 #define REGU_NAMES_VDDARM
