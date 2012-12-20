@@ -383,7 +383,8 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 	path->img_deci.y_factor = 0;
 	tempw = path->in_rect.w;
 	temph = path->in_rect.h;
-
+	info->img_deci.x_factor = 0;
+	f->fmt.pix.sizeimage = 0;
 	/*app should fill in this field(fmt.pix.priv) to set the base index of frame buffer,
 	and lately this field will return the flag whether ISP is needed for this work path*/
 
@@ -446,7 +447,35 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 	case V4L2_PIX_FMT_NV21:
 	case V4L2_PIX_FMT_RGB565:
 	case V4L2_PIX_FMT_RGB565X:
-
+		if (DCAM_CAP_MODE_RAWRGB == info->sn_mode &&
+			path->is_from_isp) {
+			if (unlikely(info->cap_out_size.w > DCAM_ISP_LINE_BUF_LENGTH)) {
+				if (0 == info->if_mode) {
+					/*CCIR CAP, no bining*/
+					printk("V4L2: CCIR CAP, no bining for this path, %d %d \n",
+						f->fmt.pix.width,
+						f->fmt.pix.height);
+					return -EINVAL;
+				} else {
+					/*MIPI CAP, support 1/2 bining*/
+					DCAM_TRACE("Need Binning \n");
+					tempw = tempw >> 1;
+					if (unlikely(tempw > DCAM_ISP_LINE_BUF_LENGTH)) {
+						printk("V4L2: the width is out of ISP line buffer, %d %d \n",
+							tempw,
+							DCAM_ISP_LINE_BUF_LENGTH);
+						return -EINVAL;
+					}
+					info->img_deci.x_factor = 1;
+					f->fmt.pix.sizeimage = 1;
+					DCAM_TRACE("x_factor, %d \n", info->img_deci.x_factor);
+					path->in_size.w = path->in_size.w >> 1;
+					path->in_rect.x = path->in_rect.x >> 1;
+					path->in_rect.w = path->in_rect.w >> 1;
+					path->in_rect.w = path->in_rect.w & (~3);
+				}
+			}
+		}
 		if (DCAM_CAP_MODE_YUV == info->sn_mode ||
 			DCAM_CAP_MODE_SPI == info->sn_mode) {
 			if (tempw != f->fmt.pix.width || temph != f->fmt.pix.height) {
@@ -516,26 +545,6 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 			}
 		} else if (DCAM_CAP_MODE_RAWRGB == info->sn_mode) {
 			if (path->is_from_isp) {
-				if (unlikely(tempw > DCAM_ISP_LINE_BUF_LENGTH)) {
-					if (0 == info->if_mode) {
-						/*CCIR CAP, no bining*/
-						printk("V4L2: CCIR CAP, no bining for this path, %d %d \n",
-							f->fmt.pix.width,
-							f->fmt.pix.height);
-						return -EINVAL;
-					} else {
-						/*MIPI CAP, support 1/2 bining*/
-						tempw = tempw >> 1;
-						if (unlikely(tempw > DCAM_ISP_LINE_BUF_LENGTH)) {
-							printk("V4L2: the width is out of ISP line buffer, %d %d \n",
-								tempw,
-								DCAM_ISP_LINE_BUF_LENGTH);
-							return -EINVAL;
-						}
-						path->img_deci.x_factor = 1;
-					
-					}
-				}
 
 				if (tempw != f->fmt.pix.width ||
 					temph != f->fmt.pix.height) {
@@ -617,7 +626,14 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 	path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE;
 	path->is_work = 0;
 	path->pixel_depth = 0;
-	tempw = path->in_rect.w;
+	if (info->img_deci.x_factor) {
+		tempw = path->in_rect.w >> 1;
+		path->in_size.w = path->in_size.w >> 1;
+		path->in_rect.w = path->in_rect.w >> 1;
+		path->in_rect.x = path->in_rect.x >> 1;
+	} else {
+		tempw = path->in_rect.w;
+	}
 	temph = path->in_rect.h;
 	switch (fourcc) {
 	case V4L2_PIX_FMT_YUV422P:
@@ -772,6 +788,7 @@ static int sprd_v4l2_cap_cfg(struct dcam_info* info)
 exit:
 	return ret;
 }
+
 static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
@@ -1169,8 +1186,10 @@ static int  v4l2_g_crop(struct file *file,
 			struct v4l2_crop *crop)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
+	struct dcam_rect         *rect;
 
-	if (unlikely(crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE))
+	if (unlikely(crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
+		unlikely(crop->type != V4L2_BUF_TYPE_PRIVATE))
 		return -EINVAL;
 
 	DCAM_TRACE("V4L2: v4l2_g_crop %d %d %d %d \n",
@@ -1179,10 +1198,15 @@ static int  v4l2_g_crop(struct file *file,
 		dev->dcam_cxt.cap_in_rect.w,
 		dev->dcam_cxt.cap_in_rect.h);
 
-	crop->c.left   = (int)dev->dcam_cxt.cap_in_rect.x;
-	crop->c.top    = (int)dev->dcam_cxt.cap_in_rect.y;
-	crop->c.width  = (int)dev->dcam_cxt.cap_in_rect.w;
-	crop->c.height = (int)dev->dcam_cxt.cap_in_rect.h;
+	if (crop->type == V4L2_BUF_TYPE_VIDEO_CAPTURE) {
+		rect = &dev->dcam_cxt.dcam_path[0].in_rect;
+	} else {
+		rect = &dev->dcam_cxt.dcam_path[1].in_rect;
+	}
+	crop->c.left   = (int)rect->x;
+	crop->c.top    = (int)rect->y;
+	crop->c.width  = (int)rect->w;
+	crop->c.height = (int)rect->h;
 
 	return 0;
 }
@@ -1443,6 +1467,7 @@ static int v4l2_streamon(struct file *file,
 			ret = dcam_reg_isr(i, sprd_v4l2_isr[i], dev);
 			V4L2_RTN_IF_ERR(ret);
 		}
+
 		ret = dcam_start();
 
 	}
@@ -1711,7 +1736,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 	struct dcam_dev          *dev = video_drvdata(file);
 	int                      ret = 0;
 
-	printk("sprd_v4l2_write %d, dev 0x%x \n", cnt, (uint32_t)dev);
+	DCAM_TRACE("sprd_v4l2_write %d, dev 0x%x \n", cnt, (uint32_t)dev);
 
 	mutex_lock(&dev->dcam_mutex);
 

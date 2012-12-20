@@ -147,7 +147,7 @@
 #define DCAM_SC_COEFF_MAX                              4
 #define DCAM_PATH_DECI_FAC_MAX                         2
 #define DCAM_SC_LINE_BUF_LENGTH                        1280
-#define DCAM_ISP_LINE_BUF_LENGTH                       1600
+#define DCAM_ISP_LINE_BUF_LENGTH                       1632
 #define DCAM_IRQ                                       IRQ_DCAM_INT
 
 #ifdef   __cplusplus
