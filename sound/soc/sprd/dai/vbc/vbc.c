@@ -409,7 +409,7 @@ static inline int vbc_ad1_dg_set(int enable, int dg)
 static int vbc_try_dg_set(int vbc_idx, int id)
 {
 	int dg = vbc[vbc_idx].dg_val[id];
-	if (vbc[vbc_idx].dg_switch[id] && vbc[vbc_idx].is_active) {
+	if (vbc[vbc_idx].dg_switch[id]) {
 		vbc[vbc_idx].dg_set[id] (1, dg);
 	} else {
 		vbc[vbc_idx].dg_set[id] (0, dg);
