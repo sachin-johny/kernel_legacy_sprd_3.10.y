@@ -92,4 +92,12 @@ config HP_POP_DELAY_TIME
 	  for reduce external hp amp noise.
 	  this delay time value, unit is MS.
 
+config SPRD_AUDIO_BUFFER_USE_IRAM
+	bool "use IRAM when sound playback"
+	default n
+	help
+	  Say Y if you want use IRAM replacment RAM when playback.
+	   sometimes, use IRAM maybe reduce power consumption.
+           but, it will cause system more busy, becuase the buffer smaller.
+
 endmenu
