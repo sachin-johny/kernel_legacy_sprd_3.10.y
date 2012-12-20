@@ -946,4 +946,24 @@ config TOUCHSCREEN_ZINITIX_BT404
           To compile this driver as a module, choose M here: the
           module will be called zinitix_touch_bt404.c.
 
+config TOUCHSCREEN_TMA140
+        tristate "CYPRESS touchscreen driver"
+        depends on I2C
+        help
+          Say Y here if you have a CYPRESS based touchscreen
+          controller.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called synaptics_i2c_rmi_tma140_cori.c.
+
+config TOUCHSCREEN_MMS134S_TS
+	bool "MELFAS MMS-134 touchscreen driver"
+	depends on I2C
+	default n
+	help
+	  Say Y here if you have a MELFAS MMS-1XX series touchscreen.
+
+  	  If unsure, say N.          
 endif
