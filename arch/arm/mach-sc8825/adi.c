@@ -72,7 +72,7 @@
 
 #ifdef CONFIG_NKERNEL
 static DEFINE_SPINLOCK(adi_lock);
-static void sci_adi_lock(void *flags, void *hw_flags)
+static void sci_adi_lock(unsigned long *flags, unsigned long *hw_flags)
 {
 	spin_lock_irqsave(&adi_lock, *flags);
 	*hw_flags = hw_local_irq_save();
@@ -81,7 +81,7 @@ static void sci_adi_lock(void *flags, void *hw_flags)
 	else
 		arch_hwlock_fast(HWLOCK_ADI);
 }
-static void sci_adi_unlock(void *flags, void *hw_flags)
+static void sci_adi_unlock(unsigned long *flags, unsigned long *hw_flags)
 {
 	if (arch_get_hwlock(HWLOCK_ADI))
 		hwspin_unlock(arch_get_hwlock(HWLOCK_ADI));
@@ -92,14 +92,14 @@ static void sci_adi_unlock(void *flags, void *hw_flags)
 }
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
-static void sci_adi_lock(void *flags, void *hw_flags)
+static void sci_adi_lock(unsigned long *flags, unsigned long *hw_flags)
 {
 	if (arch_get_hwlock(HWLOCK_ADI))
 		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADI), -1, flags)));
 	else
 		arch_hwlock_fast(HWLOCK_ADI);
 }
-static void sci_adi_unlock(void *flags, void *hw_flags)
+static void sci_adi_unlock(unsigned long  *flags, unsigned long  *hw_flags)
 {
 	if (arch_get_hwlock(HWLOCK_ADI))
 		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADI), flags);
