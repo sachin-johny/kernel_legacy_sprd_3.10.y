@@ -3717,7 +3717,7 @@ static void __exit mms_ts_exit(void)
 {
 	i2c_del_driver(&mms_ts_driver);
 }
-
+#if 0
 #if defined(SEC_TSP) && !defined(CONFIG_SEC_DEBUG)
 struct class *sec_class;
 
@@ -3734,7 +3734,7 @@ static int __init rhea_class_create(void)
 
 subsys_initcall(rhea_class_create);
 #endif
-
+#endif
 
 MODULE_DESCRIPTION("Driver for Melfas MTSI Touchscreen Controller");
 MODULE_AUTHOR("MinSang, Kim <kimms@melfas.com>");
