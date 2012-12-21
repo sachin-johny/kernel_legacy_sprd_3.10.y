@@ -21,7 +21,11 @@
 
 #include <asm/memblock.h>
 
+#ifdef CONFIG_SC8810_DDR_6G
+#define INIT_MEMBLOCK_REGIONS  (128 + 2*16384)
+#else
 #define INIT_MEMBLOCK_REGIONS	128
+#endif
 
 struct memblock_region {
 	phys_addr_t base;

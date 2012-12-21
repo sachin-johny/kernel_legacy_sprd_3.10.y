@@ -58,6 +58,12 @@ config MACH_AMAZING
 	help
 	  AMAZING phone board based on SC8810.
 
+config MACH_KYLETD
+	default n
+	bool "KYLETD Phone"
+	help
+	  KYLETD phone board based on SC8810.
+
 config MACH_Z788
 	default n
 	bool "Z788 Phone"
@@ -121,5 +127,10 @@ config SPRD_DCDC_DEBUG
     tristate "Enable dcdc debug module"
 	help
           This option select dcdc debug module.
+
+config SC8810_DDR_6G
+        depends on ARCH_SC8810
+        default n
+        bool "SC8810 feature to use 6Gb DDR"
 
 endif

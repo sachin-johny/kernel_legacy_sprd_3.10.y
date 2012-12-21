@@ -3,7 +3,7 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
          dma.o reserve.o pinmap.o adi.o gpio_eic.o adc.o efuse.o dcdc_cal.o \
          watchdog.o
 
-
+obj-y += sys_debug.o
 obj-y += sec-common.o
 
 ifeq ($(CONFIG_NKERNEL),y)
@@ -22,6 +22,7 @@ obj-$(CONFIG_MACH_SP8810GA) += board-sp8810ga.o
 obj-$(CONFIG_MACH_SP8810GB) += board-sp8810gb.o
 obj-$(CONFIG_MACH_SP6820GA) += board-sp6820ga.o
 obj-$(CONFIG_MACH_AMAZING)  += board-amazing.o
+obj-$(CONFIG_MACH_KYLETD)  += board-kyletd.o board-kyletd-spi-wifi.o
 obj-$(CONFIG_MACH_SP8810EB) += board-sp8810eb.o
 obj-$(CONFIG_MACH_Z788)  += board-z788.o
 obj-$(CONFIG_MACH_SP7710G_OPENPHONE)  += board-sp7710g_openphone.o
