@@ -144,7 +144,7 @@ void sdhci_set_data1_to_gpio(struct sdhci_host *host)
 		BIT_PIN_SLP_IE ;
 	__raw_writel( val, CTL_PIN_BASE + REG_PIN_SD2_D1 );
 
-	printk("%s, PIN_SD2_D1_REG:0x%x\n", __func__, __raw_readl(REG_PIN_SD2_D1));
+	printk("%s, PIN_SD2_D1_REG:0x%x\n", __func__, __raw_readl(CTL_PIN_BASE + REG_PIN_SD2_D1));
 	printk("sdhci_set_data1_to_gpio done\n");
 }
 
@@ -158,7 +158,7 @@ void sdhci_set_gpio_to_data1(struct sdhci_host *host)
 		BIT_PIN_SLP_Z ;
 	__raw_writel( val, CTL_PIN_BASE + REG_PIN_SD2_D1 );
 
-	printk("%s, REG_PIN_SD2_D1:0x%x\n", __func__, __raw_readl(REG_PIN_SD2_D1));
+	printk("%s, REG_PIN_SD2_D1:0x%x\n", __func__, __raw_readl(CTL_PIN_BASE + REG_PIN_SD2_D1));
 	printk("sdhci_set_gpio_to_data1 done\n");
 }
 
