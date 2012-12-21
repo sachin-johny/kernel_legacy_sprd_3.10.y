@@ -127,19 +127,24 @@ int wlan_device_power(int on)
 {
 	pr_info("%s:%d \n", __func__, on);
 
-	gpio_request(GPIO_WIFI_SHUTDOWN,"wifi_pwd");
 	if(on) {
-
+	/* enable SDIO clock */
+	#ifdef CONFIG_WLAN_SDIO
+		sdhci_device_attach(1);
+	#endif
 		gpio_direction_output(GPIO_WIFI_SHUTDOWN, 0);
 		mdelay(10);
 		gpio_direction_output(GPIO_WIFI_SHUTDOWN, 1);
 		mdelay(200);
 	}
 	else {
+	/* disale SDIO clock */
+	#ifdef CONFIG_WLAN_SDIO
+		sdhci_device_attach(0);
+	#endif
 		gpio_direction_output(GPIO_WIFI_SHUTDOWN, 0);
 
 	}
-	gpio_free(GPIO_WIFI_SHUTDOWN);
 	wlan_device_power_state = on;
 	return 0;
 }
@@ -294,10 +299,10 @@ static int __init wlan_device_init(void)
 
 	wlan_resources[1].start = gpio_to_irq(GPIO_WIFI_IRQ);
 	wlan_resources[1].end = gpio_to_irq(GPIO_WIFI_IRQ);
-#if 0
+
 	gpio_request(GPIO_WIFI_SHUTDOWN,"wifi_pwd");
 	gpio_direction_output(GPIO_WIFI_SHUTDOWN, 0);
-#endif
+
 	ret = platform_device_register(&sprd_wlan_device);
 
 	return ret;
