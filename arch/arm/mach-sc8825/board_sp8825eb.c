@@ -188,7 +188,7 @@ static struct serial_data plat_data1 = {
 };
 static struct serial_data plat_data2 = {
 	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
-	.clk = 96000000,
+	.clk = 26000000,
 };
 
 static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
