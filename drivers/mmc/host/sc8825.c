@@ -881,7 +881,7 @@ static int sdhci_pm_resume(struct device *dev)
 	if (!pm_runtime_suspended(dev))
 		if(host->ops->set_clock){
 			clock = host->clock;
-			host->ops->set_clock(host, 0);
+			host->ops->set_clock(host, clock);
 		}
 	return 0;
 }
