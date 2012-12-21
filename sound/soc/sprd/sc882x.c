@@ -98,8 +98,8 @@ static int sc882x_hp_event(struct snd_soc_dapm_widget *w,
 {
 	sc882x_dbg("Entering %s e=0x%x\n", __func__, event);
 	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
-		audio_pa_amplifier->headset.
-		    control(SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->
+		    headset.control(SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc882x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -109,8 +109,8 @@ static int sc882x_ear_event(struct snd_soc_dapm_widget *w,
 {
 	sc882x_dbg("Entering %s e=0x%x\n", __func__, event);
 	if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
-		audio_pa_amplifier->earpiece.
-		    control(SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->
+		    earpiece.control(SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc882x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -169,7 +169,7 @@ static int sc882x_func_set(struct snd_kcontrol *kcontrol,
 	int id = FUN_REG(mc->reg);
 
 	pr_info("Entering %s %d = %ld\n", __func__, id,
-		   ucontrol->value.integer.value[0]);
+		ucontrol->value.integer.value[0]);
 	if (sc882x.func[id] == ucontrol->value.integer.value[0])
 		return 0;
 
@@ -201,11 +201,12 @@ static int sc882x_late_probe(struct snd_soc_card *card)
 	vbc_add_controls(codec);
 
 	sc882x_ext_control(&card->dapm);
-#if 0
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Mic Jack");
 	snd_soc_dapm_ignore_suspend(&card->dapm, "HP Mic Jack");
-#endif
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Aux Mic Jack");
+
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Line Jack");
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Ear");
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk");
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk2");
 	snd_soc_dapm_ignore_suspend(&card->dapm, "HeadPhone Jack");
