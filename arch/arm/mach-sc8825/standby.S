@@ -20,6 +20,8 @@
 #define REG_HOLDING_PEN_PHY_ADDR (SPRD_AHB_PHYS + 0x240)
 #define REG_CPU1_JUMP_PHY_ADDR	 (SPRD_AHB_PHYS + 0x248)
 #define REG_GLB_GEN0_PHY_ADDR	 (SPRD_GREG_PHYS + 0x8)
+#define REG_GIC_ICR_PHY_ADDR	 (SPRD_A5MP_PHYS + 0x100)
+#define REG_GIC_IPMR_PHY_ADDR	 (SPRD_A5MP_PHYS + 0x104)
 #define UART1_EN		 (0X1 << 21)
 
 	.macro	addruart,rx
@@ -201,7 +203,16 @@ ENTRY(sc8825_standby_exit_iram)
 	adreq	r5, emc_repower
 	moveq	pc, r5
 hold_secondary_cores:
-	wfene
+	ldr	r1, =REG_GIC_ICR_PHY_ADDR
+	ldr     r2, =0x1
+	str	r2, [r1]
+	/* set cpu interface priority.
+	*  0xf0 is default value in kernel source code
+	*/
+	ldr	r1, =REG_GIC_IPMR_PHY_ADDR
+	ldr     r2, =0xf0
+	str	r2, [r1]
+	wfine
 	ldr	sp, =0xc0000000 /*should be deleted*/
 	ldr     r1, =REG_HOLDING_PEN_PHY_ADDR
 	ldr     r3, [r1]

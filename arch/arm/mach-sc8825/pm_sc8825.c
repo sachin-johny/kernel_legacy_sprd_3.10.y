@@ -467,13 +467,13 @@ u32 __attribute__ ((naked)) read_cpsr(void)
 }
 
 /*make sure adb ahb and audio is complete shut down.*/
-#define GEN0_MASK ( GEN0_SIM0_EN | GEN0_ADI_EN | GEN0_GPIO_EN | 			\
+#define GEN0_MASK ( GEN0_SIM0_EN | /*GEN0_ADI_EN |*/ GEN0_GPIO_EN | 			\
 			   GEN0_I2C0_EN|GEN0_I2C1_EN|GEN0_I2C2_EN|GEN0_I2C3_EN | 	\
 			   GEN0_SPI0_EN|GEN0_SPI1_EN| GEN0_I2S0_EN | GEN0_I2S1_EN| 	\
 	                GEN0_EFUSE_EN | GEN0_I2S_EN | GEN0_PIN_EN | GEN0_SPI2_EN |	\
 	                GEN0_EPT_EN | GEN0_SIM1_EN | GEN0_SPI_EN | GEN0_UART0_EN | 	\
-	                GEN0_UART1_EN | GEN0_UART2_EN | GEN0_UART3_EN | GEN0_TIMER_EN |	\
-	                GEN0_SYST_EN | GEN0_UART2_EN | GEN0_CCIR_MCLK_EN )
+	                GEN0_UART1_EN | GEN0_UART2_EN | GEN0_UART3_EN | /*GEN0_TIMER_EN |*/	\
+	                /*GEN0_SYST_EN |*/ GEN0_UART2_EN | GEN0_CCIR_MCLK_EN )
 
 #define CLK_EN_MASK (CLK_PWM0_EN | CLK_PWM1_EN | CLK_PWM2_EN | CLK_PWM3_EN)
 #define BUSCLK_ALM_MASK (ARM_VB_MCLKON|ARM_VB_DA0ON|ARM_VB_DA1ON|ARM_VB_ADCON|ARM_VB_ANAON|ARM_VB_ACC)
@@ -503,7 +503,7 @@ static void disable_apb_module(void)
 {
 	sci_glb_clr(REG_GLB_GEN0, GEN0_MASK);
 	sci_glb_clr(REG_GLB_CLK_EN, CLK_EN_MASK);
-	sci_glb_clr(REG_GLB_GEN1, GR_GEN1_MASK);
+
 }
 
 static void disable_ahb_module(void)
@@ -814,6 +814,7 @@ int deep_sleep(void)
 	u32 val, ret = 0;
 	u32 holding;
 
+	/*wait_until_uart1_tx_done();*/
 	SAVE_GLOBAL_REG;
 	disable_audio_module();
 	disable_apb_module();
@@ -875,7 +876,6 @@ int deep_sleep(void)
 	holding = sci_glb_read(REG_AHB_HOLDING_PEN, -1UL);
 	sci_glb_write(REG_AHB_HOLDING_PEN, (holding & (~CORE1_RUN)) | AP_ENTER_DEEP_SLEEP , -1UL );
 
-	wait_until_uart1_tx_done();
 	save_emc_trainig_data(repower_param);
 	ret = sp_pm_collapse(0, 1);
 		
@@ -885,15 +885,7 @@ int deep_sleep(void)
 	/*clear the deep sleep status*/
 	sci_glb_write(REG_AHB_HOLDING_PEN, holding & (~CORE1_RUN) & (~AP_ENTER_DEEP_SLEEP), -1UL );
 
-/*
-* just for debug,
-*/	
-	val = __raw_readl(INT0_IRQ_ENB);
-	val |= INT0_IRQ_MASK; 
-	__raw_writel(val, INT0_IRQ_ENB);
-/*
-* just for debug,
-*/
+
 
 	/* FIXME: clear emc auto gate in final version
 	val = sci_glb_read(REG_AHB_AHB_CTL1, -1UL);
@@ -914,7 +906,7 @@ int deep_sleep(void)
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
 	l2x0_resume(ret);
 #endif
-	pm_debug_dump_ahb_glb_regs();
+	//pm_debug_dump_ahb_glb_regs();
 
 	return ret;
 }
@@ -1010,7 +1002,7 @@ int sc8825_enter_lowpower(void)
 		set_sleep_mode(SLP_MODE_MCU);
 		mcu_sleep();
 	} else {
-		printk("###### %s,	DEEP ###\n", __func__ );
+		/*printk("###### %s,	DEEP ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_DEP);
 		gic_save_context( );
 		scu_save_context();
@@ -1022,7 +1014,7 @@ int sc8825_enter_lowpower(void)
 	}
 	
 	time_add(get_sys_cnt() - time, ret);
-	print_hard_irq_inloop(ret);
+	/*print_hard_irq_inloop(ret);*/
 
 	return ret;
 
@@ -1202,15 +1194,29 @@ void gic_save_init(void)
 void pm_ana_ldo_config(void)
 {
 	unsigned int val;
-
+	
+	/*
+	* FIXME, should be more gental
+	*/
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
-	val |= 0xc7f1;
+	val = 0xc7f1;
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
 	val |= BIT_FSM_SLPPD_EN;
 	val |= BIT_DCDC_ARM_BP_EN;
-	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL1, val, 0xffff);		
+	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL1, val, 0xffff);
+	
+	/*
+	* set ARM_DCDC_ISONUM
+	* ISO_ON_NUM: (0xa << 8), ISO_OFF_NUM: (0x20)
+	*/
+	val = (0xa << 8) | (0x20);
+	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL2, val, 0xffff);
+	/*
+	* set ARM_DCDC_DLY_NUM, DLY_NUM:0x2
+	*/
+	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL3, 0x2, 0xffff);
 }
 
 static void sc8825_power_off(void)

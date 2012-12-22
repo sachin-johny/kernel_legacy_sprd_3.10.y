@@ -351,11 +351,12 @@ phys_boot_secondary (unsigned int cpu, struct task_struct* idle)
 	
 	/* send IPI15 to cpu1 */
 	__raw_writel( (1<<17)|15, 0xeb021f00);
+#if 0
 	asm volatile( "sev\n"
 			:
 			:
 			: "memory", "cc");
-
+#endif
 	timeout = jiffies + (10 * HZ);
 	while (time_before(jiffies, timeout)) {
 		smp_rmb();
