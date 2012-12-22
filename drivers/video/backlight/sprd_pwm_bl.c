@@ -101,6 +101,8 @@ static int sprd_pwm_backlight_update_status(struct backlight_device *bldev)
 
 			if(value < 0)
 				value = 0;
+			if(value != 1)
+				value = value * 24 /32;
 
 			duty_mod = (value << 8) | BK_MOD_MAX;
 			BK_SetPwmRatio(duty_mod);
