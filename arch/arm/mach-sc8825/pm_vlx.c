@@ -83,7 +83,6 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 		}else{
 			local_irq_restore(flags);
 			WARN_ONCE(!irqs_disabled(), "#####: Interrupts enabled in pm_enter()!\n");
-			printk("cpu%d, enter %s\n", cpu, __func__ );
 #if defined(CONFIG_NKERNEL)
 			/*
 			* return value 0 means that other guest OS  are all idle

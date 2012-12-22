@@ -103,6 +103,8 @@ void __init sc8825_init_irq(void)
 	 */
 	val = __raw_readl(INTCV0_IRQ_EN);
 	val |= (SCI_INTC_IRQ_BIT(IRQ_DSP0_INT) | SCI_INTC_IRQ_BIT(IRQ_DSP1_INT));
+	val |= (SCI_INTC_IRQ_BIT(IRQ_SIM0_INT) | SCI_INTC_IRQ_BIT(IRQ_SIM1_INT));
+	//val |= (SCI_INTC_IRQ_BIT(IRQ_TIMER0_INT));
 	__raw_writel(val, INTCV0_IRQ_EN);
 #endif
 
