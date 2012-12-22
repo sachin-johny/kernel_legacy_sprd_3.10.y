@@ -20,7 +20,7 @@ obj-$(CONFIG_PM)		+= pm_vlx.o
 else
 obj-$(CONFIG_PM)		+= pm.o 
 endif
-obj-$(CONFIG_PM)		+= pm_sc8825.o standby.o pm_debug.o emc_repower.o 
+obj-$(CONFIG_PM)		+= pm_sc8825.o standby.o pm_debug.o emc_repower.o emc_earlysuspend.o 
 CFLAGS_emc_repower.o += -fPIC
 
 
