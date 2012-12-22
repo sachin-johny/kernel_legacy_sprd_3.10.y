@@ -856,7 +856,11 @@ int deep_sleep(void)
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
 	/* FIXME: enable sys sleep and deep sleep in final version */
+	#ifndef CONFIG_MACH_SP6825GA
 	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
+	#else
+	val |= MCU_SYS_SLEEP_EN;
+	#endif
 
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL);
 
