@@ -317,8 +317,8 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 			host_data->clk_enable = 1;
 		}
 	}
-	pr_debug("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
-			sci_glb_raw_read(REG_AHB_AHB_CTL0));
+	pr_debug("clock:%d, host->clock:%d, AHB_CTL1:0x%x\n", clock,host->clock,
+			sci_glb_raw_read(REG_AHB_AHB_CTL1));
 	return;
 }
 
@@ -551,6 +551,9 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
 	if(pdev->id == 1){
 		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
+	}
+    	if(pdev->id == 3){
+		pm_runtime_disable(&(pdev)->dev);
 	}
 
 	ret = sdhci_add_host(host);

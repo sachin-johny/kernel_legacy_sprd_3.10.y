@@ -37,6 +37,7 @@
 #include "sdhci.h"
 
 #define DRIVER_NAME "sdhci"
+#define CONFIG_EMMC_HYNIX_LPDDR
 
 #define DBG(f, x...) \
 	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
@@ -1383,7 +1384,7 @@ static int sdhci_enable(struct mmc_host *mmc){
 			goto out;
 		}
 	}
-
+if (pm_runtime_suspended(dev)){
 	if(!host->is_resumed){
 		ret = pm_runtime_get_sync(dev);
 	}
@@ -1392,7 +1393,7 @@ static int sdhci_enable(struct mmc_host *mmc){
 				__func__, ret);
 		return ret;
 	}
-
+}
 	host->is_resumed = true;
 out:
 	return ret;
@@ -2503,6 +2504,7 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 	if (host->data->error){
 		printk("%s: !!!!! error in sending data, int:0x%x, err:%d \n",
 				mmc_hostname(host->mmc), intmask, host->data->error);
+		sdhci_dumpregs(host);
 		sdhci_finish_data(host);
 	}
 	else {
