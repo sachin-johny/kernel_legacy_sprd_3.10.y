@@ -596,7 +596,6 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 
 	path->pixel_depth = depth_pixel;
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * depth_pixel) >> 3;
-	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
 	path->out_size.w = f->fmt.pix.width;
 	path->out_size.h = f->fmt.pix.height;
 	path->is_work = 1;
@@ -727,7 +726,6 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 	f->fmt.pix.priv = path->is_from_isp;
 	path->pixel_depth = depth_pixel;
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * depth_pixel) >> 3;
-	f->fmt.pix.sizeimage = f->fmt.pix.height * f->fmt.pix.bytesperline;
 	path->out_size.w = f->fmt.pix.width;
 	path->out_size.h = f->fmt.pix.height;
 	path->is_work = 1;
@@ -1248,7 +1246,6 @@ static int v4l2_g_fmt_vid_cap(struct file *file,
 	f->fmt.pix.field        = V4L2_FIELD_INTERLACED;
 	f->fmt.pix.pixelformat  = sprd_v4l2_get_fourcc(path);
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * path->pixel_depth) >> 3;
-	f->fmt.pix.sizeimage    = f->fmt.pix.height * f->fmt.pix.bytesperline;
 
 	return 0;
 }
