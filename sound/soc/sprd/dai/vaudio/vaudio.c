@@ -93,6 +93,7 @@ static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = dai->card;
+	int i;
 
 	sprd_vaudio_dbg("Entering %s\n", __func__);
 
@@ -119,6 +120,10 @@ static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 
 	snd_soc_dai_digital_mute(codec_dai, 0);
 
+	for (i = 0; i < card->num_rtd; i++) {
+		card->rtd[i].dai_link->ignore_suspend = 1;
+	}
+
 	sprd_vaudio_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -129,6 +134,7 @@ static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	struct snd_soc_card *card = dai->card;
+	int i;
 
 	sprd_vaudio_dbg("Entering %s\n", __func__);
 
@@ -145,6 +151,10 @@ static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 	snd_soc_dapm_disable_pin(&card->dapm, "ADC");
 	vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 0);
 	vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 0);
+
+	for (i = 0; i < card->num_rtd; i++) {
+		card->rtd[i].dai_link->ignore_suspend = 0;
+	}
 
 	sprd_vaudio_dbg("Leaving %s\n", __func__);
 }
