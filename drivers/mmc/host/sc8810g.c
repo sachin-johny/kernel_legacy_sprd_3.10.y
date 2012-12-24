@@ -605,7 +605,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		}else{
 			ret = gpio_request(sd_detect_gpio, "sdio1_detect");
 		}
-
+		gpio_export( sd_detect_gpio, 1);
 
 		if (ret) {
 			dev_err(dev, "cannot request gpio\n");
