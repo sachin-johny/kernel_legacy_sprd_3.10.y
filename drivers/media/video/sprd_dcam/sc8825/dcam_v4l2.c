@@ -46,7 +46,7 @@
 #define DCAM_RELEASE                            0
 #define DCAM_QUEUE_LENGTH                       8
 #define DCAM_TIMING_LEN                         16
-#define DCAM_TIMEOUT							1000
+#define DCAM_TIMEOUT                            1000
 #define V4L2_RTN_IF_ERR(n)                      if(unlikely(n))  goto exit
 #define DCAM_VERSION \
 	KERNEL_VERSION(DCAM_MAJOR_VERSION, DCAM_MINOR_VERSION, DCAM_RELEASE)
@@ -1469,6 +1469,7 @@ static int v4l2_streamon(struct file *file,
 		}
 
 		ret = dcam_start();
+		atomic_set(&dev->stream_on, 1);
 
 	}
 
@@ -1477,7 +1478,6 @@ exit:
 	if (ret) {
 		printk("V4L2: Failed to start stream %d \n", ret);
 	} else {
-		atomic_set(&dev->stream_on, 1);
 		atomic_set(&dev->run_flag, 0);
 		sprd_start_timer(&dev->dcam_timer, DCAM_TIMEOUT);
 	}
@@ -1506,12 +1506,13 @@ static int v4l2_streamoff(struct file *file,
 		ret = -EPERM;
 		goto exit;
 	}
-	atomic_set(&dev->stream_on, 0);
 	sprd_stop_timer(&dev->dcam_timer);
 
 	if (dev->stream_mode) {
 		ret = dcam_pause();
 	} else {
+		atomic_set(&dev->stream_on, 0);
+
 		ret = dcam_stop();
 		V4L2_RTN_IF_ERR(ret);
 
@@ -1630,13 +1631,14 @@ exit:
 
 static void sprd_timer_callback(unsigned long data)
 {
-	int ret = 0;
-	struct dcam_dev 	*dev = (struct dcam_dev*)data;
-	struct dcam_node    node;
-	printk("v4l2:sprd_timer_callback.\n");
+	struct dcam_dev          *dev = (struct dcam_dev*)data;
+	struct dcam_node         node;
+	int                      ret = 0;
+
+	DCAM_TRACE("v4l2: sprd_timer_callback.\n");
 
 	if (NULL == data || 0 == atomic_read(&dev->stream_on)) {
-		printk("timer callback error.");
+		printk("timer callback error. \n");
 		return;
 	}
 
@@ -1644,30 +1646,30 @@ static void sprd_timer_callback(unsigned long data)
 		node.irq_flag = V4L2_TX_ERR;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);
 		if (ret) {
-			printk("timer callback write queue error.");
+			printk("timer callback write queue error. \n");
 		}
 	}
 }
 static int sprd_init_timer(struct timer_list *dcam_timer,unsigned long data)
 {
-	DCAM_TRACE("v4l2:Timer init s.\n");
+	DCAM_TRACE("v4l2: Timer init s.\n");
 	setup_timer(dcam_timer, sprd_timer_callback, data);
-	DCAM_TRACE("v4l2:Timer init e.\n");
+	DCAM_TRACE("v4l2: Timer init e.\n");
 	return 0;
 }
 static int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val)
 {
 	int ret;
-	printk("v4l2:starting timer%ld. \n",jiffies);
+	DCAM_TRACE("v4l2: starting timer%ld. \n",jiffies);
 	ret = mod_timer(dcam_timer, jiffies + msecs_to_jiffies(time_val));
 	if (ret)
-		printk("v4l2:Error in mod_timer %d.\n",ret);
+		printk("v4l2: Error in mod_timer %d.\n",ret);
 	return 0;
 }
 
 static void sprd_stop_timer(struct timer_list *dcam_timer)
 {
-	printk("v4l2: stop timer.\n");
+	DCAM_TRACE("v4l2: stop timer.\n");
 	del_timer_sync(dcam_timer);
 }
 static int sprd_v4l2_open(struct file *file)

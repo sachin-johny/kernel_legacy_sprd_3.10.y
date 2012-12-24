@@ -444,6 +444,8 @@ int32_t dcam_start(void)
 
 	_dcam_reg_trace();
 
+	printk("DCAM S \n");
+
 	REG_MWR(DCAM_PATH_CFG, BIT_0, 1);
 
 	if (s_dcam_mod.dcam_path1.valide) {
@@ -506,6 +508,7 @@ int32_t dcam_stop(void)
 	}
 #endif
 	_dcam_frm_clear();
+	printk("DCAM E \n");
 	return -rtn;
 }
 
@@ -541,6 +544,8 @@ int32_t dcam_resume(void)
 
 	_dcam_auto_copy();
 
+	printk("DCAM R \n");
+
 	REG_OWR(DCAM_PATH_CFG, BIT_0);
 	return -rtn;
 }
@@ -550,7 +555,7 @@ int32_t dcam_pause(void)
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 
 	REG_AWR(DCAM_PATH_CFG, ~BIT_0);
-
+	printk("DCAM P \n");
 	return -rtn;
 }
 
