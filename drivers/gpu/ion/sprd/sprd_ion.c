@@ -63,14 +63,32 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 	{
 		struct ion_msync_data data;
 		void *flush_start, *flush_end;
+		void *kaddr;
+		void *paddr;
+		size_t size;
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(data))) {
 			return -EFAULT;
 		}
 		flush_start = data.vaddr;
 		flush_end = data.vaddr + data.size;
+        kaddr = data.vaddr;
+		paddr = data.paddr;	
+		size = data.size;
+		printk(KERN_INFO "ion flush_start %x, %x,size %x",data.vaddr,data.paddr,data.size);
+#if 0		
 		dmac_flush_range(flush_start, flush_end);
+#else	
+		{
+			//BUG_ON(!virt_addr_valid(kaddr) || !virt_addr_valid(kaddr + size - 1));
 
+			dmac_flush_range(kaddr, kaddr + size);
+ 	
+			outer_clean_range(paddr, paddr + size);
+
+			/* FIXME: non-speculating: flush on bidirectional mappings? */
+		}
+#endif
 		break;
 	}
 	default:
