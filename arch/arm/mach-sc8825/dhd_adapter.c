@@ -122,10 +122,8 @@ static int wlan_ldo_enable(void)
 		pr_err("can't set wlan to 1.8V.\n");
 		return -1;
 	}
-/*openphone board not use */
-#ifndef CONFIG_MACH_SP8825_OPENPHONE
+
 	regulator_set_mode(wlan_regulator_18, REGULATOR_MODE_STANDBY);
-#endif
 	regulator_enable(wlan_regulator_18);
 	return 0;
 }
@@ -323,10 +321,7 @@ static int __init wlan_device_init(void)
 	int ret;
 
 	init_wifi_mem();
-/*garda not used */
-#ifndef CONFIG_MACH_GARDA
 	wlan_ldo_enable();
-#endif
 	wlan_clk_init();
 	gpio_request(GPIO_WIFI_IRQ, "oob_irq");
 	gpio_direction_input(GPIO_WIFI_IRQ);
