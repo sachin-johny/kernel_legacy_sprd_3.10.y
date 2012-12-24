@@ -37,6 +37,8 @@
 #include <sound/audio_pa.h>
 #include <linux/headset.h>
 #include <gps/gpsctl.h>
+#include <linux/gpio_keys.h>
+#include <linux/input.h>
 
 extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
@@ -51,6 +53,7 @@ extern int __init sprd_ramconsole_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
+static struct platform_device gpio_button_device;
 
 static struct platform_gpsctl_data pdata_gpsctl = {
 	.reset_pin = GPIO_GPS_RESET,
@@ -112,6 +115,7 @@ static struct platform_device *devices[] __initdata = {
 	&rfkill_device,
 	&brcm_bluesleep_device,
 	&gpsctl_dev,
+	&gpio_button_device,
 };
 
 static struct platform_ktd253b_backlight_data ktd253b_data = {
@@ -362,6 +366,29 @@ int __init sc8825_clock_init(void)
 {
 	return 0;
 }
+
+static struct gpio_keys_button gpio_buttons[] = {
+	{
+		.gpio		= GPIO_HOME_KEY,
+		.code		= KEY_HOMEPAGE,
+		.desc		= "Home Key",
+		.active_low	= 1,
+	},
+};
+
+static struct gpio_keys_platform_data gpio_button_data = {
+	.buttons	= gpio_buttons,
+	.nbuttons	= ARRAY_SIZE(gpio_buttons),
+};
+
+static struct platform_device gpio_button_device = {
+	.name		= "gpio-keys",
+	.id		= -1,
+	.num_resources	= 0,
+	.dev		= {
+		.platform_data	= &gpio_button_data,
+	}
+};
 
 static void __init sc8825_init_machine(void)
 {

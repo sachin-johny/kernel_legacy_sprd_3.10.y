@@ -46,4 +46,5 @@
 
 #define GPIO_GPS_RESET          167
 #define GPIO_GPS_ONOFF          174
+#define GPIO_HOME_KEY           57
 #endif
