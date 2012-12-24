@@ -23,6 +23,7 @@ struct ion_phys_data {
 struct ion_msync_data {
 	int fd_buffer;
 	void *vaddr;
+	void *paddr;
 	size_t size;
 };
 
