@@ -836,6 +836,7 @@ u32 wake_source_stop(void)
 static int __init emc_early_suspend_init(void)
 {
 #ifdef CONFIG_NKERNEL
+#ifndef CONFIG_MACH_SP6825GA
 	register_early_suspend(&emc_early_suspend_desc);
 	cp_code_init();
 	//change apb clock to 76.8MHz
@@ -844,12 +845,15 @@ static int __init emc_early_suspend_init(void)
 	pm_test_init(); 
 #endif
 #endif
+#endif
 	return 0;
 }
 static void  __exit emc_early_suspend_exit(void)
 {
 #ifdef CONFIG_NKERNEL
+#ifndef CONFIG_MACH_SP6825GA
 	unregister_early_suspend(&emc_early_suspend_desc);
+#endif
 #endif
 }
 
