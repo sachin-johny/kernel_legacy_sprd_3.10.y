@@ -18,6 +18,8 @@
 #error  "Don't include this file directly, include <mach/board.h>"
 #endif
 
+#define GPIO_INVALID		0xFFFFFFFF
+
 /*
  * GPIO NR:
  *   0   - 15  : D-Die EIC
@@ -47,5 +49,16 @@
 #define GPIO_GPS_ONOFF          27
 
 #define GPIO_BK		143
+
+
+#define GPIO_AP_TO_CP_RTS	38	/*cp gpio 0*/
+#define GPIO_CP_TO_AP_RDY	37	/*cp gpio 1*/
+#define GPIO_CP_TO_AP_RTS	99	/*cp gpio 2*/
+#define GPIO_AP_STATUS		25	/*cp gpio 3*/
+
+#define GPIO_MODEM_POWER	106
+#define GPIO_MODEM_DETECT	36	/*cp gpio 94*/
+#define GPIO_MODEM_BOOT		92	/*cp gpio 5*/
+#define GPIO_MODEM_CRASH	40	/*cp gpio 6*/
 
 #endif

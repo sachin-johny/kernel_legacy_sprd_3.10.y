@@ -66,6 +66,41 @@ static struct platform_device  gpsctl_dev = {
 	.dev.platform_data  = &pdata_gpsctl,
 };
 
+static unsigned int modem_detect_gpio = GPIO_MODEM_DETECT;
+#include <mach/modem_interface.h>
+struct modem_intf_platform_data modem_interface = {
+        .dev_type               = MODEM_DEV_SDIO,
+        .modem_dev_parameter    = NULL,
+//        .modem_power_gpio       = GPIO_INVALID,
+	.modem_power_gpio       =  GPIO_MODEM_POWER,
+        .modem_boot_gpio        = GPIO_MODEM_BOOT,
+        .modem_crash_gpio       = GPIO_MODEM_CRASH,
+};
+
+static struct platform_device modem_interface_device = {
+       .name   = "modem_interface",
+       .id     = -1,
+       .dev    = {
+               .platform_data  = &modem_interface,
+       },
+};
+
+static struct resource ipc_sdio_resources[] = {
+	[0] = {
+		.start = SPRD_SPI0_PHYS,
+		.end = SPRD_SPI0_PHYS + SZ_4K - 1,
+
+	    .flags = IORESOURCE_MEM,
+	       },
+};
+
+static struct platform_device ipc_sdio_device = {
+	.name = "ipc_sdio",
+	.id = 0,
+	.num_resources = ARRAY_SIZE(ipc_sdio_resources),
+	.resource = ipc_sdio_resources,
+};
+
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
@@ -107,6 +142,9 @@ static struct platform_device *devices[] __initdata = {
 	&kb_backlight_device,
 //	&rfkill_device,
 	&gpsctl_dev,
+
+        &modem_interface_device,
+        &ipc_sdio_device,
 };
 
 /* RFKILL */
@@ -380,6 +418,8 @@ static void __init sc8810_init_machine(void)
 {
 	regulator_add_devices();
 	sprd_add_otg_device();
+
+	platform_device_add_data(&sprd_sdio1_device, &modem_detect_gpio, sizeof(modem_detect_gpio));
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
