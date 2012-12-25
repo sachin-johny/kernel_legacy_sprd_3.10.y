@@ -912,8 +912,13 @@ int deep_sleep(void)
 	return ret;
 }
 
-#define DEVICE_AHB 1
-#define DEVICE_APB 2
+
+#define DEVICE_AHB              (0x1UL << 20)
+#define DEVICE_APB              (0x1UL << 21)
+#define DEVICE_VIR              (0x1UL << 22)
+#define DEVICE_AWAKE            (0x1UL << 23)
+#define DEVICE_TEYP_MASK        (DEVICE_AHB | DEVICE_APB | DEVICE_VIR | DEVICE_AWAKE)
+
 
 static int sc8825_get_sleep_mod( ){
 	int val, ret;
