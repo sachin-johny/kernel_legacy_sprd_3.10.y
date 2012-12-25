@@ -166,7 +166,7 @@ static int32_t nt35510_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
 
-	printk(KERN_DEBUG "nt35516_enter_sleep, is_sleep = %d\n", is_sleep);
+	printk(KERN_DEBUG "nt35510_enter_sleep, is_sleep = %d\n", is_sleep);
 
 	if(is_sleep){
 		sleep_in_out = sleep_in;
