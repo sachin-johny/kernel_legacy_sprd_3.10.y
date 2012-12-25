@@ -230,7 +230,14 @@ static int beken_check_chip_id(struct beken_drv_data *cxt, u16 *chip_id)
 
 	*chip_id = (temp_data[0]<<8)+temp_data[1];
 	dev_info(&cxt->client->dev, "BEKEN chip id:0x%04x\n", *chip_id);
-	
+
+	if((*chip_id)==0x1080)
+	{
+		temp_data[0]=0x00;
+		temp_data[1]=0x01;
+		ret = bk1080_register_write(cxt, 0x7d, temp_data,2);	//disable 0x80 i2c address
+	}
+
     if (ret < 0) {
         dev_err(&cxt->client->dev, "Read chip id failed.\n");
     }
@@ -244,7 +251,6 @@ static int beken_check_chip_id(struct beken_drv_data *cxt, u16 *chip_id)
 
 static void beken_chip_vdd_input(struct beken_drv_data *cxt,bool turn_on)
 {
-  
     if (turn_on) {
         if(cxt->regu != NULL) {
             regulator_set_mode(cxt->regu,REGULATOR_MODE_NORMAL);
@@ -268,11 +274,7 @@ static void beken_chip_vdd_input(struct beken_drv_data *cxt,bool turn_on)
  * protect. */
 static int beken_fm_power_on(struct beken_drv_data *cxt)
 {
- //   u16     reg_value        = 0x0;
-    //int     check_times      = 0;
     int     ret              = -EINVAL;
-    //ulong   jiffies_comp     = 0;
-    //u8      is_timeout;
 
     dev_info(&cxt->client->dev, "%s\n", __func__);
 
@@ -287,7 +289,6 @@ static int beken_fm_power_on(struct beken_drv_data *cxt)
 
 static int beken_fm_close(struct beken_drv_data *cxt)
 {
-   // u16 reg_value = 0x0;
     int ret = -EINVAL;
     u8 TmpData8[2];
 
@@ -304,12 +305,8 @@ static int beken_fm_close(struct beken_drv_data *cxt)
     TmpData8[1]=TmpData8[1]|0x41;
     ret = bk1080_register_write(cxt, 0x2, TmpData8,2);
 
-#ifdef CONFIG_ARCH_SC8825
-
-#else    
     /* turn off vdd */
-    beken_chip_vdd_input(cxt,false); 
-#endif
+    //beken_chip_vdd_input(cxt,false);
 
     if (atomic_read(&cxt->fm_opened))
     {
@@ -424,7 +421,6 @@ static int beken_fm_set_tune(struct beken_drv_data *cxt, u16 frequency)
  */
 static int beken_fm_get_frequency(struct beken_drv_data *cxt)
 {
-    //u16 reg_value = 0;
     u16 frequency = 0;
     int       ret = -EPERM;
     u8 readData8[2];
@@ -446,7 +442,6 @@ static int beken_fm_get_frequency(struct beken_drv_data *cxt)
 
 static int beken_fm_set_mute(struct beken_drv_data *cxt, u16 mute)
 {
-    //u16 reg_value = 0x0;
     int  ret = -EPERM;
     u8 tempData8[2];
 
@@ -474,10 +469,8 @@ static int beken_fm_do_seek(struct beken_drv_data *cxt,
         u16 frequency,
         u8  seek_dir)
 {
-    //u16 reg_value = 0x0;
     int  ret = -EPERM;
     u8 tempData8[2];
-	//return 0;//Jed
 	printk("beken_fm_do_seek\n");
 //seek_dir=1;
 #if (BEKEN_DEBUG)
@@ -537,7 +530,6 @@ static int beken_fm_do_seek(struct beken_drv_data *cxt,
 static int beken_fm_stop_search(struct beken_drv_data *cxt)
 {
     int ret = -EPERM;
-    //u16 reg_value = 0x0;
 	u8 tempData8[2];
 	printk("beken_fm_stop_search\n");
     if (atomic_read(&cxt->fm_searching)) {
@@ -630,9 +622,6 @@ u16 bk1080_FreqToChan(struct beken_drv_data *cxt,u16 frequency)
 static u8 bk1080_Seek(struct beken_drv_data *cxt,u8 seekDirection)
 {
 	int ret = -EPERM;
-	//u16 readData1 = 0;
-	//u16 readData2 = 0;
-	//u16 writeData8[4];
 	u8 tempdata[4];
 	u8 fTemp=0;
 	u8 i=0;
@@ -668,21 +657,32 @@ static u8 bk1080_Seek(struct beken_drv_data *cxt,u8 seekDirection)
   	if(bk1080_register_write(cxt,0x2,tempdata,2)!=0) return(0);  	
   	//msleep(10);
 	icount=0;
-  	//wait for STC
-  	do
-  	{
-  		msleep(10);
-	    //read REG0A&0B	
+	//wait for STC
+	do
+	{
+		if (!atomic_read(&cxt->fm_opened))
+		{
+			dev_err(&cxt->client->dev, "bk1080_Seek: FM not open\n");
+			return 0;
+		}
+		/* search is stopped manually */
+		if (atomic_read(&cxt->fm_searching) == 0)
+			break;
+
+		msleep(10);
+	    //read REG0A&0B
 		tempdata[0]=0x00;
 		tempdata[1]=0x0A;
 		ret = bk1080_register_write(cxt, 0x7e, tempdata,2);
 	    if(bk1080_register_read(cxt,0x0A,tempdata,4)!=0) return(0);	
 		dev_info(&cxt->client->dev, "REGA=%02x%02x\n", tempdata[0],tempdata[1]);
+#if 0
 		if((tempdata[0]==0x00)&&(tempdata[1]==0x00))
 			icount++;
 		else
 			icount=0;
-  	}while(((tempdata[0]&0x40)==0)&&(icount<100));
+#endif
+	}while(((tempdata[0]&0x40)==0)/*&&(icount<100)*/);
 
 	 if (((tempdata[0])&0x20)==0)
 	  {	
@@ -734,10 +734,6 @@ static int beken_fm_full_search(struct beken_drv_data *cxt,
         u16 *freq_found)
 {
     int      ret               = -EPERM;
-    //u16      reg_value         = 0x0;
-    //ulong    jiffies_comp      = 0;
-    //u8       is_timeout;
-    //u8       is_search_end;
     u8       fTemp = 0;
 	printk("beken_fm_full_search freq=%d\n",frequency);
     if (!atomic_read(&cxt->fm_opened)) {                 
@@ -763,38 +759,34 @@ static int beken_fm_full_search(struct beken_drv_data *cxt,
 	    {
 			beken_fm_set_tune(cxt,  cxt->current_freq );
 	    }
-    
-    
-	
-    if(seek_dir)
-    {
-		fTemp=bk1080_Seek(cxt,1);
-		dev_err(&cxt->client->dev, "11 Full search: ftemp %d\n",fTemp);
-    }
-     else
-        {
-                fTemp=bk1080_Seek(cxt,0);
-                dev_err(&cxt->client->dev, "22 Full search: ftemp %d\n",fTemp);
-                
-        }
+
+		if(seek_dir)
+		{
+			fTemp=bk1080_Seek(cxt,1);
+			dev_err(&cxt->client->dev, "11 Full search: ftemp %d\n",fTemp);
+		}
+		else
+		{
+			fTemp=bk1080_Seek(cxt,0);
+			dev_err(&cxt->client->dev, "22 Full search: ftemp %d\n",fTemp);
+		}
     }
     else
-        {
+    {
 #if (BEKEN_DEBUG)
-                dev_info(&cxt->client->dev, "%s, busy searching!", __func__);
+        dev_info(&cxt->client->dev, "%s, busy searching!", __func__);
 #endif
-                return -EBUSY;
-        }
+        return -EBUSY;
+    }
 
-    //atomic_cmpxchg(&cxt->fm_searching, 1, 0);
-
-  if (!fTemp) 
+  if (!fTemp)
             ret = -EAGAIN;
         else
             ret = 0;
-        
-    atomic_cmpxchg(&cxt->fm_searching, 1, 0);	
-    
+
+	atomic_cmpxchg(&cxt->fm_searching, 1, 0);
+
+
     *freq_found = beken_fm_get_frequency(cxt);
     cxt->current_freq = *freq_found;
    
@@ -810,7 +802,7 @@ static int beken_fm_full_search(struct beken_drv_data *cxt,
 static int beken_fm_set_volume(struct beken_drv_data *cxt, u8 volume)
 {
     int ret       =  -EPERM;
-    //u16 reg_value =  0x0;
+
     u8 tempdata8[2];
 
     if (!atomic_read(&cxt->fm_opened)) {
@@ -822,33 +814,39 @@ static int beken_fm_set_volume(struct beken_drv_data *cxt, u8 volume)
         dev_err(&cxt->client->dev, "Invalid volume %d, set max\n", volume);
         volume = 15;
     }
-
-////////////////bk1080///////////////
-	printk("beken_fm_set_volume=%d\n",volume);
-	dev_err(&cxt->client->dev, "Set volume: volume %d\n",volume);
-
-	if(volume==0)
+	if (atomic_read(&cxt->fm_searching) == 0)
 	{
-		beken_fm_set_mute(cxt, 1); //mute
+	////////////////bk1080///////////////
+		printk("beken_fm_set_volume=%d\n",volume);
+		dev_err(&cxt->client->dev, "Set volume: volume %d\n",volume);
+
+		if(volume==0)
+		{
+			beken_fm_set_mute(cxt, 1); //mute
+		}
+		else
+		{
+			beken_fm_set_mute(cxt, 0); //dismute
+		}
+
+		tempdata8[0]=0x00;
+		tempdata8[1]=0x05;
+		ret = bk1080_register_write(cxt, 0x7e, tempdata8,2);
+		//I2C_ReadCmdArr_BK1080(BK1080_I2C_ADDR, 5, writeData8, 2, BK1080_I2C_ACK);
+		ret = bk1080_register_read(cxt,0x05,tempdata8,2);
+
+		tempdata8[1] &= 0xf0;
+		tempdata8[1] |= volume&0x0f;
+
+		//I2C_WriteCmdArr_BK1080(BK1080_I2C_ADDR, 5, &writeData8[0], 2, BK1080_I2C_ACK);
+		ret = bk1080_register_write(cxt,0x05,tempdata8,2);
 	}
 	else
 	{
-		beken_fm_set_mute(cxt, 0); //dismute
+		ret=0;
 	}
 
-	tempdata8[0]=0x00;
-	tempdata8[1]=0x05;
-	ret = bk1080_register_write(cxt, 0x7e, tempdata8,2);
-	//I2C_ReadCmdArr_BK1080(BK1080_I2C_ADDR, 5, writeData8, 2, BK1080_I2C_ACK);
-	ret = bk1080_register_read(cxt,0x05,tempdata8,2);
- 
-	tempdata8[1] &= 0xf0;
-	tempdata8[1] |= volume&0x0f;
-	
-	//I2C_WriteCmdArr_BK1080(BK1080_I2C_ADDR, 5, &writeData8[0], 2, BK1080_I2C_ACK);
-	ret = bk1080_register_write(cxt,0x05,tempdata8,2);
-
-    if (ret == 0) 
+    if (ret == 0)
     {
         cxt->current_volume = volume;
     }
@@ -1120,10 +1118,10 @@ static ssize_t beken_fm_attr_get_volume(struct class *class, struct class_attrib
 }
 
 static struct class_attribute beken_fm_attrs[] = {
-    __ATTR(fm_open,   S_IRUSR|S_IWUSR, beken_fm_attr_get_open,      beken_fm_attr_open),
-    __ATTR(fm_tune,   S_IRUSR|S_IWUSR, beken_fm_attr_get_frequency, beken_fm_attr_set_tune),
-    __ATTR(fm_seek,   S_IWUSR,         NULL,                          beken_fm_attr_search),
-    __ATTR(fm_volume, S_IRUSR|S_IWUSR, beken_fm_attr_get_volume,    beken_fm_attr_set_volume),
+    __ATTR(fm_open,  S_IRUSR|S_IRGRP|S_IWUSR|S_IWGRP, beken_fm_attr_get_open,      beken_fm_attr_open),
+    __ATTR(fm_tune,  S_IRUSR|S_IRGRP|S_IWUSR|S_IWGRP, beken_fm_attr_get_frequency, beken_fm_attr_set_tune),
+    __ATTR(fm_seek,   S_IWUSR|S_IWGRP,         NULL,                          beken_fm_attr_search),
+    __ATTR(fm_volume, S_IRUSR|S_IRGRP|S_IWUSR|S_IWGRP, beken_fm_attr_get_volume,    beken_fm_attr_set_volume),
     {},
 };
 
@@ -1142,6 +1140,7 @@ static int __devexit beken_remove(struct i2c_client *client)
     struct beken_drv_data  *cxt = i2c_get_clientdata(client);
 
     beken_fm_close(cxt);
+    beken_chip_vdd_input(cxt,false);
     if(cxt->regu != NULL) {
         regulator_put(cxt->regu);
     }
@@ -1234,14 +1233,13 @@ static void beken_early_suspend (struct early_suspend* es)
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 
-static int beken_probe(struct i2c_client * client,
+static int beken_probe(struct i2c_client *client,
         const struct i2c_device_id *id)
 {
     u16    reg_value = 0x0;
     int    ret = -EINVAL;
 
     struct beken_drv_data *cxt = NULL;
-
 
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
         dev_err(&client->dev, "beken driver: client is not i2c capable.\n");
@@ -1379,8 +1377,6 @@ static struct i2c_driver beken_i2c_driver = {
 
 static int __init beken_driver_init(void)
 {
-    //int  ret = 0;
-
     pr_debug("BEKEN driver: init\n");
 
     return i2c_add_driver(&beken_i2c_driver);
