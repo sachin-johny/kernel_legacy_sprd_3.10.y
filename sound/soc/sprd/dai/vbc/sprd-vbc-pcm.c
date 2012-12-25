@@ -37,8 +37,10 @@
 #include <sound/pcm_params.h>
 
 #include <mach/dma.h>
+#include <mach/sprd-audio.h>
 
 #include "sprd-vbc-pcm.h"
+#include "../vaudio/vaudio.h"
 
 #ifdef CONFIG_SPRD_AUDIO_DEBUG
 #define sprd_pcm_dbg pr_debug
@@ -67,7 +69,14 @@ struct sprd_runtime_data {
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	int interleaved;
 #endif
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+	int buffer_in_iram;
+#endif
 };
+
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+#define SPRD_VBC_DMA_NODE_SIZE (1024)
+#endif
 
 static const struct snd_pcm_hardware sprd_pcm_hardware = {
 	.info = SNDRV_PCM_INFO_MMAP |
@@ -86,6 +95,51 @@ static const struct snd_pcm_hardware sprd_pcm_hardware = {
 	.periods_max = PAGE_SIZE / sizeof(sprd_dma_desc),
 	.buffer_bytes_max = 128 * 1024,
 };
+
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+static char *s_mem_for_iram = 0;
+static char *s_iram_remap_base = 0;
+
+static int sprd_buffer_iram_backup(void)
+{
+	void __iomem *iram_start;
+	sprd_pcm_dbg("Entering %s 0x%x\n", __func__, (int)s_mem_for_iram);
+	if (!s_iram_remap_base) {
+		s_iram_remap_base =
+		    ioremap_nocache(SPRD_IRAM_ALL_PHYS, SPRD_IRAM_ALL_SIZE);
+	}
+	if (!s_mem_for_iram) {
+		s_mem_for_iram = kzalloc(SPRD_IRAM_ALL_SIZE, GFP_KERNEL);
+	} else {
+		sprd_pcm_dbg("iram is backup, be careful use iram!\n");
+		return 0;
+	}
+	if (!s_mem_for_iram) {
+		pr_err("iram backup error\n");
+		return -ENOMEM;
+	}
+	iram_start = (void __iomem *)(s_iram_remap_base);
+	memcpy_fromio(s_mem_for_iram, iram_start, SPRD_IRAM_ALL_SIZE);
+	sprd_pcm_dbg("Leaving %s\n", __func__);
+	return 0;
+}
+
+static int sprd_buffer_iram_restore(void)
+{
+	void __iomem *iram_start;
+	sprd_pcm_dbg("Entering %s 0x%x\n", __func__, (int)s_mem_for_iram);
+	if (!s_mem_for_iram) {
+		pr_err("iram not backup\n");
+		return 0;
+	}
+	iram_start = (void __iomem *)(s_iram_remap_base);
+	memcpy_toio(iram_start, s_mem_for_iram, SPRD_IRAM_ALL_SIZE);
+	kfree(s_mem_for_iram);
+	s_mem_for_iram = 0;
+	sprd_pcm_dbg("Leaving %s\n", __func__);
+	return 0;
+}
+#endif
 
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 static inline int sprd_pcm_is_interleaved(struct snd_pcm_runtime *runtime)
@@ -131,9 +185,28 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	rtd = kzalloc(sizeof(*rtd), GFP_KERNEL);
 	if (!rtd)
 		goto out;
-	rtd->dma_desc_array =
-	    dma_alloc_writecombine(substream->pcm->card->dev, 2 * PAGE_SIZE,
-				   &rtd->dma_desc_array_phys, GFP_KERNEL);
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+	if (!((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	      && 0 == sprd_buffer_iram_backup())) {
+#endif
+		rtd->dma_desc_array =
+		    dma_alloc_writecombine(substream->pcm->card->dev,
+					   2 * PAGE_SIZE,
+					   &rtd->dma_desc_array_phys,
+					   GFP_KERNEL);
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+	} else {
+		runtime->hw.periods_max =
+		    SPRD_VBC_DMA_NODE_SIZE / sizeof(sprd_dma_desc),
+		    runtime->hw.buffer_bytes_max =
+		    SPRD_IRAM_ALL_SIZE - (2 * SPRD_VBC_DMA_NODE_SIZE),
+		    rtd->dma_desc_array =
+		    (void *)(s_iram_remap_base + runtime->hw.buffer_bytes_max);
+		rtd->dma_desc_array_phys =
+		    SPRD_IRAM_ALL_PHYS + runtime->hw.buffer_bytes_max;
+		rtd->buffer_in_iram = 1;
+	}
+#endif
 	if (!rtd->dma_desc_array)
 		goto err1;
 	rtd->uid_cid_map[0] = rtd->uid_cid_map[1] = -1;
@@ -156,8 +229,14 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 
 	pr_info("Entering %s %d\n", __func__, substream->stream);
 
-	dma_free_writecombine(substream->pcm->card->dev, 2 * PAGE_SIZE,
-			      rtd->dma_desc_array, rtd->dma_desc_array_phys);
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+	if (rtd->buffer_in_iram)
+		sprd_buffer_iram_restore();
+	else
+#endif
+		dma_free_writecombine(substream->pcm->card->dev, 2 * PAGE_SIZE,
+				      rtd->dma_desc_array,
+				      rtd->dma_desc_array_phys);
 	kfree(rtd);
 
 	sprd_pcm_dbg("Leaving %s\n", __func__);
@@ -198,7 +277,7 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 	struct sprd_runtime_data *rtd = substream->runtime->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sprd_pcm_dma_params *dma;
-	struct sprd_dma_channel_desc dma_cfg = {0};
+	struct sprd_dma_channel_desc dma_cfg = { 0 };
 	dma_addr_t next_desc_phys[2];
 	int i;
 
@@ -250,7 +329,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	used_chan_count = params_channels(params);
 	pr_info("chan=%d totsize=%d period=%d\n", used_chan_count, totsize,
-		     period);
+		period);
 
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	rtd->interleaved = (used_chan_count == 2)
@@ -496,9 +575,16 @@ static int sprd_pcm_mmap(struct snd_pcm_substream *substream,
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 
+#ifndef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 	return dma_mmap_writecombine(substream->pcm->card->dev, vma,
 				     runtime->dma_area,
 				     runtime->dma_addr, runtime->dma_bytes);
+#else
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	return remap_pfn_range(vma, vma->vm_start,
+			       runtime->dma_addr,
+			       vma->vm_end - vma->vm_start, vma->vm_page_prot);
+#endif
 }
 
 static struct snd_pcm_ops sprd_pcm_ops = {
@@ -520,9 +606,21 @@ static int sprd_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 	size_t size = sprd_pcm_hardware.buffer_bytes_max;
 	buf->dev.type = SNDRV_DMA_TYPE_DEV;
 	buf->dev.dev = pcm->card->dev;
-	buf->private_data = NULL;
-	buf->area = dma_alloc_writecombine(pcm->card->dev, size,
-					   &buf->addr, GFP_KERNEL);
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+	if (!((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+	      && 0 == sprd_buffer_iram_backup())) {
+#endif
+		buf->private_data = NULL;
+		buf->area = dma_alloc_writecombine(pcm->card->dev, size,
+						   &buf->addr, GFP_KERNEL);
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+	} else {
+		buf->private_data = buf;
+		buf->area = (void *)(s_iram_remap_base);
+		buf->addr = SPRD_IRAM_ALL_PHYS;
+		size = SPRD_IRAM_ALL_SIZE - (2 * SPRD_VBC_DMA_NODE_SIZE);
+	}
+#endif
 	if (!buf->area)
 		return -ENOMEM;
 	buf->bytes = size;
@@ -530,31 +628,54 @@ static int sprd_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 }
 
 static u64 sprd_pcm_dmamask = DMA_BIT_MASK(32);
+static struct snd_dma_buffer *save_p_buf = 0;
+static struct snd_dma_buffer *save_c_buf = 0;
 
 static int sprd_pcm_new(struct snd_card *card, struct snd_soc_dai *dai,
 			struct snd_pcm *pcm)
 {
+	struct snd_soc_pcm_runtime *rtd = pcm->private_data;
+	struct snd_pcm_substream *substream;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	int ret = 0;
 
-	sprd_pcm_dbg("Entering %s\n", __func__);
+	sprd_pcm_dbg("Entering %s id = 0x%x\n", __func__, cpu_dai->driver->id);
 
 	if (!card->dev->dma_mask)
 		card->dev->dma_mask = &sprd_pcm_dmamask;
 	if (!card->dev->coherent_dma_mask)
 		card->dev->coherent_dma_mask = DMA_BIT_MASK(32);
 
-	if (pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream) {
-		ret = sprd_pcm_preallocate_dma_buffer(pcm,
-						      SNDRV_PCM_STREAM_PLAYBACK);
-		if (ret)
-			goto out;
+	substream = pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
+	if (substream) {
+		struct snd_dma_buffer *buf = &substream->dma_buffer;
+		if (!save_p_buf) {
+			ret = sprd_pcm_preallocate_dma_buffer(pcm,
+							      SNDRV_PCM_STREAM_PLAYBACK);
+			if (ret)
+				goto out;
+			save_p_buf = buf;
+			sprd_pcm_dbg("playback alloc memery\n");
+		} else {
+			memcpy(buf, save_p_buf, sizeof(*buf));
+			sprd_pcm_dbg("playback share memery\n");
+		}
 	}
 
-	if (pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream) {
-		ret = sprd_pcm_preallocate_dma_buffer(pcm,
-						      SNDRV_PCM_STREAM_CAPTURE);
-		if (ret)
-			goto out;
+	substream = pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream;
+	if (substream) {
+		struct snd_dma_buffer *buf = &substream->dma_buffer;
+		if (!save_c_buf) {
+			ret = sprd_pcm_preallocate_dma_buffer(pcm,
+							      SNDRV_PCM_STREAM_CAPTURE);
+			if (ret)
+				goto out;
+			save_c_buf = buf;
+			sprd_pcm_dbg("capture alloc memery\n");
+		} else {
+			memcpy(buf, save_c_buf, sizeof(*buf));
+			sprd_pcm_dbg("capture share memery\n");
+		}
 	}
 out:
 	sprd_pcm_dbg("return %i\n", ret);
@@ -577,9 +698,20 @@ static void sprd_pcm_free_dma_buffers(struct snd_pcm *pcm)
 		buf = &substream->dma_buffer;
 		if (!buf->area)
 			continue;
-		dma_free_writecombine(pcm->card->dev, buf->bytes,
-				      buf->area, buf->addr);
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+		if (buf->private_data)
+			sprd_buffer_iram_restore();
+		else
+#endif
+			dma_free_writecombine(pcm->card->dev, buf->bytes,
+					      buf->area, buf->addr);
 		buf->area = NULL;
+		if (buf == save_p_buf) {
+			save_p_buf = 0;
+		}
+		if (buf == save_c_buf) {
+			save_c_buf = 0;
+		}
 	}
 	sprd_pcm_dbg("Leaving %s\n", __func__);
 }
