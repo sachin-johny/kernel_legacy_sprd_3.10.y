@@ -102,10 +102,13 @@ void __init sc8825_init_irq(void)
 	 * and IRQ_DSP1_INT in INTC0 here.
 	 */
 	val = __raw_readl(INTCV0_IRQ_EN);
-	val |= (SCI_INTC_IRQ_BIT(IRQ_DSP0_INT) | SCI_INTC_IRQ_BIT(IRQ_DSP1_INT));
+	val |= (SCI_INTC_IRQ_BIT(IRQ_DSP0_INT) | SCI_INTC_IRQ_BIT(IRQ_DSP1_INT) | SCI_INTC_IRQ_BIT(IRQ_EPT_INT));
 	val |= (SCI_INTC_IRQ_BIT(IRQ_SIM0_INT) | SCI_INTC_IRQ_BIT(IRQ_SIM1_INT));
-	//val |= (SCI_INTC_IRQ_BIT(IRQ_TIMER0_INT));
+	val |= (SCI_INTC_IRQ_BIT(IRQ_TIMER0_INT));
 	__raw_writel(val, INTCV0_IRQ_EN);
+	/*disable legacy interrupt*/
+	__raw_writel(1<<31, SC8825_VA_GIC_DIS + 0x180);
+	__raw_writel(1<<28, SC8825_VA_GIC_DIS + 0x180);
 #endif
 
 }

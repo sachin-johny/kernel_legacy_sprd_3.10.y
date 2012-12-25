@@ -665,11 +665,12 @@ static int emc_repower_init(void)
 	repower_param = (struct emc_repower_param *)(SPRD_IRAM_BASE + 15 * 1024);
 	set_emc_repower_param(repower_param, SPRD_LPDDR2C_BASE, SPRD_LPDDR2C_BASE + 0x1000);
 	repower_param->cs0_training_addr_v = (u32)ioremap(repower_param->cs0_training_addr_p, 4*1024);
-
 	if(repower_param->cs_number)
 	{
 		repower_param->cs1_training_addr_v = (u32)ioremap(repower_param->cs1_training_addr_p, 4*1024);
 	}
+	/*close emc retention*/
+	sci_glb_write(0x80 + REGS_GLB_BASE, 0, -1UL);
 	return 0;
 
 }

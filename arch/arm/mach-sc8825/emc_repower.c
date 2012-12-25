@@ -1917,9 +1917,13 @@ inline struct emc_repower_param * get_emc_repower_param(void)
 void emc_init_repowered(u32 power_off)
 {
 	u32 clk_emc_div;
+	u32 tmp_val;
 	struct emc_repower_param *param_p;
 	param_p = (struct emc_repower_param *)(SPRD_IRAM_PHYS + 15 * 1024);
-
+	tmp_val = REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_STAT);
+	if((tmp_val & 0x7) != 0) {
+		return;
+	}
 	clk_emc_div = 3;
 	param_p->emc_freq = 400 / (clk_emc_div + 1);
 	if(0) {
