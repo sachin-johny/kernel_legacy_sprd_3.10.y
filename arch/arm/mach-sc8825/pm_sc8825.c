@@ -1128,8 +1128,6 @@ void sc8825_idle(void)
 void sc8825_idle(void)
 {
 	if (!need_resched()) {
-		local_irq_disable();
-		if (!sprd_irq_pending()) {
 #ifdef CONFIG_CACHE_L2X0
 			/*l2cache power control, standby mode enable*/
 			/*L2X0_POWER_CTRL
@@ -1137,15 +1135,19 @@ void sc8825_idle(void)
 			l2x0_suspend();
 			*/
 #endif
+			/* if cpu idle enabled, linux boot will suspend at console init
+			 * i donot know why, so just disable it
+			 */
+/*
 			cpu_do_idle();
+*/
 #ifdef CONFIG_CACHE_L2X0
 			/*
 			l2x0_resume(1);
 			*/
 #endif
-		}
-		local_irq_enable();
 	}
+	local_irq_enable();
 	return;
 }
 #endif
