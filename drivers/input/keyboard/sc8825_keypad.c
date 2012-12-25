@@ -146,6 +146,34 @@ static void dump_keypad_register(void)
 #endif
 }
 
+#ifdef CONFIG_MAGIC_SYSRQ
+#define SPRD_VOL_UP_KEY		115
+#define SPRD_VOL_DOWN_KEY	114
+#define SPRD_CAMERA_KEY		212
+static int check_key_down(struct sci_keypad_t *sci_kpd, int key_status, int key_value)
+{
+	int col, row, key;
+	unsigned short *keycodes = sci_kpd->input_dev->keycode;
+	unsigned int row_shift = get_count_order(sci_kpd->cols);
+
+	if((key_status & 0xff) != 0) {
+		col = KPD_INT0_COL(key_status);
+		row = KPD_INT0_ROW(key_status);
+		key = keycodes[MATRIX_SCAN_CODE(row, col, row_shift)];
+		if(key == key_value)
+			return 1;
+	}
+	if((key_status & 0xff00) != 0) {
+		col = KPD_INT1_COL(key_status);
+		row = KPD_INT1_ROW(key_status);
+		key = keycodes[MATRIX_SCAN_CODE(row, col, row_shift)];
+		if(key == key_value)
+			return 1;
+	}
+	return 0;
+}
+#endif
+
 static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 {
 	unsigned short key = 0;
@@ -160,29 +188,6 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 	value = keypad_readl(KPD_INT_CLR);
 	value |= KPD_INT_ALL;
 	keypad_writel(KPD_INT_CLR, value);
-
-#ifdef CONFIG_MAGIC_SYSRQ
-	{
-		static unsigned long key_status_prev = 0;
-		if (key_status == 0x77779081 && key_status != key_status_prev) {
-			unsigned long flags;
-			static int rebooted = 0;
-			local_irq_save(flags);
-			if (rebooted == 0) {
-				rebooted = 1;
-				pr_warn("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
-				/* handle_sysrq('t'); */
-				handle_sysrq('m');
-				handle_sysrq('w');
-				handle_sysrq('b');
-				pr_warn("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
-				rebooted = 0;
-			}
-			local_irq_restore(flags);
-		}
-		key_status_prev = key_status;
-	}
-#endif
 
 	if ((int_status & KPD_PRESS_INT0)) {
 		col = KPD_INT0_COL(key_status);
@@ -259,6 +264,36 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 		printk("%03d\n", key);
 	}
 
+#ifdef CONFIG_MAGIC_SYSRQ
+	{
+		static unsigned long key_status_prev = 0;
+
+		if (check_key_down(sci_kpd, key_status, SPRD_CAMERA_KEY) &&
+			check_key_down(sci_kpd, key_status, SPRD_VOL_DOWN_KEY) && key_status != key_status_prev) {
+			key_status_prev = key_status;
+			panic("!!!! Combine key: vol_down + camera !!!!\n");
+		}
+
+		if (check_key_down(sci_kpd, key_status, SPRD_CAMERA_KEY) &&
+			check_key_down(sci_kpd, key_status, SPRD_VOL_UP_KEY) && key_status != key_status_prev) {
+			unsigned long flags;
+			static int rebooted = 0;
+			key_status_prev = key_status;
+			local_irq_save(flags);
+			if (rebooted == 0) {
+				rebooted = 1;
+				pr_warn("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
+				/* handle_sysrq('t'); */
+				handle_sysrq('m');
+				handle_sysrq('w');
+				handle_sysrq('b');
+				pr_warn("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
+				rebooted = 0;
+			}
+			local_irq_restore(flags);
+		}
+	}
+#endif
 	return IRQ_HANDLED;
 }
 
