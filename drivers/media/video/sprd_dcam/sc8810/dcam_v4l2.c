@@ -47,6 +47,7 @@ JINF_EXIF_INFO_T *g_dc_exif_info_ptr = NULL;
 #define DCAM_TIME_OUT                             2000
 #define DCAM_TIME_OUT_FOR_ATV            2000
 #define DCAM_RESTART_COUNT   2	//3
+#define DCAM_RESTART_TIMEOUT 	1000
 
 						   /*#define FLASH_DV_OPEN_ON_RECORD		1*//* mode 1: samsung */
 #define FLASH_DV_OPEN_ALWAYS		1	/* mode 2: HTC, default */
@@ -1795,6 +1796,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	struct dcam_fh *fh = priv;
 	int ret = 0;
 	int k;
+	uint32_t cnt = 0;
 	printk("#### V4L2: vidioc_streamoff start.\n");
 	g_dcam_info.recording_start = 0;
 
@@ -1823,6 +1825,20 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 			      ret);
 		return ret;
 	}
+
+	if(DCAM_RESTART_PROCESS == s_dcam_err_info.work_status){
+		while (cnt < DCAM_RESTART_TIMEOUT) {
+			if(0 == cnt%100)
+				printk("V4L2: vidioc_streamoff, wait restart end, cnt=%d \n", cnt);
+
+			if (DCAM_RESTART_PROCESS != s_dcam_err_info.work_status)
+				break;
+
+			cnt++;
+			msleep(1);
+		}
+	}
+
 	g_is_first_frame = 1;	/*store the nex first frame. */
 	g_dcam_info.preview_m = 0;
 	g_dcam_info.snapshot_m = 0;
