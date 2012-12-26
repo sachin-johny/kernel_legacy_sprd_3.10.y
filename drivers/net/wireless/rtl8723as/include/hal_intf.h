@@ -121,6 +121,9 @@ typedef enum _HW_VARIABLES{
 	HW_VAR_TX_RPT_MAX_MACID,
 	HW_VAR_H2C_MEDIA_STATUS_RPT,
 	HW_VAR_CHK_HI_QUEUE_EMPTY,
+#ifdef SOFTAP_PS_DURATION
+	HW_VAR_SOFTAP_PS,
+#endif
 }HW_VARIABLES;
 
 typedef enum _HAL_DEF_VARIABLE{
@@ -365,6 +368,18 @@ struct wowlan_ioctl_param{
 #define Rx_UnicastPkt           0x22
 #define Rx_PatternPkt           0x23
 #endif // CONFIG_WOWLAN
+
+#ifdef SOFTAP_PS_DURATION
+typedef enum _softap_ps_subcode{
+	SOFTAP_PS_ENABLE		=1,
+	SOFTAP_PS_DISABLE		=2
+}softap_ps_subcode;
+
+struct softap_ps_ioctl_param{
+	u8 subcode;
+	u8 duration;
+};
+#endif //SOFTAP_PS_DURATION
 
 void rtw_hal_def_value_init(_adapter *padapter);
 

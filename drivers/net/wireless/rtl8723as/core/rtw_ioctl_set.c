@@ -77,7 +77,6 @@ _func_exit_;
 	return ret;
 }
 
-u8 rtw_do_join(_adapter * padapter);
 u8 rtw_do_join(_adapter * padapter)
 {
 	_irqL	irqL;
@@ -201,14 +200,17 @@ _func_enter_;
 					#endif
 				)
 				{
-					//DBG_871X("rtw_do_join() when   no desired bss in scanning queue \n");
 					if( _SUCCESS!=(ret=rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1)) ){
+						ret = _FAIL;
 						pmlmepriv->to_join = _FALSE;
-						RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_err_,("do_join(): site survey return error\n."));
+						DBG_871X("rtw_do_join() when  no desired bss in scanning queue, but scan fail \n");
+					} else {
+						DBG_871X("rtw_do_join() when  no desired bss in scanning queue, link after scan \n");
 					}
 				}
 				else
 				{
+					DBG_871X("do_join(): return error\n.");
 					ret = _FAIL;
 					pmlmepriv->to_join = _FALSE;
 				}
@@ -366,7 +368,7 @@ _func_enter_;
 			rtw_disassoc_cmd(padapter);
 
 			if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE)
-				rtw_indicate_disconnect(padapter);
+				rtw_indicate_disconnect(padapter, 1);
 
 			rtw_free_assoc_resources(padapter, 1);
 
@@ -469,7 +471,7 @@ _func_enter_;
 					rtw_disassoc_cmd(padapter);
 
 					if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE)
-						rtw_indicate_disconnect(padapter);
+						rtw_indicate_disconnect(padapter, 1);
 
 					rtw_free_assoc_resources(padapter, 1);
 
@@ -497,9 +499,12 @@ _func_enter_;
 
 			rtw_disassoc_cmd(padapter);
 
-			if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE)
-				rtw_indicate_disconnect(padapter);
-
+			if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) {
+				/*Not indicate disco, otherwise WPS process will not start, jacky_20121203*/
+				padapter->mlmepriv.not_indic_disco = _TRUE;
+				rtw_indicate_disconnect(padapter, 1);
+				padapter->mlmepriv.not_indic_disco = _FALSE;
+			}
 			rtw_free_assoc_resources(padapter, 1);
 
 			if (check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE) == _TRUE) {
@@ -625,7 +630,7 @@ _func_enter_;
 
 		if((check_fwstate(pmlmepriv, _FW_LINKED)== _TRUE) || (*pold_state==Ndis802_11Infrastructure) ||(*pold_state==Ndis802_11IBSS))
 		{
-			rtw_indicate_disconnect(padapter); //will clr Linked_state; before this function, we must have chked whether  issue dis-assoc_cmd or not
+			rtw_indicate_disconnect(padapter, 1); //will clr Linked_state; before this function, we must have chked whether  issue dis-assoc_cmd or not
 		}
 
 		*pold_state = networktype;
@@ -684,7 +689,7 @@ _func_enter_;
 		RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_info_,("MgntActrtw_set_802_11_disassociate: rtw_indicate_disconnect\n"));
 
 		rtw_disassoc_cmd(padapter);
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 1);
 		rtw_free_assoc_resources(padapter, 1);
 	}
 
@@ -1444,8 +1449,13 @@ int rtw_set_country(_adapter *adapter, const char *country_code)
 		channel_plan = RT_CHANNEL_DOMAIN_ETSI;
 	else if(0 == strcmp(country_code, "JP"))
 		channel_plan = RT_CHANNEL_DOMAIN_MKK;
+	else if(0 == strcmp(country_code, "CN"))
+		channel_plan = RT_CHANNEL_DOMAIN_CHINA;
 	else
 		DBG_871X("%s unknown country_code:%s\n", __FUNCTION__, country_code);
+
+	DBG_871X_LEVEL(_drv_always_, "%s country_code:%s channel_plan:%x\n",
+			__func__, country_code, channel_plan);
 
 	return rtw_set_channel_plan(adapter, channel_plan);
 }

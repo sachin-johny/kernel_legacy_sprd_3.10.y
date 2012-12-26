@@ -30,6 +30,7 @@
 #endif
 
 #define	MAX_BSS_CNT	128
+
 //#define   MAX_JOIN_TIMEOUT	2000
 //#define   MAX_JOIN_TIMEOUT	2500
 #define   MAX_JOIN_TIMEOUT	6500
@@ -44,7 +45,11 @@
 #ifdef PALTFORM_OS_WINCE
 #define	SCANQUEUE_LIFETIME 12000000 // unit:us
 #else
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+#define	SCANQUEUE_LIFETIME 10 // unit:sec
+#else
 #define	SCANQUEUE_LIFETIME 20 // unit:sec
+#endif
 #endif
 
 #define 	WIFI_NULL_STATE		0x00000000
@@ -372,6 +377,11 @@ struct mlme_priv {
 
 	u32	scan_interval;
 
+	//this timer is set when we find
+	//network from scan list and decide
+	//to wait beacon for link
+	//time out is MAX_JOIN_TIMEOUT
+
 	_timer assoc_timer;
 
 	uint assoc_by_bssid;
@@ -682,7 +692,7 @@ extern struct wlan_network* rtw_find_network(_queue *scanned_queue, u8 *addr);
 extern struct wlan_network* rtw_get_oldest_wlan_network(_queue *scanned_queue);
 
 extern void rtw_free_assoc_resources(_adapter* adapter, int lock_scanned_queue);
-extern void rtw_indicate_disconnect(_adapter* adapter);
+extern void rtw_indicate_disconnect( _adapter *padapter, u8 enqueue);
 extern void rtw_indicate_connect(_adapter* adapter);
 void rtw_indicate_scan_done( _adapter *padapter, bool aborted);
 void rtw_scan_abort(_adapter *adapter);

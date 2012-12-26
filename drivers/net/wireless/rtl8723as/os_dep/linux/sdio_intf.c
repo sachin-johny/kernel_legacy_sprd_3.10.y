@@ -39,16 +39,8 @@
 #endif
 
 #ifdef CONFIG_PLATFORM_SPRD
-#include <linux/gpio.h>
 #include <custom_gpio.h>
-#ifdef CONFIG_RTL8188E
-#include <mach/ldo.h>
-#endif
 #endif // CONFIG_PLATFORM_SPRD
-
-#ifdef CONFIG_RTL8188E
-#include <rtl8188e_hal.h>
-#endif
 
 #include <hal_intf.h>
 #include <sdio_hal.h>
@@ -750,7 +742,7 @@ static int rtw_sdio_suspend(struct device *dev)
 		goto exit;
 	}
 #endif
-					
+
 #ifdef CONFIG_WOWLAN
 	if (check_fwstate(pmlmepriv, _FW_LINKED))
 		padapter->pwrctrlpriv.wowlan_mode = _TRUE;
@@ -808,9 +800,6 @@ static int rtw_sdio_suspend(struct device *dev)
 		padapter->pwrctrlpriv.wowlan_mode==_TRUE){
 		poidparam.subcode=WOWLAN_ENABLE;
 		padapter->HalFunc.SetHwRegHandler(padapter,HW_VAR_WOWLAN,(u8 *)&poidparam);
-		padapter->pwrctrlpriv.wowlan_wake_reason = rtw_read8(padapter, REG_WOWLAN_WAKE_REASON);
-		DBG_871X("wowlan_wake_reason: 0x%02x\n",
-					padapter->pwrctrlpriv.wowlan_wake_reason);
 	} else
 #else
 	{
@@ -837,7 +826,7 @@ static int rtw_sdio_suspend(struct device *dev)
 #ifdef CONFIG_WOWLAN
 	if(!padapter->pwrctrlpriv.wowlan_mode){
 		//s2-2.  indicate disconnect to os
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 0);
 		//s2-3.
 		rtw_free_assoc_resources(padapter, 1);
 
@@ -855,7 +844,7 @@ static int rtw_sdio_suspend(struct device *dev)
 
 		if(check_fwstate(pmlmepriv, _FW_UNDER_LINKING)){
 			DBG_871X("%s: fw_under_linking\n", __func__);
-			rtw_indicate_disconnect(padapter);
+			rtw_indicate_disconnect(padapter, 0);
 		}
 
 		sdio_deinit(adapter_to_dvobj(padapter));
@@ -868,14 +857,14 @@ static int rtw_sdio_suspend(struct device *dev)
 		}
 		if(check_fwstate(pmlmepriv, _FW_UNDER_LINKING)){
 			DBG_871X("%s: fw_under_linking\n", __func__);
-			rtw_indicate_disconnect(padapter);
+			rtw_indicate_disconnect(padapter, 0);
 		}
 
 		rtw_set_ps_mode(padapter, PS_MODE_MIN, 0, 0);
 	}
 #else
 	//s2-2.  indicate disconnect to os
-	rtw_indicate_disconnect(padapter);
+	rtw_indicate_disconnect(padapter, 0);
 	//s2-3.
 	rtw_free_assoc_resources(padapter, 1);
 
@@ -890,7 +879,7 @@ static int rtw_sdio_suspend(struct device *dev)
 		rtw_indicate_scan_done(padapter, 1);
 
 	if(check_fwstate(pmlmepriv, _FW_UNDER_LINKING))
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 0);
 
 	// interface deinit
 	sdio_deinit(adapter_to_dvobj(padapter));
@@ -906,16 +895,27 @@ exit:
 	//this is sprd's bug in Android 4.0, but sprd don't
 	//want to fix it.
 	//we have test power under 8723as, power consumption is ok
-	if (func) {
+	if (func)
+	{
 		mmc_pm_flag_t pm_flag = 0;
 		pm_flag = sdio_get_host_pm_caps(func);
 		DBG_871X("cmd: %s: suspend: PM flag = 0x%x\n", sdio_func_id(func), pm_flag);
-		if (!(pm_flag & MMC_PM_KEEP_POWER)) {
+
+		if (!(pm_flag & MMC_PM_KEEP_POWER))
+		{
 			DBG_871X("%s: cannot remain alive while host is suspended\n", sdio_func_id(func));
 			return -ENOSYS;
-		} else {
+		}
+		else
+		{
+#ifdef CONFIG_RTL8188E
+			DBG_871X("cmd: suspend with MMC_PM_KEEP_POWER|MMC_PM_WAKE_SDIO_IRQ\n");
+			pm_flag = MMC_PM_KEEP_POWER|MMC_PM_WAKE_SDIO_IRQ;
+#else
 			DBG_871X("cmd: suspend with MMC_PM_KEEP_POWER\n");
-			sdio_set_host_pm_flags(func, MMC_PM_KEEP_POWER);
+			pm_flag = MMC_PM_KEEP_POWER;
+#endif
+			sdio_set_host_pm_flags(func, pm_flag);
 		}
 	}
 #endif
@@ -923,11 +923,13 @@ exit:
 #ifdef CONFIG_PLATFORM_SPRD
 #ifndef CONFIG_WOWLAN
 #ifdef CONFIG_RTL8188E
+#ifdef ANDROID_2X
 	/*
 	 * Pull down wifi power pin here
 	 * Pull up wifi power pin before sdio resume.
 	 */
 	rtw_wifi_gpio_wlan_ctrl(WLAN_POWER_OFF);
+#endif // ANDROID_2X
 #endif // CONFIG_RTL8188E
 #endif // CONFIG_WOWLAN
 #endif // CONFIG_PLATFORM_SPRD
@@ -959,8 +961,6 @@ int rtw_resume_process(_adapter *padapter)
 	DBG_871X("==> %s (%s:%d)\n",__FUNCTION__, current->comm, current->pid);
 
 #ifdef CONFIG_WOWLAN
-	DBG_871X("wakeup_reason: 0x%02x\n", padapter->pwrctrlpriv.wowlan_wake_reason);
-
 	rtw_set_ps_mode(padapter, PS_MODE_ACTIVE, 0, 0);
 	LPS_RF_ON_check(padapter, 100);
 
@@ -1070,7 +1070,7 @@ int rtw_resume_process(_adapter *padapter)
 
 #ifdef CONFIG_WOWLAN
 	if (padapter->pwrctrlpriv.wowlan_wake_reason & FWDecisionDisconnect)
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 0);
 
 #if 0
 	if (padapter->pwrctrlpriv.wowlan_mode)
@@ -1103,11 +1103,6 @@ static int rtw_sdio_resume(struct device *dev)
 	 int ret = 0;
 
 	DBG_871X("==> %s (%s:%d)\n",__FUNCTION__, current->comm, current->pid);
-#ifdef CONFIG_WOWLAN
-	padapter->pwrctrlpriv.wowlan_wake_reason = rtw_read8(padapter, REG_WOWLAN_WAKE_REASON);
-	// Reset wakeup reason
-	rtw_write8(padapter, REG_WOWLAN_WAKE_REASON, 0);
-#endif
 
 	if(pwrpriv->bInternalAutoSuspend ){
  		ret = rtw_resume_process(padapter);
@@ -1116,11 +1111,12 @@ static int rtw_sdio_resume(struct device *dev)
 		rtw_resume_in_workqueue(pwrpriv);
 #elif defined(CONFIG_HAS_EARLYSUSPEND) || defined(CONFIG_ANDROID_POWER)
 #ifdef CONFIG_WOWLAN
-		if(rtw_is_earlysuspend_registered(pwrpriv) &&
-			!padapter->pwrctrlpriv.wowlan_mode) {
+		if (rtw_is_earlysuspend_registered(pwrpriv) &&
+			!padapter->pwrctrlpriv.wowlan_mode)
 #else
-		if(rtw_is_earlysuspend_registered(pwrpriv)) {
+		if (rtw_is_earlysuspend_registered(pwrpriv))
 #endif //CONFIG_WOWLAN
+		{
 			//jeff: bypass resume here, do in late_resume
 			pwrpriv->do_late_resume = _TRUE;
 #if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
@@ -1141,16 +1137,11 @@ static int rtw_sdio_resume(struct device *dev)
 
 	DBG_871X("<========  %s return %d\n", __FUNCTION__, ret);
 	return ret;
-
 }
-
-
-
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24))
 extern int console_suspend_enabled;
 #endif
-
 
 #ifdef CONFIG_PLATFORM_SPRD
 extern void sdhci_bus_scan(void);
@@ -1163,8 +1154,7 @@ static int __init rtw_drv_entry(void)
 {
 	int ret = 0;
 
-       DBG_871X_LEVEL(_drv_always_, "module init start version:"DRIVERVERSION"\n");
-
+	DBG_871X_LEVEL(_drv_always_, "module init start version:"DRIVERVERSION"\n");
 //	DBG_871X(KERN_INFO "+%s", __func__);
 	RT_TRACE(_module_hci_intfs_c_, _drv_notice_, ("+rtw_drv_entry\n"));
 	DBG_871X(DRV_NAME " driver version=%s\n", DRIVERVERSION);
@@ -1196,27 +1186,23 @@ static int __init rtw_drv_entry(void)
 #endif
 
 #ifdef CONFIG_PLATFORM_SPRD
+	rtw_wifi_gpio_init();
 
 #ifdef CONFIG_RTL8188E
 	rtw_wifi_gpio_wlan_ctrl(WLAN_POWER_ON);
-
-	DBG_8192C("%s: turn on VDD-WIFI0 3.3V\n", __func__);
-	//---VDD-WIFI0  3.3V
-	LDO_TurnOnLDO(LDO_LDO_WIF0);
-	LDO_SetVoltLevel(LDO_LDO_WIF0,LDO_VOLT_LEVEL1);
 #endif //CONFIG_RTL8188E
 
 	/* Pull up pwd pin, make wifi leave power down mode. */
-	rtw_wifi_gpio_init();
 	rtw_wifi_gpio_wlan_ctrl(WLAN_PWDN_ON);
 
 #if defined(CONFIG_RTL8723A) && (MP_DRIVER == 1)
 	// Pull up BT reset pin.
 	rtw_wifi_gpio_wlan_ctrl(WLAN_BT_PWDN_ON);
 #endif
-	rtw_mdelay_os(5);
 
+	rtw_mdelay_os(5);
 	sdhci_bus_scan();
+
 #if (defined ANDROID_2X)
 	rtw_mdelay_os(200);
 #else
@@ -1277,13 +1263,12 @@ static void __exit rtw_drv_halt(void)
 	/* Pull down pwd pin, make wifi enter power down mode. */
 	rtw_wifi_gpio_wlan_ctrl(WLAN_PWDN_OFF);
 	rtw_mdelay_os(5);
-	rtw_wifi_gpio_deinit();
 
 #ifdef CONFIG_RTL8188E
-	DBG_8192C("%s: turn off VDD-WIFI0 3.3V\n", __func__);
-	LDO_TurnOffLDO(LDO_LDO_WIF0);
 	rtw_wifi_gpio_wlan_ctrl(WLAN_POWER_OFF);
 #endif // CONFIG_RTL8188E
+
+	rtw_wifi_gpio_deinit();
 
 #ifdef CONFIG_WOWLAN
 	if(mmc_host){

@@ -998,7 +998,6 @@ _func_exit_;
 //			   (3) WMM
 //			   (4) HT
 //                     (5) others
-int rtw_is_desired_network(_adapter *adapter, struct wlan_network *pnetwork);
 int rtw_is_desired_network(_adapter *adapter, struct wlan_network *pnetwork)
 {
 	struct security_priv *psecuritypriv = &adapter->securitypriv;
@@ -1025,6 +1024,25 @@ int rtw_is_desired_network(_adapter *adapter, struct wlan_network *pnetwork)
 			return _FALSE;
 		}
 	}
+	
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+	rtw_get_bcn_info(pnetwork);
+	if ((pnetwork->BcnInfo.encryp_protocol != ENCRYP_PROTOCOL_WPA &&
+		pnetwork->BcnInfo.encryp_protocol != ENCRYP_PROTOCOL_WPA2) &&
+		(adapter->securitypriv.ndisauthtype == Ndis802_11AuthModeWPAPSK ||
+		 adapter->securitypriv.ndisauthtype == Ndis802_11AuthModeWPA2PSK)) {
+		DBG_871X("%s link NO WPA AP use PWA\n", __func__);
+		return _FALSE;
+	}
+	if ((pnetwork->BcnInfo.encryp_protocol == ENCRYP_PROTOCOL_WPA ||
+		pnetwork->BcnInfo.encryp_protocol == ENCRYP_PROTOCOL_WPA2) &&
+		(adapter->securitypriv.ndisauthtype != Ndis802_11AuthModeWPAPSK &&
+		 adapter->securitypriv.ndisauthtype != Ndis802_11AuthModeWPA2PSK)) {
+		DBG_871X("%s link WPA AP use NO PWA\n", __func__);
+		return _FALSE;
+	}
+#endif
+
 	if (adapter->registrypriv.wifi_spec == 1) //for  correct flow of 8021X  to do....
 	{
 		if ((desired_encmode == Ndis802_11EncryptionDisabled) && (privacy != 0))
@@ -1253,12 +1271,17 @@ _func_enter_;
 					) {
 						pmlmepriv->to_roaming = 0;
 						rtw_free_assoc_resources(adapter, 1);
-						rtw_indicate_disconnect(adapter);
+						rtw_indicate_disconnect(adapter, 1);
 					} else {
 						pmlmepriv->to_join = _TRUE;
 					}
-				}
+				} else
 				#endif
+				{
+					pmlmepriv->to_roaming = 0;
+					rtw_free_assoc_resources(adapter, 1);
+					rtw_indicate_disconnect(adapter, 1);
+				}
 				_clr_fwstate_(pmlmepriv, _FW_UNDER_LINKING);
 			}
 		}
@@ -1444,13 +1467,19 @@ _func_enter_;
 	RT_TRACE(_module_rtl871x_mlme_c_, _drv_err_, ("+rtw_indicate_connect\n"));
 
 	pmlmepriv->to_join = _FALSE;
+
+	if(!check_fwstate(&padapter->mlmepriv, _FW_LINKED))
+	{
+
 #ifdef CONFIG_SW_ANTENNA_DIVERSITY
 	rtw_hal_set_hwreg(padapter, HW_VAR_ANTENNA_DIVERSITY_LINK, 0);
 #endif
+
 	set_fwstate(pmlmepriv, _FW_LINKED);
 
 	rtw_led_control(padapter, LED_CTL_LINK);
 
+	
 #ifdef CONFIG_DRVEXT_MODULE
 	if(padapter->drvextpriv.enable_wpa)
 	{
@@ -1460,6 +1489,8 @@ _func_enter_;
 #endif
 	{
 		rtw_os_indicate_connect(padapter);
+	}
+
 	}
 
 	#ifdef CONFIG_LAYER2_ROAMING
@@ -1480,7 +1511,7 @@ _func_exit_;
 /*
 *rtw_indicate_disconnect: the caller has to lock pmlmepriv->lock
 */
-void rtw_indicate_disconnect( _adapter *padapter )
+void rtw_indicate_disconnect( _adapter *padapter, u8 enqueue)
 {
 	struct	mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct mlme_ext_priv *pmlmeext = &(padapter->mlmeextpriv);
@@ -1492,11 +1523,16 @@ void rtw_indicate_disconnect( _adapter *padapter )
 _func_enter_;
 
 	RT_TRACE(_module_rtl871x_mlme_c_, _drv_err_, ("+rtw_indicate_disconnect\n"));
-	_clr_fwstate_(pmlmepriv, _FW_LINKED|_FW_UNDER_LINKING|WIFI_UNDER_WPS);
 
-	pmlmeext->check_ap_processing = _FALSE; //for check whether ap alive
+	/*No need to clr WPS state, set_wpa_ie will do this before link*/
+	//_clr_fwstate_(pmlmepriv, _FW_UNDER_LINKING|WIFI_UNDER_WPS);
+	_clr_fwstate_(pmlmepriv, _FW_UNDER_LINKING);
 
-	rtw_led_control(padapter, LED_CTL_NO_LINK);
+#ifdef CONFIG_LAYER2_ROAMING
+	if(pmlmepriv->to_roaming > 0)
+		_clr_fwstate_(pmlmepriv, _FW_LINKED);
+#endif
+
 
 #ifdef CONFIG_WAPI_SUPPORT
 	psta = rtw_get_stainfo(pstapriv,cur_network->MacAddress);
@@ -1511,17 +1547,28 @@ _func_enter_;
 	}
 #endif
 
-	#ifdef CONFIG_LAYER2_ROAMING
-	if(pmlmepriv->to_roaming<=0)
-	#endif
+	if(check_fwstate(&padapter->mlmepriv, _FW_LINKED)
+#ifdef CONFIG_LAYER2_ROAMING
+		|| (pmlmepriv->to_roaming<=0)
+#endif
+	)
+	{
 		rtw_os_indicate_disconnect(padapter);
 
+	      _clr_fwstate_(pmlmepriv, _FW_LINKED);
+
+		rtw_led_control(padapter, LED_CTL_NO_LINK);
+	}
+
 #ifdef CONFIG_LPS
-	rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_DISCONNECT, 1);
+#ifdef CONFIG_WOWLAN
+	if(padapter->pwrctrlpriv.wowlan_mode==_FALSE)
+#endif //CONFIG_WOWLAN
+	rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_DISCONNECT, enqueue);
 #endif
 
 #ifdef CONFIG_P2P
-	p2p_ps_wk_cmd(padapter, P2P_PS_DISABLE, 1);
+	p2p_ps_wk_cmd(padapter, P2P_PS_DISABLE, enqueue);
 #endif //CONFIG_P2P
 
 _func_exit_;
@@ -1707,19 +1754,40 @@ static void rtw_joinbss_update_network(_adapter *padapter, struct wlan_network *
 #endif
 
 	//update fw_state //will clr _FW_UNDER_LINKING here indirectly
-	switch(pnetwork->network.InfrastructureMode)
-	{
-		case Ndis802_11Infrastructure:
-				pmlmepriv->fw_state = WIFI_STATION_STATE;
-				break;
-		case Ndis802_11IBSS:
-				pmlmepriv->fw_state = WIFI_ADHOC_STATE;
-				break;
-		default:
-				pmlmepriv->fw_state = WIFI_NULL_STATE;
-				RT_TRACE(_module_rtl871x_mlme_c_,_drv_err_,("Invalid network_mode\n"));
-				break;
+	/*Cannot clr WPS state here, jacky_20121203*/
+	if(check_fwstate(pmlmepriv, WIFI_UNDER_WPS) == _TRUE) {
+		switch(pnetwork->network.InfrastructureMode)
+		{
+			case Ndis802_11Infrastructure:
+					pmlmepriv->fw_state = WIFI_STATION_STATE;
+					pmlmepriv->fw_state |= WIFI_UNDER_WPS;
+					break;
+			case Ndis802_11IBSS:
+					pmlmepriv->fw_state = WIFI_ADHOC_STATE;
+					pmlmepriv->fw_state |= WIFI_UNDER_WPS;
+					break;
+			default:
+					pmlmepriv->fw_state = WIFI_NULL_STATE;
+					pmlmepriv->fw_state |= WIFI_UNDER_WPS;
+					RT_TRACE(_module_rtl871x_mlme_c_,_drv_err_,("Invalid network_mode\n"));
+					break;
+		}
 	}
+	else {
+		switch(pnetwork->network.InfrastructureMode)
+		{
+			case Ndis802_11Infrastructure:
+					pmlmepriv->fw_state = WIFI_STATION_STATE;
+					break;
+			case Ndis802_11IBSS:
+					pmlmepriv->fw_state = WIFI_ADHOC_STATE;
+					break;
+			default:
+					pmlmepriv->fw_state = WIFI_NULL_STATE;
+					RT_TRACE(_module_rtl871x_mlme_c_,_drv_err_,("Invalid network_mode\n"));
+					break;
+		}
+	}	
 
 	rtw_update_protection(padapter, (cur_network->network.IEs) + sizeof (NDIS_802_11_FIXED_IEs),
 									(cur_network->network.IELength));
@@ -2039,6 +2107,9 @@ void rtw_stassoc_event_callback(_adapter *adapter, u8 *pbuf)
 	struct stassoc_event	*pstassoc	= (struct stassoc_event*)pbuf;
 	struct wlan_network 	*cur_network = &(pmlmepriv->cur_network);
 	struct wlan_network	*ptarget_wlan = NULL;
+#ifdef SOFTAP_PS_DURATION
+	struct softap_ps_ioctl_param poidparam;
+#endif
 
 _func_enter_;
 
@@ -2086,9 +2157,13 @@ _func_enter_;
 			//bss_cap_update_on_sta_join(adapter, psta);
 			//sta_info_update(adapter, psta);
 			ap_sta_info_defer_update(adapter, psta);
-
+#ifdef SOFTAP_PS_DURATION
 			rtw_stassoc_hw_rpt(adapter,psta);
-
+			DBG_871X_LEVEL(_drv_always_, "%s: SOFTAP_PS disable\n", __func__);
+			poidparam.subcode=SOFTAP_PS_DISABLE;
+			poidparam.duration= 0;
+			rtw_hal_set_hwreg(adapter, HW_VAR_SOFTAP_PS,(u8 *)&poidparam);
+#endif //SOFTAP_PS_DURATION
 		}
 
 		goto exit;
@@ -2171,6 +2246,9 @@ void rtw_stadel_event_callback(_adapter *adapter, u8 *pbuf)
 	struct 	stadel_event *pstadel	= (struct stadel_event*)pbuf;
    	struct	sta_priv *pstapriv = &adapter->stapriv;
 	struct wlan_network *tgt_network = &(pmlmepriv->cur_network);
+#ifdef SOFTAP_PS_DURATION
+	struct softap_ps_ioctl_param poidparam;
+#endif
 
 _func_enter_;
 
@@ -2187,7 +2265,7 @@ _func_enter_;
 		media_status = (mac_id<<8)|0; //  MACID|OPMODE:0 means disconnect
 		//for STA,AP,ADHOC mode, report disconnect stauts to FW
 		rtw_hal_set_hwreg(adapter, HW_VAR_H2C_MEDIA_STATUS_RPT, (u8 *)&media_status);
-	}	
+	}
 
         if(check_fwstate(pmlmepriv, WIFI_AP_STATE))
         {
@@ -2198,7 +2276,14 @@ _func_enter_;
 		rtw_cfg80211_indicate_sta_disassoc(adapter, pstadel->macaddr, *(u16*)pstadel->rsvd);
 		#endif //(LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)) || defined(CONFIG_CFG80211_FORCE_COMPATIBLE_2_6_37_UNDER)
 #endif //CONFIG_IOCTL_CFG80211
-
+#ifdef SOFTAP_PS_DURATION
+		if(pstapriv->asoc_sta_count == 2) {
+			DBG_871X_LEVEL(_drv_always_, "%s: SOFTAP_PS enable\n", __func__);
+			poidparam.subcode=SOFTAP_PS_ENABLE;
+			poidparam.duration= SOFTAP_PS_DURATION; //(ms)
+			rtw_hal_set_hwreg(adapter, HW_VAR_SOFTAP_PS,(u8 *)&poidparam);
+		}
+#endif
 		return;
         }
 
@@ -2223,7 +2308,7 @@ _func_enter_;
 		rtw_free_uc_swdec_pending_queue(adapter);
 
 		rtw_free_assoc_resources(adapter, 1);
-		rtw_indicate_disconnect(adapter);
+		rtw_indicate_disconnect(adapter, 1);
 		_enter_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);
 		// remove the network entry in scanned_queue
 		pwlan = rtw_find_network(&pmlmepriv->scanned_queue, tgt_network->network.MacAddress);
@@ -2248,7 +2333,7 @@ _func_enter_;
 
 		if(adapter->stapriv.asoc_sta_count== 1) //a sta + bc/mc_stainfo (not Ibss_stainfo)
 		{
-			//rtw_indicate_disconnect(adapter);//removed@20091105
+			//rtw_indicate_disconnect(adapter, 1);//removed@20091105
 			_enter_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);
 			//free old ibss network
 			//pwlan = rtw_find_network(&pmlmepriv->scanned_queue, pstadel->macaddr);
@@ -2376,7 +2461,7 @@ _func_enter_;
 				break;
 			} else {
 				DBG_871X("%s We've try roaming but fail\n", __FUNCTION__);
-				rtw_indicate_disconnect(adapter);
+				rtw_indicate_disconnect(adapter, 1);
 				break;
 			}
 		}
@@ -2384,7 +2469,7 @@ _func_enter_;
 	} else
 	#endif
 	{
-		rtw_indicate_disconnect(adapter);
+		rtw_indicate_disconnect(adapter, 1);
 		free_scanqueue(pmlmepriv);//???
  	}
 
@@ -2798,7 +2883,7 @@ _func_enter_;
 		#endif
 		{
 			rtw_disassoc_cmd(adapter);
-			rtw_indicate_disconnect(adapter);
+			rtw_indicate_disconnect(adapter, 1);
 			rtw_free_assoc_resources(adapter, 0);
 		}
 	}
@@ -2890,7 +2975,7 @@ _func_enter_;
 					else
 					{
 						rtw_disassoc_cmd(adapter);
-						rtw_indicate_disconnect(adapter);
+						rtw_indicate_disconnect(adapter, 1);
 						rtw_free_assoc_resources(adapter, 0);
 						_exit_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);
 						goto ask_for_joinbss;
@@ -2968,7 +3053,7 @@ _func_enter_;
 #endif
 					{
 						rtw_disassoc_cmd(adapter);
-						//rtw_indicate_disconnect(adapter);//
+						//rtw_indicate_disconnect(adapter, 1);//
 						rtw_free_assoc_resources(adapter, 0);
 						_exit_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);
 						goto ask_for_joinbss;
@@ -3867,7 +3952,7 @@ void _rtw_roaming(_adapter *padapter, struct wlan_network *tgt_network)
 					continue;
 				} else {
 					DBG_871X("%s(%d) -to roaming fail, indicate_disconnect\n", __FUNCTION__,__LINE__);
-					rtw_indicate_disconnect(padapter);
+					rtw_indicate_disconnect(padapter, 1);
 					break;
 				}
 			}

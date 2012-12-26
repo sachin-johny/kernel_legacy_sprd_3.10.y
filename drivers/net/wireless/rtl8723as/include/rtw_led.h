@@ -186,7 +186,7 @@ typedef	enum _LED_STRATEGY_871x{
 	SW_LED_MODE6 = 6, //added by vivi, for led new mode, PRONET
 	SW_LED_MODE7 = 7, //added by chiyokolin, for Lenovo, PCI Express Minicard Spec Rev.1.2 spec
 	SW_LED_MODE8 = 8, //added by chiyokolin, for QMI
-	SW_LED_MODE9 = 9, //added by chiyokolin, for BITLAND, PCI Express Minicard Spec Rev.1.1 
+	SW_LED_MODE9 = 9, //added by chiyokolin, for BITLAND, PCI Express Minicard Spec Rev.1.1
 	SW_LED_MODE10 = 10, //added by chiyokolin, for Edimax-ASUS
 	HW_LED = 50, // HW control 2 LEDs, LED0 and LED1 (there are 4 different control modes)
 	LED_ST_NONE = 99,

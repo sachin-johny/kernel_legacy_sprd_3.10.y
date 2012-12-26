@@ -1749,8 +1749,8 @@ int rtw_get_cipher_info(struct wlan_network *pnetwork)
 			pnetwork->BcnInfo.pairwise_cipher = pairwise_cipher;
 			pnetwork->BcnInfo.group_cipher = group_cipher;
 			pnetwork->BcnInfo.is_8021x = is8021x;
-			RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("%s: pnetwork->pairwise_cipher: %d, is_8021x is %d",
-						__func__, pnetwork->BcnInfo.pairwise_cipher, pnetwork->BcnInfo.is_8021x));
+			DBG_871X("%s: pnetwork->pairwise_cipher: %d, is_8021x is %d\n",
+						__func__, pnetwork->BcnInfo.pairwise_cipher, pnetwork->BcnInfo.is_8021x);
 			ret = _SUCCESS;
 		}
 	} else {
@@ -1764,9 +1764,9 @@ int rtw_get_cipher_info(struct wlan_network *pnetwork)
 				pnetwork->BcnInfo.pairwise_cipher = pairwise_cipher;
 				pnetwork->BcnInfo.group_cipher = group_cipher;
 				pnetwork->BcnInfo.is_8021x = is8021x;
-				RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("%s: pnetwork->pairwise_cipher: %d,"
-							"pnetwork->group_cipher is %d, is_8021x is %d",	__func__, pnetwork->BcnInfo.pairwise_cipher,
-							pnetwork->BcnInfo.group_cipher,pnetwork->BcnInfo.is_8021x));
+				DBG_871X("%s: pnetwork->pairwise_cipher: %d,"
+							"pnetwork->group_cipher is %d, is_8021x is %d\n",	__func__, pnetwork->BcnInfo.pairwise_cipher,
+							pnetwork->BcnInfo.group_cipher,pnetwork->BcnInfo.is_8021x);
 				ret = _SUCCESS;
 			}
 		}
@@ -1790,15 +1790,12 @@ void rtw_get_bcn_info(struct wlan_network *pnetwork)
 	cap = le16_to_cpu(cap);
 	if (cap & WLAN_CAPABILITY_PRIVACY) {
 		bencrypt = 1;
-		pnetwork->network.Privacy = 1;
 	} else {
 		pnetwork->BcnInfo.encryp_protocol = ENCRYP_PROTOCOL_OPENSYS;
 	}
 	rtw_get_sec_ie(pnetwork->network.IEs ,pnetwork->network.IELength,NULL,&rsn_len,NULL,&wpa_len);
-	RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_get_bcn_info: ssid=%s\n",pnetwork->network.Ssid.Ssid));
-	RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_get_bcn_info: wpa_len=%d rsn_len=%d\n",wpa_len,rsn_len));
-	RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_get_bcn_info: ssid=%s\n",pnetwork->network.Ssid.Ssid));
-	RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_get_bcn_info: wpa_len=%d rsn_len=%d\n",wpa_len,rsn_len));
+	DBG_871X("rtw_get_bcn_info: ssid=%s\n",pnetwork->network.Ssid.Ssid);
+	DBG_871X("rtw_get_bcn_info: wpa_len=%d rsn_len=%d\n",wpa_len,rsn_len);
 
 	if (rsn_len > 0) {
 		pnetwork->BcnInfo.encryp_protocol = ENCRYP_PROTOCOL_WPA2;
@@ -1808,10 +1805,7 @@ void rtw_get_bcn_info(struct wlan_network *pnetwork)
 		if (bencrypt)
 			pnetwork->BcnInfo.encryp_protocol = ENCRYP_PROTOCOL_WEP;
 	}
-	RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_get_bcn_info: pnetwork->encryp_protocol is %x\n",
-				pnetwork->BcnInfo.encryp_protocol));
-	RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_get_bcn_info: pnetwork->encryp_protocol is %x\n",
-				pnetwork->BcnInfo.encryp_protocol));
+	DBG_871X("rtw_get_bcn_info: pnetwork->encryp_protocol is %x\n", pnetwork->BcnInfo.encryp_protocol);
 	rtw_get_cipher_info(pnetwork);
 
 	/* get bwmode and ch_offset */

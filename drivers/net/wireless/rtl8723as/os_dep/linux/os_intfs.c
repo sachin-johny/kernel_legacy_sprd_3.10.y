@@ -681,9 +681,7 @@ _func_enter_;
 	registry_par->scan_mode = (u8)rtw_scan_mode;
 	registry_par->adhoc_tx_pwr = (u8)rtw_adhoc_tx_pwr;
 	registry_par->soft_ap=  (u8)rtw_soft_ap;
-#if !((defined CONFIG_BT_COEXIST && defined CONFIG_RTL8723A))
 	registry_par->smart_ps =  (u8)rtw_smart_ps;
-#endif
 	registry_par->power_mgnt = (u8)rtw_power_mgnt;
 	registry_par->ips_mode = (u8)rtw_ips_mode;
 	registry_par->radio_enable = (u8)rtw_radio_enable;
@@ -861,6 +859,35 @@ static u16 rtw_select_queue(struct net_device *dev, struct sk_buff *skb)
 
 	return rtw_1d_to_queue[skb->priority];
 }
+
+u16 rtw_recv_select_queue(struct sk_buff *skb)
+{
+	struct iphdr *piphdr;
+	unsigned int dscp;
+	u16	eth_type;
+	u32 priority;
+	u8 *pdata = skb->data;
+
+	_rtw_memcpy(&eth_type, pdata+(ETH_ALEN<<1), 2);
+
+	switch (eth_type) {
+		case htons(ETH_P_IP):
+
+			piphdr = (struct iphdr *)(pdata+ETH_HLEN);
+
+			dscp = piphdr->tos & 0xfc;
+			
+			priority = dscp >> 5;
+			
+			break;
+		default:
+			priority = 0;
+	}
+
+	return rtw_1d_to_queue[priority];
+	
+}
+
 #endif
 
 #if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,29))
@@ -1154,10 +1181,6 @@ u8 rtw_reset_drv_sw(_adapter *padapter)
 	padapter->bWritePortCancel = _FALSE;
 	padapter->bRxRSSIDisplay = 0;
 	pmlmepriv->scan_interval = SCAN_INTERVAL;// 30*2 sec = 60sec
-
-	pwrctrlpriv->bips_processing = _FALSE;
-	pwrctrlpriv->rf_pwrstate = rf_on;
-	pwrctrlpriv->bInSuspend = _FALSE;
 
 	padapter->xmitpriv.tx_pkts = 0;
 	padapter->recvpriv.rx_pkts = 0;
@@ -2064,6 +2087,7 @@ int rtw_ips_pwr_up(_adapter *padapter)
 	u32 start_time = rtw_get_current_time();
 	DBG_871X("===>  rtw_ips_pwr_up..............\n");
 	rtw_reset_drv_sw(padapter);
+
 	result = ips_netdrv_open(padapter);
 
 	rtw_led_control(padapter, LED_CTL_NO_LINK);
@@ -2162,7 +2186,7 @@ static int netdev_close(struct net_device *pnetdev)
 		//s2-1.  issue rtw_disassoc_cmd to fw
 		rtw_disassoc_cmd(padapter);
 		//s2-2.  indicate disconnect to os
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 0);
 		//s2-3.
 		rtw_free_assoc_resources(padapter, 1);
 		//s2-4.

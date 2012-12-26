@@ -52,7 +52,7 @@
 
 #define P80211CAPTURE_VERSION	0x80211001
 
-#define TRY_AP_TIMES	3
+#define TRY_AP_TIMES	5
 // This value is tested by WiFi 11n Test Plan 5.2.3.
 // This test verifies the WLAN NIC can update the NAV through sending the CTS with large duration.
 #define	WiFiNavUpperUs				30000	// 30 ms

@@ -208,6 +208,7 @@ void rtw_os_xmit_resource_free(_adapter *padapter, struct xmit_buf *pxmitbuf,u32
 
 void rtw_os_pkt_complete(_adapter *padapter, _pkt *pkt)
 {
+#if 0
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
 	u16	queue;
 	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
@@ -221,6 +222,7 @@ void rtw_os_pkt_complete(_adapter *padapter, _pkt *pkt)
 #else
 	if (netif_queue_stopped(padapter->pnetdev))
 		netif_wake_queue(padapter->pnetdev);
+#endif
 #endif
 
 	dev_kfree_skb_any(pkt);
@@ -335,6 +337,49 @@ int rtw_mlcst2unicst(_adapter *padapter, struct sk_buff *skb)
 #endif	// CONFIG_TX_MCAST2UNI
 
 
+void rtw_os_xmit_flow_ctl(_adapter *padapter, u8 priority, u8 on)
+{
+	struct xmit_priv *pxmitpriv = &padapter->xmitpriv;
+	u16 queue = rtw_up2ac(padapter, priority);
+
+#ifdef DBG_XMIT_BUF
+	DBG_871X("%s(): pxmitpriv->hwxmits[0/1/2/3]:%d %d %d %d queue:%d\n", __FUNCTION__,
+			pxmitpriv->hwxmits[0].accnt,
+			pxmitpriv->hwxmits[1].accnt,
+			pxmitpriv->hwxmits[2].accnt,
+			pxmitpriv->hwxmits[3].accnt,
+			queue);
+#endif
+	if (on) {
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
+		/* No free space for Tx, tx_worker is too slow */
+		if (pxmitpriv->hwxmits[queue].accnt > NR_XMITFRAME/2) {
+			DBG_871X("%s(): stop netif_subqueue[%d]\n", __FUNCTION__, queue);
+			netif_stop_subqueue(padapter->pnetdev, queue);
+		}
+#else
+		if (pxmitpriv->free_xmitframe_cnt < 16) {
+			DBG_871X("%s(): stop netif_queue\n", __FUNCTION__);
+			netif_stop_queue(padapter->pnetdev);
+		}
+#endif
+	} else {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,35))
+		if(__netif_subqueue_stopped(padapter->pnetdev, queue) &&
+				(pxmitpriv->hwxmits[queue].accnt <= NR_XMITFRAME/2)) {
+			DBG_871X("%s(): netif_wake_subqueue[%d]\n", __FUNCTION__, queue);
+			netif_wake_subqueue(padapter->pnetdev, queue);
+		}
+#else
+		if (pxmitpriv->free_xmitframe_cnt >= 16 &&
+				netif_queue_stopped(padapter->pnetdev)) {
+			DBG_871X("%s(): netif_wake_queue\n", __FUNCTION__);
+			netif_wake_queue(padapter->pnetdev);
+		}
+#endif
+	}
+}
+
 int rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev)
 {
 	_adapter *padapter = (_adapter *)rtw_netdev_priv(pnetdev);
@@ -360,11 +405,11 @@ _func_enter_;
 		goto drop_packet;
 	}
 
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
+#if 0//(LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
 	queue = skb_get_queue_mapping(pkt);
 	/* No free space for Tx, tx_worker is too slow */
 	if (pxmitpriv->hwxmits[queue].accnt > NR_XMITFRAME/2) {
-		//DBG_871X("%s(): stop netif_subqueue[%d]\n", __FUNCTION__, queue);
+		DBG_871X("%s(): stop netif_subqueue[%d]\n", __FUNCTION__, queue);
 		netif_stop_subqueue(padapter->pnetdev, queue);
 		return NETDEV_TX_BUSY;
 	}

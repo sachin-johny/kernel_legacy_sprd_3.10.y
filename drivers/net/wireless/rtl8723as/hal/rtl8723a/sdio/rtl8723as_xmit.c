@@ -25,8 +25,6 @@
 #include <sdio_ops.h>
 #include <rtl8723a_hal.h>
 
-//#define DBG_XMITBUF_ENOUGH
-
 s32 rtl8723_dequeue_writeport(PADAPTER padapter, u8 *freePage)
 {
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
@@ -184,8 +182,7 @@ s32 rtl8723as_xmit_buf_handler(PADAPTER padapter)
 
 	ret = _rtw_down_sema(&pxmitpriv->xmit_sema);
 	if (_FAIL == ret) {
-		RT_TRACE(_module_hal_xmit_c_, _drv_emerg_,
-				 ("%s: down SdioXmitBufSema fail!\n", __FUNCTION__));
+		DBG_871X_LEVEL(_drv_emerg_, "%s: down SdioXmitBufSema fail!\n", __FUNCTION__);
 		return _FAIL;
 	}
 
@@ -236,7 +233,6 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 	struct hw_xmit *hwxmits;
 	u8 no_res, idx, hwentry;
 	_irqL irql;
-//	_irqL irqL0, irqL1;
 	struct tx_servq *ptxservq;
 	_list *sta_plist, *sta_phead, *frame_plist, *frame_phead;
 	struct xmit_frame *pxmitframe;
@@ -257,19 +253,24 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 	// 0(VO), 1(VI), 2(BE), 3(BK)
 	for (idx = 0; idx < hwentry; idx++, hwxmits++)
 	{
-//		_enter_critical(&hwxmits->sta_queue->lock, &irqL0);
-
 		sta_phead = get_list_head(hwxmits->sta_queue);
 		sta_plist = get_next(sta_phead);
 
+		//because stop_sta_xmit may delete sta_plist at any time
+		//so we should add lock here, or while loop can not exit
+		_enter_critical_bh(&pxmitpriv->lock, &irql);
 		while (rtw_end_of_queue_search(sta_phead, sta_plist) == _FALSE)
 		{
 			ptxservq = LIST_CONTAINOR(sta_plist, struct tx_servq, tx_pending);
 			sta_plist = get_next(sta_plist);
 
+#ifdef DBG_XMIT_BUF
+			DBG_871X("%s idx:%d hwxmit_pkt_num:%d ptxservq_pkt_num:%d\n", __func__, idx, hwxmits->accnt, ptxservq->qcnt);
+			DBG_871X("%s free_xmit_extbuf_cnt=%d free_xmitbuf_cnt=%d free_xmitframe_cnt=%d \n",
+				       	__func__, pxmitpriv->free_xmit_extbuf_cnt, pxmitpriv->free_xmitbuf_cnt,
+					pxmitpriv->free_xmitframe_cnt);
+#endif
 			pframe_queue = &ptxservq->sta_pending;
-
-//			_enter_critical(&pframe_queue->lock, &irqL1);
 
 			frame_phead = get_list_head(pframe_queue);
 
@@ -288,18 +289,24 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 					)
 				{
 					if (pxmitbuf) {
-						struct xmit_frame *pframe;
-						pframe = (struct xmit_frame*)pxmitbuf->priv_data;
-						pframe->agg_num = k;
-						rtl8723a_update_txdesc(pframe, pframe->buf_addr);
-						enqueue_pending_xmitbuf(pxmitpriv, pxmitbuf);
-						rtw_yield_os();
+						//pxmitbuf->priv_data will be NULL, and will crash here
+						if (pxmitbuf->len > 0 && pxmitbuf->priv_data) {
+							struct xmit_frame *pframe;
+							pframe = (struct xmit_frame*)pxmitbuf->priv_data;
+							pframe->agg_num = k;
+							rtl8723a_update_txdesc(pframe, pframe->buf_addr);
+							enqueue_pending_xmitbuf(pxmitpriv, pxmitbuf);
+							//can not yield under lock
+							//rtw_yield_os();
+						} else {
+							rtw_free_xmitbuf(pxmitpriv, pxmitbuf);
+						}
 					}
 
 					pxmitbuf = rtw_alloc_xmitbuf(pxmitpriv);
 					if (pxmitbuf == NULL) {
-#ifdef DBG_XMITBUF_ENOUGH
-						RT_TRACE(_module_hal_xmit_c_, _drv_err_, ("%s: xmit_buf is not enough!\n", __FUNCTION__));
+#ifdef DBG_XMIT_BUF
+						DBG_871X_LEVEL(_drv_err_, "%s: xmit_buf is not enough!\n", __FUNCTION__);
 #endif
 						err = -2;
 						break;
@@ -308,17 +315,12 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 				}
 
 				// ok to send, remove frame from queue
-				_enter_critical_bh(&pxmitpriv->lock, &irql);
 #ifdef CONFIG_AP_MODE
-				if (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == _TRUE)
-				{
+				if (check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE) == _TRUE) {
 					if ((pxmitframe->attrib.psta->state & WIFI_SLEEP_STATE) &&
-						(pxmitframe->attrib.triggered == 0))
-					{
-						_exit_critical_bh(&pxmitpriv->lock, &irql);
-#ifdef PLATFORM_LINUX
-						DBG_8192C("%s: one not triggered pkt in queue when STA sleep\n", __func__);
-#endif
+						(pxmitframe->attrib.triggered == 0)) {
+						DBG_871X("%s: one not triggered pkt in queue when this STA sleep,"
+								" break and goto next sta\n", __func__);
 						break;
 					}
 				}
@@ -326,7 +328,6 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 				rtw_list_delete(&pxmitframe->list);
 				ptxservq->qcnt--;
 				hwxmits->accnt--;
-				_exit_critical_bh(&pxmitpriv->lock, &irql);
 
 				if (k == 0) {
 					pxmitbuf->ff_hwaddr = rtw_get_ff_hwaddr(pxmitframe);
@@ -339,7 +340,7 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 
 				ret = rtw_xmitframe_coalesce(padapter, pxmitframe->pkt, pxmitframe);
 				if (ret == _FAIL) {
-					RT_TRACE(_module_hal_xmit_c_, _drv_err_, ("%s: coalesce FAIL!", __FUNCTION__));
+					DBG_871X_LEVEL(_drv_err_, "%s: coalesce FAIL!", __FUNCTION__);
 					// Todo: error handler
 				} else {
 					k++;
@@ -360,17 +361,12 @@ static s32 xmit_xmitframes(PADAPTER padapter, struct xmit_priv *pxmitpriv)
 				pxmitframe = NULL;
 			}
 
-			_enter_critical_bh(&pxmitpriv->lock, &irql);
 			if (_rtw_queue_empty(pframe_queue) == _TRUE)
 				rtw_list_delete(&ptxservq->tx_pending);
-			_exit_critical_bh(&pxmitpriv->lock, &irql);
-
-//			_exit_critical(&pframe_queue->lock, &irqL1);
 
 			if (err) break;
 		}
-
-//		_exit_critical(&hwxmits->sta_queue->lock, &irqL0);
+		_exit_critical_bh(&pxmitpriv->lock, &irql);
 
 		// dump xmit_buf to hw tx fifo
 		if (pxmitbuf)
@@ -418,7 +414,7 @@ s32 rtl8723as_xmit_handler(PADAPTER padapter)
 wait:
 	ret = _rtw_down_sema(&phal->SdioXmitSema);
 	if (_FAIL == ret) {
-		RT_TRACE(_module_hal_xmit_c_, _drv_emerg_, ("%s: down sema fail!\n", __FUNCTION__));
+		DBG_871X_LEVEL(_drv_emerg_, "%s: down sema fail!\n", __FUNCTION__);
 		return _FAIL;
 	}
 
@@ -435,6 +431,7 @@ next:
 	ret = rtw_txframes_pending(padapter);
 	_exit_critical_bh(&pxmitpriv->lock, &irql);
 	if (ret == 0) {
+		rtw_yield_os();
 		return _SUCCESS;
 	}
 

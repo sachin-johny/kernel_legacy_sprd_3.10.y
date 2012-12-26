@@ -75,6 +75,7 @@ struct sta_xmit_priv;
 struct xmit_frame;
 struct xmit_buf;
 
+void rtw_os_xmit_flow_ctl(_adapter *padapter, u8 priority, u8 on);
 extern int rtw_xmit_entry(_pkt *pkt, _nic_hdl pnetdev);
 
 #endif

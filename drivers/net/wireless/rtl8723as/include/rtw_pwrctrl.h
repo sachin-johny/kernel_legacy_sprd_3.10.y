@@ -190,6 +190,8 @@ struct pwrctrl_priv
 	volatile u8 tog; // toggling
 	volatile u8 cpwm_tog; // toggling
 
+	u8 bFwLowPwrLPS;
+
 	u8	pwr_mode;
 	u8	smart_ps;
 	u8	bcn_ant_mode;
@@ -238,6 +240,7 @@ struct pwrctrl_priv
 	u8	bFwCurrentInPSMode;
 	u32	DelayLPSLastTimeStamp;
 	u8 	btcoex_rfon;
+	u8  WiFiOnlyLowTrafficTdma;
 	s32		pnp_current_pwr_state;
 	u8		pnp_bstop_trx;
 

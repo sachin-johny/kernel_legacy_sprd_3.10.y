@@ -311,7 +311,8 @@ void rtl8723a_FirmwareSelfReset(PADAPTER padapter)
 int _WriteBTFWtoTxPktBuf8723A(
 	IN		PADAPTER		Adapter,
 	IN		PVOID			buffer,
-	IN		u4Byte			FwBufLen
+	IN		u4Byte			FwBufLen,
+	IN		u1Byte			times
 	)
 {
 	int			rtStatus = _SUCCESS;
@@ -412,7 +413,16 @@ int _WriteBTFWtoTxPktBuf8723A(
 		//BT patch is big, we should set 0x209 < 0x40 suggested from Gimmy
 		RT_TRACE(_module_mp_, _drv_info_,("0x209:%x\n",
 					PlatformEFIORead1Byte(Adapter, REG_TDECTRL+1)));//209 < 0x40
-		PlatformEFIOWrite1Byte(Adapter, REG_TDECTRL+1, 0x30);
+
+		if(times == 1)
+			PlatformEFIOWrite1Byte(Adapter, REG_TDECTRL+1, 0x90); //0x70);
+		else if(times ==2)
+			PlatformEFIOWrite1Byte(Adapter, REG_TDECTRL+1, 0x70); //0x70);
+		else if(times ==3)
+			PlatformEFIOWrite1Byte(Adapter, REG_TDECTRL+1, 0x50); //0x70);
+		else
+			PlatformEFIOWrite1Byte(Adapter, REG_TDECTRL+1, 0x30); //0x70);
+
 		RT_TRACE(_module_mp_, _drv_info_,("0x209:%x\n",
 					PlatformEFIORead1Byte(Adapter, REG_TDECTRL+1)));
 
@@ -445,8 +455,10 @@ int _WriteBTFWtoTxPktBuf8723A(
 
 			//_rtw_memset(pmgntframe->buf_addr, 0, TotalPktLen+TXDESC_SIZE);
 			//pmgntframe->buf_addr = ReservedPagePacket ;
-			_rtw_memcpy( (u8*) (pmgntframe->buf_addr + TXDESC_SIZE), ReservedPagePacket, FwBufLen);
-			DBG_871X("===>TotalPktLen + TXDESC_SIZE TotalPacketLen:%d ", (FwBufLen + TXDESC_SIZE));
+
+			_rtw_memcpy( (u8*) (pmgntframe->buf_addr + TXDESC_OFFSET), ReservedPagePacket, FwBufLen);
+			DBG_871X("===>TotalPktLen + TXDESC_OFFSET TotalPacketLen:%d ", (FwBufLen + TXDESC_OFFSET));
+
 		     dump_mgntframe(Adapter, pmgntframe);
 
 #endif
@@ -464,11 +476,18 @@ int _WriteBTFWtoTxPktBuf8723A(
 		DLBcnCount++;
 		DBG_871X("##0x208:%08x,0x210=%08x\n",PlatformEFIORead4Byte(Adapter, REG_TDECTRL),PlatformEFIORead4Byte(Adapter, 0x210));
 	}while((!(BcnValidReg&BIT(0))) && DLBcnCount<5);
+
+
 #endif
+	if(DLBcnCount >=5){
+		DBG_871X(" check rsvd page download OK DLBcnCount =%d  \n",DLBcnCount);
+		rtStatus = _FAIL;
+		goto exit;
+	}
 
 	if(!(BcnValidReg&BIT(0)))
 	{
-		RT_TRACE(_module_mp_, _drv_err_,("_WriteFWtoTxPktBuf(): 1 Download RSVD page failed!\n"));
+		DBG_871X("_WriteFWtoTxPktBuf(): 1 Download RSVD page failed!\n");
 		rtStatus = _FAIL;
 		goto exit;
 	}
@@ -511,10 +530,13 @@ SetFwBTFwPatchCmd(
 	RT_TRACE(_module_mp_, _drv_notice_,("SetFwBTFwPatchCmd(): FwSize = %d\n", FwSize));
 
 	//bit1: 1---24k, 0----16k
-	SET_H2CCMD_BT_FW_PATCH_ENABLE(u1BTFwPatchParm, 0x03);
+	//SET_H2CCMD_BT_FW_PATCH_ENABLE(u1BTFwPatchParm, 0x03);
 
+	SET_H2CCMD_BT_FW_PATCH_ENABLE(u1BTFwPatchParm, 1);
 
 	SET_H2CCMD_BT_FW_PATCH_SIZE(u1BTFwPatchParm, FwSize);
+
+	u1BTFwPatchParm[0]  |= BIT1;
 
 	FillH2CCmd(Adapter, H2C_BT_FW_PATCH, H2C_BT_FW_PATCH_LEN, u1BTFwPatchParm);
 
@@ -557,22 +579,19 @@ _CheckWLANFwPatchBTFwReady(
 	//---------------------------------------------------------
 	do{
 		u1bTmp = PlatformEFIORead1Byte(Adapter, REG_MCUFWDL+1);
-		if(u1bTmp&BIT(7)) {
-			Adapter->bBTFWReady = 1;
+		if(u1bTmp&BIT(7))
 			break;
-		}
+
 		count++;
 		RT_TRACE(_module_mp_, _drv_info_,("0x81=%x, wait for 50 ms (%d) times.\n",
 					u1bTmp, count));
 		rtw_msleep_os(50); // 50ms
 	}while(!(u1bTmp&BIT(7)) && count < 50);
 
-	rtw_msleep_os(1000);
-
 	RT_TRACE(_module_mp_, _drv_notice_,("_CheckWLANFwPatchBTFwReady():"
 				" Polling ready bit 0x81[7] for %d times.\n", count));
 
-	if(count == 50)
+	if(count >= 50)
 	{
 		RT_TRACE(_module_mp_, _drv_notice_,("_CheckWLANFwPatchBTFwReady():"
 				" Polling ready bit 0x81[7] FAIL!!\n"));
@@ -616,7 +635,17 @@ _CheckWLANFwPatchBTFwReady(
 #endif
 }
 
-
+/* As the size of bt firmware is more than 16k which is too big for some platforms, we divide it
+ * into four parts to transfer. The last parameter of _WriteBTFWtoTxPktBuf8723A is used to indicate
+ * the location of every part. We call the first 4096 byte of bt firmware as part 1, the second 4096
+ * part as part 2, the third 4096 part as part 3, the remain as part 4. First we transform the part
+ * 4 and set the register 0x209 to 0x90, then the 32 bytes description are added to the head of part
+ * 4, and those bytes are putted at the location 0x90. Second we transform the part 3 and set the
+ * register 0x209 to 0x70. The 32 bytes description and part 3(4196 bytes) are putted at the location
+ * 0x70. It can contain 4196 bytes between 0x70 and 0x90. So the last 32 bytes os part 3 will cover the
+ * 32 bytes description of part4. Using this method, we can put the whole bt firmware to 0x30 and only
+ * has 32 bytes descrption at the head of part 1.
+*/
 int
 FirmwareDownloadBT(IN PADAPTER Adapter, PRT_FIRMWARE_8723A pFirmware)
 {
@@ -650,7 +679,7 @@ FirmwareDownloadBT(IN PADAPTER Adapter, PRT_FIRMWARE_8723A pFirmware)
 
 #ifdef CONFIG_EMBEDDED_FWIMG
 		pFirmware->szBTFwBuffer = BTFwImage;
-		DBG_871X("pFirmware->szBTFwBuffer = BTFwImage;\n");
+		DBG_871X("CONFIG_EMBEDDED_FWIMG pFirmware->szBTFwBuffer = BTFwImage;\n");
 #else
 		DBG_871X("_rtw_memcpy BTFwImage to pFirmware->szBTFwBuffer.\n");
 		_rtw_memcpy(pFirmware->szBTFwBuffer, (PVOID)BTFwImage, BTFwImageLen);
@@ -674,7 +703,26 @@ FirmwareDownloadBT(IN PADAPTER Adapter, PRT_FIRMWARE_8723A pFirmware)
 	Adapter->bFWReady = _TRUE;
 	DBG_871X("FirmwareDownloadBT to _WriteBTFWtoTxPktBuf8723A !\n");
 #if 1
-	rtStatus = _WriteBTFWtoTxPktBuf8723A(Adapter, pBTFirmwareBuf, BTFirmwareLen);
+	rtStatus = _WriteBTFWtoTxPktBuf8723A(Adapter, pBTFirmwareBuf+(4096*3), (BTFirmwareLen-(4096*3)), 1);
+	if(rtStatus != _SUCCESS)
+	{
+		DBG_871X("BT Firmware download to Tx packet buffer first fail!\n");
+		return rtStatus;
+	}
+	rtStatus = _WriteBTFWtoTxPktBuf8723A(Adapter, pBTFirmwareBuf+(4096*2), 4096, 2);
+	if(rtStatus != _SUCCESS)
+	{
+		DBG_871X("BT Firmware download to Tx packet buffer second fail!\n");
+		return rtStatus;
+	}
+	rtStatus = _WriteBTFWtoTxPktBuf8723A(Adapter, pBTFirmwareBuf+(4096), 4096, 3);
+	if(rtStatus != _SUCCESS)
+	{
+		DBG_871X("BT Firmware download to Tx packet buffer third fail!\n");
+		return rtStatus;
+	}
+	rtStatus = _WriteBTFWtoTxPktBuf8723A(Adapter, pBTFirmwareBuf, 4096, 4);
+
 	if(rtStatus != _SUCCESS)
 	{
 		RT_TRACE(_module_mp_, _drv_info_,("BT Firmware download to Tx packet buffer fail!\n"));
@@ -740,11 +788,22 @@ s32 rtl8723a_FirmwareDownload(PADAPTER padapter)
 		}
 		else if (IS_8723A_B_CUT(pHalData->VersionID))
 		{
-			// WLAN Fw.
-			pFwImageFileName = R8723FwImageFileName_UMC_B;
-			FwImage = (u8*)Rtl8723_FwUMCBCutImageArray;
-			FwImageLen = Rtl8723_UMCBCutImgArrayLength;
-			RT_TRACE(_module_hal_init_c_, _drv_info_, ("rtl8723a_FirmwareDownload: R8723FwImageArray_UMC_B for RTL8723A B CUT\n"));
+#ifdef CONFIG_MP_INCLUDED
+         	 	if(padapter->registrypriv.mp_mode == 1)
+			{
+				FwImage = (u8*)Rtl8723_FwUMCBCutMPImageArray;
+				FwImageLen = Rtl8723_UMCBCutMPImgArrayLength;
+				DBG_871X(" Rtl8723_FwUMCBCutMPImageArray for RTL8723A B CUT\n");
+			}
+			else
+#endif
+			{
+				// WLAN Fw.
+				FwImage = (u8*)Rtl8723_FwUMCBCutImageArray;
+				FwImageLen = Rtl8723_UMCBCutImgArrayLength;
+				DBG_871X(" Rtl8723_FwUMCBCutImageArray for RTL8723A B CUT\n");
+			}
+	      		pFwImageFileName = R8723FwImageFileName_UMC_B;
 		}
 		else
 		{
@@ -3383,6 +3442,9 @@ Hal_EfuseParseTxPowerInfo_8723A(
 			group = Hal_GetChnlGroup(ch);
 
 			pHalData->TxPwrLevelCck[rfPath][ch] = pwrInfo.CCKIndex[rfPath][group];
+#ifdef CONFIG_CMCC_TEST
+			pHalData->TxPwrLevelCck[rfPath][ch] += 2; /* add 1dbm CCK power */
+#endif
 			pHalData->TxPwrLevelHT40_1S[rfPath][ch] = pwrInfo.HT40_1SIndex[rfPath][group];
 
 			pHalData->TxPwrHt20Diff[rfPath][ch] = pwrInfo.HT20IndexDiff[rfPath][group];
@@ -3882,6 +3944,10 @@ void rtl8723a_fill_default_txdesc(
 			ptxdesc->rtsrate = 8; // RTS Rate=24M
 			ptxdesc->data_ratefb_lmt = 0x1F;
 			ptxdesc->rts_ratefb_lmt = 0xF;
+
+#ifdef CONFIG_CMCC_TEST
+			ptxdesc->data_short = 1; /* use cck short premble */
+#endif
 
 			// use REG_INIDATA_RATE_SEL value
 			ptxdesc->datarate = pdmpriv->INIDATA_RATE[pattrib->mac_id];
@@ -4612,6 +4678,7 @@ static void process_c2h_event(PADAPTER padapter, PC2H_EVT_HDR pC2hEvent, u8 *c2h
 				} else {
 					RT_TRACE(_module_hal_init_c_, _drv_err_,("we don't need this C2H\n"));
 				}
+				pmlmeext->check_ap_processing = _FALSE;
 			}
 			break;
 		case C2H_DBG:
@@ -4803,6 +4870,9 @@ _func_enter_;
 
 				pHalData->BasicRateSet = BrateCfg = (BrateCfg |0xd) & 0x15d;
 				BrateCfg |= 0x01; // default enable 1M ACK rate
+#ifdef CONFIG_CMCC_TEST
+				BrateCfg |= 0x0D; /* use 11M to send ACK */
+#endif
 				DBG_8192C("HW_VAR_BASIC_RATE: BrateCfg(%#x)\n", BrateCfg);
 
 				// Set RRSR rate table.
@@ -5208,6 +5278,12 @@ _func_enter_;
 				{
 					ODM_RF_Saving(&pHalData->odmpriv, _TRUE);
 				}
+
+				if (psmode != PS_MODE_ACTIVE)	{
+					rtl8723a_set_lowpwr_lps_cmd(padapter, _TRUE);
+				} else {
+					rtl8723a_set_lowpwr_lps_cmd(padapter, _FALSE);
+				}
 				rtl8723a_set_FwPwrMode_cmd(padapter, psmode);
 			}
 			break;
@@ -5294,13 +5370,17 @@ _func_enter_;
 				{
 					u32 v32;
 
-					// RX DMA stop
+					/* RX DMA stop */
 					v32 = rtw_read32(padapter, REG_RXPKT_NUM);
 					v32 |= RW_RELEASE_EN;
 					rtw_write32(padapter, REG_RXPKT_NUM, v32);
 					do {
-						v32 = rtw_read32(padapter, REG_RXPKT_NUM) & RXDMA_IDLE;
-						if (!v32) break;
+						v32 = rtw_read32(padapter, REG_RXPKT_NUM);// & RXDMA_IDLE;
+						/* RXDMA_IDLE set 1 is idle */
+						if (v32 & RXDMA_IDLE)
+							break;
+
+						DBG_871X("%s HW_VAR_FIFO_CLEARN_UP times:%d %x\n", __func__, trycnt, v32);
 					} while (trycnt--);
 					if (trycnt == 0) {
 						DBG_8192C("Stop RX DMA failed......\n");
@@ -5309,7 +5389,7 @@ _func_enter_;
 					// RQPN Load 0
 					rtw_write16(padapter, REG_RQPN_NPQ, 0);
 					rtw_write32(padapter, REG_RQPN, 0x80000000);
-					rtw_mdelay_os(10);
+					rtw_mdelay_os(2);
 				}
 			}
 			break;

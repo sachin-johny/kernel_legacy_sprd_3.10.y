@@ -1544,7 +1544,7 @@ static void rtw_dev_unload(_adapter *padapter)
 		//s2-1.  issue rtw_disassoc_cmd to fw
 		rtw_disassoc_cmd(padapter);
 		//s2-2.  indicate disconnect to os
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 0);
 		//s2-3.
 		rtw_free_assoc_resources(padapter, 1);
 		//s2-4.

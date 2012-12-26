@@ -423,6 +423,8 @@ enum {
 	MP_SetBT,
 	CTA_TEST,
 	MP_NULL,
+	MP_GET_TXPOWER_INX,
+	MP_SET_PREAMBLE,
 };
 
 struct mp_priv
@@ -674,6 +676,15 @@ typedef enum _ENCRY_CTRL_STATE_ {
 }ENCRY_CTRL_STATE;
 
 
+typedef enum _PREAMBLE {
+		Long_Preamble	= 0x01,
+		Short_Preamble		  ,
+		Long_GI 			  ,
+		Short_GI
+} PREAMBLE;
+
+
+
 //=======================================================================
 //extern struct mp_xmit_frame *alloc_mp_xmitframe(struct mp_priv *pmp_priv);
 //extern int free_mp_xmitframe(struct xmit_priv *pxmitpriv, struct mp_xmit_frame *pmp_xmitframe);
@@ -769,8 +780,10 @@ extern u8 Hal_ReadRFThermalMeter(PADAPTER pAdapter);
 extern void Hal_SetCCKContinuousTx(PADAPTER pAdapter, u8 bStart);
 extern void Hal_SetOFDMContinuousTx(PADAPTER pAdapter, u8 bStart);
 extern void Hal_ProSetCrystalCap (PADAPTER pAdapter , u32 CrystalCapVal);
-
+extern void _rtw_mp_xmit_priv(struct xmit_priv *pxmitpriv);
 extern void MP_PHY_SetRFPathSwitch(PADAPTER pAdapter ,BOOLEAN bMain);
+
+extern u32 mpt_ProQueryCalTxPower(PADAPTER pAdapter, u32 RfPath);
 
 #endif //_RTW_MP_H_
 

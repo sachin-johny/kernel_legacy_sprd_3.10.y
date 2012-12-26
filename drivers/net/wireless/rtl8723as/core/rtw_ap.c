@@ -2481,9 +2481,7 @@ u8 ap_free_sta(_adapter *padapter, struct sta_info *psta)
 	rtw_free_stainfo(padapter, psta);
 	_exit_critical_bh(&(pstapriv->sta_hash_lock), &irqL);
 
-
 	return beacon_updated;
-
 }
 
 int rtw_sta_flush(_adapter *padapter)

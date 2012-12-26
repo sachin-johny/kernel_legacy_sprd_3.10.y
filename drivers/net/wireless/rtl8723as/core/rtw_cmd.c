@@ -671,7 +671,7 @@ u8 rtw_sitesurvey_cmd(_adapter  *padapter, NDIS_802_11_SSID *pssid, int ssid_max
 _func_enter_;
 
 #ifdef CONFIG_LPS
-#ifndef CONFIG_BT_COEXIST 
+#ifndef CONFIG_BT_COEXIST
 	//we have done it in HW_VAR_MLME_SITESURVEY
 	//so dont do it two times, or TDMA will wrong
 	rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_SCAN, 1);
@@ -1251,11 +1251,14 @@ _func_enter_;
 	pmlmeinfo->assoc_AP_vendor = check_assoc_AP(pnetwork->network.IEs, pnetwork->network.IELength);
 
 #ifdef CONFIG_AUTH_DIRECT_WITHOUT_BCN
-	//it's too late current network just update from linked scan action, 
+	//it's too late current network just update from linked scan action,
 	//so here we update current network before linking, it's from scan list,
 	//if not update here IEs is wrong between linking and linked scan,
 	update_network(&(pmlmepriv->cur_network.network), &pnetwork->network, padapter, _TRUE);
 	rtw_get_bcn_info(&(pmlmepriv->cur_network));
+#endif
+#ifdef CONFIG_IOCTL_CFG80211
+	pmlmepriv->cur_network.bss = pnetwork->bss;
 #endif
 
 	#if 0
@@ -1428,7 +1431,8 @@ _func_enter_;
 #ifndef CONFIG_CONCURRENT_MODE
 #ifdef CONFIG_LPS
 		if (padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X ||
-			padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI) {
+			padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI ||
+			check_fwstate(pmlmepriv, WIFI_UNDER_WPS) == _TRUE) {
 			rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_CONNECT, 0);
 		}
 #endif
@@ -1918,6 +1922,7 @@ static void traffic_status_watchdog(_adapter *padapter)
 #ifdef CONFIG_TDLS
 	struct tdls_info *ptdlsinfo = &(padapter->tdlsinfo);
 #endif //CONFIG_TDLS
+	static unsigned char idle_count = 0;
 
 	//
 	// Determine if our traffic is busy now
@@ -1927,7 +1932,8 @@ static void traffic_status_watchdog(_adapter *padapter)
 	{
 
 #ifdef CONFIG_BT_COEXIST
-		if( pmlmepriv->LinkDetectInfo.NumRxOkInPeriod > 10 ||
+		//here set it to 50, will let WIFI web in TDMA mode for power save
+		if( pmlmepriv->LinkDetectInfo.NumRxUnicastOkInPeriod > 10 ||
 			pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 10 )
 #else // !CONFIG_BT_COEXIST
 		if( pmlmepriv->LinkDetectInfo.NumRxOkInPeriod > 100 ||
@@ -1961,10 +1967,10 @@ static void traffic_status_watchdog(_adapter *padapter)
 #ifdef CONFIG_FTP_PROTECT
 		DBG_871X("RX in period:%d, TX in period:%d, ftp_lock_flag:%d\n",
 			pmlmepriv->LinkDetectInfo.NumRxOkInPeriod,
-			pmlmepriv->LinkDetectInfo.NumRxOkInPeriod,
+			pmlmepriv->LinkDetectInfo.NumTxOkInPeriod,
 			pmlmepriv->ftp_lock_flag);
 
-		bPktCount = pmlmepriv->LinkDetectInfo.NumRxOkInPeriod + pmlmepriv->LinkDetectInfo.NumRxOkInPeriod;
+		bPktCount = pmlmepriv->LinkDetectInfo.NumRxOkInPeriod + pmlmepriv->LinkDetectInfo.NumTxOkInPeriod;
 		if (bPktCount > 20 && !pmlmepriv->ftp_lock_flag) {
 			pmlmepriv->ftp_lock_flag = 1;
 			rtw_lock_suspend();
@@ -2016,7 +2022,33 @@ static void traffic_status_watchdog(_adapter *padapter)
 #ifdef CONFIG_LPS
 		LPS_Leave(padapter);
 #endif
+		idle_count = 0;
+		padapter->pwrctrlpriv.WiFiOnlyLowTrafficTdma = _FALSE;
 	}
+
+	/* here is for busy & idle bump */
+	if (bBusyTraffic) {
+		idle_count = 0;
+	} else {
+		/* is current is busy, we should wait for 2
+		 * continuous times idle to idle*/
+		if (pmlmepriv->LinkDetectInfo.bBusyTraffic) {
+			if (idle_count >= 2) {
+				idle_count = 0;
+			} else {
+				idle_count++;
+				bBusyTraffic = _TRUE;
+			}
+		}
+	}
+
+#ifdef CONFIG_BT_COEXIST
+	if (!bBusyTraffic && pmlmepriv->LinkDetectInfo.NumRxUnicastOkInPeriod >= 2) {
+		padapter->pwrctrlpriv.WiFiOnlyLowTrafficTdma = _TRUE;
+	} else {
+		padapter->pwrctrlpriv.WiFiOnlyLowTrafficTdma = _FALSE;
+	}
+#endif
 
 	pmlmepriv->LinkDetectInfo.NumRxOkInPeriod = 0;
 	pmlmepriv->LinkDetectInfo.NumTxOkInPeriod = 0;
@@ -2069,7 +2101,8 @@ void lps_ctrl_wk_hdl(_adapter *padapter, u8 lps_ctrl_type)
 _func_enter_;
 
 	if((check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE) == _TRUE)
-		|| (check_fwstate(pmlmepriv, WIFI_ADHOC_STATE) == _TRUE))
+		|| (check_fwstate(pmlmepriv, WIFI_ADHOC_STATE) == _TRUE)
+		|| (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE))
 	{
 		return;
 	}
@@ -2136,6 +2169,11 @@ _func_enter_;
 				LPS_Leave(padapter);
 			}
 			break;
+#ifdef CONFIG_BT_COEXIST
+		case LPS_CTRL_TRAFFIC_TDMA:
+			BTDM_ForLowWiFiTraffic(padapter);
+			break;
+#endif
 
 		default:
 			break;
@@ -2752,7 +2790,7 @@ _func_enter_;
 		}
 		else {
 
-			//rtw_indicate_disconnect(dev);
+			//rtw_indicate_disconnect(dev, 0);
 		}
 #endif
 		_exit_critical_bh(&(pmlmepriv->scanned_queue.lock), &irqL);

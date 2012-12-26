@@ -195,6 +195,7 @@
 #define		rCCK0_RxReport            		0xa54  //0xa57
 #define		rCCK0_FACounterLower      	0xa5c  //0xa5b
 #define		rCCK0_FACounterUpper      	0xa58  //0xa5c
+#define		rFixContTxRate              0xa70
 //
 // PageB(0xB00)
 //
@@ -754,6 +755,7 @@
 #define		bCCKTxPathSel			0x10000000
 #define		bCCKDefaultRxPath		0xc000000
 #define		bCCKOptionRxPath		0x3000000
+#define		bFixContTxRate		    0x4000
 
 // 5. PageC(0xC00)
 #define		bNumOfSTF				0x3	// Useless

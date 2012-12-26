@@ -765,7 +765,7 @@ int rtw_hw_suspend(_adapter *padapter )
 		disconnect_hdl(padapter, NULL);
 
 		//s2-2.  indicate disconnect to os
-		//rtw_indicate_disconnect(padapter);
+		//rtw_indicate_disconnect(padapter, 0);
 		{
 			struct	mlme_priv *pmlmepriv = &padapter->mlmepriv;
 
@@ -931,7 +931,7 @@ static int rtw_suspend(struct usb_interface *pusb_intf, pm_message_t message)
 	}
 #endif
 	//s2-2.  indicate disconnect to os
-	rtw_indicate_disconnect(padapter);
+	rtw_indicate_disconnect(padapter, 1);
 	//s2-3.
 	rtw_free_assoc_resources(padapter, 1);
 #ifdef CONFIG_AUTOSUSPEND
@@ -951,7 +951,7 @@ static int rtw_suspend(struct usb_interface *pusb_intf, pm_message_t message)
 		rtw_indicate_scan_done(padapter, 1);
 
 	if(check_fwstate(pmlmepriv, _FW_UNDER_LINKING))
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 0);
 
 exit:
 	DBG_871X("<===  %s return %d.............. in %dms\n", __FUNCTION__

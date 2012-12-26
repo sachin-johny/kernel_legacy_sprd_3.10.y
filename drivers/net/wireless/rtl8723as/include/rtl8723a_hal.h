@@ -54,7 +54,7 @@
 	#define RTL8723_PHY_RADIO_A				"rtl8723S\\radio_a_1T.txt"
 	#define RTL8723_PHY_RADIO_B				"rtl8723S\\radio_b_1T.txt"
 	#define RTL8723_AGC_TAB					"rtl8723S\\AGC_TAB_1T.txt"
-	#define RTL8723_PHY_MACREG 				"rtl8723S\\MAC_REG.txt"	
+	#define RTL8723_PHY_MACREG 				"rtl8723S\\MAC_REG.txt"
 	#define RTL8723_PHY_REG_PG				"rtl8723S\\PHY_REG_PG.txt"
 	#define RTL8723_PHY_REG_MP				"rtl8723S\\PHY_REG_MP.txt"
 
@@ -74,10 +74,10 @@
 #if MP_DRIVER == 1
 	#define Rtl8723E_FwBTImgArray				Rtl8723EFwBTImgArray
 	#define Rtl8723E_FwBTImgArrayLength			Rtl8723EBTImgArrayLength
-	
+
 	#define Rtl8723_FwUMCBCutMPImageArray		Rtl8723SFwUMCBCutMPImgArray
 	#define Rtl8723_UMCBCutMPImgArrayLength	Rtl8723SUMCBCutMPImgArrayLength
-	
+
 	#define Rtl8723_PHY_REG_Array_MP			Rtl8723SPHY_REG_Array_MP
 	#define Rtl8723_PHY_REG_Array_MPLength		Rtl8723SPHY_REG_Array_MPLength
 #endif
@@ -117,7 +117,7 @@
 	#define RTL8723_PHY_RADIO_A				"rtl8723S\\radio_a_1T.txt"
 	#define RTL8723_PHY_RADIO_B				"rtl8723S\\radio_b_1T.txt"
 	#define RTL8723_AGC_TAB					"rtl8723S\\AGC_TAB_1T.txt"
-	#define RTL8723_PHY_MACREG 				"rtl8723S\\MAC_REG.txt"	
+	#define RTL8723_PHY_MACREG 				"rtl8723S\\MAC_REG.txt"
 	#define RTL8723_PHY_REG_PG				"rtl8723S\\PHY_REG_PG.txt"
 	#define RTL8723_PHY_REG_MP				"rtl8723S\\PHY_REG_MP.txt"
 
@@ -138,7 +138,7 @@
 #if MP_DRIVER == 1
 	#define Rtl8723E_FwBTImgArray				Rtl8723EFwBTImgArray
 	#define Rtl8723E_FwBTImgArrayLength			Rtl8723EBTImgArrayLength
-	
+
 	#define Rtl8723_FwUMCBCutMPImageArray		Rtl8723SFwUMCBCutMPImgArray
 	#define Rtl8723_UMCBCutMPImgArrayLength	Rtl8723SUMCBCutMPImgArrayLength
 
@@ -156,16 +156,16 @@
 	#define Rtl8723_RadioA_1TArray				Rtl8723URadioA_1TArray
 	//#define Rtl8723_RadioB_2TArray				Rtl8723URadioB_2TArray
 	#define Rtl8723_RadioB_1TArray				Rtl8723URadioB_1TArray
-	
-	
+
+
 
 	// Array length
-	
+
 	#define Rtl8723_MAC_ArrayLength				Rtl8723UMAC_2T_ArrayLength
 	#define Rtl8723_AGCTAB_1TArrayLength			Rtl8723UAGCTAB_1TArrayLength
 	#define Rtl8723_PHY_REG_1TArrayLength 			Rtl8723UPHY_REG_1TArrayLength
-	
-	
+
+
 	#define Rtl8723_RadioA_1TArrayLength			Rtl8723URadioA_1TArrayLength
 	#define Rtl8723_RadioB_1TArrayLength			Rtl8723URadioB_1TArrayLength
 #endif
@@ -339,7 +339,7 @@ enum ChannelPlan
 // leave 1byte and program full section
 // 9bytes + 1byt + 5bytes and pre 1byte.
 // For worst case:
-// | 1byte|----8bytes----|1byte|--5bytes--| 
+// | 1byte|----8bytes----|1byte|--5bytes--|
 // |         |            Reserved(14bytes)	      |
 //
 
@@ -375,7 +375,7 @@ typedef enum _RT_MULTI_FUNC {
 //
 typedef enum _RT_POLARITY_CTL {
 	RT_POLARITY_LOW_ACT = 0,
-	RT_POLARITY_HIGH_ACT = 1,	
+	RT_POLARITY_HIGH_ACT = 1,
 } RT_POLARITY_CTL, *PRT_POLARITY_CTL;
 
 // For RTL8723 regulator mode. by tynli. 2011.01.14.
@@ -394,7 +394,7 @@ typedef enum _RTL8192C_C2H_EVT
 	C2H_CCX_TX_RPT = 3,	// The FW notify the report of the specific tx packet.
 	C2H_BT_RSSI = 4,
 	C2H_BT_OP_MODE = 5,
-	C2H_EXT_RA_RPT = 6, 
+	C2H_EXT_RA_RPT = 6,
 	C2H_HW_INFO_EXCH = 10,
 	C2H_C2H_H2C_TEST = 11,
 	C2H_BT_INFO = 12,
@@ -405,7 +405,7 @@ typedef enum _RTL8192C_C2H_EVT
 typedef struct _C2H_EVT_HDR
 {
 	u8	CmdID: 4;
-	u8	CmdLen: 4; 
+	u8	CmdLen: 4;
 	u8	CmdSeq;
 } __attribute__((__packed__)) C2H_EVT_HDR, *PC2H_EVT_HDR;
 
@@ -447,7 +447,7 @@ typedef struct hal_data_8723a
 	u8	EEPROMSubCustomerID;
 	u8	EEPROMRegulatory;
 	u8	EEPROMThermalMeter;
-	u8	EEPROMBluetoothCoexist; 
+	u8	EEPROMBluetoothCoexist;
 	u8	EEPROMBluetoothType;
 	u8	EEPROMBluetoothAntNum;
 	u8	EEPROMBluetoothAntIsolation;

@@ -38,6 +38,68 @@
 #define MAX_RX_NUMBLKS		(32)
 #define RECVFRAME_HDR_ALIGN 128
 
+#ifdef PLATFORM_OS_XP
+	#ifdef CONFIG_SDIO_HCI
+		#define NR_RECVBUFF 1024//512//128
+	#else
+		#define NR_RECVBUFF (16)
+	#endif
+#elif defined(PLATFORM_OS_CE)
+	#ifdef CONFIG_SDIO_HCI
+		#define NR_RECVBUFF (128)
+	#else
+		#define NR_RECVBUFF (4)
+	#endif
+#else
+	#if defined(CONFIG_GSPI_HCI)
+		#define NR_RECVBUFF (32)
+	#else
+		#define NR_RECVBUFF (4)
+	#endif
+
+	#define NR_PREALLOC_RECV_SKB (8)
+#endif
+
+
+#if defined(CONFIG_USB_HCI)
+
+#ifdef PLATFORM_OS_CE
+#define MAX_RECVBUF_SZ (8192+1024) // 8K+1k
+#else
+	#ifndef CONFIG_MINIMAL_MEMORY_USAGE
+		//#define MAX_RECVBUF_SZ (32768) // 32k
+		//#define MAX_RECVBUF_SZ (16384) //16K
+		//#define MAX_RECVBUF_SZ (10240) //10K
+		#define MAX_RECVBUF_SZ (15360) // 15k < 16k
+		//#define MAX_RECVBUF_SZ (8192+1024) // 8K+1k
+	#else
+		#define MAX_RECVBUF_SZ (4000) // about 4K
+	#endif
+#endif
+
+#elif defined(CONFIG_PCI_HCI)
+//#ifndef CONFIG_MINIMAL_MEMORY_USAGE
+//	#define MAX_RECVBUF_SZ (9100)
+//#else
+	#define MAX_RECVBUF_SZ (4000) // about 4K
+//#endif
+
+#define RX_MPDU_QUEUE				0
+#define RX_CMD_QUEUE				1
+#define RX_MAX_QUEUE				2
+
+#elif defined(CONFIG_SDIO_HCI)
+
+/* it's difficult for some platform to kmalloc 10K mem */
+#ifdef CONFIG_DONT_CARE_TP
+#define MAX_RECVBUF_SZ (4000)
+#else
+#define MAX_RECVBUF_SZ (10240)
+#endif
+
+#endif
+
+
 #define SNAP_SIZE sizeof(struct ieee80211_snap_hdr)
 
 static u8 SNAP_ETH_TYPE_IPX[2] = {0x81, 0x37};

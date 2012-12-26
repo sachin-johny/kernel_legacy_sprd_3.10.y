@@ -251,6 +251,77 @@ void rtl8192c_Add_RateATid(PADAPTER pAdapter, u32 bitmap, u8 arg)
 
 }
 
+static s32 _rtl8723a_set_lowpwr_lps_cmd(PADAPTER padapter, u8 enable)
+{
+	LOWPWR_LPS_PARM lowpwr_lps;
+	u8 BcnRcvTime = 0;
+	u32 BcnLen;
+	s32 ret;
+
+_func_enter_;
+
+	DBG_871X("%s: Enable=%d\n", __FUNCTION__, enable);
+
+	_rtw_memset(&lowpwr_lps, 0, sizeof(LOWPWR_LPS_PARM));
+	if (enable == _TRUE)
+	{
+		// rcv time(micro%32) use CCK-1M
+		// fcs is 4
+		BcnLen = padapter->mlmepriv.cur_network.network.BcnLength;
+		BcnLen += 500; //add 5ms
+		BcnRcvTime = ((BcnLen<<3)+31) >> 5;
+		//BcnRcvTime += 6400 >> 5; //add 4ms
+		DBG_871X("%s: BcnLength=%d BcnRcvTime=%d (32us)\n", __FUNCTION__, BcnLen, BcnRcvTime);
+
+		lowpwr_lps.enable = 1;
+		lowpwr_lps.bcn_count= 3; // max 15
+		lowpwr_lps.tb_bcn_threshold = 2; // max 7
+		lowpwr_lps.bcn_interval = BcnRcvTime;
+		lowpwr_lps.drop_threshold = 0;
+		lowpwr_lps.max_early_period = 13;
+		lowpwr_lps.max_bcn_timeout_period = 25;
+	}
+
+	ret = FillH2CCmd(padapter, LOWPWR_LPS_EID, 5, (u8*)&lowpwr_lps);
+
+_func_exit_;
+
+	return ret;
+}
+
+s32 rtl8723a_set_lowpwr_lps_cmd(PADAPTER padapter, u8 enable)
+{
+	struct pwrctrl_priv *ppwrpriv;
+	u8 bFlag;
+	s32 ret;
+
+_func_enter_;
+	#ifndef CONFIG_LOW_PWR_LPS
+	return _TRUE;
+	#endif
+	ppwrpriv = &padapter->pwrctrlpriv;
+	if (ppwrpriv->bFwLowPwrLPS == enable)
+		return _TRUE;
+
+	if (enable == _TRUE) {
+		if (check_fwstate(&padapter->mlmepriv, WIFI_ASOC_STATE) == _FALSE) {
+			return _FALSE;
+		}
+	}
+
+	bFlag = ppwrpriv->bFwLowPwrLPS;
+	ppwrpriv->bFwLowPwrLPS = enable;
+
+	ret = _rtl8723a_set_lowpwr_lps_cmd(padapter, enable);
+	if (ret == _FALSE) {
+		ppwrpriv->bFwLowPwrLPS = bFlag; // restore
+	}
+
+_func_exit_;
+
+	return ret;
+}
+
 void rtl8723a_set_FwPwrMode_cmd(PADAPTER padapter, u8 Mode)
 {
 	SETPWRMODE_PARM H2CSetPwrMode;
