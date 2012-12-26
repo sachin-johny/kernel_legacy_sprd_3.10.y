@@ -25,7 +25,9 @@
 #include <linux/irq.h>
 #include <linux/input.h>
 #include <linux/gpio.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 #include <linux/i2c/al3006_pls.h>
@@ -43,8 +45,10 @@ static unsigned char suspend_flag=0;
 static ssize_t al3006_pls_show_suspend(struct device* cd,struct device_attribute *attr, char* buf);
 static ssize_t al3006_pls_store_suspend(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 static ssize_t al3006_pls_show_version(struct device* cd,struct device_attribute *attr, char* buf);
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void al3006_pls_early_suspend(struct early_suspend *handler);
 static void al3006_pls_early_resume(struct early_suspend *handler);
+#endif
 static int al3006_pls_write_data(unsigned char addr, unsigned char data);
 static int al3006_pls_read_data(unsigned char addr, unsigned char *data);
 static int al3006_pls_enable(SENSOR_TYPE type);
@@ -493,6 +497,7 @@ static int al3006_pls_reg_init(void)
 	return ret;
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 /*******************************************************************************
 * Function    :  al3006_pls_early_suspend
 * Description :  cancel the delayed work and put ts to shutdown mode
@@ -521,6 +526,7 @@ static void al3006_pls_early_resume(struct early_suspend *handler)
 	al3006_pls_enable(AL3006_PLS_BOTH);
 #endif
 }
+#endif
 
 static void al3006_pls_report_init(void)
 {
@@ -723,11 +729,13 @@ static int al3006_pls_probe(struct i2c_client *client, const struct i2c_device_i
 	INIT_WORK(&al3006_pls->work, al3006_pls_work);
 	al3006_pls->ltr_work_queue= create_singlethread_workqueue(AL3006_PLS_DEVICE);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	/*register early suspend*/
 	al3006_pls->ltr_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	al3006_pls->ltr_early_suspend.suspend = al3006_pls_early_suspend;
 	al3006_pls->ltr_early_suspend.resume = al3006_pls_early_resume;
 	register_early_suspend(&al3006_pls->ltr_early_suspend);
+#endif
 
 	if(client->irq > 0)
 	{
@@ -748,7 +756,9 @@ static int al3006_pls_probe(struct i2c_client *client, const struct i2c_device_i
 	return 0;
 
 irq_request_err:
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&al3006_pls->ltr_early_suspend);
+#endif
 	destroy_workqueue(al3006_pls->ltr_work_queue);
 exit_input_register_failed:
 	input_free_device(input_dev);
@@ -774,8 +784,10 @@ static int al3006_pls_remove(struct i2c_client *client)
 	flush_workqueue(al3006_pls->ltr_work_queue);
 	destroy_workqueue(al3006_pls->ltr_work_queue);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	/*free suspend*/
 	unregister_early_suspend(&al3006_pls->ltr_early_suspend);
+#endif
 	misc_deregister(&al3006_pls_device);
 	/*free input*/
 	input_unregister_device(al3006_pls->input);

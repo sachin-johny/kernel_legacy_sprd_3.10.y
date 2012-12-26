@@ -20,7 +20,9 @@
 #include <linux/input.h>
 #include <asm/uaccess.h>
 #include <linux/gpio.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/regulator/consumer.h>
 #include <linux/i2c/pixcir_i2c_ts.h>
 #include <mach/regulator.h>
@@ -53,8 +55,10 @@ static ssize_t pixcir_show_debug(struct device* cd,struct device_attribute *attr
 static ssize_t pixcir_store_debug(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 
 static void pixcir_reset(int reset_pin);
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void pixcir_ts_suspend(struct early_suspend *handler);
 static void pixcir_ts_resume(struct early_suspend *handler);
+#endif
 static void pixcir_ts_pwron(struct regulator *reg_vdd);
 static int pixcir_tx_config(void);
 static DEVICE_ATTR(calibrate, 0660, NULL, pixcir_set_calibrate);
@@ -215,12 +219,16 @@ static ssize_t pixcir_store_suspend(struct device* cd, struct device_attribute *
 	if(on_off==1)
 	{
 		printk(KERN_INFO "Pixcir Entry Suspend\n");
+#ifdef CONFIG_HAS_EARLYSUSPEND
 		pixcir_ts_suspend(NULL);
+#endif
 	}
 	else
 	{
 		printk(KERN_INFO "Pixcir Entry Resume\n");
+#ifdef CONFIG_HAS_EARLYSUSPEND
 		pixcir_ts_resume(NULL);
+#endif
 	}
 
 	return len;
@@ -255,7 +263,7 @@ static void pixcir_ts_sleep(void)
     pixcir_i2c_write_data(PIXCIR_PWR_MODE_REG , PIXCIR_PWR_SLEEP_MODE);
 }
 
-
+#ifdef CONFIG_HAS_EARLYSUSPEND
 /* pixcir_ts_suspend --  set pixicr into suspend
  * @return: none
  */
@@ -277,7 +285,7 @@ static void pixcir_ts_resume(struct early_suspend *handler)
 	pixcir_tx_config();
 	enable_irq(g_pixcir_ts->pixcir_irq);
 }
-
+#endif
 
 #ifdef TOUCH_VIRTUAL_KEYS
 #define PIXCIR_KEY_HOME	102
@@ -740,11 +748,14 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 		error = PTR_ERR(dev);
 		return error;
 	}
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	/*********************************Bee-0928-BOTTOM****************************************/
 	tsdata->pixcir_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	tsdata->pixcir_early_suspend.suspend = pixcir_ts_suspend;
 	tsdata->pixcir_early_suspend.resume	= pixcir_ts_resume;
 	register_early_suspend(&tsdata->pixcir_early_suspend);
+#endif
 
 	if((error=pixcir_tx_config())<0) {
 		printk(KERN_ERR "%s: I2C error\n",__func__);
@@ -761,7 +772,9 @@ static int __devinit pixcir_i2c_ts_probe(struct i2c_client *client,
 	printk(KERN_ERR "%s:insmod Fail!\n",__func__);
 
 err_i2c:
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&tsdata->pixcir_early_suspend);
+#endif
 err_free_irq:
 	free_irq(client->irq, tsdata);
 err_free_mem:
@@ -794,7 +807,9 @@ static int __devexit pixcir_i2c_ts_remove(struct i2c_client *client)
 	return_i2c_dev(i2c_dev);
 	device_destroy(i2c_dev_class, MKDEV(I2C_MAJOR, client->adapter->nr));
 	/*********************************Bee-0928-BOTTOM****************************************/
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&tsdata->pixcir_early_suspend);
+#endif
 	input_unregister_device(tsdata->input);
 	kfree(tsdata);
 

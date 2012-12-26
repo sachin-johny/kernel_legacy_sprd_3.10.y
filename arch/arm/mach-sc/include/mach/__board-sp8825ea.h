@@ -30,17 +30,22 @@
 #define HEADSET_BUTTON_GPIO		(A_EIC_START + 4)
 #define HEADSET_DETECT_GPIO		139
 
-#define SPI0_CMMB_CS_GPIO        32
+#define SPI0_CMMB_CS_GPIO        156
 #define SPI1_WIFI_CS_GPIO        44
 
-#define GPIO_BK                  143
-#define MSENSOR_DRDY_GPIO        53
+#define GPIO_BK                  136
+
+#define GPIO_CMMB_RESET         144
+#define GPIO_CMMB_INT           143
+#define GPIO_CMMB_26M_CLK_EN    197
+
+#define GPIO_BT_RESET       194
+#define GPIO_BT_POWER       190
+#define GPIO_BT2AP_WAKE     58
+#define GPIO_AP2BT_WAKE     51
+
+#define GPIO_WIFI_SHUTDOWN	189
+#define GPIO_WIFI_IRQ		52
+
 #define GPIO_PLSENSOR_IRQ	213
-
-#define GPIO_BT_RESET		194
-#define GPIO_WIFI_POWERON	189
-#define GPIO_WIFI_RESET		190
-#define GPIO_WIFI_IRQ	    -1
-
-#define GPIO_GPS_ONOFF	        174
 #endif

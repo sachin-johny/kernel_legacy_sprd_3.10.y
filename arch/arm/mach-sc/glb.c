@@ -24,28 +24,6 @@
 #include <mach/regs_glb.h>
 #include <mach/arch_lock.h>
 
-#ifdef CONFIG_NKERNEL
-static DEFINE_SPINLOCK(glb_lock);
-static void sci_glb_lock(void *flags, void *hw_flags)
-{
-	spin_lock_irqsave(&glb_lock, *flags);
-	*hw_flags = hw_local_irq_save();
-	if (arch_get_hwlock(HWLOCK_GLB))
-		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_GLB), -1)));
-	else
-		arch_hwlock_fast(HWLOCK_GLB);
-}
-
-static void sci_glb_unlock(void *flags, void *hw_flags)
-{
-	if (arch_get_hwlock(HWLOCK_GLB))
-		hwspin_unlock(arch_get_hwlock(HWLOCK_GLB));
-	else
-		arch_hwunlock_fast(HWLOCK_GLB);
-	hw_local_irq_restore(*hw_flags);
-	spin_unlock_irqrestore(&glb_lock, *flags);
-}
-#else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
 static void sci_glb_lock(void *flags, void *hw_flags)
 {
@@ -62,7 +40,6 @@ static void sci_glb_unlock(void *flags, void *hw_flags)
 	else
 		arch_hwunlock_fast(HWLOCK_GLB);
 }
-#endif
 
 u32 sci_glb_read(u32 reg, u32 msk)
 {

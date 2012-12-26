@@ -663,7 +663,7 @@ static int mmc_host_do_disable(struct mmc_host *host, int lazy)
 
 		host->en_dis_recurs = 1;
 		mmc_host_clk_hold(host);
-		err = host->ops->disable(host, lazy);
+		err = host->ops->disable(host);
 		mmc_host_clk_release(host);
 		host->en_dis_recurs = 0;
 

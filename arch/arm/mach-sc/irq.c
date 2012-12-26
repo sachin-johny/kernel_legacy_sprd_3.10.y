@@ -50,15 +50,10 @@ static void sci_irq_eoi(struct irq_data *data)
 	/* nothing to do... */
 }
 
-#ifdef CONFIG_PM
 static int sci_set_wake(struct irq_data *d, unsigned int on)
 {
 	return 0;
 }
-
-#else
-#define sci_set_wake	NULL
-#endif
 
 static void sci_irq_mask(struct irq_data *data)
 {
@@ -88,10 +83,6 @@ static void sci_irq_unmask(struct irq_data *data)
 
 void __init sci_init_irq(void)
 {
-#ifdef CONFIG_NKERNEL
-	extern void nk_ddi_init(void);
-	nk_ddi_init();
-#endif
 	gic_init(0, 29, (void __iomem *)CORE_GIC_DIS_VA,
 		 (void __iomem *)CORE_GIC_CPU_VA);
 	gic_arch_extn.irq_eoi = sci_irq_eoi;

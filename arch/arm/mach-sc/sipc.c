@@ -73,7 +73,7 @@ static struct smsg_ipc smsg_ipc_cpt = {
 	.name = "sipc-td",
 	.dst = SIPC_ID_CPT,
 
-	.irq = IRQ_CP2AP_INT0,
+	.irq = IRQ_SIPC_CPT,
 	.rxirq_status = cpt_rxirq_status,
 	.rxirq_clear = cpt_rxirq_clear,
 	.txirq_trigger = cpt_txirq_trigger,
@@ -97,8 +97,8 @@ static int __init sipc_init(void)
 	smsg_ipc_cpt.rxbuf_rdptr = base + CPT_RXBUF_RDPTR;
 	smsg_ipc_cpt.rxbuf_wrptr = base + CPT_RXBUF_WRPTR;
 
-//	smsg_ipc_create(SIPC_ID_CPT, &smsg_ipc_cpt);
-//	smem_init(SMEM_CPT_ADDR, SMEM_CPT_SIZE);
+	smsg_ipc_create(SIPC_ID_CPT, &smsg_ipc_cpt);
+	smem_init(SMEM_CPT_ADDR, SMEM_CPT_SIZE);
 
 #ifdef CONFIG_DEBUG_FS
 	debugfs_create_x32("txirq_trigger", S_IWUSR, NULL, txirq_trigger);

@@ -211,9 +211,9 @@ static void lcdc_hw_init(void)
 	reg_val = (1<<0);
 
 	/* FMARK mode */
-	#if CONFIG_FB_LCD_NOFMARK
+#ifdef CONFIG_FB_LCD_NOFMARK
 	reg_val |= (1<<1);
-	#endif
+#endif
 
 	/* FMARK pol */
 	reg_val |= (1<<2);

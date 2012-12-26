@@ -15,7 +15,12 @@
  */
 
 #include <linux/kernel.h>
-#include <mach/lcd.h>
+//#include <mach/lcd.h>
+#include <linux/delay.h>
+#include <linux/err.h>
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
+#include "lcdpanel.h"
 
 #define  LCD_DEBUG
 #ifdef LCD_DEBUG
@@ -24,10 +29,10 @@
 #define LCD_PRINT(...)
 #endif
 
-static int32_t ili9486_init(struct lcd_spec *self)
+static int32_t ili9486_init(struct panel_spec *self)
 {
-	Send_data send_cmd = self->info.mcu->ops->send_cmd;
-	Send_data send_data = self->info.mcu->ops->send_data;
+	send_data_t send_cmd = self->info.mcu->ops->send_cmd;
+	send_data_t send_data = self->info.mcu->ops->send_data;
 
 	LCD_PRINT("ili9486_init\n");
 
@@ -234,34 +239,18 @@ static int32_t ili9486_init(struct lcd_spec *self)
 
 	mdelay(100); // 100ms
 	
-	
-	if (1) { //  for test the lcd
-		int i;
-		send_cmd(0x2C); //Write data
-		for (i = 0; i < 480*320/3; i++)
-			send_data(0xff);
-		for (i = 0; i < 480*320/3; i++)
-			send_data(0xff00);
-		for (i = 0; i < 480*320/3; i++)
-			send_data(0xff0000);
-	}
-	send_cmd(0x29); //Display On 
-	mdelay(120); //120ms
-	send_cmd(0x2C); //Write data
-	//mdelay(120); //120ms
-	
 	LCD_PRINT("ili9486_init: end\n");
 
 	return 0;
 }
 
-static int32_t ili9486_set_window(struct lcd_spec *self,
+static int32_t ili9486_set_window(struct panel_spec *self,
 		uint16_t left, uint16_t top, uint16_t right, uint16_t bottom)
 {
-	Send_data send_cmd = self->info.mcu->ops->send_cmd;
-	Send_data send_data = self->info.mcu->ops->send_data;
+	send_data_t send_cmd = self->info.mcu->ops->send_cmd;
+	send_data_t send_data = self->info.mcu->ops->send_data;
 
-	LCD_PRINT("ili9486_set_window\n");
+//	LCD_PRINT("ili9486_set_window\n");
 
 	send_cmd(0x2A); // col
 	send_data((left >> 8));
@@ -280,17 +269,16 @@ static int32_t ili9486_set_window(struct lcd_spec *self,
 	return 0;
 }
 
-
-static int32_t ili9486_invalidate(struct lcd_spec *self)
+static int32_t ili9486_invalidate(struct panel_spec *self)
 {
-	LCD_PRINT("ili9486_invalidate\n");
+//	LCD_PRINT("ili9486_invalidate\n");
 
-	return self->ops->lcd_set_window(self, 0, 0, 
+	return self->ops->panel_set_window(self, 0, 0,
 			self->width-1, self->height-1);
 	
 }
 
-static int32_t ili9486_invalidate_rect(struct lcd_spec *self,
+static int32_t ili9486_invalidate_rect(struct panel_spec *self,
 				uint16_t left, uint16_t top,
 				uint16_t right, uint16_t bottom)
 {
@@ -298,20 +286,21 @@ static int32_t ili9486_invalidate_rect(struct lcd_spec *self,
 	LCD_PRINT("ili9486_invalidate_rect : (%d, %d, %d, %d)\n",left, top, right, bottom);
 
 
-	return self->ops->lcd_set_window(self, left, top, 
+	return self->ops->panel_set_window(self, left, top,
 			right, bottom);
 }
 
-static int32_t ili9486_set_direction(struct lcd_spec *self, uint16_t direction)
+static int32_t ili9486_set_direction(struct panel_spec *self, uint16_t direction)
 {
 
 	LCD_PRINT("ili9486_set_direction\n");
 	return 0;
 }
 
-static int32_t ili9486_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
+static int32_t ili9486_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 {
-	Send_data send_cmd = self->info.mcu->ops->send_cmd;
+	send_data_t send_cmd = self->info.mcu->ops->send_cmd;
+	send_data_t send_data = self->info.mcu->ops->send_data;
 
 	if(is_sleep) {
 		//send_cmd(0x10);
@@ -324,11 +313,11 @@ static int32_t ili9486_enter_sleep(struct lcd_spec *self, uint8_t is_sleep)
 	return 0;
 }
 
-static uint32_t ili9486_read_id(struct lcd_spec *self)
+static uint32_t ili9486_read_id(struct panel_spec *self)
 {
 	uint32_t read_value = 0;
-	Send_data send_cmd = self->info.mcu->ops->send_cmd;
-	Read_data read_data = self->info.mcu->ops->read_data;
+	send_data_t send_cmd = self->info.mcu->ops->send_cmd;
+	read_data_t read_data = self->info.mcu->ops->read_data;
 	
 	send_cmd(0x04);
 
@@ -340,14 +329,14 @@ static uint32_t ili9486_read_id(struct lcd_spec *self)
 	return read_value; 
 }
 
-static struct lcd_operations lcd_ili9486_operations = {
-	.lcd_init            = ili9486_init,
-	.lcd_set_window      = ili9486_set_window,
-	.lcd_invalidate      = ili9486_invalidate,
-	//.lcd_invalidate_rect = ili9486_invalidate_rect,
-	.lcd_set_direction   = ili9486_set_direction,
-	.lcd_enter_sleep     = ili9486_enter_sleep,
-	.lcd_readid          = ili9486_read_id,
+static struct panel_operations lcd_ili9486_operations = {
+	.panel_init            = ili9486_init,
+	.panel_set_window      = ili9486_set_window,
+	.panel_invalidate      = ili9486_invalidate,
+	.panel_invalidate_rect = ili9486_invalidate_rect,
+	.panel_set_direction   = ili9486_set_direction,
+	.panel_enter_sleep     = ili9486_enter_sleep,
+	.panel_readid          = ili9486_read_id,
 };
 
 static struct timing_mcu lcd_ili9486_timing[] = {
@@ -372,16 +361,72 @@ static struct timing_mcu lcd_ili9486_timing[] = {
 static struct info_mcu lcd_ili9486_info = {
 	.bus_mode = LCD_BUS_8080,
 	.bus_width = 16,
-	.timing = &lcd_ili9486_timing,
+	.timing    = lcd_ili9486_timing,
 	.ops = NULL,
 };
 
-struct lcd_spec lcd_panel_ili9486 = {
-	.width = 320,
-	.height = 480,
+struct panel_spec lcd_ili9486_spec = {
+	.width = 240,
+	.height = 320,
 	.mode = LCD_MODE_MCU,
 	.direction = LCD_DIRECT_NORMAL,
 	.info = {.mcu = &lcd_ili9486_info},
 	.ops = &lcd_ili9486_operations,
 };
 
+struct panel_cfg lcd_ili9486 = {
+	.lcd_cs = -1,
+//	.lcd_id = 0x5bbc,
+//	.lcd_id = 0x61a4,
+	.lcd_id = 0x2080,
+	.lcd_name = "lcd_ili9486",
+	.panel = &lcd_ili9486_spec,
+};
+
+static int lcd_regulator(void)
+{
+	int err;
+	struct regulator *lcd_regulator = NULL;
+	struct regulator *lcdio_regulator = NULL;
+
+	lcd_regulator = regulator_get(NULL, REGU_NAME_LCD);
+	if (IS_ERR(lcd_regulator)) {
+		pr_err("ILI9486:could not get lcd regulator\n");
+		return -1;
+	}
+
+	err = regulator_enable(lcd_regulator);
+	if (err) {
+		pr_err("ILI9486:could not enable lcd regulator\n");
+		return -1;
+	}
+	err = regulator_set_voltage(lcd_regulator,3000000,3000000);
+	if (err)
+		pr_err("ILI9486:could not set lcd to 3000mv.\n");
+
+
+	lcdio_regulator = regulator_get(NULL, REGU_NAME_LCDIO);
+	if (IS_ERR(lcdio_regulator)) {
+		pr_err("ILI9486:could not get lcdio regulator\n");
+		return -1;
+	}
+
+	err = regulator_enable(lcdio_regulator);
+	if (err) {
+		pr_err("ILI9486:could not enable lcdio regulator\n");
+		return -1;
+	}
+
+	err =regulator_set_voltage(lcdio_regulator,1800000,1800000);
+	if (err)
+		pr_err("ILI9486:could not set lcdio to 1800mv.\n");
+	return 0;
+}
+
+static int __init lcd_ili9486_init(void)
+{
+	lcd_regulator();
+	return sprd_register_panel(&lcd_ili9486);
+}
+
+subsys_initcall(lcd_ili9486_init);

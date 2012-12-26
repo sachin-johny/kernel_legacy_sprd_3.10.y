@@ -63,7 +63,9 @@ typedef  struct _al3006_pls_t{
 	struct i2c_client *client;
 	struct work_struct	work;
 	struct workqueue_struct *ltr_work_queue;
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend ltr_early_suspend;
+#endif
 }al3006_pls_struct;
 
 #endif

@@ -127,19 +127,19 @@ struct platform_device sprd_nand_device = {
 	.resource	= sprd_nand_resources,
 };
 
-static struct resource hwspinlock_resources[] = {
+static struct resource sprd_hwspinlock_resources[] = {
 	[0] = {
-		.start	= SPRD_HWLOCK0_BASE,
-		.end = SPRD_HWLOCK0_BASE + SPRD_HWLOCK0_SIZE - 1,
+		.start	= SPRD_HWLOCK_BASE,
+		.end = SPRD_HWLOCK_BASE + SPRD_HWLOCK_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
 
-struct platform_device hwspinlock_device0 = {
-	.name		= "sci_hwspinlock",
+struct platform_device sprd_hwspinlock_device0 = {
+	.name		= "sprd_hwspinlock",
 	.id		= -1,
-	.num_resources	= ARRAY_SIZE(hwspinlock_resources),
-	.resource	= hwspinlock_resources,
+	.num_resources	= ARRAY_SIZE(sprd_hwspinlock_resources),
+	.resource	= sprd_hwspinlock_resources,
 };
 #if 0
 static struct resource sprd_lcd_resources[] = {
@@ -995,18 +995,19 @@ struct platform_device sprd_stty_td_device = {
 	.id             = 2,
 	.dev		= {.platform_data = &sprd_stty_td_pdata},
 };
-#if defined (CONFIG_MACH_SP8830EA) || defined (CONFIG_MACH_SP8830FPGA)
+
+static struct seth_init_data sprd_seth_td_pdata = {
+	.name		= "veth0",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA,
+};
+struct platform_device sprd_seth_td_device = {
+	.name           = "seth",
+	.id             =  0,
+	.dev		= {.platform_data = &sprd_seth_td_pdata},
+};
+
 static struct resource sprd_pmu_resource[] = {
-	[0] = {
-		.start		= IRQ_CA5PMU_NCT_INT0,
-		.end		= IRQ_CA5PMU_NCT_INT0,
-		.flags		= IORESOURCE_IRQ,
-	},
-	[1] = {
-		.start		= IRQ_CA5PMU_NCT_INT1,
-		.end		= IRQ_CA5PMU_NCT_INT1,
-		.flags		= IORESOURCE_IRQ,
-	},
 };
 
 static struct platform_device sprd_pmu_device = {
@@ -1016,11 +1017,5 @@ static struct platform_device sprd_pmu_device = {
 	.num_resources	= ARRAY_SIZE(sprd_pmu_resource),
 };
 
-static void sprd_init_pmu(void)
-{
-	platform_device_register(&sprd_pmu_device);
-}
-arch_initcall(sprd_init_pmu);
-#endif
 #endif
 

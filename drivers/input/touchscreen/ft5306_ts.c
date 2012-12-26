@@ -30,7 +30,9 @@
 #include <linux/input.h>
 #include <asm/uaccess.h>
 #include <linux/gpio.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/regulator/consumer.h>
 #include <linux/i2c/ft5306_ts.h>
 #include <mach/regulator.h>
@@ -67,8 +69,10 @@ static ssize_t ft5x0x_update(struct device* cd, struct device_attribute *attr, c
 static ssize_t ft5x0x_show_debug(struct device* cd,struct device_attribute *attr, char* buf);
 static ssize_t ft5x0x_store_debug(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 static unsigned char ft5x0x_read_fw_ver(void);
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x0x_ts_suspend(struct early_suspend *handler);
 static void ft5x0x_ts_resume(struct early_suspend *handler);
+#endif
 static int fts_ctpm_fw_update(void);
 static int fts_ctpm_fw_upgrade_with_i_file(void);
 
@@ -93,7 +97,9 @@ struct ft5x0x_ts_data {
 	struct ts_event	event;
 	struct work_struct	pen_event_work;
 	struct workqueue_struct	*ts_workqueue;
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
+#endif
 	struct ft5x0x_ts_platform_data	*platform_data;
 //	struct timer_list touch_timer;
 };
@@ -146,6 +152,7 @@ static ssize_t ft5x0x_store_suspend(struct device* cd, struct device_attribute *
 	unsigned long on_off = simple_strtoul(buf, NULL, 10);
 	suspend_flag = on_off;
 
+#if 0
 	if(on_off==1)
 	{
 		printk("FT5206 Entry Suspend\n");
@@ -156,7 +163,7 @@ static ssize_t ft5x0x_store_suspend(struct device* cd, struct device_attribute *
 		printk("FT5206 Entry Resume\n");
 		ft5x0x_ts_resume(NULL);
 	}
-
+#endif
 	return len;
 }
 
@@ -987,6 +994,7 @@ static void ft5x0x_ts_reset(void)
 	msleep(200);
 }
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
 	printk("==ft5x0x_ts_suspend=\n");
@@ -999,6 +1007,7 @@ static void ft5x0x_ts_resume(struct early_suspend *handler)
 	ft5x0x_ts_reset();
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
 }
+#endif
 
 static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 {
@@ -1132,11 +1141,13 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	disable_irq_nosync(client->irq);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	TS_DBG("==register_early_suspend =");
 	ft5x0x_ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	ft5x0x_ts->early_suspend.suspend = ft5x0x_ts_suspend;
 	ft5x0x_ts->early_suspend.resume	= ft5x0x_ts_resume;
 	register_early_suspend(&ft5x0x_ts->early_suspend);
+#endif
 
 	msleep(100);
 	//get some register information
@@ -1184,7 +1195,9 @@ static int __devexit ft5x0x_ts_remove(struct i2c_client *client)
 
 	printk("==ft5x0x_ts_remove=\n");
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&ft5x0x_ts->early_suspend);
+#endif
 	free_irq(client->irq, ft5x0x_ts);
 	input_unregister_device(ft5x0x_ts->input_dev);
 	kfree(ft5x0x_ts);

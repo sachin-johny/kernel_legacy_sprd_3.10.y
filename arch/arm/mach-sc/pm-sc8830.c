@@ -1,6 +1,5 @@
-/* arch/arm/mach-sc8810/include/mach/io.h
- *
- * Copyright (C) 2012 Spreadtrum
+/*
+ * Copyright (C) 2012 Spreadtrum Communications Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -10,18 +9,23 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- *
  */
 
-#ifndef __ASM_ARCH_MEMORY_H
-#define __ASM_ARCH_MEMORY_H
+void *iram_start = 0;
 
-#define __pfn_to_bus(x) 	__pfn_to_phys(x)
-#define __bus_to_pfn(x)		__phys_to_pfn(x)
+void check_ldo(void)
+{
+}
 
-/* Maximum of 256MiB in one bank */
-#define MAX_PHYSMEM_BITS	32
-#define SECTION_SIZE_BITS	28
+void check_pd(void)
+{
+}
 
-#endif
+unsigned int sprd_irq_pending(void)
+{
+}
 
+void sc_pm_init(void)
+{
+
+}

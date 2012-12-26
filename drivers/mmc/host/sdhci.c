@@ -1358,16 +1358,6 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
  * MMC callbacks                                                             *
  *                                                                           *
 \*****************************************************************************/
-static void sdhci_hw_reset(struct mmc_host *mmc)
-{
-	int ret = 0;
-	struct sdhci_host *host = mmc_priv(mmc);
-	mmc_power_off(mmc);
-	usleep_range(5000, 5500);
-	mmc_power_up(mmc);
-	sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
-	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
-}
 
 #ifdef CONFIG_PM_RUNTIME
 static int sdhci_enable(struct mmc_host *mmc){
@@ -1522,8 +1512,6 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	unsigned long flags;
 	int vdd_bit = -1;
 	u8 ctrl;
-
-	host = mmc_priv(mmc);
 
 	wake_lock(&sdhci_wake_lock);
 	spin_lock_irqsave(&host->lock, flags);
@@ -1775,10 +1763,8 @@ static int sdhci_do_get_ro(struct sdhci_host *host)
 
 static void sdhci_hw_reset(struct mmc_host *mmc)
 {
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (host->ops && host->ops->hw_reset)
-		host->ops->hw_reset(host);
+	if (mmc && mmc->ops->hw_reset)
+		mmc->ops->hw_reset(mmc);
 }
 
 static int sdhci_get_ro(struct mmc_host *mmc)
@@ -2134,7 +2120,6 @@ out:
 
 static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 {
-	struct sdhci_host *host;
 #ifdef CONFIG_MMC_SDHCI_SC8825
 	u32 ctrl;
 #else
@@ -2185,21 +2170,16 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 }
 
 static const struct mmc_host_ops sdhci_ops = {
-#ifndef CONFIG_MACH_SP8825_FPGA
 	.enable				= sdhci_enable,
 	.disable			= sdhci_disable,
-#endif
-	.request	= sdhci_request,
-	.set_ios	= sdhci_set_ios,
-	.get_ro		= sdhci_get_ro,
-	.hw_reset	= sdhci_hw_reset,
-	.enable_sdio_irq = sdhci_enable_sdio_irq,
+	.request			= sdhci_request,
+	.set_ios			= sdhci_set_ios,
+	.get_ro				= sdhci_get_ro,
+	.hw_reset			= sdhci_hw_reset,
+	.enable_sdio_irq		= sdhci_enable_sdio_irq,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.execute_tuning			= sdhci_execute_tuning,
 	.enable_preset_value		= sdhci_enable_preset_value,
-#ifndef CONFIG_MACH_SP8825_FPGA
-	.hw_reset 			= sdhci_hw_reset,
-#endif
 };
 
 /*****************************************************************************\
@@ -2680,9 +2660,6 @@ int sdhci_suspend_host(struct sdhci_host *host)
 	int ret;
 	bool has_tuning_timer;
 
-	if (host->ops->platform_suspend)
-		host->ops->platform_suspend(host);
-
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_disable_card_detection(host);
 #endif
@@ -2777,9 +2754,6 @@ int sdhci_resume_host(struct sdhci_host *host)
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
-
-	if (host->ops->platform_resume)
-		host->ops->platform_resume(host);
 
 	/* Set the re-tuning expiration flag */
 	if ((host->version >= SDHCI_SPEC_300) && host->tuning_count &&

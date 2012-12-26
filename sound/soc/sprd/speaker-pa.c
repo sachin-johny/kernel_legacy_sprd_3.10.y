@@ -12,6 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <linux/module.h>
 #include <sound/audio_pa.h>
 
 paudio_pa_control audio_pa_amplifier;

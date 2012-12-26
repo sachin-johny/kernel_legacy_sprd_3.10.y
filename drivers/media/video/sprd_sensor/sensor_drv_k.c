@@ -35,11 +35,7 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 
-#ifdef CONFIG_ARCH_SC8825
 #include <mach/i2c-sprd.h>
-#else
-#include <mach/i2c-sc8810.h>
-#endif
 
 #include "sensor_drv_k.h"
 

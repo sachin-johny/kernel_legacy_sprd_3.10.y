@@ -14,6 +14,7 @@
  */
 #define pr_fmt(fmt) "[audio:sc882x] " fmt
 
+#include <linux/module.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>

@@ -34,7 +34,9 @@
 #include <linux/input.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/platform_device.h>
 #include <asm/uaccess.h>
 #include <linux/wakelock.h>

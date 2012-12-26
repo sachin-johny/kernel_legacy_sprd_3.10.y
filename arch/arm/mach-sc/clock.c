@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Spreadtrum Communications Inc.
- * 
+ *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * as published by the Free Software Foundation; either version 2
@@ -160,9 +160,10 @@ EXPORT_SYMBOL(clk_get_parent);
 
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {
-	int ret = 0;
+	int ret = -EACCES;
 	unsigned long flags;
-	debug0("clk %p, parent %p\n", clk, parent);
+	struct clk *old_parent = clk_get_parent(clk);
+	debug0("clk %p, parent %p <<< %p\n", clk, parent, old_parent);
 	if (IS_ERR_OR_NULL(clk) || IS_ERR(parent))
 		return -EINVAL;
 
@@ -170,6 +171,21 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	if (clk->ops && clk->ops->set_parent)
 		ret = (clk->ops->set_parent) (clk, parent);
 	spin_unlock_irqrestore(&clocks_lock, flags);
+
+#if defined(CONFIG_DEBUG_FS)
+	/* FIXME: call debugfs_rename() out of spin lock,
+	 * maybe not match with the real parent-child relationship
+	 * in some extreme scenes.
+	 */
+	if (0 == ret && old_parent && old_parent->dent && clk->dent
+		&& parent && parent->dent) {
+		debug0("directory dentry move %s to %s\n",
+			   old_parent->regs->name,
+			   parent->regs->name);
+		debugfs_rename(old_parent->dent, clk->dent,
+				   parent->dent, clk->regs->name);
+	}
+#endif
 	return ret;
 }
 
@@ -313,16 +329,6 @@ static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 			if (c->regs->sel.reg)
 				sci_glb_write(c->regs->sel.reg, i << sel_shift,
 					      c->regs->sel.mask);
-#if defined(CONFIG_DEBUG_FS)
-			if (c->parent && c->parent->dent && c->dent
-			    && parent->dent) {
-				debug0("directory dentry move %s to %s\n",
-				       c->parent->regs->name,
-				       parent->regs->name);
-				debugfs_rename(c->parent->dent, c->dent,
-					       parent->dent, c->regs->name);
-			}
-#endif
 			c->parent = parent;
 			if (c->ops)
 				c->rate = 0;	/* FIXME: auto update clock rate after new parent */

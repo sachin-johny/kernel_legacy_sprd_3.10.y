@@ -57,9 +57,9 @@ postcore_initcall_sync(early_init_hwlocks);
 static int __init hwspinlocks_init(void)
 {
 	int ret = 0;
-	ret = platform_device_register(&hwspinlock_device0);
+	ret = platform_device_register(&sprd_hwspinlock_device0);
 	if (WARN(ret != 0, "register hwspinlock device error!!"))
-		platform_device_unregister(&hwspinlock_device0);
+		platform_device_unregister(&sprd_hwspinlock_device0);
 
 	return 0;
 }

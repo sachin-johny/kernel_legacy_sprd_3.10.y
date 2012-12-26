@@ -6,7 +6,7 @@ choice
 	prompt "Spreadtrum SoC Type"
 
 config  ARCH_SC8825
-	bool "sc8830 series(tiger)"
+	bool "sc8825 series(tiger)"
 	select CPU_V7
 	select HAVE_SMP
 	select ARM_GIC
@@ -56,25 +56,25 @@ endchoice
 menu "Spreadtrum Board Type"
 
 config MACH_SP8825EA
+	bool "sp8825ea Phone Board"
 	depends on ARCH_SC
 	depends on ARCH_SC8825
-	bool "MACH_SP8825EA"
 	default y
 	help
 	  sp8825 EB board based on SC8825 serial.
 
 config MACH_SP8830FPGA
+	bool "sp8830 FPGA Board"
 	depends on ARCH_SC
 	depends on ARCH_SC8830
-	bool "MACH_SP8830FPGA"
 	default n
 	help
 	  SP8830 fpga board based on SC8830 serial.
 
 config MACH_SP8830EA
+	bool "sp8830ea Phone Board"
 	depends on ARCH_SC
 	depends on ARCH_SC8830
-	bool "MACH_SP8830EA"
 	default y
 	help
 	  SP8830 EB board based on SC8830 serial.
@@ -94,13 +94,13 @@ config SPRD_ION_OVERLAY_SIZE
 	depends on ION
 
 config SC_VIBRATOR
+        bool "vibrator for SC serials"
         select ANDROID_TIMED_OUTPUT
         default n
-        bool "vibrator for SC serials"
 
 config SPRD_DCDC_DEBUG
-	default n
 	tristate "Enable dcdc debug module"
+	default n
 	help
 	  This option select dcdc debug module.
 endif

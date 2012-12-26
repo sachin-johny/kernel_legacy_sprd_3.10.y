@@ -13,6 +13,7 @@
  * GNU General Public License for more details.
  *
  */
+#include <linux/module.h>
 #include <mach/board.h>
 #include <linux/device.h>
 #include <linux/interrupt.h>

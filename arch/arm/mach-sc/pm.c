@@ -21,7 +21,7 @@
 
 extern unsigned int sprd_irq_pending(void);
 extern int sprd_cpu_deep_sleep(unsigned int cpu);
-extern void sc8830_pm_init(void);
+extern void sc_pm_init(void);
 extern void check_ldo(void);
 extern void check_pd(void);
 
@@ -47,9 +47,9 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 {
 	int ret_val = 0;
 	unsigned long flags;
+	unsigned int cpu = smp_processor_id();
 	u32 battery_time, cur_time;
 	battery_time = cur_time = get_sys_cnt();
-	unsigned int cpu = smp_processor_id();
 
 	/* add for debug & statisic*/
 	clr_sleep_mode();
@@ -150,9 +150,9 @@ static struct platform_suspend_ops sprd_pm_ops = {
 	.finish		= sprd_pm_finish,
 };
 
-static int __init pm_init(void)
+static int __init sprd_pm_init(void)
 {
-	sc8830_pm_init();
+	sc_pm_init();
 
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&sprd_pm_ops);
@@ -161,4 +161,4 @@ static int __init pm_init(void)
 	return 0;
 }
 
-device_initcall(pm_init);
+device_initcall(sprd_pm_init);

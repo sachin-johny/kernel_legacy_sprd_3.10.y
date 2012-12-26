@@ -14,7 +14,7 @@
 #ifndef __ARCH_ARM_MACH_SPRD_DEVICES_H
 #define __ARCH_ARM_MACH_SPRD_DEVICES_H
 
-extern struct platform_device hwspinlock_device0;
+extern struct platform_device sprd_hwspinlock_device0;
 extern struct platform_device sprd_serial_device0;
 extern struct platform_device sprd_serial_device1;
 extern struct platform_device sprd_serial_device2;
@@ -38,10 +38,6 @@ extern struct platform_device sprd_audio_cpu_dai_vbc_device;
 extern struct platform_device sprd_audio_codec_sprd_codec_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
-#ifdef CONFIG_ANDROID_PMEM
-extern struct platform_device sprd_pmem_device;
-extern struct platform_device sprd_pmem_adsp_device;
-#endif
 #ifdef CONFIG_ION
 extern struct platform_device sprd_ion_dev;
 #endif
@@ -66,5 +62,7 @@ extern struct platform_device sprd_spipe_td_device;
 extern struct platform_device sprd_slog_td_device;
 extern struct platform_device sprd_stty_td_device;
 extern struct platform_device sprd_cproc_td_device;
+extern struct platform_device sprd_seth_td_device;
+extern struct platform_device sprd_pmu_device;
 
 #endif

@@ -144,6 +144,9 @@
 #define IRQ_NCNTPS2_INT			SCI_IRQ(120)
 #define IRQ_NCNTPS3_INT			SCI_IRQ(121)
 
+/* FIXME: just for compiling issue */
+#define IRQ_SIPC_CPT			0
+
 /* translate gic irq number(user using ) to intc number */
 #define SCI_GET_INTC_IRQ(_IRQ_NUM_)	((_IRQ_NUM_) - IRQ_GIC_START)
 #define SCI_INTC_IRQ_BIT(_IRQ_NUM_)	((SCI_GET_INTC_IRQ(_IRQ_NUM_)<IRQ_GIC_START)	? \

@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
+#include <linux/delay.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -26,17 +27,18 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
-//#include <linux/i2c/ft5306_ts.h>
-//#include <linux/i2c/lis3dh.h>
-//#include <linux/i2c/ltr_558als.h>
-//#include <linux/akm8975.h>
+#include <linux/i2c/ft5306_ts.h>
+#include <linux/i2c/lis3dh.h>
+#include <linux/i2c/ltr_558als.h>
+#include <linux/akm8975.h>
 #include <linux/spi/spi.h>
+#include <linux/gpio.h>
 #include <mach/board.h>
 #include <mach/serial_sprd.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
-#include <linux/gpio.h>
-//#include <linux/akm8975.h>
+#include <mach/pinmap.h>
+#include <linux/akm8975.h>
 #include <linux/irq.h>
 
 #include <mach/sci.h>
@@ -48,6 +50,9 @@
 
 /* IRQ's for the multi sensor board */
 #define MPUIRQ_GPIO 212
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
+#include <linux/spi/mxd_cmmb_026x.h>
 
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
@@ -55,13 +60,18 @@ extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
 
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+extern int __init sprd_ramconsole_init(void);
+#endif
+
+static struct platform_device rfkill_device;
+static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
 	&sprd_serial_device2,
-#if 0
 	&sprd_device_rtc,
 	&sprd_nand_device,
 	&sprd_lcd_device0,
@@ -79,17 +89,13 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_audio_cpu_dai_vbc_device,
 	&sprd_audio_codec_sprd_codec_device,
 	&sprd_battery_device,
-#ifdef CONFIG_ANDROID_PMEM
-	&sprd_pmem_device,
-	&sprd_pmem_adsp_device,
-#endif
 #ifdef CONFIG_ION
 	&sprd_ion_dev,
 #endif
+	&sprd_emmc_device,
 	&sprd_sdio0_device,
 	&sprd_sdio1_device,
 	&sprd_sdio2_device,
-	&sprd_emmc_device,
 	&sprd_vsp_device,
 	&sprd_dcam_device,
 	&sprd_scale_device,
@@ -104,15 +110,66 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm0_device,
 	&sprd_axi_bm1_device,
 	&sprd_axi_bm2_device,
+#if 0
+	&rfkill_device,
+	&brcm_bluesleep_device,
+#endif
 #ifdef CONFIG_SIPC
-	&sprd_spipe_td_device,
-	&sprd_slog_td_device,
-	&sprd_stty_td_device,
+	&sprd_cproc_td_device,
+        &sprd_spipe_td_device,
+        &sprd_slog_td_device,
+        &sprd_stty_td_device,
+	&sprd_seth_td_device,
 #endif
+	&sprd_pmu_device,
 	&kb_backlight_device,
-#endif
 };
 
+/* BT suspend/resume */
+static struct resource bluesleep_resources[] = {
+	{
+		.name	= "gpio_host_wake",
+		.start	= GPIO_BT2AP_WAKE,
+		.end	= GPIO_BT2AP_WAKE,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "gpio_ext_wake",
+		.start	= GPIO_AP2BT_WAKE,
+		.end	= GPIO_AP2BT_WAKE,
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+static struct platform_device brcm_bluesleep_device = {
+	.name = "bluesleep",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(bluesleep_resources),
+	.resource	= bluesleep_resources,
+};
+
+/* RFKILL */
+static struct resource rfkill_resources[] = {
+	{
+		.name   = "bt_power",
+		.start  = GPIO_BT_POWER,
+		.end    = GPIO_BT_POWER,
+		.flags  = IORESOURCE_IO,
+	},
+	{
+		.name   = "bt_reset",
+		.start  = GPIO_BT_RESET,
+		.end    = GPIO_BT_RESET,
+		.flags  = IORESOURCE_IO,
+	},
+};
+
+static struct platform_device rfkill_device = {
+	.name = "rfkill",
+	.id = -1,
+	.num_resources	= ARRAY_SIZE(rfkill_resources),
+	.resource	= rfkill_resources,
+};
 
 /* keypad backlight */
 static struct platform_device kb_backlight_device = {
@@ -163,7 +220,6 @@ static struct serial_data plat_data2 = {
 	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
 	.clk = 26000000,
 };
-#if 0
 
 static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
@@ -175,6 +231,8 @@ static struct ltr558_pls_platform_data ltr558_pls_info = {
 	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
 };
 
+/* TODO: mpu sensor drivers not merged */
+#if 0
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.poll_interval = 10,
 	.min_interval = 10,
@@ -228,6 +286,7 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 	  .platform_data = &akm8975_platform_d,
 	},*/
 };
+#endif
 
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
@@ -243,12 +302,13 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 
 static int sc8810_add_i2c_devices(void)
 {
+#if 0
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
+#endif
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
 	return 0;
 }
-
 
 struct platform_device audio_pa_amplifier_device = {
 	.name = "speaker-pa",
@@ -267,6 +327,141 @@ static int audio_pa_amplifier_l(u32 cmd, void *data)
 	return ret;
 }
 
+/* Control ldo for maxscend cmmb chip according to HW design */
+static struct regulator *cmmb_regulator_1v8 = NULL;
+
+#define SPI_PIN_FUNC_MASK  (0x3<<4)
+#define SPI_PIN_FUNC_DEF   (0x0<<4)
+#define SPI_PIN_FUNC_GPIO  (0x3<<4)
+
+struct spi_pin_desc {
+	const char   *name;
+	unsigned int pin_func;
+	unsigned int reg;
+	unsigned int gpio;
+};
+
+static struct spi_pin_desc spi_pin_group[] = {
+	{"SPI_DI",  SPI_PIN_FUNC_DEF,  REG_PIN_SPI0_DI   + CTL_PIN_BASE,  158},
+	{"SPI_CLK", SPI_PIN_FUNC_DEF,  REG_PIN_SPI0_CLK  + CTL_PIN_BASE,  159},
+	{"SPI_DO",  SPI_PIN_FUNC_DEF,  REG_PIN_SPI0_DO   + CTL_PIN_BASE,  157},
+	{"SPI_CS0", SPI_PIN_FUNC_GPIO, REG_PIN_SPI0_CSN  + CTL_PIN_BASE,  156}
+};
+
+
+static void sprd_restore_spi_pin_cfg(void)
+{
+	unsigned int reg;
+	unsigned int  gpio;
+	unsigned int  pin_func;
+	unsigned int value;
+	unsigned long flags;
+	int i = 0;
+	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
+
+	for (; i < regs_count; i++) {
+	    pin_func = spi_pin_group[i].pin_func;
+	    gpio = spi_pin_group[i].gpio;
+	    if (pin_func == SPI_PIN_FUNC_DEF) {
+		 reg = spi_pin_group[i].reg;
+		 /* free the gpios that have request */
+		 gpio_free(gpio);
+		 local_irq_save(flags);
+		 /* config pin default spi function */
+		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_DEF);
+		 __raw_writel(value, reg);
+		 local_irq_restore(flags);
+	    }
+	    else {
+		 /* CS should config output */
+		 gpio_direction_output(gpio, 1);
+	    }
+	}
+
+}
+
+
+static void sprd_set_spi_pin_input(void)
+{
+	unsigned int reg;
+	unsigned int value;
+	unsigned int  gpio;
+	unsigned int  pin_func;
+	const char    *name;
+	unsigned long flags;
+	int i = 0;
+
+	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
+
+	for (; i < regs_count; i++) {
+	    pin_func = spi_pin_group[i].pin_func;
+	    gpio = spi_pin_group[i].gpio;
+	    name = spi_pin_group[i].name;
+
+	    /* config pin GPIO function */
+	    if (pin_func == SPI_PIN_FUNC_DEF) {
+		 reg = spi_pin_group[i].reg;
+
+		 local_irq_save(flags);
+		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_GPIO);
+		 __raw_writel(value, reg);
+		 local_irq_restore(flags);
+		 if (gpio_request(gpio, name)) {
+		     printk("smsspi: request gpio %d failed, pin %s\n", gpio, name);
+		 }
+
+	    }
+
+	    gpio_direction_input(gpio);
+	}
+
+}
+
+
+static void mxd_cmmb_poweron(void)
+{
+        regulator_set_voltage(cmmb_regulator_1v8, 1700000, 1800000);
+        regulator_disable(cmmb_regulator_1v8);
+        msleep(3);
+        regulator_enable(cmmb_regulator_1v8);
+        msleep(5);
+
+        /* enable 26M external clock */
+        gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 1);
+}
+
+static void mxd_cmmb_poweroff(void)
+{
+        regulator_disable(cmmb_regulator_1v8);
+        gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 0);
+}
+
+static int mxd_cmmb_init(void)
+{
+         int ret=0;
+         ret = gpio_request(GPIO_CMMB_26M_CLK_EN,   "MXD_CMMB_CLKEN");
+         if (ret)
+         {
+                   pr_debug("mxd spi req gpio clk en err!\n");
+                   goto err_gpio_init;
+         }
+         gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 0);
+         cmmb_regulator_1v8 = regulator_get(NULL, "vddcmmb1p8");
+         return 0;
+
+err_gpio_init:
+	 gpio_free(GPIO_CMMB_26M_CLK_EN);
+         return ret;
+}
+
+static struct mxd_cmmb_026x_platform_data mxd_plat_data = {
+	.poweron  = mxd_cmmb_poweron,
+	.poweroff = mxd_cmmb_poweroff,
+	.init     = mxd_cmmb_init,
+	.set_spi_pin_input   = sprd_set_spi_pin_input,
+	.restore_spi_pin_cfg = sprd_restore_spi_pin_cfg,
+};
+
 static int spi_cs_gpio_map[][2] = {
     {SPI0_CMMB_CS_GPIO,  0},
     {SPI0_CMMB_CS_GPIO,  0},
@@ -275,11 +470,13 @@ static int spi_cs_gpio_map[][2] = {
 
 static struct spi_board_info spi_boardinfo[] = {
 	{
-	.modalias = "spidev",
+	.modalias = "cmmb-dev",
 	.bus_num = 0,
 	.chip_select = 0,
-	.max_speed_hz = 1000 * 1000,
+	.max_speed_hz = 8 * 1000 * 1000,
 	.mode = SPI_CPOL | SPI_CPHA,
+        .platform_data = &mxd_plat_data,
+
 	},
 	{
 	.modalias = "spidev",
@@ -324,29 +521,24 @@ static int sc8810_add_misc_devices(void)
 	}
 	return 0;
 }
-#endif
-
-const char * sc8825_regulator_map[] = {
-	/*supply source, consumer0, consumer1, ..., NULL */
-	"vdd28", "iic_vdd", "ctp_vdd", NULL,
-	"vddsd0", "tflash_vcc", NULL,
-	"vddsim0", "nfc_vcc", NULL,
-	"vddsim1", "sim_vcc", NULL,
-	NULL,
-};
 
 int __init sc8825_regulator_init(void)
 {
 	static struct platform_device sc8825_regulator_device = {
 		.name 	= "sprd-regulator",
 		.id	= -1,
-		.dev = {.platform_data = sc8825_regulator_map},
 	};
 	return platform_device_register(&sc8825_regulator_device);
 }
 
-static int __init sc8825_clock_init_early(void)
+int __init sc8825_clock_init_early(void)
 {
+	pr_info("ahb ctl0 %08x, ctl2 %08x glb gen0 %08x gen1 %08x clk_en %08x\n",
+		sci_glb_raw_read(REG_AHB_AHB_CTL0),
+		sci_glb_raw_read(REG_AHB_AHB_CTL2),
+		sci_glb_raw_read(REG_GLB_GEN0),
+		sci_glb_raw_read(REG_GLB_GEN1),
+		sci_glb_raw_read(REG_GLB_CLK_EN));
 	/* FIXME: Force disable all unused clocks */
 	sci_glb_clr(REG_AHB_AHB_CTL0,
 		BIT_AXIBUSMON2_EB	|
@@ -442,32 +634,38 @@ static int __init sc8825_clock_init_early(void)
 //		BIT_PWM0_EB			|
 		0);
 
-	printk("sc8825 clock module init ok\n");
-	return 0;
-}
+	sci_glb_clr(REG_GLB_PCTRL,
+	//		BIT_MCU_MPLL_EN 	|
+	//		BIT_MCU_TDPLL_EN	|
+	//		BIT_MCU_DPLL_EN 	|
+			BIT_MCU_GPLL_EN);	/* clk_gpu */
 
-static inline int	__sci_get_chip_id(void)
-{
-	return __raw_readl(CHIP_ID_LOW_REG);
+	sci_glb_set(REG_GLB_TD_PLL_CTL,
+	//		BIT_TDPLL_DIV2OUT_FORCE_PD	|	/* clk_384m */
+	//		BIT_TDPLL_DIV3OUT_FORCE_PD	|	/* clk_256m */
+	//		BIT_TDPLL_DIV4OUT_FORCE_PD	|	/* clk_192m */
+	//		BIT_TDPLL_DIV5OUT_FORCE_PD	|	/* clk_153p6m */
+			0);
+
+	printk("sc8825 clock module early init ok\n");
+	return 0;
 }
 
 static void __init sc8825_init_machine(void)
 {
-	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
-
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	sprd_ramconsole_init();
 #endif
 	sci_adc_init((void __iomem *)ADC_BASE);
 	sc8825_regulator_init();
-//	sprd_add_otg_device();
+	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
-//	sc8810_add_i2c_devices();
-//	sc8810_add_misc_devices();
-//	sprd_spi_init();
+	sc8810_add_i2c_devices();
+	sc8810_add_misc_devices();
+	sprd_spi_init();
 }
 
 extern void __init  sci_enable_timer_early(void);
@@ -482,13 +680,13 @@ static void __init sc8825_init_early(void)
 /*
  * Setup the memory banks.
  */
-
+ 
 static void __init sc8825_fixup(struct machine_desc *desc,
 	struct tag *tags, char **cmdline, struct meminfo *mi)
 {
 }
 
-MACHINE_START(SCPHONE, "sc8825")
+MACHINE_START(SCPHONE, "sc8825")	
 	.reserve	= sci_reserve,
 	.map_io		= sci_map_io,
 	.fixup		= sc8825_fixup,
@@ -498,6 +696,4 @@ MACHINE_START(SCPHONE, "sc8825")
 	.timer		= &sc8825_timer,
 	.init_machine	= sc8825_init_machine,
 MACHINE_END
-
-
 

@@ -255,10 +255,6 @@ static struct net_device_stats * seth_get_stats(struct net_device *dev)
 	return &(seth->stats);
 }
 
-static void seth_set_multicast_list(struct net_device *dev)
-{
-}
-
 static void seth_tx_timeout(struct net_device *dev)
 {
 	SETH_INFO ("seth_tx_timeout()\n");
@@ -288,7 +284,6 @@ static struct net_device_ops seth_ops = {
 	.ndo_stop = seth_close,
 	.ndo_start_xmit = seth_start_xmit,
 	.ndo_get_stats = seth_get_stats,
-	.ndo_set_multicast_list = seth_set_multicast_list,
 	.ndo_tx_timeout = seth_tx_timeout,
 };
 
@@ -316,16 +311,7 @@ static int __devinit seth_probe(struct platform_device *pdev)
 	seth->state = DEV_OFF;
 	seth->stopped = 0;
 
-#ifdef HAVE_NET_DEVICE_OPS
 	netdev->netdev_ops = &seth_ops;
-#else
-	netdev->open = seth_open;
-	netdev->stop = seth_close;
-	netdev->hard_start_xmit = seth_start_xmit;
-	netdev->get_stats = seth_get_stats;
-	netdev->set_multicast_list = seth_set_multicast_list;
-	netdev->tx_timeout = seth_tx_timeout;
-#endif
 	netdev->watchdog_timeo = 100*HZ;
 	netdev->irq = 0;
 	netdev->dma = 0;

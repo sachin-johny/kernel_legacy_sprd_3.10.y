@@ -25,7 +25,7 @@ obj-$(CONFIG_MMC_MSM)		+= msm_sdcc.o
 obj-$(CONFIG_MMC_MVSDIO)	+= mvsdio.o
 obj-$(CONFIG_MMC_DAVINCI)       += davinci_mmc.o
 obj-$(CONFIG_MMC_SPI)		+= mmc_spi.o
-obj-$(CONFIG_MMC_SDHCI_SC8810) += sc8810g.o
+obj-$(CONFIG_MMC_SDHCI_SC8810) += sc8810.o
 obj-$(CONFIG_MMC_SDHCI_SC8825) += sc8825.o
 ifeq ($(CONFIG_OF),y)
 obj-$(CONFIG_MMC_SPI)		+= of_mmc_spi.o

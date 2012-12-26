@@ -89,6 +89,8 @@
 #define IRQ_CP2AP_INT1			SCI_IRQ(60)
 #define IRQ_CP_WDG_INT			SCI_IRQ(61)
 
+#define IRQ_SIPC_CPT			IRQ_CP2AP_INT0
+
 /* translate gic irq number(user using ) to intc number */
 #define SCI_GET_INTC_IRQ(_IRQ_NUM_)	((_IRQ_NUM_) - IRQ_GIC_START)
 #define SCI_INTC_IRQ_BIT(_IRQ_NUM_)	((SCI_GET_INTC_IRQ(_IRQ_NUM_)<IRQ_GIC_START)	? \

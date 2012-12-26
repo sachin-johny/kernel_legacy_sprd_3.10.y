@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
@@ -29,7 +30,7 @@
 #include <mach/hardware.h>
 #include <linux/interrupt.h>
 
-#include "sc8810g.h"
+#include "sc8810.h"
 
 
 #define     SDIO0_SOFT_RESET        BIT(12)
@@ -61,9 +62,7 @@ static unsigned int sdio_wakeup_irq;
 #define HOST_WAKEUP_GPIO     22
 #endif
 
-#ifdef CONFIG_MMC_BUS_SCAN
 static struct sdhci_host *sdhci_host_g = NULL;
-#endif
 
 #ifdef MMC_RESTORE_REGS
 static unsigned int host_addr = 0;
@@ -78,6 +77,9 @@ static unsigned int host_clk = 0;
 
 extern void mmc_power_off(struct mmc_host* mmc);
 extern void mmc_power_up(struct mmc_host* mmc);
+
+static struct regulator *vmmc_sdhc0;
+static struct regulator *vmmc_sdhc1;
 
 /* we don't need to restore sdio0, because of CONFIG_MMC_BLOCK_DEFERED_RESUME=y */
 #ifdef MMC_RESTORE_REGS
@@ -245,8 +247,8 @@ int sdhci_device_attach(int on)
 			sdhci_host_g->dev_attached = 0;
 			return -1;
 		}
-		return 0;
 	}
+	return 0;
 }
 EXPORT_SYMBOL_GPL(sdhci_device_attach);
 
@@ -353,21 +355,9 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 		 * but regulator(LDO)
 		*/
 		if (!strcmp("Spread SDIO host0", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-							REGU_NAME_SDHOST0);
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
+			host->vmmc = vmmc_sdhc0;
 		}else if (!strcmp("Spread SDIO host1", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-							REGU_NAME_WIFIIO);
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
+			host->vmmc = vmmc_sdhc1;
 		}
 	}
 
@@ -471,6 +461,13 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
+	vmmc_sdhc0 = regulator_get(NULL, REGU_NAME_SDHOST0);
+	vmmc_sdhc1 = regulator_get(NULL, REGU_NAME_WIFIIO);
+	if (IS_ERR(vmmc_sdhc0) || IS_ERR(vmmc_sdhc1)) {
+		printk(KERN_ERR "no vmmc regulator found\n");
+		return -EIO;
+	}
+
 	host = sdhci_alloc_host(dev, sizeof(struct sprd_host_data));
 	if (IS_ERR(host)) {
 		dev_err(dev, "sdhci_alloc_host() failed\n");
@@ -569,7 +566,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		pm_runtime_enable(&(pdev)->dev);
 	}
 #endif
-	mmc_set_disable_delay(host->mmc, 500);
 #endif
 	host->mmc->caps |= MMC_CAP_HW_RESET;
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
@@ -613,6 +609,8 @@ static int __devexit sdhci_sprd_remove(struct platform_device *pdev)
 #endif
 	sdhci_remove_host(host, 1);
 	sdhci_free_host(host);
+	regulator_put(vmmc_sdhc0);
+	regulator_put(vmmc_sdhc1);
 
 #ifdef CONFIG_PM_RUNTIME
 	pm_runtime_disable(&(pdev)->dev);
@@ -641,7 +639,7 @@ if(host->mmc && host->mmc->card)
 #endif
 #ifdef CONFIG_PM_RUNTIME
 	if (!pm_runtime_suspended(&dev->dev)) {
-		ret = sdhci_suspend_host(host, pm);
+		ret = sdhci_suspend_host(host);
 	}else{
 		printk("%s, %s, runtime suspended\n", mmc_hostname(host->mmc), __func__ );
 	}
@@ -728,7 +726,6 @@ static int sdhci_runtime_suspend(struct device *dev){
 	struct mmc_host *mmc = host->mmc;
 	int rc = 0;
 	if (mmc) {
-		mmc->suspend_task = current;
 
 		/*
 		 * MMC core thinks that host is disabled by now since
@@ -755,7 +752,6 @@ static int sdhci_runtime_suspend(struct device *dev){
 		pm_runtime_put_noidle(dev);
 
 		host->suspending = 0;
-		mmc->suspend_task = NULL;
 	}
 	return rc;
 }

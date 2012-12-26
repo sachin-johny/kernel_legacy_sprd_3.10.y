@@ -534,7 +534,6 @@ static int print_thread(void * data)
 		print_gr();
 		print_ana();
 		is_dsp_sleep();
-		has_wake_lock(WAKE_LOCK_SUSPEND);
 		msleep(100);
 		wake_unlock(&messages_wakelock);
 		set_current_state(TASK_INTERRUPTIBLE);

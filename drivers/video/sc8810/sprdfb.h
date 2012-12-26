@@ -16,7 +16,9 @@
 
 #include <asm/io.h>
 #include <mach/hardware.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include "lcdpanel.h"
 
 /* LCDC regs offset */

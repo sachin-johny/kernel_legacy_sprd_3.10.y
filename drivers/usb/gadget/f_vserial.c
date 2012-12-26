@@ -541,16 +541,10 @@ static int vser_function_set_alt(struct usb_function *f,
 	int ret;
 
 	DBG(cdev, "vser_function_set_alt intf: %d alt: %d\n", intf, alt);
-	ret = usb_ep_enable(dev->ep_in,
-			ep_choose(cdev->gadget,
-				&vser_highspeed_in_desc,
-				&vser_fullspeed_in_desc));
+	ret = usb_ep_enable(dev->ep_in);
 	if (ret)
 		return ret;
-	ret = usb_ep_enable(dev->ep_out,
-			ep_choose(cdev->gadget,
-				&vser_highspeed_out_desc,
-				&vser_fullspeed_out_desc));
+	ret = usb_ep_enable(dev->ep_out);
 	if (ret) {
 		usb_ep_disable(dev->ep_in);
 		return ret;

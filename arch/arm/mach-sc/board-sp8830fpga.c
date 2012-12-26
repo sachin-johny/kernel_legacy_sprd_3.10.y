@@ -31,11 +31,11 @@
 //#include <linux/i2c/ltr_558als.h>
 //#include <linux/akm8975.h>
 #include <linux/spi/spi.h>
+#include <linux/gpio.h>
 #include <mach/board.h>
 #include <mach/serial_sprd.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
-#include <linux/gpio.h>
 //#include <linux/akm8975.h>
 #include <linux/irq.h>
 
@@ -498,6 +498,4 @@ MACHINE_START(SCPHONE, "sc8830")
 	.timer		= &sc8830_timer,
 	.init_machine	= sc8830_init_machine,
 MACHINE_END
-
-
 

@@ -2,7 +2,10 @@
 #ifndef __PIXCIR_I2C_TS_H__
 #define __PIXCIR_I2C_TS_H__
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
+
 #include <mach/board.h>
 
 #define PIXCIR_DEBUG		0
@@ -84,7 +87,9 @@ struct pixcir_ts_struct{
 	struct input_dev 		*input;
 	struct regulator		*reg_vdd;
 	struct i2c_client 		*this_client;
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	pixcir_early_suspend;
+#endif
 	struct pixcir_ts_platform_data	*platform_data;
 	struct workqueue_struct *ts_workqueue;
 	struct work_struct 	pen_event_work;

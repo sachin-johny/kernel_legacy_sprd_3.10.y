@@ -113,10 +113,10 @@ static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 
 	snd_soc_dapm_stream_event(rtd,
 				  codec_dai->driver->playback.stream_name,
-				  SND_SOC_DAPM_STREAM_START);
+				  dai, SND_SOC_DAPM_STREAM_START);
 	snd_soc_dapm_stream_event(rtd,
 				  codec_dai->driver->capture.stream_name,
-				  SND_SOC_DAPM_STREAM_START);
+				  dai, SND_SOC_DAPM_STREAM_START);
 
 	snd_soc_dai_digital_mute(codec_dai, 0);
 
@@ -140,10 +140,10 @@ static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 
 	snd_soc_dapm_stream_event(rtd,
 				  codec_dai->driver->playback.stream_name,
-				  SND_SOC_DAPM_STREAM_STOP);
+				  dai, SND_SOC_DAPM_STREAM_STOP);
 	snd_soc_dapm_stream_event(rtd,
 				  codec_dai->driver->capture.stream_name,
-				  SND_SOC_DAPM_STREAM_STOP);
+				  dai, SND_SOC_DAPM_STREAM_STOP);
 
 	snd_soc_dai_digital_mute(codec_dai, 1);
 

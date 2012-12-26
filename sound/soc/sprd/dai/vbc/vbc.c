@@ -1276,7 +1276,7 @@ int vbc_add_controls(struct snd_soc_codec *codec)
 		pr_err("Failed to VBC add default profile\n");
 	}
 #endif
-	ret = snd_soc_add_controls(codec, vbc_controls,
+	ret = snd_soc_add_codec_controls(codec, vbc_controls,
 				   ARRAY_SIZE(vbc_controls));
 	if (ret < 0) {
 		pr_err("Failed to VBC add controls\n");

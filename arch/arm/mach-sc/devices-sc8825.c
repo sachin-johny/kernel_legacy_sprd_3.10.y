@@ -13,14 +13,17 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-//#include <linux/android_pmem.h>
 #include <linux/ion.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
 #include <linux/mmc/sdhci.h>
+#include <linux/gpio.h>
 
-//#include <linux/sipc.h>
-//#include <linux/spipe.h>
+#include <linux/sprd_cproc.h>
+#include <linux/sipc.h>
+#include <linux/spipe.h>
+#include <linux/seth.h>
+#include <asm/pmu.h>
 #include <mach/hardware.h>
 #include <mach/regs_ahb.h>
 #include <mach/regs_glb.h>
@@ -126,7 +129,7 @@ struct platform_device sprd_nand_device = {
 	.resource	= sprd_nand_resources,
 };
 
-static struct resource hwspinlock_resources[] = {
+static struct resource sprd_hwspinlock_resources[] = {
 	[0] = {
 		.start	= SPRD_HWLOCK_BASE,
 		.end = SPRD_HWLOCK_BASE + SPRD_HWLOCK_SIZE - 1,
@@ -134,13 +137,13 @@ static struct resource hwspinlock_resources[] = {
 	},
 };
 
-struct platform_device hwspinlock_device0 = {
-	.name		= "sci_hwspinlock",
+struct platform_device sprd_hwspinlock_device0 = {
+	.name		= "sprd_hwspinlock",
 	.id		= -1,
-	.num_resources	= ARRAY_SIZE(hwspinlock_resources),
-	.resource	= hwspinlock_resources,
+	.num_resources	= ARRAY_SIZE(sprd_hwspinlock_resources),
+	.resource	= sprd_hwspinlock_resources,
 };
-#if 0
+
 static struct resource sprd_lcd_resources[] = {
 	[0] = {
 		.start = SPRD_LCDC_BASE,
@@ -188,7 +191,6 @@ struct platform_device sprd_otg_device = {
 	.num_resources	= ARRAY_SIZE(sprd_otg_resource),
 	.resource	= sprd_otg_resource,
 };
-#endif
 
 struct platform_device sprd_backlight_device = {
 	.name           = "sprd_backlight",
@@ -340,7 +342,6 @@ struct platform_device sprd_spi2_device = {
 	.num_resources = ARRAY_SIZE(spi2_resources),
 };
 
-#if 0
 static struct resource sprd_ahb_bm0_res[] = {
 	[0] = {
 		.start = SPRD_BM0_BASE,
@@ -506,10 +507,9 @@ struct platform_device sprd_axi_bm2_device = {
 	.resource = sprd_axi_bm2_res,
 	.num_resources = ARRAY_SIZE(sprd_axi_bm2_res),
 };
-#endif
 
 //keypad 
-#if defined(CONFIG_MACH_SP8825EB)
+#if defined(CONFIG_MACH_SP8825EB) || defined(CONFIG_MACH_SP8825EA)
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW2)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL2)
 #define ROWS	(2)
@@ -685,36 +685,6 @@ struct platform_device sprd_vsp_device = {
 	.id	= -1,
 };
 
-#ifdef CONFIG_ANDROID_PMEM
-static struct android_pmem_platform_data sprd_pmem_pdata = {
-	.name = "pmem",
-	.start = SPRD_PMEM_BASE,
-	.size = SPRD_PMEM_SIZE,
-	.no_allocator = 0,
-	.cached = 1,
-};
-
-static struct android_pmem_platform_data sprd_pmem_adsp_pdata = {
-	.name = "pmem_adsp",
-	.start = SPRD_PMEM_ADSP_BASE,
-	.size = SPRD_PMEM_ADSP_SIZE,
-	.no_allocator = 0,
-	.cached = 1,
-};
-
-struct platform_device sprd_pmem_device = {
-	.name = "android_pmem",
-	.id = 0,
-	.dev = {.platform_data = &sprd_pmem_pdata},
-};
-
-struct platform_device sprd_pmem_adsp_device = {
-	.name = "android_pmem",
-	.id = 1,
-	.dev = {.platform_data = &sprd_pmem_adsp_pdata},
-};
-#endif
-
 #ifdef CONFIG_ION
 static struct ion_platform_data ion_pdata = {
 	.nr = 2,
@@ -742,8 +712,6 @@ struct platform_device sprd_ion_dev = {
 	.dev = { .platform_data = &ion_pdata },
 };
 #endif
-
-#if 0
 
 static struct resource sprd_dcam_resources[] = {
 	{
@@ -797,6 +765,8 @@ static struct resource sprd_sdio0_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio0_pdata = {
+	.hw_name = "sprd-sdcard",
+	.detect_gpio = 140,
 	.vdd_name = "vddsd0",
 	.clk_name = "clk_sdio0",
 	.clk_parent = "clk_sdio_src",
@@ -827,7 +797,6 @@ static struct resource sprd_sdio1_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio1_pdata = {
-	.vdd_name = "vddsd1",
 	.clk_name = "clk_sdio1",
 	.clk_parent = "clk_64m",
 	.enb_bit = BIT_SDIO1_EB,
@@ -904,6 +873,7 @@ struct platform_device sprd_emmc_device = {
 	.dev = { .platform_data = &sprd_emmc_pdata },
 };
 
+
 #define TD_REG_CLK_ADDR				(SPRD_AHB_BASE + 0x250)
 #define TD_REG_RESET_ADDR			(SPRD_AHB_BASE + 0x254)
 #define TD_CTL_ENABLE				(0x01)
@@ -971,7 +941,7 @@ static struct spipe_init_data sprd_slog_td_pdata = {
 	.channel	= SMSG_CH_PLOG,
 	.ringnr		= 1,
 	.txbuf_size	= 16,
-	.rxbuf_size	= 16 * 1024,
+	.rxbuf_size	= 256 * 1024,
 };
 struct platform_device sprd_slog_td_device = {
 	.name           = "spipe",
@@ -994,7 +964,17 @@ struct platform_device sprd_stty_td_device = {
 	.dev		= {.platform_data = &sprd_stty_td_pdata},
 };
 
-#ifdef CONFIG_MACH_SP8830EB
+static struct seth_init_data sprd_seth_td_pdata = {
+	.name		= "veth0",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA,
+};
+struct platform_device sprd_seth_td_device = {
+	.name           = "seth",
+	.id             =  0,
+	.dev		= {.platform_data = &sprd_seth_td_pdata},
+};
+
 static struct resource sprd_pmu_resource[] = {
 	[0] = {
 		.start		= IRQ_CA5PMU_NCT_INT0,
@@ -1008,18 +988,10 @@ static struct resource sprd_pmu_resource[] = {
 	},
 };
 
-static struct platform_device sprd_pmu_device = {
+struct platform_device sprd_pmu_device = {
 	.name		= "arm-pmu",
 	.id		= ARM_PMU_DEVICE_CPU,
 	.resource = sprd_pmu_resource,
 	.num_resources	= ARRAY_SIZE(sprd_pmu_resource),
 };
-
-static void sprd_init_pmu(void)
-{
-	platform_device_register(&sprd_pmu_device);
-}
-arch_initcall(sprd_init_pmu);
-#endif
-#endif
 

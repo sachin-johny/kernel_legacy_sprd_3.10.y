@@ -679,6 +679,11 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 
 	return 0;
 }
+
+static int dwc_usb_gadget_start(struct usb_gadget_driver *driver,
+	int (*bind)(struct usb_gadget *));
+static int dwc_usb_gadget_stop(struct usb_gadget_driver *driver);
+
 static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 	.get_frame = get_frame_number,
 	//.wakeup = wakeup,
@@ -687,6 +692,8 @@ static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 #endif
 	.pullup	= pullup,
 	// current versions must always be self-powered
+	.start = dwc_usb_gadget_start,
+	.stop = dwc_usb_gadget_stop,
 };
 
 static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
@@ -1037,7 +1044,7 @@ static struct gadget_wrapper *alloc_wrapper(
 	d->gadget.dev.parent = &_dev->dev;
 	d->gadget.dev.release = dwc_otg_pcd_gadget_release;
 	d->gadget.ops = &dwc_otg_pcd_ops;
-	d->gadget.is_dualspeed = dwc_otg_pcd_is_dualspeed(otg_dev->pcd);
+	d->gadget.max_speed = USB_SPEED_HIGH;
 	d->gadget.is_otg = dwc_otg_pcd_is_otg(otg_dev->pcd);
 
 	d->driver = 0;
@@ -1376,6 +1383,10 @@ int pcd_init(
 	}
 	gadget_wrapper->enabled = 0;
 
+	retval = usb_add_gadget_udc(&_dev->dev, &gadget_wrapper->gadget);
+	if (!retval)
+		return retval;
+
 	return retval;
 }
 
@@ -1391,6 +1402,8 @@ struct platform_device *_dev
 	int plug_irq;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
+
+	usb_del_gadget_udc(&gadget_wrapper->gadget);
 
 	/*
 	 * Free the IRQ
@@ -1416,7 +1429,7 @@ struct platform_device *_dev
  *
  * @param driver The driver being registered
  */
-int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
+static int dwc_usb_gadget_start(struct usb_gadget_driver *driver,
 	int (*bind)(struct usb_gadget *))
 {
 	int retval;
@@ -1424,7 +1437,7 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	DWC_DEBUGPL(DBG_PCD, "registering gadget driver '%s'\n",
 			driver->driver.name);
 	pr_info("%s\n", __func__);
-	if (!driver || driver->speed == USB_SPEED_UNKNOWN ||
+	if (!driver || driver->max_speed == USB_SPEED_UNKNOWN ||
 			!driver->disconnect || !driver->setup) {
 		//!driver->unbind || !driver->disconnect || !driver->setup) {
 		DWC_DEBUGPL(DBG_PCDV, "EINVAL\n");
@@ -1460,14 +1473,12 @@ int usb_gadget_probe_driver(struct usb_gadget_driver *driver,
 	return 0;
 }
 
-EXPORT_SYMBOL(usb_gadget_probe_driver);
-
 /**
  * This function unregisters a gadget driver
  *
  * @param driver The driver being unregistered
  */
-int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
+static int dwc_usb_gadget_stop(struct usb_gadget_driver *driver)
 {
 	//DWC_DEBUGPL(DBG_PCDV,"%s(%p)\n", __func__, _driver);
 
@@ -1489,8 +1500,6 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 	DWC_DEBUGPL(DBG_ANY, "unregistered driver '%s'\n", driver->driver.name);
 	return 0;
 }
-
-EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
 int usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {

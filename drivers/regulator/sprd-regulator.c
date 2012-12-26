@@ -373,7 +373,6 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	};
 	struct regulator_consumer_supply consumer_supplies_default[] = {
 		[0] = {
-		       .dev = 0,
 		       .dev_name = 0,
 		       .supply = desc->desc.name,
 		       }
@@ -410,7 +409,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		init_data.consumer_supplies = consumer_supplies_default;
 
 	debug0("regu %p (%s)\n", desc->regs, desc->desc.name);
-	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, 0);
+	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, NULL, NULL);
 	if (init_data.consumer_supplies != consumer_supplies_default)
 		kfree(init_data.consumer_supplies);
 	return rdev;

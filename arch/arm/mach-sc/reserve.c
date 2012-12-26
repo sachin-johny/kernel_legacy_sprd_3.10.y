@@ -14,18 +14,16 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 
-#include <asm/io.h>
-#include <asm/page.h>
-#include <asm/mach/map.h>
 #include <mach/hardware.h>
 #include <mach/board.h>
+#include <asm/memory.h>
 #include <linux/memblock.h>
 
-static int __init __pmem_reserve_memblock(void)
+static int __init __iomem_reserve_memblock(void)
 {
-	if (memblock_is_region_reserved(SPRD_PMEM_BASE, SPRD_IO_MEM_SIZE))
+	if (memblock_is_region_reserved(SPRD_IO_MEM_BASE, SPRD_IO_MEM_SIZE))
 		return -EBUSY;
-	if (memblock_reserve(SPRD_PMEM_BASE, SPRD_IO_MEM_SIZE))
+	if (memblock_reserve(SPRD_IO_MEM_BASE, SPRD_IO_MEM_SIZE))
 		return -ENOMEM;
 	return 0;
 }
@@ -43,9 +41,9 @@ int __init __ramconsole_reserve_memblock(void)
 
 void __init sci_reserve(void)
 {
-	int ret = __pmem_reserve_memblock();
+	int ret = __iomem_reserve_memblock();
 	if (ret != 0)
-		pr_err("Fail to reserve mem for pmem. errno=%d\n", ret);
+		pr_err("Fail to reserve mem for iomem. errno=%d\n", ret);
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	if (ret = __ramconsole_reserve_memblock())

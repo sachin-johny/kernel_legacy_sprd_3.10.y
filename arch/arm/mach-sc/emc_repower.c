@@ -17,9 +17,8 @@
 #include <mach/hardware.h>
 #include <mach/regs_ana_glb.h>
 #include <asm/hardware/gic.h>
-#include <mach/emc_repower.h>
 #include <mach/sci.h>
-
+#include "emc_repower.h"
 #define REG32(x)             (*((volatile u32 *)(x)))
 #define BASE_ADDR_AHBREG     (0x20900200)
 #define ADDR_AHBREG_ARMCLK   (BASE_ADDR_AHBREG+0x0024)
@@ -31,8 +30,8 @@
 #define GATE_TRAING_ON    1
 #define GATE_EARLY_LATE   2
 //#define mem_drv         34
-#define EMC_FREQ          200   //ddr clock 
-
+#define EMC_FREQ          200   //ddr clock
+#define uint32 u32
 //#define EMC_SINGLE_CS         //single ddr cs
 
 //const static u32 mem_drv  = 34;
@@ -108,7 +107,7 @@ typedef enum
 	DXN_MAX = 3,
 }DXN_E;
 
-//#define MEMORY_TYPE    LPDDR2   //typedef enum int {LPDDR2,LPDDR1,DDR3} MEM_TYPE_ENUM; 
+//#define MEMORY_TYPE    LPDDR2   //typedef enum int {LPDDR2,LPDDR1,DDR3} MEM_TYPE_ENUM;
 //#define MEM_WIDTH      X32
 
 //umctl/upctl registers declaration//{{{
@@ -221,7 +220,7 @@ typedef enum
 #define PUBL_CFG_ADD_BISTMSKR0     (0x41 * 4) // R/W - BIST Mask Register 0
 #define PUBL_CFG_ADD_BISTMSKR1     (0x42 * 4) // R/W - BIST Mask Register 1
 #define PUBL_CFG_ADD_BISTWCR       (0x43 * 4) // R/W - BIST Word Count Register
-#define PUBL_CFG_ADD_BISTLSR       (0x44 * 4) // R/W - BIST LFSR Seed Register 
+#define PUBL_CFG_ADD_BISTLSR       (0x44 * 4) // R/W - BIST LFSR Seed Register
 #define PUBL_CFG_ADD_BISTAR0       (0x45 * 4) // R/W - BIST Address Register 0
 #define PUBL_CFG_ADD_BISTAR1       (0x46 * 4) // R/W - BIST Address Register 1
 #define PUBL_CFG_ADD_BISTAR2       (0x47 * 4) // R/W - BIST Address Register 2
@@ -236,6 +235,8 @@ typedef enum
 #define PUBL_CFG_ADD_BISTFWR1      (0x50 * 4) // R/W - BIST Fail Word Register 1
 #define PUBL_CFG_ADD_ZQ0CR0        (0x60 * 4) // R/W - ZQ 0 Impedance Control Register 0
 #define PUBL_CFG_ADD_ZQ0CR1        (0x61 * 4) // R/W - ZQ 1
+#define PUBL_CFG_ADD_ZQ0SR0        (0x62 * 4) // R/W - ZQ 0 Impedance Status Register 0
+#define PUBL_CFG_ADD_ZQ0SR1        (0x63 * 4) // R/W - ZQ 0 Impedance Status Register 1
 #define PUBL_CFG_ADD_DX0GCR        (0x70 * 4) // R/W - DATX8 0 General Configuration Register
 #define PUBL_CFG_ADD_DX0GSR0       (0x71 * 4) // R   - DATX8 0 General Status Register 0
 #define PUBL_CFG_ADD_DX0GSR1       (0x72 * 4) // R   - DATX8 0 General Status Register 1
@@ -268,7 +269,7 @@ typedef enum
 
 
 static inline void reset_ddrphy_dll(void);
-static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param *param);
+static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param *param, u32 clk_emc_div);
 static inline void uart_init(void)
 {
 	REG32(0x4b000008) |= (1 << 20) | (1 << 21);
@@ -299,6 +300,15 @@ static inline void poll_upctl_state (uPCTL_STATE_ENUM state)
 	return;
 }
 
+static inline void wait_n_pclk_cycle(u32 num)
+{
+	volatile u32 i;
+	u32 value_temp;
+	for(i=0;i<num;i++)
+	{
+			value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
+	}
+}
 static inline void move_upctl_state_to_initmem(void)
 {
 	uPCTL_STATE_ENUM upctl_state;
@@ -476,19 +486,13 @@ static inline void move_upctl_state_to_access(void)
 static inline void emc_publ_do_gate_training(void)
 {
 	u32  value_temp;
-	u32 volatile i;
-	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR);
-	value_temp &= ~0x1;
-	value_temp &= ~(0x1 << 7);
-	value_temp |= 0x1 << 7; //Read DQS Training
-	value_temp |= 0x1;
-	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = value_temp;
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = 0x81;
 
 	//check data training done
 	//according to PUBL databook on PIR operation.
 	//10 configuration clock cycle must be waited before polling PGSR
 	//repeat(10)@(posedge `HIER_ARM_SYS.u_sys_wrap.u_DWC_ddr3phy_pub.pclk);
-	for(i = 0; i < 100; i++);
+	wait_n_pclk_cycle(5);
 	do
 		value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
 	while((value_temp & 0x10) != 0x10);
@@ -512,6 +516,20 @@ static inline void emc_publ_do_gate_training(void)
 	//uart_trace(EMC_TRAINING_SUCESS, sizeof(EMC_TRAINING_SUCESS));
 }
 
+static inline void enable_lpddr12_low_power_feature(uint32 clk_stop_idle, uint32 pd_idle, uint32 sr_idle){
+        REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_MCFG) &= ~( (0xff<<24) | (0xff<<8) );
+        REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_MCFG) |= ( (clk_stop_idle <<24) | (pd_idle <<8) );
+        REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_MCFG1) &= ~0xff;
+        REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_MCFG1) |= sr_idle;
+}
+//stall NIF from application port
+static inline void enable_umctl_dtu(void) {
+	REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DTUCFG) |= 0x1;
+}
+//grant NIF to application port
+static inline void disable_umctl_dtu(void) {
+	REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DTUCFG) &= ~0x1;
+}
 static inline void emc_init_common_reg(struct emc_repower_param *param)
 {
 	u32  value_temp;
@@ -658,7 +676,7 @@ static inline void emc_init_common_reg(struct emc_repower_param *param)
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TXP) =         0x00000004;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TXPDLL) =      0x00000000;
 	//xiaohui change from 0x24 to 0x27 due to tZQCS=90ns whereas clk_emc=2.348ns
-	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TZQCS) =       0x00000027;
+	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_TZQCS) =       0x00000024;
 
 	//value_temp = mem_type_enum == LPDDR2 ? 0x5 : 0x0;
 	value_temp = 0;//assume 0.4s need one calibration, see samsung lpddr2 on page 140
@@ -873,7 +891,7 @@ static inline void emc_init_common_reg(struct emc_repower_param *param)
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DTAR) = (0x0 << 28) | (0x0 << 12) | (0x0 << 0);
 
 	value_temp = REG32(PUBL_REG_BASE+PUBL_CFG_ADD_ZQ0CR1);
-	switch(mem_type_enum) 
+	switch(mem_type_enum)
 	{
 		case LPDDR2:
 			value_temp &= ~(0xf << 4);
@@ -910,7 +928,8 @@ static inline void emc_init_common_reg(struct emc_repower_param *param)
 	}
 
 	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_ZQ0CR1) = value_temp;
-	value_temp = (8<<18) | (2750<<6) |27;	//per 533MHz
+	//value_temp = (8<<18) | (2750<<6) |27;	//per 533MHz,actually ytDLLLOCK is counted in PCLK domain
+	value_temp = (8<<18) | (393<<6) |27;	//caution: you must make sure PCLK is 76.8MHz
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PTR0) = value_temp;
 
 	//PTR1
@@ -1184,13 +1203,131 @@ static inline void emc_init_common_reg(struct emc_repower_param *param)
 	value_temp &= ~(1<<2); // zq Update Enable,CHECK!!!!
 	value_temp &= ~(1<<4); // Low Power DLL Power Down
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DSGCR) = value_temp;
+	if(0){
+            enable_lpddr12_low_power_feature(32,32,0);
+	}
 } //emc_init_common_reg
 
+//bps200, control the DLL disable mode. 0, DLL freq is below 100MHz. 1: DLL freq is in 100~200MHz
+static inline void set_ddrphy_dll_bps200_mode(u32 bps200) {
+	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DLLGCR, 23, 1, bps200);
+}
+static inline void update_umctl_timing_cfg(MEM_TYPE_ENUM mem_type, u32 clk_emc_div) {
+	if(mem_type!=LPDDR2)
+		while(1);
+    switch(clk_emc_div) {
+        case 3: { //100MHz
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTW )        = 0x1;//timing_cfg.TRTW;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRFC )        = 0xd;//timing_cfg.TRFC;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRP  )        = 0x00010003;//timing_cfg.TRP;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRAS )        = 0x5;//timing_cfg.TRAS;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRC  )        = 0x8;//timing_cfg.TRC;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRCD )        = 0x3;//timing_cfg.TRCD;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRRD )        = 0x2;//timing_cfg.TRRD;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTP )        = 0x2;//timing_cfg.TRTP;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWR  )        = 0x3;//timing_cfg.TWR;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWTR )        = 0x2;//timing_cfg.TWTR;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCS)        = 0x9;//timing_cfg.TZQCS;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCSI)       = 0x0;//zqcsi_en ? timing_cfg.TZQCSI : 0x0;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TEXSR)        = 0xe;//timing_cfg.TXSR ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT1U)     = 100;//timing_cfg.TOGCNT1U ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT100N)   = 10 ;//timing_cfg.TOGCNT100N ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCL)          = 0x3;//timing_cfg.TCL;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCWL)         = 0x1;//timing_cfg.TCWL;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITRDDATAEN) = 0x2;//timing_cfg.DFITRDDATAEN ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITPHYWRLAT) = 0x1;//timing_cfg.DFITPHYWRLAT ;
+	        break;
+        }
+        case 1: { //200MHz
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTW )        = 0x1; //timing_cfg.TRTW;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRFC )        = 0x1a;//timing_cfg.TRFC;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRP  )        = 0x00010004; //timing_cfg.TRP;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRAS )        = 0x9; //timing_cfg.TRAS;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRC  )        = 0xD; //timing_cfg.TRC;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRCD )        = 0x4; //timing_cfg.TRCD;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRRD )        = 0x2; //timing_cfg.TRRD;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTP )        = 0x2; //timing_cfg.TRTP;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWR  )        = 0x3; //timing_cfg.TWR;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWTR )        = 0x2; //timing_cfg.TWTR;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCS)        = 0x12;//timing_cfg.TZQCS;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCSI)       = 0x0; //zqcsi_en ? timing_cfg.TZQCSI : 0x0;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TEXSR)        = 0x1c;//timing_cfg.TXSR ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT1U)     = 200; //timing_cfg.TOGCNT1U ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT100N)   = 20 ; //timing_cfg.TOGCNT100N ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCL)          = 0x3; //timing_cfg.TCL;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCWL)         = 0x1; //timing_cfg.TCWL;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITRDDATAEN) = 0x2; //timing_cfg.DFITRDDATAEN ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITPHYWRLAT) = 0x1; //timing_cfg.DFITPHYWRLAT ;
+
+	        break;
+        }
+	    case 0: { //400MHz
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTW )        = 0x1;//timing_cfg.TRTW;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRFC )        = 0x34;//timing_cfg.TRFC;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRP  )        = 0x00020008;//timing_cfg.TRP;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRAS )        = 0x11;//timing_cfg.TRAS;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRC  )        = 0x19;//timing_cfg.TRC;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRCD )        = 0x8;//timing_cfg.TRCD;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRRD )        = 0x4;//timing_cfg.TRRD;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTP )        = 0x3;//timing_cfg.TRTP;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWR  )        = 0x6;//timing_cfg.TWR;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWTR )        = 0x3;//timing_cfg.TWTR;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCS)        = 0x24;//timing_cfg.TZQCS;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCSI)       = 0x0;//zqcsi_en ? timing_cfg.TZQCSI : 0x0;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TEXSR)        = 0x38;//timing_cfg.TXSR ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT1U)     = 400;//timing_cfg.TOGCNT1U ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT100N)   = 40 ;//timing_cfg.TOGCNT100N ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCL)          = 0x6;//timing_cfg.TCL;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCWL)         = 0x3;//timing_cfg.TCWL;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITRDDATAEN) = 0x5;//timing_cfg.DFITRDDATAEN ;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITPHYWRLAT) = 0x3;//timing_cfg.DFITPHYWRLAT ;
+	        break;
+        }
+	    default: {
+	        while(1);
+	    }
+    }
+}
+
+//update MR0~MR3
+//caution: now only support LPDDR2, for LPDDR1 you should double check MR0~MR3
+//and modify accordingly
+static inline void update_publ_timing_cfg(MEM_TYPE_ENUM mem_type_enum,
+										u32 gate_early_late,
+										u32 nwr,
+										u32 mem_wc,
+										u32 mem_bt,
+										u32 mem_bl,
+										u32 rl_wl)
+{
+	switch(mem_type_enum) {
+		case LPDDR2: {
+		REG32(PUBL_REG_BASE+PUBL_CFG_ADD_MR1) = (nwr<<5) | (mem_wc<<4) | (mem_bt<<3) | mem_bl;
+		REG32(PUBL_REG_BASE+PUBL_CFG_ADD_MR2) = rl_wl;
+		REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DSGCR) &= ~(0x3f<<5);
+		REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DSGCR) |= (gate_early_late<<5)|(gate_early_late<<8);
+			break;
+		}
+		default: {
+			while(1);
+		}
+	}
+}
+
+static inline void update_lpddr2_modereg(u32 nwr,u32 mem_wc, u32 mem_bt,u32 mem_bl,u32 rl_wl) {
+    u32 value_temp;
+    REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_MCMD) = 0x80f00013 | (nwr<<17)|(mem_wc<<16)|(mem_bt<<15)|(mem_bl<<12);
+    do  value_temp = REG32(UMCTL_REG_BASE+ UMCTL_CFG_ADD_MCMD);
+    while((value_temp & 0x80000000) == 0x80000000);
+    REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_MCMD) = 0x80f00023|(rl_wl<<12);
+    do  value_temp = REG32(UMCTL_REG_BASE+ UMCTL_CFG_ADD_MCMD);
+    while((value_temp & 0x80000000) == 0x80000000);
+}
 
 //the argument power_off should be 0x1 if EMC controller power is shut down in deep sleep mode.
 //otherwise it should be 0x0.This argument indicates whether the common control register should be
 //re-programmed
-static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param *param)   //{{{
+static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param *param, u32 clk_emc_div)   //{{{
 {
 	u32  value_temp;
 	u32 volatile  i;
@@ -1219,8 +1356,38 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 	//value_temp = REG32(0x2090_0308);
 	//value_temp[9] = 0x1;
 	//REG32(0x2090_0308) = value_temp;
+	enable_umctl_dtu();
 	if(power_off) {
 		emc_init_common_reg(param);
+		#if 1
+		update_umctl_timing_cfg(mem_type_enum, clk_emc_div);
+		switch(clk_emc_div) {
+			case 0: {
+				update_publ_timing_cfg(mem_type_enum,      //MEM_TYPE_ENUM mem_type,
+									2,                  //u32 gate_early_late,
+									0x4,                //u32 nwr
+									_LPDDR2_WC_,        //u32 mem_wc,
+									_LPDDR2_BT_,        //u32 mem_bt,
+									_LPDDR2_BL_==4?2:   //u32 mem_bl,
+									_LPDDR2_BL_==8?3:4,
+									0x4                 //u32 rl_wl
+										);
+				break;
+			}
+			default: {
+				update_publ_timing_cfg(mem_type_enum,     //MEM_TYPE_ENUM mem_type,
+									   1,                  //u32 gate_early_late,
+									   0x1,               //,u32 nwr
+									_LPDDR2_WC_,       //u32 mem_wc,
+									_LPDDR2_BT_,       //u32 mem_bt,
+									_LPDDR2_BL_==4?2:  //u32 mem_bl,
+									_LPDDR2_BL_==8?3:4,
+									0x1                //u32 rl_wl
+										);
+				break;
+			}
+		}
+		#endif
 	}
 
 	do  value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
@@ -1306,16 +1473,51 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 	while((value_temp & 0x7) != 0x3);
 #endif
 	move_upctl_state_to_config();
-	if(power_off) {
-		emc_publ_do_gate_training();
+	#if 1
+	//now memory mode update only support LPDDR2, for other memory, you should check
+	if(mem_type_enum!=LPDDR2)
+		while(1);
+	switch(clk_emc_div) {
+	    case 0:{
+	        update_lpddr2_modereg(0x4,   //u32 nwr,
+				_LPDDR2_WC_,       //u32 mem_wc,
+				_LPDDR2_BT_,       //u32 mem_bt,
+				_LPDDR2_BL_==4?2:  //u32 mem_bl,
+				_LPDDR2_BL_==8?3:4,
+				0x4                //u32 rl_wl
+				);
+	        break;
+	    }
+	    default: { //for frequency less than 200MHz
+	        update_lpddr2_modereg(0x1,   //u32 nwr,
+				_LPDDR2_WC_,       //u32 mem_wc,
+				_LPDDR2_BT_,       //u32 mem_bt,
+				_LPDDR2_BL_==4?2:  //u32 mem_bl,
+				_LPDDR2_BL_==8?3:4,
+				0x1                //u32 rl_wl
+				  );
+	        break;
+	    }
 	}
+#endif
+	if(power_off) {
+		#if 0 //manually set DQSTR control register
+		REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX0DQSTR) = 0x3DB06000;
+		REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX1DQSTR) = 0x3DB06000;
+		REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX2DQSTR) = 0x3DB06000;
+		REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX3DQSTR) = 0x3DB06000;
+		#else
+		emc_publ_do_gate_training();
+		#endif
 
+	}
 	////disable emc auto self-refresh
 	//value_temp = REG32(0x20900308);
 	//value_temp &= ~(0x1 << 8);
 	//REG32(0x20900308) = value_temp;
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_SCFG) = 0x00000421;
 	move_upctl_state_to_access();
+	disable_umctl_dtu();
 }
 
 
@@ -1330,58 +1532,112 @@ static inline void modify_reg_field(u32 addr, u32 start_bit, u32 bit_num, u32 va
 	temp |= value<<start_bit;
 	REG32(addr) = temp;
 }
-
+static inline u32 polling_reg_bit_field(u32 addr, u32 start_bit, u32 bit_num, u32 value)
+{
+		uint32 temp, i;
+		uint32 exp_value;
+		uint32 mask;
+		mask = 0;
+		for(i=0;i<bit_num;i++)
+		{
+				mask |= (1<<(start_bit+i));
+		}
+		exp_value = (value << start_bit);
+		do {temp = REG32(addr);}
+		while((temp&mask)!=exp_value);
+		return temp;
+}
 static inline void disable_clk_emc(void)
 {
-	modify_reg_field(ADDR_AHBREG_AHB_CTRL0, 28, 1, 0);
+	REG32(ADDR_AHBREG_AHB_CTRL0) &= ~(0x1<<28);
 }
 
 static inline void enable_clk_emc(void)
 {
-	modify_reg_field(ADDR_AHBREG_AHB_CTRL0, 28, 1, 1);
+	REG32(ADDR_AHBREG_AHB_CTRL0) |= (0x1<<28);
 }
 
 static inline void assert_reset_acdll(void)
 {
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_ACDLLCR, 30, 1, 0);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_ACDLLCR) &= ~(0x1<<30);
 }
 
 static inline void deassert_reset_acdll(void)
 {
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_ACDLLCR, 30, 1, 1);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_ACDLLCR) |= (0x1<<30);
 }
 
 static inline void assert_reset_dxdll(void)
 {
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX0DLLCR, 30, 1, 0);
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX1DLLCR, 30, 1, 0);
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX2DLLCR, 30, 1, 0);
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX3DLLCR, 30, 1, 0);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DX0DLLCR) &= ~(0x1<<30);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DX1DLLCR) &= ~(0x1<<30);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DX2DLLCR) &= ~(0x1<<30);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DX3DLLCR) &= ~(0x1<<30);
 }
 
 static inline void deassert_reset_dxdll(void)
 {
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX0DLLCR, 30, 1, 1);
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX1DLLCR, 30, 1, 1);
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX2DLLCR, 30, 1, 1);
-	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DX3DLLCR, 30, 1, 1);
-}
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DX0DLLCR) |= (0x1<<30);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DX1DLLCR) |= (0x1<<30);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DX2DLLCR) |= (0x1<<30);
+	REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DX3DLLCR) |= (0x1<<30);	}
 
-static inline void modify_dpll_freq(u32 freq)
+static inline void assert_reset_ddrphy_dll(void)
 {
+	assert_reset_acdll();
+	assert_reset_dxdll();
+}
+static inline void deassert_reset_ddrphy_dll(void)
+{
+	deassert_reset_acdll();
+	deassert_reset_dxdll();
+}
+static inline void modify_dpll_freq (u32 freq) {
 	u32 temp;
-	modify_reg_field(GLB_REG_WR_REG_GEN1, 9, 1, 1);
-	temp = freq >> 2;
-	modify_reg_field(GLB_REG_DPLL_CTRL, 0, 11, temp);
-	modify_reg_field(GLB_REG_WR_REG_GEN1, 9, 1, 0);
+	//step1: enable register write
+	modify_reg_field(GLB_REG_WR_REG_GEN1,9,1,1);
+	//step2: modify dpll parameter N
+	/*
+	switch(freq) {
+	  case 100: {temp=25; break;}
+	  case 133: {temp=34; break;}
+	  case 166: {temp=42; break;}
+	  case 200: {temp=50; break;}
+	  case 233: {temp=58; break;}
+	  case 266: {temp=66; break;}
+	  case 333: {temp=83; break;}
+	  case 400: {temp=100; break;}
+	  default: {temp=100; break;}
+	}
+	*/
+	temp = (freq >> 2);
+       modify_reg_field(GLB_REG_DPLL_CTRL,0,11,temp);
+	//step2: disable register write
+	modify_reg_field(GLB_REG_WR_REG_GEN1,9,1,0);
 }
 
-static inline void wait_100ns(void)
+//get the dpll frequency
+static inline u32 get_dpll_freq_value(void){
+	u32 temp;
+	//step1: enable register write
+	modify_reg_field(GLB_REG_WR_REG_GEN1,9,1,1);
+	//step2: get the value
+	temp = 0x7ff;
+    temp &= REG32(GLB_REG_DPLL_CTRL);
+	temp = (temp<<2);
+	//step3: disable register write
+	modify_reg_field(GLB_REG_WR_REG_GEN1,9,1,0);
+	return temp;
+}
+static inline void modify_clk_emc_div(u32 div) {
+	modify_reg_field(ADDR_AHBREG_ARMCLK, 8, 4, div);
+}
+/*
+static void wait_100ns(void)
 {
 	u32 volatile i;
 	for (i=0; i<100; i++);
 }
-
 static inline void wait_1us(void)
 {
 	u32 volatile i;
@@ -1394,8 +1650,9 @@ static inline void wait_us(u32 us)
 	for (i=0; i<us; i++)
 		wait_1us();
 }
-
-static inline void modify_emc_clk(u32 freq)
+*/
+/*
+static void modify_emc_clk(u32 freq)
 {
 	disable_clk_emc();
 	assert_reset_acdll();
@@ -1413,15 +1670,89 @@ static inline void modify_emc_clk(u32 freq)
 	deassert_reset_dxdll();
 	wait_us(10);
 }
-static inline void reset_ddrphy_dll(void)
+*/
+
+//default dll enable mode
+static inline void modify_clk_emc_freq(u32 clk_emc_div)
 {
+	u32 value_temp;
 	disable_clk_emc();
 	assert_reset_acdll();
 	assert_reset_dxdll();
+
+	modify_clk_emc_div(clk_emc_div);	//
+
 	enable_clk_emc();
 	deassert_reset_acdll();
 	deassert_reset_dxdll();
-	wait_us(10);
+
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = 0x5; //
+	wait_n_pclk_cycle(5);
+	do{
+	    value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
+	} while((value_temp&0x1)==0);
+}
+static inline void reset_ddrphy_dll(void)
+{
+	u32 value_temp;
+	u32 i;
+	do{
+	    value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
+	} while((value_temp&0x1)==0);
+
+	disable_clk_emc();
+
+	for(i = 0; i < 10; i++);	//wait for clock tree propaation done
+	assert_reset_acdll();
+	assert_reset_dxdll();
+	enable_clk_emc();           //wait for clock tree propaation done
+	for(i = 0; i < 10; i++);
+	deassert_reset_acdll();
+	deassert_reset_dxdll();
+//	timer2_value_10 = REG32(0x41000044);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = 0x5; //
+	for(i = 0; i < 10; i++);
+	do{
+	    value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
+//	timer2_value_11 = REG32(0x41000044);
+	} while((value_temp&0x1)==0);
+}
+/*
+static void bypass_ddrphy_dll()
+{
+	//modify_reg_field(PUBL_REG_BASE + PUBL_CFG_ADD_ACDLLCR, 31, 1, 0x1);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ACDLLCR) |= (1 << 31);
+	//modify_reg_field(PUBL_REG_BASE + PUBL_CFG_ADD_DX0DLLCR, 31, 1, 0x1);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX0DLLCR) |= (1 << 31);
+	//modify_reg_field(PUBL_REG_BASE + PUBL_CFG_ADD_DX1DLLCR, 31, 1, 0x1);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX1DLLCR) |= (1 << 31);
+	//modify_reg_field(PUBL_REG_BASE + PUBL_CFG_ADD_DX2DLLCR, 31, 1, 0x1);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX2DLLCR) |= (1 << 31);
+	//modify_reg_field(PUBL_REG_BASE + PUBL_CFG_ADD_DX3DLLCR, 31, 1, 0x1);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX3DLLCR) |= (1 << 31);
+}
+*/
+
+static inline void disable_ddrphy_dll(void) {
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ACDLLCR) |= (1 << 31);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX0DLLCR) |= (1 << 31);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX1DLLCR) |= (1 << 31);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX2DLLCR) |= (1 << 31);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX3DLLCR) |= (1 << 31);
+}
+static inline void enable_ddrphy_dll(void) {
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ACDLLCR) &= ~(1 << 31);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX0DLLCR) &= ~(1 << 31);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX1DLLCR) &= ~(1 << 31);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX2DLLCR) &= ~(1 << 31);
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DX3DLLCR) &= ~(1 << 31);
+
+}
+
+
+static inline void publ_grant_dfi_to_umctl(void) {
+	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = (1<<18)|1;
+	polling_reg_bit_field(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR, 0, 1, 1); //polling phy init done
 }
 static inline u32 get_emc_size(u32 reg_value)
 {
@@ -1473,7 +1804,7 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 		break;
 	case 0xb:
 		param->mem_drv = 40;
-		break;	
+		break;
 	case 0x9:
 		param->mem_drv = 48;
 		break;
@@ -1539,8 +1870,8 @@ void save_emc_trainig_data(struct emc_repower_param *param)
 	u32 *dst;
 	u32 *src;
 	u32 i;
-	dst = (u8 *)param->cs0_saved_data;
-	src = (u8 *)param->cs0_training_addr_v;
+	dst = (u32 *)param->cs0_saved_data;
+	src = (u32 *)param->cs0_training_addr_v;
 #if 0
 	//CS0 traininig data saved by DSP code
 	for(i = 0; i < param->cs0_training_data_size; i++) {
@@ -1560,8 +1891,8 @@ static inline void restore_emc_training_data(struct emc_repower_param *param)
 	u32 *dst;
 	u32 *src;
 	u32 i;
-	dst = (u8 *)param->cs0_training_addr_p;
-	src = (u8 *)param->cs0_saved_data;
+	dst = (u32 *)param->cs0_training_addr_p;
+	src = (u32 *)param->cs0_saved_data;
 #if 0
 	//CS0 traininig data restored by DSP code
 	for(i = 0; i < param->cs0_training_data_size; i++) {
@@ -1583,15 +1914,31 @@ inline struct emc_repower_param * get_emc_repower_param(void)
 	return param;
 }
 
-
 void emc_init_repowered(u32 power_off)
 {
-	u32 i;
+	u32 clk_emc_div;
+	u32 tmp_val;
 	struct emc_repower_param *param_p;
 	param_p = (struct emc_repower_param *)(SPRD_IRAM_PHYS + 15 * 1024);
-
-	reset_ddrphy_dll();
-	__emc_init_repowered(power_off, param_p);
+	tmp_val = REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_STAT);
+	if((tmp_val & 0x7) != 0) {
+		return;
+	}
+	clk_emc_div = 3;
+	param_p->emc_freq = 400 / (clk_emc_div + 1);
+	if(0) {
+		modify_clk_emc_freq(clk_emc_div);
+	    __emc_init_repowered(power_off, param_p, clk_emc_div);
+	}
+	else {
+            disable_clk_emc();
+            set_ddrphy_dll_bps200_mode((clk_emc_div>=3)? 0x0: 0x1);
+            disable_ddrphy_dll();
+	    modify_clk_emc_div(clk_emc_div);
+            enable_clk_emc();
+	    __emc_init_repowered(power_off, param_p, clk_emc_div);
+	}
+	//__emc_init_repowered(power_off, param_p, clk_emc_div);
 	if(power_off)
 	       restore_emc_training_data(param_p);
 }

@@ -195,6 +195,12 @@ void __init sci_enable_timer_early(void)
 #endif
 }
 
+#ifdef CONFIG_LOCAL_TIMERS
+static DEFINE_TWD_LOCAL_TIMER(twd_local_timer,
+			      SPRD_CORE_PHYS + 0x600,
+			      IRQ_LOCALTIMER);
+#endif
+
 void __init sci_timer_init(void)
 {
 #ifdef CONFIG_ARM_ARCH_TIMER
@@ -205,9 +211,15 @@ void __init sci_timer_init(void)
 	at.res[1].start = 0;
 	at.res[1].flags = IORESOURCE_IRQ;
 #endif
+
 	/* setup timer2 and syscnt as clocksource */
 	__gptimer_clocksource_init("gptimer2", 26000000);
 	__syscnt_clocksource_init("syscnt", 1000);
+
+#ifdef CONFIG_LOCAL_TIMERS
+	if (twd_local_timer_register(&twd_local_timer))
+		pr_err("sprd twd_local_timer_register failed!\n");
+#endif
 
 #ifdef CONFIG_ARM_ARCH_TIMER
 	arch_timer_register(&at);

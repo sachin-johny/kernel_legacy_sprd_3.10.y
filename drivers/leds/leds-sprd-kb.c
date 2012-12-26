@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/leds.h>
@@ -20,7 +21,9 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 
 #define KPLED_DBG 0
 

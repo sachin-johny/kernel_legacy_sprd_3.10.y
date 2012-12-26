@@ -1,5 +1,5 @@
 /*
- * sc8830 standby mode
+ * sc8825 standby mode
  *
  * Author: Wang Liwei
  *
@@ -20,6 +20,8 @@
 #define REG_HOLDING_PEN_PHY_ADDR (SPRD_AHB_PHYS + 0x240)
 #define REG_CPU1_JUMP_PHY_ADDR	 (SPRD_AHB_PHYS + 0x248)
 #define REG_GLB_GEN0_PHY_ADDR	 (SPRD_GREG_PHYS + 0x8)
+#define REG_GIC_ICR_PHY_ADDR	 (SPRD_CORE_PHYS + 0x100)
+#define REG_GIC_IPMR_PHY_ADDR	 (SPRD_CORE_PHYS + 0x104)
 #define UART1_EN		 (0X1 << 21)
 
 	.macro	addruart,rx
@@ -56,7 +58,7 @@
 	.text
 	.align 12
 
-ENTRY(sc8830_standby_iram)
+ENTRY(sc8825_standby_iram)
 #if 0
 	/*debug info starts*/
 	stmfd sp!, {r4-r12, lr}
@@ -86,7 +88,7 @@ ENTRY(sc8830_standby_iram)
 #endif
 sprd_pm_mapped_va:
 	ldr r0, =sprd_pm_va_to_iram
-	ldr r1, =sc8830_standby_iram
+	ldr r1, =sc8825_standby_iram
 	ldr r2, =iram_start
 	ldr r3, [r2, #0]
 	sub r0, r0, r1
@@ -116,7 +118,7 @@ sprd_pm_va_to_iram:
 1:	b 1b
 	/*
 	 * TODO: EMC must be re-initialized if its own DLL stopped
-	 * code of function sc8830_emc_reinit() has been copied to (iram_start+8K)
+	 * code of function sc8825_emc_reinit() has been copied to (iram_start+8K)
 	*/
 	stmfd sp!, {r4-r12, lr}
 	mov r0, #0
@@ -142,10 +144,10 @@ sprd_pm_va_to_iram:
 	nop
 	nop
 
-ENDPROC(sc8830_standby_iram)
+ENDPROC(sc8825_standby_iram)
 
 
-ENTRY(sc8830_standby_exit_iram)
+ENTRY(sc8825_standby_exit_iram)
 
 	mrs r0, cpsr
 	and r0, r0, #0xff
@@ -201,7 +203,16 @@ ENTRY(sc8830_standby_exit_iram)
 	adreq	r5, emc_repower
 	moveq	pc, r5
 hold_secondary_cores:
-	wfene
+	ldr	r1, =REG_GIC_ICR_PHY_ADDR
+	ldr     r2, =0x1
+	str	r2, [r1]
+	/* set cpu interface priority.
+	*  0xf0 is default value in kernel source code
+	*/
+	ldr	r1, =REG_GIC_IPMR_PHY_ADDR
+	ldr     r2, =0xf0
+	str	r2, [r1]
+	wfine
 	ldr	sp, =0xc0000000 /*should be deleted*/
 	ldr     r1, =REG_HOLDING_PEN_PHY_ADDR
 	ldr     r3, [r1]
@@ -240,7 +251,7 @@ context_restore:
 	ldr	r1, =0x80000000
 	add	r0, r0, r1 
 	mov pc, r0
-ENDPROC(sc8830_standby_exit_iram)
+ENDPROC(sc8825_standby_exit_iram)
 
 
 ENTRY(printascii_phy)
@@ -297,7 +308,7 @@ sleep_asm_counter:
 
 str_a1:	.asciz	"dead!"
 
-ENTRY(sc8830_standby_iram_end)
+ENTRY(sc8825_standby_iram_end)
 
 
 /*
@@ -394,7 +405,7 @@ ENTRY(sp_pm_collapse)
 	mov 	r1, #SCU_PM_POWEROFF
 	bl	scu_power_mode
 #endif
-	bl sc8830_standby_iram
+	bl sc8825_standby_iram
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
@@ -518,7 +529,7 @@ sp_pm_pa_to_va:
 	dsb
 	isb
 
-#if 1
+#ifdef CONFIG_HAVE_ARM_SCU
 	/* power on SCU */
 	stmfd   sp!, {lr}
 	bl	sprd_get_scu_base
