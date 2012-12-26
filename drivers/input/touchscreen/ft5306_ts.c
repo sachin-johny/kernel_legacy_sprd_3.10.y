@@ -1053,9 +1053,15 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
 	if(uc_reg_value != 0x55)
 	{
-		printk("chip id error%x\n",uc_reg_value);
-		err = -ENODEV;
-		goto exit_alloc_data_failed;
+		if(uc_reg_value == 0xa3) {
+			msleep(100);
+			fts_ctpm_fw_upgrade_with_i_file();
+		}
+		else {
+			printk("chip id error %x\n",uc_reg_value);
+			err = -ENODEV;
+			goto exit_alloc_data_failed;
+		}
 	}
 
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
