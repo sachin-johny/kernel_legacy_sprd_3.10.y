@@ -995,6 +995,7 @@ void __init setup_arch(char **cmdline_p)
 		mdesc->init_early();
 }
 
+
 static int __init topology_init(void)
 {
 	int cpu;
@@ -1060,13 +1061,9 @@ static int c_show(struct seq_file *m, void *v)
 		 * "processor".  Give glibc what it expects.
 		 */
 		seq_printf(m, "processor\t: %d\n", i);
-#ifdef CONFIG_ARCH_SC8825
-		seq_printf(m, "BogoMIPS\t: 1024.00\n\n");
-#else
 		seq_printf(m, "BogoMIPS\t: %lu.%02lu\n\n",
 			   per_cpu(cpu_data, i).loops_per_jiffy / (500000UL/HZ),
 			   (per_cpu(cpu_data, i).loops_per_jiffy / (5000UL/HZ)) % 100);
-#endif
 	}
 #else /* CONFIG_SMP */
 	seq_printf(m, "BogoMIPS\t: %lu.%02lu\n",

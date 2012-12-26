@@ -1009,52 +1009,6 @@ config ARCH_ZYNQ
 	select USE_OF
 	help
 	  Support for Xilinx Zynq ARM Cortex A9 Platform
-
-config ARCH_SC8810
-	bool  "SPREADTRUM SC8810"
-	depends on MMU
-	select CPU_V7
-	select VFP
-	select VFPv3
-	select NEON
-	select MIGHT_HAVE_CACHE_L2X0
-	select GENERIC_TIME
-	select GENERIC_CLOCKEVENTS
-	select CLKDEV_LOOKUP
-	select ARCH_REQUIRE_GPIOLIB
-	select ARCH_HAS_CPUFREQ
-	select HAVE_SCHED_CLOCK
-	help
-	  Support for Spreadtrum sc8810 based systems.
-
-config ARCH_SC8825
-	bool  "SPREADTRUM SC8825 SOC"
-	depends on MMU
-	select CPU_V7
-	select ARM_GIC
-	select HAVE_ARM_SCU
-	select GENERIC_CLOCKEVENTS
-	select HAVE_SCHED_CLOCK
-	select VFP
-	select VFPv3
-	select NEON
-	select GENERIC_TIME
-	select CLKSRC_MMIO
-	select GENERIC_ALLOCATOR
-	select GENERIC_CLOCKEVENTS
-	select CLKDEV_LOOKUP
-	select ARCH_REQUIRE_GPIOLIB
-	select ARCH_HAS_CPUFREQ
-	help
-	  Support for Spreadtrum sc8825 socs based systems.
-
-config ARCH_ARM_OSWARE
-	bool "VLX Generic ARM Virtual Machine"
-	select HAVE_SCHED_CLOCK
-	help
-	  This enables support for a basic and generic ARM machine that runs
-          on top of VLX.
-
 endchoice
 
 #
@@ -1172,10 +1126,6 @@ source "arch/arm/plat-versatile/Kconfig"
 source "arch/arm/mach-vt8500/Kconfig"
 
 source "arch/arm/mach-w90x900/Kconfig"
-
-source "arch/arm/mach-sc8810/Kconfig"
-
-source "arch/arm/mach-sc8825/Kconfig"
 
 # Definitions to make life easier
 config ARCH_ACORN
@@ -2244,10 +2194,6 @@ config CPU_FREQ_S3C24XX_DEBUGFS
 	depends on CPU_FREQ_S3C24XX && DEBUG_FS
 	help
 	  Export status information via debugfs.
-
-config CPU_FREQ_SC8810
-	bool "CPUfreq support for Spreadtrum SC8810 CPUs"
-	depends on CPU_FREQ && ARCH_SC8810
 
 endif
 
