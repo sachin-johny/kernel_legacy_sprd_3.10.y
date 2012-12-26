@@ -87,11 +87,10 @@ s32	_rtw_init_xmit_priv(struct xmit_priv *pxmitpriv, _adapter *padapter)
 	u32 num_xmit_extbuf = NR_XMIT_EXTBUFF;
 #if defined(CONFIG_MP_INCLUDED) && defined(CONFIG_RTL8723A)
 	if (padapter->registrypriv.mp_mode) {
-		max_xmit_extbuf_size = 20000;
-		num_xmit_extbuf = 1;
+		max_xmit_extbuf_size = 6000;
+		num_xmit_extbuf = 8;
 	}
 #endif
-
 _func_enter_;
 
 	// We don't need to memset padapter->XXX to zero, because adapter is allocated by rtw_zvmalloc().
@@ -211,7 +210,7 @@ _func_enter_;
 			rtw_msleep_os(10);
 			res = rtw_os_xmit_resource_alloc(padapter, pxmitbuf,(MAX_XMITBUF_SZ + XMITBUF_ALIGN_SZ));
 			if (res == _FAIL) {
-				if(i >= 8){					
+				if(i >= 8){
 					DBG_871X_LEVEL(_drv_always_,"%s,memory is not enough,but driver can run,real_allocate_xmitbuf_cnt=%d\n",__func__,i);
 					break;
 				}
@@ -360,8 +359,8 @@ void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv)
 	u32 num_xmit_extbuf = NR_XMIT_EXTBUFF;
 #if defined(CONFIG_MP_INCLUDED) && defined(CONFIG_RTL8723A)
 	if (padapter->registrypriv.mp_mode) {
-		max_xmit_extbuf_size = 20000;
-		num_xmit_extbuf = 1;
+		max_xmit_extbuf_size = 6000;
+		num_xmit_extbuf = 8;
 	}
 #endif
 
@@ -571,6 +570,38 @@ static void update_attrib_phy_info(struct pkt_attrib *pattrib, struct sta_info *
 
 }
 
+unsigned short rtw_up2ac(_adapter *padapter, sint up)
+{
+	unsigned short ac = 0;
+
+	switch (up)
+	{
+		case 1:
+		case 2:
+			ac = 3;
+			break;
+
+		case 4:
+		case 5:
+			ac = 1;
+			break;
+
+		case 6:
+		case 7:
+			ac = 0;
+			break;
+
+		case 0:
+		case 3:
+		default:
+			ac = 2;
+			break;
+
+	}
+
+	return ac;
+}
+
 u8	qos_acm(u8 acm_mask, u8 priority)
 {
 	u8	change_priority = priority;
@@ -710,17 +741,30 @@ static s32 update_attrib(_adapter *padapter, _pkt *pkt, struct pkt_attrib *pattr
 	}
 	#endif
 
+	bmcast = IS_MCAST(pattrib->ra);
 #ifdef CONFIG_LPS
 	// If EAPOL , ARP , OR DHCP packet, driver must be in active mode.
 	//if ( (pattrib->ether_type == 0x88B4) || (pattrib->ether_type == 0x0806) || (pattrib->ether_type == 0x888e) || (pattrib->dhcp_pkt == 1) )
 	//before 4-way success, we can not enter LPS, so 888E for EAPOL and 88B4 for WAPI is not needed here
 	if ((pattrib->ether_type == 0x0806) || (pattrib->dhcp_pkt == 1))
 	{
-		rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_SPECIAL_PACKET, 1);
+		/*Before WPS finish we should not change TDMA type, jacky_20121203*/
+		if(check_fwstate(pmlmepriv,WIFI_UNDER_WPS) != _TRUE) {
+			rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_SPECIAL_PACKET, 1);
+		}	
+	}
+#ifdef CONFIG_BT_COEXIST
+	else if (check_fwstate(pmlmepriv, WIFI_STATION_STATE))
+	{
+		//if wifi just in LPS mode, web will be very slow
+		//we should enter TDMA under LPS mode, for web fluent
+		if (padapter->pwrctrlpriv.pwr_mode != PS_MODE_ACTIVE && !bmcast) {
+			rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_TRAFFIC_TDMA, 1);
+		}
+
 	}
 #endif
-
-	bmcast = IS_MCAST(pattrib->ra);
+#endif
 
 	// get sta_info
 	if (bmcast) {
@@ -2191,7 +2235,9 @@ _func_enter_;
 	{
 		pxmitpriv->free_xmitframe_cnt--;
 
-		RT_TRACE(_module_rtl871x_xmit_c_, _drv_info_, ("rtw_alloc_xmitframe():free_xmitframe_cnt=%d\n", pxmitpriv->free_xmitframe_cnt));
+		#ifdef DBG_XMIT_BUF
+		DBG_871X("rtw_alloc_xmitframe():free_xmitframe_cnt=%d\n", pxmitpriv->free_xmitframe_cnt);
+		#endif
 
 		pxframe->buf_addr = NULL;
 		pxframe->pxmitbuf = NULL;
@@ -2261,10 +2307,15 @@ _func_enter_;
 	rtw_list_insert_tail(&pxmitframe->list, get_list_head(pfree_xmit_queue));
 
 	pxmitpriv->free_xmitframe_cnt++;
-	RT_TRACE(_module_rtl871x_xmit_c_, _drv_debug_, ("rtw_free_xmitframe():free_xmitframe_cnt=%d\n", pxmitpriv->free_xmitframe_cnt));
+	#ifdef DBG_XMIT_BUF
+	DBG_871X("rtw_free_xmitframe():free_xmitframe_cnt=%d\n", pxmitpriv->free_xmitframe_cnt);
+	#endif
 
 	_exit_critical_bh(&pfree_xmit_queue->lock, &irqL);
 
+#ifdef PLATFORM_LINUX
+	rtw_os_xmit_flow_ctl(padapter, pxmitframe->attrib.priority, _FALSE);
+#endif
 
 	if(pndis_pkt)
 		rtw_os_pkt_complete(padapter, pndis_pkt);
@@ -3002,7 +3053,7 @@ s32 rtw_xmit(_adapter *padapter, _pkt **ppkt)
 	if (pxmitframe == NULL) {
 		RT_TRACE(_module_xmit_osdep_c_, _drv_err_, ("rtw_xmit: no more pxmitframe\n"));
 		//#ifdef DBG_TX_DROP_FRAME
-		DBG_871X("DBG_TX_DROP_FRAME %s no more pxmitframe\n", __FUNCTION__);
+		DBG_871X_LEVEL(_drv_err_, "DBG_TX_DROP_FRAME %s no more pxmitframe\n", __FUNCTION__);
 		//#endif
 		return -1;
 	}
@@ -3031,6 +3082,9 @@ s32 rtw_xmit(_adapter *padapter, _pkt **ppkt)
 
 	res = update_attrib(padapter, *ppkt, &pxmitframe->attrib);
 
+#ifdef PLATFORM_LINUX
+	rtw_os_xmit_flow_ctl(padapter, pxmitframe->attrib.priority, _TRUE);
+#endif
 #ifdef CONFIG_WAPI_SUPPORT
 	if(pxmitframe->attrib.ether_type != 0x88B4)
 	{
@@ -3215,7 +3269,9 @@ sint xmitframe_enqueue_for_sleeping_sta(_adapter *padapter, struct xmit_frame *p
 			pstapriv->tim_bitmap |= BIT(0);//
 			pstapriv->sta_dz_bitmap |= BIT(0);
 
-			//DBG_871X("enqueue, sq_len=%d, tim=%x\n", psta->sleepq_len, pstapriv->tim_bitmap);
+#ifdef DBG_XMIT_BUF
+			DBG_871X("%s enqueue sleepq_len, sq_len=%d, tim=%x\n", __func__, psta->sleepq_len, pstapriv->tim_bitmap);
+#endif
 
 			update_beacon(padapter, _TIM_IE_, NULL, _FALSE);//tx bc/mc packets after upate bcn
 
@@ -3247,6 +3303,9 @@ sint xmitframe_enqueue_for_sleeping_sta(_adapter *padapter, struct xmit_frame *p
 			rtw_list_insert_tail(&pxmitframe->list, get_list_head(&psta->sleep_q));
 
 			psta->sleepq_len++;
+#ifdef DBG_XMIT_BUF
+			DBG_871X("%s enqueue sleepq_len, sq_len=%d, tim=%x\n", __func__, psta->sleepq_len, pstapriv->tim_bitmap);
+#endif
 
 			switch(pattrib->priority)
 			{
@@ -3313,6 +3372,7 @@ static void dequeue_xmitframes_to_sleeping_queue(_adapter *padapter, struct sta_
 	struct pkt_attrib	*pattrib;
 	struct xmit_frame 	*pxmitframe;
 	struct hw_xmit *phwxmits =  padapter->xmitpriv.hwxmits;
+	sint ret=_FALSE;
 
 	phead = get_list_head(pframequeue);
 	plist = get_next(phead);
@@ -3323,14 +3383,15 @@ static void dequeue_xmitframes_to_sleeping_queue(_adapter *padapter, struct sta_
 
 		plist = get_next(plist);
 
-		xmitframe_enqueue_for_sleeping_sta(padapter, pxmitframe);
+		ret = xmitframe_enqueue_for_sleeping_sta(padapter, pxmitframe);
 
 		pattrib = &pxmitframe->attrib;
 
-		ptxservq = rtw_get_sta_pending(padapter, psta, pattrib->priority, (u8 *)(&ac_index));
-
-		ptxservq->qcnt--;
-		phwxmits[ac_index].accnt--;
+		if (ret) {
+			ptxservq = rtw_get_sta_pending(padapter, psta, pattrib->priority, (u8 *)(&ac_index));
+			ptxservq->qcnt--;
+			phwxmits[ac_index].accnt--;
+		}
 	}
 
 }

@@ -650,7 +650,7 @@ s32 mp_start_test(PADAPTER padapter)
 	//init mp_start_test status
 	if (check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE) {
 		rtw_disassoc_cmd(padapter);
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 1);
 		rtw_free_assoc_resources(padapter, 1);
 	}
 	pmppriv->prev_fw_state = get_fwstate(pmlmepriv);
@@ -735,7 +735,7 @@ void mp_stop_test(PADAPTER padapter)
 		goto end_of_mp_stop_test;
 
 	//3 1. disconnect psudo AdHoc
-	rtw_indicate_disconnect(padapter);
+	rtw_indicate_disconnect(padapter, 1);
 
 	//3 2. clear psta used in mp test mode.
 //	rtw_free_assoc_resources(padapter, 1);
@@ -1275,9 +1275,15 @@ void SetPacketRx(PADAPTER pAdapter, u8 bStartRx)
 	if(bStartRx)
 	{
 		// Accept CRC error and destination address
-#ifndef CONFIG_RTL8723A
-		pHalData->ReceiveConfig |= (RCR_ACRC32|RCR_AAP);
+#if 1
+		pHalData->ReceiveConfig = AAP | APM | AM | AB | APP_ICV | ADF | AMF | HTC_LOC_CTRL | APP_MIC | APP_PHYSTS;
+
+		pHalData->ReceiveConfig |= ACRC32;
+
 		rtw_write32(pAdapter, REG_RCR, pHalData->ReceiveConfig);
+
+		// Accept all data frames
+		rtw_write16(pAdapter, REG_RXFLTMAP2, 0xFFFF);
 #else
 		rtw_write32(pAdapter, REG_RCR, 0x70000101);
 #endif
@@ -1417,6 +1423,409 @@ u32 mp_query_psd(PADAPTER pAdapter, u8 *data)
 
 	return strlen(data)+1;
 }
+
+
+
+void _rtw_mp_xmit_priv (struct xmit_priv *pxmitpriv)
+{
+	   int i,res;
+	  _adapter *padapter = pxmitpriv->adapter;
+	struct xmit_frame	*pxmitframe = (struct xmit_frame*) pxmitpriv->pxmit_frame_buf;
+	struct xmit_buf *pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmitbuf;
+
+	u32 max_xmit_extbuf_size = MAX_XMIT_EXTBUF_SZ;
+	u32 num_xmit_extbuf = NR_XMIT_EXTBUFF;
+	if(padapter->registrypriv.mp_mode ==0)
+	{
+		max_xmit_extbuf_size = MAX_XMIT_EXTBUF_SZ;
+		num_xmit_extbuf = NR_XMIT_EXTBUFF;
+	}
+	else
+	{
+		max_xmit_extbuf_size = 20000;
+		num_xmit_extbuf = 1;
+	}
+
+	pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmit_extbuf;
+	for(i=0; i<num_xmit_extbuf; i++)
+	{
+		rtw_os_xmit_resource_free(padapter, pxmitbuf,(max_xmit_extbuf_size + XMITBUF_ALIGN_SZ));
+
+		pxmitbuf++;
+	}
+
+	if(pxmitpriv->pallocated_xmit_extbuf) {
+		rtw_vmfree(pxmitpriv->pallocated_xmit_extbuf, num_xmit_extbuf * sizeof(struct xmit_buf) + 4);
+	}
+
+	if(padapter->registrypriv.mp_mode ==0)
+	{
+		max_xmit_extbuf_size = 20000;
+		num_xmit_extbuf = 1;
+	}
+	else
+	{
+		max_xmit_extbuf_size = MAX_XMIT_EXTBUF_SZ;
+		num_xmit_extbuf = NR_XMIT_EXTBUFF;
+	}
+
+	// Init xmit extension buff
+	_rtw_init_queue(&pxmitpriv->free_xmit_extbuf_queue);
+
+	pxmitpriv->pallocated_xmit_extbuf = rtw_zvmalloc(num_xmit_extbuf * sizeof(struct xmit_buf) + 4);
+
+	if (pxmitpriv->pallocated_xmit_extbuf  == NULL){
+		RT_TRACE(_module_rtl871x_xmit_c_,_drv_err_,("alloc xmit_extbuf fail!\n"));
+		res= _FAIL;
+		goto exit;
+	}
+
+	pxmitpriv->pxmit_extbuf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitpriv->pallocated_xmit_extbuf), 4);
+
+	pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmit_extbuf;
+
+	for (i = 0; i < num_xmit_extbuf; i++)
+	{
+		_rtw_init_listhead(&pxmitbuf->list);
+
+		pxmitbuf->priv_data = NULL;
+		pxmitbuf->padapter = padapter;
+		pxmitbuf->ext_tag = _TRUE;
+
+/*
+		pxmitbuf->pallocated_buf = rtw_zmalloc(max_xmit_extbuf_size);
+		if (pxmitbuf->pallocated_buf == NULL)
+		{
+			res = _FAIL;
+			goto exit;
+		}
+
+		pxmitbuf->pbuf = (u8 *)N_BYTE_ALIGMENT((SIZE_PTR)(pxmitbuf->pallocated_buf), 4);
+*/
+
+		if((res=rtw_os_xmit_resource_alloc(padapter, pxmitbuf,max_xmit_extbuf_size + XMITBUF_ALIGN_SZ)) == _FAIL) {
+			res= _FAIL;
+			goto exit;
+		}
+
+#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
+		pxmitbuf->phead = pxmitbuf->pbuf;
+		pxmitbuf->pend = pxmitbuf->pbuf + max_xmit_extbuf_size;
+		pxmitbuf->len = 0;
+		pxmitbuf->pdata = pxmitbuf->ptail = pxmitbuf->phead;
+#endif
+
+		rtw_list_insert_tail(&pxmitbuf->list, &(pxmitpriv->free_xmit_extbuf_queue.queue));
+		#ifdef DBG_XMIT_BUF_EXT
+		pxmitbuf->no=i;
+		#endif
+		pxmitbuf++;
+
+	}
+
+	pxmitpriv->free_xmit_extbuf_cnt = num_xmit_extbuf;
+
+exit:
+	;
+}
+
+
+
+u32 getPowerDiffByRate(PADAPTER pAdapter, u8 CurrChannel, u32 RfPath)
+{
+	struct mp_priv *pmppriv = (struct mp_priv *)(&(pAdapter->mppriv));
+	PMPT_CONTEXT	pMptCtx = &(pmppriv->MptCtx);
+	HAL_DATA_TYPE	*pHalData	= GET_HAL_DATA(pAdapter);
+	ULONG	PwrGroup=0;
+	ULONG	TxPower=0, Limit=0;
+	ULONG	Pathmapping = (RfPath == RF90_PATH_A?0:8);
+
+	switch(pHalData->EEPROMRegulatory)
+	{
+		case 0: // Realtek better performance
+				// increase power diff defined by Realtek for large power
+			PwrGroup = 0;
+			Limit = 0xff;
+			break;
+		case 1: // Realtek regulatory
+				// increase power diff defined by Realtek for regulatory
+			{
+				if(pHalData->pwrGroupCnt == 1)
+					PwrGroup = 0;
+				if(pHalData->pwrGroupCnt >= 3)
+			{
+				if(CurrChannel <= 3)
+					PwrGroup = 0;
+					else if(CurrChannel >= 4 && CurrChannel <= 9)
+					PwrGroup = 1;
+					else if(CurrChannel > 9)
+					PwrGroup = 2;
+
+					if(pHalData->CurrentChannelBW == HT_CHANNEL_WIDTH_20)
+						PwrGroup++;
+			else
+						PwrGroup+=4;
+				}
+				Limit = 0xff;
+			}
+			break;
+		case 2: // Better regulatory
+				// don't increase any power diff
+			PwrGroup = 0;
+			Limit = 0;
+			break;
+		case 3: // Customer defined power diff.
+				// increase power diff defined by customer.
+			PwrGroup = 0;
+			if (pHalData->CurrentChannelBW == HT_CHANNEL_WIDTH_20)
+				Limit = pHalData->PwrGroupHT20[RfPath][CurrChannel-1];
+			else
+				Limit = pHalData->PwrGroupHT40[RfPath][CurrChannel-1];
+			break;
+		default:
+			PwrGroup = 0;
+			Limit = 0xff;
+			break;
+	}
+
+
+	{
+		//DBG_871X("PwrGroup = %d\n", PwrGroup);
+		switch(pMptCtx->MptRateIndex)
+		{
+			case MPT_RATE_1M:
+			case MPT_RATE_2M:
+			case MPT_RATE_55M:
+			case MPT_RATE_11M:
+				//CCK rates, don't add any tx power index.
+				RT_TRACE(_module_mp_, _drv_info_,("CCK rates!\n"));
+				break;
+			case MPT_RATE_6M:	//0xe00 [31:0] = 18M,12M,09M,06M
+				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0+Pathmapping])&0xff);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x, OFDM 6M, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0], TxPower));
+				break;
+			case MPT_RATE_9M:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0+Pathmapping])&0xff00)>>8);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x, OFDM 9M, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0], TxPower));
+				break;
+			case MPT_RATE_12M:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0+Pathmapping])&0xff0000)>>16);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x, OFDM 12M, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0], TxPower));
+				break;
+			case MPT_RATE_18M:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0+Pathmapping])&0xff000000)>>24);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][0] = 0x%x, OFDM 24M, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][0], TxPower));
+				break;
+			case MPT_RATE_24M:	//0xe04[31:0] = 54M,48M,36M,24M
+				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1+Pathmapping])&0xff);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x, OFDM 24M, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1], TxPower));
+				break;
+			case MPT_RATE_36M:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1+Pathmapping])&0xff00)>>8);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x, OFDM 36M, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1], TxPower));
+				break;
+			case MPT_RATE_48M:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1+Pathmapping])&0xff0000)>>16);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x, OFDM 48M, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1], TxPower));
+				break;
+			case MPT_RATE_54M:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1+Pathmapping])&0xff000000)>>24);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][1] = 0x%x, OFDM 54M, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][1], TxPower));
+				break;
+			case MPT_RATE_MCS0: //0xe10[31:0]= MCS=03,02,01,00
+				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2+Pathmapping])&0xff);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x, MCS0, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2], TxPower));
+				break;
+			case MPT_RATE_MCS1:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2+Pathmapping])&0xff00)>>8);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x, MCS1, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2], TxPower));
+				break;
+			case MPT_RATE_MCS2:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2+Pathmapping])&0xff0000)>>16);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x, MCS2, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2], TxPower));
+				break;
+			case MPT_RATE_MCS3:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2+Pathmapping])&0xff000000)>>24);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][2] = 0x%x, MCS3, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][2], TxPower));
+				break;
+			case MPT_RATE_MCS4: //0xe14[31:0]= MCS=07,06,05,04
+				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3+Pathmapping])&0xff);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x, MCS4, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3], TxPower));
+				break;
+			case MPT_RATE_MCS5:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3+Pathmapping])&0xff00)>>8);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x, MCS5, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3], TxPower));
+				break;
+			case MPT_RATE_MCS6:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3+Pathmapping])&0xff0000)>>16);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x, MCS6, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3], TxPower));
+				break;
+			case MPT_RATE_MCS7:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3+Pathmapping])&0xff000000)>>24);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][3] = 0x%x, MCS7, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][3], TxPower));
+				break;
+
+			case MPT_RATE_MCS8: //0xe18[31:0]= MCS=11,10,09,08
+				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4+Pathmapping])&0xff);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x, MCS8, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4], TxPower));
+				break;
+			case MPT_RATE_MCS9:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4+Pathmapping])&0xff00)>>8);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x, MCS9, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4], TxPower));
+				break;
+			case MPT_RATE_MCS10:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4+Pathmapping])&0xff0000)>>16);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x, MCS10, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4], TxPower));
+				break;
+			case MPT_RATE_MCS11:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4+Pathmapping])&0xff000000)>>24);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][4] = 0x%x, MCS11, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][4], TxPower));
+				break;
+			case MPT_RATE_MCS12:	//0xe1c[31:0]= MCS=15,14,13,12
+				TxPower += ((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5+Pathmapping])&0xff);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x, MCS12, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5], TxPower));
+				break;
+			case MPT_RATE_MCS13:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5+Pathmapping])&0xff00)>>8);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x, MCS13, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5], TxPower));
+				break;
+			case MPT_RATE_MCS14:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5+Pathmapping])&0xff0000)>>16);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x, MCS14, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5], TxPower));
+				break;
+			case MPT_RATE_MCS15:
+				TxPower += (((pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5+Pathmapping])&0xff000000)>>24);
+				RT_TRACE(_module_mp_, _drv_info_,("MCSTxPowerLevelOriginalOffset[%d][5] = 0x%x, MCS15, TxPower = %d\n",
+					PwrGroup, pHalData->MCSTxPowerLevelOriginalOffset[PwrGroup][5], TxPower));
+				break;
+			default:
+				break;
+		}
+	}
+
+	if(TxPower > Limit)
+		TxPower = Limit;
+
+	return TxPower;
+}
+
+
+
+BOOLEAN MPT_IsLegalChannel(PADAPTER pAdapter, u32 ulChannel)
+{
+	BOOLEAN bLegalChannel = _TRUE;
+
+	if(ulChannel > 14 || ulChannel < 1)
+	{
+		bLegalChannel = _FALSE;
+	}
+
+	return bLegalChannel;
+
+}	/* MPT_IsLegalChannel */
+
+
+
+u32 mpt_ProQueryCalTxPower(PADAPTER pAdapter, u32 RfPath)
+{
+	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(pAdapter);
+	u32 TxPower = 1, PowerDiffByRate=0;
+	struct mp_priv *pmppriv = (struct mp_priv *)(&(pAdapter->mppriv));
+	PMPT_CONTEXT pMptCtx = &(pmppriv->MptCtx);
+	u8 CurrChannel = pHalData->CurrentChannel;
+	u32 rf_path = RfPath;
+
+	if(MPT_IsLegalChannel(pAdapter, CurrChannel) == _FALSE)
+	{
+		CurrChannel = 1;
+	}
+
+	if( pMptCtx->MptRateIndex >= MPT_RATE_1M &&
+		pMptCtx->MptRateIndex <= MPT_RATE_11M )
+	{
+		TxPower = pHalData->TxPwrLevelCck[rf_path][CurrChannel-1];
+	}
+	else if(pMptCtx->MptRateIndex >= MPT_RATE_6M &&
+		pMptCtx->MptRateIndex <= MPT_RATE_54M )
+	{
+		TxPower = pHalData->TxPwrLevelHT40_1S[rf_path][CurrChannel-1];
+	}
+	else if(pMptCtx->MptRateIndex >= MPT_RATE_MCS0 &&
+		pMptCtx->MptRateIndex <= MPT_RATE_MCS7 )
+	{
+		TxPower = pHalData->TxPwrLevelHT40_1S[rf_path][CurrChannel-1];
+	}
+	else if(pMptCtx->MptRateIndex >= MPT_RATE_MCS8 &&
+		pMptCtx->MptRateIndex <= MPT_RATE_MCS15 )
+	{
+		TxPower = pHalData->TxPwrLevelHT40_2S[rf_path][CurrChannel-1];
+	}
+	RT_TRACE(_module_mp_, _drv_info_,
+		("HT40 Tx power(RF-%c) = 0x%x\n", ((rf_path==0)?'A':'B'), TxPower));
+
+	if(pMptCtx->MptRateIndex >= MPT_RATE_6M &&
+		pMptCtx->MptRateIndex <= MPT_RATE_54M )
+	{
+		TxPower += pHalData->TxPwrLegacyHtDiff[rf_path][CurrChannel-1];
+		RT_TRACE(_module_mp_, _drv_info_,("+OFDM_PowerDiff(RF-%c) = 0x%x\n",
+			((rf_path==0)?'A':'B'), pHalData->TxPwrLegacyHtDiff[rf_path][CurrChannel-1]));
+	}
+
+		if(pMptCtx->MptRateIndex >= MPT_RATE_MCS0)
+		{
+			if (pHalData->CurrentChannelBW == HT_CHANNEL_WIDTH_20)
+			{
+			//if(pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1]<8)
+			//{
+				TxPower += pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1];
+				RT_TRACE(_module_mp_, _drv_info_,("+HT20_PowerDiff(RF-%c) = 0x%x\n",
+					((rf_path==0)?'A':'B'), pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1]));
+			//}
+			//else
+			//{
+			//	TxPower -= (16-pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1]);
+			//	RTPRINT(FPHY, PHY_TXPWR, ("-HT20_PowerDiff(RF-%c) = 0x%x\n", ((rf_path==0)?'A':'B'),
+			//		(16-pHalData->TxPwrHt20Diff[rf_path][CurrChannel-1])));
+			//}
+		}
+	}
+
+	PowerDiffByRate = getPowerDiffByRate(pAdapter, CurrChannel, RfPath);
+	RT_TRACE(_module_mp_, _drv_info_,("+PowerDiffByRate(RF-%c) = 0x%x\n",
+		((rf_path==0)?'A':'B'), PowerDiffByRate));
+	TxPower += PowerDiffByRate;
+	RT_TRACE(_module_mp_, _drv_info_,("Final TxPower(RF-%c) = %d(0x%x)\n",
+		((rf_path==0)?'A':'B'), TxPower, TxPower));
+
+	if(TxPower > 0x3f)
+		TxPower = 0x3f;
+
+	return TxPower;
+}
+
 
 #endif
 

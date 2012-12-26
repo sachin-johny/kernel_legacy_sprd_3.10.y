@@ -611,6 +611,7 @@ typedef struct _WLAN_BSSID_EX
   NDIS_802_11_NETWORK_INFRASTRUCTURE  InfrastructureMode;
   NDIS_802_11_RATES_EX  SupportedRates;
   WLAN_PHY_INFO	PhyInfo;
+  u32 BcnLength;
   ULONG  IELength;
   UCHAR  IEs[MAX_IE_SZ];	//(timestamp, beacon interval, and capability information)
 }
@@ -657,6 +658,9 @@ struct	wlan_network {
 	int	join_res;
 	WLAN_BSSID_EX	network; //must be the last item
 	WLAN_BCN_INFO	BcnInfo;
+#ifdef CONFIG_IOCTL_CFG80211
+	struct cfg80211_bss *bss;
+#endif
 #ifdef PLATFORM_WINDOWS
 	unsigned char  iebuf[MAX_IE_SZ];
 #endif

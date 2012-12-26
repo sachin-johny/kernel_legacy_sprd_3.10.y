@@ -956,7 +956,7 @@ phy_ConfigBBWithHeaderFile(
 			for(i=0;i<PHY_REGArrayLen;i=i+2)
 			{
 				tmp_value=Rtl819XPHY_REGArray_Table[i+1];
-				
+
 				if (Rtl819XPHY_REGArray_Table[i] == 0xfe)
 					rtw_IOL_append_DELAY_MS_cmd(xmit_frame, 50);
 				else if (Rtl819XPHY_REGArray_Table[i] == 0xfd)
@@ -970,10 +970,10 @@ phy_ConfigBBWithHeaderFile(
 				else if (Rtl819XPHY_REGArray_Table[i] == 0xf9)
 					rtw_IOL_append_DELAY_US_cmd(xmit_frame, 1);
 
-				rtw_IOL_append_WD_cmd(xmit_frame, Rtl819XPHY_REGArray_Table[i], tmp_value);	
+				rtw_IOL_append_WD_cmd(xmit_frame, Rtl819XPHY_REGArray_Table[i], tmp_value);
 				//RT_TRACE(COMP_INIT, DBG_TRACE, ("The Rtl819XPHY_REGArray_Table[0] is %lx Rtl819XPHY_REGArray[1] is %lx \n",Rtl819XPHY_REGArray_Table[i], Rtl819XPHY_REGArray_Table[i+1]));
 			}
-		
+
 			ret = rtw_IOL_exec_cmds_sync(Adapter, xmit_frame, 1000);
 		}
 		#else
@@ -1021,10 +1021,10 @@ phy_ConfigBBWithHeaderFile(
 
 			for(i=0;i<AGCTAB_ArrayLen;i=i+2)
 			{
-				rtw_IOL_append_WD_cmd(xmit_frame, Rtl819XAGCTAB_Array_Table[i], Rtl819XAGCTAB_Array_Table[i+1]);							
+				rtw_IOL_append_WD_cmd(xmit_frame, Rtl819XAGCTAB_Array_Table[i], Rtl819XAGCTAB_Array_Table[i+1]);
 				//RT_TRACE(COMP_INIT, DBG_TRACE, ("The Rtl819XAGCTAB_Array_Table[0] is %lx Rtl819XPHY_REGArray[1] is %lx \n",Rtl819XAGCTAB_Array_Table[i], Rtl819XAGCTAB_Array_Table[i+1]));
 			}
-		
+
 			ret = rtw_IOL_exec_cmds_sync(Adapter, xmit_frame, 1000);
 		}
 		#else
@@ -1236,9 +1236,9 @@ phy_ConfigBBWithPgHeaderFile(
 				rtw_udelay_os(5);
 			else if (Rtl819XPHY_REGArray_Table_PG[i] == 0xf9)
 				rtw_udelay_os(1);
-			//PHY_SetBBReg(Adapter, Rtl819XPHY_REGArray_Table_PG[i], Rtl819XPHY_REGArray_Table_PG[i+1], Rtl819XPHY_REGArray_Table_PG[i+2]);		
+			//PHY_SetBBReg(Adapter, Rtl819XPHY_REGArray_Table_PG[i], Rtl819XPHY_REGArray_Table_PG[i+1], Rtl819XPHY_REGArray_Table_PG[i+2]);
 			#endif
-			
+
 			storePwrIndexDiffRateOffset(Adapter, Rtl819XPHY_REGArray_Table_PG[i],
 				Rtl819XPHY_REGArray_Table_PG[i+1],
 				Rtl819XPHY_REGArray_Table_PG[i+2]);
@@ -1591,12 +1591,12 @@ phy_BB8723a_Config_ParaFile(
 	// 3. BB AGC table Initialization
 	//
 #ifdef CONFIG_EMBEDDED_FWIMG
-	#ifdef CONFIG_PHY_SETTING_WITH_ODM	
+	#ifdef CONFIG_PHY_SETTING_WITH_ODM
 	if(HAL_STATUS_FAILURE ==ODM_ConfigBBWithHeaderFile(&pHalData->odmpriv,  CONFIG_BB_AGC_TAB))
 		rtStatus = _FAIL;
 	#else
 	rtStatus = phy_ConfigBBWithHeaderFile(Adapter, BaseBand_Config_AGC_TAB);
-	#endif//#ifdef CONFIG_PHY_SETTING_WITH_ODM	
+	#endif//#ifdef CONFIG_PHY_SETTING_WITH_ODM
 #else
 	//RT_TRACE(COMP_INIT, DBG_LOUD, ("phy_BB8192S_Config_ParaFile AGC_TAB.txt\n"));
 	rtStatus = phy_ConfigBBWithParaFile(Adapter, pszAGCTableFile);

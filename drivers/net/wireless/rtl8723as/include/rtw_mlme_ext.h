@@ -44,11 +44,24 @@
 #define REASSOC_LIMIT	(4)
 #define READDBA_LIMIT	(2)
 
-#ifdef CONFIG_GSPI_HCI
-	#define ROAMING_LIMIT	5
-#else
-	#define ROAMING_LIMIT	8
+#define DISCONNECT_LIMIT	8
+
+#if defined(DBG_ROAMING_TEST) || defined(CONFIG_INTEL_WIDI)
+#undef DISCONNECT_LIMIT
+#define DISCONNECT_LIMIT	1
 #endif
+
+/* 1. wpa_supplicant scan list bss exprire time is 10s */
+/* or 2 times scan without this bss */
+/* 2. cfg80211 scan list bss exprire time is IEEE80211_SCAN_RESULT_EXPIRE */
+/* 3. we should del cfg80211 scan list bss use cfg80211_unlink_bss when */
+/* disconnect or android aoto connect will connect power off AP again */
+/* 4. so 10s disconnect(in no cfg80211) or cfg80211_unlink_bss is perfect*/
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+#undef DISCONNECT_LIMIT
+#define DISCONNECT_LIMIT	5
+#endif
+
 //#define	IOCMD_REG0		0x10250370
 //#define	IOCMD_REG1		0x10250374
 //#define	IOCMD_REG2		0x10250378
@@ -481,6 +494,13 @@ struct mlme_ext_priv
 	struct mlme_ext_info	mlmext_info;//for sta/adhoc mode, including current scanning/connecting/connected related info.
                                                      //for ap mode, network includes ap's cap_info
 	_timer		survey_timer;
+
+	//this timer was set by set_link_timer 3 times:
+	//1. after find network, and decide to
+	//   wait beacon for link
+	//   in start_clnt_join TO is WAIT_FOR_BCN_TO_MIN = 6s
+	//2. start auth TO is REAUTH_TO = 0.3s 4 times
+	//3. start asso TO is REASSOC_TO = 0.3s 4 times
 	_timer		link_timer;
 	//_timer		ADDBA_timer;
 	u16			chan_scan_time;
@@ -574,6 +594,8 @@ void HTOnAssocRsp(_adapter *padapter);
 
 void ERP_IE_handler(_adapter *padapter, PNDIS_802_11_VARIABLE_IEs pIE);
 void VCS_update(_adapter *padapter, struct sta_info *psta);
+
+int is_IWN2410_AP(NDIS_802_11_MAC_ADDRESS *MacAddr);
 
 void update_beacon_info(_adapter *padapter, u8 *pframe, uint len, struct sta_info *psta);
 int rtw_check_bcn_info(ADAPTER *Adapter, u8 *pframe, u32 packet_len);

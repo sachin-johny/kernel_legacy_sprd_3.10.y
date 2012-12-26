@@ -413,6 +413,7 @@ static int rtw_cfg80211_inform_bss(_adapter *padapter, struct wlan_network *pnet
 #if 1
 	bss = cfg80211_inform_bss_frame(wiphy, notify_channel, (struct ieee80211_mgmt *)buf,
 		len, notify_signal, GFP_ATOMIC);
+	pnetwork->bss = bss;
 #else
 
 	bss = cfg80211_inform_bss(wiphy, notify_channel, (const u8 *)pnetwork->network.MacAddress,
@@ -523,12 +524,14 @@ void rtw_cfg80211_indicate_disconnect(_adapter *padapter)
 {
 	struct mlme_priv *pmlmepriv = &padapter->mlmepriv;
 	struct wireless_dev *pwdev = padapter->rtw_wdev;
+	struct wiphy *wiphy = pwdev->wiphy;
 #ifdef CONFIG_P2P
 	struct wifidirect_info *pwdinfo= &(padapter->wdinfo);
 #endif
 
 	DBG_8192C("%s(padapter=%p)\n", __func__, padapter);
 
+	wdev_to_priv(padapter->rtw_wdev)->bandroid_dhcp = _FALSE;
 	if (pwdev->iftype != NL80211_IFTYPE_STATION
 		#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37)) || defined(COMPAT_KERNEL_RELEASE)
 		&& pwdev->iftype != NL80211_IFTYPE_P2P_CLIENT
@@ -566,6 +569,12 @@ void rtw_cfg80211_indicate_disconnect(_adapter *padapter)
 		//else
 			//DBG_8192C("pwdev->sme_state=%d\n", pwdev->sme_state);
 
+		if (pmlmepriv->cur_network.bss) {
+			DBG_8192C("%s del this bss(%p) from cfg80211 scan list\n",
+					__func__, pmlmepriv->cur_network.bss);
+			cfg80211_unlink_bss(wiphy, pmlmepriv->cur_network.bss);
+			pmlmepriv->cur_network.bss = NULL;
+		}
 		DBG_8192C("pwdev->sme_state(a)=%d\n", pwdev->sme_state);
 	}
 }
@@ -1894,26 +1903,32 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 	struct mlme_priv *pbuddy_mlmepriv = &(pbuddy_adapter->mlmepriv);
 #endif
 
+	DBG_871X("%s set scan\n", __func__);
 #ifdef CONFIG_DEBUG_CFG80211
 	DBG_871X(FUNC_NDEV_FMT"\n", FUNC_NDEV_ARG(ndev));
 #endif
 #ifdef CONFIG_MP_INCLUDED
-if (padapter->registrypriv.mp_mode == 1)
-{
-	if (check_fwstate(pmlmepriv, WIFI_MP_STATE) == _TRUE)
+	if (padapter->registrypriv.mp_mode == 1)
 	{
+		if (check_fwstate(pmlmepriv, WIFI_MP_STATE) == _TRUE)
+		{
+			ret = -EPERM;
+			goto exit;
+		}
+	}
+#endif
+
+	if (pwdev_priv->bandroid_dhcp) {
 		ret = -EPERM;
 		goto exit;
 	}
-}
-#endif
 
 #ifdef CONFIG_DISCONNECT_H2CWAY
 	//scan should be forbidden between two h2c command when checking whether ap is alive
 	if(padapter->mlmeextpriv.check_ap_processing == _TRUE)
 	{
 		ret = -EPERM;
-		goto exit;	
+		goto exit;
 	}
 #endif
 	_enter_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
@@ -2044,6 +2059,11 @@ if (padapter->registrypriv.mp_mode == 1)
 	DBG_871X("%s n_channels:%u\n", __FUNCTION__, request->n_channels);
 #endif
 
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+	rtw_free_network_queue(padapter, _TRUE);
+#endif
+
+	DBG_871X("%s start scan\n", __func__);
 	_enter_critical_bh(&pmlmepriv->lock, &irqL);
 	_status = rtw_sitesurvey_cmd(padapter, ssid, RTW_SSID_SCAN_AMOUNT);
 	_exit_critical_bh(&pmlmepriv->lock, &irqL);
@@ -2060,6 +2080,8 @@ check_need_indicate_scan_done:
 
 exit:
 
+	if (ret < 0)
+		DBG_871X("ERROR: %s scan cancel\n", __func__);
 	return ret;
 
 }
@@ -2781,7 +2803,7 @@ static int cfg80211_rtw_connect(struct wiphy *wiphy, struct net_device *ndev,
 	DBG_8192C("%s, ie_len=%zu\n", __func__, sme->ie_len);
 
 #ifdef CONFIG_WAPI_SUPPORT
-	if (!padapter->wapiInfo.bWapiEnable) 
+	if (!padapter->wapiInfo.bWapiEnable)
 #endif
 	{
 		ret = rtw_cfg80211_set_wpa_ie(padapter, sme->ie, sme->ie_len);
@@ -2816,6 +2838,7 @@ static int cfg80211_rtw_disconnect(struct wiphy *wiphy, struct net_device *ndev,
 
 	DBG_871X(FUNC_NDEV_FMT"\n", FUNC_NDEV_ARG(ndev));
 
+	wdev_to_priv(padapter->rtw_wdev)->bandroid_dhcp = _FALSE;
 	if(check_fwstate(&padapter->mlmepriv, _FW_LINKED))
 	{
 		rtw_disassoc_cmd(padapter);
@@ -2823,7 +2846,7 @@ static int cfg80211_rtw_disconnect(struct wiphy *wiphy, struct net_device *ndev,
 		DBG_871X("%s...call rtw_indicate_disconnect\n ", __FUNCTION__);
 
 		padapter->mlmepriv.not_indic_disco = _TRUE;
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 0);
 		padapter->mlmepriv.not_indic_disco = _FALSE;
 
 		rtw_free_assoc_resources(padapter, 1);

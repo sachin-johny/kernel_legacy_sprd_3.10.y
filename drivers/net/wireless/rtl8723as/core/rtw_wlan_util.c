@@ -1384,6 +1384,11 @@ int rtw_check_bcn_info(ADAPTER *Adapter, u8 *pframe, u32 packet_len)
 	unsigned char	ht_info_infos_0;
 	unsigned char	mask_2nd_chan_offset = BIT(0) | BIT(1);
 
+	//because some AP change it's IE frequently,
+	//we close it temp now, but we will add some
+	//some more stable method later
+	return _TRUE;
+
 	if (is_client_associated_to_ap(Adapter) == _FALSE)
 		return _TRUE;
 
@@ -1988,6 +1993,25 @@ void update_tx_basic_rate(_adapter *padapter, u8 wirelessmode)
 		update_mgnt_tx_rate(padapter, IEEE80211_OFDM_RATE_6MB);
 
 	rtw_hal_set_hwreg(padapter, HW_VAR_BASIC_RATE, supported_rates);
+}
+
+//WAPI IWN2410 AP can not open smart ps
+const u8 IWN2410_PSK_MAC[3]={0x06,0x0B,0xC0};
+const u8 IWN2410_CERT_MAC[3]={0x0A,0x0B,0xC0};
+const u8 IWN2410_OPEN_MAC[3]={0x00,0x0B,0xC0};
+
+int is_IWN2410_AP(NDIS_802_11_MAC_ADDRESS *MacAddr)
+{
+	u8 *pAddr;
+
+	pAddr = (u8 *)MacAddr;
+
+	if (_rtw_memcmp((void*)pAddr, (void*)IWN2410_PSK_MAC, 3) ||
+			_rtw_memcmp((void*)pAddr, (void*)IWN2410_CERT_MAC, 3) ||
+			_rtw_memcmp((void*)pAddr, (void*)IWN2410_OPEN_MAC, 3))
+		return _TRUE;
+	else
+		return _FALSE;
 }
 
 unsigned char check_assoc_AP(u8 *pframe, uint len)

@@ -722,7 +722,7 @@ static int rtw_gspi_suspend(struct spi_device *spi, pm_message_t mesg)
 #endif
 
 	//s2-2.  indicate disconnect to os
-	rtw_indicate_disconnect(padapter);
+	rtw_indicate_disconnect(padapter, 0);
 	//s2-3.
 	rtw_free_assoc_resources(padapter, 1);
 
@@ -737,7 +737,7 @@ static int rtw_gspi_suspend(struct spi_device *spi, pm_message_t mesg)
 		rtw_indicate_scan_done(padapter, 1);
 
 	if(check_fwstate(pmlmepriv, _FW_UNDER_LINKING))
-		rtw_indicate_disconnect(padapter);
+		rtw_indicate_disconnect(padapter, 0);
 
 	// interface deinit
 	gspi_deinit(dvobj);

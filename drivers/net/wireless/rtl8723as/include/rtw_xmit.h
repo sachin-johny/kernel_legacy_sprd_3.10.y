@@ -48,8 +48,9 @@
 #undef NR_XMITBUFF
 #undef MAX_XMITBUF_SZ
 
-#define MAX_XMITBUF_SZ 	(1536) //1 max data pkts
-#define NR_XMITBUFF	(64)
+/* can help AMPDU */
+#define MAX_XMITBUF_SZ 	(7680) //(1536 * 5) //5 max data pkts
+#define NR_XMITBUFF	(16)
 #endif
 
 #elif defined (CONFIG_USB_HCI)
@@ -65,6 +66,16 @@
 #elif defined (CONFIG_PCI_HCI)
 #define MAX_XMITBUF_SZ	(1664)
 #define NR_XMITBUFF	(128)
+#endif
+
+#ifdef CONFIG_CMCC_TEST
+#undef SDIO_TX_AGG_MAX
+#undef MAX_XMITBUF_SZ
+#undef NR_XMITBUFF
+
+#define SDIO_TX_AGG_MAX	(6)
+#define MAX_XMITBUF_SZ	(10752)
+#define NR_XMITBUFF	(16*2)
 #endif
 
 #ifdef PLATFORM_OS_CE
@@ -725,6 +736,7 @@ void xmit_delivery_enabled_frames(_adapter *padapter, struct sta_info *psta);
 #endif
 
 u8	qos_acm(u8 acm_mask, u8 priority);
+unsigned short rtw_up2ac(_adapter *padapter, sint up);
 
 #ifdef CONFIG_XMIT_THREAD_MODE
 void	enqueue_pending_xmitbuf(struct xmit_priv *pxmitpriv, struct xmit_buf *pxmitbuf);

@@ -49,6 +49,13 @@
 		#define CONFIG_IOCTL_CFG80211 1
 	#endif
 #endif
+
+#if defined(CONFIG_PLATFORM_SPRD) && !defined(ANDROID_2X)
+	#ifndef CONFIG_IOCTL_CFG80211
+		#define CONFIG_IOCTL_CFG80211 1
+	#endif
+#endif
+
 #ifdef CONFIG_IOCTL_CFG80211
 	//#define RTW_USE_CFG80211_STA_EVENT /* Opne this for Android 4.1's wpa_supplicant */
 	#define CONFIG_CFG80211_FORCE_COMPATIBLE_2_6_37_UNDER
@@ -100,8 +107,10 @@
 /*
  * Interface Related Config
  */
+#ifdef ANDROID_2X
 #if defined(CONFIG_SDIO_HCI)
 #define CONFIG_SDIO_RX_COPY
+#endif
 #endif
 
 /*
@@ -242,8 +251,18 @@
 #if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
 	#define CONFIG_LINKED_LCOK
 	#define CONFIG_AUTH_DIRECT_WITHOUT_BCN
-	#define CONFIG_DISCONNECT_H2CWAY
+	//#define CONFIG_DISCONNECT_H2CWAY
 	#define CONFIG_DONT_CARE_TP
+	#define CONFIG_LOW_PWR_LPS
+	#define CONFIG_CMCC_TEST
+
+	//1) LPS unit is only 102 ms, it's not
+	//a good idear to retry it use timer,
+	//2) we must wait ACK, or lots of IO
+	//is not allowed under 32k, because
+	//this will cause hw hang
+	#undef CONFIG_LPS_RPWM_TIMER
+	#define CONFIG_WAIT_PS_ACK
 #endif
 
 /*

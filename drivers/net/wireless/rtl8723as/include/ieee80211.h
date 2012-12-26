@@ -246,7 +246,7 @@ typedef struct ieee_param {
 			int flags;
 			u8 tx_supp_rates[16];
 			struct rtw_ieee80211_ht_cap ht_cap;
-		} add_sta;	
+		} add_sta;
 		struct {
 			u8	reserved[2];//for set max_num_sta
 			u8	buf[0];
@@ -268,7 +268,7 @@ struct sta_data{
 	u16 capability;
 	int flags;
 	u32 sta_set;
-	u8 tx_supp_rates[16];	
+	u8 tx_supp_rates[16];
 	u32 tx_supp_rates_len;
 	struct rtw_ieee80211_ht_cap ht_cap;
 	u64	rx_pkts;

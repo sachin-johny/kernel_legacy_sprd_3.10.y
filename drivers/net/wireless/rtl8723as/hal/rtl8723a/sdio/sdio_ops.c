@@ -1403,7 +1403,7 @@ static struct recv_buf* sd_recv_rxfifo(PADAPTER padapter, u32 size)
 	precvpriv = &padapter->recvpriv;
 	precvbuf = rtw_dequeue_recvbuf(&precvpriv->free_recv_buf_queue);
 	if (precvbuf == NULL) {
-		RT_TRACE(_module_hci_ops_os_c_, _drv_err_, ("%s: alloc recvbuf FAIL!\n", __FUNCTION__));
+		DBG_871X_LEVEL(_drv_err_, "%s: alloc recvbuf FAIL!\n", __FUNCTION__);
 		return NULL;
 	}
 
@@ -1493,7 +1493,7 @@ static struct recv_buf* sd_recv_rxfifo(PADAPTER padapter, u32 size)
 	precvbuf = rtw_dequeue_recvbuf(&precvpriv->free_recv_buf_queue);
 	if (precvbuf == NULL) {
 		dev_kfree_skb_any(ppkt);
-		RT_TRACE(_module_hci_ops_os_c_, _drv_err_, ("%s: alloc recvbuf FAIL!\n", __FUNCTION__));
+		DBG_871X_LEVEL(_drv_err_, "%s: alloc recvbuf FAIL!\n", __FUNCTION__);
 		return NULL;
 	}
 

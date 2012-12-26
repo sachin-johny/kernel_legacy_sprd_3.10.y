@@ -1071,7 +1071,6 @@ exit:
 }
 #endif
 
-void count_rx_stats(_adapter *padapter, union recv_frame *prframe, struct sta_info*sta);
 void count_rx_stats(_adapter *padapter, union recv_frame *prframe, struct sta_info*sta)
 {
 	int	sz;
@@ -1104,11 +1103,6 @@ void count_rx_stats(_adapter *padapter, union recv_frame *prframe, struct sta_in
 
 }
 
-sint sta2sta_data_frame(
-	_adapter *adapter,
-	union recv_frame *precv_frame,
-	struct sta_info**psta
-);
 sint sta2sta_data_frame(
 	_adapter *adapter,
 	union recv_frame *precv_frame,
@@ -1330,10 +1324,6 @@ _func_exit_;
 sint ap2sta_data_frame(
 	_adapter *adapter,
 	union recv_frame *precv_frame,
-	struct sta_info**psta );
-sint ap2sta_data_frame(
-	_adapter *adapter,
-	union recv_frame *precv_frame,
 	struct sta_info**psta )
 {
 	u8 *ptr = precv_frame->u.hdr.rx_data;
@@ -1498,10 +1488,6 @@ _func_exit_;
 sint sta2ap_data_frame(
 	_adapter *adapter,
 	union recv_frame *precv_frame,
-	struct sta_info**psta );
-sint sta2ap_data_frame(
-	_adapter *adapter,
-	union recv_frame *precv_frame,
 	struct sta_info**psta )
 {
 	u8 *ptr = precv_frame->u.hdr.rx_data;
@@ -1531,7 +1517,6 @@ _func_enter_;
 				goto exit;
 			}
 
-
 			process_pwrbit_data(adapter, precv_frame);
 
 
@@ -1540,12 +1525,11 @@ _func_enter_;
 			{
 				RT_TRACE(_module_rtl871x_recv_c_,_drv_info_,(" NULL frame \n"));
 
-				//temporily count it here
-				count_rx_stats(adapter, precv_frame, *psta);
-
 				//process_null_data(adapter, precv_frame);
 				//process_pwrbit_data(adapter, precv_frame);
 
+				//temporily count it here
+				count_rx_stats(adapter, precv_frame, *psta);
 
 				ret= _FAIL;
 				goto exit;
@@ -1559,10 +1543,9 @@ _func_enter_;
 				{
 					RT_TRACE(_module_rtl871x_recv_c_,_drv_info_,(" QoS NULL frame \n"));
 
+					//process_null_data(adapter, precv_frame);
 					//temporily count it here
 					count_rx_stats(adapter, precv_frame, *psta);
-
-					//process_null_data(adapter, precv_frame);
 
 					ret= _FAIL;
 					goto exit;
@@ -4120,6 +4103,7 @@ _func_exit_;
 void rtw_signal_stat_timer_hdl(RTW_TIMER_HDL_ARGS){
 	_adapter *adapter = (_adapter *)FunctionContext;
 	struct recv_priv *recvpriv = &adapter->recvpriv;
+	u32 gotrx = 0;
 
 	u32 tmp_s, tmp_q;
 	u8 avg_signal_strength = 0;
@@ -4135,6 +4119,7 @@ void rtw_signal_stat_timer_hdl(RTW_TIMER_HDL_ARGS){
 	} else {
 
 		if(recvpriv->signal_strength_data.update_req == 0) {// update_req is clear, means we got rx
+			gotrx = 1;
 			avg_signal_strength = recvpriv->signal_strength_data.avg_val;
 			num_signal_strength = recvpriv->signal_strength_data.total_num;
 			// after avg_vals are accquired, we can re-stat the signal values
@@ -4149,7 +4134,7 @@ void rtw_signal_stat_timer_hdl(RTW_TIMER_HDL_ARGS){
 		}
 
 		//update value of signal_strength, rssi, signal_qual
-		if(check_fwstate(&adapter->mlmepriv, _FW_UNDER_SURVEY) == _FALSE) {
+		if(check_fwstate(&adapter->mlmepriv, _FW_UNDER_SURVEY) == _FALSE && gotrx) {
 			tmp_s = (avg_signal_strength+(_alpha-1)*recvpriv->signal_strength);
 			if(tmp_s %_alpha)
 				tmp_s = tmp_s/_alpha + 1;

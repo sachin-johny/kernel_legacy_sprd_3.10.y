@@ -1070,7 +1070,7 @@ unsigned int OnAuth(_adapter *padapter, union recv_frame *precv_frame)
 	if((pmlmeinfo->state&0x03) != WIFI_FW_AP_STATE)
 		return _FAIL;
 
-	DBG_871X("+OnAuth\n");
+	DBG_871X("+OnAuth asoc_sta_count:%d\n", pstapriv->asoc_sta_count);
 
 	sa = GetAddr2Ptr(pframe);
 
@@ -2186,7 +2186,7 @@ unsigned int OnDeAuth(_adapter *padapter, union recv_frame *precv_frame)
 		if(psta)
 		{
 			u8 updated;
-		
+
 			_enter_critical_bh(&pstapriv->asoc_list_lock, &irqL);
 			if(rtw_is_list_empty(&psta->asoc_list)==_FALSE)
 			{
@@ -2249,7 +2249,7 @@ unsigned int OnDisassoc(_adapter *padapter, union recv_frame *precv_frame)
 		if(psta)
 		{
 			u8 updated;
-			
+
 			_enter_critical_bh(&pstapriv->asoc_list_lock, &irqL);
 			if(rtw_is_list_empty(&psta->asoc_list)==_FALSE)
 			{
@@ -7152,7 +7152,10 @@ void issue_assocreq(_adapter *padapter)
 //				pmlmeinfo->HT_caps.u.HT_cap_element.AMPDU_para |= MAX_AMPDU_FACTOR_8K
 			}
 #endif
-
+#ifdef CONFIG_DONT_CARE_TP
+			/* set AMSDU to 3839 bytes */
+			pmlmeinfo->HT_caps.u.HT_cap_element.HT_caps_info &= ~IEEE80211_HT_CAP_MAX_AMSDU;
+#endif
 			pframe = rtw_set_ie(pframe, _HT_CAPABILITY_IE_, ie_len , (u8 *)(&(pmlmeinfo->HT_caps)), &(pattrib->pktlen));
 
 		}
@@ -8392,6 +8395,7 @@ u8 collect_bss_info(_adapter *padapter, union recv_frame *precv_frame, WLAN_BSSI
 		bssid->Reserved[0] = 0;
 
 	bssid->Length = sizeof(WLAN_BSSID_EX) - MAX_IE_SZ + len;
+	bssid->BcnLength = packet_len;
 
 	//below is to copy the information element
 	bssid->IELength = len;
@@ -8639,6 +8643,7 @@ void start_clnt_join(_adapter* padapter)
 #ifdef CONFIG_DUALMAC_CONCURRENT
 	u8	dc_join_status;
 #endif
+	int beacon_timeout;
 
 	pmlmeext->cur_channel = (u8)pnetwork->Configuration.DSConfig;
 	pmlmeinfo->bcn_interval = get_beacon_interval(pnetwork);
@@ -8683,13 +8688,20 @@ void start_clnt_join(_adapter* padapter)
 #ifndef CONFIG_AUTH_DIRECT_WITHOUT_BCN
 		//here wait for receiving the beacon to start auth
 		//and enable a timer
-		set_link_timer(pmlmeext, decide_wait_for_beacon_timeout(pmlmeinfo->bcn_interval));
+		beacon_timeout = decide_wait_for_beacon_timeout(pmlmeinfo->bcn_interval);
+		set_link_timer(pmlmeext, beacon_timeout);
 #endif
+		_set_timer( &padapter->mlmepriv.assoc_timer,
+			(REAUTH_TO * REAUTH_LIMIT) + (REASSOC_TO*REASSOC_LIMIT) +beacon_timeout);
 
 		pmlmeinfo->state = WIFI_FW_AUTH_NULL | WIFI_FW_STATION_STATE;
 
 #ifdef CONFIG_AUTH_DIRECT_WITHOUT_BCN
 		//start auth without waite a beacon
+#ifdef CONFIG_BT_COEXIST
+		//should delay at least 100ms to wait for tdma start work
+		rtw_msleep_os(100);
+#endif
 		start_clnt_auth(padapter);
 #endif
 	}
@@ -8778,7 +8790,7 @@ unsigned int receive_disconnect(_adapter *padapter, unsigned char *MacAddr, unsi
 {
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
-	
+
 	//check A3
 	if (!(_rtw_memcmp(MacAddr, get_my_bssid(&pmlmeinfo->network), ETH_ALEN)))
 		return _SUCCESS;
@@ -9306,7 +9318,7 @@ void report_del_sta_event(_adapter *padapter, unsigned char* MacAddr, unsigned s
 
 	psta = rtw_get_stainfo(&padapter->stapriv, MacAddr);
 	if(psta)
-		mac_id = (int)psta->mac_id;	
+		mac_id = (int)psta->mac_id;
 	else
 		mac_id = (-1);
 
@@ -9516,7 +9528,8 @@ void mlmeext_joinbss_event_callback(_adapter *padapter, int join_res)
 #ifndef CONFIG_CONCURRENT_MODE
 #ifdef CONFIG_LPS
 	if (padapter->securitypriv.dot11AuthAlgrthm != dot11AuthAlgrthm_8021X &&
-		padapter->securitypriv.dot11AuthAlgrthm != dot11AuthAlgrthm_WAPI) {
+		padapter->securitypriv.dot11AuthAlgrthm != dot11AuthAlgrthm_WAPI &&
+		check_fwstate(&padapter->mlmepriv, WIFI_UNDER_WPS) != _TRUE) {
 		rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_CONNECT, 0);
 	}
 #endif
@@ -9714,11 +9727,7 @@ void linked_status_chk(_adapter *padapter)
 				//	Commented by Albert 2010/07/21
 				//	In this case, there is no any rx packet received by driver.
 
-				#if defined(DBG_ROAMING_TEST) || defined(CONFIG_INTEL_WIDI)
-				if(pmlmeext->retry<1)
-				#else
-				if(pmlmeext->retry<8)// Alter the retry limit to 8
-				#endif
+				if(pmlmeext->retry < DISCONNECT_LIMIT)// Alter the retry limit to 8
 				{
 					if(pmlmeext->retry==0)
 					{
@@ -9737,9 +9746,7 @@ void linked_status_chk(_adapter *padapter)
 						} else
 						#endif
 						{
-							#ifdef DBG_EXPIRATION_CHK
 							DBG_871X("issue_probereq to trigger probersp, retry=%d\n", pmlmeext->retry);
-							#endif
 							issue_probereq(padapter, &(pmlmeinfo->network.Ssid), 0);
 							issue_probereq(padapter, &(pmlmeinfo->network.Ssid), 0);
 							issue_probereq(padapter, &(pmlmeinfo->network.Ssid), 0);
@@ -9751,9 +9758,9 @@ void linked_status_chk(_adapter *padapter)
 				else
 				{
 					pmlmeext->retry = 0;
-                    DBG_871X_LEVEL(_drv_always_, "no beacon for a long time, disconnect or roaming\n");
-					receive_disconnect(padapter, pmlmeinfo->network.MacAddress
-						, 65535// indicate disconnect caused by no rx
+					DBG_871X_LEVEL(_drv_always_, "no beacon for a long time, disconnect \n");
+					receive_disconnect(padapter, pmlmeinfo->network.MacAddress, 3
+						//, 65535// there is no need to roaming when when nobcn long time
 					);
 					pmlmeinfo->link_count = 0;
 					return;
@@ -9797,7 +9804,7 @@ void linked_status_chk(_adapter *padapter)
 							issue_nulldata(padapter, 0);
 							issue_nulldata(padapter, 0);
 						}
-						else 
+						else
 						{
 							issue_nulldata(padapter, 1);
 							issue_nulldata(padapter, 1);
@@ -9807,7 +9814,7 @@ void linked_status_chk(_adapter *padapter)
 						//and in no lps mode, this case will not happen, so we should ask fw is link is keep.
 
 						DBG_871X_LEVEL(_drv_warning_, "%s no beacon and unicast ask fw try AP now\n",__FUNCTION__);
-						if (padapter->HalFunc.fw_try_ap_cmd) 
+						if (padapter->HalFunc.fw_try_ap_cmd)
 						{
 							padapter->HalFunc.fw_try_ap_cmd(padapter, 1);
 							pmlmeext->try_ap_c2h_wait = _TRUE;
@@ -11950,7 +11957,7 @@ u8 set_csa_hdl(_adapter *padapter, unsigned char *pbuf)
 	rtw_hal_set_hwreg(padapter, HW_VAR_TXPAUSE, &gval8);
 
 	rtw_free_network_queue(padapter, _TRUE);
-	rtw_indicate_disconnect(padapter);
+	rtw_indicate_disconnect(padapter, 0);
 
 	if ( ((new_ch_no >= 52) && (new_ch_no <= 64)) ||((new_ch_no >= 100) && (new_ch_no <= 140)) ) {
 		DBG_871X("Switched to DFS band (ch %02x) again!!\n", new_ch_no);

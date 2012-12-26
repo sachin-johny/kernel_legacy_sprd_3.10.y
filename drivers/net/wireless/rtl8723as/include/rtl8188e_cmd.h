@@ -61,7 +61,9 @@ typedef enum _RTL8188E_H2C_CMD_ID
 	H2C_PS_TUNE_PARA_2			=0x22,
 	H2C_PS_LPS_PARA				=0x23,
 	H2C_PS_P2P_OFFLOAD			=0x24,
-
+#ifdef SOFTAP_PS_DURATION
+	H2C_PS_SOFTAP			=0x26,
+#endif
 	//Class DM
 	H2C_DM_MACID_CFG				=0x40,
 	H2C_DM_TXBF					=0x41,
@@ -77,7 +79,6 @@ typedef enum _RTL8188E_H2C_CMD_ID
 	H2C_COM_WWLAN				=0x80,
 	H2C_COM_REMOTE_WAKE_CTRL	=0x81,
 #endif
-
 	//Class
 	 H2C_RESET_TSF				=0xc0,
 }RTL8188E_H2C_CMD_ID;
@@ -189,6 +190,15 @@ typedef struct _SETWOWLAN_PARM{
 void rtl8188es_set_wowlan_cmd(_adapter* padapter, u8 enable);
 void SetFwRelatedForWoWLAN8188ES(_adapter* padapter, u8 bHostIsGoingtoSleep);
 #endif//CONFIG_WOWLAN
+
+#ifdef SOFTAP_PS_DURATION
+typedef struct _SETSOFTAPPS_PARM{
+	u8		mode;
+	u8		duration;
+}SETSOFTAPPS_PARM, *PSETSOFTAPPS_PARM;
+
+void rtl8188es_set_softap_ps_cmd(_adapter* padapter, u8 enable, u8 duration);
+#endif //SOFTAP_PS_DURATION
 #endif//__RTL8188E_CMD_H__
 
 

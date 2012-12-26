@@ -2292,11 +2292,11 @@ void UpdateHalRAMask8192CUsb(PADAPTER padapter, u32 mac_id, u8 rssi_level)
 	pdmpriv->INIDATA_RATE[mac_id] = init_rate;
 }
 extern s32 FillH2CCmd(PADAPTER padapter, u8 ElementID, u32 CmdLen, u8 *pCmdBuffer);
-static void rtl8723as_fw_try_ap_cmd(PADAPTER padapter, u32 need_ack) 
+static void rtl8723as_fw_try_ap_cmd(PADAPTER padapter, u32 need_ack)
 {
 	u1Byte	H2C_Parameter[5] ={0};
 
-	H2C_Parameter[0] = 0x00;	
+	H2C_Parameter[0] = 0x00;
 	H2C_Parameter[1] = 0x01;
 	H2C_Parameter[2] = 0x00;
 	FillH2CCmd(padapter, H2C_AP_REQ_RPT, 5, H2C_Parameter);

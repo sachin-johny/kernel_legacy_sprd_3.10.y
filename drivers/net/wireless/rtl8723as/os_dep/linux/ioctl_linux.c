@@ -1886,7 +1886,7 @@ if (padapter->registrypriv.mp_mode == 1)
 	if(padapter->mlmeextpriv.check_ap_processing == _TRUE)
 	{
 		ret = -EPERM;
-		goto exit;	
+		goto exit;
 	}
 #endif
 
@@ -3100,7 +3100,7 @@ static int rtw_wx_set_auth(struct net_device *dev,
 		if(check_fwstate(&padapter->mlmepriv, _FW_LINKED)) {
 			rtw_disassoc_cmd(padapter);
 			DBG_871X("%s...call rtw_indicate_disconnect\n ",__FUNCTION__);
-			rtw_indicate_disconnect(padapter);
+			rtw_indicate_disconnect(padapter, 0);
 			rtw_free_assoc_resources(padapter, 1);
 		}
 		#endif
@@ -7523,7 +7523,7 @@ static int rtw_del_sta(struct net_device *dev, struct ieee_param *param)
 	if(psta)
 	{
 		u8 updated;
-	
+
 		//DBG_871X("free psta=%p, aid=%d\n", psta, psta->aid);
 
 #if 0
@@ -7589,7 +7589,7 @@ static int rtw_ioctl_get_sta_data(struct net_device *dev, struct ieee_param *par
 
 	if (param_ex->sta_addr[0] == 0xff && param_ex->sta_addr[1] == 0xff &&
 	    param_ex->sta_addr[2] == 0xff && param_ex->sta_addr[3] == 0xff &&
-	    param_ex->sta_addr[4] == 0xff && param_ex->sta_addr[5] == 0xff) 
+	    param_ex->sta_addr[4] == 0xff && param_ex->sta_addr[5] == 0xff)
 	{
 		return -EINVAL;
 	}
@@ -9032,7 +9032,7 @@ static int rtw_mp_efuse_set(struct net_device *dev,
 					addr = EEPROM_MAC_ADDR_88EE;
 			#endif
 		#endif //#ifdef CONFIG_RTL8188E
-		
+
 
 
 		cnts = strlen(tmp[1]);
@@ -9452,11 +9452,12 @@ static int rtw_mp_read_reg(struct net_device *dev,
 
 	ret = 0;
 	width = width_str[0];
-	switch (width) {
+	switch (width)
+	{
 		case 'b':
 			// 1 byte
 			// *(u8*)data = rtw_read8(padapter, addr);
-			sprintf(extra, "%x\n",  rtw_read8(padapter, addr));
+			sprintf(extra, "%d\n",  rtw_read8(padapter, addr));
 			wrqu->length = 4;
 			break;
 		case 'w':
@@ -9573,7 +9574,12 @@ static int rtw_mp_read_reg(struct net_device *dev,
 	if (addr > 0xFF) return -EINVAL;
 	if (data > 0xFFFFF) return -EINVAL;
 
+	_rtw_memset(extra, 0, wrqu->length);
+
 	write_rfreg(padapter, path, addr, data);
+
+	sprintf(extra, "write_rf completed \n");
+	wrqu->length = strlen(extra);
 
 	return 0;
 }
@@ -9608,6 +9614,8 @@ static int rtw_mp_read_rf(struct net_device *dev,
 
 	if (path >= MAX_RF_PATH_NUMS) return -EINVAL;
 	if (addr > 0xFF) return -EINVAL;
+
+	_rtw_memset(extra, 0, wrqu->length);
 
 	//*data = read_rfreg(padapter, path, addr);
 	sprintf(data, "%08x", read_rfreg(padapter, path, addr));
@@ -9653,6 +9661,11 @@ static int rtw_mp_start(struct net_device *dev,
 
 	if(padapter->registrypriv.mp_mode ==0)
 	{
+		#ifdef CONFIG_RTL8723A
+		DBG_871X("_rtw_mp_xmit_priv for Download BT patch FW\n");
+		_rtw_mp_xmit_priv(&padapter->xmitpriv);
+		#endif
+
 		padapter->registrypriv.mp_mode =1;
 
 		rtw_pm_set_ips(padapter,IPS_NONE);
@@ -9681,7 +9694,13 @@ static int rtw_mp_stop(struct net_device *dev,
 
 	if(padapter->registrypriv.mp_mode ==1)
 	{
+		#ifdef CONFIG_RTL8723A
+		DBG_871X("_rtw_mp_xmit_priv reinit for normal mode\n");
+		_rtw_mp_xmit_priv(&padapter->xmitpriv);
+		#endif
+
 		MPT_DeInitAdapter(padapter);
+		padapter->registrypriv.mp_mode=0;
 	}
 
 	if (padapter->mppriv.mode != MP_OFF) {
@@ -9719,6 +9738,7 @@ static int rtw_mp_rate(struct net_device *dev,
 	return -EINVAL;
 
 	padapter->mppriv.rateidx = rate;
+	padapter->mppriv.MptCtx.MptRateIndex = rate;
 	Hal_SetDataRate(padapter);
 
 	wrqu->length = strlen(extra) + 1;
@@ -9813,7 +9833,7 @@ static int rtw_mp_ant_tx(struct net_device *dev,
 	if (copy_from_user(input, wrqu->pointer, wrqu->length))
 			return -EFAULT;
 
-	DBG_871X("%s: input=%s\n", __func__, input);
+	//DBG_871X("%s: input=%s\n", __func__, input);
 
 	sprintf( extra, "switch Tx antenna to %s", input );
 
@@ -9830,9 +9850,9 @@ static int rtw_mp_ant_tx(struct net_device *dev,
 			}
 	}
 	//antenna |= BIT(extra[i]-'a');
-	DBG_871X("%s: antenna=0x%x\n", __func__, antenna);
+	//DBG_871X("%s: antenna=0x%x\n", __func__, antenna);
 	padapter->mppriv.antenna_tx = antenna;
-	DBG_871X("%s:mppriv.antenna_rx=%d\n", __func__, padapter->mppriv.antenna_tx);
+	//DBG_871X("%s:mppriv.antenna_rx=%d\n", __func__, padapter->mppriv.antenna_tx);
 
 	Hal_SetAntenna(padapter);
 
@@ -9852,6 +9872,7 @@ static int rtw_mp_ant_rx(struct net_device *dev,
 	if (copy_from_user(input, wrqu->pointer, wrqu->length))
 			return -EFAULT;
 	//DBG_871X("%s: input=%s\n", __func__, input);
+	_rtw_memset(extra, 0, wrqu->length);
 
 	for (i=0; i < strlen(input); i++) {
 
@@ -9904,8 +9925,7 @@ static int rtw_mp_ctx(struct net_device *dev,
 	stop = strncmp(extra, "stop", 4);
 	sscanf(extra, "count=%d,pkt", &count);
 
-	DBG_871X("%s: count=%d countPkTx=%d cotuTx=%d CarrSprTx=%d scTx=%d sgleTx=%d pkTx=%d stop=%d\n",
-		       	__func__, count, countPkTx, cotuTx, CarrSprTx, pkTx, sgleTx, scTx, stop);
+	//DBG_871X("%s: count=%d countPkTx=%d cotuTx=%d CarrSprTx=%d scTx=%d sgleTx=%d pkTx=%d stop=%d\n", __func__, count, countPkTx, cotuTx, CarrSprTx, pkTx, sgleTx, scTx, stop);
 	_rtw_memset(extra, '\0', sizeof(extra));
 
 	if (stop == 0) {
@@ -9952,7 +9972,7 @@ static int rtw_mp_ctx(struct net_device *dev,
 				pmp_priv->tx.count = count;
 				pmp_priv->tx.payload = 2;
 				pattrib = &pmp_priv->tx.attrib;
-				pattrib->pktlen = 1500;
+				pattrib->pktlen = 1000;
 				_rtw_memset(pattrib->dst, 0xFF, ETH_ALEN);
 				SetPacketTx(padapter);
 			}
@@ -9964,7 +9984,7 @@ static int rtw_mp_ctx(struct net_device *dev,
 			return 0;
 
 		case MP_SINGLE_TONE_TX:
-			DBG_871X("%s: sgleTx %d \n", __func__, bStartTest);
+			//DBG_871X("%s: sgleTx %d \n", __func__, bStartTest);
 			if (bStartTest != 0){
 				sprintf( extra, "Start continuous DA=ffffffffffff len=1500 \n infinite=yes.");
 			}
@@ -9972,7 +9992,7 @@ static int rtw_mp_ctx(struct net_device *dev,
 			break;
 
 		case MP_CONTINUOUS_TX:
-			DBG_871X("%s: cotuTx %d\n", __func__, bStartTest);
+			//DBG_871X("%s: cotuTx %d\n", __func__, bStartTest);
 			if (bStartTest != 0){
 				sprintf( extra, "Start continuous DA=ffffffffffff len=1500 \n infinite=yes.");
 			}
@@ -9980,21 +10000,19 @@ static int rtw_mp_ctx(struct net_device *dev,
 			break;
 
 		case MP_CARRIER_SUPPRISSION_TX:
-			DBG_871X("%s: CarrSprTx %d\n", __func__, bStartTest);
+			//DBG_871X("%s: CarrSprTx %d\n", __func__, bStartTest);
 			if (bStartTest != 0){
-				sprintf( extra, "Start continuous DA=ffffffffffff len=1500 \n infinite=yes.");
-			}
 			if( pmp_priv->rateidx <= MPT_RATE_11M )
 			{
 				sprintf( extra, "Start continuous DA=ffffffffffff len=1500 \n infinite=yes.");
 				Hal_SetCarrierSuppressionTx(padapter, (u8)bStartTest);
-			} else {
+				}else
 				sprintf( extra, "Specify carrier suppression but not CCK rate");
 			}
 			break;
 
 		case MP_SINGLE_CARRIER_TX:
-			DBG_871X("%s: scTx %d\n", __func__, bStartTest);
+			//DBG_871X("%s: scTx %d\n", __func__, bStartTest);
 			if (bStartTest != 0){
 				sprintf( extra, "Start continuous DA=ffffffffffff len=1500 \n infinite=yes.");
 			}
@@ -10146,12 +10164,15 @@ static int rtw_mp_psd(struct net_device *dev,
 			struct iw_point *wrqu, char *extra)
 {
 	PADAPTER padapter = rtw_netdev_priv(dev);
+	u8		input[wrqu->length];
 
-
-	if (copy_from_user(extra, wrqu->pointer, wrqu->length))
+	if (copy_from_user(input, wrqu->pointer, wrqu->length))
 		return -EFAULT;
 
+	strcpy(extra,input);
+
 	wrqu->length = mp_query_psd(padapter, extra);
+
 
 	return 0;
 }
@@ -10397,6 +10418,57 @@ static int rtw_mp_antBdiff(struct net_device *dev,
 }
 
 
+static int rtw_mp_txpower_index(struct net_device *dev,
+			struct iw_request_info *info,
+			struct iw_point *wrqu, char *extra)
+{
+	PADAPTER padapter = rtw_netdev_priv(dev);
+	char input[wrqu->length];
+	u32 rfpath;
+	u32 txpower_inx;
+
+	if (wrqu->length > 128)
+		return -EFAULT;
+
+	if (copy_from_user(input, wrqu->pointer, wrqu->length))
+		return -EFAULT;
+
+	rfpath = rtw_atoi(input);
+	txpower_inx = mpt_ProQueryCalTxPower(padapter, rfpath);
+	sprintf(extra, " %d", txpower_inx);
+	wrqu->length = strlen(extra) + 1;
+
+	return 0;
+}
+
+
+
+
+static int rtw_mp_set_preamble(struct net_device *dev,
+			struct iw_request_info *info,
+			struct iw_point *wrqu, char *extra)
+{
+	PADAPTER padapter = rtw_netdev_priv(dev);
+	struct mp_priv *pmppriv = (struct mp_priv *)(&(padapter->mppriv));
+	char input[wrqu->length];
+
+	if (wrqu->length > 128)
+		return -EFAULT;
+
+	if (copy_from_user(input, wrqu->pointer, wrqu->length))
+		return -EFAULT;
+
+	pmppriv->preamble = rtw_atoi(input);
+
+	if (pmppriv->preamble == Long_Preamble || pmppriv->preamble == Long_GI)
+		pmppriv->preamble = 0;
+	else
+		pmppriv->preamble = 1;
+
+	return 0;
+}
+
+
 #ifdef CONFIG_RTL8723A
 
 /* update Tx AGC offset */
@@ -10412,7 +10484,7 @@ static int rtw_mp_SetBT(struct net_device *dev,
 	char *pch, *ptmp, *token, *tmp[2]={0x00,0x00};
 	u8 setdata[100];
 
-	u16 testmode=1,ready=1,trxparam=1,setgen=1,getgen=1,testctrl=1;
+	u16 testmode=1,ready=1,trxparam=1,setgen=1,getgen=1,testctrl=1,testbt=1;
 	u32 i,ii,jj,kk,cnts,status;
 
 	if (copy_from_user(extra, wrqu->data.pointer, wrqu->data.length))
@@ -10426,24 +10498,32 @@ static int rtw_mp_SetBT(struct net_device *dev,
 	setgen = strncmp(extra, "setgen", 6);
 	getgen = strncmp(extra, "getgen", 6);
 	testctrl = strncmp(extra, "testctrl", 8);
+	testbt = strncmp(extra, "testbt", 6);
 
 	if ( strncmp(extra, "dlfw", 4) == 0)
 	{
 		status = rtl8723a_FirmwareDownload(padapter);
 		if(status==_SUCCESS)
 		{
+			_rtw_memset(extra,'\0', wrqu->data.length);
 			DBG_871X("%s: download FW %s\n", __func__, (_FAIL==status) ? "FAIL!":"OK.");
 			sprintf(extra, "download FW %s", (_FAIL==status) ? "FAIL!":"OK.");
 			wrqu->data.length = strlen(extra) + 1;
 		}
 		goto exit;
 	}
-
+	if( testbt==0 )
+	{
+			BtReq.opCodeVer=1;
+			BtReq.OpCode=6;
+			BtReq.paraLength=cnts/2;
+			goto todo;
+	}
 	if( ready==0 )
 	{
 		BtReq.opCodeVer=1;
 		BtReq.OpCode=0;
-		BtReq.paraLength=1;
+		BtReq.paraLength=0;
 		goto todo;
 	}
 
@@ -10472,6 +10552,7 @@ static int rtw_mp_SetBT(struct net_device *dev,
 		for (jj=0, kk=0; jj<cnts; jj++, kk+=2)
 		{
 				BtReq.pParamStart[jj] = key_2char2num(tmp[1][kk], tmp[1][kk+1]);
+				DBG_871X("BtReq.pParamStart[%d]=%x \n",ii,BtReq.pParamStart[jj]);
 		}
 	}
 
@@ -10498,7 +10579,7 @@ static int rtw_mp_SetBT(struct net_device *dev,
 	{
 		DBG_871X("%s: BT_GET_GENERAL \n", __func__);
 		BtReq.opCodeVer=1;
-		BtReq.OpCode=4;		//BT_GET_GENERAL	3
+		BtReq.OpCode=4;		//BT_GET_GENERAL	4
 		BtReq.paraLength=cnts/2;
 	}
 	if( testctrl==0 )
@@ -10509,14 +10590,18 @@ static int rtw_mp_SetBT(struct net_device *dev,
 		BtReq.paraLength=cnts/2;
 	}
 
-	for(i=0;i<BtReq.paraLength;i++)
-	{
-				DBG_871X("%s: BtReq.pParamStart[ %d ] = 0x%02x \n", __func__,i,BtReq.pParamStart[i]);
-	}
 
 	DBG_871X("%s: BtReq.paraLength =%d\n", __FUNCTION__, BtReq.paraLength);
 
 	DBG_871X("opCodeVer=%d,OpCode=%d \n",BtReq.opCodeVer,BtReq.OpCode);
+
+	if(BtReq.paraLength<1)
+		goto todo;
+
+	for(i=0;i<BtReq.paraLength;i++)
+	{
+		DBG_871X("%s: BtReq.pParamStart[ %d ] = 0x%02x \n", __func__,i,BtReq.pParamStart[i]);
+	}
 
 todo:
 	_rtw_memset(extra,'\0', wrqu->data.length);
@@ -10563,16 +10648,6 @@ static int rtw_mp_set(struct net_device *dev,
 
 	switch(subcmd)
 	{
-	case WRITE_REG :
-			DBG_871X("set case write_reg \n");
-			rtw_mp_write_reg (dev,info,wrqu,extra);
-			 break;
-
-	case WRITE_RF:
-			DBG_871X("set case write_rf \n");
-			rtw_mp_write_rf (dev,info,wrqu,extra);
-			 break;
-
 	case MP_START:
 			DBG_871X("set case mp_start \n");
 			rtw_mp_start (dev,info,wrqu,extra);
@@ -10639,6 +10714,15 @@ static int rtw_mp_get(struct net_device *dev,
 
 	switch(subcmd)
 	{
+	case WRITE_REG :
+			DBG_871X("set case write_reg \n");
+			rtw_mp_write_reg (dev,info,wrqu,extra);
+			 break;
+
+	case WRITE_RF:
+			DBG_871X("set case write_rf \n");
+			rtw_mp_write_rf (dev,info,wrqu,extra);
+			 break;
 	case MP_PHYPARA:
 			DBG_871X("mp_get  MP_PHYPARA \n");
 			rtw_mp_phypara(dev,info,wrqu,extra);
@@ -10716,6 +10800,10 @@ static int rtw_mp_get(struct net_device *dev,
 			DBG_871X("mp_get MP_QueryDrvStats \n");
 			rtw_mp_QueryDrv  (dev,info,wdata,extra);
 			break;
+	case MP_GET_TXPOWER_INX:
+			DBG_871X("mp_get MP_GET_TXPOWER_INX \n");
+			rtw_mp_txpower_index (dev,info,wrqu,extra);
+		break;
 
 #ifdef CONFIG_RTL8723A
 	case MP_SetBT:
@@ -12220,31 +12308,31 @@ static const struct iw_priv_args rtw_private_args[] =
 		{ MP_RATE , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_rate" },//get
 		{ MP_RESET_STATS , IW_PRIV_TYPE_CHAR | 1024, 0, "mp_reset_stats"},
 		{ MP_QUERY , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK , "mp_query"}, //get
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ READ_REG , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "read_reg" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_RATE , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_rate" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ READ_RF , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "read_rf" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_PSD , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_psd"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_DUMP, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_dump" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_TXPOWER , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_txpower"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_ANT_TX , IW_PRIV_TYPE_CHAR | 1024,  IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_ant_tx"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_ANT_RX , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_ant_rx"},
-		{ WRITE_REG, IW_PRIV_TYPE_CHAR | 1024, 0,"write_reg"},//set
+		{ WRITE_REG, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK ,"write_reg"},//set
 		{ MP_NULL, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "NULL" },
-		{ WRITE_RF, IW_PRIV_TYPE_CHAR | 1024, 0,"write_rf"},//set
+		{ WRITE_RF, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK ,"write_rf"},//set
 		{ MP_NULL, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "NULL" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_CTX , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_ctx"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_ARX , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_arx"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+
 		{ MP_THER , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_ther"},
 		{ EFUSE_SET, IW_PRIV_TYPE_CHAR | 1024, 0, "efuse_set" },
 		{ EFUSE_GET, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "efuse_get" },
@@ -12329,11 +12417,7 @@ static const struct iw_priv_args rtw_private_args[] = {
 		SIOCIWFIRSTPRIV + 0xD,
 		IW_PRIV_TYPE_INT | IW_PRIV_SIZE_FIXED | 2, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_FIXED | IFNAMSIZ, "rfr"
 	},
-#ifdef CONFIG_WOWLAN
-	{
-		SIOCIWFIRSTPRIV + 0xE,0,0, "wowlan_ctrl"
-	},
-#endif //CONFIG_WOWLAN
+
 	{
 		SIOCIWFIRSTPRIV + 0x10,
 		IW_PRIV_TYPE_CHAR | P2P_PRIVATE_IOCTL_SET_LEN, 0, "p2p_set"
@@ -12346,7 +12430,13 @@ static const struct iw_priv_args rtw_private_args[] = {
 		SIOCIWFIRSTPRIV + 0x12,
 		IW_PRIV_TYPE_CHAR | P2P_PRIVATE_IOCTL_SET_LEN, IW_PRIV_TYPE_CHAR | IFNAMSIZ , "p2p_get2"
 	},
+#ifdef CONFIG_WOWLAN
+	{
+		SIOCIWFIRSTPRIV + 0x13,0,0, "wowlan_ctrl"
+	},
+#else
 	{SIOCIWFIRSTPRIV + 0x13, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},
+#endif //CONFIG_WOWLAN
 	{
 		SIOCIWFIRSTPRIV + 0x14,
 		IW_PRIV_TYPE_CHAR  | 64, 0, "tdls"
@@ -12394,31 +12484,18 @@ static const struct iw_priv_args rtw_private_args[] = {
 		{ MP_RATE , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_rate" },//get
 		{ MP_RESET_STATS , IW_PRIV_TYPE_CHAR | 1024, 0, "mp_reset_stats"},
 		{ MP_QUERY , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK , "mp_query"}, //get
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ READ_REG , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "read_reg" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ MP_RATE , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_rate" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ READ_RF , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "read_rf" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ MP_PSD , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_psd"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ MP_DUMP, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_dump" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ MP_TXPOWER , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_txpower"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ MP_ANT_TX , IW_PRIV_TYPE_CHAR | 1024,  IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_ant_tx"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ MP_ANT_RX , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_ant_rx"},
-		{ WRITE_REG, IW_PRIV_TYPE_CHAR | 1024, 0,"write_reg"},//set
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "NULL" },
-		{ WRITE_RF, IW_PRIV_TYPE_CHAR | 1024, 0,"write_rf"},//set
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "NULL" },
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
+		{ WRITE_REG, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,"write_reg"},//set
+		{ WRITE_RF, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK,"write_rf"},//set
 		{ MP_CTX , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_ctx"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ MP_ARX , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_arx"},
-		{ MP_NULL, IW_PRIV_TYPE_CHAR | 128, 0,"NULL"},//set
 		{ MP_THER , IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_ther"},
 		{ EFUSE_SET, IW_PRIV_TYPE_CHAR | 1024, 0, "efuse_set" },
 		{ EFUSE_GET, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "efuse_get" },
@@ -12426,6 +12503,8 @@ static const struct iw_priv_args rtw_private_args[] = {
 		{ MP_QueryDrvStats, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_drvquery" },
 		{ MP_IOCTL, IW_PRIV_TYPE_CHAR | 1024, 0, "mp_ioctl"}, // mp_ioctl
 		{ MP_SetRFPathSwh, IW_PRIV_TYPE_CHAR | 1024, 0, "mp_setrfpath" },
+		{ MP_GET_TXPOWER_INX, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_get_txpower" },
+		{ MP_SET_PREAMBLE, IW_PRIV_TYPE_CHAR | 1024, 0, "mp_set_preamble"},
 
 #ifdef CONFIG_RTL8723A
 		{ MP_SetBT, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_setbt" },
@@ -12470,8 +12549,11 @@ static iw_handler rtw_private_handler[] =
 	rtw_p2p_set,					//0x10
 	rtw_p2p_get,					//0x11
 	rtw_p2p_get2,					//0x12
-
+#ifdef CONFIG_WOWLAN
+	rtw_wowlan_ctrl,				//0x13
+#else
 	NULL,							//0x13
+#endif //CONFIG_WOWLAN
 	rtw_tdls,						//0x14
 	rtw_tdls_get,					//0x15
 
@@ -12488,9 +12570,6 @@ static iw_handler rtw_private_handler[] =
 	rtw_widi_set,					//0x1E
 	rtw_widi_set_probe_request,		//0x1F
 #endif // CONFIG_INTEL_WIDI
-#ifdef CONFIG_WOWLAN
-	rtw_wowlan_ctrl,				//0x20
-#endif //CONFIG_WOWLAN
 };
 
 #endif // #if defined(CONFIG_MP_INCLUDED) && defined(CONFIG_MP_IWPRIV_SUPPORT)
