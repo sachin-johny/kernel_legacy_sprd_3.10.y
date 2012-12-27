@@ -792,6 +792,7 @@ LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 
 LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 {
+	int ret = 0;
 	g_sensor_id =  sensor_id;
 
 	if (SENSOR_MAIN == sensor_id) {
@@ -807,12 +808,12 @@ LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 		sensor_i2c_driver.id_table = sensor_sub_id;
 		sensor_i2c_driver.address_list = &sensor_sub_default_addr_list[0];
 	}
-
-	if (i2c_add_driver(&sensor_i2c_driver)) {
-		SENSOR_PRINT_ERR("SENSOR: add I2C %d driver error \n", sensor_id);
+	ret = i2c_add_driver(&sensor_i2c_driver);
+	if (ret) {
+		SENSOR_PRINT_ERR("+I2C %d err %d.\n", sensor_id,ret);
 		return SENSOR_K_FAIL;
 	} else {
-		SENSOR_PRINT("SENSOR: add I2C %d driver OK \n", sensor_id);
+		SENSOR_PRINT_HIGH("+I2C %d OK \n", sensor_id);
 	}
 
 	return SENSOR_K_SUCCESS;
@@ -833,13 +834,12 @@ LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 		sensor_i2c_driver.id_table = sensor_sub_id;
 		sensor_i2c_driver.address_list = &sensor_sub_default_addr_list[0];
 	}
-    SENSOR_PRINT_HIGH("I2cDeInit:id %d,address_list 0x%x.\n",
-		sensor_id,sensor_i2c_driver.address_list);
+    SENSOR_PRINT_HIGH("-I2c %d,addr 0x%x.\n",sensor_id,sensor_i2c_driver.address_list);
 	i2c_del_driver(&sensor_i2c_driver);
 
 	g_sensor_id =  SENSOR_ID_MAX;
 
-	SENSOR_PRINT("SENSOR: delete I2C %d driver OK.\n", sensor_id);
+	SENSOR_PRINT_HIGH("-I2C %d OK.\n", sensor_id);
 
 	return SENSOR_K_SUCCESS;
 }
