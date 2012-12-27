@@ -827,6 +827,11 @@ static irqreturn_t _ISP_DriverISR(int irq, void *dev_id)
 	uint32_t value = 0;
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_isp_mod.module_addr;
 
+	if(!s_isp_mod.module_addr)
+	{
+		DCAM_DRV_ERR("DCAM DRV:s_isp_mod.module_addr is NULL.\n");
+		return IRQ_NONE;
+	}
 	value = p_isp_reg->dcam_int_stat_u.dwValue & ISP_IRQ_LINE_MASK;
 	if (0 == value)
 		return IRQ_NONE;
