@@ -32,6 +32,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/mmc/card.h>
 
+#ifdef CONFIG_ARCH_SC8825
 #include <mach/regs_ana_glb.h>
 #include <mach/regs_ahb.h>
 #include <mach/regs_glb.h>
@@ -39,6 +40,7 @@
 #include <mach/adi.h>
 
 #include <mach/hardware.h>
+#endif
 
 #include "sdhci.h"
 
@@ -134,9 +136,11 @@ void sdhci_dumpregs(struct sdhci_host *host)
 			sdhci_readl(host, 0x80), sdhci_readl(host, 0x84),
 			sdhci_readl(host, 0x88));
 
+#ifdef CONFIG_ARCH_SC8825
 	printk("AHB_CTL0:0x%x\n", sci_glb_raw_read(REG_AHB_AHB_CTL0));
 	printk("ANA_REG_GLB_LDO_PD_CTRL1:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL1));
 	printk("ANA_REG_GLB_LDO_VCTRL4:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_VCTRL4));
+#endif
 
 	if (host->flags & SDHCI_USE_ADMA)
 		printk(KERN_DEBUG DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
