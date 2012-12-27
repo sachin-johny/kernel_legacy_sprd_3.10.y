@@ -61,6 +61,8 @@ static struct sdhci_host *sdhci_host_g = NULL;
 
 extern void mmc_power_off(struct mmc_host* mmc);
 extern void mmc_power_up(struct mmc_host* mmc);
+static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock);
+
 
 static void *sdhci_get_platdata(struct sdhci_host *host)
 {
@@ -196,6 +198,7 @@ void sdhci_bus_scan(void)
 #ifdef CONFIG_MMC_BUS_SCAN
 	if(sdhci_host_g && (sdhci_host_g->mmc)){
 		printk("%s, entry\n", __func__);
+		sdhci_sprd_enable_clock(sdhci_host_g,  1);
 		if (sdhci_host_g->ops->set_clock) {
 			sdhci_host_g->ops->set_clock(sdhci_host_g, 1);
 		}
@@ -317,8 +320,6 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 			host_data->clk_enable = 1;
 		}
 	}
-	pr_debug("clock:%d, host->clock:%d, AHB_CTL1:0x%x\n", clock,host->clock,
-			sci_glb_raw_read(REG_AHB_AHB_CTL1));
 	return;
 }
 
@@ -384,7 +385,7 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 
 static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
-	.set_clock		= sdhci_sprd_enable_clock,
+	//.set_clock		= sdhci_sprd_enable_clock,
 	.set_power		= sdhci_sprd_set_power,
 	.save_regs		= sdhci_save_regs,
 	.restore_regs	= sdhci_restore_regs,
@@ -400,8 +401,7 @@ static void sdhci_module_init(struct sdhci_host* host)
 	sci_glb_set(REG_AHB_SOFT_RST, host_pdata->rst_bit);
 	sci_glb_clr(REG_AHB_SOFT_RST, host_pdata->rst_bit);
 	sdhci_sprd_set_base_clock(host);
-	host->ops->set_clock(host, true);
-
+	sdhci_sprd_enable_clock(host,  true);
 }
 
 
@@ -452,6 +452,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	case 0:
 		break;
 	case 1:
+		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
 		break;
 	case 2:
 		host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
@@ -549,12 +550,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->mmc->caps |= MMC_CAP_HW_RESET;
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
-	if(pdev->id == 1){
-		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
-	}
-    	if(pdev->id == 3){
-		pm_runtime_disable(&(pdev)->dev);
-	}
 
 	ret = sdhci_add_host(host);
 	if (ret) {
@@ -647,11 +642,11 @@ if(host->mmc && host->mmc->card)
 	}
 #endif
 
-
 	/* disable ahb clock */
 	if(host->ops->set_clock){
 		host->ops->set_clock(host, 0);
 	}
+	sdhci_sprd_enable_clock(host,  0);
 	printk("%s, %s, done\n", mmc_hostname(host->mmc), __func__ );
 
 	return 0;
@@ -663,9 +658,11 @@ static int sdhci_sprd_resume(struct platform_device *dev)
 	printk("%s, %s, start\n", mmc_hostname(host->mmc), __func__ );
 
 	/* enable ahb clock to restore registers */
+	sdhci_sprd_enable_clock(host,  1);
 	if(host->ops->set_clock){
 		host->ops->set_clock(host, 1);
 	}
+
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
 	if( !strcmp(host->hw_name, "Spread SDIO host1") ) {
 		sdhci_host_wakeup_clear(host);
@@ -744,6 +741,7 @@ static int sdhci_runtime_suspend(struct device *dev){
 
 		host->suspending = 0;
 		mmc->suspend_task = NULL;
+		sdhci_sprd_enable_clock(host,  0);
 	}
 	return rc;
 }
@@ -754,6 +752,7 @@ static int sdhci_runtime_resume(struct device *dev){
 	int err = 0;
 
 	if (mmc) {
+		sdhci_sprd_enable_clock(host,  1);
 		(host->mmc)->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
 		err = mmc_resume_host(mmc);
 		if(err)
@@ -825,7 +824,7 @@ if(host->mmc && host->mmc->card)
 		if(host->ops->set_clock){
 			host->ops->set_clock(host, 0);
 		}
-
+	sdhci_sprd_enable_clock(host,  0);
 	return 0;
 }
 
@@ -835,6 +834,7 @@ static int sdhci_pm_resume(struct device *dev)
 	unsigned long clock = 0;
 
 	/* enable ahb clock to restore registers */
+	sdhci_sprd_enable_clock(host,  1);
 	if(host->ops->set_clock){
 		host->ops->set_clock(host, 1);
 	}
