@@ -176,6 +176,7 @@ static void do_dcdc_work(struct work_struct *work)
 
 	if (sprd_glb_get_chipid() == CHIP_ID_8810S) {	/*SMIC CHIP*/
 		dcdcarm_to_vol += 100;
+		dcdc_to_vol += 100;
 	}
 
 	dcdc_work.cal_typ = sprd_get_adc_cal_type();
