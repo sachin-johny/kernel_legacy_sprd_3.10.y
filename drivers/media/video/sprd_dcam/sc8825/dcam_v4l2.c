@@ -1370,12 +1370,16 @@ static int v4l2_dqbuf(struct file *file,
 
 	DCAM_TRACE("V4L2: v4l2_dqbuf \n");
 
-	ret = down_interruptible(&dev->irq_sem);
-	if (ret) {
-		printk("V4L2: v4l2_dqbuf, failed to down, %d \n", ret);
-		p->flags = V4L2_TIMEOUT;
-		return -ERESTARTSYS;
+	while (1) {
+		ret = down_interruptible(&dev->irq_sem);
+		if (0 == ret) {
+			break;
+		} else {
+			printk("V4L2: v4l2_dqbuf, failed to down, %d \n", ret);
+			continue;
+		}
 	}
+
 	if (sprd_v4l2_queue_read(&dev->queue, &node)) {
 		printk("V4L2: v4l2_dqbuf, failed read queue \n");
 		p->flags = V4L2_TX_ERR;
