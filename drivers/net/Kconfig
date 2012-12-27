@@ -2023,6 +2023,12 @@ config LANTIQ_ETOP
 	help
 	  Support for the MII0 inside the Lantiq SoC
 
+config SPRD_SETH
+	bool "Spreadtrum Ethernet driver over mux"
+	default n
+	help
+	  This driver supports the spreadtrum Ethernet driver over mux.
+
 
 source "drivers/net/fs_enet/Kconfig"
 

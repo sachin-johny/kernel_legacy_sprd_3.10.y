@@ -259,6 +259,28 @@ static int mux_mode = 0;
 #define min(a,b)    ( (a)<(b) ? (a):(b) )
 #endif
 
+#ifdef CONFIG_SPRD_SETH
+#define TTY_INDEX_BASE	13
+extern void seth_rx_data(int tty_index, __u8 *uih_data_start, __u32 uih_len);
+extern void seth_restart_queue(int index);
+static int is_seth_ttyidx(int tty_idx)
+{
+	switch(tty_idx) {
+		case TTY_INDEX_BASE:
+		case TTY_INDEX_BASE + 1:
+			return 1;
+		default:
+			return 0;
+	}
+}
+static int mux_write(struct tty_struct *tty,
+		     const unsigned char *buf, int count);
+int seth_mux_write(struct tty_struct *tty,
+		     const unsigned char *buf, int count) {
+	return mux_write(tty, buf, count);
+}
+#endif
+
 static int send_ua(ts0710_con * ts0710, __u8 dlci);
 static int send_dm(ts0710_con * ts0710, __u8 dlci);
 static int send_sabm(ts0710_con * ts0710, __u8 dlci);
@@ -1644,6 +1666,15 @@ static int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 			}
 
 			tty_idx = dlci2tty[dlci].datatty;	/* we see data and commmand as same */
+
+#ifdef CONFIG_SPRD_SETH
+			 if(is_seth_ttyidx(tty_idx)) {
+				TS0710_DEBUG("MUX: seth_rx_data on mux%d\n", tty_idx);
+				seth_rx_data(tty_idx, uih_data_start, uih_len);
+				break;
+			}
+#endif
+
 			tty = mux_table[tty_idx];
 			if ((!mux_tty[tty_idx]) || (!tty)) {
 				TS0710_PRINTK
@@ -3306,6 +3337,12 @@ static int mux_send_thread(void *private_)
 					send_info->length);
 				send_info->length = 0;
 				send_info->filled = 0;
+#ifdef CONFIG_SPRD_SETH
+				if(is_seth_ttyidx(j)) {
+					TS0710_DEBUG("seth_restart on mux%d\n", j);
+					seth_restart_queue(j);
+				}
+#endif
 			} else {
 				mux_send_info_idx = j;
 				break;

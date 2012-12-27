@@ -45,6 +45,8 @@
 #define GPIO_MAIN_SENSOR_PWN    73
 #define GPIO_SUB_SENSOR_PWN     74
 
+#define HEADSET_DETECT_GPIO	141
+#define HEADSET_PA_CTL_GPIO	93
 #define GPIO_GPS_RESET          26
 #define GPIO_GPS_ONOFF          27
 
