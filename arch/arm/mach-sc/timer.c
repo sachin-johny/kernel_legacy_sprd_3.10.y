@@ -186,6 +186,21 @@ static void __init __sched_clock_init(unsigned long rate)
 	setup_sched_clock(__update_sched_clock, 32, rate);
 }
 
+#ifdef CONFIG_HAVE_ARM_TWD
+static DEFINE_TWD_LOCAL_TIMER(twd_local_timer,
+			      SC_LOCAL_TIMER_PA,
+			      IRQ_LOCALTIMER);
+
+static void __init __twd_init(void)
+{
+	int err = twd_local_timer_register(&twd_local_timer);
+	if (err)
+		pr_err("twd_local_timer_register failed %d\n", err);
+}
+#else
+#define __twd_init()	do { } while(0)
+#endif
+
 void __init sci_enable_timer_early(void)
 {
 	/* enable timer & syscnt in global regs */
@@ -194,13 +209,24 @@ void __init sci_enable_timer_early(void)
 	__sched_clock_init(26000000);
 #endif
 }
+#ifdef CONFIG_ARM_ARCH_TIMER
+static void __init __arch_timer_init(void)
+{
+	struct arch_timer at;
+	at.res[0].start = 29;
+	at.res[0].flags = IORESOURCE_IRQ;
 
-#ifdef CONFIG_LOCAL_TIMERS
-static DEFINE_TWD_LOCAL_TIMER(twd_local_timer,
-			      SPRD_CORE_PHYS + 0x600,
-			      IRQ_LOCALTIMER);
+	at.res[1].start = 0;
+	at.res[1].flags = IORESOURCE_IRQ;
+
+	arch_timer_register(&at);
+	if (arch_timer_sched_clock_init() != 0)
+		printk("arch_timer_sched_clock_init return error\n");
+
+}
+#else
+#define __arch_timer_init()   do { } while(0)
 #endif
-
 void __init sci_timer_init(void)
 {
 #ifdef CONFIG_ARM_ARCH_TIMER
@@ -211,20 +237,13 @@ void __init sci_timer_init(void)
 	at.res[1].start = 0;
 	at.res[1].flags = IORESOURCE_IRQ;
 #endif
-
 	/* setup timer2 and syscnt as clocksource */
 	__gptimer_clocksource_init("gptimer2", 26000000);
 	__syscnt_clocksource_init("syscnt", 1000);
 
-#ifdef CONFIG_LOCAL_TIMERS
-	if (twd_local_timer_register(&twd_local_timer))
-		pr_err("sprd twd_local_timer_register failed!\n");
-#endif
+	__twd_init();
 
-#ifdef CONFIG_ARM_ARCH_TIMER
-	arch_timer_register(&at);
-	if (arch_timer_sched_clock_init() != 0)
-#endif
-		/* setup timer1 as clockevent.  */
-		sprd_gptimer_clockevent_init(IRQ_TIMER1_INT, "gptimer1", 32768);
+	__arch_timer_init();
+	/* setup timer1 as clockevent. */
+	sprd_gptimer_clockevent_init(IRQ_TIMER1_INT, "gptimer1", 32768);
 }

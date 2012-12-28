@@ -13,21 +13,23 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
-//#include <linux/android_pmem.h>
 #include <linux/ion.h>
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
 #include <linux/mmc/sdhci.h>
+#include <linux/gpio.h>
 
-//#include <linux/sipc.h>
-//#include <linux/spipe.h>
+#include <linux/sprd_cproc.h>
+#include <linux/sipc.h>
+#include <linux/spipe.h>
+#include <linux/seth.h>
+#include <asm/pmu.h>
 #include <mach/hardware.h>
 #include <mach/regs_ahb.h>
 #include <mach/regs_glb.h>
 #include <mach/irqs.h>
 #include <mach/board.h>
 #include <mach/kpd.h>
-#include <mach/gpio.h>
 #include "devices.h"
 
 static struct resource sprd_serial_resources0[] = {
@@ -141,7 +143,7 @@ struct platform_device sprd_hwspinlock_device0 = {
 	.num_resources	= ARRAY_SIZE(sprd_hwspinlock_resources),
 	.resource	= sprd_hwspinlock_resources,
 };
-#if 0
+
 static struct resource sprd_lcd_resources[] = {
 	[0] = {
 		.start = SPRD_LCDC_BASE,
@@ -150,8 +152,14 @@ static struct resource sprd_lcd_resources[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = IRQ_LCDC_INT,
-		.end = IRQ_LCDC_INT,
+		.start = IRQ_DISPC0_INT,
+		.end = IRQ_DISPC0_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+	
+	[2] = {
+		.start = IRQ_DISPC1_INT,
+		.end = IRQ_DISPC1_INT,
 		.flags = IORESOURCE_IRQ,
 	}
 };
@@ -188,7 +196,6 @@ struct platform_device sprd_otg_device = {
 	.num_resources	= ARRAY_SIZE(sprd_otg_resource),
 	.resource	= sprd_otg_resource,
 };
-#endif
 
 struct platform_device sprd_backlight_device = {
 	.name           = "sprd_backlight",
@@ -339,7 +346,6 @@ struct platform_device sprd_spi2_device = {
 	.resource = spi2_resources,
 	.num_resources = ARRAY_SIZE(spi2_resources),
 };
-
 #if 0
 static struct resource sprd_ahb_bm0_res[] = {
 	[0] = {
@@ -348,8 +354,8 @@ static struct resource sprd_ahb_bm0_res[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = IRQ_BM_INT,
-		.end = IRQ_BM_INT,
+		.start = IRQ_BM0_INT,
+		.end = IRQ_BM0_INT,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -361,8 +367,8 @@ static struct resource sprd_ahb_bm1_res[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = IRQ_BM_INT,
-		.end = IRQ_BM_INT,
+		.start = IRQ_BM1_INT,
+		.end = IRQ_BM1_INT,
 		.flags = IORESOURCE_IRQ,
 	},
 
@@ -375,8 +381,8 @@ static struct resource sprd_ahb_bm2_res[] = {
 		.flags = IORESOURCE_MEM,
 	},
 	[1] = {
-		.start = IRQ_BM_INT,
-		.end = IRQ_BM_INT,
+		.start = IRQ_BM2_INT,
+		.end = IRQ_BM2_INT,
 		.flags = IORESOURCE_IRQ,
 	},
 
@@ -507,7 +513,6 @@ struct platform_device sprd_axi_bm2_device = {
 	.num_resources = ARRAY_SIZE(sprd_axi_bm2_res),
 };
 #endif
-
 //keypad 
 #if defined (CONFIG_MACH_SP8830FPGA)
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW2)
@@ -665,7 +670,6 @@ struct platform_device sprd_audio_codec_sprd_codec_device = {
 	.id             =  -1,
 };
 
-#if 0
 static struct resource sprd_battery_resources[] = {
         [0] = {
                 .start = EIC_CHARGER_DETECT,
@@ -680,42 +684,11 @@ struct platform_device sprd_battery_device = {
         .num_resources  = ARRAY_SIZE(sprd_battery_resources),
         .resource       = sprd_battery_resources,
 };
-#endif
 
 struct platform_device sprd_vsp_device = {
 	.name	= "sprd_vsp",
 	.id	= -1,
 };
-
-#ifdef CONFIG_ANDROID_PMEM
-static struct android_pmem_platform_data sprd_pmem_pdata = {
-	.name = "pmem",
-	.start = SPRD_PMEM_BASE,
-	.size = SPRD_PMEM_SIZE,
-	.no_allocator = 0,
-	.cached = 1,
-};
-
-static struct android_pmem_platform_data sprd_pmem_adsp_pdata = {
-	.name = "pmem_adsp",
-	.start = SPRD_PMEM_ADSP_BASE,
-	.size = SPRD_PMEM_ADSP_SIZE,
-	.no_allocator = 0,
-	.cached = 1,
-};
-
-struct platform_device sprd_pmem_device = {
-	.name = "android_pmem",
-	.id = 0,
-	.dev = {.platform_data = &sprd_pmem_pdata},
-};
-
-struct platform_device sprd_pmem_adsp_device = {
-	.name = "android_pmem",
-	.id = 1,
-	.dev = {.platform_data = &sprd_pmem_adsp_pdata},
-};
-#endif
 
 #ifdef CONFIG_ION
 static struct ion_platform_data ion_pdata = {
@@ -744,8 +717,6 @@ struct platform_device sprd_ion_dev = {
 	.dev = { .platform_data = &ion_pdata },
 };
 #endif
-
-#if 0
 
 static struct resource sprd_dcam_resources[] = {
 	{
@@ -799,6 +770,8 @@ static struct resource sprd_sdio0_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio0_pdata = {
+	.hw_name = "sprd-sdcard",
+	.detect_gpio = 140,
 	.vdd_name = "vddsd0",
 	.clk_name = "clk_sdio0",
 	.clk_parent = "clk_sdio_src",
@@ -829,7 +802,6 @@ static struct resource sprd_sdio1_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio1_pdata = {
-	.vdd_name = "vddsd1",
 	.clk_name = "clk_sdio1",
 	.clk_parent = "clk_64m",
 	.enb_bit = BIT_SDIO1_EB,
@@ -905,7 +877,7 @@ struct platform_device sprd_emmc_device = {
 	.resource = sprd_emmc_resources,
 	.dev = { .platform_data = &sprd_emmc_pdata },
 };
-
+#if 0
 #define TD_REG_CLK_ADDR				(SPRD_AHB_BASE + 0x250)
 #define TD_REG_RESET_ADDR			(SPRD_AHB_BASE + 0x254)
 #define TD_CTL_ENABLE				(0x01)
@@ -953,6 +925,7 @@ struct platform_device sprd_cproc_td_device = {
 	.id             = 0,
 	.dev		= {.platform_data = &sprd_cproc_td_pdata},
 };
+#endif
 static struct spipe_init_data sprd_spipe_td_pdata = {
 	.name		= "spipe_td",
 	.dst		= SIPC_ID_CPT,
@@ -973,7 +946,7 @@ static struct spipe_init_data sprd_slog_td_pdata = {
 	.channel	= SMSG_CH_PLOG,
 	.ringnr		= 1,
 	.txbuf_size	= 16,
-	.rxbuf_size	= 16 * 1024,
+	.rxbuf_size	= 256 * 1024,
 };
 struct platform_device sprd_slog_td_device = {
 	.name           = "spipe",
@@ -1006,16 +979,24 @@ struct platform_device sprd_seth_td_device = {
 	.id             =  0,
 	.dev		= {.platform_data = &sprd_seth_td_pdata},
 };
-
+#if 0
 static struct resource sprd_pmu_resource[] = {
+	[0] = {
+		.start		= IRQ_CA5PMU_NCT_INT0,
+		.end		= IRQ_CA5PMU_NCT_INT0,
+		.flags		= IORESOURCE_IRQ,
+	},
+	[1] = {
+		.start		= IRQ_CA5PMU_NCT_INT1,
+		.end		= IRQ_CA5PMU_NCT_INT1,
+		.flags		= IORESOURCE_IRQ,
+	},
 };
 
-static struct platform_device sprd_pmu_device = {
+struct platform_device sprd_pmu_device = {
 	.name		= "arm-pmu",
 	.id		= ARM_PMU_DEVICE_CPU,
 	.resource = sprd_pmu_resource,
 	.num_resources	= ARRAY_SIZE(sprd_pmu_resource),
 };
-
 #endif
-

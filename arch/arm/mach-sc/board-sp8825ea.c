@@ -177,7 +177,7 @@ static struct platform_device kb_backlight_device = {
 	.id             =  -1,
 };
 
-static struct sys_timer sc8825_timer = {
+static struct sys_timer __timer = {
 	.init = sci_timer_init,
 };
 
@@ -531,7 +531,7 @@ int __init sc8825_regulator_init(void)
 	return platform_device_register(&sc8825_regulator_device);
 }
 
-int __init sc8825_clock_init_early(void)
+int __init __clock_init_early(void)
 {
 	pr_info("ahb ctl0 %08x, ctl2 %08x glb gen0 %08x gen1 %08x clk_en %08x\n",
 		sci_glb_raw_read(REG_AHB_AHB_CTL0),
@@ -647,7 +647,7 @@ int __init sc8825_clock_init_early(void)
 	//		BIT_TDPLL_DIV5OUT_FORCE_PD	|	/* clk_153p6m */
 			0);
 
-	printk("sc8825 clock module early init ok\n");
+	printk("sc clock module early init ok\n");
 	return 0;
 }
 
@@ -672,7 +672,7 @@ extern void __init  sci_enable_timer_early(void);
 static void __init sc8825_init_early(void)
 {
 	/* earlier init request than irq and timer */
-	sc8825_clock_init_early();
+	__clock_init_early();
 	sci_enable_timer_early();
 	sci_adi_init();
 }
@@ -693,7 +693,7 @@ MACHINE_START(SCPHONE, "sc8825")
 	.init_early	= sc8825_init_early,
 	.handle_irq	= gic_handle_irq,
 	.init_irq	= sci_init_irq,
-	.timer		= &sc8825_timer,
+	.timer		= &__timer,
 	.init_machine	= sc8825_init_machine,
 MACHINE_END
 
