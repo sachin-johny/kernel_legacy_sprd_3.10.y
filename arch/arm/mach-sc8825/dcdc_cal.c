@@ -36,6 +36,8 @@
 int sprd_get_adc_cal_type(void);
 uint16_t sprd_get_adc_to_vol(uint16_t data);
 
+static uint32_t bat_numerators, bat_denominators;
+
 #define CALIBRATE_TO	(60 * 1)	/* one minute */
 #define MEASURE_TIMES	(128)
 const int dcdc_ctl_vol[] = {
@@ -60,13 +62,19 @@ int dcdc_adc_get(int adc_chan)
 {
 	int i;
 	u32 val[MEASURE_TIMES], sum = 0, adc_vol;
+	u32 chan_numerators, chan_denominators;
+
+	sci_adc_get_vol_ratio(adc_chan, true, &chan_numerators,
+			      &chan_denominators);
+
 	for (i = 0; i < ARRAY_SIZE(val); i++) {
 		sum += val[i] = sci_adc_get_value(adc_chan, true);
 	}
 	sum /= ARRAY_SIZE(val);	/* get average value */
 	/* info("adc chan %d, value %d\n", adc_chan, sum); */
-	adc_vol =
-	    DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(sum) * (8 * 5), (30 * 4));
+	adc_vol = DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(sum) *
+				    (bat_numerators * chan_denominators),
+				    (bat_denominators * chan_numerators));
 	return adc_vol;
 }
 
@@ -241,6 +249,14 @@ void dcdc_calibrate_callback(void *data)
 
 static int __init dcdc_init(void)
 {
+	u32 chan_numerators, chan_denominators;
+	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
+			      &bat_denominators);
+	sci_adc_get_vol_ratio(ADC_CHANNEL_DCDCARM, true, &chan_numerators,
+			      &chan_denominators);
+	info("vbat chan sampling ratio %u/%u, and dcdc %u/%u\n",
+	     bat_numerators, bat_denominators,
+	     chan_numerators, chan_denominators);
 	dcdc_calibrate_callback(0);
 	return 0;
 }
