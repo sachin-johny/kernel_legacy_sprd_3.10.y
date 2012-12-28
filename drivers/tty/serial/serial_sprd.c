@@ -430,7 +430,7 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	unsigned int baud, quot;
 	unsigned int lcr, fc;
 	/* ask the core to calculate the divisor for us */
-	baud = uart_get_baud_rate(port, termios, old, 1200, 3000000);
+	baud = uart_get_baud_rate(port, termios, old, 1200, 4000000);
 
 	quot = (unsigned int) ( (port->uartclk + baud / 2) / baud);
 
@@ -578,7 +578,9 @@ static int clk_startup(struct platform_device *pdev)
 	plat_local_data = *(struct serial_data *)(pdev->dev.platform_data);
 	clksrc = plat_local_data.clk;
 
-	if (clksrc == 48000000){
+	if (clksrc == 96000000){
+		clk_parent = clk_get(NULL, "clk_96m");
+	} else if (clksrc == 48000000){
 		clk_parent = clk_get(NULL, "clk_48m");
 	} else {
 		clk_parent = clk_get(NULL, "ext_26m");
