@@ -17,8 +17,8 @@
 #include <mach/hardware.h>
 #include <mach/regs_ana_glb.h>
 #include <asm/hardware/gic.h>
+#include <mach/emc_repower.h>
 #include <mach/sci.h>
-#include "emc_repower.h"
 #define REG32(x)             (*((volatile u32 *)(x)))
 #define BASE_ADDR_AHBREG     (0x20900200)
 #define ADDR_AHBREG_ARMCLK   (BASE_ADDR_AHBREG+0x0024)
@@ -1283,7 +1283,7 @@ static inline void update_umctl_timing_cfg(MEM_TYPE_ENUM mem_type, u32 clk_emc_d
             REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITPHYWRLAT) = 0x3;//timing_cfg.DFITPHYWRLAT ;
 	        break;
         }
-	    default: {
+	    defautl: {
 	        while(1);
 	    }
     }

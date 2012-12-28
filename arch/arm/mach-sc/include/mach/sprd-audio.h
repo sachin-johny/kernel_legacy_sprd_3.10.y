@@ -47,6 +47,11 @@ enum {
 #define CODEC_AP_PHY_BASE	(SPRD_MISC_PHYS + 0x0700)
 #define CODEC_AP_IRQ		(IRQ_ANA_AUD_INT)
 #define CODEC_DP_IRQ		(IRQ_REQ_AUD_INT)
+
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+#define SPRD_IRAM_ALL_PHYS	0X00000000
+#define SPRD_IRAM_ALL_SIZE	SZ_32K
+#endif
 #endif
 
 /* ------------------------------------------------------------------------- */

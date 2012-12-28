@@ -598,7 +598,7 @@ void inc_irq(int irq)
 }
 
 #include <linux/regulator/consumer.h>
-int __init sc8830_ldo_slp_init(void)
+int __init sc_ldo_slp_init(void)
 {
 	int i;
 
@@ -629,5 +629,5 @@ int __init sc8830_ldo_slp_init(void)
 	return 0;
 }
 
-late_initcall(sc8830_ldo_slp_init);
+late_initcall(sc_ldo_slp_init);
 #endif

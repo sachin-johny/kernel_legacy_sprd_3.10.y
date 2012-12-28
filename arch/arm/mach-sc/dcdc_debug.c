@@ -17,9 +17,8 @@
 #define   ANA_DCDCARM_CTRL     			ANA_REG_GLB_DCDCARM_CTRL0
 #define   ANA_DCDCARM_CTRL_CAL 			ANA_REG_GLB_DCDCARM_CTRL_CAL
 
-static const int dcdc_ctl_vol[] = {
-	650, 700, 800, 900, 1000, 1100, 1200, 1300, 1400,
-};
+extern int dcdc_ctl_vol[];
+int dcdc_adc_get(int adc_chan);
 
 int mpll_calibrate(int cpu_freq);
 int dcdc_calibrate(int adc_chan, int def_vol, int to_vol);
@@ -27,47 +26,41 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol);
 static u32 dcdc_to_vol = 0, dcdcarm_to_vol = 0;
 static int debugfs_dcdc_get(void *data, u64 * val)
 {
-	int def_vol = 1100;
-	int i, cal_vol = sci_adi_read(ANA_DCDC_CTRL_CAL) & 0x1f;
-	i = sci_adi_read(ANA_DCDC_CTRL) & 0x07;
-	if (0 != i /* + cal_vol */ )
-		def_vol = dcdc_ctl_vol[i];
-	def_vol += cal_vol * 100 / 32;
-	*(u32 *) data = *val = def_vol;
+	*(u32 *) data = *val = dcdc_adc_get(ADC_CHANNEL_DCDCCORE);
 	return 0;
 }
 
 static int debugfs_dcdcarm_get(void *data, u64 * val)
 {
-	int def_vol = 1200;
-	int i, cal_vol = sci_adi_read(ANA_DCDCARM_CTRL_CAL) & 0x1f;
-	i = sci_adi_read(ANA_DCDCARM_CTRL) & 0x07;
-	if (0 != i /* + cal_vol */ )
-		def_vol = dcdc_ctl_vol[i];
-	def_vol += cal_vol * 100 / 32;
-	*(u32 *) data = *val = def_vol;
+	*(u32 *) data = *val = dcdc_adc_get(ADC_CHANNEL_DCDCARM);
 	return 0;
 }
 
 static int debugfs_dcdc_set(void *data, u64 val)
 {
+	int cnt = 3;
 	int ret, to_vol;
 	to_vol = *(u32 *) data = val;
 	debugfs_dcdc_get(data, &val);
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCCORE, dcdc_to_vol, to_vol);
-	if (ret > 0)
-		dcdc_calibrate(ADC_CHANNEL_DCDCCORE, ret, to_vol);
+	ret = dcdc_calibrate(ADC_CHANNEL_DCDCCORE, 0, to_vol);
+	while (ret > 0 && cnt--) {
+		msleep(10);
+		ret = dcdc_calibrate(ADC_CHANNEL_DCDCCORE, ret, to_vol);
+	}
 	return 0;
 }
 
 static int debugfs_dcdcarm_set(void *data, u64 val)
 {
+	int cnt = 3;
 	int ret, to_vol;
 	to_vol = *(u32 *) data = val;
 	debugfs_dcdcarm_get(data, &val);
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, dcdcarm_to_vol, to_vol);
-	if (ret > 0)
-		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, to_vol);
+	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 0, to_vol);
+	while (ret > 0 && cnt--) {
+		msleep(10);
+		ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, to_vol);
+	}
 	return 0;
 }
 

@@ -44,33 +44,56 @@ const int dcdc_ctl_vol[] = {
 	1100, 700, 800, 900, 1000, 650, 1200, 1300, 1400,
 };
 
-int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
+static int __match_dcdc_vol(int vol)
+{
+	int i, j = -1;
+	int ds, min_ds = 4200;
+	for (i = 0; i < ARRAY_SIZE(dcdc_ctl_vol); i++) {
+		ds = vol - dcdc_ctl_vol[i];
+		if (ds >= 0 && ds < min_ds) {
+			min_ds = ds;
+			j = i;
+		}
+	}
+	return j;
+}
+
+int dcdc_adc_get(int adc_chan)
 {
 	int i;
-	u32 val[MEASURE_TIMES], sum = 0, adc_vol, ctl_vol, cal_vol;
+	u32 val[MEASURE_TIMES], sum = 0, adc_vol;
 	for (i = 0; i < ARRAY_SIZE(val); i++) {
 		sum += val[i] = sci_adc_get_value(adc_chan, true);
 	}
 	sum /= ARRAY_SIZE(val);	/* get average value */
-	info("adc chan %d, value %d\n", adc_chan, sum);
-	adc_vol = sprd_get_adc_to_vol(sum) * (8 * 5) / (30 * 4);
+	/* info("adc chan %d, value %d\n", adc_chan, sum); */
+	adc_vol =
+	    DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(sum) * (8 * 5), (30 * 4));
+	return adc_vol;
+}
+
+int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
+{
+	int i;
+	u32 adc_vol, ctl_vol, cal_vol;
+	adc_vol = dcdc_adc_get(adc_chan);
 	if (!def_vol) {
 		switch (adc_chan) {
 		case ADC_CHANNEL_DCDCCORE:
 			def_vol = 1100;
 			cal_vol = sci_adi_read(ANA_DCDC_CTRL_CAL) & 0x1f;
-			i = sci_adi_read(ANA_DCDC_CTRL) & 0x07;
+			i = sci_adi_read(ANA_DCDC_CTRL) & 0x77;
 			break;
 		case ADC_CHANNEL_DCDCARM:
 			def_vol = 1200;
 			cal_vol = sci_adi_read(ANA_DCDCARM_CTRL_CAL) & 0x1f;
-			i = sci_adi_read(ANA_DCDCARM_CTRL) & 0x07;
+			i = sci_adi_read(ANA_DCDCARM_CTRL) & 0x77;
 			break;
 		default:
 			goto exit;
 		}
-		if (0 != i /* + cal_vol */ )
-			def_vol = dcdc_ctl_vol[i];
+		if (0 != i /* + cal_vol */ )	/* valid dcdc ctrl */
+			def_vol = dcdc_ctl_vol[i & 0x07];
 		def_vol += cal_vol * 100 / 32;
 #if 0
 		if (0 != i + cal_vol) {	/* dcdc had been adjusted in uboot-spl */
@@ -92,12 +115,11 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	}
 
 	ctl_vol = DIV_ROUND_CLOSEST(def_vol * to_vol, adc_vol);
-	for (i = 0; i < ARRAY_SIZE(dcdc_ctl_vol) - 1; i++) {
-		if (ctl_vol < dcdc_ctl_vol[i + 1])
-			break;
-	}
-	if (i >= ARRAY_SIZE(dcdc_ctl_vol) - 1)
+	i = __match_dcdc_vol(ctl_vol);
+	if (i >= ARRAY_SIZE(dcdc_ctl_vol) - 1 || i < 0) {
+		info("%d out of voltage range\n", ctl_vol);
 		goto exit;
+	}
 
 	cal_vol = DIV_ROUND_CLOSEST((ctl_vol - dcdc_ctl_vol[i]) * 32, 100) % 32;
 	debug("%s cal_vol %dmv: %d, 0x%02x\n", __FUNCTION__,
