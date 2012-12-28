@@ -761,12 +761,14 @@ u32 s_mipc_rx_event_flags = 0;
 static int mux_ipc_rx_thread(void *data)
 {
 	struct sched_param	 param = {.sched_priority = 20};
-	IPC_DBG(KERN_INFO "mux_ipc_rx_thread");
+	IPC_DBG(KERN_INFO "mux_ipc_rx_thread enter\r\n");
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
+	s_mipc_rx_event_flags = 0;
 	wait_modem_normal();
-        msleep(500);
-	s_mipc_rx_event_flags = 0;	
+	msleep(500);
+
+	IPC_DBG(KERN_INFO "mux_ipc_rx_thread start----\r\n");
 	while (!kthread_should_stop())
 	{
 		wait_event(s_mux_ipc_rx_wq,  s_mipc_rx_event_flags);
