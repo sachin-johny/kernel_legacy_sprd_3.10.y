@@ -20,6 +20,7 @@
 #include <linux/platform_device.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
+#include <linux/cpufreq.h>
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
@@ -101,8 +102,10 @@ unsigned long clk_get_rate(struct clk *clk)
 	if (IS_ERR_OR_NULL(clk))
 		return 0;
 
+/*
 	if (clk->rate != 0)
 		return clk->rate;
+*/
 
 	if (clk->ops != NULL && clk->ops->get_rate != NULL)
 		return (clk->ops->get_rate) (clk);
@@ -178,12 +181,11 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	 * in some extreme scenes.
 	 */
 	if (0 == ret && old_parent && old_parent->dent && clk->dent
-		&& parent && parent->dent) {
+	    && parent && parent->dent) {
 		debug0("directory dentry move %s to %s\n",
-			   old_parent->regs->name,
-			   parent->regs->name);
+		       old_parent->regs->name, parent->regs->name);
 		debugfs_rename(old_parent->dent, clk->dent,
-				   parent->dent, clk->regs->name);
+			       parent->dent, clk->regs->name);
 	}
 #endif
 	return ret;
@@ -457,6 +459,22 @@ static int __init sci_clock_dump(void)
 	return 0;
 }
 
+static int
+__clk_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
+{
+	struct cpufreq_freqs *freq = data;
+
+	printk("%s (%u) dump cpu freq (%u %u %u %u)\n",
+	       __func__, val,
+	       freq->cpu, freq->old, freq->new, (unsigned int)freq->flags);
+
+	return 0;
+}
+
+static struct notifier_block __clk_cpufreq_notifier_block = {
+	.notifier_call = __clk_cpufreq_notifier
+};
+
 int __init sci_clock_init(void)
 {
 
@@ -478,6 +496,10 @@ int __init sci_clock_init(void)
 			cl++;
 		}
 	}
+
+	/* keep track of cpu frequency transitions */
+	cpufreq_register_notifier(&__clk_cpufreq_notifier_block,
+				  CPUFREQ_TRANSITION_NOTIFIER);
 	return 0;
 }
 
