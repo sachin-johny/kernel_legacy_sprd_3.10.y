@@ -71,14 +71,6 @@ config MACH_SP8830FPGA
 	help
 	  SP8830 fpga board based on SC8830 serial.
 
-config MACH_SP8830EA
-	bool "sp8830ea Phone Board"
-	depends on ARCH_SC
-	depends on ARCH_SC8830
-	default y
-	help
-	  SP8830 EB board based on SC8830 serial.
-
 endmenu
 
 config SPRD_ION_SIZE

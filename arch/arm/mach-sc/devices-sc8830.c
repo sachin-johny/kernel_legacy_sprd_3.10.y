@@ -509,7 +509,7 @@ struct platform_device sprd_axi_bm2_device = {
 #endif
 
 //keypad 
-#if defined (CONFIG_MACH_SP8830EA) || defined (CONFIG_MACH_SP8830FPGA)
+#if defined (CONFIG_MACH_SP8830FPGA)
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW2)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL2)
 #define ROWS	(2)

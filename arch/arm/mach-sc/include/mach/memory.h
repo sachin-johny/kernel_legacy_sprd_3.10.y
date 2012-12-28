@@ -14,7 +14,7 @@
  */
 
 #ifndef __ASM_ARCH_MEMORY_H
-#define __ASM_ARCH_MEMORY_H
+#define __ASM_ARCH_MEMORY_H __FILE__
 
 #define __pfn_to_bus(x) 	__pfn_to_phys(x)
 #define __bus_to_pfn(x)		__phys_to_pfn(x)
