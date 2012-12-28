@@ -699,6 +699,11 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
 //		pm_runtime_disable(&(pdev)->dev);
 	}
+#elif defined (CONFIG_MACH_SP7702)
+	if(pdev->id == 1){
+		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
+		pm_runtime_disable(&(pdev)->dev);
+	}
 #else
 	if(pdev->id == 1){
 		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
@@ -709,7 +714,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		dev_err(dev, "sdhci_add_host() failed\n");
 		goto err_add_host;
 	}
-#ifdef CONFIG_MACH_KYLEW
+#if defined(CONFIG_MACH_KYLEW) || defined(CONFIG_MACH_SP7702)
 	sdhci_sprd_fix_controller_1p8v(host);
 #endif
 #ifdef CONFIG_MMC_BUS_SCAN
@@ -1022,10 +1027,12 @@ static int sdhci_pm_resume(struct device *dev)
 	sdhci_dumpregs(host);
 #endif
 
+#if !defined(CONFIG_MACH_SP7702)
 	if(host->ops->set_clock){
 		clock = host->clock;
 		host->ops->set_clock(host, 0);
 	}
+#endif
 	return 0;
 }
 
