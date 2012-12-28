@@ -1645,10 +1645,12 @@ static void sprd_timer_callback(unsigned long data)
 
 	if (0 == atomic_read(&dev->run_flag)) {
 		node.irq_flag = V4L2_TX_ERR;
+		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);
 		if (ret) {
 			printk("timer callback write queue error. \n");
 		}
+		up(&dev->irq_sem);
 	}
 }
 static int sprd_init_timer(struct timer_list *dcam_timer,unsigned long data)
