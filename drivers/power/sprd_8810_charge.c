@@ -34,13 +34,8 @@
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
-    {928, 4200},
-    {796, 3600},
-};
-
-uint16_t charger_adc_voltage_table[2][2] = {
-	{0x198, 6500},
-	{0x170, 5800},
+	{928, 4200},
+	{796, 3600},
 };
 
 uint16_t voltage_capacity_table[][2] = {
@@ -88,7 +83,7 @@ uint16_t usb_charging_voltage_capacity_table[][2] = {
 	{3250, 0},
 };
 
-#if 1//def CONFIG_BATTERY_TEMP_DECT
+#if 1				//def CONFIG_BATTERY_TEMP_DECT
 int32_t temp_adc_table[][2] = {
 	{900, 0x4E},
 	{850, 0x59},
@@ -179,14 +174,16 @@ uint16_t sprd_bat_adc_to_vol(struct sprd_battery_data * data, uint16_t adcvalue)
 uint16_t sprd_charger_adc_to_vol(struct sprd_battery_data * data,
 				 uint16_t adcvalue)
 {
-	int32_t temp;
-	temp =
-	    charger_adc_voltage_table[0][1] - charger_adc_voltage_table[1][1];
-	temp = temp * (adcvalue - charger_adc_voltage_table[0][0]);
-	temp =
-	    temp / (charger_adc_voltage_table[0][0] -
-		    charger_adc_voltage_table[1][0]);
-	return temp + charger_adc_voltage_table[0][1];
+	uint32_t result;
+	uint32_t vbat_vol = sprd_bat_adc_to_vol(data, adcvalue);
+	uint32_t m, n;
+
+	///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
+	n = VOL_DIV_P2 * VCHG_DIV_P1;
+	m = vbat_vol * VOL_DIV_P1 * (VCHG_DIV_P2);
+	result = (m + n / 2) / n;
+	return result;
+
 }
 
 uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
@@ -318,9 +315,18 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	return percentum;
 }
-void __weak udc_enable(void)	{ }
-void __weak udc_phy_down(void)	{ }
-void __weak udc_disable(void)	{ }
+
+void __weak udc_enable(void)
+{
+}
+
+void __weak udc_phy_down(void)
+{
+}
+
+void __weak udc_disable(void)
+{
+}
 
 int sprd_charger_is_adapter(struct sprd_battery_data *data)
 {
@@ -401,7 +407,9 @@ void sprd_stop_recharge(struct sprd_battery_data *data)
 void sprd_set_sw(struct sprd_battery_data *data, int switchpoint)
 {
 	BUG_ON(switchpoint > 31);
-	sci_adi_write(ANA_CHGR_CTRL1, ((switchpoint << CHAR_SW_POINT_SHIFT) & CHAR_SW_POINT_MSK) ,(CHAR_SW_POINT_MSK));
+	sci_adi_write(ANA_CHGR_CTRL1,
+		      ((switchpoint << CHAR_SW_POINT_SHIFT) &
+		       CHAR_SW_POINT_MSK), (CHAR_SW_POINT_MSK));
 }
 
 uint32_t sprd_get_sw(struct sprd_battery_data *data)
@@ -450,7 +458,9 @@ uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
 
 	chg_switchpoint = (shift_bit << 4) | current_switchpoint;
 
-	sci_adi_write(ANA_CHGR_CTRL1,((chg_switchpoint << CHAR_SW_POINT_SHIFT) &CHAR_SW_POINT_MSK) ,(CHAR_SW_POINT_MSK));
+	sci_adi_write(ANA_CHGR_CTRL1,
+		      ((chg_switchpoint << CHAR_SW_POINT_SHIFT) &
+		       CHAR_SW_POINT_MSK), (CHAR_SW_POINT_MSK));
 	return chg_switchpoint;
 }
 
@@ -459,25 +469,28 @@ void sprd_set_charger_type(struct sprd_battery_data *data, int mode)
 	if (mode == CHG_DEFAULT_MODE) {
 		/* BIT5 reset USB_500ma_en, BIT3 reset adapter_en */
 		sci_adi_write(ANA_CHGR_CTRL0,
-			    ((CHGR_ADATPER_EN_RST_BIT | CHGR_USB_500MA_EN_RST_BIT) & CHAR_ADAPTER_MODE_MSK) ,
-			(CHAR_ADAPTER_MODE_MSK));
+			      ((CHGR_ADATPER_EN_RST_BIT |
+				CHGR_USB_500MA_EN_RST_BIT) &
+			       CHAR_ADAPTER_MODE_MSK), (CHAR_ADAPTER_MODE_MSK));
 	} else if (mode == CHG_NORMAL_ADAPTER) {
 		/* BIT23 reset USB_500ma_en, BIT20 set adapter_en */
 		sci_adi_write(ANA_CHGR_CTRL0,
-			    ((CHGR_ADATPER_EN_BIT | CHGR_USB_500MA_EN_RST_BIT) & CHAR_ADAPTER_MODE_MSK) ,
-				(CHAR_ADAPTER_MODE_MSK));
+			      ((CHGR_ADATPER_EN_BIT | CHGR_USB_500MA_EN_RST_BIT)
+			       & CHAR_ADAPTER_MODE_MSK),
+			      (CHAR_ADAPTER_MODE_MSK));
 	} else if (mode == CHG_USB_ADAPTER) {
 		/* BIT22 set USB_500ma_en, BIT21 reset adapter_en */
 		sci_adi_write(ANA_CHGR_CTRL0,
-			    ((CHGR_ADATPER_EN_RST_BIT | CHGR_USB_500MA_EN_BIT) & CHAR_ADAPTER_MODE_MSK) ,
-				 (CHAR_ADAPTER_MODE_MSK));
+			      ((CHGR_ADATPER_EN_RST_BIT | CHGR_USB_500MA_EN_BIT)
+			       & CHAR_ADAPTER_MODE_MSK),
+			      (CHAR_ADAPTER_MODE_MSK));
 	}
 }
 
 static void sprd_set_usb_cur(struct sprd_battery_data *data, int set_current)
 {
 	sci_adi_write(ANA_CHGR_CTRL0,
-		    (set_current << CHGR_USB_CHG_SHIFT) , (CHGR_USB_CHG_MSK));
+		      (set_current << CHGR_USB_CHG_SHIFT), (CHGR_USB_CHG_MSK));
 }
 
 static void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current)
@@ -490,26 +503,26 @@ static void sprd_set_noraml_cur(struct sprd_battery_data *data, int set_current)
 	case CHG_NOR_400MA:
 		sprd_set_charger_type(data, CHG_NORMAL_ADAPTER);
 		sci_adi_write(ANA_CHGR_CTRL0,
-			    (0 << CHGR_ADAPTER_CHG_SHIFT),
-			    (CHGR_ADAPTER_CHG_MSK));
+			      (0 << CHGR_ADAPTER_CHG_SHIFT),
+			      (CHGR_ADAPTER_CHG_MSK));
 		break;
 	case CHG_NOR_600MA:
 		sprd_set_charger_type(data, CHG_NORMAL_ADAPTER);
 		sci_adi_write(ANA_CHGR_CTRL0,
-			    (1 << CHGR_ADAPTER_CHG_SHIFT) ,
-			    (CHGR_ADAPTER_CHG_MSK));
+			      (1 << CHGR_ADAPTER_CHG_SHIFT),
+			      (CHGR_ADAPTER_CHG_MSK));
 		break;
 	case CHG_NOR_800MA:
 		sprd_set_charger_type(data, CHG_NORMAL_ADAPTER);
 		sci_adi_write(ANA_CHGR_CTRL0,
-			    (2 << CHGR_ADAPTER_CHG_SHIFT) ,
-			    (CHGR_ADAPTER_CHG_MSK));
+			      (2 << CHGR_ADAPTER_CHG_SHIFT),
+			      (CHGR_ADAPTER_CHG_MSK));
 		break;
 	case CHG_NOR_1000MA:
 		sprd_set_charger_type(data, CHG_NORMAL_ADAPTER);
 		sci_adi_write(ANA_CHGR_CTRL0,
-			    (3 << CHGR_ADAPTER_CHG_SHIFT) ,
-			    (CHGR_ADAPTER_CHG_MSK));
+			      (3 << CHGR_ADAPTER_CHG_SHIFT),
+			      (CHGR_ADAPTER_CHG_MSK));
 		break;
 	default:
 		pr_err("mode %d is not supported\n", set_current);
@@ -561,6 +574,7 @@ uint32_t vprog_buf[CONFIG_AVERAGE_CNT];
 uint32_t vbat_buf[CONFIG_AVERAGE_CNT];
 
 uint32_t vbat_capacity_buff[VBAT_CAPACITY_BUFF_CNT];
+uint32_t vchg_buf[_VCHG_BUF_SIZE];
 
 void put_vbat_capacity_value(uint32_t vbat)
 {
@@ -569,8 +583,7 @@ void put_vbat_capacity_value(uint32_t vbat)
 
 	vbat_capacity_buff[buff_pointer] = vbat;
 	buff_pointer++;
-	if(VBAT_CAPACITY_BUFF_CNT == buff_pointer)
-	{
+	if (VBAT_CAPACITY_BUFF_CNT == buff_pointer) {
 		buff_pointer = 0;
 	}
 }
@@ -659,6 +672,25 @@ void update_vbat_value(struct sprd_battery_data *data, uint32_t vbat)
 		vbat_buf[i] = vbat;
 }
 
+void put_vchg_value(uint32_t vchg)
+{
+	int i;
+
+	for (i = 0; i < _VCHG_BUF_SIZE - 1; i++) {
+		vchg_buf[i] = vchg_buf[i + 1];
+	}
+	vchg_buf[i] = vchg;
+}
+
+uint32_t get_vchg_value(void)
+{
+	int i, sum = 0;
+	for (i = 0; i < _VCHG_BUF_SIZE; i++) {
+		sum = sum + vchg_buf[i];
+	}
+	return sum / _VCHG_BUF_SIZE;
+}
+
 int spa_bat_adc_to_vol(int adcvalue)
 {
 	int temp;
@@ -679,7 +711,6 @@ int spa_vol_to_percent(int voltage)
 	int table_size;
 	int pos = 0;
 
-
 	table_size = ARRAY_SIZE(voltage_capacity_table);
 	for (pos = 0; pos < table_size - 1; pos++) {
 		if (voltage > voltage_capacity_table[pos][0])
@@ -687,11 +718,14 @@ int spa_vol_to_percent(int voltage)
 	}
 	if (pos == 0) {
 		percentum = 100;
-	} 
-	else {
-		temp = voltage_capacity_table[pos][1] -voltage_capacity_table[pos - 1][1];
+	} else {
+		temp =
+		    voltage_capacity_table[pos][1] -
+		    voltage_capacity_table[pos - 1][1];
 		temp = temp * (voltage - voltage_capacity_table[pos][0]);
-		temp = temp / (voltage_capacity_table[pos][0] -voltage_capacity_table[pos - 1][0]);
+		temp =
+		    temp / (voltage_capacity_table[pos][0] -
+			    voltage_capacity_table[pos - 1][0]);
 		temp = temp + voltage_capacity_table[pos][1];
 
 		if (temp < 0)
@@ -701,7 +735,6 @@ int spa_vol_to_percent(int voltage)
 
 	return percentum;
 }
-
 
 int spa_adc_to_temp(uint16_t adcvalue)
 {

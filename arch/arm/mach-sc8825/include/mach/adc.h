@@ -64,6 +64,11 @@ extern void sci_adc_dump_register(void);
 extern int sci_adc_get_values(struct adc_sample_data *adc);
 
 /*
+ * get adc channel voltage divider ratio.
+ */
+void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int* div_numerators,
+			unsigned int* div_denominators );
+/*
  * Use this interface to get one adc value and this function have set default
  * adc sample behavior.
  */

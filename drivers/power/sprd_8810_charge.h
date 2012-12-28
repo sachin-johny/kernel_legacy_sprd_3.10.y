@@ -23,7 +23,7 @@
  * plugged in, we will restart the charge process.
  */
 #define PREVRECHARGE		4160
-#define CHGMNG_OVER_CHARGE	(4220)
+#define CHGMNG_OVER_CHARGE	(4330)
 /* When the battery voltage is higher than this value, we will stop charging. */
 #define PREVCHGEND			(4200)
 
@@ -57,11 +57,23 @@
 #define VOL_DIV_P1		(266)
 #define VOL_DIV_P2		1000
 
+#define VCHG_DIV_P1             75         ///voltage divider 0.0755,7555/10000
+#define VCHG_DIV_P2             1000
+
+
 #define CV_STOP_CURRENT		135
 #define CC_CV_SWITCH_POINT	125
 
-#define OVP_ADC_VALUE		0x198
-#define OVP_ADC_RECV_VALUE	0x170
+#define OVP_VOL_VALUE		6500
+#define OVP_VOL_RECV_VALUE	5800
+
+#define OTP_OVER_HIGH   600
+#define OTP_OVER_LOW    (-50)
+#define OTP_RESUME_HIGH 550
+#define OTP_RESUME_LOW  0
+
+
+#define _VCHG_BUF_SIZE  3
 
 #define ADC_CAL_TYPE_NO         0
 #define ADC_CAL_TYPE_NV         1
@@ -181,6 +193,7 @@ struct sprd_battery_data {
 	uint32_t over_voltage;
 	uint32_t over_voltage_recovery;
 	uint32_t over_voltage_flag;
+	uint32_t over_temp_flag;
 	uint32_t over_current;
 	uint32_t charge_stop_point;
 	uint32_t cur_type;
@@ -221,6 +234,7 @@ uint32_t get_vbat_value(struct sprd_battery_data *data);
 void update_vbat_value(struct sprd_battery_data *data, uint32_t vbat);
 void put_vbat_capacity_value(uint32_t vbat);
 uint32_t get_vbat_capacity_value(void);
-
+void put_vchg_value(uint32_t vchg);
+uint32_t get_vchg_value(void);
 
 #endif /* _CHG_DRVAPI_H_ */

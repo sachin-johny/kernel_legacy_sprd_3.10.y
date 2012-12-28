@@ -160,6 +160,93 @@ static int sci_adc_config(struct adc_sample_data *adc)
 	return ret;
 }
 
+void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div_numerators,
+			   unsigned int *div_denominators)
+{
+	unsigned int chip_id = 0;
+
+	switch (channel_id) {
+
+	case ADC_CHANNEL_0:
+	case ADC_CHANNEL_1:
+	case ADC_CHANNEL_2:
+	case ADC_CHANNEL_3:
+		if (scale) {
+			*div_numerators = 16;
+			*div_denominators = 41;
+		} else {
+			*div_numerators = 1;
+			*div_denominators = 1;
+		}
+		return;
+	case ADC_CHANNEL_PROG:	//channel 4
+	case ADC_CHANNEL_VCHGBG:	//channel 7
+	case ADC_CHANNEL_HEADMIC:	//18
+		*div_numerators = 1;
+		*div_denominators = 1;
+		return;
+	case ADC_CHANNEL_VBAT:	//channel 5
+	case ADC_CHANNEL_ISENSE:	//channel 8
+		chip_id = sci_adi_read(CHIP_ID_LOW_REG);
+		chip_id |= (sci_adi_read(CHIP_ID_HIGH_REG) << 16);
+		if (chip_id == 0x8820A001) {	//metalfix
+			*div_numerators = 247;
+			*div_denominators = 1024;
+		} else {
+			*div_numerators = 266;
+			* div_denominators = 1000;
+		}
+		return;
+	case ADC_CHANNEL_VCHGSEN:	//channel 6
+		*div_numerators = 77;
+		*div_denominators = 1024;
+		return;
+	case ADC_CHANNEL_TPYD:	//channel 9
+	case ADC_CHANNEL_TPYU:	//channel 10
+	case ADC_CHANNEL_TPXR:	//channel 11
+	case ADC_CHANNEL_TPXL:	//channel 12
+		if (scale) {	//larger
+			*div_numerators = 2;
+			*div_denominators = 5;
+		} else {
+			*div_numerators = 3;
+			*div_denominators = 5;
+		}
+		return;
+	case ADC_CHANNEL_DCDCCORE:	//channel 13
+	case ADC_CHANNEL_DCDCARM:	//channel 14
+		if (scale) {	//lager
+			*div_numerators = 4;
+			*div_denominators = 5;
+		} else {
+			*div_numerators = 1;
+			*div_denominators = 1;
+		}
+		return;
+	case ADC_CHANNEL_DCDCMEM:	//channel 15
+		if (scale) {	//lager
+			*div_numerators = 3;
+			*div_denominators = 5;
+		} else {
+			*div_numerators = 4;
+			*div_denominators = 5;
+		}
+		return;
+        case ADC_CHANNEL_DCDCLDO:   //16
+		*div_numerators = 4;
+		*div_denominators = 9;
+            return;
+	case ADC_CHANNEL_VBATBK:	//channel 17
+		*div_numerators = 1;
+		*div_denominators = 3;
+		return;
+	default:
+		*div_numerators = 1;
+		*div_denominators = 1;
+		break;
+	}
+}
+
 int sci_adc_get_values(struct adc_sample_data *adc)
 {
 	unsigned long flags, hw_flags;

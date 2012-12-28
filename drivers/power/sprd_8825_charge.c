@@ -33,13 +33,8 @@
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
-    {3750, 4200},
-    {3210, 3600},
-};
-
-uint16_t charger_adc_voltage_table[2][2] = {
-	{1670, 6500},
-	{1500, 5800},
+	{3750, 4200},
+	{3210, 3600},
 };
 
 uint16_t voltage_capacity_table[][2] = {
@@ -116,7 +111,7 @@ int32_t temp_adc_table[][2] = {
 	{-300, 0x364}
 };
 
-int sprd_adc_to_temp(struct sprd_battery_data *data, uint16_t adcvalue);
+int sprd_adc_to_temp(struct sprd_battery_data *data, uint16_t adcvalue)
 {
 	int table_size = ARRAY_SIZE(temp_adc_table);
 	int index;
@@ -158,8 +153,13 @@ int sprd_adc_to_temp(struct sprd_battery_data *data, uint16_t adcvalue);
 uint32_t sprd_adc_to_cur(struct sprd_battery_data * data, uint16_t voltage)
 {
 	uint16_t cur_type = data->cur_type;
-	return (((uint32_t) voltage * cur_type * VOL_DIV_P1) /
-		VOL_TO_CUR_PARAM) / VOL_DIV_P2;
+	uint32_t bat_numerators, bat_denominators;
+
+	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
+			      &bat_denominators);
+
+	return (((uint32_t) voltage * cur_type * bat_numerators) /
+		VOL_TO_CUR_PARAM) / bat_denominators;
 }
 
 uint16_t sprd_bat_adc_to_vol(struct sprd_battery_data * data, uint16_t adcvalue)
@@ -178,14 +178,23 @@ uint16_t sprd_bat_adc_to_vol(struct sprd_battery_data * data, uint16_t adcvalue)
 uint16_t sprd_charger_adc_to_vol(struct sprd_battery_data * data,
 				 uint16_t adcvalue)
 {
-	int32_t temp;
-	temp =
-	    charger_adc_voltage_table[0][1] - charger_adc_voltage_table[1][1];
-	temp = temp * (adcvalue - charger_adc_voltage_table[0][0]);
-	temp =
-	    temp / (charger_adc_voltage_table[0][0] -
-		    charger_adc_voltage_table[1][0]);
-	return temp + charger_adc_voltage_table[0][1];
+	uint32_t result;
+	uint32_t vbat_vol = sprd_bat_adc_to_vol(data, adcvalue);
+	uint32_t m, n;
+	uint32_t bat_numerators, bat_denominators;
+	uint32_t vchg_numerators, vchg_denominators;
+
+	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
+			      &bat_denominators);
+	sci_adc_get_vol_ratio(ADC_CHANNEL_VCHG, 0, &vchg_numerators,
+			      &vchg_denominators);
+
+	///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
+	n = bat_denominators * vchg_numerators;
+	m = vbat_vol * bat_numerators * (vchg_denominators);
+	result = (m + n / 2) / n;
+	return result;
+
 }
 
 uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
@@ -317,9 +326,18 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	return percentum;
 }
-void __weak udc_enable(void)	{ }
-void __weak udc_phy_down(void)	{ }
-void __weak udc_disable(void)	{ }
+
+void __weak udc_enable(void)
+{
+}
+
+void __weak udc_phy_down(void)
+{
+}
+
+void __weak udc_disable(void)
+{
+}
 
 int sprd_charger_is_adapter(struct sprd_battery_data *data)
 {
@@ -327,7 +345,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	volatile uint32_t i;
 	unsigned long irq_flag = 0;
 
-       mdelay(300);
+	mdelay(300);
 
 	gpio_request(USB_DM_GPIO, "sprd_charge");
 	gpio_request(USB_DP_GPIO, "sprd_charge");
@@ -338,8 +356,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	udc_phy_down();
 	local_irq_save(irq_flag);
 
-	sci_glb_clr(REG_AHB_USB_PHY_CTRL,
-			     (BIT_DMPULLDOWN | BIT_DPPULLDOWN));
+	sci_glb_clr(REG_AHB_USB_PHY_CTRL, (BIT_DMPULLDOWN | BIT_DPPULLDOWN));
 
 	/* Identify USB charger */
 	sci_glb_set(REG_AHB_USB_PHY_CTRL, BIT_DMPULLUP);
@@ -351,10 +368,10 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	if (ret) {
 		/* Identify standard adapter */
 		sci_glb_set(REG_AHB_USB_PHY_CTRL, BIT_DMPULLDOWN);
-		for (i = 0; i < 200; i++) {;
+		for (i = 0; i < 1000; i++) {;
 		}
 		if (gpio_get_value(USB_DM_GPIO)
-		    && gpio_get_value(USB_DP_GPIO)) {
+		    == gpio_get_value(USB_DP_GPIO)) {
 			ret = 1;	/* adapter */
 		} else {
 			ret = 1;	/* non standard adapter */
@@ -426,7 +443,9 @@ void sprd_stop_recharge(struct sprd_battery_data *data)
 void sprd_set_sw(struct sprd_battery_data *data, int switchpoint)
 {
 	BUG_ON(switchpoint > 31);
-	sci_adi_write(ANA_CHGR_CTRL1, ((switchpoint << CHGR_SW_POINT_SHIFT) & CHGR_SW_POINT_MSK) ,(CHGR_SW_POINT_MSK));
+	sci_adi_write(ANA_CHGR_CTRL1,
+		      ((switchpoint << CHGR_SW_POINT_SHIFT) &
+		       CHGR_SW_POINT_MSK), (CHGR_SW_POINT_MSK));
 }
 
 uint32_t sprd_get_sw(struct sprd_battery_data *data)
@@ -475,7 +494,9 @@ uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
 
 	chg_switchpoint = (shift_bit << 4) | current_switchpoint;
 
-	sci_adi_write(ANA_CHGR_CTRL1,((chg_switchpoint << CHGR_SW_POINT_SHIFT) &CHGR_SW_POINT_MSK) ,(CHGR_SW_POINT_MSK));
+	sci_adi_write(ANA_CHGR_CTRL1,
+		      ((chg_switchpoint << CHGR_SW_POINT_SHIFT) &
+		       CHGR_SW_POINT_MSK), (CHGR_SW_POINT_MSK));
 	return chg_switchpoint;
 }
 
@@ -483,19 +504,21 @@ void sprd_set_chg_cur(uint32_t chg_current)
 {
 	uint32_t temp;
 
-	if (chg_current > SPRD_CHG_CUR_MAX){
+	if (chg_current > SPRD_CHG_CUR_MAX) {
 		chg_current = SPRD_CHG_CUR_MAX;
 	}
 
-	temp = ((chg_current - 300)/100);
+	temp = ((chg_current - 300) / 100);
 
 	sci_adi_write(ANA_CHGR_CTRL1,
-		    (temp << CHGR_CHG_CUR_SHIFT) & CHGR_CHG_CUR_MSK,CHGR_CHG_CUR_MSK);
+		      (temp << CHGR_CHG_CUR_SHIFT) & CHGR_CHG_CUR_MSK,
+		      CHGR_CHG_CUR_MSK);
 }
 
 void sprd_chg_init(void)
 {
-	sci_adi_write(ANA_CHGR_CTRL0,CHGR_CC_EN_BIT,(CHGR_CC_EN_BIT | CHGR_CC_EN_RST_BIT));
+	sci_adi_write(ANA_CHGR_CTRL0, CHGR_CC_EN_BIT,
+		      (CHGR_CC_EN_BIT | CHGR_CC_EN_RST_BIT));
 }
 
 /* TODO: put these struct into sprd_battery_data */
@@ -504,6 +527,7 @@ uint32_t vprog_buf[CONFIG_AVERAGE_CNT];
 uint32_t vbat_buf[CONFIG_AVERAGE_CNT];
 
 uint32_t vbat_capacity_buff[VBAT_CAPACITY_BUFF_CNT];
+uint32_t vchg_buf[_VCHG_BUF_SIZE];
 
 void put_vbat_capacity_value(uint32_t vbat)
 {
@@ -512,8 +536,7 @@ void put_vbat_capacity_value(uint32_t vbat)
 
 	vbat_capacity_buff[buff_pointer] = vbat;
 	buff_pointer++;
-	if(VBAT_CAPACITY_BUFF_CNT == buff_pointer)
-	{
+	if (VBAT_CAPACITY_BUFF_CNT == buff_pointer) {
 		buff_pointer = 0;
 	}
 }
@@ -600,4 +623,23 @@ void update_vbat_value(struct sprd_battery_data *data, uint32_t vbat)
 	int i;
 	for (i = 0; i < CONFIG_AVERAGE_CNT; i++)
 		vbat_buf[i] = vbat;
+}
+
+void put_vchg_value(uint32_t vchg)
+{
+	int i;
+
+	for (i = 0; i < _VCHG_BUF_SIZE - 1; i++) {
+		vchg_buf[i] = vchg_buf[i + 1];
+	}
+	vchg_buf[i] = vchg;
+}
+
+uint32_t get_vchg_value(void)
+{
+	int i, sum = 0;
+	for (i = 0; i < _VCHG_BUF_SIZE; i++) {
+		sum = sum + vchg_buf[i];
+	}
+	return sum / _VCHG_BUF_SIZE;
 }

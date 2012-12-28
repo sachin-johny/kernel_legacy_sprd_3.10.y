@@ -40,9 +40,6 @@
 #include <linux/slab.h>
 #include <linux/jiffies.h>
 
-/* FIXME it should be declare in a head file */
-#define ADC_CHANNEL_VCHG 6
-
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 static struct sprd_battery_data *battery_data;
@@ -65,7 +62,7 @@ static struct usb_hotplug_callback power_cb = {
 
 int sprd_get_adc_cal_type(void)
 {
-	return battery_data?battery_data->adc_cal_updated:0;
+	return battery_data ? battery_data->adc_cal_updated : 0;
 }
 
 uint16_t sprd_get_adc_to_vol(uint16_t data)
@@ -248,7 +245,7 @@ static ssize_t sprd_set_caliberate(struct device *dev,
 		break;
 	case BATTERY_0:
 		spin_lock_irqsave(&battery_data->lock, flag);
-		if(battery_data->adc_cal_updated != ADC_CAL_TYPE_NV) {
+		if (battery_data->adc_cal_updated != ADC_CAL_TYPE_NV) {
 			adc_voltage_table[0][1] = set_value & 0xffff;
 			adc_voltage_table[0][0] = (set_value >> 16) & 0xffff;
 		}
@@ -256,7 +253,7 @@ static ssize_t sprd_set_caliberate(struct device *dev,
 		break;
 	case BATTERY_1:
 		spin_lock_irqsave(&battery_data->lock, flag);
-		if(battery_data->adc_cal_updated != ADC_CAL_TYPE_NV) {
+		if (battery_data->adc_cal_updated != ADC_CAL_TYPE_NV) {
 			adc_voltage_table[1][1] = set_value & 0xffff;
 			adc_voltage_table[1][0] = (set_value >> 16) & 0xffff;
 			sprd_vol_to_percent(battery_data, 0, 1);
@@ -452,6 +449,7 @@ static int pluse_charge_cnt = CHGMNG_PLUSE_TIMES;
 static int hw_switch_update_cnt = CONFIG_AVERAGE_CNT;
 static int stop_left_time = CHARGE_BEFORE_STOP;
 static int32_t vprog_current = 0;
+static int vchg_vol;
 static int pre_usb_online = 0;
 static int pre_ac_online = 0;
 
@@ -548,15 +546,14 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 
 		vbat_capacity_loop_cnt++;	//10S update vbat capacity buffer
 		vbat_capacity_loop_cnt %= CONFIG_AVERAGE_CNT;
-		if(0 == vbat_capacity_loop_cnt){
+		if (0 == vbat_capacity_loop_cnt) {
 			put_vbat_capacity_value(adc_value);
 		}
 
 		voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
 
 		if (!battery_data->charging && (battery_data->in_precharge == 1)
-		    && usb_online
-		    && (voltage < battery_data->precharge_start)) {
+		    && usb_online && (voltage < battery_data->precharge_start)) {
 			enable_usb_charge(battery_data);
 			battery_notify = 1;
 		}
@@ -568,7 +565,7 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 		}
 	}
 
-	{
+	if (usb_online || ac_online) {
 		vprog_value = sprd_get_vprog(battery_data);
 		if (vprog_value < 0)
 			goto out;
@@ -581,14 +578,17 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 		vchg_value = sci_adc_get_value(ADC_CHANNEL_VCHG, false);
 		if (vchg_value < 0)
 			goto out;
-
-		if (vchg_value > battery_data->over_voltage) {
+		vchg_vol = sprd_charger_adc_to_vol(battery_data, vchg_value);
+		put_vchg_value(vchg_vol);
+		vchg_vol = get_vchg_value();
+		if (vchg_vol > battery_data->over_voltage) {
 			printk(KERN_ERR "charger voltage too high\n");
 			charge_stop(battery_data);
 			battery_data->over_voltage_flag = 1;
+			battery_notify = 1;
 		}
 
-		if (voltage > 4300) {
+		if (voltage > CHGMNG_OVER_CHARGE) {
 			battery_notify = 1;
 			charge_stop(battery_data);
 			battery_data->in_precharge = 1;
@@ -597,10 +597,9 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 	}
 	if (!battery_data->charging && !battery_data->in_precharge &&
 	    (usb_online || ac_online) && battery_data->over_voltage_flag) {
-		vchg_value = sci_adc_get_value(ADC_CHANNEL_VCHG, false);
-		if (vchg_value < 0)
-			goto out;
-		if (vchg_value < battery_data->over_voltage_recovery) {
+		if (vchg_vol < battery_data->over_voltage_recovery) {
+			printk(KERN_ERR "vbat OVP recovery %d \n", voltage);
+			battery_notify = 1;
 			battery_data->over_voltage_flag = 0;
 			if (ac_online)
 				enable_ac_charge(battery_data);
@@ -622,9 +621,24 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 		battery_notify = 1;
 	}
 
-	if (temp > 450 || temp < 0) {
-		printk(KERN_ERR "battery temperature out of 45~0\n");
+	if (temp > OTP_OVER_HIGH || temp < OTP_OVER_LOW) {
+		battery_data->over_temp_flag = 1;
+		battery_notify = 1;
+		printk(KERN_ERR "battery temperature out temp:%d\n", temp);
 		charge_stop(battery_data);
+	}
+	if (!battery_data->charging && !battery_data->in_precharge &&
+	    (usb_online || ac_online) && battery_data->over_temp_flag) {
+		if (temp > OTP_RESUME_LOW || temp < OTP_RESUME_HIGH) {
+			printk(KERN_ERR
+			       "battery recovery temperature temp:%d\n", temp);
+			battery_notify = 1;
+			battery_data->over_temp_flag = 0;
+			if (ac_online)
+				enable_ac_charge(battery_data);
+			else
+				enable_usb_charge(battery_data);
+		}
 	}
 #endif
 
@@ -646,8 +660,12 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 						stop_left_time =
 						    CHARGE_BEFORE_STOP;
 					}
-					if (voltage > CHGMNG_OVER_CHARGE) {
-						battery_data->hw_switch_point =sprd_adjust_sw(battery_data,false);
+					if (voltage >
+					    (battery_data->precharge_end +
+					     15)) {
+						battery_data->hw_switch_point =
+						    sprd_adjust_sw(battery_data,
+								   false);
 					}
 				}
 			}
@@ -678,7 +696,11 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 out:
 	if (!in_sleep) {
 
-		capacity = sprd_vol_to_percent(battery_data, sprd_bat_adc_to_vol(battery_data,get_vbat_capacity_value()), 0);
+		capacity =
+		    sprd_vol_to_percent(battery_data,
+					sprd_bat_adc_to_vol(battery_data,
+							    get_vbat_capacity_value
+							    ()), 0);
 		voltage = (voltage / 10) * 10;
 
 		if (battery_data->capacity != capacity) {
@@ -704,10 +726,10 @@ out:
 			pr_debug("voltage %d\n", battery_data->voltage);
 			pr_debug("capacity %d\n", battery_data->capacity);
 			pr_debug("usb %d ac %d\n", battery_data->usb_online,
-				battery_data->ac_online);
+				 battery_data->ac_online);
 			pr_debug("charge %d precharge %d\n",
-				battery_data->charging,
-				battery_data->in_precharge);
+				 battery_data->charging,
+				 battery_data->in_precharge);
 		}
 		mod_timer(&battery_data->battery_timer,
 			  jiffies + battery_data->timer_freq);
@@ -735,33 +757,36 @@ int battery_updata(void)
 	int32_t adc_value;
 	int32_t voltage;
 	uint32_t capacity;
-	int32_t i,j,temp;
+	int32_t i, j, temp;
 	int32_t vbat_result[VBAT_BUFF_NUM];
 	static uint32_t pre_capacity = 0xffffffff;
 
 	{
-		for(i = 0; i < VBAT_BUFF_NUM;i++){
-			vbat_result[i] = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
+		for (i = 0; i < VBAT_BUFF_NUM; i++) {
+			vbat_result[i] =
+			    sci_adc_get_value(ADC_CHANNEL_VBAT, false);
 		}
 
-		for(j = 1; j <= VBAT_BUFF_NUM - 1; j++){
-			for(i = 0; i<VBAT_BUFF_NUM - j; i++){
-				if(vbat_result[i] > vbat_result[i + 1]){
+		for (j = 1; j <= VBAT_BUFF_NUM - 1; j++) {
+			for (i = 0; i < VBAT_BUFF_NUM - j; i++) {
+				if (vbat_result[i] > vbat_result[i + 1]) {
 					temp = vbat_result[i];
 					vbat_result[i] = vbat_result[i + 1];
 					vbat_result[i + 1] = temp;
 				}
 			}
 		}
-		adc_value = vbat_result[VBAT_BUFF_NUM/2];
+		adc_value = vbat_result[VBAT_BUFF_NUM / 2];
 	}
 	if (adc_value < 0)
 		return 0;
 	voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
 	capacity = sprd_vol_to_percent(battery_data, voltage, 0);
-	pr_info("battery_update: capacity %d,voltage:%d\n", capacity,voltage);
+	pr_info("battery_update: capacity %d,voltage:%d\n", capacity, voltage);
 	if (pre_capacity == 0xffffffff) {
-		voltage = sprd_bat_adc_to_vol(battery_data,get_vbat_capacity_value());
+		voltage =
+		    sprd_bat_adc_to_vol(battery_data,
+					get_vbat_capacity_value());
 		pre_capacity = sprd_vol_to_percent(battery_data, voltage, 0);
 	}
 
@@ -769,7 +794,7 @@ int battery_updata(void)
 		pre_capacity = capacity;
 		update_vbat_value(battery_data, adc_value);
 
-		for(i = 0; i < VBAT_CAPACITY_BUFF_CNT; i++) {	//init capacity vbat buffer for cal batttery capacity
+		for (i = 0; i < VBAT_CAPACITY_BUFF_CNT; i++) {	//init capacity vbat buffer for cal batttery capacity
 			put_vbat_capacity_value(adc_value);
 		}
 	}
@@ -784,9 +809,11 @@ static char *supply_list[] = {
 	"battery",
 };
 
-int __weak usb_register_hotplug_callback(struct usb_hotplug_callback *cb){}
+int __weak usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
+{
+}
 
-extern int sci_efuse_calibration_get(unsigned int* p_cal_data);
+extern int sci_efuse_calibration_get(unsigned int *p_cal_data);
 static int sprd_battery_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
@@ -795,7 +822,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	int voltage_value;
 	int i;
 	struct resource *res = NULL;
-	unsigned int efuse_cal_data[2] = {0};
+	unsigned int efuse_cal_data[2] = { 0 };
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
@@ -813,9 +840,10 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	data->adc_cal_updated = ADC_CAL_TYPE_NO;
 	data->hw_switch_point = CHGMNG_DEFAULT_SWITPOINT;
 
-	data->over_voltage = OVP_ADC_VALUE;
-	data->over_voltage_recovery = OVP_ADC_RECV_VALUE;
+	data->over_voltage = OVP_VOL_VALUE;
+	data->over_voltage_recovery = OVP_VOL_RECV_VALUE;
 	data->over_voltage_flag = 0;
+	data->over_temp_flag = 0;
 	data->over_current = CHARGE_OVER_CURRENT;
 	data->precharge_start = PREVRECHARGE;
 	data->precharge_end = PREVCHGEND;
@@ -847,16 +875,17 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	data->battery_timer.function = battery_handler;
 	data->battery_timer.data = (unsigned long)data;
 
-	printk("probe adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],adc_voltage_table[1][0]);
+	printk("probe adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],
+	       adc_voltage_table[1][0]);
 
-	if(sci_efuse_calibration_get(efuse_cal_data))
-	{
-		adc_voltage_table[0][1]=efuse_cal_data[0]&0xffff;
-		adc_voltage_table[0][0]=(efuse_cal_data[0]>>16)&0xffff;
-		adc_voltage_table[1][1]=efuse_cal_data[1]&0xffff;
-		adc_voltage_table[1][0]=(efuse_cal_data[1]>>16)&0xffff;
+	if (sci_efuse_calibration_get(efuse_cal_data)) {
+		adc_voltage_table[0][1] = efuse_cal_data[0] & 0xffff;
+		adc_voltage_table[0][0] = (efuse_cal_data[0] >> 16) & 0xffff;
+		adc_voltage_table[1][1] = efuse_cal_data[1] & 0xffff;
+		adc_voltage_table[1][0] = (efuse_cal_data[1] >> 16) & 0xffff;
 		data->adc_cal_updated = ADC_CAL_TYPE_EFUSE;
-		printk("probe efuse ok!!! adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],adc_voltage_table[1][0]);
+		printk("probe efuse ok!!! adc4200: %d,adc3600:%d\n",
+		       adc_voltage_table[0][0], adc_voltage_table[1][0]);
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
@@ -893,17 +922,30 @@ retry_adc:
 		}
 	}
 	adc_value = get_vbat_value(data);
-	for(i = 0; i < VBAT_CAPACITY_BUFF_CNT; i++) {	//init capacity vbat buffer for cal batttery capacity
+	for (i = 0; i < VBAT_CAPACITY_BUFF_CNT; i++) {	//init capacity vbat buffer for cal batttery capacity
 		put_vbat_capacity_value(adc_value);
 	}
-	voltage_value = sprd_bat_adc_to_vol(data,get_vbat_capacity_value());
+	voltage_value = sprd_bat_adc_to_vol(data, get_vbat_capacity_value());
 	data->capacity = sprd_vol_to_percent(battery_data, voltage_value, 0);
 	dev_dbg(&pdev->dev, "charger present: %d capacity %d\n",
 		usb_connected(), data->capacity);
 	update_vbat_value(data, adc_value);
 	update_vprog_value(data, 0);
 #ifdef CONFIG_BATTERY_TEMP_DECT
-	update_temp_value(data, 0);
+	{
+		int32_t temp_value;
+		for (i = 0; i < CONFIG_AVERAGE_CNT; i++) {
+retry_temp_adc:
+			temp_value = sci_adc_get_value(ADC_CHANNEL_TEMP, false);
+			if (temp_value < 0) {
+				pr_err("temp ADC read error\n");
+				msleep(100);
+				goto retry_temp_adc;
+			} else {
+				put_temp_value(data, temp_value);
+			}
+		}
+	}
 #endif
 
 	ret = power_supply_register(&pdev->dev, &data->usb);
@@ -1000,7 +1042,7 @@ static int sprd_battery_resume(struct platform_device *pdev)
 	uint32_t voltage = 0;
 	struct sprd_battery_data *data = platform_get_drvdata(pdev);
 
-	voltage = sprd_bat_adc_to_vol(data,get_vbat_capacity_value());
+	voltage = sprd_bat_adc_to_vol(data, get_vbat_capacity_value());
 	data->capacity = sprd_vol_to_percent(battery_data, voltage, 0);
 	power_supply_changed(&battery_data->battery);
 	return 0;
