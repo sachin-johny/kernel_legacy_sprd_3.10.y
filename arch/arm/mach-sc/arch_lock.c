@@ -30,7 +30,7 @@
 * that is agreed upon, otherwise remote processors can't possibly assume
 * they're using the same hardware lock.
 */
-struct hwspinlock *hwlocks[HWSPINLOCK_ID_TOTAL_NUMS];
+struct hwspinlock *hwlocks[HWSPINLOCK_ID_TOTAL_NUMS] __read_mostly;
 
 static int __init early_init_hwlocks(void)
 {

@@ -25,7 +25,7 @@
 #include <mach/arch_lock.h>
 
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
-static void sci_glb_lock(void *flags, void *hw_flags)
+static void sci_glb_lock(unsigned long *flags, unsigned long *hw_flags)
 {
 	if (arch_get_hwlock(HWLOCK_GLB))
 		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_GLB), -1, flags)));
@@ -33,7 +33,7 @@ static void sci_glb_lock(void *flags, void *hw_flags)
 		arch_hwlock_fast(HWLOCK_GLB);
 }
 
-static void sci_glb_unlock(void *flags, void *hw_flags)
+static void sci_glb_unlock(unsigned long *flags, unsigned long *hw_flags)
 {
 	if (arch_get_hwlock(HWLOCK_GLB))
 		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_GLB), flags);

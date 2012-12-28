@@ -71,17 +71,14 @@
 #define BIT_FIFO_EMPTY                  ( BIT(10) )
 
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
-static void sci_adi_lock(void *flags, void *hw_flags)
+static void sci_adi_lock(unsigned long *flags, unsigned long *hw_flags)
 {
 	if (arch_get_hwlock(HWLOCK_ADI))
-		WARN_ON(IS_ERR_VALUE
-			(hwspin_lock_timeout_irqsave
-			 (arch_get_hwlock(HWLOCK_ADI), -1, flags)));
+		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_ADI), -1, flags)));
 	else
 		arch_hwlock_fast(HWLOCK_ADI);
 }
-
-static void sci_adi_unlock(void *flags, void *hw_flags)
+static void sci_adi_unlock(unsigned long  *flags, unsigned long  *hw_flags)
 {
 	if (arch_get_hwlock(HWLOCK_ADI))
 		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADI), flags);

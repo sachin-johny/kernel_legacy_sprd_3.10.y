@@ -138,7 +138,7 @@ static struct resource sprd_hwspinlock_resources[] = {
 };
 
 struct platform_device sprd_hwspinlock_device0 = {
-	.name		= "sprd_hwspinlock",
+	.name		= "sci_hwspinlock",
 	.id		= -1,
 	.num_resources	= ARRAY_SIZE(sprd_hwspinlock_resources),
 	.resource	= sprd_hwspinlock_resources,
