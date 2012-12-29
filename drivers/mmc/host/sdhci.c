@@ -1339,7 +1339,7 @@ static int sdhci_enable(struct mmc_host *mmc){
 			goto out;
 		}
 	}
-if (pm_runtime_suspended(dev)){
+
 	if(!host->is_resumed){
 		ret = pm_runtime_get_sync(dev);
 	}
@@ -1348,7 +1348,7 @@ if (pm_runtime_suspended(dev)){
 				__func__, ret);
 		return ret;
 	}
-}
+
 	host->is_resumed = true;
 out:
 	return ret;

@@ -459,11 +459,13 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	case 0:
 		break;
 	case 1:
+		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
 		break;
 	case 2:
 		host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
 		break;
 	case 3:
+		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
 		host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
 		break;
 	default:
@@ -556,12 +558,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->mmc->caps |= MMC_CAP_HW_RESET;
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
-	if(pdev->id == 1){
-		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
-	}
-    	if(pdev->id == 3){
-		pm_runtime_disable(&(pdev)->dev);
-	}
 
 	ret = sdhci_add_host(host);
 	if (ret) {
