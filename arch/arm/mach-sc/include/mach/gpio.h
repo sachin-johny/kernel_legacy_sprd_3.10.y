@@ -46,6 +46,32 @@
 #define gpio_cansleep   __gpio_cansleep
 #define gpio_to_irq     __gpio_to_irq
 
+
+/* Digital GPIO/EIC base address */
+#define CTL_GPIO_BASE          (SPRD_GPIO_BASE)
+#define CTL_EIC_BASE           (SPRD_EIC_BASE)
+
+/* Analog GPIO/EIC base address */
+#define ANA_CTL_GPIO_BASE      (SPRD_MISC_BASE + 0x0480)
+#define ANA_CTL_EIC_BASE       (SPRD_MISC_BASE + 0x0100)
+
+
+enum {
+       ENUM_ID_D_GPIO = 0,
+       ENUM_ID_D_EIC,
+       ENUM_ID_A_GPIO,
+       ENUM_ID_A_EIC,
+
+       ENUM_ID_END_NR,
+};
+
+struct eic_gpio_resource {
+       int irq;
+       int base_addr;
+       int chip_base;
+       int chip_ngpio;
+};
+
 static inline int irq_to_gpio(int irq)
 {
 	return irq - GPIO_IRQ_START;

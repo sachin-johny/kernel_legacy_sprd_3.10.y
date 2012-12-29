@@ -1,5 +1,5 @@
 obj-y += irq.o timer.o arch_init.o globalregs.o arch_lock.o \
-         dma.o reserve.o adi.o adie_irq.o gpio_eic.o adc.o efuse.o \
+         dma.o reserve.o adi.o adie_irq.o adc.o efuse.o \
          watchdog.o common.o glb.o clock.o dcdc_cal.o
 
 obj-$(CONFIG_ARCH_SC8825) += devices-sc8825.o io-sc8825.o

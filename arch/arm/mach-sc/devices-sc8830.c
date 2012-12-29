@@ -109,6 +109,39 @@ struct platform_device sprd_device_rtc= {
 	.resource	= resources_rtc,
 };
 
+static struct eic_gpio_resource sprd_gpio_resource[] = {
+       [ENUM_ID_D_GPIO] = {
+               .irq            = IRQ_GPIO_INT,
+               .base_addr      = CTL_GPIO_BASE,
+               .chip_base      = D_GPIO_START,
+               .chip_ngpio     = D_GPIO_NR,
+       },
+       [ENUM_ID_D_EIC] = {
+               .irq            = IRQ_EIC_INT,
+               .base_addr      = CTL_EIC_BASE,
+               .chip_base      = D_EIC_START,
+               .chip_ngpio     = D_EIC_NR,
+       },
+       [ENUM_ID_A_GPIO] = {
+               .irq            = IRQ_ANA_GPIO_INT,
+               .base_addr      = ANA_CTL_GPIO_BASE,
+               .chip_base      = A_GPIO_START,
+               .chip_ngpio     = A_GPIO_NR,
+       },
+       [ENUM_ID_A_EIC] = {
+               .irq            = IRQ_ANA_EIC_INT,
+               .base_addr      = ANA_CTL_EIC_BASE,
+               .chip_base      = A_EIC_START,
+               .chip_ngpio     = A_EIC_NR,
+       },
+};
+
+struct platform_device sprd_eic_gpio_device = {
+       .name = "eic-gpio",
+       .id = -1,
+       .dev = { .platform_data = sprd_gpio_resource },
+};
+
 static struct resource sprd_nand_resources[] = {
 	[0] = {
 		.start	= 7,
