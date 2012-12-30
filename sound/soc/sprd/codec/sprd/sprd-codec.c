@@ -1791,6 +1791,10 @@ static int sprd_codec_mic_bias_put(struct snd_kcontrol *kcontrol,
 		    snd_soc_dapm_disable_pin(&codec->card->dapm,
 					     mic_bias_name[id]);
 	}
+
+	/* signal a DAPM event */
+	snd_soc_dapm_sync(&codec->card->dapm);
+
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
 }
