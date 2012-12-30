@@ -98,7 +98,9 @@ static void early_suspend(struct work_struct *work)
 		if (pos->suspend != NULL) {
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("early_suspend: calling %pf\n", pos->suspend);
+			printk("early_suspend: calling %pf\n", pos->suspend);
 			pos->suspend(pos);
+			printk("early_suspend: calling %pf done\n", pos->suspend);
 		}
 	}
 	mutex_unlock(&early_suspend_lock);
@@ -140,7 +142,9 @@ static void late_resume(struct work_struct *work)
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("late_resume: calling %pf\n", pos->resume);
 
+			printk("late_resume: calling %pf\n", pos->resume);
 			pos->resume(pos);
+			printk("late_resume: calling %pf done\n", pos->resume);
 		}
 	}
 	if (debug_mask & DEBUG_SUSPEND)
