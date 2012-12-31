@@ -54,20 +54,19 @@ int gps_power_ctl(int is_on)
 			printk("gpsctl warning : use gpio power but gpio not configured");
 		}
 	} else {
-		if (is_on) {
-		#if defined(CONFIG_ARCH_SC8825)
-			gps_regulator = regulator_get(NULL, data->pwr_type);
+            	#if defined(CONFIG_ARCH_SC8825)
+		gps_regulator = regulator_get(NULL, data->pwr_type);                   
 		#else
-			gps_regulator = regulator_get(NULL, REGU_NAME_GPS);
-		#endif
-			if (IS_ERR(gps_regulator)) {
-				pr_err("gpsctl:could not get 1.8v regulator\n");
-				return -1;
-			}
-			err = regulator_set_voltage(gps_regulator, 1800000, 1800000);
-			if (err)
-				pr_err("gpsctl:could not set to 1800mv.\n");
-
+		gps_regulator = regulator_get(NULL, REGU_NAME_GPS);
+		#endif              
+		if (IS_ERR(gps_regulator)) {
+		    pr_err("gpsctl:could not get 1.8v regulator\n");
+		    return -1;
+		   }
+		if (is_on) {
+		    err = regulator_set_voltage(gps_regulator, 1800000, 1800000);
+		     if (err)
+			pr_err("gpsctl:could not set to 1800mv.\n");
 			regulator_enable(gps_regulator);
 		} else {
 			regulator_disable(gps_regulator);

@@ -242,6 +242,7 @@ static struct platform_gpsctl_data gps_ublox_data = {
         .onoff_pin	= GPIO_GPS_ONOFF,
         .power_pin	= 0xffffffff,
 	.clk_type	= "clk_aux0",
+        .pwr_type	= "vdd3v",
 };
 
 /* gps ctl*/

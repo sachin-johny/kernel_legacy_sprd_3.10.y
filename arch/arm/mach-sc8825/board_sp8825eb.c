@@ -240,9 +240,10 @@ static struct mpu_platform_data mpu9150_platform_data = {
 
 static struct platform_gpsctl_data gps_ublox_data = {
         .reset_pin  	= 0xffffffff,
-        .onoff_pin	= GPIO_GPS_ONOFF,
-        .power_pin	= 0xffffffff,
+        .onoff_pin	= 0xffffffff,
+        .power_pin	= GPIO_GPS_ONOFF,
 	.clk_type	= "clk_aux0",
+        .pwr_type	= "vdd3v",
 };
 
 /* gps ctl*/
