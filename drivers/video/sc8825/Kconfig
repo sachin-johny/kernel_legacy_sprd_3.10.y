@@ -51,3 +51,8 @@ config FB_LCD_OTM8018B_MIPI
 	boolean "support otm 8018b mipi panel"
 	depends on FB_SC8825
 	default n
+
+config FB_LCD_OVERLAY_SUPPORT
+	boolean "support lcd overlay"
+	depends on FB_SC8825
+	default n
