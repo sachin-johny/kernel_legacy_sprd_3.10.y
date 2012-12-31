@@ -71,6 +71,7 @@ typedef struct _dma_rot_tag {
 
 static ROT_DMA_CFG_T 	s_rotation_cfg;
 static 	int s_ch_id = -1;
+static 	int s_virtual_ch_id = -1;
 
 #define ALGIN_FOUR      0x03
 #define DECLARE_ROTATION_PARAM_ENTRY(s) 		ROT_DMA_CFG_T *s=&s_rotation_cfg
@@ -444,6 +445,10 @@ int rot_k_IOdeinit(void)
 		sprd_dma_free(s_ch_id);
 		s_ch_id = -1;
 	}
+	if (s_virtual_ch_id >= 0) {
+		sprd_dma_free(s_virtual_ch_id);
+		s_virtual_ch_id = -1;
+	}
 	rot_k_disable();
 	up(&g_sem_rot);
 	return 0;
@@ -628,7 +633,7 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 	uint32_t block_len;
 	uint32_t total_len;
 	int32_t ret = 0;
-	int ch_id = 0;
+	int ch_id = s_virtual_ch_id;
 	int i;
 	uint32_t list_size;
 	uint32_t list_copy_size = 4096;
@@ -660,16 +665,19 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	RTT_PRINT("rot_k_start_copy_data_to_virtual: dst_vir_addr = %x, list_copy_size=%x, list_size=%x,  \n", dst_vir_addr, list_copy_size, list_size);
 
-	while (1) {
-		ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
-		if (ch_id < 0) {
-			printk("rot_k_start_copy_data_to_virtual: convert endian request dma fail.ret : %d.\n", ret);
-			msleep(5);
-		} else {
-			RTT_PRINT("rot_k_start_copy_data_to_virtual: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
-			     ch_id, total_len);
-			break;
+	if (ch_id < 0) {
+		while (1) {
+			ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
+			if (ch_id < 0) {
+				printk("rot_k_start_copy_data_to_virtual: convert endian request dma fail.ret : %d.\n", ret);
+				msleep(5);
+			} else {
+				RTT_PRINT("rot_k_start_copy_data_to_virtual: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
+				     ch_id, total_len);
+				break;
+			}
 		}
+		s_virtual_ch_id = ch_id;
 	}
 	memset(&dma_desc, 0, sizeof(struct sprd_dma_channel_desc));
 
@@ -722,13 +730,14 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	sprd_dma_channel_start(ch_id);
 
-	if (wait_event_interruptible(wait_queue, g_copy_done)) {
-		ret = -EFAULT;
+	if (!wait_event_interruptible_timeout(wait_queue, g_copy_done,msecs_to_jiffies(30))) {
+		/*ret = -EFAULT;*/
+		printk("dma timeout.");
 	}
 
 	sprd_dma_channel_stop(ch_id);
 
-	sprd_dma_free(ch_id);
+/*	sprd_dma_free(ch_id);*/
 
 	dma_free_writecombine(NULL, sizeof(*dma_cfg) * list_size, dma_cfg, dma_cfg_phy);
 
