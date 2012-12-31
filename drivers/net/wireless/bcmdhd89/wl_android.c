@@ -376,6 +376,7 @@ static int wl_android_get_p2p_dev_addr(struct net_device *ndev, char *command, i
 
 
 extern int dhd_spi_reset(struct net_device *dev);
+extern int g_p2p_intf_flag;
 
 int wl_android_wifi_on(struct net_device *dev)
 {
@@ -386,6 +387,7 @@ int wl_android_wifi_on(struct net_device *dev)
 		DHD_ERROR(("%s: dev is null\n", __FUNCTION__));
 		return -EINVAL;
 	}
+	g_p2p_intf_flag = 0;
 
 /* enable SDIO clock */
 #ifndef SPRD_SPI

@@ -916,6 +916,7 @@ wl_cfg80211_add_virtual_iface(struct wiphy *wiphy, char *name,
 			vwdev->netdev = _ndev;
 			wl_set_drv_status(wl, READY, _ndev);
 			wl->p2p->vif_created = true;
+			g_p2p_intf_flag = 1;
 			wl_set_mode_by_netdev(wl, _ndev, mode);
 			net_attach =  wl_to_p2p_bss_private(wl, P2PAPI_BSSCFG_CONNECTION);
 			if (rtnl_is_locked()) {
@@ -969,7 +970,7 @@ wl_cfg80211_del_virtual_iface(struct wiphy *wiphy, struct net_device *dev)
 	s32 timeout = -1;
 	s32 ret = 0;
 	WL_DBG(("Enter\n"));
-
+	g_p2p_intf_flag = 0;
 	if (wl->p2p_net == dev) {
 		/* Since there is no ifidx corresponding to p2p0, cmds to
 		 * firmware should be routed through primary I/F
@@ -1409,7 +1410,8 @@ wl_run_iscan(struct wl_iscan_ctrl *iscan, struct cfg80211_scan_request *request,
 		return -ENOMEM;
 	}
 
-	wl_scan_prep(&params->params, request);
+	if (request != NULL)
+		wl_scan_prep(&params->params, request);
 
 	params->version = htod32(ISCAN_REQ_VERSION);
 	params->action = htod16(action);
@@ -1521,7 +1523,8 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 			goto exit;
 		}
 
-		wl_scan_prep(&params->params, request);
+		if (request != NULL)
+			wl_scan_prep(&params->params, request);
 		params->version = htod32(ESCAN_REQ_VERSION);
 		params->action =  htod16(action);
 		params->sync_id = htod16(0x1234);

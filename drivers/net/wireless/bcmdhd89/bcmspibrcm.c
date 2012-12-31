@@ -968,6 +968,9 @@ static sdioh_info_t *reset_sd = NULL;
 int
 sdioh_start(sdioh_info_t *sd, int stage)
 {
+#ifdef OOB_INTR_ONLY
+	bcmsdh_oob_intr_set(TRUE);
+#endif
 	if(!stage) {
 		if(reset_sd)
 			return bcmspi_client_init(reset_sd);
@@ -979,6 +982,9 @@ sdioh_start(sdioh_info_t *sd, int stage)
 int
 sdioh_stop(sdioh_info_t *sd)
 {
+#ifdef OOB_INTR_ONLY
+	bcmsdh_oob_intr_set(FALSE);
+#endif
 	return SUCCESS;
 }
 

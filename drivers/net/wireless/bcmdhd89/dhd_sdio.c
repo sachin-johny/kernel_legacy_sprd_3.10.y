@@ -73,6 +73,10 @@
 #define DHDSDIO_MEM_DUMP_FNAME         "mem_dump"
 #endif
 
+#ifndef MAX_FIRMWARE_LEN
+#define MAX_FIRMWARE_LEN 240000
+#endif
+
 #define QLEN		256	/* bulk rx and tx queue lengths */
 #define FCHI		(QLEN - 10)
 #define FCLOW		(FCHI / 2)
@@ -2222,6 +2226,7 @@ dhdsdio_checkdied(dhd_bus_t *bus, char *data, uint size)
 				}
 			}
 		}
+		dhd_os_check_hang(bus->dhd, 0, -ETIMEDOUT);
 	}
 
 printbuf:
@@ -3222,12 +3227,15 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 		dhd_os_sdlock(bus->dhd);
 
 	/* Make sure backplane clock is on, needed to generate F2 interrupt */
-	dhdsdio_clkctl(bus, CLK_AVAIL, FALSE);
+	ret = dhdsdio_clkctl(bus, CLK_AVAIL, FALSE);
 	if (bus->clkstate != CLK_AVAIL) {
 		DHD_ERROR(("%s: clock state is wrong. state = %d\n", __FUNCTION__, bus->clkstate));
 		goto exit;
 	}
-
+	if (ret) {
+		DHD_ERROR(("%s: clock set avail error\n", __FUNCTION__ ));
+		goto exit;
+	}
 #ifdef BCMSPI
 	/* fake "ready" for spi, wake-wlan would have already enabled F1 and F2 */
 	ready = (SDIO_FUNC_ENABLE_1 | SDIO_FUNC_ENABLE_2);
@@ -3338,7 +3346,7 @@ dhd_bus_init(dhd_pub_t *dhdp, bool enforce_mutex)
 
 	/* If we didn't come up, turn off backplane clock */
 	if (dhdp->busstate != DHD_BUS_DATA)
-		dhdsdio_clkctl(bus, CLK_NONE, FALSE);
+		ret = dhdsdio_clkctl(bus, CLK_NONE, FALSE);
 
 exit:
 	if (enforce_mutex)
@@ -4703,6 +4711,7 @@ dhdsdio_dpc(dhd_bus_t *bus)
 	uint framecnt = 0;		  /* Temporary counter of tx/rx frames */
 	bool rxdone = TRUE;		  /* Flag for no more read data */
 	bool resched = FALSE;	  /* Flag indicating resched wanted */
+	int clk_flag = 0;
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
 
@@ -4765,7 +4774,10 @@ dhdsdio_dpc(dhd_bus_t *bus)
 	BUS_WAKE(bus);
 
 	/* Make sure backplane clock is on */
-	dhdsdio_clkctl(bus, CLK_AVAIL, TRUE);
+	clk_flag = dhdsdio_clkctl(bus, CLK_AVAIL, TRUE);
+	if(clk_flag == BCME_ERROR)
+		printk("shaohua test clk set fail \n");
+
 	if (bus->clkstate != CLK_AVAIL)
 		goto clkwait;
 
@@ -4944,6 +4956,11 @@ clkwait:
 	/* Resched the DPC if ctrl cmd is pending on bus credit */
 	if (bus->ctrl_frame_stat)
 		resched = TRUE;
+
+	if(clk_flag == BCME_ERROR) {
+		printk("shaohua test clk_flag = -1, so clear resched = %d\n", resched);
+		resched = FALSE;
+	}
 
 	/* Resched if events or tx frames are pending, else await next interrupt */
 	/* On failed register access, all bets are off: no resched or interrupts */
@@ -6313,6 +6330,7 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 	uint len;
 	void *image = NULL;
 	uint8 *memblock = NULL, *memptr;
+	uint check_len = 0;
 
 	DHD_INFO(("%s: download firmware %s\n", __FUNCTION__, pfw_path));
 
@@ -6330,6 +6348,11 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 
 	/* Download image */
 	while ((len = dhd_os_get_image_block((char*)memptr, MEMBLOCK, image))) {
+		if (len < 0) {
+			mdelay(10);
+			continue;
+		}
+		check_len += len;
 		bcmerror = dhdsdio_membytes(bus, TRUE, offset, memptr, len);
 		if (bcmerror) {
 			DHD_ERROR(("%s: error %d on writing %d membytes at 0x%08x\n",
@@ -6337,8 +6360,15 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 			goto err;
 		}
 
-		offset += MEMBLOCK;
+		offset += len;
+//		offset += MEMBLOCK;
 	}
+		DHD_INFO(("%s: check_len = %d\n", __FUNCTION__, check_len));
+	if (check_len > MAX_FIRMWARE_LEN) {
+		DHD_ERROR(("%s: check_len = %d\n", __FUNCTION__, check_len));
+		bcmerror = -1;
+	}
+
 
 err:
 	if (memblock)
@@ -6403,12 +6433,20 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 	/* Download variables */
 	if (nvram_file_exists) {
 		len = dhd_os_get_image_block(memblock, MAX_NVRAMBUF_SIZE, image);
+		if (len < 0){
+			int try_times = 0;
+			for (try_times = 0; (try_times < 3) && (len < 0); try_times++) {
+				mdelay(10);
+				len = dhd_os_get_image_block(memblock, MAX_NVRAMBUF_SIZE, image);
+			}
+		}
 	}
 	else {
 		len = strlen(bus->nvram_params);
 		ASSERT(len <= MAX_NVRAMBUF_SIZE);
 		memcpy(memblock, bus->nvram_params, len);
 	}
+	DHD_INFO(("%s: get nvram len = %d\n", __FUNCTION__, len));
 	if (len > 0 && len < MAX_NVRAMBUF_SIZE) {
 		bufp = (char *)memblock;
 		bufp[len] = 0;
