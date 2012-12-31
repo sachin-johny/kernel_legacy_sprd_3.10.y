@@ -94,19 +94,21 @@ static int suspend_prepare(void)
 	if (!suspend_ops || !suspend_ops->enter)
 		return -EPERM;
 
-	printk("PM:  before pm_prepare_consol ... \n");
 	pm_prepare_console();
+	printk("PM: pm_prepare_console done ... \n");
 
-	printk("PM:  before pm_notifier_call_chain  ... \n");
 	error = pm_notifier_call_chain(PM_SUSPEND_PREPARE);
+	printk("PM: pm_notifier_call_chain(PM_SUSPEND_PREPARE) done ... \n");
 	if (error)
 		goto Finish;
 
 	error = usermodehelper_disable();
+	printk("PM: usermodehelper_disable done ... \n");
 	if (error)
 		goto Finish;
 
 	error = suspend_freeze_processes();
+	printk("PM: suspend_freeze_processes done ... \n");
 	if (!error)
 		return 0;
 
@@ -114,7 +116,9 @@ static int suspend_prepare(void)
 	usermodehelper_enable();
  Finish:
 	pm_notifier_call_chain(PM_POST_SUSPEND);
+	printk("PM: **** %s, pm_notifier_call_chain(PM_POST_SUSPEND) done **** \n", __func__ );
 	pm_restore_console();
+	printk("PM: **** %s, pm_restore_console done **** \n", __func__ );
 	return error;
 }
 

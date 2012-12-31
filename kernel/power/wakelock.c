@@ -287,10 +287,12 @@ static void suspend(struct work_struct *work)
 	getnstimeofday(&ts_entry);
 	ret = pm_suspend(requested_suspend_state);
 	getnstimeofday(&ts_exit);
-
+	printk("PM: **** %s, getnstimeofday done ****\n", __func__ );
 	if (debug_mask & DEBUG_EXIT_SUSPEND) {
+		printk("PM: **** %s, before rtc_time_to_tm ****\n", __func__ );
 		struct rtc_time tm;
 		rtc_time_to_tm(ts_exit.tv_sec, &tm);
+		printk("PM: **** %s, rtc_time_to_tm  done ****\n", __func__ );
 		pr_info("suspend: exit suspend, ret = %d "
 			"(%d-%02d-%02d %02d:%02d:%02d.%09lu UTC)\n", ret,
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
