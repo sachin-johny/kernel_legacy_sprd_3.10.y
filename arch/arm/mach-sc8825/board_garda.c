@@ -116,6 +116,9 @@ static struct platform_device *devices[] __initdata = {
 	&brcm_bluesleep_device,
 	&gpsctl_dev,
 	&gpio_button_device,
+#if defined(CONFIG_SPRD_PEER_STATE)
+	&sprd_peer_state_device,
+#endif
 };
 
 static struct platform_ktd253b_backlight_data ktd253b_data = {

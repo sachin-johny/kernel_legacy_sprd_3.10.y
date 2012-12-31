@@ -184,7 +184,7 @@ config SGI_IOC4
 
 config SPRD_PEER_STATE
 	tristate "SPRD Peer-state device"
-	depends on NKERNEL && ARCH_SC8810
+	depends on NKERNEL
 	help
 	  This virtual device is for AP and CP to know the peer side state
 

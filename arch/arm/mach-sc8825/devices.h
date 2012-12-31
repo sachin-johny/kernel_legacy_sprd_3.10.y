@@ -67,5 +67,6 @@ extern struct platform_device sprd_slog_td_device;
 extern struct platform_device sprd_stty_td_device;
 extern struct platform_device sprd_cproc_td_device;
 extern struct platform_device sprd_seth_td_device;
+extern struct platform_device sprd_peer_state_device;
 
 #endif
