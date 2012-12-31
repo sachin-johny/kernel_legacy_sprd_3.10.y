@@ -1032,3 +1032,10 @@ struct platform_device sprd_seth_td_device = {
 	.id             =  0,
 	.dev		= {.platform_data = &sprd_seth_td_pdata},
 };
+
+struct platform_device sprd_peer_state_device = {
+        .name           = "peer_state",
+        .id             = -1,
+};
+
+
