@@ -117,8 +117,10 @@ extern bool ap_fw_loaded;
 #endif
 
 #ifndef DHD_REOPEN /* reload firmware in new kernel thread */
-//#define DHD_REOPEN 1
+#define DHD_REOPEN 1
 #endif
+
+int dev_close_flag = 0;
 
 #include <wl_android.h>
 
@@ -2136,7 +2138,11 @@ dhd_ioctl_entry(struct net_device *net, struct ifreq *ifr, int cmd)
 	int ret;
 
 	if ( !dhd->pub.up || (dhd->pub.busstate == DHD_BUS_DOWN)){
-		printf("%s: dhd is down. skip it.\n", __func__);
+		printk("%s: dhd is down. skip it.\n", __func__);
+		return -ENODEV;
+	}
+	if(dev_close_flag) {
+		printk("%s: dhd is closed. skip it.\n", __func__);
 		return -ENODEV;
 	}
 
@@ -2436,6 +2442,7 @@ dhd_open(struct net_device *net)
 	int32 ret = 0;
 	int loop_num = 0;
 loop:
+	dev_close_flag = 0;
 	ret = 0;
 	DHD_OS_WAKE_LOCK(&dhd->pub);
 	/* Update FW path if it was changed */
@@ -2484,11 +2491,20 @@ loop:
 			ret = wl_android_wifi_on(net);
 			if (ret != 0) {
 				DHD_ERROR(("%s: failed with code %d\n", __FUNCTION__, ret));
+				wl_android_wifi_off(net); /* make it power off if error */
 				ret = -1;
 				goto exit;
 			}
 		}
 #endif 
+		/* add some patch for softAP start failed 20121207 start*/
+		if (dhd->pub.busstate == DHD_BUS_DOWN) {
+			goto exit;
+		}
+		if(dhd->pub.hang_was_sent) {
+			return 0;
+		}
+		/* add some patch for softAP start failed 20121207end*/
 
 		if (dhd->pub.busstate != DHD_BUS_DATA) {
 
@@ -2496,6 +2512,10 @@ loop:
 			if ((ret = dhd_bus_start(&dhd->pub)) != 0) {
 				DHD_ERROR(("%s: failed with code %d\n", __FUNCTION__, ret));
 				ret = -1;
+#if 1  /*modified by xinrui 1129 start*/
+				dhd_bus_stop(dhd->pub.bus, TRUE);
+				wl_android_wifi_off(net);
+#endif  /*modified by xinrui 1129 end */
 				goto exit;
 			}
 
@@ -2514,6 +2534,14 @@ loop:
 
 #if defined(WL_CFG80211)
 		if (unlikely(wl_cfg80211_up(NULL))) {
+#if 1 /*modified by xinrui 1129 start*/
+			wl_cfg80211_down(NULL);
+			if ((dhd->dhd_state & DHD_ATTACH_STATE_ADD_IF) &&
+				(dhd->dhd_state & DHD_ATTACH_STATE_CFG80211)) {
+				dhd_cleanup_virt_ifaces(dhd);
+			}
+			wl_android_wifi_off(net);
+#endif /*modified by xinrui 1129 end */
 			DHD_ERROR(("%s: failed to bring up cfg80211\n", __FUNCTION__));
 			ret = -1;
 			goto exit;
@@ -5218,6 +5246,8 @@ int dhd_reopen_dev(struct net_device *dev)
 {
 	dhd_info_t *dhd = *(dhd_info_t **)netdev_priv(dev);
 	if(dhd->pub.op_mode == HOSTAPD_MASK) {
+		printk("net_os_send_hang_message softAP enter\n");
+		dev_close_flag = 1;
 		dev_close(dev);
 	} else {
 		printk("net_os_send_hang_message enter2\n");
