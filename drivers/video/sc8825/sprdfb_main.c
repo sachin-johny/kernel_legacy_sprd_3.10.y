@@ -52,7 +52,10 @@ static unsigned PP[16];
 
 static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb);
 static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb);
-
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
+			unsigned long arg);
+#endif
 
 static struct fb_ops sprdfb_ops = {
 	.owner = THIS_MODULE,
@@ -61,6 +64,9 @@ static struct fb_ops sprdfb_ops = {
 	.fb_fillrect = cfb_fillrect,
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+	.fb_ioctl = sprdfb_ioctl,
+#endif
 };
 
 static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
@@ -180,6 +186,45 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 
 	return 0;
 }
+
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+#include <video/sprd_fb.h>
+static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
+			unsigned long arg)
+{
+	int result = 0;
+	struct sprdfb_device *dev = NULL;
+
+	if(NULL == info){
+		printk(KERN_ERR "sprdfb: sprdfb_ioctl error. (Invalid Parameter)");
+		return -1;
+	}
+
+	dev = info->par;
+
+	switch(cmd){
+	case SPRD_FB_SET_OVERLAY:
+		printk(KERN_INFO "sprdfb: [%s]: SPRD_FB_SET_OVERLAY\n", __FUNCTION__);
+		if(NULL != dev->ctrl->enable_overlay){
+			result = dev->ctrl->enable_overlay(dev, (overlay_info*)arg, 1);
+		}
+		break;
+	case SPRD_FB_DISPLAY_OVERLAY:
+		printk(KERN_INFO "sprdfb: [%s]: SPRD_FB_DISPLAY_OVERLAY\n", __FUNCTION__);
+		if(NULL != dev->ctrl->display_overlay){
+			result = dev->ctrl->display_overlay(dev, (overlay_display*)arg);
+		}
+		break;
+	default:
+		printk(KERN_INFO "sprdfb: [%s]: unknown cmd(%d)\n", __FUNCTION__, cmd);
+		break;
+	}
+
+	printk(KERN_INFO "sprdfb: [%s]: return %d\n",__FUNCTION__, result);
+	return result;
+}
+
+#endif
 
 static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
 {

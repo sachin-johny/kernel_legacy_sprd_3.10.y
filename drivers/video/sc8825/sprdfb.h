@@ -37,6 +37,67 @@ enum{
 	RGB_LCD_TIMING_KIND_MAX
 };
 
+
+#ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
+#define SPRD_LAYER_IMG (0x01)   /*support YUV & RGB*/
+#define SPRD_LAYER_OSD (0x02) /*support RGB only*/
+
+enum {
+	SPRD_DATA_TYPE_YUV422 = 0,
+	SPRD_DATA_TYPE_YUV420,
+	SPRD_DATA_TYPE_YUV400,
+	SPRD_DATA_TYPE_RGB888,
+	SPRD_DATA_TYPE_RGB666,
+	SPRD_DATA_TYPE_RGB565,
+	SPRD_DATA_TYPE_RGB555,
+	SPRD_DATA_TYPE_LIMIT
+};
+
+enum{
+	SPRD_IMG_DATA_ENDIAN_B0B1B2B3 = 0,
+	SPRD_IMG_DATA_ENDIAN_B3B2B1B0,
+	SPRD_IMG_DATA_ENDIAN_B2B3B1B0,
+	SPRD_IMG_DATA_ENDIAN_LIMIT
+};
+
+enum{
+	SPRD_OVERLAY_STATUS_OFF = 0,
+	SPRD_OVERLAY_STATUS_ON,
+	SPRD_OVERLAY_STATUS_STARTED,
+	SPRD_OVERLAY_STATUS_MAX
+};
+
+enum{
+	SPRD_OVERLAY_DISPLAY_ASYNC = 0,
+	SPRD_OVERLAY_DISPLAY_SYNC,
+	SPRD_OVERLAY_DISPLAY_MAX
+};
+
+typedef struct overlay_rect {
+	uint16_t x;
+	uint16_t y;
+	uint16_t w;
+	uint16_t h;
+}overlay_rect;
+
+typedef struct overlay_info{
+	int layer_index;
+	int data_type;
+	int y_endian;
+	int uv_endian;
+	bool rb_switch;
+	overlay_rect rect;
+	unsigned char *buffer;
+}overlay_info;
+
+typedef struct overlay_display{
+	int layer_index;
+	overlay_rect rect;
+	int display_mode;
+}overlay_display;
+#endif
+
+
 struct sprdfb_device {
 	struct fb_info	*fb;
 
@@ -72,6 +133,11 @@ struct display_ctrl {
 
 	int32_t	(*suspend)	  (struct sprdfb_device *dev);
 	int32_t 	(*resume)	  (struct sprdfb_device *dev);
+
+#ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
+	int32_t 	(*enable_overlay) 	(struct sprdfb_device *dev, struct overlay_info* info, int enable);
+	int32_t	(*display_overlay)	(struct sprdfb_device *dev, struct overlay_display* setting);
+#endif
 };
 
 
