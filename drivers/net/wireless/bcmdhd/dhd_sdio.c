@@ -73,6 +73,10 @@
 #define DHDSDIO_MEM_DUMP_FNAME         "mem_dump"
 #endif
 
+#ifndef MAX_FIRMWARE_LEN
+#define MAX_FIRMWARE_LEN 240000
+#endif
+
 #define QLEN		256	/* bulk rx and tx queue lengths */
 #define FCHI		(QLEN - 10)
 #define FCLOW		(FCHI / 2)
@@ -6288,6 +6292,7 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 	uint len;
 	void *image = NULL;
 	uint8 *memblock = NULL, *memptr;
+	uint check_len = 0;
 
 	DHD_INFO(("%s: download firmware %s\n", __FUNCTION__, pfw_path));
 
@@ -6305,6 +6310,12 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 
 	/* Download image */
 	while ((len = dhd_os_get_image_block((char*)memptr, MEMBLOCK, image))) {
+		/* check len for kernel_read return error in SPRD platform*/
+		if (len < 0) {
+			mdelay(10);
+			continue;
+		}
+		check_len += len;
 		bcmerror = dhdsdio_membytes(bus, TRUE, offset, memptr, len);
 		if (bcmerror) {
 			DHD_ERROR(("%s: error %d on writing %d membytes at 0x%08x\n",
@@ -6312,8 +6323,16 @@ dhdsdio_download_code_file(struct dhd_bus *bus, char *pfw_path)
 			goto err;
 		}
 
-		offset += MEMBLOCK;
+		offset += len;
+//		offset += MEMBLOCK;
 	}
+	DHD_INFO(("check_len = %d\n", check_len));
+	/* check len for kernel_read return error in SPRD platform*/
+	if (check_len > MAX_FIRMWARE_LEN) {
+		DHD_ERROR(("%s: check_len = %d\n", __FUNCTION__, check_len));
+		bcmerror = -1;
+	}
+
 
 err:
 	if (memblock)
@@ -6378,12 +6397,21 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 	/* Download variables */
 	if (nvram_file_exists) {
 		len = dhd_os_get_image_block(memblock, MAX_NVRAMBUF_SIZE, image);
+		/* check len for kernel_read return error in SPRD platform*/
+		if (len < 0){
+			int try_times = 0;
+			for (try_times = 0; (try_times < 3) && (len < 0); try_times++) {
+				mdelay(10);
+				len = dhd_os_get_image_block(memblock, MAX_NVRAMBUF_SIZE, image);
+			}
+		}
 	}
 	else {
 		len = strlen(bus->nvram_params);
 		ASSERT(len <= MAX_NVRAMBUF_SIZE);
 		memcpy(memblock, bus->nvram_params, len);
 	}
+	DHD_INFO(("%s: get nvram len = %d\n", __FUNCTION__, len));
 	if (len > 0 && len < MAX_NVRAMBUF_SIZE) {
 		bufp = (char *)memblock;
 		bufp[len] = 0;
