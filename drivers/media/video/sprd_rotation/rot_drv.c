@@ -589,7 +589,7 @@ static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
 	sprd_dma_channel_start(ch_id);
 	if (!wait_event_interruptible_timeout(wait_queue, g_copy_done,msecs_to_jiffies(30))) {
 		/*ret = -EFAULT;*/
-		printk("dma timeout.");
+		printk("dma timeout. \n");
 	}
 	sprd_dma_channel_stop(ch_id);
 	/*sprd_dma_free(ch_id);*/
@@ -641,10 +641,6 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 	dma_addr_t dma_cfg_phy;
 	struct timeval time1, time2;
 
-
-	/*struct timeval ts;*/
-	/*struct timeval te;*/
-	/*printk("wjp:rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);*/
 	if (ROT_YUV420 == param_ptr->format) {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
 	} else {
@@ -652,9 +648,6 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 	}
 
 	total_len = block_len;
-
-	//do_gettimeofday(&ts);
-	//RTT_PRINT("convert endian   %d,%d,%x,%x\n", width,height,input_addr,output_addr);
 
 	if(0 != dst_vir_addr%list_copy_size){
 		printk("rot_k_start_copy_data_to_virtual: dst_vir_addr = %x not 4K bytes align, error \n", dst_vir_addr);
@@ -711,7 +704,6 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 		block_len -= dma_cfg[i].total_len;
 	}
 	do_gettimeofday(&time2);
-	//RTT_PRINT("virtual:%x, physical:%x \n", dst_vir_addr, dma_cfg[0].dst_addr);
 	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
 
 	dma_cfg[list_size - 1].cfg |= DMA_LLEND;
@@ -732,7 +724,7 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	if (!wait_event_interruptible_timeout(wait_queue, g_copy_done,msecs_to_jiffies(30))) {
 		/*ret = -EFAULT;*/
-		printk("dma timeout.");
+		printk("dma timeout. \n");
 	}
 
 	sprd_dma_channel_stop(ch_id);
@@ -743,8 +735,6 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	RTT_PRINT("rot_k_start_copy_data_to_virtual done \n");
 
-	/* do_gettimeofday(&te);*/
-	/*printk("wjp:dma endian time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));*/
 	return ret;
 }
 

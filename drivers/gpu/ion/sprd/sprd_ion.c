@@ -75,7 +75,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
         kaddr = data.vaddr;
 		paddr = data.paddr;	
 		size = data.size;
-		printk(KERN_INFO "ion flush_start %x, %x,size %x",data.vaddr,data.paddr,data.size);
+		//printk(KERN_INFO "ion flush_start %x, %x,size %x",data.vaddr,data.paddr,data.size);
 #if 0		
 		dmac_flush_range(flush_start, flush_end);
 #else	
