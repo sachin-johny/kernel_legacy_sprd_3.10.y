@@ -345,7 +345,7 @@ struct platform_device sprd_audio_vbc_device = {
 	.id             =  -1,
 };
 
-#ifdef CONFIG_SND_SPRD_SOC_SC881X
+#if defined(CONFIG_SND_SPRD_SOC_SC881X) || defined(CONFIG_SND_SPRD_SOC_KYLEW)
 struct platform_device sprd_audio_platform_vbc_pcm_device = {
 	.name           = "sprd-vbc-pcm-audio",
 	.id             =  -1,

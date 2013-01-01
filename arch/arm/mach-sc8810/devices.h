@@ -34,7 +34,7 @@ extern struct platform_device sprd_keypad_device;
 extern struct platform_device sprd_audio_soc_device;
 extern struct platform_device sprd_audio_soc_vbc_device;
 extern struct platform_device sprd_audio_vbc_device;
-#ifdef CONFIG_SND_SPRD_SOC_SC881X
+#if defined(CONFIG_SND_SPRD_SOC_SC881X) || defined(CONFIG_SND_SPRD_SOC_KYLEW)
 extern struct platform_device sprd_audio_platform_vbc_pcm_device;
 extern struct platform_device sprd_audio_cpu_dai_vaudio_device;
 extern struct platform_device sprd_audio_cpu_dai_vbc_device;
