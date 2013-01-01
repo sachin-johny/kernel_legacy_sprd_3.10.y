@@ -115,7 +115,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_spi0_device,
 	&sprd_spi1_device,
 	&sprd_keypad_device,
-#ifdef CONFIG_SND_SPRD_SOC_SC881X
+#if (defined(CONFIG_SND_SPRD_SOC_SC881X) || defined(CONFIG_SND_SPRD_SOC_KYLEW))
 	&sprd_audio_platform_vbc_pcm_device,
 	&sprd_audio_cpu_dai_vaudio_device,
 	&sprd_audio_cpu_dai_vbc_device,
