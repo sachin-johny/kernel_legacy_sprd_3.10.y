@@ -1881,7 +1881,7 @@ static void    _path1_done(void)
 	struct dcam_path_desc   *path = &s_dcam_mod.dcam_path1;
 	struct dcam_frame       *frame = path->output_frame_cur->prev->prev;
 
-	printk("DCAM 1 done \n");
+	printk("DCAM 1\n");
 
 	DCAM_TRACE("DCAM DRV: _path1_done, frame 0x%x, y uv, 0x%x 0x%x \n",
 		frame, frame->yaddr, frame->uaddr);
@@ -1946,7 +1946,7 @@ static void    _path2_done(void)
 		return;
 	}
 
-	printk("DCAM 2 done \n");
+	printk("DCAM 2\n");
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH2, false);
 	if (rtn) {
