@@ -24,57 +24,7 @@
 /*support for customize cfg to special project,
   commonly customer don't need create a overrid cfg.
   if there is a special board ,add new one like this*/
-#ifdef CONFIG_MACH_SP8810EA
-#include "regulator-sp8810ea.h"
-#endif
-
-#ifdef CONFIG_MACH_SP8810EB
-#include "regulator-sp8810eb.h"
-#endif
-
-#ifdef CONFIG_MACH_SP8810EC
-#include "regulator-sp8810ec.h"
-#endif
-
-#ifdef CONFIG_MACH_SP8810GA
-#include "regulator-sp8810ga.h"
-#endif
-
-#ifdef CONFIG_MACH_SP6820GA
-#include "regulator-sp6820ga.h"
-#endif
-
-#ifdef CONFIG_MACH_SP8810GB
-#include "regulator-sp8810gb.h"
-#endif
-
-#ifdef CONFIG_MACH_OPENPHONE_SC6820
-#include "regulator-sc6820-openphone.h"
-#endif
-
-#ifdef CONFIG_MACH_ADD_NEW_ONE_SPECIAL_PRJ
-#include "regulator-a-example.h"
-#endif
-
-#ifdef CONFIG_MACH_AMAZING
-#include "regulator-amazing.h"
-#endif
-
-#ifdef CONFIG_MACH_KYLETD
-#include "regulator-kyletd.h"
-#endif
-
-#ifdef CONFIG_MACH_Z788
-#include "regulator-z788.h"
-#endif
-
-#ifdef CONFIG_MACH_SP7710G_OPENPHONE
-#include "regulator-sp7710g_openphone.h"
-#endif
-
-#ifdef CONFIG_MACH_SP7702
-#include "regulator-sp7702.h"
-#endif
+#include <regulator-board.h>
 
 /*cfg macor layer: here is the base to make up for cfg easier*/
 #ifndef REGU_NAMES_VDDARM

@@ -27,13 +27,17 @@ CFLAGS_emc_repower.o += -fPIC
 obj-$(CONFIG_SIPC)		+= sipc.o
 
 obj-$(CONFIG_HOTPLUG_CPU)	+= hotplug.o
-obj-$(CONFIG_MACH_SP8825_FPGA) += board_sp8825_fpga.o
-obj-$(CONFIG_MACH_SP8825_OPENPHONE) += board_sp8825_openphone.o
-obj-$(CONFIG_MACH_SP8825EA) += board_sp8825ea.o
-obj-$(CONFIG_MACH_SP8825EB) += board_sp8825eb.o
-obj-$(CONFIG_MACH_SP6825GA) += board_sp6825ga.o
-obj-$(CONFIG_MACH_GARDA) += board_garda.o
-obj-$(CONFIG_MACH_SP8825GA_OPENPHONE) += board_sp8825ga_openphone.o
+
+sprdboard-$(CONFIG_MACH_SP8825_FPGA) += board_sp8825_fpga/
+sprdboard-$(CONFIG_MACH_SP8825_OPENPHONE) += board_sp8825_openphone/
+sprdboard-$(CONFIG_MACH_SP8825EA) += board_sp8825ea/
+sprdboard-$(CONFIG_MACH_SP8825EB) += board_sp8825eb/
+sprdboard-$(CONFIG_MACH_SP6825GA) += board_sp6825ga/
+sprdboard-$(CONFIG_MACH_GARDA) += board_garda/
+sprdboard-$(CONFIG_MACH_SP8825GA_OPENPHONE) += board_sp8825ga_openphone/
+
+obj-y += $(sprdboard-y)
+
 obj-$(CONFIG_SC8825_VIBRATOR) += vibrator.o
 obj-$(CONFIG_BCMDHD)  += dhd_adapter.o
 obj-$(CONFIG_BCMDHD89)  += dhd_adapter.o
@@ -41,3 +45,9 @@ ifeq ($(CONFIG_RTL8723AS),m)
 	obj-y  += rtl8723_adapter.o
 endif
 obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o
+
+sprdboarddirs := $(patsubst %,arch/arm/mach-sc8825/%,$(sprdboard-y))
+$(warning $(sprdboarddirs))
+KBUILD_CPPFLAGS += $(patsubst %,-I%,$(sprdboarddirs))
+$(warning $(KBUILD_CPPFLAGS))
+
