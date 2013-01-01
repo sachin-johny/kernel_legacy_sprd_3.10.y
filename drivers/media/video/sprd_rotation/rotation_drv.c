@@ -579,6 +579,9 @@ static int rotation_start_copy_data_to_virtual(ROTATION_PARAM_T * param_ptr)
 	//printk("pid = %d = 0x%x \n", current->pid, current->pid);
 	for (i = 0; i < list_size; i++) {
 		dma_dst_phy = user_va2pa(current->mm, dst_vir_addr+i*list_copy_size);
+		if (0 == dma_dst_phy) {
+			panic("rotation dst addr panic,0x%x.\n",dst_vir_addr);
+		}
 		//sprd_dma_default_linklist_setting(dma_cfg + i);
 		dma_cfg[i].cfg = DMA_LIT_ENDIAN | DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH32 | DMA_REQMODE_LIST;
 		dma_cfg[i].elem_postm = 0x4 << 16 | 0x4;
