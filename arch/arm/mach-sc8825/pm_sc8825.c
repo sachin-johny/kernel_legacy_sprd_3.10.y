@@ -314,10 +314,10 @@ static void setup_autopd_mode(void)
 	sci_glb_write(REG_GLB_PERI_PWR_CTL, 0x03000920/*|PD_AUTO_EN*/, -1UL);
 	if (sci_glb_read(REG_AHB_CHIP_ID, -1UL) == CHIP_ID_VER_0) {
 		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
-		sci_glb_write(REG_GLB_POWCTL0, 0x01000a20|(1<<23), -1UL );
+		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL );
 	}else {
 		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
-		sci_glb_write(REG_GLB_POWCTL0, 0x01000a20|(1<<23), -1UL);
+		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL);
 		/* sci_glb_set(REG_GLB_POWCTL1, DSP_ROM_SLP_PD_EN|MCU_ROM_SLP_PD_EN); */
 	}
 #endif
@@ -520,6 +520,7 @@ static void disable_ahb_module(void)
 #define INT0_IRQ_ENB           INT0_REG(0x0008)
 #define INT0_IRQ_DIS            INT0_REG(0x000c)
 #define INT0_FIQ_STS            INT0_REG(0x0020)
+#define INT0_FIQ_ENB           INT0_REG(0x0028)
 
 #define INT0_IRQ_MASK	(1<<7 | 1<<3)
 
@@ -822,10 +823,15 @@ int deep_sleep(void)
 	disable_ahb_module();
 
 	/* for dsp wake-up */
-        val = __raw_readl(INT0_IRQ_ENB);
-        val |= SCI_INTC_IRQ_BIT(IRQ_DSP0_INT);
-        val |= SCI_INTC_IRQ_BIT(IRQ_DSP1_INT);
-        __raw_writel(val, INT0_IRQ_ENB);
+	val = __raw_readl(INT0_IRQ_ENB);
+	val |= SCI_INTC_IRQ_BIT(IRQ_DSP0_INT);
+	val |= SCI_INTC_IRQ_BIT(IRQ_DSP1_INT);
+	__raw_writel(val, INT0_IRQ_ENB);
+
+	val = __raw_readl(INT0_FIQ_ENB);
+	val |= SCI_INTC_IRQ_BIT(IRQ_DSP0_INT);
+	val |= SCI_INTC_IRQ_BIT(IRQ_DSP1_INT);
+	__raw_writel(val, INT0_FIQ_ENB);
 
 	/* prevent uart1 */
 	__raw_writel(INT0_IRQ_MASK, INT0_IRQ_DIS);
@@ -882,7 +888,8 @@ int deep_sleep(void)
 		
 	/*clear dsp fiq, for dsp wakeup*/
 	__raw_writel(ICLR_DSP_FRQ0_CLR, SPRD_IPI_ICLR);
-	
+	__raw_writel(ICLR_DSP_FIQ1_CLR, SPRD_IPI_ICLR);
+
 	/*clear the deep sleep status*/
 	sci_glb_write(REG_AHB_HOLDING_PEN, holding & (~CORE1_RUN) & (~AP_ENTER_DEEP_SLEEP), -1UL );
 
