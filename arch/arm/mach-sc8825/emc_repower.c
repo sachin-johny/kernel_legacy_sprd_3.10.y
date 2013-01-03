@@ -1203,7 +1203,7 @@ static inline void emc_init_common_reg(struct emc_repower_param *param)
 	value_temp &= ~(1<<2); // zq Update Enable,CHECK!!!!
 	value_temp &= ~(1<<4); // Low Power DLL Power Down
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DSGCR) = value_temp;
-	if(0){
+	if(1){
             enable_lpddr12_low_power_feature(32,32,0);
 	}
 } //emc_init_common_reg
@@ -1402,7 +1402,8 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 
 	//according to PUBL databook on PIR operation.
 	//10 configuration clock cycle must be waited before polling PGSR
-	for (i=0; i<100; i++);
+	//for (i=0; i<100; i++);
+	wait_n_pclk_cycle(5);
 
 	do value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
 	while((value_temp & 0x1) == 0);
@@ -1456,7 +1457,8 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 #endif
 	value_temp = 0x1 | (0x1 << 18); //Controller DRAM Initialization
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = value_temp;
-	for(i = 0; i < 100; i++) {}
+	//for(i = 0; i < 100; i++) {}
+	wait_n_pclk_cycle(5);
 	do value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
 	while((value_temp & 0x1) == 0);
 
