@@ -93,6 +93,8 @@ static struct proc_dir_entry*  isp_proc_file;
 struct isp_device_t g_isp_device = { 0 };
 
 uint32_t s_dcam_int_eb = 0x00;
+uint32_t s_isp_alloc_addr = 0x00;
+uint32_t s_isp_alloc_order = 0x00;
 
 static DEFINE_SPINLOCK(isp_spin_lock);
 
@@ -185,24 +187,94 @@ static int32_t _isp_module_rst(void)
 	return ret;
 }
 
-static int32_t _isp_lnc_param_load(uint32 )
+static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t counts)
 {
 	int32_t ret = 0;
 	struct isp_reg_bits reg_bits = {0x00};
+	uint32_t reg_value=0x00;
 
-	reg_bits.reg_addr=ISP_LNC_LOAD;
-	reg_bits.reg_value=0x0001;
-	_write_reg(&reg_bits, 0x01);
+	ISP_PRINT("ISP_RAW:_isp_lnc_param_load ---------start\n");
 
-	reg_bits.reg_addr=ISP_INT_RAW;
-	reg_bits.reg_value=0x0000;
-	while(0x00!=(reg_bits.reg_value&ISP_INT_LEN_S_LOAD))
+	ISP_PRINT("ISP_RAW:_isp_lnc_param_load addr:0x%x, 0x%x\n", s_isp_alloc_addr, reg_bits_ptr[0].reg_value);
+
+	reg_bits_ptr->reg_value=(uint32_t)__pa(reg_bits_ptr->reg_value);
+
+	ISP_PRINT("ISP_RAW:_isp_lnc_param_load 0x%x, 0x%x\n", reg_bits_ptr[0].reg_addr, reg_bits_ptr[0].reg_value);
+
+	_write_reg(reg_bits_ptr, counts);
+
+	reg_value=ISP_READL(ISP_INT_RAW);
+
+	ISP_PRINT("ISP_RAW:_isp_lnc_param_load-- 0x%x|0x%x\n",ISP_INT_RAW, reg_value);
+
+	while(0x00==(reg_value&ISP_INT_LEN_S_LOAD))
 	{
 		msleep(1);
-		_read_reg(&reg_bits, 0x01);
+		reg_value=ISP_READL(ISP_INT_RAW);
+		ISP_PRINT("ISP_RAW:_isp_lnc_param_load 0x%x|0x%x\n",ISP_INT_RAW, reg_value);
 	}
 
 	ISP_OWR(ISP_INT_CLEAR, ISP_INT_LEN_S_LOAD);
+
+	return ret;
+}
+
+static int32_t _isp_lnc_param_set(uint32_t* addr, uint32_t len)
+{
+	int32_t ret = 0;
+	uint16_t* buf_addr=(uint16_t*)s_isp_alloc_addr;
+	uint32_t i=0x00;
+
+	ISP_PRINT("ISP_RAW:_isp_lnc_param_set ---------start\n");
+	ISP_PRINT("ISP_RAW:_isp_lnc_param_set--0x%x,0x%x, 0x%x\n",len,s_isp_alloc_addr, addr);
+
+	if((0x00!=s_isp_alloc_addr)
+		&&(0x00!=addr))
+	{
+		memcpy((void*)s_isp_alloc_addr, (void*)addr, len);
+		while(i<50)
+		{
+			ISP_PRINT("ISP_RAW:_isp_lnc_param_set:%d|%d\n",i,buf_addr[i]);
+			i++;
+		}
+	}
+
+	return ret;
+}
+
+static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
+{
+	int32_t ret = 0;
+	uint32_t buf=0x00;
+	uint32_t vir_buf=0x00;
+	uint32_t mem_order=0x00;
+	if(0x00==s_isp_alloc_addr) {
+
+		s_isp_alloc_order = get_order(len);
+		s_isp_alloc_addr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP, s_isp_alloc_order);
+		if (NULL == (void*)s_isp_alloc_addr) {
+			ISP_PRINT("ISP_RAW:_isp_alloc null error\n");
+			return 1;
+		}
+		*addr = s_isp_alloc_addr;
+		buf = virt_to_phys(s_isp_alloc_addr);
+	}
+	ISP_PRINT("ISP_RAW:_isp_alloc 0x%x,0x%x, 0x%x, 0x%x\n",len,s_isp_alloc_order,s_isp_alloc_addr, buf);
+
+	return ret;
+}
+
+static int32_t _isp_free(void)
+{
+	int32_t ret = 0;
+
+	if((0x00!=s_isp_alloc_addr)
+		&&(0x00!=s_isp_alloc_order))
+	{
+		free_pages(s_isp_alloc_addr, s_isp_alloc_order);
+		s_isp_alloc_order = 0x00;
+		s_isp_alloc_addr = 0x00;
+	}
 
 	return ret;
 }
@@ -412,7 +484,6 @@ static void _write_reg(struct isp_reg_bits *reg_bits_ptr, uint32_t counts)
 	for (i = 0; i<counts; ++i) {
 		reg_addr = reg_bits_ptr[i].reg_addr+ISP_BASE_ADDR;
 		reg_val = reg_bits_ptr[i].reg_value;
-//		printk("ISP_RAW: reg_addr 0x%x, reg_val 0x%x \n",reg_addr, reg_val);
 		ISP_WRITEL(reg_addr, reg_val);
 	}
 }
@@ -768,6 +839,7 @@ static int32_t _isp_kernel_release (struct inode *node, struct file *pf)
 
 	_isp_unregisterirq();
 	_isp_module_dis();
+	_isp_free();
 	ret = _isp_put_ctlr(&g_isp_device);
 	if (unlikely (ret) ) {
 	ISP_PRINT ("isp_k: release control  failed \n");
@@ -855,25 +927,6 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 
 		switch (cmd)
 		{
-#if 0
-			case ISP_IO_IRQ: {
-			ISP_PRINT("  isp_k:_ioctl irq called \n");
-			down_interruptible(&g_isp_device.sem_isr);
-			_isp_queue_read(&g_isp_device.queue, &isp_node);
-			irq_param.dcam_irq_val = isp_node.dcam_irq_val;
-			irq_param.isp_irq_val = isp_node.isp_irq_val;
-			isp_irq = isp_node.isp_irq_val;
-			dcam_irq = isp_node.dcam_irq_val;
-			irq_param.irq_val = (dcam_irq<<ISP_IRQ_NUM)|isp_irq;
-			ISP_PRINT("isp_k: ioctl irq: 0x%x, isp irq: 0x%x, dcam irq: 0x%x\n", irq_param.irq_val , isp_irq, dcam_irq);
-			ret = copy_to_user ((void*) param, (void*)&irq_param, sizeof(struct isp_irq_param));	
-			if ( 0 != ret) {
-				ISP_PRINT("isp_k: ioctl irq: copy_to_user failed, ret = 0x%x", ret);
-				ret  -EFAULT;
-			}
-			}
-			break;
-#endif
 			case ISP_IO_READ: {
 			uint32_t buf_size = 0;
 			//ISP_PRINT("  isp_k:_ioctl read called \n");
@@ -922,7 +975,12 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			}
 			buf_size = reg_param.counts*sizeof(struct isp_reg_bits);
 			reg_bits_ptr = (struct isp_reg_bits*) kzalloc(buf_size, GFP_KERNEL);
-			ret = copy_from_user((void*)reg_bits_ptr, (void*)reg_param.reg_param, buf_size);		
+			if(0x00==reg_bits_ptr)
+			{
+				ret = -EFAULT;
+				goto IO_WRITE_EXIT;
+			}
+			ret = copy_from_user((void*)reg_bits_ptr, (void*)reg_param.reg_param, buf_size);
 			if ( 0 != ret) {
 
 				ISP_PRINT("isp_k: ioctl write: copy_to_user failed, ret = 0x%x", ret);
@@ -979,7 +1037,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				ret = _isp_registerirq();
 				if (unlikely(ret)) {
 					ISP_PRINT ("isp_k:register interrupt failed \n");
-					return -EFAULT;
+					ret = -EFAULT;
 				}
 			}
 			break;
@@ -990,16 +1048,98 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				ret = _isp_cfg_dcam_int(int_param);
 				if (unlikely(ret)) {
 					ISP_PRINT ("isp_k:cfg dcam interrupt failed \n");
-					return -EFAULT;
+					ret = -EFAULT;
+				}
+			}
+			break;
+
+			case ISP_IO_LNC_PARAM: {
+				uint32_t buf_size = 0;
+				uint32_t* addr = 0;
+				ret = copy_from_user((void*)&reg_param, (void*)param, sizeof(struct isp_reg_param));
+				if ( 0 != ret) {
+
+					ISP_PRINT("isp_k: ioctl lnc param: copy_to_user failed, ret = 0x%x", ret);
+					ret = -EFAULT;
+					goto IO_LNC_PARAM_EXIT;
+				}
+				buf_size = reg_param.counts;
+				addr = (uint32_t*) kzalloc(buf_size, GFP_KERNEL);
+				if(0x00==addr){
+					ret = -EFAULT;
+					goto IO_LNC_PARAM_EXIT;
+				}
+				ret = copy_from_user((void*)addr, (void*)reg_param.reg_param, buf_size);
+				if ( 0 != ret) {
+
+					ISP_PRINT("isp_k: ioctl lnc param: copy_to_user failed, ret = 0x%x", ret);
+					ret = -EFAULT;
+					goto IO_LNC_PARAM_EXIT;
+				}
+				ret = _isp_lnc_param_set(addr, buf_size);
+				if ( 0 != ret) {
+					ISP_PRINT("isp_k: ioctl lnc param failed, ret = 0x%x", ret);
+					ret = -EFAULT;
+					goto IO_LNC_PARAM_EXIT;
+				}
+
+				IO_LNC_PARAM_EXIT:
+				if(addr) {
+					kfree(addr);
+					addr = 0;
 				}
 			}
 			break;
 
 			case ISP_IO_LNC: {
-				ret = _isp_lnc_param_load();
+				uint32_t buf_size = 0;
+				ret = copy_from_user((void*)&reg_param, (void*)param, sizeof(struct isp_reg_param));
+				if ( 0 != ret) {
+					ISP_PRINT("isp_k: ioctl lnc: copy_to_user failed, ret = 0x%x", ret);
+					ret = -EFAULT;
+					goto IO_LNC_EXIT;
+				}
+				buf_size = reg_param.counts*sizeof(struct isp_reg_bits);
+				reg_bits_ptr = (struct isp_reg_bits*) kzalloc(buf_size, GFP_KERNEL);
+				if(0x00==reg_bits_ptr)
+				{
+					ret = -EFAULT;
+					goto IO_LNC_EXIT;
+				}
+				ret = copy_from_user((void*)reg_bits_ptr, (void*)reg_param.reg_param, buf_size);
+				if ( 0 != ret) {
+					ISP_PRINT("isp_k: ioctl lnc: copy_to_user failed, ret = 0x%x", ret);
+					ret = -EFAULT;
+					goto IO_LNC_EXIT;
+				}
+
+				ret = _isp_lnc_param_load(reg_bits_ptr, reg_param.counts);
 				if (unlikely(ret)) {
-					ISP_PRINT ("isp_k:register load lnc failed \n");
-					return -EFAULT;
+					ISP_PRINT ("isp_k:load lnc failed \n");
+					ret = -EFAULT;
+				}
+				IO_LNC_EXIT:
+				if(reg_bits_ptr) {
+					kfree(reg_bits_ptr);
+					reg_bits_ptr = 0;
+				}
+			}
+			break;
+
+			case ISP_IO_ALLOC: {
+				uint32_t buf_size = 0;
+				ret = copy_from_user((void*)&reg_param, (void*)param, sizeof(struct isp_reg_param));
+				if ( 0 != ret) {
+					ISP_PRINT("isp_k: ioctl write: copy_to_user failed, ret = 0x%x", ret);
+					ret = -EFAULT;
+					break;
+				}
+				ret = _isp_alloc(&reg_param.reg_param, reg_param.counts);
+				if ( 0 == ret) {
+					ret = copy_to_user((void*)param, (void*)&reg_param, sizeof(struct isp_reg_param));
+				} else {
+					ISP_PRINT("isp_k: ioctl alloc failed, ret = 0x%x", ret);
+					ret = -EFAULT;
 				}
 			}
 			break;
