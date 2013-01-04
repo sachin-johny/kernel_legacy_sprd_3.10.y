@@ -802,7 +802,7 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
-	case ROT_IO_DATA_COPY_VIRTUAL:
+	case ROT_IO_DATA_COPY_TO_VIRTUAL:
 		{
 			ROT_CFG_T params;
 			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));

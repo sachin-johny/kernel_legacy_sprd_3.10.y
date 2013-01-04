@@ -25,7 +25,8 @@ typedef enum {
 } ROT_DATA_FORMAT_E;
 
 typedef enum {
-	ROT_90          = 0,
+	ROT_0 = 0,
+	ROT_90,
 	ROT_270,
 	ROT_180,
 	ROT_MIRROR,
@@ -51,10 +52,11 @@ typedef struct _rot_cfg_tag {
 }ROT_CFG_T, *ROT_CFG_T_PTR;
 
 
-#define SPRD_ROT_IOCTL_MAGIC 		'm'
-#define ROT_IO_CFG 					_IOW(SPRD_ROT_IOCTL_MAGIC, 1, ROT_CFG_T)
-#define ROT_IO_START 				_IOW(SPRD_ROT_IOCTL_MAGIC, 2, unsigned int)
-#define ROT_IO_IS_DONE 				_IOW(SPRD_ROT_IOCTL_MAGIC, 3, unsigned int)
-#define ROT_IO_DATA_COPY 		    	_IOW(SPRD_ROT_IOCTL_MAGIC, 4, ROT_CFG_T)
-#define ROT_IO_DATA_COPY_VIRTUAL   	_IOW(SPRD_ROT_IOCTL_MAGIC, 5, ROT_CFG_T)
+#define SPRD_ROT_IOCTL_MAGIC                              'm'
+#define ROT_IO_CFG                                                     _IOW(SPRD_ROT_IOCTL_MAGIC, 1, ROT_CFG_T)
+#define ROT_IO_START                                                 _IOW(SPRD_ROT_IOCTL_MAGIC, 2, unsigned int)
+#define ROT_IO_IS_DONE                                            _IOW(SPRD_ROT_IOCTL_MAGIC, 3, unsigned int)
+#define ROT_IO_DATA_COPY                                      _IOW(SPRD_ROT_IOCTL_MAGIC, 4, ROT_CFG_T)
+#define ROT_IO_DATA_COPY_TO_VIRTUAL               _IOW(SPRD_ROT_IOCTL_MAGIC, 5, ROT_CFG_T)
+#define ROT_IO_DATA_COPY_FROM_VIRTUAL         _IOW(SPRD_ROT_IOCTL_MAGIC, 6, ROT_CFG_T)
 #endif
