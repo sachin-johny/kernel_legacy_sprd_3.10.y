@@ -422,6 +422,8 @@ static int rotation_start_copy_data(ROTATION_PARAM_T * param_ptr)
 	if (ROTATION_YUV420 == param_ptr->data_format) {
 		block_len =
 		    param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+	} else if (ROTATION_RGB888 == param_ptr->data_format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 4;
 	} else {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
 	}
