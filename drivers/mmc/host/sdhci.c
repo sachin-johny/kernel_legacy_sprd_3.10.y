@@ -1763,8 +1763,13 @@ static int sdhci_do_get_ro(struct sdhci_host *host)
 
 static void sdhci_hw_reset(struct mmc_host *mmc)
 {
-	if (mmc && mmc->ops->hw_reset)
-		mmc->ops->hw_reset(mmc);
+	int ret = 0;
+	struct sdhci_host *host = mmc_priv(mmc);
+	mmc_power_off(mmc);
+	usleep_range(5000, 5500);
+	mmc_power_up(mmc);
+	sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
+	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
 }
 
 static int sdhci_get_ro(struct mmc_host *mmc)

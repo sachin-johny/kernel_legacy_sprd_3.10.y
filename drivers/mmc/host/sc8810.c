@@ -644,7 +644,7 @@ if(host->mmc && host->mmc->card)
 		printk("%s, %s, runtime suspended\n", mmc_hostname(host->mmc), __func__ );
 	}
 #else
-	ret = sdhci_suspend_host(host, pm);
+	ret = sdhci_suspend_host(host);
 #endif
 	if(ret){
 		printk("~wow, %s suspend error %d\n", host->hw_name, ret);

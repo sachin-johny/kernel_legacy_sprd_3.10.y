@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/platform_device.h>
 #include <linux/err.h>
@@ -544,7 +545,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		pm_runtime_enable(&(pdev)->dev);
 	}
 #endif
-	mmc_set_disable_delay(host->mmc, 500);
 #endif
 	host->mmc->caps |= MMC_CAP_HW_RESET;
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
@@ -629,12 +629,12 @@ if(host->mmc && host->mmc->card)
 #endif
 #ifdef CONFIG_PM_RUNTIME
 	if (!pm_runtime_suspended(&dev->dev)) {
-		ret = sdhci_suspend_host(host, pm);
+		ret = sdhci_suspend_host(host);
 	}else{
 		printk("%s, %s, runtime suspended\n", mmc_hostname(host->mmc), __func__ );
 	}
 #else
-	ret = sdhci_suspend_host(host, pm);
+	ret = sdhci_suspend_host(host);
 #endif
 	if(ret){
 		printk("~wow, %s suspend error %d\n", host->hw_name, ret);
