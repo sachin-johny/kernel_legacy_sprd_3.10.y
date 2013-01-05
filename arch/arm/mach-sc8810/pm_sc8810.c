@@ -40,7 +40,7 @@ extern void l2x0_resume(int collapsed);
 #define CHIP_ID_VER_MF		(0x88100040UL)
 #define PD_AUTO_EN (1<<22)
 #define AHB_REG_BASE (SPRD_AHB_BASE+0x200)
-#define CHIP_ID	(AHB_REG_BASE + 0x1FC)
+#define CHIP_ID_ADR	(AHB_REG_BASE + 0x1FC)
 
 static void setup_autopd_mode(void)
 {
@@ -51,7 +51,7 @@ static void setup_autopd_mode(void)
 	sprd_greg_write(REG_TYPE_GLOBAL, 0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);/*TD*/
 	sprd_greg_write(REG_TYPE_GLOBAL, 0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
 	sprd_greg_write(REG_TYPE_GLOBAL, 0x03000920/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
-	if (__raw_readl(CHIP_ID) == CHIP_ID_VER_0) {/*original version*/
+	if (__raw_readl(CHIP_ID_ADR) == CHIP_ID_VER_0) {/*original version*/
 		sprd_greg_write(REG_TYPE_GLOBAL, 0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
 		sprd_greg_write(REG_TYPE_GLOBAL, 0x07000f20|(1<<23), GR_POWCTL0);
 	}
@@ -76,7 +76,7 @@ void check_pd(void)
 	CHECK_PD(REG_TYPE_GLOBAL, 0x05000520, GR_TD_PWR_CTRL);
 	CHECK_PD(REG_TYPE_GLOBAL, 0x04000720, GR_CEVA_RAM_BH_PWR_CTRL);
 	CHECK_PD(REG_TYPE_GLOBAL, 0x03000920, GR_PERI_PWR_CTRL);
-	if (__raw_readl(CHIP_ID) == CHIP_ID_VER_0) {
+	if (__raw_readl(CHIP_ID_ADR) == CHIP_ID_VER_0) {
 		printk("####:original version\n");
 		CHECK_PD(REG_TYPE_GLOBAL, 0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
 		CHECK_PD(REG_TYPE_GLOBAL, 0x07000f20|(1<<23), GR_POWCTL0);
@@ -446,31 +446,11 @@ static void init_gr(void)
 	/* enable XTL auto power down. */
 	val = sprd_greg_read(REG_TYPE_GLOBAL, GR_CLK_EN);
 	val |= MCU_XTLEN_AUTOPD_EN;
-	sprd_greg_write(REG_TYPE_GLOBAL, val, GR_CLK_EN);
-}
-
-/*idle for sc8810*/
-void sc8810_idle(void)
-{
-	int val;
-	if (!need_resched()) {
-		hw_local_irq_disable();
-		if (!arch_local_irq_pending()) {
-			val = os_ctx->idle(os_ctx);
-			if (0 == val) {
-#ifdef CONFIG_CACHE_L2X0
-				/*l2cache power control, standby mode enable*/
-				__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);
+#ifndef CONFIG_NKERNEL
+/* add this for dsp small code bug*/
+	val &= ~0x20000;
 #endif
-				l2x0_suspend();
-				cpu_do_idle();
-				l2x0_resume(1);
-			}
-		}
-		hw_local_irq_enable();
-	}
-	local_irq_enable();
-	return;
+	sprd_greg_write(REG_TYPE_GLOBAL, val, GR_CLK_EN);
 }
 
 void sc8810_pm_init(void)

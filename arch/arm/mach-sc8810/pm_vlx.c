@@ -16,9 +16,39 @@
 #include <linux/errno.h>
 #include <asm/irqflags.h>
 #include <mach/pm_debug.h>
+#include <asm/hardware/cache-l2x0.h>
 
 extern int sc8810_deep_sleep(void);
-extern void sc8810_pm_init(void);
+extern void l2x0_suspend(void);
+extern void l2x0_resume(int collapsed);
+
+/*idle for sc8810*/
+void sc8810_idle(void)
+{
+	int val;
+	if (!need_resched()) {
+		hw_local_irq_disable();
+		if (!arch_local_irq_pending()) {
+			val = os_ctx->idle(os_ctx);
+			if (0 == val) {
+#ifdef CONFIG_CACHE_L2X0
+				/*l2cache power control, standby mode enable*/
+				__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);
+#endif
+				l2x0_suspend();
+				cpu_do_idle();
+				l2x0_resume(1);
+			}
+		}
+		hw_local_irq_enable();
+	}
+	local_irq_enable();
+	return;
+}
+
+void sc8810_standby_sleep(void){
+	cpu_do_idle();
+}
 
 /*for battery*/
 #define BATTERY_CHECK_INTERVAL 30000
@@ -34,11 +64,7 @@ static int sprd_check_battery(void)
         return ret_val;
 }
 
-static void sc8810_sleep(void){
-	cpu_do_idle();
-}
-
-static int pm_deepsleep(suspend_state_t state)
+int pm_deep_sleep(suspend_state_t state)
 {
 	int ret_val = 0;
 	unsigned long flags;
@@ -69,6 +95,7 @@ static int pm_deepsleep(suspend_state_t state)
 			hw_local_irq_enable();
 		}
 
+		/*for battery check */
 		battery_sleep();
 		cur_time = get_sys_cnt();
 		if ((cur_time -  battery_time) > BATTERY_CHECK_INTERVAL) {
@@ -84,71 +111,3 @@ static int pm_deepsleep(suspend_state_t state)
 
 	return ret_val;
 }
-
-
-static int sc8810_pm_enter(suspend_state_t state)
-{
-	int rval = 0;
-	switch (state) {
-		case PM_SUSPEND_STANDBY:
-			sc8810_sleep();
-			break;
-		case PM_SUSPEND_MEM:
-			rval = pm_deepsleep(state);
-			break;
-		default:
-			break;
-	}
-
-	return rval;
-}
-
-static int sc8810_pm_valid(suspend_state_t state)
-{
-	pr_debug("pm_valid: %d\n", state);
-	switch (state) {
-		case PM_SUSPEND_ON:
-		case PM_SUSPEND_STANDBY:
-		case PM_SUSPEND_MEM:
-			return 1;
-		default:
-			return 0;
-	}
-}
-
-extern void check_ldo(void);
-extern void check_pd(void);
-static int sc8810_pm_prepare(void)
-{
-	pr_debug("enter %s\n", __func__);
-	check_ldo();
-	check_pd();
-	return 0;
-}
-
-static void sc8810_pm_finish(void)
-{
-	pr_debug("enter %s\n", __func__);
-	print_statisic();
-}
-
-static struct platform_suspend_ops sc8810_pm_ops = {
-	.valid		= sc8810_pm_valid,
-	.enter		= sc8810_pm_enter,
-	.prepare		= sc8810_pm_prepare,
-	.prepare_late 	= NULL,
-	.finish		= sc8810_pm_finish,
-};
-
-static int __init pm_init(void)
-{
-	sc8810_pm_init();
-
-#ifdef CONFIG_SUSPEND
-	suspend_set_ops(&sc8810_pm_ops);
-#endif
-
-	return 0;
-}
-
-device_initcall(pm_init);

@@ -14,31 +14,22 @@
 #include <linux/init.h>
 #include <linux/suspend.h>
 #include <linux/errno.h>
-#include <linux/delay.h>
-#include <linux/wakelock.h>
-#include <asm/io.h>
+#include <asm/irqflags.h>
+#include <mach/pm_debug.h>
 
-static void sc8810_sleep(void){
-	cpu_do_idle();
-}
-
-/* FIXME: need more implementation for deep sleep */
-static int sc8810_deep_sleep(void){
-	cpu_do_idle();
-	return 0;
-}
+extern void sc8810_pm_init(void);
+extern void sc8810_standby_sleep(void);
+extern int pm_deep_sleep(suspend_state_t state);
 
 static int sc8810_pm_enter(suspend_state_t state)
 {
 	int rval = 0;
-
-	pr_debug("pm_enter: %d\n", state);
 	switch (state) {
 		case PM_SUSPEND_STANDBY:
-			sc8810_sleep();
+			sc8810_standby_sleep();
 			break;
 		case PM_SUSPEND_MEM:
-			rval = sc8810_deep_sleep();
+			rval = pm_deep_sleep(state);
 			break;
 		default:
 			break;
@@ -60,32 +51,33 @@ static int sc8810_pm_valid(suspend_state_t state)
 	}
 }
 
+extern void check_ldo(void);
+extern void check_pd(void);
 static int sc8810_pm_prepare(void)
 {
 	pr_debug("enter %s\n", __func__);
+	check_ldo();
+	check_pd();
 	return 0;
 }
 
 static void sc8810_pm_finish(void)
 {
 	pr_debug("enter %s\n", __func__);
+	print_statisic();
 }
 
 static struct platform_suspend_ops sc8810_pm_ops = {
 	.valid		= sc8810_pm_valid,
 	.enter		= sc8810_pm_enter,
-	.prepare	= sc8810_pm_prepare,
+	.prepare		= sc8810_pm_prepare,
+	.prepare_late 	= NULL,
 	.finish		= sc8810_pm_finish,
 };
 
-void sc8810_idle(void)
+static int __init pm_init(void)
 {
-	cpu_do_idle();
-}
-
-static int __init sc8810_pm_init(void)
-{
-	/* FIXME: need more initialization for deep sleep */
+	sc8810_pm_init();
 
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&sc8810_pm_ops);
@@ -94,4 +86,4 @@ static int __init sc8810_pm_init(void)
 	return 0;
 }
 
-device_initcall(sc8810_pm_init);
+device_initcall(pm_init);

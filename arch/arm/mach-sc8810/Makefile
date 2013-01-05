@@ -7,10 +7,11 @@ obj-y += sys_debug.o
 obj-y += sec-common.o
 
 ifeq ($(CONFIG_NKERNEL),y)
-obj-$(CONFIG_PM) += pm_vlx.o pm_sc8810.o standby.o pm_debug.o
+obj-$(CONFIG_PM) += pm_vlx.o
 else
-obj-$(CONFIG_PM) += pm.o
+obj-$(CONFIG_PM) += pm_orig.o
 endif
+obj-$(CONFIG_PM) += pm.o  pm_sc8810.o standby.o pm_debug.o
 
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 
