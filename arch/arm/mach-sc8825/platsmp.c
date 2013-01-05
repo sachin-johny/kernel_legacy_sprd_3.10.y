@@ -129,8 +129,8 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	write_reg_pen(1 << (cpu * 4));
 	write_pen_release(cpu);
 
-	/* use sev to wake up cpu1 and wait for pen released */
-	dsb_sev();
+	/* use ipi to wake up cpu1 and wait for pen released */
+	gic_raise_softirq(cpumask_of(cpu), 15);
 	timeout = jiffies + (1 * HZ);
 
 	while (time_before(jiffies, timeout)) {
