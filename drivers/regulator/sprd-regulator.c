@@ -226,6 +226,23 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	return -EFAULT;
 }
 
+int (*dcdc_get_small_voltage) (u32) = NULL;
+int (*dcdc_set_small_voltage) (u32, int) = NULL;
+
+static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
+{
+	int i, j = -1;
+	int ds, min_ds = 100;	/* mV, the max range of small voltage */
+	for (i = 0; i < regs->vol_sel_cnt; i++) {
+		ds = vol - regs->vol_sel[i];
+		if (ds >= 0 && ds < min_ds) {
+			min_ds = ds;
+			j = i;
+		}
+	}
+	return j;
+}
+
 /* standard dcdc ops*/
 static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 			    int max_uV, unsigned *selector)
@@ -234,32 +251,66 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	    (struct sci_regulator_desc *)rdev->desc;
 	const struct sci_regulator_regs *regs = desc->regs;
 	int mv = min_uV / 1000;
-	int ret = -EINVAL;
 	int i, shft = __ffs(regs->vol_ctl_bits);
 	int max = regs->vol_ctl_bits >> shft;
 
-	BUG_ON(shft != 0);
 	debug0("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
-	return -EACCES;
+
+	BUG_ON(shft != 0);
+	BUG_ON(regs->vol_sel_cnt > 8);
 
 	if (!regs->vol_ctl)
 		return -EACCES;
 
-	for (i = 0; i < regs->vol_sel_cnt; i++) {
-		if (regs->vol_sel[i] == mv) {
-			ANA_REG_SET(regs->vol_ctl, i | (max - i) << 4, -1);
-			/*FIXME: small adjust later */
-			ret = 0;
-			break;
-		}
-	}
+	/* found the closely vol ctrl bits */
+	i = __match_dcdc_vol(regs, mv);
+	if (i < 0)
+		return -EINVAL;
 
-	return ret;
+	debug("regu %p (%s) %d = %d +%dmv\n", regs, desc->desc.name,
+	      mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
+
+	if (dcdc_set_small_voltage)	/* small adjust */
+		dcdc_set_small_voltage(regs->vol_ctl, mv - regs->vol_sel[i]);
+
+	ANA_REG_SET(regs->vol_ctl, i | (max - i) << 4, -1);
+	return 0;
 }
 
 static int dcdc_get_voltage(struct regulator_dev *rdev)
 {
-	return -EACCES;
+	struct sci_regulator_desc *desc =
+	    (struct sci_regulator_desc *)rdev->desc;
+	const struct sci_regulator_regs *regs = desc->regs;
+	u32 mv, vol_bits;
+	int cal = 0;		/* mV */
+	int i, shft = __ffs(regs->vol_ctl_bits);
+
+	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x, sel %d\n",
+	       regs, desc->desc.name, regs->vol_ctl,
+	       shft, regs->vol_ctl_bits, regs->vol_sel_cnt);
+
+	BUG_ON(shft != 0);
+	BUG_ON(regs->vol_sel_cnt > 8);
+
+	if (!regs->vol_ctl)
+		return -EINVAL;
+
+	i = (ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits);
+
+	/*check the reset relative bit of vol ctl */
+	vol_bits =
+	    (~ANA_REG_GET(regs->vol_ctl) & (regs->vol_ctl_bits << 4)) >> 4;
+
+	if (i != vol_bits)
+		return -EFAULT;
+
+	mv = regs->vol_sel[i];
+	if (dcdc_get_small_voltage)
+		cal = dcdc_get_small_voltage(regs->vol_ctl);
+
+	debug("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv, cal);
+	return (mv + cal) * 1000;
 }
 
 /* standard ldo-D-Die ops*/

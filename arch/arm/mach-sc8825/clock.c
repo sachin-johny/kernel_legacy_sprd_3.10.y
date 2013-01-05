@@ -433,9 +433,7 @@ int __init sci_clk_register(struct clk_lookup *cl)
 		/* clk_set_rate(c, clk_get_rate(c)); */
 	}
 
-	spin_lock(&clocks_lock);
 	clkdev_add(cl);
-	spin_unlock(&clocks_lock);
 
 #if defined(CONFIG_DEBUG_FS)
 	clk_debugfs_register(c);
@@ -465,7 +463,7 @@ __clk_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 	struct cpufreq_freqs *freq = data;
 
 	printk("%s (%u) dump cpu freq (%u %u %u %u)\n",
-	       __func__, val,
+	       __func__, (unsigned int)val,
 	       freq->cpu, freq->old, freq->new, (unsigned int)freq->flags);
 
 	return 0;
