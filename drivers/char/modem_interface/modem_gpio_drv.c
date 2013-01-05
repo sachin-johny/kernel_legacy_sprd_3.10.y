@@ -24,15 +24,15 @@
 #define GPIO_INVALID 0xFFFFFFFF
 
 extern void modem_intf_send_GPIO_message(int gpio_no,int status,int index);
-static unsigned int cp_to_ap_rdy_irq;
+static unsigned int cp_alive_gpio_irq;
 static unsigned int cp_crash_gpio_irq;
 static unsigned int modem_power_gpio;
-static int    cp_to_ap_rdy ;
+static int    cp_alive_gpio ;
 static int    cp_crash_gpio;
 
 int get_alive_status(void)
 {
-	int status = gpio_get_value(cp_to_ap_rdy);
+	int status = gpio_get_value(cp_alive_gpio);
 	if(status != 0)
 		return 1;
 	return 0;
@@ -44,16 +44,16 @@ int get_assert_status(void)
 		return 1;
 	return 0;
 }
-static irqreturn_t cp_to_ap_rdy_handle(int irq, void *handle)
+static irqreturn_t cp_alive_gpio_handle(int irq, void *handle)
 {
 	int status ;
 
-	status = gpio_get_value(cp_to_ap_rdy);
+	status = gpio_get_value(cp_alive_gpio);
 	pr_debug("modem_boot_irq: %d \n",status);
 	if(status == 0)
-		modem_intf_send_GPIO_message(cp_to_ap_rdy,status,0);
+		modem_intf_send_GPIO_message(cp_alive_gpio,status,0);
 	else
-		modem_intf_send_GPIO_message(cp_to_ap_rdy,1,0);
+		modem_intf_send_GPIO_message(cp_alive_gpio,1,0);
 	return IRQ_HANDLED;
 }
 
@@ -62,7 +62,7 @@ static irqreturn_t cp_crash_gpio_handle(int irq, void *handle)
 	int status ;
 
 	status = gpio_get_value(cp_crash_gpio);
-	pr_debug("cp_crash_irq: %d \n",status);
+	printk(KERN_WARNING"cp_crash_irq: %d \n",status);
 	if(status == 0)
 		modem_intf_send_GPIO_message(cp_crash_gpio,status,0);
 	else
@@ -76,7 +76,7 @@ int modem_gpio_init(void *para)
 	int    status = 0;
     
 	pr_debug("modem_gpio_init start!!! \n");
-	cp_to_ap_rdy = modem_config->modem_boot_gpio;
+	cp_alive_gpio = modem_config->modem_boot_gpio;
 	cp_crash_gpio = modem_config->modem_crash_gpio;
         modem_power_gpio = modem_config->modem_power_gpio;
 
@@ -84,23 +84,23 @@ int modem_gpio_init(void *para)
 		gpio_request(modem_power_gpio, "modem_power_gpio");
 		gpio_export(modem_power_gpio,0);
 	}
-	error = gpio_request(cp_to_ap_rdy, "modem_boot_gpio");
+	error = gpio_request(cp_alive_gpio, "modem_boot_gpio");
 	if (error) {
-		pr_err("Cannot request GPIO %d\n", cp_to_ap_rdy);
-		gpio_free(cp_to_ap_rdy);
+		pr_err("Cannot request GPIO %d\n", cp_alive_gpio);
+		gpio_free(cp_alive_gpio);
         	return error;
 	}
 	
-    	gpio_direction_input(cp_to_ap_rdy);
-        gpio_export(cp_to_ap_rdy,0);
-   	cp_to_ap_rdy_irq = gpio_to_irq(cp_to_ap_rdy);
-	if (cp_to_ap_rdy_irq < 0)
+	gpio_direction_input(cp_alive_gpio);
+	gpio_export(cp_alive_gpio,0);
+	cp_alive_gpio_irq = gpio_to_irq(cp_alive_gpio);
+	if (cp_alive_gpio_irq < 0)
 		return -1;
-	error = request_threaded_irq(cp_to_ap_rdy_irq, cp_to_ap_rdy_handle, 
+	error = request_threaded_irq(cp_alive_gpio_irq, cp_alive_gpio_handle, 
 		NULL, IRQF_DISABLED|IRQF_TRIGGER_RISING |IRQF_TRIGGER_FALLING, "modem_boot", para);
 	if (error) {
-		printk("lee :cannot alloc cp_to_ap_rdy_irq, err %d\r\n", error);
-		gpio_free(cp_to_ap_rdy);
+		printk("lee :cannot alloc cp_alive_gpio_irq, err %d\r\n", error);
+		gpio_free(cp_alive_gpio);
 		return error;
 	}
 
@@ -126,18 +126,18 @@ int modem_gpio_init(void *para)
         }
 
 /////////////////////////////////////////////////
-        status = gpio_get_value(cp_to_ap_rdy);
+        status = gpio_get_value(cp_alive_gpio);
         if(status == 0)
-                modem_intf_send_GPIO_message(cp_to_ap_rdy,status,0);
+                modem_intf_send_GPIO_message(cp_alive_gpio,status,0);
         else
-                modem_intf_send_GPIO_message(cp_to_ap_rdy,1,0);
+                modem_intf_send_GPIO_message(cp_alive_gpio,1,0);
 
 	return 0;
 }
 
 void modem_poweron(void)
 {
-	pr_debug("modem power on!!! \n");
+	printk("modem power on!!! \n");
 	if(GPIO_INVALID != modem_power_gpio){
 		gpio_direction_output(modem_power_gpio, 1); //2012.1.10
 		gpio_set_value(modem_power_gpio, 1);
