@@ -326,11 +326,18 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 
 static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
+	#ifdef CONFIG_MACH_SP6825GA
+	return sprintf(buf,
+         __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":90:907:70:58"
+	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":250:907:70:58"
+	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":420:907:70:58"
+	#else
 	return sprintf(buf,
          __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":100:1020:80:65"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":280:1020:80:65"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":470:1020:80:65"
 	 "\n");
+	#endif
 }
 
 static struct kobj_attribute virtual_keys_attr = {
@@ -825,22 +832,42 @@ static int ft5x0x_read_data(void)
 		case 5:
 			event->x5 = (s16)(buf[0x1b] & 0x0F)<<8 | (s16)buf[0x1c];
 			event->y5 = (s16)(buf[0x1d] & 0x0F)<<8 | (s16)buf[0x1e];
+		#ifdef CONFIG_MACH_SP6825GA
+			event->x5 = event->x5*8/9;
+			event->y5 = event->y5*854/960;
+		#endif
 			TS_DBG("===x5 = %d,y5 = %d ====",event->x5,event->y5);
 		case 4:
 			event->x4 = (s16)(buf[0x15] & 0x0F)<<8 | (s16)buf[0x16];
 			event->y4 = (s16)(buf[0x17] & 0x0F)<<8 | (s16)buf[0x18];
+		#ifdef CONFIG_MACH_SP6825GA
+			event->x4 = event->x4*8/9;
+			event->y4 = event->y4*854/960;
+		#endif
 			TS_DBG("===x4 = %d,y4 = %d ====",event->x4,event->y4);
 		case 3:
 			event->x3 = (s16)(buf[0x0f] & 0x0F)<<8 | (s16)buf[0x10];
 			event->y3 = (s16)(buf[0x11] & 0x0F)<<8 | (s16)buf[0x12];
+		#ifdef CONFIG_MACH_SP6825GA
+			event->x3 = event->x3*8/9;
+			event->y3 = event->y3*854/960;
+		#endif
 			TS_DBG("===x3 = %d,y3 = %d ====",event->x3,event->y3);
 		case 2:
 			event->x2 = (s16)(buf[9] & 0x0F)<<8 | (s16)buf[10];
 			event->y2 = (s16)(buf[11] & 0x0F)<<8 | (s16)buf[12];
+		#ifdef CONFIG_MACH_SP6825GA
+			event->x2 = event->x2*8/9;
+			event->y2 = event->y2*854/960;
+		#endif
 			TS_DBG("===x2 = %d,y2 = %d ====",event->x2,event->y2);
 		case 1:
 			event->x1 = (s16)(buf[3] & 0x0F)<<8 | (s16)buf[4];
 			event->y1 = (s16)(buf[5] & 0x0F)<<8 | (s16)buf[6];
+		#ifdef CONFIG_MACH_SP6825GA
+			event->x1 = event->x1*8/9;
+			event->y1 = event->y1*854/960;
+		#endif
 			TS_DBG("===x1 = %d,y1 = %d ====",event->x1,event->y1);
             break;
 		default:
