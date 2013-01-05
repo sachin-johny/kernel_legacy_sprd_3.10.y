@@ -35,7 +35,8 @@
  **---------------------------------------------------------------------------*/
  #define SPI0_ID        0
  #define SPI1_ID        1
- #define SPI_USED_ID    SPI0_ID   
+  #define SPI2_ID        2
+ #define SPI_USED_ID    SPI2_ID   
 
  #define CHN_SPI_INT			9
  #define DMA_SPI_TX			0x13
@@ -62,10 +63,10 @@
 /*
   Define the clk src for SPI mode
 */
-#define SPICLK_SEL_78M    0
-#define SPICLK_SEL_26M    1
-#define SPICLK_SEL_104M   2
-#define SPICLK_SEL_48M    3
+#define SPICLK_SEL_192M    0
+#define SPICLK_SEL_154M    1
+#define SPICLK_SEL_96M   2
+#define SPICLK_SEL_26M    3
 
 /*
   SPI CS sel in master mode
