@@ -7,6 +7,11 @@ config FB_SC8825
 	help
           Frame buffer driver for sc8825 based boards.
 
+config FB_LCD_HX8362_RGB_SPI
+	boolean "support HX8362 rgb (spi) panel"
+	depends on FB_SC8825
+	default n
+
 config FB_LCD_HX8369
 	boolean "support HX8369 panel"
 	depends on FB_SC8825

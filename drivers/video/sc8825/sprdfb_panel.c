@@ -89,7 +89,8 @@ static bool panel_check(struct panel_cfg *cfg)
 		return false;
 	}
 
-	pr_debug("sprdfb: [%s], dev_id = %d, lcd_id = 0x%x, type = %d\n",__FUNCTION__, cfg->dev_id, cfg->lcd_id, cfg->panel->type);
+	//pr_debug("sprdfb: [%s], dev_id = %d, lcd_id = 0x%x, type = %d\n",__FUNCTION__, cfg->dev_id, cfg->lcd_id, cfg->panel->type);
+	printk("sprdfb: [%s], dev_id = %d, lcd_id = 0x%x, type = %d\n",__FUNCTION__, cfg->dev_id, cfg->lcd_id, cfg->panel->type);		//zxdbg
 
 	switch(cfg->panel->type){
 	case SPRDFB_PANEL_TYPE_MCU:
@@ -115,7 +116,7 @@ static bool panel_check(struct panel_cfg *cfg)
 
 static int panel_mount(struct sprdfb_device *dev, struct panel_spec *panel)
 {
-	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
+	printk("sprdfb: [%s], dev_id = %d panel_spec addr 0x%x \n",__FUNCTION__, dev->dev_id, panel);
 
 	/* TODO: check whether the mode/res are supported */
 	dev->panel = panel;
@@ -130,6 +131,7 @@ static int panel_mount(struct sprdfb_device *dev, struct panel_spec *panel)
 
 	panel->if_ctrl->panel_if_mount(dev);
 
+	printk("sprdfb: [%s], mount accomlished! \n",__FUNCTION__ );
 	return 0;
 }
 
@@ -173,7 +175,8 @@ static struct panel_spec *adapt_panel_from_uboot(uint16_t dev_id)
 	struct panel_cfg *cfg;
 	struct list_head *panel_list;
 
-	pr_debug("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
+	//pr_debug("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
+	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
 
 	if (lcd_id_from_uboot == 0) {
 		printk("sprdfb: [%s]: Not got lcd id from uboot\n", __FUNCTION__);
@@ -212,14 +215,13 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 	}
 
 	list_for_each_entry(cfg, panel_list, list) {
-		printk("sprdfb: [%s]: try panel 0x%x\n", __FUNCTION__, cfg->lcd_id);
 		panel_mount(dev, cfg->panel);
-		panel_init(dev);
 		dev->panel->ops->panel_reset(cfg->panel);
+		panel_init(dev);
+		dev->panel->ops->panel_init(dev->panel);
 		id = dev->panel->ops->panel_readid(dev->panel);
 		if(id == cfg->lcd_id) {
 			pr_debug(KERN_INFO "sprdfb: [%s]: LCD Panel 0x%x is attached!\n", __FUNCTION__, cfg->lcd_id);
-			dev->panel->ops->panel_init(dev->panel);
 			panel_ready(dev);
 			return cfg->panel;
 		}
@@ -314,10 +316,6 @@ void sprdfb_panel_after_refresh(struct sprdfb_device *dev)
 
 void sprdfb_panel_suspend(struct sprdfb_device *dev)
 {
-	if(NULL == dev->panel){
-		return;
-	}
-
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 	/*Jessica TODO: Need do some I2c, SPI, mipi sleep here*/
 	/* let lcdc sleep in */
@@ -334,10 +332,6 @@ void sprdfb_panel_suspend(struct sprdfb_device *dev)
 
 void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 {
-	if(NULL == dev->panel){
-		return;
-	}
-
 	printk(KERN_INFO "sprdfb:[%s], dev->enable= %d, from_deep_sleep = %d\n",__FUNCTION__, dev->enable, from_deep_sleep);
 #if 0
 	/*Jessica TODO: resume i2c, spi, mipi*/
@@ -347,8 +341,8 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 #endif
 
 	if(from_deep_sleep){
-		panel_init(dev);
 		dev->panel->ops->panel_reset(dev->panel);
+		panel_init(dev);
 		dev->panel->ops->panel_init(dev->panel);
 		panel_ready(dev);
 	}else{
@@ -367,10 +361,6 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 
 void sprdfb_panel_remove(struct sprdfb_device *dev)
 {
-	if(NULL == dev->panel){
-		return;
-	}
-
 	/*Jessica TODO:close panel, i2c, spi, mipi*/
 	if(NULL != dev->panel->if_ctrl->panel_if_uninit){
 		dev->panel->if_ctrl->panel_if_uninit(dev);
@@ -381,7 +371,8 @@ void sprdfb_panel_remove(struct sprdfb_device *dev)
 
 int sprdfb_panel_register(struct panel_cfg *cfg)
 {
-	pr_debug("sprdfb: [%s], panel id = %d\n",__FUNCTION__, cfg->dev_id);
+	//pr_debug("sprdfb: [%s], panel id = %d\n",__FUNCTION__, cfg->dev_id);
+	printk("sprdfb: [%s], panel id = %d\n",__FUNCTION__, cfg->lcd_id);		//zxdbg
 
 	if(!panel_check(cfg)){
 		printk("sprdfb: [%s]: panel check fail!id = %d\n",__FUNCTION__,  cfg->dev_id);

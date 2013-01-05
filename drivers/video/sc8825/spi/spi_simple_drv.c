@@ -14,7 +14,7 @@
 
 #include "spi_simple_drv.h"
 
-#define SPI_USED_BASE SPRD_SPI0_BASE
+#define SPI_USED_BASE SPRD_SPI2_BASE
 
 
  /**---------------------------------------------------------------------------*
@@ -65,12 +65,23 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
 {
     if(is_en)
     {
-		if (spi_id == 0) 
-            		//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT17); //APB_SPI0_EB
-            		sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI0_EN, GR_GEN0);
-		else 
-            		//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB
-            		sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
+		switch(spi_id){
+		case SPI0_ID:	
+			//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT17); //APB_SPI0_EB
+            			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI0_EN, GR_GEN0);
+			break;
+		case SPI1_ID:
+            			//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB
+            			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
+			break;
+		case SPI2_ID:
+            			//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB
+            			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI2_EN, GR_GEN0);
+			break;
+		default:
+			
+			break;
+		}
  }
     else
     {
@@ -81,28 +92,29 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
 
 void SPI_Reset( uint32_t spi_id, uint32_t ms)
 {
-    uint32_t i = 0;
-	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
+	uint32_t i = 0;
+	uint32_t rst_bit =  SWRST_SPI0_RST;
+	if(0 == spi_id){
+		;
+	}else if(1 == spi_id){
+		rst_bit = SWRST_SPI1_RST;
+	}else if(2 == spi_id){
+		rst_bit = SWRST_SPI2_RST;
+	}else{
+		printk("SPRDFB [%s], %d is SPI  error channel bit! ", __FUNCTION__, spi_id);
+		return;
+	}
+	
+	// *(volatile uint32_t *)AHB_SOFT_RST |= (1 << 14);
+	//__raw_writel(__raw_readl(GR_SOFT_RST) | (rst_bit), GR_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, rst_bit, GR_SOFT_RST);
 
-    if(spi_id == 0)
-    {
-       // *(volatile uint32_t *)AHB_SOFT_RST |= (1 << 14);
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<14), REG_AHB_SOFT_RST);
-        
-        udelay(10);
- //       *(volatile uint32_t *)AHB_SOFT_RST &= ~(1 << 14);        
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<14)), REG_AHB_SOFT_RST);
-        //for(i=0; i<ms; i++);
-        //*(volatile uint32_t *)AHB_RST0_CLR |= SPI0_SOFT_RST_CLR;
-    }
-    else
-    {
-        //*(volatile uint32_t *)AHB_SOFT_RST |= (1 << 14);
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<14), REG_AHB_SOFT_RST);
-
-        //for(i=0; i<ms; i++);
-        //*(volatile uint32_t *)APB_RST0_CLR |= SPI1_SOFT_RST_CLR;
-    }
+	udelay(1000);
+	//       *(volatile uint32_t *)AHB_SOFT_RST &= ~(1 << 14);        
+	//__raw_writel(__raw_readl(GR_SOFT_RST) & (~(rst_bit)), GR_SOFT_RST);
+	sprd_greg_clear_bits(REG_TYPE_GLOBAL, rst_bit, GR_SOFT_RST);
+	//for(i=0; i<ms; i++);
+	//*(volatile uint32_t *)AHB_RST0_CLR |= SPI0_SOFT_RST_CLR;
 
 }
 
@@ -125,19 +137,27 @@ void SPI_ClkSetting(uint32_t spi_id, uint32_t clk_src, uint32_t clk_div)
     //clk_spi0_sel: [3:2]---->2'b:00-78M 01-26M,01-104M,11-48M,
     //clk_spi0_div: [5:4]---->div,  clk/(div+1)
 
-    if(spi_id == 0)
-    {
-       // *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI0_SEL_SHIFT);
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 26, GR_CLK_DLY);
-       // *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI0_DIV_SHIFT);
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 21, GR_GEN2);
-
-    } else {
-//        *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI1_SEL_SHIFT);
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 30, GR_CLK_DLY);
-//        *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI1_DIV_SHIFT);    
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 11, GR_GEN2);
-    }
+	if(spi_id == 0)
+	{
+		// *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI0_SEL_SHIFT);
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 26, GR_CLK_DLY);
+		// *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI0_DIV_SHIFT);
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 21, GR_GEN2);
+	} else if(1 == spi_id) {
+		//        *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI1_SEL_SHIFT);
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 30, GR_CLK_DLY);
+		//        *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI1_DIV_SHIFT);    
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 11, GR_GEN2);
+	}else if(2 == spi_id){
+		//        *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI1_SEL_SHIFT);
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 3, GR_GEN3);
+		//        *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI1_DIV_SHIFT);    
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 5, GR_GEN3);
+	}else{
+		printk("SPRDFB [%s], %d is SPI  error channel bit! ", __FUNCTION__, spi_id);
+		return;
+	}
+    
 }
 
 
@@ -327,7 +347,7 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
     uint32_t ctl0, ctl1, ctl2, ctl3;
     //SCI_ASSERT((spi_parm->data_width >=0) && (spi_parm->data_width < 32));
     
-    SPI_Reset(0, 1000);  //Reset spi0&spi1
+    SPI_Reset(2, 1000);  //Reset spi0&spi1
     //SPI_Reset(1, 1000);
     
     spi_ctr_ptr->clkd = spi_parm->clk_div;

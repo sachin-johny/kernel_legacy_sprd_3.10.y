@@ -5,7 +5,7 @@ obj-$(CONFIG_FB_SC8825) += spi/
 
 
 
-
+obj-$(CONFIG_FB_LCD_HX8362_RGB_SPI) += lcd_hx8362_rgb_spi.o
 obj-$(CONFIG_FB_LCD_HX8369) += lcd_hx8369.o
 obj-$(CONFIG_FB_LCD_S6D0139) += lcd_s6d0139.o
 obj-$(CONFIG_FB_LCD_NT35516_MCU) += lcd_nt35516_mcu.o
