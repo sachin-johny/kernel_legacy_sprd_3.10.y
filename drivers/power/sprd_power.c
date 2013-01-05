@@ -905,6 +905,9 @@ retry_adc:
 	update_temp_value(data, 0);
 #endif
 
+	wake_lock_init(&(data->charger_plug_out_lock), WAKE_LOCK_SUSPEND,
+		       "charger_plug_out_lock");
+
 	ret = power_supply_register(&pdev->dev, &data->usb);
 	if (ret)
 		goto err_usb_failed;
