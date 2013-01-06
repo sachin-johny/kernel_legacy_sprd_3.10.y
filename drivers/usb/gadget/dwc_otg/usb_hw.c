@@ -19,6 +19,7 @@
 #include <asm/irq.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
+#include <linux/err.h>
 #include "usb_hw.h"
 
 #if defined(CONFIG_ARCH_SC8825)
@@ -35,17 +36,17 @@ static void usb_ldo_switch(int is_on)
 {
 	struct regulator *usb_regulator = NULL;
 
-	if(usb_regulator == NULL){
-		usb_regulator = regulator_get(NULL,USB_LDO_NAME);
+	usb_regulator = regulator_get(NULL,USB_LDO_NAME);
+	if(IS_ERR(usb_regulator)){
+		printk(KERN_ERR "no %s found!!!\n",USB_LDO_NAME);
+		return;
 	}
-	if(usb_regulator){
-		if(is_on){
-			regulator_enable(usb_regulator);
-		}else{
-			regulator_disable(usb_regulator);
-		}
-		regulator_put(usb_regulator);
+	if(is_on){
+		regulator_enable(usb_regulator);
+	}else{
+		regulator_disable(usb_regulator);
 	}
+	regulator_put(usb_regulator);
 }
 static int usb_clock_enable(int is_on)
 {
