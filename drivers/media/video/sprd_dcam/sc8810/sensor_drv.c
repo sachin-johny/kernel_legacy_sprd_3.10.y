@@ -1671,6 +1671,14 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
 		if (5 != Sensor_GetCurId())
 			this_client->addr = (this_client->addr & (~0xFF)) |(s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
 		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n", sensor_id,this_client->addr);
+                if(PNULL != s_sensor_info_ptr->ioctl_func_tab_ptr->identify)
+                {
+                    if(SENSOR_SUCCESS != s_sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
+                    {
+                        SENSOR_PRINT_ERR("Sensor identify fail according to sensor.file\n");
+                        return SENSOR_FAIL;
+                    }
+                }
 		ret_val = SENSOR_SUCCESS;
 
 		printk("_sensor_com_init: before sensor_mode\n");
@@ -1719,8 +1727,13 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 			_Sensor_Identify(SENSOR_ATV);
 		}
 		ret_val = _sensor_com_init(sensor_id, sensor_register_info_ptr);
+        if(SENSOR_FAIL == ret_val)
+        {
+                    s_sensor_identified = SCI_FALSE;
+                    SENSOR_MEMSET(&s_sensor_register_info, 0x00, sizeof(SENSOR_REGISTER_INFO_T));
+                    _Sensor_I2CDeInit(sensor_id);
 	}
-	
+    }	
 	if(SENSOR_FAIL == ret_val)
 	{
 		_Sensor_Identify(SENSOR_MAIN);
