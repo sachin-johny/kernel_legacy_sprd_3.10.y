@@ -331,6 +331,7 @@ static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *at
          __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":90:907:70:58"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":250:907:70:58"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":420:907:70:58"
+	 "\n");
 	#else
 	return sprintf(buf,
          __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":100:1020:80:65"
