@@ -631,12 +631,12 @@ static u64 sprd_pcm_dmamask = DMA_BIT_MASK(32);
 static struct snd_dma_buffer *save_p_buf = 0;
 static struct snd_dma_buffer *save_c_buf = 0;
 
-static int sprd_pcm_new(struct snd_card *card, struct snd_soc_dai *dai,
-			struct snd_pcm *pcm)
+static int sprd_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
-	struct snd_soc_pcm_runtime *rtd = pcm->private_data;
-	struct snd_pcm_substream *substream;
+	struct snd_card *card = rtd->card->snd_card;
+	struct snd_pcm *pcm = rtd->pcm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_pcm_substream *substream;
 	int ret = 0;
 
 	sprd_pcm_dbg("Entering %s id = 0x%x\n", __func__, cpu_dai->driver->id);
