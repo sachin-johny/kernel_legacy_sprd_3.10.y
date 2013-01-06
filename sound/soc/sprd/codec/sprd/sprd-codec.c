@@ -127,13 +127,13 @@ struct sprd_codec_mixer {
 
 struct sprd_codec_inter_pa {
 	/* FIXME little endian */
-	int is_classD_mode:1;
-	int is_LDO_mode:1;
-	int is_DEMI_mode:1;
-	int is_auto_LDO_mode:1;
 	int LDO_V_sel:4;
 	int DTRI_F_sel:4;
-	int RESV:21;
+	int is_DEMI_mode:1;
+	int is_classD_mode:1;
+	int is_LDO_mode:1;
+	int is_auto_LDO_mode:1;
+	int RESV:20;
 };
 
 struct sprd_codec_pa_setting {
