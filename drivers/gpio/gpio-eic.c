@@ -17,22 +17,16 @@
 #include <linux/interrupt.h>
 #include <linux/gpio.h>
 #include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/module.h>
+#include <linux/bug.h>
 
 #include <mach/hardware.h>
-#include <mach/irqs.h>
-#include <mach/adi.h>
-#include <mach/gpio.h>
-#include <mach/regs_glb.h>
 #include <mach/sci.h>
+#include <mach/regs_glb.h>
 #include <mach/regs_ana_glb.h>
-
-/* Digital GPIO/EIC base address */
-#define CTL_GPIO_BASE		(SPRD_GPIO_BASE)
-#define CTL_EIC_BASE		(SPRD_EIC_BASE)
-
-/* Analog GPIO/EIC base address */
-#define ANA_CTL_GPIO_BASE	(SPRD_MISC_BASE + 0x0480)
-#define ANA_CTL_EIC_BASE	(SPRD_MISC_BASE + 0x0100)
+#include <mach/gpio.h>
+#include <mach/adi.h>
 
 /* 16 GPIO share a group of registers */
 #define	GPIO_GROUP_NR		(16)
@@ -44,15 +38,15 @@
 /* registers definitions for GPIO controller */
 #define REG_GPIO_DATA		(0x0000)
 #define REG_GPIO_DMSK		(0x0004)
-#define REG_GPIO_DIR		(0x0008) /* only for gpio */
-#define REG_GPIO_IS		(0x000c) /* only for gpio */
-#define REG_GPIO_IBE		(0x0010) /* only for gpio */
+#define REG_GPIO_DIR		(0x0008)	/* only for gpio */
+#define REG_GPIO_IS		(0x000c)	/* only for gpio */
+#define REG_GPIO_IBE		(0x0010)	/* only for gpio */
 #define REG_GPIO_IEV		(0x0014)
 #define REG_GPIO_IE		(0x0018)
 #define REG_GPIO_RIS		(0x001c)
 #define REG_GPIO_MIS		(0x0020)
 #define REG_GPIO_IC		(0x0024)
-#define REG_GPIO_INEN		(0x0028) /* only for gpio */
+#define REG_GPIO_INEN		(0x0028)	/* only for gpio */
 
 /* 8 EIC share a group of registers */
 #define	EIC_GROUP_NR		(8)
@@ -66,7 +60,7 @@
 #define REG_EIC_RIS		REG_GPIO_RIS
 #define REG_EIC_MIS		REG_GPIO_MIS
 #define REG_EIC_IC		REG_GPIO_IC
-#define REG_EIC_TRIG		(0x0028) /* only for eic */
+#define REG_EIC_TRIG		(0x0028)	/* only for eic */
 #define REG_EIC_0CTRL		(0x0040)
 #define REG_EIC_1CTRL		(0x0044)
 #define REG_EIC_2CTRL		(0x0048)
@@ -85,15 +79,15 @@
 #define BITS_EIC_DBNC_CNT(_x_)	((_x) & 0xFFF)
 
 struct sci_gpio_chip {
-	struct gpio_chip	chip;
+	struct gpio_chip chip;
 
-	uint32_t		base_addr;
-	uint32_t		group_offset;
+	uint32_t base_addr;
+	uint32_t group_offset;
 
-	uint32_t		(*read_reg)(uint32_t addr);
-	void			(*write_reg)(uint32_t value, uint32_t addr);
-	void			(*set_bits)(uint32_t bits, uint32_t addr);
-	void			(*clr_bits)(uint32_t bits, uint32_t addr);
+	 uint32_t(*read_reg) (uint32_t addr);
+	void (*write_reg) (uint32_t value, uint32_t addr);
+	void (*set_bits) (uint32_t bits, uint32_t addr);
+	void (*clr_bits) (uint32_t bits, uint32_t addr);
 };
 
 #define	to_sci_gpio(c)		container_of(c, struct sci_gpio_chip, chip)
@@ -103,14 +97,17 @@ static uint32_t d_read_reg(uint32_t addr)
 {
 	return __raw_readl(addr);
 }
+
 static void d_write_reg(uint32_t value, uint32_t addr)
 {
 	__raw_writel(value, addr);
 }
+
 static void d_set_bits(uint32_t bits, uint32_t addr)
 {
 	__raw_writel(__raw_readl(addr) | bits, addr);
 }
+
 static void d_clr_bits(uint32_t bits, uint32_t addr)
 {
 	__raw_writel(__raw_readl(addr) & ~bits, addr);
@@ -121,14 +118,17 @@ static uint32_t a_read_reg(uint32_t addr)
 {
 	return sci_adi_read(addr);
 }
+
 static void a_write_reg(uint32_t value, uint32_t addr)
 {
 	sci_adi_raw_write(addr, value);
 }
+
 static void a_set_bits(uint32_t bits, uint32_t addr)
 {
 	sci_adi_set(addr, bits);
 }
+
 static void a_clr_bits(uint32_t bits, uint32_t addr)
 {
 	sci_adi_clr(addr, bits);
@@ -145,7 +145,8 @@ static int sci_gpio_read(struct gpio_chip *chip, uint32_t offset, uint32_t reg)
 	return (value >> bitof) & 0x1;
 }
 
-static void sci_gpio_write(struct gpio_chip *chip, uint32_t offset, uint32_t reg, int value)
+static void sci_gpio_write(struct gpio_chip *chip, uint32_t offset,
+			   uint32_t reg, int value)
 {
 	struct sci_gpio_chip *sci_gpio = to_sci_gpio(chip);
 	int group = offset / GPIO_GROUP_NR;
@@ -211,7 +212,7 @@ static void sci_gpio_set(struct gpio_chip *chip, unsigned offset, int value)
 }
 
 static int sci_gpio_set_debounce(struct gpio_chip *chip, unsigned offset,
-				unsigned debounce)
+				 unsigned debounce)
 {
 	/* not supported */
 	pr_err("%s %d+%d\n", __FUNCTION__, chip->base, offset);
@@ -237,45 +238,39 @@ static int sci_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
 }
 
 static struct sci_gpio_chip d_sci_gpio = {
-	.chip.label		= "sprd-d-gpio",
-	.chip.request		= sci_gpio_request,
-	.chip.free		= sci_gpio_free,
-	.chip.direction_input	= sci_gpio_direction_input,
-	.chip.get		= sci_gpio_get,
-	.chip.direction_output	= sci_gpio_direction_output,
-	.chip.set		= sci_gpio_set,
-	.chip.set_debounce	= sci_gpio_set_debounce,
-	.chip.to_irq		= sci_gpio_to_irq,
-	.chip.base		= D_GPIO_START,
-	.chip.ngpio		= D_GPIO_NR,
+	.chip.label = "sprd-d-gpio",
+	.chip.request = sci_gpio_request,
+	.chip.free = sci_gpio_free,
+	.chip.direction_input = sci_gpio_direction_input,
+	.chip.get = sci_gpio_get,
+	.chip.direction_output = sci_gpio_direction_output,
+	.chip.set = sci_gpio_set,
+	.chip.set_debounce = sci_gpio_set_debounce,
+	.chip.to_irq = sci_gpio_to_irq,
 
-	.base_addr		= CTL_GPIO_BASE,
-	.group_offset		= GPIO_GROUP_OFFSET,
-	.read_reg		= d_read_reg,
-	.write_reg		= d_write_reg,
-	.set_bits		= d_set_bits,
-	.clr_bits		= d_clr_bits,
+	.group_offset = GPIO_GROUP_OFFSET,
+	.read_reg = d_read_reg,
+	.write_reg = d_write_reg,
+	.set_bits = d_set_bits,
+	.clr_bits = d_clr_bits,
 };
 
 static struct sci_gpio_chip a_sci_gpio = {
-	.chip.label		= "sprd-a-gpio",
-	.chip.request		= sci_gpio_request,
-	.chip.free		= sci_gpio_free,
-	.chip.direction_input	= sci_gpio_direction_input,
-	.chip.get		= sci_gpio_get,
-	.chip.direction_output	= sci_gpio_direction_output,
-	.chip.set		= sci_gpio_set,
-	.chip.set_debounce	= sci_gpio_set_debounce,
-	.chip.to_irq		= sci_gpio_to_irq,
-	.chip.base		= A_GPIO_START,
-	.chip.ngpio		= A_GPIO_NR,
+	.chip.label = "sprd-a-gpio",
+	.chip.request = sci_gpio_request,
+	.chip.free = sci_gpio_free,
+	.chip.direction_input = sci_gpio_direction_input,
+	.chip.get = sci_gpio_get,
+	.chip.direction_output = sci_gpio_direction_output,
+	.chip.set = sci_gpio_set,
+	.chip.set_debounce = sci_gpio_set_debounce,
+	.chip.to_irq = sci_gpio_to_irq,
 
-	.base_addr		= ANA_CTL_GPIO_BASE,
-	.group_offset		= ANA_GPIO_GROUP_OFFSET,
-	.read_reg		= a_read_reg,
-	.write_reg		= a_write_reg,
-	.set_bits		= a_set_bits,
-	.clr_bits		= a_clr_bits,
+	.group_offset = ANA_GPIO_GROUP_OFFSET,
+	.read_reg = a_read_reg,
+	.write_reg = a_write_reg,
+	.set_bits = a_set_bits,
+	.clr_bits = a_clr_bits,
 };
 
 /*
@@ -283,45 +278,39 @@ static struct sci_gpio_chip a_sci_gpio = {
  * So most implementation of GPIO can be shared by EIC.
  */
 static struct sci_gpio_chip d_sci_eic = {
-	.chip.label		= "sprd-d-eic",
-	.chip.request		= sci_gpio_request,
-	.chip.free		= sci_gpio_free,
-	.chip.direction_input	= sci_eic_direction_input,
-	.chip.get		= sci_gpio_get,
-	.chip.direction_output	= NULL,
-	.chip.set		= NULL,
-	.chip.set_debounce	= sci_eic_set_debounce,
-	.chip.to_irq		= sci_gpio_to_irq,
-	.chip.base		= D_EIC_START,
-	.chip.ngpio		= D_EIC_NR,
+	.chip.label = "sprd-d-eic",
+	.chip.request = sci_gpio_request,
+	.chip.free = sci_gpio_free,
+	.chip.direction_input = sci_eic_direction_input,
+	.chip.get = sci_gpio_get,
+	.chip.direction_output = NULL,
+	.chip.set = NULL,
+	.chip.set_debounce = sci_eic_set_debounce,
+	.chip.to_irq = sci_gpio_to_irq,
 
-	.base_addr		= CTL_EIC_BASE,
-	.group_offset		= GPIO_GROUP_OFFSET,
-	.read_reg		= d_read_reg,
-	.write_reg		= d_write_reg,
-	.set_bits		= d_set_bits,
-	.clr_bits		= d_clr_bits,
+	.group_offset = GPIO_GROUP_OFFSET,
+	.read_reg = d_read_reg,
+	.write_reg = d_write_reg,
+	.set_bits = d_set_bits,
+	.clr_bits = d_clr_bits,
 };
 
 static struct sci_gpio_chip a_sci_eic = {
-	.chip.label		= "sprd-a-eic",
-	.chip.request		= sci_gpio_request,
-	.chip.free		= sci_gpio_free,
-	.chip.direction_input	= sci_eic_direction_input,
-	.chip.get		= sci_gpio_get,
-	.chip.direction_output	= NULL,
-	.chip.set		= NULL,
-	.chip.set_debounce	= sci_eic_set_debounce,
-	.chip.to_irq		= sci_gpio_to_irq,
-	.chip.base		= A_EIC_START,
-	.chip.ngpio		= A_EIC_NR,
+	.chip.label = "sprd-a-eic",
+	.chip.request = sci_gpio_request,
+	.chip.free = sci_gpio_free,
+	.chip.direction_input = sci_eic_direction_input,
+	.chip.get = sci_gpio_get,
+	.chip.direction_output = NULL,
+	.chip.set = NULL,
+	.chip.set_debounce = sci_eic_set_debounce,
+	.chip.to_irq = sci_gpio_to_irq,
 
-	.base_addr		= ANA_CTL_EIC_BASE,
-	.group_offset		= ANA_GPIO_GROUP_OFFSET,
-	.read_reg		= a_read_reg,
-	.write_reg		= a_write_reg,
-	.set_bits		= a_set_bits,
-	.clr_bits		= a_clr_bits,
+	.group_offset = ANA_GPIO_GROUP_OFFSET,
+	.read_reg = a_read_reg,
+	.write_reg = a_write_reg,
+	.set_bits = a_set_bits,
+	.clr_bits = a_clr_bits,
 };
 
 /* GPIO/EIC irq interfaces */
@@ -429,21 +418,21 @@ static int sci_gpio_irq_set_wake(struct irq_data *data, unsigned int on)
 }
 
 static struct irq_chip d_gpio_irq_chip = {
-	.name		= "irq-d-gpio",
-	.irq_ack	= sci_gpio_irq_ack,
-	.irq_mask	= sci_gpio_irq_mask,
-	.irq_unmask	= sci_gpio_irq_unmask,
-	.irq_set_type	= sci_gpio_irq_set_type,
-	.irq_set_wake	= sci_gpio_irq_set_wake,
+	.name = "irq-d-gpio",
+	.irq_ack = sci_gpio_irq_ack,
+	.irq_mask = sci_gpio_irq_mask,
+	.irq_unmask = sci_gpio_irq_unmask,
+	.irq_set_type = sci_gpio_irq_set_type,
+	.irq_set_wake = sci_gpio_irq_set_wake,
 };
 
 static struct irq_chip a_gpio_irq_chip = {
-	.name		= "irq-a-gpio",
-	.irq_ack	= sci_gpio_irq_ack,
-	.irq_mask	= sci_gpio_irq_mask,
-	.irq_unmask	= sci_gpio_irq_unmask,
-	.irq_set_type	= sci_gpio_irq_set_type,
-	.irq_set_wake	= sci_gpio_irq_set_wake,
+	.name = "irq-a-gpio",
+	.irq_ack = sci_gpio_irq_ack,
+	.irq_mask = sci_gpio_irq_mask,
+	.irq_unmask = sci_gpio_irq_unmask,
+	.irq_set_type = sci_gpio_irq_set_type,
+	.irq_set_wake = sci_gpio_irq_set_wake,
 };
 
 /*
@@ -451,19 +440,19 @@ static struct irq_chip a_gpio_irq_chip = {
  * So most implementation of GPIO can be shared by EIC.
  */
 static struct irq_chip d_eic_irq_chip = {
-	.name		= "irq-d-eic",
-	.irq_ack	= sci_gpio_irq_ack,
-	.irq_mask	= sci_gpio_irq_mask,
-	.irq_unmask	= sci_eic_irq_unmask,
-	.irq_set_type	= sci_eic_irq_set_type,
+	.name = "irq-d-eic",
+	.irq_ack = sci_gpio_irq_ack,
+	.irq_mask = sci_gpio_irq_mask,
+	.irq_unmask = sci_eic_irq_unmask,
+	.irq_set_type = sci_eic_irq_set_type,
 };
 
 static struct irq_chip a_eic_irq_chip = {
-	.name		= "irq-a-eic",
-	.irq_ack	= sci_gpio_irq_ack,
-	.irq_mask	= sci_gpio_irq_mask,
-	.irq_unmask	= sci_eic_irq_unmask,
-	.irq_set_type	= sci_eic_irq_set_type,
+	.name = "irq-a-eic",
+	.irq_ack = sci_gpio_irq_ack,
+	.irq_mask = sci_gpio_irq_mask,
+	.irq_unmask = sci_eic_irq_unmask,
+	.irq_set_type = sci_eic_irq_set_type,
 };
 
 static void gpio_eic_handler(int irq, struct gpio_chip *chip)
@@ -473,7 +462,9 @@ static void gpio_eic_handler(int irq, struct gpio_chip *chip)
 
 	pr_debug("%s %d+%d %d\n", __FUNCTION__, chip->base, chip->ngpio, irq);
 	for (group = 0; group * GPIO_GROUP_NR < chip->ngpio; group++) {
-		addr = sci_gpio->base_addr + sci_gpio->group_offset * group + REG_GPIO_MIS;
+		addr =
+		    sci_gpio->base_addr + sci_gpio->group_offset * group +
+		    REG_GPIO_MIS;
 		value = sci_gpio->read_reg(addr) & GPIO_GROUP_MASK;
 
 		while (value) {
@@ -487,6 +478,7 @@ static void gpio_eic_handler(int irq, struct gpio_chip *chip)
 	}
 
 }
+
 static irqreturn_t gpio_muxed_handler(int irq, void *dev_id)
 {
 	struct gpio_chip *chip = dev_id;
@@ -502,20 +494,25 @@ static void gpio_muxed_flow_handler(unsigned int irq, struct irq_desc *desc)
 }
 
 static struct irqaction __d_gpio_irq = {
-	.name		= "gpio",
-	.flags		= IRQF_DISABLED | IRQF_NO_SUSPEND,
-	.handler	= gpio_muxed_handler,
-	.dev_id		= &d_sci_gpio.chip,
+	.name = "gpio",
+	.flags = IRQF_DISABLED | IRQF_NO_SUSPEND,
+	.handler = gpio_muxed_handler,
+	.dev_id = &d_sci_gpio.chip,
 };
 
 static struct irqaction __d_eic_irq = {
-	.name		= "eic",
-	.flags		= IRQF_DISABLED | IRQF_NO_SUSPEND,
-	.handler	= gpio_muxed_handler,
-	.dev_id		= &d_sci_eic.chip,
+	.name = "eic",
+	.flags = IRQF_DISABLED | IRQF_NO_SUSPEND,
+	.handler = gpio_muxed_handler,
+	.dev_id = &d_sci_eic.chip,
 };
 
-void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *irqchip)
+#if (NR_GPIO_IRQS < ARCH_NR_GPIOS)
+#error "NR_GPIO_IRQS is not match with the sum of builtin/SoC GPIOs and EICs"
+#endif
+
+static void gpio_irq_init(int irq, struct gpio_chip *gpiochip,
+			  struct irq_chip *irqchip)
 {
 	int n = gpiochip->to_irq(gpiochip, 0);
 	int irqend = n + gpiochip->ngpio;
@@ -533,32 +530,90 @@ void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *
 	}
 }
 
-#if (NR_GPIO_IRQS < ARCH_NR_GPIOS)
-#error "NR_GPIO_IRQS is not match with the sum of builtin/SoC GPIOs and EICs"
-#endif
 
-static int __init gpio_init(void)
+static int eic_gpio_probe(struct platform_device *pdev)
 {
+	struct eic_gpio_resource *r = pdev->dev.platform_data;
+	if (!r)
+		BUG();
+
+
 	/* enable EIC */
 	sci_glb_set(REG_GLB_GEN0, BIT_EIC_EB);
 	sci_glb_set(REG_GLB_GEN0, BIT_GPIO_EB);
 	sci_glb_set(REG_GLB_GEN0, BIT_RTC_EIC_EB);
-	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN, BIT_ANA_EIC_EB | BIT_ANA_GPIO_EB | BIT_ANA_RTC_EIC_EB);
+	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
+		    BIT_ANA_EIC_EB | BIT_ANA_GPIO_EB | BIT_ANA_RTC_EIC_EB);
+
+
+	d_sci_gpio.base_addr  = r[ENUM_ID_D_GPIO].base_addr;
+	d_sci_gpio.chip.base  = r[ENUM_ID_D_GPIO].chip_base;
+	d_sci_gpio.chip.ngpio = r[ENUM_ID_D_GPIO].chip_ngpio;
+
+	d_sci_eic.base_addr  = r[ENUM_ID_D_EIC].base_addr;
+	d_sci_eic.chip.base  = r[ENUM_ID_D_EIC].chip_base;
+	d_sci_eic.chip.ngpio = r[ENUM_ID_D_EIC].chip_ngpio;
+
+	a_sci_gpio.base_addr  = r[ENUM_ID_A_GPIO].base_addr;
+	a_sci_gpio.chip.base  = r[ENUM_ID_A_GPIO].chip_base;
+	a_sci_gpio.chip.ngpio = r[ENUM_ID_A_GPIO].chip_ngpio;
+
+	a_sci_eic.base_addr  = r[ENUM_ID_A_EIC].base_addr;
+	a_sci_eic.chip.base  = r[ENUM_ID_A_EIC].chip_base;
+	a_sci_eic.chip.ngpio = r[ENUM_ID_A_EIC].chip_ngpio;
 
 	gpiochip_add(&d_sci_eic.chip);
 	gpiochip_add(&d_sci_gpio.chip);
 	gpiochip_add(&a_sci_eic.chip);
 	gpiochip_add(&a_sci_gpio.chip);
 
-	setup_irq(IRQ_GPIO_INT, &__d_gpio_irq);
-	setup_irq(IRQ_EIC_INT, &__d_eic_irq);
 
-	gpio_irq_init(IRQ_GPIO_INT, &d_sci_gpio.chip, &d_gpio_irq_chip);
-	gpio_irq_init(IRQ_EIC_INT, &d_sci_eic.chip, &d_eic_irq_chip);
-	gpio_irq_init(IRQ_ANA_GPIO_INT, &a_sci_gpio.chip, &a_gpio_irq_chip);
-	gpio_irq_init(IRQ_ANA_EIC_INT, &a_sci_eic.chip, &a_eic_irq_chip);
+	if (-1 != r[ENUM_ID_D_GPIO].irq) {
+		setup_irq(r[ENUM_ID_D_GPIO].irq, &__d_gpio_irq);
+		gpio_irq_init(r[ENUM_ID_D_GPIO].irq, &d_sci_gpio.chip, &d_gpio_irq_chip);
+	}
+
+	if (-1 != r[ENUM_ID_D_EIC].irq) {
+		setup_irq(r[ENUM_ID_D_EIC].irq, &__d_eic_irq);
+		gpio_irq_init(r[ENUM_ID_D_EIC].irq, &d_sci_eic.chip, &d_eic_irq_chip);
+	}
+
+	if (-1 != r[ENUM_ID_A_GPIO].irq)
+		gpio_irq_init(r[ENUM_ID_A_GPIO].irq, &a_sci_gpio.chip, &a_gpio_irq_chip);
+
+	if (-1 != r[ENUM_ID_A_EIC].irq)
+		gpio_irq_init(r[ENUM_ID_A_EIC].irq, &a_sci_eic.chip, &a_eic_irq_chip);
 
 	return 0;
 }
 
-arch_initcall(gpio_init);
+static int __devexit eic_gpio_remove(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	ret += gpiochip_remove(&d_sci_eic.chip);
+	ret += gpiochip_remove(&d_sci_gpio.chip);
+	ret += gpiochip_remove(&a_sci_eic.chip);
+	ret += gpiochip_remove(&a_sci_gpio.chip);
+
+	return ret;
+}
+
+static struct platform_driver eic_gpio_driver = {
+	.driver.name	= "eic-gpio",
+	.driver.owner	= THIS_MODULE,
+	.probe		= eic_gpio_probe,
+	.remove		= __devexit_p(eic_gpio_remove),
+};
+
+static int __init eic_gpio_init(void)
+{
+	return platform_driver_register(&eic_gpio_driver);
+}
+subsys_initcall(eic_gpio_init);
+
+static void __exit eic_gpio_exit(void)
+{
+	return platform_driver_unregister(&eic_gpio_driver);
+}
+module_exit(eic_gpio_exit);
