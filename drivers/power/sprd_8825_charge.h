@@ -23,7 +23,7 @@
 /* When the battery volume is lower than this value and the charger is still
  * plugged in, we will restart the charge process.
  */
-#define PREVRECHARGE		4160
+#define PREVRECHARGE		4100
 #define CHGMNG_OVER_CHARGE	(4330)
 /* When the battery voltage is higher than this value, we will stop charging. */
 #define PREVCHGEND			(4200)
@@ -32,7 +32,7 @@
 #define CHGMNG_STOP_VPROG		80	/* Isense stop point */
 #define CHGMNG_SWITCH_CV_VPROG	300	/* Isense stop point */
 #define CHGMNG_PLUSE_TIMES		3
-#define CHARGE_BEFORE_STOP		600
+#define CHARGE_BEFORE_STOP		1500
 #define CHARGE_OVER_TIME		21600	/* set for charge over time, 6 hours */
 
 #define VBAT_CAPACITY_BUFF_CNT	(240/CONFIG_AVERAGE_CNT)
@@ -66,8 +66,8 @@
 
 #define VOL_TO_CUR_PARAM (576)
 
-#define CV_STOP_CURRENT		135
-#define CC_CV_SWITCH_POINT	125
+#define CV_STOP_CURRENT		225
+#define CC_CV_SWITCH_POINT	200
 
 #define OVP_VOL_VALUE		6500
 #define OVP_VOL_RECV_VALUE	5800
@@ -213,6 +213,7 @@ void put_vbat_capacity_value(uint32_t vbat);
 uint32_t get_vbat_capacity_value(void);
 void put_vchg_value(uint32_t vchg);
 uint32_t get_vchg_value(void);
+int32_t sprd_get_chg_current(struct sprd_battery_data *data);
 
 
 #endif /* _CHG_DRVAPI_H_ */

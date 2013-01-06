@@ -418,6 +418,34 @@ int32_t sprd_get_vprog(struct sprd_battery_data * data)
 	return vprog_result[VPROG_RESULT_NUM / 2];
 }
 
+int32_t sprd_get_chg_current(struct sprd_battery_data * data)
+{
+	int32_t vbat, isense;
+	int32_t cnt = 0;
+
+	for (cnt = 0; cnt < 8; cnt++) {
+		isense =
+		    sprd_bat_adc_to_vol(data,
+					sci_adc_get_value(ADC_CHANNEL_ISENSE,
+							  false));
+		vbat =
+		    sprd_bat_adc_to_vol(data,
+					sci_adc_get_value(ADC_CHANNEL_VBAT,
+							  false));
+		if (isense >= vbat) {
+			break;
+		}
+	}
+	if (isense > vbat) {
+		return ((isense - vbat) * 10);	//(vol/0.1ohm)
+	} else {
+		printk(KERN_ERR
+		       "chg_current err......................isense:%d..................vbat:%d\n",
+		       isense, vbat);
+		return 0;
+	}
+}
+
 #define CHG_CTL             (ANA_GPIN_PG0_BASE + 0x0000)
 
 void sprd_stop_charge(struct sprd_battery_data *data)
@@ -519,6 +547,7 @@ void sprd_chg_init(void)
 {
 	sci_adi_write(ANA_CHGR_CTRL0, CHGR_CC_EN_BIT,
 		      (CHGR_CC_EN_BIT | CHGR_CC_EN_RST_BIT));
+	sci_adi_set(ANA_CHGR_CTRL1, CHGR_CURVE_SHARP_BIT);
 }
 
 /* TODO: put these struct into sprd_battery_data */

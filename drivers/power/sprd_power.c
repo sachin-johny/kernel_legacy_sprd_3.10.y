@@ -566,15 +566,23 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 	}
 
 	if (usb_online || ac_online) {
-		vprog_value = sprd_get_vprog(battery_data);
-		if (vprog_value < 0)
-			goto out;
-		vprog_current = sprd_bat_adc_to_vol(battery_data, vprog_value);
+		if (battery_data->charging) {
+#ifdef CONFIG_SPRD_POWER
+			vprog_value = sprd_get_vprog(battery_data);
+			if (vprog_value < 0)
+				goto out;
+			vprog_current =
+			    sprd_bat_adc_to_vol(battery_data, vprog_value);
 
-		vprog_current = sprd_adc_to_cur(battery_data, vprog_current);
-		put_vprog_value(battery_data, vprog_current);
-		vprog_current = get_vprog_value(battery_data);
+			vprog_current =
+			    sprd_adc_to_cur(battery_data, vprog_current);
+#else
+			vprog_current = sprd_get_chg_current(battery_data);
+#endif
+			put_vprog_value(battery_data, vprog_current);
+			vprog_current = get_vprog_value(battery_data);
 
+		}
 		vchg_value = sci_adc_get_value(ADC_CHANNEL_VCHG, false);
 		if (vchg_value < 0)
 			goto out;
@@ -960,7 +968,8 @@ retry_temp_adc:
 	if (ret)
 		goto err_battery_failed;
 #endif
-	wake_lock_init(&(data->charger_plug_out_lock), WAKE_LOCK_SUSPEND, "charger_plug_out_lock");
+	wake_lock_init(&(data->charger_plug_out_lock), WAKE_LOCK_SUSPEND,
+		       "charger_plug_out_lock");
 	data->usb_online = 0;
 	data->ac_online = 0;
 	data->charge_start_jiffies = 0;
