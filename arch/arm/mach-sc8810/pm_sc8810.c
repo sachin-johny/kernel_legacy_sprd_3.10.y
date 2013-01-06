@@ -132,8 +132,10 @@ void __iomem *iram_start;
 #define IRAM_SIZE 0x4000
 #define SLEEP_CODE_SIZE 4096
 
-static int init_reset_vector(void)
+int init_reset_vector(void)
 {
+	sprd_greg_write(REG_TYPE_AHB_GLOBAL, 0x1|sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_REMAP), AHB_REMAP);
+
 	if (!sp_pm_reset_vector) {
 		sp_pm_reset_vector = ioremap(0xffff0000, PAGE_SIZE);
 		if (sp_pm_reset_vector == NULL) {

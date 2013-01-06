@@ -269,7 +269,7 @@ register offset.
 #define SPRD_IRAM_PHYS	0xffff4000
 #define SPRD_IRAM_SIZE	SZ_16K
 
-#define SEC_DEBUG_MAGIC_BASE_VA       (SPRD_REGS_BASE + 0x00053000)
+#define SEC_DEBUG_MAGIC_BASE_VA       (SPRD_REGS_BASE + 0x00057000)
 #define SEC_DEBUG_MAGIC_PHYS            0x40007C00
 #define SEC_DEBUG_MAGIC_SIZE            SZ_4K
 
