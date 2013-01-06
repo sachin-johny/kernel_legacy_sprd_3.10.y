@@ -25,8 +25,7 @@ typedef enum {
 } ROT_DATA_FORMAT_E;
 
 typedef enum {
-	ROT_0 = 0,
-	ROT_90,
+	ROT_90 = 0,
 	ROT_270,
 	ROT_180,
 	ROT_MIRROR,
