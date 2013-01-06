@@ -142,7 +142,9 @@ static unsigned int sci_get_core_num(void)
 	void __iomem *scu_base = scu_base_addr();
 	ncores = scu_base ? scu_get_core_count(scu_base) : 1;
 #else
-	ncores = 4;
+	/* read [25:24] of L2 Control Register */
+	asm("mrc p15, 1, %0, c9, c0, 2" : "=r" (ncores));
+	ncores = ((ncores >> 24) & 3) + 1;
 #endif
 	return ncores;
 }
