@@ -240,11 +240,12 @@ static bool sprdfb_rgb_panel_init(struct sprdfb_device *dev)
 	rgb_dispc_init_config(dev->panel);
 	rgb_dispc_set_timing(dev);
 
+	if(! dev->panel_ready){
 	/*Nt35516 need vsync before panel init*/
-	dispc_set_bits(BIT(4), DISPC_CTRL);
-	udelay(100);
-//	dispc_clear_bits(BIT(4), DISPC_CTRL);			//add for debug
-
+		dispc_set_bits(BIT(4), DISPC_CTRL);
+		udelay(100);
+		dispc_clear_bits(BIT(4), DISPC_CTRL);			//add for debug
+	}
 	return true;
 }
 
