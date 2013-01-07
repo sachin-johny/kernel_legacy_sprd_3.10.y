@@ -209,7 +209,6 @@ static unsigned int wlan_device_status(struct device *dev)
 int wlan_device_set_carddetect(int val)
 {
 	pr_info("%s: %d\n", __func__, val);
-	mdelay(100);
 #if 0
 	wlan_device_cd = val;
 	if (wifi_status_cb) {
@@ -219,7 +218,8 @@ int wlan_device_set_carddetect(int val)
 #endif
 
 #ifdef CONFIG_WLAN_SDIO
-    /*    sdhci_bus_scan(); depend on MMC Auto rescan */
+       sdhci_bus_scan();
+	mdelay(100);
 #endif
 	return 0;
 }
