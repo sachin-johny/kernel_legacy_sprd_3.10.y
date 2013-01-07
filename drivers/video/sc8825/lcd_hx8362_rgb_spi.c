@@ -28,12 +28,12 @@
 
 #define HX8362_SpiWriteCmd(cmd) \ 
 { \
-	spi_send_cmd((cmd));\
+	spi_send_cmd((cmd& 0xFF));\
 }
 
 #define  HX8362_SpiWriteData(data)\
 { \
-	spi_send_data((data));\
+	spi_send_data((data& 0xFF));\
 }
 
 
@@ -92,7 +92,7 @@ static int32_t hx8362_init(struct panel_spec *self)
 	HX8362_SpiWriteCmd(0xCC); // SET Panel
 	HX8362_SpiWriteData(0x01); //
 
-	LCD_DelayMS(5);
+	mdelay(5);
 
 	HX8362_SpiWriteCmd(0xE0);  // SET Gamma
 	HX8362_SpiWriteData(0x00);
@@ -266,13 +266,13 @@ static int32_t hx8362_init(struct panel_spec *self)
 	HX8362_SpiWriteData(0x77); // 
 
 	HX8362_SpiWriteCmd(0x11);//Sleep Out 
-	LCD_DelayMS(120);
+	mdelay(120);
 	HX8362_SpiWriteCmd(0x35); //Tearing Effect 
 	HX8362_SpiWriteData(0x00); // 
 	HX8362_SpiWriteCmd(0x36);
 	HX8362_SpiWriteData(0x02); 
 	HX8362_SpiWriteCmd(0x29); 
-	LCD_DelayMS(10);
+	mdelay(10);
 	HX8362_SpiWriteCmd(0x2C); 
 #endif
 }
@@ -285,15 +285,15 @@ static int32_t hx8362_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	if(is_sleep==1){
 		//Sleep In
 		HX8362_SpiWriteCmd(0x28);
-		LCD_DelayMS(120); 
+		mdelay(120); 
 		HX8362_SpiWriteCmd(0x10);
-		LCD_DelayMS(10); 
+		mdelay(10); 
 	}else{
 		//Sleep Out
 		HX8362_SpiWriteCmd(0x11);
-		LCD_DelayMS(120); 
+		mdelay(120); 
 		HX8362_SpiWriteCmd(0x29);
-		LCD_DelayMS(10); 
+		mdelay(10); 
 	}
 
 	return 0;

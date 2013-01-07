@@ -16,16 +16,25 @@
 #include "spi/spi_simple_drv.h"
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
+#include "sprdfb_dispc_reg.h"
 
  SPI_INIT_PARM spi_int_parm[] =
  {  //                                                                clk_div  
 	{
-	 TX_POS_EDGE,RX_NEG_EDGE,
-	 TX_RX_MSB,RX_TX_MODE,NO_SWITCH,MASTER_MODE,
-	 0x0,0x0,
-	 0xF0,   //clk_div:(n+1)*2
+	 TX_POS_EDGE,
+	 RX_NEG_EDGE,
+	 TX_RX_MSB,
+	 RX_TX_MODE,
+	 NO_SWITCH,
+	 MASTER_MODE,
+	 0x0,
+	 0x0,
+	 0xc0,   //clk_div:(n+1)*2
 	 0x0,    //data_width.0-32bits per word; n-nbits per word
-	 0x0,SPI_TX_FIFO_DEPTH - 1,0x0,SPI_RX_FIFO_DEPTH - 1
+	 0x0,
+	 SPI_TX_FIFO_DEPTH - 1,
+	 0x0,
+	 SPI_RX_FIFO_DEPTH - 1
 	 },  //for spi_lcm test
 	//{TX_POS_EDGE,RX_NEG_EDGE,TX_RX_LSB,RX_TX_MODE,NO_SWITCH,SLAVE_MODE,0x0,0x0,0xF0,0x0,0x0,SPI_TX_FIFO_DEPTH - 1,0x0,SPI_RX_FIFO_DEPTH - 1},
  };
@@ -89,6 +98,12 @@ static void SPI_Read( uint32_t* data)
 
 void SPI_PinCfg( void )
 {
+	/*enable access the spi reg*/
+
+	__raw_writel(( __raw_readl(SPRD_GREG_BASE+0x8)| 0x2),(SPRD_GREG_BASE+0x8));
+	__raw_writel((__raw_readl(SPRD_GREG_BASE+0xc0)| 0x1),(SPRD_GREG_BASE+0xc0));
+
+
 /*
 	//select spi0_2
 	CHIP_REG_SET (PIN_LCD_D6_REG, (PIN_FPD_EN | PIN_FUNC_1 | PIN_O_EN)); //SPI0_2_CD
@@ -116,14 +131,14 @@ void SPI_PinCfg( void )
 
 bool sprdfb_spi_init(struct sprdfb_device *dev)
 {
-	SPI_PinCfg();
+//	SPI_PinCfg();
 
 	SPI_Enable(SPI_USED_ID, true);     
 	SPI_Init( spi_int_parm ); 
 
 	SPI_ClkSetting( SPI_USED_ID, SPICLK_SEL_192M, 0);
 	//SPI_SetDatawidth(9);  
-	SPI_SetSpiMode( SPIMODE_3WIRE_9BIT_SDIO );
+//	SPI_SetSpiMode( SPIMODE_3WIRE_9BIT_SDIO );
 	return true;
 }
 

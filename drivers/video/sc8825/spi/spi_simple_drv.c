@@ -109,7 +109,7 @@ void SPI_Reset( uint32_t spi_id, uint32_t ms)
 	//__raw_writel(__raw_readl(GR_SOFT_RST) | (rst_bit), GR_SOFT_RST);
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, rst_bit, GR_SOFT_RST);
 
-	udelay(1000);
+	udelay(100);
 	//       *(volatile uint32_t *)AHB_SOFT_RST &= ~(1 << 14);        
 	//__raw_writel(__raw_readl(GR_SOFT_RST) & (~(rst_bit)), GR_SOFT_RST);
 	sprd_greg_clear_bits(REG_TYPE_GLOBAL, rst_bit, GR_SOFT_RST);
@@ -136,23 +136,33 @@ void SPI_ClkSetting(uint32_t spi_id, uint32_t clk_src, uint32_t clk_div)
 {
     //clk_spi0_sel: [3:2]---->2'b:00-78M 01-26M,01-104M,11-48M,
     //clk_spi0_div: [5:4]---->div,  clk/(div+1)
-
+	printk("SPRDFB [%s], clk src is %d clk div is %d\n ", __FUNCTION__, clk_src, clk_div);
+	uint32_t div_reg_val = 0;
+	uint32_t src_reg_val = 0;
+	uint32_t	tmp = 0;
 	if(spi_id == 0)
 	{
+		src_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_CLK_DLY);
+		div_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN2);
+		
 		// *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI0_SEL_SHIFT);
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 26, GR_CLK_DLY);
+		sprd_greg_write(REG_TYPE_GLOBAL, (src_reg_val&(~(0x3<<26))|clk_src << 26), GR_CLK_DLY);
 		// *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI0_DIV_SHIFT);
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 21, GR_GEN2);
+		sprd_greg_write(REG_TYPE_GLOBAL, (div_reg_val&(~(0x7<<21))|clk_div << 21), GR_GEN2);
 	} else if(1 == spi_id) {
 		//        *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI1_SEL_SHIFT);
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 30, GR_CLK_DLY);
+		sprd_greg_write(REG_TYPE_GLOBAL, clk_src << 30, GR_CLK_DLY);
 		//        *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI1_DIV_SHIFT);    
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 11, GR_GEN2);
+		sprd_greg_write(REG_TYPE_GLOBAL, clk_div << 11, GR_GEN2);
 	}else if(2 == spi_id){
+		src_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN3);
+		div_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN3);
+
+		tmp = src_reg_val&(~(0x1f<<3))|clk_src << 3|clk_div << 5;
 		//        *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI1_SEL_SHIFT);
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 3, GR_GEN3);
+		sprd_greg_write(REG_TYPE_GLOBAL, tmp, GR_GEN3);
 		//        *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI1_DIV_SHIFT);    
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 5, GR_GEN3);
+//		sprd_greg_write(REG_TYPE_GLOBAL, (div_reg_val&(~(0x7<<5))|clk_div << 5), GR_GEN3);
 	}else{
 		printk("SPRDFB [%s], %d is SPI  error channel bit! ", __FUNCTION__, spi_id);
 		return;
@@ -347,7 +357,7 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
     uint32_t ctl0, ctl1, ctl2, ctl3;
     //SCI_ASSERT((spi_parm->data_width >=0) && (spi_parm->data_width < 32));
     
-    SPI_Reset(2, 1000);  //Reset spi0&spi1
+    SPI_Reset(2, 100);  //Reset spi0&spi1
     //SPI_Reset(1, 1000);
     
     spi_ctr_ptr->clkd = spi_parm->clk_div;
@@ -355,9 +365,10 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
     temp  = 0;
     temp |= (spi_parm->tx_edge << 0)    |
             (spi_parm->rx_edge << 1)    |
-            (spi_parm->data_width << 2) |
+            (0x9 << 2) 					|
+//            (spi_parm->data_width << 2) |
             (spi_parm->msb_lsb_sel<< 7) |
-            (0xE<<8);//CS-------------------------select cs0/cs1: 0-selected. 1-none
+            (0xf<<8);//CS-------------------------select cs0/cs1: 0-selected. 1-none
     spi_ctr_ptr->ctl0 = temp;
     
     // storage registers
@@ -365,14 +376,22 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
     ctl1 = spi_ctr_ptr->ctl1;
     ctl3 = spi_ctr_ptr->ctl3;
 
-    spi_ctr_ptr->ctl0  =  ctl0 & ~0x7C;                 // set bit-length to 32
+//    spi_ctr_ptr->ctl0  =  ctl0 & ~0x7C;      //add1-6        // set bit-length to 32
     //spi_ctr_ptr->ctl1  = (ctl1 & ~BIT_12) | BIT_13;     // set transmite mode
     spi_ctr_ptr->ctl1  = (ctl1 | BIT(12) | BIT(13));     // set rx/tx mode
 
+	/*rx fifo full watermark is 16*/
+	spi_ctr_ptr->ctl3 = 0x10;
+
+
+	spi_ctr_ptr->ctl7 &= ~(0x7 << 3);	//add1-6
+	spi_ctr_ptr->ctl7 |= SPIMODE_3WIRE_9BIT_SDIO << 3;//add1-6
+/*//add1-6
     // set water mark of reveive FIFO
     spi_ctr_ptr->ctl3  = (ctl3 & ~0xFFFF) | 
                    ((BURST_SIZE >>2) <<8) | 
                          (BURST_SIZE >>2);
+                         */
 }
 
 void SPI_WaitTxFinish()

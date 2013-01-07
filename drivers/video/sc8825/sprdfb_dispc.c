@@ -506,7 +506,6 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 {
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
-
 	/*set bg color*/
 	dispc_set_bg_color(0xFFFFFFFF);
 	/*enable dithering*/
@@ -680,7 +679,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		clk_enable(dispc_ctx.clk_dispc_dbi);
 		dispc_ctx.vsync_done = 1;
 		if (dispc_read(DISPC_SIZE_XY) == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
-			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
+			printk(KERN_INFO "sprdfb:[%s], dev->enable= %d\n",__FUNCTION__, dev->enable);
 			dispc_reset();
 			dispc_module_enable();
 			dispc_ctx.is_first_frame = true;
@@ -689,6 +688,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 			sprdfb_panel_resume(dev, true);
 		} else {
 			printk(KERN_INFO "sprdfb:[%s]  not from deep sleep\n",__FUNCTION__);
+
 			sprdfb_panel_resume(dev, true);
 		}
 
