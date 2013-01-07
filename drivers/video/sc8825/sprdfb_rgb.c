@@ -213,6 +213,12 @@ static bool sprdfb_rgb_panel_init(struct sprdfb_device *dev)
 	if(SPRDFB_RGB_BUS_TYPE_I2C == dev->panel->info.rgb->cmd_bus_mode){
 		ret = sprdfb_i2c_init(dev);
 	}else if(SPRDFB_RGB_BUS_TYPE_SPI == dev->panel->info.rgb->cmd_bus_mode) {
+		/*this is code to set the spi2 pin map proper	*/
+		__raw_writel(0x10a,(SPRD_PIN_BASE+0x290));
+		__raw_writel(0x10a,(SPRD_PIN_BASE+0x294));
+		__raw_writel(0x18a,(SPRD_PIN_BASE+0x298));
+		__raw_writel(0x106,(SPRD_PIN_BASE+0x29c));
+
 		ret = sprdfb_spi_init(dev);
 	}
 
@@ -221,22 +227,6 @@ static bool sprdfb_rgb_panel_init(struct sprdfb_device *dev)
 		return false;
 	}
 	
-	printk("0x4b000008 = 0x%x\n", __raw_readl(SPRD_GREG_BASE+0x8));
-	printk("0x4b00001c = 0x%x\n", __raw_readl(SPRD_GREG_BASE+0x1c));
-	printk("0x4b00004c = 0x%x\n", __raw_readl(SPRD_GREG_BASE+0x4c));
-	printk("0x4b0000c0 = 0x%x\n", __raw_readl(SPRD_GREG_BASE+0xc0));
-
-	printk("0x4e006000 = 0x%x\n", __raw_readl(SPRD_SPI2_BASE+0x600));
-	printk("0x4e006004 = 0x%x\n", __raw_readl(SPRD_SPI2_BASE+0x604));
-	printk("0x4e006008 = 0x%x\n", __raw_readl(SPRD_SPI2_BASE+0x608));
-	printk("0x4e00600c = 0x%x\n", __raw_readl(SPRD_SPI2_BASE+0x60c));
-	printk("0x4e006010 = 0x%x\n", __raw_readl(SPRD_SPI2_BASE+0x610));
-	printk("0x4e006014 = 0x%x\n", __raw_readl(SPRD_SPI2_BASE+0x614));
-	printk("0x4e006018 = 0x%x\n", __raw_readl(SPRD_SPI2_BASE+0x618));
-
-
-
-
 	rgb_dispc_init_config(dev->panel);
 	rgb_dispc_set_timing(dev);
 
@@ -244,7 +234,7 @@ static bool sprdfb_rgb_panel_init(struct sprdfb_device *dev)
 	/*Nt35516 need vsync before panel init*/
 		dispc_set_bits(BIT(4), DISPC_CTRL);
 		udelay(100);
-		dispc_clear_bits(BIT(4), DISPC_CTRL);			//add for debug
+		dispc_clear_bits(BIT(4), DISPC_CTRL);			
 	}
 	return true;
 }
