@@ -752,11 +752,18 @@ int mmc_attach_sd(struct mmc_host *host, u32 ocr)
 	 * Detect and init the card.
 	 */
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-	retries = 5;
-	while (retries) {
-		err = mmc_sd_init_card(host, host->ocr, NULL);
-		if (err) {
-			retries--;
+        retries = 5;
+        while (retries) {
+            err = mmc_sd_init_card(host, host->ocr, NULL);
+            if (err) {
+                retries--;
+                //add for some card not support lowest voltage defined in ocr
+                mmc_power_off(host);
+                msleep(5);
+                mmc_power_up(host);
+                mmc_select_voltage(host, host->ocr);
+                //add end
+
 			continue;
 		}
 		break;
