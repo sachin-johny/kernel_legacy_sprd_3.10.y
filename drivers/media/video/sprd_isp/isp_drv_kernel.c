@@ -34,6 +34,7 @@
 #include <linux/proc_fs.h>
 #include <video/isp_drv_kernel.h>
 #include "Tiger_reg_isp.h"
+#include <asm/cacheflush.h>
 
 #define DEBUG_ISP_DRV
 #ifdef DEBUG_ISP_DRV
@@ -193,25 +194,16 @@ static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t c
 	struct isp_reg_bits reg_bits = {0x00};
 	uint32_t reg_value=0x00;
 
-	ISP_PRINT("ISP_RAW:_isp_lnc_param_load ---------start\n");
-
-	ISP_PRINT("ISP_RAW:_isp_lnc_param_load addr:0x%x, 0x%x\n", s_isp_alloc_addr, reg_bits_ptr[0].reg_value);
-
 	reg_bits_ptr->reg_value=(uint32_t)__pa(reg_bits_ptr->reg_value);
-
-	ISP_PRINT("ISP_RAW:_isp_lnc_param_load 0x%x, 0x%x\n", reg_bits_ptr[0].reg_addr, reg_bits_ptr[0].reg_value);
 
 	_write_reg(reg_bits_ptr, counts);
 
 	reg_value=ISP_READL(ISP_INT_RAW);
 
-	ISP_PRINT("ISP_RAW:_isp_lnc_param_load-- 0x%x|0x%x\n",ISP_INT_RAW, reg_value);
-
 	while(0x00==(reg_value&ISP_INT_LEN_S_LOAD))
 	{
 		msleep(1);
 		reg_value=ISP_READL(ISP_INT_RAW);
-		ISP_PRINT("ISP_RAW:_isp_lnc_param_load 0x%x|0x%x\n",ISP_INT_RAW, reg_value);
 	}
 
 	ISP_OWR(ISP_INT_CLEAR, ISP_INT_LEN_S_LOAD);
@@ -223,20 +215,11 @@ static int32_t _isp_lnc_param_set(uint32_t* addr, uint32_t len)
 {
 	int32_t ret = 0;
 	uint16_t* buf_addr=(uint16_t*)s_isp_alloc_addr;
-	uint32_t i=0x00;
-
-	ISP_PRINT("ISP_RAW:_isp_lnc_param_set ---------start\n");
-	ISP_PRINT("ISP_RAW:_isp_lnc_param_set--0x%x,0x%x, 0x%x\n",len,s_isp_alloc_addr, addr);
 
 	if((0x00!=s_isp_alloc_addr)
 		&&(0x00!=addr))
 	{
 		memcpy((void*)s_isp_alloc_addr, (void*)addr, len);
-		while(i<50)
-		{
-			ISP_PRINT("ISP_RAW:_isp_lnc_param_set:%d|%d\n",i,buf_addr[i]);
-			i++;
-		}
 	}
 
 	return ret;
@@ -248,6 +231,7 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 	uint32_t buf=0x00;
 	uint32_t vir_buf=0x00;
 	uint32_t mem_order=0x00;
+	void *ptr;
 	if(0x00==s_isp_alloc_addr) {
 
 		s_isp_alloc_order = get_order(len);
@@ -256,10 +240,12 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 			ISP_PRINT("ISP_RAW:_isp_alloc null error\n");
 			return 1;
 		}
+		ptr = (void*)s_isp_alloc_addr;
 		*addr = s_isp_alloc_addr;
 		buf = virt_to_phys(s_isp_alloc_addr);
+		dmac_flush_range(ptr, ptr + len);
+		outer_flush_range(__pa(ptr), __pa(ptr) + len);
 	}
-	ISP_PRINT("ISP_RAW:_isp_alloc 0x%x,0x%x, 0x%x, 0x%x\n",len,s_isp_alloc_order,s_isp_alloc_addr, buf);
 
 	return ret;
 }
@@ -423,7 +409,6 @@ static int _isp_en_irq(unsigned long int_num)
 {
 	uint32_t ret = 0;
 
-	ISP_PRINT("ISP_RAW:_isp_en_irq----------- %x\n", int_num);
 	ISP_WRITEL(ISP_INT_CLEAR, 0x0fff);
 	ISP_WRITEL(ISP_INT_EN, int_num);
 
@@ -456,8 +441,6 @@ static int _isp_cfg_dcam_int(uint32_t param)
 	uint32_t ret = 0;
 
 	s_dcam_int_eb = param;
-
-	ISP_PRINT("ISP_RAW:isp_k: _isp_cfg_dcam_int, %d, %d", param, s_dcam_int_eb);
 
 	return ret;
 }
