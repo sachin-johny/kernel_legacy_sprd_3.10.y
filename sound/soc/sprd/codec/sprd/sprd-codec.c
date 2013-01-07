@@ -1142,8 +1142,10 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+#if 0 /* do not enable the diff function from weifeng.ni */
 		snd_soc_update_bits(codec, SOC_REG(DCR1), BIT(DIFF_EN),
 				    BIT(DIFF_EN));
+#endif
 
 #ifndef CONFIG_CODEC_NO_HP_POP
 		mask = HP_POP_CTL_MASK << HP_POP_CTL;
