@@ -186,8 +186,7 @@ static int sc881x_func_set(struct snd_kcontrol *kcontrol,
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
 	int id = FUN_REG(mc->reg);
 
 	if (sc881x.func[id] == ucontrol->value.integer.value[0])

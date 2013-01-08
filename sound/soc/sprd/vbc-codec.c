@@ -1411,7 +1411,7 @@ static int vbc_soc_probe(struct snd_soc_codec *codec)
 #endif
 #endif
 	android_pm_init();
-	snd_soc_add_controls(codec, vbc_snd_controls,
+	snd_soc_add_codec_controls(codec, vbc_snd_controls,
 				ARRAY_SIZE(vbc_snd_controls));
 	vbc_add_widgets(codec);
 	class_register(&modem_class);
