@@ -184,6 +184,13 @@ config NKERNEL_VETH_RING_SIZE
 	  the Linux component, rather than of the vdrivers component)
 	  might not take this setting into account.
 
+config NKERNEL_VETH_IFNAME
+	string "Interface name for virtual ethernet driver"
+	default "veth"
+	depends on NKERNEL_VETH
+	help
+	  The default name of virtual Ethernet driver.
+
 if BLOCK
 config VBD_BE
         tristate "Virtual block device backend interface"

@@ -976,6 +976,8 @@ veth_dev_create (NkDevVlink* rx_link, NkDevVlink* tx_link)
     struct net_device*	netdev;
     VEth*		veth;
     int			res;
+    char ifname[IFNAMSIZ];
+
 	/*
 	 * If creation fails before setting veth->enabled,
 	 * cleanup must be done here.
@@ -984,7 +986,17 @@ veth_dev_create (NkDevVlink* rx_link, NkDevVlink* tx_link)
 	VETH_ERR ("too many veth devices.\n");
 	return -EINVAL;
     }
-    netdev = alloc_netdev (sizeof (VEth), "veth%d", ether_setup);
+
+#if defined(CONFIG_NKERNEL_VETH_IFNAME)
+    if (!strcmp("rmnet", CONFIG_NKERNEL_VETH_IFNAME))
+        strcpy(ifname, "rmnet%d");
+    else
+        strcpy(ifname, "veth%d");
+#else
+    strcpy(ifname, "veth%d");
+#endif
+
+    netdev = alloc_netdev (sizeof (VEth), ifname, ether_setup);
     if (!netdev) {
 	VETH_ERR ("alloc_netdev() failed.\n");
 	return -ENOMEM;
