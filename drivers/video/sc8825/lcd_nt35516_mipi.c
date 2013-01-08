@@ -15,6 +15,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/bug.h>
 #include <linux/delay.h>
 #include "sprdfb_panel.h"
 

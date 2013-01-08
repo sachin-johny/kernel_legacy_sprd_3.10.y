@@ -13,7 +13,9 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
+#endif
 #include <linux/platform_device.h>
 #include <linux/fb.h>
 

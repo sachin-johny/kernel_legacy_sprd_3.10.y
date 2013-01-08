@@ -14,8 +14,9 @@
 #ifndef _SPRDFB_H_
 #define _SPRDFB_H_
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
-
+#endif
 
 enum{
 	SPRDFB_PANEL_IF_DBI = 0,
