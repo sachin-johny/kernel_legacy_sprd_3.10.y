@@ -208,7 +208,6 @@ void sdhci_bus_scan(void)
 	return;
 }
 EXPORT_SYMBOL_GPL(sdhci_bus_scan);
-#endif
 
 /*
  *   set indicator indicates that whether any devices attach on sdio bus.
@@ -261,6 +260,8 @@ int sdhci_device_attached()
 	return false;
 }
 EXPORT_SYMBOL_GPL(sdhci_device_attached);
+#endif
+
 /**
  * sdhci_sprd_get_max_clk - callback to get maximum clock frequency.
  * @host: The SDHCI host instance.
