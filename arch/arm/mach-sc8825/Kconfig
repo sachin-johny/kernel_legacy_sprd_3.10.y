@@ -63,6 +63,13 @@ config SC8825_VIBRATOR
         default n
         bool "vibrator for SC8825"
 
+config SPRD_MEM_POOL
+	depends on ARCH_SC8825
+	default y
+        bool "Using a memory pool to alloc thread stack and pgd table"
+	help
+          This option enables memmory pool for allocating thread stack and pgd table.
+
 config SPRD_DCDC_DEBUG
 	default y
 	tristate "Enable dcdc debug module"

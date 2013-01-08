@@ -45,6 +45,7 @@ ifeq ($(CONFIG_RTL8723AS),m)
 	obj-y  += rtl8723_adapter.o
 endif
 obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o
+obj-$(CONFIG_SPRD_MEM_POOL)    += sprd_mem_pool.o
 
 sprdboarddirs := $(patsubst %,arch/arm/mach-sc8825/%,$(sprdboard-y))
 $(warning $(sprdboarddirs))
