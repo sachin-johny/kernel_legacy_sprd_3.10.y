@@ -397,6 +397,101 @@ static struct sdhci_ops sdhci_sprd_ops = {
 	.restore_regs	= sdhci_restore_regs,
 };
 
+#define SPL_EMMC_DATA_ADDR			0x5C80
+#define EMMC_PRIV_DATA				0x11
+#define EMMC_MAGIC_SDR50			0xEAC0AD50
+#define EMMC_MAGIC_DDR50			0xEAC1DD50
+
+typedef struct {
+	unsigned int tag;
+	unsigned int len;
+	unsigned int data[];
+} spl_priv_data;
+
+typedef struct {
+	unsigned int flag;
+	unsigned int para1;
+	unsigned int para2;
+	unsigned int para3;
+	unsigned int para4;
+	unsigned int check_sum;
+} emmc_priv_data;
+
+static void emmc_get_spl_data(struct sdhci_host* host)
+{
+	struct sprd_host_data *host_data= sdhci_priv(host);
+	emmc_priv_data *emmc_data;
+	spl_priv_data *spl_data;
+	unsigned char sdr50_flag, ddr50_flag, i;
+
+	sdr50_flag = 0;
+	ddr50_flag = 0;
+
+	spl_data = (spl_priv_data *)(SPRD_IRAM_BASE + SPL_EMMC_DATA_ADDR - SPRD_IRAM_PHYS);
+	if (spl_data->tag == EMMC_PRIV_DATA) {
+		/*only sdr50 and ddr50 parameters*/
+		emmc_data = (emmc_priv_data *)(spl_data->data);
+		for ( i = 0; i < 2; i++) {
+			if (emmc_data->flag == EMMC_MAGIC_SDR50) {
+				unsigned int check_sum = 0;
+				check_sum ^= emmc_data->flag;
+				check_sum ^= emmc_data->para1;
+				check_sum ^= emmc_data->para2;
+				check_sum ^= emmc_data->para3;
+				check_sum ^= emmc_data->para4;
+				if (check_sum == emmc_data->check_sum) {
+					host_data->sdr50_clk_pin = emmc_data->para1;
+					host_data->sdr50_data_pin = emmc_data->para2;
+					host_data->sdr50_write_delay = emmc_data->para3;
+					host_data->sdr50_read_pos_delay = emmc_data->para4;
+					sdr50_flag = 1;
+					pr_debug("emmc get SDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
+							emmc_data->para1, emmc_data->para2,
+							emmc_data->para3,emmc_data->para4);
+				}
+			}
+			else if (emmc_data->flag == EMMC_MAGIC_DDR50) {
+				unsigned int check_sum = 0;
+				check_sum ^= emmc_data->flag;
+				check_sum ^= emmc_data->para1;
+				check_sum ^= emmc_data->para2;
+				check_sum ^= emmc_data->para3;
+				check_sum ^= emmc_data->para4;
+				if (check_sum == emmc_data->check_sum) {
+					host_data->ddr50_clk_pin = emmc_data->para1;
+					host_data->ddr50_write_delay = emmc_data->para2;
+					host_data->ddr50_read_pos_delay = emmc_data->para3;
+					host_data->ddr50_read_neg_delay = emmc_data->para4;
+					sdr50_flag = 1;
+					pr_debug("emmc get DDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
+							emmc_data->para1, emmc_data->para2,
+							emmc_data->para3,emmc_data->para4);
+				}
+			}
+			emmc_data ++;
+		}
+	}
+	/* if not get parameters , used default parameters.*/
+	if (sdr50_flag == 0) {
+		host_data->sdr50_clk_pin = 0;
+		host_data->sdr50_data_pin = 1;
+		host_data->sdr50_write_delay = 0x30;
+		host_data->sdr50_read_pos_delay = 0x08;
+		pr_debug("emmc used default SDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
+							emmc_data->para1, emmc_data->para2,
+							emmc_data->para3,emmc_data->para4);
+	}
+	if (ddr50_flag == 0) {
+		host_data->ddr50_clk_pin = 0;
+		host_data->ddr50_write_delay = 0x16;
+		host_data->ddr50_read_pos_delay = 0x05;
+		host_data->ddr50_read_neg_delay = 0x05;
+		pr_debug("emmc used default  DDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
+							emmc_data->para1, emmc_data->para2,
+							emmc_data->para3,emmc_data->para4);
+	}
+}
+
 static void sdhci_module_init(struct sdhci_host* host)
 {
 	struct sprd_host_platdata *host_pdata;
@@ -408,7 +503,10 @@ static void sdhci_module_init(struct sdhci_host* host)
 	sci_glb_clr(REG_AHB_SOFT_RST, host_pdata->rst_bit);
 	sdhci_sprd_set_base_clock(host);
 	host->ops->set_clock(host, true);
-
+	if ( !strcmp(host->hw_name, "sprd-emmc") ) {
+		emmc_get_spl_data(host);
+		/* add alter pin driver strength*/
+	}
 }
 
 

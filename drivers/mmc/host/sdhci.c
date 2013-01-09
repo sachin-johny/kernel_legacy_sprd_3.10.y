@@ -1603,6 +1603,7 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			host->ops->set_uhs_signaling(host, ios->timing);
 		else {
 #if defined(CONFIG_MMC_SDHCI_SC8825) || defined(CONFIG_ARCH_SC7710)
+			struct sprd_host_data *host_data= sdhci_priv(host);
 			ctrl_2 = sdhci_readl(host, SDHCI_HOST_CONTROL2 & (~0x3));
 			/* Select Bus Speed Mode for host */
 			ctrl_2 &= ~(SDHCI_CTRL_UHS_MASK << 16);
@@ -1612,18 +1613,18 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR25 << 16);
 			else if (ios->timing == MMC_TIMING_UHS_SDR50) {
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR50 << 16);
-				sdhci_writel(host, 0x33, 0x80);
-				sdhci_writel(host, 0x08, 0x84);
-				sdhci_writel(host, 0x08, 0x88);
+				sdhci_writel(host, host_data->sdr50_write_delay, SDHCI_WR_DL);
+				sdhci_writel(host, host_data->sdr50_read_pos_delay, SDHCI_RD_POS_DL);
+				sdhci_writel(host, host_data->sdr50_read_pos_delay, SDHCI_RD_NEG_DL);
 			}
 			else if (ios->timing == MMC_TIMING_UHS_SDR104)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR104 << 16);
 			else if (ios->timing == MMC_TIMING_UHS_DDR50){
 				ctrl_2 |= (SDHCI_CTRL_UHS_DDR50 << 16);
 				/* set write/read delay value . 0x0080, 0x0084, 0x0088*/
-				sdhci_writel(host, 0x18 , 0x0080);
-				sdhci_writel(host, 0x0E , 0x0084);
-				sdhci_writel(host, 0x0A , 0x0088);
+				sdhci_writel(host, host_data->ddr50_write_delay, SDHCI_WR_DL);
+				sdhci_writel(host, host_data->ddr50_read_pos_delay, SDHCI_RD_POS_DL);
+				sdhci_writel(host, host_data->ddr50_read_neg_delay, SDHCI_RD_NEG_DL);
 			}
 			sdhci_writel(host, ctrl_2, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
