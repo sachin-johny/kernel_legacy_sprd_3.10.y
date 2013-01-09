@@ -59,6 +59,7 @@ enum
 	V4L2_NO_MEM   = 0x01,
 	V4L2_TX_ERR   = 0x02,
 	V4L2_CSI2_ERR = 0x03,
+	V4L2_SYS_BUSY = 0x04,
 	V4L2_TIMEOUT  = 0x10,
 	V4L2_TX_STOP  = 0xFF
 };
@@ -1374,9 +1375,12 @@ static int v4l2_dqbuf(struct file *file,
 		ret = down_interruptible(&dev->irq_sem);
 		if (0 == ret) {
 			break;
-		} else {
+		} else if (-EINTR == ret) {
+			p->flags = V4L2_SYS_BUSY;
+			return DCAM_RTN_SUCCESS;
+		}else {
 			printk("V4L2: v4l2_dqbuf, failed to down, %d \n", ret);
-			continue;
+			return -EPERM;
 		}
 	}
 
