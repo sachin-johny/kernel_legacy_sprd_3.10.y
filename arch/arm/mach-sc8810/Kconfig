@@ -64,6 +64,12 @@ config MACH_KYLETD
 	help
 	  KYLETD phone board based on SC8810.
 
+config MACH_MINT
+        default n
+        bool "MINT Phone"
+        help
+          MINT phone board based on SC6820.
+
 config MACH_Z788
 	default n
 	bool "Z788 Phone"

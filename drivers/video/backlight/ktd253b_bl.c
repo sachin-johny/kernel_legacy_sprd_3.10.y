@@ -1,5 +1,9 @@
 /*************** maintained by customer ***************************************/
+#if defined(CONFIG_MACH_MINT)
+#define CONFIG_BACKLIGHT_CORI 1
+#else
 #define CONFIG_BACKLIGHT_AMAZING 1
+#endif
 /*
  * linux/drivers/video/backlight/s2c_bl.c
  *
@@ -42,7 +46,11 @@
 //#include <linux/broadcom/PowerManager.h>
 
 int current_intensity;
+#if defined(CONFIG_MACH_MINT)
+static int backlight_pin = 138;
+#else
 static int backlight_pin = 136;
+#endif
 
 static DEFINE_SPINLOCK(bl_ctrl_lock);
 static int lcd_brightness = 0;
