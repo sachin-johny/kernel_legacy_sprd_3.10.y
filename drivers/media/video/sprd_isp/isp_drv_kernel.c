@@ -96,6 +96,7 @@ struct isp_device_t g_isp_device = { 0 };
 uint32_t s_dcam_int_eb = 0x00;
 uint32_t s_isp_alloc_addr = 0x00;
 uint32_t s_isp_alloc_order = 0x00;
+uint32_t s_isp_alloc_len = 0x00;
 
 static DEFINE_SPINLOCK(isp_spin_lock);
 
@@ -194,6 +195,15 @@ static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t c
 	struct isp_reg_bits reg_bits = {0x00};
 	uint32_t reg_value=0x00;
 
+	if((0x00!=s_isp_alloc_addr)
+		&&(0x00!=s_isp_alloc_len)){
+
+		void *ptr = (void*)s_isp_alloc_addr;
+		uint32_t len=s_isp_alloc_len;
+		dmac_flush_range(ptr, ptr + len);
+		outer_flush_range(__pa(ptr), __pa(ptr) + len);
+	}
+
 	reg_bits_ptr->reg_value=(uint32_t)__pa(reg_bits_ptr->reg_value);
 
 	_write_reg(reg_bits_ptr, counts);
@@ -233,7 +243,7 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 	uint32_t mem_order=0x00;
 	void *ptr;
 	if(0x00==s_isp_alloc_addr) {
-
+		s_isp_alloc_len=len;
 		s_isp_alloc_order = get_order(len);
 		s_isp_alloc_addr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP, s_isp_alloc_order);
 		if (NULL == (void*)s_isp_alloc_addr) {
@@ -260,6 +270,7 @@ static int32_t _isp_free(void)
 		free_pages(s_isp_alloc_addr, s_isp_alloc_order);
 		s_isp_alloc_order = 0x00;
 		s_isp_alloc_addr = 0x00;
+		s_isp_alloc_len=0x00;
 	}
 
 	return ret;
