@@ -210,7 +210,7 @@ static void boot_data(struct modem_message_node *msg,struct modem_intf_device *d
 		break;
 	        case MODEM_SLAVE_RTS:
 			pingpang_buffer_send_complete(&device->send_buffer,device->out_transfering);
-                        device->op->read(device->recv_buffer.buffer[1].addr,8);
+                        device->op->read(device->recv_buffer.buffer[1].addr,ACK_PACKET_SIZE);
 			data = (unsigned short *)device->recv_buffer.buffer[1].addr;
                         device->status = (int)MBUS_DL_ACK;
                 break;
@@ -228,7 +228,7 @@ static void boot_data_comp(struct modem_message_node *msg,struct modem_intf_devi
 	unsigned short *data;
 	switch(msg->type){
 		case MODEM_SLAVE_RTS:
-			device->op->read(device->recv_buffer.buffer[1].addr,8);
+			device->op->read(device->recv_buffer.buffer[1].addr,ACK_PACKET_SIZE);
 			data = (unsigned short *)device->recv_buffer.buffer[1].addr;
 			device->status = (int)MBUS_DL_ACK;
 		break;
