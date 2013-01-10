@@ -49,6 +49,7 @@ enum {
 	SC881X_FUNC_MIC,
 	SC881X_FUNC_HP_MIC,
 	SC881X_FUNC_LINEINREC,
+	SC881X_FUNC_MIC_BIAS,
 
 	SC881X_FUNC_MAX
 };
@@ -78,6 +79,7 @@ static const char *func_name[SC881X_FUNC_MAX] = {
 	"Mic Jack",
 	"HP Mic Jack",
 	"Line Rec",
+	"Mic Bias",
 };
 
 static void sc881x_ext_control(struct snd_soc_dapm_context *dapm)
@@ -90,11 +92,20 @@ static void sc881x_ext_control(struct snd_soc_dapm_context *dapm)
 			snd_soc_dapm_disable_pin(dapm, func_name[i]);
 	}
 
-	if (sc881x.func[SC881X_FUNC_LINEINREC] == SWITCH_FUN_ON)
+	if (sc881x.func[SC881X_FUNC_LINEINREC] == SWITCH_FUN_ON) {
+		arch_audio_codec_lineinrec_enable();
 		snd_soc_dapm_enable_pin(dapm, func_name[SC881X_FUNC_HP_MIC]);
+	} else {
+		arch_audio_codec_lineinrec_disable();
+	}
 
 	if (sc881x.func[SC881X_FUNC_MIC] == SWITCH_FUN_ON)
 		snd_soc_dapm_disable_pin(dapm, func_name[SC881X_FUNC_HP_MIC]);
+
+	if (sc881x.func[SC881X_FUNC_MIC_BIAS] == SWITCH_FUN_ON)
+		snd_soc_dapm_force_enable_pin(dapm, func_name[SC881X_FUNC_MIC_BIAS]);
+	else
+		snd_soc_dapm_disable_pin(dapm, func_name[SC881X_FUNC_MIC_BIAS]);
 
 	/* signal a DAPM event */
 	snd_soc_dapm_sync(dapm);
@@ -270,6 +281,7 @@ static const struct snd_kcontrol_new dolphin_sc881x_controls[] = {
 	SC881X_CODEC_FUNC("Mic Function", SC881X_FUNC_MIC),
 	SC881X_CODEC_FUNC("HP Mic Function", SC881X_FUNC_HP_MIC),
 	SC881X_CODEC_FUNC("Linein Rec Function", SC881X_FUNC_LINEINREC),
+	SC881X_CODEC_FUNC("Mic Bias Function", SC881X_FUNC_MIC_BIAS),
 
 	SOC_SINGLE_EXT_TLV("Inter PA Playback Volume",
 			   FUN_REG(SC881X_PGA_INTER_PA), 4,
