@@ -738,6 +738,125 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 	return ret;
 }
 
+static int rot_k_start_copy_data_from_virtual(ROT_CFG_T * param_ptr)
+{
+	struct sprd_dma_channel_desc dma_desc;
+	uint32_t byte_per_pixel = 1;
+	uint32_t src_img_postm = 0;
+	uint32_t dst_img_postm = 0;
+	uint32_t dma_src_phy;
+	uint32_t src_vir_addr = param_ptr->src_addr.y_addr;
+	uint32_t dma_dst_phy = param_ptr->dst_addr.y_addr;
+	uint32_t block_len;
+	uint32_t total_len;
+	int32_t ret = 0;
+	int ch_id = s_virtual_ch_id;
+	int i;
+	uint32_t list_size;
+	uint32_t list_copy_size = 4096;
+	struct sprd_dma_linklist_desc *dma_cfg;
+	dma_addr_t dma_cfg_phy;
+	struct timeval time1, time2;
+
+	if (ROT_YUV420 == param_ptr->format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+	} else if (ROT_RGB888 == param_ptr->format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 4;
+	} else {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
+	}
+
+	total_len = block_len;
+
+	if(0 != src_vir_addr%list_copy_size){
+		printk("rot_k_start_copy_data_from_virtual: src_vir_addr = %x not 4K bytes align, error \n", src_vir_addr);
+		return -ENOMEM;
+	}
+
+	list_size = (total_len + list_copy_size -1)/list_copy_size;
+
+	RTT_PRINT("rot_k_start_copy_data_from_virtual: src_vir_addr = %x, list_copy_size=%x, list_size=%x,  \n", src_vir_addr, list_copy_size, list_size);
+
+	if (ch_id < 0) {
+		while (1) {
+			ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
+			if (ch_id < 0) {
+				printk("rot_k_start_copy_data_from_virtual: convert endian request dma fail.ret : %d.\n", ret);
+				msleep(5);
+			} else {
+				RTT_PRINT("rot_k_start_copy_data_from_virtual: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
+				     ch_id, total_len);
+				break;
+			}
+		}
+		s_virtual_ch_id = ch_id;
+	}
+	memset(&dma_desc, 0, sizeof(struct sprd_dma_channel_desc));
+
+	dma_cfg = (struct sprd_dma_linklist_desc *)dma_alloc_writecombine(NULL,
+										sizeof(*dma_cfg) * list_size,
+										&dma_cfg_phy,
+										GFP_KERNEL);
+	if (!dma_cfg) {
+		printk("rot_k_start_copy_data_to_virtual allocate failed, size=%d \n", sizeof(*dma_cfg) * list_size);
+		return -ENOMEM;
+	}
+
+	memset(dma_cfg, 0x0, sizeof(*dma_cfg) * list_size);
+
+	do_gettimeofday(&time1);
+	RTT_PRINT("pid = %d = 0x%x \n", current->pid, current->pid);
+	for (i = 0; i < list_size; i++) {
+		dma_src_phy = user_va2pa(current->mm, src_vir_addr+i*list_copy_size);
+		//sprd_dma_default_linklist_setting(dma_cfg + i);
+		dma_cfg[i].cfg = DMA_LIT_ENDIAN | DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH32 | DMA_REQMODE_LIST;
+		dma_cfg[i].elem_postm = 0x4 << 16 | 0x4;
+		dma_cfg[i].src_blk_postm = SRC_BURST_MODE_8;
+		dma_cfg[i].dst_blk_postm = SRC_BURST_MODE_8;
+
+		dma_cfg[i].llist_ptr = (u32) ((char *)dma_cfg_phy + sizeof(*dma_cfg) * (i + 1));
+		dma_cfg[i].src_addr = dma_src_phy;
+		dma_cfg[i].dst_addr = dma_dst_phy + i * list_copy_size;
+		dma_cfg[i].total_len = (block_len > list_copy_size) ? list_copy_size : block_len;
+		/* block length */
+		dma_cfg[i].cfg |= list_copy_size & CFG_BLK_LEN_MASK;
+		block_len -= dma_cfg[i].total_len;
+	}
+	do_gettimeofday(&time2);
+	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
+
+	dma_cfg[list_size - 1].cfg |= DMA_LLEND;
+
+#if 1//def CONFIG_ARCH_SC8825
+	sprd_dma_linklist_config(ch_id, dma_cfg_phy);
+#else
+	/* for 8810 */
+	dma_desc.llist_ptr = (uint32_t)dma_cfg_phy;
+	sprd_dma_channel_config(ch_id, DMA_LINKLIST, &dma_desc);
+#endif
+
+	sprd_dma_set_irq_type(ch_id, LINKLIST_DONE, 1);
+
+	g_copy_done = 0;
+
+	sprd_dma_channel_start(ch_id);
+
+	if (!wait_event_interruptible_timeout(wait_queue, g_copy_done,msecs_to_jiffies(30))) {
+		/*ret = -EFAULT;*/
+		printk("dma timeout. \n");
+	}
+
+	sprd_dma_channel_stop(ch_id);
+
+/*	sprd_dma_free(ch_id);*/
+
+	dma_free_writecombine(NULL, sizeof(*dma_cfg) * list_size, dma_cfg, dma_cfg_phy);
+
+	RTT_PRINT("rot_k_start_copy_data_to_virtual done \n");
+
+	return ret;
+}
+
 static int rot_k_io_cfg(ROT_CFG_T * param_ptr)
 {
 	int ret = 0;
@@ -808,6 +927,18 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
 			if (0 == ret){
 				if (rot_k_start_copy_data_to_virtual(&params)) {
+					ret = -EFAULT;
+				}
+			}
+		}
+		break;
+
+	case ROT_IO_DATA_COPY_FROM_VIRTUAL:
+		{
+			ROT_CFG_T params;
+			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
+			if (0 == ret){
+				if (rot_k_start_copy_data_from_virtual(&params)) {
 					ret = -EFAULT;
 				}
 			}
