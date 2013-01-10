@@ -622,7 +622,7 @@ static void mcu_sleep(void)
 	hard_irq_set();
 	RESTORE_GLOBAL_REG;
 }
-
+#if 0
 /* save pm message for debug when enter deep sleep*/
 unsigned int debug_status[10];
 static void pm_debug_save_ahb_glb_regs(void)
@@ -649,7 +649,7 @@ static void pm_debug_dump_ahb_glb_regs(void)
 	printk("*** GR_BUSCLK:  0x%x ***\n", debug_status[7] );
 	printk("*** GR_CLK_DLY:  0x%x ***\n", debug_status[8] );
 }
-
+#endif
 unsigned int sprd_irq_pending(void)
 {
 	u32 status;
@@ -816,7 +816,7 @@ int deep_sleep(void)
 	u32 val, ret = 0;
 	u32 holding;
 
-	/*wait_until_uart1_tx_done();*/
+	wait_until_uart1_tx_done();
 	SAVE_GLOBAL_REG;
 	disable_audio_module();
 	disable_apb_module();
@@ -863,7 +863,6 @@ int deep_sleep(void)
 	/*go deepsleep when all PD auto poweroff en*/
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
-	/* FIXME: enable sys sleep and deep sleep in final version */
 	#ifndef CONFIG_MACH_SP6825GA
 	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
 	#else
@@ -885,7 +884,7 @@ int deep_sleep(void)
 
 	save_emc_trainig_data(repower_param);
 	ret = sp_pm_collapse(0, 1);
-		
+	hard_irq_set();
 	/*clear dsp fiq, for dsp wakeup*/
 	__raw_writel(ICLR_DSP_FRQ0_CLR, SPRD_IPI_ICLR);
 	__raw_writel(ICLR_DSP_FIQ1_CLR, SPRD_IPI_ICLR);
@@ -907,8 +906,6 @@ int deep_sleep(void)
 	restore_reset_vector();	
 	RESTORE_GLOBAL_REG;
 
-	hard_irq_set();
-
 	udelay(5);
 	if (ret) cpu_init();
 
@@ -917,7 +914,6 @@ int deep_sleep(void)
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
 	l2x0_resume(ret);
 #endif
-	//pm_debug_dump_ahb_glb_regs();
 
 	return ret;
 }
@@ -930,7 +926,7 @@ int deep_sleep(void)
 #define DEVICE_TEYP_MASK        (DEVICE_AHB | DEVICE_APB | DEVICE_VIR | DEVICE_AWAKE)
 
 
-static int sc8825_get_sleep_mod( ){
+static int sc8825_get_sleep_mod( void ){
 	int val, ret;
 	printk("*** REG_GLB_GEN1:  0x%x ***\n", sci_glb_read(REG_GLB_GEN1, -1UL));
 	printk("*** REG_GLB_STC_DSP_ST:  0x%x ***\n", sci_glb_read(REG_GLB_STC_DSP_ST, -1UL));
@@ -1030,7 +1026,7 @@ int sc8825_enter_lowpower(void)
 	}
 	
 	time_add(get_sys_cnt() - time, ret);
-	/*print_hard_irq_inloop(ret);*/
+	print_hard_irq_inloop(ret);
 
 	return ret;
 

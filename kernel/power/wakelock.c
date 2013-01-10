@@ -273,6 +273,7 @@ static void suspend(struct work_struct *work)
 	int ret;
 	int entry_event_num;
 	struct timespec ts_entry, ts_exit;
+	pr_info("PM: suspend enter\n");
 
 	if (has_wake_lock(WAKE_LOCK_SUSPEND)) {
 		if (debug_mask & DEBUG_SUSPEND)
@@ -281,6 +282,10 @@ static void suspend(struct work_struct *work)
 	}
 
 	entry_event_num = current_event_num;
+	/*
+	 *   NOTE: remove sys_sync() here, it takes too much time
+	 * sometimes
+	 */
 	sys_sync();
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("suspend: enter suspend\n");

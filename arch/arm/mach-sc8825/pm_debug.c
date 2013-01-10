@@ -72,6 +72,8 @@ static char * sleep_mode_str[]  = {
 #define	INTCV1_FIQ_STS		INTC1_REG(0x0020)
 #define INT_IRQ_MASK	(1<<3)
 
+void pm_debug_dump_ahb_glb_regs(void);
+
 static void hard_irq_reset(void)
 {
 	int i = SPRD_HARD_INTERRUPT_NUM - 1;
@@ -98,7 +100,7 @@ static void parse_hard_irq(unsigned long val, unsigned long intc)
 void hard_irq_set(void)
 {
 	sprd_irqs_sts[0] = __raw_readl(INT_IRQ_STS);
-	sprd_irqs_sts[1] = __raw_readl(INTCV1_IRQ_MSKSTS);
+	sprd_irqs_sts[1] = __raw_readl(INT_FIQ_STS);
 	irq_status = __raw_readl(INT_IRQ_STS);
 	parse_hard_irq(irq_status, 0);
 	irq_status = __raw_readl(INTCV1_IRQ_MSKSTS);
@@ -107,19 +109,31 @@ void hard_irq_set(void)
 
 #define GPIO_GROUP_NUM		16
 #define IRQ_GPIO		(1<<10)
+#define IRQ_ADIE		(1<<25)
+#define IRQ_DSP0		(1<<26)
+#define IRQ_DSP1		(1<<27)
+#define IRQ_TIMER0		(1<<6)
+#define IRQ_SIM0		(1<<15)
+#define IRQ_SIM1		(1<<16)
+
 #define REG_GPIO_MIS            (0x0020)
+#define ANA_REG_INT_MASK_STATUS (SPRD_MISC_BASE + 0x380 +0x0000)
 void print_hard_irq_inloop(int ret)
 {
 	unsigned int i, j, val;
 	unsigned int gpio_irq[GPIO_GROUP_NUM];
-	sprd_irqs_sts[0] = __raw_readl(INT_IRQ_STS);
-	sprd_irqs_sts[1] = __raw_readl(INTCV1_IRQ_MSKSTS);
-	printk("%c#:INTC0: %08x\n", ret?'S':'F', sprd_irqs_sts[0]);
-	printk("%c#:INTC1: %08x\n", ret?'S':'F', sprd_irqs_sts[1]);
-	if(sprd_irqs_sts[0] != 0 && is_print_irq_runtime)
-		printk("%c#:%08x\n", ret?'S':'F', sprd_irqs_sts[0]);
-	if(sprd_irqs_sts[1] != 0 && is_print_irq_runtime)
-		printk("%c#:%08x\n", ret?'S':'F', sprd_irqs_sts[1]);
+
+	if(!((sprd_irqs_sts[0]&IRQ_DSP0) ||
+		(sprd_irqs_sts[0]&IRQ_DSP1) ||
+		(sprd_irqs_sts[0]&IRQ_TIMER0) ||
+		(sprd_irqs_sts[0]&IRQ_SIM0) ||
+		(sprd_irqs_sts[0]&IRQ_SIM1) ) ){
+
+		if(sprd_irqs_sts[0] != 0)
+			printk("%c#:INTC0: %08x\n", ret?'S':'F', sprd_irqs_sts[0]);
+		if(sprd_irqs_sts[1] != 0)
+			printk("%c#:INTC0 FIQ: %08x\n", ret?'S':'F', sprd_irqs_sts[1]);
+	}
 
 	if(sprd_irqs_sts[0] & IRQ_GPIO){
 		for(i=0; i<(GPIO_GROUP_NUM/2); i++){
@@ -138,6 +152,9 @@ void print_hard_irq_inloop(int ret)
 				}
 			}
 		}
+	}
+	if(sprd_irqs_sts[0] & IRQ_ADIE){
+		printk("adie, irq status:0x%x \n", sci_adi_read(ANA_REG_INT_MASK_STATUS));
 	}
 
 }
@@ -266,6 +283,7 @@ void print_statisic(void)
 	print_time();
 	print_hard_irq();
 	print_irq();
+	pm_debug_dump_ahb_glb_regs();
 	if(is_print_wakeup){
 		printk("###wake up form %s : %08x\n",  sleep_mode_str[sleep_mode],  sprd_irqs_sts[0]);
 		printk("###wake up form %s : %08x\n",  sleep_mode_str[sleep_mode],  sprd_irqs_sts[1]);
@@ -275,27 +293,57 @@ void print_statisic(void)
 static struct wake_lock messages_wakelock;
 #endif
 #ifdef PM_PRINT_ENABLE
+/* save pm message for debug when enter deep sleep*/
+unsigned int debug_status[10];
+void pm_debug_save_ahb_glb_regs(void)
+{
+	debug_status[0] = sci_glb_read(REG_AHB_AHB_STATUS, -1UL);
+	debug_status[1] = sci_glb_read(REG_AHB_AHB_CTL0, -1UL);
+	debug_status[2] = sci_glb_read(REG_AHB_AHB_CTL1, -1UL);
+	debug_status[3] = sci_glb_read(REG_AHB_AHB_STATUS, -1UL);
+	debug_status[4] = sci_glb_read(REG_GLB_GEN0, -1UL);
+	debug_status[5] = sci_glb_read(REG_GLB_GEN1, -1UL);
+	debug_status[6] = sci_glb_read(REG_GLB_STC_DSP_ST, -1UL);
+	debug_status[7] = sci_glb_read(REG_GLB_BUSCLK, -1UL);
+	debug_status[8] = sci_glb_read(REG_GLB_CLKDLY, -1UL);
+}
+void pm_debug_dump_ahb_glb_regs(void)
+{
+	printk("***** ahb and globle registers before last deep sleep **********\n");
+
+	printk("*** AHB_CTL0:  0x%x ***\n", debug_status[1] );
+	printk("*** AHB_CTL1:  0x%x ***\n", debug_status[2] );
+	printk("*** GR_GEN0:  0x%x ***\n", debug_status[4] );
+	printk("*** GR_GEN1:  0x%x ***\n", debug_status[5] );
+	printk("*** GR_BUSCLK:  0x%x ***\n", debug_status[7] );
+
+	printk("*** AHB_STS:  0x%x ***\n", debug_status[3] );
+	printk("*** GR_STC_STATE:  0x%x ***\n", debug_status[6] );
+	printk("*** GR_CLK_DLY:  0x%x ***\n", debug_status[8] );
+}
+
+
 static void print_ahb(void)
 {
 	u32 val = sci_glb_read(REG_AHB_AHB_CTL0, -1UL);
 	printk("##: REG_AHB_AHB_CTL0 = %08x.\n", val);
-	if (val & AHB_CTL0_DCAM_EN) printk("AHB_CTL0_DCAM_EN =1.\n");	
+	if (val & AHB_CTL0_DCAM_EN) printk("AHB_CTL0_DCAM_EN =1.\n");
 	if (val & AHB_CTL0_CCIR_IN_EN) printk("AHB_CTL0_CCIR_IN_EN =1. CCIR enable\n");
 	if (val & AHB_CTL0_LCDC_EN) printk("AHB_CTL0_LCDC_EN =1.\n");
 	if (val & AHB_CTL0_SDIO0_EN) printk("AHB_CTL0_SDIO0_EN =1.\n");
 	if (val & AHB_CTL0_USBD_EN) printk("AHB_CTL0_USBD_EN =1.\n");
 	if (val & AHB_CTL0_DMA_EN) printk("AHB_CTL0_DMA_EN =1.\n");
 	if (val & AHB_CTL0_BM0_EN) printk("AHB_CTL0_BM0_EN =1.\n");
-	if (val & AHB_CTL0_NFC_EN) printk("AHB_CTL0_NFC_EN =1.\n");	
+	if (val & AHB_CTL0_NFC_EN) printk("AHB_CTL0_NFC_EN =1.\n");
 	if (val & AHB_CTL0_CCIR_EN) printk("AHB_CTL0_CCIR_EN =1. CCIR clock enable\n");
-	if (val & AHB_CTL0_DCAM_MIPI_EN) printk("AHB_CTL0_DCAM_MIPI_EN =1.\n");	
-	if (val & AHB_CTL0_BM1_EN) printk("AHB_CTL0_BM1_EN =1.\n");	
+	if (val & AHB_CTL0_DCAM_MIPI_EN) printk("AHB_CTL0_DCAM_MIPI_EN =1.\n");
+	if (val & AHB_CTL0_BM1_EN) printk("AHB_CTL0_BM1_EN =1.\n");
 	if (val & AHB_CTL0_ISP_EN) printk("AHB_CTL0_ISP_EN =1.\n");
 	if (val & AHB_CTL0_VSP_EN) printk("AHB_CTL0_VSP_EN =1.\n");
 	if (val & AHB_CTL0_ROT_EN) printk("AHB_CTL0_ROT_EN =1.\n");
 	if (val & AHB_CTL0_BM2_EN) printk("AHB_CTL0_BM2_EN =1.\n");
 	if (val & AHB_CTL0_BM3_EN) printk("AHB_CTL0_BM3_EN =1.\n");
-	if (val & AHB_CTL0_BM4_EN) printk("AHB_CTL0_BM4_EN =1.\n");	
+	if (val & AHB_CTL0_BM4_EN) printk("AHB_CTL0_BM4_EN =1.\n");
 	if (val & AHB_CTL0_SDIO1_EN) printk("AHB_CTL0_SDIO1_EN =1.\n");
 	if (val & AHB_CTL0_G2D_EN) printk("AHB_CTL0_G2D_EN =1.\n");
 	if (val & AHB_CTL0_G3D_EN) printk("AHB_CTL0_G3D_EN =1.\n");
@@ -306,7 +354,7 @@ static void print_ahb(void)
 	if (val & AHB_CTL0_AHB_ARCH_EB) printk("AHB_CTL0_AHB_ARCH_EB =1. AHB bus HCLK enable\n");
 	if (val & AHB_CTL0_EMC_EN) printk("AHB_CTL0_EMC_EN =1.\n");
 	if (val & AHB_CTL0_AXIBUSMON0_EN) printk("AHB_CTL0_AXIBUSMON0_EN =1.\n");
-	if (val & AHB_CTL0_AXIBUSMON1_EN) printk("AHB_CTL0_AXIBUSMON1_EN =1.\n");	
+	if (val & AHB_CTL0_AXIBUSMON1_EN) printk("AHB_CTL0_AXIBUSMON1_EN =1.\n");
 	if (val & AHB_CTL0_AXIBUSMON2_EN) printk("AHB_CTL0_AXIBUSMON2_EN =1.\n");
 
 	val = sci_glb_read(REG_AHB_AHB_CTL1, -1UL);
@@ -334,7 +382,7 @@ static void print_ahb(void)
 static void print_gr(void)
 {
 	u32 val = sci_glb_read(REG_GLB_GEN0, -1UL);
-	printk("##: GR_GEN0 = %08x.\n", val);	
+	printk("##: GR_GEN0 = %08x.\n", val);
 	if (val & GEN0_UART3_EN) printk("GEN0_UART3_EN =1.\n");
 	if (val & GEN0_SPI2_EN) printk("GEN0_SPI2_EN =1.\n");
 	if (val & GEN0_TIMER_EN) printk("GEN0_TIMER_EN =1.\n");
@@ -361,7 +409,7 @@ static void print_gr(void)
 	if (val & GEN0_I2S1_EN) printk("GEN0_I2S1_EN =1.\n");
 	if (val & GEN0_KPD_RTC_EN) printk("GEN0_KPD_RTC_EN =1.\n");
 	if (val & GEN0_SYST_RTC_EN) printk("GEN0_SYST_RTC_EN =1.\n");
-	if (val & GEN0_TMR_RTC_EN) printk("GEN0_TMR_RTC_EN =1.\n");	
+	if (val & GEN0_TMR_RTC_EN) printk("GEN0_TMR_RTC_EN =1.\n");
 	if (val & GEN0_I2C1_EN) printk("GEN0_I2C1_EN =1.\n");
 	if (val & GEN0_I2C2_EN) printk("GEN0_I2C2_EN =1.\n");
 	if (val & GEN0_I2C3_EN) printk("GEN0_I2C3_EN =1.\n");
@@ -498,7 +546,7 @@ static void print_ana(void)
 
 	val = sci_adi_read(ANA_VIBRATOR_CTRL0);
 	printk("##: ANA_VIBRATOR_CTRL0 = 0x%x.\n", val);
-	if (val & VIBR_PD_RST)	 printk("##: vibrator is power on.\n");	
+	if (val & VIBR_PD_RST)	 printk("##: vibrator is power on.\n");
 	else if (val & VIBR_PD) printk("##: vibrator is power off.\n");
 
 	val = sci_adi_read(ANA_AUD_CLK_RST);
