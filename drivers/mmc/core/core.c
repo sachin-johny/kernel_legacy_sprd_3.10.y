@@ -2149,6 +2149,7 @@ void mmc_rescan(struct work_struct *work)
 	int i;
 	bool extend_wakelock = false;
 
+	printk(KERN_INFO "%s %s\n", mmc_hostname(host), __func__);
 	if (host->rescan_disable)
 		return;
 
