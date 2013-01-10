@@ -268,7 +268,7 @@ static int dolphin_ldo_on(struct dolphin_priv *dolphin)
 		arch_audio_codec_reset();
 		dolphin_sample_rate_setting(dolphin);
 	} else {
-		pr_err("Uninit before enable supplies: %d\n", ret);
+		pr_err("Uninit before enable supplies\n");
 		ret = -EINVAL;
 		goto ldo_on_out;
 	}
