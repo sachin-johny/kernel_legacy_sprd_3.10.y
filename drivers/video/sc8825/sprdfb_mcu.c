@@ -737,12 +737,20 @@ static bool sprdfb_mcu_panel_init(struct sprdfb_device *dev)
 
 static void sprdfb_mcu_panel_before_refresh(struct sprdfb_device *dev)
 {
-	mcu_lcdc_set_timing(dev, MCU_LCD_GRAM_TIMING);
+	if(SPRDFB_MAINLCD_ID == dev->dev_id){
+		mcu_dispc_set_timing(dev, MCU_LCD_GRAM_TIMING);
+	}else{
+		mcu_lcdc_set_timing(dev, MCU_LCD_GRAM_TIMING);
+	}
 }
 
 static void sprdfb_mcu_panel_after_refresh(struct sprdfb_device *dev)
 {
-	mcu_lcdc_set_timing(dev, MCU_LCD_REGISTER_TIMING);
+	if(SPRDFB_MAINLCD_ID == dev->dev_id){
+		mcu_dispc_set_timing(dev, MCU_LCD_REGISTER_TIMING);
+	}else{
+		mcu_lcdc_set_timing(dev, MCU_LCD_REGISTER_TIMING);
+	}
 }
 
 struct panel_if_ctrl sprdfb_mcu_ctrl = {
