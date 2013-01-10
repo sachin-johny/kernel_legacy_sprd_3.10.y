@@ -147,6 +147,13 @@ static int ltr558_ps_enable(int gainrange)
 	 * Other settings like timing and threshold to be set here, if required.
 	 * Not set and kept as device default for now.
 	 */
+	ltr558_i2c_read_reg(LTR558_ALS_PS_STATUS);
+	ltr558_i2c_read_reg(LTR558_PS_DATA_0);
+	ltr558_i2c_read_reg(LTR558_PS_DATA_1);
+	ltr558_i2c_read_reg(LTR558_ALS_DATA_CH1_0);
+	ltr558_i2c_read_reg(LTR558_ALS_DATA_CH1_1);
+	ltr558_i2c_read_reg(LTR558_ALS_DATA_CH0_0);
+	ltr558_i2c_read_reg(LTR558_ALS_DATA_CH0_1);
 
 	return error;
 }
@@ -220,6 +227,13 @@ static int ltr558_als_enable(int gainrange)
 	 * Other settings like timing and threshold to be set here, if required.
 	 * Not set and kept as device default for now.
 	 */
+	ltr558_i2c_read_reg(LTR558_ALS_PS_STATUS);
+	ltr558_i2c_read_reg(LTR558_PS_DATA_0);
+	ltr558_i2c_read_reg(LTR558_PS_DATA_1);
+	ltr558_i2c_read_reg(LTR558_ALS_DATA_CH1_0);
+	ltr558_i2c_read_reg(LTR558_ALS_DATA_CH1_1);
+	ltr558_i2c_read_reg(LTR558_ALS_DATA_CH0_0);
+	ltr558_i2c_read_reg(LTR558_ALS_DATA_CH0_1);
 
 	return error;
 }
