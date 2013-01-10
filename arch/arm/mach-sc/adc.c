@@ -163,7 +163,8 @@ int sci_adc_get_values(struct adc_sample_data *adc)
 	num = adc->sample_num;
 	BUG_ON(adc->channel_id > ADC_MAX || !pbuf);
 
-	sci_adc_lock();
+	/* FIXME: jianjun.he */
+	//sci_adc_lock();
 
 	sci_adc_config(adc);	//configs adc sample.
 
@@ -203,7 +204,7 @@ Exit:
 	val &= ~BIT_ADC_EN;
 	adc_write(val, addr);
 
-	sci_adc_unlock();
+	//sci_adc_unlock();
 
 	return ret;
 }
