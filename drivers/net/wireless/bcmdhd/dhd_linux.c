@@ -3933,8 +3933,10 @@ dhd_module_init(void)
 	int error = 0;
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
-/*depend on MMC Auto scan during boot*/
-/*	msleep(2000);Ignore MMC controler Auto Scan during bootloader */
+#ifndef BCMSPI
+	msleep(2000);/*Ignore MMC controler Auto Scan during bootloader */
+#endif
+
 	wl_android_init();
 
 #ifdef DHDTHREAD
