@@ -831,7 +831,7 @@ static struct resource sprd_sdio1_resources[] = {
 
 static struct sprd_host_platdata sprd_sdio1_pdata = {
 	.clk_name = "clk_sdio1",
-	.clk_parent = "clk_64m",
+	.clk_parent = "clk_sdio_src",
 	.enb_bit = BIT_SDIO1_EB,
 	.rst_bit = BIT_SD1_SOFT_RST,
 	.regs.is_valid = 1,

@@ -262,7 +262,7 @@ SCI_CLK_ADD(clk_sdio0, 0, REG_AHB_AHB_CTL0, BIT(4),
 
 SCI_CLK_ADD(clk_sdio1, 0, REG_AHB_AHB_CTL0, BIT(19),
 	0, 0, REG_GLB_CLK_GEN5, BIT(19)|BIT(20),
-	4, &ext_26m, &clk_mpll, &clk_48m, &clk_64m);
+	4, &clk_sdio_src, &clk_sdio_src1, &clk_sdio_src2, &ext_26m);
 
 SCI_CLK_ADD(clk_sdio2, 0, REG_AHB_AHB_CTL0, BIT(24),
 	0, 0, REG_GLB_CLK_GEN5, BIT(21)|BIT(22),
