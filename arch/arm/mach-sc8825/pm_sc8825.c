@@ -521,7 +521,7 @@ static void disable_ahb_module(void)
 #define INT0_IRQ_DIS            INT0_REG(0x000c)
 #define INT0_FIQ_STS            INT0_REG(0x0020)
 #define INT0_FIQ_ENB           INT0_REG(0x0028)
-
+#define INT0_FIQ_DIS		INT0_REG(0x002c)
 #define INT0_IRQ_MASK	(1<<7 | 1<<3)
 
 
@@ -889,6 +889,9 @@ int deep_sleep(void)
 	/*clear dsp fiq, for dsp wakeup*/
 	__raw_writel(ICLR_DSP_FRQ0_CLR, SPRD_IPI_ICLR);
 	__raw_writel(ICLR_DSP_FIQ1_CLR, SPRD_IPI_ICLR);
+	/*disable dsp fiq*/
+	val = SCI_INTC_IRQ_BIT(IRQ_DSP0_INT) | SCI_INTC_IRQ_BIT(IRQ_DSP1_INT);
+	__raw_writel(val , INT0_FIQ_DIS);
 
 	/*clear the deep sleep status*/
 	sci_glb_write(REG_AHB_HOLDING_PEN, holding & (~CORE1_RUN) & (~AP_ENTER_DEEP_SLEEP), -1UL );
