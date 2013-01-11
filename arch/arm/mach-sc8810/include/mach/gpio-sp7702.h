@@ -29,10 +29,12 @@
  */
 
 #define GPIO_BT_RESET       90
-#define GPIO_WIFI_RESET     140
-#define GPIO_WIFI_IRQ	    -1
-#define GPIO_WIFI_SHUTDOWN  137
+#define GPIO_BT_POWER       136
+#define GPIO_BT2AP_WAKE     94
+#define GPIO_AP2BT_WAKE     140
 
+#define GPIO_WIFI_SHUTDOWN	137
+#define GPIO_WIFI_IRQ		142
 #define GPIO_TOUCH_RESET	16
 #define GPIO_TOUCH_IRQ		17
 #define GPIO_PLSENSOR_IRQ	28
@@ -41,6 +43,8 @@
 #define EIC_CHARGER_DETECT	162
 #define EIC_KEY_POWER		163
 
+#define SPI0_CMMB_CS_GPIO  	32
+#define SPI1_WIFI_CS_GPIO  	44
 #define GPIO_SENSOR_RESET	72
 #define GPIO_MAIN_SENSOR_PWN    73
 #define GPIO_SUB_SENSOR_PWN     74

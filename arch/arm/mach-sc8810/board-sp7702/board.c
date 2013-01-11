@@ -52,6 +52,7 @@ extern int __init sprd_ramconsole_init(void);
 #endif
 
 static struct platform_device rfkill_device;
+static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
 
 static struct platform_gpsctl_data pdata_gpsctl = {
@@ -139,16 +140,45 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_dcam_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
+	&rfkill_device,
+	&brcm_bluesleep_device,
 	&kb_backlight_device,
-//	&rfkill_device,
 	&gpsctl_dev,
 
         &modem_interface_device,
         &ipc_sdio_device,
 };
+/* BT suspend/resume */
+static struct resource bluesleep_resources[] = {
+	{
+		.name	= "gpio_host_wake",
+		.start	= GPIO_BT2AP_WAKE,
+		.end	= GPIO_BT2AP_WAKE,
+		.flags	= IORESOURCE_IO,
+	},
+	{
+		.name	= "gpio_ext_wake",
+		.start	= GPIO_AP2BT_WAKE,
+		.end	= GPIO_AP2BT_WAKE,
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+static struct platform_device brcm_bluesleep_device = {
+	.name = "bluesleep",
+	.id		= -1,
+	.num_resources	= ARRAY_SIZE(bluesleep_resources),
+	.resource	= bluesleep_resources,
+};
 
 /* RFKILL */
 static struct resource rfkill_resources[] = {
+	{
+		.name   = "bt_power",
+		.start  = GPIO_BT_POWER,
+		.end    = GPIO_BT_POWER,
+		.flags  = IORESOURCE_IO,
+	},
 	{
 		.name   = "bt_reset",
 		.start  = GPIO_BT_RESET,
@@ -316,92 +346,46 @@ static _audio_pa_control audio_pa_control = {
 		.control = NULL,
 	},
 };
-
-
-#define SPI_PIN_FUNC_MASK  (0x3<<4)
-#define SPI_PIN_FUNC_DEF   (0x0<<4)
-#define SPI_PIN_FUNC_GPIO  (0x3<<4)
-
-struct spi_pin_desc {
-	const char   *name;
-	unsigned int pin_func;
-	unsigned int reg;
-	unsigned int gpio;
+static int spi_cs_gpio_map[][2] = {
+	{SPI0_CMMB_CS_GPIO,  0},
+	{SPI1_WIFI_CS_GPIO,  0},
 };
 
-static struct spi_pin_desc spi_pin_group[] = {
-	{"SPI_DI",  SPI_PIN_FUNC_DEF,  REG_PIN_SPI_DI   + CTL_PIN_BASE,  29},
-	{"SPI_CLK", SPI_PIN_FUNC_DEF,  REG_PIN_SPI_CLK  + CTL_PIN_BASE,  30},
-	{"SPI_DO",  SPI_PIN_FUNC_DEF,  REG_PIN_SPI_DO   + CTL_PIN_BASE,  31},
-	{"SPI_CS0", SPI_PIN_FUNC_GPIO, REG_PIN_SPI_CSN0 + CTL_PIN_BASE,  32}
+static struct spi_board_info spi_boardinfo[] = {
+	{
+		.modalias = "cmmb-dev",
+		.bus_num = 0,
+		.chip_select = 0,
+		.max_speed_hz = 8 * 1000 * 1000,
+		.mode = SPI_CPOL | SPI_CPHA,
+	},
+	{
+		.modalias = "wlan_spi",
+		.bus_num = 1,
+		.chip_select = 0,
+		.max_speed_hz = 48 * 1000 * 1000,
+		.mode = SPI_CPOL | SPI_CPHA,
+	},
 };
-static void sprd_restore_spi_pin_cfg(void)
-{
-	unsigned int reg;
-	unsigned int  gpio;
-	unsigned int  pin_func;
-	unsigned int value;
-	unsigned long flags;
-	int i = 0;
-	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
 
-	for (; i < regs_count; i++) {
-	    pin_func = spi_pin_group[i].pin_func;
-	    gpio = spi_pin_group[i].gpio;
-	    if (pin_func == SPI_PIN_FUNC_DEF) {
-		 reg = spi_pin_group[i].reg;
-		 /* free the gpios that have request */
-		 gpio_free(gpio);
-		 local_irq_save(flags);
-		 /* config pin default spi function */
-		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_DEF);
-		 __raw_writel(value, reg);
-		 local_irq_restore(flags);
-	    }
-	    else {
-		 /* CS should config output */
-		 gpio_direction_output(gpio, 1);
-	    }
+static void sprd_spi_init(void)
+{
+	int busnum, cs, gpio;
+	int i;
+
+	struct spi_board_info *info = spi_boardinfo;
+
+	for (i = 0; i < ARRAY_SIZE(spi_boardinfo); i++) {
+		busnum = info[i].bus_num;
+		cs = info[i].chip_select;
+		gpio   = spi_cs_gpio_map[busnum][cs];
+
+		info[i].controller_data = (void *)gpio;
 	}
 
+        spi_register_board_info(info, ARRAY_SIZE(spi_boardinfo));
 }
 
-
-static void sprd_set_spi_pin_input(void)
-{
-	unsigned int reg;
-	unsigned int value;
-	unsigned int  gpio;
-	unsigned int  pin_func;
-	const char    *name;
-	unsigned long flags;
-	int i = 0;
-
-	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
-
-	for (; i < regs_count; i++) {
-	    pin_func = spi_pin_group[i].pin_func;
-	    gpio = spi_pin_group[i].gpio;
-	    name = spi_pin_group[i].name;
-
-	    /* config pin GPIO function */
-	    if (pin_func == SPI_PIN_FUNC_DEF) {
-		 reg = spi_pin_group[i].reg;
-
-		 local_irq_save(flags);
-		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_GPIO);
-		 __raw_writel(value, reg);
-		 local_irq_restore(flags);
-		 if (gpio_request(gpio, name)) {
-		     printk("smsspi: request gpio %d failed, pin %s\n", gpio, name);
-		 }
-
-	    }
-
-	    gpio_direction_input(gpio);
-	}
-
-}
 
 static int sc8810_add_misc_devices(void)
 {
@@ -426,6 +410,7 @@ static void __init sc8810_init_machine(void)
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
+	sprd_spi_init();
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	sprd_ramconsole_init();
 #endif
