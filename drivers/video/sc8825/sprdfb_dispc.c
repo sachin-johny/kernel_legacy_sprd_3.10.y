@@ -738,7 +738,7 @@ static int overlay_start(struct sprdfb_device *dev, uint32_t layer_index)
 	}
 */
 	dispc_set_bg_color(0x0);
-	//dispc_clear_bits(BIT(2), DISPC_OSD_CTRL); /*use pixel alpha*/
+	dispc_clear_bits(BIT(2), DISPC_OSD_CTRL); /*use pixel alpha*/
 	dispc_write(0x80, DISPC_OSD_ALPHA);
 
 	if((layer_index & SPRD_LAYER_IMG) && (0 != dispc_read(DISPC_IMG_Y_BASE_ADDR))){
@@ -841,7 +841,8 @@ static int overlay_osd_configure(struct sprdfb_device *dev, int type, overlay_re
 /*	lcdc_write(((type << 3) | (1 << 0)), LCDC_IMG_CTRL); */
 	/*lcdc_write((type << 3) , LCDC_IMG_CTRL);*/
 
-	reg_value = (y_endian<<8)|(type << 4|(1<<2));
+	/*use premultiply pixel alpha*/
+	reg_value = (y_endian<<8)|(type << 4|(1<<2))|(2<<16);
 	if(rb_switch){
 		reg_value |= (1 << 15);
 	}
@@ -881,7 +882,7 @@ static int overlay_close(struct sprdfb_device *dev)
 	}
 */
 	dispc_set_bg_color(0xFFFFFFFF);
-	//dispc_set_bits(BIT(2), DISPC_OSD_CTRL);
+	dispc_set_bits(BIT(2), DISPC_OSD_CTRL);/*use block alpha*/
 	dispc_write(0xff, DISPC_OSD_ALPHA);
 	dispc_clear_bits(BIT(0), DISPC_IMG_CTRL);	/* disable the image layer */
 	dispc_write(0, DISPC_IMG_Y_BASE_ADDR);
