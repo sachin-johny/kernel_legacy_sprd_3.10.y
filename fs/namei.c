@@ -3342,6 +3342,15 @@ const struct inode_operations page_symlink_inode_operations = {
 	.put_link	= page_put_link,
 };
 
+/**
+ * add  path_lookup for BLCR, copy from kernel 2.6
+*/
+int path_lookup(const char *name, unsigned int flags,
+			struct nameidata *nd)
+{
+	return do_path_lookup(AT_FDCWD, name, flags, nd);
+}
+EXPORT_SYMBOL(path_lookup);
 EXPORT_SYMBOL(user_path_at);
 EXPORT_SYMBOL(follow_down_one);
 EXPORT_SYMBOL(follow_down);
