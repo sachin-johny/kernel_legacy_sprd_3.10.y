@@ -268,56 +268,9 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
 		break;
 #if defined(CONFIG_ARCH_SC8825)		
-#ifdef USE_INTERRUPT
-	case VSP_REG_IRQ:
-	/* register isr */
-	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &vsp_hw_dev);
-	if (ret) {
-		printk(KERN_ERR "vsp: failed to request irq!\n");
-		ret = -EINVAL;
-		return -EINVAL;
-	}
-	break;
 
-	case VSP_UNREG_IRQ:
-		free_irq(IRQ_VSP_INT, &vsp_hw_dev);
-		break;
-#endif
 	case VSP_ACQUAIRE_MEA_DONE:
-#if 0		
-		cmd0 = 0;
-		printk(KERN_ERR "VSP_ACQUAIRE_MEA_DONE in !\n");
-		ret= __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
-		
-		while(!((ret & 0x80)|| (ret &0x4000)||(ret & 0x100)  ) && (cmd0 < (int)arg))
-		{ 
-			ret = __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
-			//printk(KERN_INFO "DCAM_INT_RAW_OFF %x !\n",ret);
-			cmd0++;
-			msleep(1);
-		}
 
-		if(ret & 0x80)
-		{
-			printk(KERN_INFO "vsp stream buffer is full!\n");
-			return 2;//
-		}else if(ret & 0x4000)
-		{
-			printk(KERN_INFO "vsp MEA DONE!\n");
-			return 0;
-		}else if(ret & 0x100)
-		{
-			printk(KERN_INFO "vsp VLC DONE!\n");
-			return 4;
-		}else  if(cmd0 >=  (int)arg)
-        	{
-              		 printk(KERN_INFO "vsp: VSP_ACQUAIRE_MEA_DONE time out\n");
-                   	return 1;
-		}else{
-			printk(KERN_INFO "vsp: ERR\n");
-			return -EINVAL;
-		}
-#else 
 		pr_debug("vsp ioctl VSP_ACQUAIRE_MEA_DONE\n");
 		ret = wait_event_interruptible_timeout(
 			vsp_hw_dev.wait_queue_work,
@@ -350,7 +303,6 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		pr_debug("vsp ioctl VSP_ACQUAIRE_MEA_DONE end\n");
 		return ret;
 
-#endif
                break;
 			   
 	case VSP_ACQUAIRE_MP4ENC_DONE:
@@ -576,7 +528,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			VSP_MINOR, ret);
 		goto errout;
 	}
-#if !defined(CONFIG_ARCH_SC8825)
+
 #ifdef USE_INTERRUPT
 	/* register isr */
 	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &vsp_hw_dev);
@@ -586,7 +538,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		goto errout2;
 	}
 #endif
-#endif
+
 
 	return 0;
 
@@ -611,11 +563,11 @@ static int vsp_remove(struct platform_device *pdev)
 	printk(KERN_INFO "vsp_remove called !\n");
 
 	misc_deregister(&vsp_dev);
-#if !defined(CONFIG_ARCH_SC8825)
+
 #ifdef USE_INTERRUPT
 	free_irq(IRQ_VSP_INT, &vsp_hw_dev);
 #endif
-#endif
+
 
 	if (vsp_hw_dev.vsp_clk) {
 		clk_put(vsp_hw_dev.vsp_clk);
