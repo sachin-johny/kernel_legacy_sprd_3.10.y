@@ -946,7 +946,7 @@ static int nk_io_write(const char *buf, size_t len)
 	ssize_t res;
 	unsigned long flags;
 
-	if(0 == len)
+	if(0 == len || !sprd_port)
 		return 0;
 
 	wait_event_interruptible(txwait, vcons_write_room(sprd_port) > 0 || 1
@@ -965,7 +965,7 @@ static int nk_io_read(char *buf, size_t len)
 {
 	ssize_t res;
 
-	if(0 == len)
+	if(0 == len || !sprd_port)
 		return 0;
 
 	wait_event_interruptible(rxwait, vcons_rxfifo_count(sprd_port) > 0 ||
@@ -1040,6 +1040,7 @@ serial_init (void)
     }
 
 #ifdef CONFIG_NKERNEL_MUX_IO
+	sprd_port = NULL;
 	init_waitqueue_head(&txwait);
 	init_waitqueue_head(&rxwait);
 	sprdmux_register(&sprd_iomux);
