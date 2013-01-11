@@ -1443,9 +1443,6 @@ static int v4l2_streamon(struct file *file,
 		ret = dcam_module_init(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 		V4L2_RTN_IF_ERR(ret);
 
-		ret = dcam_set_clk(DCAM_CLK_128M);
-		V4L2_RTN_IF_ERR(ret);
-
 		/* config cap sub-module */
 		ret = sprd_v4l2_cap_cfg(&dev->dcam_cxt);
 		V4L2_RTN_IF_ERR(ret);
