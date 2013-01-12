@@ -525,7 +525,7 @@ config INPUT_SPRD_HEADSET
 
 config INPUT_SPRD_HEADSET_SS
 	tristate "SPRD platform builtin headset & button detect driver for samsung"
-	default y
+	default n
 	help
 	  Say Y here if you are using SPRD samsung platform.
 
