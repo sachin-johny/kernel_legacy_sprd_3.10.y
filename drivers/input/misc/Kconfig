@@ -523,6 +523,15 @@ config INPUT_SPRD_HEADSET
 	  To compile this driver as a module, choose M here: the
 	  module will be called headset.
 
+config INPUT_SPRD_HEADSET_SS
+	tristate "SPRD platform builtin headset & button detect driver for samsung"
+	default y
+	help
+	  Say Y here if you are using SPRD samsung platform.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called headset.
+
 config INPUT_TMD2771_I2C
         tristate "TMD2771 proximity and light sensor device with I2C bus"
         depends on I2C
