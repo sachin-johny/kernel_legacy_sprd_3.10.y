@@ -847,4 +847,15 @@ config TOUCHSCREEN_MMS134S_TS
 	  Say Y here if you have a MELFAS MMS-1XX series touchscreen.
 
   	  If unsure, say N.          
+config TOUCHSCREEN_SILABS_F760
+        tristate "SILABS touchscreen driver"
+        depends on I2C
+        help
+          Say Y here if you have a SILABS based touchscreen
+          controller.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called silbas_f760.c.
 endif

@@ -64,6 +64,12 @@ config MACH_KYLETD
 	help
 	  KYLETD phone board based on SC8810.
 
+config MACH_KYLEW
+	default n
+	bool "KYLEW Phone"
+	help
+	  KYLETD phone board based on SC8810.
+
 config MACH_MINT
         default n
         bool "MINT Phone"
@@ -119,6 +125,12 @@ config SC8810_VIBRATOR
         select ANDROID_TIMED_OUTPUT
         default n
         bool "vibrator for SC8810"
+
+config SS_VIBRATOR
+        depends on ARCH_SC8810
+        select ANDROID_TIMED_OUTPUT
+        default n
+        bool "SS vibrator for SC8810"
 
 config SPRD_MEM_POOL
 	depends on ARCH_SC8810

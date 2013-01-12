@@ -56,3 +56,8 @@ config FB_LCD_OVERLAY_SUPPORT
 config FB_LCD_NT35510
 	boolean "support nt35510 panel"
 	depends on FB_SC8810
+
+config FB_LCD_S6D04H0
+	boolean "support s6d04h0 panel"
+	depends on FB_SC8810
+

@@ -70,3 +70,4 @@ obj-$(CONFIG_TOUCHSCREEN_ZINITIX_BT404)	+= zinitix_touch_bt404.o
 obj-$(CONFIG_TOUCHSCREEN_SC8810) += tp_sprd.o
 obj-$(CONFIG_TOUCHSCREEN_TMA140)	+= cypress_tma140_cori2g.o
 obj-$(CONFIG_TOUCHSCREEN_MMS134S_TS) += mms134s_ts.o MMS100S_ISC_Updater_Customize.o MMS100S_ISC_Updater_V01.o
+obj-$(CONFIG_TOUCHSCREEN_SILABS_F760) += silabs_f760.o bl_master.o
