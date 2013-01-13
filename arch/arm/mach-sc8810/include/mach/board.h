@@ -50,6 +50,10 @@
 #include <mach/gpio-kyletd.h>
 #endif
 
+#ifdef CONFIG_MACH_KYLEW
+#include <mach/gpio-kylew.h>
+#endif
+
 #ifdef  CONFIG_MACH_MINT
 #include <mach/gpio-mint.h>
 #endif

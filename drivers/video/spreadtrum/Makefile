@@ -11,3 +11,5 @@ obj-$(CONFIG_FB_LCD_NT35516) += lcd_nt35516.o
 obj-$(CONFIG_FB_LCD_ILI9341_BOE) += lcd_ili9341_boe.o
 obj-$(CONFIG_FB_LCD_ILI9341_BOE_MINT) += lcd_ili9341_boe_mint.o
 obj-$(CONFIG_FB_LCD_NT35510) += lcd_nt35510.o
+obj-$(CONFIG_FB_LCD_S6D04H0) += lcd_s6d04h0.o
+
