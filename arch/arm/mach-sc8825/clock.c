@@ -62,8 +62,9 @@ void clk_disable(struct clk *clk)
 	spin_lock_irqsave(&clocks_lock, flags);
 	if ((--clk->usage) == 0 && clk->enable)
 		(clk->enable) (clk, 0, &flags);
-	if (WARN_ON(clk->usage < 0)) {
-		clk->usage = 0;	/* FIXME: force reset clock refcnt */
+	if (WARN(clk->usage < 0,
+		 "warning: clock (%s) usage (%d)\n", clk->regs->name, clk->usage)) {
+		clk->usage = 0;	/* force reset clock refcnt */
 		spin_unlock_irqrestore(&clocks_lock, flags);
 		return;
 	}
@@ -338,7 +339,8 @@ static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 		}
 	}
 
-	WARN_ON(1);
+	WARN(1, "warning: clock (%s) not support parent (%s)\n",
+	     c->regs->name, parent ? parent->regs->name : 0);
 	return -EINVAL;
 }
 
