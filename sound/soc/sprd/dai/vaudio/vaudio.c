@@ -100,23 +100,28 @@ static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 	kfree(snd_soc_dai_get_dma_data(dai, substream));
 	snd_soc_dai_set_dma_data(dai, substream, NULL);
 
-	snd_soc_dapm_force_enable_pin(&card->dapm, "DAC");
-	snd_soc_dapm_force_enable_pin(&card->dapm, "ADC");
-	vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 1);
-	vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 1);
-
 	/* cancel any delayed stream shutdown that is pending */
-	if (codec_dai->pop_wait) {
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK &&
+	    codec_dai->pop_wait) {
 		codec_dai->pop_wait = 0;
 		cancel_delayed_work(&rtd->delayed_work);
 	}
 
-	snd_soc_dapm_stream_event(rtd,
-				  codec_dai->driver->playback.stream_name,
-				  SND_SOC_DAPM_STREAM_START);
-	snd_soc_dapm_stream_event(rtd,
-				  codec_dai->driver->capture.stream_name,
-				  SND_SOC_DAPM_STREAM_START);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		snd_soc_dapm_force_enable_pin(&card->dapm, "DAC");
+		vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 1);
+		snd_soc_dapm_stream_event(rtd,
+					  codec_dai->driver->
+					  playback.stream_name,
+					  SND_SOC_DAPM_STREAM_START);
+	} else {
+		snd_soc_dapm_force_enable_pin(&card->dapm, "ADC");
+		vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 1);
+		snd_soc_dapm_stream_event(rtd,
+					  codec_dai->driver->
+					  capture.stream_name,
+					  SND_SOC_DAPM_STREAM_START);
+	}
 
 	snd_soc_dai_digital_mute(codec_dai, 0);
 
@@ -138,19 +143,23 @@ static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 
 	sprd_vaudio_dbg("Entering %s\n", __func__);
 
-	snd_soc_dapm_stream_event(rtd,
-				  codec_dai->driver->playback.stream_name,
-				  SND_SOC_DAPM_STREAM_STOP);
-	snd_soc_dapm_stream_event(rtd,
-				  codec_dai->driver->capture.stream_name,
-				  SND_SOC_DAPM_STREAM_STOP);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		snd_soc_dapm_disable_pin(&card->dapm, "DAC");
+		vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 0);
+		snd_soc_dapm_stream_event(rtd,
+					  codec_dai->driver->
+					  playback.stream_name,
+					  SND_SOC_DAPM_STREAM_STOP);
+	} else {
+		snd_soc_dapm_disable_pin(&card->dapm, "ADC");
+		vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 0);
+		snd_soc_dapm_stream_event(rtd,
+					  codec_dai->driver->
+					  capture.stream_name,
+					  SND_SOC_DAPM_STREAM_STOP);
+	}
 
 	snd_soc_dai_digital_mute(codec_dai, 1);
-
-	snd_soc_dapm_disable_pin(&card->dapm, "DAC");
-	snd_soc_dapm_disable_pin(&card->dapm, "ADC");
-	vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 0);
-	vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 0);
 
 	for (i = 0; i < card->num_rtd; i++) {
 		card->rtd[i].dai_link->ignore_suspend = 0;

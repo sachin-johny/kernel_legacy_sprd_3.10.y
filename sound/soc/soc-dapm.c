@@ -48,6 +48,9 @@
 
 #include <trace/events/asoc.h>
 
+/* dapm power widgets should protect */
+static DEFINE_MUTEX(widget_power_mutex);
+
 /* dapm power sequences - make this per codec in the future */
 static int dapm_up_seq[] = {
 	[snd_soc_dapm_pre] = 0,
@@ -1111,6 +1114,8 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 
 	trace_snd_soc_dapm_start(card);
 
+	mutex_lock(&widget_power_mutex);
+
 	list_for_each_entry(d, &card->dapm_list, list)
 		if (d->n_widgets || d->codec == NULL)
 			d->dev_power = 0;
@@ -1206,6 +1211,8 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 
 	/* Now power up. */
 	dapm_seq_run(dapm, &up_list, event, true);
+
+	mutex_unlock(&widget_power_mutex);
 
 	/* Run all the bias changes in parallel */
 	list_for_each_entry(d, &dapm->card->dapm_list, list)
