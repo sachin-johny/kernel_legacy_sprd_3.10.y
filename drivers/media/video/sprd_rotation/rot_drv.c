@@ -543,8 +543,9 @@ static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
 
 	RTT_PRINT("rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);
 	if (ROT_YUV420 == param_ptr->format) {
-		block_len =
-		    param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+	} else if (ROT_RGB888 == param_ptr->format || ROT_RGB666 == param_ptr->format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 4;
 	} else {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
 	}
@@ -643,6 +644,8 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	if (ROT_YUV420 == param_ptr->format) {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+	} else if (ROT_RGB888 == param_ptr->format || ROT_RGB666 == param_ptr->format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 4;
 	} else {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
 	}
@@ -760,7 +763,7 @@ static int rot_k_start_copy_data_from_virtual(ROT_CFG_T * param_ptr)
 
 	if (ROT_YUV420 == param_ptr->format) {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
-	} else if (ROT_RGB888 == param_ptr->format) {
+	} else if (ROT_RGB888 == param_ptr->format || ROT_RGB666 == param_ptr->format) {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 4;
 	} else {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
