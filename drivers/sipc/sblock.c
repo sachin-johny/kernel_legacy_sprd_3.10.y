@@ -45,6 +45,10 @@ static int sblock_thread(void *data)
 	struct sblock_mgr *sblock = data;
 	struct smsg mcmd, mrecv;
 	int rval;
+	struct sched_param param = {.sched_priority = 90};
+
+	/*set the thread as a real time thread, and its priority is 90*/
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	/* since the channel open may hang, we call it in the sblock thread */
 	rval = smsg_ch_open(sblock->dst, sblock->channel, -1);
