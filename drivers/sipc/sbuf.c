@@ -32,6 +32,10 @@ static int sbuf_thread(void *data)
 	struct sbuf_mgr *sbuf = data;
 	struct smsg mcmd, mrecv;
 	int rval, bufid;
+	struct sched_param param = {.sched_priority = 90};
+
+	/*set the thread as a real time thread, and its priority is 90*/
+	sched_setscheduler(current, SCHED_RR, &param);
 
 	/* since the channel open may hang, we call it in the sbuf thread */
 	rval = smsg_ch_open(sbuf->dst, sbuf->channel, -1);
