@@ -53,6 +53,7 @@ obj-y				+= carma/
 obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_APANIC)		+= apanic.o
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
+obj-$(CONFIG_SENSORS_AK8963)	+= akm8963.o
 obj-$(CONFIG_YAS_532_ENABLE)		+= yas532/
 obj-$(CONFIG_SENSORS_K3DH)	+= k3dh.o
 obj-$(CONFIG_SENSORS_GP2A)	+= gp2a_prox.o 
