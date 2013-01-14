@@ -34,7 +34,8 @@
 #define SPI1_WIFI_CS_GPIO        44
 
 #define GPIO_BK                  143
-#define MSENSOR_DRDY_GPIO        53
+#define MSENSOR_DRDY_GPIO        166
+#define MSENSOR_RSTN_GPIO        53
 #define GPIO_PLSENSOR_IRQ	213
 
 #define GPIO_BT_RESET		194

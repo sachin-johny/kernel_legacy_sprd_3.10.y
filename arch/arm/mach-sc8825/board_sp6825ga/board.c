@@ -30,6 +30,7 @@
 #include <linux/i2c/lis3dh.h>
 #include <linux/i2c/ltr_558als.h>
 #include <linux/akm8975.h>
+#include <linux/akm8963.h>
 #include <linux/spi/spi.h>
 #include <mach/board.h>
 #include <mach/serial_sprd.h>
@@ -38,7 +39,6 @@
 #include "../devices.h"
 #include <linux/gpio.h>
 #include <linux/mpu.h>
-#include <linux/akm8975.h>
 #include <linux/irq.h>
 
 #include <mach/sci.h>
@@ -221,6 +221,15 @@ struct akm8975_platform_data akm8975_platform_d = {
 	.mag_high_z = 20479,
 };
 
+#if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
+struct akm8963_platform_data akm_platform_data_8963 = {
+	.layout = 3,
+	.outbit = 1,
+	.gpio_DRDY = MSENSOR_DRDY_GPIO,
+	.gpio_RST = MSENSOR_RSTN_GPIO,
+};
+#endif
+
 static struct mpu_platform_data mpu9150_platform_data = {
 	.int_config = 0x00,
 	.level_shifter = 0,
@@ -268,6 +277,11 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 /*	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
 	},*/
+#if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
+	{  I2C_BOARD_INFO(AKM8963_I2C_NAME, AKM8963_I2C_ADDR),
+	   .platform_data = &akm_platform_data_8963,
+	},
+#endif
 };
 
 static struct i2c_board_info i2c1_boardinfo[] = {
