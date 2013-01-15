@@ -295,8 +295,8 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 	/* if parent clock from mpll, will set parent clock div*/
 	if (0 == strcmp(host_pdata->clk_parent, "clk_sdio_src")) {
 		// 1.get cur mpll clock. defalut is 1GHZ.
-		// 2.set div, parent clock is set 100MHZ.
-		clk_set_rate(clk_parent, 100000000);
+		// 2.set div, parent clock is set 90MHZ.
+		clk_set_rate(clk_parent, 90000000);
 	}
 
 	pr_debug("after set sd clk, CLK_GEN5:0x%x\n", sci_glb_raw_read(REG_GLB_CLK_GEN5));
