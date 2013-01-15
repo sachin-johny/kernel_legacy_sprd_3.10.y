@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt) "[audio:dolphin] " fmt
+#define pr_fmt(fmt) "[audio:codec] " fmt
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -71,6 +71,15 @@ enum {
 	DOLPHIN_PGA_MAX
 };
 
+const char *dolphin_pga_debug_str[DOLPHIN_PGA_MAX] = {
+	"Master",
+	"Linein",
+	"HP",
+	"ADC",
+	"Mic Boost",
+	"Ear Boost",
+};
+
 typedef int (*dolphin_pga_set) (struct snd_soc_codec * codec, int left,
 				int right);
 
@@ -107,9 +116,9 @@ static void dolphin_wait(u32 wait_time)
 static void dolphin_print_regs(struct snd_soc_codec *codec)
 {
 	int reg;
-	pr_warn("dolphin register\n");
+	pr_info("dolphin register\n");
 	for (reg = VBAICR; reg <= VBTR2; reg += 0x10) {
-		pr_warn("0x%04x | 0x%02x 0x%02x 0x%02x 0x%02x\n", (reg - VBAICR)
+		pr_info("0x%04x | 0x%02x 0x%02x 0x%02x 0x%02x\n", (reg - VBAICR)
 			, snd_soc_read(codec, reg + 0x00)
 			, snd_soc_read(codec, reg + 0x04)
 			, snd_soc_read(codec, reg + 0x08)
@@ -474,6 +483,7 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 static int sb_dac_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *kcontrol, int event)
 {
+	pr_info("DAC %s\n", SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	return pga_event(w, kcontrol, event, DOLPHIN_PGA_MASTER);
 }
 
@@ -499,6 +509,7 @@ static int sb_adc_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *kcontrol, int event)
 {
 	int ret;
+	pr_info("ADC %s\n", SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	ret = pga_event(w, kcontrol, event, DOLPHIN_PGA_ADC);
 	if (ret < 0)
 		return ret;
@@ -617,8 +628,9 @@ static int dolphin_vol_put(struct snd_kcontrol *kcontrol,
 	struct dolphin_pga_lr *pga = &(dolphin->pga[reg]);
 	int ret = 0;
 
-	pr_info("Entering %s %ld\n", __func__,
+	pr_info("set PGA[%s] to %ld\n", dolphin_pga_debug_str[reg],
 		ucontrol->value.integer.value[0]);
+
 	val = (ucontrol->value.integer.value[0] & mask);
 	if (invert)
 		val = max - val;
@@ -679,7 +691,7 @@ static int dolphin_vol_put_2r(struct snd_kcontrol *kcontrol,
 	unsigned int val, val2;
 	struct dolphin_pga_lr *pga = &(dolphin->pga[reg]);
 
-	pr_info("Entering %s %ld %ld\n", __func__,
+	pr_info("set PGA[%s] to %ld %ld\n", dolphin_pga_debug_str[reg],
 		ucontrol->value.integer.value[0],
 		ucontrol->value.integer.value[1]);
 
@@ -819,10 +831,10 @@ static int dolphin_pcm_hw_params(struct snd_pcm_substream *substream,
 		shift = 4;
 		mask <<= shift;
 		dolphin->da_sample_val = rate;
-		pr_info("dolphin da sample rate is [%d]\n", rate);
+		pr_info("playback rate is [%d]\n", rate);
 	} else {
 		dolphin->ad_sample_val = rate;
-		pr_info("dolphin ad sample rate is [%d]\n", rate);
+		pr_info("capture rate is [%d]\n", rate);
 	}
 	dolphin_set_sample_rate(codec, rate, mask, shift);
 

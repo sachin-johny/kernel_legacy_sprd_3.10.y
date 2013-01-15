@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt) "[audio:pcm] " fmt
+#define pr_fmt(fmt) "[audio: pcm ] " fmt
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -149,13 +149,15 @@ static inline int sprd_pcm_is_interleaved(struct snd_pcm_runtime *runtime)
 }
 #endif
 
+#define PCM_DIR_NAME(stream) (stream == SNDRV_PCM_STREAM_PLAYBACK ? "Playback" : "Captrue")
+
 static int sprd_pcm_open(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sprd_runtime_data *rtd;
 	int ret;
 
-	pr_info("Entering %s %d\n", __func__, substream->stream);
+	pr_info("open %s\n", PCM_DIR_NAME(substream->stream));
 
 	snd_soc_set_runtime_hwparams(substream, &sprd_pcm_hardware);
 
@@ -227,7 +229,7 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sprd_runtime_data *rtd = runtime->private_data;
 
-	pr_info("Entering %s %d\n", __func__, substream->stream);
+	pr_info("close %s\n", PCM_DIR_NAME(substream->stream));
 
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 	if (rtd->buffer_in_iram)

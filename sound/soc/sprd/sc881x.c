@@ -12,7 +12,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt) "[audio:sc881x] " fmt
+#define pr_fmt(fmt) "[audio:sc881] " fmt
 
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -103,7 +103,8 @@ static void sc881x_ext_control(struct snd_soc_dapm_context *dapm)
 		snd_soc_dapm_disable_pin(dapm, func_name[SC881X_FUNC_HP_MIC]);
 
 	if (sc881x.func[SC881X_FUNC_MIC_BIAS] == SWITCH_FUN_ON)
-		snd_soc_dapm_force_enable_pin(dapm, func_name[SC881X_FUNC_MIC_BIAS]);
+		snd_soc_dapm_force_enable_pin(dapm,
+					      func_name[SC881X_FUNC_MIC_BIAS]);
 	else
 		snd_soc_dapm_disable_pin(dapm, func_name[SC881X_FUNC_MIC_BIAS]);
 
@@ -134,10 +135,11 @@ static void audio_speaker_enable(int enable)
 static int sc881x_hp_event(struct snd_soc_dapm_widget *w,
 			   struct snd_kcontrol *k, int event)
 {
-	sc881x_dbg("Entering %s e=0x%x\n", __func__, event);
+	sc881x_dbg("Entering %s switch %s\n", __func__,
+		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
-		audio_pa_amplifier->
-		    headset.control(SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->headset.
+		    control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -145,10 +147,11 @@ static int sc881x_hp_event(struct snd_soc_dapm_widget *w,
 static int sc881x_ear_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *k, int event)
 {
-	sc881x_dbg("Entering %s e=0x%x\n", __func__, event);
+	sc881x_dbg("Entering %s switch %s\n", __func__,
+		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
-		audio_pa_amplifier->
-		    earpiece.control(SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->earpiece.
+		    control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -156,8 +159,9 @@ static int sc881x_ear_event(struct snd_soc_dapm_widget *w,
 static int sc881x_amp_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *k, int event)
 {
-	sc881x_dbg("Entering %s e=0x%x\n", __func__, event);
-	audio_speaker_enable(SND_SOC_DAPM_EVENT_ON(event));
+	sc881x_dbg("Entering %s switch %s\n", __func__,
+		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
+	audio_speaker_enable(! !SND_SOC_DAPM_EVENT_ON(event));
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -201,11 +205,12 @@ static int sc881x_func_set(struct snd_kcontrol *kcontrol,
 	struct snd_soc_card *card = codec->card;
 	int id = FUN_REG(mc->reg);
 
+	pr_info("%s switch %s\n", func_name[id],
+		ucontrol->value.integer.value[0] ? "ON" : "OFF");
+
 	if (sc881x.func[id] == ucontrol->value.integer.value[0])
 		return 0;
 
-	pr_info("Entering %s %d = %ld\n", __func__, id,
-		   ucontrol->value.integer.value[0]);
 	sc881x.func[id] = ucontrol->value.integer.value[0];
 	sc881x_ext_control(&card->dapm);
 	sc881x_dbg("Leaving %s\n", __func__);
