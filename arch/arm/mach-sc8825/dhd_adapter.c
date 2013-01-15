@@ -74,6 +74,45 @@ static wifi_mem_prealloc_t wifi_mem_array[PREALLOC_WLAN_NUMBER_OF_SECTIONS] = {
 	{ NULL, (WLAN_SECTION_SIZE_3 + PREALLOC_WLAN_SECTION_HEADER) }
 };
 
+
+static void * open_image(char *filename)
+{
+	struct file *fp;
+
+	fp = filp_open(filename, O_RDONLY, 0);
+	/*
+	 * 2.6.11 (FC4) supports filp_open() but later revs don't?
+	 * Alternative:
+	 * fp = open_namei(AT_FDCWD, filename, O_RD, 0);
+	 * ???
+	 */
+	 if (IS_ERR(fp))
+		 fp = NULL;
+
+	 return fp;
+}
+
+static int get_image_block(char *buf, int len, void *image)
+{
+	struct file *fp = (struct file *)image;
+	int rdlen;
+
+	if (!image)
+		return 0;
+
+	rdlen = kernel_read(fp, fp->f_pos, buf, len);
+	if (rdlen > 0)
+		fp->f_pos += rdlen;
+
+	return rdlen;
+}
+
+static void close_image(void *image)
+{
+	if (image)
+		filp_close((struct file *)image, NULL);
+}
+
 static void *wlan_device_mem_prealloc(int section, unsigned long size)
 {
 	if (section == PREALLOC_WLAN_NUMBER_OF_SECTIONS)
@@ -252,13 +291,12 @@ static int wlan_device_get_mac_addr(unsigned char *buf)
 		pr_err("%s, null parameter !!\n", __func__);
 		return -EFAULT;
 	}
-	fp = dhd_os_open_image(CUSTOMER_MAC_FILE);
+	fp = open_image(CUSTOMER_MAC_FILE);
 	if (fp == NULL)
 		return -EFAULT;
-	mac_len = dhd_os_get_image_block(macaddr, 17, fp);
+	mac_len = get_image_block(macaddr, 17, fp);
 	if (mac_len < 17)
 		return -EFAULT;
-
 
 	wlan_mac_addr[0] = (unsigned char)((char2bin(macaddr[0]) << 4) | char2bin(macaddr[1]));
 	wlan_mac_addr[1] = (unsigned char)((char2bin(macaddr[3]) << 4) | char2bin(macaddr[4]));
@@ -270,7 +308,7 @@ static int wlan_device_get_mac_addr(unsigned char *buf)
 	memcpy(buf, wlan_mac_addr, IFHWADDRLEN);
 	pr_info("wifi mac: %x:%x:%x:%x:%x:%x\n", wlan_mac_addr[0], wlan_mac_addr[1], wlan_mac_addr[2], wlan_mac_addr[3], wlan_mac_addr[4], wlan_mac_addr[5]);
 
-	dhd_os_close_image(fp);
+	close_image(fp);
 
 	return 0;
 
