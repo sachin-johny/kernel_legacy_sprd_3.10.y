@@ -471,8 +471,8 @@ static int ltr558_reg_init(void)
 
 	alert_mesg("ltr558_reg_init \n");
 
-	ltr558_sw_reset();
-	mdelay(PON_DELAY);
+	//ltr558_sw_reset();
+	//mdelay(PON_DELAY);
 
 	ltr558_i2c_write_reg(0x82, 0x7b);
 	ltr558_i2c_write_reg(0x83, 0x0f);
