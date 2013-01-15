@@ -998,6 +998,9 @@ int sc8825_enter_lowpower(void)
 #else
 #ifdef CONFIG_NKERNEL
 	status = sc8825_get_clock_status();
+#ifdef CONFIG_MACH_SP6825GA
+	status |=  DEVICE_APB;
+#endif
 #else
 	/*
 	* TODO: get clock status in native version, force deep sleep now
