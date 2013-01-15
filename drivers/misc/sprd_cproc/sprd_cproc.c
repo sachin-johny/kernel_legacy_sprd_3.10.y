@@ -177,6 +177,7 @@ struct nk_proc_fs {
 	struct proc_dir_entry	*modem;
 	struct proc_dir_entry	*dsp;
 	struct proc_dir_entry	*status;
+	struct proc_dir_entry	*mem;
 	struct cproc_device		*cproc;
 };
 
@@ -199,9 +200,11 @@ static ssize_t nk_proc_read(struct file *filp,
 		char __user *buf, size_t count, loff_t *ppos)
 {
 	char *type = (char *)filp->private_data;
+	struct cproc_device *cproc = nk_entries.cproc;
 	unsigned int len;
+	void *vmem;
 
-	pr_debug("nk proc read type: %s\n!", type);
+	pr_debug("nk proc read type: %s ppos %d\n!", type, *ppos);
 
 	if (strcmp(type, "status") == 0) {
 		len = strlen(MSG);
@@ -211,6 +214,22 @@ static ssize_t nk_proc_read(struct file *filp,
 			return -EFAULT;
 		else
 			return count;
+	} else if (strcmp(type, "mem") == 0) {
+		if (cproc->initdata->maxsz < *ppos) {
+			return -EINVAL;
+		} else if (cproc->initdata->maxsz == *ppos) {
+			return 0;
+		}
+
+		if ((*ppos + count) > cproc->initdata->maxsz) {
+			count = cproc->initdata->maxsz - *ppos;
+		}
+		vmem = cproc->vbase + *ppos;
+		if (copy_to_user(buf, vmem, count))	{
+			return -EFAULT;
+		}
+		*ppos += count;
+		return count;
 	} else {
 		return -EINVAL;
 	}
@@ -256,8 +275,9 @@ static ssize_t nk_proc_write(struct file *filp,
 
 static loff_t nk_proc_lseek(struct file* filp, loff_t off, int whence )
 {
-	loff_t new;
 	char *type = (char *)filp->private_data;
+	struct cproc_device *cproc = nk_entries.cproc;
+	loff_t new;
 
 	switch (whence) {
 		case 0:
@@ -272,6 +292,9 @@ static loff_t nk_proc_lseek(struct file* filp, loff_t off, int whence )
 		if (strcmp(type, "status") == 0) {
 			new = sizeof(MSG) - 1 + off;
 			filp->f_pos = new;
+		} else if (strcmp(type, "mem") == 0) {
+			new = cproc->initdata->maxsz + off;
+			filp->f_pos = new;
 		} else {
 			return -EINVAL;
 		}
@@ -279,15 +302,15 @@ static loff_t nk_proc_lseek(struct file* filp, loff_t off, int whence )
 		default:
 		return -EINVAL;
 	}
-	return (filp->f_pos = new);
+	return (new);
 }
 
 struct file_operations proc_fops = {
 	.open		= nk_proc_open,
 	.release	= nk_proc_release,
-   .llseek  = nk_proc_lseek,
+	.llseek  	= nk_proc_lseek,
 	.read		= nk_proc_read,
-	.write	= nk_proc_write,
+	.write		= nk_proc_write,
 };
 
 static inline void sprd_cproc_nkif_init(struct cproc_device *cproc)
@@ -300,7 +323,7 @@ static inline void sprd_cproc_nkif_init(struct cproc_device *cproc)
 	nk_entries.modem = proc_create_data("guestOS_2_bank", S_IWUSR, nk_entries.guest, &proc_fops, "modem");
 	nk_entries.dsp = proc_create_data("dsp_bank", S_IWUSR, nk_entries.guest, &proc_fops, "dsp");
 	nk_entries.status = proc_create_data("status", S_IRUSR, nk_entries.guest, &proc_fops, "status");
-
+	nk_entries.mem = proc_create_data("mem", S_IRUSR, nk_entries.guest, &proc_fops, "mem");
 	nk_entries.cproc = cproc;
 }
 
@@ -312,6 +335,7 @@ static inline void sprd_cproc_nkif_exit(struct cproc_device *cproc)
 
 	remove_proc_entry("guest-02", nk_entries.nk);
 	remove_proc_entry("restart", nk_entries.nk);
+	remove_proc_entry("mem", nk_entries.nk);
 
 	remove_proc_entry("nk", NULL);
 }
