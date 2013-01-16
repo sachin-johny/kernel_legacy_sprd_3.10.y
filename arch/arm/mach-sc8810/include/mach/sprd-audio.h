@@ -46,6 +46,8 @@ enum {
 #define	ANA_AUDIO_PA_CTRL1	(LDO_REG_BASE + 0x007C)
 #endif
 
+#define AUDIO_HEADSET_ENABLE BIT(7)
+
 /* ------------------------------------------------------------------------- */
 
 /* NOTE: all function maybe will call by atomic funtion

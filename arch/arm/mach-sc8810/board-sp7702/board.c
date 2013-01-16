@@ -40,6 +40,8 @@
 #include <mach/serial_sprd.h>
 #include <gps/gpsctl.h>
 #include <mach/pinmap.h>
+#include <mach/adi.h>
+#include <mach/sprd-audio.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -387,6 +389,11 @@ static void sprd_spi_init(void)
 }
 
 
+static void sc8810_headset_init(void)
+{
+	sci_adi_clr(ANA_AUDIO_CTRL, AUDIO_HEADSET_ENABLE);
+}
+
 static int sc8810_add_misc_devices(void)
 {
 	if (audio_pa_control.speaker.control || audio_pa_control.earpiece.control || \
@@ -402,6 +409,7 @@ static void __init sc8810_init_machine(void)
 {
 	regulator_add_devices();
 	sprd_add_otg_device();
+	sc8810_headset_init();
 
 	platform_device_add_data(&sprd_sdio1_device, &modem_detect_gpio, sizeof(modem_detect_gpio));
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
