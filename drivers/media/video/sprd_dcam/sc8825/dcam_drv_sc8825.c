@@ -267,7 +267,7 @@ int32_t dcam_module_en(void)
 
 	DCAM_TRACE("DCAM DRV: dcam_module_en: %d \n", s_dcam_users.counter);
 	if (atomic_inc_return(&s_dcam_users) == 1) {
-		ret = dcam_set_clk(DCAM_CLK_128M);
+		ret = dcam_set_clk(DCA_CLK_256M);
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
 		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
 		REG_OWR(DCAM_RST, CCIR_RST_BIT);
