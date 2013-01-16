@@ -263,6 +263,7 @@
 	//this will cause hw hang
 	#undef CONFIG_LPS_RPWM_TIMER
 	#define CONFIG_WAIT_PS_ACK
+	#define CONFIG_SOFTAP_11N
 #endif
 
 /*

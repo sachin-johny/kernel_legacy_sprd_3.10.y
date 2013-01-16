@@ -1,10 +1,10 @@
 #ifndef __INC_HAL8723S_FW_IMG_H
 #define __INC_HAL8723S_FW_IMG_H
 
-/*Created on  2012/11/27, 14:36*/
+/*Created on  2012/12/18, 22:26*/
 
 #define Rtl8723SUMCBCutMPImgArrayLength 18396
-#define Rtl8723SUMCBCutImgArrayLength 24422
+#define Rtl8723SUMCBCutImgArrayLength 24568
 
 #define Rtl8723SImgArrayLength 20606
 extern const u8 Rtl8723SFwImgArray[Rtl8723SImgArrayLength];

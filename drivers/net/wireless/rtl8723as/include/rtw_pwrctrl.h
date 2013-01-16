@@ -287,6 +287,7 @@ struct pwrctrl_priv
 	struct early_suspend early_suspend;
 	u8 do_late_resume;
 	#endif //CONFIG_HAS_EARLYSUSPEND
+	u8 in_early_suspend;
 
 	#ifdef CONFIG_ANDROID_POWER
 	android_early_suspend_t early_suspend;

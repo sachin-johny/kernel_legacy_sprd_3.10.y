@@ -274,7 +274,7 @@ _func_enter_;
 		DBG_871X("%s: BcnLength=%d BcnRcvTime=%d (32us)\n", __FUNCTION__, BcnLen, BcnRcvTime);
 
 		lowpwr_lps.enable = 1;
-		lowpwr_lps.bcn_count= 3; // max 15
+		lowpwr_lps.bcn_count= 2; // max 15
 		lowpwr_lps.tb_bcn_threshold = 2; // max 7
 		lowpwr_lps.bcn_interval = BcnRcvTime;
 		lowpwr_lps.drop_threshold = 0;

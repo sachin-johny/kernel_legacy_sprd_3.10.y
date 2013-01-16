@@ -550,6 +550,15 @@ static void writeOFDMPowerReg(
 				rtw_write8(Adapter, (u32)(RegOffset+i), (u8)writeVal);
 			}
 		}
+#ifdef CONFIG_BT_COEXIST
+#ifdef CONFIG_CMCC_TEST
+		if (pHalData->bt_coexist.LowPwr_11g) {
+			//DBG_871X("[BTCoex-CMCC], %s BT busy, lower 11G power\n", __func__);
+			rtw_write32(Adapter,0xe00,0x1c1c1c1c);
+			rtw_write32(Adapter,0xe04,0x1c1c1c1c);
+		}
+#endif
+#endif
 	}
 }
 /*-----------------------------------------------------------------------------

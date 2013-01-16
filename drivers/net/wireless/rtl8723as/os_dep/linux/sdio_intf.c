@@ -417,6 +417,7 @@ _adapter *rtw_sdio_if1_init(struct dvobj_priv *dvobj, const struct sdio_device_i
 	dvobj->if1 = padapter;
 
 	padapter->bDriverStopped=_TRUE;
+	padapter->drv_in_test = NO_TEST;
 
 #if defined(CONFIG_CONCURRENT_MODE) || defined(CONFIG_DUALMAC_CONCURRENT)
 	//set adapter_type/iface type for primary padapter

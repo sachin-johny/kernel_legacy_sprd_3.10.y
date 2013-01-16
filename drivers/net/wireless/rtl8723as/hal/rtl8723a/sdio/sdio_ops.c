@@ -1597,6 +1597,7 @@ void sd_int_dpc(PADAPTER padapter)
 	{
 		struct recv_buf *precvbuf;
 		u16 val=0;
+		int alloc_fail_time=0;
 
 //		DBG_8192C("%s: RX Request, size=%d\n", __func__, phal->SdioRxFIFOSize);
 		phal->sdio_hisr ^= SDIO_HISR_RX_REQUEST;
@@ -1616,12 +1617,22 @@ void sd_int_dpc(PADAPTER padapter)
 				sd_recv_loopback(padapter, phal->SdioRxFIFOSize);
 #else
 				precvbuf = sd_recv_rxfifo(padapter, phal->SdioRxFIFOSize);
-				if (precvbuf) sd_rxhandler(padapter, precvbuf);
+				if (precvbuf)
+					sd_rxhandler(padapter, precvbuf);
+				else
+				{
+					alloc_fail_time++;
+					DBG_871X("precvbuf is Null for %d times because alloc memory failed\n", alloc_fail_time);
+				}
 #endif
 			}
 			_sdio_local_read(padapter, SDIO_REG_RX0_REQ_LEN, 2, (u8*)&val);
 			phal->SdioRxFIFOSize = le16_to_cpu(val);
-		}while(phal->SdioRxFIFOSize !=0);
+		}while((phal->SdioRxFIFOSize !=0) && (alloc_fail_time<10));
+
+		if(alloc_fail_time==10)
+			DBG_871X("exit because alloc memory failed more than 10 times \n");
+
 	}
 }
 

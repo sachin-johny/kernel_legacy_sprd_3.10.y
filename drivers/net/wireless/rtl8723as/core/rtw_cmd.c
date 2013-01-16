@@ -1257,9 +1257,6 @@ _func_enter_;
 	update_network(&(pmlmepriv->cur_network.network), &pnetwork->network, padapter, _TRUE);
 	rtw_get_bcn_info(&(pmlmepriv->cur_network));
 #endif
-#ifdef CONFIG_IOCTL_CFG80211
-	pmlmepriv->cur_network.bss = pnetwork->bss;
-#endif
 
 	#if 0
 	psecuritypriv->supplicant_ie[0]=(u8)psecnetwork->IELength;
@@ -1930,15 +1927,8 @@ static void traffic_status_watchdog(_adapter *padapter)
 	if((check_fwstate(pmlmepriv, _FW_LINKED)== _TRUE)
 		/*&& !MgntInitAdapterInProgress(pMgntInfo)*/)
 	{
-
-#ifdef CONFIG_BT_COEXIST
-		//here set it to 50, will let WIFI web in TDMA mode for power save
-		if( pmlmepriv->LinkDetectInfo.NumRxUnicastOkInPeriod > 10 ||
-			pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 10 )
-#else // !CONFIG_BT_COEXIST
-		if( pmlmepriv->LinkDetectInfo.NumRxOkInPeriod > 100 ||
-			pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 100 )
-#endif // !CONFIG_BT_COEXIST
+		if(pmlmepriv->LinkDetectInfo.NumRxUnicastOkInPeriod > RX_TRAFFIC_BUSY_THRESHOLD ||
+				pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > TX_TRAFFIC_BUSY_THRESHOLD)
 		{
 			bBusyTraffic = _TRUE;
 
@@ -1948,7 +1938,7 @@ static void traffic_status_watchdog(_adapter *padapter)
 				bTxBusyTraffic = _TRUE;
 
 			if (pmlmepriv->LinkDetectInfo.NumRxOkInPeriod > 100 ||
-				pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 100)
+					pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > 100)
 				bCanNotScan = _TRUE;
 		}
 

@@ -746,24 +746,26 @@ static s32 update_attrib(_adapter *padapter, _pkt *pkt, struct pkt_attrib *pattr
 	// If EAPOL , ARP , OR DHCP packet, driver must be in active mode.
 	//if ( (pattrib->ether_type == 0x88B4) || (pattrib->ether_type == 0x0806) || (pattrib->ether_type == 0x888e) || (pattrib->dhcp_pkt == 1) )
 	//before 4-way success, we can not enter LPS, so 888E for EAPOL and 88B4 for WAPI is not needed here
-	if ((pattrib->ether_type == 0x0806) || (pattrib->dhcp_pkt == 1))
-	{
-		/*Before WPS finish we should not change TDMA type, jacky_20121203*/
-		if(check_fwstate(pmlmepriv,WIFI_UNDER_WPS) != _TRUE) {
-			rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_SPECIAL_PACKET, 1);
-		}	
-	}
-#ifdef CONFIG_BT_COEXIST
-	else if (check_fwstate(pmlmepriv, WIFI_STATION_STATE))
-	{
-		//if wifi just in LPS mode, web will be very slow
-		//we should enter TDMA under LPS mode, for web fluent
-		if (padapter->pwrctrlpriv.pwr_mode != PS_MODE_ACTIVE && !bmcast) {
-			rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_TRAFFIC_TDMA, 1);
+	if (check_fwstate(pmlmepriv, WIFI_STATION_STATE)) {
+		if ((pattrib->ether_type == 0x0806) || (pattrib->dhcp_pkt == 1))
+		{
+			/*Before WPS finish we should not change TDMA type, jacky_20121203*/
+			if(check_fwstate(pmlmepriv,WIFI_UNDER_WPS) != _TRUE) {
+				rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_SPECIAL_PACKET, 1);
+			}
 		}
+#ifdef CONFIG_BT_COEXIST
+		else
+		{
+			//if wifi just in LPS mode, web will be very slow
+			//we should enter TDMA under LPS mode, for web fluent
+			if (padapter->pwrctrlpriv.pwr_mode != PS_MODE_ACTIVE && !bmcast) {
+				rtw_lps_ctrl_wk_cmd(padapter, LPS_CTRL_TRAFFIC_TDMA, 1);
+			}
 
-	}
+		}
 #endif
+	}
 #endif
 
 	// get sta_info

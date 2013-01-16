@@ -568,11 +568,11 @@ static char *translate_scan(_adapter *padapter,
 		_rtw_memset(wapi_ie, 0, MAX_WAPI_IE_LEN);
 
 		out_len_wapi=rtw_get_wapi_ie(pnetwork->network.IEs ,pnetwork->network.IELength,wapi_ie,&wapi_len);
-		RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_wx_get_scan: ssid=%s\n",pnetwork->network.Ssid.Ssid));
-		RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_wx_get_scan: wapi_len=%d \n",wapi_len));
+//		RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_wx_get_scan: ssid=%s\n",pnetwork->network.Ssid.Ssid));
+//		RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_wx_get_scan: wapi_len=%d \n",wapi_len));
 
-		DBG_871X("rtw_wx_get_scan: %s ",pnetwork->network.Ssid.Ssid);
-		DBG_871X("rtw_wx_get_scan: ssid = %d ",wapi_len);
+//		DBG_871X("rtw_wx_get_scan: %s\n",pnetwork->network.Ssid.Ssid);
+//		DBG_871X("rtw_wx_get_scan: ssid = %d\n",wapi_len);
 
 
 		if (wapi_len > 0)
@@ -623,6 +623,9 @@ static char *translate_scan(_adapter *padapter,
 	iwe.u.qual.level = (u8) translate_percentage_to_dbm(ss);//dbm
 	#else
 	iwe.u.qual.level = (u8)ss;//%
+	#ifdef CONFIG_BT_COEXIST
+	BT_SignalCompensation(padapter, &iwe.u.qual.level, NULL);
+	#endif // CONFIG_BT_COEXIST
 	#endif
 
 	iwe.u.qual.qual = (u8)sq;   // signal quality
@@ -1870,6 +1873,13 @@ _func_enter_;
 #endif
 */
 
+	// In CMCC test, need to skip scan as assoicated with AP.
+	if (padapter->drv_in_test == CMCC_TEST && check_fwstate(pmlmepriv, _FW_LINKED) == _TRUE)
+	{
+		ret = -1;
+		goto exit;
+	}
+
 #ifdef CONFIG_MP_INCLUDED
 if (padapter->registrypriv.mp_mode == 1)
 {
@@ -1926,6 +1936,23 @@ if (padapter->registrypriv.mp_mode == 1)
 		indicate_wx_scan_complete_event(padapter);
 		goto exit;
 	}
+
+#ifdef CONFIG_BT_COEXIST
+	{
+		u32 curr_time, delta_time;
+
+		// under DHCP(Special packet)
+		curr_time = rtw_get_current_time();
+		delta_time = curr_time - padapter->pwrctrlpriv.DelayLPSLastTimeStamp;
+		delta_time = rtw_systime_to_ms(delta_time);
+		if (delta_time < 500) // 500ms
+		{
+			DBG_871X("%s: send DHCP pkt before %d ms, Skip scan\n", __FUNCTION__, delta_time);
+			ret = -1;
+			goto exit;
+		}
+	}
+#endif
 
 #ifdef CONFIG_CONCURRENT_MODE
 	if (check_buddy_fwstate(padapter,
@@ -5902,35 +5929,122 @@ static int rtw_p2p_get2(struct net_device *dev,
 
 }
 
-static int rtw_cta_test_start(struct net_device *dev,
-							   struct iw_request_info *info,
-							   union iwreq_data *wrqu, char *extra)
+/*
+	It is used to config the related settings for different tests.
+	Currently, CTA and CMCC tests are supported.
+	command format: test_cfg X Y.
+	X=1: For CTA test. X=2: For CMCC test.
+	Y=0: Disable test. Y=1: Enable test.
+*/
+static int rtw_test_cfg(struct net_device *dev,
+			struct iw_request_info *info,
+			union iwreq_data *wrqu, char *extra)
 {
-	int ret = 0;
-	_adapter	*padapter = (_adapter *)rtw_netdev_priv(dev);
-	DBG_871X("%s %s\n", __func__, extra);
-	if (!strcmp(extra, "1"))
-		padapter->in_cta_test = 1;
-	else
-		padapter->in_cta_test = 0;
+	int	ret = 0;
+	PADAPTER padapter = (PADAPTER)rtw_netdev_priv(dev);
+	u32 reg_value, type, state;
+	HAL_DATA_TYPE *pHalData = GET_HAL_DATA(padapter);
+	DM_ODM_T *podmpriv = &pHalData->odmpriv;
+	u8 input[wrqu->data.length];
 
-	if(padapter->in_cta_test)
-	{
-		u32 v = rtw_read32(padapter, REG_RCR);
-		v &= ~(RCR_CBSSID_DATA | RCR_CBSSID_BCN );//| RCR_ADF
-		rtw_write32(padapter, REG_RCR, v);
-		DBG_871X("enable RCR_ADF\n");
+	if (copy_from_user(input, wrqu->data.pointer, wrqu->data.length))
+			return -EFAULT;
+
+	type = NO_TEST;
+	state = 0;
+	sscanf(input, "%d %d", &type, &state);
+
+	switch(type) {
+	case CTA_TEST:
+		if(state == 1)
+		{
+			padapter->drv_in_test = CTA_TEST;
+			reg_value = rtw_read32(padapter, REG_RCR);
+			reg_value &= ~(RCR_CBSSID_DATA | RCR_CBSSID_BCN );//| RCR_ADF
+			rtw_write32(padapter, REG_RCR, reg_value);
+		}
+		else
+		{
+			padapter->drv_in_test = NO_TEST;
+			reg_value = rtw_read32(padapter, REG_RCR);
+			reg_value |= RCR_CBSSID_DATA | RCR_CBSSID_BCN ;//| RCR_ADF
+			rtw_write32(padapter, REG_RCR, reg_value);
+		}
+		break;
+	case CMCC_TEST:
+		if(state == 1)
+		{
+			padapter->drv_in_test = CMCC_TEST;
+			// disable dynamic tx power
+			podmpriv->SupportAbility &= (~ODM_BB_DYNAMIC_TXPWR);
+			// disable tx power tracking
+			podmpriv->SupportAbility &= (~ODM_RF_TX_PWR_TRACK);
+			// turn off FW rate-adaption and TX-power-tranning
+			pHalData->fw_ractrl = _FALSE;
+		}
+		else
+		{
+			padapter->drv_in_test = NO_TEST;
+			// enable dynamic tx power
+			podmpriv->SupportAbility |= (ODM_BB_DYNAMIC_TXPWR);
+			// enable tx power tracking
+			podmpriv->SupportAbility |= (ODM_RF_TX_PWR_TRACK);
+			// turn on FW rate-adaption and TX-power-tranning
+			pHalData->fw_ractrl = _TRUE;
+		}
+		break;
+	default:
+		padapter->drv_in_test = NO_TEST;
+		break;
 	}
-	else
-	{
-		u32 v = rtw_read32(padapter, REG_RCR);
-		v |= RCR_CBSSID_DATA | RCR_CBSSID_BCN ;//| RCR_ADF
-		rtw_write32(padapter, REG_RCR, v);
-		DBG_871X("disable RCR_ADF\n");
-	}
+
 	return ret;
 }
 
+static int rtw_mp_disable_bt_coexist(struct net_device *dev,
+			struct iw_request_info *info,
+			union iwreq_data *wrqu, char *extra)
+{
+	PADAPTER padapter = (PADAPTER)rtw_netdev_priv(dev);
+	u8 input[wrqu->data.length];
+	u32 bt_coexist;
+
+#ifdef CONFIG_BT_COEXIST
+	PBT30Info		pBTInfo;
+	PBT_MGNT		pBtMgnt;
+
+	pBTInfo = GET_BT_INFO(padapter);
+	pBtMgnt = &pBTInfo->BtMgnt;
+#endif
+	if (copy_from_user(input, wrqu->data.pointer, wrqu->data.length))
+		return -EFAULT;
+
+	bt_coexist = rtw_atoi(input);
+
+	if( bt_coexist == 0 )
+	{
+		RT_TRACE(_module_mp_, _drv_info_,
+			("Set OID_RT_SET_DISABLE_BT_COEXIST: disable BT_COEXIST\n"));
+#ifdef CONFIG_BT_COEXIST
+		pBtMgnt->ExtConfig.bManualControl = _TRUE;
+		// Force to switch Antenna to WiFi
+		rtw_write16(padapter, 0x870, 0x300);
+		rtw_write16(padapter, 0x860, 0x110);
+#endif
+		//BT_SetManualControl(pAdapter, TRUE);
+	}
+	else
+	{
+		RT_TRACE(_module_mp_, _drv_info_,
+			("Set OID_RT_SET_DISABLE_BT_COEXIST: enable BT_COEXIST\n"));
+#ifdef CONFIG_BT_COEXIST
+		pBtMgnt->ExtConfig.bManualControl = _FALSE;
+#endif
+		//BT_SetManualControl(pAdapter, FALSE);
+	}
+
+	return 0;
+}
 
 extern int rtw_change_ifname(_adapter *padapter, const char *ifname);
 static int rtw_rereg_nd_name(struct net_device *dev,
@@ -9033,8 +9147,6 @@ static int rtw_mp_efuse_set(struct net_device *dev,
 			#endif
 		#endif //#ifdef CONFIG_RTL8188E
 
-
-
 		cnts = strlen(tmp[1]);
 		if (cnts%2)
 		{
@@ -10681,10 +10793,14 @@ static int rtw_mp_set(struct net_device *dev,
 			DBG_871X("set MP_SetRFPathSwitch \n");
 			rtw_mp_SetRFPath  (dev,info,wdata,extra);
 			break;
-	case CTA_TEST:
-			DBG_871X("set CTA_TEST\n");
-			rtw_cta_test_start (dev, info, wdata, extra);
+	case TEST_CFG:
+			DBG_871X("set TEST_CFG\n");
+			rtw_test_cfg(dev, info, wdata, extra);
 			break;
+	case MP_DISABLE_BT_COEXIST:
+			DBG_871X("set case MP_DISABLE_BT_COEXIST \n");
+			rtw_mp_disable_bt_coexist(dev, info, wdata, extra);
+		break;
 	}
 
 
@@ -12509,7 +12625,8 @@ static const struct iw_priv_args rtw_private_args[] = {
 #ifdef CONFIG_RTL8723A
 		{ MP_SetBT, IW_PRIV_TYPE_CHAR | 1024, IW_PRIV_TYPE_CHAR | IW_PRIV_SIZE_MASK, "mp_setbt" },
 #endif
-		{ CTA_TEST, IW_PRIV_TYPE_CHAR | 1024, 0, "cta_test"},
+		{ TEST_CFG, IW_PRIV_TYPE_CHAR | 1024, 0, "test_cfg"},
+		{ MP_DISABLE_BT_COEXIST, IW_PRIV_TYPE_CHAR | 1024, 0, "mp_disa_btcoex"},
 #endif
 };
 
@@ -12595,6 +12712,13 @@ static struct iw_statistics *rtw_get_wireless_stats(struct net_device *dev)
 		tmp_level = translate_percentage_to_dbm(padapter->recvpriv.signal_strength);
 		#else
 		tmp_level = padapter->recvpriv.signal_strength;
+		#ifdef CONFIG_BT_COEXIST
+		{
+			u8 signal = (u8)tmp_level;
+			BT_SignalCompensation(padapter, &signal, NULL);
+			tmp_level= signal;
+		}
+		#endif // CONFIG_BT_COEXIST
 		#endif
 
 		tmp_qual = padapter->recvpriv.signal_qual;
@@ -12713,14 +12837,14 @@ static int rtw_ioctl_wext_private(struct net_device *dev, union iwreq_data *wrq_
 
 	sscanf(ptr, "%16s", cmdname);
 	cmdlen = strlen(cmdname);
-	DBG_8192C("%s: cmd=%s\n", __func__, cmdname);
+	DBG_871X("%s: cmd=%s\n", __func__, cmdname);
 
 	// skip command string
 	if (cmdlen > 0)
 		cmdlen += 1; // skip one space
 	ptr += cmdlen;
 	len -= cmdlen;
-	DBG_8192C("%s: parameters=%s\n", __func__, ptr);
+	DBG_871X("%s: parameters=%s\n", __func__, ptr);
 
 	priv = rtw_private_handler;
 	priv_args = rtw_private_args;
