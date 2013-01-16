@@ -863,11 +863,14 @@ int deep_sleep(void)
 	/*go deepsleep when all PD auto poweroff en*/
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
-	#ifndef CONFIG_MACH_SP6825GA
-	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
-	#else
+
+#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 	val |= MCU_SYS_SLEEP_EN;
-	#endif
+#else
+	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
+#endif  /*CONFIG_MACH_SP6825GA  ||CONFIG_MACH_SP6825GB*/
+
+
 
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL);
 
@@ -998,7 +1001,7 @@ int sc8825_enter_lowpower(void)
 #else
 #ifdef CONFIG_NKERNEL
 	status = sc8825_get_clock_status();
-#ifdef CONFIG_MACH_SP6825GA
+#if  defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 	status |=  DEVICE_APB;
 #endif
 #else

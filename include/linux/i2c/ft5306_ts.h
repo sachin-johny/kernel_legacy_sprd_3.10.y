@@ -1,7 +1,7 @@
 #ifndef __LINUX_FT5X0X_TS_H__
 #define __LINUX_FT5X0X_TS_H__
 
-#ifdef CONFIG_MACH_SP6825GA
+#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 #define SCREEN_MAX_X    479
 #define SCREEN_MAX_Y    853
 #else

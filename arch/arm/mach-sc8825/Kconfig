@@ -29,6 +29,10 @@ config MACH_SP6825GA
 	bool "SP6825GA"
 	help
 	  SP6825 GA based on SC8825.
+config MACH_SP6825GB
+	bool "SP6825GB"
+	help
+	  SP6825 GA based on SC8825.
 config MACH_GARDA
 	bool "GARDA"
 	help
