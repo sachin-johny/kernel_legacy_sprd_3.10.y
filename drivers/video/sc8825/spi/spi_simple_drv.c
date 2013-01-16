@@ -67,25 +67,39 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
     {
 		switch(spi_id){
 		case SPI0_ID:	
-			//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT17); //APB_SPI0_EB
+						/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT17); //APB_SPI0_EB */
             			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI0_EN, GR_GEN0);
 			break;
 		case SPI1_ID:
-            			//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB
+            			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
             			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
 			break;
 		case SPI2_ID:
-            			//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB
+            			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
             			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI2_EN, GR_GEN0);
 			break;
 		default:
-			
-			break;
-		}
- }
-    else
-    {
 
+			break;
+			}
+	}else{
+		switch(spi_id){
+		case SPI0_ID:
+						/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT17); //APB_SPI0_EB */
+			sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_SPI0_EN, GR_GEN0);
+			break;
+		case SPI1_ID:
+			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
+			sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
+			break;
+		case SPI2_ID:
+			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
+			sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_SPI2_EN, GR_GEN0);
+			break;
+		default:
+
+			break;
+			}
     }
 
 }
@@ -93,7 +107,7 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
 void SPI_Reset( uint32_t spi_id, uint32_t ms)
 {
 	uint32_t i = 0;
-	uint32_t rst_bit =  SWRST_SPI0_RST;
+	uint32_t rst_bit = SWRST_SPI0_RST;
 	if(0 == spi_id){
 		;
 	}else if(1 == spi_id){
@@ -105,16 +119,11 @@ void SPI_Reset( uint32_t spi_id, uint32_t ms)
 		return;
 	}
 	
-	// *(volatile uint32_t *)AHB_SOFT_RST |= (1 << 14);
-	//__raw_writel(__raw_readl(GR_SOFT_RST) | (rst_bit), GR_SOFT_RST);
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, rst_bit, GR_SOFT_RST);
 
 	udelay(100);
-	//       *(volatile uint32_t *)AHB_SOFT_RST &= ~(1 << 14);        
-	//__raw_writel(__raw_readl(GR_SOFT_RST) & (~(rst_bit)), GR_SOFT_RST);
+
 	sprd_greg_clear_bits(REG_TYPE_GLOBAL, rst_bit, GR_SOFT_RST);
-	//for(i=0; i<ms; i++);
-	//*(volatile uint32_t *)AHB_RST0_CLR |= SPI0_SOFT_RST_CLR;
 
 }
 
@@ -134,35 +143,29 @@ static void SPI_PinConfig(void)
 // The dividend is clk_spiX_div[1:0] + 1
 void SPI_ClkSetting(uint32_t spi_id, uint32_t clk_src, uint32_t clk_div)
 {
-    //clk_spi0_sel: [3:2]---->2'b:00-78M 01-26M,01-104M,11-48M,
-    //clk_spi0_div: [5:4]---->div,  clk/(div+1)
 	printk("SPRDFB [%s], clk src is %d clk div is %d\n ", __FUNCTION__, clk_src, clk_div);
 	uint32_t div_reg_val = 0;
 	uint32_t src_reg_val = 0;
 	uint32_t	tmp = 0;
-	if(spi_id == 0)
+	if(0 == spi_id)
 	{
 		src_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_CLK_DLY);
 		div_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN2);
 		
-		// *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI0_SEL_SHIFT);
 		sprd_greg_write(REG_TYPE_GLOBAL, (src_reg_val&(~(0x3<<26))|clk_src << 26), GR_CLK_DLY);
-		// *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI0_DIV_SHIFT);
 		sprd_greg_write(REG_TYPE_GLOBAL, (div_reg_val&(~(0x7<<21))|clk_div << 21), GR_GEN2);
 	} else if(1 == spi_id) {
-		//        *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI1_SEL_SHIFT);
-		sprd_greg_write(REG_TYPE_GLOBAL, clk_src << 30, GR_CLK_DLY);
-		//        *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI1_DIV_SHIFT);    
-		sprd_greg_write(REG_TYPE_GLOBAL, clk_div << 11, GR_GEN2);
+		src_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_CLK_DLY);
+		div_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN2);
+
+		sprd_greg_write(REG_TYPE_GLOBAL, (src_reg_val&(~(0x3<<30))|clk_src << 30), GR_CLK_DLY);
+		sprd_greg_write(REG_TYPE_GLOBAL, (src_reg_val&(~(0x7<<11))|clk_div << 11), GR_GEN2);
 	}else if(2 == spi_id){
 		src_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN3);
 		div_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN3);
 
 		tmp = src_reg_val&(~(0x1f<<3))|clk_src << 3|clk_div << 5;
-		//        *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI1_SEL_SHIFT);
 		sprd_greg_write(REG_TYPE_GLOBAL, tmp, GR_GEN3);
-		//        *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI1_DIV_SHIFT);    
-//		sprd_greg_write(REG_TYPE_GLOBAL, (div_reg_val&(~(0x7<<5))|clk_div << 5), GR_GEN3);
 	}else{
 		printk("SPRDFB [%s], %d is SPI  error channel bit! ", __FUNCTION__, spi_id);
 		return;
@@ -179,14 +182,14 @@ void SPI_SetCsLow( uint32_t spi_sel_csx , bool is_low)
    uint32_t temp;
 
     if(is_low)     {
-        //spi_ctl0[11:8]:cs3<->cs0 chip select, 0-selected;1-none
-        spi_ctr_ptr->ctl0 &= ~(SPI_SEL_CS_MASK); 
-        spi_ctr_ptr->ctl0 &= ~((1<<spi_sel_csx)<<SPI_SEL_CS_SHIFT); 
+        /* spi_ctl0[11:8]:cs3<->cs0 chip select, 0-selected;1-none */
+        spi_ctr_ptr->ctl0 &= ~(SPI_SEL_CS_MASK);
+        spi_ctr_ptr->ctl0 &= ~((1<<spi_sel_csx)<<SPI_SEL_CS_SHIFT);
     }
     else
     {
-        //spi_ctl0[11:8]:cs3<->cs0 chip select, 0-selected;1-none
-        spi_ctr_ptr->ctl0 |= ((1<<spi_sel_csx)<<SPI_SEL_CS_SHIFT); 
+        /* spi_ctl0[11:8]:cs3<->cs0 chip select, 0-selected;1-none */
+        spi_ctr_ptr->ctl0 |= ((1<<spi_sel_csx)<<SPI_SEL_CS_SHIFT);
     }
 }
 
@@ -195,15 +198,15 @@ void SPI_SetCd( uint32_t cd)
 {
     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T*)(SPI_USED_BASE);
     
-    //0-command;1-data
+    /* 0-command;1-data */
     if(cd == 0)
-        spi_ctr_ptr->ctl8 &= ~(SPI_CD_MASK);  
+        spi_ctr_ptr->ctl8 &= ~(SPI_CD_MASK);
     else
-        spi_ctr_ptr->ctl8 |= (SPI_CD_MASK);  
+        spi_ctr_ptr->ctl8 |= (SPI_CD_MASK);
 }
 
-// USE spi interface to write cmd/data to the lcm
-// pay attention to the data_format
+/* USE spi interface to write cmd/data to the lcm	*/
+/* pay attention to the data_format */
 typedef enum data_width
 {
   DATA_WIDTH_7bit =7,
@@ -214,8 +217,8 @@ typedef enum data_width
   DATA_WIDTH_12bit=12,
 }  SPI_DATA_WIDTH;
 
-// Set spi work mode for LCM with spi interface
-#define SPI_MODE_SHIFT    3 //[5:3]
+/* Set spi work mode for LCM with spi interface //[5:3] */
+#define SPI_MODE_SHIFT    3
 #define SPI_MODE_MASK     (0x07<<SPI_MODE_SHIFT)
 void SPI_SetSpiMode(uint32_t spi_mode)
 {
@@ -225,13 +228,10 @@ void SPI_SetSpiMode(uint32_t spi_mode)
     temp &= ~SPI_MODE_MASK;
     temp |= (spi_mode<<SPI_MODE_SHIFT);
 
-    //SCI_TraceLow("SPI_SetSpiMode: temp=%d\r\n",temp); 
-
     spi_ctr_ptr->ctl7 = temp;
-    //SCI_TraceLow("SPI_SetSpiMode: spi_ctr_ptr->ctl7=%d\r\n",spi_ctr_ptr->ctl7); 
 }
 
-// Transmit data bit number:spi_ctl0[6:2] 
+/* Transmit data bit number:spi_ctl0[6:2]  */
 void  SPI_SetDatawidth(uint32_t datawidth)
 {
     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
@@ -239,11 +239,11 @@ void  SPI_SetDatawidth(uint32_t datawidth)
 
     if( 32 == datawidth )
     {
-      spi_ctr_ptr->ctl0 &= ~0x7C;  //  [6:2]
+      spi_ctr_ptr->ctl0 &= ~0x7C;
       return;
     }
 
-    temp &= ~0x0000007C;  //mask
+    temp &= ~0x0000007C;
     temp |= (datawidth<<2);
 
     spi_ctr_ptr->ctl0 = temp;
@@ -269,9 +269,9 @@ void SPI_SetTxLen(uint32_t data_len, uint32_t dummy_bitlen)
     ctl8 &= ~((TX_DUMY_LEN_MASK<<4) | TX_DATA_LEN_H_MASK);
     ctl9 &= ~( TX_DATA_LEN_L_MASK );
 
-    // set dummy_bitlen in bit[9:4] and data_len[19:16] in bit[3:0]
+    /* set dummy_bitlen in bit[9:4] and data_len[19:16] in bit[3:0] */
     spi_ctr_ptr->ctl8 = (ctl8 | (dummy_bitlen<<4) | (data_len>>16));
-    // set data_len[15:00]
+    /* set data_len[15:00] */
     spi_ctr_ptr->ctl9 = (ctl9 | (data_len&0xFFFF));
 }
 
@@ -284,7 +284,7 @@ void SPI_SetTxLen(uint32_t data_len, uint32_t dummy_bitlen)
 //  Description:  Set rxt data length with dummy_len
 //  Author     :  lichd
 //    Note       :  the unit is identical with datawidth you set
-/*****************************************************************************/ 
+/*****************************************************************************/
 void SPI_SetRxLen(uint32_t data_len, uint32_t dummy_bitlen)
 {
     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
@@ -296,13 +296,21 @@ void SPI_SetRxLen(uint32_t data_len, uint32_t dummy_bitlen)
     ctl10 &= ~((RX_DUMY_LEN_MASK<<4) | RX_DATA_LEN_H_MASK);
     ctl11 &= ~( RX_DATA_LEN_L_MASK );
 
-    // set dummy_bitlen in bit[9:4] and data_len[19:16] in bit[3:0]
+    /* set dummy_bitlen in bit[9:4] and data_len[19:16] in bit[3:0] */
     spi_ctr_ptr->ctl10 = (ctl10 | (dummy_bitlen<<4) | (data_len>>16));
-    // set data_len[15:00]
+    /* set data_len[15:00] */
     spi_ctr_ptr->ctl11 = (ctl11 | (data_len&0xFFFF));
+
+	/* in SPIMODE_3WIRE_9BIT_SDI ,DO
+	the tx len has to set 0 to generate 8 clk, or generate 9clk */
+
+	if(0x10==(spi_ctr_ptr->ctl7&(0x7 << 3))){
+		spi_ctr_ptr->ctl8 &= 0xfff0;
+		spi_ctr_ptr->ctl9 &= 0x0;
+		}
 }
 
-// Request txt trans before send data
+/* Request txt trans before send data */
 #define SW_RX_REQ_MASK BIT(0)
 #define SW_TX_REQ_MASK BIT(1)
 void SPI_TxReq( void )
@@ -327,9 +335,9 @@ void SPI_RxReq( void )
 bool SPI_EnableDMA(uint32_t spi_index,bool is_enable)
 {
     volatile SPI_CTL_REG_T* spi_ctl;
-    
-    spi_ctl = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE+0x3000*spi_index); 
-    
+
+    spi_ctl = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE+0x3000*spi_index);
+
     if (is_enable)
     {
         spi_ctl->ctl2 |= BIT(6);
@@ -338,10 +346,10 @@ bool SPI_EnableDMA(uint32_t spi_index,bool is_enable)
     {
         spi_ctl->ctl2 &= ~(BIT(6));
     }
-    
-    //spi_ctl->ctl7 |= (BIT_7 | BIT_8);
+
+    /* spi_ctl->ctl7 |= (BIT_7 | BIT_8); */
     spi_ctl->ctl7 |= (BIT(7));
-        
+
     return true;
 }
 
@@ -355,43 +363,26 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
     uint32_t temp;
     uint32_t ctl0, ctl1, ctl2, ctl3;
-    //SCI_ASSERT((spi_parm->data_width >=0) && (spi_parm->data_width < 32));
-    
+
     SPI_Reset(2, 100);  //Reset spi0&spi1
-    //SPI_Reset(1, 1000);
     
     spi_ctr_ptr->clkd = spi_parm->clk_div;
-    
-    temp  = 0;
-    temp |= (spi_parm->tx_edge << 0)    |
-            (spi_parm->rx_edge << 1)    |
-            (0x9 << 2) 					|
-//            (spi_parm->data_width << 2) |
-            (spi_parm->msb_lsb_sel<< 7) |
-            (0xf<<8);//CS-------------------------select cs0/cs1: 0-selected. 1-none
-    spi_ctr_ptr->ctl0 = temp;
-    
-    // storage registers
-    ctl0 = spi_ctr_ptr->ctl0;
-    ctl1 = spi_ctr_ptr->ctl1;
-    ctl3 = spi_ctr_ptr->ctl3;
 
-//    spi_ctr_ptr->ctl0  =  ctl0 & ~0x7C;      //add1-6        // set bit-length to 32
-    //spi_ctr_ptr->ctl1  = (ctl1 & ~BIT_12) | BIT_13;     // set transmite mode
-    spi_ctr_ptr->ctl1  = (ctl1 | BIT(12) | BIT(13));     // set rx/tx mode
+    temp  = 0;
+    temp |= (spi_parm->tx_edge << 1)    |
+            (spi_parm->rx_edge << 0)    |
+            (0x1 << 13)					|
+            (spi_parm->msb_lsb_sel<< 7) ;
+    spi_ctr_ptr->ctl0 = temp;
+
+    spi_ctr_ptr->ctl1 = (ctl1 | BIT(12) | BIT(13));     // set rx/tx mode
 
 	/*rx fifo full watermark is 16*/
 	spi_ctr_ptr->ctl3 = 0x10;
 
+	spi_ctr_ptr->ctl7 &= ~(0x7 << 3);
+	spi_ctr_ptr->ctl7 |= SPIMODE_3WIRE_9BIT_SDIO << 3;
 
-	spi_ctr_ptr->ctl7 &= ~(0x7 << 3);	//add1-6
-	spi_ctr_ptr->ctl7 |= SPIMODE_3WIRE_9BIT_SDIO << 3;//add1-6
-/*//add1-6
-    // set water mark of reveive FIFO
-    spi_ctr_ptr->ctl3  = (ctl3 & ~0xFFFF) | 
-                   ((BURST_SIZE >>2) <<8) | 
-                         (BURST_SIZE >>2);
-                         */
 }
 
 void SPI_WaitTxFinish()
@@ -400,29 +391,28 @@ void SPI_WaitTxFinish()
 
     while( !(spi_ctr_ptr->iraw)&BIT(8) ) // IS tx finish
     {
-    }  
+    }
     spi_ctr_ptr->iclr |= BIT(8);
     
-    // Wait for spi bus idle
-    while((spi_ctr_ptr->sts2)&BIT(8)) 
+    /* Wait for spi bus idle */
+    while((spi_ctr_ptr->sts2)&BIT(8))
     {
     }
-    // Wait for tx real empty
-    while( !((spi_ctr_ptr->sts2)&BIT(7)) ) 
+    /* Wait for tx real empty */
+    while( !((spi_ctr_ptr->sts2)&BIT(7)) )
     {
-    }      
+    }
 }
 
 void SPI_WriteData(uint32_t data, uint32_t data_len, uint32_t dummy_bitlen)
 {
-//     uint32_t command;
-     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
+    volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
 
-    // The unit of data_len is identical with buswidth
+    /* The unit of data_len is identical with buswidth */
     SPI_SetTxLen(data_len, dummy_bitlen);
     SPI_TxReq( );
-     
-     spi_ctr_ptr->data = data;
+
+    spi_ctr_ptr->data = data;
 
     SPI_WaitTxFinish();
 }
@@ -430,39 +420,38 @@ void SPI_WriteData(uint32_t data, uint32_t data_len, uint32_t dummy_bitlen)
 uint32_t SPI_ReadData( uint32_t data_len, uint32_t dummy_bitlen )
 {
     uint32_t read_data=0, rxt_cnt=0;
-     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
+    volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
 
-    // The unit of data_len is identical with buswidth
+    /* The unit of data_len is identical with buswidth */
     SPI_SetRxLen(data_len, dummy_bitlen);
     SPI_RxReq( );
 
-    //Wait for spi receive finish
+    /* Wait for spi receive finish */
     while( !((spi_ctr_ptr->iraw)&BIT(9)) )
     {
-        //wait rxt fifo full
+        /* wait rxt fifo full */
         if((spi_ctr_ptr->iraw)&BIT(6))
         {
             rxt_cnt = (spi_ctr_ptr->ctl3)&0x1F;
             printk("---FIFOFULL:rxt_cnt=0x%x", rxt_cnt);
             while(rxt_cnt--)
             {
-                read_data = spi_ctr_ptr->data;   
+                read_data = spi_ctr_ptr->data;
                 printk("---FIFOFULL: SPI_ReadData =0x%x", read_data);
             }
         }
     }
 
-    // Wait for spi bus idle
-    while((spi_ctr_ptr->sts2)&BIT(8)) 
+    /* Wait for spi bus idle */
+    while((spi_ctr_ptr->sts2)&BIT(8))
     {
     }
     
-    //
     while(data_len--)
     {
-        read_data = spi_ctr_ptr->data;   
+        read_data = spi_ctr_ptr->data;
         printk("---Finish: SPI_ReadData =0x%x", read_data);
     }
-    
+
      return (read_data);
 }

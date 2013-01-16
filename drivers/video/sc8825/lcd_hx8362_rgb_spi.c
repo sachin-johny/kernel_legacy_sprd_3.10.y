@@ -40,9 +40,9 @@
 static int32_t hx8362_init(struct panel_spec *self)
 {
 	uint32_t data = 0;
-	spi_send_cmd_t spi_send_cmd = self->info.rgb->bus_info.spi->ops->spi_send_cmd; 
-	spi_send_data_t spi_send_data = self->info.rgb->bus_info.spi->ops->spi_send_data; 
-	spi_read_t spi_read = self->info.rgb->bus_info.spi->ops->spi_read; 
+	spi_send_cmd_t spi_send_cmd = self->info.rgb->bus_info.spi->ops->spi_send_cmd;
+	spi_send_data_t spi_send_data = self->info.rgb->bus_info.spi->ops->spi_send_data;
+	spi_read_t spi_read = self->info.rgb->bus_info.spi->ops->spi_read;
 
 	LCD_PRINT("hx8362_init\n");
 
@@ -58,10 +58,10 @@ static int32_t hx8362_init(struct panel_spec *self)
 	HX8362_SpiWriteData(0x44);
 	HX8362_SpiWriteData(0x08);
 	HX8362_SpiWriteData(0x01);
-	HX8362_SpiWriteData(0x11);
-	HX8362_SpiWriteData(0x11);
-	HX8362_SpiWriteData(0x36);
-	HX8362_SpiWriteData(0x3E);
+	HX8362_SpiWriteData(0x0E); //
+	HX8362_SpiWriteData(0x0E); //
+	HX8362_SpiWriteData(0x1B); //the lower ,Saturation is better
+	HX8362_SpiWriteData(0x23); //the lower ,Saturation is better
 	HX8362_SpiWriteData(0x3F);
 	HX8362_SpiWriteData(0x3F);
 	HX8362_SpiWriteData(0x40);
@@ -79,7 +79,7 @@ static int32_t hx8362_init(struct panel_spec *self)
 
 	HX8362_SpiWriteCmd(0xB4);
 	HX8362_SpiWriteData(0x00);//Column inversion
-	HX8362_SpiWriteData(0x18); 
+	HX8362_SpiWriteData(0x18);
 	HX8362_SpiWriteData(0x9C);
 	HX8362_SpiWriteData(0x08);
 	HX8362_SpiWriteData(0x18);
@@ -270,30 +270,30 @@ static int32_t hx8362_init(struct panel_spec *self)
 	HX8362_SpiWriteCmd(0x35); //Tearing Effect 
 	HX8362_SpiWriteData(0x00); // 
 	HX8362_SpiWriteCmd(0x36);
-	HX8362_SpiWriteData(0x02); 
-	HX8362_SpiWriteCmd(0x29); 
+	HX8362_SpiWriteData(0x02);
+	HX8362_SpiWriteCmd(0x29);
 	mdelay(10);
-	HX8362_SpiWriteCmd(0x2C); 
+	HX8362_SpiWriteCmd(0x2C);
 #endif
 }
 
 static int32_t hx8362_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 {
-	spi_send_cmd_t spi_send_cmd = self->info.rgb->bus_info.spi->ops->spi_send_cmd; 
-	spi_send_data_t spi_send_data = self->info.rgb->bus_info.spi->ops->spi_send_data; 
+	spi_send_cmd_t spi_send_cmd = self->info.rgb->bus_info.spi->ops->spi_send_cmd;
+	spi_send_data_t spi_send_data = self->info.rgb->bus_info.spi->ops->spi_send_data;
 	
 	if(is_sleep==1){
 		//Sleep In
 		HX8362_SpiWriteCmd(0x28);
-		mdelay(120); 
+		mdelay(120);
 		HX8362_SpiWriteCmd(0x10);
-		mdelay(10); 
+		mdelay(10);
 	}else{
 		//Sleep Out
 		HX8362_SpiWriteCmd(0x11);
-		mdelay(120); 
+		mdelay(120);
 		HX8362_SpiWriteCmd(0x29);
-		mdelay(10); 
+		mdelay(10);
 	}
 
 	return 0;
@@ -305,18 +305,18 @@ static int32_t hx8362_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 static int32_t hx8362_set_window(struct panel_spec *self,
 		uint16_t left, uint16_t top, uint16_t right, uint16_t bottom)
 {
-	spi_send_cmd_t spi_send_cmd = self->info.rgb->bus_info.spi->ops->spi_send_cmd; 
-	spi_send_data_t spi_send_data = self->info.rgb->bus_info.spi->ops->spi_send_data; 
+	spi_send_cmd_t spi_send_cmd = self->info.rgb->bus_info.spi->ops->spi_send_cmd;
+	spi_send_data_t spi_send_data = self->info.rgb->bus_info.spi->ops->spi_send_data;
 
 	LCD_PRINT("nt35516_set_window: %d, %d, %d, %d\n",left, top, right, bottom);
 
-	HX8362_SpiWriteCmd(0x2A); 
+	HX8362_SpiWriteCmd(0x2A);
 	HX8362_SpiWriteData((left>>8));// set left address
 	HX8362_SpiWriteData((left&0xff));
 	HX8362_SpiWriteData((right>>8));// set right address
 	HX8362_SpiWriteData((right&0xff));
 
-	HX8362_SpiWriteCmd(0x2B); 
+	HX8362_SpiWriteCmd(0x2B);
 	HX8362_SpiWriteData((top>>8));// set left address
 	HX8362_SpiWriteData((top&0xff));
 	HX8362_SpiWriteData((bottom>>8));// set bottom address
@@ -349,7 +349,23 @@ static int32_t hx8362_invalidate_rect(struct panel_spec *self,
 static int32_t hx8362_read_id(struct panel_spec *self)
 {
 	int32_t id  = 0x62;
-	LCD_PRINT("hx8362_read id \n");
+	spi_send_cmd_t spi_send_cmd = self->info.rgb->bus_info.spi->ops->spi_send_cmd;
+	spi_send_data_t spi_send_data = self->info.rgb->bus_info.spi->ops->spi_send_data;
+	spi_read_t spi_read = self->info.rgb->bus_info.spi->ops->spi_read;
+
+
+	HX8362_SpiWriteCmd(0xB9); // SET password
+	HX8362_SpiWriteData(0xFF); //
+	HX8362_SpiWriteData(0x83); //
+	HX8362_SpiWriteData(0x63); //
+
+	HX8362_SpiWriteCmd(0xFE); // SET SPI READ INDEX
+	HX8362_SpiWriteData(0xF4); // GETHXID
+	HX8362_SpiWriteCmd(0xFF); // GET SPI READ
+
+	spi_read(&id);
+	id &= 0xff;
+	LCD_PRINT(" hx8362_read_id kernel id = %d\n",id);
 
 	return id;
 }
@@ -403,7 +419,7 @@ struct panel_spec lcd_hx8362_rgb_spi_spec = {
 struct panel_cfg lcd_hx8362_rgb_spi = {
 	/* this panel can only be main lcd */
 	.dev_id = SPRDFB_MAINLCD_ID,
-	.lcd_id = 0x62,
+	.lcd_id = 0x84,
 	.lcd_name = "lcd_hx8362_rgb_spi",
 	.panel = &lcd_hx8362_rgb_spi_spec,
 };

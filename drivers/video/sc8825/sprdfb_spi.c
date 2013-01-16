@@ -19,7 +19,7 @@
 #include "sprdfb_dispc_reg.h"
 
  SPI_INIT_PARM spi_int_parm[] =
- {  //                                                                clk_div  
+ {
 	{
 	 TX_POS_EDGE,
 	 RX_NEG_EDGE,
@@ -54,44 +54,46 @@
 static void DISPC_SpiWriteCmd(uint32_t cmd)
 {
 	SPI_SetDatawidth(8);
-	SPI_SetCsLow(0, true);    
-	SPI_SetCd( 0 );    
+
+	SPI_SetCsLow(0, false);
+	{
+		uint32_t i=0;
+		for(i=0; i<1000; i++);
+	}
+
+	SPI_SetCsLow(0, true);
+	SPI_SetCd( 0 );
 
 	// Write a data identical with buswidth
 	SPI_WriteData( cmd, 1, 0);
 
-	SPI_SetCsLow(0, false);    
 }
 
 static void DISPC_SpiWriteData(uint32_t data)
 {
-	SPI_SetDatawidth(8); 
+	SPI_SetDatawidth(8);
 
-	SPI_SetCsLow(0, true);       
 	SPI_SetCd( 1 );
 
-	// Write a data identical with buswidth
-	SPI_WriteData( data, 1, 0);    
+	/* Write a data identical with buswidth */
+	SPI_WriteData( data, 1, 0);
 
-	SPI_SetCsLow(0, false);
 }
 
 static void SPI_Read( uint32_t* data)
 {
 	uint32_t lcm_id=0;
 
-	SPI_SetCsLow(0, false);  
+	SPI_SetCd( 1 );
+	SPI_SetDatawidth(8);
+
+	/* Read data 8bits */
+	lcm_id = SPI_ReadData(1, 0);
 	{
 		uint32_t i=0;
 		for(i=0; i<1000; i++);
 	}
-
-	SPI_SetCsLow(0, true);  
-	SPI_SetCd( 1 );        
-	SPI_SetDatawidth(8);   
-
-	//Read data 16bits  
-	lcm_id = SPI_ReadData(2, 0);  //unit of buswidth  
+	SPI_SetCsLow(0, false);
 
 	*data = lcm_id;
 }
@@ -131,14 +133,11 @@ void SPI_PinCfg( void )
 
 bool sprdfb_spi_init(struct sprdfb_device *dev)
 {
-//	SPI_PinCfg();
-
-	SPI_Enable(SPI_USED_ID, true);     
-	SPI_Init( spi_int_parm ); 
+	SPI_Enable(SPI_USED_ID, true);
+	SPI_Init( spi_int_parm );
 
 	SPI_ClkSetting( SPI_USED_ID, SPICLK_SEL_192M, 0);
-	//SPI_SetDatawidth(9);  
-//	SPI_SetSpiMode( SPIMODE_3WIRE_9BIT_SDIO );
+	SPI_SetDatawidth(8);
 	return true;
 }
 
