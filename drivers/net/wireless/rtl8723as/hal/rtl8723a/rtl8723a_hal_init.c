@@ -4290,6 +4290,9 @@ static void hw_var_set_opmode(PADAPTER padapter, u8 variable, u8 *val)
 					(padapter->iface_type==IFACE_PORT1)? 1 : 0);
 		}
 #endif	// CONFIG_TSF_RESET_OFFLOAD
+#ifdef CONFIG_BT_COEXIST
+		BTDM_ForSoftAPPowerSave(padapter, 1);
+#endif
 	}
 
 	val8 = rtw_read8(padapter, MSR);

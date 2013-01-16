@@ -2281,6 +2281,25 @@ void UpdateHalRAMask8192CUsb(PADAPTER padapter, u32 mac_id, u8 rssi_level)
 			init_rate |= BIT(6);
 
 		rtw_write8(padapter, (REG_INIDATA_RATE_SEL+mac_id), init_rate);
+
+
+		// turn off FW rate-adaption and TX-power-tranning for CMCC test
+		if (padapter->drv_in_test == CMCC_TEST)
+		{
+			u8 arg = 0;
+
+			//arg = (cam_idx-4)&0x1f;//MACID
+			arg = mac_id&0x1f;//MACID
+
+			arg |= (BIT(7) | BIT(6));
+
+			if (shortGIrate==_TRUE)
+				arg |= BIT(5);
+
+			DBG_871X("update raid entry, mask=0x%x, arg=0x%x\n", mask, arg);
+
+			rtl8192c_set_raid_cmd(padapter, mask, arg);
+		}
 	}
 
 

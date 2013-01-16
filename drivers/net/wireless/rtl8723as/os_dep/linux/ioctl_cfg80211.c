@@ -413,7 +413,6 @@ static int rtw_cfg80211_inform_bss(_adapter *padapter, struct wlan_network *pnet
 #if 1
 	bss = cfg80211_inform_bss_frame(wiphy, notify_channel, (struct ieee80211_mgmt *)buf,
 		len, notify_signal, GFP_ATOMIC);
-	pnetwork->bss = bss;
 #else
 
 	bss = cfg80211_inform_bss(wiphy, notify_channel, (const u8 *)pnetwork->network.MacAddress,
@@ -569,13 +568,22 @@ void rtw_cfg80211_indicate_disconnect(_adapter *padapter)
 		//else
 			//DBG_8192C("pwdev->sme_state=%d\n", pwdev->sme_state);
 
-		if (pmlmepriv->cur_network.bss) {
-			DBG_8192C("%s del this bss(%p) from cfg80211 scan list\n",
-					__func__, pmlmepriv->cur_network.bss);
-			cfg80211_unlink_bss(wiphy, pmlmepriv->cur_network.bss);
-			pmlmepriv->cur_network.bss = NULL;
-		}
 		DBG_8192C("pwdev->sme_state(a)=%d\n", pwdev->sme_state);
+	}
+
+	if (pwdev->iftype == NL80211_IFTYPE_STATION) {
+		struct cfg80211_bss *bss = NULL;
+
+		bss = cfg80211_get_bss(wiphy, NULL, pmlmepriv->cur_network.network.MacAddress,
+				pmlmepriv->cur_network.network.Ssid.Ssid,
+				pmlmepriv->cur_network.network.Ssid.SsidLength,
+				WLAN_CAPABILITY_ESS,
+				WLAN_CAPABILITY_ESS);
+		if (bss) {
+			DBG_8192C("%s del this bss(%p) from cfg80211 scan list\n",
+					__func__, bss);
+			cfg80211_unlink_bss(wiphy, bss);
+		}
 	}
 }
 
@@ -1994,6 +2002,15 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 		need_indicate_scan_done = _TRUE;
 		goto check_need_indicate_scan_done;
 	}
+
+#ifdef CONFIG_CMCC_TEST
+	if (pmlmepriv->LinkDetectInfo.bBusyTraffic == _TRUE)
+	{
+		DBG_8192C("%s, bBusyTraffic == _TRUE\n", __func__);
+		need_indicate_scan_done = _TRUE;
+		goto check_need_indicate_scan_done;
+	}
+#endif
 
 #ifdef CONFIG_CONCURRENT_MODE
 	if(pbuddy_mlmepriv->LinkDetectInfo.bCanNotScan == _TRUE)
@@ -3472,6 +3489,96 @@ static int	cfg80211_rtw_del_virtual_intf(struct wiphy *wiphy, struct net_device 
 	return 0;
 }
 
+#ifdef CONFIG_SOFTAP_11N
+//change the network type 11b to 11n for special request
+static int rtw_change_ie_for_11n_softap(u8 **pbuf, size_t *head_len, size_t *tail_len)
+{
+	u8 supportRate[NDIS_802_11_LENGTH_RATES_EX];
+	u8 temp;
+	uint ie_len;
+	u8 supportRateNum, network_type, channel;
+	u8 *p_support_rate;
+	u8 * pbuf_temp =NULL;
+	u8 *p;
+	uint len;
+
+	//head_11n_add is for supported rate
+	static const u8 head_11n_add[9]
+		= {0x8,  0x82, 0x84, 0x8b, 0x96, 0xc,  0x12, 0x18, 0x24,};
+	//0x2a is for ERP Information; 0x32 is for Extended Support rate
+	static const u8 tail_11n_add1[9]
+		= {0x2a, 0x1,  0x4,  0x32, 0x4,  0x30, 0x48, 0x60, 0x6c,};
+	//0x2d is for HT Capability infor; 0x3d is for Additional HT Information
+	//0xdd is for WMM
+	static const u8 tail_11n_add2[78]
+		= { 0x2d, 0x1a, 0x6c, 0x0,  0x1f, 0xff, 0x0,  0x0,
+		0x0,  0x1,  0x0,  0x0,  0x0,  0x0,  0x0,  0x96,
+		0x0,  0x1,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,
+		0x0,  0x0,  0x0,  0x0,  0x3d, 0x16, 0x6,  0x0,
+		0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,
+		0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,  0x0,
+		0x0,  0x0,  0x0,  0x0,  0xdd, 0x18, 0x0,  0x50,
+		0xf2, 0x2,  0x1,  0x1,  0x0,  0x0,  0x3,  0xa4,
+		0x0,  0x0,  0x27, 0xa4, 0x0,  0x0,  0x52, 0x43,
+		0x5d, 0x0,  0x72, 0x32, 0x2e, 0x0,};
+
+	len = *head_len + *tail_len -24;
+
+	p = rtw_get_ie(*pbuf + _BEACON_IE_OFFSET_, _DSSET_IE_, &ie_len, (len - _BEACON_IE_OFFSET_));
+	if(p && ie_len>0)
+		channel = *(p + 2);
+
+	_rtw_memset(supportRate, 0, NDIS_802_11_LENGTH_RATES_EX);
+	// get supported rates
+	p = rtw_get_ie(*pbuf + _BEACON_IE_OFFSET_, _SUPPORTEDRATES_IE_, &ie_len, (len - _BEACON_IE_OFFSET_));
+	p_support_rate = p;
+	if (p !=  NULL)
+	{
+		_rtw_memcpy(supportRate, p+2, ie_len);
+		supportRateNum = ie_len;
+	}
+
+	//get ext_supported rates
+	p = rtw_get_ie(*pbuf + _BEACON_IE_OFFSET_, _EXT_SUPPORTEDRATES_IE_, &ie_len, len - _BEACON_IE_OFFSET_);
+	if (p !=  NULL)
+	{
+		_rtw_memcpy(supportRate+supportRateNum, p+2, ie_len);
+		supportRateNum += ie_len;
+
+	}
+	network_type = rtw_check_network_type(supportRate, supportRateNum, channel);
+
+	//if network_type is WIRELESS_11B, change it to WIRELESS_11N
+	if (network_type == WIRELESS_11B)
+  	{
+		DBG_871X("change network_type from 11B to 11N for special request\n");
+		pbuf_temp =  rtw_zmalloc(*head_len + *tail_len + 91);
+		if(!pbuf_temp)
+			return -ENOMEM;
+		//change the ie head and copy to pbuf_temp, change rate supported for head
+		temp = (p_support_rate - *pbuf) + 1;
+		_rtw_memcpy(pbuf_temp, (void *)(*pbuf), temp);// 24=beacon header len.
+		_rtw_memcpy(pbuf_temp+temp, (void*)head_11n_add, 9);
+		_rtw_memcpy(pbuf_temp + temp + 9, (void*)(*pbuf+temp+5), *head_len-24 - temp - 5);
+
+		//change the ie tail and copy to pbuf_temp
+		_rtw_memcpy(pbuf_temp + *head_len -24 + 4, (void*)tail_11n_add1, 9);
+		_rtw_memcpy(pbuf_temp + *head_len -24 + 4 + 9, *pbuf + *head_len-24, *tail_len);
+		_rtw_memcpy(pbuf_temp + *head_len -24 + 4 + 9 + *tail_len, (void*)tail_11n_add2, 78);
+
+		//change the capability info from 0x11 0x00 to 0x11 0x04
+		*(pbuf_temp+ _BEACON_IE_OFFSET_ -1) = 0x04;
+
+		rtw_mfree(*pbuf, *head_len+*tail_len);
+
+		*pbuf = pbuf_temp;
+		*head_len += 4;
+		*tail_len += 87;
+	}
+	return 0;
+}
+#endif
+
 static int rtw_add_beacon(_adapter *adapter, const u8 *head, size_t head_len, const u8 *tail, size_t tail_len)
 {
 	int ret=0;
@@ -3508,7 +3615,12 @@ static int rtw_add_beacon(_adapter *adapter, const u8 *head, size_t head_len, co
 	_rtw_memcpy(pbuf, (void *)head+24, head_len-24);// 24=beacon header len.
 	_rtw_memcpy(pbuf+head_len-24, (void *)tail, tail_len);
 
-	len = head_len+tail_len-24;
+#ifdef CONFIG_SOFTAP_11N
+	//change the network type from 11B to 11N for special request
+	rtw_change_ie_for_11n_softap(&pbuf, &head_len, &tail_len);
+#endif
+
+	len = head_len+tail_len -24;
 
 	//check wps ie if inclued
 	if(rtw_get_wps_ie(pbuf+_FIXED_IE_LENGTH_, len-_FIXED_IE_LENGTH_, NULL, &wps_ielen))

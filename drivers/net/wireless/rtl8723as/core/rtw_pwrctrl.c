@@ -391,20 +391,10 @@ _func_enter_;
 	pslv = PS_STATE(pslv);
 
 
-	if (_TRUE == padapter->pwrctrlpriv.btcoex_rfon)
+	if (_TRUE == pwrpriv->btcoex_rfon)
 	{
 		if (pslv < PS_STATE_S4)
 			pslv = PS_STATE_S3;
-
-		if (pwrpriv->rpwm == pslv) {
-			struct reportpwrstate_parm report;
-			report.state = PS_STATE_S3;
-#ifdef CONFIG_LPS_LCLK
-			//cpwm_int_hdl(padapter, &report);
-			_set_workitem(&padapter->pwrctrlpriv.cpwm_event);
-#endif
-			return;
-		}
 	}
 
 #ifdef CONFIG_LPS_RPWM_TIMER
@@ -474,25 +464,12 @@ _func_enter_;
 
 	pwrpriv->tog += 0x80;
 
-
-	if (_TRUE == padapter->pwrctrlpriv.btcoex_rfon)
-	{
-		struct reportpwrstate_parm report;
-		report.state = pslv;
 #ifdef CONFIG_LPS_LCLK
-		//cpwm_int_hdl(padapter, &report);
-		_set_workitem(&padapter->pwrctrlpriv.cpwm_event);
+	// No LPS 32K, No Ack
+	if (!(rpwm & PS_ACK))
 #endif
-	}
-	else
 	{
-#ifdef CONFIG_LPS_LCLK
-		// No LPS 32K, No Ack
-		if (!(rpwm & PS_ACK))
-#endif
-		{
-			pwrpriv->cpwm = pslv;
-		}
+		pwrpriv->cpwm = pslv;
 	}
 
 #ifdef CONFIG_WAIT_PS_ACK
@@ -514,8 +491,8 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 	struct pwrctrl_priv	*pwrpriv = &padapter->pwrctrlpriv;
 	struct mlme_priv	*pmlmepriv = &(padapter->mlmepriv);
 
-	curr_time = rtw_get_current_time();
 
+	curr_time = rtw_get_current_time();
 	delta_time = curr_time -pwrpriv->DelayLPSLastTimeStamp;
 
 	//under BT coex, we should enter LPS when we want
@@ -530,8 +507,8 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 	if ((check_fwstate(pmlmepriv, _FW_LINKED) == _FALSE) ||
 #ifndef CONFIG_BT_COEXIST
 		(check_fwstate(pmlmepriv, _FW_UNDER_SURVEY) == _TRUE) ||
-#endif
 		(check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE) ||
+#endif
 		(check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE) == _TRUE) ||
 		(check_fwstate(pmlmepriv, WIFI_ADHOC_STATE) == _TRUE) )
 		return _FALSE;
@@ -637,7 +614,11 @@ _func_enter_;
 	}
 	else
 	{
-		if(PS_RDY_CHECK(padapter))
+		if (PS_RDY_CHECK(padapter)
+#ifdef CONFIG_BT_COEXIST
+			|| (BT_1Ant(padapter) == _TRUE)
+#endif
+			)
 		{
 			DBG_871X("rtw_set_ps_mode: Enter 802.11 power save\n");
 
@@ -688,10 +669,6 @@ _func_enter_;
 			rtw_set_rpwm(padapter, PS_STATE_S2);
 #endif
 		}
-		//else
-		//{
-		//	pwrpriv->pwr_mode = PS_MODE_ACTIVE;
-		//}
 	}
 
 #ifdef CONFIG_LPS_LCLK
@@ -780,7 +757,6 @@ _func_enter_;
 _func_exit_;
 }
 
-
 //
 //	Description:
 //		Leave the leisure power save mode.
@@ -817,7 +793,6 @@ _func_enter_;
 
 _func_exit_;
 }
-
 #endif
 
 //
@@ -1090,11 +1065,20 @@ s32 rtw_register_tx_alive(PADAPTER padapter)
 {
 	s32 res;
 	struct pwrctrl_priv *pwrctrl;
+	u8 pslv;
 
 _func_enter_;
 
 	res = _SUCCESS;
 	pwrctrl = &padapter->pwrctrlpriv;
+#ifdef CONFIG_BT_COEXIST
+	if (_TRUE == padapter->pwrctrlpriv.btcoex_rfon)
+		pslv = PS_STATE_S3;
+	else
+#endif
+	{
+		pslv = PS_STATE_S2;
+	}
 
 	_enter_pwrlock(&pwrctrl->lock);
 
@@ -1106,10 +1090,12 @@ _func_enter_;
 				 ("rtw_register_tx_alive: cpwm=0x%02x alives=0x%08x\n",
 				  pwrctrl->cpwm, pwrctrl->alives));
 
-		if (pwrctrl->cpwm < PS_STATE_S2) {
-			if (pwrctrl->rpwm < PS_STATE_S2)
-				rtw_set_rpwm(padapter, PS_STATE_S2);
+		if (pwrctrl->cpwm < pslv)
+		{
+			if (pwrctrl->cpwm < PS_STATE_S2)
 			res = _FAIL;
+			if (pwrctrl->rpwm < pslv)
+				rtw_set_rpwm(padapter, pslv);
 		}
 	}
 
@@ -1137,11 +1123,20 @@ s32 rtw_register_cmd_alive(PADAPTER padapter)
 {
 	s32 res;
 	struct pwrctrl_priv *pwrctrl;
+	u8 pslv;
 
 _func_enter_;
 
 	res = _SUCCESS;
 	pwrctrl = &padapter->pwrctrlpriv;
+#ifdef CONFIG_BT_COEXIST
+	if (_TRUE == padapter->pwrctrlpriv.btcoex_rfon)
+		pslv = PS_STATE_S3;
+	else
+#endif
+	{
+		pslv = PS_STATE_S2;
+	}
 
 	_enter_pwrlock(&pwrctrl->lock);
 
@@ -1149,14 +1144,16 @@ _func_enter_;
 
 	if (pwrctrl->bFwCurrentInPSMode == _TRUE)
 	{
-		RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_notice_,
+		RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_info_,
 				 ("rtw_register_cmd_alive: cpwm=0x%02x alives=0x%08x\n",
 				  pwrctrl->cpwm, pwrctrl->alives));
 
-		if (pwrctrl->cpwm < PS_STATE_S2) {
-			if (pwrctrl->rpwm < PS_STATE_S2)
-				rtw_set_rpwm(padapter, PS_STATE_S2);
+		if (pwrctrl->cpwm < pslv)
+		{
+			if (pwrctrl->cpwm < PS_STATE_S2)
 			res = _FAIL;
+			if (pwrctrl->rpwm < pslv)
+				rtw_set_rpwm(padapter, pslv);
 		}
 	}
 
@@ -1252,8 +1249,8 @@ _func_enter_;
 		(pwrctrl->bFwCurrentInPSMode == _TRUE))
 	{
 		RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_notice_,
-				 ("rtw_unregister_tx_alive: cpwm=0x%02x alives=0x%08x\n",
-				  pwrctrl->cpwm, pwrctrl->alives));
+				 ("%s: cpwm=0x%02x alives=0x%08x\n",
+				  __FUNCTION__, pwrctrl->cpwm, pwrctrl->alives));
 
 		if ((pwrctrl->alives == 0) &&
 			(pwrctrl->cpwm > PS_STATE_S0))
@@ -1289,9 +1286,9 @@ _func_enter_;
 	if ((pwrctrl->pwr_mode != PS_MODE_ACTIVE) &&
 		(pwrctrl->bFwCurrentInPSMode == _TRUE))
 	{
-		RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_notice_,
-				 ("rtw_unregister_cmd_alive: cpwm=0x%02x alives=0x%08x\n",
-				  pwrctrl->cpwm, pwrctrl->alives));
+		RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_info_,
+				 ("%s: cpwm=0x%02x alives=0x%08x\n",
+				  __FUNCTION__, pwrctrl->cpwm, pwrctrl->alives));
 
 		if ((pwrctrl->alives == 0) &&
 			(pwrctrl->cpwm > PS_STATE_S0))
@@ -1403,6 +1400,8 @@ _func_enter_;
 
 	pwrctrlpriv->tog = 0x80;
 
+	pwrctrlpriv->btcoex_rfon = _FALSE;
+
 #ifdef CONFIG_LPS_LCLK
 	rtw_hal_set_hwreg(padapter, HW_VAR_SET_RPWM, (u8 *)(&pwrctrlpriv->rpwm));
 
@@ -1428,6 +1427,7 @@ _func_enter_;
 	pwrctrlpriv->early_suspend.suspend = NULL;
 	rtw_register_early_suspend(pwrctrlpriv);
 	#endif //CONFIG_HAS_EARLYSUSPEND || CONFIG_ANDROID_POWER
+	pwrctrlpriv->in_early_suspend = _FALSE;
 
 
 _func_exit_;
@@ -1517,6 +1517,7 @@ static void rtw_early_suspend(struct early_suspend *h)
 
 	//jeff: do nothing but set do_late_resume to false
 	pwrpriv->do_late_resume = _FALSE;
+	pwrpriv->in_early_suspend = _TRUE;
 }
 
 static void rtw_late_resume(struct early_suspend *h)
@@ -1543,6 +1544,8 @@ static void rtw_late_resume(struct early_suspend *h)
 		pwrpriv->do_late_resume = _FALSE;
 		#endif
 	}
+
+	pwrpriv->in_early_suspend = _FALSE;
 }
 
 void rtw_register_early_suspend(struct pwrctrl_priv *pwrpriv)

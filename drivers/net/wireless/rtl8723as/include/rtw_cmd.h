@@ -27,6 +27,23 @@
 
 #define C2H_MEM_SZ (16*1024)
 
+// nomber of packets RX/TX in a peroid
+#ifdef CONFIG_BT_COEXIST
+//here set it to 10, will let WIFI web in TDMA mode for power save
+#define TX_TRAFFIC_BUSY_THRESHOLD 10
+#define RX_TRAFFIC_BUSY_THRESHOLD 10
+#else
+#define TX_TRAFFIC_BUSY_THRESHOLD 100
+#define RX_TRAFFIC_BUSY_THRESHOLD 100		
+#endif	
+#ifdef CONFIG_CMCC_TEST
+#undef TX_TRAFFIC_BUSY_THRESHOLD
+#undef RX_TRAFFIC_BUSY_THRESHOLD
+
+#define TX_TRAFFIC_BUSY_THRESHOLD 2
+#define RX_TRAFFIC_BUSY_THRESHOLD 0
+#endif
+
 #ifndef CONFIG_RTL8711FW
 
 	#include <osdep_service.h>

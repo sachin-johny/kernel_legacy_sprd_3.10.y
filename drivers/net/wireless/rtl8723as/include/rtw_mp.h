@@ -421,10 +421,11 @@ enum {
 	MP_SetRFPathSwh,
 	MP_QueryDrvStats,
 	MP_SetBT,
-	CTA_TEST,
+	TEST_CFG,
 	MP_NULL,
 	MP_GET_TXPOWER_INX,
 	MP_SET_PREAMBLE,
+	MP_DISABLE_BT_COEXIST,
 };
 
 struct mp_priv

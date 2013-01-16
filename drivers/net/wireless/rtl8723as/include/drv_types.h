@@ -414,6 +414,13 @@ typedef enum _DRIVER_STATE{
 	DRIVER_REPLACE_DONGLE = 2,
 }DRIVER_STATE;
 
+typedef enum _OUTSIDE_TEST {
+	NO_TEST = 0,
+	CTA_TEST,
+	CMCC_TEST,
+	MAX_TEST,
+} OUTSIDE_TEST;
+
 #ifdef CONFIG_INTEL_PROXIM
 struct proxim {
 	bool proxim_support;
@@ -628,9 +635,8 @@ struct _ADAPTER{
 	PLOOPBACKDATA ploopback;
 #endif
 
-        u8    fix_rate;
-
-	unsigned char     in_cta_test;
+	u8 fix_rate;
+	u8 drv_in_test;
 };
 
 #define adapter_to_dvobj(adapter) (adapter->dvobj)
