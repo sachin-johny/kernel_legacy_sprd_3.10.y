@@ -1,6 +1,11 @@
 #include <linux/init.h>
 #include <linux/suspend.h>
+#include <linux/kobject.h>
+#include <linux/fs.h>
+#include <linux/io.h>
 #include <linux/errno.h>
+#include <linux/mm.h>
+#include <asm/uaccess.h>
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
 #include <asm/irqflags.h>
@@ -681,8 +686,16 @@ void emc_dll_switch_to_mode(u32 enable, u32 clk_emc_div)
 #define EMC_SWITCH_TO_DLL_ENABLE_MODE	0x2
 #define EMC_SWITCH_MODE_COMPLETE	0x3
 #define EMC_SWITCH_MODE_MASK		(0xff)
-#define EMC_FREQ_DIV_OFFSET		0x8
+#define EMC_FREQ_DIV_OFFSET		8
 #define EMC_FREQ_DIV_MASK		(0xf << EMC_FREQ_DIV_OFFSET)
+#define EMC_FREQ_NORMAL_SCENE		0x0 //normal lcd power off
+#define EMC_FREQ_MP4_SENE		0x1 //play mp4 mode
+#define EMC_FREQ_SENE_OFFSET		12
+#define EMC_FREQ_SENE_MASK		(0xf << EMC_FREQ_SENE_OFFSET)
+#define EMC_DDR_TYPE_DDR1		0
+#define EMC_DDR_TYPE_DDR2		1
+#define EMC_DDR_TYPE_OFFSET		16
+#define EMC_DDR_TYPE_MASK		(0x3 << EMC_DDR_TYPE_OFFSET)
 static u32 cp_iram_addr;
 void cp_code_init(void)
 {
@@ -692,15 +705,16 @@ void cp_code_init(void)
 	}
 	memcpy((void *)cp_iram_addr, cp_code_data, sizeof(cp_code_data));
 }
-void cp_do_change_emc_freq(u32 mode, u32 div)
+void cp_do_change_emc_freq(u32 mode, u32 div, u32 sene, u32 ddr_type)
 {
 	u32 value;
 	volatile u32 i;
+	printk("cp_do_change_emc_freq: mode =%d, div = %d, sene = %d, ddr_type = %d", mode, div, sene, ddr_type);
 #ifdef CONFIG_NKERNEL
 	/*delete close cp*/
 	__raw_writel(0x00000000, REG_AHB_CP_SLEEP_CTRL);
 #endif
-	value = mode | (div << EMC_FREQ_DIV_OFFSET);
+	value = mode | (div << EMC_FREQ_DIV_OFFSET) | (sene << EMC_FREQ_SENE_OFFSET) | (ddr_type << EMC_DDR_TYPE_OFFSET);
 	//tell cp do disable dll mode
 	__raw_writel(value, REG_AHB_JMP_ADDR_CPU0);
 	
@@ -713,40 +727,35 @@ void cp_do_change_emc_freq(u32 mode, u32 div)
 void close_cp(void)
 {
 	u32 value;
-	//printk("close_cp++\n");
+	u32 times;
+	printk("close_cp++\n");
 	value = __raw_readl(REG_AHB_JMP_ADDR_CPU0);
+	times = 0;
 	while((value & EMC_SWITCH_MODE_MASK) != EMC_SWITCH_MODE_COMPLETE) {
 		value = __raw_readl(REG_AHB_JMP_ADDR_CPU0);
-		udelay(100);
+		mdelay(2);
+		if(times >= 10) {
+			break;
+		}
+		times ++;
 	}
 #ifdef CONFIG_NKERNEL
 	/*force close cp*/
 	__raw_writel(0x00000001, REG_AHB_CP_SLEEP_CTRL);
 #endif
-	//printk("close_cp---\n");
-}                           
-static u32  emc_freq_early_suspend_times = 0;
+	printk("close_cp armclk= %x---\n", sci_glb_read(REG_AHB_ARM_CLK, -1UL));
+}
 static void emc_earlysuspend_early_suspend(struct early_suspend *h)
 {
-	//printk("emc_earlysuspend_early_suspend\n");
-	//hw_local_irq_disable();
-	cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1);
+	cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1, EMC_FREQ_NORMAL_SCENE, EMC_DDR_TYPE_DDR2);
 	close_cp();
 	sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
-	//hw_local_irq_enable();
-	//printk("emc_freq1-\n");
-	emc_freq_early_suspend_times ++;
-	//printk("emc_earlysuspend_early_suspend ---times %d\n", emc_freq_early_suspend_times);
 }
 static void emc_earlysuspend_late_resume(struct early_suspend *h)
 {
-	//printk("emc_earlysuspend_late_resume\n");
-	//hw_local_irq_disable();
 	sci_glb_clr(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
-	cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE, 0);
+	cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE, 0, EMC_FREQ_NORMAL_SCENE, EMC_DDR_TYPE_DDR2);
 	close_cp();
-	//hw_local_irq_enable();
-	//printk("emc_earlysuspend_late_resume ---");
 }
 static struct early_suspend emc_early_suspend_desc = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 100,
@@ -833,6 +842,71 @@ u32 wake_source_stop(void)
 	//do nothing
 }
 #endif
+//static struct kobject *emc_freq_kobj;
+static u32 emc_freq_div = 0;
+#define emc_attr(_name) \
+static struct kobj_attribute _name##_attr = {	\
+	.attr	= {				\
+		.name = __stringify(_name),	\
+		.mode = 0777,			\
+	},					\
+	.show	= _name##_show,			\
+	.store	= _name##_store,		\
+}
+static ssize_t emc_freq_show(struct kobject *kobj, struct kobj_attribute *attr,
+			  char *buf)
+{
+	switch(emc_freq_div) {
+	case 0:
+		buf[0] = '0';
+		break;
+	case 1:
+		buf[0] = '1';
+		break;
+	default:
+		break;
+	}
+	sprintf(buf, "%c\n", emc_freq_div);
+	return 1;
+}
+static ssize_t emc_freq_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t n)
+{
+#ifdef CONFIG_NKERNEL
+#ifndef CONFIG_MACH_SP6825GA
+	switch(buf[0]) {
+	case '0':
+		printk("emc_freq_store 0\n");
+		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
+		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE, 0, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2);
+		close_cp();
+		emc_freq_div = 0;
+
+		break;
+	case '1' :
+		printk("emc_freq_store 1\n");
+		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2);
+		close_cp();
+		sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
+		emc_freq_div = 1;
+		break;
+	default:
+		break;
+	}
+#endif
+#endif
+	return 1;
+}
+emc_attr(emc_freq);
+static struct attribute * g[] = {
+	&emc_freq_attr.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = g,
+};
+struct kobject *emc_kobj;
 static int __init emc_early_suspend_init(void)
 {
 #ifdef CONFIG_NKERNEL
@@ -846,7 +920,10 @@ static int __init emc_early_suspend_init(void)
 #endif
 #endif
 #endif
-	return 0;
+	emc_kobj = kobject_create_and_add("emc", NULL);
+	if (!emc_kobj)
+		return -ENOMEM;
+	return sysfs_create_group(emc_kobj, &attr_group);
 }
 static void  __exit emc_early_suspend_exit(void)
 {
