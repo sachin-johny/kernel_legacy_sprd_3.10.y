@@ -18,10 +18,6 @@
 #include <mach/hardware.h>
 #include <mach/pinmap.h>
 
-#ifdef REG_PIN_U0RTS
-#define REG_PIN_U0RTS                   ( 0x0330 )
-#endif
-
 typedef struct {
 	uint32_t reg;
 	uint32_t val;
