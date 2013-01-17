@@ -316,7 +316,7 @@ void dcdc_calibrate_callback(void *data)
 	}
 
 	dcdc_work.cal_typ = (int)data;
-	schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(10));
+	schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
 }
 
 int ldo_trimming_callback(void *data)
@@ -331,10 +331,10 @@ int ldo_trimming_callback(void *data)
 	if (i >= ARRAY_SIZE(dcdc_cal_map))
 		return -EINVAL;	/* not found */
 
-	dcdc_cal_map[i].def_on = 1;
-
-	debug("%s%s trimming ...\n", name,
-	      !dcdc_work.work.work.func ? " wait" : "");
+	if (!dcdc_cal_map[i].def_on) {
+		dcdc_cal_map[i].def_on = 1;
+		debug0("%s trimming ...\n", name);
+	}
 
 	dcdc_calibrate_callback(0);
 	return ret;

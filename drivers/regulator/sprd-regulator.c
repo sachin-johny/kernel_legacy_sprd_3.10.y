@@ -286,8 +286,10 @@ static int ldo_init_trimming(struct regulator_dev *rdev)
 	if (trim != 0x10 /* 100 % */ ) {
 		debug("regu %p (%s) trimming ok\n", regs, desc->desc.name);
 		set_bit(desc->desc.id, trimming_state);
+		ret = trim;
+	} else if (1 == ldo_is_on(rdev)) {	/* some LDOs had been turned in uboot-spl */
+		ret = ldo_turn_on(rdev);
 	}
-	ret = trim;
 
 exit:
 	return ret;
@@ -634,10 +636,10 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 		return;
 	}
 
-	debugfs_create_file("enable", S_IRUGO | S_IWUGO,
+	debugfs_create_file("enable", S_IRUGO | S_IWUSR,
 			    desc->debugfs, rdev, &fops_enable);
 
-	debugfs_create_file("voltage", S_IRUGO | S_IWUGO,
+	debugfs_create_file("voltage", S_IRUGO | S_IWUSR,
 			    desc->debugfs, rdev, &fops_voltage);
 }
 #else
