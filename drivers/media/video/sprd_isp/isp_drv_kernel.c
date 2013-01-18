@@ -202,21 +202,23 @@ static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t c
 		uint32_t len=s_isp_alloc_len;
 		dmac_flush_range(ptr, ptr + len);
 		outer_flush_range(__pa(ptr), __pa(ptr) + len);
-	}
 
-	reg_bits_ptr->reg_value=(uint32_t)__pa(reg_bits_ptr->reg_value);
+		reg_bits_ptr->reg_value=(uint32_t)__pa(reg_bits_ptr->reg_value);
 
-	_write_reg(reg_bits_ptr, counts);
+		_write_reg(reg_bits_ptr, counts);
 
-	reg_value=ISP_READL(ISP_INT_RAW);
-
-	while(0x00==(reg_value&ISP_INT_LEN_S_LOAD))
-	{
-		msleep(1);
 		reg_value=ISP_READL(ISP_INT_RAW);
-	}
 
-	ISP_OWR(ISP_INT_CLEAR, ISP_INT_LEN_S_LOAD);
+		while(0x00==(reg_value&ISP_INT_LEN_S_LOAD))
+		{
+			msleep(1);
+			reg_value=ISP_READL(ISP_INT_RAW);
+		}
+
+		ISP_OWR(ISP_INT_CLEAR, ISP_INT_LEN_S_LOAD);
+	}else {
+		ISP_PRINT("ISP_RAW: isp load lnc param error\n");
+	}
 
 	return ret;
 }
