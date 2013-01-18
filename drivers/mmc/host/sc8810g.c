@@ -646,7 +646,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 #ifdef CONFIG_PM_RUNTIME
 	ret = pm_runtime_set_active(&(pdev)->dev);
 	if (ret < 0)
-		pr_info("%s: %s: failed with error %d", mmc_hostname(host->mmc),
+		pr_debug("%s: %s: failed with error %d", mmc_hostname(host->mmc),
 				__func__, ret);
 	/*
 	 * There is no notion of suspend/resume for SD/MMC/SDIO
@@ -707,6 +707,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 #else
 	if(pdev->id == 1){
 		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
+
 	}
 #endif
 	ret = sdhci_add_host(host);

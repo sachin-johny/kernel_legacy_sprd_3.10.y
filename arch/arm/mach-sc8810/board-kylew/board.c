@@ -663,7 +663,7 @@ static void __init sc8810_init_machine(void)
 	regulator_add_devices();
 	sprd_add_otg_device();
 
-	platform_device_add_data(&sprd_sdio1_device, &modem_detect_gpio, sizeof(modem_detect_gpio));
+	platform_device_add_data(&sprd_sdio0_device, &modem_detect_gpio, sizeof(modem_detect_gpio));
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));

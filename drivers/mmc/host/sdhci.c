@@ -2059,7 +2059,7 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
  *  FIXME: DISABLE PM_RUNTIME in SP -FPGA, enable after chips back
  */
 static const struct mmc_host_ops sdhci_ops = {
-#ifndef CONFIG_MACH_SP8825_FPGA
+#if !defined(CONFIG_MMC_SDHCI_SC8825) && !defined(CONFIG_MACH_KYLEW)
 	.enable				= sdhci_enable,
 	.disable			= sdhci_disable,
 #endif

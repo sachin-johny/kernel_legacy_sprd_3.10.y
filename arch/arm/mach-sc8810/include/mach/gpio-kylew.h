@@ -52,7 +52,7 @@
 #define GPIO_BK		        138
 #define GPIO_SUB_SENSOR_PWN     74
 
-#define HEADSET_DETECT_GPIO	0
+#define HEADSET_DETECT_GPIO	141
 #define HEADSET_PA_CTL_GPIO	93
 #define GPIO_GPS_RESET          26
 #define GPIO_GPS_ONOFF          27
@@ -60,15 +60,14 @@
 #define GPIO_BK		143
 
 
-#define GPIO_SDIO_DETECT	77//64
-#define GPIO_AP_TO_CP_RTS	38	/*ap REG_PIN_MTRST_N*/ /*cp gpio 73*/
-#define GPIO_CP_TO_AP_RDY	37	/*ap REG_PIN_MTMS*/ /*cp gpio 92*/
+#define GPIO_AP_TO_CP_RTS	78	/*ap REG_PIN_MTRST_N*/ /*cp gpio 73*/
+#define GPIO_CP_TO_AP_RDY	75	/*ap REG_PIN_MTMS*/ /*cp gpio 92*/
 #define GPIO_CP_TO_AP_RTS	99	/*ap REG_PIN_RFCTL9*/ /*cp gpio 87*/
-#define GPIO_AP_STATUS		25	/*ap REG_PIN_KEYOUT5*/ /*cp gpio 105*/
+#define GPIO_AP_STATUS		63	/*ap REG_PIN_KEYOUT5*/ /*cp gpio 105*/
 
 #define GPIO_MODEM_POWER	106	/*ap REG_PIN_XTL_EN*/
-#define GPIO_MODEM_DETECT	36	/*ap REG_PIN_MTCK*/ /*cp gpio 94*/
-#define GPIO_MODEM_BOOT		92	/*ap REG_PIN_RFCTL2*/ /*cp gpio 86*/
+#define GPIO_MODEM_DETECT	77	/*ap REG_PIN_MTCK*/ /*cp gpio 94*/
+#define GPIO_MODEM_BOOT		98	/*ap REG_PIN_RFCTL2*/ /*cp gpio 86*/
 #define GPIO_MODEM_CRASH	40	/*ap REG_PIN_EMRST_N*/ /*cp gpio 85*/
 
 #endif
