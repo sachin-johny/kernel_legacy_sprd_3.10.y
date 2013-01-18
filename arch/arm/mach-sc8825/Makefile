@@ -39,6 +39,7 @@ sprdboard-$(CONFIG_MACH_SP8825GA_OPENPHONE) += board_sp8825ga_openphone/
 
 obj-y += $(sprdboard-y)
 
+obj-$(CONFIG_MACH_SP6825GB) += ar6302g_adapter.o
 obj-$(CONFIG_SC8825_VIBRATOR) += vibrator.o
 ifeq ($(CONFIG_BCMDHD),m)
 obj-y  += dhd_adapter.o

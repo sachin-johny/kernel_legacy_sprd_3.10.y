@@ -39,7 +39,7 @@
 #define GPIO_WIFI_POWERON	210
 
 #define GPIO_WIFI_RESET		190
-#define GPIO_WIFI_IRQ	    -1
+#define GPIO_WIFI_IRQ	    	52
 
 
 #endif
