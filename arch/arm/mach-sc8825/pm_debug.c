@@ -321,7 +321,32 @@ void pm_debug_dump_ahb_glb_regs(void)
 	printk("*** GR_STC_STATE:  0x%x ***\n", debug_status[6] );
 	printk("*** GR_CLK_DLY:  0x%x ***\n", debug_status[8] );
 }
+volatile unsigned int usb_ep0_status[10];
+void pm_debug_save_usb_ep0_regs(void)
+{
+	usb_ep0_status[0] = __raw_readl(SPRD_USB_BASE+0x800);
+	usb_ep0_status[1] = __raw_readl(SPRD_USB_BASE+0x804);
+	usb_ep0_status[2] = __raw_readl(SPRD_USB_BASE+0x808);
+	usb_ep0_status[3] = __raw_readl(SPRD_USB_BASE+0x818);
+	usb_ep0_status[4] = __raw_readl(SPRD_USB_BASE+0x900);
+	usb_ep0_status[5] = __raw_readl(SPRD_USB_BASE+0x908);
+	usb_ep0_status[6] = __raw_readl(SPRD_USB_BASE+0x910);
+	usb_ep0_status[7] = __raw_readl(SPRD_USB_BASE+0xB00);
+	usb_ep0_status[8] = __raw_readl(SPRD_USB_BASE+0xB08);
+	usb_ep0_status[9] = __raw_readl(SPRD_USB_BASE+0xB10);
+}
+void print_usb_ep0_regs(void)
+{
+	pm_debug_save_usb_ep0_regs();
 
+	printk("***** USB ep0 status **********\n");
+	printk("*** DCFG:  0x%x ,DCTL:  0x%x***\n", usb_ep0_status[0],usb_ep0_status[1] );
+	printk("*** DSTS:  0x%x ,DAINT:  0x%x ***\n", usb_ep0_status[2],usb_ep0_status[3] );
+	printk("*** DIEPCTL0:  0x%x,DIEPINT0:  0x%x ***\n", usb_ep0_status[4], usb_ep0_status[5]);
+	printk("*** DIEPTSIZ0:  0x%x, DOEPCTL0:  0x%x ***\n", usb_ep0_status[6], usb_ep0_status[7] );
+	printk("*** DOEPINT0:  0x%x, DOEPTSIZ0:  0x%x ***\n", usb_ep0_status[8], usb_ep0_status[9] );
+
+}
 
 static void print_ahb(void)
 {
@@ -579,6 +604,7 @@ static int print_thread(void * data)
 	while(1){
 		wake_lock(&messages_wakelock);
 		print_ahb();
+		print_usb_ep0_regs();
 		print_gr();
 		print_ana();
 		is_dsp_sleep();
