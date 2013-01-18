@@ -48,8 +48,14 @@
 #define KPD_EN						(0x01 << 0)
 #define KPD_SLEEP_EN				(0x01 << 1)
 #define KPD_LONG_KEY_EN				(0x01 << 2)
-#define KPDCTL_ROW_MSK                  (0x3f << 18)	/* enable rows 2 - 7 */
-#define KPDCTL_COL_MSK                  (0x3f << 10)	/* enable cols 2 - 7 */
+
+//v0
+#define KPDCTL_ROW_MSK_V0                  (0x3f << 18)	/* enable rows 2 - 7 */
+#define KPDCTL_COL_MSK_V0                  (0x3f << 10)	/* enable cols 2 - 7 */
+
+//v1
+#define KPDCTL_ROW_MSK_V1                  (0xff << 16)	/* enable rows 0 - 7 */
+#define KPDCTL_COL_MSK_V1                  (0xff << 8)	/* enable cols 0 - 7 */
 
 #define KPD_INT_EN              	(KPD_REG_BASE + 0x04)
 #define KPD_INT_RAW_STATUS          (KPD_REG_BASE + 0x08)
@@ -98,7 +104,7 @@
 #define KPD_DEBUG_STATUS1        	(KPD_REG_BASE + 0x0034)
 #define KPD_DEBUG_STATUS2        	(KPD_REG_BASE + 0x0038)
 
-#define ANA_GPI_PB                  EIC_KEY_POWER
+#define PB_INT                  EIC_KEY_POWER
 
 struct sci_keypad_t {
 	struct input_dev *input_dev;
@@ -106,83 +112,88 @@ struct sci_keypad_t {
 	int rows;
 	int cols;
 	unsigned int keyup_test_jiffies;
+	unsigned int controller_ver;
 };
 
-//custom define end
-
-#define keypad_readl(off)           __raw_readl(off)
-#define keypad_writel(off, val)     __raw_writel((val), (off))
-
+#if	DEBUG_KEYPAD
 static void dump_keypad_register(void)
 {
-#if	DEBUG_KEYPAD
-
 #define INT_MASK_STS                (SPRD_INTC0_BASE + 0x0000)
 #define INT_RAW_STS                 (SPRD_INTC0_BASE + 0x0004)
 #define INT_EN                      (SPRD_INTC0_BASE + 0x0008)
 #define INT_DIS                     (SPRD_INTC0_BASE + 0x000C)
 
-	printk("\nREG_INT_MASK_STS = 0x%08x\n", keypad_readl(INT_MASK_STS));
-	printk("REG_INT_RAW_STS = 0x%08x\n", keypad_readl(INT_RAW_STS));
-	printk("REG_INT_EN = 0x%08x\n", keypad_readl(INT_EN));
-	printk("REG_INT_DIS = 0x%08x\n", keypad_readl(INT_DIS));
-	printk("REG_KPD_CTRL = 0x%08x\n", keypad_readl(KPD_CTRL));
-	printk("REG_KPD_INT_EN = 0x%08x\n", keypad_readl(KPD_INT_EN));
+	printk("\nREG_INT_MASK_STS = 0x%08x\n", __raw_readl(INT_MASK_STS));
+	printk("REG_INT_RAW_STS = 0x%08x\n", __raw_readl(INT_RAW_STS));
+	printk("REG_INT_EN = 0x%08x\n", __raw_readl(INT_EN));
+	printk("REG_INT_DIS = 0x%08x\n", __raw_readl(INT_DIS));
+	printk("REG_KPD_CTRL = 0x%08x\n", __raw_readl(KPD_CTRL));
+	printk("REG_KPD_INT_EN = 0x%08x\n", __raw_readl(KPD_INT_EN));
 	printk("REG_KPD_INT_RAW_STATUS = 0x%08x\n",
-	       keypad_readl(KPD_INT_RAW_STATUS));
+	       __raw_readl(KPD_INT_RAW_STATUS));
 	printk("REG_KPD_INT_MASK_STATUS = 0x%08x\n",
-	       keypad_readl(KPD_INT_MASK_STATUS));
-	printk("REG_KPD_INT_CLR = 0x%08x\n", keypad_readl(KPD_INT_CLR));
-	printk("REG_KPD_POLARITY = 0x%08x\n", keypad_readl(KPD_POLARITY));
+	       __raw_readl(KPD_INT_MASK_STATUS));
+	printk("REG_KPD_INT_CLR = 0x%08x\n", __raw_readl(KPD_INT_CLR));
+	printk("REG_KPD_POLARITY = 0x%08x\n", __raw_readl(KPD_POLARITY));
 	printk("REG_KPD_DEBOUNCE_CNT = 0x%08x\n",
-	       keypad_readl(KPD_DEBOUNCE_CNT));
+	       __raw_readl(KPD_DEBOUNCE_CNT));
 	printk("REG_KPD_LONG_KEY_CNT = 0x%08x\n",
-	       keypad_readl(KPD_LONG_KEY_CNT));
-	printk("REG_KPD_SLEEP_CNT = 0x%08x\n", keypad_readl(KPD_SLEEP_CNT));
-	printk("REG_KPD_CLK_DIV_CNT = 0x%08x\n", keypad_readl(KPD_CLK_DIV_CNT));
-	printk("REG_KPD_KEY_STATUS = 0x%08x\n", keypad_readl(KPD_KEY_STATUS));
+	       __raw_readl(KPD_LONG_KEY_CNT));
+	printk("REG_KPD_SLEEP_CNT = 0x%08x\n", __raw_readl(KPD_SLEEP_CNT));
+	printk("REG_KPD_CLK_DIV_CNT = 0x%08x\n", __raw_readl(KPD_CLK_DIV_CNT));
+	printk("REG_KPD_KEY_STATUS = 0x%08x\n", __raw_readl(KPD_KEY_STATUS));
 	printk("REG_KPD_SLEEP_STATUS = 0x%08x\n",
-	       keypad_readl(KPD_SLEEP_STATUS));
-#endif
+	       __raw_readl(KPD_SLEEP_STATUS));
 }
+#else
+static void dump_keypad_register(void)
+{
+}
+#endif
+
+#ifdef CONFIG_MAGIC_SYSRQ
+#define SPRD_VOL_UP_KEY		115
+#define SPRD_VOL_DOWN_KEY	114
+#define SPRD_CAMERA_KEY		212
+static int check_key_down(struct sci_keypad_t *sci_kpd, int key_status,
+			  int key_value)
+{
+	int col, row, key;
+	unsigned short *keycodes = sci_kpd->input_dev->keycode;
+	unsigned int row_shift = get_count_order(sci_kpd->cols);
+
+	if ((key_status & 0xff) != 0) {
+		col = KPD_INT0_COL(key_status);
+		row = KPD_INT0_ROW(key_status);
+		key = keycodes[MATRIX_SCAN_CODE(row, col, row_shift)];
+		if (key == key_value)
+			return 1;
+	}
+	if ((key_status & 0xff00) != 0) {
+		col = KPD_INT1_COL(key_status);
+		row = KPD_INT1_ROW(key_status);
+		key = keycodes[MATRIX_SCAN_CODE(row, col, row_shift)];
+		if (key == key_value)
+			return 1;
+	}
+	return 0;
+}
+#endif
 
 static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 {
 	unsigned short key = 0;
 	unsigned long value;
 	struct sci_keypad_t *sci_kpd = dev_id;
-	unsigned long int_status = keypad_readl(KPD_INT_MASK_STATUS);
-	unsigned long key_status = keypad_readl(KPD_KEY_STATUS);
+	unsigned long int_status = __raw_readl(KPD_INT_MASK_STATUS);
+	unsigned long key_status = __raw_readl(KPD_KEY_STATUS);
 	unsigned short *keycodes = sci_kpd->input_dev->keycode;
 	unsigned int row_shift = get_count_order(sci_kpd->cols);
 	int col, row;
 
-	value = keypad_readl(KPD_INT_CLR);
+	value = __raw_readl(KPD_INT_CLR);
 	value |= KPD_INT_ALL;
-	keypad_writel(KPD_INT_CLR, value);
-
-#ifdef CONFIG_MAGIC_SYSRQ
-	{
-		static unsigned long key_status_prev = 0;
-		if (key_status == 0x77779081 && key_status != key_status_prev) {
-			unsigned long flags;
-			static int rebooted = 0;
-			local_irq_save(flags);
-			if (rebooted == 0) {
-				rebooted = 1;
-				pr_warn("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
-				/* handle_sysrq('t'); */
-				handle_sysrq('m');
-				handle_sysrq('w');
-				handle_sysrq('b');
-				pr_warn("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
-				rebooted = 0;
-			}
-			local_irq_restore(flags);
-		}
-		key_status_prev = key_status;
-	}
-#endif
+	__raw_writel(value, KPD_INT_CLR);
 
 	if ((int_status & KPD_PRESS_INT0)) {
 		col = KPD_INT0_COL(key_status);
@@ -258,7 +269,40 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 		input_sync(sci_kpd->input_dev);
 		printk("%03d\n", key);
 	}
+#ifdef CONFIG_MAGIC_SYSRQ
+	{
+		static unsigned long key_status_prev = 0;
 
+		if (check_key_down(sci_kpd, key_status, SPRD_CAMERA_KEY) &&
+		    check_key_down(sci_kpd, key_status, SPRD_VOL_DOWN_KEY)
+		    && key_status != key_status_prev) {
+			key_status_prev = key_status;
+			panic("!!!! Combine key: vol_down + camera !!!!\n");
+		}
+
+		if (check_key_down(sci_kpd, key_status, SPRD_CAMERA_KEY) &&
+		    check_key_down(sci_kpd, key_status, SPRD_VOL_UP_KEY)
+		    && key_status != key_status_prev) {
+			unsigned long flags;
+			static int rebooted = 0;
+			key_status_prev = key_status;
+			local_irq_save(flags);
+			if (rebooted == 0) {
+				rebooted = 1;
+				pr_warn
+				    ("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
+				/* handle_sysrq('t'); */
+				handle_sysrq('m');
+				handle_sysrq('w');
+				handle_sysrq('b');
+				pr_warn
+				    ("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
+				rebooted = 0;
+			}
+			local_irq_restore(flags);
+		}
+	}
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -266,7 +310,7 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 {				//TODO: if usign gpio(eic), need add row , cols to platform data.
 	static unsigned long last_value = 1;
 	unsigned short key = KEY_POWER;
-	unsigned long value = !(gpio_get_value(ANA_GPI_PB));
+	unsigned long value = !(gpio_get_value(PB_INT));
 	struct sci_keypad_t *sci_kpd = dev_id;
 
 	if (last_value == value) {
@@ -298,7 +342,6 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 
 static int __devinit sci_keypad_probe(struct platform_device *pdev)
 {
-
 	struct sci_keypad_t *sci_kpd;
 	struct input_dev *input_dev;
 	struct sci_keypad_platform_data *pdata = pdev->dev.platform_data;
@@ -306,6 +349,10 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	unsigned long value;
 	unsigned int row_shift, keycodemax;
 
+	if (!pdata) {
+		error = -EINVAL;
+		goto out0;
+	}
 	row_shift = get_count_order(pdata->cols);
 	keycodemax = pdata->rows << row_shift;
 
@@ -314,28 +361,26 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	input_dev = input_allocate_device();
 
 	if (!sci_kpd || !input_dev) {
-		kfree(sci_kpd);
-		input_free_device(input_dev);
-		return -ENOMEM;
+		error = -ENOMEM;
+		goto out1;
 	}
-
 	platform_set_drvdata(pdev, sci_kpd);
 
 	sci_kpd->input_dev = input_dev;
 	sci_kpd->rows = pdata->rows;
 	sci_kpd->cols = pdata->cols;
+	sci_kpd->controller_ver = pdata->controller_ver;
 
-	sci_glb_set(REG_GLB_SOFT_RST,BIT_KPD_RST);
+	sci_glb_set(REG_GLB_SOFT_RST, BIT_KPD_RST);
 	mdelay(2);
-	sci_glb_clr(REG_GLB_SOFT_RST,BIT_KPD_RST);
-	sci_glb_set(REG_GLB_GEN0,BIT_KPD_EB | BIT_RTC_KPD_EB);
+	sci_glb_clr(REG_GLB_SOFT_RST, BIT_KPD_RST);
+	sci_glb_set(REG_GLB_GEN0, BIT_KPD_EB | BIT_RTC_KPD_EB);
 
-	keypad_writel(KPD_INT_CLR, KPD_INT_ALL);
-	value = CFG_ROW_POLARITY | CFG_COL_POLARITY;
-	keypad_writel(KPD_POLARITY, value);
-	keypad_writel(KPD_CLK_DIV_CNT, 1);
-	keypad_writel(KPD_LONG_KEY_CNT, 0xc);
-	keypad_writel(KPD_DEBOUNCE_CNT, 0x5);
+	__raw_writel(KPD_INT_ALL, KPD_INT_CLR);
+	__raw_writel(CFG_ROW_POLARITY | CFG_COL_POLARITY, KPD_POLARITY);
+	__raw_writel(1, KPD_CLK_DIV_CNT);
+	__raw_writel(0xc, KPD_LONG_KEY_CNT);
+	__raw_writel(0x5, KPD_DEBOUNCE_CNT);
 
 	sci_kpd->irq = platform_get_irq(pdev, 0);
 	if (sci_kpd->irq < 0) {
@@ -343,7 +388,6 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Get irq number error,Keypad Module\n");
 		goto out2;
 	}
-
 	error =
 	    request_irq(sci_kpd->irq, sci_keypad_isr, 0, "sci-keypad", sci_kpd);
 	if (error) {
@@ -370,7 +414,6 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 
 	/* there are keys from hw other than keypad controller */
 	__set_bit(KEY_POWER, input_dev->keybit);
-
 	__set_bit(EV_KEY, input_dev->evbit);
 	if (pdata->repeat)
 		__set_bit(EV_REP, input_dev->evbit);
@@ -378,84 +421,97 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	error = input_register_device(input_dev);
 	if (error) {
 		dev_err(&pdev->dev, "unable to register input device\n");
-		goto out4;
+		goto out3;
 	}
-
 	device_init_wakeup(&pdev->dev, 1);
 
 	value = KPD_INT_DOWNUP;
 	if (pdata->support_long_key)
 		value |= KPD_INT_LONG;
-	keypad_writel(KPD_INT_EN, value);
-
+	__raw_writel(value, KPD_INT_EN);
 	value = KPD_SLEEP_CNT_VALUE(1000);
-	keypad_writel(KPD_SLEEP_CNT, value);
+	__raw_writel(value, KPD_SLEEP_CNT);
 
-	value = KPD_SLEEP_EN | (pdata->rows_choose_hw & KPDCTL_ROW_MSK) |
-	    (pdata->cols_choose_hw & KPDCTL_COL_MSK);
+	if (sci_kpd->controller_ver == 0) {
+		if ((pdata->rows_choose_hw & ~KPDCTL_ROW_MSK_V0)
+		    || (pdata->cols_choose_hw & ~KPDCTL_COL_MSK_V0)) {
+			pr_warn("Error rows_choose_hw Or cols_choose_hw\n");
+		} else {
+			pdata->rows_choose_hw &= KPDCTL_ROW_MSK_V0;
+			pdata->cols_choose_hw &= KPDCTL_COL_MSK_V0;
+		}
+	} else if (sci_kpd->controller_ver == 1) {
+		if ((pdata->rows_choose_hw & ~KPDCTL_ROW_MSK_V1)
+		    || (pdata->cols_choose_hw & ~KPDCTL_COL_MSK_V1)) {
+			pr_warn("Error rows_choose_hw\n");
+		} else {
+			pdata->rows_choose_hw &= KPDCTL_ROW_MSK_V1;
+			pdata->cols_choose_hw &= KPDCTL_COL_MSK_V1;
+		}
+	} else {
+		pr_warn
+		    ("This driver don't support this keypad controller version Now\n");
+	}
+	value =
+	    KPD_EN | KPD_SLEEP_EN | pdata->
+	    rows_choose_hw | pdata->cols_choose_hw;
 	if (pdata->support_long_key)
 		value |= KPD_LONG_KEY_EN;
-	value |= KPD_EN;
-	keypad_writel(KPD_CTRL, value);
+	__raw_writel(value, KPD_CTRL);
 
-	gpio_request(ANA_GPI_PB, "powerkey");
-	gpio_direction_input(ANA_GPI_PB);
-
-	error = request_irq(gpio_to_irq(ANA_GPI_PB), sci_powerkey_isr,
-			IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND, "powerkey", sci_kpd);
+	gpio_request(PB_INT, "powerkey");
+	gpio_direction_input(PB_INT);
+	error = request_irq(gpio_to_irq(PB_INT), sci_powerkey_isr,
+			    IRQF_TRIGGER_HIGH | IRQF_NO_SUSPEND,
+			    "powerkey", sci_kpd);
 	if (error) {
 		dev_err(&pdev->dev, "unable to claim irq %d\n",
-			gpio_to_irq(ANA_GPI_PB));
-		goto out2;
+			gpio_to_irq(PB_INT));
+		goto out3;
 	}
 
-
 	dump_keypad_register();
-
 	return 0;
-
 out4:
+	free_irq(gpio_to_irq(PB_INT), pdev);
+out3:
 	input_free_device(input_dev);
 	free_irq(sci_kpd->irq, pdev);
 out2:
-	kfree(sci_kpd);
 	platform_set_drvdata(pdev, NULL);
+out1:
+	kfree(sci_kpd);
+out0:
 	return error;
 }
 
-static int __devexit sci_keypad_remove(struct platform_device *pdev)
+static int __devexit sci_keypad_remove(struct
+				       platform_device
+				       *pdev)
 {
 	unsigned long value;
 	struct sci_keypad_t *sci_kpd = platform_get_drvdata(pdev);
-
+	/* disable sci keypad controller */
+	__raw_writel(KPD_INT_ALL, KPD_INT_CLR);
+	value = __raw_readl(KPD_CTRL);
+	value &= ~(1 << 0);
+	__raw_writel(value, KPD_CTRL);
+	sci_glb_clr(REG_GLB_GEN0, BIT_KPD_EB | BIT_RTC_KPD_EB);
 	free_irq(sci_kpd->irq, pdev);
 	input_unregister_device(sci_kpd->input_dev);
 	kfree(sci_kpd);
 	platform_set_drvdata(pdev, NULL);
-
-	/* disable sci keypad controller */
-	keypad_writel(KPD_INT_CLR, KPD_INT_ALL);
-	value = keypad_readl(KPD_CTRL);
-	value &= ~(1 << 0);
-	keypad_writel(KPD_CTRL, value);
-	sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_KPD_EN | GEN0_KPD_RTC_EN,
-			     GR_GEN0);
-
 	return 0;
 }
 
 #ifdef CONFIG_PM
 static int sci_keypad_suspend(struct platform_device *dev, pm_message_t state)
 {
-	/* Nothing yet */
-
 	return 0;
 }
 
 static int sci_keypad_resume(struct platform_device *dev)
 {
-	/* Nothing yet */
-
 	return 0;
 }
 #else
@@ -469,8 +525,7 @@ struct platform_driver sci_keypad_driver = {
 	.suspend = sci_keypad_suspend,
 	.resume = sci_keypad_resume,
 	.driver = {
-		   .name = "sci-keypad",
-		   .owner = THIS_MODULE,
+		   .name = "sci-keypad",.owner = THIS_MODULE,
 		   },
 };
 
@@ -486,7 +541,6 @@ static void __exit sci_keypad_exit(void)
 
 module_init(sci_keypad_init);
 module_exit(sci_keypad_exit);
-
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("spreadtrum.com");
 MODULE_DESCRIPTION("Keypad driver for spreadtrum Processors");

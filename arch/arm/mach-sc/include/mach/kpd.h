@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Spreadtrum Communications Inc.
+ * contact <steve.zhan@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -24,6 +25,7 @@ struct sci_keypad_platform_data {
 	unsigned short repeat;
 	unsigned int debounce_time;	/* in ns */
 	unsigned int keyup_test_interval;	/* in ms */
+	unsigned int controller_ver;
 };
 
 //chip define begin
@@ -33,6 +35,8 @@ struct sci_keypad_platform_data {
 #define SCI_COL4	(0x01 << 12)
 #define SCI_COL3	(0x01 << 11)
 #define SCI_COL2	(0x01 << 10)
+#define SCI_COL1	(0x01 << 9)
+#define SCI_COL0	(0x01 << 8)
 
 #define SCI_ROW7	(0x01 << 23)
 #define SCI_ROW6	(0x01 << 22)
@@ -40,6 +44,9 @@ struct sci_keypad_platform_data {
 #define SCI_ROW4	(0x01 << 20)
 #define SCI_ROW3	(0x01 << 19)
 #define SCI_ROW2	(0x01 << 18)
+#define SCI_ROW1	(0x01 << 17)
+#define SCI_ROW0	(0x01 << 16)
+
 //chip define end
 
 
