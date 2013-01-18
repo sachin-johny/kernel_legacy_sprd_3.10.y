@@ -2692,9 +2692,12 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 			/* tty_lock may stops ptmx_open used by adbd */
 			tty_unlock();
 			memset(buffer, 0, 256);
-			if (mux_mode == 1)
-				iomux[0].io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
-			else
+			if (mux_mode > 0) {
+				char at_str[20];
+				sprintf(at_str, "AT+SMMSWAP=%d\r", mux_mode - 1);
+				printk("mux send %s\n", at_str);
+				iomux[0].io_write(at_str, strlen(at_str));
+			} else
 				iomux[0].io_write("AT\r", strlen("AT\r"));
 			/*wait for response "OK \r" */
 			printk(KERN_INFO "\n cmux receive:<\n");
@@ -2712,9 +2715,12 @@ static int mux_open(struct tty_struct *tty, struct file *filp)
 					}
 				} else {
 					msleep(2000);
-					if (mux_mode == 1)
-						iomux[0].io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
-					else
+					if (mux_mode > 0) {
+						char at_str[20];
+						sprintf(at_str, "AT+SMMSWAP=%d\r", mux_mode - 1);
+						printk("mux send %s\n", at_str);
+						iomux[0].io_write(at_str, strlen(at_str));
+					} else
 						iomux[0].io_write("AT\r", strlen("AT\r"));
 					i++;
 				}
