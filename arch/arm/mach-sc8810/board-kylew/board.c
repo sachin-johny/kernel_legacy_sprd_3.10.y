@@ -212,11 +212,11 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_nand_device,
 	&sprd_lcd_device0,
 	&sprd_backlight_device,
-#if defined(CONFIG_SPA)
-	&Sec_BattMonitor,
-#else
-	&sprd_battery_device,
-#endif
+//#if defined(CONFIG_SPA)
+//	&Sec_BattMonitor,
+//#else
+//	&sprd_battery_device,
+//#endif
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
