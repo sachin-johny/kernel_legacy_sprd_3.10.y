@@ -681,6 +681,15 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 		if (err)
 			pr_err("SENSOR:could not set camdvdd to 1300mv.\n");
 		break;
+	case SENSOR_AVDD_1200MV:
+		err =
+		    regulator_set_voltage(s_camdvdd_regulator,
+					  SENSOER_VDD_1200MV,
+					  SENSOER_VDD_1200MV);
+		volt_value = SENSOER_VDD_1200MV;
+		if (err)
+			pr_err("SENSOR:could not set camdvdd to 1200mv.\n");
+		break;
 	case SENSOR_AVDD_CLOSED:
 	case SENSOR_AVDD_UNUSED:
 	default:
