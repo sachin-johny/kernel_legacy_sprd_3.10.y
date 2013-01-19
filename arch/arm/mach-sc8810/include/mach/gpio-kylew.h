@@ -30,44 +30,43 @@
 #define GPIO_I2C_SCL            18
 #define GPIO_I2C_SDA            16
 
-#define GPIO_BT_RESET       90
-#define GPIO_BT_POWER       136
-#define GPIO_BT2AP_WAKE     94
-#define GPIO_AP2BT_WAKE     140
+#define GPIO_BT_RESET           140
+#define GPIO_BT_POWER           141
+#define GPIO_BT2AP_WAKE         25
+#define GPIO_AP2BT_WAKE         26
 
-#define GPIO_WIFI_SHUTDOWN	137
-#define GPIO_WIFI_IRQ		142
-#define GPIO_TOUCH_RESET	16
-#define GPIO_TOUCH_IRQ		17
-#define GPIO_PLSENSOR_IRQ	28
+#define GPIO_WIFI_SHUTDOWN      144
+#define GPIO_WIFI_IRQ           139
+
+#define GPIO_TOUCH_RESET        16
+#define GPIO_TOUCH_IRQ          17
+#define GPIO_PLSENSOR_IRQ       28
 #define MSENSOR_DRDY_GPIO       97
 
-#define EIC_CHARGER_DETECT	162
-#define EIC_KEY_POWER		163
+#define EIC_CHARGER_DETECT      162
+#define EIC_KEY_POWER           163
 
-#define SPI0_CMMB_CS_GPIO  	32
-#define SPI1_WIFI_CS_GPIO  	44
-#define GPIO_SENSOR_RESET	72
+#define SPI0_CMMB_CS_GPIO       32
+#define SPI1_WIFI_CS_GPIO       44
+#define GPIO_SENSOR_RESET       72
 #define GPIO_MAIN_SENSOR_PWN    73
-#define GPIO_BK		        138
 #define GPIO_SUB_SENSOR_PWN     74
 
-#define HEADSET_DETECT_GPIO	141
-#define HEADSET_PA_CTL_GPIO	93
-#define GPIO_GPS_RESET          26
+#define HEADSET_DETECT_GPIO	    0
+#define HEADSET_PA_CTL_GPIO	    93
+#define GPIO_GPS_RESET          28
 #define GPIO_GPS_ONOFF          27
 
-#define GPIO_BK		143
+#define GPIO_BK                 138
 
+#define GPIO_AP_TO_CP_RTS       78	/*ap REG_PIN_MTRST_N*/ /*cp gpio 73*/
+#define GPIO_CP_TO_AP_RDY       75	/*ap REG_PIN_MTMS*/ /*cp gpio 92*/
+#define GPIO_CP_TO_AP_RTS       99	/*ap REG_PIN_RFCTL9*/ /*cp gpio 87*/
+#define GPIO_AP_STATUS          63	/*ap REG_PIN_KEYOUT5*/ /*cp gpio 105*/
 
-#define GPIO_AP_TO_CP_RTS	78	/*ap REG_PIN_MTRST_N*/ /*cp gpio 73*/
-#define GPIO_CP_TO_AP_RDY	75	/*ap REG_PIN_MTMS*/ /*cp gpio 92*/
-#define GPIO_CP_TO_AP_RTS	99	/*ap REG_PIN_RFCTL9*/ /*cp gpio 87*/
-#define GPIO_AP_STATUS		63	/*ap REG_PIN_KEYOUT5*/ /*cp gpio 105*/
-
-#define GPIO_MODEM_POWER	106	/*ap REG_PIN_XTL_EN*/
-#define GPIO_MODEM_DETECT	77	/*ap REG_PIN_MTCK*/ /*cp gpio 94*/
-#define GPIO_MODEM_BOOT		98	/*ap REG_PIN_RFCTL2*/ /*cp gpio 86*/
-#define GPIO_MODEM_CRASH	40	/*ap REG_PIN_EMRST_N*/ /*cp gpio 85*/
+#define GPIO_MODEM_POWER        106	/*ap REG_PIN_XTL_EN*/
+#define GPIO_MODEM_DETECT       77	/*ap REG_PIN_MTCK*/ /*cp gpio 94*/
+#define GPIO_MODEM_BOOT         98	/*ap REG_PIN_RFCTL2*/ /*cp gpio 86*/
+#define GPIO_MODEM_CRASH        40	/*ap REG_PIN_EMRST_N*/ /*cp gpio 85*/
 
 #endif

@@ -590,9 +590,8 @@ static int __init gpio_init(void)
 {
 	/* enable EIC */
 	sci_adi_set(ANA_REG_GLB_APB_CLK_EN, BIT_EIC_EB | BIT_RTC_EIC_EB);
-#if defined(CONFIG_ARCH_SC7710) || defined(CONFIG_MACH_SP7702)
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_EIC_EN | GEN0_EIC_RTC_EN, GR_GEN0);
-#endif
+
 	gpiochip_add(&d_sci_eic.chip);
 	gpiochip_add(&d_sci_gpio.chip);
 	gpiochip_add(&a_sci_eic.chip);

@@ -35,6 +35,8 @@
 #include <mach/board.h>
 #include <sound/audio_pa.h>
 #include "../devices.h"
+#include <linux/ktd253b_bl.h>
+
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include <mach/gpio.h>
@@ -314,6 +316,13 @@ static struct platform_device kb_backlight_device = {
 	.name           = "keyboard-backlight",
 	.id             =  -1,
 };
+
+static struct platform_ktd253b_backlight_data cat4253b_data = {
+	.max_brightness = 255,
+	.dft_brightness = 50,
+	.ctrl_pin = GPIO_BK,
+};
+
 
 static struct sys_timer sc8810_timer = {
 	.init = sc8810_timer_init,
@@ -664,6 +673,7 @@ static void __init sc8810_init_machine(void)
 	sprd_add_otg_device();
 
 	platform_device_add_data(&sprd_sdio0_device, &modem_detect_gpio, sizeof(modem_detect_gpio));
+	platform_device_add_data(&sprd_backlight_device, &cat4253b_data, sizeof(cat4253b_data));
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));

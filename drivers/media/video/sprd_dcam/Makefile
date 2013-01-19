@@ -19,6 +19,7 @@ obj-$(CONFIG_DCAM_SENSOR_GC0307) += sensor_gc0307.o
 obj-$(CONFIG_DCAM_SENSOR_GC0309) += sensor_gc0309.o
 obj-$(CONFIG_DCAM_SENSOR_GT2005) += sensor_gt2005.o
 obj-$(CONFIG_DCAM_SENSOR_HI253) += sensor_hi253.o
+obj-$(CONFIG_DCAM_SENSOR_HI351) += sensor_hi351.o
 obj-$(CONFIG_DCAM_SENSOR_BG0323) += sensor_bg0323.o
 obj-$(CONFIG_DCAM_SENSOR_S5K5CAGX) += sensor_s5k5cagx.o
 obj-$(CONFIG_DCAM_SENSOR_S5KA3DFX) += sensor_s5ka3dfx.o
