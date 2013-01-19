@@ -28,6 +28,7 @@
 #include <linux/clk.h>
 #include <linux/semaphore.h>
 #include <linux/slab.h>
+#include <linux/wakelock.h>
 
 #include <video/sprd_vsp.h>
 
@@ -91,6 +92,7 @@ struct vsp_dev{
 };
 
 static struct vsp_dev vsp_hw_dev;
+static struct wake_lock vsp_wakelock;
 
 struct clock_name_map_t{
 	unsigned long freq;
@@ -142,6 +144,7 @@ static void disable_vsp (struct vsp_fh *vsp_fp)
 {
 	clk_disable(vsp_hw_dev.vsp_clk);
 	vsp_fp->is_clock_enabled= 0;
+    wake_unlock(&vsp_wakelock);
 	pr_debug("vsp ioctl VSP_DISABLE\n");
 
 	return;
@@ -197,8 +200,9 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		break;
 	case VSP_ENABLE:
 		pr_debug("vsp ioctl VSP_ENABLE\n");
+		wake_lock(&vsp_wakelock);
 		ret = clk_enable(vsp_hw_dev.vsp_clk);
-		vsp_fp->is_clock_enabled= 1;
+		vsp_fp->is_clock_enabled= 1;        
 		break;
 	case VSP_DISABLE:
 		disable_vsp(vsp_fp);
@@ -462,6 +466,9 @@ static int vsp_probe(struct platform_device *pdev)
 	int ret;
 	int cmd0;
 
+    wake_lock_init(&vsp_wakelock, WAKE_LOCK_SUSPEND,
+		"pm_message_wakelock_vsp");
+     
 	sema_init(&vsp_hw_dev.vsp_mutex, 1);
 
 	init_waitqueue_head(&vsp_hw_dev.wait_queue_work);
