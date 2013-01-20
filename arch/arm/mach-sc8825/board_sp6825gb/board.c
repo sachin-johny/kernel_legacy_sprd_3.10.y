@@ -46,7 +46,6 @@
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
 #include <mach/pinmap.h>
-#include <gps/gpsctl.h>
 
 
 /* IRQ's for the multi sensor board */
@@ -64,7 +63,7 @@ extern int __init sprd_ramconsole_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device kb_backlight_device;
-static struct platform_device gpsctl_dev;
+
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -119,7 +118,6 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_stty_td_device,
 #endif
 	&kb_backlight_device,
-	&gpsctl_dev,
 	&rfkill_device,
 };
 
@@ -237,22 +235,6 @@ static struct mpu_platform_data mpu9150_platform_data = {
 			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
 };
 
-#ifdef CONFIG_GPS_CTRL
-static struct platform_gpsctl_data gps_ublox_data = {
-        .reset_pin  	= 0xffffffff,
-        .onoff_pin	= GPIO_GPS_ONOFF,
-        .power_pin	= 0xffffffff,
-	.clk_type	= "clk_aux0",
-        .pwr_type	= "vdd3v",
-};
-
-/* gps ctl*/
-static struct platform_device gpsctl_dev = {
-	.name           = "gpsctl",
-	.id             =  -1,
-        .dev.platform_data  = &gps_ublox_data,
-};
-#endif /*CONFIG_GPS_CTRL*/
 
 static struct i2c_board_info i2c2_boardinfo[] = {
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
