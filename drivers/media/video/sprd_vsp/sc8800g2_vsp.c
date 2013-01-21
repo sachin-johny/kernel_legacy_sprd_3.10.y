@@ -32,6 +32,7 @@
 #include <linux/mm.h>
 #include <linux/miscdevice.h>
 #include <linux/sched.h>
+#include <linux/wakelock.h>
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -107,6 +108,7 @@ struct vsp_dev{
 };
 
 static struct vsp_dev dev;
+static struct wake_lock vsp_wakelock;
 
 static char * vsp_get_clk_src_name(unsigned int clk_src)
 {
@@ -333,11 +335,25 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 	return 0;
 }
 
+static int vsp_open(struct inode *inode, struct file *filp)
+{
+	wake_lock(&vsp_wakelock);
+	return 0;
+}
+
+static int vsp_release (struct inode *inode, struct file *filp)
+{
+	wake_unlock(&vsp_wakelock);    
+	return 0;
+}
+
 static const struct file_operations vsp_fops = 
 {
 	.owner = THIS_MODULE,
 	.ioctl = vsp_ioctl,
 	.mmap  = vsp_nocache_mmap,
+	.open = vsp_open,
+	.release = vsp_release,
 };
 
 static struct miscdevice vsp_dev = {
@@ -369,6 +385,9 @@ static int vsp_probe(struct platform_device *pdev)
 				VSP_MINOR, ret);
 		return ret;
 	}
+
+	wake_lock_init(&vsp_wakelock, WAKE_LOCK_SUSPEND,
+		"pm_message_wakelock_vsp");
 
 	init_waitqueue_head(&dev.wait_queue);
 	dev.condition = 1;	
