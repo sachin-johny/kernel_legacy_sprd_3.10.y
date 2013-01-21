@@ -41,6 +41,7 @@
 #define ROT_FALSE 			0
 #define DISABLE_AHB_SLEEP 	0
 #define ENABLE_AHB_SLEEP 	1
+#define ROT_TIMEOUT         100/*ms*/
 
 #define REG_RD(a)						__raw_readl(a)
 #define REG_WR(a,v)					__raw_writel(v,a)
@@ -90,8 +91,18 @@ static int exit_force;
 
 struct task_struct *g_rot_task;
 
-#define init_MUTEX(sem)    sema_init(sem, 1)
+struct rot_context {
+	atomic_t start_flag;
+	struct timer_list  rot_timer;
+};
 
+static struct rot_context rot_conext;
+static struct rot_context *rot_cnt = &rot_conext;
+
+
+#define init_MUTEX(sem)    sema_init(sem, 1)
+static int rot_start_timer(struct timer_list *rot_timer, uint32_t time_val);
+static void rot_stop_timer(struct timer_list *rot_timer);
 static int rot_k_check_param(ROT_CFG_T * param_ptr)
 {
 	if (NULL == param_ptr) {
@@ -400,6 +411,8 @@ static int rot_k_thread(void *data_ptr)
 		}
 		g_rot_done = 1;
 		g_thread_run = 0;
+		atomic_set(&rot_cnt->start_flag, 0);
+		rot_stop_timer(&rot_cnt->rot_timer);
 		wake_up_interruptible(&wait_done);
 	}
 	
@@ -411,6 +424,8 @@ int rot_k_start(void)
 	g_rot_done = 0;
 	g_thread_run = 1;
 
+	atomic_set(&rot_cnt->start_flag, 1);
+	rot_start_timer(&rot_cnt->rot_timer,ROT_TIMEOUT);
 	wake_up_interruptible(&thread_queue);
 	return ret;
 }
@@ -451,6 +466,41 @@ int rot_k_IOdeinit(void)
 	}
 	rot_k_disable();
 	up(&g_sem_rot);
+	return 0;
+}
+
+static int rot_start_timer(struct timer_list *rot_timer, uint32_t time_val)
+{
+	int ret;
+	/*printk("rot,start timer in %ld. \n",
+	       jiffies);*/
+	ret = mod_timer(rot_timer, jiffies + msecs_to_jiffies(time_val));
+	if (ret)
+		printk("rot:Error in mod_timer\n");
+	return 0;
+}
+
+static void rot_stop_timer(struct timer_list *rot_timer)
+{
+	del_timer_sync(rot_timer);
+}
+
+static void rot_timer_callback(unsigned long data)
+{
+	if (1 == atomic_read(&rot_cnt->start_flag)) {
+		printk("rot timeout.\n");
+		g_rot_done = 1;
+		g_thread_run = 0;
+		atomic_set(&rot_cnt->start_flag, 0);
+		wake_up_interruptible(&wait_done);
+	}
+}
+
+static int rot_init_timer(struct timer_list *rot_timer)
+{
+	RTT_PRINT("Timer module installing\n");
+	setup_timer(rot_timer, rot_timer_callback, 0);
+	RTT_PRINT("Timer module installing e\n");
 	return 0;
 }
 
@@ -988,6 +1038,7 @@ int rot_k_probe(struct platform_device *pdev)
 	init_waitqueue_head(&wait_queue);
 	init_waitqueue_head(&wait_done);
 	init_waitqueue_head(&thread_queue);
+	rot_init_timer(&rot_cnt->rot_timer);
 	printk(KERN_ALERT " rot_k_probe Success\n");
 	return 0;
 }
