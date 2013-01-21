@@ -32,7 +32,7 @@
 #define CHGMNG_STOP_VPROG		80	/* Isense stop point */
 #define CHGMNG_SWITCH_CV_VPROG	300	/* Isense stop point */
 #define CHGMNG_PLUSE_TIMES		3
-#define CHARGE_BEFORE_STOP		2100
+#define CHARGE_BEFORE_STOP		(1500 * 10)
 #define CHARGE_OVER_TIME		21600	/* set for charge over time, 6 hours */
 
 #define VBAT_CAPACITY_BUFF_CNT	(240/CONFIG_AVERAGE_CNT)

@@ -53,7 +53,7 @@ uint16_t voltage_capacity_table[][2] = {
 };
 
 uint16_t ac_charging_voltage_capacity_table[][2] = {
-	{4210, 100},
+	{PREVCHGEND, 100},
 	{4140, 90},
 	{4100, 80},
 	{4030, 70},
@@ -68,7 +68,7 @@ uint16_t ac_charging_voltage_capacity_table[][2] = {
 };
 
 uint16_t usb_charging_voltage_capacity_table[][2] = {
-	{4200, 100},
+	{PREVCHGEND, 100},
 	{4120, 90},
 	{4060, 80},
 	{4000, 70},
