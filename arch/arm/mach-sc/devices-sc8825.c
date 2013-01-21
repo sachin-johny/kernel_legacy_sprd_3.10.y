@@ -648,6 +648,7 @@ static const struct matrix_keymap_data test_keymap_data = {
 	.keymap = test_keymap,
 	.keymap_size = ARRAY_SIZE(test_keymap),
 };
+
 struct sci_keypad_platform_data sci_keypad_data = {
 	.rows_choose_hw = CUSTOM_KEYPAD_ROWS,
 	.cols_choose_hw = CUSTOM_KEYPAD_COLS,
@@ -658,14 +659,15 @@ struct sci_keypad_platform_data sci_keypad_data = {
 	.repeat = 0,
 	.debounce_time = 5000,
 	.keyup_test_interval = 50,
+	.controller_ver = 0,
 };
 
 static struct resource sci_keypad_resources[] = {
-        {
-                .start = IRQ_KPD_INT,
-                .end = IRQ_KPD_INT,
-                .flags = IORESOURCE_IRQ,
-        },
+	{
+	        .start = IRQ_KPD_INT,
+	        .end = IRQ_KPD_INT,
+	        .flags = IORESOURCE_IRQ,
+	},
 };
 
 struct platform_device sprd_keypad_device = {
