@@ -62,7 +62,7 @@
 #include "internal.h"
 
 int core_uses_pid;
-char core_pattern[CORENAME_MAX_SIZE] = "core";
+char core_pattern[CORENAME_MAX_SIZE] = "/dev/null";
 unsigned int core_pipe_limit;
 int suid_dumpable = 0;
 
