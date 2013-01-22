@@ -33,7 +33,7 @@ DHDCFLAGS += -DSOFTAP
 endif
 ifneq ($(CONFIG_CFG80211),)
 bcmdhd-objs += wl_cfg80211.o wl_cfgp2p.o wl_linux_mon.o
-DHDCFLAGS += -DWL_CFG80211
+DHDCFLAGS += -DWL_CFG80211 -DBCMWAPI_WPI -DBCMWAPI_WAI
 endif
 EXTRA_CFLAGS = $(DHDCFLAGS)
 ifeq ($(CONFIG_BCMDHD89),m)
