@@ -33,10 +33,12 @@ sprdboard-$(CONFIG_MACH_SP8825_OPENPHONE) += board_sp8825_openphone/
 sprdboard-$(CONFIG_MACH_SP8825EA) += board_sp8825ea/
 sprdboard-$(CONFIG_MACH_SP8825EB) += board_sp8825eb/
 sprdboard-$(CONFIG_MACH_SP6825GA) += board_sp6825ga/
+sprdboard-$(CONFIG_MACH_SP6825GB) += board_sp6825gb/
 sprdboard-$(CONFIG_MACH_GARDA) += board_garda/
 sprdboard-$(CONFIG_MACH_SP8825GA_OPENPHONE) += board_sp8825ga_openphone/
 
 obj-y += $(sprdboard-y)
+
 
 obj-$(CONFIG_SC8825_VIBRATOR) += vibrator.o
 ifeq ($(CONFIG_BCMDHD),m)

@@ -836,25 +836,33 @@ u32 wake_source_stop(void)
 static int __init emc_early_suspend_init(void)
 {
 #ifdef CONFIG_NKERNEL
-#ifndef CONFIG_MACH_SP6825GA
+#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+
+#else
 	register_early_suspend(&emc_early_suspend_desc);
 	cp_code_init();
 	//change apb clock to 76.8MHz
 	//sci_glb_set(REG_GLB_CLKDLY, 3 << 14 );
 #ifdef PM_TIMER_TEST
 	pm_test_init(); 
-#endif
-#endif
-#endif
+#endif  /*PM_TIMER_TEST*/
+
+#endif  /*CONFIG_MACH_SP6825GA  ||CONFIG_MACH_SP6825GB*/
+
+#endif  /*CONFIG_NKERNEL*/
+
 	return 0;
 }
 static void  __exit emc_early_suspend_exit(void)
 {
 #ifdef CONFIG_NKERNEL
-#ifndef CONFIG_MACH_SP6825GA
+
+#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+
+#else
 	unregister_early_suspend(&emc_early_suspend_desc);
-#endif
-#endif
+#endif   /*CONFIG_MACH_SP6825GA  ||CONFIG_MACH_SP6825GB*/
+#endif    /*CONFIG_NKERNEL*/
 }
 
 module_init(emc_early_suspend_init);

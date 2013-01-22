@@ -326,7 +326,7 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 
 static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	#ifdef CONFIG_MACH_SP6825GA
+	#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 	return sprintf(buf,
          __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":90:907:70:58"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":250:907:70:58"
@@ -833,7 +833,7 @@ static int ft5x0x_read_data(void)
 		case 5:
 			event->x5 = (s16)(buf[0x1b] & 0x0F)<<8 | (s16)buf[0x1c];
 			event->y5 = (s16)(buf[0x1d] & 0x0F)<<8 | (s16)buf[0x1e];
-		#ifdef CONFIG_MACH_SP6825GA
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 			event->x5 = event->x5*8/9;
 			event->y5 = event->y5*854/960;
 		#endif
@@ -841,7 +841,7 @@ static int ft5x0x_read_data(void)
 		case 4:
 			event->x4 = (s16)(buf[0x15] & 0x0F)<<8 | (s16)buf[0x16];
 			event->y4 = (s16)(buf[0x17] & 0x0F)<<8 | (s16)buf[0x18];
-		#ifdef CONFIG_MACH_SP6825GA
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 			event->x4 = event->x4*8/9;
 			event->y4 = event->y4*854/960;
 		#endif
@@ -849,7 +849,7 @@ static int ft5x0x_read_data(void)
 		case 3:
 			event->x3 = (s16)(buf[0x0f] & 0x0F)<<8 | (s16)buf[0x10];
 			event->y3 = (s16)(buf[0x11] & 0x0F)<<8 | (s16)buf[0x12];
-		#ifdef CONFIG_MACH_SP6825GA
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 			event->x3 = event->x3*8/9;
 			event->y3 = event->y3*854/960;
 		#endif
@@ -857,7 +857,7 @@ static int ft5x0x_read_data(void)
 		case 2:
 			event->x2 = (s16)(buf[9] & 0x0F)<<8 | (s16)buf[10];
 			event->y2 = (s16)(buf[11] & 0x0F)<<8 | (s16)buf[12];
-		#ifdef CONFIG_MACH_SP6825GA
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 			event->x2 = event->x2*8/9;
 			event->y2 = event->y2*854/960;
 		#endif
@@ -865,7 +865,7 @@ static int ft5x0x_read_data(void)
 		case 1:
 			event->x1 = (s16)(buf[3] & 0x0F)<<8 | (s16)buf[4];
 			event->y1 = (s16)(buf[5] & 0x0F)<<8 | (s16)buf[6];
-		#ifdef CONFIG_MACH_SP6825GA
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
 			event->x1 = event->x1*8/9;
 			event->y1 = event->y1*854/960;
 		#endif
