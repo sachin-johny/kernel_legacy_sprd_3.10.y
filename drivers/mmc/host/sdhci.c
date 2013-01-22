@@ -1039,11 +1039,7 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		mdelay(1);
 	}
 
-	if(host->suspending){
-		mod_timer(&host->timer, jiffies + 2*HZ/10);
-	}else{
-		mod_timer(&host->timer, jiffies + 10 * HZ);
-	}
+	mod_timer(&host->timer, jiffies + 10 * HZ);
 
 	host->cmd = cmd;
 
