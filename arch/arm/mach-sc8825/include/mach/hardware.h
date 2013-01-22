@@ -285,6 +285,7 @@
 #ifndef REGS_GLB_BASE
 #define REGS_GLB_BASE                                   ( SPRD_GREG_BASE )
 #define ANA_REGS_GLB_BASE                               ( SPRD_MISC_BASE + 0x600 )
+#define ANA_REGS_GLB2_BASE                              ( SPRD_MISC_BASE + 0x580 )
 #endif
 
 #define CHIP_ID_LOW_REG		(ANA_CTL_GLB_BASE + 0xf8)

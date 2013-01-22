@@ -4,6 +4,7 @@
 #include <linux/module.h>
 #include <linux/kthread.h>
 #include <linux/io.h>
+#include <linux/sort.h>
 #include <linux/delay.h>
 #include <linux/workqueue.h>
 #include <mach/hardware.h>
@@ -12,10 +13,14 @@
 #include <linux/io.h>
 #include <linux/spinlock.h>
 #include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
 
 #include <mach/hardware.h>
+#include <mach/regs_ahb.h>
 #include <mach/regs_glb.h>
 #include <mach/regs_ana_glb.h>
+#include <mach/regs_ana_glb2.h>
 #include <mach/sci.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
@@ -23,165 +28,218 @@
 
 #define REG_SYST_VALUE                  (SPRD_SYSCNT_BASE + 0x0004)
 
+#define debug0(format, arg...) pr_debug("dcdc: " "@@@" format, ## arg)
 #define debug(format, arg...) pr_info("dcdc: " "@@@" format, ## arg)
 #define info(format, arg...) pr_info("dcdc: " "@@@" format, ## arg)
 
+extern int in_calibration(void);
 int sprd_get_adc_cal_type(void);
 uint16_t sprd_get_adc_to_vol(uint16_t data);
-extern int (*dcdc_get_small_voltage) (u32);
-extern int (*dcdc_set_small_voltage) (u32, int);
-
-static uint32_t bat_numerators, bat_denominators;
-static int is_ddr2;
+int reguator_is_trimming(void *);
+int regulator_set_trimming(struct regulator *, int, int);
+static uint32_t bat_numerators, bat_denominators = 0;
 
 #define CALIBRATE_TO	(60 * 1)	/* one minute */
-#define MEASURE_TIMES	(128)
+#define MEASURE_TIMES	(15)
+
+static int cmp_val(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
 
 int dcdc_adc_get(int adc_chan)
 {
-	int i;
-	u32 val[MEASURE_TIMES], sum = 0, adc_vol;
+	int ret;
+	u32 val[MEASURE_TIMES], adc_res = 0, adc_vol = 0;
 	u32 chan_numerators, chan_denominators;
+
+	struct adc_sample_data adc_data = {
+		.channel_id = adc_chan,
+		.channel_type = 0,
+		.hw_channel_delay = 0,
+		.scale = true,
+		.pbuf = &val[0],
+		.sample_num = MEASURE_TIMES,
+		.sample_bits = 1,
+		.sample_speed = 0,
+		.signal_mode = 0,
+	};
 
 	sci_adc_get_vol_ratio(adc_chan, true, &chan_numerators,
 			      &chan_denominators);
 
-	for (i = 0; i < ARRAY_SIZE(val); i++) {
-		sum += val[i] = sci_adc_get_value(adc_chan, true);
-	}
-	sum /= ARRAY_SIZE(val);	/* get average value */
-	/* info("adc chan %d, value %d\n", adc_chan, sum); */
-	adc_vol = DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(sum) *
+	ret = sci_adc_get_values(&adc_data);
+	if (0 != ret)
+		goto exit;
+
+	/*
+	   for(i = 0; i < MEASURE_TIMES; i++) {
+	   printk("%d\t", val[i]);
+	   }
+	   printk("\n");
+	 */
+	sort(val, MEASURE_TIMES, sizeof(u32), cmp_val, 0);
+
+	adc_res = val[MEASURE_TIMES / 2];
+	/* info("adc chan %d, value %d\n", adc_chan, adc_res); */
+	adc_vol = DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(adc_res) *
 				    (bat_numerators * chan_denominators),
 				    (bat_denominators * chan_numerators));
+exit:
 	return adc_vol;
 }
 
-static u32 __dcdc_get_cal_ctl(u32 vol_ctl)
+struct dcdc_cal_map {
+	const char *name;	/* a-die DCDC or LDO name */
+	int def_on;		/* 1: default ON, 0: default OFF */
+	u32 def_vol;		/* default voltage (mV), could not read from a-die */
+	u32 cal_sel;		/* only one ldo cal can be enable at the same time */
+	int adc_chan;		/* multiplexed adc-channel id for LDOs */
+};
+
+struct dcdc_cal_map dcdc_cal_map[] = {
+	{"vddcore", 1, 1100, 0, ADC_CHANNEL_DCDCCORE},
+	{"vddarm", 1, 1200, 0, ADC_CHANNEL_DCDCARM},
+	{"vddmem", 1, 1200, 0, ADC_CHANNEL_DCDCMEM},	/*DDR2 */
+	{"vddmem1", 0, 1800, 0, ADC_CHANNEL_DCDCMEM},	/*DDR1 */
+	{"dcdcldo", 1, 2200, 0, ADC_CHANNEL_DCDCLDO},
+
+	{"vddrf", 1, 2850, BITS_LDO_RF_CAL_EN(-1), ADC_CHANNEL_LDO0},
+	{"avddbb", 1, 3000, BITS_LDO_ABB_CAL_EN(-1), ADC_CHANNEL_LDO0},
+	{"vddcama", 0, 2800, BITS_LDO_CAMA_CAL_EN(-1), ADC_CHANNEL_LDO0},
+
+	{"vdd3v", 0, 3000, BITS_LDO_VDD3V_CAL_EN(-1), ADC_CHANNEL_LDO1},
+	{"vdd28", 1, 2800, BITS_LDO_VDD28_CAL_EN(-1), ADC_CHANNEL_LDO1},
+	{"vddsim0", 0, 1800, BITS_LDO_VSIM_CAL_EN(-1), ADC_CHANNEL_LDO1},
+	{"vddsim1", 0, 1800, BITS_LDO_VSIM_CAL_EN(-1), ADC_CHANNEL_LDO1},
+	{"vddcammot", 0, 2800, BITS_LDO_CAMMOT_CAL_EN(-1), ADC_CHANNEL_LDO1},
+	{"vddsd0", 0, 2800, BITS_LDO_SD0_CAL_EN(-1), ADC_CHANNEL_LDO1},
+	{"vddusb", 0, 3300, BITS_LDO_USB_CAL_EN(-1), ADC_CHANNEL_LDO1},
+	{"vdd_a", 1, 1800, BITS_LDO_DVDD18_CAL_EN(-1), ADC_CHANNEL_LDO1},	/* alias dvdd18 */
+	{"vdd25", 1, 2500, BITS_LDO_VDD25_CAL_EN(-1), ADC_CHANNEL_LDO1},
+
+	{"vddcamio", 0, 1800, BITS_LDO_CAMIO_CAL_EN(-1), ADC_CHANNEL_LDO2},
+	{"vddcamcore", 0, 1500, BITS_LDO_CAMCORE_CAL_EN(-1), ADC_CHANNEL_LDO2},
+	{"vddcmmb1p2", 0, 1200, BITS_LDO_CMMB1P2_CAL_EN(-1), ADC_CHANNEL_LDO2},
+	{"vddcmmb1p8", 0, 1800, BITS_LDO_CMMB1P8_CAL_EN(-1), ADC_CHANNEL_LDO2},
+	{"vdd18", 1, 1800, BITS_LDO_VDD18_CAL_EN(-1), ADC_CHANNEL_LDO2},
+	{"vddsd1", 0, 1800, BITS_LDO_SD1_CAL_EN(-1), ADC_CHANNEL_LDO2},
+	{"vddsd3", 0, 1800, BITS_LDO_SD3_CAL_EN(-1), ADC_CHANNEL_LDO2},
+};
+
+static int dcdc_calibrate(struct regulator *dcdc, int adc_chan,
+			  const char *id, int def_vol, int to_vol, int is_cal)
 {
-	u32 cal_ctl = 0;
-	switch (vol_ctl) {
-	case ANA_REG_GLB_DCDC_CTRL0:
-		cal_ctl = ANA_REG_GLB_DCDC_CTRL_CAL;
-		break;
-	case ANA_REG_GLB_DCDCARM_CTRL0:
-		cal_ctl = ANA_REG_GLB_DCDCARM_CTRL_CAL;
-		break;
-	case ANA_REG_GLB_DCDCMEM_CTRL0:
-		cal_ctl = ANA_REG_GLB_DCDCMEM_CTRL_CAL;
-		break;
-	case ANA_REG_GLB_DCDCLDO_CTRL0:
-		cal_ctl = ANA_REG_GLB_DCDCLDO_CTRL_CAL;
-		break;
-	default:
-		break;
-	}
-	return cal_ctl;
-}
+	int ret = 0;
+	int adc_vol = 0, ctl_vol, cal_vol = 0;
 
-static int __dcdc_get_small_voltage(u32 vol_ctl)
-{
-	int cal_vol = 0;
-	u32 cal_ctl = __dcdc_get_cal_ctl(vol_ctl);
+	if (0 != regulator_is_enabled(dcdc))
+		adc_vol = dcdc_adc_get(adc_chan);
 
-	/* dcdc calibration control bits (default 00000),
-	 * small adjust voltage: 100/32mv ~= 3.125mv
-	 */
-	if (cal_ctl) {
-		cal_vol = sci_adi_read(cal_ctl) & BITS_DCDC_CAL(-1);
-		return DIV_ROUND_CLOSEST(cal_vol * 100, 32);
-	}
-	return 0;
-}
+	info("%s default %dmv, from %dmv to %dmv\n", __FUNCTION__,
+	     def_vol, adc_vol, to_vol);
 
-static int __dcdc_set_small_voltage(u32 vol_ctl, int cal_vol)
-{
-	int i = DIV_ROUND_CLOSEST(cal_vol * 32, 100) % 32;
-	u32 cal_ctl = __dcdc_get_cal_ctl(vol_ctl);
-
-	if (cal_ctl) {
-		sci_adi_raw_write(cal_ctl,
-				  BITS_DCDC_CAL(i) |
-				  BITS_DCDC_CAL_RST(BITS_DCDC_CAL(-1) - i));
-	}
-	return 0;
-}
-
-int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
-{
-	int ret;
-	int adc_vol, ctl_vol, cal_vol = 0;
-	struct regulator *dcdc = 0;
-	const char *id = NULL;
-
-	switch (adc_chan) {
-	case ADC_CHANNEL_DCDCCORE:
-		cal_vol = 1100;
-		id = "vddcore";
-		break;
-	case ADC_CHANNEL_DCDCARM:
-		cal_vol = 1200;
-		id = "vddarm";
-		break;
-	case ADC_CHANNEL_DCDCMEM:
-		if (is_ddr2)
-			cal_vol = 1200;
-		else;		/*FIXME: */
-		id = "vddmem";
-		break;
-	case ADC_CHANNEL_DCDCLDO:
-		cal_vol = 2200;
-		id = "dcdcldo";
-		break;
-	default:
-		break;
-	}
-	if (NULL == id)
+	if (!def_vol || !to_vol || !adc_vol)
 		goto exit;
-
-	dcdc = regulator_get(0, id);
-	if (IS_ERR(dcdc))
-		goto exit;
-
-	if (!def_vol) {
-		ctl_vol = regulator_get_voltage(dcdc);
-		if (IS_ERR_VALUE(ctl_vol)) {
-			info("no valid %s vol ctrl bits\n", id);
-			def_vol = cal_vol;
-		} else		/* dcdc maybe had been adjusted in uboot-spl */
-			def_vol = ctl_vol / 1000;
-	}
-
-	if (!def_vol)
-		goto exit;
-
-	adc_vol = dcdc_adc_get(adc_chan);
-
-	info("%s default %dmv, from %dmv to %dmv\n", __FUNCTION__, def_vol,
-	     adc_vol, to_vol);
 
 	cal_vol = abs(adc_vol - to_vol);
-	if (cal_vol > 200 /* mv */ )
+	if (cal_vol > to_vol / 10)	/* adjust limit 10% */
 		goto exit;
-	else if (cal_vol < to_vol / 100) {
+	else if (cal_vol < to_vol / 100 && !is_cal) {	/* margin 1% */
 		info("%s %s is ok\n", __FUNCTION__, id);
-		regulator_put(dcdc);
 		return 0;
 	}
 
+	/* always set valid vol ctrl bits */
 	ctl_vol = DIV_ROUND_CLOSEST(def_vol * to_vol, adc_vol);
-
-	ret = regulator_set_voltage(dcdc, ctl_vol * 1000, ctl_vol * 1000);
+	ret = regulator_set_trimming(dcdc, ctl_vol * 1000, to_vol * 1000);
 	if (IS_ERR_VALUE(ret))
 		goto exit;
 
-	regulator_put(dcdc);
 	return ctl_vol;
 
 exit:
-	info("%s failure\n", __FUNCTION__);
-	regulator_put(dcdc);
+	info("%s %s failure\n", __FUNCTION__, id);
 	return -1;
+}
+
+int sci_dcdc_calibrate(const char *name, int def_vol, int to_vol)
+{
+	int i, ret, adc_chan, ctl_vol;
+	struct regulator *dcdc;
+	static int is_ddr2 = 0;
+	if (bat_denominators == 0) {
+		u32 chan_numerators, chan_denominators;
+		sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
+				      &bat_denominators);
+		sci_adc_get_vol_ratio(ADC_CHANNEL_DCDCCORE, true,
+				      &chan_numerators, &chan_denominators);
+		is_ddr2 = 0 == (sci_adi_read(ANA_REG_GLB_ANA_STATUS) & BIT(6));
+		debug
+		    ("vbat cal type %d, chan scale ratio %u/%u, and dcdc %u/%u, %s\n",
+		     sprd_get_adc_cal_type(), bat_numerators, bat_denominators,
+		     chan_numerators, chan_denominators,
+		     is_ddr2 ? "ddr2" : "ddr");
+	}
+
+	if (!is_ddr2 && 0 == strcmp(name, "vddmem"))
+		name = "vddmem1";
+
+	for (i = 0; i < ARRAY_SIZE(dcdc_cal_map); i++) {
+		if (0 == strcmp(name, dcdc_cal_map[i].name))
+			break;
+	}
+
+	if (i >= ARRAY_SIZE(dcdc_cal_map))
+		return -EINVAL;	/* not found */
+
+	dcdc = regulator_get(0, name);
+	if (IS_ERR(dcdc))
+		goto exit;
+
+	if (reguator_is_trimming(regulator_get_drvdata(dcdc)))
+		goto exit;	/* already trimming, do nothing */
+
+	adc_chan = dcdc_cal_map[i].adc_chan;
+	ctl_vol = regulator_get_voltage(dcdc);
+	if (IS_ERR_VALUE(ctl_vol)) {
+		debug0("no valid %s vol ctrl bits\n", name);
+	} else			/* dcdc maybe had been adjusted in uboot-spl */
+		ctl_vol /= 1000;
+
+	if (!def_vol)
+		def_vol =
+		    (IS_ERR_VALUE(ctl_vol)) ? dcdc_cal_map[i].def_vol : ctl_vol;
+
+	if (!to_vol)
+		to_vol =
+		    (IS_ERR_VALUE(ctl_vol)) ? dcdc_cal_map[i].def_vol : ctl_vol;
+
+	/* enable ldo cal before adc sampling and ldo calibration */
+	if (0 != dcdc_cal_map[i].cal_sel) {
+		sci_adi_write(ANA_REG_GLB2_LDO_TRIM_SEL,
+			      dcdc_cal_map[i].cal_sel, -1);
+	}
+
+	ret = dcdc_calibrate(dcdc, adc_chan, name, def_vol, to_vol, 1);
+	debug0("dcdc_calibrate return %d\n", ret);
+	if (ret >= 0) {
+		msleep(10);	/* wait a moment before cal verify */
+		ret = dcdc_calibrate(dcdc, adc_chan, name,
+				     (0 == ret) ? def_vol : ret, to_vol, 0);
+		if (0 == ret) {	/* cal is ok, do not cal any more */
+			dcdc_cal_map[i].def_on = 0;
+		}
+	}
+
+	/* close ldo cal */
+	if (0 != dcdc_cal_map[i].cal_sel) {
+		sci_adi_write(ANA_REG_GLB2_LDO_TRIM_SEL, 0, -1);
+	}
+
+exit:
+	regulator_put(dcdc);
+	return 0;
 }
 
 int mpll_calibrate(int cpu_freq)
@@ -213,7 +271,7 @@ struct dcdc_delayed_work {
 static struct dcdc_delayed_work dcdc_work = {
 	.work.work.func = NULL,
 	.uptime = 0,
-	.cal_typ = 0,
+	.cal_typ = -1,		/* Invalid */
 };
 
 static u32 sci_syst_read(void)
@@ -226,62 +284,28 @@ static u32 sci_syst_read(void)
 
 static void do_dcdc_work(struct work_struct *work)
 {
-	int ret, cnt = CALIBRATE_TO;
-	int dcdc_to_vol = 1100;	/* vddcore */
-	int dcdcarm_to_vol = 1200;	/* vddarm */
-	int dcdcldo_to_vol = 2200;	/* dcdcldo */
-	int dcdcmem_to_vol = 1200;	/* dcdcmem */
-	int cpu_freq = 1000;	/* Mega */
-	u32 val = 0;
+	int i, cnt = CALIBRATE_TO;
 
 	/* debug("%s %d\n", __FUNCTION__, sprd_get_adc_cal_type()); */
 	if (dcdc_work.cal_typ == sprd_get_adc_cal_type())
 		goto exit;	/* no change, set next delayed work */
 
-	val = sci_efuse_get(5);
-	debug("%s efuse flag 0x%08x, mpll %08x\n", __FUNCTION__, val,
-	      __raw_readl(REG_GLB_M_PLL_CTL0));
-
-	if (val & BIT(16) /*1.2G flag */ ) {
-		dcdc_to_vol = 1200;
-		dcdcarm_to_vol = 1250;
-		cpu_freq = 1200;
-	}
-
-	if (is_ddr2) {
-		dcdcmem_to_vol = 1200;
-	}
-
 	dcdc_work.cal_typ = sprd_get_adc_cal_type();
-	debug("%s %d %d\n", __FUNCTION__, dcdc_work.cal_typ, cnt);
+	debug0("%s %d %d\n", __FUNCTION__, dcdc_work.cal_typ, cnt);
 
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCCORE, 0, dcdc_to_vol);
-	if (ret > 0)
-		dcdc_calibrate(ADC_CHANNEL_DCDCCORE, ret, dcdc_to_vol);
-
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 0, dcdcarm_to_vol);
-	if (ret > 0)
-		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, dcdcarm_to_vol);
-
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCLDO, 0, dcdcldo_to_vol);
-	if (ret > 0)
-		dcdc_calibrate(ADC_CHANNEL_DCDCLDO, ret, dcdcldo_to_vol);
-
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCMEM, 0, dcdcmem_to_vol);
-	if (ret > 0)
-		dcdc_calibrate(ADC_CHANNEL_DCDCMEM, ret, dcdcmem_to_vol);
+	/* four DCDCs and all LDOs Trimming if default ON */
+	for (i = 0; i < ARRAY_SIZE(dcdc_cal_map); i++) {
+		if (dcdc_cal_map[i].def_on)
+			sci_dcdc_calibrate(dcdc_cal_map[i].name, 0, 0);
+	}
 
 exit:
 	if (sci_syst_read() - dcdc_work.uptime < CALIBRATE_TO * 1000) {
 		schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
 	} else {
-		info("%s end\n", __FUNCTION__);
+		debug0("%s end.\n", __FUNCTION__);
 	}
 
-	if (cpu_freq == 1200) {
-		msleep(100);
-		mpll_calibrate(cpu_freq);
-	}
 	return;
 }
 
@@ -291,28 +315,38 @@ void dcdc_calibrate_callback(void *data)
 		INIT_DELAYED_WORK(&dcdc_work.work, do_dcdc_work);
 		dcdc_work.uptime = sci_syst_read();
 	}
-	schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(10));
+
+	dcdc_work.cal_typ = (int)data;
+	schedule_delayed_work(&dcdc_work.work, msecs_to_jiffies(1000));
+}
+
+int ldo_trimming_callback(void *data)
+{
+	int i, ret = 0;
+	const char *name = data;
+	for (i = 0; i < ARRAY_SIZE(dcdc_cal_map); i++) {
+		if (0 == strcmp(name, dcdc_cal_map[i].name))
+			break;
+	}
+
+	if (i >= ARRAY_SIZE(dcdc_cal_map))
+		return -EINVAL;	/* not found */
+
+	if (!dcdc_cal_map[i].def_on) {
+		dcdc_cal_map[i].def_on = 1;
+		debug0("%s trimming ...\n", name);
+	}
+
+	if (dcdc_work.cal_typ >= 0)
+		dcdc_calibrate_callback(0);
+	return ret;
 }
 
 static int __init dcdc_init(void)
 {
-	u32 chan_numerators, chan_denominators;
-	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
-			      &bat_denominators);
-	sci_adc_get_vol_ratio(ADC_CHANNEL_DCDCCORE, true, &chan_numerators,
-			      &chan_denominators);
-	is_ddr2 = 0 == (sci_adi_read(ANA_REG_GLB_ANA_STATUS) & BIT(6));
-	info("vbat chan sampling ratio %u/%u, and dcdc %u/%u, %s\n",
-	     bat_numerators, bat_denominators,
-	     chan_numerators, chan_denominators, is_ddr2 ? "ddr2" : "ddr");
-
-	/* setup small adjust */
-	dcdc_get_small_voltage = __dcdc_get_small_voltage;
-	dcdc_set_small_voltage = __dcdc_set_small_voltage;
-	dcdc_calibrate_callback(0);
+	if (!in_calibration())	/* bypass if in CFT */
+		dcdc_calibrate_callback(0);
 	return 0;
 }
 
-EXPORT_SYMBOL(dcdc_calibrate);
-EXPORT_SYMBOL(mpll_calibrate);
 late_initcall(dcdc_init);

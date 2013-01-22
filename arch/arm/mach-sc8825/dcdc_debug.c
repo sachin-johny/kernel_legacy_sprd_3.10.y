@@ -14,7 +14,7 @@
 int dcdc_adc_get(int adc_chan);
 
 int mpll_calibrate(int cpu_freq);
-int dcdc_calibrate(int adc_chan, int def_vol, int to_vol);
+int sci_dcdc_calibrate(const char *name, int def_vol, int to_vol);
 
 static u32 dcdc_to_vol = 0, dcdcarm_to_vol = 0;
 static u32 dcdcldo_to_vol = 0, dcdcmem_to_vol = 0;
@@ -43,42 +43,31 @@ static int debugfs_dcdcmem_get(void *data, u64 * val)
 	return 0;
 }
 
-static int do_dcdc_calibrate(int adc_chan, int to_vol)
-{
-	int ret, cnt = 3;
-	ret = dcdc_calibrate(adc_chan, 0, to_vol);
-	while (ret > 0 && cnt--) {
-		msleep(10);
-		ret = dcdc_calibrate(adc_chan, ret, to_vol);
-	}
-	return ret;
-}
-
 static int debugfs_dcdc_set(void *data, u64 val)
 {
 	int to_vol = *(u32 *) data = val;
-	do_dcdc_calibrate(ADC_CHANNEL_DCDCCORE, to_vol);
+	sci_dcdc_calibrate("vddcore", 0, to_vol);
 	return 0;
 }
 
 static int debugfs_dcdcarm_set(void *data, u64 val)
 {
 	int to_vol = *(u32 *) data = val;
-	do_dcdc_calibrate(ADC_CHANNEL_DCDCARM, to_vol);
+	sci_dcdc_calibrate("vddarm", 0, to_vol);
 	return 0;
 }
 
 static int debugfs_dcdcldo_set(void *data, u64 val)
 {
 	int to_vol = *(u32 *) data = val;
-	do_dcdc_calibrate(ADC_CHANNEL_DCDCLDO, to_vol);
+	sci_dcdc_calibrate("dcdcldo", 0, to_vol);
 	return 0;
 }
 
 static int debugfs_dcdcmem_set(void *data, u64 val)
 {
 	int to_vol = *(u32 *) data = val;
-	do_dcdc_calibrate(ADC_CHANNEL_DCDCMEM, to_vol);
+	sci_dcdc_calibrate("vddmem", 0, to_vol);
 	return 0;
 }
 

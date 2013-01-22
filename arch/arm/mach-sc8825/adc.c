@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2012 Spreadtrum Communications Inc.
+ * Copyright (C) 2012 steve zhan
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -77,6 +78,7 @@ static DEFINE_SPINLOCK(adc_lock);
 #define ADC_DEBUG		(0x60)
 
 /*ADC_CTL */
+#define ADC_MAX_SAMPLE_NUM			(0x10)
 #define BIT_SW_CH_RUN_NUM(_X_)		((((_X_) - 1) & 0xf ) << 4)
 #define BIT_ADC_BIT_MODE(_X_)		(((_X_) & 0x1) << 2)	/*0: adc in 10bits mode, 1: adc in 12bits mode */
 #define BIT_ADC_BIT_MODE_MASK		BIT_ADC_BIT_MODE(1)
@@ -237,8 +239,14 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 		*div_denominators = 9;
             return;
 	case ADC_CHANNEL_VBATBK:	//channel 17
+	case ADC_CHANNEL_LDO0:		//channel 19,20
+	case ADC_CHANNEL_LDO1:
 		*div_numerators = 1;
 		*div_denominators = 3;
+		return;
+	case ADC_CHANNEL_LDO2:		//channel 21
+		*div_numerators = 1;
+		*div_denominators = 2;
 		return;
 	default:
 		*div_numerators = 1;
@@ -256,10 +264,18 @@ int sci_adc_get_values(struct adc_sample_data *adc)
 	int ret = 0;
 	int num = 0;
 	int sample_bits_msk = 0;
-	int *pbuf = adc->pbuf;
+	int *pbuf = 0;
+
+	if (!adc || adc->channel_id > ADC_MAX)
+		return -EINVAL;
+
+	pbuf = adc->pbuf;
+	if (!pbuf)
+		return -EINVAL;
 
 	num = adc->sample_num;
-	BUG_ON(adc->channel_id > ADC_MAX || !pbuf);
+	if (num > ADC_MAX_SAMPLE_NUM)
+		return -EINVAL;
 
 	sci_adc_lock();
 

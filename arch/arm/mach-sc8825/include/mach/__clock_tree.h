@@ -206,7 +206,7 @@ SCI_CLK_ADD(clk_ccir_in, 64000000, REG_AHB_AHB_CTL0, BIT(2),
 
 SCI_CLK_ADD(clk_ccir, 0, REG_AHB_AHB_CTL0, BIT(9),
 	0, 0, REG_GLB_PLL_SCR, BIT(20)|BIT(21),
-	4, &clk_ccir_in, &clk_76p8m, &clk_48m, &ext_26m);
+	4, &clk_ccir_in, &clk_48m, &clk_12m, &clk_12m);
 
 SCI_CLK_ADD(clk_dcam, 0, &clk_dcam_core, 0,
 	0, 0, REG_GLB_PLL_SCR, BIT(4)|BIT(5),
