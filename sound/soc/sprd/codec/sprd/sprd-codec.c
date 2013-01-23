@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt) "[audio:sprd_codec] " fmt
+#define pr_fmt(fmt) "[audio:codec] " fmt
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -31,6 +31,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/completion.h>
 #include <linux/interrupt.h>
+#include <linux/spinlock.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -52,6 +53,9 @@
 #define SOC_REG(r) ((unsigned short)(r))
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
 #define ID_FUN(id, lr) ((unsigned short)(((id) << 1) | (lr)))
+
+#define SPRD_CODEC_AP_BASE_HI (SPRD_CODEC_AP_BASE & 0xFFFF0000)
+#define SPRD_CODEC_DP_BASE_HI (SPRD_CODEC_DP_BASE & 0xFFFF0000)
 
 #define SPRD_CODEC_NUM_SUPPLIES 8
 static const char *sprd_codec_supply_names[SPRD_CODEC_NUM_SUPPLIES] = {
@@ -75,6 +79,16 @@ enum {
 	SPRD_CODEC_PGA_ADCR,
 
 	SPRD_CODEC_PGA_MAX
+};
+
+const char *sprd_codec_pga_debug_str[SPRD_CODEC_PGA_MAX] = {
+	"SPKL",
+	"SPKR",
+	"HPL",
+	"HPR",
+	"EAR",
+	"ADCL",
+	"ADCR",
 };
 
 typedef int (*sprd_codec_pga_set) (struct snd_soc_codec * codec, int pgaval);
@@ -117,6 +131,38 @@ enum {
 
 	SPRD_CODEC_MIXER_MAX = SPRD_CODEC_EAR_MIXER_MAX << SPRD_CODEC_RIGHT
 };
+
+const char *sprd_codec_mixer_debug_str[SPRD_CODEC_MIXER_MAX] = {
+	"AIL->ADCL",
+	"AIL->ADCR",
+	"AIR->ADCL",
+	"AIR->ADCR",
+	"MAIN MIC->ADCL",
+	"MAIN MIC->ADCR",
+	"AUX MIC->ADCL",
+	"AUX MIC->ADCR",
+	"HP MIC->ADCL",
+	"HP MIC->ADCR",
+	"DACL->HPL",
+	"DACL->HPR",
+	"DACR->HPL",
+	"DACR->HPR",
+	"ADCL->HPL",
+	"ADCL->HPR",
+	"ADCR->HPL",
+	"ADCR->HPR",
+	"DACL->SPKL",
+	"DACL->SPKR",
+	"DACR->SPKL",
+	"DACR->SPKR",
+	"ADCL->SPKL",
+	"ADCL->SPKR",
+	"ADCR->SPKL",
+	"ADCR->SPKR",
+	"ADCL->EAR",
+	"ADCR->EAR(bug)"
+};
+
 #define IS_SPRD_CODEC_MIXER_RANG(reg) (((reg) >= SPRD_CODEC_MIXER_START) && ((reg) <= SPRD_CODEC_MIXER_MAX))
 
 typedef int (*sprd_codec_mixer_set) (struct snd_soc_codec * codec, int on);
@@ -153,6 +199,11 @@ enum {
 	SPRD_CODEC_MIC_BIAS_MAX
 };
 
+static const char *mic_bias_name[SPRD_CODEC_MIC_BIAS_MAX] = {
+	"Mic Bias",
+	"AuxMic Bias",
+};
+
 /* codec private data */
 struct sprd_codec_priv {
 	struct snd_soc_codec *codec;
@@ -163,7 +214,6 @@ struct sprd_codec_priv {
 	int ad_sample_val;
 	struct sprd_codec_mixer mixer[SPRD_CODEC_MIXER_MAX];
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
-	struct regulator_bulk_data supplies[SPRD_CODEC_NUM_SUPPLIES];
 	int mic_bias[SPRD_CODEC_MIC_BIAS_MAX];
 #ifdef CONFIG_SPRD_CODEC_USE_INT
 	int ap_irq;
@@ -174,6 +224,45 @@ struct sprd_codec_priv {
 #endif
 };
 
+/* codec local power suppliy */
+static struct sprd_codec_power_suppliy {
+	struct regulator_bulk_data supplies[SPRD_CODEC_NUM_SUPPLIES];
+	struct delayed_work mic_delayed_work;
+	struct delayed_work auxmic_delayed_work;
+	atomic_t mic_on;
+	atomic_t auxmic_on;
+	atomic_t ldo_refcount;
+} sprd_codec_power;
+
+#define SPRD_CODEC_PA_SW_AOL (BIT(0))
+#define SPRD_CODEC_PA_SW_EAR (BIT(1))
+#define SPRD_CODEC_PA_SW_FUN (SPRD_CODEC_PA_SW_AOL | SPRD_CODEC_PA_SW_EAR)
+static int sprd_codec_fun = 0;
+static DEFINE_SPINLOCK(sprd_codec_fun_lock);
+
+static void sprd_codec_set_fun(int fun)
+{
+	spin_lock(&sprd_codec_fun_lock);
+	sprd_codec_fun |= fun;
+	spin_unlock(&sprd_codec_fun_lock);
+}
+
+static void sprd_codec_clr_fun(int fun)
+{
+	spin_lock(&sprd_codec_fun_lock);
+	sprd_codec_fun &= ~fun;
+	spin_unlock(&sprd_codec_fun_lock);
+}
+
+static int sprd_codec_test_fun(int fun)
+{
+	int ret;
+	spin_lock(&sprd_codec_fun_lock);
+	ret = sprd_codec_fun & fun;
+	spin_unlock(&sprd_codec_fun_lock);
+	return ret;
+}
+
 static void sprd_codec_wait(u32 wait_time)
 {
 	if (wait_time)
@@ -181,6 +270,8 @@ static void sprd_codec_wait(u32 wait_time)
 }
 
 #if 0				/* sometime we will use this print function */
+static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
+				    unsigned int reg);
 static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 {
 	int reg;
@@ -188,20 +279,20 @@ static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 	for (reg = SPRD_CODEC_DP_BASE; reg < SPRD_CODEC_DP_END; reg += 0x10) {
 		pr_warn("0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
 			(reg - SPRD_CODEC_DP_BASE)
-			, snd_soc_read(codec, reg + 0x00)
-			, snd_soc_read(codec, reg + 0x04)
-			, snd_soc_read(codec, reg + 0x08)
-			, snd_soc_read(codec, reg + 0x0C)
+			, sprd_codec_read(codec, reg + 0x00)
+			, sprd_codec_read(codec, reg + 0x04)
+			, sprd_codec_read(codec, reg + 0x08)
+			, sprd_codec_read(codec, reg + 0x0C)
 		    );
 	}
 	pr_warn("sprd_codec register analog part\n");
 	for (reg = SPRD_CODEC_AP_BASE; reg < SPRD_CODEC_AP_END; reg += 0x10) {
 		pr_warn("0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
 			(reg - SPRD_CODEC_AP_BASE)
-			, snd_soc_read(codec, reg + 0x00)
-			, snd_soc_read(codec, reg + 0x04)
-			, snd_soc_read(codec, reg + 0x08)
-			, snd_soc_read(codec, reg + 0x0C)
+			, sprd_codec_read(codec, reg + 0x00)
+			, sprd_codec_read(codec, reg + 0x04)
+			, sprd_codec_read(codec, reg + 0x08)
+			, sprd_codec_read(codec, reg + 0x0C)
 		    );
 	}
 }
@@ -567,6 +658,37 @@ static sprd_codec_mixer_set mixer_setting[SPRD_CODEC_MIXER_MAX] = {
 	daclear_set, 0,
 };
 
+/* DO NOT USE THIS FUNCTION */
+static inline void __sprd_codec_pa_sw_en(int on)
+{
+	int mask;
+	int val;
+	mask = BIT(PA_SW_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(PMUR2, val, mask);
+}
+
+static DEFINE_SPINLOCK(sprd_codec_pa_sw_lock);
+static inline void sprd_codec_pa_sw_set(int fun)
+{
+	sprd_codec_dbg("Entering %s fun 0x%08x\n", __func__, fun);
+	spin_lock(&sprd_codec_pa_sw_lock);
+	sprd_codec_set_fun(fun);
+	__sprd_codec_pa_sw_en(1);
+	spin_unlock(&sprd_codec_pa_sw_lock);
+}
+
+static inline void sprd_codec_pa_sw_clr(int fun)
+{
+	sprd_codec_dbg("Entering %s fun 0x%08x\n", __func__, fun);
+	spin_lock(&sprd_codec_pa_sw_lock);
+	sprd_codec_clr_fun(fun);
+	if (!sprd_codec_test_fun(SPRD_CODEC_PA_SW_FUN))
+		__sprd_codec_pa_sw_en(0);
+	spin_unlock(&sprd_codec_pa_sw_lock);
+}
+
+
 /* inter PA */
 
 static inline void sprd_codec_pa_d_en(int on)
@@ -602,9 +724,7 @@ static inline void sprd_codec_pa_ldo_en(int on)
 	val = on ? mask : 0;
 	arch_audio_codec_write_mask(PMUR2, val, mask);
 	if (on) {
-		mask = BIT(PA_SW_EN);
-		val = 0;
-		arch_audio_codec_write_mask(PMUR2, val, mask);
+		sprd_codec_pa_sw_clr(SPRD_CODEC_PA_SW_AOL);
 	}
 }
 
@@ -633,14 +753,19 @@ static inline void sprd_codec_pa_en(int on)
 	int mask;
 	int val;
 	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	spin_lock(&sprd_codec_pa_sw_lock);
 	if (on) {
 		mask = BIT(PA_EN);
 		val = mask;
 	} else {
-		mask = BIT(PA_EN) | BIT(PA_SW_EN) | BIT(PA_LDO_EN);
+		if (!sprd_codec_test_fun(SPRD_CODEC_PA_SW_FUN))
+			mask = BIT(PA_EN) | BIT(PA_SW_EN) | BIT(PA_LDO_EN);
+		else
+			mask = BIT(PA_EN) | BIT(PA_LDO_EN);
 		val = 0;
 	}
 	arch_audio_codec_write_mask(PMUR2, val, mask);
+	spin_unlock(&sprd_codec_pa_sw_lock);
 }
 
 static inline void sprd_codec_inter_pa_init(void)
@@ -651,7 +776,7 @@ static inline void sprd_codec_inter_pa_init(void)
 
 int sprd_inter_speaker_pa(int on)
 {
-	pr_info("Entering %s set %d\n", __func__, on);
+	pr_info("inter PA switch %s\n", on ? "ON" : "OFF");
 	mutex_lock(&inter_pa_mutex);
 	if (on) {
 		sprd_codec_pa_d_en(inter_pa.setting.is_classD_mode);
@@ -674,6 +799,28 @@ int sprd_inter_speaker_pa(int on)
 }
 
 EXPORT_SYMBOL(sprd_inter_speaker_pa);
+
+/* mic bias external */
+
+static inline void sprd_codec_mic_bias_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(MICBIAS_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(PMUR1, val, mask);
+}
+
+static inline void sprd_codec_auxmic_bias_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUXMICBIAS_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(PMUR1, val, mask);
+}
 
 static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
 				      int mask, int shift)
@@ -744,32 +891,75 @@ static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 	return 0;
 }
 
+static int sprd_codec_update_bits(struct snd_soc_codec *codec,
+				  unsigned short reg, unsigned int mask,
+				  unsigned int value)
+{
+	if (!codec) {
+		int rreg = reg | SPRD_CODEC_AP_BASE_HI;
+		return arch_audio_codec_write_mask(rreg, value, mask);
+	} else {
+		return snd_soc_update_bits(codec, reg, mask, value);
+	}
+}
+
 static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 {
 	int i;
-	struct snd_soc_codec *codec = sprd_codec->codec;
+	int ret;
+	struct snd_soc_codec *codec = 0;
 	sprd_codec_dbg("Entering %s\n", __func__);
 
-	arch_audio_codec_reg_enable();
-	arch_audio_codec_enable();
-	arch_audio_codec_reset();
+	atomic_inc(&sprd_codec_power.ldo_refcount);
+	if (atomic_read(&sprd_codec_power.ldo_refcount) == 1) {
+		sprd_codec_dbg("ldo on!\n");
+		if (sprd_codec) {
+			codec = sprd_codec->codec;
+		}
+		arch_audio_codec_switch(AUDIO_TO_ARM_CTRL);
+		arch_audio_codec_reg_enable();
+		arch_audio_codec_enable();
+		arch_audio_codec_reset();
 
-	regulator_bulk_enable(ARRAY_SIZE(sprd_codec->supplies),
-			      sprd_codec->supplies);
-	for (i = 0; i < ARRAY_SIZE(sprd_codec->supplies); i++)
-		regulator_set_mode(sprd_codec->supplies[i].consumer,
-				   REGULATOR_MODE_STANDBY);
+		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
+			sprd_codec_power.supplies[i].supply =
+			    sprd_codec_supply_names[i];
 
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_IBIAS_EN),
-			    BIT(BG_IBIAS_EN));
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_EN), BIT(BG_EN));
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_EN), BIT(VCM_EN));
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_BUF_EN),
-			    BIT(VCM_BUF_EN));
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VB_EN), BIT(VB_EN));
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VBO_EN), BIT(VBO_EN));
+		ret =
+		    regulator_bulk_get(NULL,
+				       ARRAY_SIZE(sprd_codec_power.supplies),
+				       sprd_codec_power.supplies);
+		if (ret != 0) {
+			pr_err("Failed to request supplies: %d\n", ret);
+		} else {
 
-	sprd_codec_wait(SPRD_CODEC_LDO_WAIT_TIME);
+			regulator_bulk_enable(ARRAY_SIZE
+					      (sprd_codec_power.supplies),
+					      sprd_codec_power.supplies);
+			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
+			     i++)
+				regulator_set_mode(sprd_codec_power.supplies[i].
+						   consumer,
+						   REGULATOR_MODE_STANDBY);
+		}
+
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(BG_IBIAS_EN),
+				       BIT(BG_IBIAS_EN));
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(BG_EN),
+				       BIT(BG_EN));
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_EN),
+				       BIT(VCM_EN));
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_BUF_EN),
+				       BIT(VCM_BUF_EN));
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(VB_EN),
+				       BIT(VB_EN));
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(VBO_EN),
+				       BIT(VBO_EN));
+
+		if (sprd_codec) {
+			sprd_codec_wait(SPRD_CODEC_LDO_WAIT_TIME);
+		}
+	}
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return 0;
@@ -778,30 +968,113 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 {
 	int i;
-	struct snd_soc_codec *codec = sprd_codec->codec;
+	struct snd_soc_codec *codec = 0;
 	sprd_codec_dbg("Entering %s\n", __func__);
 
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_EN), 0);
-	sprd_codec_wait(SPRD_CODEC_LDO_VCM_TIME);
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_BUF_EN), 0);
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VB_EN), 0);
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(VBO_EN), 0);
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_IBIAS_EN), 0);
-	snd_soc_update_bits(codec, SOC_REG(PMUR1), BIT(BG_EN), 0);
+	if (atomic_dec_and_test(&sprd_codec_power.ldo_refcount)) {
+		if (sprd_codec) {
+			codec = sprd_codec->codec;
+		}
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_EN), 0);
+		sprd_codec_wait(SPRD_CODEC_LDO_VCM_TIME);
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(VCM_BUF_EN),
+				       0);
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(VB_EN), 0);
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(VBO_EN), 0);
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(BG_IBIAS_EN),
+				       0);
+		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(BG_EN), 0);
 
-	regulator_bulk_disable(ARRAY_SIZE(sprd_codec->supplies),
-			       sprd_codec->supplies);
-	for (i = 0; i < ARRAY_SIZE(sprd_codec->supplies); i++)
-		regulator_set_mode(sprd_codec->supplies[i].consumer,
-				   REGULATOR_MODE_NORMAL);
+		regulator_bulk_disable(ARRAY_SIZE(sprd_codec_power.supplies),
+				       sprd_codec_power.supplies);
+		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
+			regulator_set_mode(sprd_codec_power.supplies[i].
+					   consumer, REGULATOR_MODE_NORMAL);
 
-	arch_audio_codec_reset();
-	arch_audio_codec_disable();
-	arch_audio_codec_reg_disable();
+		regulator_bulk_free(ARRAY_SIZE(sprd_codec_power.supplies),
+				    sprd_codec_power.supplies);
+
+		arch_audio_codec_reset();
+		arch_audio_codec_disable();
+		arch_audio_codec_reg_disable();
+		sprd_codec_dbg("ldo off!\n");
+	}
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return 0;
 }
+
+static int sprd_codec_ldo_control(int on)
+{
+	if (on) {
+		return sprd_codec_ldo_on(0);
+	} else {
+		return sprd_codec_ldo_off(0);
+	}
+}
+
+static void sprd_codec_mic_delay_worker(struct work_struct *work)
+{
+	int on = atomic_read(&sprd_codec_power.mic_on) > 0;
+	sprd_codec_ldo_control(on);
+	sprd_codec_mic_bias_en(on);
+}
+
+static void sprd_codec_auxmic_delay_worker(struct work_struct *work)
+{
+	int on = atomic_read(&sprd_codec_power.auxmic_on) > 0;
+	sprd_codec_ldo_control(on);
+	sprd_codec_auxmic_bias_en(on);
+}
+
+static int sprd_codec_mic_bias_inter(int on, atomic_t * v)
+{
+	if (on) {
+		atomic_inc(v);
+		return 1;
+	} else {
+		if (atomic_read(v) > 0) {
+			atomic_dec(v);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
+					 work_func_t func)
+{
+	if (!delayed_work->work.func) {
+		INIT_DELAYED_WORK(delayed_work, func);
+	}
+}
+
+int sprd_codec_mic_bias_control(int on)
+{
+	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.mic_on)) {
+		sprd_codec_init_delayed_work(&sprd_codec_power.mic_delayed_work,
+					     sprd_codec_mic_delay_worker);
+		schedule_delayed_work(&sprd_codec_power.mic_delayed_work,
+				      msecs_to_jiffies(1));
+	}
+	return 0;
+}
+
+EXPORT_SYMBOL(sprd_codec_mic_bias_control);
+
+int sprd_codec_auxmic_bias_control(int on)
+{
+	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.auxmic_on)) {
+		sprd_codec_init_delayed_work
+		    (&sprd_codec_power.auxmic_delayed_work,
+		     sprd_codec_auxmic_delay_worker);
+		schedule_delayed_work(&sprd_codec_power.auxmic_delayed_work,
+				      msecs_to_jiffies(1));
+	}
+	return 0;
+}
+
+EXPORT_SYMBOL(sprd_codec_auxmic_bias_control);
 
 static int sprd_codec_open(struct snd_soc_codec *codec)
 {
@@ -843,13 +1116,37 @@ static void sprd_codec_power_disable(struct snd_soc_codec *codec)
 	}
 }
 
+static const char *get_event_name(int event)
+{
+	const char *ev_name;
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		ev_name = "PRE_PMU";
+		break;
+	case SND_SOC_DAPM_POST_PMU:
+		ev_name = "POST_PMU";
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		ev_name = "PRE_PMD";
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		ev_name = "POST_PMD";
+		break;
+	default:
+		BUG();
+		return 0;
+	}
+	return ev_name;
+}
+
 static int power_event(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -873,7 +1170,8 @@ static int adie_dac_event(struct snd_soc_dapm_widget *w,
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -882,12 +1180,14 @@ static int adie_dac_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, SOC_REG(AUDIF_ENB),
 					    BIT(AUDIFA_DAC_EN),
 					    BIT(AUDIFA_DAC_EN));
+			pr_info("DAC ON\n");
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (atomic_dec_and_test(&sprd_codec->adie_dac_refcount)) {
 			snd_soc_update_bits(codec, SOC_REG(AUDIF_ENB),
 					    BIT(AUDIFA_DAC_EN), 0);
+			pr_info("DAC OFF\n");
 		}
 		break;
 	default:
@@ -907,7 +1207,8 @@ static int adie_adc_event(struct snd_soc_dapm_widget *w,
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -916,12 +1217,14 @@ static int adie_adc_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec, SOC_REG(AUDIF_ENB),
 					    BIT(AUDIFA_ADC_EN),
 					    BIT(AUDIFA_ADC_EN));
+			pr_info("ADC ON\n");
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (atomic_dec_and_test(&sprd_codec->adie_adc_refcount)) {
 			snd_soc_update_bits(codec, SOC_REG(AUDIF_ENB),
 					    BIT(AUDIFA_ADC_EN), 0);
+			pr_info("ADC OFF\n");
 		}
 		break;
 	default:
@@ -1059,7 +1362,8 @@ static int hp_pop_event(struct snd_soc_dapm_widget *w,
 	int mask;
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1115,14 +1419,15 @@ static int hp_pop_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *kcontrol, int event)
 {
 	int ret = 0;
-	sprd_codec_dbg("Entering %s event =0x%x wait %d\n", __func__, event, CONFIG_HP_POP_DELAY_TIME);
+	sprd_codec_dbg("Entering %s event is %s wait %dms\n", __func__,
+		       get_event_name(event), CONFIG_HP_POP_DELAY_TIME);
 	switch (event) {
-		case SND_SOC_DAPM_POST_PMU:
-			sprd_codec_wait(CONFIG_HP_POP_DELAY_TIME);
-			break;
-		default:
-			BUG();
-			ret = -EINVAL;
+	case SND_SOC_DAPM_POST_PMU:
+		sprd_codec_wait(CONFIG_HP_POP_DELAY_TIME);
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
 	}
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -1138,12 +1443,15 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 #endif
 	int ret = 0;
 
-	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
+#if 0				/* do not enable the diff function from weifeng.ni */
 		snd_soc_update_bits(codec, SOC_REG(DCR1), BIT(DIFF_EN),
 				    BIT(DIFF_EN));
+#endif
 
 #ifndef CONFIG_CODEC_NO_HP_POP
 		mask = HP_POP_CTL_MASK << HP_POP_CTL;
@@ -1191,13 +1499,15 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
 
 	if (snd_soc_read(codec, DCR1) & BIT(AOL_EN)) {
-		snd_soc_update_bits(codec, SOC_REG(PMUR2), BIT(PA_SW_EN),
-				    (event ==
-				     SND_SOC_DAPM_POST_PMU) ? BIT(PA_SW_EN) :
-				    0);
+		if (event == SND_SOC_DAPM_POST_PMU)
+			sprd_codec_pa_sw_set(SPRD_CODEC_PA_SW_AOL);
+		else
+			sprd_codec_pa_sw_clr(SPRD_CODEC_PA_SW_AOL);
+
 		_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
 			       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT, 1);
 	}
@@ -1211,11 +1521,38 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+#ifdef CONFIG_SPRD_CODEC_EAR_WITH_IN_SPK
+static int ear_switch_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol, int event)
+{
+	int ret = 0;
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		sprd_codec_pa_sw_set(SPRD_CODEC_PA_SW_EAR);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		sprd_codec_pa_sw_clr(SPRD_CODEC_PA_SW_EAR);
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
+
+	sprd_codec_dbg("Leaving %s\n", __func__);
+
+	return ret;
+}
+#endif
+
 static int adc_switch_event(struct snd_soc_dapm_widget *w,
 			    struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
-	sprd_codec_dbg("Entering %s event =0x%x\n", __func__, event);
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
 
 	_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
 		       SPRD_CODEC_LEFT,
@@ -1240,8 +1577,9 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 	int ret = 0;
 	int min = sprd_codec_pga_cfg[id].min;
 
-	sprd_codec_dbg("Entering %s id = %d event = 0x%x\n", __func__, id,
-		       event);
+	sprd_codec_dbg("Entering %s set %s(%d) event is %s\n", __func__,
+		       sprd_codec_pga_debug_str[id], pga->pgaval,
+		       get_event_name(event));
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1262,6 +1600,36 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int mic_bias_event(struct snd_soc_dapm_widget *w,
+			  struct snd_kcontrol *kcontrol, int event)
+{
+	int id = FUN_REG(w->reg);
+	int ret = 0;
+
+	sprd_codec_dbg("Entering %s %s event is %s\n", __func__,
+		       mic_bias_name[id], get_event_name(event));
+
+	switch (id) {
+	case SPRD_CODEC_MIC_BIAS:
+		if (!(atomic_read(&sprd_codec_power.mic_on) > 0)) {
+			sprd_codec_mic_bias_en(SND_SOC_DAPM_EVENT_ON(event));
+		}
+		break;
+	case SPRD_CODEC_AUXMIC_BIAS:
+		if (!(atomic_read(&sprd_codec_power.auxmic_on) > 0)) {
+			sprd_codec_auxmic_bias_en(SND_SOC_DAPM_EVENT_ON(event));
+		}
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
+
+	sprd_codec_dbg("Leaving %s\n", __func__);
+
+	return ret;
+}
+
 static int mixer_event(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *kcontrol, int event)
 {
@@ -1271,7 +1639,8 @@ static int mixer_event(struct snd_soc_dapm_widget *w,
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
 
-	pr_info("Entering %s id = %d event =0x%x\n", __func__, id, event);
+	pr_info("%s event is %s\n", sprd_codec_mixer_debug_str[id],
+		get_event_name(event));
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
@@ -1317,8 +1686,8 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
 
-	pr_info("Entering %s id = %d %ld\n", __func__, id,
-		ucontrol->value.integer.value[0]);
+	pr_info("set %s switch %s\n", sprd_codec_mixer_debug_str[id],
+		ucontrol->value.integer.value[0] ? "ON" : "OFF");
 
 	if (mixer->on == ucontrol->value.integer.value[0])
 		return 0;
@@ -1442,7 +1811,8 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   0),
 	SND_SOC_DAPM_DAC_E("DAC", "Playback", SND_SOC_NOPM, 0, 0, NULL, 0),
 #ifdef CONFIG_CODEC_NO_HP_POP
-	SND_SOC_DAPM_PGA_S("HP POP", 6, SND_SOC_NOPM, 0, 0, hp_pop_event, SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_PGA_S("HP POP", 6, SND_SOC_NOPM, 0, 0, hp_pop_event,
+			   SND_SOC_DAPM_POST_PMU),
 #else
 	SND_SOC_DAPM_SUPPLY_S("HP POP", 3, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
@@ -1491,7 +1861,14 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 				   (SPRD_CODEC_EAR_DACL, SPRD_CODEC_LEFT)), 0,
 			   0, mixer_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+#ifdef CONFIG_SPRD_CODEC_EAR_WITH_IN_SPK
+	SND_SOC_DAPM_PGA_S("EAR Switch", 6, SOC_REG(DCR1), EAR_EN, 0,
+			   ear_switch_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+#else
 	SND_SOC_DAPM_PGA_S("EAR Switch", 6, SOC_REG(DCR1), EAR_EN, 0, NULL, 0),
+#endif
+
 	SND_SOC_DAPM_PGA_S("EAR Mute", 7, FUN_REG(SPRD_CODEC_PGA_EAR), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
@@ -1530,8 +1907,13 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_ADC_E("ADC", "Capture", SND_SOC_NOPM, 0, 0, NULL, 0),
 
-	SND_SOC_DAPM_MICBIAS("Mic Bias", SOC_REG(PMUR1), MICBIAS_EN, 0),
-	SND_SOC_DAPM_MICBIAS("AuxMic Bias", SOC_REG(PMUR1), AUXMICBIAS_EN, 0),
+	SND_SOC_DAPM_MICBIAS_E("Mic Bias", FUN_REG(SPRD_CODEC_MIC_BIAS), 0, 0,
+			       mic_bias_event,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MICBIAS_E("AuxMic Bias", FUN_REG(SPRD_CODEC_AUXMIC_BIAS),
+			       0, 0,
+			       mic_bias_event,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_OUTPUT("HEAD_P_L"),
 	SND_SOC_DAPM_OUTPUT("HEAD_P_R"),
@@ -1671,7 +2053,7 @@ static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,
 	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[reg]);
 	int ret = 0;
 
-	pr_info("Entering %s id %d %ld\n", __func__, reg,
+	pr_info("set PGA[%s] to %ld\n", sprd_codec_pga_debug_str[reg],
 		ucontrol->value.integer.value[0]);
 
 	val = (ucontrol->value.integer.value[0] & mask);
@@ -1717,8 +2099,8 @@ static int sprd_codec_inter_pa_put(struct snd_kcontrol *kcontrol,
 	unsigned int val;
 	int ret = 0;
 
-	pr_info("Entering %s %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
+	pr_info("config inter PA 0x%08x\n", (int)ucontrol->value.integer.value[0]);
+
 	val = (ucontrol->value.integer.value[0] & mask);
 	if (invert)
 		val = max - val;
@@ -1753,11 +2135,6 @@ static int sprd_codec_inter_pa_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static const char *mic_bias_name[SPRD_CODEC_MIC_BIAS_MAX] = {
-	"Mic Bias",
-	"AuxMic Bias",
-};
-
 static int sprd_codec_mic_bias_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -1773,14 +2150,16 @@ static int sprd_codec_mic_bias_put(struct snd_kcontrol *kcontrol,
 	int ret = 0;
 	int id = reg;
 
-	pr_info("Entering %s id %d %ld\n", __func__, id,
-		ucontrol->value.integer.value[0]);
 	val = (ucontrol->value.integer.value[0] & mask);
+
+	pr_info("%s switch %s\n", mic_bias_name[id], val ? "ON" : "OFF");
+
 	if (invert)
 		val = max - val;
 	if (sprd_codec->mic_bias[id] == val) {
 		return 0;
 	}
+
 	sprd_codec->mic_bias[id] = val;
 	if (val) {
 		ret =
@@ -1850,9 +2229,6 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SPRD_CODEC_MIC_BIAS("AUXMIC Bias Switch", SPRD_CODEC_AUXMIC_BIAS),
 };
-
-#define SPRD_CODEC_AP_BASE_HI (SPRD_CODEC_AP_BASE & 0xFFFF0000)
-#define SPRD_CODEC_DP_BASE_HI (SPRD_CODEC_DP_BASE & 0xFFFF0000)
 
 static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 				    unsigned int reg)
@@ -1926,11 +2302,11 @@ static int sprd_codec_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		sprd_codec->da_sample_val = rate;
-		pr_info("sprd_codec da sample rate is [%d]\n", rate);
+		pr_info("playback rate is [%d]\n", rate);
 		sprd_codec_set_sample_rate(codec, rate, mask, shift);
 	} else {
 		sprd_codec->ad_sample_val = rate;
-		pr_info("sprd_codec ad sample rate is [%d]\n", rate);
+		pr_info("capture rate is [%d]\n", rate);
 		sprd_codec_set_ad_sample_rate(codec, rate, mask, shift);
 	}
 
@@ -2140,7 +2516,6 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 
 static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 {
-	int i;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
@@ -2149,15 +2524,6 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 	codec->dapm.idle_bias_off = 1;
 
 	sprd_codec->codec = codec;
-
-	for (i = 0; i < ARRAY_SIZE(sprd_codec->supplies); i++)
-		sprd_codec->supplies[i].supply = sprd_codec_supply_names[i];
-
-	ret = regulator_bulk_get(NULL, ARRAY_SIZE(sprd_codec->supplies),
-				 sprd_codec->supplies);
-	if (ret != 0) {
-		pr_err("Failed to request supplies: %d\n", ret);
-	}
 
 	sprd_codec_proc_init(sprd_codec);
 
@@ -2169,13 +2535,7 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 /* power down chip */
 static int sprd_codec_soc_remove(struct snd_soc_codec *codec)
 {
-	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	sprd_codec_dbg("Entering %s\n", __func__);
-
-	regulator_bulk_disable(ARRAY_SIZE(sprd_codec->supplies),
-			       sprd_codec->supplies);
-	regulator_bulk_free(ARRAY_SIZE(sprd_codec->supplies),
-			    sprd_codec->supplies);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return 0;

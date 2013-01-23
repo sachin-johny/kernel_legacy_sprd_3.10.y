@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt) "[audio:vbc] " fmt
+#define pr_fmt(fmt) "[audio: vbc ] " fmt
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -530,7 +530,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 		if (!s_vbc_clk) {
 			arch_audio_vbc_reg_disable();
 		}
-		pr_info("Real close the VBC\n");
+		pr_info("close the VBC\n");
 	}
 
 	if (s_vbc_clk) {
@@ -801,7 +801,7 @@ static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai)
 			struct vbc_eq_profile *now =
 			    &vbc_eq_setting.data[vbc_eq_setting.now_profile];
 			data = now->effect_paras;
-			pr_info("vbc eq apply is '%s'\n", now->name);
+			pr_info("vbc eq apply '%s'\n", now->name);
 			vbc_eq_setting.vbc_eq_apply(codec_dai, data);
 		}
 		mutex_unlock(&load_mutex);
@@ -821,8 +821,8 @@ static int vbc_eq_profile_put(struct snd_kcontrol *kcontrol,
 {
 	int ret = 0;
 
-	pr_info("Entering %s %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
+	pr_info("vbc eq select %ld max %d\n", ucontrol->value.integer.value[0],
+		vbc_eq_setting.hdr.num_profile);
 
 	ret = ucontrol->value.integer.value[0];
 	if (ret == vbc_eq_setting.now_profile) {
@@ -888,7 +888,8 @@ static void vbc_eq_delay_work(struct work_struct *work)
 	struct vbc_eq_delayed_work *delay_work = container_of(work,
 							      struct
 							      vbc_eq_delayed_work,
-							      delayed_work.work);
+							      delayed_work.
+							      work);
 	struct snd_soc_codec *codec = delay_work->codec;
 	int ret;
 	ret = vbc_replace_controls(codec, &vbc_eq_setting.equalizer_control, 1);
@@ -1077,8 +1078,9 @@ static int vbc_switch_put(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
 	int ret;
-	pr_info("Entering %s %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
+	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
+	pr_info("VBC switch to %s\n",
+		texts->texts[ucontrol->value.integer.value[0]]);
 
 	ret = ucontrol->value.integer.value[0];
 	ret = arch_audio_vbc_switch(ret == 0 ?
@@ -1099,8 +1101,8 @@ static int vbc_eq_switch_put(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
 	int ret;
-	pr_info("Entering %s %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
+	pr_info("VBC eq switch %s\n",
+		ucontrol->value.integer.value[0] ? "ON" : "OFF");
 
 	ret = ucontrol->value.integer.value[0];
 	if (ret == vbc_eq_setting.is_active) {
@@ -1133,8 +1135,8 @@ static int vbc_eq_load_put(struct snd_kcontrol *kcontrol,
 {
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	int ret;
-	pr_info("Entering %s %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
+	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
+	pr_info("VBC eq %s\n", texts->texts[ucontrol->value.integer.value[0]]);
 
 	ret = ucontrol->value.integer.value[0];
 	if (ret == 1) {
@@ -1165,8 +1167,8 @@ static int vbc_dg_put(struct snd_kcontrol *kcontrol,
 	int id = FUN_REG(mc->reg);
 	int vbc_idx = vbc_str_2_index(mc->shift);
 
-	pr_info("Entering %s %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
+	pr_info("VBC %s%s DG set 0x%02x\n", vbc_idx == 1 ? "ADC" : "DAC",
+		id == VBC_LEFT ? "L" : "R", (int)ucontrol->value.integer.value[0]);
 
 	ret = ucontrol->value.integer.value[0];
 	if (ret == vbc[vbc_idx].dg_val[id]) {
@@ -1202,8 +1204,9 @@ static int vbc_dg_switch_put(struct snd_kcontrol *kcontrol,
 	int id = FUN_REG(mc->reg);
 	int vbc_idx = vbc_str_2_index(mc->shift);
 
-	pr_info("Entering %s %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
+	pr_info("VBC %s%s DG switch %s\n", vbc_idx == 1 ? "ADC" : "DAC",
+		id == VBC_LEFT ? "L" : "R",
+		ucontrol->value.integer.value[0] ? "ON" : "OFF");
 
 	ret = ucontrol->value.integer.value[0];
 	if (ret == vbc[vbc_idx].dg_switch[id]) {
