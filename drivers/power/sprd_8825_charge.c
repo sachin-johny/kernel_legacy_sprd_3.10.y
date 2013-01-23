@@ -545,9 +545,19 @@ void sprd_set_chg_cur(uint32_t chg_current)
 
 void sprd_chg_init(void)
 {
+	unsigned int chip_id = 0;
+
 	sci_adi_write(ANA_CHGR_CTRL0, CHGR_CC_EN_BIT,
 		      (CHGR_CC_EN_BIT | CHGR_CC_EN_RST_BIT));
 	sci_adi_set(ANA_CHGR_CTRL1, CHGR_CURVE_SHARP_BIT);
+
+	chip_id = sci_adi_read(CHIP_ID_LOW_REG);
+	chip_id |= (sci_adi_read(CHIP_ID_HIGH_REG) << 16);
+
+	if (chip_id == 0x8820A001) {	//metalfix
+		adc_voltage_table[0][0] = 3329;
+		adc_voltage_table[1][0] = 2855;
+	}
 }
 
 /* TODO: put these struct into sprd_battery_data */
