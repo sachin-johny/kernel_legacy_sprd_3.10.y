@@ -883,6 +883,8 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	data->battery_timer.function = battery_handler;
 	data->battery_timer.data = (unsigned long)data;
 
+	sprd_chg_init();
+
 	printk("probe adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],
 	       adc_voltage_table[1][0]);
 
@@ -916,7 +918,6 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	}
 	data->irq = ret;
 #endif
-	sprd_chg_init();
 
 	for (i = 0; i < CONFIG_AVERAGE_CNT; i++) {
 retry_adc:
