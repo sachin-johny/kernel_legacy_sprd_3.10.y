@@ -795,9 +795,6 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 static int rot_k_start_copy_data_from_virtual(ROT_CFG_T * param_ptr)
 {
 	struct sprd_dma_channel_desc dma_desc;
-	uint32_t byte_per_pixel = 1;
-	uint32_t src_img_postm = 0;
-	uint32_t dst_img_postm = 0;
 	uint32_t dma_src_phy;
 	uint32_t src_vir_addr = param_ptr->src_addr.y_addr;
 	uint32_t dma_dst_phy = param_ptr->dst_addr.y_addr;

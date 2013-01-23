@@ -1476,8 +1476,9 @@ int32_t    dcam_read_registers(uint32_t* reg_buf, uint32_t *buf_len)
 
 static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 {
-	uint32_t                status, i, irq_line, err_flag = 0, flag;
+	uint32_t                status, irq_line, err_flag = 0, flag;
 	void                    *data;
+	int32_t                 i;
 
 	status = REG_RD(DCAM_INT_STS);
 	if (unlikely(0 == status)) {

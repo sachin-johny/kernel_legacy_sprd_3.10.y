@@ -64,7 +64,7 @@ enum
 	V4L2_TX_STOP  = 0xFF
 };
 
-static unsigned video_nr = -1;
+static int video_nr = -1;
 module_param(video_nr, uint, 0644);
 MODULE_PARM_DESC(video_nr, "videoX start number, -1 is autodetect");
 
@@ -990,10 +990,12 @@ static int sprd_v4l2_queue_init(struct dcam_queue *queue)
 
 static int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node)
 {
-	struct dcam_node         *ori_node = queue->write;
+	struct dcam_node         *ori_node;
 
 	if (NULL == queue || NULL == node)
 		return -EINVAL;
+
+	ori_node = queue->write;
 
 	*queue->write++ = *node;
 	if (queue->write > &queue->node[DCAM_QUEUE_LENGTH-1]) {
@@ -1732,7 +1734,7 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 	rt_word[0] = DCAM_SC_LINE_BUF_LENGTH;
 	rt_word[1] = DCAM_SC_COEFF_MAX;
-	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor \n", rt_word[0], rt_word[1]);
+	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor %d.\n", rt_word[0], rt_word[1]);
 	(void)file; (void)cnt; (void)cnt_ret;
 	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
 }

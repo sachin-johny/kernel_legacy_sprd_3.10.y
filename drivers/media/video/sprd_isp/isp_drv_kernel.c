@@ -306,10 +306,12 @@ static int _isp_queue_init(struct isp_queue *queue)
 
 static int _isp_queue_write(struct isp_queue *queue, struct isp_node *node)
 {
-	struct isp_node 	*ori_node = queue->write;
+	struct isp_node 	*ori_node;
 
 	if (NULL == queue || NULL == node)
 	return -EINVAL;
+
+	ori_node = queue->write;
 
 	//ISP_PRINT("_isp_queue_write called!\n");
 	*queue->write++ = *node;
@@ -610,7 +612,7 @@ static ssize_t _isp_kernel_read (struct file *pf, char __user *buf, size_t count
 		goto free_tmp_buf;
 	}
 	mutex_lock (&s_isp_lock);
-	if (count < 0) {
+	if (count == 0) {
 		ret = -EINVAL;
 		mutex_unlock(&s_isp_lock);
 		ISP_PRINT("isp_k: read invalidate param, count = %d\n", (int32_t)count);
@@ -624,11 +626,7 @@ static ssize_t _isp_kernel_read (struct file *pf, char __user *buf, size_t count
 		goto free_tmp_buf;
 	}
 
-	if (unlikely (!p)) {
-		offsets  = pf->f_pos;
-	} else {
-		offsets = *p;
-	}
+	offsets = *p;
 
 	if ( (offsets < 0)||(g_isp_device.size < offsets)) {
 		ret = -EINVAL;
@@ -703,7 +701,7 @@ static ssize_t _isp_kernel_write (struct file *fl, const char __user *buf, size_
 	}
 
 	mutex_lock (&s_isp_lock);
-	if (count < 0) {
+	if (count == 0) {
 		ret  = -EINVAL;
 		ISP_PRINT ("isp_k: write invalidate param, count = %d\n", (int32_t) count);
 		goto func_exit;
@@ -747,7 +745,7 @@ static ssize_t _isp_kernel_write (struct file *fl, const char __user *buf, size_
 	fl->f_pos += total_write;
 
 	mutex_unlock(&s_isp_lock);
-	if (!p) {
+	if (p) {
 		* p += total_write;
 	}
 	ret = total_write;
@@ -764,11 +762,12 @@ func_exit:
 
 static irqreturn_t _isp_irq_root(int irq, void *dev_id)
 {
-	int32_t	ret = 0;
+	int32_t	    ret = 0;
 	uint32_t	status = 0;
 	uint32_t	irq_line = 0;
 	uint32_t	irq_status = 0;
-	uint32_t	flag = 0, i = 0;
+	uint32_t	flag = 0;
+	int32_t     i = 0;
 	struct isp_node    node = { 0 };
 
 	status = ISP_REG_RD(ISP_INT_STATUS);
@@ -800,10 +799,7 @@ static irqreturn_t _isp_irq_root(int irq, void *dev_id)
 void _dcam_isp_root(void)
 {
 	int32_t	ret = 0;
-	uint32_t	irq_line = 0;
-	uint32_t	status = 0;
-	uint32_t	irq_status = 0;
-	uint32_t	 flag = 0, i = 0;
+	uint32_t	 flag = 0;
 	struct isp_node node = { 0 };
 
 	//ISP_PRINT ("ISP_RAW: isp_k: _dcam_isp_root %d \n", s_dcam_int_eb);
