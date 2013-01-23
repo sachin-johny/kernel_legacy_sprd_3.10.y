@@ -165,6 +165,8 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 static struct ion_heap_ops carveout_heap_ops = {
 	.allocate = ion_carveout_heap_allocate,
 	.free = ion_carveout_heap_free,
+	.map_dma = ion_carveout_heap_map_dma,
+	.unmap_dma = ion_carveout_heap_unmap_dma,
 	.phys = ion_carveout_heap_phys,
 	.map_user = ion_carveout_heap_map_user,
 	.map_kernel = ion_carveout_heap_map_kernel,
