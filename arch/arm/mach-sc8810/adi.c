@@ -206,26 +206,25 @@ EXPORT_SYMBOL(sci_adi_clr);
 
 #ifndef CONFIG_NKERNEL
 
+#ifdef CONFIG_ARCH_SC7710
+/* Analog Die interrupt registers */
+#define ANA_CTL_INT_BASE		( SPRD_MISC_BASE + 0x380 + 0x20)
+#else
 /* Analog Die interrupt registers */
 #define ANA_CTL_INT_BASE		( SPRD_MISC_BASE + 0x380 )
-
+#endif
 /* registers definitions for controller ANA_CTL_INT */
 #define ANA_REG_INT_MASK_STATUS         (ANA_CTL_INT_BASE + 0x0000)
 #define ANA_REG_INT_RAW_STATUS          (ANA_CTL_INT_BASE + 0x0004)
 #define ANA_REG_INT_EN                  (ANA_CTL_INT_BASE + 0x0008)
 #define ANA_REG_INT_MASK_STATUS_SYNC    (ANA_CTL_INT_BASE + 0x000c)
 
-/* bits definitions for register REG_INT_MASK_STATUS */
-#define BIT_ANA_CHGRWDG_INT             ( BIT(6) )
-#define BIT_ANA_EIC_INT                 ( BIT(5) )
-#define BIT_ANA_TPC_INT                 ( BIT(4) )
-#define BIT_ANA_WDG_INT                 ( BIT(3) )
-#define BIT_ANA_RTC_INT                 ( BIT(2) )
-#define BIT_ANA_GPIO_INT                ( BIT(1) )
-#define BIT_ANA_ADC_INT                 ( BIT(0) )
-
+#ifdef CONFIG_ARCH_SC7710
+#define MASK_ANA_INT                    ( 0x3FF )
+#else
 /* vars definitions for controller ANA_CTL_INT */
 #define MASK_ANA_INT                    ( 0x7F )
+#endif
 
 void sprd_ack_ana_irq(struct irq_data *data)
 {

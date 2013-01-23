@@ -81,7 +81,7 @@
 
 /* analog die irq numbers in adi.c */
 #define IRQ_ANA_INT_START		(NR_SPRD_IRQS + NR_GPIO_IRQS)
-#define NR_ANA_IRQS			7
+#define NR_ANA_IRQS			(10)
 
 #define IRQ_ANA_ADC_INT		(IRQ_ANA_INT_START + 0)
 #define IRQ_ANA_GPIO_INT		(IRQ_ANA_INT_START + 1)
@@ -89,8 +89,10 @@
 #define IRQ_ANA_WDG_INT		(IRQ_ANA_INT_START + 3)
 #define IRQ_ANA_TPC_INT		(IRQ_ANA_INT_START + 4)
 #define IRQ_ANA_EIC_INT		(IRQ_ANA_INT_START + 5)
-#define IRQ_ANA_CHGRWDG_INT	(IRQ_ANA_INT_START + 6)
-
+#define IRQ_ANA_RESERVE_INT	(IRQ_ANA_INT_START + 6)
+#define IRQ_ANA_AUD_HEADBUTTON_INT		(IRQ_ANA_INT_START + 7)
+#define IRQ_ANA_AUD_PROTECT_AP_INT		(IRQ_ANA_INT_START + 8)
+#define IRQ_ANA_DCDC_OTPOUT_INT		(IRQ_ANA_INT_START + 9)
 
 /* total irq numbers, the last one is reserved and used in gpio_eic.c */
 #define NR_IRQS					(NR_SPRD_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
