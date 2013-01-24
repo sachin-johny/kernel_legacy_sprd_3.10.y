@@ -507,6 +507,9 @@ static void hci_setup_event_mask(struct hci_dev *hdev)
 
 	if (hdev->features[7] & LMP_LSTO)
 		events[6] |= 0x80; /* Link Supervision Timeout Changed */
+#ifdef CONFIG_BT_BEKEN3211
+        hdev->features[6] &= ~LMP_SIMPLE_PAIR;
+#endif
 
 	if (hdev->features[6] & LMP_SIMPLE_PAIR) {
 		events[6] |= 0x01;	/* IO Capability Request */
