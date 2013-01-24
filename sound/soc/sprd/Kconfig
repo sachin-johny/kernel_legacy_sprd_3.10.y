@@ -31,6 +31,16 @@ config SND_SPRD_SOC_SC882X
 	  SoC Audio for the SPREADTRUM SC882X chips with intergrated sprd codec
 	  use VBC and  SPRD CODEC for the audio system.
 
+config SND_SPRD_SOC_SC771X
+	tristate "SC771X phone"
+	select SND_ARM
+	select SND_SPRD_SOC_VBC
+	select SND_SOC_SPRD_CODEC_V2
+	help
+	  Say Y if you want to built in to kernel, Say M for ko module.
+	  SoC Audio for the SPREADTRUM SC771X chips with intergrated sprd codec v2
+	  use VBC and  SPRD CODEC V2 for the audio system.
+
 config SND_SPEAKER_PA
 	tristate "speaker-pa"
 	default y
@@ -48,7 +58,7 @@ source "sound/soc/sprd/codec/dolphin/Kconfig"
 source "sound/soc/sprd/codec/sprd/Kconfig"
 
 config SPRD_CODEC_USE_INT
-	depends on SND_SOC_SPRD_CODEC
+	depends on SND_SOC_SPRD_CODEC || SND_SOC_SPRD_CODEC_V2
 	bool "sprd codec use INT"
 	default y
 	help

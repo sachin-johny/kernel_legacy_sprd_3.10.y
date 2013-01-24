@@ -966,7 +966,7 @@
 #define BIT_SPI2_EB                                      ( BIT(19) )
 #define BITS_SPI2_DIV(_x_)                        ( (_x_) << 16 & (BIT(16)|BIT(17)|BIT(18)) )
 #define BITS_SPI2_SEL(_x_)                        ( (_x_) << 14 & (BIT(14)|BIT(15)) )
-#define BITS_IIS2_DIV(_x_)                        ( (_x_) << 6 & (BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12))|BIT(13)) )
+#define BITS_IIS2_DIV(_x_)                        ( (_x_) << 6 & (BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)) )
 #define BIT_IIS2_CTRL_SEL                       ( BIT(5) )
 #define BIT_IIS2_EB                                   ( BIT(4) )
 #define BIT_DMA_UART_SEL                     ( BIT(3) )
@@ -983,6 +983,7 @@
 
 /* bits definitions for register REG_GLB_AUD_CTRL */
 #define BITS_AUD_AP_CP_MUX(_x_)                         ( (_x_) << 5 & (BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)|BIT(16)|BIT(17)|BIT(18)|BIT(19)|BIT(20)) )
+#define BIT_AUD_IF_MUX                                  ( BIT(5) )
 #define BIT_AUD_CLK_SEL                                          ( BIT(4) )
 #define BIT_AUD_CTL_SEL                                          ( BIT(3) )
 #define BIT_AUDIF_AUTO_EN                                    ( BIT(2) )
