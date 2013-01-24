@@ -172,10 +172,11 @@ enum iram_owner {
 };
 
 enum dcam_clk_sel {
-	DCAM_CLK_128M = 0,
+	DCA_CLK_256M = 0,
+	DCAM_CLK_128M,
 	DCAM_CLK_76M8,
-	DCAM_CLK_64M,
-	DCAM_CLK_48M
+	DCAM_CLK_48M,
+	DCAM_CLK_NONE
 };
 
 enum dcam_cap_if_mode {

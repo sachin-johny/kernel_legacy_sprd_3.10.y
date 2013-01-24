@@ -59,11 +59,12 @@ enum
 	V4L2_NO_MEM   = 0x01,
 	V4L2_TX_ERR   = 0x02,
 	V4L2_CSI2_ERR = 0x03,
+	V4L2_SYS_BUSY = 0x04,
 	V4L2_TIMEOUT  = 0x10,
 	V4L2_TX_STOP  = 0xFF
 };
 
-static unsigned video_nr = -1;
+static int video_nr = -1;
 module_param(video_nr, uint, 0644);
 MODULE_PARM_DESC(video_nr, "videoX start number, -1 is autodetect");
 
@@ -989,10 +990,12 @@ static int sprd_v4l2_queue_init(struct dcam_queue *queue)
 
 static int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node)
 {
-	struct dcam_node         *ori_node = queue->write;
+	struct dcam_node         *ori_node;
 
 	if (NULL == queue || NULL == node)
 		return -EINVAL;
+
+	ori_node = queue->write;
 
 	*queue->write++ = *node;
 	if (queue->write > &queue->node[DCAM_QUEUE_LENGTH-1]) {
@@ -1370,12 +1373,19 @@ static int v4l2_dqbuf(struct file *file,
 
 	DCAM_TRACE("V4L2: v4l2_dqbuf \n");
 
-	ret = down_interruptible(&dev->irq_sem);
-	if (ret) {
-		printk("V4L2: v4l2_dqbuf, failed to down, %d \n", ret);
-		p->flags = V4L2_TIMEOUT;
-		return -ERESTARTSYS;
+	while (1) {
+		ret = down_interruptible(&dev->irq_sem);
+		if (0 == ret) {
+			break;
+		} else if (-EINTR == ret) {
+			p->flags = V4L2_SYS_BUSY;
+			return DCAM_RTN_SUCCESS;
+		}else {
+			printk("V4L2: v4l2_dqbuf, failed to down, %d \n", ret);
+			return -EPERM;
+		}
 	}
+
 	if (sprd_v4l2_queue_read(&dev->queue, &node)) {
 		printk("V4L2: v4l2_dqbuf, failed read queue \n");
 		p->flags = V4L2_TX_ERR;
@@ -1433,9 +1443,6 @@ static int v4l2_streamon(struct file *file,
 			V4L2_RTN_IF_ERR(ret);
 		}
 		ret = dcam_module_init(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
-		V4L2_RTN_IF_ERR(ret);
-
-		ret = dcam_set_clk(DCAM_CLK_128M);
 		V4L2_RTN_IF_ERR(ret);
 
 		/* config cap sub-module */
@@ -1641,10 +1648,12 @@ static void sprd_timer_callback(unsigned long data)
 
 	if (0 == atomic_read(&dev->run_flag)) {
 		node.irq_flag = V4L2_TX_ERR;
+		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);
 		if (ret) {
 			printk("timer callback write queue error. \n");
 		}
+		up(&dev->irq_sem);
 	}
 }
 static int sprd_init_timer(struct timer_list *dcam_timer,unsigned long data)
@@ -1725,7 +1734,7 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 	rt_word[0] = DCAM_SC_LINE_BUF_LENGTH;
 	rt_word[1] = DCAM_SC_COEFF_MAX;
-	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor \n", rt_word[0], rt_word[1]);
+	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor %d.\n", rt_word[0], rt_word[1]);
 	(void)file; (void)cnt; (void)cnt_ret;
 	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
 }

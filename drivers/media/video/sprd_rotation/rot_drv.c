@@ -41,6 +41,7 @@
 #define ROT_FALSE 			0
 #define DISABLE_AHB_SLEEP 	0
 #define ENABLE_AHB_SLEEP 	1
+#define ROT_TIMEOUT         100/*ms*/
 
 #define REG_RD(a)						__raw_readl(a)
 #define REG_WR(a,v)					__raw_writel(v,a)
@@ -71,6 +72,7 @@ typedef struct _dma_rot_tag {
 
 static ROT_DMA_CFG_T 	s_rotation_cfg;
 static 	int s_ch_id = -1;
+static 	int s_virtual_ch_id = -1;
 
 #define ALGIN_FOUR      0x03
 #define DECLARE_ROTATION_PARAM_ENTRY(s) 		ROT_DMA_CFG_T *s=&s_rotation_cfg
@@ -89,8 +91,18 @@ static int exit_force;
 
 struct task_struct *g_rot_task;
 
-#define init_MUTEX(sem)    sema_init(sem, 1)
+struct rot_context {
+	atomic_t start_flag;
+	struct timer_list  rot_timer;
+};
 
+static struct rot_context rot_conext;
+static struct rot_context *rot_cnt = &rot_conext;
+
+
+#define init_MUTEX(sem)    sema_init(sem, 1)
+static int rot_start_timer(struct timer_list *rot_timer, uint32_t time_val);
+static void rot_stop_timer(struct timer_list *rot_timer);
 static int rot_k_check_param(ROT_CFG_T * param_ptr)
 {
 	if (NULL == param_ptr) {
@@ -399,6 +411,8 @@ static int rot_k_thread(void *data_ptr)
 		}
 		g_rot_done = 1;
 		g_thread_run = 0;
+		atomic_set(&rot_cnt->start_flag, 0);
+		rot_stop_timer(&rot_cnt->rot_timer);
 		wake_up_interruptible(&wait_done);
 	}
 	
@@ -410,6 +424,8 @@ int rot_k_start(void)
 	g_rot_done = 0;
 	g_thread_run = 1;
 
+	atomic_set(&rot_cnt->start_flag, 1);
+	rot_start_timer(&rot_cnt->rot_timer,ROT_TIMEOUT);
 	wake_up_interruptible(&thread_queue);
 	return ret;
 }
@@ -444,8 +460,47 @@ int rot_k_IOdeinit(void)
 		sprd_dma_free(s_ch_id);
 		s_ch_id = -1;
 	}
+	if (s_virtual_ch_id >= 0) {
+		sprd_dma_free(s_virtual_ch_id);
+		s_virtual_ch_id = -1;
+	}
 	rot_k_disable();
 	up(&g_sem_rot);
+	return 0;
+}
+
+static int rot_start_timer(struct timer_list *rot_timer, uint32_t time_val)
+{
+	int ret;
+	/*printk("rot,start timer in %ld. \n",
+	       jiffies);*/
+	ret = mod_timer(rot_timer, jiffies + msecs_to_jiffies(time_val));
+	if (ret)
+		printk("rot:Error in mod_timer\n");
+	return 0;
+}
+
+static void rot_stop_timer(struct timer_list *rot_timer)
+{
+	del_timer_sync(rot_timer);
+}
+
+static void rot_timer_callback(unsigned long data)
+{
+	if (1 == atomic_read(&rot_cnt->start_flag)) {
+		printk("rot timeout.\n");
+		g_rot_done = 1;
+		g_thread_run = 0;
+		atomic_set(&rot_cnt->start_flag, 0);
+		wake_up_interruptible(&wait_done);
+	}
+}
+
+static int rot_init_timer(struct timer_list *rot_timer)
+{
+	RTT_PRINT("Timer module installing\n");
+	setup_timer(rot_timer, rot_timer_callback, 0);
+	RTT_PRINT("Timer module installing e\n");
 	return 0;
 }
 
@@ -538,8 +593,9 @@ static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
 
 	RTT_PRINT("rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);
 	if (ROT_YUV420 == param_ptr->format) {
-		block_len =
-		    param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+	} else if (ROT_RGB888 == param_ptr->format || ROT_RGB666 == param_ptr->format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 4;
 	} else {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
 	}
@@ -584,7 +640,7 @@ static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
 	sprd_dma_channel_start(ch_id);
 	if (!wait_event_interruptible_timeout(wait_queue, g_copy_done,msecs_to_jiffies(30))) {
 		/*ret = -EFAULT;*/
-		printk("dma timeout.");
+		printk("dma timeout. \n");
 	}
 	sprd_dma_channel_stop(ch_id);
 	/*sprd_dma_free(ch_id);*/
@@ -628,7 +684,7 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 	uint32_t block_len;
 	uint32_t total_len;
 	int32_t ret = 0;
-	int ch_id = 0;
+	int ch_id = s_virtual_ch_id;
 	int i;
 	uint32_t list_size;
 	uint32_t list_copy_size = 4096;
@@ -636,20 +692,15 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 	dma_addr_t dma_cfg_phy;
 	struct timeval time1, time2;
 
-
-	/*struct timeval ts;*/
-	/*struct timeval te;*/
-	/*printk("wjp:rotation_start_copy_data,w=%d,h=%d s!\n",param_ptr->img_size.w,param_ptr->img_size.h);*/
 	if (ROT_YUV420 == param_ptr->format) {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+	} else if (ROT_RGB888 == param_ptr->format || ROT_RGB666 == param_ptr->format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 4;
 	} else {
 		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
 	}
 
 	total_len = block_len;
-
-	//do_gettimeofday(&ts);
-	//RTT_PRINT("convert endian   %d,%d,%x,%x\n", width,height,input_addr,output_addr);
 
 	if(0 != dst_vir_addr%list_copy_size){
 		printk("rot_k_start_copy_data_to_virtual: dst_vir_addr = %x not 4K bytes align, error \n", dst_vir_addr);
@@ -660,16 +711,19 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	RTT_PRINT("rot_k_start_copy_data_to_virtual: dst_vir_addr = %x, list_copy_size=%x, list_size=%x,  \n", dst_vir_addr, list_copy_size, list_size);
 
-	while (1) {
-		ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
-		if (ch_id < 0) {
-			printk("rot_k_start_copy_data_to_virtual: convert endian request dma fail.ret : %d.\n", ret);
-			msleep(5);
-		} else {
-			RTT_PRINT("rot_k_start_copy_data_to_virtual: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
-			     ch_id, total_len);
-			break;
+	if (ch_id < 0) {
+		while (1) {
+			ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
+			if (ch_id < 0) {
+				printk("rot_k_start_copy_data_to_virtual: convert endian request dma fail.ret : %d.\n", ret);
+				msleep(5);
+			} else {
+				RTT_PRINT("rot_k_start_copy_data_to_virtual: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
+				     ch_id, total_len);
+				break;
+			}
 		}
+		s_virtual_ch_id = ch_id;
 	}
 	memset(&dma_desc, 0, sizeof(struct sprd_dma_channel_desc));
 
@@ -703,7 +757,6 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 		block_len -= dma_cfg[i].total_len;
 	}
 	do_gettimeofday(&time2);
-	//RTT_PRINT("virtual:%x, physical:%x \n", dst_vir_addr, dma_cfg[0].dst_addr);
 	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
 
 	dma_cfg[list_size - 1].cfg |= DMA_LLEND;
@@ -722,20 +775,136 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	sprd_dma_channel_start(ch_id);
 
-	if (wait_event_interruptible(wait_queue, g_copy_done)) {
-		ret = -EFAULT;
+	if (!wait_event_interruptible_timeout(wait_queue, g_copy_done,msecs_to_jiffies(30))) {
+		/*ret = -EFAULT;*/
+		printk("dma timeout. \n");
+		sprd_dma_dump_regs();
 	}
 
 	sprd_dma_channel_stop(ch_id);
 
-	sprd_dma_free(ch_id);
+/*	sprd_dma_free(ch_id);*/
 
 	dma_free_writecombine(NULL, sizeof(*dma_cfg) * list_size, dma_cfg, dma_cfg_phy);
 
 	RTT_PRINT("rot_k_start_copy_data_to_virtual done \n");
 
-	/* do_gettimeofday(&te);*/
-	/*printk("wjp:dma endian time=%d.\n",((te.tv_sec-ts.tv_sec)*1000+(te.tv_usec-ts.tv_usec)/1000));*/
+	return ret;
+}
+
+static int rot_k_start_copy_data_from_virtual(ROT_CFG_T * param_ptr)
+{
+	struct sprd_dma_channel_desc dma_desc;
+	uint32_t dma_src_phy;
+	uint32_t src_vir_addr = param_ptr->src_addr.y_addr;
+	uint32_t dma_dst_phy = param_ptr->dst_addr.y_addr;
+	uint32_t block_len;
+	uint32_t total_len;
+	int32_t ret = 0;
+	int ch_id = s_virtual_ch_id;
+	int i;
+	uint32_t list_size;
+	uint32_t list_copy_size = 4096;
+	struct sprd_dma_linklist_desc *dma_cfg;
+	dma_addr_t dma_cfg_phy;
+	struct timeval time1, time2;
+
+	if (ROT_YUV420 == param_ptr->format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 3 / 2;
+	} else if (ROT_RGB888 == param_ptr->format || ROT_RGB666 == param_ptr->format) {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 4;
+	} else {
+		block_len = param_ptr->img_size.w * param_ptr->img_size.h * 2;
+	}
+
+	total_len = block_len;
+
+	if(0 != src_vir_addr%list_copy_size){
+		printk("rot_k_start_copy_data_from_virtual: src_vir_addr = %x not 4K bytes align, error \n", src_vir_addr);
+		return -ENOMEM;
+	}
+
+	list_size = (total_len + list_copy_size -1)/list_copy_size;
+
+	RTT_PRINT("rot_k_start_copy_data_from_virtual: src_vir_addr = %x, list_copy_size=%x, list_size=%x,  \n", src_vir_addr, list_copy_size, list_size);
+
+	if (ch_id < 0) {
+		while (1) {
+			ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
+			if (ch_id < 0) {
+				printk("rot_k_start_copy_data_from_virtual: convert endian request dma fail.ret : %d.\n", ret);
+				msleep(5);
+			} else {
+				RTT_PRINT("rot_k_start_copy_data_from_virtual: convert endian request dma OK. ch_id:%d,total_len=0x%x.\n",
+				     ch_id, total_len);
+				break;
+			}
+		}
+		s_virtual_ch_id = ch_id;
+	}
+	memset(&dma_desc, 0, sizeof(struct sprd_dma_channel_desc));
+
+	dma_cfg = (struct sprd_dma_linklist_desc *)dma_alloc_writecombine(NULL,
+										sizeof(*dma_cfg) * list_size,
+										&dma_cfg_phy,
+										GFP_KERNEL);
+	if (!dma_cfg) {
+		printk("rot_k_start_copy_data_to_virtual allocate failed, size=%d \n", sizeof(*dma_cfg) * list_size);
+		return -ENOMEM;
+	}
+
+	memset(dma_cfg, 0x0, sizeof(*dma_cfg) * list_size);
+
+	do_gettimeofday(&time1);
+	RTT_PRINT("pid = %d = 0x%x \n", current->pid, current->pid);
+	for (i = 0; i < list_size; i++) {
+		dma_src_phy = user_va2pa(current->mm, src_vir_addr+i*list_copy_size);
+		//sprd_dma_default_linklist_setting(dma_cfg + i);
+		dma_cfg[i].cfg = DMA_LIT_ENDIAN | DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH32 | DMA_REQMODE_LIST;
+		dma_cfg[i].elem_postm = 0x4 << 16 | 0x4;
+		dma_cfg[i].src_blk_postm = SRC_BURST_MODE_8;
+		dma_cfg[i].dst_blk_postm = SRC_BURST_MODE_8;
+
+		dma_cfg[i].llist_ptr = (u32) ((char *)dma_cfg_phy + sizeof(*dma_cfg) * (i + 1));
+		dma_cfg[i].src_addr = dma_src_phy;
+		dma_cfg[i].dst_addr = dma_dst_phy + i * list_copy_size;
+		dma_cfg[i].total_len = (block_len > list_copy_size) ? list_copy_size : block_len;
+		/* block length */
+		dma_cfg[i].cfg |= list_copy_size & CFG_BLK_LEN_MASK;
+		block_len -= dma_cfg[i].total_len;
+	}
+	do_gettimeofday(&time2);
+	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
+
+	dma_cfg[list_size - 1].cfg |= DMA_LLEND;
+
+#if 1//def CONFIG_ARCH_SC8825
+	sprd_dma_linklist_config(ch_id, dma_cfg_phy);
+#else
+	/* for 8810 */
+	dma_desc.llist_ptr = (uint32_t)dma_cfg_phy;
+	sprd_dma_channel_config(ch_id, DMA_LINKLIST, &dma_desc);
+#endif
+
+	sprd_dma_set_irq_type(ch_id, LINKLIST_DONE, 1);
+
+	g_copy_done = 0;
+
+	sprd_dma_channel_start(ch_id);
+
+	if (!wait_event_interruptible_timeout(wait_queue, g_copy_done,msecs_to_jiffies(30))) {
+		/*ret = -EFAULT;*/
+		printk("dma timeout. \n");
+	}
+
+	sprd_dma_channel_stop(ch_id);
+
+/*	sprd_dma_free(ch_id);*/
+
+	dma_free_writecombine(NULL, sizeof(*dma_cfg) * list_size, dma_cfg, dma_cfg_phy);
+
+	RTT_PRINT("rot_k_start_copy_data_to_virtual done \n");
+
 	return ret;
 }
 
@@ -815,6 +984,18 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		break;
 
+	case ROT_IO_DATA_COPY_FROM_VIRTUAL:
+		{
+			ROT_CFG_T params;
+			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
+			if (0 == ret){
+				if (rot_k_start_copy_data_from_virtual(&params)) {
+					ret = -EFAULT;
+				}
+			}
+		}
+		break;
+
 	default:
 		break;
 	}
@@ -854,6 +1035,7 @@ int rot_k_probe(struct platform_device *pdev)
 	init_waitqueue_head(&wait_queue);
 	init_waitqueue_head(&wait_done);
 	init_waitqueue_head(&thread_queue);
+	rot_init_timer(&rot_cnt->rot_timer);
 	printk(KERN_ALERT " rot_k_probe Success\n");
 	return 0;
 }

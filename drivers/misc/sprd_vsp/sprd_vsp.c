@@ -252,7 +252,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		}
 		if (ret) {
 			/*clear vsp int*/
-			__raw_writel((1<<10)|(1<<12)|(1<<15),
+			__raw_writel((1<<10)|(1<<12)|(1<<15)|(1<<16),
 				SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
 		}
 		put_user(vsp_hw_dev.vsp_int_status, (int __user *)arg);
@@ -268,54 +268,41 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
 		break;
 #if defined(CONFIG_ARCH_SC8825)		
-#ifdef USE_INTERRUPT
-	case VSP_REG_IRQ:
-	/* register isr */
-	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &vsp_hw_dev);
-	if (ret) {
-		printk(KERN_ERR "vsp: failed to request irq!\n");
-		ret = -EINVAL;
-		return -EINVAL;
-	}
-	break;
 
-	case VSP_UNREG_IRQ:
-		free_irq(IRQ_VSP_INT, &vsp_hw_dev);
-		break;
-#endif
 	case VSP_ACQUAIRE_MEA_DONE:
-		cmd0 = 0;
-		printk(KERN_ERR "VSP_ACQUAIRE_MEA_DONE in !\n");
-		ret= __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
-		
-		while(!((ret & 0x80)|| (ret &0x4000)||(ret & 0x100)  ) && (cmd0 < (int)arg))
-		{ 
-			ret = __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
-			//printk(KERN_INFO "DCAM_INT_RAW_OFF %x !\n",ret);
-			cmd0++;
-			msleep(1);
-		}
 
-		if(ret & 0x80)
-		{
-			printk(KERN_INFO "vsp stream buffer is full!\n");
-			return 2;//
-		}else if(ret & 0x4000)
-		{
-			printk(KERN_INFO "vsp MEA DONE!\n");
-			return 0;
-		}else if(ret & 0x100)
-		{
-			printk(KERN_INFO "vsp VLC DONE!\n");
-			return 4;
-		}else  if(cmd0 >=  (int)arg)
-        	{
-              		 printk(KERN_INFO "vsp: VSP_ACQUAIRE_MEA_DONE time out\n");
-                   	return 1;
-		}else{
-			printk(KERN_INFO "vsp: ERR\n");
-			return -EINVAL;
+		pr_debug("vsp ioctl VSP_ACQUAIRE_MEA_DONE\n");
+		ret = wait_event_interruptible_timeout(
+			vsp_hw_dev.wait_queue_work,
+			vsp_hw_dev.condition_work,
+			msecs_to_jiffies(VSP_TIMEOUT_MS));
+		if (ret == -ERESTARTSYS) {
+			printk("KERN_ERR vsp error start -ERESTARTSYS\n");
+			ret = -EINVAL;
+		} else if (ret == 0) {
+			printk("KERN_ERR vsp error start  timeout\n");
+			ret = -ETIMEDOUT;
+		} else {
+			ret = 0;
 		}
+		
+		if (ret) { //timeout , clean all init bits.
+			/*clear vsp int*/
+			__raw_writel((1<<7)|(1<<8)|(1<<14),
+				SPRD_VSP_BASE+DCAM_INT_CLR_OFF);			
+			ret  = 1;
+		} 
+		else //catched an init
+		{
+			ret = vsp_hw_dev.vsp_int_status;
+		}
+				
+		printk(KERN_ERR "VSP_ACQUAIRE_MEA_DONE %x\n",ret);
+		vsp_hw_dev.vsp_int_status = 0;
+		vsp_hw_dev.condition_work = 0;
+		pr_debug("vsp ioctl VSP_ACQUAIRE_MEA_DONE end\n");
+		return ret;
+
                break;
 			   
 	case VSP_ACQUAIRE_MP4ENC_DONE:
@@ -361,7 +348,7 @@ static irqreturn_t vsp_isr(int irq, void *data)
 	int int_status;
 	
 	int_status = vsp_hw_dev.vsp_int_status = __raw_readl(SPRD_VSP_BASE+DCAM_INT_STS_OFF);
-	printk(KERN_INFO, "DCAM_INT_STS_OFF %x\n",int_status);
+	//printk(KERN_INFO "VSP_INT_STS %x\n",int_status);
 	if((int_status >> 15) & 0x1) // CMD DONE
 	{
 		__raw_writel((1<<10)|(1<<12)|(1<<15), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
@@ -372,6 +359,28 @@ static irqreturn_t vsp_isr(int irq, void *data)
 	else if((int_status >> 16) & 0x1) // MPEG4 ENC DONE
 	{
 		__raw_writel((1<<16), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+	}
+	else if((int_status) & 0x4180) // JPEG ENC 
+	{
+		int ret = 7; // 7 : invalid
+		 if((int_status >> 14) & 0x1) //JPEG ENC  MEA DONE
+		{
+			__raw_writel((1<<14), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+			ret = 0;
+		}
+		if((int_status >> 7) & 0x1)  // JPEG ENC BSM INIT
+		{
+			__raw_writel((1<<7),
+				SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+			ret = 2;
+		}
+		 if((int_status >> 8) & 0x1)  // JPEG ENC VLC DONE INIT
+		{
+			__raw_writel((1<<8), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+			ret = 4;			
+		}
+
+		 vsp_hw_dev.vsp_int_status = ret;
 	}
 	vsp_hw_dev.condition_work = 1;
 	wake_up_interruptible(&vsp_hw_dev.wait_queue_work);
@@ -519,7 +528,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			VSP_MINOR, ret);
 		goto errout;
 	}
-#if !defined(CONFIG_ARCH_SC8825)
+
 #ifdef USE_INTERRUPT
 	/* register isr */
 	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &vsp_hw_dev);
@@ -529,7 +538,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		goto errout2;
 	}
 #endif
-#endif
+
 
 	return 0;
 
@@ -554,11 +563,11 @@ static int vsp_remove(struct platform_device *pdev)
 	printk(KERN_INFO "vsp_remove called !\n");
 
 	misc_deregister(&vsp_dev);
-#if !defined(CONFIG_ARCH_SC8825)
+
 #ifdef USE_INTERRUPT
 	free_irq(IRQ_VSP_INT, &vsp_hw_dev);
 #endif
-#endif
+
 
 	if (vsp_hw_dev.vsp_clk) {
 		clk_put(vsp_hw_dev.vsp_clk);
