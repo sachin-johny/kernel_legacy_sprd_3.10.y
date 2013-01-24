@@ -4,6 +4,7 @@ struct emc_repower_param {
 	u32 mem_type;
 	u32 emc_freq;
 	u32 mem_drv;
+    u32 mem_drv_lpddr1;
 	u32 mem_width;
 	u32 cs_number;
 	u32 cs0_size;
