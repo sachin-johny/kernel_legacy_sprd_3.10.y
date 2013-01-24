@@ -2408,7 +2408,7 @@ static struct snd_soc_dai_ops sprd_codec_dai_ops = {
 };
 
 #ifdef CONFIG_PM
-int sprd_codec_soc_suspend(struct snd_soc_codec *codec, pm_message_t state)
+int sprd_codec_soc_suspend(struct snd_soc_codec *codec)
 {
 	sprd_codec_dbg("Entering %s\n", __func__);
 

@@ -885,7 +885,7 @@ static struct snd_soc_dai_ops dolphin_dai_ops = {
 };
 
 #ifdef CONFIG_PM
-int dolphin_soc_suspend(struct snd_soc_codec *codec, pm_message_t state)
+int dolphin_soc_suspend(struct snd_soc_codec *codec)
 {
 	dol_dbg("Entering %s\n", __func__);
 
