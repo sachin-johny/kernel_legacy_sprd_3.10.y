@@ -139,7 +139,7 @@ void __cpuinit twd_timer_setup(struct clock_event_device *clk)
 
 	/* Make sure our local interrupt controller has this enabled */
 #if defined(CONFIG_NKERNEL) && defined(CONFIG_NATIVE_LOCAL_TIMER)
-	os_ctx->smp_irq_conntect(clk->irq);
+	os_ctx->smp_irq_connect(clk->irq);
 #endif
 
 	gic_enable_ppi(clk->irq);

@@ -140,7 +140,8 @@ config GENERIC_CLOCKEVENTS
 config GENERIC_CLOCKEVENTS_BROADCAST
 	bool
 	depends on GENERIC_CLOCKEVENTS
-	default y if SMP
+	default y if SMP && !LOCAL_TIMERS
+	default n if !SMP || LOCAL_TIMERS
 
 config KTIME_SCALAR
 	bool
@@ -1561,13 +1562,17 @@ config LOCAL_TIMERS
 	bool "Use local timer interrupts"
 	depends on SMP
 	default y
-	select HAVE_ARM_TWD if (!ARCH_MSM_SCORPIONMP && !EXYNOS4_MCT && \
-		!NKERNEL)
 	help
 	  Enable support for local timers on SMP platforms, rather then the
 	  legacy IPI broadcast method.  Local timers allows the system
 	  accounting to be spread across the timer interval, preventing a
 	  "thundering herd" at every timer tick.
+
+config NATIVE_LOCAL_TIMER
+	bool "Use native local timer interrupts"
+	depends on LOCAL_TIMERS
+	default n
+	select HAVE_ARM_TWD if (!ARCH_MSM_SCORPIONMP && !EXYNOS4_MCT)
 
 source kernel/Kconfig.preempt
 
