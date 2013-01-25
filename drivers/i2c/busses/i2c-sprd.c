@@ -104,7 +104,7 @@ sprd_i2c_poll_ctl_status(struct sprd_i2c *pi2c, unsigned long bit)
 	int loop_cntr = 5000;
 
 	do {
-		udelay(10);
+		udelay(1);
 	}
 	while (!(__raw_readl(pi2c->membase + I2C_CTL) & bit)
 	       && (--loop_cntr > 0));
@@ -121,7 +121,7 @@ sprd_i2c_poll_cmd_status(struct sprd_i2c *pi2c, unsigned long bit)
 	int loop_cntr = 5000;
 
 	do {
-		udelay(10);
+		udelay(1);
 	}
 	while ((__raw_readl(pi2c->membase + I2C_CMD) & bit)
 	       && (--loop_cntr > 0));
