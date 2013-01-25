@@ -816,6 +816,9 @@ int deep_sleep(void)
 	u32 val, ret = 0;
 	u32 holding;
 
+
+	val = 0xc7f1;
+	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 	wait_until_uart1_tx_done();
 	SAVE_GLOBAL_REG;
 	disable_audio_module();
@@ -864,11 +867,11 @@ int deep_sleep(void)
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
 
-#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+#if defined(CONFIG_MACH_SP6825GB)
 	val |= MCU_SYS_SLEEP_EN;
 #else
 	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
-#endif  /*CONFIG_MACH_SP6825GA  ||CONFIG_MACH_SP6825GB*/
+#endif  /*CONFIG_MACH_SP6825GB*/
 
 
 
@@ -1001,7 +1004,7 @@ int sc8825_enter_lowpower(void)
 #else
 #ifdef CONFIG_NKERNEL
 	status = sc8825_get_clock_status();
-#if  defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+#if  defined(CONFIG_MACH_SP6825GB)
 	status |=  DEVICE_APB;
 #endif
 #else

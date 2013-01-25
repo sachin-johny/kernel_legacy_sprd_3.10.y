@@ -51,8 +51,8 @@ static inline void modify_reg_field(u32 addr, u32 start_bit, u32 bit_num, u32 va
 #define UMCTL_REG_BASE     0x60200000
 #define PUBL_REG_BASE      0x60201000
 #define EMC_MEM_BASE_ADDR  0x80000000
-#define _LPDDR1_BL_        8 //2,4,8,16. seems must be 8 now
-#define _LPDDR1_BT_        1 //0: sequential
+#define _LPDDR1_BL_        2 //2,4,8,16. seems must be 8 now
+#define _LPDDR1_BT_        0 //0: sequential
 //1: interleaving
 #define _LPDDR1_CL_        3 //2,3,4
 #define _LPDDR2_BL_        4 //4,8,16
@@ -151,8 +151,9 @@ typedef enum
 #define UMCTL_CFG_ADD_TMOD            0x130
 #define UMCTL_CFG_ADD_TRSTL           0x134
 #define UMCTL_CFG_ADD_TZQCL           0x138
-#define UMCTL_CFG_ADD_TCKESR          0x13c
-#define UMCTL_CFG_ADD_TDPD            0x140
+#define UMCTL_CFG_ADD_TMRR            0x13C
+#define UMCTL_CFG_ADD_TCKESR          0x140
+#define UMCTL_CFG_ADD_TDPD            0x144
 #define UMCTL_CFG_ADD_DTUWACTL        0x200
 #define UMCTL_CFG_ADD_DTURACTL        0x204
 #define UMCTL_CFG_ADD_DTUCFG          0x208
@@ -541,13 +542,13 @@ static inline void emc_init_common_reg(struct emc_repower_param *param)
 	mem_width_enum = param->mem_width;
 
 	if(mem_type_enum == LPDDR1) {
-		value_temp = (1 << 31) | (1 << 28) | (0xc << 5) | (0xc); //zq power down and override
+		value_temp = (1 << 31) | (1 << 28) | (param->mem_drv_lpddr1<< 5) | (param->mem_drv_lpddr1); //zq power down and override
 		REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ZQ0CR0) = value_temp;
 	}
 	//program common registers for ASIC/FPGA
 	//Memory Timing Configuration Registers
 	REG32(UMCTL_REG_BASE + UMCTL_CFG_ADD_SCFG) = 0x00000420;
-	value_temp = 0x00e60041; //no auto low power enabled
+	value_temp = (mem_type_enum==LPDDR1)?0x860010:0x00e60041; //no auto low power enabled
 	value_temp &= ~(0x1 << 17);
 	value_temp &= ~(0x3 << 22);
 	value_temp &= ~(0x3 << 20);
@@ -1213,8 +1214,10 @@ static inline void set_ddrphy_dll_bps200_mode(u32 bps200) {
 	modify_reg_field(PUBL_REG_BASE+PUBL_CFG_ADD_DLLGCR, 23, 1, bps200);
 }
 static inline void update_umctl_timing_cfg(MEM_TYPE_ENUM mem_type, u32 clk_emc_div) {
-	if(mem_type!=LPDDR2)
-		while(1);
+
+
+    if(mem_type==LPDDR2)
+    {
     switch(clk_emc_div) {
         case 3: { //100MHz
             REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTW )        = 0x1;//timing_cfg.TRTW;
@@ -1262,7 +1265,7 @@ static inline void update_umctl_timing_cfg(MEM_TYPE_ENUM mem_type, u32 clk_emc_d
 	        break;
         }
 	    case 0: { //400MHz
-            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTW )        = 0x1;//timing_cfg.TRTW;
+            REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTW )        = 0x2;//timing_cfg.TRTW;
             REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRFC )        = 0x34;//timing_cfg.TRFC;
             REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRP  )        = 0x00020008;//timing_cfg.TRP;
             REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRAS )        = 0x11;//timing_cfg.TRAS;
@@ -1287,8 +1290,79 @@ static inline void update_umctl_timing_cfg(MEM_TYPE_ENUM mem_type, u32 clk_emc_d
 	        while(1);
 	    }
     }
-}
+    }
+    else //lpddr1
+    {
+        switch(clk_emc_div) 
+        {
+            case 3: { //100MHz
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT1U)     = 100;//timing_cfg.TOGCNT1U ;            
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT100N)   = 10 ;//timing_cfg.TOGCNT100N ;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TREFI)        = 0x4e;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TMRD)         = 0x2;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRFC )        = 0x9;//timing_cfg.TRFC;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRP  )        = 0x3;//timing_cfg.TRP;                                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTW )        = 0x3;//timing_cfg.TRTW;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCL)          = 0x3;//timing_cfg.TCL;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCWL)         = 0x1;//timing_cfg.TCWL;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRAS )        = 0x5;//timing_cfg.TRAS;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRC  )        = 0x8;//timing_cfg.TRC;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRCD )        = 0x3;//timing_cfg.TRCD;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRRD )        = 0x2;//timing_cfg.TRRD;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTP )        = 0x0;//timing_cfg.TRTP;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWR  )        = 0x3;//timing_cfg.TWR;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWTR )        = 0x2;//timing_cfg.TWTR;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TEXSR)        = 0xe;//timing_cfg.TXSR ;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TXP)          = 0x3;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCS)        = 0x0;//timing_cfg.TZQCS;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCSI)       = 0x0;//zqcsi_en ? timing_cfg.TZQCSI : 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TDQS)         = 0x2;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCKSRE)       = 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCKSRX)       = 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCKE)         = 0x2;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRSTL)        = 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCL)        = 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCKESR)       = 0x0;
+    	        break;
+            }
+            case 1: { //200MHz
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT1U)     = 200; //timing_cfg.TOGCNT1U ;            
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TOGCNT100N)   = 20 ; //timing_cfg.TOGCNT100N ;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TREFI)        = 0x4e ;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TMRD)         = 0x2;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRFC )        = 0x13;//timing_cfg.TRFC;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRP  )        = 0x3; //timing_cfg.TRP;                                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTW )        = 0x3; //timing_cfg.TRTW;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCL)          = 0x3; //timing_cfg.TCL;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCWL)         = 0x1; //timing_cfg.TCWL;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRAS )        = 0x8; //timing_cfg.TRAS;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRC  )        = 0xb; //timing_cfg.TRC;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRCD )        = 0x3; //timing_cfg.TRCD;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRRD )        = 0x2; //timing_cfg.TRRD;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRTP )        = 0x0; //timing_cfg.TRTP;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWR  )        = 0x3; //timing_cfg.TWR;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TWTR )        = 0x2; //timing_cfg.TWTR;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TEXSR)        = 0x1c;//timing_cfg.TXSR ;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TXP)          = 0x3;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCS)        = 0x0;//timing_cfg.TZQCS;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCSI)       = 0x0; //zqcsi_en ? timing_cfg.TZQCSI : 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TDQS)         = 0x2;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCKSRE)       = 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCKSRX)       = 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCKE)         = 0x2;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TRSTL)        = 0x0;                
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TZQCL)        = 0x0;
+                REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_TCKESR)       = 0x0;                
+    	        break;
+            }
+	        default: {
+	            while(1);
+	        }
+            
 
+        }
+    }
+}
 //update MR0~MR3
 //caution: now only support LPDDR2, for LPDDR1 you should double check MR0~MR3
 //and modify accordingly
@@ -1308,6 +1382,18 @@ static inline void update_publ_timing_cfg(MEM_TYPE_ENUM mem_type_enum,
 		REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DSGCR) |= (gate_early_late<<5)|(gate_early_late<<8);
 			break;
 		}
+        case LPDDR1:
+        {
+            REG32(PUBL_REG_BASE+PUBL_CFG_ADD_PTR0) = 0x21000b;
+            REG32(PUBL_REG_BASE+PUBL_CFG_ADD_PTR1) = 0xa09c40;
+            REG32(PUBL_REG_BASE+PUBL_CFG_ADD_PTR2) = 0x01900890;
+            REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DXCCR) = 0xc43;
+            REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DSGCR) = 0xfa00012b;
+            REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DCR) = 0x100;
+            REG32(PUBL_REG_BASE+PUBL_CFG_ADD_DTPR0) = 0x3088444a;
+            REG32(PUBL_REG_BASE+PUBL_CFG_ADD_MR0) = 0x31;
+            break;
+        }
 		default: {
 			while(1);
 		}
@@ -1337,6 +1423,18 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 	//MEM_DENSITY_ENUM mem_density_enum;
 	mem_type_enum = param->mem_type;
 
+    if(mem_type_enum == LPDDR1)
+    {
+        //ZQ CL and DLL LOCK bypass trigger
+	    REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = 0X60000001;
+
+	    wait_n_pclk_cycle(5);
+
+	    do value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PGSR);
+	    while((value_temp & 0x1) == 0);        
+    }
+
+
 	////cfg clk emc to 200MHz if lpddr1
 	////it must use AHB to config
 	//if(mem_type_enum == LPDDR1)
@@ -1359,8 +1457,20 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 	enable_umctl_dtu();
 	if(power_off) {
 		emc_init_common_reg(param);
-		#if 1
+
 		update_umctl_timing_cfg(mem_type_enum, clk_emc_div);
+
+		#ifdef CONFIG_MACH_SP6825GA
+		update_publ_timing_cfg(mem_type_enum,     //MEM_TYPE_ENUM mem_type,
+							   1,                  //u32 gate_early_late,
+							   0x1,               //,u32 nwr
+							_LPDDR2_WC_,       //u32 mem_wc,
+							_LPDDR2_BT_,       //u32 mem_bt,
+							_LPDDR2_BL_==4?2:  //u32 mem_bl,
+							_LPDDR2_BL_==8?3:4,
+							0x1                //u32 rl_wl
+								);
+        #else
 		switch(clk_emc_div) {
 			case 0: {
 				update_publ_timing_cfg(mem_type_enum,      //MEM_TYPE_ENUM mem_type,
@@ -1422,7 +1532,7 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 		value_temp = REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_POWSTAT);
 	} while((value_temp&1)==0);
 	*/
-
+	#ifndef CONFIG_MACH_SP6825GA
 	value_temp1 = REG32(0x20900260);  //read the pre-retention value
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ZQ0CR0);
 	value_temp &= ~0xfffff;
@@ -1430,6 +1540,7 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 	value_temp |= 1 << 28;
 	value_temp |= (value_temp1 & 0xfffff);
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ZQ0CR0) = value_temp;
+	#endif
 	//if EMC is not powered off, EMC may has been moved to acces state by the hardware low power
 	//interfae. In this state, all the DFI signals from PUBL to DDRPHY may be toggling. So, We'd better
 	//first move upctl state to low power to make signals return the state before power is turned on.
@@ -1444,10 +1555,11 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 	REG32(0x4B000080) = value_temp;
 	value_temp &= ~(0x1 << 2);
 	REG32(0x4B000080) = value_temp;
-
+	#ifndef CONFIG_MACH_SP6825GA
 	value_temp = REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ZQ0CR0);
 	value_temp   &= ~(0x1 << 28);
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_ZQ0CR0) = value_temp;
+	#endif
 #if 0
 	value_temp = 0x1 | (0x1 << 3);
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_PIR) = value_temp;
@@ -1475,7 +1587,7 @@ static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param 
 	while((value_temp & 0x7) != 0x3);
 #endif
 	move_upctl_state_to_config();
-	#if 1
+	#ifndef CONFIG_MACH_SP6825GA
 	//now memory mode update only support LPDDR2, for other memory, you should check
 	if(mem_type_enum!=LPDDR2)
 		while(1);
@@ -1819,6 +1931,8 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 	default:
 		while(1);
 	}
+    param->mem_drv_lpddr1 = REG32(publ_base + PUBL_CFG_ADD_ZQ0CR0)&0x1f;
+    
 	value = REG32(publ_base + PUBL_CFG_ADD_PGCR);
 	if((value & (0x3 << 18)) == (0x3 << 18))
 	{
@@ -1855,7 +1969,7 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 	printk("emc repower param\r\n");
 	printk("emc repower param mem_type %x\n", param->mem_type);
 	printk("emc repower param emc_freq %dMHz\n", param->emc_freq);
-	printk("emc repower param mem_drv %x\n", param->mem_drv);
+	printk("emc repower param mem_drv_lpddr1 %x\n", param->mem_drv_lpddr1);
 	printk("emc repower param cs_number %x\n", param->cs_number);
 	printk("emc repower param cs0_size %x\n", param->cs0_size);
 	printk("emc repower param cs1_size %x\n", param->cs1_size);
@@ -1926,7 +2040,11 @@ void emc_init_repowered(u32 power_off)
 	if((tmp_val & 0x7) != 0) {
 		return;
 	}
+	#ifdef CONFIG_MACH_SP6825GA
 	clk_emc_div = 3;
+	#else
+	clk_emc_div = 1;
+	#endif
 	param_p->emc_freq = 400 / (clk_emc_div + 1);
 	if(0) {
 		modify_clk_emc_freq(clk_emc_div);
