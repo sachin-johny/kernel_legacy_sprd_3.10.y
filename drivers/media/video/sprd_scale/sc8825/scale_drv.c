@@ -251,7 +251,9 @@ int32_t    scale_stop(void)
 	spin_lock_irqsave(&scale_lock, flag);
 	if (atomic_read(&g_path->start_flag)) {
 		s_wait_flag = 1;
-		down_interruptible(&scale_done_sema);
+		if (down_interruptible(&scale_done_sema)) {
+			printk("scale_stop down error!\n");
+		}
 	}
 	spin_unlock_irqrestore(&scale_lock, flag);
 
