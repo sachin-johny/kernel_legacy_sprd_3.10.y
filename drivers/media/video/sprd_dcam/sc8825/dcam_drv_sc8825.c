@@ -68,7 +68,16 @@
 		memset((void *)(a), 0, sizeof(*(a)));  \
 	} while(0)
 
-#define DCAM_RTN_IF_ERR                                if(rtn) return -(rtn)
+#define DEBUG_STR                                      "L %d, %s: \n"
+#define DEBUG_ARGS                                     __LINE__,__FUNCTION__
+#define DCAM_RTN_IF_ERR          \
+	do {                        \
+		if(rtn) {                \
+			printk(DEBUG_STR,DEBUG_ARGS);            \
+			return -(rtn);       \
+		}                        \
+	} while(0)
+
 #define DCAM_IRQ_LINE_MASK                             0x00001FFFUL
 #define DCAM_CLOCK_PARENT                              "clk_256m"
 
@@ -239,7 +248,7 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 			rtn = DCAM_RTN_SUCCESS;
 		}
 	}
-MODULE_INIT_END:
+/*MODULE_INIT_END:*/
 	return -rtn;
 }
 
@@ -274,7 +283,7 @@ int32_t dcam_module_en(void)
 		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
 		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
 	}
-MODULE_EN_END:
+/*MODULE_EN_END:*/
 	return ret;
 }
 
@@ -384,7 +393,7 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 	if (NULL == s_dcam_clk) {
 		s_dcam_clk = clk_get(NULL, "clk_dcam");
 		if (IS_ERR(s_dcam_clk)) {
-			printk("DCAM DRV: clk_get fail, %d \n", s_dcam_clk);
+			printk("DCAM DRV: clk_get fail, %d \n", (int)s_dcam_clk);
 			return -1;
 		} else {
 			DCAM_TRACE("DCAM DRV: get clk_parent ok \n");
@@ -395,7 +404,7 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 
 	clk_parent = clk_get(NULL, parent);
 	if (IS_ERR(clk_parent)) {
-		printk("DCAM DRV: dcam_set_clk fail, %d \n", clk_parent);
+		printk("DCAM DRV: dcam_set_clk fail, %d \n", (int)clk_parent);
 		return -1;
 	} else {
 		DCAM_TRACE("DCAM DRV: get clk_parent ok \n");
@@ -552,7 +561,7 @@ int32_t dcam_stop(void)
 			s_resize_wait = 1;
 			/* resize started , wait for it going to the end*/
 			DCAM_TRACE("DCAM DRV: dcam_stop, wait: %d \n", s_done_sema.count);
-			down_interruptible(&s_done_sema);
+			rtn = down_interruptible(&s_done_sema);
 		}
 	}
 
@@ -1885,7 +1894,7 @@ static void    _path1_done(void)
 	DCAM_TRACE("DCAM 1\n");
 
 	DCAM_TRACE("DCAM DRV: _path1_done, frame 0x%x, y uv, 0x%x 0x%x \n",
-		frame, frame->yaddr, frame->uaddr);
+		(int)frame, frame->yaddr, frame->uaddr);
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH1, false);
 	if (rtn) {

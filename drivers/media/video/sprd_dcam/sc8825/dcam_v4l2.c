@@ -47,7 +47,16 @@
 #define DCAM_QUEUE_LENGTH                       8
 #define DCAM_TIMING_LEN                         16
 #define DCAM_TIMEOUT                            1000
-#define V4L2_RTN_IF_ERR(n)                      if(unlikely(n))  goto exit
+#define DEBUG_STR                               "L %d, %s: \n"
+#define DEBUG_ARGS                              __LINE__,__FUNCTION__
+#define V4L2_RTN_IF_ERR(n)          \
+	do {                        \
+		if(unlikely(n)) {                \
+			printk(DEBUG_STR,DEBUG_ARGS);            \
+			goto exit;       \
+		}                        \
+	} while(0)
+
 #define DCAM_VERSION \
 	KERNEL_VERSION(DCAM_MAJOR_VERSION, DCAM_MINOR_VERSION, DCAM_RELEASE)
 
@@ -1437,7 +1446,7 @@ static int v4l2_streamon(struct file *file,
 			V4L2_RTN_IF_ERR(ret);
 			ret = csi_api_start();
 			V4L2_RTN_IF_ERR(ret);
-			ret = csi_reg_isr(sprd_v4l2_csi2_error, dev);
+			ret = csi_reg_isr(sprd_v4l2_csi2_error, (void*)dev);
 			V4L2_RTN_IF_ERR(ret);
 			ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
 			V4L2_RTN_IF_ERR(ret);
@@ -1507,7 +1516,7 @@ static int v4l2_streamoff(struct file *file,
 	mutex_lock(&dev->dcam_mutex);
 
 	if (unlikely(0 == atomic_read(&dev->stream_on))) {
-		ret = -EPERM;
+		/*ret = -EPERM;*/
 		goto exit;
 	}
 	sprd_stop_timer(&dev->dcam_timer);
@@ -1641,7 +1650,7 @@ static void sprd_timer_callback(unsigned long data)
 
 	DCAM_TRACE("v4l2: sprd_timer_callback.\n");
 
-	if (NULL == data || 0 == atomic_read(&dev->stream_on)) {
+	if (0 == data || 0 == atomic_read(&dev->stream_on)) {
 		printk("timer callback error. \n");
 		return;
 	}
