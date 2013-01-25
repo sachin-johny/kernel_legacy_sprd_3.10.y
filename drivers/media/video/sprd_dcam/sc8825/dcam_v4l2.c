@@ -47,7 +47,16 @@
 #define DCAM_QUEUE_LENGTH                       8
 #define DCAM_TIMING_LEN                         16
 #define DCAM_TIMEOUT                            1000
-#define V4L2_RTN_IF_ERR(n)                      if(unlikely(n))  goto exit
+#define DEBUG_STR                               "L %d, %s: \n"
+#define DEBUG_ARGS                              __LINE__,__FUNCTION__
+#define V4L2_RTN_IF_ERR(n)          \
+	do {                        \
+		if(unlikely(n)) {                \
+			printk(DEBUG_STR,DEBUG_ARGS);            \
+			goto exit;       \
+		}                        \
+	} while(0)
+
 #define DCAM_VERSION \
 	KERNEL_VERSION(DCAM_MAJOR_VERSION, DCAM_MINOR_VERSION, DCAM_RELEASE)
 
@@ -64,7 +73,7 @@ enum
 	V4L2_TX_STOP  = 0xFF
 };
 
-static unsigned video_nr = -1;
+static int video_nr = -1;
 module_param(video_nr, uint, 0644);
 MODULE_PARM_DESC(video_nr, "videoX start number, -1 is autodetect");
 
@@ -990,10 +999,12 @@ static int sprd_v4l2_queue_init(struct dcam_queue *queue)
 
 static int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node)
 {
-	struct dcam_node         *ori_node = queue->write;
+	struct dcam_node         *ori_node;
 
 	if (NULL == queue || NULL == node)
 		return -EINVAL;
+
+	ori_node = queue->write;
 
 	*queue->write++ = *node;
 	if (queue->write > &queue->node[DCAM_QUEUE_LENGTH-1]) {
@@ -1435,7 +1446,7 @@ static int v4l2_streamon(struct file *file,
 			V4L2_RTN_IF_ERR(ret);
 			ret = csi_api_start();
 			V4L2_RTN_IF_ERR(ret);
-			ret = csi_reg_isr(sprd_v4l2_csi2_error, dev);
+			ret = csi_reg_isr(sprd_v4l2_csi2_error, (void*)dev);
 			V4L2_RTN_IF_ERR(ret);
 			ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
 			V4L2_RTN_IF_ERR(ret);
@@ -1505,7 +1516,7 @@ static int v4l2_streamoff(struct file *file,
 	mutex_lock(&dev->dcam_mutex);
 
 	if (unlikely(0 == atomic_read(&dev->stream_on))) {
-		ret = -EPERM;
+		/*ret = -EPERM;*/
 		goto exit;
 	}
 	sprd_stop_timer(&dev->dcam_timer);
@@ -1639,7 +1650,7 @@ static void sprd_timer_callback(unsigned long data)
 
 	DCAM_TRACE("v4l2: sprd_timer_callback.\n");
 
-	if (NULL == data || 0 == atomic_read(&dev->stream_on)) {
+	if (0 == data || 0 == atomic_read(&dev->stream_on)) {
 		printk("timer callback error. \n");
 		return;
 	}
@@ -1732,7 +1743,7 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 	rt_word[0] = DCAM_SC_LINE_BUF_LENGTH;
 	rt_word[1] = DCAM_SC_COEFF_MAX;
-	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor \n", rt_word[0], rt_word[1]);
+	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor %d.\n", rt_word[0], rt_word[1]);
 	(void)file; (void)cnt; (void)cnt_ret;
 	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
 }
