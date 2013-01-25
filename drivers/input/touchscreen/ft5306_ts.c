@@ -34,6 +34,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/i2c/ft5306_ts.h>
 #include <mach/regulator.h>
+#include <mach/i2c-sprd.h>
 
 #define I2C_BOARD_INFO_METHOD   1
 #define TS_DATA_THRESHOLD_CHECK	0
@@ -981,12 +982,19 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 {
 
 	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
+	int ret = -1;
 
-	disable_irq_nosync(this_client->irq);
+#if 0
 	if (!work_pending(&ft5x0x_ts->pen_event_work)) {
 		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
 	}
-	//printk("==int=, 11irq=%d\n", this_client->irq);
+
+#endif
+	ret = ft5x0x_read_data();
+	if (ret == 0) {
+		ft5x0x_report_value();
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -1025,7 +1033,7 @@ static void ft5x0x_ts_resume(struct early_suspend *handler)
 {
 	printk("==%s==\n", __FUNCTION__);
 	ft5x0x_ts_reset();
-	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
+	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);//about 70HZ
 }
 
 static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
@@ -1078,6 +1086,8 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	i2c_set_clientdata(client, ft5x0x_ts);
 	client->irq = gpio_to_irq(pdata->irq_gpio_number);
 
+	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
+
 	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
 	if(uc_reg_value != 0x55)
 	{
@@ -1092,7 +1102,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		}
 	}
 
-	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
+	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);//about 70HZ
 
 	INIT_WORK(&ft5x0x_ts->pen_event_work, ft5x0x_ts_pen_irq_work);
 
@@ -1158,7 +1168,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_input_register_device_failed;
 	}
 
-	err = request_irq(client->irq, ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING, client->name, ft5x0x_ts);
+	err = request_threaded_irq(client->irq, NULL, ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING | IRQF_ONESHOT, client->name, ft5x0x_ts);
 	if (err < 0) {
 		dev_err(&client->dev, "ft5x0x_probe: request irq failed %d\n",err);
 		goto exit_irq_request_failed;
