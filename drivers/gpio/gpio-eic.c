@@ -610,7 +610,7 @@ static int __init eic_gpio_init(void)
 {
 	return platform_driver_register(&eic_gpio_driver);
 }
-subsys_initcall(eic_gpio_init);
+postcore_initcall(eic_gpio_init);
 
 static void __exit eic_gpio_exit(void)
 {

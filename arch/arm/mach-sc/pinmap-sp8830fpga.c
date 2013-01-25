@@ -24,7 +24,7 @@ typedef struct {
 	uint32_t val;
 } pinmap_t;
 
-pinmap_t __initconst pinmap[] = {
+static pinmap_t __initconst pinmap[] = {
 	{REG_PIN_ANA_INT2,            BITS_PIN_DS(1)|BITS_PIN_AF(0)|BIT_PIN_NUL|BIT_PIN_SLP_NUL|BIT_PIN_SLP_IE},
 	{REG_PIN_EXT_RST_B,           BITS_PIN_DS(1)|BITS_PIN_AF(0)|BIT_PIN_NUL|BIT_PIN_SLP_NUL|BIT_PIN_SLP_Z},
 	{REG_PIN_CHIP_SLEEP,          BITS_PIN_DS(1)|BITS_PIN_AF(0)|BIT_PIN_NUL|BIT_PIN_SLP_NUL|BIT_PIN_SLP_Z},
@@ -272,4 +272,4 @@ static int __init pin_init(void)
 	return 0;
 }
 
-arch_initcall(pin_init);
+core_initcall_sync(pin_init);
