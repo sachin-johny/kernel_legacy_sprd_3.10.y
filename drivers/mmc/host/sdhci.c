@@ -138,6 +138,12 @@ void sdhci_dumpregs(struct sdhci_host *host)
 
 #ifdef CONFIG_ARCH_SC8825
 	printk("AHB_CTL0:0x%x\n", sci_glb_raw_read(REG_AHB_AHB_CTL0));
+	printk("INTC0_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0X08) );	
+	printk("INTC1_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0x1000 + 0X08) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x100) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x104) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x108) );
+
 	printk("ANA_REG_GLB_LDO_PD_CTRL1:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL1));
 	printk("ANA_REG_GLB_LDO_VCTRL4:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_VCTRL4));
 #endif
@@ -292,10 +298,12 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 
 void sdhci_reinit(struct sdhci_host *host)
 {
+	sdhci_dumpregs(host);
 	sdhci_init(host, 0);
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
+	sdhci_dumpregs(host);
 }
 
 /* no led used in our host */
@@ -1000,6 +1008,21 @@ static void sdhci_finish_data(struct sdhci_host *host)
 			sdhci_reset(host, SDHCI_RESET_CMD);
 			sdhci_reset(host, SDHCI_RESET_DATA);
 		}
+		if(host->mmc->card != NULL && mmc_card_mmc(host->mmc->card)){
+			int err;
+			u32 status;
+			extern int get_card_status(struct mmc_card *card, u32 *status, int retries);
+			err = get_card_status(host->mmc->card, &status, 3);
+			if (err) {
+				tasklet_schedule(&host->finish_tasklet);
+				return;
+			}
+			if (R1_CURRENT_STATE(status) != R1_STATE_DATA &&
+				R1_CURRENT_STATE(status) != R1_STATE_RCV) {
+				tasklet_schedule(&host->finish_tasklet);
+				return;
+			}
+		}
 
 		sdhci_send_command(host, data->stop);
 	} else
@@ -1312,10 +1335,13 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 static void sdhci_hw_reset(struct mmc_host *mmc)
 {
 	int ret = 0;
-	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_host *host = mmc_priv(mmc);	
+	printk("%s, ****************** %s, call mmc_power_off ***********\n", mmc_hostname(mmc), __func__ );
 	mmc_power_off(mmc);
-	usleep_range(5000, 5500);
+	usleep_range(5000, 5500);	
+	printk("%s, ****************** %s, call mmc_power_up ***********\n", mmc_hostname(mmc), __func__ );
 	mmc_power_up(mmc);
+	printk("%s, ****************** %s,  set cmd and data***********\n", mmc_hostname(mmc), __func__ );
 	sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
 	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
 }
@@ -1491,9 +1517,9 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	sdhci_set_clock(host, ios->clock);
 
 	if (ios->power_mode == MMC_POWER_OFF) {
-		if(!(mmc->card && mmc_card_mmc(mmc->card))) {
+		//if(!(mmc->card && mmc_card_mmc(mmc->card))) {
 			sdhci_set_power(host, -1);
-		}
+		//}
 	} else
 		sdhci_set_power(host, ios->vdd);
 
