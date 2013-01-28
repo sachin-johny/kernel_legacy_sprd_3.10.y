@@ -207,7 +207,7 @@ static void gic_restore_context(void){
 		offset--;
 	}
 	/* restore CPU 0 Interrupt Set Enable register */
-	gic_writel(gic_context[offset], (GIC_DIST_ENABLE_SET), i);
+	gic_writel(gic_context[offset], (GIC_DIST_ENABLE_SET), 0);
 
 #ifdef CONFIG_SPRD_PM_DEBUG
 	printk("****** exit %s, restore %d gic registers \n ", __func__, offset);
@@ -595,6 +595,7 @@ static void wait_until_uart1_tx_done(void)
 /* arm core sleep*/
 static void arm_sleep(void)
 {
+	pm_debug_save_ahb_glb_regs( );
 	cpu_do_idle();
 	hard_irq_set();
 }
@@ -614,10 +615,13 @@ static void mcu_sleep(void)
 	*/
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
-	/* FIXME: enable sys sleep in final version 
+	/* FIXME: enable sys sleep in final version
 	val |= MCU_SYS_SLEEP_EN;
 	*/
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL );
+
+	pm_debug_save_ahb_glb_regs( );
+
 	cpu_do_idle();
 	hard_irq_set();
 	RESTORE_GLOBAL_REG;
@@ -873,17 +877,15 @@ int deep_sleep(void)
 	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
 #endif  /*CONFIG_MACH_SP6825GB*/
 
-
-
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL);
 
 	/* set entry when deepsleep return*/
 	save_reset_vector();
 	set_reset_vector();
-	
+
 	/* check globle key registers */
 	pm_debug_save_ahb_glb_regs( );
-	
+
 	/* indicate cpu stopped */
 	holding = sci_glb_read(REG_AHB_HOLDING_PEN, -1UL);
 	sci_glb_write(REG_AHB_HOLDING_PEN, (holding & (~CORE1_RUN)) | AP_ENTER_DEEP_SLEEP , -1UL );
@@ -1015,11 +1017,11 @@ int sc8825_enter_lowpower(void)
 #endif
 #endif
 	if (status & DEVICE_AHB)  {
-		printk("###### %s,  DEVICE_AHB ###\n", __func__ );
+		/*printk("###### %s,  DEVICE_AHB ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_ARM);
 		arm_sleep();
 	} else if (status & DEVICE_APB) {
-		printk("###### %s,	DEVICE_APB ###\n", __func__ );
+		/*printk("###### %s,	DEVICE_APB ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_MCU);
 		mcu_sleep();
 	} else {
@@ -1035,7 +1037,6 @@ int sc8825_enter_lowpower(void)
 	}
 	
 	time_add(get_sys_cnt() - time, ret);
-	print_hard_irq_inloop(ret);
 
 	return ret;
 
