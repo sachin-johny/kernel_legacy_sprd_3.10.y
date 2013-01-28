@@ -2053,6 +2053,11 @@ config CPU_FREQ_PXA
 config CPU_FREQ_SC8810
 	bool "CPUfreq support for Spreadtrum SC8810 CPUs"
 	depends on CPU_FREQ && ARCH_SC8810
+
+config CPU_FREQ_SC8825
+	bool "CPUfreq support for Spreadtrum SC8825 CPUs"
+	depends on CPU_FREQ && ARCH_SC8825
+
 config CPU_FREQ_S3C64XX
 	bool "CPUfreq support for Samsung S3C64XX CPUs"
 	depends on CPU_FREQ && CPU_S3C6410
