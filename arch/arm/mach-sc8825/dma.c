@@ -129,7 +129,7 @@ static int sprd_dma_request_channel(u32 uid)
 
 static void sprd_dma_channel_enable(int dma_chn)
 {
-	__raw_writel((1<<dma_chn), DMA_CHx_EN);
+	writel((1<<dma_chn), DMA_CHx_EN);
 }
 
 
