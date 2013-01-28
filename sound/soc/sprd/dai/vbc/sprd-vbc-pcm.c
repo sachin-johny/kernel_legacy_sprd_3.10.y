@@ -192,7 +192,7 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	      && 0 == sprd_buffer_iram_backup())) {
 #endif
 		rtd->dma_desc_array =
-		    dma_alloc_writecombine(substream->pcm->card->dev,
+		    dma_alloc_coherent(substream->pcm->card->dev,
 					   2 * PAGE_SIZE,
 					   &rtd->dma_desc_array_phys,
 					   GFP_KERNEL);
@@ -236,7 +236,7 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 		sprd_buffer_iram_restore();
 	else
 #endif
-		dma_free_writecombine(substream->pcm->card->dev, 2 * PAGE_SIZE,
+		dma_free_coherent(substream->pcm->card->dev, 2 * PAGE_SIZE,
 				      rtd->dma_desc_array,
 				      rtd->dma_desc_array_phys);
 	kfree(rtd);
@@ -613,7 +613,7 @@ static int sprd_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 	      && 0 == sprd_buffer_iram_backup())) {
 #endif
 		buf->private_data = NULL;
-		buf->area = dma_alloc_writecombine(pcm->card->dev, size,
+		buf->area = dma_alloc_coherent(pcm->card->dev, size,
 						   &buf->addr, GFP_KERNEL);
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 	} else {
@@ -705,7 +705,7 @@ static void sprd_pcm_free_dma_buffers(struct snd_pcm *pcm)
 			sprd_buffer_iram_restore();
 		else
 #endif
-			dma_free_writecombine(pcm->card->dev, buf->bytes,
+			dma_free_coherent(pcm->card->dev, buf->bytes,
 					      buf->area, buf->addr);
 		buf->area = NULL;
 		if (buf == save_p_buf) {
