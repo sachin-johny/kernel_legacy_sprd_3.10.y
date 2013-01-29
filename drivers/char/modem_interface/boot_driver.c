@@ -42,8 +42,6 @@ struct dloader_dev{
 	int 			open_count;
 	atomic_t 		read_excl;
 	atomic_t 		write_excl;
-	char			*read_buffer;
-	char			*write_buffer;
 };
 static struct dloader_dev *dl_dev=NULL;
 static struct wake_lock dloader_wake_lock;
@@ -73,25 +71,10 @@ static int dloader_open(struct inode *inode,struct file *filp)
 		return -EBUSY;
 	}
 
-	dl_dev->read_buffer = kzalloc(READ_BUFFER_SIZE, GFP_KERNEL);
-	if (dl_dev->read_buffer == NULL) {
-		printk(KERN_INFO "DLoade_open fail(NO MEM) \n");
-		return -ENOMEM;
-	}
-	dl_dev->write_buffer = kzalloc(WRITE_BUFFER_SIZE+4, GFP_KERNEL);
-	if (dl_dev->write_buffer == NULL) {
-		kfree(dl_dev->read_buffer);
-		dl_dev->read_buffer = NULL;
-		printk(KERN_INFO "DLoade_open fail(NO MEM) \n");
-		return -ENOMEM;
-	}
+
 	dl_dev->open_count++;
 	wake_lock(&dloader_wake_lock);
 	if(modem_intf_open(MODEM_MODE_BOOT,0)< 0){
-		kfree(dl_dev->write_buffer);
-		dl_dev->write_buffer = NULL;
-		kfree(dl_dev->read_buffer);
-		dl_dev->read_buffer = NULL;
 		printk(KERN_INFO "modem_intf_open failed \n");
 		return -EBUSY;
 	}
@@ -112,15 +95,7 @@ static int dloader_read(struct file *filp,char __user *buf,size_t count,loff_t *
 		return -EBUSY;
 
 	if(dl_dev->mode==MODEM_MODE_BOOT){
-		if(count > READ_BUFFER_SIZE)
-			count = READ_BUFFER_SIZE;
-		read_len = modem_intf_read(dl_dev->read_buffer,count,0);
-		if (read_len>0){
-			if (copy_to_user(buf,dl_dev->read_buffer,read_len)){
-				dloader_unlock(&dl_dev->read_excl);
-				return -EFAULT;
-			}
-		}
+		read_len = modem_intf_read(buf,count,0);
 	}
 
 	dloader_unlock(&dl_dev->read_excl);
@@ -135,18 +110,8 @@ static int dloader_write(struct file *filp, const char __user *buf,size_t count,
 
 	if (dloader_lock(&dl_dev->write_excl))
 		return -EBUSY;
-
-	if (count > WRITE_BUFFER_SIZE ) {
-		dloader_unlock(&dl_dev->write_excl);
-		return -EINVAL;
-	}
-	pr_debug("dloader_write: mode = %d\n",dl_dev->mode);
 	if (dl_dev->mode==MODEM_MODE_BOOT) {
-		if (copy_from_user(dl_dev->write_buffer,buf,count )){
-			dloader_unlock(&dl_dev->write_excl);
-			return -EFAULT;
-		}
-		modem_intf_write(dl_dev->write_buffer,count,0);
+		modem_intf_write(buf,count,0);
 	}
 
 	dloader_unlock(&dl_dev->write_excl);
@@ -157,10 +122,6 @@ static int dloader_write(struct file *filp, const char __user *buf,size_t count,
 static int dloader_release(struct inode *inode,struct file *filp)
 {
 	printk(KERN_INFO "dloader_release time = 0x%x \n",jiffies);
-	kfree(dl_dev->read_buffer);
-	kfree(dl_dev->write_buffer);
-	dl_dev->read_buffer = NULL;
-	dl_dev->write_buffer = NULL;
 	wake_unlock(&dloader_wake_lock);
 	dl_dev->open_count--;
 	modem_intf_set_mode(MODEM_MODE_NORMAL,0);

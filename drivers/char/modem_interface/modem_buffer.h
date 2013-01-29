@@ -14,7 +14,6 @@
 #ifndef _MODEM_BUFFER_H
 #define _MODEM_BUFFER_H
 
-#define	RECV_BUFFER_SIZE	(65*1024)
 enum   BUF_type_t{
 	BUF_SEND,
 	BUF_RECV,
@@ -49,10 +48,10 @@ struct modem_buffer{
 };
 
 extern int  pingpang_buffer_send(struct modem_buffer *buffer);
-extern int  pingpang_buffer_init(struct modem_buffer *buffer);
 extern void pingpang_buffer_free(struct modem_buffer *buffer);
+extern int  pingpang_buffer_init(struct modem_buffer *buffer,int size);
 extern void pingpang_buffer_send_complete(struct modem_buffer *buffer,int index);
-extern int  pingpang_buffer_read(struct modem_buffer *buffer,char *data,int size);
-extern int  pingpang_buffer_write(struct modem_buffer *buffer,char *data,int size);
+extern int  pingpang_buffer_read(struct modem_buffer *buffer,char __user *data,int size);
+extern int pingpang_buffer_write(struct modem_buffer *buffer,const char __user *data,int size);
 extern int  save_to_receive_buffer(struct modem_buffer *buffer,char *data,int size);
 #endif
