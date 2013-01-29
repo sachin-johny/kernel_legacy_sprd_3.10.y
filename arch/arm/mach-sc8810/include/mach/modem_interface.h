@@ -36,7 +36,7 @@ struct modem_intf_platform_data{
     int              	modem_crash_gpio;
 };
 extern int modem_intf_open(enum MODEM_Mode_type mode,int index);
-extern int modem_intf_read(unsigned char *buffer, int size,int index);
-extern int modem_intf_write(unsigned char *buffer, int size,int index);
+extern int modem_intf_read(char __user *buffer, int size,int index);
+extern int modem_intf_write(const char __user *buffer, int size,int index);
 extern void modem_intf_set_mode(enum MODEM_Mode_type mode,int index);
 #endif

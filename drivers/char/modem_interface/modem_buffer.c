@@ -22,6 +22,7 @@
 #include <linux/utsname.h>
 #include <linux/semaphore.h>
 #include <linux/irqflags.h>
+#include <asm/uaccess.h>
 #include "modem_buffer.h"
 #define dloader_record_timestamp(time)
 static int buffer_data_size(struct single_buffer_t *buffer)
@@ -64,7 +65,7 @@ int save_to_receive_buffer(struct modem_buffer *buffer,char *data,int size)
 	return 0;
 }
 
-int pingpang_buffer_read(struct modem_buffer *buffer,char *data,int size)
+int pingpang_buffer_read(struct modem_buffer *buffer,char __user *data,int size)
 {
 	int read_len = 0;
 	int data_size = 0;	
@@ -88,14 +89,14 @@ int pingpang_buffer_read(struct modem_buffer *buffer,char *data,int size)
 		} else {
 			read_len = size;
 		}
-		for (i=0;i<read_len;i++) {
-			data[i]= buffer->buffer[0].addr[read_point++];
-			if(read_point >= buffer->buffer[0].size)
-				read_point = 0;
-		}
-		dloader_record_timestamp(0x30000000|buffer->buffer[0].read_point);
-		dloader_record_timestamp(0x40000000|read_point);
-		buffer->buffer[0].read_point = read_point;
+                if(copy_to_user(data,&buffer->buffer[0].addr[read_point],read_len)){
+			printk("copy_to_user(%d,%d,%d) failed\n",read_len,size,data_size);
+                        up(&buffer->buf_read_sem);
+                        return -EFAULT;
+                }
+
+		buffer->buffer[0].read_point = 0; 
+		buffer->buffer[0].write_point = 0; 
 		up(&buffer->buf_read_sem);
 		return read_len;
 	}
@@ -120,7 +121,6 @@ int pingpang_buffer_send(struct modem_buffer *buffer)
 				buffer->buffer[index].status = BUF_STATUS_SENT;
 				local_irq_restore(flags);
 				buffer->trans_index = index;
-				dloader_record_timestamp(0x50000000|(index<<24)|buffer->buffer[index].write_point);
 				if(buffer->save_index == index)
 					buffer->save_index = 1- index;
 				return index;	
@@ -145,8 +145,7 @@ void pingpang_buffer_send_complete(struct modem_buffer *buffer,int index)
 		}
 	}
 }
-
-int pingpang_buffer_write(struct modem_buffer *buffer,char *data,int size)
+int pingpang_buffer_write(struct modem_buffer *buffer,const char __user *data,int size)
 {
 	int index = 0;
 	int data_size;
@@ -181,7 +180,9 @@ int pingpang_buffer_write(struct modem_buffer *buffer,char *data,int size)
 						buffer->save_index = index;
 					} else {
 						write_point = buffer->buffer[index].write_point;
-									
+						copy_from_user(&buffer->buffer[index].addr[write_point],data,size);
+						buffer->buffer[index].write_point = write_point + size;
+#if 0			
 						for(i=0;i<size;i++){
 							buffer->buffer[index].addr[write_point++]=data[i];
 							if(write_point >= buffer->buffer[index].size)
@@ -190,6 +191,7 @@ int pingpang_buffer_write(struct modem_buffer *buffer,char *data,int size)
 						dloader_record_timestamp(0x10000000|(index<<24)|buffer->buffer[index].write_point);
 						dloader_record_timestamp(0x20000000|(index<<24)|write_point);
 						buffer->buffer[index].write_point = write_point;
+#endif
 						buffer->buffer[index].status = BUF_STATUS_NOEMPTY;
 						save_flag = 1;
 						
@@ -205,12 +207,12 @@ int pingpang_buffer_write(struct modem_buffer *buffer,char *data,int size)
 	}
 	return size;
 }
-int pingpang_buffer_init(struct modem_buffer *buffer)
+int pingpang_buffer_init(struct modem_buffer *buffer,int size)
 {
 	char *address;
 	int  divide = 2;
 
-	address = kzalloc(RECV_BUFFER_SIZE + 128, GFP_KERNEL);
+	address = kzalloc(size + 128, GFP_KERNEL);
 	if (address == NULL)
 		return -ENOMEM;
 
@@ -218,12 +220,12 @@ int pingpang_buffer_init(struct modem_buffer *buffer)
 		divide = 4;
 	
 	buffer->buffer[0].addr = address+32;
-	buffer->buffer[0].size = RECV_BUFFER_SIZE - RECV_BUFFER_SIZE/divide;
+	buffer->buffer[0].size = size - size/divide;
 	buffer->buffer[0].write_point = 0;
 	buffer->buffer[0].read_point = 0;
 	buffer->buffer[0].status = BUF_STATUS_IDLE;
 	buffer->buffer[1].addr = address + buffer->buffer[0].size+64;
-	buffer->buffer[1].size = RECV_BUFFER_SIZE - buffer->buffer[0].size;
+	buffer->buffer[1].size = size - buffer->buffer[0].size;
 	buffer->buffer[1].read_point = 0;
 	buffer->buffer[1].write_point = 0;
 	buffer->buffer[1].status = BUF_STATUS_IDLE;
@@ -238,7 +240,7 @@ int pingpang_buffer_init(struct modem_buffer *buffer)
 void pingpang_buffer_free(struct modem_buffer *buffer)
 {
 	if (buffer->buffer[0].addr){		
-		kfree(buffer->buffer[0].addr);
+		kfree(buffer->buffer[0].addr-32);
 		buffer->buffer[0].addr = NULL;
 		buffer->buffer[0].size = 0;
 		buffer->buffer[0].write_point = 0;

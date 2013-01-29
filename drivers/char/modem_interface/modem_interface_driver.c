@@ -175,6 +175,9 @@ static void modem_send_message( struct modem_message_node *msg )
 static int modem_protocol_thread(void *data)
 {
 	struct modem_message_node *msg;
+	struct sched_param       param = {.sched_priority = 30};
+
+	sched_setscheduler(current, SCHED_FIFO, &param);
 
 	while(1){
 		msg = modem_intf_get_message();
@@ -218,7 +221,7 @@ int modem_intf_open(enum MODEM_Mode_type mode,int index)
 	return retval;
 }
 
-int modem_intf_read(unsigned char *buffer, int size,int index)
+int modem_intf_read(char __user *buffer, int size,int index)
 {
 	int read_len;
 
@@ -229,7 +232,7 @@ int modem_intf_read(unsigned char *buffer, int size,int index)
 	return read_len;
 }
 
-int modem_intf_write(unsigned char *buffer, int size,int index)
+int modem_intf_write(const char __user *buffer, int size,int index)
 {
 	struct modem_message_node *msg;
 
@@ -452,13 +455,13 @@ static int modem_intf_driver_probe(struct platform_device *_dev)
 	memcpy(&device->modem_config,modem_config,sizeof(*modem_config));
 	device->send_buffer.type = BUF_SEND;
 	device->recv_buffer.type = BUF_RECV;
-	if (pingpang_buffer_init(&device->send_buffer)) {
+	if (pingpang_buffer_init(&device->send_buffer,SEND_BUFFER_SIZE)) {
 		dev_dbg(&_dev->dev, "send_buffer init failed\n");
 		retval = -ENOMEM;
 		goto fail;
 	}
 
-	if (pingpang_buffer_init(&device->recv_buffer)) {
+	if (pingpang_buffer_init(&device->recv_buffer,RECV_BUFFER_SIZE)) {
 		dev_dbg(&_dev->dev, "receive_buffer init failed\n");
 		pingpang_buffer_free(&device->send_buffer);
 		retval = -ENOMEM;

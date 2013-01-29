@@ -1,7 +1,8 @@
 #ifndef __MODEM_INTF_DRIVER_H__
 #define __MODEM_INTF_DRIVER_H__
 #include <mach/modem_interface.h>
-
+#define	SEND_BUFFER_SIZE	(129*1024)
+#define	RECV_BUFFER_SIZE	(1024)
 enum   TRAN_DIR_t{
 	TRAN_DIR_IN,
 	TRAN_DIR_OUT,
