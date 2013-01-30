@@ -285,15 +285,15 @@ static int32_t hx8362_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	if(is_sleep==1){
 		//Sleep In
 		HX8362_SpiWriteCmd(0x28);
-		mdelay(120); 
+		mdelay(20); 
 		HX8362_SpiWriteCmd(0x10);
-		mdelay(10); 
+		mdelay(120); 
 	}else{
 		//Sleep Out
 		HX8362_SpiWriteCmd(0x11);
 		mdelay(120); 
 		HX8362_SpiWriteCmd(0x29);
-		mdelay(10); 
+		mdelay(20); 
 	}
 
 	return 0;
