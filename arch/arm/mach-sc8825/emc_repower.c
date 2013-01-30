@@ -2041,9 +2041,9 @@ void emc_init_repowered(u32 power_off)
 		return;
 	}
 	#ifdef CONFIG_MACH_SP6825GA
-	clk_emc_div = 3;
-	#else
 	clk_emc_div = 1;
+	#else
+	clk_emc_div = 3;
 	#endif
 	param_p->emc_freq = 400 / (clk_emc_div + 1);
 	if(0) {
