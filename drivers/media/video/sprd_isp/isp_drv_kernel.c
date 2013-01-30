@@ -237,6 +237,22 @@ static int32_t _isp_lnc_param_set(uint32_t* addr, uint32_t len)
 	return ret;
 }
 
+static int32_t _isp_free(void)
+{
+	int32_t ret = 0;
+
+	if((0x00!=s_isp_alloc_addr)
+		&&(0x00!=s_isp_alloc_order))
+	{
+		free_pages(s_isp_alloc_addr, s_isp_alloc_order);
+		s_isp_alloc_order = 0x00;
+		s_isp_alloc_addr = 0x00;
+		s_isp_alloc_len=0x00;
+	}
+
+	return ret;
+}
+
 static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 {
 	int32_t ret = 0;
@@ -244,6 +260,15 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 	uint32_t vir_buf=0x00;
 	uint32_t mem_order=0x00;
 	void *ptr;
+
+	if((0x00!=s_isp_alloc_addr)
+		&&(len<=s_isp_alloc_len))
+	{
+		*addr = s_isp_alloc_addr;
+	} else {
+		_isp_free();
+	}
+
 	if(0x00==s_isp_alloc_addr) {
 		s_isp_alloc_len=len;
 		s_isp_alloc_order = get_order(len);
@@ -257,22 +282,6 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 		buf = virt_to_phys(s_isp_alloc_addr);
 		dmac_flush_range(ptr, ptr + len);
 		outer_flush_range(__pa(ptr), __pa(ptr) + len);
-	}
-
-	return ret;
-}
-
-static int32_t _isp_free(void)
-{
-	int32_t ret = 0;
-
-	if((0x00!=s_isp_alloc_addr)
-		&&(0x00!=s_isp_alloc_order))
-	{
-		free_pages(s_isp_alloc_addr, s_isp_alloc_order);
-		s_isp_alloc_order = 0x00;
-		s_isp_alloc_addr = 0x00;
-		s_isp_alloc_len=0x00;
 	}
 
 	return ret;
