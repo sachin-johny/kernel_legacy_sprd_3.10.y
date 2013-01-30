@@ -176,7 +176,7 @@ static void __init sprd_add_otg_device(void)
 }
 
 static struct serial_data plat_data0 = {
-	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.wakeup_type = BT_RX_WAKE_UP,
 	.clk = 48000000,
 };
 static struct serial_data plat_data1 = {
