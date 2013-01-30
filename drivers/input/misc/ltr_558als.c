@@ -34,7 +34,7 @@
 #include <linux/input.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
-/*#include <linux/earlysuspend.h>*/
+#include <linux/earlysuspend.h>
 #include <linux/platform_device.h>
 #include <asm/uaccess.h>
 #include <linux/wakelock.h>

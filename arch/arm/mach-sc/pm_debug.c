@@ -536,6 +536,7 @@ static int print_thread(void * data)
 		is_dsp_sleep();
 		msleep(100);
 		wake_unlock(&messages_wakelock);
+		has_wake_lock(WAKE_LOCK_SUSPEND);
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(30 * HZ);
 	}
