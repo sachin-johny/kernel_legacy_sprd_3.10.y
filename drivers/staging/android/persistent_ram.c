@@ -331,7 +331,9 @@ static int persistent_ram_buffer_map(phys_addr_t start, phys_addr_t size,
 	page_start = start - offset_in_page(start);
 	page_count = DIV_ROUND_UP(size + offset_in_page(start), PAGE_SIZE);
 
-	prot = pgprot_noncached(PAGE_KERNEL);
+	/* ldrex of atomic_cmpxchg called by buffer_size_add and buffer_start_add
+	 * need cache. */
+	/* prot = pgprot_noncached(PAGE_KERNEL); */
 
 	pages = kmalloc(sizeof(struct page *) * page_count, GFP_KERNEL);
 	if (!pages) {
@@ -344,7 +346,7 @@ static int persistent_ram_buffer_map(phys_addr_t start, phys_addr_t size,
 		phys_addr_t addr = page_start + i * PAGE_SIZE;
 		pages[i] = pfn_to_page(addr >> PAGE_SHIFT);
 	}
-	prz->vaddr = vmap(pages, page_count, VM_MAP, prot);
+	prz->vaddr = vmap(pages, page_count, VM_MAP, PAGE_KERNEL);
 	kfree(pages);
 	if (!prz->vaddr) {
 		pr_err("%s: Failed to map %u pages\n", __func__, page_count);
