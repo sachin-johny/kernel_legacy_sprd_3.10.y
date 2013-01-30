@@ -18,7 +18,6 @@ obj-$(CONFIG_SMP) += platsmp.o headsmp.o
 obj-$(CONFIG_SIPC) += sipc.o
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 obj-$(CONFIG_SC_VIBRATOR) += vibrator.o
-obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o
 
 ifeq ($(CONFIG_RTL8723AS),m)
 	obj-y  += rtl8723_adapter.o

@@ -18,6 +18,7 @@
 #include <linux/input/matrix_keypad.h>
 #include <linux/mmc/sdhci.h>
 #include <linux/gpio.h>
+#include <linux/persistent_ram.h>
 
 #include <linux/sprd_cproc.h>
 #include <linux/sipc.h>
@@ -203,6 +204,23 @@ struct platform_device sprd_lcd_device1 = {
 	.id             =  1,
 	.num_resources  = ARRAY_SIZE(sprd_lcd_resources),
 	.resource       = sprd_lcd_resources,
+};
+
+struct persistent_ram_descriptor ram_console_desc = {
+	.name = "ram_console.0",
+	.size = SPRD_RAM_CONSOLE_SIZE,
+};
+
+struct persistent_ram ram_console_ram = {
+	.start = SPRD_RAM_CONSOLE_START,
+	.size = SPRD_RAM_CONSOLE_SIZE,
+	.num_descs = 1,
+	.descs = &ram_console_desc,
+};
+
+struct platform_device sprd_ram_console = {
+	.name           = "ram_console",
+	.id             =  0,
 };
 
 static struct resource sprd_otg_resource[] = {
