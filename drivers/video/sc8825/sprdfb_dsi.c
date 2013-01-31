@@ -41,11 +41,14 @@
 struct sprdfb_dsi_context {
 	struct clk		*clk_dsi;
 	bool			is_inited;
+	uint32_t		status;/*0- normal, 1- uninit, 2-abnormal*/
 
 	dsih_ctrl_t	dsi_inst;
 };
 
 static struct sprdfb_dsi_context dsi_ctx;
+
+static int32_t sprdfb_dsi_set_lp_mode(void);
 
 static uint32_t dsi_core_read_function(uint32_t addr, uint32_t offset)
 {
@@ -256,6 +259,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	if(dev->panel_ready && !resume){
 		printk(KERN_INFO "sprdfb:[%s]: dsi has alread initialized\n", __FUNCTION__);
 		dsi_instance->status = INITIALIZED;
+		dsi_ctx.status = 0;
 		return 0;
 	}
 
@@ -278,12 +282,14 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	result = mipi_dsih_open(dsi_instance);
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_open fail (%d)!\n", __FUNCTION__, result);
+		dsi_ctx.status = 1;
 		return -1;
 	}
 
 	result = mipi_dsih_dphy_configure(phy,  mipi->lan_number, mipi->phy_feq);
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_dphy_configure fail (%d)!\n", __FUNCTION__, result);
+		dsi_ctx.status = 1;
 		return -1;
 	}
 
@@ -296,30 +302,36 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	result = mipi_dsih_enable_rx(dsi_instance, 1);
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_enable_rx fail (%d)!\n", __FUNCTION__, result);
+		dsi_ctx.status = 1;
 		return -1;
 	}
 
 	result = mipi_dsih_ecc_rx(dsi_instance, 1);
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_ecc_rx fail (%d)!\n", __FUNCTION__, result);
+		dsi_ctx.status = 1;
 		return -1;
 	}
 
 	result = mipi_dsih_eotp_rx(dsi_instance, 1);
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_eotp_rx fail (%d)!\n", __FUNCTION__, result);
+		dsi_ctx.status = 1;
 		return -1;
 	}
 
 	result = mipi_dsih_eotp_tx(dsi_instance, 1);
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_eotp_tx fail (%d)!\n", __FUNCTION__, result);
+		dsi_ctx.status = 1;
 		return -1;
 	}
 
 	if(SPRDFB_MIPI_MODE_VIDEO == mipi->work_mode){
 		dsi_dpi_init(dev->panel);
 	}
+
+	dsi_ctx.status = 0;
 
 	return 0;
 }
@@ -331,6 +343,8 @@ int32_t sprdfb_dsi_uninit(struct sprdfb_device *dev)
 	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 	result = mipi_dsih_close(&(dsi_ctx.dsi_inst));
 	dsi_instance->status = NOT_INITIALIZED;
+
+	dsi_ctx.status = 1;
 
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: sprdfb_dsi_uninit fail (%d)!\n", __FUNCTION__, result);
@@ -403,6 +417,17 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 	return 0;
 }
 
+int32_t sprdfb_dsi_before_panel_reset(struct sprdfb_device *dev)
+{
+	sprdfb_dsi_set_lp_mode();
+	return 0;
+}
+
+uint32_t sprdfb_dsi_get_status(struct sprdfb_device *dev)
+{
+	return dsi_ctx.status;
+}
+
 static int32_t sprdfb_dsi_set_cmd_mode(void)
 {
 	mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
@@ -412,6 +437,29 @@ static int32_t sprdfb_dsi_set_cmd_mode(void)
 static int32_t sprdfb_dsi_set_video_mode(void)
 {
 	mipi_dsih_video_mode(&(dsi_ctx.dsi_inst), 1);
+	return 0;
+}
+
+static int32_t sprdfb_dsi_set_lp_mode(void)
+{
+	uint32_t reg_val;
+	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
+
+	mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1fff);
+	reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL);
+	reg_val = reg_val & (~(BIT(0)));
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL,  reg_val);
+	return 0;
+}
+
+static int32_t sprdfb_dsi_set_hs_mode(void)
+{
+	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
+
+	mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
 	return 0;
 }
 
@@ -429,11 +477,29 @@ static int32_t sprdfb_dsi_gen_write(uint8_t *param, uint16_t param_length)
 static int32_t sprdfb_dsi_gen_read(uint8_t *param, uint16_t param_length, uint8_t bytes_to_read, uint8_t *read_buffer)
 {
 	uint16_t result;
+	uint32_t reg_val, reg_val_1, reg_val_2;
 	result = mipi_dsih_gen_rd_cmd(&(dsi_ctx.dsi_inst), 0, param, param_length, bytes_to_read, read_buffer);
-	if(0 != result){
-		printk(KERN_ERR "sprdfb: [%s] error (%d)\n", __FUNCTION__, result);
+
+	reg_val = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
+	reg_val_1 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
+	reg_val_2 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
+
+	if(0 != (reg_val & 0x2)){
+		printk("sprdfb: [%s] mipi read hang (0x%x)!\n", __FUNCTION__, reg_val);
+		dsi_ctx.status = 2;
+		result = 0;
+	}
+
+	if(0 != (reg_val_1 & 0x701)){
+		printk("sprdfb: [%s] mipi read status error!(0x%x, 0x%x)\n", __FUNCTION__, reg_val_1, reg_val_2);
+		result = 0;
+	}
+
+	if(0 == result){
+		printk(KERN_ERR "sprdfb: [%s] return error (%d)\n", __FUNCTION__, result);
 		return -1;
 	}
+
 	return 0;
 }
 
@@ -451,11 +517,29 @@ static int32_t sprdfb_dsi_dcs_write(uint8_t *param, uint16_t param_length)
 static int32_t sprdfb_dsi_dcs_read(uint8_t command, uint8_t bytes_to_read, uint8_t *read_buffer)
 {
 	uint16_t result;
+	uint32_t reg_val, reg_val_1, reg_val_2;
+
 	result = mipi_dsih_dcs_rd_cmd(&(dsi_ctx.dsi_inst), 0, command, bytes_to_read, read_buffer);
-	if(0 != result){
-		printk(KERN_ERR "sprdfb: [%s] error (%d)\n", __FUNCTION__, result);
+	reg_val = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
+	reg_val_1 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
+	reg_val_2 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
+
+	if(0 != (reg_val & 0x2)){
+		printk("sprdfb: [%s] mipi read hang (0x%x)!\n", __FUNCTION__, reg_val);
+		dsi_ctx.status = 2;
+		result = 0;
+	}
+
+	if(0 != (reg_val_1 & 0x701)){
+		printk("sprdfb: [%s] mipi read status error!(0x%x, 0x%x)\n", __FUNCTION__, reg_val_1, reg_val_2);
+		result = 0;
+	}
+
+	if(0 == result){
+		printk(KERN_ERR "sprdfb: [%s] return error (%d)\n", __FUNCTION__, result);
 		return -1;
 	}
+
 	return 0;
 }
 
@@ -470,6 +554,7 @@ static int32_t sprd_dsi_force_read(uint8_t command, uint8_t bytes_to_read, uint8
 {
 	int32_t iRtn = 0;
 	dsih_ctrl_t *curInstancePtr = &(dsi_ctx.dsi_inst);
+	uint32_t reg_val, reg_val_1, reg_val_2;
 
 	mipi_dsih_eotp_rx(curInstancePtr, 0);
 	mipi_dsih_eotp_tx(curInstancePtr, 0);
@@ -479,12 +564,35 @@ static int32_t sprd_dsi_force_read(uint8_t command, uint8_t bytes_to_read, uint8
 	mipi_dsih_eotp_rx(curInstancePtr, 1);
 	mipi_dsih_eotp_tx(curInstancePtr, 1);
 
-	return iRtn;
+	reg_val = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
+	reg_val_1 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
+	reg_val_2 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
+
+	if(0 != (reg_val & 0x2)){
+		printk("sprdfb: [%s] mipi read hang (0x%x)!\n", __FUNCTION__, reg_val);
+		dsi_ctx.status = 2;
+		iRtn = 0;
+	}
+
+	if(0 != (reg_val_1 & 0x701)){
+		printk("sprdfb: [%s] mipi read status error!(0x%x, 0x%x)\n", __FUNCTION__, reg_val_1, reg_val_2);
+		iRtn = 0;
+	}
+
+
+	if(0 == iRtn){
+		printk(KERN_ERR "sprdfb: [%s] return error (%d)\n", __FUNCTION__, iRtn);
+		return -1;
+	}
+
+	return 0;
 }
 
 struct ops_mipi sprdfb_mipi_ops = {
 	.mipi_set_cmd_mode = sprdfb_dsi_set_cmd_mode,
 	.mipi_set_video_mode = sprdfb_dsi_set_video_mode,
+	.mipi_set_lp_mode = sprdfb_dsi_set_lp_mode,
+	.mipi_set_hs_mode = sprdfb_dsi_set_hs_mode,
 	.mipi_gen_write = sprdfb_dsi_gen_write,
 	.mipi_gen_read = sprdfb_dsi_gen_read,
 	.mipi_dcs_write = sprdfb_dsi_dcs_write,
