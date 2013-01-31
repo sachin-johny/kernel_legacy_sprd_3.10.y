@@ -367,7 +367,7 @@ void check_ldo(void)
 	 *  LDOVDD25(bit13), LDOVDD18(bit12), LDOVDD28(bit11) 
 	 *is not auto power down as default
 	 */
-	CHECK_LDO(ANA_REG_GLB_LDO_SLP_CTRL0, 0xc7fd);
+	CHECK_LDO(ANA_REG_GLB_LDO_SLP_CTRL0, 0x87fd);
 
 	/*
 	 * FSM_SLPPD_EN(bit15) must be set
@@ -817,7 +817,7 @@ int deep_sleep(void)
 	u32 holding;
 
 
-	val = 0xc7f1;
+	val = 0x87f1;
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 	wait_until_uart1_tx_done();
 	SAVE_GLOBAL_REG;
@@ -1222,7 +1222,8 @@ void pm_ana_ldo_config(void)
 	* FIXME, should be more gental
 	*/
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
-	val = 0xc7f1;
+	
+	val = 0x87f1;
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
