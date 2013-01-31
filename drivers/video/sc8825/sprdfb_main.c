@@ -41,6 +41,8 @@ enum{
 
 #define SPRDFB_DEFAULT_FPS (60)
 
+#define SPRDFB_ESD_TIME_OUT	(2000)
+
 extern bool sprdfb_panel_get(struct sprdfb_device *dev);
 extern int sprdfb_panel_probe(struct sprdfb_device *dev);
 extern void sprdfb_panel_remove(struct sprdfb_device *dev);
@@ -294,6 +296,31 @@ static int sprdfb_resume(struct platform_device *pdev)
 }
 #endif
 
+#ifdef CONFIG_FB_ESD_SUPPORT
+static void ESD_work_func(struct work_struct *work)
+{
+	struct sprdfb_device *dev = container_of(work, struct sprdfb_device, ESD_work.work);
+
+	pr_debug("sprdfb: [%s] enter!\n", __FUNCTION__);
+
+	//do real ESD check
+	//mdelay(1000);
+	if(NULL != dev->ctrl->ESD_check){
+		dev->ctrl->ESD_check(dev);
+	}
+
+	if(0 != dev->enable){
+		pr_debug("sprdfb: reschedule ESD workqueue!\n");
+		schedule_delayed_work(&dev->ESD_work, msecs_to_jiffies(dev->ESD_timeout_val));
+		dev->ESD_work_start = true;
+	}else{
+		printk("sprdfb: DON't reschedule ESD workqueue since device not avialbe!!\n");
+	}
+
+	pr_debug("sprdfb: [%s] leave!\n", __FUNCTION__);
+}
+#endif
+
 static int sprdfb_probe(struct platform_device *pdev)
 {
 	struct fb_info *fb = NULL;
@@ -373,6 +400,17 @@ static int sprdfb_probe(struct platform_device *pdev)
 	dev->early_suspend.resume  = sprdfb_late_resume;
 	dev->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	register_early_suspend(&dev->early_suspend);
+#endif
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+	pr_debug("sprdfb: Init ESD work queue!\n");
+	INIT_DELAYED_WORK(&dev->ESD_work, ESD_work_func);
+	sema_init(&dev->ESD_lock, 1);
+	dev->ESD_timeout_val = SPRDFB_ESD_TIME_OUT;
+	dev->ESD_work_start = false;
+	dev->check_esd_time = 0;
+	dev->reset_dsi_time = 0;
+	dev->panel_reset_time = 0;
 #endif
 
 	return 0;

@@ -173,7 +173,7 @@ static bool panel_check(struct panel_cfg *cfg)
 
 static int panel_mount(struct sprdfb_device *dev, struct panel_spec *panel)
 {
-	printk("sprdfb: [%s], dev_id = %d panel_spec addr 0x%x \n",__FUNCTION__, dev->dev_id, panel);
+	printk("sprdfb: [%s], dev_id = %d \n",__FUNCTION__, dev->dev_id);
 
 	/* TODO: check whether the mode/res are supported */
 	dev->panel = panel;
@@ -371,6 +371,81 @@ void sprdfb_panel_after_refresh(struct sprdfb_device *dev)
 		dev->panel->if_ctrl->panel_if_after_refresh(dev);
 	}
 }
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+/*return value:  0--panel OK.1-panel has been reset*/
+uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
+{
+	int32_t result = 0;
+	uint32_t if_status = 0;
+
+	printk("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
+
+	dev->check_esd_time++;
+
+	if (dev->panel->ops->panel_esd_check != NULL) {
+		result = dev->panel->ops->panel_esd_check(dev->panel);
+		pr_debug("sprdfb: [%s] panel check return %d\n", __FUNCTION__, result);
+	}
+
+	if(0 == dev->enable){
+		printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+		return 0;
+	}
+
+	if(result == 0){
+		dev->panel_reset_time++;
+
+		if(NULL != dev->panel->if_ctrl->panel_if_get_status){
+			if_status = dev->panel->if_ctrl->panel_if_get_status(dev);
+		}
+
+		if(0 == if_status){
+			printk("sprdfb: [%s] fail! Need reset panel\n",__FUNCTION__);
+			if(NULL != dev->panel->if_ctrl->panel_if_before_panel_reset){
+				dev->panel->if_ctrl->panel_if_before_panel_reset(dev);
+			}
+			dev->panel->ops->panel_reset(dev->panel);
+
+			if(0 == dev->enable){
+				printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+				return 0;
+			}
+
+			dev->panel->ops->panel_init(dev->panel);
+			panel_ready(dev);
+		}else{
+			printk("sprdfb: [%s] fail! Need reset panel and panel if!!!!\n",__FUNCTION__);
+			dev->reset_dsi_time++;
+			if(NULL != dev->panel->if_ctrl->panel_if_suspend){
+				dev->panel->if_ctrl->panel_if_suspend(dev);
+			}
+
+			mdelay(10);
+
+			if(0 == dev->enable){
+				printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+				return 0;
+			}
+
+			panel_init(dev);
+			dev->panel->ops->panel_reset(dev->panel);
+
+			if(0 == dev->enable){
+				printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+				return 0;
+			}
+
+			dev->panel->ops->panel_init(dev->panel);
+			panel_ready(dev);
+		}
+		pr_debug("sprdfb: [%s]return 1\n",__FUNCTION__);
+		return 1;
+	}
+	pr_debug("sprdfb: [%s]return 0\n",__FUNCTION__);
+	return 0;
+}
+#endif
 
 void sprdfb_panel_suspend(struct sprdfb_device *dev)
 {

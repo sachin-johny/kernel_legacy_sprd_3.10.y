@@ -15,7 +15,8 @@
 #define _SPRDFB_H_
 
 #include <linux/earlysuspend.h>
-
+#include <linux/workqueue.h>
+#include <linux/semaphore.h>
 
 enum{
 	SPRDFB_PANEL_IF_DBI = 0,
@@ -117,6 +118,17 @@ struct sprdfb_device {
 	struct panel_spec	*panel;
 	struct display_ctrl	*ctrl;
 
+#ifdef CONFIG_FB_ESD_SUPPORT
+	struct delayed_work ESD_work;
+	struct semaphore   ESD_lock;
+	uint32_t ESD_timeout_val;
+	bool ESD_work_start;
+	/*for debug only*/
+	uint32_t check_esd_time;
+	uint32_t panel_reset_time;
+	uint32_t reset_dsi_time;
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
 #endif
@@ -133,6 +145,10 @@ struct display_ctrl {
 
 	int32_t	(*suspend)	  (struct sprdfb_device *dev);
 	int32_t 	(*resume)	  (struct sprdfb_device *dev);
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+	int32_t	(*ESD_check)	  (struct sprdfb_device *dev);
+#endif
 
 #ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
 	int32_t 	(*enable_overlay) 	(struct sprdfb_device *dev, struct overlay_info* info, int enable);
