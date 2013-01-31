@@ -41,6 +41,7 @@
 #include <linux/mpu.h>
 #include <linux/akm8975.h>
 #include <linux/irq.h>
+#include <linux/persistent_ram.h>
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
@@ -61,9 +62,6 @@ extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
 
-#ifdef CONFIG_ANDROID_RAM_CONSOLE
-extern int __init sprd_ramconsole_init(void);
-#endif
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -77,6 +75,9 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_eic_gpio_device,
 	&sprd_nand_device,
 	&sprd_lcd_device0,
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	&sprd_ram_console,
+#endif
 	&sprd_backlight_device,
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
@@ -650,9 +651,6 @@ int __init __clock_init_early(void)
 
 static void __init sc8825_init_machine(void)
 {
-#ifdef CONFIG_ANDROID_RAM_CONSOLE
-	sprd_ramconsole_init();
-#endif
 	sci_adc_init((void __iomem *)ADC_BASE);
 	sc8825_regulator_init();
 	sprd_add_otg_device();
@@ -672,6 +670,9 @@ static void __init sc8825_init_early(void)
 	__clock_init_early();
 	sci_enable_timer_early();
 	sci_adi_init();
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	persistent_ram_early_init(&ram_console_ram);
+#endif
 }
 
 /*
