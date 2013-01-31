@@ -473,6 +473,7 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		goto put_clk;
 
 	CLEAR_RTC_INT(RTC_INT_ALL_MSK);
+	device_init_wakeup(&plat_dev->dev, 1);
 	rtc_data->rtc = rtc_device_register("sprd_rtc", &plat_dev->dev,
 			&sprd_rtc_ops, THIS_MODULE);
 	if (IS_ERR(rtc_data->rtc)) {

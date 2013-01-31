@@ -42,6 +42,7 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
+	ANDROID_ALARM_POWER_OFF_WAKEUP_MASK | \
 	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
 
 /* support old usespace code */
@@ -70,6 +71,7 @@ static struct devalarm alarms[ANDROID_ALARM_TYPE_COUNT];
 static int is_wakeup(enum android_alarm_type type)
 {
 	if (type == ANDROID_ALARM_RTC_WAKEUP ||
+			type == ANDROID_ALARM_POWER_OFF_WAKEUP ||
 			type == ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP)
 		return 1;
 	return 0;
@@ -351,6 +353,8 @@ static int __init alarm_dev_init(void)
 			CLOCK_BOOTTIME, HRTIMER_MODE_ABS);
 	hrtimer_init(&alarms[ANDROID_ALARM_SYSTEMTIME].u.hrt,
 			CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
+	alarm_init(&alarms[ANDROID_ALARM_POWER_OFF_WAKEUP].u.alrm,
+			ALARM_POWEROFF, devalarm_alarmhandler);
 
 	for (i = 0; i < ANDROID_ALARM_TYPE_COUNT; i++) {
 		alarms[i].type = i;
