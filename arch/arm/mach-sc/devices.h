@@ -25,7 +25,7 @@ extern struct platform_device sprd_lcd_device0;
 extern struct platform_device sprd_lcd_device1;
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern struct platform_device sprd_ram_console;
-extern struct persistent_ram ram_console_ram;
+extern struct persistent_ram sprd_console_ram;
 #endif
 extern struct platform_device sprd_otg_device;
 extern struct platform_device sprd_backlight_device;

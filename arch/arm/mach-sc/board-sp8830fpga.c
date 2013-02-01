@@ -684,7 +684,7 @@ static void __init sc8830_init_early(void)
 	sci_enable_timer_early();
 	sci_adi_init();
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
-	persistent_ram_early_init(&ram_console_ram);
+	persistent_ram_early_init(&sprd_console_ram);
 #endif
 }
 

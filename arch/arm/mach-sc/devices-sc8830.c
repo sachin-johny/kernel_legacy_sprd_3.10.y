@@ -212,7 +212,7 @@ struct platform_device sprd_lcd_device1 = {
 	.resource       = sprd_lcd_resources,
 };
 
-struct persistent_ram_descriptor ram_console_desc = {
+struct persistent_ram_descriptor sprd_console_desc = {
 	.name = "ram_console.0",
 	.size = SPRD_RAM_CONSOLE_SIZE,
 };
@@ -221,7 +221,7 @@ struct persistent_ram sprd_console_ram = {
 	.start = SPRD_RAM_CONSOLE_START,
 	.size = SPRD_RAM_CONSOLE_SIZE,
 	.num_descs = 1,
-	.descs = &ram_console_desc,
+	.descs = &sprd_console_desc,
 };
 
 struct platform_device sprd_ram_console = {
