@@ -61,3 +61,13 @@ config FB_LCD_OVERLAY_SUPPORT
 	boolean "support lcd overlay"
 	depends on FB_SC8825
 	default n
+
+config FB_ESD_SUPPORT
+	boolean "support esd check"
+	depends on FB_SC8825
+	default n
+
+config FB_DYNAMIC_CLK_SUPPORT
+	boolean "support close clk dynamically"
+	depends on FB_SC8825
+	default n
