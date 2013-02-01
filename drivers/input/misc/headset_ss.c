@@ -21,6 +21,7 @@
 #include <mach/board.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
+#include <mach/adc.h>
 
 #ifdef CONFIG_MACH_MINT
 #define HEADSET_BUTTON_GPIO_ACTIVE_LOW 1
@@ -244,14 +245,31 @@ static enum hrtimer_restart report_headset_button_status(int active, struct _hea
 
 static enum hrtimer_restart report_headset_detect_status(int active, struct _headset_gpio *hgp)
 {
+	struct regulator *mic_regulator;
+	mic_regulator = regulator_get(NULL, REGU_NAME_MIC);
+	int adc_value;
+
 	if (active) {
+		if (!IS_ERR(mic_regulator)) {
+			regulator_set_voltage(mic_regulator, 2800000, 2800000);
+			regulator_enable(mic_regulator);
+		}
+		mdelay(20);
+
 		headset_hook_detect(1);
 		hgp->parent->headphone = 0;
-		/* hgp->parent->headphone = hgp->parent->button.active_low ^ headset_gpio_get_value(hgp->parent->button.gpio); */
+		/*hgp->parent->headphone = hgp->parent->button.active_low ^ headset_gpio_get_value(hgp->parent->button.gpio);*/
+		adc_value = sci_adc_get_value(ADC_CHANNEL_TEMP, false);
+
+		hgp->parent->headphone = adc_value > 0x05? 0 : 1;
+
 		if (hgp->parent->headphone) {
 			switch_set_state(&hgp->parent->sdev, BIT_HEADSET_NO_MIC);
+			if (!IS_ERR(mic_regulator))
+				regulator_disable(mic_regulator);
 			pr_info("headphone plug in\n");
 		} else {
+
 			switch_set_state(&hgp->parent->sdev, BIT_HEADSET_MIC);
 			pr_info("headset plug in\n");
 			headset_gpio_set_irq_type(hgp->parent->button.irq, hgp->parent->button.irq_type_active);
@@ -263,8 +281,11 @@ static enum hrtimer_restart report_headset_detect_status(int active, struct _hea
 		headset_hook_detect(0);
 		if (hgp->parent->headphone)
 			pr_info("headphone plug out\n");
-		else
+		else {
+			if (!IS_ERR(mic_regulator))
+				regulator_disable(mic_regulator);
 			pr_info("headset plug out\n");
+		}
 		switch_set_state(&hgp->parent->sdev, BIT_HEADSET_OUT);
 	}
 	/* use below code only when gpio irq misses state ? */
@@ -345,15 +366,8 @@ static int __init headset_init(void)
 {
 	int ret, i;
 	struct _headset *ht = &headset;
-	struct regulator *mic_regulator;
 	pa_regulator = regulator_get(NULL, REGU_NAME_LCDIO);
 	regulator_set_voltage(pa_regulator, 2800000, 2800000);
-
-	mic_regulator = regulator_get(NULL, REGU_NAME_MIC);
-	if (!IS_ERR(mic_regulator)) {
-		regulator_set_voltage(mic_regulator, 2800000, 2800000);
-		regulator_enable(mic_regulator);
-	}
 
 	ret = switch_dev_register(&ht->sdev);
 	if (ret < 0) {
