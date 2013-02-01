@@ -1179,6 +1179,20 @@ static int cable_is_usb(void)
 	return value != EP0_DISCONNECT;
 }
 
+static int usb_first_enable_flag = 0;
+void usb_first_enable_store_flag(void)
+{
+	usb_first_enable_flag = 1;
+}
+
+int get_usb_first_enable_store_flag(void)
+{
+	return usb_first_enable_flag;
+}
+
+EXPORT_SYMBOL(usb_first_enable_store_flag);
+EXPORT_SYMBOL(get_usb_first_enable_store_flag);
+
 static void usb_detect_works(struct work_struct *work)
 {
 	struct gadget_wrapper *d;
@@ -1195,8 +1209,10 @@ static void usb_detect_works(struct work_struct *work)
 	if (plug_in){
 		pr_info("usb detect plug in,vbus pull up\n");
 		hotplug_callback(VBUS_PLUG_IN, 0);
-		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
-		__udc_startup();
+		if(get_usb_first_enable_store_flag()){
+			mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
+			__udc_startup();
+		}
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
 		del_timer(&d->cable_timer);
