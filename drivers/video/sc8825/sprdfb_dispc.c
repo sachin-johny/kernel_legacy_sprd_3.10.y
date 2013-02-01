@@ -42,6 +42,10 @@ struct sprdfb_dispc_context {
 	bool			is_inited;
 	bool			is_first_frame;
 
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+	bool			clk_open;
+#endif
+
 	struct sprdfb_device	*dev;
 
 	uint32_t	 	vsync_waiter;
@@ -124,6 +128,15 @@ static irqreturn_t dispc_isr(int irq, void *data)
 	if(SPRD_OVERLAY_STATUS_STARTED == dispc_ctx->overlay_state){
 		overlay_close(dev);
 	}
+#endif
+
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		if(SPRDFB_PANEL_IF_DPI !=  dev->panel_if_type){
+			clk_disable(dispc_ctx->clk_dispc);
+			clk_disable(dispc_ctx->clk_dispc_dpi);
+			clk_disable(dispc_ctx->clk_dispc_dbi);
+			dispc_ctx->clk_open = false;
+		}
 #endif
 
 		if (dispc_ctx->vsync_waiter) {
@@ -377,6 +390,10 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		return 0;
 	}
 
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+	dispc_ctx.clk_open = false;
+#endif
+
 	/*usesd to open dipsc matix clock*/
 	__raw_writel((__raw_readl(REG_AHB_MATRIX_CLOCK)) | (1<<DISPC_CORE_CLK_EN) | (1<<DISPMTX_CLK_EN), 
 			REG_AHB_MATRIX_CLOCK);
@@ -483,6 +500,10 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
 	}
 
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+	dispc_ctx.clk_open = true;
+#endif
+
 	printk("0x20900200 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x200));
 	printk("0x20900208 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x208));
 	printk("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x220));
@@ -511,6 +532,9 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		clk_disable(dispc_ctx.clk_dispc);
 		clk_disable(dispc_ctx.clk_dispc_dbi);
 		clk_disable(dispc_ctx.clk_dispc_dpi);
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		dispc_ctx.clk_open = false;
+#endif
 		dispc_ctx.is_inited = false;
 		return -1;
 	}
@@ -563,6 +587,9 @@ static int32_t sprdfb_dispc_uninit(struct sprdfb_device *dev)
 		clk_disable(dispc_ctx.clk_dispc);
 		clk_disable(dispc_ctx.clk_dispc_dpi);
 		clk_disable(dispc_ctx.clk_dispc_dbi);
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		dispc_ctx.clk_open = false;
+#endif
 		dispc_ctx.is_inited = false;
 	}
 	return 0;
@@ -580,6 +607,15 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 		dispc_ctx.vsync_waiter ++;
 		dispc_sync(dev);
 //		dispc_ctx.vsync_done = 0;
+
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		if(!dispc_ctx.clk_open){
+			clk_enable(dispc_ctx.clk_dispc);
+			clk_enable(dispc_ctx.clk_dispc_dpi);
+			clk_enable(dispc_ctx.clk_dispc_dbi);
+			dispc_ctx.clk_open = true;
+		}
+#endif
 	}
 
 	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
@@ -680,6 +716,17 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 		dev->enable = 0;
 
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+			if(!dispc_ctx.clk_open){
+				printk("sprdfb: open clk in suspend\n");
+				clk_enable(dispc_ctx.clk_dispc);
+				clk_enable(dispc_ctx.clk_dispc_dpi);
+				clk_enable(dispc_ctx.clk_dispc_dbi);
+				dispc_ctx.clk_open = true;
+			}
+#endif
+
+
 #ifdef CONFIG_FB_ESD_SUPPORT
 		if(dev->ESD_work_start = true){
 			printk("sprdfb: cancel ESD work queue\n");
@@ -695,9 +742,17 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 		mdelay(50); /*fps>20*/
 
-		clk_disable(dispc_ctx.clk_dispc);
-		clk_disable(dispc_ctx.clk_dispc_dpi);
-		clk_disable(dispc_ctx.clk_dispc_dbi);
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		if(dispc_ctx.clk_open){
+#endif
+			printk("sprdfb: close clk in suspend\n");
+			clk_disable(dispc_ctx.clk_dispc);
+			clk_disable(dispc_ctx.clk_dispc_dpi);
+			clk_disable(dispc_ctx.clk_dispc_dbi);
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+			dispc_ctx.clk_open = false;
+		}
+#endif
 	}else{
 		printk(KERN_ERR "sprdfb: [%s]: Invalid device status %d\n", __FUNCTION__, dev->enable);
 	}
@@ -712,6 +767,10 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		clk_enable(dispc_ctx.clk_dispc);
 		clk_enable(dispc_ctx.clk_dispc_dpi);
 		clk_enable(dispc_ctx.clk_dispc_dbi);
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		printk("sprdfb: open clk in resume\n");
+		dispc_ctx.clk_open = true;
+#endif
 		dispc_ctx.vsync_done = 1;
 		if (dispc_read(DISPC_SIZE_XY) == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s], dev->enable= %d\n",__FUNCTION__, dev->enable);
@@ -997,6 +1056,17 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 			return -1;
 		}
 
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
+			if(!dispc_ctx.clk_open){
+				clk_enable(dispc_ctx.clk_dispc);
+				clk_enable(dispc_ctx.clk_dispc_dpi);
+				clk_enable(dispc_ctx.clk_dispc_dbi);
+				dispc_ctx.clk_open = true;
+			}
+		}
+#endif
+
 		result = overlay_open();
 		if(0 != result){
 			up(&dispc_ctx.overlay_lock);
@@ -1014,6 +1084,17 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 			up(&dispc_ctx.overlay_lock);
 			return -1;
 		}
+
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
+			if(dispc_ctx.clk_open){
+				clk_disable(dispc_ctx.clk_dispc);
+				clk_disable(dispc_ctx.clk_dispc_dpi);
+				clk_disable(dispc_ctx.clk_dispc_dbi);
+				dispc_ctx.clk_open = false;
+			}
+		}
+#endif
 
 		up(&dispc_ctx.overlay_lock);
 
@@ -1043,6 +1124,16 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 		dispc_ctx.vsync_waiter ++;
 		dispc_sync(dev);
 		//dispc_ctx.vsync_done = 0;
+
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		if(!dispc_ctx.clk_open){
+			clk_enable(dispc_ctx.clk_dispc);
+			clk_enable(dispc_ctx.clk_dispc_dpi);
+			clk_enable(dispc_ctx.clk_dispc_dbi);
+			dispc_ctx.clk_open = true;
+		}
+#endif
+
 	}
 
 	printk(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
