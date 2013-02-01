@@ -121,7 +121,7 @@ int32_t dsi_early_int(void)
 
 static int32_t dsi_edpi_setbuswidth(struct info_mipi * mipi)
 {
-	dsih_color_coding_t color_coding;
+	dsih_color_coding_t color_coding = 0;
 
 	switch(mipi->video_bus_width){
 	case 16:
