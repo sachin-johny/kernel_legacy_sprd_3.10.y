@@ -296,6 +296,7 @@ bool sprdfb_panel_get(struct sprdfb_device *dev)
 
 	if(NULL == dev){
 		printk("sprdfb: [%s]: Invalid param\n", __FUNCTION__);
+		return false;
 	}
 
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
@@ -321,6 +322,7 @@ bool sprdfb_panel_probe(struct sprdfb_device *dev)
 
 	if(NULL == dev){
 		printk("sprdfb: [%s]: Invalid param\n", __FUNCTION__);
+		return false;
 	}
 
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
