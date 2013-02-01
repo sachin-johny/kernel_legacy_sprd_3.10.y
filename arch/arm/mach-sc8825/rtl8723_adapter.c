@@ -38,6 +38,8 @@ static int wifi_bt_ldo_enable(void)
 		return -1;
 	}
 
+	//RTK_DEBUG
+	regulator_set_mode(regulator_wifi_bt, REGULATOR_MODE_STANDBY);
 	regulator_enable(regulator_wifi_bt);
 
 #ifdef CONFIG_WLAN_SDIO
@@ -53,6 +55,8 @@ static int wifi_bt_ldo_enable(void)
 		return -1;
 	}
 
+	//RTK_DEBUG
+	regulator_set_mode(regulator_wifi_bt, REGULATOR_MODE_STANDBY);
 	regulator_enable(regulator_wifi_bt);
 
 	if (GPIO_WIFI_RESET > 0) {
@@ -116,6 +120,7 @@ static int __init wlan_bt_late_init(void)
 		printk("RTL871X(adapter): %s after delay %d times (10ms)\n", __func__, i);
 		gpio_direction_output(GPIO_WIFI_RESET , 0);
 	}
+
 	return 0;
 }
 
