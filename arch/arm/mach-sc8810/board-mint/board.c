@@ -588,7 +588,7 @@ static unsigned int headset_get_button_code_board_method(int v)
 		int max;
 		int code;
 	} adc_range[] = {
-		{ 0x0000, 0x0050, KEY_MEDIA},
+		{ 0x0005, 0x0050, KEY_MEDIA},
 		{ 0x0050, 0x0090, KEY_VOLUMEUP },
 		{ 0x0090, 0x0150, KEY_VOLUMEDOWN },
 	};
