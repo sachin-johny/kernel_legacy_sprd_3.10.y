@@ -26,13 +26,13 @@
 #define PREVRECHARGE		4100
 #define CHGMNG_OVER_CHARGE	(4330)
 /* When the battery voltage is higher than this value, we will stop charging. */
-#define PREVCHGEND			(4200)
+#define PREVCHGEND			(4210)
 
 #define CHGMNG_DEFAULT_SWITPOINT CHG_SWITPOINT_18
 #define CHGMNG_STOP_VPROG		80	/* Isense stop point */
 #define CHGMNG_SWITCH_CV_VPROG	300	/* Isense stop point */
 #define CHGMNG_PLUSE_TIMES		3
-#define CHARGE_BEFORE_STOP		(1500 * 10)
+#define CHARGE_BEFORE_STOP		(1500)
 #define CHARGE_OVER_TIME		21600	/* set for charge over time, 6 hours */
 
 #define VBAT_CAPACITY_BUFF_CNT	(240/CONFIG_AVERAGE_CNT)
