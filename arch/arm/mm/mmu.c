@@ -1150,18 +1150,6 @@ static void __init devicemaps_init(struct machine_desc *mdesc)
 		    (map->mem_type == NK_MD_ROM) ||
 		    (map->mem_type == NK_MD_FAST_RAM)) {
 
-			/*
-			 * Discard regions we do not own,
-			 * except those owned by NKERN (that must be mapped)
-			 */
-			if ((map->mem_owner != NK_OS_NKERN) &&
-			    (map->mem_owner != 31) &&
-			    (map->mem_owner != os_ctx->id)) {
-				PRINTNK(("NK: [0x%08x-0x%08x[ ignored (0x%x)\n",
-					 map->pstart, map->plimit, map->mem_owner));
-				continue;
-			}
-
 			pstart = map->pstart & ~(PGDIR_SIZE/2 - 1);
 			vstart = map->vstart & ~(PGDIR_SIZE/2 - 1);
 			plimit = map->plimit |  (PGDIR_SIZE/2 - 1);
