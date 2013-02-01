@@ -490,6 +490,20 @@ void charge_stop(struct sprd_battery_data *battery_data)
 	battery_data->in_precharge = 0;
 }
 
+#ifdef	CONFIG_SPRD_8825_POWER
+#define REG_SYST_VALUE                  (SPRD_SYSCNT_BASE + 0x0004)
+static u32 sci_syst_read(void)
+{
+	u32 t = __raw_readl(REG_SYST_VALUE);
+	while (t != __raw_readl(REG_SYST_VALUE))
+		t = __raw_readl(REG_SYST_VALUE);
+	return t;
+}
+
+u32 plus_charge_start_time = 0;
+
+#endif
+
 uint32_t vbat_capacity_loop_cnt = 0;
 static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 {
@@ -667,10 +681,17 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 						pluse_charging = 1;
 						stop_left_time =
 						    CHARGE_BEFORE_STOP;
+#ifdef	CONFIG_SPRD_8825_POWER
+						plus_charge_start_time =
+						    sci_syst_read();
+						printk(KERN_ERR
+						       "plus_charge_start_time...%d\n",
+						       plus_charge_start_time);
+#endif
 					}
 					if (voltage >
 					    (battery_data->precharge_end +
-					     15)) {
+					     10)) {
 						battery_data->hw_switch_point =
 						    sprd_adjust_sw(battery_data,
 								   false);
@@ -678,8 +699,17 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 				}
 			}
 		} else {
+#ifdef	CONFIG_SPRD_8825_POWER
+			if ((sci_syst_read() - plus_charge_start_time) >=
+			    (stop_left_time * 1000)) {
+				printk(KERN_ERR "end time...%d: delta,%d\n",
+				       sci_syst_read(),
+				       (sci_syst_read() -
+					plus_charge_start_time));
+#else
 			stop_left_time--;
 			if (stop_left_time <= 0) {
+#endif
 				battery_notify = 1;
 				charge_stop(battery_data);
 				battery_data->in_precharge = 1;
