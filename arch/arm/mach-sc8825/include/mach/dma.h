@@ -233,36 +233,31 @@ static inline void reg_writel(u32 reg, u8 shift, u32 val, u32 mask)
 
 static inline void reg_bits_or(u32 bits, u32 reg)
 {
-	__raw_writel((__raw_readl(reg) | bits), reg);
+	writel((__raw_readl(reg) | bits), reg);
 }
 
 static inline void reg_bits_and(u32 bits, u32 reg)
 {
-	__raw_writel((__raw_readl(reg) & bits), reg);
+	writel((__raw_readl(reg) & bits), reg);
 }
 
 /* will be removed */
 #if 1
 static inline void dma_reg_bits_or(u32 bits, u32 reg)
 {
-	__raw_writel((__raw_readl(reg) | bits), reg);
+	writel((__raw_readl(reg) | bits), reg);
 }
 static inline u32 dma_get_reg(u32 reg)
 {
 	return __raw_readl(reg);
 }
 
+extern void sprd_dma_channel_disable(int);
 #define sprd_dma_start(ch_id) \
     dma_reg_bits_or(1 << ch_id, DMA_CHx_EN) /* Enable DMA channel */
 
-#define sprd_dma_start2(ch_id1, ch_id2) \
-    dma_reg_bits_or((1 << ch_id1) | (1 << ch_id2), DMA_CHx_EN) /* Enable DMA channel */
-
 #define sprd_dma_stop(ch_id) \
-    dma_reg_bits_or(1 << ch_id, DMA_CHx_DIS) /* Disable DMA channel */
-
-#define sprd_dma_stop2(ch_id1, ch_id2) \
-    dma_reg_bits_or((1 << ch_id1) | (1 << ch_id2), DMA_CHx_DIS) /* Disable DMA channel */
+	sprd_dma_channel_disable(ch_id)
 
 #define sprd_dma_cfg(ch_id, cfg) \
     __raw_writel(cfg,  DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x00) /* cfg */
