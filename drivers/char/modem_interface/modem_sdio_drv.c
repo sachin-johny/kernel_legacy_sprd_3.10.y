@@ -12,7 +12,7 @@
  *  published by the Free Software Foundation.
  */
 
-
+#include <linux/delay.h>
 #include <linux/mutex.h>
 #include <linux/dma-mapping.h>
 #include <linux/proc_fs.h>
@@ -35,7 +35,16 @@ int modem_sdio_read(char *buffer,int size)
 }
 int modem_sdio_write(char *buffer,int size)
 {
-    return sprd_sdio_channel_tx((const char *)buffer,size);
+    int retval;
+    int i;
+    for(i=0;i<10;i++){
+    	retval = sprd_sdio_channel_tx((const char *)buffer,size);
+	if(retval == 0)
+		break;
+	mdelay(500);
+    	printk("sprd_sdio_channel_tx(%p,%d) = %d\n",buffer,size,retval);
+    }
+    return retval;
 }
 
 static struct modem_device_operation	sdio_device_op = {

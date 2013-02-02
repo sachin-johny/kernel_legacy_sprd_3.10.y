@@ -203,7 +203,7 @@ static int modem_protocol_thread(void *data)
 
 int modem_intf_open(enum MODEM_Mode_type mode,int index)
 {
-	int retval=0;
+	int retval=-1;
 
 	if(modem_intf_device == NULL)
 		return -1;
@@ -215,9 +215,9 @@ int modem_intf_open(enum MODEM_Mode_type mode,int index)
 			return -1;
 	}
         modem_intf_device->mode = mode;
-        printk("modem_intf_open: mode = %d\n",modem_intf_device->mode);
         if((modem_intf_device->op)&&(modem_intf_device->mode == MODEM_MODE_BOOT))
-		modem_intf_device->op->open(NULL);
+		retval = modem_intf_device->op->open(NULL);
+        printk("modem_intf_open: mode = %d ret = %d\n",modem_intf_device->mode,retval);
 	return retval;
 }
 
@@ -291,7 +291,8 @@ void modem_intf_send_GPIO_message(int gpio_no,int status,int index)
 	struct modem_message_node *msg;
 
 	pr_debug("GPIO_MSG: mode = %d gpio=%d status = %d\n",modem_intf_device->mode,gpio_no,status);
-	if(modem_intf_device->mode == MODEM_MODE_UNKNOWN)
+	if((modem_intf_device->mode == MODEM_MODE_UNKNOWN)||
+	   (modem_intf_device->mode == MODEM_MODE_RESET))
 		return ;
 	msg = find_msg_node();
 	if (msg == NULL) {
@@ -365,12 +366,14 @@ void     modem_intf_state_change(int alive_status,int assert_status)
 		wake_up_interruptible(&mdoem_mode_normal);
         }
         else if((assert_status == 1)||(alive_status == 0)){
-		if(assert_status == 1)
-			mux_ipc_enable(0);
 		if(modem_intf_device->mode == MODEM_MODE_NORMAL){  
 			modem_intf_device->mode = MODEM_MODE_DUMP;
-			modem_intf_write(NULL,0,0);
-			printk("start dump process!!!\n");
+			printk("modem enter Assert state!!!\n");
+		}
+		if(assert_status == 1){
+			mux_ipc_enable(0);
+			printk("modem request reboot\n");
+			modem_intf_device->mode = MODEM_MODE_RESET;
 		}
 	}
 
