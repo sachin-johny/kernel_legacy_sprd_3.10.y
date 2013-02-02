@@ -17,7 +17,7 @@
 #include <linux/io.h>
 #include <mach/dma.h>
 
-static spinlock_t dma_lock;
+static DEFINE_SPINLOCK(dma_lock);
 
 static struct sprd_irq_handler sprd_irq_handlers[DMA_CHN_NUM];
 
@@ -127,17 +127,25 @@ static int sprd_dma_request_channel(u32 uid)
 	return -EBUSY;
 }
 
-static inline void sprd_dma_channel_enable(int dma_chn)
+static void sprd_dma_channel_enable(int dma_chn)
 {
 	__raw_writel((1<<dma_chn), DMA_CHx_EN);
 }
 
 
 
-static inline void sprd_dma_channel_disable(int dma_chn)
+void sprd_dma_channel_disable(int dma_chn)
 {
-	__raw_writel((1<<dma_chn), DMA_CHx_DIS);
+	unsigned long flags;
 
+	spin_lock_irqsave(&dma_lock, flags);
+
+	writel(readl(DMA_CFG) | (0x1 << 8), DMA_CFG);
+	while (!(readl(DMA_TRANS_STS) & (0x1 << 30)));
+	writel(0x1 << dma_chn, DMA_CHx_DIS);
+	writel(readl(DMA_CFG) & ~(0x1 << 8), DMA_CFG);
+
+	spin_unlock_irqrestore(&dma_lock, flags);
 }
 
 static void sprd_dma_channel_set_software_req(int dma_chn, int on_off)
@@ -217,6 +225,8 @@ int sprd_dma_request(u32 uid, irq_handler_t irq_handler, void *data)
 		return ch_id;
 	}
 
+	spin_unlock_irqrestore(&dma_lock, flags);
+
 	/* init a dma channel handler */
 	sprd_irq_handlers[ch_id].handler = irq_handler;
 	sprd_irq_handlers[ch_id].dev_id = data;
@@ -229,8 +239,6 @@ int sprd_dma_request(u32 uid, irq_handler_t irq_handler, void *data)
 	sprd_dma_channel_int_clr(ch_id);
 	sprd_dma_channel_workmode_clr(ch_id);
 	sprd_dma_set_uid(ch_id, uid);
-
-	spin_unlock_irqrestore(&dma_lock, flags);
 
 	//printk("DMA: malloc: ch_id=%d, dma_uid=%d \n", ch_id, uid);
 
@@ -681,8 +689,6 @@ static int __init sprd_dma_init(void)
 		printk(KERN_ERR "request dma irq failed %d\n", ret);
 		goto request_irq_err;
 	}
-
-	spin_lock_init(&dma_lock);
 
 	return ret;
 
