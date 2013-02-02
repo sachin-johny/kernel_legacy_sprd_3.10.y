@@ -1281,7 +1281,7 @@ static ssize_t enable_show(struct device *pdev, struct device_attribute *attr,
 	struct android_dev *dev = dev_get_drvdata(pdev);
 	return sprintf(buf, "%d\n", dev->enabled);
 }
-
+extern void usb_first_enable_store_flag();
 static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 			    const char *buff, size_t size)
 {
@@ -1301,7 +1301,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 #endif
 
 	mutex_lock(&dev->mutex);
-
+	usb_first_enable_store_flag();
 	sscanf(buff, "%d", &enabled);
 	printk("%s(%d) call %s(%d) \n",current->comm,current->pid,__func__,enabled);
 	if (enabled && !dev->enabled) {
