@@ -338,6 +338,10 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		}
 		break;
 #endif
+        case VSP_WAKE_UNLOCK:
+    	        wake_unlock(&vsp_wakelock);
+		pr_debug("vsp ioctl VSP_WAKE_UNLOCK\n");
+                break;
 	default:
 		return -EINVAL;
 	}
@@ -440,7 +444,7 @@ static int vsp_release (struct inode *inode, struct file *filp)
 
 	kfree(filp->private_data);
 
-        wake_unlock(&vsp_wakelock);
+//        wake_unlock(&vsp_wakelock);
 
 	return 0;
 }
