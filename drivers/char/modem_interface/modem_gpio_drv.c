@@ -29,6 +29,7 @@ static unsigned int cp_crash_gpio_irq;
 static unsigned int modem_power_gpio;
 static int    cp_alive_gpio ;
 static int    cp_crash_gpio;
+static int    modem_is_poweron = 0;
 
 int get_alive_status(void)
 {
@@ -60,7 +61,9 @@ static irqreturn_t cp_alive_gpio_handle(int irq, void *handle)
 static irqreturn_t cp_crash_gpio_handle(int irq, void *handle)
 {
 	int status ;
-
+	
+	if(modem_is_poweron==0)
+		return IRQ_HANDLED;
 	status = gpio_get_value(cp_crash_gpio);
 	printk(KERN_WARNING"cp_crash_irq: %d \n",status);
 	if(status == 0)
@@ -144,6 +147,7 @@ void modem_poweron(void)
 	} else {
 		sprd_greg_clear_bits(REG_TYPE_GLOBAL, 0x00000040, 0x4C);
 	}
+	modem_is_poweron = 1;
 }
 void modem_poweroff(void)
 {
@@ -154,4 +158,5 @@ void modem_poweroff(void)
 	} else {
 		sprd_greg_set_bits(REG_TYPE_GLOBAL, 0x00000040, 0x4C);
 	}
+	modem_is_poweron = 0;
 }
