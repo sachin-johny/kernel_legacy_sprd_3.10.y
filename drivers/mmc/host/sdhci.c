@@ -26,6 +26,8 @@
 #include <linux/gpio.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
+#include <linux/seq_file.h>
+#include <linux/debugfs.h>
 
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
@@ -118,7 +120,33 @@ irqreturn_t sd_detect_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 #endif
+static u32 sdhci_crc_err_times[4] = {0};
+static u32 sdhci_timeout_err_times[4] = {0};
+static void sdhci_update_debug_info(struct sdhci_host *host)
+{
+	u32 sts = 0;
+	u32 idx = 0;
+	if(!strcmp(mmc_hostname(host->mmc), "mmc0")) {
+		idx = 0;
+	}
+	if(!strcmp(mmc_hostname(host->mmc), "mmc1")) {
+		idx = 1;
+	}
+	if(!strcmp(mmc_hostname(host->mmc), "mmc2")) {
+		idx = 2;
+	}
+	if(!strcmp(mmc_hostname(host->mmc), "mmc3")) {
+		idx = 3;
+	}
 
+	sts = sdhci_readl(host, SDHCI_INT_STATUS);
+	if(sts & (SDHCI_INT_CRC | SDHCI_INT_DATA_CRC)) {
+		sdhci_crc_err_times[idx] ++;
+	}
+	if(sts & (SDHCI_INT_TIMEOUT | SDHCI_INT_DATA_TIMEOUT)) {
+		sdhci_timeout_err_times[idx] ++;
+	}
+}
 void sdhci_dumpregs(struct sdhci_host *host)
 {
 	unsigned int i, regAddr;
@@ -2438,6 +2466,7 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 
 	DBG("*** %s got interrupt: 0x%08x\n",
 		mmc_hostname(host->mmc), intmask);
+	sdhci_update_debug_info(host);
         /*
         * hot plug is not supported in our chip, we use gpio instead.
         */
@@ -3180,7 +3209,41 @@ void sdhci_free_host(struct sdhci_host *host)
 }
 
 EXPORT_SYMBOL_GPL(sdhci_free_host);
-
+static struct dentry * dentry_debug_root = NULL;
+static int sdhci_debug_show(struct seq_file *s, void *data)
+{
+	u32 i;
+	for(i = 0;i < 4; i++) {
+		seq_printf(s, "mmc%d crc err times 0x%08x, timeout times 0x%08x\n",i, sdhci_crc_err_times[i], sdhci_timeout_err_times[i]);
+	}
+	return 0;
+}
+static int sdhci_debug_open(struct inode *inode, struct file *file)
+{
+        return single_open(file, sdhci_debug_show, NULL);
+}
+static const struct file_operations sdhci_debug_fops = {
+	.open		= sdhci_debug_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+static int sdhci_debugfs_init(void)
+{
+	struct dentry *d;
+	dentry_debug_root = debugfs_create_dir("sdhci_debug", NULL);
+	if (IS_ERR(dentry_debug_root) || !dentry_debug_root) {
+		pr_err("sdhci_debugfs_init Failed to create debugfs directory\n");
+		dentry_debug_root = NULL;
+		return -ENOMEM;
+	}
+	d = debugfs_create_file("statistics", 0744, dentry_debug_root, NULL,
+		&sdhci_debug_fops);
+	if (!d) {
+		pr_err("Failed to create sdhci debug file\n");
+		return -ENOMEM;
+	}
+}
 /*****************************************************************************\
  *                                                                           *
  * Driver init/exit                                                          *
@@ -3192,6 +3255,7 @@ static int __init sdhci_drv_init(void)
 	printk(KERN_INFO DRIVER_NAME
 		": Secure Digital Host Controller Interface driver\n");
 	printk(KERN_INFO DRIVER_NAME ": Copyright(c) Pierre Ossman\n");
+	sdhci_debugfs_init();
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	wake_lock_init(&sdhci_detect_lock, WAKE_LOCK_SUSPEND, "mmc_detect_detect");
 #endif
