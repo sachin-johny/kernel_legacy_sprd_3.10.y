@@ -107,6 +107,11 @@ void panic(const char *fmt, ...)
 		dump_stack();
 #endif
 
+#ifdef CONFIG_SPRD_SYSDUMP
+	extern void sysdump_enter(const char *str, struct pt_regs *regs);
+	sysdump_enter(buf, NULL);
+#endif
+
 	/*
 	 * If we have crashed and we have a crash kernel loaded let it handle
 	 * everything else.
