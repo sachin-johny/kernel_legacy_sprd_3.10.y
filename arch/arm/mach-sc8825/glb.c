@@ -28,8 +28,8 @@
 static DEFINE_SPINLOCK(glb_lock);
 static void sci_glb_lock(unsigned long *flags, unsigned long *hw_flags)
 {
-	spin_lock_irqsave(&glb_lock, *flags);
 	*hw_flags = hw_local_irq_save();
+	spin_lock_irqsave(&glb_lock, *flags);
 	if (arch_get_hwlock(HWLOCK_GLB))
 		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_GLB), -1)));
 	else
@@ -42,8 +42,8 @@ static void sci_glb_unlock(unsigned long *flags, unsigned long *hw_flags)
 		hwspin_unlock(arch_get_hwlock(HWLOCK_GLB));
 	else
 		arch_hwunlock_fast(HWLOCK_GLB);
-	hw_local_irq_restore(*hw_flags);
 	spin_unlock_irqrestore(&glb_lock, *flags);
+	hw_local_irq_restore(*hw_flags);
 }
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
