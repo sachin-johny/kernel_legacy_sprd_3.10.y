@@ -886,8 +886,35 @@ static DEVICE_ATTR(inquiry_string, S_IRUGO | S_IWUSR,
 					mass_storage_inquiry_show,
 					mass_storage_inquiry_store);
 
+static ssize_t mass_storage_support_luns_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct mass_storage_function_config *config = f->config;
+	return sprintf(buf, "%d\n", config->common->board_support_luns);
+}
+
+static ssize_t mass_storage_support_luns_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	struct android_usb_function *f = dev_get_drvdata(dev);
+	struct mass_storage_function_config *config = f->config;
+	int value;
+
+	sscanf(buf, "%d", &value);
+	if (value > (config->common->luns)||value <= 0)
+		return size;
+	config->common->board_support_luns = value;
+	return size;
+}
+
+static DEVICE_ATTR(board_support_luns, S_IRUGO | S_IWUSR,
+					mass_storage_support_luns_show,
+					mass_storage_support_luns_store);
+
 static struct device_attribute *mass_storage_function_attributes[] = {
 	&dev_attr_inquiry_string,
+	&dev_attr_board_support_luns,
 	NULL
 };
 

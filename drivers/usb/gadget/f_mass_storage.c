@@ -367,6 +367,7 @@ struct fsg_common {
 	u8			cmnd[MAX_COMMAND_SIZE];
 
 	unsigned int		nluns;
+	unsigned int		board_support_luns;
 	unsigned int		lun;
 	struct fsg_lun		*luns;
 	struct fsg_lun		*curlun;
@@ -2830,6 +2831,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		}
 	}
 	common->nluns = nluns;
+	common->board_support_luns = nluns;
 
 	/* Data buffers cyclic list */
 	bh = common->buffhds;
