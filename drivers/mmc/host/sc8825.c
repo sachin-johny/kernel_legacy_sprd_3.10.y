@@ -962,11 +962,7 @@ static int sdhci_pm_resume(struct device *dev)
 
 	if(!(host->mmc->card) || !host->dev_attached){
 		if(host->ops->set_clock){
-			clock = host->clock;
 			host->ops->set_clock(host, 0);
-			if(clock != 0){
-				host->clock = clock;
-			}
 		}
 	}
 #ifdef MMC_RESTORE_REGS
@@ -982,11 +978,13 @@ static int sdhci_pm_resume(struct device *dev)
 	sdhci_dumpregs(host);
 #endif
 
+#if 0
 	if (!pm_runtime_suspended(dev))
 		if(host->ops->set_clock){
-			clock = host->clock;
-			host->ops->set_clock(host, clock);
+			host->ops->set_clock(host, 0);
 		}
+#endif
+
 	return 0;
 }
 
