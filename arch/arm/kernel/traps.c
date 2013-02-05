@@ -284,6 +284,11 @@ void die(const char *str, struct pt_regs *regs, int err)
 		str = "Oops - BUG";
 	ret = __die(str, err, thread, regs);
 
+#ifdef CONFIG_SPRD_SYSDUMP /* TODO: jianjun.he */
+	extern void sysdump_enter(const char *str, struct pt_regs *regs);
+	sysdump_enter(str, regs);
+#endif
+
 	if (regs && kexec_should_crash(thread->task))
 		crash_kexec(regs);
 

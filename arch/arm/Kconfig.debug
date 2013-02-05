@@ -41,6 +41,13 @@ config ARM_UNWIND
 	  the performance is not affected. Currently, this feature
 	  only works with EABI compilers. If unsure say Y.
 
+config SPRD_SYSDUMP
+        tristate "Enable SPRD sysdump handler"
+        depends on ARCH_SC
+        help
+          This option enables Spreadtrum sysdump which prepare debug info
+	  for u-boot to write into mmc storage after kernel panics.
+
 config OLD_MCOUNT
 	bool
 	depends on FUNCTION_TRACER && FRAME_POINTER
