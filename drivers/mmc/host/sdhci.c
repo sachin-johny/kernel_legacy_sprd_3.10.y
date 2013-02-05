@@ -166,6 +166,12 @@ void sdhci_dumpregs(struct sdhci_host *host)
 
 #ifdef CONFIG_ARCH_SC8825
 	printk("AHB_CTL0:0x%x\n", sci_glb_raw_read(REG_AHB_AHB_CTL0));
+	printk("INTC0_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0X08) );	
+	printk("INTC1_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0x1000 + 0X08) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x100) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x104) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x108) );
+
 	printk("ANA_REG_GLB_LDO_PD_CTRL1:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL1));
 	printk("ANA_REG_GLB_LDO_VCTRL4:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_VCTRL4));
 #endif
@@ -1519,9 +1525,9 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	sdhci_set_clock(host, ios->clock);
 
 	if (ios->power_mode == MMC_POWER_OFF) {
-		if(!(mmc->card && mmc_card_mmc(mmc->card))) {
+		//if(!(mmc->card && mmc_card_mmc(mmc->card))) {
 			sdhci_set_power(host, -1);
-		}
+		//}
 	} else
 		sdhci_set_power(host, ios->vdd);
 
@@ -2083,7 +2089,7 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
  *  FIXME: DISABLE PM_RUNTIME in SP -FPGA, enable after chips back
  */
 static const struct mmc_host_ops sdhci_ops = {
-#if !defined(CONFIG_MMC_SDHCI_SC8825) && !defined(CONFIG_MACH_KYLEW)
+#ifndef CONFIG_MACH_SP8825_FPGA
 	.enable				= sdhci_enable,
 	.disable			= sdhci_disable,
 #endif
