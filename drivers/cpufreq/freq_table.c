@@ -13,6 +13,11 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/cpufreq.h>
+#if defined(CONFIG_SPRD_CPUFREQ_ENABLE)
+extern int global_cpufreq_min_limit;
+extern int global_cpufreq_max_limit;
+extern spinlock_t g_cpufreq_lock;
+#endif
 
 /*********************************************************************
  *                     FREQUENCY TABLE HELPERS                       *
@@ -42,6 +47,11 @@ int cpufreq_frequency_table_cpuinfo(struct cpufreq_policy *policy,
 
 	policy->min = policy->cpuinfo.min_freq = min_freq;
 	policy->max = policy->cpuinfo.max_freq = max_freq;
+#if defined(CONFIG_SPRD_CPUFREQ_ENABLE)
+	global_cpufreq_min_limit = min_freq;
+	global_cpufreq_max_limit = max_freq;
+	spin_lock_init(&g_cpufreq_lock);
+#endif
 
 	if (policy->min == ~0)
 		return -EINVAL;

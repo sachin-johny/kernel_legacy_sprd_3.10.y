@@ -39,7 +39,11 @@
  *display BogoMIPS instead of the real cpu frequency if CONFIG_CPU_FREQ
  *is not be defined
  */
+#if defined(CONFIG_SPRD_CPUFREQ_ENABLE)
+static int cpufreq_bypass = 0;
+#else
 static int cpufreq_bypass = 1;
+#endif
 
 /*
  *  sc8810+ indicator
@@ -62,9 +66,14 @@ static struct sprd_dvfs_table sc8810g_plus_dvfs_table[] = {
 	[1] = { 1000000 , 1200000 }, /* 1000,000KHz,  1200mv */
 	[2] = { 600000 , 1100000 },  /* 600,000KHz,  1100mv */
 };
-
+#if defined(CONFIG_SPRD_CPUFREQ_ENABLE)
+struct cpufreq_frequency_table sc8810g_freq_table[FREQ_TABLE_ENTRY];
+extern int global_cpufreq_min_limit;
+extern int global_cpufreq_max_limit;
+extern spinlock_t g_cpufreq_lock;
+#else
 static struct cpufreq_frequency_table sc8810g_freq_table[FREQ_TABLE_ENTRY];
-
+#endif
 enum scalable_cpus {
 	CPU0 = 0,
 };
@@ -329,6 +338,16 @@ static int sprd_cpufreq_set_target(struct cpufreq_policy *policy,
 			pr_info("cpufreq: cpu %d is not active.\n", policy->cpu);
 			return -ENODEV;
 		}
+#endif
+#if defined(CONFIG_SPRD_CPUFREQ_ENABLE)
+		printk("! before target_feq %u ---", target_freq);
+		spin_lock(&g_cpufreq_lock);
+		if (target_freq > global_cpufreq_max_limit && global_cpufreq_max_limit != -1)
+			target_freq = global_cpufreq_max_limit;
+		if (target_freq < global_cpufreq_min_limit && global_cpufreq_min_limit != -1)
+			target_freq = global_cpufreq_min_limit;
+		spin_unlock(&g_cpufreq_lock);
+		printk("now target_feq %u \n", target_freq);
 #endif
 		mutex_lock(&per_cpu(cpufreq_suspend, policy->cpu).suspend_mutex);
 
