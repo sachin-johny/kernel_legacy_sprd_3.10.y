@@ -537,6 +537,13 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 
 	acl = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
 	if (!acl) {
+		#ifdef BK_SINGLE_LINK
+		struct hci_conn_hash *h = &hdev->conn_hash;
+		if ((type == ACL_LINK) && (h->acl_num >= 1)) {
+			BT_DBG("single link solution, reject the second outgoing connect request.");
+			return ERR_PTR(-EBUSY);
+		}
+		#endif
 		acl = hci_conn_add(hdev, ACL_LINK, 0, dst);
 		if (!acl)
 			return NULL;
