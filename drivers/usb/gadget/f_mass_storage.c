@@ -369,6 +369,7 @@ struct fsg_common {
 	u8			cmnd[MAX_COMMAND_SIZE];
 
 	unsigned int		nluns;
+	unsigned int		board_support_luns;
 	unsigned int		lun;
 	struct fsg_lun		*luns;
 	struct fsg_lun		*curlun;
@@ -643,7 +644,7 @@ static int fsg_setup(struct usb_function *f,
 		if (w_index != fsg->interface_number || w_value != 0)
 			return -EDOM;
 		VDBG(fsg, "get max LUN\n");
-		*(u8 *)req->buf = fsg->common->nluns - 1;
+		*(u8 *)req->buf = fsg->common->board_support_luns- 1;
 
 		/* Respond with data/status */
 		req->length = min((u16)1, w_length);
@@ -2821,6 +2822,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		}
 	}
 	common->nluns = nluns;
+	common->board_support_luns = nluns;
 
 	/* Data buffers cyclic list */
 	bh = common->buffhds;
