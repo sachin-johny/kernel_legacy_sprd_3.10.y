@@ -1383,6 +1383,8 @@ static int sdhci_enable(struct mmc_host *mmc){
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		return 0;
 
+	printk("%s: %s: dev->power.runtime_status: %d \n", mmc_hostname(mmc),
+			__func__, dev->power.runtime_status);
 	if (dev->power.runtime_status == RPM_SUSPENDING) {
 		if (mmc->suspend_task == current) {
 			pm_runtime_get_noresume(dev);
@@ -1394,7 +1396,7 @@ static int sdhci_enable(struct mmc_host *mmc){
 		ret = pm_runtime_get_sync(dev);
 	}
 	if (ret < 0) {
-		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
+		printk("%s: %s: failed with error %d \n", mmc_hostname(mmc),
 				__func__, ret);
 		return ret;
 	}
@@ -1407,16 +1409,19 @@ out:
 static int sdhci_disable(struct mmc_host *mmc, int lazy){
 	int ret = 0;
 	struct sdhci_host *host = mmc_priv(mmc);
+	struct device *dev = mmc->parent;
 
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		return 0;
+	printk("%s: %s: dev->power.runtime_status: %d \n", mmc_hostname(mmc),
+			__func__, dev->power.runtime_status);
 
 	if(host->is_resumed){
 		ret = pm_runtime_put_sync(mmc->parent);
 	}
 
 	if (ret < 0)
-		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
+		printk("%s: %s: failed with error %d \n", mmc_hostname(mmc),
 				__func__, ret);
 	else{
 		host->is_resumed = false;

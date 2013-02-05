@@ -879,14 +879,20 @@ static int sdhci_runtime_suspend(struct device *dev){
 				}
 				*/
 				printk("%s, %s, call mmc_card_sleep	\n", mmc_hostname(mmc), __func__  );
-				rc = mmc_card_sleep(mmc);	
+				mmc_try_claim_host(mmc);
+				rc = mmc_card_sleep(mmc);
+				mmc_do_release_host(mmc);
 				mdelay(50);
 				printk("%s, %s, call mmc_card_sleep  done	\n", mmc_hostname(mmc), __func__  );
 				printk("%s, %s, call sdhci_sprd_enable_clock	\n", mmc_hostname(mmc), __func__  );
-				sdhci_sprd_enable_clock(host, 0);	
-				if(host->suspending == 1){					
+				printk("%s, %s, host->suspending:%d	\n", mmc_hostname(mmc), __func__, host->suspending  );
+				sdhci_sprd_enable_clock(host, 0);
+				if(host->suspending == 1){
 					/* deep sleep, make sure power off*/
-					;
+					//sdhci_sprd_set_power(host, 0);
+					printk("%s, %s,  set host->pwr = 0, host->mmc->bus_resume_flags:0x%x \n",
+						mmc_hostname(host->mmc), __func__, host->mmc->bus_resume_flags );
+					host->pwr = 0;
 				}
 				printk("%s, %s, call sdhci_sprd_enable_clock done	\n", mmc_hostname(mmc), __func__  );
 			}
@@ -913,7 +919,7 @@ static int sdhci_runtime_resume(struct device *dev){
 	if (mmc) {
 		(host->mmc)->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
 		if((mmc->card != NULL) && mmc_card_sd(mmc->card))
-			err = mmc_resume_host(mmc);		
+			err = mmc_resume_host(mmc);
 		else if((mmc->card != NULL) && mmc_card_mmc(mmc->card)){
 #if 0
 			err =	sci_glb_raw_read(REG_AHB_AHB_CTL0);
@@ -922,9 +928,18 @@ static int sdhci_runtime_resume(struct device *dev){
 			err = 0;
 #endif
 			sdhci_sprd_enable_clock(host, 1);
-			mdelay(50); 
-			//udelay(10);
-			err = mmc_card_awake(mmc); 
+			mdelay(50);
+			if(host->suspended == 0){
+				printk("%s, host->pwr:%d, call mmc_card_awake\n",
+							mmc_hostname(mmc), host->pwr  );
+				mmc_try_claim_host(mmc);
+				err = mmc_card_awake(mmc);
+				mmc_do_release_host(mmc);
+			}else{
+				printk("%s, host->pwr:%d, host->suspended:%d \n",
+						mmc_hostname(mmc), host->pwr, host->suspended  );
+				host->suspended = 0;
+			}
 #if 0
 			for(retry=2; retry>=0; retry--){
 				err = mmc_card_awake(mmc); 
@@ -942,7 +957,7 @@ static int sdhci_runtime_resume(struct device *dev){
 			}
 #endif
 		}
-		
+
 		if(err){
 			printk("%s, runtime resume failed, err:%d\n", mmc_hostname(mmc), err);
 		}
@@ -977,20 +992,22 @@ if(host->mmc && host->mmc->card)
 #endif
 #endif
 	printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
-	if (!pm_runtime_suspended(dev)) {		
-		printk("****** %s,	%s, !pm_runtime_suspended(dev) ********* \n", mmc_hostname(host->mmc),	__func__);
+	if (!pm_runtime_suspended(dev)) {
+		printk("****** %s,	%s, !pm_runtime_suspended(dev) ********* \n",
+						mmc_hostname(host->mmc),	__func__);
 		if (!(host->mmc->card && mmc_card_sdio(host->mmc->card))) {
 			/*
 			 * decrement power.usage_counter if it's
 			 * not zero earlier
-			 */			 
+			 */
 			printk("****** %s,	%s, call pm_runtime_put_noidle, dev->power.usage_count:%d  ********* \n", mmc_hostname(host->mmc),	__func__, dev->power.usage_count);
-			pm_runtime_put_noidle(dev);			
+			pm_runtime_put_noidle(dev);
 			printk("****** %s,	%s, call pm_runtime_put_noidle, done dev->power.usage_count:%d	********* \n", mmc_hostname(host->mmc), __func__, dev->power.usage_count);
-			//if((mmc->card != NULL) && mmc_card_sd(mmc->card)){				
+			//if((mmc->card != NULL) && mmc_card_sd(mmc->card)){
 				printk("****** %s,	%s, call pm_runtime_suspend	********* \n", mmc_hostname(host->mmc), __func__);
 				host->suspending = 1;
 				ret = pm_runtime_suspend(dev);
+				host->suspended = 1;
 			//}
 		}
 
@@ -1006,13 +1023,17 @@ if(host->mmc && host->mmc->card)
 
 	}else{
 		printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
+		if (host->mmc->card && mmc_card_mmc(host->mmc->card)) {
+			printk("%s, set host->pwr = 0, host->mmc->bus_resume_flags:0x%x \n", mmc_hostname(host->mmc), host->mmc->bus_resume_flags );
+			host->suspended = 1;
+		}
 	}
 #if 0
-	 if((mmc->card != NULL) && mmc_card_mmc(mmc->card)){		
+	 if((mmc->card != NULL) && mmc_card_mmc(mmc->card)){
 		printk("****** %s,	%s, call mmc_suspend_host,	bus_resume_flags:0x%x ********* \n", mmc_hostname(host->mmc), __func__, mmc->bus_resume_flags);
 		(host->mmc)->bus_resume_flags &= ~MMC_BUSRESUME_MANUAL_RESUME;
 		ret = mmc_suspend_host(host->mmc);
-		printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);		
+		printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
 		printk("%s, disable_depth:%d\n", mmc_hostname(host->mmc), dev->power.disable_depth);
 		pm_runtime_set_suspended(dev);
 		printk("%s, after pm_runtime_set_suspended, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
@@ -1036,12 +1057,13 @@ if(host->mmc && host->mmc->card)
 	/* check runtime support or not . disable ahb clock */
 	if (!pm_runtime_suspended(dev))
 		if(host->ops->set_clock){
-			printk("****** %s,	%s, call set_clock(host, 0)  ********* \n", mmc_hostname(host->mmc),	__func__);
+			printk("****** %s,	%s, call set_clock(host, 0)  ********* \n",
+						mmc_hostname(host->mmc),	__func__);
 			host->ops->set_clock(host, 0);
 		}
 	printk("****** %s,	%s ********* done \n", mmc_hostname(host->mmc),	__func__);
 	printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
-
+	
 	return 0;
 }
 
@@ -1063,23 +1085,23 @@ static int sdhci_pm_resume(struct device *dev)
 	}
 #endif
 
-	printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
+	printk("%s, runtime_status:%d, dev->power.disable_depth:%d\n",
+		mmc_hostname(host->mmc), dev->power.runtime_status, dev->power.disable_depth);
 
 	if (!pm_runtime_suspended(dev))
 	{
-		printk("%s, call sdhci_resume_host\n", mmc_hostname(host->mmc) );				
+		printk("%s, call sdhci_resume_host\n", mmc_hostname(host->mmc) );
 		sdhci_resume_host(host);
 	}
-	else
-	{				
-		if((mmc->card != NULL) && mmc_card_sd(mmc->card) ){			
+	else{
+		if((mmc->card != NULL) && mmc_card_sd(mmc->card) ){
 			printk("%s, call sdhci_reinit\n", mmc_hostname(host->mmc) );
-			sdhci_reinit(host);//restore irq enable register		
-		}else if((mmc->card != NULL) && mmc_card_mmc(mmc->card)){	
+			sdhci_reinit(host);//restore irq enable register
+		}else if((mmc->card != NULL) && mmc_card_mmc(mmc->card)){
 			printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
-			printk("%s, mmc card call sdhci_resume_host\n", mmc_hostname(host->mmc) );				
-			sdhci_resume_host(host);			
-			//pm_runtime_set_active(dev);				
+			printk("%s, mmc card call sdhci_resume_host\n", mmc_hostname(host->mmc) );
+			sdhci_resume_host(host);
+			//pm_runtime_set_active(dev);
 			printk("%s, runtime_status:%d\n", mmc_hostname(host->mmc), dev->power.runtime_status);
 		}
 	}
@@ -1116,12 +1138,13 @@ static int sdhci_pm_resume(struct device *dev)
 
 	if (!pm_runtime_suspended(dev))
 		if(host->ops->set_clock){
-			clock = host->clock;			
-			printk("****** %s,	%s, set_clock(host, %d) *********  \n", mmc_hostname(host->mmc),  __func__, clock);
+			clock = host->clock;
+			printk("****** %s,	%s, set_clock(host, %d) *********  \n",
+						mmc_hostname(host->mmc),  __func__, clock);
 			host->ops->set_clock(host, clock);
 		}
-	
-	printk("****** %s,  %s ********* done \n", mmc_hostname(host->mmc),  __func__);
+
+	printk("****** %s,  %s ********* done, host->pwr:%d \n", mmc_hostname(host->mmc),  __func__, host->pwr);
 	return 0;
 }
 
