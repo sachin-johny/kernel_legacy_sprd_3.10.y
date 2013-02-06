@@ -158,6 +158,7 @@
 #define NAND_MC_SRDT                (u16)(NFC_MC_SRDT_ID)
 #define NAND_MC_SWDT                (u16)(NFC_MC_SWDT_ID)
 #define NAND_MC_IDST(x)             (u16)((NFC_MC_IDST_ID) | ((x -1) << 8))
+#define NAND_MC_NOP(x)			(u16)(((x & 0xff) << 8) | NFC_MC_NOP_ID)
 
 #define NFC_DEFAULT_TIMING          ((7)  | (6 << NFC_RWH_OFFSET) | (7 << NFC_RWE_OFFSET) | (7 << NFC_RWS_OFFSET) | (7 << NFC_ACE_OFFSET) | (7 << NFC_ACS_OFFSET))
  /* TODO : use global interface */
