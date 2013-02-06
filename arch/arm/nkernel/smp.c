@@ -39,6 +39,7 @@
 #include <asm/nkern.h>
 #include <asm/localtimer.h>
 #include <asm/cacheflush.h>
+#include <mach/hardware.h>
 
     extern void
 secondary_startup (void);
@@ -344,13 +345,13 @@ phys_boot_secondary (unsigned int cpu, struct task_struct* idle)
 	*/
 	/* indicate pcpu1 can run */
 	pen_release = cpu;
-	__raw_writel( 1, 0xeb400240);
+	__raw_writel( 0x1, HOLDING_PEN_VADDR);
 	smp_wmb();
 	__cpuc_flush_dcache_area((void *)&pen_release, sizeof(pen_release));
 	outer_clean_range(__pa(&pen_release), __pa(&pen_release + 1));
 	
 	/* send IPI15 to cpu1 */
-	__raw_writel( (1<<17)|15, 0xeb021f00);
+	__raw_writel( (1<<17)|15, SC8825_VA_GIC_DIS+0xf00);
 #if 0
 	asm volatile( "sev\n"
 			:
@@ -383,10 +384,12 @@ platform_secondary_init (unsigned int cpu)
     int __cpuinit
 boot_secondary (unsigned int cpu, struct task_struct* idle)
 {
-    if (_runcpus == _maxcpus) {
-	return phys_boot_secondary(cpu, idle);
-    }
-    return virt_boot_secondary(cpu, idle);
+	printk("**** %s, _runcpus:%u, _maxcpus:%u ****\n",
+			__func__, _runcpus, _maxcpus);
+	if (_runcpus == _maxcpus) {
+		return phys_boot_secondary(cpu, idle);
+	}
+	return virt_boot_secondary(cpu, idle);
 }
 
     static void
