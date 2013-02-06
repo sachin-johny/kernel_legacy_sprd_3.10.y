@@ -327,6 +327,7 @@ static int sprdfb_probe(struct platform_device *pdev)
 	struct sprdfb_device *dev = NULL;
 	int ret = 0;
 
+
 	pr_debug(KERN_INFO "sprdfb:[%s], id = %d\n", __FUNCTION__, pdev->id);
 
 	fb = framebuffer_alloc(sizeof(struct sprdfb_device), &pdev->dev);
@@ -359,8 +360,10 @@ static int sprdfb_probe(struct platform_device *pdev)
 
 	if(SPRDFB_MAINLCD_ID == dev->dev_id){
 		dev->ctrl = &sprdfb_dispc_ctrl;
+#ifdef CONFIG_FB_SC8825
 	}else{
 		dev->ctrl = &sprdfb_lcdc_ctrl;
+#endif
 	}
 
 	if(sprdfb_panel_get(dev)){

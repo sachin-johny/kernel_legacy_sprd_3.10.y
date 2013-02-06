@@ -1,3 +1,4 @@
+if FB
 config FB_SC8825
 	boolean "SC8825 frame buffer support "
 	depends on FB && ARCH_SC8825
@@ -7,9 +8,18 @@ config FB_SC8825
 	help
           Frame buffer driver for sc8825 based boards.
 
+config FB_SC7710
+	boolean "SC7710 frame buffer support "
+	depends on FB && ARCH_SC7710
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+          Frame buffer driver for sc7710 based boards.
+
 config FB_LCD_HX8362_RGB_SPI
 	boolean "support HX8362 rgb (spi) panel"
-	depends on FB_SC8825
+	depends on FB_SC7710 || FB_SC8825
 	default n
 
 config FB_LCD_HX8369
@@ -39,7 +49,7 @@ config FB_LCD_NT35516_RGB_SPI
 
 config FB_LCD_NT35516_MCU
 	boolean "support NT35516 mcu panel"
-	depends on FB_SC8825
+	depends on FB_SC7710 || FB_SC8825
 	default n
 
 config FB_LCD_NT35510_MIPI
@@ -71,3 +81,5 @@ config FB_DYNAMIC_CLK_SUPPORT
 	boolean "support close clk dynamically"
 	depends on FB_SC8825
 	default n
+
+endif

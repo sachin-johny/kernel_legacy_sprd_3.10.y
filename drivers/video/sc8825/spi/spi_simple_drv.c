@@ -16,6 +16,11 @@
 
 #define SPI_USED_BASE SPRD_SPI2_BASE
 
+/*Jessica TODO: need to modified*/
+#ifdef CONFIG_FB_SC7710
+#define GEN0_SPI2_EN (0)
+#define SWRST_SPI2_RST		(0)
+#endif
 
  /**---------------------------------------------------------------------------*
  **                         Globle Variable                                  *
@@ -196,6 +201,7 @@ void SPI_SetCsLow( uint32_t spi_sel_csx , bool is_low)
 #define SPI_CD_MASK  BIT(15)
 void SPI_SetCd( uint32_t cd)
 {
+
     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T*)(SPI_USED_BASE);
     
     /* 0-command;1-data */

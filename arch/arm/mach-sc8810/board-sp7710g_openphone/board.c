@@ -100,7 +100,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device3,
 	&sprd_device_rtc,
 	&sprd_nand_device,
-	&sprd_lcd_device1,
+	&sprd_lcd_device0,
 	&sprd_backlight_device,
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,

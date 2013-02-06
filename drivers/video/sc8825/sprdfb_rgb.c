@@ -214,12 +214,13 @@ static bool sprdfb_rgb_panel_init(struct sprdfb_device *dev)
 	if(SPRDFB_RGB_BUS_TYPE_I2C == dev->panel->info.rgb->cmd_bus_mode){
 		ret = sprdfb_i2c_init(dev);
 	}else if(SPRDFB_RGB_BUS_TYPE_SPI == dev->panel->info.rgb->cmd_bus_mode) {
+#ifdef CONFIG_FB_SC8825
 		/*this is code to set the spi2 pin map proper	*/
 		__raw_writel(0x10a,(SPRD_PIN_BASE+0x290));
 		__raw_writel(0x10a,(SPRD_PIN_BASE+0x294));
 		__raw_writel(0x18a,(SPRD_PIN_BASE+0x298));
 		__raw_writel(0x106,(SPRD_PIN_BASE+0x29c));
-
+#endif
 		ret = sprdfb_spi_init(dev);
 	}
 

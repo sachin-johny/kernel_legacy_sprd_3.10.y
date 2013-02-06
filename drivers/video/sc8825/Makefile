@@ -3,6 +3,8 @@ obj-$(CONFIG_FB_SC8825) := sprdfb_main.o sprdfb_panel.o sprdfb_dispc.o sprdfb_lc
 obj-$(CONFIG_FB_SC8825) += dsi/
 obj-$(CONFIG_FB_SC8825) += spi/
 
+obj-$(CONFIG_FB_SC7710) := sprdfb_main.o sprdfb_panel.o sprdfb_dispc.o sprdfb_mcu.o sprdfb_rgb.o sprdfb_i2c.o sprdfb_spi.o
+obj-$(CONFIG_FB_SC7710) += spi/
 
 
 obj-$(CONFIG_FB_LCD_HX8362_RGB_SPI) += lcd_hx8362_rgb_spi.o

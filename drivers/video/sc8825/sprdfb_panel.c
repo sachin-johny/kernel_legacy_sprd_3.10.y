@@ -99,9 +99,11 @@ static bool panel_check(struct panel_cfg *cfg)
 	case SPRDFB_PANEL_TYPE_RGB:
 		cfg->panel->if_ctrl = &sprdfb_rgb_ctrl;
 		break;
+#ifdef CONFIG_FB_SC8825
 	case SPRDFB_PANEL_TYPE_MIPI:
 		cfg->panel->if_ctrl = &sprdfb_mipi_ctrl;
 		break;
+#endif
 	default:
 		printk("sprdfb: [%s]: erro panel type.(%d,%d, %d)",__FUNCTION__, cfg->dev_id, cfg->lcd_id, cfg->panel->type);
 		cfg->panel->if_ctrl = NULL;
