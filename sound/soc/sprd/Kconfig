@@ -35,6 +35,10 @@ config SND_SPEAKER_PA
 	tristate "speaker-pa"
 	default y
 
+config SND_HEADSET_NOISE
+	tristate "headset-pa-pop-noise"
+	default y
+
 config SPRD_AUDIO_DEBUG
 	bool "sprd audio debug"
 	default y

@@ -262,8 +262,10 @@ static int audio_pa_amplifier_headset_init(void)
 	return 0;
 }
 
-static int audio_pa_amplifier_headset(u32 cmd, void *data)
+static int audio_pa_amplifier_headset(int cmd, void *data)
 {
+	if (cmd < 0)
+		return gpio_get_value(HEADSET_PA_CTL_GPIO);
 	gpio_direction_output(HEADSET_PA_CTL_GPIO, cmd);
 	return 0;
 }

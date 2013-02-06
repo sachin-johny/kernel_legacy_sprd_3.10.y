@@ -102,6 +102,13 @@ static int sc882x_hp_event(struct snd_soc_dapm_widget *w,
 	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
 		audio_pa_amplifier->headset.
 		    control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
+#ifdef CONFIG_SND_HEADSET_NOISE
+	if (!SND_SOC_DAPM_EVENT_ON(event)) {
+		sc882x_dbg("%s pa off, delay 20ms start\n", __func__);
+		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
+		sc882x_dbg("%s pa off, delay 20ms done\n", __func__);
+	}
+#endif
 	sc882x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
