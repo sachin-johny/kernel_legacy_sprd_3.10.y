@@ -200,6 +200,7 @@ static int gpsctl_probe(struct platform_device *pdev)
 			}
 
 			clk_set_parent(gps_clk, clk_parent);
+			clk_set_rate(gps_clk, 32000);
 		} else {
 			printk("gps_clk: clk_type ! = %s\n", "clk_aux0");
 		}
