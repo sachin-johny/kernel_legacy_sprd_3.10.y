@@ -1227,6 +1227,7 @@ static void sc8825_machine_restart(char mode, const char *cmd)
 	while (1);
 }
 
+static struct wake_lock pm_debug_lock;
 void sc_pm_init(void)
 {
 	unsigned int cpu1_jump_addrss;
@@ -1254,5 +1255,8 @@ void sc_pm_init(void)
 	val = __raw_readl(sprd_get_scu_base());
 	val |= (INTC_DYNAMIC_CLK_GATE_EN | SCU_DYNAMIC_CLK_GATE_EN);
 	__raw_writel(val, sprd_get_scu_base());
+
+	wake_lock_init(&pm_debug_lock, WAKE_LOCK_SUSPEND, "pm_not_ready");
+	wake_lock(&pm_debug_lock);
 
 }
