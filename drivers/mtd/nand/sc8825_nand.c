@@ -36,6 +36,9 @@ struct sprd_sc8825_nand_param {
 	uint8_t info_size; /* oob size per sector*/
 	uint8_t eccbit; /* ecc level per eccsize */
 	uint16_t eccsize; /*bytes per sector for ecc calcuate once time */
+	uint8_t	ace_ns;	/* ALE, CLE end of delay timing, unit: ns */
+	uint8_t	rwl_ns;	/* WE, RE, IO, pulse  timing, unit: ns */
+	uint8_t	rwh_ns;	/* WE, RE, IO, high hold  timing, unit: ns */
 };
 struct sprd_sc8825_nand_info {
 	struct mtd_info *mtd;
@@ -77,6 +80,9 @@ static struct nand_ecclayout sprd_sc8825_nand_oob_default = {
 		{.offset = 2,
 		 .length = 46}}
 };
+
+static void sprd_sc8825_nand_read_id(struct sprd_sc8825_nand_info *sc8825, u32 *buf);
+
 static u32 sprd_sc8825_reg_read(u32 addr)
 {
 	return readl(addr);
@@ -136,9 +142,75 @@ unsigned int sc8825_ecc_mode_convert(u32 mode)
  *to simplify the nand_param_tb, the info is align with ecc and ecc at the last postion in one sector
 */
 static struct sprd_sc8825_nand_param sprd_sc8825_nand_param_tb[] = {
-	{{0xec, 0xbc, 0x00,0x55, 0x54}, 	1, 	5, 	4, 	16, 	12, 	11, 	1, 	2, 	512},
-	{{0xec, 0xbc, 0x00,0x6A, 0x56}, 	1, 	5, 	8, 	16, 	9, 	8, 	1, 	4, 	512},
+	{{0xec, 0xbc, 0x00,0x55, 0x54}, 	1, 	5, 	4, 	16, 	12, 	11, 	1, 	2, 	512, 5, 21, 10},
+	{{0xec, 0xbc, 0x00,0x6A, 0x56}, 	1, 	5, 	8, 	16, 	9, 	8, 	1, 	4, 	512, 5, 21, 10},
+	{{0xad, 0xbc, 0x90,0x55, 0x54}, 	1, 	5, 	4, 	16, 	12, 	11, 	1, 	2, 	512, 10, 25, 15},
 };
+
+static void tiger_set_timing_config(struct sprd_sc8825_nand_info * tiger, uint32_t nfc_clk_MHz) {
+	int index, array;
+	u8 id_buf[8];
+	u32 reg_val, temp_val;
+	struct sprd_sc8825_nand_param * param;
+
+	/* read id */
+	sprd_sc8825_nand_read_id(tiger, (u32 *)id_buf);
+
+	/* get timing para */
+	array = ARRAY_SIZE(sprd_sc8825_nand_param_tb);
+	for (index = 0; index < array; index ++) {
+		param = sprd_sc8825_nand_param_tb + index;
+		if ((param->id[0] == id_buf[0])
+			&& (param->id[1] == id_buf[1])
+			&& (param->id[2] == id_buf[2])
+			&& (param->id[3] == id_buf[3])
+			&& (param->id[4] == id_buf[4]))
+			break;
+	}
+
+	if (index < array) {
+		reg_val = 0;
+
+		/* get acs value : 0ns */
+		reg_val |= ((0 & 0x1F) << NFC_ACS_OFFSET);
+
+		/* get ace value */
+		temp_val = param->ace_ns * nfc_clk_MHz / 1000;
+		if (((param->ace_ns * nfc_clk_MHz) % 1000)  != 0) {
+			temp_val++;
+		}
+		reg_val |= ((temp_val & 0x1F) << NFC_ACE_OFFSET);
+
+		/* get rws value : 20 ns */
+		temp_val = 20 * nfc_clk_MHz / 1000;
+		if (((param->ace_ns * nfc_clk_MHz) % 1000)  != 0) {
+			temp_val++;
+		}
+		reg_val |= ((temp_val & 0x3F) << NFC_RWS_OFFSET);
+
+		/* get rws value : 0 ns */
+		reg_val |= ((0 & 0x1F) << NFC_RWE_OFFSET);
+
+		/* get rwh value */
+		temp_val = param->rwh_ns * nfc_clk_MHz / 1000;
+		if (((param->ace_ns * nfc_clk_MHz) % 1000)  != 0) {
+			temp_val++;
+		}
+		reg_val |= ((temp_val & 0x1F) << NFC_RWH_OFFSET);
+
+		/* get rwl value, 6 is read delay time*/
+		temp_val = (param->rwl_ns + 6) * nfc_clk_MHz / 1000;
+		if (((param->ace_ns * nfc_clk_MHz) % 1000)  != 0) {
+			temp_val++;
+		}
+		reg_val |= (temp_val & 0x3F);
+
+		printk("nand timing val: 0x%x\n\r", reg_val);
+
+		sprd_sc8825_reg_write(NFC_TIMING_REG, reg_val);
+	}
+}
+
 static void sprd_sc8825_nand_ecc_layout_gen(struct sprd_sc8825_nand_info *sc8825, int ecc_mode, int oob_size, int info_size, int info_pos,int scts, struct nand_ecclayout *layout)
 {
 	uint32_t sct = 0;
@@ -338,6 +410,7 @@ static void sprd_sc8825_nand_read_status(struct sprd_sc8825_nand_info *sc8825)
 
 	sprd_sc8825_nand_ins_init(sc8825);
 	sprd_sc8825_nand_ins_add(NAND_MC_CMD(NAND_CMD_STATUS), sc8825);
+	sprd_sc8825_nand_ins_add(NAND_MC_NOP(10), sc8825);
 	sprd_sc8825_nand_ins_add(NAND_MC_IDST(1), sc8825);
 	sprd_sc8825_nand_ins_add(NFC_MC_DONE_ID, sc8825);
 	sprd_sc8825_reg_write(NFC_CFG0_REG, NFC_ONLY_NAND_MODE);
@@ -354,6 +427,7 @@ static void sprd_sc8825_nand_read_id(struct sprd_sc8825_nand_info *sc8825, u32 *
 	sprd_sc8825_nand_ins_init(sc8825);
 	sprd_sc8825_nand_ins_add(NAND_MC_CMD(NAND_CMD_READID), sc8825);
 	sprd_sc8825_nand_ins_add(NAND_MC_ADDR(0), sc8825);
+	sprd_sc8825_nand_ins_add(NAND_MC_NOP(10), sc8825);
 	sprd_sc8825_nand_ins_add(NAND_MC_IDST(8), sc8825);
 	sprd_sc8825_nand_ins_add(NFC_MC_DONE_ID, sc8825);
 
@@ -834,6 +908,9 @@ int board_nand_init(struct nand_chip *chip)
 	chip->ecc.bytes = CONFIG_SYS_NAND_ECCBYTES;
 	g_sc8825_nand_info.ecc_mode = CONFIG_SYS_NAND_ECC_MODE;
 	g_sc8825_nand_info.nand = chip;
+
+	tiger_set_timing_config(&g_sc8825_nand_info, 153);	/* 153 is current clock 153MHz */
+
 	//chip->eccbitmode = g_sc8825_nand_info.ecc_mode;
 	chip->ecc.size = CONFIG_SYS_NAND_ECCSIZE;
 	chip->chip_delay = 20;
