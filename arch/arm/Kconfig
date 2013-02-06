@@ -1016,6 +1016,8 @@ config ARCH_SC
 	select CLKDEV_LOOKUP
 	select GENERIC_CLOCKEVENTS
 	select HAVE_CLK
+	select MIGHT_HAVE_CACHE_L2X0
+	select CACHE_L2X0
 	help
 	  Support for Spreadtrum sci based systems.
 
