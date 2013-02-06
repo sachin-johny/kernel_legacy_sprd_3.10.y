@@ -2,9 +2,9 @@
  * Misc utility routines for accessing chip-specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2011, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -22,9 +22,10 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: aiutils.c 347614 2012-07-27 10:24:51Z $
+ * $Id: aiutils.c,v 1.26.2.1 2010-03-09 18:41:21 $
  */
-#include <bcm_cfg.h>
+
+
 #include <typedefs.h>
 #include <bcmdefs.h>
 #include <osl.h>
@@ -37,19 +38,16 @@
 #include "siutils_priv.h"
 
 #define BCM47162_DMP() (0)
-#define BCM5357_DMP() (0)
-#define remap_coreid(sih, coreid)	(coreid)
-#define remap_corerev(sih, corerev)	(corerev)
 
 
 
 static uint32
-get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match)
+get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match, uint32 *eromlim) /* add parameter to avoid dead loop */
 {
 	uint32 ent;
 	uint inv = 0, nom = 0;
 
-	while (TRUE) {
+	while ((*eromptr) <= eromlim) { /* avoid dead loop */
 		ent = R_REG(si_osh(sih), *eromptr);
 		(*eromptr)++;
 
@@ -69,7 +67,10 @@ get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match)
 
 		nom++;
 	}
-
+	if ((*eromptr) > eromlim) {
+		SI_VMSG(("%s: Returning ent error 0x%08x\n", __FUNCTION__, (ER_END | ER_VALID)));
+		return (ER_END | ER_VALID);
+	}
 	SI_VMSG(("%s: Returning ent 0x%08x\n", __FUNCTION__, ent));
 	if (inv + nom) {
 		SI_VMSG(("  after %d invalid and %d non-matching entries\n", inv, nom));
@@ -79,11 +80,11 @@ get_erom_ent(si_t *sih, uint32 **eromptr, uint32 mask, uint32 match)
 
 static uint32
 get_asd(si_t *sih, uint32 **eromptr, uint sp, uint ad, uint st, uint32 *addrl, uint32 *addrh,
-        uint32 *sizel, uint32 *sizeh)
+        uint32 *sizel, uint32 *sizeh, uint32 *eromlim)/* add parameter to avoid dead loop */
 {
 	uint32 asd, sz, szd;
 
-	asd = get_erom_ent(sih, eromptr, ER_VALID, ER_VALID);
+	asd = get_erom_ent(sih, eromptr, ER_VALID, ER_VALID, eromlim);
 	if (((asd & ER_TAG1) != ER_ADD) ||
 	    (((asd & AD_SP_MASK) >> AD_SP_SHIFT) != sp) ||
 	    ((asd & AD_ST_MASK) != st)) {
@@ -93,16 +94,16 @@ get_asd(si_t *sih, uint32 **eromptr, uint sp, uint ad, uint st, uint32 *addrl, u
 	}
 	*addrl = asd & AD_ADDR_MASK;
 	if (asd & AD_AG32)
-		*addrh = get_erom_ent(sih, eromptr, 0, 0);
+		*addrh = get_erom_ent(sih, eromptr, 0, 0, eromlim);
 	else
 		*addrh = 0;
 	*sizeh = 0;
 	sz = asd & AD_SZ_MASK;
 	if (sz == AD_SZ_SZD) {
-		szd = get_erom_ent(sih, eromptr, 0, 0);
+		szd = get_erom_ent(sih, eromptr, 0, 0, eromlim);
 		*sizel = szd & SD_SZ_MASK;
 		if (szd & SD_SG32)
-			*sizeh = get_erom_ent(sih, eromptr, 0, 0);
+			*sizeh = get_erom_ent(sih, eromptr, 0, 0, eromlim);
 	} else
 		*sizel = AD_SZ_BASE << (sz >> AD_SZ_SHIFT);
 
@@ -116,7 +117,6 @@ static void
 ai_hwfixup(si_info_t *sii)
 {
 }
-
 
 
 void
@@ -160,20 +160,21 @@ ai_scan(si_t *sih, void *regs, uint devid)
 	while (eromptr < eromlim) {
 		uint32 cia, cib, cid, mfg, crev, nmw, nsw, nmp, nsp;
 		uint32 mpd, asd, addrl, addrh, sizel, sizeh;
+		uint32 *base;
 		uint i, j, idx;
 		bool br;
 
 		br = FALSE;
 
 		
-		cia = get_erom_ent(sih, &eromptr, ER_TAG, ER_CI);
+		cia = get_erom_ent(sih, &eromptr, ER_TAG, ER_CI, eromlim);
 		if (cia == (ER_END | ER_VALID)) {
 			SI_VMSG(("Found END of erom after %d cores\n", sii->numcores));
 			ai_hwfixup(sii);
 			return;
 		}
-
-		cib = get_erom_ent(sih, &eromptr, 0, 0);
+		base = eromptr - 1;
+		cib = get_erom_ent(sih, &eromptr, 0, 0, eromlim);
 
 		if ((cib & ER_TAG) != ER_CI) {
 			SI_ERROR(("CIA not followed by CIB\n"));
@@ -188,13 +189,9 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		nmp = (cib & CIB_NMP_MASK) >> CIB_NMP_SHIFT;
 		nsp = (cib & CIB_NSP_MASK) >> CIB_NSP_SHIFT;
 
-#ifdef BCMDBG_SI
 		SI_VMSG(("Found component 0x%04x/0x%04x rev %d at erom addr 0x%p, with nmw = %d, "
 		         "nsw = %d, nmp = %d & nsp = %d\n",
-		         mfg, cid, crev, eromptr - 1, nmw, nsw, nmp, nsp));
-#else
-		BCM_REFERENCE(crev);
-#endif
+		         mfg, cid, crev, base, nmw, nsw, nmp, nsp));
 
 		if (((mfg == MFGID_ARM) && (cid == DEF_AI_COMP)) || (nsp == 0))
 			continue;
@@ -202,23 +199,22 @@ ai_scan(si_t *sih, void *regs, uint devid)
 			
 			if (cid == OOB_ROUTER_CORE_ID) {
 				asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE,
-					&addrl, &addrh, &sizel, &sizeh);
+					&addrl, &addrh, &sizel, &sizeh, eromlim);
 				if (asd != 0) {
 					sii->oob_router = addrl;
 				}
 			}
-			if (cid != GMAC_COMMON_4706_CORE_ID)
-				continue;
+			continue;
 		}
 
 		idx = sii->numcores;
 
 		sii->cia[idx] = cia;
 		sii->cib[idx] = cib;
-		sii->coreid[idx] = remap_coreid(sih, cid);
+		sii->coreid[idx] = cid;
 
 		for (i = 0; i < nmp; i++) {
-			mpd = get_erom_ent(sih, &eromptr, ER_VALID, ER_VALID);
+			mpd = get_erom_ent(sih, &eromptr, ER_VALID, ER_VALID, eromlim);
 			if ((mpd & ER_TAG) != ER_MP) {
 				SI_ERROR(("Not enough MP entries for component 0x%x\n", cid));
 				goto error;
@@ -229,29 +225,19 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		}
 
 		
-		asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE, &addrl, &addrh, &sizel, &sizeh);
+		asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE, &addrl, &addrh, &sizel, &sizeh, eromlim);
 		if (asd == 0) {
-			do {
 			
 			asd = get_asd(sih, &eromptr, 0, 0, AD_ST_BRIDGE, &addrl, &addrh,
-			              &sizel, &sizeh);
+			              &sizel, &sizeh, eromlim);
 			if (asd != 0)
 				br = TRUE;
-			else {
-					if (br == TRUE) {
-						break;
-					}
-					else if ((addrh != 0) || (sizeh != 0) ||
-						(sizel != SI_CORE_SIZE)) {
-						SI_ERROR(("addrh = 0x%x\t sizeh = 0x%x\t size1 ="
-							"0x%x\n", addrh, sizeh, sizel));
-						SI_ERROR(("First Slave ASD for"
-							"core 0x%04x malformed "
+			else
+				if ((addrh != 0) || (sizeh != 0) || (sizel != SI_CORE_SIZE)) {
+					SI_ERROR(("First Slave ASD for core 0x%04x malformed "
 					          "(0x%08x)\n", cid, asd));
 					goto error;
 				}
-		}
-			} while (1);
 		}
 		sii->coresba[idx] = addrl;
 		sii->coresba_size[idx] = sizel;
@@ -259,7 +245,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		j = 1;
 		do {
 			asd = get_asd(sih, &eromptr, 0, j, AD_ST_SLAVE, &addrl, &addrh,
-			              &sizel, &sizeh);
+			              &sizel, &sizeh, eromlim);
 			if ((asd != 0) && (j == 1) && (sizel == SI_CORE_SIZE)) {
 				sii->coresba2[idx] = addrl;
 				sii->coresba2_size[idx] = sizel;
@@ -271,13 +257,9 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		for (i = 1; i < nsp; i++) {
 			j = 0;
 			do {
-				asd = get_asd(sih, &eromptr, i, j, AD_ST_SLAVE, &addrl, &addrh,
-				              &sizel, &sizeh);
-
-				if (asd == 0)
-					break;
-				j++;
-			} while (1);
+				asd = get_asd(sih, &eromptr, i, j++, AD_ST_SLAVE, &addrl, &addrh,
+				              &sizel, &sizeh, eromlim);
+			} while (asd != 0);
 			if (j == 0) {
 				SI_ERROR((" SP %d has no address descriptors\n", i));
 				goto error;
@@ -287,7 +269,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		
 		for (i = 0; i < nmw; i++) {
 			asd = get_asd(sih, &eromptr, i, 0, AD_ST_MWRAP, &addrl, &addrh,
-			              &sizel, &sizeh);
+			              &sizel, &sizeh, eromlim);
 			if (asd == 0) {
 				SI_ERROR(("Missing descriptor for MW %d\n", i));
 				goto error;
@@ -304,7 +286,7 @@ ai_scan(si_t *sih, void *regs, uint devid)
 		for (i = 0; i < nsw; i++) {
 			uint fwp = (nsp == 1) ? 0 : 1;
 			asd = get_asd(sih, &eromptr, fwp + i, 0, AD_ST_SWRAP, &addrl, &addrh,
-			              &sizel, &sizeh);
+			              &sizel, &sizeh, eromlim);
 			if (asd == 0) {
 				SI_ERROR(("Missing descriptor for SW %d\n", i));
 				goto error;
@@ -316,7 +298,6 @@ ai_scan(si_t *sih, void *regs, uint devid)
 			if ((nmw == 0) && (i == 0))
 				sii->wrapba[idx] = addrl;
 		}
-
 
 		
 		if (br)
@@ -338,14 +319,12 @@ void *
 ai_setcoreidx(si_t *sih, uint coreidx)
 {
 	si_info_t *sii = SI_INFO(sih);
-	uint32 addr, wrap;
+	uint32 addr = sii->coresba[coreidx];
+	uint32 wrap = sii->wrapba[coreidx];
 	void *regs;
 
-	if (coreidx >= MIN(sii->numcores, SI_MAXCORES))
+	if (coreidx >= sii->numcores)
 		return (NULL);
-
-	addr = sii->coresba[coreidx];
-	wrap = sii->wrapba[coreidx];
 
 	
 	ASSERT((sii->intrsenabled_fn == NULL) || !(*(sii)->intrsenabled_fn)((sii)->intr_arg));
@@ -383,91 +362,6 @@ ai_setcoreidx(si_t *sih, uint coreidx)
 	sii->curidx = coreidx;
 
 	return regs;
-}
-
-void
-ai_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size)
-{
-	si_info_t *sii = SI_INFO(sih);
-	chipcregs_t *cc = NULL;
-	uint32 erombase, *eromptr, *eromlim;
-	uint i, j, cidx;
-	uint32 cia, cib, nmp, nsp;
-	uint32 asd, addrl, addrh, sizel, sizeh;
-
-	for (i = 0; i < sii->numcores; i++) {
-		if (sii->coreid[i] == CC_CORE_ID) {
-			cc = (chipcregs_t *)sii->regs[i];
-			break;
-		}
-	}
-	if (cc == NULL)
-		goto error;
-
-	erombase = R_REG(sii->osh, &cc->eromptr);
-	eromptr = (uint32 *)REG_MAP(erombase, SI_CORE_SIZE);
-	eromlim = eromptr + (ER_REMAPCONTROL / sizeof(uint32));
-
-	cidx = sii->curidx;
-	cia = sii->cia[cidx];
-	cib = sii->cib[cidx];
-
-	nmp = (cib & CIB_NMP_MASK) >> CIB_NMP_SHIFT;
-	nsp = (cib & CIB_NSP_MASK) >> CIB_NSP_SHIFT;
-
-	
-	while (eromptr < eromlim) {
-		if ((get_erom_ent(sih, &eromptr, ER_TAG, ER_CI) == cia) &&
-			(get_erom_ent(sih, &eromptr, 0, 0) == cib)) {
-			break;
-		}
-	}
-
-	
-	for (i = 0; i < nmp; i++)
-		get_erom_ent(sih, &eromptr, ER_VALID, ER_VALID);
-
-	
-	asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE, &addrl, &addrh, &sizel, &sizeh);
-	if (asd == 0) {
-		
-		asd = get_asd(sih, &eromptr, 0, 0, AD_ST_BRIDGE, &addrl, &addrh,
-		              &sizel, &sizeh);
-	}
-
-	j = 1;
-	do {
-		asd = get_asd(sih, &eromptr, 0, j, AD_ST_SLAVE, &addrl, &addrh,
-		              &sizel, &sizeh);
-		j++;
-	} while (asd != 0);
-
-	
-	for (i = 1; i < nsp; i++) {
-		j = 0;
-		do {
-			asd = get_asd(sih, &eromptr, i, j, AD_ST_SLAVE, &addrl, &addrh,
-				&sizel, &sizeh);
-			if (asd == 0)
-				break;
-
-			if (!asidx--) {
-				*addr = addrl;
-				*size = sizel;
-				return;
-			}
-			j++;
-		} while (1);
-
-		if (j == 0) {
-			SI_ERROR((" SP %d has no address descriptors\n", i));
-			break;
-		}
-	}
-
-error:
-	*size = 0;
-	return;
 }
 
 
@@ -526,14 +420,6 @@ ai_flag(si_t *sih)
 	aidmp_t *ai;
 
 	sii = SI_INFO(sih);
-	if (BCM47162_DMP()) {
-		SI_ERROR(("%s: Attempting to read MIPS DMP registers on 47162a0", __FUNCTION__));
-		return sii->curidx;
-	}
-	if (BCM5357_DMP()) {
-		SI_ERROR(("%s: Attempting to read USB20H DMP registers on 5357b0\n", __FUNCTION__));
-		return sii->curidx;
-	}
 	ai = sii->curwrap;
 
 	return (R_REG(sii->osh, &ai->oobselouta30) & 0x1f);
@@ -579,7 +465,7 @@ ai_corerev(si_t *sih)
 
 	sii = SI_INFO(sih);
 	cib = sii->cib[sii->curidx];
-	return remap_corerev(sih, (cib & CIB_REV_MASK) >> CIB_REV_SHIFT);
+	return ((cib & CIB_REV_MASK) >> CIB_REV_SHIFT);
 }
 
 bool
@@ -683,7 +569,6 @@ ai_core_disable(si_t *sih, uint32 bits)
 {
 	si_info_t *sii;
 	volatile uint32 dummy;
-	uint32 status;
 	aidmp_t *ai;
 
 	sii = SI_INFO(sih);
@@ -695,26 +580,11 @@ ai_core_disable(si_t *sih, uint32 bits)
 	if (R_REG(sii->osh, &ai->resetctrl) & AIRC_RESET)
 		return;
 
-	
-	SPINWAIT(((status = R_REG(sii->osh, &ai->resetstatus)) != 0), 300);
-
-	
-	if (status != 0) {
-		
-		
-		SPINWAIT(((status = R_REG(sii->osh, &ai->resetstatus)) != 0), 10000);
-		
-		
-	}
-
 	W_REG(sii->osh, &ai->ioctrl, bits);
 	dummy = R_REG(sii->osh, &ai->ioctrl);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(10);
 
 	W_REG(sii->osh, &ai->resetctrl, AIRC_RESET);
-	dummy = R_REG(sii->osh, &ai->resetctrl);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 }
 
@@ -736,18 +606,14 @@ ai_core_reset(si_t *sih, uint32 bits, uint32 resetbits)
 	
 	W_REG(sii->osh, &ai->ioctrl, (bits | SICF_FGC | SICF_CLOCK_EN));
 	dummy = R_REG(sii->osh, &ai->ioctrl);
-	BCM_REFERENCE(dummy);
-
 	W_REG(sii->osh, &ai->resetctrl, 0);
-	dummy = R_REG(sii->osh, &ai->resetctrl);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 
 	W_REG(sii->osh, &ai->ioctrl, (bits | SICF_CLOCK_EN));
 	dummy = R_REG(sii->osh, &ai->ioctrl);
-	BCM_REFERENCE(dummy);
 	OSL_DELAY(1);
 }
+
 
 void
 ai_core_cflags_wo(si_t *sih, uint32 mask, uint32 val)
@@ -757,18 +623,6 @@ ai_core_cflags_wo(si_t *sih, uint32 mask, uint32 val)
 	uint32 w;
 
 	sii = SI_INFO(sih);
-
-	if (BCM47162_DMP()) {
-		SI_ERROR(("%s: Accessing MIPS DMP register (ioctrl) on 47162a0",
-		          __FUNCTION__));
-		return;
-	}
-	if (BCM5357_DMP()) {
-		SI_ERROR(("%s: Accessing USB20H DMP register (ioctrl) on 5357\n",
-		          __FUNCTION__));
-		return;
-	}
-
 	ASSERT(GOODREGS(sii->curwrap));
 	ai = sii->curwrap;
 
@@ -788,17 +642,6 @@ ai_core_cflags(si_t *sih, uint32 mask, uint32 val)
 	uint32 w;
 
 	sii = SI_INFO(sih);
-	if (BCM47162_DMP()) {
-		SI_ERROR(("%s: Accessing MIPS DMP register (ioctrl) on 47162a0",
-		          __FUNCTION__));
-		return 0;
-	}
-	if (BCM5357_DMP()) {
-		SI_ERROR(("%s: Accessing USB20H DMP register (ioctrl) on 5357\n",
-		          __FUNCTION__));
-		return 0;
-	}
-
 	ASSERT(GOODREGS(sii->curwrap));
 	ai = sii->curwrap;
 
@@ -820,17 +663,6 @@ ai_core_sflags(si_t *sih, uint32 mask, uint32 val)
 	uint32 w;
 
 	sii = SI_INFO(sih);
-	if (BCM47162_DMP()) {
-		SI_ERROR(("%s: Accessing MIPS DMP register (iostatus) on 47162a0",
-		          __FUNCTION__));
-		return 0;
-	}
-	if (BCM5357_DMP()) {
-		SI_ERROR(("%s: Accessing USB20H DMP register (iostatus) on 5357\n",
-		          __FUNCTION__));
-		return 0;
-	}
-
 	ASSERT(GOODREGS(sii->curwrap));
 	ai = sii->curwrap;
 

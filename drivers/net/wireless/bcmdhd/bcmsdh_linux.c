@@ -1,9 +1,9 @@
 /*
  * SDIO access interface for drivers - linux specific (pci only)
  *
- * Copyright (C) 1999-2012, Broadcom Corporation
+ * Copyright (C) 1999-2011, Broadcom Corporation
  * 
- *      Unless you and Broadcom execute a separate written software license
+ *         Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,7 +21,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: bcmsdh_linux.c 347638 2012-07-27 11:39:03Z $
+ * $Id: bcmsdh_linux.c 312788 2012-02-03 23:06:32Z $
  */
 
 /**
@@ -41,6 +41,15 @@
 #include <bcmdefs.h>
 #include <bcmdevs.h>
 
+#ifdef SPRD_SPI
+//2012.3.19 add by Leo
+#include <linux/platform_device.h>
+#include <linux/spi/spi.h>
+#include <linux/gpio.h>
+//2012.3.19
+#include <bcmendian.h>
+#endif
+
 #if defined(OOB_INTR_ONLY)
 #include <linux/irq.h>
 extern void dhdsdio_isr(void * args);
@@ -49,6 +58,13 @@ extern void dhdsdio_isr(void * args);
 #include <dhd.h>
 #endif /* defined(OOB_INTR_ONLY) */
 
+#ifdef SPRD_SPI
+//2012.3.19 add by Leo
+int g_irq = 0;
+struct spi_device *g_spi = NULL;
+
+//2012.3.19
+#endif
 
 /**
  * SDIO Host Controller info
@@ -72,7 +88,7 @@ struct bcmsdh_hc {
 	bool oob_irq_enable_flag;
 #if defined(OOB_INTR_ONLY)
 	spinlock_t irq_lock;
-#endif /* defined(OOB_INTR_ONLY) */
+#endif
 };
 static bcmsdh_hc_t *sdhcinfo = NULL;
 
@@ -145,11 +161,28 @@ EXPORT_SYMBOL(bcmsdh_remove);
 /* forward declarations */
 static int __devinit bcmsdh_probe(struct device *dev);
 static int __devexit bcmsdh_remove(struct device *dev);
-#endif /* defined(BCMLXSDMMC) */
+#endif /* BCMLXSDMMC */
 
-#if !defined(BCMLXSDMMC)
+#ifdef SPRD_SPI
+//2012.3.19 add by Leo
+#ifndef BCMLXSDMMC
+static struct device_driver bcmsdh_driver = {
+	.name		= "pxa2xx-mci",
+	.bus		= &platform_bus_type,
+	.probe		= bcmsdh_probe,
+	.remove		= bcmsdh_remove,
+	.suspend	= NULL,
+	.resume		= NULL,
+	};
+#endif /* BCMLXSDMMC */
+//2012.3.19
+
+
+#endif
+
+#ifndef BCMLXSDMMC
 static
-#endif /* !defined(BCMLXSDMMC) */
+#endif /* BCMLXSDMMC */
 int bcmsdh_probe(struct device *dev)
 {
 	osl_t *osh = NULL;
@@ -159,7 +192,7 @@ int bcmsdh_probe(struct device *dev)
 #if !defined(BCMLXSDMMC) && defined(BCMPLATFORM_BUS)
 	struct platform_device *pdev;
 	struct resource *r;
-#endif /* !defined(BCMLXSDMMC) && defined(BCMPLATFORM_BUS) */
+#endif /* BCMLXSDMMC */
 	int irq = 0;
 	uint32 vendevid;
 	unsigned long irq_flags = 0;
@@ -170,22 +203,27 @@ int bcmsdh_probe(struct device *dev)
 	irq = platform_get_irq(pdev, 0);
 	if (!r || irq == NO_IRQ)
 		return -ENXIO;
-#endif /* !defined(BCMLXSDMMC) && defined(BCMPLATFORM_BUS) */
+#endif /* BCMLXSDMMC */
 
 #if defined(OOB_INTR_ONLY)
 #ifdef HW_OOB
 	irq_flags =
 		IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE;
 #else
-	 irq_flags = IRQF_TRIGGER_FALLING;
+	 irq_flags = IRQF_TRIGGER_FALLING|
+		 IORESOURCE_IRQ_HIGHLEVEL;/* for SoftAP On/off  */
 #endif /* HW_OOB */
 
 	/* Get customer specific OOB IRQ parametres: IRQ number as IRQ type */
+
+#ifndef SPRD_SPI
 	irq = dhd_customer_oob_irq_map(&irq_flags);
 	if  (irq < 0) {
 		SDLX_MSG(("%s: Host irq is not defined\n", __FUNCTION__));
 		return 1;
 	}
+#endif
+
 #endif /* defined(OOB_INTR_ONLY) */
 	/* allocate SDIO Host Controller state info */
 	if (!(osh = osl_attach(dev, PCI_BUS, FALSE))) {
@@ -203,7 +241,7 @@ int bcmsdh_probe(struct device *dev)
 
 	sdhc->dev = (void *)dev;
 
-#if defined(BCMLXSDMMC)
+#ifdef BCMLXSDMMC
 	if (!(sdh = bcmsdh_attach(osh, (void *)0,
 	                          (void **)&regs, irq))) {
 		SDLX_MSG(("%s: bcmsdh_attach failed\n", __FUNCTION__));
@@ -215,15 +253,21 @@ int bcmsdh_probe(struct device *dev)
 		SDLX_MSG(("%s: bcmsdh_attach failed\n", __FUNCTION__));
 		goto err;
 	}
-#endif /* defined(BCMLXSDMMC) */
+#endif /* BCMLXSDMMC */
+
+#ifndef SPRD_SPI
+//2012.4.10 add by Leo
 	sdhc->sdh = sdh;
 	sdhc->oob_irq = irq;
 	sdhc->oob_flags = irq_flags;
 	sdhc->oob_irq_registered = FALSE;	/* to make sure.. */
 	sdhc->oob_irq_enable_flag = FALSE;
+//2012.4.10
+#endif 
+
 #if defined(OOB_INTR_ONLY)
 	spin_lock_init(&sdhc->irq_lock);
-#endif /* defined(BCMLXSDMMC) */
+#endif
 
 	/* chain SDIO Host Controller info together */
 	sdhc->next = sdhcinfo;
@@ -253,9 +297,9 @@ err:
 	return -ENODEV;
 }
 
-#if !defined(BCMLXSDMMC)
+#ifndef BCMLXSDMMC
 static
-#endif /* !defined(BCMLXSDMMC) */
+#endif /* BCMLXSDMMC */
 int bcmsdh_remove(struct device *dev)
 {
 	bcmsdh_hc_t *sdhc, *prev;
@@ -360,6 +404,8 @@ bcmsdh_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	bcmsdh_info_t *sdh = NULL;
 	int rc;
 
+#ifndef SPRD_SPI
+//2012.4.10 add by Leo
 	if (sd_pci_slot != 0xFFFFffff) {
 		if (pdev->bus->number != (sd_pci_slot>>16) ||
 			PCI_SLOT(pdev->devfn) != (sd_pci_slot&0xffff)) {
@@ -414,6 +460,9 @@ bcmsdh_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		pdev->bus->number, PCI_SLOT(pdev->devfn),
 		PCI_FUNC(pdev->devfn), pdev->irq));
 
+//2012.4.10 
+#endif
+
 	/* use bcmsdh_query_device() to get the vendor ID of the target device so
 	 * it will eventually appear in the Broadcom string on the console
 	 */
@@ -433,7 +482,8 @@ bcmsdh_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	sdhc->osh = osh;
 
 	sdhc->dev = pdev;
-
+#ifndef SPRD_SPI
+//2012.4.10 add by Leo
 	/* map to address where host can access */
 	pci_set_master(pdev);
 	rc = pci_enable_device(pdev);
@@ -441,7 +491,16 @@ bcmsdh_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		SDLX_MSG(("%s: Cannot enable PCI device\n", __FUNCTION__));
 		goto err;
 	}
+//2012.4.10 add by Leo
+#endif
+
+#ifndef SPRD_SPI
 	if (!(sdh = bcmsdh_attach(osh, (void *)(uintptr)pci_resource_start(pdev, 0),
+#else
+	//2012.3.19 add by Leo
+	if (!(sdh = bcmsdh_attach(osh, NULL,(void **)&regs, 16))) {
+	//2012.3.19
+#endif
 	                          (void **)&regs, pdev->irq))) {
 		SDLX_MSG(("%s: bcmsdh_attach failed\n", __FUNCTION__));
 		goto err;
@@ -516,6 +575,185 @@ extern int sdio_function_init(void);
 extern int sdio_func_reg_notify(void* semaphore);
 extern void sdio_func_unreg_notify(void);
 
+#ifdef SPRD_SPI
+#if 1
+static int spi_brcm_probe(struct spi_device *spi_dev)
+{
+	osl_t *osh = NULL;
+	bcmsdh_hc_t *sdhc = NULL;
+	ulong regs;
+	bcmsdh_info_t *sdh = NULL;
+	//int irq = 0;
+	//,ret=0;
+	//uint32 vendevid;
+	unsigned long irq_flags = 0;
+
+	g_spi = spi_dev;
+	
+#if 1
+#ifdef SPI_DATA_SWAP
+	spi_dev->bits_per_word = 32;
+#endif
+	printk("set spi ==========================%d \n", spi_setup(spi_dev));
+
+	printk("%s, mode = %d \n", __func__, spi_dev->mode);
+	printk("%s, bit_per_word = %d \n", __func__, spi_dev->bits_per_word);
+	printk("%s, speed = %d \n", __func__, spi_dev->max_speed_hz);
+	printk("%s, chip_select = %d \n", __func__, spi_dev->chip_select);
+	printk("%s, controller_data = %d \n", __func__, *(int *)spi_dev->controller_data);	
+
+	printk("%s, irq= %d \n", __func__, spi_dev->irq);
+
+#endif
+
+#if defined(OOB_INTR_ONLY)
+#ifdef HW_OOB
+	irq_flags =
+		IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE;
+#else
+	 irq_flags = IRQF_TRIGGER_HIGH | IRQF_TRIGGER_FALLING; //IRQF_TRIGGER_LOW;//|IRQF_ONESHOT
+#endif /* HW_OOB */
+
+	/* Get customer specific OOB IRQ parametres: IRQ number as IRQ type */
+	g_irq = dhd_customer_oob_irq_map(&irq_flags);
+
+	printk("test g_irq=%d \n", g_irq);
+
+	if(g_irq < 0) {
+		SDLX_MSG(("%s: Host irq is not defined\n", __FUNCTION__));
+		return 1;
+	}
+
+#endif /* defined(OOB_INTR_ONLY) */
+
+    printk("get_wifi_irq = %d \n", g_irq);
+
+
+	/* allocate SDIO Host Controller state info */
+#if 1
+	if (!(osh = osl_attach(&spi_dev->dev, PCI_BUS, FALSE))) {
+		SDLX_MSG(("%s: osl_attach failed\n", __FUNCTION__));
+		goto err;
+	}
+	
+	if (!(sdhc = MALLOC(osh, sizeof(bcmsdh_hc_t)))) {
+		SDLX_MSG(("%s: out of memory, allocated %d bytes\n",
+			__FUNCTION__,
+			MALLOCED(osh)));
+		    goto err;
+	}
+	 printk("%s = %d \n", __FUNCTION__, __LINE__);
+
+	bzero(sdhc, sizeof(bcmsdh_hc_t));
+	sdhc->osh = osh;
+
+	 sdhc->dev = &spi_dev->dev;
+#endif
+
+ 
+	//gat if (!(sdh = bcmsdh_attach(osh, (void *)(uintptr)pci_resource_start(pdev, 0),
+	if (!(sdh = bcmsdh_attach(osh, NULL,(void **)&regs, 16))) {//Gat
+	                          
+		SDLX_MSG(("%s: bcmsdh_attach failed\n", __FUNCTION__));
+		goto err;
+	}
+	 printk("%s = %d \n", __FUNCTION__, __LINE__);
+	sdhc->sdh = sdh;
+	sdhc->oob_irq = g_irq;
+	sdhc->oob_flags = irq_flags;
+	sdhc->oob_irq_registered = FALSE;	/* to make sure.. */
+	sdhc->oob_irq_enable_flag = FALSE;
+#if defined(OOB_INTR_ONLY)
+	spin_lock_init(&sdhc->irq_lock);
+#endif
+
+
+	/* chain SDIO Host Controller info together */
+	sdhc->next = sdhcinfo;
+	sdhcinfo = sdhc;
+	
+	/* try to attach to the target device */
+	if (!(sdhc->ch = drvinfo.attach(VENDOR_BROADCOM, /* pdev->vendor, */
+	                                bcmsdh_query_device(sdh) & 0xFFFF, 0, 0, 0, 0,
+	                                (void *)regs, NULL, sdh))) {
+		SDLX_MSG(("%s: device attach failed\n", __FUNCTION__));
+		goto err;
+	}
+	 printk("%s = %d \n", __FUNCTION__, __LINE__);
+	return 0;
+
+	/* error handling */
+err:
+	if (sdhc) {
+		if (sdhc->sdh)
+			bcmsdh_detach(sdhc->osh, sdhc->sdh);
+		MFREE(osh, sdhc, sizeof(bcmsdh_hc_t));
+	}
+	if (osh)
+		osl_detach(osh);
+	if(g_irq > 0)
+			//sprd_free_gpio_irq(g_irq);
+			free_irq(g_irq, NULL);
+	return -ENODEV;
+
+
+}
+
+static int  spi_brcm_remove(struct spi_device *spi_dev)
+{
+	bcmsdh_hc_t *sdhc, *prev;
+	osl_t *osh;
+
+	printk("spi_brcm_remove\n");
+	
+	sdhc = sdhcinfo;
+	drvinfo.detach(sdhc->ch);
+	bcmsdh_detach(sdhc->osh, sdhc->sdh);
+
+	/* find the SDIO Host Controller state for this pdev and take it out from the list */
+	for (sdhc = sdhcinfo, prev = NULL; sdhc; sdhc = sdhc->next) {
+		if (sdhc->dev == &spi_dev->dev) {
+			if (prev)
+				prev->next = sdhc->next;
+			else
+				sdhcinfo = NULL;
+			break;
+		}
+		prev = sdhc;
+	}
+	if (!sdhc) {
+		SDLX_MSG(("%s: failed\n", __FUNCTION__));
+		return 0;
+	}
+
+	
+	/* release SDIO Host Controller info */
+	osh = sdhc->osh;
+	MFREE(osh, sdhc, sizeof(bcmsdh_hc_t));
+	osl_detach(osh);
+	
+
+	#if !defined(BCMLXSDMMC) || defined(OOB_INTR_ONLY)
+		dev_set_drvdata(&spi_dev->dev, NULL);
+	#endif /* !defined(BCMLXSDMMC) || defined(OOB_INTR_ONLY) */
+	
+	return 0;
+}
+
+static struct spi_driver spi_brcm_driver = {
+        .probe = spi_brcm_probe,
+        .remove = spi_brcm_remove,
+        .driver = {
+                .name = "wlan_spi",
+                .bus    = &spi_bus_type,
+        		.owner  = THIS_MODULE,
+        },
+};
+
+#endif
+//2012.3.19
+#endif
+
 #if defined(BCMLXSDMMC)
 int bcmsdh_reg_sdio_notify(void* semaphore)
 {
@@ -534,6 +772,18 @@ bcmsdh_register(bcmsdh_driver_t *driver)
 	int error = 0;
 
 	drvinfo = *driver;
+	
+#ifdef SPRD_SPI
+
+	printf("spi registered for wifi\n");
+
+	if ((error = spi_register_driver(&spi_brcm_driver))){
+		printf("spi registered failed for wifi,error = %d\n",error);
+		return 0;
+	}
+
+#else
+
 
 #if defined(BCMPLATFORM_BUS)
 	SDLX_MSG(("Linux Kernel SDIO/MMC Driver\n"));
@@ -553,6 +803,7 @@ bcmsdh_register(bcmsdh_driver_t *driver)
 	SDLX_MSG(("%s: pci_module_init failed 0x%x\n", __FUNCTION__, error));
 #endif /* BCMPLATFORM_BUS */
 
+#endif
 	return error;
 }
 
@@ -565,6 +816,9 @@ bcmsdh_unregister(void)
 	if (bcmsdh_pci_driver.node.next)
 #endif
 
+#ifdef SPRD_SPI
+	spi_unregister_driver(&spi_brcm_driver);
+#else
 #if defined(BCMLXSDMMC)
 	sdio_function_cleanup();
 #endif /* BCMLXSDMMC */
@@ -572,6 +826,8 @@ bcmsdh_unregister(void)
 #if !defined(BCMPLATFORM_BUS) && !defined(BCMLXSDMMC)
 	pci_unregister_driver(&bcmsdh_pci_driver);
 #endif /* BCMPLATFORM_BUS */
+#endif
+
 }
 
 #if defined(OOB_INTR_ONLY)
@@ -628,9 +884,7 @@ int bcmsdh_register_oob_intr(void * dhdp)
 		if (error)
 			return -ENODEV;
 
-		error = enable_irq_wake(sdhcinfo->oob_irq);
-		if (error)
-			SDLX_MSG(("%s enable_irq_wake error=%d \n", __FUNCTION__, error));
+		enable_irq_wake(sdhcinfo->oob_irq);
 		sdhcinfo->oob_irq_registered = TRUE;
 		sdhcinfo->oob_irq_enable_flag = TRUE;
 	}
@@ -658,7 +912,7 @@ void bcmsdh_unregister_oob_intr(void)
 	SDLX_MSG(("%s: Enter\n", __FUNCTION__));
 
 	if (sdhcinfo->oob_irq_registered == TRUE) {
-		bcmsdh_set_irq(FALSE);
+		//bcmsdh_set_irq(FALSE);
 		free_irq(sdhcinfo->oob_irq, NULL);
 		sdhcinfo->oob_irq_registered = FALSE;
 	}
@@ -700,11 +954,6 @@ module_param(sd_f2_blocksize, int, 0);
 #ifdef BCMSDIOH_STD
 extern int sd_uhsimode;
 module_param(sd_uhsimode, int, 0);
-#endif
-
-#ifdef BCMSDIOH_TXGLOM
-extern uint sd_txglom;
-module_param(sd_txglom, uint, 0);
 #endif
 
 #ifdef BCMSDH_MODULE
