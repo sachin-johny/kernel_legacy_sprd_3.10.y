@@ -138,6 +138,12 @@ void sdhci_dumpregs(struct sdhci_host *host)
 
 #ifdef CONFIG_ARCH_SC8825
 	printk("AHB_CTL0:0x%x\n", sci_glb_raw_read(REG_AHB_AHB_CTL0));
+	printk("INTC0_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0X08) );	
+	printk("INTC1_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0x1000 + 0X08) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x100) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x104) );
+	printk("GIC_INT_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x108) );
+
 	printk("ANA_REG_GLB_LDO_PD_CTRL1:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL1));
 	printk("ANA_REG_GLB_LDO_VCTRL4:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_VCTRL4));
 #endif
@@ -292,10 +298,12 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 
 void sdhci_reinit(struct sdhci_host *host)
 {
+	sdhci_dumpregs(host);
 	sdhci_init(host, 0);
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
+	sdhci_dumpregs(host);
 }
 
 /* no led used in our host */
@@ -1000,6 +1008,21 @@ static void sdhci_finish_data(struct sdhci_host *host)
 			sdhci_reset(host, SDHCI_RESET_CMD);
 			sdhci_reset(host, SDHCI_RESET_DATA);
 		}
+		if(host->mmc->card != NULL && mmc_card_mmc(host->mmc->card)){
+			int err;
+			u32 status;
+			extern int get_card_status(struct mmc_card *card, u32 *status, int retries);
+			err = get_card_status(host->mmc->card, &status, 3);
+			if (err) {
+				tasklet_schedule(&host->finish_tasklet);
+				return;
+			}
+			if (R1_CURRENT_STATE(status) != R1_STATE_DATA &&
+				R1_CURRENT_STATE(status) != R1_STATE_RCV) {
+				tasklet_schedule(&host->finish_tasklet);
+				return;
+			}
+		}
 
 		sdhci_send_command(host, data->stop);
 	} else
@@ -1039,11 +1062,7 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		mdelay(1);
 	}
 
-	if(host->suspending){
-		mod_timer(&host->timer, jiffies + 2*HZ/10);
-	}else{
-		mod_timer(&host->timer, jiffies + 10 * HZ);
-	}
+	mod_timer(&host->timer, jiffies + 10 * HZ);
 
 	host->cmd = cmd;
 
@@ -1316,10 +1335,13 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 static void sdhci_hw_reset(struct mmc_host *mmc)
 {
 	int ret = 0;
-	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_host *host = mmc_priv(mmc);	
+	printk("%s, ****************** %s, call mmc_power_off ***********\n", mmc_hostname(mmc), __func__ );
 	mmc_power_off(mmc);
-	usleep_range(5000, 5500);
+	usleep_range(5000, 5500);	
+	printk("%s, ****************** %s, call mmc_power_up ***********\n", mmc_hostname(mmc), __func__ );
 	mmc_power_up(mmc);
+	printk("%s, ****************** %s,  set cmd and data***********\n", mmc_hostname(mmc), __func__ );
 	sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
 	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
 }
@@ -1333,6 +1355,8 @@ static int sdhci_enable(struct mmc_host *mmc){
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		return 0;
 
+	printk("%s: %s: dev->power.runtime_status: %d \n", mmc_hostname(mmc),
+			__func__, dev->power.runtime_status);
 	if (dev->power.runtime_status == RPM_SUSPENDING) {
 		if (mmc->suspend_task == current) {
 			pm_runtime_get_noresume(dev);
@@ -1344,7 +1368,7 @@ static int sdhci_enable(struct mmc_host *mmc){
 		ret = pm_runtime_get_sync(dev);
 	}
 	if (ret < 0) {
-		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
+		printk("%s: %s: failed with error %d \n", mmc_hostname(mmc),
 				__func__, ret);
 		return ret;
 	}
@@ -1357,16 +1381,19 @@ out:
 static int sdhci_disable(struct mmc_host *mmc, int lazy){
 	int ret = 0;
 	struct sdhci_host *host = mmc_priv(mmc);
+	struct device *dev = mmc->parent;
 
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		return 0;
+	printk("%s: %s: dev->power.runtime_status: %d \n", mmc_hostname(mmc),
+			__func__, dev->power.runtime_status);
 
 	if(host->is_resumed){
 		ret = pm_runtime_put_sync(mmc->parent);
 	}
 
 	if (ret < 0)
-		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
+		printk("%s: %s: failed with error %d \n", mmc_hostname(mmc),
 				__func__, ret);
 	else{
 		host->is_resumed = false;
@@ -1495,9 +1522,9 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	sdhci_set_clock(host, ios->clock);
 
 	if (ios->power_mode == MMC_POWER_OFF) {
-		if(!(mmc->card && mmc_card_mmc(mmc->card))) {
+		//if(!(mmc->card && mmc_card_mmc(mmc->card))) {
 			sdhci_set_power(host, -1);
-		}
+		//}
 	} else
 		sdhci_set_power(host, ios->vdd);
 
@@ -2059,7 +2086,7 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
  *  FIXME: DISABLE PM_RUNTIME in SP -FPGA, enable after chips back
  */
 static const struct mmc_host_ops sdhci_ops = {
-#if !defined(CONFIG_MACH_KYLEW)
+#ifndef CONFIG_MACH_SP8825_FPGA
 	.enable				= sdhci_enable,
 	.disable			= sdhci_disable,
 #endif
@@ -2822,9 +2849,6 @@ int sdhci_add_host(struct sdhci_host *host)
 	    ((host->flags & SDHCI_USE_ADMA) ||
 	     !(host->flags & SDHCI_USE_SDMA))) {
 		host->flags |= SDHCI_AUTO_CMD23;
-		DBG("%s: Auto-CMD23 available\n", mmc_hostname(mmc));
-	} else {
-		DBG("%s: Auto-CMD23 unavailable\n", mmc_hostname(mmc));
 	}
 
 	/*

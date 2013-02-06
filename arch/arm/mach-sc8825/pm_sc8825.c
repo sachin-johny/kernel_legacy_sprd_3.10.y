@@ -207,7 +207,7 @@ static void gic_restore_context(void){
 		offset--;
 	}
 	/* restore CPU 0 Interrupt Set Enable register */
-	gic_writel(gic_context[offset], (GIC_DIST_ENABLE_SET), i);
+	gic_writel(gic_context[offset], (GIC_DIST_ENABLE_SET), 0);
 
 #ifdef CONFIG_SPRD_PM_DEBUG
 	printk("****** exit %s, restore %d gic registers \n ", __func__, offset);
@@ -595,6 +595,7 @@ static void wait_until_uart1_tx_done(void)
 /* arm core sleep*/
 static void arm_sleep(void)
 {
+	pm_debug_save_ahb_glb_regs( );
 	cpu_do_idle();
 	hard_irq_set();
 }
@@ -618,6 +619,9 @@ static void mcu_sleep(void)
 	val |= MCU_SYS_SLEEP_EN;
 	*/
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL );
+
+	pm_debug_save_ahb_glb_regs( );
+
 	cpu_do_idle();
 	hard_irq_set();
 	RESTORE_GLOBAL_REG;
@@ -666,7 +670,7 @@ static int emc_repower_init(void)
 	repower_param = (struct emc_repower_param *)(SPRD_IRAM_BASE + 15 * 1024);
 	set_emc_repower_param(repower_param, SPRD_LPDDR2C_BASE, SPRD_LPDDR2C_BASE + 0x1000);
 	repower_param->cs0_training_addr_v = (u32)ioremap(repower_param->cs0_training_addr_p, 4*1024);
-	if(repower_param->cs_number)
+	if(repower_param->cs_number == 2)
 	{
 		repower_param->cs1_training_addr_v = (u32)ioremap(repower_param->cs1_training_addr_p, 4*1024);
 	}
@@ -1012,11 +1016,11 @@ int sc8825_enter_lowpower(void)
 #endif
 #endif
 	if (status & DEVICE_AHB)  {
-		printk("###### %s,  DEVICE_AHB ###\n", __func__ );
+		/*printk("###### %s,  DEVICE_AHB ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_ARM);
 		arm_sleep();
 	} else if (status & DEVICE_APB) {
-		printk("###### %s,	DEVICE_APB ###\n", __func__ );
+		/*printk("###### %s,	DEVICE_APB ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_MCU);
 		mcu_sleep();
 	} else {
@@ -1032,7 +1036,6 @@ int sc8825_enter_lowpower(void)
 	}
 	
 	time_add(get_sys_cnt() - time, ret);
-	print_hard_irq_inloop(ret);
 
 	return ret;
 
@@ -1219,7 +1222,7 @@ void pm_ana_ldo_config(void)
 	* FIXME, should be more gental
 	*/
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
-	val = 0xc7f1;
+	val = 0x87f1;
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
