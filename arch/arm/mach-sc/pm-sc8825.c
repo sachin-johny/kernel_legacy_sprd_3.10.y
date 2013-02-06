@@ -33,6 +33,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include "emc_repower.h"
+#include <linux/wakelock.h>
 
 extern int sc8825_get_clock_status(void);
 extern void secondary_startup(void);
@@ -832,7 +833,7 @@ int deep_sleep(void)
 
 #ifdef CONFIG_CACHE_L2X0
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
-	l2x0_suspend();
+/*	l2x0_suspend(); */
 #else
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
 #endif
@@ -905,7 +906,7 @@ int deep_sleep(void)
 #ifdef CONFIG_CACHE_L2X0
 	/*L2X0_POWER_CTRL, auto_clock_gate, standby_mode_enable*/
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
-	l2x0_resume(ret);
+/*	l2x0_resume(ret); */
 #endif
 	//pm_debug_dump_ahb_glb_regs();
 
@@ -1104,9 +1105,9 @@ void sc8825_idle(void)
 			/* if cpu idle enabled, linux boot will suspend at console init
 			 * i donot know why, so just disable it
 			 */
-/*
+			sci_glb_clr(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
 			cpu_do_idle();
-*/
+
 #ifdef CONFIG_CACHE_L2X0
 			/*
 			l2x0_resume(1);
@@ -1227,6 +1228,7 @@ static void sc8825_machine_restart(char mode, const char *cmd)
 	while (1);
 }
 
+extern void (*pm_idle)(void);
 static struct wake_lock pm_debug_lock;
 void sc_pm_init(void)
 {
@@ -1256,6 +1258,7 @@ void sc_pm_init(void)
 	val |= (INTC_DYNAMIC_CLK_GATE_EN | SCU_DYNAMIC_CLK_GATE_EN);
 	__raw_writel(val, sprd_get_scu_base());
 
+	pm_idle = sc8825_idle;
 	wake_lock_init(&pm_debug_lock, WAKE_LOCK_SUSPEND, "pm_not_ready");
 	wake_lock(&pm_debug_lock);
 
