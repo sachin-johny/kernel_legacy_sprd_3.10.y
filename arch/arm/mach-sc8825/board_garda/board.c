@@ -490,6 +490,7 @@ static struct gpio_keys_button gpio_buttons[] = {
 		.code		= KEY_HOMEPAGE,
 		.desc		= "Home Key",
 		.active_low	= 1,
+		.debounce_interval = 200,
 	},
 };
 
