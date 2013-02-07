@@ -33,6 +33,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include "emc_repower.h"
+#include <linux/clockchips.h>
 #include <linux/wakelock.h>
 
 extern int sc8825_get_clock_status(void);
@@ -1094,25 +1095,16 @@ static void init_gr(void)
 
 void sc8825_idle(void)
 {
+	int this_cpu = smp_processor_id();
 	if (!need_resched()) {
 #ifdef CONFIG_CACHE_L2X0
 			/*l2cache power control, standby mode enable*/
-			/*L2X0_POWER_CTRL
+			/*L2X0_POWER_CTRL*/
 			__raw_writel(1, SPRD_L2_BASE+0xF80);
-			l2x0_suspend();
-			*/
 #endif
-			/* if cpu idle enabled, linux boot will suspend at console init
-			 * i donot know why, so just disable it
-			 */
-			sci_glb_clr(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
+			clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &this_cpu);
 			cpu_do_idle();
-
-#ifdef CONFIG_CACHE_L2X0
-			/*
-			l2x0_resume(1);
-			*/
-#endif
+			clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &this_cpu);
 	}
 	local_irq_enable();
 	return;
@@ -1258,6 +1250,8 @@ void sc_pm_init(void)
 	val |= (INTC_DYNAMIC_CLK_GATE_EN | SCU_DYNAMIC_CLK_GATE_EN);
 	__raw_writel(val, sprd_get_scu_base());
 
+	/* enable arm clock auto gating*/
+	sci_glb_set(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
 	pm_idle = sc8825_idle;
 	wake_lock_init(&pm_debug_lock, WAKE_LOCK_SUSPEND, "pm_not_ready");
 	wake_lock(&pm_debug_lock);

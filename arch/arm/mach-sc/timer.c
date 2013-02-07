@@ -70,10 +70,10 @@ static inline void __gptimer_ctl(int timer_id, int enable, int mode)
 static int __gptimer_set_next_event(unsigned long cycles,
 				    struct clock_event_device *c)
 {
+	while(TIMER_INT_BUSY & __raw_readl(TIMER_INT(EVENT_TIMER)));
 	__gptimer_ctl(EVENT_TIMER, TIMER_DISABLE, ONETIME_MODE);
 	__raw_writel(cycles, TIMER_LOAD(EVENT_TIMER));
 	__gptimer_ctl(EVENT_TIMER, TIMER_ENABLE, ONETIME_MODE);
-
 	return 0;
 }
 
