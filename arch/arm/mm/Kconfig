@@ -835,7 +835,7 @@ config CACHE_FEROCEON_L2_WRITETHROUGH
 	  Unless you specifically require this, say N for writeback mode.
 
 config MIGHT_HAVE_CACHE_L2X0
-	bool
+	bool "Arch might have a L2x0 or PL310 cache controller"
 	help
 	  This option should be selected by machines which have a L2x0
 	  or PL310 cache controller, but where its use is optional.
