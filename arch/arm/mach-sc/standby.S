@@ -248,7 +248,7 @@ context_restore:
 	ldr	r0, =sp_pm_collapse_exit
 	ldr	r1, =0xc0000000
 	sub	r0, r0, r1
-	ldr	r1, =0x80000000
+	ldr	r1, =(CONFIG_PHYS_OFFSET)
 	add	r0, r0, r1 
 	mov pc, r0
 ENDPROC(sc8825_standby_exit_iram)

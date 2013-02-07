@@ -893,9 +893,11 @@ static int sdhci_pm_resume(struct device *dev)
 static const struct dev_pm_ops sdhci_dev_pm_ops = {
 	.suspend	 = sdhci_pm_suspend,
 	.resume		 = sdhci_pm_resume,
+	/*
 	.runtime_suspend = sdhci_runtime_suspend,
 	.runtime_resume  = sdhci_runtime_resume,
 	.runtime_idle    = sdhci_runtime_idle,
+	*/
 };
 #else
 static const struct dev_pm_ops sdhci_dev_pm_ops = {
