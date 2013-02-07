@@ -36,7 +36,7 @@ static void __sblock_put(struct sblock_mgr *sblock, uint32_t addr)
 	spin_lock(&sblock->ring->plock);
 	virt_addr = addr - sblock->smem_addr + sblock->smem_virt;
 	index = (virt_addr - sblock->smem_virt) / sblock->ring->header->txblk_size;
-	list_add(&sblock->ring->txunits[index].list, &sblock->ring->txpool);
+	list_add_tail(&sblock->ring->txunits[index].list, &sblock->ring->txpool);
 	spin_unlock(&sblock->ring->plock);
 }
 
