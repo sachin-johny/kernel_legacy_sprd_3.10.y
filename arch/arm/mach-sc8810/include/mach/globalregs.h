@@ -166,11 +166,13 @@
 #define CLK_PWM3_SEL		BIT(28)
 
 /* POWER CTL1 */
+#ifndef CONFIG_ARCH_SC7710
 #define POWCTL1_CONFIG		0x0423F91E  /* isolation number 1ms:30cycles */
+#endif
 
 /* bits definition for CLK_EN. */
 #define	MCU_XTLEN_AUTOPD_EN	BIT(18)
-#define	APB_PERI_FRC_CLP	BIT(19)
+#define	APB_PERI_FRC_SLP	BIT(19)
 
 /* bits definition for GR_STC_STATE. */
 
@@ -233,7 +235,7 @@
 #define AHB_CTL0_SDIO1_EN	BIT(19)
 #define AHB_CTL0_G2D_EN		BIT(20)
 #define AHB_CTL0_G3D_EN		BIT(21)
-#define AHB_CTL0_AHB_ARCH_EB	BIT(15)
+#define AHB_CTL0_AHB_ARCH_EB	BIT(27)
 #define AHB_CTL0_EMC_EN		BIT(28)
 #define AHB_CTL0_AXIBUSMON0_EN	BIT(29)
 #define AHB_CTL0_AXIBUSMON1_EN	BIT(30)
@@ -262,7 +264,11 @@
 #define	DSP_BOOT_ENABLE		BIT(0)
 
 /* bit definitions for register DSP_RST */
+#ifdef CONFIG_ARCH_SC7710
+#define	DSP_RESET		BIT(10)
+#else
 #define	DSP_RESET		BIT(0)
+#endif
 
 /* bit definitions for register AHB_PAUSE */
 #define	MCU_CORE_SLEEP		BIT(0)
@@ -282,7 +288,9 @@
 #define	EMC_STOP_CH7		BIT(7)
 #define	EMC_STOP_CH8		BIT(8)
 #define	ARMMTX_STOP_CH0		BIT(12)
+#ifndef CONFIG_ARCH_SC7710
 #define	ARMMTX_STOP_CH1		BIT(13)
+#endif
 #define	ARMMTX_STOP_CH2		BIT(14)
 #define	AHB_STS_EMC_STOP	BIT(16)
 #define	AHB_STS_EMC_SLEEP	BIT(17)
@@ -292,6 +300,9 @@
 
 /*********************************************************************/
 #define CHIP_ID_8810S		(0x88100001UL)	//Smic
+#ifdef CONFIG_ARCH_SC7710
+#define CHIP_ID_7710G2		(0x7710DA00UL)
+#endif
 /*********************************************************************/
 
 
