@@ -546,7 +546,7 @@ static int send_stop(struct mmc_card *card, u32 *status)
 	return err;
 }
 
- int get_card_status(struct mmc_card *card, u32 *status, int retries)
+static int get_card_status(struct mmc_card *card, u32 *status, int retries)
 {
 	struct mmc_command cmd = {0};
 	int err;

@@ -1036,21 +1036,6 @@ static void sdhci_finish_data(struct sdhci_host *host)
 			sdhci_reset(host, SDHCI_RESET_CMD);
 			sdhci_reset(host, SDHCI_RESET_DATA);
 		}
-		if(host->mmc->card != NULL && mmc_card_mmc(host->mmc->card)){
-			int err;
-			u32 status;
-			extern int get_card_status(struct mmc_card *card, u32 *status, int retries);
-			err = get_card_status(host->mmc->card, &status, 3);
-			if (err) {
-				tasklet_schedule(&host->finish_tasklet);
-				return;
-			}
-			if (R1_CURRENT_STATE(status) != R1_STATE_DATA &&
-				R1_CURRENT_STATE(status) != R1_STATE_RCV) {
-				tasklet_schedule(&host->finish_tasklet);
-				return;
-			}
-		}
 
 		sdhci_send_command(host, data->stop);
 	} else
