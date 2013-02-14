@@ -19,6 +19,7 @@
 #include <linux/kernel.h>
 #include <linux/semaphore.h>
 #include <linux/irqflags.h>
+#include <linux/gpio.h>
 #include "modem_buffer.h"
 #include "modem_interface_driver.h"
 
@@ -209,10 +210,15 @@ static void boot_data(struct modem_message_node *msg,struct modem_intf_device *d
 			device->out_transfer_pending = 1;
 		break;
 	        case MODEM_SLAVE_RTS:
-			pingpang_buffer_send_complete(&device->send_buffer,device->out_transfering);
-                        device->op->read(device->recv_buffer.buffer[1].addr,ACK_PACKET_SIZE);
-			data = (unsigned short *)device->recv_buffer.buffer[1].addr;
-                        device->status = (int)MBUS_DL_ACK;
+		{
+			int gpio = msg->parameter2&0xff;
+			if(gpio_get_value(gpio) == 1){	
+				pingpang_buffer_send_complete(&device->send_buffer,device->out_transfering);
+				device->op->read(device->recv_buffer.buffer[1].addr,ACK_PACKET_SIZE);
+				data = (unsigned short *)device->recv_buffer.buffer[1].addr;
+				device->status = (int)MBUS_DL_ACK;
+			}
+		}
                 break;
 		case MODEM_SET_MODE:
 			device->mode = msg->parameter2 ;

@@ -481,6 +481,7 @@ static int modem_intf_driver_probe(struct platform_device *_dev)
 	modem_intf_register_device_operation(modem_sdio_drv_init());
 	modem_gpio_status=0;
 	sema_init(&modem_status_sem,1);
+        modem_poweroff();
 	return 0;
 fail:
 	kfree(device);
