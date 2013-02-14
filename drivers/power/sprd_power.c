@@ -849,6 +849,7 @@ static char *supply_list[] = {
 
 int __weak usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {
+	return -ENODEV;
 }
 
 static unsigned int adc_data[2]={0};
