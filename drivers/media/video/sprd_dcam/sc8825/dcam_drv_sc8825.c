@@ -1999,8 +1999,13 @@ static void    _mipi_ov(void)
 
 static void    _dcam_wait_for_stop(void)
 {
+	int                     rtn = -1;
+
 	s_path1_wait = 1;
-	down_interruptible(&s_done_sema);
+	rtn = down_interruptible(&s_done_sema);
+	if (rtn) {
+		printk("DCAM DRV: Failed down");
+	}
 	return;
 }
 
