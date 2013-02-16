@@ -40,13 +40,13 @@ static unsigned adc_read(unsigned addr)
 #ifdef CONFIG_NKERNEL
 static DEFINE_SPINLOCK(adc_lock);
 #define sci_adc_lock()				\
-		spin_lock_irqsave(&adc_lock, flags); \
 		hw_flags = hw_local_irq_save(); \
+		spin_lock_irqsave(&adc_lock, flags); \
 		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_ADC), -1)))
 #define sci_adc_unlock()			\
 		hwspin_unlock(arch_get_hwlock(HWLOCK_ADC)); \
-		hw_local_irq_restore(hw_flags);	\
-		spin_unlock_irqrestore(&adc_lock, flags)
+		spin_unlock_irqrestore(&adc_lock, flags); \
+		hw_local_irq_restore(hw_flags)
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
 #define sci_adc_lock() 		do { \
