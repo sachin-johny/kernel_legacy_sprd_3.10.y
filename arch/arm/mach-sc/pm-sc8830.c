@@ -23,6 +23,12 @@ void check_pd(void)
 
 unsigned int sprd_irq_pending(void)
 {
+	return 0;
+}
+
+int sprd_cpu_deep_sleep(unsigned int cpu)
+{
+	return 0;
 }
 
 void sc_pm_init(void)
