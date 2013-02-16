@@ -23,6 +23,7 @@
 #include <linux/sprd_cproc.h>
 #include <linux/sipc.h>
 #include <linux/spipe.h>
+#include <linux/spool.h>
 #include <linux/seth.h>
 #include <asm/pmu.h>
 #include <mach/hardware.h>
@@ -1016,6 +1017,22 @@ struct platform_device sprd_stty_td_device = {
 	.id             = 2,
 	.dev		= {.platform_data = &sprd_stty_td_pdata},
 };
+
+static struct spool_init_data sprd_spool_td_pdata = {
+    .name       = "spool_td",
+    .dst        = SIPC_ID_CPT,
+    .channel    = SMSG_CH_CTRL, /*TODO*/
+	.txblocknum = 64,
+    .txblocksize = 1516,
+    .rxblocknum = 64,
+    .rxblocksize = 1516,
+};
+struct platform_device sprd_spool_td_device = {
+    .name           = "spool",
+    .id             = 0,
+    .dev            = {.platform_data = &sprd_spool_td_pdata},
+};
+
 
 static struct seth_init_data sprd_seth_td_pdata = {
 	.name		= "veth0",
