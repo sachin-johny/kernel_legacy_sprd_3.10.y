@@ -17,7 +17,7 @@
 #include <mach/hardware.h>
 #include <mach/regs_ana_glb.h>
 #include <asm/hardware/gic.h>
-#include <mach/emc_repower.h>
+#include "emc_repower.h"
 #include <mach/sci.h>
 #define REG32(x)             (*((volatile u32 *)(x)))
 #define BASE_ADDR_AHBREG     (0x20900200)

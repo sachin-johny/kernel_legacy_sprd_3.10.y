@@ -69,7 +69,7 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 		local_irq_save(flags);
 		WARN_ONCE(!irqs_disabled(), "#####: Interrupts enabled in pm_enter()!\n");
 
-	//	sprd_cpu_deep_sleep(cpu);
+		sprd_cpu_deep_sleep(cpu);
 
 		if( sprd_irq_pending() ){
 			irq_wakeup_set();

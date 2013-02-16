@@ -43,8 +43,8 @@ extern void sp_pm_collapse_exit(void);
 extern void sc8825_standby_iram(void);
 extern void sc8825_standby_iram_end(void);
 extern void sc8825_standby_exit_iram(void);
-extern void l2x0_suspend(void);
-extern void l2x0_resume(int collapsed);
+extern void l2cc_suspend(void);
+extern void l2cc_resume(int collapsed);
 void pm_ana_ldo_config(void);
 
 //#define FORCE_DISABLE_DSP
@@ -314,12 +314,13 @@ static void setup_autopd_mode(void)
 	sci_glb_write(REG_GLB_GSM_PWR_CTL, 0x05000520/*|PD_AUTO_EN*/, -1UL);/*GSM*/
 	sci_glb_write(REG_GLB_TD_PWR_CTL, 0x05000520/*|PD_AUTO_EN*/, -1UL);/*TD*/
 	sci_glb_write(REG_GLB_PERI_PWR_CTL, 0x03000920/*|PD_AUTO_EN*/, -1UL);
+	sci_glb_write(REG_GLB_ARM9_SYS_PWR_CTL, 0x01000b20 | PD_AUTO_EN, -1UL);
 	if (sci_glb_read(REG_AHB_CHIP_ID, -1UL) == CHIP_ID_VER_0) {
 		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
-		sci_glb_write(REG_GLB_POWCTL0, 0x01000a20|(1<<23), -1UL );
+		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL );
 	}else {
 		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
-		sci_glb_write(REG_GLB_POWCTL0, 0x01000a20|(1<<23), -1UL);
+		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL);
 		/* sci_glb_set(REG_GLB_POWCTL1, DSP_ROM_SLP_PD_EN|MCU_ROM_SLP_PD_EN); */
 	}
 #endif
@@ -515,13 +516,16 @@ static void disable_ahb_module(void)
 }
 
 #define INT0_REG(off) (SPRD_INTC0_BASE + (off))
-#define INT1_REG(off) (SPRD_INTC1_BASE + (off))
+#define INT1_REG(off) (SPRD_INTC0_BASE + (off) + 0x1000)
 
 #define INT0_IRQ_STS            INT0_REG(0x0000)
 #define INT0_IRQ_RAW           INT0_REG(0x0004)
 #define INT0_IRQ_ENB           INT0_REG(0x0008)
 #define INT0_IRQ_DIS            INT0_REG(0x000c)
 #define INT0_FIQ_STS            INT0_REG(0x0020)
+#define INT0_FIQ_ENB           INT0_REG(0x0028)
+#define INT1_FIQ_STS            INT1_REG(0x0020)
+#define INT1_FIQ_ENB           INT1_REG(0x0028)
 
 #define INT0_IRQ_MASK	(1<<7 | 1<<3)
 
@@ -822,19 +826,26 @@ int deep_sleep(void)
 	disable_audio_module();
 	disable_apb_module();
 	disable_ahb_module();
-
 	/* for dsp wake-up */
         val = __raw_readl(INT0_IRQ_ENB);
         val |= SCI_INTC_IRQ_BIT(IRQ_DSP0_INT);
         val |= SCI_INTC_IRQ_BIT(IRQ_DSP1_INT);
         __raw_writel(val, INT0_IRQ_ENB);
 
+	val = __raw_readl(INT0_FIQ_ENB);
+	val |= SCI_INTC_IRQ_BIT(IRQ_DSP0_INT);
+	val |= SCI_INTC_IRQ_BIT(IRQ_DSP1_INT);
+
+	val = __raw_readl(INT1_FIQ_ENB);
+	val |= SCI_INTC_IRQ_BIT(IRQ_CP2AP_INT0);
+	__raw_writel(val, INT0_FIQ_ENB);
+
 	/* prevent uart1 */
 	__raw_writel(INT0_IRQ_MASK, INT0_IRQ_DIS);
 
 #ifdef CONFIG_CACHE_L2X0
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
-/*	l2x0_suspend(); */
+	l2cc_suspend();
 #else
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
 #endif
@@ -884,7 +895,8 @@ int deep_sleep(void)
 		
 	/*clear dsp fiq, for dsp wakeup*/
 	__raw_writel(ICLR_DSP_FRQ0_CLR, SPRD_IPI_ICLR);
-	
+	__raw_writel(ICLR_DSP_FIQ1_CLR, SPRD_IPI_ICLR);
+
 	/*clear the deep sleep status*/
 	sci_glb_write(REG_AHB_HOLDING_PEN, holding & (~CORE1_RUN) & (~AP_ENTER_DEEP_SLEEP), -1UL );
 
@@ -907,9 +919,9 @@ int deep_sleep(void)
 #ifdef CONFIG_CACHE_L2X0
 	/*L2X0_POWER_CTRL, auto_clock_gate, standby_mode_enable*/
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
-/*	l2x0_resume(ret); */
+	l2cc_resume(ret);
 #endif
-	//pm_debug_dump_ahb_glb_regs();
+	pm_debug_dump_ahb_glb_regs();
 
 	return ret;
 }
@@ -922,7 +934,7 @@ int deep_sleep(void)
 #define DEVICE_TEYP_MASK        (DEVICE_AHB | DEVICE_APB | DEVICE_VIR | DEVICE_AWAKE)
 
 
-static int sc8825_get_sleep_mod( ){
+static int sc8825_get_sleep_mod( void ){
 	int val, ret;
 	printk("*** REG_GLB_GEN1:  0x%x ***\n", sci_glb_read(REG_GLB_GEN1, -1UL));
 	printk("*** REG_GLB_STC_DSP_ST:  0x%x ***\n", sci_glb_read(REG_GLB_STC_DSP_ST, -1UL));
@@ -1018,7 +1030,7 @@ int sc8825_enter_lowpower(void)
 	}
 	
 	time_add(get_sys_cnt() - time, ret);
-	/*print_hard_irq_inloop(ret);*/
+	print_hard_irq_inloop(ret);
 
 	return ret;
 
@@ -1159,7 +1171,8 @@ void pm_ana_ldo_config(void)
 	* FIXME, should be more gental
 	*/
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
-	val = 0xc7f1;
+
+	val = 0x87f1;
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
@@ -1226,6 +1239,7 @@ void sc_pm_init(void)
 {
 	unsigned int cpu1_jump_addrss;
 	unsigned int val;
+	sci_glb_clr(REG_AHB_CP_AHB_CTL, 1 << 3);
 	
 	init_reset_vector();
 	pm_power_off = sc8825_power_off;
@@ -1253,7 +1267,9 @@ void sc_pm_init(void)
 	/* enable arm clock auto gating*/
 	sci_glb_set(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
 	pm_idle = sc8825_idle;
+/*
 	wake_lock_init(&pm_debug_lock, WAKE_LOCK_SUSPEND, "pm_not_ready");
 	wake_lock(&pm_debug_lock);
+*/
 
 }
