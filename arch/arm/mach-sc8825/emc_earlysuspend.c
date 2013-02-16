@@ -44,6 +44,7 @@
 #define GLB_REG_DPLL_CTRL    (REG_GLB_D_PLL_CTL)
 #endif
 #define REG32(x)             (*((volatile u32 *)(x)))
+static DEFINE_MUTEX(emc_mutex);
 #if 0
 typedef enum  { Init_mem = 0, Config = 1, Config_req = 2, Access = 3, Access_req = 4, Low_power = 5,
 		Low_power_entry_req = 6, Low_power_exit_req = 7
@@ -752,15 +753,19 @@ void close_cp(void)
 }
 static void emc_earlysuspend_early_suspend(struct early_suspend *h)
 {
+	mutex_lock(&emc_mutex);
 	cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1, EMC_FREQ_NORMAL_SCENE, EMC_DDR_TYPE_DDR2, 100);
 	close_cp();
 	sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
+	mutex_unlock(&emc_mutex);
 }
 static void emc_earlysuspend_late_resume(struct early_suspend *h)
 {
+	mutex_lock(&emc_mutex);
 	sci_glb_clr(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
 	cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE, 0, EMC_FREQ_NORMAL_SCENE, EMC_DDR_TYPE_DDR2, 100);
 	close_cp();
+	mutex_unlock(&emc_mutex);
 }
 static struct early_suspend emc_early_suspend_desc = {
 	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 100,
@@ -885,25 +890,30 @@ static ssize_t emc_freq_store(struct kobject *kobj, struct kobj_attribute *attr,
 	switch(buf[0]) {
 	case '0': /*400MHz*/
 		printk("emc_freq_store 0\n");
+		mutex_lock(&emc_mutex);
 		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
 		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE, 0, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 100);
 		close_cp();
 		emc_freq_div = 0;
-
+		mutex_unlock(&emc_mutex);
 		break;
 	case '1' : /*200MHz*/
 		printk("emc_freq_store 1\n");
+		mutex_lock(&emc_mutex);
 		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 100);
 		close_cp();
 		sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
 		emc_freq_div = 1;
+		mutex_unlock(&emc_mutex);
 		break;
 	case '2' : /*300MHz*/
 		printk("emc_freq_store 2\n");
+		mutex_lock(&emc_mutex);
 		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE,  0, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 75);
 		close_cp();
 		sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
 		emc_freq_div = 2;
+		mutex_unlock(&emc_mutex);
 		break;
 	default:
 		break;
