@@ -1204,7 +1204,7 @@ static inline void emc_init_common_reg(struct emc_repower_param *param)
 	value_temp &= ~(1<<2); // zq Update Enable,CHECK!!!!
 	value_temp &= ~(1<<4); // Low Power DLL Power Down
 	REG32(PUBL_REG_BASE + PUBL_CFG_ADD_DSGCR) = value_temp;
-	if(1){
+	if(0){
             enable_lpddr12_low_power_feature(32,32,0);
 	}
 } //emc_init_common_reg
