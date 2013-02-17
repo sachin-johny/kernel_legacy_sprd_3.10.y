@@ -17,8 +17,8 @@ config FB_SC7710
 	help
           Frame buffer driver for sc7710 based boards.
 
-config FB_LCD_HX8362_RGB_SPI
-	boolean "support HX8362 rgb (spi) panel"
+config FB_LCD_HX8363_RGB_SPI
+	boolean "support HX8363 rgb (spi) panel"
 	depends on FB_SC7710 || FB_SC8825
 	default n
 
@@ -65,6 +65,11 @@ config FB_LCD_NT35512_MIPI
 config FB_LCD_OTM8018B_MIPI
 	boolean "support otm 8018b mipi panel"
 	depends on FB_SC8825
+	default n
+
+config FB_LCD_HX8363_MCU
+	boolean "support hx8363 mcu panel"
+	depends on FB_SC7710 || FB_SC8825
 	default n
 
 config FB_LCD_OVERLAY_SUPPORT
