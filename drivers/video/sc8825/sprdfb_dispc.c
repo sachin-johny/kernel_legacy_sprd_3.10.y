@@ -24,7 +24,12 @@
 #include "sprdfb_dispc_reg.h"
 #include "sprdfb.h"
 
+
+#ifdef CONFIG_FB_SC7710
+#define DISPC_SOFT_RST (2)
+#else
 #define DISPC_SOFT_RST (20)
+#endif
 #define DISPC_CLOCK_PARENT ("clk_256m")
 #define DISPC_CLOCK (256*1000000)
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")
@@ -154,10 +159,15 @@ static irqreturn_t dispc_isr(int irq, void *data)
 /* dispc soft reset */
 static void dispc_reset(void)
 {
+#ifdef CONFIG_FB_SC7710
+	#define REG_AHB_SOFT_RST (AHB_SOFT2_RST + SPRD_AHB_BASE)
+#else
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
+#endif
 	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<DISPC_SOFT_RST), REG_AHB_SOFT_RST);
 	udelay(10);
 	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<DISPC_SOFT_RST)), REG_AHB_SOFT_RST);
+
 }
 
 static inline void dispc_set_bg_color(uint32_t bg_color)
@@ -394,9 +404,11 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	dispc_ctx.clk_open = false;
 #endif
 
+#ifndef CONFIG_FB_SC7710
 	/*usesd to open dipsc matix clock*/
 	__raw_writel((__raw_readl(REG_AHB_MATRIX_CLOCK)) | (1<<DISPC_CORE_CLK_EN) | (1<<DISPMTX_CLK_EN), 
 			REG_AHB_MATRIX_CLOCK);
+#endif
 
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
 	if (IS_ERR(clk_parent1)) {
@@ -504,9 +516,13 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	dispc_ctx.clk_open = true;
 #endif
 
+#ifdef CONFIG_FB_SC7710
+	printk("0x2090023c = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x23c));
+#else
 	printk("0x20900200 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x200));
 	printk("0x20900208 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x208));
 	printk("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x220));
+#endif
 
 	if(!dev->panel_ready){
 		dispc_reset();
