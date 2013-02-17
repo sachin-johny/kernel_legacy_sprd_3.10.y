@@ -313,10 +313,10 @@ static void setup_autopd_mode(void)
 	sci_glb_write(REG_GLB_TD_PWR_CTL, 0x05000520/*|PD_AUTO_EN*/, -1UL);/*TD*/
 	sci_glb_write(REG_GLB_PERI_PWR_CTL, 0x03000920/*|PD_AUTO_EN*/, -1UL);
 	if (sci_glb_read(REG_AHB_CHIP_ID, -1UL) == CHIP_ID_VER_0) {
-		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
+		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20/*|PD_AUTO_EN*/, -1UL);
 		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL );
 	}else {
-		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
+		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20/*|PD_AUTO_EN*/, -1UL);
 		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL);
 		/* sci_glb_set(REG_GLB_POWCTL1, DSP_ROM_SLP_PD_EN|MCU_ROM_SLP_PD_EN); */
 	}
@@ -1021,6 +1021,7 @@ int sc8825_enter_lowpower(void)
 		scu_save_context();
 		ret = deep_sleep( );
 		scu_restore_context();
+		flush_cache_all();
 		gic_restore_context( );
 		gic_cpu_enable(cpu);
 		gic_dist_enable( );
