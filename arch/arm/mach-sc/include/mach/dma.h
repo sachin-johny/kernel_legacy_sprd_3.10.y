@@ -14,101 +14,18 @@
 #ifndef __ASM_ARCH_SPRD_DMA_H
 #define __ASM_ARCH_SPRD_DMA_H
 
-#include <linux/interrupt.h>
-#include <asm/io.h>
-#include <mach/hardware.h>
-#include <mach/globalregs.h>
 
-/**----------------------------------------------------------------------------*
-**                               Micro Define                                 **
-**----------------------------------------------------------------------------*/
-#define DMA_REG_BASE                    SPRD_DMA0_BASE
+#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC7710)
+#define DMA_VER_R1P0
+#endif
 
-/* 0X00 */
-#define DMA_CFG                         (DMA_REG_BASE + 0x0000)
-#define DMA_CHN_EN_STATUS               (DMA_REG_BASE + 0x0004)
-#define DMA_LINKLIST_EN                 (DMA_REG_BASE + 0x0008)
-#define DMA_SOFTLINK_EN                 (DMA_REG_BASE + 0x000C)
 
-/* 0X10 */
-#define DMA_SOFTLIST_SIZE               (DMA_REG_BASE + 0x0010)
-#define DMA_SOFTLIST_CMD                (DMA_REG_BASE + 0x0014)
-#define DMA_SOFTLIST_STS                (DMA_REG_BASE + 0x0018)
-#define DMA_SOFTLIST_BASEADDR           (DMA_REG_BASE + 0x001C)
-
-/* 0X20 */
-#define DMA_PRI_REG0                    (DMA_REG_BASE + 0x0020)
-#define DMA_PRI_REG1                    (DMA_REG_BASE + 0x0024)
-
-/* 0X30 */
-#define DMA_INT_STS                     (DMA_REG_BASE + 0x0030)
-#define DMA_INT_RAW                     (DMA_REG_BASE + 0x0034)
-
-/* 0X40 */
-#define DMA_LISTDONE_INT_EN             (DMA_REG_BASE + 0x0040)
-#define DMA_BURST_INT_EN                (DMA_REG_BASE + 0x0044)
-#define DMA_TRANSF_INT_EN               (DMA_REG_BASE + 0x0048)
-
-/* 0X50 */
-#define DMA_LISTDONE_INT_STS            (DMA_REG_BASE + 0x0050)
-#define DMA_BURST_INT_STS               (DMA_REG_BASE + 0x0054)
-#define DMA_TRANSF_INT_STS              (DMA_REG_BASE + 0x0058)
-
-/* 0X60 */
-#define DMA_LISTDONE_INT_RAW            (DMA_REG_BASE + 0x0060)
-#define DMA_BURST_INT_RAW               (DMA_REG_BASE + 0x0064)
-#define DMA_TRANSF_INT_RAW              (DMA_REG_BASE + 0x0068)
-
-/* 0X70 */
-#define DMA_LISTDONE_INT_CLR            (DMA_REG_BASE + 0x0070)
-#define DMA_BURST_INT_CLR               (DMA_REG_BASE + 0x0074)
-#define DMA_TRANSF_INT_CLR              (DMA_REG_BASE + 0x0078)
-
-/* 0X80 */
-#define DMA_SOFT_REQ                    (DMA_REG_BASE + 0x0080)
-#define DMA_TRANS_STS                   (DMA_REG_BASE + 0x0084)
-#define DMA_REQ_PEND                    (DMA_REG_BASE + 0x0088)
-
-/* 0X90 */
-#define DMA_WRAP_START                  (DMA_REG_BASE + 0x0090)
-#define DMA_WRAP_END                    (DMA_REG_BASE + 0x0094)
-
-#define DMA_CHN_UID_BASE                (DMA_REG_BASE + 0x0098)
-#define DMA_CHN_UID0                    (DMA_REG_BASE + 0x0098)
-#define DMA_CHN_UID1                    (DMA_REG_BASE + 0x009C)
-#define DMA_CHN_UID2                    (DMA_REG_BASE + 0x00A0)
-#define DMA_CHN_UID3                    (DMA_REG_BASE + 0x00A4)
-#define DMA_CHN_UID4                    (DMA_REG_BASE + 0x00A8)
-#define DMA_CHN_UID5                    (DMA_REG_BASE + 0x00AC)
-#define DMA_CHN_UID6                    (DMA_REG_BASE + 0x00B0)
-#define DMA_CHN_UID7                    (DMA_REG_BASE + 0x00B4)
-
-#define DMA_CHx_EN                      (DMA_REG_BASE + 0x00C0)
-#define DMA_CHx_DIS                     (DMA_REG_BASE + 0x00C4)
-
-/* Chanel x dma contral regisers address offset*/
-#define DMA_CH_CFG0                     (0x0000)
-#define DMA_CH_CFG1                     (0x0004)
-#define DMA_CH_SRC_ADDR                 (0x0008)
-#define DMA_CH_DEST_ADDR                (0x000c)
-#define DMA_CH_LLPTR                    (0x0010)
-#define DMA_CH_SDEP                     (0x0014)
-#define DMA_CH_SBP                      (0x0018)
-#define DMA_CH_DBP                      (0x001c)
-
-/* Channel x dma contral regisers address */
-#define DMA_CHx_CTL_BASE                (DMA_REG_BASE + 0x0400)
-#define DMA_CHx_BASE(x)                 (DMA_CHx_CTL_BASE + 0x20 * x )
-#define DMA_CHx_CFG0(x)                 (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_CFG0)
-#define DMA_CHx_CFG1(x)                 (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_CFG1)
-#define DMA_CHx_SRC_ADDR(x)             (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_SRC_ADDR)
-#define DMA_CHx_DEST_ADDR(x)            (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_DEST_ADDR)
-#define DMA_CHx_LLPTR(x)                (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_LLPTR)
-#define DMA_CHx_SDEP(x)                 (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_SDEP)
-#define DMA_CHx_SBP(x)                  (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_SBP)
-#define DMA_CHx_DBP(x)                  (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_DBP)
+#ifdef CONFIG_ARCH_SC8830
+#define DMA_VER_R4P0
+#endif
 
 /* DMA user id */
+#ifdef CONFIG_ARCH_SC8825
 #define DMA_UID_SOFTWARE                0
 #define DMA_UART0_TX                    1
 #define DMA_UART0_RX                    2
@@ -140,13 +57,119 @@
 #define DMA_DRM_RAW                     29
 #define DMA_DRM_CPT                     30
 
-#define DMA_UID_MIN                     0
-#define DMA_UID_MAX                     32
 
-#define DMA_UID_MASK                    0x1f
-#define DMA_UID_SHIFT_STP               8
-#define DMA_UID_UNIT                    4
+#define DMA_CHN_MIN                     0
+#define DMA_CHN_MAX			31
+#define DMA_CHN_NUM		DMA_CHN_MAX
 
+
+#define FULL_CHN_START DMA_CHN_MIN
+#define FULL_CHN_END DMA_CHN_MAX
+
+#endif
+
+#ifdef CONFIG_ARCH_SC8830
+#define DMA_CHN_MIN                     0
+#define DMA_CHN_MAX			31
+#define DMA_CHN_NUM		DMA_CHN_MAX
+
+
+#define FULL_CHN_START 25
+#define FULL_CHN_END DMA_CHN_MAX
+
+#endif
+
+
+#if defined(DMA_VER_R1P0)
+typedef enum {
+	INT_NONE = 0x00,
+	FRAG_DONE,
+	BLOCK_DONE,
+	LIST_DONE,
+} dma_int_type;
+#elif defined(DMA_VER_R4P0)
+typedef enum {
+	INT_NONE = 0x00,
+	FRAG_DONE,
+	BLOCK_DONE,
+	LIST_DONE,
+	TRANS_DONE,
+} dma_int_type;
+#endif
+
+typedef enum {
+	DMA_PRI_0 = 0,
+	DMA_PRI_1,
+	DMA_PRI_2,
+	DMA_PRI_3,
+} dma_pri_level;
+
+typedef enum {
+	STD_DMA_CHN,
+	FULL_DMA_CHN,
+} dma_chn_type;
+
+struct reg_cfg_addr {
+	u32 virt_addr;
+	u32 phys_addr;
+};
+
+#if defined( DMA_VER_R1P0)
+typedef enum {
+	FRAG_REQ_MODE = 0x0,
+	BLOCK_REQ_MODE,
+	LIST_REQ_MODE,
+	INFINITE_REQ_MODE,
+} dma_request_mode;
+#elif defined(DMA_VER_R3P0) ||defined(DMA_VER_R4P0)
+typedef enum {
+	FRAG_REQ_MODE = 0x0,
+	BLOCK_REQ_MODE,
+	TRANS_REQ_MODE,
+	LIST_REQ_MODE,
+} dma_request_mode;
+#endif
+
+#if defined( DMA_VER_R1P0)
+struct sci_dma_cfg {
+	u32 datawidth;
+	u32 src_addr;
+	u32 des_addr;
+	u32 fragmens_len;
+	u32 block_len;
+	u32 src_step;
+	u32 des_step;
+	u32 linklist_ptr;
+	u32 is_end;
+};
+#elif defined(DMA_VER_R4P0)
+struct sci_dma_cfg {
+	u32 datawidth;
+	u32 src_addr;
+	u32 des_addr;
+	u32 fragmens_len;
+	u32 block_len;
+	u32 transcation_len;
+	u32 src_step;
+	u32 des_step;
+	u32 linklist_ptr;
+	u32 is_end;
+};
+#endif
+
+int sci_dma_request(const char *dev_name, dma_chn_type chn_type);
+int sci_dma_free(u32 dma_chn);
+int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
+		    u32 node_size, struct reg_cfg_addr *cfg_addr);
+
+int sci_dma_register_irqhandle(u32 dma_chn, dma_int_type int_type,
+			       void (*irq_handle) (void *), void *data);
+int sci_dma_start(u32 dma_chn, u32 dev_id);
+int sci_dma_stop(u32 dma_chn);
+
+/*just for compile ok, will be removed*/
+#define TMP_VERSION
+#ifdef TMP_VERSION
 /* DMA Priority */
 #define DMA_PRI_0                       0
 #define DMA_PRI_1                       1
@@ -222,6 +245,25 @@
 #define SOFTLIST_REQ_PTR_SHIFT          16
 #define SOFTLIST_CNT_MASK               0xffff
 
+#define DMA_CHx_EN                      (DMA_REG_BASE + 0x00C0)
+#define DMA_CHx_DIS                     (DMA_REG_BASE + 0x00C4)
+
+#define DMA_REG_BASE                    SPRD_DMA0_BASE
+
+#define DMA_CHx_CTL_BASE                (DMA_REG_BASE + 0x0400)
+#define DMA_CHx_BASE(x)                 (DMA_CHx_CTL_BASE + 0x20 * x )
+/* Chanel x dma contral regisers address offset*/
+#define DMA_CH_CFG0                     (0x0000)
+#define DMA_CH_CFG1                     (0x0004)
+#define DMA_CH_SRC_ADDR                 (0x0008)
+#define DMA_CH_DEST_ADDR                (0x000c)
+#define DMA_CH_LLPTR                    (0x0010)
+#define DMA_CH_SDEP                     (0x0014)
+#define DMA_CH_SBP                      (0x0018)
+#define DMA_CH_DBP                      (0x001c)
+
+
+#include <linux/io.h>
 static inline void reg_writel(u32 reg, u8 shift, u32 val, u32 mask)
 {
 	u32 tmp;
@@ -242,7 +284,6 @@ static inline void reg_bits_and(u32 bits, u32 reg)
 }
 
 /* will be removed */
-#if 1
 static inline void dma_reg_bits_or(u32 bits, u32 reg)
 {
 	__raw_writel((__raw_readl(reg) | bits), reg);
@@ -287,10 +328,9 @@ static inline u32 dma_get_reg(u32 reg)
 
 #define sprd_dma_dbm(ch_id, dbm) \
     __raw_writel(dbm,  DMA_CHx_CTL_BASE + (ch_id * 0x20) + 0x1C) /* dbm */
-#endif
 
 struct sprd_irq_handler {
-	irq_handler_t handler;
+	void(* handler)(int, void*);
 	void *dev_id;
 	u32 dma_uid;
 	u32 used;/* mark the channel used before new API done */
@@ -299,13 +339,13 @@ struct sprd_irq_handler {
 /* DMA_LISTDONE_INT_EN, DMA_BURST_INT_EN, DMA_TRANSF_INT_EN */
 typedef enum{
 	LINKLIST_DONE,
-	BLOCK_DONE,
+//	BLOCK_DONE,
 	TRANSACTION_DONE,
 }dma_done_type;
 
 
 enum {
-	INT_NONE = 0x00,
+//	INT_NONE = 0x00,
 	LLIST_DONE_EN = 0x01,
 	BURST_DONE_EN = 0x02,
 	TRANS_DONE_EN = 0x04,
@@ -357,19 +397,21 @@ struct sprd_dma_wrap_addr {
 };
 
 /* those spreadtrum DMA interface must be implemented */
-int  sprd_dma_request(u32 uid, irq_handler_t irq_handle, void *data);
-void sprd_dma_free(u32 uid);
-void sprd_dma_channel_config(u32 chn, dma_work_mode work_mode, const struct sprd_dma_channel_desc *dma_cfg);
-void sprd_dma_default_channel_setting(struct sprd_dma_channel_desc *dma_cfg);
-void sprd_dma_default_linklist_setting(struct sprd_dma_linklist_desc *chn_cfg);
-void sprd_dma_linklist_config(u32 chn_id, u32 dma_cfg);
-void sprd_dma_wrap_addr_config(const struct sprd_dma_wrap_addr *wrap_addr);
-void sprd_dma_set_irq_type(u32 chn, dma_done_type irq_type, u32 on_off);
-void sprd_dma_set_chn_pri(u32 chn, u32 pri);
-void sprd_dma_channel_start(u32 chn);
-void sprd_dma_channel_stop(u32 chn);
+int  sprd_dma_request(u32 uid, void( *handle)(int, void*), void *data) __deprecated;
+void sprd_dma_free(u32 uid)__deprecated;
+void sprd_dma_channel_config(u32 chn, dma_work_mode work_mode, const struct sprd_dma_channel_desc *dma_cfg)__deprecated;
+void sprd_dma_default_channel_setting(struct sprd_dma_channel_desc *dma_cfg)__deprecated;
+void sprd_dma_default_linklist_setting(struct sprd_dma_linklist_desc *chn_cfg)__deprecated;
+void sprd_dma_linklist_config(u32 chn_id, u32 dma_cfg)__deprecated;
+void sprd_dma_wrap_addr_config(const struct sprd_dma_wrap_addr *wrap_addr)__deprecated;
+void sprd_dma_set_irq_type(u32 chn, dma_done_type irq_type, u32 on_off)__deprecated;
+void sprd_dma_set_chn_pri(u32 chn, u32 pri)__deprecated;
+void sprd_dma_channel_start(u32 chn)__deprecated;
+void sprd_dma_channel_stop(u32 chn)__deprecated;
 /* ONLY FOR DEBUG */
-void sprd_dma_check_channel(void);
-void sprd_dma_dump_regs(void);
+void sprd_dma_check_channel(void)__deprecated;
+void sprd_dma_dump_regs(void)__deprecated;
+
+#endif
 
 #endif
