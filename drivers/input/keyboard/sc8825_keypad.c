@@ -30,6 +30,7 @@
 #include <linux/input.h>
 #include <linux/input/matrix_keypad.h>
 #include <linux/sysrq.h>
+#include <linux/sched.h>
 
 #include <mach/globalregs.h>
 #include <mach/hardware.h>
@@ -93,12 +94,16 @@
 #define KPD_KEY_STATUS          	(KPD_REG_BASE + 0x2C)
 #define KPD_INT0_COL(_X_)	(((_X_)>> 0) & 0x7)
 #define KPD_INT0_ROW(_X_)	(((_X_)>> 4) & 0x7)
+#define KPD_INT0_DOWN(_X_)	(((_X_)>> 7) & 0x1)
 #define KPD_INT1_COL(_X_)	(((_X_)>> 8) & 0x7)
 #define KPD_INT1_ROW(_X_)	(((_X_)>> 12) & 0x7)
+#define KPD_INT1_DOWN(_X_)	(((_X_)>> 15) & 0x1)
 #define KPD_INT2_COL(_X_)	(((_X_)>> 16) & 0x7)
 #define KPD_INT2_ROW(_X_)	(((_X_)>> 20) & 0x7)
+#define KPD_INT2_DOWN(_X_)	(((_X_)>> 23) & 0x1)
 #define KPD_INT3_COL(_X_)	(((_X_)>> 24) & 0x7)
 #define KPD_INT3_ROW(_X_)	(((_X_)>> 28) & 0x7)
+#define KPD_INT3_DOWN(_X_)	(((_X_)>> 31) & 0x1)
 
 #define KPD_SLEEP_STATUS        	(KPD_REG_BASE + 0x0030)
 #define KPD_DEBUG_STATUS1        	(KPD_REG_BASE + 0x0034)
@@ -114,6 +119,26 @@ struct sci_keypad_t {
 	unsigned int keyup_test_jiffies;
 	unsigned int controller_ver;
 };
+
+#ifdef CONFIG_MAGIC_SYSRQ
+struct important_tasks {
+	char *name;
+	int  name_len;
+};
+static struct important_tasks tasks[] = {
+	{"suspend",7},
+	{"SurfaceFlinger",14},
+	{"surfaceflinger",14},
+	{"mediaserver",11},
+	{"system_server",13},
+	{"ActivityManager",15},
+	{"PowerManager",12},
+	{"WindowManager",13},
+	{"AudioService",12},
+	{"adbd",4},
+};
+#endif
+
 
 #if	DEBUG_KEYPAD
 static void dump_keypad_register(void)
@@ -155,25 +180,24 @@ static void dump_keypad_register(void)
 #define SPRD_VOL_UP_KEY		115
 #define SPRD_VOL_DOWN_KEY	114
 #define SPRD_CAMERA_KEY		212
-static int check_key_down(struct sci_keypad_t *sci_kpd, int key_status,
-			  int key_value)
+static int check_key_down(struct sci_keypad_t *sci_kpd, int key_status, int key_value)
 {
 	int col, row, key;
 	unsigned short *keycodes = sci_kpd->input_dev->keycode;
 	unsigned int row_shift = get_count_order(sci_kpd->cols);
 
-	if ((key_status & 0xff) != 0) {
+	if((key_status & 0xff) != 0) {
 		col = KPD_INT0_COL(key_status);
 		row = KPD_INT0_ROW(key_status);
 		key = keycodes[MATRIX_SCAN_CODE(row, col, row_shift)];
-		if (key == key_value)
+		if((key == key_value)&&(KPD_INT0_DOWN(key_status)))
 			return 1;
 	}
-	if ((key_status & 0xff00) != 0) {
+	if((key_status & 0xff00) != 0) {
 		col = KPD_INT1_COL(key_status);
 		row = KPD_INT1_ROW(key_status);
 		key = keycodes[MATRIX_SCAN_CODE(row, col, row_shift)];
-		if (key == key_value)
+		if((key == key_value)&&(KPD_INT1_DOWN(key_status)))
 			return 1;
 	}
 	return 0;
@@ -269,38 +293,52 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 		input_sync(sci_kpd->input_dev);
 		printk("%03d\n", key);
 	}
+
 #ifdef CONFIG_MAGIC_SYSRQ
 	{
 		static unsigned long key_status_prev = 0;
+		static unsigned long key_panic_check_times = 0;
+		struct task_struct *g, *p;
+		int i;
 
 		if (check_key_down(sci_kpd, key_status, SPRD_CAMERA_KEY) &&
-		    check_key_down(sci_kpd, key_status, SPRD_VOL_DOWN_KEY)
-		    && key_status != key_status_prev) {
-			key_status_prev = key_status;
-			panic("!!!! Combine key: vol_down + camera !!!!\n");
+			check_key_down(sci_kpd, key_status, SPRD_VOL_DOWN_KEY) && key_status != key_status_prev) {
+			if(!key_panic_check_times){
+				printk("!!!! Combine key: vol_down + camera !!!! first dump important task\n");
+				printk("current\n");
+				printk("PID %d is %s\n",task_pid_nr(current),current->comm);
+				show_stack(current,NULL);
+				do_each_thread(g, p) {
+					for(i=0;i<(sizeof(tasks)/sizeof(tasks[0]));i++) {
+						if (!strncmp(p->comm,tasks[i].name,tasks[i].name_len)) {
+							printk("PID %d is %s\n",task_pid_nr(p),p->comm);
+							show_stack(p, NULL);
+						}
+					}
+				} while_each_thread(g, p);
+			}  else {
+				panic("!!!! Combine key: vol_down + camera !!!! secoend panic\n");
+			}
+			key_panic_check_times++;
 		}
-
 		if (check_key_down(sci_kpd, key_status, SPRD_CAMERA_KEY) &&
-		    check_key_down(sci_kpd, key_status, SPRD_VOL_UP_KEY)
-		    && key_status != key_status_prev) {
+			check_key_down(sci_kpd, key_status, SPRD_VOL_UP_KEY) && key_status != key_status_prev) {
 			unsigned long flags;
 			static int rebooted = 0;
-			key_status_prev = key_status;
 			local_irq_save(flags);
 			if (rebooted == 0) {
 				rebooted = 1;
-				pr_warn
-				    ("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
+				pr_warn("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
 				/* handle_sysrq('t'); */
 				handle_sysrq('m');
 				handle_sysrq('w');
 				handle_sysrq('b');
-				pr_warn
-				    ("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
+				pr_warn("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
 				rebooted = 0;
 			}
 			local_irq_restore(flags);
 		}
+		key_status_prev = key_status;
 	}
 #endif
 	return IRQ_HANDLED;
