@@ -367,60 +367,64 @@ static struct sprd_codec_pga sprd_codec_pga_cfg[SPRD_CODEC_PGA_MAX] = {
 
 /* adc mixer */
 
-static int ailadcl_set(struct snd_soc_codec *codec, int on)
+static int vcmadcl_set(struct snd_soc_codec *codec)
 {
-	int ret;
 	int need_on;
-	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
-	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIL_ADCL),
-				  on << AIL_ADCL);
-	if (ret < 0)
-		return ret;
-	need_on = snd_soc_read(codec, AAICR3) & BIT(AIL_ADCL) & BIT(AIR_ADCL);
-	return snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(VCM_ADCL),
-				   (! !need_on) << VCM_ADCL);
-}
-
-static int ailadcr_set(struct snd_soc_codec *codec, int on)
-{
-	int ret;
-	int need_on;
-	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
-	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIL_ADCR),
-				  on << AIL_ADCR);
-	if (ret < 0)
-		return ret;
-	need_on = snd_soc_read(codec, AAICR3) & BIT(AIL_ADCR) & BIT(AIR_ADCR);
-	return snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(VCM_ADCR),
-				   (! !need_on) << VCM_ADCR);
-}
-
-static int airadcl_set(struct snd_soc_codec *codec, int on)
-{
-	int ret;
-	int need_on;
-	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
-	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIR_ADCL),
-				  on << AIR_ADCL);
-	if (ret < 0)
-		return ret;
 	need_on = snd_soc_read(codec, AAICR3) & (BIT(AIL_ADCL) | BIT(AIR_ADCL));
 	return snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(VCM_ADCL),
 				   (! !need_on) << VCM_ADCL);
 }
 
+static int vcmadcr_set(struct snd_soc_codec *codec)
+{
+	int need_on;
+	need_on = snd_soc_read(codec, AAICR3) & (BIT(AIL_ADCR) | BIT(AIR_ADCR));
+	return snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(VCM_ADCR),
+				   (! !need_on) << VCM_ADCR);
+}
+
+static int ailadcl_set(struct snd_soc_codec *codec, int on)
+{
+	int ret;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIL_ADCL),
+				  on << AIL_ADCL);
+	if (ret < 0)
+		return ret;
+	return vcmadcl_set(codec);
+}
+
+static int ailadcr_set(struct snd_soc_codec *codec, int on)
+{
+	int ret;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIL_ADCR),
+				  on << AIL_ADCR);
+	if (ret < 0)
+		return ret;
+	return vcmadcr_set(codec);
+}
+
+static int airadcl_set(struct snd_soc_codec *codec, int on)
+{
+	int ret;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIR_ADCL),
+				  on << AIR_ADCL);
+	if (ret < 0)
+		return ret;
+	return vcmadcl_set(codec);
+}
+
 static int airadcr_set(struct snd_soc_codec *codec, int on)
 {
 	int ret;
-	int need_on;
 	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
 	ret = snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(AIR_ADCR),
 				  on << AIR_ADCR);
 	if (ret < 0)
 		return ret;
-	need_on = snd_soc_read(codec, AAICR3) & (BIT(AIL_ADCR) | BIT(AIR_ADCR));
-	return snd_soc_update_bits(codec, SOC_REG(AAICR3), BIT(VCM_ADCR),
-				   (! !need_on) << VCM_ADCR);
+	return vcmadcr_set(codec);
 }
 
 static int mainmicadcl_set(struct snd_soc_codec *codec, int on)
