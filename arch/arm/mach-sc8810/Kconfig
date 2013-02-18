@@ -94,6 +94,12 @@ config MACH_SP7702
 	help
 	  SP7702 phone board base on SC8810 with sc7701 modem.
 
+config MACH_SP7710GA
+	select ARCH_SC7710
+	bool "SP7710GA board"
+	help
+	  SP7710GA based on ARCH_SC7710.
+
 endchoice
 
 config SPRD_PMEM_SIZE

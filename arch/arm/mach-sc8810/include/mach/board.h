@@ -70,6 +70,10 @@
 #include <mach/gpio-sp7702.h>
 #endif
 
+#ifdef	CONFIG_MACH_SP7710GA
+#include <mach/gpio-sp7710ga.h>
+#endif
+
 /*
  * pmem area definition
  */
