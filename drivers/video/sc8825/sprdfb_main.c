@@ -206,13 +206,13 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 
 	switch(cmd){
 	case SPRD_FB_SET_OVERLAY:
-		printk(KERN_INFO "sprdfb: [%s]: SPRD_FB_SET_OVERLAY\n", __FUNCTION__);
+		pr_debug(KERN_INFO "sprdfb: [%s]: SPRD_FB_SET_OVERLAY\n", __FUNCTION__);
 		if(NULL != dev->ctrl->enable_overlay){
 			result = dev->ctrl->enable_overlay(dev, (overlay_info*)arg, 1);
 		}
 		break;
 	case SPRD_FB_DISPLAY_OVERLAY:
-		printk(KERN_INFO "sprdfb: [%s]: SPRD_FB_DISPLAY_OVERLAY\n", __FUNCTION__);
+		pr_debug(KERN_INFO "sprdfb: [%s]: SPRD_FB_DISPLAY_OVERLAY\n", __FUNCTION__);
 		if(NULL != dev->ctrl->display_overlay){
 			result = dev->ctrl->display_overlay(dev, (overlay_display*)arg);
 		}
@@ -222,7 +222,7 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	}
 
-	printk(KERN_INFO "sprdfb: [%s]: return %d\n",__FUNCTION__, result);
+	pr_debug(KERN_INFO "sprdfb: [%s]: return %d\n",__FUNCTION__, result);
 	return result;
 }
 
