@@ -856,7 +856,7 @@ static int32_t sprdfb_disc_check_esd(struct sprdfb_device *dev)
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 static int overlay_open(void)
 {
-	printk("sprdfb: [%s] : %d\n", __FUNCTION__,dispc_ctx.overlay_state);
+	pr_debug("sprdfb: [%s] : %d\n", __FUNCTION__,dispc_ctx.overlay_state);
 
 /*
 	if(SPRD_OVERLAY_STATUS_OFF  != dispc_ctx.overlay_state){
@@ -871,7 +871,7 @@ static int overlay_open(void)
 
 static int overlay_start(struct sprdfb_device *dev, uint32_t layer_index)
 {
-	printk("sprdfb: [%s] : %d, %d\n", __FUNCTION__,dispc_ctx.overlay_state, layer_index);
+	pr_debug("sprdfb: [%s] : %d, %d\n", __FUNCTION__,dispc_ctx.overlay_state, layer_index);
 
 
 	if(SPRD_OVERLAY_STATUS_ON  != dispc_ctx.overlay_state){
@@ -908,7 +908,7 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 {
 	uint32_t reg_value;
 
-	printk("sprdfb: [%s] : %d, (%d, %d,%d,%d), 0x%x\n", __FUNCTION__, type, rect->x, rect->y, rect->h, rect->w, (unsigned int)buffer);
+	pr_debug("sprdfb: [%s] : %d, (%d, %d,%d,%d), 0x%x\n", __FUNCTION__, type, rect->x, rect->y, rect->h, rect->w, (unsigned int)buffer);
 
 
 	if(SPRD_OVERLAY_STATUS_ON  != dispc_ctx.overlay_state){
@@ -973,7 +973,7 @@ static int overlay_osd_configure(struct sprdfb_device *dev, int type, overlay_re
 {
 	uint32_t reg_value;
 
-	printk("sprdfb: [%s] : %d, (%d, %d,%d,%d), 0x%x\n", __FUNCTION__, type, rect->x, rect->y, rect->h, rect->w, (unsigned int)buffer);
+	pr_debug("sprdfb: [%s] : %d, (%d, %d,%d,%d), 0x%x\n", __FUNCTION__, type, rect->x, rect->y, rect->h, rect->w, (unsigned int)buffer);
 
 
 	if(SPRD_OVERLAY_STATUS_ON  != dispc_ctx.overlay_state){
@@ -1056,7 +1056,7 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 		return -1;
 	}
 
-	printk("sprdfb: [%s]: %d, %d\n", __FUNCTION__, enable,  dev->enable);
+	pr_debug("sprdfb: [%s]: %d, %d\n", __FUNCTION__, enable,  dev->enable);
 
 	if(enable){  /*enable*/
 		if(NULL == info){
@@ -1119,7 +1119,7 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 		/*result = overlay_close(dev);*/
 	}
 
-	printk("sprdfb: [%s] return %d\n", __FUNCTION__, result);
+	pr_debug("sprdfb: [%s] return %d\n", __FUNCTION__, result);
 	return result;
 }
 
@@ -1131,7 +1131,7 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 
 	dispc_ctx.dev = dev;
 
-	printk("sprdfb: sprdfb_dispc_display_overlay: layer:%d, (%d, %d,%d,%d)\n",
+	pr_debug("sprdfb: sprdfb_dispc_display_overlay: layer:%d, (%d, %d,%d,%d)\n",
 		setting->layer_index, setting->rect.x, setting->rect.y, setting->rect.h, setting->rect.w);
 
 	down(&dispc_ctx.overlay_lock);
@@ -1152,7 +1152,7 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 
 	}
 
-	printk(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
+	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
 	dispc_ctx.dev = dev;
 
