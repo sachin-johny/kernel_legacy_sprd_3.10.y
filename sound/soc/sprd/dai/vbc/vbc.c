@@ -154,7 +154,11 @@ static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 		 .src_burst_mode = SRC_BURST_MODE_4,
 		 .dst_burst_mode = SRC_BURST_MODE_SINGLE,
 		 },
+#ifdef CONFIG_SPRD_VBC_LR_INVERT
+	.dev_paddr = {PHYS_VBDA1, PHYS_VBDA0},
+#else
 	.dev_paddr = {PHYS_VBDA0, PHYS_VBDA1},
+#endif
 };
 
 static struct sprd_pcm_dma_params vbc_pcm_stereo_in = {
@@ -660,7 +664,11 @@ static int vbc_drv_probe(struct platform_device *pdev)
 	vbc_dbg("Entering %s\n", __func__);
 
 	for (i = 0; i < 2; i++) {
+#ifdef CONFIG_SPRD_VBC_LR_INVERT
+		vbc_pcm_stereo_out.channels[i] = arch_audio_vbc_da_dma_info(1 - i);
+#else
 		vbc_pcm_stereo_out.channels[i] = arch_audio_vbc_da_dma_info(i);
+#endif
 		vbc_pcm_stereo_in.channels[i] = arch_audio_vbc_ad_dma_info(i);
 	}
 
