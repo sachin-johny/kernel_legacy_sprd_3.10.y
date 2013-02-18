@@ -63,11 +63,29 @@ static void dsi_core_write_function(uint32_t addr, uint32_t offset, uint32_t dat
 
 static irqreturn_t dsi_isr0(int irq, void *data)
 {
+	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST0);
+	printk(KERN_ERR "sprdfb: [%s](0x%x)!\n", __FUNCTION__, reg_val);
+
 	return IRQ_HANDLED;
 }
 
 static irqreturn_t dsi_isr1(int irq, void *data)
 {
+	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST1);
+	uint32_t i;
+	printk(KERN_ERR "sprdfb: [%s](0x%x)!\n", __FUNCTION__, reg_val);
+
+	if(BIT(7) == (reg_val & BIT(7))){
+		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 0);
+		/*need delay 1us*/
+		printk("sprdfb: reset dsi host!\n");
+
+		for(i=0;i<10;i++){
+			printk("*");
+		}
+		printk("\n");
+		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 1);
+	}
 	return IRQ_HANDLED;
 }
 
@@ -105,6 +123,8 @@ int32_t dsi_early_int(void)
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int0!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
 		return -1;
+	}else{
+		printk(KERN_ERR "sprdfb: dsi request irq int0 OK!\n");
 	}
 
 	ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
@@ -112,6 +132,8 @@ int32_t dsi_early_int(void)
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int1!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
 		return -1;
+	}else{
+		printk(KERN_ERR "sprdfb: dsi request irq int1 OK!\n");
 	}
 
 	dsi_ctx.is_inited = true;
@@ -223,6 +245,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	dphy_t *phy = &(dsi_instance->phy_instance);
 	struct info_mipi * mipi = dev->panel->info.mipi;
 	bool resume = false;
+	int ret = 0;
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
 
@@ -256,10 +279,36 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	dsi_instance->max_lp_to_hs_cycles = 15;//10;
 	dsi_instance->max_lanes = mipi->lan_number;
 
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x1fffff);
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
+
+
 	if(dev->panel_ready && !resume){
 		printk(KERN_INFO "sprdfb:[%s]: dsi has alread initialized\n", __FUNCTION__);
 		dsi_instance->status = INITIALIZED;
 		dsi_ctx.status = 0;
+
+		ret = request_irq(IRQ_DSI_INT0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+		if (ret) {
+			printk(KERN_ERR "sprdfb: dsi failed to request irq int0!\n");
+	//		clk_disable(dsi_ctx.clk_dsi);
+			return -1;
+		}else{
+			printk(KERN_ERR "sprdfb: dsi request irq int0 OK!\n");
+		}
+
+		ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
+		if (ret) {
+			printk(KERN_ERR "sprdfb: dsi failed to request irq int1!\n");
+	//		clk_disable(dsi_ctx.clk_dsi);
+			return -1;
+		}else{
+			printk(KERN_ERR "sprdfb: dsi request irq int1 OK!\n");
+		}
+
+		dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x0);
+		dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x800);
+
 		return 0;
 	}
 
@@ -276,8 +325,8 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		return -1;
 	}
 */
-	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x1fffff);
-	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
+//	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x1fffff);
+//	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
 
 	result = mipi_dsih_open(dsi_instance);
 	if(OK != result){
@@ -414,6 +463,10 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 		dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST0);
 		dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST1);
 	}
+
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x0);
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x800);
+
 	return 0;
 }
 
