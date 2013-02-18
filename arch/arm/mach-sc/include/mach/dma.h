@@ -73,6 +73,8 @@
 #define DMA_CHN_MAX			31
 #define DMA_CHN_NUM		DMA_CHN_MAX
 
+#define DMA_UID_SOFTWARE                0
+
 
 #define FULL_CHN_START 25
 #define FULL_CHN_END DMA_CHN_MAX

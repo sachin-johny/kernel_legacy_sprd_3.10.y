@@ -53,13 +53,13 @@ static void __inline __dma_clk_disable(void)
 #define REG_AHB_EB 0x20D00000
 static void __inline __dma_clk_enable(void)
 {
-	if (!sci_glb_read(REG_AHB_EB, BIT5))
-		sci_glb_set(REG_AHB_EB, BIT5);
+	if (!sci_glb_read(REG_AHB_EB, 0x1 << 5))
+		sci_glb_set(REG_AHB_EB, 0x1 << 5);
 }
 
 static void __inline __dma_clk_disable(void)
 {
-	sci_glb_clr(REG_AHB_EB, BIT5);
+	sci_glb_clr(REG_AHB_EB, 0x1 << 5);
 }
 #endif
 
