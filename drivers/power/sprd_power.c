@@ -849,6 +849,7 @@ static char *supply_list[] = {
 
 int __weak usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {
+	return -ENODEV;
 }
 
 extern int sci_efuse_calibration_get(unsigned int *p_cal_data);
