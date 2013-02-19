@@ -27,7 +27,7 @@
 #define REG_MM_AHB_GEN_CKG_CFG          SCI_ADDR(REGS_MM_AHB_BASE, 0x0008)
 
 /* bits definitions for register REG_MM_AHB_AHB_EB */
-#define BIT_CKG_EB                      ( BIT(6) )
+#define BIT_MM_CKG_EB                   ( BIT(6) )
 #define BIT_JPG_EB                      ( BIT(5) )
 #define BIT_CSI_EB                      ( BIT(4) )
 #define BIT_VSP_EB                      ( BIT(3) )
@@ -36,7 +36,7 @@
 #define BIT_DCAM_EB                     ( BIT(0) )
 
 /* bits definitions for register REG_MM_AHB_AHB_RST */
-#define BIT_CKG_SOFT_RST                ( BIT(13) )
+#define BIT_MM_CKG_SOFT_RST             ( BIT(13) )
 #define BIT_MM_MTX_SOFT_RST             ( BIT(12) )
 #define BIT_OR1200_SOFT_RST             ( BIT(11) )
 #define BIT_ROT_SOFT_RST                ( BIT(10) )
