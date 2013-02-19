@@ -181,15 +181,18 @@ static inline void vbc_safe_mem_release(void **free)
 
 #define vbc_safe_kfree(p) vbc_safe_mem_release((void**)p)
 
+static DEFINE_SPINLOCK(vbc_lock);
 /* local register setting */
 static int vbc_reg_write(int reg, int val, int mask)
 {
 	int tmp, ret;
+	spin_lock(&vbc_lock);
 	tmp = __raw_readl(reg);
 	ret = tmp;
 	tmp &= ~(mask);
 	tmp |= val & mask;
 	__raw_writel(tmp, reg);
+	spin_unlock(&vbc_lock);
 	return ret & (mask);
 }
 
@@ -735,6 +738,41 @@ static struct platform_driver vbc_driver = {
 		   .owner = THIS_MODULE,
 		   },
 };
+
+/*
+ * proc interface
+ */
+
+#ifdef CONFIG_PROC_FS
+static void vbc_proc_read(struct snd_info_entry *entry,
+				 struct snd_info_buffer *buffer)
+{
+	int reg;
+
+	snd_iprintf(buffer, "vbc register dump\n");
+	for (reg = ARM_VB_BASE + 0x10 ; reg < ARM_VB_END; reg += 0x10) {
+		snd_iprintf(buffer, "0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
+			    (reg - ARM_VB_BASE)
+			    , vbc_reg_read(reg + 0x00)
+			    , vbc_reg_read(reg + 0x04)
+			    , vbc_reg_read(reg + 0x08)
+			    , vbc_reg_read(reg + 0x0C)
+		    );
+	}
+}
+
+static void vbc_proc_init(struct snd_soc_codec *codec)
+{
+	struct snd_info_entry *entry;
+
+	if (!snd_card_proc_new(codec->card->snd_card, "vbc", &entry))
+		snd_info_set_text_ops(entry, NULL, vbc_proc_read);
+}
+#else /* !CONFIG_PROC_FS */
+static inline void vbc_proc_init(struct snd_soc_codec *codec)
+{
+}
+#endif
 
 static int vbc_eq_reg_offset(u32 reg)
 {
@@ -1284,6 +1322,9 @@ int vbc_add_controls(struct snd_soc_codec *codec)
 	if (ret < 0) {
 		pr_err("Failed to VBC add controls\n");
 	}
+
+	vbc_proc_init(codec);
+
 	return ret;
 }
 
