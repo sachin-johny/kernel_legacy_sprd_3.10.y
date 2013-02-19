@@ -138,6 +138,8 @@ static void sprd_gptimer_clockevent_init(unsigned int irq, const char *name,
 					 unsigned long hz)
 {
 	struct clock_event_device *evt = &gptimer_event;
+	int ret = 0;
+
 	__raw_writel(TIMER_DISABLE, TIMER_CTL(EVENT_TIMER));
 	__raw_writel(TIMER_INT_CLR, TIMER_INT(EVENT_TIMER));
 
@@ -148,7 +150,9 @@ static void sprd_gptimer_clockevent_init(unsigned int irq, const char *name,
 	evt->min_delta_ns = clockevent_delta2ns(2, evt);
 	evt->cpumask = cpu_all_mask;
 
-	setup_irq(irq, &gptimer_irq);
+	ret = setup_irq(irq, &gptimer_irq);
+	if (ret)
+		BUG_ON(1);
 	clockevents_register_device(evt);
 }
 
@@ -229,14 +233,6 @@ static void __init __arch_timer_init(void)
 #endif
 void __init sci_timer_init(void)
 {
-#ifdef CONFIG_ARM_ARCH_TIMER
-	struct arch_timer at;
-	at.res[0].start = 29;
-	at.res[0].flags = IORESOURCE_IRQ;
-
-	at.res[1].start = 0;
-	at.res[1].flags = IORESOURCE_IRQ;
-#endif
 	/* setup timer2 and syscnt as clocksource */
 	__gptimer_clocksource_init("gptimer2", 26000000);
 	__syscnt_clocksource_init("syscnt", 1000);
@@ -246,4 +242,5 @@ void __init sci_timer_init(void)
 	__arch_timer_init();
 	/* setup timer1 as clockevent. */
 	sprd_gptimer_clockevent_init(IRQ_TIMER1_INT, "gptimer1", 32768);
+	printk("sci_timer_init\n");
 }
