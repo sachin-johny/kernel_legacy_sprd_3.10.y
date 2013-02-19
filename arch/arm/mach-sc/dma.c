@@ -20,6 +20,7 @@
 #include <linux/io.h>
 #include <linux/dma-mapping.h>
 
+#include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/regs_ahb.h>
 #include <mach/dma_reg.h>
@@ -49,17 +50,15 @@ static void __inline __dma_clk_disable(void)
 #endif
 
 #ifdef CONFIG_ARCH_SC8830
-
-#define REG_AHB_EB 0x20D00000
 static void __inline __dma_clk_enable(void)
 {
-	if (!sci_glb_read(REG_AHB_EB, 0x1 << 5))
-		sci_glb_set(REG_AHB_EB, 0x1 << 5);
+	if (!sci_glb_read(SPRD_AHB_BASE, 0x1 << 5))
+		sci_glb_set(SPRD_AHB_BASE, 0x1 << 5);
 }
 
 static void __inline __dma_clk_disable(void)
 {
-	sci_glb_clr(REG_AHB_EB, 0x1 << 5);
+	sci_glb_clr(SPRD_AHB_BASE, 0x1 << 5);
 }
 #endif
 
