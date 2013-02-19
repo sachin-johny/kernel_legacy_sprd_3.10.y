@@ -258,4 +258,10 @@ config BT_BCM4330
 	  Say Y here to compile support for Broadcomm's BCM4330 LPM driver
 	  into the kernel or say M to compile it as module.
 
+config BT_SINGLE_LINK
+        tristate "Bluetooth single link"
+        help
+          This enables the Bluetooth driver for single link.
+
+          Say Y here to compile support for the property.
 endmenu
