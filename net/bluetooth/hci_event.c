@@ -1498,6 +1498,18 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 
 		conn = hci_conn_hash_lookup_ba(hdev, ev->link_type, &ev->bdaddr);
 		if (!conn) {
+			#ifdef BK_SINGLE_LINK
+                        struct hci_conn_hash *h = &hdev->conn_hash;
+			if ((ev->link_type == ACL_LINK) && (h->acl_num >= 1)) {
+				struct hci_cp_reject_conn_req cp;
+				BT_DBG("single link solution, reject the second incoming connect request.");
+				hci_dev_unlock(hdev);
+				bacpy(&cp.bdaddr, &ev->bdaddr);
+				cp.reason = 0x0f;
+				hci_send_cmd(hdev, HCI_OP_REJECT_CONN_REQ, sizeof(cp), &cp);
+				return;
+			}
+			#endif
 			/* pkt_type not yet used for incoming connections */
 			conn = hci_conn_add(hdev, ev->link_type, 0, &ev->bdaddr);
 			if (!conn) {
