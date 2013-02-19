@@ -23,7 +23,7 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
-#include <linux/i2c/pixcir_i2c_ts.h>
+#include <linux/i2c/ft5306_ts.h>
 #include <linux/i2c/al3006_pls.h>
 #include <linux/i2c/lis3dh.h>
 #include <linux/akm8975.h>
@@ -105,6 +105,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
+	&sprd_i2c_device3,
 	&sprd_spi0_device,
 	&sprd_spi1_device,
 	&sprd_keypad_device,
@@ -196,7 +197,7 @@ static struct serial_data plat_data3 = {
 	.clk = 26000000,
 };
 
-static struct pixcir_ts_platform_data pixcir_ts_info = {
+static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 };
@@ -206,9 +207,12 @@ static struct al3006_pls_platform_data al3006_pls_info = {
 };
 
 static struct i2c_board_info i2c2_boardinfo[] = {
+};
+
+static struct i2c_board_info i2c3_boardinfo[] = {
 	{
-		I2C_BOARD_INFO(PIXICR_DEVICE_NAME, 0x5C),
-		.platform_data = &pixcir_ts_info,
+		I2C_BOARD_INFO(FT5206_TS_DEVICE, FT5206_TS_ADDR),
+		.platform_data = &ft5x0x_ts_info,
 	},
 };
 
@@ -259,6 +263,7 @@ static void sprd8810_i2c2sel_config(void)
 static int sc8810_add_i2c_devices(void)
 {
 	sprd8810_i2c2sel_config();
+	i2c_register_board_info(3, i2c3_boardinfo, ARRAY_SIZE(i2c3_boardinfo));
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));

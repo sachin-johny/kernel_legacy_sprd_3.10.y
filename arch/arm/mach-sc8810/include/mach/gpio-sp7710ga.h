@@ -29,8 +29,8 @@
  *   176 - 207 : A-Die GPIO
  */
 
-#define GPIO_TOUCH_RESET	59
-#define GPIO_TOUCH_IRQ		60
+#define GPIO_TOUCH_RESET	35
+#define GPIO_TOUCH_IRQ		37
 #define GPIO_PLSENSOR_IRQ	28
 #define MSENSOR_DRDY_GPIO       97
 

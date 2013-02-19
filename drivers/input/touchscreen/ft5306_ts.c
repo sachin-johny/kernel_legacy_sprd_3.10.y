@@ -34,7 +34,10 @@
 #include <linux/regulator/consumer.h>
 #include <linux/i2c/ft5306_ts.h>
 #include <mach/regulator.h>
+
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/i2c-sprd.h>
+#endif
 
 #define I2C_BOARD_INFO_METHOD   1
 #define TS_DATA_THRESHOLD_CHECK	0
@@ -547,7 +550,12 @@ FTS_BOOL byte_read(FTS_BYTE* pbt_buf, FTS_BYTE bt_len)
 
 #define    FTS_PACKET_LENGTH        128
 
-#if 1
+#if 0
+static unsigned char CTPM_FW[]=
+{
+#include "ft5316_qHD.i"
+};
+#else
 static unsigned char CTPM_FW[]=
 {
 #include "ft5306_qHD.i"
@@ -579,18 +587,19 @@ E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
     msleep(100);
 
     /*********Step 2:Enter upgrade mode *****/
-    auc_i2c_write_buf[0] = 0x55;
-    auc_i2c_write_buf[1] = 0xaa;
     do
     {
         i ++;
-        i_ret = ft5x0x_i2c_txdata(auc_i2c_write_buf, 2);
+        auc_i2c_write_buf[0] = 0x55;
+	i_ret = ft5x0x_i2c_txdata(auc_i2c_write_buf, 1);
+        i_ret |= auc_i2c_write_buf[0] = 0xaa;
+        ft5x0x_i2c_txdata(auc_i2c_write_buf, 1);
         msleep(5);
     }while(i_ret <= 0 && i < 5 );
     /*********Step 3:check READ-ID***********************/
     cmd_write(0x90,0x00,0x00,0x00,4);
     byte_read(reg_val,2);
-    if (reg_val[0] == 0x79 && reg_val[1] == 0x3)
+    if (reg_val[0] == 0x79 && (reg_val[1] == 0x07 || reg_val[1] == 0x03))
     {
         printk("[TSP] Step 3: CTPM ID,ID1 = 0x%x,ID2 = 0x%x\n",reg_val[0],reg_val[1]);
     }
@@ -1048,7 +1057,11 @@ static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 	gpio_direction_output(pdata->reset_gpio_number, 1);
 	gpio_direction_input(pdata->irq_gpio_number);
 	//vdd power on
+#if defined(CONFIG_ARCH_SC8825)
 	reg_vdd = regulator_get(&client->dev, pdata->vdd_name);
+#else
+	reg_vdd = regulator_get(&client->dev, REGU_NAME_TP);
+#endif
 	regulator_set_voltage(reg_vdd, 2800000, 2800000);
 	regulator_enable(reg_vdd);
 	msleep(100);
@@ -1086,10 +1099,12 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	i2c_set_clientdata(client, ft5x0x_ts);
 	client->irq = gpio_to_irq(pdata->irq_gpio_number);
 
+	#if defined(CONFIG_ARCH_SC8825)
 	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
+	#endif
 
 	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
-	if(uc_reg_value != 0x55)
+	if(uc_reg_value != 0x55 && uc_reg_value != 0x0a)
 	{
 		if(uc_reg_value == 0xa3) {
 			msleep(100);
