@@ -527,7 +527,7 @@ static void disable_ahb_module(void)
 #define INT1_FIQ_STS            INT1_REG(0x0020)
 #define INT1_FIQ_ENB           INT1_REG(0x0028)
 
-#define INT0_IRQ_MASK	(1<<7 | 1<<3)
+#define INT0_IRQ_MASK	(1<<3)
 
 
 /*save/restore global regs*/
