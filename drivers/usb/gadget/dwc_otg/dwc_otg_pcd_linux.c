@@ -653,18 +653,12 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 	else
 		d = container_of(gadget, struct gadget_wrapper, gadget);
 
-	if (is_on) {
-		if (unlikely(!enum_enabled)) {
-			enum_enabled = 1;
-			enumeration_enable();
-			return 0;
-		}
-	}
 	if (!d->enabled || !d->vbus)
 		action = 0;
 
 	mutex_lock(&udc_lock);
 	if (action) {
+		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
 		__udc_startup();
 	} else {
 		/*
@@ -696,6 +690,8 @@ static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 		setup_transfer_timer_start = 1;
 		mod_timer(&setup_transfer_timer, jiffies + HZ);
 	}
+	if(timer_pending(&gadget_wrapper->cable_timer))
+		del_timer(&gadget_wrapper->cable_timer);
 	if (gadget_wrapper->driver && gadget_wrapper->driver->setup) {
 		retval = gadget_wrapper->driver->setup(&gadget_wrapper->gadget,
 				(struct usb_ctrlrequest
@@ -1171,7 +1167,20 @@ static int cable_is_usb(void)
 	value = d->pcd->ep0state;
 	return value != EP0_DISCONNECT;
 }
+static int usb_first_enable_flag = 0;
+void usb_first_enable_store_flag(void)
+{
+	usb_first_enable_flag = 1;
+}
 
+int get_usb_first_enable_store_flag(void)
+{
+	return usb_first_enable_flag;
+}
+
+
+EXPORT_SYMBOL(usb_first_enable_store_flag);
+EXPORT_SYMBOL(get_usb_first_enable_store_flag);
 static void usb_detect_works(struct work_struct *work)
 {
 	struct gadget_wrapper *d;
@@ -1188,8 +1197,10 @@ static void usb_detect_works(struct work_struct *work)
 	if (plug_in){
 		pr_info("usb detect plug in,vbus pull up\n");
 		hotplug_callback(VBUS_PLUG_IN, 0);
-		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
-		__udc_startup();
+		if(get_usb_first_enable_store_flag()){
+			mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
+			__udc_startup();
+		}
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
 		del_timer(&d->cable_timer);
