@@ -45,7 +45,13 @@
 #define ANA_RTC_INT_CLR                 (RTC_BASE + 0x38)
 #define ANA_RTC_INT_MSK                 (RTC_BASE + 0x3C)
 #define ANA_RTC_SPG_UPD			(RTC_BASE + 0x54)
-
+#if defined(CONFIG_ARCH_SC8830) || defined(CONFIG_ARCH_SC7710)
+#define ANA_RTC_AUX_SEC_ALM		(RTC_BASE + 0x60)
+#define ANA_RTC_AUX_MIN_ALM		(RTC_BASE + 0x64)
+#define ANA_RTC_AUX_HOUR_ALM		(RTC_BASE + 0x68)
+#define ANA_RTC_AUX_DAY_ALM		(RTC_BASE + 0x6C)
+#define RTC_AUXALM_BIT		BIT(6)
+#endif
 /* The corresponding bit of RTC_CTL register. */
 #define RTC_SEC_BIT                 BIT(0)        /* Sec int enable */
 #define RTC_MIN_BIT                 BIT(1)        /* Min int enable */
@@ -127,6 +133,22 @@ static inline unsigned get_day(void)
 	return sci_adi_read(ANA_RTC_DAY_CNT) & RTC_DAY_MASK;
 }
 
+#if defined(CONFIG_ARCH_SC8830) || defined(CONFIG_ARCH_SC7710)
+static unsigned long sprd_rtc_get_sec(void)
+{
+	unsigned sec, min, hour, day;
+	unsigned second = 0;
+
+	sec = get_sec();
+	min = get_min();
+	hour = get_hour();
+	day = get_day();
+
+	second = ((((day*24) + hour)*60 + min)*60 + sec);
+
+	return second;
+}
+#else
 static unsigned long sprd_rtc_get_sec(void)
 {
 	unsigned sec, min, hour, day;
@@ -148,6 +170,7 @@ static unsigned long sprd_rtc_get_sec(void)
 
 	return first;
 }
+#endif
 static int sprd_rtc_set_sec(unsigned long secs)
 {
 	unsigned sec, min, hour, day;
@@ -266,6 +289,7 @@ static int sprd_rtc_set_alarm_sec(unsigned long secs)
 
 	return 0;
 }
+
 static int sprd_rtc_read_alarm(struct device *dev,
 		struct rtc_wkalrm *alrm)
 {
@@ -280,6 +304,59 @@ static int sprd_rtc_read_alarm(struct device *dev,
 	return 0;
 }
 
+#if defined(CONFIG_ARCH_SC8830) || defined(CONFIG_ARCH_SC7710)
+static inline unsigned long sprd_rtc_get_aux_alarm_sec(void)
+{
+	unsigned sec, min, hour, day;
+
+	day = sci_adi_read(ANA_RTC_AUX_DAY_ALM) & RTC_DAY_MASK;
+	hour = sci_adi_read(ANA_RTC_AUX_HOUR_ALM) & RTC_HOUR_MASK;
+	min = sci_adi_read(ANA_RTC_AUX_MIN_ALM) & RTC_MIN_MASK;
+	sec = sci_adi_read(ANA_RTC_AUX_SEC_ALM) & RTC_SEC_MASK;
+
+	return ((((day*24) + hour)*60 + min)*60 + sec);
+}
+static int sprd_rtc_set_aux_alarm_sec(unsigned long secs)
+{
+	unsigned sec, min, hour, day;
+	unsigned long temp;
+
+	sec = secs % 60;
+	temp = (secs - sec)/60;
+	min = temp%60;
+	temp = (temp - min)/60;
+	hour = temp%24;
+	temp = (temp - hour)/24;
+	day = temp;
+
+	sci_adi_set(ANA_RTC_INT_CLR, RTC_AUXALM_BIT);
+
+	sci_adi_raw_write(ANA_RTC_AUX_SEC_ALM, sec);
+
+	sci_adi_raw_write(ANA_RTC_AUX_MIN_ALM, min);
+
+	sci_adi_raw_write(ANA_RTC_AUX_HOUR_ALM, hour);
+
+	sci_adi_raw_write(ANA_RTC_AUX_DAY_ALM, day);
+
+	return 0;
+}
+
+static int sprd_rtc_read_aux_alarm(struct device *dev,
+		struct rtc_wkalrm *alrm)
+{
+	unsigned long secs = sprd_rtc_get_aux_alarm_sec();
+
+	secs = secs + secs_start_year_to_1970;
+	rtc_time_to_tm(secs, &alrm->time);
+
+	alrm->enabled = !!(sci_adi_read(ANA_RTC_INT_EN) & RTC_AUXALM_BIT);
+	alrm->pending = !!(sci_adi_read(ANA_RTC_INT_RSTS) & RTC_AUXALM_BIT);
+
+	return 0;
+}
+#endif
+
 static int sprd_rtc_set_alarm(struct device *dev,
 		struct rtc_wkalrm *alrm)
 {
@@ -288,13 +365,14 @@ static int sprd_rtc_set_alarm(struct device *dev,
 	unsigned long read_secs;
 	int i = 0,n;
 
-	rtc_tm_to_time(&alrm->time, &secs);
-	if(secs < secs_start_year_to_1970)
-		return -1;
-
 	sci_adi_raw_write(ANA_RTC_INT_CLR, RTC_ALARM_BIT);
 
 	if(alrm->enabled){
+		rtc_tm_to_time(&alrm->time, &secs);
+		if(secs < secs_start_year_to_1970)
+			return -1;
+
+		/*Notice! need to deal with normal alarm and aux alarm*/
 		temp = sci_adi_read(ANA_RTC_INT_EN);
 		temp |= RTC_ALARM_BIT;
 		sci_adi_raw_write(ANA_RTC_INT_EN, temp);
@@ -312,7 +390,6 @@ static int sprd_rtc_set_alarm(struct device *dev,
 			msleep(1);
 			i++;
 		}while(read_secs != secs && i < SPRD_RTC_SET_MAX);
-		sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
 		wake_unlock(&rtc_wake_lock);
 	}else{
 		sci_adi_clr(ANA_RTC_INT_EN, RTC_ALARM_BIT);
@@ -322,6 +399,7 @@ static int sprd_rtc_set_alarm(struct device *dev,
 
 	return 0;
 }
+
 
 static int sprd_rtc_read_time(struct device *dev,
 		struct rtc_time *tm)
@@ -429,6 +507,9 @@ static int sprd_rtc_open(struct device *dev)
 	temp = sci_adi_read(ANA_RTC_INT_EN);
 	temp |= RTC_ALARM_BIT;
 	sci_adi_raw_write(ANA_RTC_INT_EN, temp);
+	/*unlock the rtc alrm int*/
+	sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
+
 	return 0;
 }
 
@@ -538,7 +619,7 @@ static int __init sprd_rtc_init(void)
 
 	if(CONFIG_RTC_START_YEAR > 1970)
 		secs_start_year_to_1970 = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0);
-	else 
+	else
 		secs_start_year_to_1970 = mktime(1970, 1, 1, 0, 0, 0);
 	wake_lock_init(&rtc_wake_lock, WAKE_LOCK_SUSPEND, "rtc");
 	return 0;
