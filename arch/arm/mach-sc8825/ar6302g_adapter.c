@@ -163,7 +163,7 @@ int __init wlan_init_ldo(void)
 		pr_err("ATH(adapter): Can't set regulator to valtage 1.8V\n");
 		return -1;
 	}
-
+	regulator_set_mode(regulator_wifi_bt, REGULATOR_MODE_STANDBY);
 	regulator_enable(regulator_wifi_bt);
 
 	regulator_wifi_bt = regulator_get(NULL, "vddcmmb1p8");
@@ -177,7 +177,7 @@ int __init wlan_init_ldo(void)
 		pr_err("ATH(adapter): Can't set regulator to valtage 1.8V\n");
 		return -1;
 	}
-
+	regulator_set_mode(regulator_wifi_bt, REGULATOR_MODE_STANDBY);
 	regulator_enable(regulator_wifi_bt);
 
 	gpio_request(GPIO_WIFI_RESET , "wifi_rst");
