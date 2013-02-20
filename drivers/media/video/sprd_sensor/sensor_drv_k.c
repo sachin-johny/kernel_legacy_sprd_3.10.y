@@ -809,7 +809,7 @@ LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 		sensor_i2c_driver.address_list = &sensor_sub_default_addr_list[0];
 	}
 	ret = i2c_add_driver(&sensor_i2c_driver);
-	if (ret) {
+	if ((0 != ret)&&(-EBUSY != ret)) {
 		SENSOR_PRINT_ERR("+I2C %d err %d.\n", sensor_id,ret);
 		return SENSOR_K_FAIL;
 	} else {
