@@ -379,11 +379,12 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 		break;
 
 	case DCAM_CLK_NONE:
+		printk("DCAM close CLK %d \n", (int)clk_get_rate(s_dcam_clk));
 		if (s_dcam_clk) {
 			clk_disable(s_dcam_clk);
 			clk_put(s_dcam_clk);
+			s_dcam_clk = NULL;
 		}
-		printk("DCAM close CLK %d \n", (int)clk_get_rate(s_dcam_clk));
 		return 0;
 	default:
 		parent = "clk_128m";
@@ -1489,14 +1490,17 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 	void                    *data;
 	int32_t                 i;
 
+	spin_lock_irqsave(&dcam_lock,flag);
 	status = REG_RD(DCAM_INT_STS);
+	REG_WR(DCAM_INT_CLR, status);
 	if (unlikely(0 == status)) {
+		spin_unlock_irqrestore(&dcam_lock, flag);
 		return IRQ_NONE;
 	}
 	irq_line = status;
 	if (unlikely(DCAM_IRQ_ERR_MASK & status)) {
 		err_flag = 1;
-		printk("DCAM DRV: error happened, 0x%x, %d \n", status, s_dcam_mod.dcam_path2.valide);
+		printk("DCAM DRV: error, 0x%x, %d \n", status, s_dcam_mod.dcam_path2.valide);
 		_dcam_stopped();
 		if (s_dcam_mod.dcam_path2.valide) {
 			/* both dcam paths have been working, it's safe to reset the whole dcam module*/
@@ -1510,8 +1514,6 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 		status &= ~((1 << PATH2_DONE) | (1 << PATH2_OV));
 		irq_line = status;
 	}
-
-	spin_lock_irqsave(&dcam_lock,flag);
 
 	if (err_flag && s_dcam_mod.user_func[DCAM_TX_ERR]) {
 		data = s_dcam_mod.user_data[DCAM_TX_ERR];
@@ -1529,9 +1531,6 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 				break;
 		}
 	}
-
-	REG_WR(DCAM_INT_CLR, status);
-
 	spin_unlock_irqrestore(&dcam_lock, flag);
 
 	return IRQ_HANDLED;
@@ -1898,7 +1897,7 @@ static void    _path1_done(void)
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH1, false);
 	if (rtn) {
-		DCAM_TRACE("DCAM DRV: wait for frame unlocked \n");
+		printk("DCAM: wait\n");
 		return;
 	}
 	_dcam_auto_copy();
