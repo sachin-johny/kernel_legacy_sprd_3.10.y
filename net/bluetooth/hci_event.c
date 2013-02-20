@@ -1498,7 +1498,7 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 
 		conn = hci_conn_hash_lookup_ba(hdev, ev->link_type, &ev->bdaddr);
 		if (!conn) {
-			#ifdef BK_SINGLE_LINK
+			#ifdef CONFIG_BT_SINGLE_LINK
                         struct hci_conn_hash *h = &hdev->conn_hash;
 			if ((ev->link_type == ACL_LINK) && (h->acl_num >= 1)) {
 				struct hci_cp_reject_conn_req cp;
