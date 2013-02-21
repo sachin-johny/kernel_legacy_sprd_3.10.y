@@ -480,7 +480,7 @@ static void emmc_get_spl_data(struct sdhci_host* host)
 					host_data->ddr50_write_delay = emmc_data->para2;
 					host_data->ddr50_read_pos_delay = emmc_data->para3;
 					host_data->ddr50_read_neg_delay = emmc_data->para4;
-					sdr50_flag = 1;
+					ddr50_flag = 1;
 					pr_debug("emmc get DDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
 							emmc_data->para1, emmc_data->para2,
 							emmc_data->para3,emmc_data->para4);
@@ -495,18 +495,12 @@ static void emmc_get_spl_data(struct sdhci_host* host)
 		host_data->sdr50_data_pin = 1;
 		host_data->sdr50_write_delay = 0x20;
 		host_data->sdr50_read_pos_delay = 0x08;
-		pr_debug("emmc used default SDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
-							emmc_data->para1, emmc_data->para2,
-							emmc_data->para3,emmc_data->para4);
 	}
 	if (ddr50_flag == 0) {
 		host_data->ddr50_clk_pin = 0;
 		host_data->ddr50_write_delay = 0x18;
 		host_data->ddr50_read_pos_delay = 0x07;
 		host_data->ddr50_read_neg_delay = 0x05;
-		pr_debug("emmc used default  DDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
-							emmc_data->para1, emmc_data->para2,
-							emmc_data->para3,emmc_data->para4);
 	}
 }
 
