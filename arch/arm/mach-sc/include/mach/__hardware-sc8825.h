@@ -277,8 +277,7 @@
 
 #define HOLDING_PEN_VADDR	(SPRD_AHB_BASE + 0x240)
 #define CPU0_JUMP_VADDR		(HOLDING_PEN_VADDR + 0x4)
-#define CPU1_JUMP_VADDR		(HOLDING_PEN_VADDR + 0X8)
-#define WRITE_CPU1_JUM_VDST(X)	do {*(volatile unsigned int*)(CPU1_JUMP_VADDR) = (X);} while(0)
+#define CPU_JUMP_VADDR		(HOLDING_PEN_VADDR + 0X8)
 
 /* registers for watchdog ,RTC, touch panel, aux adc, analog die... */
 #define SPRD_MISC_BASE	((unsigned int)SPRD_ADI_BASE)
