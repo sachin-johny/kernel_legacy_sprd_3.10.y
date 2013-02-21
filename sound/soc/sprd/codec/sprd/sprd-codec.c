@@ -1580,6 +1580,7 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[id]);
 	int ret = 0;
 	int min = sprd_codec_pga_cfg[id].min;
+	static int s_need_wait = 1;
 
 	sprd_codec_dbg("Entering %s set %s(%d) event is %s\n", __func__,
 		       sprd_codec_pga_debug_str[id], pga->pgaval,
@@ -1587,10 +1588,26 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		if ((id == SPRD_CODEC_PGA_ADCL) || (id == SPRD_CODEC_PGA_ADCR)) {
+			if (s_need_wait == 1) {
+				/* NOTES: reduce linein pop noise must delay 250ms
+				   after linein mixer switch on.
+				   actually this function perform after
+				   adc_switch_event function for
+				   both ADCL/ADCR switch complete.
+				 */
+				sprd_codec_wait(250);
+				s_need_wait++;
+				sprd_codec_dbg("ADC Switch ON delay\n");
+			}
+		}
 		pga->set = sprd_codec_pga_cfg[id].set;
 		ret = pga->set(codec, pga->pgaval);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		if ((id == SPRD_CODEC_PGA_ADCL) || (id == SPRD_CODEC_PGA_ADCR)) {
+			s_need_wait = 1;
+		}
 		pga->set = 0;
 		ret = sprd_codec_pga_cfg[id].set(codec, min);
 		break;
