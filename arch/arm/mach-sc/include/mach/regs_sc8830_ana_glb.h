@@ -105,6 +105,7 @@
 #define ANA_REG_GLB_DCDC_WRF_ADI        SCI_ADDR(ANA_REGS_GLB_BASE, 0x0170)
 #define ANA_REG_GLB_DCDC_WPA_ADI        SCI_ADDR(ANA_REGS_GLB_BASE, 0x0174)
 #define ANA_REG_GLB_DCDC_WPA_DCM_ADI    SCI_ADDR(ANA_REGS_GLB_BASE, 0x017C)
+#define ANA_REG_GLB_LDO_CAL_SEL         SCI_ADDR(ANA_REGS_GLB_BASE, 0x0044)
 
 /* bits definitions for register ANA_REG_GLB_ARM_MODULE_EN */
 #define BIT_ANA_THM_EN                  ( BIT(12) )
@@ -799,6 +800,31 @@
 
 /* bits definitions for register ANA_REG_GLB_DCDC_WPA_DCM_ADI */
 #define BIT_DCDC_WPA_DCM_ADI            ( BIT(0) )
+
+/* bits definitions for register ANA_REG_GLB_LDO_CAL_SEL */
+#define BIT_LDO_CAMIO_CAL_EN            ( BIT(5) )
+#define BIT_LDO_CLSG_CAL_EN             ( BIT(6) )
+#define BITS_LDO_CAMD_CAL_EN(_x_)       ( (_x_) & (BIT(5)|BIT(6)) )
+#define BIT_LDO_EMMCIO_CAL_EN           ( BIT(7) )
+#define BITS_LDO_AVDD18_CAL_EN(_x_)     ( (_x_) & (BIT(5)|BIT(7)) )
+#define BITS_LDO_VDD18_CAL_EN(_x_)      ( (_x_) & (BIT(6)|BIT(7)) )
+#define BIT_LDO_SIM0_CAL_EN             ( BIT(9) )
+#define BIT_LDO_SIM1_CAL_EN             ( BIT(9) )
+#define BITS_LDO_SIM2_CAL_EN(_x_)       ( (_x_) & (BIT(8)|BIT(9)) )
+#define BIT_LDO_EMMCCORE_CAL_EN         ( BIT(10) )
+#define BITS_LDO_VDD28_CAL_EN(_x_)      ( (_x_) & (BIT(8)|BIT(10)) )
+#define BITS_LDO_VDD25_CAL_EN(_x_)      ( (_x_) & (BIT(9)|BIT(10)) )
+#define BITS_LDO_USB_CAL_EN(_x_)        ( (_x_) & (BIT(8)|BIT(9)|BIT(10)) )
+#define BIT_LDO_SD_CAL_EN               ( BIT(11) )
+#define BIT_LDO_CAMA_CAL_EN             ( BIT(12) )
+#define BITS_LDO_RF2_CAL_EN(_x_)        ( (_x_) & (BIT(11)|BIT(12)) )
+#define BIT_LDO_RF1_CAL_EN              ( BIT(13) )
+#define BITS_LDO_RF0_CAL_EN(_x_)        ( (_x_) & (BIT(11)|BIT(13)) )
+#define BITS_LDO_CAMMOT_CAL_EN(_x_)     ( (_x_) & (BIT(12)|BIT(13)) )
+#define BITS_LDO_CAL_SEL(_x_)           ( (_x_) << 5 & (BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)) )
+
+#define SHFT_LDO_CAL_SEL                ( 5 )
+#define MASK_LDO_CAL_SEL                ( BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13) )
 
 /* vars definitions for controller ANA_REGS_GLB */
 
