@@ -355,6 +355,13 @@ config BACKLIGHT_KTD253B
 	  If you have a backlight driven by a KTD253B, say Y here to
 	  enable its driver.
 
+config BACKLIGHT_KTD253B_GARDA
+        tristate "Backlight driver for KTD253B_GARDA"
+        depends on BACKLIGHT_CLASS_DEVICE
+        help
+          If you have a backlight driven by a GARDA, say Y here to
+          enable its driver.
+
 config BACKLIGHT_CAT4253
 	tristate "Backlight driver for CAT4253"
 	depends on BACKLIGHT_CLASS_DEVICE
