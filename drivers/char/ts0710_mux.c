@@ -2855,6 +2855,8 @@ static int mux_set_thread_pro(int pro)
 	/* just for this write, set us real-time */
 	if (!task_has_rt_policy(current)) {
 		struct cred *new = prepare_creds();
+		if(!new)
+			return -ENOMEM;
 		cap_raise(new->cap_effective, CAP_SYS_NICE);
 		commit_creds(new);
 		s.sched_priority = MAX_RT_PRIO - pro;
