@@ -228,9 +228,10 @@ static int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 				mmc_hostname(card->host));
 			err = 0;
 		}
-	} else
+	} else{
+		ext_csd[EXT_CSD_CARD_TYPE] &= 0xCF;
 		*new_ext_csd = ext_csd;
-
+	}
 	return err;
 }
 
