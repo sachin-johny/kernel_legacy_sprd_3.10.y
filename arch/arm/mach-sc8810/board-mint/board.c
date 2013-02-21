@@ -227,7 +227,7 @@ static struct regulator *tsp_regulator_3_3=NULL;
 static struct regulator *tsp_regulator_1_8=NULL;
 
 
-static int s2200_ts_power(int on_off)
+int s2200_ts_power(int on_off)
 {
 	int retval,ret;
 
@@ -316,6 +316,7 @@ static int s2200_ts_power(int on_off)
 
 	return 0;
 }
+EXPORT_SYMBOL(s2200_ts_power);
 
 static int synaptics_touchpad_gpio_setup(void *gpio_data, bool configure)
 {
@@ -349,6 +350,35 @@ static int synaptics_touchpad_gpio_setup(void *gpio_data, bool configure)
 }
 #endif
 
+#if defined(CONFIG_TOUCHSCREEN_IST30XX)
+#define TSP_SDA 59
+#define TSP_SCL 18
+
+static struct i2c_gpio_platform_data touch_i2c_gpio_data = {
+        .sda_pin    = TSP_SDA,
+        .scl_pin    = TSP_SCL,
+        .udelay  = 3,  //// brian :3
+        .timeout = 100,
+};
+
+static struct platform_device touch_i2c_gpio_device = {
+        .name       = "i2c-gpio",
+        .id     = 4,
+        .dev        = {
+            .platform_data  = &touch_i2c_gpio_data,
+        },
+};
+
+static struct platform_device *gpio_i2c_devices[] __initdata = {
+	&touch_i2c_gpio_device,
+};
+
+static struct i2c_board_info __initdata imagis_i2c_devices[] = {
+	{
+         I2C_BOARD_INFO("sec_touch", 0x50),
+	},
+};
+#endif
 
 #if defined(CONFIG_RMI4_I2C)
 
@@ -530,6 +560,10 @@ static int sc8810_add_i2c_devices(void)
 				ARRAY_SIZE(synaptics_i2c_devices)); //PSJ
 #endif
 
+#if defined(CONFIG_TOUCHSCREEN_IST30XX)
+	i2c_register_board_info(0x4, imagis_i2c_devices,
+				ARRAY_SIZE(imagis_i2c_devices)); 
+#endif
 	return 0;
 }
 
