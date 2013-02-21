@@ -127,6 +127,60 @@ struct dcdc_cal_map dcdc_cal_map[] = {
 	{"vddsd3", 0, 1800, BITS_LDO_SD3_CAL_EN(-1), ADC_CHANNEL_LDO2},
 };
 
+int ldo_adc_get(const char *name)
+{
+	int i, adc_vol;
+	for (i = 0; i < ARRAY_SIZE(dcdc_cal_map); i++) {
+		if (0 == strcmp(name, dcdc_cal_map[i].name))
+			break;
+	}
+
+	if (i >= ARRAY_SIZE(dcdc_cal_map))
+		return -EINVAL;	/* not found */
+
+	if (bat_denominators == 0)
+		return -EACCES;
+
+	/* enable ldo cal before adc sampling and ldo calibration */
+	if (0 != dcdc_cal_map[i].cal_sel) {
+		sci_adi_write(ANA_REG_GLB2_LDO_TRIM_SEL,
+			      dcdc_cal_map[i].cal_sel, -1);
+	}
+
+	adc_vol = dcdc_adc_get(dcdc_cal_map[i].adc_chan);
+
+	/* close ldo cal */
+	if (0 != dcdc_cal_map[i].cal_sel) {
+		sci_adi_write(ANA_REG_GLB2_LDO_TRIM_SEL, 0, -1);
+	}
+
+	return adc_vol;
+}
+
+/* FIXME: sometime, adc vol is untrusted, not match the real voltage */
+static int __check_adc_validity_one(const char *name, int ctl_vol)
+{
+	int ret = 0;
+	int cal_vol, adc_vol = ldo_adc_get(name);
+	cal_vol = abs(adc_vol - ctl_vol);
+	info("check %s default %dmv, from %dmv, %c%d.%02d%%\n",
+	     name, adc_vol, ctl_vol,
+	     (adc_vol > ctl_vol) ? '+' : '-',
+	     cal_vol * 100 / ctl_vol, cal_vol * 100 * 100 / ctl_vol % 100);
+	ret = cal_vol < ctl_vol / 50;	/* margin 2% */
+	return ret;
+}
+
+static int __check_adc_validity(void)
+{
+	int ret = 0;
+	ret |= __check_adc_validity_one("vdd18", 1800);
+	ret |= __check_adc_validity_one("vdd28", 2800);
+	ret |= __check_adc_validity_one("vdd_a", 1800);
+	ret |= __check_adc_validity_one("vddarm", 1200);
+	return ret;
+}
+
 static int dcdc_calibrate(struct regulator *dcdc, int adc_chan,
 			  const char *id, int def_vol, int to_vol, int is_cal)
 {
@@ -136,13 +190,16 @@ static int dcdc_calibrate(struct regulator *dcdc, int adc_chan,
 	if (0 != regulator_is_enabled(dcdc))
 		adc_vol = dcdc_adc_get(adc_chan);
 
-	info("%s default %dmv, from %dmv to %dmv\n", __FUNCTION__,
-	     def_vol, adc_vol, to_vol);
+	cal_vol = abs(adc_vol - to_vol);
+
+	info("%s default %dmv, from %dmv to %dmv, %c%d.%02d%%\n", __FUNCTION__,
+	     def_vol, adc_vol, to_vol,
+	     (adc_vol > to_vol) ? '+' : '-',
+	     cal_vol * 100 / to_vol, cal_vol * 100 * 100 / to_vol % 100);
 
 	if (!def_vol || !to_vol || !adc_vol)
 		goto exit;
 
-	cal_vol = abs(adc_vol - to_vol);
 	if (cal_vol > to_vol / 10)	/* adjust limit 10% */
 		goto exit;
 	else if (cal_vol < to_vol / 100 && !is_cal) {	/* margin 1% */
@@ -180,6 +237,8 @@ int sci_dcdc_calibrate(const char *name, int def_vol, int to_vol)
 		     sprd_get_adc_cal_type(), bat_numerators, bat_denominators,
 		     chan_numerators, chan_denominators,
 		     is_ddr2 ? "ddr2" : "ddr");
+
+		__check_adc_validity();
 	}
 
 	if (!is_ddr2 && 0 == strcmp(name, "vddmem"))

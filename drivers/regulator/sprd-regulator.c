@@ -279,7 +279,7 @@ static int ldo_init_trimming(struct regulator_dev *rdev)
 	int shft = __ffs(regs->vol_trm_bits);
 	u32 trim;
 
-	if (!regs->vol_trm || !rdev)
+	if (!regs->vol_trm)
 		goto exit;
 
 	trim = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits) >> shft;
@@ -343,7 +343,7 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 	to_vol /= 1000;
 
 	cal_vol = ctl_vol - to_vol * 90 / 100;	/* cal range 90% ~ 110% */
-	if (!regs->vol_trm || !rdev
+	if (!regs->vol_trm
 	    || cal_vol < 0 || cal_vol >= to_vol * 20 / 100)
 		goto exit;
 
