@@ -171,6 +171,24 @@ struct sprd_codec_mixer {
 	sprd_codec_mixer_set set;
 };
 
+uint32_t sprd_get_vbat_voltage(void);
+
+struct sprd_codec_ldo_v_map {
+	int volt;
+	int ldo_v_level;
+};
+
+const static struct sprd_codec_ldo_v_map ldo_v_map[] = {
+	{3500, LDO_V_29},
+	{3600, LDO_V_30},
+	{3700, LDO_V_31},
+	{3800, LDO_V_32},
+	{3900, LDO_V_33},
+	{4000, LDO_V_34},
+	{4100, LDO_V_35},
+	{4300, LDO_V_36},
+};
+
 struct sprd_codec_inter_pa {
 	/* FIXME little endian */
 	int LDO_V_sel:4;
@@ -297,6 +315,30 @@ static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 	}
 }
 #endif
+
+static int sprd_codec_auto_ldo_volt(void (*set_level)(int))
+{
+	int i;
+	int volt = sprd_get_vbat_voltage();
+	sprd_codec_dbg("Entering %s get %d\n", __func__, volt);
+	for (i = 0; i < ARRAY_SIZE(ldo_v_map); i++) {
+		if (volt <= ldo_v_map[i].volt) {
+			set_level(ldo_v_map[i].ldo_v_level);
+			return 0;
+		}
+	}
+	return -EFAULT;
+}
+
+static inline void sprd_codec_vcm_v_sel(int v_sel)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, v_sel);
+	mask = VCM_V_MASK << VCM_V;
+	val = (v_sel << VCM_V) & mask;
+	arch_audio_codec_write_mask(PMUR3, val, mask);
+}
 
 static int sprd_codec_pga_spk_set(struct snd_soc_codec *codec, int pgaval)
 {
@@ -789,7 +831,9 @@ int sprd_inter_speaker_pa(int on)
 		if (inter_pa.setting.is_LDO_mode
 		    && !inter_pa.setting.is_auto_LDO_mode) {
 			sprd_codec_pa_ldo_v_sel(inter_pa.setting.LDO_V_sel);
-		}		/* FIXME auto adjust voltage */
+		} else {
+			sprd_codec_auto_ldo_volt(sprd_codec_pa_ldo_v_sel);
+		}
 		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
 		sprd_codec_pa_en(1);
 		inter_pa.set = 1;
@@ -924,6 +968,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_reg_enable();
 		arch_audio_codec_enable();
 		arch_audio_codec_reset();
+		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel);
 
 		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
 			sprd_codec_power.supplies[i].supply =
