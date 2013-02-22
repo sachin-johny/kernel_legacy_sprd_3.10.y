@@ -102,6 +102,7 @@ static int32_t panel_set_resetpin_dispc( uint32_t status)
 	}else{
 		dispc_write(1, DISPC_RSTN);
 	}
+	return 0;
 }
 
 static int32_t panel_set_resetpin_lcdc(uint32_t status)
@@ -111,6 +112,7 @@ static int32_t panel_set_resetpin_lcdc(uint32_t status)
 	}else{
 		lcdc_write(1, LCM_RSTN);
 	}
+	return 0;
 }
 
 static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
