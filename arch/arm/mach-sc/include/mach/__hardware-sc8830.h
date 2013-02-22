@@ -442,14 +442,12 @@
 #define SPRD_IRAM1_PHYS			0X50000000
 #define SPRD_IRAM1_SIZE			(SZ_32K + SZ_16K + SZ_4K)
 
-
 #define CORE_GIC_CPU_VA			(SPRD_CORE_BASE + 0x2000)
 #define CORE_GIC_DIS_VA			(SPRD_CORE_BASE + 0x1000)
 
-#define HOLDING_PEN_VADDR		(SPRD_IRAM0_BASE + 0x0)
-//#define CPU0_JUMP_VADDR			(HOLDING_PEN_VADDR + 0x4)
-#define CPU1_JUMP_VADDR			(HOLDING_PEN_VADDR + 0X8)
-#define WRITE_CPU1_JUM_VDST(X)	do {*(volatile unsigned int*)(CPU1_JUMP_VADDR) = (X);} while(0)
+#define HOLDING_PEN_VADDR		(SPRD_AHB_BASE + 0x4c)
+#define CPU_JUMP_VADDR			(HOLDING_PEN_VADDR + 0X4)
+
 
 /* registers for watchdog ,RTC, touch panel, aux adc, analog die... */
 #define SPRD_MISC_BASE	((unsigned int)SPRD_ADI_BASE)
@@ -496,5 +494,6 @@
 #define REGS_AP_CLK_BASE	SPRD_APBCKG_BASE
 #define REGS_GPU_CLK_BASE	SPRD_GPUCKG_BASE
 #define REGS_MM_CLK_BASE	SPRD_MMCKG_BASE
+
 
 #endif

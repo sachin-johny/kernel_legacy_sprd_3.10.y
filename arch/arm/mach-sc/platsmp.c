@@ -33,6 +33,30 @@
 
 extern void sci_secondary_startup(void);
 
+#if (defined CONFIG_ARCH_SC8825)
+static int __cpuinit boot_secondary_cpus(int cpu_id, u32 paddr)
+{
+	if (cpu_id != 1)
+		return -1;
+	writel(paddr,CPU_JUMP_VADDR);
+	writel(1 << (cpu_id * 4),HOLDING_PEN_VADDR);
+	return 0;
+}
+
+#elif (defined CONFIG_ARCH_SC8830)
+
+static int __cpuinit boot_secondary_cpus(int cpu_id, u32 paddr)
+{
+	int _cpu_id = readl(HOLDING_PEN_VADDR);
+	if (cpu_id < 1 || cpu_id > 3)
+		return -1;
+	writel(paddr,(CPU_JUMP_VADDR + (cpu_id << 2)));
+	writel(_cpu_id | (1 << cpu_id),HOLDING_PEN_VADDR);
+	return 0;
+}
+
+#endif
+
 /*
  * control for which core is the next to come out of the secondary
  * boot "holding pen"
@@ -54,14 +78,6 @@ static void __cpuinit write_pen_release(int val)
 
 static DEFINE_SPINLOCK(boot_lock);
 
-#define HOLDING_PEN_VALUE_DEFAULT	(0xaa55abcd)
-#define HOLDING_PEN_VALUE_FROM_SLEEP	(0x1234abcd)
-
-static void write_reg_pen(unsigned int val)
-{
-	*(volatile int*)(HOLDING_PEN_VADDR) = val;
-}
-
 void __cpuinit platform_secondary_init(unsigned int cpu)
 {
 	/*
@@ -76,7 +92,6 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 	 * pen, then head off into the C entry point
 	 */
 
-	write_reg_pen(HOLDING_PEN_VALUE_DEFAULT);
 	write_pen_release(-1);
 
 	/*
@@ -89,6 +104,7 @@ void __cpuinit platform_secondary_init(unsigned int cpu)
 int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
+	int ret;
 
 	/*
 	 * Set synchronisation state between this boot processor
@@ -102,15 +118,13 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * that it has been released by resetting pen_release.
 	 *
 	 */
-	write_reg_pen(cpu);
+	ret = boot_secondary_cpus(cpu, virt_to_phys(sci_secondary_startup));
+	if (ret < 0)
+		pr_warn("SMP: boot_secondary(%u) error\n", cpu);
+
 	write_pen_release(cpu_logical_map(cpu));
 
-	/*
-	 * Send the secondary CPU a soft interrupt, thereby causing
-	 * the boot monitor to read the system wide flags register,
-	 * and branch to the address found there.
-	 */	 
-	gic_raise_softirq(cpumask_of(cpu), 1);
+	dsb_sev();
 	timeout = jiffies + (1 * HZ);
 
 	while (time_before(jiffies, timeout)) {
@@ -130,22 +144,24 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	return pen_release != -1 ? -ENOSYS : 0;
 }
 
-static void __iomem *scu_base_addr(void)
+#ifdef CONFIG_HAVE_ARM_SCU
+static unsigned int __get_core_num(void)
 {
-	return (void __iomem *)(SPRD_CORE_BASE);
+	void __iomem *scu_base = (void __iomem *)(SPRD_CORE_BASE);
+	return (scu_base ? scu_get_core_count(scu_base) : 1);
 }
+#else
+static unsigned int __get_core_num(void)
+{
+	return 4;
+}
+#endif
 
 static unsigned int sci_get_core_num(void)
 {
-	unsigned int ncores;
-#ifdef CONFIG_HAVE_ARM_SCU
-	void __iomem *scu_base = scu_base_addr();
-	ncores = scu_base ? scu_get_core_count(scu_base) : 1;
-#else
-	ncores = 4;
-#endif
-	return ncores;
+	return __get_core_num();
 }
+
 /*
  * Initialise the CPU possible map early - this describes the CPUs
  * which may be present or become present in the system.
@@ -172,17 +188,7 @@ void __init smp_init_cpus(void)
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
 #ifdef CONFIG_HAVE_ARM_SCU
-	scu_enable(scu_base_addr());
+	scu_enable((void __iomem *)(SPRD_CORE_BASE));
 #endif
-	/*
-	 * Write the address of secondary startup into the
-	 * system-wide flags register. The boot monitor waits
-	 * until it receives a soft interrupt, and then the
-	 * secondary CPU branches to this address.
-	 */
-	__raw_writel(virt_to_phys(sci_secondary_startup),
-			CPU1_JUMP_VADDR);
-	__raw_writel(0x5a5abcde,HOLDING_PEN_VADDR);
-
 }
 
