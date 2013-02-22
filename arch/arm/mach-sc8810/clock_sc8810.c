@@ -74,6 +74,16 @@
 #define	PCTRL		GR_PCTL
 #define	CLK_EN		GR_CLK_EN
 
+#ifdef CONFIG_ARCH_SC7710
+/* bits definitions for register REG_AHB_CTL6 */
+#define BITS_CLK_DISPCPLL_SEL(_x_)              ( (_x_) << 30 & (BIT(30)|BIT(31)) )
+#define BITS_CLK_DISPC_DIV(_x_)              ( (_x_) << 27 & (BIT(27)|BIT(28)|BIT(29)) )
+#define BITS_CLK_DISPC_DBIPLL_SEL(_x_)              ( (_x_) << 25 & (BIT(25)|BIT(26)) )
+#define BITS_CLK_DISPC_DBI_DIV(_x_)              ( (_x_) << 22 & (BIT(22)|BIT(23)|BIT(24)) )
+#define BITS_CLK_DISPC_DPIPLL_SEL(_x_)              ( (_x_) << 20 & (BIT(20)|BIT(21)) )
+#define BITS_CLK_DISPC_DPI_DIV(_x_)              ( (_x_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)|BIT(16)|BIT(17)|BIT(18)|BIT(19)) )
+#define BIT_DISPC_EB                    ( BIT(0) )
+#endif
 
 struct sc88xx_clk {
 	u32 cpu;
@@ -921,6 +931,108 @@ static struct clk clk_sdio1 = {
 };
 
 #ifdef CONFIG_ARCH_SC7710
+static const struct clksel clk_dispc_clksel[] = {
+		{.parent = &l3_256m,		.val = 0,	.rates = rates_clk_26m_8div},
+		{.parent = &l3_192m,		.val = 1,	.rates = rates_clk_26m_8div},
+		{.parent = &clk_96m,		.val = 2,	.rates = rates_clk_26m_8div},
+		{.parent = &l3_153m600k,	.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_dispc = {
+	.name = "clk_dispc",
+	.flags = 0,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &l3_256m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_dispc_clksel,
+	.clksel_reg = __io(AHB_CTL6),
+	.clksel_mask = BITS_CLK_DISPCPLL_SEL(-1),
+
+	.enable_reg = __io(AHB_CTL6),
+	.enable_bit = BIT_DISPC_EB,
+
+	.clkdiv_reg = __io(AHB_CTL6),
+	.clkdiv_mask = BITS_CLK_DISPC_DIV(-1),
+};
+
+static const struct clksel clk_dispc_dbi_clksel[] = {
+		{.parent = &l3_256m,		.val = 0,	.rates = rates_clk_26m_8div},
+		{.parent = &clk_128m,		.val = 1,	.rates = rates_clk_26m_8div},
+		{.parent = &l3_192m,		.val = 2,	.rates = rates_clk_26m_8div},
+		{.parent = &l3_153m600k,	.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_dispc_dbi = {
+	.name = "clk_dispc_dbi",
+	.flags = 0,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &l3_256m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_dispc_dbi_clksel,
+	.clksel_reg = __io(AHB_CTL6),
+	.clksel_mask = BITS_CLK_DISPC_DBIPLL_SEL(-1),
+
+	.enable_reg = __io(AHB_CTL6),
+	.enable_bit = BIT_DISPC_EB,
+
+	.clkdiv_reg = __io(AHB_CTL6),
+	.clkdiv_mask = BITS_CLK_DISPC_DBI_DIV(-1),
+};
+
+static const struct clksel clk_dispc_dpi_clksel[] = {
+		{.parent = &l3_384m,		.val = 0,	.rates = rates_clk_26m_8div},
+		{.parent = &clk_128m,		.val = 1,	.rates = rates_clk_26m_8div},
+		{.parent = &l3_192m,		.val = 2,	.rates = rates_clk_26m_8div},
+		{.parent = &l3_153m600k,	.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = NULL}
+};
+
+static struct clk clk_dispc_dpi = {
+	.name = "clk_dispc_dpi",
+	.flags = 0,
+	.ops = &sc88xx_clk_ops_generic,
+	.parent = &l3_384m,
+	.clkdm_name = "peripheral",
+
+	.recalc = &sc88xx_recalc_generic,
+
+	.set_rate = &sc88xx_set_rate_generic,
+
+	.init = &sc88xx_init_clksel_parent,
+
+	.round_rate = &sc88xx_clksel_round_rate,
+
+	.clksel = clk_dispc_dpi_clksel,
+	.clksel_reg = __io(AHB_CTL6),
+	.clksel_mask = BITS_CLK_DISPC_DPIPLL_SEL(-1),
+
+	.enable_reg = __io(AHB_CTL6),
+	.enable_bit = BIT_DISPC_EB,
+
+	.clkdiv_reg = __io(AHB_CTL6),
+	.clkdiv_mask = BITS_CLK_DISPC_DPI_DIV(-1),
+};
+
 static const struct clksel clk_sdio2_clksel[] = {
 		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_nodiv},
 		{.parent = &l3_192m,		.val = 1,	.rates = rates_clk_192m_nodiv},
@@ -1704,6 +1816,9 @@ static struct sc88xx_clk sc8800g2_clks[] = {
 	CLK(NULL, "clk_sdio0", &clk_sdio0, CK_SC8800G2),
 	CLK(NULL, "clk_sdio1", &clk_sdio1, CK_SC8800G2),
 #ifdef CONFIG_ARCH_SC7710
+	CLK(NULL, "clk_dispc", &clk_dispc, CK_SC8800G2),
+	CLK(NULL, "clk_dispc_dbi", &clk_dispc_dbi, CK_SC8800G2),
+	CLK(NULL, "clk_dispc_dpi", &clk_dispc_dpi, CK_SC8800G2),
 	CLK(NULL, "clk_sdio2", &clk_sdio2, CK_SC8800G2),
 	CLK(NULL, "clk_emmc0", &clk_emmc0, CK_SC8800G2),
 #endif
