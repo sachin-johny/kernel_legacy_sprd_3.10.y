@@ -97,7 +97,7 @@ typedef enum {
 } SENSOR_ID_E;
 
 
-static struct mutex *sensor_lock;
+static struct mutex sensor_lock;
 static wait_queue_head_t wait_queue_sensor;
 struct semaphore g_sem_sensor;
 
@@ -1220,7 +1220,7 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 {
 	int ret = 0;
 
-	mutex_lock(sensor_lock);
+	mutex_lock(&sensor_lock);
 
 	switch (cmd) {
 	case SENSOR_IO_PD:
@@ -1394,7 +1394,7 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 	}
 
 
-	mutex_unlock(sensor_lock);
+	mutex_unlock(&sensor_lock);
 
 	return (long)ret;
 }
@@ -1415,10 +1415,10 @@ static struct miscdevice sensor_dev = {
 	.fops = &sensor_fops,
 };
 
+static struct i2c_driver sensor_i2c_driver;
 int sensor_k_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct i2c_driver sensor_i2c_driver;
 
 	printk(KERN_ALERT "sensor_k_probe called\n");
 
@@ -1428,10 +1428,6 @@ int sensor_k_probe(struct platform_device *pdev)
 		       SENSOR_MINOR, ret);
 		return ret;
 	}
-	sensor_lock = (struct mutex *)kmalloc(sizeof(struct mutex), GFP_KERNEL);
-	if (sensor_lock == NULL)
-		return SENSOR_K_FAIL;
-	mutex_init(sensor_lock);
 	init_waitqueue_head(&wait_queue_sensor);
 	memset(&sensor_i2c_driver, 0, sizeof(struct i2c_driver));
 	sensor_i2c_driver.driver.owner = THIS_MODULE;
@@ -1478,6 +1474,7 @@ int __init sensor_k_init(void)
 		return SENSOR_K_FAIL;
 	}
 	init_MUTEX(&g_sem_sensor);
+	mutex_init(&sensor_lock);
 	return 0;
 }
 
@@ -1485,9 +1482,6 @@ void sensor_k_exit(void)
 {
 	printk(KERN_INFO "sensor_k_exit called !\n");
 	platform_driver_unregister(&sensor_dev_driver);
-	mutex_destroy(sensor_lock);
-	kfree(sensor_lock);
-	sensor_lock = NULL;
 }
 
 module_init(sensor_k_init);
