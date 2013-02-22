@@ -548,7 +548,7 @@ void l2x0_suspend(void)
 	writel_relaxed(0, l2x0_base + L2X0_CTRL);
 
 	/* Memory barrier */
-	dmb();
+	dsb();
 }
 
 void l2x0_resume(int collapsed)
@@ -570,11 +570,10 @@ void l2x0_resume(int collapsed)
 
 		/* Restore aux control register value */
 		writel_relaxed(aux_ctrl_save, l2x0_base + L2X0_AUX_CTRL);
-
-		/* Invalidate the cache */
-		l2x0_inv_all();
 	}
 
+	/* Invalidate the cache */
+	l2x0_inv_all();
 	/* Enable the cache */
 	writel_relaxed(1, l2x0_base + L2X0_CTRL);
 
