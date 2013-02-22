@@ -856,7 +856,7 @@ static int sdhci_runtime_suspend(struct device *dev){
 			rc = -EAGAIN;
 		else{
 			//host->suspending = 1;
-			if((mmc->card != NULL) && (mmc_card_sd(mmc->card)||mmc_card_sdio(mmc->card)) ){
+			if((mmc->card != NULL) && (mmc_card_sd(mmc->card)) ){
 				host->suspending = 1;
 				printk("%s, %s, call mmc_suspend_host	\n", mmc_hostname(mmc), __func__  );
 				rc = mmc_suspend_host(mmc);
