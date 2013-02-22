@@ -120,6 +120,16 @@ static irqreturn_t dispc_isr(int irq, void *data)
 			dispc_ctx->is_first_frame = false;
 			done = true;
 	}
+#ifdef CONFIG_FB_ESD_SUPPORT
+	if((reg_val & 0x2) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){ /*dispc external TE isr*/
+		dispc_write(0x2, DISPC_INT_CLR);
+		if(0 != dev->esd_te_waiter){
+			dev->esd_te_done =1;
+			wake_up_interruptible_all(&(dev->esd_te_queue));
+			dev->esd_te_waiter = 0;
+		}
+	}
+#endif
 
 	if(done){
 		dispc_ctx->vsync_done = 1;
@@ -520,6 +530,12 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	dispc_ctx.vsync_waiter = 0;
 	init_waitqueue_head(&(dispc_ctx.vsync_queue));
 
+#ifdef CONFIG_FB_ESD_SUPPORT
+	init_waitqueue_head(&(dev->esd_te_queue));
+	dev->esd_te_waiter = 0;
+	dev->esd_te_done = 0;
+#endif
+
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	sema_init(&dispc_ctx.overlay_lock, 1);
 #endif
@@ -802,8 +818,8 @@ static int32_t sprdfb_disc_check_esd(struct sprdfb_device *dev)
 
 	/*Jessica TODO: need add other mode support*/
 	/*only support command mode now*/
-	if(SPRDFB_PANEL_IF_EDPI != dev->panel_if_type){
-		pr_debug("sprdfb: [%s] leave (now command mode)!\n", __FUNCTION__);
+	if(SPRDFB_PANEL_IF_DBI == dev->panel_if_type){
+		pr_debug("sprdfb: [%s] leave (not support dbi mode now)!\n", __FUNCTION__);
 		return -1;
 	}
 

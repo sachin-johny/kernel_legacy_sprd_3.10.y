@@ -15,6 +15,7 @@
 #include <linux/mutex.h>
 #include <linux/list.h>
 #include <linux/delay.h>
+#include <linux/fb.h>
 
 #include <mach/pinmap.h>
 
@@ -387,9 +388,27 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 
 	dev->check_esd_time++;
 
-	if (dev->panel->ops->panel_esd_check != NULL) {
-		result = dev->panel->ops->panel_esd_check(dev->panel);
-		pr_debug("sprdfb: [%s] panel check return %d\n", __FUNCTION__, result);
+	if(SPRDFB_PANEL_IF_EDPI == dev->panel_if_type){
+		if (dev->panel->ops->panel_esd_check != NULL) {
+			result = dev->panel->ops->panel_esd_check(dev->panel);
+			pr_debug("sprdfb: [%s] panel check return %d\n", __FUNCTION__, result);
+		}
+	}else if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		dev->esd_te_waiter++;
+		dev->esd_te_done = 0;
+		dispc_set_bits(BIT(1), DISPC_INT_EN);
+		result  = wait_event_interruptible_timeout(dev->esd_te_queue,
+			          dev->esd_te_done, msecs_to_jiffies(600));
+		pr_debug("sprdfb: after wait (%d)\n", result);
+		dispc_clear_bits(BIT(1), DISPC_INT_EN);
+		if(!result){ /*time out*/
+			printk("sprdfb: [%s] esd check  not got te signal!!!!\n", __FUNCTION__);
+			dev->esd_te_waiter = 0;
+			result = 0;
+		}else{
+			pr_debug("sprdfb: [%s] esd check  got te signal!\n", __FUNCTION__);
+			result = 1;
+		}
 	}
 
 	if(0 == dev->enable){
@@ -400,8 +419,12 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 	if(result == 0){
 		dev->panel_reset_time++;
 
-		if(NULL != dev->panel->if_ctrl->panel_if_get_status){
-			if_status = dev->panel->if_ctrl->panel_if_get_status(dev);
+		if(SPRDFB_PANEL_IF_EDPI == dev->panel_if_type){
+			if(NULL != dev->panel->if_ctrl->panel_if_get_status){
+				if_status = dev->panel->if_ctrl->panel_if_get_status(dev);
+			}
+		}else if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+			if_status = 2; /*need reset dsi as default for dpi mode*/
 		}
 
 		if(0 == if_status){
