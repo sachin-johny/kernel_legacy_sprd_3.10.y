@@ -1669,8 +1669,10 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
 		s_sensor_init = SENSOR_TRUE;
 
 		if (5 != Sensor_GetCurId())
+                {
 			this_client->addr = (this_client->addr & (~0xFF)) |(s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
 		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n", sensor_id,this_client->addr);
+                }
                 if(PNULL != s_sensor_info_ptr->ioctl_func_tab_ptr->identify)
                 {
                     if(SENSOR_SUCCESS != s_sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C))
