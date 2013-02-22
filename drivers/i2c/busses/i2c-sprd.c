@@ -328,6 +328,8 @@ sprd_i2c_master_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg *msgs,
 	for (im = 0; ret >= 0 && im != num; im++) {
 		dev_dbg(&i2c_adap->dev, "%s() msg im=%d\n", __func__, im);
 		ret = sprd_i2c_handle_msg(i2c_adap, &msgs[im], im == num - 1);
+		if (ret < 0)
+			return ret;
 	}
 
 	return im;
