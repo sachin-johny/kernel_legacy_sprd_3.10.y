@@ -122,12 +122,14 @@ struct vbc_equ {
 
 typedef int (*vbc_dma_set) (int enable);
 typedef int (*vbc_dg_set) (int enable, int dg);
+static DEFINE_MUTEX(vbc_mutex);
 struct vbc_priv {
 	vbc_dma_set dma_set[2];
 
 	int (*arch_enable) (int chan);
 	int (*arch_disable) (int chan);
-	int is_active:1;
+	int is_open;
+	int is_active;
 	int used_chan_count;
 	int dg_switch[2];
 	int dg_val[2];
@@ -472,9 +474,13 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 	vbc_dbg("Entering %s\n", __func__);
 	vbc_idx = vbc_str_2_index(substream->stream);
 
-	if (vbc[vbc_idx].is_active) {
+	if (vbc[vbc_idx].is_open || vbc[vbc_idx].is_active) {
 		pr_err("vbc is actived:%d\n", substream->stream);
 	}
+
+	mutex_lock(&vbc_mutex);
+	vbc[vbc_idx].is_open = 1;
+	mutex_unlock(&vbc_mutex);
 
 	vbc_reg_enable();
 
@@ -501,8 +507,8 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 
 static inline int vbc_can_close(void)
 {
-	return !(vbc[vbc_str_2_index(SNDRV_PCM_STREAM_PLAYBACK)].is_active
-		 || vbc[vbc_str_2_index(SNDRV_PCM_STREAM_CAPTURE)].is_active);
+	return !(vbc[vbc_str_2_index(SNDRV_PCM_STREAM_PLAYBACK)].is_open
+		 || vbc[vbc_str_2_index(SNDRV_PCM_STREAM_CAPTURE)].is_open);
 }
 
 static void vbc_shutdown(struct snd_pcm_substream *substream,
@@ -526,6 +532,8 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 		vbc[vbc_idx].dma_set[i] (0);
 	}
 
+	mutex_lock(&vbc_mutex);
+	vbc[vbc_idx].is_open = 0;
 	if (vbc_can_close()) {
 		vbc_enable_set(0);
 		arch_audio_vbc_reset();
@@ -535,6 +543,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 		}
 		pr_info("close the VBC\n");
 	}
+	mutex_unlock(&vbc_mutex);
 
 	if (s_vbc_clk) {
 		clk_disable(s_vbc_clk);
