@@ -73,6 +73,12 @@ uint16_t sprd_get_adc_to_vol(uint16_t data)
 	return sprd_bat_adc_to_vol(battery_data, data);
 }
 
+uint32_t sprd_get_vbat_voltage(void)
+{
+	return battery_data ? battery_data->voltage : 0;
+}
+EXPORT_SYMBOL(sprd_get_vbat_voltage);
+
 static int sprd_ac_get_property(struct power_supply *psy,
 				enum power_supply_property psp,
 				union power_supply_propval *val)
