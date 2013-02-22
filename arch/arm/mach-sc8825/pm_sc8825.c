@@ -1021,6 +1021,10 @@ int sc8825_enter_lowpower(void)
 		gic_restore_context( );
 		gic_cpu_enable(cpu);
 		gic_dist_enable( );
+#if 1
+		void notrace __update_sched_clock(void);
+		__update_sched_clock();
+#endif
 	}
 	
 	time_add(get_sys_cnt() - time, ret);
