@@ -1095,6 +1095,7 @@ static void init_gr(void)
 	/* AHB_PAUSE */
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN);
+	val |= MCU_SYS_SLEEP_EN;
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL );
 
 	/* AHB_CTL1 */

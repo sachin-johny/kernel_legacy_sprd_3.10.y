@@ -894,9 +894,8 @@ static ssize_t emc_freq_store(struct kobject *kobj, struct kobj_attribute *attr,
 		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
 		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE, 0, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 100);
 		close_cp();
-		mutex_unlock(&emc_mutex);
 		emc_freq_div = 0;
-
+		mutex_unlock(&emc_mutex);
 		break;
 	case '1' : /*200MHz*/
 		printk("emc_freq_store 1\n");
@@ -904,8 +903,8 @@ static ssize_t emc_freq_store(struct kobject *kobj, struct kobj_attribute *attr,
 		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 100);
 		close_cp();
 		sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
-		mutex_unlock(&emc_mutex);
 		emc_freq_div = 1;
+		mutex_unlock(&emc_mutex);
 		break;
 	case '2' : /*300MHz*/
 		printk("emc_freq_store 2\n");
@@ -913,8 +912,8 @@ static ssize_t emc_freq_store(struct kobject *kobj, struct kobj_attribute *attr,
 		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE,  0, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 75);
 		close_cp();
 		sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
-		mutex_unlock(&emc_mutex);
 		emc_freq_div = 2;
+		mutex_unlock(&emc_mutex);
 		break;
 	default:
 		break;
@@ -922,6 +921,52 @@ static ssize_t emc_freq_store(struct kobject *kobj, struct kobj_attribute *attr,
 #endif
 #endif
 	return 1;
+}
+static void emc_change_freq(u32 mode, u32 div, u32 sene, u32 ddr_type, u32 dpll_n)
+{
+	mutex_lock(&emc_mutex);
+	if(div == 0) //300M, 400M 
+	{
+		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
+	}
+	cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1, EMC_FREQ_NORMAL_SCENE, EMC_DDR_TYPE_DDR2, 100);
+	close_cp();
+	if(div >= 1)
+	{
+		sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
+	}
+	mutex_unlock(&emc_mutex);
+}
+u32 emc_freq_get(void)
+{
+	u32 freq = 0;
+	u32 n = 0;
+	u32 div = 0;
+	mutex_lock(&emc_mutex);
+	n = sci_glb_read(REG_GLB_D_PLL_CTL, -1);
+	n &= 0x7ff;
+	div = sci_glb_read(REG_AHB_ARM_CLK, -1);
+	div &= 0xf00;
+	div >>= 8;
+	freq = (n * 4) / (div + 1);	
+	mutex_unlock(&emc_mutex);
+	return freq;
+}
+void emc_freq_set(u32 freq)
+{
+	switch(freq) {
+	case 100:
+		break;
+	case 200:
+		emc_change_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 100);
+		break;
+	case 300:
+		emc_change_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE, 0, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 75);
+		break;
+	case 400:
+		emc_change_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE, 0, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 100);
+		break;
+	}
 }
 emc_attr(emc_freq);
 static struct attribute * g[] = {
