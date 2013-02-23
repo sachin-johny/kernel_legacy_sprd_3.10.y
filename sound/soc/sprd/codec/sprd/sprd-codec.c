@@ -981,10 +981,6 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 		if (ret != 0) {
 			pr_err("Failed to request supplies: %d\n", ret);
 		} else {
-
-			regulator_bulk_enable(ARRAY_SIZE
-					      (sprd_codec_power.supplies),
-					      sprd_codec_power.supplies);
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
 				regulator_set_mode(sprd_codec_power.supplies[i].
@@ -1034,8 +1030,6 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 				       0);
 		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(BG_EN), 0);
 
-		regulator_bulk_disable(ARRAY_SIZE(sprd_codec_power.supplies),
-				       sprd_codec_power.supplies);
 		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
 			regulator_set_mode(sprd_codec_power.supplies[i].
 					   consumer, REGULATOR_MODE_NORMAL);
