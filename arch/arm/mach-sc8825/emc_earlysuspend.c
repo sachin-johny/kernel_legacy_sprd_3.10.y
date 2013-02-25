@@ -846,10 +846,12 @@ static void pm_test_init()
 u32 wake_source_start(void)
 {
 	//do nothing
+	return 0;
 }
 u32 wake_source_stop(void)
 {
 	//do nothing
+	return 0;
 }
 #endif
 //static struct kobject *emc_freq_kobj;

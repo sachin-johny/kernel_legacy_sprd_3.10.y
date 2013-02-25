@@ -1283,9 +1283,6 @@ static inline void update_umctl_timing_cfg(MEM_TYPE_ENUM mem_type, u32 clk_emc_d
             REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITPHYWRLAT) = 0x3;//timing_cfg.DFITPHYWRLAT ;
 	        break;
         }
-	    defautl: {
-	        while(1);
-	    }
     }
 }
 
@@ -1330,7 +1327,7 @@ static inline void update_lpddr2_modereg(u32 nwr,u32 mem_wc, u32 mem_bt,u32 mem_
 static inline void __emc_init_repowered(u32 power_off, struct emc_repower_param *param, u32 clk_emc_div)   //{{{
 {
 	u32  value_temp;
-	u32 volatile  i;
+//	u32 volatile  i;
 	u32  value_temp1;
 	MEM_TYPE_ENUM mem_type_enum;
 
