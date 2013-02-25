@@ -394,12 +394,13 @@ static int sprd_rtc_set_alarm(struct device *dev,
 	int i = 0,n;
 
 	rtc_tm_to_time(&alrm->time, &secs);
-	if(secs < secs_start_year_to_1970)
-		return -1;
+
 
 	sci_adi_raw_write(ANA_RTC_INT_CLR, RTC_ALARM_BIT);
 
 	if(alrm->enabled){
+		if(secs < secs_start_year_to_1970)
+			return -1;
 		temp = sci_adi_read(ANA_RTC_INT_EN);
 		temp |= RTC_ALARM_BIT;
 		sci_adi_raw_write(ANA_RTC_INT_EN, temp);

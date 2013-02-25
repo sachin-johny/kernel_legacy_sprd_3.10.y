@@ -554,7 +554,7 @@ static int alarm_suspend(struct platform_device *pdev, pm_message_t state)
 			pr_alarm(INIT_STATUS, "alarm about to go off\n");
 			memset(&rtc_alarm, 0, sizeof(rtc_alarm));
 			rtc_alarm.enabled = 0;
-			rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
+			rtc_remove_alarm(alarm_rtc_dev, &rtc_alarm);
 
 			spin_lock_irqsave(&alarm_slock, flags);
 			suspended = false;
@@ -642,7 +642,7 @@ static void alarm_shutdown(struct platform_device *pdev)
 			pr_alarm(INIT_STATUS, "alarm about to go off, disable it\n");
 			memset(&rtc_alarm, 0, sizeof(rtc_alarm));
 			rtc_alarm.enabled = 0;
-			rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
+			rtc_remove_alarm(alarm_rtc_dev, &rtc_alarm);
 		}else{
 			rtc_time_to_tm(rtc_alarm_time, &rtc_alarm.time);
 			rtc_alarm.enabled = 1;
@@ -656,7 +656,7 @@ static void alarm_shutdown(struct platform_device *pdev)
 		pr_alarm(INIT_STATUS, "no alarm to save in shutdown\n");
 		memset(&rtc_alarm, 0, sizeof(rtc_alarm));
 		rtc_alarm.enabled = 0;
-		rtc_set_alarm(alarm_rtc_dev, &rtc_alarm);
+		rtc_remove_alarm(alarm_rtc_dev, &rtc_alarm);
 	}
 	__rtc_read_alarm(alarm_rtc_dev,&read_alrm);
 
