@@ -260,7 +260,7 @@ EXPORT_SYMBOL_GPL(sdhci_device_attach);
  *   @ return:  true--- SDIO device attach ready
  *              false---SDIO device attach not ready
  */
-int sdhci_device_attached()
+int sdhci_device_attached(void)
 {
 	struct mmc_host *mmc = NULL;
 	if(sdhci_host_g && (sdhci_host_g->mmc)){
