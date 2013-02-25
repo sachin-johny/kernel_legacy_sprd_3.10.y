@@ -33,6 +33,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include <mach/emc_repower.h>
+#include <linux/clockchips.h>
 
 extern int sc8825_get_clock_status(void);
 extern void secondary_startup(void);
@@ -1121,9 +1122,21 @@ static void init_gr(void)
 	sci_glb_write(REG_GLB_CLK_EN, val, -1UL );
 }
 
+void enable_cpuidle(int enable)
+{
+#if defined(CONFIG_LOCAL_TIMERS)
+	if(enable)
+		sci_glb_set(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
+	else
+		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
+#endif
+}
+EXPORT_SYMBOL(enable_cpuidle);
+
 #ifdef CONFIG_NKERNEL
 void sc8825_idle(void)
 {
+	int this_cpu = smp_processor_id();
 	int val;
 	if (!need_resched()) {
 		hw_local_irq_disable();
@@ -1137,7 +1150,14 @@ void sc8825_idle(void)
 				l2x0_suspend();
 				*/
 #endif
+#if defined(CONFIG_LOCAL_TIMERS)
+				clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &this_cpu);
+#endif
 				cpu_do_idle();
+#if defined(CONFIG_LOCAL_TIMERS)
+				clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &this_cpu);
+#endif
+
 #ifdef CONFIG_CACHE_L2X0
 				/*
 				l2x0_resume(1);
