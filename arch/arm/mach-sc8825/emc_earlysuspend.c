@@ -929,7 +929,7 @@ static void emc_change_freq(u32 mode, u32 div, u32 sene, u32 ddr_type, u32 dpll_
 	{
 		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
 	}
-	cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_DISABLE_MODE, 1, EMC_FREQ_NORMAL_SCENE, EMC_DDR_TYPE_DDR2, 100);
+	cp_do_change_emc_freq(mode, div, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, dpll_n);
 	close_cp();
 	if(div >= 1)
 	{

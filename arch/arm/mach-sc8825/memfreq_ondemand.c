@@ -51,6 +51,7 @@
 #define DELAY (5*HZ)
 #define CYCLE DELAY
 #define MEMFREQ_200MHz (200)
+#define MEMFREQ_300MHz (300)
 #define MEMFREQ_400MHz (400)
 
 
@@ -304,6 +305,9 @@ static void memfreq_set_freq(unsigned int target)
 	if(target < 150){
 		/* set ddr 200MHz */
 		memfreq_target = MEMFREQ_200MHz;
+	}else if(target < 250){
+		/* set ddr 300MHz */
+		memfreq_target = MEMFREQ_300MHz;
 	}else{
 		/* set ddr 400MHz */
 		memfreq_target = MEMFREQ_400MHz;
@@ -311,10 +315,11 @@ static void memfreq_set_freq(unsigned int target)
 	if(memfreq_target == memfreq_curr)
 		return;
 
+	printk(" %s: memfreq_target:%u, ", __func__, memfreq_target);
 	emc_freq_set(memfreq_target);
 	memfreq_curr = emc_freq_get();
 	memfreq_debug(" ** after set, mem freq: %u ** \n", memfreq_curr );
-	printk(" ** set frequency done, mem freq: %u ** \n", memfreq_curr );
+	printk(" set frequency done, mem freq: %u \n", memfreq_curr );
 }
 
 static unsigned int mm_is_on(void)
@@ -339,7 +344,6 @@ static void do_dbs_timer(struct work_struct *work)
 	spin_lock(&memfreq_lock);
 	if( (!mm_is_on()) || memfreq_bypass ){
 		mem_target = memfreq_get_demand();
-		printk(" %s: mem_target:%u \n", __func__, mem_target);
 		memfreq_set_freq(mem_target);
 	}
 	spin_unlock(&memfreq_lock);
