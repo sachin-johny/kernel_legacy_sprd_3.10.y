@@ -69,14 +69,14 @@ struct sprd_hwspinlock_state {
 	void __iomem *io_base;	/* Mapped base address */
 };
 
-static int hwspinlock_isbusy(unsigned int lockid)
+static __used int hwspinlock_isbusy(unsigned int lockid)
 {
 	unsigned int status = 0;
 	SPINLOCKS_DETAIL_STATUS(status);
 	return ((status & (1 << lockid)) ? 1 : 0);
 }
 
-static int hwspinlocks_isbusy(void)
+static __used int hwspinlocks_isbusy(void)
 {
 	return ((SPINLOCKS_BUSY())? 1 : 0);
 }
@@ -134,7 +134,7 @@ static const struct hwspinlock_ops sprd_hwspinlock_ops = {
 	.relax = sprd_hwspinlock_relax,
 };
 
-static void hwspinlock_clear(unsigned int lockid)
+static __used void hwspinlock_clear(unsigned int lockid)
 {
 	/*setting the abnormal clear bit to 1 makes the corresponding
 	  *lock to Not Taken state 
@@ -144,7 +144,7 @@ static void hwspinlock_clear(unsigned int lockid)
 	SPINLOCKS_DISABLE_CLEAR();
 }
 
-static void hwspinlock_clear_all(void)
+static __used void hwspinlock_clear_all(void)
 {
 	unsigned int lockid = 0;
 	/*setting the abnormal clear bit to 1 makes the corresponding

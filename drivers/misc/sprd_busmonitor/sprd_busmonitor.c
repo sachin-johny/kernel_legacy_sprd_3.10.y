@@ -4,7 +4,10 @@
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
+
 #include <mach/globalregs.h>
+#include <mach/sci.h>
+#include <mach/regs_ahb.h>
 
 #include "sprd_busmonitor_core.h"
 
@@ -37,19 +40,23 @@ static int sprd_bm_open(const struct sprd_bm_chip *chip)
 	if (chip->bm_type == AHB_BM) {
 		switch (chip->bm_id) {
 		case 0:
-			sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM0_EN, AHB_CTL0);
+			sci_glb_set(REG_AHB_AHB_CTL0, BIT_BUSMON0_EB);
 			break;
 		case 1:
-			sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM1_EN, AHB_CTL0);
+			sci_glb_set(REG_AHB_AHB_CTL0, BIT_BUSMON1_EB);
+
 			break;
 		case 2:
-			sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM2_EN, AHB_CTL0);
+			sci_glb_set(REG_AHB_AHB_CTL0, BIT_BUSMON2_EB);
+
 			break;
 		case 3:
-			sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM3_EN, AHB_CTL0);
+			sci_glb_set(REG_AHB_AHB_CTL0, BIT_BUSMON3_EB);
+
 			break;
 		case 4:
-			sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM4_EN, AHB_CTL0);
+			sci_glb_set(REG_AHB_AHB_CTL0, BIT_BUSMON4_EB);
+
 			break;
 		default:
 			break;
@@ -59,13 +66,13 @@ static int sprd_bm_open(const struct sprd_bm_chip *chip)
 	if (chip->bm_type == AXI_BM) {
 		switch (chip->bm_id) {
 		case 0:
-			sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_AXIBUSMON0_EN, AHB_CTL0);
+			sci_glb_set(REG_AHB_AHB_CTL0, BIT_AXIBUSMON0_EB);
 			break;
 		case 1:
-			sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_AXIBUSMON1_EN, AHB_CTL0);
+			sci_glb_set(REG_AHB_AHB_CTL0, BIT_AXIBUSMON1_EB);
 			break;
 		case 2:
-			sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_AXIBUSMON2_EN, AHB_CTL0);
+			sci_glb_set(REG_AHB_AHB_CTL0, BIT_AXIBUSMON2_EB);
 			break;
 		default:
 			break;
@@ -80,19 +87,19 @@ static int sprd_bm_close(const struct sprd_bm_chip *chip)
 	if (chip->bm_type == AHB_BM) {
 		switch (chip->bm_id) {
 		case 0:
-			sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM0_EN, AHB_CTL0);
+			sci_glb_clr(REG_AHB_AHB_CTL0, BIT_BUSMON0_EB);
 			break;
 		case 1:
-			sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM1_EN, AHB_CTL0);
+			sci_glb_clr(REG_AHB_AHB_CTL0, BIT_BUSMON1_EB);
 			break;
 		case 2:
-			sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM2_EN, AHB_CTL0);
+			sci_glb_clr(REG_AHB_AHB_CTL0, BIT_BUSMON2_EB);
 			break;
 		case 3:
-			sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM3_EN, AHB_CTL0);
+			sci_glb_clr(REG_AHB_AHB_CTL0, BIT_BUSMON3_EB);
 			break;
 		case 4:
-			sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_BM4_EN, AHB_CTL0);
+			sci_glb_clr(REG_AHB_AHB_CTL0, BIT_BUSMON4_EB);
 			break;
 		default:
 			break;
@@ -102,13 +109,13 @@ static int sprd_bm_close(const struct sprd_bm_chip *chip)
 	if (chip->bm_type == AXI_BM) {
 		switch (chip->bm_id) {
 		case 0:
-			sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_AXIBUSMON0_EN, AHB_CTL0);
+			sci_glb_clr(REG_AHB_AHB_CTL0, BIT_AXIBUSMON0_EB);
 			break;
 		case 1:
-			sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_AXIBUSMON1_EN, AHB_CTL0);
+			sci_glb_clr(REG_AHB_AHB_CTL0, BIT_AXIBUSMON1_EB);
 			break;
 		case 2:
-			sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_AXIBUSMON2_EN, AHB_CTL0);
+			sci_glb_clr(REG_AHB_AHB_CTL0, BIT_AXIBUSMON2_EB);
 			break;
 		default:
 			break;
@@ -136,9 +143,9 @@ static void sprd_bm_chn_sel(const struct sprd_bm_chip *chip, u32 chn_id)
 	}
 
 	if (chn_id == 0)
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, val, AHB_CTL3);
+		sci_glb_clr(REG_AHB_AHB_CTL3, val);
 	if (chn_id == 1)
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, val, AHB_CTL3);
+		sci_glb_set(REG_AHB_AHB_CTL3, val);
 }
 
 static void sprd_bm_point_enable(const struct sprd_bm_chip *chip)
