@@ -74,6 +74,12 @@ config SPRD_MEM_POOL
 	help
           This option enables memmory pool for allocating thread stack and pgd table.
 
+config SPRD_SC8825_MEMFREQ_ONDEMAND
+	default n
+	bool "sc8825 memfreq ondemand governor"
+	help
+		This option enables memfreq ondemand governor for scaling frequency dynamicly
+
 config SPRD_DCDC_DEBUG
 	default y
 	tristate "Enable dcdc debug module"

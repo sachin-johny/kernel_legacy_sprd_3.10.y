@@ -51,6 +51,7 @@ ifeq ($(CONFIG_RTL8723AS),m)
 endif
 obj-$(CONFIG_ANDROID_RAM_CONSOLE) += ram_console.o
 obj-$(CONFIG_SPRD_MEM_POOL)    += sprd_mem_pool.o
+obj-$(SPRD_SC8825_MEMFREQ_ONDEMAND)    += memfreq_ondemand.o
 
 sprdboarddirs := $(patsubst %,arch/arm/mach-sc8825/%,$(sprdboard-y))
 $(warning $(sprdboarddirs))
