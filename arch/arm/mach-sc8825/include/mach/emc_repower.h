@@ -16,6 +16,8 @@ struct emc_repower_param {
 	u32 cs1_training_data_size;
 	u32 cs0_saved_data[8];
 	u32 cs1_saved_data[8];
+	u32 time_before;
+	u32 time_after;
 };
 //param must be in IRAM
 void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 publ_base);
