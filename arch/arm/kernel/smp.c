@@ -464,18 +464,29 @@ static DEFINE_PER_CPU(struct clock_event_device, percpu_clockevent);
 static void ipi_timer(void)
 {
 	struct clock_event_device *evt = &__get_cpu_var(percpu_clockevent);
-#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMERS)
+#if !defined(CONFIG_NKERNEL) || !defined(CONFIG_NATIVE_LOCAL_TIMER)
 	irq_enter();
 #endif
 	evt->event_handler(evt);
-#if !defined(CONFIG_NKERNEL) || defined(CONFIG_NATIVE_LOCAL_TIMERS)
+#if !defined(CONFIG_NKERNEL) || !defined(CONFIG_NATIVE_LOCAL_TIMER)
 	irq_exit();
 #endif
 }
 
 #ifdef CONFIG_LOCAL_TIMERS
 
-#if defined(CONFIG_NKERNEL) && !defined(CONFIG_NATIVE_LOCAL_TIMERS)
+#if defined(CONFIG_NKERNEL)
+#if defined(CONFIG_NATIVE_LOCAL_TIMER)
+void do_local_timer(struct pt_regs *regs)
+{
+	int cpu = smp_processor_id();
+
+	if (local_timer_ack()) {
+		__inc_irq_stat(cpu, local_timer_irqs);
+		ipi_timer();
+	}
+}
+#else
 
     irqreturn_t
 nk_do_local_timer (int irq, void* dev_id)
@@ -486,7 +497,7 @@ nk_do_local_timer (int irq, void* dev_id)
     evt->event_handler(evt);
     return IRQ_HANDLED;
 }
-
+#endif // #if defined(CONFIG_NATIVE_LOCAL_TIMER)
 #else
 
 asmlinkage void __exception_irq_entry do_local_timer(struct pt_regs *regs)
@@ -501,8 +512,7 @@ asmlinkage void __exception_irq_entry do_local_timer(struct pt_regs *regs)
 
 	set_irq_regs(old_regs);
 }
-
-#endif
+#endif // #if defined(CONFIG_NKERNEL)
 
 void show_local_irqs(struct seq_file *p, int prec)
 {

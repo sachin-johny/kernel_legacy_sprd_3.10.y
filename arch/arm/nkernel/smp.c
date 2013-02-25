@@ -82,7 +82,7 @@ static unsigned int     _runcpus = 1;
 #define	NK_ETRACE(f...)	   do { printnk(KERN_ERR  f); } while (0)
 #define	NK_DTRACE(f...)	   /* do { printnk(KERN_INFO f); } while (0) */
 
-#ifdef CONFIG_LOCAL_TIMERS
+#if defined(CONFIG_LOCAL_TIMERS) && !defined(CONFIG_NATIVE_LOCAL_TIMER)
 
     extern irqreturn_t
 nk_do_local_timer (int irq, void* dev_id);
@@ -484,7 +484,7 @@ _smp_setup_local_irqs (unsigned int maxcpus)
     NK_DTRACE("IPI IRQs base: %d\n", _ipi_base);
     BUG_ON(!_ipi_base);
 
-#ifdef CONFIG_LOCAL_TIMERS
+#if defined(CONFIG_LOCAL_TIMERS) && !defined(CONFIG_NATIVE_LOCAL_TIMER)
     _lvt_base = VCPU()->smp_dxirq_alloc(maxcpus);
     NK_DTRACE("LVT IRQs base: %d\n", _lvt_base);
     BUG_ON(!_lvt_base);

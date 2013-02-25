@@ -1619,8 +1619,14 @@ nk_do_xirq (struct pt_regs* regs)
 	interrupt_counter++;
 	inc_sprd_irq(xirq);
 #endif
-	
-	nk_do_IRQ(xirq, regs);
+
+#if defined(CONFIG_NATIVE_LOCAL_TIMER)
+	if (xirq == 29) {
+		extern void do_local_timer(struct pt_regs *regs);
+		do_local_timer(regs);
+	} else
+#endif
+		nk_do_IRQ(xirq, regs);
     }
 
     irq_exit();
