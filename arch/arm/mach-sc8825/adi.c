@@ -72,12 +72,6 @@
 
 #ifdef CONFIG_NKERNEL
 static DEFINE_SPINLOCK(adi_lock);
-int debug_adi_lock_v(void)
-{
-           return adi_lock.rlock.raw_lock.lock;
-}
-EXPORT_SYMBOL(debug_adi_lock_v);
-
 static void sci_adi_lock(unsigned long *flags, unsigned long *hw_flags)
 {
 	*hw_flags = hw_local_irq_save();

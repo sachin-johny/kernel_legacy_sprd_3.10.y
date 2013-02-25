@@ -23,7 +23,7 @@ extern int sprd_cpu_deep_sleep(unsigned int cpu);
 extern void sc8825_pm_init(void);
 extern void check_ldo(void);
 extern void check_pd(void);
-extern int debug_adi_lock_v(void);
+
 /*for battery*/
 #define BATTERY_CHECK_INTERVAL 30000
 extern int battery_updata(void);
@@ -40,15 +40,6 @@ static int sprd_check_battery(void)
 
 static void sprd_pm_standby(void){
 	cpu_do_idle();
-}
-
-volatile int iii = 0;
-static int debug_adi_lock(int flag)
-{
-	if (debug_adi_lock_v()){
-		iii = flag;
-		while(1);
-	}
 }
 
 static int sprd_pm_deepsleep(suspend_state_t state)
@@ -75,14 +66,11 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 		__WARN();
 		goto enter_exit;
 	}
-	debug_adi_lock(1);
 
 	while(1){
 		hw_local_irq_disable();
 		local_fiq_disable();
 		local_irq_save(flags);
-
-		debug_adi_lock(2);
 
 		if (arch_local_irq_pending()) {
 			/* add for debug & statisic*/
@@ -104,40 +92,31 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 #ifdef CONFIG_NKERNEL_PM_MASTER
 				os_ctx->smp_cpu_stop(0);
 #endif
-				debug_adi_lock(3);
 				sprd_cpu_deep_sleep(cpu);
 #ifdef CONFIG_NKERNEL_PM_MASTER
 				os_ctx->smp_cpu_start(0, 0);/* the 2nd parameter is meaningless*/
 #endif
 			} else {
-				debug_adi_lock(4);
 				printk("******** os_ctx->idle return %d ********\n", ret_val);
 			}
 #else
 			sprd_cpu_deep_sleep(cpu);
-#endif	
-			debug_adi_lock(5);
+#endif
 			hw_local_irq_enable();
 			local_fiq_enable();
 		}
-
-		debug_adi_lock(6);
 
 		battery_sleep();
 		cur_time = get_sys_cnt();
 		if ((cur_time -  battery_time) > BATTERY_CHECK_INTERVAL) {
 			battery_time = cur_time;
-
-			debug_adi_lock(7);
 			if (sprd_check_battery()) {
 				printk("###: battery low!\n");
 				break;
 			}
-			debug_adi_lock(8);
 		}
 	}/*end while*/
 
-	debug_adi_lock(9);
 	time_statisic_end();
 #endif
 
