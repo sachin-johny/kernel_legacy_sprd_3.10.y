@@ -23,7 +23,8 @@
 #include <asm/io.h>
 
 #include <mach/globalregs.h>
-
+#include <mach/sci.h>
+#include <mach/regs_glb.h>
 #define SPRD_I2C_CTL_ID	4
 
 /*Note: The defined below are for tiger and later chipset. */
@@ -342,13 +343,34 @@ static const struct i2c_algorithm sprd_i2c_algo = {
 	.master_xfer = sprd_i2c_master_xfer,
 	.functionality = sprd_i2c_func,
 };
+static u32 __get_apb_clk(void)
+{
+	u32 val;
+	u32 freq;
+	val = sci_glb_read(REG_GLB_CLKDLY, -1);
+	val >>= 14;
+	val &= 0x3;
+	switch(val) {
+	case 0:
+		freq = 26000000;
+		break;
+	case 1:
+		freq = 51200000;
+		break;
+	case 2:
+	case 3:
+		freq = 76800000;
+		break;
+	}
 
+	return freq;
+}
 static void sprd_i2c_set_clk(struct sprd_i2c *pi2c, unsigned int freq)
 {
 	unsigned int apb_clk;
 	unsigned int i2c_div;
 
-	apb_clk = 26000000;
+	apb_clk = __get_apb_clk();
 	i2c_div = apb_clk / (4 * freq) - 1;
 
 #if defined(CONFIG_MACH_GARDA)
