@@ -48,6 +48,8 @@ static int debug_adi_lock(int flag)
 		iii = flag;
 		while(1);
 	}
+
+	return 0;
 }
 
 static int sprd_pm_deepsleep(suspend_state_t state)
@@ -55,8 +57,10 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 	int ret_val = 0;
 	unsigned long flags;
 	u32 battery_time, cur_time;
+	unsigned int cpu;
+
 	battery_time = cur_time = get_sys_cnt();
-	unsigned int cpu = smp_processor_id();
+	cpu = smp_processor_id();
 
 	/* add for debug & statisic*/
 	clr_sleep_mode();

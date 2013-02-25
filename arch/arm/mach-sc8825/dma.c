@@ -17,6 +17,9 @@
 #include <linux/io.h>
 #include <mach/dma.h>
 
+#include <mach/sci.h>
+#include <mach/regs_ahb.h>
+
 static DEFINE_SPINLOCK(dma_lock);
 
 static struct sprd_irq_handler sprd_irq_handlers[DMA_CHN_NUM];
@@ -662,7 +665,7 @@ static int __init sprd_dma_init(void)
 	int ret;
 
 	/* enable DMAC */
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_DMA_EN, AHB_CTL0);
+	sci_glb_set(REG_AHB_AHB_CTL0, BIT_DMA_EB);
 
 	/* reset the DMAC */
 	__raw_writel(0, DMA_CHx_EN);
@@ -694,8 +697,7 @@ static int __init sprd_dma_init(void)
 
 request_irq_err:
 	/* disable DMAC */
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_DMA_EN, AHB_CTL0);
-
+	sci_glb_clr(REG_AHB_AHB_CTL0, BIT_DMA_EB);
 	return ret;
 }
 
