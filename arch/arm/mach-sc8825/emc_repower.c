@@ -1928,6 +1928,7 @@ void emc_init_repowered(u32 power_off)
 	}
 	clk_emc_div = 3;
 	param_p->emc_freq = 400 / (clk_emc_div + 1);
+	param_p->time_before = REG32(0x41000044);
 	if(0) {
 		modify_clk_emc_freq(clk_emc_div);
 	    __emc_init_repowered(power_off, param_p, clk_emc_div);
@@ -1940,6 +1941,7 @@ void emc_init_repowered(u32 power_off)
             enable_clk_emc();
 	    __emc_init_repowered(power_off, param_p, clk_emc_div);
 	}
+	param_p->time_after = REG32(0x41000044);
 	//__emc_init_repowered(power_off, param_p, clk_emc_div);
 	if(power_off)
 	       restore_emc_training_data(param_p);
