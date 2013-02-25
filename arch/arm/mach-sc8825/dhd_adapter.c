@@ -240,11 +240,6 @@ int wlan_device_status_register(
 
 EXPORT_SYMBOL(wlan_device_status_register);
 
-static unsigned int wlan_device_status(struct device *dev)
-{
-	return wlan_device_cd;
-}
-
 int wlan_device_set_carddetect(int val)
 {
 	pr_info("%s: %d\n", __func__, val);
@@ -278,6 +273,7 @@ static unsigned char char2bin( char m)
 	if (( m >= '0') && (m <= '9')) {
 		return m - '0';
 	}
+	return 0;
 }
 
 static int wlan_device_get_mac_addr(unsigned char *buf)
