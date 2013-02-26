@@ -728,7 +728,7 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 
 #ifdef CONFIG_FB_ESD_SUPPORT
-		if(dev->ESD_work_start = true){
+		if(dev->ESD_work_start == true){
 			printk("sprdfb: cancel ESD work queue\n");
 			cancel_delayed_work_sync(&dev->ESD_work);
 			dev->ESD_work_start = false;

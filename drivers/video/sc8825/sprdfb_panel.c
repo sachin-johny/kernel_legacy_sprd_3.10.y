@@ -68,6 +68,7 @@ static int32_t panel_reset_lcdc(struct panel_spec *self)
 	return 0;
 }
 
+#if 0
 static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
 {
 	pr_debug("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
@@ -79,6 +80,7 @@ static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
 		panel_reset_lcdc(panel);
 	}
 }
+#endif
 
 static bool panel_check(struct panel_cfg *cfg)
 {

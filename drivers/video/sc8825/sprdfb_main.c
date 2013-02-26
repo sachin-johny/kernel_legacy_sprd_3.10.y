@@ -424,7 +424,7 @@ err0:
 	return ret;
 }
 
-static void __devexit sprdfb_remove(struct platform_device *pdev)
+static int __devexit sprdfb_remove(struct platform_device *pdev)
 {
 	struct sprdfb_device *dev = platform_get_drvdata(pdev);
 	printk("sprdfb: [%s]\n",__FUNCTION__);
@@ -432,6 +432,7 @@ static void __devexit sprdfb_remove(struct platform_device *pdev)
 	sprdfb_panel_remove(dev);
 	dev->ctrl->uninit(dev);
 	fb_free_resources(dev);
+	return 0;
 }
 
 static struct platform_driver sprdfb_driver = {

@@ -112,8 +112,6 @@ static LCM_Init_Code init_data[] = {
 
 };
 
-static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
-
 static LCM_Init_Code sleep_in[] =  {
 {LCM_SEND(1), {0x28}},
 {LCM_SLEEP(10)},
@@ -141,7 +139,6 @@ static int32_t nt35510_mipi_init(struct panel_spec *self)
 
 	mipi_set_cmd_mode_t mipi_set_cmd_mode = self->info.mipi->ops->mipi_set_cmd_mode;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
-	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
 
 	pr_debug(KERN_DEBUG "nt35510_mipi_init\n");
 
@@ -173,7 +170,6 @@ static int32_t nt35510_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	unsigned int tag;
 	int32_t size = 0;
 
-	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
 
 	printk(KERN_DEBUG "nt35510_enter_sleep, is_sleep = %d\n", is_sleep);
@@ -206,8 +202,6 @@ static uint32_t nt35510_readpowermode(struct panel_spec *self)
 	uint8_t read_data[1] = {0};
 	int32_t read_rtn = 0;
 	unsigned int tag = 0;
-	uint32_t reg_val_1 = 0;
-	uint32_t reg_val_2 = 0;
 
 	mipi_set_cmd_mode_t mipi_set_cmd_mode = self->info.mipi->ops->mipi_set_cmd_mode;
 	mipi_force_write_t mipi_force_write = self->info.mipi->ops->mipi_force_write;
@@ -240,14 +234,15 @@ static uint32_t nt35510_readpowermode(struct panel_spec *self)
 	return 0x0;
 }
 
-static uint32_t nt35510_check_esd(struct panel_spec *self)
+static int32_t nt35510_check_esd(struct panel_spec *self)
 {
 	uint32_t power_mode;
 
-	pr_debug("nt35510_check_esd!\n");
-
 	mipi_set_lp_mode_t mipi_set_lp_mode = self->info.mipi->ops->mipi_set_lp_mode;
 	mipi_set_hs_mode_t mipi_set_hs_mode = self->info.mipi->ops->mipi_set_hs_mode;
+
+	pr_debug("nt35510_check_esd!\n");
+
 
 	mipi_set_lp_mode();
 	power_mode = nt35510_readpowermode(self);
