@@ -1797,6 +1797,7 @@ exit:
 	if (unlikely(ret)) {
 		atomic_dec(&dev->users);
 	}
+	atomic_set(&dev->stream_on, 0);
 	mutex_unlock(&dev->dcam_mutex);
 
 	DCAM_TRACE("sprd_v4l2_open %d \n", ret);
