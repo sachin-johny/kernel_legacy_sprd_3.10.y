@@ -84,7 +84,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
 			dmac_flush_range(kaddr, kaddr + size);
  	
-			outer_clean_range(paddr, paddr + size);
+			outer_clean_range((u32)paddr,(u32)( paddr + size));
 
 			/* FIXME: non-speculating: flush on bidirectional mappings? */
 		}

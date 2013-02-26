@@ -35,8 +35,10 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/globalregs.h>
-
-
+#if defined(CONFIG_ARCH_SC8825)
+#include <mach/regs_ahb.h>
+#include <mach/sci.h>
+#endif
 #define VSP_MINOR MISC_DYNAMIC_MINOR
 #define VSP_TIMEOUT_MS 1000
 
@@ -268,8 +270,13 @@ by clk_get()!\n", "clk_vsp", name_parent);
 #endif
 	case VSP_RESET:
 		pr_debug("vsp ioctl VSP_RESET\n");
+#if defined(CONFIG_ARCH_SC8825)
+		sci_glb_set(REG_AHB_SOFT_RST, BIT_VSP_SOFT_RST);
+		sci_glb_clr(REG_AHB_SOFT_RST, BIT_VSP_SOFT_RST);
+#else
 		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT(15), AHB_SOFT_RST);
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
+#endif
 		break;
 #if defined(CONFIG_ARCH_SC8825)		
 
@@ -466,7 +473,6 @@ static int vsp_probe(struct platform_device *pdev)
 	char *name_parent;
 	int ret_val;
 	int ret;
-	int cmd0;
 
     wake_lock_init(&vsp_wakelock, WAKE_LOCK_SUSPEND,
 		"pm_message_wakelock_vsp");
