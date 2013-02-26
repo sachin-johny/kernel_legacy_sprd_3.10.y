@@ -59,11 +59,15 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	adc_vol = sprd_get_adc_to_vol(sum) * (8 * 5) / (30 * 4);
 	if (!def_vol) {
 		switch (adc_chan) {
+        #ifdef CONFIG_ARCH_SC7710
+            /*FIXME: avoid adc compile error*/
+        #else
 		case ADC_CHANNEL_DCDC:
 			def_vol = 1100;
 			cal_vol = sci_adi_read(ANA_DCDC_CTRL_CAL) & 0x1f;
 			i = sci_adi_read(ANA_DCDC_CTRL) & 0x07;
 			break;
+        #endif
 		case ADC_CHANNEL_DCDCARM:
 			def_vol = 1200;
 			cal_vol = sci_adi_read(ANA_DCDCARM_CTRL_CAL) & 0x1f;
@@ -106,11 +110,15 @@ int dcdc_calibrate(int adc_chan, int def_vol, int to_vol)
 	debug("%s cal_vol %dmv: %d, 0x%02x\n", __FUNCTION__,
 	      dcdc_ctl_vol[i] + cal_vol * 100 / 32, i, cal_vol);
 	switch (adc_chan) {
+    #ifdef CONFIG_ARCH_SC7710
+    /*FIXME: avoid adc compile error*/
+    #else
 	case ADC_CHANNEL_DCDC:
 		sci_adi_raw_write(ANA_DCDC_CTRL_CAL,
 				  cal_vol | (0x1f - cal_vol) << 8);
 		sci_adi_raw_write(ANA_DCDC_CTRL, i | (0x07 - i) << 4);
 		break;
+    #endif
 	case ADC_CHANNEL_DCDCARM:
 		sci_adi_raw_write(ANA_DCDCARM_CTRL_CAL,
 				  cal_vol | (0x1f - cal_vol) << 8);
@@ -198,10 +206,13 @@ static void do_dcdc_work(struct work_struct *work)
 	dcdc_work.cal_typ = sprd_get_adc_cal_type();
 	debug("%s %d %d\n", __FUNCTION__, dcdc_work.cal_typ, cnt);
 
+    #ifdef CONFIG_ARCH_SC7710
+    /*FIXME: avoid adc compile error*/
+    #else
 	ret = dcdc_calibrate(ADC_CHANNEL_DCDC, 0, dcdc_to_vol);
 	if (ret > 0)
 		dcdc_calibrate(ADC_CHANNEL_DCDC, ret, dcdc_to_vol);
-
+    #endif
 	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 0, dcdcarm_to_vol);
 	if (ret > 0)
 		dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, dcdcarm_to_vol);

@@ -60,10 +60,14 @@ static int debugfs_dcdc_set(void *data, u64 val)
 	int ret, to_vol;
 	to_vol = *(u32 *) data = val;
 	debugfs_dcdc_get(data, &val);
+    #ifdef  CONFIG_ARCH_SC7710
+    /*FIXME: avoid adc compile error*/
+    #else
 	ret = dcdc_calibrate(ADC_CHANNEL_DCDC, dcdc_to_vol, to_vol);
 	if (ret > 0)
 		dcdc_calibrate(ADC_CHANNEL_DCDC, ret, to_vol);
-	return 0;
+    #endif
+    return 0;
 }
 
 static int debugfs_dcdcarm_set(void *data, u64 val)
