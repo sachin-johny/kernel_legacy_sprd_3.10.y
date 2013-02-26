@@ -858,7 +858,7 @@ static u32 emc_freq_div = 0;
 static struct kobj_attribute _name##_attr = {	\
 	.attr	= {				\
 		.name = __stringify(_name),	\
-		.mode = 0777,			\
+		.mode = 0620,			\
 	},					\
 	.show	= _name##_show,			\
 	.store	= _name##_store,		\
