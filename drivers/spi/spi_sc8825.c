@@ -27,6 +27,9 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/hardware.h>
+#include <mach/regs_ahb.h>
+#include <mach/regs_glb.h>
+#include <mach/sci.h>
 #include "spi_sc8825.h"
 
 /* NOTE: only GPIO CS is supported yet*/
@@ -57,13 +60,11 @@ static inline void cs_activate(struct sprd_spi_data *sprd_data,
 		spi_writel(sprd_ctrl_data->spi_clkd, SPI_CLKD);
 		spi_writel(sprd_ctrl_data->spi_ctl0, SPI_CTL0);
 
-		sprd_greg_set_bits(REG_TYPE_GLOBAL,
-				   (sprd_ctrl_data->clk_spi_and_div & 0xffff) <<
-				   21, GR_GEN2);
+		sci_glb_set(REG_GLB_GEN2,
+				   (sprd_ctrl_data->clk_spi_and_div & 0xffff) <<21);
 
-		sprd_greg_set_bits(REG_TYPE_GLOBAL,
-				   (sprd_ctrl_data->clk_spi_and_div >> 16) <<
-				   26, GR_CLK_DLY);
+		sci_glb_set(REG_GLB_CLKDLY,
+				   (sprd_ctrl_data->clk_spi_and_div >> 16) <<26);
 
 #if SPRD_SPI_CS_GPIO
 		__gpio_set_value(sprd_ctrl_data->cs_gpio,
@@ -338,7 +339,7 @@ static int sprd_spi_transfer(struct spi_device *spi, struct spi_message *msg)
 	return sprd_spi_direct_transfer_compact(spi, msg);
 }
 
-
+#if 0
 static irqreturn_t sprd_spi_interrupt(int irq, void *dev_id)
 {
 	struct spi_master *master = dev_id;
@@ -346,21 +347,21 @@ static irqreturn_t sprd_spi_interrupt(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
-
+#endif
 
 static int sprd_spi_setup(struct spi_device *spi)
 {
 	struct sprd_spi_data *sprd_data;
 	struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
-	u8 bits = spi->bits_per_word;
-	u32 clk_spi;
-	u8 clk_spi_mode;
+	int ret;
 	u32 cs_gpio;
-	u8 clk_spi_div;
-	u32 spi_clkd;
+	u8 bits = spi->bits_per_word;
+	u32 clk_spi = 0;
+	u8 clk_spi_mode = 0;
+	u8 clk_spi_div = 0;
+	u32 spi_clkd = 0;
 	u32 spi_ctl0 = 0;
 	int data_width = 0;
-	int ret;
 
 	sprd_data = spi_master_get_devdata(spi->master);
 
@@ -376,15 +377,15 @@ static int sprd_spi_setup(struct spi_device *spi)
 	switch (spi->master->bus_num) {
 	case 0:
 		clk_spi_mode =
-		    (sprd_greg_read(REG_TYPE_GLOBAL, GR_CLK_DLY) >> 26) & 0x03;
+		    (sci_glb_read(REG_GLB_CLKDLY, 0xffffffff) >> 26) & 0x03;
 		break;
 	case 1:
 		clk_spi_mode =
-		    (sprd_greg_read(REG_TYPE_GLOBAL, GR_CLK_DLY) >> 30) & 0x03;
+		    (sci_glb_read(REG_GLB_CLKDLY, 0xffffffff) >> 30) & 0x03;
 		break;
 	case 2:
 		clk_spi_mode =
-		    (sprd_greg_read(REG_TYPE_GLOBAL, GR_GEN3) >> 3) & 0x03;
+		    (sci_glb_read(REG_GLB_GEN3, 0xffffffff) >> 3) & 0x03;
 		break;
 	}
 
@@ -405,15 +406,15 @@ static int sprd_spi_setup(struct spi_device *spi)
 	switch (spi->master->bus_num) {
 	case 0:
 		clk_spi_div =
-		    (sprd_greg_read(REG_TYPE_GLOBAL, GR_GEN2) >> 21) & 0x07;
+		    (sci_glb_read( REG_GLB_GEN2, 0xffffffff) >> 21) & 0x07;
 		break;
 	case 1:
 		clk_spi_div =
-		    (sprd_greg_read(REG_TYPE_GLOBAL, GR_GEN2) >> 11) & 0x07;
+		    (sci_glb_read(REG_GLB_GEN2, 0xffffffff) >> 11) & 0x07;
 		break;
 	case 2:
 		clk_spi_div =
-		    (sprd_greg_read(REG_TYPE_GLOBAL, GR_GEN3) >> 5) & 0x07;
+		    (sci_glb_read( REG_GLB_GEN3, 0xffffffff) >> 5) & 0x07;
 		break;
 	}
 
@@ -578,12 +579,9 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 			goto out_free_buffer;
 
 		/*reset the spi*/
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, SWRST_SPI0_RST,
-				   GR_SOFT_RST);
+		sci_glb_set(REG_GLB_SOFT_RST, BIT_SPI0_RST);
 		msleep(1);
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, SWRST_SPI0_RST,
-				     GR_SOFT_RST);
-
+		sci_glb_clr(REG_GLB_SOFT_RST, BIT_SPI0_RST);
 		spi_writel(0, SPI_INT_EN);
 
 		/* clk source selected to 96M */
@@ -598,11 +596,9 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 		if (IS_ERR(sprd_data->spi_clk))
 			goto out_free_buffer;
 
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, SWRST_SPI1_RST,
-				   GR_SOFT_RST);
+		sci_glb_set(REG_GLB_SOFT_RST, BIT_SPI1_RST);
 		msleep(1);
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, SWRST_SPI1_RST,
-				     GR_SOFT_RST);
+		sci_glb_clr(REG_GLB_SOFT_RST, BIT_SPI1_RST);
 		spi_writel(0, SPI_INT_EN);
 
 		/* clk source selected to 96M */
@@ -617,11 +613,9 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 		if (IS_ERR(sprd_data->spi_clk))
 			goto out_free_buffer;
 
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, SWRST_SPI2_RST,
-				   GR_SOFT_RST);
+		sci_glb_set(REG_GLB_SOFT_RST, BIT_SPI2_RST);
 		msleep(1);
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, SWRST_SPI2_RST,
-				     GR_SOFT_RST);
+		sci_glb_clr(REG_GLB_SOFT_RST, BIT_SPI2_RST);
 		spi_writel(0, SPI_INT_EN);
 
 		/* clk source selected to 96M */
@@ -647,7 +641,6 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 
 out_reset_hw:
 	free_irq(irq, master);
-out_unmap_regs:
 	iounmap(sprd_data->regs);
 out_free_buffer:
 out_free:
