@@ -118,6 +118,28 @@
 #define OVP_PD			(1)
 #define OVP_LDO_EN		(0)
 
+#define LDO_V_29		(0)
+#define LDO_V_30		(1)
+#define LDO_V_31		(2)
+#define LDO_V_32		(3)
+#define LDO_V_33		(4)
+#define LDO_V_34		(5)
+#define LDO_V_35		(6)
+#define LDO_V_36		(7)
+
+#define MIC_LDO_V_21		(0)
+#define MIC_LDO_V_19		(1)
+#define MIC_LDO_V_23		(2)
+#define MIC_LDO_V_25		(3)
+
+/* PMUR3 */
+#define VCM_V			(5)
+#define VCM_V_MASK		(0x7)
+#define MICBIAS_V		(3)
+#define MICBIAS_V_MASK		(0x3)
+#define AUXMICBIAS_V		(1)
+#define AUXMICBIAS_V_MASK	(0x3)
+
 /* PMUR4 */
 #define PA_SWOCP_PD		(7)
 #define PA_LDOOCP_PD		(6)
