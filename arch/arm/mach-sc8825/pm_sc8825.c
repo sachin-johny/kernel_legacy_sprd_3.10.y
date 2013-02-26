@@ -97,7 +97,7 @@ static inline void gic_writel(u32 val, u32 offset, u8 idx)
 	__raw_writel(val, gic_dist_base + offset + 4 * idx);
 }
 
-static void dump_gic_saved_context(void)
+static __used void dump_gic_saved_context(void)
 {
 	u32 i;
 	for(i=0; i<GIC_CONTEXT_SIZE; i++){
@@ -463,8 +463,13 @@ static void restore_reset_vector(void)
 
 u32 __attribute__ ((naked)) read_cpsr(void)
 {
-	__asm__ __volatile__("mrs r0, cpsr\nbx lr");
+	unsigned long cpsr_val;
+
+	__asm__ __volatile__("mrs %0, cpsr":"=r"(cpsr_val):);
+
+	return cpsr_val;
 }
+
 
 /*make sure adb ahb and audio is complete shut down.*/
 #define GEN0_MASK ( GEN0_SIM0_EN | /*GEN0_ADI_EN |*/ GEN0_GPIO_EN | 			\
@@ -933,7 +938,7 @@ int deep_sleep(void)
 #define DEVICE_TEYP_MASK        (DEVICE_AHB | DEVICE_APB | DEVICE_VIR | DEVICE_AWAKE)
 
 
-static int sc8825_get_sleep_mod( void ){
+static __used int sc8825_get_sleep_mod( void ){
 	int val, ret;
 	printk("*** REG_GLB_GEN1:  0x%x ***\n", sci_glb_read(REG_GLB_GEN1, -1UL));
 	printk("*** REG_GLB_STC_DSP_ST:  0x%x ***\n", sci_glb_read(REG_GLB_STC_DSP_ST, -1UL));
