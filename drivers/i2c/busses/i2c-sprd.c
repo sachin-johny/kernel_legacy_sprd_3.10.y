@@ -22,7 +22,7 @@
 
 #include <asm/io.h>
 
-#include <mach/globalregs.h>
+#include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/regs_glb.h>
 #define SPRD_I2C_CTL_ID	4
@@ -244,10 +244,10 @@ static int sprd_i2c_readbytes(struct sprd_i2c *pi2c, char *buf, int count)
 
 static int sprd_i2c_send_target_addr(struct sprd_i2c *pi2c, struct i2c_msg *msg)
 {
-	int rc;
-	int cmd;
-	int cmd2;
-	int tmp;
+	int rc = 0;
+	int cmd = 0;
+	int cmd2 = 0;
+	int tmp = 0;
 
 	if (msg->flags & I2C_M_TEN) {
 		cmd = 0xf0 | (((msg->addr >> 8) & 0x03) << 1);
@@ -406,10 +406,10 @@ EXPORT_SYMBOL_GPL(sprd_i2c_ctl_chg_clk);
 static void sprd_i2c_reset(struct sprd_i2c *pi2c)
 {
 	/*enable i2c clock */
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 29) | BIT(4), GR_GEN0);
+	sci_glb_set(REG_GLB_GEN0, (0x07 << 29) | BIT(4));
 	/*reset i2c module */
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 2) | 0x01, GR_SOFT_RST);
-	sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x07 << 2) | 0x01, GR_SOFT_RST);
+	sci_glb_set(REG_GLB_SOFT_RST, (0x07 << 2) | 0x01);
+	sci_glb_clr(REG_GLB_SOFT_RST, (0x07 << 2) | 0x01);
 	/*flush cmd buffer */
 	__raw_writel(I2C_RST_RST, pi2c->membase + I2C_RST);
 	__raw_writel(0, pi2c->membase + I2C_RST);
