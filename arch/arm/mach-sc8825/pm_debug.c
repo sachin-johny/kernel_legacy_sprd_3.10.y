@@ -49,8 +49,8 @@ static u32 sprd_hard_irq[SPRD_HARD_INTERRUPT_NUM]= {0, };
 static u32 sprd_irqs[SPRD_IRQ_NUM] = {0, };
 static u32 sprd_irqs_sts[SPRD_INTC_NUM] = {0, };
 static int is_wakeup = 0;
-static int irq_status = 0;
-static int hard_irq_status[SPRD_INTC_NUM] = {0, };
+//static int irq_status = 0;
+//static int hard_irq_status[SPRD_INTC_NUM] = {0, };
 static int sleep_mode = SLP_MODE_NON;
 static char * sleep_mode_str[]  = {
 	"[ARM]",
@@ -173,7 +173,7 @@ static void print_hard_irq(void)
 	}while(--i >= 0);
 }
 
-static void irq_reset(void)
+static __used void irq_reset(void)
 {
 	int i = SPRD_IRQ_NUM - 1;
 	do{
