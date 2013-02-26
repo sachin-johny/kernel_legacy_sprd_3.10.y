@@ -41,7 +41,9 @@ enum{
 
 #define SPRDFB_DEFAULT_FPS (60)
 
-#define SPRDFB_ESD_TIME_OUT	(2000)
+#define SPRDFB_ESD_TIME_OUT_CMD	(2000)
+
+#define SPRDFB_ESD_TIME_OUT_VIDEO	(1000)
 
 extern bool sprdfb_panel_get(struct sprdfb_device *dev);
 extern int sprdfb_panel_probe(struct sprdfb_device *dev);
@@ -409,7 +411,13 @@ static int sprdfb_probe(struct platform_device *pdev)
 	pr_debug("sprdfb: Init ESD work queue!\n");
 	INIT_DELAYED_WORK(&dev->ESD_work, ESD_work_func);
 	sema_init(&dev->ESD_lock, 1);
-	dev->ESD_timeout_val = SPRDFB_ESD_TIME_OUT;
+
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		dev->ESD_timeout_val = SPRDFB_ESD_TIME_OUT_VIDEO;
+	}else{
+		dev->ESD_timeout_val = SPRDFB_ESD_TIME_OUT_CMD;
+	}
+
 	dev->ESD_work_start = false;
 	dev->check_esd_time = 0;
 	dev->reset_dsi_time = 0;

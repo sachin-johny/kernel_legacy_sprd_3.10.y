@@ -18,6 +18,9 @@
 #include <linux/workqueue.h>
 #include <linux/semaphore.h>
 
+
+#include <linux/wait.h>
+
 enum{
 	SPRDFB_PANEL_IF_DBI = 0,
 	SPRDFB_PANEL_IF_DPI,
@@ -127,6 +130,10 @@ struct sprdfb_device {
 	uint32_t check_esd_time;
 	uint32_t panel_reset_time;
 	uint32_t reset_dsi_time;
+
+	uint32_t esd_te_waiter;
+	wait_queue_head_t  esd_te_queue;
+	uint32_t esd_te_done;
 #endif
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
