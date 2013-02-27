@@ -58,8 +58,11 @@ static void l2x0_mp_unlock(unsigned long *flags, unsigned long *hw_flags)
 	hw_local_irq_restore(*hw_flags);
 }
 
-#define spin_lock_irqsave(X,Y)	NULL
-#define spin_unlock_irqrestore(X,Y) NULL
+#if defined(spin_lock_irqsave)
+#undef spin_lock_irqsave
+#endif
+#define spin_lock_irqsave(X,Y) {}
+#define spin_unlock_irqrestore(X,Y) {}
 
 #else
 #define l2x0_mp_lock(X,Y) NULL
