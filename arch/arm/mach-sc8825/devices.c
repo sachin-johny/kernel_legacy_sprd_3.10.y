@@ -924,6 +924,7 @@ struct platform_device sprd_emmc_device = {
 
 static int native_tdmodem_start(void *arg)
 {
+	#if define(CONFIG_SIPC)
 	u32 cpdata[3] = {0xe59f0000, 0xe12fff10, 0x80500000};
 	/*disbale cp clock */
 	__raw_writel(TD_CTL_DISENABLE, TD_REG_CLK_ADDR);
@@ -935,7 +936,7 @@ static int native_tdmodem_start(void *arg)
 	__raw_writel(TD_CTL_CLK_VAL, TD_REG_CLK_ADDR);
 	/* reset cp */
 	__raw_writel(TD_CTL_ENABLE, TD_REG_RESET_ADDR);
-
+	#endif
 	return 0;
 }
 static struct cproc_init_data sprd_cproc_td_pdata = {
