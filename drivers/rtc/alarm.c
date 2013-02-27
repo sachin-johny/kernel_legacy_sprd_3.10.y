@@ -107,7 +107,7 @@ static void update_timer_locked(struct alarm_queue *base, bool head_removed)
 	schedule_work(&work);
 }
 
-static void dryice_work()
+static void dryice_work(struct work_struct *work)
 {
 	struct rtc_time     rtc_current_rtc_time;
 	unsigned long       rtc_current_time;
