@@ -329,12 +329,21 @@ static void print_gr(void)
 #define AUDIO_PA_LDO_ENABLE_RST		0x200
 
 /* sc8810 ldo register */
+#ifdef CONFIG_ARCH_SC7710
+#define	LDO_REG_BASE		(SPRD_MISC_BASE + 0x800)
+#define	ANA_LDO_PD_CTL0		(LDO_REG_BASE  + 0x30)
+#define	ANA_LDO_PD_CTL1		(LDO_REG_BASE  + 0x34)
+#define ANA_AUDIO_CTRL		(LDO_REG_BASE  + 0x88)
+#define	ANA_AUDIO_PA_CTRL0	(LDO_REG_BASE  + 0x78) // non-present
+#define	ANA_AUDIO_PA_CTRL1	(LDO_REG_BASE  + 0x7C) // non-present
+#else
 #define	LDO_REG_BASE		(SPRD_MISC_BASE + 0x600)
 #define	ANA_LDO_PD_CTL0		(LDO_REG_BASE  + 0x10)
 #define	ANA_LDO_PD_CTL1		(LDO_REG_BASE  + 0x14)
 #define ANA_AUDIO_CTRL		(LDO_REG_BASE  + 0x74)
 #define	ANA_AUDIO_PA_CTRL0	(LDO_REG_BASE  + 0x78)
 #define	ANA_AUDIO_PA_CTRL1	(LDO_REG_BASE  + 0x7C)
+#endif
 
 static void print_ana(void)
 {

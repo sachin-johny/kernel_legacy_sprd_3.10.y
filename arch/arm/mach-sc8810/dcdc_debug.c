@@ -10,8 +10,13 @@
 #include <mach/adc.h>
 
 /* FIXME */
+#ifdef CONFIG_ARCH_SC7710
+#define	  SPRD_ANA_BASE 	   (SPRD_MISC_BASE + 0x800)
+#define   ANA_REG_BASE         SPRD_ANA_BASE	/*  0x82000800 */
+#else
 #define	  SPRD_ANA_BASE 	   (SPRD_MISC_BASE + 0x600)
 #define   ANA_REG_BASE         SPRD_ANA_BASE	/*  0x82000600 */
+#endif
 #define   ANA_DCDC_CTRL        (ANA_REG_BASE + 0x38)
 #define   ANA_DCDC_CTRL_CAL    (ANA_REG_BASE + 0x40)
 #define   ANA_DCDCARM_CTRL     (ANA_REG_BASE + 0x44)

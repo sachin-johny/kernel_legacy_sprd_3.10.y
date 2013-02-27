@@ -36,6 +36,15 @@
 
 #define WDG_UNLOCK_KEY          0xE551
 
+#ifdef CONFIG_ARCH_SC7710
+#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x800)
+#define ANA_REG_BASE            SPRD_ANA_BASE	/*  0x82000800 */
+#define ANA_RST_STATUS          (ANA_REG_BASE + 0xC4)
+#define ANA_AGEN                (ANA_REG_BASE + 0x00)
+#define AGEN_WDG_EN             BIT(2)
+#define AGEN_RTC_ARCH_EN        BIT(8) // ?
+#define AGEN_RTC_WDG_EN         BIT(10) // ?
+#else
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
 #define ANA_REG_BASE            SPRD_ANA_BASE	/*  0x82000600 */
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0X88)
@@ -43,6 +52,7 @@
 #define AGEN_WDG_EN             BIT(2)
 #define AGEN_RTC_ARCH_EN        BIT(8)
 #define AGEN_RTC_WDG_EN         BIT(10)
+#endif
 
 #define WDG_CLK                 32768
 

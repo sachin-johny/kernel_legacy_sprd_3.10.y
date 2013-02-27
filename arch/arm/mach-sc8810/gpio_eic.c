@@ -86,8 +86,13 @@
 #define CTL_EIC2_BASE		(SPRD_EIC2_BASE)
 #endif
 /* Analog GPIO/EIC base address */
+#ifdef CONFIG_ARCH_SC7710
+#define ANA_CTL_GPIO_BASE	(SPRD_MISC_BASE + 0x0b00)
+#define ANA_CTL_EIC_BASE	(SPRD_MISC_BASE + 0x0100)
+#else
 #define ANA_CTL_GPIO_BASE	(SPRD_MISC_BASE + 0x0480)
 #define ANA_CTL_EIC_BASE	(SPRD_MISC_BASE + 0x0700)
+#endif
 
 /* 16 GPIO share a group of registers */
 #define	GPIO_GROUP_NR		(16)
@@ -581,10 +586,17 @@ void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *
 	}
 }
 
+#ifdef CONFIG_ARCH_SC7710
+#define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x0800 )
+#define ANA_REG_GLB_APB_CLK_EN          ( ANA_CTL_GLB_BASE + 0x0000 )
+#define BIT_RTC_EIC_EB                  ( BIT(1) )
+#define BIT_EIC_EB                      ( BIT(3) )
+#else
 #define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x0600 )
 #define ANA_REG_GLB_APB_CLK_EN          ( ANA_CTL_GLB_BASE + 0x0000 )
 #define BIT_RTC_EIC_EB                  ( BIT(11) )
 #define BIT_EIC_EB                      ( BIT(3) )
+#endif
 
 static int __init gpio_init(void)
 {

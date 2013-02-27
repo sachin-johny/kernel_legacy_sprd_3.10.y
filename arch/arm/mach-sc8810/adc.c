@@ -72,7 +72,11 @@
 #define BIT_ADC_RIS                     ( BIT(0) )
 
 /* adc global regs */
+#ifdef CONFIG_ARCH_SC7710
+#define ANA_REG_GLB_APB_CLK_EN		(SPRD_MISC_BASE + 0x0800)
+#else
 #define ANA_REG_GLB_APB_CLK_EN		(SPRD_MISC_BASE + 0x0600)
+#endif
 #define BIT_CLK_AUXAD_EN                ( BIT(14) )
 #define BIT_CLK_AUXADC_EN               ( BIT(13) )
 #define BIT_ADC_EB                      ( BIT(5) )

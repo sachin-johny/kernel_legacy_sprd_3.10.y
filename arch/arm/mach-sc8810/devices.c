@@ -568,8 +568,13 @@ struct platform_device sprd_emmc0_device = {
 
 static struct resource sprd_tp_resources[] = {
         {
+#ifdef CONFIG_ARCH_SC7710
+                .start  = (SPRD_MISC_BASE +0x0a00),
+                .end    = (SPRD_MISC_BASE + 0x0a00+0x44),
+#else
                 .start  = (SPRD_MISC_BASE +0x280),
                 .end    = (SPRD_MISC_BASE + 0x280+0x44),
+#endif
                 .flags  = IORESOURCE_MEM,
         },
         {

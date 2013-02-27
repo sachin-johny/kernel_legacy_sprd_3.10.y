@@ -34,7 +34,11 @@
 
 
 /*sc8810 ldo register*/
+#ifdef CONFIG_ARCH_SC7710
+#define	LDO_REG_BASE		( SPRD_MISC_BASE+ 0x800	)
+#else
 #define	LDO_REG_BASE		( SPRD_MISC_BASE+ 0x600	)
+#endif
 
 #define	LDO_PD_SET		( LDO_REG_BASE	+ 0x8 )
 #define	LDO_PD_RST		( LDO_REG_BASE	+ 0xc )

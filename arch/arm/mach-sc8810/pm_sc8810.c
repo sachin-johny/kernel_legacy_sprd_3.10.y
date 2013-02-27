@@ -88,6 +88,17 @@ void check_pd(void)
 }
 
 /* FIXME: init led ctrl *we have no driver of led, just init here*/
+#ifdef CONFIG_ARCH_SC7710
+#define SPRD_ANA_BASE	(SPRD_MISC_BASE + 0x800)
+#define ANA_REG_BASE	SPRD_ANA_BASE
+#define ANA_LED_CTRL	(ANA_REG_BASE + 0x68)
+
+#define   ANA_LDO_SLP0           (ANA_REG_BASE + 0x2C)
+#define   ANA_LDO_SLP1           (ANA_REG_BASE + 0x30)
+#define   ANA_LDO_SLP2           (ANA_REG_BASE + 0x34) // non-present
+#define   ANA_DCDC_CTRL         (ANA_REG_BASE + 0x38)
+#define   ANA_DCDC_CTRL_DS		(ANA_REG_BASE + 0x3C)
+#else
 #define SPRD_ANA_BASE	(SPRD_MISC_BASE + 0x600)
 #define ANA_REG_BASE	SPRD_ANA_BASE
 #define ANA_LED_CTRL	(ANA_REG_BASE + 0x68)
@@ -97,6 +108,7 @@ void check_pd(void)
 #define   ANA_LDO_SLP2           (ANA_REG_BASE + 0x34)
 #define   ANA_DCDC_CTRL         (ANA_REG_BASE + 0x38)
 #define   ANA_DCDC_CTRL_DS		(ANA_REG_BASE + 0x3C)
+#endif
 
 static void init_led(void)
 {
@@ -405,7 +417,11 @@ int sc8810_deep_sleep(void)
 
 /*FIXME:should provider a mashesm but now only make keypad & usb as wake source */
 #define INT_IRQ_EN				(SPRD_INTCV_BASE + 0x08)
+#ifdef CONFIG_ARCH_SC7710
+#define ANA_GPIO_IE            (SPRD_MISC_BASE + 0x800 + 0x18)
+#else
 #define ANA_GPIO_IE            (SPRD_MISC_BASE + 0x700 + 0x18)
+#endif
 
 #define WKAEUP_SRC_KEAPAD   (1<<10)
 #define WKAEUP_SRC_RX0      1

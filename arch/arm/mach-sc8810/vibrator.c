@@ -21,11 +21,19 @@
 #include <mach/adi.h>
 #include <mach/adc.h>
 
+#ifdef CONFIG_ARCH_SC7710
+#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x800)
+#define ANA_REG_BASE            (SPRD_ANA_BASE)
+#define ANA_VIBR_WR_PROT        (ANA_REG_BASE + 0xA0)
+#define ANA_VIBRATOR_CTRL0      (ANA_REG_BASE + 0x94)
+#define ANA_VIBRATOR_CTRL1      (ANA_REG_BASE + 0x98)
+#else
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
 #define ANA_REG_BASE            (SPRD_ANA_BASE)
 #define ANA_VIBR_WR_PROT        (ANA_REG_BASE + 0x90)
 #define ANA_VIBRATOR_CTRL0      (ANA_REG_BASE + 0x6c)
 #define ANA_VIBRATOR_CTRL1      (ANA_REG_BASE + 0x70)
+#endif
 
 #define VIBRATOR_REG_UNLOCK     (0xA1B2)
 #define VIBRATOR_REG_LOCK       ((~VIBRATOR_REG_UNLOCK) & 0xffff)

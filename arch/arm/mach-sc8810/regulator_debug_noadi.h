@@ -27,7 +27,11 @@
 
 /*ldo registers retarget func for adi independence*/
 
+#ifdef CONFIG_ARCH_SC7710
+#define	_LDO_REG_BASE		( SPRD_MISC_BASE	+ 0x800	)
+#else
 #define	_LDO_REG_BASE		( SPRD_MISC_BASE	+ 0x600	)
+#endif
 
 
 #define	_LDO_PD_SET		( _LDO_REG_BASE	+ 0x8 )

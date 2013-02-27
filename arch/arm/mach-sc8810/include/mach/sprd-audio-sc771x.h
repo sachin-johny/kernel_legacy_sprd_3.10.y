@@ -51,7 +51,11 @@ enum {
 #define SPRD_IRAM_ALL_SIZE	SZ_32K
 #endif
 
+#ifdef CONFIG_ARCH_SC7710
+#define	AUDIO_CTRL		(SPRD_MISC_BASE + 0x0088)
+#else
 #define	AUDIO_CTRL		(SPRD_MISC_BASE + 0x888)
+#endif
 #define BIT_AUD_ARM_ACC                 ( BIT(15) )
 #define BIT_AUDRX_ARM_SOFT_RST          ( BIT(10) )
 #define BIT_AUDTX_ARM_SOFT_RST          ( BIT(9) )
