@@ -666,7 +666,12 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->mmc->caps |= MMC_CAP_HW_RESET;
 	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
-
+       if(pdev->id == 1){
+               host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
+               host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER;
+               pm_runtime_disable(&(pdev)->dev);
+               host_data->platdata->regs.is_valid = 1;
+       }
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");
