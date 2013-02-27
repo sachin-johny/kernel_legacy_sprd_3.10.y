@@ -1782,6 +1782,7 @@ static struct sc88xx_clk sc8800g2_clks[] = {
 	CLK(NULL, "clk_emc", &clk_emc, CK_SC8800G2),
 
 	/* third level: clock derived from top module. */
+	CLK(NULL, "l3_384m", &l3_384m, CK_SC8800G2),
 	CLK(NULL, "l3_256m", &l3_256m, CK_SC8800G2),
 	CLK(NULL, "l3_192m", &l3_192m, CK_SC8800G2),
 	CLK(NULL, "l3_153m600k", &l3_153m600k, CK_SC8800G2),
