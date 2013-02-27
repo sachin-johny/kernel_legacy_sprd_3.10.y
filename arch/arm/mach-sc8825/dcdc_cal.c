@@ -37,6 +37,8 @@ int sprd_get_adc_cal_type(void);
 uint16_t sprd_get_adc_to_vol(uint16_t data);
 int reguator_is_trimming(void *);
 int regulator_set_trimming(struct regulator *, int, int);
+int regulator_get_trimming_step(struct regulator *, int);
+
 static uint32_t bat_numerators, bat_denominators = 0;
 
 #define CALIBRATE_TO	(60 * 1)	/* one minute */
@@ -52,6 +54,7 @@ int dcdc_adc_get(int adc_chan)
 	int ret;
 	u32 val[MEASURE_TIMES], adc_res = 0, adc_vol = 0;
 	u32 chan_numerators, chan_denominators;
+	uint32_t bat_numerators, bat_denominators;
 
 	struct adc_sample_data adc_data = {
 		.channel_id = adc_chan,
@@ -64,6 +67,9 @@ int dcdc_adc_get(int adc_chan)
 		.sample_speed = 0,
 		.signal_mode = 0,
 	};
+
+	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
+				  &bat_denominators);
 
 	sci_adc_get_vol_ratio(adc_chan, true, &chan_numerators,
 			      &chan_denominators);
@@ -82,9 +88,9 @@ int dcdc_adc_get(int adc_chan)
 
 	adc_res = val[MEASURE_TIMES / 2];
 	/* info("adc chan %d, value %d\n", adc_chan, adc_res); */
-	adc_vol = DIV_ROUND_CLOSEST(sprd_get_adc_to_vol(adc_res) *
-				    (bat_numerators * chan_denominators),
-				    (bat_denominators * chan_numerators));
+	adc_vol = sprd_get_adc_to_vol(adc_res) *
+	    (bat_numerators * chan_denominators) /
+	    (bat_denominators * chan_numerators);
 exit:
 	return adc_vol;
 }
@@ -138,9 +144,6 @@ int ldo_adc_get(const char *name)
 	if (i >= ARRAY_SIZE(dcdc_cal_map))
 		return -EINVAL;	/* not found */
 
-	if (bat_denominators == 0)
-		return -EACCES;
-
 	/* enable ldo cal before adc sampling and ldo calibration */
 	if (0 != dcdc_cal_map[i].cal_sel) {
 		sci_adi_write(ANA_REG_GLB2_LDO_TRIM_SEL,
@@ -175,9 +178,11 @@ static int __check_adc_validity(void)
 {
 	int ret = 0;
 	ret |= __check_adc_validity_one("vdd18", 1800);
+	ret |= __check_adc_validity_one("vdd25", 2500);
 	ret |= __check_adc_validity_one("vdd28", 2800);
 	ret |= __check_adc_validity_one("vdd_a", 1800);
 	ret |= __check_adc_validity_one("vddarm", 1200);
+	ret |= __check_adc_validity_one("vddcore", 1100);
 	return ret;
 }
 
@@ -185,7 +190,7 @@ static int dcdc_calibrate(struct regulator *dcdc, int adc_chan,
 			  const char *id, int def_vol, int to_vol, int is_cal)
 {
 	int ret = 0;
-	int adc_vol = 0, ctl_vol, cal_vol = 0;
+	int acc_vol, adc_vol = 0, ctl_vol, cal_vol = 0;
 
 	if (0 != regulator_is_enabled(dcdc))
 		adc_vol = dcdc_adc_get(adc_chan);
@@ -207,12 +212,16 @@ static int dcdc_calibrate(struct regulator *dcdc, int adc_chan,
 		return 0;
 	}
 
+	acc_vol = regulator_get_trimming_step(dcdc, to_vol);
+
 	/* always set valid vol ctrl bits */
-	ctl_vol = DIV_ROUND_CLOSEST(def_vol * to_vol, adc_vol);
+	ctl_vol = DIV_ROUND_UP(def_vol * to_vol, adc_vol) + acc_vol;
 	ret = regulator_set_trimming(dcdc, ctl_vol * 1000, to_vol * 1000);
 	if (IS_ERR_VALUE(ret))
 		goto exit;
 
+	WARN(!is_cal,
+	     "warning: regulator (%s) voltage ctrl %dmv\n", id, ctl_vol);
 	return ctl_vol;
 
 exit:
