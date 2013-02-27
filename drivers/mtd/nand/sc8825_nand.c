@@ -172,10 +172,10 @@ static void tiger_set_timing_config(struct sprd_sc8825_nand_info * tiger, uint32
 		reg_val = 0;
 
 		/* get acs value : 0ns */
-		reg_val |= ((0 & 0x1F) << NFC_ACS_OFFSET);
+		reg_val |= ((2 & 0x1F) << NFC_ACS_OFFSET);
 
-		/* get ace value */
-		temp_val = param->ace_ns * nfc_clk_MHz / 1000;
+		/* get ace value + 6ns read delay time, and rwl added */
+		temp_val = (param->ace_ns + 6) * nfc_clk_MHz / 1000;
 		if (((param->ace_ns * nfc_clk_MHz) % 1000)  != 0) {
 			temp_val++;
 		}
@@ -189,10 +189,10 @@ static void tiger_set_timing_config(struct sprd_sc8825_nand_info * tiger, uint32
 		reg_val |= ((temp_val & 0x3F) << NFC_RWS_OFFSET);
 
 		/* get rws value : 0 ns */
-		reg_val |= ((0 & 0x1F) << NFC_RWE_OFFSET);
+		reg_val |= ((2 & 0x1F) << NFC_RWE_OFFSET);
 
 		/* get rwh value */
-		temp_val = param->rwh_ns * nfc_clk_MHz / 1000;
+		temp_val = (param->rwh_ns + 6) * nfc_clk_MHz / 1000;
 		if (((param->ace_ns * nfc_clk_MHz) % 1000)  != 0) {
 			temp_val++;
 		}
