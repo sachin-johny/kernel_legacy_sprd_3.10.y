@@ -537,11 +537,31 @@ static void print_gr(void)
 #define	ANA_LED_CTL			(LDO_REG_BASE  + 0x70)
 #define ANA_VIBRATOR_CTRL0	(LDO_REG_BASE  + 0x74)
 #define	ANA_AUD_CLK_RST		(LDO_REG_BASE  + 0x7C)
+
+static int check_ana(void)
+{
+	static u16 tag = 0x555;
+	int ret = 0;
+	u32 val, reg = SCI_ADDR(SPRD_MISC_BASE, 0x0144);
+
+	/* check adi fifo r/w address */
+	val = __raw_readl(SCI_ADDR(SPRD_ADI_BASE, 0x002c));
+	ret |= (val >> 4 & 3) == (val >> 8 & 3);
+	ret <<= 1;
+
+	/* check ana reg w/r consistency */
+	sci_adi_raw_write(reg, tag);
+	ret |= sci_adi_read(reg) == tag;
+	tag = ~tag & 0xfff;
+
+	return ret;
+}
+
 static void print_ana(void)
 {
 	u32 val;
 	val = sci_adi_read(ANA_REG_GLB_ANA_APB_CLK_EN);
-	printk("##: ANA_REG_GLB_ANA_APB_CLK_EN = %08x.\n", val);
+	printk("##%d: ANA_REG_GLB_ANA_APB_CLK_EN = %08x.\n", check_ana(), val);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL0);
 	printk("##: ANA_REG_GLB_LDO_PD_CTRL0 = %04x.\n", val);

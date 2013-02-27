@@ -542,7 +542,7 @@
  * and polling this bit, it will be cleared to 0 when afuse_out data successfully sampled
  * into AFUSE_OUT_LOW and HIGH register in the following.
  */
-#define BIT_AFUSE_RD_REQ                ( BIT(8) )
+#define BIT_AFUSE_RD_REQ                ( BIT(7) )
 #define BITS_AFUSE_RD_DLY(_x_)          ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)) )
 
 #define SHFT_AFUSE_RD_DLY               ( 0 )

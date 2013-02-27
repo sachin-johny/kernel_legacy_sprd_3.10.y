@@ -279,7 +279,7 @@ static int ldo_init_trimming(struct regulator_dev *rdev)
 	int shft = __ffs(regs->vol_trm_bits);
 	u32 trim;
 
-	if (!regs->vol_trm || !rdev)
+	if (!regs->vol_trm)
 		goto exit;
 
 	trim = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits) >> shft;
@@ -343,8 +343,7 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 	to_vol /= 1000;
 
 	cal_vol = ctl_vol - to_vol * 90 / 100;	/* cal range 90% ~ 110% */
-	if (!regs->vol_trm || !rdev
-	    || cal_vol < 0 || cal_vol >= to_vol * 20 / 100)
+	if (!regs->vol_trm || cal_vol < 0 || cal_vol >= to_vol * 20 / 100)
 		goto exit;
 
 	/* always update voltage ctrl bits */
@@ -354,7 +353,7 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 
 	else {
 		u32 trim =	/* assert 5 valid trim bits */
-		    DIV_ROUND_CLOSEST(cal_vol * 100 * 32, to_vol * 20) & 0x1f;
+		    (cal_vol * 100 * 32) / (to_vol * 20) & 0x1f;
 		debug
 		    ("regu %p (%s) trimming %u = %u %+dmv, got [%02X] %u.%03u%%\n",
 		     regs, desc->desc.name, ctl_vol, to_vol,
@@ -381,6 +380,18 @@ int regulator_set_trimming(struct regulator *regulator, int ctl_vol, int to_vol)
 	return (2 /*DCDC*/ == regs->typ)
 	    ? regulator_set_voltage(regulator, ctl_vol, ctl_vol)
 	    : ldo_set_trimming(rdev, ctl_vol, to_vol);
+}
+
+int regulator_get_trimming_step(struct regulator *regulator, int def_vol)
+{
+	struct regulator_dev *rdev = regulator_get_drvdata(regulator);
+	struct sci_regulator_desc *desc =
+	    (struct sci_regulator_desc *)rdev->desc;
+	const struct sci_regulator_regs *regs = desc->regs;
+
+	return (2 /*DCDC*/ == regs->typ)
+	    ? 100 / 32
+	    : def_vol * 7 / 1000;
 }
 
 static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
@@ -428,8 +439,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 		/* dcdc calibration control bits (default 00000),
 		 * small adjust voltage: 100/32mv ~= 3.125mv
 		 */
-		int j =
-		    DIV_ROUND_CLOSEST((mv - regs->vol_sel[i]) * 32, 100) % 32;
+		int j = ((mv - regs->vol_sel[i]) * 32) / (100) % 32;
 		ANA_REG_SET(regs->vol_trm,
 			    BITS_DCDC_CAL(j) |
 			    BITS_DCDC_CAL_RST(BITS_DCDC_CAL(-1) - j), -1);
