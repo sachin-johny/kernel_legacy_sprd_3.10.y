@@ -381,7 +381,7 @@ static int sprd_rtc_read_alarm(struct device *dev,
 	alrm->enabled = !!(sci_adi_read(ANA_RTC_INT_EN) & RTC_ALARM_BIT);
 	alrm->pending = !!(sci_adi_read(ANA_RTC_INT_RSTS) & RTC_ALARM_BIT);
 
-	printk("rtc_alarm:alrm->enabled=%d,secs=%d\n",alrm->enabled,secs);
+	printk("rtc_alarm:alrm->enabled=%d,secs=%lu\n",alrm->enabled,secs);
 	return 0;
 }
 
