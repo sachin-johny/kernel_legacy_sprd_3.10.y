@@ -163,4 +163,14 @@ config SC8810_DDR_6G
         default n
         bool "SC8810 feature to use 6Gb DDR"
 
+config SPRD_SOC_SC8810
+	depends on !ARCH_SC7710
+	default y
+	bool "Used to distinguish between sc8810 and sc7710"
+
+config SPRD_SOC_SC7710
+	depends on ARCH_SC7710
+	default y
+	bool "Used to distinguish between sc8810 and sc7710"
+
 endif
