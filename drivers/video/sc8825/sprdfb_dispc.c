@@ -62,6 +62,12 @@ struct sprdfb_dispc_context {
 	uint32_t  overlay_state;  /*0-closed, 1-configed, 2-started*/
 	struct semaphore   overlay_lock;
 #endif
+
+#ifdef CONFIG_FB_VSYNC_SUPPORT
+	uint32_t	 	waitfor_vsync_waiter;
+	wait_queue_head_t		waitfor_vsync_queue;
+	uint32_t	        waitfor_vsync_done;
+#endif
 };
 
 static struct sprdfb_dispc_context dispc_ctx = {0};
@@ -92,6 +98,7 @@ static irqreturn_t dispc_isr(int irq, void *data)
 	uint32_t reg_val;
 	struct sprdfb_device *dev = dispc_ctx->dev;
 	bool done = false;
+	bool vsync =  false;
 
 	reg_val = dispc_read(DISPC_INT_STATUS);
 
@@ -121,9 +128,9 @@ static irqreturn_t dispc_isr(int irq, void *data)
 		dispc_write(0x10, DISPC_INT_CLR);
 		done = true;
 	}else if ((reg_val & 0x1) && (SPRDFB_PANEL_IF_DPI !=  dev->panel_if_type)){ /* dispc done isr */
-			dispc_write(1, DISPC_INT_CLR);
-			dispc_ctx->is_first_frame = false;
-			done = true;
+		dispc_write(1, DISPC_INT_CLR);
+		dispc_ctx->is_first_frame = false;
+		done = true;
 	}
 #ifdef CONFIG_FB_ESD_SUPPORT
 	if((reg_val & 0x2) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){ /*dispc external TE isr*/
@@ -132,6 +139,25 @@ static irqreturn_t dispc_isr(int irq, void *data)
 			dev->esd_te_done =1;
 			wake_up_interruptible_all(&(dev->esd_te_queue));
 			dev->esd_te_waiter = 0;
+		}
+	}
+#endif
+
+
+#ifdef CONFIG_FB_VSYNC_SUPPORT
+	if((reg_val & 0x1) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){/*dispc done isr*/
+		dispc_write(1, DISPC_INT_CLR);
+		vsync = true;
+	}else if((reg_val & 0x2) && (SPRDFB_PANEL_IF_EDPI ==  dev->panel_if_type)){ /*dispc te isr*/
+		dispc_write(2, DISPC_INT_CLR);
+		vsync = true;
+	}
+	if(vsync){
+		//printk("sprdfb: got vsync!\n");
+		dispc_ctx->waitfor_vsync_done = 1;
+		if(dispc_ctx->waitfor_vsync_waiter){
+			//printk("sprdfb: wake!\n");
+			wake_up_interruptible_all(&(dispc_ctx->waitfor_vsync_queue));
 		}
 	}
 #endif
@@ -550,6 +576,12 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	init_waitqueue_head(&(dev->esd_te_queue));
 	dev->esd_te_waiter = 0;
 	dev->esd_te_done = 0;
+#endif
+
+#ifdef CONFIG_FB_VSYNC_SUPPORT
+	dispc_ctx.waitfor_vsync_done = 0;
+	dispc_ctx.waitfor_vsync_waiter = 0;
+	init_waitqueue_head(&(dispc_ctx.waitfor_vsync_queue));
 #endif
 
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
@@ -1227,6 +1259,34 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 
 #endif
 
+#ifdef CONFIG_FB_VSYNC_SUPPORT
+static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
+{
+	pr_debug("sprdfb: [%s]\n", __FUNCTION__);
+	int ret;
+
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		if(!dispc_ctx.is_first_frame){
+			dispc_ctx.waitfor_vsync_done = 0;
+			dispc_set_bits(BIT(0), DISPC_INT_EN);
+			dispc_ctx.waitfor_vsync_waiter++;
+			ret  = wait_event_interruptible_timeout(dispc_ctx.waitfor_vsync_queue,
+					dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(100));
+			dispc_ctx.waitfor_vsync_waiter = 0;
+		}
+	}else{
+		dispc_ctx.waitfor_vsync_done = 0;
+		dispc_set_bits(BIT(1), DISPC_INT_EN);
+		dispc_ctx.waitfor_vsync_waiter++;
+		ret  = wait_event_interruptible_timeout(dispc_ctx.waitfor_vsync_queue,
+				dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(100));
+		dispc_ctx.waitfor_vsync_waiter = 0;
+	}
+	pr_debug("sprdfb:[%s] (%d)\n", __FUNCTION__, ret);
+	return 0;
+}
+#endif
+
 struct display_ctrl sprdfb_dispc_ctrl = {
 	.name		= "dispc",
 	.early_init		= sprdfb_dispc_early_init,
@@ -1241,6 +1301,9 @@ struct display_ctrl sprdfb_dispc_ctrl = {
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	.enable_overlay = sprdfb_dispc_enable_overlay,
 	.display_overlay = sprdfb_dispc_display_overlay,
+#endif
+#ifdef CONFIG_FB_VSYNC_SUPPORT
+	.wait_for_vsync = spdfb_dispc_wait_for_vsync,
 #endif
 };
 

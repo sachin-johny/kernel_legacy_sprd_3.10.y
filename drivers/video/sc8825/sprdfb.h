@@ -161,6 +161,10 @@ struct display_ctrl {
 	int32_t 	(*enable_overlay) 	(struct sprdfb_device *dev, struct overlay_info* info, int enable);
 	int32_t	(*display_overlay)	(struct sprdfb_device *dev, struct overlay_display* setting);
 #endif
+
+#ifdef CONFIG_FB_VSYNC_SUPPORT
+	int32_t 	(*wait_for_vsync) 	(struct sprdfb_device *dev);
+#endif
 };
 
 
