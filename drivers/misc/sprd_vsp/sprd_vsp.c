@@ -38,6 +38,7 @@
 #if defined(CONFIG_ARCH_SC8825)
 #include <mach/regs_ahb.h>
 #include <mach/sci.h>
+#include <mach/memfreq_ondemand.h>
 #endif
 #define VSP_MINOR MISC_DYNAMIC_MINOR
 #define VSP_TIMEOUT_MS 1000
@@ -96,6 +97,7 @@ struct vsp_dev{
 static struct vsp_dev vsp_hw_dev;
 static struct wake_lock vsp_wakelock;
 
+static unsigned int mem_freq_ondemand;
 struct clock_name_map_t{
 	unsigned long freq;
 	char *name;
@@ -109,6 +111,24 @@ static struct clock_name_map_t clock_name_map[] = {
 						{48000000,"clk_48m"}
 						};
 
+
+static unsigned int vsp_memfreq_demand(struct memfreq_dbs *h)
+
+{
+  unsigned int value;
+
+  value = mem_freq_ondemand;
+  return value;
+
+} 
+
+static struct memfreq_dbs vsp_memfreq_desc = {
+
+.level = 0, //
+
+.memfreq_demand = vsp_memfreq_demand,
+
+}; 
 #else
 static struct clock_name_map_t clock_name_map[] = {
 						{153600000,"l3_153m600k"},
@@ -346,6 +366,9 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			return -EINVAL;
 		}
 		break;
+	case VSP_SET_MEMFREQ_ONDEMAND:
+	     mem_freq_ondemand = arg;
+	     break;
 #endif
 	default:
 		return -EINVAL;
@@ -553,8 +576,9 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		goto errout2;
 	}
 #endif
-
-
+#if defined(CONFIG_ARCH_SC8825)
+	register_memfreq_ondemand (&vsp_memfreq_desc);
+#endif
 	return 0;
 
 #ifdef USE_INTERRUPT
@@ -582,7 +606,9 @@ static int vsp_remove(struct platform_device *pdev)
 #ifdef USE_INTERRUPT
 	free_irq(IRQ_VSP_INT, &vsp_hw_dev);
 #endif
-
+#if defined(CONFIG_ARCH_SC8825)
+	unregister_memfreq_ondemand(&vsp_memfreq_desc);
+#endif
 
 	if (vsp_hw_dev.vsp_clk) {
 		clk_put(vsp_hw_dev.vsp_clk);
