@@ -823,6 +823,10 @@ static char *supply_list[] = {
 	"battery",
 };
 
+static char *battery_supply_list[] = {
+	"audio-ldo",
+};
+
 int __weak usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {
 	return -ENODEV;
@@ -869,6 +873,8 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	data->battery.get_property = sprd_battery_get_property;
 	data->battery.name = "battery";
 	data->battery.type = POWER_SUPPLY_TYPE_BATTERY;
+	data->battery.supplied_to = battery_supply_list;
+	data->battery.num_supplicants = ARRAY_SIZE(battery_supply_list);
 
 	data->ac.properties = sprd_ac_props;
 	data->ac.num_properties = ARRAY_SIZE(sprd_ac_props);
