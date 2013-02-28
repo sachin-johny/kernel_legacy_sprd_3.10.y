@@ -25,6 +25,7 @@
 #include <linux/spipe.h>
 #include <linux/spool.h>
 #include <linux/seth.h>
+#include <sound/saudio.h>
 #include <asm/pmu.h>
 #include <mach/hardware.h>
 #include <mach/regs_ahb.h>
@@ -1043,6 +1044,20 @@ struct platform_device sprd_seth_td_device = {
 	.name           = "seth",
 	.id             =  0,
 	.dev		= {.platform_data = &sprd_seth_td_pdata},
+};
+
+static struct saudio_init_data  sprd_saudio_td={
+	"VIRTUAL AUDIO",
+	SIPC_ID_CPT,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
+};
+
+struct platform_device sprd_saudio_td_device = {
+	.name       = "saudio",
+	.id         = 0,
+	.dev        = {.platform_data=&sprd_saudio_td},
 };
 
 static struct resource sprd_pmu_resource[] = {

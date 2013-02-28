@@ -65,6 +65,8 @@ struct sblock_ring {
 	struct list_head	txpool;
 	spinlock_t		plock;
 
+	uint32_t            txblk_count;
+
 	struct mutex		txlock;
 	struct mutex		rxlock;
 

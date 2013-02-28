@@ -46,8 +46,9 @@ enum {
 	SMSG_CH_PLOG,		/* pipe for debug log/dump */
 	SMSG_CH_TTY,		/* virtual serial for telephony */
 	SMSG_CH_DATA,		/* 2G/3G wirleless data */
-	SMSG_CH_PCM,		/* voice data stream */
 	SMSG_CH_VBC,		/* audio conrol channel */
+	SMSG_CH_PLAYBACK, 	/* audio playback channel */
+	SMSG_CH_CAPTURE,	/* audio capture channel */
 	SMSG_CH_NR,		/* total channel number */
 };
 
@@ -316,6 +317,15 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
  */
 int sblock_release(uint8_t dst, uint8_t channel, struct sblock *blk);
 
+
+/**
+ * sblock_get_free_count  -- the count of free(empty) block
+ *
+ * @dst: dest processor ID
+ * @channel: channel ID
+ * @return: >=0  the count of free(empty) block
+ */
+int sblock_get_free_count(uint8_t dst, uint8_t channel);
 
 /* ****************************************************************** */
 /* TODO: SRPC interfaces */

@@ -70,5 +70,6 @@ extern struct platform_device sprd_spool_td_device;
 extern struct platform_device sprd_cproc_td_device;
 extern struct platform_device sprd_seth_td_device;
 extern struct platform_device sprd_pmu_device;
+extern struct platform_device sprd_saudio_td_device;
 
 #endif

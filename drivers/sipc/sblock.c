@@ -37,6 +37,7 @@ static void __sblock_put(struct sblock_mgr *sblock, uint32_t addr)
 	virt_addr = addr - sblock->smem_addr + sblock->smem_virt;
 	index = (virt_addr - sblock->smem_virt) / sblock->ring->header->txblk_size;
 	list_add_tail(&sblock->ring->txunits[index].list, &sblock->ring->txpool);
+	sblock->ring->txblk_count++;
 	spin_unlock(&sblock->ring->plock);
 }
 
@@ -206,6 +207,7 @@ int sblock_create(uint8_t dst, uint8_t channel,
 	for (i = 0; i < txblocknum; i++) {
 		sblock->ring->txunits[i].addr = sblock->ring->txblk_virt + i * txblocksize;
 		list_add_tail(&sblock->ring->txunits[i].list, &sblock->ring->txpool);
+		sblock->ring->txblk_count++;
 	}
 
 	init_waitqueue_head(&sblock->ring->getwait);
@@ -323,6 +325,7 @@ int sblock_get(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout)
 		blk->addr = txunit->addr;
 		blk->length = sblock->txblksz;
 		list_del(head->next);
+		ring->txblk_count--;
 	} else {
 		rval = -EAGAIN;
 	}
@@ -433,6 +436,25 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
 	return rval;
 }
 
+int sblock_get_free_count(uint8_t dst, uint8_t channel)
+{
+        struct sblock_mgr *sblock = (struct sblock_mgr *)sblocks[dst][channel];
+	struct sblock_ring *ring;
+	int blk_count = 0;
+
+	if (!sblock || sblock->state != SBLOCK_STATE_READY) {
+		printk(KERN_ERR "sblock-%d-%d not ready!\n", dst, channel);
+		return -ENODEV;
+	}
+
+	ring = sblock->ring;
+        spin_lock(&ring->plock);
+	blk_count= ring->txblk_count;
+	spin_unlock(&ring->plock);
+
+	return blk_count;
+}
+
 int sblock_release(uint8_t dst, uint8_t channel, struct sblock *blk)
 {
 	struct sblock_mgr *sblock = (struct sblock_mgr *)sblocks[dst][channel];
@@ -468,6 +490,7 @@ EXPORT_SYMBOL(sblock_register_notifier);
 EXPORT_SYMBOL(sblock_get);
 EXPORT_SYMBOL(sblock_send);
 EXPORT_SYMBOL(sblock_receive);
+EXPORT_SYMBOL(sblock_get_free_count);
 EXPORT_SYMBOL(sblock_release);
 
 MODULE_AUTHOR("Chen Gaopeng");
