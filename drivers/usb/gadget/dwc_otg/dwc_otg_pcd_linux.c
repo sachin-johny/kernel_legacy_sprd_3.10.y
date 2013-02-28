@@ -126,6 +126,7 @@ int in_factory_mode(void)
 {
 	return (factory_mode == true);
 }
+#ifndef CONFIG_USB_CORE_IP_293A
 static struct timer_list setup_transfer_timer;
 static  int suspend_count=0;
 static  int setup_transfer_timer_start = 0;
@@ -170,6 +171,7 @@ static void setup_transfer_timer_fun(unsigned long para)
 		del_timer(&setup_transfer_timer);
 	}
 }
+#endif
 /* USB Endpoint Operations */
 /*
  * The following sections briefly describe the behavior of the Gadget
@@ -692,10 +694,12 @@ static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 {
 	int retval = -DWC_E_NOT_SUPPORTED;
+#ifndef CONFIG_USB_CORE_IP_293A
 	if(setup_transfer_timer_start == 0){
 		setup_transfer_timer_start = 1;
 		mod_timer(&setup_transfer_timer, jiffies + HZ);
 	}
+#endif
 	if (gadget_wrapper->driver && gadget_wrapper->driver->setup) {
 		retval = gadget_wrapper->driver->setup(&gadget_wrapper->gadget,
 				(struct usb_ctrlrequest
@@ -1327,10 +1331,12 @@ int pcd_init(
 	/*
 	 * initialize a timer for checking cable type.
 	 */
+#ifndef CONFIG_USB_CORE_IP_293A
 	{
 		setup_timer(&setup_transfer_timer,setup_transfer_timer_fun,(unsigned long)gadget_wrapper);
 		setup_transfer_timer_start = 0;
 	}
+#endif
 	setup_timer(&gadget_wrapper->cable_timer, cable_detect_handler,
 			(unsigned long)gadget_wrapper);
 	/*
