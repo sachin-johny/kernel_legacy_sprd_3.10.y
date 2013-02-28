@@ -148,7 +148,7 @@ struct regulator_init_status {
 /*TOTAL 27 REGULATORS IN SC8810: 2 DCDC AND 25 LDO*/
 enum regulator_supply_source{
 	LDO_VDDARM	= 0,	/*	"VDDARM"	*/
-	LDO_VDD25,		/*	"VDD25"		*/
+	LDO_VDD25,		/*	"VDD25" 	*/
 	LDO_VDD18,		/*	"VDD18"		*/
 	LDO_VDD28,		/*	"VDD28"		*/
 	LDO_AVDDBB,		/*	"AVDDBB"	*/
@@ -174,6 +174,11 @@ enum regulator_supply_source{
 	LDO_VDDRTC,		/*	"VDDRTC"	*/
 	LDO_DVDD18,		/*	"DVDD18"	*/
 	LDO_LDO_PA,		/*	"LDO_PA"	*/
+	LDO_DCDCMEM,		/*	"VDD MEM"	*/
+	LDO_VDDEMMIO,		/*	"VDD EMMIO"	*/
+	LDO_VDDEMMCORE,		/*	"VDD EMMCORE"	*/
+	LDO_VDDAMP,		/*	"VDD VDDAMP"	*/
+	LDO_DCDCWPA,		/*	"VDD DCDCWPA"	*/
 	LDO_END_MAX,
 };
 
