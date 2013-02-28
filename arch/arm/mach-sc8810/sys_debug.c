@@ -28,7 +28,7 @@ extern u16 sprd_rtc_hwrst_get(void);
 
 static int debugfs_make_kernel_panic(void *data, u64 val)
 {
-#if defined(CONFIG_MACH_AMAZING) || defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)
+#if defined(CONFIG_MACH_AMAZING) || defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)
 	if (val > 0) ;//cp_abort();
 #endif
 	return 0;

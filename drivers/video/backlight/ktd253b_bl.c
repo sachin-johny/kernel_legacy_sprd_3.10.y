@@ -1,6 +1,8 @@
 /*************** maintained by customer ***************************************/
 #if defined(CONFIG_MACH_MINT)
 #define CONFIG_BACKLIGHT_CORI 1
+#elif defined(CONFIG_MACH_NEVISTD)
+#define CONFIG_BACKLIGHT_NEVISTD 1
 #else
 #define CONFIG_BACKLIGHT_AMAZING 1
 #endif
@@ -46,7 +48,7 @@
 //#include <linux/broadcom/PowerManager.h>
 
 int current_intensity;
-#if defined(CONFIG_MACH_MINT)
+#if defined(CONFIG_MACH_MINT) || defined(CONFIG_MACH_NEVISTD)
 static int backlight_pin = 138;
 #else
 static int backlight_pin = 136;
@@ -65,7 +67,6 @@ static int backlight_mode=1;
 #define MAX_BRIGHTNESS_IN_BLU	33
 
 #define DIMMING_VALUE		32
-
 #define MAX_BRIGHTNESS_VALUE	255
 #define MIN_BRIGHTNESS_VALUE	20
 #define BACKLIGHT_DEBUG 1
@@ -151,6 +152,38 @@ struct brt_value brt_table_ktd[] = {
 };
 
 #elif defined(CONFIG_BACKLIGHT_KYLETD)
+struct brt_value brt_table_ktd[] = {
+	{ MIN_BRIGHTNESS_VALUE,  1 }, // Min pulse
+	{ 38,  2 }, 
+	{ 47,  3 }, 
+	{ 55,  4 },
+	{ 63,  5 }, 
+	{ 71,  6 }, 
+	{ 79,  7 }, 
+	{ 87,  8 }, 
+	{ 95,  9 },  
+	{ 103,	10 }, 
+	{ 111,	11 }, 
+	{ 120,	12 },	
+	{ 129,	13 }, 
+	{ 138,	14 }, 
+	{ 147,	15 }, //default value  
+	{ 154,	15 },
+	{ 162,	16 },
+	{ 170,	16 },  
+	{ 177,	17 },  
+	{ 185,	17 },
+	{ 193,	18 },
+	{ 200,	18 }, 
+	{ 208,	19 },
+	{ 216,	20 },  
+	{ 224,	22 }, 
+	{ 231,	24 }, 
+	{ 239,	26 },
+	{ 247,	28 },  
+	{ MAX_BRIGHTNESS_VALUE,  29 }, // Max pulse
+};
+#elif defined(CONFIG_BACKLIGHT_NEVISTD)
 struct brt_value brt_table_ktd[] = {
 	{ MIN_BRIGHTNESS_VALUE,  1 }, // Min pulse
 	{ 38,  2 }, 

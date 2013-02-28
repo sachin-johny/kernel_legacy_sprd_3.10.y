@@ -70,6 +70,10 @@
 #include <mach/gpio-sp7702.h>
 #endif
 
+#ifdef CONFIG_MACH_NEVISTD
+#include <mach/gpio-nevistd.h>
+#endif
+
 /*
  * pmem area definition
  */
