@@ -32,6 +32,7 @@
 #include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
+#include <linux/power_supply.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -174,19 +175,20 @@ struct sprd_codec_mixer {
 uint32_t sprd_get_vbat_voltage(void);
 
 struct sprd_codec_ldo_v_map {
-	int volt;
 	int ldo_v_level;
+	int volt;
 };
 
 const static struct sprd_codec_ldo_v_map ldo_v_map[] = {
-	{3500, LDO_V_29},
-	{3600, LDO_V_30},
-	{3700, LDO_V_31},
-	{3800, LDO_V_32},
-	{3900, LDO_V_33},
-	{4000, LDO_V_34},
-	{4100, LDO_V_35},
-	{4300, LDO_V_36},
+	/*{	 , 3400}, */
+	{LDO_V_29, 3600},
+	{LDO_V_31, 3700},
+	{LDO_V_32, 3800},
+	{LDO_V_33, 3900},
+	{LDO_V_34, 4000},
+	{LDO_V_35, 4100},
+	{LDO_V_36, 4200},
+	{LDO_V_38, 4300},
 };
 
 struct sprd_codec_inter_pa {
@@ -240,6 +242,7 @@ struct sprd_codec_priv {
 	int dp_irq;
 	struct completion completion_dac_mute;
 #endif
+	struct power_supply audio_ldo;
 };
 
 /* codec local power suppliy */
@@ -316,14 +319,27 @@ static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 }
 #endif
 
-static int sprd_codec_auto_ldo_volt(void (*set_level)(int))
+static inline int _sprd_codec_hold(int index, int volt)
+{
+	int scope = 40; /* unit: mv */
+	int ret = ((ldo_v_map[index].volt - volt) <= scope);
+	if (index >= 1) {
+		return (ret || ((volt - ldo_v_map[index-1].volt) <= scope));
+	}
+	return ret;
+}
+
+static int sprd_codec_auto_ldo_volt(void (*set_level)(int), int init)
 {
 	int i;
 	int volt = sprd_get_vbat_voltage();
 	sprd_codec_dbg("Entering %s get %d\n", __func__, volt);
 	for (i = 0; i < ARRAY_SIZE(ldo_v_map); i++) {
 		if (volt <= ldo_v_map[i].volt) {
-			set_level(ldo_v_map[i].ldo_v_level);
+			sprd_codec_dbg("hold %d\n", _sprd_codec_hold(i, volt));
+			if (init || !_sprd_codec_hold(i, volt)) {
+				set_level(ldo_v_map[i].ldo_v_level);
+			}
 			return 0;
 		}
 	}
@@ -828,11 +844,12 @@ int sprd_inter_speaker_pa(int on)
 		sprd_codec_pa_d_en(inter_pa.setting.is_classD_mode);
 		sprd_codec_pa_d_en(inter_pa.setting.is_DEMI_mode);
 		sprd_codec_pa_ldo_en(inter_pa.setting.is_LDO_mode);
-		if (inter_pa.setting.is_LDO_mode
-		    && !inter_pa.setting.is_auto_LDO_mode) {
-			sprd_codec_pa_ldo_v_sel(inter_pa.setting.LDO_V_sel);
-		} else {
-			sprd_codec_auto_ldo_volt(sprd_codec_pa_ldo_v_sel);
+		if (inter_pa.setting.is_LDO_mode) {
+			if (inter_pa.setting.is_auto_LDO_mode) {
+				sprd_codec_auto_ldo_volt(sprd_codec_pa_ldo_v_sel, 1);
+			} else {
+				sprd_codec_pa_ldo_v_sel(inter_pa.setting.LDO_V_sel);
+			}
 		}
 		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
 		sprd_codec_pa_en(1);
@@ -968,7 +985,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_reg_enable();
 		arch_audio_codec_enable();
 		arch_audio_codec_reset();
-		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel);
+		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 1);
 
 		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
 			sprd_codec_power.supplies[i].supply =
@@ -2536,6 +2553,37 @@ static inline void sprd_codec_proc_init(struct sprd_codec_priv *sprd_codec)
 }
 #endif
 
+static void sprd_codec_power_changed(struct power_supply *psy)
+{
+	sprd_codec_dbg("Entering %s\n", __func__);
+#if 1
+	mutex_lock(&inter_pa_mutex);
+	if (inter_pa.set && inter_pa.setting.is_LDO_mode
+			&& inter_pa.setting.is_auto_LDO_mode) {
+		sprd_codec_auto_ldo_volt(sprd_codec_pa_ldo_v_sel, 0);
+	}
+	mutex_unlock(&inter_pa_mutex);
+	if (atomic_read(&sprd_codec_power.ldo_refcount) >= 1) {
+		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 0);
+	}
+#endif
+	sprd_codec_dbg("Leaving %s\n", __func__);
+}
+
+static int sprd_codec_audio_ldo(struct sprd_codec_priv *sprd_codec)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = sprd_codec->codec;
+	sprd_codec->audio_ldo.name = "audio-ldo";
+	sprd_codec->audio_ldo.external_power_changed = sprd_codec_power_changed;
+	ret = power_supply_register(codec->dev, &sprd_codec->audio_ldo);
+	if (ret) {
+		pr_err("register power supply error!\n");
+		return -EFAULT;
+	}
+	return ret;
+}
+
 #define SPRD_CODEC_PCM_RATES 	\
 	(SNDRV_PCM_RATE_8000 |  \
 	 SNDRV_PCM_RATE_11025 | \
@@ -2586,6 +2634,8 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 	sprd_codec->codec = codec;
 
 	sprd_codec_proc_init(sprd_codec);
+
+	sprd_codec_audio_ldo(sprd_codec);
 
 	sprd_codec_dbg("return %i\n", ret);
 	sprd_codec_dbg("Leaving %s\n", __func__);
