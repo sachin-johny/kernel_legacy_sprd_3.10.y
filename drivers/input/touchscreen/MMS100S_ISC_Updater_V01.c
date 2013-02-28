@@ -14,6 +14,8 @@
 #include "KYLE_I_R03_VA20.c"
 #elif defined(CONFIG_MACH_VASTOI)
 #include <VASTO_I_ME_R02_V03.c>
+#elif defined(CONFIG_MACH_NEVISTD)
+#include "NEVIS_ME_G1F_05.c"
 #else
 #include <KYLE_CORE28_PR_31_VC05.c>
 #endif
@@ -34,7 +36,7 @@ bool exception_condition = false;
 #define ISC_CMD_ISC_ADDR						0xD5
 #define ISC_CMD_ISC_STATUS_ADDR					0xD9
 
-#ifdef CONFIG_MACH_KYLETD
+#if defined( CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_NEVISTD)
 #define MODULE_COMPATIBILITY_ADDR	0x1C
 #define FIRMWARE_VERSION_ADDR	0x1D
 #elif defined(CONFIG_MACH_VASTOI)
@@ -58,7 +60,7 @@ static eMFSRet_t enter_ISC_mode(void);
 static eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data);
 static eMFSRet_t check_firmware_version(const unsigned char *_pBinary_Data);
 eMFSRet_t check_firmware_version_func(void);
-#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI)
+#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI) && !defined(CONFIG_MACH_NEVISTD)
 static eMFSRet_t check_module_type(void);
 #endif
 eMFSRet_t MFS_ISC_force_update(void);
@@ -85,14 +87,14 @@ __setup("calmode=",get_boot_mode);
 eMFSRet_t MFS_ISC_update(void)
 {
 	eMFSRet_t ret;
-#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI)	
-//	unsigned char moduleComp;
+#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI) &&  !defined(CONFIG_MACH_NEVISTD)
+        //unsigned char moduleComp;
 	unsigned char read_buffer;
 	int i;
 #endif
 	MFS_I2C_set_slave_addr(mfs_i2c_slave_addr);
 
-#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)
 	ret = check_firmware_version(MELFAS_binary);
 	printk(KERN_ERR "<MELFAS> TSP_PanelVersion=%x\n", TSP_PanelVersion);
 	printk(KERN_ERR "<MELFAS> TSP_PhoneVersion=%x\n", TSP_PhoneVersion);
@@ -109,7 +111,7 @@ eMFSRet_t MFS_ISC_update(void)
 	printk(KERN_ERR "<MELFAS> Module Compatibility IC_type=%x\n",
 		IC_type);
 */
-#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI)
+#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI) && !defined(CONFIG_MACH_NEVISTD)
 	for (i = 0; i < READ_RETRY_CNT; i++) {
 		ret = check_module_type();
 		if (ret != MRET_SUCCESS) 
@@ -246,7 +248,7 @@ eMFSRet_t MFS_ISC_force_update(void)
 	}
 	
 	else {	
-	#ifdef CONFIG_MACH_KYLETD	
+	#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_NEVISTD)
 		ret = check_module_compatibility(MELFAS_binary);
 		if (ret != MRET_SUCCESS)
 			goto MFS_ISC_force_update_FINISH;		
@@ -285,7 +287,7 @@ MFS_ISC_force_update_FINISH:
 	return ret;
 }
 
-#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI)
+#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI) && !defined(CONFIG_MACH_NEVISTD)
 eMFSRet_t check_module_type(void)
 {
 	unsigned char read_buffer;
@@ -327,7 +329,7 @@ eMFSRet_t check_module_compatibility(const unsigned char *_pBinary_Data)
 	setComp = setComp - 55;
 #endif
 
-#ifdef CONFIG_MACH_KYLETD	
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_NEVISTD)
 	setComp = 0x03;	/* HW rev Rxx? */
 #endif
 
@@ -356,7 +358,7 @@ eMFSRet_t check_firmware_version(const unsigned char *_pBinary_Data)
 
 	moduleVersion = read_buffer;
 	setVersion = _pBinary_Data[SET_VERSION_ADDR];
-#ifdef CONFIG_MACH_KYLETD
+#if defined( CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_NEVISTD)
 	setVersion = 0x20;		/* kylei white panel R03 */
 #endif	
 	TSP_PanelVersion = moduleVersion;

@@ -73,6 +73,8 @@ int STC31xx_RelaxTmrSet(int CurrentThreshold);
 #define BATT_CHG_VOLTAGE   4100   /* min voltage at the end of the charge (mV)      */
 #elif defined(CONFIG_MACH_KYLETD)
 #define BATT_CHG_VOLTAGE   4250   /* min voltage at the end of the charge (mV)      */
+#elif defined(CONFIG_MACH_NEVISTD)
+#define BATT_CHG_VOLTAGE   4250   /* min voltage at the end of the charge (mV)      */
 #else
 #define BATT_CHG_VOLTAGE   4250 
 #endif

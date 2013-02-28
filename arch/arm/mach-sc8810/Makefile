@@ -32,6 +32,7 @@ sprdboard-$(CONFIG_MACH_SP7710G_OPENPHONE)  += board-sp7710g_openphone/
 sprdboard-$(CONFIG_MACH_SP7702) += board-sp7702/
 sprdboard-$(CONFIG_MACH_OPENPHONE_SC6820) += board-sc6820-openphone/
 sprdboard-$(CONFIG_MACH_SP7710GA)  += board-sp7710ga/
+sprdboard-$(CONFIG_MACH_NEVISTD)  += board-nevistd/
 
 obj-y += $(sprdboard-y)
 
