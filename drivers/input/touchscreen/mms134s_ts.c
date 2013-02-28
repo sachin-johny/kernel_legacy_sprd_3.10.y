@@ -63,8 +63,13 @@
 
 #define TS_MAX_Z_TOUCH			255
 #define TS_MAX_W_TOUCH		100
+#ifdef CONFIG_MACH_NEVISTD
+#define TS_MAX_X_COORD		320
+#define TS_MAX_Y_COORD		480
+#else
 #define TS_MAX_X_COORD		480
 #define TS_MAX_Y_COORD		800
+#endif
 #ifdef SEC_TSP
 #define P5_THRESHOLD			0x05
 //#define TS_READ_REGS_LEN		5
@@ -143,6 +148,9 @@ static int FW_VERSION;
 #define GFF_V19H2_CRC 64
 #define GFF_V19H3_CRC 155
 #define GFF_V20_CRC 206
+#ifdef CONFIG_MACH_NEVISTD
+#define GFF_V21_CRC 158
+#endif
 unsigned long saved_rate;
 //static bool lock_status;
 static int tsp_enabled;
@@ -156,7 +164,7 @@ extern unsigned char IC_type;
 
 unsigned char TSP_PanelVersion, TSP_PhoneVersion;
 
-#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)
 #define MAX_RX_	12
 #define MAX_TX_	19
 static const uint16_t SCR_ABS_UPPER_SPEC[MAX_RX_][MAX_TX_] = {
@@ -2373,7 +2381,7 @@ static void get_chip_name(void *device_data)
 	struct mms_ts_data *ts = (struct mms_ts_data *)device_data;
 	char buff[16] = {0};
 	set_default_result(ts);
-#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)
 	snprintf(buff, sizeof(buff), "%s", "MMS134S");
 #else
 	snprintf(buff, sizeof(buff), "%s", "MMS133s");
@@ -3182,7 +3190,7 @@ static int mms_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	struct device *fac_dev_ts;
 #endif
 	int ret = 0, i;
-#ifdef CONFIG_MACH_KYLETD
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_NEVISTD)
 	u8 read_data_buf[1] = {0,};
 	int crc_b1, crc_b2;
 #endif
@@ -3249,7 +3257,7 @@ static int mms_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 		else
 			break;
 	}
-#ifdef CONFIG_MACH_KYLETD	/* not use Kyle-i TSP firmware */
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_NEVISTD)	/* not use Kyle-i TSP firmware */
 	if (TSP_PanelVersion <= TSP_PhoneVersion) {
 		ret = mms_i2c_read(ts->client, 0xb1,
 			1, read_data_buf);
@@ -3260,8 +3268,11 @@ static int mms_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 			1, read_data_buf);
 		crc_b2 = read_data_buf[0];
 		printk(KERN_ERR "[TSP] PROBE CRC 0xb2=%d)\n", crc_b2);
-
+#ifdef CONFIG_MACH_NEVISTD
+		if(crc_b2 != GFF_V21_CRC) {
+#else
 		if(crc_b2 != GFF_V20_CRC) {
+#endif
 //		if ((IC_type == 0x0F && crc_b2 != G1F_V20_CRC) ||(IC_type == 0x0D &&  crc_b2 != G1M_V34_CRC))  {
 			printk(KERN_ERR "[TSP]Enter CRC_check_errror=%d\n");
 			for (i = 0; i < DOWNLOAD_RETRY_CNT; i++) {
@@ -3391,7 +3402,7 @@ static int mms_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 		ts->config_fw_version = "S7568_0526_G1F";
 	else{
 		ts->config_fw_version = "S7568_0526_G1M";
-		#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)	
+		#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)
 		ts->config_fw_version = "S7568_0526_GFF";
 		#endif
 	}
@@ -3597,7 +3608,7 @@ static int mms_ts_resume(struct i2c_client *client)
 //	extern unsigned char TSP_PanelVersion;
 //	extern unsigned char TSP_PhoneVersion;
 	struct mms_ts_data *ts = i2c_get_clientdata(client);
-#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI)/* not use Kyle-i TSP firmware */	
+#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)/* not use Kyle-i TSP firmware */
 	u8 read_data_buf[1] = {0,};
 	int ret, i;
 	int crc_b1, crc_b2;
@@ -3613,7 +3624,7 @@ static int mms_ts_resume(struct i2c_client *client)
 
 	msleep(50);
 	mms_set_noise_mode(ts);
-#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI)	/* not use Kyle-i TSP firmware */
+#if !defined(CONFIG_MACH_KYLETD) && !defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)	/* not use Kyle-i TSP firmware */
 	if (TSP_PanelVersion <= TSP_PhoneVersion) {
 		ret = mms_i2c_read(ts->client, 0xb1,
 			1, read_data_buf);

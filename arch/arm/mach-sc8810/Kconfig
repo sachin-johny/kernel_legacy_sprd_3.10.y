@@ -76,6 +76,12 @@ config MACH_MINT
         help
           MINT phone board based on SC6820.
 
+config MACH_NEVISTD
+	default n
+	bool "NEVISTD Phone"
+	help
+	  NEVISTD phone board based on SC8810.
+
 config MACH_Z788
 	default n
 	bool "Z788 Phone"

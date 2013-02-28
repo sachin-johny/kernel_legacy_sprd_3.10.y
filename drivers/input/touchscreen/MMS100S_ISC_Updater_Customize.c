@@ -68,7 +68,7 @@ void MFS_reboot(void)
 
 void MFS_TSP_reboot(void)
 {
-#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)
 	MFS_ms_delay(50);
 	ts_power_control(0);
 	MFS_ms_delay(500);
