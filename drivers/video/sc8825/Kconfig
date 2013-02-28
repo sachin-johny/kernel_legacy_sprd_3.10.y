@@ -87,4 +87,8 @@ config FB_DYNAMIC_CLK_SUPPORT
 	depends on FB_SC8825
 	default n
 
+config FB_VSYNC_SUPPORT
+	boolean "support wait for vsync io"
+	depends on FB_SC8825
+	default n
 endif

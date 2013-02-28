@@ -56,7 +56,7 @@ static unsigned PP[16];
 
 static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb);
 static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb);
-#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+#if defined( CONFIG_FB_LCD_OVERLAY_SUPPORT) || defined(CONFIG_FB_VSYNC_SUPPORT)
 static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg);
 #endif
@@ -68,7 +68,7 @@ static struct fb_ops sprdfb_ops = {
 	.fb_fillrect = cfb_fillrect,
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
-#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+#if defined( CONFIG_FB_LCD_OVERLAY_SUPPORT) || defined(CONFIG_FB_VSYNC_SUPPORT)
 	.fb_ioctl = sprdfb_ioctl,
 #endif
 };
@@ -191,7 +191,7 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 	return 0;
 }
 
-#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+#if defined( CONFIG_FB_LCD_OVERLAY_SUPPORT) || defined(CONFIG_FB_VSYNC_SUPPORT)
 #include <video/sprd_fb.h>
 static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
@@ -207,6 +207,7 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 	dev = info->par;
 
 	switch(cmd){
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	case SPRD_FB_SET_OVERLAY:
 		pr_debug(KERN_INFO "sprdfb: [%s]: SPRD_FB_SET_OVERLAY\n", __FUNCTION__);
 		if(NULL != dev->ctrl->enable_overlay){
@@ -219,6 +220,15 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			result = dev->ctrl->display_overlay(dev, (overlay_display*)arg);
 		}
 		break;
+#endif
+#ifdef CONFIG_FB_VSYNC_SUPPORT
+	case FBIO_WAITFORVSYNC:
+		pr_debug(KERN_INFO "sprdfb: [%s]: FBIO_WAITFORVSYNC\n", __FUNCTION__);
+		if(NULL != dev->ctrl->wait_for_vsync){
+			result = dev->ctrl->wait_for_vsync(dev);
+		}
+		break;
+#endif
 	default:
 		printk(KERN_INFO "sprdfb: [%s]: unknown cmd(%d)\n", __FUNCTION__, cmd);
 		break;
@@ -435,7 +445,7 @@ err0:
 	return ret;
 }
 
-static void __devexit sprdfb_remove(struct platform_device *pdev)
+static int __devexit sprdfb_remove(struct platform_device *pdev)
 {
 	struct sprdfb_device *dev = platform_get_drvdata(pdev);
 	printk("sprdfb: [%s]\n",__FUNCTION__);
@@ -443,6 +453,7 @@ static void __devexit sprdfb_remove(struct platform_device *pdev)
 	sprdfb_panel_remove(dev);
 	dev->ctrl->uninit(dev);
 	fb_free_resources(dev);
+	return 0;
 }
 
 static struct platform_driver sprdfb_driver = {
