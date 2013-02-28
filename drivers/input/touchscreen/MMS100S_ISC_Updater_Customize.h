@@ -17,7 +17,7 @@
 
 extern void ts_power_control(int en);
 
-#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI) || defined(CONFIG_MACH_NEVISTD)
 #define MCSDL_VDD_SET_HIGH()	ts_power_control(1);
 #define MCSDL_VDD_SET_LOW()	ts_power_control(0);
 #else
@@ -40,7 +40,7 @@ extern void ts_power_control(int en);
 
 #define MCSDL_GPIO_SDA_IS_HIGH()	((gpio_get_value(GPIO_TSP_SDA) > 0) ? 1 : 0)
 
-#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)
+#if defined(CONFIG_MACH_KYLETD) || defined(CONFIG_MACH_VASTOI)  || defined(CONFIG_MACH_NEVISTD)
 #define MCSDL_CE_SET_HIGH()		ts_power_control(1);
 #define MCSDL_CE_SET_LOW()		ts_power_control(0);
 #else
