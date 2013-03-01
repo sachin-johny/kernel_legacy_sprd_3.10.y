@@ -27,6 +27,7 @@
 #include <linux/i2c/al3006_pls.h>
 #include <linux/i2c/lis3dh.h>
 #include <linux/akm8975.h>
+#include <linux/akm8963.h>
 #include <linux/spi/spi.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
@@ -237,6 +238,13 @@ struct akm8975_platform_data akm8975_platform_d = {
 	.mag_high_z = 20479,
 };
 
+struct akm8963_platform_data akm_platform_data_8963 = {
+	.layout = 3,
+	.outbit = 1,
+	.gpio_DRDY = MSENSOR_DRDY_GPIO,
+	.gpio_RST = MSENSOR_RSTN_GPIO,
+};
+
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
@@ -246,12 +254,14 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
 	},
-	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
-	  .platform_data = &akm8975_platform_d,
-	},
 	{ I2C_BOARD_INFO(AL3006_PLS_DEVICE,   AL3006_PLS_ADDRESS),
 	  .platform_data = &al3006_pls_info,
 	},
+
+	{  I2C_BOARD_INFO(AKM8963_I2C_NAME, AKM8963_I2C_ADDR),
+	   .platform_data = &akm_platform_data_8963,
+	},
+	
 };
 
 /* config I2C2 SDA/SCL to SIM2 pads */

@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __GPIO_SC8810_H__
-#define __GPIO_SC8810_H__
+#ifndef __GPIO_SC7710GA_H__
+#define __GPIO_SC7710GA_H__
 
 #ifndef __ASM_ARCH_BOARD_H
 #error  "Don't include this file directly, include <mach/board.h>"
@@ -30,21 +30,27 @@
  */
 #define GPIO_TOUCH_RESET      35
 #define GPIO_TOUCH_IRQ        37
-#define GPIO_PLSENSOR_IRQ     28
-#define MSENSOR_DRDY_GPIO     97
+
+#define GPIO_PLSENSOR_IRQ     197
+#define MSENSOR_DRDY_GPIO     147
+#define MSENSOR_RSTN_GPIO     146
 
 #define EIC_CHARGER_DETECT    258
 #define EIC_KEY_POWER         259
 
 #define SPI0_CMMB_CS_GPIO     32
 
-#define GPIO_SENSOR_RESET     72
-#define GPIO_MAIN_SENSOR_PWN  73
-#define GPIO_SUB_SENSOR_PWN   74
+#define GPIO_SENSOR_RESET     121
+#define GPIO_MAIN_SENSOR_PWN  122
+#define GPIO_SUB_SENSOR_PWN   123
 
-#define GPIO_GPS_RESET        26
-#define GPIO_GPS_ONOFF        27
+#define GPIO_GPS_RESET        GPIO_INVALID
+#define GPIO_GPS_ONOFF        177
 
+#define GPIO_BT_RESET         GPIO_INVALID
+#define GPIO_WIFI_POWERON     GPIO_INVALID
+#define GPIO_WIFI_RESET       GPIO_INVALID
+#define GPIO_WIFI_IRQ         GPIO_INVALID
 
 /*ap: gpio208-223*/
 /*cp: gpio 0 - 15*/
