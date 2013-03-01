@@ -824,6 +824,10 @@ wl_cfg80211_add_virtual_iface(struct wiphy *wiphy, char *name,
 	/* Use primary I/F for sending cmds down to firmware */
 	_ndev = wl_to_prmry_ndev(wl);
 
+	if (!name) {
+		WL_ERR(("name is NULL\n"));
+		return NULL;
+	}
 	WL_DBG(("if name: %s, type: %d\n", name, type));
 	if(strstr(name, "p2p") != NULL) {
 		rtnl_unlock();
@@ -856,10 +860,6 @@ wl_cfg80211_add_virtual_iface(struct wiphy *wiphy, char *name,
 		break;
 	}
 
-	if (!name) {
-		WL_ERR(("name is NULL\n"));
-		return NULL;
-	}
 	if (wl->iface_cnt == IFACE_MAX_CNT)
 		return ERR_PTR(-ENOMEM);
 	if (wl->p2p_supported && (wlif_type != -1)) {

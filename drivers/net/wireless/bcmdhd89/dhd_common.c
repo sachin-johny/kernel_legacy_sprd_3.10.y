@@ -2218,7 +2218,7 @@ int
 wl_iw_parse_data_tlv(char** list_str, void *dst, int dst_size, const char token,
                      int input_size, int *bytes_left)
 {
-	char* str = *list_str;
+	char* str;
 	uint16 short_temp;
 	uint32 int_temp;
 
@@ -2226,6 +2226,7 @@ wl_iw_parse_data_tlv(char** list_str, void *dst, int dst_size, const char token,
 		DHD_ERROR(("%s error paramters\n", __FUNCTION__));
 		return -1;
 	}
+	str = *list_str;
 
 	/* Clean all dest bytes */
 	memset(dst, 0, dst_size);
