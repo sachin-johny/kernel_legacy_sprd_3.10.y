@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/platform_device.h>
+#include <linux/fs.h>
 #include <linux/android_pmem.h>
 #include <linux/ion.h>
 #include <linux/input.h>
@@ -931,7 +932,7 @@ static int native_tdmodem_start(void *arg)
 	/* hold stop cp */
 	__raw_writel(TD_CTL_DISENABLE, TD_REG_RESET_ADDR);
 	/*cp iram select to ap */
-	memcpy((volatile u32*)SPRD_TDPROC_BASE, cpdata, sizeof(cpdata));
+	memcpy((void *)SPRD_TDPROC_BASE, cpdata, sizeof(cpdata));
 	/*enbale cp clock */
 	__raw_writel(TD_CTL_CLK_VAL, TD_REG_CLK_ADDR);
 	/* reset cp */
@@ -1028,9 +1029,9 @@ static struct platform_device sprd_pmu_device = {
 	.num_resources	= ARRAY_SIZE(sprd_pmu_resource),
 };
 
-static void sprd_init_pmu(void)
+static int __init sprd_init_pmu(void)
 {
-	platform_device_register(&sprd_pmu_device);
+	return platform_device_register(&sprd_pmu_device);
 }
 arch_initcall(sprd_init_pmu);
 #endif /* CONFIG_ARCH_SC8825 */
