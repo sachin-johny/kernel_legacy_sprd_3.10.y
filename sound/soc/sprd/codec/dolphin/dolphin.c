@@ -101,6 +101,7 @@ struct dolphin_priv {
 	int ldo_status;
 	atomic_t sb_refcount;
 	atomic_t sb_sleep_refcount;
+	atomic_t sb_dac;
 	int da_sample_val;
 	int ad_sample_val;
 	struct dolphin_pga_lr pga[DOLPHIN_PGA_MAX];
@@ -127,6 +128,38 @@ static void dolphin_print_regs(struct snd_soc_codec *codec)
 	}
 }
 #endif
+
+static int __dolphin_sb_dac_set(struct snd_soc_codec *codec, int on)
+{
+	int reg, val, mask;
+	reg = VBPMR1;
+	mask = (1 << SB_DAC);
+	val = on ? 0 : mask;
+	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+}
+
+static int dolphin_sb_dac_enable(struct snd_soc_codec *codec)
+{
+	int ret = 0;
+	struct dolphin_priv *dolphin = snd_soc_codec_get_drvdata(codec);
+	dol_dbg("Entering %s %d\n", __func__, atomic_read(&dolphin->sb_dac));
+	atomic_inc(&dolphin->sb_dac);
+	if (atomic_read(&dolphin->sb_dac) == 1) {
+		ret = __dolphin_sb_dac_set(codec, 1);
+	}
+	return ret;
+}
+
+static int dolphin_sb_dac_disable(struct snd_soc_codec *codec)
+{
+	int ret = 0;
+	struct dolphin_priv *dolphin = snd_soc_codec_get_drvdata(codec);
+	dol_dbg("Entering %s %d\n", __func__, atomic_read(&dolphin->sb_dac));
+	if (atomic_dec_and_test(&dolphin->sb_dac)) {
+		ret = __dolphin_sb_dac_set(codec, 0);
+	}
+	return ret;
+}
 
 static int dolphin_pga_master_set(struct snd_soc_codec *codec, int left,
 				  int right)
@@ -438,12 +471,17 @@ static int sb_out_event(struct snd_soc_dapm_widget *w,
 	int ret = 0;
 
 	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+	case SND_SOC_DAPM_PRE_PMD:
+		dolphin_sb_dac_enable(w->codec);
+		break;
 	case SND_SOC_DAPM_POST_PMU:
 	case SND_SOC_DAPM_POST_PMD:
 		dol_dbg("Entering %s\n", __func__);
 		dol_dbg("SB_OUT:0x%x\n",
 			snd_soc_read(w->codec, VBPMR1) & (1 << SB_OUT));
 		dolphin_wait(DOLPHIN_HP_POP_WAIT_TIME);
+		dolphin_sb_dac_disable(w->codec);
 		dol_dbg("Leaving %s\n", __func__);
 		break;
 	default:
@@ -484,6 +522,17 @@ static int sb_dac_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *kcontrol, int event)
 {
 	pr_info("DAC %s\n", SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		dolphin_sb_dac_enable(w->codec);
+	        break;
+	case SND_SOC_DAPM_PRE_PMD:
+		dolphin_sb_dac_disable(w->codec);
+	        break;
+	default:
+	        break;
+	}
+
 	return pga_event(w, kcontrol, event, DOLPHIN_PGA_MASTER);
 }
 
@@ -529,12 +578,13 @@ static const struct snd_soc_dapm_widget dolphin_dapm_widgets[] = {
 
 	SND_SOC_DAPM_PGA("DAC Switch", SOC_REG(VBCR1), DACSEL, 0, NULL, 0),
 
-	SND_SOC_DAPM_DAC_E("DAC", "Playback", SOC_REG(VBPMR1), SB_DAC, 1,
+	SND_SOC_DAPM_DAC_E("DAC", "Playback", SND_SOC_NOPM, 0, 0,
 			   sb_dac_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_PGA_S("HP Switch", 2, SOC_REG(VBPMR1), SB_OUT, 1,
 			   sb_out_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_PGA_S("HP Mute", 3, SOC_REG(VBCR1), HP_DIS, 1, sb_hp_event,
@@ -1053,6 +1103,7 @@ static __devinit int dolphin_probe(struct platform_device *pdev)
 
 	atomic_set(&dolphin->sb_refcount, 0);
 	atomic_set(&dolphin->sb_sleep_refcount, 0);
+	atomic_set(&dolphin->sb_dac, 0);
 
 	ret = snd_soc_register_codec(&pdev->dev,
 				     &soc_codec_dev_dolphin, dolphin_dai,
