@@ -39,6 +39,10 @@
 #include <mach/i2c-sprd.h>
 #endif
 
+#if defined(CONFIG_ARCH_SC8810)
+#include <mach/i2c-sc8810.h>
+#endif
+
 #define I2C_BOARD_INFO_METHOD   1
 #define TS_DATA_THRESHOLD_CHECK	0
 #define TS_WIDTH_MAX			539
@@ -330,7 +334,7 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 
 static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
-	#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+	#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
 	return sprintf(buf,
          __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":90:907:70:58"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":250:907:70:58"
@@ -843,7 +847,7 @@ static int ft5x0x_read_data(void)
 		case 5:
 			event->x5 = (s16)(buf[0x1b] & 0x0F)<<8 | (s16)buf[0x1c];
 			event->y5 = (s16)(buf[0x1d] & 0x0F)<<8 | (s16)buf[0x1e];
-		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
 			event->x5 = event->x5*8/9;
 			event->y5 = event->y5*854/960;
 		#endif
@@ -851,7 +855,7 @@ static int ft5x0x_read_data(void)
 		case 4:
 			event->x4 = (s16)(buf[0x15] & 0x0F)<<8 | (s16)buf[0x16];
 			event->y4 = (s16)(buf[0x17] & 0x0F)<<8 | (s16)buf[0x18];
-		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
 			event->x4 = event->x4*8/9;
 			event->y4 = event->y4*854/960;
 		#endif
@@ -859,7 +863,7 @@ static int ft5x0x_read_data(void)
 		case 3:
 			event->x3 = (s16)(buf[0x0f] & 0x0F)<<8 | (s16)buf[0x10];
 			event->y3 = (s16)(buf[0x11] & 0x0F)<<8 | (s16)buf[0x12];
-		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
 			event->x3 = event->x3*8/9;
 			event->y3 = event->y3*854/960;
 		#endif
@@ -867,7 +871,7 @@ static int ft5x0x_read_data(void)
 		case 2:
 			event->x2 = (s16)(buf[9] & 0x0F)<<8 | (s16)buf[10];
 			event->y2 = (s16)(buf[11] & 0x0F)<<8 | (s16)buf[12];
-		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
 			event->x2 = event->x2*8/9;
 			event->y2 = event->y2*854/960;
 		#endif
@@ -875,7 +879,7 @@ static int ft5x0x_read_data(void)
 		case 1:
 			event->x1 = (s16)(buf[3] & 0x0F)<<8 | (s16)buf[4];
 			event->y1 = (s16)(buf[5] & 0x0F)<<8 | (s16)buf[6];
-		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
 			event->x1 = event->x1*8/9;
 			event->y1 = event->y1*854/960;
 		#endif
@@ -1101,6 +1105,10 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	#if defined(CONFIG_ARCH_SC8825)
 	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
+	#endif
+
+	#if defined(CONFIG_MACH_SP7710GA)
+	sc8810_i2c_set_clk(client->adapter->nr, 40000);
 	#endif
 
 	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
