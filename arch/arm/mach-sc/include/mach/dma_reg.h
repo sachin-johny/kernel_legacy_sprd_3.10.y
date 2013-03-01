@@ -128,6 +128,9 @@ struct sci_dma_reg {
 
 /*dma r3p0 and r4p0 register offset define start*/
 #ifdef DMA_VER_R4P0
+
+#include <mach/regs_sc8830_ap_ahb.h>
+
 #define DMA_REG_BASE	SPRD_DMA0_BASE
 
 #define DMA_PAUSE	(DMA_REG_BASE + 0x0000)
@@ -162,6 +165,40 @@ struct sci_dma_reg {
 #define DMA_CHN_DES_BLK_STEP(x)	(DMA_CHx_BASE(x) + 0x003C)
 #define DMA_REQ_CID(uid)	(DMA_REG_BASE + 0x2000 + 0x4 * ((uid) -1))
 
+/*FRAG_LEN*/
+#define SRC_DATAWIDTH_OFFSET	30
+#define DES_DATAWIDTH_OFFSET	28
+#define SWT_MODE_OFFSET	26
+#define REQ_MODE_OFFSET	24
+#define ADDR_WRAP_SEL_OFFSET	23
+#define ADDR_WRAP_EN_OFFSET	22
+#define ADDR_FIX_SEL_OFFSET	21
+#define ADDR_FIX_SEL_EN	20
+#define LLIST_END_OFFSET	19
+#define BLK_LEN_REC_H_OFFSET 17
+#define FRG_LEN_OFFSET	0
+
+#define DEST_TRSF_STEP_OFFSET 16
+#define SRC_TRSF_STEP_OFFSET 0
+#define DEST_FRAG_STEP_OFFSET 16
+#define SRC_FRAG_STEP_OFFSET 0
+
+#define TRSF_STEP_MASK	0xffff
+
+#define DATAWIDTH_MASK	0x3
+#define SWT_MODE_MASK	0x3
+#define REQ_MODE_MASK	0x3
+#define ADDR_WRAP_SEL_MASK 0x1
+#define ADDR_WRAP_EN_MASK 0x1
+#define ADDR_FIX_SEL_MASK	0x1
+#define ADDR_FIX_SEL_MASK	0x1
+#define LLIST_END_MASK	0x1
+#define BLK_LEN_REC_H_MASKT 0x3
+#define FRG_LEN_MASK	0x1ffff
+
+#define BLK_LEN_MASK	0x1ffff
+#define TRSC_LEN_MASK	0xfffffff
+
 struct sci_dma_reg {
 	u32 pause;
 	u32 req;
@@ -173,85 +210,17 @@ struct sci_dma_reg {
 	u32 blk_len;
 	union {
 		struct {
-			u32 trs_len;
+			u32 trsc_len;
+			u32 trsf_step;
 			u32 wrap_ptr;
 			u32 wrap_to;
 			u32 llist_ptr;
 			u32 frg_step;
-			u32 src_step;
-			u32 des_step;
+			u32 src_blk_step;
+			u32 des_blk_step;
 		};
 		int dummy[0];
 	};
 };
 #endif
-/*dma r3p0 and r4p0 register offset define end*/
-
-#define DMA_UID_MASK                    0x1f
-#define DMA_UID_SHIFT_STP               8
-#define DMA_UID_UNIT                    4
-
-/* DMA_CFG */
-#define DMA_PAUSE_REQ                  (1 << 8)
-
-/* CH_CFG0 */
-#define DMA_LLEND                      (1 << 31)
-#define DMA_BIG_ENDIAN                 (1 << 28)
-#define DMA_LIT_ENDIAN                 (0 << 28)	/* this bit not used by SC8800G2 */
-#define DMA_SDATA_WIDTH8               (0 << 26)
-#define DMA_SDATA_WIDTH16              (1 << 26)
-#define DMA_SDATA_WIDTH32              (2 << 26)
-#define DMA_SDATA_WIDTH_MASK           (0x03 << 26)
-#define DMA_DDATA_WIDTH8               (0 << 24)
-#define DMA_DDATA_WIDTH16              (1 << 24)
-#define DMA_DDATA_WIDTH32              (2 << 24)
-#define DMA_DDATA_WIDTH_MASK           (0x03 << 24)
-#define DMA_REQMODE_NORMAL             (0 << 22)
-#define DMA_REQMODE_TRANS              (1 << 22)
-#define DMA_REQMODE_LIST               (2 << 22)
-#define DMA_REQMODE_INFIINITE          (3 << 22)
-#define DMA_SRC_WRAP_EN                (1 << 21)
-#define DMA_DST_WRAP_EN                (1 << 20)
-#define DMA_NO_AUTO_CLS                (1 << 17)
-
-/* DMA_CH_SBP */
-#define SRC_BURST_MODE_SINGLE          (0 << 28)
-#define SRC_BURST_MODE_ANY             (1 << 28)
-#define SRC_BURST_MODE_4               (3 << 28)
-#define SRC_BURST_MODE_8               (5 << 28)
-#define SRC_BURST_MODE_15              (7 << 28)
-#define DMA_BURST_STEP_DIR_BIT         (1 << 25)
-#define DMA_BURST_STEP_ABS_SIZE_MASK   (0x1FFFFFF)
-
-#define DMA_UN_SWT_MODE                (0<<28)
-#define DMA_FULL_SWT_MODE              (1<<28)
-#define DMA_SWT_MODE0                  (2<<28)
-#define DMA_SWT_MODE1                  (3<<28)
-#define BURST_MODE_SINGLE              (0 << 28)
-#define BURST_MODE_ANY                 (1 << 28)
-#define BURST_MODE_4                   (3 << 28)
-#define BURST_MODE_8                   (5 << 28)
-#define BURST_MODE_16                  (7 << 28)
-
-#define DMA_SOFT_WAITTIME              0x0f
-#define DMA_HARD_WAITTIME              0x0f
-
-#define DMA_INCREASE                   (0)
-#define DMA_DECREASE                   (1)
-#define DMA_NOCHANGE                   (0xff)
-
-#define DMA_CFG_BLOCK_LEN_MAX           (0xffff)
-#define SRC_ELEM_POSTM_SHIFT            16
-#define CFG_BLK_LEN_MASK                0xffff
-#define SRC_ELEM_POSTM_MASK             0xffff
-#define DST_ELEM_POSTM_MASK             0xffff
-#define SRC_BLK_POSTM_MASK              0x3ffffff
-#define DST_BLK_POSTM_MASK              0x3ffffff
-#define SOFTLIST_REQ_PTR_MASK           0xffff
-#define SOFTLIST_REQ_PTR_SHIFT          16
-#define SOFTLIST_CNT_MASK               0xffff
-
-#define DMA_DEFAULT_PRIO DMA_PRI_1
-#define DMA_DEFAULT_REQ_MODE FRAG_REQ_MODE
-
 #endif
