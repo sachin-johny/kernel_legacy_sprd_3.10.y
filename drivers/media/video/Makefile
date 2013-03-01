@@ -98,8 +98,10 @@ obj-$(CONFIG_SOC_CAMERA_RJ54N1)		+= rj54n1cb0c.o
 obj-$(CONFIG_SOC_CAMERA_TW9910)		+= tw9910.o
 
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_dcam/
+ifneq ($(CONFIG_ARCH_SC8830),y)
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_scale/
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_rotation/
+endif
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_sensor/
 obj-$(CONFIG_VIDEO_DCAM_SPRD)		+= sprd_isp/
 # And now the v4l2 drivers:

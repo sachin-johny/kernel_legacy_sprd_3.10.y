@@ -35,10 +35,12 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 
-#ifdef CONFIG_ARCH_SC8825
+#if defined (CONFIG_ARCH_SC8825)
 #include <mach/i2c-sprd.h>
-#else
+#elif defined (CONFIG_ARCH_SC8810)
 #include <mach/i2c-sc8810.h>
+#elif defined (CONFIG_ARCH_SC8830)
+#include <mach/i2c-sprd.h>
 #endif
 
 #include "sensor_drv_k.h"
@@ -1081,10 +1083,12 @@ _Sensor_K_WriteRegTab_return:
 
 LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 {
-#ifdef CONFIG_ARCH_SC8825
+#if defined (CONFIG_ARCH_SC8825)
 	sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
-#else
+#elif defined (CONFIG_ARCH_SC8825)
 	sc8810_i2c_set_clk(SENSOR_I2C_ID, clock);
+#elif defined (CONFIG_ARCH_SC8830)
+	//sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
 #endif
 
 	SENSOR_PRINT("_Sensor_K_SetI2CClock: set i2c clock to %d  \n", clock);
