@@ -18,7 +18,11 @@
 #include <asm/irqflags.h>
 #include <mach/pm_debug.h>
 #include <mach/globalregs.h>
+#include <mach/hardware.h>
+#include <linux/delay.h>
 
+extern void l2x0_suspend(void);
+extern void l2x0_resume(int collapsed);
 extern int sprd_cpu_deep_sleep(unsigned int cpu);
 extern void sc8825_pm_init(void);
 extern void check_ldo(void);
@@ -55,7 +59,7 @@ static int debug_adi_lock(int flag)
 static int sprd_pm_deepsleep(suspend_state_t state)
 {
 	int ret_val = 0;
-	unsigned long flags;
+	unsigned long hwflags, flags;
 	u32 battery_time, cur_time;
 	unsigned int cpu;
 
@@ -66,11 +70,12 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 	clr_sleep_mode();
 	time_statisic_begin();
 
-#if defined(CONFIG_NKERNEL) && !defined(CONFIG_NKERNEL_PM_MASTER)
-	hw_local_irq_disable();
+#ifndef CONFIG_NKERNEL_PM_MASTER
+	hwflags = hw_local_irq_save();
 	os_ctx->suspend_to_memory(os_ctx);
-	hw_local_irq_enable();
-#else
+	hw_local_irq_restore(hwflags);
+#else	/* PM MASTER */
+
 	/*
 	* when we get here, only boot cpu still alive
 	*/
@@ -80,8 +85,17 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 	}
 	debug_adi_lock(1);
 
+#ifdef CONFIG_CACHE_L2X0
+	/* guarantee cpu1 is in wfi */
+	mdelay(10);
+	printk("PM: l2 suspending...\n");
+	hwflags = hw_local_irq_save();
+	l2x0_suspend();
+	hw_local_irq_restore(hwflags);
+#endif
+
 	while(1){
-		hw_local_irq_disable();
+		hwflags = hw_local_irq_save();
 		local_fiq_disable();
 		local_irq_save(flags);
 
@@ -92,34 +106,26 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 			irq_wakeup_set();
 
 			local_irq_restore(flags);
-			hw_local_irq_enable();
+			hw_local_irq_restore(hwflags);
 			break;
 		}else{
 			local_irq_restore(flags);
 			WARN_ONCE(!irqs_disabled(), "#####: Interrupts enabled in pm_enter()!\n");
-#if defined(CONFIG_NKERNEL)
 			/*
 			* return value 0 means that other guest OS  are all idle
 			*/
 			ret_val = os_ctx->idle(os_ctx);
 			if (0 == ret_val) {
-#ifdef CONFIG_NKERNEL_PM_MASTER
 				os_ctx->smp_cpu_stop(0);
-#endif
 				debug_adi_lock(3);
 					ret_val = sprd_cpu_deep_sleep(cpu);
-#ifdef CONFIG_NKERNEL_PM_MASTER
 				os_ctx->smp_cpu_start(0, 0);/* the 2nd parameter is meaningless*/
-#endif
 			} else {
 				debug_adi_lock(4);
 				printk("******** os_ctx->idle return %d ********\n", ret_val);
 			}
-#else
-			ret_val = sprd_cpu_deep_sleep(cpu);
-#endif
 			debug_adi_lock(5);
-			hw_local_irq_enable();
+			hw_local_irq_restore(hwflags);
 		}
 
 		debug_adi_lock(6);
@@ -138,8 +144,15 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 		}
 	}/*end while*/
 
+#ifdef CONFIG_CACHE_L2X0
+	printk("PM: l2 resuming...\n");
+	hwflags = hw_local_irq_save();
+	l2x0_resume(1);
+	hw_local_irq_restore(hwflags);
+#endif
 	debug_adi_lock(9);
 	time_statisic_end();
+
 #endif
 
 enter_exit:

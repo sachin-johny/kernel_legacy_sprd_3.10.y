@@ -103,8 +103,6 @@ void platform_cpu_die(unsigned int cpu)
 #ifdef CONFIG_NKERNEL_PM_MASTER
 	hw_local_irq_disable();
 #endif
-	flush_cache_all();
-	dsb();
 #ifdef CONFIG_NKERNEL
 	os_ctx->smp_cpu_stop(cpu);
 #endif

@@ -846,12 +846,8 @@ int deep_sleep(void)
 	/* prevent uart1 */
 	__raw_writel(INT0_IRQ_MASK, INT0_IRQ_DIS);
 
-#ifdef CONFIG_CACHE_L2X0
-	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
-	l2x0_suspend();
-#else
-	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
-#endif
+	/*L2X0_POWER_CTRL, auto_clock_gate, standby_mode_enable*/
+	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
 
 #ifdef FORCE_DISABLE_DSP
 	/* close debug modules, only for fpga or debug */
@@ -921,12 +917,6 @@ int deep_sleep(void)
 
 	udelay(5);
 	if (ret) cpu_init();
-
-#ifdef CONFIG_CACHE_L2X0
-	/*L2X0_POWER_CTRL, auto_clock_gate, standby_mode_enable*/
-	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
-	l2x0_resume(ret);
-#endif
 
 	return ret;
 }
@@ -1072,8 +1062,6 @@ void sprd_pm_cpu_enter_lowpower(unsigned int cpu)
 	*/
 	/* stop_critical_timings(); */
 	
-	flush_cache_all();
-	outer_flush_all();
 	sp_pm_collapse(cpu, 1);
 
 	/*
@@ -1083,7 +1071,6 @@ void sprd_pm_cpu_enter_lowpower(unsigned int cpu)
 
 	if (cpu)
 		gic_restore_ppi( );
-	gic_cpu_enable(cpu);
 }
 
 
