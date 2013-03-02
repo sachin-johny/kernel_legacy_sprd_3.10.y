@@ -37,6 +37,9 @@
 
 #define EIC_CHARGER_DETECT    258
 #define EIC_KEY_POWER         259
+#define HEADSET_BUTTON_GPIO   260
+#define HEADSET_DETECT_GPIO   195
+
 
 #define SPI0_CMMB_CS_GPIO     32
 

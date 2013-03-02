@@ -27,6 +27,7 @@
 
 	.macro	get_irqnr_and_base, irqnr, irqstat, base, tmp
 #ifdef CONFIG_ARCH_SC7710
+	ldr	\base, =(SPRD_INTCV_BASE)
 	ldr	\irqstat, [\base]
 	cmp	\irqstat, #0
 	clzne	\irqnr, \irqstat
