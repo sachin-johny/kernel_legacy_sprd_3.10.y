@@ -697,7 +697,6 @@ config I2C_SC8810
 
 config I2C_SPRD
 	tristate "SPRD I2C Driver(polling)"
-	depends on ARCH_SC8825
 	help
 	  Say Y here to include support for I2C controller in the
 	  Spreadtrum SC8810 based System-on-Chip devices.

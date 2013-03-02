@@ -202,7 +202,11 @@ static struct resource sprd_i2c_resources0[] = {
 	}
 };
 struct platform_device sprd_i2c_device0 = {
+#if defined(CONFIG_MACH_SP7710GA)
+	.name           = "sprd-i2c",
+#else
 	.name           = "sc8810-i2c",
+#endif
 	.id             =  0,
 	.num_resources  = ARRAY_SIZE(sprd_i2c_resources0),
 	.resource       = sprd_i2c_resources0,
@@ -223,7 +227,11 @@ static struct resource sprd_i2c_resources1[] = {
 	}
 };
 struct platform_device sprd_i2c_device1 = {
+#if defined(CONFIG_MACH_SP7710GA)
+	.name           = "sprd-i2c",
+#else
 	.name           = "sc8810-i2c",
+#endif
 	.id             =  1,
 	.num_resources  = ARRAY_SIZE(sprd_i2c_resources1),
 	.resource       = sprd_i2c_resources1,
@@ -244,7 +252,11 @@ static struct resource sprd_i2c_resources2[] = {
 	}
 };
 struct platform_device sprd_i2c_device2 = {
+#if defined(CONFIG_MACH_SP7710GA)
+	.name           = "sprd-i2c",
+#else
 	.name           = "sc8810-i2c",
+#endif
 	.id             =  2,
 	.num_resources  = ARRAY_SIZE(sprd_i2c_resources2),
 	.resource       = sprd_i2c_resources2,
@@ -265,7 +277,11 @@ static struct resource sprd_i2c_resources3[] = {
 	}
 };
 struct platform_device sprd_i2c_device3 = {
+#if defined(CONFIG_MACH_SP7710GA)
+	.name           = "sprd-i2c",
+#else
 	.name           = "sc8810-i2c",
+#endif
 	.id             =  3,
 	.num_resources  = ARRAY_SIZE(sprd_i2c_resources3),
 	.resource       = sprd_i2c_resources3,

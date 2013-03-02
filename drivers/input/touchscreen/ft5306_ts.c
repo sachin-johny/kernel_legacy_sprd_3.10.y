@@ -996,7 +996,6 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 
 	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
 	int ret = -1;
-
 #if 0
 	if (!work_pending(&ft5x0x_ts->pen_event_work)) {
 		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
@@ -1105,10 +1104,6 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	#if defined(CONFIG_ARCH_SC8825)
 	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
-	#endif
-
-	#if defined(CONFIG_MACH_SP7710GA)
-	sc8810_i2c_set_clk(client->adapter->nr, 40000);
 	#endif
 
 	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
