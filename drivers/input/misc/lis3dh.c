@@ -58,6 +58,21 @@
 
 #include        <linux/i2c/lis3dh.h>
 
+/*#define LIS3DH_DBG*/
+#ifdef LIS3DH_DBG
+#define ENTER printk(KERN_INFO "[LIS3DH_DBG] func: %s  line: %04d  ", __func__, __LINE__)
+#define PRINT_DBG(x...)  printk(KERN_INFO "[LIS3DH_DBG] " x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[LIS3DH_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[LIS3DH_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[LIS3DH_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#else
+#define ENTER
+#define PRINT_DBG(x...)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[LIS3DH_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[LIS3DH_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[LIS3DH_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#endif
+
 #define	INTERRUPT_MANAGEMENT 1
 
 #define	G_MAX		16000	/** Maximum polled-device-reported g value */
@@ -303,7 +318,7 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 	int err = -1;
 	u8 buf[7];
 
-	pr_debug("%s: hw init start\n", LIS3DH_ACC_DEV_NAME);
+	ENTER;
 
 	buf[0] = WHO_AM_I;
 	err = lis3dh_acc_i2c_read(acc, buf, 1);
@@ -313,8 +328,11 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 		acc->hw_working = 1;
 	if (buf[0] != WHOAMI_LIS3DH_ACC) {
 		err = -1;	/* choose the right coded error */
+		PRINT_ERR("I'm working, but I'm NOT LIS3DH\n");
 		goto error_unknown_device;
 	}
+	else
+		PRINT_INFO("I'm LIS3DH, and I'm working now\n");
 
 	buf[0] = CTRL_REG1;
 	buf[1] = acc->resume_state[RES_CTRL_REG1];
@@ -383,7 +401,7 @@ static int lis3dh_acc_hw_init(struct lis3dh_acc_data *acc)
 		goto error1;
 
 	acc->hw_initialized = 1;
-	pr_debug("%s: hw init done\n", LIS3DH_ACC_DEV_NAME);
+	PRINT_DBG("hw init done\n");
 	return 0;
 
 error_firstread:
@@ -399,6 +417,7 @@ error1:
 	acc->hw_initialized = 0;
 	dev_err(&acc->client->dev, "hw init error 0x%x,0x%x: %d\n", buf[0],
 		buf[1], err);
+	PRINT_ERR("hw init ERROR\n");
 	return err;
 }
 
@@ -691,9 +710,7 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 	xyz[2] = ((acc->pdata->negate_z) ? (-hw_d[acc->pdata->axis_map_z])
 		  : (hw_d[acc->pdata->axis_map_z]));
 
-	pr_debug("%s read x=%d, y=%d, z=%d\n",
-	       LIS3DH_ACC_DEV_NAME, xyz[0], xyz[1], xyz[2]);
-
+	PRINT_DBG("x=%4d, y=%4d, z=%4d\n", xyz[0], xyz[1], xyz[2]);
 	return err;
 }
 
@@ -708,7 +725,7 @@ static void lis3dh_acc_report_values(struct lis3dh_acc_data *acc, int *xyz)
 static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 {
 	int err;
-	printk("sprd-gsensor: -- %s -- !\n",__func__);
+	ENTER;
 	if (!atomic_cmpxchg(&acc->enabled, 0, 1)) {
 		err = lis3dh_acc_device_power_on(acc);
 		if (err < 0) {
@@ -729,13 +746,13 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 				      msecs_to_jiffies(acc->pdata->
 						       poll_interval));
 	}
-	printk("sprd-gsensor: -- %s -- success!\n",__func__);
+	PRINT_INFO("enable success\n");
 	return 0;
 }
 
 static int lis3dh_acc_disable(struct lis3dh_acc_data *acc)
 {
-	printk("sprd-gsensor: -- %s -- \n",__func__);
+	ENTER;
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
 		cancel_delayed_work_sync(&acc->input_work);
 		lis3dh_acc_device_power_off(acc);
@@ -1073,7 +1090,7 @@ static long lis3dh_acc_misc_ioctl(struct file *file, unsigned int cmd,
 	        u8 devinfo[DEVICE_INFO_LEN] = {0};
 	        err = lis3dh_acc_register_read(acc, &devid, WHO_AM_I);
 	        if (err < 0) {
-	            printk("__func__, error read register WHO_AM_I\n", __func__);
+	            printk("%s, error read register WHO_AM_I\n", __func__);
 	            return -EAGAIN;
 	        }
 	        sprintf(devinfo, "%s, %#x", DEVICE_INFO, devid);
@@ -1176,7 +1193,8 @@ static int lis3dh_acc_input_init(struct lis3dh_acc_data *acc)
 {
 	int err;
 	/* Polling rx data when the interrupt is not used.*/
-	if (1 /*acc->irq1 == 0 && acc->irq1 == 0 */ ) {
+	if (acc->irq1 == 0 && acc->irq2 == 0) {
+		PRINT_INFO("working in polling mode\n");
 		INIT_DELAYED_WORK(&acc->input_work, lis3dh_acc_input_work_func);
 	}
 
@@ -1239,13 +1257,11 @@ static void lis3dh_early_resume(struct early_suspend *es);
 static int lis3dh_acc_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
-
 	struct lis3dh_acc_data *acc;
-
 	int err = -1;
 	int tempvalue;
-	printk("sprd-gsensor: -- %s -- start !\n",__func__);
-	pr_debug("%s: probe start.\n", LIS3DH_ACC_DEV_NAME);
+
+	ENTER;
 
 	/*
 	if (client->dev.platform_data == NULL) {
@@ -1295,15 +1311,14 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	lis3dh_i2c_client = client;
 	i2c_set_clientdata(client, acc);
 
-	pr_debug("%s: %s has set irq1 to irq: %d\n",
-	       LIS3DH_ACC_DEV_NAME, __func__, acc->irq1);
-	pr_debug("%s: %s has set irq2 to irq: %d\n",
-	       LIS3DH_ACC_DEV_NAME, __func__, acc->irq2);
-
+	/*
 	gpio_request(GSENSOR_GINT1_GPI, "GSENSOR_INT1");
 	gpio_request(GSENSOR_GINT2_GPI, "GSENSOR_INT2");
-	acc->irq1 = 0; /* gpio_to_irq(GSENSOR_GINT1_GPI); */
-	acc->irq2 = 0; /* gpio_to_irq(GSENSOR_GINT2_GPI); */
+	acc->irq1 = gpio_to_irq(GSENSOR_GINT1_GPI);
+	acc->irq2 = gpio_to_irq(GSENSOR_GINT2_GPI);
+	*/
+	acc->irq1 = 0;
+	acc->irq2 = 0;
 
 	if (acc->irq1 != 0) {
 		pr_debug("%s request irq1\n", __func__);
@@ -1326,6 +1341,8 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			goto err_free_irq1;
 		}
 	}
+	else	
+		PRINT_INFO("unused irq1\n");
 
 	if (acc->irq2 != 0) {
 		err =
@@ -1349,6 +1366,8 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 			goto err_free_irq2;
 		}
 	}
+	else	
+		PRINT_INFO("unused irq2\n");
 
 	acc->pdata = kmalloc(sizeof(*acc->pdata), GFP_KERNEL);
 	if (acc->pdata == NULL) {
@@ -1385,12 +1404,11 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	tempvalue = i2c_smbus_read_word_data(client, WHO_AM_I);
 
 	if ((tempvalue & 0x00FF) == WHOAMI_LIS3DH_ACC) {
-		pr_debug("%s I2C driver registered!\n",
-		       LIS3DH_ACC_DEV_NAME);
+		PRINT_DBG("I2C driver registered!\n");
 	} else {
 		acc->client = NULL;
-		pr_debug("I2C driver not registered!"
-		       " Device unknown 0x%x\n", tempvalue);
+		PRINT_ERR("I2C driver not registered!"
+		       " Device unknown.  WHO_AM_I = 0x%04X\n", tempvalue);
 		goto err_destoyworkqueue2;
 	}
 	
@@ -1470,8 +1488,10 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 #endif
 */
 	mutex_unlock(&acc->lock);
-	dev_info(&client->dev, "###%s###\n", __func__);
-	printk("sprd-gsensor: -- %s -- success !\n",__func__);
+	PRINT_INFO("probe success\n");
+#ifdef LIS3DH_DBG
+	lis3dh_acc_enable(acc);
+#endif
 	return 0;
 
 err_input_cleanup:
@@ -1506,7 +1526,7 @@ err_mutexunlockfreedata:
 	lis3dh_acc_misc_data = NULL;
 exit_alloc_data_failed:
 exit_check_functionality_failed:
-	pr_err("%s: Driver Init failed\n", LIS3DH_ACC_DEV_NAME);
+	PRINT_ERR("probe failed\n");
 	return err;
 }
 
@@ -1581,7 +1601,7 @@ static void lis3dh_early_resume(struct early_suspend *es)
 #endif /* CONFIG_HAS_EARLYSUSPEND */
 
 static const struct i2c_device_id lis3dh_acc_id[]
-= { {LIS3DH_ACC_DEV_NAME, 0}, {}, };
+= { {LIS3DH_ACC_I2C_NAME, 0}, {}, };
 
 MODULE_DEVICE_TABLE(i2c, lis3dh_acc_id);
 
@@ -1599,20 +1619,18 @@ static struct i2c_driver lis3dh_acc_driver = {
 
 static int __init lis3dh_acc_init(void)
 {
-	pr_debug("%s accelerometer driver: init\n", LIS3DH_ACC_I2C_NAME);
-
+	ENTER;
 	return i2c_add_driver(&lis3dh_acc_driver);
 }
 
 static void __exit lis3dh_acc_exit(void)
 {
-	pr_debug("%s accelerometer driver exit\n", LIS3DH_ACC_DEV_NAME);
-
+	ENTER;
 	i2c_del_driver(&lis3dh_acc_driver);
 	return;
 }
 
-module_init(lis3dh_acc_init);
+late_initcall(lis3dh_acc_init);
 module_exit(lis3dh_acc_exit);
 
 MODULE_DESCRIPTION("lis3dh accelerometer misc driver");

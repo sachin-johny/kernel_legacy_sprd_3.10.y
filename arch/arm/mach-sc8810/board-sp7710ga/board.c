@@ -218,8 +218,8 @@ static struct i2c_board_info i2c3_boardinfo[] = {
 };
 
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
-	.poll_interval = 100,
-	.min_interval = 100,
+	.poll_interval = 20,
+	.min_interval = 10,
 	.g_range = LIS3DH_ACC_G_2G,
 	.axis_map_x = 1,
 	.axis_map_y = 0,
