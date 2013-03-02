@@ -111,7 +111,7 @@ static struct clock_name_map_t clock_name_map[] = {
 						{48000000,"clk_48m"}
 						};
 
-
+#if defined(CONFIG_SPRD_SC8825_MEMFREQ_ONDEMAND)
 static unsigned int vsp_memfreq_demand(struct memfreq_dbs *h)
 
 {
@@ -129,6 +129,7 @@ static struct memfreq_dbs vsp_memfreq_desc = {
 .memfreq_demand = vsp_memfreq_demand,
 
 }; 
+#endif
 #else
 static struct clock_name_map_t clock_name_map[] = {
 						{153600000,"l3_153m600k"},
@@ -576,7 +577,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		goto errout2;
 	}
 #endif
-#if defined(CONFIG_ARCH_SC8825)
+#if defined(CONFIG_SPRD_SC8825_MEMFREQ_ONDEMAND)
 	register_memfreq_ondemand (&vsp_memfreq_desc);
 #endif
 	return 0;
@@ -606,7 +607,7 @@ static int vsp_remove(struct platform_device *pdev)
 #ifdef USE_INTERRUPT
 	free_irq(IRQ_VSP_INT, &vsp_hw_dev);
 #endif
-#if defined(CONFIG_ARCH_SC8825)
+#if defined(CONFIG_SPRD_SC8825_MEMFREQ_ONDEMAND)
 	unregister_memfreq_ondemand(&vsp_memfreq_desc);
 #endif
 
