@@ -11,16 +11,12 @@
 #include <mach/hardware.h>
 #include <mach/globalregs.h>
 #include <linux/delay.h>
-
+#include <mach/sci.h>
+#include <mach/regs_glb.h>
 #include "spi_simple_drv.h"
 
 #define SPI_USED_BASE SPRD_SPI2_BASE
 
-/*Jessica TODO: need to modified*/
-#ifdef CONFIG_FB_SC7710
-#define GEN0_SPI2_EN (0)
-#define SWRST_SPI2_RST		(0)
-#endif
 
  /**---------------------------------------------------------------------------*
  **                         Globle Variable                                  *
@@ -72,16 +68,13 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
     {
 		switch(spi_id){
 		case SPI0_ID:	
-						/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT17); //APB_SPI0_EB */
-            			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI0_EN, GR_GEN0);
+				sci_glb_set(REG_GLB_GEN0, BIT_SPI0_EB);
 			break;
 		case SPI1_ID:
-            			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
-            			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
+				sci_glb_set(REG_GLB_GEN0, BIT_SPI1_EB);
 			break;
 		case SPI2_ID:
-            			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
-            			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI2_EN, GR_GEN0);
+				sci_glb_set(REG_GLB_GEN0, BIT_SPI2_EB);
 			break;
 		default:
 
@@ -90,19 +83,15 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
 	}else{
 		switch(spi_id){
 		case SPI0_ID:
-						/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT17); //APB_SPI0_EB */
-			sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_SPI0_EN, GR_GEN0);
+			sci_glb_clr(REG_GLB_GEN0, BIT_SPI0_EB);
 			break;
 		case SPI1_ID:
-			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
-			sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
+			sci_glb_clr(REG_GLB_GEN0, BIT_SPI1_EB);
 			break;
 		case SPI2_ID:
-			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
-			sprd_greg_clear_bits(REG_TYPE_GLOBAL, GEN0_SPI2_EN, GR_GEN0);
+			sci_glb_clr(REG_GLB_GEN0, BIT_SPI2_EB);
 			break;
 		default:
-
 			break;
 			}
     }
@@ -111,7 +100,6 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
 
 void SPI_Reset( uint32_t spi_id, uint32_t ms)
 {
-	uint32_t i = 0;
 	uint32_t rst_bit = SWRST_SPI0_RST;
 	if(0 == spi_id){
 		;
@@ -124,15 +112,13 @@ void SPI_Reset( uint32_t spi_id, uint32_t ms)
 		return;
 	}
 	
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, rst_bit, GR_SOFT_RST);
-
+	sci_glb_set(REG_GLB_SOFT_RST, rst_bit);
 	udelay(100);
-
-	sprd_greg_clear_bits(REG_TYPE_GLOBAL, rst_bit, GR_SOFT_RST);
+	sci_glb_clr(REG_GLB_SOFT_RST, rst_bit);
 
 }
 
-
+#if 0
 static void SPI_PinConfig(void)
 {
 #ifndef FPGA_TEST
@@ -143,34 +129,40 @@ static void SPI_PinConfig(void)
     *(volatile uint32_t *)(0x8C000110) = 0x109;
 #endif
 }
-
+#endif
 
 // The dividend is clk_spiX_div[1:0] + 1
 void SPI_ClkSetting(uint32_t spi_id, uint32_t clk_src, uint32_t clk_div)
 {
-	printk("SPRDFB [%s], clk src is %d clk div is %d\n ", __FUNCTION__, clk_src, clk_div);
 	uint32_t div_reg_val = 0;
 	uint32_t src_reg_val = 0;
 	uint32_t	tmp = 0;
+
+	printk("SPRDFB [%s], clk src is %d clk div is %d\n ", __FUNCTION__, clk_src, clk_div);
+
 	if(0 == spi_id)
 	{
-		src_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_CLK_DLY);
-		div_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN2);
-		
-		sprd_greg_write(REG_TYPE_GLOBAL, (src_reg_val&(~(0x3<<26))|clk_src << 26), GR_CLK_DLY);
-		sprd_greg_write(REG_TYPE_GLOBAL, (div_reg_val&(~(0x7<<21))|clk_div << 21), GR_GEN2);
+		src_reg_val = sci_glb_read(REG_GLB_CLKDLY,0xffffffff);
+		div_reg_val = sci_glb_read(REG_GLB_GEN2, 0xffffffff);
+
+		sci_glb_write(REG_GLB_CLKDLY, ((src_reg_val&(~(0x3<<26)) )|(clk_src << 26)),
+			0x3 << 26);
+		sci_glb_write(REG_GLB_GEN2, ((div_reg_val&(~(0x7<<21))) |(clk_div << 21)),
+			0x7 << 21);
 	} else if(1 == spi_id) {
-		src_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_CLK_DLY);
-		div_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN2);
+		src_reg_val = sci_glb_read(REG_GLB_CLKDLY,0xffffffff);
+		div_reg_val = sci_glb_read(REG_GLB_GEN2,0xffffffff);
 
-		sprd_greg_write(REG_TYPE_GLOBAL, (src_reg_val&(~(0x3<<30))|clk_src << 30), GR_CLK_DLY);
-		sprd_greg_write(REG_TYPE_GLOBAL, (src_reg_val&(~(0x7<<11))|clk_div << 11), GR_GEN2);
+		sci_glb_write(REG_GLB_CLKDLY, ((src_reg_val&(~(0x3<<30))) |(clk_src << 30)),
+			0x3 << 30);
+		sci_glb_write(REG_GLB_GEN2, ((src_reg_val&(~(0x7<<11))) |(clk_div << 11)),
+			0x7 << 11);
 	}else if(2 == spi_id){
-		src_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN3);
-		div_reg_val = sprd_greg_read(REG_TYPE_GLOBAL,GR_GEN3);
+		src_reg_val = sci_glb_read(REG_GLB_GEN3, 0xffffffff);
+		div_reg_val = sci_glb_read(REG_GLB_GEN3, 0xffffffff);
 
-		tmp = src_reg_val&(~(0x1f<<3))|clk_src << 3|clk_div << 5;
-		sprd_greg_write(REG_TYPE_GLOBAL, tmp, GR_GEN3);
+		tmp = (src_reg_val&(~(0x1f<<3))) |(clk_src << 3)|(clk_div << 5);
+		sci_glb_write(REG_GLB_GEN3, tmp, 0x1f << 3);
 	}else{
 		printk("SPRDFB [%s], %d is SPI  error channel bit! ", __FUNCTION__, spi_id);
 		return;
@@ -184,7 +176,6 @@ void SPI_ClkSetting(uint32_t spi_id, uint32_t clk_src, uint32_t clk_div)
 void SPI_SetCsLow( uint32_t spi_sel_csx , bool is_low)
 {
    volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T*)(SPI_USED_BASE);
-   uint32_t temp;
 
     if(is_low)     {
         /* spi_ctl0[11:8]:cs3<->cs0 chip select, 0-selected;1-none */
@@ -201,7 +192,6 @@ void SPI_SetCsLow( uint32_t spi_sel_csx , bool is_low)
 #define SPI_CD_MASK  BIT(15)
 void SPI_SetCd( uint32_t cd)
 {
-
     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T*)(SPI_USED_BASE);
     
     /* 0-command;1-data */
@@ -368,7 +358,6 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
 {
     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
     uint32_t temp;
-    uint32_t ctl0, ctl1, ctl2, ctl3;
 
     SPI_Reset(2, 100);  //Reset spi0&spi1
     
@@ -381,7 +370,7 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
             (spi_parm->msb_lsb_sel<< 7) ;
     spi_ctr_ptr->ctl0 = temp;
 
-    spi_ctr_ptr->ctl1 = (ctl1 | BIT(12) | BIT(13));     // set rx/tx mode
+    spi_ctr_ptr->ctl1 |=  BIT(12) | BIT(13);     // set rx/tx mode
 
 	/*rx fifo full watermark is 16*/
 	spi_ctr_ptr->ctl3 = 0x10;

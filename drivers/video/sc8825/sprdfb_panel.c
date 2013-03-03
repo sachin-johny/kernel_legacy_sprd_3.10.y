@@ -49,7 +49,6 @@ panel_pinmap_t panel_rstpin_map[] = {
 static void sprd_panel_set_rstn_prop(unsigned int if_slp)
 {
 	int i;
-	int valTmp = 0;
 
 	if (if_slp){
 		panel_rstpin_map[0].val = __raw_readl(CTL_PIN_BASE+REG_PIN_LCD_RSTN);
@@ -116,6 +115,7 @@ static int32_t panel_set_resetpin_lcdc(uint32_t status)
 	return 0;
 }
 
+#if 0
 static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
 {
 	pr_debug("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
@@ -127,6 +127,7 @@ static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
 		panel_reset_lcdc(panel);
 	}
 }
+#endif
 
 static void panel_set_resetpin(uint16_t dev_id,  uint32_t status, struct panel_spec *panel )
 {
