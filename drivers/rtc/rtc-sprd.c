@@ -53,6 +53,12 @@
 #define ANA_RTC_SPG_CNT                 (RTC_BASE + 0x50)
 #define ANA_RTC_SPG_CNT_UPD             (RTC_BASE + 0x54)
 
+#ifdef CONFIG_ARCH_SC7710
+#define RTC_SPG_OFFSET 8
+#else
+#define RTC_SPG_OFFSET 0
+#endif
+
 /* The corresponding bit of RTC_CTL register. */
 #define RTC_SEC_BIT                 BIT(0)        /* Sec int enable */
 #define RTC_MIN_BIT                 BIT(1)        /* Min int enable */
@@ -83,6 +89,7 @@
 #define RTC_DAY_MASK 0xFFFF
 
 #define RTC_SPG_CNT_MASK 0xFF
+
 
 #define RTC_HWRST_SET_MASK 0x01
 #define RTC_HWRST_REG_MASK 0x0100
@@ -115,6 +122,7 @@
 #define RTC_START_YEAR_2000	946634400
 #define RTC_START_YEAR_2012	1325347200
 #endif
+
 
 static ssize_t sprd_show_caliberate(struct device *dev,
 				    struct device_attribute *attr, char *buf);
@@ -182,12 +190,12 @@ void sprd_rtc_set_spg_counter(u16 value)
 	u32 int_sts = 0;
 	int timeout = SPRD_RTC_SET_MAX;
 
-	spg_cnt = sci_adi_read(ANA_RTC_SPG_CNT)&RTC_SPG_CNT_MASK;
+	spg_cnt = (sci_adi_read(ANA_RTC_SPG_CNT) >> RTC_SPG_OFFSET) & RTC_SPG_CNT_MASK;
 	if (spg_cnt == value)
 		return;
 
 	sci_adi_set(ANA_RTC_INT_CLR, RTC_SPG_CNT_ACK_BIT);
-	sci_adi_raw_write(ANA_RTC_SPG_CNT_UPD, (value&RTC_SPG_CNT_MASK));
+	sci_adi_raw_write(ANA_RTC_SPG_CNT_UPD, (value & RTC_SPG_CNT_MASK) << RTC_SPG_OFFSET);
 
 	for(;;) {
 		if (timeout && int_sts != RTC_SPG_CNT_ACK_BIT) {
@@ -208,7 +216,7 @@ u16 sprd_rtc_get_spg_counter(void)
 {
 	u16 i = 0;
 
-	i = sci_adi_read(ANA_RTC_SPG_CNT) & RTC_SPG_CNT_MASK;
+	i = (sci_adi_read(ANA_RTC_SPG_CNT) >> RTC_SPG_OFFSET) & RTC_SPG_CNT_MASK;
 
 	return i;
 }
