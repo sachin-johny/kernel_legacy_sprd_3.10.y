@@ -886,7 +886,6 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 		/* Make sure SD clock is available */
 		if (bus->clkstate == CLK_NONE)
 			dhdsdio_sdclk(bus, TRUE);
-//                osl_delay(5*1000);/ * reflect throughput */
 		/* Now request HT Avail on the backplane */
 		ret = dhdsdio_htclk(bus, TRUE, pendok);
 		if (ret == BCME_OK) {
@@ -6368,7 +6367,7 @@ static int
 dhdsdio_download_nvram(struct dhd_bus *bus)
 {
 	int bcmerror = -1;
-	uint len;
+	int len;
 	void * image = NULL;
 	char * memblock = NULL;
 	char *bufp;
@@ -6452,10 +6451,7 @@ _dhdsdio_download_firmware(struct dhd_bus *bus)
 	bool embed = FALSE;	/* download embedded firmware */
 	bool dlok = FALSE;	/* download firmware succeeded */
 
-
-	//bus->fw_path="/data/fw_4330b2.bin";
-	//bus->nv_path="/data/nv_4330b2.txt";
-	printk("shaohua test fw_path=%s, nv_path=%s \n", bus->fw_path, bus->nv_path);
+	printk("fw_path=%s, nv_path=%s \n", bus->fw_path, bus->nv_path);
 
 	/* Out immediately if no image to download */
 	if ((bus->fw_path == NULL) || (bus->fw_path[0] == '\0')) {

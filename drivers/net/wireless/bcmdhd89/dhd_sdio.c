@@ -6404,7 +6404,7 @@ static int
 dhdsdio_download_nvram(struct dhd_bus *bus)
 {
 	int bcmerror = -1;
-	uint len;
+	int len;
 	void * image = NULL;
 	char * memblock = NULL;
 	char *bufp;

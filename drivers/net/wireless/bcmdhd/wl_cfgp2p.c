@@ -1864,13 +1864,13 @@ wl_cfgp2p_register_ndev(struct wl_priv *wl)
 	return ret;
 fail:
 
+	if (net) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 31)
 	net->open = NULL;
 #else
 	net->netdev_ops = NULL;
 #endif
 
-	if (net) {
 		unregister_netdev(net);
 		free_netdev(net);
 	}
