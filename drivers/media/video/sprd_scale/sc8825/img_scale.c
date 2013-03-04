@@ -74,6 +74,7 @@ faile:
 	atomic_dec(&scale_users);
 exit:
 	mutex_unlock(&scale_mutex);
+	sema_init(&scale_irq_sem, 0);
 
 	SCALE_TRACE("img_scale_open %d \n", ret);
 

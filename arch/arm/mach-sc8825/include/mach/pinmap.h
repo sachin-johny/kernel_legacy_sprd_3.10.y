@@ -24,7 +24,6 @@
 #define REG_PIN_CTRL4                   ( 0x0010 )
 #define REG_PIN_CTRL5                   ( 0x0014 )
 #define REG_PIN_SIMCLK0                 ( 0x0018 )
-#define REG_PIN_U0RTS                   ( 0x0134 )
 #define REG_PIN_SIMDA0                  ( 0x001c )
 #define REG_PIN_SIMRST0                 ( 0x0020 )
 #define REG_PIN_SIMCLK1                 ( 0x0024 )
@@ -223,7 +222,7 @@
 #define REG_PIN_U0TXD                   ( 0x0324 )
 #define REG_PIN_U0RXD                   ( 0x0328 )
 #define REG_PIN_U0CTS                   ( 0x032c )
-
+#define REG_PIN_U0RTS                   ( 0x0330 )
 #define REG_PIN_U1TXD                   ( 0x0334 )
 #define REG_PIN_U1RXD                   ( 0x0338 )
 #define REG_PIN_U2TXD                   ( 0x033c )

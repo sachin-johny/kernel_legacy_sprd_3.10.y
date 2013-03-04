@@ -320,6 +320,7 @@ struct mmc_async_req *mmc_start_req(struct mmc_host *host,
 		mmc_wait_for_req_done(host, host->areq->mrq);
 		err = host->areq->err_check(host->card, host->areq);
 		if (err) {
+			printk("**** %s, %s,  after err_check, err:%d ****\n", mmc_hostname(host),  __func__, err);
 			mmc_post_req(host, host->areq->mrq, 0);
 			if (areq)
 				mmc_post_req(host, areq->mrq, -EINVAL);
@@ -1219,15 +1220,20 @@ static void mmc_poweroff_notify(struct mmc_host *host)
 	/*
 	 * Send power notify command only if card
 	 * is mmc and notify state is powered ON
-	 */
+	 */	 
 	if (card && mmc_card_mmc(card) &&
-	    (card->poweroff_notify_state == MMC_POWERED_ON)) {
-
+	    (card->poweroff_notify_state == MMC_POWERED_ON)) {	    
+		printk("********** %s,	card->poweroff_notify_state = 0x%x ****\n", __func__, card->poweroff_notify_state );
+		printk("********** %s,  card->poweroff_notify_state == MMC_POWERED_ON ****\n", __func__);
 		if (host->power_notify_type == MMC_HOST_PW_NOTIFY_SHORT) {
+			
+			printk("********** %s,	host->power_notify_type == MMC_HOST_PW_NOTIFY_SHORT ****\n", __func__);
 			notify_type = EXT_CSD_POWER_OFF_SHORT;
 			timeout = card->ext_csd.generic_cmd6_time;
 			card->poweroff_notify_state = MMC_POWEROFF_SHORT;
 		} else {
+		
+			printk("********** %s,  !(host->power_notify_type == MMC_HOST_PW_NOTIFY_SHORT) ****\n", __func__);
 			notify_type = EXT_CSD_POWER_OFF_LONG;
 			timeout = card->ext_csd.power_off_longtime;
 			card->poweroff_notify_state = MMC_POWEROFF_LONG;
@@ -1243,7 +1249,8 @@ static void mmc_poweroff_notify(struct mmc_host *host)
 			       timeout);
 
 		/* Set the card state to no notification after the poweroff */
-		card->poweroff_notify_state = MMC_NO_POWER_NOTIFICATION;
+		card->poweroff_notify_state = MMC_NO_POWER_NOTIFICATION;		
+		printk("********** %s,	card->poweroff_notify_state = 0x%x ****\n", __func__,  card->poweroff_notify_state );
 	}
 }
 
@@ -1977,7 +1984,10 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 
 	if(!mmc_card_sd(card)){
 		if (!mmc_can_reset(card))
+		{
+			printk("**** %s,  card can not reset, return -EOPNOTSUPP ****\n", __func__);
 			return -EOPNOTSUPP;
+		}
 	}
 
 	mmc_host_clk_hold(host);
@@ -2015,6 +2025,7 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 
 	mmc_host_clk_release(host);
 
+	printk("**** %s,  call  power_restore ****\n", __func__);
 	return host->bus_ops->power_restore(host);
 }
 
@@ -2414,8 +2425,10 @@ int mmc_suspend_host(struct mmc_host *host)
 	int err = 0;
 
 	if (mmc_bus_needs_resume(host))
+	{		
+		printk("%s, %s, mmc_bus_needs_resume \n",  mmc_hostname(host), __func__ );
 		return 0;
-
+	}
 	if (host->caps & MMC_CAP_DISABLE)
 		cancel_delayed_work(&host->disable);
 	if (cancel_delayed_work(&host->detect))
@@ -2428,8 +2441,10 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	err = mmc_cache_ctrl(host, 0);
 	if (err)
+	{
+		printk("**** %s, mmc_cache_ctrl error:%d, goto out ****\n", __func__, err);
 		goto out;
-
+	}
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
 
@@ -2447,7 +2462,10 @@ int mmc_suspend_host(struct mmc_host *host)
 		 */
 		if (!(host->card && mmc_card_sdio(host->card)))
 			if (!mmc_try_claim_host(host))
+			{				
+				printk("**** %s, can not claim host,  err = -EBUSY ****\n", __func__);
 				err = -EBUSY;
+			}
 
 		if (!err) {
 			if (host->bus_ops->suspend) {
@@ -2456,13 +2474,15 @@ int mmc_suspend_host(struct mmc_host *host)
 				 * before sleep, because in sleep state eMMC 4.5
 				 * devices respond to only RESET and AWAKE cmd
 				 */
-				mmc_poweroff_notify(host);
+				mmc_poweroff_notify(host);				
+				printk("**** %s, call suspend ****\n", __func__);
 				err = host->bus_ops->suspend(host);
 			}
 			if (!(host->card && mmc_card_sdio(host->card)))
 				mmc_do_release_host(host);
 
 			if (err == -ENOSYS || !host->bus_ops->resume) {
+				printk("!!!!!%s,  suspend error,  err:%d !!!!!!!\n", __func__, err);
 				/*
 				 * We simply "remove" the card in this case.
 				 * It will be redetected on resume.
@@ -2480,7 +2500,8 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
-	if (!err && !mmc_card_keep_power(host)){
+	if (!err && !mmc_card_keep_power(host)){		
+		printk("%s, %s, call mmc_power_off \n",  mmc_hostname(host), __func__ );
 		mmc_power_off(host);
 	}
 out:
@@ -2498,7 +2519,8 @@ int mmc_resume_host(struct mmc_host *host)
 	int err = 0;
 
 	mmc_bus_get(host);
-	if (mmc_bus_manual_resume(host)) {
+	if (mmc_bus_manual_resume(host)) {		
+		printk("'**** %s, %s, set MMC_BUSRESUME_NEEDS_RESUME ****\n", mmc_hostname(host), __func__ );
 		host->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
 		mmc_bus_put(host);
 		return 0;

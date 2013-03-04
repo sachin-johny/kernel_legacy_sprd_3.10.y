@@ -128,6 +128,8 @@ static struct important_tasks tasks[] = {
 	{"PowerManager",12},
 	{"WindowManager",13},
 	{"AudioService",12},
+	{"kworker",7},
+	{"adbd",4},
 };
 #endif
 

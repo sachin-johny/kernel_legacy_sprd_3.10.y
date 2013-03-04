@@ -383,6 +383,18 @@ int regulator_set_trimming(struct regulator *regulator, int ctl_vol, int to_vol)
 	    : ldo_set_trimming(rdev, ctl_vol, to_vol);
 }
 
+int regulator_get_trimming_step(struct regulator *regulator, int def_vol)
+{
+	struct regulator_dev *rdev = regulator_get_drvdata(regulator);
+	struct sci_regulator_desc *desc =
+	    (struct sci_regulator_desc *)rdev->desc;
+	const struct sci_regulator_regs *regs = desc->regs;
+
+	return (2 /*DCDC*/ == regs->typ)
+	    ? 100 / 32
+	    : def_vol * 7 / 1000;
+}
+
 static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
 {
 	int i, j = -1;

@@ -33,6 +33,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include <mach/emc_repower.h>
+#include <linux/clockchips.h>
 
 extern int sc8825_get_clock_status(void);
 extern void secondary_startup(void);
@@ -313,7 +314,7 @@ static void setup_autopd_mode(void)
 	sci_glb_write(REG_GLB_TD_PWR_CTL, 0x05000520/*|PD_AUTO_EN*/, -1UL);/*TD*/
 	sci_glb_write(REG_GLB_PERI_PWR_CTL, 0x03000920/*|PD_AUTO_EN*/, -1UL);
 	if (sci_glb_read(REG_AHB_CHIP_ID, -1UL) == CHIP_ID_VER_0) {
-		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
+		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20 |PD_AUTO_EN, -1UL);
 		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL );
 	}else {
 		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
@@ -595,7 +596,6 @@ static void wait_until_uart1_tx_done(void)
 /* arm core sleep*/
 static void arm_sleep(void)
 {
-	pm_debug_save_ahb_glb_regs( );
 	cpu_do_idle();
 	hard_irq_set();
 }
@@ -615,13 +615,10 @@ static void mcu_sleep(void)
 	*/
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
-	/* FIXME: enable sys sleep in final version
+	/* FIXME: enable sys sleep in final version 
 	val |= MCU_SYS_SLEEP_EN;
 	*/
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL );
-
-	pm_debug_save_ahb_glb_regs( );
-
 	cpu_do_idle();
 	hard_irq_set();
 	RESTORE_GLOBAL_REG;
@@ -670,7 +667,7 @@ static int emc_repower_init(void)
 	repower_param = (struct emc_repower_param *)(SPRD_IRAM_BASE + 15 * 1024);
 	set_emc_repower_param(repower_param, SPRD_LPDDR2C_BASE, SPRD_LPDDR2C_BASE + 0x1000);
 	repower_param->cs0_training_addr_v = (u32)ioremap(repower_param->cs0_training_addr_p, 4*1024);
-	if(repower_param->cs_number)
+	if(repower_param->cs_number == 2)
 	{
 		repower_param->cs1_training_addr_v = (u32)ioremap(repower_param->cs1_training_addr_p, 4*1024);
 	}
@@ -871,21 +868,18 @@ int deep_sleep(void)
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
 
-#if defined(CONFIG_MACH_SP6825GB)
-	val |= MCU_SYS_SLEEP_EN;
-#else
+
 	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
-#endif  /*CONFIG_MACH_SP6825GB*/
 
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL);
 
 	/* set entry when deepsleep return*/
 	save_reset_vector();
 	set_reset_vector();
-
+	
 	/* check globle key registers */
 	pm_debug_save_ahb_glb_regs( );
-
+	
 	/* indicate cpu stopped */
 	holding = sci_glb_read(REG_AHB_HOLDING_PEN, -1UL);
 	sci_glb_write(REG_AHB_HOLDING_PEN, (holding & (~CORE1_RUN)) | AP_ENTER_DEEP_SLEEP , -1UL );
@@ -1006,9 +1000,6 @@ int sc8825_enter_lowpower(void)
 #else
 #ifdef CONFIG_NKERNEL
 	status = sc8825_get_clock_status();
-#if  defined(CONFIG_MACH_SP6825GB)
-	status |=  DEVICE_APB;
-#endif
 #else
 	/*
 	* TODO: get clock status in native version, force deep sleep now
@@ -1017,11 +1008,11 @@ int sc8825_enter_lowpower(void)
 #endif
 #endif
 	if (status & DEVICE_AHB)  {
-		/*printk("###### %s,  DEVICE_AHB ###\n", __func__ );*/
+		printk("###### %s,  DEVICE_AHB ###\n", __func__ );
 		set_sleep_mode(SLP_MODE_ARM);
 		arm_sleep();
 	} else if (status & DEVICE_APB) {
-		/*printk("###### %s,	DEVICE_APB ###\n", __func__ );*/
+		printk("###### %s,	DEVICE_APB ###\n", __func__ );
 		set_sleep_mode(SLP_MODE_MCU);
 		mcu_sleep();
 	} else {
@@ -1031,12 +1022,14 @@ int sc8825_enter_lowpower(void)
 		scu_save_context();
 		ret = deep_sleep( );
 		scu_restore_context();
+		flush_cache_all();
 		gic_restore_context( );
 		gic_cpu_enable(cpu);
 		gic_dist_enable( );
 	}
 	
 	time_add(get_sys_cnt() - time, ret);
+	print_hard_irq_inloop(ret);
 
 	return ret;
 
@@ -1115,9 +1108,21 @@ static void init_gr(void)
 	sci_glb_write(REG_GLB_CLK_EN, val, -1UL );
 }
 
+void enable_cpuidle(int enable)
+{
+#if defined(CONFIG_LOCAL_TIMERS)
+	if(enable)
+		sci_glb_set(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
+	else
+		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
+#endif
+}
+EXPORT_SYMBOL(enable_cpuidle);
+
 #ifdef CONFIG_NKERNEL
 void sc8825_idle(void)
 {
+	int this_cpu = smp_processor_id();
 	int val;
 	if (!need_resched()) {
 		hw_local_irq_disable();
@@ -1131,7 +1136,14 @@ void sc8825_idle(void)
 				l2x0_suspend();
 				*/
 #endif
+#if defined(CONFIG_LOCAL_TIMERS)
+				clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &this_cpu);
+#endif
 				cpu_do_idle();
+#if defined(CONFIG_LOCAL_TIMERS)
+				clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &this_cpu);
+#endif
+
 #ifdef CONFIG_CACHE_L2X0
 				/*
 				l2x0_resume(1);

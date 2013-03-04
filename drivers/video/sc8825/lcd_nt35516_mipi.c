@@ -334,14 +334,14 @@ static uint32_t nt35516_readpowermode(struct panel_spec *self)
 }
 
 
-static int32_t nt35516_check_esd(struct panel_spec *self)
+static uint32_t nt35516_check_esd(struct panel_spec *self)
 {
 	uint32_t power_mode;
 
+	pr_debug("nt35516_check_esd!\n");
+
 	mipi_set_lp_mode_t mipi_set_lp_mode = self->info.mipi->ops->mipi_set_lp_mode;
 	mipi_set_hs_mode_t mipi_set_hs_mode = self->info.mipi->ops->mipi_set_hs_mode;
-
-	pr_debug("nt35516_check_esd!\n");
 
 	mipi_set_lp_mode();
 	power_mode = nt35516_readpowermode(self);

@@ -61,9 +61,12 @@
 #define HWRST_STATUS_ALARM (0X50)
 #define HWRST_STATUS_SLEEP (0X60)
 #define HWRST_STATUS_FASTBOOT (0X30)
+#define HWRST_STATUS_SPECIAL (0x70)
 
 void sprd_set_reboot_mode(const char *cmd)
 {
+	if(cmd)
+		printk("sprd_set_reboot_mode:cmd=%s\n",cmd);
 	if (cmd && !(strncmp(cmd, "recovery", 8))) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_RECOVERY);
 	} else if (cmd && !strncmp(cmd, "alarm", 5)) {
@@ -72,8 +75,12 @@ void sprd_set_reboot_mode(const char *cmd)
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SLEEP);
 	} else if (cmd && !strncmp(cmd, "bootloader", 10)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_FASTBOOT);
-	} else {
+	} else if (cmd && !strncmp(cmd, "special", 7)) {
+		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
+	} else if(cmd){
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
+	}else{
+		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
 	}
 }
 
