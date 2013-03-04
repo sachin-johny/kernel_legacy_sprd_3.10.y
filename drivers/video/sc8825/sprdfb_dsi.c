@@ -419,10 +419,7 @@ int32_t sprdfb_dsi_suspend(struct sprdfb_device *dev)
 
 int32_t sprdfb_dsi_resume(struct sprdfb_device *dev)
 {
-	dsih_error_t result = OK;
 	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
-	dphy_t *phy = &(dsi_instance->phy_instance);
-	struct info_mipi * mipi = dev->panel->info.mipi;
 
 	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 
