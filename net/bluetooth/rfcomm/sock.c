@@ -54,14 +54,6 @@
 
 static const struct proto_ops rfcomm_sock_ops;
 
-#ifdef CONFIG_BT_BCM4330
-static int rfcomm_a2dp_streaming_flag=0;
-#ifndef RFCOMMSETA2DPFLG
-#define RFCOMMSETA2DPFLG	_IOW('R', 240, int)
-#define RFCOMMCLEANA2DPFLG	_IOW('R', 241, int)
-#endif
-#endif
-
 static struct bt_sock_list rfcomm_sk_list = {
 	.lock = __RW_LOCK_UNLOCKED(rfcomm_sk_list.lock)
 };
@@ -606,17 +598,6 @@ static int rfcomm_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
 		}
 
 		err = rfcomm_dlc_send(d, skb);
-#ifdef CONFIG_BT_BCM4330
-		/*lgh added, 500 is a test value, just make sure the waiting does not has
-		  any impact on control message */
-		if(rfcomm_a2dp_streaming_flag==1&& size >500) {
-			BT_INFO("Slower Obex for A2dp, size=%d", size);
-			set_current_state(TASK_INTERRUPTIBLE);
-			schedule_timeout (msecs_to_jiffies(50));
-		} else if (rfcomm_a2dp_streaming_flag==1&& size <=500){
-			BT_INFO("No Slower Obex for A2dp, size=%d", size);
-		}
-#endif
 		if (err < 0) {
 			kfree_skb(skb);
 			if (sent == 0)
@@ -879,7 +860,6 @@ static int rfcomm_sock_getsockopt(struct socket *sock, int level, int optname, c
 	return err;
 }
 
-
 static int rfcomm_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
 	struct sock *sk __maybe_unused = sock->sk;
@@ -888,21 +868,6 @@ static int rfcomm_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned lon
 	BT_DBG("sk %p cmd %x arg %lx", sk, cmd, arg);
 
 	err = bt_sock_ioctl(sock, cmd, arg);
-
-#ifdef CONFIG_BT_BCM4330
-	lock_sock(sk);
-	if(cmd == RFCOMMSETA2DPFLG) {
-		BT_INFO("RFCOMMSETA2DPFLG called");
-		rfcomm_a2dp_streaming_flag= 1;
-		err = 0;
-	} else if (cmd == RFCOMMCLEANA2DPFLG){
-		BT_INFO("RFCOMMCLEANA2DPFLG called");
-		rfcomm_a2dp_streaming_flag= 0;
-		err = 0;
-	}
-	release_sock(sk);
-#endif
-
 
 	if (err == -ENOIOCTLCMD) {
 #ifdef CONFIG_BT_RFCOMM_TTY
