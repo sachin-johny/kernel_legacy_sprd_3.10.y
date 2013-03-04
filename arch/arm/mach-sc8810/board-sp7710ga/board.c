@@ -24,7 +24,12 @@
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/ft5306_ts.h>
+#if(defined(CONFIG_INPUT_AL3006_I2C))
 #include <linux/i2c/al3006_pls.h>
+#endif
+#if(defined(CONFIG_INPUT_LTR558_I2C))
+#include <linux/i2c/ltr_558als.h>
+#endif
 #include <linux/i2c/lis3dh.h>
 #if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
 #include <linux/akm8975.h>
@@ -207,9 +212,17 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 };
 
+#if(defined(CONFIG_INPUT_AL3006_I2C))
 static struct al3006_pls_platform_data al3006_pls_info = {
 	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
 };
+#endif
+
+#if(defined(CONFIG_INPUT_LTR558_I2C))
+static struct ltr558_pls_platform_data ltr558_pls_info = {
+	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+};
+#endif
 
 static struct i2c_board_info i2c2_boardinfo[] = {
 };
@@ -272,9 +285,16 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 		  .platform_data = &akm_platform_data_8963,
 		},
 #endif
+#if(defined(CONFIG_INPUT_AL3006_I2C))
 	{ I2C_BOARD_INFO(AL3006_PLS_DEVICE,   AL3006_PLS_ADDRESS),
 	  .platform_data = &al3006_pls_info,
 	},
+#endif
+#if(defined(CONFIG_INPUT_LTR558_I2C))
+	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
+	  .platform_data = &ltr558_pls_info,
+	},
+#endif
 };
 
 /* config I2C2 SDA/SCL to SIM2 pads */
