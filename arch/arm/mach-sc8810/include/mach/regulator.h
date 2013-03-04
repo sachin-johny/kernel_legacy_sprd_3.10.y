@@ -45,7 +45,36 @@
 	in regulator-sp8810ga.h:
 	#define REGU_NAMES_VDDRF1 REGULATOR_SUPPLY("V_ATVIO", NULL),
 */
+#ifdef CONFIG_ARCH_SC7710
+#define REGU_NAME_ATV			"V_ATV"
+#define REGU_NAME_ATVIO			"V_ATVIO"
+#define REGU_NAME_CAMAVDD		"vddcama"
+#define REGU_NAME_CAMDVDD		"vddcamd1"
+#define REGU_NAME_CAMVIO		"vddcamd0"
+#define REGU_NAME_CMMB			"vddwif0"
+#define REGU_NAME_CMMBIO		"vddwif1"
+#define REGU_NAME_MSENSOR		"V_MSENSOR"
+#define REGU_NAME_MSENSORIO		"V_MSENSORIO"
+#define REGU_NAME_GPS			"V_GPS"
+#define REGU_NAME_GSENSOR		"V_GSENSOR"
+#define REGU_NAME_GSENSORIO		"V_GSENSORIO"
+#define REGU_NAME_LCD			"V_LCD"
+#define REGU_NAME_LCDIO			"V_LCDIO"
+#define REGU_NAME_LPSENSOR		"V_LPSENSOR"
+#define REGU_NAME_LPLEDA		"V_LPSENSORLEDA"
+#define REGU_NAME_SDHOST0		"vddsd0"
+#define REGU_NAME_SDHOST1		"vddsd1"
+#define REGU_NAME_TP			"V_TP"
+#define REGU_NAME_TP1			"V_TP1"
+#define REGU_NAME_USB			"vddusb"
+#define REGU_NAME_USBD			"vddusbd"
+#define REGU_NAME_WIFI			"vddwif0"
+#define REGU_NAME_WIFIIO		"vddwif1"
+#define REGU_NAME_BT			"V_BT"
+#define REGU_NAME_FM            "V_FM"
+#define REGU_NAME_MIC			"V_MIC"
 
+#else
 #define REGU_NAME_ATV			"V_ATV"
 #define REGU_NAME_ATVIO			"V_ATVIO"
 #define REGU_NAME_CAMAVDD		"V_CAMAVDD"
@@ -74,6 +103,7 @@
 #define REGU_NAME_FM                    "V_FM"
 #define REGU_NAME_MIC			"V_MIC"
 
+#endif
 
 /*TABLE below is example for user understanding easily.
   A logic(l) name to physic(p) name map.

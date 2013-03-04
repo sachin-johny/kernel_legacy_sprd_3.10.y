@@ -25,12 +25,55 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 
+#if defined(CONFIG_ARCH_SC7710)
+#include <mach/hardware.h>
+#include <mach/regs_ana_glb_sc7710.h>
+#include <mach/regulator.h>
+#include <mach/adi.h>
+
+#ifndef SCI_ADDR
+#define SCI_ADDR(_b_, _o_)                              ( (u32)(_b_) + (_o_) )
+#endif
+#define ANA_REGS_GLB_BASE	(SPRD_MISC_BASE + 0x0800)
+#define REG_GLB_CLK_GEN5	(SPRD_GREG_BASE + 0x007C)
+
+u32 sci_glb_read(u32 reg, u32 msk)
+{
+	return WARN_ON(1);
+}
+
+int sci_glb_set(u32 reg, u32 bit)
+{
+	return WARN_ON(1);
+}
+
+int sci_glb_clr(u32 reg, u32 bit)
+{
+	return WARN_ON(1);
+}
+
+int __init sc8825_regulator_init(void)
+{
+	static struct platform_device sc8825_regulator_device = {
+		.name 	= "sprd-regulator",
+		.id	= -1,
+	};
+	return platform_device_register(&sc8825_regulator_device);
+}
+
+void __init regulator_add_devices(void)
+{
+	sc8825_regulator_init();
+}
+
+#else
 #include <mach/sci.h>
 #include <mach/hardware.h>
 #include <mach/regs_glb.h>
 #include <mach/regs_ana_glb.h>
 #include <mach/regs_ana_glb2.h>
 #include <mach/adi.h>
+#endif
 
 #undef debug
 #define debug(format, arg...) pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
@@ -718,7 +761,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 static int __devinit sci_regulator_probe(struct platform_device *pdev)
 {
 	debug0("platform device %p\n", pdev);
-#include "mach/__regulator_map.h"
+#include CONFIG_REGULATOR_SPRD_MAP
 	return 0;
 }
 

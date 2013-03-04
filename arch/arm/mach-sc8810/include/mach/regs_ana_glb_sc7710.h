@@ -123,16 +123,16 @@
 #define ANA_REG_GLB_CHIP_ID_HIGH        SCI_ADDR(ANA_REGS_GLB_BASE, 0x01FC)
 
 /* bits definitions for register ANA_REG_GLB_APB_EB0 */
-#define BIT_CHGRWDG_EB                  ( BIT(15) )
-#define BIT_CLK_AUXAD_EB                ( BIT(14) )
-#define BIT_CLK_ADC_EB                  ( BIT(13) )
-#define BIT_PINREG_EB                   ( BIT(7) )
-#define BIT_GPIO_EB                     ( BIT(6) )
-#define BIT_ADC_EB                      ( BIT(5) )
-#define BIT_TPC_EB                      ( BIT(4) )
-#define BIT_EIC_EB                      ( BIT(3) )
-#define BIT_WDG_EB                      ( BIT(2) )
-#define BIT_RTC_EB                      ( BIT(1) )
+#define BIT_ANA_CHGRWDG_EB              ( BIT(15) )
+#define BIT_ANA_CLK_AUXAD_EB            ( BIT(14) )
+#define BIT_ANA_CLK_ADC_EB              ( BIT(13) )
+#define BIT_ANA_PINREG_EB               ( BIT(7) )
+#define BIT_ANA_GPIO_EB                 ( BIT(6) )
+#define BIT_ANA_ADC_EB                  ( BIT(5) )
+#define BIT_ANA_TPC_EB                  ( BIT(4) )
+#define BIT_ANA_EIC_EB                  ( BIT(3) )
+#define BIT_ANA_WDG_EB                  ( BIT(2) )
+#define BIT_ANA_RTC_EB                  ( BIT(1) )
 
 /* bits definitions for register ANA_REG_GLB_APB_EB1 */
 #define BIT_RTC_TPC_EB                  ( BIT(4) )
@@ -142,10 +142,21 @@
 #define BIT_RTC_ARCH_EB                 ( BIT(0) )
 
 /* bits definitions for register ANA_REG_GLB_APB_RST */
+#define BIT_ANA_PWM4_SOFT_RST           ( BIT(12) )
+#define BIT_ANA_PWM3_SOFT_RST           ( BIT(11) )
+#define BIT_ANA_PWM2_SOFT_RST           ( BIT(10) )
+#define BIT_ANA_PWM1_SOFT_RST           ( BIT(9) )
+#define BIT_ANA_PWM0_SOFT_RST           ( BIT(8) )
+#define BIT_ANA_GPIO_SOFT_RST           ( BIT(7) )
+#define BIT_ANA_EIC_SOFT_RST            ( BIT(6) )
+#define BIT_ANA_TPC_SOFT_RST            ( BIT(5) )
+#define BIT_ANA_AUXADC_SOFT_RST         ( BIT(4) )
+#define BIT_ANA_WDG_SOFT_RST            ( BIT(3) )
+#define BIT_ANA_RTC_SOFT_RST            ( BIT(0) )
 #define BITS_PERI_SOFT_RST(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)) )
 
 /* bits definitions for register ANA_REG_GLB_ARCH_EN */
-#define BIT_ARCH_EB                     ( BIT(0) )
+#define BIT_ANA_ARCH_EB                 ( BIT(0) )
 
 /* bits definitions for register ANA_REG_GLB_LDO_PD_SET */
 #define BIT_LDO_LPREF_PD                ( BIT(13) )
@@ -891,5 +902,7 @@
 #define BITS_CHIP_IP_HIGH(_x_)          ( (_x_) << 0 )
 
 /* vars definitions for controller ANA_REGS_GLB */
+#define BITS_DCDC_CAL(X)                ( BITS_DCDC_CORE_CAL(X) )
+#define BITS_DCDC_CAL_RST(X)            ( BITS_DCDC_CORE_CAL_RST(X) )
 
 #endif //__ANA_REGS_GLB_H__
