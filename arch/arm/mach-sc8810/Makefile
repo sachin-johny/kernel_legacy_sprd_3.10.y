@@ -3,7 +3,7 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
 
 obj-$(CONFIG_SPRD_SOC_SC8810) += regulator.o regulator-devices.o
 
-obj-y += dma.o reserve.o pinmap.o adi.o gpio_eic.o adc.o efuse.o dcdc_cal.o \
+obj-y += dma.o reserve.o pinmap.o adi.o gpio_eic.o adc.o efuse.o \
          watchdog.o
 
 obj-y += sys_debug.o
@@ -16,6 +16,7 @@ obj-$(CONFIG_PM) += pm_orig.o
 endif
 obj-$(CONFIG_PM) += pm.o  pm_sc8810.o standby.o pm_debug.o
 
+obj-$(CONFIG_SPRD_DCDC_CAL) += dcdc_cal.o
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 
 obj-$(CONFIG_DEBUG_FS) += clock_debug.o
