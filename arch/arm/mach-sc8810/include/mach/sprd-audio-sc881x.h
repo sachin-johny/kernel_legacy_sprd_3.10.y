@@ -524,6 +524,22 @@ static inline int arch_audio_inter_pa_get_pga(void)
 /* ------------------------------------------------------------------------- */
 
 /* i2s setting */
+static inline const char * arch_audio_i2s_clk_name(int id)
+{
+#if FIXED_AUDIO
+	switch (id) {
+	case 0:
+		return "clk_iis";
+		break;
+	case 1:
+		return "clk_iis1";
+		break;
+	default:
+		break;
+	}
+	return NULL;
+#endif
+}
 
 static inline int arch_audio_i2s_enable(int id)
 {
@@ -647,16 +663,16 @@ static inline int arch_audio_i2s_switch(int id, int master)
 	case 0:
 		switch (master) {
 		case AUDIO_TO_ARM_CTRL:
-			sprd_greg_set_bits(REG_TYPE_GLOBAL, IIS0_SEL, GR_PCTL);
+			sprd_greg_clear_bits(REG_TYPE_GLOBAL, IIS0_SEL, GR_PCTL);
 			break;
 		case AUDIO_TO_DSP_CTRL:
-			sprd_greg_clear_bits(REG_TYPE_GLOBAL, IIS0_SEL,
+			sprd_greg_set_bits(REG_TYPE_GLOBAL, IIS0_SEL,
 					     GR_PCTL);
 			break;
 		case AUDIO_NO_CHANGE:
 			ret =
 			    sprd_greg_read(REG_TYPE_GLOBAL, GR_PCTL) & IIS0_SEL;
-			if (ret == 0)
+			if (ret != 0)
 				ret = AUDIO_TO_DSP_CTRL;
 			else
 				ret = AUDIO_TO_ARM_CTRL;
@@ -669,16 +685,16 @@ static inline int arch_audio_i2s_switch(int id, int master)
 	case 1:
 		switch (master) {
 		case AUDIO_TO_ARM_CTRL:
-			sprd_greg_set_bits(REG_TYPE_GLOBAL, IIS1_SEL, GR_PCTL);
+			sprd_greg_clear_bits(REG_TYPE_GLOBAL, IIS1_SEL, GR_PCTL);
 			break;
 		case AUDIO_TO_DSP_CTRL:
-			sprd_greg_clear_bits(REG_TYPE_GLOBAL, IIS1_SEL,
+			sprd_greg_set_bits(REG_TYPE_GLOBAL, IIS1_SEL,
 					     GR_PCTL);
 			break;
 		case AUDIO_NO_CHANGE:
 			ret =
 			    sprd_greg_read(REG_TYPE_GLOBAL, GR_PCTL) & IIS1_SEL;
-			if (ret == 0)
+			if (ret != 0)
 				ret = AUDIO_TO_DSP_CTRL;
 			else
 				ret = AUDIO_TO_ARM_CTRL;

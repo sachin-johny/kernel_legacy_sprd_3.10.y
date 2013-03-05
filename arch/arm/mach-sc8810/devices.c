@@ -17,6 +17,7 @@
 #include <linux/ion.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+#include <mach/dma.h>
 #include <mach/board.h>
 #include "devices.h"
 
@@ -330,8 +331,8 @@ struct platform_device sprd_keypad_device = {
         .resource       = sprd_keypad_resources,
 };
 
-struct platform_device sprd_audio_platform_vbc_pcm_device = {
-	.name           = "sprd-vbc-pcm-audio",
+struct platform_device sprd_audio_platform_pcm_device = {
+	.name           = "sprd-pcm-audio",
 	.id             =  -1,
 };
 
@@ -352,6 +353,61 @@ struct platform_device sprd_audio_codec_dolphin_device = {
 
 struct platform_device sprd_audio_codec_sprd_codec_device = {
 	.name           = "sprd-codec",
+	.id             =  -1,
+};
+
+static struct resource sprd_i2s_resources0[] = {
+        [0] = {
+                .start = SPRD_IIS0_BASE,
+                .end   = SPRD_IIS0_BASE + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = SPRD_IIS0_PHYS,
+                .end   = SPRD_IIS0_PHYS + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [2] = {
+                .start = DMA_IIS_TX,
+                .end   = DMA_IIS_RX,
+                .flags = IORESOURCE_DMA,
+        }
+};
+
+struct platform_device sprd_audio_cpu_dai_i2s_device = {
+	.name           = "i2s",
+	.id             =  0,
+        .num_resources  = ARRAY_SIZE(sprd_i2s_resources0),
+        .resource       = sprd_i2s_resources0,
+};
+
+static struct resource sprd_i2s_resources1[] = {
+        [0] = {
+                .start = SPRD_IIS1_BASE,
+                .end   = SPRD_IIS1_BASE + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = SPRD_IIS1_PHYS,
+                .end   = SPRD_IIS1_PHYS + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [2] = {
+                .start = DMA_IIS1_TX,
+                .end   = DMA_IIS1_RX,
+                .flags = IORESOURCE_DMA,
+        }
+};
+
+struct platform_device sprd_audio_cpu_dai_i2s_device1 = {
+	.name           = "i2s",
+	.id             =  1,
+        .num_resources  = ARRAY_SIZE(sprd_i2s_resources1),
+        .resource       = sprd_i2s_resources1,
+};
+
+struct platform_device sprd_audio_codec_null_codec_device = {
+	.name           = "null-codec",
 	.id             =  -1,
 };
 

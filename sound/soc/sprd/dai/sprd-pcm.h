@@ -1,7 +1,7 @@
 /*
- * sound/soc/sprd/dai/vbc/sprd-vbc-pcm.h
+ * sound/soc/sprd/dai/sprd-pcm.h
  *
- * SpreadTrum VBC for the pcm stream.
+ * SpreadTrum DMA for the pcm stream.
  *
  * Copyright (C) 2012 SpreadTrum Ltd.
  *
@@ -14,13 +14,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __SPRD_VBC_PCM_H
-#define __SPRD_VBC_PCM_H
+#ifndef __SPRD_PCM_H
+#define __SPRD_PCM_H
 
 #include <mach/dma.h>
 
-#define VBC_PCM_FORMATS			SNDRV_PCM_FMTBIT_S16_LE
 #define VBC_FIFO_FRAME_NUM	  	160
+#define VBC_BUFFER_BYTES_MAX 		(128 * 1024)
+
+#define I2S_BUFFER_BYTES_MAX 		(64 * 1024)
+
+#define AUDIO_BUFFER_BYTES_MAX 		(VBC_BUFFER_BYTES_MAX + I2S_BUFFER_BYTES_MAX)
 
 struct sprd_pcm_dma_params {
 	char *name;		/* stream identifier */
@@ -31,4 +35,4 @@ struct sprd_pcm_dma_params {
 	u32 dev_paddr[2];	/* device physical address for DMA */
 };
 
-#endif /* __SPRD_VBC_PCM_H */
+#endif /* __SPRD_PCM_H */

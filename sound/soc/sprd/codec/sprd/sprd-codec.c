@@ -1211,7 +1211,6 @@ static const char *get_event_name(int event)
 static int digital_power_event(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *kcontrol, int event)
 {
-	struct snd_soc_codec *codec = w->codec;
 	int ret = 0;
 
 	sprd_codec_dbg("Entering %s event is %s\n", __func__,
