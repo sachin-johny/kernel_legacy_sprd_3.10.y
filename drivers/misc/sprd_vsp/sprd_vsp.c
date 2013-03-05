@@ -144,6 +144,7 @@ static void disable_vsp (struct vsp_fh *vsp_fp)
 {
 	clk_disable(vsp_hw_dev.vsp_clk);
 	vsp_fp->is_clock_enabled= 0;
+        wake_unlock(&vsp_wakelock);
 	pr_debug("vsp ioctl VSP_DISABLE\n");
 
 	return;
@@ -199,6 +200,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		break;
 	case VSP_ENABLE:
 		pr_debug("vsp ioctl VSP_ENABLE\n");
+                wake_lock(&vsp_wakelock);
 		ret = clk_enable(vsp_hw_dev.vsp_clk);
 		vsp_fp->is_clock_enabled= 1;        
 		break;
@@ -338,10 +340,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		}
 		break;
 #endif
-        case VSP_WAKE_UNLOCK:
-    	        wake_unlock(&vsp_wakelock);
-		pr_debug("vsp ioctl VSP_WAKE_UNLOCK\n");
-                break;
+     
 	default:
 		return -EINVAL;
 	}
@@ -418,7 +417,7 @@ static int vsp_open(struct inode *inode, struct file *filp)
 		printk(KERN_ERR "vsp open error occured\n");
 		return  -EINVAL;
 	}
-        wake_lock(&vsp_wakelock);
+       
         
 	filp->private_data = vsp_fp;
 	vsp_fp->is_clock_enabled = 0;
@@ -444,7 +443,6 @@ static int vsp_release (struct inode *inode, struct file *filp)
 
 	kfree(filp->private_data);
 
-//        wake_unlock(&vsp_wakelock);
 
 	return 0;
 }
@@ -471,7 +469,6 @@ static int vsp_probe(struct platform_device *pdev)
 	char *name_parent;
 	int ret_val;
 	int ret;
-	int cmd0;
 
     wake_lock_init(&vsp_wakelock, WAKE_LOCK_SUSPEND,
 		"pm_message_wakelock_vsp");
