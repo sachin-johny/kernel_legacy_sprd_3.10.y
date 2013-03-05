@@ -166,6 +166,10 @@ struct sci_dma_reg {
 #define DMA_REQ_CID(uid)	(DMA_REG_BASE + 0x2000 + 0x4 * ((uid) -1))
 
 /*FRAG_LEN*/
+#define CHN_PRIORITY_OFFSET	12
+#define CHN_PRIORITY_MASK	0x3
+#define LLIST_EN_OFFSET	4;
+
 #define SRC_DATAWIDTH_OFFSET	30
 #define DES_DATAWIDTH_OFFSET	28
 #define SWT_MODE_OFFSET	26

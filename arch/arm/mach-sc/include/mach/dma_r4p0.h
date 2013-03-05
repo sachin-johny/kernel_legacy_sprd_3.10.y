@@ -34,6 +34,7 @@ typedef enum {
 	BLOCK_DONE,
 	LIST_DONE,
 	TRANS_DONE,
+	CONFIG_ERR,
 } dma_int_type;
 
 typedef enum {
@@ -76,6 +77,9 @@ struct sci_dma_cfg {
 typedef enum {
 	SET_IRQ_TYPE = 0x0,
 	SET_WRAP_MODE,
+	SET_REQ_MODE,
+	SET_CHN_PRIO,
+	SET_INT_TYPE,
 } dma_cmd;
 
 
