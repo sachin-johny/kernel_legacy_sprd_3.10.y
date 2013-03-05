@@ -24,10 +24,19 @@
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/ft5306_ts.h>
+#if(defined(CONFIG_INPUT_AL3006_I2C))
 #include <linux/i2c/al3006_pls.h>
+#endif
+#if(defined(CONFIG_INPUT_LTR558_I2C))
+#include <linux/i2c/ltr_558als.h>
+#endif
 #include <linux/i2c/lis3dh.h>
+#if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
 #include <linux/akm8975.h>
+#endif
+#if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
 #include <linux/akm8963.h>
+#endif
 #include <linux/spi/spi.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
@@ -203,9 +212,17 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 };
 
+#if(defined(CONFIG_INPUT_AL3006_I2C))
 static struct al3006_pls_platform_data al3006_pls_info = {
 	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
 };
+#endif
+
+#if(defined(CONFIG_INPUT_LTR558_I2C))
+static struct ltr558_pls_platform_data ltr558_pls_info = {
+	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+};
+#endif
 
 static struct i2c_board_info i2c2_boardinfo[] = {
 };
@@ -218,8 +235,8 @@ static struct i2c_board_info i2c3_boardinfo[] = {
 };
 
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
-	.poll_interval = 100,
-	.min_interval = 100,
+	.poll_interval = 20,
+	.min_interval = 10,
 	.g_range = LIS3DH_ACC_G_2G,
 	.axis_map_x = 1,
 	.axis_map_y = 0,
@@ -229,6 +246,7 @@ static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.negate_z = 1
 };
 
+#if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
 struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_x = -20480,
 	.mag_high_x = 20479,
@@ -237,13 +255,16 @@ struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_z = -20480,
 	.mag_high_z = 20479,
 };
+#endif
 
+#if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
 struct akm8963_platform_data akm_platform_data_8963 = {
-	.layout = 3,
-	.outbit = 1,
-	.gpio_DRDY = MSENSOR_DRDY_GPIO,
-	.gpio_RST = MSENSOR_RSTN_GPIO,
+       .layout = 3,
+       .outbit = 1,
+       .gpio_DRDY = MSENSOR_DRDY_GPIO,
+       .gpio_RST = MSENSOR_RSTN_GPIO,
 };
+#endif
 
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
@@ -254,14 +275,26 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
 	},
+#if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
+	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+	  .platform_data = &akm8975_platform_d,
+	},
+#endif
+#if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
+		{ I2C_BOARD_INFO(AKM8963_I2C_NAME,	  AKM8963_I2C_ADDR),
+		  .platform_data = &akm_platform_data_8963,
+		},
+#endif
+#if(defined(CONFIG_INPUT_AL3006_I2C))
 	{ I2C_BOARD_INFO(AL3006_PLS_DEVICE,   AL3006_PLS_ADDRESS),
 	  .platform_data = &al3006_pls_info,
 	},
-
-	{  I2C_BOARD_INFO(AKM8963_I2C_NAME, AKM8963_I2C_ADDR),
-	   .platform_data = &akm_platform_data_8963,
+#endif
+#if(defined(CONFIG_INPUT_LTR558_I2C))
+	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
+	  .platform_data = &ltr558_pls_info,
 	},
-	
+#endif
 };
 
 /* config I2C2 SDA/SCL to SIM2 pads */

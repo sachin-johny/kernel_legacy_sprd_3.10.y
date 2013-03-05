@@ -31,6 +31,24 @@
 #include <linux/freezer.h>
 #include <linux/akm8963.h>
 
+//#define AKM8963_DBG
+#ifdef AKM8963_DBG
+#define ENTER printk(KERN_INFO "[AKM8963_DBG] func: %s  line: %04d  ", __func__, __LINE__)
+#define PRINT_DBG(x...)  printk(KERN_INFO "[AKM8963_DBG] " x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[AKM8963_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[AKM8963_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[AKM8963_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#else
+#define ENTER
+#define PRINT_DBG(x...)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[AKM8963_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[AKM8963_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[AKM8963_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#endif
+
+#define	I2C_RETRY_DELAY		5
+#define	I2C_RETRIES		5
+
 #define AKM8963_DEBUG_IF	0
 #define AKM8963_DEBUG_DATA	0
 
@@ -78,6 +96,9 @@ static int akm8963_i2c_rxdata(
 	unsigned char *rxData,
 	int length)
 {
+	int err;
+	int tries = 0;
+
 	struct i2c_msg msgs[] = {
 	{
 		.addr = i2c->addr,
@@ -91,15 +112,20 @@ static int akm8963_i2c_rxdata(
 		.len = length,
 		.buf = rxData,
 	}, };
-	unsigned char addr = rxData[0];
 
-	if (i2c_transfer(i2c->adapter, msgs, 2) < 0) {
-		dev_err(&i2c->dev, "%s: transfer failed.", __func__);
+	do {
+		err = i2c_transfer(i2c->adapter, msgs, 2);
+		if (err != 2) {
+			PRINT_ERR("i2c transfer retry :%d\n", tries+1);
+			msleep_interruptible(I2C_RETRY_DELAY);
+		}
+	} while ((err != 2) && (++tries < I2C_RETRIES));
+
+	if(err != 2) {
+		PRINT_ERR("i2c transfer failed\n");
 		return -EIO;
 	}
 
-	dev_vdbg(&i2c->dev, "RxData: len=%02x, addr=%02x, data=%02x",
-		length, addr, rxData[0]);
 	return 0;
 }
 
@@ -108,6 +134,9 @@ static int akm8963_i2c_txdata(
 	unsigned char *txData,
 	int length)
 {
+	int err;
+	int tries = 0;
+
 	struct i2c_msg msg[] = {
 	{
 		.addr = i2c->addr,
@@ -116,13 +145,19 @@ static int akm8963_i2c_txdata(
 		.buf = txData,
 	}, };
 
-	if (i2c_transfer(i2c->adapter, msg, 1) < 0) {
-		dev_err(&i2c->dev, "%s: transfer failed.", __func__);
+	do {
+		err = i2c_transfer(i2c->adapter, msg, 1);
+		if (err != 1) {
+			PRINT_ERR("i2c transfer retry :%d\n", tries+1);
+			msleep_interruptible(I2C_RETRY_DELAY);
+		}
+	} while ((err != 1) && (++tries < I2C_RETRIES));
+
+	if(err != 1) {
+		PRINT_ERR("i2c transfer failed\n");
 		return -EIO;
 	}
 
-	dev_vdbg(&i2c->dev, "TxData: len=%02x, addr=%02x data=%02x",
-		length, txData[0], txData[1]);
 	return 0;
 }
 
@@ -138,6 +173,7 @@ static int akm8963_i2c_check_device(
 	if (err < 0) {
 		dev_err(&client->dev,
 			"%s: Can not read WIA.", __func__);
+		PRINT_ERR("Can not read WIA\n");
 		return err;
 	}
 
@@ -145,8 +181,11 @@ static int akm8963_i2c_check_device(
 	if (buffer[0] != 0x48) {
 		dev_err(&client->dev,
 			"%s: The device is not AK8963.", __func__);
+		PRINT_ERR("I'm working, but I'm NOT AKM8963\n");
 		return -ENXIO;
 	}
+	else
+		PRINT_INFO("I'm AKM8963, and I'm working now\n");
 
 	return err;
 }
@@ -1280,7 +1319,7 @@ int akm8963_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	int err = 0;
 	int i;
 
-	dev_dbg(&client->dev, "start probing.");
+	ENTER;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "%s: check_functionality failed.", __func__);
@@ -1370,9 +1409,11 @@ int akm8963_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	if (s_akm->irq == 0) {
 		dev_dbg(&client->dev, "%s: IRQ is not set.", __func__);
+		PRINT_INFO("IRQ is not set, working in polling mode\n");
 		/* Use timer to notify measurement end */
 		INIT_DELAYED_WORK(&s_akm->work, akm8963_delayed_work);
 	} else {
+		PRINT_INFO("working in IRQ mode\n");
 		err = request_threaded_irq(
 				s_akm->irq,
 				NULL,
@@ -1403,7 +1444,7 @@ int akm8963_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit6;
 	}
 
-	dev_info(&client->dev, "successfully probed.");
+	PRINT_INFO("probe success\n");
 	return 0;
 
 exit6:
@@ -1422,6 +1463,7 @@ exit2:
 	kfree(s_akm);
 exit1:
 exit0:
+	PRINT_ERR("probe failed\n");
 	return err;
 }
 
@@ -1462,17 +1504,17 @@ static struct i2c_driver akm8963_driver = {
 
 static int __init akm8963_init(void)
 {
-	printk(KERN_INFO "AKM8963 compass driver: initialize.");
+	ENTER;
 	return i2c_add_driver(&akm8963_driver);
 }
 
 static void __exit akm8963_exit(void)
 {
-	printk(KERN_INFO "AKM8963 compass driver: release.");
+	ENTER;
 	i2c_del_driver(&akm8963_driver);
 }
 
-module_init(akm8963_init);
+late_initcall(akm8963_init);
 module_exit(akm8963_exit);
 
 MODULE_AUTHOR("viral wang <viral_wang@htc.com>");

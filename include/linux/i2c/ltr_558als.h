@@ -48,6 +48,7 @@
 #define LTR558_PS_N_PULSES      		0x83
 #define LTR558_PS_MEAS_RATE     		0x84
 #define LTR558_ALS_MEAS_RATE    	0x85
+#define LTR558_REVISION_ID    	0x86
 #define LTR558_MANUFACTURER_ID  	0x87
 
 #define LTR558_ALS_DATA_CH1_0   	0x88
