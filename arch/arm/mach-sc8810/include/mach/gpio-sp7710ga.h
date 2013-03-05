@@ -48,7 +48,7 @@
 #define GPIO_SUB_SENSOR_PWN   123
 
 #define GPIO_GPS_RESET        GPIO_INVALID
-#define GPIO_GPS_ONOFF        177
+#define GPIO_GPS_ONOFF        GPIO_INVALID
 
 #define GPIO_BT_RESET         GPIO_INVALID
 #define GPIO_WIFI_POWERON     GPIO_INVALID
