@@ -151,13 +151,6 @@ config SPRD_MEM_POOL
 	help
           This option enables memmory pool for allocating thread stack and pgd table.
 
-config SPRD_DCDC_DEBUG
-	depends on ARCH_SC8810
-	default y
-    tristate "Enable dcdc debug module"
-	help
-          This option select dcdc debug module.
-
 config SC8810_DDR_6G
         depends on ARCH_SC8810
         default n
@@ -172,5 +165,19 @@ config SPRD_SOC_SC7710
 	depends on ARCH_SC7710
 	default y
 	bool "Used to distinguish between sc8810 and sc7710"
+
+config SPRD_DCDC_CAL
+	depends on ARCH_SC8810 && !ARCH_SC7710
+	default y
+    tristate "Enable dcdc calibration module"
+	help
+          This option select dcdc calibration module.
+
+config SPRD_DCDC_DEBUG
+	depends on SPRD_DCDC_CAL
+	default y
+    tristate "Enable dcdc debug module"
+	help
+          This option select dcdc debug module.
 
 endif
