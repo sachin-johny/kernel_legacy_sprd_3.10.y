@@ -74,7 +74,7 @@
 #define DAC_MUTE_U_RAW		(3)
 #define DAC_MUTE_D_RAW		(2)
 #define DAC_MUTE_ST		(0)
-#define DAC_MUTE_ST_MASK	(0)
+#define DAC_MUTE_ST_MASK	(0x3)
 
 /* AUD_INT_CLR */
 /* AUD_INT_EN */
