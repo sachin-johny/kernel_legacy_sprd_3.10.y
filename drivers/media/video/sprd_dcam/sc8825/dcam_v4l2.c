@@ -1687,6 +1687,27 @@ static void sprd_stop_timer(struct timer_list *dcam_timer)
 	DCAM_TRACE("v4l2: stop timer.\n");
 	del_timer_sync(dcam_timer);
 }
+
+static void sprd_init_handle(struct file *file)
+{
+	struct dcam_dev          *dev = video_drvdata(file);
+	struct dcam_info         *info = &dev->dcam_cxt;
+	struct dcam_path_spec    *path;
+
+	atomic_set(&dev->stream_on, 0);
+	if (NULL == info) {
+		printk("V4L2:init handle fail.");
+		return;
+	}
+	printk("init handle.\n");
+	path = &info->dcam_path[0];
+	if (NULL == path) {
+		printk("V4L2:init path fail.");
+		return;
+	}
+	path->frm_cnt_act = 0;
+}
+
 static int sprd_v4l2_open(struct file *file)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
@@ -1717,7 +1738,9 @@ static int sprd_v4l2_open(struct file *file)
 	ret = sprd_v4l2_queue_init(&dev->queue);
 
 	ret = sprd_init_timer(&dev->dcam_timer,(unsigned long)dev);
-	
+
+	sprd_init_handle(file);
+
 	DCAM_TRACE("V4L2: open /dev/video%d type=%s \n", dev->vfd->num,
 		v4l2_type_names[V4L2_BUF_TYPE_VIDEO_CAPTURE]);
 
