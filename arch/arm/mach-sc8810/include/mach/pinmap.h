@@ -686,7 +686,7 @@
 #define BIT_PIN_WPD                     ( BIT(6) )
 #ifdef CONFIG_ARCH_SC7710 
 /*7710g support upto 8 functions per pin*/
-#define BITS_PIN_AF(_x_)                ((((_x_) & 3 )<< 4 & (BIT(4)|BIT(5))) | (((_x_) & 4 ) << 15))
+#define BITS_PIN_AF(_x_)                ((((_x_) & 3 )<< 4 & (BIT(4)|BIT(5))) | (((_x_) & 4 ) << 14))
 #else
 #define BITS_PIN_AF(_x_)                ( (_x_) << 4 & (BIT(4)|BIT(5)) )
 #endif
