@@ -22,7 +22,7 @@
 #include <linux/err.h>
 #include "usb_hw.h"
 
-#if defined(CONFIG_ARCH_SC8825)
+#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC7710)
 #define  USB_LDO_NAME	"vddusb"
 #define  USB_CLK_NAME    	"clk_usb_ref"
 #else

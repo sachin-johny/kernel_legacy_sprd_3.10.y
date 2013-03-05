@@ -76,8 +76,8 @@ void __init regulator_add_devices(void)
 #endif
 
 #undef debug
-#define debug(format, arg...) pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
-#define debug0(format, arg...)
+#define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug0(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
 
 #ifndef	ANA_REG_OR
 #define	ANA_REG_OR(_r, _b)	sci_adi_write(_r, _b, 0)
@@ -495,11 +495,11 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 	       regs, desc->desc.name, regs->vol_ctl,
 	       shft, regs->vol_ctl_bits, regs->vol_sel_cnt);
 
-	BUG_ON(shft != 0);
-	BUG_ON(regs->vol_sel_cnt > 8);
-
 	if (!regs->vol_ctl)
 		return -EINVAL;
+
+	BUG_ON(shft != 0);
+	BUG_ON(regs->vol_sel_cnt > 8);
 
 	i = (ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits);
 

@@ -1060,7 +1060,7 @@ static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 	gpio_direction_output(pdata->reset_gpio_number, 1);
 	gpio_direction_input(pdata->irq_gpio_number);
 	//vdd power on
-#if defined(CONFIG_ARCH_SC8825)
+#if defined(CONFIG_ARCH_SC8825) || defined (CONFIG_ARCH_SC7710)
 	reg_vdd = regulator_get(&client->dev, pdata->vdd_name);
 #else
 	reg_vdd = regulator_get(&client->dev, REGU_NAME_TP);
