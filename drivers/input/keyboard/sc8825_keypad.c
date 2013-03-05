@@ -420,14 +420,14 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	}
 
 	error =
-	    request_irq(sci_kpd->irq, sci_keypad_isr, 0, "sci-keypad", sci_kpd);
+	    request_irq(sci_kpd->irq, sci_keypad_isr, 0, "sprd-keypad", sci_kpd);
 	if (error) {
 		dev_err(&pdev->dev, "unable to claim irq %d\n", sci_kpd->irq);
 		goto out2;
 	}
 
 	input_dev->name = pdev->name;
-	input_dev->phys = "sci-key/input0";
+	input_dev->phys = "sprd-key/input0";
 	input_dev->dev.parent = &pdev->dev;
 	input_set_drvdata(input_dev, sci_kpd);
 
@@ -544,7 +544,7 @@ struct platform_driver sci_keypad_driver = {
 	.suspend = sci_keypad_suspend,
 	.resume = sci_keypad_resume,
 	.driver = {
-		   .name = "sci-keypad",
+		   .name = "sprd-keypad",
 		   .owner = THIS_MODULE,
 		   },
 };
@@ -565,4 +565,4 @@ module_exit(sci_keypad_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("spreadtrum.com");
 MODULE_DESCRIPTION("Keypad driver for spreadtrum Processors");
-MODULE_ALIAS("platform:sci-keypad");
+MODULE_ALIAS("platform:sprd-keypad");

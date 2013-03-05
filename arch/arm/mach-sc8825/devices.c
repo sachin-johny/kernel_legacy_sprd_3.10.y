@@ -640,7 +640,7 @@ static struct resource sci_keypad_resources[] = {
 };
 
 struct platform_device sprd_keypad_device = {
-	.name = "sci-keypad",
+	.name = "sprd-keypad",
         .id             = -1,
 	.dev = {
 		.platform_data = &sci_keypad_data,
