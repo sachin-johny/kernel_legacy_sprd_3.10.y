@@ -383,20 +383,20 @@ static struct panel_operations lcd_ili9486_operations = {
 
 static struct timing_mcu lcd_ili9486_timing[] = {
 	[LCD_REGISTER_TIMING] = {         
-		.rcss = 25,  
-		.rlpw = 45,
-		.rhpw = 90,
-		.wcss = 30,
-		.wlpw = 15,
-		.whpw = 15,
+		.rcss = 0,
+		.rlpw = 60,
+		.rhpw = 101,
+		.wcss = 0,
+		.wlpw = 40,
+		.whpw = 36,
 	},
 	[LCD_GRAM_TIMING] = {         
-		.rcss = 25,  
-		.rlpw = 45,
-		.rhpw = 90,
-		.wcss = 30,
-		.wlpw = 15,
-		.whpw = 15,
+		.rcss = 0,
+		.rlpw = 60,
+		.rhpw = 101,
+		.wcss = 0,
+		.wlpw = 40,
+		.whpw = 36,
 	}
 };
 
