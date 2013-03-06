@@ -61,10 +61,17 @@ static void set_vibrator(int on)
 	/* unlock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
 	sci_adi_clr(ANA_VIBRATOR_CTRL0, VIBR_PD_SET | VIBR_PD_RST);
+#ifdef CONFIG_ARCH_SC7710
+	if (on)
+		sci_adi_set(ANA_VIBRATOR_CTRL0, VIBR_PD_SET);
+	else
+		sci_adi_clr(ANA_VIBRATOR_CTRL0, VIBR_PD_SET);
+#else
 	if (on)
 		sci_adi_set(ANA_VIBRATOR_CTRL0, VIBR_PD_RST);
 	else
 		sci_adi_set(ANA_VIBRATOR_CTRL0, VIBR_PD_SET);
+#endif	
 	/* lock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_LOCK, 0xffff);
 }
