@@ -101,6 +101,10 @@ void hard_irq_set(void)
 {
 	sprd_irqs_sts[0] = __raw_readl(INT_IRQ_STS);
 	sprd_irqs_sts[1] = __raw_readl(INT_FIQ_STS);
+	irq_status = __raw_readl(INT_IRQ_STS);
+	parse_hard_irq(irq_status, 0);
+	irq_status = __raw_readl(INTCV1_IRQ_MSKSTS);
+	parse_hard_irq(irq_status, 1);
 }
 
 #define GPIO_GROUP_NUM		16
@@ -127,10 +131,6 @@ void print_hard_irq_inloop(int ret)
 
 		if(sprd_irqs_sts[0] != 0)
 			printk("%c#:INTC0: %08x\n", ret?'S':'F', sprd_irqs_sts[0]);
-	}
-	if(!((sprd_irqs_sts[1]&IRQ_DSP0) ||
-		(sprd_irqs_sts[1]&IRQ_DSP1) ) ){
-
 		if(sprd_irqs_sts[1] != 0)
 			printk("%c#:INTC0 FIQ: %08x\n", ret?'S':'F', sprd_irqs_sts[1]);
 	}
@@ -157,7 +157,6 @@ void print_hard_irq_inloop(int ret)
 		printk("adie, irq status:0x%x \n", sci_adi_read(ANA_REG_INT_MASK_STATUS));
 	}
 
-	parse_hard_irq(sprd_irqs_sts[0], 0);
 }
 
 static void print_hard_irq(void)
@@ -167,7 +166,7 @@ static void print_hard_irq(void)
 		return;
 	do{
 		if(0 != sprd_hard_irq[i])
-			printk("##: sprd_hard_irq[%d] = %u.\n",
+			printk("##: sprd_hard_irq[%d] = %d.\n",
                                 i, sprd_hard_irq[i]);
 	}while(--i >= 0);
 }
@@ -208,7 +207,7 @@ static void print_irq(void)
 		return;
 	do{
 		if(0 != sprd_irqs[i])
-			printk("##: sprd_irqs[%d] = %u.\n",
+			printk("##: sprd_irqs[%d] = %d.\n",
                                 i, sprd_irqs[i]);
 	}while(--i >= 0);
 }
@@ -286,8 +285,8 @@ void print_statisic(void)
 	print_irq();
 	pm_debug_dump_ahb_glb_regs();
 	if(is_print_wakeup){
-		printk("###wake up form %s : IRQ %08x\n",  sleep_mode_str[sleep_mode],  sprd_irqs_sts[0]);
-		printk("###wake up form %s : FIQ %08x\n",  sleep_mode_str[sleep_mode],  sprd_irqs_sts[1]);
+		printk("###wake up form %s : %08x\n",  sleep_mode_str[sleep_mode],  sprd_irqs_sts[0]);
+		printk("###wake up form %s : %08x\n",  sleep_mode_str[sleep_mode],  sprd_irqs_sts[1]);
 	}
 }
 #ifdef PM_PRINT_ENABLE
@@ -298,10 +297,6 @@ static struct wake_lock messages_wakelock;
 unsigned int debug_status[10];
 void pm_debug_save_ahb_glb_regs(void)
 {
-	int i;
-	for(i=0; i<10; i++)
-		debug_status[i] = 0;
-
 	debug_status[0] = sci_glb_read(REG_AHB_AHB_STATUS, -1UL);
 	debug_status[1] = sci_glb_read(REG_AHB_AHB_CTL0, -1UL);
 	debug_status[2] = sci_glb_read(REG_AHB_AHB_CTL1, -1UL);
@@ -314,7 +309,7 @@ void pm_debug_save_ahb_glb_regs(void)
 }
 void pm_debug_dump_ahb_glb_regs(void)
 {
-	printk("***** ahb and globle registers before last sleep **********\n");
+	printk("***** ahb and globle registers before last deep sleep **********\n");
 
 	printk("*** AHB_CTL0:  0x%x ***\n", debug_status[1] );
 	printk("*** AHB_CTL1:  0x%x ***\n", debug_status[2] );
@@ -326,32 +321,7 @@ void pm_debug_dump_ahb_glb_regs(void)
 	printk("*** GR_STC_STATE:  0x%x ***\n", debug_status[6] );
 	printk("*** GR_CLK_DLY:  0x%x ***\n", debug_status[8] );
 }
-volatile unsigned int usb_ep0_status[10];
-void pm_debug_save_usb_ep0_regs(void)
-{
-	usb_ep0_status[0] = __raw_readl(SPRD_USB_BASE+0x800);
-	usb_ep0_status[1] = __raw_readl(SPRD_USB_BASE+0x804);
-	usb_ep0_status[2] = __raw_readl(SPRD_USB_BASE+0x808);
-	usb_ep0_status[3] = __raw_readl(SPRD_USB_BASE+0x818);
-	usb_ep0_status[4] = __raw_readl(SPRD_USB_BASE+0x900);
-	usb_ep0_status[5] = __raw_readl(SPRD_USB_BASE+0x908);
-	usb_ep0_status[6] = __raw_readl(SPRD_USB_BASE+0x910);
-	usb_ep0_status[7] = __raw_readl(SPRD_USB_BASE+0xB00);
-	usb_ep0_status[8] = __raw_readl(SPRD_USB_BASE+0xB08);
-	usb_ep0_status[9] = __raw_readl(SPRD_USB_BASE+0xB10);
-}
-void print_usb_ep0_regs(void)
-{
-	pm_debug_save_usb_ep0_regs();
 
-	printk("***** USB ep0 status **********\n");
-	printk("*** DCFG:  0x%x ,DCTL:  0x%x***\n", usb_ep0_status[0],usb_ep0_status[1] );
-	printk("*** DSTS:  0x%x ,DAINT:  0x%x ***\n", usb_ep0_status[2],usb_ep0_status[3] );
-	printk("*** DIEPCTL0:  0x%x,DIEPINT0:  0x%x ***\n", usb_ep0_status[4], usb_ep0_status[5]);
-	printk("*** DIEPTSIZ0:  0x%x, DOEPCTL0:  0x%x ***\n", usb_ep0_status[6], usb_ep0_status[7] );
-	printk("*** DOEPINT0:  0x%x, DOEPTSIZ0:  0x%x ***\n", usb_ep0_status[8], usb_ep0_status[9] );
-
-}
 
 static void print_ahb(void)
 {
@@ -380,6 +350,9 @@ static void print_ahb(void)
 	if (val & AHB_CTL0_DISPC_EN) printk("AHB_CTL0_DISPC_EN =1.\n");
 	if (val & AHB_CTL0_EMMC_EN) printk("AHB_CTL0_EMMC_EN =1.\n");
 	if (val & AHB_CTL0_SDIO2_EN) printk("AHB_CTL0_SDIO2_EN =1.\n");
+	if (val & AHB_CTL0_SPINLOCK_EN) printk("AHB_CTL0_SPINLOCK_EN =1.\n");
+	if (val & AHB_CTL0_AHB_ARCH_EB) printk("AHB_CTL0_AHB_ARCH_EB =1. AHB bus HCLK enable\n");
+	if (val & AHB_CTL0_EMC_EN) printk("AHB_CTL0_EMC_EN =1.\n");
 	if (val & AHB_CTL0_AXIBUSMON0_EN) printk("AHB_CTL0_AXIBUSMON0_EN =1.\n");
 	if (val & AHB_CTL0_AXIBUSMON1_EN) printk("AHB_CTL0_AXIBUSMON1_EN =1.\n");
 	if (val & AHB_CTL0_AXIBUSMON2_EN) printk("AHB_CTL0_AXIBUSMON2_EN =1.\n");
@@ -410,11 +383,6 @@ static void print_gr(void)
 {
 	u32 val = sci_glb_read(REG_GLB_GEN0, -1UL);
 	printk("##: GR_GEN0 = %08x.\n", val);
-#if 0
-	/*  clocks of apb devices should be stopped before sleep.
-	 *comment them out for camera.
-	 *  It is weird!
-	 **/
 	if (val & GEN0_UART3_EN) printk("GEN0_UART3_EN =1.\n");
 	if (val & GEN0_SPI2_EN) printk("GEN0_SPI2_EN =1.\n");
 	if (val & GEN0_TIMER_EN) printk("GEN0_TIMER_EN =1.\n");
@@ -445,7 +413,7 @@ static void print_gr(void)
 	if (val & GEN0_I2C1_EN) printk("GEN0_I2C1_EN =1.\n");
 	if (val & GEN0_I2C2_EN) printk("GEN0_I2C2_EN =1.\n");
 	if (val & GEN0_I2C3_EN) printk("GEN0_I2C3_EN =1.\n");
-#endif
+
 	val = sci_glb_read(REG_GLB_GEN1, -1UL);
 	printk("##: REG_GLB_GEN1 = %08x.\n", val);
 	if (val & BIT_CLK_AUX0_EN ) printk(" CLK_AUX0_EN =1.\n");
@@ -473,28 +441,28 @@ static void print_gr(void)
 
 	val = sci_glb_read(REG_GLB_CLK_GEN5, -1UL);
 	printk("##: GR_CLK_GEN5 = %08x.\n", val);
-	if (!(val & BIT(9))) printk("LDO_USB_PD is not set.\n");
+	if (val & BIT(9)) printk("LDO_USB_PD =1.\n");
 
 	val = sci_glb_raw_read(REG_GLB_PCTRL);
 	printk("##: GLB_PCTL = %08x.\n", val);
-	if (!(val & BIT_MCU_MPLL_EN)) printk("MCU_MPLL = 0.\n");
-	if (!(val & BIT_MCU_GPLL_EN)) printk("MCU_GPLL = 0.\n");
-	if (!(val & BIT_MCU_DPLL_EN)) printk("MCU_DPLL = 0.\n");
-	if (!(val & BIT_MCU_TDPLL_EN)) printk("MCU_TDPLL = 0.\n");
+	if (val & BIT_MCU_MPLL_EN) printk("MCU_MPLL = 1.\n");
+	if (val & BIT_MCU_GPLL_EN) printk("MCU_GPLL = 1.\n");
+	if (val & BIT_MCU_DPLL_EN) printk("MCU_DPLL = 1.\n");
+	if (val & BIT_MCU_TDPLL_EN) printk("MCU_TDPLL = 1.\n");
 
 	val = sci_glb_raw_read(REG_GLB_TD_PLL_CTL);
 	printk("##: GLB_TD_PLL_CTL = %08x.\n", val);
-	if ((val & BIT_TDPLL_DIV2OUT_FORCE_PD)) printk("clk_384m = 0.\n");
-	if ((val & BIT_TDPLL_DIV3OUT_FORCE_PD)) printk("clk_256m = 0.\n");
-	if ((val & BIT_TDPLL_DIV4OUT_FORCE_PD)) printk("clk_192m = 0.\n");
-	if ((val & BIT_TDPLL_DIV5OUT_FORCE_PD)) printk("clk_153p6m = 0.\n");
+	if (!(val & BIT_TDPLL_DIV2OUT_FORCE_PD)) printk("clk_384m = 1.\n");
+	if (!(val & BIT_TDPLL_DIV3OUT_FORCE_PD)) printk("clk_256m = 1.\n");
+	if (!(val & BIT_TDPLL_DIV4OUT_FORCE_PD)) printk("clk_192m = 1.\n");
+	if (!(val & BIT_TDPLL_DIV5OUT_FORCE_PD)) printk("clk_153p6m = 1.\n");
+
+	val = sci_glb_read(REG_GLB_POWCTL1, -1UL);
+	printk("##: GR_POWCTL1 = %08x.\n", val);
 
 	val = sci_glb_read(REG_GLB_M_PLL_CTL0, -1UL);
 	printk("##: REG_GLB_M_PLL_CTL0 = %08x.\n", val);
 
-#if 0
-	val = sci_glb_read(REG_GLB_POWCTL1, -1UL);
-	printk("##: GR_POWCTL1 = %08x.\n", val);
 	val = sci_glb_read(REG_GLB_MM_PWR_CTL, -1UL);
 	printk("##: REG_GLB_MM_PWR_CTL = %08x.\n", val);
 	val = sci_glb_read(REG_GLB_CEVA_L1RAM_PWR_CTL, -1UL);
@@ -509,7 +477,6 @@ static void print_gr(void)
 	printk("##: GR_ARM_SYS_PWR_CTRL = %08x.\n", val);
 	val = sci_glb_read(REG_GLB_G3D_PWR_CTL, -1UL);
 	printk("##: GR_G3D_PWR_CTRL = %08x.\n", val);
-#endif
 }
 #define LDO_USB_CTL		0x2
 #define LDO_SIM0_CTL	0x20
@@ -536,43 +503,63 @@ static void print_gr(void)
 #define	ANA_LED_CTL			(LDO_REG_BASE  + 0x70)
 #define ANA_VIBRATOR_CTRL0	(LDO_REG_BASE  + 0x74)
 #define	ANA_AUD_CLK_RST		(LDO_REG_BASE  + 0x7C)
+
+static int check_ana(void)
+{
+	static u16 tag = 0x555;
+	int ret = 0;
+	u32 val, reg = SCI_ADDR(SPRD_MISC_BASE, 0x0144);
+
+	/* check adi fifo r/w address */
+	val = __raw_readl(SCI_ADDR(SPRD_ADI_BASE, 0x002c));
+	ret |= (val >> 4 & 3) == (val >> 8 & 3);
+	ret <<= 1;
+
+	/* check ana reg w/r consistency */
+	sci_adi_raw_write(reg, tag);
+	ret |= sci_adi_read(reg) == tag;
+	tag = ~tag & 0xfff;
+
+	return ret;
+}
+
 static void print_ana(void)
 {
 	u32 val;
 	val = sci_adi_read(ANA_REG_GLB_ANA_APB_CLK_EN);
-	printk("##: ANA_REG_GLB_ANA_APB_CLK_EN = %08x.\n", val);
+	printk("##%d: ANA_REG_GLB_ANA_APB_CLK_EN = %08x.\n", check_ana(), val);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL0);
 	printk("##: ANA_REG_GLB_LDO_PD_CTRL0 = %04x.\n", val);
 	if ((val & BIT_LDO_BP_CAMMOT_RST)) printk("##:LDO_CAMMOT is on.\n");
-	else if(!(val & BIT_LDO_BPCAMMOT)) printk("##: LDO_CAMMOT is default.\n");
+	else if((val & BIT_LDO_BPCAMMOT)) printk("##: LDO_CAMMOT is off.\n");
 	if ((val & BIT_LDO_BPCAMA_RST)) printk("## LDO_BPCAMA:is on.\n");
-	else if(!(val & BIT_LDO_BPCAMA)) printk("##: LDO_BPCAMA is default.\n");
+	else if((val & BIT_LDO_BPCAMA)) printk("##: LDO_BPCAMA is off.\n");
 	if ((val & BIT_LDO_BPCAMIO_RST)) printk("## LDO_BPCAMIO :is on.\n");
-	else if(!(val & BIT_LDO_BPCAMIO)) printk("## LDO_BPCAMIO is default.\n");
+	else if((val & BIT_LDO_BPCAMIO)) printk("## LDO_BPCAMIO : is off.\n");
 	if ((val & BIT_LDO_BPCAMCORE_RST)) printk("## LDO_BPCAMCORE :is on.\n");
-	else if(!(val & BIT_LDO_BPCAMCORE)) printk("## LDO_BPCAMCORE : is default.\n");
+	else if((val & BIT_LDO_BPCAMCORE)) printk("## LDO_BPCAMCORE : is off.\n");
 	if ((val & BIT_LDO_BPSIM1_RST)) printk("## LDO_BPSIM1 :is on.\n");
-	else if(!(val & BIT_LDO_BPSIM1)) printk("## LDO_BPSIM1 : is default.\n");
+	else if((val & BIT_LDO_BPSIM1)) printk("## LDO_BPSIM1 : is off.\n");
 	if ((val & BIT_LDO_BPSIM0_RST)) printk("## LDO_BPSIM0 :is on.\n");
-	else if(!(val & BIT_LDO_BPSIM0)) printk("## LDO_BPSIM0 : is default.\n");
+	else if((val & BIT_LDO_BPSIM0)) printk("## LDO_BPSIM0 : is off.\n");
 	if ((val & BIT_LDO_BPUSB_RST)) printk("## LDO_BPUSB :is on.\n");
-	else if(!(val & BIT_LDO_BPUSB)) printk("## LDO_BPUSB : is default.\n");
+	else if((val & BIT_LDO_BPUSB)) printk("## LDO_BPUSB : is off.\n");
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL1);
 	printk("##:ANA_REG_GLB_LDO_PD_CTRL1 = %04x.\n", val);
 	if ((val & BIT_LDO_BPCMMB1V2_RST)) printk("## LDO_BPCMMB1V2: is on.\n");
-	else if(!(val & BIT_LDO_BPCMMB1V2)) printk("## LDO_BPCMMB1V2: is default.\n");
+	else if((val & BIT_LDO_BPCMMB1V2)) printk("## LDO_BPCMMB1V2: is off.\n");
 	if ((val & BIT_LDO_BPCMMB1P8_RST)) printk("## LDO_BPCMMB1P8: is on.\n");
-	else if(!(val & BIT_LDO_BPCMMB1P8)) printk("## LDO_BPCMMB1P8: is default.\n");
+	else if((val & BIT_LDO_BPCMMB1P8)) printk("## LDO_BPCMMB1P8: is off.\n");
 	if ((val & BIT_LDO_BPVDD3V_RST)) printk("## LDO_BPVDD3V: is on.\n");
-	else if(!(val & BIT_LDO_BPVDD3V)) printk("## LDO_BPVDD3V: is default.\n");
+	else if((val & BIT_LDO_BPVDD3V)) printk("## LDO_BPVDD3V: is off.\n");
 	if ((val & BIT_LDO_BPSD3_RST)) printk("## LDO_BPSD3: is on.\n");
-	else if(!(val & BIT_LDO_BPSD3)) printk("## LDO_BPSD3: is default.\n");
+	else if((val & BIT_LDO_BPSD3)) printk("## LDO_BPSD3: is off.\n");
 	if ((val & BIT_LDO_BPSD1_RST)) printk("## LDO_BPSD1: is on.\n");
-	else if(!(val & BIT_LDO_BPSD1)) printk("## LDO_BPSD1: is default.\n");
+	else if((val & BIT_LDO_BPSD1)) printk("## LDO_BPSD1: is off.\n");
 	if ((val & BIT_LDO_BPSD0_RST)) printk("## LDO_BPSD0: is on.\n");
-	else if(!(val & BIT_LDO_BPSD0)) printk("## LDO_BPSD0: is default.\n");
+	else if((val & BIT_LDO_BPSD0)) printk("## LDO_BPSD0: is off.\n");
 
 	val = sci_adi_read(ANA_LED_CTL);
 	printk("##: ANA_LED_CTL = 0x%x.\n", val);
@@ -593,13 +580,17 @@ static int is_dsp_sleep(void)
 {
 	u32 val;
 	val = sci_glb_read(REG_GLB_STC_DSP_ST, -1UL);
-#if 0
-	if ( !(GR_EMC_STOP & val) )
-		printk("#####: GR_EMC_STOP is NOT set!\n");
-	if ( !(GR_MCU_STOP & val) )
+	if (GR_EMC_STOP & val)
+		printk("#####: REG_GLB_STC_DSP_ST[GR_EMC_STOP] is set!\n");
+	else
+		printk("#####: REG_GLB_STC_DSP_ST[GR_EMC_STOP] is NOT set!\n");
+	if (GR_MCU_STOP & val)
+		printk("#####: REG_GLB_STC_DSP_ST[GR_MCU_STOP] is set!\n");
+	else
 		printk("#####: REG_GLB_STC_DSP_ST[GR_MCU_STOP] is NOT set!\n");
-#endif
-	if ( !(GR_DSP_STOP & val) )
+	if (GR_DSP_STOP & val)
+		printk("#####: REG_GLB_STC_DSP_ST[DSP_STOP] is set!\n");
+	else
 		printk("#####: REG_GLB_STC_DSP_ST[DSP_STOP] is NOT set!\n");
 	return 0;
 }
@@ -608,7 +599,6 @@ static int print_thread(void * data)
 	while(1){
 		wake_lock(&messages_wakelock);
 		print_ahb();
-		print_usb_ep0_regs();
 		print_gr();
 		print_ana();
 		is_dsp_sleep();
@@ -635,19 +625,19 @@ static void debugfs_init(void)
 		dentry_debug_root = NULL;
 		return;
 	}
-	debugfs_create_u32("print_sleep_mode", 0666, dentry_debug_root,
+	debugfs_create_u32("print_sleep_mode", 0644, dentry_debug_root,
 			   &is_print_sleep_mode);
-	debugfs_create_u32("print_linux_clock", 0666, dentry_debug_root,
+	debugfs_create_u32("print_linux_clock", 0644, dentry_debug_root,
 			   &is_print_linux_clock);
-	debugfs_create_u32("print_modem_clock", 0666, dentry_debug_root,
+	debugfs_create_u32("print_modem_clock", 0644, dentry_debug_root,
 			   &is_print_modem_clock);
-	debugfs_create_u32("print_irq", 0666, dentry_debug_root,
+	debugfs_create_u32("print_irq", 0644, dentry_debug_root,
 			   &is_print_irq);
-	debugfs_create_u32("print_wakeup", 0666, dentry_debug_root,
+	debugfs_create_u32("print_wakeup", 0644, dentry_debug_root,
 			   &is_print_wakeup);
-	debugfs_create_u32("print_irq_runtime", 0666, dentry_debug_root,
+	debugfs_create_u32("print_irq_runtime", 0644, dentry_debug_root,
 			   &is_print_irq_runtime);
-	debugfs_create_u32("print_time", 0666, dentry_debug_root,
+	debugfs_create_u32("print_time", 0644, dentry_debug_root,
 			   &is_print_time);
 }
 void pm_debug_init(void)

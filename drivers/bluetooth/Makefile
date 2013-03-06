@@ -29,5 +29,6 @@ hci_uart-$(CONFIG_BT_HCIUART_BCSP)	+= hci_bcsp.o
 hci_uart-$(CONFIG_BT_HCIUART_LL)	+= hci_ll.o
 hci_uart-$(CONFIG_BT_HCIUART_RTKH5) 	+= hci_rtk_h5.o rtk_rfkill.o
 hci_uart-$(CONFIG_BT_HCIUART_ATH3K)	+= hci_ath.o
+hci_uart-$(CONFIG_BT_BEKEN3211)	+= rfkill_beken.o
 hci_uart-objs				:= $(hci_uart-y)
 obj-$(CONFIG_BT_BCM4330) += bluesleep.o brcm_rfkill.o

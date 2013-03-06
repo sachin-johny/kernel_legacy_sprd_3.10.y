@@ -80,6 +80,14 @@ config BT_HCIUART_RTKH5
 
 	  Say Y here to compile support for Realtek HCI H5 protocol.
 
+config BT_BEKEN3211
+        tristate "Beken3211 bluetooth driver"
+        help
+          This enables the Bluetooth driver for Beken3211 BT devices. This makes
+          use of shared transport line discipline core driver to communicate with
+          the BT core of thechip.
+
+          Say Y here to compile support for Beken.
 config BT_HCIUART_LL
 	bool "HCILL protocol support"
 	depends on BT_HCIUART
@@ -250,4 +258,10 @@ config BT_BCM4330
 	  Say Y here to compile support for Broadcomm's BCM4330 LPM driver
 	  into the kernel or say M to compile it as module.
 
+config BT_SINGLE_LINK
+        tristate "Bluetooth single link"
+        help
+          This enables the Bluetooth driver for single link.
+
+          Say Y here to compile support for the property.
 endmenu

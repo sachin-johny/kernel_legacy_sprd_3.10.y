@@ -101,6 +101,7 @@ static void sdhci_dump_saved_regs(struct sdhci_host *host)
 {
 	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
 	if (!host_pdata->regs.is_valid) return;
+	printk("*s, %s .... \n", host->hw_name, __func__ );
 	printk("%s, host_addr:0x%x\n", host->hw_name, host_pdata->regs.addr);
 	printk("%s, host_blk_size:0x%x\n", host->hw_name, host_pdata->regs.blk_size);
 	printk("%s, host_blk_cnt:0x%x\n", host->hw_name, host_pdata->regs.blk_cnt);
@@ -109,6 +110,7 @@ static void sdhci_dump_saved_regs(struct sdhci_host *host)
 	printk("%s, host_ctrl:0x%x\n", host->hw_name, host_pdata->regs.ctrl);
 	printk("%s, host_power:0x%x\n", host->hw_name, host_pdata->regs.power);
 	printk("%s, host_clk:0x%x\n", host->hw_name, host_pdata->regs.clk);
+	printk("*s, %s done \n", host->hw_name, __func__ );
 }
 #endif
 #endif
@@ -311,7 +313,7 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 		clk_set_rate(clk_parent, 90000000);
 	}
 
-	pr_debug("after set sd clk, CLK_GEN5:0x%x\n", sci_glb_raw_read(REG_GLB_CLK_GEN5));
+	pr_info("after set sd clk, CLK_GEN5:0x%x\n", sci_glb_raw_read(REG_GLB_CLK_GEN5));
 	return;
 }
 
@@ -575,6 +577,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	case 3:
 		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
 		host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
+		
 		break;
 	default:
 		BUG();
@@ -857,10 +860,10 @@ static int sdhci_runtime_suspend(struct device *dev){
 			rc = -EAGAIN;
 		else{
 			//host->suspending = 1;
-			if((mmc->card != NULL) && mmc_card_sd(mmc->card)){	
+			if((mmc->card != NULL) && (mmc_card_sd(mmc->card)) ){
 				host->suspending = 1;
 				printk("%s, %s, call mmc_suspend_host	\n", mmc_hostname(mmc), __func__  );
-				rc = mmc_suspend_host(mmc);				
+				rc = mmc_suspend_host(mmc);
 				printk("%s, %s, call mmc_suspend_host done	\n", mmc_hostname(mmc), __func__  );
 			}else if((mmc->card != NULL) && mmc_card_mmc(mmc->card)  ){
 #if 0

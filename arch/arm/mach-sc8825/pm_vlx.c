@@ -78,6 +78,7 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 
 			local_irq_restore(flags);
 			hw_local_irq_enable();
+			local_fiq_enable();
 			break;
 		}else{
 			local_irq_restore(flags);
@@ -91,7 +92,7 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 #ifdef CONFIG_NKERNEL_PM_MASTER
 				os_ctx->smp_cpu_stop(0);
 #endif
-					ret_val = sprd_cpu_deep_sleep(cpu);
+				sprd_cpu_deep_sleep(cpu);
 #ifdef CONFIG_NKERNEL_PM_MASTER
 				os_ctx->smp_cpu_start(0, 0);/* the 2nd parameter is meaningless*/
 #endif
@@ -99,12 +100,11 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 				printk("******** os_ctx->idle return %d ********\n", ret_val);
 			}
 #else
-			ret_val = sprd_cpu_deep_sleep(cpu);
+			sprd_cpu_deep_sleep(cpu);
 #endif
 			hw_local_irq_enable();
+			local_fiq_enable();
 		}
-
-		print_hard_irq_inloop(ret_val);
 
 		battery_sleep();
 		cur_time = get_sys_cnt();

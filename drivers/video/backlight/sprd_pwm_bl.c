@@ -47,7 +47,9 @@
 
 
 #define        PWM_ENABLE      (1 << 8)
-#define        PWM_SCALE       8
+//#define        PWM_SCALE       8
+#define        PWM_SCALE       3
+
 #define        PWM_REG_MSK     0xffff
 #define        PWM_MOD_MAX     0xff
 

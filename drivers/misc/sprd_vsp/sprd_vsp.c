@@ -353,7 +353,7 @@ static irqreturn_t vsp_isr(int irq, void *data)
 	int int_status;
 	
 	int_status = vsp_hw_dev.vsp_int_status = __raw_readl(SPRD_VSP_BASE+DCAM_INT_STS_OFF);
-	printk(KERN_INFO "VSP_INT_STS %x\n",int_status);
+	//printk(KERN_INFO "VSP_INT_STS %x\n",int_status);
 	if((int_status >> 15) & 0x1) // CMD DONE
 	{
 		__raw_writel((1<<10)|(1<<12)|(1<<15), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);

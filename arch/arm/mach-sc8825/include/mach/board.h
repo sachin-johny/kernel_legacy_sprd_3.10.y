@@ -66,43 +66,43 @@
 #if defined(CONFIG_CAMERA_8M)
 	#ifdef CONFIG_CAMERA_ROTATION
 		#ifdef CONFIG_SENSOR_OUTPUT_RAW
-			#define SPRD_ION_SIZE   (24*1024*1024)
+			#define SPRD_ION_SIZE   (27*1024*1024)
 		#else
-			#define SPRD_ION_SIZE   (24*1024*1024)
+			#define SPRD_ION_SIZE   (27*1024*1024)
 		#endif
     #else
 		#ifdef CONFIG_SENSOR_OUTPUT_RAW
-			#define SPRD_ION_SIZE   (24*1024*1024)
+			#define SPRD_ION_SIZE   (27*1024*1024)
 		#else
-			#define SPRD_ION_SIZE   (24*1024*1024)
+			#define SPRD_ION_SIZE   (27*1024*1024)
 		#endif
     #endif
 #elif defined(CONFIG_CAMERA_5M)
 	#ifdef CONFIG_CAMERA_ROTATION
 		#ifdef CONFIG_SENSOR_OUTPUT_RAW
-			#define SPRD_ION_SIZE   (24*1024*1024)
+			#define SPRD_ION_SIZE   (27*1024*1024)
 		#else
-			#define SPRD_ION_SIZE   (24*1024*1024)
+			#define SPRD_ION_SIZE   (27*1024*1024)
 		#endif
 	#else
 		#ifdef CONFIG_SENSOR_OUTPUT_RAW
-			#define SPRD_ION_SIZE   (24*1024*1024)
+			#define SPRD_ION_SIZE   (27*1024*1024)
 		#else
-			#define SPRD_ION_SIZE   (24*1024*1024)
+			#define SPRD_ION_SIZE   (27*1024*1024)
 		#endif
 	#endif
 #elif defined(CONFIG_CAMERA_3M)
 	#ifdef CONFIG_CAMERA_ROTATION
 		#ifdef CONFIG_SENSOR_OUTPUT_RAW
-			#define SPRD_ION_SIZE   (14*1024*1024)
-		#else
 			#define SPRD_ION_SIZE   (13*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (12*1024*1024)
 		#endif
 	#else
 		#ifdef CONFIG_SENSOR_OUTPUT_RAW
-			#define SPRD_ION_SIZE   (10*1024*1024)
-		#else
 			#define SPRD_ION_SIZE   (9*1024*1024)
+		#else
+			#define SPRD_ION_SIZE   (8*1024*1024)
 		#endif
 	#endif
 #elif defined(CONFIG_CAMERA_2M)
@@ -144,6 +144,11 @@
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 #define SPRD_RAM_CONSOLE_SIZE	0x20000
-#define SPRD_RAM_CONSOLE_START	(SPRD_PMEM_BASE - SPRD_RAM_CONSOLE_SIZE)
+/*
+* #define SPRD_RAM_CONSOLE_START	(SPRD_PMEM_BASE - SPRD_RAM_CONSOLE_SIZE)
+*/
+#define SPRD_CONSOLE_BAN_1 ((PLAT_PHYS_OFFSET + (240*SZ_1M) - SPRD_RAM_CONSOLE_SIZE))
+#define SPRD_CONSOLE_BAN_2 (SPRD_PMEM_BASE - SPRD_RAM_CONSOLE_SIZE)
+#define SPRD_RAM_CONSOLE_START  ((SPRD_CONSOLE_BAN_1 > SPRD_CONSOLE_BAN_2)?(SPRD_CONSOLE_BAN_2):(SPRD_CONSOLE_BAN_1))
 #endif
 

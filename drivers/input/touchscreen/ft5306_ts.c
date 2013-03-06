@@ -34,6 +34,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/i2c/ft5306_ts.h>
 #include <mach/regulator.h>
+#include <mach/i2c-sprd.h>
 
 #if defined(CONFIG_ARCH_SC8825)
 #include <mach/i2c-sprd.h>
@@ -996,6 +997,7 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 
 	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
 	int ret = -1;
+
 #if 0
 	if (!work_pending(&ft5x0x_ts->pen_event_work)) {
 		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);

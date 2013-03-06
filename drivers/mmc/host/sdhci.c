@@ -326,10 +326,12 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 
 void sdhci_reinit(struct sdhci_host *host)
 {
+	sdhci_dumpregs(host);
 	sdhci_init(host, 0);
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
+	sdhci_dumpregs(host);
 }
 
 /* no led used in our host */
@@ -1346,10 +1348,13 @@ static void sdhci_set_power(struct sdhci_host *host, unsigned short power)
 static void sdhci_hw_reset(struct mmc_host *mmc)
 {
 	int ret = 0;
-	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_host *host = mmc_priv(mmc);	
+	printk("%s, ****************** %s, call mmc_power_off ***********\n", mmc_hostname(mmc), __func__ );
 	mmc_power_off(mmc);
-	usleep_range(5000, 5500);
+	usleep_range(5000, 5500);	
+	printk("%s, ****************** %s, call mmc_power_up ***********\n", mmc_hostname(mmc), __func__ );
 	mmc_power_up(mmc);
+	printk("%s, ****************** %s,  set cmd and data***********\n", mmc_hostname(mmc), __func__ );
 	sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
 	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
 }
@@ -1363,6 +1368,8 @@ static int sdhci_enable(struct mmc_host *mmc){
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		return 0;
 
+	printk("%s: %s: dev->power.runtime_status: %d \n", mmc_hostname(mmc),
+			__func__, dev->power.runtime_status);
 	if (dev->power.runtime_status == RPM_SUSPENDING) {
 		if (mmc->suspend_task == current) {
 			pm_runtime_get_noresume(dev);
@@ -1374,7 +1381,7 @@ static int sdhci_enable(struct mmc_host *mmc){
 		ret = pm_runtime_get_sync(dev);
 	}
 	if (ret < 0) {
-		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
+		printk("%s: %s: failed with error %d \n", mmc_hostname(mmc),
 				__func__, ret);
 		return ret;
 	}
@@ -1387,16 +1394,19 @@ out:
 static int sdhci_disable(struct mmc_host *mmc, int lazy){
 	int ret = 0;
 	struct sdhci_host *host = mmc_priv(mmc);
+	struct device *dev = mmc->parent;
 
 	if (mmc->card && mmc_card_sdio(mmc->card))
 		return 0;
+	printk("%s: %s: dev->power.runtime_status: %d \n", mmc_hostname(mmc),
+			__func__, dev->power.runtime_status);
 
 	if(host->is_resumed){
 		ret = pm_runtime_put_sync(mmc->parent);
 	}
 
 	if (ret < 0)
-		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
+		printk("%s: %s: failed with error %d \n", mmc_hostname(mmc),
 				__func__, ret);
 	else{
 		host->is_resumed = false;
