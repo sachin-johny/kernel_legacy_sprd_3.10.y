@@ -346,22 +346,6 @@ struct platform_device sprd_keypad_device = {
         .resource       = sprd_keypad_resources,
 };
 
-struct platform_device sprd_audio_soc_device = {
-	.name           = "sc88xx-pcm-audio",
-	.id             =  -1,
-};
-
-struct platform_device sprd_audio_soc_vbc_device = {
-	.name           = "sc88xx-vbc",
-	.id             =  -1,
-};
-
-struct platform_device sprd_audio_vbc_device = {
-	.name           = "vbc-codec",
-	.id             =  -1,
-};
-
-#if defined(CONFIG_SND_SPRD_SOC_SC881X) || defined(CONFIG_SND_SPRD_SOC_KYLEW)
 struct platform_device sprd_audio_platform_vbc_pcm_device = {
 	.name           = "sprd-vbc-pcm-audio",
 	.id             =  -1,
@@ -381,7 +365,6 @@ struct platform_device sprd_audio_codec_dolphin_device = {
 	.name           = "dolphin",
 	.id             =  -1,
 };
-#endif
 
 static struct resource sprd_battery_resources[] = {
         [0] = {
