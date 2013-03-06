@@ -109,39 +109,6 @@
 #define DMA_CHx_DBP(x)                  (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_DBP)
 
 /* DMA user id */
-#define DMA_UID_SOFTWARE                0
-#define DMA_UART0_TX                    1
-#define DMA_UART0_RX                    2
-#define DMA_UART1_TX                    3
-#define DMA_UART1_RX                    4
-#define DMA_UART2_TX                    5
-#define DMA_UART2_RX                    6
-#define DMA_IIS_TX                      7
-#define DMA_IIS_RX                      8
-#define DMA_EPT_RX                      9
-#define DMA_EPT_TX                      10
-#define DMA_VB_DA0                      11
-#define DMA_VB_DA1                      12
-#define DMA_VB_AD0                      13
-#define DMA_VB_AD1                      14
-#define DMA_SIM0_TX                     15
-#define DMA_SIM0_RX                     16
-#define DMA_SIM1_TX                     17
-#define DMA_SIM1_RX                     18
-#define DMA_SPI0_TX                     19
-#define DMA_SPI0_RX                     20
-#define DMA_ROT                         21
-#define DMA_SPI1_TX                     22
-#define DMA_SPI1_RX                     23
-#define DMA_IIS1_TX                     24
-#define DMA_IIS1_RX                     25
-#define DMA_NFC_TX                      26
-#define DMA_NFC_RX                      27
-#define DMA_DRM_RAW                     29
-#define DMA_DRM_CPT                     30
-
-#define DMA_UID_MIN                     0
-#define DMA_UID_MAX                     32
 
 #define DMA_UID_MASK                    0x1f
 #define DMA_UID_SHIFT_STP               8
