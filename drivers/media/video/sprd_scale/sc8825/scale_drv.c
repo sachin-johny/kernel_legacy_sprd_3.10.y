@@ -134,9 +134,9 @@ int32_t    scale_module_dis(void)
 		printk("scale_module_dis, failed to disable scale module %d \n", ret);
 		return ret;
 	}
-	
+
 	ret = dcam_rel_resizer();
-	
+
 	return ret;
 }
 
@@ -182,10 +182,10 @@ int32_t    scale_start(void)
 	rtn = _scale_cfg_scaler();
 	if(rtn) goto exit;
 
-	ret = request_irq(SCALE_IRQ, 
-			_scale_isr_root, 
-			IRQF_SHARED, 
-			"SCALE", 
+	ret = request_irq(SCALE_IRQ,
+			_scale_isr_root,
+			IRQF_SHARED,
+			"SCALE",
 			&g_scale_irq);
 	if (ret) {
 		printk("SCALE DRV: scale_start,error %d \n", ret);
@@ -196,7 +196,7 @@ int32_t    scale_start(void)
 		g_path->slice_in_height += g_path->slice_height;
 	}
 	REG_OWR(SCALE_BASE,  1 << 2);
-	_scale_reg_trace();	
+	_scale_reg_trace();
 
 	REG_OWR(SCALE_CFG, 1);
 	atomic_inc(&g_path->start_flag);
@@ -234,7 +234,7 @@ int32_t    scale_continue(void)
 	REG_WR(SCALE_FRM_SWAP_Y, g_path->temp_buf_addr.yaddr);
 	REG_WR(SCALE_FRM_SWAP_U, g_path->temp_buf_addr.uaddr);
 	REG_WR(SCALE_FRM_LINE,   g_path->temp_buf_addr.vaddr);
-	
+
 	_scale_reg_trace();
 	REG_OWR(SCALE_CFG, 1);
 	atomic_inc(&g_path->start_flag);
@@ -246,12 +246,16 @@ int32_t    scale_continue(void)
 int32_t    scale_stop(void)
 {
 	enum scale_drv_rtn      rtn = SCALE_RTN_SUCCESS;
-	uint32_t                flag;
+	unsigned long           flag;
+	int32_t                 ret = 0;
 
 	spin_lock_irqsave(&scale_lock, flag);
 	if (atomic_read(&g_path->start_flag)) {
 		s_wait_flag = 1;
-		down_interruptible(&scale_done_sema);
+		ret = down_interruptible(&scale_done_sema);
+		if (ret ) {
+			printk("SCALE DRV: scale_stop down err, ret=%d \n", ret);
+		}
 	}
 	spin_unlock_irqrestore(&scale_lock, flag);
 
@@ -269,7 +273,7 @@ int32_t    scale_stop(void)
 int32_t    scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_data)
 {
 	enum scale_drv_rtn      rtn = SCALE_RTN_SUCCESS;
-	uint32_t                flag;
+	unsigned long           flag;
 
 	if(id >= SCALE_IRQ_NUMBER) {
 		rtn = SCALE_RTN_ISR_ID_ERR;
@@ -279,7 +283,7 @@ int32_t    scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u
 		g_path->user_data = u_data;
 		spin_unlock_irqrestore(&scale_lock, flag);
 	}
-	return rtn;	
+	return rtn;
 
 }
 
@@ -296,10 +300,10 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 
 		SCALE_CHECK_PARAM_ZERO_POINTER(param);
 
-		SCALE_TRACE("SCALE DRV: SCALE_INPUT_SIZE {%d %d} \n", size->w, size->h);  
+		SCALE_TRACE("SCALE DRV: SCALE_INPUT_SIZE {%d %d} \n", size->w, size->h);
 		if (size->w > SCALE_FRAME_WIDTH_MAX ||
 		    size->h > SCALE_FRAME_HEIGHT_MAX) {
-			rtn = SCALE_RTN_SRC_SIZE_ERR;    
+			rtn = SCALE_RTN_SRC_SIZE_ERR;
 		} else {
 			reg_val = size->w | (size->h << 16);
 			REG_WR(SCALE_SRC_SIZE, reg_val);
@@ -314,19 +318,19 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 		struct scale_rect *rect = (struct scale_rect*)param;
 		uint32_t          reg_val = 0;
 
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);            
+		SCALE_CHECK_PARAM_ZERO_POINTER(param);
 
-		SCALE_TRACE("SCALE DRV: SCALE_PATH_INPUT_RECT {%d %d %d %d} \n", 
-		         rect->x, 
-		         rect->y, 
-		         rect->w, 
-		         rect->h);  
+		SCALE_TRACE("SCALE DRV: SCALE_PATH_INPUT_RECT {%d %d %d %d} \n",
+		         rect->x,
+		         rect->y,
+		         rect->w,
+		         rect->h);
 
 		if (rect->x > SCALE_FRAME_WIDTH_MAX ||
 		    rect->y > SCALE_FRAME_HEIGHT_MAX ||
 		    rect->w > SCALE_FRAME_WIDTH_MAX ||
 		    rect->h > SCALE_FRAME_HEIGHT_MAX) {
-			rtn = SCALE_RTN_TRIM_SIZE_ERR;    
+			rtn = SCALE_RTN_TRIM_SIZE_ERR;
 		} else {
 			reg_val = rect->x | (rect->y << 16);
 			REG_WR(SCALE_TRIM_START, reg_val);
@@ -363,9 +367,9 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 			g_path->input_format = SCALE_FTM_MAX;
 		}
 		break;
-		
+
 	}
-	
+
 	case SCALE_INPUT_ADDR:
 	{
 		struct scale_addr *p_addr = (struct scale_addr*)param;
@@ -373,7 +377,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 		SCALE_CHECK_PARAM_ZERO_POINTER(param);
 
 		if (SCALE_YUV_ADDR_INVALIDE(p_addr->yaddr, p_addr->uaddr, p_addr->vaddr)) {
-			rtn = SCALE_RTN_ADDR_ERR;   
+			rtn = SCALE_RTN_ADDR_ERR;
 		} else {
 			g_path->input_addr.yaddr = p_addr->yaddr;
 			g_path->input_addr.uaddr = p_addr->uaddr;
@@ -384,7 +388,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 		}
 		break;
 	}
-	
+
 	case SCALE_INPUT_ENDIAN:
 	{
 		struct scale_endian_sel *endian = (struct scale_endian_sel*)param;
@@ -417,7 +421,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 			REG_WR(SCALE_DST_SIZE, reg_val);
 			g_path->output_size.w = size->w;
 			g_path->output_size.h = size->h;
-		}		
+		}
 		break;
 	}
 
@@ -440,7 +444,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 		}
 		break;
 	}
-	
+
 	case SCALE_OUTPUT_ADDR:
 	{
 		struct scale_addr *p_addr = (struct scale_addr*)param;
@@ -448,7 +452,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 		SCALE_CHECK_PARAM_ZERO_POINTER(param);
 
 		if (SCALE_YUV_ADDR_INVALIDE(p_addr->yaddr, p_addr->uaddr, p_addr->vaddr)) {
-			rtn = SCALE_RTN_ADDR_ERR;   
+			rtn = SCALE_RTN_ADDR_ERR;
 		} else {
 			g_path->output_addr.yaddr = p_addr->yaddr;
 			g_path->output_addr.uaddr = p_addr->uaddr;
@@ -481,7 +485,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 		SCALE_CHECK_PARAM_ZERO_POINTER(param);
 
 		if (SCALE_YUV_ADDR_INVALIDE(p_addr->yaddr, p_addr->uaddr, p_addr->vaddr)) {
-			rtn = SCALE_RTN_ADDR_ERR;   
+			rtn = SCALE_RTN_ADDR_ERR;
 		} else {
 			g_path->temp_buf_src = 1;
 			g_path->temp_buf_addr.yaddr = p_addr->yaddr;
@@ -508,10 +512,10 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 				REG_OWR(SCALE_CFG, (1 << 4));
 			}
 		}
-		
+
 		break;
 	}
-	
+
 	case SCALE_SLICE_SCALE_HEIGHT:
 	{
 		uint32_t height = *(uint32_t*)param;
@@ -539,7 +543,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 		rtn = scale_continue();
 		break;
 	}
-	
+
 	case SCALE_STOP:
 	{
 		rtn = scale_stop();
@@ -557,7 +561,7 @@ int32_t    scale_cfg(enum scale_cfg_id id, void *param)
 int32_t    scale_read_registers(uint32_t* reg_buf, uint32_t *buf_len)
 {
 	uint32_t                *reg_addr = (uint32_t*)SCALE_BASE;
-	
+
 	if (NULL == reg_buf || NULL == buf_len || 0 != (*buf_len % 4)) {
 		return -1;
 	}
@@ -592,7 +596,7 @@ static int32_t _scale_cfg_scaler(void)
 
 	rtn = _scale_calc_sc_size();
 	SCALE_RTN_IF_ERR;
-	
+
 	if (g_path->sc_input_size.w != g_path->output_size.w ||
 	    g_path->sc_input_size.h != g_path->output_size.h) {
 		REG_MWR(SCALE_CFG, 1 << 3, 0 << 3);
@@ -610,7 +614,7 @@ static int32_t _scale_calc_sc_size(void)
 	enum scale_drv_rtn      rtn = SCALE_RTN_SUCCESS;
 	uint32_t                div_factor = 1;
 	uint32_t                i;
-		
+
 	if (g_path->input_rect.w > (g_path->output_size.w * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
 	    g_path->input_rect.h > (g_path->output_size.h * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
 	    g_path->input_rect.w * SCALE_SC_COEFF_MAX < g_path->output_size.w ||
@@ -651,7 +655,7 @@ static int32_t _scale_calc_sc_size(void)
 				REG_OWR(SCALE_CFG, 1 << 1);
 				REG_WR(SCALE_TRIM_SIZE, reg_val);
 			}
-		} 
+		}
 
 	}
 
@@ -679,29 +683,29 @@ static int32_t _scale_set_sc_coeff(void)
 	h_coeff = tmp_buf;
 	v_coeff = tmp_buf + (SC_COEFF_COEF_SIZE/4);
 
-	if (!(GenScaleCoeff((int16_t)g_path->sc_input_size.w, 
+	if (!(GenScaleCoeff((int16_t)g_path->sc_input_size.w,
 	                    (int16_t)g_path->sc_input_size.h,
-	                    (int16_t)g_path->output_size.w,  
-	                    (int16_t)g_path->output_size.h, 
-	                    h_coeff, 
-	                    v_coeff, 
-	                    tmp_buf + (SC_COEFF_COEF_SIZE/2), 
+	                    (int16_t)g_path->output_size.w,
+	                    (int16_t)g_path->output_size.h,
+	                    h_coeff,
+	                    v_coeff,
+	                    tmp_buf + (SC_COEFF_COEF_SIZE/2),
 	                    SC_COEFF_TMP_SIZE))) {
 		kfree(tmp_buf);
-		printk("SCALE DRV: _scale_set_sc_coeff error! \n");    
+		printk("SCALE DRV: _scale_set_sc_coeff error! \n");
 		return SCALE_RTN_GEN_COEFF_ERR;
-	}	
+	}
 
 	do {
 		REG_OWR(SCALE_BASE, 1 << 4);
 	} while ((1 << 6) != ((1 << 6) & REG_RD(SCALE_BASE)));
-        
+
 	for (i = 0; i < SC_COEFF_H_NUM; i++) {
 		REG_WR(h_coeff_addr, *h_coeff);
 		h_coeff_addr += 4;
 		h_coeff++;
-	}    
-    
+	}
+
 	for (i = 0; i < SC_COEFF_V_NUM; i++) {
 		REG_WR(v_coeff_addr, *v_coeff);
 		v_coeff_addr += 4;
@@ -713,19 +717,19 @@ static int32_t _scale_set_sc_coeff(void)
 
 	do {
 		REG_MWR(SCALE_BASE, 1 << 4, 0 << 4);
-	} while (0 != ((1 << 6) & REG_RD(SCALE_BASE))); 
-	
+	} while (0 != ((1 << 6) & REG_RD(SCALE_BASE)));
+
 	kfree(tmp_buf);
 
-	return SCALE_RTN_SUCCESS;	
+	return SCALE_RTN_SUCCESS;
 }
 
 static irqreturn_t _scale_isr_root(int irq, void *dev_id)
 {
 	uint32_t                status;
 	struct scale_frame      frame;
-	uint32_t                flag;
-	
+	unsigned long           flag;
+
 	(void)irq; (void)dev_id;
 	status = REG_RD(SCALE_INT_STS);
 
@@ -779,7 +783,7 @@ static void    _scale_reg_trace(void)
 		         REG_RD(addr + 8),
 		         REG_RD(addr + 12));
 	}
-#endif	
+#endif
 }
 
 int32_t    _scale_alloc_tmp_buf(void)

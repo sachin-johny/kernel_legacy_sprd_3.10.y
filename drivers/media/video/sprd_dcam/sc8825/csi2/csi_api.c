@@ -20,10 +20,10 @@ static handler_t      csi_api_event_registry[MAX_EVENT] = {NULL};
 static csi2_isr_func  isr_cb = NULL;
 static void           *u_data = NULL;
 
-void csi_api_event1_handler(void *param);
-void csi_api_event2_handler(void *param);
+irqreturn_t csi_api_event1_handler(int param0,void *param);
+irqreturn_t csi_api_event2_handler(int param0,void *param);
 
-static void csi_enable()
+static void csi_enable(void)
 {
     *(volatile u32*)CSI2_EB |= CSI2_EB_BIT; //enable CSI DPHY, actually enable cfg_clk(26M) for CSI DPHY
 
@@ -438,10 +438,10 @@ u8 csi_api_unregister_line_event(u8 vc, csi_data_type_t data_type, csi_line_even
 }                                                                                                                          
                                                                                                                            
                                                                                                                            
-void csi_api_event1_handler(void *param)
+irqreturn_t csi_api_event1_handler(int param0,void *param)
 {                                                                                                                          
-	u32 source = 0;                                                                                                        
-	u32 flag;
+	u32           source = 0;                                                                                                        
+	unsigned long flag;
 
     	source = csi_event_get_source(1);
     	spin_lock_irqsave(&csi2_lock,flag);
@@ -450,7 +450,7 @@ void csi_api_event1_handler(void *param)
 	}
 	spin_unlock_irqrestore(&csi2_lock, flag);
 
-	return ;
+	return IRQ_HANDLED;;
 #if 0
     if (source > 0)                                                                                                        
     {   /* map to enumerator csi_event_t or csi_line_event_t */                                                            
@@ -499,10 +499,10 @@ void csi_api_event1_handler(void *param)
                                                                                                                    
 }                                                                                                                          
 
-void csi_api_event2_handler(void *param)
+irqreturn_t csi_api_event2_handler(int param0,void *param)
 {                                                                                                                          
-	u32 source = 0;                                                                                                        
-	u32 flag;
+	u32           source = 0;                                                                                                        
+	unsigned long flag;
 
     	source = csi_event_get_source(2);
     	spin_lock_irqsave(&csi2_lock,flag);
@@ -511,7 +511,7 @@ void csi_api_event2_handler(void *param)
 	}
 	spin_unlock_irqrestore(&csi2_lock, flag);
 
-	return ;
+	return IRQ_HANDLED;
 	                                                                                                             
 		
 #if 0		
@@ -607,7 +607,7 @@ u32 csi_api_core_read(csi_registers_t address)
 
 int csi_reg_isr(csi2_isr_func user_func, void* user_data)
 {
-	u32                flag;
+	unsigned long  flag;
 
 	spin_lock_irqsave(&csi2_lock, flag);
 	isr_cb = user_func;

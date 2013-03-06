@@ -314,12 +314,14 @@ static int rot_k_set_UV_param(void)
 	return 0;
 }
 
-static void rot_k_dma_irq(int dma_ch, void *dev_id)
+static irqreturn_t rot_k_dma_irq(int dma_ch, void *dev_id)
 {
 	RTT_PRINT("%s, come\n", __func__ );
 	condition = 1;
 	wake_up_interruptible(&wait_queue);
 	RTT_PRINT("rotation_dma_irq X .\n");
+
+	return  IRQ_HANDLED;
 }
 
 int rot_k_dma_start(void)
@@ -387,9 +389,9 @@ static int rot_k_thread(void *data_ptr)
 
 			if (ROT_FALSE == s->is_end) {
 				rot_k_dma_wait_stop();
-				
+
 				RTT_PRINT("rot_k_thread y done, uv start \n");
-				
+
 				rot_k_dma_start();
 				rot_k_set_UV_param();
 				rot_k_done();
@@ -402,7 +404,7 @@ static int rot_k_thread(void *data_ptr)
 		g_thread_run = 0;
 		wake_up_interruptible(&wait_done);
 	}
-	
+
 	return ret;
 }
 int rot_k_start(void)
@@ -483,7 +485,7 @@ int rot_k_open(struct inode *node, struct file *file)
 	}else{
 		wake_up_process(g_rot_task);
 	}
-	
+
 	RTT_PRINT("[pid:%d] rot_k_open() called.\n", current->pid);
 	return ret;
 }
@@ -518,16 +520,18 @@ int rot_k_release(struct inode *node, struct file *file)
 
 	kthread_stop(g_rot_task);
 	wake_up_interruptible(&thread_queue);
-	
+
 	return 0;
 }
 
-static void rot_k_dma_copy_irq(int dma_ch, void *dev_id)
+static irqreturn_t rot_k_dma_copy_irq(int dma_ch, void *dev_id)
 {
 	RTT_PRINT("%s, come\n", __func__ );
 	g_copy_done = 1;
 	wake_up_interruptible(&wait_queue);
 	RTT_PRINT("rotation_dma_irq X .\n");
+
+	return IRQ_HANDLED;
 }
 
 static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
@@ -625,9 +629,9 @@ static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
 static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 {
 	struct sprd_dma_channel_desc dma_desc;
-	uint32_t byte_per_pixel = 1;
-	uint32_t src_img_postm = 0;
-	uint32_t dst_img_postm = 0;
+	//uint32_t byte_per_pixel = 1;
+	//uint32_t src_img_postm = 0;
+	//uint32_t dst_img_postm = 0;
 	uint32_t dma_src_phy = param_ptr->src_addr.y_addr;
 	uint32_t dst_vir_addr = param_ptr->dst_addr.y_addr;
 	uint32_t dma_dst_phy;
@@ -707,7 +711,7 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 		block_len -= dma_cfg[i].total_len;
 	}
 	do_gettimeofday(&time2);
-	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
+	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%ld \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
 
 	dma_cfg[list_size - 1].cfg |= DMA_LLEND;
 
@@ -744,9 +748,9 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 static int rot_k_start_copy_data_from_virtual(ROT_CFG_T * param_ptr)
 {
 	struct sprd_dma_channel_desc dma_desc;
-	uint32_t byte_per_pixel = 1;
-	uint32_t src_img_postm = 0;
-	uint32_t dst_img_postm = 0;
+	//uint32_t byte_per_pixel = 1;
+	//uint32_t src_img_postm = 0;
+	//uint32_t dst_img_postm = 0;
 	uint32_t dma_src_phy;
 	uint32_t src_vir_addr = param_ptr->src_addr.y_addr;
 	uint32_t dma_dst_phy = param_ptr->dst_addr.y_addr;
@@ -826,7 +830,7 @@ static int rot_k_start_copy_data_from_virtual(ROT_CFG_T * param_ptr)
 		block_len -= dma_cfg[i].total_len;
 	}
 	do_gettimeofday(&time2);
-	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%d \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
+	RTT_PRINT("rot_k_start_copy_data_to_virtual: virtual/physical convert time=%ld \n",((time2.tv_sec-time1.tv_sec)*1000*1000+(time2.tv_usec-time1.tv_usec)));
 
 	dma_cfg[list_size - 1].cfg |= DMA_LLEND;
 
@@ -870,7 +874,7 @@ static int rot_k_io_cfg(ROT_CFG_T * param_ptr)
 	RTT_PRINT("format=%d, angle=%d \n", p->format, p->angle);
 	RTT_PRINT("s.y=%x, s.u=%x, s.v=%x \n", p->src_addr.y_addr, p->src_addr.u_addr, p->src_addr.v_addr);
 	RTT_PRINT("d.y=%x, d.u=%x, d.v=%x \n", p->dst_addr.y_addr, p->dst_addr.u_addr, p->dst_addr.v_addr);
-	
+
 	ret = rot_k_check_param(param_ptr);
 
 	if(0 == ret)
@@ -882,7 +886,7 @@ static int rot_k_io_cfg(ROT_CFG_T * param_ptr)
 static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
-	
+
 	RTT_PRINT("rot_k_ioctl, 0x%x \n", cmd);
 
 	if (ROT_IO_IS_DONE == cmd) {
@@ -904,7 +908,7 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		}
 		break;
-	
+
 	case ROT_IO_START:
 		if (rot_k_start()) {
 			ret = -EFAULT;

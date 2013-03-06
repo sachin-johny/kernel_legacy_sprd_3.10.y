@@ -58,7 +58,7 @@ static int img_scale_open(struct inode *node, struct file *pf)
 		ret = -EIO;
 		goto faile;
 	}
-	
+
 	ret = scale_reg_isr(SCALE_TX_DONE, scale_done, NULL);
 	if (unlikely(ret)) {
 		printk("Failed to register ISR \n");
@@ -103,7 +103,7 @@ ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 	rt_word[0] = SCALE_LINE_BUF_LENGTH;
 	rt_word[1] = SCALE_SC_COEFF_MAX;
-	SCALE_TRACE("img_scale_read line threshold %d, sc factor \n", rt_word[0], rt_word[1]);
+	SCALE_TRACE("img_scale_read line threshold %d, sc factor %d\n", rt_word[0], rt_word[1]);
 	(void)file; (void)cnt; (void)cnt_ret;
 	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
 }
@@ -203,21 +203,21 @@ static int  img_scale_proc_read(char           *page,
 	uint32_t*                reg_buf;
 	uint32_t                 reg_buf_len = 0x400;
 	uint32_t                 print_len = 0, print_cnt = 0;
-	
+
 	(void)start; (void)off; (void)count; (void)eof;
-	
+
 	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
 	ret = scale_read_registers(reg_buf, &reg_buf_len);
 	if (ret)
 		return len;
-	
+
 	len += sprintf(page + len, "********************************************* \n");
 	len += sprintf(page + len, "scale registers \n");
 	print_cnt = 0;
 	while (print_len < reg_buf_len) {
 		len += sprintf(page + len, "offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
 			print_len,
-			reg_buf[print_cnt], 
+			reg_buf[print_cnt],
 			reg_buf[print_cnt+1],
 			reg_buf[print_cnt+2],
 			reg_buf[print_cnt+3]);
@@ -228,14 +228,14 @@ static int  img_scale_proc_read(char           *page,
 	len += sprintf(page + len, "The end of DCAM device \n");
 	msleep(10);
 	kfree(reg_buf);
-	
+
 	return len;
 }
 
 int img_scale_probe(struct platform_device *pdev)
 {
 	int                      ret = 0;
-	
+
 	SCALE_TRACE("scale_probe called \n");
 
 	ret = misc_register(&img_scale_dev);
@@ -254,19 +254,19 @@ int img_scale_probe(struct platform_device *pdev)
 		ret = ENOMEM;
 		goto exit;
 	}
-	
+
 	/* initialize locks */
 	mutex_init(&scale_mutex);
 	sema_init(&scale_irq_sem, 0);
-	
-exit:	
+
+exit:
 	return ret;
 }
 
 static int img_scale_remove(struct platform_device *dev)
 {
 	SCALE_TRACE( "scale_remove called !\n");
-	
+
 	if (img_scale_proc_file) {
 		remove_proc_entry("driver/scale", NULL);
 	}

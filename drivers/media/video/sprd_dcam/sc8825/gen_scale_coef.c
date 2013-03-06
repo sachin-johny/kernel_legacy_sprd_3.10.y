@@ -261,7 +261,9 @@ static int16_t CalYmodelCoef(int16_t coef_lenght,		/*lint !e578 */
 	/*int64_t angle_x = div64_s64_s64((int64_t)ARC_32_COEF, (int64_t)MAX(M,N));	
 	angle_x *= (i + 1) * N;
 	angle_x = div64_s64_s64(angle_x,  (int64_t)8);*/
-	int64_t angle_x = div64_s64_s64((int64_t)ARC_32_COEF*(int64_t)(i + 1) * (int64_t)N, (int64_t)MAX(M,N)*(int64_t)8);
+//	int64_t angle_x = div64_s64_s64((int64_t)ARC_32_COEF*(int64_t)(i + 1) * (int64_t)N, (int64_t)MAX(M,N)*(int64_t)8);
+		int64_t angle_x = div64_s64_s64((int64_t)ARC_32_COEF*(int64_t)(i + 1) * (int64_t)N, (int64_t)MAX(M,N)*(int64_t)8);
+
 	//int64_t angle_y = (int64_t)ARC_32_COEF / (int64_t)(M*N) * (int64_t)(i + 1) * (int64_t)N / (int64_t)8; 
 	/*int64_t angle_y =  div64_s64_s64((int64_t)ARC_32_COEF, (int64_t)(M * N )); 
 	angle_y *= (i + 1) * N;
@@ -279,7 +281,7 @@ static int16_t CalYmodelCoef(int16_t coef_lenght,		/*lint !e578 */
 	for (i = -1; i < mid_i; i++)
 	{ 	
         //int32_t angle_32 = (int32_t)((int64_t)2 * (int64_t)(mid_i - i - 1) *  (int64_t)2147483648 / (int64_t)coef_lenght);
-        int32_t angle_32 = (int32_t)div64_s64_s64((int64_t)((int64_t)2 * (int64_t)(mid_i - i - 1) *  (int64_t)2147483648), (int64_t)coef_lenght);
+        int32_t angle_32 = (int32_t)div64_s64_s64((int64_t)((int64_t)2 * (int64_t)(mid_i - i - 1) *  (int64_t)2147483648UL), (int64_t)coef_lenght);
         int64_t     a = (int64_t)9059697;//(int64_t)(0.54 * (double)(1 << FIX));     
         int64_t     b = (int64_t)7717519;//(int64_t)(0.46 * (double)(1 << GSC_FIX));    
         int64_t     t = a - ((b * dcam_cos_32(angle_32)) >> 30);

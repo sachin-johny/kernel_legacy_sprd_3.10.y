@@ -834,7 +834,7 @@ LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 		sensor_i2c_driver.id_table = sensor_sub_id;
 		sensor_i2c_driver.address_list = &sensor_sub_default_addr_list[0];
 	}
-    SENSOR_PRINT_HIGH("-I2c %d,addr 0x%x.\n",sensor_id,sensor_i2c_driver.address_list);
+    SENSOR_PRINT_HIGH("-I2c %d,addr 0x%x.\n",sensor_id,(uint32_t)sensor_i2c_driver.address_list);
 	i2c_del_driver(&sensor_i2c_driver);
 
 	g_sensor_id =  SENSOR_ID_MAX;
@@ -976,7 +976,7 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 
 LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 {
-	int err = 0xff;
+	//int err = 0xff;
 
 	switch (flash_mode) {
 	case 1:		/*flash on */
@@ -1015,7 +1015,7 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	}
 
 	SENSOR_PRINT("_Sensor_K_SetFlash: flash_mode=%d  \n", flash_mode);
-	
+
 	return SENSOR_K_SUCCESS;
 }
 int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size);
@@ -1033,7 +1033,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 	struct timeval time1, time2;
 
 	do_gettimeofday(&time1);
-	
+
 	size = cnt*sizeof(SENSOR_REG_T);
 	pBuff = kmalloc(size, GFP_KERNEL);
 	if(PNULL == pBuff){
@@ -1041,7 +1041,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 		SENSOR_PRINT_ERR("_Sensor_K_WriteRegTab ERROR:kmalloc is fail, cnt=%d, size = %d \n", cnt, size);
 		goto _Sensor_K_WriteRegTab_return;
 	}else{
-		SENSOR_PRINT("_Sensor_K_WriteRegTab: kmalloc success, cnt=%d, size = %d \n",cnt, size); 
+		SENSOR_PRINT("_Sensor_K_WriteRegTab: kmalloc success, cnt=%d, size = %d \n",cnt, size);
 	}
 
 	if (copy_from_user(pBuff, pRegTab->sensor_reg_tab_ptr, size)){
@@ -1051,13 +1051,13 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 	}
 
 	sensor_reg_ptr = (SENSOR_REG_T_PTR)pBuff;
-	
+
 	if(0 == pRegTab->burst_mode){
 		for(i=0; i<cnt; i++){
 			reg_bit.reg_addr  = sensor_reg_ptr[i].reg_addr;
 			reg_bit.reg_value = sensor_reg_ptr[i].reg_value;
 			reg_bit.reg_bits  = pRegTab->reg_bits;
-			
+
 			rettmp = _Sensor_K_WriteReg(&reg_bit);
 			if(SENSOR_K_FAIL == rettmp)
 				ret = SENSOR_K_FAIL;
@@ -1074,10 +1074,10 @@ _Sensor_K_WriteRegTab_return:
 		kfree(pBuff);
 
 	do_gettimeofday(&time2);
-	
-	SENSOR_PRINT("_Sensor_K_WriteRegTab: done, ret = %d, cnt=%d, time=%d us \n", ret, cnt,
+
+	SENSOR_PRINT("_Sensor_K_WriteRegTab: done, ret = %d, cnt=%d, time=%ld us \n", ret, cnt,
 		(time2.tv_sec - time1.tv_sec)*1000000+(time2.tv_usec - time1.tv_usec));
-	
+
 	return ret;
 }
 
@@ -1109,7 +1109,7 @@ static ssize_t sensor_k_read(struct file *filp, char __user *ubuf, size_t cnt, l
 	return 0;
 }
 
-static ssize_t sensor_k_write(struct file *filp, char __user *ubuf, size_t cnt, loff_t *gpos)
+static ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t cnt, loff_t *gpos)
 {
 	char buf[64];
 	char *pBuff = PNULL;
@@ -1172,7 +1172,7 @@ int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 	uint16_t              wr_reg = 0;
 	uint16_t              wr_val = 0;
 	uint32_t              wr_num_once = 0;
-	uint32_t              wr_num_once_ret = 0;
+	//uint32_t              wr_num_once_ret = 0;
 	//uint32_t              init_table_size = (sizeof(HI351_common)/sizeof(HI351_common[0]));	//NUMBER_OF_ARRAY(HI351_common);
 	//SENSOR_REG_T_PTR    p_reg_table = HI351_common;
 	uint8_t               *p_reg_val_tmp = 0;
@@ -1279,7 +1279,7 @@ int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 #endif
 
 
-static int sensor_k_ioctl(struct file *file, unsigned int cmd,
+static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
 	int ret = 0;
@@ -1374,7 +1374,7 @@ static int sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&g_sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 		}
 		break;
-	
+
 
 	case SENSOR_IO_RST_LEVEL:
 		{

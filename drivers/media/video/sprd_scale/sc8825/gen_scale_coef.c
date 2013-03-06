@@ -207,10 +207,10 @@ static int16_t CalYmodelCoef(int16_t coef_lenght,
 		    (int32_t)
 		    div64_s64_s64((int64_t)
 				  ((int64_t) 2 * (int64_t) (mid_i - i - 1) *
-				   (int64_t) 2147483648),
-				  (int64_t) coef_lenght);;
+				   (int64_t) 2147483648UL),
+				  (int64_t) coef_lenght);
 		int64_t a = (int64_t) 9059697;
-		int64_t b = (int64_t) 7717519;
+		int64_t b = (int64_t) 7717519UL;
 		int64_t t = a - ((b * cos_32(angle_32)) >> 30);
 		filter[mid_i + i + 1] = (t * filter[mid_i + i + 1]) >> GSC_FIX;
 		filter[mid_i - (i + 1)] = filter[mid_i + i + 1];
@@ -579,10 +579,10 @@ uint8_t GenScaleCoeff(int16_t i_w, int16_t i_h, int16_t o_w, int16_t o_h,
 	tap = ((uint8_t) (D_ver / I_ver)) * 2;
 	tap = (tap > 8) ? 8 : tap;
 	tap = (tap <= 2) ? 4 : tap;
-	
-	//////////////////////////////////////////////////////////	
+
+	//////////////////////////////////////////////////////////
 	/* calculate coefficients of Y component in vertical direction*/
-    coef_len = CalY_ScalingCoef(tap, D_ver, I_ver, temp_filter_ptr, 0, &pool);	
+    coef_len = CalY_ScalingCoef(tap, D_ver, I_ver, temp_filter_ptr, 0, &pool);
 	GetFilter(temp_filter_ptr, filter_ptr, 8, coef_len, filter_len);
 	WriteScalarCoef(y_coef_ptr, filter_ptr, filter_len[0]);
 	CheckCoefRange(y_coef_ptr, 8, tap);
