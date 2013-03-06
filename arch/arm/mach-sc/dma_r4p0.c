@@ -28,6 +28,7 @@ struct sci_dma_desc {
 	const char *dev_name;
 	void (*irq_handler) (int, void *);
 	void *data;
+	u32 dev_id;
 };
 
 static struct sci_dma_desc *dma_chns;
@@ -102,14 +103,14 @@ static int __dma_set_int_type(u32 dma_chn, dma_int_type int_type)
 	reg_val &= ~0x1f;
 
 	switch (int_type) {
-	case INT_NONE:
+	case NO_INT:
 		break;
 
 	case FRAG_DONE:
 		reg_val |= 0x1;
 		break;
 
-	case BLOCK_DONE:
+	case BLK_DONE:
 		reg_val |= 0x2;
 		break;
 
@@ -339,6 +340,7 @@ int sci_dma_start(u32 dma_chn, u32 dev_id)
 	if (dma_chn > DMA_CHN_MAX)
 		return -EINVAL;
 
+	dma_chns[dma_chn].dev_id = dev_id;
 	/*fixme, need to check dev_id */
 	__dma_set_uid(dma_chn, dev_id);
 
@@ -350,7 +352,7 @@ int sci_dma_start(u32 dma_chn, u32 dev_id)
 	return 0;
 }
 
-int sci_dma_stop(u32 dma_chn)
+int sci_dma_stop(u32 dma_chn, u32 dev_id)
 {
 	if (dma_chn > DMA_CHN_MAX)
 		return -EINVAL;
@@ -481,6 +483,9 @@ int sci_dma_free(u32 dma_chn)
 
 	__dma_chn_disable(dma_chn);
 
+	/*set a valid dma chn for CID*/
+	__dma_set_uid(DMA_CHN_MAX  + 1, dma_chns[dma_chn].dev_id);
+
 	spin_lock_irqsave(&dma_lock, flags);
 
 	memset(dma_chns + dma_chn, 0x0, sizeof(*dma_chns));
@@ -552,52 +557,171 @@ EXPORT_SYMBOL_GPL(sci_dma_stop);
 EXPORT_SYMBOL_GPL(sci_dma_ioctl);
 
 
-#ifdef TMP_VERSION
+#ifdef DISCARDED_VERSION
 /* those spreadtrum DMA interface must be implemented */
 int sprd_dma_request(u32 uid, void (*handle) (int, void *), void *data)
+{
+	u32 dma_chn;
+
+	dma_chn = sci_dma_request("old_interface", FULL_DMA_CHN);
+	if (dma_chn) {
+		return dma_chn;
+	}
+
+	dma_chns[dma_chn].dev_id = uid;
+	dma_chns[dma_chn].irq_handler = handle;
+	dma_chns[dma_chn].data = data;
+
+	__dma_set_uid(dma_chn, uid);
+
+	return 0;
+}
+
+void sprd_dma_free(u32 dma_chn)
+{
+	sci_dma_free(dma_chn);
+}
+
+int sprd_dma_channel_config(u32 chn, dma_work_mode work_mode,
+			     const struct sprd_dma_channel_desc *dma_cfg)
+{
+	struct sci_dma_cfg cfg;
+	u32 req_mod, int_type;
+	int ret;
+
+	memset(&cfg, 0x0, sizeof(cfg));
+#if 0
+	struct sprd_dma_channel_desc {
+		u32 cfg_swt_mode_sel;
+		u32 cfg_src_data_width;
+		u32 cfg_dst_data_width;
+		u32 cfg_req_mode_sel;/* request mode */
+		u32 cfg_src_wrap_en;
+		u32 cfg_dst_wrap_en;
+		u32 cfg_blk_len;
+
+		u32 total_len;
+		u32 src_addr;
+		u32 dst_addr;
+		u32 llist_ptr;/*linklist mode only, must be 8 words boundary */
+		u32 src_elem_postm;
+		u32 dst_elem_postm;
+		u32 src_burst_mode;
+		u32 src_blk_postm;
+		u32 dst_burst_mode;
+		u32 dst_blk_postm;
+	};
+#endif
+	cfg.datawidth = dma_cfg->cfg_src_data_width;
+	cfg.src_addr = dma_cfg->src_addr;
+	cfg.des_addr = dma_cfg->dst_addr;
+	cfg.fragmens_len = dma_cfg->cfg_blk_len;
+	cfg.block_len = dma_cfg->total_len;
+	cfg.linklist_ptr = dma_cfg->llist_ptr;
+	cfg.src_step = dma_cfg->src_elem_postm;
+	cfg.des_step = dma_cfg->dst_elem_postm;
+
+	ret = sci_dma_config(chn, &cfg, 1, NULL);
+	if (ret < 0)
+		return -EINVAL;
+
+	switch (dma_cfg->cfg_req_mode_sel) {
+		case 0:
+			req_mod = FRAG_REQ_MODE;
+			break;
+		case 1:
+			req_mod = BLOCK_REQ_MODE;
+			break;
+		case 2:
+			req_mod = LIST_REQ_MODE;
+			break;
+		default:
+			return -EINVAL;
+	}
+
+	ret = __dma_set_request_mode(chn,req_mod);
+	if (ret < 0)
+		return -EINVAL;
+
+	switch (work_mode) {
+	case DMA_NORMAL:
+		int_type = FRAG_DONE;
+		break;
+
+	case DMA_LINKLIST:
+		int_type = LIST_DONE;
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	ret = __dma_set_int_type(chn,int_type);
+	if (ret < 0)
+		return -EINVAL;
+
+	return 0;
+}
+
+int sprd_dma_linklist_config(u32 chn_id, u32 dma_cfg)
+{
+	int ret;
+	struct sci_dma_cfg cfg;
+
+	memset(&cfg, 0x0, sizeof(cfg));
+
+	cfg.linklist_ptr = dma_cfg;
+
+	ret = sci_dma_config(chn_id, &cfg, 1, NULL);
+	if (ret < 0)
+		return -EINVAL;
+
+	return 0;
+}
+
+int sprd_dma_set_irq_type(u32 chn, dma_done_type irq_type, u32 on_off)
+{
+	int ret;
+	u32 int_type;
+
+	switch (irq_type)
+	{
+	case  BLOCK_DONE:
+		int_type = FRAG_DONE;
+		break;
+
+	case TRANSACTION_DONE:
+		int_type = BLK_DONE;
+		break;
+
+	case LINKLIST_DONE:
+		int_type = LIST_DONE;
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	ret = __dma_set_int_type(chn, int_type);
+	if (ret < 0)
+		return -EINVAL;
+
+	return 0;
+}
+
+int sprd_dma_set_chn_pri(u32 chn, u32 pri)
 {
 	return 0;
 }
 
-void sprd_dma_free(u32 uid)
-{
-}
-
-void sprd_dma_channel_config(u32 chn, dma_work_mode work_mode,
-			     const struct sprd_dma_channel_desc *dma_cfg)
-{
-}
-
-void sprd_dma_default_channel_setting(struct sprd_dma_channel_desc *dma_cfg)
-{
-}
-
-void sprd_dma_default_linklist_setting(struct sprd_dma_linklist_desc *chn_cfg)
-{
-}
-
-void sprd_dma_linklist_config(u32 chn_id, u32 dma_cfg)
-{
-}
-
-void sprd_dma_wrap_addr_config(const struct sprd_dma_wrap_addr *wrap_addr)
-{
-}
-
-void sprd_dma_set_irq_type(u32 chn, dma_done_type irq_type, u32 on_off)
-{
-}
-
-void sprd_dma_set_chn_pri(u32 chn, u32 pri)
-{
-}
-
 void sprd_dma_channel_start(u32 chn)
 {
+	sci_dma_start(chn, dma_chns[chn].dev_id);
 }
 
 void sprd_dma_channel_stop(u32 chn)
 {
+	sci_dma_stop(chn, dma_chns[chn].dev_id);
 }
 
 /* ONLY FOR DEBUG */

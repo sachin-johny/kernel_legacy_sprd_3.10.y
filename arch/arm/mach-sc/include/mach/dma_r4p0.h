@@ -29,9 +29,9 @@
 #endif
 
 typedef enum {
-	INT_NONE = 0x00,
+	NO_INT = 0x00,
 	FRAG_DONE,
-	BLOCK_DONE,
+	BLK_DONE,
 	LIST_DONE,
 	TRANS_DONE,
 	CONFIG_ERR,
@@ -91,12 +91,21 @@ int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
 int sci_dma_register_irqhandle(u32 dma_chn, dma_int_type int_type,
 			       void (*irq_handle) (int, void *), void *data);
 int sci_dma_start(u32 dma_chn, u32 dev_id);
-int sci_dma_stop(u32 dma_chn);
+int sci_dma_stop(u32 dma_chn, u32 dev_id);
 int sci_dma_ioctl(u32 dma_chn, dma_cmd cmd, void *arg);
 
 /*just for compile ok, will be removed*/
-#define TMP_VERSION
-#ifdef TMP_VERSION
+#define DISCARDED_VERSION
+#ifdef DISCARDED_VERSION
+
+#define DMA_CH_CFG0                     (0x0000)
+#define DMA_CH_CFG1                     (0x0004)
+#define DMA_CH_SRC_ADDR                 (0x0008)
+#define DMA_CH_DEST_ADDR                (0x000c)
+#define DMA_CH_LLPTR                    (0x0010)
+#define DMA_CH_SDEP                     (0x0014)
+#define DMA_CH_SBP                      (0x0018)
+#define DMA_CH_DBP                      (0x001c)
 
 /* CH_CFG0 */
 #define DMA_LLEND                      (1 << 31)
@@ -118,16 +127,26 @@ int sci_dma_ioctl(u32 dma_chn, dma_cmd cmd, void *arg);
 #define DMA_DST_WRAP_EN                (1 << 20)
 #define DMA_NO_AUTO_CLS                (1 << 17)
 
-
 #define DMA_UN_SWT_MODE                (0<<28)
 #define DMA_FULL_SWT_MODE              (1<<28)
 #define DMA_SWT_MODE0                  (2<<28)
 #define DMA_SWT_MODE1                  (3<<28)
-#define BURST_MODE_SINGLE              (0 << 28)
-#define BURST_MODE_ANY                 (1 << 28)
-#define BURST_MODE_4                   (3 << 28)
-#define BURST_MODE_8                   (5 << 28)
-#define BURST_MODE_16                  (7 << 28)
+#define SRC_BURST_MODE_SINGLE              (0 << 28)
+#define SRC_BURST_MODE_ANY                 (1 << 28)
+#define SRC_BURST_MODE_4                   (3 << 28)
+#define SRC_BURST_MODE_8                   (5 << 28)
+#define SRC_BURST_MODE_16                  (7 << 28)
+
+#define DMA_CFG_BLOCK_LEN_MAX           (0xffff)
+#define SRC_ELEM_POSTM_SHIFT            16
+#define CFG_BLK_LEN_MASK                0xffff
+#define SRC_ELEM_POSTM_MASK             0xffff
+#define DST_ELEM_POSTM_MASK             0xffff
+#define SRC_BLK_POSTM_MASK              0x3ffffff
+#define DST_BLK_POSTM_MASK              0x3ffffff
+#define SOFTLIST_REQ_PTR_MASK           0xffff
+#define SOFTLIST_REQ_PTR_SHIFT          16
+#define SOFTLIST_CNT_MASK               0xffff
 
 
 #define DMA_INCREASE                   (0)
@@ -146,6 +165,8 @@ int sci_dma_ioctl(u32 dma_chn, dma_cmd cmd, void *arg);
 #define DMA_REG_BASE                    SPRD_DMA0_BASE
 
 #define DMA_CHx_CTL_BASE                (DMA_REG_BASE + 0x0400)
+#define DMA_CHx_CTL_BASE                (DMA_REG_BASE + 0x0400)
+#define DMA_CHx_BASE(x)                 (DMA_CHx_CTL_BASE + 0x20 * x )
 
 #include <linux/io.h>
 
@@ -176,12 +197,12 @@ struct sprd_irq_handler {
 /* DMA_LISTDONE_INT_EN, DMA_BURST_INT_EN, DMA_TRANSF_INT_EN */
 typedef enum{
 	LINKLIST_DONE,
-//	BLOCK_DONE,
+	BLOCK_DONE,
 	TRANSACTION_DONE,
 }dma_done_type;
 
 enum {
-//	INT_NONE = 0x00,
+	INT_NONE = 0x00,
 	LLIST_DONE_EN = 0x01,
 	BURST_DONE_EN = 0x02,
 	TRANS_DONE_EN = 0x04,
@@ -235,13 +256,9 @@ struct sprd_dma_wrap_addr {
 /* those spreadtrum DMA interface must be implemented */
 int  sprd_dma_request(u32 uid, void( *handle)(int, void*), void *data) __deprecated;
 void sprd_dma_free(u32 uid)__deprecated;
-void sprd_dma_channel_config(u32 chn, dma_work_mode work_mode, const struct sprd_dma_channel_desc *dma_cfg)__deprecated;
-void sprd_dma_default_channel_setting(struct sprd_dma_channel_desc *dma_cfg)__deprecated;
-void sprd_dma_default_linklist_setting(struct sprd_dma_linklist_desc *chn_cfg)__deprecated;
-void sprd_dma_linklist_config(u32 chn_id, u32 dma_cfg)__deprecated;
-void sprd_dma_wrap_addr_config(const struct sprd_dma_wrap_addr *wrap_addr)__deprecated;
-void sprd_dma_set_irq_type(u32 chn, dma_done_type irq_type, u32 on_off)__deprecated;
-void sprd_dma_set_chn_pri(u32 chn, u32 pri)__deprecated;
+int sprd_dma_channel_config(u32 chn, dma_work_mode work_mode, const struct sprd_dma_channel_desc *dma_cfg)__deprecated;
+int sprd_dma_linklist_config(u32 chn_id, u32 dma_cfg)__deprecated;
+int sprd_dma_set_irq_type(u32 chn, dma_done_type irq_type, u32 on_off)__deprecated;
 void sprd_dma_channel_start(u32 chn)__deprecated;
 void sprd_dma_channel_stop(u32 chn)__deprecated;
 /* ONLY FOR DEBUG */
