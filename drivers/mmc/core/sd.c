@@ -1013,9 +1013,11 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 /*
  * FIXME: Set sdcard to normal mode in FPGA forcely,
  *        because of low sdio clock frequency.
- *        Delete CONFIG_MACH_SP8825_FPGA after chips back.
+ *        Delete CONFIG_MACH_SP8830_FPGA after chips back.
  */
-#ifndef CONFIG_MACH_SP8825_FPGA
+#if defined(CONFIG_MACH_SP8825_FPGA) || defined(CONFIG_MACH_SP8830_FPGA)
+		mmc_set_clock(host, 24000000);
+#else
 		if (err > 0)
 			mmc_sd_go_highspeed(card);
 		else if (err)
@@ -1038,9 +1040,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 			mmc_set_bus_width(host, MMC_BUS_WIDTH_4);
 		}
 #endif
-#ifdef CONFIG_MACH_SP8825_FPGA
-		mmc_set_clock(host, 24000000);
-#endif
+
 	}
 
 	host->card = card;

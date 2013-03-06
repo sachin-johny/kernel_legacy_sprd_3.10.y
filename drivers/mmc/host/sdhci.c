@@ -127,51 +127,27 @@ irqreturn_t sd_detect_irq(int irq, void *dev_id)
 
 void sdhci_dumpregs(struct sdhci_host *host)
 {
-	pr_debug(DRIVER_NAME ": =========== REGISTER DUMP (%s)===========\n",
+	unsigned int i, regAddr;
+	printk(KERN_ERR DRIVER_NAME ": =========== REGISTER DUMP (%s)===========\n",
 		mmc_hostname(host->mmc));
 
-	pr_debug(DRIVER_NAME ": Sys addr: 0x%08x | Version:  0x%08x\n",
-		sdhci_readl(host, SDHCI_DMA_ADDRESS),
-		sdhci_readw(host, SDHCI_HOST_VERSION));
-	pr_debug(DRIVER_NAME ": Blk size: 0x%08x | Blk cnt:  0x%08x\n",
-		sdhci_readw(host, SDHCI_BLOCK_SIZE),
-		sdhci_readw(host, SDHCI_BLOCK_COUNT));
-	pr_debug(DRIVER_NAME ": Argument: 0x%08x | Trn mode: 0x%08x\n",
-		sdhci_readl(host, SDHCI_ARGUMENT),
-		sdhci_readw(host, SDHCI_TRANSFER_MODE));
-	pr_debug(DRIVER_NAME ": Present:  0x%08x | Host ctl: 0x%08x\n",
-		sdhci_readl(host, SDHCI_PRESENT_STATE),
-		sdhci_readb(host, SDHCI_HOST_CONTROL));
-	pr_debug(DRIVER_NAME ": Power:    0x%08x | Blk gap:  0x%08x\n",
-		sdhci_readb(host, SDHCI_POWER_CONTROL),
-		sdhci_readb(host, SDHCI_BLOCK_GAP_CONTROL));
-	pr_debug(DRIVER_NAME ": Wake-up:  0x%08x | Clock:    0x%08x\n",
-		sdhci_readb(host, SDHCI_WAKE_UP_CONTROL),
-		sdhci_readw(host, SDHCI_CLOCK_CONTROL));
-	pr_debug(DRIVER_NAME ": Timeout:  0x%08x | Int stat: 0x%08x\n",
-		sdhci_readb(host, SDHCI_TIMEOUT_CONTROL),
-		sdhci_readl(host, SDHCI_INT_STATUS));
-	pr_debug(DRIVER_NAME ": Int enab: 0x%08x | Sig enab: 0x%08x\n",
-		sdhci_readl(host, SDHCI_INT_ENABLE),
-		sdhci_readl(host, SDHCI_SIGNAL_ENABLE));
-	pr_debug(DRIVER_NAME ": AC12 err: 0x%08x | Slot int: 0x%08x\n",
-		sdhci_readw(host, SDHCI_ACMD12_ERR),
-		sdhci_readw(host, SDHCI_SLOT_INT_STATUS));
-	pr_debug(DRIVER_NAME ": Caps:     0x%08x | Caps_1:   0x%08x\n",
-		sdhci_readl(host, SDHCI_CAPABILITIES),
-		sdhci_readl(host, SDHCI_CAPABILITIES_1));
-	pr_debug(DRIVER_NAME ": Cmd:      0x%08x | Max curr: 0x%08x\n",
-		sdhci_readw(host, SDHCI_COMMAND),
-		sdhci_readl(host, SDHCI_MAX_CURRENT));
-	pr_debug(DRIVER_NAME ": Host ctl2: 0x%08x\n",
-		sdhci_readw(host, SDHCI_HOST_CONTROL2));
+	regAddr = SDHCI_DMA_ADDRESS;
+	for (i = 0; i < 0x08; i++) {
+		printk(KERN_ERR DRIVER_NAME ": 0x%08x | 0x%08x | 0x%08x | 0x%08x\n\r",
+			sdhci_readl(host, (regAddr + 16 *i)), sdhci_readl(host, (regAddr + 4+16*i)),
+			sdhci_readl(host, (regAddr + 8 + 16* i)), sdhci_readl(host, (regAddr + 12 + 16* i)));
+	}
+
+	printk(KERN_ERR DRIVER_NAME ": 0x%08x | 0x%08x | 0x%08x\n\r",
+			sdhci_readl(host, 0x80), sdhci_readl(host, 0x84),
+			sdhci_readl(host, 0x88));
 
 	if (host->flags & SDHCI_USE_ADMA)
-		pr_debug(DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
+		printk(KERN_ERR DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
 		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
 		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
 
-	pr_debug(DRIVER_NAME ": ===========================================\n");
+	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");
 }
 
 /*****************************************************************************\
@@ -266,7 +242,7 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 
 	if (host->ops->platform_reset_enter)
 		host->ops->platform_reset_enter(host, mask);
-#ifdef CONFIG_MMC_SDHCI_SC8825
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
 	sdhci_writeb(host, mask | SDHCI_HW_RESET_CARD, SDHCI_SOFTWARE_RESET);
 #else
 	sdhci_writeb(host, mask, SDHCI_SOFTWARE_RESET);
@@ -1232,7 +1208,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			}
 			real_div = div;
 			div >>= 1;
-#ifdef CONFIG_ARCH_SC8825
+#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC8830)
 			if(div > 1) {
 				div --;/*for sc8825 freq = (clk_max / ((div +1) * 2))*/
 			}
@@ -1582,7 +1558,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		ctrl &= ~SDHCI_CTRL_HISPD;
 
 	if (host->version >= SDHCI_SPEC_300) {
-#ifdef CONFIG_MMC_SDHCI_SC8825
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
 		u16 clk;
 		u32 ctrl_2;
 #else
@@ -1646,7 +1622,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		if (host->ops->set_uhs_signaling)
 			host->ops->set_uhs_signaling(host, ios->timing);
 		else {
-#ifdef CONFIG_MMC_SDHCI_SC8825
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
 			ctrl_2 = sdhci_readl(host, SDHCI_HOST_CONTROL2 & (~0x3));
 			/* Select Bus Speed Mode for host */
 			ctrl_2 &= ~(SDHCI_CTRL_UHS_MASK << 16);
@@ -2125,7 +2101,7 @@ out:
 
 static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 {
-#ifdef CONFIG_MMC_SDHCI_SC8825
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
 	u32 ctrl;
 #else
 	u16 ctrl;
@@ -2145,7 +2121,7 @@ static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 	 * enabled or disabled respectively. Otherwise, we bail out.
 	 */
 	if (enable && !(ctrl & SDHCI_CTRL_PRESET_VAL_ENABLE)) {
-#ifdef CONFIG_MMC_SDHCI_SC8825
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
 		ctrl |= SDHCI_CTRL_PRESET_VAL_ENABLE << 16;
 		sdhci_writel(host, ctrl, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
@@ -2153,7 +2129,7 @@ static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 #endif
 	} else if (!enable && (ctrl & SDHCI_CTRL_PRESET_VAL_ENABLE)) {
-#ifdef CONFIG_MMC_SDHCI_SC8825
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
 		ctrl &= ~(SDHCI_CTRL_PRESET_VAL_ENABLE << 16);
 		sdhci_writel(host, ctrl, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
@@ -2175,12 +2151,16 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 }
 
 static const struct mmc_host_ops sdhci_ops = {
+#ifndef CONFIG_MACH_SP8830_FPGA
 	.enable				= sdhci_enable,
 	.disable			= sdhci_disable,
+#endif
 	.request			= sdhci_request,
 	.set_ios			= sdhci_set_ios,
 	.get_ro				= sdhci_get_ro,
+#ifndef CONFIG_MACH_SP8830_FPGA
 	.hw_reset			= sdhci_hw_reset,
+#endif
 	.enable_sdio_irq		= sdhci_enable_sdio_irq,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
 	.execute_tuning			= sdhci_execute_tuning,
@@ -2309,7 +2289,6 @@ static void sdhci_timeout_timer(unsigned long data)
 	if (host->mrq) {
 		pr_err("%s: Timeout waiting for hardware "
 			"interrupt.\n", mmc_hostname(host->mmc));
-		sdhci_dumpregs(host);
 		if(host->cmd){
 			printk(KERN_ERR "%s, cmd:%d timeout\n",
 					mmc_hostname(host->mmc), host->cmd->opcode);
@@ -2406,34 +2385,7 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 		sdhci_finish_command(host);
 }
 
-#ifdef CONFIG_MMC_DEBUG
-static void sdhci_show_adma_error(struct sdhci_host *host)
-{
-	const char *name = mmc_hostname(host->mmc);
-	u8 *desc = host->adma_desc;
-	__le32 *dma;
-	__le16 *len;
-	u8 attr;
-
-	sdhci_dumpregs(host);
-
-	while (true) {
-		dma = (__le32 *)(desc + 4);
-		len = (__le16 *)(desc + 2);
-		attr = *desc;
-
-		DBG("%s: %p: DMA 0x%08x, LEN 0x%04x, Attr=0x%02x\n",
-		    name, desc, le32_to_cpu(*dma), le16_to_cpu(*len), attr);
-
-		desc += 8;
-
-		if (attr & 2)
-			break;
-	}
-}
-#else
 static void sdhci_show_adma_error(struct sdhci_host *host) { }
-#endif
 
 static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 {
@@ -3335,10 +3287,6 @@ int sdhci_add_host(struct sdhci_host *host)
 		goto untasklet;
 #endif
 	sdhci_init(host, 0);
-
-#ifdef CONFIG_MMC_DEBUG
-	sdhci_dumpregs(host);
-#endif
 
 #ifdef SDHCI_USE_LEDS_CLASS
 	snprintf(host->led_name, sizeof(host->led_name),

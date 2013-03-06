@@ -317,6 +317,25 @@ config MMC_SDHCI_SC8825
 	  If you have SC8825 platform with SD Host Controller, say Y or M here.
 	  If unsure, say N.
 
+config MMC_SDHCI_SC8830
+	tristate "Spreadtrum SC8830 SD Host Controller support"
+	depends on  ARCH_SC8830
+	select MMC_SDHCI
+	help
+	  This selects the Secure Digital Host Controller Interface (SDHCI)
+	  often referrered to as the HSMMC block in Spreadtrum's SC8830 SoC
+	  seriels.
+
+	  If you have SC8830 platform with SD Host Controller, say Y or M here.
+	  If unsure, say N.
+
+config MACH_SP8830_FPGA
+	tristate "Spreadtrum SC8830 FPGA "
+	depends on  ARCH_SC8830
+	select MMC_SDHCI
+	help
+	  This selects the Secure Digital Host Controller work in fpga.
+
 choice
 	prompt "Atmel SD/MMC Driver"
 	depends on AVR32 || ARCH_AT91
