@@ -38,6 +38,7 @@
 #include <linux/akm8963.h>
 #endif
 #include <linux/spi/spi.h>
+#include <mach/adc.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
 #include <sound/audio_pa.h>
@@ -385,6 +386,7 @@ static int sc8810_add_misc_devices(void)
 
 static void __init sc8810_init_machine(void)
 {
+    sci_adc_init((void __iomem *)ADC_REG_BASE);
 	regulator_add_devices();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));

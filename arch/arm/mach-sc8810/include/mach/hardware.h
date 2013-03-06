@@ -318,6 +318,7 @@ register offset.
 #define SPRD_INTCV1_PHYS	0x80006000
 #define SPRD_INTCV1_SIZE	SZ_4K
 
+#define ADC_REG_BASE    ((unsigned int)SPRD_MISC_BASE + 0x300)
 #endif
 
 #endif
