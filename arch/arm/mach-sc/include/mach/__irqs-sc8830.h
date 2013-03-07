@@ -88,7 +88,6 @@
 #define IRQ_BM1_INT			SCI_IRQ(62)
 #define IRQ_BM2_INT			SCI_IRQ(63)
 #define IRQ_DRM_INT			SCI_IRQ(66)
-#if 0
 #define IRQ_CP0_DSP_INT			SCI_IRQ(67)
 #define IRQ_CP0_MCU0_INT			SCI_IRQ(68)
 #define IRQ_CP0_MCU1_INT			SCI_IRQ(69)
@@ -97,10 +96,11 @@
 #define IRQ_CP1_MCU1_INT			SCI_IRQ(72)
 #define IRQ_CP2_INT0_INT			SCI_IRQ(73)
 #define IRQ_CP2_INT1_INT			SCI_IRQ(74)
-#define IRQ_CP0_DSP_INT			SCI_IRQ(75)
+#define IRQ_CP0_DSP_FIQ_INT			SCI_IRQ(75)
 #define IRQ_CP0_MCU_FIQ0_INT			SCI_IRQ(76)
 #define IRQ_CP0_MCU_FIQ1_INT			SCI_IRQ(77)
 #define IRQ_CP1_MCU_FIQ_INT			SCI_IRQ(78)
+#if 0
 #define IRQ_NFC_INT			SCI_IRQ(79)
 #define IRQ_NFC_INT			SCI_IRQ(80)
 #define IRQ_NFC_INT			SCI_IRQ(81)
@@ -147,8 +147,7 @@
 #define IRQ_APWDG_INT			SCI_IRQ(123)
 #define IRQ_CA7WDG_INT			SCI_IRQ(124)
 
-/* FIXME: just for compiling issue */
-#define IRQ_SIPC_CPT			0
+#define IRQ_SIPC_CPT			IRQ_CP1_MCU0_INT
 
 /* translate gic irq number(user using ) to intc number */
 #define SCI_GET_INTC_IRQ(_IRQ_NUM_)	((_IRQ_NUM_) - IRQ_GIC_START)
