@@ -1174,7 +1174,7 @@ void jbd2_journal_update_superblock(journal_t *journal, int wait)
 	BUFFER_TRACE(bh, "marking dirty");
 	mark_buffer_dirty(bh);
 	if (wait) {
-		sync_dirty_buffer(bh);
+		sync_dirty_buffer_meta(bh);
 		if (buffer_write_io_error(bh)) {
 			printk(KERN_ERR "JBD2: I/O error detected "
 			       "when updating journal superblock for %s.\n",
@@ -1183,7 +1183,7 @@ void jbd2_journal_update_superblock(journal_t *journal, int wait)
 			set_buffer_uptodate(bh);
 		}
 	} else
-		write_dirty_buffer(bh, WRITE);
+		write_dirty_buffer(bh, WRITE_META);
 
 out:
 	/* If we have just flushed the log (by marking s_start==0), then

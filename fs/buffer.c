@@ -3051,6 +3051,12 @@ int sync_dirty_buffer(struct buffer_head *bh)
 }
 EXPORT_SYMBOL(sync_dirty_buffer);
 
+int sync_dirty_buffer_meta(struct buffer_head *bh)
+{
+        return __sync_dirty_buffer(bh, WRITE_FUA);
+}
+EXPORT_SYMBOL(sync_dirty_buffer_meta);
+
 /*
  * try_to_free_buffers() checks if all the buffers on this particular page
  * are unused, and releases them if so.
