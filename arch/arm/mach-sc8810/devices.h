@@ -35,6 +35,7 @@ extern struct platform_device sprd_audio_platform_vbc_pcm_device;
 extern struct platform_device sprd_audio_cpu_dai_vaudio_device;
 extern struct platform_device sprd_audio_cpu_dai_vbc_device;
 extern struct platform_device sprd_audio_codec_dolphin_device;
+extern struct platform_device sprd_audio_codec_sprd_codec_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 #ifdef CONFIG_ANDROID_PMEM

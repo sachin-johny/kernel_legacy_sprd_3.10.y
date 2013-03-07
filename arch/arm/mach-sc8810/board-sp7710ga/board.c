@@ -123,7 +123,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_audio_platform_vbc_pcm_device,
 	&sprd_audio_cpu_dai_vaudio_device,
 	&sprd_audio_cpu_dai_vbc_device,
-	&sprd_audio_codec_dolphin_device,
+	&sprd_audio_codec_sprd_codec_device,
 	&sprd_battery_device,
 #ifdef CONFIG_ANDROID_PMEM
 	&sprd_pmem_device,

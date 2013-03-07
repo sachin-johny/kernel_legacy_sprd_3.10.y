@@ -366,6 +366,11 @@ struct platform_device sprd_audio_codec_dolphin_device = {
 	.id             =  -1,
 };
 
+struct platform_device sprd_audio_codec_sprd_codec_device = {
+	.name           = "sprd-codec",
+	.id             =  -1,
+};
+
 static struct resource sprd_battery_resources[] = {
         [0] = {
                 .start = EIC_CHARGER_DETECT,
