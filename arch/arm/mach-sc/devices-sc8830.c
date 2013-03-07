@@ -26,8 +26,8 @@
 #include <linux/seth.h>
 #include <asm/pmu.h>
 #include <mach/hardware.h>
-#include <mach/regs_ahb.h>
-#include <mach/regs_glb.h>
+#include <mach/regs_sc8830_ap_ahb.h>
+#include <mach/regs_sc8830_ana_glb.h>
 #include <mach/irqs.h>
 #include <mach/board.h>
 #include <mach/kpd.h>
@@ -808,7 +808,7 @@ static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.clk_name = "clk_sdio0",
 	.clk_parent = "clk_sdio_src",
 	.enb_bit = BIT_SDIO0_EB,
-	.rst_bit = BIT_SD0_SOFT_RST,
+	.rst_bit = BIT_SDIO0_SOFT_RST,
 };
 
 struct platform_device sprd_sdio0_device = {
@@ -837,7 +837,7 @@ static struct sprd_host_platdata sprd_sdio1_pdata = {
 	.clk_name = "clk_sdio1",
 	.clk_parent = "clk_64m",
 	.enb_bit = BIT_SDIO1_EB,
-	.rst_bit = BIT_SD1_SOFT_RST,
+	.rst_bit = BIT_SDIO1_SOFT_RST,
 	.regs.is_valid = 1,
 };
 
@@ -867,7 +867,7 @@ static struct sprd_host_platdata sprd_sdio2_pdata = {
 	.clk_name = "clk_sdio2",
 	.clk_parent = "clk_192m",
 	.enb_bit = BIT_SDIO2_EB,
-	.rst_bit = BIT_SD2_SOFT_RST,
+	.rst_bit = BIT_SDIO2_SOFT_RST,
 };
 
 struct platform_device sprd_sdio2_device = {
@@ -895,8 +895,8 @@ static struct sprd_host_platdata sprd_emmc_pdata = {
 	.hw_name = "sprd-emmc",
 	.vdd_name = "vddsd3",
 	.clk_name = "clk_emmc",
-	.clk_parent = "clk_384m",
-	.max_clock = 384000000,
+	.clk_parent = "clk_36m",
+	.max_clock = 36000000,
 	.enb_bit = BIT_EMMC_EB,
 	.rst_bit = BIT_EMMC_SOFT_RST,
 	.regs.is_valid = 1,
