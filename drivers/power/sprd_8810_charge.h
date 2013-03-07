@@ -108,6 +108,10 @@
 #define CHAR_SW_POINT_SHIFT				0
 #define CHAR_SW_POINT_MSK       		(0x1F << CHAR_SW_POINT_SHIFT)
 
+/**/
+#ifdef CONFIG_ARCH_SC7710
+#define ADC_CHANNEL_VCHG                (ADC_CHANNEL_VCHGSEN)
+#endif
 /*
  * This enum defines the lowest switchover point between constant-current and
  * constant-volatage.
