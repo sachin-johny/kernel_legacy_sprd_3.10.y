@@ -74,8 +74,9 @@
 static DEFINE_SPINLOCK(adi_lock);
 static void sci_adi_lock(unsigned long *flags, unsigned long *hw_flags)
 {
+	local_irq_save(*flags);
 	*hw_flags = hw_local_irq_save();
-	spin_lock_irqsave(&adi_lock, *flags);
+	spin_lock(&adi_lock);
 	if (arch_get_hwlock(HWLOCK_ADI))
 		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout(arch_get_hwlock(HWLOCK_ADI), -1)));
 	else
@@ -87,8 +88,9 @@ static void sci_adi_unlock(unsigned long *flags, unsigned long *hw_flags)
 		hwspin_unlock(arch_get_hwlock(HWLOCK_ADI));
 	else
 		arch_hwunlock_fast(HWLOCK_ADI);
-	spin_unlock_irqrestore(&adi_lock, *flags);
+	spin_unlock(&adi_lock);
 	hw_local_irq_restore(*hw_flags);
+	local_irq_restore(*flags);
 }
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
