@@ -872,7 +872,9 @@ static int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
 	return ret;
 }
 
-static int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)
+/*static int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)*/
+static int sprd_v4l2_csi2_error(uint32_t err_id, uint32_t err_status, void* param)
+
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
@@ -881,7 +883,7 @@ static int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)
 	if (NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
-	printk("V4L2: sprd_v4l2_csi2_error \n");
+	printk("V4L2: sprd_v4l2_csi2_error %d,%d\n",err_id,err_status);
 
 	node.irq_flag = V4L2_CSI2_ERR;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
@@ -1639,7 +1641,7 @@ static void sprd_timer_callback(unsigned long data)
 
 	DCAM_TRACE("v4l2: sprd_timer_callback.\n");
 
-	if (NULL == data || 0 == atomic_read(&dev->stream_on)) {
+	if (NULL == dev || 0 == atomic_read(&dev->stream_on)) {
 		printk("timer callback error. \n");
 		return;
 	}
@@ -1732,7 +1734,7 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 	rt_word[0] = DCAM_SC_LINE_BUF_LENGTH;
 	rt_word[1] = DCAM_SC_COEFF_MAX;
-	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor \n", rt_word[0], rt_word[1]);
+	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor %d\n", rt_word[0], rt_word[1]);
 	(void)file; (void)cnt; (void)cnt_ret;
 	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
 }

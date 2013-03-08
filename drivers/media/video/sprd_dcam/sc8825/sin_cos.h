@@ -27,7 +27,7 @@
 
 #define pi              3.14159265359
 #define PI_32           0x3243F6A88              //pi * (1 << 32)
-#define ARC_32_COEF     2147483648
+#define ARC_32_COEF     2147483648UL
 //convert arc of double type to int32 type
 #define ARC_32(arc) (int32_t)((arc) / (pi) * 2147483648);
 

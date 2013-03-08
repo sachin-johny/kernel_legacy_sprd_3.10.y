@@ -167,7 +167,7 @@ static int32_t _dcam_set_sc_coeff(uint32_t path_index);
 static void    _dcam_force_copy(void);
 static void    _dcam_auto_copy(void);
 static void    _dcam_reg_trace(void);
-static void    _sensor_sof(void);
+//static void    _sensor_sof(void);
 static void    _sensor_eof(void);
 static void    _cap_sof(void);
 static void    _cap_eof(void);
@@ -239,7 +239,7 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 			rtn = DCAM_RTN_SUCCESS;
 		}
 	}
-MODULE_INIT_END:
+
 	return -rtn;
 }
 
@@ -274,7 +274,7 @@ int32_t dcam_module_en(void)
 		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
 		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
 	}
-MODULE_EN_END:
+
 	return ret;
 }
 
@@ -384,7 +384,7 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 	if (NULL == s_dcam_clk) {
 		s_dcam_clk = clk_get(NULL, "clk_dcam");
 		if (IS_ERR(s_dcam_clk)) {
-			printk("DCAM DRV: clk_get fail, %d \n", s_dcam_clk);
+			printk("DCAM DRV: clk_get fail, %d \n", (int)s_dcam_clk);
 			return -1;
 		} else {
 			DCAM_TRACE("DCAM DRV: get clk_parent ok \n");
@@ -395,7 +395,7 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 
 	clk_parent = clk_get(NULL, parent);
 	if (IS_ERR(clk_parent)) {
-		printk("DCAM DRV: dcam_set_clk fail, %d \n", clk_parent);
+		printk("DCAM DRV: dcam_set_clk fail, %d \n", (int)clk_parent);
 		return -1;
 	} else {
 		DCAM_TRACE("DCAM DRV: get clk_parent ok \n");
@@ -543,6 +543,7 @@ int32_t dcam_start(void)
 int32_t dcam_stop(void)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
+  	int                     ret = 0;
 
 	/* CAP_EB */
 	if (DCAM_CAPTURE_MODE_MULTIPLE == s_dcam_mod.dcam_mode) {
@@ -552,7 +553,10 @@ int32_t dcam_stop(void)
 			s_resize_wait = 1;
 			/* resize started , wait for it going to the end*/
 			DCAM_TRACE("DCAM DRV: dcam_stop, wait: %d \n", s_done_sema.count);
-			down_interruptible(&s_done_sema);
+			ret= down_interruptible(&s_done_sema);
+			if (ret) {
+				printk("DCAM DRV:dcam_stop down err %d.\n",ret);
+			}
 		}
 	}
 
@@ -640,7 +644,7 @@ int32_t dcam_pause(void)
 int32_t dcam_reg_isr(enum dcam_irq_id id, dcam_isr_func user_func, void* user_data)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
-	uint32_t                flag;
+	unsigned long           flag;
 
 	if(id >= USER_IRQ_NUMBER) {
 		rtn = DCAM_RTN_ISR_ID_ERR;
@@ -1406,7 +1410,7 @@ void dcam_int_dis(void)
 int32_t dcam_frame_is_locked(struct dcam_frame *frame)
 {
 	uint32_t                rtn = 0;
-	uint32_t                flags;
+	unsigned long     flags;
 
 	/*To disable irq*/
 	local_irq_save(flags);
@@ -1421,7 +1425,7 @@ int32_t dcam_frame_is_locked(struct dcam_frame *frame)
 int32_t dcam_frame_lock(struct dcam_frame *frame)
 {
 	uint32_t                rtn = 0;
-	uint32_t                flags;
+	unsigned long     flags;
 
 	DCAM_TRACE("DCAM DRV: dcam_frame_lock 0x%x \n", (uint32_t)frame);
 
@@ -1440,7 +1444,7 @@ int32_t dcam_frame_lock(struct dcam_frame *frame)
 int32_t dcam_frame_unlock(struct dcam_frame *frame)
 {
 	uint32_t                rtn = 0;
-	uint32_t                flags;
+	unsigned long     flags;
 
 	DCAM_TRACE("DCAM DRV: dcam_frame_unlock 0x%x \n", (uint32_t)frame);
 
@@ -1458,7 +1462,7 @@ int32_t dcam_frame_unlock(struct dcam_frame *frame)
 
 int32_t    dcam_read_registers(uint32_t* reg_buf, uint32_t *buf_len)
 {
-	uint32_t*               *reg_addr = (uint32_t*)DCAM_BASE;
+	uint32_t               *reg_addr = (uint32_t*)DCAM_BASE;
 
 	if (NULL == reg_buf || NULL == buf_len || 0 != (*buf_len % 4)) {
 		return -1;
@@ -1476,7 +1480,8 @@ int32_t    dcam_read_registers(uint32_t* reg_buf, uint32_t *buf_len)
 
 static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 {
-	uint32_t                status, i, irq_line, err_flag = 0, flag;
+	uint32_t                status, i, irq_line, err_flag = 0;
+	unsigned long           flag;
 	void                    *data;
 
 	status = REG_RD(DCAM_INT_STS);
@@ -1842,15 +1847,17 @@ static void _dcam_reg_trace(void)
 	}
 
 	printk("\n");
-#endif	
+#endif
 }
 
+#if 0
 static void    _sensor_sof(void)
 {
 	//DCAM_TRACE("DCAM DRV: _sensor_sof \n");
 
 	return;
 }
+#endif
 
 static void    _sensor_eof(void)
 {
@@ -1884,7 +1891,7 @@ static void    _path1_done(void)
 	printk("DCAM 1\n");
 
 	DCAM_TRACE("DCAM DRV: _path1_done, frame 0x%x, y uv, 0x%x 0x%x \n",
-		frame, frame->yaddr, frame->uaddr);
+		(uint32_t)frame, frame->yaddr, frame->uaddr);
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH1, false);
 	if (rtn) {
@@ -1921,7 +1928,7 @@ static void    _sensor_line_err(void)
 
 static void    _sensor_frame_err(void)
 {
-	printk("DCAM DRV: _sensor_eof \n");
+	printk("DCAM DRV: _sensor_frame_err \n");
 
 	return;
 }
@@ -1957,7 +1964,7 @@ static void    _path2_done(void)
 
 	frame->width = path->output_size.w;
 	frame->height = path->output_size.h;
-	
+
 
 	if(user_func)
 	{
@@ -1989,8 +1996,13 @@ static void    _mipi_ov(void)
 
 static void    _dcam_wait_for_stop(void)
 {
+	int ret = 0;
+
 	s_path1_wait = 1;
-	down_interruptible(&s_done_sema);
+	ret = down_interruptible(&s_done_sema);
+	if (ret) {
+		printk("DCAM DRV:_dcam_wait_for_stop err %d.\n",ret);
+	}
 	return;
 }
 

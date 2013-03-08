@@ -14,10 +14,10 @@ typedef unsigned short  u16;
 typedef unsigned int    u32;      
 typedef void * mutex_t;           
 */
-#define BIT(n)      (1 << n)      
+/*#define BIT(n)      (1 << n)*/
                                   
 typedef void (*handler_t)(void *);
 typedef void* (*thread_t)(void *);
                                   
 #endif /* TYPES_H_ */             
-                                        
+
