@@ -577,7 +577,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	case 3:
 		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
 		host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
-		
+		host->mmc->caps2 |= MMC_CAP2_HS200_1_8V_SDR;
 		break;
 	default:
 		BUG();
