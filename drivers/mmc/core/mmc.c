@@ -228,10 +228,8 @@ static int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 				mmc_hostname(card->host));
 			err = 0;
 		}
-	} else{
-		ext_csd[EXT_CSD_CARD_TYPE] &= 0xCF;
+	} else
 		*new_ext_csd = ext_csd;
-	}
 	return err;
 }
 
@@ -301,7 +299,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_1_8V:
 	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_1_2V:
 	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_52:
-		card->ext_csd.hs_max_dtr = 200000000;
+		card->ext_csd.hs_max_dtr = 104000000;
 		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_1_8V;
 		break;
 	case EXT_CSD_CARD_TYPE_DDR_52 | EXT_CSD_CARD_TYPE_52 |

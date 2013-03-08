@@ -1587,13 +1587,13 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		unsigned int clock;
 
 		/* In case of UHS-I modes, set High Speed Enable */
-		if ((ios->timing == MMC_TIMING_UHS_SDR50)
-			|| (ios->timing == MMC_TIMING_UHS_SDR104) )
+		if (ios->timing == MMC_TIMING_UHS_SDR50)
+			//|| (ios->timing == MMC_TIMING_UHS_SDR104) 
 			//|| (ios->timing == MMC_TIMING_UHS_DDR50) 
 			//||(ios->timing == MMC_TIMING_UHS_SDR25) 
 			//||(ios->timing == MMC_TIMING_UHS_SDR12))
 			ctrl |= SDHCI_CTRL_HISPD;
-		else	/* DDR50 this bit set 0 */
+		else	/* DDR50 & HS200 this bit set 0 */
 			ctrl &= ~SDHCI_CTRL_HISPD;
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 		
@@ -1657,8 +1657,13 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 				sdhci_writel(host, host_data->sdr50_read_pos_delay, SDHCI_RD_POS_DL);
 				sdhci_writel(host, host_data->sdr50_read_pos_delay, SDHCI_RD_NEG_DL);
 			}
-			else if (ios->timing == MMC_TIMING_UHS_SDR104)
+			else if ((ios->timing == MMC_TIMING_UHS_SDR104) 
+				|| (ios->timing == MMC_TIMING_MMC_HS200)) {
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR104 << 16);
+				sdhci_writel(host, 5, SDHCI_WR_DL);
+				sdhci_writel(host, 5, SDHCI_RD_POS_DL);
+				sdhci_writel(host, 5, SDHCI_RD_NEG_DL);
+			}
 			else if (ios->timing == MMC_TIMING_UHS_DDR50){
 				ctrl_2 |= (SDHCI_CTRL_UHS_DDR50 << 16);
 				/* set write/read delay value . 0x0080, 0x0084, 0x0088*/
@@ -1697,6 +1702,7 @@ static void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 * signalling timeout and CRC errors even on CMD0. Resetting
 	 * it on each ios seems to solve the problem.
 	 */
+
 	if(host->quirks & SDHCI_QUIRK_RESET_CMD_DATA_ON_IOS)
 		sdhci_reset(host, SDHCI_RESET_CMD | SDHCI_RESET_DATA);
 
@@ -2108,7 +2114,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.get_ro		= sdhci_get_ro,
 	.enable_sdio_irq = sdhci_enable_sdio_irq,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
-	.execute_tuning			= sdhci_execute_tuning,
+//	.execute_tuning			= sdhci_execute_tuning,
 	.enable_preset_value		= sdhci_enable_preset_value,
 #ifndef CONFIG_MACH_SP8825_FPGA
 	.hw_reset 			= sdhci_hw_reset,
