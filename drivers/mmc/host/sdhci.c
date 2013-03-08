@@ -1258,7 +1258,6 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	clk |= SDHCI_CLOCK_CARD_EN;
 #endif
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
-
 out:
 	host->clock = clock;
 }
@@ -1583,7 +1582,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			 * We only need to set Driver Strength if the
 			 * preset value enable is not set.
 			 */
-#ifdef CONFIG_MMC_SDHCI_SC8825
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
 			/*the driver strength is controller by pin, not sd controller in spreadtrum platform*/
 #else
 			ctrl_2 &= ~SDHCI_CTRL_DRV_TYPE_MASK;

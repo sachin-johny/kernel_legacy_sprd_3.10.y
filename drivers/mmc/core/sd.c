@@ -1015,8 +1015,10 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
  *        because of low sdio clock frequency.
  *        Delete CONFIG_MACH_SP8830_FPGA after chips back.
  */
-#if defined(CONFIG_MACH_SP8825_FPGA) || defined(CONFIG_MACH_SP8830_FPGA)
+#if defined(CONFIG_MACH_SP8825_FPGA)
 		mmc_set_clock(host, 24000000);
+#elif defined(CONFIG_MACH_SP8830_FPGA)
+		mmc_set_clock(host, 2000000);
 #else
 		if (err > 0)
 			mmc_sd_go_highspeed(card);
@@ -1310,7 +1312,6 @@ int mmc_attach_sd(struct mmc_host *host)
 	if (err)
 		goto err;
 #endif
-
 	mmc_release_host(host);
 	err = mmc_add_card(host->card);
 	mmc_claim_host(host);

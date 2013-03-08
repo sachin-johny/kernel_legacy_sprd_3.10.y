@@ -34,7 +34,7 @@
 
 #include "sc8830.h"
 
-#define     SDIO_MAX_CLK            16000000
+#define     SDIO_MAX_CLK            32000000
 
 /* regulator use uv to set voltage */
 #define     SDIO_VDD_VOLT_1V8       1800000
@@ -275,7 +275,7 @@ static unsigned int sdhci_sprd_get_max_clk(struct sdhci_host *host)
 	if (host_pdata->max_clock)
 		return host_pdata->max_clock;
 	else
-		return SDIO_MAX_CLK;
+		return SDIO_MAX_CLK;						/* used for SD fpga 32M */
 }
 
 /**
@@ -421,13 +421,12 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 #endif
 	struct sprd_host_data *host_data;
 
-printk ("YPXie : sdhci_sprd_probe \n\r");
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
 		dev_err(dev, "no irq specified\n");
 		return irq;
 	}
-printk ("YPXie: irq num= %d\n\r", irq);
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res) {
 		dev_err(dev, "no memory specified\n");
