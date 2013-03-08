@@ -46,16 +46,18 @@ static unsigned int l2x0_ways;
 #if defined (CONFIG_NKERNEL) && defined (CONFIG_ARCH_SC8825)
 static void l2x0_mp_lock(unsigned long *flags, unsigned long *hw_flags)
 {
+	local_irq_save(*flags);
 	*hw_flags = hw_local_irq_save();	/* prevent from OS preemption */
-	spin_lock_irqsave(&l2x0_lock, *flags);
+	spin_lock(&l2x0_lock);
 	arch_hwlock_fast(HWLOCK_CACHE);
 }
 
 static void l2x0_mp_unlock(unsigned long *flags, unsigned long *hw_flags)
 {
 	arch_hwunlock_fast(HWLOCK_CACHE);
-	spin_unlock_irqrestore(&l2x0_lock, *flags);
+	spin_unlock(&l2x0_lock);
 	hw_local_irq_restore(*hw_flags);
+	local_irq_restore(*flags);
 }
 
 #if defined(spin_lock_irqsave)
