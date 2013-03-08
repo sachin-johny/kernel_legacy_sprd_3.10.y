@@ -45,7 +45,9 @@ enum {
 	SMSG_CH_PIPE,		/* general pipe channel */
 	SMSG_CH_PLOG,		/* pipe for debug log/dump */
 	SMSG_CH_TTY,		/* virtual serial for telephony */
-	SMSG_CH_DATA,		/* 2G/3G wirleless data */
+	SMSG_CH_DATA0,		/* 2G/3G wirleless data */
+	SMSG_CH_DATA1,		/* 2G/3G wirleless data */
+	SMSG_CH_DATA2,		/* 2G/3G wirleless data */
 	SMSG_CH_VBC,		/* audio conrol channel */
 	SMSG_CH_PLAYBACK, 	/* audio playback channel */
 	SMSG_CH_CAPTURE,	/* audio capture channel */

@@ -1035,15 +1035,37 @@ struct platform_device sprd_spool_td_device = {
 };
 
 
-static struct seth_init_data sprd_seth_td_pdata = {
+static struct seth_init_data sprd_seth0_td_pdata = {
 	.name		= "veth0",
 	.dst		= SIPC_ID_CPT,
-	.channel	= SMSG_CH_DATA,
+	.channel	= SMSG_CH_DATA0,
 };
-struct platform_device sprd_seth_td_device = {
+struct platform_device sprd_seth0_td_device = {
 	.name           = "seth",
 	.id             =  0,
-	.dev		= {.platform_data = &sprd_seth_td_pdata},
+	.dev		= {.platform_data = &sprd_seth0_td_pdata},
+};
+
+static struct seth_init_data sprd_seth1_td_pdata = {
+	.name		= "veth1",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA1,
+};
+struct platform_device sprd_seth1_td_device = {
+	.name           = "seth",
+	.id             =  1,
+	.dev		= {.platform_data = &sprd_seth1_td_pdata},
+};
+
+static struct seth_init_data sprd_seth2_td_pdata = {
+	.name		= "veth2",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA2,
+};
+struct platform_device sprd_seth2_td_device = {
+	.name           = "seth",
+	.id             =  2,
+	.dev		= {.platform_data = &sprd_seth2_td_pdata},
 };
 
 static struct saudio_init_data  sprd_saudio_td={
