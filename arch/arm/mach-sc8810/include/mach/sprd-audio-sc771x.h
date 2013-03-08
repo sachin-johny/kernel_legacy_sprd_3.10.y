@@ -51,11 +51,7 @@ enum {
 #define SPRD_IRAM_ALL_SIZE	SZ_32K
 #endif
 
-#ifdef CONFIG_ARCH_SC7710
-#define	AUDIO_CTRL		(SPRD_MISC_BASE + 0x0088)
-#else
-#define	AUDIO_CTRL		(SPRD_MISC_BASE + 0x888)
-#endif
+#define	AUDIO_CTRL		(SPRD_MISC_BASE + 0x0888)
 #define BIT_AUD_ARM_ACC                 ( BIT(15) )
 #define BIT_AUDRX_ARM_SOFT_RST          ( BIT(10) )
 #define BIT_AUDTX_ARM_SOFT_RST          ( BIT(9) )
@@ -133,14 +129,14 @@ static inline int arch_audio_vbc_switch(int master)
 #if FIXED_AUDIO
 	switch (master) {
 	case AUDIO_TO_ARM_CTRL:
-		sprd_greg_set_bits(REG_TYPE_GLOBAL, BIT_AUD_IF_MUX, GR_AUD_CTRL);
+		sprd_greg_clear_bits(REG_TYPE_GLOBAL, BIT_AUD_IF_MUX, GR_AUD_CTRL);
 		break;
 	case AUDIO_TO_DSP_CTRL:
-		sprd_greg_clear_bits(REG_TYPE_GLOBAL, BIT_AUD_IF_MUX, GR_AUD_CTRL);
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, BIT_AUD_IF_MUX, GR_AUD_CTRL);
 		break;
 	case AUDIO_NO_CHANGE:
 		ret = sprd_greg_read(REG_TYPE_GLOBAL, GR_AUD_CTRL) & BIT_AUD_IF_MUX;
-		if (ret == 0)
+		if (ret == 1)
 			ret = AUDIO_TO_DSP_CTRL;
 		else
 			ret = AUDIO_TO_ARM_CTRL;
@@ -434,7 +430,7 @@ static inline int arch_audio_codec_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	int mask =
+	int mask = BIT_AUD6M5_CLK_TX_INV_ARM_EN |
 	    BIT_RTC_AUD_ARM_EN | BIT_CLK_AUD_6M5_ARM_EN | BIT_CLK_AUDIF_ARM_EN;
 	ret = sci_adi_write(AUDIO_CTRL, mask, mask);
 	if (ret >= 0)

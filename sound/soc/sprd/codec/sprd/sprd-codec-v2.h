@@ -74,7 +74,7 @@
 #define DAC_MUTE_U_RAW		(3)
 #define DAC_MUTE_D_RAW		(2)
 #define DAC_MUTE_ST		(0)
-#define DAC_MUTE_ST_MASK	(0)
+#define DAC_MUTE_ST_MASK	(0x3)
 
 /* AUD_INT_CLR */
 /* AUD_INT_EN */
@@ -110,7 +110,7 @@
 #define VB_EN			(7)
 #define VBO_EN			(6)
 #define HEADMICBIAS_EN		(5)
-#define MICBIAS_V		(4)
+#define MICBIAS_V		(3)
 #define MICBIAS_V_MASK		(0x3)
 #define MICBIAS_HV_EN		(2)
 #define HEADMIC_SLEEP_EN	(1)
@@ -314,7 +314,7 @@
 #define IFR4_IFR3			(SPRD_CODEC_AP_BASE + 0x00CC)
 /* 0x00D0 ~ 0x00D8 is reserved */
 
-#define SPRD_CODEC_AP_END		(SPRD_CODEC_AP_BASE + 0x00CC)
+#define SPRD_CODEC_AP_END		(SPRD_CODEC_AP_BASE + 0x00DC)
 #define IS_SPRD_CODEC_AP_RANG(reg) (((reg) >= SPRD_CODEC_AP_BASE) && ((reg) < SPRD_CODEC_AP_END))
 
 #endif /* __SPRD_CODEC_V2_H */
