@@ -173,8 +173,8 @@ const char *sprd_codec_mixer_debug_str[SPRD_CODEC_MIXER_MAX] = {
 	"ADCL->SPKR",
 	"ADCR->SPKL",
 	"ADCR->SPKR",
-	"ADCL->EAR",
-	"ADCR->EAR(bug)"
+	"DACL->EAR",
+	"DACR->EAR(bug)"
 };
 
 #define IS_SPRD_CODEC_MIXER_RANG(reg) (((reg) >= SPRD_CODEC_MIXER_START) && ((reg) <= SPRD_CODEC_MIXER_MAX))
@@ -778,7 +778,7 @@ int sprd_inter_speaker_pa(int on)
 	mutex_lock(&inter_pa_mutex);
 	if (on) {
 		sprd_codec_pa_d_en(inter_pa.setting.is_classD_mode);
-		sprd_codec_pa_d_en(inter_pa.setting.is_DEMI_mode);
+		sprd_codec_pa_demi_en(inter_pa.setting.is_DEMI_mode);
 		sprd_codec_pa_ldo_en(inter_pa.setting.is_LDO_mode);
 		if (inter_pa.setting.is_LDO_mode
 		    && !inter_pa.setting.is_auto_LDO_mode) {
