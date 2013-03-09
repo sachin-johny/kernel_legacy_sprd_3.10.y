@@ -100,6 +100,22 @@
 #define EAR_OCP_IRQ		(1)
 #define HP_OCP_IRQ		(0)
 
+
+#define LDO_V_29		(0)
+#define LDO_V_31		(1)
+#define LDO_V_32		(2)
+#define LDO_V_33		(3)
+#define LDO_V_34		(4)
+#define LDO_V_35		(5)
+#define LDO_V_36		(6)
+#define LDO_V_38		(7)
+
+#define MIC_LDO_V_21		(0)
+#define MIC_LDO_V_19		(1)
+#define MIC_LDO_V_23		(2)
+#define MIC_LDO_V_25		(3)
+
+
 /* PMUR2_PMUR1 */
 #define PA_SW_EN		(15)
 #define PA_LDO_EN		(14)
