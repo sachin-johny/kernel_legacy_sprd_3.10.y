@@ -51,7 +51,11 @@ static void bt_clk_init(bool clk_on )
     if(clk_on)
     {
         struct clk *clk_parent;
+#ifdef CONFIG_MACH_SP7710GA
+        bt_clk = clk_get(NULL, "clk_aux1");
+#else
         bt_clk = clk_get(NULL, "clk_aux0");
+#endif
         if (IS_ERR(bt_clk)) {
             printk("clock: failed to get clk_aux0\n");
         }
