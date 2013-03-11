@@ -80,7 +80,6 @@ static void gps_reset(int is_reset)
 	if(GPIO_UNCONFIG != data->reset_pin) {
 		gpio_set_value(data->reset_pin, is_reset);
 	}
-	return 0;
 }
 static void gps_onoff(int is_onoff)
 {
