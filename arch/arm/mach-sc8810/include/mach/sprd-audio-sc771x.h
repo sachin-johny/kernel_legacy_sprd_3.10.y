@@ -136,7 +136,7 @@ static inline int arch_audio_vbc_switch(int master)
 		break;
 	case AUDIO_NO_CHANGE:
 		ret = sprd_greg_read(REG_TYPE_GLOBAL, GR_AUD_CTRL) & BIT_AUD_IF_MUX;
-		if (ret == 1)
+		if (ret != 0)
 			ret = AUDIO_TO_DSP_CTRL;
 		else
 			ret = AUDIO_TO_ARM_CTRL;
