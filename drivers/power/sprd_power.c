@@ -313,11 +313,7 @@ static ssize_t sprd_show_caliberate(struct device *dev,
 		break;
 	case CHARGER_VOLTAGE:
 		if (battery_data->charging) {
-            #ifdef CONFIG_ARCH_SC7710
-            adc_value = sci_adc_get_value(ADC_CHANNEL_VCHGBG, false);
-            #else
 			adc_value = sci_adc_get_value(ADC_CHANNEL_VCHG, false);
-            #endif
             if (adc_value < 0)
 				voltage = 0;
 			else
@@ -607,11 +603,9 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 			vprog_current = get_vprog_value(battery_data);
 
 		}
-        #ifdef  CONFIG_ARCH_SC7710
-        vchg_value = sci_adc_get_value(ADC_CHANNEL_VCHGBG, false);
-        #else
+
 		vchg_value = sci_adc_get_value(ADC_CHANNEL_VCHG, false);
-        #endif
+
         if (vchg_value < 0)
 			goto out;
 		vchg_vol = sprd_charger_adc_to_vol(battery_data, vchg_value);
