@@ -19,9 +19,7 @@ obj-$(CONFIG_SIPC) += sipc.o
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 obj-$(CONFIG_SC_VIBRATOR) += vibrator.o
 
-ifeq ($(CONFIG_RTL8723AS),m)
-	obj-y  += rtl8723_adapter.o
-endif
+obj-$(CONFIG_BCMDHD)  += dhd_adapter.o
 
 obj-$(CONFIG_MACH_SP8825EA) += board-sp8825ea.o pinmap-sp8825ea.o dma_r1p0.o
 obj-$(CONFIG_MACH_SP8830FPGA) += board-sp8830fpga.o pinmap-sp8830fpga.o dma_r4p0.o

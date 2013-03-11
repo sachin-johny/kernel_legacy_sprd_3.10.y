@@ -552,6 +552,9 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
 	if(pdev->id == 1){
 		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
+		host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_PM_KEEP_POWER;
+		pm_runtime_disable(&(pdev)->dev);
+		host_data->platdata->regs.is_valid = 1;
 	}
     	if(pdev->id == 3){
 		pm_runtime_disable(&(pdev)->dev);
@@ -716,6 +719,15 @@ static int sdhci_runtime_suspend(struct device *dev){
 	struct sdhci_host *host = dev_get_drvdata(dev);
 	struct mmc_host *mmc = host->mmc;
 	int rc = 0;
+
+#ifdef MMC_RESTORE_REGS
+	if(host->mmc && host->mmc->card)
+		host->ops->save_regs(host);
+
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dump_saved_regs(host);
+#endif
+#endif
 	if (mmc) {
 		mmc->suspend_task = current;
 
@@ -761,6 +773,14 @@ static int sdhci_runtime_resume(struct device *dev){
 			printk("%s, runtime resume failed, err:%d\n", mmc_hostname(mmc), err);
 		(host->mmc)->bus_resume_flags |= MMC_BUSRESUME_MANUAL_RESUME;
 	}
+#ifdef MMC_RESTORE_REGS
+#ifdef CONFIG_MMC_DEBUG
+	sdhci_dump_saved_regs(host);
+#endif
+
+	if(host->mmc && host->mmc->card)
+		host->ops->restore_regs(host);
+#endif
 
 	return 0;
 }
@@ -869,6 +889,11 @@ static int sdhci_pm_resume(struct device *dev)
 			}
 		}
 	}
+	if (!pm_runtime_suspended(dev))
+		if(host->ops->set_clock){
+			clock = host->clock;
+			host->ops->set_clock(host, clock);
+		}
 #ifdef MMC_RESTORE_REGS
 
 #ifdef CONFIG_MMC_DEBUG
@@ -881,12 +906,6 @@ static int sdhci_pm_resume(struct device *dev)
 #ifdef CONFIG_MMC_DEBUG
 	sdhci_dumpregs(host);
 #endif
-
-	if (!pm_runtime_suspended(dev))
-		if(host->ops->set_clock){
-			clock = host->clock;
-			host->ops->set_clock(host, clock);
-		}
 	return 0;
 }
 
