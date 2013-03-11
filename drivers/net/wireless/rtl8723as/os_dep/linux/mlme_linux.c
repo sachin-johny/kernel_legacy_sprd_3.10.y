@@ -131,6 +131,8 @@ void rtw_init_mlme_timer(_adapter *padapter)
 	_init_workitem(&(pmlmepriv->Linkup_workitem), Linkup_workitem_callback, padapter);
 	_init_workitem(&(pmlmepriv->Linkdown_workitem), Linkdown_workitem_callback, padapter);
 #endif
+	if (padapter->HalFunc.hal_init_checkbthang_workqueue)
+		padapter->HalFunc.hal_init_checkbthang_workqueue(padapter);
 
 }
 

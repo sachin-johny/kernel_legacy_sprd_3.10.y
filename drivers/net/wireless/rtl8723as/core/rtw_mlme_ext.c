@@ -250,21 +250,23 @@ static RT_CHANNEL_PLAN_MAP	RTW_ChannelPlanMap[RT_CHANNEL_DOMAIN_MAX] = {
 static RT_CHANNEL_PLAN_MAP	RTW_CHANNEL_PLAN_MAP_REALTEK_DEFINE = {0x03,0x02}; //use the conbination for max channel numbers
 
 /*
-* Test if the given @param channel_set contains the channel specified by @param channel_num
-* @param channel_set the given channel set
-* @param channel_num the given channel number
-* @return _TRUE or _FALSE
+ * Search the @param channel_num in given @param channel_set
+ * @ch_set: the given channel set
+ * @ch: the given channel number
+ *
+ * return the index of channel_num in channel_set, -1 if not found
 */
-int rtw_is_channel_set_contains_channel(RT_CHANNEL_INFO *channel_set, const u32 channel_num)
+int rtw_ch_set_search_ch(RT_CHANNEL_INFO *ch_set, const u32 ch)
 {
 	int i;
-	for(i=0;channel_set[i].ChannelNum!=0;i++){
-		if(channel_num == channel_set[i].ChannelNum)
-			return _TRUE;
+	for(i=0;ch_set[i].ChannelNum!=0;i++){
+		if(ch == ch_set[i].ChannelNum)
+			break;
 	}
-	if(channel_set[i].ChannelNum == 0)
-		return _FALSE;
-	return _TRUE;
+
+	if(i >= ch_set[i].ChannelNum)
+		return -1;
+	return i;
 }
 
 /****************************************************************************
@@ -341,6 +343,8 @@ static void init_mlme_ext_priv_value(_adapter* padapter)
 	pmlmeinfo->preamble_mode = PREAMBLE_AUTO;
 
 	pmlmeinfo->dialogToken = 0;
+	pmlmeext->action_public_rxseq = 0xffff;
+	pmlmeext->action_public_dialog_token = 0xff;
 }
 
 static u8 init_channel_set(_adapter* padapter, u8 ChannelPlan, RT_CHANNEL_INFO *channel_set)
@@ -1282,6 +1286,8 @@ unsigned int OnAuth(_adapter *padapter, union recv_frame *precv_frame)
 	// Now, we are going to issue_auth...
 	pstat->auth_seq = seq + 1;
 
+	/* soft ap power save */
+	pmlmeext->onauth_time = rtw_get_current_time();
 #ifdef CONFIG_NATIVEAP_MLME
 	issue_auth(padapter, pstat, (unsigned short)(_STATS_SUCCESSFUL_));
 #endif
@@ -2160,6 +2166,12 @@ unsigned int OnDeAuth(_adapter *padapter, union recv_frame *precv_frame)
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	u8 *pframe = precv_frame->u.hdr.rx_data;
 
+#ifdef CONFIG_WOWLAN_8723
+	//block here for wowlan system suspend only, Added by YJ,121218
+	if(padapter->pwrctrlpriv.wowlan_mode){
+		return _SUCCESS;
+	}
+#endif
 	//check A3
 	if (!(_rtw_memcmp(GetAddr3Ptr(pframe), get_my_bssid(&pmlmeinfo->network), ETH_ALEN)))
 		return _SUCCESS;
@@ -5339,7 +5351,7 @@ void issue_probereq_p2p(_adapter *padapter)
 unsigned int OnAction_public(_adapter *padapter, union recv_frame *precv_frame)
 {
 	unsigned char		*frame_body;
-	unsigned char		category, action;
+	unsigned char		category, action, dialogToken=0;
 	u8 *pframe = precv_frame->u.hdr.rx_data;
 	uint len = precv_frame->u.hdr.len;
 #ifdef CONFIG_P2P
@@ -5358,11 +5370,15 @@ unsigned int OnAction_public(_adapter *padapter, union recv_frame *precv_frame)
 	if (!_rtw_memcmp(myid(&(padapter->eeprompriv)), GetAddr1Ptr(pframe), ETH_ALEN))//for if1, sta/ap mode
 		return _SUCCESS;
 
+	frame_body = (unsigned char *)(pframe + sizeof(struct rtw_ieee80211_hdr_3addr));
+
+	dialogToken = frame_body[7];
 
 	//recv_decache check
 	if(GetRetry(pframe))
 	{
-		if(seq_ctrl == pmlmeext->action_public_rxseq)
+		if((seq_ctrl == pmlmeext->action_public_rxseq)
+			&& (dialogToken == pmlmeext->action_public_dialog_token))
 		{
 			DBG_871X("recv_Action_public_decache, seq_ctrl=0x%x, rxseq=0x%x\n", seq_ctrl, pmlmeext->action_public_rxseq);
 
@@ -5370,9 +5386,7 @@ unsigned int OnAction_public(_adapter *padapter, union recv_frame *precv_frame)
 		}
 	}
 	pmlmeext->action_public_rxseq = seq_ctrl;
-
-
-	frame_body = (unsigned char *)(pframe + sizeof(struct rtw_ieee80211_hdr_3addr));
+	pmlmeext->action_public_dialog_token = dialogToken;
 
 	category = frame_body[0];
 	if(category != RTW_WLAN_CATEGORY_PUBLIC)
@@ -5929,6 +5943,37 @@ s32 dump_mgntframe_and_wait(_adapter *padapter, struct xmit_frame *pmgntframe, i
 		ret = rtw_sctx_wait(&sctx);
 
 	 return ret;
+}
+
+s32 dump_mgntframe_and_wait_ack(_adapter *padapter, struct xmit_frame *pmgntframe)
+{
+#ifdef CONFIG_XMIT_ACK
+	s32 ret = _FAIL;
+	u32 timeout_ms = 500;//  500ms
+	struct xmit_priv	*pxmitpriv = &padapter->xmitpriv;
+
+	if(padapter->bSurpriseRemoved == _TRUE ||
+		padapter->bDriverStopped == _TRUE)
+		return ret;
+
+	_enter_critical_mutex(&pxmitpriv->ack_tx_mutex, NULL);
+	pxmitpriv->ack_tx = _TRUE;
+
+	pmgntframe->ack_report = 1;
+	if(rtw_hal_mgnt_xmit(padapter, pmgntframe) == _SUCCESS)
+	{
+		if(rtw_ack_tx_wait(pxmitpriv, timeout_ms))
+			ret = _SUCCESS;
+	}
+
+	pxmitpriv->ack_tx = _FALSE;
+	_exit_critical_mutex(&pxmitpriv->ack_tx_mutex, NULL);
+
+	 return ret;
+#else //!CONFIG_XMIT_ACK
+	dump_mgntframe(padapter, pmgntframe);
+	return _SUCCESS;
+#endif //!CONFIG_XMIT_ACK
 }
 
 int update_hidden_ssid(u8 *ies, u32 ies_len, u8 hidden_ssid_mode)
@@ -6728,6 +6773,8 @@ void issue_auth(_adapter *padapter, struct sta_info *psta, unsigned short status
 
 	rtw_wep_encrypt(padapter, (u8 *)pmgntframe);
 	DBG_871X("%s\n", __FUNCTION__);
+	/* dont scan under linking state */
+	padapter->pwrctrlpriv.DelayLPSLastTimeStamp = rtw_get_current_time();
 	dump_mgntframe(padapter, pmgntframe);
 
 	return;
@@ -8066,23 +8113,34 @@ void site_survey(_adapter *padapter)
 	{
 		//	Commented by Albert 2011/06/03
 		//	The driver is in the find phase, it should go through the social channel.
+		int ch_set_idx;
 		survey_channel = pwdinfo->social_chan[pmlmeext->sitesurvey_res.channel_idx];
+		ch_set_idx = rtw_ch_set_search_ch(pmlmeext->channel_set, survey_channel);
+		if (ch_set_idx >= 0)
+			ScanType = pmlmeext->channel_set[ch_set_idx].ScanType;
+		else
+			ScanType = SCAN_ACTIVE;
 	}
 	else
 #endif //CONFIG_P2P
 	{
-		survey_channel = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ChannelNum;
+		struct rtw_ieee80211_channel *ch;
+		if (pmlmeext->sitesurvey_res.channel_idx < pmlmeext->sitesurvey_res.ch_num) {
+			ch = &pmlmeext->sitesurvey_res.ch[pmlmeext->sitesurvey_res.channel_idx];
+			survey_channel = ch->hw_value;
+			ScanType = (ch->flags & RTW_IEEE80211_CHAN_PASSIVE_SCAN) ? SCAN_PASSIVE : SCAN_ACTIVE;
+		}
 	}
 
-	ScanType = pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].ScanType;
-
-	//DBG_871X("switching to ch:%d (cnt:%u,idx:%d) at %dms, %c%c%c\n"
-	//	, survey_channel
-	//	, pwdinfo->find_phase_state_exchange_cnt, pmlmeext->sitesurvey_res.channel_idx
-	//	, rtw_get_passing_time_ms(padapter->mlmepriv.scan_start_time)
-	//	, ScanType?'A':'P', pmlmeext->sitesurvey_res.scan_mode?'A':'P'
-	//	, pmlmeext->sitesurvey_res.ssid[0].SsidLength?'S':' '
-	//);
+	if (0)
+	DBG_871X(FUNC_ADPT_FMT" ch:%u(cnt:%u,idx:%d) at %dms, %c%c%c\n"
+		, FUNC_ADPT_ARG(padapter)
+		, survey_channel
+		, pwdinfo->find_phase_state_exchange_cnt, pmlmeext->sitesurvey_res.channel_idx
+		, rtw_get_passing_time_ms(padapter->mlmepriv.scan_start_time)
+		, ScanType?'A':'P', pmlmeext->sitesurvey_res.scan_mode?'A':'P'
+		, pmlmeext->sitesurvey_res.ssid[0].SsidLength?'S':' '
+	);
 
 	if(survey_channel != 0)
 	{
@@ -8493,10 +8551,7 @@ u8 collect_bss_info(_adapter *padapter, union recv_frame *precv_frame, WLAN_BSSI
 		}
 		else
 		{ // use current channel
-			if (padapter->mlmeextpriv.sitesurvey_res.state == SCAN_PROCESS)
-				bssid->Configuration.DSConfig = padapter->mlmeextpriv.channel_set[padapter->mlmeextpriv.sitesurvey_res.channel_idx].ChannelNum;
-			else
-				bssid->Configuration.DSConfig = padapter->mlmeextpriv.cur_channel;
+			bssid->Configuration.DSConfig = pmlmeext->oper_channel;
 		}
 	}
 
@@ -8558,14 +8613,14 @@ u8 collect_bss_info(_adapter *padapter, union recv_frame *precv_frame, WLAN_BSSI
 	if(strcmp(bssid->Ssid.Ssid, DBG_RX_SIGNAL_DISPLAY_SSID_MONITORED) == 0) {
 		DBG_871X("Receiving %s("MAC_FMT", DSConfig:%u) from ch%u with ss:%3u, sq:%3u, RawRSSI:%3ld\n"
 			, bssid->Ssid.Ssid, MAC_ARG(bssid->MacAddress), bssid->Configuration.DSConfig
-			, padapter->mlmeextpriv.channel_set[padapter->mlmeextpriv.sitesurvey_res.channel_idx].ChannelNum
+			, pmlmeext->oper_channel
 			, bssid->PhyInfo.SignalStrength, bssid->PhyInfo.SignalQuality, bssid->Rssi
 		);
 	}
 	#endif
 
 	// mark bss info receving from nearby channel as SignalQuality 101
-	if(bssid->Configuration.DSConfig != padapter->mlmeextpriv.channel_set[padapter->mlmeextpriv.sitesurvey_res.channel_idx].ChannelNum)
+	if(bssid->Configuration.DSConfig != pmlmeext->oper_channel)
 	{
 		bssid->PhyInfo.SignalQuality= 101;
 	}
@@ -9063,6 +9118,7 @@ static void process_80211d(PADAPTER padapter, WLAN_BSSID_EX *bssid)
 #endif
 #endif
 
+		#if 0
 		// recover the right channel index
 		channel = chplan_sta[pmlmeext->sitesurvey_res.channel_idx].ChannelNum;
 		k = 0;
@@ -9077,6 +9133,7 @@ static void process_80211d(PADAPTER padapter, WLAN_BSSID_EX *bssid)
 			}
 			k++;
 		}
+		#endif
 	}
 
 	// If channel is used by AP, set channel scan type to active
@@ -9958,7 +10015,7 @@ void survey_timer_hdl(_adapter *padapter)
 			else
 			#endif
 			{
-				pmlmeext->sitesurvey_res.channel_idx = pmlmeext->max_chan_nums;
+				pmlmeext->sitesurvey_res.channel_idx = pmlmeext->sitesurvey_res.ch_num;
 				DBG_871X("%s idx:%d\n", __FUNCTION__
 					, pmlmeext->sitesurvey_res.channel_idx
 				);
@@ -10498,6 +10555,50 @@ u8 disconnect_hdl(_adapter *padapter, unsigned char *pbuf)
 	return 	H2C_SUCCESS;
 }
 
+int rtw_scan_ch_decision(_adapter *padapter, struct rtw_ieee80211_channel *out,
+	u32 out_num, struct rtw_ieee80211_channel *in, u32 in_num)
+{
+	int i, j;
+	int set_idx;
+	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
+
+	/* clear out first */
+	_rtw_memset(out, 0, sizeof(struct rtw_ieee80211_channel)*out_num);
+
+	/* acquire channels from in */
+	j = 0;
+	for (i=0;i<in_num;i++) {
+		DBG_871X(FUNC_ADPT_FMT" "CHAN_FMT"\n", FUNC_ADPT_ARG(padapter), CHAN_ARG(&in[i]));
+		if(in[i].hw_value && !(in[i].flags & RTW_IEEE80211_CHAN_DISABLED)
+			&& (set_idx=rtw_ch_set_search_ch(pmlmeext->channel_set, in[i].hw_value)) >=0
+		)
+		{
+			_rtw_memcpy(&out[j], &in[i], sizeof(struct rtw_ieee80211_channel));
+
+			if(pmlmeext->channel_set[set_idx].ScanType == SCAN_PASSIVE)
+				out[j].flags &= RTW_IEEE80211_CHAN_PASSIVE_SCAN;
+
+			j++;
+		}
+		if(j>=out_num)
+			break;
+	}
+
+	/* if out is empty, use channel_set as default */
+	if(j == 0) {
+		for (i=0;i<pmlmeext->max_chan_nums;i++) {
+			out[i].hw_value = pmlmeext->channel_set[i].ChannelNum;
+
+			if(pmlmeext->channel_set[i].ScanType == SCAN_PASSIVE)
+				out[i].flags &= RTW_IEEE80211_CHAN_PASSIVE_SCAN;
+
+			j++;
+		}
+	}
+
+	return j;
+}
+
 u8 sitesurvey_cmd_hdl(_adapter *padapter, u8 *pbuf)
 {
 	struct mlme_ext_priv	*pmlmeext = &padapter->mlmeextpriv;
@@ -10528,6 +10629,11 @@ u8 sitesurvey_cmd_hdl(_adapter *padapter, u8 *pbuf)
 				pmlmeext->sitesurvey_res.ssid[i].SsidLength= 0;
 			}
 		}
+
+		pmlmeext->sitesurvey_res.ch_num = rtw_scan_ch_decision(padapter
+			, pmlmeext->sitesurvey_res.ch, RTW_CHANNEL_SCAN_AMOUNT
+			, pparm->ch, pparm->ch_num
+		);
 
 		pmlmeext->sitesurvey_res.scan_mode = pparm->scan_mode;
 #ifdef CONFIG_DUALMAC_CONCURRENT

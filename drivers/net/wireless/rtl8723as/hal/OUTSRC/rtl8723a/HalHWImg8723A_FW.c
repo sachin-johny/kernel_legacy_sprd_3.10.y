@@ -17,11 +17,13 @@
 *
 *
 ******************************************************************************/
-
+#if 0
 #include "Mp_Precomp.h"
+#endif
 #include "../odm_precomp.h"
 
 #if (RTL8723A_SUPPORT == 1)
+#if(DM_ODM_SUPPORT_TYPE & (ODM_AP))
 u1Byte Array_8723A_rtl8723fw[] = {
 
 };
@@ -1591,8 +1593,10 @@ ODM_ReadFirmware_8723A_rtl8723fw_B(
      ODM_MoveMemory(pDM_Odm, pFirmware, Array_8723A_rtl8723fw_B, ArrayLength_8723A_rtl8723fw_B);
      *pFirmwareSize = ArrayLength_8723A_rtl8723fw_B;
 }
+#else
 
 
+#endif //(DM_ODM_SUPPORT_TYPE & (ODM_AP))
 
 #endif // end of HWIMG_SUPPORT
 

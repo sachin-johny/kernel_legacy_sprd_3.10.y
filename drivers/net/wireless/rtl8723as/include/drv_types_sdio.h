@@ -64,6 +64,7 @@ typedef struct sdio_data
 	WCHAR						active_path[MAX_ACTIVE_REG_PATH];
 	SD_HOST_BLOCK_CAPABILITY	sd_host_blk_cap;
 #endif
+
 } SDIO_DATA, *PSDIO_DATA;
 
 #endif

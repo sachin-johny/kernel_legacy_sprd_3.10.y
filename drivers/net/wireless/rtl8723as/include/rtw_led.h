@@ -69,7 +69,7 @@ typedef enum _LED_CTL_MODE{
 	LED_CTL_START_WPS = 9,
 	LED_CTL_STOP_WPS = 10,
 	LED_CTL_START_WPS_BOTTON = 11, //added for runtop
-	LED_CTL_STOP_WPS_FAIL = 12, //added for ALPHA	
+	LED_CTL_STOP_WPS_FAIL = 12, //added for ALPHA
 	LED_CTL_STOP_WPS_FAIL_OVERLAP = 13, //added for BELKIN
 	LED_CTL_CONNECTION_NO_TRANSFER = 14,
 }LED_CTL_MODE;
@@ -85,13 +85,13 @@ typedef enum _LED_STATE_871x{
 	LED_BLINK_NO_LINK = 7, // LED is blinking during no link state.
 	LED_BLINK_StartToBlink = 8,// Customzied for Sercomm Printer Server case
 	LED_BLINK_TXRX = 9,
-	LED_BLINK_WPS = 10,	// LED is blinkg during WPS communication	
-	LED_BLINK_WPS_STOP = 11,	//for ALPHA	
+	LED_BLINK_WPS = 10,	// LED is blinkg during WPS communication
+	LED_BLINK_WPS_STOP = 11,	//for ALPHA
 	LED_BLINK_WPS_STOP_OVERLAP = 12,	//for BELKIN
 	LED_BLINK_RUNTOP = 13, // Customized for RunTop
 	LED_BLINK_CAMEO = 14,
 	LED_BLINK_XAVI = 15,
-	LED_BLINK_ALWAYS_ON = 16,	
+	LED_BLINK_ALWAYS_ON = 16,
 }LED_STATE_871x;
 
 typedef enum _LED_PIN_871x{
@@ -104,11 +104,11 @@ typedef enum _LED_PIN_871x{
 
 typedef struct _LED_871x{
 	_adapter				*padapter;
-	
+
 	LED_PIN_871x		LedPin;	// Identify how to implement this SW led.
 	LED_STATE_871x		CurrLedState; // Current LED state.
 	LED_STATE_871x		BlinkingLedState; // Next state for blinking, either RTW_LED_ON or RTW_LED_OFF are.
-	
+
 	u8					bLedOn; // true if LED is ON, false if LED is OFF.
 
 	u8					bLedBlinkInProgress; // true if it is blinking, false o.w..
@@ -127,12 +127,12 @@ typedef struct _LED_871x{
 	u8					bLedLinkBlinkInProgress;
 	u8					bLedStartToLinkBlinkInProgress;
 	u8					bLedScanBlinkInProgress;
-	
+
 	#if LINUX_VERSION_CODE > KERNEL_VERSION(2,5,0)|| defined PLATFORM_FREEBSD
 	_workitem			BlinkWorkItem; // Workitem used by BlinkTimer to manipulate H/W to blink LED.
 	#endif
 #endif //defined(CONFIG_USB_HCI) || defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
-	
+
 #if defined(CONFIG_PCI_HCI)
 	u8					bLedSlowBlinkInProgress;//added by vivi, for led new mode
 #endif

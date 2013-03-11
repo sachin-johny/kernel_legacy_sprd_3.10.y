@@ -124,6 +124,10 @@ typedef enum _HW_VARIABLES{
 #ifdef SOFTAP_PS_DURATION
 	HW_VAR_SOFTAP_PS,
 #endif
+#ifdef CONFIG_WOWLAN_8723
+	HW_VAR_RPWM_TOG,
+	HW_VAR_WAKEUP_REASON,
+#endif
 }HW_VARIABLES;
 
 typedef enum _HAL_DEF_VARIABLE{
@@ -186,6 +190,10 @@ struct hal_ops {
 	void	(*enable_interrupt)(_adapter *padapter);
 	void	(*disable_interrupt)(_adapter *padapter);
 	s32	(*interrupt_handler)(_adapter *padapter);
+#ifdef CONFIG_WOWLAN_8723
+	void	(*disable_interrupt_but_cpwm2)(_adapter *padapter);
+	void	(*clear_interrupt)(_adapter *padapter);
+#endif //CONFIG_WOWLAN_8723
 
 	void	(*set_bwmode_handler)(_adapter *padapter, HT_CHANNEL_WIDTH Bandwidth, u8 Offset);
 	void	(*set_channel_handler)(_adapter *padapter, u8 channel);
@@ -257,6 +265,11 @@ struct hal_ops {
 	void (*hal_notch_filter)(_adapter * adapter, bool enable);
 	void (*hal_reset_security_engine)(_adapter * adapter);
 	void (*fw_try_ap_cmd)(_adapter * adapter, u32 need_ack);
+
+	void (*hal_init_checkbthang_workqueue)(_adapter * adapter);
+	void (*hal_free_checkbthang_workqueue)(_adapter * adapter);
+	void (*hal_cancle_checkbthang_workqueue)(_adapter * adapter);
+	void (*hal_checke_bt_hang)(_adapter * adapter);
 };
 
 typedef	enum _RT_EEPROM_TYPE{
@@ -409,6 +422,9 @@ void	rtw_hal_get_odm_var(_adapter *padapter, HAL_ODM_VARIABLE eVariable, PVOID p
 
 void rtw_hal_enable_interrupt(_adapter *padapter);
 void rtw_hal_disable_interrupt(_adapter *padapter);
+#ifdef CONFIG_WOWLAN_8723
+void rtw_hal_disable_interrupt_but_cpwm2(_adapter *padapter);
+#endif //CONFIG_WOWLAN_8723
 
 u32	rtw_hal_inirp_init(_adapter *padapter);
 u32	rtw_hal_inirp_deinit(_adapter *padapter);

@@ -249,12 +249,20 @@
 //#endif
 
 #if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+#if defined(CONFIG_SDIO_HCI)
+	#define CONFIG_WOWLAN
+	#define CONFIG_WOWLAN_8723
+	#define CONFIG_SDIO_RX_COPY
+#else
+	#undef CONFIG_WOWLAN
+	#undef CONFIG_WOWLAN_8723
+#endif
 	#define CONFIG_LINKED_LCOK
 	#define CONFIG_AUTH_DIRECT_WITHOUT_BCN
 	//#define CONFIG_DISCONNECT_H2CWAY
 	#define CONFIG_DONT_CARE_TP
 	#define CONFIG_LOW_PWR_LPS
-	#define CONFIG_CMCC_TEST
+	//#define CONFIG_CMCC_TEST
 
 	//1) LPS unit is only 102 ms, it's not
 	//a good idear to retry it use timer,
@@ -264,6 +272,7 @@
 	#undef CONFIG_LPS_RPWM_TIMER
 	#define CONFIG_WAIT_PS_ACK
 	#define CONFIG_SOFTAP_11N
+	#define CONFIG_CHECK_BT_HANG
 #endif
 
 /*

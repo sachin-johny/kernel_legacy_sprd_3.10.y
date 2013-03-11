@@ -97,12 +97,12 @@ MODULE_NAME = 8723ae
 OUTSRC_FILES += hal/OUTSRC/$(RTL871X)/Hal8723EHWImg_CE.o
 endif
 
-#hal/OUTSRC/$(RTL871X)/HalHWImg8723A_FW.o
 OUTSRC_FILES += hal/OUTSRC/$(RTL871X)/HalHWImg8723A_BB.o\
 								hal/OUTSRC/$(RTL871X)/HalHWImg8723A_MAC.o\
 								hal/OUTSRC/$(RTL871X)/HalHWImg8723A_RF.o\
 								hal/OUTSRC/$(RTL871X)/odm_RegConfig8723A.o\
-								hal/OUTSRC/rtl8192c/HalDMOutSrc8192C_CE.o
+								hal/OUTSRC/rtl8192c/HalDMOutSrc8192C_CE.o \
+								hal/OUTSRC/$(RTL871X)/HalHWImg8723A_FW.o
 
 PWRSEQ_FILES := hal/HalPwrSeqCmd.o \
 				hal/$(RTL871X)/Hal8723PwrSeq.o
@@ -279,6 +279,13 @@ endif
 
 ifeq ($(CONFIG_WOWLAN), y)
 EXTRA_CFLAGS += -DCONFIG_WOWLAN
+endif
+
+ifeq ($(CONFIG_RTL8188E), y)
+ifeq ($(CONFIG_EFUSE_CONFIG_FILE), y)
+EXTRA_CFLAGS += -DCONFIG_RF_GAIN_OFFSET
+EXTRA_CFLAGS += -DCONFIG_IOL
+endif
 endif
 
 # Platfrom setting

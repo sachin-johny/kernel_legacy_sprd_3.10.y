@@ -42,6 +42,9 @@
 //-----------------------------------------------------
 #define REG_FTIMR			0x0138
 
+#ifdef CONFIG_WOWLAN_8723
+#define REG_WOWLAN_WAKE_REASON			0x0081
+#endif
 
 //-----------------------------------------------------
 //
@@ -52,9 +55,14 @@
 
 //-----------------------------------------------------
 //
-//	0x0280h ~ 0x02FFh	RXDMA Configuration
+//	0x0280h ~ 0x028Bh	RX DMA Configuration
 //
 //-----------------------------------------------------
+#ifdef CONFIG_WOWLAN_8723
+#define RXPKT_RELEASE_POLL	BIT(16)
+#define	RXDMA_IDLE				BIT(17)
+#define	RW_RELEASE_EN			BIT(18)
+#endif
 
 
 //-----------------------------------------------------

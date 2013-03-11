@@ -128,9 +128,14 @@ static void sdhci_dump_saved_regs(struct sdhci_host *host)
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
 static irqreturn_t sdhci_wakeup_irq_handler(int irq, void *dev)
 {
+	struct sdhci_host *host = (struct sdhci_host *)dev;
+	struct mmc_host *mmc = host->mmc;
+
 	printk("sdhci_wakeup_irq_handler\n");
 	/* Disable interrupt before calling handler */
 	disable_irq_nosync(irq);
+
+	wake_lock_timeout(&mmc->detect_wake_lock, HZ / 2);
 
 	return IRQ_HANDLED;
 }

@@ -41,6 +41,9 @@ enum cmd_msg_element_id
 	BT_QUEUE_PKT_EID = 17,
 	BT_ANT_TDMA_EID = 20,
 	BT_2ANT_HID_EID = 21,
+#ifdef CONFIG_WOWLAN_8723
+	H2C_COM_WWLAN				=26,
+#endif
 	P2P_PS_CTW_CMD_EID = 32,
 	FORCE_BT_TX_PWR_EID = 33,
 	SET_TDMA_WLAN_ACT_TIME_EID = 34,
@@ -49,11 +52,27 @@ enum cmd_msg_element_id
 	BT_IGNORE_WLAN_ACT_EID = 37,
 	BT_PTA_MANAGER_UPDATE_ENABLE_EID = 38,
 	DAC_SWING_VALUE_EID = 41,
+#ifdef CONFIG_WOWLAN_8723
+	RSVD_PAGE_EXT_EID = 42,
+	RSVD_PAGE_ENABLE_EID = 43,
+	H2C_COM_PS_TUNE_PARAM = 45,
+	H2C_COM_KEEP_ALIVE = 48,
+	H2C_COM_DISCNT_DECISION = 49,
+#endif
 	TRADITIONAL_TDMA_EN_EID = 51,
 	H2C_BT_FW_PATCH = 54,
+#ifdef CONFIG_WOWLAN_8723
+	H2C_COM_GTK_OFFLOAD = 57,
+#endif
 	B_TYPE_TDMA_EID = 58,
 	SCAN_EN_EID = 59,
+#ifdef CONFIG_WOWLAN_8723
+	H2C_COM_REMOTE_WAKE_CTRL	=60,
+#endif
 	LOWPWR_LPS_EID = 71,
+#ifdef CONFIG_WOWLAN_8723
+	SEC_TYPE_EID = 74,
+#endif
 	H2C_RESET_TSF = 75,
 	MAX_CMDMSG_EID
 };
@@ -92,6 +111,9 @@ struct H2C_SS_RFOFF_PARAM{
 
 typedef struct JOINBSSRPT_PARM{
 	u8 OpMode;	// RT_MEDIA_STATUS
+#ifdef CONFIG_WOWLAN_8723
+	u8 MacID;       // MACID
+#endif //CONFIG_WOWLAN
 }JOINBSSRPT_PARM, *PJOINBSSRPT_PARM;
 
 typedef struct _RSVDPAGE_LOC {
@@ -101,6 +123,17 @@ typedef struct _RSVDPAGE_LOC {
 	u8 LocQosNull;
 	u8 LocBTQosNull;
 } RSVDPAGE_LOC, *PRSVDPAGE_LOC;
+
+#ifdef CONFIG_WOWLAN_8723
+typedef struct _RSVDPAGE_LOC_EXT {
+	u8 LocARP;
+	u8 LocNS;
+	u8 gtkRsp;
+	u8 gtkInfo;
+	u8 remoteCtrlInfo;
+	//u8 LocEAP;
+} RSVDPAGE_LOC_EXT, *PRSVDPAGE_LOC_EXT;
+#endif //CONFIG_WOWLAN_8723
 
 struct P2P_PS_Offload_t {
 	u8 Offload_En:1;
@@ -116,7 +149,6 @@ struct P2P_PS_Offload_t {
 struct P2P_PS_CTWPeriod_t {
 	u8 CTWPeriod;	//TU
 };
-
 
 typedef struct _B_TYPE_TDMA_PARM
 {
@@ -166,6 +198,34 @@ typedef struct _SCAN_EN_PARM {
 #define SET_H2CCMD_BT_FW_PATCH_SIZE(__pH2CCmd, __Value) 					SET_BITS_TO_LE_4BYTE(__pH2CCmd, 8, 16, __Value) //	SET_BITS_TO_LE_2BYTE((__pH2CCmd)+1, 0, 16, __Value)
 #endif
 
+#ifdef CONFIG_WOWLAN_8723
+#define eqMacAddr(a,b)						( ((a)[0]==(b)[0] && (a)[1]==(b)[1] && (a)[2]==(b)[2] && (a)[3]==(b)[3] && (a)[4]==(b)[4] && (a)[5]==(b)[5]) ? 1:0 )
+#define cpMacAddr(des,src)					((des)[0]=(src)[0],(des)[1]=(src)[1],(des)[2]=(src)[2],(des)[3]=(src)[3],(des)[4]=(src)[4],(des)[5]=(src)[5])
+#define cpIpAddr(des,src)					((des)[0]=(src)[0],(des)[1]=(src)[1],(des)[2]=(src)[2],(des)[3]=(src)[3])
+
+//
+// ARP packet
+//
+// LLC Header
+#define GET_ARP_PKT_LLC_TYPE(__pHeader) 					ReadEF2Byte( ((u8*)(__pHeader)) + 6)
+
+//ARP element
+#define GET_ARP_PKT_OPERATION(__pHeader) 				ReadEF2Byte( ((u8*)(__pHeader)) + 6)
+#define GET_ARP_PKT_SENDER_MAC_ADDR(__pHeader, _val) 	cpMacAddr((u8*)(_val), ((u8*)(__pHeader))+8)
+#define GET_ARP_PKT_SENDER_IP_ADDR(__pHeader, _val) 		cpIpAddr((u8*)(_val), ((u8*)(__pHeader))+14)
+#define GET_ARP_PKT_TARGET_MAC_ADDR(__pHeader, _val) 	cpMacAddr((u8*)(_val), ((u8*)(__pHeader))+18)
+
+#define SET_ARP_PKT_HW(__pHeader, __Value)  				WriteEF2Byte( ((u8*)(__pHeader)) + 0, __Value)
+#define SET_ARP_PKT_PROTOCOL(__pHeader, __Value)  			WriteEF2Byte( ((u8*)(__pHeader)) + 2, __Value)
+#define SET_ARP_PKT_HW_ADDR_LEN(__pHeader, __Value)  		WriteEF1Byte( ((u8*)(__pHeader)) + 4, __Value)
+#define SET_ARP_PKT_PROTOCOL_ADDR_LEN(__pHeader, __Value)  	WriteEF1Byte( ((u8*)(__pHeader)) + 5, __Value)
+#define SET_ARP_PKT_OPERATION(__pHeader, __Value) 		WriteEF2Byte( ((u8*)(__pHeader)) + 6, __Value)
+#define SET_ARP_PKT_SENDER_MAC_ADDR(__pHeader, _val) 	cpMacAddr(((u8*)(__pHeader))+8, (u8*)(_val))
+#define SET_ARP_PKT_SENDER_IP_ADDR(__pHeader, _val) 		cpIpAddr(((u8*)(__pHeader))+14, (u8*)(_val))
+#define SET_ARP_PKT_TARGET_MAC_ADDR(__pHeader, _val) 	cpMacAddr(((u8*)(__pHeader))+18, (u8*)(_val))
+#define SET_ARP_PKT_TARGET_IP_ADDR(__pHeader, _val) 		cpIpAddr(((u8*)(__pHeader))+24, (u8*)(_val))
+#endif //CONFIG_WOWLAN_8723
+
 #if 0
 /*
  * H2C_LOWPWR_LPS
@@ -195,6 +255,17 @@ typedef struct _LOWPWR_LPS_PARM
 	u8 max_early_period;
 	u8 max_bcn_timeout_period;
 }__attribute__((__packed__)) LOWPWR_LPS_PARM, *PLOWPWR_LPS_PARM;
+
+#ifdef CONFIG_WOWLAN_8723
+typedef struct _PWR_LPS_TUNE_PARAM
+{
+	u8 bcn_timeout;
+	u8 dtim_timeout;
+	u8 adopt:1;
+	u8 ps_timeout:7;
+	u8 ps_dtim_period;
+}__attribute__((__packed__)) PWR_LPS_TUNE_PARAM, *PPWR_LPS_TUNE_PARAM;
+#endif //CONFIG_WOWLAN_8723
 #endif
 
 
@@ -221,9 +292,35 @@ void rtl8192c_set_p2p_ps_offload_cmd(PADAPTER padapter, u8 p2p_ps_state);
 
 void CheckFwRsvdPageContent(PADAPTER padapter);
 
-#endif
+#ifdef CONFIG_WOWLAN_8723
+typedef struct _SETWOWLAN_PARM{
+	u8		mode;
+	u8		gpio_index;
+	u8		gpio_duration;
+	u8		second_mode;
+	u8		reserve;
+}SETWOWLAN_PARM, *PSETWOWLAN_PARM;
+
+#define FW_WOWLAN_FUN_EN				BIT(0)
+#define FW_WOWLAN_PATTERN_MATCH			BIT(1)
+#define FW_WOWLAN_MAGIC_PKT				BIT(2)
+#define FW_WOWLAN_UNICAST				BIT(3)
+#define FW_WOWLAN_ALL_PKT_DROP			BIT(4)
+#define FW_WOWLAN_GPIO_ACTIVE			BIT(5)
+#define FW_WOWLAN_REKEY_WAKEUP			BIT(6)
+#define FW_WOWLAN_DEAUTH_WAKEUP			BIT(7)
+
+#define FW_WOWLAN_GPIO_WAKEUP_EN		BIT(0)
+#define FW_FW_PARSE_MAGIC_PKT			BIT(1)
+
+#define FW_REMOTE_WAKE_CTRL_EN			BIT(0)
+#define FW_REALWOWLAN_EN				BIT(5)
+void rtl8723as_set_wowlan_cmd(_adapter* padapter, u8 enable);
+void SetFwRelatedForWoWLAN8723as(_adapter* padapter, u8 bHostIsGoingtoSleep);
+#endif//CONFIG_WOWLAN_8723
 
 #ifdef CONFIG_TSF_RESET_OFFLOAD
 u8 rtl8723c_reset_tsf(_adapter *padapter, u8 reset_port);
 #endif	// CONFIG_TSF_RESET_OFFLOAD
 
+#endif

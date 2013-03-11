@@ -518,7 +518,7 @@ struct mlme_priv {
 #ifdef CONFIG_FTP_PROTECT
 	u8	ftp_lock_flag;
 #endif //CONFIG_FTP_PROTECT
-#ifdef CONFIG_LINKED_LCOK
+#if defined (CONFIG_LINKED_LCOK)
 	u8	linked_lock_flag;
 #endif //CONFIG_LINKED_LCOK
 };

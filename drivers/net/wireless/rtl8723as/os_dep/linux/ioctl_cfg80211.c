@@ -1628,6 +1628,7 @@ static int cfg80211_rtw_change_iface(struct wiphy *wiphy,
 	enum nl80211_iftype old_type;
 	NDIS_802_11_NETWORK_INFRASTRUCTURE networkType ;
 	_adapter *padapter = wiphy_to_adapter(wiphy);
+	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
 	struct wireless_dev *rtw_wdev = wiphy_to_wdev(wiphy);
 #ifdef CONFIG_P2P
 	struct wifidirect_info *pwdinfo= &(padapter->wdinfo);
@@ -1664,7 +1665,11 @@ static int cfg80211_rtw_change_iface(struct wiphy *wiphy,
 		FUNC_NDEV_ARG(ndev), old_type, type);
 
 	if(old_type != type)
+	{
 		change = _TRUE;
+		pmlmeext->action_public_rxseq = 0xffff;
+		pmlmeext->action_public_dialog_token = 0xff;
+	}
 
 	switch (type) {
 	case NL80211_IFTYPE_ADHOC:
@@ -1790,7 +1795,7 @@ void rtw_cfg80211_surveydone_event_callback(_adapter *padapter)
 		pnetwork = LIST_CONTAINOR(plist, struct wlan_network, list);
 
 		//report network only if the current channel set contains the channel to which this network belongs
-		if( _TRUE == rtw_is_channel_set_contains_channel(padapter->mlmeextpriv.channel_set, pnetwork->network.Configuration.DSConfig)
+		if(rtw_ch_set_search_ch(padapter->mlmeextpriv.channel_set, pnetwork->network.Configuration.DSConfig) >= 0
 			#ifdef CONFIG_VALIDATE_SSID
 			&& _TRUE == rtw_validate_ssid(&(pnetwork->network.Ssid))
 			#endif
@@ -1894,6 +1899,7 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 	_adapter *padapter = wiphy_to_adapter(wiphy);
 	struct mlme_priv *pmlmepriv= &padapter->mlmepriv;
 	NDIS_802_11_SSID ssid[RTW_SSID_SCAN_AMOUNT];
+	struct rtw_ieee80211_channel ch[RTW_CHANNEL_SCAN_AMOUNT];
 	_irqL	irqL;
 	u8 *wps_ie=NULL;
 	uint wps_ielen=0;
@@ -1910,6 +1916,7 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 	PADAPTER pbuddy_adapter = padapter->pbuddy_adapter;
 	struct mlme_priv *pbuddy_mlmepriv = &(pbuddy_adapter->mlmepriv);
 #endif
+	int delaycount = 0;
 
 	DBG_871X("%s set scan\n", __func__);
 #ifdef CONFIG_DEBUG_CFG80211
@@ -1926,10 +1933,6 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 	}
 #endif
 
-	if (pwdev_priv->bandroid_dhcp) {
-		ret = -EPERM;
-		goto exit;
-	}
 
 #ifdef CONFIG_DISCONNECT_H2CWAY
 	//scan should be forbidden between two h2c command when checking whether ap is alive
@@ -1942,6 +1945,31 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 	_enter_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
 	pwdev_priv->scan_request = request;
 	_exit_critical_bh(&pwdev_priv->scan_req_lock, &irqL);
+
+	/* delay scan when resume is in progress */
+	while((padapter->pwrctrlpriv.do_late_resume) && (delaycount < 200)) {
+		//DBG_871X("delay scan when resume is in progress delaycount:%d\n", delaycount);
+		rtw_msleep_os(10);
+		delaycount++;
+	}
+
+#ifdef CONFIG_BT_COEXIST
+	{
+		u32 curr_time, delta_time;
+
+		// under DHCP(Special packet)
+		curr_time = rtw_get_current_time();
+		delta_time = curr_time - padapter->pwrctrlpriv.DelayLPSLastTimeStamp;
+		delta_time = rtw_systime_to_ms(delta_time);
+		printk("%s %d %d %d\n", __func__, delta_time, rtw_systime_to_ms(padapter->pwrctrlpriv.DelayLPSLastTimeStamp), rtw_systime_to_ms(curr_time));
+		if (delta_time < 500) // 500ms
+		{
+			DBG_871X("%s: send DHCP pkt before %d ms, Skip scan\n", __FUNCTION__, delta_time);
+			need_indicate_scan_done = _TRUE;
+			goto check_need_indicate_scan_done;
+		}
+	}
+#endif
 
 	if (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
 	{
@@ -1959,9 +1987,8 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 	}
 
 	#ifdef CONFIG_P2P
-	if( ssids->ssid != NULL )
-	{
-		if( _rtw_memcmp(ssids->ssid, "DIRECT-", 7)
+	if(ssids->ssid != NULL
+		&& _rtw_memcmp(ssids->ssid, "DIRECT-", 7)
 			&& rtw_get_p2p_ie((u8 *)request->ie, request->ie_len, NULL, NULL)
 		)
 		{
@@ -1988,7 +2015,6 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 				social_channel = 1;
 			}
 		}
-	}
 	#endif //CONFIG_P2P
 
 	if(request->ie && request->ie_len>0)
@@ -2070,26 +2096,37 @@ static int cfg80211_rtw_scan(struct wiphy *wiphy, struct net_device *ndev,
 		ssid[i].SsidLength = ssids[i].ssid_len;
 	}
 
-
+	/* parsing channels, n_channels */
+	_rtw_memset(ch, 0, sizeof(struct rtw_ieee80211_channel)*RTW_CHANNEL_SCAN_AMOUNT);
+	if (request->n_channels == 1)
+	for (i=0;i<request->n_channels && i<RTW_CHANNEL_SCAN_AMOUNT;i++) {
 #ifdef CONFIG_DEBUG_CFG80211
-	//parsing channels, n_channels
-	DBG_871X("%s n_channels:%u\n", __FUNCTION__, request->n_channels);
+		DBG_871X(FUNC_NDEV_FMT CHAN_FMT"\n", FUNC_NDEV_ARG(ndev), CHAN_ARG(request->channels[i]));
 #endif
+		ch[i].hw_value = request->channels[i]->hw_value;
+		ch[i].flags = request->channels[i]->flags;
+	}
 
-#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
-	rtw_free_network_queue(padapter, _TRUE);
-#endif
-
-	DBG_871X("%s start scan\n", __func__);
 	_enter_critical_bh(&pmlmepriv->lock, &irqL);
-	_status = rtw_sitesurvey_cmd(padapter, ssid, RTW_SSID_SCAN_AMOUNT);
+	if (request->n_channels == 1) {
+		_rtw_memcpy(&ch[1], &ch[0], sizeof(struct rtw_ieee80211_channel));
+		_rtw_memcpy(&ch[2], &ch[0], sizeof(struct rtw_ieee80211_channel));
+		_status = rtw_sitesurvey_cmd(padapter, ssid, RTW_SSID_SCAN_AMOUNT, ch, 3);
+	} else {
+		_status = rtw_sitesurvey_cmd(padapter, ssid, RTW_SSID_SCAN_AMOUNT, NULL, 0);
+	}
 	_exit_critical_bh(&pmlmepriv->lock, &irqL);
-
 
 	if(_status == _FALSE)
 	{
 		ret = -1;
 	}
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+	else
+	{
+		rtw_free_network_queue(padapter, _TRUE);
+	}
+#endif
 
 check_need_indicate_scan_done:
 	if(need_indicate_scan_done)
@@ -2100,7 +2137,6 @@ exit:
 	if (ret < 0)
 		DBG_871X("ERROR: %s scan cancel\n", __func__);
 	return ret;
-
 }
 
 static int cfg80211_rtw_set_wiphy_params(struct wiphy *wiphy, u32 changed)
@@ -3550,7 +3586,7 @@ static int rtw_change_ie_for_11n_softap(u8 **pbuf, size_t *head_len, size_t *tai
 
 	//if network_type is WIRELESS_11B, change it to WIRELESS_11N
 	if (network_type == WIRELESS_11B)
-  	{
+       	{
 		DBG_871X("change network_type from 11B to 11N for special request\n");
 		pbuf_temp =  rtw_zmalloc(*head_len + *tail_len + 91);
 		if(!pbuf_temp)
@@ -4238,7 +4274,9 @@ void rtw_cfg80211_issue_p2p_provision_request(_adapter *padapter, const u8 *buf,
 
 	pattrib->last_txcmdsz = pattrib->pktlen;
 
-	dump_mgntframe(padapter, pmgntframe);
+	//dump_mgntframe(padapter, pmgntframe);
+	if(!dump_mgntframe_and_wait_ack(padapter, pmgntframe))
+		DBG_8192C("%s, ack to\n", __func__);
 
 	//if(wps_devicepassword_id == WPS_DPID_REGISTRAR_SPEC)
 	//{
@@ -4305,7 +4343,7 @@ static s32 cfg80211_rtw_remain_on_channel(struct wiphy *wiphy, struct net_device
 
 	pcfg80211_wdinfo->restore_channel = pmlmeext->cur_channel;
 
-	if(rtw_is_channel_set_contains_channel(pmlmeext->channel_set, remain_ch)) {
+	if(rtw_ch_set_search_ch(pmlmeext->channel_set, remain_ch) >= 0) {
 #ifdef	CONFIG_CONCURRENT_MODE
 		if ( check_buddy_fwstate(padapter, _FW_LINKED ) )
 		{
@@ -5069,14 +5107,19 @@ void rtw_cfg80211_init_wiphy(_adapter *padapter)
 	rtw_hal_get_hwreg(padapter, HW_VAR_RF_TYPE, (u8 *)(&rf_type));
 
 	DBG_8192C("%s:rf_type=%d\n", __func__, rf_type);
-
+	/* if (padapter->registrypriv.wireless_mode & WIRELESS_11G) */
+	{
 	bands = wiphy->bands[IEEE80211_BAND_2GHZ];
 	if(bands)
 		rtw_cfg80211_init_ht_capab(&bands->ht_cap, IEEE80211_BAND_2GHZ, rf_type);
+	}
 
+	/* if (padapter->registrypriv.wireless_mode & WIRELESS_11A) */
+	{
 	bands = wiphy->bands[IEEE80211_BAND_5GHZ];
 	if(bands)
 		rtw_cfg80211_init_ht_capab(&bands->ht_cap, IEEE80211_BAND_5GHZ, rf_type);
+}
 }
 
 static void rtw_cfg80211_preinit_wiphy(_adapter *padapter, struct wiphy *wiphy)
@@ -5113,7 +5156,9 @@ static void rtw_cfg80211_preinit_wiphy(_adapter *padapter, struct wiphy *wiphy)
 	wiphy->cipher_suites = rtw_cipher_suites;
 	wiphy->n_cipher_suites = ARRAY_SIZE(rtw_cipher_suites);
 
+	/* if (padapter->registrypriv.wireless_mode & WIRELESS_11G) */
 	wiphy->bands[IEEE80211_BAND_2GHZ] = rtw_spt_band_alloc(IEEE80211_BAND_2GHZ);
+	/* if (padapter->registrypriv.wireless_mode & WIRELESS_11A) */
 	wiphy->bands[IEEE80211_BAND_5GHZ] = rtw_spt_band_alloc(IEEE80211_BAND_5GHZ);
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,38) && LINUX_VERSION_CODE < KERNEL_VERSION(3,0,0))

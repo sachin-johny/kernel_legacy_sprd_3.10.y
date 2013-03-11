@@ -254,7 +254,9 @@ s32 rtl8188ee_mgnt_xmit(PADAPTER padapter, struct xmit_frame *pmgntframe);
 void rtl8188ee_xmit_tasklet(void *priv);
 #endif
 
-
+#ifdef CONFIG_XMIT_ACK
+void rtl8188e_xmit_ack_rpt(_adapter *padapter, u8 *pbuf);
+#endif //CONFIG_XMIT_ACK
 
 #ifdef CONFIG_TX_EARLY_MODE
 void UpdateEarlyModeInfo8188E(struct xmit_priv *pxmitpriv,struct xmit_buf *pxmitbuf );

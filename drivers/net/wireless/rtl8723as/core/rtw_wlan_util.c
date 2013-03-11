@@ -37,6 +37,7 @@ unsigned char MARVELL_OUI[] = {0x00, 0x50, 0x43};
 unsigned char RALINK_OUI[] = {0x00, 0x0c, 0x43};
 unsigned char REALTEK_OUI[] = {0x00, 0xe0, 0x4c};
 unsigned char AIRGOCAP_OUI[] = {0x00, 0x0a, 0xf5};
+unsigned char EPIGRAM_OUI[] = {0x00, 0x90, 0x4c};
 
 unsigned char REALTEK_96B_IE[] = {0x00, 0xe0, 0x4c, 0x02, 0x01, 0x20};
 
@@ -2018,6 +2019,10 @@ unsigned char check_assoc_AP(u8 *pframe, uint len)
 {
 	unsigned int	i;
 	PNDIS_802_11_VARIABLE_IEs	pIE;
+	u8	epigram_vendor_flag;
+	u8	ralink_vendor_flag;
+	epigram_vendor_flag = 0;
+	ralink_vendor_flag = 0;
 
 	for (i = sizeof(NDIS_802_11_FIXED_IEs); i < len;)
 	{
@@ -2045,8 +2050,12 @@ unsigned char check_assoc_AP(u8 *pframe, uint len)
 				}
 				else if (_rtw_memcmp(pIE->data, RALINK_OUI, 3))
 				{
-					DBG_871X("link to Ralink AP\n");
-					return HT_IOT_PEER_RALINK;
+					if (!ralink_vendor_flag) {
+						ralink_vendor_flag = 1;
+					} else {
+						DBG_871X("link to Ralink AP\n");
+						return HT_IOT_PEER_RALINK;
+					}
 				}
 				else if (_rtw_memcmp(pIE->data, CISCO_OUI, 3))
 				{
@@ -2063,6 +2072,16 @@ unsigned char check_assoc_AP(u8 *pframe, uint len)
 					DBG_871X("link to Airgo Cap\n");
 					return HT_IOT_PEER_AIRGO;
 				}
+				else if (_rtw_memcmp(pIE->data, EPIGRAM_OUI, 3))
+				{
+					 epigram_vendor_flag = 1;
+					if(ralink_vendor_flag) {
+						DBG_871X("link to Tenda W311R AP\n");
+						 return HT_IOT_PEER_TENDA;
+					} else {
+						DBG_871X("Capture EPIGRAM_OUI\n");
+					}
+				}
 				else
 				{
 					break;
@@ -2075,8 +2094,16 @@ unsigned char check_assoc_AP(u8 *pframe, uint len)
 		i += (pIE->Length + 2);
 	}
 
-	DBG_871X("link to new AP\n");
-	return HT_IOT_PEER_UNKNOWN;
+	if (ralink_vendor_flag && !epigram_vendor_flag) {
+		DBG_871X("link to Ralink AP\n");
+		return HT_IOT_PEER_RALINK;
+	} else if (ralink_vendor_flag && epigram_vendor_flag){
+		DBG_871X("link to Tenda W311R AP\n");
+		return HT_IOT_PEER_TENDA;
+	} else {
+		DBG_871X("link to new AP\n");
+		return HT_IOT_PEER_UNKNOWN;
+	}
 }
 
 void update_IOT_info(_adapter *padapter)

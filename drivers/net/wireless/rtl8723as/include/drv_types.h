@@ -567,6 +567,11 @@ struct _ADAPTER{
 	struct iw_statistics iwstats;
 	struct proc_dir_entry *dir_dev;// for proc directory
 
+#if defined(CONFIG_CHECK_BT_HANG) && defined(CONFIG_BT_COEXIST)
+	struct workqueue_struct *priv_checkbt_wq;
+	struct delayed_work checkbt_work;
+#endif
+
 #ifdef CONFIG_IOCTL_CFG80211
 	struct wireless_dev *rtw_wdev;
 #endif //CONFIG_IOCTL_CFG80211

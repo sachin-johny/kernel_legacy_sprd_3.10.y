@@ -69,6 +69,11 @@
 	#define Rtl8723_ImgArrayLength				Rtl8723SImgArrayLength
 	#define Rtl8723_UMCBCutImgArrayLength		Rtl8723SUMCBCutImgArrayLength
 
+#ifdef CONFIG_WOWLAN_8723
+	#define Rtl8723_FwWoWImageArray			Array_8723S_FW_WoWLAN
+	#define Rtl8723_FwWoWImgArrayLength		ArrayLength_8723S_FW_WoWLAN
+#endif //CONFIG_WOWLAN_8723
+
 	#define Rtl8723_PHY_REG_Array_PG 			Rtl8723SPHY_REG_Array_PG
 	#define Rtl8723_PHY_REG_Array_PGLength		Rtl8723SPHY_REG_Array_PGLength
 #if MP_DRIVER == 1
@@ -204,6 +209,11 @@ typedef struct _RT_FIRMWARE {
 	u8			szBTFwBuffer[FW_8723A_SIZE];
 #endif
 	u32			ulBTFwLength;
+
+#ifdef CONFIG_WOWLAN_8723
+	u8*			szWoWLANFwBuffer;
+	u32			ulWoWLANFwLength;
+#endif //CONFIG_WOWLAN_8723
 } RT_FIRMWARE, *PRT_FIRMWARE, RT_FIRMWARE_8723A, *PRT_FIRMWARE_8723A;
 
 //
@@ -265,16 +275,28 @@ typedef enum _USB_RX_AGG_MODE{
 #define TX_SELE_NQ			BIT(2)		// Normal Queue
 
 // Note: We will divide number of page equally for each queue other than public queue!
+#ifdef CONFIG_WOWLAN_8723
+#define TX_TOTAL_PAGE_NUMBER	0xF3
+#else
 #define TX_TOTAL_PAGE_NUMBER	0xF8
+#endif //CONFIG_WOWLAN_8723
 #define TX_PAGE_BOUNDARY		(TX_TOTAL_PAGE_NUMBER + 1)
 
+#ifdef CONFIG_WOWLAN_8723
+// For Normal Chip Setting
+// (HPQ + LPQ + NPQ + PUBQ) shall be TX_TOTAL_PAGE_NUMBER
+#define NORMAL_PAGE_NUM_PUBQ	0xE2
+#define NORMAL_PAGE_NUM_HPQ		0x0C
+#define NORMAL_PAGE_NUM_LPQ		0x02
+#define NORMAL_PAGE_NUM_NPQ		0x02
+#else
 // For Normal Chip Setting
 // (HPQ + LPQ + NPQ + PUBQ) shall be TX_TOTAL_PAGE_NUMBER
 #define NORMAL_PAGE_NUM_PUBQ	0xE7
 #define NORMAL_PAGE_NUM_HPQ		0x0C
 #define NORMAL_PAGE_NUM_LPQ		0x02
 #define NORMAL_PAGE_NUM_NPQ		0x02
-
+#endif //CONFIG_WOWLAN_8723
 // For Test Chip Setting
 // (HPQ + LPQ + PUBQ) shall be TX_TOTAL_PAGE_NUMBER
 #define TEST_PAGE_NUM_PUBQ		0x7E
@@ -287,6 +309,16 @@ typedef enum _USB_RX_AGG_MODE{
 #define WMM_TEST_PAGE_NUM_HPQ		0x29
 #define WMM_TEST_PAGE_NUM_LPQ		0x29
 
+#ifdef CONFIG_WOWLAN_8723
+// Note: For Normal Chip Setting, modify later
+#define WMM_NORMAL_TX_TOTAL_PAGE_NUMBER	0xF3
+#define WMM_NORMAL_TX_PAGE_BOUNDARY		(WMM_TEST_TX_TOTAL_PAGE_NUMBER + 1) //F6
+
+#define WMM_NORMAL_PAGE_NUM_PUBQ	0xAE
+#define WMM_NORMAL_PAGE_NUM_HPQ		0x29
+#define WMM_NORMAL_PAGE_NUM_LPQ		0x1C
+#define WMM_NORMAL_PAGE_NUM_NPQ		0x1C
+#else
 // Note: For Normal Chip Setting, modify later
 #define WMM_NORMAL_TX_TOTAL_PAGE_NUMBER	0xF5
 #define WMM_NORMAL_TX_PAGE_BOUNDARY		(WMM_TEST_TX_TOTAL_PAGE_NUMBER + 1) //F6
@@ -295,6 +327,7 @@ typedef enum _USB_RX_AGG_MODE{
 #define WMM_NORMAL_PAGE_NUM_HPQ		0x29
 #define WMM_NORMAL_PAGE_NUM_LPQ		0x1C
 #define WMM_NORMAL_PAGE_NUM_NPQ		0x1C
+#endif //CONFIG_WOWLAN_8723
 
 
 //-------------------------------------------------------------------------
@@ -889,7 +922,11 @@ typedef struct phystatus_8723a
 
 
 // rtl8723a_hal_init.c
+#ifdef CONFIG_WOWLAN_8723
+s32 rtl8723a_FirmwareDownload(PADAPTER padapter, BOOLEAN  bUsedWoWLANFw);
+#else
 s32 rtl8723a_FirmwareDownload(PADAPTER padapter);
+#endif
 void rtl8723a_FirmwareSelfReset(PADAPTER padapter);
 void rtl8723a_InitializeFirmwareVars(PADAPTER padapter);
 
@@ -933,9 +970,20 @@ void rtl8723a_SingleDualAntennaDetection(PADAPTER padapter);
 void SetBcnCtrlReg(PADAPTER padapter, u8 SetBits, u8 ClearBits);
 void rtl8723a_InitBeaconParameters(PADAPTER padapter);
 void rtl8723a_InitBeaconMaxError(PADAPTER padapter, u8 InfraMode);
+#ifdef CONFIG_WOWLAN_8723
+void _8051Reset8723A(PADAPTER padapter);
+void Hal_DetectWoWMode(PADAPTER pAdapter);
+#endif //CONFIG_WOWLAN_8723
 
 void rtl8723a_clone_haldata(_adapter *dst_adapter, _adapter *src_adapter);
 void rtl8723a_start_thread(_adapter *padapter);
 void rtl8723a_stop_thread(_adapter *padapter);
+
+#if defined(CONFIG_CHECK_BT_HANG) && defined(CONFIG_BT_COEXIST)
+void rtl8723as_init_checkbthang_workqueue(_adapter * adapter);
+void rtl8723as_free_checkbthang_workqueue(_adapter * adapter);
+void rtl8723as_cancle_checkbthang_workqueue(_adapter * adapter);
+void rtl8723as_hal_check_bt_hang(_adapter * adapter);
+#endif
 #endif
 

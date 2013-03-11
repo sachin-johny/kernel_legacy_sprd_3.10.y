@@ -512,6 +512,11 @@ static void HalRxAggr8723ASdio(PADAPTER padapter)
 		valueDMAPageCount = 0x0F;
 	}
 
+#ifdef CONFIG_DONT_CARE_TP
+	valueDMATimeout = 0x0f;
+	valueDMAPageCount = 0x01;
+#endif
+
 	rtw_write8(padapter, REG_RXDMA_AGG_PG_TH+1, valueDMATimeout);
 	rtw_write8(padapter, REG_RXDMA_AGG_PG_TH, valueDMAPageCount);
 #endif
@@ -527,7 +532,9 @@ void sdio_AggSettingRxUpdate(PADAPTER padapter)
 	pHalData = GET_HAL_DATA(padapter);
 
 	valueDMA = rtw_read8(padapter, REG_TRXDMA_CTRL);
+#ifndef CONFIG_DONT_CARE_TP
 	valueDMA |= RXDMA_AGG_EN;
+#endif
 	rtw_write8(padapter, REG_TRXDMA_CTRL, valueDMA);
 
 #if 0
@@ -2315,6 +2322,12 @@ _func_enter_;
 #endif
 	pHalFunc->fw_try_ap_cmd = &rtl8723as_fw_try_ap_cmd;
 
+#if defined(CONFIG_CHECK_BT_HANG) && defined(CONFIG_BT_COEXIST)
+	pHalFunc->hal_init_checkbthang_workqueue = &rtl8723as_init_checkbthang_workqueue;
+	pHalFunc->hal_free_checkbthang_workqueue = &rtl8723as_free_checkbthang_workqueue;
+	pHalFunc->hal_cancle_checkbthang_workqueue = &rtl8723as_cancle_checkbthang_workqueue;
+	pHalFunc->hal_checke_bt_hang = &rtl8723as_hal_check_bt_hang;
+#endif
 _func_exit_;
 }
 

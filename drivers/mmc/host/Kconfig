@@ -641,7 +641,7 @@ config MMC_BUS_SCAN
 
 config MMC_HOST_WAKEUP_SUPPORTED
 	bool "Spreadtrum sc8810 SD Host Controller WakeUp support"
-	depends on MMC_SDHCI_SC8810
+	depends on MMC_SDHCI_SC8810 || MMC_SDHCI_SC8825
         default n
 	help
 	  This selects the Secure Digital Host Controller Interface (SDHCI) to

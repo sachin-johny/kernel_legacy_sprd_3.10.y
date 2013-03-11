@@ -1312,6 +1312,26 @@ void DisableInterrupt8723ASdio(PADAPTER padapter)
 
 }
 
+#ifdef CONFIG_WOWLAN_8723
+void DisableInterruptButCpwm28723ASdio(PADAPTER padapter)
+{
+	u32 himr, tmp;
+
+#ifdef CONFIG_CONCURRENT_MODE
+	if ((padapter->isprimary == _FALSE) && padapter->pbuddy_adapter){
+		padapter = padapter->pbuddy_adapter;
+	}
+#endif
+	sdio_local_read(padapter, SDIO_REG_HIMR, 4, (u8*)&tmp);
+	DBG_871X("DisableInterruptButCpwm28723ASdio(): Read SDIO_REG_HIMR: 0x%08x\n", tmp);
+
+	himr = cpu_to_le32(SDIO_HIMR_DISABLED)|SDIO_HIMR_CPWM2_MSK;
+	sdio_local_write(padapter, SDIO_REG_HIMR, 4, (u8*)&himr);
+
+	sdio_local_read(padapter, SDIO_REG_HIMR, 4, (u8*)&tmp);
+	DBG_871X("DisableInterruptButCpwm28723ASdio(): Read again SDIO_REG_HIMR: 0x%08x\n", tmp);
+}
+#endif //CONFIG_WOWLAN_8723
 //
 //	Description:
 //		Update SDIO Host Interrupt Mask configuration on SDIO local domain.
@@ -1618,7 +1638,7 @@ void sd_int_dpc(PADAPTER padapter)
 #else
 				precvbuf = sd_recv_rxfifo(padapter, phal->SdioRxFIFOSize);
 				if (precvbuf)
-					sd_rxhandler(padapter, precvbuf);
+				     	sd_rxhandler(padapter, precvbuf);
 				else
 				{
 					alloc_fail_time++;
@@ -1707,4 +1727,43 @@ u8 HalQueryTxBufferStatus8723ASdio(PADAPTER padapter)
 
 	return _TRUE;
 }
+
+#ifdef CONFIG_WOWLAN_8723
+u8 RecvOnePkt(PADAPTER padapter, u32 size)
+{
+	struct recv_buf *precvbuf;
+	struct dvobj_priv *psddev;
+	PSDIO_DATA psdio_data;
+	struct sdio_func *func;
+
+	u8 res = _FALSE;
+
+	DBG_871X("+%s: size: %d+\n", __func__, size);
+
+	if (padapter == NULL) {
+		DBG_871X(KERN_ERR "%s: padapter is NULL!\n", __func__);
+		return _FALSE;
+	}
+
+	psddev = adapter_to_dvobj(padapter);
+	psdio_data = &psddev->intf_data;
+	func = psdio_data->func;
+
+	if(size) {
+		sdio_claim_host(func);
+		precvbuf = sd_recv_rxfifo(padapter, size);
+
+		if (precvbuf) {
+			//printk("Completed Recv One Pkt.\n");
+			sd_rxhandler(padapter, precvbuf);
+			res = _TRUE;
+		}else{
+			res = _FALSE;
+		}
+		sdio_release_host(func);
+	}
+	DBG_871X("-%s-\n", __func__);
+	return res;
+}
+#endif //CONFIG_WOWLAN_8723
 
