@@ -180,7 +180,7 @@ struct sprd_codec_ldo_v_map {
 };
 
 const static struct sprd_codec_ldo_v_map ldo_v_map[] = {
-	/*{	 , 3400}, */
+	/*{      , 3400}, */
 	{LDO_V_29, 3600},
 	{LDO_V_31, 3700},
 	{LDO_V_32, 3800},
@@ -235,6 +235,7 @@ struct sprd_codec_priv {
 	struct sprd_codec_mixer mixer[SPRD_CODEC_MIXER_MAX];
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
 	int mic_bias[SPRD_CODEC_MIC_BIAS_MAX];
+	int audio_ldo_open_ok;
 #ifdef CONFIG_SPRD_CODEC_USE_INT
 	int ap_irq;
 	struct completion completion_hp_pop;
@@ -321,15 +322,15 @@ static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 
 static inline int _sprd_codec_hold(int index, int volt)
 {
-	int scope = 40; /* unit: mv */
+	int scope = 40;		/* unit: mv */
 	int ret = ((ldo_v_map[index].volt - volt) <= scope);
 	if (index >= 1) {
-		return (ret || ((volt - ldo_v_map[index-1].volt) <= scope));
+		return (ret || ((volt - ldo_v_map[index - 1].volt) <= scope));
 	}
 	return ret;
 }
 
-static int sprd_codec_auto_ldo_volt(void (*set_level)(int), int init)
+static int sprd_codec_auto_ldo_volt(void (*set_level) (int), int init)
 {
 	int i;
 	int volt = sprd_get_vbat_voltage();
@@ -750,7 +751,6 @@ static inline void sprd_codec_pa_sw_clr(int fun)
 	spin_unlock(&sprd_codec_pa_sw_lock);
 }
 
-
 /* inter PA */
 
 static inline void sprd_codec_pa_d_en(int on)
@@ -846,9 +846,11 @@ int sprd_inter_speaker_pa(int on)
 		sprd_codec_pa_ldo_en(inter_pa.setting.is_LDO_mode);
 		if (inter_pa.setting.is_LDO_mode) {
 			if (inter_pa.setting.is_auto_LDO_mode) {
-				sprd_codec_auto_ldo_volt(sprd_codec_pa_ldo_v_sel, 1);
+				sprd_codec_auto_ldo_volt
+				    (sprd_codec_pa_ldo_v_sel, 1);
 			} else {
-				sprd_codec_pa_ldo_v_sel(inter_pa.setting.LDO_V_sel);
+				sprd_codec_pa_ldo_v_sel(inter_pa.
+							setting.LDO_V_sel);
 			}
 		}
 		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
@@ -996,8 +998,10 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 				       ARRAY_SIZE(sprd_codec_power.supplies),
 				       sprd_codec_power.supplies);
 		if (ret != 0) {
+			sprd_codec->audio_ldo_open_ok = 0;
 			pr_err("Failed to request supplies: %d\n", ret);
 		} else {
+			sprd_codec->audio_ldo_open_ok = 1;
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
 				regulator_set_mode(sprd_codec_power.supplies[i].
@@ -1047,12 +1051,17 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 				       0);
 		sprd_codec_update_bits(codec, SOC_REG(PMUR1), BIT(BG_EN), 0);
 
-		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
-			regulator_set_mode(sprd_codec_power.supplies[i].
-					   consumer, REGULATOR_MODE_NORMAL);
+		if (sprd_codec->audio_ldo_open_ok) {
+			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
+			     i++)
+				regulator_set_mode(sprd_codec_power.
+						   supplies[i].consumer,
+						   REGULATOR_MODE_NORMAL);
 
-		regulator_bulk_free(ARRAY_SIZE(sprd_codec_power.supplies),
-				    sprd_codec_power.supplies);
+			regulator_bulk_free(ARRAY_SIZE
+					    (sprd_codec_power.supplies),
+					    sprd_codec_power.supplies);
+		}
 
 		arch_audio_codec_reset();
 		arch_audio_codec_disable();
@@ -2176,7 +2185,8 @@ static int sprd_codec_inter_pa_put(struct snd_kcontrol *kcontrol,
 	unsigned int val;
 	int ret = 0;
 
-	pr_info("config inter PA 0x%08x\n", (int)ucontrol->value.integer.value[0]);
+	pr_info("config inter PA 0x%08x\n",
+		(int)ucontrol->value.integer.value[0]);
 
 	val = (ucontrol->value.integer.value[0] & mask);
 	if (invert)
@@ -2559,7 +2569,7 @@ static void sprd_codec_power_changed(struct power_supply *psy)
 #if 1
 	mutex_lock(&inter_pa_mutex);
 	if (inter_pa.set && inter_pa.setting.is_LDO_mode
-			&& inter_pa.setting.is_auto_LDO_mode) {
+	    && inter_pa.setting.is_auto_LDO_mode) {
 		sprd_codec_auto_ldo_volt(sprd_codec_pa_ldo_v_sel, 0);
 	}
 	mutex_unlock(&inter_pa_mutex);
