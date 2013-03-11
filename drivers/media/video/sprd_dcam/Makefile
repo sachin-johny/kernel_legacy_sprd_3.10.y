@@ -25,6 +25,7 @@ obj-$(CONFIG_DCAM_SENSOR_S5K5CAGX) += sensor_s5k5cagx.o
 obj-$(CONFIG_DCAM_SENSOR_S5KA3DFX) += sensor_s5ka3dfx.o
 obj-$(CONFIG_DCAM_SENSOR_SR200PC10) += sensor_sr200pc10.o
 obj-$(CONFIG_DCAM_SENSOR_S5KCCGX) += sensor_s5k5ccgx.o
+obj-$(CONFIG_DCAM_SENSOR_SR300PC20) += sensor_sr300pc20.o
 # ATV
 obj-$(CONFIG_NMI601_ATV) += sensor_nmi601.o
 endif

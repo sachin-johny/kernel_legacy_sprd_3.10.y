@@ -285,6 +285,16 @@ config DCAM_SENSOR_POS_S5KCCGX
 	help
 	  Sensor position: 1 - back, 2 - front, 3 - both.
 
+config DCAM_SENSOR_SR300PC20
+	tristate "Add sensor driver of SR300PC20"
+config DCAM_SENSOR_POS_SR300PC20
+	int "Sensor position of SR300PC20"
+	depends on DCAM_SENSOR_SR300PC20
+	range 1 3
+	default 1
+	help
+	  Sensor position: 1 - back, 2 - front, 3 - both.
+
 config NMI601_ATV
 	tristate "Add atv driver of NMI601"
 	depends on VIDEO_DCAM_SPRD
