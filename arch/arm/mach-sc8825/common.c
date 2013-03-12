@@ -20,19 +20,19 @@ static void __iomem *gic_cpu_base;
 
 void __iomem *sprd_get_gic_dist_base(void)
 {
-	gic_dist_base_addr = SC8825_VA_GIC_DIS;
+	gic_dist_base_addr = (void __iomem *)SC8825_VA_GIC_DIS;
 	return gic_dist_base_addr;
 }
 
 void __iomem *sprd_get_gic_cpu_base(void)
 {
-	gic_cpu_base = SC8825_VA_GIC_CPU;
+	gic_cpu_base = (void __iomem *)SC8825_VA_GIC_CPU;
 	return gic_cpu_base;
 }
 
 int sprd_map_gic(void){
-	gic_dist_base_addr = SC8825_VA_GIC_DIS;
-	gic_cpu_base = SC8825_VA_GIC_CPU;
+	gic_dist_base_addr = (void __iomem *)SC8825_VA_GIC_DIS;
+	gic_cpu_base = (void __iomem *)SC8825_VA_GIC_CPU;
 	return 0;
 }
 
@@ -68,5 +68,5 @@ void gic_dist_disable(void)
 
 void __iomem *sprd_get_scu_base(void)
 {
-	return SPRD_A5MP_BASE;
+	return (void __iomem *)SPRD_A5MP_BASE;
 }
