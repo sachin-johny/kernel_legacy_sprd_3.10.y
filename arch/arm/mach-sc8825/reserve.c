@@ -48,7 +48,7 @@ void __init sc8825_reserve(void)
 		pr_err("Fail to reserve mem for pmem. errno=%d\n", ret);
 
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
-	if (ret = __ramconsole_reserve_memblock())
+	if ((ret = __ramconsole_reserve_memblock()))
 		pr_err("Fail to reserve mem for ram_console. errno=%d\n", ret);
 #endif
 }
