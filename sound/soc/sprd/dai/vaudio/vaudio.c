@@ -164,9 +164,6 @@ static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 #endif
 	}
 
-	snd_soc_dapm_stream_event(rtd, substream->stream, codec_dai,
-				  SND_SOC_DAPM_STREAM_STOP);
-
 	snd_soc_dai_digital_mute(codec_dai, 1);
 
 	for (i = 0; i < card->num_rtd; i++) {
