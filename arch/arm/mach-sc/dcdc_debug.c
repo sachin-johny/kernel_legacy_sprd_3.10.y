@@ -11,19 +11,14 @@
 #include <mach/adi.h>
 #include <mach/adc.h>
 
-/* FIXME */
-#define   ANA_DCDC_CTRL        			ANA_REG_GLB_DCDC_CTRL0
-#define   ANA_DCDC_CTRL_CAL    			ANA_REG_GLB_DCDC_CTRL_CAL
-#define   ANA_DCDCARM_CTRL     			ANA_REG_GLB_DCDCARM_CTRL0
-#define   ANA_DCDCARM_CTRL_CAL 			ANA_REG_GLB_DCDCARM_CTRL_CAL
-
-extern int dcdc_ctl_vol[];
 int dcdc_adc_get(int adc_chan);
 
 int mpll_calibrate(int cpu_freq);
-int dcdc_calibrate(int adc_chan, int def_vol, int to_vol);
+int sci_dcdc_calibrate(const char *name, int def_vol, int to_vol);
 
 static u32 dcdc_to_vol = 0, dcdcarm_to_vol = 0;
+static u32 dcdcldo_to_vol = 0, dcdcmem_to_vol = 0;
+
 static int debugfs_dcdc_get(void *data, u64 * val)
 {
 	*(u32 *) data = *val = dcdc_adc_get(ADC_CHANNEL_DCDCCORE);
@@ -36,31 +31,43 @@ static int debugfs_dcdcarm_get(void *data, u64 * val)
 	return 0;
 }
 
+static int debugfs_dcdcldo_get(void *data, u64 * val)
+{
+	*(u32 *) data = *val = dcdc_adc_get(ADC_CHANNEL_DCDCLDO);
+	return 0;
+}
+
+static int debugfs_dcdcmem_get(void *data, u64 * val)
+{
+	*(u32 *) data = *val = dcdc_adc_get(ADC_CHANNEL_DCDCMEM);
+	return 0;
+}
+
 static int debugfs_dcdc_set(void *data, u64 val)
 {
-	int cnt = 3;
-	int ret, to_vol;
-	to_vol = *(u32 *) data = val;
-	debugfs_dcdc_get(data, &val);
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCCORE, 0, to_vol);
-	while (ret > 0 && cnt--) {
-		msleep(10);
-		ret = dcdc_calibrate(ADC_CHANNEL_DCDCCORE, ret, to_vol);
-	}
+	int to_vol = *(u32 *) data = val;
+	sci_dcdc_calibrate("vddcore", 0, to_vol);
 	return 0;
 }
 
 static int debugfs_dcdcarm_set(void *data, u64 val)
 {
-	int cnt = 3;
-	int ret, to_vol;
-	to_vol = *(u32 *) data = val;
-	debugfs_dcdcarm_get(data, &val);
-	ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, 0, to_vol);
-	while (ret > 0 && cnt--) {
-		msleep(10);
-		ret = dcdc_calibrate(ADC_CHANNEL_DCDCARM, ret, to_vol);
-	}
+	int to_vol = *(u32 *) data = val;
+	sci_dcdc_calibrate("vddarm", 0, to_vol);
+	return 0;
+}
+
+static int debugfs_dcdcldo_set(void *data, u64 val)
+{
+	int to_vol = *(u32 *) data = val;
+	sci_dcdc_calibrate("dcdcldo", 0, to_vol);
+	return 0;
+}
+
+static int debugfs_dcdcmem_set(void *data, u64 val)
+{
+	int to_vol = *(u32 *) data = val;
+	sci_dcdc_calibrate("vddmem", 0, to_vol);
 	return 0;
 }
 
@@ -85,6 +92,10 @@ DEFINE_SIMPLE_ATTRIBUTE(fops_dcdc,
 			debugfs_dcdc_get, debugfs_dcdc_set, "%llu\n");
 DEFINE_SIMPLE_ATTRIBUTE(fops_dcdcarm,
 			debugfs_dcdcarm_get, debugfs_dcdcarm_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(fops_dcdcldo,
+			debugfs_dcdcldo_get, debugfs_dcdcldo_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(fops_dcdcmem,
+			debugfs_dcdcmem_get, debugfs_dcdcmem_set, "%llu\n");
 DEFINE_SIMPLE_ATTRIBUTE(fops_mpll,
 			debugfs_mpll_get, debugfs_mpll_set, "%llu\n");
 
@@ -100,6 +111,10 @@ static int __init dcdc_debugfs_init(void)
 			    debug_root, &dcdc_to_vol, &fops_dcdc);
 	debugfs_create_file("dcdcarm", S_IRUGO | S_IWUGO,
 			    debug_root, &dcdcarm_to_vol, &fops_dcdcarm);
+	debugfs_create_file("dcdcldo", S_IRUGO | S_IWUGO,
+			    debug_root, &dcdcldo_to_vol, &fops_dcdcldo);
+	debugfs_create_file("dcdcmem", S_IRUGO | S_IWUGO,
+			    debug_root, &dcdcmem_to_vol, &fops_dcdcmem);
 	debugfs_create_file("mpll", S_IRUGO | S_IWUGO,
 			    debug_root, &mpll_freq, &fops_mpll);
 	return 0;

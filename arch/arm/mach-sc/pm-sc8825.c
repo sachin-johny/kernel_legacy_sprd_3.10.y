@@ -209,7 +209,7 @@ static void gic_restore_context(void){
 		offset--;
 	}
 	/* restore CPU 0 Interrupt Set Enable register */
-	gic_writel(gic_context[offset], (GIC_DIST_ENABLE_SET), i);
+	gic_writel(gic_context[offset], (GIC_DIST_ENABLE_SET), 0);
 
 #ifdef CONFIG_SPRD_PM_DEBUG
 	printk("****** exit %s, restore %d gic registers \n ", __func__, offset);
@@ -314,7 +314,6 @@ static void setup_autopd_mode(void)
 	sci_glb_write(REG_GLB_GSM_PWR_CTL, 0x05000520/*|PD_AUTO_EN*/, -1UL);/*GSM*/
 	sci_glb_write(REG_GLB_TD_PWR_CTL, 0x05000520/*|PD_AUTO_EN*/, -1UL);/*TD*/
 	sci_glb_write(REG_GLB_PERI_PWR_CTL, 0x03000920/*|PD_AUTO_EN*/, -1UL);
-	sci_glb_write(REG_GLB_ARM9_SYS_PWR_CTL, 0x01000b20 | PD_AUTO_EN, -1UL);
 	if (sci_glb_read(REG_AHB_CHIP_ID, -1UL) == CHIP_ID_VER_0) {
 		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
 		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL );
@@ -370,7 +369,7 @@ void check_ldo(void)
 	 *  LDOVDD25(bit13), LDOVDD18(bit12), LDOVDD28(bit11) 
 	 *is not auto power down as default
 	 */
-	CHECK_LDO(ANA_REG_GLB_LDO_SLP_CTRL0, 0xc7fd);
+	CHECK_LDO(ANA_REG_GLB_LDO_SLP_CTRL0, 0x87fd);
 
 	/*
 	 * FSM_SLPPD_EN(bit15) must be set
@@ -527,7 +526,7 @@ static void disable_ahb_module(void)
 #define INT1_FIQ_STS            INT1_REG(0x0020)
 #define INT1_FIQ_ENB           INT1_REG(0x0028)
 
-#define INT0_IRQ_MASK	(1<<3)
+#define INT0_IRQ_MASK	(1<<7 | 1<<3)
 
 
 /*save/restore global regs*/
@@ -627,7 +626,7 @@ static void mcu_sleep(void)
 	hard_irq_set();
 	RESTORE_GLOBAL_REG;
 }
-
+#if 0
 /* save pm message for debug when enter deep sleep*/
 unsigned int debug_status[10];
 static void pm_debug_save_ahb_glb_regs(void)
@@ -654,7 +653,7 @@ static void pm_debug_dump_ahb_glb_regs(void)
 	printk("*** GR_BUSCLK:  0x%x ***\n", debug_status[7] );
 	printk("*** GR_CLK_DLY:  0x%x ***\n", debug_status[8] );
 }
-
+#endif
 unsigned int sprd_irq_pending(void)
 {
 	u32 status;
@@ -671,7 +670,7 @@ static int emc_repower_init(void)
 	repower_param = (struct emc_repower_param *)(SPRD_IRAM_BASE + 15 * 1024);
 	set_emc_repower_param(repower_param, SPRD_LPDDR2C_BASE, SPRD_LPDDR2C_BASE + 0x1000);
 	repower_param->cs0_training_addr_v = (u32)ioremap(repower_param->cs0_training_addr_p, 4*1024);
-	if(repower_param->cs_number)
+	if(repower_param->cs_number == 2)
 	{
 		repower_param->cs1_training_addr_v = (u32)ioremap(repower_param->cs1_training_addr_p, 4*1024);
 	}
@@ -821,11 +820,15 @@ int deep_sleep(void)
 	u32 val, ret = 0;
 	u32 holding;
 
-	/*wait_until_uart1_tx_done();*/
+
+	val = 0x87f1;
+	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
+	wait_until_uart1_tx_done();
 	SAVE_GLOBAL_REG;
 	disable_audio_module();
 	disable_apb_module();
 	disable_ahb_module();
+
 	/* for dsp wake-up */
         val = __raw_readl(INT0_IRQ_ENB);
         val |= SCI_INTC_IRQ_BIT(IRQ_DSP0_INT);
@@ -835,9 +838,6 @@ int deep_sleep(void)
 	val = __raw_readl(INT0_FIQ_ENB);
 	val |= SCI_INTC_IRQ_BIT(IRQ_DSP0_INT);
 	val |= SCI_INTC_IRQ_BIT(IRQ_DSP1_INT);
-
-	val = __raw_readl(INT1_FIQ_ENB);
-	val |= SCI_INTC_IRQ_BIT(IRQ_CP2AP_INT0);
 	__raw_writel(val, INT0_FIQ_ENB);
 
 	/* prevent uart1 */
@@ -911,7 +911,6 @@ int deep_sleep(void)
 	restore_reset_vector();	
 	RESTORE_GLOBAL_REG;
 
-	hard_irq_set();
 
 	udelay(5);
 	if (ret) cpu_init();
@@ -921,7 +920,6 @@ int deep_sleep(void)
 	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
 	l2cc_resume(ret);
 #endif
-	pm_debug_dump_ahb_glb_regs();
 
 	return ret;
 }
@@ -1024,6 +1022,7 @@ int sc8825_enter_lowpower(void)
 		scu_save_context();
 		ret = deep_sleep( );
 		scu_restore_context();
+		flush_cache_all();
 		gic_restore_context( );
 		gic_cpu_enable(cpu);
 		gic_dist_enable( );

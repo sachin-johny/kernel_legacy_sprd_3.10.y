@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Spreadtrum Communications Inc.
- * Author: steve.zhan <steve.zhan@spreadtrum.com>
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.
@@ -40,11 +40,14 @@ enum adc_channel {
 	ADC_CHANNEL_DCDCLDO = 16,
 	ADC_CHANNEL_VBATBK = 17,
 	ADC_CHANNEL_HEADMIC = 18,
-	ADC_MAX = 18,
+	ADC_CHANNEL_LDO0 = 19,	/* ldo rf/abb/cama */
+	ADC_CHANNEL_LDO1 = 20,	/* ldo v3v/v28/vsim0/vsim1/cammot/sd0/usb/dvdd18/v25 */
+	ADC_CHANNEL_LDO2 = 21,	/* ldo camio/camcore/cmmb1v2/cmmb1v8/v18/sd1/sd3/ */
+	ADC_MAX = 21,
 };
 
 struct adc_sample_data {
-	int sample_num;
+	int sample_num;		/* from 1 to 15 */
 	int sample_bits;	/*0: 10bits mode, 1:12 bits mode */
 	int signal_mode;	/*0:resistance,1:capacitance */
 	int sample_speed;	/*0:quick mode, 1: slow mode */
@@ -59,10 +62,16 @@ extern void sci_adc_init(void __iomem * adc_base);
 extern void sci_adc_dump_register(void);
 
 /*
- * Use this interface to get adc values and could config adc sample behavior.
- */
+* Use this interface to get adc values and you can config adc sample behavior.
+* The max number adc value is 16 now, Pls notice the return value;
+*/
 extern int sci_adc_get_values(struct adc_sample_data *adc);
 
+/*
+ * get adc channel voltage divider ratio.
+ */
+void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int* div_numerators,
+			unsigned int* div_denominators );
 /*
  * Use this interface to get one adc value and this function have set default
  * adc sample behavior.

@@ -562,7 +562,11 @@ struct platform_device sprd_axi_bm2_device = {
 };
 
 //keypad 
+/*
 #if defined(CONFIG_MACH_SP8825EB) || defined(CONFIG_MACH_SP8825EA)
+*/
+#if defined(CONFIG_MACH_SP8825EB) || defined(CONFIG_MACH_SP8825EA) || defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
+
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW2)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL2)
 #define ROWS	(2)
@@ -852,8 +856,9 @@ static struct resource sprd_sdio1_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio1_pdata = {
+	.hw_name = "sprd-sdio1",
 	.clk_name = "clk_sdio1",
-	.clk_parent = "clk_64m",
+	.clk_parent = "clk_sdio_src",
 	.enb_bit = BIT_SDIO1_EB,
 	.rst_bit = BIT_SD1_SOFT_RST,
 	.regs.is_valid = 1,
@@ -882,6 +887,7 @@ static struct resource sprd_sdio2_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio2_pdata = {
+	.hw_name = "sprd-sdio2",
 	.clk_name = "clk_sdio2",
 	.clk_parent = "clk_192m",
 	.enb_bit = BIT_SDIO2_EB,
@@ -1051,6 +1057,7 @@ static struct seth_init_data sprd_seth1_td_pdata = {
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA1,
 };
+
 struct platform_device sprd_seth1_td_device = {
 	.name           = "seth",
 	.id             =  1,
@@ -1102,3 +1109,24 @@ struct platform_device sprd_pmu_device = {
 	.num_resources	= ARRAY_SIZE(sprd_pmu_resource),
 };
 
+static void sprd_init_pmu(void)
+{
+	platform_device_register(&sprd_pmu_device);
+}
+arch_initcall(sprd_init_pmu);
+
+static struct seth_init_data sprd_seth_td_pdata = {
+	.name		= "veth0",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA0, //FIXME: conflict with 8825,3.4 linux/sipc.h is different with 3.0 ...
+};
+struct platform_device sprd_seth_td_device = {
+	.name           = "seth",
+	.id             =  0,
+	.dev		= {.platform_data = &sprd_seth_td_pdata},
+};
+
+struct platform_device sprd_peer_state_device = {
+        .name           = "peer_state",
+        .id             = -1,
+};

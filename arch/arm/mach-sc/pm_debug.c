@@ -72,6 +72,8 @@ static char * sleep_mode_str[]  = {
 #define	INTCV1_FIQ_STS		INTC1_REG(0x0020)
 #define INT_IRQ_MASK	(1<<3)
 
+void pm_debug_dump_ahb_glb_regs(void);
+
 static void hard_irq_reset(void)
 {
 	int i = SPRD_HARD_INTERRUPT_NUM - 1;
@@ -98,7 +100,7 @@ static void parse_hard_irq(unsigned long val, unsigned long intc)
 void hard_irq_set(void)
 {
 	sprd_irqs_sts[0] = __raw_readl(INT_IRQ_STS);
-	sprd_irqs_sts[1] = __raw_readl(INTCV1_IRQ_MSKSTS);
+	sprd_irqs_sts[1] = __raw_readl(INT_FIQ_STS);
 	irq_status = __raw_readl(INT_IRQ_STS);
 	parse_hard_irq(irq_status, 0);
 	irq_status = __raw_readl(INTCV1_IRQ_MSKSTS);
@@ -107,19 +109,31 @@ void hard_irq_set(void)
 
 #define GPIO_GROUP_NUM		16
 #define IRQ_GPIO		(1<<10)
+#define IRQ_ADIE		(1<<25)
+#define IRQ_DSP0		(1<<26)
+#define IRQ_DSP1		(1<<27)
+#define IRQ_TIMER0		(1<<6)
+#define IRQ_SIM0		(1<<15)
+#define IRQ_SIM1		(1<<16)
+
 #define REG_GPIO_MIS            (0x0020)
+#define ANA_REG_INT_MASK_STATUS (SPRD_MISC_BASE + 0x380 +0x0000)
 void print_hard_irq_inloop(int ret)
 {
 	unsigned int i, j, val;
 	unsigned int gpio_irq[GPIO_GROUP_NUM];
-	sprd_irqs_sts[0] = __raw_readl(INT_IRQ_STS);
-	sprd_irqs_sts[1] = __raw_readl(INTCV1_IRQ_MSKSTS);
-	printk("%c#:INTC0: %08x\n", ret?'S':'F', sprd_irqs_sts[0]);
-	printk("%c#:INTC1: %08x\n", ret?'S':'F', sprd_irqs_sts[1]);
-	if(sprd_irqs_sts[0] != 0 && is_print_irq_runtime)
-		printk("%c#:%08x\n", ret?'S':'F', sprd_irqs_sts[0]);
-	if(sprd_irqs_sts[1] != 0 && is_print_irq_runtime)
-		printk("%c#:%08x\n", ret?'S':'F', sprd_irqs_sts[1]);
+
+	if(!((sprd_irqs_sts[0]&IRQ_DSP0) ||
+		(sprd_irqs_sts[0]&IRQ_DSP1) ||
+		(sprd_irqs_sts[0]&IRQ_TIMER0) ||
+		(sprd_irqs_sts[0]&IRQ_SIM0) ||
+		(sprd_irqs_sts[0]&IRQ_SIM1) ) ){
+
+		if(sprd_irqs_sts[0] != 0)
+			printk("%c#:INTC0: %08x\n", ret?'S':'F', sprd_irqs_sts[0]);
+		if(sprd_irqs_sts[1] != 0)
+			printk("%c#:INTC0 FIQ: %08x\n", ret?'S':'F', sprd_irqs_sts[1]);
+	}
 
 	if(sprd_irqs_sts[0] & IRQ_GPIO){
 		for(i=0; i<(GPIO_GROUP_NUM/2); i++){
@@ -138,6 +152,9 @@ void print_hard_irq_inloop(int ret)
 				}
 			}
 		}
+	}
+	if(sprd_irqs_sts[0] & IRQ_ADIE){
+		printk("adie, irq status:0x%x \n", sci_adi_read(ANA_REG_INT_MASK_STATUS));
 	}
 
 }
@@ -266,6 +283,7 @@ void print_statisic(void)
 	print_time();
 	print_hard_irq();
 	print_irq();
+	pm_debug_dump_ahb_glb_regs();
 	if(is_print_wakeup){
 		printk("###wake up form %s : %08x\n",  sleep_mode_str[sleep_mode],  sprd_irqs_sts[0]);
 		printk("###wake up form %s : %08x\n",  sleep_mode_str[sleep_mode],  sprd_irqs_sts[1]);
@@ -275,6 +293,36 @@ void print_statisic(void)
 static struct wake_lock messages_wakelock;
 #endif
 #ifdef PM_PRINT_ENABLE
+/* save pm message for debug when enter deep sleep*/
+unsigned int debug_status[10];
+void pm_debug_save_ahb_glb_regs(void)
+{
+	debug_status[0] = sci_glb_read(REG_AHB_AHB_STATUS, -1UL);
+	debug_status[1] = sci_glb_read(REG_AHB_AHB_CTL0, -1UL);
+	debug_status[2] = sci_glb_read(REG_AHB_AHB_CTL1, -1UL);
+	debug_status[3] = sci_glb_read(REG_AHB_AHB_STATUS, -1UL);
+	debug_status[4] = sci_glb_read(REG_GLB_GEN0, -1UL);
+	debug_status[5] = sci_glb_read(REG_GLB_GEN1, -1UL);
+	debug_status[6] = sci_glb_read(REG_GLB_STC_DSP_ST, -1UL);
+	debug_status[7] = sci_glb_read(REG_GLB_BUSCLK, -1UL);
+	debug_status[8] = sci_glb_read(REG_GLB_CLKDLY, -1UL);
+}
+void pm_debug_dump_ahb_glb_regs(void)
+{
+	printk("***** ahb and globle registers before last deep sleep **********\n");
+
+	printk("*** AHB_CTL0:  0x%x ***\n", debug_status[1] );
+	printk("*** AHB_CTL1:  0x%x ***\n", debug_status[2] );
+	printk("*** GR_GEN0:  0x%x ***\n", debug_status[4] );
+	printk("*** GR_GEN1:  0x%x ***\n", debug_status[5] );
+	printk("*** GR_BUSCLK:  0x%x ***\n", debug_status[7] );
+
+	printk("*** AHB_STS:  0x%x ***\n", debug_status[3] );
+	printk("*** GR_STC_STATE:  0x%x ***\n", debug_status[6] );
+	printk("*** GR_CLK_DLY:  0x%x ***\n", debug_status[8] );
+}
+
+
 static void print_ahb(void)
 {
 	u32 val = sci_glb_read(REG_AHB_AHB_CTL0, -1UL);
@@ -455,11 +503,31 @@ static void print_gr(void)
 #define	ANA_LED_CTL			(LDO_REG_BASE  + 0x70)
 #define ANA_VIBRATOR_CTRL0	(LDO_REG_BASE  + 0x74)
 #define	ANA_AUD_CLK_RST		(LDO_REG_BASE  + 0x7C)
+
+static int check_ana(void)
+{
+	static u16 tag = 0x555;
+	int ret = 0;
+	u32 val, reg = SCI_ADDR(SPRD_MISC_BASE, 0x0144);
+
+	/* check adi fifo r/w address */
+	val = __raw_readl(SCI_ADDR(SPRD_ADI_BASE, 0x002c));
+	ret |= (val >> 4 & 3) == (val >> 8 & 3);
+	ret <<= 1;
+
+	/* check ana reg w/r consistency */
+	sci_adi_raw_write(reg, tag);
+	ret |= sci_adi_read(reg) == tag;
+	tag = ~tag & 0xfff;
+
+	return ret;
+}
+
 static void print_ana(void)
 {
 	u32 val;
 	val = sci_adi_read(ANA_REG_GLB_ANA_APB_CLK_EN);
-	printk("##: ANA_REG_GLB_ANA_APB_CLK_EN = %08x.\n", val);
+	printk("##%d: ANA_REG_GLB_ANA_APB_CLK_EN = %08x.\n", check_ana(), val);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL0);
 	printk("##: ANA_REG_GLB_LDO_PD_CTRL0 = %04x.\n", val);
@@ -534,9 +602,9 @@ static int print_thread(void * data)
 		print_gr();
 		print_ana();
 		is_dsp_sleep();
+		has_wake_lock(WAKE_LOCK_SUSPEND);
 		msleep(100);
 		wake_unlock(&messages_wakelock);
-		has_wake_lock(WAKE_LOCK_SUSPEND);
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule_timeout(30 * HZ);
 	}
@@ -557,19 +625,19 @@ static void debugfs_init(void)
 		dentry_debug_root = NULL;
 		return;
 	}
-	debugfs_create_u32("print_sleep_mode", 0666, dentry_debug_root,
+	debugfs_create_u32("print_sleep_mode", 0644, dentry_debug_root,
 			   &is_print_sleep_mode);
-	debugfs_create_u32("print_linux_clock", 0666, dentry_debug_root,
+	debugfs_create_u32("print_linux_clock", 0644, dentry_debug_root,
 			   &is_print_linux_clock);
-	debugfs_create_u32("print_modem_clock", 0666, dentry_debug_root,
+	debugfs_create_u32("print_modem_clock", 0644, dentry_debug_root,
 			   &is_print_modem_clock);
-	debugfs_create_u32("print_irq", 0666, dentry_debug_root,
+	debugfs_create_u32("print_irq", 0644, dentry_debug_root,
 			   &is_print_irq);
-	debugfs_create_u32("print_wakeup", 0666, dentry_debug_root,
+	debugfs_create_u32("print_wakeup", 0644, dentry_debug_root,
 			   &is_print_wakeup);
-	debugfs_create_u32("print_irq_runtime", 0666, dentry_debug_root,
+	debugfs_create_u32("print_irq_runtime", 0644, dentry_debug_root,
 			   &is_print_irq_runtime);
-	debugfs_create_u32("print_time", 0666, dentry_debug_root,
+	debugfs_create_u32("print_time", 0644, dentry_debug_root,
 			   &is_print_time);
 }
 void pm_debug_init(void)

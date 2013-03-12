@@ -49,6 +49,7 @@
 #define REG_GLB_CLK_EN                  SCI_ADDR(REGS_GLB_BASE, 0x0074)
 #define REG_GLB_CLK26M_ANA_CTL          SCI_ADDR(REGS_GLB_BASE, 0x0078)
 #define REG_GLB_CLK_GEN5                SCI_ADDR(REGS_GLB_BASE, 0x007c)
+#define REG_GLB_DDR_PHY_RETENTION       SCI_ADDR(REGS_GLB_BASE, 0x0080)
 #define REG_GLB_MM_PWR_CTL              SCI_ADDR(REGS_GLB_BASE, 0x0084)
 #define REG_GLB_CEVA_L1RAM_PWR_CTL      SCI_ADDR(REGS_GLB_BASE, 0x0088)
 #define REG_GLB_GSM_PWR_CTL             SCI_ADDR(REGS_GLB_BASE, 0x008c)
@@ -168,6 +169,9 @@
 #define BITS_MPLL_LPF(_x_)              ( (_x_) << 13 & (BIT(13)|BIT(14)|BIT(15)) )
 #define BITS_MPLL_IBIAS(_x_)            ( (_x_) << 11 & (BIT(11)|BIT(12)) )
 #define BITS_MPLL_N(_x_)                ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)) )
+
+#define SHFT_MPLL_REFIN                 ( 16 )
+#define MASK_MPLL_REFIN                 ( BIT(16)|BIT(17) )
 
 #define SHFT_MPLL_N                     ( 0 )
 #define MASK_MPLL_N                     ( BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10) )
@@ -378,6 +382,12 @@
 #define BITS_CLK_UART2_DIV(_x_)         ( (_x_) << 6 & (BIT(6)|BIT(7)|BIT(8)) )
 #define BITS_CLK_UART1_DIV(_x_)         ( (_x_) << 3 & (BIT(3)|BIT(4)|BIT(5)) )
 #define BITS_CLK_UART0_DIV(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)) )
+
+/* bits definitions for register REG_GLB_DDR_PHY_RETENTION */
+#define BIT_DDR_PHY_RET_STATUS          ( BIT(3) )
+#define BIT_DDR_PHY_RET_CLEAR           ( BIT(2) )
+#define BIT_DDR_PHY_AUTO_RET_EN         ( BIT(1) )
+#define BIT_FORCE_DDR_PHY_RET           ( BIT(0) )
 
 /* bits definitions for register REG_GLB_MM_PWR_CTL */
 #define BITS_MM_PWR_ON_DLY(_x_)         ( (_x_) << 24 & (BIT(24)|BIT(25)|BIT(26)) )

@@ -24,7 +24,7 @@
  * We have the following mapping according to asic spec.
  * We have set some trap gaps in the vaddr.
  */
-#define SCI_IOMAP_BASE	0xEB000000
+ #define SCI_IOMAP_BASE	0xF1000000
 
 #define SCI_IOMAP(x)	(SCI_IOMAP_BASE + (x))
 
@@ -294,6 +294,7 @@
 #ifndef REGS_GLB_BASE
 #define REGS_GLB_BASE                                   ( SPRD_GREG_BASE )
 #define ANA_REGS_GLB_BASE                               ( SPRD_MISC_BASE + 0x600 )
+#define ANA_REGS_GLB2_BASE                              ( SPRD_MISC_BASE + 0x580 )
 #endif
 
 #define CHIP_ID_LOW_REG		(ANA_CTL_GLB_BASE + 0xf8)

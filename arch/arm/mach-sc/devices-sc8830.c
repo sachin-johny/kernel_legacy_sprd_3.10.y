@@ -23,7 +23,9 @@
 #include <linux/sprd_cproc.h>
 #include <linux/sipc.h>
 #include <linux/spipe.h>
+#include <linux/spool.h>
 #include <linux/seth.h>
+#include <sound/saudio.h>
 #include <asm/pmu.h>
 #include <mach/hardware.h>
 #include <mach/regs_sc8830_ap_ahb.h>
@@ -808,7 +810,7 @@ static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.clk_name = "clk_sdio0",
 	.clk_parent = "clk_sdio_src",
 	.enb_bit = BIT_SDIO0_EB,
-	.rst_bit = BIT_SDIO0_SOFT_RST,
+	.rst_bit = 0,//FIXME:
 };
 
 struct platform_device sprd_sdio0_device = {
@@ -834,10 +836,11 @@ static struct resource sprd_sdio1_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio1_pdata = {
+	.hw_name = "sprd-sdio1",
 	.clk_name = "clk_sdio1",
-	.clk_parent = "clk_64m",
+	.clk_parent = "clk_sdio_src",
 	.enb_bit = BIT_SDIO1_EB,
-	.rst_bit = BIT_SDIO1_SOFT_RST,
+	.rst_bit = 0,
 	.regs.is_valid = 1,
 };
 
@@ -864,10 +867,11 @@ static struct resource sprd_sdio2_resources[] = {
 };
 
 static struct sprd_host_platdata sprd_sdio2_pdata = {
+	.hw_name = "sprd-sdio2",
 	.clk_name = "clk_sdio2",
 	.clk_parent = "clk_192m",
 	.enb_bit = BIT_SDIO2_EB,
-	.rst_bit = BIT_SDIO2_SOFT_RST,
+	.rst_bit = 0,
 };
 
 struct platform_device sprd_sdio2_device = {
@@ -895,8 +899,8 @@ static struct sprd_host_platdata sprd_emmc_pdata = {
 	.hw_name = "sprd-emmc",
 	.vdd_name = "vddsd3",
 	.clk_name = "clk_emmc",
-	.clk_parent = "clk_36m",
-	.max_clock = 36000000,
+	.clk_parent = "clk_384m",
+	.max_clock = 384000000,
 	.enb_bit = BIT_EMMC_EB,
 	.rst_bit = BIT_EMMC_SOFT_RST,
 	.regs.is_valid = 1,
@@ -1001,6 +1005,22 @@ struct platform_device sprd_stty_td_device = {
 	.dev		= {.platform_data = &sprd_stty_td_pdata},
 };
 
+static struct spool_init_data sprd_spool_td_pdata = {
+    .name       = "spool_td",
+    .dst        = SIPC_ID_CPT,
+    .channel    = SMSG_CH_CTRL, /*TODO*/
+	.txblocknum = 64,
+    .txblocksize = 1516,
+    .rxblocknum = 64,
+    .rxblocksize = 1516,
+};
+struct platform_device sprd_spool_td_device = {
+    .name           = "spool",
+    .id             = 0,
+    .dev            = {.platform_data = &sprd_spool_td_pdata},
+};
+
+
 static struct seth_init_data sprd_seth0_td_pdata = {
 	.name		= "veth0",
 	.dst		= SIPC_ID_CPT,
@@ -1033,6 +1053,20 @@ struct platform_device sprd_seth2_td_device = {
 	.id             =  2,
 	.dev		= {.platform_data = &sprd_seth2_td_pdata},
 };
+
+static struct saudio_init_data  sprd_saudio_td={
+	"VIRTUAL AUDIO",
+	SIPC_ID_CPT,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
+};
+
+struct platform_device sprd_saudio_td_device = {
+	.name       = "saudio",
+	.id         = 0,
+	.dev        = {.platform_data=&sprd_saudio_td},
+};
 #if 0
 static struct resource sprd_pmu_resource[] = {
 	[0] = {
@@ -1047,10 +1081,32 @@ static struct resource sprd_pmu_resource[] = {
 	},
 };
 
-struct platform_device sprd_pmu_device = {
+static struct platform_device sprd_pmu_device = {
 	.name		= "arm-pmu",
 	.id		= ARM_PMU_DEVICE_CPU,
 	.resource = sprd_pmu_resource,
 	.num_resources	= ARRAY_SIZE(sprd_pmu_resource),
 };
+
+static void sprd_init_pmu(void)
+{
+	platform_device_register(&sprd_pmu_device);
+}
+arch_initcall(sprd_init_pmu);
 #endif
+
+static struct seth_init_data sprd_seth_td_pdata = {
+	.name		= "veth0",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA0, //FIXME: conflict with 8825,3.4 linux/sipc.h is different with 3.0 ...
+};
+struct platform_device sprd_seth_td_device = {
+	.name           = "seth",
+	.id             =  0,
+	.dev		= {.platform_data = &sprd_seth_td_pdata},
+};
+
+struct platform_device sprd_peer_state_device = {
+        .name           = "peer_state",
+        .id             = -1,
+};

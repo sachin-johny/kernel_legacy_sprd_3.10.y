@@ -1,5 +1,5 @@
 /* * Copyright (C) 2012 Spreadtrum Communications Inc.
- * Author: steve.zhan <steve.zhan@spreadtrum.com>
+ *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
  * may be copied, distributed, and modified under those terms.

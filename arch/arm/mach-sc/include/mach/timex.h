@@ -15,6 +15,6 @@
 #ifndef __ASM_ARCH_TIMEX_H
 #define __ASM_ARCH_TIMEX_H __FILE__
 
-#define CLOCK_TICK_RATE		32768//TODO
+#define CLOCK_TICK_RATE		32768
 
 #endif
