@@ -34,6 +34,7 @@ ODM_ReadFirmware_8723A_rtl8723fw_B(
      OUT  u4Byte       *pFirmwareSize
 );
 
+
 #endif
 #endif // end of HWIMG_SUPPORT
 

@@ -99,7 +99,7 @@ _func_enter_;
 	#ifdef CONFIG_FTP_PROTECT
 	pmlmepriv->ftp_lock_flag = 0;
 	#endif //CONFIG_FTP_PROTECT
-	#ifdef CONFIG_LINKED_LCOK
+	#if defined (CONFIG_LINKED_LCOK)
 	pmlmepriv->linked_lock_flag = 0;
 	#endif //CONFIG_LINKED_LCOK
 
@@ -119,7 +119,7 @@ void rtw_mfree_mlme_priv_lock (struct mlme_priv *pmlmepriv)
 	_rtw_spinlock_free(&(pmlmepriv->free_bss_pool.lock));
 	_rtw_spinlock_free(&(pmlmepriv->scanned_queue.lock));
 
-#ifdef CONFIG_LINKED_LCOK
+#if defined (CONFIG_LINKED_LCOK)
 	if (pmlmepriv->linked_lock_flag){
 		pmlmepriv->linked_lock_flag = 0;
 		rtw_unlock_suspend();
@@ -1024,7 +1024,7 @@ int rtw_is_desired_network(_adapter *adapter, struct wlan_network *pnetwork)
 			return _FALSE;
 		}
 	}
-	
+
 #if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
 	rtw_get_bcn_info(pnetwork);
 	if ((pnetwork->BcnInfo.encryp_protocol != ENCRYP_PROTOCOL_WPA &&
@@ -1267,7 +1267,7 @@ _func_enter_;
 				#ifdef CONFIG_LAYER2_ROAMING
 				if(pmlmepriv->to_roaming!=0) {
 					if( --pmlmepriv->to_roaming == 0
-						|| _SUCCESS != rtw_sitesurvey_cmd(adapter, &pmlmepriv->assoc_ssid, 1)
+						|| _SUCCESS != rtw_sitesurvey_cmd(adapter, &pmlmepriv->assoc_ssid, 1, NULL, 0)
 					) {
 						pmlmepriv->to_roaming = 0;
 						rtw_free_assoc_resources(adapter, 1);
@@ -1479,7 +1479,7 @@ _func_enter_;
 
 	rtw_led_control(padapter, LED_CTL_LINK);
 
-	
+
 #ifdef CONFIG_DRVEXT_MODULE
 	if(padapter->drvextpriv.enable_wpa)
 	{
@@ -1654,6 +1654,13 @@ static struct sta_info *rtw_joinbss_update_stainfo(_adapter *padapter, struct wl
 			_rtw_memset((u8 *)&psta->dot11txpn, 0, sizeof (union pn48));
 			_rtw_memset((u8 *)&psta->dot11rxpn, 0, sizeof (union pn48));
 		}
+#ifdef CONFIG_WAPI_SUPPORT
+		if(padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI)
+		{
+			padapter->securitypriv.bStaInstallPairwiseKey = _FALSE;
+			padapter->securitypriv.binstallGrpkey=_FALSE;
+		}
+#endif
 
 		//	Commented by Albert 2012/07/21
 		//	When doing the WPS, the wps_ie_len won't equal to 0
@@ -1787,7 +1794,7 @@ static void rtw_joinbss_update_network(_adapter *padapter, struct wlan_network *
 					RT_TRACE(_module_rtl871x_mlme_c_,_drv_err_,("Invalid network_mode\n"));
 					break;
 		}
-	}	
+	}
 
 	rtw_update_protection(padapter, (cur_network->network.IEs) + sizeof (NDIS_802_11_FIXED_IEs),
 									(cur_network->network.IELength));
@@ -2570,26 +2577,40 @@ void rtw_dynamic_check_timer_handlder(_adapter *adapter)
 	PADAPTER pbuddy_adapter = adapter->pbuddy_adapter;
 #endif
 
+#if defined (CONFIG_LINKED_LCOK)
+	u8 dont_care_linklock = 0;
+
+#if defined CONFIG_WOWLAN
+	if (check_fwstate(&adapter->mlmepriv, WIFI_STATION_STATE))
+		dont_care_linklock = 1;
+#endif
+
 	//put here to avoid ips effect
-#ifdef CONFIG_LINKED_LCOK
-	if((check_fwstate(&adapter->mlmepriv, _FW_LINKED)== _TRUE) ||
-		(check_fwstate(&adapter->mlmepriv, WIFI_AP_STATE) == _TRUE)) {
-		if (!adapter->mlmepriv.linked_lock_flag) {
-			DBG_871X("%s lock suspend\n", __func__);
-			adapter->mlmepriv.linked_lock_flag = 1;
-			rtw_lock_suspend();
-		}
-	} else {
-		if (adapter->mlmepriv.linked_lock_flag){
-			DBG_871X("%s unlock suspend\n", __func__);
-			adapter->mlmepriv.linked_lock_flag = 0;
-			rtw_unlock_suspend();
+	//under no wowlan, ap/p2p/sta linked mode will be locked
+	//under wowlan, ap/p2p mode will be locked
+	if (!dont_care_linklock) {
+		if (check_fwstate(&adapter->mlmepriv, WIFI_AP_STATE) ||
+			(check_fwstate(&adapter->mlmepriv, _FW_LINKED))) {
+			if (!adapter->mlmepriv.linked_lock_flag) {
+				DBG_871X("%s lock suspend\n", __func__);
+				adapter->mlmepriv.linked_lock_flag = 1;
+				rtw_lock_suspend();
+			}
+		} else {
+			if (adapter->mlmepriv.linked_lock_flag){
+				DBG_871X("%s unlock suspend\n", __func__);
+				adapter->mlmepriv.linked_lock_flag = 0;
+				rtw_unlock_suspend();
+			}
 		}
 	}
 #endif //CONFIG_LINKED_LCOK
 
 	if(!adapter)
 		return;
+
+	if(adapter->HalFunc.hal_checke_bt_hang)
+		adapter->HalFunc.hal_checke_bt_hang(adapter);
 
 	if(adapter->hw_init_completed == _FALSE)
 		return;
@@ -2859,8 +2880,9 @@ _func_enter_;
 		ret = _FAIL;
 		goto exit;
 	} else {
-		DBG_871X("%s: candidate: %s("MAC_FMT")\n", __FUNCTION__,
-			candidate->network.Ssid.Ssid, MAC_ARG(candidate->network.MacAddress));;
+		DBG_871X("%s: candidate: %s("MAC_FMT", ch:%u)\n", __FUNCTION__,
+			candidate->network.Ssid.Ssid, MAC_ARG(candidate->network.MacAddress),
+			candidate->network.Configuration.DSConfig);
 	}
 
 

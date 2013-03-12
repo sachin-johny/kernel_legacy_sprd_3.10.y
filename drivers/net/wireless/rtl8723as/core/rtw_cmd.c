@@ -303,6 +303,14 @@ int rtw_cmd_filter(struct cmd_priv *pcmdpriv, struct cmd_obj *cmd_obj)
 	}
 	#endif
 
+	/* C2H should be always allowed */
+	if(cmd_obj->cmdcode == GEN_CMD_CODE(_Set_Drv_Extra)) {
+		struct drvextra_cmd_parm *pdrvextra_cmd_parm = (struct drvextra_cmd_parm *)cmd_obj->parmbuf;
+		if(pdrvextra_cmd_parm->ec_id == C2H_WK_CID) {
+			bAllow = _TRUE;
+		}
+	}
+
 	if(cmd_obj->cmdcode == GEN_CMD_CODE(_SetChannelPlan))
 		bAllow = _TRUE;
 
@@ -456,6 +464,7 @@ _next:
 
 		if( _FAIL == rtw_cmd_filter(pcmdpriv, pcmd) )
 		{
+			DBG_871X("%s %d rtw_cmd_filter H2C_DROPPED\n", __func__, __LINE__);
 			pcmd->res = H2C_DROPPED;
 			goto post_process;
 		}
@@ -657,7 +666,8 @@ rtw_sitesurvey_cmd(~)
 	### NOTE:#### (!!!!)
 	MUST TAKE CARE THAT BEFORE CALLING THIS FUNC, YOU SHOULD HAVE LOCKED pmlmepriv->lock
 */
-u8 rtw_sitesurvey_cmd(_adapter  *padapter, NDIS_802_11_SSID *pssid, int ssid_max_num)
+u8 rtw_sitesurvey_cmd(_adapter  *padapter, NDIS_802_11_SSID *ssid, int ssid_num,
+	struct rtw_ieee80211_channel *ch, int ch_num)
 {
 	u8 res = _FAIL;
 	struct cmd_obj		*ph2c;
@@ -698,18 +708,32 @@ _func_enter_;
 
 	init_h2fwcmd_w_parm_no_rsp(ph2c, psurveyPara, GEN_CMD_CODE(_SiteSurvey));
 
-	psurveyPara->bsslimit = 48;
+	/* psurveyPara->bsslimit = 48; */
 	psurveyPara->scan_mode = pmlmepriv->scan_mode;
-
-	_rtw_memset(psurveyPara->ssid, 0, sizeof(NDIS_802_11_SSID)*RTW_SSID_SCAN_AMOUNT);
-
-	if(pssid){
+	/* prepare ssid list */
+	if (ssid) {
 		int i;
-		for(i=0; i<ssid_max_num && i< RTW_SSID_SCAN_AMOUNT; i++){
-			if(pssid[i].SsidLength){
-				_rtw_memcpy(&psurveyPara->ssid[i], &pssid[i], sizeof(NDIS_802_11_SSID));
-				//DBG_871X("%s scan for specific ssid: %s, %d\n", __FUNCTION__
-				//	, psurveyPara->ssid[i].Ssid, psurveyPara->ssid[i].SsidLength);
+		for (i=0; i<ssid_num && i< RTW_SSID_SCAN_AMOUNT; i++) {
+			if (ssid[i].SsidLength) {
+				_rtw_memcpy(&psurveyPara->ssid[i], &ssid[i], sizeof(NDIS_802_11_SSID));
+				psurveyPara->ssid_num++;
+				if (0)
+				DBG_871X(FUNC_ADPT_FMT" ssid:(%s, %d)\n", FUNC_ADPT_ARG(padapter),
+					psurveyPara->ssid[i].Ssid, psurveyPara->ssid[i].SsidLength);
+			}
+		}
+	}
+
+	/* prepare channel list */
+	if (ch) {
+		int i;
+		for (i=0; i<ch_num && i< RTW_CHANNEL_SCAN_AMOUNT; i++) {
+			if (ch[i].hw_value && !(ch[i].flags & RTW_IEEE80211_CHAN_DISABLED)) {
+				_rtw_memcpy(&psurveyPara->ch[i], &ch[i], sizeof(struct rtw_ieee80211_channel));
+				psurveyPara->ch_num++;
+				if (0)
+				DBG_871X(FUNC_ADPT_FMT" ch:%u\n", FUNC_ADPT_ARG(padapter),
+					psurveyPara->ch[i].hw_value);
 			}
 		}
 	}
@@ -1249,6 +1273,13 @@ _func_enter_;
 #endif
 
 	pmlmeinfo->assoc_AP_vendor = check_assoc_AP(pnetwork->network.IEs, pnetwork->network.IELength);
+
+	if (pmlmeinfo->assoc_AP_vendor == HT_IOT_PEER_TENDA)
+		padapter->pwrctrlpriv.smart_ps = 0;
+	else
+		padapter->pwrctrlpriv.smart_ps = padapter->registrypriv.smart_ps;
+
+	DBG_871X("%s: smart_ps=%d\n", __func__, padapter->pwrctrlpriv.smart_ps);
 
 #ifdef CONFIG_AUTH_DIRECT_WITHOUT_BCN
 	//it's too late current network just update from linked scan action,
@@ -1927,7 +1958,14 @@ static void traffic_status_watchdog(_adapter *padapter)
 	if((check_fwstate(pmlmepriv, _FW_LINKED)== _TRUE)
 		/*&& !MgntInitAdapterInProgress(pMgntInfo)*/)
 	{
-		if(pmlmepriv->LinkDetectInfo.NumRxUnicastOkInPeriod > RX_TRAFFIC_BUSY_THRESHOLD ||
+		u32 rx_busy_thresh = 0;
+
+		if(check_fwstate(&padapter->mlmepriv, WIFI_AP_STATE)) {
+			rx_busy_thresh = AP_RX_TRAFFIC_BUSY_THRESHOLD;
+		} else {
+			rx_busy_thresh = RX_TRAFFIC_BUSY_THRESHOLD;
+		}
+		if(pmlmepriv->LinkDetectInfo.NumRxUnicastOkInPeriod > rx_busy_thresh ||
 				pmlmepriv->LinkDetectInfo.NumTxOkInPeriod > TX_TRAFFIC_BUSY_THRESHOLD)
 		{
 			bBusyTraffic = _TRUE;
@@ -2075,7 +2113,10 @@ void dynamic_chk_wk_hdl(_adapter *padapter, u8 *pbuf, int sz)
 	//
 	// BT-Coexist
 	//
-	BT_CoexistMechanism(padapter);
+#ifdef CONFIG_WOWLAN_8723
+	if(padapter->pwrctrlpriv.wowlan_mode != _TRUE)
+#endif
+		BT_CoexistMechanism(padapter);
 #endif
 }
 
@@ -2092,7 +2133,12 @@ _func_enter_;
 
 	if((check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE) == _TRUE)
 		|| (check_fwstate(pmlmepriv, WIFI_ADHOC_STATE) == _TRUE)
-		|| (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE))
+		|| (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
+#ifdef CONFIG_WOWLAN_8723
+		|| (_TRUE == pwrpriv->bInSuspend))
+#else
+		)
+#endif
 	{
 		return;
 	}
@@ -2117,7 +2163,7 @@ _func_enter_;
 			LPS_Leave(padapter);
 			break;
 		case LPS_CTRL_CONNECT:
-			//DBG_871X("LPS_CTRL_CONNECT \n");
+			DBG_871X("%s LPS_CTRL_CONNECT \n", __func__);
 			mstatus = 1;//connect
 			// Reset LPS Setting
 			padapter->pwrctrlpriv.LpsIdleCount = 0;
@@ -2130,6 +2176,8 @@ _func_enter_;
 			//DBG_871X("LPS_CTRL_DISCONNECT \n");
 			mstatus = 0;//disconnect
 #ifdef CONFIG_BT_COEXIST
+			issue_deauth(padapter, padapter->mlmeextpriv.mlmext_info.network.MacAddress,
+					WLAN_REASON_DEAUTH_LEAVING);
 			BT_WifiMediaStatusNotify(padapter, mstatus);
 			if (BT_1Ant(padapter) == _FALSE)
 #endif
@@ -2502,6 +2550,15 @@ u8 rtw_c2h_wk_cmd(PADAPTER padapter)
 	struct cmd_priv	*pcmdpriv = &padapter->cmdpriv;
 	u8	res = _SUCCESS;
 
+	/* if cmdpriv.cmdthd_running is false, this C2H can not be done */
+	/* and clear, this will cause C2H can not report issue */
+	/* and if cmdpriv.cmdthd_running is false, there is not 32k */
+	/* so we can parse C2H directly */
+	if (!padapter->cmdpriv.cmdthd_running || !(check_fwstate(&padapter->mlmepriv, _FW_LINKED))) {
+		rtw_hal_set_hwreg(padapter, HW_VAR_C2H_HANDLE, NULL);
+		return _SUCCESS;
+	}
+
 	ph2c = (struct cmd_obj*)rtw_zmalloc(sizeof(struct cmd_obj));
 	if (ph2c == NULL) {
 		res = _FAIL;
@@ -2525,7 +2582,12 @@ u8 rtw_c2h_wk_cmd(PADAPTER padapter)
 
 exit:
 
-	return res;
+	/* C2H must clear, so we should set direct if fail */
+	if (res != _SUCCESS) {
+		DBG_871X("%s rtw_enqueue_cmd fail, set C2H directly\n", __func__);
+		rtw_hal_set_hwreg(padapter, HW_VAR_C2H_HANDLE, NULL);
+		return _SUCCESS;
+	}
 }
 
 u8 rtw_drvextra_cmd_hdl(_adapter *padapter, unsigned char *pbuf)

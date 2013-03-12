@@ -47,6 +47,11 @@
 #include <rtw_br_ext.h>
 #endif //CONFIG_BR_EXT
 
+#ifdef CONFIG_RF_GAIN_OFFSET
+#define		REG_RF_BB_GAIN_OFFSET	0x55
+#define		RF_GAIN_OFFSET_MASK		0xfffff
+#endif //CONFIG_RF_GAIN_OFFSET
+
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Realtek Wireless Lan Driver");
 MODULE_AUTHOR("Realtek Semiconductor Corp.");
@@ -876,16 +881,16 @@ u16 rtw_recv_select_queue(struct sk_buff *skb)
 			piphdr = (struct iphdr *)(pdata+ETH_HLEN);
 
 			dscp = piphdr->tos & 0xfc;
-			
+
 			priority = dscp >> 5;
-			
+
 			break;
 		default:
 			priority = 0;
 	}
 
 	return rtw_1d_to_queue[priority];
-	
+
 }
 
 #endif
@@ -1018,7 +1023,7 @@ u32 rtw_start_drv_threads(_adapter *padapter)
 {
 	u32 _status = _SUCCESS;
 
-	RT_TRACE(_module_os_intfs_c_,_drv_info_,("+rtw_start_drv_threads\n"));
+	DBG_871X("+rtw_start_drv_threads\n");
 #ifdef CONFIG_XMIT_THREAD_MODE
 #if defined(CONFIG_SDIO_HCI) && defined(CONFIG_CONCURRENT_MODE)
 	if(padapter->adapter_type == PRIMARY_ADAPTER){
@@ -1059,7 +1064,7 @@ u32 rtw_start_drv_threads(_adapter *padapter)
 
 void rtw_stop_drv_threads (_adapter *padapter)
 {
-	RT_TRACE(_module_os_intfs_c_,_drv_info_,("+rtw_stop_drv_threads\n"));
+	DBG_871X("+rtw_stop_drv_threads\n");
 
 	//Below is to termindate rtw_cmd_thread & event_thread...
 	_rtw_up_sema(&padapter->cmdpriv.cmd_queue_sema);
@@ -1388,6 +1393,9 @@ void rtw_cancel_all_timer(_adapter *padapter)
 #ifdef CONFIG_NEW_SIGNAL_STAT_PROCESS
 	_cancel_timer_ex(&padapter->recvpriv.signal_stat_timer);
 #endif
+	if (padapter->HalFunc.hal_cancle_checkbthang_workqueue)
+		padapter->HalFunc.hal_cancle_checkbthang_workqueue(padapter);
+
 	//cancel dm timer
 	rtw_hal_dm_deinit(padapter);
 
@@ -1439,6 +1447,9 @@ u8 rtw_free_drv_sw(_adapter *padapter)
 	rtw_free_evt_priv(&padapter->evtpriv);
 
 	rtw_free_mlme_priv(&padapter->mlmepriv);
+
+	if (padapter->HalFunc.hal_free_checkbthang_workqueue)
+		padapter->HalFunc.hal_free_checkbthang_workqueue(padapter);
 
 	//free_io_queue(padapter);
 
@@ -1946,6 +1957,10 @@ int _netdev_open(struct net_device *pnetdev)
 
 		DBG_871X("MAC Address = "MAC_FMT"\n", MAC_ARG(pnetdev->dev_addr));
 
+#ifdef CONFIG_RF_GAIN_OFFSET
+		rtw_bb_rf_gain_offset(padapter);
+#endif //CONFIG_RF_GAIN_OFFSET
+
 		status=rtw_start_drv_threads(padapter);
 		if(status ==_FAIL)
 		{
@@ -2132,6 +2147,27 @@ void rtw_ips_dev_unload(_adapter *padapter)
 	}
 
 }
+
+#ifdef CONFIG_RF_GAIN_OFFSET
+void rtw_bb_rf_gain_offset(_adapter *padapter)
+{
+	u8      value = padapter->eeprompriv.EEPROMRFGainOffset;
+	u8      tmp = 0x3e;
+	u32     res;
+
+	DBG_871X("+%s value: 0x%02x+\n", __func__, value);
+
+	if (!(value & 0x01)) {
+		DBG_871X("Offset RF Gain.\n");
+		res = rtw_hal_read_rfreg(padapter, RF_PATH_A, REG_RF_BB_GAIN_OFFSET, 0xffffffff);
+		value &= tmp;
+		res = value << 14;
+		rtw_hal_write_rfreg(padapter, RF_PATH_A, REG_RF_BB_GAIN_OFFSET, RF_GAIN_OFFSET_MASK, res);
+	} else {
+		DBG_871X("Using the default RF gain.\n");
+	}
+}
+#endif //CONFIG_RF_GAIN_OFFSET
 
 int pm_netdev_open(struct net_device *pnetdev,u8 bnormal)
 {

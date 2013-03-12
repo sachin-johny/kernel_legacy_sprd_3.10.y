@@ -317,16 +317,16 @@ _func_enter_;
 
 			if(psta)
 			{
-				struct net_device *pnetdev= (struct net_device*)padapter->pnetdev;			
+				struct net_device *pnetdev= (struct net_device*)padapter->pnetdev;
 
 				//DBG_871X("directly forwarding to the rtw_xmit_entry\n");
 
 				//skb->ip_summed = CHECKSUM_NONE;
-				skb->dev = pnetdev;				
+				skb->dev = pnetdev;
 #if (LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35))
 				skb_set_queue_mapping(skb, rtw_recv_select_queue(skb));
 #endif //LINUX_VERSION_CODE>=KERNEL_VERSION(2,6,35)
-			
+
 				rtw_xmit_entry(skb, pnetdev);
 
 				if(bmcast)

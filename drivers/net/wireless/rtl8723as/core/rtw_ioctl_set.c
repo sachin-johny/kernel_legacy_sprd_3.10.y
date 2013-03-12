@@ -118,7 +118,7 @@ _func_enter_;
 		{
 			RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_info_,("rtw_do_join(): site survey if scanned_queue is empty\n."));
 			// submit site_survey_cmd
-			if(_SUCCESS!=(ret=rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1)) ) {
+			if(_SUCCESS!=(ret=rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1, NULL, 0)) ) {
 				pmlmepriv->to_join = _FALSE;
 				RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_err_,("rtw_do_join(): site survey return error\n."));
 			}
@@ -186,7 +186,7 @@ _func_enter_;
 						// funk will reconnect, but funk will not sitesurvey before reconnect
 						RT_TRACE(_module_rtl871x_ioctl_set_c_,_drv_info_,("for funk to do roaming"));
 						if(pmlmepriv->sitesurveyctrl.traffic_busy==_FALSE)
-							rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1);
+							rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1, NULL, 0);
 					}
 
 				}
@@ -200,12 +200,10 @@ _func_enter_;
 					#endif
 				)
 				{
-					if( _SUCCESS!=(ret=rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1)) ){
+					if( _SUCCESS!=(ret=rtw_sitesurvey_cmd(padapter, &pmlmepriv->assoc_ssid, 1, NULL, 0)) ){
 						ret = _FAIL;
 						pmlmepriv->to_join = _FALSE;
 						DBG_871X("rtw_do_join() when  no desired bss in scanning queue, but scan fail \n");
-					} else {
-						DBG_871X("rtw_do_join() when  no desired bss in scanning queue, link after scan \n");
 					}
 				}
 				else
@@ -743,7 +741,7 @@ _func_enter_;
 
 		_enter_critical_bh(&pmlmepriv->lock, &irqL);
 
-		res = rtw_sitesurvey_cmd(padapter, pssid, ssid_max_num);
+		res = rtw_sitesurvey_cmd(padapter, pssid, ssid_max_num, NULL, 0);
 
 		_exit_critical_bh(&pmlmepriv->lock, &irqL);
 	}

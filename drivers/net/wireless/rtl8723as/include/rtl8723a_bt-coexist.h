@@ -1762,7 +1762,7 @@ void BTDM_WifiAssociateNotify(PADAPTER padapter, u8 action);
 void BTDM_MediaStatusNotify(PADAPTER padapter, RT_MEDIA_STATUS mstatus);
 void BTDM_ForDhcp(PADAPTER padapter);
 void BTDM_ForLowWiFiTraffic(PADAPTER padapter);
-void BTDM_ForSoftAPPowerSave(PADAPTER padapter, u8 reset);
+void BTDM_ForSoftAPPowerSave(PADAPTER padapter, u8 type);
 void BTDM_ResetActionProfileState(PADAPTER padapter);
 void BTDM_SetBtCoexCurrAntNum(PADAPTER padapter, u8 antNum);
 #define BT_SetBtCoexCurrAntNum BTDM_SetBtCoexCurrAntNum

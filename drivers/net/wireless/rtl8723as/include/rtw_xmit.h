@@ -506,6 +506,9 @@ struct xmit_frame
 #endif
 #endif
 
+#ifdef CONFIG_XMIT_ACK
+	u8 ack_report;
+#endif
 };
 
 struct tx_servq {
@@ -681,6 +684,13 @@ struct	xmit_priv	{
 
 	struct agg_pkt_info agg_pkt[MAX_AGG_PKT_NUM];
 	#endif
+
+#ifdef CONFIG_XMIT_ACK
+	int	ack_tx;
+	_mutex ack_tx_mutex;
+	struct submit_ctx ack_tx_ops;
+#endif
+
 };
 
 extern struct xmit_buf *rtw_alloc_xmitbuf_ext(struct xmit_priv *pxmitpriv);
@@ -724,8 +734,6 @@ void _rtw_free_xmit_priv (struct xmit_priv *pxmitpriv);
 void rtw_alloc_hwxmits(_adapter *padapter);
 void rtw_free_hwxmits(_adapter *padapter);
 
-s32 rtw_free_xmitframe_ex(struct xmit_priv *pxmitpriv, struct xmit_frame *pxmitframe);
-
 s32 rtw_xmit(_adapter *padapter, _pkt **pkt);
 
 #if defined(CONFIG_AP_MODE) || defined(CONFIG_TDLS)
@@ -747,6 +755,11 @@ thread_return	rtw_xmit_thread(thread_context context);
 #endif
 
 u32	rtw_get_ff_hwaddr(struct xmit_frame	*pxmitframe);
+
+#ifdef CONFIG_XMIT_ACK
+int rtw_ack_tx_wait(struct xmit_priv *pxmitpriv, u32 timeout_ms);
+void rtw_ack_tx_done(struct xmit_priv *pxmitpriv);
+#endif //CONFIG_XMIT_ACK
 
 //include after declaring struct xmit_buf, in order to avoid warning
 #include <xmit_osdep.h>

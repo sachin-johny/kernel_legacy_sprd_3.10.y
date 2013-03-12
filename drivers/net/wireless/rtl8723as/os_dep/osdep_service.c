@@ -1319,7 +1319,7 @@ inline void rtw_suspend_lock_uninit()
 {
 
 	#if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
-	DBG_871X("##########%s###########\n", __FUNCTION__);
+	//DBG_871X("##########%s###########\n", __FUNCTION__);
 	if(rtw_suspend_lock.link.next == LIST_POISON1 || rtw_suspend_lock.link.prev == LIST_POISON2) {
 		DBG_871X("##########%s########### list poison!!\n", __FUNCTION__);
 		return;
@@ -1406,7 +1406,7 @@ inline void rtw_unlock_suspend()
 inline void rtw_lock_suspend_timeout(long timeout)
 {
         #if  defined(CONFIG_WAKELOCK) || defined(CONFIG_ANDROID_POWER)
-        DBG_871X("##########%s###########\n", __FUNCTION__);
+        //DBG_871X("##########%s###########\n", __FUNCTION__);
         if(rtw_suspend_lock.link.next == LIST_POISON1 || rtw_suspend_lock.link.prev == LIST_POISON2) {
                 DBG_871X("##########%s########### list poison!!\n", __FUNCTION__);
                 return;

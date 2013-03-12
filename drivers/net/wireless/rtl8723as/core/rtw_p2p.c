@@ -3323,7 +3323,7 @@ _func_enter_;
 	rtw_p2p_set_state(pwdinfo, P2P_STATE_FIND_PHASE_SEARCH);
 
 	_enter_critical_bh(&pmlmepriv->lock, &irqL);
-	_status = rtw_sitesurvey_cmd(padapter, &ssid, 1);
+	_status = rtw_sitesurvey_cmd(padapter, &ssid, 1, NULL, 0);
 	_exit_critical_bh(&pmlmepriv->lock, &irqL);
 
 
@@ -3801,8 +3801,10 @@ int rtw_p2p_check_frames(_adapter *padapter, const u8 *buf, u32 len, u8 tx)
 
 					if(tx)
 					{
+#ifdef CONFIG_DRV_ISSUE_PROV_REQ // IOT FOR S2
 						if(pwdev_priv->provdisc_req_issued == _FALSE)
 							rtw_cfg80211_issue_p2p_provision_request(padapter, buf, len);
+#endif //CONFIG_DRV_ISSUE_PROV_REQ
 
 						//pwdev_priv->provdisc_req_issued = _FALSE;
 

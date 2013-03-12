@@ -64,6 +64,7 @@ static int wifi_bt_ldo_enable(void)
 		gpio_direction_output(GPIO_WIFI_RESET , 1);
 		msleep(5);
 		sdhci_bus_scan();
+		msleep(5);
 		printk("RTL871X(adapter): %s after bus scan\n", __func__);
 	}
 #endif
@@ -118,6 +119,11 @@ static int __init wlan_bt_late_init(void)
 				break;
 		}
 		printk("RTL871X(adapter): %s after delay %d times (10ms)\n", __func__, i);
+		/* after sdhci_device_attached, there are some cmd for SDIO */
+		/* sleep will make these cmd success and make sure new (high */
+		/* speed SDIO card at address 0001) after sleep */
+		/* suspend/resume will all ok after that */
+		msleep(20);
 		gpio_direction_output(GPIO_WIFI_RESET , 0);
 	}
 

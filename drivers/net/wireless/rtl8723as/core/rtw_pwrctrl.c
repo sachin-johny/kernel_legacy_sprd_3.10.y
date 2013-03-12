@@ -211,6 +211,14 @@ void rtw_ps_processor(_adapter*padapter)
 
 	pwrpriv->ps_processing = _TRUE;
 
+#ifdef CONFIG_WOWLAN_8723
+	if(pwrpriv->wowlan_mode == _TRUE)
+	{
+		DBG_871X("%s(): wowlan_mode is TRUE, puspond ps processor!\n", __func__);
+		goto exit;
+	}
+#endif
+
 #ifdef SUPPORT_HW_RFOFF_DETECTED
 	if(pwrpriv->bips_processing == _TRUE)
 		goto exit;
@@ -345,7 +353,7 @@ u8 rtw_wait_cpwm_interrupt(PADAPTER padapter)
 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
 	u8 ret = _TRUE;
 	u32 count = 0;
-	
+
 	if (pwrpriv->cpwm > PS_STATE_S2)
 		return ret;
 
@@ -385,6 +393,9 @@ void rtw_set_rpwm(PADAPTER padapter, u8 pslv)
 {
 	u8	rpwm;
 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
+#ifdef CONFIG_WOWLAN_8723
+	u8 tog = 0;
+#endif
 
 _func_enter_;
 
@@ -405,13 +416,11 @@ _func_enter_;
 	else
 #endif // CONFIG_LPS_RPWM_TIMER
 	{
-		if ( (pwrpriv->rpwm == pslv)
-#ifdef CONFIG_LPS_LCLK
-			|| ((pwrpriv->rpwm >= PS_STATE_S2)&&(pslv >= PS_STATE_S2))
-#endif
-			)
+		/* here >= S2 can IO, but here we don't just for IO, so we need to set S3/S4 some times */
+		/* e.g, we should set S4 before leave LPS, or RF maybe OFF after leave LPS */
+		if (pwrpriv->rpwm == pslv)
 		{
-			RT_TRACE(_module_rtl871x_pwrctrl_c_,_drv_err_,
+			RT_TRACE(_module_rtl871x_pwrctrl_c_,_drv_notice_,
 				("%s: Already set rpwm[0x%02X], new=0x%02X!\n", __FUNCTION__, pwrpriv->rpwm, pslv));
 			return;
 		}
@@ -441,9 +450,12 @@ _func_enter_;
 		}
 	}
 
+#ifdef CONFIG_WOWLAN_8723
 	/* we find that tog bit sometimes will change no reason */
 	/* so read tog bit before write instead of remember it in driver is right */
-	//pwrpriv->tog = (rtw_read8(padapter, SDIO_LOCAL_BASE|SDIO_REG_HRPWM1) & BIT7) + 0x80;
+	rtw_hal_get_hwreg(padapter, HW_VAR_RPWM_TOG, &tog);
+ 	pwrpriv->tog = tog + 0x80;
+#endif
 
 	rpwm = pslv | pwrpriv->tog;
 #ifdef CONFIG_LPS_LCLK
@@ -462,7 +474,9 @@ _func_enter_;
 #endif // CONFIG_LPS_RPWM_TIMER
 	rtw_hal_set_hwreg(padapter, HW_VAR_SET_RPWM, (u8 *)(&rpwm));
 
+#ifndef CONFIG_WOWLAN_8723
 	pwrpriv->tog += 0x80;
+#endif
 
 #ifdef CONFIG_LPS_LCLK
 	// No LPS 32K, No Ack
@@ -498,7 +512,11 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 	//under BT coex, we should enter LPS when we want
 	//or, TDMA will wrong
 #ifdef CONFIG_BT_COEXIST
-	if(delta_time < LPS_DELAY_TIME)
+#ifdef CONFIG_WOWLAN_8723
+	if ((delta_time < LPS_DELAY_TIME) && (_FALSE == pwrpriv->wowlan_mode))
+#else
+	if (delta_time < LPS_DELAY_TIME)
+#endif //CONFIG_WOWLAN_8723
 	{
 		return _FALSE;
 	}
@@ -520,7 +538,7 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 #else
 	if(_TRUE == pwrpriv->bInSuspend )
 		return _FALSE;
-#endif
+#endif //CONFIG_WOWLAN_8723
 	if( (padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X ||
 		padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI ||
 		check_fwstate(pmlmepriv, WIFI_UNDER_WPS) == _TRUE) &&
@@ -550,9 +568,7 @@ void rtw_set_ps_mode(PADAPTER padapter, u8 ps_mode, u8 smart_ps, u8 bcn_ant_mode
 
 _func_enter_;
 
-	RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_notice_,
-			 ("%s: PowerMode=%d Smart_PS=%d\n",
-			  __FUNCTION__, ps_mode, smart_ps));
+	DBG_871X("%s: PowerMode=%d Smart_PS=%d\n", __FUNCTION__, ps_mode, smart_ps);
 
 	if(ps_mode > PM_Card_Disable) {
 		RT_TRACE(_module_rtl871x_pwrctrl_c_,_drv_err_,("ps_mode:%d error\n", ps_mode));
@@ -569,10 +585,6 @@ _func_enter_;
 			return;
 		}
 	}
-
-#ifdef CONFIG_LPS_LCLK
-	_enter_pwrlock(&pwrpriv->lock);
-#endif
 
 	//if(pwrpriv->pwr_mode == PS_MODE_ACTIVE)
 	if(ps_mode == PS_MODE_ACTIVE)
@@ -607,7 +619,11 @@ _func_enter_;
 			pwrpriv->smart_ps = 0;
 			pwrpriv->bcn_ant_mode = 0;
 			pwrpriv->pwr_mode = ps_mode;
+
+			_enter_pwrlock(&pwrpriv->lps32klock);
 			rtw_set_rpwm(padapter, PS_STATE_S4);
+			_exit_pwrlock(&pwrpriv->lps32klock);
+
 			rtw_hal_set_hwreg(padapter, HW_VAR_H2C_FW_PWRMODE, (u8 *)(&ps_mode));
 			pwrpriv->bFwCurrentInPSMode = _FALSE;
 		}
@@ -649,11 +665,11 @@ _func_enter_;
 			_exit_critical_bh(&pstapriv->sta_hash_lock, &irqL);
 #endif //CONFIG_TDLS
 
-			pwrpriv->bFwCurrentInPSMode = _TRUE;
 			pwrpriv->pwr_mode = ps_mode;
 			pwrpriv->smart_ps = smart_ps;
 			pwrpriv->bcn_ant_mode = bcn_ant_mode;
 			rtw_hal_set_hwreg(padapter, HW_VAR_H2C_FW_PWRMODE, (u8 *)(&ps_mode));
+			pwrpriv->bFwCurrentInPSMode = _TRUE;
 
 #ifdef CONFIG_P2P
 			// Set CTWindow after LPS
@@ -663,17 +679,16 @@ _func_enter_;
 #endif //CONFIG_P2P
 
 #ifdef CONFIG_LPS_LCLK
-			if (pwrpriv->alives == 0)
+			if (pwrpriv->alives == 0) {
+				_enter_pwrlock(&pwrpriv->lps32klock);
 				rtw_set_rpwm(padapter, PS_STATE_S0);
+				_exit_pwrlock(&pwrpriv->lps32klock);
+			}
 #else
 			rtw_set_rpwm(padapter, PS_STATE_S2);
 #endif
 		}
 	}
-
-#ifdef CONFIG_LPS_LCLK
-	_exit_pwrlock(&pwrpriv->lock);
-#endif
 
 _func_exit_;
 }
@@ -745,7 +760,8 @@ _func_enter_;
 			if(pwrpriv->pwr_mode == PS_MODE_ACTIVE)
 			{
 				pwrpriv->bpower_saving = _TRUE;
-				rtw_set_ps_mode(padapter, pwrpriv->power_mgnt, padapter->registrypriv.smart_ps, 0);
+				DBG_871X("%s smart_ps:%d\n", __func__, pwrpriv->smart_ps);
+				rtw_set_ps_mode(padapter, pwrpriv->power_mgnt, pwrpriv->smart_ps, 0); //For Tenda W311 IOT issue
 			}
 		}
 		else
@@ -811,6 +827,10 @@ _func_enter_;
 	{ //connect
 #ifdef CONFIG_LPS_LCLK
 		enqueue = 1;
+#ifdef CONFIG_WOWLAN_8723
+		if(Adapter->pwrctrlpriv.wowlan_mode)
+			enqueue = 0;
+#endif
 #endif
 
 #ifdef CONFIG_P2P
@@ -922,11 +942,11 @@ _func_enter_;
 	pwrpriv = &padapter->pwrctrlpriv;
 
 #ifdef CONFIG_LPS_RPWM_TIMER
-	_enter_pwrlock(&pwrpriv->lock);
+	_enter_pwrlock(&pwrpriv->lps32klock);
 	if (pwrpriv->rpwm < PS_STATE_S2)
 	{
 		DBG_871X("%s: Redundant CPWM Int. RPWM=0x%02X CPWM=0x%02x\n", __func__, pwrpriv->rpwm, pwrpriv->cpwm);
-		_exit_pwrlock(&pwrpriv->lock);
+		_exit_pwrlock(&pwrpriv->lps32klock);
 		goto exit;
 	}
 #endif // CONFIG_LPS_RPWM_TIMER
@@ -944,7 +964,7 @@ _func_enter_;
 	}
 
 #ifdef CONFIG_LPS_RPWM_TIMER
-	_exit_pwrlock(&pwrpriv->lock);
+	_exit_pwrlock(&pwrpriv->lps32klock);
 #endif
 
 exit:
@@ -977,13 +997,13 @@ static void rpwmtimeout_workitem_callback(struct work_struct *work)
 	padapter = container_of(pwrpriv, _adapter, pwrctrlpriv);
 //	DBG_871X("+%s: rpwm=0x%02X cpwm=0x%02X\n", __func__, pwrpriv->rpwm, pwrpriv->cpwm);
 
-	_enter_pwrlock(&pwrpriv->lock);
+	_enter_pwrlock(&pwrpriv->lps32klock);
 	if ((pwrpriv->rpwm == pwrpriv->cpwm) || (pwrpriv->cpwm >= PS_STATE_S2))
 	{
 		DBG_871X("%s: rpwm=0x%02X cpwm=0x%02X CPWM done!\n", __func__, pwrpriv->rpwm, pwrpriv->cpwm);
 		goto exit;
 	}
-	_exit_pwrlock(&pwrpriv->lock);
+	_exit_pwrlock(&pwrpriv->lps32klock);
 
 	if (rtw_read8(padapter, 0x100) != 0xEA)
 	{
@@ -1000,7 +1020,7 @@ static void rpwmtimeout_workitem_callback(struct work_struct *work)
 		return;
 	}
 
-	_enter_pwrlock(&pwrpriv->lock);
+	_enter_pwrlock(&pwrpriv->lps32klock);
 
 	if ((pwrpriv->rpwm == pwrpriv->cpwm) || (pwrpriv->cpwm >= PS_STATE_S2))
 	{
@@ -1012,7 +1032,7 @@ static void rpwmtimeout_workitem_callback(struct work_struct *work)
 	pwrpriv->brpwmtimeout = _FALSE;
 
 exit:
-	_exit_pwrlock(&pwrpriv->lock);
+	_exit_pwrlock(&pwrpriv->lps32klock);
 }
 
 /*
@@ -1049,6 +1069,64 @@ __inline static void unregister_task_alive(struct pwrctrl_priv *pwrctrl, u32 tag
 }
 
 /*
+ * Caller: FillH2CCmd
+ *
+ * Check if the fw_pwrstate is okay for H2C.
+ * If not (cpwm is less than S3), then the sub-routine
+ * will raise the cpwm to be greater than or equal to S3.
+ *
+ * Calling Context: Passive
+ *
+ * Return Value:
+ *	 _SUCCESS	FillH2CCmd can set H2C to fw.
+ *	 _FAIL		FillH2CCmd may can not set H2C to fw.
+ */
+s32 rtw_register_h2c_alive(PADAPTER padapter)
+{
+	s32 res;
+	struct pwrctrl_priv *pwrctrl;
+	u8 pslv;
+
+	_func_enter_;
+
+	res = _SUCCESS;
+	pwrctrl = &padapter->pwrctrlpriv;
+#ifdef CONFIG_BT_COEXIST
+	if (_TRUE == padapter->pwrctrlpriv.btcoex_rfon)
+		pslv = PS_STATE_S3;
+	else
+#endif
+	{
+		pslv = PS_STATE_S2;
+	}
+
+	_enter_pwrlock(&pwrctrl->lps32klock);
+
+	register_task_alive(pwrctrl, H2C_ALIVE);
+
+	if (pwrctrl->bFwCurrentInPSMode == _TRUE)
+	{
+		RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_notice_,
+				("rtw_register_h2c_alive: cpwm=0x%02x alives=0x%08x\n",
+				 pwrctrl->cpwm, pwrctrl->alives));
+
+		if (pwrctrl->cpwm < pslv)
+		{
+			if (pwrctrl->cpwm < PS_STATE_S2)
+				res = _FAIL;
+			if (pwrctrl->rpwm < pslv)
+				rtw_set_rpwm(padapter, pslv);
+		}
+	}
+
+	_exit_pwrlock(&pwrctrl->lps32klock);
+
+	_func_exit_;
+
+	return res;
+}
+
+/*
  * Caller: rtw_xmit_thread
  *
  * Check if the fw_pwrstate is okay for xmit.
@@ -1080,7 +1158,7 @@ _func_enter_;
 		pslv = PS_STATE_S2;
 	}
 
-	_enter_pwrlock(&pwrctrl->lock);
+	_enter_pwrlock(&pwrctrl->lps32klock);
 
 	register_task_alive(pwrctrl, XMIT_ALIVE);
 
@@ -1099,7 +1177,7 @@ _func_enter_;
 		}
 	}
 
-	_exit_pwrlock(&pwrctrl->lock);
+	_exit_pwrlock(&pwrctrl->lps32klock);
 
 _func_exit_;
 
@@ -1138,7 +1216,7 @@ _func_enter_;
 		pslv = PS_STATE_S2;
 	}
 
-	_enter_pwrlock(&pwrctrl->lock);
+	_enter_pwrlock(&pwrctrl->lps32klock);
 
 	register_task_alive(pwrctrl, CMD_ALIVE);
 
@@ -1157,7 +1235,7 @@ _func_enter_;
 		}
 	}
 
-	_exit_pwrlock(&pwrctrl->lock);
+	_exit_pwrlock(&pwrctrl->lps32klock);
 
 _func_exit_;
 
@@ -1181,14 +1259,14 @@ _func_enter_;
 
 	pwrctrl = &padapter->pwrctrlpriv;
 
-	_enter_pwrlock(&pwrctrl->lock);
+	_enter_pwrlock(&pwrctrl->lps32klock);
 
 	register_task_alive(pwrctrl, RECV_ALIVE);
 	RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_notice_,
 			 ("rtw_register_rx_alive: cpwm=0x%02x alives=0x%08x\n",
 			  pwrctrl->cpwm, pwrctrl->alives));
 
-	_exit_pwrlock(&pwrctrl->lock);
+	_exit_pwrlock(&pwrctrl->lps32klock);
 
 _func_exit_;
 
@@ -1212,18 +1290,55 @@ _func_enter_;
 
 	pwrctrl = &padapter->pwrctrlpriv;
 
-	_enter_pwrlock(&pwrctrl->lock);
+	_enter_pwrlock(&pwrctrl->lps32klock);
 
 	register_task_alive(pwrctrl, EVT_ALIVE);
 	RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_notice_,
 			 ("rtw_register_evt_alive: cpwm=0x%02x alives=0x%08x\n",
 			  pwrctrl->cpwm, pwrctrl->alives));
 
-	_exit_pwrlock(&pwrctrl->lock);
+	_exit_pwrlock(&pwrctrl->lps32klock);
 
 _func_exit_;
 
 	return _SUCCESS;
+}
+
+/*
+ * Caller: FillH2CCmd
+ *
+ * If H2C done,
+ * Then driver shall call this fun. to power down firmware again.
+ */
+void rtw_unregister_h2c_alive(PADAPTER padapter)
+{
+	struct pwrctrl_priv *pwrctrl;
+
+	_func_enter_;
+
+	pwrctrl = &padapter->pwrctrlpriv;
+
+	_enter_pwrlock(&pwrctrl->lps32klock);
+
+	unregister_task_alive(pwrctrl, H2C_ALIVE);
+
+	if ((pwrctrl->pwr_mode != PS_MODE_ACTIVE) &&
+			(pwrctrl->bFwCurrentInPSMode == _TRUE))
+	{
+		RT_TRACE(_module_rtl871x_pwrctrl_c_, _drv_info_,
+				("%s: cpwm=0x%02x alives=0x%08x\n",
+				 __FUNCTION__, pwrctrl->cpwm, pwrctrl->alives));
+
+		if ((pwrctrl->alives == 0) &&
+				(pwrctrl->cpwm > PS_STATE_S0))
+		{
+			rtw_set_rpwm(padapter, PS_STATE_S0);
+		}
+	}
+
+	_exit_pwrlock(&pwrctrl->lps32klock);
+
+	_func_exit_;
 }
 
 /*
@@ -1241,7 +1356,7 @@ _func_enter_;
 
 	pwrctrl = &padapter->pwrctrlpriv;
 
-	_enter_pwrlock(&pwrctrl->lock);
+	_enter_pwrlock(&pwrctrl->lps32klock);
 
 	unregister_task_alive(pwrctrl, XMIT_ALIVE);
 
@@ -1259,7 +1374,7 @@ _func_enter_;
 		}
 	}
 
-	_exit_pwrlock(&pwrctrl->lock);
+	_exit_pwrlock(&pwrctrl->lps32klock);
 
 _func_exit_;
 }
@@ -1279,7 +1394,7 @@ _func_enter_;
 
 	pwrctrl = &padapter->pwrctrlpriv;
 
-	_enter_pwrlock(&pwrctrl->lock);
+	_enter_pwrlock(&pwrctrl->lps32klock);
 
 	unregister_task_alive(pwrctrl, CMD_ALIVE);
 
@@ -1297,7 +1412,7 @@ _func_enter_;
 		}
 	}
 
-	_exit_pwrlock(&pwrctrl->lock);
+	_exit_pwrlock(&pwrctrl->lps32klock);
 
 _func_exit_;
 }
@@ -1313,7 +1428,7 @@ _func_enter_;
 
 	pwrctrl = &padapter->pwrctrlpriv;
 
-	_enter_pwrlock(&pwrctrl->lock);
+	_enter_pwrlock(&pwrctrl->lps32klock);
 
 	unregister_task_alive(pwrctrl, RECV_ALIVE);
 
@@ -1321,7 +1436,7 @@ _func_enter_;
 			 ("rtw_unregister_rx_alive: cpwm=0x%02x alives=0x%08x\n",
 			  pwrctrl->cpwm, pwrctrl->alives));
 
-	_exit_pwrlock(&pwrctrl->lock);
+	_exit_pwrlock(&pwrctrl->lps32klock);
 
 _func_exit_;
 }
@@ -1361,6 +1476,7 @@ _func_enter_;
 #endif
 
 	_init_pwrlock(&pwrctrlpriv->lock);
+	_init_pwrlock(&pwrctrlpriv->lps32klock);
 	pwrctrlpriv->rf_pwrstate = rf_on;
 	pwrctrlpriv->ips_enter_cnts=0;
 	pwrctrlpriv->ips_leave_cnts=0;
@@ -1457,6 +1573,7 @@ _func_enter_;
 	#endif //CONFIG_HAS_EARLYSUSPEND || CONFIG_ANDROID_POWER
 
 	_free_pwrlock(&pwrctrlpriv->lock);
+	_free_pwrlock(&pwrctrlpriv->lps32klock);
 
 _func_exit_;
 }

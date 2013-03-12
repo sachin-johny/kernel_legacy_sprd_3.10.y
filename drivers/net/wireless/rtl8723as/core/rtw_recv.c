@@ -1828,6 +1828,10 @@ sint validate_recv_data_frame(_adapter *adapter, union recv_frame *precv_frame)
 #ifdef CONFIG_TDLS
 	struct tdls_info *ptdlsinfo = &adapter->tdlsinfo;
 #endif //CONFIG_TDLS
+#ifdef CONFIG_WOWLAN_8723
+	u16 ether_type=0;
+	struct recv_frame_hdr *pfhdr = &precv_frame->u.hdr;
+#endif //CONFIG_WOWLAN_8723
 
 _func_enter_;
 
@@ -1900,6 +1904,16 @@ _func_enter_;
 		ret= _FAIL;
 		goto exit;
 	}
+
+#ifdef CONFIG_WOWLAN_8723
+	if (check_fwstate(&adapter->mlmepriv, WIFI_STATION_STATE) && (check_fwstate(&adapter->mlmepriv, _FW_LINKED)))
+	{
+		if(!is_broadcast_mac_addr(pattrib->ra) && !is_multicast_mac_addr(pattrib->ra) && (adapter->pwrctrlpriv.bInSuspend != _TRUE))
+			rtw_lock_suspend_timeout(2 * HZ);
+		if(!is_broadcast_mac_addr(pattrib->ra) && !is_multicast_mac_addr(pattrib->ra))
+			RT_TRACE(_module_rtl871x_recv_c_, _drv_notice_,(" Recv Unicast!! \n"));
+	}
+#endif //CONFIG_WOWLAN_8723
 
 	//psta->rssi = prxcmd->rssi;
 	//psta->signal_quality= prxcmd->sq;
@@ -1979,7 +1993,32 @@ _func_enter_;
 	}
 
 exit:
+#ifdef CONFIG_WOWLAN_8723
+	if (check_fwstate(&adapter->mlmepriv, WIFI_STATION_STATE))
+	{
+		ptr = ptr + pfhdr->attrib.hdrlen + pattrib->iv_len + LLC_HEADER_SIZE;//modified by xx
+		_rtw_memcpy(&ether_type, ptr, 2);
+		ether_type= ntohs((unsigned short )ether_type);
+		if (ether_type == ETH_P_IP) {
+			u8 *tmp = NULL;
+			//ip header
+			if (pfhdr->len > 282){
+				tmp = ptr + 2;
+				if (((tmp[21] == 68) && (tmp[23] == 67)) ||
+						((tmp[21] == 67) && (tmp[23] == 68))) {
+					// 68 : UDP BOOTP client
+					// 67 : UDP BOOTP server
+					DBG_871X("recv dhcp packet\n");
+				}
+			}
+			RT_PRINT_DATA(_module_rtl871x_recv_c_, _drv_notice_,"Recv Packet:\n", precv_frame->u.hdr.rx_data, pfhdr->len);
 
+		} else if (0x888e == ether_type) {
+			DBG_871X_LEVEL(_drv_always_, "recv eapol packet: len=%d\n", pfhdr->len);
+			//RT_PRINT_DATA(_module_rtl871x_recv_c_, _drv_notice_,"Encrypt Packet:\n", precv_frame->u.hdr.rx_data, pfhdr->len);
+		}
+	}
+#endif //CONFIG_WOWLAN_8723
 _func_exit_;
 
 	return ret;
@@ -2020,7 +2059,9 @@ _func_enter_;
 
 #ifdef CONFIG_FIND_BEST_CHANNEL
 	if (pmlmeext->sitesurvey_res.state == SCAN_PROCESS) {
-		pmlmeext->channel_set[pmlmeext->sitesurvey_res.channel_idx].rx_count++;
+		int ch_set_idx = rtw_ch_set_search_ch(pmlmeext->channel_set, pmlmeext->oper_channel);
+		if (ch_set_idx >= 0)
+			pmlmeext->channel_set[ch_set_idx].rx_count++;
 	}
 #endif
 

@@ -64,6 +64,10 @@ extern void InitInterrupt8723ASdio(PADAPTER padapter);
 extern void InitSysInterrupt8723ASdio(PADAPTER padapter);
 extern void EnableInterrupt8723ASdio(PADAPTER padapter);
 extern void DisableInterrupt8723ASdio(PADAPTER padapter);
+#ifdef CONFIG_WOWLAN_8723
+extern void DisableInterruptButCpwm28723ASdio(PADAPTER padapter);
+extern void ClearInterrupt8723ASdio(PADAPTER padapter);
+#endif //CONFIG_WOWLAN_8723
 extern void sd_int_hdl(PADAPTER padapter);
 #ifdef CONFIG_RTL8723A
 extern u8 HalQueryTxBufferStatus8723ASdio(PADAPTER padapter);

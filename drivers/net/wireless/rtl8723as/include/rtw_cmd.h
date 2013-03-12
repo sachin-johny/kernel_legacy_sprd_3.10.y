@@ -27,6 +27,7 @@
 
 #define C2H_MEM_SZ (16*1024)
 
+#define AP_RX_TRAFFIC_BUSY_THRESHOLD 20
 // nomber of packets RX/TX in a peroid
 #ifdef CONFIG_BT_COEXIST
 //here set it to 10, will let WIFI web in TDMA mode for power save
@@ -34,8 +35,8 @@
 #define RX_TRAFFIC_BUSY_THRESHOLD 10
 #else
 #define TX_TRAFFIC_BUSY_THRESHOLD 100
-#define RX_TRAFFIC_BUSY_THRESHOLD 100		
-#endif	
+#define RX_TRAFFIC_BUSY_THRESHOLD 100
+#endif
 #ifdef CONFIG_CMCC_TEST
 #undef TX_TRAFFIC_BUSY_THRESHOLD
 #undef RX_TRAFFIC_BUSY_THRESHOLD
@@ -288,11 +289,16 @@ Command-Event Mode
 */
 
 #define RTW_SSID_SCAN_AMOUNT 9 // for WEXT_CSCAN_AMOUNT 9
+#define RTW_CHANNEL_SCAN_AMOUNT (14+37)
 struct sitesurvey_parm {
 	sint scan_mode;	//active: 1, passive: 0
 	sint bsslimit;	// 1 ~ 48
+	/* sint bsslimit;	// 1 ~ 48 */
+	u8 ssid_num;
+	u8 ch_num;
 	// for up to 9 probreq with specific ssid
 	NDIS_802_11_SSID ssid[RTW_SSID_SCAN_AMOUNT];
+	struct rtw_ieee80211_channel ch[RTW_CHANNEL_SCAN_AMOUNT];
 };
 
 /*
@@ -930,7 +936,7 @@ Result:
 
 extern u8 rtw_setassocsta_cmd(_adapter  *padapter, u8 *mac_addr);
 extern u8 rtw_setstandby_cmd(_adapter *padapter, uint action);
-extern u8 rtw_sitesurvey_cmd(_adapter  *padapter, NDIS_802_11_SSID *pssid, int ssid_max_num);
+extern u8 rtw_sitesurvey_cmd(_adapter  *padapter, NDIS_802_11_SSID *ssid, int ssid_num, struct rtw_ieee80211_channel *ch, int ch_num);
 extern u8 rtw_createbss_cmd(_adapter  *padapter);
 extern u8 rtw_createbss_cmd_ex(_adapter  *padapter, unsigned char *pbss, unsigned int sz);
 extern u8 rtw_setphy_cmd(_adapter  *padapter, u8 modem, u8 ch);

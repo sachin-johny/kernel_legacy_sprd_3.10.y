@@ -57,10 +57,15 @@
 #ifdef CONFIG_RTL8188E
 #include <rtl8188e_hal.h>
 #endif
+#ifdef CONFIG_WOWLAN_8723
+#include <linux/inetdevice.h>
+#endif
 #ifdef CONFIG_GSPI_HCI
 #include <gspi_ops.h>
 #endif
-
+#ifdef CONFIG_PLATFORM_SPRD
+#include <custom_gpio.h>
+#endif // CONFIG_PLATFORM_SPRD
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27))
 #define  iwe_stream_add_event(a, b, c, d, e)  iwe_stream_add_event(b, c, d, e)
@@ -1655,6 +1660,7 @@ static int rtw_wx_set_wap(struct net_device *dev,
 	}
 #endif
 */
+	RT_TRACE(_module_rtl871x_mlme_c_,_drv_info_,("rtw_wx_set_wap\n"));
 
 #ifdef CONFIG_CONCURRENT_MODE
 	if (check_buddy_fwstate(padapter, _FW_UNDER_SURVEY|_FW_UNDER_LINKING) == _TRUE)
@@ -2022,7 +2028,7 @@ if (padapter->registrypriv.mp_mode == 1)
 
 			_enter_critical_bh(&pmlmepriv->lock, &irqL);
 
-			_status = rtw_sitesurvey_cmd(padapter, ssid, 1);
+			_status = rtw_sitesurvey_cmd(padapter, ssid, 1, NULL, 0);
 
 			_exit_critical_bh(&pmlmepriv->lock, &irqL);
 
@@ -2249,7 +2255,7 @@ static int rtw_wx_get_scan(struct net_device *dev, struct iw_request_info *a,
 		pnetwork = LIST_CONTAINOR(plist, struct wlan_network, list);
 
 		//report network only if the current channel set contains the channel to which this network belongs
-		if( _TRUE == rtw_is_channel_set_contains_channel(padapter->mlmeextpriv.channel_set, pnetwork->network.Configuration.DSConfig)
+		if( _TRUE == rtw_ch_set_search_ch(padapter->mlmeextpriv.channel_set, pnetwork->network.Configuration.DSConfig)
 			#ifdef CONFIG_VALIDATE_SSID
 			&& _TRUE == rtw_validate_ssid(&(pnetwork->network.Ssid))
 			#endif
@@ -3033,6 +3039,14 @@ static int rtw_wx_set_auth(struct net_device *dev,
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	u32 value = param->value;
 	int ret = 0;
+
+#ifdef CONFIG_WOWLAN_8723
+	//block here for wowlan system suspend only, Added by YJ,121218
+	if(padapter->pwrctrlpriv.wowlan_mode){
+		ret = -1;
+		return ret;
+	}
+#endif
 
 	switch (param->flags & IW_AUTH_INDEX) {
 
@@ -9147,6 +9161,8 @@ static int rtw_mp_efuse_set(struct net_device *dev,
 			#endif
 		#endif //#ifdef CONFIG_RTL8188E
 
+
+
 		cnts = strlen(tmp[1]);
 		if (cnts%2)
 		{
@@ -9463,10 +9479,13 @@ static int rtw_mp_write_reg(struct net_device *dev,
 	char width;
 	u32 addr, data;
 	int ret;
+	char input[wrqu->length];
 	PADAPTER padapter = rtw_netdev_priv(dev);
 
+	if (copy_from_user(input, wrqu->pointer, wrqu->length))
+		return -EFAULT;
 
-	pch = extra;
+	pch = input;
 	pnext = strpbrk(pch, " ,.-");
 	if (pnext == NULL) return -EINVAL;
 	*pnext = 0;
@@ -10614,7 +10633,16 @@ static int rtw_mp_SetBT(struct net_device *dev,
 
 	if ( strncmp(extra, "dlfw", 4) == 0)
 	{
+		#if defined(CONFIG_RTL8723A) && (MP_DRIVER == 1)
+			// Pull up BT reset pin.
+			DBG_871X("%s: pull up BT reset pin when bt start mp test\n", __FUNCTION__);
+		 	rtw_wifi_gpio_wlan_ctrl(WLAN_BT_PWDN_ON);
+	 	#endif
+#ifdef CONFIG_WOWLAN_8723
+		status = rtl8723a_FirmwareDownload(padapter, _FALSE);
+#else
 		status = rtl8723a_FirmwareDownload(padapter);
+#endif
 		if(status==_SUCCESS)
 		{
 			_rtw_memset(extra,'\0', wrqu->data.length);
@@ -12790,6 +12818,47 @@ static int get_priv_size(__u16 args)
 	return num * iw_priv_type_size[type];
 }
 // copy from net/wireless/wext.c end
+
+#ifdef CONFIG_WOWLAN_8723
+void rtw_get_current_ip_address(PADAPTER padapter, u8 *pcurrentip)
+{
+	struct mlme_ext_priv *pmlmeext = &padapter->mlmeextpriv;
+	struct mlme_ext_info *pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct in_device *my_ip_ptr = padapter->pnetdev->ip_ptr;
+	u8 ipaddress[4];
+
+	if ( (pmlmeinfo->state & WIFI_FW_LINKING_STATE) ) {
+		if ( my_ip_ptr != NULL ) {
+			struct in_ifaddr *my_ifa_list  = my_ip_ptr->ifa_list ;
+			if ( my_ifa_list != NULL ) {
+				ipaddress[0] = my_ifa_list->ifa_address & 0xFF;
+				ipaddress[1] = (my_ifa_list->ifa_address >> 8) & 0xFF;
+				ipaddress[2] = (my_ifa_list->ifa_address >> 16) & 0xFF;
+				ipaddress[3] = my_ifa_list->ifa_address >> 24;
+				DBG_871X("Currentip: %x %x %x %x==========\n", ipaddress[0], ipaddress[1], ipaddress[2], ipaddress[3]);
+				_rtw_memcpy(pcurrentip, ipaddress, 4);
+			}
+		}
+	}
+}
+void rtw_get_sec_iv(PADAPTER padapter, u8*pcur_dot11txpn, u8 *StaAddr)
+{
+	struct sta_info		*psta;
+//	u8 * my_addr = myid(&(padapter->eeprompriv));
+
+	_rtw_memset(pcur_dot11txpn, 0, 8);
+	if(NULL == StaAddr)
+		return;
+	psta = rtw_get_stainfo(&padapter->stapriv, StaAddr);
+	DBG_871X("%s(): StaAddr: %2.2x:%2.2x:%2.2x:%2.2x:%2.2x:%2.2x\n", __func__, StaAddr[0], StaAddr[1], StaAddr[2], StaAddr[3], StaAddr[4], StaAddr[5]);
+
+	if(psta)
+	{
+		_rtw_memcpy(pcur_dot11txpn, (u8*)&psta->dot11txpn, 8);
+	}
+	DBG_871X("%s(): CurrentIV: %d\n", __func__, pcur_dot11txpn[0]);
+}
+#endif //CONFIG_WOWLAN_8723
 
 static int rtw_ioctl_wext_private(struct net_device *dev, union iwreq_data *wrq_data)
 {

@@ -27,11 +27,11 @@
  *			3. PMAC/BB register bit mask.
  *			4. RF reg bit mask.
  *			5. Other BB/RF relative definition.
- *			
+ *
  *
  * Export:	Constants, macro, functions(API), global variables(None).
  *
- * Abbrev:	
+ * Abbrev:
  *
  * History:
  *		Data		Who		Remark
@@ -574,7 +574,7 @@
 #define		bXBTxAGC                  			0xf00	// Reg 80c rFPGA0_TxGainStage
 #define		bXCTxAGC                  			0xf000
 #define		bXDTxAGC                  			0xf0000
-       		
+
 #define		bPAStart                  			0xf0000000	// Useless now
 #define		bTRStart                  			0x00f00000
 #define		bRFStart                  			0x0000f000
@@ -646,7 +646,7 @@
 #define		bLSSIReadBackData         		0xfffff		// T65 RF
 
 #define		bLSSIReadOKFlag           		0x1000	// Useless now
-#define		bCCKSampleRate            		0x8       //0: 44MHz, 1:88MHz       		
+#define		bCCKSampleRate            		0x8       //0: 44MHz, 1:88MHz
 #define		bRegulator0Standby        		0x1
 #define		bRegulatorPLLStandby      		0x2
 #define		bRegulator1Standby        		0x4
@@ -691,8 +691,8 @@
 #define		bAD11PowerUpAtTx          		0x1
 #define		bDA10PSAtTx               		0x10
 #define		bAD11PowerUpAtRx          		0x100
-#define		bDA10PSAtRx               		0x1000       		
-#define		bCCKRxAGCFormat           		0x200       		
+#define		bDA10PSAtRx               		0x1000
+#define		bCCKRxAGCFormat           		0x200
 #define		bPSDFFTSamplepPoint       		0xc000
 #define		bPSDAverageNum            		0x3000
 #define		bIQPathControl            		0xc00
@@ -791,9 +791,9 @@
 #define		bCCKRxFACounterLower	0xff
 #define		bCCKRxFACounterUpper	0xff000000
 #define		bCCKRxHPAGCStart		0xe000
-#define		bCCKRxHPAGCFinal		0x1c00       		
+#define		bCCKRxHPAGCFinal		0x1c00
 #define		bCCKRxFalseAlarmEnable	0x8000
-#define		bCCKFACounterFreeze	0x4000       		
+#define		bCCKFACounterFreeze	0x4000
 #define		bCCKTxPathSel			0x10000000
 #define		bCCKDefaultRxPath		0xc000000
 #define		bCCKOptionRxPath		0x3000000
@@ -945,15 +945,15 @@
 #define		bRxSGI_TH				0xc0000000
 #define		bDFSCnt0				0xff
 #define		bDFSCnt1				0xff00
-#define		bDFSFlag				0xf0000       		
+#define		bDFSFlag				0xf0000
 #define		bMFWeightSum			0x300000
-#define		bMinIdxTH				0x7f000000       		
-#define		bDAFormat				0x40000       		
-#define		bTxChEmuEnable		0x01000000       		
+#define		bMinIdxTH				0x7f000000
+#define		bDAFormat				0x40000
+#define		bTxChEmuEnable		0x01000000
 #define		bTRSWIsolation_A		0x7f
 #define		bTRSWIsolation_B		0x7f00
 #define		bTRSWIsolation_C		0x7f0000
-#define		bTRSWIsolation_D		0x7f000000       		
+#define		bTRSWIsolation_D		0x7f000000
 #define		bExtLNAGain				0x7c00
 
 // 6. PageE(0xE00)
@@ -991,7 +991,7 @@
 #define		bLongCFOFLength	11
 #define		bTailCFO			0x1fff
 #define		bTailCFOTLength		13
-#define		bTailCFOFLength		12       		
+#define		bTailCFOFLength		12
 #define		bmax_en_pwdB		0xffff
 #define		bCC_power_dB		0xffff0000
 #define		bnoise_pwdB		0xffff
@@ -999,27 +999,27 @@
 #define		bPowerMeasFLength	3
 #define		bRx_HT_BW			0x1
 #define		bRxSC				0x6
-#define		bRx_HT				0x8       		
+#define		bRx_HT				0x8
 #define		bNB_intf_det_on		0x1
 #define		bIntf_win_len_cfg	0x30
-#define		bNB_Intf_TH_cfg		0x1c0       		
+#define		bNB_Intf_TH_cfg		0x1c0
 #define		bRFGain				0x3f
 #define		bTableSel			0x40
-#define		bTRSW				0x80       		
+#define		bTRSW				0x80
 #define		bRxSNR_A			0xff
 #define		bRxSNR_B			0xff00
 #define		bRxSNR_C			0xff0000
 #define		bRxSNR_D			0xff000000
 #define		bSNREVMTLength		8
-#define		bSNREVMFLength		1       		
+#define		bSNREVMFLength		1
 #define		bCSI1st				0xff
 #define		bCSI2nd				0xff00
 #define		bRxEVM1st			0xff0000
-#define		bRxEVM2nd			0xff000000       		
+#define		bRxEVM2nd			0xff000000
 #define		bSIGEVM			0xff
 #define		bPWDB				0xff00
 #define		bSGIEN				0x10000
-       		
+
 #define		bSFactorQAM1		0xf	// Useless
 #define		bSFactorQAM2		0xf0
 #define		bSFactorQAM3		0xf00
@@ -1030,7 +1030,7 @@
 #define		bSFactorQAM8		0xf000000
 #define		bSFactorQAM9		0xf0000000
 #define		bCSIScheme			0x100000
-       		
+
 #define		bNoiseLvlTopSet		0x3	// Useless
 #define		bChSmooth			0x4
 #define		bChSmoothCfg1		0x38
@@ -1039,7 +1039,7 @@
 #define		bChSmoothCfg4		0x7000
 #define		bMRCMode			0x800000
 #define		bTHEVMCfg			0x7000000
-       		
+
 #define		bLoopFitType		0x1	// Useless
 #define		bUpdCFO			0x40
 #define		bUpdCFOOffData		0x80
@@ -1113,7 +1113,7 @@
 #define		bMaskLWord			0x0000ffff
 #define		bMaskDWord		0xffffffff
 #define		bMask12Bits			0xfff
-#define		bMaskH4Bits			0xf0000000	
+#define		bMaskH4Bits			0xf0000000
 #define		bMaskOFDM_D		0xffc00000
 #define		bMaskCCK			0x3f3f3f3f
 
@@ -1121,7 +1121,7 @@
 //#define		bMask12Bits               	0xfffff	// RF Reg mask bits
 //#define		bMask20Bits               	0xfffff	// RF Reg mask bits T65 RF
 #define 		bRFRegOffsetMask		0xfffff
-//#define 		bRFRegOffsetMask		0xfff	
+//#define 		bRFRegOffsetMask		0xfff
 
 //MAC0 will wirte PHY1
 #define	MAC0_ACCESS_PHY1	0x4000
@@ -1130,13 +1130,13 @@
 
 #define		bEnable			0x1	// Useless
 #define		bDisable		0x0
-       		
+
 #define		LeftAntenna		0x0	// Useless
 #define		RightAntenna	0x1
-       		
+
 #define		tCheckTxStatus		500   //500ms // Useless
 #define		tUpdateRxCounter	100   //100ms
-       		
+
 #define		rateCCK		0	// Useless
 #define		rateOFDM	1
 #define		rateHT		2
@@ -1159,7 +1159,7 @@
 #define		bPMACControl		0x0		// Useless
 #define		bWMACControl		0x1
 #define		bWNICControl		0x2
-       		
+
 #define		PathA			0x0	// Useless
 #define		PathB			0x1
 #define		PathC			0x2

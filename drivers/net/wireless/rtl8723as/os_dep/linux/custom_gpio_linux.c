@@ -52,6 +52,7 @@ extern unsigned int oob_irq;
 /* for realtek it can fix clock close issue
  * after resume in Android 4.0.3*/
 extern int sdhci_device_attach(int on);
+extern int rtw_mp_mode;
 #else // !CONFIG_SDIO_HCI
 #define sdhci_device_attach(a) do{}while(0)
 #endif // !CONFIG_SDIO_HCI
@@ -68,12 +69,19 @@ int rtw_wifi_gpio_init(void)
 		DBG_8192C("%s oob_irq:%d\n", __func__, oob_irq);
 	}
 #endif
-
 	if (GPIO_WIFI_RESET > 0)
 		gpio_request(GPIO_WIFI_RESET , "wifi_rst");
 	if (GPIO_WIFI_POWER > 0)
 		gpio_request(GPIO_WIFI_POWER, "wifi_power");
-
+#ifdef CONFIG_SDIO_HCI
+#if defined(CONFIG_RTL8723A) && (MP_DRIVER == 1)
+	if(rtw_mp_mode==1){
+		DBG_871X("%s GPIO_BT_RESET pin special for mp_test\n", __func__);
+		if (GPIO_BT_RESET > 0)
+			gpio_request(GPIO_BT_RESET , "bt_rst");
+	}
+#endif
+#endif
 	return 0;
 }
 
@@ -88,6 +96,15 @@ int rtw_wifi_gpio_deinit(void)
 	if (GPIO_WIFI_POWER > 0)
 		gpio_free(GPIO_WIFI_POWER);
 
+#ifdef CONFIG_SDIO_HCI
+#if defined(CONFIG_RTL8723A) && (MP_DRIVER == 1)
+	if(rtw_mp_mode==1){
+		DBG_871X("%s GPIO_BT_RESET pin special for mp_test\n", __func__);
+		if (GPIO_BT_RESET > 0)
+			gpio_free(GPIO_BT_RESET);
+	}
+#endif
+#endif
 	return 0;
 }
 
@@ -192,6 +209,30 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 			}
 #endif // CONFIG_RTL8188E
 		break;
+#ifdef CONFIG_SDIO_HCI
+#if defined(CONFIG_RTL8723A) && (MP_DRIVER == 1)
+		case WLAN_BT_PWDN_OFF:
+		if(rtw_mp_mode==1)
+		{
+			DBG_871X("%s: call customer specific GPIO to set wifi power down pin to 0\n",
+				       	__FUNCTION__);
+			if (GPIO_BT_RESET > 0)
+				gpio_direction_output(GPIO_BT_RESET , 0);
+		}
+		break;
+
+		case WLAN_BT_PWDN_ON:
+		if(rtw_mp_mode==1)
+		{
+			DBG_871X("%s: callc customer specific GPIO to set wifi power down pin to 1 %x\n",
+					__FUNCTION__, GPIO_BT_RESET);
+
+			if (GPIO_BT_RESET > 0)
+				gpio_direction_output(GPIO_BT_RESET , 1);
+		}
+		break;
+#endif
+#endif
 	}
 }
 

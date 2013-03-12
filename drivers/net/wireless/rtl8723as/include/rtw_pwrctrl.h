@@ -48,6 +48,7 @@
 #define RECV_ALIVE	BIT(1)
 #define CMD_ALIVE	BIT(2)
 #define EVT_ALIVE	BIT(3)
+#define H2C_ALIVE	BIT(4)
 
 
 enum Power_Mgnt
@@ -185,6 +186,7 @@ enum { // for ips_mode
 struct pwrctrl_priv
 {
 	_pwrlock	lock;
+	_pwrlock	lps32klock;
 	volatile u8 rpwm; // requested power state for fw
 	volatile u8 cpwm; // fw current power state. updated when 1. read from HCPWM 2. driver lowers power level
 	volatile u8 tog; // toggling
@@ -320,6 +322,8 @@ extern void rtw_init_pwrctrl_priv(_adapter *adapter);
 extern void rtw_free_pwrctrl_priv(_adapter * adapter);
 
 #ifdef CONFIG_LPS_LCLK
+extern s32 rtw_register_h2c_alive(PADAPTER padapter);
+extern void rtw_unregister_h2c_alive(PADAPTER padapter);
 extern s32 rtw_register_tx_alive(PADAPTER padapter);
 extern void rtw_unregister_tx_alive(PADAPTER padapter);
 extern s32 rtw_register_rx_alive(PADAPTER padapter);

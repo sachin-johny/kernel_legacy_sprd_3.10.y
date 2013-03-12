@@ -62,6 +62,12 @@
 #define DISCONNECT_LIMIT	5
 #endif
 
+#ifdef CONFIG_CMCC_TEST
+#undef SURVEY_TO
+#undef DISCONNECT_LIMIT
+#define SURVEY_TO		(50)
+#define DISCONNECT_LIMIT	10
+#endif
 //#define	IOCMD_REG0		0x10250370
 //#define	IOCMD_REG1		0x10250374
 //#define	IOCMD_REG2		0x10250378
@@ -286,7 +292,8 @@ typedef enum _HT_IOT_PEER
 	HT_IOT_PEER_RTK_APCLIENT 		= 13,
 	HT_IOT_PEER_REALTEK_81XX 		= 14,
 	HT_IOT_PEER_REALTEK_WOW 		= 15,
-	HT_IOT_PEER_MAX 				= 16
+	HT_IOT_PEER_TENDA 				= 16,
+	HT_IOT_PEER_MAX 				= 17
 }HT_IOT_PEER_E, *PHTIOT_PEER_E;
 
 
@@ -318,7 +325,10 @@ struct	ss_res
 	int	bss_cnt;
 	int	channel_idx;
 	int	scan_mode;
+	u8	ssid_num;
+	u8	ch_num;
 	NDIS_802_11_SSID ssid[RTW_SSID_SCAN_AMOUNT];
+	struct rtw_ieee80211_channel ch[RTW_CHANNEL_SCAN_AMOUNT];
 };
 
 //#define AP_MODE				0x0C
@@ -470,7 +480,7 @@ typedef struct _RT_CHANNEL_INFO
 #endif
 }RT_CHANNEL_INFO, *PRT_CHANNEL_INFO;
 
-extern int rtw_is_channel_set_contains_channel(RT_CHANNEL_INFO *channel_set, const u32 channel_num);
+int rtw_ch_set_search_ch(RT_CHANNEL_INFO *ch_set, const u32 ch);
 
 struct mlme_ext_priv
 {
@@ -485,6 +495,7 @@ struct mlme_ext_priv
 	unsigned char	cur_bwmode;
 	unsigned char	cur_ch_offset;//PRIME_CHNL_OFFSET
 	unsigned char	cur_wireless_mode;	// NETWORK_TYPE
+	unsigned char	oper_channel; //saved channel info when call set_channel_bw
 	unsigned char	max_chan_nums;
 	RT_CHANNEL_INFO		channel_set[MAX_CHANNEL_NUM];
 	unsigned char	basicrate[NumRates];
@@ -525,6 +536,10 @@ struct mlme_ext_priv
 #endif
 	//recv_decache check for Action_public frame
 	u16 	 action_public_rxseq;
+
+	/* for softap power save */
+	u8 action_public_dialog_token;
+	u32	onauth_time;
 };
 
 int init_mlme_ext_priv(_adapter* padapter);
@@ -638,6 +653,7 @@ void update_mgnt_tx_rate(_adapter *padapter, u8 rate);
 void update_mgntframe_attrib(_adapter *padapter, struct pkt_attrib *pattrib);
 void dump_mgntframe(_adapter *padapter, struct xmit_frame *pmgntframe);
 s32 dump_mgntframe_and_wait(_adapter *padapter, struct xmit_frame *pmgntframe, int timeout_ms);
+s32 dump_mgntframe_and_wait_ack(_adapter *padapter, struct xmit_frame *pmgntframe);
 
 #ifdef CONFIG_P2P
 void issue_probersp_p2p(_adapter *padapter, unsigned char *da);

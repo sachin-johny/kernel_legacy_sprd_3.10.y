@@ -52,6 +52,10 @@ static u8 _is_fw_read_cmd_down(_adapter* padapter, u8 msgbox_num)
 		if(0 == valid ){
 			read_down = _TRUE;
 		}
+#ifdef CONFIG_WOWLAN_8723
+		else
+			rtw_msleep_os(1);
+#endif
 	}while( (!read_down) && (retry_cnts--));
 
 	return read_down;
@@ -122,6 +126,13 @@ _func_enter_;
 
 		*(u8*)(&h2c_cmd) |= ElementID;
 
+#ifdef CONFIG_LPS_LCLK
+		if (ElementID != LOWPWR_LPS_EID) {
+			if (rtw_register_h2c_alive(padapter) != _SUCCESS) {
+				DBG_871X("%s ERROR rtw_register_h2c_alive fail\n", __func__);
+			}
+		}
+#endif
 		if(h2c_cmd & BIT(7)){
 			msgbox_ex_addr = REG_HMEBOX_EXT_0 + (h2c_box_num *EX_MESSAGE_BOX_SIZE);
 			h2c_cmd_ex = le16_to_cpu( h2c_cmd_ex );
@@ -133,11 +144,16 @@ _func_enter_;
 
 		bcmd_down = _TRUE;
 
-	//	DBG_8192C("MSG_BOX:%d,CmdLen(%d), reg:0x%x =>h2c_cmd:0x%x, reg:0x%x =>h2c_cmd_ex:0x%x ..\n"
-	//	 	,pHalData->LastHMEBoxNum ,CmdLen,msgbox_addr,h2c_cmd,msgbox_ex_addr,h2c_cmd_ex);
+		DBG_8192C("MSG_BOX:%d, CmdLen(%d), CmdID(%d), reg:0x%x =>h2c_cmd:0x%x, reg:0x%x =>h2c_cmd_ex:0x%x ..\n"
+		 	,pHalData->LastHMEBoxNum , CmdLen, ElementID, msgbox_addr, h2c_cmd, msgbox_ex_addr, h2c_cmd_ex);
 
 		pHalData->LastHMEBoxNum = (h2c_box_num+1) % RTL92C_MAX_H2C_BOX_NUMS;
 
+#ifdef CONFIG_LPS_LCLK
+		if (ElementID != LOWPWR_LPS_EID) {
+			rtw_unregister_h2c_alive(padapter);
+		}
+#endif
 	}while((!bcmd_down) && (retry_cnts--));
 
 	ret = _SUCCESS;
@@ -254,6 +270,10 @@ void rtl8192c_Add_RateATid(PADAPTER pAdapter, u32 bitmap, u8 arg)
 static s32 _rtl8723a_set_lowpwr_lps_cmd(PADAPTER padapter, u8 enable)
 {
 	LOWPWR_LPS_PARM lowpwr_lps;
+#ifdef CONFIG_WOWLAN_8723
+	PWR_LPS_TUNE_PARAM pwr_param;
+	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
+#endif
 	u8 BcnRcvTime = 0;
 	u32 BcnLen;
 	s32 ret;
@@ -265,24 +285,48 @@ _func_enter_;
 	_rtw_memset(&lowpwr_lps, 0, sizeof(LOWPWR_LPS_PARM));
 	if (enable == _TRUE)
 	{
-		// rcv time(micro%32) use CCK-1M
-		// fcs is 4
-		BcnLen = padapter->mlmepriv.cur_network.network.BcnLength;
-		BcnLen += 500; //add 5ms
-		BcnRcvTime = ((BcnLen<<3)+31) >> 5;
-		//BcnRcvTime += 6400 >> 5; //add 4ms
-		DBG_871X("%s: BcnLength=%d BcnRcvTime=%d (32us)\n", __FUNCTION__, BcnLen, BcnRcvTime);
+#ifdef CONFIG_WOWLAN_8723
+		if(pwrpriv->bInSuspend){
+			lowpwr_lps.enable = 1;
+			lowpwr_lps.bcn_count= 3;  // max 15
+			lowpwr_lps.tb_bcn_threshold = 1; // max 7
+			lowpwr_lps.bcn_interval = 0x86; //About 5ms
+			lowpwr_lps.drop_threshold = 11;
+			lowpwr_lps.max_early_period = 13;
+			lowpwr_lps.max_bcn_timeout_period = 25;
+		}else
+#endif
+		{
+			// rcv time(micro%32) use CCK-1M
+			// fcs is 4
+			BcnLen = padapter->mlmepriv.cur_network.network.BcnLength;
+			BcnLen += 500; //add 5ms
+			BcnRcvTime = ((BcnLen<<3)+31) >> 5;
+			//BcnRcvTime += 6400 >> 5; //add 4ms
+			DBG_871X("%s: BcnLength=%d BcnRcvTime=%d (32us)\n", __FUNCTION__, BcnLen, BcnRcvTime);
 
-		lowpwr_lps.enable = 1;
-		lowpwr_lps.bcn_count= 2; // max 15
-		lowpwr_lps.tb_bcn_threshold = 2; // max 7
-		lowpwr_lps.bcn_interval = BcnRcvTime;
-		lowpwr_lps.drop_threshold = 0;
-		lowpwr_lps.max_early_period = 13;
-		lowpwr_lps.max_bcn_timeout_period = 25;
+			lowpwr_lps.enable = 1;
+			lowpwr_lps.bcn_count= 2; // max 15
+			lowpwr_lps.tb_bcn_threshold = 2; // max 7
+			lowpwr_lps.bcn_interval = BcnRcvTime;
+			lowpwr_lps.drop_threshold = 0;
+			lowpwr_lps.max_early_period = 13;
+			lowpwr_lps.max_bcn_timeout_period = 25;
+		}
 	}
 
 	ret = FillH2CCmd(padapter, LOWPWR_LPS_EID, 5, (u8*)&lowpwr_lps);
+
+#ifdef CONFIG_WOWLAN_8723
+	if(pwrpriv->bInSuspend){
+		pwr_param.bcn_timeout = 2;
+		pwr_param.dtim_timeout = 15;  //5
+		pwr_param.adopt = 1;
+		pwr_param.ps_timeout = 20;
+		pwr_param.ps_dtim_period = 3;
+		ret |= FillH2CCmd(padapter, H2C_COM_PS_TUNE_PARAM, 4, (u8*)&pwr_param);
+	}
+#endif
 
 _func_exit_;
 
@@ -334,7 +378,14 @@ _func_enter_;
 
 	H2CSetPwrMode.Mode = Mode;
 	H2CSetPwrMode.SmartPS = pwrpriv->smart_ps;
+#ifdef CONFIG_WOWLAN_8723
+	if(Mode == PS_MODE_DTIM)  //For WOWLAN LPS
+		H2CSetPwrMode.AwakeInterval = 3;
+	else
+		H2CSetPwrMode.AwakeInterval = 1;
+#else
 	H2CSetPwrMode.AwakeInterval = 1;
+#endif
 	H2CSetPwrMode.bAllQueueUAPSD = padapter->registrypriv.uapsd_enable;
 	H2CSetPwrMode.BcnAntMode = pwrpriv->bcn_ant_mode;
 
@@ -548,6 +599,132 @@ void ConstructNullFunctionData(
 	*pLength = pktlen;
 }
 
+
+#ifdef CONFIG_WOWLAN_8723
+//
+// Description:
+//	Construct the ARP response packet to support ARP offload.
+//
+void
+ConstructARPResponse(
+	PADAPTER padapter,
+	u8			*pframe,
+	u32			*pLength,
+	u8			*pIPAddress
+	)
+{
+	struct rtw_ieee80211_hdr	*pwlanhdr;
+	u16						*fctrl;
+	u32						pktlen;
+	struct mlme_priv		*pmlmepriv = &padapter->mlmepriv;
+	struct wlan_network		*cur_network = &pmlmepriv->cur_network;
+	struct mlme_ext_priv	*pmlmeext = &(padapter->mlmeextpriv);
+	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
+	struct security_priv *psecuritypriv = &padapter->securitypriv;
+	static u8			ARPLLCHeader[8] = {0xAA, 0xAA, 0x03, 0x00, 0x00, 0x00, 0x08, 0x06};
+	u8				*pARPRspPkt = pframe;
+	u8			EncryptionHeadOverhead = 0;
+	//DBG_871X("%s:%d\n", __FUNCTION__, bForcePowerSave);
+
+	pwlanhdr = (struct rtw_ieee80211_hdr*)pframe;
+
+	fctrl = &pwlanhdr->frame_ctl;
+	*(fctrl) = 0;
+
+	//-------------------------------------------------------------------------
+	// MAC Header.
+	//-------------------------------------------------------------------------
+	SetFrameType(fctrl, WIFI_DATA);
+	//SetFrameSubType(fctrl, 0);
+	SetToDs(fctrl);
+	_rtw_memcpy(pwlanhdr->addr1, get_my_bssid(&(pmlmeinfo->network)), ETH_ALEN);
+	_rtw_memcpy(pwlanhdr->addr2, myid(&(padapter->eeprompriv)), ETH_ALEN);
+	_rtw_memcpy(pwlanhdr->addr3, get_my_bssid(&(pmlmeinfo->network)), ETH_ALEN);
+
+	SetSeqNum(pwlanhdr, 0);
+	SetDuration(pwlanhdr, 0);
+	//SET_80211_HDR_FRAME_CONTROL(pARPRspPkt, 0);
+	//SET_80211_HDR_TYPE_AND_SUBTYPE(pARPRspPkt, Type_Data);
+	//SET_80211_HDR_TO_DS(pARPRspPkt, 1);
+	//SET_80211_HDR_ADDRESS1(pARPRspPkt, pMgntInfo->Bssid);
+	//SET_80211_HDR_ADDRESS2(pARPRspPkt, Adapter->CurrentAddress);
+	//SET_80211_HDR_ADDRESS3(pARPRspPkt, pMgntInfo->Bssid);
+
+	//SET_80211_HDR_DURATION(pARPRspPkt, 0);
+	//SET_80211_HDR_FRAGMENT_SEQUENCE(pARPRspPkt, 0);
+	*pLength = sMacHdrLng;
+
+//YJ,del,120503
+#if 0
+	//-------------------------------------------------------------------------
+	// Qos Header: leave space for it if necessary.
+	//-------------------------------------------------------------------------
+	if(pStaQos->CurrentQosMode > QOS_DISABLE)
+	{
+		SET_80211_HDR_QOS_EN(pARPRspPkt, 1);
+		PlatformZeroMemory(&(Buffer[*pLength]), sQoSCtlLng);
+		*pLength += sQoSCtlLng;
+	}
+#endif
+	//-------------------------------------------------------------------------
+	// Security Header: leave space for it if necessary.
+	//-------------------------------------------------------------------------
+
+#if 1
+	switch (psecuritypriv->dot11PrivacyAlgrthm)
+	{
+		case _WEP40_:
+		case _WEP104_:
+			EncryptionHeadOverhead = 4;
+			break;
+		case _TKIP_:
+			EncryptionHeadOverhead = 8;
+			break;
+		case _AES_:
+			EncryptionHeadOverhead = 8;
+			break;
+#ifdef CONFIG_WAPI_SUPPORT
+		case _SMS4_:
+			EncryptionHeadOverhead = 18;
+			break;
+#endif
+		default:
+			EncryptionHeadOverhead = 0;
+	}
+
+	if(EncryptionHeadOverhead > 0)
+	{
+		_rtw_memset(&(pframe[*pLength]), 0,EncryptionHeadOverhead);
+	       	*pLength += EncryptionHeadOverhead;
+		//SET_80211_HDR_WEP(pARPRspPkt, 1);  //Suggested by CCW.
+		SetPrivacy(fctrl);
+	}
+#endif
+	//-------------------------------------------------------------------------
+	// Frame Body.
+	//-------------------------------------------------------------------------
+	pARPRspPkt =  (u8*)(pframe+ *pLength);
+	// LLC header
+	_rtw_memcpy(pARPRspPkt, ARPLLCHeader, 8);
+	*pLength += 8;
+
+	// ARP element
+	pARPRspPkt += 8;
+	SET_ARP_PKT_HW(pARPRspPkt, 0x0100);
+	SET_ARP_PKT_PROTOCOL(pARPRspPkt, 0x0008);	// IP protocol
+	SET_ARP_PKT_HW_ADDR_LEN(pARPRspPkt, 6);
+	SET_ARP_PKT_PROTOCOL_ADDR_LEN(pARPRspPkt, 4);
+	SET_ARP_PKT_OPERATION(pARPRspPkt, 0x0200); // ARP response
+	SET_ARP_PKT_SENDER_MAC_ADDR(pARPRspPkt, myid(&(padapter->eeprompriv)));
+	SET_ARP_PKT_SENDER_IP_ADDR(pARPRspPkt, pIPAddress);
+	SET_ARP_PKT_TARGET_MAC_ADDR(pARPRspPkt, get_my_bssid(&(pmlmeinfo->network)));
+	SET_ARP_PKT_TARGET_IP_ADDR(pARPRspPkt, pIPAddress);
+	*pLength += 28;
+
+}
+#endif
+
+
 void ConstructProbeRsp(_adapter *padapter, u8 *pframe, u32 *pLength, u8 *StaAddr, BOOLEAN bHideSSID)
 {
 	struct rtw_ieee80211_hdr	*pwlanhdr;
@@ -608,6 +785,10 @@ CheckFwRsvdPageContent(
  	}
 }
 
+#ifdef CONFIG_WOWLAN_8723
+void rtw_get_current_ip_address(PADAPTER padapter, u8 *pcurrentip);
+void rtw_get_sec_iv(PADAPTER padapter, u8*pcur_dot11txpn, u8 *StaAddr);
+#endif
 //
 // Description: Fill the reserved packets that FW will use to RSVD page.
 //			Now we just send 4 types packet to rsvd page.
@@ -633,11 +814,18 @@ static void SetFwRsvdPagePkt(PADAPTER padapter, BOOLEAN bDLFinished)
 	u16	BufIndex;
 	u32	TotalPacketLen;
 	RSVDPAGE_LOC	RsvdPageLoc;
+#ifdef CONFIG_WOWLAN_8723
+	u8	bEnableRsvdPage = 1;
+	u32	ARPLegnth = 0;
+	RSVDPAGE_LOC_EXT	RsvdPageLoc_ext;
+	struct security_priv *psecuritypriv = &padapter->securitypriv; //added by xx
+	u8 currentip[4];
+	u8 cur_dot11txpn[8];
+#endif
 
+	DBG_871X("%s---->\n", __FUNCTION__);
 
-	DBG_871X("%s\n", __FUNCTION__);
-
-	ReservedPagePacket = (u8*)rtw_zmalloc(1000);
+	ReservedPagePacket = (u8*)rtw_zmalloc(1500);
 	if (ReservedPagePacket == NULL) {
 		DBG_871X("%s: alloc ReservedPagePacket fail!\n", __FUNCTION__);
 		return;
@@ -684,7 +872,7 @@ static void SetFwRsvdPagePkt(PADAPTER padapter, BOOLEAN bDLFinished)
 		&NullDataLength,
 		get_my_bssid(&pmlmeinfo->network),
 		_FALSE, 0, 0, _FALSE);
-	rtl8723a_fill_fake_txdesc(padapter, &ReservedPagePacket[BufIndex-TxDescLen], NullDataLength, _FALSE, _FALSE);
+	rtl8723a_fill_fake_txdesc(padapter, &ReservedPagePacket[BufIndex-TxDescLen], NullDataLength, 2/*_FALSE*/, _FALSE);
 
 	PageNeed = (u8)PageNum_128(TxDescLen + NullDataLength);
 	PageNum += PageNeed;
@@ -731,7 +919,57 @@ static void SetFwRsvdPagePkt(PADAPTER padapter, BOOLEAN bDLFinished)
 		_TRUE, 0, 0, _FALSE);
 	rtl8723a_fill_fake_txdesc(padapter, &ReservedPagePacket[BufIndex-TxDescLen], BTQosNullLength, _FALSE, _TRUE);
 
+#ifdef CONFIG_WOWLAN_8723
+	PageNeed = (u8)PageNum_128(TxDescLen + BTQosNullLength);
+	PageNum += PageNeed;
+	BufIndex += PageNeed*128;
+
+	//3(7) ARP
+	rtw_get_current_ip_address(padapter, currentip);
+	RsvdPageLoc_ext.LocARP = PageNum;
+	ConstructARPResponse(
+		padapter,
+		&ReservedPagePacket[BufIndex],
+		&ARPLegnth,
+		currentip
+		);
+	rtl8723a_fill_fake_txdesc(padapter, &ReservedPagePacket[BufIndex-TxDescLen], ARPLegnth, _FALSE, _FALSE);
+
+	//added by xx
+ 	switch (psecuritypriv->dot11PrivacyAlgrthm)
+	{
+		case _WEP40_:
+		case _WEP104_:
+		case _TKIP_:
+			ReservedPagePacket[BufIndex-TxDescLen+6]  |= BIT(6);
+			break;
+		case _AES_:
+			ReservedPagePacket[BufIndex-TxDescLen+6]  |= BIT(6)|BIT(7);
+			break;
+#ifdef CONFIG_WAPI_SUPPORT
+		case _SMS4_:
+			ReservedPagePacket[BufIndex-TxDescLen+6]  |= BIT(7);
+			break;
+#endif
+		default:
+			;
+	}
+
+	PageNeed = (u8)PageNum_128(TxDescLen + ARPLegnth);
+	PageNum += PageNeed;
+
+	BufIndex += PageNeed*128;
+
+        // added by xx
+	//3(8) sec IV
+	rtw_get_sec_iv(padapter, cur_dot11txpn, get_my_bssid(&pmlmeinfo->network));
+	RsvdPageLoc_ext.remoteCtrlInfo= PageNum;
+	_rtw_memcpy(ReservedPagePacket+BufIndex-TxDescLen, cur_dot11txpn, 8);
+
+	TotalPacketLen = BufIndex-TxDescLen + sizeof (union pn48); //IV len
+#else
 	TotalPacketLen = BufIndex + BTQosNullLength;
+#endif
 
 	pmgntframe = alloc_mgtxmitframe(pxmitpriv);
 	if (pmgntframe == NULL)
@@ -748,9 +986,14 @@ static void SetFwRsvdPagePkt(PADAPTER padapter, BOOLEAN bDLFinished)
 
 	DBG_871X("%s: Set RSVD page location to Fw\n", __FUNCTION__);
 	FillH2CCmd(padapter, RSVD_PAGE_EID, sizeof(RsvdPageLoc), (u8*)&RsvdPageLoc);
+#ifdef CONFIG_WOWLAN_8723
+	FillH2CCmd(padapter, RSVD_PAGE_EXT_EID, sizeof(RsvdPageLoc_ext), (u8*)&RsvdPageLoc_ext);
+	FillH2CCmd(padapter, RSVD_PAGE_ENABLE_EID, 1, (u8*)&bEnableRsvdPage);
 
+	RT_PRINT_DATA(_module_rtl871x_recv_c_, _drv_always_,"xx: ReservedPagePacket:\n", ReservedPagePacket, TotalPacketLen);
+#endif
 exit:
-	rtw_mfree(ReservedPagePacket, 1000);
+	rtw_mfree(ReservedPagePacket, 1500);
 }
 
 void rtl8723a_set_FwJoinBssReport_cmd(PADAPTER padapter, u8 mstatus)
@@ -823,7 +1066,9 @@ _func_enter_;
 	}
 
 	JoinBssRptParm.OpMode = mstatus;
-
+#ifdef CONFIG_WOWLAN_8723
+	JoinBssRptParm.MacID = 0;
+#endif
 	FillH2CCmd(padapter, JOINBSS_RPT_EID, sizeof(JoinBssRptParm), (u8 *)&JoinBssRptParm);
 
 _func_exit_;
@@ -1237,4 +1482,115 @@ _func_exit_;
 	return res;
 }
 #endif	// CONFIG_TSF_RESET_OFFLOAD
+#ifdef CONFIG_WOWLAN_8723
+void rtl8723as_set_wowlan_cmd(_adapter* padapter, u8 enable)
+{
+	u8		res=_SUCCESS;
+	u32		test=0;
+	u16 		encry_algo = 0;
+	struct recv_priv	*precvpriv = &padapter->recvpriv;
+	SETWOWLAN_PARM		pwowlan_parm;
+	struct pwrctrl_priv	*pwrpriv=&padapter->pwrctrlpriv;
+	struct security_priv	*psecuritypriv = &padapter->securitypriv;
+
+_func_enter_;
+		DBG_871X_LEVEL(_drv_always_, "+%s+\n", __func__);
+
+		pwowlan_parm.mode =0;
+		pwowlan_parm.gpio_index=0;
+		pwowlan_parm.gpio_duration=0;
+		pwowlan_parm.second_mode =0;
+		pwowlan_parm.reserve=0;
+
+		if(enable){
+
+			pwowlan_parm.mode |=FW_WOWLAN_FUN_EN;
+			pwrpriv->wowlan_magic =_TRUE;
+			//pwrpriv->wowlan_unicast =_TRUE;
+			pwrpriv->wowlan_pattern =_TRUE;
+
+			pwowlan_parm.second_mode |= BIT4; //IPv4 Unicast pkt wakeup
+			pwowlan_parm.second_mode |= BIT3; //pairwisekey wakeup
+
+			if(pwrpriv->wowlan_pattern ==_TRUE){
+				pwowlan_parm.mode |= FW_WOWLAN_PATTERN_MATCH;
+				DBG_871X_LEVEL(_drv_info_, "%s 2.pwowlan_parm.mode=0x%x \n",__FUNCTION__,pwowlan_parm.mode );
+			}
+			if(pwrpriv->wowlan_magic ==_TRUE){
+				pwowlan_parm.mode |=FW_WOWLAN_MAGIC_PKT;
+				DBG_871X_LEVEL(_drv_info_, "%s 3.pwowlan_parm.mode=0x%x \n",__FUNCTION__,pwowlan_parm.mode );
+			}
+			if(pwrpriv->wowlan_unicast ==_TRUE){
+				pwowlan_parm.mode |=FW_WOWLAN_UNICAST;
+				DBG_871X_LEVEL(_drv_info_, "%s 4.pwowlan_parm.mode=0x%x \n",__FUNCTION__,pwowlan_parm.mode );
+			}
+
+			//SEC Type:
+			encry_algo = (u16)(psecuritypriv->dot11PrivacyAlgrthm |(psecuritypriv->dot118021XGrpPrivacy << 8));
+			DBG_871X_LEVEL(_drv_info_, "%s psecuritypriv->dot11PrivacyAlgrthm = 0x%x ,psecuritypriv->dot118021XGrpPrivacy:%d\n",__FUNCTION__,psecuritypriv->dot11PrivacyAlgrthm,psecuritypriv->dot118021XGrpPrivacy);
+			res = FillH2CCmd(padapter, SEC_TYPE_EID, 2, (u8 *)&encry_algo);
+
+			DBG_871X_LEVEL(_drv_info_, "%s padapter->pwrctrlpriv.wowlan_wake_reason=0x%x \n",__FUNCTION__,padapter->pwrctrlpriv.wowlan_wake_reason);
+			if(!(padapter->pwrctrlpriv.wowlan_wake_reason & FWDecisionDisconnect))
+				rtl8723a_set_FwJoinBssReport_cmd(padapter, 1);
+			else
+				DBG_871X_LEVEL(_drv_always_, "%s, disconnected, no FwJoinBssReport\n",__FUNCTION__);
+			rtw_msleep_os(2);
+
+
+
+			//WOWLAN_GPIO_ACTIVE means GPIO high active
+			//pwowlan_parm.mode |=FW_WOWLAN_GPIO_ACTIVE;
+			//pwowlan_parm.mode |=FW_WOWLAN_REKEY_WAKEUP;
+			pwowlan_parm.mode |=FW_WOWLAN_DEAUTH_WAKEUP;
+			//pwowlan_parm.mode |=FW_WOWLAN_ALL_PKT_DROP;
+
+			//DataPinWakeUp
+			//pwowlan_parm.gpio_index=0x80;
+
+			DBG_871X_LEVEL(_drv_info_, "%s 5.pwowlan_parm.mode=0x%x \n",__FUNCTION__,pwowlan_parm.mode);
+			DBG_871X_LEVEL(_drv_info_, "%s 6.pwowlan_parm.index=0x%x \n",__FUNCTION__,pwowlan_parm.gpio_index);
+
+			res = FillH2CCmd(padapter, H2C_COM_WWLAN , 5, (u8 *)&pwowlan_parm);
+
+			rtw_msleep_os(2);
+
+			//disconnect decision
+			pwowlan_parm.mode =3;
+			pwowlan_parm.gpio_index=15;
+			pwowlan_parm.gpio_duration=3;
+			FillH2CCmd(padapter, H2C_COM_DISCNT_DECISION, 3, (u8 *)&pwowlan_parm);
+
+			//keep alive period = 10 * 10 BCN interval
+			pwowlan_parm.mode =1;
+			pwowlan_parm.gpio_index=10;
+
+			res = FillH2CCmd(padapter, H2C_COM_KEEP_ALIVE, 2, (u8 *)&pwowlan_parm);
+
+			rtw_msleep_os(2);
+
+			//GTK offload
+			pwowlan_parm.mode =0;
+
+			res = FillH2CCmd(padapter, H2C_COM_GTK_OFFLOAD, 1, (u8 *)&pwowlan_parm);
+
+			rtw_msleep_os(2);
+
+			//enable Remote wake ctrl
+			pwowlan_parm.mode = 1;
+			pwowlan_parm.gpio_index=0;
+			pwowlan_parm.gpio_duration=0;
+
+			res = FillH2CCmd(padapter, H2C_COM_REMOTE_WAKE_CTRL, 3, (u8 *)&pwowlan_parm);
+		} else {
+			pwrpriv->wowlan_magic =_FALSE;
+			res = FillH2CCmd(padapter, H2C_COM_REMOTE_WAKE_CTRL, 3, (u8 *)&pwowlan_parm);
+			rtw_msleep_os(2);
+			res = FillH2CCmd(padapter, H2C_COM_WWLAN, 2, (u8 *)&pwowlan_parm);
+		}
+_func_exit_;
+		DBG_871X_LEVEL(_drv_always_, "-%s res:%d-\n", __func__, res);
+		return ;
+}
+#endif  //CONFIG_WOWLAN_8723
 

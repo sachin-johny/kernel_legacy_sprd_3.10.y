@@ -22,7 +22,7 @@
 
 
 enum cmd_msg_element_id
-{	
+{
 	NONE_CMDMSG_EID,
 	AP_OFFLOAD_EID=0,
 	SET_PWRMODE_EID=1,

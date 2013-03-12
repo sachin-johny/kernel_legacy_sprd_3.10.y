@@ -464,6 +464,9 @@ MPT_InitializeAdapter(
 #endif
 
 	//set ant to wifi side in mp mode
+#ifdef CONFIG_RTL8723A
+	rtl8723a_InitAntenna_Selection(pAdapter);
+#endif //CONFIG_RTL8723A
 	rtw_write16(pAdapter, 0x870, 0x300);
 	rtw_write16(pAdapter, 0x860, 0x110);
 
@@ -1442,8 +1445,8 @@ void _rtw_mp_xmit_priv (struct xmit_priv *pxmitpriv)
 	}
 	else
 	{
-		max_xmit_extbuf_size = 20000;
-		num_xmit_extbuf = 1;
+		max_xmit_extbuf_size = 6000;
+		num_xmit_extbuf = 8;
 	}
 
 	pxmitbuf = (struct xmit_buf *)pxmitpriv->pxmit_extbuf;
@@ -1460,8 +1463,8 @@ void _rtw_mp_xmit_priv (struct xmit_priv *pxmitpriv)
 
 	if(padapter->registrypriv.mp_mode ==0)
 	{
-		max_xmit_extbuf_size = 20000;
-		num_xmit_extbuf = 1;
+		max_xmit_extbuf_size = 6000;
+		num_xmit_extbuf = 8;
 	}
 	else
 	{

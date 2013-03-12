@@ -49,7 +49,10 @@
 #define VERSION "1.0"
 
 static int txcrc = 1;
+static int need_check_bt_state = 1;
+
 //static int hciextn = 1;
+#define H5_BTSTATE_CHECK_CONFIG_PATH      "/system/etc/firmware/rtl8723as/need_check_bt_state"
 
 #define H5_TXWINSIZE	4
 #define H5_ACK_PKT	0x00
@@ -66,6 +69,8 @@ struct h5_struct {
 	u8	rxseq_txack;		/* rxseq == txack. */
 	u8	rxack;			/* Last packet sent by us that the peer ack'ed */
 	struct	timer_list th5;
+
+	u8 is_checking;
 
 	enum {
 		H5_W4_PKT_DELIMITER,
@@ -87,6 +92,15 @@ struct h5_struct {
 	/* Reliable packet sequence number - used to assign seq to each rel pkt. */
 	u8	msgq_txseq;
 };
+
+
+static void h5_bt_state_err_worker(struct work_struct *private_);
+static void h5_bt_state_check_worker(struct work_struct *private_);
+static DECLARE_DELAYED_WORK(bt_state_err_work, h5_bt_state_err_worker);
+static DECLARE_DELAYED_WORK(bt_state_check_work, h5_bt_state_check_worker);
+static struct hci_uart *hci_uart_info;
+
+static struct mutex sem_exit;
 
 /* ---- H5 CRC calculation ---- */
 
@@ -135,7 +149,7 @@ static void h5_slip_one_byte(struct sk_buff *skb, u8 c)
 	const char esc_db[2] = { 0xdb, 0xdd };
 	const char esc_11[2] = { 0xdb, 0xde };
 	const char esc_13[2] = { 0xdb, 0xdf };
-	
+
 	switch (c) {
 	case 0xc0:
 		memcpy(skb_put(skb, 2), &esc_c0, 2);
@@ -158,7 +172,7 @@ static int h5_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 {
 	struct h5_struct *h5 = hu->priv;
 
-	if (skb->len > 0xFFF) { //Pkt length must be less than 4095 bytes    
+	if (skb->len > 0xFFF) { //Pkt length must be less than 4095 bytes
 		BT_ERR("Packet too long");
 		kfree_skb(skb);
 		return 0;
@@ -178,7 +192,7 @@ static int h5_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 	case H5_VDRSPEC_PKT:
 	    skb_queue_tail(&h5->unrel, skb);	/* 3-wire LinkEstablishment*/
 	    break;
-		
+
 	default:
 	    BT_ERR("Unknown packet type");
 	    kfree_skb(skb);
@@ -211,7 +225,7 @@ static struct sk_buff *h5_prepare_pkt(struct h5_struct *h5, u8 *data,
 	    break;
 	case HCI_SCODATA_PKT:
 	    chan = 3;	/* 3-wire SCO channel */
-	    rel = 0;	/* unreliable channel */   
+	    rel = 0;	/* unreliable channel */
             break;
 	case H5_LE_PKT:
 	    chan = 15;	/* 3-wire LinkEstablishment channel */
@@ -294,7 +308,7 @@ static struct sk_buff *h5_dequeue(struct hci_uart *hu)
 	struct h5_struct *h5 = hu->priv;
 	unsigned long flags;
 	struct sk_buff *skb;
-	
+
 	/* First of all, check for unreliable messages in the queue,
 	   since they have priority */
 
@@ -339,6 +353,10 @@ static struct sk_buff *h5_dequeue(struct hci_uart *hu)
 		   channel 0 */
 		struct sk_buff *nskb = h5_prepare_pkt(h5, NULL, 0, H5_ACK_PKT);
 		return nskb;
+	}
+
+	if (need_check_bt_state) {
+		schedule_delayed_work(&bt_state_check_work, HZ * 15);
 	}
 
 	/* We have nothing to send */
@@ -489,7 +507,7 @@ static inline void h5_unslip_one_byte(struct h5_struct *h5, unsigned char byte)
 			break;
 		default:
 			memcpy(skb_put(h5->rx_skb, 1), &byte, 1);
-			if ((h5->rx_skb-> data[0] & 0x40) != 0 && 
+			if ((h5->rx_skb-> data[0] & 0x40) != 0 &&
 					h5->rx_state != H5_W4_CRC)
 				h5_crc_update(&h5->message_crc, byte);
 			h5->rx_count--;
@@ -500,7 +518,7 @@ static inline void h5_unslip_one_byte(struct h5_struct *h5, unsigned char byte)
 		switch (byte) {
 		case 0xdc:
 			memcpy(skb_put(h5->rx_skb, 1), &c0, 1);
-			if ((h5->rx_skb-> data[0] & 0x40) != 0 && 
+			if ((h5->rx_skb-> data[0] & 0x40) != 0 &&
 					h5->rx_state != H5_W4_CRC)
 				h5_crc_update(&h5-> message_crc, 0xc0);
 			h5->rx_esc_state = H5_ESCSTATE_NOESC;
@@ -509,13 +527,13 @@ static inline void h5_unslip_one_byte(struct h5_struct *h5, unsigned char byte)
 
 		case 0xdd:
 			memcpy(skb_put(h5->rx_skb, 1), &db, 1);
-			if ((h5->rx_skb-> data[0] & 0x40) != 0 && 
-					h5->rx_state != H5_W4_CRC) 
+			if ((h5->rx_skb-> data[0] & 0x40) != 0 &&
+					h5->rx_state != H5_W4_CRC)
 				h5_crc_update(&h5-> message_crc, 0xdb);
 			h5->rx_esc_state = H5_ESCSTATE_NOESC;
 			h5->rx_count--;
 			break;
-			
+
 		case 0xde:
 			memcpy(skb_put(h5->rx_skb, 1), &oof1, 1);
 			if ((h5->rx_skb-> data[0] & 0x40) != 0 && h5->rx_state != H5_W4_CRC)
@@ -526,7 +544,7 @@ static inline void h5_unslip_one_byte(struct h5_struct *h5, unsigned char byte)
 
 		case 0xdf:
 			memcpy(skb_put(h5->rx_skb, 1), &oof2, 1);
-			if ((h5->rx_skb-> data[0] & 0x40) != 0 && h5->rx_state != H5_W4_CRC) 
+			if ((h5->rx_skb-> data[0] & 0x40) != 0 && h5->rx_state != H5_W4_CRC)
 				h5_crc_update(&h5-> message_crc, oof2);
 			h5->rx_esc_state = H5_ESCSTATE_NOESC;
 			h5->rx_count--;
@@ -562,22 +580,37 @@ static void h5_complete_rx_pkt(struct hci_uart *hu)
 
 	h5_pkt_cull(h5);
 
-	if ((h5->rx_skb->data[1] & 0x0f) == 2 && 
+	if ((h5->rx_skb->data[1] & 0x0f) == 2 &&
 			h5->rx_skb->data[0] & 0x80) {
 		bt_cb(h5->rx_skb)->pkt_type = HCI_ACLDATA_PKT;
 		pass_up = 1;
-	} else if ((h5->rx_skb->data[1] & 0x0f) == 4 && 
+	} else if ((h5->rx_skb->data[1] & 0x0f) == 4 &&
 			h5->rx_skb->data[0] & 0x80) {
 		bt_cb(h5->rx_skb)->pkt_type = HCI_EVENT_PKT;
 		pass_up = 1;
+
+	if (need_check_bt_state) {
+		/*
+		 * after having received packets from controller, del hungup timer
+		*/
+		if (h5->is_checking)
+		{
+			h5->is_checking = false;
+			printk("cancle state err work\n");
+			cancel_delayed_work(&bt_state_check_work);
+			cancel_delayed_work(&bt_state_err_work);
+			mutex_unlock(&sem_exit);
+		}
+	}
+
 	} else if ((h5->rx_skb->data[1] & 0x0f) == 3) {
 		bt_cb(h5->rx_skb)->pkt_type = HCI_SCODATA_PKT;
 		pass_up = 1;
-	} else if ((h5->rx_skb->data[1] & 0x0f) == 15 && 
+	} else if ((h5->rx_skb->data[1] & 0x0f) == 15 &&
 			!(h5->rx_skb->data[0] & 0x80)) {
 		//h5_handle_le_pkt(hu);//Link Establishment Pkt
 		pass_up = 0;
-	} else if ((h5->rx_skb->data[1] & 0x0f) == 1 && 
+	} else if ((h5->rx_skb->data[1] & 0x0f) == 1 &&
 			h5->rx_skb->data[0] & 0x80) {
 		bt_cb(h5->rx_skb)->pkt_type = HCI_COMMAND_PKT;
 		pass_up = 1;
@@ -587,12 +620,12 @@ static void h5_complete_rx_pkt(struct hci_uart *hu)
 	} else
 		pass_up = 0;
 
-	if (!pass_up) {		
-		struct hci_event_hdr hdr;
+	if (!pass_up) {
+		//struct hci_event_hdr hdr;
 		u8 desc = (h5->rx_skb->data[1] & 0x0f);
 
 		if (desc != H5_ACK_PKT && desc != H5_LE_PKT) {
-#if 0			
+#if 0
 			if (hciextn) {
 				desc |= 0xc0;
 				skb_pull(h5->rx_skb, 4);
@@ -605,10 +638,10 @@ static void h5_complete_rx_pkt(struct hci_uart *hu)
 
 				hci_recv_frame(h5->rx_skb);
 			} else {
-#endif				
+#endif
 				BT_ERR ("Packet for unknown channel (%u %s)",
 					h5->rx_skb->data[1] & 0x0f,
-					h5->rx_skb->data[0] & 0x80 ? 
+					h5->rx_skb->data[0] & 0x80 ?
 					"reliable" : "unreliable");
 				kfree_skb(h5->rx_skb);
 //			}
@@ -618,6 +651,9 @@ static void h5_complete_rx_pkt(struct hci_uart *hu)
 		/* Pull out H5 hdr */
 		skb_pull(h5->rx_skb, 4);
 
+		if (need_check_bt_state) {
+			schedule_delayed_work(&bt_state_check_work, HZ * 60);
+		}
 		hci_recv_frame(h5->rx_skb);
 	}
 
@@ -636,7 +672,7 @@ static int h5_recv(struct hci_uart *hu, void *data, int count)
 	struct h5_struct *h5 = hu->priv;
 	register unsigned char *ptr;
 
-	BT_DBG("hu %p count %d rx_state %d rx_count %ld", 
+	BT_DBG("hu %p count %d rx_state %d rx_count %ld",
 		hu, count, h5->rx_state, h5->rx_count);
 
 	ptr = data;
@@ -670,14 +706,14 @@ static int h5_recv(struct hci_uart *hu, void *data, int count)
 					h5->rx_skb->data[0] & 0x07, h5->rxseq_txack);
 
 				h5->txack_req = 1;
-				hci_uart_tx_wakeup(hu);			
+				hci_uart_tx_wakeup(hu);
 				kfree_skb(h5->rx_skb);
 				h5->rx_state = H5_W4_PKT_DELIMITER;
 				h5->rx_count = 0;
 				continue;
 			}
 			h5->rx_state = H5_W4_DATA;
-			h5->rx_count = (h5->rx_skb->data[1] >> 4) + 
+			h5->rx_count = (h5->rx_skb->data[1] >> 4) +
 					(h5->rx_skb->data[2] << 4);	/* May be 0 */
 			continue;
 
@@ -729,7 +765,7 @@ static int h5_recv(struct hci_uart *hu, void *data, int count)
 				H5_CRC_INIT(h5->message_crc);
 
 				/* Do not increment ptr or decrement count
-				 * Allocate packet. Max len of a H5 pkt= 
+				 * Allocate packet. Max len of a H5 pkt=
 				 * 0xFFF (payload) +4 (header) +2 (crc) */
 
 				h5->rx_skb = bt_skb_alloc(0x1005, GFP_ATOMIC);
@@ -770,6 +806,131 @@ static void h5_timed_event(unsigned long arg)
 	hci_uart_tx_wakeup(hu);
 }
 
+static void h5_send_uevent(struct hci_uart* hu)
+{
+	char BT_restart[] = "BTRESTART=1";
+	char *env_p[] = {
+		BT_restart,
+		NULL
+	};
+	int ret = -1;
+
+	if (hu && hu->hdev)
+	{
+		ret = kobject_uevent_env(&hu->hdev->dev.kobj, KOBJ_OFFLINE, env_p);
+		//printk("send event to upper layer:%x", ret);
+	}
+	else
+		BT_INFO("h5_send_uevent without pointer exists");
+}
+
+
+static void h5_bt_state_err_worker(struct work_struct *private_)
+{
+	struct hci_uart *hu = hci_uart_info;
+	struct h5_struct *h5 = hu->priv;
+	printk("Realtek: BT is NOT working now, try notify\n");
+	if (h5->is_checking)
+	{
+		printk("notify upper while not checking\n");
+	}
+	h5_send_uevent(hci_uart_info);
+	mutex_unlock(&sem_exit);
+}
+
+/*
+ * timer function to check if controller state
+*/
+static void h5_bt_state_check_worker(struct work_struct *private_)
+{
+	struct hci_uart *hu = hci_uart_info;
+	struct h5_struct *h5 = hu->priv;
+	struct sk_buff* pollcmd = NULL;
+	u8 cmd[3] = {0};
+
+	printk("Realtek to check4hung\n");
+	mutex_lock_interruptible(&sem_exit);
+	//send command and wait for any response.
+	cmd[0] = 0x22;
+	cmd[1] = 0xfc;
+	pollcmd = bt_skb_alloc(3, GFP_ATOMIC);
+	if (!pollcmd)
+	{
+		BT_ERR("allocate buffer for poll cmd error");
+		return;
+	}
+
+	skb_put(pollcmd, sizeof(cmd));
+	bt_cb(pollcmd)->pkt_type = HCI_COMMAND_PKT;
+	/*
+	 *  It's judged that controller has hung up
+	 *  if no response received within 10HZ
+	*/
+	h5->is_checking = 1;
+	schedule_delayed_work(&bt_state_err_work, HZ * 10);
+	/*
+	 *  make sure the bt_state_err_work perform completely
+	*/
+	memcpy(pollcmd->data, cmd, sizeof(cmd));
+	skb_queue_head(&h5->rel, pollcmd);
+	hci_uart_tx_wakeup(hu);
+}
+
+static int h5_config_state_check(void) {
+	char    *config_path=H5_BTSTATE_CHECK_CONFIG_PATH;
+	char    *buffer=NULL;
+	struct file   *filp=NULL;
+	mm_segment_t old_fs = get_fs();
+
+	int result=0;
+	set_fs (KERNEL_DS);
+
+	//open file
+	filp = filp_open(config_path, O_RDONLY, 0);
+	if (IS_ERR(filp)) {
+	     //BT_ERR("open file fail?\n");
+	     result=-1;
+	   goto error2;
+	  }
+
+	if(!(filp->f_op) || !(filp->f_op->read) ) {
+	     BT_ERR("file %s cann't readable?\n",config_path);
+	     result = -1;
+	     goto error1;
+	}
+
+	buffer = kmalloc(16, GFP_KERNEL);
+	if(buffer==NULL) {
+		BT_ERR("alllocate mem for file fail?\n");
+		result = -1;
+		goto error1;
+	}
+
+	if(filp->f_op->read(filp, buffer, 16, &filp->f_pos)<0) {
+		BT_ERR("read file error?\n");
+		result = -1;
+		goto error1;
+	}
+
+	if(memcmp(buffer,"0",1)==0) {
+		//check bt state off
+		need_check_bt_state = 0;
+		BT_INFO("close check bt state");
+	}
+
+error1:
+	if(buffer)
+	 kfree(buffer);
+
+	if(filp_close(filp,NULL))
+	   BT_ERR("Config_FileOperation:close file fail\n");
+
+error2:
+	set_fs (old_fs);
+
+	return result;
+}
+
 static int h5_open(struct hci_uart *hu)
 {
 	struct h5_struct *h5;
@@ -788,6 +949,12 @@ static int h5_open(struct hci_uart *hu)
 	init_timer(&h5->th5);
 	h5->th5.function = h5_timed_event;
 	h5->th5.data     = (u_long) hu;
+
+	h5_config_state_check();
+	if (need_check_bt_state) {
+		mutex_init(&sem_exit);
+		hci_uart_info = hu;
+	}
 
 	h5->rx_state = H5_W4_PKT_DELIMITER;
 
@@ -808,6 +975,11 @@ static int h5_close(struct hci_uart *hu)
 	skb_queue_purge(&h5->rel);
 	skb_queue_purge(&h5->unrel);
 	del_timer(&h5->th5);
+	if (need_check_bt_state) {
+		cancel_delayed_work(&bt_state_check_work);
+		mutex_lock_interruptible(&sem_exit); 	//wait work queue perform completely
+		hci_uart_info = NULL;
+	}
 
 	kfree(h5);
 	return 0;

@@ -49,8 +49,10 @@ static int bluetooth_set_power(void *data, bool blocked)
 
 	if (!blocked) {
 		gpio_direction_output(bt_reset, 1);
+		mdelay(10);
 	} else {
 		gpio_direction_output(bt_reset, 0);
+		mdelay(15);
 	}
 
 	return 0;

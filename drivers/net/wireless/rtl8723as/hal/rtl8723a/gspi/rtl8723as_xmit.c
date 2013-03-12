@@ -508,7 +508,7 @@ s32 rtl8723as_hal_xmit(PADAPTER padapter, struct xmit_frame *pxmitframe)
 	_exit_critical_bh(&pxmitpriv->lock, &irql);
 	if (err != _SUCCESS) {
 		RT_TRACE(_module_hal_xmit_c_, _drv_err_, ("rtl8723as_hal_xmit: enqueue xmitframe fail\n"));
-		rtw_free_xmitframe_ex(pxmitpriv, pxmitframe);
+		rtw_free_xmitframe(pxmitpriv, pxmitframe);
 
 		// Trick, make the statistics correct
 		pxmitpriv->tx_pkts--;
