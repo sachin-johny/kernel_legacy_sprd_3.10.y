@@ -34,8 +34,13 @@
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
+#ifdef CONFIG_ARCH_SC7710
+    {825, 4200},
+    {700, 3600},
+#else
 	{928, 4200},
 	{796, 3600},
+#endif
 };
 
 uint16_t voltage_capacity_table[][2] = {
