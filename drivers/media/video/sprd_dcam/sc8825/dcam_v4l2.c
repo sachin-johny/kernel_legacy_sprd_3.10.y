@@ -814,7 +814,7 @@ static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	node.index    = frame->fid;
 	node.height   = frame->height;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
+	printk("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
 		node.irq_flag, node.f_type, node.index);
 
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == frame->type) {
@@ -966,6 +966,49 @@ static int sprd_v4l2_path_cfg(path_cfg_func path_cfg,
 exit:
 	return ret;
 }
+
+static int sprd_v4l2_path_lightly_cfg(path_cfg_func path_cfg,
+				struct dcam_path_spec* path_spec)
+{
+	int                      ret = DCAM_RTN_SUCCESS;
+	uint32_t                 param, i;
+
+	if (NULL == path_cfg || NULL == path_spec)
+		return -EINVAL;
+
+	if (path_spec->is_from_isp) {
+		param = 1;
+	} else {
+		param = 0;
+	}
+	ret = path_cfg(DCAM_PATH_SRC_SEL, &param);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_INPUT_SIZE, &path_spec->in_size);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_INPUT_RECT, &path_spec->in_rect);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_OUTPUT_SIZE, &path_spec->out_size);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_OUTPUT_FORMAT, &path_spec->out_fmt);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_FRAME_BASE_ID, &path_spec->frm_id_base);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_FRAME_TYPE, &path_spec->frm_type);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_DATA_ENDIAN, &path_spec->end_sel);
+	V4L2_RTN_IF_ERR(ret);
+
+exit:
+	return ret;
+}
+
 
 static int sprd_v4l2_local_deinit(struct dcam_dev *dev)
 {
@@ -1431,7 +1474,7 @@ static int v4l2_streamon(struct file *file,
 	int                      ret = DCAM_RTN_SUCCESS;
 	uint32_t                 i;
 
-	DCAM_TRACE("v4l2_streamon, stream mode %d \n", dev->stream_mode);
+	printk("v4l2_streamon, stream mode %d \n", dev->stream_mode);
 	
 	mutex_lock(&dev->dcam_mutex);
 
@@ -1439,6 +1482,10 @@ static int v4l2_streamon(struct file *file,
 		/* means lightly stream on/off */
 		ret = dcam_cap_cfg(DCAM_CAP_PRE_SKIP_CNT, &dev->dcam_cxt.skip_number);
 		V4L2_RTN_IF_ERR(ret);
+
+		ret = sprd_v4l2_path_lightly_cfg(dcam_path1_cfg, &dev->dcam_cxt.dcam_path[0]);
+		V4L2_RTN_IF_ERR(ret);
+
 		ret = dcam_resume();
 	} else {
 		if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
@@ -1509,7 +1556,7 @@ static int v4l2_streamoff(struct file *file,
 	struct dcam_path_spec    *path = &dev->dcam_cxt.dcam_path[1];
 	int                      ret = DCAM_RTN_SUCCESS;
 
-	DCAM_TRACE("v4l2_streamoff, stream mode %d, if mode %d \n",
+	printk("v4l2_streamoff, stream mode %d, if mode %d \n",
 		dev->stream_mode,
 		dev->dcam_cxt.if_mode);
 
@@ -1523,6 +1570,8 @@ static int v4l2_streamoff(struct file *file,
 
 	if (dev->stream_mode) {
 		ret = dcam_pause();
+		dcam_wait_for_done_ex();
+//		mdelay(33);
 	} else {
 		atomic_set(&dev->stream_on, 0);
 

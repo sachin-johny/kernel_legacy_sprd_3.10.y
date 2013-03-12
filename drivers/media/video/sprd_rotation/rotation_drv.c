@@ -498,6 +498,17 @@ static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
         return pa;
 }
 
+struct sprd_dma_linklist_desc {
+	u32 cfg;
+	u32 total_len;
+	u32 src_addr;
+	u32 dst_addr;
+	u32 llist_ptr;
+	u32 elem_postm;
+	u32 src_blk_postm;
+	u32 dst_blk_postm;
+};
+
 static int rotation_start_copy_data_to_virtual(ROTATION_PARAM_T * param_ptr)
 {
 	struct sprd_dma_channel_desc dma_desc;
