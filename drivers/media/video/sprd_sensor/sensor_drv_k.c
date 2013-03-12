@@ -1030,6 +1030,49 @@ LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 	return SENSOR_K_SUCCESS;
 }
 
+LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
+{
+	char *pBuff = PNULL;
+	struct i2c_msg msg_w;
+	uint32_t cnt = pI2cTab->i2c_count;
+	int ret = SENSOR_K_FAIL;
+
+	pBuff = kmalloc(cnt, GFP_KERNEL);
+	if(PNULL == pBuff){
+		SENSOR_PRINT_ERR("_Sensor_K_WriteI2C ERROR:kmalloc is fail, size = %d \n", cnt);
+		goto sensor_k_writei2c_return;
+	}
+	else{
+		SENSOR_PRINT("_Sensor_K_WriteI2C: kmalloc success, size = %d \n", cnt);
+	}
+
+	if (copy_from_user(pBuff, pI2cTab->i2c_data, cnt)){
+		SENSOR_PRINT_ERR("_Sensor_K_WriteI2C ERROR:copy_from_user fail, size = %d \n", cnt);
+		goto sensor_k_writei2c_return;
+	}
+
+	msg_w.addr = pI2cTab->slave_addr;
+	msg_w.flags = 0;
+	msg_w.buf = pBuff;
+	msg_w.len = cnt;
+
+	ret = i2c_transfer(this_client->adapter, &msg_w, 1);
+	if (ret != 1) {
+		SENSOR_PRINT_ERR("SENSOR: write sensor reg fail, ret : %d, I2C slave addr: 0x%x, \n",
+		ret, msg_w.addr);
+	}else{
+		ret = SENSOR_K_SUCCESS;
+	}
+
+sensor_k_writei2c_return:
+	if(PNULL != pBuff)
+		kfree(pBuff);
+
+	SENSOR_PRINT("sensor_k_write: done, ret = %d \n", ret);
+
+	return ret;
+}
+
 int sensor_k_open(struct inode *node, struct file *file)
 {
 	return 0;
@@ -1384,6 +1427,15 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			if(0 == ret){
 				_Sensor_K_SetI2CClock(clock);
 			}
+		}
+		break;
+	case SENSOR_IO_I2C_WRITE_EXT:
+		{
+			SENSOR_I2C_T i2cTab;
+			ret = copy_from_user(&i2cTab, (SENSOR_I2C_T *) arg, sizeof(SENSOR_I2C_T));
+			if(0 == ret)
+				ret = _Sensor_K_WriteI2C(&i2cTab);	
+
 		}
 		break;
 
