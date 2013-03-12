@@ -30,6 +30,7 @@
 #include <linux/syscore_ops.h>
 #include <mach/adi.h>
 #include <mach/system.h>
+#include <mach/pm_debug.h>
 
 #define ANA_WDG_LOAD_TIMEOUT_NUM    (10000)
 
@@ -104,8 +105,8 @@ static struct timer_list feeder_timer = TIMER_INITIALIZER(watchdog_feeder, 0, 0)
  */
 static void watchdog_feeder(unsigned long data)
 {
-	DEBUG_PRINT(WDT "%s, margin=%d, feed_period=%d\n", __FUNCTION__, margin,
-			feed_period);
+	DEBUG_PRINT(WDT "%s, margin=%d, feed_period=%d, sys_cnt = %d\n", __FUNCTION__, margin,
+			feed_period, get_sys_cnt());
 	WDG_LOAD_TIMER_VALUE(margin * WDT_FREQ);
 	mod_timer(&feeder_timer, jiffies + (feed_period * HZ));
 }
