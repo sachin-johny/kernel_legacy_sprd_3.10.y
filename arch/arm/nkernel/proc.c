@@ -1160,10 +1160,10 @@ static nku32_f   all_banks_empty = -1; /* Maximum 32 OS's */
     static int
 _guests_init (int count, BankDesc* bd)
 {
-    spin_lock_init((&glock));
-
     int       count_tmp = count;
     BankDesc* bd_tmp    = bd;
+
+    spin_lock_init((&glock));
 
     if (all_banks_empty == -1 ) {
 	while (count_tmp--) {
