@@ -17,6 +17,7 @@
 #define CPU_SAVED_MOD_STATE_SIZE (4*2)
 #define CPU_NUM                  (2)
 #define EMC_REINIT_OFFSET	 (0x2000)
+#define REG_AHB_HOLDING_PEN	 (SPRD_AHB_BASE + 0x240)
 #define REG_HOLDING_PEN_PHY_ADDR (SPRD_AHB_PHYS + 0x240)
 #define REG_CPU1_JUMP_PHY_ADDR	 (SPRD_AHB_PHYS + 0x248)
 #define REG_GLB_GEN0_PHY_ADDR	 (SPRD_GREG_PHYS + 0x8)
@@ -113,7 +114,31 @@ sprd_pm_va_to_iram:
 	   cmp	r0, #0x0
 	   bne  1b
 	*/
+
+	/* set AMP, disable data coherency with other cores */
+	mrc     p15, 0, r0, c1, c0, 1 /* ACTLR */
+	bic	r0, r0, #0x40
+	mcr     p15, 0, r0, c1, c0, 1 /* ACTLR */
+	isb
+
+	mrc	p15, 0, r0, c0, c0, 5
+	and	r0, r0, #0x0f
+	ldr     r2, =REG_AHB_HOLDING_PEN
+	ldr     r3, [r2]
+	/* NOTE: 2 cores only */
+	bic	r3, r3, r0
+	str	r3, [r2]
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	dsb
+	isb
 	wfi
+	dsb
+	isb
 #if 0
 1:	b 1b
 	/*
@@ -212,7 +237,11 @@ hold_secondary_cores:
 	ldr	r1, =REG_GIC_IPMR_PHY_ADDR
 	ldr     r2, =0xf0
 	str	r2, [r1]
+	dsb
+	isb
 	wfine
+	dsb
+	isb
 	ldr	sp, =0xc0000000 /*should be deleted*/
 	ldr     r1, =REG_HOLDING_PEN_PHY_ADDR
 	ldr     r3, [r1]
@@ -387,7 +416,9 @@ ENTRY(sp_pm_collapse)
 #if 0
 	bl		outer_cache_poweroff
 #endif
+	stmfd   sp!, {r0-r12, lr}
 	bl      v7_flush_dcache_all
+	ldmfd	sp!, {r0-r12, lr}
 
 	mrc     p15, 0, r4, c1, c0, 0    /* read current CR    */
 	bic     r0, r4, #(1 << 2)        /* clear dcache bit   */
@@ -395,6 +426,9 @@ ENTRY(sp_pm_collapse)
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
 	isb
 
+	stmfd   sp!, {r0-r12, lr}
+	bl      v7_flush_dcache_all
+	ldmfd	sp!, {r0-r12, lr}
 	/* power off SCU */
 	/* save scu configuration registers ?????
 	*
@@ -409,7 +443,11 @@ ENTRY(sp_pm_collapse)
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
-
+	/* set smp mode */
+	mrc     p15, 0, r0, c1, c0, 1 /* ACTLR */
+	orr	r0, r0, #0x40
+	mcr     p15, 0, r0, c1, c0, 1 /* ACTLR */
+	isb
 	/* get cpuid */
 	mrc	p15, 0, r0, c0, c0, 5
 	and	r0, r0, #0x0f
@@ -423,6 +461,48 @@ ENTRY(sp_pm_collapse)
 	bx      lr
 
 ENTRY(sp_pm_collapse_exit)
+invalidate_dcache_v7:
+
+        mrc     p15, 1, r0, c0, c0, 1           @ read clidr
+        ands    r4, r0, #0x7000000              @ extract loc from clidr
+        mov     r4, r4, lsr #23                 @ left align loc bit field
+        beq     finished                        @ if loc is 0, then no need to clean
+        mov     r10, #0                         @ start clean at cache level 0 (in r10)
+loop1:
+        add     r2, r10, r10, lsr #1            @ work out 3x current cache level
+        mov     r12, r0, lsr r2                 @ extract cache type bits from clidr
+        and     r12, r12, #7                    @ mask of bits for current cache only
+        cmp     r12, #2                         @ see what cache we have at this level
+        blt     skip                            @ skip if no cache, or just i-cache
+        mcr     p15, 2, r10, c0, c0, 0          @ select current cache level in cssr
+        mov     r12, #0
+        mcr     p15, 0, r12, c7, c5, 4          @ prefetch flush to sync new cssr&csidr
+        mrc     p15, 1, r12, c0, c0, 0          @ read the new csidr
+        and     r2, r12, #7                     @ extract the length of the cache lines
+        add     r2, r2, #4                      @ add 4 (line length offset)
+        ldr     r6, =0x3ff
+        ands    r6, r6, r12, lsr #3             @ find maximum number on the way size
+        clz     r5, r6                          @ find bit pos of way size increment
+        ldr     r7, =0x7fff
+        ands    r7, r7, r12, lsr #13            @ extract max number of the index size
+loop2:
+        mov     r8, r6                          @ create working copy of max way size
+loop3:
+        orr     r11, r10, r8, lsl r5            @ factor way and cache number into r11
+        orr     r11, r11, r7, lsl r2            @ factor index number into r11
+        mcr     p15, 0, r11, c7, c6, 2          @ invalidate by set/way
+        subs    r8, r8, #1                      @ decrement the way
+        bge     loop3
+        subs    r7, r7, #1                      @ decrement the index
+        bge     loop2
+skip:
+        add     r10, r10, #2                    @ increment cache number
+        cmp     r4, r10
+        bgt     loop1
+finished:
+        mov     r10, #0
+        mcr     p15, 0, r10, c8, c7, 0          @ invalidate I + D TLBs
+
 	msr	cpsr_c, #(PSR_F_BIT | PSR_I_BIT | IRQ_MODE)
 	ldr     r1, =saved_state_irq
 	mrc	p15, 0, r4, c0, c0, 5
@@ -485,6 +565,7 @@ ENTRY(sp_pm_collapse_exit)
 	mcr     p15, 0, r5, c13, c0, 4 /* TPIDRPRW, thread-id, wong */
 	mcr     p15, 0, r6, c10, c2, 0 /* PRRR */
 	mcr     p15, 0, r7, c10, c2, 1 /* NMRR */
+	bic	r8, r8, #0x40
 	mcr     p15, 0, r8, c1, c0, 1 /* ACTLR */
 	mcr     p15, 0, r9, c2, c0, 1 /* TTBR1 */
 	mcr     p15, 0, r10, c13, c0, 3 /* TPIDRURO */
@@ -510,6 +591,9 @@ ENTRY(sp_pm_collapse_exit)
 	dsb
 	isb
 	mcr     p15, 0, r2, c1, c0, 0   /* MMU control */
+	mrc     p15, 0, r0, c1, c0, 1 /* ACTLR */
+	orr	r0, r0, #0x40		/* set smp mode */
+	mcr     p15, 0, r0, c1, c0, 1 /* ACTLR */
 	isb
 sp_pm_mapped_pa:
 	/* Switch to virtual */
@@ -528,8 +612,10 @@ sp_pm_pa_to_va:
 	mcr     p15, 0, r3, c7, c5, 6   /* BPIALL */
 	dsb
 	isb
-
-#if 1
+	nop
+	mov     r0, #1
+	bx      lr
+#if 0
 	/* power on SCU */
 	stmfd   sp!, {lr}
 	bl	sprd_get_scu_base

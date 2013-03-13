@@ -273,25 +273,24 @@ static void gic_restore_ppi(void)
 static void scu_save_context(void){
 	u32 i = 0;
 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x8); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0xc); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x40); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x44); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x50); 
-	scu_context[i] = __raw_readl(SPRD_A5MP_BASE + 0x5c); 
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE);
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x8);
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x40);
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x44);
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x50);
+	scu_context[i] = __raw_readl(SPRD_A5MP_BASE + 0x54);
 	return;
 }
 
 static void scu_restore_context(void){
 
-	u32 i = SCU_CONTEXT_SIZE - 1;
+	u32 i = SCU_CONTEXT_SIZE - 2;
 
-	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x5c);
+	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x54);
 	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x50);
 	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x44);
 	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x40);
-	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0xc);
+	__raw_writel(0xffff, SPRD_A5MP_BASE+0xc);  /* invalid rag RAM */
 	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x8);
 	__raw_writel(scu_context[i], SPRD_A5MP_BASE);
 	
@@ -314,10 +313,10 @@ static void setup_autopd_mode(void)
 	sci_glb_write(REG_GLB_TD_PWR_CTL, 0x05000520/*|PD_AUTO_EN*/, -1UL);/*TD*/
 	sci_glb_write(REG_GLB_PERI_PWR_CTL, 0x03000920/*|PD_AUTO_EN*/, -1UL);
 	if (sci_glb_read(REG_AHB_CHIP_ID, -1UL) == CHIP_ID_VER_0) {
-		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20/*|PD_AUTO_EN*/, -1UL);
+		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20 |PD_AUTO_EN, -1UL);
 		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL );
 	}else {
-		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20/*|PD_AUTO_EN*/, -1UL);
+		sci_glb_write(REG_GLB_ARM_SYS_PWR_CTL, 0x02000f20|PD_AUTO_EN, -1UL);
 		sci_glb_write(REG_GLB_POWCTL0, 0x07000a20|(1<<23), -1UL);
 		/* sci_glb_set(REG_GLB_POWCTL1, DSP_ROM_SLP_PD_EN|MCU_ROM_SLP_PD_EN); */
 	}
@@ -870,13 +869,8 @@ int deep_sleep(void)
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~( MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN );
 
-#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
-	val |= MCU_SYS_SLEEP_EN;
-#else
+
 	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
-#endif  /*CONFIG_MACH_SP6825GA  ||CONFIG_MACH_SP6825GB*/
-
-
 
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL);
 
@@ -889,7 +883,7 @@ int deep_sleep(void)
 	
 	/* indicate cpu stopped */
 	holding = sci_glb_read(REG_AHB_HOLDING_PEN, -1UL);
-	sci_glb_write(REG_AHB_HOLDING_PEN, (holding & (~CORE1_RUN)) | AP_ENTER_DEEP_SLEEP , -1UL );
+	sci_glb_write(REG_AHB_HOLDING_PEN, (holding | AP_ENTER_DEEP_SLEEP) , -1UL );
 
 	save_emc_trainig_data(repower_param);
 	ret = sp_pm_collapse(0, 1);
@@ -902,7 +896,7 @@ int deep_sleep(void)
 	__raw_writel(val , INT0_FIQ_DIS);
 
 	/*clear the deep sleep status*/
-	sci_glb_write(REG_AHB_HOLDING_PEN, holding & (~CORE1_RUN) & (~AP_ENTER_DEEP_SLEEP), -1UL );
+	sci_glb_write(REG_AHB_HOLDING_PEN, (holding & ~AP_ENTER_DEEP_SLEEP), -1UL );
 
 
 
@@ -1001,9 +995,6 @@ int sc8825_enter_lowpower(void)
 #else
 #ifdef CONFIG_NKERNEL
 	status = sc8825_get_clock_status();
-#if  defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB)
-	status |=  DEVICE_APB;
-#endif
 #else
 	/*
 	* TODO: get clock status in native version, force deep sleep now
@@ -1088,7 +1079,6 @@ static void init_gr(void)
 	/* AHB_PAUSE */
 	val = sci_glb_read(REG_AHB_AHB_PAUSE, -1UL);
 	val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | MCU_SYS_SLEEP_EN);
-	val |= MCU_SYS_SLEEP_EN;
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL );
 
 	/* AHB_CTL1 */

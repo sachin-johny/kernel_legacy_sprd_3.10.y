@@ -18,8 +18,13 @@
 #include <asm/irqflags.h>
 #include <mach/pm_debug.h>
 #include <mach/globalregs.h>
+#include <mach/regs_ahb.h>
+#include <mach/sci.h>
 #include <mach/hardware.h>
 #include <linux/delay.h>
+
+#define CORE1_RUN		(1)
+
 
 extern void l2x0_suspend(void);
 extern void l2x0_resume(int collapsed);
@@ -27,7 +32,7 @@ extern int sprd_cpu_deep_sleep(unsigned int cpu);
 extern void sc8825_pm_init(void);
 extern void check_ldo(void);
 extern void check_pd(void);
-extern int debug_adi_lock_v(void);
+
 /*for battery*/
 #define BATTERY_CHECK_INTERVAL 30000
 extern int battery_updata(void);
@@ -45,22 +50,12 @@ static int sprd_check_battery(void)
 static void sprd_pm_standby(void){
 	cpu_do_idle();
 }
-volatile int iii = 0;
-static int debug_adi_lock(int flag)
-{
-	if (debug_adi_lock_v()) {
-		iii = flag;
-		while(1);
-	}
-
-	return 0;
-}
 
 static int sprd_pm_deepsleep(suspend_state_t state)
 {
 	int ret_val = 0;
 	unsigned long hwflags, flags;
-	u32 battery_time, cur_time;
+	u32 holding_pen, battery_time, cur_time;
 	unsigned int cpu;
 
 	battery_time = cur_time = get_sys_cnt();
@@ -83,13 +78,17 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 		__WARN();
 		goto enter_exit;
 	}
-	debug_adi_lock(1);
 
 #ifdef CONFIG_CACHE_L2X0
 	/* guarantee cpu1 is in wfi */
 	mdelay(10);
 	printk("PM: l2 suspending...\n");
 	hwflags = hw_local_irq_save();
+	holding_pen = sci_glb_read(REG_AHB_HOLDING_PEN, -1UL);
+	while(holding_pen & CORE1_RUN ){
+		holding_pen = sci_glb_read(REG_AHB_HOLDING_PEN, -1UL);
+		continue;
+	}
 	l2x0_suspend();
 	hw_local_irq_restore(hwflags);
 #endif
@@ -98,8 +97,6 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 		hwflags = hw_local_irq_save();
 		local_fiq_disable();
 		local_irq_save(flags);
-
-		debug_adi_lock(2);
 
 		if (arch_local_irq_pending()) {
 			/* add for debug & statisic*/
@@ -117,30 +114,24 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 			ret_val = os_ctx->idle(os_ctx);
 			if (0 == ret_val) {
 				os_ctx->smp_cpu_stop(0);
-				debug_adi_lock(3);
-					ret_val = sprd_cpu_deep_sleep(cpu);
+				ret_val = sprd_cpu_deep_sleep(cpu);
 				os_ctx->smp_cpu_start(0, 0);/* the 2nd parameter is meaningless*/
 			} else {
-				debug_adi_lock(4);
 				printk("******** os_ctx->idle return %d ********\n", ret_val);
 			}
-			debug_adi_lock(5);
 			hw_local_irq_restore(hwflags);
 		}
 
-		debug_adi_lock(6);
 		print_hard_irq_inloop(ret_val);
 
 		battery_sleep();
 		cur_time = get_sys_cnt();
 		if ((cur_time -  battery_time) > BATTERY_CHECK_INTERVAL) {
 			battery_time = cur_time;
-			debug_adi_lock(7);
 			if (sprd_check_battery()) {
 				printk("###: battery low!\n");
 				break;
 			}
-			debug_adi_lock(8);
 		}
 	}/*end while*/
 
@@ -150,7 +141,6 @@ static int sprd_pm_deepsleep(suspend_state_t state)
 	l2x0_resume(1);
 	hw_local_irq_restore(hwflags);
 #endif
-	debug_adi_lock(9);
 	time_statisic_end();
 
 #endif

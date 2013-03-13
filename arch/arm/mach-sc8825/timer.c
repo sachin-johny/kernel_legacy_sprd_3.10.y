@@ -182,7 +182,7 @@ static void __syscnt_clocksource_init(const char *name, unsigned long hz)
 	clocksource_mmio_init(SYSCNT_SHADOW_CNT, name,
 			      hz, 200, 32, clocksource_mmio_readw_up);
 }
-static u32 __get_apb_clk(void)
+static __used u32 __get_apb_clk(void)
 {
 	u32 val;
 	u32 freq;
