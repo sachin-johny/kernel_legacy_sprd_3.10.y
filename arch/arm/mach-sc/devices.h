@@ -73,6 +73,5 @@ extern struct platform_device sprd_peer_state_device;
 extern struct platform_device sprd_seth2_td_device;
 extern struct platform_device sprd_saudio_td_device;
 extern struct platform_device sprd_seth1_td_device;
-extern struct platform_device sprd_pmu_device;
 
 #endif
