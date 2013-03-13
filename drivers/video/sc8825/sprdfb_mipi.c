@@ -61,6 +61,7 @@ static void mipi_dispc_init_config(struct panel_spec *panel)
 		/*use dpi as interface*/
 	}
 
+#if 0
 	/*h sync pol*/
 	if(SPRDFB_POLARITY_NEG == panel->info.mipi->h_sync_pol){
 		reg_val |= (1<<0);
@@ -75,6 +76,7 @@ static void mipi_dispc_init_config(struct panel_spec *panel)
 	if(SPRDFB_POLARITY_NEG == panel->info.mipi->de_pol){
 		reg_val |= (1<<2);
 	}
+#endif
 
 	if(SPRDFB_MIPI_MODE_VIDEO == panel->info.mipi->work_mode){
 #ifdef CONFIG_DPI_SINGLE_RUN
