@@ -63,9 +63,6 @@ struct _headset {
 	struct _headset_gpio detect;
 	struct _headset_gpio button;
 	int headphone;
-	int type;
-	struct work_struct switch_work;
-	struct workqueue_struct * switch_workqueue;
 };
 
 #ifndef ARRY_SIZE
