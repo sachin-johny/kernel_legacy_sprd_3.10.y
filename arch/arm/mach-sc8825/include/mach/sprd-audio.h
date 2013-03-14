@@ -531,6 +531,22 @@ static inline int arch_audio_codec_reset(void)
 /* ------------------------------------------------------------------------- */
 
 /* i2s setting */
+static inline const char * arch_audio_i2s_clk_name(int id)
+{
+#if FIXED_AUDIO
+	switch (id) {
+	case 0:
+		return "clk_iis0";
+		break;
+	case 1:
+		return "clk_iis1";
+		break;
+	default:
+		break;
+	}
+	return NULL;
+#endif
+}
 
 static inline int arch_audio_i2s_enable(int id)
 {
@@ -651,14 +667,14 @@ static inline int arch_audio_i2s_switch(int id, int master)
 	case 0:
 		switch (master) {
 		case AUDIO_TO_ARM_CTRL:
-			sci_glb_set(REG_GLB_PCTRL, BIT_IIS0_CTL_SEL);
+			sci_glb_clr(REG_GLB_PCTRL, BIT_IIS0_CTL_SEL);
 			break;
 		case AUDIO_TO_DSP_CTRL:
-			sci_glb_clr(REG_GLB_PCTRL, BIT_IIS0_CTL_SEL);
+			sci_glb_set(REG_GLB_PCTRL, BIT_IIS0_CTL_SEL);
 			break;
 		case AUDIO_NO_CHANGE:
 			ret = sci_glb_read(REG_GLB_PCTRL, BIT_IIS0_CTL_SEL);
-			if (ret == 0)
+			if (ret != 0)
 				ret = AUDIO_TO_DSP_CTRL;
 			else
 				ret = AUDIO_TO_ARM_CTRL;
@@ -671,14 +687,14 @@ static inline int arch_audio_i2s_switch(int id, int master)
 	case 1:
 		switch (master) {
 		case AUDIO_TO_ARM_CTRL:
-			sci_glb_set(REG_GLB_PCTRL, BIT_IIS1_CTL_SEL);
+			sci_glb_clr(REG_GLB_PCTRL, BIT_IIS1_CTL_SEL);
 			break;
 		case AUDIO_TO_DSP_CTRL:
-			sci_glb_clr(REG_GLB_PCTRL, BIT_IIS1_CTL_SEL);
+			sci_glb_set(REG_GLB_PCTRL, BIT_IIS1_CTL_SEL);
 			break;
 		case AUDIO_NO_CHANGE:
 			ret = sci_glb_read(REG_GLB_PCTRL, BIT_IIS1_CTL_SEL);
-			if (ret == 0)
+			if (ret != 0)
 				ret = AUDIO_TO_DSP_CTRL;
 			else
 				ret = AUDIO_TO_ARM_CTRL;

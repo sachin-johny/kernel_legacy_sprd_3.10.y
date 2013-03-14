@@ -100,8 +100,8 @@ static int sc882x_hp_event(struct snd_soc_dapm_widget *w,
 	sc882x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
-		audio_pa_amplifier->headset.
-		    control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->
+		    headset.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
 #ifdef CONFIG_SND_HEADSET_NOISE
 	if (!SND_SOC_DAPM_EVENT_ON(event)) {
 		sc882x_dbg("%s pa off, delay 20ms start\n", __func__);
@@ -119,8 +119,8 @@ static int sc882x_ear_event(struct snd_soc_dapm_widget *w,
 	sc882x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
-		audio_pa_amplifier->earpiece.
-		    control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->
+		    earpiece.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc882x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -231,7 +231,7 @@ static struct snd_soc_dai_link sc882x_dai[] = {
 	 .stream_name = "vbc-dac",
 
 	 .codec_name = "sprd-codec",
-	 .platform_name = "sprd-vbc-pcm-audio",
+	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vbc",
 	 .codec_dai_name = "sprd-codec-i2s",
 	 },
@@ -241,7 +241,7 @@ static struct snd_soc_dai_link sc882x_dai[] = {
 	 .stream_name = "vbc-dsp",
 
 	 .codec_name = "sprd-codec",
-	 .platform_name = "sprd-vbc-pcm-audio",
+	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vaudio",
 	 .codec_dai_name = "sprd-codec-i2s",
 	 },

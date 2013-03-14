@@ -226,16 +226,13 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_spi0_device,
 	&sprd_spi1_device,
 	&sprd_keypad_device,
-#if (defined(CONFIG_SND_SPRD_SOC_SC881X) || defined(CONFIG_SND_SPRD_SOC_KYLEW))
-	&sprd_audio_platform_vbc_pcm_device,
+	&sprd_audio_platform_pcm_device,
 	&sprd_audio_cpu_dai_vaudio_device,
 	&sprd_audio_cpu_dai_vbc_device,
 	&sprd_audio_codec_dolphin_device,
-#else
-	&sprd_audio_soc_device,
-	&sprd_audio_soc_vbc_device,
-	&sprd_audio_vbc_device,
-#endif
+	&sprd_audio_cpu_dai_i2s_device,
+	&sprd_audio_cpu_dai_i2s_device1,
+	&sprd_audio_codec_null_codec_device,
 	&sprd_battery_device,
 #ifdef CONFIG_ANDROID_PMEM
 	&sprd_pmem_device,

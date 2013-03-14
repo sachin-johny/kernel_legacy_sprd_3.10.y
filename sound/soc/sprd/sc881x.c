@@ -138,8 +138,8 @@ static int sc881x_hp_event(struct snd_soc_dapm_widget *w,
 	sc881x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
-		audio_pa_amplifier->headset.
-		    control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->
+		    headset.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -150,8 +150,8 @@ static int sc881x_ear_event(struct snd_soc_dapm_widget *w,
 	sc881x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
-		audio_pa_amplifier->earpiece.
-		    control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
+		audio_pa_amplifier->
+		    earpiece.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -322,7 +322,7 @@ static struct snd_soc_dai_link sc881x_dai[] = {
 	 .stream_name = "vbc-dac",
 
 	 .codec_name = "dolphin",
-	 .platform_name = "sprd-vbc-pcm-audio",
+	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vbc",
 	 .codec_dai_name = "dolphin-i2s",
 	 },
@@ -332,7 +332,7 @@ static struct snd_soc_dai_link sc881x_dai[] = {
 	 .stream_name = "vbc-dsp",
 
 	 .codec_name = "dolphin",
-	 .platform_name = "sprd-vbc-pcm-audio",
+	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vaudio",
 	 .codec_dai_name = "dolphin-i2s",
 	 },

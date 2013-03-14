@@ -31,15 +31,14 @@ extern struct platform_device sprd_i2c_device3;
 extern struct platform_device sprd_spi0_device;
 extern struct platform_device sprd_spi1_device;
 extern struct platform_device sprd_keypad_device;
-extern struct platform_device sprd_audio_soc_device;
-extern struct platform_device sprd_audio_soc_vbc_device;
-extern struct platform_device sprd_audio_vbc_device;
-#if defined(CONFIG_SND_SPRD_SOC_SC881X) || defined(CONFIG_SND_SPRD_SOC_KYLEW)
-extern struct platform_device sprd_audio_platform_vbc_pcm_device;
+extern struct platform_device sprd_audio_platform_pcm_device;
 extern struct platform_device sprd_audio_cpu_dai_vaudio_device;
 extern struct platform_device sprd_audio_cpu_dai_vbc_device;
 extern struct platform_device sprd_audio_codec_dolphin_device;
-#endif
+extern struct platform_device sprd_audio_codec_sprd_codec_device;
+extern struct platform_device sprd_audio_cpu_dai_i2s_device;
+extern struct platform_device sprd_audio_cpu_dai_i2s_device1;
+extern struct platform_device sprd_audio_codec_null_codec_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 #ifdef CONFIG_ANDROID_PMEM
