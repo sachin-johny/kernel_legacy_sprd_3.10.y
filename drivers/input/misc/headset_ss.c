@@ -26,8 +26,6 @@
 #define HEADSET_BUTTON_GPIO_ACTIVE_LOW 1
 #endif
 
-#define CONFIG_METHOD_HP_DETECT_WORK_QUEUE 1
-
 #ifndef HEADSET_DETECT_GPIO
 #define HEADSET_DETECT_GPIO 165
 #endif
@@ -60,14 +58,8 @@ static struct regulator *pa_regulator = NULL;
 unsigned int code; 
 /*- BUTTON STATUS -*/
 
-#if CONFIG_METHOD_HP_DETECT_WORK_QUEUE
-static struct _headset_detect_queue_priv {
-	int active;
-	struct _headset_gpio *hgp;
-} headset_detect_queue_priv;
-static struct work_struct headset_detect_queue;
-#endif
-
+static BLOCKING_NOTIFIER_HEAD(headset_plug_notify_list);
+static struct _headset_detect_queue headset_detect_queue;
 static enum hrtimer_restart report_headset_button_status(int active, struct _headset_gpio *hgp);
 static enum hrtimer_restart report_headset_detect_status(int active, struct _headset_gpio *hgp);
 static struct _headset headset = {
@@ -145,6 +137,18 @@ static struct _headset_keycap headset_key_capability[20] = {
 	{ EV_KEY, KEY_VOLUMEUP },
 	{ EV_KEY, KEY_VOLUMEDOWN },
 };
+
+int register_headset_plug_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&headset_plug_notify_list, nb);
+}
+EXPORT_SYMBOL(register_headset_plug_notifier);
+
+int unregister_headset_plug_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&headset_plug_notify_list, nb);
+}
+EXPORT_SYMBOL(unregister_headset_plug_notifier);
 
 static unsigned int (*headset_get_button_code_board_method)(int v);
 static unsigned int (*headset_map_code2push_code_board_method)(unsigned int code, int push_type);
@@ -259,6 +263,7 @@ static enum hrtimer_restart report_headset_button_status(int active, struct _hea
 
 static int report_headset_detect_status_callback(int active, struct _headset_gpio *hgp)
 {
+	blocking_notifier_call_chain(&headset_plug_notify_list, active, hgp);
 	if (active) {
 		headset_hook_detect(1);
 		hgp->parent->headphone = 0;
@@ -289,25 +294,18 @@ static int report_headset_detect_status_callback(int active, struct _headset_gpi
 
 static enum hrtimer_restart report_headset_detect_status(int active, struct _headset_gpio *hgp)
 {
-#if CONFIG_METHOD_HP_DETECT_WORK_QUEUE
-	headset_detect_queue_priv.active = active;
-	headset_detect_queue_priv.hgp = hgp;
-	schedule_work(&headset_detect_queue);
-#else
-	if (report_headset_detect_status_callback(active, hgp))
-		pr_info("report_headset_detect_status_callback return error\n");
-#endif
+	headset_detect_queue.args.active = active;
+	headset_detect_queue.args.hgp = hgp;
+	schedule_work(&headset_detect_queue.worker);
 	return HRTIMER_NORESTART;
 }
 
-#if CONFIG_METHOD_HP_DETECT_WORK_QUEUE
 static void handle_headset_detect_queue(struct work_struct *work)
 {
-	if (report_headset_detect_status_callback(headset_detect_queue_priv.active,
-				headset_detect_queue_priv.hgp))
+	if (report_headset_detect_status_callback(headset_detect_queue.args.active,
+				headset_detect_queue.args.hgp))
 		pr_info("report_headset_detect_status_callback return error\n");
 }
-#endif
 
 static enum hrtimer_restart headset_gpio_timer_func(struct hrtimer *timer)
 {
@@ -423,10 +421,9 @@ static int __init headset_init(void)
 
 	if (input_register_device(ht->input))
 		goto _switch_dev_register;
-#if CONFIG_METHOD_HP_DETECT_WORK_QUEUE
+
 	/* Initialize task queue structures */
-	INIT_WORK(&headset_detect_queue, handle_headset_detect_queue);
-#endif
+	INIT_WORK(&headset_detect_queue.worker, handle_headset_detect_queue);
 
 	headset_gpio_init(ht->detect.gpio, ht->detect.desc);
 	headset_gpio_init(ht->button.gpio, ht->button.desc);
