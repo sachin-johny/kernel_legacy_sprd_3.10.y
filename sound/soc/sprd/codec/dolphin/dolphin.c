@@ -637,7 +637,8 @@ static const struct snd_soc_dapm_route dolphin_intercon[] = {
 
 	/* Line */
 	{"Output Mixer", NULL, "LineIn Switch"},
-	{"LineIn Switch", NULL, "Line Input"},
+	{"LineIn Switch", NULL, "SPK Switch"},
+	{"SPK Switch", NULL, "Line Input"},
 	{"Line Input", NULL, "AI"},
 
 	/* Output */
