@@ -984,7 +984,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 			codec = sprd_codec->codec;
 		}
 		arch_audio_codec_switch(AUDIO_TO_ARM_CTRL);
-		arch_audio_codec_reg_enable();
+		arch_audio_codec_analog_reg_enable();
 		arch_audio_codec_enable();
 		arch_audio_codec_reset();
 		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 1);
@@ -1065,7 +1065,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 
 		arch_audio_codec_reset();
 		arch_audio_codec_disable();
-		arch_audio_codec_reg_disable();
+		arch_audio_codec_analog_reg_disable();
 		sprd_codec_dbg("ldo off!\n");
 	}
 
@@ -1208,7 +1208,31 @@ static const char *get_event_name(int event)
 	return ev_name;
 }
 
-static int power_event(struct snd_soc_dapm_widget *w,
+static int digital_power_event(struct snd_soc_dapm_widget *w,
+		       struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		arch_audio_codec_digital_reg_enable();
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		arch_audio_codec_digital_reg_disable();
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int analog_power_event(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
@@ -1870,15 +1894,17 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 };
 
 static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
-	SND_SOC_DAPM_SUPPLY("Power", SND_SOC_NOPM, 0, 0, power_event,
+	SND_SOC_DAPM_SUPPLY("Digital Power", SND_SOC_NOPM, 0, 0, digital_power_event,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SUPPLY_S("DA Clk", 1, SOC_REG(CCR), DAC_CLK_EN, 0, NULL,
+	SND_SOC_DAPM_SUPPLY_S("Analog Power", 1, SND_SOC_NOPM, 0, 0, analog_power_event,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY_S("DA Clk", 2, SOC_REG(CCR), DAC_CLK_EN, 0, NULL,
 			      0),
-	SND_SOC_DAPM_SUPPLY_S("DRV Clk", 2, SOC_REG(CCR), DRV_CLK_EN, 0, NULL,
+	SND_SOC_DAPM_SUPPLY_S("DRV Clk", 3, SOC_REG(CCR), DRV_CLK_EN, 0, NULL,
 			      0),
-	SND_SOC_DAPM_SUPPLY_S("AD IBUF", 1, SOC_REG(AACR1), ADC_IBUF_PD, 1,
+	SND_SOC_DAPM_SUPPLY_S("AD IBUF", 2, SOC_REG(AACR1), ADC_IBUF_PD, 1,
 			      NULL, 0),
-	SND_SOC_DAPM_SUPPLY_S("AD Clk", 2, SOC_REG(CCR), ADC_CLK_PD, 1, NULL,
+	SND_SOC_DAPM_SUPPLY_S("AD Clk", 3, SOC_REG(CCR), ADC_CLK_PD, 1, NULL,
 			      0),
 
 	SND_SOC_DAPM_PGA_S("Digital DACL Switch", 4, SOC_REG(AUD_TOP_CTL),
@@ -1900,7 +1926,7 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("HP POP", 6, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			   SND_SOC_DAPM_POST_PMU),
 #else
-	SND_SOC_DAPM_SUPPLY_S("HP POP", 3, SND_SOC_NOPM, 0, 0, hp_pop_event,
+	SND_SOC_DAPM_SUPPLY_S("HP POP", 4, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
 			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 #endif
@@ -2018,15 +2044,17 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 /* sprd_codec supported interconnection*/
 static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	/* Power */
-	{"DA Clk", NULL, "Power"},
+	{"DA Clk", NULL, "Analog Power"},
+	{"DA Clk", NULL, "Digital Power"},
 	{"DAC", NULL, "DA Clk"},
 
-	{"AD IBUF", NULL, "Power"},
+	{"AD IBUF", NULL, "Analog Power"},
+	{"AD Clk", NULL, "Digital Power"},
 	{"AD Clk", NULL, "AD IBUF"},
 	{"ADC", NULL, "AD Clk"},
 
-	{"ADCL PGA", NULL, "AD Clk"},
-	{"ADCR PGA", NULL, "AD Clk"},
+	{"ADCL PGA", NULL, "AD IBUF"},
+	{"ADCR PGA", NULL, "AD IBUF"},
 
 	{"HP POP", NULL, "DRV Clk"},
 	{"HPL Switch", NULL, "DRV Clk"},
@@ -2120,8 +2148,8 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"Mic Bias", NULL, "MIC"},
 	{"AuxMic Bias", NULL, "AUXMIC"},
 	/* Bias independent */
-	{"Mic Bias", NULL, "Power"},
-	{"AuxMic Bias", NULL, "Power"},
+	{"Mic Bias", NULL, "Analog Power"},
+	{"AuxMic Bias", NULL, "Analog Power"},
 };
 
 static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,

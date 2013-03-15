@@ -395,12 +395,36 @@ static inline int arch_audio_codec_audif_disable(void)
 	return ret;
 }
 
-static inline int arch_audio_codec_reg_enable(void)
+static inline int arch_audio_codec_digital_reg_enable(void)
 {
 	int ret = 0;
 
 #if FIXED_AUDIO
 	sci_glb_set(REG_GLB_GEN1, BIT_AUD_TOP_EB);
+	if (ret >= 0)
+		arch_audio_codec_audif_enable(1);
+#endif
+
+	return ret;
+}
+
+static inline int arch_audio_codec_digital_reg_disable(void)
+{
+	int ret = 0;
+
+#if FIXED_AUDIO
+	arch_audio_codec_audif_disable();
+	sci_glb_clr(REG_GLB_GEN1, BIT_AUD_TOP_EB);
+#endif
+
+	return ret;
+}
+
+static inline int arch_audio_codec_analog_reg_enable(void)
+{
+	int ret = 0;
+
+#if FIXED_AUDIO
 	ret =
 	    sci_adi_write(ANA_REG_GLB_ARM_AUD_CLK_RST, BIT_AUD_ARM_EN,
 			      BIT_AUD_ARM_EN);
@@ -409,12 +433,11 @@ static inline int arch_audio_codec_reg_enable(void)
 	return ret;
 }
 
-static inline int arch_audio_codec_reg_disable(void)
+static inline int arch_audio_codec_analog_reg_disable(void)
 {
 	int ret = 0;
 
 #if FIXED_AUDIO
-	sci_glb_clr(REG_GLB_GEN1, BIT_AUD_TOP_EB);
 	ret = sci_adi_write(ANA_REG_GLB_ARM_AUD_CLK_RST, 0, BIT_AUD_ARM_EN);
 #endif
 
@@ -429,8 +452,6 @@ static inline int arch_audio_codec_enable(void)
 	int mask = BIT_AUD6M5_CLK_TX_INV_ARM_EN |
 	    BIT_RTC_AUD_ARM_EN | BIT_CLK_AUD_6M5_ARM_EN | BIT_CLK_AUDIF_ARM_EN;
 	ret = sci_adi_write(ANA_REG_GLB_ARM_AUD_CLK_RST, mask, mask);
-	if (ret >= 0)
-		arch_audio_codec_audif_enable(1);
 #endif
 
 	return ret;
@@ -443,7 +464,6 @@ static inline int arch_audio_codec_disable(void)
 #if FIXED_AUDIO
 	int mask =
 	    BIT_RTC_AUD_ARM_EN | BIT_CLK_AUD_6M5_ARM_EN | BIT_CLK_AUDIF_ARM_EN;
-	arch_audio_codec_audif_disable();
 	ret = sci_adi_write(ANA_REG_GLB_ARM_AUD_CLK_RST, 0, mask);
 #endif
 
