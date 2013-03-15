@@ -44,3 +44,10 @@ config WLAN_SDIO
 	default n
 	---help---
 	  Use memory preallocated in platform
+
+config BCM40181
+	bool "Optional config for BCM40181"
+	depends on BCMDHD
+	default n
+	---help---
+	  Use memory preallocated in platform

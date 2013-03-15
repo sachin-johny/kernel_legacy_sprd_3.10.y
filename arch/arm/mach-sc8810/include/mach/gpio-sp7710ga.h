@@ -53,9 +53,8 @@
 
 #define GPIO_BT_RESET		171
 
-#define GPIO_WIFI_POWERON     GPIO_INVALID
-#define GPIO_WIFI_RESET       GPIO_INVALID
-#define GPIO_WIFI_IRQ         GPIO_INVALID
+#define GPIO_WIFI_SHUTDOWN	151
+#define GPIO_WIFI_IRQ		152
 
 /*ap: gpio208-223*/
 /*cp: gpio 0 - 15*/

@@ -22,6 +22,9 @@
 #include <linux/slab.h>
 #include <linux/delay.h>
 
+#define SDIO_VENDOR_ID_SPRD 0
+#define SDIO_DEVICE_ID_SPRD_SLAVE 0x2260
+
 #define DRV_NAME "sprd-sdio-channel"
 #define SPRD_SDIO_SLAVE_BLOCK_SIZE 512
 
@@ -34,10 +37,11 @@ struct sdio_channel {
 static struct sdio_channel sprd_sdio_channel_body;
 static struct sdio_channel *sprd_sdio_channel = &sprd_sdio_channel_body;
 
-static const struct sdio_device_id sprd_sdio_channel_table[] = {
-    { SDIO_DEVICE_CLASS(SDIO_CLASS_NONE) },
-    { 0 },
+static const struct sdio_device_id sprd_sdio_channel_ids[] = {
+	{ SDIO_DEVICE(SDIO_VENDOR_ID_SPRD, SDIO_DEVICE_ID_SPRD_SLAVE) },
+	{ 0 },
 };
+MODULE_DEVICE_TABLE(sdio, sprd_sdio_channel_ids);
 
 static int sprd_sdio_channel_do_tx(const char *buf, unsigned int len) {
     int retval;
@@ -163,7 +167,7 @@ static struct sdio_driver sprd_sdio_channel_driver = {
     .name     = DRV_NAME,
     .probe     = sprd_sdio_channel_probe,
     .remove  = sprd_sdio_channel_remove,
-    .id_table  = sprd_sdio_channel_table,
+    .id_table  = sprd_sdio_channel_ids,
     .drv         = {
         .pm = &sprd_sdio_channel_dev_pm_ops,
     },

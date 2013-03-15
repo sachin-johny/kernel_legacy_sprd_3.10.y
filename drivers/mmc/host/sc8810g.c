@@ -223,6 +223,17 @@ void sdhci_bus_scan(void)
 	return;
 }
 EXPORT_SYMBOL_GPL(sdhci_bus_scan);
+
+unsigned int sdhci_wifi_detect_isbusy(void) {
+	unsigned int busy = 0;
+	#ifdef CONFIG_MMC_BUS_SCAN
+	if(sdhci_host_g && sdhci_host_g->mmc) {
+		busy = work_busy(&sdhci_host_g->mmc->detect.work);
+	}
+	#endif
+	return busy;
+}
+EXPORT_SYMBOL_GPL(sdhci_wifi_detect_isbusy);
 #endif
 
 /*

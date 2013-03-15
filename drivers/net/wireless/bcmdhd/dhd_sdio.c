@@ -886,6 +886,9 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 		/* Make sure SD clock is available */
 		if (bus->clkstate == CLK_NONE)
 			dhdsdio_sdclk(bus, TRUE);
+	#ifdef CONFIG_BCM40181
+		OSL_DELAY(50);
+	#endif
 		/* Now request HT Avail on the backplane */
 		ret = dhdsdio_htclk(bus, TRUE, pendok);
 		if (ret == BCME_OK) {
@@ -5719,7 +5722,7 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 	       enum_base4));
 	 /* return if there are something about SPI or SDIO bus. */
 	if (enum_base4 != 0x16044330) {
-		return FALSE;
+		//return FALSE;
 	}
 
 #endif /* DHD_DEBUG */
