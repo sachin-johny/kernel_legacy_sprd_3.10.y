@@ -26,6 +26,8 @@
 #define HEADSET_BUTTON_GPIO_ACTIVE_LOW 1
 #endif
 
+#define CONFIG_METHOD_HP_DETECT_WORK_QUEUE 1
+
 #ifndef HEADSET_DETECT_GPIO
 #define HEADSET_DETECT_GPIO 165
 #endif
@@ -41,7 +43,7 @@
 #endif
 
 #ifndef HEADSET_DETECT_GPIO_DEBOUNCE_SW
-#define HEADSET_DETECT_GPIO_DEBOUNCE_SW 1000
+#define HEADSET_DETECT_GPIO_DEBOUNCE_SW 300
 #endif
 #ifndef HEADSET_BUTTON_GPIO_DEBOUNCE_SW
 #define HEADSET_BUTTON_GPIO_DEBOUNCE_SW 100
@@ -57,6 +59,14 @@ int ret_estate = KEY_RESERVED;
 static struct regulator *pa_regulator = NULL;
 unsigned int code; 
 /*- BUTTON STATUS -*/
+
+#if CONFIG_METHOD_HP_DETECT_WORK_QUEUE
+static struct _headset_detect_queue_priv {
+	int active;
+	struct _headset_gpio *hgp;
+} headset_detect_queue_priv;
+static struct work_struct headset_detect_queue;
+#endif
 
 static enum hrtimer_restart report_headset_button_status(int active, struct _headset_gpio *hgp);
 static enum hrtimer_restart report_headset_detect_status(int active, struct _headset_gpio *hgp);
@@ -203,6 +213,11 @@ static enum hrtimer_restart report_headset_button_status(int active, struct _hea
 	enum hrtimer_restart restart;
 	unsigned int key_type  = KEY_RESERVED;
 
+	if (!hgp->parent->detect.active) {
+		active = -1;
+		pr_warn("%s --> mismatch, detect has been pluged out, force button active to -1\n", __func__);
+	}
+
 	pr_info("report_headset_button_status-Active [%d] \n",active);
 
 	ret_estate = active;//jinwon.baek 120808 for earloopback switch checking 
@@ -242,7 +257,7 @@ static enum hrtimer_restart report_headset_button_status(int active, struct _hea
 		return HRTIMER_NORESTART;
 }
 
-static enum hrtimer_restart report_headset_detect_status(int active, struct _headset_gpio *hgp)
+static int report_headset_detect_status_callback(int active, struct _headset_gpio *hgp)
 {
 	if (active) {
 		headset_hook_detect(1);
@@ -267,10 +282,32 @@ static enum hrtimer_restart report_headset_detect_status(int active, struct _hea
 			pr_info("headset plug out\n");
 		switch_set_state(&hgp->parent->sdev, BIT_HEADSET_OUT);
 	}
-	/* use below code only when gpio irq misses state ? */
-	/* headset_gpio_set_irq_type(hgp->irq, active ? hgp->irq_type_inactive : hgp->irq_type_active); */
+	/* use below code only when gpio irq misses state, because of the dithering */
+	headset_gpio_set_irq_type(hgp->irq, active ? hgp->irq_type_inactive : hgp->irq_type_active);
+	return 0;
+}
+
+static enum hrtimer_restart report_headset_detect_status(int active, struct _headset_gpio *hgp)
+{
+#if CONFIG_METHOD_HP_DETECT_WORK_QUEUE
+	headset_detect_queue_priv.active = active;
+	headset_detect_queue_priv.hgp = hgp;
+	schedule_work(&headset_detect_queue);
+#else
+	if (report_headset_detect_status_callback(active, hgp))
+		pr_info("report_headset_detect_status_callback return error\n");
+#endif
 	return HRTIMER_NORESTART;
 }
+
+#if CONFIG_METHOD_HP_DETECT_WORK_QUEUE
+static void handle_headset_detect_queue(struct work_struct *work)
+{
+	if (report_headset_detect_status_callback(headset_detect_queue_priv.active,
+				headset_detect_queue_priv.hgp))
+		pr_info("report_headset_detect_status_callback return error\n");
+}
+#endif
 
 static enum hrtimer_restart headset_gpio_timer_func(struct hrtimer *timer)
 {
@@ -386,6 +423,10 @@ static int __init headset_init(void)
 
 	if (input_register_device(ht->input))
 		goto _switch_dev_register;
+#if CONFIG_METHOD_HP_DETECT_WORK_QUEUE
+	/* Initialize task queue structures */
+	INIT_WORK(&headset_detect_queue, handle_headset_detect_queue);
+#endif
 
 	headset_gpio_init(ht->detect.gpio, ht->detect.desc);
 	headset_gpio_init(ht->button.gpio, ht->button.desc);
