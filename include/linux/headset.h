@@ -65,6 +65,17 @@ struct _headset {
 	int headphone;
 };
 
+struct _headset_detect_queue {
+	struct {
+		int active;
+		struct _headset_gpio *hgp;
+	} args;
+	struct work_struct worker;
+};
+
+extern int register_headset_plug_notifier(struct notifier_block *nb);
+extern int unregister_headset_plug_notifier(struct notifier_block *nb);
+
 #ifndef ARRY_SIZE
 #define ARRY_SIZE(A) (sizeof(A)/sizeof(A[0]))
 #endif
