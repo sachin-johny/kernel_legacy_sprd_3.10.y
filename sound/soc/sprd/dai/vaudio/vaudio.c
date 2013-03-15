@@ -111,8 +111,17 @@ static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 		snd_soc_dapm_force_enable_pin(&card->dapm, "DAC");
 		vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 1);
 	} else {
-		snd_soc_dapm_force_enable_pin(&card->dapm, "ADC");
-		vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 1);
+#ifdef  CONFIG_SPRD_CODEC_DMIC
+		if (dai->id == VAUDIO_MAGIC_ID) {
+#endif
+			snd_soc_dapm_force_enable_pin(&card->dapm, "ADC");
+			vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 1);
+#ifdef  CONFIG_SPRD_CODEC_DMIC
+		} else {
+			snd_soc_dapm_force_enable_pin(&card->dapm, "ADC1");
+			vaudio_dapm_ignore_suspend(&card->dapm, "ADC1", 1);
+		}
+#endif
 	}
 
 	snd_soc_dapm_stream_event(rtd, substream->stream, codec_dai,
@@ -142,8 +151,17 @@ static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 		snd_soc_dapm_disable_pin(&card->dapm, "DAC");
 		vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 0);
 	} else {
-		snd_soc_dapm_disable_pin(&card->dapm, "ADC");
-		vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 0);
+#ifdef  CONFIG_SPRD_CODEC_DMIC
+		if (dai->id == VAUDIO_MAGIC_ID) {
+#endif
+			snd_soc_dapm_disable_pin(&card->dapm, "ADC");
+			vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 0);
+#ifdef  CONFIG_SPRD_CODEC_DMIC
+		} else {
+			snd_soc_dapm_disable_pin(&card->dapm, "ADC1");
+			vaudio_dapm_ignore_suspend(&card->dapm, "ADC1", 0);
+		}
+#endif
 	}
 
 	snd_soc_dapm_stream_event(rtd, substream->stream, codec_dai,
@@ -203,19 +221,35 @@ static struct snd_soc_dai_ops sprd_vaudio_dai_ops = {
 	.trigger = sprd_vaudio_trigger,
 };
 
-struct snd_soc_dai_driver sprd_vaudio_dai = {
-	.id = VAUDIO_MAGIC_ID,
-	.playback = {
-		     .channels_min = 1,
-		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_CONTINUOUS,
-		     .formats = SNDRV_PCM_FMTBIT_S16_LE,},
-	.capture = {
-		    .channels_min = 1,
-		    .channels_max = 2,
-		    .rates = SNDRV_PCM_RATE_CONTINUOUS,
-		    .formats = SNDRV_PCM_FMTBIT_S16_LE,},
-	.ops = &sprd_vaudio_dai_ops,
+struct snd_soc_dai_driver sprd_vaudio_dai[] = {
+	{
+		.id = VAUDIO_MAGIC_ID,
+		.name = "vaudio",
+		.playback = {
+			     .channels_min = 1,
+			     .channels_max = 2,
+			     .rates = SNDRV_PCM_RATE_CONTINUOUS,
+			     .formats = SNDRV_PCM_FMTBIT_S16_LE,},
+		.capture = {
+			    .channels_min = 1,
+			    .channels_max = 2,
+			    .rates = SNDRV_PCM_RATE_CONTINUOUS,
+			    .formats = SNDRV_PCM_FMTBIT_S16_LE,},
+		.ops = &sprd_vaudio_dai_ops,
+	},
+#ifdef  CONFIG_SPRD_CODEC_DMIC
+	{
+		.id = VAUDIO_MAGIC_ID+1,
+		.name = "vaudio-ad23",
+		.capture = {
+			.channels_min = 1,
+			.channels_max = 2,	/*ad23 */
+			.rates = SNDRV_PCM_RATE_CONTINUOUS,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			},
+		.ops = &sprd_vaudio_dai_ops,
+	},
+#endif
 };
 
 static int sprd_vaudio_drv_probe(struct platform_device *pdev)
@@ -224,7 +258,7 @@ static int sprd_vaudio_drv_probe(struct platform_device *pdev)
 
 	sprd_vaudio_dbg("Entering %s\n", __func__);
 
-	ret = snd_soc_register_dai(&pdev->dev, &sprd_vaudio_dai);
+	ret = snd_soc_register_dais(&pdev->dev, &sprd_vaudio_dai, ARRAY_SIZE(sprd_vaudio_dai));
 
 	sprd_vaudio_dbg("return %i\n", ret);
 	sprd_vaudio_dbg("Leaving %s\n", __func__);
@@ -234,7 +268,7 @@ static int sprd_vaudio_drv_probe(struct platform_device *pdev)
 
 static int __devexit sprd_vaudio_drv_remove(struct platform_device *pdev)
 {
-	snd_soc_unregister_dai(&pdev->dev);
+	snd_soc_unregister_dais(&pdev->dev, ARRAY_SIZE(sprd_vaudio_dai));
 	return 0;
 }
 
