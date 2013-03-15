@@ -5,7 +5,8 @@ snd-soc-kylew-objs         		:= kylew.o
 obj-$(CONFIG_SND_SPRD_SOC_KYLEW)    	+= snd-soc-kylew.o
 snd-soc-sc882x-objs         		:= sc882x.o
 obj-$(CONFIG_SND_SPRD_SOC_SC882X)    	+= snd-soc-sc882x.o
-obj-$(CONFIG_SND_SPRD_SOC_SC771X)    	+= snd-soc-sc882x.o
+snd-soc-sc771x-objs         		:= sc771x.o
+obj-$(CONFIG_SND_SPRD_SOC_SC771X)    	+= snd-soc-sc771x.o
 obj-$(CONFIG_SND_SPEAKER_PA)         	+= speaker-pa.o
 
 obj-$(CONFIG_SND_SPRD_SOC_VBC)	     	+= dai/vbc/

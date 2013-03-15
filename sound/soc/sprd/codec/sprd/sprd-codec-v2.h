@@ -244,6 +244,18 @@
 #define DRV_OCP_EAR_PD		(5)
 #define DRV_OCP_HP_PD		(4)
 
+/* DCR8_DCR7 */
+#define AUDIO_CHP_LPW		(15)
+#define AUDIO_CHP_MODE		(14)
+#define AUDIO_CHP_REF_EN	(7)
+#define AUDIO_CHP_EN		(6)
+#define AUDIO_CHP_HPL_EN	(5)
+#define AUDIO_CHP_HPR_EN	(4)
+#define AUDIO_CHP_LMUTE		(3)
+#define AUDIO_CHP_RMUTE		(2)
+#define AUDIO_CHP_OSC		(0)
+#define AUDIO_CHP_OSC_MASK	(0x03)
+
 /* PNRCR2_PNRCR1 */
 #define HP_POP_CTL		(6)
 #define HP_POP_CTL_MASK		(0x03)
