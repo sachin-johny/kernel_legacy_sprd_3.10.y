@@ -24,7 +24,7 @@
 #define CACHE_REPLACE_POLICY 		((1) << 25)
 #define CACHE_FORCE_W_A 		(((0) & 0x3) << 23)
 
-#define CACHE_S_O_ENABLE		((0) << 22)
+#define CACHE_S_O_ENABLE		((1) << 22)
 #define CACHE_PARITY_ENABLE		((0) << 21)
 #define CACHE_EVENT_ENABLE		((0) << 20)
 #define CACHE_WAY_SIZE			(((2) & 0x3) << 17)

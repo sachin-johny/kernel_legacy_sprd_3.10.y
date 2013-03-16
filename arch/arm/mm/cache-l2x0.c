@@ -536,6 +536,11 @@ void __init l2x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 void l2x0_suspend(void)
 {
 	u32 l2x0_revision = readl_relaxed(l2x0_base + L2X0_CACHE_ID) & 0x3f;
+#ifdef CONFIG_ARCH_SC8825
+	u32 enabled = readl_relaxed(l2x0_base + L2X0_CTRL) & 0x1;
+	if(!enabled)
+		return;
+#endif
 	/* Save aux control register value */
 	aux_ctrl_save = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
 	data_latency_ctrl = readl_relaxed(l2x0_base + L2X0_DATA_LATENCY_CTRL);
@@ -544,11 +549,17 @@ void l2x0_suspend(void)
 		if (l2x0_revision >= 0x5)
 			pwr_ctrl = readl_relaxed(l2x0_base + L2X0_POWER_CTRL);
 	}
-	/* Flush all cache */
-	l2x0_flush_all();
+#ifdef CONFIG_ARCH_SC8825
 	/* Disable the cache */
 	writel_relaxed(0, l2x0_base + L2X0_CTRL);
-
+	/* Flush all cache */
+	__l2x0_flush_all();
+#else
+	/* Flush all cache */
+	 __l2x0_flush_all();
+	/* Disable the cache */
+	writel_relaxed(0, l2x0_base + L2X0_CTRL);
+#endif
 	/* Memory barrier */
 	dsb();
 }

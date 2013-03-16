@@ -273,25 +273,24 @@ static void gic_restore_ppi(void)
 static void scu_save_context(void){
 	u32 i = 0;
 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x8); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0xc); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x40); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x44); 
-	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x50); 
-	scu_context[i] = __raw_readl(SPRD_A5MP_BASE + 0x5c); 
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE);
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x8);
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x40);
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x44);
+	scu_context[i++] = __raw_readl(SPRD_A5MP_BASE + 0x50);
+	scu_context[i] = __raw_readl(SPRD_A5MP_BASE + 0x54);
 	return;
 }
 
 static void scu_restore_context(void){
 
-	u32 i = SCU_CONTEXT_SIZE - 1;
+	u32 i = SCU_CONTEXT_SIZE - 2;
 
-	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x5c);
+	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x54);
 	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x50);
 	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x44);
 	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x40);
-	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0xc);
+	__raw_writel(0xffff, SPRD_A5MP_BASE+0xc);  /* invalid rag RAM */
 	__raw_writel(scu_context[i--], SPRD_A5MP_BASE+0x8);
 	__raw_writel(scu_context[i], SPRD_A5MP_BASE);
 	
@@ -368,7 +367,7 @@ void check_ldo(void)
 	 *  LDOVDD25(bit13), LDOVDD18(bit12), LDOVDD28(bit11) 
 	 *is not auto power down as default
 	 */
-	CHECK_LDO(ANA_REG_GLB_LDO_SLP_CTRL0, 0x87fd);
+	CHECK_LDO(ANA_REG_GLB_LDO_SLP_CTRL0, 0xc7fd);
 
 	/*
 	 * FSM_SLPPD_EN(bit15) must be set
@@ -596,6 +595,7 @@ static void wait_until_uart1_tx_done(void)
 /* arm core sleep*/
 static void arm_sleep(void)
 {
+	pm_debug_save_ahb_glb_regs( );
 	cpu_do_idle();
 	hard_irq_set();
 }
@@ -619,6 +619,9 @@ static void mcu_sleep(void)
 	val |= MCU_SYS_SLEEP_EN;
 	*/
 	sci_glb_write(REG_AHB_AHB_PAUSE, val, -1UL );
+
+	pm_debug_save_ahb_glb_regs( );
+
 	cpu_do_idle();
 	hard_irq_set();
 	RESTORE_GLOBAL_REG;
@@ -817,9 +820,12 @@ int deep_sleep(void)
 	u32 val, ret = 0;
 	u32 holding;
 
-
-	val = 0x87f1;
+	/*  VDD28_BP_EN is set by somebody! clear it */
+	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
+	val &= ~(1<<11) ;
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
+
+
 	wait_until_uart1_tx_done();
 	SAVE_GLOBAL_REG;
 	disable_audio_module();
@@ -840,12 +846,8 @@ int deep_sleep(void)
 	/* prevent uart1 */
 	__raw_writel(INT0_IRQ_MASK, INT0_IRQ_DIS);
 
-#ifdef CONFIG_CACHE_L2X0
-	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
-	l2x0_suspend();
-#else
-	__raw_writel(0x3, SPRD_L2_BASE+0xF80);/*L2X0_POWER_CTRL, standby_mode_enable*/
-#endif
+	/*L2X0_POWER_CTRL, auto_clock_gate, standby_mode_enable*/
+	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
 
 #ifdef FORCE_DISABLE_DSP
 	/* close debug modules, only for fpga or debug */
@@ -882,7 +884,7 @@ int deep_sleep(void)
 	
 	/* indicate cpu stopped */
 	holding = sci_glb_read(REG_AHB_HOLDING_PEN, -1UL);
-	sci_glb_write(REG_AHB_HOLDING_PEN, (holding & (~CORE1_RUN)) | AP_ENTER_DEEP_SLEEP , -1UL );
+	sci_glb_write(REG_AHB_HOLDING_PEN, (holding | AP_ENTER_DEEP_SLEEP) , -1UL );
 
 	save_emc_trainig_data(repower_param);
 	ret = sp_pm_collapse(0, 1);
@@ -895,7 +897,7 @@ int deep_sleep(void)
 	__raw_writel(val , INT0_FIQ_DIS);
 
 	/*clear the deep sleep status*/
-	sci_glb_write(REG_AHB_HOLDING_PEN, holding & (~CORE1_RUN) & (~AP_ENTER_DEEP_SLEEP), -1UL );
+	sci_glb_write(REG_AHB_HOLDING_PEN, (holding & ~AP_ENTER_DEEP_SLEEP), -1UL );
 
 
 
@@ -910,12 +912,6 @@ int deep_sleep(void)
 
 	udelay(5);
 	if (ret) cpu_init();
-
-#ifdef CONFIG_CACHE_L2X0
-	/*L2X0_POWER_CTRL, auto_clock_gate, standby_mode_enable*/
-	__raw_writel(0x3, SPRD_L2_BASE+0xF80);
-	l2x0_resume(ret);
-#endif
 
 	return ret;
 }
@@ -1008,11 +1004,11 @@ int sc8825_enter_lowpower(void)
 #endif
 #endif
 	if (status & DEVICE_AHB)  {
-		printk("###### %s,  DEVICE_AHB ###\n", __func__ );
+		/*printk("###### %s,  DEVICE_AHB ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_ARM);
 		arm_sleep();
 	} else if (status & DEVICE_APB) {
-		printk("###### %s,	DEVICE_APB ###\n", __func__ );
+		/*printk("###### %s,	DEVICE_APB ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_MCU);
 		mcu_sleep();
 	} else {
@@ -1026,10 +1022,13 @@ int sc8825_enter_lowpower(void)
 		gic_restore_context( );
 		gic_cpu_enable(cpu);
 		gic_dist_enable( );
+#if 1
+		void notrace __update_sched_clock(void);
+		__update_sched_clock();
+#endif
 	}
 	
 	time_add(get_sys_cnt() - time, ret);
-	print_hard_irq_inloop(ret);
 
 	return ret;
 
@@ -1059,8 +1058,6 @@ void sprd_pm_cpu_enter_lowpower(unsigned int cpu)
 	*/
 	/* stop_critical_timings(); */
 	
-	flush_cache_all();
-	outer_flush_all();
 	sp_pm_collapse(cpu, 1);
 
 	/*
@@ -1070,7 +1067,6 @@ void sprd_pm_cpu_enter_lowpower(unsigned int cpu)
 
 	if (cpu)
 		gic_restore_ppi( );
-	gic_cpu_enable(cpu);
 }
 
 
