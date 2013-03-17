@@ -2,6 +2,7 @@ obj-y += io.o irq.o timer.o devices.o arch_asm.o arch_init.o globalregs.o \
          clock_common.o clock_sc8810.o
 
 obj-$(CONFIG_SPRD_SOC_SC8810) += regulator.o regulator-devices.o
+obj-$(CONFIG_ARCH_SC7710) += regulator.o
 
 obj-y += dma.o reserve.o pinmap.o adi.o gpio_eic.o adc.o efuse.o \
          watchdog.o
