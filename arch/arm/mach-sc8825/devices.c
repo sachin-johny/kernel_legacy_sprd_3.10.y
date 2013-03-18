@@ -810,6 +810,7 @@ static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.vdd_name = "vddsd0",
 	.clk_name = "clk_sdio0",
 	.clk_parent = "clk_sdio_src",
+	.max_clock = 90000000,
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SD0_SOFT_RST,
 };
@@ -841,6 +842,7 @@ static struct sprd_host_platdata sprd_sdio1_pdata = {
 	.clk_name = "clk_sdio1",
 	.clk_parent = "clk_sdio_src",
 	.enb_bit = BIT_SDIO1_EB,
+	.max_clock = 90000000,
 	.rst_bit = BIT_SD1_SOFT_RST,
 	.regs.is_valid = 1,
 };

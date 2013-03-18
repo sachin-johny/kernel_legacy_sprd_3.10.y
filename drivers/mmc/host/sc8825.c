@@ -33,7 +33,6 @@
 
 #include "sc8825.h"
 
-#define     SDIO_MAX_CLK            16000000
 
 /* regulator use uv to set voltage */
 #define     SDIO_VDD_VOLT_1V8       1800000
@@ -289,10 +288,7 @@ static unsigned int sdhci_sprd_get_max_clk(struct sdhci_host *host)
 {
 	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
 
-	if (host_pdata->max_clock)
-		return host_pdata->max_clock;
-	else
-		return SDIO_MAX_CLK;
+	return host_pdata->max_clock;
 }
 
 /**
