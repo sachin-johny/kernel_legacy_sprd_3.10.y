@@ -1,0 +1,74 @@
+#!/bin/bash
+
+DEBUGFS_TOP_DIR="/sys/kernel/debug/"
+BM_DIR_PRE="bus_monitor"
+BM_DIR_PATH=""
+RW_MODE="0x00000000"
+
+BM_CMD_CLR_INT="0x20000001"
+BM_CMD_ENABLE="0x10000001"
+BM_CMD_DISABLE="0x00000000"
+#performance without interrupt
+BM_CMD_COUNT_START="0x0000000b"
+BM_CMD_COUNT_STOP="0x00000003"
+BM_CMD_GLB_ENABLE="bm_glb_enable"
+BM_CMD_GLB_DISABLEi="bm_glb_disable"
+BM_CMD_GLB_COUNT_START="bm_glb_count_start"
+BM_CMD_GLB_COUNT_STOP="bm_glb_count_stop"
+
+if [ ${1} = "-h" ];then
+#show some help information
+	echo Usage:	
+	echo ./busmonitor.sh arg1 arg2
+	echo arg1:	busmonitor id
+	echo	the busmonitor id list following:
+	echo busmonitor	id
+	echo	axi bm0    0
+	echo	axi bm1    1
+	echo	axi bm2    2
+	echo	axi bm4    3
+	echo	axi bm5    6
+	echo	axi bm7    7
+	echo	axi bm8    8
+	echo	axi bm9    9
+	echo	ahb bm0    10
+	echo	ahb bm1    11
+	echo	ahb bm1    12
+	echo arg2: start or stop performance counter / performance info
+
+	exit 0
+fi
+
+BM_DIR_PATH=${DEBUGFS_TOP_DIR}${BM_DIR_PRE}$1"/"
+
+if [ ${2} = "start" ];then
+	#enable bm(global)
+	echo ${BM_CMD_GLB_ENABLE} > ${BM_DIR_PRE}"glb_ctl"
+	#clean the busmonitor interrupt status
+	echo ${BM_CMD_CLR_INT} > ${BM_DIR_PATH}"intc"
+	#disable busmonitor
+	echo ${BM_CMD_DISABLE} > ${BM_DIR_PATH}"intc"
+	#enable bm count(global)
+	echo ${BM_CMD_GLB_COUNT_START} > ${BM_DIR_PATH}"glb_ctl"
+	#start bm count
+	echo ${BM_CMD_COUNT_START} > ${BM_DIR_PATH}"intc"
+fi
+
+if [ ${2} = "stop" ];then
+	#start bm count
+	echo ${BM_CMD_COUNT_STOP} > ${BM_DIR_PATH}"intc"
+fi
+
+if [ ${2} =  "info" ];then
+
+	echo "read transaction:"
+	cat ${BM_DIR_PATH}"rtrans_in_win"
+	echo "read latency:"
+	cat ${BM_DIR_PATH}"rlatency_in_win"
+	echo "write transaction:"
+	cat ${BM_DIR_PATH}"wtrans_in_win"
+	echo "write latency:"
+	cat ${BM_DIR_PATH}"wlatency_in_win"
+fi
+
+exit 1

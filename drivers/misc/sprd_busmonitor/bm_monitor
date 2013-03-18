@@ -1,0 +1,78 @@
+#!/bin/bash
+
+DEBUGFS_TOP_DIR="/sys/kernel/debug/"
+BM_DIR_PRE="bus_monitor"
+BM_DIR_PATH=""
+RW_MODE="0x00000000"
+
+BM_CMD_CLR_INT="0x20000001"
+BM_CMD_ENABLE="0x10000001"
+BM_CMD_DISABLE="0x00000000"
+BM_CMD_GLB_ENABLE="bm_glb_enable"
+BM_CMD_GLB_DISABLEi="bm_glb_disable"
+BM_CMD_GLB_COUNT_START="bm_glb_count_start"
+BM_CMD_GLB_COUNT_STOP="bm_glb_count_stop"
+
+if [ ${1} = "-h" ];then
+#show some help information
+	echo Usage:
+	echo ./busmonitor.sh arg1 arg2 arg3 arg4 arg5 arg6 arg7 arg8 arg9 arg10 arg11
+	echo arg1:	busmonitor id
+	echo	the busmonitor id list following:
+	echo busmonitor	id
+	echo	axi bm0    0
+	echo	axi bm1    1
+	echo	axi bm2    2
+	echo	axi bm4    3
+	echo	axi bm5    6
+	echo	axi bm7    7
+	echo	axi bm8    8
+	echo	axi bm9    9
+	echo	ahb bm0    10
+	echo	ahb bm1    11
+	echo	ahb bm1    12
+	echo arg2: addr min
+	echo arg3: addr max
+	echo arg4: addr msk
+	echo arg5: data_min_l32
+	echo arg6: data_min_h32
+	echo arg7: data_max_l32
+	echo arg8: data_max_h32
+	echo arg9: data_msk_l32
+	echo arg10: data_msk_h32
+	echo arg11: monitor operation:r mode, w mode and rw mode
+
+	exit 0
+fi
+
+BM_DIR_PATH=${DEBUGFS_TOP_DIR}${BM_DIR_PRE}$1"/"
+
+#clean the busmonitor interrupt status
+echo $BM_CMD_CLR_INT > ${BM_DIR_PATH}"intc"
+#disable busmonitor
+echo $BM_CMD_DISABLE > ${BM_DIR_PATH}"intc"
+
+echo ${BM_DIR_PATH}
+echo $2 > ${BM_DIR_PATH}"addr_min"
+echo $3 > ${BM_DIR_PATH}"addr_max"
+echo $4 > ${BM_DIR_PATH}"addr_msk"
+echo $5 > ${BM_DIR_PATH}"data_min_l"
+echo $6 > ${BM_DIR_PATH}"data_min_h"
+echo $7 > ${BM_DIR_PATH}"data_max_l"
+echo $8 > ${BM_DIR_PATH}"data_max_h"
+echo $9 > ${BM_DIR_PATH}"data_msk_l"
+echo $10 > ${BM_DIR_PATH}"data_msk_h"
+if [ ${11} = "r" ];then
+	RW_MODE="0x00000001"
+fi
+if [ ${11} = "w" ];then
+	RW_MODE="0x00000003"
+fi
+echo ${RW_MODE} >> ${BM_DIR_PATH}"cfg"
+
+#enable busmonitor(glb resister)
+echo $BM_CMD_GLB_ENABLE > ${BM_DIR_PATH}"glb_ctl"
+
+echo $BM_CMD_ENABLE > ${BM_DIR_PATH}"intc"
+
+exit 1
