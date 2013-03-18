@@ -28,6 +28,9 @@
  *   256 - 271 : A-Die EIC
  *   272 - 287 : D-Die EIC
  */
+#define GPIO_FLASH_LED_EN      2
+#define GPIO_FLASH_LED_OUT   1
+
 #define GPIO_TOUCH_RESET      35
 #define GPIO_TOUCH_IRQ        37
 

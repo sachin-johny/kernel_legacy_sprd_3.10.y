@@ -1281,7 +1281,7 @@ SENSOR_INFO_T g_ov5640_yuv_info = {
 	&s_ov5640_ioctl_func_tab,	// point to ioctl function table
 	PNULL,			// information and table about Rawrgb sensor
 	NULL,			//&g_ov5640_ext_info,                // extend information about sensor
-	SENSOR_AVDD_2800MV,	// iovdd
+	SENSOR_AVDD_1800MV,	// iovdd
 	SENSOR_AVDD_1500MV,	// dvdd
 	0,			// skip frame num before preview
 	3,			// skip frame num before capture

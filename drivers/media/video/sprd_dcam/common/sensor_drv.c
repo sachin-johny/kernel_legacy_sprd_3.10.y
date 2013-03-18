@@ -2069,9 +2069,47 @@ uint32_t Sensor_SetFlash(uint32_t flash_mode)
 		return 0;
 
 	s_flash_mode = flash_mode;
-
 	printk("Sensor_SetFlash:flash_mode=0x%x .\n", flash_mode);
 
+#if defined(CONFIG_MACH_SP7710GA)
+	switch (flash_mode) {
+	case 1:		/*flash on */
+	case 2:		/*for torch */
+		/*low light */
+		gpio_request(GPIO_FLASH_LED_EN, "led_en");
+		gpio_direction_output(GPIO_FLASH_LED_EN, 1);
+		gpio_set_value(GPIO_FLASH_LED_EN, 1);
+		gpio_request(GPIO_FLASH_LED_OUT, "led_out");
+		gpio_direction_output(GPIO_FLASH_LED_OUT, 0);
+		gpio_set_value(GPIO_FLASH_LED_OUT, 0);
+		break;
+	case 0x11:
+		/*high light */
+		gpio_request(GPIO_FLASH_LED_EN, "led_en");
+		gpio_direction_output(GPIO_FLASH_LED_EN, 1);
+		gpio_set_value(GPIO_FLASH_LED_EN, 1);
+
+		gpio_request(GPIO_FLASH_LED_OUT, "led_out");
+		gpio_direction_output(GPIO_FLASH_LED_OUT, 1);
+		gpio_set_value(GPIO_FLASH_LED_OUT, 1);
+		break;
+	case 0x10:		/*close flash */
+	case 0x0:
+		/*close the light */
+		gpio_request(GPIO_FLASH_LED_EN, "led_en");
+		gpio_direction_output(GPIO_FLASH_LED_EN, 0);
+		gpio_set_value(GPIO_FLASH_LED_EN, 0);
+		gpio_request(GPIO_FLASH_LED_OUT, "led_out");
+		gpio_direction_output(GPIO_FLASH_LED_OUT, 0);
+		gpio_set_value(GPIO_FLASH_LED_OUT, 0);
+		break;
+	default:
+		printk("Sensor_SetFlash unknow mode:flash_mode=%d .\n",
+		       flash_mode);
+		break;
+	}
+
+#else
 	switch (flash_mode) {
 	case 1:		/*flash on */
 	case 2:		/*for torch */
@@ -2108,7 +2146,7 @@ uint32_t Sensor_SetFlash(uint32_t flash_mode)
 		       flash_mode);
 		break;
 	}
-
+#endif
 	return 0;
 }
 
