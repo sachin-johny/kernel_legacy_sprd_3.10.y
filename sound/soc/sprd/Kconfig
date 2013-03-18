@@ -99,4 +99,10 @@ config SPRD_AUDIO_BUFFER_USE_IRAM
 	   sometimes, use IRAM maybe reduce power consumption.
            but, it will cause system more busy, becuase the buffer smaller.
 
+config SPRD_AUDIO_USE_INTER_HP_PA
+	bool "use spreadtrum internal headphone pa"
+	default n
+	help
+	  Say Y if you want use sprdtrume internal headphone pa
+
 endmenu

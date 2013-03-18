@@ -227,6 +227,26 @@ struct sprd_codec_pa_setting {
 static DEFINE_MUTEX(inter_pa_mutex);
 static struct sprd_codec_pa_setting inter_pa;
 
+struct sprd_codec_inter_hp_pa {
+	/* FIXME little endian */
+	int class_g_osc:2;
+	int class_g_mode:2;
+	int class_g_low_power:2;
+	int RESV:26;
+};
+
+struct sprd_codec_hp_pa_setting {
+	union {
+		struct sprd_codec_inter_hp_pa setting;
+		u32 value;
+	};
+	int set;
+};
+
+static DEFINE_MUTEX(inter_hp_pa_mutex);
+static struct sprd_codec_hp_pa_setting inter_hp_pa;
+
+
 enum {
 	SPRD_CODEC_MIC_BIAS,
 	SPRD_CODEC_AUXMIC_BIAS,
@@ -861,6 +881,127 @@ int sprd_inter_speaker_pa(int on)
 }
 
 EXPORT_SYMBOL(sprd_inter_speaker_pa);
+
+static inline void sprd_codec_hp_pa_lpw(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_LPW);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_mode(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_MODE);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_osc(int osc)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, osc);
+	mask = AUDIO_CHP_OSC_MASK << AUDIO_CHP_OSC;
+	val = (osc << AUDIO_CHP_OSC) & mask;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_ref_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_REF_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_hpl_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_HPL_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_hpr_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_HPR_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_hpl_mute(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_LMUTE);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_hpr_mute(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_RMUTE);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_inter_hp_pa_init(void)
+{
+	inter_hp_pa.setting.class_g_osc = 0x01;
+}
+
+int sprd_inter_headphone_pa(int on)
+{
+	pr_info("inter HP PA switch %s\n", on ? "ON" : "OFF");
+	mutex_lock(&inter_hp_pa_mutex);
+	if (on) {
+		sprd_codec_hp_pa_lpw(inter_hp_pa.setting.class_g_low_power);
+		sprd_codec_hp_pa_mode(inter_hp_pa.setting.class_g_mode);
+		sprd_codec_hp_pa_osc(inter_hp_pa.setting.class_g_osc);
+		sprd_codec_hp_pa_hpl_en(1);
+		sprd_codec_hp_pa_hpr_en(1);
+		sprd_codec_hp_pa_ref_en(1);
+		sprd_codec_hp_pa_en(1);
+		inter_hp_pa.set = 1;
+	} else {
+		inter_hp_pa.set = 0;
+		sprd_codec_hp_pa_en(0);
+		sprd_codec_hp_pa_ref_en(0);
+		sprd_codec_hp_pa_hpl_en(0);
+		sprd_codec_hp_pa_hpr_en(0);
+	}
+	mutex_unlock(&inter_hp_pa_mutex);
+	return 0;
+}
+
+EXPORT_SYMBOL(sprd_inter_headphone_pa);
 
 /* mic bias external */
 
@@ -2278,6 +2419,54 @@ static int sprd_codec_inter_pa_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sprd_codec_inter_hp_pa_put(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val;
+	int ret = 0;
+
+	pr_info("config inter HP PA 0x%08x\n",
+		(int)ucontrol->value.integer.value[0]);
+
+	val = (ucontrol->value.integer.value[0] & mask);
+	if (invert)
+		val = max - val;
+	mutex_lock(&inter_hp_pa_mutex);
+	inter_hp_pa.value = (u32) val;
+	if (inter_hp_pa.set) {
+		mutex_unlock(&inter_hp_pa_mutex);
+		sprd_inter_headphone_pa(1);
+	} else {
+		mutex_unlock(&inter_hp_pa_mutex);
+	}
+	sprd_codec_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
+static int sprd_codec_inter_hp_pa_get(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int max = mc->max;
+	unsigned int invert = mc->invert;
+
+	mutex_lock(&inter_hp_pa_mutex);
+	ucontrol->value.integer.value[0] = inter_hp_pa.value;
+	mutex_unlock(&inter_hp_pa_mutex);
+	if (invert) {
+		ucontrol->value.integer.value[0] =
+		    max - ucontrol->value.integer.value[0];
+	}
+
+	return 0;
+}
+
 static int sprd_codec_mic_bias_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -2376,8 +2565,8 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 	SPRD_CODEC_PGA_MAX("ADCR Capture Volume", SPRD_CODEC_PGA_ADCR, 63,
 			   adc_tlv),
 
-	SPRD_CODEC_PGA("DACL Playback Volume", SPRD_CODEC_PGA_DACL, dac_tlv),
-	SPRD_CODEC_PGA("DACR Playback Volume", SPRD_CODEC_PGA_DACR, dac_tlv),
+	SPRD_CODEC_PGA_MAX("DACL Playback Volume", SPRD_CODEC_PGA_DACL, 7, dac_tlv),
+	SPRD_CODEC_PGA_MAX("DACR Playback Volume", SPRD_CODEC_PGA_DACR, 7, dac_tlv),
 	SPRD_CODEC_PGA_MAX("MIC Boost", SPRD_CODEC_PGA_MIC, 3, mic_tlv),
 	SPRD_CODEC_PGA_MAX("AUXMIC Boost", SPRD_CODEC_PGA_AUXMIC, 3,
 			   auxmic_tlv),
@@ -2387,6 +2576,9 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SOC_SINGLE_EXT("Inter PA Config", 0, 0, LONG_MAX, 0,
 		       sprd_codec_inter_pa_get, sprd_codec_inter_pa_put),
+
+	SOC_SINGLE_EXT("Inter HP PA Config", 0, 0, LONG_MAX, 0,
+		       sprd_codec_inter_hp_pa_get, sprd_codec_inter_hp_pa_put),
 
 	SPRD_CODEC_MIC_BIAS("MIC Bias Switch", SPRD_CODEC_MIC_BIAS),
 
@@ -2837,6 +3029,7 @@ static struct platform_driver sprd_codec_codec_driver = {
 static int sprd_codec_init(void)
 {
 	sprd_codec_inter_pa_init();
+	sprd_codec_inter_hp_pa_init();
 	arch_audio_codec_switch(AUDIO_TO_ARM_CTRL);
 	return platform_driver_register(&sprd_codec_codec_driver);
 }
