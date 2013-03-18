@@ -9,18 +9,6 @@ config SND_SPRD_SOC_SC881X
 	  SoC Audio for the SPREADTRUM SC881X chips with intergrated Dolphin codec
 	  use VBC and  Dolphin for the audio system.
 
-config SND_SPRD_SOC_KYLEW
-	tristate "KYLEW phone"
-	depends on !SND_SC88XX_SOC_SPRDPHONE
-	select SND_ARM
-	select SND_SPRD_SOC_VBC
-	select SND_SOC_DOLPHIN
-	help
-	  Say Y if you want to built in to kernel, Say M for ko module.
-	  SoC Audio for the SPREADTRUM SC881X chips with intergrated Dolphin codec
-	  use VBC and  Dolphin for the audio system.
-	  config for samsung kylew project.
-
 config SND_SPRD_SOC_SC882X
 	tristate "SC882X phone"
 	select SND_ARM
