@@ -1253,8 +1253,8 @@ CONFIG_I2C_HELPER_AUTO=y
 # CONFIG_I2C_PXA_PCI is not set
 # CONFIG_I2C_SIMTEC is not set
 # CONFIG_I2C_XILINX is not set
-# CONFIG_I2C_SC8810 is not set
-CONFIG_I2C_SPRD=y
+CONFIG_I2C_SC8810=y
+# CONFIG_I2C_SPRD is not set
 
 #
 # External I2C/SMBus adapter drivers

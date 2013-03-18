@@ -35,7 +35,7 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 
-#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_MACH_SP7710GA)
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/i2c-sprd.h>
 #else
 #include <mach/i2c-sc8810.h>
@@ -1019,7 +1019,7 @@ _Sensor_K_WriteRegTab_return:
 
 LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 {
-#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_MACH_SP7710GA)
+#if defined(CONFIG_ARCH_SC8825)
 	sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
 #else
 	sc8810_i2c_set_clk(SENSOR_I2C_ID, clock);
