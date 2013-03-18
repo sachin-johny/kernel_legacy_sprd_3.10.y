@@ -381,7 +381,7 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
             (spi_parm->msb_lsb_sel<< 7) ;
     spi_ctr_ptr->ctl0 = temp;
 
-    spi_ctr_ptr->ctl1 = (ctl1 | BIT(12) | BIT(13));     // set rx/tx mode
+    spi_ctr_ptr->ctl1 |= BIT(12) | BIT(13);     // set rx/tx mode
 
 	/*rx fifo full watermark is 16*/
 	spi_ctr_ptr->ctl3 = 0x10;
