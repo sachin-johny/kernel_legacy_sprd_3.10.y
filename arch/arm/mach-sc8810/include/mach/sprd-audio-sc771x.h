@@ -65,6 +65,7 @@ enum {
 #define BIT_RTC_AUD_ARM_EN              ( BIT(1) )
 #define BIT_AUD_ARM_EN                  ( BIT(0) )
 
+#define CLASS_G_LDO_ID			"vddamp"
 #endif
 
 /* ------------------------------------------------------------------------- */

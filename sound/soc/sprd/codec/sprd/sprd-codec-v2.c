@@ -246,7 +246,6 @@ struct sprd_codec_hp_pa_setting {
 static DEFINE_MUTEX(inter_hp_pa_mutex);
 static struct sprd_codec_hp_pa_setting inter_hp_pa;
 
-
 enum {
 	SPRD_CODEC_MIC_BIAS,
 	SPRD_CODEC_AUXMIC_BIAS,
@@ -979,9 +978,19 @@ static inline void sprd_codec_inter_hp_pa_init(void)
 
 int sprd_inter_headphone_pa(int on)
 {
+	static struct regulator *regulator = 0;
 	pr_info("inter HP PA switch %s\n", on ? "ON" : "OFF");
 	mutex_lock(&inter_hp_pa_mutex);
 	if (on) {
+		if (!regulator) {
+			regulator = regulator_get(0, CLASS_G_LDO_ID);
+			if (IS_ERR(regulator)) {
+				pr_err("Failed to request %s: %d\n",
+				       PTR_ERR(regulator), CLASS_G_LDO_ID);
+				BUG_ON(1);
+			}
+			regulator_enable(regulator);
+		}
 		sprd_codec_hp_pa_lpw(inter_hp_pa.setting.class_g_low_power);
 		sprd_codec_hp_pa_mode(inter_hp_pa.setting.class_g_mode);
 		sprd_codec_hp_pa_osc(inter_hp_pa.setting.class_g_osc);
@@ -996,6 +1005,11 @@ int sprd_inter_headphone_pa(int on)
 		sprd_codec_hp_pa_ref_en(0);
 		sprd_codec_hp_pa_hpl_en(0);
 		sprd_codec_hp_pa_hpr_en(0);
+		if (regulator) {
+			regulator_disable(regulator);
+			regulator_put(regulator);
+			regulator = 0;
+		}
 	}
 	mutex_unlock(&inter_hp_pa_mutex);
 	return 0;
@@ -2420,7 +2434,7 @@ static int sprd_codec_inter_pa_get(struct snd_kcontrol *kcontrol,
 }
 
 static int sprd_codec_inter_hp_pa_put(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
+				      struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
@@ -2449,7 +2463,7 @@ static int sprd_codec_inter_hp_pa_put(struct snd_kcontrol *kcontrol,
 }
 
 static int sprd_codec_inter_hp_pa_get(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
+				      struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
@@ -2565,8 +2579,10 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 	SPRD_CODEC_PGA_MAX("ADCR Capture Volume", SPRD_CODEC_PGA_ADCR, 63,
 			   adc_tlv),
 
-	SPRD_CODEC_PGA_MAX("DACL Playback Volume", SPRD_CODEC_PGA_DACL, 7, dac_tlv),
-	SPRD_CODEC_PGA_MAX("DACR Playback Volume", SPRD_CODEC_PGA_DACR, 7, dac_tlv),
+	SPRD_CODEC_PGA_MAX("DACL Playback Volume", SPRD_CODEC_PGA_DACL, 7,
+			   dac_tlv),
+	SPRD_CODEC_PGA_MAX("DACR Playback Volume", SPRD_CODEC_PGA_DACR, 7,
+			   dac_tlv),
 	SPRD_CODEC_PGA_MAX("MIC Boost", SPRD_CODEC_PGA_MIC, 3, mic_tlv),
 	SPRD_CODEC_PGA_MAX("AUXMIC Boost", SPRD_CODEC_PGA_AUXMIC, 3,
 			   auxmic_tlv),
