@@ -20,58 +20,121 @@
 #include <linux/delay.h>
 #include <asm/uaccess.h>
 #include "img_scale.h"
+#include <linux/kthread.h>
 
 #define PARAM_SIZE              32
+#define SCALE_USER_MAX          4
+#define INVALID_USER_ID         0xFFFFFFFF
+
+struct scale_user {
+	pid_t pid;
+	uint32_t is_exit_force;
+	struct semaphore sem_open;
+	struct semaphore sem_done;
+};
+
+struct scale_context {
+	struct scale_user   *scale_user;
+	struct mutex        pid_mutex;
+	struct semaphore    sem_cfg;
+	pid_t               cur_pid;
+	struct scale_user   *cur_user;
+};
 
 static struct mutex             scale_mutex;
 static struct semaphore         scale_irq_sem;
 static atomic_t                 scale_users = ATOMIC_INIT(0);
 static struct proc_dir_entry    *img_scale_proc_file;
 static struct scale_frame       frm_rtn;
+static struct scale_context     s_scale_context;
+static struct scale_context     *s_scale_ctx = &s_scale_context;
 
 static void scale_done(struct scale_frame* frame, void* u_data)
 {
-	printk("sc done \n");
+	struct scale_user *p_user = s_scale_ctx->cur_user;
+
+	printk("sc done 0x%x.\n",p_user);
 	(void)u_data;
 	memcpy(&frm_rtn, frame, sizeof(struct scale_frame));
 	frm_rtn.type = 0;
-	up(&scale_irq_sem);
+	s_scale_ctx->cur_pid = INVALID_USER_ID;
+	if (NULL != p_user) {
+		up(&p_user->sem_done);
+		printk("scale test.\n");
+	} else {
+		printk("scale err.\n");
+	}
+	up(&s_scale_ctx->sem_cfg);
 	return;
 }
 
+static struct scale_user *scale_get_user(pid_t user_pid)
+{
+	struct scale_user *ret_user = NULL;
+	struct scale_user *p_user = NULL;
+	int               i;
+
+	p_user = s_scale_ctx->scale_user;
+	for (i = 0; i < SCALE_USER_MAX; i ++) {
+		if ((p_user + i)->pid == user_pid) {
+			ret_user = p_user + i;
+			break;
+		}
+	}
+	if (ret_user == NULL) {
+		for (i = 0; i < SCALE_USER_MAX; i ++) {
+			if ((p_user + i)->pid == INVALID_USER_ID) {
+				ret_user = p_user + i;
+				ret_user->pid = user_pid;
+				break;
+			}
+		}
+	}
+
+	return ret_user;
+}
 static int img_scale_open(struct inode *node, struct file *pf)
 {
 	int                      ret = 0;
+	struct scale_user        *p_user = NULL;
 
 	mutex_lock(&scale_mutex);
-
 	SCALE_TRACE("img_scale_open \n");
 
-	if (unlikely(atomic_inc_return(&scale_users) > 1)) {
-		ret = -EBUSY;
-		goto faile;
+	p_user = scale_get_user(current->pid);
+	if (NULL == p_user) {
+		printk("img_scale_open user cnt full  pid:%d. \n",current->pid);
+		return -1;
 	}
+/*	ret = down_interruptible(&p_user->sem_open);*/
+	pf->private_data = p_user;
+	p_user->is_exit_force = 0;
+	sema_init(&p_user->sem_done, 0);
 
-	ret = scale_module_en();
-	if (unlikely(ret)) {
-		printk("Failed to enable scale module \n");
-		ret = -EIO;
-		goto faile;
-	}
-	
-	ret = scale_reg_isr(SCALE_TX_DONE, scale_done, NULL);
-	if (unlikely(ret)) {
-		printk("Failed to register ISR \n");
-		ret = -EACCES;
-		goto reg_faile;
-	} else {
-		goto exit;
-	}
+	if (1 == atomic_inc_return(&scale_users)) {
+		sema_init(&scale_irq_sem, 0);
+		ret = scale_module_en();
+		if (unlikely(ret)) {
+			printk("Failed to enable scale module \n");
+			ret = -EIO;
+			goto faile;
+		}
 
+		ret = scale_reg_isr(SCALE_TX_DONE, scale_done, NULL);
+		if (unlikely(ret)) {
+			printk("Failed to register ISR \n");
+			ret = -EACCES;
+			goto reg_faile;
+		} else {
+			goto exit;
+		}
+	}
 reg_faile:
 	scale_module_dis();
 faile:
 	atomic_dec(&scale_users);
+	p_user->pid = INVALID_USER_ID;
+	pf->private_data = NULL;
 exit:
 	mutex_unlock(&scale_mutex);
 
@@ -83,11 +146,17 @@ exit:
 
 ssize_t img_scale_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
 {
-
+	struct scale_user *p_user = NULL;
 	(void)file; (void)u_data; (void)cnt_ret;
-	SCALE_TRACE("img_scale_write %d, \n", cnt);
+	p_user = file->private_data;
+	p_user->is_exit_force = 1;
+	printk("scale write %d, \n", cnt);
 	frm_rtn.type = 0xFF;
-	up(&scale_irq_sem);
+	up(&p_user->sem_done);
+	if (s_scale_ctx->cur_user == p_user) {
+		up(&s_scale_ctx->sem_cfg);
+		printk("scale:free ctrl.\n");
+	}
 
 	return 1;
 }
@@ -110,13 +179,14 @@ ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 static int img_scale_release(struct inode *node, struct file *file)
 {
+	struct scale_user        *p_user = NULL;
 	mutex_lock(&scale_mutex);
-
-	scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
-
-	scale_module_dis();
-	atomic_dec(&scale_users);
-
+	p_user = file->private_data;
+	p_user->pid = INVALID_USER_ID;
+	if (0 == atomic_dec_return(&scale_users)) {
+		scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
+		scale_module_dis();
+	}
 	mutex_unlock(&scale_mutex);
 
 	SCALE_TRACE("img_scale_release \n");
@@ -131,9 +201,11 @@ static long img_scale_ioctl(struct file *file,
 	uint8_t                  param[PARAM_SIZE];
 	uint32_t                 param_size;
 	void                     *data = param;
+	struct scale_context     *p_ctx = s_scale_ctx;
+	struct scale_user        *p_user = NULL;
 
 	param_size = _IOC_SIZE(cmd);
-	SCALE_TRACE("img_scale_ioctl, io number 0x%x, param_size %d \n",
+	printk("img_scale_ioctl, io number 0x%x, param_size %d \n",
 		_IOC_NR(cmd),
 		param_size);
 
@@ -146,7 +218,10 @@ static long img_scale_ioctl(struct file *file,
 	}
 
 	if (SCALE_IO_IS_DONE == cmd) {
-		ret = down_interruptible(&scale_irq_sem);
+		p_user = file->private_data;
+		printk("scale down 0:0x%x.\n",p_user);
+		ret = down_interruptible(&p_user->sem_done);/*(&scale_irq_sem);*/
+		printk("scale down 1.\n");
 		if (ret) {
 			printk("img_scale_ioctl, failed to down, 0x%x \n", ret);
 			ret = -ERESTARTSYS;
@@ -162,9 +237,51 @@ static long img_scale_ioctl(struct file *file,
 				ret = -EFAULT;
 				goto exit;
 			}
+			if (1 == p_user->is_exit_force) {
+				p_user->is_exit_force = 0;
+				ret = -1;
+			}
 		}
 	} else {
 		mutex_lock(&scale_mutex);
+		p_user = file->private_data;
+		if (NULL == p_user) {
+				printk("img_scale_ioctl user error pid:%d. \n",current->pid);
+				mutex_unlock(&scale_mutex);
+				ret = -EPERM;
+				goto exit;
+		}
+
+		if (INVALID_USER_ID == p_ctx->cur_pid) {
+			p_ctx->cur_pid = p_user->pid;
+			//get config control
+			ret = down_interruptible(&p_ctx->sem_cfg);
+			if (ret) {
+				printk("img_scale_ioctl[0] down err %d.\n",ret);
+			} else {
+				p_ctx->cur_user = p_user;
+			}
+		} else {
+			if (p_ctx->cur_pid != p_user->pid) {
+				ret = down_trylock(&p_ctx->sem_cfg);
+				if (ret) {
+					printk("img_scale_ioct down fail %d.\n",ret);
+					mutex_unlock(&scale_mutex);
+					ret = down_interruptible(&p_ctx->sem_cfg);
+					if (0 == ret) {
+						mutex_lock(&scale_mutex);
+					} else {
+						printk("img_scale_ioctl[1] down err %d.\n",ret);
+					}
+				}
+				p_ctx->cur_pid = p_user->pid;
+				p_ctx->cur_user = p_user;
+			}
+		}
+		if (ret) {
+			mutex_unlock(&scale_mutex);
+			goto exit;
+		}
 		ret = scale_cfg(_IOC_NR(cmd), data);
 		mutex_unlock(&scale_mutex);
 	}
@@ -235,6 +352,8 @@ static int  img_scale_proc_read(char           *page,
 int img_scale_probe(struct platform_device *pdev)
 {
 	int                      ret = 0;
+	int                      i = 0;
+	struct scale_user        *p_user = NULL;
 	
 	SCALE_TRACE("scale_probe called \n");
 
@@ -258,6 +377,24 @@ int img_scale_probe(struct platform_device *pdev)
 	/* initialize locks */
 	mutex_init(&scale_mutex);
 	sema_init(&scale_irq_sem, 0);
+
+	p_user = kzalloc(SCALE_USER_MAX * sizeof(struct scale_user), GFP_KERNEL);
+	if (NULL == p_user) {
+		printk("scale_user, no mem");
+		return -1;
+	}
+	s_scale_ctx->scale_user = p_user;
+	s_scale_ctx->cur_pid = INVALID_USER_ID;
+	s_scale_ctx->cur_user = NULL;
+	mutex_init(&s_scale_ctx->pid_mutex);
+	sema_init(&s_scale_ctx->sem_cfg, 1);
+	for (i =  0; i < SCALE_USER_MAX; i++) {
+		p_user->pid = INVALID_USER_ID;
+		p_user->is_exit_force = 0;
+		sema_init(&p_user->sem_open, 1);
+		sema_init(&p_user->sem_done, 0);
+		p_user++;
+	}
 	
 exit:	
 	return ret;

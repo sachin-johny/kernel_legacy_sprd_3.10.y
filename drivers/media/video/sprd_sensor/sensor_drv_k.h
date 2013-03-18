@@ -43,6 +43,12 @@ unsigned short addr;
 uint32_t clock;
 };
 
+typedef struct sensor_i2c_tag {
+	uint8_t  *i2c_data;
+	uint16_t i2c_count;
+	uint16_t slave_addr;
+} SENSOR_I2C_T, *SENSOR_I2C_T_PTR;
+
 typedef struct sensor_reg_tag {
 	uint16_t reg_addr;
 	uint16_t reg_value;
@@ -120,6 +126,7 @@ typedef struct sensor_reg_tab_tag {
 #define SENSOR_IO_I2C_WRITE_REGS	_IOW(SENSOR_IOC_MAGIC, 14, SENSOR_REG_TAB_T)
 #define SENSOR_IO_SET_CAMMOT		_IOW(SENSOR_IOC_MAGIC, 15,  uint32_t)
 #define SENSOR_IO_SET_I2CCLOCK		_IOW(SENSOR_IOC_MAGIC, 16,  uint32_t)
+#define SENSOR_IO_I2C_WRITE_EXT		_IOW(SENSOR_IOC_MAGIC, 17,  SENSOR_I2C_T)
 
 
 #endif //_SENSOR_DRV_K_H_

@@ -248,14 +248,14 @@ int32_t    scale_stop(void)
 	enum scale_drv_rtn      rtn = SCALE_RTN_SUCCESS;
 	uint32_t                flag;
 
-	spin_lock_irqsave(&scale_lock, flag);
+	//spin_lock_irqsave(&scale_lock, flag);
 	if (atomic_read(&g_path->start_flag)) {
 		s_wait_flag = 1;
 		if (down_interruptible(&scale_done_sema)) {
 			printk("scale_stop down error!\n");
 		}
 	}
-	spin_unlock_irqrestore(&scale_lock, flag);
+	//spin_unlock_irqrestore(&scale_lock, flag);
 
 	REG_MWR(SCALE_CFG, 1, 0);
 	REG_MWR(SCALE_INT_MASK, SCALE_IRQ_BIT, 0 << 9);

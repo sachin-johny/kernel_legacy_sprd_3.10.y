@@ -59,6 +59,8 @@ enum {
 #define ISP_IO_STOP	_IOW(ISP_IO_MAGIC, 5, uint32_t)
 #define ISP_IO_INT	_IOW(ISP_IO_MAGIC, 6, uint32_t)
 #define ISP_IO_DCAM_INT	_IOW(ISP_IO_MAGIC, 7, uint32_t)
-#define ISP_IO_LNC	_IOW(ISP_IO_MAGIC, 8, uint32_t)
+#define ISP_IO_LNC_PARAM	_IOW(ISP_IO_MAGIC, 8, uint32_t)
+#define ISP_IO_LNC	_IOW(ISP_IO_MAGIC, 9, uint32_t)
+#define ISP_IO_ALLOC	_IOW(ISP_IO_MAGIC, 10, uint32_t)
 
 #endif
