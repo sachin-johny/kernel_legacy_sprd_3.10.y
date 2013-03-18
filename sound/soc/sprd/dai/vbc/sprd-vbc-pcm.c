@@ -192,7 +192,7 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	      && 0 == sprd_buffer_iram_backup())) {
 #endif
 		rtd->dma_desc_array =
-		    dma_alloc_writecombine(substream->pcm->card->dev,
+		    dma_alloc_coherent(substream->pcm->card->dev,
 					   2 * PAGE_SIZE,
 					   &rtd->dma_desc_array_phys,
 					   GFP_KERNEL);
@@ -236,7 +236,7 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 		sprd_buffer_iram_restore();
 	else
 #endif
-		dma_free_writecombine(substream->pcm->card->dev, 2 * PAGE_SIZE,
+		dma_free_coherent(substream->pcm->card->dev, 2 * PAGE_SIZE,
 				      rtd->dma_desc_array,
 				      rtd->dma_desc_array_phys);
 	kfree(rtd);
