@@ -34,14 +34,9 @@
 #include <linux/regulator/consumer.h>
 #include <linux/i2c/ft5306_ts.h>
 #include <mach/regulator.h>
-#include <mach/i2c-sprd.h>
 
-#if defined(CONFIG_ARCH_SC8825)
+#ifdef CONFIG_I2C_SPRD
 #include <mach/i2c-sprd.h>
-#endif
-
-#if defined(CONFIG_ARCH_SC8810)
-#include <mach/i2c-sc8810.h>
 #endif
 
 #define I2C_BOARD_INFO_METHOD   1
@@ -1104,7 +1099,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	i2c_set_clientdata(client, ft5x0x_ts);
 	client->irq = gpio_to_irq(pdata->irq_gpio_number);
 
-	#if defined(CONFIG_ARCH_SC8825)
+	#ifdef CONFIG_I2C_SPRD
 	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
 	#endif
 
