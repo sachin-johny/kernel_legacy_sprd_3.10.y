@@ -74,4 +74,6 @@ extern struct platform_device sprd_seth2_td_device;
 extern struct platform_device sprd_saudio_td_device;
 extern struct platform_device sprd_seth1_td_device;
 
+extern struct sysdump_mem sprd_dump_mem;
+
 #endif
