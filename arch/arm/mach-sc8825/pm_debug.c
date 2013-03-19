@@ -656,19 +656,19 @@ static void debugfs_init(void)
 		dentry_debug_root = NULL;
 		return;
 	}
-	debugfs_create_u32("print_sleep_mode", 0666, dentry_debug_root,
+	debugfs_create_u32("print_sleep_mode", 0644, dentry_debug_root,
 			   &is_print_sleep_mode);
-	debugfs_create_u32("print_linux_clock", 0666, dentry_debug_root,
+	debugfs_create_u32("print_linux_clock", 0644, dentry_debug_root,
 			   &is_print_linux_clock);
-	debugfs_create_u32("print_modem_clock", 0666, dentry_debug_root,
+	debugfs_create_u32("print_modem_clock", 0644, dentry_debug_root,
 			   &is_print_modem_clock);
-	debugfs_create_u32("print_irq", 0666, dentry_debug_root,
+	debugfs_create_u32("print_irq", 0644, dentry_debug_root,
 			   &is_print_irq);
-	debugfs_create_u32("print_wakeup", 0666, dentry_debug_root,
+	debugfs_create_u32("print_wakeup", 0644, dentry_debug_root,
 			   &is_print_wakeup);
-	debugfs_create_u32("print_irq_runtime", 0666, dentry_debug_root,
+	debugfs_create_u32("print_irq_runtime", 0644, dentry_debug_root,
 			   &is_print_irq_runtime);
-	debugfs_create_u32("print_time", 0666, dentry_debug_root,
+	debugfs_create_u32("print_time", 0644, dentry_debug_root,
 			   &is_print_time);
 }
 void pm_debug_init(void)
