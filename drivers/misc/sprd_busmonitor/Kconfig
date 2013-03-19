@@ -2,11 +2,10 @@
 config SPRD_BUSMONITOR_CORE
 	tristate "SPRD BusMonitor Core"
 	depends on ARCH_SC8825
-	default y
+	default n
 
 config SPRD_BUSMONITOR
 	tristate "SPRD BusMonitor Low Level Driver"
-	depends on SPRD_BUSMONITOR_CORE=y
-	depends on ARCH_SC8825
-	default y
+	depends on ARCH_SC8825 || ARCH_SC8830
+	default n
 	
