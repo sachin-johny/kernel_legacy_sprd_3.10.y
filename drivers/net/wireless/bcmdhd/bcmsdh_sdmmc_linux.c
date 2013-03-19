@@ -37,6 +37,7 @@
 #include <linux/mmc/sdio_func.h>
 #include <linux/mmc/sdio_ids.h>
 #include <linux/mmc/host.h>
+#include <linux/pm_runtime.h>
 
 #if !defined(SDIO_VENDOR_ID_BROADCOM)
 #define SDIO_VENDOR_ID_BROADCOM		0x02d0
@@ -108,6 +109,19 @@ extern int bcmsdh_probe(struct device *dev);
 extern int bcmsdh_remove(struct device *dev);
 extern volatile bool dhd_mmc_suspend;
 
+#ifdef CONFIG_PM_RUNTIME
+static void bcmsdh_start_runtime(struct sdio_func *func) {
+    unsigned long flags;
+    struct mmc_card *card = func->card;
+    struct mmc_host *host = card->host;
+    pm_runtime_no_callbacks(&func->dev);
+    pm_suspend_ignore_children(&func->dev, true);
+    pm_runtime_set_autosuspend_delay(&func->dev, 50);
+    pm_runtime_use_autosuspend(&func->dev);
+    pm_runtime_put_autosuspend(&func->dev);
+}
+#endif
+
 static int bcmsdh_sdmmc_probe(struct sdio_func *func,
                               const struct sdio_device_id *id)
 {
@@ -141,6 +155,11 @@ static int bcmsdh_sdmmc_probe(struct sdio_func *func,
 		sd_trace(("F2 found, calling bcmsdh_probe...\n"));
 		ret = bcmsdh_probe(&func->dev);
 	}
+#ifdef CONFIG_PM_RUNTIME
+	if(!ret) {
+	    bcmsdh_start_runtime(func);
+	}
+#endif
 
 	return ret;
 }

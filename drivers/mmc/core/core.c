@@ -2055,7 +2055,9 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	 * Some eMMCs (with VCCQ always on) may not be reset after power up, so
 	 * do a hardware reset if possible.
 	 */
-	mmc_hw_reset_for_init(host);
+
+	// Fix the timing issue for eMMC I/O and SD card power drop
+	//mmc_hw_reset_for_init(host);
 
 	/*
 	 * sdio_reset sends CMD52 to reset card.  Since we do not know
@@ -2439,7 +2441,9 @@ int mmc_suspend_host(struct mmc_host *host)
 		printk("%s, %s, disable work  idle\n",  mmc_hostname(host), __func__ );
 		mmc_flush_scheduled_work();
 	}
+	mmc_claim_host(host);
 	err = mmc_cache_ctrl(host, 0);
+	mmc_release_host(host);
 	if (err)
 	{
 		printk("**** %s, mmc_cache_ctrl error:%d, goto out ****\n", __func__, err);
@@ -2462,10 +2466,7 @@ int mmc_suspend_host(struct mmc_host *host)
 		 */
 		if (!(host->card && mmc_card_sdio(host->card)))
 			if (!mmc_try_claim_host(host))
-			{				
-				printk("**** %s, can not claim host,  err = -EBUSY ****\n", __func__);
 				err = -EBUSY;
-			}
 
 		if (!err) {
 			if (host->bus_ops->suspend) {
@@ -2474,15 +2475,13 @@ int mmc_suspend_host(struct mmc_host *host)
 				 * before sleep, because in sleep state eMMC 4.5
 				 * devices respond to only RESET and AWAKE cmd
 				 */
-				mmc_poweroff_notify(host);				
-				printk("**** %s, call suspend ****\n", __func__);
+				mmc_poweroff_notify(host);
 				err = host->bus_ops->suspend(host);
 			}
 			if (!(host->card && mmc_card_sdio(host->card)))
 				mmc_do_release_host(host);
 
 			if (err == -ENOSYS || !host->bus_ops->resume) {
-				printk("!!!!!%s,  suspend error,  err:%d !!!!!!!\n", __func__, err);
 				/*
 				 * We simply "remove" the card in this case.
 				 * It will be redetected on resume.
@@ -2500,8 +2499,7 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
-	if (!err && !mmc_card_keep_power(host)){		
-		printk("%s, %s, call mmc_power_off \n",  mmc_hostname(host), __func__ );
+	if (!err && !mmc_card_keep_power(host)){
 		mmc_power_off(host);
 	}
 out:
@@ -2519,8 +2517,7 @@ int mmc_resume_host(struct mmc_host *host)
 	int err = 0;
 
 	mmc_bus_get(host);
-	if (mmc_bus_manual_resume(host)) {		
-		printk("'**** %s, %s, set MMC_BUSRESUME_NEEDS_RESUME ****\n", mmc_hostname(host), __func__ );
+	if (mmc_bus_manual_resume(host)) {
 		host->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
 		mmc_bus_put(host);
 		return 0;

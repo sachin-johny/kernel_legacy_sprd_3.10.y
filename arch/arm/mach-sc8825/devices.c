@@ -811,13 +811,14 @@ static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.vdd_name = "vddsd0",
 	.clk_name = "clk_sdio0",
 	.clk_parent = "clk_sdio_src",
+	.max_clock = 90000000,
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SD0_SOFT_RST,
 };
 
 struct platform_device sprd_sdio0_device = {
 	.name           = "sprd-sdhci",
-	.id             =  0,
+	.id             =  SDC_SLAVE_SD,
 	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
 	.resource       = sprd_sdio0_resources,
 	.dev = { .platform_data = &sprd_sdio0_pdata },
@@ -839,8 +840,10 @@ static struct resource sprd_sdio1_resources[] = {
 
 static struct sprd_host_platdata sprd_sdio1_pdata = {
 	.hw_name = "sprd-sdio1",
+	.vdd_name = "vddsd1",
 	.clk_name = "clk_sdio1",
 	.clk_parent = "clk_sdio_src",
+	.max_clock = 90000000,
 	.enb_bit = BIT_SDIO1_EB,
 	.rst_bit = BIT_SD1_SOFT_RST,
 	.regs.is_valid = 1,
@@ -848,7 +851,7 @@ static struct sprd_host_platdata sprd_sdio1_pdata = {
 
 struct platform_device sprd_sdio1_device = {
 	.name           = "sprd-sdhci",
-	.id             =  1,
+	.id             =  SDC_SLAVE_WIFI,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
 	.dev = { .platform_data = &sprd_sdio1_pdata },
@@ -878,7 +881,7 @@ static struct sprd_host_platdata sprd_sdio2_pdata = {
 
 struct platform_device sprd_sdio2_device = {
 	.name = "sprd-sdhci",
-	.id = 2,
+	.id = SDC_SLAVE_CP,
 	.num_resources = ARRAY_SIZE(sprd_sdio2_resources),
 	.resource = sprd_sdio2_resources,
 	.dev = { .platform_data = &sprd_sdio2_pdata },
@@ -900,6 +903,7 @@ static struct resource sprd_emmc_resources[] = {
 static struct sprd_host_platdata sprd_emmc_pdata = {
 	.hw_name = "sprd-emmc",
 	.vdd_name = "vddsd3",
+	.vdd_ext_name = "vdd3v",
 	.clk_name = "clk_emmc",
 	.clk_parent = "clk_384m",
 	.max_clock = 384000000,
@@ -910,7 +914,7 @@ static struct sprd_host_platdata sprd_emmc_pdata = {
 
 struct platform_device sprd_emmc_device = {
 	.name = "sprd-sdhci",
-	.id = 3,
+	.id = SDC_SLAVE_EMMC,
 	.num_resources = ARRAY_SIZE(sprd_emmc_resources),
 	.resource = sprd_emmc_resources,
 	.dev = { .platform_data = &sprd_emmc_pdata },
@@ -932,7 +936,7 @@ static int native_tdmodem_start(void *arg)
 	/* hold stop cp */
 	__raw_writel(TD_CTL_DISENABLE, TD_REG_RESET_ADDR);
 	/*cp iram select to ap */
-	memcpy((void *)SPRD_TDPROC_BASE, cpdata, sizeof(cpdata));
+	memcpy((volatile u32*)SPRD_TDPROC_BASE, cpdata, sizeof(cpdata));
 	/*enbale cp clock */
 	__raw_writel(TD_CTL_CLK_VAL, TD_REG_CLK_ADDR);
 	/* reset cp */

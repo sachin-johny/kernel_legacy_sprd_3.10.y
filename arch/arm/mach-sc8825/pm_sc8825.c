@@ -1231,11 +1231,13 @@ void pm_ana_ldo_config(void)
 	*/
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
 	val = 0x87f1;
+         val &= ~(BIT_LDOSD3_BP_EN | BIT_LDOSD0_BP_EN);
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 
 	val = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
 	val |= BIT_FSM_SLPPD_EN;
 	val |= BIT_DCDC_ARM_BP_EN;
+         val &= ~BIT_LDOVDD3V_BP_EN;
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL1, val, 0xffff);
 	
 	/*
