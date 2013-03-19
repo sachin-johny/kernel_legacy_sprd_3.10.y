@@ -189,9 +189,17 @@ static struct sys_timer __timer = {
 static int calibration_mode = false;
 static int __init calibration_start(char *str)
 {
-	if(str)
+	int calibration_device =0;
+	int mode=0,freq=0,device=0;
+	if(str){
 		pr_info("modem calibartion:%s\n", str);
-	calibration_mode = true;
+		sscanf(str, "%d,%d,%d", &mode,&freq,&device);
+	}
+	if(device & 0x80){
+		calibration_device = device & 0xf0;
+		calibration_mode = true;
+		pr_info("calibration device = 0x%x\n",calibration_device);
+	}
 	return 1;
 }
 __setup("calibration=", calibration_start);
@@ -208,8 +216,6 @@ static void __init sprd_add_otg_device(void)
 	/*
 	 * if in calibrtaion mode, we do nothing, modem will handle everything
 	 */
-	if (calibration_mode)
-		return;
 	platform_device_register(&sprd_otg_device);
 }
 

@@ -29,6 +29,8 @@
 #define  USB_CLK_NAME    "clk_usb_ref"
 #endif
 
+extern int in_calibration(void);
+
 static int usb_clk_status = 0;
 
 static void usb_ldo_switch(int is_on)
@@ -176,7 +178,8 @@ int usb_get_vbus_irq(void)
 int usb_get_vbus_state(void)
 {
 	int value;
-
+	if(in_calibration())
+		return 1;
 	value = gpio_get_value(EIC_CHARGER_DETECT);
 	return !!value;
 }
