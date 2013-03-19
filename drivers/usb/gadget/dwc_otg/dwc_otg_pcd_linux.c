@@ -655,13 +655,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 	else
 		d = container_of(gadget, struct gadget_wrapper, gadget);
 
-	if (is_on) {
-		if (unlikely(!enum_enabled)) {
-			enum_enabled = 1;
-			enumeration_enable();
-			return 0;
-		}
-	}
+
 	if (!d->enabled || !d->vbus)
 		action = 0;
 
