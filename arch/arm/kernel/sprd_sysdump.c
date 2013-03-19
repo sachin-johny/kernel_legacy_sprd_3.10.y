@@ -32,13 +32,16 @@
 #include <asm/outercache.h>
 
 #include <mach/board.h>
+#include <mach/hardware.h>
+#include <mach/devices.h>
+
 
 #define CORE_STR 		"CORE"
 #ifndef ELF_CORE_EFLAGS
 #define ELF_CORE_EFLAGS	0
 #endif
 
-#define NR_KCORE_MEM	8
+#define NR_KCORE_MEM	80
 #define SYSDUMP_MAGIC	"SPRD_SYSDUMP_119"
 
 
@@ -54,6 +57,7 @@ struct memelfnote
 struct sysdump_mem {
 	unsigned long paddr;
 	unsigned long vaddr;
+	unsigned long soff;
 	size_t size;
 	int type;
 };
@@ -63,9 +67,16 @@ struct sysdump_info {
 	char time[32];
 	char dump_path[128];
 	int elfhdr_size;
-	char *elfhdr;
 	int mem_num;
-	struct sysdump_mem mem[NR_KCORE_MEM];
+	unsigned long dump_mem_paddr;
+};
+
+
+struct sysdump_extra {
+	int  enter_id;
+	int  enter_cpu;
+	char reason[256];
+	struct pt_regs cpu_context[CONFIG_NR_CPUS];
 };
 
 struct sysdump_config {
@@ -76,11 +87,19 @@ struct sysdump_config {
 
 static struct sysdump_info *sprd_sysdump_info = NULL;
 
+/* must be global to let gdb know */
+struct sysdump_extra sprd_sysdump_extra = {
+	.enter_id = -1,
+	.enter_cpu = -1,
+	.reason = {0},
+};
+
 static struct sysdump_config sysdump_conf = {
 	.enable = 1,
 	.reboot = 1,
 	.dump_path = "",
 };
+
 
 static size_t get_elfhdr_size(int nphdr)
 {
@@ -175,8 +194,7 @@ static int fill_psinfo(struct elf_prpsinfo *psinfo, struct task_struct *p,
 	/* first copy the parameters from user space */
 	memset(psinfo, 0, sizeof(struct elf_prpsinfo));
 
-	if (mm)
-	{
+	if (mm) {
 		len = mm->arg_end - mm->arg_start;
 		if (len >= ELF_PRARGSZ)
 			len = ELF_PRARGSZ-1;
@@ -302,11 +320,11 @@ static void sysdump_fill_core_hdr(struct pt_regs *regs,
 		phdr->p_type	= PT_LOAD;
 		phdr->p_flags	= PF_R|PF_W|PF_X;
 		phdr->p_offset	= dataoff;
-		phdr->p_vaddr	= sprd_sysdump_info->mem[i].vaddr;
-		phdr->p_paddr	= sprd_sysdump_info->mem[i].paddr;
-		phdr->p_filesz	= phdr->p_memsz	= sprd_sysdump_info->mem[i].size;
+		phdr->p_vaddr	= sprd_dump_mem[i].vaddr;
+		phdr->p_paddr	= sprd_dump_mem[i].paddr;
+		phdr->p_filesz	= phdr->p_memsz	= sprd_dump_mem[i].size;
 		phdr->p_align	= PAGE_SIZE;
-		dataoff += sprd_sysdump_info->mem[i].size;
+		dataoff += sprd_dump_mem[i].size;
 	}
 
 	/*
@@ -358,41 +376,62 @@ static void sysdump_fill_core_hdr(struct pt_regs *regs,
 	return;
 } /* end elf_kcore_store_hdr() */
 
-static void sysdump_prepare_info(const char *str, struct pt_regs *regs)
+static void sysdump_prepare_info(int enter_id, const char *reason,
+	struct pt_regs *regs)
 {
 	unsigned long long t;
 	unsigned long nanosec_rem;
+	int iocnt, i;
+	char *iomem;
+
+	strncpy(sprd_sysdump_extra.reason,
+		reason, sizeof(sprd_sysdump_extra.reason));
+	sprd_sysdump_extra.enter_id = enter_id;
 
 	sprd_sysdump_info = (struct sysdump_info *)phys_to_virt(SPRD_IO_MEM_BASE);
-	memcpy(sprd_sysdump_info->magic, SYSDUMP_MAGIC, sizeof(sprd_sysdump_info->magic));
+	memcpy(sprd_sysdump_info->magic, SYSDUMP_MAGIC,
+			sizeof(sprd_sysdump_info->magic));
 
 	t = cpu_clock(smp_processor_id());
 	nanosec_rem = do_div(t, 1000000000);
 	sprintf(sprd_sysdump_info->time, "%lu.%06lu", (unsigned long)t,
 			nanosec_rem / 1000);
 
-	memcpy(sprd_sysdump_info->dump_path, sysdump_conf.dump_path, sizeof(sprd_sysdump_info->dump_path));
+	memcpy(sprd_sysdump_info->dump_path, sysdump_conf.dump_path,
+		sizeof(sprd_sysdump_info->dump_path));
 
-	sprd_sysdump_info->mem_num = 1;
+	sprd_sysdump_info->dump_mem_paddr = virt_to_phys(sprd_dump_mem);
+	sprd_sysdump_info->mem_num = sizeof(sprd_dump_mem)/sizeof(sprd_dump_mem[0]);
 	sprd_sysdump_info->elfhdr_size = get_elfhdr_size(sprd_sysdump_info->mem_num);
-	sprd_sysdump_info->elfhdr = (char *)sprd_sysdump_info + sizeof(*sprd_sysdump_info);
 
-	/* TODO: jianjun.he */
-	sprd_sysdump_info->mem[0].vaddr = CONFIG_PAGE_OFFSET;
-	sprd_sysdump_info->mem[0].paddr = virt_to_phys((void const volatile *)CONFIG_PAGE_OFFSET);
-	sprd_sysdump_info->mem[0].size = 64 * SZ_1M;
-	sprd_sysdump_info->mem[0].type = KCORE_RAM;
+	sysdump_fill_core_hdr(regs,
+		(char *)sprd_sysdump_info + sizeof(*sprd_sysdump_info),
+		sprd_sysdump_info->mem_num + 1,
+		sprd_sysdump_info->elfhdr_size);
 
-	sysdump_fill_core_hdr(regs, sprd_sysdump_info->elfhdr,
-		sprd_sysdump_info->mem_num + 1, sprd_sysdump_info->elfhdr_size);
+	iocnt = 0;
+	for (i = 0; i < sizeof(sprd_dump_mem)/sizeof(sprd_dump_mem[0]); i++) {
+		if (0xffffffff != sprd_dump_mem[i].soff) {
+			sprd_dump_mem[i].soff = iocnt;
+			iomem = (char *)sprd_sysdump_info + sizeof(*sprd_sysdump_info) +
+					sprd_sysdump_info->elfhdr_size + iocnt;
+			memcpy(iomem, 
+				(void const *)(sprd_dump_mem[i].vaddr), 
+				sprd_dump_mem[i].size);
+			iocnt += sprd_dump_mem[i].size;
+		}
+	}
 
 	return;
 }
 
-void sysdump_enter(const char *str, struct pt_regs *regs)
+void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs)
 {
 	if (!sysdump_conf.enable)
 		return;
+
+	/* this should before smp_send_stop() to make sysdump_ipi enable */
+	sprd_sysdump_extra.enter_cpu = smp_processor_id();
 
 	smp_send_stop();
 	mdelay(1000);
@@ -405,14 +444,17 @@ void sysdump_enter(const char *str, struct pt_regs *regs)
 	printk("*****************************************************\n");
 	printk("\n");
 
-	sysdump_prepare_info(str, regs);
+	flush_cache_all();
+	outer_flush_all();
+	mdelay(1000);
+
+	sysdump_prepare_info(enter_id, reason, regs);
 
 	flush_cache_all();
 	outer_flush_all();
 	mdelay(1000);
 
-	if (sysdump_conf.enable)
-	{
+	if (sysdump_conf.enable) {
 		printk("\n");
 		printk("*****************************************************\n");
 		printk("*                                                   *\n");
@@ -421,9 +463,20 @@ void sysdump_enter(const char *str, struct pt_regs *regs)
 		printk("*****************************************************\n");
 		printk("\n");
 
-		void emergency_restart(void);
+		extern void emergency_restart(void);
 		emergency_restart();
 	}
+
+	return;
+}
+
+void sysdump_ipi(struct pt_regs *regs)
+{
+	int cpu = smp_processor_id();
+
+	if (sprd_sysdump_extra.enter_cpu != -1)
+		memcpy((void *)&(sprd_sysdump_extra.cpu_context[cpu]),
+			(void *)regs, sizeof(struct pt_regs));
 
 	return;
 }

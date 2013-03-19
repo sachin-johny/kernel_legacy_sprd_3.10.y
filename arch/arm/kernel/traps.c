@@ -285,8 +285,8 @@ void die(const char *str, struct pt_regs *regs, int err)
 	ret = __die(str, err, thread, regs);
 
 #ifdef CONFIG_SPRD_SYSDUMP /* TODO: jianjun.he */
-	extern void sysdump_enter(const char *str, struct pt_regs *regs);
-	sysdump_enter(str, regs);
+	extern void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs);
+	sysdump_enter(1, str, regs);
 #endif
 
 	if (regs && kexec_should_crash(thread->task))
