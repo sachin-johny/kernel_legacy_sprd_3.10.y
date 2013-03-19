@@ -1176,7 +1176,8 @@ static const struct file_operations ion_fops = {
 };
 
 static size_t ion_debug_heap_total(struct ion_client *client,
-				   enum ion_heap_type type)
+				   enum ion_heap_type type, int id,
+				   struct seq_file *s)
 {
 	size_t size = 0;
 	struct rb_node *n;
@@ -1186,8 +1187,20 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 		struct ion_handle *handle = rb_entry(n,
 						     struct ion_handle,
 						     node);
-		if (handle->buffer->heap->type == type)
+
+		if (handle->buffer->heap->id != id)
+			continue;
+		if (handle->buffer->heap->type == type) {
+			seq_printf(s, "--- size= %16u kmap_cnt= %2d ref= %2d \
+flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
+				handle->buffer->size,
+				handle->buffer->kmap_cnt,
+				atomic_read(&handle->buffer->ref.refcount),
+				(unsigned int)handle->buffer->flags,
+				(unsigned int)handle->buffer->priv_virt,
+				(unsigned int)handle->buffer->vaddr);
 			size += handle->buffer->size;
+		}
 	}
 	mutex_unlock(&client->lock);
 	return size;
@@ -1207,7 +1220,8 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
 		struct ion_client *client = rb_entry(n, struct ion_client,
 						     node);
-		size_t size = ion_debug_heap_total(client, heap->type);
+		size_t size = ion_debug_heap_total(client, heap->type,
+										heap->id, s);
 		if (!size)
 			continue;
 		if (client->task) {
@@ -1242,6 +1256,28 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	seq_printf(s, "%16.s %16u\n", "total orphaned",
 		   total_orphaned_size);
 	seq_printf(s, "%16.s %16u\n", "total ", total_size);
+	seq_printf(s, "----------------------------------------------------\n");
+
+
+	seq_printf(s, "-----------------total buffer list------------------------\n");
+	mutex_lock(&dev->buffer_lock);
+	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
+		struct ion_buffer *buffer = rb_entry(n, struct ion_buffer,
+						     node);
+		if (buffer->heap->id != heap->id)
+			continue;
+		if (buffer->heap->type != heap->type)
+			continue;
+		seq_printf(s, "--- size= %16u kmap_cnt= %2d ref= %2d \
+flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
+			buffer->size,
+			buffer->kmap_cnt,
+			atomic_read(&buffer->ref.refcount),
+			(unsigned int)buffer->flags,
+			(unsigned int)buffer->priv_virt,
+			(unsigned int)buffer->vaddr);
+	}
+	mutex_unlock(&dev->buffer_lock);
 	seq_printf(s, "----------------------------------------------------\n");
 
 	if (heap->debug_show)

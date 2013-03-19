@@ -83,6 +83,7 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 		buffer->flags |= (1<<31); 
 	else 
 		buffer->flags &= (~(1<<31)); 
+	buffer->flags |= (flags & 0x7FFF0000);/*for debug*/
 	return buffer->priv_phys == ION_CARVEOUT_ALLOCATE_FAIL ? -ENOMEM : 0;
 }
 
