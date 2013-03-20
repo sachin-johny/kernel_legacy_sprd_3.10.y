@@ -357,7 +357,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 				pr_err("sprd-vbc-pcm request dma error %d\n",
 				       dma->channels[i]);
 				for (i--; i >= 0; i--) {
-					sprd_dma_free(dma->channels[i]);
+					sprd_dma_free(rtd->uid_cid_map[i]);
 					rtd->uid_cid_map[i] = -1;
 					rtd->params = NULL;
 				}
