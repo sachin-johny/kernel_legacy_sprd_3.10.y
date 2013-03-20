@@ -33,7 +33,6 @@
 
 #include <mach/board.h>
 #include <mach/hardware.h>
-#include <mach/devices.h>
 
 
 #define CORE_STR 		"CORE"
@@ -54,14 +53,6 @@ struct memelfnote
 	void *data;
 };
 
-struct sysdump_mem {
-	unsigned long paddr;
-	unsigned long vaddr;
-	unsigned long soff;
-	size_t size;
-	int type;
-};
-
 struct sysdump_info {
 	char magic[16];
 	char time[32];
@@ -70,7 +61,6 @@ struct sysdump_info {
 	int mem_num;
 	unsigned long dump_mem_paddr;
 };
-
 
 struct sysdump_extra {
 	int  enter_id;
@@ -401,7 +391,7 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 		sizeof(sprd_sysdump_info->dump_path));
 
 	sprd_sysdump_info->dump_mem_paddr = virt_to_phys(sprd_dump_mem);
-	sprd_sysdump_info->mem_num = sizeof(sprd_dump_mem)/sizeof(sprd_dump_mem[0]);
+	sprd_sysdump_info->mem_num = sprd_dump_mem_num;
 	sprd_sysdump_info->elfhdr_size = get_elfhdr_size(sprd_sysdump_info->mem_num);
 
 	sysdump_fill_core_hdr(regs,
@@ -410,7 +400,9 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 		sprd_sysdump_info->elfhdr_size);
 
 	iocnt = 0;
-	for (i = 0; i < sizeof(sprd_dump_mem)/sizeof(sprd_dump_mem[0]); i++) {
+	for (i = 0; i < sprd_dump_mem_num; i++) {
+		sprd_dump_mem[i].type = KCORE_RAM;
+
 		if (0xffffffff != sprd_dump_mem[i].soff) {
 			sprd_dump_mem[i].soff = iocnt;
 			iomem = (char *)sprd_sysdump_info + sizeof(*sprd_sysdump_info) +

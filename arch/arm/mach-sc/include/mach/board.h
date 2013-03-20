@@ -61,4 +61,15 @@
 #define SPRD_RAM_CONSOLE_START	(SPRD_IO_MEM_BASE - SPRD_RAM_CONSOLE_SIZE)
 #endif
 
+struct sysdump_mem {
+	unsigned long paddr;
+	unsigned long vaddr;
+	unsigned long soff;
+	size_t size;
+	int type;
+};
+
+extern int sprd_dump_mem_num;
+extern struct sysdump_mem sprd_dump_mem[];
+
 #endif
