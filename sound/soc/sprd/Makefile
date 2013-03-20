@@ -1,8 +1,6 @@
 # SPRD Platform Support
 snd-soc-sc881x-objs         		:= sc881x.o
 obj-$(CONFIG_SND_SPRD_SOC_SC881X)    	+= snd-soc-sc881x.o
-snd-soc-kylew-objs         		:= kylew.o
-obj-$(CONFIG_SND_SPRD_SOC_KYLEW)    	+= snd-soc-kylew.o
 snd-soc-sc882x-objs         		:= sc882x.o
 obj-$(CONFIG_SND_SPRD_SOC_SC882X)    	+= snd-soc-sc882x.o
 snd-soc-sc771x-objs         		:= sc771x.o
