@@ -544,6 +544,27 @@ static void __init sc8825_init_early(void)
 static void __init sc8825_fixup(struct machine_desc *desc,
 	struct tag *tags, char **cmdline, struct meminfo *mi)
 {
+	struct tag *t = tags;
+
+#ifdef CONFIG_NKERNEL
+	/* manipulate cmdline if not in calibration mode, for mfserial */
+	for (; t->hdr.size; t = (struct tag*)((__u32*)(t) + (t)->hdr.size)) {
+		if (t->hdr.tag == ATAG_CMDLINE) {
+			char *p, *c;
+			c = (char*)t->u.cmdline.cmdline;
+			if(strstr(c, "calibration=") == NULL) {
+				p = strstr(c, "console=");
+				/* break it, if exists */
+				if (p)
+					*p = 'O';
+				/* add our kernel parameters */
+				strcat(c, "console=ttyS1,115200n8 loglevel=8");
+			}
+			break;
+		}
+	}
+#endif
+
 }
 
 MACHINE_START(SC8825OPENPHONE, "sc8825")	
