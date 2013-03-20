@@ -453,7 +453,7 @@ static inline int arch_audio_codec_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	int mask =
+	int mask = BIT_AUD6M5_CLK_TX_INV_ARM_EN |
 	    BIT_RTC_AUD_ARM_EN | BIT_CLK_AUD_6M5_ARM_EN | BIT_CLK_AUDIF_ARM_EN;
 	ret = sci_adi_write(ANA_REG_GLB_ARM_AUD_CLK_RST, mask, mask);
 #endif
