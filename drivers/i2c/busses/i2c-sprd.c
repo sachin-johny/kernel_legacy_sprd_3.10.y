@@ -376,7 +376,7 @@ static void sprd_i2c_set_clk(struct sprd_i2c *pi2c, unsigned int freq)
 #if defined(CONFIG_MACH_GARDA)
 /*FIXME for 400khz*/
 	if (freq > 300000)
-		__raw_writel(0xd, pi2c->membase + I2C_CLKD0);
+		__raw_writel(0x2c, pi2c->membase + I2C_CLKD0);
 #else
 	__raw_writel(i2c_div & 0xffff, pi2c->membase + I2C_CLKD0);
 #endif
