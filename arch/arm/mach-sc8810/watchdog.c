@@ -41,9 +41,11 @@
 #define ANA_REG_BASE            SPRD_ANA_BASE	/*  0x82000800 */
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0xC4)
 #define ANA_AGEN                (ANA_REG_BASE + 0x00)
+#define ANA_AGEN_1		(ANA_REG_BASE + 0x0C)
 #define AGEN_WDG_EN             BIT(2)
-#define AGEN_RTC_ARCH_EN        BIT(8) // ?
-#define AGEN_RTC_WDG_EN         BIT(10) // ?
+#define AGEN_RTC_ARCH_EN        BIT(0)
+#define AGEN_RTC_WDG_EN         BIT(2)
+#define WDG_RST_EN		BIT(3)
 #else
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
 #define ANA_REG_BASE            SPRD_ANA_BASE	/*  0x82000600 */
@@ -87,6 +89,41 @@ void sprd_set_reboot_mode(const char *cmd)
 	}
 }
 
+#if defined(CONFIG_ARCH_SC7710)
+
+void sprd_turnon_watchdog(unsigned int ms)
+{
+	uint32_t cnt;
+
+	cnt = (ms * 1000) / WDG_CLK;
+	/*enable interface clk*/
+	sci_adi_set(ANA_AGEN, AGEN_WDG_EN);
+	/*enable working clk*/
+	sci_adi_set(ANA_AGEN_1, AGEN_RTC_WDG_EN | AGEN_RTC_ARCH_EN);
+	/* unlock WDG*/
+	sci_adi_raw_write(WDG_LOCK, WDG_UNLOCK_KEY);
+	/*select rest mode*/
+	sci_adi_set(WDG_CTRL, WDG_RST_EN);
+	WDG_LOAD_TIMER_VALUE(cnt);
+	/*start WDG counter*/
+	sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT);
+	/*lock WDG*/
+	sci_adi_raw_write(WDG_LOCK, (uint16_t) (~WDG_UNLOCK_KEY));
+}
+
+void sprd_turnoff_watchdog(void)
+{
+	sci_adi_clr(ANA_AGEN_1, AGEN_RTC_WDG_EN);
+	sci_adi_raw_write(WDG_LOCK, WDG_UNLOCK_KEY);
+	/*stop WDG counter*/
+	sci_adi_clr(WDG_CTRL, WDG_CNT_EN_BIT);
+	sci_adi_raw_write(WDG_LOCK, (uint16_t) (~WDG_UNLOCK_KEY));
+	/*disable interface clk at last*/
+	sci_adi_clr(ANA_AGEN, AGEN_WDG_EN);
+}
+
+#else
+
 void sprd_turnon_watchdog(unsigned int ms)
 {
 	uint32_t cnt;
@@ -108,3 +145,5 @@ void sprd_turnoff_watchdog(void)
 	sci_adi_clr(WDG_CTRL, WDG_INT_EN_BIT);
 	sci_adi_raw_write(WDG_LOCK, (uint16_t) (~WDG_UNLOCK_KEY));
 }
+
+#endif

@@ -47,7 +47,7 @@
 
 #define WDG_INT_EN_BIT          BIT(0)
 #define WDG_CNT_EN_BIT          BIT(1)
-#ifdef  CONFIG_ARCH_SC8825
+#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC7710)
 #define WDG_RST_EN_BIT          BIT(3)
 #endif
 #define WDG_INT_CLEAR_BIT       BIT(0)
@@ -121,9 +121,9 @@ static int sci_open(struct inode *inode, struct file *file)
 		/* start the watchdog */
 		sci_adi_set(ANA_AGEN, AGEN_WDG_EN | AGEN_RTC_ARCH_EN | AGEN_RTC_WDG_EN);
 		sci_adi_raw_write (WDG_LOCK, WDG_UNLOCK_KEY);
-		sci_adi_clr (WDG_CTRL, WDG_INT_EN_BIT);
+		sci_adi_clr(WDG_CTRL, WDG_INT_EN_BIT);
 		WDG_LOAD_TIMER_VALUE(margin * WDT_FREQ);
-#ifdef CONFIG_ARCH_SC8825
+#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC7710)
 		sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT | WDG_RST_EN_BIT);
 #else
 		sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT);
@@ -222,16 +222,15 @@ static long sci_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 #define sprd_wdt_shutdown NULL
 
-static int sprd_wdt_resume(struct sys_device *dev)
+static void sprd_wdt_resume(void)
 {
 	DEBUG_PRINT(WDT "%s\n", __FUNCTION__);
 	if (wdt_state == 0)
-		return 0;
+		return;
 	sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT);
-	return 0;
 }
 
-static int sprd_wdt_suspend(struct sys_device *dev, pm_message_t state)
+static int sprd_wdt_suspend(void)
 {
 	DEBUG_PRINT(WDT "%s\n", __FUNCTION__);
 	if (wdt_state == 0)
