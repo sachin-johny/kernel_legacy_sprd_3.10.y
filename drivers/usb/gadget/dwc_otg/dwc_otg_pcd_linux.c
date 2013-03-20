@@ -126,6 +126,7 @@ int in_factory_mode(void)
 {
 	return (factory_mode == true);
 }
+#ifndef CONFIG_USB_CORE_IP_293A
 static struct timer_list setup_transfer_timer;
 static  int suspend_count=0;
 static  int setup_transfer_timer_start = 0;
@@ -170,6 +171,7 @@ static void setup_transfer_timer_fun(unsigned long para)
 		del_timer(&setup_transfer_timer);
 	}
 }
+#endif
 /* USB Endpoint Operations */
 /*
  * The following sections briefly describe the behavior of the Gadget
@@ -667,6 +669,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		 */
 		if(timer_pending(&d->cable_timer))
 			del_timer(&d->cable_timer);
+
 		__udc_shutdown();
 	}
 	mutex_unlock(&udc_lock);
@@ -686,10 +689,12 @@ static const struct usb_gadget_ops dwc_otg_pcd_ops = {
 static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 {
 	int retval = -DWC_E_NOT_SUPPORTED;
+#ifndef CONFIG_USB_CORE_IP_293A
 	if(setup_transfer_timer_start == 0){
 		setup_transfer_timer_start = 1;
 		mod_timer(&setup_transfer_timer, jiffies + HZ);
 	}
+#endif
 	if(timer_pending(&gadget_wrapper->cable_timer))
 		del_timer(&gadget_wrapper->cable_timer);
 	if (gadget_wrapper->driver && gadget_wrapper->driver->setup) {
@@ -1306,7 +1311,6 @@ int pcd_init(
 	DWC_DEBUGPL(DBG_PCDV, "%s(%p)\n", __func__, _dev);
 
 	wake_lock_init(&usb_wake_lock, WAKE_LOCK_SUSPEND, "usb_work");
-	wake_lock(&usb_wake_lock);
 	otg_dev->pcd = dwc_otg_pcd_init(otg_dev->core_if);
 
 	if (!otg_dev->pcd) {
@@ -1338,10 +1342,12 @@ int pcd_init(
 	/*
 	 * initialize a timer for checking cable type.
 	 */
+#ifndef CONFIG_USB_CORE_IP_293A
 	{
 		setup_timer(&setup_transfer_timer,setup_transfer_timer_fun,(unsigned long)gadget_wrapper);
 		setup_transfer_timer_start = 0;
 	}
+#endif
 	setup_timer(&gadget_wrapper->cable_timer, cable_detect_handler,
 			(unsigned long)gadget_wrapper);
 	/*
@@ -1385,6 +1391,7 @@ int pcd_init(
 		gadget_wrapper->udc_startup = 1;
 		__udc_shutdown();
 	}
+	gadget_wrapper->udc_startup = gadget_wrapper->vbus;
 	gadget_wrapper->enabled = 0;
 
 	return retval;
