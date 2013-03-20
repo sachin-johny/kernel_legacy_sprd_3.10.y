@@ -649,10 +649,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
         host->mmc->caps |= MMC_CAP_NONREMOVABLE;
         break;
     case SDC_SLAVE_WIFI:
-//#ifdef CONFIG_ARCH_SC8825
-//        host->caps = (sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300))) | SDHCI_CAN_VDD_180;
-//        host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-//#endif
         host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER; /* MMC_PM_WAKE_SDIO_IRQ does not suitable for bcm wifi suspend */
         host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
         host->mmc->caps |= MMC_CAP_NONREMOVABLE;
@@ -691,7 +687,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
             break;
         case SDC_SLAVE_WIFI:
             pm_runtime_set_active(&pdev->dev);
-            pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+            pm_runtime_set_autosuspend_delay(&pdev->dev, 500);
             pm_runtime_use_autosuspend(&pdev->dev);
             pm_runtime_enable(&pdev->dev);
             pm_runtime_no_callbacks(&host->mmc->class_dev);
@@ -702,7 +698,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
         case SDC_SLAVE_SD:
             pm_suspend_ignore_children(&pdev->dev, true);
             pm_runtime_set_active(&pdev->dev);
-            pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+            pm_runtime_set_autosuspend_delay(&pdev->dev, 500);
             pm_runtime_use_autosuspend(&pdev->dev);
             pm_runtime_enable(&pdev->dev);
         default:
@@ -785,7 +781,7 @@ static int sprd_mmc_host_runtime_resume(struct device *dev) {
         if(host->ops->set_clock)
             host->ops->set_clock(host, 1);
         spin_unlock_irqrestore(&host->lock, flags);
-        mdelay(50);
+        msleep(15);
         sdhci_runtime_resume_host(host);
         mmc_release_host(mmc);
     }
