@@ -32,6 +32,7 @@
 #include <linux/completion.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
+#include <linux/power_supply.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -68,8 +69,6 @@ static const char *sprd_codec_supply_names[SPRD_CODEC_NUM_SUPPLIES] = {
 	"audio_bg",		/* BG_EN                (6) */
 	"audio_vb",		/* VB_EN                (7) */
 };
-
-#define SPRD_CODEC_IIS1_IN_USE 1
 
 enum {
 	SPRD_CODEC_PGA_SPKL = 0,
@@ -187,6 +186,25 @@ struct sprd_codec_mixer {
 	sprd_codec_mixer_set set;
 };
 
+uint32_t sprd_get_vbat_voltage(void);
+
+struct sprd_codec_ldo_v_map {
+	int ldo_v_level;
+	int volt;
+};
+
+const static struct sprd_codec_ldo_v_map ldo_v_map[] = {
+	/*{      , 3400}, */
+	{LDO_V_29, 3600},
+	{LDO_V_31, 3700},
+	{LDO_V_32, 3800},
+	{LDO_V_33, 3900},
+	{LDO_V_34, 4000},
+	{LDO_V_35, 4100},
+	{LDO_V_36, 4200},
+	{LDO_V_38, 4300},
+};
+
 struct sprd_codec_inter_pa {
 	/* FIXME little endian */
 	int LDO_V_sel:4;
@@ -208,6 +226,25 @@ struct sprd_codec_pa_setting {
 
 static DEFINE_MUTEX(inter_pa_mutex);
 static struct sprd_codec_pa_setting inter_pa;
+
+struct sprd_codec_inter_hp_pa {
+	/* FIXME little endian */
+	int class_g_osc:2;
+	int class_g_mode:2;
+	int class_g_low_power:2;
+	int RESV:26;
+};
+
+struct sprd_codec_hp_pa_setting {
+	union {
+		struct sprd_codec_inter_hp_pa setting;
+		u32 value;
+	};
+	int set;
+};
+
+static DEFINE_MUTEX(inter_hp_pa_mutex);
+static struct sprd_codec_hp_pa_setting inter_hp_pa;
 
 enum {
 	SPRD_CODEC_MIC_BIAS,
@@ -231,6 +268,7 @@ struct sprd_codec_priv {
 	struct sprd_codec_mixer mixer[SPRD_CODEC_MIXER_MAX];
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
 	int mic_bias[SPRD_CODEC_MIC_BIAS_MAX];
+	int audio_ldo_open_ok;
 #ifdef CONFIG_SPRD_CODEC_USE_INT
 	int ap_irq;
 	struct completion completion_hp_pop;
@@ -238,6 +276,7 @@ struct sprd_codec_priv {
 	int dp_irq;
 	struct completion completion_dac_mute;
 #endif
+	struct power_supply audio_ldo;
 };
 
 /* codec local power suppliy */
@@ -315,6 +354,43 @@ static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 	}
 }
 #endif
+
+static inline int _sprd_codec_hold(int index, int volt)
+{
+	int scope = 40;		/* unit: mv */
+	int ret = ((ldo_v_map[index].volt - volt) <= scope);
+	if (index >= 1) {
+		return (ret || ((volt - ldo_v_map[index - 1].volt) <= scope));
+	}
+	return ret;
+}
+
+static int sprd_codec_auto_ldo_volt(void (*set_level) (int), int init)
+{
+	int i;
+	int volt = sprd_get_vbat_voltage();
+	sprd_codec_dbg("Entering %s get %d\n", __func__, volt);
+	for (i = 0; i < ARRAY_SIZE(ldo_v_map); i++) {
+		if (volt <= ldo_v_map[i].volt) {
+			sprd_codec_dbg("hold %d\n", _sprd_codec_hold(i, volt));
+			if (init || !_sprd_codec_hold(i, volt)) {
+				set_level(ldo_v_map[i].ldo_v_level);
+			}
+			return 0;
+		}
+	}
+	return -EFAULT;
+}
+
+static inline void sprd_codec_vcm_v_sel(int v_sel)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, v_sel);
+	mask = VCM_V_MASK << VCM_V;
+	val = (v_sel << VCM_V) & mask;
+	arch_audio_codec_write_mask(PMUR4_PMUR3, val, mask);
+}
 
 static int sprd_codec_pga_spk_set(struct snd_soc_codec *codec, int pgaval)
 {
@@ -782,10 +858,15 @@ int sprd_inter_speaker_pa(int on)
 		sprd_codec_pa_d_en(inter_pa.setting.is_classD_mode);
 		sprd_codec_pa_demi_en(inter_pa.setting.is_DEMI_mode);
 		sprd_codec_pa_ldo_en(inter_pa.setting.is_LDO_mode);
-		if (inter_pa.setting.is_LDO_mode
-		    && !inter_pa.setting.is_auto_LDO_mode) {
-			sprd_codec_pa_ldo_v_sel(inter_pa.setting.LDO_V_sel);
-		}		/* FIXME auto adjust voltage */
+		if (inter_pa.setting.is_LDO_mode) {
+			if (inter_pa.setting.is_auto_LDO_mode) {
+				sprd_codec_auto_ldo_volt
+				    (sprd_codec_pa_ldo_v_sel, 1);
+			} else {
+				sprd_codec_pa_ldo_v_sel(inter_pa.
+							setting.LDO_V_sel);
+			}
+		}
 		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
 		sprd_codec_pa_en(1);
 		inter_pa.set = 1;
@@ -799,6 +880,142 @@ int sprd_inter_speaker_pa(int on)
 }
 
 EXPORT_SYMBOL(sprd_inter_speaker_pa);
+
+static inline void sprd_codec_hp_pa_lpw(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_LPW);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_mode(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_MODE);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_osc(int osc)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, osc);
+	mask = AUDIO_CHP_OSC_MASK << AUDIO_CHP_OSC;
+	val = (osc << AUDIO_CHP_OSC) & mask;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_ref_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_REF_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_hpl_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_HPL_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_hpr_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_HPR_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_hpl_mute(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_LMUTE);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_hp_pa_hpr_mute(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUDIO_CHP_RMUTE);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(DCR8_DCR7, val, mask);
+}
+
+static inline void sprd_codec_inter_hp_pa_init(void)
+{
+	inter_hp_pa.setting.class_g_osc = 0x01;
+}
+
+int sprd_inter_headphone_pa(int on)
+{
+	static struct regulator *regulator = 0;
+	pr_info("inter HP PA switch %s\n", on ? "ON" : "OFF");
+	mutex_lock(&inter_hp_pa_mutex);
+	if (on) {
+		if (!regulator) {
+			regulator = regulator_get(0, CLASS_G_LDO_ID);
+			if (IS_ERR(regulator)) {
+				pr_err("Failed to request %s: %d\n",
+				       PTR_ERR(regulator), CLASS_G_LDO_ID);
+				BUG_ON(1);
+			}
+			regulator_enable(regulator);
+		}
+		sprd_codec_hp_pa_lpw(inter_hp_pa.setting.class_g_low_power);
+		sprd_codec_hp_pa_mode(inter_hp_pa.setting.class_g_mode);
+		sprd_codec_hp_pa_osc(inter_hp_pa.setting.class_g_osc);
+		sprd_codec_hp_pa_hpl_en(1);
+		sprd_codec_hp_pa_hpr_en(1);
+		sprd_codec_hp_pa_ref_en(1);
+		sprd_codec_hp_pa_en(1);
+		inter_hp_pa.set = 1;
+	} else {
+		inter_hp_pa.set = 0;
+		sprd_codec_hp_pa_en(0);
+		sprd_codec_hp_pa_ref_en(0);
+		sprd_codec_hp_pa_hpl_en(0);
+		sprd_codec_hp_pa_hpr_en(0);
+		if (regulator) {
+			regulator_disable(regulator);
+			regulator_put(regulator);
+			regulator = 0;
+		}
+	}
+	mutex_unlock(&inter_hp_pa_mutex);
+	return 0;
+}
+
+EXPORT_SYMBOL(sprd_inter_headphone_pa);
 
 /* mic bias external */
 
@@ -893,12 +1110,17 @@ static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
 					      sprd_codec->ad_sample_val, 0x0F,
 					      0);
+#ifdef CONFIG_SPRD_CODEC_DMIC
+		/*set adc1(dmic) sample rate */
+		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
+					      sprd_codec->ad_sample_val, 0xF0,
+					      4);
+#endif
 	}
 	if (sprd_codec->da_sample_val) {
 		sprd_codec_set_sample_rate(sprd_codec->codec,
 					   sprd_codec->da_sample_val, 0x0F, 0);
 	}
-	/*todo: set adc1(dmic) sample rate */
 	return 0;
 }
 
@@ -928,9 +1150,10 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 			codec = sprd_codec->codec;
 		}
 		arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);
-		arch_audio_codec_reg_enable();
+		arch_audio_codec_analog_reg_enable();
 		arch_audio_codec_enable();
 		arch_audio_codec_reset();
+		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 1);
 
 		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
 			sprd_codec_power.supplies[i].supply =
@@ -941,16 +1164,14 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 				       ARRAY_SIZE(sprd_codec_power.supplies),
 				       sprd_codec_power.supplies);
 		if (ret != 0) {
+			sprd_codec->audio_ldo_open_ok = 0;
 			pr_err("Failed to request supplies: %d\n", ret);
 		} else {
-
-			regulator_bulk_enable(ARRAY_SIZE
-					      (sprd_codec_power.supplies),
-					      sprd_codec_power.supplies);
+			sprd_codec->audio_ldo_open_ok = 1;
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
-				regulator_set_mode(sprd_codec_power.supplies[i].
-						   consumer,
+				regulator_set_mode(sprd_codec_power.
+						   supplies[i].consumer,
 						   REGULATOR_MODE_STANDBY);
 		}
 
@@ -1000,18 +1221,21 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		sprd_codec_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(BG_EN),
 				       0);
 
-		regulator_bulk_disable(ARRAY_SIZE(sprd_codec_power.supplies),
-				       sprd_codec_power.supplies);
-		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
-			regulator_set_mode(sprd_codec_power.supplies[i].
-					   consumer, REGULATOR_MODE_NORMAL);
+		if (sprd_codec->audio_ldo_open_ok) {
+			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
+			     i++)
+				regulator_set_mode(sprd_codec_power.
+						   supplies[i].consumer,
+						   REGULATOR_MODE_NORMAL);
 
-		regulator_bulk_free(ARRAY_SIZE(sprd_codec_power.supplies),
-				    sprd_codec_power.supplies);
+			regulator_bulk_free(ARRAY_SIZE
+					    (sprd_codec_power.supplies),
+					    sprd_codec_power.supplies);
+		}
 
 		arch_audio_codec_reset();
 		arch_audio_codec_disable();
-		arch_audio_codec_reg_disable();
+		arch_audio_codec_analog_reg_disable();
 		sprd_codec_dbg("ldo off!\n");
 	}
 
@@ -1175,7 +1399,30 @@ static const char *get_event_name(int event)
 	return ev_name;
 }
 
-static int power_event(struct snd_soc_dapm_widget *w,
+static int digital_power_event(struct snd_soc_dapm_widget *w,
+		       struct snd_kcontrol *kcontrol, int event)
+{
+	int ret = 0;
+
+	sprd_codec_dbg("Entering %s event is %s\n", __func__,
+		       get_event_name(event));
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		arch_audio_codec_digital_reg_enable();
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		arch_audio_codec_digital_reg_disable();
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int analog_power_event(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
@@ -1844,16 +2091,18 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 };
 
 static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
-	SND_SOC_DAPM_SUPPLY("Power", SND_SOC_NOPM, 0, 0, power_event,
+	SND_SOC_DAPM_SUPPLY("Digital Power", SND_SOC_NOPM, 0, 0, digital_power_event,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SUPPLY_S("DA Clk", 1, SOC_REG(CCR), DAC_CLK_EN, 0, NULL,
+	SND_SOC_DAPM_SUPPLY_S("Analog Power", 1, SND_SOC_NOPM, 0, 0, analog_power_event,
+			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY_S("DA Clk", 2, SOC_REG(CCR), DAC_CLK_EN, 0, NULL,
 			      0),
-	SND_SOC_DAPM_SUPPLY_S("DRV Clk", 2, SOC_REG(CCR), DRV_CLK_EN, 0, NULL,
+	SND_SOC_DAPM_SUPPLY_S("DRV Clk", 3, SOC_REG(CCR), DRV_CLK_EN, 0, NULL,
 			      0),
-	SND_SOC_DAPM_SUPPLY_S("AD IBUF", 1, SOC_REG(AACR2_AACR1), ADC_IBUF_PD,
+	SND_SOC_DAPM_SUPPLY_S("AD IBUF", 2, SOC_REG(AACR2_AACR1), ADC_IBUF_PD,
 			      1,
 			      NULL, 0),
-	SND_SOC_DAPM_SUPPLY_S("AD Clk", 2, SOC_REG(CCR), ADC_CLK_EN, 0, NULL,
+	SND_SOC_DAPM_SUPPLY_S("AD Clk", 3, SOC_REG(CCR), ADC_CLK_EN, 0, NULL,
 			      0),
 
 	SND_SOC_DAPM_PGA_S("Digital DACL Switch", 4, SOC_REG(AUD_TOP_CTL),
@@ -1883,7 +2132,7 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("HP POP", 6, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			   SND_SOC_DAPM_POST_PMU),
 #else
-	SND_SOC_DAPM_SUPPLY_S("HP POP", 3, SND_SOC_NOPM, 0, 0, hp_pop_event,
+	SND_SOC_DAPM_SUPPLY_S("HP POP", 4, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
 			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 #endif
@@ -2046,15 +2295,17 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 /* sprd_codec supported interconnection*/
 static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	/* Power */
-	{"DA Clk", NULL, "Power"},
+	{"DA Clk", NULL, "Analog Power"},
+	{"DA Clk", NULL, "Digital Power"},
 	{"DAC", NULL, "DA Clk"},
 
-	{"AD IBUF", NULL, "Power"},
+	{"AD IBUF", NULL, "Analog Power"},
+	{"AD Clk", NULL, "Digital Power"},
 	{"AD Clk", NULL, "AD IBUF"},
 	{"ADC", NULL, "AD Clk"},
 
-	{"ADCL PGA", NULL, "AD Clk"},
-	{"ADCR PGA", NULL, "AD Clk"},
+	{"ADCL PGA", NULL, "AD IBUF"},
+	{"ADCR PGA", NULL, "AD IBUF"},
 
 	{"HP POP", NULL, "DRV Clk"},
 	{"HPL Switch", NULL, "DRV Clk"},
@@ -2167,9 +2418,9 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"ADC1", NULL, "Digital ADCR Switch"},
 #endif
 	/* Bias independent */
-	{"Mic Bias", NULL, "Power"},
-	{"AuxMic Bias", NULL, "Power"},
-	{"HeadMic Bias", NULL, "Power"},
+	{"Mic Bias", NULL, "Analog Power"},
+	{"AuxMic Bias", NULL, "Analog Power"},
+	{"HeadMic Bias", NULL, "Analog Power"},
 };
 
 static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,
@@ -2262,6 +2513,54 @@ static int sprd_codec_inter_pa_get(struct snd_kcontrol *kcontrol,
 	mutex_lock(&inter_pa_mutex);
 	ucontrol->value.integer.value[0] = inter_pa.value;
 	mutex_unlock(&inter_pa_mutex);
+	if (invert) {
+		ucontrol->value.integer.value[0] =
+		    max - ucontrol->value.integer.value[0];
+	}
+
+	return 0;
+}
+
+static int sprd_codec_inter_hp_pa_put(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val;
+	int ret = 0;
+
+	pr_info("config inter HP PA 0x%08x\n",
+		(int)ucontrol->value.integer.value[0]);
+
+	val = (ucontrol->value.integer.value[0] & mask);
+	if (invert)
+		val = max - val;
+	mutex_lock(&inter_hp_pa_mutex);
+	inter_hp_pa.value = (u32) val;
+	if (inter_hp_pa.set) {
+		mutex_unlock(&inter_hp_pa_mutex);
+		sprd_inter_headphone_pa(1);
+	} else {
+		mutex_unlock(&inter_hp_pa_mutex);
+	}
+	sprd_codec_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
+static int sprd_codec_inter_hp_pa_get(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int max = mc->max;
+	unsigned int invert = mc->invert;
+
+	mutex_lock(&inter_hp_pa_mutex);
+	ucontrol->value.integer.value[0] = inter_hp_pa.value;
+	mutex_unlock(&inter_hp_pa_mutex);
 	if (invert) {
 		ucontrol->value.integer.value[0] =
 		    max - ucontrol->value.integer.value[0];
@@ -2368,8 +2667,10 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 	SPRD_CODEC_PGA_MAX("ADCR Capture Volume", SPRD_CODEC_PGA_ADCR, 63,
 			   adc_tlv),
 
-	SPRD_CODEC_PGA("DACL Playback Volume", SPRD_CODEC_PGA_DACL, dac_tlv),
-	SPRD_CODEC_PGA("DACR Playback Volume", SPRD_CODEC_PGA_DACR, dac_tlv),
+	SPRD_CODEC_PGA_MAX("DACL Playback Volume", SPRD_CODEC_PGA_DACL, 7,
+			   dac_tlv),
+	SPRD_CODEC_PGA_MAX("DACR Playback Volume", SPRD_CODEC_PGA_DACR, 7,
+			   dac_tlv),
 	SPRD_CODEC_PGA_MAX("MIC Boost", SPRD_CODEC_PGA_MIC, 3, mic_tlv),
 	SPRD_CODEC_PGA_MAX("AUXMIC Boost", SPRD_CODEC_PGA_AUXMIC, 3,
 			   auxmic_tlv),
@@ -2379,6 +2680,9 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SOC_SINGLE_EXT("Inter PA Config", 0, 0, LONG_MAX, 0,
 		       sprd_codec_inter_pa_get, sprd_codec_inter_pa_put),
+
+	SOC_SINGLE_EXT("Inter HP PA Config", 0, 0, LONG_MAX, 0,
+		       sprd_codec_inter_hp_pa_get, sprd_codec_inter_hp_pa_put),
 
 	SPRD_CODEC_MIC_BIAS("MIC Bias Switch", SPRD_CODEC_MIC_BIAS),
 
@@ -2431,7 +2735,7 @@ static int sprd_codec_pcm_startup(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		snd_soc_dapm_force_enable_pin(&codec->card->dapm, "DAC");
 	} else {
-		if (dai->id != SPRD_CODEC_IIS1_IN_USE)
+		if (dai->id != SPRD_CODEC_IIS1_ID)
 			snd_soc_dapm_force_enable_pin(&codec->card->dapm,
 						      "ADC");
 		else
@@ -2448,7 +2752,7 @@ static void sprd_codec_pcm_shutdown(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		snd_soc_dapm_disable_pin(&codec->card->dapm, "DAC");
 	} else {
-		if (dai->id != SPRD_CODEC_IIS1_IN_USE)
+		if (dai->id != SPRD_CODEC_IIS1_ID)
 			snd_soc_dapm_disable_pin(&codec->card->dapm, "ADC");
 		else
 			snd_soc_dapm_disable_pin(&codec->card->dapm, "ADC1");
@@ -2472,7 +2776,7 @@ static int sprd_codec_pcm_hw_params(struct snd_pcm_substream *substream,
 	} else {
 		sprd_codec->ad_sample_val = rate;
 		pr_info("capture rate is [%d]\n", rate);
-		if (dai->id != SPRD_CODEC_IIS1_IN_USE)
+		if (dai->id != SPRD_CODEC_IIS1_ID)
 			sprd_codec_set_ad_sample_rate(codec, rate, mask, shift);
 		else
 			sprd_codec_set_ad_sample_rate(codec, rate,
@@ -2527,7 +2831,7 @@ static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 	int ret = 0;
 
 	sprd_codec_dbg("Entering %s\n", __func__);
-	if (dai->id == SPRD_CODEC_IIS1_IN_USE)
+	if (dai->id == SPRD_CODEC_IIS1_ID)
 		return ret;
 
 	if (atomic_read(&sprd_codec->power_refcount) >= 1) {
@@ -2648,6 +2952,37 @@ static inline void sprd_codec_proc_init(struct sprd_codec_priv *sprd_codec)
 }
 #endif
 
+static void sprd_codec_power_changed(struct power_supply *psy)
+{
+	sprd_codec_dbg("Entering %s\n", __func__);
+#if 1
+	mutex_lock(&inter_pa_mutex);
+	if (inter_pa.set && inter_pa.setting.is_LDO_mode
+	    && inter_pa.setting.is_auto_LDO_mode) {
+		sprd_codec_auto_ldo_volt(sprd_codec_pa_ldo_v_sel, 0);
+	}
+	mutex_unlock(&inter_pa_mutex);
+	if (atomic_read(&sprd_codec_power.ldo_refcount) >= 1) {
+		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 0);
+	}
+#endif
+	sprd_codec_dbg("Leaving %s\n", __func__);
+}
+
+static int sprd_codec_audio_ldo(struct sprd_codec_priv *sprd_codec)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = sprd_codec->codec;
+	sprd_codec->audio_ldo.name = "audio-ldo";
+	sprd_codec->audio_ldo.external_power_changed = sprd_codec_power_changed;
+	ret = power_supply_register(codec->dev, &sprd_codec->audio_ldo);
+	if (ret) {
+		pr_err("register power supply error!\n");
+		return -EFAULT;
+	}
+	return ret;
+}
+
 #define SPRD_CODEC_PCM_RATES 	\
 	(SNDRV_PCM_RATE_8000 |  \
 	 SNDRV_PCM_RATE_11025 | \
@@ -2686,7 +3021,7 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 	},
 #ifdef  CONFIG_SPRD_CODEC_DMIC
 	{
-		.id = SPRD_CODEC_IIS1_IN_USE,
+		.id = SPRD_CODEC_IIS1_ID,
 		.name = "sprd-codec-i2s-1",
 		.capture = {
 			.stream_name = "Capture-DMIC",
@@ -2699,25 +3034,34 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 	},
 #endif
 };
+
 static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 {
-	 struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	 int ret = 0;
-	 sprd_codec_dbg("Entering %s\n", __func__);
-	 codec->dapm.idle_bias_off = 1;
-	 sprd_codec->codec = codec;
-	 sprd_codec_proc_init(sprd_codec);
-	 sprd_codec_dbg("return %i\n", ret);
-	 sprd_codec_dbg("Leaving %s\n", __func__);
-	 return ret;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	sprd_codec_dbg("Entering %s\n", __func__);
+
+	codec->dapm.idle_bias_off = 1;
+
+	sprd_codec->codec = codec;
+
+	sprd_codec_proc_init(sprd_codec);
+
+	sprd_codec_audio_ldo(sprd_codec);
+
+	sprd_codec_dbg("return %i\n", ret);
+	sprd_codec_dbg("Leaving %s\n", __func__);
+	return ret;
 }
 
 /* power down chip */
 static int sprd_codec_soc_remove(struct snd_soc_codec *codec)
 {
-	 sprd_codec_dbg("Entering %s\n", __func__);
-	 sprd_codec_dbg("Leaving %s\n", __func__);
-	 return 0;
+	sprd_codec_dbg("Entering %s\n", __func__);
+
+	sprd_codec_dbg("Leaving %s\n", __func__);
+	return 0;
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_sprd_codec = {
@@ -2726,9 +3070,9 @@ static struct snd_soc_codec_driver soc_codec_dev_sprd_codec = {
 	.suspend = sprd_codec_soc_suspend,
 	.resume = sprd_codec_soc_resume,
 	.read = sprd_codec_read,
-	.write =sprd_codec_write,
+	.write = sprd_codec_write,
 	.reg_word_size = sizeof(u16),
-	.reg_cache_step =2,
+	.reg_cache_step = 2,
 	.dapm_widgets = sprd_codec_dapm_widgets,
 	.num_dapm_widgets = ARRAY_SIZE(sprd_codec_dapm_widgets),
 	.dapm_routes = sprd_codec_intercon,
@@ -2739,33 +3083,47 @@ static struct snd_soc_codec_driver soc_codec_dev_sprd_codec = {
 
 static __devinit int sprd_codec_probe(struct platform_device *pdev)
 {
-	struct sprd_codec_priv *sprd_codec; int ret;
+	struct sprd_codec_priv *sprd_codec;
+	int ret;
+
 	sprd_codec_dbg("Entering %s\n", __func__);
-	sprd_codec = devm_kzalloc(&pdev->dev, sizeof(struct sprd_codec_priv), GFP_KERNEL);
+
+	sprd_codec = devm_kzalloc(&pdev->dev, sizeof(struct sprd_codec_priv),
+				  GFP_KERNEL);
 	if (sprd_codec == NULL)
 		return -ENOMEM;
+
 	platform_set_drvdata(pdev, sprd_codec);
+
 	atomic_set(&sprd_codec->power_refcount, 0);
-	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_sprd_codec,
-				sprd_codec_dai, ARRAY_SIZE(sprd_codec_dai));
+
+	ret = snd_soc_register_codec(&pdev->dev,
+				     &soc_codec_dev_sprd_codec, sprd_codec_dai,
+				     ARRAY_SIZE(sprd_codec_dai));
 	if (ret != 0) {
-		pr_err("Failed to register CODEC: %d\n", ret); return ret;}
+		pr_err("Failed to register CODEC: %d\n", ret);
+		return ret;
+	}
 #ifdef CONFIG_SPRD_CODEC_USE_INT
 	sprd_codec->ap_irq = CODEC_AP_IRQ;
-	ret = request_irq(sprd_codec->ap_irq, sprd_codec_ap_irq, 0,
-		     "sprd_codec_ap", sprd_codec);
+
+	ret =
+	    request_irq(sprd_codec->ap_irq, sprd_codec_ap_irq, 0,
+			"sprd_codec_ap", sprd_codec);
 	if (ret) {
 		pr_err("request_irq ap failed!\n");
 		goto err_irq;
 	}
 
-	 sprd_codec->dp_irq = CODEC_DP_IRQ;
-	 ret = request_irq(sprd_codec->dp_irq, sprd_codec_dp_irq, 0,
-		     "sprd_codec_dp", sprd_codec);
-	 if (ret) {
+	sprd_codec->dp_irq = CODEC_DP_IRQ;
+
+	ret =
+	    request_irq(sprd_codec->dp_irq, sprd_codec_dp_irq, 0,
+			"sprd_codec_dp", sprd_codec);
+	if (ret) {
 		pr_err("request_irq dp failed!\n");
 		goto dp_err_irq;
-	 }
+	}
 #endif
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
@@ -2779,44 +3137,44 @@ err_irq:
 	snd_soc_unregister_codec(&pdev->dev);
 	return -EINVAL;
 #endif
-
 }
 
 static int __devexit sprd_codec_remove(struct platform_device *pdev)
 {
 #ifdef CONFIG_SPRD_CODEC_USE_INT
-	 struct sprd_codec_priv *sprd_codec = platform_get_drvdata(pdev);
-	 free_irq(sprd_codec->ap_irq, sprd_codec);
-	 free_irq(sprd_codec->dp_irq, sprd_codec);
+	struct sprd_codec_priv *sprd_codec = platform_get_drvdata(pdev);
+	free_irq(sprd_codec->ap_irq, sprd_codec);
+	free_irq(sprd_codec->dp_irq, sprd_codec);
 #endif
-	 snd_soc_unregister_codec(&pdev->dev);
+	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
 
-static struct platform_driver sprd_codec_codec_driver =
-{
-	 .driver = {
-		.name = "sprd-codec",
-		.owner = THIS_MODULE,
-		},
+static struct platform_driver sprd_codec_codec_driver = {
+	.driver = {
+		   .name = "sprd-codec",
+		   .owner = THIS_MODULE,
+		   },
 	.probe = sprd_codec_probe,
 	.remove = __devexit_p(sprd_codec_remove),
 };
 
 static int sprd_codec_init(void)
 {
-	 sprd_codec_inter_pa_init();
-	 arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);
-	 return platform_driver_register(&sprd_codec_codec_driver);
+	sprd_codec_inter_pa_init();
+	sprd_codec_inter_hp_pa_init();
+	arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);
+	return platform_driver_register(&sprd_codec_codec_driver);
 }
 
 static void sprd_codec_exit(void)
 {
-	 platform_driver_unregister(&sprd_codec_codec_driver);
+	platform_driver_unregister(&sprd_codec_codec_driver);
 }
 
 module_init(sprd_codec_init);
 module_exit(sprd_codec_exit);
+
 MODULE_DESCRIPTION("SPRD-CODEC ALSA SoC codec driver");
 MODULE_AUTHOR("Zhenfang Wang <zhenfang.wang@spreadtrum.com>");
 MODULE_LICENSE("GPL");

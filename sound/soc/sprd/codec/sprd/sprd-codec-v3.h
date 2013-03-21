@@ -87,7 +87,7 @@
 #define DAC_MUTE_U_RAW		(3)
 #define DAC_MUTE_D_RAW		(2)
 #define DAC_MUTE_ST		(0)
-#define DAC_MUTE_ST_MASK	(0x3)	/*0 */
+#define DAC_MUTE_ST_MASK	(0x3)
 
 /* AUD_INT_CLR */
 /* AUD_INT_EN */
@@ -123,6 +123,22 @@
 #define EAR_OCP_IRQ		(1)
 #define HP_OCP_IRQ		(0)
 
+
+#define LDO_V_29		(0)
+#define LDO_V_31		(1)
+#define LDO_V_32		(2)
+#define LDO_V_33		(3)
+#define LDO_V_34		(4)
+#define LDO_V_35		(5)
+#define LDO_V_36		(6)
+#define LDO_V_38		(7)
+
+#define MIC_LDO_V_21		(0)
+#define MIC_LDO_V_19		(1)
+#define MIC_LDO_V_23		(2)
+#define MIC_LDO_V_25		(3)
+
+
 /* PMUR2_PMUR1 */
 #define PA_SW_EN		(15)
 #define PA_LDO_EN		(14)
@@ -133,7 +149,7 @@
 #define VB_EN			(7)
 #define VBO_EN			(6)
 #define HEADMICBIAS_EN		(5)
-#define MICBIAS_V			(3)	/*4 */
+#define MICBIAS_V		(3)
 #define MICBIAS_V_MASK		(0x3)
 #define MICBIAS_HV_EN		(2)
 #define HEADMIC_SLEEP_EN	(1)
@@ -151,8 +167,8 @@
 #define VCM_EN			(4)
 #define VCM_BUF_EN		(3)
 #define ICM_PLUS_EN		(2)
-#define SEL_VCMI			(1)
-#define VCMI_FAST_EN	(0)
+#define SEL_VCMI		(1)
+#define VCMI_FAST_EN		(0)
 
 /* PMUR6_PMUR5 */
 #define PA_SWOCP_PD		(15)
@@ -255,6 +271,17 @@
 #define AUD_NG_EN		(7)
 #define AUD_NG_DA_EN	(6)
 #define AUD_NG_PA_EN	(5)
+/* DCR8_DCR7 */
+#define AUDIO_CHP_LPW		(15)
+#define AUDIO_CHP_MODE		(14)
+#define AUDIO_CHP_REF_EN	(7)
+#define AUDIO_CHP_EN		(6)
+#define AUDIO_CHP_HPL_EN	(5)
+#define AUDIO_CHP_HPR_EN	(4)
+#define AUDIO_CHP_LMUTE		(3)
+#define AUDIO_CHP_RMUTE		(2)
+#define AUDIO_CHP_OSC		(0)
+#define AUDIO_CHP_OSC_MASK	(0x03)
 
 /* PNRCR2_PNRCR1 */
 #define HP_POP_CTL		(6)
@@ -349,5 +376,7 @@
 
 #define SPRD_CODEC_AP_END		(SPRD_CODEC_AP_BASE + 0x00CC)
 #define IS_SPRD_CODEC_AP_RANG(reg) (((reg) >= SPRD_CODEC_AP_BASE) && ((reg) < SPRD_CODEC_AP_END))
+
+#define SPRD_CODEC_IIS1_ID   1
 
 #endif /* __SPRD_CODEC_V3_H */

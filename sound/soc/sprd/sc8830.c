@@ -101,13 +101,35 @@ static void audio_speaker_enable(int enable)
 		local_cpu_pa_control(enable);
 }
 
+#ifdef CONFIG_SPRD_AUDIO_USE_INTER_HP_PA
+int sprd_inter_headphone_pa(int on);
+static inline void local_cpu_hp_pa_control(bool enable)
+{
+	int ret = 0;
+	ret = sprd_inter_headphone_pa(enable);
+	if (ret < 0)
+		pr_err("sc883x audio inter headphone pa control error: %d\n", enable);
+}
+#else
+static inline void local_cpu_hp_pa_control(bool enable)
+{
+}
+#endif
+
+static void audio_headphone_enable(int enable)
+{
+	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
+		audio_pa_amplifier->headset.control(enable, NULL);
+	else
+		local_cpu_hp_pa_control(enable);
+}
+
 static int sc883x_hp_event(struct snd_soc_dapm_widget *w,
 			   struct snd_kcontrol *k, int event)
 {
 	sc883x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
-	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
-		audio_pa_amplifier->headset.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
+	audio_headphone_enable(! !SND_SOC_DAPM_EVENT_ON(event));
 	sc883x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
