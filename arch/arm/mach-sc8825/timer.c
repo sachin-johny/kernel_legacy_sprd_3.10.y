@@ -204,7 +204,7 @@ unsigned long long notrace sched_clock(void)
 	return cyc_to_fixed_sched_clock(&cd, cyc, (u32) ~ 0, SC_MULT, SC_SHIFT);
 }
 
-static void notrace __update_sched_clock(void)
+void notrace __update_sched_clock(void)
 {
 	u32 cyc = __gptimer_read(NULL);
 	update_sched_clock(&cd, cyc, (u32) ~ 0);
