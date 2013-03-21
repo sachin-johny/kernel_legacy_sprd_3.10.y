@@ -88,7 +88,6 @@
 
 #define SENSOR_WRITE_DELAY			0xffff
 
-
 typedef enum {
 	SENSOR_MAIN = 0,
 	SENSOR_SUB,
@@ -243,7 +242,7 @@ static void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator
 {
 	SENSOR_PRINT("_sensor_regulator_disable start: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
 		iopower_on_count, avddpower_on_count, dvddpower_on_count, motpower_on_count);
-	if(*power_on_count > 0){
+	while(*power_on_count > 0){
 		regulator_disable(ptr_cam_regulator);
 		(*power_on_count)--;
 	}
