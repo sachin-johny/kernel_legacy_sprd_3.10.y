@@ -141,7 +141,7 @@ static int journal_submit_commit_record(journal_t *journal,
 				       JBD2_FEATURE_INCOMPAT_ASYNC_COMMIT))
 		ret = submit_bh(WRITE_SYNC | WRITE_FLUSH_FUA, bh);
 	else
-		ret = submit_bh(WRITE_SYNC, bh);
+		ret = submit_bh(WRITE_FUA, bh);
 
 	*cbh = bh;
 	return ret;
@@ -459,7 +459,7 @@ void jbd2_journal_commit_transaction(journal_t *journal)
 
 	blk_start_plug(&plug);
 	jbd2_journal_write_revoke_records(journal, commit_transaction,
-					  WRITE_SYNC);
+					  WRITE_FUA);
 	blk_finish_plug(&plug);
 
 	jbd_debug(3, "JBD: commit phase 2\n");
@@ -649,7 +649,7 @@ start_journal_io:
 				clear_buffer_dirty(bh);
 				set_buffer_uptodate(bh);
 				bh->b_end_io = journal_end_buffer_io_sync;
-				submit_bh(WRITE_SYNC, bh);
+				submit_bh(WRITE_FUA, bh);
 			}
 			cond_resched();
 			stats.run.rs_blocks_logged += bufs;
