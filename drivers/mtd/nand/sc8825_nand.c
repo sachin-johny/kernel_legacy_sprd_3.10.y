@@ -517,11 +517,13 @@ static int sprd_sc8825_nand_read_lp(struct mtd_info *mtd,u8 *mbuf, u8 *sbuf,u32 
 	if(mbuf && sbuf)
 	{
 		sprd_sc8825_nand_ins_add(NAND_MC_SRDT, sc8825);
+		sprd_sc8825_nand_ins_add(NAND_MC_NOP(10), sc8825);
 		//switch to main part
 		sprd_sc8825_nand_ins_add(NAND_MC_CMD(NAND_CMD_RNDOUT), sc8825);
 		sprd_sc8825_nand_ins_add(NAND_MC_ADDR(0), sc8825);
 		sprd_sc8825_nand_ins_add(NAND_MC_ADDR(0), sc8825);
 		sprd_sc8825_nand_ins_add(NAND_MC_CMD(NAND_CMD_RNDOUTSTART), sc8825);
+		sprd_sc8825_nand_ins_add(NAND_MC_NOP(10), sc8825);
 		sprd_sc8825_nand_ins_add(NAND_MC_MRDT, sc8825);
 	}
 	else
@@ -632,6 +634,7 @@ static int sprd_sc8825_nand_write_lp(struct mtd_info *mtd,const u8 *mbuf, u8 *sb
 		page_addr >>= 8;
 		sprd_sc8825_nand_ins_add(NAND_MC_ADDR(page_addr & 0xff), sc8825);
 	}
+	sprd_sc8825_nand_ins_add(NAND_MC_NOP(10), sc8825);
 
 	sprd_sc8825_nand_ins_add(NAND_MC_MWDT, sc8825);
 	if(mbuf && sbuf)
