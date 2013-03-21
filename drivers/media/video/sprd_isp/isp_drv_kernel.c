@@ -904,11 +904,17 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 
 	if(ISP_IO_IRQ==cmd)
 	{
-		down_interruptible(&g_isp_device.sem_isr);
+		ret = down_interruptible(&g_isp_device.sem_isr);
+		if (ret) {
+			ret = -ERESTARTSYS;
+			goto ISP_IOCTL_EXIT;
+		}
 		ret=_isp_queue_read(&g_isp_device.queue, &isp_node);
 		if ( 0 != ret) {
+
 			ISP_PRINT("isp_k: ioctl irq: _isp_queue_read error, ret = 0x%x", ret);
 			ret = -EFAULT;
+			goto ISP_IOCTL_EXIT;
 		}
 
 		irq_param.dcam_irq_val = isp_node.dcam_irq_val;
@@ -918,6 +924,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 		irq_param.irq_val = (dcam_irq<<ISP_IRQ_NUM)|isp_irq;
 		ret = copy_to_user ((void*) param, (void*)&irq_param, sizeof(struct isp_irq_param));
 		if ( 0 != ret) {
+
 			ISP_PRINT("isp_k: ioctl irq: copy_to_user failed, ret = 0x%x", ret);
 			ret = -EFAULT;
 		}
@@ -1003,6 +1010,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			ISP_PRINT(" isp_k:ioctl restet called \n");
 			ret = _isp_module_rst();
 			if (ret) {
+
 				ISP_PRINT("isp_k: ioctl restet failed!\n");
 				ret = -EFAULT;
 			}
@@ -1013,6 +1021,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			ISP_PRINT(" isp_k:ioctl set clock called \n");
 			//ret = _isp_set_clk(ISP_CLK_xxx);
 			if (ret) {
+
 				ISP_PRINT("isp_k: ioctl set clock failed!\n");
 				ret = -EFAULT;
 			}
@@ -1034,6 +1043,11 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			case ISP_IO_INT: {
 				unsigned long int_num;
 				ret = copy_from_user((void*)&int_num, (void*)param, 0x04);
+				if (ret) {
+					ISP_PRINT ("isp_k:io int copy param failed, ret = %d \n", ret);
+					ret = -EFAULT;
+					goto ISP_IOCTL_LOCKED_CMD_EXIT;
+				}
 				ret = _isp_en_irq(int_num);
 				ret = _isp_registerirq();
 				if (unlikely(ret)) {
@@ -1046,6 +1060,11 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			case ISP_IO_DCAM_INT: {
 				unsigned long int_param;
 				ret = copy_from_user((void*)&int_param, (void*)param, 0x04);
+				if (ret) {
+					ISP_PRINT ("isp_k:dcam int copy params failed, ret = %d \n", ret);
+					ret = -EFAULT;
+					goto ISP_IOCTL_LOCKED_CMD_EXIT;
+				}
 				ret = _isp_cfg_dcam_int(int_param);
 				if (unlikely(ret)) {
 					ISP_PRINT ("isp_k:cfg dcam interrupt failed \n");
@@ -1067,6 +1086,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				buf_size = reg_param.counts;
 				addr = (uint32_t*) kzalloc(buf_size, GFP_KERNEL);
 				if(0x00==addr){
+
 					ret = -EFAULT;
 					goto IO_LNC_PARAM_EXIT;
 				}
@@ -1151,11 +1171,12 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			return -EFAULT;
 		}
 
+		ISP_IOCTL_LOCKED_CMD_EXIT:
 		mutex_unlock(&s_isp_lock);
 	}
 
 	//ISP_PRINT("isp_k:_ioctl finished\n");
-
+	ISP_IOCTL_EXIT:
 	return ret;
 }
 
