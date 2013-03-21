@@ -55,13 +55,25 @@
 
 #define WDG_UNLOCK_KEY          0xE551
 
+#ifdef CONFIG_ARCH_SC7710
+#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x800)
+#define ANA_RST_STATUS          (SPRD_ANA_BASE + 0x4C)
+#else
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
+#define ANA_RST_STATUS          (SPRD_ANA_BASE + 0X88)
+#endif
+
 #define ANA_REG_BASE            SPRD_ANA_BASE    /*  0x82000600 */
-#define ANA_RST_STATUS          (ANA_REG_BASE + 0X88)
 #define ANA_AGEN                (ANA_REG_BASE + 0x00)
-#define AGEN_WDG_EN             BIT(2)
+#ifdef CONFIG_ARCH_SC7710
+#define ANA_AGEN_1		(ANA_REG_BASE + 0x0C)
+#define AGEN_RTC_ARCH_EN        BIT(0)
+#define AGEN_RTC_WDG_EN         BIT(2)
+#else
 #define AGEN_RTC_ARCH_EN        BIT(8)
 #define AGEN_RTC_WDG_EN         BIT(10)
+#endif
+#define AGEN_WDG_EN             BIT(2)
 
 #define WDG_CLK                 32768
 
@@ -119,7 +131,13 @@ static int sci_open(struct inode *inode, struct file *file)
 	/* started the watchdog when it's openned for the 1st time */
 	if (wdt_state == 0) {
 		/* start the watchdog */
+#ifdef CONFIG_ARCH_SC7710
+		sci_adi_set(ANA_AGEN, AGEN_WDG_EN);
+		sci_adi_set(ANA_AGEN_1, AGEN_RTC_ARCH_EN | AGEN_RTC_WDG_EN);
+#else
 		sci_adi_set(ANA_AGEN, AGEN_WDG_EN | AGEN_RTC_ARCH_EN | AGEN_RTC_WDG_EN);
+#endif
+
 		sci_adi_raw_write (WDG_LOCK, WDG_UNLOCK_KEY);
 		sci_adi_clr(WDG_CTRL, WDG_INT_EN_BIT);
 		WDG_LOAD_TIMER_VALUE(margin * WDT_FREQ);
