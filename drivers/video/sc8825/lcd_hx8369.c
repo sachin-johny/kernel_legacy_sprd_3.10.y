@@ -162,7 +162,7 @@ static int32_t hx8369_init(struct panel_spec *self)
 	/* Sleep Out */
 	send_cmd(0x11);
 
-	LCD_DelayMS(120);
+	msleep(120);
 
 	#if 0
 	{ /* for test the lcd */
@@ -180,7 +180,7 @@ static int32_t hx8369_init(struct panel_spec *self)
 	/* Display On */
 	send_cmd(0x29);
 
-	LCD_DelayMS (120);
+	msleep (120);
 
 	/* Write data */
 	send_cmd(0x2C);

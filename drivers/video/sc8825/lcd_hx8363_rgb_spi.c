@@ -260,13 +260,13 @@ static int32_t hx8363_init(struct panel_spec *self)
 	HX8363_SpiWriteData(0x77); // 
 
 	HX8363_SpiWriteCmd(0x11);//Sleep Out 
-	mdelay(120);
+	msleep(120);
 	HX8363_SpiWriteCmd(0x35); //Tearing Effect 
 	HX8363_SpiWriteData(0x00); // 
 	HX8363_SpiWriteCmd(0x36);
 	HX8363_SpiWriteData(0x02);
 	HX8363_SpiWriteCmd(0x29);
-	mdelay(10);
+	msleep(10);
 	HX8363_SpiWriteCmd(0x2C);
 #endif
 }

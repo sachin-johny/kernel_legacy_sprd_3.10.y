@@ -245,7 +245,7 @@ static int32_t hx8363_init(struct panel_spec *self)
 	send_data(0x07); // 
 
 	send_cmd(0x11);//Sleep Out 
-	LCD_DelayMS(120);
+	msleep(120);
 
 	send_cmd(0xC2);// SET DISPIF 
 	send_data(0x04); //24bit 
@@ -254,7 +254,7 @@ static int32_t hx8363_init(struct panel_spec *self)
 	send_cmd(0x36);
 	send_data(0x02); // 
 	send_cmd(0x29); 
-	LCD_DelayMS(10);
+	msleep(10);
 	send_cmd(0x2c); 
 }
 
