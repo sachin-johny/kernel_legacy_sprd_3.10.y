@@ -73,7 +73,7 @@ config SDIO_CHANNEL
 
 config SDIO_CARD
         tristate "SDIO CARD class support"
-        default Y
+        default y
         help
           SDIO card driver for WIFI Devices.
 
