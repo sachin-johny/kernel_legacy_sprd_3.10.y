@@ -36,7 +36,7 @@
 #include <sound/pcm_params.h>
 #include <sound/tlv.h>
 
-#include "sprd-vbc-pcm.h"
+#include "../sprd-pcm.h"
 #include "vbc.h"
 
 #ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME

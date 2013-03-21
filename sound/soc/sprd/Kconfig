@@ -3,28 +3,18 @@ config SND_SPRD_SOC_SC881X
 	tristate "SC881X phone"
 	select SND_ARM
 	select SND_SPRD_SOC_VBC
+	select SND_SPRD_SOC_AUDIO_DMA
 	select SND_SOC_DOLPHIN
 	help
 	  Say Y if you want to built in to kernel, Say M for ko module.
 	  SoC Audio for the SPREADTRUM SC881X chips with intergrated Dolphin codec
 	  use VBC and  Dolphin for the audio system.
-
-config SND_SPRD_SOC_KYLEW
-	tristate "KYLEW phone"
-	depends on !SND_SC88XX_SOC_SPRDPHONE
-	select SND_ARM
-	select SND_SPRD_SOC_VBC
-	select SND_SOC_DOLPHIN
-	help
-	  Say Y if you want to built in to kernel, Say M for ko module.
-	  SoC Audio for the SPREADTRUM SC881X chips with intergrated Dolphin codec
-	  use VBC and  Dolphin for the audio system.
-	  config for samsung kylew project.
 
 config SND_SPRD_SOC_SC882X
 	tristate "SC882X phone"
 	select SND_ARM
 	select SND_SPRD_SOC_VBC
+	select SND_SPRD_SOC_AUDIO_DMA
 	select SND_SOC_SPRD_CODEC
 	help
 	  Say Y if you want to built in to kernel, Say M for ko module.
@@ -45,11 +35,13 @@ config SPRD_AUDIO_DEBUG
 	help
           Say Y if defined this will print debug information for detail.
 
+source "sound/soc/sprd/dai/Kconfig"
 source "sound/soc/sprd/dai/vbc/Kconfig"
 source "sound/soc/sprd/dai/vaudio/Kconfig"
 source "sound/soc/sprd/dai/i2s/Kconfig"
 source "sound/soc/sprd/codec/dolphin/Kconfig"
 source "sound/soc/sprd/codec/sprd/Kconfig"
+source "sound/soc/sprd/codec/null-codec/Kconfig"
 
 config SPRD_CODEC_USE_INT
 	depends on SND_SOC_SPRD_CODEC
@@ -92,5 +84,15 @@ config SPRD_AUDIO_BUFFER_USE_IRAM
 	  Say Y if you want use IRAM replacment RAM when playback.
 	   sometimes, use IRAM maybe reduce power consumption.
            but, it will cause system more busy, becuase the buffer smaller.
+
+config SND_SPRD_SOC_BT_I2S
+	tristate "bt-i2s"
+	select SND_SPRD_SOC_I2S
+	select SND_SPRD_SOC_AUDIO_DMA
+	select SND_SOC_NULL_CODEC
+	help
+	  Say Y if you want to built in to kernel, Say M for ko module.
+	   this option will build spreadtrum I2S driver for external codec
+           or like BT/Digital FM etc.
 
 endmenu
