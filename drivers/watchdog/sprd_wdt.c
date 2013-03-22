@@ -58,6 +58,11 @@
 #define ANA_REG_BASE            SPRD_ANA_BASE    /*  0x82000600 */
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0X88)
 #define ANA_AGEN                (ANA_REG_BASE + 0x00)
+#ifdef  CONFIG_ARCH_SC8825
+#define ANA_HW_REBOOT_CTRL (ANA_REG_BASE + 0xA8)
+#define PBINT_6S_FLAG_MSK    BIT(6)
+#define PBINT_6S_FLAG_SHIFT   (6)
+#endif
 #define AGEN_WDG_EN             BIT(2)
 #define AGEN_RTC_ARCH_EN        BIT(8)
 #define AGEN_RTC_WDG_EN         BIT(10)
@@ -95,6 +100,19 @@ static int boot_status;
 
 static void watchdog_feeder(unsigned long);
 static struct timer_list feeder_timer = TIMER_INITIALIZER(watchdog_feeder, 0, 0);
+
+
+#ifdef  CONFIG_ARCH_SC8825
+unsigned char  sprd_wdt_get_pbint_6s_flag(void)
+{
+	/* get flag.. */
+	return (sci_adi_read(ANA_HW_REBOOT_CTRL) & PBINT_6S_FLAG_MSK)
+			>> PBINT_6S_FLAG_SHIFT;
+}
+
+EXPORT_SYMBOL(sprd_wdt_get_pbint_6s_flag);
+
+#endif
 
 /*
  * This is a hw watchdog starts after init, and fed by a timer started
