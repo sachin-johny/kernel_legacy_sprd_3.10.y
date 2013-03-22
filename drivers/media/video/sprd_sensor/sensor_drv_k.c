@@ -88,7 +88,6 @@
 
 #define SENSOR_WRITE_DELAY			0xffff
 
-
 typedef enum {
 	SENSOR_MAIN = 0,
 	SENSOR_SUB,
@@ -97,7 +96,7 @@ typedef enum {
 } SENSOR_ID_E;
 
 
-static struct mutex *sensor_lock;
+static struct mutex sensor_lock;
 static wait_queue_head_t wait_queue_sensor;
 struct semaphore g_sem_sensor;
 
@@ -111,13 +110,9 @@ LOCAL struct i2c_client *this_client = NULL;
 
 
 
-static const struct i2c_device_id sensor_main_id[] = {
+static const struct i2c_device_id sensor_device_id[] = {
 	{SENSOR_MAIN_I2C_NAME, 0},
-	{}
-};
-
-static const struct i2c_device_id sensor_sub_id[] = {
-	{SENSOR_SUB_I2C_NAME, 0},
+	{SENSOR_SUB_I2C_NAME, 1},
 	{}
 };
 
@@ -127,7 +122,7 @@ static unsigned short sensor_main_force[] =
 static const unsigned short *const sensor_main_forces[] =
     { sensor_main_force, NULL };
 static unsigned short sensor_main_default_addr_list[] =
-    { SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END };
+    { SENSOR_MAIN_I2C_ADDR, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END };
 static unsigned short sensor_sub_force[] =
     { 2, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END };
 static const unsigned short *const sensor_sub_forces[] =
@@ -168,22 +163,13 @@ static int sensor_probe(struct i2c_client *client,
 		goto out;
 	}
 	this_client = client;
-	if (SENSOR_MAIN == Sensor_K_GetCurId()) {
-		if (SENSOR_MAIN_I2C_ADDR != (this_client->addr & (~0xFF))) {
-			this_client->addr =
-			    (this_client->addr & (~0xFF)) |
-			    (sensor_main_force[1] & 0xFF);
-		}
-	} else {
-		if (SENSOR_SUB_I2C_ADDR != (this_client->addr & (~0xFF))) {
-			this_client->addr =
-			    (this_client->addr & (~0xFF)) | (sensor_sub_force[1]
-							     & 0xFF);
-		}
-	}
+/*	if (SENSOR_MAIN_I2C_ADDR != (this_client->addr & (~0xFF))) {
+		this_client->addr =
+		    (this_client->addr & (~0xFF)) |
+		    (sensor_main_force[1] & 0xFF);
+	}*/
 	SENSOR_PRINT_HIGH(KERN_INFO "sensor_probe,this_client->addr =0x%x\n",
 	       this_client->addr);
-	mdelay(20);
 	return 0;
 out:
 	return res;
@@ -200,17 +186,6 @@ static int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
 	strcpy(info->type, client->name);
 	return 0;
 }
-
-static struct i2c_driver sensor_i2c_driver = {
-	.driver = {
-		   .owner = THIS_MODULE,
-		   },
-	.probe = sensor_probe,
-	.remove = sensor_remove,
-	.detect = sensor_detect,
-};
-
-
 
 LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 {
@@ -267,7 +242,7 @@ static void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator
 {
 	SENSOR_PRINT("_sensor_regulator_disable start: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
 		iopower_on_count, avddpower_on_count, dvddpower_on_count, motpower_on_count);
-	if(*power_on_count > 0){
+	while(*power_on_count > 0){
 		regulator_disable(ptr_cam_regulator);
 		(*power_on_count)--;
 	}
@@ -792,54 +767,16 @@ LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 
 LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 {
-	int ret = 0;
 	g_sensor_id =  sensor_id;
-
-	if (SENSOR_MAIN == sensor_id) {
-		SENSOR_PRINT("_Sensor_K_I2CInit,sensor_main_force[1] =%d \n",
-		     							sensor_main_force[1]);
-		sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
-		sensor_i2c_driver.id_table = sensor_main_id;
-		sensor_i2c_driver.address_list = &sensor_main_default_addr_list[0];
-	} else if (SENSOR_SUB == sensor_id) {
-		SENSOR_PRINT("_Sensor_K_I2CInit,sensor_sub_force[1] =%d \n",
-		     							sensor_sub_force[1]);
-		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
-		sensor_i2c_driver.id_table = sensor_sub_id;
-		sensor_i2c_driver.address_list = &sensor_sub_default_addr_list[0];
-	}
-	ret = i2c_add_driver(&sensor_i2c_driver);
-	if (ret) {
-		SENSOR_PRINT_ERR("+I2C %d err %d.\n", sensor_id,ret);
-		return SENSOR_K_FAIL;
-	} else {
-		SENSOR_PRINT_HIGH("+I2C %d OK \n", sensor_id);
-	}
 
 	return SENSOR_K_SUCCESS;
 }
 
 LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 {
-	if (SENSOR_MAIN == sensor_id) {
-		SENSOR_PRINT("_Sensor_K_I2CDeInit,sensor_main_force[1] =%d \n",
-		     							sensor_main_force[1]);
-		sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
-		sensor_i2c_driver.id_table = sensor_main_id;
-		sensor_i2c_driver.address_list = &sensor_main_default_addr_list[0];
-	} else if (SENSOR_SUB == sensor_id) {
-		SENSOR_PRINT("_Sensor_K_I2CDeInit,sensor_sub_force[1] =%d \n",
-		     							sensor_sub_force[1]);
-		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
-		sensor_i2c_driver.id_table = sensor_sub_id;
-		sensor_i2c_driver.address_list = &sensor_sub_default_addr_list[0];
-	}
-    SENSOR_PRINT_HIGH("-I2c %d,addr 0x%x.\n",sensor_id,(uint32_t)sensor_i2c_driver.address_list);
-	i2c_del_driver(&sensor_i2c_driver);
-
 	g_sensor_id =  SENSOR_ID_MAX;
 
-	SENSOR_PRINT_HIGH("-I2C %d OK.\n", sensor_id);
+/*	SENSOR_PRINT_HIGH("-I2C %d OK.\n", sensor_id);*/
 
 	return SENSOR_K_SUCCESS;
 }
@@ -854,7 +791,7 @@ LOCAL int _Sensor_K_SetResetLevel(uint32_t plus_level)
 	}
 	gpio_direction_output(GPIO_SENSOR_RESET, plus_level);
 	gpio_set_value(GPIO_SENSOR_RESET, plus_level);
-	SLEEP_MS(100);
+	SLEEP_MS(10);
 	gpio_free(GPIO_SENSOR_RESET);
 
 	return SENSOR_K_SUCCESS;
@@ -897,7 +834,7 @@ LOCAL int _Sensor_K_ReadReg(SENSOR_REG_BITS_T_PTR pReg)
 		msg_r[1].len = r_cmd_num;
 		ret = i2c_transfer(this_client->adapter, msg_r, 2);
 		if (ret != 2) {
-			SENSOR_PRINT_ERR("SENSOR: _Sensor_K_ReadReg read sensor reg fai, ret : %d, I2C w addr: 0x%x, \n",
+			SENSOR_PRINT_ERR("SENSOR:read reg fail, ret %d, addr 0x%x \n",
 			     				ret, this_client->addr);
 			SLEEP_MS(20);
 			ret = SENSOR_K_FAIL;
@@ -955,7 +892,7 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 			msg_w.len = index;
 			ret = i2c_transfer(this_client->adapter, &msg_w, 1);
 			if (ret != 1) {
-				SENSOR_PRINT_HIGH("_Sensor_K_WriteReg failed: i2cAddr=%x, addr=%x, value=%x, bit=%d \n",
+				SENSOR_PRINT_HIGH("_Sensor_K_WriteReg failed:i2cAddr=%x, addr=%x, value=%x, bit=%d \n",
 						this_client->addr, pReg->reg_addr, pReg->reg_value, pReg->reg_bits);
 				ret = SENSOR_K_FAIL;
 				continue;
@@ -976,8 +913,6 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 
 LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 {
-	//int err = 0xff;
-
 	switch (flash_mode) {
 	case 1:		/*flash on */
 	case 2:		/*for torch */
@@ -1015,7 +950,7 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	}
 
 	SENSOR_PRINT("_Sensor_K_SetFlash: flash_mode=%d  \n", flash_mode);
-
+	
 	return SENSOR_K_SUCCESS;
 }
 int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size);
@@ -1033,7 +968,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 	struct timeval time1, time2;
 
 	do_gettimeofday(&time1);
-
+	
 	size = cnt*sizeof(SENSOR_REG_T);
 	pBuff = kmalloc(size, GFP_KERNEL);
 	if(PNULL == pBuff){
@@ -1041,7 +976,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 		SENSOR_PRINT_ERR("_Sensor_K_WriteRegTab ERROR:kmalloc is fail, cnt=%d, size = %d \n", cnt, size);
 		goto _Sensor_K_WriteRegTab_return;
 	}else{
-		SENSOR_PRINT("_Sensor_K_WriteRegTab: kmalloc success, cnt=%d, size = %d \n",cnt, size);
+		SENSOR_PRINT("_Sensor_K_WriteRegTab: kmalloc success, cnt=%d, size = %d \n",cnt, size); 
 	}
 
 	if (copy_from_user(pBuff, pRegTab->sensor_reg_tab_ptr, size)){
@@ -1051,13 +986,13 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 	}
 
 	sensor_reg_ptr = (SENSOR_REG_T_PTR)pBuff;
-
+	
 	if(0 == pRegTab->burst_mode){
 		for(i=0; i<cnt; i++){
 			reg_bit.reg_addr  = sensor_reg_ptr[i].reg_addr;
 			reg_bit.reg_value = sensor_reg_ptr[i].reg_value;
 			reg_bit.reg_bits  = pRegTab->reg_bits;
-
+			
 			rettmp = _Sensor_K_WriteReg(&reg_bit);
 			if(SENSOR_K_FAIL == rettmp)
 				ret = SENSOR_K_FAIL;
@@ -1074,10 +1009,10 @@ _Sensor_K_WriteRegTab_return:
 		kfree(pBuff);
 
 	do_gettimeofday(&time2);
-
-	SENSOR_PRINT("_Sensor_K_WriteRegTab: done, ret = %d, cnt=%d, time=%ld us \n", ret, cnt,
-		(time2.tv_sec - time1.tv_sec)*1000000+(time2.tv_usec - time1.tv_usec));
-
+	
+	printk("_Sensor_K_WriteRegTab: done, ret = %d, cnt=%d, time=%d us \n", ret, cnt,
+		(uint32_t)((time2.tv_sec - time1.tv_sec)*1000000+(time2.tv_usec - time1.tv_usec)));
+	
 	return ret;
 }
 
@@ -1092,6 +1027,49 @@ LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 	SENSOR_PRINT("_Sensor_K_SetI2CClock: set i2c clock to %d  \n", clock);
 
 	return SENSOR_K_SUCCESS;
+}
+
+LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
+{
+	char *pBuff = PNULL;
+	struct i2c_msg msg_w;
+	uint32_t cnt = pI2cTab->i2c_count;
+	int ret = SENSOR_K_FAIL;
+
+	pBuff = kmalloc(cnt, GFP_KERNEL);
+	if(PNULL == pBuff){
+		SENSOR_PRINT_ERR("_Sensor_K_WriteI2C ERROR:kmalloc is fail, size = %d \n", cnt);
+		goto sensor_k_writei2c_return;
+	}
+	else{
+		SENSOR_PRINT("_Sensor_K_WriteI2C: kmalloc success, size = %d \n", cnt);
+	}
+
+	if (copy_from_user(pBuff, pI2cTab->i2c_data, cnt)){
+		SENSOR_PRINT_ERR("_Sensor_K_WriteI2C ERROR:copy_from_user fail, size = %d \n", cnt);
+		goto sensor_k_writei2c_return;
+	}
+
+	msg_w.addr = pI2cTab->slave_addr;
+	msg_w.flags = 0;
+	msg_w.buf = pBuff;
+	msg_w.len = cnt;
+
+	ret = i2c_transfer(this_client->adapter, &msg_w, 1);
+	if (ret != 1) {
+		SENSOR_PRINT_ERR("SENSOR: write sensor reg fail, ret : %d, I2C slave addr: 0x%x, \n",
+		ret, msg_w.addr);
+	}else{
+		ret = SENSOR_K_SUCCESS;
+	}
+
+sensor_k_writei2c_return:
+	if(PNULL != pBuff)
+		kfree(pBuff);
+
+	SENSOR_PRINT("sensor_k_write: done, ret = %d \n", ret);
+
+	return ret;
 }
 
 int sensor_k_open(struct inode *node, struct file *file)
@@ -1137,7 +1115,7 @@ static ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t
 		SENSOR_PRINT_ERR("sensor_k_write ERROR:copy_from_user fail, size = %d \n", cnt);
 		goto sensor_k_write_return;
 	}
-
+    printk("this_client->addr=0x%x.\n",this_client->addr);
 	msg_w.addr = this_client->addr;
 	msg_w.flags = 0;
 	msg_w.buf = pBuff;
@@ -1145,7 +1123,7 @@ static ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t
 
 	ret = i2c_transfer(this_client->adapter, &msg_w, 1);
 	if (ret != 1) {
-		SENSOR_PRINT_ERR("SENSOR: write sensor reg fail, ret : %d, I2C w addr: 0x%x, \n",
+		SENSOR_PRINT_ERR("SENSOR: write reg fail, ret : %d, I2C w addr: 0x%x, \n",
 		     						ret, this_client->addr);
 	}else{
 		ret = SENSOR_K_SUCCESS;
@@ -1172,7 +1150,6 @@ int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 	uint16_t              wr_reg = 0;
 	uint16_t              wr_val = 0;
 	uint32_t              wr_num_once = 0;
-	//uint32_t              wr_num_once_ret = 0;
 	//uint32_t              init_table_size = (sizeof(HI351_common)/sizeof(HI351_common[0]));	//NUMBER_OF_ARRAY(HI351_common);
 	//SENSOR_REG_T_PTR    p_reg_table = HI351_common;
 	uint8_t               *p_reg_val_tmp = 0;
@@ -1182,6 +1159,7 @@ int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 	if(0 == i2c_client)
 	{
 		printk("SENSOR: HI351_InitExt:error,i2c_client is NULL!.\n");
+		return -1;
 	}
 	p_reg_val_tmp = (uint8_t*)kzalloc(init_table_size*sizeof(uint16_t) + 16, GFP_KERNEL);
 
@@ -1284,7 +1262,7 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 {
 	int ret = 0;
 
-	mutex_lock(sensor_lock);
+	mutex_lock(&sensor_lock);
 
 	switch (cmd) {
 	case SENSOR_IO_PD:
@@ -1374,7 +1352,7 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&g_sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 		}
 		break;
-
+	
 
 	case SENSOR_IO_RST_LEVEL:
 		{
@@ -1391,7 +1369,7 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&i2c_addr, (uint16_t *) arg, sizeof(uint16_t));
 			if(0 == ret){
 				this_client->addr = (this_client->addr & (~0xFF)) |i2c_addr;
-				SENSOR_PRINT("SENSOR_IO_I2C_ADDR: addr = %x, %x \n", i2c_addr, this_client->addr);
+				printk("SENSOR_IO_I2C_ADDR: addr = %x, %x \n", i2c_addr, this_client->addr);
 			}
 		}
 		break;
@@ -1450,6 +1428,15 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			}
 		}
 		break;
+	case SENSOR_IO_I2C_WRITE_EXT:
+		{
+			SENSOR_I2C_T i2cTab;
+			ret = copy_from_user(&i2cTab, (SENSOR_I2C_T *) arg, sizeof(SENSOR_I2C_T));
+			if(0 == ret)
+				ret = _Sensor_K_WriteI2C(&i2cTab);	
+
+		}
+		break;
 
 	default:
 		SENSOR_PRINT("sensor_k_ioctl: invalid command %x  \n", cmd);
@@ -1458,9 +1445,9 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 	}
 
 
-	mutex_unlock(sensor_lock);
+	mutex_unlock(&sensor_lock);
 
-	return ret;
+	return (long)ret;
 }
 
 
@@ -1479,9 +1466,11 @@ static struct miscdevice sensor_dev = {
 	.fops = &sensor_fops,
 };
 
+static struct i2c_driver sensor_i2c_driver;
 int sensor_k_probe(struct platform_device *pdev)
 {
 	int ret;
+
 	printk(KERN_ALERT "sensor_k_probe called\n");
 
 	ret = misc_register(&sensor_dev);
@@ -1490,11 +1479,23 @@ int sensor_k_probe(struct platform_device *pdev)
 		       SENSOR_MINOR, ret);
 		return ret;
 	}
-	sensor_lock = (struct mutex *)kmalloc(sizeof(struct mutex), GFP_KERNEL);
-	if (sensor_lock == NULL)
-		return SENSOR_K_FAIL;
-	mutex_init(sensor_lock);
 	init_waitqueue_head(&wait_queue_sensor);
+	memset(&sensor_i2c_driver, 0, sizeof(struct i2c_driver));
+	sensor_i2c_driver.driver.owner = THIS_MODULE;
+	sensor_i2c_driver.probe  = sensor_probe;
+	sensor_i2c_driver.remove = sensor_remove;
+	sensor_i2c_driver.detect = sensor_detect;
+	sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
+	sensor_i2c_driver.id_table = sensor_device_id;
+	sensor_i2c_driver.address_list = &sensor_main_default_addr_list[0];
+
+	ret = i2c_add_driver(&sensor_i2c_driver);
+	if (ret) {
+		SENSOR_PRINT_ERR("+I2C err %d.\n", ret);
+		return SENSOR_K_FAIL;
+	} else {
+		SENSOR_PRINT_HIGH("+I2C OK \n");
+	}
 	printk(KERN_ALERT " sensor_k_probe Success\n");
 	return 0;
 }
@@ -1524,6 +1525,7 @@ int __init sensor_k_init(void)
 		return SENSOR_K_FAIL;
 	}
 	init_MUTEX(&g_sem_sensor);
+	mutex_init(&sensor_lock);
 	return 0;
 }
 
@@ -1531,9 +1533,6 @@ void sensor_k_exit(void)
 {
 	printk(KERN_INFO "sensor_k_exit called !\n");
 	platform_driver_unregister(&sensor_dev_driver);
-	mutex_destroy(sensor_lock);
-	kfree(sensor_lock);
-	sensor_lock = NULL;
 }
 
 module_init(sensor_k_init);
