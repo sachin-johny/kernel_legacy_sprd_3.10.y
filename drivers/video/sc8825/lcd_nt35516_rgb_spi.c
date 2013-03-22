@@ -442,7 +442,7 @@ static int32_t nt35516_rgb_spi_init(struct panel_spec *self)
 	NT35516_SpiWriteCmd(0x3500); NT35516_SpiWriteData(0x00);
 
 	NT35516_SpiWriteCmd(0x1100); // Sleep out
-	udelay(120);
+	msleep(120);
 
 	NT35516_SpiWriteCmd(0x2900); // Display On
 }
