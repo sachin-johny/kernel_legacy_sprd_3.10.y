@@ -245,7 +245,7 @@ static struct snd_soc_dai_link sc771x_dai[] = {
 	 .stream_name = "vbc-dac",
 
 	 .codec_name = "sprd-codec",
-	 .platform_name = "sprd-vbc-pcm-audio",
+	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vbc",
 	 .codec_dai_name = "sprd-codec-i2s",
 	 },
@@ -255,7 +255,7 @@ static struct snd_soc_dai_link sc771x_dai[] = {
 	 .stream_name = "vbc-dsp",
 
 	 .codec_name = "sprd-codec",
-	 .platform_name = "sprd-vbc-pcm-audio",
+	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vaudio",
 	 .codec_dai_name = "sprd-codec-i2s",
 	 },
