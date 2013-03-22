@@ -113,7 +113,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm0_device,
 	&sprd_axi_bm1_device,
 	&sprd_axi_bm2_device,
-#if 0
+#ifdef CONFIG_BT_BCM4330
 	&rfkill_device,
 	&brcm_bluesleep_device,
 #endif

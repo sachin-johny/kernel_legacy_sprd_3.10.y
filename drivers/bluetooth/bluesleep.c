@@ -285,7 +285,7 @@ static int bluesleep_hci_event(struct notifier_block *this,
 		BT_SLEEP_DBG("hci event %ld hdev = %p", event, hdev);
                 if (!bluesleep_hdev) {
                         bluesleep_hdev = hdev;
-                        hu  = (struct hci_uart *) hdev->driver_data;
+                        hu  = hci_get_drvdata(hdev);
                         state = (struct uart_state *) (hu->tty->driver_data);
                         bsi->uport = state->uart_port;
                         /* if bluetooth started with a new device, start bluesleep also.*/

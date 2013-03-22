@@ -65,11 +65,24 @@ DEFINE_RWLOCK(hci_dev_list_lock);
 LIST_HEAD(hci_cb_list);
 DEFINE_RWLOCK(hci_cb_list_lock);
 
+/* HCI notifiers list */
+static ATOMIC_NOTIFIER_HEAD(hci_notifier);
+
 /* ---- HCI notifications ---- */
+int hci_register_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_register(&hci_notifier, nb);
+}
+
+int hci_unregister_notifier(struct notifier_block *nb)
+{
+	return atomic_notifier_chain_unregister(&hci_notifier, nb);
+}
 
 static void hci_notify(struct hci_dev *hdev, int event)
 {
 	hci_sock_dev_event(hdev, event);
+	atomic_notifier_call_chain(&hci_notifier, event, hdev);
 }
 
 /* ---- HCI requests ---- */
