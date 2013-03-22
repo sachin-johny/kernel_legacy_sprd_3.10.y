@@ -47,6 +47,7 @@
 extern void * dhd_os_open_image(char *filename);
 extern int  dhd_os_get_image_block(char *buf, int len, void *image);
 extern void dhd_os_close_image(void *image);
+extern int sdhci_wifi_detect_isbusy(void);
 
 
 static int wlan_device_cd = 0; /* WIFI virtual 'card detect' status */
@@ -195,9 +196,16 @@ static void wlan_clk_init(void)
 
 int wlan_device_power(int on)
 {
+	int i;
 	pr_info("%s:%d \n", __func__, on);
 
 	if(on) {
+		for (i = 0; i <= 200; i++) {
+			if(!sdhci_wifi_detect_isbusy())
+				break;
+			msleep(100);
+		}
+		printk("%s after delay %d times (100ms)\n", __func__, i);
 	/* enable SDIO clock */
 	#ifdef CONFIG_WLAN_SDIO
 		sdhci_device_attach(1);
