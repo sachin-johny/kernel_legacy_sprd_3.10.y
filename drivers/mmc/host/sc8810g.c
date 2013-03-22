@@ -715,6 +715,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
 //		pm_runtime_disable(&(pdev)->dev);
 	}
+	pm_runtime_disable(&(pdev)->dev); /*disable pm runtime temprarily in 7710*/
 #elif defined (CONFIG_MACH_SP7702)
 	if(pdev->id == 1){
 		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
