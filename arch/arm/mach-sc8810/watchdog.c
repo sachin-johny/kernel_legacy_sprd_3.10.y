@@ -39,7 +39,7 @@
 #ifdef CONFIG_ARCH_SC7710
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x800)
 #define ANA_REG_BASE            SPRD_ANA_BASE	/*  0x82000800 */
-#define ANA_RST_STATUS          (ANA_REG_BASE + 0xC4)
+#define ANA_RST_STATUS          (ANA_REG_BASE + 0xC8)
 #define ANA_AGEN                (ANA_REG_BASE + 0x00)
 #define ANA_AGEN_1		(ANA_REG_BASE + 0x0C)
 #define AGEN_WDG_EN             BIT(2)
