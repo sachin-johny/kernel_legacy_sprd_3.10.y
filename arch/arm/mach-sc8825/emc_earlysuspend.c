@@ -909,9 +909,9 @@ static ssize_t emc_freq_store(struct kobject *kobj, struct kobj_attribute *attr,
 	case '2' : /*300MHz*/
 		printk("emc_freq_store 2\n");
 		mutex_lock(&emc_mutex);
+		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
 		cp_do_change_emc_freq(EMC_SWITCH_TO_DLL_ENABLE_MODE,  0, EMC_FREQ_MP4_SENE, EMC_DDR_TYPE_DDR2, 75);
 		close_cp();
-		sci_glb_set(REG_AHB_AHB_CTL1, BIT_EMC_AUTO_GATE_EN);
 		emc_freq_div = 2;
 		mutex_unlock(&emc_mutex);
 		break;
