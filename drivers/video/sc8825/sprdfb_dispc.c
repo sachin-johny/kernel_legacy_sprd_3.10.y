@@ -905,7 +905,16 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		dispc_ctx.clk_open = true;
 #endif
 		dispc_ctx.vsync_done = 1;
+#ifdef CONFIG_ARCH_SC7710
+		/* sometime, disc or matrix clock maybe not enable */
+		BUG_ON(dispc_read(0) == dispc_read(0x04)
+			&& dispc_read(0) == dispc_read(0x08)
+			&& dispc_read(0) == dispc_read(0x0c)
+			&& dispc_read(0) == dispc_read(0x10));
+		if (0 == dispc_read(DISPC_SIZE_XY)) { /* resume from deep sleep */
+#else
 		if (dispc_read(DISPC_SIZE_XY) == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
+#endif
 			printk(KERN_INFO "sprdfb:[%s], dev->enable= %d\n",__FUNCTION__, dev->enable);
 			dispc_reset();
 			dispc_module_enable();

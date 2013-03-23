@@ -46,6 +46,7 @@ extern void print_time(void);
 extern void irq_wakeup_set(void);
 extern void time_add(unsigned int time, int ret);
 extern void print_hard_irq_inloop(int ret);
+extern void check_if_wait_trace(int);
 extern int is_print_linux_clock;
 extern int is_print_modem_clock;
 

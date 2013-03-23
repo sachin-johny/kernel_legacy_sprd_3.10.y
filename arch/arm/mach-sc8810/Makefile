@@ -15,7 +15,11 @@ obj-$(CONFIG_PM) += pm_vlx.o
 else
 obj-$(CONFIG_PM) += pm_orig.o
 endif
-obj-$(CONFIG_PM) += pm.o  pm_sc8810.o standby.o pm_debug.o
+obj-$(CONFIG_PM) += pm.o standby.o
+ifeq ($(CONFIG_PM),y)
+obj-$(CONFIG_SPRD_SOC_SC8810) += pm_sc8810.o pm_debug.o
+obj-$(CONFIG_SPRD_SOC_SC7710) += pm_sc7710.o pm_debug_sc7710.o
+endif
 
 obj-$(CONFIG_SPRD_DCDC_CAL) += dcdc_cal.o
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o

@@ -632,6 +632,14 @@ static const struct clksel_rate rates_clk_iis_clk_pad_8div[] = {
 		{.div = 0},
 };
 
+static struct clksel_rate rates_clk_128m_256div[256 + 1];
+static struct clksel_rate rates_clk_96m_256div[256 + 1];
+static struct clksel_rate rates_clk_76m800k_256div[256 + 1];
+static struct clksel_rate rates_clk_51m200k_256div[256 + 1];
+static struct clksel_rate rates_clk_iis_pad_256div[256 + 1];
+static struct clksel_rate rates_clk_32k_256div[256 + 1];
+static struct clksel_rate rates_clk_26m_256div[256 + 1];
+
 static const struct clksel ccir_mclk_clksel[] = {
 		{.parent = &clk_96m,		.val = 0,	.rates = rates_clk_96m_4div},
 		{.parent = &clk_76m800k,	.val = 1,	.rates = rates_clk_76m800k_4div},
@@ -1000,10 +1008,10 @@ static struct clk clk_dispc_dbi = {
 };
 
 static const struct clksel clk_dispc_dpi_clksel[] = {
-		{.parent = &l3_384m,		.val = 0,	.rates = rates_clk_26m_8div},
-		{.parent = &clk_128m,		.val = 1,	.rates = rates_clk_26m_8div},
-		{.parent = &l3_192m,		.val = 2,	.rates = rates_clk_26m_8div},
-		{.parent = &l3_153m600k,	.val = 3,	.rates = rates_clk_26m_8div},
+		{.parent = &l3_384m,		.val = 0,	.rates = rates_clk_26m_256div},
+		{.parent = &clk_128m,		.val = 1,	.rates = rates_clk_26m_256div},
+		{.parent = &l3_192m,		.val = 2,	.rates = rates_clk_26m_256div},
+		{.parent = &l3_153m600k,	.val = 3,	.rates = rates_clk_26m_256div},
 		{.parent = NULL}
 };
 
@@ -1314,15 +1322,6 @@ static struct clk clk_adi_m = {
 	*/
 };
 
-static struct clksel_rate rates_clk_128m_256div[256 + 1];
-static struct clksel_rate rates_clk_96m_256div[256 + 1];
-static struct clksel_rate rates_clk_76m800k_256div[256 + 1];
-static struct clksel_rate rates_clk_51m200k_256div[256 + 1];
-static struct clksel_rate rates_clk_iis_pad_256div[256 + 1];
-static struct clksel_rate rates_clk_32k_256div[256 + 1];
-static struct clksel_rate rates_clk_26m_256div[256 + 1];
-
-
 static void rates_init(void)
 {
 	int i;
@@ -1433,7 +1432,9 @@ static const struct clksel clk_aux1_clksel[] = {
 
 static struct clk clk_aux1 = {
 	.name = "clk_aux1",
+#if 0
 	.flags = DEVICE_APB,
+#endif
 	.ops = &sc88xx_clk_ops_generic,
 	.parent = &clk_96m,
 	.clkdm_name = "peripheral",
