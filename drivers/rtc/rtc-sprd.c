@@ -183,7 +183,7 @@ static unsigned long sprd_rtc_get_sec(void)
 
 	return first;
 }
-
+#ifdef CONFIG_RTC_SUNG
 void sprd_rtc_set_spg_counter(u16 value)
 {
 	u16 spg_cnt = 0;
@@ -257,6 +257,7 @@ u16 sprd_rtc_hwrst_get(void)
 	return i;
 }
 EXPORT_SYMBOL(sprd_rtc_hwrst_get);
+#endif
 static int sprd_rtc_set_sec(unsigned long secs)
 {
 	unsigned sec, min, hour, day;
@@ -591,9 +592,9 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 	/*ensure the rtc interrupt don't be send to Adie when there's no
 	  *rtc alarm int occur.
 	  */
-	sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_LOCK);
+//	sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_LOCK);
 	/* disable all interrupt */
-	sci_adi_clr(ANA_RTC_INT_EN, RTC_INT_ALL_MSK);
+//	sci_adi_clr(ANA_RTC_INT_EN, RTC_INT_ALL_MSK);
 	/* enable rtc device */
 	rtc_data->clk = clk_get(&plat_dev->dev, "ext_32k");
 	if (IS_ERR(rtc_data->clk)) {
@@ -634,9 +635,10 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		sprd_rtc_open(&plat_dev->dev);
 	}
 #endif
-
+#ifdef CONFIG_RTC_SUNG
 	sprd_rtc_hwrst_set(1);
 	sprd_rtc_set_bit_spg_counter(SPG_CNT_8SECS_RESET, 1);
+#endif
 	return 0;
 
 unregister_rtc:
@@ -661,7 +663,7 @@ static int __devexit sprd_rtc_remove(struct platform_device *plat_dev)
 
 	return 0;
 }
-
+#ifdef CONFIG_RTC_SUNG
 static void sprd_rtc_shutdown(struct platform_device *pdev)
 {
 	sprd_rtc_set_bit_spg_counter(SPG_CNT_8SECS_RESET, 0);
@@ -671,7 +673,7 @@ static void sprd_rtc_shutdown(struct platform_device *pdev)
 	sprd_rtc_set_bit_spg_counter(SPG_CNT_ALARM_BOOT, 1);
 #endif 
 }
-
+#endif
 static struct platform_driver sprd_rtc_driver = {
 	.probe	= sprd_rtc_probe,
 	.remove = __devexit_p(sprd_rtc_remove),
@@ -679,7 +681,9 @@ static struct platform_driver sprd_rtc_driver = {
 		.name = "sprd_rtc",
 		.owner = THIS_MODULE,
 	},
+#ifdef CONFIG_RTC_SUNG
 	.shutdown = sprd_rtc_shutdown,
+#endif
 };
 
 static int __init sprd_rtc_init(void)
