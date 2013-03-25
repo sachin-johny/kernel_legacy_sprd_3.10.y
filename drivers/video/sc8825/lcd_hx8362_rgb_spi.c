@@ -392,6 +392,7 @@ static struct info_rgb lcd_hx8362_rgb_info = {
 struct panel_spec lcd_hx8362_rgb_spi_spec = {
 	.width = 480,
 	.height = 854,
+	.fps = 58,
 	.type = LCD_MODE_RGB,
 	.direction = LCD_DIRECT_NORMAL,
 	.info = {

@@ -22,6 +22,7 @@
 #include <mach/irqs.h>
 
 #include "sprdfb_dispc_reg.h"
+#include "sprdfb_panel.h"
 #include "sprdfb.h"
 
 
@@ -42,6 +43,8 @@
 #define DISPC_DPI_CLOCK_PARENT ("clk_384m")
 #define DISPC_DPI_CLOCK (384*1000000/11)
 #endif
+
+#define SPRDFB_DPI_CLOCK_SRC (384000000)
 
 #define DISPMTX_CLK_EN (11)
 #define DISPC_CORE_CLK_EN (9)
@@ -430,6 +433,59 @@ static void dispc_stop(struct sprdfb_device *dev)
 	}
 }
 
+static void dispc_update_clock(struct sprdfb_device *dev)
+{
+	uint32_t hpixels, vlines, need_clock,  dividor;
+	int ret = 0;
+
+	struct panel_spec* panel = dev->panel;
+	struct info_mipi * mipi = panel->info.mipi;
+	struct info_rgb* rgb = panel->info.rgb;
+
+	pr_debug("sprdfb:[%s]\n", __FUNCTION__);
+
+	if(0 == panel->fps){
+		printk("sprdfb: No panel->fps specified!\n");
+		return;
+	}
+
+
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		if(LCD_MODE_DSI == dev->panel->type ){
+			hpixels = panel->width + mipi->timing->hsync + mipi->timing->hbp + mipi->timing->hfp;
+			vlines = panel->height + mipi->timing->vsync + mipi->timing->vbp + mipi->timing->vfp;
+		}else if(LCD_MODE_RGB == dev->panel->type ){
+			hpixels = panel->width + rgb->timing->hsync + rgb->timing->hbp + rgb->timing->hfp;
+			vlines = panel->height + rgb->timing->vsync + rgb->timing->vbp + rgb->timing->vfp;
+		}else{
+			printk("sprdfb:[%s] unexpected panel type!(%d)\n", __FUNCTION__, dev->panel->type);
+			return;
+		}
+
+		need_clock = hpixels * vlines * panel->fps;
+		dividor  = SPRDFB_DPI_CLOCK_SRC/need_clock;
+		if(SPRDFB_DPI_CLOCK_SRC - dividor*need_clock > (need_clock/2) ) {
+			dividor += 1;
+		}
+
+		if((dividor < 1) || (dividor > 0x100)){
+			printk("sprdfb:[%s]: Invliad dividor(%d)!Not update dpi clock!\n", __FUNCTION__, dividor);
+			return;
+		}
+
+		dev->dpi_clock = SPRDFB_DPI_CLOCK_SRC/dividor;
+
+		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, dev->dpi_clock);
+		if(ret){
+			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
+		}
+
+		printk("sprdfb:[%s] need_clock = %d, dividor = %d, dpi_clock = %d\n", __FUNCTION__, need_clock, dividor, dev->dpi_clock);
+		printk("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x220));
+	}
+
+}
+
 static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
@@ -522,10 +578,15 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	if(ret){
 		printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
 	}
-	ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, DISPC_DPI_CLOCK);
-	if(ret){
-		printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
-	}
+	if((dev->panel_ready) && (0 != dev->panel->fps)){
+		dispc_update_clock(dev);
+	}else{
+		dev->dpi_clock = DISPC_DPI_CLOCK;
+		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, DISPC_DPI_CLOCK);
+		if(ret){
+			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
+		}
+ 	}
 
 	ret = clk_enable(dispc_ctx.clk_dispc);
 	if (ret) {
@@ -628,6 +689,8 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	}else{
 		dispc_layer_update(&(dev->fb->var));
 	}
+
+	dispc_update_clock(dev);
 
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		if(dispc_ctx.is_first_frame){
