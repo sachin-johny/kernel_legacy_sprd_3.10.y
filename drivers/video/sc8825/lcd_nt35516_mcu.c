@@ -425,7 +425,7 @@ static int32_t nt35516_init(struct panel_spec *self)
 	send_cmd(0x3500); send_data(0x0000);
 
 	send_cmd(0x1100); /* Sleep out*/
-	LCD_DelayMS(120);
+	msleep(120);
 	send_cmd(0x2900); /* Display On*/
 
 	send_cmd(0x2900); /* Display On*/

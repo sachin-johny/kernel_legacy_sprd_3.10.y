@@ -47,9 +47,9 @@ __setup("lcd_id=", lcd_id_get);
 static int32_t panel_reset_dispc(struct panel_spec *self)
 {
 	dispc_write(1, DISPC_RSTN);
-	mdelay(20);
+	msleep(20);
 	dispc_write(0, DISPC_RSTN);
-	mdelay(20);
+	msleep(20);
 	dispc_write(1, DISPC_RSTN);
 
 	/* wait 10ms util the lcd is stable */

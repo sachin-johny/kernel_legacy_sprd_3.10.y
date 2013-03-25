@@ -457,7 +457,7 @@ static int32_t nt35516_rgb_i2c_init(struct panel_spec *self)
 			Set_NT35516_I2C_Send((init->tag & LCM_TAG_MASK) , init->data);
 			printk(KERN_DEBUG "send one i2c data!\n");
 		} else if (tag & LCM_TAG_SLEEP) {
-			udelay((init->tag & LCM_TAG_MASK)*1000);
+			msleep((init->tag & LCM_TAG_MASK));
 			printk(KERN_DEBUG "delay!\n");
 		}
 		init++;
