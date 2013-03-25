@@ -60,11 +60,6 @@
 #define SMALL_BUFF	10
 
 #ifdef CONFIG_NKERNEL_DYNAMIC_GUEST_LOADING
-#define CONFIG_MAP_GUEST_BANK_ON_DEMAND
-//#define CONFIG_BANK_READ_ACTUAL_DATA
-
-#include <asm/io.h>
-
 
 #define BANK_BUFF_SIZE  43
 
@@ -79,9 +74,6 @@ typedef struct GuestBank {
     unsigned int           inuse;
     struct proc_dir_entry* file;
     struct GuestBank*      next;
-#if defined(CONFIG_MAP_GUEST_BANK_ON_DEMAND)
-    _Bool                  dynmap;
-#endif
 } GuestBank;
 
 typedef struct DynGuest {
@@ -348,16 +340,6 @@ _nk_proc_bank_open (struct inode* inode,
     if (gb->parent->started && (!gb->parent->suspended)) {
         err = -EAGAIN;
     } else {
-#if defined(CONFIG_MAP_GUEST_BANK_ON_DEMAND)
-	/* if bank is not statically mapped, map it dynamically */ 
-	if (gb->dynmap) {
-	    if (!(gb->vstart = (NkVmAddr)ioremap_cached(gb->pstart, gb->cfgSize))) {
-		printk("NK -- error: failed to remap bank\n");
-		spin_unlock(&glock);
-		return -ENOMEM;
-	    }
-	}
-#endif
         gb->parent->inuse++;
         file->private_data = (void*)gb;
         err = 0;
@@ -374,6 +356,7 @@ _nk_proc_bank_lseek (struct file* file,
 {
     loff_t new;
     GuestBank* gb  = file->private_data;
+    int        err = 0;
 
     if (!gb) {
 	return -EINVAL;
@@ -407,10 +390,6 @@ _nk_proc_bank_release (struct inode* inode,
             err = -EINVAL;
         }
     }
-#if defined(CONFIG_MAP_GUEST_BANK_ON_DEMAND)
-	if (gb->dynmap)
-	    iounmap((void*)gb->vstart);
-#endif
 
     gb->size = 0;
 
@@ -427,34 +406,24 @@ _nk_proc_bank_read (struct file* file,
 	       size_t       count,
 	       loff_t*      ppos)
 {
-    GuestBank *gb = (GuestBank*)file->private_data;
-#if defined(CONFIG_BANK_READ_ACTUAL_DATA)
-    size_t c = gb->cfgSize - *ppos;
-
-    if (count > c)
-	count = c;
-    if (!count)
-        return 0;
-    if (copy_to_user(buf, (void*)(int)(gb->vstart + *ppos), count)) {
-        printk("NK -- error: can't copy to user provided buffer\n");
-        return -EFAULT;
-    }
-#else
+    GuestBank* gb = (GuestBank*)file->private_data;
     char       pbuf[BANK_BUFF_SIZE];
 
     if (*ppos || !count) {
         return 0;
     }
+
     snprintf(pbuf, BANK_BUFF_SIZE,"virtual start: 0x%08x size:0x%08x\n", gb->vstart, gb->cfgSize);
     if (count > (BANK_BUFF_SIZE -1)) {
         count = BANK_BUFF_SIZE -1;
     }
+
     if (copy_to_user(buf, pbuf, count)) {
         printk("NK -- error: can't copy to user provided buffer\n");
         return -EFAULT;
     }
-#endif
     *ppos += count;
+
     return count;
 }
 
@@ -467,21 +436,15 @@ _nk_proc_bank_write (struct file* file,
     GuestBank* gb = (GuestBank*)file->private_data;
     void*      dst;
 
-    if (!size)
-        return 0;
     if ((*ppos + size) > gb->cfgSize) {
         return -EFBIG;
     }
 
-#if defined(CONFIG_MAP_GUEST_BANK_ON_DEMAND)
-    dst = (void*)(int)(gb->vstart + *ppos);
-#else
     dst = nkops.nk_mem_map(gb->pstart + *ppos, size);
     if (!dst) {
         printk("NK -- error: can't map guest memory bank\n");
         return -EINVAL;
     }
-#endif
     if (copy_from_user(dst, ubuf, size)) {
         printk("NK -- error: can't copy command line\n");
         return -EINVAL;
@@ -618,6 +581,7 @@ _nk_proc_sts_lseek (struct file* file,
 	        int          whence)
 {
     loff_t new;
+    DynGuest*    dg = (DynGuest*)file->private_data;
 
     switch (whence) {
         case 0:  new = off; break;
@@ -1140,13 +1104,6 @@ _bank_create (DynGuest* dg, BankDesc* bd)
 
     gb->cfgSize = bd->cfgSize;
     gb->pstart  = nkops.nk_vtop((void*)bd->vaddr);
-#if defined(CONFIG_MAP_GUEST_BANK_ON_DEMAND)
-    {
-	extern int nk_direct_dma;
-	if (!nk_direct_dma && os_ctx->id != dg->id)
-	    gb->dynmap = 1;
-    }
-#endif
     gb->vstart  = (NkVmAddr)bd->vaddr;
     gb->type    = bd->type;
 
@@ -1168,7 +1125,7 @@ _guests_init (int count, BankDesc* bd)
     if (all_banks_empty == -1 ) {
 	while (count_tmp--) {
 	    NkOsId id = BANK_OS_ID(bd_tmp->type);
-	    if (bd_tmp->size || id == BANK_OS_ID(BANK_OS_SHARED)) {
+	    if (bd_tmp->size || (id = BANK_OS_ID(BANK_OS_SHARED))) {
 		all_banks_empty &= ~(1 << id);
 	    }
 	    bd_tmp++;
