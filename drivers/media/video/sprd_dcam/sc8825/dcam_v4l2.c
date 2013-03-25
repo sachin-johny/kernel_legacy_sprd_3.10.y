@@ -47,7 +47,16 @@
 #define DCAM_QUEUE_LENGTH                       8
 #define DCAM_TIMING_LEN                         16
 #define DCAM_TIMEOUT                            1000
-#define V4L2_RTN_IF_ERR(n)                      if(unlikely(n))  goto exit
+#define DEBUG_STR                               "L %d, %s: \n"
+#define DEBUG_ARGS                              __LINE__,__FUNCTION__
+#define V4L2_RTN_IF_ERR(n)          \
+	do {                        \
+		if(unlikely(n)) {                \
+			printk(DEBUG_STR,DEBUG_ARGS);            \
+			goto exit;       \
+		}                        \
+	} while(0)
+
 #define DCAM_VERSION \
 	KERNEL_VERSION(DCAM_MAJOR_VERSION, DCAM_MINOR_VERSION, DCAM_RELEASE)
 
@@ -805,7 +814,7 @@ static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	node.index    = frame->fid;
 	node.height   = frame->height;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
+	printk("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
 		node.irq_flag, node.f_type, node.index);
 
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == frame->type) {
@@ -960,6 +969,49 @@ exit:
 	return ret;
 }
 
+static int sprd_v4l2_path_lightly_cfg(path_cfg_func path_cfg,
+				struct dcam_path_spec* path_spec)
+{
+	int                      ret = DCAM_RTN_SUCCESS;
+	uint32_t                 param;
+
+	if (NULL == path_cfg || NULL == path_spec)
+		return -EINVAL;
+
+	if (path_spec->is_from_isp) {
+		param = 1;
+	} else {
+		param = 0;
+	}
+	ret = path_cfg(DCAM_PATH_SRC_SEL, &param);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_INPUT_SIZE, &path_spec->in_size);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_INPUT_RECT, &path_spec->in_rect);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_OUTPUT_SIZE, &path_spec->out_size);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_OUTPUT_FORMAT, &path_spec->out_fmt);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_FRAME_BASE_ID, &path_spec->frm_id_base);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_FRAME_TYPE, &path_spec->frm_type);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_DATA_ENDIAN, &path_spec->end_sel);
+	V4L2_RTN_IF_ERR(ret);
+
+exit:
+	return ret;
+}
+
+
 static int sprd_v4l2_local_deinit(struct dcam_dev *dev)
 {
 	struct dcam_path_spec    *path = &dev->dcam_cxt.dcam_path[0];
@@ -992,10 +1044,12 @@ static int sprd_v4l2_queue_init(struct dcam_queue *queue)
 
 static int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node)
 {
-	struct dcam_node         *ori_node = queue->write;
+	struct dcam_node         *ori_node;
 
 	if (NULL == queue || NULL == node)
 		return -EINVAL;
+
+	ori_node = queue->write;
 
 	*queue->write++ = *node;
 	if (queue->write > &queue->node[DCAM_QUEUE_LENGTH-1]) {
@@ -1422,7 +1476,7 @@ static int v4l2_streamon(struct file *file,
 	int                      ret = DCAM_RTN_SUCCESS;
 	uint32_t                 i;
 
-	DCAM_TRACE("v4l2_streamon, stream mode %d \n", dev->stream_mode);
+	printk("v4l2_streamon, stream mode %d \n", dev->stream_mode);
 	
 	mutex_lock(&dev->dcam_mutex);
 
@@ -1430,6 +1484,10 @@ static int v4l2_streamon(struct file *file,
 		/* means lightly stream on/off */
 		ret = dcam_cap_cfg(DCAM_CAP_PRE_SKIP_CNT, &dev->dcam_cxt.skip_number);
 		V4L2_RTN_IF_ERR(ret);
+
+		ret = sprd_v4l2_path_lightly_cfg(dcam_path1_cfg, &dev->dcam_cxt.dcam_path[0]);
+		V4L2_RTN_IF_ERR(ret);
+
 		ret = dcam_resume();
 	} else {
 		if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
@@ -1437,7 +1495,7 @@ static int v4l2_streamon(struct file *file,
 			V4L2_RTN_IF_ERR(ret);
 			ret = csi_api_start();
 			V4L2_RTN_IF_ERR(ret);
-			ret = csi_reg_isr(sprd_v4l2_csi2_error, dev);
+			ret = csi_reg_isr(sprd_v4l2_csi2_error, (void*)dev);
 			V4L2_RTN_IF_ERR(ret);
 			ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
 			V4L2_RTN_IF_ERR(ret);
@@ -1500,20 +1558,21 @@ static int v4l2_streamoff(struct file *file,
 	struct dcam_path_spec    *path = &dev->dcam_cxt.dcam_path[1];
 	int                      ret = DCAM_RTN_SUCCESS;
 
-	DCAM_TRACE("v4l2_streamoff, stream mode %d, if mode %d \n",
+	printk("v4l2_streamoff, stream mode %d, if mode %d \n",
 		dev->stream_mode,
 		dev->dcam_cxt.if_mode);
 
 	mutex_lock(&dev->dcam_mutex);
 
 	if (unlikely(0 == atomic_read(&dev->stream_on))) {
-		ret = -EPERM;
+		/*ret = -EPERM;*/
 		goto exit;
 	}
 	sprd_stop_timer(&dev->dcam_timer);
 
 	if (dev->stream_mode) {
 		ret = dcam_pause();
+		dcam_wait_for_done_ex();
 	} else {
 		atomic_set(&dev->stream_on, 0);
 
@@ -1678,6 +1737,27 @@ static void sprd_stop_timer(struct timer_list *dcam_timer)
 	DCAM_TRACE("v4l2: stop timer.\n");
 	del_timer_sync(dcam_timer);
 }
+
+static void sprd_init_handle(struct file *file)
+{
+	struct dcam_dev          *dev = video_drvdata(file);
+	struct dcam_info         *info = &dev->dcam_cxt;
+	struct dcam_path_spec    *path;
+
+	atomic_set(&dev->stream_on, 0);
+	if (NULL == info) {
+		printk("V4L2:init handle fail.");
+		return;
+	}
+	printk("init handle.\n");
+	path = &info->dcam_path[0];
+	if (NULL == path) {
+		printk("V4L2:init path fail.");
+		return;
+	}
+	path->frm_cnt_act = 0;
+}
+
 static int sprd_v4l2_open(struct file *file)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
@@ -1708,7 +1788,9 @@ static int sprd_v4l2_open(struct file *file)
 	ret = sprd_v4l2_queue_init(&dev->queue);
 
 	ret = sprd_init_timer(&dev->dcam_timer,(unsigned long)dev);
-	
+
+	sprd_init_handle(file);
+
 	DCAM_TRACE("V4L2: open /dev/video%d type=%s \n", dev->vfd->num,
 		v4l2_type_names[V4L2_BUF_TYPE_VIDEO_CAPTURE]);
 
@@ -1716,6 +1798,7 @@ exit:
 	if (unlikely(ret)) {
 		atomic_dec(&dev->users);
 	}
+	atomic_set(&dev->stream_on, 0);
 	mutex_unlock(&dev->dcam_mutex);
 
 	DCAM_TRACE("sprd_v4l2_open %d \n", ret);
@@ -1734,7 +1817,7 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 	rt_word[0] = DCAM_SC_LINE_BUF_LENGTH;
 	rt_word[1] = DCAM_SC_COEFF_MAX;
-	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor %d\n", rt_word[0], rt_word[1]);
+	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor %d.\n", rt_word[0], rt_word[1]);
 	(void)file; (void)cnt; (void)cnt_ret;
 	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
 }
