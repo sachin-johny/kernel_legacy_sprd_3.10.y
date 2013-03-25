@@ -18,8 +18,8 @@
 
 /*Jessica TODO: need to modified*/
 #ifdef CONFIG_FB_SC7710
-#define GEN0_SPI2_EN (0)
-#define SWRST_SPI2_RST		(0)
+#define GEN0_SPI2_EN           BIT(19)
+#define SWRST_SPI2_RST         BIT(31)
 #endif
 
  /**---------------------------------------------------------------------------*
@@ -68,6 +68,7 @@ typedef enum LCM_DMA_RETURN_E
  
 void SPI_Enable( uint32_t spi_id, bool is_en)
 {
+    uint32_t tmp;
     if(is_en)
     {
 		switch(spi_id){
@@ -80,8 +81,14 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
             			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
 			break;
 		case SPI2_ID:
+#ifdef CONFIG_FB_SC7710
+				tmp = __raw_readl (SPRD_GREG_BASE+0xa4);
+				tmp |= ( 1 << GEN0_SPI2_EN);
+				__raw_writel(tmp,(SPRD_GREG_BASE+0xa4));
+#else
             			/* *(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB */
             			sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI2_EN, GR_GEN0);
+#endif
 			break;
 		default:
 
