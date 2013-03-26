@@ -18,7 +18,7 @@
 #include <linux/fs.h>
 #include <linux/bug.h>
 
-#ifdef CONFIG_DEBUG_FS
+#if defined (CONFIG_DEBUG_FS) && defined (CONFIG_RTC_SUNG)
 extern void cp_abort(void);
 extern void sprd_rtc_set_spg_counter(u16 value);
 extern u16 sprd_rtc_get_spg_counter(void);
@@ -104,7 +104,7 @@ err_create:
 
 void sys_debug_init(void)
 {
-#ifdef CONFIG_DEBUG_FS
+#if defined CONFIG_DEBUG_FS && defined (CONFIG_RTC_SUNG)
 	create_sys_debugfs();
 #endif
 }
