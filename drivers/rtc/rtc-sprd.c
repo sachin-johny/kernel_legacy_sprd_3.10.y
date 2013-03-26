@@ -390,6 +390,8 @@ static int sprd_rtc_set_alarm(struct device *dev,
 			msleep(1);
 			i++;
 		}while(read_secs != secs && i < SPRD_RTC_SET_MAX);
+		/*unlock the rtc alrm int*/
+		sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
 		wake_unlock(&rtc_wake_lock);
 	}else{
 		sci_adi_clr(ANA_RTC_INT_EN, RTC_ALARM_BIT);
@@ -500,6 +502,7 @@ static int sprd_remove_caliberate_attr(struct device dev)
 	}
 	return 0;
 }
+
 static int sprd_rtc_open(struct device *dev)
 {
 	int temp = 0;
@@ -507,8 +510,6 @@ static int sprd_rtc_open(struct device *dev)
 	temp = sci_adi_read(ANA_RTC_INT_EN);
 	temp |= RTC_ALARM_BIT;
 	sci_adi_raw_write(ANA_RTC_INT_EN, temp);
-	/*unlock the rtc alrm int*/
-	sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
 
 	return 0;
 }
@@ -523,7 +524,6 @@ static const struct rtc_class_ops sprd_rtc_ops = {
 	.set_mmss = sprd_rtc_set_mmss,
 };
 
-
 static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
 	int err = -ENODEV;
@@ -536,12 +536,6 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		return err;
 	};
 
-	/*ensure the rtc interrupt don't be send to Adie when there's no
-	  *rtc alarm int occur.
-	  */
-	sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_LOCK);
-	/* disable all interrupt */
-	sci_adi_clr(ANA_RTC_INT_EN, RTC_INT_ALL_MSK);
 	/* enable rtc device */
 	rtc_data->clk = clk_get(&plat_dev->dev, "ext_32k");
 	if (IS_ERR(rtc_data->clk)) {
