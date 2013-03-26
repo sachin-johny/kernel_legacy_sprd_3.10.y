@@ -1345,8 +1345,9 @@ LOCAL void _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 			}
 
 			if (i2c_add_driver(&sensor_i2c_driver)) {
-				SENSOR_PRINT_ERR
-				    ("SENSOR: add I2C driver error\n");
+				printk("SENSOR: add I2C driver error\n");
+
+				SENSOR_PRINT_ERR("SENSOR: add I2C driver error\n");
 				return;
 			} else {
 				SENSOR_PRINT_ERR
