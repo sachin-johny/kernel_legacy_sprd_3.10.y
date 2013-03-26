@@ -245,8 +245,8 @@
 #define BURST_MODE_8                   (5 << 28)
 #define BURST_MODE_16                  (7 << 28)
 
-#define DMA_SOFT_WAITTIME              0x0f
-#define DMA_HARD_WAITTIME              0x0f
+#define DMA_SOFT_WAITTIME              0x00
+#define DMA_HARD_WAITTIME              0x00
 
 #define DMA_INCREASE                   (0)
 #define DMA_DECREASE                   (1)
