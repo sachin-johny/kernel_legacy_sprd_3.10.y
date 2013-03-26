@@ -1154,6 +1154,10 @@ static int sprd_codec_open(struct snd_soc_codec *codec)
 
 	sprd_codec_sample_rate_setting(sprd_codec);
 
+	/* SC8825 ask from ASIC to set initial value */
+	snd_soc_write(codec, AUD_SDM_CTL0, 0x400);
+	snd_soc_write(codec, AUD_SDM_CTL1, 0);
+
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
 }
