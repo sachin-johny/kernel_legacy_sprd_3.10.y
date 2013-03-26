@@ -315,7 +315,7 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 			.addr	= this_client->addr,
 			.flags	= I2C_M_RD,
 			.len	= 1,
-			.buf	= buf,
+			.buf	= buf+1,
 		},
 	};
 
@@ -323,7 +323,7 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 	if (ret < 0)
 		pr_err("msg %s i2c read error: %d\n", __func__, ret);
 
-	*pdata = buf[0];
+	*pdata = buf[1];
 	return ret;
 }
 #ifdef TOUCH_VIRTUAL_KEYS
@@ -550,17 +550,18 @@ FTS_BOOL byte_read(FTS_BYTE* pbt_buf, FTS_BYTE bt_len)
 
 #define    FTS_PACKET_LENGTH        128
 
-#if 0
-static unsigned char CTPM_FW[]=
+static unsigned char FT5316_FW[]=
 {
 #include "ft5316_qHD.i"
 };
-#else
-static unsigned char CTPM_FW[]=
+
+static unsigned char FT5306_FW[]=
 {
 #include "ft5306_qHD.i"
 };
-#endif
+
+static unsigned char *CTPM_FW = FT5306_FW;
+static int fm_size;
 
 E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
 {
@@ -742,7 +743,7 @@ int fts_ctpm_fw_upgrade_with_i_file(void)
     //=========FW upgrade========================*/
    pbt_buf = CTPM_FW;
    /*call the upgrade function*/
-   i_ret =  fts_ctpm_fw_upgrade(pbt_buf,sizeof(CTPM_FW));
+   i_ret =  fts_ctpm_fw_upgrade(pbt_buf,fm_size);
    if (i_ret != 0)
    {
 	printk("[FTS] upgrade failed i_ret = %d.\n", i_ret);
@@ -1103,18 +1104,40 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
 	#endif
 
-	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
-	if(uc_reg_value != 0x55 && uc_reg_value != 0x0a)
+	err = ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
+	if (err < 0)
 	{
+		printk("read chip id error %x\n", uc_reg_value);
+		err = -ENODEV;
+		goto exit_alloc_data_failed;
+	}
+
+	printk("[FST] FT5X0X_REG_CIPHER is 0x%x\n",uc_reg_value);
+
+	/*
+	  Normally FT5306 chip id is 0x55, FT5316 chip id is 0x0a,
+	  but if the tp device power off when downloading firmware,
+	  FT5306 chip id changes to 0xa3, FT5316 changes to 0x0,
+	  and the firmware need to be downloaded first next time.
+	*/
+	if (uc_reg_value == 0x55 || uc_reg_value == 0xa3) {
+		CTPM_FW = FT5306_FW;
+		fm_size = sizeof(FT5306_FW);
 		if(uc_reg_value == 0xa3) {
 			msleep(100);
 			fts_ctpm_fw_upgrade_with_i_file();
 		}
-		else {
-			printk("chip id error %x\n",uc_reg_value);
-			err = -ENODEV;
-			goto exit_alloc_data_failed;
+	} else if (uc_reg_value == 0x0a || uc_reg_value == 0x0) {
+		CTPM_FW = FT5316_FW;
+		fm_size = sizeof(FT5316_FW);
+		if(uc_reg_value == 0x0) {
+			msleep(100);
+			fts_ctpm_fw_upgrade_with_i_file();
 		}
+	} else {
+		printk("unknown chip id %x\n", uc_reg_value);
+		err = -ENODEV;
+		goto exit_alloc_data_failed;
 	}
 
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);//about 70HZ
@@ -1201,9 +1224,9 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	//get some register information
 	uc_reg_value = ft5x0x_read_fw_ver();
 	printk("[FST] Firmware version = 0x%x\n", uc_reg_value);
-	printk("[FST] New Firmware version = 0x%x\n", CTPM_FW[sizeof(CTPM_FW)-2]);
+	printk("[FST] New Firmware version = 0x%x\n", CTPM_FW[fm_size-2]);
 
-	if(uc_reg_value != CTPM_FW[sizeof(CTPM_FW)-2])
+	if(uc_reg_value != CTPM_FW[fm_size-2])
 	{
 		fts_ctpm_fw_upgrade_with_i_file();
 	}
