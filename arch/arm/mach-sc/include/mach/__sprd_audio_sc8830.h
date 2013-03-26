@@ -58,8 +58,10 @@ enum {
 
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 #define SPRD_IRAM_ALL_PHYS	0X00000000
-#define SPRD_IRAM_ALL_SIZE	SZ_64K
+#define SPRD_IRAM_ALL_SIZE	SZ_32K
 #endif
+
+#define CLASS_G_LDO_ID			"vddamp"
 #endif
 
 /* ------------------------------------------------------------------------- */
@@ -95,7 +97,6 @@ static inline int arch_audio_vbc_reg_disable(void)
 	return ret;
 }
 
-#if 1
 static inline int arch_audio_vbc_enable(void)
 {
 	int ret = 0;
@@ -117,7 +118,7 @@ static inline int arch_audio_vbc_disable(void)
 
 	return ret;
 }
-#endif
+
 static inline int arch_audio_vbc_switch(int master)
 {
 	int ret = 0;
@@ -233,98 +234,6 @@ static inline int arch_audio_vbc_switch(int master)
 
 	return ret;
 }
-
-#if 0
-static inline int arch_audio_vbc_ad_enable(int chan)
-{
-	int ret = 0;
-
-#if FIXED_AUDIO
-	switch (chan) {
-	case 0:
-		sci_glb_set(REG_GLB_BUSCLK, BIT_ARM_VBC_AD0ON);
-		break;
-	case 1:
-		sci_glb_set(REG_GLB_BUSCLK, BIT_ARM_VBC_AD1ON);
-		break;
-	default:
-		ret = -ENODEV;
-		break;
-	}
-#endif
-
-	return ret;
-}
-
-static inline int arch_audio_vbc_ad_disable(int chan)
-{
-	int ret = 0;
-
-#if FIXED_AUDIO
-	switch (chan) {
-	case 0:
-		sci_glb_clr(REG_GLB_BUSCLK, BIT_ARM_VBC_AD0ON);
-		break;
-	case 1:
-		sci_glb_clr(REG_GLB_BUSCLK, BIT_ARM_VBC_AD1ON);
-		break;
-	default:
-		ret = -ENODEV;
-		break;
-	}
-#endif
-
-	return ret;
-}
-
-static inline int arch_audio_vbc_da_enable(int chan)
-{
-	int ret = 0;
-
-#if FIXED_AUDIO
-	switch (chan) {
-	case 0:
-		sci_glb_set(REG_GLB_BUSCLK, BIT_ARM_VBC_DA0ON);
-		break;
-	case 1:
-		sci_glb_set(REG_GLB_BUSCLK, BIT_ARM_VBC_DA1ON);
-		break;
-	default:
-		ret = -ENODEV;
-		break;
-	}
-#endif
-
-	return ret;
-}
-
-static inline int arch_audio_vbc_da_disable(int chan)
-{
-	int ret = 0;
-
-#if FIXED_AUDIO
-	switch (chan) {
-	case 0:
-		sci_glb_clr(REG_GLB_BUSCLK, BIT_ARM_VBC_DA0ON);
-		break;
-	case 1:
-		sci_glb_clr(REG_GLB_BUSCLK, BIT_ARM_VBC_DA1ON);
-		break;
-	default:
-		ret = -ENODEV;
-		break;
-	}
-#endif
-
-	return ret;
-}
-#endif
-#define DMA_VB_DA0                      29
-#define DMA_VB_DA1                      30
-#define DMA_VB_AD0                      31
-#define DMA_VB_AD1                      32
-#define DMA_VB_AD2                      33
-#define DMA_VB_AD3                      34
 
 static inline int arch_audio_vbc_da_dma_info(int chan)
 {
@@ -538,26 +447,49 @@ static inline int arch_audio_codec_audif_disable(void)
 	return ret;
 }
 
-static inline int arch_audio_codec_reg_enable(void)
+static inline int arch_audio_codec_digital_reg_enable(void)
 {
 	int ret = 0;
 
 #if FIXED_AUDIO
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AUD_EB);
-	ret =
-	    sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN,
-			  BIT_ANA_AUD_EN);
+	if (ret >= 0)
+		arch_audio_codec_audif_enable(1);
 #endif
 
 	return ret;
 }
 
-static inline int arch_audio_codec_reg_disable(void)
+static inline int arch_audio_codec_digital_reg_disable(void)
 {
 	int ret = 0;
 
 #if FIXED_AUDIO
+	arch_audio_codec_audif_disable();
 	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_AUD_EB);
+#endif
+
+	return ret;
+}
+
+static inline int arch_audio_codec_analog_reg_enable(void)
+{
+	int ret = 0;
+
+#if FIXED_AUDIO
+	ret =
+		sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN,
+						BIT_ANA_AUD_EN);
+#endif
+
+	return ret;
+}
+
+static inline int arch_audio_codec_analog_reg_disable(void)
+{
+	int ret = 0;
+
+#if FIXED_AUDIO
 	ret = sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, 0, BIT_ANA_AUD_EN);
 #endif
 
@@ -571,8 +503,8 @@ static inline int arch_audio_codec_enable(void)
 #if FIXED_AUDIO
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	ret = sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, mask, mask);
-	if (ret >= 0)
-		arch_audio_codec_audif_enable(1);
+
+	ret = sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN, BIT_CLK_AUD_6P5M_TX_INV_EN);
 #endif
 
 	return ret;
@@ -584,8 +516,9 @@ static inline int arch_audio_codec_disable(void)
 
 #if FIXED_AUDIO
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
-	arch_audio_codec_audif_disable();
 	ret = sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, 0, mask);
+
+	ret = sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, 0, BIT_CLK_AUD_6P5M_TX_INV_EN);
 #endif
 
 	return ret;
@@ -672,6 +605,12 @@ static inline int arch_audio_i2s_enable(int id)
 	case 1:
 		sci_glb_set(REG_AP_APB_APB_EB, BIT_IIS1_EB);
 		break;
+	case 2:
+		sci_glb_set(REG_AP_APB_APB_EB, BIT_IIS2_EB);
+		break;
+	case 3:
+		sci_glb_set(REG_AP_APB_APB_EB, BIT_IIS3_EB);
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -693,6 +632,12 @@ static inline int arch_audio_i2s_disable(int id)
 	case 1:
 		sci_glb_clr(REG_AP_APB_APB_EB, BIT_IIS1_EB);
 		break;
+	case 2:
+		sci_glb_clr(REG_AP_APB_APB_EB, BIT_IIS2_EB);
+		break;
+	case 3:
+		sci_glb_clr(REG_AP_APB_APB_EB, BIT_IIS3_EB);
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -702,7 +647,6 @@ static inline int arch_audio_i2s_disable(int id)
 	return ret;
 }
 
-#if 0
 static inline int arch_audio_i2s_tx_dma_info(int id)
 {
 	int ret = 0;
@@ -710,10 +654,16 @@ static inline int arch_audio_i2s_tx_dma_info(int id)
 #if FIXED_AUDIO
 	switch (id) {
 	case 0:
-		ret = DMA_IIS_TX;
+		ret = DMA_IIS0_TX;
 		break;
 	case 1:
 		ret = DMA_IIS1_TX;
+		break;
+	case 2:
+		ret = DMA_IIS2_TX;
+		break;
+	case 3:
+		ret = DMA_IIS3_TX;
 		break;
 	default:
 		ret = -ENODEV;
@@ -731,10 +681,16 @@ static inline int arch_audio_i2s_rx_dma_info(int id)
 #if FIXED_AUDIO
 	switch (id) {
 	case 0:
-		ret = DMA_IIS_RX;
+		ret = DMA_IIS0_RX;
 		break;
 	case 1:
 		ret = DMA_IIS1_RX;
+		break;
+	case 2:
+		ret = DMA_IIS2_RX;
+		break;
+	case 3:
+		ret = DMA_IIS3_RX;
 		break;
 	default:
 		ret = -ENODEV;
@@ -762,6 +718,16 @@ static inline int arch_audio_i2s_reset(int id)
 		udelay(10);
 		sci_glb_clr(REG_AP_APB_APB_RST, BIT_IIS1_SOFT_RST);
 		break;
+	case 2:
+		sci_glb_set(REG_AP_APB_APB_RST, BIT_IIS2_SOFT_RST);
+		udelay(10);
+		sci_glb_clr(REG_AP_APB_APB_RST, BIT_IIS2_SOFT_RST);
+		break;
+	case 3:
+		sci_glb_set(REG_AP_APB_APB_RST, BIT_IIS3_SOFT_RST);
+		udelay(10);
+		sci_glb_clr(REG_AP_APB_APB_RST, BIT_IIS3_SOFT_RST);
+		break;
 	default:
 		ret = -ENODEV;
 		break;
@@ -771,60 +737,23 @@ static inline int arch_audio_i2s_reset(int id)
 	return ret;
 }
 
-
+/*sc8830 AP IIS and CP IIS are different. AP IIS cann't switch to other master*/
 static inline int arch_audio_i2s_switch(int id, int master)
 {
 	int ret = 0;
 
 #if FIXED_AUDIO
-	switch (id) {
-	case 0:
-		switch (master) {
-		case AUDIO_TO_ARM_CTRL:
-			sci_glb_set(REG_GLB_PCTRL, BIT_IIS0_CTL_SEL);
-			break;
-		case AUDIO_TO_DSP_CTRL:
-			sci_glb_clr(REG_GLB_PCTRL, BIT_IIS0_CTL_SEL);
-			break;
-		case AUDIO_NO_CHANGE:
-			ret = sci_glb_read(REG_GLB_PCTRL, BIT_IIS0_CTL_SEL);
-			if (ret == 0)
-				ret = AUDIO_TO_DSP_CTRL;
-			else
-				ret = AUDIO_TO_ARM_CTRL;
-			break;
-		default:
-			ret = -ENODEV;
-			break;
-		}
+	switch (master) {
+	case AUDIO_TO_AP_ARM_CTRL:
 		break;
-	case 1:
-		switch (master) {
-		case AUDIO_TO_ARM_CTRL:
-			sci_glb_set(REG_GLB_PCTRL, BIT_IIS1_CTL_SEL);
-			break;
-		case AUDIO_TO_DSP_CTRL:
-			sci_glb_clr(REG_GLB_PCTRL, BIT_IIS1_CTL_SEL);
-			break;
-		case AUDIO_NO_CHANGE:
-			ret = sci_glb_read(REG_GLB_PCTRL, BIT_IIS1_CTL_SEL);
-			if (ret == 0)
-				ret = AUDIO_TO_DSP_CTRL;
-			else
-				ret = AUDIO_TO_ARM_CTRL;
-			break;
-		default:
-			ret = -ENODEV;
-			break;
-		}
+	case AUDIO_NO_CHANGE:
+		ret = AUDIO_TO_AP_ARM_CTRL;
 		break;
 	default:
 		ret = -ENODEV;
 		break;
 	}
 #endif
-
 	return ret;
 }
-#endif
 #endif
