@@ -242,6 +242,7 @@ static struct ltr558_pls_platform_data ltr558_pls_info = {
 #endif
 
 static struct i2c_board_info i2c2_boardinfo[] = {
+{  I2C_BOARD_INFO("BEKEN_FM", 0x70),  },
 };
 
 static struct i2c_board_info i2c3_boardinfo[] = {

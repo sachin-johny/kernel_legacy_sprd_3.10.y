@@ -26,7 +26,7 @@
 #include <mach/regulator.h>
 #include "beken_fm_ctrl.h"
 
-#ifdef CONFIG_ARCH_SC8825 
+#ifdef CONFIG_ARCH_SC8825 ||  CONFIG_ARCH_SC7710
 #include <mach/pinmap.h>
 #include <mach/sci.h>
 #include <mach/hardware.h>
@@ -42,7 +42,7 @@
 #define BEKEN_DEV_NAME	"BEKEN_FM"
 #define BEKEN_I2C_NAME    BEKEN_DEV_NAME
 
-#ifdef CONFIG_ARCH_SC8825
+#ifdef CONFIG_ARCH_SC8825 ||  CONFIG_ARCH_SC7710 
 struct clk *fm_clk;
 #endif
 
@@ -251,6 +251,7 @@ static int beken_check_chip_id(struct beken_drv_data *cxt, u16 *chip_id)
 
 static void beken_chip_vdd_input(struct beken_drv_data *cxt,bool turn_on)
 {
+#ifndef CONFIG_ARCH_SC7710
     if (turn_on) {
         if(cxt->regu != NULL) {
             regulator_set_mode(cxt->regu,REGULATOR_MODE_NORMAL);
@@ -266,6 +267,7 @@ static void beken_chip_vdd_input(struct beken_drv_data *cxt,bool turn_on)
 	    regulator_disable(cxt->regu);
         }
     }
+#endif
 }
 
 
@@ -313,7 +315,7 @@ static int beken_fm_close(struct beken_drv_data *cxt)
         atomic_cmpxchg(&cxt->fm_opened, 1, 0);
     }
 
-#ifdef CONFIG_ARCH_SC8825   
+#ifdef CONFIG_ARCH_SC8825   ||  CONFIG_ARCH_SC7710 
     clk_disable(fm_clk);//alvindebug
 #endif 
     //beken_chip_32k_clk_input(false); 
@@ -368,7 +370,7 @@ static int beken_fm_open(struct beken_drv_data *cxt)
 
     atomic_cmpxchg(&cxt->fm_opened, 0, 1);
     
-#ifdef CONFIG_ARCH_SC8825    
+#ifdef CONFIG_ARCH_SC8825 ||  CONFIG_ARCH_SC7710   
     clk_enable(fm_clk); //alvindebug
 #endif
     dev_err(&cxt->client->dev, "FM open: FM is opened\n");
@@ -1171,13 +1173,12 @@ static int beken_resume(struct i2c_client *client)
 
     if (atomic_read(&cxt->fm_opened) == 0) {
     /* The chip must go into stand-by mode. */
+#ifndef CONFIG_ARCH_SC7710
         mutex_lock(&cxt->mutex);
-
         beken_fm_open(cxt);
-
         beken_fm_close(cxt);
-
         mutex_unlock(&cxt->mutex);
+#endif
     }
 
     return 0;
@@ -1240,7 +1241,6 @@ static int beken_probe(struct i2c_client *client,
     int    ret = -EINVAL;
 
     struct beken_drv_data *cxt = NULL;
-
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
         dev_err(&client->dev, "beken driver: client is not i2c capable.\n");
         ret = -ENODEV;
@@ -1255,12 +1255,14 @@ static int beken_probe(struct i2c_client *client,
     }
    
     {
-#ifdef CONFIG_ARCH_SC8825
+#ifdef CONFIG_ARCH_SC8825 ||  CONFIG_ARCH_SC7710
 
-     
-        struct clk *clk_parent;
-
+       struct clk *clk_parent;
+#ifdef  CONFIG_ARCH_SC7710
+       fm_clk = clk_get(NULL,"clk_aux1");
+#else
         fm_clk = clk_get(NULL,"clk_aux0");
+#endif
 
         if (IS_ERR(fm_clk)) {
             printk("clock: failed to get clk_aux0\n");
@@ -1274,9 +1276,9 @@ static int beken_probe(struct i2c_client *client,
         clk_set_parent(fm_clk, clk_parent);
  	clk_set_rate(fm_clk, 32000);
 	 // sci_glb_write(REG_GLB_GEN1,BIT_CLK_AUX0_EN,-1UL);
-    
+#ifndef CONFIG_ARCH_SC7710
         cxt->regu =regulator_get(&client->dev,"vdd28");
-
+#endif
 #else
          
       cxt->regu =regulator_get(&client->dev,REGU_NAME_FM);
@@ -1305,9 +1307,9 @@ static int beken_probe(struct i2c_client *client,
 #if (BEKEN_DEBUG)
 //    beken_read_all_registers(cxt);
 #endif
-
+#ifndef CONFIG_ARCH_SC7710
     beken_fm_close(cxt);
-
+#endif
     cxt->fm_class.owner = THIS_MODULE;
     cxt->fm_class.name = "fm_class";
     beken_fm_sysfs_init(&cxt->fm_class);
