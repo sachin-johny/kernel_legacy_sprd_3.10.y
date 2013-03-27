@@ -22,6 +22,8 @@ struct sprd_host_platdata {
 	int detect_gpio;
 	const char *hw_name;	/* Hardware bus name */
 	const char *vdd_name;
+	const char *vdd_ext_name;
+	struct regulator *vmmc;	/* extend Power regulator */
 	int volt_level;
 	const char *clk_name;
 	const char *clk_parent;
@@ -140,6 +142,9 @@ struct sdhci_host {
 #define SDHCI_NEEDS_RETUNING	(1<<5)	/* Host needs retuning */
 #define SDHCI_AUTO_CMD12	(1<<6)	/* Auto CMD12 support */
 #define SDHCI_AUTO_CMD23	(1<<7)	/* Auto CMD23 support */
+#define SDHCI_PV_ENABLED	(1<<8)	/* Preset value enabled */
+#define SDHCI_SDIO_IRQ_ENABLED	(1<<9)	/* SDIO irq enabled */
+#define SDHCI_USING_RETUNING_TIMER (1<<11)	/* Host is using a retuning timer for the card */
 
 	unsigned int version;	/* SDHCI spec. version */
 
@@ -149,6 +154,8 @@ struct sdhci_host {
 
 	unsigned int clock;	/* Current clock (MHz) */
 	u8 pwr;			/* Current voltage */
+
+	bool runtime_suspended;	/* Host is runtime suspended */
 
 	struct mmc_request *mrq;	/* Current request */
 	struct mmc_command *cmd;	/* Current command */

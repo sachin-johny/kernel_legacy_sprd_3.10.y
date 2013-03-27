@@ -21,6 +21,7 @@
 #include <linux/mmc/sdio_ids.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
 
 #define SDIO_VENDOR_ID_SPRD 0
 #define SDIO_DEVICE_ID_SPRD_SLAVE 0x2260
@@ -42,6 +43,18 @@ static const struct sdio_device_id sprd_sdio_channel_ids[] = {
 	{ 0 },
 };
 MODULE_DEVICE_TABLE(sdio, sprd_sdio_channel_ids);
+
+#ifdef CONFIG_PM_RUNTIME
+static void sprd_sdio_start_runtime(struct sdio_func *func) {
+    unsigned long flags;
+    struct mmc_card *card = func->card;
+    struct mmc_host *host = card->host;
+    pm_suspend_ignore_children(&func->dev, true);
+    pm_runtime_set_autosuspend_delay(&func->dev, 50);
+    pm_runtime_use_autosuspend(&func->dev);
+    pm_runtime_put_autosuspend(&func->dev);
+}
+#endif
 
 static int sprd_sdio_channel_do_tx(const char *buf, unsigned int len) {
     int retval;
@@ -131,6 +144,9 @@ static int sprd_sdio_channel_probe(struct sdio_func *func, const struct sdio_dev
         goto ERR_HOST;
     }
     channel->func = func;
+#ifdef CONFIG_PM_RUNTIME
+    sprd_sdio_start_runtime(func);
+#endif
     printk(KERN_INFO "%s done\n", __func__);
 ERR_HOST:
     sdio_release_host(func);
@@ -139,6 +155,9 @@ ERR_HOST:
 
 static void sprd_sdio_channel_remove(struct sdio_func *func) {
     printk(KERN_INFO "%s enter\n", __func__);
+#ifdef CONFIG_PM_RUNTIME
+    pm_runtime_get_sync(&func->dev);
+#endif
     mutex_lock(&sprd_sdio_channel->func_lock);
     sprd_sdio_channel->func = 0;
     sdio_claim_host(func);
@@ -146,6 +165,14 @@ static void sprd_sdio_channel_remove(struct sdio_func *func) {
     sdio_release_host(func);
     mutex_unlock(&sprd_sdio_channel->func_lock);
     printk(KERN_INFO "%s done\n", __func__);
+}
+
+static int sprd_sdio_channel_runtime_suspend(struct device *dev) {
+    return 0;
+}
+
+static int sprd_sdio_channel_runtime_resume(struct device *dev) {
+    return 0;
 }
 
 static int sprd_sdio_channel_suspend(struct device *dev) {
@@ -161,6 +188,7 @@ static int sprd_sdio_channel_resume(struct device *dev) {
 static const struct dev_pm_ops sprd_sdio_channel_dev_pm_ops = {
     .suspend = sprd_sdio_channel_suspend,
     .resume  = sprd_sdio_channel_resume,
+    SET_RUNTIME_PM_OPS(sprd_sdio_channel_runtime_suspend, sprd_sdio_channel_runtime_resume, NULL)
 };
 
 static struct sdio_driver sprd_sdio_channel_driver = {

@@ -71,7 +71,6 @@ static struct platform_device  gpsctl_dev = {
 	.dev.platform_data  = &pdata_gpsctl,
 };
 
-static unsigned int modem_detect_gpio = GPIO_MODEM_DETECT;
 #include <mach/modem_interface.h>
 struct modem_intf_platform_data modem_interface = {
         .dev_type               = MODEM_DEV_SDIO,
@@ -136,9 +135,9 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_ION
 	&sprd_ion_dev,
 #endif
+	//&sprd_emmc0_device,
 	&sprd_sdio0_device,
 	&sprd_sdio1_device,
-	&sprd_emmc0_device,
 	&sprd_sdio2_device,
 	&sprd_vsp_device,
 	&sprd_dcam_device,
@@ -416,8 +415,6 @@ static void __init sc8810_init_machine(void)
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
 	platform_device_add_data(&sprd_serial_device3,(const void*)&plat_data3,sizeof(plat_data3));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
-	platform_device_add_data(&sprd_sdio2_device, &modem_detect_gpio,
-				 sizeof(modem_detect_gpio));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();

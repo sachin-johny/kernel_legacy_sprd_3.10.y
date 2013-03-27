@@ -102,7 +102,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_emmc_device,
 	&sprd_sdio0_device,
 	&sprd_sdio1_device,
-	&sprd_sdio2_device,
+	/*&sprd_sdio2_device,*/
 	&sprd_vsp_device,
 	&sprd_dcam_device,
 	&sprd_scale_device,

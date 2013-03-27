@@ -48,4 +48,7 @@
 #define GPIO_WIFI_IRQ		52
 
 #define GPIO_PLSENSOR_IRQ	213
+
+#define GPIO_SDIO_DETECT      140
+
 #endif

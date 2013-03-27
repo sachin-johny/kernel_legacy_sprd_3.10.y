@@ -2439,7 +2439,9 @@ int mmc_suspend_host(struct mmc_host *host)
 		printk("%s, %s, disable work  idle\n",  mmc_hostname(host), __func__ );
 		mmc_flush_scheduled_work();
 	}
+	mmc_claim_host(host);
 	err = mmc_cache_ctrl(host, 0);
+	mmc_release_host(host);
 	if (err)
 	{
 		printk("**** %s, mmc_cache_ctrl error:%d, goto out ****\n", __func__, err);

@@ -15,10 +15,14 @@
 #include <linux/platform_device.h>
 #include <linux/android_pmem.h>
 #include <linux/ion.h>
+#include <linux/mmc/sdhci.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/dma.h>
 #include <mach/board.h>
+#ifdef CONFIG_ARCH_SC7710
+#include <mach/globalregs.h>
+#endif
 #include "devices.h"
 
 static struct resource sprd_serial_resources0[] = {
@@ -536,11 +540,37 @@ static struct resource sprd_sdio0_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
+
+#ifdef CONFIG_ARCH_SC7710
+static struct sprd_host_platdata sprd_sdio0_pdata = {
+	.hw_name = "sprd-sdcard",
+	.detect_gpio = GPIO_SDIO_DETECT,
+	.vdd_name = "vddsd0",
+	.clk_name = "clk_sdio0",
+	.clk_parent = "clk_96m",
+	.max_clock = 96000000,
+	.enb_bit = BIT_SDIO0_EN,
+	.rst_bit = BIT_SD0_SOFT_RST,
+};
+#elif defined(CONFIG_ARCH_SC8810)
+static struct sprd_host_platdata sprd_sdio0_pdata = {
+	.hw_name = "sprd-sdcard",
+	.detect_gpio = GPIO_SDIO_DETECT,
+	.vdd_name = REGU_NAME_SDHOST0,
+	.clk_name = "clk_sdio0",
+	.clk_parent = "clk_96m",
+	.max_clock = 96000000,
+	.enb_bit = BIT_SDIO0_EB,
+	.rst_bit = BIT_SD0_SOFT_RST,
+};
+#endif
+
 struct platform_device sprd_sdio0_device = {
 	.name           = "sprd-sdhci",
-	.id             =  0,
+	.id             =  SDC_SLAVE_SD,
 	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
 	.resource       = sprd_sdio0_resources,
+	.dev = { .platform_data = &sprd_sdio0_pdata },
 };
 
 static struct resource sprd_sdio1_resources[] = {
@@ -557,12 +587,66 @@ static struct resource sprd_sdio1_resources[] = {
 	}
 };
 
+#ifdef CONFIG_ARCH_SC7710
+static struct sprd_host_platdata sprd_sdio1_pdata = {
+	.hw_name = "sprd-sdio1",
+	.clk_name = "clk_sdio1",
+	.clk_parent = "clk_96m",
+	.max_clock = 96000000,
+	.enb_bit = BIT_SDIO1_EN,
+	.rst_bit = BIT_SD1_SOFT_RST,
+	.regs.is_valid = 1,
+};
+
 struct platform_device sprd_sdio1_device = {
 	.name           = "sprd-sdhci",
-	.id             =  1,
+	.id             =  SDC_SLAVE_WIFI,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
+	.dev = { .platform_data = &sprd_sdio1_pdata },
 };
+#elif defined(CONFIG_ARCH_SC8810)
+#if defined(CONFIG_MACH_SP8810EA)
+static struct sprd_host_platdata sprd_sdio1_pdata = {
+	.hw_name = "sprd-sdio1",
+	.vdd_name = REGU_NAME_WIFIIO,
+	.clk_name = "clk_sdio1",
+	.clk_parent = "clk_96m",
+	.max_clock = 96000000,
+	.enb_bit = BIT_SDIO1_EB,
+	.rst_bit = BIT_SD1_SOFT_RST,
+	.regs.is_valid = 1,
+};
+
+struct platform_device sprd_sdio1_device = {
+	.name           = "sprd-sdhci",
+	.id             =  SDC_SLAVE_WIFI,
+	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
+	.resource       = sprd_sdio1_resources,
+	.dev = { .platform_data = &sprd_sdio1_pdata },
+};
+#else
+static struct sprd_host_platdata sprd_sdio1_pdata = {
+	.hw_name = "sprd-sdio1",
+	.vdd_name = REGU_NAME_WIFIIO,
+    .vdd_ext_name = REGU_NAME_SDHOST1,
+	.clk_name = "clk_sdio1",
+	.clk_parent = "clk_96m",
+	.max_clock = 96000000,
+	.enb_bit = BIT_SDIO1_EB,
+	.rst_bit = BIT_SD1_SOFT_RST,
+	.regs.is_valid = 1,
+};
+
+struct platform_device sprd_sdio1_device = {
+	.name           = "sprd-sdhci",
+	.id             =  SDC_SLAVE_EMMC,
+	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
+	.resource       = sprd_sdio1_resources,
+	.dev = { .platform_data = &sprd_sdio1_pdata },
+};
+#endif
+#endif
 
 #ifdef CONFIG_ARCH_SC7710
 static struct resource sprd_sdio2_resources[] = {
@@ -579,11 +663,24 @@ static struct resource sprd_sdio2_resources[] = {
 	}
 };
 
+static struct sprd_host_platdata sprd_sdio2_pdata = {
+	.hw_name = "sprd-sdio2",
+	.detect_gpio = GPIO_MODEM_DETECT,
+	.vdd_name = "vddemmio",
+	.vdd_ext_name = "vddemmcore",
+	.clk_name = "clk_sdio2",
+	.clk_parent = "clk_96m",
+	.max_clock = 96000000,
+	.enb_bit = BIT_SDIO2_EB,
+	.rst_bit = BIT_SD2_SOFT_RST,
+};
+
 struct platform_device sprd_sdio2_device = {
 	.name           = "sprd-sdhci",
-	.id             =  2,
+	.id = SDC_SLAVE_CP,
 	.num_resources  = ARRAY_SIZE(sprd_sdio2_resources),
 	.resource       = sprd_sdio2_resources,
+	.dev = { .platform_data = &sprd_sdio2_pdata },
 };
 
 static struct resource sprd_emmc0_resources[] = {
@@ -600,11 +697,24 @@ static struct resource sprd_emmc0_resources[] = {
 	}
 };
 
+static struct sprd_host_platdata sprd_emmc0_pdata = {
+	.hw_name = "sprd-emmc",
+	.vdd_name = "vddemmio",
+	.vdd_ext_name = "vddemmcore",
+	.clk_name = "clk_emmc0",
+	.clk_parent = "ext_26m",
+	.max_clock = 384000000,
+	.enb_bit = BIT_EMMC_EB,
+	.rst_bit = BIT_EMMC_SOFT_RST,
+	.regs.is_valid = 1,
+};
+
 struct platform_device sprd_emmc0_device = {
 	.name           = "sprd-sdhci",
-	.id             =  3,
+	.id              = SDC_SLAVE_EMMC,
 	.num_resources  = ARRAY_SIZE(sprd_emmc0_resources),
 	.resource       = sprd_emmc0_resources,
+	.dev = { .platform_data = &sprd_emmc0_pdata },
 };
 
 

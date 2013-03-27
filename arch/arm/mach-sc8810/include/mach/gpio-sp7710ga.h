@@ -61,6 +61,7 @@
 
 /*ap: gpio208-223*/
 /*cp: gpio 0 - 15*/
+#define GPIO_SDIO_DETECT      181
 #define GPIO_AP_TO_CP_RTS     208	/*cp gpio 0*/
 #define GPIO_CP_TO_AP_RDY     209	/*cp gpio 1*/
 #define GPIO_CP_TO_AP_RTS     210	/*cp gpio 2*/

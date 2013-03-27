@@ -862,7 +862,7 @@ static struct resource sprd_sdio0_resources[] = {
 
 static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.hw_name = "sprd-sdcard",
-	.detect_gpio = 140,
+	.detect_gpio = GPIO_SDIO_DETECT,
 	.vdd_name = "vddsd0",
 	.clk_name = "clk_sdio0",
 	.clk_parent = "clk_sdio_src",
@@ -873,7 +873,7 @@ static struct sprd_host_platdata sprd_sdio0_pdata = {
 
 struct platform_device sprd_sdio0_device = {
 	.name           = "sprd-sdhci",
-	.id             =  0,
+	.id             =  SDC_SLAVE_SD,
 	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
 	.resource       = sprd_sdio0_resources,
 	.dev = { .platform_data = &sprd_sdio0_pdata },
@@ -905,7 +905,7 @@ static struct sprd_host_platdata sprd_sdio1_pdata = {
 
 struct platform_device sprd_sdio1_device = {
 	.name           = "sprd-sdhci",
-	.id             =  1,
+	.id             =  SDC_SLAVE_WIFI,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
 	.dev = { .platform_data = &sprd_sdio1_pdata },
@@ -935,7 +935,7 @@ static struct sprd_host_platdata sprd_sdio2_pdata = {
 
 struct platform_device sprd_sdio2_device = {
 	.name = "sprd-sdhci",
-	.id = 2,
+	.id = SDC_SLAVE_CP,
 	.num_resources = ARRAY_SIZE(sprd_sdio2_resources),
 	.resource = sprd_sdio2_resources,
 	.dev = { .platform_data = &sprd_sdio2_pdata },
@@ -967,7 +967,7 @@ static struct sprd_host_platdata sprd_emmc_pdata = {
 
 struct platform_device sprd_emmc_device = {
 	.name = "sprd-sdhci",
-	.id = 3,
+	.id              = SDC_SLAVE_EMMC,
 	.num_resources = ARRAY_SIZE(sprd_emmc_resources),
 	.resource = sprd_emmc_resources,
 	.dev = { .platform_data = &sprd_emmc_pdata },

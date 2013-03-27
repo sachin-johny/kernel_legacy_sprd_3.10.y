@@ -71,6 +71,12 @@ config SDIO_CHANNEL
         help
           SDIO function driver for Modem Devices.
 
+config SDIO_CARD
+        tristate "SDIO CARD class support"
+        default y
+        help
+          SDIO card driver for WIFI Devices.
+
 config MMC_TEST
 	tristate "MMC host test driver"
 	help
