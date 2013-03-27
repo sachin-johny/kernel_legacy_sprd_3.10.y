@@ -57,7 +57,11 @@
 
 /* bits definitions for register REG_ADI_RD_DATA */
 #define SHIFT_RD_ADDR                   ( 16 )
+#ifdef CONFIG_ARCH_SC7710
+#define MASK_RD_ADDR                    ( 0x7FFF )
+#else
 #define MASK_RD_ADDR                    ( 0x7FF )
+#endif
 #define	VALU_TO_ADDR(_x_)		( ((_x_) >> SHIFT_RD_ADDR) & MASK_RD_ADDR )
 
 #define SHIFT_RD_VALU                   ( 0 )
