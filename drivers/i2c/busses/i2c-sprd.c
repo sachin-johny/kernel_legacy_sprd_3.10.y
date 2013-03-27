@@ -380,7 +380,7 @@ EXPORT_SYMBOL_GPL(sprd_i2c_ctl_chg_clk);
 static void sprd_i2c_reset(struct sprd_i2c *pi2c)
 {
 #if defined(CONFIG_ARCH_SC8830)
-#if 0
+
 	char buf[8] = { 0 };
 
 	snprintf(buf, 8, "clk_iic%d", pi2c->adap.nr);
@@ -389,7 +389,7 @@ static void sprd_i2c_reset(struct sprd_i2c *pi2c)
 	pi2c->clk = clk_get(&pi2c->adap.dev, buf);
 	BUG_ON((IS_ERR(pi2c->clk)));
 	clk_enable(pi2c->clk);
-#endif
+
 #elif defined(CONFIG_ARCH_SC8825)
 	/*enable i2c clock */
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 29) | BIT(4), GR_GEN0);
