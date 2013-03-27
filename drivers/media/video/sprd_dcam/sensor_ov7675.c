@@ -129,7 +129,11 @@ LOCAL EXIF_SPEC_PIC_TAKING_COND_T s_ov7675_exif;
     {0x0e, 0x61},                                
     {0x0f, 0x4b},                                  
     {0x16, 0x02},                                  
-    {0x1e, 0x07},
+#ifdef CONFIG_ARCH_SC7710
+    {0x1e, 0x37},
+#else
+    {0x1e, 0x17},
+#endif
     {0x21, 0x02},                                  
     {0x22, 0x91},                                  
     {0x29, 0x07},                                  
@@ -305,7 +309,11 @@ LOCAL EXIF_SPEC_PIC_TAKING_COND_T s_ov7675_exif;
     {0x0e, 0x61},
     {0x0f, 0x4b},
     {0x16, 0x02},
-    {0x1e, 0x07},
+#ifdef CONFIG_ARCH_SC7710
+    {0x1e, 0x37},
+#else
+    {0x1e, 0x17},
+#endif
     {0x21, 0x02},
     {0x22, 0x91},
     {0x29, 0x07},
@@ -1086,7 +1094,7 @@ LOCAL uint32_t set_brightness(uint32_t level)
         uint16_t i;
         SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)ov7675_brightness_tab[level];
 
-		SENSOR_PRINT("0x%x.",OV7675_ReadReg(0x1e));
+		//SENSOR_PRINT("0x%x.",OV7675_ReadReg(0x1e));
 
         if(level>6)
                 return 0;
