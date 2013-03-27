@@ -37,6 +37,27 @@
 
 #define VBAT_CAPACITY_BUFF_CNT	(240/CONFIG_AVERAGE_CNT)
 
+#ifdef CONFIG_ARCH_SC7710
+/*charge current type*/
+#define SPRD_CHG_CUR_300MA	300
+#define SPRD_CHG_CUR_350MA	350
+#define SPRD_CHG_CUR_400MA	400
+#define SPRD_CHG_CUR_450MA	450
+#define SPRD_CHG_CUR_500MA	500
+#define SPRD_CHG_CUR_550MA	550
+#define SPRD_CHG_CUR_600MA	600
+#define SPRD_CHG_CUR_650MA	650
+#define SPRD_CHG_CUR_700MA	700
+#define SPRD_CHG_CUR_750MA	750
+#define SPRD_CHG_CUR_800MA	800
+#define SPRD_CHG_CUR_850MA	850
+#define SPRD_CHG_CUR_900MA	900
+#define SPRD_CHG_CUR_950MA	950
+#define SPRD_CHG_CUR_1000MA	1000
+#define SPRD_CHG_CUR_1050MA	1050
+#define SPRD_CHG_CUR_MAX	1050
+
+#else
 /*charge current type*/
 #define SPRD_CHG_CUR_300MA	300
 #define SPRD_CHG_CUR_400MA	400
@@ -55,6 +76,7 @@
 #define SPRD_CHG_CUR_1700MA	1700
 #define SPRD_CHG_CUR_1800MA	1800
 #define SPRD_CHG_CUR_MAX	1800
+#endif
 
 #define SPRD_USB_CHG_CUR	SPRD_CHG_CUR_500MA
 #define SPRD_AC_CHG_CUR		SPRD_CHG_CUR_600MA
@@ -85,6 +107,27 @@
 #define ADC_CAL_TYPE_NV         1
 #define ADC_CAL_TYPE_EFUSE      2
 
+#ifdef CONFIG_ARCH_SC7710
+#define ANA_REG_BASE    (SPRD_MISC_BASE + 0x800)
+
+#define ANA_CHGR_CTRL0  (ANA_REG_BASE + 0X8C)
+#define ANA_CHGR_CTRL1  (ANA_REG_BASE + 0X90)
+
+/* ANA_CHGR_CTL0 */
+#define CHGR_CC_EN_BIT  BIT(0)
+#define CHGR_CC_EN_RST_BIT  BIT(1)
+#define CHGR_CHG_CUR_SHIFT  (2)
+#define CHGR_CHG_CUR_MSK    (0XF << CHGR_CHG_CUR_SHIFT)
+#define CHGR_PD_BIT         BIT(6)
+#define CHGR_CURVE_SHARP_BIT    BIT(7)
+#define CHGR_PWM_EN_BIT     BIT(10)
+#define CHGR_PWM_EN_RST_BIT BIT(11)
+#define CHGR_RECHG_BIT      BIT(12)
+
+/* ANA_CHGR_CTL1 */
+#define CHGR_SW_POINT_SHIFT 0
+#define CHGR_SW_POINT_MSK   (0X1F << CHGR_SW_POINT_SHIFT)
+#else
 /* control register definition */
 #define ANA_REG_BASE	(SPRD_MISC_BASE + 0x600)	/*  0x82000600 */
 
@@ -106,6 +149,8 @@
 #define CHGR_CHG_CUR_MSK		(0xF << CHGR_CHG_CUR_SHIFT)
 #define CHGR_PD_BIT			BIT(12)
 #define CHGR_CURVE_SHARP_BIT		BIT(13)
+#endif
+
 /*
  * This enum defines the lowest switchover point between constant-current and
  * constant-volatage.

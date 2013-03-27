@@ -17,7 +17,9 @@
 #include <mach/gpio.h>
 #include <linux/gpio.h>
 #include <mach/globalregs.h>
+#ifndef CONFIG_ARCH_SC7710
 #include <mach/regs_ahb.h>
+#endif
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include <linux/errno.h>
@@ -26,15 +28,22 @@
 #include "sprd_8825_charge.h"
 #include <mach/usb.h>
 #include <linux/delay.h>
+#ifndef CONFIG_ARCH_SC7710
 #include <mach/sci.h>
+#endif
 
 #define USB_DM_GPIO 215
 #define USB_DP_GPIO 216
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
+#ifdef CONFIG_ARCH_SC7710
+    {3300, 4200},
+    {2800, 3600},
+#else
 	{3750, 4200},
 	{3210, 3600},
+#endif
 };
 
 uint16_t voltage_capacity_table[][2] = {
@@ -339,6 +348,29 @@ void __weak udc_disable(void)
 {
 }
 
+#ifdef CONFIG_ARCH_SC7710
+int sprd_charger_is_adapter(struct sprd_battery_data *data)
+{
+	uint32_t ret;
+
+	gpio_request(USB_DM_GPIO, "sprd_charge");
+	gpio_direction_input(USB_DM_GPIO);
+
+	udc_enable();
+
+	mdelay(200);
+
+	ret = gpio_get_value(USB_DM_GPIO);
+
+	udc_phy_down();
+
+	udc_disable();
+
+	gpio_free(USB_DM_GPIO);
+
+	return ret;
+}
+#else
 int sprd_charger_is_adapter(struct sprd_battery_data *data)
 {
 	uint32_t ret;
@@ -385,6 +417,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	gpio_free(USB_DP_GPIO);
 	return ret;
 }
+#endif
 
 #define VPROG_RESULT_NUM 10
 #define VBAT_RESULT_DELAY 10
@@ -535,9 +568,11 @@ void sprd_set_chg_cur(uint32_t chg_current)
 	if (chg_current > SPRD_CHG_CUR_MAX) {
 		chg_current = SPRD_CHG_CUR_MAX;
 	}
-
+#ifdef COFNIG_ARCH_SC7710
+    temp = ((chg_current - 300) / 50);
+#else
 	temp = ((chg_current - 300) / 100);
-
+#endif
 	sci_adi_write(ANA_CHGR_CTRL1,
 		      (temp << CHGR_CHG_CUR_SHIFT) & CHGR_CHG_CUR_MSK,
 		      CHGR_CHG_CUR_MSK);
@@ -551,6 +586,7 @@ void sprd_chg_init(void)
 		      (CHGR_CC_EN_BIT | CHGR_CC_EN_RST_BIT));
 	sci_adi_set(ANA_CHGR_CTRL1, CHGR_CURVE_SHARP_BIT);
 
+#ifndef CONFIG_ARCH_SC7710
 	chip_id = sci_adi_read(CHIP_ID_LOW_REG);
 	chip_id |= (sci_adi_read(CHIP_ID_HIGH_REG) << 16);
 
@@ -558,6 +594,7 @@ void sprd_chg_init(void)
 		adc_voltage_table[0][0] = 3329;
 		adc_voltage_table[1][0] = 2855;
 	}
+#endif
 }
 
 /* TODO: put these struct into sprd_battery_data */

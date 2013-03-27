@@ -125,7 +125,7 @@ static inline int sci_adc_get_value(unsigned int channel, int scale)
 	adc.channel_type = 0;
 	adc.hw_channel_delay = 0;
 	adc.pbuf = &result[0];
-	adc.sample_bits = 0;    /*back to 10 bits mode*/
+	adc.sample_bits = 1;    /*back to 12 bits mode*/
 	adc.sample_num = 1;
 	adc.sample_speed = 0;
 	adc.scale = scale;
