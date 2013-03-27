@@ -69,6 +69,7 @@ struct sprd_runtime_data {
 	dma_addr_t dma_desc_array_phys;
 	int burst_len;
 	int hw_chan;
+	int dma_pos_pre[2];
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	int interleaved;
 #endif
@@ -613,9 +614,10 @@ static snd_pcm_uframes_t sprd_pcm_pointer(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sprd_runtime_data *rtd = runtime->private_data;
 	snd_pcm_uframes_t x;
-	int now_pointer;
-	int bytes_of_pointer = 0;
+	ssize_t now_pointer;
+	ssize_t bytes_of_pointer = 0;
 	int shift = 1;
+	int sel_max = 0;
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	if (rtd->interleaved)
 		shift = 0;
@@ -631,11 +633,21 @@ static snd_pcm_uframes_t sprd_pcm_pointer(struct snd_pcm_substream *substream)
 		now_pointer = sprd_pcm_dma_get_addr(rtd->uid_cid_map[1],
 						    substream) -
 		    runtime->dma_addr - rtd->dma_addr_offset;
-		if (!bytes_of_pointer)
+		if (!bytes_of_pointer) {
 			bytes_of_pointer = now_pointer;
-		else
-			bytes_of_pointer =
-			    min(bytes_of_pointer, now_pointer) << shift;
+		} else {
+			sel_max = (bytes_of_pointer < rtd->dma_pos_pre[0]);
+			sel_max ^= (now_pointer < rtd->dma_pos_pre[1]);
+			rtd->dma_pos_pre[0] = bytes_of_pointer;
+			rtd->dma_pos_pre[1] = now_pointer;
+			if (sel_max) {
+				bytes_of_pointer =
+					max(bytes_of_pointer, now_pointer) << shift;
+			} else {
+				bytes_of_pointer =
+					min(bytes_of_pointer, now_pointer) << shift;
+			}
+		}
 	}
 
 	x = bytes_to_frames(runtime, bytes_of_pointer);
