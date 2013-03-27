@@ -532,7 +532,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_OV7675_ioctl_func_tab =
         _ov7675_GetExifInfo,
         PNULL,
         set_ov7675_anti_flicker,
-        set_ov7675_video_mode,
+        PNULL,//set_ov7675_video_mode,
         PNULL,
         PNULL    
 };
