@@ -22,6 +22,7 @@ DHDOFILES = aiutils.o bcmsdh_sdmmc_linux.o dhd_linux.o siutils.o bcmutils.o   \
 
 ifneq ($(CONFIG_WLAN_SDIO),)
 DHDOFILES += bcmsdh_sdmmc.o
+DHDCFLAGS += -DHW_OOB
 else
 DHDOFILES += bcmspibrcm.o bcmsdspi_linux.o  bcmpcispi.o
 DHDCFLAGS += -DSPRD_SPI -DBCMSDIOH_SPI -DBCMSPI
