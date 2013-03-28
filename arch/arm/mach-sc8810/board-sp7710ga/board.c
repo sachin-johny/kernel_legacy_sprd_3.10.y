@@ -27,7 +27,7 @@
 #if(defined(CONFIG_INPUT_AL3006_I2C))
 #include <linux/i2c/al3006_pls.h>
 #endif
-#if(defined(CONFIG_INPUT_LTR558_I2C))
+#if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 #include <linux/i2c/ltr_558als.h>
 #endif
 #include <linux/i2c/lis3dh.h>
@@ -235,7 +235,7 @@ static struct al3006_pls_platform_data al3006_pls_info = {
 };
 #endif
 
-#if(defined(CONFIG_INPUT_LTR558_I2C))
+#if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 static struct ltr558_pls_platform_data ltr558_pls_info = {
 	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
 };
@@ -308,7 +308,7 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 	  .platform_data = &al3006_pls_info,
 	},
 #endif
-#if(defined(CONFIG_INPUT_LTR558_I2C))
+#if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
 	  .platform_data = &ltr558_pls_info,
 	},
