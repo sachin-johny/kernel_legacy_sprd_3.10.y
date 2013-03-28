@@ -329,7 +329,7 @@ config MMC_SDHCI_SC8830
 	  If you have SC8830 platform with SD Host Controller, say Y or M here.
 	  If unsure, say N.
 
-config MACH_SP8830_FPGA
+config MACH_SP8830FPGA
 	tristate "Spreadtrum SC8830 FPGA "
 	depends on  ARCH_SC8830
 	select MMC_SDHCI

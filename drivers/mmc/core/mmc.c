@@ -231,7 +231,7 @@ static int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 		}
 	} else
 	{
-#ifdef CONFIG_MACH_SP8830_FPGA
+#ifdef CONFIG_MACH_SP8830FPGA
 		ext_csd[EXT_CSD_CARD_TYPE] &= 0xC3;
 #endif
 		*new_ext_csd = ext_csd;

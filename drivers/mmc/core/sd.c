@@ -1013,11 +1013,11 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 /*
  * FIXME: Set sdcard to normal mode in FPGA forcely,
  *        because of low sdio clock frequency.
- *        Delete CONFIG_MACH_SP8830_FPGA after chips back.
+ *        Delete CONFIG_MACH_SP8830FPGA after chips back.
  */
 #if defined(CONFIG_MACH_SP8825_FPGA)
 		mmc_set_clock(host, 24000000);
-#elif defined(CONFIG_MACH_SP8830_FPGA)
+#elif defined(CONFIG_MACH_SP8830FPGA)
 		mmc_set_clock(host, 2000000);
 #else
 		if (err > 0)
