@@ -33,9 +33,13 @@ static int sprd_sdio_card_probe(struct mmc_card *card) {
     return -EINVAL;
 }
 
+static void sprd_sdio_card_remove(struct mmc_card *card) {
+}
+
 static struct mmc_driver sprd_sdio_card_driver = {
     .drv.name  = DRV_NAME,
     .probe         = sprd_sdio_card_probe,
+    .remove      = sprd_sdio_card_remove,
 };
 
 static int __init sprd_sdio_card_init(void) {
