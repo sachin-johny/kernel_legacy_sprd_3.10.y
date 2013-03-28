@@ -21,8 +21,16 @@
 #include <drv_types.h>
 #include <linux/spi/spi.h>
 
+#ifdef CONFIG_RTL8723A
 #include "rtl8723a_hal.h"
 #include "rtl8723a_spec.h"
+#endif
+
+#ifdef CONFIG_RTL8188E
+#include "rtl8188e_hal.h"
+#include "rtl8188e_spec.h"
+#endif
+
 #include "gspi_ops.h"
 
 int spi_send_msg(PADAPTER Adapter, struct spi_transfer xfers[], u32 IoAction)
@@ -380,9 +388,13 @@ _func_enter_;
 	spi_get_status_info(Adapter, status);
 
 	more_data = GET_STATUS_HISR_LOW8BIT(status) & BIT(0);
-	//if(more_data) {
-	//	rtw_queue_delayed_work(Adapter->recv_wq, &Adapter->recv_work, 0, (void*)Adapter);
-	//}
+	if(more_data) {
+		struct dvobj_priv *dvobj = Adapter->dvobj;
+		PGSPI_DATA pgspi_data = &dvobj->intf_data;
+
+		if (pgspi_data->priv_wq)
+			queue_delayed_work(pgspi_data->priv_wq, &pgspi_data->recv_work, 0);
+	}
 
 _func_exit_;
 

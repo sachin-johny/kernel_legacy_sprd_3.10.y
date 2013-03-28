@@ -2166,7 +2166,7 @@ unsigned int OnDeAuth(_adapter *padapter, union recv_frame *precv_frame)
 	struct mlme_ext_info	*pmlmeinfo = &(pmlmeext->mlmext_info);
 	u8 *pframe = precv_frame->u.hdr.rx_data;
 
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	//block here for wowlan system suspend only, Added by YJ,121218
 	if(padapter->pwrctrlpriv.wowlan_mode){
 		return _SUCCESS;
@@ -8234,7 +8234,14 @@ void site_survey(_adapter *padapter)
 			set_survey_timer(pmlmeext, pmlmeext->chan_scan_time * RTW_STAY_AP_CH_MILLISECOND );
 		else
 #endif //CONFIG_STA_MODE_SCAN_UNDER_AP_MODE
-			set_survey_timer(pmlmeext, pmlmeext->chan_scan_time);
+		{
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+			if(ScanType == SCAN_PASSIVE)
+				set_survey_timer(pmlmeext, SURVEY_TO_PASSIVE);
+			else
+#endif
+				set_survey_timer(pmlmeext, pmlmeext->chan_scan_time);
+		}
 
 	}
 	else

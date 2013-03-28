@@ -43,6 +43,9 @@
 #define GPIO_WIFI_RESET -1
 #endif // !GPIO_WIFI_RESET
 
+#ifndef GPIO_WIFI_PWDN
+#define GPIO_WIFI_PWDN -1
+#endif // !GPIO_WIFI_RESET
 #ifdef CONFIG_GSPI_HCI
 extern unsigned int oob_irq;
 #endif // CONFIG_GSPI_HCI
@@ -141,29 +144,43 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 
 		case WLAN_POWER_OFF:
 #ifdef CONFIG_RTL8188E
-			if (GPIO_WIFI_POWER > 0)
-			{
-				DBG_8192C("%s: call customer specific GPIO(%d) to turn off wifi power\n",
+		if (GPIO_WIFI_POWER > 0)
+		{
+			DBG_8192C("%s: call customer specific GPIO(%d) to turn off wifi power\n",
 					__FUNCTION__, GPIO_WIFI_POWER);
-				gpio_direction_output(GPIO_WIFI_POWER, 0);
-			}
-			else
-			{
-				struct regulator *regulator_wifi;
+			gpio_direction_output(GPIO_WIFI_POWER, 0);
+		}
+		else
+		{
+			struct regulator *regulator_wifi;
 
-				DBG_8192C("%s: turn off VDD-WIFI0 3.3V\n", __func__);
-				regulator_wifi = regulator_get(NULL, REGU_NAME_WIFI);
-				if (IS_ERR(regulator_wifi)) {
-					DBG_871X("%s: Can't get regulator for VDD_WIFI3.3\n", __func__);
-				} else
-					regulator_disable(regulator_wifi);
+			DBG_8192C("%s: turn off VDD-WIFI-3v3\n", __func__);
+			regulator_wifi = regulator_get(NULL, REGU_NAME_WIFI);
+			if (IS_ERR(regulator_wifi)) {
+				DBG_871X("%s: Can't get regulator for VDD-WIFI-3v3\n", __func__);
+			} else
+				regulator_disable(regulator_wifi);
 
-				DBG_8192C("%s: turn off VDD-WIFI1 1.8V\n", __func__);
-				regulator_wifi = regulator_get(NULL, REGU_NAME_WIFIIO);
-				if (IS_ERR(regulator_wifi)) {
-					DBG_871X("%s: Can't get regulator for VDD_WIFI1.8\n", __func__);
-				} else
-					regulator_disable(regulator_wifi);
+#if 0
+			DBG_8192C("%s: turn off VDD-WIFI1 1.8V\n", __func__);
+			regulator_wifi = regulator_get(NULL, REGU_NAME_WIFIIO);
+			if (IS_ERR(regulator_wifi)) {
+				DBG_871X("%s: Can't get regulator for VDD_WIFI1.8\n", __func__);
+			} else
+				regulator_disable(regulator_wifi);
+#endif
+#ifdef CONFIG_WIF1_LDO
+			DBG_8192C("%s: turn off VDD-WIFI-1v2\n", __func__);
+#ifdef REGU_NAME_WIFI1
+			regulator_wifi = regulator_get(NULL, REGU_NAME_WIFI1);
+#else
+			regulator_wifi = regulator_get(NULL, REGU_NAME_GPS);
+#endif
+			if (IS_ERR(regulator_wifi)) {
+				DBG_871X("%s: Can't get regulator for VDD-WIFI-1v2\n", __func__);
+			} else
+				regulator_disable(regulator_wifi);
+#endif
 			}
 #endif // CONFIG_RTL8188E
 		break;
@@ -173,7 +190,7 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 			if (GPIO_WIFI_POWER > 0)
 			{
 				DBG_8192C("%s: call customer specific GPIO(%d) to turn on wifi power\n",
-					__FUNCTION__, GPIO_WIFI_POWER);
+						__FUNCTION__, GPIO_WIFI_POWER);
 				gpio_direction_output(GPIO_WIFI_POWER , 1);
 			}
 			else
@@ -181,10 +198,10 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 				struct regulator *regulator_wifi;
 				int err = 0;
 
-				DBG_8192C("%s: turn on VDD-WIFI1 3.3V\n", __FUNCTION__);
+				DBG_8192C("%s: turn on VDD-WIFI-3v3\n", __FUNCTION__);
 				regulator_wifi = regulator_get(NULL, REGU_NAME_WIFI);
 				if (IS_ERR(regulator_wifi)) {
-					DBG_871X("%s: Can't get regulator for VDD_WIFI3.3\n", __FUNCTION__);
+					DBG_871X("%s: Can't get regulator for VDD-WIFI-3v3\n", __FUNCTION__);
 					break;
 				}
 				err = regulator_set_voltage(regulator_wifi, 3300000, 3300000);
@@ -194,6 +211,8 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 				}
 				regulator_enable(regulator_wifi);
 
+				/* this power is opened default by SDK */
+#if 0
 				DBG_8192C("%s: turn on VDD-WIFI1 1.8V\n", __FUNCTION__);
 				regulator_wifi = regulator_get(NULL, REGU_NAME_WIFIIO);
 				if (IS_ERR(regulator_wifi)) {
@@ -206,6 +225,27 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 					break;
 				}
 				regulator_enable(regulator_wifi);
+#endif
+
+#ifdef CONFIG_WIF1_LDO
+				DBG_8192C("%s: turn on VDD-WIFI-1v2\n", __FUNCTION__);
+#ifdef REGU_NAME_WIFI1
+				regulator_wifi = regulator_get(NULL, REGU_NAME_WIFI1);
+#else
+				regulator_wifi = regulator_get(NULL, REGU_NAME_GPS);
+#endif
+				if (IS_ERR(regulator_wifi)) {
+					DBG_871X("%s: Can't get regulator for VDD-WIFI-1v2\n", __FUNCTION__);
+					break;
+				}
+				err = regulator_set_voltage(regulator_wifi, 1200000, 1200000);
+				if (err){
+					DBG_871X("%s:  Can't set regulator to valtage 1.2V\n", __FUNCTION__);
+					break;
+				}
+				regulator_enable(regulator_wifi);
+#endif
+
 			}
 #endif // CONFIG_RTL8188E
 		break;
@@ -292,11 +332,7 @@ void rtw_wifi_gpio_wlan_ctrl(int onoff)
 			}
 			if (sprd_3rdparty_gpio_wifi_pwd > 0)
 			{
-#ifdef CONFIG_PLATFORM_SPRD_TORSTAR
-				gpio_set_value(sprd_3rdparty_gpio_wifi_pwd, 0);
-#else // !CONFIG_PLATFORM_SPRD_TORSTAR
 				gpio_set_value(sprd_3rdparty_gpio_wifi_pwd, 1);
-#endif // !CONFIG_PLATFORM_SPRD_TORSTAR
 			}
 		break;
 

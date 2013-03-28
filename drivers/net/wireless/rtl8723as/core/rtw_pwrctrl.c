@@ -211,7 +211,7 @@ void rtw_ps_processor(_adapter*padapter)
 
 	pwrpriv->ps_processing = _TRUE;
 
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	if(pwrpriv->wowlan_mode == _TRUE)
 	{
 		DBG_871X("%s(): wowlan_mode is TRUE, puspond ps processor!\n", __func__);
@@ -377,7 +377,6 @@ u8 rtw_wait_cpwm_interrupt(PADAPTER padapter)
 	if(count >= 25 && pwrpriv->cpwm < PS_STATE_S2) {
 		ret = _FALSE;
 	}
-	printk("%s count:%d\n", __func__, count);
 
 	return ret;
 }
@@ -393,7 +392,7 @@ void rtw_set_rpwm(PADAPTER padapter, u8 pslv)
 {
 	u8	rpwm;
 	struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
-#ifdef CONFIG_WOWLAN_8723
+#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
 	u8 tog = 0;
 #endif
 
@@ -450,7 +449,7 @@ _func_enter_;
 		}
 	}
 
-#ifdef CONFIG_WOWLAN_8723
+#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
 	/* we find that tog bit sometimes will change no reason */
 	/* so read tog bit before write instead of remember it in driver is right */
 	rtw_hal_get_hwreg(padapter, HW_VAR_RPWM_TOG, &tog);
@@ -474,7 +473,7 @@ _func_enter_;
 #endif // CONFIG_LPS_RPWM_TIMER
 	rtw_hal_set_hwreg(padapter, HW_VAR_SET_RPWM, (u8 *)(&rpwm));
 
-#ifndef CONFIG_WOWLAN_8723
+#if (!defined CONFIG_SDIO_HCI) && (!defined CONFIG_GSPI_HCI)
 	pwrpriv->tog += 0x80;
 #endif
 
@@ -489,8 +488,18 @@ _func_enter_;
 #ifdef CONFIG_WAIT_PS_ACK
 #ifdef CONFIG_LPS_LCLK
 	if (rpwm & PS_ACK) {
+#ifdef CONFIG_WOWLAN
+		/* interrupt diabled, so we delay here */
+		if (padapter->pwrctrlpriv.wowlan_mode) {
+			rtw_msleep_os(10);
+			pwrpriv->cpwm = pslv;
+		} else if (!rtw_wait_cpwm_interrupt(padapter)) {
+			DBG_871X_LEVEL(_drv_err_, "cpwm time out, still in 32k or interrupt lost\n");
+		}
+#else
 		if (!rtw_wait_cpwm_interrupt(padapter))
 			DBG_871X_LEVEL(_drv_err_, "cpwm time out, still in 32k or interrupt lost\n");
+#endif
 	}
 #endif
 #endif
@@ -512,11 +521,11 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 	//under BT coex, we should enter LPS when we want
 	//or, TDMA will wrong
 #ifdef CONFIG_BT_COEXIST
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	if ((delta_time < LPS_DELAY_TIME) && (_FALSE == pwrpriv->wowlan_mode))
 #else
 	if (delta_time < LPS_DELAY_TIME)
-#endif //CONFIG_WOWLAN_8723
+#endif //CONFIG_WOWLAN
 	{
 		return _FALSE;
 	}
@@ -538,7 +547,7 @@ u8 PS_RDY_CHECK(_adapter * padapter)
 #else
 	if(_TRUE == pwrpriv->bInSuspend )
 		return _FALSE;
-#endif //CONFIG_WOWLAN_8723
+#endif //CONFIG_WOWLAN
 	if( (padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_8021X ||
 		padapter->securitypriv.dot11AuthAlgrthm == dot11AuthAlgrthm_WAPI ||
 		check_fwstate(pmlmepriv, WIFI_UNDER_WPS) == _TRUE) &&
@@ -827,7 +836,7 @@ _func_enter_;
 	{ //connect
 #ifdef CONFIG_LPS_LCLK
 		enqueue = 1;
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 		if(Adapter->pwrctrlpriv.wowlan_mode)
 			enqueue = 0;
 #endif

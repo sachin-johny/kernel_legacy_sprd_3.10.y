@@ -5485,6 +5485,7 @@ _func_enter_;
 				#define RW_RELEASE_EN		BIT(18)
 				#define RXDMA_IDLE			BIT(17)
 
+#ifndef CONFIG_GSPI_HCI
 				struct pwrctrl_priv *pwrpriv = &padapter->pwrctrlpriv;
 				u8 trycnt = 100;
 
@@ -5519,6 +5520,7 @@ _func_enter_;
 					rtw_write32(padapter, REG_RQPN, 0x80000000);
 					rtw_mdelay_os(2);
 				}
+#endif
 			}
 			break;
 
@@ -5683,10 +5685,10 @@ void GetHwReg8723A(PADAPTER padapter, u8 variable, u8 *val)
 		case HW_VAR_CHK_HI_QUEUE_EMPTY:
 			*val = ((rtw_read32(padapter, REG_HGQ_INFORMATION)&0x0000ff00)==0) ? _TRUE:_FALSE;
 			break;
-#ifdef CONFIG_WOWLAN_8723
 		case HW_VAR_RPWM_TOG:
 			*val = rtw_read8(padapter, SDIO_LOCAL_BASE|SDIO_REG_HRPWM1) & BIT7;
 			break;
+#ifdef CONFIG_WOWLAN_8723
 		case HW_VAR_WAKEUP_REASON:
 			*val = rtw_read8(padapter, REG_WOWLAN_WAKE_REASON);
 			break;

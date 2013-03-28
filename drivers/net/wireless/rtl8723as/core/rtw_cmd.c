@@ -528,8 +528,12 @@ post_process:
 	// free all cmd_obj resources
 	do{
 		pcmd = rtw_dequeue_cmd(pcmdpriv);
-		if(pcmd==NULL)
+		if(pcmd==NULL) {
+#ifdef CONFIG_LPS_LCLK
+			rtw_unregister_cmd_alive(padapter);
+#endif
 			break;
+		}
 
 		//DBG_871X("%s: leaving... drop cmdcode:%u\n", __FUNCTION__, pcmd->cmdcode);
 
@@ -2113,7 +2117,7 @@ void dynamic_chk_wk_hdl(_adapter *padapter, u8 *pbuf, int sz)
 	//
 	// BT-Coexist
 	//
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	if(padapter->pwrctrlpriv.wowlan_mode != _TRUE)
 #endif
 		BT_CoexistMechanism(padapter);
@@ -2134,7 +2138,7 @@ _func_enter_;
 	if((check_fwstate(pmlmepriv, WIFI_ADHOC_MASTER_STATE) == _TRUE)
 		|| (check_fwstate(pmlmepriv, WIFI_ADHOC_STATE) == _TRUE)
 		|| (check_fwstate(pmlmepriv, WIFI_AP_STATE) == _TRUE)
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 		|| (_TRUE == pwrpriv->bInSuspend))
 #else
 		)
@@ -2586,8 +2590,8 @@ exit:
 	if (res != _SUCCESS) {
 		DBG_871X("%s rtw_enqueue_cmd fail, set C2H directly\n", __func__);
 		rtw_hal_set_hwreg(padapter, HW_VAR_C2H_HANDLE, NULL);
-		return _SUCCESS;
 	}
+	return _SUCCESS;
 }
 
 u8 rtw_drvextra_cmd_hdl(_adapter *padapter, unsigned char *pbuf)

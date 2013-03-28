@@ -9,6 +9,7 @@
 
 #ifdef CONFIG_WLAN_SDIO
 extern void sdhci_bus_scan(void);
+extern int sdhci_wifi_detect_isbusy(void);
 extern int sdhci_device_attached();
 #endif
 /*
@@ -113,16 +114,17 @@ static int __init wlan_bt_late_init(void)
 	 * wifi on, but we should push down rst in late_init
 	 * because bus_scan is in queue work */
 	if (GPIO_WIFI_RESET > 0) {
-		for (i = 0; i <= 100; i++) {
-			msleep(10);
-			if (sdhci_device_attached())
-				break;
-		}
-		printk("RTL871X(adapter): %s after delay %d times (10ms)\n", __func__, i);
 		/* after sdhci_device_attached, there are some cmd for SDIO */
 		/* sleep will make these cmd success and make sure new (high */
-		/* speed SDIO card at address 0001) after sleep */
-		/* suspend/resume will all ok after that */
+		/* speed SDIO card at address 0001) after sleep suspend/resume */
+		/* will all ok after that, or suspend can't be call */
+		for (i = 0; i <= 200; i++) {
+			if(!sdhci_wifi_detect_isbusy())
+				break;
+			printk("RTL871X(adapter): %s sdhci_wifi_detect_isbusy %d times\n", __func__, i);
+			msleep(100);
+		}
+		printk("RTL871X(adapter): %s after delay %d times (100ms)\n", __func__, i);
 		msleep(20);
 		gpio_direction_output(GPIO_WIFI_RESET , 0);
 	}

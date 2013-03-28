@@ -32,7 +32,12 @@
 //	So, this driver tried to extend the dwell time for each scanning channel.
 //	This will increase the chance to receive the probe response from SoftAP.
 
+#if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
+#define SURVEY_TO		(50)
+#define SURVEY_TO_PASSIVE	(100)
+#else
 #define SURVEY_TO		(100)
+#endif
 #define REAUTH_TO		(300) //(50)
 #define REASSOC_TO		(300) //(50)
 //#define DISCONNECT_TO	(3000)

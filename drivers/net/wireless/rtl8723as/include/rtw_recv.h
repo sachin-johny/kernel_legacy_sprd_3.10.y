@@ -25,6 +25,8 @@
 #include <drv_types.h>
 
 
+#define RECVBUFF_ALIGN_SZ 8
+
 #ifdef CONFIG_DONT_CARE_TP
 #define NR_RECVFRAME 64
 #else
@@ -92,7 +94,9 @@
 
 /* it's difficult for some platform to kmalloc 10K mem */
 #ifdef CONFIG_DONT_CARE_TP
-#define MAX_RECVBUF_SZ (4000)
+#undef NR_RECVBUFF
+#define NR_RECVBUFF (8)
+#define MAX_RECVBUF_SZ (8192 - RECVBUFF_ALIGN_SZ)
 #else
 #define MAX_RECVBUF_SZ (10240)
 #endif
@@ -250,7 +254,6 @@ struct rx_pkt_attrib	{
 //#define REORDER_ENTRY_NUM	128
 #define REORDER_WAIT_TIME	(30) // (ms)
 
-#define RECVBUFF_ALIGN_SZ 8
 
 #define RXDESC_SIZE	24
 #define RXDESC_OFFSET RXDESC_SIZE

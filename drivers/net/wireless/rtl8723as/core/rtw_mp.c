@@ -1162,7 +1162,7 @@ void SetPacketTx(PADAPTER padapter)
 
 	//3 3. init TX descriptor
 	// offset 0
-#if defined(CONFIG_RTL8188E) && !defined(CONFIG_RTL8188E_SDIO)
+#if defined(CONFIG_RTL8188E) && (!defined(CONFIG_RTL8188E_SDIO) && !defined(CONFIG_GSPI_HCI))
 	desc->txdw0 |= cpu_to_le32(OWN | FSG | LSG);
 	desc->txdw0 |= cpu_to_le32(pkt_size & 0x0000FFFF); // packet size
 	desc->txdw0 |= cpu_to_le32(((TXDESC_SIZE + OFFSET_SZ) << OFFSET_SHT) & 0x00FF0000); //32 bytes for TX Desc

@@ -114,6 +114,7 @@ typedef enum _HW_VARIABLES{
 	// Unit in microsecond. 0 means disable this function.
 #ifdef CONFIG_WOWLAN
 	HW_VAR_WOWLAN,
+	HW_VAR_WAKEUP_REASON,
 #endif
 	HW_VAR_NAV_UPPER,
 	HW_VAR_C2H_HANDLE,
@@ -124,10 +125,7 @@ typedef enum _HW_VARIABLES{
 #ifdef SOFTAP_PS_DURATION
 	HW_VAR_SOFTAP_PS,
 #endif
-#ifdef CONFIG_WOWLAN_8723
 	HW_VAR_RPWM_TOG,
-	HW_VAR_WAKEUP_REASON,
-#endif
 }HW_VARIABLES;
 
 typedef enum _HAL_DEF_VARIABLE{
@@ -190,11 +188,12 @@ struct hal_ops {
 	void	(*enable_interrupt)(_adapter *padapter);
 	void	(*disable_interrupt)(_adapter *padapter);
 	s32	(*interrupt_handler)(_adapter *padapter);
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	void	(*disable_interrupt_but_cpwm2)(_adapter *padapter);
+#endif //CONFIG_WOWLAN
+#ifdef CONFIG_WOWLAN
 	void	(*clear_interrupt)(_adapter *padapter);
-#endif //CONFIG_WOWLAN_8723
-
+#endif
 	void	(*set_bwmode_handler)(_adapter *padapter, HT_CHANNEL_WIDTH Bandwidth, u8 Offset);
 	void	(*set_channel_handler)(_adapter *padapter, u8 channel);
 
@@ -422,7 +421,7 @@ void	rtw_hal_get_odm_var(_adapter *padapter, HAL_ODM_VARIABLE eVariable, PVOID p
 
 void rtw_hal_enable_interrupt(_adapter *padapter);
 void rtw_hal_disable_interrupt(_adapter *padapter);
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 void rtw_hal_disable_interrupt_but_cpwm2(_adapter *padapter);
 #endif //CONFIG_WOWLAN_8723
 

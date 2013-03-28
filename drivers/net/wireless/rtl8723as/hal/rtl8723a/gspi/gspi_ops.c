@@ -172,29 +172,20 @@ static u32 _spi_read_port(
 static u32 hwaddr2txfifo(u32 addr)
 {
 	u32 qsel;
+
 	switch (addr)
 	{
-		case 0:
-		case 3:
-			qsel = TX_LOQ_DOMAIN;
+		case WLAN_TX_HIQ_DEVICE_ID:
+			qsel = TX_HIQ_DOMAIN;
 		 	break;
-		case 1:
-		case 2:
-			qsel = TX_LOQ_DOMAIN;
-			break;
-		case 4:
-		case 5:
+		case WLAN_TX_MIQ_DEVICE_ID:
 			qsel = TX_MIQ_DOMAIN;
 			break;
-		case 6:
-		case 7:
-		case 0x10:
-		case 0x11://BC/MC in PS (HIQ)
-		case 0x12:
-			qsel = TX_HIQ_DOMAIN;
+		case WLAN_TX_LOQ_DEVICE_ID:
+			qsel = TX_LOQ_DOMAIN;
 			break;
 		default:
-			qsel = TX_LOQ_DOMAIN;
+			qsel = TX_HIQ_DOMAIN;
 			break;
 	}
 
@@ -335,7 +326,7 @@ void EnableInterrupt8723ASdio(PADAPTER padapter)
 //
 void DisableInterrupt8723ASdio(PADAPTER padapter)
 {
-	rtw_write32(padapter, SPI_LOCAL_OFFSET | SDIO_REG_HIMR, SDIO_HIMR_DISABLED);
+	rtw_write32(padapter, SPI_LOCAL_OFFSET | SDIO_REG_HIMR, SPI_HIMR_DISABLED);
 }
 
 //
@@ -506,6 +497,53 @@ static void spi_rxhandler(PADAPTER padapter, struct recv_buf *precvbuf)
 
 }
 
+void spi_recv_work_callback(PADAPTER padapter)
+{
+	PHAL_DATA_TYPE phal = GET_HAL_DATA(padapter);
+	struct recv_buf *precvbuf;
+	struct spi_more_data more_data = {0};
+
+	phal->SdioRxFIFOSize = rtw_read16(padapter, SPI_LOCAL_OFFSET | SPI_REG_RX0_REQ_LEN);
+	//DBG_8192C("%s: RX Request, size=%d\n", __func__, phal->SdioRxFIFOSize);
+	do {
+		more_data.more_data = 0;
+		more_data.len = 0;
+
+		if (phal->SdioRxFIFOSize == 0)
+		{
+			u16 val = 0;
+			s32 ret;
+
+			val = spi_read16(padapter, SPI_LOCAL_OFFSET | SPI_REG_RX0_REQ_LEN, &ret);
+			if (!ret) {
+				phal->SdioRxFIFOSize = val;
+				DBG_8192C("%s: RX_REQUEST, read RXFIFOsize again size=%d\n", __func__, phal->SdioRxFIFOSize);
+			} else {
+				DBG_8192C(KERN_ERR "%s: RX_REQUEST, read RXFIFOsize ERROR!!\n", __func__);
+			}
+		}
+
+		if (phal->SdioRxFIFOSize != 0)
+		{
+#ifdef RTL8723A_SDIO_LOOPBACK
+			sd_recv_loopback(padapter, phal->SdioRxFIFOSize);
+#else
+			precvbuf = spi_recv_rxfifo(padapter, phal->SdioRxFIFOSize, &more_data);
+			if (precvbuf)
+				spi_rxhandler(padapter, precvbuf);
+			if (more_data.more_data) {
+				phal->SdioRxFIFOSize = more_data.len;
+			}
+#endif
+		}
+	} while (more_data.more_data);
+#ifdef PLATFORM_LINUX
+#ifdef CONFIG_GSPI_HCI
+	tasklet_schedule(&padapter->recvpriv.recv_tasklet);
+#endif
+#endif
+}
+
 void spi_int_dpc(PADAPTER padapter, u32 sdio_hisr)
 {
 	PHAL_DATA_TYPE phal;
@@ -529,17 +567,17 @@ void spi_int_dpc(PADAPTER padapter, u32 sdio_hisr)
 
 		status = rtw_read32(padapter, REG_TXDMA_STATUS);
 		rtw_write32(padapter, REG_TXDMA_STATUS, status);
-		DBG_8192C("%s: SDIO_HISR_TXERR (0x%08x)\n", __func__, status);
+		//DBG_8192C("%s: SPI_HISR_TXERR (0x%08x)\n", __func__, status);
 	}
 
 	if (sdio_hisr & SPI_HISR_TXBCNOK)
 	{
-		DBG_8192C("%s: SDIO_HISR_TXBCNOK\n", __func__);
+		DBG_8192C("%s: SPI_HISR_TXBCNOK\n", __func__);
 	}
 
 	if (sdio_hisr & SPI_HISR_TXBCNERR)
 	{
-		DBG_8192C("%s: SDIO_HISR_TXBCNERR\n", __func__);
+		DBG_8192C("%s: SPI_HISR_TXBCNERR\n", __func__);
 	}
 
 	if (sdio_hisr & SPI_HISR_C2HCMD)
@@ -550,54 +588,15 @@ void spi_int_dpc(PADAPTER padapter, u32 sdio_hisr)
 
 	if (sdio_hisr & SPI_HISR_RX_REQUEST)// || sdio_hisr & SPI_HISR_RXFOVW)
 	{
-		struct recv_buf *precvbuf;
-		struct spi_more_data more_data = {0};
+		struct dvobj_priv *dvobj = padapter->dvobj;
+		PGSPI_DATA pgspi_data = &dvobj->intf_data;
 
-		//DBG_8192C("%s: RX Request, size=%d\n", __func__, phal->SdioRxFIFOSize);
-		sdio_hisr ^= SPI_HISR_RX_REQUEST;
-
-		do {
-			more_data.more_data = 0;
-			more_data.len = 0;
-
-			if (phal->SdioRxFIFOSize == 0)
-			{
-				u16 val = 0;
-				s32 ret;
-
-				val = spi_read16(padapter, SPI_LOCAL_OFFSET | SPI_REG_RX0_REQ_LEN, &ret);
-				if (!ret) {
-					phal->SdioRxFIFOSize = val;
-					DBG_8192C("%s: RX_REQUEST, read RXFIFOsize again size=%d\n", __func__, phal->SdioRxFIFOSize);
-				} else {
-					DBG_8192C(KERN_ERR "%s: RX_REQUEST, read RXFIFOsize ERROR!!\n", __func__);
-				}
-			}
-
-			if (phal->SdioRxFIFOSize != 0)
-			{
-#ifdef RTL8723A_SDIO_LOOPBACK
-				sd_recv_loopback(padapter, phal->SdioRxFIFOSize);
-#else
-				if (sdio_hisr & SPI_HISR_RXFOVW)
-					DBG_8192C("%s RXFOVW RX\n", __func__);
-				precvbuf = spi_recv_rxfifo(padapter, phal->SdioRxFIFOSize, &more_data);
-				if (precvbuf)
-					spi_rxhandler(padapter, precvbuf);
-				if (more_data.more_data) {
-					phal->SdioRxFIFOSize = more_data.len;
-				}
-#endif
-			}
-		} while (more_data.more_data);
-#ifdef PLATFORM_LINUX
-#ifdef CONFIG_GSPI_HCI
-		tasklet_schedule(&padapter->recvpriv.recv_tasklet);
-#endif
-#endif
+		if (pgspi_data->priv_wq)
+			queue_delayed_work(pgspi_data->priv_wq, &pgspi_data->recv_work, 0);
 	}
 }
 
+extern unsigned int oob_irq;
 void spi_int_hdl(PADAPTER padapter)
 {
 	u8 data[6];
@@ -608,7 +607,7 @@ void spi_int_hdl(PADAPTER padapter)
 
 	if ((padapter->bDriverStopped == _TRUE) ||
 	    (padapter->bSurpriseRemoved == _TRUE))
-		return;
+		goto exit;
 
 	phal = GET_HAL_DATA(padapter);
 
@@ -617,12 +616,7 @@ void spi_int_hdl(PADAPTER padapter)
 	//	DBG_8192C("%s hisr:%x\n", __func__, sdio_hisr);
 	if (ret) {
 		DBG_8192C(KERN_ERR "%s: read SDIO_REG_HISR FAIL!!\n", __func__);
-		return;
-	}
-	phal->SdioRxFIFOSize = spi_read16(padapter, SPI_LOCAL_OFFSET | SPI_REG_RX0_REQ_LEN, &ret);
-	if (ret) {
-		DBG_8192C(KERN_ERR "%s: read SPI_REG_RX0_REQ_LEN FAIL!!\n", __func__);
-		return;
+		goto exit;
 	}
 
 	if (sdio_hisr & phal->sdio_himr)
@@ -643,6 +637,12 @@ void spi_int_hdl(PADAPTER padapter)
 		//		("%s: HISR(0x%08x) and HIMR(0x%08x) not match!\n",
 		//		__FUNCTION__, sdio_hisr, phal->sdio_himr));
 	}
+
+
+exit:
+	/* because we use trigger low, so we should */
+	/* disable irq until we process it complete */
+	enable_irq(oob_irq);
 }
 
 //
@@ -680,7 +680,53 @@ u8 HalQueryTxBufferStatus8723ASdio(PADAPTER padapter)
 	return _TRUE;
 }
 
-void spi_set_chip_endian(PADAPTER padapter)
+#ifdef CONFIG_WOWLAN
+void DisableInterruptButCpwm28723ASdio(PADAPTER padapter)
 {
-	spi_write8_endian(padapter, SPI_LOCAL_OFFSET | 0xf0,0x01, 1);
+	u32 himr, tmp;
+
+#ifdef CONFIG_CONCURRENT_MODE
+	if ((padapter->isprimary == _FALSE) && padapter->pbuddy_adapter){
+		padapter = padapter->pbuddy_adapter;
+	}
+#endif
+	tmp = rtw_read32(padapter, SDIO_LOCAL_BASE | SDIO_REG_HIMR);
+	DBG_871X("DisableInterruptButCpwm28723ASdio(): Read SDIO_REG_HIMR: 0x%08x\n", tmp);
+
+	himr = cpu_to_le32(SPI_HIMR_DISABLED) | SPI_HISR_CPWM2;
+	rtw_write32(padapter, SPI_LOCAL_OFFSET | SDIO_REG_HIMR, himr);
+
+	tmp = rtw_read32(padapter, SPI_LOCAL_OFFSET | SDIO_REG_HIMR);
+	DBG_871X("DisableInterruptButCpwm28723ASdio(): Read again SDIO_REG_HIMR: 0x%08x\n", tmp);
 }
+
+u8 RecvOnePkt(PADAPTER padapter, u32 size)
+{
+	struct recv_buf *precvbuf;
+	struct spi_more_data more_data = {0};
+	u8 res = _FALSE;
+
+	DBG_871X("+%s: size: %d+\n", __func__, size);
+
+	if (padapter == NULL) {
+		DBG_871X(KERN_ERR "%s: padapter is NULL!\n", __func__);
+		return _FALSE;
+	}
+
+	if(size) {
+		precvbuf = spi_recv_rxfifo(padapter, size, &more_data);
+
+		if (precvbuf) {
+			printk("Start Recv One Pkt.\n");
+			spi_rxhandler(padapter, precvbuf);
+			res = _TRUE;
+		}else{
+			printk("Recv One Pkt buf alloc fail.\n");
+			res = _FALSE;
+		}
+	}
+	DBG_871X("-%s-\n", __func__);
+	return res;
+}
+#endif //CONFIG_WOWLAN
+

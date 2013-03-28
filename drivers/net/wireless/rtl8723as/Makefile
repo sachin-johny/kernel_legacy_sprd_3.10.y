@@ -34,6 +34,16 @@ CONFIG_GSPI_HCI=y
 endif
 endif
 
+ifeq ($(CONFIG_RTL8189ES),m)
+ifeq ($(CONFIG_WLAN_SDIO),y)
+CONFIG_SDIO_HCI=y
+CONFIG_GSPI_HCI=n
+else
+CONFIG_SDIO_HCI=n
+CONFIG_GSPI_HCI=y
+endif
+endif
+
 ifeq ($(CONFIG_SDIO_HCI), y)
 EXTRA_CFLAGS += -DCONFIG_SDIO_HCI
 endif
@@ -125,6 +135,11 @@ ifeq ($(CONFIG_SDIO_HCI), y)
 MODULE_NAME = 8189es
 endif
 
+
+ifeq ($(CONFIG_GSPI_HCI), y)
+MODULE_NAME = 8189es
+endif
+
 ifeq ($(CONFIG_USB_HCI), y)
 MODULE_NAME = 8188eu
 endif
@@ -142,10 +157,9 @@ OUTSRC_FILES += hal/OUTSRC/$(RTL871X)/HalHWImg8188E_MAC.o\
 		hal/OUTSRC/$(RTL871X)/odm_RegConfig8188E.o\
 		hal/OUTSRC/$(RTL871X)/Hal8188ERateAdaptive.o\
 		hal/OUTSRC/$(RTL871X)/odm_RTL8188E.o
-
-ifeq ($(CONFIG_WOWLAN), y)
+#WOWLAN_FW some times we need open WOWLAN in autoconfig
+#so we build it by default, and don't depend on WOWLAN
 OUTSRC_FILES += hal/OUTSRC/$(RTL871X)/HalHWImg8188E_FW.o
-endif
 
 PWRSEQ_FILES := hal/HalPwrSeqCmd.o \
 				hal/$(RTL871X)/Hal8188EPwrSeq.o

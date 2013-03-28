@@ -42,6 +42,7 @@ typedef struct gspi_data
 
 	struct workqueue_struct *priv_wq;
 	struct delayed_work irq_work;
+	struct delayed_work recv_work;
 #endif
 } GSPI_DATA, *PGSPI_DATA;
 
