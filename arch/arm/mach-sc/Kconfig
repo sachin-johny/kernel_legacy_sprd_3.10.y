@@ -63,6 +63,15 @@ config MACH_SP8825EA
 	help
 	  sp8825 EB board based on SC8825 serial.
 
+config MACH_SP8830EA
+	bool "sp8830ea Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SC8830
+	default n
+	help
+	  SP8830EA board based on SC8830 serial.
+
+
 config MACH_SP8830FPGA
 	bool "sp8830 FPGA Board"
 	depends on ARCH_SC

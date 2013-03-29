@@ -18,6 +18,10 @@
 #include "__board-sp8825ea.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP8830EA
+#include "__board-sp8830ea.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP8830FPGA
 #include "__board-sp8830fpga.h"
 #endif
