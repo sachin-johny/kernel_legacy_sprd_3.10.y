@@ -39,6 +39,10 @@
 #define HEADSET_BUTTON_GPIO_DEBOUNCE_SW 100
 #endif
 
+#ifdef CONFIG_MACH_SP7710GA
+extern int sprd_codec_headmic_bias_control(int on);
+#endif
+
 static BLOCKING_NOTIFIER_HEAD(headset_plug_notify_list);
 static struct _headset_detect_queue headset_detect_queue;
 static enum hrtimer_restart report_headset_button_status(int active, struct _headset_gpio *hgp);
@@ -373,6 +377,10 @@ static int __init headset_init(void)
 		pr_err("switch_dev_register failed!\n");
 		return ret;
 	}
+
+#ifdef CONFIG_MACH_SP7710GA
+	sprd_codec_headmic_bias_control(1);
+#endif
 	platform_driver_register(&headset_button_driver);
 	ht->input = input_allocate_device();
 	if (ht->input == NULL) {
