@@ -462,12 +462,12 @@ static int __init sci_clock_dump(void)
 static int
 __clk_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 {
+#if 0
 	struct cpufreq_freqs *freq = data;
-
 	printk("%s (%u) dump cpu freq (%u %u %u %u)\n",
 	       __func__, (unsigned int)val,
 	       freq->cpu, freq->old, freq->new, (unsigned int)freq->flags);
-
+#endif
 	return 0;
 }
 
