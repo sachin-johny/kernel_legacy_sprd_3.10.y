@@ -268,7 +268,6 @@ struct sprd_codec_priv {
 	struct sprd_codec_mixer mixer[SPRD_CODEC_MIXER_MAX];
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
 	int mic_bias[SPRD_CODEC_MIC_BIAS_MAX];
-	int audio_ldo_open_ok;
 #ifdef CONFIG_SPRD_CODEC_USE_INT
 	int ap_irq;
 	struct completion completion_hp_pop;
@@ -289,6 +288,7 @@ static struct sprd_codec_power_suppliy {
 	atomic_t auxmic_on;
 	atomic_t headmic_on;
 	atomic_t ldo_refcount;
+	int audio_ldo_open_ok;
 } sprd_codec_power;
 
 #define SPRD_CODEC_PA_SW_AOL (BIT(0))
@@ -1158,10 +1158,10 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 				       ARRAY_SIZE(sprd_codec_power.supplies),
 				       sprd_codec_power.supplies);
 		if (ret != 0) {
-			sprd_codec->audio_ldo_open_ok = 0;
+			sprd_codec_power.audio_ldo_open_ok = 0;
 			pr_err("Failed to request supplies: %d\n", ret);
 		} else {
-			sprd_codec->audio_ldo_open_ok = 1;
+			sprd_codec_power.audio_ldo_open_ok = 1;
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
 				regulator_set_mode(sprd_codec_power.
@@ -1215,7 +1215,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		sprd_codec_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(BG_EN),
 				       0);
 
-		if (sprd_codec->audio_ldo_open_ok) {
+		if (sprd_codec_power.audio_ldo_open_ok) {
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
 				regulator_set_mode(sprd_codec_power.
