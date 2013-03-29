@@ -165,15 +165,36 @@ static int i2s_calc_clk(struct i2s_priv *i2s)
 	int source_clk;
 	int bit;
 	int val;
-	source_clk = (int)clk_get_rate(clk_get_parent(i2s->i2s_clk));
+	switch (config->fs) {
+	case 8000:
+	case 16000:
+	case 32000:
+		{
+			struct clk *clk_128m;
+			clk_128m = clk_get(NULL, "clk_128m");
+			if (IS_ERR(clk_128m)) {
+				int ret = PTR_ERR(clk_128m);
+				pr_err("i2s get clock source error %d!\n", ret);
+				return ret;
+			}
+			clk_set_parent(i2s->i2s_clk, clk_128m);
+			source_clk = clk_get_rate(clk_128m);
+			clk_set_rate(i2s->i2s_clk, source_clk);
+			clk_put(clk_128m);
+		}
+		break;
+	default:
+		pr_err("i2s can't support %d clock\n", config->fs);
+		return 0;
+	}
+	i2s_dbg("i2s source clock is %d HZ\n", source_clk);
 	cycle = (PCM_BUS == config->bus_type) ? (config->pcm_cycle + 1) : 2;
 	bit = 8 << config->byte_per_chan;
 	bit_clk = config->fs * cycle * bit;
+	i2s_dbg("i2s bit clock is %d HZ\n", bit_clk);
 	val = (source_clk / bit_clk) >> 1;
-	if ((source_clk % (bit_clk << 1)) > bit_clk) {
-		return val;
-	}
-	return val - 1;
+	--val;
+	return val;
 }
 
 static void i2s_set_clk(struct i2s_priv *i2s)
@@ -351,7 +372,18 @@ static void i2s_set_slave_timeout(struct i2s_priv *i2s)
 	i2s_reg_write(reg, val << shift, mask);
 }
 
-static int i2s_get_data_width(struct i2s_priv *i2s)
+static int i2s_get_ddata_width(struct i2s_priv *i2s)
+{
+	struct i2s_config *config = &i2s->config;
+	if (PCM_BUS == config->bus_type) {
+		if (config->byte_per_chan == I2S_BPCH_16) {
+			return DMA_DDATA_WIDTH16;
+		}
+	}
+	return DMA_DDATA_WIDTH32;
+}
+
+static int i2s_get_sdata_width(struct i2s_priv *i2s)
 {
 	struct i2s_config *config = &i2s->config;
 	if (PCM_BUS == config->bus_type) {
@@ -419,7 +451,13 @@ static void i2s_dma_ctrl(struct i2s_priv *i2s, int enable)
 	int mask = BIT(14);
 	unsigned int reg = I2S_REG(i2s, IIS_CTRL0);
 	i2s_dbg("Entering %s enable = %d\n", __func__, enable);
-	i2s_reg_write(reg, enable ? mask : 0, mask);
+	if (!enable) {
+		if (atomic_read(&i2s->open_cnt) <= 0) {
+			i2s_reg_write(reg, 0, mask);
+		}
+	} else {
+		i2s_reg_write(reg, mask, mask);
+	}
 }
 
 static int i2s_close(struct i2s_priv *i2s)
@@ -428,6 +466,10 @@ static int i2s_close(struct i2s_priv *i2s)
 	if (atomic_dec_and_test(&i2s->open_cnt)) {
 		i2s_soft_reset(i2s);
 		i2s_global_disable(i2s);
+		if (!IS_ERR(i2s->i2s_clk)) {
+			clk_disable(i2s->i2s_clk);
+			clk_put(i2s->i2s_clk);
+		}
 	}
 	return 0;
 }
@@ -440,10 +482,17 @@ static int i2s_open(struct i2s_priv *i2s)
 
 	atomic_inc(&i2s->open_cnt);
 	if (atomic_read(&i2s->open_cnt) == 1) {
+		i2s->i2s_clk = clk_get(NULL, arch_audio_i2s_clk_name(i2s->id));
+		if (IS_ERR(i2s->i2s_clk)) {
+			ret = PTR_ERR(i2s->i2s_clk);
+			pr_err("i2s get clk error %d!\n", ret);
+			return ret;
+		}
 		i2s_global_enable(i2s);
 		i2s_soft_reset(i2s);
 		i2s_dma_ctrl(i2s, 0);
 		ret = i2s_config(i2s);
+		clk_enable(i2s->i2s_clk);
 	}
 
 	return ret;
@@ -472,13 +521,6 @@ static int i2s_startup(struct snd_pcm_substream *substream,
 
 	i2s_private->i2s = i2s;
 	i2s->config = *config;
-	i2s->i2s_clk = clk_get(dai->dev, arch_audio_i2s_clk_name(i2s->id));
-	if (IS_ERR(i2s->i2s_clk)) {
-		ret = PTR_ERR(i2s->i2s_clk);
-		pr_err("i2s get clk error %d!\n", ret);
-		return ret;
-	}
-	clk_enable(i2s->i2s_clk);
 
 	ret = i2s_open(i2s);
 	if (ret < 0) {
@@ -499,10 +541,6 @@ static void i2s_shutdown(struct snd_pcm_substream *substream,
 	i2s_dbg("Entering %s\n", __func__);
 
 	i2s_close(i2s);
-	if (!IS_ERR(i2s->i2s_clk)) {
-		clk_disable(i2s->i2s_clk);
-		clk_put(i2s->i2s_clk);
-	}
 
 	i2s_dbg("Leaving %s\n", __func__);
 }
@@ -525,8 +563,8 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 		dma_data->channels[0] = i2s->rx.dma_no;
 	}
 
-	dma_data->desc.cfg_dst_data_width = i2s_get_data_width(i2s);
-	dma_data->desc.cfg_src_data_width = i2s_get_data_width(i2s);
+	dma_data->desc.cfg_dst_data_width = i2s_get_ddata_width(i2s);
+	dma_data->desc.cfg_src_data_width = i2s_get_sdata_width(i2s);
 	dma_data->dev_paddr[0] =
 	    I2S_PHY_REG(i2s, IIS_TXD) + i2s_get_data_position(i2s);
 

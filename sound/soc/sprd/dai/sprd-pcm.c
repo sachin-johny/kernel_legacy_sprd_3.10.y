@@ -214,6 +214,7 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 		} else {
 			burst_len = config->rx_watermark;
 		}
+		burst_len <<= config->byte_per_chan;
 		hw_chan = 1;
 	} else {
 		snd_soc_set_runtime_hwparams(substream, &sprd_pcm_hardware);
@@ -408,19 +409,20 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		i2s_private = srtd->cpu_dai->ac97_pdata;
 		config = i2s_private->config;
 		used_chan_count = rtd->hw_chan;
-	}
+	} else {
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
-	rtd->interleaved = (used_chan_count == 2)
-	    && sprd_pcm_is_interleaved(runtime);
-	if (rtd->interleaved) {
-		sprd_pcm_dbg("interleaved access\n");
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			dma->desc.src_burst_mode = SRC_BURST_MODE_SINGLE;
-		} else {
-			dma->desc.dst_burst_mode = SRC_BURST_MODE_SINGLE;
+		rtd->interleaved = (used_chan_count == 2)
+			&& sprd_pcm_is_interleaved(runtime);
+		if (rtd->interleaved) {
+			sprd_pcm_dbg("interleaved access\n");
+			if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+				dma->desc.src_burst_mode = SRC_BURST_MODE_SINGLE;
+			} else {
+				dma->desc.dst_burst_mode = SRC_BURST_MODE_SINGLE;
+			}
 		}
-	}
 #endif
+	}
 
 	/* this may get called several times by oss emulation
 	 * with different params */
