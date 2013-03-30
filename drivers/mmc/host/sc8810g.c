@@ -280,13 +280,16 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 	struct sprd_host_data *host_data= sdhci_priv(host);
 	if(clock == 0){
 		if (host_data->clk_enable) {
+			pr_debug("******* %s, call  clk_disable*******\n", mmc_hostname(host->mmc));
 			clk_disable(host->clk);
 			host_data->clk_enable = 0;
 		}
 	}else{
-		if (0 == host_data->clk_enable) {
+		if (0 == host_data->clk_enable) {			
+			pr_debug("******* %s, call  clk_enable*******\n", mmc_hostname(host->mmc));
 			clk_enable(host->clk);
 			host_data->clk_enable = 1;
+			mdelay(5);
 		}
 	}
 	pr_debug("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
@@ -634,7 +637,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 #ifdef CONFIG_PM_RUNTIME
         switch(pdev->id) {
         case SDC_SLAVE_CP:
-            break;
         case SDC_SLAVE_WIFI:
             pm_runtime_set_active(&pdev->dev);
             pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
@@ -731,7 +733,6 @@ static int sprd_mmc_host_runtime_resume(struct device *dev) {
         if(host->ops->set_clock)
             host->ops->set_clock(host, 1);
         spin_unlock_irqrestore(&host->lock, flags);
-        msleep(10);
         sdhci_runtime_resume_host(host);
         mmc_release_host(mmc);
     }
@@ -755,6 +756,11 @@ static int sdhci_pm_suspend(struct device *dev) {
     if(retval >= 0) {
             retval = sdhci_suspend_host(host, PMSG_SUSPEND);
             if(!retval) {
+                unsigned long flags;
+                spin_lock_irqsave(&host->lock, flags);
+                if(host->ops->set_clock)
+                    host->ops->set_clock(host, 0);
+                spin_unlock_irqrestore(&host->lock, flags);
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
                 if( !strcmp(host->hw_name, "Spread SDIO host1") ) {
                     sdhci_host_wakeup_set(host);
@@ -772,11 +778,14 @@ static int sdhci_pm_suspend(struct device *dev) {
 
 static int sdhci_pm_resume(struct device *dev) {
     int retval = 0;
+    unsigned long flags;
     struct platform_device *pdev = container_of(dev, struct platform_device, dev);
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
-    if(!mmc_card_keep_power(mmc))
-        sdhci_sprd_enable_clock(host, 1);
+    spin_lock_irqsave(&host->lock, flags);
+    if(host->ops->set_clock)
+        host->ops->set_clock(host, 1);
+    spin_unlock_irqrestore(&host->lock, flags);
     retval = sdhci_resume_host(host);
     if(!retval) {
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED

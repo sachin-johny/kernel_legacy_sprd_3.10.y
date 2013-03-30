@@ -26,7 +26,8 @@ static int sprd_sdio_card_probe(struct mmc_card *card) {
     struct mmc_host *host = card->host;
     if (mmc_card_sdio(card)) {
         if(host->caps & MMC_CAP_POWER_OFF_CARD) {
-            pm_runtime_no_callbacks(&card->dev);
+            pm_runtime_no_callbacks(&card->dev); // avoid default sdio bus runtime calling
+            pm_suspend_ignore_children(mmc_classdev(host), false); // paired with remove function 
             return 0;
         }
     }
@@ -34,6 +35,13 @@ static int sprd_sdio_card_probe(struct mmc_card *card) {
 }
 
 static void sprd_sdio_card_remove(struct mmc_card *card) {
+    struct mmc_host *host = card->host;
+    if (mmc_card_sdio(card)) {
+        if(host->caps & MMC_CAP_POWER_OFF_CARD) {
+            pm_suspend_ignore_children(mmc_classdev(host), true);  // avoid mmc_attach_sdio->pm_runtime_set_active returning with error -16 
+            pm_runtime_idle(mmc_classdev(host)); // make platform devices runtime suspendable
+        }
+    }
 }
 
 static struct mmc_driver sprd_sdio_card_driver = {
