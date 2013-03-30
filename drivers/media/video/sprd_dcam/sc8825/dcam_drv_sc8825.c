@@ -571,9 +571,10 @@ int32_t dcam_stop(void)
 
 	/* CAP_EB */
 	if (DCAM_CAPTURE_MODE_MULTIPLE == s_dcam_mod.dcam_mode) {
-		REG_AWR(DCAM_PATH_CFG, ~BIT_0);
+		/*REG_AWR(DCAM_PATH_CFG, ~BIT_0);*/
 		/*_dcam_wait_for_stop();*/
-		_dcam_wait_one_frame();
+		dcam_pause();
+		_dcam_wait_for_done();
 		if (atomic_read(&s_resize_flag)) {
 			s_resize_wait = 1;
 			/* resize started , wait for it going to the end*/
