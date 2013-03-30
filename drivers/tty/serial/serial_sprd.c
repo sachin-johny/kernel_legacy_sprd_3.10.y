@@ -573,6 +573,7 @@ static int clk_startup(struct platform_device *pdev)
 	if (IS_ERR(clk)) {
 		printk("clock[%s]: failed to get clock by clk_get()!\n",
 				clk_name);
+		return -1;
 	}
 
 	plat_local_data = *(struct serial_data *)(pdev->dev.platform_data);
@@ -586,7 +587,9 @@ static int clk_startup(struct platform_device *pdev)
 	if (IS_ERR(clk_parent)) {
 		printk("clock[%s]: failed to get parent [%s] by clk_get()!\n",
 				clk_name, "clk_48m");
+		return -1;
 	}
+
 	ret= clk_set_parent(clk, clk_parent);
 	if (ret) {
 		printk("clock[%s]: clk_set_parent() failed!\n", clk_name);
