@@ -814,7 +814,7 @@ static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	node.index    = frame->fid;
 	node.height   = frame->height;
 
-	printk("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
+	DCAM_TRACE("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
 		node.irq_flag, node.f_type, node.index);
 
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == frame->type) {
@@ -1571,7 +1571,6 @@ static int v4l2_streamoff(struct file *file,
 	if (dev->stream_mode) {
 		ret = dcam_pause();
 		dcam_wait_for_done_ex();
-//		mdelay(33);
 	} else {
 		atomic_set(&dev->stream_on, 0);
 
