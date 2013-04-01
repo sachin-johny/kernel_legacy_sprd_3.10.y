@@ -589,7 +589,8 @@ void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *
 #ifdef CONFIG_ARCH_SC7710
 #define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x0800 )
 #define ANA_REG_GLB_APB_CLK_EN          ( ANA_CTL_GLB_BASE + 0x0000 )
-#define BIT_RTC_EIC_EB                  ( BIT(1) )
+#define ANA_REG_GLB_APB_CLK_EN1         ( ANA_CTL_GLB_BASE + 0x000C )
+#define BIT_RTC_EIC_EB                  ( BIT(3) )
 #define BIT_EIC_EB                      ( BIT(3) )
 #else
 #define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x0600 )
@@ -601,7 +602,12 @@ void __init gpio_irq_init(int irq, struct gpio_chip *gpiochip, struct irq_chip *
 static int __init gpio_init(void)
 {
 	/* enable EIC */
-	sci_adi_set(ANA_REG_GLB_APB_CLK_EN, BIT_EIC_EB | BIT_RTC_EIC_EB);
+#ifdef CONFIG_ARCH_SC710
+	sci_adi_set(ANA_REG_GLB_APB_CLK_EN, BIT_EIC_EB);
+    sci_adi_set(ANA_REG_GLB_APB_CLK_EN1, BIT_RTC_EIC_EB);
+#else
+    sci_adi_set(ANA_REG_GLB_APB_CLK_EN, BIT_EIC_EB | BIT_RTC_EIC_EB);
+#endif
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_EIC_EN | GEN0_EIC_RTC_EN, GR_GEN0);
 
 	gpiochip_add(&d_sci_eic.chip);
