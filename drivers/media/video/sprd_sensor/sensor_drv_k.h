@@ -94,7 +94,7 @@ typedef struct sensor_reg_tab_tag {
 #define PIN_CTL_BASE SPRD_CPC_BASE	/*0xE002F000<-->0x8C000000UL */
 #define PIN_CTL_CCIRPD1 PIN_CTL_BASE + 0x344UL
 #define PIN_CTL_CCIRPD0 PIN_CTL_BASE + 0x348UL
-
+#if 0
 #define MISC_BASE SPRD_MISC_BASE	/*0xE0033000<-->0x82000000 */
 #ifdef CONFIG_ARCH_SC8810
 #define ANA_REG_BASE MISC_BASE + 0x600
@@ -105,7 +105,7 @@ typedef struct sensor_reg_tab_tag {
 #define ANA_LDO_PD_CTL ANA_REG_BASE + 0x10
 #define ANA_LDO_VCTL2 ANA_REG_BASE + 0x1C
 #endif
-
+#endif
 #define BOOLEAN 					char
 #define SENSOR_IOC_MAGIC			'R'
 
