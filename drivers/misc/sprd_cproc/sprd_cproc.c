@@ -14,6 +14,9 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/sched.h>
+#include <linux/wait.h>
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/miscdevice.h>
 #include <linux/delay.h>
@@ -22,10 +25,16 @@
 #include <linux/proc_fs.h>
 #include <linux/sprd_cproc.h>
 
+#define CPROC_WDT_TRUE   1
+#define CPROC_WDT_FLASE  0
+
 struct cproc_device {
 	struct miscdevice		miscdev;
 	struct cproc_init_data		*initdata;
 	void				*vbase;
+	int 				wdtirq;
+	int				wdtcnt;
+	wait_queue_head_t	wdtwait;
 };
 
 static int sprd_cproc_open(struct inode *inode, struct file *filp)
@@ -85,6 +94,16 @@ static inline void sprd_cproc_nkif_init(struct cproc_device *cproc) {}
 static inline void sprd_cproc_nkif_exit(struct cproc_device *cproc) {}
 #endif
 
+static irqreturn_t sprd_cproc_irq_handler(int irq, void *dev_id)
+{
+	struct cproc_device *cproc = (struct cproc_device *)dev_id;
+
+	printk("sprd_cproc_irq_handler cp watchdog enable !\n");
+	cproc->wdtcnt = CPROC_WDT_TRUE;
+	wake_up_interruptible_all(&(cproc->wdtwait));
+	return IRQ_HANDLED;
+}
+
 static int sprd_cproc_probe(struct platform_device *pdev)
 {
 	struct cproc_device *cproc;
@@ -117,7 +136,20 @@ static int sprd_cproc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	cproc->wdtcnt = CPROC_WDT_FLASE;
+	init_waitqueue_head(&(cproc->wdtwait));
+
+	/* register IPI irq */
+	rval = request_irq(cproc->initdata->wdtirq, sprd_cproc_irq_handler,
+			0, cproc->initdata->devname, cproc);
+	if (rval != 0) {
+		printk(KERN_ERR "Cproc failed to request irq %s: %d\n",
+				cproc->initdata->devname, cproc->initdata->wdtirq);
+		return rval;
+	}
+
 	sprd_cproc_nkif_init(cproc);
+
 	platform_set_drvdata(pdev, cproc);
 
 	printk(KERN_INFO "cproc %s probed!\n", cproc->initdata->devname);
@@ -178,6 +210,7 @@ struct nk_proc_fs {
 	struct proc_dir_entry	*dsp;
 	struct proc_dir_entry	*status;
 	struct proc_dir_entry	*mem;
+	struct proc_dir_entry	*wdtirq;
 	struct cproc_device		*cproc;
 };
 
@@ -203,8 +236,9 @@ static ssize_t nk_proc_read(struct file *filp,
 	struct cproc_device *cproc = nk_entries.cproc;
 	unsigned int len;
 	void *vmem;
+	int rval;
 
-	pr_debug("nk proc read type: %s ppos %d\n!", type, *ppos);
+	pr_debug("nk proc read type: %s ppos %d\n", type, *ppos);
 
 	if (strcmp(type, "status") == 0) {
 		len = strlen(MSG);
@@ -230,6 +264,21 @@ static ssize_t nk_proc_read(struct file *filp,
 		}
 		*ppos += count;
 		return count;
+	} else if (strcmp(type, "wdtirq") == 0) {
+		/* wait forever */
+		rval = wait_event_interruptible(cproc->wdtwait, cproc->wdtcnt  != CPROC_WDT_FLASE);
+		if (rval < 0) {
+			printk(KERN_ERR "nk_proc_read wait interrupted error !\n");
+		}
+		len = strlen(MSG);
+		count = (len > count) ? count : len;
+		if (copy_to_user(buf, MSG, count)) {
+			printk(KERN_ERR "nk_proc_read copy data to user error !\n");
+			return -EFAULT;
+		} else {
+			printk(KERN_INFO "nk proc read wdtirq data !\n");
+			return count;
+		}
 	} else {
 		return -EINVAL;
 	}
@@ -248,6 +297,7 @@ static ssize_t nk_proc_write(struct file *filp,
 	if (strcmp(type, "start") == 0) {
 		printk(KERN_INFO "nk_proc_write to map cproc base start\n");
 		cproc->initdata->start(NULL);
+		cproc->wdtcnt = CPROC_WDT_FLASE;
 		return count;
 	}
 
@@ -324,6 +374,7 @@ static inline void sprd_cproc_nkif_init(struct cproc_device *cproc)
 	nk_entries.dsp = proc_create_data("dsp_bank", S_IWUSR, nk_entries.guest, &proc_fops, "dsp");
 	nk_entries.status = proc_create_data("status", S_IRUSR, nk_entries.guest, &proc_fops, "status");
 	nk_entries.mem = proc_create_data("mem", S_IRUSR, nk_entries.guest, &proc_fops, "mem");
+	nk_entries.wdtirq = proc_create_data("wdtirq", S_IRUSR, nk_entries.guest, &proc_fops, "wdtirq");
 	nk_entries.cproc = cproc;
 }
 
@@ -336,6 +387,7 @@ static inline void sprd_cproc_nkif_exit(struct cproc_device *cproc)
 	remove_proc_entry("guest-02", nk_entries.nk);
 	remove_proc_entry("restart", nk_entries.nk);
 	remove_proc_entry("mem", nk_entries.nk);
+	remove_proc_entry("wdtirq", nk_entries.nk);
 
 	remove_proc_entry("nk", NULL);
 }

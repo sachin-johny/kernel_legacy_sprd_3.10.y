@@ -962,6 +962,7 @@ static struct cproc_init_data sprd_cproc_td_pdata = {
 	.base		= 0x80000000,
 	.maxsz		= 0x02000000,
 	.start		= native_tdmodem_start,
+	.wdtirq		= IRQ_CP_WDG_INT,
 	.segnr		= 2,
 	.segs		= {
 		{
