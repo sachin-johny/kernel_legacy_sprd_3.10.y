@@ -181,7 +181,7 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 	if (cfg->src_step != 0 && cfg->des_step != 0) {
 		addr_fix_mod = 0x0;
 	} else {
-		if (cfg->src_step == 0 && cfg->des_step == 0) {
+		if ((cfg->src_step | cfg->des_step) == 0) {
 			/*only full chn support data copy from fifo to fifo*/
 			addr_fix_mod = 0;
 		} else {
@@ -201,7 +201,7 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 	dma_reg->cfg = DMA_PRI_1 << CHN_PRIORITY_OFFSET;
 	/*src and des addr */
 	dma_reg->src_addr = cfg->src_addr;
-	dma_reg->des_addr = cfg->src_addr;
+	dma_reg->des_addr = cfg->des_addr;
 	/*frag len */
 	dma_reg->frg_len =
 		(datawidth << SRC_DATAWIDTH_OFFSET) |
@@ -226,7 +226,7 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 		llist_en << LLIST_EN_OFFSET;
 	/*src and des addr */
 	dma_reg->src_addr = cfg->src_addr;
-	dma_reg->des_addr = cfg->src_addr;
+	dma_reg->des_addr = cfg->des_addr;
 	/*frag len */
 	dma_reg->frg_len =
 		(datawidth << SRC_DATAWIDTH_OFFSET) |
@@ -239,17 +239,22 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 	/*blk len */
 	dma_reg->blk_len = cfg->block_len & BLK_LEN_MASK;
 	/*trac len */
-	dma_reg->trsc_len = cfg->transcation_len & TRSC_LEN_MASK;
+	if (0x0 == cfg->transcation_len) {
+		dma_reg->trsc_len = cfg->block_len & TRSC_LEN_MASK;
+	} else {
+		dma_reg->trsc_len = cfg->transcation_len & TRSC_LEN_MASK;
+	}
 	/*fixme, the frag_step == datawidth*/
 	dma_reg->trsf_step =
-		(datawidth& TRSF_STEP_MASK) << DEST_TRSF_STEP_OFFSET |
-		(datawidth & TRSF_STEP_MASK) << SRC_TRSF_STEP_OFFSET;
+		(cfg->datawidth & TRSF_STEP_MASK) << DEST_TRSF_STEP_OFFSET |
+		(cfg->datawidth & TRSF_STEP_MASK) << SRC_TRSF_STEP_OFFSET;
 	dma_reg->llist_ptr = cfg->linklist_ptr;
+#if 0
 	dma_reg->frg_step = (cfg->des_step<< DEST_FRAG_STEP_OFFSET) |
 		cfg->src_step;
 	dma_reg->src_blk_step = cfg->block_len;
 	dma_reg->des_blk_step = cfg->block_len;
-
+#endif
 	return 0;
 }
 
@@ -417,14 +422,15 @@ int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
 
 	for (i = 0; i < node_size; i++) {
 		cfg_list[i].linklist_ptr = cfg_addr->phys_addr +
-		    ((i + 1) % node_size) * sizeof(struct sci_dma_reg);
+		    ((i + 1) % node_size) * sizeof(struct sci_dma_reg) + 0x10;
 		ret =
 		    __dma_cfg_check_and_convert(cfg_list + i, dma_reg_list + i);
 		if (ret < 0)
 			return -EINVAL;
 	}
 
-	dma_reg.llist_ptr = cfg_addr->phys_addr;
+	dma_reg.cfg = 0x10;
+	dma_reg.llist_ptr = cfg_addr->phys_addr + 0x10;
 
  fill_dma_reg:
 	__dma_clk_enable();
