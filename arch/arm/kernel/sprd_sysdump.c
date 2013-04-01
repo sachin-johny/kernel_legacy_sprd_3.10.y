@@ -254,6 +254,7 @@ static inline void crash_setup_regs(struct pt_regs *newregs,
 
 
 static void sysdump_fill_core_hdr(struct pt_regs *regs,
+						struct sysdump_mem *sysmem, int mem_num,
 						char *bufp, int nphdr, int dataoff)
 {
 	struct elf_prstatus prstatus;	/* NT_PRSTATUS */
@@ -302,7 +303,7 @@ static void sysdump_fill_core_hdr(struct pt_regs *regs,
 	nhdr->p_align	= 0;
 
 	/* setup ELF PT_LOAD program header for every area */
-	for (i = 0; i < sprd_sysdump_info->mem_num; i++) {
+	for (i = 0; i < mem_num; i++) {
 		phdr = (struct elf_phdr *) bufp;
 		bufp += sizeof(struct elf_phdr);
 		offset += sizeof(struct elf_phdr);
@@ -310,11 +311,11 @@ static void sysdump_fill_core_hdr(struct pt_regs *regs,
 		phdr->p_type	= PT_LOAD;
 		phdr->p_flags	= PF_R|PF_W|PF_X;
 		phdr->p_offset	= dataoff;
-		phdr->p_vaddr	= sprd_dump_mem[i].vaddr;
-		phdr->p_paddr	= sprd_dump_mem[i].paddr;
-		phdr->p_filesz	= phdr->p_memsz	= sprd_dump_mem[i].size;
+		phdr->p_vaddr	= sysmem[i].vaddr;
+		phdr->p_paddr	= sysmem[i].paddr;
+		phdr->p_filesz	= phdr->p_memsz	= sysmem[i].size;
 		phdr->p_align	= PAGE_SIZE;
-		dataoff += sprd_dump_mem[i].size;
+		dataoff += sysmem[i].size;
 	}
 
 	/*
@@ -395,6 +396,8 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 	sprd_sysdump_info->elfhdr_size = get_elfhdr_size(sprd_sysdump_info->mem_num);
 
 	sysdump_fill_core_hdr(regs,
+		sprd_dump_mem,
+		sprd_dump_mem_num,
 		(char *)sprd_sysdump_info + sizeof(*sprd_sysdump_info),
 		sprd_sysdump_info->mem_num + 1,
 		sprd_sysdump_info->elfhdr_size);
@@ -517,12 +520,16 @@ int sysdump_sysctl_init(void)
 		return -ENOMEM;
 	return 0;
 }
-module_init(sysdump_sysctl_init);
 
 void sysdump_sysctl_exit(void)
 {
 	if (sysdump_sysctl_hdr)
 		unregister_sysctl_table(sysdump_sysctl_hdr);
 }
+
+module_init(sysdump_sysctl_init);
 module_exit(sysdump_sysctl_exit);
 
+MODULE_AUTHOR("Jianjun.He <jianjun.he@spreadtrum.com>");
+MODULE_DESCRIPTION("kernel core dump for Spreadtrum");
+MODULE_LICENSE("GPL");
