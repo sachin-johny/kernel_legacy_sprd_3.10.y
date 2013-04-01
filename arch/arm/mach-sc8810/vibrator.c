@@ -38,8 +38,8 @@
 #define VIBRATOR_REG_UNLOCK     (0xA1B2)
 #define VIBRATOR_REG_LOCK       ((~VIBRATOR_REG_UNLOCK) & 0xffff)
 #define VIBRATOR_STABLE_LEVEL   (4)
-#define VIBRATOR_INIT_LEVEL     (11)
-#define VIBRATOR_INIT_STATE_CNT (10)
+#define VIBRATOR_INIT_LEVEL     (15)
+#define VIBRATOR_INIT_STATE_CNT (1024)//16 bit counter, drove by 32K clock!
 
 #define VIBR_STABLE_V_SHIFT     (12)
 #define VIBR_STABLE_V_MSK       (0x0f << VIBR_STABLE_V_SHIFT)
