@@ -327,6 +327,40 @@ static void print_gr(void)
 	if (val & ARM_VB_ANAON) printk("ARM_VB_ANAON = 1.\n");
 	if (val & ARM_VB_ACC) printk("ARM_VB_ACC = 1.\n");
 }
+#ifdef CONFIG_ARCH_SC7710
+/* ANA_LDO_PD_SET */
+#define LDO_LPREF_PD_CTL            ( 0x2000 )
+#define DCDC_MEM_PD_CTL             ( 0x1000 )
+#define DCDC_ARM_PD_CTL             ( 0x800 )
+#define LDO_BPEMMIO_CTL             ( 0x400 )
+#define LDO_BPEMMCORE_CTL           ( 0x200 )
+#define LDO_BPVDD25_CTL             ( 0x100 )
+#define LDO_BPVDD18_CTL             ( 0x80 )
+#define LDO_BPVDD28_CTL             ( 0x40 )
+#define LDO_BPAVDDBB_CTL            ( 0x20 )
+#define LDO_BPRF1_CTL               ( 0x10 )
+#define LDO_BPRF0_CTL               ( 0x8 )
+#define LDO_BPMEM_CTL               ( 0x4 )
+#define DCDC_CORE_PD_CTL            ( 0x2 )
+#define PDBG_CTL                    ( 0x1 )
+
+/* ANA_LDO_PD_CTL0 */
+#define LDO_USB_CTL             0x2
+#define LDO_SDIO0_CTL   0x8
+#define LDO_SIM0_CTL    0x20
+#define LDO_SIM1_CTL    0x80
+#define LDO_BPCAMD0_CTL         0x200
+#define LDO_BPCAMD1_CTL         0x800
+#define LDO_BPCAMA_CTL          0x2000
+#define LDO_BPSIM2_AP_CTL            0x8000
+
+/* ANA_LDO_PD_CTL1 */
+#define LDO_BPWIF0_CTL   0x2
+#define LDO_BPWIF1_CTL  0x8
+#define LDO_DCDC_PD_AP_CTL  0x20
+#define LDO_BPAMP_CTL    0x80
+
+#else
 
 /* ANA_LDO_PD_CTL0 */
 #define LDO_USB_CTL		0x2
@@ -344,6 +378,7 @@ static void print_gr(void)
 #define LDO_BPWIF1_CTL	0x20
 #define LDO_SIM2_CTL	0x80
 #define LDO_SIM3_CTL	0x200
+#endif
 
 /* ANA_AUDIO_PA_CTRL0 */
 #define AUDIO_PA_ENABLE		0x1
@@ -356,11 +391,13 @@ static void print_gr(void)
 /* sc8810 ldo register */
 #ifdef CONFIG_ARCH_SC7710
 #define	LDO_REG_BASE		(SPRD_MISC_BASE + 0x800)
+#define ANA_LDO_PD_SET		(LDO_REG_BASE  + 0x28)
+#define ANA_LDO_PD_RESET	(LDO_REG_BASE  + 0x2c)
 #define	ANA_LDO_PD_CTL0		(LDO_REG_BASE  + 0x30)
 #define	ANA_LDO_PD_CTL1		(LDO_REG_BASE  + 0x34)
 #define ANA_AUDIO_CTRL		(LDO_REG_BASE  + 0x88)
-#define	ANA_AUDIO_PA_CTRL0	(LDO_REG_BASE  + 0x78) // non-present
-#define	ANA_AUDIO_PA_CTRL1	(LDO_REG_BASE  + 0x7C) // non-present
+#define	ANA_AUDIO_PA_CTRL0	(LDO_REG_BASE  + 0x84) // non-present
+#define	ANA_AUDIO_PA_CTRL1	(LDO_REG_BASE  + 0x88) // non-present
 #else
 #define	LDO_REG_BASE		(SPRD_MISC_BASE + 0x600)
 #define	ANA_LDO_PD_CTL0		(LDO_REG_BASE  + 0x10)
@@ -372,7 +409,54 @@ static void print_gr(void)
 
 static void print_ana(void)
 {
-	u32 val = sci_adi_read(ANA_LDO_PD_CTL0);
+	u32 val, val1;
+	val = sci_adi_read(ANA_LDO_PD_RESET);
+	val1 = sci_adi_read(ANA_LDO_PD_SET);
+	printk("##: ANA_LDO_PD_RESET = %04x.\n", val);
+	printk("##: ANA_LDO_PD_SET = %04x.\n", val1);
+	if ((val & PDBG_CTL)) printk("##: PDBG_CTL is on.\n");
+        else if(!(val1 & PDBG_CTL)) printk("##: PDBG_CTL is not off.\n");
+
+        if ((val & DCDC_CORE_PD_CTL)) printk("##: DCDC_CORE_PD_CTL is on.\n");
+        else if(!(val1 & DCDC_CORE_PD_CTL)) printk("##: DCDC_CORE_PD_CTL is not off.\n");
+
+        if ((val & LDO_BPMEM_CTL)) printk("##: LDO_BPMEM_CTL is on.\n");
+        else if(!(val1 & LDO_BPMEM_CTL)) printk("##: LDO_BPMEM_CTL is not off.\n");
+
+        if ((val & LDO_BPRF0_CTL)) printk("##: LDO_BPRF0_CTL is on.\n");
+        else if(!(val1 & LDO_BPRF0_CTL)) printk("##: LDO_BPRF0_CTL is not off.\n");
+
+        if ((val & LDO_BPRF1_CTL)) printk("##: LDO_BPRF1_CTL is on.\n");
+        else if(!(val1 & LDO_BPRF1_CTL)) printk("##: LDO_BPRF1_CTL is not off.\n");
+
+        if ((val & LDO_BPAVDDBB_CTL)) printk("##: LDO_BPAVDDBB_CTL is on.\n");
+        else if(!(val1 & LDO_BPAVDDBB_CTL)) printk("##: LDO_BPAVDDBB_CTL is not off.\n");
+
+        if ((val & LDO_BPVDD28_CTL)) printk("##: LDO_BPVDD28_CTL is on.\n");
+        else if(!(val1 & LDO_BPVDD28_CTL)) printk("##: LDO_BPVDD28_CTL is not off.\n");
+
+        if ((val & LDO_BPVDD18_CTL)) printk("##: LDO_BPVDD18_CTL is on.\n");
+        else if(!(val1 & LDO_BPVDD18_CTL)) printk("##: LDO_BPVDD18_CTL is not off.\n");
+
+        if ((val & LDO_BPVDD25_CTL)) printk("##: LDO_BPVDD25_CTL is on.\n");
+        else if(!(val1 & LDO_BPVDD25_CTL)) printk("##: LDO_BPVDD25_CTL is not off.\n");
+
+        if ((val & LDO_BPEMMCORE_CTL)) printk("##: LDO_BPEMMCORE_CTL is on.\n");
+        else if(!(val1 & LDO_BPEMMCORE_CTL)) printk("##: LDO_BPEMMCORE_CTL is not off.\n");
+
+        if ((val & LDO_BPEMMIO_CTL)) printk("##: LDO_BPEMMIO_CTL is on.\n");
+        else if(!(val1 & LDO_BPEMMIO_CTL)) printk("##: LDO_BPEMMIO_CTL is not off.\n");
+
+        if ((val & DCDC_ARM_PD_CTL)) printk("##: DCDC_ARM_PD_CTL is on.\n");
+        else if(!(val1 & DCDC_ARM_PD_CTL)) printk("##: DCDC_ARM_PD_CTL is not off.\n");
+
+        if ((val & DCDC_MEM_PD_CTL)) printk("##: DCDC_MEM_PD_CTL is on.\n");
+        else if(!(val1 & DCDC_MEM_PD_CTL)) printk("##: DCDC_MEM_PD_CTL is not off.\n");
+
+        if ((val & LDO_LPREF_PD_CTL)) printk("##: LDO_LPREF_PD_CTL is on.\n");
+        else if(!(val1 & LDO_LPREF_PD_CTL)) printk("##: LDO_LPREF_PD_CTL is not off.\n");
+
+	val = sci_adi_read(ANA_LDO_PD_CTL0);
 	printk("##: ANA_LDO_PD_CTL0 = %04x.\n", val);
 	if ((val & LDO_USB_CTL)) printk("##: LDO_USB_CTL is on.\n");
 	else if(!(val & (LDO_USB_CTL >> 1))) printk("##: LDO_USB_CTL is not off.\n");
@@ -395,27 +479,23 @@ static void print_ana(void)
 	if ((val & LDO_BPCAMA_CTL)) printk("##: LDO_BPCAMA_CTL is on.\n");
 	else if(!(val & (LDO_BPCAMA_CTL >> 1))) printk("##: LDO_BPCAMA_CTL is not off.\n");
 
-	if ((val & LDO_BPVB_CTL)) printk("##: LDO_BPVB_CTL is on.\n");
-	else if(!(val & (LDO_BPVB_CTL >> 1))) printk("##: LDO_BPVB_CTL is not off.\n");
+	if ((val & LDO_BPSIM2_AP_CTL)) printk("##: LDO_BPSIM2_AP_CTL is on.\n");
+	else if(!(val & (LDO_BPSIM2_AP_CTL >> 1))) printk("##: LDO_BPSIM2_AP_CTL is not off.\n");
 
 	val = sci_adi_read(ANA_LDO_PD_CTL1);
 	printk("##: ANA_LDO_PD_CTL1 = %04x.\n", val);
-	if ((val & LDO_SDIO1_CTL)) printk("##: LDO_SDIO1_CTL is on.\n");
-	else if(!(val & (LDO_SDIO1_CTL >> 1))) printk("##: LDO_SDIO1_CTL is not off.\n");
-
 	if ((val & LDO_BPWIF0_CTL)) printk("##: LDO_BPWIF0_CTL is on.\n");
 	else if(!(val & (LDO_BPWIF0_CTL >> 1))) printk("##: LDO_BPWIF0_CTL is not off.\n");
 
 	if ((val & LDO_BPWIF1_CTL)) printk("##: LDO_BPWIF1_CTL is on.\n");
 	else if(!(val & (LDO_BPWIF1_CTL >> 1))) printk("##: LDO_BPWIF1_CTL is not off.\n");
 
-	if ((val & LDO_SIM2_CTL)) printk("##: LDO_SIM2_CTL is on.\n");
-	else if(!(val & (LDO_SIM2_CTL >> 1))) printk("##: LDO_SIM2_CTL is not off.\n");
+	if ((val & LDO_DCDC_PD_AP_CTL)) printk("##: LDO_DCDC_PD_AP_CTL is on.\n");
+	else if(!(val & (LDO_DCDC_PD_AP_CTL >> 1))) printk("##: LDO_DCDC_PD_AP_CTL is not off.\n");
 
-	if ((val & LDO_SIM3_CTL)) printk("##: LDO_SIM3_CTL is on.\n");
-	else if(!(val & (LDO_SIM3_CTL >> 1))) printk("##: LDO_SIM3_CTL is not off.\n");
-
-
+        if ((val & LDO_BPAMP_CTL)) printk("##: LDO_BPAMP_CTL is on.\n");
+        else if(!(val & (LDO_BPAMP_CTL >> 1))) printk("##: LDO_BPAMP_CTL is not off.\n");
+#ifndef CONFIG_ARCH_SC7710
 	printk("\n===========================\n");
 	val = sci_adi_read(ANA_AUDIO_PA_CTRL0);
 	printk("##: ANA_AUDIO_PA_CTRL0 = %04x.\n", val);
@@ -427,6 +507,7 @@ static void print_ana(void)
 	if (val & AUDIO_PA_LDO_ENABLE)	 printk("##: Audo PA_LDO is enabled.\n");	
 	else if (!(val & AUDIO_PA_LDO_ENABLE_RST)) printk("##: Audo PA_LDO is not stopped.\n");
 	printk("\n===========================\n");
+#endif
 }
 
 /*is dsp sleep :for debug */
@@ -442,6 +523,7 @@ static int is_dsp_sleep(void)
 	return 0;
 }
 
+extern void print_init_ana(void);
 static int print_thread(void * data)
 {
 	while(1){
@@ -449,6 +531,7 @@ static int print_thread(void * data)
 		print_ahb();
 		print_gr();
 		print_ana();
+		print_init_ana();
 		is_dsp_sleep();
 		/*just print locked wake_lock*/
 		has_wake_lock(WAKE_LOCK_SUSPEND);

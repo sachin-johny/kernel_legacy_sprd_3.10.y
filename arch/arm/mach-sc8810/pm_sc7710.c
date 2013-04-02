@@ -87,50 +87,13 @@ void check_pd(void)
 	}
 }
 
-/* FIXME: init led ctrl *we have no driver of led, just init here*/
-#ifdef CONFIG_ARCH_SC7710
-#define SPRD_ANA_BASE	(SPRD_MISC_BASE + 0x800)
-#define ANA_REG_BASE	SPRD_ANA_BASE
-#define ANA_LED_CTRL	(ANA_REG_BASE + 0x68)
-
-#define   ANA_LDO_SLP0           (ANA_REG_BASE + 0x2C)
-#define   ANA_LDO_SLP1           (ANA_REG_BASE + 0x30)
-#define   ANA_LDO_SLP2           (ANA_REG_BASE + 0x34) // non-present
-#define   ANA_DCDC_CTRL         (ANA_REG_BASE + 0x38)
-#define   ANA_DCDC_CTRL_DS		(ANA_REG_BASE + 0x3C)
-#else
-#define SPRD_ANA_BASE	(SPRD_MISC_BASE + 0x600)
-#define ANA_REG_BASE	SPRD_ANA_BASE
-#define ANA_LED_CTRL	(ANA_REG_BASE + 0x68)
-
-#define   ANA_LDO_SLP0           (ANA_REG_BASE + 0x2C)
-#define   ANA_LDO_SLP1           (ANA_REG_BASE + 0x30)
-#define   ANA_LDO_SLP2           (ANA_REG_BASE + 0x34)
-#define   ANA_DCDC_CTRL         (ANA_REG_BASE + 0x38)
-#define   ANA_DCDC_CTRL_DS		(ANA_REG_BASE + 0x3C)
-#endif
-
 static void init_led(void)
 {
-	/*all led off*/
-	sci_adi_raw_write(ANA_LED_CTRL, 0x801f);
 }
 
 void check_ldo(void)
 {
-#define CHECK_LDO(_reg, _val) { \
-	val = sci_adi_read(_reg); \
-	if(val != (_val)) printk("### setting not same:"#_reg" = %08x !=%08x\n", val, (_val)); \
-	}
-	unsigned int val;
-	CHECK_LDO(ANA_LDO_SLP0, 0x26f3);
-	CHECK_LDO(ANA_LDO_SLP1, 0x8019|(1<<12));
-	CHECK_LDO(ANA_LDO_SLP2, 0x0f20);
-#if 0
-	CHECK_LDO(ANA_DCDC_CTRL, 0x0025);
-	CHECK_LDO(ANA_DCDC_CTRL_DS, 0x0f43);
-	CHECK_LDO(ANA_LED_CTRL, 0x801f);
-#endif
+
 }
 
 /*copy code for deepsleep return */
@@ -375,13 +338,16 @@ static void mcu_sleep(void)
 static int deep_sleep(void)
 {
 	u32 val, ret = 0;
-
 	wait_until_uart1_tx_done();
 
 	SAVE_GLOBAL_REG;
 	disable_audio_module();
 	disable_apb_module();
 	disable_ahb_module();
+#if 0
+	/*force cp shutdown for 7710 only*/
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, 0x1 << 19, GR_GEN7);
+#endif
 	/*prevent uart1*/
 	__raw_writel(INT_IRQ_MASK, INT_IRQ_DIS);
 
@@ -400,6 +366,10 @@ static int deep_sleep(void)
 	save_reset_vector();
 	set_reset_vector();
 	check_if_wait_trace(0);
+#if 0
+	/* force ap deep sleep */
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, 1, GR_PCTL);
+#endif
 	ret = sp_pm_collapse();
 	check_if_wait_trace(1);
 	hard_irq_set();
@@ -500,10 +470,13 @@ static void init_gr(void)
 	sprd_greg_write(REG_TYPE_GLOBAL, val, GR_CLK_EN);
 }
 
+void init_ana_gr(void);
+
 void sc8810_pm_init(void)
 {
 	init_reset_vector();
 	init_gr();
+	init_ana_gr();
 	setup_autopd_mode();
 	init_led();
 	pm_debug_init();
