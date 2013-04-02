@@ -17,6 +17,8 @@
 #include <mach/adi.h>
 #include <linux/string.h>
 #include <asm/bitops.h>
+#include <linux/debugfs.h>
+#include <linux/module.h>
 
 #define WDG_BASE            (SPRD_MISC_BASE + 0x40)
 #define WDG_LOAD_LOW        (WDG_BASE + 0x00)
@@ -62,6 +64,7 @@
 #define HWRST_STATUS_SLEEP (0X60)
 #define HWRST_STATUS_FASTBOOT (0X30)
 #define HWRST_STATUS_SPECIAL (0x70)
+#define HWRST_STATUS_PANIC (0X80)
 
 void sprd_set_reboot_mode(const char *cmd)
 {
@@ -75,6 +78,8 @@ void sprd_set_reboot_mode(const char *cmd)
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SLEEP);
 	} else if (cmd && !strncmp(cmd, "bootloader", 10)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_FASTBOOT);
+	} else if (cmd && !strncmp(cmd, "panic", 5)) {
+		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_PANIC);
 	} else if (cmd && !strncmp(cmd, "special", 7)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
 	} else if(cmd){
@@ -105,3 +110,54 @@ void sprd_turnoff_watchdog(void)
 	sci_adi_clr(WDG_CTRL, WDG_INT_EN_BIT);
 	sci_adi_raw_write(WDG_LOCK, (uint16_t) (~WDG_UNLOCK_KEY));
 }
+
+static uint32_t * dump_flag = NULL;
+#ifdef CONFIG_DEBUG_FS
+static int flag_set(void *data, u64 val)
+{
+	if(dump_flag == NULL){
+		printk("dump flag not initialized\n");
+		return -EIO;
+	}else{
+		*dump_flag = val;
+		return 0;
+	}
+}
+
+static int flag_get(void *data, u64 *val)
+{
+	if(dump_flag == NULL){
+		printk("dump flag not initialized\n");
+		return -EIO;
+	}else{
+		*val = *dump_flag;
+		return 0;
+	}
+}
+DEFINE_SIMPLE_ATTRIBUTE(fatal_dump_fops, flag_get, flag_set, "%llu\n");
+struct dentry *fatal_dump_dir;
+#endif
+static int __init fatal_flag_init(void)
+{
+	dump_flag = (void __iomem *)(SPRD_IRAM_BASE + SZ_16K - 4);
+	*dump_flag = NULL;
+#ifdef CONFIG_DEBUG_FS
+	fatal_dump_dir = debugfs_create_dir("fatal_dump", NULL);
+	if (IS_ERR(fatal_dump_dir) || !fatal_dump_dir) {
+		printk("fatal dump failed to create debugfs directory\n");
+		fatal_dump_dir = NULL;
+		return 0;
+	}
+	debugfs_create_file("enable", S_IRUGO | S_IWUSR, fatal_dump_dir, NULL, &fatal_dump_fops);
+#endif
+	return 0;
+}
+static __exit void fatal_flag_exit(void)
+{
+#ifdef CONFIG_DEBUG_FS
+	debugfs_remove_recursive(fatal_dump_dir);
+#endif
+	return;
+}
+module_init(fatal_flag_init);
+module_exit(fatal_flag_exit);
