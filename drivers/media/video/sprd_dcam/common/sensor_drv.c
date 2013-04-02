@@ -2522,3 +2522,12 @@ int Sensor_GetSensorParam(uint8_t *buf,uint8_t *is_saved_ptr)
 	}
 	return 0;
 }
+
+void Sensor_Reset_PowerOn(uint32_t m_sleep)
+{
+	Sensor_PowerOn(SENSOR_FALSE);
+	msleep(m_sleep);
+
+	Sensor_PowerOn(SENSOR_TRUE);
+	msleep(m_sleep);
+}

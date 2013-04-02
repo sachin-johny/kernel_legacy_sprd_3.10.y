@@ -2261,6 +2261,9 @@ static int dcam_scan_status_thread(void *data_ptr)
 			}
 			if (DCAM_MODE_TYPE_PREVIEW == info_ptr->mode) {
 				//Sensor_SetTiming(SENSOR_MODE_COMMON_INIT);
+				printk("v4l2:dcam_scan_status_thread, reset sensor\n");
+				Sensor_Reset_PowerOn(5);
+
 				Sensor_SetTiming(g_dcam_info.preview_m);
 				reset_sensor_param();
 			} else {

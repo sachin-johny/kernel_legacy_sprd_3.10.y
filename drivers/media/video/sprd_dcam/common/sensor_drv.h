@@ -696,4 +696,5 @@ uint32 Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd, uint32 param);
 EXIF_SPEC_PIC_TAKING_COND_T *Sensor_GetSensorExifInfo(void);
 int Sensor_SetSensorParam(uint8_t *buf);
 int Sensor_GetSensorParam(uint8_t *buf,uint8_t *is_saved_ptr);
+void Sensor_Reset_PowerOn(uint32_t m_sleep);
 #endif
