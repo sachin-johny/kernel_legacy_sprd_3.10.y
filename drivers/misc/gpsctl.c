@@ -54,7 +54,7 @@ int gps_power_ctl(int is_on)
 			printk("gpsctl warning : use gpio power but gpio not configured");
 		}
 	} else {
-            	#if defined(CONFIG_ARCH_SC8825)
+		#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_MACH_SP7710GA)
 		gps_regulator = regulator_get(NULL, data->pwr_type);                   
 		#else
 		gps_regulator = regulator_get(NULL, REGU_NAME_GPS);

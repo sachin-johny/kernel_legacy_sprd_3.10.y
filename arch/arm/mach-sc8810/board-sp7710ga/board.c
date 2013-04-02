@@ -63,7 +63,7 @@ static struct platform_gpsctl_data pdata_gpsctl = {
 	.reset_pin = GPIO_GPS_RESET,
 	.onoff_pin = GPIO_GPS_ONOFF,
 	.clk_type  = "clk_aux0",
-/*	.pwr_type  = "pwr_ldo",*/
+	.pwr_type  = "vddwif0",
 };
 
 static struct platform_device  gpsctl_dev = {
