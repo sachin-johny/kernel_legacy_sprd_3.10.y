@@ -26,11 +26,13 @@
 #include <mach/regulator.h>
 #include "beken_fm_ctrl.h"
 
-#ifdef CONFIG_ARCH_SC8825 ||  CONFIG_ARCH_SC7710
+#ifdef CONFIG_ARCH_SC8825 
 #include <mach/pinmap.h>
 #include <mach/sci.h>
 #include <mach/hardware.h>
 #include <mach/regs_glb.h>
+#include <linux/clk.h>
+#elif defined CONFIG_ARCH_SC7710
 #include <linux/clk.h>
 #endif
 
@@ -42,7 +44,7 @@
 #define BEKEN_DEV_NAME	"BEKEN_FM"
 #define BEKEN_I2C_NAME    BEKEN_DEV_NAME
 
-#ifdef CONFIG_ARCH_SC8825 ||  CONFIG_ARCH_SC7710 
+#if defined CONFIG_ARCH_SC8825 ||  defined CONFIG_ARCH_SC7710 
 struct clk *fm_clk;
 #endif
 
@@ -315,7 +317,7 @@ static int beken_fm_close(struct beken_drv_data *cxt)
         atomic_cmpxchg(&cxt->fm_opened, 1, 0);
     }
 
-#ifdef CONFIG_ARCH_SC8825   ||  CONFIG_ARCH_SC7710 
+#if defined CONFIG_ARCH_SC8825 ||  defined CONFIG_ARCH_SC7710
     clk_disable(fm_clk);//alvindebug
 #endif 
     //beken_chip_32k_clk_input(false); 
@@ -370,7 +372,7 @@ static int beken_fm_open(struct beken_drv_data *cxt)
 
     atomic_cmpxchg(&cxt->fm_opened, 0, 1);
     
-#ifdef CONFIG_ARCH_SC8825 ||  CONFIG_ARCH_SC7710   
+#if defined CONFIG_ARCH_SC8825 ||  defined CONFIG_ARCH_SC7710
     clk_enable(fm_clk); //alvindebug
 #endif
     dev_err(&cxt->client->dev, "FM open: FM is opened\n");
@@ -1255,8 +1257,7 @@ static int beken_probe(struct i2c_client *client,
     }
    
     {
-#ifdef CONFIG_ARCH_SC8825 ||  CONFIG_ARCH_SC7710
-
+#if defined CONFIG_ARCH_SC8825 ||  defined CONFIG_ARCH_SC7710
        struct clk *clk_parent;
 #ifdef  CONFIG_ARCH_SC7710
        fm_clk = clk_get(NULL,"clk_aux1");
