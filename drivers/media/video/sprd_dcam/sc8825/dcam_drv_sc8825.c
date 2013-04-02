@@ -158,11 +158,14 @@ static atomic_t                    s_dcam_users = ATOMIC_INIT(0);
 static atomic_t                    s_resize_flag = ATOMIC_INIT(0);
 static struct semaphore            s_done_sema = __SEMAPHORE_INITIALIZER(s_done_sema, 0);
 static struct semaphore            s_dcam_done_sema = __SEMAPHORE_INITIALIZER(s_dcam_done_sema, 0);
+static struct semaphore            s_dcam_up_sema = __SEMAPHORE_INITIALIZER(s_dcam_up_sema, 0);
 static uint32_t                    s_resize_wait = 0;
 static uint32_t                    s_path1_wait = 0;
 static enum dcam_swtich_status                    s_path1_switch_req = DCAM_SWITCH_IDLE;
 static struct dcam_module          s_dcam_mod = {0};
 static uint32_t                    g_dcam_irq = 0x5A0000A5;
+static uint32_t                    g_frame_time = 0xFFFF;
+static uint32_t                    g_is_first_frame = 0x1;
 static struct clk                  *s_dcam_clk = NULL;
 static struct clk                  *s_ccir_clk = NULL;
 static struct clk                  *s_dcam_mipi_clk = NULL;
@@ -204,6 +207,9 @@ static int32_t _dcam_ccir_clk_dis(void);
 extern void _dcam_isp_root(void);
 static void _dcam_wait_for_done(void);
 static void    _dcam_sign_done(void);
+static void    _dcam_wait_one_frame(void);
+static void   _dcam_wait_for_up(void);
+static void    _dcam_sign_up(void);
 
 static const dcam_isr isr_list[IRQ_NUMBER] = {
 	_dcam_isp_root,
@@ -541,6 +547,8 @@ int32_t dcam_start(void)
 
 	printk("DCAM S \n");
 
+	g_is_first_frame = 1;
+	s_dcam_done_sema.count = 0;
 	REG_MWR(DCAM_PATH_CFG, BIT_0, 1);
 
 	if (s_dcam_mod.dcam_path1.valide) {
@@ -563,8 +571,10 @@ int32_t dcam_stop(void)
 
 	/* CAP_EB */
 	if (DCAM_CAPTURE_MODE_MULTIPLE == s_dcam_mod.dcam_mode) {
-		REG_AWR(DCAM_PATH_CFG, ~BIT_0);
-		_dcam_wait_for_stop();
+		/*REG_AWR(DCAM_PATH_CFG, ~BIT_0);*/
+		/*_dcam_wait_for_stop();*/
+		dcam_pause();
+		_dcam_wait_for_done();
 		if (atomic_read(&s_resize_flag)) {
 			s_resize_wait = 1;
 			/* resize started , wait for it going to the end*/
@@ -651,6 +661,9 @@ int32_t dcam_resume(void)
 
 	printk("DCAM R \n");
 
+	g_is_first_frame = 1;
+	s_dcam_done_sema.count = 0;
+	s_dcam_up_sema.count = 0;
 	REG_OWR(DCAM_PATH_CFG, BIT_0);
 
 	return rtn;
@@ -660,7 +673,7 @@ int32_t dcam_pause(void)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 
-//	REG_AWR(DCAM_PATH_CFG, ~BIT_0);
+	/*REG_AWR(DCAM_PATH_CFG, ~BIT_0);*/
 	s_path1_switch_req = DCAM_SWITCH_PAUSE;
 	printk("DCAM P \n");
 	return -rtn;
@@ -1894,11 +1907,24 @@ static void    _sensor_eof(void)
 static void    _cap_sof(void)
 {
 	//DCAM_TRACE("DCAM DRV: _cap_sof \n");
-	if(DCAM_SWITCH_PAUSE == s_path1_switch_req){
-		REG_AWR(DCAM_PATH_CFG, ~BIT_0);
-		s_path1_switch_req = DCAM_SWITCH_DONE;
-	}
+
 	return;
+}
+
+static void _update_frm_time()
+{
+	static struct timeval time_new = {0};
+	static struct timeval time_old = {0};
+
+	/**/
+	if(0x1 == (REG_RD(DCAM_PATH_CFG)&BIT_0)){
+		do_gettimeofday(&time_new);
+		if(1 != g_is_first_frame){
+			g_frame_time = (uint32_t)( (time_new.tv_sec - time_old.tv_sec)*1000+(time_new.tv_usec - time_old.tv_usec)/1000);
+		}
+		time_old = time_new;
+	}
+	
 }
 
 static void    _cap_eof(void)
@@ -1906,7 +1932,18 @@ static void    _cap_eof(void)
 	//DCAM_TRACE("DCAM DRV: _cap_eof \n");
 	_dcam_stopped();
 
-	 if(DCAM_SWITCH_DONE == s_path1_switch_req){
+	_update_frm_time();
+	if(1 == g_is_first_frame){
+		g_is_first_frame = 0;
+		_dcam_sign_up();
+	}
+
+	if(DCAM_SWITCH_PAUSE == s_path1_switch_req){
+		DCAM_TRACE("DCAM DRV: _cap_eof after pause \n");
+		REG_AWR(DCAM_PATH_CFG, ~BIT_0);
+		s_path1_switch_req = DCAM_SWITCH_DONE;
+	} else if(DCAM_SWITCH_DONE == s_path1_switch_req){
+		DCAM_TRACE("DCAM DRV: _cap_eof after pause \n");
 		_dcam_sign_done();
 		s_path1_switch_req = DCAM_SWITCH_IDLE;
 	}
@@ -1989,7 +2026,7 @@ static void    _path2_done(void)
 		return;
 	}
 
-	printk("DCAM 2\n");
+	DCAM_TRACE("DCAM 2\n");
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH2, false);
 	if (rtn) {
@@ -2039,9 +2076,10 @@ static void _dcam_wait_for_done(void)
 {
 	int                     rtn = DCAM_RTN_SUCCESS;
 
-	rtn = down_timeout(&s_dcam_done_sema, msecs_to_jiffies(200));
+	rtn = down_timeout(&s_dcam_done_sema, msecs_to_jiffies(500));
 	if (rtn) {
 		printk("DCAM DRV: Failed down\n");
+		s_path1_switch_req = DCAM_SWITCH_IDLE;
 	}
 
 	return;
@@ -2054,6 +2092,24 @@ static void    _dcam_sign_done(void)
 	return;
 }
 
+static void   _dcam_wait_for_up(void)
+{
+	int                     rtn = DCAM_RTN_SUCCESS;
+
+	rtn = down_timeout(&s_dcam_up_sema, msecs_to_jiffies(500));
+	if (rtn) {
+		printk("DCAM DRV: wait for up Failed\n");
+	}
+
+	return;
+}
+
+static void    _dcam_sign_up(void)
+{
+	up(&s_dcam_up_sema);
+	return;
+}
+
 static void    _dcam_wait_for_stop(void)
 {
 	int                     rtn = -1;
@@ -2061,8 +2117,23 @@ static void    _dcam_wait_for_stop(void)
 	s_path1_wait = 1;
 	rtn = down_interruptible(&s_done_sema);
 	if (rtn) {
-		printk("DCAM DRV: Failed down\n");
+		printk("DCAM DRV: _dcam_wait_for_stop Failed down\n");
 	}
+	return;
+}
+
+static void    _dcam_wait_one_frame(void)
+{
+	uint32_t      tmp_time = g_frame_time;
+	printk("DCAM DRV: latest frm time is %d", g_frame_time);
+
+	tmp_time = tmp_time>>2;
+	tmp_time += g_frame_time;
+	tmp_time += g_frame_time;
+
+	if(tmp_time>500)tmp_time=500;
+
+	mdelay(tmp_time);
 	return;
 }
 
