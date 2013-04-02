@@ -967,7 +967,7 @@ static struct clk clk_dispc = {
 	.clksel_mask = BITS_CLK_DISPCPLL_SEL(-1),
 
 	.enable_reg = __io(AHB_CTL6),
-	.enable_bit = BIT_DISPC_EB,
+	.enable_bit = 0,
 
 	.clkdiv_reg = __io(AHB_CTL6),
 	.clkdiv_mask = BITS_CLK_DISPC_DIV(-1),
@@ -1001,7 +1001,7 @@ static struct clk clk_dispc_dbi = {
 	.clksel_mask = BITS_CLK_DISPC_DBIPLL_SEL(-1),
 
 	.enable_reg = __io(AHB_CTL6),
-	.enable_bit = BIT_DISPC_EB,
+	.enable_bit = 0,
 
 	.clkdiv_reg = __io(AHB_CTL6),
 	.clkdiv_mask = BITS_CLK_DISPC_DBI_DIV(-1),
@@ -1035,7 +1035,7 @@ static struct clk clk_dispc_dpi = {
 	.clksel_mask = BITS_CLK_DISPC_DPIPLL_SEL(-1),
 
 	.enable_reg = __io(AHB_CTL6),
-	.enable_bit = BIT_DISPC_EB,
+	.enable_bit = 0,
 
 	.clkdiv_reg = __io(AHB_CTL6),
 	.clkdiv_mask = BITS_CLK_DISPC_DPI_DIV(-1),
