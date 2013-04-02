@@ -59,8 +59,6 @@ static __iomem void *base_syscnt = (__iomem void *)SPRD_SYSCNT_BASE;
 #define	SYSCNT_CTL	(base_syscnt + 0x0008)
 #define	SYSCNT_SHADOW_CNT	(base_syscnt + 0x000C)
 
-void enable_cpuidle(int enable);
-
 static inline void __gptimer_ctl(int timer_id, int enable, int mode)
 {
 	__raw_writel(enable | mode, TIMER_CTL(timer_id));
@@ -88,17 +86,10 @@ static void __gptimer_set_mode(enum clock_event_mode mode,
 		__raw_writel(LATCH, TIMER_LOAD(EVENT_TIMER));
 		__gptimer_ctl(EVENT_TIMER, TIMER_ENABLE, PERIOD_MODE);
 		__raw_writel(TIMER_INT_EN, TIMER_INT(EVENT_TIMER));
-/* localtimer is stop when cpu is idle, so makesure disable cpu standby mode */
-		enable_cpuidle(0);
 		break;
 	case CLOCK_EVT_MODE_ONESHOT:
 		__gptimer_ctl(EVENT_TIMER, TIMER_ENABLE, ONETIME_MODE);
 		__raw_writel(TIMER_INT_EN, TIMER_INT(EVENT_TIMER));
-/*
-  *localtimer is stop when cpu is idle,  if broadcast timer is oneshot,
-  * just broadcast clockevent from localtimer to gptimer, so we can enable cpu standby mode
-  */
-		enable_cpuidle(1);
 		break;
 	case CLOCK_EVT_MODE_SHUTDOWN:
 	case CLOCK_EVT_MODE_UNUSED:
@@ -253,6 +244,4 @@ void __init sc8825_timer_init(void)
 
 	/* setup timer1 as clockevent.  */
 	sprd_gptimer_clockevent_init(IRQ_TIMER1_INT, "gptimer1", 32768);
-/* disable arm standby mode at begining*/
-	enable_cpuidle(0);
 }

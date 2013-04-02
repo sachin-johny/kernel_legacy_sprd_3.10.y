@@ -1104,17 +1104,6 @@ static void init_gr(void)
 	sci_glb_write(REG_GLB_CLK_EN, val, -1UL );
 }
 
-void enable_cpuidle(int enable)
-{
-#if defined(CONFIG_LOCAL_TIMERS)
-	if(enable)
-		sci_glb_set(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
-	else
-		sci_glb_clr(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
-#endif
-}
-EXPORT_SYMBOL(enable_cpuidle);
-
 #ifdef CONFIG_NKERNEL
 void sc8825_idle(void)
 {
@@ -1321,4 +1310,5 @@ void sc8825_pm_init(void)
 	val |= (INTC_DYNAMIC_CLK_GATE_EN | SCU_DYNAMIC_CLK_GATE_EN);
 	__raw_writel(val, sprd_get_scu_base());
 
+	pm_idle = sc8825_idle;
 }
