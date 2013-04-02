@@ -257,11 +257,18 @@ static int report_headset_detect_status_callback(int active, struct _headset_gpi
 {
 	blocking_notifier_call_chain(&headset_plug_notify_list, active, hgp);
 	if (active) {
+	#ifdef CONFIG_MACH_SP7710GA
+		sprd_codec_headmic_bias_control(1);
+		mdelay(20);
+	#endif
 		headset_hook_detect(1);
 		hgp->parent->headphone = 0;
 		/* hgp->parent->headphone = hgp->parent->button.active_low ^ headset_gpio_get_value(hgp->parent->button.gpio); */
 		if (hgp->parent->headphone) {
 			switch_set_state(&hgp->parent->sdev, BIT_HEADSET_NO_MIC);
+		#ifdef CONFIG_MACH_SP7710GA
+			sprd_codec_headmic_bias_control(0);
+		#endif
 			pr_info("headphone plug in\n");
 		} else {
 			switch_set_state(&hgp->parent->sdev, BIT_HEADSET_MIC);
@@ -275,8 +282,12 @@ static int report_headset_detect_status_callback(int active, struct _headset_gpi
 		headset_hook_detect(0);
 		if (hgp->parent->headphone)
 			pr_info("headphone plug out\n");
-		else
+		else {
+		#ifdef CONFIG_MACH_SP7710GA
+			sprd_codec_headmic_bias_control(0);
+		#endif
 			pr_info("headset plug out\n");
+		}
 		switch_set_state(&hgp->parent->sdev, BIT_HEADSET_OUT);
 	}
 	/* use below code only when gpio irq misses state, because of the dithering */
@@ -378,9 +389,6 @@ static int __init headset_init(void)
 		return ret;
 	}
 
-#ifdef CONFIG_MACH_SP7710GA
-	sprd_codec_headmic_bias_control(1);
-#endif
 	platform_driver_register(&headset_button_driver);
 	ht->input = input_allocate_device();
 	if (ht->input == NULL) {
