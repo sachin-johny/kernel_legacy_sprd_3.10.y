@@ -130,6 +130,10 @@ static struct important_tasks tasks[] = {
 	{"AudioService",12},
 	{"kworker",7},
 	{"adbd",4},
+	{"mmcqd",5},
+	{"jbd2",4},
+	{"kswapd",6},
+	{"vaudio",6},
 };
 #endif
 
