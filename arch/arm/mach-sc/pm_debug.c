@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#if 0
 #include <asm/irqflags.h>
 #include <linux/init.h>
 #include <linux/suspend.h>
@@ -659,6 +660,25 @@ void pm_debug_clr(void)
 	if(dentry_debug_root != NULL)
 		debugfs_remove_recursive(dentry_debug_root);
 }
+#endif
+#else
+void pm_debug_init(void)
+{
+}
+void pm_debug_clr(void)
+{
+}
+void clr_sleep_mode(void)
+{
+}
+void time_statisic_begin(void){}
+void irq_wakeup_set(void){}
+void time_statisic_end(void){}
+void pm_debug_save_ahb_glb_regs(void){}
+void time_add(unsigned int time, int ret){}
+void print_hard_irq_inloop(int ret){}
+void print_statisic(void){}
+void set_sleep_mode(int sm){}
 #endif
 #if 0
 void inc_irq(int irq)
