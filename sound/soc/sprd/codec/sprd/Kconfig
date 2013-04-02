@@ -16,3 +16,12 @@ config SPRD_CODEC_EAR_WITH_IN_SPK
 	 Say Y if your device is use ear&spk in one,
 	  and ear have TDD noise when call mode.
 	  this feature will open the PA_SW_EN when using ear path.
+
+config SPRD_AUDIO_HOLD_HP_DRIVER
+	bool "hold headphone driver on"
+	default y
+	help
+	 Say Y if you want hold headphone dirver on,
+	  hold headphone driver always on when exist headphone
+          and screen on, smartauto trun off headphone driver
+          when screen off.
