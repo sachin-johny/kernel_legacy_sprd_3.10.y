@@ -35,6 +35,11 @@
 #define DISPMTX_CLK_EN (11)
 #define DISPC_CORE_CLK_EN (9)
 
+#define SPRDFB_CONTRAST (74)
+#define SPRDFB_SATURATION (73)
+#define SPRDFB_BRIGHTNESS (2)
+
+
 struct sprdfb_dispc_context {
 	struct clk		*clk_dispc;
 	struct clk 		*clk_dispc_dpi;
@@ -934,9 +939,9 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 
 	if(type < SPRD_DATA_TYPE_RGB888) {
 		dispc_write(1, DISPC_Y2R_CTRL);
-		dispc_write(64, DISPC_Y2R_CONTRAST);
-		dispc_write(64, DISPC_Y2R_SATURATION);
-		dispc_write(0, DISPC_Y2R_BRIGHTNESS);
+		dispc_write(SPRDFB_CONTRAST, DISPC_Y2R_CONTRAST); 
+		dispc_write(SPRDFB_SATURATION, DISPC_Y2R_SATURATION); 
+		dispc_write(SPRDFB_BRIGHTNESS, DISPC_Y2R_BRIGHTNESS); 
 	}
 
 	pr_debug("DISPC_IMG_CTRL: 0x%x\n", dispc_read(DISPC_IMG_CTRL));
