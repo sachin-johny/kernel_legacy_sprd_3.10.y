@@ -113,7 +113,12 @@
 	}while(0)
 
 /* FIXME */
+#ifdef CONIG_ARCH_SC7710
+#define	  SPRD_ANA_BASE 	   (SPRD_MISC_BASE + 0x800)
+#else
 #define	  SPRD_ANA_BASE 	   (SPRD_MISC_BASE + 0x600)
+#endif
+
 #define   ANA_REG_BASE         SPRD_ANA_BASE   /*  0x82000600 */
 #define   ANA_AGEN              (ANA_REG_BASE + 0x00)
 #define ANA_HWRST_RTC_REG		(SPRD_ANA_BASE + 0x98)
