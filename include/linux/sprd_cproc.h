@@ -28,6 +28,7 @@ struct cproc_init_data {
 	int			(*suspend)(void *arg);
 	int			(*resume)(void *arg);
 
+	int			wdtirq;
 	uint32_t		segnr;
 	struct cproc_segments	segs[];
 };
