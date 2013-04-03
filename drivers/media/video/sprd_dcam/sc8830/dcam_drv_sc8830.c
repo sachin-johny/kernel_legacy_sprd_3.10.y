@@ -35,13 +35,24 @@
 
 #define DCAM_SC1_H_TAB_OFFSET                          0x400
 #define DCAM_SC1_V_TAB_OFFSET                          0x4F0
+#define DCAM_SC1_V_CHROMA_TAB_OFFSET                   0x8F0
+
 #define DCAM_SC2_H_TAB_OFFSET                          0x1400
 #define DCAM_SC2_V_TAB_OFFSET                          0x14F0
-#define DCAM_SC_COEFF_BUF_SIZE                         (8 << 10)
+#define DCAM_SC2_V_CHROMA_TAB_OFFSET                   0x18F0
+
+#define DCAM_SC_COEFF_BUF_SIZE                         (24 << 10)
 #define DCAM_SC_COEFF_COEF_SIZE                        (1 << 10)
-#define DCAM_SC_COEFF_TMP_SIZE                         (6 << 10)
-#define DCAM_SC_COEFF_H_NUM                            48
-#define DCAM_SC_COEFF_V_NUM                            68
+#define DCAM_SC_COEFF_TMP_SIZE                         (21 << 10)
+
+#define DCAM_SC_H_COEF_SIZE                            (0xC0)
+#define DCAM_SC_V_COEF_SIZE                            (0x210)
+#define DCAM_SC_V_CHROM_COEF_SIZE                      (0x210)
+
+#define DCAM_SC_COEFF_H_NUM                            (DCAM_SC_H_COEF_SIZE/4)
+#define DCAM_SC_COEFF_V_NUM                            (DCAM_SC_V_COEF_SIZE/4)
+#define DCAM_SC_COEFF_V_CHROMA_NUM                     (DCAM_SC_V_CHROM_COEF_SIZE/4)
+
 #define DCAM_AXI_STOP_TIMEOUT                          100
 #define DCAM_CLK_DOMAIN_AHB                            1
 #define DCAM_CLK_DOMAIN_DCAM                           0
@@ -1280,7 +1291,7 @@ int32_t dcam_path1_cfg(enum dcam_cfg_id id, void *param)
 		path->output_format = format;
 		
 		if((DCAM_YUV422 != format) && 
-		(DCAM_YUV422 != format) && 
+		(DCAM_YUV420 != format) && 
 		(DCAM_YUV420_3FRAME != format)){
 			rtn = DCAM_RTN_PATH_OUT_FMT_ERR;
 			path->output_format = DCAM_FTM_MAX;
@@ -1465,7 +1476,7 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
 		if((DCAM_YUV422 != format) && 
-		(DCAM_YUV422 != format) && 
+		(DCAM_YUV420 != format) && 
 		(DCAM_YUV420_3FRAME != format)){
 			rtn = DCAM_RTN_PATH_OUT_FMT_ERR;
 			path->output_format = DCAM_FTM_MAX;
@@ -2094,13 +2105,18 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 	uint32_t                i = 0;
 	uint32_t                h_coeff_addr = DCAM_BASE;
 	uint32_t                v_coeff_addr  = DCAM_BASE;
+	uint32_t                v_chroma_coeff_addr  = DCAM_BASE;
 	uint32_t                *tmp_buf = NULL;
 	uint32_t                *h_coeff = NULL;
 	uint32_t                *v_coeff = NULL;
+	uint32_t                *v_chroma_coeff = NULL;
 	uint32_t                clk_switch_bit = 0;
 	uint32_t                clk_switch_shift_bit = 0;
 	uint32_t                clk_status_bit = 0;
 	uint32_t                ver_tap_reg = 0;
+	uint32_t                scale2yuv420 = 0;
+	uint8_t                 y_tap = 0;
+	uint8_t                 uv_tap = 0;
 
 	if (DCAM_PATH_IDX_1 != path_index && DCAM_PATH_IDX_2 != path_index)
 		return -DCAM_RTN_PARA_ERR;
@@ -2109,6 +2125,7 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 		path = &s_dcam_mod.dcam_path1;
 		h_coeff_addr += DCAM_SC1_H_TAB_OFFSET;
 		v_coeff_addr += DCAM_SC1_V_TAB_OFFSET;
+		v_chroma_coeff_addr += DCAM_SC1_V_CHROMA_TAB_OFFSET;
 		clk_switch_bit = BIT_3;
 		clk_switch_shift_bit = 3;
 		clk_status_bit = BIT_5;
@@ -2117,10 +2134,15 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 		path = &s_dcam_mod.dcam_path2;
 		h_coeff_addr += DCAM_SC2_H_TAB_OFFSET;
 		v_coeff_addr += DCAM_SC2_V_TAB_OFFSET;
+		v_chroma_coeff_addr += DCAM_SC2_V_CHROMA_TAB_OFFSET;
 		clk_switch_bit = BIT_4;
 		clk_switch_shift_bit = 4;
 		clk_status_bit = BIT_6;
 		ver_tap_reg = DCAM_PATH2_CFG;
+	}
+
+	if(DCAM_YUV420 == path->output_format){
+	    scale2yuv420 = 1;
 	}
 
 	DCAM_TRACE("DCAM DRV: _dcam_set_sc_coeff {%d %d %d %d} \n",
@@ -2138,6 +2160,7 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 
 	h_coeff = tmp_buf;
 	v_coeff = tmp_buf + (DCAM_SC_COEFF_COEF_SIZE/4);
+	v_chroma_coeff = v_coeff + (DCAM_SC_COEFF_COEF_SIZE/4);
 
 	if (!(Dcam_GenScaleCoeff((int16_t)path->sc_input_size.w,
 		(int16_t)path->sc_input_size.h,
@@ -2145,7 +2168,11 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 		(int16_t)path->output_size.h,
 		h_coeff,
 		v_coeff,
-		tmp_buf + (DCAM_SC_COEFF_COEF_SIZE/2),
+		v_chroma_coeff,
+		scale2yuv420,
+		&y_tap,
+		&uv_tap,
+		tmp_buf + (DCAM_SC_COEFF_COEF_SIZE*3/4),
 		DCAM_SC_COEFF_TMP_SIZE))) {
 		kfree(tmp_buf);
 		DCAM_TRACE("DCAM DRV: _dcam_set_sc_coeff Dcam_GenScaleCoeff error! \n");
@@ -2169,8 +2196,15 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 		v_coeff++;
 	}
 
-	REG_MWR(ver_tap_reg, BIT_19 | BIT_18 | BIT_17 | BIT_16, ((*v_coeff) & 0x0F) << 16);
-	DCAM_TRACE("DCAM DRV: _dcam_set_sc_coeff V[%d] = 0x%x \n", i,  (*v_coeff) & 0x0F);
+	for (i = 0; i < DCAM_SC_COEFF_V_CHROMA_NUM; i++) {
+		REG_WR(v_chroma_coeff_addr, *v_chroma_coeff);
+		v_chroma_coeff_addr += 4;
+		v_chroma_coeff++;
+	}
+
+	REG_MWR(ver_tap_reg, BIT_19 | BIT_18 | BIT_17 | BIT_16, (y_tap & 0x0F) << 16);
+	REG_MWR(ver_tap_reg, BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11, (uv_tap & 0x1F) << 11);
+	DCAM_TRACE("DCAM DRV: _dcam_set_sc_coeff y_tap=0x%x, uv_tap=0x%x \n", y_tap, uv_tap);
 #ifndef __SIMULATOR__
 	do {
 		REG_MWR(DCAM_CFG, clk_switch_bit, 0 << clk_switch_shift_bit);
