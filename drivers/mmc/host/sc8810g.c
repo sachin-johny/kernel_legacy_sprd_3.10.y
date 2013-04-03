@@ -481,10 +481,10 @@ static void sdhci_module_init(struct sdhci_host* host)
 	struct sprd_host_platdata *host_pdata;
 	host_pdata = sdhci_get_platdata(host);
 	/* Enable SDIO Module */
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, host_pdata->enb_bit, AHB_CTL0);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, host_pdata->enb_bit, host_pdata->enb_reg);
 	/* Reset SDIO Module */
-	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, host_pdata->rst_bit, AHB_SOFT_RST);
-	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, host_pdata->rst_bit, AHB_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, host_pdata->rst_bit, host_pdata->rst_reg);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, host_pdata->rst_bit, host_pdata->rst_reg);
 	sdhci_sprd_set_base_clock(host);
 	host->ops->set_clock(host, true);
 	if ( !strcmp(host->hw_name, "sprd-emmc") ) {

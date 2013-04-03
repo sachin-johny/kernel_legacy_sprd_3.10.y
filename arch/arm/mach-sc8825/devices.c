@@ -869,6 +869,8 @@ static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.max_clock = 90000000,
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SD0_SOFT_RST,
+	.enb_reg = REG_AHB_AHB_CTL0,
+	.rst_reg = REG_AHB_SOFT_RST,
 };
 
 struct platform_device sprd_sdio0_device = {
@@ -897,9 +899,11 @@ static struct sprd_host_platdata sprd_sdio1_pdata = {
 	.hw_name = "sprd-sdio1",
 	.clk_name = "clk_sdio1",
 	.clk_parent = "clk_sdio_src",
-	.enb_bit = BIT_SDIO1_EB,
 	.max_clock = 90000000,
+	.enb_bit = BIT_SDIO1_EB,
 	.rst_bit = BIT_SD1_SOFT_RST,
+	.enb_reg = REG_AHB_AHB_CTL0,
+	.rst_reg = REG_AHB_SOFT_RST,
 	.regs.is_valid = 1,
 };
 
@@ -931,6 +935,8 @@ static struct sprd_host_platdata sprd_sdio2_pdata = {
 	.clk_parent = "clk_192m",
 	.enb_bit = BIT_SDIO2_EB,
 	.rst_bit = BIT_SD2_SOFT_RST,
+	.enb_reg = REG_AHB_AHB_CTL0,
+	.rst_reg = REG_AHB_SOFT_RST,
 };
 
 struct platform_device sprd_sdio2_device = {
@@ -962,6 +968,8 @@ static struct sprd_host_platdata sprd_emmc_pdata = {
 	.max_clock = 384000000,
 	.enb_bit = BIT_EMMC_EB,
 	.rst_bit = BIT_EMMC_SOFT_RST,
+	.enb_reg = REG_AHB_AHB_CTL0,
+	.rst_reg = REG_AHB_SOFT_RST,
 	.regs.is_valid = 1,
 };
 

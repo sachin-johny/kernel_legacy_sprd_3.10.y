@@ -29,6 +29,7 @@ struct sprd_host_platdata {
 	const char *clk_parent;
 	int max_clock;
 	int enb_bit, rst_bit;
+	int enb_reg, rst_reg;
 
 	/*Save/Restore host context */
 	struct {
