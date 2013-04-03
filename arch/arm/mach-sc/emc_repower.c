@@ -1631,10 +1631,10 @@ static inline u32 get_dpll_freq_value(void){
 	modify_reg_field(GLB_REG_WR_REG_GEN1,9,1,1);
 	//step2: get the value
 	temp = 0x7ff;
-#if defined(CONFIG_ARCH_SC8825)	
-    temp &= REG32(GLB_REG_DPLL_CTRL);
-#elif defined(CONFIG_ARCH_SC8830)    
-    temp &= REG32(REG_AON_APB_DPLL_CFG);
+#if defined(CONFIG_ARCH_SC8825)
+	temp &= REG32(GLB_REG_DPLL_CTRL);
+#elif defined(CONFIG_ARCH_SC8830)
+	temp &= REG32(REG_AON_APB_DPLL_CFG);
 #endif
 	temp = (temp<<2);
 	//step3: disable register write
@@ -1855,7 +1855,7 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 	value = sci_glb_read(REG_AON_APB_DPLL_CFG, -1UL);
 #endif
 	value &= 0x7ff;
-#if defined(CONFIG_ARCH_SC8825)	
+#if defined(CONFIG_ARCH_SC8825)
 	div = sci_glb_read(REG_AHB_ARM_CLK, -1UL);
 #elif defined(CONFIG_ARCH_SC8830)
 	//will be add fot the future

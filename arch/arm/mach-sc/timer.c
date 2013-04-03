@@ -212,9 +212,9 @@ static void __init __twd_init(void)
 void __init sci_enable_timer_early(void)
 {
 	/* enable timer & syscnt in global regs */
-#if defined(CONFIG_ARCH_SC8825)	
+#if defined(CONFIG_ARCH_SC8825)
 	sci_glb_set(REG_GLB_GEN0, BIT_TMR_EB | BIT_SYST0_EB);
-#elif defined(CONFIG_ARCH_SC8830)	
+#elif defined(CONFIG_ARCH_SC8830)
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AP_TMR0_EB | BIT_AP_SYST_EB);
 #endif
 #if !defined (CONFIG_ARM_ARCH_TIMER)

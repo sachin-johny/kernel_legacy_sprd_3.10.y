@@ -30,7 +30,7 @@
 #include <mach/adi.h>
 #include <mach/irqs.h>
 #include <mach/sci.h>
-#if defined(CONFIG_ARCH_SC8825)	
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/regs_glb.h>
 #elif defined(CONFIG_ARCH_SC8830)
 #include <mach/regs_sc8830_aon_apb.h>
@@ -297,7 +297,7 @@ static void __init __adi_init(void)
 
 int __init sci_adi_init(void)
 {
-#if defined(CONFIG_ARCH_SC8825)	
+#if defined(CONFIG_ARCH_SC8825)
 	/* enable adi in global regs */
 	sci_glb_set(REG_GLB_GEN0, BIT_ADI_EB);
 
