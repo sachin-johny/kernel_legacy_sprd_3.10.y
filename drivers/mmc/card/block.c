@@ -1162,7 +1162,9 @@ static int mmc_blk_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
 		blocks = mmc_sd_num_wr_blocks(card);
 		if (blocks != (u32)-1) {
 			spin_lock_irq(&md->lock);
-			ret = __blk_end_request(req, 0, blocks << 9);
+			/* do not end requset if cmd error */
+			/*ret = __blk_end_request(req, 0, blocks << 9);*/
+			ret = __blk_end_request(req, 0, 0);
 			spin_unlock_irq(&md->lock);
 		}
 	} else {
@@ -1313,7 +1315,8 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 	/*
 	* reset host failed, give up, remove card
 	*/
-	remove_sd_card(card->host);
+	if(mmc_card_sd(card))
+		remove_sd_card(card->host);
 
  start_new_req:
 	if (rqc) {
