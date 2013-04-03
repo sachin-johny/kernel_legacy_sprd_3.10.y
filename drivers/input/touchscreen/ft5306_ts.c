@@ -97,6 +97,8 @@ struct ft5x0x_ts_data {
 	struct ts_event	event;
 	struct work_struct	pen_event_work;
 	struct workqueue_struct	*ts_workqueue;
+        struct work_struct       resume_work;
+        struct workqueue_struct *ts_resume_workqueue;
 	struct early_suspend	early_suspend;
 	struct ft5x0x_ts_platform_data	*platform_data;
 //	struct timer_list touch_timer;
@@ -1035,15 +1037,28 @@ static void ft5x0x_ts_reset(void)
 
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
+        disable_irq_nosync(this_client->irq);
 	printk("==ft5x0x_ts_suspend=\n");
 	ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
 }
 
 static void ft5x0x_ts_resume(struct early_suspend *handler)
 {
+#if 0
 	printk("==%s==\n", __FUNCTION__);
 	ft5x0x_ts_reset();
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);//about 70HZ
+#endif
+        struct ft5x0x_ts_data  *ft5x0x_ts = (struct ft5x0x_ts_data *)i2c_get_clientdata(this_client);
+        queue_work(ft5x0x_ts->ts_resume_workqueue, &ft5x0x_ts->resume_work);
+}
+
+static void ft5x0x_ts_resume_work(struct work_struct *work)
+{
+        printk("==%s==\n", __FUNCTION__);
+        ft5x0x_ts_reset();
+        ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);//about 70HZ
+        enable_irq(this_client->irq);
 }
 
 static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
@@ -1150,6 +1165,13 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_create_singlethread;
 	}
 
+        INIT_WORK(&ft5x0x_ts->resume_work, ft5x0x_ts_resume_work);
+        ft5x0x_ts->ts_resume_workqueue = create_singlethread_workqueue("ft5x0x_ts_resume_work");
+        if (!ft5x0x_ts->ts_resume_workqueue) {
+                err = -ESRCH;
+                goto create_singlethread_workqueue_resume;
+        }
+
 	input_dev = input_allocate_device();
 	if (!input_dev) {
 		err = -ENOMEM;
@@ -1249,6 +1271,9 @@ exit_input_register_device_failed:
 exit_input_dev_alloc_failed:
 	free_irq(client->irq, ft5x0x_ts);
 exit_irq_request_failed:
+        cancel_work_sync(&ft5x0x_ts->resume_work);
+        destroy_workqueue(ft5x0x_ts->ts_resume_workqueue);
+create_singlethread_workqueue_resume:
 	cancel_work_sync(&ft5x0x_ts->pen_event_work);
 	destroy_workqueue(ft5x0x_ts->ts_workqueue);
 exit_create_singlethread:
