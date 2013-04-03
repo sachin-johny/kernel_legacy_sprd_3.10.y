@@ -165,7 +165,6 @@ int sci_dma_ioctl(u32 dma_chn, dma_cmd cmd, void *arg);
 #define DMA_REG_BASE                    SPRD_DMA0_BASE
 
 #define DMA_CHx_CTL_BASE                (DMA_REG_BASE + 0x0400)
-#define DMA_CHx_CTL_BASE                (DMA_REG_BASE + 0x0400)
 #define DMA_CHx_BASE(x)                 (DMA_CHx_CTL_BASE + 0x20 * x )
 
 #include <linux/io.h>
