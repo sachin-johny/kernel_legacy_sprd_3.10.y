@@ -10,6 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -24,7 +25,9 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <mach/globalregs.h>
+#include <mach/sci.h>
 #include "sc8825_nand.h"
+#include <linux/wakelock.h>
 struct sprd_sc8825_nand_param {
 	uint8_t id[5];
 	uint8_t bus_width;
@@ -70,6 +73,7 @@ struct sprd_sc8825_nand_info {
 	u32 ins[NAND_MC_BUFFER_SIZE >> 1];
 };
 #define mtd_to_sc8825(m) (&g_sc8825_nand_info)
+static struct wake_lock nfc_wakelock;
 struct sprd_sc8825_nand_info g_sc8825_nand_info = {0};
 static __attribute__((aligned(4))) u8  s_id_status[8];
 //gloable variable
@@ -339,7 +343,7 @@ static void sprd_sc8825_nand_ins_exec(struct sprd_sc8825_nand_info *sc8825)
 {
 	u32 i;
 	u32 cfg0;
-
+	wake_lock(&nfc_wakelock);
 	for(i = 0; i < ((sc8825->ins_num + 1) >> 1); i++)
 	{
 		sprd_sc8825_reg_write(NFC_INST0_REG + (i << 2), sc8825->ins[i]);
@@ -384,6 +388,7 @@ static int sprd_sc8825_nand_wait_finish(struct sprd_sc8825_nand_info *sc8825)
 		while (1);
 		return -1;
 	}
+	wake_unlock(&nfc_wakelock);
 	return 0;
 }
 static void sprd_sc8825_nand_wp_en(struct sprd_sc8825_nand_info *sc8825, int en)
@@ -399,8 +404,12 @@ static void sprd_sc8825_nand_wp_en(struct sprd_sc8825_nand_info *sc8825, int en)
 static void sprd_sc8825_select_chip(struct mtd_info *mtd, int chip)
 {
 	struct sprd_sc8825_nand_info *sc8825 = mtd_to_sc8825(mtd);
-	if(chip < 0) { //for release caller
-		return;
+	if (chip == -1) {
+		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
+		return;//for release caller
+	}
+	else {
+		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
 	}
 	sc8825->chip = chip;
 }
@@ -971,7 +980,7 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	}
 
 	memset(&g_sc8825_nand_info, 0 , sizeof(g_sc8825_nand_info));
-
+	wake_lock_init(&nfc_wakelock, WAKE_LOCK_SUSPEND, "nfc_wakelock");
 	platform_set_drvdata(pdev, &g_sc8825_nand_info);
 	g_sc8825_nand_info.pdev = pdev;
 
@@ -1032,15 +1041,17 @@ static int sprd_nand_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
+static u32 timing_reg_saved = 0;
 static int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 {
+	timing_reg_saved = sprd_sc8825_reg_read(NFC_TIMING_REG);
 	//nothing to do
 	return 0;
 }
 
 static int sprd_nand_resume(struct platform_device *dev)
 {
-	sprd_sc8825_reg_write(NFC_TIMING_REG, NFC_DEFAULT_TIMING);
+	sprd_sc8825_reg_write(NFC_TIMING_REG, timing_reg_saved);
 	sprd_sc8825_reg_write(NFC_TIMEOUT_REG, 0x80400000);
 	//close write protect
 	sprd_sc8825_nand_wp_en(&g_sc8825_nand_info, 0);
