@@ -689,6 +689,11 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	/*use MSBs as img exp mode*/
 	dispc_set_exp_mode(0x0);
 
+#ifdef CONFIG_FB_SC7710
+	/*set dispc gap value 32 clk*/
+	dispc_set_bits(BIT(13), DISPC_CTRL);
+#endif
+
 	if(dispc_ctx.is_first_frame){
 		dispc_layer_init(&(dev->fb->var));
 	}else{
