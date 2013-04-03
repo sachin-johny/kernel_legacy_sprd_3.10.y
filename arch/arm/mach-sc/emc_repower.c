@@ -1,8 +1,12 @@
 #include <linux/init.h>
 #include <linux/suspend.h>
 #include <linux/errno.h>
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
+#elif defined(CONFIG_ARCH_SC8830)
+#include <mach/regs_sc8830_aon_apb.h>
+#endif
 #include <asm/irqflags.h>
 //#include "clock_common.h"
 //#include "clock_sc8810.h"
@@ -1611,7 +1615,11 @@ static inline void modify_dpll_freq (u32 freq) {
 	}
 	*/
 	temp = (freq >> 2);
+#if defined(CONFIG_ARCH_SC8825)
        modify_reg_field(GLB_REG_DPLL_CTRL,0,11,temp);
+#elif defined(CONFIG_ARCH_SC8830)
+       modify_reg_field(REG_AON_APB_DPLL_CFG,0,11,temp);
+#endif
 	//step2: disable register write
 	modify_reg_field(GLB_REG_WR_REG_GEN1,9,1,0);
 }
@@ -1623,7 +1631,11 @@ static inline u32 get_dpll_freq_value(void){
 	modify_reg_field(GLB_REG_WR_REG_GEN1,9,1,1);
 	//step2: get the value
 	temp = 0x7ff;
+#if defined(CONFIG_ARCH_SC8825)	
     temp &= REG32(GLB_REG_DPLL_CTRL);
+#elif defined(CONFIG_ARCH_SC8830)    
+    temp &= REG32(REG_AON_APB_DPLL_CFG);
+#endif
 	temp = (temp<<2);
 	//step3: disable register write
 	modify_reg_field(GLB_REG_WR_REG_GEN1,9,1,0);
@@ -1837,9 +1849,17 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 		value &= 0xf;
 		param->cs1_size = get_emc_size(value);
 	}
+#if defined(CONFIG_ARCH_SC8825)
 	value = sci_glb_read(REG_GLB_D_PLL_CTL, -1UL);
+#elif defined(CONFIG_ARCH_SC8830)
+	value = sci_glb_read(REG_AON_APB_DPLL_CFG, -1UL);
+#endif
 	value &= 0x7ff;
+#if defined(CONFIG_ARCH_SC8825)	
 	div = sci_glb_read(REG_AHB_ARM_CLK, -1UL);
+#elif defined(CONFIG_ARCH_SC8830)
+	//will be add fot the future
+#endif
 	div >>= 8;
 	div &= 0xf;
 	param->emc_freq = (value * 0x4) / (div + 1);

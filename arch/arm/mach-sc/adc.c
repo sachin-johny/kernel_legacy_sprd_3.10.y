@@ -22,7 +22,11 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/regs_ana_glb.h>
+#elif defined(CONFIG_ARCH_SC8830)
+#include <mach/regs_sc8830_ana_glb.h>
+#endif
 #include <mach/arch_lock.h>
 
 static u32 io_base;		/* Mapped base address */
@@ -85,10 +89,17 @@ static unsigned adc_read(unsigned addr)
 #define BIT_CLK_AUXAD_EN						( BIT(14) )
 static void sci_adc_enable(void)
 {
+#if defined(CONFIG_ARCH_SC8825)
 	/* enable adc */
 	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
 		    BIT_ANA_ADC_EB | BIT_ANA_CLK_AUXADC_EN |
 		    BIT_ANA_CLK_AUXAD_EN);
+#elif defined(CONFIG_ARCH_SC8830)
+	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN,
+		    BIT_ANA_ADC_EN);
+	sci_adi_set(ANA_REG_GLB_ARM_CLK_EN,
+	            BIT_CLK_AUXADC_EN | BIT_CLK_AUXAD_EN);
+#endif
 }
 
 void sci_adc_dump_register()

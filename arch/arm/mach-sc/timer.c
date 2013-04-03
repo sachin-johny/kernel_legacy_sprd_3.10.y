@@ -30,7 +30,11 @@
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/regs_glb.h>
+#elif defined(CONFIG_ARCH_SC8830)
+#include <mach/regs_sc8830_aon_apb.h>
+#endif
 #include <mach/sci.h>
 
 static __iomem void *base_gptimer = (__iomem void *)SPRD_GPTIMER_BASE;
@@ -208,7 +212,11 @@ static void __init __twd_init(void)
 void __init sci_enable_timer_early(void)
 {
 	/* enable timer & syscnt in global regs */
+#if defined(CONFIG_ARCH_SC8825)	
 	sci_glb_set(REG_GLB_GEN0, BIT_TMR_EB | BIT_SYST0_EB);
+#elif defined(CONFIG_ARCH_SC8830)	
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AP_TMR0_EB | BIT_AP_SYST_EB);
+#endif
 #if !defined (CONFIG_ARM_ARCH_TIMER)
 	__sched_clock_init(26000000);
 #endif

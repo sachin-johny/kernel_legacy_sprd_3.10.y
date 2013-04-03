@@ -23,8 +23,13 @@
 #include <mach/adi.h>
 #include <mach/irqs.h>
 #include <mach/sci.h>
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/regs_glb.h>
 #include <mach/regs_ana_glb.h>
+#elif defined(CONFIG_ARCH_SC8830)
+#include <mach/regs_sc8830_aon_apb.h>
+#include <mach/regs_sc8830_ana_glb.h>
+#endif
 #include <mach/efuse.h>
 
 #define CONFIG_EFUSE_TEST
@@ -108,14 +113,22 @@ static __inline void __ddie_fuse_wait_status_clean(u32 bits)
 
 static __inline void __ddie_fuse_global_init(void)
 {
+#if defined(CONFIG_ARCH_SC8825)	
 	sci_glb_set(REG_GLB_GEN0, BIT_EFUSE_EB);
+#elif defined(CONFIG_ARCH_SC8830)
+	sci_glb_set(REG_AON_APB_APB_EB0,BIT_EFUSE_EB);	
+#endif
 	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) | BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN,
 		     REG_EFUSE_PGM_PARA);
 }
 
 static __inline void __ddie_fuse_global_close(void)
 {
+#if defined(CONFIG_ARCH_SC8825)	
 	sci_glb_clr(REG_GLB_GEN0, BIT_EFUSE_EB);
+#elif defined(CONFIG_ARCH_SC8830)
+	sci_glb_clr(REG_AON_APB_APB_EB0,BIT_EFUSE_EB);
+#endif
 	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) & ~(BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN),
 		     REG_EFUSE_PGM_PARA);
 }
@@ -144,13 +157,13 @@ static __inline int __adie_fuse_getdata(void)
 	unsigned long timeout;
 
 	mutex_lock(&adie_fuse_lock);
-	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, BIT_AFUSE_RD_REQ, 1);
-
+#if defined(CONFIG_ARCH_SC8825)
 	/* wait for maximum of 100 msec */
-	timeout = jiffies + msecs_to_jiffies(100);
+	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, BIT_AFUSE_RD_REQ, 1);
 	udelay(1);
-	while (BIT_AFUSE_RD_REQ & sci_adi_read(ANA_REG_GLB_AFUSE_CTRL)) {
-		if (time_after(jiffies, timeout)) {
+	while(BIT_AFUSE_RD_REQ & sci_adi_read(ANA_REG_GLB_AFUSE_CTRL)) {
+		if(time_after(jiffies, timeout))
+		{
 			WARN_ON(1);
 			break;
 		}
@@ -158,6 +171,21 @@ static __inline int __adie_fuse_getdata(void)
 	}
 	val = sci_adi_read(ANA_REG_GLB_AFUSE_OUT_LOW);
 	val |= (sci_adi_read(ANA_REG_GLB_AFUSE_OUT_HIGH)) << 16;
+#elif defined(CONFIG_ARCH_SC8830)
+	/* wait for maximum of 100 msec */
+	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, BIT_AFUSE_READ_REQ, 1);
+	udelay(1);
+	while(BIT_AFUSE_READ_REQ & sci_adi_read(ANA_REG_GLB_AFUSE_CTRL)) {
+		if(time_after(jiffies, timeout)){
+			WARN_ON(1);
+			break;
+		}
+		cpu_relax();
+	}
+	val = sci_adi_read(ANA_REG_GLB_AFUSE_OUT0);
+	val |= (sci_adi_read(ANA_REG_GLB_AFUSE_OUT1)) << 16;
+#endif
+
 	mutex_unlock(&adie_fuse_lock);
 
 	return val;
@@ -247,7 +275,7 @@ static void sci_ddie_fuse_program_vdd(u32 enable, u32 msleep_value)
 {
 	u32 val = 0;
 	val = __raw_readl(REG_EFUSE_PGM_PARA);
-
+#if defined(CONFIG_ARCH_SC8825)
 	if (enable) {
 		val |= (BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN);
 		__raw_writel(val, REG_EFUSE_PGM_PARA);
@@ -264,6 +292,12 @@ static void sci_ddie_fuse_program_vdd(u32 enable, u32 msleep_value)
 		sci_adi_write_fast(ANA_REG_GLB_EFS_PROT, (u16) ~ ANA_PROT_KEY,
 				   1);
 	}
+#elif defined(CONFIG_ARCH_SC8830)
+	if(enable)
+	{
+	} else {
+	}
+#endif
 }
 
 void sci_ddie_fuse_program(u32 blk, int data)
@@ -350,11 +384,20 @@ void sci_adie_fuse_set_readdly(u32 read_delay)
 {
 	u32 v = 0;
 	mutex_lock(&adie_fuse_lock);
+#if defined(CONFIG_ARCH_SC8825)	
 	v = BITS_AFUSE_RD_DLY_PROT(AFUSE_DLY_PROT_KEY);	/*get lock */
 	v |= BITS_AFUSE_RD_DLY(read_delay);
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 0);
 	v = ~(BITS_AFUSE_RD_DLY_PROT(AFUSE_DLY_PROT_KEY));	/*release lock */
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 1);
+#elif defined(CONFIG_ARCH_SC8830)
+	//v = BITS_AFUSE_READ_DLY_PROT(AFUSE_DLY_PROT_KEY);	/*get lock */
+	v |= BITS_AFUSE_READ_DLY(read_delay);
+	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 0);
+	//v = ~(BITS_AFUSE_READ_DLY_PROT(AFUSE_DLY_PROT_KEY));	/*release lock */
+	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 1);
+
+#endif	
 	mutex_unlock(&adie_fuse_lock);
 }
 

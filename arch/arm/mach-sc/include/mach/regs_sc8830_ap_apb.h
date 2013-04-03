@@ -120,6 +120,9 @@
 #define BIT_SIM_CLK_POLARITY            ( BIT(1) )
 #define BIT_FMARK_POLARITY_INV          ( BIT(0) )
 
+#define REG_GLB_SET(A)                  ( A + 0x1000 )
+#define REG_GLB_CLR(A)                  ( A + 0x2000 )
+
 /* vars definitions for controller REGS_AP_APB */
 
 #endif //__REGS_AP_APB_H__

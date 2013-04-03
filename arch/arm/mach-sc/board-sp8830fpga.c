@@ -44,7 +44,13 @@
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/regs_glb.h>
+#elif defined(CONFIG_ARCH_SC8830)
+#include <mach/regs_sc8830_aon_apb.h>
+#include <mach/regs_sc8830_ap_apb.h>
+#include <mach/regs_sc8830_aon_clk.h>
+#endif
 #include <mach/regs_ahb.h>
 
 #include "devices.h"
@@ -542,12 +548,21 @@ int __init sc8825_regulator_init(void)
 
 int __init __clock_init_early(void)
 {
+#if defined(CONFIG_ARCH_SC8825)
 	pr_info("ahb ctl0 %08x, ctl2 %08x glb gen0 %08x gen1 %08x clk_en %08x\n",
 		sci_glb_raw_read(REG_AHB_AHB_CTL0),
 		sci_glb_raw_read(REG_AHB_AHB_CTL2),
 		sci_glb_raw_read(REG_GLB_GEN0),
 		sci_glb_raw_read(REG_GLB_GEN1),
 		sci_glb_raw_read(REG_GLB_CLK_EN));
+#elif defined(CONFIG_ARCH_SC8830)
+	pr_info("ahb ctl0 %08x, ctl2 %0x8 glb aon apb0 %08x aon apb1 %08x clk_en %08x\n",
+		sci_glb_raw_read(REG_AHB_AHB_CTL0),
+		sci_glb_raw_read(REG_AHB_AHB_CTL2),
+		sci_glb_raw_read(REG_AON_APB_APB_EB0),
+		sci_glb_raw_read(REG_AON_APB_APB_EB1),
+		sci_glb_raw_read(REG_AON_CLK_PUB_AHB_CFG));
+#endif
 	/* FIXME: Force disable all unused clocks */
 	sci_glb_clr(REG_AHB_AHB_CTL0,
 		BIT_AXIBUSMON2_EB	|
@@ -593,6 +608,7 @@ int __init __clock_init_early(void)
 //		BIT_CLK_ULPI_EN		|
 //		BIT_CLK_USB_REF_EN	|
 		0);
+#if defined(CONFIG_ARCH_SC8825)
 	sci_glb_clr(REG_GLB_GEN0,
 		BIT_IC3_EB          |
 		BIT_IC2_EB          |
@@ -625,9 +641,31 @@ int __init __clock_init_early(void)
 		BIT_SPI2_EB    		|
 		BIT_UART3_EB   		|
 		0);
+#elif defined(CONFIG_ARCH_SC8830)
+	sci_glb_clr(REG_AP_APB_APB_EB,
+		BIT_INTC3_EB		|
+		BIT_INTC2_EB		|
+		BIT_INTC1_EB		|
+		BIT_IIS1_EB		|
+		BIT_UART2_EB		|
+		BIT_UART0_EB		|
+		BIT_SPI1_EB		|
+		BIT_SPI0_EB		|
+		BIT_IIS0_EB		|
+		BIT_I2C0_EB		|
+		BIT_SPI2_EB		|
+		BIT_UART3_EB		|
+		0);
+	sci_glb_clr(REG_AON_APB_APB_RTC_EB,
+		BIT_KPD_RTC_EB		|
+		BIT_KPD_EB		|
+		BIT_EFUSE_EB		|
+		0);
+#endif
 	sci_glb_clr(REG_AHB_CA5_CFG,
 //		BIT_CA5_CLK_DBG_EN	|
 		0);
+#if defined(CONFIG_ARCH_SC8825)
 	sci_glb_clr(REG_GLB_GEN1,
 		BIT_AUDIF_AUTO_EN	|
 		BIT_VBC_EN			|
@@ -636,26 +674,36 @@ int __init __clock_init_early(void)
 		BIT_CLK_AUX1_EN		|
 		BIT_CLK_AUX0_EN		|
 		0);
+
 	sci_glb_clr(REG_GLB_CLK_EN,
 		BIT_PWM3_EB			|
 //		BIT_PWM2_EB			|
 		BIT_PWM1_EB			|
 //		BIT_PWM0_EB			|
 		0);
-
 	sci_glb_clr(REG_GLB_PCTRL,
 	//		BIT_MCU_MPLL_EN 	|
 	//		BIT_MCU_TDPLL_EN	|
 	//		BIT_MCU_DPLL_EN 	|
 			BIT_MCU_GPLL_EN);	/* clk_gpu */
-
 	sci_glb_set(REG_GLB_TD_PLL_CTL,
 	//		BIT_TDPLL_DIV2OUT_FORCE_PD	|	/* clk_384m */
 	//		BIT_TDPLL_DIV3OUT_FORCE_PD	|	/* clk_256m */
 	//		BIT_TDPLL_DIV4OUT_FORCE_PD	|	/* clk_192m */
 	//		BIT_TDPLL_DIV5OUT_FORCE_PD	|	/* clk_153p6m */
 			0);
-
+#elif defined(CONFIG_ARCH_SC8830)
+	sci_glb_clr(REG_AON_APB_APB_EB0,
+		BIT_AUDIF_EB			|
+		BIT_VBC_EB			|
+		BIT_PWM3_EB			|
+		BIT_PWM1_EB			|
+		0);
+	sci_glb_clr(REG_AON_APB_APB_EB1,
+		BIT_AUX1_EB			|
+		BIT_AUX0_EB			|
+		0);
+#endif
 	printk("sc clock module early init ok\n");
 	return 0;
 }
