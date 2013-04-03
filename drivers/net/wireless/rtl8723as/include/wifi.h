@@ -1239,6 +1239,9 @@ enum P2P_PS
 #ifndef IW_ENCODE_ALG_SM4
 #define IW_ENCODE_ALG_SM4			0x20
 #endif
+#ifndef WLAN_CIPHER_SUITE_SMS4
+#define WLAN_CIPHER_SUITE_SMS4			0x4
+#endif
 #endif
 
 #endif // _WIFI_H_

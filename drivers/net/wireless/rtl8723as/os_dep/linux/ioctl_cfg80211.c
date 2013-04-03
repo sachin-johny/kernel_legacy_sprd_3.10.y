@@ -42,6 +42,7 @@ static const u32 rtw_cipher_suites[] = {
 	WLAN_CIPHER_SUITE_WEP104,
 	WLAN_CIPHER_SUITE_TKIP,
 	WLAN_CIPHER_SUITE_CCMP,
+	WLAN_CIPHER_SUITE_SMS4,
 };
 
 #define RATETAB_ENT(_rate, _rateid, _flags) \

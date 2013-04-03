@@ -3040,7 +3040,7 @@ static int rtw_wx_set_auth(struct net_device *dev,
 	u32 value = param->value;
 	int ret = 0;
 
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	//block here for wowlan system suspend only, Added by YJ,121218
 	if(padapter->pwrctrlpriv.wowlan_mode){
 		ret = -1;
@@ -9156,6 +9156,11 @@ static int rtw_mp_efuse_set(struct net_device *dev,
 			#ifdef CONFIG_SDIO_HCI
 					addr = EEPROM_MAC_ADDR_88ES;
 			#endif
+
+			#ifdef CONFIG_GSPI_HCI
+					addr = EEPROM_MAC_ADDR_88ES;
+			#endif
+
 			#ifdef CONFIG_PCI_HCI
 					addr = EEPROM_MAC_ADDR_88EE;
 			#endif
@@ -11667,7 +11672,10 @@ extern void rtl8723a_fill_default_txdesc(struct xmit_frame *pxmitframe, u8 *pbuf
 #include <rtl8188e_hal.h>
 extern void rtl8188e_cal_txdesc_chksum(struct tx_desc *ptxdesc);
 #define cal_txdesc_chksum rtl8188e_cal_txdesc_chksum
-#ifdef CONFIG_SDIO_HCI
+
+#ifdef CONFIG_SDIO_HCI || defined(CONFIG_GSPI_HCI)
+
+
 extern void rtl8188es_fill_default_txdesc(struct xmit_frame *pxmitframe, u8 *pbuf);
 #define fill_default_txdesc rtl8188es_fill_default_txdesc
 #endif // CONFIG_SDIO_HCI

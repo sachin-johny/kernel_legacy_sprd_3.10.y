@@ -1828,10 +1828,10 @@ sint validate_recv_data_frame(_adapter *adapter, union recv_frame *precv_frame)
 #ifdef CONFIG_TDLS
 	struct tdls_info *ptdlsinfo = &adapter->tdlsinfo;
 #endif //CONFIG_TDLS
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	u16 ether_type=0;
 	struct recv_frame_hdr *pfhdr = &precv_frame->u.hdr;
-#endif //CONFIG_WOWLAN_8723
+#endif //CONFIG_WOWLAN
 
 _func_enter_;
 
@@ -1905,7 +1905,7 @@ _func_enter_;
 		goto exit;
 	}
 
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	if (check_fwstate(&adapter->mlmepriv, WIFI_STATION_STATE) && (check_fwstate(&adapter->mlmepriv, _FW_LINKED)))
 	{
 		if(!is_broadcast_mac_addr(pattrib->ra) && !is_multicast_mac_addr(pattrib->ra) && (adapter->pwrctrlpriv.bInSuspend != _TRUE))
@@ -1913,7 +1913,7 @@ _func_enter_;
 		if(!is_broadcast_mac_addr(pattrib->ra) && !is_multicast_mac_addr(pattrib->ra))
 			RT_TRACE(_module_rtl871x_recv_c_, _drv_notice_,(" Recv Unicast!! \n"));
 	}
-#endif //CONFIG_WOWLAN_8723
+#endif //CONFIG_WOWLAN
 
 	//psta->rssi = prxcmd->rssi;
 	//psta->signal_quality= prxcmd->sq;
@@ -1993,7 +1993,7 @@ _func_enter_;
 	}
 
 exit:
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 	if (check_fwstate(&adapter->mlmepriv, WIFI_STATION_STATE))
 	{
 		ptr = ptr + pfhdr->attrib.hdrlen + pattrib->iv_len + LLC_HEADER_SIZE;//modified by xx
@@ -2018,7 +2018,7 @@ exit:
 			//RT_PRINT_DATA(_module_rtl871x_recv_c_, _drv_notice_,"Encrypt Packet:\n", precv_frame->u.hdr.rx_data, pfhdr->len);
 		}
 	}
-#endif //CONFIG_WOWLAN_8723
+#endif //CONFIG_WOWLAN
 _func_exit_;
 
 	return ret;

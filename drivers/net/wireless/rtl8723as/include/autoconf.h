@@ -249,13 +249,10 @@
 //#endif
 
 #if (!(defined ANDROID_2X) && (defined CONFIG_PLATFORM_SPRD))
-#if defined(CONFIG_SDIO_HCI)
 	#define CONFIG_WOWLAN
 	#define CONFIG_WOWLAN_8723
+#if defined(CONFIG_SDIO_HCI)
 	#define CONFIG_SDIO_RX_COPY
-#else
-	#undef CONFIG_WOWLAN
-	#undef CONFIG_WOWLAN_8723
 #endif
 	#define CONFIG_LINKED_LCOK
 	#define CONFIG_AUTH_DIRECT_WITHOUT_BCN

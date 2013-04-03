@@ -348,7 +348,12 @@ static void _InitPageBoundary(PADAPTER padapter)
 {
 	// RX Page Boundary
 	//srand(static_cast<unsigned int>(time(NULL)) );
+	//bit0-1 should be 1
+#ifdef CONFIG_DONT_CARE_TP
+	u16 rxff_bndy = 0x1DFF;//rx biggest pkt len under rx agg
+#else
 	u16 rxff_bndy = 0x27FF;//(rand() % 1) ? 0x27FF : 0x23FF;
+#endif
 
 	rtw_write16(padapter, (REG_TRXFF_BNDY + 2), rxff_bndy);
 
@@ -537,9 +542,7 @@ void sdio_AggSettingRxUpdate(PADAPTER padapter)
 	pHalData = GET_HAL_DATA(padapter);
 
 	valueDMA = rtw_read8(padapter, REG_TRXDMA_CTRL);
-#ifndef CONFIG_DONT_CARE_TP
 	valueDMA |= RXDMA_AGG_EN;
-#endif
 	rtw_write8(padapter, REG_TRXDMA_CTRL, valueDMA);
 
 #if 0
@@ -1827,20 +1830,19 @@ static u32 Hal_readPGDataFromConfigFile(
 	fs = get_fs();
 	set_fs(KERNEL_DS);
 
-#ifdef CONFIG_DEBUG
 	DBG_871X("Efuse configure file:\n");
 	for (i=0; i<HWSET_MAX_SIZE; i++) {
-		if (i % 16 == 0)
-			printk("\n");
 
 		vfs_read(fp, temp, 2, &pos);
 		PROMContent[i] = simple_strtoul(temp, NULL, 16 );
 		pos += 1; // Filter the space character
+#ifdef CONFIG_DEBUG
+		if (i % 16 == 0)
+			printk("\n");
 		printk("%02X ", PROMContent[i]);
-	}
-	printk("\n");
-	DBG_871X("\n");
 #endif
+	}
+	DBG_871X("\n");
 	set_fs(fs);
 
 	filp_close(fp, NULL);

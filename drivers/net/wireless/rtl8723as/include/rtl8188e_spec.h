@@ -1342,6 +1342,68 @@ Current IOREG MAP
 #define SDIO_MAX_TX_QUEUE			3		// HIQ, MIQ and LOQ
 #define SDIO_MAX_RX_QUEUE			1
 
+/* SDIO_LOCAL_BASE = GSPI_LOCAL_BASE */
+#ifdef CONFIG_GSPI_HCI
+#define SDIO_REG_TX_CTRL			(SDIO_LOCAL_BASE | 0x0000) // SDIO Tx Control
+#define SDIO_REG_HIMR				(SDIO_LOCAL_BASE | 0x0014) // SDIO Host Interrupt Mask
+#define SDIO_REG_HISR				(SDIO_LOCAL_BASE | 0x0018) // SDIO Host Interrupt Service Routine
+#define SDIO_REG_HCPWM				(SDIO_LOCAL_BASE | 0x0019) // HCI Current Power Mode
+#define SDIO_REG_RX0_REQ_LEN			(SDIO_LOCAL_BASE | 0x001C) // RXDMA Request Length
+#define SDIO_REG_FREE_TXPG			(SDIO_LOCAL_BASE | 0x0020) // Free Tx Buffer Page
+#define SDIO_REG_HCPWM1				(SDIO_LOCAL_BASE | 0x0024) // HCI Current Power Mode 1
+#define SDIO_REG_HCPWM2				(SDIO_LOCAL_BASE | 0x0026) // HCI Current Power Mode 2
+#define SDIO_REG_HTSFR_INFO			(SDIO_LOCAL_BASE | 0x0030) // HTSF Informaion
+#define SDIO_REG_HRPWM1				(SDIO_LOCAL_BASE | 0x0080) // HCI Request Power Mode 1
+#define SDIO_REG_HRPWM2				(SDIO_LOCAL_BASE | 0x0082) // HCI Request Power Mode 2
+#define SDIO_REG_HPS_CLKR			(SDIO_LOCAL_BASE | 0x0084) // HCI Power Save Clock
+#define SDIO_REG_HSUS_CTRL			(SDIO_LOCAL_BASE | 0x0086) // SDIO HCI Suspend Control
+#define SDIO_REG_HIMR_ON			(SDIO_LOCAL_BASE | 0x0090) // SDIO Host Extension Interrupt Mask Always
+#define SDIO_REG_HISR_ON			(SDIO_LOCAL_BASE | 0x0091) // SDIO Host Extension Interrupt Status Always
+
+#define SDIO_HIMR_RX_REQUEST_MSK    		BIT(0)
+#define SDIO_HIMR_AVAL_MSK			BIT(1)
+#define SDIO_HIMR_TXERR_MSK			BIT(2)
+#define SDIO_HIMR_RXERR_MSK			BIT(3)
+#define SDIO_HIMR_TXFOVW_MSK			BIT(4)
+#define SDIO_HIMR_RXFOVW_MSK			BIT(5)
+#define SDIO_HIMR_TXBCNOK_MSK			BIT(6)
+#define SDIO_HIMR_TXBCNERR_MSK			BIT(7)
+#define SDIO_HIMR_BCNERLY_INT_MSK		BIT(16)
+#define SDIO_HIMR_ATIMEND_MSK			BIT(17)
+#define SDIO_HIMR_ATIMEND_E_MSK			BIT(18)
+#define SDIO_HIMR_CTWEND_MSK			BIT(19)
+#define SDIO_HIMR_C2HCMD_MSK			BIT(20)
+#define SDIO_HIMR_CPWM1_MSK			BIT(21)
+#define SDIO_HIMR_CPWM2_MSK			BIT(22)
+#define SDIO_HIMR_HSISR_IND_MSK			BIT(23)
+#define SDIO_HIMR_GTINT3_IND_MSK		BIT(24)
+#define SDIO_HIMR_GTINT4_IND_MSK		BIT(25)
+#define SDIO_HIMR_PSTIMEOUT_MSK			BIT(26)
+#define SDIO_HIMR_OCPINT_MSK			BIT(27)
+#define SDIO_HIMR_TSF_BIT32_TOGGLE_MSK		BIT(29)
+
+#define SDIO_HISR_RX_REQUEST    		BIT(0)
+#define SDIO_HISR_AVAL				BIT(1)
+#define SDIO_HISR_TXERR				BIT(2)
+#define SDIO_HISR_RXERR				BIT(3)
+#define SDIO_HISR_TXFOVW			BIT(4)
+#define SDIO_HISR_RXFOVW			BIT(5)
+#define SDIO_HISR_TXBCNOK			BIT(6)
+#define SDIO_HISR_TXBCNERR			BIT(7)
+#define SDIO_HISR_BCNERLY_INT			BIT(16)
+#define SDIO_HISR_ATIMEND			BIT(17)
+#define SDIO_HISR_ATIMEND_E			BIT(18)
+#define SDIO_HISR_CTWEND			BIT(19)
+#define SDIO_HISR_C2HCMD			BIT(20)
+#define SDIO_HISR_CPWM1				BIT(21)
+#define SDIO_HISR_CPWM2				BIT(22)
+#define SDIO_HISR_HSISR_IND			BIT(23)
+#define SDIO_HISR_GTINT3_IND			BIT(24)
+#define SDIO_HISR_GTINT4_IND			BIT(25)
+#define SDIO_HISR_PSTIMEOUT			BIT(26)
+#define SDIO_HISR_OCPINT			BIT(27)
+#define SDIO_HISR_TSF_BIT32_TOGGLE		BIT(29)
+#else /* CONFIG_GSPI_HCI */
 #define SDIO_REG_TX_CTRL			0x0000 // SDIO Tx Control
 #define SDIO_REG_HIMR				0x0014 // SDIO Host Interrupt Mask
 #define SDIO_REG_HISR				0x0018 // SDIO Host Interrupt Service Routine
@@ -1357,8 +1419,6 @@ Current IOREG MAP
 #define SDIO_REG_HSUS_CTRL			0x0086 // SDIO HCI Suspend Control
 #define SDIO_REG_HIMR_ON			0x0090 // SDIO Host Extension Interrupt Mask Always
 #define SDIO_REG_HISR_ON			0x0091 // SDIO Host Extension Interrupt Status Always
-
-#define SDIO_HIMR_DISABLED			0
 
 // RTL8188E SDIO Host Interrupt Mask Register
 #define SDIO_HIMR_RX_REQUEST_MSK		BIT0
@@ -1381,7 +1441,6 @@ Current IOREG MAP
 #define SDIO_HIMR_ATIMEND_MSK			BIT25
 #define SDIO_HIMR_ATIMEND_E_MSK			BIT26
 #define SDIO_HIMR_CTWEND_MSK			BIT27
-
 //RTL8188E SDIO Specific
 #define	SDIO_HIMR_MCU_ERR_MSK			BIT28
 #define	SDIO_HIMR_TSF_BIT32_TOGGLE_MSK	BIT29
@@ -1411,6 +1470,13 @@ Current IOREG MAP
 //RTL8188E SDIO Specific
 #define	SDIO_HISR_MCU_ERR					BIT28
 #define	SDIO_HISR_TSF_BIT32_TOGGLE		BIT29
+#endif /* !CONFIG_GSPI_HCI */
+
+#define SDIO_HIMR_DISABLED			0
+
+
+
+
 
 #define MASK_SDIO_HISR_CLEAR		(SDIO_HISR_TXERR |\
 									SDIO_HISR_RXERR |\

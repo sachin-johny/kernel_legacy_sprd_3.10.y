@@ -224,7 +224,7 @@ void rtw_hal_disable_interrupt(_adapter *padapter)
 
 }
 
-#ifdef CONFIG_WOWLAN_8723
+#ifdef CONFIG_WOWLAN
 void rtw_hal_disable_interrupt_but_cpwm2(_adapter *padapter)
 {
 	if (padapter->HalFunc.disable_interrupt_but_cpwm2)
@@ -232,7 +232,7 @@ void rtw_hal_disable_interrupt_but_cpwm2(_adapter *padapter)
 	else
 		DBG_871X("%s: HalFunc.disable_interrupt_but_cpwm2 is NULL!\n", __FUNCTION__);
 }
-#endif //CONFIG_WOWLAN_8723
+#endif //CONFIG_WOWLAN
 
 u32	rtw_hal_inirp_init(_adapter *padapter)
 {

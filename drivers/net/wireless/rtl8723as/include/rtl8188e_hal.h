@@ -47,7 +47,7 @@
 #endif //CONFIG_WOWLAN
 
 
-#ifdef CONFIG_SDIO_HCI
+#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
 
 	//TODO: We should define 8188ES firmware related macro settings here!!
 	//TODO:  The following need to check!!
@@ -553,7 +553,9 @@ typedef struct hal_data_8188e
     // Auto FSM to Turn On, include clock, isolation, power control for MAC only
 	u8			bMacPwrCtrlOn;
 
-#ifdef CONFIG_SDIO_HCI
+#if defined(CONFIG_SDIO_HCI) || defined(CONFIG_GSPI_HCI)
+
+
 	//
 	// For SDIO Interface HAL related
 	//

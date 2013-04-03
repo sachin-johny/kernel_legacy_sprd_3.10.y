@@ -311,7 +311,9 @@ static struct sk_buff *h5_dequeue(struct hci_uart *hu)
 
 	/* First of all, check for unreliable messages in the queue,
 	   since they have priority */
-
+	//begin check
+	if(need_check_bt_state)
+		schedule_delayed_work(&bt_state_check_work, HZ * 60);
 	if ((skb = skb_dequeue(&h5->unrel)) != NULL) {
 		struct sk_buff *nskb = h5_prepare_pkt(h5, skb->data, skb->len, bt_cb(skb)->pkt_type);
 		if (nskb) {
@@ -353,10 +355,6 @@ static struct sk_buff *h5_dequeue(struct hci_uart *hu)
 		   channel 0 */
 		struct sk_buff *nskb = h5_prepare_pkt(h5, NULL, 0, H5_ACK_PKT);
 		return nskb;
-	}
-
-	if (need_check_bt_state) {
-		schedule_delayed_work(&bt_state_check_work, HZ * 15);
 	}
 
 	/* We have nothing to send */
@@ -597,7 +595,7 @@ static void h5_complete_rx_pkt(struct hci_uart *hu)
 		{
 			h5->is_checking = false;
 			printk("cancle state err work\n");
-			cancel_delayed_work(&bt_state_check_work);
+//			cancel_delayed_work(&bt_state_check_work);
 			cancel_delayed_work(&bt_state_err_work);
 			mutex_unlock(&sem_exit);
 		}
@@ -652,7 +650,32 @@ static void h5_complete_rx_pkt(struct hci_uart *hu)
 		skb_pull(h5->rx_skb, 4);
 
 		if (need_check_bt_state) {
-			schedule_delayed_work(&bt_state_check_work, HZ * 60);
+	//		schedule_delayed_work(&bt_state_check_work, HZ * 60);
+			//if bt off cancel bt state check
+			if(bt_cb(h5->rx_skb)->pkt_type == HCI_EVENT_PKT){
+				struct sk_buff *skb_tmp = h5->rx_skb;
+			    struct hci_event_hdr *hdr = (void *) (skb_tmp)->data;
+			    __u8 event = hdr->evt;
+
+				//printk("gordon: in event\n");
+
+				if(skb_tmp->len > HCI_EVENT_HDR_SIZE){
+					skb_tmp->data += HCI_EVENT_HDR_SIZE;
+					if(event == HCI_EV_CMD_COMPLETE)
+					{
+						//printk("gordon: in command complete\n");
+						struct hci_ev_cmd_complete *ev = (void *) skb_tmp->data;
+						__u16 opcode;
+						opcode = __le16_to_cpu(ev->opcode);
+						if(opcode == HCI_OP_RESET){
+							printk("Realtek: in reset\n");
+							cancel_delayed_work(&bt_state_check_work);
+						}
+					}
+					skb_tmp->data -= HCI_EVENT_HDR_SIZE;
+				}
+			}
+//			schedule_delayed_work(&bt_state_check_work, HZ * 60);
 		}
 		hci_recv_frame(h5->rx_skb);
 	}
@@ -827,14 +850,11 @@ static void h5_send_uevent(struct hci_uart* hu)
 
 static void h5_bt_state_err_worker(struct work_struct *private_)
 {
-	struct hci_uart *hu = hci_uart_info;
-	struct h5_struct *h5 = hu->priv;
 	printk("Realtek: BT is NOT working now, try notify\n");
-	if (h5->is_checking)
-	{
-		printk("notify upper while not checking\n");
-	}
+
+	if (hci_uart_info){
 	h5_send_uevent(hci_uart_info);
+	}
 	mutex_unlock(&sem_exit);
 }
 
@@ -847,9 +867,15 @@ static void h5_bt_state_check_worker(struct work_struct *private_)
 	struct h5_struct *h5 = hu->priv;
 	struct sk_buff* pollcmd = NULL;
 	u8 cmd[3] = {0};
+	int ret=0;
 
 	printk("Realtek to check4hung\n");
-	mutex_lock_interruptible(&sem_exit);
+	ret = mutex_lock_interruptible(&sem_exit);
+
+	if (ret !=0)
+	{
+		printk("Realtek mutex lock interrupted:%x, %s()\n", ret, __func__);
+	}
 	//send command and wait for any response.
 	cmd[0] = 0x22;
 	cmd[1] = 0xfc;
@@ -864,10 +890,10 @@ static void h5_bt_state_check_worker(struct work_struct *private_)
 	bt_cb(pollcmd)->pkt_type = HCI_COMMAND_PKT;
 	/*
 	 *  It's judged that controller has hung up
-	 *  if no response received within 10HZ
+	 *  if no response received within 3HZ
 	*/
 	h5->is_checking = 1;
-	schedule_delayed_work(&bt_state_err_work, HZ * 10);
+	schedule_delayed_work(&bt_state_err_work, HZ * 3);
 	/*
 	 *  make sure the bt_state_err_work perform completely
 	*/
@@ -976,8 +1002,13 @@ static int h5_close(struct hci_uart *hu)
 	skb_queue_purge(&h5->unrel);
 	del_timer(&h5->th5);
 	if (need_check_bt_state) {
+		int ret = 0;
 		cancel_delayed_work(&bt_state_check_work);
-		mutex_lock_interruptible(&sem_exit); 	//wait work queue perform completely
+		ret = mutex_lock_interruptible(&sem_exit); 	//wait work queue perform completely
+		if (ret != 0)
+		{
+			printk("Realtek mutex unlocked:%x, %s()\n", ret, __func__);
+		}
 		hci_uart_info = NULL;
 	}
 

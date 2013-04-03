@@ -1916,7 +1916,7 @@ void netdev_br_init(struct net_device *netdev)
 				memcpy(adapter->br_mac, br_netdev->dev_addr, ETH_ALEN);
 				dev_put(br_netdev);
 			} else
-				printk("%s()-%d: dev_get_by_name(%s) failed!", __FUNCTION__, __LINE__, CONFIG_BR_EXT_BRNAME);
+				DBG_871X("%s()-%d: dev_get_by_name(%s) failed!", __FUNCTION__, __LINE__, CONFIG_BR_EXT_BRNAME);
 		}
 
 		adapter->ethBrExtInfo.addPPPoETag = 1;

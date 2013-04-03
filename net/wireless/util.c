@@ -228,12 +228,9 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 	for (i = 0; i < rdev->wiphy.n_cipher_suites; i++)
 		if (params->cipher == rdev->wiphy.cipher_suites[i])
 			break;
-/*WAPI Key Setting to driver failure */
-#if  defined (CONFIG_RTL8723AS) ||defined(CONFIG_RTL8723AS_MODULE)
-	if ((i == rdev->wiphy.n_cipher_suites) && (params->cipher != WLAN_CIPHER_SUITE_SMS4))
-#else
+
 	if (i == rdev->wiphy.n_cipher_suites)
-#endif
+
 		return -EINVAL;
 
 	return 0;
