@@ -826,7 +826,7 @@ int deep_sleep(void)
 	sci_adi_write(ANA_REG_GLB_LDO_SLP_CTRL0, val, 0xffff);
 
 
-	wait_until_uart1_tx_done();
+	/* wait_until_uart1_tx_done(); */
 	SAVE_GLOBAL_REG;
 	disable_audio_module();
 	disable_apb_module();
