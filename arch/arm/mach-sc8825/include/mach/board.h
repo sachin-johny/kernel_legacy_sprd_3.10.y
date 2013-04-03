@@ -100,9 +100,9 @@
 		#endif
 	#else
 		#ifdef CONFIG_SENSOR_OUTPUT_RAW
-			#define SPRD_ION_SIZE   (9*1024*1024)
+			#define SPRD_ION_SIZE   (12*1024*1024)
 		#else
-			#define SPRD_ION_SIZE   (8*1024*1024)
+			#define SPRD_ION_SIZE   (11*1024*1024)
 		#endif
 	#endif
 #elif defined(CONFIG_CAMERA_2M)
@@ -116,7 +116,7 @@
 		#ifdef CONFIG_SENSOR_OUTPUT_RAW
 			#define SPRD_ION_SIZE   (9*1024*1024)
 		#else
-			#define SPRD_ION_SIZE   (7*1024*1024)
+			#define SPRD_ION_SIZE   (8*1024*1024)
 		#endif
 	#endif
 #else
