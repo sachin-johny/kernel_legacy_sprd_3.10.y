@@ -57,7 +57,7 @@
 
 #ifdef CONFIG_ARCH_SC7710
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x800)
-#define ANA_RST_STATUS          (SPRD_ANA_BASE + 0x4C)
+#define ANA_RST_STATUS          (SPRD_ANA_BASE + 0xC8)
 #else
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
 #define ANA_RST_STATUS          (SPRD_ANA_BASE + 0X88)
