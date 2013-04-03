@@ -45,11 +45,6 @@ static void map_pages(struct list_head *list)
 	}
 }
 
-static inline bool migrate_async_suitable(int migratetype)
-{
-	return is_migrate_cma(migratetype) || migratetype == MIGRATE_MOVABLE;
-}
-
 /*
  * Isolate free pages onto a private freelist. Caller must hold zone->lock.
  * If @strict is true, will abort returning 0 on any invalid PFNs or non-free
@@ -304,7 +299,7 @@ isolate_migratepages_range(struct zone *zone, struct compact_control *cc,
 		 */
 		pageblock_nr = low_pfn >> pageblock_order;
 		if (!cc->sync && last_pageblock_nr != pageblock_nr &&
-		    !migrate_async_suitable(get_pageblock_migratetype(page))) {
+				get_pageblock_migratetype(page) != MIGRATE_MOVABLE) {
 			low_pfn += pageblock_nr_pages;
 			low_pfn = ALIGN(low_pfn, pageblock_nr_pages) - 1;
 			last_pageblock_nr = pageblock_nr;
@@ -372,8 +367,8 @@ static bool suitable_migration_target(struct page *page)
 	if (PageBuddy(page) && page_order(page) >= pageblock_order)
 		return true;
 
-	/* If the block is MIGRATE_MOVABLE or MIGRATE_CMA, allow migration */
-	if (migrate_async_suitable(migratetype))
+	/* If the block is MIGRATE_MOVABLE, allow migration */
+	if (migratetype == MIGRATE_MOVABLE)
 		return true;
 
 	/* Otherwise skip the block */
