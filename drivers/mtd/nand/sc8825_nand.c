@@ -1044,13 +1044,16 @@ static int sprd_nand_remove(struct platform_device *pdev)
 static u32 timing_reg_saved = 0;
 static int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 {
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
 	timing_reg_saved = sprd_sc8825_reg_read(NFC_TIMING_REG);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
 	//nothing to do
 	return 0;
 }
 
 static int sprd_nand_resume(struct platform_device *dev)
 {
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_NFC_EN, AHB_CTL0);
 	sprd_sc8825_reg_write(NFC_TIMING_REG, timing_reg_saved);
 	sprd_sc8825_reg_write(NFC_TIMEOUT_REG, 0x80400000);
 	//close write protect
