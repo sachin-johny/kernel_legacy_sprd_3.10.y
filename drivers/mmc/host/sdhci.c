@@ -339,7 +339,6 @@ static void sdhci_init(struct sdhci_host *host, int soft)
 
 void sdhci_reinit(struct sdhci_host *host)
 {
-	sdhci_dumpregs(host);
 	sdhci_init(host, 0);
 	/*
 	 * Retuning stuffs are affected by different cards inserted and only
@@ -357,7 +356,6 @@ void sdhci_reinit(struct sdhci_host *host)
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
-	sdhci_dumpregs(host);
 }
 
 /* no led used in our host */
@@ -2586,8 +2584,6 @@ int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 		del_timer_sync(&host->tuning_timer);
 		host->flags &= ~SDHCI_NEEDS_RETUNING;
 	}
-	/* DEBUG ONLY */
-	sdhci_dumpregs(host);
 
 	/* avoid dpm timeout */
 	host->suspending = 1;

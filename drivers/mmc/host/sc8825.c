@@ -151,16 +151,16 @@ static void  sdhci_host_wakeup_clear(struct sdhci_host *host)
  */
 void sdhci_bus_scan(void)
 {
+#ifdef CONFIG_MMC_BUS_SCAN
 	if(sdhci_host_g && (sdhci_host_g->mmc)){
 		printk("%s, entry\n", __func__);
 		if (sdhci_host_g->ops->set_clock) {
 			sdhci_host_g->ops->set_clock(sdhci_host_g, 1);
 		}
 
-		sdhci_reinit(sdhci_host_g);
 		mmc_detect_change(sdhci_host_g->mmc, 0);
 	}
-
+#endif
 	return;
 }
 EXPORT_SYMBOL_GPL(sdhci_bus_scan);
@@ -487,7 +487,9 @@ static void emmc_get_spl_data(struct sdhci_host* host)
 static void sdhci_module_init(struct sdhci_host* host)
 {
 	struct sprd_host_platdata *host_pdata;
+	struct platform_device *pdev;
 	host_pdata = sdhci_get_platdata(host);
+	pdev = container_of(mmc_dev(host->mmc), struct platform_device, dev);
 	/* Enable SDIO Module */
 	sci_glb_set(host_pdata->enb_reg, host_pdata->enb_bit);
 	/* Reset SDIO Module */
@@ -495,7 +497,7 @@ static void sdhci_module_init(struct sdhci_host* host)
 	sci_glb_clr(host_pdata->rst_reg, host_pdata->rst_bit);
 	sdhci_sprd_set_base_clock(host);
 	host->ops->set_clock(host, true);
-	if ( !strcmp(host->hw_name, "sprd-emmc") ) {
+	if (pdev->id == SDC_SLAVE_EMMC) {
 		emmc_get_spl_data(host);
 		/* add alter pin driver strength*/
 	}
@@ -613,7 +615,8 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
     case SDC_SLAVE_WIFI:
         host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER; /* MMC_PM_WAKE_SDIO_IRQ does not suitable for bcm wifi suspend */
         host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
-        host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA;
+        host->mmc->caps |= MMC_CAP_4_BIT_DATA;
+        //host->mmc->caps |= MMC_CAP_NONREMOVABLE;
 #ifdef CONFIG_PM_RUNTIME
         host->mmc->caps |= MMC_CAP_POWER_OFF_CARD;
 #endif
@@ -621,7 +624,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
     case SDC_SLAVE_EMMC:
         host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
         host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;// | MMC_PM_KEEP_POWER;
+        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER;
         host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
         break;
     case SDC_SLAVE_SD:
@@ -765,15 +768,14 @@ static int sdhci_pm_suspend(struct device *dev) {
             retval = sdhci_suspend_host(host, PMSG_SUSPEND);
             if(!retval) {
                 unsigned long flags;
+#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
+                if (pdev->id == SDC_SLAVE_WIFI)
+                    sdhci_host_wakeup_set(host);
+#endif
                 spin_lock_irqsave(&host->lock, flags);
                 if(host->ops->set_clock)
                     host->ops->set_clock(host, 0);
                 spin_unlock_irqrestore(&host->lock, flags);
-#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
-                if( !strcmp(host->hw_name, "Spread SDIO host1") ) {
-                    sdhci_host_wakeup_set(host);
-                }
-#endif
             } else {
 #ifdef CONFIG_PM_RUNTIME
                 if(pm_runtime_enabled(dev))
@@ -794,13 +796,12 @@ static int sdhci_pm_resume(struct device *dev) {
     if(host->ops->set_clock)
         host->ops->set_clock(host, 1);
     spin_unlock_irqrestore(&host->lock, flags);
+#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
+    if (pdev->id == SDC_SLAVE_WIFI)
+        sdhci_host_wakeup_clear(host);
+#endif
     retval = sdhci_resume_host(host);
     if(!retval) {
-#ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
-        if(!strcmp(host->hw_name, "Spread SDIO host1")) {
-            sdhci_host_wakeup_clear(host);
-        }
-#endif
 #ifdef CONFIG_PM_RUNTIME
         if(pm_runtime_enabled(dev))
             pm_runtime_put_autosuspend(dev);
