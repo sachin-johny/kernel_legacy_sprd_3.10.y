@@ -2222,6 +2222,11 @@ uint32 Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_E cmd, uint32 param)
 	SENSOR_EXP_INFO_T_PTR sensor_info_ptr = Sensor_GetInfo();
 	EXIF_SPEC_PIC_TAKING_COND_T *sensor_exif_info_ptr = PNULL;
 
+	if (PNULL == sensor_info_ptr) {
+		printk("sensor_info_ptr is NULL.\n");
+		return SENSOR_FAIL;
+	}
+
 	if (PNULL != sensor_info_ptr->ioctl_func_ptr->get_exif) {
 		sensor_exif_info_ptr =
 		    (EXIF_SPEC_PIC_TAKING_COND_T *)
@@ -2472,6 +2477,11 @@ EXIF_SPEC_PIC_TAKING_COND_T *Sensor_GetSensorExifInfo(void)
 {
 	SENSOR_EXP_INFO_T_PTR sensor_info_ptr = Sensor_GetInfo();
 	EXIF_SPEC_PIC_TAKING_COND_T *sensor_exif_info_ptr = PNULL;
+
+	if (PNULL == sensor_info_ptr) {
+		printk("sensor_info_ptr is NULL.\n");
+		return SENSOR_FAIL;
+	}
 
 	if (PNULL != sensor_info_ptr->ioctl_func_ptr->get_exif) {
 		sensor_exif_info_ptr =
