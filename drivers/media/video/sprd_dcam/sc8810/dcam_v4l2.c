@@ -1931,9 +1931,9 @@ static void set_next_buffer(struct dcam_fh *fh)
 		g_last_buf = buf->vb.baddr;
 		g_last_uv_buf = buf->vb.privsize;
 		dcam_set_buffer_address(buf->vb.baddr, buf->vb.privsize);
-		printk
+		/*printk
 		    ("#### V4L2: v4l2_buff: set_next_buffer addr = 0x%08x \n",
-		     buf->vb.baddr);
+		     buf->vb.baddr);*/
 	} else {
 		printk
 		    ("V4L2: fail: set_next_buffer filled buffer is 0.\n");
@@ -2036,7 +2036,7 @@ unlock:
 void dcam_cb_ISRCapSOF(void)
 {
 	dcam_disableint();
-	printk("dcam_cb_ISRCapSOF.\n");
+/*	printk("dcam_cb_ISRCapSOF.\n");*/
 	if (g_dcam_info.v4l2_buf_ctrl_set_next_flag == 1) {
 		g_dcam_info.v4l2_buf_ctrl_set_next_flag = 0;
 		dcam_enableint();
