@@ -46,14 +46,14 @@ void print_init_ana(void)
 	printk("ANA_REG_GLB_LDO_AP_SLP_CTRL0 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_AP_SLP_CTRL0));
 	printk("ANA_REG_GLB_LDO_AP_SLP_CTRL1 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_AP_SLP_CTRL1));
 
-        printk("ANA_REG_GLB_LDO_CP_SLP_CTRL0 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_CP_SLP_CTRL0));
-        printk("ANA_REG_GLB_LDO_CP_SLP_CTRL1 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_CP_SLP_CTRL1));
+    printk("ANA_REG_GLB_LDO_CP_SLP_CTRL0 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_CP_SLP_CTRL0));
+    printk("ANA_REG_GLB_LDO_CP_SLP_CTRL1 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_CP_SLP_CTRL1));
 
-        printk("ANA_REG_GLB_LDO_DEEP_SLP_CTRL0 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_DEEP_SLP_CTRL0));
-        printk("ANA_REG_GLB_LDO_DEEP_SLP_CTRL1 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_DEEP_SLP_CTRL1));
+    printk("ANA_REG_GLB_LDO_DEEP_SLP_CTRL0 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_DEEP_SLP_CTRL0));
+    printk("ANA_REG_GLB_LDO_DEEP_SLP_CTRL1 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_DEEP_SLP_CTRL1));
 
-        printk("ANA_REG_GLB_LDO_XTL_SLP_CTRL0 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_XTL_SLP_CTRL0));
-        printk("ANA_REG_GLB_LDO_XTL_SLP_CTRL1 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_XTL_SLP_CTRL1));
+    printk("ANA_REG_GLB_LDO_XTL_SLP_CTRL0 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_XTL_SLP_CTRL0));
+    printk("ANA_REG_GLB_LDO_XTL_SLP_CTRL1 = %08x\n", sci_adi_read(ANA_REG_GLB_LDO_XTL_SLP_CTRL1));
 }
 
 /*init ana global regs for pm*/
@@ -192,7 +192,7 @@ void init_ana_gr(void)
 		//|BIT_SLP_XTL_LDOUSB_PD_EN
 		//|BIT_SLP_XTL_LDOSIM1_PD_EN
 		//|BIT_SLP_XTL_LDOSIM0_PD_EN
-		//|BIT_SLP_XTL_LDORF1_PD_EN
+		|BIT_SLP_XTL_LDORF1_PD_EN
 		|BIT_SLP_XTL_LDORF0_PD_EN
 		);
 
@@ -270,4 +270,18 @@ void init_ana_gr(void)
 		|BIT_SLP_PD_EN
 		);
 	print_init_ana();
+}
+
+void sc7710_turnoff_allldo(void)
+{
+	/*select AP control all ldo*/
+	sci_adi_raw_write(ANA_REG_GLB_LDO_SW, 0);
+
+	/*turn off all modules ldo*/
+	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL1, 0x5555);
+	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL0, 0x5555);
+
+	/*turn off all system cores ldo*/
+	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_RST, 0);
+	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_SET, 0xffff);
 }

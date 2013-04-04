@@ -34,6 +34,9 @@ extern void sc8810_standby_iram_end(void);
 extern void sc8810_standby_exit_iram(void);
 extern void l2x0_suspend(void);
 extern void l2x0_resume(int collapsed);
+extern void init_ana_gr(void);
+extern void sc7710_turnoff_allldo(void);
+extern void enable_cp_jtag(void);
 
 /*init (arm gsm td mm) auto power down */
 #define CHIP_ID_VER_0		(0x88100000UL)
@@ -51,14 +54,8 @@ static void setup_autopd_mode(void)
 	sprd_greg_write(REG_TYPE_GLOBAL, 0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);/*TD*/
 	sprd_greg_write(REG_TYPE_GLOBAL, 0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
 	sprd_greg_write(REG_TYPE_GLOBAL, 0x03000920/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
-	if (__raw_readl(CHIP_ID_ADR) == CHIP_ID_VER_0) {/*original version*/
-		sprd_greg_write(REG_TYPE_GLOBAL, 0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
-		sprd_greg_write(REG_TYPE_GLOBAL, 0x07000f20|(1<<23), GR_POWCTL0);
-	}
-	else {
-		sprd_greg_write(REG_TYPE_GLOBAL, 0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
-		sprd_greg_write(REG_TYPE_GLOBAL, 0x07000a20|(1<<23), GR_POWCTL0);
-	}
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x07000a20|(1<<23), GR_POWCTL0);
 }
 
 void check_pd(void)
@@ -470,12 +467,13 @@ static void init_gr(void)
 	sprd_greg_write(REG_TYPE_GLOBAL, val, GR_CLK_EN);
 }
 
-void init_ana_gr(void);
-
 void sc8810_pm_init(void)
 {
+	pm_power_off = sc7710_turnoff_allldo;
+
 	init_reset_vector();
 	init_gr();
+/*	enable_cp_jtag();*/
 	init_ana_gr();
 	setup_autopd_mode();
 	init_led();
