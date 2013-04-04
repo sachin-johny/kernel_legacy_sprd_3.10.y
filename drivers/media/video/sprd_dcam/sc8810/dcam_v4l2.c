@@ -1799,6 +1799,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	uint32_t cnt = 0;
 	printk("#### V4L2: vidioc_streamoff start.\n");
 	g_dcam_info.recording_start = 0;
+	g_dcam_info.is_streamoff = 1;
 
 	if (g_dcam_info.flash_mode) {
 #ifdef FLASH_DV_OPEN_ALWAYS
@@ -1855,7 +1856,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 	g_dcam_info.ev_param = INVALID_VALUE;
 	g_dcam_info.power_freq = INVALID_VALUE;
 	/*g_dcam_info.sensor_work_mode = DCAM_PREVIEW_MODE;*/
-	g_dcam_info.is_streamoff = 1;
+	/*g_dcam_info.is_streamoff = 1;*/
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	dcam_stop();
 	s_dcam_err_info.work_status = DCAM_WORK_STATUS_MAX;
@@ -2270,8 +2271,10 @@ static int dcam_scan_status_thread(void *data_ptr)
 				Sensor_SetTiming(g_dcam_info.snapshot_m);
 			}
 			info_ptr->work_status = DCAM_RESTART;
-			dcam_start_handle(1);
-			info_ptr->restart_cnt++;
+			if (1 != g_dcam_info.is_streamoff) {
+				dcam_start_handle(1);
+				info_ptr->restart_cnt++;
+			}
 			break;
 		case DCAM_WORK_STATUS_MAX:
 			printk
