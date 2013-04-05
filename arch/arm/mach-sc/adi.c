@@ -30,7 +30,11 @@
 #include <mach/adi.h>
 #include <mach/irqs.h>
 #include <mach/sci.h>
+#if defined(CONFIG_ARCH_SC8825)	
 #include <mach/regs_glb.h>
+#elif defined(CONFIG_ARCH_SC8830)
+#include <mach/regs_sc8830_aon_apb.h>
+#endif
 #include <mach/arch_lock.h>
 
 /* soc defined begin*/
@@ -293,6 +297,7 @@ static void __init __adi_init(void)
 
 int __init sci_adi_init(void)
 {
+#if defined(CONFIG_ARCH_SC8825)	
 	/* enable adi in global regs */
 	sci_glb_set(REG_GLB_GEN0, BIT_ADI_EB);
 
@@ -301,6 +306,14 @@ int __init sci_adi_init(void)
 	udelay(2);
 	sci_glb_clr(REG_GLB_SOFT_RST, BIT_ADI_RST);
 
+#elif defined(CONFIG_ARCH_SC8830)
+	/*enable adi in global regs*/
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_ADI_EB);
+	/*reset adi*/
+	sci_glb_set(REG_AON_APB_APB_RST0, BIT_ADI_SOFT_RST);
+	udelay(2);
+	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_ADI_SOFT_RST);
+#endif
 	__adi_init();
 
 	return 0;

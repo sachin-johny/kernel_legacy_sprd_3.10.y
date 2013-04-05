@@ -23,8 +23,13 @@
 
 #include <mach/hardware.h>
 #include <mach/sci.h>
+#if defined(CONFIG_ARCH_SC8825)
 #include <mach/regs_glb.h>
 #include <mach/regs_ana_glb.h>
+#elif defined(CONFIG_ARCH_SC8830)
+#include <mach/regs_sc8830_aon_apb.h>
+#include <mach/regs_sc8830_ana_glb.h>
+#endif
 #include <mach/gpio.h>
 #include <mach/adi.h>
 
@@ -539,11 +544,20 @@ static int eic_gpio_probe(struct platform_device *pdev)
 
 
 	/* enable EIC */
+#if defined(CONFIG_ARCH_SC8825)	
 	sci_glb_set(REG_GLB_GEN0, BIT_EIC_EB);
 	sci_glb_set(REG_GLB_GEN0, BIT_GPIO_EB);
 	sci_glb_set(REG_GLB_GEN0, BIT_RTC_EIC_EB);
 	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
 		    BIT_ANA_EIC_EB | BIT_ANA_GPIO_EB | BIT_ANA_RTC_EIC_EB);
+#elif defined(CONFIG_ARCH_SC8830)
+	sci_glb_set(REG_AON_APB_APB_EB0,BIT_EIC_EB);
+	sci_glb_set(REG_AON_APB_APB_EB0,BIT_GPIO_EB);
+	sci_glb_set(REG_AON_APB_APB_RTC_EB,BIT_EIC_RTC_EB);
+	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN,
+		    BIT_ANA_EIC_EN | BIT_ANA_GPIO_EN);
+	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN,BIT_RTC_EIC_EN);
+#endif
 
 
 	d_sci_gpio.base_addr  = r[ENUM_ID_D_GPIO].base_addr;
