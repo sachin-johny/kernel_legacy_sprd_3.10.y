@@ -863,8 +863,8 @@ int sprd_inter_speaker_pa(int on)
 				sprd_codec_auto_ldo_volt
 				    (sprd_codec_pa_ldo_v_sel, 1);
 			} else {
-				sprd_codec_pa_ldo_v_sel(inter_pa.
-							setting.LDO_V_sel);
+				sprd_codec_pa_ldo_v_sel(inter_pa.setting.
+							LDO_V_sel);
 			}
 		}
 		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
@@ -1164,8 +1164,8 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 			sprd_codec_power.audio_ldo_open_ok = 1;
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
-				regulator_set_mode(sprd_codec_power.
-						   supplies[i].consumer,
+				regulator_set_mode(sprd_codec_power.supplies[i].
+						   consumer,
 						   REGULATOR_MODE_STANDBY);
 		}
 
@@ -1218,8 +1218,8 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		if (sprd_codec_power.audio_ldo_open_ok) {
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
-				regulator_set_mode(sprd_codec_power.
-						   supplies[i].consumer,
+				regulator_set_mode(sprd_codec_power.supplies[i].
+						   consumer,
 						   REGULATOR_MODE_NORMAL);
 
 			regulator_bulk_free(ARRAY_SIZE
@@ -1394,7 +1394,7 @@ static const char *get_event_name(int event)
 }
 
 static int digital_power_event(struct snd_soc_dapm_widget *w,
-		       struct snd_kcontrol *kcontrol, int event)
+			       struct snd_kcontrol *kcontrol, int event)
 {
 	int ret = 0;
 
@@ -1417,7 +1417,7 @@ static int digital_power_event(struct snd_soc_dapm_widget *w,
 }
 
 static int analog_power_event(struct snd_soc_dapm_widget *w,
-		       struct snd_kcontrol *kcontrol, int event)
+			      struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 	int ret = 0;
@@ -1754,14 +1754,21 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 		       get_event_name(event));
 
 	if (snd_soc_read(codec, DCR2_DCR1) & BIT(AOL_EN)) {
-		if (event == SND_SOC_DAPM_POST_PMU)
+		switch (event) {
+		case SND_SOC_DAPM_POST_PMU:
 			sprd_codec_pa_sw_set(SPRD_CODEC_PA_SW_AOL);
-		else
+			break;
+		case SND_SOC_DAPM_PRE_PMD:
 			sprd_codec_pa_sw_clr(SPRD_CODEC_PA_SW_AOL);
-
-		_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
-			       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT, 1);
+			return;
+		default:
+			break;
+		}
 	}
+
+	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
+		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT,
+		       (snd_soc_read(codec, DCR2_DCR1) & BIT(AOL_EN)));
 
 	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
 		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_RIGHT,
@@ -2076,10 +2083,12 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 };
 
 static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
-	SND_SOC_DAPM_SUPPLY("Digital Power", SND_SOC_NOPM, 0, 0, digital_power_event,
+	SND_SOC_DAPM_SUPPLY("Digital Power", SND_SOC_NOPM, 0, 0,
+			    digital_power_event,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_SUPPLY_S("Analog Power", 1, SND_SOC_NOPM, 0, 0, analog_power_event,
-			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_SUPPLY_S("Analog Power", 1, SND_SOC_NOPM, 0, 0,
+			      analog_power_event,
+			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY_S("DA Clk", 2, SOC_REG(CCR), DAC_CLK_EN, 0, NULL,
 			      0),
 	SND_SOC_DAPM_SUPPLY_S("DRV Clk", 3, SOC_REG(CCR), DRV_CLK_EN, 0, NULL,
