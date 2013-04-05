@@ -350,6 +350,7 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sprd_pcm_dma_params *dma;
 	struct sprd_dma_channel_desc dma_cfg = { 0 };
+	sprd_dma_desc *dma_desc[2];
 	dma_addr_t next_desc_phys[2];
 	int i;
 
@@ -361,12 +362,16 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 	dma = rtd->params;
 	dma_cfg = dma->desc;
 
+	dma_desc[0] = rtd->dma_desc_array;
+	dma_desc[1] = rtd->dma_desc_array + runtime->hw.periods_max;
 	next_desc_phys[0] = rtd->dma_desc_array_phys;
 	next_desc_phys[1] = rtd->dma_desc_array_phys +
 	    runtime->hw.periods_max * sizeof(sprd_dma_desc);
 	for (i = 0; i < rtd->hw_chan; i++) {
 		if (rtd->uid_cid_map[i] >= 0) {
 			dma_cfg.llist_ptr = next_desc_phys[i];
+			dma_cfg.src_addr = dma_desc[i]->dsrc;
+			dma_cfg.dst_addr = dma_desc[i]->ddst;
 			sprd_dma_channel_config(rtd->uid_cid_map[i],
 						dma->workmode, &dma_cfg);
 		}
