@@ -1604,14 +1604,20 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 		       get_event_name(event));
 
 	if (snd_soc_read(codec, DCR1) & BIT(AOL_EN)) {
-		if (event == SND_SOC_DAPM_POST_PMU)
+		switch (event) {
+		case SND_SOC_DAPM_POST_PMU:
 			sprd_codec_pa_sw_set(SPRD_CODEC_PA_SW_AOL);
-		else
+			break;
+		case SND_SOC_DAPM_PRE_PMD:
 			sprd_codec_pa_sw_clr(SPRD_CODEC_PA_SW_AOL);
-
-		_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
-			       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT, 1);
+			return;
+		default: break;
+		}
 	}
+
+	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
+			SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT,
+			(snd_soc_read(codec, DCR1) & BIT(AOL_EN)));
 
 	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
 		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_RIGHT,
@@ -1968,7 +1974,7 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   ARRAY_SIZE(spkr_mixer_controls)),
 	SND_SOC_DAPM_PGA_S("SPKL Switch", 5, SOC_REG(DCR1), AOL_EN, 0,
 			   spk_switch_event,
-			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_S("SPKR Switch", 5, SOC_REG(DCR1), AOR_EN, 0,
 			   spk_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
