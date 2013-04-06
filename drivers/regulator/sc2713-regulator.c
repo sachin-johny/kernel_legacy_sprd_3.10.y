@@ -28,13 +28,12 @@
 #include <mach/sci.h>
 #include <mach/hardware.h>
 #include <mach/regs_glb.h>
-#include <mach/regs_ana_glb.h>
-#include <mach/regs_ana_glb2.h>
+#include <mach/regs_sc8830_ana_glb.h>
 #include <mach/adi.h>
 
 #undef debug
-#define debug(format, arg...) pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
-#define debug0(format, arg...)
+#define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug0(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
 
 #ifndef	ANA_REG_OR
 #define	ANA_REG_OR(_r, _b)	sci_adi_write(_r, _b, 0)
@@ -68,6 +67,7 @@ struct sci_regulator_desc {
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry *debugfs;
 #endif
+	int (*ldo_op) (const struct sci_regulator_regs * regs, int op);
 };
 
 enum {
@@ -124,7 +124,7 @@ int ldo_trimming_callback(void *)
     __attribute__ ((weak, alias("__def_callback")));
 
 /* standard ldo ops*/
-int sci_ldo_op(const struct sci_regulator_regs *regs, int op)
+static int sci_ldo_op(const struct sci_regulator_regs *regs, int op)
 {
 	int ret = 0;
 
@@ -155,13 +155,39 @@ int sci_ldo_op(const struct sci_regulator_regs *regs, int op)
 	return ret;
 }
 
+int sci_ldo_op_s(const struct sci_regulator_regs *regs, int op)
+{
+	int ret = 0;
+
+	debug0("regu %p op(%d), set %08x[%d]\n", regs, op,
+	       regs->pd_set, __ffs(regs->pd_set_bit));
+
+	if (! !regs->pd_set)
+		return -EACCES;
+
+	switch (op) {
+	case VDD_ON:
+		ANA_REG_BIC(regs->pd_set, regs->pd_set_bit);
+		break;
+	case VDD_OFF:
+		ANA_REG_OR(regs->pd_set, regs->pd_set_bit);
+		break;
+	case VDD_IS_ON:
+		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
+
 static int ldo_turn_on(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc =
 	    (struct sci_regulator_desc *)rdev->desc;
 	const struct sci_regulator_regs *regs = desc->regs;
 
-	int ret = sci_ldo_op(regs, VDD_ON);
+	int ret = desc->ldo_op(regs, VDD_ON);
 
 	debug0("regu %p (%s), turn on\n", regs, desc->desc.name);
 	/* notify ldo trimming when first turn on */
@@ -173,14 +199,18 @@ static int ldo_turn_on(struct regulator_dev *rdev)
 
 static int ldo_turn_off(struct regulator_dev *rdev)
 {
-	return sci_ldo_op(((struct sci_regulator_desc *)(rdev->desc))->regs,
-			  VDD_OFF);
+	struct sci_regulator_desc *desc =
+	    (struct sci_regulator_desc *)rdev->desc;
+	return desc->ldo_op(((struct sci_regulator_desc *)(rdev->desc))->regs,
+			    VDD_OFF);
 }
 
 static int ldo_is_on(struct regulator_dev *rdev)
 {
-	return sci_ldo_op(((struct sci_regulator_desc *)(rdev->desc))->regs,
-			  VDD_IS_ON);
+	struct sci_regulator_desc *desc =
+	    (struct sci_regulator_desc *)rdev->desc;
+	return desc->ldo_op(((struct sci_regulator_desc *)(rdev->desc))->regs,
+			    VDD_IS_ON);
 }
 
 static int ldo_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -390,8 +420,7 @@ int regulator_get_trimming_step(struct regulator *regulator, int def_vol)
 	const struct sci_regulator_regs *regs = desc->regs;
 
 	return (2 /*DCDC*/ == regs->typ)
-	    ? 100 / 32
-	    : def_vol * 7 / 1000;
+	    ? 100 / 32 : def_vol * 7 / 1000;
 }
 
 static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
@@ -417,11 +446,10 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	const struct sci_regulator_regs *regs = desc->regs;
 	int mv = min_uV / 1000;
 	int i, shft = __ffs(regs->vol_ctl_bits);
-	int max = regs->vol_ctl_bits >> shft;
 
 	debug0("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
 
-	BUG_ON(shft != 0);
+	BUG_ON(0 != __ffs(regs->vol_trm_bits));
 	BUG_ON(regs->vol_sel_cnt > 8);
 
 	if (!regs->vol_ctl)
@@ -440,12 +468,10 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 		 * small adjust voltage: 100/32mv ~= 3.125mv
 		 */
 		int j = ((mv - regs->vol_sel[i]) * 32) / (100) % 32;
-		ANA_REG_SET(regs->vol_trm,
-			    BITS_DCDC_CAL(j) |
-			    BITS_DCDC_CAL_RST(BITS_DCDC_CAL(-1) - j), -1);
+		ANA_REG_SET(regs->vol_trm, j, regs->vol_trm_bits);
 	}
 
-	ANA_REG_SET(regs->vol_ctl, i | (max - i) << 4, -1);
+	ANA_REG_SET(regs->vol_ctl, (i << shft), regs->vol_ctl_bits);
 	return 0;
 }
 
@@ -454,7 +480,7 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 	struct sci_regulator_desc *desc =
 	    (struct sci_regulator_desc *)rdev->desc;
 	const struct sci_regulator_regs *regs = desc->regs;
-	u32 mv, vol_bits;
+	u32 mv;
 	int cal = 0;		/* mV */
 	int i, shft = __ffs(regs->vol_ctl_bits);
 
@@ -462,25 +488,18 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 	       regs, desc->desc.name, regs->vol_ctl,
 	       shft, regs->vol_ctl_bits, regs->vol_sel_cnt);
 
-	BUG_ON(shft != 0);
+	BUG_ON(0 != __ffs(regs->vol_trm_bits));
 	BUG_ON(regs->vol_sel_cnt > 8);
 
 	if (!regs->vol_ctl)
 		return -EINVAL;
 
-	i = (ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits);
-
-	/*check the reset relative bit of vol ctl */
-	vol_bits =
-	    (~ANA_REG_GET(regs->vol_ctl) & (regs->vol_ctl_bits << 4)) >> 4;
-
-	if (i != vol_bits)
-		return -EFAULT;
+	i = (ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft;
 
 	mv = regs->vol_sel[i];
 
 	if (regs->vol_trm) {
-		int j = ANA_REG_GET(regs->vol_trm) & BITS_DCDC_CAL(-1);
+		int j = ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits;
 		cal = DIV_ROUND_CLOSEST(j * 100, 32);
 	}
 
@@ -668,7 +687,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	};
 	struct regulator_consumer_supply consumer_supplies_default[] = {
 		[0] = {
-//		       .dev = 0,
+//                     .dev = 0,
 		       .dev_name = 0,
 		       .supply = desc->desc.name,
 		       }
@@ -692,6 +711,13 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	};
 
 	BUG_ON(desc->regs->typ > 3);
+
+	if (desc->regs->pd_set == desc->regs->pd_rst
+	    && desc->regs->pd_set_bit == desc->regs->pd_rst_bit)
+		desc->ldo_op = sci_ldo_op_s;
+	else
+		desc->ldo_op = sci_ldo_op;
+
 	if (!desc->desc.ops)
 		desc->desc.ops = __regs_ops[desc->regs->typ];
 
