@@ -113,7 +113,7 @@ static __inline void __ddie_fuse_wait_status_clean(u32 bits)
 
 static __inline void __ddie_fuse_global_init(void)
 {
-#if defined(CONFIG_ARCH_SC8825)	
+#if defined(CONFIG_ARCH_SC8825)
 	sci_glb_set(REG_GLB_GEN0, BIT_EFUSE_EB);
 #elif defined(CONFIG_ARCH_SC8830)
 	sci_glb_set(REG_AON_APB_APB_EB0,BIT_EFUSE_EB);	
@@ -384,7 +384,7 @@ void sci_adie_fuse_set_readdly(u32 read_delay)
 {
 	u32 v = 0;
 	mutex_lock(&adie_fuse_lock);
-#if defined(CONFIG_ARCH_SC8825)	
+#if defined(CONFIG_ARCH_SC8825)
 	v = BITS_AFUSE_RD_DLY_PROT(AFUSE_DLY_PROT_KEY);	/*get lock */
 	v |= BITS_AFUSE_RD_DLY(read_delay);
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 0);
@@ -397,7 +397,7 @@ void sci_adie_fuse_set_readdly(u32 read_delay)
 	//v = ~(BITS_AFUSE_READ_DLY_PROT(AFUSE_DLY_PROT_KEY));	/*release lock */
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 1);
 
-#endif	
+#endif
 	mutex_unlock(&adie_fuse_lock);
 }
 

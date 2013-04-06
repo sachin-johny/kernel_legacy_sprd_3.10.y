@@ -544,7 +544,7 @@ static int eic_gpio_probe(struct platform_device *pdev)
 
 
 	/* enable EIC */
-#if defined(CONFIG_ARCH_SC8825)	
+#if defined(CONFIG_ARCH_SC8825)
 	sci_glb_set(REG_GLB_GEN0, BIT_EIC_EB);
 	sci_glb_set(REG_GLB_GEN0, BIT_GPIO_EB);
 	sci_glb_set(REG_GLB_GEN0, BIT_RTC_EIC_EB);
