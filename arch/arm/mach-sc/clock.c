@@ -24,8 +24,10 @@
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
+#if !defined(CONFIG_ARCH_SC8830)
 #include <mach/regs_glb.h>
 #include <mach/regs_ahb.h>
+#endif
 
 #include "clock.h"
 #include "mach/__clock_tree.h"

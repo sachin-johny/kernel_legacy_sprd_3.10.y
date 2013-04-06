@@ -19,7 +19,19 @@
 #define __ASM_ARCH_SCI_CLOCK_TREE_H
 
 #if defined(CONFIG_ARCH_SC8830)
-//#include "__sc8830_clock_tree.h"FIXME:update some clock registers name
+#include "mach/regs_sc8830_aon_apb.h"
+#include "mach/regs_sc8830_aon_ckg.h"
+#include "mach/regs_sc8830_aon_clk.h"
+#include "mach/regs_sc8830_ap_ahb.h"
+#include "mach/regs_sc8830_ap_apb.h" 
+#include "mach/regs_sc8830_ap_clk.h"
+//#include "mach/regs_sc8830_gpu_apb.h"
+#include "mach/regs_sc8830_gpu_clk.h"
+#include "mach/regs_sc8830_mm_ahb.h"
+#include "mach/regs_sc8830_mm_clk.h"
+#include "mach/regs_sc8830_pmu_apb.h"
+#include "mach/regs_sc8830_pub_apb.h"
+#include "__sc8830_clock_tree.h"
 #elif defined(CONFIG_ARCH_SC8825)
 #include "__sc8825_clock_tree.h"
 #else

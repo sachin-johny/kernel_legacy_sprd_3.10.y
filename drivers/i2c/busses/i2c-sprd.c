@@ -383,7 +383,7 @@ static void sprd_i2c_reset(struct sprd_i2c *pi2c)
 
 	char buf[8] = { 0 };
 
-	snprintf(buf, 8, "clk_iic%d", pi2c->adap.nr);
+	snprintf(buf, 8, "clk_i2c%d", pi2c->adap.nr);
 	dev_info(&pi2c->adap.dev, "%s buf=%s", __func__, buf);
 
 	pi2c->clk = clk_get(&pi2c->adap.dev, buf);
