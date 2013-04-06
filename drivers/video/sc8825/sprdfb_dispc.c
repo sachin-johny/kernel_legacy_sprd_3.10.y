@@ -24,7 +24,11 @@
 #include "sprdfb_dispc_reg.h"
 #include "sprdfb.h"
 
+#ifdef CONIG_FB_SC8830
+#define DISPC_SOFT_RST (1)
+#else
 #define DISPC_SOFT_RST (20)
+#endif
 #define DISPC_CLOCK_PARENT ("clk_256m")
 #define DISPC_CLOCK (256*1000000)
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")
@@ -119,7 +123,11 @@ static irqreturn_t dispc_isr(int irq, void *data)
 /* dispc soft reset */
 static void dispc_reset(void)
 {
+#ifdef CONFIG_FB_SC8830
+	#define REG_AHB_SOFT_RST (0x4 + SPRD_AHB_BASE)
+#else
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
+#endif
 	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<DISPC_SOFT_RST), REG_AHB_SOFT_RST);
 	udelay(10);
 	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<DISPC_SOFT_RST)), REG_AHB_SOFT_RST);
@@ -467,7 +475,11 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 
 	dispc_ctx.is_inited = true;
 
+#ifdef CONFIG_FB_SC8830
+	ret = request_irq(IRQ_DISPC0_INT, dispc_isr, IRQF_DISABLED, "DISPC", &dispc_ctx);
+#else
 	ret = request_irq(IRQ_DISPC_INT, dispc_isr, IRQF_DISABLED, "DISPC", &dispc_ctx);
+#endif
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dispcfailed to request irq!\n");
 		clk_disable(dispc_ctx.clk_dispc);

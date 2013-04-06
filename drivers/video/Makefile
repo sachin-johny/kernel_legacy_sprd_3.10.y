@@ -33,6 +33,7 @@ obj-$(CONFIG_FB_WMT_GE_ROPS)   += wmt_ge_rops.o
 # Hardware specific drivers go first
 obj-$(CONFIG_FB_SC8810)           += sc8810/
 obj-$(CONFIG_FB_SC8825)           += sc8825/
+obj-$(CONFIG_FB_SC8830)           += sc8825/
 obj-$(CONFIG_FB_AMIGA)            += amifb.o c2p_planar.o
 obj-$(CONFIG_FB_ARC)              += arcfb.o
 obj-$(CONFIG_FB_CLPS711X)         += clps711xfb.o
