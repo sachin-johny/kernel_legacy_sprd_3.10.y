@@ -8,4 +8,9 @@ config SRCARCH
 	string
 	option env="SRCARCH"
 
+config HVGA_LCMSIZE_TEST
+	bool "enable hvga configration"
+	help
+	"enable hvga configration"
+
 source "arch/$SRCARCH/Kconfig"

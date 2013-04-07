@@ -2,8 +2,13 @@
 #define __LINUX_FT5X0X_TS_H__
 
 #if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
+#ifdef CONFIG_HVGA_LCMSIZE_TEST
+#define SCREEN_MAX_X    319
+#define SCREEN_MAX_Y    479
+#else
 #define SCREEN_MAX_X    479
 #define SCREEN_MAX_Y    853
+#endif
 #else
 #define SCREEN_MAX_X    539
 #define SCREEN_MAX_Y    959
