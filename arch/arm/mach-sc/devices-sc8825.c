@@ -967,21 +967,21 @@ static int native_tdmodem_stop(void *arg)
 }
 static struct cproc_init_data sprd_cproc_td_pdata = {
 	.devname	= "cpt",
-	.base		= 0x80000000,
-	.maxsz		= 0x02000000,
+	.base		= CPT_START_ADDR,
+	.maxsz		= CPT_TOTAL_SIZE,
 	.start		= native_tdmodem_start,
-	.stop			= native_tdmodem_stop,
+	.stop		= native_tdmodem_stop,
 	.wdtirq		= IRQ_CP_WDG_INT,
 	.segnr		= 2,
 	.segs		= {
 		{
 			.name  = "modem",
-			.base  = 0x80500000,
+			.base  = CPT_START_ADDR + 0x500000,
 			.maxsz = 0x00800000,
 		},
 		{
 			.name  = "dsp",
-			.base  = 0x80020000,
+			.base  = CPT_START_ADDR + 0x20000,
 			.maxsz = 0x003E0000,
 		},
 	},
@@ -1193,3 +1193,24 @@ struct sysdump_mem sprd_dump_mem[] = {
 	},
 };
 int sprd_dump_mem_num = ARRAY_SIZE(sprd_dump_mem);
+
+#define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00B8)
+#define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x00BC)
+
+#define AP2CP_IRQ0_TRIG		0x01
+#define CP2AP_IRQ0_CLR		0x01
+
+uint32_t cpt_rxirq_status(void)
+{
+	return 1;
+}
+
+void cpt_rxirq_clear(void)
+{
+	__raw_writel(CP2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+}
+
+void cpt_txirq_trigger(void)
+{
+	__raw_writel(AP2CP_IRQ0_TRIG, AP2CP_INT_CTRL);
+}

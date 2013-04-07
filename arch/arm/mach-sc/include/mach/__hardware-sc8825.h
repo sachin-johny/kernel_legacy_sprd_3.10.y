@@ -300,4 +300,12 @@
 #define CHIP_ID_LOW_REG		(ANA_CTL_GLB_BASE + 0xf8)
 #define CHIP_ID_HIGH_REG	(ANA_CTL_GLB_BASE + 0xfc)
 
+#define SIPC_SMEM_ADDR		(0x80000000 + SZ_1M * 24)
+
+#define CPT_START_ADDR		(0x80000000)
+#define CPT_TOTAL_SIZE		(SZ_1M * 32)
+#define CPT_RING_ADDR		(0x80000000 + SZ_1M * 28)
+#define CPT_RING_SIZE		(SZ_4K)
+#define CPT_SMEM_SIZE		(SZ_1M * 4)
+
 #endif
