@@ -48,7 +48,9 @@ extern int sprdfb_panel_probe(struct sprdfb_device *dev);
 extern void sprdfb_panel_remove(struct sprdfb_device *dev);
 
 extern struct display_ctrl sprdfb_dispc_ctrl ;
+#ifdef CONFIG_FB_SC8825
 extern struct display_ctrl sprdfb_lcdc_ctrl;
+#endif
 
 static unsigned PP[16];
 
@@ -289,8 +291,10 @@ static int sprdfb_probe(struct platform_device *pdev)
 
 	if(SPRDFB_MAINLCD_ID == dev->dev_id){
 		dev->ctrl = &sprdfb_dispc_ctrl;
+#ifdef CONFIG_FB_SC8825
 	}else{
 		dev->ctrl = &sprdfb_lcdc_ctrl;
+#endif
 	}
 
 	if(sprdfb_panel_get(dev)){

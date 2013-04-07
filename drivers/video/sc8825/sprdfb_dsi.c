@@ -28,8 +28,14 @@
 #include "dsi/mipi_dsih_hal.h"
 #include "dsi/mipi_dsih_api.h"
 
+#ifdef CONFIG_FB_SC8830
+#define DSI_SOFT_RST (0)
+#else
 #define DSI_SOFT_RST (26)
+#endif
+
 #define DSI_PHY_REF_CLOCK (26*1000)
+
 
 #define DSI_EDPI_CFG (0x6c)
 
@@ -37,6 +43,9 @@
 #define AHB_MIPI_PHY_CTRL (0x021c)
 #define REG_AHB_MIPI_PHY_CTRL (AHB_MIPI_PHY_CTRL + SPRD_AHB_BASE)
 
+#ifdef CONFIG_FB_SC8830
+#define SPRD_MIPI_DSIC_BASE SPRD_DSI_BASE
+#endif
 
 struct sprdfb_dsi_context {
 	struct clk		*clk_dsi;
@@ -97,14 +106,22 @@ int32_t dsi_early_int(void)
 
 //	memset(&(dsi_ctx.dsi_inst), 0, sizeof(dsi_ctx.dsi_inst));
 
+#ifdef CONFIG_FB_SC8830
+	ret = request_irq(IRQ_DSI0_INT, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+#else
 	ret = request_irq(IRQ_DSI_INT0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+#endif
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int0!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
 		return -1;
 	}
 
+#ifdef CONFIG_FB_SC8830
+	ret = request_irq(IRQ_DSI1_INT, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+#else
 	ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
+#endif
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int1!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
