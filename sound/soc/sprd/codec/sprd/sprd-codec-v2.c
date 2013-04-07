@@ -51,6 +51,11 @@
 #define sprd_bug_on(...)
 #endif
 
+#if (defined CONFIG_SPRD_AUDIO_HOLD_HP_DRIVER) || (defined CONFIG_SPRD_AUDIO_HOLD_LOUT_DRIVER)
+#define CONFIG_SPRD_AUDIO_HOLD_DRIVER
+#define CONFIG_SPRD_AUDIO_CODEC_HOLD
+#endif
+
 #define SOC_REG(r) ((unsigned short)(r))
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
 #define ID_FUN(id, lr) ((unsigned short)(((id) << 1) | (lr)))
@@ -2266,6 +2271,11 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_INPUT("HPMIC"),
 	SND_SOC_DAPM_INPUT("AIL"),
 	SND_SOC_DAPM_INPUT("AIR"),
+
+#ifdef CONFIG_SPRD_AUDIO_HOLD_HP_DRIVER
+	SND_SOC_DAPM_HP("HeadPhone Hold", NULL),
+	SND_SOC_DAPM_INPUT("VHP_DAC"),
+#endif
 };
 
 /* sprd_codec supported interconnection*/
@@ -2386,6 +2396,15 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"Mic Bias", NULL, "Analog Power"},
 	{"AuxMic Bias", NULL, "Analog Power"},
 	{"HeadMic Bias", NULL, "Analog Power"},
+
+#ifdef CONFIG_SPRD_AUDIO_HOLD_HP_DRIVER
+	/* Headphone Hold */
+	{"HeadPhone Hold", NULL, "HEAD_P_L"},
+	{"HeadPhone Hold", NULL, "HEAD_P_R"},
+	{"HPL Switch", NULL, "VHP_DAC"},
+	{"HPR Switch", NULL, "VHP_DAC"},
+	{"VHP_DAC", NULL, "Analog Power"},
+#endif
 };
 
 static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,
@@ -2933,6 +2952,170 @@ static int sprd_codec_audio_ldo(struct sprd_codec_priv *sprd_codec)
 	return ret;
 }
 
+#ifdef CONFIG_SPRD_AUDIO_CODEC_HOLD
+static LIST_HEAD(sprd_codec_list);
+static DEFINE_MUTEX(sprd_codec_mutex);
+struct sprd_codec_hold {
+	struct list_head list;
+	struct snd_soc_codec *codec;
+	int is_headphone_plug_in;
+	int is_screen_on;
+};
+
+static int sprd_codec_hold_add_codec(struct snd_soc_codec *codec)
+{
+	int ret = 0;
+	struct sprd_codec_hold *codec_hold;
+	mutex_lock(&sprd_codec_mutex);
+	list_for_each_entry(codec_hold, &sprd_codec_list, list) {
+		if (codec_hold->codec == codec) {
+			pr_err("the codec %s exist\n", codec->name);
+			ret = -EINVAL;
+			goto _unlock;
+		}
+	}
+	codec_hold = kzalloc(sizeof(struct sprd_codec_hold), GFP_KERNEL);
+	if (codec_hold == NULL) {
+		ret = -ENOMEM;
+		goto _unlock;
+	}
+	codec_hold->codec = codec;
+	list_add(&codec_hold->list, &sprd_codec_list);
+_unlock:
+	mutex_unlock(&sprd_codec_mutex);
+	return ret;
+}
+
+static int sprd_codec_hold_del_codec(struct snd_soc_codec *codec)
+{
+	int ret = 0;
+	struct sprd_codec_hold *codec_hold;
+	mutex_lock(&sprd_codec_mutex);
+	list_for_each_entry(codec_hold, &sprd_codec_list, list) {
+		if (codec_hold->codec == codec) {
+			list_del(&codec_hold->list);
+			kfree(codec_hold);
+			goto _unlock;
+		}
+	}
+	pr_err("the codec %s not exist\n", codec->name);
+	ret = -EINVAL;
+_unlock:
+	mutex_unlock(&sprd_codec_mutex);
+	return ret;
+}
+
+static inline int sprd_codec_need_hold(struct sprd_codec_hold *codec_hold)
+{
+	return codec_hold->is_screen_on && codec_hold->is_headphone_plug_in;
+}
+
+typedef void (*sprd_codec_hold_cond_op) (struct sprd_codec_hold * codec_hold,
+					 int);
+
+static inline void sprd_codec_hold_set_headphone_plug(struct sprd_codec_hold
+						      *codec_hold,
+						      int is_plug_in)
+{
+	codec_hold->is_headphone_plug_in = is_plug_in;
+}
+
+static inline void sprd_codec_hold_set_screen_on(struct sprd_codec_hold
+						 *codec_hold, int is_screen_on)
+{
+	codec_hold->is_screen_on = is_screen_on;
+}
+
+static void sprd_codec_hold_disable(sprd_codec_hold_cond_op hold_cond_op)
+{
+	struct sprd_codec_hold *codec_hold;
+	mutex_lock(&sprd_codec_mutex);
+	list_for_each_entry(codec_hold, &sprd_codec_list, list) {
+		struct snd_soc_dapm_context *dapm =
+		    &codec_hold->codec->card->dapm;
+		hold_cond_op(codec_hold, 0);
+		if (!sprd_codec_need_hold(codec_hold)) {
+			snd_soc_dapm_disable_pin(dapm, "HeadPhone Hold");
+			snd_soc_dapm_disable_pin(dapm, "VHP_DAC");
+			snd_soc_dapm_sync(dapm);
+		}
+	}
+	mutex_unlock(&sprd_codec_mutex);
+}
+
+static void sprd_codec_hold_enable(sprd_codec_hold_cond_op hold_cond_op)
+{
+	struct sprd_codec_hold *codec_hold;
+	mutex_lock(&sprd_codec_mutex);
+	list_for_each_entry(codec_hold, &sprd_codec_list, list) {
+		struct snd_soc_dapm_context *dapm =
+		    &codec_hold->codec->card->dapm;
+		hold_cond_op(codec_hold, 1);
+		if (sprd_codec_need_hold(codec_hold)) {
+			snd_soc_dapm_enable_pin(dapm, "HeadPhone Hold");
+			snd_soc_dapm_enable_pin(dapm, "VHP_DAC");
+			snd_soc_dapm_sync(dapm);
+		}
+	}
+	mutex_unlock(&sprd_codec_mutex);
+}
+
+#endif
+
+#ifdef CONFIG_SPRD_AUDIO_HOLD_HP_DRIVER
+#include <linux/headset.h>
+static int sprd_codec_hp_notifier_call(struct notifier_block *nb,
+				       unsigned long is_plug, void *data)
+{
+	pr_info("hp plug %s\n", is_plug ? "in" : "out");
+#ifdef CONFIG_SPRD_AUDIO_CODEC_HOLD
+	if (is_plug) {
+		sprd_codec_hold_enable(sprd_codec_hold_set_headphone_plug);
+	} else {
+		sprd_codec_hold_disable(sprd_codec_hold_set_headphone_plug);
+	}
+#endif
+	return 0;
+}
+
+static struct notifier_block sprd_codec_hp_nb = {
+	.notifier_call = sprd_codec_hp_notifier_call,
+	.priority = 0,
+};
+
+#endif
+
+#ifdef CONFIG_SPRD_AUDIO_HOLD_DRIVER
+#ifdef CONFIG_HAS_EARLYSUSPEND
+#include <linux/earlysuspend.h>
+
+/* screen off */
+static void sprd_codec_late_close_driver_out(struct early_suspend *h)
+{
+	pr_info("screen off\n");
+#ifdef CONFIG_SPRD_AUDIO_CODEC_HOLD
+	sprd_codec_hold_disable(sprd_codec_hold_set_screen_on);
+#endif
+}
+
+/* screen on */
+static void sprd_codec_early_open_driver_out(struct early_suspend *h)
+{
+	pr_info("screen on\n");
+#ifdef CONFIG_SPRD_AUDIO_CODEC_HOLD
+	sprd_codec_hold_enable(sprd_codec_hold_set_screen_on);
+#endif
+}
+
+static struct early_suspend sprd_codec_early_suspend_desc = {
+	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1,
+	.suspend = sprd_codec_late_close_driver_out,
+	.resume = sprd_codec_early_open_driver_out,
+};
+
+#endif
+#endif
+
 #define SPRD_CODEC_PCM_RATES 	\
 	(SNDRV_PCM_RATE_8000 |  \
 	 SNDRV_PCM_RATE_11025 | \
@@ -2986,6 +3169,20 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 
 	sprd_codec_audio_ldo(sprd_codec);
 
+#ifdef CONFIG_SPRD_AUDIO_CODEC_HOLD
+	sprd_codec_hold_add_codec(codec);
+#endif
+#ifdef CONFIG_SPRD_AUDIO_HOLD_DRIVER
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	register_early_suspend(&sprd_codec_early_suspend_desc);
+	snd_soc_dapm_disable_pin(&codec->card->dapm, "VHP_DAC");
+	snd_soc_dapm_disable_pin(&codec->card->dapm, "HeadPhone Hold");
+#endif
+#endif
+#ifdef CONFIG_SPRD_AUDIO_HOLD_HP_DRIVER
+	register_headset_plug_notifier(&sprd_codec_hp_nb);
+#endif
+
 	sprd_codec_dbg("return %i\n", ret);
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -2995,6 +3192,18 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 static int sprd_codec_soc_remove(struct snd_soc_codec *codec)
 {
 	sprd_codec_dbg("Entering %s\n", __func__);
+
+#ifdef CONFIG_SPRD_AUDIO_CODEC_HOLD
+	sprd_codec_hold_del_codec(codec);
+#endif
+#ifdef CONFIG_SPRD_AUDIO_HOLD_DRIVER
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	unregister_early_suspend(&sprd_codec_early_suspend_desc);
+#endif
+#endif
+#ifdef CONFIG_SPRD_AUDIO_HOLD_HP_DRIVER
+	unregister_headset_plug_notifier(&sprd_codec_hp_nb);
+#endif
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return 0;
