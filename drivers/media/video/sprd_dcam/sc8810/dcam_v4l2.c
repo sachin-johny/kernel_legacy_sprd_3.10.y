@@ -2316,7 +2316,7 @@ static int dcam_create_thread(void)
 
 static void dcam_timer_callback(unsigned long data)
 {
-	printk("v4l2:dcam_timer_callback.\n");
+	DCAM_V4L2_PRINT("v4l2:dcam_timer_callback.\n");
 
 	if ((s_dcam_err_info.work_status == DCAM_NO_RUN) ||
 	    (s_dcam_err_info.work_status == DCAM_WORK_STATUS_MAX) ||
@@ -2341,7 +2341,7 @@ static int dcam_init_timer(struct timer_list *dcam_timer)
 static int dcam_start_timer(struct timer_list *dcam_timer, uint32_t time_val)
 {
 	int ret;
-	printk("v4l2:dcam_start_timer,starting timer to fire in %ld \n",
+	DCAM_V4L2_PRINT("v4l2:dcam_start_timer,starting timer to fire in %ld \n",
 	       jiffies);
 	ret = mod_timer(dcam_timer, jiffies + msecs_to_jiffies(time_val));
 	if (ret)
