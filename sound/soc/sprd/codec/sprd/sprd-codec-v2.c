@@ -1344,6 +1344,10 @@ static int sprd_codec_open(struct snd_soc_codec *codec)
 
 	sprd_codec_sample_rate_setting(sprd_codec);
 
+	/* SC7710/SC8830 ask from ASIC to set initial value */
+	snd_soc_update_bits(codec, PMUR4_PMUR3, BIT(SEL_VCMI), BIT(SEL_VCMI));
+	snd_soc_update_bits(codec, PMUR4_PMUR3, BIT(VCMI_FAST_EN), BIT(VCMI_FAST_EN));
+
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
 }
