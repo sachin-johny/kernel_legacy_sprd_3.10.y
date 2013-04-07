@@ -957,11 +957,20 @@ static int native_tdmodem_start(void *arg)
 
 	return 0;
 }
+static int native_tdmodem_stop(void *arg)
+{
+	/*disbale cp clock */
+	__raw_writel(TD_CTL_DISENABLE, TD_REG_CLK_ADDR);
+	/* hold stop cp */
+	__raw_writel(TD_CTL_DISENABLE, TD_REG_RESET_ADDR);
+	return 0;
+}
 static struct cproc_init_data sprd_cproc_td_pdata = {
-	.devname	= "cproc_td",
+	.devname	= "cpt",
 	.base		= 0x80000000,
 	.maxsz		= 0x02000000,
 	.start		= native_tdmodem_start,
+	.stop			= native_tdmodem_stop,
 	.wdtirq		= IRQ_CP_WDG_INT,
 	.segnr		= 2,
 	.segs		= {

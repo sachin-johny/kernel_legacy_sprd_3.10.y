@@ -21,12 +21,23 @@
 #include <linux/miscdevice.h>
 #include <linux/delay.h>
 #include <linux/io.h>
-#include <linux/uaccess.h>
+#include <asm/uaccess.h>
+#include <linux/poll.h>
 #include <linux/proc_fs.h>
+
 #include <linux/sprd_cproc.h>
 
 #define CPROC_WDT_TRUE   1
 #define CPROC_WDT_FLASE  0
+#define NORMAL_MSG "started\n"
+#define STOP_MSG "stopped\n"
+#define WDTIRQ_MSG "wdtirq\n"
+
+enum {
+	CP_NORMAL_STATUS=0,
+	CP_STOP_STATUS,
+	CP_WDTIRQ_STATUS,
+};
 
 struct cproc_device {
 	struct miscdevice		miscdev;
@@ -35,7 +46,23 @@ struct cproc_device {
 	int 				wdtirq;
 	int				wdtcnt;
 	wait_queue_head_t	wdtwait;
+	char *			name;
+	int				status;
 };
+
+struct cproc_proc_fs {
+	struct proc_dir_entry	*procdir;
+	struct proc_dir_entry	*start;
+	struct proc_dir_entry	*stop;
+	struct proc_dir_entry	*modem;
+	struct proc_dir_entry	*dsp;
+	struct proc_dir_entry	*status;
+	struct proc_dir_entry	*wdtirq;
+	struct proc_dir_entry	*mem;
+	struct cproc_device		*cproc;
+};
+
+static struct cproc_proc_fs proc_fs_entries;
 
 static int sprd_cproc_open(struct inode *inode, struct file *filp)
 {
@@ -84,6 +111,226 @@ static const struct file_operations sprd_cproc_fops = {
 	.mmap = sprd_cproc_mmap,
 };
 
+static int cproc_proc_open(struct inode *inode, struct file *filp)
+{
+	filp->private_data = PDE(inode)->data;
+	return 0;
+}
+
+static int cproc_proc_release(struct inode *inode, struct file *filp)
+{
+	return 0;
+}
+
+static ssize_t cproc_proc_read(struct file *filp,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	char *type = (char *)filp->private_data;
+	struct cproc_device *cproc = proc_fs_entries.cproc;
+	unsigned int len;
+	void *vmem;
+	int rval;
+
+	pr_debug("cproc proc read type: %s ppos %d\n", type, *ppos);
+
+	 if (strcmp(type, "mem") == 0) {
+		if (cproc->initdata->maxsz < *ppos) {
+			return -EINVAL;
+		} else if (cproc->initdata->maxsz == *ppos) {
+			return 0;
+		}
+
+		if ((*ppos + count) > cproc->initdata->maxsz) {
+			count = cproc->initdata->maxsz - *ppos;
+		}
+		vmem = cproc->vbase + *ppos;
+		if (copy_to_user(buf, vmem, count))	{
+			return -EFAULT;
+		}
+		*ppos += count;
+		return count;
+	} else if (strcmp(type, "status") == 0) {
+		if (CP_STOP_STATUS == cproc->status) {
+			len = strlen(STOP_MSG);
+			count = (len > count) ? count : len;
+			if (copy_to_user(buf, STOP_MSG, count)) {
+				printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
+				return -EFAULT;
+			} else {
+				return count;
+			}
+		} else if (CP_WDTIRQ_STATUS == cproc->status) {
+			len = strlen(WDTIRQ_MSG);
+			count = (len > count) ? count : len;
+			if (copy_to_user(buf, WDTIRQ_MSG, count)) {
+				printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
+				return -EFAULT;
+			} else {
+				return count;
+			}
+		} else {
+			len = strlen(NORMAL_MSG);
+			count = (len > count) ? count : len;
+			if (copy_to_user(buf, NORMAL_MSG, count)) {
+				printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
+				return -EFAULT;
+			} else {
+				return count;
+			}
+		}
+	} else if (strcmp(type, "wdtirq") == 0) {
+		/* wait forever */
+		rval = wait_event_interruptible(cproc->wdtwait, cproc->wdtcnt  != CPROC_WDT_FLASE);
+		if (rval < 0) {
+			printk(KERN_ERR "cproc_proc_read wait interrupted error !\n");
+		}
+		len = strlen(WDTIRQ_MSG);
+		count = (len > count) ? count : len;
+		if (copy_to_user(buf, WDTIRQ_MSG, count)) {
+			printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
+			return -EFAULT;
+		} else {
+			printk(KERN_INFO "cproc proc read wdtirq data !\n");
+			return count;
+		}
+	} else {
+		return -EINVAL;
+	}
+}
+
+static ssize_t cproc_proc_write(struct file *filp,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	char *type = (char *)filp->private_data;
+	struct cproc_device *cproc = proc_fs_entries.cproc;
+	uint32_t base, size, offset;
+	void *vmem;
+
+	pr_debug("cproc proc write type: %s\n!", type);
+
+	if (strcmp(type, "start") == 0) {
+		printk(KERN_INFO "cproc_proc_write to map cproc base start\n");
+		cproc->initdata->start(NULL);
+		cproc->wdtcnt = CPROC_WDT_FLASE;
+		cproc->status = CP_NORMAL_STATUS;
+		return count;
+	}
+	if (strcmp(type, "stop") == 0) {
+		printk(KERN_INFO "cproc_proc_write to map cproc base stop\n");
+		cproc->initdata->stop(NULL);
+		cproc->status = CP_STOP_STATUS;
+		return count;
+	}
+
+	if (strcmp(type, "modem") == 0) {
+		base = cproc->initdata->segs[0].base;
+		size = cproc->initdata->segs[0].maxsz;
+		offset = *ppos;
+	} else if (strcmp(type, "dsp") == 0) {
+		base = cproc->initdata->segs[1].base;
+		size = cproc->initdata->segs[1].maxsz;
+		offset = *ppos;
+	} else {
+		return -EINVAL;
+	}
+
+	pr_debug("cproc proc write: 0x%08x, 0x%08x\n!", base + offset, count);
+	vmem = cproc->vbase + (base - cproc->initdata->base) + offset;
+
+	if (copy_from_user(vmem, buf, count)) {
+		return -EFAULT;
+	}
+	*ppos += count;
+	return count;
+}
+
+static loff_t cproc_proc_lseek(struct file* filp, loff_t off, int whence )
+{
+	char *type = (char *)filp->private_data;
+	struct cproc_device *cproc = proc_fs_entries.cproc;
+	loff_t new;
+
+	switch (whence) {
+		case 0:
+		new = off;
+		filp->f_pos = new;
+		break;
+		case 1:
+		new = filp->f_pos + off;
+		filp->f_pos = new;
+		break;
+		case 2:
+		 if (strcmp(type, "mem") == 0) {
+			new = cproc->initdata->maxsz + off;
+			filp->f_pos = new;
+		} else {
+			return -EINVAL;
+		}
+		break;
+		default:
+		return -EINVAL;
+	}
+	return (new);
+}
+
+static unsigned int cproc_proc_poll(struct file *filp, poll_table *wait)
+{
+	char *type = (char *)filp->private_data;
+	struct cproc_device *cproc = proc_fs_entries.cproc;
+	unsigned int mask = 0;
+
+	pr_debug("cproc proc poll  type: %s \n", type);
+
+	if (strcmp(type, "wdtirq") == 0) {
+		poll_wait(filp, &cproc->wdtwait, wait);
+		if (cproc->wdtcnt  != CPROC_WDT_FLASE) {
+			mask |= POLLIN | POLLRDNORM;
+		}
+	} else {
+		printk(KERN_ERR "cproc_proc_poll file don't support poll !\n");
+		return -EINVAL;
+	}
+	return mask;
+}
+
+
+struct file_operations cpproc_fs_fops = {
+	.open		= cproc_proc_open,
+	.release		= cproc_proc_release,
+	.llseek  		= cproc_proc_lseek,
+	.read		= cproc_proc_read,
+	.write		= cproc_proc_write,
+	.poll			= cproc_proc_poll,
+};
+
+static inline void sprd_cproc_fs_init(struct cproc_device *cproc)
+{
+	proc_fs_entries.procdir = proc_mkdir(cproc->name, NULL);
+
+	proc_fs_entries.start = proc_create_data("start", S_IWUSR, proc_fs_entries.procdir, &cpproc_fs_fops, "start");
+	proc_fs_entries.stop = proc_create_data("stop", S_IWUSR, proc_fs_entries.procdir, &cpproc_fs_fops, "stop");
+	proc_fs_entries.modem = proc_create_data("modem", S_IWUSR, proc_fs_entries.procdir, &cpproc_fs_fops, "modem");
+	proc_fs_entries.dsp = proc_create_data("dsp", S_IWUSR, proc_fs_entries.procdir, &cpproc_fs_fops, "dsp");
+	proc_fs_entries.status = proc_create_data("status", S_IRUSR, proc_fs_entries.procdir, &cpproc_fs_fops, "status");
+	proc_fs_entries.wdtirq = proc_create_data("wdtirq", S_IRUSR, proc_fs_entries.procdir, &cpproc_fs_fops, "wdtirq");
+	proc_fs_entries.mem = proc_create_data("mem", S_IRUSR, proc_fs_entries.procdir, &cpproc_fs_fops, "mem");
+	proc_fs_entries.cproc = cproc;
+	return;
+}
+
+static inline void sprd_cproc_fs_exit(struct cproc_device *cproc)
+{
+	remove_proc_entry("dsp", proc_fs_entries.procdir);
+	remove_proc_entry("status", proc_fs_entries.procdir);
+	remove_proc_entry("wdtirq", proc_fs_entries.procdir);
+	remove_proc_entry("modem", proc_fs_entries.procdir);
+	remove_proc_entry("start", proc_fs_entries.procdir);
+	remove_proc_entry("stop", proc_fs_entries.procdir);
+	remove_proc_entry("mem", proc_fs_entries.procdir);
+	remove_proc_entry(cproc->name, NULL);
+	return;
+}
+
 /* NK interface is just for compatible user interface in SC8825,
  * it's not used for future native modem start */
 #if defined(CONFIG_PROC_FS) && defined(CONFIG_SPRD_CPROC_NKIF)
@@ -100,6 +347,7 @@ static irqreturn_t sprd_cproc_irq_handler(int irq, void *dev_id)
 
 	printk("sprd_cproc_irq_handler cp watchdog enable !\n");
 	cproc->wdtcnt = CPROC_WDT_TRUE;
+	cproc->status = CP_WDTIRQ_STATUS;
 	wake_up_interruptible_all(&(cproc->wdtwait));
 	return IRQ_HANDLED;
 }
@@ -121,6 +369,7 @@ static int sprd_cproc_probe(struct platform_device *pdev)
 	cproc->miscdev.name = cproc->initdata->devname;
 	cproc->miscdev.fops = &sprd_cproc_fops;
 	cproc->miscdev.parent = NULL;
+	cproc->name = cproc->initdata->devname;
 	rval = misc_register(&cproc->miscdev);
 	if (rval) {
 		kfree(cproc);
@@ -135,7 +384,7 @@ static int sprd_cproc_probe(struct platform_device *pdev)
 		printk(KERN_ERR "Unable to map cproc base: 0x%08x\n", cproc->initdata->base);
 		return -ENOMEM;
 	}
-
+	cproc->status = CP_NORMAL_STATUS;
 	cproc->wdtcnt = CPROC_WDT_FLASE;
 	init_waitqueue_head(&(cproc->wdtwait));
 
@@ -147,6 +396,8 @@ static int sprd_cproc_probe(struct platform_device *pdev)
 				cproc->initdata->devname, cproc->initdata->wdtirq);
 		return rval;
 	}
+
+	sprd_cproc_fs_init(cproc);
 
 	sprd_cproc_nkif_init(cproc);
 
@@ -161,6 +412,7 @@ static int sprd_cproc_remove(struct platform_device *pdev)
 {
 	struct cproc_device *cproc = platform_get_drvdata(pdev);
 
+	sprd_cproc_fs_exit(cproc);
 	sprd_cproc_nkif_exit(cproc);
 	iounmap(cproc->vbase);
 	misc_deregister(&cproc->miscdev);
@@ -215,7 +467,6 @@ struct nk_proc_fs {
 };
 
 static struct nk_proc_fs nk_entries;
-
 #define MSG "not started\n"
 
 static int nk_proc_open(struct inode *inode, struct file *filp)
