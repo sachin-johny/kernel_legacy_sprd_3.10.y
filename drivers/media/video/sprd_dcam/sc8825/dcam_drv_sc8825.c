@@ -1754,13 +1754,16 @@ static int32_t _dcam_calc_sc_size(uint32_t path_index)
 		if (path->input_rect.w > path->output_size.w * DCAM_SC_COEFF_MAX) {
 			REG_MWR(cfg_reg, BIT_1, 1 << 1);
 			path->sc_input_size.w = path->input_rect.w >> 1;
+		} else {
+			REG_MWR(cfg_reg, BIT_1, 0 << 1);
 		}
 
 		if (path->input_rect.h > path->output_size.h * DCAM_SC_COEFF_MAX) {
 			REG_MWR(cfg_reg, BIT_2, 1 << 2);
 			path->sc_input_size.h = path->input_rect.h >> 1;
+		} else {
+			REG_MWR(cfg_reg, BIT_2, 0 << 2);
 		}
-
 	}
 
 	return -rtn;

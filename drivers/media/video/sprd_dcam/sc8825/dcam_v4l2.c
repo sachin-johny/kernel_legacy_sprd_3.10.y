@@ -880,17 +880,17 @@ static int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
 
 	return ret;
 }
-
-static int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)
+static int sprd_v4l2_csi2_error(uint32_t err_id, uint32_t err_status, void* u_data)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
-	struct dcam_dev          *dev = (struct dcam_dev*)param;
+	struct dcam_dev          *dev = (struct dcam_dev*)u_data;
 	struct dcam_node         node;
 
-	if (NULL == param || 0 == atomic_read(&dev->stream_on))
+	(void)err_id; (void)err_status;
+	if (NULL == u_data || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
-	printk("V4L2: sprd_v4l2_csi2_error \n");
+	printk("V4L2: csi2_error \n");
 
 	node.irq_flag = V4L2_CSI2_ERR;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
@@ -971,7 +971,7 @@ static int sprd_v4l2_path_lightly_cfg(path_cfg_func path_cfg,
 				struct dcam_path_spec* path_spec)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
-	uint32_t                 param, i;
+	uint32_t                 param;
 
 	if (NULL == path_cfg || NULL == path_spec)
 		return -EINVAL;
