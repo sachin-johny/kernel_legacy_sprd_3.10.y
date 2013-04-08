@@ -771,10 +771,43 @@ static int serial_sprd_remove(struct platform_device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_ARCH_SC7710
+int sc8800g_set_wakeup_src(bool wakeup_flag)
+{
+	u32 val=0;
+
+	//enable UART0 Wake up Source  for  BT
+	printk("set uart0 bt wake source wakeup_flag= %d \n",wakeup_flag );
+
+        if(wakeup_flag)
+	{
+		//SIC interrupt enable
+		val = __raw_readl(SPRD_EICINT_BASE+0x00);
+		val |= BIT(0);
+		__raw_writel(val, SPRD_EICINT_BASE+0x00);
+
+		//SIC polarity 0
+		val = __raw_readl(SPRD_EICINT_BASE+0x10);
+		val |= BIT(0);
+		__raw_writel(val, SPRD_EICINT_BASE+0x10);
+
+	}
+        else
+	{
+            printk("set uart0 bt wake source false\n");
+        }
+
+	return 0;
+}
+#endif
+
 static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 {
 	/* TODO */
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
+#ifdef CONFIG_ARCH_SC7710
+                sc8800g_set_wakeup_src(true);
+#endif
 		is_uart_rx_wakeup = false;
 	}else if(BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type){
 		/*when the uart0 going to sleep,config the RTS pin of hardware flow
