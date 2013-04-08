@@ -25,6 +25,7 @@ struct cproc_init_data {
 	uint32_t		base;		/* CP base addr */
 	uint32_t		maxsz;		/* CP max size */
 	int			(*start)(void *arg);
+	int			(*stop)(void *arg);
 	int			(*suspend)(void *arg);
 	int			(*resume)(void *arg);
 
