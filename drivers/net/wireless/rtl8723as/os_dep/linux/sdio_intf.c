@@ -47,6 +47,7 @@
 #include <sdio_ops.h>
 
 #include <rtw_android.h>
+#include <linux/pm_runtime.h>
 
 #ifdef CONFIG_PLATFORM_ARM_SUN4I
 #if defined(CONFIG_MMC_SUNXI_POWER_CONTROL)
@@ -140,6 +141,19 @@ static struct sdio_drv_priv sdio_drvpriv = {
 	}
 	#endif
 };
+
+#ifdef CONFIG_PM_RUNTIME
+static void rtw_start_runtime(struct sdio_func *func) {
+    unsigned long flags;
+    struct mmc_card *card = func->card;
+    struct mmc_host *host = card->host;
+    pm_runtime_no_callbacks(&func->dev);
+    pm_suspend_ignore_children(&func->dev, true);
+    pm_runtime_set_autosuspend_delay(&func->dev, 50);
+    pm_runtime_use_autosuspend(&func->dev);
+    pm_runtime_put_autosuspend(&func->dev);
+}
+#endif
 
 static void sd_sync_int_hdl(struct sdio_func *func)
 {
@@ -707,6 +721,11 @@ free_dvobj:
 	if (status != _SUCCESS)
 		sdio_dvobj_deinit(func);
 exit:
+#ifdef CONFIG_PM_RUNTIME
+	if(status == _SUCCESS) {
+	    rtw_start_runtime(func);
+	}
+#endif
 	return status == _SUCCESS?0:-ENODEV;
 }
 
