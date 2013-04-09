@@ -30,6 +30,7 @@
 #include <linux/input.h>
 #include <linux/sysrq.h>
 #include <mach/globalregs.h>
+#include <linux/input-hook.h>
 #include "sc8810_keypad.h"
 
 #define keypad_readl(off)           __raw_readl(off)
@@ -258,12 +259,14 @@ static irqreturn_t sprd_powerkey_isr(int irq, void *dev_id)
 
 	if (value) {
 		/* Release : HIGHT level */
+		input_report_key_hook(sprd_keypad->input, key, 0);
 		input_report_key(sprd_keypad->input, key, 0);
 		input_sync(sprd_keypad->input);
 		printk("%dU\n", key);
 		irq_set_irq_type(irq, IRQF_TRIGGER_LOW);
 	} else {
 		/* Press : LOW level */
+		input_report_key_hook(sprd_keypad->input, key, 1);
 		input_report_key(sprd_keypad->input, key, 1);
 		input_sync(sprd_keypad->input);
 		printk("%dD\n", key);
@@ -446,11 +449,13 @@ struct platform_driver sprd_keypad_driver = {
 
 static int __init sprd_keypad_init(void)
 {
+	input_hook_init();
 	return platform_driver_register(&sprd_keypad_driver);
 }
 
 static void __exit sprd_keypad_exit(void)
 {
+	input_hook_exit();
 	platform_driver_unregister(&sprd_keypad_driver);
 }
 
