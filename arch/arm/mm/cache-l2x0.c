@@ -550,6 +550,8 @@ void l2x0_suspend(void)
 			pwr_ctrl = readl_relaxed(l2x0_base + L2X0_POWER_CTRL);
 	}
 #ifdef CONFIG_ARCH_SC8825
+	flush_cache_all();
+	__l2x0_flush_all();
 	/* Disable the cache */
 	writel_relaxed(0, l2x0_base + L2X0_CTRL);
 	/* Flush all cache */
