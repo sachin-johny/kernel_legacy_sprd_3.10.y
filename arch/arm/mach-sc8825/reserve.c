@@ -21,6 +21,20 @@
 #include <mach/board.h>
 #include <linux/memblock.h>
 
+static int __init __mem_try_reserve(phys_addr_t base, phys_addr_t size)
+{
+	if (!memblock_is_region_reserved(base, size))
+		memblock_reserve(base, size);
+	return 0;
+}
+
+static int __init __mem_try_reserve_gaps(void)
+{
+	__mem_try_reserve(SPRD_PMEM_BASE - SZ_4K, SZ_4K);
+	__mem_try_reserve(SPRD_PMEM_BASE + SPRD_IO_MEM_SIZE, SZ_4K);
+	return 0;
+}
+
 static int __init __pmem_reserve_memblock(void)
 {
 	if (memblock_is_region_reserved(SPRD_PMEM_BASE, SPRD_IO_MEM_SIZE))
@@ -51,4 +65,6 @@ void __init sc8825_reserve(void)
 	if (ret = __ramconsole_reserve_memblock())
 		pr_err("Fail to reserve mem for ram_console. errno=%d\n", ret);
 #endif
+
+	mem_try_reserve_gaps();
 }
