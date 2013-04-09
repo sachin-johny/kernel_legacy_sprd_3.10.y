@@ -1183,10 +1183,10 @@ static void remove_sd_card(struct mmc_host *host)
 	}
 	if (!mmc_card_present(host->card)) {
 		printk(KERN_INFO "%s: card is not present\n",
-			mmc_hostname(host));
+		mmc_hostname(host));
 		return;
 	}
-	host->card->removed = 1;
+
 	mmc_schedule_card_removal_work(&host->remove, 0);
 }
 

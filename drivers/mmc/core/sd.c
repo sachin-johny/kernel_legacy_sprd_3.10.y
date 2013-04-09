@@ -23,6 +23,7 @@
 #include "mmc_ops.h"
 #include "sd.h"
 #include "sd_ops.h"
+#include "../host/sdhci.h"
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -1099,6 +1100,23 @@ static void mmc_sd_detect(struct mmc_host *host)
 #endif
 	mmc_release_host(host);
 
+   /*
+     *Sometimes when you unplug the sd card, sd card's pin is still on
+     * connected state because of the card slot, querying the card
+     * status is normal, leading to not be able to remove the
+     * swap cards, thus add sdcard_present to check card.
+    */
+#if  defined(CONFIG_MMC_CARD_HOTPLUG) && ( defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC7710))
+	int is_present ;
+	is_present = sdcard_present(mmc_priv(host));
+	if(!is_present || err) {
+		mmc_sd_remove(host);
+
+		mmc_claim_host(host);
+		mmc_detach_bus(host);
+		mmc_release_host(host);
+	}
+#else
 	if (err) {
 		mmc_sd_remove(host);
 
@@ -1106,6 +1124,7 @@ static void mmc_sd_detect(struct mmc_host *host)
 		mmc_detach_bus(host);
 		mmc_release_host(host);
 	}
+#endif
 }
 
 /*
