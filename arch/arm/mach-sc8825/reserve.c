@@ -66,5 +66,5 @@ void __init sc8825_reserve(void)
 		pr_err("Fail to reserve mem for ram_console. errno=%d\n", ret);
 #endif
 
-	mem_try_reserve_gaps();
+	__mem_try_reserve_gaps();
 }
