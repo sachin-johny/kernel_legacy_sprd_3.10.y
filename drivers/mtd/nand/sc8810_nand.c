@@ -533,7 +533,13 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 		counter ++;
 
 		if (flag == NFC_DONE_EVENT) {
-			if ((cmd == NAND_CMD_ERASE2) && (counter >= NFC_ERASE_TIMEOUT))
+			if ((cmd == NAND_CMD_RESET) && (counter >= NFC_RESET_TIMEOUT))
+				is_timeout = 1;
+			else if ((cmd == NAND_CMD_STATUS) && (counter >= NFC_STATUS_TIMEOUT))
+				is_timeout = 1;
+			else if ((cmd == NAND_CMD_READID) && (counter >= NFC_READID_TIMEOUT))
+				is_timeout = 1;
+			else if ((cmd == NAND_CMD_ERASE2) && (counter >= NFC_ERASE_TIMEOUT))
 				is_timeout = 1;
 			else if ((cmd == NAND_CMD_READSTART) && (counter >= NFC_READ_TIMEOUT))
 				is_timeout = 1;
@@ -820,9 +826,16 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 		case NAND_CMD_STATUS:
 			wake_lock(&nfc_wakelock);
 			nfc_mcr_inst_init();
-			nfc_reg_write(NFC_CMD, 0x80000070);
-			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
-			memcpy(io_wr_port, (void *)NFC_ID_STS, 1);
+			//nfc_reg_write(NFC_CMD, 0x80000070);
+			//sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
+			//memcpy(io_wr_port, (void *)NFC_ID_STS, 1);
+			nfc_mcr_inst_add(0x70, NF_MC_CMD_ID);
+			nfc_mcr_inst_add(0x10, NF_MC_NOP_ID);//add nop clk for twrh timing param
+			nfc_mcr_inst_add(3, NF_MC_RWORD_ID);
+			nfc_mcr_inst_exc_for_id();
+			sc8810_nfc_wait_command_finish(NFC_DONE_EVENT,cmd);
+			memcpy(io_wr_port, (void *)NFC_MBUF_ADDR, 1);
+			//printf("read status3  0x%x, 0x%x\r\n", io_wr_port[0], nfc_reg_read(NFC_MBUF_ADDR));
 			wake_unlock(&nfc_wakelock);
 			break;
 		case NAND_CMD_READID:
@@ -908,6 +921,8 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			}
 			wake_unlock(&nfc_wakelock);
 			break;
+		default :
+		break;
 		}
 	} else if (ctrl & NAND_ALE)
 		nfc_mcr_inst_add(cmd & 0xff, NF_MC_ADDR_ID);
@@ -1074,8 +1089,8 @@ int board_nand_init(struct nand_chip *this)
 	this->ecc.correct = sc8810_nand_correct_data;
 	this->ecc.hwctl = sc8810_nand_enable_hwecc;
 	this->ecc.mode = NAND_ECC_HW;
-	this->ecc.size = CONFIG_SYS_NAND_ECCSIZE;
-	this->ecc.bytes = CONFIG_SYS_NAND_ECCBYTES;
+	this->ecc.size = CONFIG_SYS_NAND_ECCSIZE;//512;
+	this->ecc.bytes = CONFIG_SYS_NAND_ECCBYTES;//3
 	this->read_buf = sc8810_nand_read_buf;
 	this->write_buf = sc8810_nand_write_buf;
 	this->read_byte	= sc8810_nand_read_byte;
@@ -1216,6 +1231,7 @@ static struct platform_driver sprd_nand_driver = {
 
 static int __init sprd_nand_init(void)
 {
+	printk("\nSpreadtrum NAND Driver, (c) 2011 Spreadtrum\n");
 	return platform_driver_register(&sprd_nand_driver);
 }
 
