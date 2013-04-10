@@ -267,6 +267,7 @@ struct panel_spec {
 	uint32_t fps;
 	uint16_t type; /*mcu, rgb, mipi*/
 	uint16_t direction;
+	bool	 is_clean_lcd;
 	union {
 		struct info_mcu *mcu;
 		struct info_rgb *rgb;
