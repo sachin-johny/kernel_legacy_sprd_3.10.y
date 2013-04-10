@@ -1208,6 +1208,9 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			}
 			real_div = div;
 			div >>= 1;
+			if ((div % 2) != 0){
+				div++;	
+			}
 #if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC8830)
 			if(div > 1) {
 				div --;/*for sc8825 freq = (clk_max / ((div +1) * 2))*/
@@ -1566,14 +1569,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		unsigned int clock;
 
 		/* In case of UHS-I modes, set High Speed Enable */
-		if ((ios->timing == MMC_TIMING_UHS_SDR50)
-			|| (ios->timing == MMC_TIMING_UHS_SDR104) )
-			//|| (ios->timing == MMC_TIMING_UHS_DDR50) 
-			//||(ios->timing == MMC_TIMING_UHS_SDR25) 
-			//||(ios->timing == MMC_TIMING_UHS_SDR12))
-			ctrl |= SDHCI_CTRL_HISPD;
-		else	/* DDR50 this bit set 0 */
-			ctrl &= ~SDHCI_CTRL_HISPD;
+		ctrl &= ~SDHCI_CTRL_HISPD;
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 		
 		ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
@@ -1629,20 +1625,16 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR12 << 16);
 			else if (ios->timing == MMC_TIMING_UHS_SDR25)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR25 << 16);
-			else if (ios->timing == MMC_TIMING_UHS_SDR50) {
+			else if (ios->timing == MMC_TIMING_UHS_SDR50)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR50 << 16);
-				sdhci_writel(host, 0x33, 0x80);
-				sdhci_writel(host, 0x08, 0x84);
-				sdhci_writel(host, 0x08, 0x88);
-			}
 			else if (ios->timing == MMC_TIMING_UHS_SDR104)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR104 << 16);
 			else if (ios->timing == MMC_TIMING_UHS_DDR50){
 				ctrl_2 |= (SDHCI_CTRL_UHS_DDR50 << 16);
 				/* set write/read delay value . 0x0080, 0x0084, 0x0088*/
-				sdhci_writel(host, 0x18 , 0x0080);
-				sdhci_writel(host, 0x0E , 0x0084);
-				sdhci_writel(host, 0x0A , 0x0088);
+				sdhci_writel(host, 0x20 , 0x0080);
+				sdhci_writel(host, 0x1B , 0x0084);
+				sdhci_writel(host, 0x13 , 0x0088);
 			}
 			sdhci_writel(host, ctrl_2, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
