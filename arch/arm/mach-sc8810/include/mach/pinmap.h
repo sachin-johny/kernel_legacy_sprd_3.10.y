@@ -23,14 +23,14 @@
    this is offset address, the real address should be REG_PIN_* + CTRL_PIN_BASE.
  */
 #ifdef CONFIG_ARCH_SC7710
-#define REG_PIN_CTRL0                   ( 0x0000 )
-#define REG_PIN_CTRL1                   ( 0x0004 )
-#define REG_PIN_CTRL2                   ( 0x0008 )
-#define REG_PIN_CTRL3                   ( 0x000c )
-#define REG_PIN_CTRL4                   ( 0x0010 )
-#define REG_PIN_CTRL5                   ( 0x0014 )
-#define REG_PIN_CTRL6                   ( 0x0018 )
-#define REG_PIN_CTRL7                   ( 0x001c )
+#define REG_PIN_CTRL_REG0            ( 0x0000 )
+#define REG_PIN_CTRL_REG1            ( 0x0004 )
+#define REG_PIN_CTRL_REG2            ( 0x0008 )
+#define REG_PIN_CTRL_REG3            ( 0x000c )
+#define REG_PIN_CTRL_REG4            ( 0x0010 )
+#define REG_PIN_CTRL_REG5            ( 0x0014 )
+#define REG_PIN_CTRL_REG6            ( 0x0018 )
+#define REG_PIN_CTRL_REG7            ( 0x001c )
 #define REG_PIN_ADI_D                   ( 0x0020 )
 #define REG_PIN_ADI_SCLK                ( 0x0024 )
 #define REG_PIN_ADI_SYNC                ( 0x0028 )
