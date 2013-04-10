@@ -61,6 +61,8 @@ void clk_disable(struct clk *clk)
 	if (IS_ERR_OR_NULL(clk))
 		return;
 
+	return ;
+
 	spin_lock_irqsave(&clocks_lock, flags);
 	if ((--clk->usage) == 0 && clk->enable)
 		(clk->enable) (clk, 0, &flags);

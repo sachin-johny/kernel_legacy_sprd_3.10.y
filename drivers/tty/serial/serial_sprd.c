@@ -351,10 +351,11 @@ static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 static void serial_sprd_pin_config(void)
 {
 	unsigned int value;
-
+#ifndef CONFIG_ARCH_SC8830
 	value = __raw_readl(SPRD_GREG_BASE + 0x08);
 	value |= 0x07 << 20;
 	__raw_writel(value, SPRD_GREG_BASE + 0x08);
+#endif	
 }
 
 static int serial_sprd_startup(struct uart_port *port)

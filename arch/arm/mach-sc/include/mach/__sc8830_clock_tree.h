@@ -314,7 +314,7 @@ SCI_CLK_ADD(clk_iis1, 0, REG_AP_APB_APB_EB, BIT(2),
 SCI_CLK_ADD(clk_iis2, 0, REG_AP_APB_APB_EB, BIT(3),
 	REG_AP_CLK_IIS2_CFG, BIT(8)|BIT(9)|BIT(10), REG_AP_CLK_IIS2_CFG, BIT(0)|BIT(1),
 	3, &clk_26m_ap, &clk_51m2, &clk_128m);
-
+#if 0
 SCI_CLK_ADD(clk_iis3, 0, REG_AP_APB_APB_EB, BIT(4),
 	REG_AP_CLK_IIS3_CFG, BIT(8)|BIT(9)|BIT(10), REG_AP_CLK_IIS3_CFG, BIT(0)|BIT(1),
 	3, &clk_26m_ap, &clk_51m2, &clk_128m);
@@ -436,4 +436,5 @@ SCI_CLK_ADD(clk_avs0, 0, REG_AON_APB_APB_EB0, BIT(6),
 SCI_CLK_ADD(clk_avs1, 0, REG_AON_APB_APB_EB0, BIT(7),
 	0, 0, REG_AON_CLK_AVS1_CFG, BIT(0)|BIT(1),
 	4, &clk_26m_rf0, &clk_48m, &clk_51m2, &clk_96m);
+#endif	
 

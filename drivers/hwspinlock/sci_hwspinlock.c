@@ -33,6 +33,9 @@
 #include <mach/regs_ahb.h>
 #include <mach/arch_lock.h>
 
+#include <mach/regs_sc8830_ap_ahb.h>
+#include <mach/regs_sc8830_aon_apb.h>
+
 #include "hwspinlock_internal.h"
 
 #define HWSPINLOCK_MAX_NUM	(32)
@@ -160,7 +163,11 @@ static int __devinit sci_hwspinlock_probe(struct platform_device *pdev)
 	struct resource *res;
 	int i, ret, num_locks;
 
-	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
+	sci_glb_set(REG_AP_AHB_AHB_EB, BIT_SPINLOCK_EB);
+	
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_SPLK_EB);
+
+//	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res || (!res->start))
 		return -ENODEV;

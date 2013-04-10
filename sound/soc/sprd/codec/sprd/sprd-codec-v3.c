@@ -3161,6 +3161,8 @@ static struct platform_driver sprd_codec_codec_driver = {
 
 static int sprd_codec_init(void)
 {
+	
+	return 0;	
 	sprd_codec_inter_pa_init();
 	sprd_codec_inter_hp_pa_init();
 	arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);
