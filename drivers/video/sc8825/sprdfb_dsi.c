@@ -306,7 +306,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		return -1;
 	}
 
-	while(5 != (dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_STATUS) & 5));
+	//while(5 != (dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_STATUS) & 5));
 
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
 		dsi_edpi_setbuswidth(mipi);

@@ -292,6 +292,8 @@ static int32_t dispc_sync(struct sprdfb_device *dev)
 {
 	int ret;
 
+	return 0; //FIXME: jianjun.he
+
 	if (dev->enable == 0) {
 		printk("sprdfb: dispc_sync fb suspeneded already!!\n");
 		return -1;
