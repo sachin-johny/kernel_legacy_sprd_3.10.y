@@ -18,6 +18,7 @@
 #include <linux/debugfs.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
+#include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/cpufreq.h>
@@ -480,6 +481,13 @@ static struct notifier_block __clk_cpufreq_notifier_block = {
 };
 int __init sci_clock_init(void)
 {
+#if defined(CONFIG_ARCH_SC8830)
+	__raw_writel(__raw_readl(REG_PMU_APB_PD_MM_TOP_CFG)
+		& ~(BIT_PD_MM_TOP_FORCE_SHUTDOWN), REG_PMU_APB_PD_MM_TOP_CFG);
+
+	__raw_writel(__raw_readl(REG_PMU_APB_PD_GPU_TOP_CFG)
+		& ~(BIT_PD_GPU_TOP_FORCE_SHUTDOWN), REG_PMU_APB_PD_GPU_TOP_CFG);
+#endif
 
 #if defined(CONFIG_DEBUG_FS)
 	clk_debugfs_root = debugfs_create_dir("clock", NULL);
