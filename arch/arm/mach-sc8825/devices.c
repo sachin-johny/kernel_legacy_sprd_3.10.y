@@ -964,6 +964,7 @@ static struct resource sprd_emmc_resources[] = {
 static struct sprd_host_platdata sprd_emmc_pdata = {
 	.hw_name = "sprd-emmc",
 	.vdd_name = "vddsd3",
+	.vdd_ext_name = "vdd3v",
 	.clk_name = "clk_emmc",
 	.clk_parent = "clk_384m",
 	.max_clock = 384000000,
