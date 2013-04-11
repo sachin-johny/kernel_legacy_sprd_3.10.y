@@ -78,14 +78,15 @@ static 	int s_virtual_ch_id = -1;
 #define DECLARE_ROTATION_PARAM_ENTRY(s) 		ROT_DMA_CFG_T *s=&s_rotation_cfg
 #define ROTATION_MINOR MISC_DYNAMIC_MINOR
 #define ROT_USER_MAX    4
-#define INVALID_USER_ID 0xFFFFFFFF
+#define INVALID_USER_ID PID_MAX_DEFAULT
 static wait_queue_head_t wait_queue;
 static wait_queue_head_t thread_queue;
 static int condition;
-struct semaphore g_sem_rot;
-struct semaphore g_sem_copy;
-struct semaphore g_sem_physical_ch;
-struct semaphore g_sem_virtual_ch;
+static struct semaphore g_sem_dev_open;
+static struct semaphore g_sem_rot;
+static struct semaphore g_sem_copy;
+static struct semaphore g_sem_physical_ch;
+static struct semaphore g_sem_virtual_ch;
 static int g_copy_done;
 static int g_thread_run;
 
@@ -100,7 +101,6 @@ struct rot_user {
 	pid_t pid;
 	uint32_t is_exit_force;
 	uint32_t is_rot_enable;
-	struct semaphore sem_open;
 	struct semaphore sem_done;
 };
 
@@ -109,7 +109,6 @@ static struct rot_context rot_conext;
 static struct rot_context *rot_cnt = &rot_conext;
 static struct rot_user      *g_rot_user = NULL;
 
-#define init_MUTEX(sem)    sema_init(sem, 1)
 static int rot_start_timer(struct timer_list *rot_timer, uint32_t time_val);
 static void rot_stop_timer(struct timer_list *rot_timer);
 static int rot_k_check_param(ROT_CFG_T * param_ptr)
@@ -363,7 +362,7 @@ static void rot_k_dma_irq(int dma_ch, void *dev_id)
 {
 	RTT_PRINT("%s, come\n", __func__ );
 	condition = 1;
-	wake_up_interruptible(&wait_queue);
+	wake_up(&wait_queue);
 	RTT_PRINT("rotation_dma_irq X .\n");
 }
 
@@ -395,9 +394,7 @@ int rot_k_dma_wait_stop(void)
 	int ret = 0;
 	DECLARE_ROTATION_PARAM_ENTRY(s);
 	RTT_PRINT("rotation_dma_wait_stop E .\n");
-	if (wait_event_interruptible(wait_queue, condition)) {
-		ret = -EFAULT;
-	}
+	wait_event(wait_queue, condition);
 	sprd_dma_stop(s->ch_id);
 	sprd_dma_free(s->ch_id);
 	RTT_PRINT("ok to rotation_dma_wait_stop.\n");
@@ -412,7 +409,7 @@ static int rot_k_thread(void *data_ptr)
 
 	while(1)
 	{
-		wait_event_interruptible(thread_queue,  g_thread_run || kthread_should_stop());
+		wait_event(thread_queue,  g_thread_run || kthread_should_stop());
 
 		if (kthread_should_stop()){
 			RTT_PRINT("rot_k_thread should stopped \n");
@@ -457,7 +454,7 @@ int rot_k_start(void)
 
 	atomic_set(&rot_cnt->start_flag, 1);
 	rot_start_timer(&rot_cnt->rot_timer,ROT_TIMEOUT);
-	wake_up_interruptible(&thread_queue);
+	wake_up(&thread_queue);
 	return ret;
 }
 
@@ -502,25 +499,24 @@ int rot_k_open(struct inode *node, struct file *file)
 	struct rot_user *p_user = NULL;
 	int ret = 0;
 
+	down(&g_sem_dev_open);
 	p_user = rot_get_user(current->pid);
 	if (NULL == p_user) {
 		printk("rot_k_open user cnt full  pid:%d. \n",current->pid);
+		up(&g_sem_dev_open);
 		return -1;
 	}
-	ret = down_interruptible(&p_user->sem_open);
 	file->private_data = p_user;
+	up(&g_sem_dev_open);
 
 	return ret;
 }
 
 ssize_t rot_k_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
 {
-	struct rot_user *p_user = NULL;
-
 	(void)file; (void)u_data; (void)cnt_ret;
-	p_user = file->private_data;
-	p_user->is_exit_force = 1;
-	up(&p_user->sem_done);
+	((struct rot_user *)(file->private_data))->is_exit_force = 1;
+	up(&(((struct rot_user *)(file->private_data))->sem_done));
 
 	return 1;
 }
@@ -528,21 +524,16 @@ ssize_t rot_k_write(struct file *file, const char __user * u_data, size_t cnt, l
 
 int rot_k_release(struct inode *node, struct file *file)
 {
-	struct rot_user *p_user = NULL;
+	((struct rot_user *)(file->private_data))->pid = INVALID_USER_ID;
 
-	p_user = file->private_data;
-
-	p_user->pid = INVALID_USER_ID;
-	sema_init(&p_user->sem_open, 1);
-
-	down_interruptible(&g_sem_physical_ch);
+	down(&g_sem_physical_ch);
 	if (s_ch_id >= 0) {
 		sprd_dma_free(s_ch_id);
 		s_ch_id = -1;
 	}
 	up(&g_sem_physical_ch);
 
-	down_interruptible(&g_sem_virtual_ch);
+	down(&g_sem_virtual_ch);
 	if (s_virtual_ch_id >= 0) {
 		sprd_dma_free(s_virtual_ch_id);
 		s_virtual_ch_id = -1;
@@ -580,7 +571,7 @@ static int rot_k_start_copy_data(ROT_CFG_T * param_ptr)
 	}
 	total_len = block_len;
 
-	down_interruptible(&g_sem_physical_ch);
+	down(&g_sem_physical_ch);
 	if(s_ch_id < 0) {
 		while (1) {
 			s_ch_id =
@@ -656,9 +647,6 @@ static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
 static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 {
 	struct sprd_dma_channel_desc dma_desc;
-	uint32_t byte_per_pixel = 1;
-	uint32_t src_img_postm = 0;
-	uint32_t dst_img_postm = 0;
 	uint32_t dma_src_phy = param_ptr->src_addr.y_addr;
 	uint32_t dst_vir_addr = param_ptr->dst_addr.y_addr;
 	uint32_t dma_dst_phy;
@@ -691,7 +679,7 @@ static int rot_k_start_copy_data_to_virtual(ROT_CFG_T * param_ptr)
 
 	RTT_PRINT("rot_k_start_copy_data_to_virtual: dst_vir_addr = %x, list_copy_size=%x, list_size=%x,  \n", dst_vir_addr, list_copy_size, list_size);
 
-	down_interruptible(&g_sem_virtual_ch);
+	down(&g_sem_virtual_ch);
 	if (s_virtual_ch_id < 0) {
 		while (1) {
 			s_virtual_ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
@@ -802,7 +790,7 @@ static int rot_k_start_copy_data_from_virtual(ROT_CFG_T * param_ptr)
 
 	RTT_PRINT("rot_k_start_copy_data_from_virtual: src_vir_addr = %x, list_copy_size=%x, list_size=%x,  \n", src_vir_addr, list_copy_size, list_size);
 
-	down_interruptible(&g_sem_virtual_ch);
+	down(&g_sem_virtual_ch);
 	if (s_virtual_ch_id < 0) {
 		while (1) {
 			s_virtual_ch_id = sprd_dma_request(DMA_UID_SOFTWARE, rot_k_dma_copy_irq, &dma_desc);
@@ -902,15 +890,13 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case ROT_IO_CFG:
-		down_interruptible(&g_sem_rot);
+		down(&g_sem_rot);
 		{
 			int ret = 0;
 			ROT_CFG_T params;
-			struct rot_user *p_user = NULL;
 
-			p_user = file->private_data;
-			cur_task_pid =  p_user->pid;
-			p_user->is_rot_enable = 1;
+			cur_task_pid =  ((struct rot_user *)(file->private_data))->pid;
+			((struct rot_user *)(file->private_data))->is_rot_enable = 1;
 
 			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
 			if (0 == ret){
@@ -941,21 +927,16 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	case ROT_IO_IS_DONE:
 		{
-			struct rot_user *p_user = NULL;
-
-			p_user = file->private_data;
-			p_user = rot_get_user(p_user->pid);
-
-			down_interruptible(&p_user->sem_done);
+			down(&(((struct rot_user *)(file->private_data))->sem_done));
 			{
 				int ret = 0;
-				if (p_user->is_exit_force) {
-					p_user->is_exit_force = 0;
+				if (((struct rot_user *)(file->private_data))->is_exit_force) {
+					((struct rot_user *)(file->private_data))->is_exit_force = 0;
 					ret = -1;
 				}
 
-				if(p_user->is_rot_enable) {
-					p_user->is_rot_enable = 0;
+				if(((struct rot_user *)(file->private_data))->is_rot_enable) {
+					((struct rot_user *)(file->private_data))->is_rot_enable = 0;
 					up(&g_sem_rot);
 				}
 
@@ -964,13 +945,11 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 
 	case ROT_IO_DATA_COPY:
-		down_interruptible(&g_sem_copy);
+		down(&g_sem_copy);
 		{
 			int ret = 0;
 			ROT_CFG_T params;
-			struct rot_user *p_user = NULL;
 
-			p_user = file->private_data;
 			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
 			if (0 == ret){
 				if (rot_k_start_copy_data(&params)) {
@@ -982,13 +961,11 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 
 	case ROT_IO_DATA_COPY_TO_VIRTUAL:
-		down_interruptible(&g_sem_copy);
+		down(&g_sem_copy);
 		{
 			int ret = 0;
 			ROT_CFG_T params;
-			struct rot_user *p_user = NULL;
 
-			p_user = file->private_data;
 			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
 			if (0 == ret){
 				if (rot_k_start_copy_data_to_virtual(&params)) {
@@ -1000,13 +977,11 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 
 	case ROT_IO_DATA_COPY_FROM_VIRTUAL:
-		down_interruptible(&g_sem_copy);
+		down(&g_sem_copy);
 		{
 			int ret = 0;
 			ROT_CFG_T params;
-			struct rot_user *p_user = NULL;
 
-			p_user = file->private_data;
 			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
 			if (0 == ret){
 				if (rot_k_start_copy_data_from_virtual(&params)) {
@@ -1064,7 +1039,6 @@ int rot_k_probe(struct platform_device *pdev)
 		p_user->pid = INVALID_USER_ID;
 		p_user->is_exit_force = 0;
 		p_user->is_rot_enable = 0;
-		sema_init(&p_user->sem_open, 1);
 		sema_init(&p_user->sem_done, 0);
 		p_user ++;
 	}
@@ -1086,6 +1060,9 @@ int rot_k_probe(struct platform_device *pdev)
 static int rot_k_remove(struct platform_device *dev)
 {
 	printk(KERN_INFO "rot_k_remove called !\n");
+	if (g_rot_user) {
+		kfree(g_rot_user);
+	}
 	misc_deregister(&rotation_dev);
 	printk(KERN_INFO "rot_k_remove Success !\n");
 	return 0;
@@ -1107,10 +1084,11 @@ int __init rot_k_init(void)
 		printk("platform device register Failed \n");
 		return -1;
 	}
-	init_MUTEX(&g_sem_rot);
-	init_MUTEX(&g_sem_copy);
-	init_MUTEX(&g_sem_physical_ch);
-	init_MUTEX(&g_sem_virtual_ch);
+	sema_init(&g_sem_dev_open, 1);
+	sema_init(&g_sem_rot, 1);
+	sema_init(&g_sem_copy, 1);
+	sema_init(&g_sem_physical_ch, 1);
+	sema_init(&g_sem_virtual_ch, 1);
 	return 0;
 }
 
