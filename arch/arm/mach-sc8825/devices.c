@@ -946,6 +946,7 @@ struct platform_device sprd_sdio2_device = {
 	.resource = sprd_sdio2_resources,
 	.dev = { .platform_data = &sprd_sdio2_pdata },
 };
+
 static struct resource sprd_emmc_resources[] = {
 	[0] = {
 	       .start = SPRD_EMMC_BASE,
@@ -980,7 +981,6 @@ struct platform_device sprd_emmc_device = {
 	.resource = sprd_emmc_resources,
 	.dev = { .platform_data = &sprd_emmc_pdata },
 };
-
 
 #define TD_REG_CLK_ADDR				(SPRD_AHB_BASE + 0x250)
 #define TD_REG_RESET_ADDR			(SPRD_AHB_BASE + 0x254)
