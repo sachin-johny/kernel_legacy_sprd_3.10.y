@@ -1253,7 +1253,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			}
 			div >>= 1;
 #if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC7710)
-			if(div > 1) {
+			if(div >= 1) {
 				div --;/*for sc freq = (clk_max / ((div +1) * 2))*/
 			}
 #endif
@@ -1265,6 +1265,11 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 				break;
 		}
 		div >>= 1;
+#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC7710)
+		if(div >= 1) {
+		    div --;/*for sc freq = (clk_max / ((div +1) * 2))*/
+		}
+#endif
 	}
 	clk |= (div & SDHCI_DIV_MASK) << SDHCI_DIVIDER_SHIFT;
 	clk |= ((div & SDHCI_DIV_HI_MASK) >> SDHCI_DIV_MASK_LEN)

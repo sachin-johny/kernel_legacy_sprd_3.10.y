@@ -43,4 +43,7 @@
 #define GPIO_WIFI_IRQ	    -1
 
 #define GPIO_GPS_ONOFF	        174
+
+#define GPIO_SDIO_DETECT      140
+
 #endif
