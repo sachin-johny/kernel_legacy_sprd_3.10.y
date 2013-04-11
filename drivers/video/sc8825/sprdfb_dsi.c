@@ -100,7 +100,10 @@ int32_t dsi_early_int(void)
 
 //	dsi_ctx.clk_dsi = clk_get(NULL, "clk_dsi");
 //	clk_enable(dsi_ctx.clk_dsi);
-
+#ifdef CONFIG_SC8830
+	//Enable DSI clock
+	__raw_writel(__raw_readl(REG_AP_AHB_MISC_CKG_EN) | (BIT_DPHY_REF_CKG_EN) | (BIT_DPHY_CFG_CKG_EN) , REG_AP_AHB_MISC_CKG_EN);
+#endif
 	/*enable dphy*/
 	__raw_writel(__raw_readl(REG_AHB_MIPI_PHY_CTRL) | (1<<MIPI_DPHY_EN), REG_AHB_MIPI_PHY_CTRL);
 
@@ -306,7 +309,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		return -1;
 	}
 
-	//while(5 != (dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_STATUS) & 5));
+	while(5 != (dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_STATUS) & 5));
 
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
 		dsi_edpi_setbuswidth(mipi);
