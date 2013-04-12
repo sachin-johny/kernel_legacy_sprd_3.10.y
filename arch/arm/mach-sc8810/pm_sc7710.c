@@ -313,6 +313,26 @@ static void wait_until_uart1_tx_done(void)
 	}
 }
 
+#define BIT_FOLLOW_GPIO	BIT(15)
+
+void __disable_cp_sleep(void)
+{
+	/* gpio 223 ---> cp gpio 15 output high */
+	*(volatile unsigned long *)(SPRD_GREG_BASE + 0x008) |= GEN0_GPIO_EN;
+	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x688) |= BIT_FOLLOW_GPIO;
+	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x684) |= BIT_FOLLOW_GPIO;
+	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x680) |= BIT_FOLLOW_GPIO;
+}
+
+void __enable_cp_sleep(void)
+{
+	/* gpio 223 ---> cp gpio 15 output low */
+	*(volatile unsigned long *)(SPRD_GREG_BASE + 0x008) |= GEN0_GPIO_EN;
+	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x688) |= BIT_FOLLOW_GPIO;
+	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x684) |= BIT_FOLLOW_GPIO;
+	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x680) &= ~ BIT_FOLLOW_GPIO;
+}
+
 /* arm core sleep*/
 static void arm_sleep(void)
 {
@@ -367,7 +387,9 @@ static int deep_sleep(void)
 	/* force ap deep sleep */
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, 1, GR_PCTL);
 #endif
+	__enable_cp_sleep();
 	ret = sp_pm_collapse();
+	__disable_cp_sleep();
 	check_if_wait_trace(1);
 	hard_irq_set();
 	restore_reset_vector();
@@ -471,6 +493,7 @@ void sc8810_pm_init(void)
 {
 	pm_power_off = sc7710_turnoff_allldo;
 
+	__disable_cp_sleep();
 	init_reset_vector();
 	init_gr();
 /*	enable_cp_jtag();*/
