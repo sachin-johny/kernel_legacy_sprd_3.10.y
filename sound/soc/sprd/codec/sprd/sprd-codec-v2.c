@@ -990,7 +990,7 @@ int sprd_inter_headphone_pa(int on)
 		if (!regulator) {
 			regulator = regulator_get(0, CLASS_G_LDO_ID);
 			if (IS_ERR(regulator)) {
-				pr_err("Failed to request %s: %d\n",
+				pr_err("Failed to request %ld: %s\n",
 				       PTR_ERR(regulator), CLASS_G_LDO_ID);
 				BUG_ON(1);
 			}
@@ -1345,8 +1345,8 @@ static int sprd_codec_open(struct snd_soc_codec *codec)
 	sprd_codec_sample_rate_setting(sprd_codec);
 
 	/* SC7710/SC8830 ask from ASIC to set initial value */
-	snd_soc_update_bits(codec, PMUR4_PMUR3, BIT(SEL_VCMI), BIT(SEL_VCMI));
-	snd_soc_update_bits(codec, PMUR4_PMUR3, BIT(VCMI_FAST_EN), BIT(VCMI_FAST_EN));
+	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(SEL_VCMI), BIT(SEL_VCMI));
+	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(VCMI_FAST_EN), BIT(VCMI_FAST_EN));
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -1769,7 +1769,7 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 			break;
 		case SND_SOC_DAPM_PRE_PMD:
 			sprd_codec_pa_sw_clr(SPRD_CODEC_PA_SW_AOL);
-			return;
+			return 0;
 		default:
 			break;
 		}
