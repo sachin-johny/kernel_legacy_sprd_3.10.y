@@ -30,18 +30,35 @@
 #define KPLED_DBG(fmt, arg...) 
 #endif
 
-#define SPRD_ANA_BASE 	        (SPRD_MISC_BASE + 0x600)
-#define ANA_REG_BASE            SPRD_ANA_BASE
-#ifndef CONFIG_ARCH_SC8825
-#define ANA_LED_CTRL           (ANA_REG_BASE + 0X68)
+#ifdef CONFIG_ARCH_SC7710
+#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x800)
 #else
-#define ANA_LED_CTRL           (ANA_REG_BASE + 0X70)
+#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
 #endif
+
+#define ANA_REG_BASE            SPRD_ANA_BASE
+
+#ifdef CONFIG_ARCH_SC8825
+#define ANA_LED_CTRL           (ANA_REG_BASE + 0X70)
+#elif defined(CONFIG_ARCH_SC7710)
+#define ANA_LED_CTRL           (ANA_REG_BASE + 0xb4)
+#else
+#define ANA_LED_CTRL           (ANA_REG_BASE + 0X68)
+#endif
+
 #define KPLED_CTL               ANA_LED_CTRL
+#ifdef CONFIG_ARCH_SC7710
+#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x800)
+#define KPLED_PD_SET            (1 << 0)
+#define KPLED_PD_RST            (1 << 1)
+#define KPLED_V_SHIFT           2
+#define KPLED_V_MSK             (0x0f << KPLED_V_SHIFT)
+#else
 #define KPLED_PD_SET            (1 << 11)
 #define KPLED_PD_RST            (1 << 12)
 #define KPLED_V_SHIFT           7
 #define KPLED_V_MSK             (0x07 << KPLED_V_SHIFT)
+#endif
 
 /* sprd keypad backlight */
 struct sprd_kb_led {

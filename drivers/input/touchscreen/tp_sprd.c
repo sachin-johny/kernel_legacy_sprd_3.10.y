@@ -49,11 +49,18 @@
 		} \
 	}while(0)
 
-#define ANA_REG_BASE                SPRD_ANA_BASE
+/*code is obsoleted!!!*/
+#ifdef CONFIG_ARCH_SC7710
+#define SPRD_ANA_BASE               (SPRD_MISC_BASE + 0x800)
+#define TPC_REG_BASE                (SPRD_MISC_BASE + 0xa00)
+#else
 #define SPRD_ANA_BASE               (SPRD_MISC_BASE + 0x600)
+#define TPC_REG_BASE                (SPRD_MISC_BASE + 0x280)
+#endif
+
+#define ANA_REG_BASE                (SPRD_ANA_BASE )
 #define ANA_AGEN                    (ANA_REG_BASE + 0x00)
 
-#define TPC_REG_BASE                (SPRD_MISC_BASE+0x280)
 #define TPC_CTRL                    (TPC_REG_BASE + 0x0000)
 #define TPC_SAMPLE_CTRL0            (TPC_REG_BASE + 0x0004)
 #define TPC_SAMPLE_CTRL1            (TPC_REG_BASE + 0x0008)
