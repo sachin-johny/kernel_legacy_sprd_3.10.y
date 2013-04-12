@@ -48,7 +48,7 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 	struct sprdfb_device *dev = fb->par;
 
 	/* dev->pending_addr = fb->fix.smem_start + fb->fix.line_length * var->yoffset; */
-	pr_debug("sprdfb: [%s]\n", __FUNCTION__);
+	printk("sprdfb: [%s]\n", __FUNCTION__);
 
 	/* wait for vsync done */
 	dev->vsync_waiter ++;

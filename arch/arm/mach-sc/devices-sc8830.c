@@ -1251,11 +1251,6 @@ static void sprd_init_pmu(void)
 arch_initcall(sprd_init_pmu);
 #endif
 
-struct platform_device sprd_peer_state_device = {
-        .name           = "peer_state",
-        .id             = -1,
-};
-
 
 #define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00)
 #define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
