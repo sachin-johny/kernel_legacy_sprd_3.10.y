@@ -85,7 +85,11 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 	}
 	pr_debug(KERN_INFO "sprdfb:  got %d bytes mem at 0x%x\n", len, addr);
 
+#ifdef CONFIG_FB_SC8830
+	dev->fb->fix.smem_start = __pa(addr)-196*3;
+#else
 	dev->fb->fix.smem_start = __pa(addr);
+#endif
 	dev->fb->fix.smem_len = len;
 	dev->fb->screen_base = (char*)addr;
 
