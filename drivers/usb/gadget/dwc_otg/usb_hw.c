@@ -17,17 +17,27 @@
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
 #include <asm/irq.h>
+#include <mach/hardware.h>
+#include <mach/sci.h>
+#if defined(CONFIG_ARCH_SC8830)
+#include <mach/regs_sc8830_ap_ahb.h>
+#include <mach/regs_sc8830_aon_apb.h>
+#else
 #include <mach/globalregs.h>
+#endif
 #include <mach/board.h>
 #include "usb_hw.h"
 
-#if defined(CONFIG_ARCH_SC8825)
+
+
+#if defined(CONFIG_ARCH_SC8825)||defined(CONFIG_ARCH_SC8830)
 #define  USB_LDO_NAME	"vddusb"
 #define  USB_CLK_NAME    	"clk_usb_ref"
 #else
 #define	 USB_LDO_NAME    "V_USB"
 #define  USB_CLK_NAME    "clk_usb_ref"
 #endif
+
 
 extern int in_calibration(void);
 
@@ -69,6 +79,19 @@ static int usb_clock_enable(int is_on)
 	}
 	return 0;
 }
+#if defined(CONFIG_ARCH_SC8830)
+static void usb_enable_module(int en)
+{
+	if (en){
+		sci_glb_clr(REG_AON_APB_PWR_CTRL,BIT(0));
+		sci_glb_set(REG_AP_AHB_AHB_EB,BIT_USB_EB);
+	}else {
+		sci_glb_set(REG_AON_APB_PWR_CTRL,BIT(0));
+		sci_glb_clr(REG_AP_AHB_AHB_EB,BIT_USB_EB);
+	}
+}
+
+#else
 static void usb_enable_module(int en)
 {
 	if (en){
@@ -80,9 +103,12 @@ static void usb_enable_module(int en)
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_USBD_EN,AHB_CTL0);
 	}
 }
+#endif
 void usb_phy_init(void)
 {
 #ifdef CONFIG_USB_CORE_IP_293A
+#if defined(CONFIG_ARCH_SC8830)
+#else
 		/*
 		* tiger PHY reg is different with previous ,
 		*7710 has the same core IP with tiger,but PHY reg also diff
@@ -93,8 +119,9 @@ void usb_phy_init(void)
         sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(9), USB_PHY_CTRL);
         sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(8), USB_PHY_CTRL);
         sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(13), USB_PHY_CTRL);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(12), USB_PHY_CTRL);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(12), USB_PHY_CTRL);
         sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15)|BIT(14), USB_PHY_CTRL);
+#endif
 #else
     if (sprd_greg_read(REG_TYPE_AHB_GLOBAL,CHIP_ID) == CHIP_ID_8810S){
                 /*SMIC chip id == 0x88100001*/
@@ -123,6 +150,13 @@ static void usb_startup(void)
 {
 	usb_enable_module(1);
 	mdelay(10);
+#if defined(CONFIG_ARCH_SC8830)
+	usb_ldo_switch(1);
+	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
+	mdelay(5);
+	sci_glb_clr(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
+	sci_glb_set(REG_AP_AHB_AHB_EB,BIT_USB_EB);
+#else	
 	//usb_ldo_switch(0);
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(1)|BIT(2),AHB_CTL3);
 	usb_ldo_switch(1);
@@ -135,6 +169,7 @@ static void usb_startup(void)
 	mdelay(5);
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(6)|BIT(7),AHB_SOFT_RST);
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_USBD_EN,AHB_CTL0);
+#endif
 }
 
 void udc_enable(void)

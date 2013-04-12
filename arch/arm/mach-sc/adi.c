@@ -135,7 +135,11 @@ static inline int __adi_fifo_drain(void)
 
 #define ANA_VIRT_BASE			( SPRD_MISC_BASE )
 #define ANA_PHYS_BASE			( SPRD_MISC_PHYS )
+#if defined(CONFIG_ARCH_SC8830)
+#define ANA_ADDR_SIZE			(SZ_32K + SZ_4K)
+#else
 #define ANA_ADDR_SIZE			(SZ_4K)
+#endif
 #define ADDR_VERIFY(_X_)	do { \
 	BUG_ON((_X_) < ANA_VIRT_BASE || (_X_) > (ANA_VIRT_BASE + ANA_ADDR_SIZE));} while (0)
 

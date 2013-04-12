@@ -162,7 +162,7 @@ int sci_ldo_op_s(const struct sci_regulator_regs *regs, int op)
 	debug0("regu %p op(%d), set %08x[%d]\n", regs, op,
 	       regs->pd_set, __ffs(regs->pd_set_bit));
 
-	if (! !regs->pd_set)
+	if (!regs->pd_set)
 		return -EACCES;
 
 	switch (op) {

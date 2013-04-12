@@ -53,7 +53,11 @@
 
 /* Analog GPIO/EIC base address */
 #define ANA_CTL_GPIO_BASE      (SPRD_MISC_BASE + 0x0480)
+#if defined(CONFIG_ARCH_SC8830)
+#define ANA_CTL_EIC_BASE	(SPRD_ADI_BASE + 0x8100)
+#else
 #define ANA_CTL_EIC_BASE       (SPRD_MISC_BASE + 0x0100)
+#endif
 
 
 enum {
