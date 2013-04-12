@@ -105,9 +105,11 @@
 #define IRQ_NFC_INT			SCI_IRQ(80)
 #define IRQ_NFC_INT			SCI_IRQ(81)
 #define IRQ_NFC_INT			SCI_IRQ(82)
-#define IRQ_NFC_INT			SCI_IRQ(83)
-#define IRQ_NFC_INT			SCI_IRQ(84)
-#define IRQ_NFC_INT			SCI_IRQ(85)
+#endif
+#define IRQ_CP0_WDG_INT			SCI_IRQ(83)
+#define IRQ_CP1_WDG_INT			SCI_IRQ(84)
+#define IRQ_CP2_WDG_INT			SCI_IRQ(85)
+#if 0
 #define IRQ_NFC_INT			SCI_IRQ(86)
 #define IRQ_NFC_INT			SCI_IRQ(87)
 #define IRQ_NFC_INT			SCI_IRQ(88)
@@ -147,7 +149,10 @@
 #define IRQ_APWDG_INT			SCI_IRQ(123)
 #define IRQ_CA7WDG_INT			SCI_IRQ(124)
 
+#define IRQ_SIPC_CPW			IRQ_CP0_MCU0_INT
 #define IRQ_SIPC_CPT			IRQ_CP1_MCU0_INT
+#define IRQ_SIPC_WCN			IRQ_CP2_INT0_INT
+
 
 /* translate gic irq number(user using ) to intc number */
 #define SCI_GET_INTC_IRQ(_IRQ_NUM_)	((_IRQ_NUM_) - IRQ_GIC_START)

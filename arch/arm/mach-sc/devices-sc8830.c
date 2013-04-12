@@ -913,55 +913,63 @@ struct platform_device sprd_emmc_device = {
 	.resource = sprd_emmc_resources,
 	.dev = { .platform_data = &sprd_emmc_pdata },
 };
-#if 0
-#define TD_REG_CLK_ADDR				(SPRD_AHB_BASE + 0x250)
-#define TD_REG_RESET_ADDR			(SPRD_AHB_BASE + 0x254)
-#define TD_CTL_ENABLE				(0x01)
-#define TD_CTL_DISENABLE			(0x00)
-#define TD_CTL_CLK_VAL				(0x0F)
 
+#ifdef CONFIG_SIPC_TD
+
+#define TD_REG_CLK_ADDR				(SPRD_PMU_BASE + 0x50)
+#define TD_REG_RESET_ADDR			(SPRD_PMU_BASE + 0xA8)
+#define TD_REG_STATUS_ADDR			(SPRD_PMU_BASE + 0xBC)
 static int native_tdmodem_start(void *arg)
 {
-	u32 cpdata[3] = {0xe59f0000, 0xe12fff10, 0x80500000};
-	/*disbale cp clock */
-	__raw_writel(TD_CTL_DISENABLE, TD_REG_CLK_ADDR);
-	/* hold stop cp */
-	__raw_writel(TD_CTL_DISENABLE, TD_REG_RESET_ADDR);
-	/*cp iram select to ap */
-	memcpy((volatile u32*)SPRD_TDPROC_BASE, cpdata, sizeof(cpdata));
-	/*enbale cp clock */
-	__raw_writel(TD_CTL_CLK_VAL, TD_REG_CLK_ADDR);
-	/* reset cp */
-	__raw_writel(TD_CTL_ENABLE, TD_REG_RESET_ADDR);
+	u32 state;
+	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x500000};
+	memcpy(0x50001800, cp1data, sizeof(cp1data));      	/* copy cp1 source code */
+	*((volatile u32*)TD_REG_RESET_ADDR) |=  0x00000002;       /* reset cp1 */
+	*((volatile u32*)TD_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp1 force shutdown */
+	while(1)
+	{
+		state = *((volatile u32*)TD_REG_STATUS_ADDR);
+		if (!(state & (0xf<<16)))
+			break;
+	}
+	*((volatile u32*)TD_REG_CLK_ADDR) &= ~0x10000000;       /* clear cp1 force deep sleep */
+	*((volatile u32*)TD_REG_RESET_ADDR) &= ~0x00000002;      /* clear reset cp0 cp1 */
 
 	return 0;
 }
+static int native_tdmodem_stop(void *arg)
+{
+	*((volatile u32*)TD_REG_RESET_ADDR) |=  0x00000002;       /* reset cp1 */
+	*((volatile u32*)TD_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp1 force shutdown */
+	return 0;
+}
 static struct cproc_init_data sprd_cproc_td_pdata = {
-	.devname	= "cproc_td",
-	.base		= 0x80000000,
-	.maxsz		= 0x02000000,
+	.devname	= "cpt",
+	.base		= CPT_START_ADDR,
+	.maxsz		= CPT_TOTAL_SIZE,
 	.start		= native_tdmodem_start,
+	.stop 		= native_tdmodem_stop,
+	.wdtirq		= IRQ_CP1_WDG_INT,
 	.segnr		= 2,
 	.segs		= {
 		{
 			.name  = "modem",
-			.base  = 0x80500000,
+			.base  = CPT_START_ADDR + 0x500000,
 			.maxsz = 0x00800000,
 		},
 		{
 			.name  = "dsp",
-			.base  = 0x80020000,
+			.base  = CPT_START_ADDR + 0x20000,
 			.maxsz = 0x003E0000,
 		},
 	},
 };
-
 struct platform_device sprd_cproc_td_device = {
 	.name           = "sprd_cproc",
 	.id             = 0,
 	.dev		= {.platform_data = &sprd_cproc_td_pdata},
 };
-#endif
+
 static struct spipe_init_data sprd_spipe_td_pdata = {
 	.name		= "spipe_td",
 	.dst		= SIPC_ID_CPT,
@@ -991,8 +999,7 @@ struct platform_device sprd_slog_td_device = {
 };
 
 static struct spipe_init_data sprd_stty_td_pdata = {
-	/* to be compatible with vlx mux dev nodes */
-	.name		= "ts0710mux",
+	.name		= "stty_td",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_TTY,
 	.ringnr		= 32,
@@ -1022,7 +1029,7 @@ struct platform_device sprd_spool_td_device = {
 
 
 static struct seth_init_data sprd_seth0_td_pdata = {
-	.name		= "veth0",
+	.name		= "seth_td0",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA0,
 };
@@ -1033,7 +1040,7 @@ struct platform_device sprd_seth0_td_device = {
 };
 
 static struct seth_init_data sprd_seth1_td_pdata = {
-	.name		= "veth1",
+	.name		= "seth_td1",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA1,
 };
@@ -1044,7 +1051,7 @@ struct platform_device sprd_seth1_td_device = {
 };
 
 static struct seth_init_data sprd_seth2_td_pdata = {
-	.name		= "veth2",
+	.name		= "seth_td2",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA2,
 };
@@ -1054,8 +1061,8 @@ struct platform_device sprd_seth2_td_device = {
 	.dev		= {.platform_data = &sprd_seth2_td_pdata},
 };
 
-static struct saudio_init_data  sprd_saudio_td={
-	"VIRTUAL AUDIO",
+static struct saudio_init_data sprd_saudio_td={
+	"saudio_td",
 	SIPC_ID_CPT,
 	SMSG_CH_VBC,
 	SMSG_CH_PLAYBACK,
@@ -1067,6 +1074,155 @@ struct platform_device sprd_saudio_td_device = {
 	.id         = 0,
 	.dev        = {.platform_data=&sprd_saudio_td},
 };
+#endif
+
+#ifdef CONFIG_SIPC_WCDMA
+
+#define WCDMA_REG_CLK_ADDR				(SPRD_PMU_BASE + 0x3C)
+#define WCDMA_REG_RESET_ADDR			(SPRD_PMU_BASE + 0xA8)
+#define WCDMA_REG_STATUS_ADDR			(SPRD_PMU_BASE + 0xB8)
+
+static int native_wcdmamodem_start(void *arg)
+{
+	u32 state;
+	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
+	memcpy(0x50000000, cp0data, sizeof(cp0data));      /* copy cp0 source code */
+	*((volatile u32*)WCDMA_REG_RESET_ADDR) |=  0x00000001;       /* reset cp0 */
+	*((volatile u32*)WCDMA_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp0 force shutdown */
+	while(1)
+	{
+		state = *((volatile u32*)WCDMA_REG_STATUS_ADDR);
+		if (!(state & (0xf<<28)))
+			break;
+	}
+	*((volatile u32*)WCDMA_REG_CLK_ADDR) &= ~0x10000000;       /* clear cp0 force deep sleep */
+	*((volatile u32*)WCDMA_REG_RESET_ADDR) &= ~0x00000001;       /* clear reset cp0 cp1 */
+	return 0;
+}
+static int native_wcdmamodem_stop(void *arg)
+{
+	*((volatile u32*)WCDMA_REG_RESET_ADDR) |=  0x00000001;       /* reset cp0 */
+	*((volatile u32*)WCDMA_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp0 force shutdown */
+	return 0;
+}
+static struct cproc_init_data sprd_cproc_wcdma_pdata = {
+	.devname	= "cpw",
+	.base		= CPW_START_ADDR,
+	.maxsz		= CPW_TOTAL_SIZE,
+	.start		= native_wcdmamodem_start,
+	.stop 		= native_wcdmamodem_stop,
+	.wdtirq		= IRQ_CP0_WDG_INT,
+	.segnr		= 2,
+	.segs		= {
+		{
+			.name  = "modem",
+			.base  = CPW_START_ADDR + 0x500000,
+			.maxsz = 0x00800000,
+		},
+		{
+			.name  = "dsp",
+			.base  = CPW_START_ADDR + 0x20000,
+			.maxsz = 0x003E0000,
+		},
+	},
+};
+struct platform_device sprd_cproc_wcdma_device = {
+	.name           = "sprd_cproc",
+	.id             = 1,
+	.dev		= {.platform_data = &sprd_cproc_wcdma_pdata},
+};
+
+
+static struct spipe_init_data sprd_spipe_wcdma_pdata = {
+	.name		= "spipe_w",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_PIPE,
+	.ringnr		= 8,
+	.txbuf_size	= 4096,
+	.rxbuf_size	= 4096,
+};
+struct platform_device sprd_spipe_wcdma_device = {
+	.name           = "spipe",
+	.id             = 3,
+	.dev		= {.platform_data = &sprd_spipe_wcdma_pdata},
+};
+
+static struct spipe_init_data sprd_slog_wcdma_pdata = {
+	.name		= "slog_w",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_PLOG,
+	.ringnr		= 1,
+	.txbuf_size	= 32 * 1024,
+	.rxbuf_size	= 256 * 1024,
+};
+struct platform_device sprd_slog_wcdma_device = {
+	.name           = "spipe",
+	.id             = 4,
+	.dev		= {.platform_data = &sprd_slog_wcdma_pdata},
+};
+
+static struct spipe_init_data sprd_stty_wcdma_pdata = {
+	.name		= "stty_w",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_TTY,
+	.ringnr		= 32,
+	.txbuf_size	= 1024,
+	.rxbuf_size	= 1024,
+};
+struct platform_device sprd_stty_wcdma_device = {
+	.name           = "spipe",
+	.id             = 5,
+	.dev		= {.platform_data = &sprd_stty_wcdma_pdata},
+};
+
+static struct seth_init_data sprd_seth0_wcdma_pdata = {
+	.name		= "seth_w0",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_DATA0,
+};
+struct platform_device sprd_seth0_wcdma_device = {
+	.name           = "seth",
+	.id             =  3,
+	.dev		= {.platform_data = &sprd_seth0_wcdma_pdata},
+};
+
+static struct seth_init_data sprd_seth1_wcdma_pdata = {
+	.name		= "seth_w1",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_DATA1,
+};
+struct platform_device sprd_seth1_wcdma_device = {
+	.name           = "seth",
+	.id             =  4,
+	.dev		= {.platform_data = &sprd_seth1_wcdma_pdata},
+};
+
+static struct seth_init_data sprd_seth2_wcdma_pdata = {
+	.name		= "seth_w2",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_DATA2,
+};
+struct platform_device sprd_seth2_wcdma_device = {
+	.name           = "seth",
+	.id             =  5,
+	.dev		= {.platform_data = &sprd_seth2_wcdma_pdata},
+};
+
+static struct saudio_init_data sprd_saudio_wcdma={
+	"saudio_w",
+	SIPC_ID_CPW,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
+};
+
+struct platform_device sprd_saudio_wcdma_device = {
+	.name       = "saudio",
+	.id         = 1,
+	.dev        = {.platform_data=&sprd_saudio_wcdma},
+};
+#endif
+
 #if 0
 static struct resource sprd_pmu_resource[] = {
 	[0] = {
@@ -1095,18 +1251,64 @@ static void sprd_init_pmu(void)
 arch_initcall(sprd_init_pmu);
 #endif
 
-static struct seth_init_data sprd_seth_td_pdata = {
-	.name		= "veth0",
-	.dst		= SIPC_ID_CPT,
-	.channel	= SMSG_CH_DATA0, //FIXME: conflict with 8825,3.4 linux/sipc.h is different with 3.0 ...
-};
-struct platform_device sprd_seth_td_device = {
-	.name           = "seth",
-	.id             =  0,
-	.dev		= {.platform_data = &sprd_seth_td_pdata},
-};
-
 struct platform_device sprd_peer_state_device = {
         .name           = "peer_state",
         .id             = -1,
 };
+
+
+#define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00)
+#define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
+
+
+#define AP2CPW_IRQ0_TRIG	0x01
+#define CPW2AP_IRQ0_CLR		0x01
+uint32_t cpw_rxirq_status(void)
+{
+	return 1;
+}
+
+void cpw_rxirq_clear(void)
+{
+	__raw_writel(CPW2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+}
+
+void cpw_txirq_trigger(void)
+{
+	__raw_writel(AP2CPW_IRQ0_TRIG, AP2CP_INT_CTRL);
+}
+
+
+#define AP2CPT_IRQ0_TRIG	0x10
+#define CPT2AP_IRQ0_CLR		0x10
+uint32_t cpt_rxirq_status(void)
+{
+	return 1;
+}
+
+void cpt_rxirq_clear(void)
+{
+	__raw_writel(CPT2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+}
+
+void cpt_txirq_trigger(void)
+{
+	__raw_writel(AP2CPT_IRQ0_TRIG, AP2CP_INT_CTRL);
+}
+
+#define AP2WCN_IRQ0_TRIG	0x100
+#define WCN2AP_IRQ0_CLR		0x100
+uint32_t wcn_rxirq_status(void)
+{
+	return 1;
+}
+
+void wcn_rxirq_clear(void)
+{
+	__raw_writel(WCN2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+}
+
+void wcn_txirq_trigger(void)
+{
+	__raw_writel(AP2WCN_IRQ0_TRIG, AP2CP_INT_CTRL);
+}

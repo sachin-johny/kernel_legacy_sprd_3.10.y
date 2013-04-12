@@ -104,4 +104,20 @@ config SPRD_DCDC_DEBUG
 	default n
 	help
 	  This option select dcdc debug module.
+
+config SIPC_TD
+	bool "SIPC instance of TD modem"
+	select SIPC
+	default n
+
+config SIPC_WCDMA
+	bool "SIPC instance of WCDMA modem"
+	select SIPC
+	default n
+
+config SIPC_WCN
+	bool "SIPC instance of Wireless Connection"
+	select SIPC
+	default n
+
 endif

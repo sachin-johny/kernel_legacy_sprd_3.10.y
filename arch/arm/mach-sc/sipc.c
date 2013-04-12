@@ -25,49 +25,21 @@
 #include <linux/sipc.h>
 #include <linux/sipc_priv.h>
 
-#define CPT_RING_ADDR		(0x80000000 + 28 * SZ_1M)
+#define SMSG_TXBUF_ADDR		(0)
+#define SMSG_TXBUF_SIZE		(SZ_1K)
+#define SMSG_RXBUF_ADDR		(SMSG_TXBUF_SIZE)
+#define SMSG_RXBUF_SIZE		(SZ_1K)
 
-#define CPT_TXBUF_ADDR		(0)
-#define CPT_TXBUF_SIZE		(SZ_1K)
-#define CPT_RXBUF_ADDR		(CPT_TXBUF_SIZE)
-#define CPT_RXBUF_SIZE		(SZ_1K)
+#define SMSG_RINGHDR		(SMSG_TXBUF_SIZE + SMSG_RXBUF_SIZE)
+#define SMSG_TXBUF_RDPTR	(SMSG_RINGHDR + 0)
+#define SMSG_TXBUF_WRPTR	(SMSG_RINGHDR + 4)
+#define SMSG_RXBUF_RDPTR	(SMSG_RINGHDR + 8)
+#define SMSG_RXBUF_WRPTR	(SMSG_RINGHDR + 12)
 
-#define CPT_RINGHDR		(CPT_TXBUF_SIZE + CPT_RXBUF_SIZE)
-#define CPT_TXBUF_RDPTR		(CPT_RINGHDR + 0)
-#define CPT_TXBUF_WRPTR		(CPT_RINGHDR + 4)
-#define CPT_RXBUF_RDPTR		(CPT_RINGHDR + 8)
-#define CPT_RXBUF_WRPTR		(CPT_RINGHDR + 12)
-
-#define SMEM_CPT_ADDR		(0x80000000 + 24 * SZ_1M)
-#define SMEM_CPT_SIZE		(4 * SZ_1M)
-
-#define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00B8)
-#define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x00BC)
-
-#define AP2CP_IRQ0_TRIG		0x01
-#define AP2CP_FRQ0_TRIG		0x02
-#define AP2CP_IRQ1_TRIG		0x04
-#define AP2CP_FRQ1_TRIG		0x08
-
-#define CP2AP_IRQ0_CLR		0x01
-#define CP2AP_FRQ0_CLR		0x02
-#define CP2AP_IRQ1_CLR		0x04
-#define CP2AP_FRQ1_CLR		0x08
-
-uint32_t cpt_rxirq_status(void)
-{
-	return 1;
-}
-
-void cpt_rxirq_clear(void)
-{
-	__raw_writel(CP2AP_IRQ0_CLR, CP2AP_INT_CTRL);
-}
-
-void cpt_txirq_trigger(void)
-{
-	__raw_writel(AP2CP_IRQ0_TRIG, AP2CP_INT_CTRL);
-}
+#ifdef CONFIG_SIPC_TD
+extern uint32_t cpt_rxirq_status(void);
+extern void cpt_rxirq_clear(void);
+extern void cpt_txirq_trigger(void);
 
 static struct smsg_ipc smsg_ipc_cpt = {
 	.name = "sipc-td",
@@ -79,31 +51,109 @@ static struct smsg_ipc smsg_ipc_cpt = {
 	.txirq_trigger = cpt_txirq_trigger,
 };
 
-#ifdef CONFIG_DEBUG_FS
-static u32 *txirq_trigger = (u32 *)AP2CP_INT_CTRL;
+static int __init sipc_td_init(void)
+{
+	uint32_t base = (uint32_t)ioremap(CPT_RING_ADDR, CPT_RING_SIZE);
+
+	smsg_ipc_cpt.txbuf_size = SMSG_TXBUF_SIZE / sizeof(struct smsg);
+	smsg_ipc_cpt.txbuf_addr = base + SMSG_TXBUF_ADDR;
+	smsg_ipc_cpt.txbuf_rdptr = base + SMSG_TXBUF_RDPTR;
+	smsg_ipc_cpt.txbuf_wrptr = base + SMSG_TXBUF_WRPTR;
+
+	smsg_ipc_cpt.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);;
+	smsg_ipc_cpt.rxbuf_addr = base + SMSG_RXBUF_ADDR;
+	smsg_ipc_cpt.rxbuf_rdptr = base + SMSG_RXBUF_RDPTR;
+	smsg_ipc_cpt.rxbuf_wrptr = base + SMSG_RXBUF_WRPTR;
+
+	return smsg_ipc_create(SIPC_ID_CPT, &smsg_ipc_cpt);
+}
+#endif
+
+#ifdef CONFIG_SIPC_WCDMA
+extern uint32_t cpw_rxirq_status(void);
+extern void cpw_rxirq_clear(void);
+extern void cpw_txirq_trigger(void);
+
+static struct smsg_ipc smsg_ipc_cpw = {
+	.name = "sipc-wcdma",
+	.dst = SIPC_ID_CPW,
+
+	.irq = IRQ_SIPC_CPW,
+	.rxirq_status = cpw_rxirq_status,
+	.rxirq_clear = cpw_rxirq_clear,
+	.txirq_trigger = cpw_txirq_trigger,
+};
+
+static int __init sipc_wcdma_init(void)
+{
+	uint32_t base = (uint32_t)ioremap(CPW_RING_ADDR, CPW_RING_SIZE);
+
+	smsg_ipc_cpw.txbuf_size = SMSG_TXBUF_SIZE / sizeof(struct smsg);
+	smsg_ipc_cpw.txbuf_addr = base + SMSG_TXBUF_ADDR;
+	smsg_ipc_cpw.txbuf_rdptr = base + SMSG_TXBUF_RDPTR;
+	smsg_ipc_cpw.txbuf_wrptr = base + SMSG_TXBUF_WRPTR;
+
+	smsg_ipc_cpw.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);;
+	smsg_ipc_cpw.rxbuf_addr = base + SMSG_RXBUF_ADDR;
+	smsg_ipc_cpw.rxbuf_rdptr = base + SMSG_RXBUF_RDPTR;
+	smsg_ipc_cpw.rxbuf_wrptr = base + SMSG_RXBUF_WRPTR;
+
+	return smsg_ipc_create(SIPC_ID_CPW, &smsg_ipc_cpw);
+}
+#endif
+
+#ifdef CONFIG_SIPC_WCN
+extern uint32_t wcn_rxirq_status(void);
+extern void wcn_rxirq_clear(void);
+extern void wcn_txirq_trigger(void);
+
+static struct smsg_ipc smsg_ipc_wcn = {
+	.name = "sipc-wcn",
+	.dst = SIPC_ID_WCN,
+
+	.irq = IRQ_SIPC_WCN,
+	.rxirq_status = wcn_rxirq_status,
+	.rxirq_clear = wcn_rxirq_clear,
+	.txirq_trigger = wcn_txirq_trigger,
+};
+
+static int __init sipc_wcn_init(void)
+{
+	uint32_t base = (uint32_t)ioremap(WCN_RING_ADDR, WCN_RING_SIZE);
+
+	smsg_ipc_wcn.txbuf_size = SMSG_TXBUF_SIZE / sizeof(struct smsg);
+	smsg_ipc_wcn.txbuf_addr = base + SMSG_TXBUF_ADDR;
+	smsg_ipc_wcn.txbuf_rdptr = base + SMSG_TXBUF_RDPTR;
+	smsg_ipc_wcn.txbuf_wrptr = base + SMSG_TXBUF_WRPTR;
+
+	smsg_ipc_wcn.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);;
+	smsg_ipc_wcn.rxbuf_addr = base + SMSG_RXBUF_ADDR;
+	smsg_ipc_wcn.rxbuf_rdptr = base + SMSG_RXBUF_RDPTR;
+	smsg_ipc_wcn.rxbuf_wrptr = base + SMSG_RXBUF_WRPTR;
+
+	return smsg_ipc_create(SIPC_ID_WCN, &smsg_ipc_wcn);
+}
 #endif
 
 static int __init sipc_init(void)
 {
-	uint32_t base = (uint32_t)ioremap(CPT_RING_ADDR, SZ_4K);
-
-	smsg_ipc_cpt.txbuf_size = CPT_TXBUF_SIZE / sizeof(struct smsg);
-	smsg_ipc_cpt.txbuf_addr = base + CPT_TXBUF_ADDR;
-	smsg_ipc_cpt.txbuf_rdptr = base + CPT_TXBUF_RDPTR;
-	smsg_ipc_cpt.txbuf_wrptr = base + CPT_TXBUF_WRPTR;
-
-	smsg_ipc_cpt.rxbuf_size = CPT_RXBUF_SIZE / sizeof(struct smsg);;
-	smsg_ipc_cpt.rxbuf_addr = base + CPT_RXBUF_ADDR;
-	smsg_ipc_cpt.rxbuf_rdptr = base + CPT_RXBUF_RDPTR;
-	smsg_ipc_cpt.rxbuf_wrptr = base + CPT_RXBUF_WRPTR;
-
-	smsg_ipc_create(SIPC_ID_CPT, &smsg_ipc_cpt);
-	smem_init(SMEM_CPT_ADDR, SMEM_CPT_SIZE);
-
-#ifdef CONFIG_DEBUG_FS
-	debugfs_create_x32("txirq_trigger", S_IWUSR, NULL, txirq_trigger);
+	uint32_t smem_size = 0;
+#ifdef CONFIG_SIPC_TD
+	smem_size += CPT_SMEM_SIZE;
+	sipc_td_init();
 #endif
 
+#ifdef CONFIG_SIPC_WCDMA
+	smem_size += CPW_SMEM_SIZE;
+	sipc_wcdma_init();
+#endif
+
+#ifdef CONFIG_SIPC_WCN
+	smem_size += WCN_SMEM_SIZE;
+	sipc_wcn_init();
+#endif
+
+	smem_init(SIPC_SMEM_ADDR, smem_size);
 	return 0;
 }
 
