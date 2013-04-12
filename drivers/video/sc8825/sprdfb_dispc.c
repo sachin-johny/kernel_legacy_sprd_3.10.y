@@ -60,6 +60,7 @@ struct sprdfb_dispc_context {
 	struct clk 		*clk_dispc_dbi;
 	bool			is_inited;
 	bool			is_first_frame;
+	bool			is_resume;
 
 #ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
 	bool			clk_open;
@@ -229,6 +230,21 @@ static inline void dispc_set_osd_ck(uint32_t ck_color)
 {
 	dispc_write(ck_color, DISPC_OSD_CK);
 }
+
+static inline void dispc_osd_enable(bool is_enable)
+{
+	uint32_t reg_val;
+	
+	reg_val = dispc_read(DISPC_OSD_CTRL);
+	if(is_enable){
+		reg_val = reg_val | (BIT(0));
+	}
+	else{
+		reg_val = reg_val & (~(BIT(0)));
+	}
+	dispc_write(reg_val, DISPC_OSD_CTRL);
+}
+
 
 static void dispc_dithering_enable(bool enable)
 {
@@ -506,6 +522,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 #ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
 	dispc_ctx.clk_open = false;
 #endif
+	dispc_ctx.is_resume=false;
 
 #ifndef CONFIG_FB_SC7710
 	/*usesd to open dipsc matix clock*/
@@ -827,6 +844,12 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	up(&dispc_ctx.overlay_lock);
 #endif
+	if(dev->panel->is_clean_lcd){
+		if(dispc_ctx.is_resume){
+			dispc_osd_enable(true);
+			dispc_ctx.is_resume =false;
+		}
+    }
 
 	pr_debug("DISPC_CTRL: 0x%x\n", dispc_read(DISPC_CTRL));
 	pr_debug("DISPC_SIZE_XY: 0x%x\n", dispc_read(DISPC_SIZE_XY));
@@ -939,6 +962,13 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		}
 
 		dev->enable = 1;
+		if(dev->panel->is_clean_lcd){
+			dispc_osd_enable(false);
+			dispc_set_bg_color(0x00);
+			sprdfb_dispc_refresh(dev);
+			msleep(30);
+			dispc_ctx.is_resume=true;
+		}
 	}
 	printk(KERN_INFO "sprdfb:[%s], leave dev->enable= %d\n",__FUNCTION__, dev->enable);
 

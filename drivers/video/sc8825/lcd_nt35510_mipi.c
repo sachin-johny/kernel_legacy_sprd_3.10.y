@@ -299,6 +299,7 @@ struct panel_spec lcd_nt35510_mipi_spec = {
 	.height = 800,
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
+	.is_clean_lcd = true,
 	.info = {
 		.mipi = &lcd_nt35510_mipi_info
 	},

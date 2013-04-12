@@ -396,6 +396,7 @@ struct panel_spec lcd_nt35516_mipi_spec = {
 	//.fps = 60,
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
+	.is_clean_lcd = true,
 	.info = {
 		.mipi = &lcd_nt35516_mipi_info
 	},
