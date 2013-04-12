@@ -382,7 +382,7 @@ static void SetVerRegisterCoef(uint32_t * reg_coef_lum_ptr,
 			for(j = 0; j < 16; j++)
 			{
 				reg_coef_lum_ptr[cnts++] = *(y_coef_ptr +i * 16 + j);
-				if(cnts == SCALER_COEF_TAB_LEN_VER)
+				if(SCALER_COEF_TAB_LEN_VER == cnts)
 				{
 					break;
 				}
@@ -395,7 +395,7 @@ static void SetVerRegisterCoef(uint32_t * reg_coef_lum_ptr,
 			for(j = 0; j < 16; j++)
 			{
 				reg_coef_ch_ptr[cnts++] = *(uv_coef_ptr + i * 16 +j);	
-				if(cnts = SCALER_COEF_TAB_LEN_VER)
+				if(SCALER_COEF_TAB_LEN_VER == cnts)
 				{
 					break;
 				}			
@@ -422,7 +422,7 @@ static void SetVerRegisterCoef(uint32_t * reg_coef_lum_ptr,
 				for(j = 0; j < 16; j++)
 				{
 					reg_coef_ch_ptr[cnts++] = *(uv_coef_ptr +i * 16 + j);
-					if(cnts = SCALER_COEF_TAB_LEN_VER)
+					if(SCALER_COEF_TAB_LEN_VER == cnts)
 					{
 						break;
 					}				

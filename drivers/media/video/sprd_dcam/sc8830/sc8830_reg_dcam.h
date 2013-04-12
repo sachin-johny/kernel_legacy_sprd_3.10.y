@@ -55,7 +55,7 @@
 //#define GR_CLK_GEN5                                    (GLOBAL_BASE + 0x07CUL)
 #define CLK_DLY_CTRL                                   (GLOBAL_BASE + 0x05CUL)
 
-#define DCAM_AHB_BASE                                  (SPRD_AHB_BASE + 0x0000UL) // 0x60d00000
+#define DCAM_AHB_BASE                                  SPRD_MMAHB_BASE
 #define DCAM_AHB_CTL0                                  (DCAM_AHB_BASE + 0x0000UL)
 #define DCAM_EB                                        (DCAM_AHB_CTL0 + 0x0000UL)
 #define CSI2_DPHY_EB                                   (DCAM_AHB_CTL0 + 0x0000UL)

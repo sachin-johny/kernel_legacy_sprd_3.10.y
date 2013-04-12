@@ -1817,16 +1817,21 @@ static void _dcam_path1_set(void)
 		} else {
 			DCAM_TRACE("DCAM DRV: invalid path 1 output format %d \n", format);
 		}
+		DCAM_TRACE("DCAM DRV: path 1: output_format=0x%x \n", format);
 	}
 
 	if(path->valid_param.src_sel){
 		REG_MWR(DCAM_CFG, BIT_12 | BIT_11, path->src_sel << 11);
+		DCAM_TRACE("DCAM DRV: path 1: src_sel=0x%x \n", path->src_sel);
 	}
 
 	if(path->valid_param.data_endian){
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_7 | BIT_6, path->data_endian.y_endian << 6);
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_9 | BIT_8, path->data_endian.uv_endian << 8);
-
+		REG_MWR(DCAM_ENDIAN_SEL, BIT_18, BIT_18); // axi write
+		REG_MWR(DCAM_ENDIAN_SEL, BIT_19, BIT_19); // axi read
+		DCAM_TRACE("DCAM DRV: path 1: data_endian y=0x%x, uv=0x%x \n",
+			path->data_endian.y_endian, path->data_endian.uv_endian);
 	}
 }
 
@@ -1875,6 +1880,8 @@ static void _dcam_path2_set(void)
 	if(path->valid_param.data_endian){
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_11 | BIT_10, path->data_endian.y_endian << 10);
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_13 | BIT_12, path->data_endian.uv_endian << 12);
+		REG_MWR(DCAM_ENDIAN_SEL, BIT_18, BIT_18); // axi write
+		REG_MWR(DCAM_ENDIAN_SEL, BIT_19, BIT_19); // axi read
 
 	}
 }
@@ -2178,7 +2185,7 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 		DCAM_TRACE("DCAM DRV: _dcam_set_sc_coeff Dcam_GenScaleCoeff error! \n");
 		return -DCAM_RTN_PATH_GEN_COEFF_ERR;
 	}
-#ifndef __SIMULATOR__
+#if 0//ndef __SIMULATOR__
 	do {
 		REG_MWR(DCAM_CFG, clk_switch_bit, DCAM_CLK_DOMAIN_AHB << clk_switch_shift_bit);
 	} while (clk_status_bit != (clk_status_bit & REG_RD(DCAM_CFG)));
@@ -2205,7 +2212,7 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 	REG_MWR(ver_tap_reg, BIT_19 | BIT_18 | BIT_17 | BIT_16, (y_tap & 0x0F) << 16);
 	REG_MWR(ver_tap_reg, BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11, (uv_tap & 0x1F) << 11);
 	DCAM_TRACE("DCAM DRV: _dcam_set_sc_coeff y_tap=0x%x, uv_tap=0x%x \n", y_tap, uv_tap);
-#ifndef __SIMULATOR__
+#if 0 //ndef __SIMULATOR__
 	do {
 		REG_MWR(DCAM_CFG, clk_switch_bit, 0 << clk_switch_shift_bit);
 	} while (0 != (clk_status_bit & REG_RD(DCAM_CFG)));
