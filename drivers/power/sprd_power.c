@@ -159,7 +159,8 @@ static int sprd_battery_get_property(struct power_supply *psy,
 		val->intval = (data->capacity > 100) ? 100 : data->capacity;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = data->voltage * 1000;
+		//val->intval = data->voltage * 1000;
+		val->intval = 4000 * 1000;
 		break;
 #ifdef CONFIG_BATTERY_TEMP_DECT
 	case POWER_SUPPLY_PROP_TEMP:
@@ -589,7 +590,7 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 			goto out;
 
 		if (vchg_value > battery_data->over_voltage) {
-			printk(KERN_ERR "charger voltage too high\n");
+			//printk(KERN_ERR "charger voltage too high\n");
 			charge_stop(battery_data);
 			battery_data->over_voltage_flag = 1;
 		}
@@ -598,7 +599,7 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 			battery_notify = 1;
 			charge_stop(battery_data);
 			battery_data->in_precharge = 1;
-			printk(KERN_ERR "vbat over %d \n", voltage);
+			//printk(KERN_ERR "vbat over %d \n", voltage);
 		}
 	}
 	if (!battery_data->charging && !battery_data->in_precharge &&
