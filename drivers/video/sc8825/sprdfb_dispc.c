@@ -303,18 +303,13 @@ static int32_t dispc_sync(struct sprdfb_device *dev)
 {
 	int ret;
 
-	return 0; //FIXME: jianjun.he
-
 	if (dev->enable == 0) {
 		printk("sprdfb: dispc_sync fb suspeneded already!!\n");
 		return -1;
 	}
 
-	msleep(20);
-#if 0
 	ret = wait_event_interruptible_timeout(dispc_ctx.vsync_queue,
 			          dispc_ctx.vsync_done, msecs_to_jiffies(100));
-#endif
 
 	if (!ret) { /* time out */
 		dispc_ctx.vsync_done = 1; /*error recovery */
@@ -387,7 +382,58 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		printk(KERN_WARNING "sprdfb: dispc early init warning!(has been inited)");
 		return 0;
 	}
-#if 0
+#ifdef CONFIG_FB_SC8830
+	__raw_bits_and(~(1<<0), (SPRD_APBCKG_BASE+0x2c));    //pll_src=256M
+	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x2c));
+
+	//set DISPC divdior
+	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x2c));  //div=0
+	__raw_bits_and(~(1<<9), (SPRD_APBCKG_BASE+0x2c));
+	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x2c));
+
+	//select DBI clock source
+	__raw_bits_and((1<<0), (SPRD_APBCKG_BASE+0x30));    //pll_src=256M
+	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x30));
+
+	//set DBI divdior
+	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x30));  //div=0
+	__raw_bits_and(~(1<<9), (SPRD_APBCKG_BASE+0x30));
+	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x30));
+
+	//select DPI clock source
+	__raw_bits_and((1<<0), (SPRD_APBCKG_BASE+0x34));    //pll_src=384M
+	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x34));
+
+	//set DPI divdior
+	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x34));  //div=10, dpi_clk = pll_src/(10+1)
+	__raw_bits_or((1<<9), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_or((1<<11), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<12), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<13), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<14), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<15), (SPRD_APBCKG_BASE+0x34));
+
+	//enable dispc clock
+	__raw_bits_or((1<<18), SPRD_APBREG_BASE);  //core_clock_en
+
+	__raw_bits_or((1<<11), (SPRD_AONAPB_BASE+0x4));  //matrix clock_en
+
+	//enable DISPC
+	__raw_bits_or((1<<1), SPRD_AHB_BASE);
+
+//	dev->dpi_clock = SPRDFB_DPI_CLOCK_SRC / 11;
+//	dev->dpi_clock = DISPC_DPI_CLOCK;
+
+	printk("kernel-->early_init--sprdfb:(0x402e0004) = 0x%x\n", __raw_readl((SPRD_AONAPB_BASE+0x4)));
+	printk("kernel-->early_init--sprdfb:0x20d00000 = 0x%x\n", __raw_readl(SPRD_AHB_BASE));
+	printk("kernel-->early_init--(sprdfb:0x71300000 = 0x%x\n", __raw_readl(SPRD_APBREG_BASE));
+	printk("kernel-->early_init--sprdfb:(0x71200034) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x34)));
+	printk("kernel-->early_init--sprdfb:(0x71200030) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x30)));
+	printk("kernel-->early_init--sprdfb:(0x7120002c) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x2c)));
+
+#else
+
 	/*usesd to open dipsc matix clock*/
 	__raw_writel((__raw_readl(REG_AHB_MATRIX_CLOCK)) | (1<<DISPC_CORE_CLK_EN) | (1<<DISPMTX_CLK_EN), 
 			REG_AHB_MATRIX_CLOCK);
@@ -497,58 +543,6 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	printk("0x20900200 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x200));
 	printk("0x20900208 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x208));
 	printk("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x220));
-#else
-
-	__raw_bits_and(~(1<<0), (SPRD_APBCKG_BASE+0x2c));    //pll_src=256M
-	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x2c));
-
-	//set DISPC divdior
-	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x2c));  //div=0
-	__raw_bits_and(~(1<<9), (SPRD_APBCKG_BASE+0x2c));
-	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x2c));
-
-	//select DBI clock source
-	__raw_bits_and((1<<0), (SPRD_APBCKG_BASE+0x30));    //pll_src=256M
-	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x30));
-
-	//set DBI divdior
-	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x30));  //div=0
-	__raw_bits_and(~(1<<9), (SPRD_APBCKG_BASE+0x30));
-	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x30));
-
-	//select DPI clock source
-	__raw_bits_and((1<<0), (SPRD_APBCKG_BASE+0x34));    //pll_src=384M
-	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x34));
-
-	//set DPI divdior
-	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x34));  //div=10, dpi_clk = pll_src/(10+1)
-	__raw_bits_or((1<<9), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_or((1<<11), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<12), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<13), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<14), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<15), (SPRD_APBCKG_BASE+0x34));
-
-	//enable dispc clock
-	__raw_bits_or((1<<18), SPRD_APBREG_BASE);  //core_clock_en
-
-	__raw_bits_or((1<<11), (SPRD_AONAPB_BASE+0x4));  //matrix clock_en
-
-	//enable DISPC
-	__raw_bits_or((1<<1), SPRD_AHB_BASE);
-
-//	dev->dpi_clock = SPRDFB_DPI_CLOCK_SRC / 11;
-//	dev->dpi_clock = DISPC_DPI_CLOCK;
-
-	printk("kernel-->early_init--sprdfb:(0x402e0004) = 0x%x\n", __raw_readl((SPRD_AONAPB_BASE+0x4)));
-	printk("kernel-->early_init--sprdfb:0x20d00000 = 0x%x\n", __raw_readl(SPRD_AHB_BASE));
-	printk("kernel-->early_init--(sprdfb:0x71300000 = 0x%x\n", __raw_readl(SPRD_APBREG_BASE));
-	printk("kernel-->early_init--sprdfb:(0x71200034) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x34)));
-	printk("kernel-->early_init--sprdfb:(0x71200030) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x30)));
-	printk("kernel-->early_init--sprdfb:(0x7120002c) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x2c)));
-
-
 
 #endif
 
