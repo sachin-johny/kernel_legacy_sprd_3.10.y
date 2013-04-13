@@ -627,6 +627,31 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
         break;
     }
 
+#ifdef CONFIG_PM_RUNTIME
+            switch(pdev->id) {
+            case SDC_SLAVE_CP:
+            case SDC_SLAVE_WIFI:
+                pm_runtime_set_active(&pdev->dev);
+                pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+                pm_runtime_use_autosuspend(&pdev->dev);
+                pm_runtime_enable(&pdev->dev);
+                pm_runtime_no_callbacks(mmc_classdev(host->mmc));
+                pm_suspend_ignore_children(mmc_classdev(host->mmc), true);
+                pm_runtime_set_active(mmc_classdev(host->mmc));
+                pm_runtime_enable(mmc_classdev(host->mmc));
+                break;
+            case SDC_SLAVE_EMMC:
+            case SDC_SLAVE_SD:
+                pm_suspend_ignore_children(&pdev->dev, true);
+                pm_runtime_set_active(&pdev->dev);
+                pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+                pm_runtime_use_autosuspend(&pdev->dev);
+                pm_runtime_enable(&pdev->dev);
+            default:
+                break;
+            }
+#endif
+
 	ret = sdhci_add_host(host);
 	if (ret) {
 		dev_err(dev, "sdhci_add_host() failed\n");
@@ -637,29 +662,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	if (pdev->id == SDC_SLAVE_WIFI)
 		sdhci_host_g = host;
 #endif
-#ifdef CONFIG_PM_RUNTIME
-        switch(pdev->id) {
-        case SDC_SLAVE_CP:
-        case SDC_SLAVE_WIFI:
-            pm_runtime_set_active(&pdev->dev);
-            pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
-            pm_runtime_use_autosuspend(&pdev->dev);
-            pm_runtime_enable(&pdev->dev);
-            pm_runtime_no_callbacks(&host->mmc->class_dev);
-            pm_runtime_set_active(&host->mmc->class_dev);
-            pm_runtime_enable(&host->mmc->class_dev);
-            break;
-        case SDC_SLAVE_EMMC:
-        case SDC_SLAVE_SD:
-            pm_suspend_ignore_children(&pdev->dev, true);
-            pm_runtime_set_active(&pdev->dev);
-            pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
-            pm_runtime_use_autosuspend(&pdev->dev);
-            pm_runtime_enable(&pdev->dev);
-        default:
-            break;
-        }
-#endif
+
 	return 0;
 
 err_add_host:
