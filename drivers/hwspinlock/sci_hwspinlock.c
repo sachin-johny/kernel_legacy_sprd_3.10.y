@@ -162,10 +162,13 @@ static int __devinit sci_hwspinlock_probe(struct platform_device *pdev)
 	struct hwspinlock *hwlock;
 	struct resource *res;
 	int i, ret, num_locks;
-
+#if defined(CONFIG_ARCH_SC8830)
 	sci_glb_set(REG_AP_AHB_AHB_EB, BIT_SPINLOCK_EB);
 	
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_SPLK_EB);
+#else
+	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
+#endif
 
 //	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
