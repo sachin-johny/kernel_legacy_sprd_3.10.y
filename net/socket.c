@@ -1079,7 +1079,22 @@ static unsigned int sock_poll(struct file *file, poll_table *wait)
 	/*
 	 *      We can't return errors to poll, so it's either yes or no.
 	 */
+	if (WARN(NULL==file, "BUG! !file pid=%d\n",current->pid)) {
+		return 0;
+	}
+
 	sock = file->private_data;
+
+	if (WARN(NULL==sock, "BUG! !sock pid=%d\n",current->pid)) {
+		return 0;
+	}
+	if (WARN(NULL==sock->ops, "BUG! !sock->ops pid=%d\n",current->pid)) {
+		return 0;
+	}
+	if (WARN(NULL==sock->ops->poll, "BUG! !ops->poll pid=%d\n", current->pid)) {
+                return 0;
+        }
+
 	return sock->ops->poll(file, sock, wait);
 }
 
