@@ -470,8 +470,12 @@ int32_t sprd_get_chg_current(struct sprd_battery_data * data)
 		}
 	}
 	if (isense > vbat) {
+#ifdef CONFIG_ARCH_SC7710
+        return ((isense - vbat) * 100 / 36);
+#else
 		return ((isense - vbat) * 10);	//(vol/0.1ohm)
-	} else {
+#endif
+    } else {
 		printk(KERN_ERR
 		       "chg_current err......................isense:%d..................vbat:%d\n",
 		       isense, vbat);
