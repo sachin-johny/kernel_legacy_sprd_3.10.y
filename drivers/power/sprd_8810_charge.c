@@ -88,7 +88,7 @@ uint16_t usb_charging_voltage_capacity_table[][2] = {
 	{3250, 0},
 };
 
-#if 1//def CONFIG_BATTERY_TEMP_DECT
+#ifdef CONFIG_BATTERY_TEMP_DECT
 int32_t temp_adc_table[][2] = {
 	{900, 0x4E},
 	{850, 0x59},
@@ -117,7 +117,7 @@ int32_t temp_adc_table[][2] = {
 	{-300, 0x364}
 };
 
-int sprd_adc_to_temp(struct sprd_battery_data *data, uint16_t adcvalue)
+int sprd_adc_to_temp(struct sprd_battery_data *data, uint16_t adcvalue);
 {
 	int table_size = ARRAY_SIZE(temp_adc_table);
 	int index;
@@ -658,86 +658,3 @@ void update_vbat_value(struct sprd_battery_data *data, uint32_t vbat)
 	for (i = 0; i < CONFIG_AVERAGE_CNT; i++)
 		vbat_buf[i] = vbat;
 }
-
-int spa_bat_adc_to_vol(int adcvalue)
-{
-	int temp;
-	unsigned long flag;
-	temp = adc_voltage_table[0][1] - adc_voltage_table[1][1];
-	temp = temp * (adcvalue - adc_voltage_table[0][0]);
-	temp = temp / (adc_voltage_table[0][0] - adc_voltage_table[1][0]);
-	temp = temp + adc_voltage_table[0][1];
-
-	return temp;
-}
-
-#ifdef CONFIG_SPA
-int spa_vol_to_percent(int voltage)
-{
-	int percentum;
-	int temp;
-	int table_size;
-	int pos = 0;
-
-
-	table_size = ARRAY_SIZE(voltage_capacity_table);
-	for (pos = 0; pos < table_size - 1; pos++) {
-		if (voltage > voltage_capacity_table[pos][0])
-			break;
-	}
-	if (pos == 0) {
-		percentum = 100;
-	} 
-	else {
-		temp = voltage_capacity_table[pos][1] -voltage_capacity_table[pos - 1][1];
-		temp = temp * (voltage - voltage_capacity_table[pos][0]);
-		temp = temp / (voltage_capacity_table[pos][0] -voltage_capacity_table[pos - 1][0]);
-		temp = temp + voltage_capacity_table[pos][1];
-
-		if (temp < 0)
-			temp = 0;
-		percentum = temp;
-	}
-
-	return percentum;
-}
-
-
-int spa_adc_to_temp(uint16_t adcvalue)
-{
-	int table_size = ARRAY_SIZE(temp_adc_table);
-	int index;
-	int result;
-	int first, second;
-
-	for (index = 0; index < table_size; index++) {
-		if (index == 0 && adcvalue < temp_adc_table[0][1])
-			break;
-		if (index == table_size - 1
-		    && adcvalue >= temp_adc_table[index][1])
-			break;
-
-		if (adcvalue >= temp_adc_table[index][1]
-		    && adcvalue < temp_adc_table[index + 1][1])
-			break;
-	}
-
-	if (index == 0) {
-		first = 0;
-		second = 1;
-	} else if (index == table_size - 1) {
-		first = table_size - 2;
-		second = table_size - 1;
-	} else {
-		first = index;
-		second = index + 1;
-	}
-
-	result =
-	    (adcvalue - temp_adc_table[first][1]) * (temp_adc_table[first][0] -
-						     temp_adc_table[second][0])
-	    / (temp_adc_table[first][1] - temp_adc_table[second][1]) +
-	    temp_adc_table[first][0];
-	return result;
-}
-#endif

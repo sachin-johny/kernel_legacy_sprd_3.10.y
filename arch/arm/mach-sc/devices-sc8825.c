@@ -1136,11 +1136,6 @@ struct platform_device sprd_seth_td_device = {
 	.dev		= {.platform_data = &sprd_seth_td_pdata},
 };
 
-struct platform_device sprd_peer_state_device = {
-        .name           = "peer_state",
-        .id             = -1,
-};
-
 
 struct sysdump_mem sprd_dump_mem[] = {
 	{
