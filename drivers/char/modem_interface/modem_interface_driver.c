@@ -286,6 +286,30 @@ void modem_intf_send_channel_message(int dir,int para,int index)
 	modem_send_message(msg);
 }
 
+void modem_intf_channel_indicate_message(int dir,int para,int index)
+{
+	struct modem_message_node *msg;
+	
+	printk("%s: modem transfer timeout, mode:%d\r\n", __func__, modem_intf_device->mode);
+	
+	if(modem_intf_device->mode == MODEM_MODE_UNKNOWN)
+		return ;
+	if(modem_intf_device->mode != MODEM_MODE_NORMAL)
+		return;
+	msg = find_msg_node();
+	if (msg == NULL) {
+		lost_msg_count++;
+		return ;
+	}
+
+	msg->src  = SRC_SPI;
+	msg->parameter1 = (int)modem_intf_device;
+	msg->parameter2 = dir;
+	msg->type = MODEM_TRANSFER_TIMEOUT;
+	modem_send_message(msg);
+}
+
+
 void modem_intf_send_GPIO_message(int gpio_no,int status,int index)
 {
 	struct modem_message_node *msg;
