@@ -57,7 +57,7 @@ config SPRD_ION_SIZE
 	depends on ION
 config SPRD_ION_OVERLAY_SIZE
         int "size for ion overlay"
-        range 1 64
+        range 0 64
         default 1
 	depends on ION
 
