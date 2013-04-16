@@ -8,3 +8,8 @@ sprd_scale-objs := sc8825/sin_cos.o sc8825/gen_scale_coef.o sc8825/scale_drv.o s
 obj-y += sprd_scale.o
 endif
 
+ifeq ($(CONFIG_ARCH_SC8830),y)
+sprd_scale-objs := sc8830/sin_cos.o sc8830/gen_scale_coef.o sc8830/scale_drv.o sc8830/img_scale.o
+obj-y += sprd_scale.o
+endif
+

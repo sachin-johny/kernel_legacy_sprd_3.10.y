@@ -1,0 +1,604 @@
+/*
+ * Copyright (C) 2012 Spreadtrum Communications Inc.
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/miscdevice.h>
+#include <linux/platform_device.h>
+#include <linux/proc_fs.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
+#include <asm/uaccess.h>
+#include "img_scale.h"
+#include <linux/kthread.h>
+
+#define PARAM_SIZE 32
+#define SCALE_USER_MAX 4
+#define INVALID_USER_ID PID_MAX_DEFAULT
+
+struct scale_user {
+	pid_t pid;
+	uint32_t scale_total_slice_height;
+	uint32_t scale_dst_height;
+	struct semaphore sem_done;
+};
+
+static struct mutex scale_param_cfg_mutex;
+static struct mutex scale_dev_open_mutex;
+static atomic_t scale_users = ATOMIC_INIT(0);
+static struct proc_dir_entry *img_scale_proc_file;
+static struct scale_frame frm_rtn;
+static struct scale_user *g_scale_user = NULL;
+static pid_t cur_task_pid;
+
+static struct scale_user *scale_get_user(pid_t user_pid)
+{
+	struct scale_user *ret_user = NULL;
+	int i = 0;
+
+	for (i = 0; i < SCALE_USER_MAX; i ++) {
+		if ((g_scale_user + i)->pid == user_pid) {
+			ret_user = g_scale_user + i;
+			break;
+		}
+	}
+
+	if (ret_user == NULL) {
+		for (i = 0; i < SCALE_USER_MAX; i ++) {
+			if ((g_scale_user + i)->pid == INVALID_USER_ID) {
+				ret_user = g_scale_user + i;
+				ret_user->pid = user_pid;
+				break;
+			}
+		}
+	}
+
+	return ret_user;
+}
+
+static void scale_done(struct scale_frame* frame, void* u_data)
+{
+	struct scale_user *p_user = NULL;
+	p_user = scale_get_user(cur_task_pid);
+	printk("sc done.\n");
+	(void)u_data;
+	memcpy(&frm_rtn, frame, sizeof(struct scale_frame));
+	frm_rtn.type = 0;
+	up(&p_user->sem_done);
+	p_user->scale_total_slice_height += frm_rtn.height;
+	if (p_user->scale_total_slice_height >= p_user->scale_dst_height) {
+		p_user->scale_total_slice_height = 0;
+		cur_task_pid = INVALID_USER_ID;
+		mutex_unlock(&scale_param_cfg_mutex);
+	}
+}
+
+static int img_scale_open(struct inode *node, struct file *pf)
+{
+	int ret = 0;
+	struct scale_user *p_user = NULL;
+
+	mutex_lock(&scale_dev_open_mutex);
+
+	SCALE_TRACE("img_scale_open \n");
+
+	p_user = scale_get_user(current->pid);
+	if (NULL == p_user) {
+		printk("img_scale_open user cnt full  pid:%d. \n",current->pid);
+		return -1;
+	}
+	pf->private_data = p_user;
+
+	if (1 == atomic_inc_return(&scale_users)) {
+		ret = scale_module_en();
+		if (unlikely(ret)) {
+			printk("Failed to enable scale module \n");
+			ret = -EIO;
+			goto faile;
+		}
+
+		ret = scale_reg_isr(SCALE_TX_DONE, scale_done, NULL);
+		if (unlikely(ret)) {
+			printk("Failed to register ISR \n");
+			ret = -EACCES;
+			goto reg_faile;
+		} else {
+			goto exit;
+		}
+	} else {
+		goto exit;
+	}
+reg_faile:
+	scale_module_dis();
+faile:
+	atomic_dec(&scale_users);
+	p_user->pid = INVALID_USER_ID;
+	pf->private_data = NULL;
+exit:
+	mutex_unlock(&scale_dev_open_mutex);
+
+	SCALE_TRACE("img_scale_open %d \n", ret);
+
+	return ret;
+
+}
+
+ssize_t img_scale_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
+{
+	(void)file; (void)u_data; (void)cnt_ret;
+	printk("scale write %d, \n", cnt);
+	frm_rtn.type = 0xFF;
+	up(&(((struct scale_user *)(file->private_data))->sem_done));
+	((struct scale_user *)(file->private_data))->scale_total_slice_height = 0;
+	cur_task_pid = INVALID_USER_ID;
+	mutex_unlock(&scale_param_cfg_mutex);
+
+	return 1;
+}
+
+ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_t *cnt_ret)
+{
+	uint32_t rt_word[2];
+
+	if (cnt < sizeof(uint32_t)) {
+		printk("img_scale_read , wrong size of u_data %d \n", cnt);
+		return -1;
+	}
+
+	rt_word[0] = SCALE_LINE_BUF_LENGTH;
+	rt_word[1] = SCALE_SC_COEFF_MAX;
+	SCALE_TRACE("img_scale_read line threshold %d %d, sc factor \n", rt_word[0], rt_word[1]);
+	(void)file; (void)cnt; (void)cnt_ret;
+	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
+}
+
+static int img_scale_release(struct inode *node, struct file *file)
+{
+	((struct scale_user *)(file->private_data))->pid = INVALID_USER_ID;
+
+	if (0 == atomic_dec_return(&scale_users)) {
+		scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
+		scale_module_dis();
+	}
+
+	SCALE_TRACE("img_scale_release \n");
+	return 0;
+}
+
+static long img_scale_ioctl(struct file *file,
+				unsigned int cmd,
+				unsigned long arg)
+{
+	int ret = 0;
+	uint8_t param[PARAM_SIZE];
+	uint32_t param_size;
+	void *data = param;
+
+	param_size = _IOC_SIZE(cmd);
+	printk("img_scale_ioctl, io number 0x%x, param_size %d \n",
+		_IOC_NR(cmd),
+		param_size);
+
+	if (param_size) {
+		if (copy_from_user(data, (void*)arg, param_size)) {
+			printk("img_scale_ioctl, failed to copy_from_user \n");
+			ret = -EFAULT;
+			goto exit;
+		}
+	}
+
+	if (SCALE_IO_IS_DONE == cmd) {
+		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
+		if (ret) {
+			printk("img_scale_ioctl, failed to down, 0x%x \n", ret);
+			ret = -ERESTARTSYS;
+			goto exit;
+		} else {
+			if (frm_rtn.type) {
+				SCALE_TRACE("abnormal scale done \n");
+				ret = -1;
+				goto exit;
+			}
+			if (copy_to_user((void*)arg, &frm_rtn, sizeof(struct scale_frame))) {
+				printk("img_scale_ioctl, failed to copy_to_user \n");
+				ret = -EFAULT;
+				goto exit;
+			}
+		}
+	} else {
+		if (cur_task_pid == INVALID_USER_ID) {
+			mutex_lock(&scale_param_cfg_mutex);
+			cur_task_pid = ((struct scale_user *)(file->private_data))->pid;
+		}else if (cur_task_pid != ((struct scale_user *)(file->private_data))->pid) {
+			mutex_lock(&scale_param_cfg_mutex);
+		}
+
+		if (SCALE_IO_OUTPUT_SIZE == cmd)
+			((struct scale_user *)(file->private_data))->scale_dst_height = ((struct scale_size*)data)->h;
+
+		ret = scale_cfg(_IOC_NR(cmd), data);
+	}
+
+exit:
+	if (ret) {
+		SCALE_TRACE("img_scale_ioctl, error code 0x%x \n", ret);
+	}
+	return ret;
+
+}
+
+static struct file_operations img_scale_fops = {
+	.owner = THIS_MODULE,
+	.open = img_scale_open,
+	.write = img_scale_write,
+	.read = img_scale_read,
+	.unlocked_ioctl = img_scale_ioctl,
+	.release = img_scale_release
+};
+
+static struct miscdevice img_scale_dev = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "sprd_scale",
+	.fops = &img_scale_fops
+};
+
+static int img_scale_proc_read(char *page,
+			char **start,
+			off_t off,
+			int count,
+			int *eof,
+			void *data)
+{
+	int len = 0, ret;
+	uint32_t *reg_buf;
+	uint32_t reg_buf_len = 0x800;
+	uint32_t print_len = 0, print_cnt = 0;
+	
+	(void)start; (void)off; (void)count; (void)eof;
+	
+	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
+	ret = scale_read_registers(reg_buf, &reg_buf_len);
+	if (ret)
+		return len;
+	
+	len += sprintf(page + len, "********************************************* \n");
+	len += sprintf(page + len, "scale registers \n");
+	print_cnt = 0;
+	while (print_len < reg_buf_len) {
+		len += sprintf(page + len, "offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
+			print_len,
+			reg_buf[print_cnt], 
+			reg_buf[print_cnt+1],
+			reg_buf[print_cnt+2],
+			reg_buf[print_cnt+3]);
+		print_cnt += 4;
+		print_len += 16;
+	}
+	len += sprintf(page + len, "********************************************* \n");
+	len += sprintf(page + len, "The end of DCAM device \n");
+	msleep(10);
+	kfree(reg_buf);
+	
+	return len;
+}
+
+#if 0
+struct task_struct *s_scale_task_test = NULL;
+uint32_t scale_done_test = 0;
+struct scale_rect scale_src_size_test = {0,0,240,320};
+struct scale_rect scale_dst_size_test = {0,0,480,640};
+struct scale_addr scale_src_addr_test = {0x8C800000,0x8CC00000,0x8D000000};
+struct scale_addr scale_dst_addr_test = {0x8D400000,0x8D800000,0x8DC00000};
+enum scale_fmt scale_src_format_test = SCALE_YUV422;
+enum scale_fmt scale_dst_format_test = SCALE_YUV422;
+enum scle_mode scale_mode_test = SCALE_MODE_NORMAL;
+struct scale_frame scale_frame_test = {0};
+uint32_t scale_slice_out_height_total = 0;
+
+void scale_done_set_test(struct scale_frame* frame, void* u_data)
+{
+	scale_done_test =1;
+
+	scale_frame_test.width = frame->width;
+
+	scale_frame_test.height = frame->height;
+}
+
+void scale_done_clr_test(void)
+{
+	scale_done_test = 0;
+}
+
+void scale_done_wait_test(void)
+{
+	while(!scale_done_test){
+		printk("scale: wait for  done. \n");
+	}
+
+	printk("scale  done. \n");
+
+	scale_slice_out_height_total += scale_frame_test.height;
+}
+
+int img_scale_open_test(void)
+{
+	int ret = 0;
+	struct scale_user *p_user = NULL;
+
+	mutex_lock(&scale_dev_open_mutex);
+
+	SCALE_TRACE("img_scale_open \n");
+
+	p_user = scale_get_user(current->pid);
+	if (NULL == p_user) {
+		printk("img_scale_open user cnt full  pid:%d. \n",current->pid);
+		return -1;
+	}
+
+	if (1 == atomic_inc_return(&scale_users)) {
+		ret = scale_module_en();
+		if (unlikely(ret)) {
+			printk("Failed to enable scale module \n");
+			ret = -EIO;
+			goto faile;
+		}
+
+		ret = scale_reg_isr(SCALE_TX_DONE, scale_done_set_test, NULL);
+		if (unlikely(ret)) {
+			printk("Failed to register ISR \n");
+			ret = -EACCES;
+			goto reg_faile;
+		} else {
+			goto exit;
+		}
+	}
+	else{
+		goto exit;
+	}
+reg_faile:
+	scale_module_dis();
+faile:
+	atomic_dec(&scale_users);
+	p_user->pid = INVALID_USER_ID;
+exit:
+	mutex_unlock(&scale_dev_open_mutex);
+
+	SCALE_TRACE("img_scale_open %d \n", ret);
+
+	return ret;
+
+}
+
+int img_scale_release_test(void)
+{
+	if (0 == atomic_dec_return(&scale_users)) {
+		scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
+		scale_module_dis();
+	}
+
+	return 0;
+}
+
+long img_scale_ioctl_test(void)
+{
+	struct scale_size input_size;
+	struct scale_rect input_rect;
+	enum scale_fmt input_format;
+	struct scale_addr input_addr;
+	struct scale_endian_sel input_endian;
+	struct scale_size output_size;
+	enum scale_fmt output_format;
+	struct scale_addr output_addr;
+	struct scale_endian_sel output_endian;
+	enum scle_mode mode;
+	uint32_t slice_height;
+
+	/*set input size*/
+	input_size.w = scale_src_size_test.w;
+	input_size.h = scale_src_size_test.h;
+	scale_cfg(SCALE_INPUT_SIZE, &input_size);
+
+	/*set input rect*/
+	input_rect.x = scale_src_size_test.x;
+	input_rect.y = scale_src_size_test.y;
+	input_rect.w = scale_src_size_test.w;
+	input_rect.h = scale_src_size_test.h;
+	scale_cfg(SCALE_INPUT_RECT, &input_rect);
+
+	//set input format*/
+	input_format = scale_src_format_test;
+	scale_cfg(SCALE_INPUT_FORMAT, &input_format);
+
+	//set input addr*/
+	input_addr.yaddr = scale_src_addr_test.yaddr;
+	input_addr.uaddr = scale_src_addr_test.uaddr;
+	input_addr.vaddr = scale_src_addr_test.vaddr;
+	scale_cfg(SCALE_INPUT_ADDR, &input_addr);
+
+	/*set input endian*/
+	input_endian.y_endian = 1;
+	input_endian.uv_endian = 1;
+	scale_cfg(SCALE_INPUT_ENDIAN, &input_endian);
+
+	//set output size*/
+	output_size.w = scale_dst_size_test.w;
+	output_size.h = scale_dst_size_test.h;
+	scale_cfg(SCALE_OUTPUT_SIZE, &output_size);
+
+	//set output format*/
+	output_format = scale_dst_format_test;
+	scale_cfg(SCALE_OUTPUT_FORMAT, &output_format);
+
+	/*set output addr*/
+	output_addr.yaddr = scale_dst_addr_test.yaddr;
+	output_addr.uaddr = scale_dst_addr_test.uaddr;
+	output_addr.vaddr = scale_dst_addr_test.vaddr;
+	scale_cfg(SCALE_OUTPUT_ADDR, &output_addr);
+
+	//set output endian*/
+	output_endian.y_endian = 1;
+	output_endian.uv_endian = 1;
+	scale_cfg(SCALE_OUTPUT_ENDIAN, &output_endian);
+
+	//set mode*/
+	mode = scale_mode_test;
+	scale_cfg(SCALE_SCALE_MODE, &mode);
+
+	//set slice height*/
+	slice_height = 128;
+	scale_cfg(SCALE_SLICE_SCALE_HEIGHT, &slice_height);
+
+	return 0;
+}
+
+void img_scale_start_test(void)
+{
+	scale_cfg(SCALE_START, NULL);
+}
+
+void img_scale_next_test(void)
+{
+	while(scale_slice_out_height_total < scale_dst_size_test.h) {
+
+		scale_cfg(SCALE_CONTINUE, NULL);
+
+		scale_done_wait_test();
+
+	}
+	scale_slice_out_height_total = 0;
+}
+
+int img_scale_thread_test(void *data_ptr)
+{
+	while(1) {
+	img_scale_open_test();
+
+	img_scale_ioctl_test();
+
+	scale_done_clr_test();
+
+	img_scale_start_test();
+
+	scale_done_wait_test();
+
+	img_scale_next_test();
+
+	img_scale_release_test();
+	}
+
+	return 0;
+}
+#endif
+
+int img_scale_probe(struct platform_device *pdev)
+{
+	int ret = 0;
+	int i = 0;
+	struct scale_user *p_user = NULL;
+
+	SCALE_TRACE("scale_probe called \n");
+
+	ret = misc_register(&img_scale_dev);
+	if (ret) {
+		SCALE_TRACE("cannot register miscdev (%d)\n", ret);
+		goto exit;
+	}
+
+	img_scale_proc_file = create_proc_read_entry("driver/scale",
+						0444,
+						NULL,
+						img_scale_proc_read,
+						NULL);
+	if (unlikely(NULL == img_scale_proc_file)) {
+		printk("Can't create an entry for scale in /proc \n");
+		ret = ENOMEM;
+		goto exit;
+	}
+
+	/* initialize locks */
+	mutex_init(&scale_param_cfg_mutex);
+	mutex_init(&scale_dev_open_mutex);
+
+	g_scale_user = kzalloc(SCALE_USER_MAX * sizeof(struct scale_user), GFP_KERNEL);
+	if (NULL == g_scale_user) {
+		printk("scale_user, no mem");
+		return -1;
+	}
+	p_user = g_scale_user;
+	for (i = 0; i < SCALE_USER_MAX; i++) {
+		p_user->pid = INVALID_USER_ID;
+		p_user->scale_total_slice_height = 0;
+		p_user->scale_dst_height = 0;
+		sema_init(&p_user->sem_done, 0);
+		p_user++;
+	}
+	cur_task_pid = INVALID_USER_ID;
+
+#if 0
+	s_scale_task_test = kthread_create(img_scale_thread_test, NULL, "scale thread test");
+	if (s_scale_task_test == 0) {
+		printk("scale: create thread test error \n");
+		return -1;
+	} else {
+		wake_up_process(s_scale_task_test);
+	}
+#endif
+exit:
+	return ret;
+}
+
+static int img_scale_remove(struct platform_device *dev)
+{
+	SCALE_TRACE( "scale_remove called !\n");
+
+	if (g_scale_user) {
+		kfree(g_scale_user);
+	}
+	
+	if (img_scale_proc_file) {
+		remove_proc_entry("driver/scale", NULL);
+	}
+
+	misc_deregister(&img_scale_dev);
+	return 0;
+}
+
+static struct platform_driver img_scale_driver =
+{
+	.probe = img_scale_probe,
+	.remove = img_scale_remove,
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = "sprd_scale"
+	}
+};
+
+int __init img_scale_init(void)
+{
+	if (platform_driver_register(&img_scale_driver) != 0) {
+		printk("platform device register Failed \n");
+		return -1;
+	}
+	return 0;
+}
+
+void img_scale_exit(void)
+{
+	platform_driver_unregister(&img_scale_driver);
+}
+
+module_init(img_scale_init);
+module_exit(img_scale_exit);
+
+MODULE_DESCRIPTION("Image Scale Driver");
+MODULE_LICENSE("GPL");
+
