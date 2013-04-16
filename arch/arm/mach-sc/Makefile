@@ -3,8 +3,8 @@ obj-y += irq.o timer.o arch_init.o globalregs.o arch_lock.o \
          watchdog.o common.o glb.o clock.o
 
 obj-$(CONFIG_ARCH_SC8825) += dcdc_cal.o
-obj-$(CONFIG_ARCH_SC8825) += devices-sc8825.o io-sc8825.o
-obj-$(CONFIG_ARCH_SC8830) += devices-sc8830.o io-sc8830.o
+obj-$(CONFIG_ARCH_SC8825) += devices-sc8825.o io-sc8825.o  arch_misc.o
+obj-$(CONFIG_ARCH_SC8830) += devices-sc8830.o io-sc8830.o  arch_misc.o
 
 obj-$(CONFIG_PM) += pm.o pm_debug.o standby.o emc_repower.o
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
