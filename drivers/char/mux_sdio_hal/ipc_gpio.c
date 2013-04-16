@@ -161,8 +161,15 @@ u32 sdhci_connect(u32   direction)
 
 	if(!wait_event_timeout(s_gpio_cp_ready_wq, cp2ap_rdy(), MAX_MIPC_WAIT_TIMEOUT/HZ))
 	{
-		printk("[MIPC] SDIO %s Connect Timeout!\r\n", direction ? "Read" : "Write" );
-		return	SDHCI_TIMEOUT;
+		//When the system performance is bad, the current proccess maybe  delay to schedule for a long time after the wake up event had happend 
+		// then the function of wait_event_timeout will return 0, so, should double check the cp to ap ready gpio pin status
+		if(!cp2ap_rdy())
+		{
+			printk("[MIPC] SDIO %s Connect Timeout!\r\n", direction ? "Read" : "Write" );
+			return	SDHCI_TIMEOUT;
+		}
+
+		printk("[MIPC] SDIO %s Connect successful: Process delay to schedule for a long time!\r\n", direction ? "Read" : "Write" );
 	}
 	return  SDHCI_SUCCESS;
 }
@@ -185,8 +192,14 @@ u32 sdhci_disconnect(u32  status)
 
 	if(!wait_event_timeout(s_gpio_cp_ready_wq, !cp2ap_rdy(), MAX_MIPC_WAIT_TIMEOUT/HZ))
 	{
-		printk("[MIPC] SDIO Disconnect Timeout!\r\n");
-		return	SDHCI_TIMEOUT;
+		//When the system performance is bad, the current proccess maybe  delay to schedule for a long time after the wake up event had happend 
+		// then the function of wait_event_timeout will return 0, so, should double check the cp to ap ready gpio pin status
+		if(cp2ap_rdy())
+		{
+			printk("[MIPC] SDIO Disconnect Timeout!\r\n");
+			return	SDHCI_TIMEOUT;
+		}
+		printk("[MIPC] SDIO Disconnect successful: Process delay to schedule for a long time!\r\n");
 	}
 #else
 	 ap2cp_rts_disable();/* end */
