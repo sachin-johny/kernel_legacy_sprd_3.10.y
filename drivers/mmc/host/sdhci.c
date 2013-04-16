@@ -1550,15 +1550,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 #endif
 		unsigned int clock;
 
-		/* In case of UHS-I modes, set High Speed Enable */
-		if (ios->timing == MMC_TIMING_UHS_SDR50)
-			//|| (ios->timing == MMC_TIMING_UHS_SDR104) 
-			//|| (ios->timing == MMC_TIMING_UHS_DDR50) 
-			//||(ios->timing == MMC_TIMING_UHS_SDR25) 
-			//||(ios->timing == MMC_TIMING_UHS_SDR12))
-			ctrl |= SDHCI_CTRL_HISPD;
-		else	/* DDR50 & HS200 this bit set 0 */
-			ctrl &= ~SDHCI_CTRL_HISPD;
+		/* In case of UHS-I modes, don't set High Speed bit Enable */
+		ctrl &= ~SDHCI_CTRL_HISPD;
 		sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 		
 		ctrl_2 = sdhci_readw(host, SDHCI_HOST_CONTROL2);
@@ -1615,12 +1608,8 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR12 << 16);
 			else if (ios->timing == MMC_TIMING_UHS_SDR25)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR25 << 16);
-			else if (ios->timing == MMC_TIMING_UHS_SDR50) {
+			else if (ios->timing == MMC_TIMING_UHS_SDR50)
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR50 << 16);
-				sdhci_writel(host, host_data->sdr50_write_delay, SDHCI_WR_DL);
-				sdhci_writel(host, host_data->sdr50_read_pos_delay, SDHCI_RD_POS_DL);
-				sdhci_writel(host, host_data->sdr50_read_pos_delay, SDHCI_RD_NEG_DL);
-			}
 			else if ((ios->timing == MMC_TIMING_UHS_SDR104) 
 				|| (ios->timing == MMC_TIMING_MMC_HS200)) {
 				ctrl_2 |= (SDHCI_CTRL_UHS_SDR104 << 16);
