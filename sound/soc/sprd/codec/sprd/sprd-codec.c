@@ -447,6 +447,11 @@ static int vcmadcr_set(struct snd_soc_codec *codec)
 				   (! !need_on) << VCM_ADCR);
 }
 
+static int sprd_codec_is_ai_enable(struct snd_soc_codec *codec)
+{
+	return !!(snd_soc_read(codec, AAICR3) & (BIT(AIL_ADCR) | BIT(AIL_ADCL) | BIT(AIR_ADCR) | BIT(AIR_ADCL)));
+}
+
 static int ailadcl_set(struct snd_soc_codec *codec, int on)
 {
 	int ret;
@@ -1699,9 +1704,11 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 				   adc_switch_event function for
 				   both ADCL/ADCR switch complete.
 				 */
-				sprd_codec_wait(250);
+				if (sprd_codec_is_ai_enable(codec)) {
+					sprd_codec_wait(250);
+					sprd_codec_dbg("ADC Switch ON delay\n");
+				}
 				s_need_wait++;
-				sprd_codec_dbg("ADC Switch ON delay\n");
 			}
 		}
 		pga->set = sprd_codec_pga_cfg[id].set;
