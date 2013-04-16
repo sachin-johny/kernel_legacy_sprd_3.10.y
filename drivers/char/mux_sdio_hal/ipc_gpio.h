@@ -42,6 +42,6 @@ void ap2cp_rdy_enable(void);
 void ap2cp_rdy_disable(void);
 u32  sdhci_connect(u32 direction);
 u32  sdhci_disconnect(u32  status);
-u32  sdhci_resetconnect(void);
+u32  sdhci_resetconnect(u32 status);
 
 #endif /* __SDHCI_H */

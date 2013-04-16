@@ -18,6 +18,7 @@ enum MSG_SRC_type {
 
 enum MODEM_MSG_type {
         MODEM_TRANSFER_REQ, // high layer(mux /download driver) request to send.
+        MODEM_TRANSFER_TIMEOUT, //transfer timeout
 	MODEM_TRANSFER_END,// transfer complete
         MODEM_SLAVE_RTS,   // MODEM request to send data
         MODEM_SLAVE_RDY,   // indicate MODEM is ready to receive. 

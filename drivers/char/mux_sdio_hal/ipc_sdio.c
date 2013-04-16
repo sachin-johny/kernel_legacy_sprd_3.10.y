@@ -115,6 +115,7 @@ static u32  s_mux_ipc_enable = 0;
 static wait_queue_head_t s_mux_ipc_tx_wq;
 static wait_queue_head_t s_mux_ipc_rx_wq;
 
+static u32  s_mux_ipc_module_inited = 0;
 
 static DEFINE_MUTEX(sdio_tx_lock);
 static ssize_t mux_ipc_xmit_buf(const char *buf, ssize_t len);
@@ -127,11 +128,17 @@ static u32 _FreeAllTxTransferFrame(void);
 #define MUX_IPC_ENABLE    1
 void  mux_ipc_enable(u8  is_enable)
 {
+	if(!s_mux_ipc_module_inited)
+	{
+		printk("Error: mux ipc module is not initialized!\r\n");
+		return;
+	}
+	
 	if(is_enable)
 	{
 		kfifo_reset(&s_mipc_rx_cache_kfifo);
 		_FreeAllTxTransferFrame();
-		sdhci_resetconnect();
+		sdhci_resetconnect(MUX_IPC_DISABLE);
 		s_mux_ipc_event_flags = 0;
 		s_mux_ipc_enable = MUX_IPC_ENABLE;
 	}
@@ -491,7 +498,7 @@ static size_t sdio_write_modem_data(const u8 * buf, u32 len)
 	if(SDHCI_TRANSFER_TIMEOUT == result)
 	{
 		ret = 0;
-		sdhci_resetconnect();
+		sdhci_resetconnect(MUX_IPC_ENABLE);
 	}
 	ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_IDLE);
 	mutex_unlock(&ipc_mutex); /* release lock */
@@ -586,7 +593,7 @@ u32  process_modem_packet(unsigned long data)
 
 	if(SDHCI_TRANSFER_TIMEOUT == result)
 	{
-		sdhci_resetconnect();
+		sdhci_resetconnect(MUX_IPC_ENABLE);
 	}
 
 	ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_IDLE);
@@ -629,7 +636,7 @@ static int mux_ipc_tx_thread(void *data)
     MIPC_TRANSF_FRAME_T*  frame_ptr = NULL;
 	struct sched_param	 param = {.sched_priority = 30};
 
-	IPC_DBG(KERN_INFO "mux_ipc_tx_thread");
+	printk(KERN_INFO "mux_ipc_tx_thread");
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
 	sdhci_hal_gpio_init();
@@ -725,12 +732,12 @@ static ssize_t mux_ipc_xmit_buf(const char *buf, ssize_t len)
 
 static int mux_ipc_create_tx_thread(void)
 {
-	IPC_DBG("mux_ipc_create_tx_thread enter.\n");
+	printk("mux_ipc_create_tx_thread enter.\n");
 	init_waitqueue_head(&s_mux_ipc_tx_wq);
 	s_mux_ipc_tx_thread = kthread_create(mux_ipc_tx_thread, NULL, "mipc_tx_thread");
 
 	if (IS_ERR(s_mux_ipc_tx_thread)) {
-		IPC_DBG("mux_ipc_tx_thread error!.\n");
+		printk("mux_ipc_tx_thread error!.\n");
 		return -1;
 	}
 
@@ -761,14 +768,14 @@ u32 s_mipc_rx_event_flags = 0;
 static int mux_ipc_rx_thread(void *data)
 {
 	struct sched_param	 param = {.sched_priority = 20};
-	IPC_DBG(KERN_INFO "mux_ipc_rx_thread enter\r\n");
+	printk(KERN_INFO "mux_ipc_rx_thread enter\r\n");
 	sched_setscheduler(current, SCHED_FIFO, &param);
 
 	s_mipc_rx_event_flags = 0;
 	wait_modem_normal();
 	msleep(500);
 
-	IPC_DBG(KERN_INFO "mux_ipc_rx_thread start----\r\n");
+	printk(KERN_INFO "mux_ipc_rx_thread start----\r\n");
 	while (!kthread_should_stop())
 	{
 		wait_event(s_mux_ipc_rx_wq,  s_mipc_rx_event_flags);
@@ -781,12 +788,12 @@ static int mux_ipc_rx_thread(void *data)
 
 static int mux_ipc_create_rx_thread()
 {
-	IPC_DBG("mux_ipc_rx_create_thread enter.\n");
+	printk("mux_ipc_rx_create_thread enter.\n");
 	init_waitqueue_head(&s_mux_ipc_rx_wq);
 	s_mux_ipc_rx_thread = kthread_create(mux_ipc_rx_thread, NULL, "mipc_rx_thread");
 
 	if (IS_ERR(s_mux_ipc_rx_thread)) {
-		IPC_DBG("ipc_spi.c:mux_ipc_rx_thread error!.\n");
+		printk("ipc_spi.c:mux_ipc_rx_thread error!.\n");
 		return -1;
 	}
 
@@ -800,12 +807,10 @@ static int modem_sdio_probe(struct platform_device *pdev)
 {
 	int retval = 0;
 
-	IPC_DBG("modem_spi_probe\n");
+	printk("modem_spi_probe\n");
 	mutex_init(&ipc_mutex);
 	mux_ipc_create_tx_thread();
-    mux_ipc_create_rx_thread();
-
-	IPC_DBG("modem_sdio_probe retval=%d\n", retval);
+        mux_ipc_create_rx_thread();
 	return retval;
 }
 
@@ -834,21 +839,18 @@ static int __init mux_ipc_sdio_init(void)
 {
 
 	int retval;
-	IPC_DBG("\n");
-	IPC_DBG("mux_ipc_sdio_init\n");
-	IPC_DBG("mux_ipc_sdio_init platform_driver_register1\n");
-
+	printk("mux_ipc_sdio_init\n");
 	_transfer_frame_init();
 	init_waitqueue_head(&s_mux_read_rts);
         sprdmux_register(&sprd_iomux);
 	retval = platform_driver_register(&modem_sdio_driver);
 	if (retval) {
-		IPC_DBG(KERN_ERR "[sdio]: register modem_sdio_driver error\n");
+		printk(KERN_ERR "[sdio]: register modem_sdio_driver error:%d\r\n", retval);
 	}
 
-	IPC_DBG("ret=%d\n", retval);
-	return retval;
+	s_mux_ipc_module_inited = 1;
 
+	return retval;
 }
 
 static void __exit mux_ipc_sdio_exit(void)
