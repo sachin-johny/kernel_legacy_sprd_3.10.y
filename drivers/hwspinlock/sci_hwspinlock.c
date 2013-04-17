@@ -28,17 +28,12 @@
 #include <linux/hwspinlock.h>
 #include <linux/platform_device.h>
 
-#include <mach/sci.h>
-#include <mach/hardware.h>
-#include <mach/regs_ahb.h>
-#include <mach/arch_lock.h>
-
-#include <mach/regs_sc8830_ap_ahb.h>
-#include <mach/regs_sc8830_aon_apb.h>
-
 #include "hwspinlock_internal.h"
 
-#define HWSPINLOCK_MAX_NUM	(32)
+#include <mach/sci.h>
+#include <mach/hardware.h>
+#include <mach/arch_lock.h>
+
 
 #define HWSPINLOCK_ENABLE_CLEAR		(0x454e434c)
 
@@ -53,6 +48,7 @@
 #define THIS_PROCESSOR_KEY	(HWSPINLOCK_WRITE_KEY)	/*first processor */
 static void __iomem *hwspinlock_base;
 static int hwspinlock_vid = 0;
+static int hwspinlock_exist_cnt = 0;
 
 #define SPINLOCKS_BUSY()	(readl(hwspinlock_base + HWSPINLOCK_TTLSTS))
 #define SPINLOCKS_DETAIL_STATUS(_X_)	(_X_ = readl(hwspinlock_base + HWSPINLOCK_DTLSTL))
@@ -152,7 +148,7 @@ static void hwspinlock_clear_all(void)
 	SPINLOCKS_ENABLE_CLEAR();
 	do {
 		writel(1 << lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
-	} while (lockid++ < HWSPINLOCK_MAX_NUM);
+	} while (lockid++ < HWSPINLOCK_ID_TOTAL_NUMS);
 	SPINLOCKS_DISABLE_CLEAR();
 }
 
@@ -162,20 +158,15 @@ static int __devinit sci_hwspinlock_probe(struct platform_device *pdev)
 	struct hwspinlock *hwlock;
 	struct resource *res;
 	int i, ret, num_locks;
-#if defined(CONFIG_ARCH_SC8830)
-	sci_glb_set(REG_AP_AHB_AHB_EB, BIT_SPINLOCK_EB);
-	
-	sci_glb_set(REG_AON_APB_APB_EB0, BIT_SPLK_EB);
-#else
-	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
-#endif
 
-//	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
+	__hwspinlock_init();
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!res || (!res->start))
 		return -ENODEV;
 
-	num_locks = HWSPINLOCK_MAX_NUM;
+	/*each group have 32 locks*/
+	num_locks = 32;
 	hwspinlock_base = (void __iomem *)res->start;
 	hwspinlock_vid = __raw_readl(hwspinlock_base + 0xffc);
 
@@ -204,13 +195,15 @@ static int __devinit sci_hwspinlock_probe(struct platform_device *pdev)
 	pm_runtime_enable(&pdev->dev);
 
 	ret = hwspin_lock_register(bank, &pdev->dev, &sci_hwspinlock_ops,
-				   0, num_locks);
+				   hwspinlock_exist_cnt, num_locks);
 
 	if (ret)
 		goto reg_fail;
 
-	printk("sci_hwspinlock_probe ok, hwspinlock_vid = 0x%x\n",
-	       hwspinlock_vid);
+	hwspinlock_exist_cnt += num_locks;
+
+	printk("sci_hwspinlock_probe ok: hwspinlock_vid = 0x%x, add num_locks = %d\n",
+	       hwspinlock_vid,num_locks);
 	return 0;
 
 reg_fail:

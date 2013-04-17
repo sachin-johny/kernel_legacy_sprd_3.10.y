@@ -31,23 +31,24 @@
 * they're using the same hardware lock.
 */
 struct hwspinlock *hwlocks[HWSPINLOCK_ID_TOTAL_NUMS] __read_mostly;
+unsigned char hwlocks_implemented[HWSPINLOCK_ID_TOTAL_NUMS] __read_mostly;
 
 static int __init early_init_hwlocks(void)
 {
 	int i;
 	struct hwspinlock **plock;
-	unsigned long value = arch_hwlocks_implemented();
+	arch_hwlocks_implemented();
 
-	while (value) {
-		i = __ffs(value);
-		plock = &hwlocks[i];
-		*plock = hwspin_lock_request_specific(i);
-		if (WARN_ON(IS_ERR_OR_NULL(*plock)))
-			*plock = NULL;
-		else
-			pr_info("early alloc hwspinlock id %d\n",
-				hwspin_lock_get_id(*plock));
-		value &= ~(1 << i);
+	for (i = 0; i < HWSPINLOCK_ID_TOTAL_NUMS; ++i) {
+		if (hwlocks_implemented[i]) {
+			plock = &hwlocks[i];
+			*plock = hwspin_lock_request_specific(i);
+			if (WARN_ON(IS_ERR_OR_NULL(*plock)))
+				*plock = NULL;
+			else
+				pr_info("early alloc hwspinlock id %d\n",
+					hwspin_lock_get_id(*plock));
+		}
 	}
 	return 0;
 }
@@ -60,7 +61,11 @@ static int __init hwspinlocks_init(void)
 	ret = platform_device_register(&sprd_hwspinlock_device0);
 	if (WARN(ret != 0, "register hwspinlock device error!!"))
 		platform_device_unregister(&sprd_hwspinlock_device0);
-
+#if	defined (CONFIG_ARCH_SC8830)
+	ret = platform_device_register(&sprd_hwspinlock_device1);
+	if (WARN(ret != 0, "register hwspinlock device error!!"))
+		platform_device_unregister(&sprd_hwspinlock_device1);
+#endif
 	return 0;
 }
 

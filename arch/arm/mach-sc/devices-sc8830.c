@@ -165,19 +165,34 @@ struct platform_device sprd_nand_device = {
 	.resource	= sprd_nand_resources,
 };
 
-static struct resource sprd_hwspinlock_resources[] = {
+static struct resource sprd_hwspinlock_resources0[] = {
 	[0] = {
-		.start	= SPRD_HWLOCK_BASE,
-		.end = SPRD_HWLOCK_BASE + SPRD_HWLOCK_SIZE - 1,
+		.start	= SPRD_HWLOCK1_BASE,
+		.end = SPRD_HWLOCK1_BASE + SPRD_HWLOCK1_SIZE- 1,
+		.flags	= IORESOURCE_MEM,
+	},
+};
+
+static struct resource sprd_hwspinlock_resources1[] = {
+	[0] = {
+		.start	= SPRD_HWLOCK0_BASE,
+		.end = SPRD_HWLOCK0_BASE + SPRD_HWLOCK0_SIZE- 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
 
 struct platform_device sprd_hwspinlock_device0 = {
 	.name		= "sci_hwspinlock",
-	.id		= -1,
-	.num_resources	= ARRAY_SIZE(sprd_hwspinlock_resources),
-	.resource	= sprd_hwspinlock_resources,
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(sprd_hwspinlock_resources0),
+	.resource	= sprd_hwspinlock_resources0,
+};
+
+struct platform_device sprd_hwspinlock_device1 = {
+	.name		= "sci_hwspinlock",
+	.id		= 1,
+	.num_resources	= ARRAY_SIZE(sprd_hwspinlock_resources1),
+	.resource	= sprd_hwspinlock_resources1,
 };
 
 static struct resource sprd_lcd_resources[] = {

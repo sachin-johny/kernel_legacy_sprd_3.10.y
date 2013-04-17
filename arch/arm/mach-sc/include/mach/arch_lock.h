@@ -21,34 +21,64 @@
 #include <mach/regs_ahb.h>
 #include <mach/sci.h>
 
-#define SHIFT_ID(_X_) (1<<(_X_))
+
+extern struct hwspinlock *hwlocks[];
+extern unsigned char hwlocks_implemented[];
 
 #define	arch_get_hwlock(_ID_)	(hwlocks[_ID_])
-extern struct hwspinlock *hwlocks[];
+#define FILL_HWLOCKS(_X_)	do {hwlocks_implemented[(_X_)] = 1;} while(0)
+
+#if	defined (CONFIG_ARCH_SC8825)
+#define HWLOCK_ADDR(_X_)	(SPRD_HWLOCK_BASE + (0x80 + 0x4*(_X_)))
+static __inline __init int __hwspinlock_init(void)
+{
+	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
+	return 0;
+}
+
+#else
+
+#include <mach/regs_sc8830_ap_ahb.h>
+#include <mach/regs_sc8830_aon_apb.h>
+
+static __inline unsigned long HWLOCK_ADDR(unsigned int id)
+{
+	BUG_ON(id > 63);
+	if (id < 31)
+		return SPRD_HWLOCK1_BASE + (0x800 + 0x4*(id));
+	else
+		return SPRD_HWLOCK0_BASE + (0x800 + 0x4*(id));
+}
+
+static __inline __init int __hwspinlock_init(void)
+{
+	sci_glb_set(REG_AP_AHB_AHB_EB, BIT_SPINLOCK_EB);
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_SPLK_EB);
+	return 0;
+}
+#endif
 
 //Configs lock id
 #define HWSPINLOCK_WRITE_KEY	(0x1)	/*processor specific write lock id */
-#if	defined (CONFIG_ARCH_SC8825)
-#define HWLOCK_ADDR(_X_)	(SPRD_HWLOCK_BASE + (0x80 + 0x4*(_X_)))
-#else
-#define HWLOCK_ADDR(_X_)	(SPRD_HWLOCK_BASE + (0x800 + 0x4*(_X_)))
-#endif
+
 #define HWSPINLOCK_NOTTAKEN_V0		(0x524c534c)	/*free: RLSL */
 #define HWSPINLOCK_NOTTAKEN_V1		(0x55aa10c5)	/*free: RLSL */
 
-#define HWSPINLOCK_ID_TOTAL_NUMS	(32)
+#define HWSPINLOCK_ID_TOTAL_NUMS	(64)
 #define HWLOCK_ADI	(0)
 #define HWLOCK_GLB	(1)
 #define HWLOCK_AGPIO	(2)
 #define HWLOCK_AEIC	(3)
 #define HWLOCK_ADC	(4)
-#define HWLOCK_CACHE	(5)
 
-static inline int arch_hwlocks_implemented(void)
+static inline void arch_hwlocks_implemented(void)
 {
-	return (SHIFT_ID(HWLOCK_ADI) | SHIFT_ID(HWLOCK_GLB) |
-		SHIFT_ID(HWLOCK_AGPIO) | SHIFT_ID(HWLOCK_AEIC) |
-		SHIFT_ID(HWLOCK_ADC) | SHIFT_ID(HWLOCK_CACHE));
+	FILL_HWLOCKS(HWLOCK_ADI);
+	FILL_HWLOCKS(HWLOCK_GLB);
+	FILL_HWLOCKS(HWLOCK_AGPIO);
+	FILL_HWLOCKS(HWLOCK_AEIC);
+	FILL_HWLOCKS(HWLOCK_AGPIO);
+	FILL_HWLOCKS(HWLOCK_ADC);
 }
 
 #if	defined (CONFIG_ARCH_SC8825)
@@ -63,7 +93,6 @@ static inline int arch_hwlock_fast_trylock(unsigned int lock_id)
 			return 1;
 		}
 	}
-
 	return 0;
 }
 

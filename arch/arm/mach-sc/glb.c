@@ -61,10 +61,16 @@ int sci_glb_write(u32 reg, u32 val, u32 msk)
 
 static int __is_glb(u32 reg)
 {
+#if	defined (CONFIG_ARCH_SC8830)
 	return rounddown(reg, SZ_64K) == rounddown(REGS_GLB_BASE, SZ_64K) ||
 	    rounddown(reg, SZ_64K) == rounddown(REGS_AHB_BASE, SZ_64K) ||
 	    rounddown(reg, SZ_64K) == rounddown(REGS_AP_APB_BASE, SZ_64K) ||
 	    rounddown(reg, SZ_64K) == rounddown(REGS_PMU_APB_BASE, SZ_64K);
+
+#else
+	return rounddown(reg, SZ_64K) == rounddown(REGS_GLB_BASE, SZ_64K) ||
+	    rounddown(reg, SZ_64K) == rounddown(REGS_AHB_BASE, SZ_64K);
+#endif
 }
 
 int sci_glb_set(u32 reg, u32 bit)
