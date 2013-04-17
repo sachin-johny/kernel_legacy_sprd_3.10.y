@@ -1632,9 +1632,9 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			else if (ios->timing == MMC_TIMING_UHS_DDR50){
 				ctrl_2 |= (SDHCI_CTRL_UHS_DDR50 << 16);
 				/* set write/read delay value . 0x0080, 0x0084, 0x0088*/
-				sdhci_writel(host, 0x20 , 0x0080);
-				sdhci_writel(host, 0x1B , 0x0084);
-				sdhci_writel(host, 0x13 , 0x0088);
+				sdhci_writel(host, 0x18 , 0x0080);
+				sdhci_writel(host, 0x07 , 0x0084);
+				sdhci_writel(host, 0x05 , 0x0088);
 			}
 			sdhci_writel(host, ctrl_2, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
