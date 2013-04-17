@@ -487,6 +487,9 @@ int __init sci_clock_init(void)
 
 	__raw_writel(__raw_readl(REG_PMU_APB_PD_GPU_TOP_CFG)
 		& ~(BIT_PD_GPU_TOP_FORCE_SHUTDOWN), REG_PMU_APB_PD_GPU_TOP_CFG);
+
+	__raw_writel(__raw_readl(REG_AON_APB_APB_EB0)|BIT_MM_EB | BIT_GPU_EB,
+		REG_AON_APB_APB_EB0);
 #endif
 
 #if defined(CONFIG_DEBUG_FS)

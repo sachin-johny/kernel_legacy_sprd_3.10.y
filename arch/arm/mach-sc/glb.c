@@ -62,24 +62,34 @@ int sci_glb_write(u32 reg, u32 val, u32 msk)
 static int __is_glb(u32 reg)
 {
 	return rounddown(reg, SZ_64K) == rounddown(REGS_GLB_BASE, SZ_64K) ||
-	    rounddown(reg, SZ_64K) == rounddown(REGS_AHB_BASE, SZ_64K);
+	    rounddown(reg, SZ_64K) == rounddown(REGS_AHB_BASE, SZ_64K) ||
+	    rounddown(reg, SZ_64K) == rounddown(REGS_AP_APB_BASE, SZ_64K) ||
+	    rounddown(reg, SZ_64K) == rounddown(REGS_PMU_APB_BASE, SZ_64K);
 }
 
 int sci_glb_set(u32 reg, u32 bit)
 {
-	if (__is_glb(reg))
+	if (__is_glb(reg)) {
 		__raw_writel(bit, REG_GLB_SET(reg));
-	else
-		WARN_ON(1);
+	} else {
+		unsigned long flags, hw_flags;
+		sci_glb_lock(&flags, &hw_flags);
+		__raw_writel(__raw_readl(reg) | bit, reg);
+		sci_glb_unlock(&flags, &hw_flags);
+	}
 	return 0;
 }
 
 int sci_glb_clr(u32 reg, u32 bit)
 {
-	if (__is_glb(reg))
+	if (__is_glb(reg)) {
 		__raw_writel(bit, REG_GLB_CLR(reg));
-	else
-		WARN_ON(1);
+	} else {
+		unsigned long flags, hw_flags;
+		sci_glb_lock(&flags, &hw_flags);
+		__raw_writel((__raw_readl(reg) & ~bit), reg);
+		sci_glb_unlock(&flags, &hw_flags);
+	}
 	return 0;
 }
 
