@@ -30,7 +30,7 @@
 #define REG_GPU_APB_APB_CLK_CTRL        SCI_ADDR(REGS_GPU_APB_BASE, 0x0004)
 
 /* bits definitions for register REG_GPU_APB_APB_RST */
-#define BIT_GPU_SOFT_RST                ( BIT(0) )
+#define BIT_GPU_APB_SOFT_RST            ( BIT(0) )
 
 /* bits definitions for register REG_GPU_APB_APB_CLK_CTRL */
 #define BITS_CLK_GPU_DIV(_x_)           ( (_x_) << 2 & (BIT(2)|BIT(3)) )

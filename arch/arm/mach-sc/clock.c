@@ -59,14 +59,12 @@ void clk_disable(struct clk *clk)
 	if (IS_ERR_OR_NULL(clk))
 		return;
 
-	return ;
-
 	spin_lock_irqsave(&clocks_lock, flags);
 	if ((--clk->usage) == 0 && clk->enable)
 		(clk->enable) (clk, 0, &flags);
-	if (WARN(clk->usage < 0,
-		 "warning: clock (%s) usage (%d)\n", clk->regs->name, clk->usage)) {
-		clk->usage = 0;	/* FIXME: force reset clock refcnt */
+	if (WARN(clk->usage < 0, "warning: clock (%s) usage (%d)\n",
+		 clk->regs->name, clk->usage)) {
+		clk->usage = 0;	/* force reset clock refcnt */
 		spin_unlock_irqrestore(&clocks_lock, flags);
 		return;
 	}
@@ -104,7 +102,6 @@ unsigned long clk_get_rate(struct clk *clk)
 	debug0("clk %p, rate %lu\n", clk, IS_ERR_OR_NULL(clk) ? -1 : clk->rate);
 	if (IS_ERR_OR_NULL(clk))
 		return 0;
-
 /*
 	if (clk->rate != 0)
 		return clk->rate;
@@ -328,7 +325,7 @@ static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 	for (i = 0; i < c->regs->nr_sources; i++) {
 		if (c->regs->sources[i] == parent) {
 			u32 sel_shift = __ffs(c->regs->sel.mask);
-			debug0("pll sel reg %08x, val %08x, msk %08x\n",
+			debug0("clk sel reg %08x, val %08x, msk %08x\n",
 			       c->regs->sel.reg, i << sel_shift,
 			       c->regs->sel.mask);
 			if (c->regs->sel.reg)
@@ -367,7 +364,7 @@ static struct clk_ops generic_clk_ops = {
 };
 
 static struct clk_ops generic_pll_ops = {
-	.set_rate = 0,
+	.set_rate = 0,		/*FIXME: PLL source is read only */
 	.get_rate = sci_pll_get_rate,
 	.round_rate = 0,
 	.set_parent = sci_clk_set_parent,
@@ -375,6 +372,23 @@ static struct clk_ops generic_pll_ops = {
 
 /* debugfs support to trace clock tree hierarchy and attributes */
 #if defined(CONFIG_DEBUG_FS)
+static int debugfs_enable_get(void *data, u64 * val)
+{
+	struct clk *c = data;
+	*val = ! !(c->enable == NULL || sci_clk_is_enable(c));
+	return 0;
+}
+
+static int debugfs_enable_set(void *data, u64 val)
+{
+	struct clk *c = data;
+	(val) ? clk_enable(c) : clk_disable(c);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_enable,
+			debugfs_enable_get, debugfs_enable_set, "%llu\n");
+
 static struct dentry *clk_debugfs_root;
 static int __init clk_debugfs_register(struct clk *c)
 {
@@ -392,6 +406,10 @@ static int __init clk_debugfs_register(struct clk *c)
 	if (IS_ERR_OR_NULL(debugfs_create_u32
 			   ("rate", S_IRUGO, c->dent, (u32 *) & c->rate)))
 		goto err_exit;
+	if (IS_ERR_OR_NULL(debugfs_create_file
+			   ("enable", S_IRUGO | S_IWUSR, c->dent, (u32 *) c,
+			    &fops_enable)))
+		goto err_exit;
 	return 0;
 err_exit:
 	if (c->dent)
@@ -405,13 +423,19 @@ static __init int __clk_is_dummy_pll(struct clk *c)
 	return (c->regs->enb.reg & 1) || strstr(c->regs->name, "pll");
 }
 
+static __init int __clk_is_dummy_internal(struct clk *c)
+{
+	int i = strlen(c->regs->name);
+	return c->regs->name[i - 2] == '_' && c->regs->name[i - 1] == 'i';
+}
+
 int __init sci_clk_register(struct clk_lookup *cl)
 {
 	struct clk *c = cl->clk;
 
 	if (c->ops == NULL) {
 		c->ops = &generic_clk_ops;
-		if (c->rate)	/* fixed OSC */
+		if (c->rate && !c->regs->nr_sources)	/* fixed OSC */
 			c->ops = NULL;
 		else if ((c->regs->div.reg >= 0 && c->regs->div.reg < MAX_DIV)
 			 || strstr(c->regs->name, "pll")) {
@@ -427,14 +451,14 @@ int __init sci_clk_register(struct clk_lookup *cl)
 	if (c->enable == NULL && c->regs->enb.reg) {
 		c->enable = sci_clk_enable;
 		/* FIXME: dummy update some pll clocks usage */
-		if (sci_clk_is_enable(c) && __clk_is_dummy_pll(c)) {
+		if (__clk_is_dummy_pll(c) && sci_clk_is_enable(c)) {
 			clk_enable(c);
 		}
 	}
 
-	if (!c->rate) {		/* FIXME: dummy update clock parent and rate */
+	if (c->regs->nr_sources) {	/* FIXME: dummy update clock parent and rate */
 		clk_set_parent(c, c->regs->sources[sci_clk_get_parent(c)]);
-		/* clk_set_rate(c, clk_get_rate(c)); */
+		clk_set_rate(c, clk_get_rate(c));
 	}
 
 	clkdev_add(cl);
@@ -451,20 +475,23 @@ static int __init sci_clock_dump(void)
 	while (cl < (struct clk_lookup *)&__clkinit_end) {
 		struct clk *c = cl->clk;
 		struct clk *p = clk_get_parent(c);
-		printk
-		    ("@@@clock[%s] is %sactive, usage %d, rate %lu, parent[%s]\n",
-		     c->regs->name,
-		     (c->enable == NULL || sci_clk_is_enable(c)) ? "" : "in",
-		     c->usage, clk_get_rate(c), p ? p->regs->name : "none");
+		if (!__clk_is_dummy_internal(c))
+			printk
+			    ("@@@clock[%s] is %sactive, usage %d, rate %lu, parent[%s]\n",
+			     c->regs->name,
+			     (c->enable == NULL
+			      || sci_clk_is_enable(c)) ? "" : "in", c->usage,
+			     clk_get_rate(c), p ? p->regs->name : "none");
 		cl++;
 	}
+	debug("ok\n");
 	return 0;
 }
 
 static int
 __clk_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 {
-#if 0
+#if !defined(CONFIG_ARCH_SC8830)
 	struct cpufreq_freqs *freq = data;
 	printk("%s (%u) dump cpu freq (%u %u %u %u)\n",
 	       __func__, (unsigned int)val,
@@ -476,21 +503,31 @@ __clk_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 static struct notifier_block __clk_cpufreq_notifier_block = {
 	.notifier_call = __clk_cpufreq_notifier
 };
+
 int __init sci_clock_init(void)
 {
 #if defined(CONFIG_ARCH_SC8830)
 	__raw_writel(__raw_readl(REG_PMU_APB_PD_MM_TOP_CFG)
-		& ~(BIT_PD_MM_TOP_FORCE_SHUTDOWN), REG_PMU_APB_PD_MM_TOP_CFG);
+		     & ~(BIT_PD_MM_TOP_FORCE_SHUTDOWN),
+		     REG_PMU_APB_PD_MM_TOP_CFG);
 
 	__raw_writel(__raw_readl(REG_PMU_APB_PD_GPU_TOP_CFG)
-		& ~(BIT_PD_GPU_TOP_FORCE_SHUTDOWN), REG_PMU_APB_PD_GPU_TOP_CFG);
+		     & ~(BIT_PD_GPU_TOP_FORCE_SHUTDOWN),
+		     REG_PMU_APB_PD_GPU_TOP_CFG);
 
-	__raw_writel(__raw_readl(REG_AON_APB_APB_EB0)|BIT_MM_EB | BIT_GPU_EB,
-		REG_AON_APB_APB_EB0);
+	__raw_writel(__raw_readl(REG_AON_APB_APB_EB0) | BIT_MM_EB |
+		     BIT_GPU_EB, REG_AON_APB_APB_EB0);
+
+	__raw_writel(__raw_readl(REG_MM_AHB_AHB_EB) | BIT_MM_CKG_EB,
+		     REG_MM_AHB_AHB_EB);
+
+	__raw_writel(__raw_readl(REG_MM_AHB_GEN_CKG_CFG)
+		     | BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN,
+		     REG_MM_AHB_GEN_CKG_CFG);
 #endif
 
 #if defined(CONFIG_DEBUG_FS)
-	clk_debugfs_root = debugfs_create_dir("clock", NULL);
+	clk_debugfs_root = debugfs_create_dir("sprd-clock", NULL);
 	if (IS_ERR_OR_NULL(clk_debugfs_root))
 		return -ENOMEM;
 #endif
@@ -500,8 +537,8 @@ int __init sci_clock_init(void)
 		struct clk_lookup *cl =
 		    (struct clk_lookup *)(&__clkinit_begin + 1);
 		debug0("%p (%x) -- %p -- %p (%x)\n",
-		       &__clkinit_begin, __clkinit_begin, cl, &__clkinit_end,
-		       __clkinit_end);
+		       &__clkinit_begin, __clkinit_begin, cl,
+		       &__clkinit_end, __clkinit_end);
 		while (cl < (struct clk_lookup *)&__clkinit_end) {
 			sci_clk_register(cl);
 			cl++;

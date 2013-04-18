@@ -59,6 +59,7 @@ extern void __init sci_map_io(void);
 extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
+extern int __init sci_regulator_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -541,15 +542,6 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
-int __init sc8825_regulator_init(void)
-{
-	static struct platform_device sc8825_regulator_device = {
-		.name 	= "sprd-regulator",
-		.id	= -1,
-	};
-	return platform_device_register(&sc8825_regulator_device);
-}
-
 int __init __clock_init_early(void)
 {
 	pr_info("ahb ctl0 %08x, ctl2 %08x glb aon apb0 %08x aon apb1 %08x clk_en %08x\n",
@@ -563,20 +555,20 @@ int __init __clock_init_early(void)
 		BIT_BUSMON2_EB		|
 		BIT_BUSMON1_EB		|
 		BIT_BUSMON0_EB		|
-		BIT_SPINLOCK_EB		|
+		//BIT_SPINLOCK_EB		|
 		BIT_GPS_EB		|
-		BIT_EMMC_EB		|
-		BIT_SDIO2_EB		|
-		BIT_SDIO1_EB		|
-		BIT_SDIO0_EB		|
+		//BIT_EMMC_EB		|
+		//BIT_SDIO2_EB		|
+		//BIT_SDIO1_EB		|
+		//BIT_SDIO0_EB		|
 		BIT_DRM_EB		|
 		BIT_NFC_EB		|
-		BIT_DMA_EB		|
-		BIT_USB_EB		|
-		BIT_GSP_EB		|
-		BIT_DISPC1_EB		|
-		BIT_DISPC0_EB		|
-		BIT_DSI_EB		|
+		//BIT_DMA_EB		|
+		//BIT_USB_EB		|
+		//BIT_GSP_EB		|
+		//BIT_DISPC1_EB		|
+		//BIT_DISPC0_EB		|
+		//BIT_DSI_EB		|
 		0);
 	sci_glb_clr(REG_AP_APB_APB_EB,
 		BIT_INTC3_EB		|
@@ -623,7 +615,7 @@ static void __init sc8830_init_machine(void)
 	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
 
 	sci_adc_init((void __iomem *)ADC_BASE);
-	sc8825_regulator_init();
+	sci_regulator_init();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));

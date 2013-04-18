@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Spreadtrum Communications Inc.
+ * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,8 @@
 #include <linux/spinlock.h>
 #include <linux/debugfs.h>
 #include <linux/slab.h>
+#include <linux/sort.h>
+#include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/platform_device.h>
 
@@ -29,10 +31,17 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
+#include <mach/adc.h>
+
+/*
+#define CONFIG_REGULATOR_CAL_DEBUG
+#define CONFIG_REGULATOR_ADC_DEBUG
+*/
 
 #undef debug
 #define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
-#define debug0(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug0(format, arg...) pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug2(format, arg...) pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
 
 #ifndef	ANA_REG_OR
 #define	ANA_REG_OR(_r, _b)	sci_adi_write(_r, _b, 0)
@@ -56,17 +65,41 @@ struct sci_regulator_regs {
 	u32 pd_rst, pd_rst_bit;
 	u32 slp_ctl, slp_ctl_bit;
 	u32 vol_trm, vol_trm_bits;
+	u32 cal_ctl, cal_ctl_bits;
+	u32 vol_def;
 	u32 vol_ctl, vol_ctl_bits;
 	u32 vol_sel_cnt, vol_sel[];
 };
 
+/**
+ * struct sci_regulator_ops - sci regulator operations.
+ *
+ * @trimming:
+ *
+ * This struct describes regulator operations which can be implemented by
+ * regulator chip drivers.
+ */
+struct sci_regulator_ops {
+	int (*init_trimming) (struct regulator_dev * rdev);
+	int (*is_trimming) (struct regulator_dev * rdev);
+	int (*get_trimming_step) (struct regulator_dev * rdev, int);
+	int (*set_trimming) (struct regulator_dev * rdev, int, int);
+	int (*calibrate) (struct regulator_dev * rdev, int, int);
+};
+
+struct sci_regulator_data {
+	struct delayed_work dwork;
+	struct regulator_dev *rdev;
+};
+
 struct sci_regulator_desc {
 	struct regulator_desc desc;
+	struct sci_regulator_ops *ops;
 	const struct sci_regulator_regs *regs;
+	struct sci_regulator_data data;	/* FIXME: dynamic */
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry *debugfs;
 #endif
-	int (*ldo_op) (const struct sci_regulator_regs * regs, int op);
 };
 
 enum {
@@ -75,16 +108,11 @@ enum {
 	VDD_TYP_DCDC = 2,
 };
 
-enum {
-	VDD_IS_ON = 0,
-	VDD_ON,
-	VDD_OFF,
-	VOL_SET,
-	VOL_GET,
-};
+static int __regu_calibrate(struct regulator_dev *, int, int);
 
 #define SCI_REGU_REG(VDD, TYP, PD_SET, SET_BIT, PD_RST, RST_BIT, SLP_CTL, SLP_CTL_BIT, \
-                     VOL_TRM, VOL_TRM_BITS, VOL_CTL, VOL_CTL_BITS, VOL_SEL_CNT, ...)   \
+                     VOL_TRM, VOL_TRM_BITS, CAL_CTL, CAL_CTL_BITS, VOL_DEF, \
+                     VOL_CTL, VOL_CTL_BITS, VOL_SEL_CNT, ...)   \
 do { 														\
 	static const struct sci_regulator_regs REGS_##VDD = {	\
 		.typ		= TYP,									\
@@ -96,6 +124,9 @@ do { 														\
 		.slp_ctl_bit = SLP_CTL_BIT,                 		\
 		.vol_trm = VOL_TRM,                                 \
 		.vol_trm_bits = VOL_TRM_BITS,                       \
+		.cal_ctl = CAL_CTL, 								\
+		.cal_ctl_bits = CAL_CTL_BITS,						\
+		.vol_def = VOL_DEF,									\
 		.vol_ctl = VOL_CTL,                         		\
 		.vol_ctl_bits = VOL_CTL_BITS,               		\
 		.vol_sel_cnt = VOL_SEL_CNT,                 		\
@@ -112,114 +143,84 @@ do { 														\
 	sci_regulator_register(pdev, &DESC_##VDD);				\
 } while (0)
 
-int reguator_is_trimming(struct regulator_dev *rdev);
-int ldo_trimming_callback(void *data);
-int __def_callback(void *data)
+static struct sci_regulator_desc *__get_desc(struct regulator_dev *rdev)
 {
-	return 0;
-	//return WARN_ON(1);
+	return (struct sci_regulator_desc *)rdev->desc;
 }
-
-int ldo_trimming_callback(void *)
-    __attribute__ ((weak, alias("__def_callback")));
 
 /* standard ldo ops*/
-static int sci_ldo_op(const struct sci_regulator_regs *regs, int op)
-{
-	int ret = 0;
-
-	debug0("regu %p op(%d), set %08x[%d], rst %08x[%d]\n", regs, op,
-	       regs->pd_set, __ffs(regs->pd_set_bit), regs->pd_rst,
-	       __ffs(regs->pd_rst_bit));
-
-	if (!regs->pd_rst || !regs->pd_set)
-		return -EACCES;
-
-	switch (op) {
-	case VDD_ON:
-		ANA_REG_OR(regs->pd_rst, regs->pd_rst_bit);
-		ANA_REG_BIC(regs->pd_set, regs->pd_set_bit);
-		break;
-	case VDD_OFF:
-		ANA_REG_OR(regs->pd_set, regs->pd_set_bit);
-		ANA_REG_BIC(regs->pd_rst, regs->pd_rst_bit);
-		break;
-	case VDD_IS_ON:
-		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
-		if (ret == ! !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit))
-			return -EINVAL;
-		break;
-	default:
-		break;
-	}
-	return ret;
-}
-
-int sci_ldo_op_s(const struct sci_regulator_regs *regs, int op)
-{
-	int ret = 0;
-
-	debug0("regu %p op(%d), set %08x[%d]\n", regs, op,
-	       regs->pd_set, __ffs(regs->pd_set_bit));
-
-	if (!regs->pd_set)
-		return -EACCES;
-
-	switch (op) {
-	case VDD_ON:
-		ANA_REG_BIC(regs->pd_set, regs->pd_set_bit);
-		break;
-	case VDD_OFF:
-		ANA_REG_OR(regs->pd_set, regs->pd_set_bit);
-		break;
-	case VDD_IS_ON:
-		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
-		break;
-	default:
-		break;
-	}
-	return ret;
-}
-
 static int ldo_turn_on(struct regulator_dev *rdev)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
 
-	int ret = desc->ldo_op(regs, VDD_ON);
+	debug0("regu %p (%s), set %08x[%d], rst %08x[%d]\n", regs,
+	       desc->desc.name, regs->pd_set, __ffs(regs->pd_set_bit),
+	       regs->pd_rst, __ffs(regs->pd_rst_bit));
 
-	debug0("regu %p (%s), turn on\n", regs, desc->desc.name);
-	/* notify ldo trimming when first turn on */
-	if (0 == ret && regs->vol_trm && !reguator_is_trimming(rdev)) {
-		ldo_trimming_callback((void *)desc->desc.name);
+	if (regs->pd_rst)
+		ANA_REG_OR(regs->pd_rst, regs->pd_rst_bit);
+
+	if (regs->pd_set)
+		ANA_REG_BIC(regs->pd_set, regs->pd_set_bit);
+
+	debug2("regu %p (%s), turn on\n", regs, desc->desc.name);
+	/* ldo trimming when first turn on */
+	if (regs->vol_trm && !desc->ops->is_trimming(rdev)) {
+		__regu_calibrate(rdev, 0, 0);
 	}
-	return ret;
+	return 0;
 }
 
 static int ldo_turn_off(struct regulator_dev *rdev)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
-	return desc->ldo_op(((struct sci_regulator_desc *)(rdev->desc))->regs,
-			    VDD_OFF);
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+
+	debug0("regu %p (%s), set %08x[%d], rst %08x[%d]\n", regs,
+	       desc->desc.name, regs->pd_set, __ffs(regs->pd_set_bit),
+	       regs->pd_rst, __ffs(regs->pd_rst_bit));
+#if !defined(CONFIG_REGULATOR_CAL_DEBUG)
+	if (regs->pd_set)
+		ANA_REG_OR(regs->pd_set, regs->pd_set_bit);
+
+	if (regs->pd_rst)
+		ANA_REG_BIC(regs->pd_rst, regs->pd_rst_bit);
+#endif
+	debug2("regu %p (%s), turn off\n", regs, desc->desc.name);
+	return 0;
 }
 
 static int ldo_is_on(struct regulator_dev *rdev)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
-	return desc->ldo_op(((struct sci_regulator_desc *)(rdev->desc))->regs,
-			    VDD_IS_ON);
+	int ret = -EINVAL;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+
+	debug0("regu %p (%s), set %08x[%d], rst %08x[%d]\n", regs,
+	       desc->desc.name, regs->pd_set, __ffs(regs->pd_set_bit),
+	       regs->pd_rst, __ffs(regs->pd_rst_bit));
+
+	if (regs->pd_rst && regs->pd_set) {
+		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
+		if (ret == ! !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit))
+			ret = -EINVAL;
+	} else if (regs->pd_set) {	/* new feature */
+		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
+	}
+
+	debug2("regu %p (%s) return %d\n", regs, desc->desc.name, ret);
+	return ret;
 }
 
 static int ldo_set_mode(struct regulator_dev *rdev, unsigned int mode)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
+
 	debug("regu %p (%s), slp %08x[%d] mode %x\n", regs, desc->desc.name,
 	      regs->slp_ctl, regs->slp_ctl_bit, mode);
+
 	if (!regs->slp_ctl)
 		return -EINVAL;
 
@@ -235,8 +236,7 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 			   int max_uV, unsigned *selector)
 {
 	static const int vol_bits[4] = { 0xa, 0x9, 0x6, 0x5 };
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
 	int mv = min_uV / 1000;
 	int ret = -EINVAL;
@@ -250,7 +250,7 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 		if (regs->vol_sel[i] == mv) {
 			ANA_REG_SET(regs->vol_ctl, vol_bits[i] << shft,
 				    regs->vol_ctl_bits);
-			//clear_bit(desc->desc.id, trimming_state);
+			/*clear_bit(desc->desc.id, trimming_state); */
 			ret = 0;
 			break;
 		}
@@ -263,8 +263,7 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 
 static int ldo_get_voltage(struct regulator_dev *rdev)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
 	u32 vol, vol_bits;
 	int i, shft = __ffs(regs->vol_ctl_bits);
@@ -282,28 +281,27 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	    && (vol_bits & BIT(2)) ^ (vol_bits & BIT(3))) {
 		i = (vol_bits & BIT(0)) | ((vol_bits >> 1) & BIT(1));
 		vol = regs->vol_sel[i];
-		debug("regu %p (%s), voltage %d\n", regs, desc->desc.name, vol);
+		debug2("regu %p (%s), voltage %d\n", regs, desc->desc.name,
+		       vol);
 		return vol * 1000;
 	}
 	return -EFAULT;
 }
 
-static unsigned long trimming_state[2] = { 0, 0 };	/* 64 bits */
+static unsigned long trimming_state[2] = { 0, 0 };	/* max 64 bits */
 
-int reguator_is_trimming(struct regulator_dev *rdev)
+static int __is_trimming(struct regulator_dev *rdev)
 {
 	int id;
 	BUG_ON(!rdev);
 	id = rdev->desc->id;
 	BUG_ON(!(id > 0 && id < sizeof(trimming_state) * 8));
-
 	return test_bit(id, trimming_state);
 }
 
 static int ldo_init_trimming(struct regulator_dev *rdev)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
 	int ret = -EINVAL;
 	int shft = __ffs(regs->vol_trm_bits);
@@ -317,8 +315,9 @@ static int ldo_init_trimming(struct regulator_dev *rdev)
 		debug("regu %p (%s) trimming ok\n", regs, desc->desc.name);
 		set_bit(desc->desc.id, trimming_state);
 		ret = trim;
-	} else if (1 == ldo_is_on(rdev)) {	/* some LDOs had been turned in uboot-spl */
-		ret = ldo_turn_on(rdev);
+	} else if (1 || 1 == ldo_is_on(rdev)) {	/* some LDOs had been turned in uboot-spl */
+		//ret = ldo_turn_on(rdev);
+		__regu_calibrate(rdev, 0, 0);
 	}
 
 exit:
@@ -364,8 +363,7 @@ exit:
  */
 static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
 	int ret = -EINVAL, cal_vol;
 
@@ -377,7 +375,8 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 		goto exit;
 
 	/* always update voltage ctrl bits */
-	ret = ldo_set_voltage(rdev, to_vol * 1000, to_vol * 1000, 0);
+	ret =
+	    rdev->desc->ops->set_voltage(rdev, to_vol * 1000, to_vol * 1000, 0);
 	if (IS_ERR_VALUE(ret) && regs->vol_ctl)
 		goto exit;
 
@@ -389,38 +388,32 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 		     regs, desc->desc.name, ctl_vol, to_vol,
 		     (cal_vol - to_vol / 10), trim, ctl_vol * 100 / to_vol,
 		     (ctl_vol * 100 * 1000 / to_vol) % 1000);
-
+#if !defined(CONFIG_REGULATOR_CAL_DEBUG)
 		ANA_REG_SET(regs->vol_trm, trim << __ffs(regs->vol_trm_bits),
 			    regs->vol_trm_bits);
-		set_bit(desc->desc.id, trimming_state);
 		ret = 0;
+#endif
 	}
 
 exit:
 	return ret;
 }
 
-int regulator_set_trimming(struct regulator *regulator, int ctl_vol, int to_vol)
+static int ldo_get_trimming_step(struct regulator_dev *rdev, int def_vol)
 {
-	struct regulator_dev *rdev = regulator_get_drvdata(regulator);
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
-	const struct sci_regulator_regs *regs = desc->regs;
-
-	return (2 /*DCDC*/ == regs->typ)
-	    ? regulator_set_voltage(regulator, ctl_vol, ctl_vol)
-	    : ldo_set_trimming(rdev, ctl_vol, to_vol);
+	return def_vol * 7 / 1000;	/*uV */
 }
 
-int regulator_get_trimming_step(struct regulator *regulator, int def_vol)
+/* standard dcdc ops*/
+static int dcdc_get_trimming_step(struct regulator_dev *rdev, int def_vol)
 {
-	struct regulator_dev *rdev = regulator_get_drvdata(regulator);
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
-	const struct sci_regulator_regs *regs = desc->regs;
+	return 1000 * 100 / 32;	/*uV */
+}
 
-	return (2 /*DCDC*/ == regs->typ)
-	    ? 100 / 32 : def_vol * 7 / 1000;
+static int dcdc_set_trimming(struct regulator_dev *rdev, int ctl_vol,
+			     int to_vol)
+{
+	return rdev->desc->ops->set_voltage(rdev, ctl_vol, ctl_vol, 0);
 }
 
 static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
@@ -437,15 +430,12 @@ static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
 	return j;
 }
 
-/* standard dcdc ops*/
 static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 			    int max_uV, unsigned *selector)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
-	int mv = min_uV / 1000;
-	int i, shft = __ffs(regs->vol_ctl_bits);
+	int i, mv = min_uV / 1000;
 
 	debug0("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
 
@@ -463,15 +453,33 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	debug("regu %p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
 	      mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
 
-	if (regs->vol_trm) {	/* small adjust first */
-		/* dcdc calibration control bits (default 00000),
-		 * small adjust voltage: 100/32mv ~= 3.125mv
-		 */
+#if !defined(CONFIG_REGULATOR_CAL_DEBUG)
+	/* dcdc calibration control bits (default 00000),
+	 * small adjust voltage: 100/32mv ~= 3.125mv
+	 */
+	{
+		int shft = __ffs(regs->vol_ctl_bits);
+		int max = regs->vol_ctl_bits >> shft;
 		int j = ((mv - regs->vol_sel[i]) * 32) / (100) % 32;
-		ANA_REG_SET(regs->vol_trm, j, regs->vol_trm_bits);
-	}
 
-	ANA_REG_SET(regs->vol_ctl, (i << shft), regs->vol_ctl_bits);
+		if (regs->vol_trm == regs->vol_ctl) {	/* new feature */
+			ANA_REG_SET(regs->vol_ctl, j | (i << shft),
+				    regs->vol_trm_bits | regs->vol_ctl_bits);
+		} else {
+			if (regs->vol_trm) {	/* small adjust first */
+#define BITS_DCDC_CAL_RST(_x_)     ( (_x_) << 5 & (BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)) )
+#define BITS_DCDC_CAL(_x_)         ( (_x_) << 0 & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)) )
+				ANA_REG_SET(regs->vol_trm,
+					    BITS_DCDC_CAL(j) |
+					    BITS_DCDC_CAL_RST(BITS_DCDC_CAL(-1)
+							      - j), -1);
+			}
+
+			ANA_REG_SET(regs->vol_ctl, i | (max - i) << 4, -1);
+		}
+	}
+#endif
+
 	return 0;
 }
 
@@ -488,47 +496,288 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 	       regs, desc->desc.name, regs->vol_ctl,
 	       shft, regs->vol_ctl_bits, regs->vol_sel_cnt);
 
-	BUG_ON(0 != __ffs(regs->vol_trm_bits));
-	BUG_ON(regs->vol_sel_cnt > 8);
-
 	if (!regs->vol_ctl)
 		return -EINVAL;
+
+	BUG_ON(0 != __ffs(regs->vol_trm_bits));
+	BUG_ON(regs->vol_sel_cnt > 8);
 
 	i = (ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft;
 
 	mv = regs->vol_sel[i];
 
-	if (regs->vol_trm) {
-		int j = ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits;
-		cal = DIV_ROUND_CLOSEST(j * 100, 32);
+	if (regs->vol_trm && regs->vol_trm != regs->vol_ctl) {
+		/*check the reset relative bit of vol ctl */
+		u32 vol_bits =
+		    (~ANA_REG_GET(regs->vol_ctl) & (regs->vol_ctl_bits << 4)) >>
+		    4;
+
+		if (i != vol_bits)
+			return -EFAULT;
+
+		cal = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits)
+		    * desc->ops->get_trimming_step(rdev, mv) / 1000;
 	}
 
 	debug("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv, cal);
 	return (mv + cal) * 1000;
 }
 
-/* standard ldo-D-Die ops*/
-static int usbd_turn_on(struct regulator_dev *rdev)
+static int dcdc_init_trimming(struct regulator_dev *rdev)
 {
-	const struct sci_regulator_regs *regs =
-	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	sci_glb_clr(regs->pd_set, regs->pd_set_bit);
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+	int ret = -EINVAL;
+
+	if (!regs->vol_trm || !regs->vol_def)
+		goto exit;
+
+	__regu_calibrate(rdev, 0, 0);
+	return 0;
+
+exit:
+	return ret;
+}
+
+static short adc_data[2][2]
+#if 0
+    = {
+	{4100, 3196},		/* same as nv adc_t */
+	{3633, 2807},
+}
+#endif
+;
+
+static int __is_valid_adc_cal(void)
+{
+	return 0 != adc_data[0][0];
+}
+
+static int __init __adc_cal_setup(char *str)
+{
+	u32 *p = (u32 *) adc_data;
+	*p = simple_strtoul(str, &str, 0);
+	if (*p++ && *++str) {
+		*p = simple_strtoul(str, &str, 0);
+		if (*p) {
+			/* update adc data from kernel parameter */
+			debug("%d : %d -- %d : %d\n",
+			      (int)adc_data[0][0], (int)adc_data[0][1],
+			      (int)adc_data[1][0], (int)adc_data[1][1]);
+		}
+	}
+	return 1;
+}
+
+__setup("adc_cal=", __adc_cal_setup);
+
+static int __adc2vbat(int adc_res)
+{
+	int t = adc_data[0][0] - adc_data[1][0];
+	t *= (adc_res - adc_data[0][1]);
+	t /= (adc_data[0][1] - adc_data[1][1]);
+	t += adc_data[0][0];
+	return t;
+}
+
+#define MEASURE_TIMES	(15)
+
+static void __dump_adc_result(u32 adc_val[])
+{
+#if defined(CONFIG_REGULATOR_ADC_DEBUG)
+	int i;
+	for (i = 0; i < MEASURE_TIMES; i++) {
+		printk("%d ", adc_val[i]);
+	}
+	printk("\n");
+#endif
+}
+
+static int cmp_val(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
+/**
+ * __adc_voltage - get regulator output voltage through auxadc
+ * @regulator: regulator source
+ *
+ * This returns the current regulator voltage in uV.
+ *
+ * NOTE: If the regulator is disabled it will return the voltage value. This
+ * function should not be used to determine regulator state.
+ */
+static int regu_adc_voltage(struct regulator_dev *rdev)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+
+	int ret, adc_chan = regs->cal_ctl_bits >> 16;
+	u16 ldo_cal_sel = regs->cal_ctl_bits & 0xFFFF;
+	u32 adc_res, adc_val[MEASURE_TIMES];
+	u32 chan_numerators = 1, chan_denominators = 1;
+	u32 bat_numerators, bat_denominators;
+
+	struct adc_sample_data adc_data = {
+		.channel_id = adc_chan,
+		.channel_type = 0,	/*sw */
+		.hw_channel_delay = 0,	/*reserved */
+		.scale = 1,	/*big scale */
+		.pbuf = &adc_val[0],
+		.sample_num = MEASURE_TIMES,
+		.sample_bits = 1,	/*12bits mode */
+		.sample_speed = 0,	/*quick mode */
+		.signal_mode = 0,	/*resistance path */
+	};
+
+	if (!__is_valid_adc_cal())
+		return -EACCES;
+
+	if (!regs->cal_ctl)
+		return -EINVAL;
+
+	/* enable ldo cal before adc sampling and ldo calibration */
+	if (0 == regs->typ) {
+		ANA_REG_OR(regs->cal_ctl, ldo_cal_sel);
+		debug0("%s adc channel %d : %04x\n",
+		       desc->desc.name, adc_data.channel_id, ldo_cal_sel);
+	}
+
+	ret = sci_adc_get_values(&adc_data);
+	BUG_ON(0 != ret);
+
+	__dump_adc_result(adc_val);
+
+	/* close ldo cal */
+	if (0 == regs->typ) {
+		ANA_REG_BIC(regs->cal_ctl, ldo_cal_sel);
+	}
+	sort(adc_val, MEASURE_TIMES, sizeof(u32), cmp_val, 0);
+
+	__dump_adc_result(adc_val);
+
+	sci_adc_get_vol_ratio(adc_data.channel_id, adc_data.scale,
+			      &chan_numerators, &chan_denominators);
+
+	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
+			      &bat_denominators);
+
+	adc_res = adc_val[MEASURE_TIMES / 2];
+	debug("%s adc result value %d, chan (%d/%d)\n",
+	      desc->desc.name, adc_res, chan_numerators, chan_denominators);
+
+	if (adc_res == 0)
+		return -EAGAIN;
+	else
+		return __adc2vbat(adc_res)
+		    * (bat_numerators * chan_denominators)
+		    / (bat_denominators * chan_numerators);
+}
+
+static void do_regu_work(struct work_struct *w)
+{
+	struct sci_regulator_data *data =
+	    container_of(w, struct sci_regulator_data, dwork.work);
+	struct sci_regulator_desc *desc = __get_desc(data->rdev);
+	debug0("%s\n", desc->desc.name);
+	if (!desc->ops->is_trimming(data->rdev))
+		desc->ops->calibrate(data->rdev, 0, 0);
+}
+
+int __regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+	int in_calibration(void);
+	if (in_calibration() || !__is_valid_adc_cal()
+	    || !regs->cal_ctl || !regs->vol_ctl || !regs->vol_trm) {
+		/* bypass if in CFT or not adc cal or no cal ctl */
+		return -EACCES;
+	}
+
+	schedule_delayed_work(&desc->data.dwork, msecs_to_jiffies(100));
 	return 0;
 }
 
-static int usbd_turn_off(struct regulator_dev *rdev)
+/*
+ * ASSERT dcdc/ldo is enabled
+ */
+static int regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
 {
-	const struct sci_regulator_regs *regs =
-	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	sci_glb_set(regs->pd_set, regs->pd_set_bit);
-	return 0;
-}
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
 
-static int usbd_is_on(struct regulator_dev *rdev)
-{
-	const struct sci_regulator_regs *regs =
-	    ((struct sci_regulator_desc *)(rdev->desc))->regs;
-	return !sci_glb_read(regs->pd_set, regs->pd_set_bit);
+	int ret = 0;
+	int acc_vol, adc_vol = 0, ctl_vol, cal_vol = 0;
+
+	ctl_vol = rdev->desc->ops->get_voltage(rdev);
+	if (IS_ERR_VALUE(ctl_vol)) {
+		debug0("no valid %s vol ctrl bits\n", desc->desc.name);
+	} else			/* dcdc/ldo maybe had been adjusted or opened in uboot-spl */
+		ctl_vol /= 1000;
+
+	if (!def_vol)
+		def_vol = (IS_ERR_VALUE(ctl_vol)) ? regs->vol_def : ctl_vol;
+
+	if (!to_vol)
+		to_vol = (IS_ERR_VALUE(ctl_vol)) ? regs->vol_def : ctl_vol;
+
+	adc_vol = regu_adc_voltage(rdev);
+	if (adc_vol <= 0) {
+		debug("%s default %dmv, maybe not enable\n", desc->desc.name,
+		      def_vol);
+		goto exit;
+	}
+	cal_vol = abs(adc_vol - to_vol);
+
+	debug("%s default %dmv, from %dmv to %dmv, bias %c%d.%02d%%\n",
+	      desc->desc.name,
+	      def_vol, adc_vol, to_vol,
+	      (adc_vol > to_vol) ? '+' : '-',
+	      to_vol ? cal_vol * 100 / to_vol : 0,
+	      to_vol ? cal_vol * 100 * 100 / to_vol % 100 : 0);
+
+	if (!def_vol || !to_vol || adc_vol <= 0)
+		goto exit;
+
+	if (cal_vol > to_vol / 10)	/* adjust limit 10% */
+		goto exit;
+	else if (cal_vol < to_vol / 100) {	/* bias 1% */
+		goto verify;
+	}
+
+	acc_vol = desc->ops->get_trimming_step(rdev, to_vol * 1000);
+
+	/* always set valid vol ctrl bits */
+	def_vol = ctl_vol =
+	    DIV_ROUND_UP(def_vol * to_vol, adc_vol) + acc_vol / 1000;
+	ret = desc->ops->set_trimming(rdev, ctl_vol * 1000, to_vol * 1000);
+	if (IS_ERR_VALUE(ret))
+		goto exit;
+
+	set_bit(desc->desc.id, trimming_state);	/*force set before verify */
+	msleep(1);		/* wait a moment before cal verify */
+
+verify:
+	adc_vol = regu_adc_voltage(rdev);
+	cal_vol = abs(adc_vol - to_vol);
+
+	debug("%s default %dmv, from %dmv to %dmv, bias %c%d.%02d%%\n",
+	      desc->desc.name,
+	      def_vol, adc_vol, to_vol,
+	      (adc_vol > to_vol) ? '+' : '-',
+	      cal_vol * 100 / to_vol, cal_vol * 100 * 100 / to_vol % 100);
+
+	if (cal_vol < to_vol / 100) {	/* bias 1% */
+		set_bit(desc->desc.id, trimming_state);
+		debug("%s is ok\n", desc->desc.name);
+	}
+
+	return ctl_vol;
+
+exit:
+	debug("%s failure\n", desc->desc.name);
+	return -1;
 }
 
 static struct regulator_ops ldo_ops = {
@@ -541,9 +790,9 @@ static struct regulator_ops ldo_ops = {
 };
 
 static struct regulator_ops usbd_ops = {
-	.enable = usbd_turn_on,
-	.disable = usbd_turn_off,
-	.is_enabled = usbd_is_on,
+	.enable = 0,		/* reserved d-die ldo */
+	.disable = 0,		/* reserved d-die ldo */
+	.is_enabled = 0,	/* reserved d-die ldo */
 };
 
 static struct regulator_ops dcdc_ops = {
@@ -552,6 +801,22 @@ static struct regulator_ops dcdc_ops = {
 	.is_enabled = ldo_is_on,
 	.set_voltage = dcdc_set_voltage,
 	.get_voltage = dcdc_get_voltage,
+};
+
+static struct sci_regulator_ops sci_ldo_ops = {
+	.init_trimming = ldo_init_trimming,
+	.is_trimming = __is_trimming,
+	.get_trimming_step = ldo_get_trimming_step,
+	.set_trimming = ldo_set_trimming,
+	.calibrate = regu_calibrate,
+};
+
+static struct sci_regulator_ops sci_dcdc_ops = {
+	.init_trimming = dcdc_init_trimming,
+	.is_trimming = __is_trimming,
+	.get_trimming_step = dcdc_get_trimming_step,
+	.set_trimming = dcdc_set_trimming,
+	.calibrate = regu_calibrate,
 };
 
 /*
@@ -595,7 +860,7 @@ static struct regulator_consumer_supply *set_supply_map(struct device *dev,
 	for (n = 0; map[i + n]; n++) ;
 
 	if (n) {
-		pr_info("supply %s consumers %d - %d\n", supply_name, i, n);
+		debug0("supply %s consumers %d - %d\n", supply_name, i, n);
 		consumer_supplies =
 		    kzalloc(n * sizeof(*consumer_supplies), GFP_KERNEL);
 		BUG_ON(!consumer_supplies);
@@ -610,6 +875,45 @@ static struct regulator_consumer_supply *set_supply_map(struct device *dev,
 
 #if defined(CONFIG_DEBUG_FS)
 static struct dentry *debugfs_root = NULL;
+
+static int adc_chan = 5 /*VBAT*/;
+static int debugfs_adc_chan_get(void *data, u64 * val)
+{
+	int i, ret;
+	u32 adc_res, adc_val[MEASURE_TIMES];
+	struct adc_sample_data adc_data = {
+		.channel_id = adc_chan,
+		.channel_type = 0,	/*sw */
+		.hw_channel_delay = 0,	/*reserved */
+		.scale = 1,	/*big scale */
+		.pbuf = &adc_val[0],
+		.sample_num = MEASURE_TIMES,
+		.sample_bits = 1,	/*12bits mode */
+		.sample_speed = 0,	/*quick mode */
+		.signal_mode = 0,	/*resistance path */
+	};
+
+	ret = sci_adc_get_values(&adc_data);
+	BUG_ON(0 != ret);
+
+	for (i = 0; i < MEASURE_TIMES; i++) {
+		printk("%d ", adc_val[i]);
+	}
+	printk("\n");
+
+	sort(adc_val, MEASURE_TIMES, sizeof(u32), cmp_val, 0);
+	adc_res = adc_val[MEASURE_TIMES / 2];
+	pr_info("adc chan %d, result value %d, vbat %d\n",
+		adc_data.channel_id, adc_res, __adc2vbat(adc_res));
+	*val = adc_res;
+	return 0;
+}
+
+static int debugfs_adc_chan_set(void *data, u64 val)
+{
+	adc_chan = val;
+	return 0;
+}
 
 static int debugfs_enable_get(void *data, u64 * val)
 {
@@ -633,14 +937,14 @@ static int debugfs_enable_set(void *data, u64 val)
 static int debugfs_voltage_get(void *data, u64 * val)
 {
 	struct regulator_dev *rdev = data;
-	if (rdev && rdev->desc->ops->get_voltage)
-		*val = rdev->desc->ops->get_voltage(rdev) / 1000;
+	if (rdev)
+		*val = regu_adc_voltage(rdev);
 	else
 		*val = -1;
 	return 0;
 }
 
-static int debugfs_voltage_set(void *data, u64 val)
+static int debugfs_ldo_set(void *data, u64 val)
 {
 	struct regulator_dev *rdev = data;
 	if (rdev && rdev->desc->ops->set_voltage)
@@ -648,16 +952,27 @@ static int debugfs_voltage_set(void *data, u64 val)
 	return 0;
 }
 
+static int debugfs_dcdc_set(void *data, u64 val)
+{
+	struct regulator_dev *rdev = data;
+	int to_vol = (int)val;
+	if (rdev)
+		regu_calibrate(rdev, 0, to_vol);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_adc_chan,
+			debugfs_adc_chan_get, debugfs_adc_chan_set, "%llu\n");
 DEFINE_SIMPLE_ATTRIBUTE(fops_enable,
 			debugfs_enable_get, debugfs_enable_set, "%llu\n");
-DEFINE_SIMPLE_ATTRIBUTE(fops_voltage,
-			debugfs_voltage_get, debugfs_voltage_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(fops_ldo,
+			debugfs_voltage_get, debugfs_ldo_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(fops_dcdc,
+			debugfs_voltage_get, debugfs_dcdc_set, "%llu\n");
 
 static void rdev_init_debugfs(struct regulator_dev *rdev)
 {
-	struct sci_regulator_desc *desc =
-	    (struct sci_regulator_desc *)rdev->desc;
-
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	desc->debugfs = debugfs_create_dir(rdev->desc->name, debugfs_root);
 	if (IS_ERR(rdev->debugfs) || !rdev->debugfs) {
 		pr_warn("Failed to create debugfs directory\n");
@@ -669,7 +984,8 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 			    desc->debugfs, rdev, &fops_enable);
 
 	debugfs_create_file("voltage", S_IRUGO | S_IWUSR,
-			    desc->debugfs, rdev, &fops_voltage);
+			    desc->debugfs, rdev,
+			    (0 == desc->regs->typ) ? &fops_ldo : &fops_dcdc);
 }
 #else
 static void rdev_init_debugfs(struct regulator_dev *rdev)
@@ -684,6 +1000,9 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	struct regulator_dev *rdev;
 	struct regulator_ops *__regs_ops[] = {
 		&ldo_ops, &usbd_ops, &dcdc_ops, 0,
+	};
+	struct sci_regulator_ops *__sci_regs_ops[] = {
+		&sci_ldo_ops, 0, &sci_dcdc_ops, 0,
 	};
 	struct regulator_consumer_supply consumer_supplies_default[] = {
 		[0] = {
@@ -710,18 +1029,17 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		.driver_data = 0,
 	};
 
-	BUG_ON(desc->regs->typ > 3);
+	desc->desc.id = atomic_inc_return(&idx) - 1;
 
-	if (desc->regs->pd_set == desc->regs->pd_rst
-	    && desc->regs->pd_set_bit == desc->regs->pd_rst_bit)
-		desc->ldo_op = sci_ldo_op_s;
-	else
-		desc->ldo_op = sci_ldo_op;
+	BUG_ON(desc->regs->pd_set == desc->regs->pd_rst
+	       && desc->regs->pd_set_bit == desc->regs->pd_rst_bit);
+
+	BUG_ON(desc->regs->typ >= sizeof(__regs_ops));
+	if (!desc->ops)
+		desc->ops = __sci_regs_ops[desc->regs->typ];
 
 	if (!desc->desc.ops)
 		desc->desc.ops = __regs_ops[desc->regs->typ];
-
-	desc->desc.id = atomic_inc_return(&idx) - 1;
 
 	init_data.consumer_supplies =
 	    set_supply_map(&pdev->dev, desc->desc.name,
@@ -737,8 +1055,9 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 
 	if (!IS_ERR(rdev)) {
 		rdev->reg_data = rdev;
-		if (desc->desc.ops == &ldo_ops)
-			ldo_init_trimming(rdev);
+		INIT_DELAYED_WORK(&desc->data.dwork, do_regu_work);
+		desc->data.rdev = rdev;
+		desc->ops->init_trimming(rdev);
 		rdev_init_debugfs(rdev);
 	}
 	return rdev;
@@ -748,7 +1067,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
  * IMPORTANT!!!
  * spreadtrum power regulators is intergrated on the chip, include LDOs and DCDCs.
  * so i autogen all regulators non-variable description in plat or mach directory,
- * which named __regulator_map.h, BUT register all in regulator driver probe func,
+ * which named __xxxx_regulator_map.h, BUT register all in regulator driver probe func,
  * just like other regulator vendor drivers.
  */
 static int __devinit sci_regulator_probe(struct platform_device *pdev)
@@ -760,27 +1079,43 @@ static int __devinit sci_regulator_probe(struct platform_device *pdev)
 
 static struct platform_driver sci_regulator_driver = {
 	.driver = {
-		   .name = "sprd-regulator",
+		   .name = "sc2713-regulator",
 		   .owner = THIS_MODULE,
 		   },
 	.probe = sci_regulator_probe,
 };
 
-static int __init sci_regulator_init(void)
+static int __init regu_driver_init(void)
 {
 #ifdef CONFIG_DEBUG_FS
 	debugfs_root =
 	    debugfs_create_dir(sci_regulator_driver.driver.name, NULL);
 	if (IS_ERR(debugfs_root) || !debugfs_root) {
-		pr_warn("%s: Failed to create debugfs directory\n",
-			sci_regulator_driver.driver.name);
+		WARN(!debugfs_root,
+		     "%s: Failed to create debugfs directory\n",
+		     sci_regulator_driver.driver.name);
 		debugfs_root = NULL;
 	}
+	debugfs_create_file("adc_chan", S_IRUGO | S_IWUSR,
+			    debugfs_root, &adc_chan, &fops_adc_chan);
 #endif
+
+	pr_info("%s chip id: (%08x)\n", sci_regulator_driver.driver.name,
+		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_HIGH) << 16
+		| ANA_REG_GET(ANA_REG_GLB_CHIP_ID_LOW));
 	return platform_driver_register(&sci_regulator_driver);
 }
 
-subsys_initcall(sci_regulator_init);
+int __init sci_regulator_init(void)
+{
+	static struct platform_device regulator_device = {
+		.name = "sc2713-regulator",
+		.id = -1,
+	};
+	return platform_device_register(&regulator_device);
+}
+
+subsys_initcall(regu_driver_init);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum voltage regulator driver");

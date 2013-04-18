@@ -294,7 +294,7 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 	if (((0 == strcmp(host_pdata->hw_name, "sprd-sdio1"))
 		|| ((0 == strcmp(host_pdata->hw_name, "sprd-sdio2"))))
 		&& ( 0 == sci_get_chip_id())/* chip id */){
-		strcpy(host_pdata->clk_parent, "clk_26m");
+		host_pdata->clk_parent =  "ext_26m";
 		host_pdata->max_clock = 26000000;
 	}
 

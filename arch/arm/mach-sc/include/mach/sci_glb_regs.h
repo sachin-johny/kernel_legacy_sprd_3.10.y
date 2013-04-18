@@ -31,7 +31,6 @@
 
 #include "__regs_sc8830_ana_glb.h"
 #include "__regs_sc8830_aon_apb.h"
-#include "__regs_sc8830_aon_ckg.h"
 #include "__regs_sc8830_aon_clk.h"
 #include "__regs_sc8830_ap_ahb.h"
 #include "__regs_sc8830_ap_apb.h"
