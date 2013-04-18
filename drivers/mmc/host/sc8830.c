@@ -32,6 +32,7 @@
 #include <mach/regs_sc8830_ana_glb.h>
 #include <linux/interrupt.h>
 
+#include <mach/arch_misc.h>
 #include "sc8830.h"
 
 #define     SDIO_MAX_CLK            32000000
@@ -288,6 +289,14 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 #ifndef CONFIG_MACH_SP8830FPGA
 	struct clk *clk_parent;
 	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
+
+	/* shark chipid = 0 the max clock is 26M */
+	if (((0 == strcmp(host_pdata->hw_name, "sprd-sdio1"))
+		|| ((0 == strcmp(host_pdata->hw_name, "sprd-sdio2"))))
+		&& ( 0 == sci_get_chip_id())/* chip id */){
+		strcpy(host_pdata->clk_parent, "clk_26m");
+		host_pdata->max_clock = 26000000;
+	}
 
 	/* Select the clk source of SDIO, default is 96MHz */
 	host->clk = clk_get(NULL, host_pdata->clk_name);
