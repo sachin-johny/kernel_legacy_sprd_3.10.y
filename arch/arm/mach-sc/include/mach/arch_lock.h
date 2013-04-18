@@ -20,7 +20,7 @@
 #include <mach/hardware.h>
 #include <mach/regs_ahb.h>
 #include <mach/sci.h>
-
+#include <mach/regs_glb.h>
 
 extern struct hwspinlock *hwlocks[];
 extern unsigned char hwlocks_implemented[];
@@ -32,7 +32,7 @@ extern unsigned char hwlocks_implemented[];
 #define HWLOCK_ADDR(_X_)	(SPRD_HWLOCK_BASE + (0x80 + 0x4*(_X_)))
 static __inline __init int __hwspinlock_init(void)
 {
-	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
+	__raw_writel(BIT_SPINLOCK_EB, REG_GLB_SET(REG_AHB_AHB_CTL0));
 	return 0;
 }
 
@@ -52,8 +52,8 @@ static __inline unsigned long HWLOCK_ADDR(unsigned int id)
 
 static __inline __init int __hwspinlock_init(void)
 {
-	sci_glb_set(REG_AP_AHB_AHB_EB, BIT_SPINLOCK_EB);
-	sci_glb_set(REG_AON_APB_APB_EB0, BIT_SPLK_EB);
+	__raw_writel(BIT_SPINLOCK_EB, REG_GLB_SET(REG_AP_AHB_AHB_EB));
+	__raw_writel(BIT_SPLK_EB, REG_GLB_SET(REG_AON_APB_APB_EB0));
 	return 0;
 }
 #endif
@@ -85,7 +85,8 @@ static inline void arch_hwlocks_implemented(void)
 static inline int arch_hwlock_fast_trylock(unsigned int lock_id)
 {
 	unsigned long addr = HWLOCK_ADDR(lock_id);
-	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
+	__hwspinlock_init();
+
 	if (HWSPINLOCK_NOTTAKEN_V0 == __raw_readl(addr)) {
 		__raw_writel(HWSPINLOCK_WRITE_KEY, addr);
 		if (HWSPINLOCK_WRITE_KEY == __raw_readl(addr)) {
@@ -106,7 +107,7 @@ static inline void arch_hwlock_fast_unlock(unsigned int lock_id)
 static inline int arch_hwlock_fast_trylock(unsigned int lock_id)
 {
 	unsigned long addr = HWLOCK_ADDR(lock_id);
-	sci_glb_set(REG_AHB_AHB_CTL0, BIT_SPINLOCK_EB);
+	__hwspinlock_init();
 
 	if (!readl(addr)) {
 		dsb();
