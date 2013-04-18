@@ -49,6 +49,8 @@ static irqreturn_t cp_alive_gpio_handle(int irq, void *handle)
 {
 	int status ;
 
+	if(modem_is_poweron==0)
+		return IRQ_HANDLED;
 	status = gpio_get_value(cp_alive_gpio);
 	if(status == 0)
 		modem_intf_send_GPIO_message(cp_alive_gpio,status,0);
@@ -151,11 +153,11 @@ void modem_poweron(void)
 void modem_poweroff(void)
 {
 	printk("modem power off!!! \n");
+	modem_is_poweron = 0;
 	if (GPIO_INVALID != modem_power_gpio){
 		gpio_direction_output(modem_power_gpio, 0); //2012.1.10
 		gpio_set_value(modem_power_gpio, 0);
 	} else {
 		sprd_greg_set_bits(REG_TYPE_GLOBAL, 0x00000040, 0x4C);
 	}
-	modem_is_poweron = 0;
 }
