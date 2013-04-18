@@ -644,6 +644,8 @@ static void __init sc8830_init_early(void)
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	persistent_ram_early_init(&sprd_console_ram);
 #endif
+	/*ipi reg init for sipc*/
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_IPI_EB);
 }
 
 /*
