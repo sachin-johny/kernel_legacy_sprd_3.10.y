@@ -45,8 +45,27 @@
 #include "sysfs.h"
 #include "inv_test/inv_counters.h"
 
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
+
+//#define INVENSENSE_DBG
+#ifdef INVENSENSE_DBG
+#define ENTER printk(KERN_INFO "[INVENSENSE_DBG] func: %s  line: %04d  ", __func__, __LINE__)
+#define PRINT_DBG(x...)  printk(KERN_INFO "[INVENSENSE_DBG] " x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[INVENSENSE_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#else
+#define ENTER
+#define PRINT_DBG(x...)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[INVENSENSE_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#endif
+
 /* IRQ's for the multi sensor board */
 #define MPUIRQ_GPIO 212
+#define MSENSOR_RSTN_GPIO 53
 
 #define FLICK_SUPPORTED (0)
 
@@ -1866,16 +1885,24 @@ static int inv_check_chip_type(struct inv_mpu_iio_s *st,
 	st->chip_config.gyro_enable = 1;
 	/* reset to make sure previous state are not there */
 	result = inv_i2c_single_write(st, reg->pwr_mgmt_1, BIT_H_RESET);
-	if (result)
+	if (result) {
+		PRINT_ERR("soft reset ERR\n");
 		return result;
+	}
 	msleep(POWER_UP_TIME);
 	/* turn off and turn on power to ensure gyro engine is on */
 	result = st->set_power_state(st, false);
-	if (result)
+	if (result) {
+		PRINT_ERR("set_power_state=false\n");
 		return result;
+	}
 	result = st->set_power_state(st, true);
-	if (result)
+	if (result) {
+		PRINT_ERR("set_power_state=true\n");
 		return result;
+	}
+
+	PRINT_INFO("set_power_state=true success\n");
 
 	switch (st->chip_type) {
 	case INV_ITG3500:
@@ -2005,6 +2032,46 @@ static int inv_create_dmp_sysfs(struct iio_dev *ind)
 	return result;
 }
 
+struct regulator *vdd_2v8 = NULL;
+struct regulator *vdd_sd3 = NULL;
+
+static void inv_mpu_power_off(void)
+{
+	if(vdd_2v8 != NULL)
+		regulator_disable(vdd_2v8);
+	if(vdd_sd3 != NULL)
+		regulator_disable(vdd_sd3);
+	PRINT_INFO("power off\n");
+}
+
+static void inv_mpu_power_on(void)
+{
+	int err = 0;
+
+	vdd_2v8 = regulator_get(NULL, "vdd28");
+	if (IS_ERR(vdd_2v8)) {
+		PRINT_ERR("regulator_get failed\n");
+		return;
+	}
+	err = regulator_set_voltage(vdd_2v8,2800000,2800000);
+	if (err)
+		PRINT_ERR("regulator_set_voltage failed\n");
+	regulator_enable(vdd_2v8);
+
+	vdd_sd3 = regulator_get(NULL, "vddsd3");
+	if (IS_ERR(vdd_sd3)) {
+		PRINT_ERR("regulator_get failed\n");
+		return;
+	}
+	err = regulator_set_voltage(vdd_sd3,1800000,1800000);
+	if (err)
+		PRINT_ERR("regulator_set_voltage failed\n");
+	regulator_enable(vdd_sd3);
+
+	PRINT_INFO("power on\n");
+	msleep(20);
+}
+
 /**
  *  inv_mpu_probe() - probe function.
  */
@@ -2014,31 +2081,42 @@ static int inv_mpu_probe(struct i2c_client *client,
 	struct inv_mpu_iio_s *st;
 	struct iio_dev *indio_dev;
 	int result;
-	int res;
+	int probe_retry_count = 0;
+
+	PRINT_INFO("do probe\n");
+
+probe_retry:
+	//inv_mpu_power_on();
+	if ((result = gpio_request(MPUIRQ_GPIO, "mpuirq"))) {
+		PRINT_ERR("gpio_request failed\n");
+		goto out;
+	}
 	
-	if ((res = gpio_request(MPUIRQ_GPIO, "mpuirq")))
-	printk(KERN_ERR "mpu:MPUIRQ_GPIO-myirqtest: gpio_request(%d) failed err=%d\n",MPUIRQ_GPIO, res);
-	
-	if ((res = gpio_direction_input(MPUIRQ_GPIO)))
-	printk(KERN_ERR "mpu:MPUIRQ_GPIO-gpio_direction_input() failed err=%d\n",res);
-	
-	if ((res = gpio_request(53, "akm8963R")))
-	printk(KERN_ERR "mpu:MPUIRQ_GPIO-myirqtest: gpio_request(%d) failed err=%d\n",MPUIRQ_GPIO, res);
-	
-	if ((res = gpio_direction_output(53, 1)))
-	printk(KERN_ERR "mpu:MPUIRQ_GPIO-gpio_direction_input() failed err=%d\n",res);
-	
-	
+	if ((result = gpio_request(MSENSOR_RSTN_GPIO, "akm8963R"))) {
+		PRINT_ERR("gpio_request failed\n");
+		goto out_free_gpio_mpuirq;
+	}
+
+	if ((result = gpio_direction_input(MPUIRQ_GPIO))) {
+		PRINT_ERR("gpio_direction_input failed\n");
+		goto out_free_gpio_all;
+	}
+
+	if ((result = gpio_direction_output(MSENSOR_RSTN_GPIO, 1))) {
+		PRINT_ERR("gpio_direction_output failed\n");
+		goto out_free_gpio_all;
+	}
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		result = -ENOSYS;
 		pr_err("I2c function error\n");
-		goto out_no_free;
+		goto out_free_gpio_all;
 	}
 	indio_dev = iio_allocate_device(sizeof(*st));
 	if (indio_dev == NULL) {
 		pr_err("memory allocation failed\n");
 		result =  -ENOMEM;
-		goto out_no_free;
+		goto out_free_gpio_all;
 	}
 	st = iio_priv(indio_dev);
 	st->client = client;
@@ -2114,8 +2192,9 @@ static int inv_mpu_probe(struct i2c_client *client,
 	INIT_KFIFO(st->timestamps);
 	spin_lock_init(&st->time_stamp_lock);
 	dev_info(&client->adapter->dev, "%s is ready to go!\n", st->hw->name);
-
+	PRINT_INFO("probe success. probe_retry_count = %d\n", probe_retry_count);
 	return 0;
+
 out_unreg_iio:
 	iio_device_unregister(indio_dev);
 out_remove_trigger:
@@ -2127,9 +2206,21 @@ out_unreg_ring:
 	inv_mpu_unconfigure_ring(indio_dev);
 out_free:
 	iio_free_device(indio_dev);
-out_no_free:
+out_free_gpio_all:
+	gpio_free(MSENSOR_RSTN_GPIO);
+out_free_gpio_mpuirq:
+	gpio_free(MPUIRQ_GPIO);
+out:
 	dev_err(&client->adapter->dev, "%s failed %d\n", __func__, result);
 
+	//inv_mpu_power_off();
+
+	if(probe_retry_count++ < 10) {
+		msleep(50);
+		PRINT_INFO("probe retry after 50ms. probe_retry_count = %d\n", probe_retry_count);
+		goto probe_retry;
+	}
+	PRINT_ERR("probe failed. probe_retry_count = %d\n", probe_retry_count);
 	return -EIO;
 }
 
