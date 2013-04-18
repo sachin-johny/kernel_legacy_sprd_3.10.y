@@ -289,7 +289,6 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 			pr_debug("******* %s, call  clk_enable*******\n", mmc_hostname(host->mmc));
 			clk_enable(host->clk);
 			host_data->clk_enable = 1;
-			mdelay(5);
 		}
 	}
 	pr_debug("clock:%d, host->clock:%d, AHB_CTL0:0x%x\n", clock,host->clock,
@@ -735,10 +734,12 @@ static int sprd_mmc_host_runtime_resume(struct device *dev) {
     struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
         mmc_claim_host(mmc);
-        spin_lock_irqsave(&host->lock, flags);
-        if(host->ops->set_clock)
+        if(host->ops->set_clock) {
+            spin_lock_irqsave(&host->lock, flags);
             host->ops->set_clock(host, 1);
-        spin_unlock_irqrestore(&host->lock, flags);
+            spin_unlock_irqrestore(&host->lock, flags);
+            mdelay(10);
+        }
         sdhci_runtime_resume_host(host);
         mmc_release_host(mmc);
     }
