@@ -1108,11 +1108,7 @@ void sc8825_idle(void)
 {
 	int this_cpu = smp_processor_id();
 	if (!need_resched()) {
-#ifdef CONFIG_CACHE_L2X0
-			/*l2cache power control, standby mode enable*/
-			/*L2X0_POWER_CTRL*/
-			__raw_writel(1, SPRD_L2_BASE+0xF80);
-#endif
+
 			clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_ENTER, &this_cpu);
 			cpu_do_idle();
 			clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &this_cpu);
@@ -1265,6 +1261,11 @@ void sc_pm_init(void)
 
 	/* enable arm clock auto gating*/
 	sci_glb_set(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
+#ifdef CONFIG_CACHE_L2X0
+	/*l2cache power control, standby mode enable*/
+	/*L2X0_POWER_CTRL*/
+	__raw_writel(1, SPRD_L2_BASE+0xF80);
+#endif
 	pm_idle = sc8825_idle;
 /*
 	wake_lock_init(&pm_debug_lock, WAKE_LOCK_SUSPEND, "pm_not_ready");
