@@ -151,7 +151,6 @@ int32_t scale_start(void)
 			rtn = SCALE_RTN_SC_ERR;
 			SCALE_RTN_IF_ERR;
 		}
-			
 	} else {
 		if (g_path->output_size.w > SCALE_LINE_BUF_LENGTH) {
 			rtn = SCALE_RTN_SC_ERR;
@@ -340,7 +339,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 			g_path->input_format = SCALE_FTM_MAX;
 		}
 		break;
-		
+
 	}
 
 	case SCALE_INPUT_ADDR:
@@ -476,7 +475,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 				REG_OWR(SCALE_REV_SLICE_CFG, SCALE_SLICE_TYPE_BIT);
 			}
 		}
-		
+
 		break;
 	}
 
@@ -539,14 +538,14 @@ int32_t scale_read_registers(uint32_t* reg_buf, uint32_t *buf_len)
 	*buf_len = (uint32_t)reg_addr - SCALE_BASE;
 	return 0;
 }
- 
+
 static int32_t _scale_cfg_scaler(void)
 {
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
 
 	rtn = _scale_calc_sc_size();
 	SCALE_RTN_IF_ERR;
-	
+
 	if (g_path->sc_input_size.w != g_path->output_size.w ||
 		g_path->sc_input_size.h != g_path->output_size.h) {
 		REG_MWR(SCALE_CFG, SCALE_BYPASS_BIT, 0);
@@ -646,9 +645,9 @@ static int32_t _scale_set_sc_coeff(void)
 	if (!(GenScaleCoeff((int16_t)g_path->sc_input_size.w,
 		(int16_t)g_path->sc_input_size.h,
 		(int16_t)g_path->output_size.w,
-		(int16_t)g_path->output_size.h, 
-		h_coeff, 
-		v_coeff, 
+		(int16_t)g_path->output_size.h,
+		h_coeff,
+		v_coeff,
 		v_chroma_coeff,
 		scale2yuv420,
 		&y_tap,
@@ -658,7 +657,7 @@ static int32_t _scale_set_sc_coeff(void)
 		kfree(tmp_buf);
 		printk("SCALE DRV: _scale_set_sc_coeff error! \n");
 		return SCALE_RTN_GEN_COEFF_ERR;
-	}	
+	}
 
 	for (i = 0; i < SC_COEFF_H_NUM; i++) {
 		REG_WR(h_coeff_addr, *h_coeff);
@@ -680,7 +679,7 @@ static int32_t _scale_set_sc_coeff(void)
 
 	REG_MWR(SCALE_CFG, (BIT_19 | BIT_18 | BIT_17 | BIT_16), ((y_tap & 0x0F) << 16));
 	REG_MWR(SCALE_CFG, (BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11), ((uv_tap & 0x1F) << 11));
-	
+
 	kfree(tmp_buf);
 
 	return SCALE_RTN_SUCCESS;
@@ -691,7 +690,7 @@ static irqreturn_t _scale_isr_root(int irq, void *dev_id)
 	uint32_t status;
 	struct scale_frame frame;
 	uint32_t flag;
-	
+
 	(void)irq; (void)dev_id;
 	status = REG_RD(SCALE_INT_STS);
 

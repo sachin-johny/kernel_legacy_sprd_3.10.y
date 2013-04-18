@@ -116,7 +116,7 @@ static int img_scale_open(struct inode *node, struct file *pf)
 			goto exit;
 		}
 	} else {
-			goto exit;
+		goto exit;
 	}
 reg_faile:
 	scale_module_dis();
@@ -218,7 +218,7 @@ static long img_scale_ioctl(struct file *file,
 		if (cur_task_pid == INVALID_USER_ID) {
 			mutex_lock(&scale_param_cfg_mutex);
 			cur_task_pid = ((struct scale_user *)(file->private_data))->pid;
-		}else if (cur_task_pid != ((struct scale_user *)(file->private_data))->pid){
+		}else if (cur_task_pid != ((struct scale_user *)(file->private_data))->pid) {
 			mutex_lock(&scale_param_cfg_mutex);
 		}
 
