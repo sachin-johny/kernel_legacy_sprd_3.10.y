@@ -1062,9 +1062,9 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 				mtd->oobsize = nand_config_table[index].oobsize;
 			break;
 		}
-	}else if((nand_config_item.pagesize == 2048) && (nand_config_item.eccbit == 4)){
-				this->ecc.size = nand_config_item.eccsize;
-				g_info.ecc_mode = nand_config_item.eccbit;
+	}else if((nand_config_table[index].pagesize == 2048) && (nand_config_table[index].eccbit == 4)){
+				this->ecc.size = nand_config_table[index].eccsize;
+				g_info.ecc_mode = nand_config_table[index].eccbit;
 				this->ecc.bytes = 7;
 				this->ecc.layout = &_nand_oob_64_4bit;
 	}
