@@ -106,10 +106,12 @@ static const struct nand_spec_str nand_spec_table[] = {
     {0x2c, 0xbc, 0x90, 0x55, 0x56, {10, 10, 12, 10, 20, 50}},// KTR0405AS-HHg1, KTR0403AS-HHg1, MT29C4G96MAZAPDJA-5 IT
 
     {0x98, 0xac, 0x90, 0x15, 0x76, {12, 10, 12, 10, 20, 50}},// TYBC0A111392KC
-    {0x98, 0xbc, 0x90, 0x55, 0x76, {12, 10, 12, 10, 20, 50}},// TYBC0A111430KC, KSLCBBL1FB4G3A, KSLCBBL1FB2G3A
+    {0x98, 0xbc, 0x90, 0x55, 0x76, {12, 15, 15, 10, 20, 50}},// TYBC0A111430KC, KSLCBBL1FB4G3A, KSLCBBL1FB2G3A
+    {0x98, 0xbc, 0x90, 0x66, 0x76, {12, 15, 15, 10, 20, 50}},// KSLCCBL1FB2G3A
 
     {0xad, 0xbc, 0x90, 0x11, 0x00, {25, 15, 25, 10, 20, 50}},// H9DA4VH4JJMMCR-4EMi, H9DA4VH2GJMMCR-4EM
     {0xad, 0xbc, 0x90, 0x55, 0x54, {25, 15, 25, 10, 20, 50}},//
+    {0xad, 0xbc, 0x90, 0x55, 0x56, {25, 20, 35, 10, 20, 50}},//H9DA4GH2GJBMCR
 
     {0xec, 0xb3, 0x01, 0x66, 0x5a, {21, 10, 21, 10, 20, 50}},// KBY00U00VA-B450
     {0xec, 0xbc, 0x00, 0x55, 0x54, {21, 10, 21, 10, 20, 50}},// KA100O015M-AJTT
@@ -117,6 +119,18 @@ static const struct nand_spec_str nand_spec_table[] = {
     {0xec, 0xbc, 0x01, 0x55, 0x48, {21, 15, 21, 10, 20, 50}},// KBY00N00HM-A448
 
     {0, 0, 0, 0, 0, {0, 0, 0, 0, 0, 0}}
+};
+
+struct nand_ecclayout _nand_oob_64_4bit = {
+	.eccbytes = 28,
+	.eccpos = {
+	               36, 37, 38, 39, 40, 41, 42, 43,
+                   44, 45, 46, 47, 48, 49, 50, 51,
+                   52, 53, 54, 55, 56, 57, 58, 59,
+                   60, 61, 62, 63},
+	.oobfree = {
+		{.offset = 2,
+		 .length = 34}}
 };
 
 static struct nand_ecclayout _nand_oob_128 = {
@@ -509,7 +523,8 @@ unsigned long fixon_timeout_function(unsigned int flag)
 			else
 				printk("NFC_DONE_RAW is 0, software clear bit%d, please check software\n", flag);
 		}
-	}
+		ret = 2;
+    }
 
 	return ret;
 }
@@ -913,7 +928,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			fixon_timeout_save_reg();
 			nfc_mcr_inst_exc();
 			ret = sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
-			fixon_timeout_restore_reg();
+			//fixon_timeout_restore_reg();
 			if (ret == 1) {
 				fixon_timeout_restore_reg();
 				nfc_mcr_inst_exc();
@@ -1047,8 +1062,12 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 				mtd->oobsize = nand_config_table[index].oobsize;
 			break;
 		}
-	} else
-		printk("The type of nand flash is not in table, so use default configuration!\n");
+	}else if((nand_config_table[index].pagesize == 2048) && (nand_config_table[index].eccbit == 4)){
+				this->ecc.size = nand_config_table[index].eccsize;
+				g_info.ecc_mode = nand_config_table[index].eccbit;
+				this->ecc.bytes = 7;
+				this->ecc.layout = &_nand_oob_64_4bit;
+	}
 }
 
 void read_chip_id(void)
