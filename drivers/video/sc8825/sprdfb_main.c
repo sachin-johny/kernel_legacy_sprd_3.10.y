@@ -341,13 +341,14 @@ static int sprdfb_probe(struct platform_device *pdev)
 		dev->ctrl = &sprdfb_lcdc_ctrl;
 #endif
 	}
-
+# if 0
 	if(sprdfb_panel_get(dev)){
 		dev->panel_ready = true;
 	}else{
 		dev->panel_ready = false;
 	}
-
+#endif
+	dev->panel_ready = false;
 	dev->ctrl->early_init(dev);
 
 	if(!dev->panel_ready){

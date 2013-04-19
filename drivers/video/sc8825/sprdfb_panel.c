@@ -214,8 +214,8 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 	list_for_each_entry(cfg, panel_list, list) {
 		printk("sprdfb: [%s]: try panel 0x%x\n", __FUNCTION__, cfg->lcd_id);
 		panel_mount(dev, cfg->panel);
-		dev->panel->ops->panel_reset(cfg->panel);
 		panel_init(dev);
+		dev->panel->ops->panel_reset(cfg->panel);
 		id = dev->panel->ops->panel_readid(dev->panel);
 		if(id == cfg->lcd_id) {
 			pr_debug(KERN_INFO "sprdfb: [%s]: LCD Panel 0x%x is attached!\n", __FUNCTION__, cfg->lcd_id);
@@ -236,6 +236,7 @@ bool sprdfb_panel_get(struct sprdfb_device *dev)
 
 	if(NULL == dev){
 		printk("sprdfb: [%s]: Invalid param\n", __FUNCTION__);
+		return false;
 	}
 
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
@@ -261,6 +262,7 @@ bool sprdfb_panel_probe(struct sprdfb_device *dev)
 
 	if(NULL == dev){
 		printk("sprdfb: [%s]: Invalid param\n", __FUNCTION__);
+		return false;
 	}
 
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);

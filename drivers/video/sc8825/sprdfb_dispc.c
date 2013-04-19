@@ -24,7 +24,7 @@
 #include "sprdfb_dispc_reg.h"
 #include "sprdfb.h"
 
-#ifdef CONIG_FB_SC8830
+#ifdef CONFIG_FB_SC8830
 #define DISPC_SOFT_RST (1)
 #else
 #define DISPC_SOFT_RST (20)
@@ -384,7 +384,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	}
 #ifdef CONFIG_FB_SC8830
 	__raw_bits_and(~(1<<0), (SPRD_APBCKG_BASE+0x2c));    //pll_src=256M
-	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x2c));
+	__raw_bits_or((1<<1), (SPRD_APBCKG_BASE+0x2c));
 
 	//set DISPC divdior
 	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x2c));  //div=0
@@ -392,8 +392,8 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x2c));
 
 	//select DBI clock source
-	__raw_bits_and((1<<0), (SPRD_APBCKG_BASE+0x30));    //pll_src=256M
-	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x30));
+	__raw_bits_or((1<<0), (SPRD_APBCKG_BASE+0x30));    //pll_src=256M
+	__raw_bits_or((1<<1), (SPRD_APBCKG_BASE+0x30));
 
 	//set DBI divdior
 	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x30));  //div=0
@@ -401,8 +401,8 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x30));
 
 	//select DPI clock source
-	__raw_bits_and((1<<0), (SPRD_APBCKG_BASE+0x34));    //pll_src=384M
-	__raw_bits_and((1<<1), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_or((1<<0), (SPRD_APBCKG_BASE+0x34));    //pll_src=384M
+	__raw_bits_or((1<<1), (SPRD_APBCKG_BASE+0x34));
 
 	//set DPI divdior
 	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x34));  //div=10, dpi_clk = pll_src/(10+1)
