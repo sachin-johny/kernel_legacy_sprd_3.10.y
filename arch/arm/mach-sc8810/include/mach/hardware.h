@@ -273,7 +273,9 @@ register offset.
 #define SEC_DEBUG_MAGIC_PHYS            0x40007C00
 #define SEC_DEBUG_MAGIC_SIZE            SZ_4K
 
+
 #ifdef CONFIG_ARCH_SC7710
+
 #define SPRD_SDIO2_BASE	(SPRD_REGS_BASE + 0x00058000)
 #define SPRD_SDIO2_PHYS	0x20e00000
 #define SPRD_SDIO2_SIZE	SZ_4K
@@ -319,6 +321,26 @@ register offset.
 #define SPRD_INTCV1_SIZE	SZ_4K
 
 #define ADC_REG_BASE    ((unsigned int)SPRD_MISC_BASE + 0x300)
+
+
+/*D-Die chip id define*/
+#define CHIP_ID_AA 0x7710DA00
+#define CHIP_ID_AB 0x7710DA01
+
+/*A-Die chip id define*/
+#define ANA_CHIP_ID_AA	0x7710A000
+#define ANA_CHIP_ID_BA	0x7710A001
+
 #endif
+
+
+#ifndef __ASSEMBLY__
+extern int sci_get_chipid(void);
+extern int sci_get_ana_chipid(void);
+#endif
+
+#define sci_get_chip_id()	sci_get_chipid()
+#define sci_get_ana_chip_id()	sci_get_ana_chipid()
+
 
 #endif
