@@ -98,6 +98,7 @@
 #define HWRST_STATUS_SLEEP (0X60)
 #define HWRST_STATUS_FASTBOOT (0X30)
 #define HWRST_STATUS_SPECIAL (0x70)
+#define HWRST_STATUS_CFTREBOOT (0x80)
 
 void sprd_set_reboot_mode(const char *cmd)
 {
@@ -117,6 +118,8 @@ void sprd_set_reboot_mode(const char *cmd)
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_FASTBOOT);
 	} else if (!strncmp(cmd, "special", 7)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
+	} else if (!strncmp(cmd, "cftreboot", 9)) {
+		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_CFTREBOOT);
 	} else {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
 	}
