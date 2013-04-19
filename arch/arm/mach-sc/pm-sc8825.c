@@ -17,24 +17,25 @@
 #include <linux/wakelock.h>
 #include <linux/io.h>
 #include <linux/kthread.h>
+#include <linux/clockchips.h>
+#include <linux/wakelock.h>
+
 #include <asm/irqflags.h>
 #include <asm/hardware/gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/cacheflush.h>
+
+#include <mach/hardware.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/system.h>
 #include <mach/pm_debug.h>
 #include <mach/common.h>
-#include <mach/hardware.h>
-#include <mach/regs_ana_glb.h>
 #include <mach/globalregs.h>
-#include <mach/regs_glb.h>
-#include <mach/regs_ahb.h>
 #include <mach/adi.h>
 #include <mach/irqs.h>
-#include <mach/sci.h>
+
 #include "emc_repower.h"
-#include <linux/clockchips.h>
-#include <linux/wakelock.h>
 
 extern int sc8825_get_clock_status(void);
 extern void secondary_startup(void);

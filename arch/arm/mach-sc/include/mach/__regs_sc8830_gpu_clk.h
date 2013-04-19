@@ -16,22 +16,18 @@
  *************************************************
  */
 
-#ifndef __REGS_GPU_APB_H__
-#define __REGS_GPU_APB_H__
+#ifndef __REGS_GPU_CLK_H__
+#define __REGS_GPU_CLK_H__
 
-#define REGS_GPU_APB
+#ifndef __SCI_GLB_REGS_H__
+#error  "Don't include this file directly, include <mach/sci_glb_regs.h>"
+#endif
 
-/* registers definitions for controller REGS_GPU_APB */
-#define REG_GPU_APB_APB_RST             SCI_ADDR(REGS_GPU_APB_BASE, 0x0000)
-#define REG_GPU_APB_APB_CLK_CTRL        SCI_ADDR(REGS_GPU_APB_BASE, 0x0004)
+#define REGS_GPU_CLK
 
-/* bits definitions for register REG_GPU_APB_APB_RST */
-#define BIT_GPU_SOFT_RST                ( BIT(0) )
+/* registers definitions for controller REGS_GPU_CLK */
+#define REG_GPU_CLK_GPU_CFG             SCI_ADDR(REGS_GPU_CLK_BASE, 0x0020)
 
-/* bits definitions for register REG_GPU_APB_APB_CLK_CTRL */
-#define BITS_CLK_GPU_DIV(_x_)           ( (_x_) << 2 & (BIT(2)|BIT(3)) )
-#define BITS_CLK_GPU_SEL(_x_)           ( (_x_) << 0 & (BIT(0)|BIT(1)) )
+/* vars definitions for controller REGS_GPU_CLK */
 
-/* vars definitions for controller REGS_GPU_APB */
-
-#endif //__REGS_GPU_APB_H__
+#endif //__REGS_GPU_CLK_H__

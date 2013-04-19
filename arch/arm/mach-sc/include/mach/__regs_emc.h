@@ -1,5 +1,10 @@
 #ifndef REGS_EMC_H_
 #define REGS_EMC_H_
+
+#ifndef __SCI_GLB_REGS_H__
+#error  "Don't include this file directly, include <mach/sci_glb_regs.h>"
+#endif
+
 #define UMCTL_CFG_ADD_SCFG            0x000
 #define UMCTL_CFG_ADD_SCTL            0x004//moves the uPCTL from one state to another
 #define UMCTL_CFG_ADD_STAT            0x008//provides information about the current state of the uPCTL

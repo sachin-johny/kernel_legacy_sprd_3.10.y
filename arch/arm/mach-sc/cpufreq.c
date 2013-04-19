@@ -26,13 +26,12 @@
 #include <linux/cpu.h>
 
 #include <asm/system.h>
+
 #include <mach/hardware.h>
 #include <mach/regulator.h>
-#include <mach/regs_ana_glb.h>
-#include <mach/regs_ahb.h>
-#include <mach/regs_glb.h>
 #include <mach/adi.h>
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 
 
 #define MHz                     (1000000)

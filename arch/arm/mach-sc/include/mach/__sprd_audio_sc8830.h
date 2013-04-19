@@ -19,14 +19,13 @@
 #endif
 
 #include <linux/delay.h>
+
 #include <mach/hardware.h>
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 #include <mach/dma.h>
 #include <mach/irqs.h>
-#include <mach/regs_sc8830_aon_apb.h>
-#include <mach/regs_sc8830_ap_apb.h>
-#include <mach/regs_sc8830_ana_glb.h>
 
 /* OKAY, this is for other else owner
    if you do not care the audio config

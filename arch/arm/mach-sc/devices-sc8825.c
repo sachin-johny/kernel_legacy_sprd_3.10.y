@@ -25,11 +25,13 @@
 #include <linux/spipe.h>
 #include <linux/spool.h>
 #include <linux/seth.h>
+
 #include <sound/saudio.h>
+
 #include <asm/pmu.h>
+
 #include <mach/hardware.h>
-#include <mach/regs_ahb.h>
-#include <mach/regs_glb.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/irqs.h>
 #include <mach/board.h>
 #include <mach/kpd.h>

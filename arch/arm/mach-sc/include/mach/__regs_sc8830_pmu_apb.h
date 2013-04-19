@@ -19,6 +19,10 @@
 #ifndef __REGS_PMU_APB_H__
 #define __REGS_PMU_APB_H__
 
+#ifndef __SCI_GLB_REGS_H__
+#error  "Don't include this file directly, include <mach/sci_glb_regs.h>"
+#endif
+
 #define REGS_PMU_APB
 
 /* registers definitions for controller REGS_PMU_APB */

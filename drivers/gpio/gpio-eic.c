@@ -23,13 +23,7 @@
 
 #include <mach/hardware.h>
 #include <mach/sci.h>
-#if defined(CONFIG_ARCH_SC8825)
-#include <mach/regs_glb.h>
-#include <mach/regs_ana_glb.h>
-#elif defined(CONFIG_ARCH_SC8830)
-#include <mach/regs_sc8830_aon_apb.h>
-#include <mach/regs_sc8830_ana_glb.h>
-#endif
+#include <mach/sci_glb_regs.h>
 #include <mach/gpio.h>
 #include <mach/adi.h>
 

@@ -129,7 +129,7 @@ struct sci_dma_reg {
 /*dma r3p0 and r4p0 register offset define start*/
 #ifdef DMA_VER_R4P0
 
-#include <mach/regs_sc8830_ap_ahb.h>
+#include <mach/sci_glb_regs.h>
 
 #define DMA_REG_BASE	SPRD_DMA0_BASE
 

@@ -26,12 +26,8 @@
 #include <mach/adi.h>
 #include <mach/irqs.h>
 #include <mach/sci.h>
-#if defined(CONFIG_ARCH_SC8830)
-#include <mach/regs_sc8830_aon_apb.h>
-#endif
-#if defined(CONFIG_ARCH_SC8825)
-#include <mach/regs_ahb.h>
-#endif
+#include <mach/sci_glb_regs.h>
+
 u32 sci_get_chip_id(void)
 {
 #if defined(CONFIG_ARCH_SC8825)

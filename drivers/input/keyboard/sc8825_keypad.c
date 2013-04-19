@@ -38,8 +38,8 @@
 #include <mach/gpio.h>
 #include <mach/adi.h>
 #include <mach/kpd.h>
-#include <mach/regs_glb.h>
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 
 #define DEBUG_KEYPAD	0
 

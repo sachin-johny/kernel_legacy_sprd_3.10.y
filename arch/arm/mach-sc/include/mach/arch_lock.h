@@ -18,9 +18,8 @@
 #include <linux/io.h>
 
 #include <mach/hardware.h>
-#include <mach/regs_ahb.h>
 #include <mach/sci.h>
-#include <mach/regs_glb.h>
+#include <mach/sci_glb_regs.h>
 
 extern struct hwspinlock *hwlocks[];
 extern unsigned char hwlocks_implemented[];
@@ -37,9 +36,6 @@ static __inline __init int __hwspinlock_init(void)
 }
 
 #else
-
-#include <mach/regs_sc8830_ap_ahb.h>
-#include <mach/regs_sc8830_aon_apb.h>
 
 static __inline unsigned long HWLOCK_ADDR(unsigned int id)
 {

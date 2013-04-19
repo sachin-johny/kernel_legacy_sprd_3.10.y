@@ -15,6 +15,17 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
+#include <linux/i2c.h>
+#include <linux/i2c/ft5306_ts.h>
+#include <linux/i2c/lis3dh.h>
+#include <linux/i2c/ltr_558als.h>
+#include <linux/akm8975.h>
+#include <linux/spi/spi.h>
+#include <linux/gpio.h>
+#include <linux/mpu.h>
+#include <linux/akm8975.h>
+#include <linux/irq.h>
+#include <linux/persistent_ram.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -26,27 +37,15 @@
 #include <asm/localtimer.h>
 
 #include <mach/hardware.h>
-#include <linux/i2c.h>
-#include <linux/i2c/ft5306_ts.h>
-#include <linux/i2c/lis3dh.h>
-#include <linux/i2c/ltr_558als.h>
-#include <linux/akm8975.h>
-#include <linux/spi/spi.h>
-#include <linux/gpio.h>
 #include <mach/board.h>
 #include <mach/serial_sprd.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include <mach/pinmap.h>
-#include <linux/mpu.h>
-#include <linux/akm8975.h>
-#include <linux/irq.h>
-#include <linux/persistent_ram.h>
 
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/hardware.h>
-#include <mach/regs_glb.h>
-#include <mach/regs_ahb.h>
 
 #include "devices.h"
 

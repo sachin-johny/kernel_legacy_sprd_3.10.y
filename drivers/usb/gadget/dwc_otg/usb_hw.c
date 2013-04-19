@@ -16,15 +16,13 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
+
 #include <asm/irq.h>
+
 #include <mach/hardware.h>
 #include <mach/sci.h>
-#if defined(CONFIG_ARCH_SC8830)
-#include <mach/regs_sc8830_ap_ahb.h>
-#include <mach/regs_sc8830_aon_apb.h>
-#else
+#include <mach/sci_glb_regs.h>
 #include <mach/globalregs.h>
-#endif
 #include <mach/board.h>
 #include "usb_hw.h"
 

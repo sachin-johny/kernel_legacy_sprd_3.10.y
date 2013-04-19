@@ -21,16 +21,15 @@
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/pm_runtime.h>
-
 #include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
+#include <linux/interrupt.h>
+
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/regulator.h>
 #include <mach/hardware.h>
-#include <mach/regs_ahb.h>
-#include <mach/regs_glb.h>
-#include <linux/interrupt.h>
 
 #include "sc8825.h"
 

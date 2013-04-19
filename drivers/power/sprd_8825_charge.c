@@ -13,23 +13,25 @@
 
 #include <linux/reboot.h>
 #include <linux/string.h>
-#include <mach/hardware.h>
-#include <mach/gpio.h>
 #include <linux/gpio.h>
-#include <mach/globalregs.h>
-#include <mach/regs_ahb.h>
-#include <mach/adi.h>
-#include <mach/adc.h>
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/spinlock.h>
-#include "sprd_8825_charge.h"
-#include <mach/usb.h>
 #include <linux/delay.h>
+
+#include <mach/hardware.h>
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
+#include <mach/gpio.h>
+#include <mach/adi.h>
+#include <mach/adc.h>
+#include <mach/usb.h>
+
+#include "sprd_8825_charge.h"
 
 #define USB_DM_GPIO 215
 #define USB_DP_GPIO 216
+
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
@@ -338,6 +340,8 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	udc_phy_down();
 	local_irq_save(irq_flag);
 
+//FIXME: shark have not this regsiter, need to fix..
+#if !defined(CONFIG_ARCH_SC8830)
 	sci_glb_clr(REG_AHB_USB_PHY_CTRL,
 			     (BIT_DMPULLDOWN | BIT_DPPULLDOWN));
 
@@ -346,6 +350,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	mdelay(10);
 	ret = gpio_get_value(USB_DM_GPIO);
 	sci_glb_clr(REG_AHB_USB_PHY_CTRL, (BIT_DMPULLUP));
+#endif
 #if 0
 	/* normal charger */
 	if (ret) {

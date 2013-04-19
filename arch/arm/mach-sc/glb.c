@@ -19,13 +19,9 @@
 #include <linux/hwspinlock.h>
 #include <linux/io.h>
 
-#include <mach/sci.h>
 #include <mach/hardware.h>
-#if defined(CONFIG_ARCH_SC8825)
-#include <mach/regs_glb.h>
-#elif defined(CONFIG_ARCH_SC8830)
-#include <mach/regs_sc8830_ap_apb.h>
-#endif
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/arch_lock.h>
 
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/

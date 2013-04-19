@@ -29,13 +29,9 @@
 #include <asm/mach/time.h>
 
 #include <mach/hardware.h>
-#include <mach/irqs.h>
-#if defined(CONFIG_ARCH_SC8825)
-#include <mach/regs_glb.h>
-#elif defined(CONFIG_ARCH_SC8830)
-#include <mach/regs_sc8830_aon_apb.h>
-#endif
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
+#include <mach/irqs.h>
 
 static __iomem void *base_gptimer = (__iomem void *)SPRD_GPTIMER_BASE;
 #define	TIMER_LOAD(id)	(base_gptimer + 0x20 * (id) + 0x0000)

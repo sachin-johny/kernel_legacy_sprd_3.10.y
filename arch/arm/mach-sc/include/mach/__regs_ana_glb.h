@@ -19,6 +19,10 @@
 #ifndef __ANA_REGS_GLB_H__
 #define __ANA_REGS_GLB_H__
 
+#ifndef __SCI_GLB_REGS_H__
+#error  "Don't include this file directly, include <mach/sci_glb_regs.h>"
+#endif
+
 #define ANA_REGS_GLB
 
 /* registers definitions for controller ANA_REGS_GLB */

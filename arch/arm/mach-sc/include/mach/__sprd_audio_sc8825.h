@@ -19,10 +19,10 @@
 #endif
 
 #include <linux/delay.h>
+
 #include <mach/hardware.h>
 #include <mach/sci.h>
-#include <mach/regs_glb.h>
-#include <mach/regs_ana_glb.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 #include <mach/dma.h>
 #include <mach/irqs.h>

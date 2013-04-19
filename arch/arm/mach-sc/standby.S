@@ -9,7 +9,7 @@
 #include <asm/assembler.h>
 #include <asm/smp_scu.h>
 #include <mach/hardware.h>
-#include <mach/regs_glb.h>
+#include <mach/sci_glb_regs.h>
 /*
 #include <mach/common.h>
 */

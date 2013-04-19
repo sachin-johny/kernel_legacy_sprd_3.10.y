@@ -20,13 +20,9 @@
 #include <linux/hwspinlock.h>
 
 #include <mach/hardware.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
-#if defined(CONFIG_ARCH_SC8825)
-#include <mach/regs_ana_glb.h>
-#elif defined(CONFIG_ARCH_SC8830)
-#include <mach/regs_sc8830_ana_glb.h>
-#endif
 #include <mach/arch_lock.h>
 
 static u32 io_base;		/* Mapped base address */
@@ -257,7 +253,7 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 }
 int sci_adc_get_values(struct adc_sample_data *adc)
 {
-	unsigned long flags, hw_flags;
+	unsigned long flags;
 	int cnt = 12;
 	unsigned addr = 0;
 	unsigned val = 0;

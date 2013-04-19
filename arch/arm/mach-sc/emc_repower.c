@@ -1,28 +1,26 @@
 #include <linux/init.h>
 #include <linux/suspend.h>
 #include <linux/errno.h>
-#if defined(CONFIG_ARCH_SC8825)
-#include <mach/regs_glb.h>
-#include <mach/regs_ahb.h>
-#elif defined(CONFIG_ARCH_SC8830)
-#include <mach/regs_sc8830_aon_apb.h>
-#endif
-#include <asm/irqflags.h>
 //#include "clock_common.h"
 //#include "clock_sc8810.h"
-#include <mach/adi.h>
 #include <linux/io.h>
-#include <asm/cacheflush.h>
 #include <linux/delay.h>
 #include <linux/wakelock.h>
 #include <linux/kthread.h>
+
+#include <asm/cacheflush.h>
+#include <asm/hardware/gic.h>
+#include <asm/irqflags.h>
+
+#include <mach/adi.h>
 #include <mach/pm_debug.h>
 #include <mach/common.h>
 #include <mach/hardware.h>
-#include <mach/regs_ana_glb.h>
-#include <asm/hardware/gic.h>
-#include "emc_repower.h"
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
+
+#include "emc_repower.h"
+
 #define REG32(x)             (*((volatile u32 *)(x)))
 #define BASE_ADDR_AHBREG     (0x20900200)
 #define ADDR_AHBREG_ARMCLK   (BASE_ADDR_AHBREG+0x0024)

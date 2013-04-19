@@ -15,15 +15,40 @@
  * Automatically generated C header: do not edit *
  *************************************************
  */
-#ifndef __ASM_ARCH_SCI_CLOCK_TREE_H
-#define __ASM_ARCH_SCI_CLOCK_TREE_H
 
-#if defined(CONFIG_ARCH_SC8830)
-#include "__sc8830_clock_tree.h"
-#elif defined(CONFIG_ARCH_SC8825)
-#include "__sc8825_clock_tree.h"
+#ifndef __SCI_GLB_REGS_H__
+#define __SCI_GLB_REGS_H__
+
+#if defined(CONFIG_ARCH_SC8825)
+
+#include "__regs_ahb.h"
+#include "__regs_ana_glb2.h"
+#include "__regs_ana_glb.h"
+#include "__regs_emc.h"
+#include "__regs_glb.h"
+
+#elif defined(CONFIG_ARCH_SC8830)
+
+#include "__regs_sc8830_ana_glb.h"
+#include "__regs_sc8830_aon_apb.h"
+#include "__regs_sc8830_aon_ckg.h"
+#include "__regs_sc8830_aon_clk.h"
+#include "__regs_sc8830_ap_ahb.h"
+#include "__regs_sc8830_ap_apb.h"
+#include "__regs_sc8830_ap_clk.h"
+#include "__regs_sc8830_gpu_apb.h"
+#include "__regs_sc8830_gpu_clk.h"
+#include "__regs_sc8830_mm_ahb.h"
+#include "__regs_sc8830_mm_clk.h"
+#include "__regs_sc8830_pmu_apb.h"
+#include "__regs_sc8830_pub_apb.h"
+
+
 #else
+
 #error "Unknown architecture specification"
+
 #endif
 
 #endif
+

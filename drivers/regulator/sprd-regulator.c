@@ -25,11 +25,9 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 
-#include <mach/sci.h>
 #include <mach/hardware.h>
-#include <mach/regs_glb.h>
-#include <mach/regs_ana_glb.h>
-#include <mach/regs_ana_glb2.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 
 #undef debug

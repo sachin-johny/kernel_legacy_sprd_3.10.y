@@ -25,14 +25,14 @@
 #include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
-#include <mach/sci.h>
-#include <mach/regulator.h>
-#include <mach/hardware.h>
-#include <mach/regs_sc8830_ap_ahb.h>
-#include <mach/regs_sc8830_ana_glb.h>
 #include <linux/interrupt.h>
 
+#include <mach/hardware.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
+#include <mach/regulator.h>
 #include <mach/arch_misc.h>
+
 #include "sc8830.h"
 
 #define     SDIO_MAX_CLK            32000000
