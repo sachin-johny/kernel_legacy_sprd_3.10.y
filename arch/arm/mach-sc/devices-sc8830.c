@@ -1244,6 +1244,118 @@ struct platform_device sprd_saudio_wcdma_device = {
 };
 #endif
 
+struct sysdump_mem sprd_dump_mem[] = {
+	{
+		.paddr		= CONFIG_PHYS_OFFSET,
+		.vaddr		= PAGE_OFFSET,
+		.soff		= 0xffffffff,
+		.size		= CPT_START_ADDR - CONFIG_PHYS_OFFSET,
+		.type	 	= SYSDUMP_RAM,
+	},
+	{
+		.paddr		= CPT_START_ADDR,
+		.vaddr		= PAGE_OFFSET +
+					(CPT_START_ADDR - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= CPT_TOTAL_SIZE,
+#ifdef CONFIG_SIPC_TD
+		.type		= SYSDUMP_MODEM,
+#else
+		.type		= SYSDUMP_RAM,
+#endif
+	},
+	{
+		.paddr		= CPT_START_ADDR + CPT_TOTAL_SIZE,
+		.vaddr		= PAGE_OFFSET +
+					(CPT_START_ADDR + CPT_TOTAL_SIZE - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= SPRD_IO_MEM_BASE - (CPT_START_ADDR + CPT_TOTAL_SIZE),
+		.type		= SYSDUMP_RAM,
+	},
+	{
+		.paddr		= CPW_START_ADDR,
+		.vaddr		= PAGE_OFFSET +
+					(CPW_START_ADDR - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= CPW_TOTAL_SIZE,
+#ifdef CONFIG_SIPC_WCDMA
+		.type		= SYSDUMP_MODEM,
+#else
+		.type		= SYSDUMP_RAM,
+#endif
+	},
+	{
+		.paddr		= WCN_START_ADDR,
+		.vaddr		= PAGE_OFFSET +
+					(WCN_START_ADDR - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= WCN_TOTAL_SIZE,
+#ifdef CONFIG_SIPC_WCN
+		.type		= SYSDUMP_MODEM,
+#else
+		.type		= SYSDUMP_RAM,
+#endif
+	},
+	{
+		.paddr		= WCN_START_ADDR + WCN_TOTAL_SIZE,
+		.vaddr		= PAGE_OFFSET +
+					(WCN_START_ADDR + WCN_TOTAL_SIZE - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= 0, /* fill this dynamically according to real ram size */
+		.type		= SYSDUMP_RAM,
+	},
+	{
+		.paddr		= SPRD_AHB_PHYS,
+		.vaddr		= SPRD_AHB_BASE,
+		.soff		= 0x0,
+		.size		= SPRD_AHB_SIZE,
+		.type		= SYSDUMP_IOMEM,
+	},
+	{
+		.paddr		= SPRD_INTC0_PHYS,
+		.vaddr		= SPRD_INTC0_BASE,
+		.soff		= 0x0,
+		.size		= SPRD_INTC0_SIZE,
+		.type		= SYSDUMP_IOMEM,
+	},
+	{
+		.paddr		= SPRD_GPTIMER0_PHYS,
+		.vaddr		= SPRD_GPTIMER0_BASE,
+		.soff		= 0x0,
+		.size		= SPRD_GPTIMER0_SIZE,
+		.type		= SYSDUMP_IOMEM,
+	},
+	{
+		.paddr		= SPRD_ADI_PHYS,
+		.vaddr		= SPRD_ADI_BASE,
+		.soff		= 0x0,
+		.size		= SPRD_ADI_SIZE,
+		.type		= SYSDUMP_IOMEM,
+	},
+	{
+		.paddr		= SPRD_GPIO_PHYS,
+		.vaddr		= SPRD_GPIO_BASE,
+		.soff		= 0x0,
+		.size		= SPRD_GPIO_SIZE,
+		.type		= SYSDUMP_IOMEM,
+	},
+	{
+		.paddr		= SPRD_EIC_PHYS,
+		.vaddr		= SPRD_EIC_BASE,
+		.soff		= 0x0,
+		.size		= SPRD_EIC_SIZE,
+		.type		= SYSDUMP_IOMEM,
+	},
+	{
+		.paddr		= SPRD_GREG_PHYS,
+		.vaddr		= SPRD_GREG_BASE,
+		.soff		= 0x0,
+		.size		= SPRD_GREG_SIZE,
+		.type		= SYSDUMP_IOMEM,
+	},
+};
+int sprd_dump_mem_num = ARRAY_SIZE(sprd_dump_mem);
+
 #if 0
 static struct resource sprd_pmu_resource[] = {
 	[0] = {

@@ -1138,58 +1138,90 @@ struct platform_device sprd_seth_td_device = {
 	.dev		= {.platform_data = &sprd_seth_td_pdata},
 };
 
-
+/*  sprd ram layout
+ *
+ *   |-----------|------------------|- pmem -|----------------------|
+ *   |           |                                                  |
+ *   |   MODEM   |            LINUX KERNEL MEMORY                   |
+ *   |           |                                                  |
+ *   |-----------|------------------|--------|----------------------|
+ * 0x80000000  0x82000000           |    0x90000000         0x9fffffff
+ *                           SPRD_IO_MEM_BASE
+ */
 struct sysdump_mem sprd_dump_mem[] = {
 	{
-		.paddr		= CONFIG_PHYS_OFFSET,
-		.vaddr		= CONFIG_PAGE_OFFSET,
+		.paddr		= (CONFIG_PHYS_OFFSET & (~(SZ_256M - 1))),
+		.vaddr		= 0,
 		.soff		= 0xffffffff,
-		.size		= SZ_512M - (CONFIG_PHYS_OFFSET & 0x0fffffff),
+		.size		= (CONFIG_PHYS_OFFSET & (SZ_256M - 1)),
+		.type	 	= SYSDUMP_MODEM,
+	},
+	{
+		.paddr		= CONFIG_PHYS_OFFSET,
+		.vaddr		= PAGE_OFFSET,
+		.soff		= 0xffffffff,
+		.size		= SPRD_IO_MEM_BASE - CONFIG_PHYS_OFFSET,
+		.type	 	= SYSDUMP_RAM,
+	},
+	{
+		.paddr		= CONFIG_PHYS_OFFSET + SZ_256M - CPT_TOTAL_SIZE,
+		.vaddr		= PAGE_OFFSET + SZ_256M - CPT_TOTAL_SIZE,
+		.soff		= 0xffffffff,
+		.size		= 0, /* fill this dynamically according to real ram size */
+		.type		= SYSDUMP_RAM,
 	},
 	{
 		.paddr		= SPRD_AHB_PHYS,
 		.vaddr		= SPRD_AHB_BASE,
 		.soff		= 0x0,
 		.size		= SPRD_AHB_SIZE,
+		.type		= SYSDUMP_IOMEM,
 	},
 	{
 		.paddr		= SPRD_INTC0_PHYS,
 		.vaddr		= SPRD_INTC0_BASE,
 		.soff		= 0x0,
 		.size		= SPRD_INTC0_SIZE,
+		.type		= SYSDUMP_IOMEM,
 	},
 	{
 		.paddr		= SPRD_GPTIMER_PHYS,
 		.vaddr		= SPRD_GPTIMER_BASE,
 		.soff		= 0x0,
 		.size		= SPRD_GPTIMER_SIZE,
+		.type		= SYSDUMP_IOMEM,
 	},
 	{
 		.paddr		= SPRD_ADI_PHYS,
 		.vaddr		= SPRD_ADI_BASE,
 		.soff		= 0x0,
 		.size		= SPRD_ADI_SIZE,
+		.type		= SYSDUMP_IOMEM,
 	},
 	{
 		.paddr		= SPRD_GPIO_PHYS,
 		.vaddr		= SPRD_GPIO_BASE,
 		.soff		= 0x0,
 		.size		= SPRD_GPIO_SIZE,
+		.type		= SYSDUMP_IOMEM,
 	},
 	{
 		.paddr		= SPRD_EIC_PHYS,
 		.vaddr		= SPRD_EIC_BASE,
 		.soff		= 0x0,
 		.size		= SPRD_EIC_SIZE,
+		.type		= SYSDUMP_IOMEM,
 	},
 	{
 		.paddr		= SPRD_GREG_PHYS,
 		.vaddr		= SPRD_GREG_BASE,
 		.soff		= 0x0,
 		.size		= SPRD_GREG_SIZE,
+		.type		= SYSDUMP_IOMEM,
 	},
 };
 int sprd_dump_mem_num = ARRAY_SIZE(sprd_dump_mem);
+
 
 #define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00B8)
 #define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x00BC)

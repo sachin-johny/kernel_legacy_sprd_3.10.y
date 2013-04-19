@@ -73,6 +73,12 @@ struct sysdump_mem {
 	int type;
 };
 
+enum sysdump_type {
+	SYSDUMP_RAM,
+	SYSDUMP_MODEM,
+	SYSDUMP_IOMEM,
+};
+
 extern int sprd_dump_mem_num;
 extern struct sysdump_mem sprd_dump_mem[];
 

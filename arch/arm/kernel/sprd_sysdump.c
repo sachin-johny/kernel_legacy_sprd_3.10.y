@@ -71,6 +71,7 @@ struct sysdump_extra {
 
 struct sysdump_config {
 	int enable;
+	int dump_modem;
 	int reboot;
 	char dump_path[128];
 };
@@ -86,6 +87,7 @@ struct sysdump_extra sprd_sysdump_extra = {
 
 static struct sysdump_config sysdump_conf = {
 	.enable = 1,
+	.dump_modem = 0,
 	.reboot = 1,
 	.dump_path = "",
 };
@@ -395,6 +397,17 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 	sprd_sysdump_info->mem_num = sprd_dump_mem_num;
 	sprd_sysdump_info->elfhdr_size = get_elfhdr_size(sprd_sysdump_info->mem_num);
 
+	/* this must before sysdump_fill_core_hdr, it needs size */
+	for (i = 0; i < sprd_dump_mem_num; i++) {
+		if (SYSDUMP_RAM == sprd_dump_mem[i].type && 0 == sprd_dump_mem[i].size)
+			sprd_dump_mem[i].size = CONFIG_PHYS_OFFSET +
+						(num_physpages << PAGE_SHIFT) -
+						sprd_dump_mem[i].paddr;
+
+		if (!sysdump_conf.dump_modem && SYSDUMP_MODEM == sprd_dump_mem[i].type)
+			sprd_dump_mem[i].size = 0;
+	}
+
 	sysdump_fill_core_hdr(regs,
 		sprd_dump_mem,
 		sprd_dump_mem_num,
@@ -404,8 +417,7 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 
 	iocnt = 0;
 	for (i = 0; i < sprd_dump_mem_num; i++) {
-		sprd_dump_mem[i].type = KCORE_RAM;
-
+		/* save iomem(regiters) to ram, cause they will change while rebooting */
 		if (0xffffffff != sprd_dump_mem[i].soff) {
 			sprd_dump_mem[i].soff = iocnt;
 			iomem = (char *)sprd_sysdump_info + sizeof(*sprd_sysdump_info) +
@@ -480,6 +492,13 @@ void sysdump_ipi(struct pt_regs *regs)
 static ctl_table sysdump_sysctl_table[] = {
 	{
 		.procname       = "sysdump_enable",
+		.data           = &sysdump_conf.enable,
+		.maxlen         = sizeof(int),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec,
+	},
+	{
+		.procname       = "sysdump_dump_modem",
 		.data           = &sysdump_conf.enable,
 		.maxlen         = sizeof(int),
 		.mode           = 0644,
