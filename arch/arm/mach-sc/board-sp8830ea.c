@@ -44,15 +44,11 @@
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
-#if defined(CONFIG_ARCH_SC8825)
-#include <mach/regs_glb.h>
-#include <mach/regs_ahb.h>
-#elif defined(CONFIG_ARCH_SC8830)
+
 #include <mach/regs_sc8830_aon_apb.h>
 #include <mach/regs_sc8830_ap_apb.h>
 #include <mach/regs_sc8830_aon_clk.h>
 #include <mach/regs_sc8830_ap_ahb.h>
-#endif
 
 #include "devices.h"
 
@@ -558,100 +554,13 @@ int __init sc8825_regulator_init(void)
 
 int __init __clock_init_early(void)
 {
-#if defined(CONFIG_ARCH_SC8825)
-	pr_info("ahb ctl0 %08x, ctl2 %08x glb gen0 %08x gen1 %08x clk_en %08x\n",
-		sci_glb_raw_read(REG_AHB_AHB_CTL0),
-		sci_glb_raw_read(REG_AHB_AHB_CTL2),
-		sci_glb_raw_read(REG_GLB_GEN0),
-		sci_glb_raw_read(REG_GLB_GEN1),
-		sci_glb_raw_read(REG_GLB_CLK_EN));
-#elif defined(CONFIG_ARCH_SC8830)
 	pr_info("ahb ctl0 %08x, ctl2 %08x glb aon apb0 %08x aon apb1 %08x clk_en %08x\n",
 		sci_glb_raw_read(REG_AP_AHB_AHB_EB),
 		sci_glb_raw_read(REG_AP_AHB_AHB_RST),
 		sci_glb_raw_read(REG_AON_APB_APB_EB0),
 		sci_glb_raw_read(REG_AON_APB_APB_EB1),
 		sci_glb_raw_read(REG_AON_CLK_PUB_AHB_CFG));
-#endif
-#if defined(CONFIG_ARCH_SC8825)
-	/* FIXME: Force disable all unused clocks */
-	sci_glb_clr(REG_AHB_AHB_CTL0,
-		BIT_AXIBUSMON2_EB	|
-		BIT_AXIBUSMON1_EB	|
-		BIT_AXIBUSMON0_EB	|
-//		BIT_EMC_EB       	|
-//		BIT_AHB_ARCH_EB  	|
-//		BIT_SPINLOCK_EB  	|
-		BIT_SDIO2_EB     	|
-		BIT_EMMC_EB      	|
-//		BIT_DISPC_EB     	|
-		BIT_G3D_EB       	|
-		BIT_SDIO1_EB     	|
-		BIT_DRM_EB       	|
-		BIT_BUSMON4_EB   	|
-		BIT_BUSMON3_EB   	|
-		BIT_BUSMON2_EB   	|
-		BIT_ROT_EB       	|
-		BIT_VSP_EB       	|
-		BIT_ISP_EB       	|
-		BIT_BUSMON1_EB   	|
-		BIT_DCAM_MIPI_EB 	|
-		BIT_CCIR_EB      	|
-		BIT_NFC_EB       	|
-		BIT_BUSMON0_EB   	|
-//		BIT_DMA_EB       	|
-//		BIT_USBD_EB      	|
-		BIT_SDIO0_EB     	|
-//		BIT_LCDC_EB      	|
-		BIT_CCIR_IN_EB   	|
-		BIT_DCAM_EB      	|
-		0);
-	sci_glb_clr(REG_AHB_AHB_CTL2,
-//		BIT_DISPMTX_CLK_EN	|
-		BIT_MMMTX_CLK_EN    |
-//		BIT_DISPC_CORE_CLK_EN|
-//		BIT_LCDC_CORE_CLK_EN|
-		BIT_ISP_CORE_CLK_EN |
-		BIT_VSP_CORE_CLK_EN |
-		BIT_DCAM_CORE_CLK_EN|
-		0);
-	sci_glb_clr(REG_AHB_AHB_CTL3,
-//		BIT_CLK_ULPI_EN		|
-//		BIT_CLK_USB_REF_EN	|
-		0);
-	sci_glb_clr(REG_GLB_GEN0,
-		BIT_IC3_EB          |
-		BIT_IC2_EB          |
-		BIT_IC1_EB          |
-//		BIT_RTC_TMR_EB      |
-//		BIT_RTC_SYST0_EB    |
-		BIT_RTC_KPD_EB      |
-		BIT_IIS1_EB         |
-//		BIT_RTC_EIC_EB      |
-		BIT_UART2_EB        |
-//		BIT_UART1_EB        |
-		BIT_UART0_EB        |
-//		BIT_SYST0_EB        |
-		BIT_SPI1_EB         |
-		BIT_SPI0_EB         |
-//		BIT_SIM1_EB         |
-//		BIT_EPT_EB          |
-		BIT_CCIR_MCLK_EN    |
-//		BIT_PINREG_EB       |
-		BIT_IIS0_EB         |
-//		BIT_MCU_DSP_RST		|
-//		BIT_EIC_EB     		|
-		BIT_KPD_EB     		|
-		BIT_EFUSE_EB   		|
-//		BIT_ADI_EB     		|
-//		BIT_GPIO_EB    		|
-		BIT_I2C0_EB    		|
-//		BIT_SIM0_EB    		|
-//		BIT_TMR_EB     		|
-		BIT_SPI2_EB    		|
-		BIT_UART3_EB   		|
-		0);
-#elif defined(CONFIG_ARCH_SC8830)
+
 	sci_glb_clr(REG_AP_AHB_AHB_EB,
 		BIT_BUSMON2_EB		|
 		BIT_BUSMON1_EB		|
@@ -690,39 +599,7 @@ int __init __clock_init_early(void)
 		BIT_KPD_EB		|
 		BIT_EFUSE_EB		|
 		0);
-#endif
-#if defined(CONFIG_ARCH_SC8825)
-	sci_glb_clr(REG_AHB_CA5_CFG,
-//		BIT_CA5_CLK_DBG_EN	|
-		0);
-	sci_glb_clr(REG_GLB_GEN1,
-		BIT_AUDIF_AUTO_EN	|
-		BIT_VBC_EN			|
-		BIT_AUD_TOP_EB		|
-		BIT_AUD_IF_EB		|
-		BIT_CLK_AUX1_EN		|
-		BIT_CLK_AUX0_EN		|
-		0);
-	sci_glb_clr(REG_GLB_CLK_EN,
-		BIT_PWM3_EB			|
-//		BIT_PWM2_EB			|
-		BIT_PWM1_EB			|
-//		BIT_PWM0_EB			|
-		0);
 
-	sci_glb_clr(REG_GLB_PCTRL,
-	//		BIT_MCU_MPLL_EN 	|
-	//		BIT_MCU_TDPLL_EN	|
-	//		BIT_MCU_DPLL_EN 	|
-			BIT_MCU_GPLL_EN);	/* clk_gpu */
-
-	sci_glb_set(REG_GLB_TD_PLL_CTL,
-	//		BIT_TDPLL_DIV2OUT_FORCE_PD	|	/* clk_384m */
-	//		BIT_TDPLL_DIV3OUT_FORCE_PD	|	/* clk_256m */
-	//		BIT_TDPLL_DIV4OUT_FORCE_PD	|	/* clk_192m */
-	//		BIT_TDPLL_DIV5OUT_FORCE_PD	|	/* clk_153p6m */
-			0);
-#elif defined(CONFIG_ARCH_SC8830)
 	sci_glb_clr(REG_AON_APB_APB_EB0,
 		BIT_AUDIF_EB			|
 		BIT_VBC_EB			|
@@ -733,7 +610,7 @@ int __init __clock_init_early(void)
 		BIT_AUX1_EB			|
 		BIT_AUX0_EB			|
 		0);
-#endif
+
 	printk("sc clock module early init ok\n");
 	return 0;
 }
