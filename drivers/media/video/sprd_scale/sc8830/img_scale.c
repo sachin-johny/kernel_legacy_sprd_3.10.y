@@ -262,21 +262,21 @@ static int img_scale_proc_read(char *page,
 	uint32_t *reg_buf;
 	uint32_t reg_buf_len = 0x800;
 	uint32_t print_len = 0, print_cnt = 0;
-	
+
 	(void)start; (void)off; (void)count; (void)eof;
-	
+
 	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
 	ret = scale_read_registers(reg_buf, &reg_buf_len);
 	if (ret)
 		return len;
-	
+
 	len += sprintf(page + len, "********************************************* \n");
 	len += sprintf(page + len, "scale registers \n");
 	print_cnt = 0;
 	while (print_len < reg_buf_len) {
 		len += sprintf(page + len, "offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
 			print_len,
-			reg_buf[print_cnt], 
+			reg_buf[print_cnt],
 			reg_buf[print_cnt+1],
 			reg_buf[print_cnt+2],
 			reg_buf[print_cnt+3]);
@@ -287,7 +287,7 @@ static int img_scale_proc_read(char *page,
 	len += sprintf(page + len, "The end of DCAM device \n");
 	msleep(10);
 	kfree(reg_buf);
-	
+
 	return len;
 }
 
@@ -563,7 +563,7 @@ static int img_scale_remove(struct platform_device *dev)
 	if (g_scale_user) {
 		kfree(g_scale_user);
 	}
-	
+
 	if (img_scale_proc_file) {
 		remove_proc_entry("driver/scale", NULL);
 	}

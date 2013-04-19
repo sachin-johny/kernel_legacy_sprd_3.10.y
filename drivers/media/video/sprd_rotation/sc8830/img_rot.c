@@ -348,7 +348,7 @@ int rot_k_open_test(void)
 {
 	struct rot_user *p_user = NULL;
 	int ret = 0;
-	
+
 	down(&g_sem_dev_open);
 
 	p_user = rot_get_user(current->pid);
@@ -432,7 +432,7 @@ while(1) {
 	rot_k_condition_init_test();
 	rot_k_done();
 	rot_k_wait_stop_test();
-	
+
 	if (0 == rot_k_is_end()) {
 		RTT_PRINT("rot_k_thread y done, uv start \n");
 		rot_k_condition_init_test();

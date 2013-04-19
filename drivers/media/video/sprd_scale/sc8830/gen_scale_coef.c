@@ -41,7 +41,7 @@ static uint8_t _InitPool(void *buffer_ptr,
 {
 	if (NULL == buffer_ptr || 0 == buffer_size || NULL == pool_ptr)
 		return FALSE;
-	
+
 	if (buffer_size < MIN_POOL_SIZE)
 		return FALSE;
 
@@ -375,7 +375,7 @@ static void SetHorRegisterCoef(uint32_t * reg_coef_ptr, int16_t * y_coef_ptr,
 static void SetVerRegisterCoef(uint32_t * reg_coef_lum_ptr,
 			uint32_t *reg_coef_ch_ptr,
 			int16_t * y_coef_ptr,
-			int16_t * uv_coef_ptr, 
+			int16_t * uv_coef_ptr,
 			int16_t  i_h,
 			int16_t o_h,
 			uint8_t is_scaling2yuv420)
@@ -507,17 +507,17 @@ static void CalcVerEdgeCoef(int16_t * coeff_ptr, int16_t D, int16_t I,
 	}
 }
 
-uint8_t GenScaleCoeff(int16_t i_w, 
-			int16_t i_h, 
-			int16_t o_w, 
+uint8_t GenScaleCoeff(int16_t i_w,
+			int16_t i_h,
+			int16_t o_w,
 			int16_t o_h,
-			uint32_t *coeff_h_ptr, 
+			uint32_t *coeff_h_ptr,
 			uint32_t *coeff_v_lum_ptr,
-			uint32_t *coeff_v_ch_ptr, 
+			uint32_t *coeff_v_ch_ptr,
 			uint8_t scaling2yuv420,
 			uint8_t *scaler_tap,
 			uint8_t *chrome_tap,
-			void *temp_buf_ptr, 
+			void *temp_buf_ptr,
 			uint32_t temp_buf_size
 			)
 {
@@ -585,7 +585,7 @@ uint8_t GenScaleCoeff(int16_t i_w,
 
 	if ( luma_ver_tap > luma_ver_maxtap)
 		luma_ver_tap = luma_ver_maxtap;
-	if(luma_ver_tap <= 2) 
+	if(luma_ver_tap <= 2)
 		luma_ver_tap = 4;
 
 	*scaler_tap = (uint8_t)luma_ver_tap;

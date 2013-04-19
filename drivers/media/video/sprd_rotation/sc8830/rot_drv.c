@@ -76,11 +76,11 @@ int rot_k_module_dis(void)
 	int ret = 0;
 
 	ret = dcam_module_dis();
-	
+
 	if (ret) {
 		printk("rot_k_module_dis, failed  %d \n", ret);
 	}
-	
+
 	return ret;
 }
 
@@ -106,10 +106,10 @@ static void rot_k_set_endian(ROT_ENDIAN_E src_end, ROT_ENDIAN_E dst_end)
 {
 	REG_AWR(REG_ROTATION_ENDIAN_SEL,
 		(~(ROT_RD_ENDIAN_MASK |ROT_WR_ENDIAN_MASK)));
-	
+
 	REG_OWR(REG_ROTATION_ENDIAN_SEL,
 		(ROT_AXI_RD_WORD_ENDIAN_BIT |
-		ROT_AXI_WR_WORD_ENDIAN_BIT | 
+		ROT_AXI_WR_WORD_ENDIAN_BIT |
 		(src_end << 16) |(dst_end << 14)));
 }
 
@@ -160,7 +160,7 @@ static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
 {
 	uint32_t status;
 	uint32_t flag;
-	
+
 	(void)irq; (void)dev_id;
 	status = REG_RD(REG_ROTATION_INT_STS);
 
@@ -169,13 +169,13 @@ static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
 	}
 
 	spin_lock_irqsave(&rot_lock, flag);
-	
+
 	if (user_rot_isr_func) {
 		user_rot_isr_func();
 	}
 
 	REG_OWR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
-	
+
 	spin_unlock_irqrestore(&rot_lock, flag);
 
 	return IRQ_HANDLED;
@@ -200,7 +200,7 @@ int rot_k_isr_reg(rot_isr_func user_func)
 		rtn = -1;
 	}else
 		rot_k_interrupt_en();
-	
+
 	return rtn;
 }
 
@@ -255,7 +255,7 @@ static ROT_PIXEL_FORMAT_E rot_k_get_pixel_format(void)
 		ret = ROT_ONE_BYTE;
 		break;
 	}
-	
+
 	return ret;
 }
 
@@ -361,7 +361,7 @@ int rot_k_io_cfg(ROT_CFG_T * param_ptr)
 	RTT_PRINT("format=%d, angle=%d \n", p->format, p->angle);
 	RTT_PRINT("s.y=%x, s.u=%x, s.v=%x \n", p->src_addr.y_addr, p->src_addr.u_addr, p->src_addr.v_addr);
 	RTT_PRINT("d.y=%x, d.u=%x, d.v=%x \n", p->dst_addr.y_addr, p->dst_addr.u_addr, p->dst_addr.v_addr);
-	
+
 	ret = rot_k_check_param(param_ptr);
 
 	if(0 == ret)

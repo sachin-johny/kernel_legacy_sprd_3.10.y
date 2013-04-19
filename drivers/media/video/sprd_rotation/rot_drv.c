@@ -362,7 +362,7 @@ static void rot_k_dma_irq(int dma_ch, void *dev_id)
 {
 	RTT_PRINT("%s, come\n", __func__ );
 	condition = 1;
-	wake_up_interruptible(&wait_queue);
+	wake_up(&wait_queue);
 	RTT_PRINT("rotation_dma_irq X .\n");
 }
 
@@ -394,9 +394,7 @@ int rot_k_dma_wait_stop(void)
 	int ret = 0;
 	DECLARE_ROTATION_PARAM_ENTRY(s);
 	RTT_PRINT("rotation_dma_wait_stop E .\n");
-	if (wait_event_interruptible(wait_queue, condition)) {
-		ret = -EFAULT;
-	}
+	wait_event(wait_queue, condition);
 	sprd_dma_stop(s->ch_id);
 	sprd_dma_free(s->ch_id);
 	RTT_PRINT("ok to rotation_dma_wait_stop.\n");
