@@ -214,7 +214,7 @@ static int32_t nt35516_mipi_init(struct panel_spec *self)
 			mipi_gen_write(init->data, (init->tag & LCM_TAG_MASK));
 			udelay(20);
 		}else if(tag & LCM_TAG_SLEEP){
-			udelay((init->tag & LCM_TAG_MASK) * 1000);
+			msleep((init->tag & LCM_TAG_MASK));
 		}
 		init++;
 	}
@@ -301,18 +301,14 @@ static struct panel_operations lcd_nt35516_mipi_operations = {
 static struct timing_rgb lcd_nt35516_mipi_timing = {
 	.hfp = 20,  /* unit: pixel */
 	.hbp = 20,
-	.hsync = 4,
+	.hsync = 20,//4,
 	.vfp = 10, /*unit: line*/
 	.vbp = 10,
 	.vsync = 6,
 };
 
 static struct info_mipi lcd_nt35516_mipi_info = {
-#ifdef CONFIG_FB_SC8830
-	.work_mode  = SPRDFB_MIPI_MODE_CMD,
-#else
 	.work_mode  = SPRDFB_MIPI_MODE_VIDEO,
-#endif
 	.video_bus_width = 24, /*18,16*/
 	.lan_number = 3,
 	.phy_feq = 500*1000,

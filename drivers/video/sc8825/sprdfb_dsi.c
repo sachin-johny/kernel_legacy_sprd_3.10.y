@@ -16,6 +16,7 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/globalregs.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
@@ -99,7 +100,11 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 
 static void dsi_reset(void)
 {
+#ifdef CONFIG_FB_SC8830
+	#define REG_AHB_SOFT_RST (0x4 + SPRD_AHB_BASE)
+#else
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
+#endif
 	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<DSI_SOFT_RST), REG_AHB_SOFT_RST);
 	udelay(10);
 	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<DSI_SOFT_RST)), REG_AHB_SOFT_RST);
@@ -118,7 +123,7 @@ int32_t dsi_early_int(void)
 
 //	dsi_ctx.clk_dsi = clk_get(NULL, "clk_dsi");
 //	clk_enable(dsi_ctx.clk_dsi);
-#ifdef CONFIG_SC8830
+#ifdef CONFIG_FB_SC8830
 	//Enable DSI clock
 	__raw_writel(__raw_readl(REG_AP_AHB_MISC_CKG_EN) | (BIT_DPHY_REF_CKG_EN) | (BIT_DPHY_CFG_CKG_EN) , REG_AP_AHB_MISC_CKG_EN);
 #endif
@@ -143,7 +148,7 @@ int32_t dsi_early_int(void)
 	}
 
 #ifdef CONFIG_FB_SC8830
-	ret = request_irq(IRQ_DSI1_INT, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+	ret = request_irq(IRQ_DSI1_INT, dsi_isr1, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
 #else
 	ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 #endif
@@ -320,7 +325,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		}
 
 #ifdef CONFIG_FB_SC8830
-		ret = request_irq(IRQ_DSI1_INT, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+		ret = request_irq(IRQ_DSI1_INT, dsi_isr1, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
 #else
 		ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 #endif
