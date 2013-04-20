@@ -465,6 +465,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		host_data->platdata->hw_name:pdev->name;
 	switch(pdev->id) {
 	case 0:
+		host->mmc->pm_flags |= MMC_PM_ONLY_USED_SDIO0_SHARK;
 		break;
 	case 1:
 		break;

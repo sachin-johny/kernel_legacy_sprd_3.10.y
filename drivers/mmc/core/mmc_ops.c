@@ -21,6 +21,13 @@
 #include "core.h"
 #include "mmc_ops.h"
 
+#ifdef CONFIG_MMC_SDHCI_SC8830
+#include "mach/hardware.h"
+#include "mach/sci_glb_regs.h"
+#include "mach/sci.h"
+#include "mach/gpio.h"
+#endif
+
 static int _mmc_select_card(struct mmc_host *host, struct mmc_card *card)
 {
 	int err;
@@ -95,6 +102,9 @@ int mmc_go_idle(struct mmc_host *host)
 {
 	int err;
 	struct mmc_command cmd = {0};
+#ifdef CONFIG_MMC_SDHCI_SC8830
+	unsigned int tmp_flag, reg_val;
+#endif
 
 	/*
 	 * Non-SPI hosts need to prevent chipselect going active during
@@ -107,6 +117,30 @@ int mmc_go_idle(struct mmc_host *host)
 	 */
 	if (!mmc_host_is_spi(host)) {
 		mmc_set_chip_select(host, MMC_CS_HIGH);
+	#ifdef CONFIG_MMC_SDHCI_SC8830
+		/* if sdio0 set data[3] to gpio out mode, and data is 1 , for shark*/
+		if ((host->pm_flags & MMC_PM_ONLY_USED_SDIO0_SHARK) != 0) {
+			tmp_flag = 0;
+			if ((sci_glb_raw_read(REG_AON_APB_APB_EB0) & BIT_GPIO_EB) == 0) {
+				sci_glb_set(REG_AON_APB_APB_EB0, BIT_GPIO_EB);
+				tmp_flag |= 1 << 0;
+			}
+
+			if ((sci_glb_raw_read(REG_AON_APB_APB_EB0) & BIT_PIN_EB) == 0) {
+				sci_glb_set(REG_AON_APB_APB_EB0,  BIT_PIN_EB);
+				tmp_flag |= 1 << 1;
+			}
+
+			/* set sdio0 data[3] to gpio mode*/
+			reg_val = __raw_readl( SPRD_PIN_BASE + 0x1E0 );
+			__raw_writel( 0x30, SPRD_PIN_BASE + 0x1E0 );
+
+			/* set gpio output mode ,and out put 1 */
+			sci_glb_set((CTL_GPIO_BASE + 0x308), (1 << 4));
+			sci_glb_set((CTL_GPIO_BASE + 0x304), (1 << 4));
+			sci_glb_set((CTL_GPIO_BASE + 0x300), (1 << 4));
+		}
+	#endif
 		mmc_delay(1);
 	}
 
@@ -120,6 +154,21 @@ int mmc_go_idle(struct mmc_host *host)
 
 	if (!mmc_host_is_spi(host)) {
 		mmc_set_chip_select(host, MMC_CS_DONTCARE);
+	#ifdef CONFIG_MMC_SDHCI_SC8830
+		/* if sdio0 set data[3] to gpio out mode, and data is 1 , for shark*/
+		if ((host->pm_flags & MMC_PM_ONLY_USED_SDIO0_SHARK) != 0) {
+			if ((tmp_flag & 1) != 0) {
+				sci_glb_clr(REG_AON_APB_APB_EB0, BIT_GPIO_EB);
+			}
+
+			if ((tmp_flag & (1 << 1)) != 0) {
+				sci_glb_clr(REG_AON_APB_APB_EB0, BIT_PIN_EB);
+			}
+
+			/* set sdio0 data[3] to sdio data pin*/
+			__raw_writel( reg_val, SPRD_PIN_BASE + 0x1E0 );
+		}
+	#endif
 		mmc_delay(1);
 	}
 

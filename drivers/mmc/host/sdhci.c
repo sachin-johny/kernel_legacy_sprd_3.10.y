@@ -265,6 +265,17 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 		mdelay(1);
 	}
 
+#ifdef CONFIG_MMC_SDHCI_SC8830
+	if (mask & SDHCI_RESET_ALL) {
+		if ((0 == strcmp(host->hw_name, "sprd-sdio1"))
+				|| (0 == strcmp(host->hw_name, "sprd-sdio2"))) {
+			unsigned int tmp_val;
+			tmp_val = sdhci_readw(host, SDHCI_TRANSFER_MODE);
+			tmp_val &= 0xFFFFF8FF;		// clear bit[10:8];
+			sdhci_writew(host, tmp_val, SDHCI_TRANSFER_MODE);
+		}
+	}
+#endif
 	if (host->ops->platform_reset_exit)
 		host->ops->platform_reset_exit(host, mask);
 

@@ -25,17 +25,13 @@
 #include <linux/spipe.h>
 #include <linux/spool.h>
 #include <linux/seth.h>
-
 #include <sound/saudio.h>
-
 #include <asm/pmu.h>
-
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/irqs.h>
 #include <mach/board.h>
 #include <mach/kpd.h>
-
 #include "devices.h"
 
 static struct resource sprd_serial_resources0[] = {
@@ -829,7 +825,7 @@ static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.clk_parent = "clk_192m",
 	.max_clock = 192000000,
 	.enb_bit = BIT_SDIO0_EB,
-	.rst_bit = 0,//FIXME:
+	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
 };
 
 struct platform_device sprd_sdio0_device = {
@@ -860,7 +856,7 @@ static struct sprd_host_platdata sprd_sdio1_pdata = {
 	.clk_parent = "clk_96m",
 	.max_clock = 96000000,
 	.enb_bit = BIT_SDIO1_EB,
-	.rst_bit = 0,
+	.rst_bit = BIT_SDIO1_SOFT_RST,
 	.regs.is_valid = 1,
 };
 
@@ -892,7 +888,7 @@ static struct sprd_host_platdata sprd_sdio2_pdata = {
 	.clk_parent = "clk_192m",
 	.max_clock = 192000000,
 	.enb_bit = BIT_SDIO2_EB,
-	.rst_bit = 0,
+	.rst_bit = BIT_SDIO2_SOFT_RST,
 };
 
 struct platform_device sprd_sdio2_device = {
