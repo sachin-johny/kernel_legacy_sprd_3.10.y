@@ -47,10 +47,25 @@
 
 /* FIXME: Move to camera device platform data later */
 /*#if defined(CONFIG_ARCH_SC8825)*/
+
+#if defined(CONFIG_ARCH_SC8830)
+
+#define REGU_NAME_CAMAVDD	"vddcama"
+#define REGU_NAME_CAMVIO	"vddcamio"
+#define REGU_NAME_CAMDVDD	"vddcamd"
+#define REGU_NAME_CAMMOT	"vddcammot"
+#define SENSOR_CLK              "clk_sensor"
+
+#else
+
 #define REGU_NAME_CAMAVDD	"vddcama"
 #define REGU_NAME_CAMVIO	"vddcamio"
 #define REGU_NAME_CAMDVDD	"vddcamcore"
 #define REGU_NAME_CAMMOT	"vddcammot"
+#define SENSOR_CLK              "ccir_mclk"
+
+#endif
+
 /*#endif*/
 
 #define DEBUG_SENSOR_DRV
@@ -69,7 +84,22 @@
 
 #define _pard(a) 				__raw_readl(a)
 
-#define LOCAL 				static
+#define REG_RD(a)                                      __raw_readl(a)
+#define REG_WR(a,v)                                    __raw_writel(v,a)
+#define REG_AWR(a,v)                                   	__raw_writel((__raw_readl(a) & v), a)
+#define REG_OWR(a,v)                                   __raw_writel((__raw_readl(a) | v), a)
+#define REG_XWR(a,v)                                   __raw_writel((__raw_readl(a) ^ v), a)
+#define REG_MWR(a,m,v)                                 \
+	do {                                           \
+		uint32_t _tmp = __raw_readl(a);        \
+		_tmp &= ~(m);                          \
+		__raw_writel(_tmp | ((m) & (v)), (a)); \
+	}while(0)
+
+
+//#define LOCAL 				static
+#define LOCAL
+
 #define PNULL  				((void *)0)
 
 #define NUMBER_MAX                         0x7FFFFFF
@@ -102,14 +132,14 @@ typedef struct sensor_mem_tag {
     size_t  size;
 } SENSOR_MEM_T;
 
-static struct mutex sensor_lock;
-static wait_queue_head_t wait_queue_sensor;
+LOCAL struct mutex sensor_lock;
+LOCAL wait_queue_head_t wait_queue_sensor;
 struct semaphore g_sem_sensor;
 
 LOCAL uint32_t g_sensor_id 			= SENSOR_ID_MAX;
 
 LOCAL uint32_t s_sensor_mclk 		= 0;
-LOCAL struct clk *s_ccir_clk 			= NULL;
+static struct clk *s_ccir_clk 			= NULL;
 LOCAL struct clk *s_ccir_enable_clk 	= NULL;
 
 LOCAL struct i2c_client *this_client = NULL;
@@ -117,24 +147,24 @@ LOCAL struct i2c_client *this_client = NULL;
 LOCAL SENSOR_MEM_T s_sensor_mem = {0};
 
 
-static const struct i2c_device_id sensor_device_id[] = {
+LOCAL const struct i2c_device_id sensor_device_id[] = {
 	{SENSOR_MAIN_I2C_NAME, 0},
 	{SENSOR_SUB_I2C_NAME, 1},
 	{}
 };
 
 
-static unsigned short sensor_main_force[] =
+LOCAL unsigned short sensor_main_force[] =
     { 2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END };
-static const unsigned short *const sensor_main_forces[] =
+LOCAL const unsigned short *const sensor_main_forces[] =
     { sensor_main_force, NULL };
-static unsigned short sensor_main_default_addr_list[] =
+LOCAL unsigned short sensor_main_default_addr_list[] =
     { SENSOR_MAIN_I2C_ADDR, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END };
-static unsigned short sensor_sub_force[] =
+LOCAL unsigned short sensor_sub_force[] =
     { 2, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END };
-static const unsigned short *const sensor_sub_forces[] =
+LOCAL const unsigned short *const sensor_sub_forces[] =
     { sensor_sub_force, NULL };
-static unsigned short sensor_sub_default_addr_list[] =
+LOCAL unsigned short sensor_sub_default_addr_list[] =
     { SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END };
 
 
@@ -200,7 +230,7 @@ LOCAL uint32_t Sensor_K_GetCurId(void)
 {
 	return g_sensor_id;
 }
-static int sensor_probe(struct i2c_client *client,
+LOCAL int sensor_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
 	int res = 0;
@@ -224,12 +254,12 @@ out:
 	return res;
 }
 
-static int sensor_remove(struct i2c_client *client)
+LOCAL int sensor_remove(struct i2c_client *client)
 {
 	return 0;
 }
 
-static int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
+LOCAL int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
 {
 	SENSOR_PRINT_HIGH("SENSOR_DRV: detect!");
 	strcpy(info->type, client->name);
@@ -277,17 +307,17 @@ LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 }
 
 
-static uint32_t iopower_on_count = 0;
-static uint32_t avddpower_on_count = 0;
-static uint32_t dvddpower_on_count = 0;
-static uint32_t motpower_on_count = 0;
+LOCAL uint32_t iopower_on_count = 0;
+LOCAL uint32_t avddpower_on_count = 0;
+LOCAL uint32_t dvddpower_on_count = 0;
+LOCAL uint32_t motpower_on_count = 0;
 
-static struct regulator *s_camvio_regulator = NULL;
-static struct regulator *s_camavdd_regulator = NULL;
-static struct regulator *s_camdvdd_regulator = NULL;
-static struct regulator *s_cammot_regulator = NULL;
+LOCAL struct regulator *s_camvio_regulator = NULL;
+LOCAL struct regulator *s_camavdd_regulator = NULL;
+LOCAL struct regulator *s_camdvdd_regulator = NULL;
+LOCAL struct regulator *s_cammot_regulator = NULL;
 
-static void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
+LOCAL void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
 {
 	SENSOR_PRINT("_sensor_regulator_disable start: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
 		iopower_on_count, avddpower_on_count, dvddpower_on_count, motpower_on_count);
@@ -300,7 +330,7 @@ static void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator
 
 }
 
-static int _sensor_regulator_enable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
+LOCAL int _sensor_regulator_enable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
 {
 	int err;
 
@@ -690,7 +720,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 			clk_disable(s_ccir_clk);
 			SENSOR_PRINT("###sensor s_ccir_clk clk_disable ok.\n");
 		} else {
-			s_ccir_clk = clk_get(NULL, "ccir_mclk");
+			s_ccir_clk = clk_get(NULL, SENSOR_CLK);
 			if (IS_ERR(s_ccir_clk)) {
 				SENSOR_PRINT_ERR
 				    ("###: Failed: Can't get clock [ccir_mclk]!\n");
@@ -956,6 +986,13 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 		SLEEP_MS(data);
 		/*SENSOR_PRINT("SENSOR: IIC write Delay %d ms", data); */
 	}
+	if(subaddr == 0x3008){
+		if(0x02 == data){
+			printk("aiden: sensor stream on 1 \n");
+		}else if(0x42 == data){
+			printk("aiden: sensor stream off 1 \n");
+		}
+	}
 
 	return ret;
 }
@@ -1133,12 +1170,12 @@ int sensor_k_release(struct inode *node, struct file *file)
 	return 0;
 }
 
-static ssize_t sensor_k_read(struct file *filp, char __user *ubuf, size_t cnt, loff_t *gpos)
+LOCAL ssize_t sensor_k_read(struct file *filp, char __user *ubuf, size_t cnt, loff_t *gpos)
 {
 	return 0;
 }
 
-static ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t cnt, loff_t *gpos)
+LOCAL ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t cnt, loff_t *gpos)
 {
 	char buf[64];
 	char *pBuff = PNULL;
@@ -1308,7 +1345,7 @@ int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 #endif
 
 
-static long sensor_k_ioctl(struct file *file, unsigned int cmd,
+LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			  unsigned long arg)
 {
 	int ret = 0;
@@ -1502,7 +1539,7 @@ static long sensor_k_ioctl(struct file *file, unsigned int cmd,
 }
 
 
-static struct file_operations sensor_fops = {
+LOCAL struct file_operations sensor_fops = {
 	.owner = THIS_MODULE,
 	.open = sensor_k_open,
 	.read = sensor_k_read,
@@ -1511,13 +1548,13 @@ static struct file_operations sensor_fops = {
 	.release = sensor_k_release,
 };
 
-static struct miscdevice sensor_dev = {
+LOCAL struct miscdevice sensor_dev = {
 	.minor = SENSOR_MINOR,
 	.name = "sprd_sensor",
 	.fops = &sensor_fops,
 };
 
-static struct i2c_driver sensor_i2c_driver;
+LOCAL struct i2c_driver sensor_i2c_driver;
 int sensor_k_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1551,7 +1588,7 @@ int sensor_k_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int sensor_k_remove(struct platform_device *dev)
+LOCAL int sensor_k_remove(struct platform_device *dev)
 {
 	printk(KERN_INFO "sensor_k_remove called !\n");
 	misc_deregister(&sensor_dev);
@@ -1559,7 +1596,7 @@ static int sensor_k_remove(struct platform_device *dev)
 	return 0;
 }
 
-static struct platform_driver sensor_dev_driver = {
+LOCAL struct platform_driver sensor_dev_driver = {
 	.probe = sensor_k_probe,
 	.remove =sensor_k_remove,
 	.driver = {
@@ -1575,6 +1612,11 @@ int __init sensor_k_init(void)
 		printk("platform device register Failed \n");
 		return SENSOR_K_FAIL;
 	}
+#ifdef CONFIG_ARCH_SC8830
+	REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
+	REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
+	REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
+#endif
 	init_MUTEX(&g_sem_sensor);
 	mutex_init(&sensor_lock);
 	return 0;

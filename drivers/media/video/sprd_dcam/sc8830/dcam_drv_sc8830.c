@@ -24,6 +24,8 @@
 #include "gen_scale_coef.h"
 
 
+//#define LOCAL    static
+#define LOCAL
 
 //#define DCAM_DRV_DEBUG
 #define DCAM_LOWEST_ADDR                               0x800
@@ -194,67 +196,67 @@ struct dcam_module {
 
 #define DCAM_IRQ_NONE              0x5A0000A5
 
-static struct dcam_frame           s_path0_frame[DCAM_FRM_CNT_MAX];
-static struct dcam_frame           s_path1_frame[DCAM_FRM_CNT_MAX];
-static struct dcam_frame           s_path2_frame[DCAM_FRM_CNT_MAX];
-static atomic_t                    s_dcam_users = ATOMIC_INIT(0);
-static atomic_t                    s_resize_flag = ATOMIC_INIT(0);
-static struct semaphore            s_done_sema = __SEMAPHORE_INITIALIZER(s_done_sema, 0);
-static uint32_t                    s_resize_wait = 0;
-static uint32_t                    s_path1_wait = 0;
-static struct dcam_module          s_dcam_mod = {0};
-static uint32_t                    g_dcam_irq = DCAM_IRQ_NONE;
-static struct clk                  *s_dcam_clk = NULL;
+LOCAL struct dcam_frame           s_path0_frame[DCAM_FRM_CNT_MAX];
+LOCAL struct dcam_frame           s_path1_frame[DCAM_FRM_CNT_MAX];
+LOCAL struct dcam_frame           s_path2_frame[DCAM_FRM_CNT_MAX];
+LOCAL atomic_t                    s_dcam_users = ATOMIC_INIT(0);
+LOCAL atomic_t                    s_resize_flag = ATOMIC_INIT(0);
+LOCAL struct semaphore            s_done_sema = __SEMAPHORE_INITIALIZER(s_done_sema, 0);
+LOCAL uint32_t                    s_resize_wait = 0;
+LOCAL uint32_t                    s_path1_wait = 0;
+LOCAL struct dcam_module          s_dcam_mod = {0};
+LOCAL uint32_t                    g_dcam_irq = DCAM_IRQ_NONE;
+LOCAL struct clk                  *s_dcam_clk = NULL;
 static struct clk                  *s_ccir_clk = NULL;
-static struct clk                  *s_dcam_mipi_clk = NULL;
+LOCAL struct clk                  *s_dcam_mipi_clk = NULL;
 
 
-static DEFINE_MUTEX(dcam_sem);
-static DEFINE_SPINLOCK(dcam_lock);
+LOCAL DEFINE_MUTEX(dcam_sem);
+LOCAL DEFINE_SPINLOCK(dcam_lock);
 
-static void    _dcam_path0_set(void);
-static void    _dcam_path1_set(void);
-static void    _dcam_path2_set(void);
-static void    _dcam_frm_clear(enum dcam_path_index path_index);
-static void    _dcam_link_frm(uint32_t base_id);
-static int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t is_1st_frm);
-static int32_t _dcam_path_trim(enum dcam_path_index path_index);
-static int32_t _dcam_path_scaler(enum dcam_path_index path_index);
-static int32_t _dcam_calc_sc_size(enum dcam_path_index path_index);
-static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index);
-static void    _dcam_force_copy_ext(enum dcam_path_index path_index, uint32_t path_copy, uint32_t coef_copy);
-static void    _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t path_copy, uint32_t coef_copy);
-static void    _dcam_force_copy(enum dcam_path_index path_index);
-static void    _dcam_auto_copy(enum dcam_path_index path_index);
-static void    _dcam_reg_trace(void);
-static void    _sensor_sof(void);
-static void    _sensor_eof(void);
-static void    _cap_sof(void);
-static void    _cap_eof(void);
-static void    _path0_done(void);
-static void    _path0_overflow(void);
-static void    _path1_done(void);
-static void    _path1_overflow(void);
-static void    _sensor_line_err(void);
-static void    _sensor_frame_err(void);
-static void    _jpeg_buf_ov(void);
-static void    _path2_done(void);
-static void    _path2_ov(void);
-static void    _isp_ov(void);
-static void    _mipi_ov(void);
-static void    _path1_slice_done(void);
-static void    _path2_slice_done(void);
-static void    raw_slice_done(void);
-static irqreturn_t dcam_isr_root(int irq, void *dev_id);
-static void    _dcam_wait_for_stop(void);
-static void    _dcam_stopped(void);
-static int32_t _dcam_mipi_clk_en(void);
-static int32_t _dcam_mipi_clk_dis(void);
-static int32_t _dcam_ccir_clk_en(void);
-static int32_t _dcam_ccir_clk_dis(void);
+LOCAL void    _dcam_path0_set(void);
+LOCAL void    _dcam_path1_set(void);
+LOCAL void    _dcam_path2_set(void);
+LOCAL void    _dcam_frm_clear(enum dcam_path_index path_index);
+LOCAL void    _dcam_link_frm(uint32_t base_id);
+LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t is_1st_frm);
+LOCAL int32_t _dcam_path_trim(enum dcam_path_index path_index);
+LOCAL int32_t _dcam_path_scaler(enum dcam_path_index path_index);
+LOCAL int32_t _dcam_calc_sc_size(enum dcam_path_index path_index);
+LOCAL int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index);
+LOCAL void    _dcam_force_copy_ext(enum dcam_path_index path_index, uint32_t path_copy, uint32_t coef_copy);
+LOCAL void    _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t path_copy, uint32_t coef_copy);
+LOCAL void    _dcam_force_copy(enum dcam_path_index path_index);
+LOCAL void    _dcam_auto_copy(enum dcam_path_index path_index);
+LOCAL void    _dcam_reg_trace(void);
+LOCAL void    _sensor_sof(void);
+LOCAL void    _sensor_eof(void);
+LOCAL void    _cap_sof(void);
+LOCAL void    _cap_eof(void);
+LOCAL void    _path0_done(void);
+LOCAL void    _path0_overflow(void);
+LOCAL void    _path1_done(void);
+LOCAL void    _path1_overflow(void);
+LOCAL void    _sensor_line_err(void);
+LOCAL void    _sensor_frame_err(void);
+LOCAL void    _jpeg_buf_ov(void);
+LOCAL void    _path2_done(void);
+LOCAL void    _path2_ov(void);
+LOCAL void    _isp_ov(void);
+LOCAL void    _mipi_ov(void);
+LOCAL void    _path1_slice_done(void);
+LOCAL void    _path2_slice_done(void);
+LOCAL void    raw_slice_done(void);
+LOCAL irqreturn_t dcam_isr_root(int irq, void *dev_id);
+LOCAL void    _dcam_wait_for_stop(void);
+LOCAL void    _dcam_stopped(void);
+LOCAL int32_t _dcam_mipi_clk_en(void);
+LOCAL int32_t _dcam_mipi_clk_dis(void);
+LOCAL int32_t _dcam_ccir_clk_en(void);
+LOCAL int32_t _dcam_ccir_clk_dis(void);
 extern void _dcam_isp_root(void);
 
-static const dcam_isr isr_list[IRQ_NUMBER] = {
+LOCAL const dcam_isr isr_list[IRQ_NUMBER] = {
 	_dcam_isp_root,
 	_sensor_eof,
 	_cap_sof,
@@ -344,6 +346,25 @@ int32_t dcam_module_en(void)
 		REG_OWR(DCAM_RST, CCIR_RST_BIT);
 		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
 		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+
+	}
+	{
+		// aiden fpga
+		uint32_t bit_value;
+		// 0x60d0_000
+		bit_value = BIT_4;// | BIT_6;
+		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CSI enable
+
+		bit_value = BIT_0 | BIT_1 | BIT_5 |BIT_7 | BIT_8 | BIT_9;// | BIT_13;
+		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
+		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
+
+		bit_value = BIT_0 | BIT_1 | BIT_3;// | BIT_7 | BIT_8;
+		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
+
+		//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+		//REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
+
 	}
 /*MODULE_EN_END:*/
 	return ret;
@@ -488,7 +509,11 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 int32_t _dcam_mipi_clk_en(void)
 {
 	int                     ret = 0;
-
+#if 0 // aiden fpga
+	//REG_MWR(SPRD_MMAHB_BASE, BIT_4, BIT_4);
+	//REG_MWR(SPRD_MMAHB_BASE + 0X08, BIT_1|BIT_0, BIT_1|BIT_0);
+	printk("aiden: _dcam_mipi_clk_en \n");
+#else
 	if (NULL == s_dcam_mipi_clk) {
 		s_dcam_mipi_clk = clk_get(NULL, "clk_dcam_mipi");
 	}
@@ -503,6 +528,7 @@ int32_t _dcam_mipi_clk_en(void)
 			return -1;
 		}
 	}
+#endif
 	return 0;
 }
 
@@ -600,6 +626,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 			return -DCAM_RTN_MAX;
 		}
 	}
+	REG_OWR(DCAM_AHBM_STS, BIT_8); // aiden add: write arbit mode
 	
 	cap_en = REG_RD(DCAM_CONTROL) & BIT_2;
 	
@@ -1709,7 +1736,7 @@ int32_t    dcam_read_registers(uint32_t* reg_buf, uint32_t *buf_len)
 	return 0;
 }
 
-static irqreturn_t dcam_isr_root(int irq, void *dev_id)
+LOCAL irqreturn_t dcam_isr_root(int irq, void *dev_id)
 {
 	uint32_t                status, irq_line, err_flag = 0;
 	unsigned long            flag;
@@ -1764,7 +1791,7 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void _dcam_path0_set(void)
+LOCAL void _dcam_path0_set(void)
 {
 	struct dcam_path_desc   *path = &s_dcam_mod.dcam_path0;
 	uint32_t         reg_val = 0;
@@ -1784,7 +1811,7 @@ static void _dcam_path0_set(void)
 	}
 
 }
-static void _dcam_path1_set(void)
+LOCAL void _dcam_path1_set(void)
 {
 	struct dcam_path_desc   *path = &s_dcam_mod.dcam_path1;
 	uint32_t         reg_val = 0;
@@ -1835,7 +1862,7 @@ static void _dcam_path1_set(void)
 	}
 }
 
-static void _dcam_path2_set(void)
+LOCAL void _dcam_path2_set(void)
 {
 	struct dcam_path_desc   *path = &s_dcam_mod.dcam_path2;
 	uint32_t         reg_val = 0;
@@ -1886,7 +1913,7 @@ static void _dcam_path2_set(void)
 	}
 }
 
-static void _dcam_frm_clear(enum dcam_path_index path_index)
+LOCAL void _dcam_frm_clear(enum dcam_path_index path_index)
 {
 	uint32_t                i = 0;
 	struct dcam_frame       *path0_frame = &s_path0_frame[0];
@@ -1919,7 +1946,7 @@ static void _dcam_frm_clear(enum dcam_path_index path_index)
 	return;
 }
 
-static void _dcam_link_frm(uint32_t base_id)
+LOCAL void _dcam_link_frm(uint32_t base_id)
 {
 	uint32_t                i = 0;
 	struct dcam_frame       *path0_frame = &s_path0_frame[0];
@@ -1957,7 +1984,7 @@ static void _dcam_link_frm(uint32_t base_id)
 	return;
 }
 
-static int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t is_1st_frm)
+LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t is_1st_frm)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct dcam_frame       *frame = NULL;
@@ -2007,7 +2034,7 @@ static int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t
 	return -rtn;
 }
 
-static int32_t _dcam_path_trim(enum dcam_path_index path_index)
+LOCAL int32_t _dcam_path_trim(enum dcam_path_index path_index)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct dcam_path_desc   *path;
@@ -2033,7 +2060,7 @@ static int32_t _dcam_path_trim(enum dcam_path_index path_index)
 	return rtn;
 
 }
-static int32_t _dcam_path_scaler(enum dcam_path_index path_index)
+LOCAL int32_t _dcam_path_scaler(enum dcam_path_index path_index)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct dcam_path_desc   *path = NULL;
@@ -2069,7 +2096,7 @@ static int32_t _dcam_path_scaler(enum dcam_path_index path_index)
 	return rtn;
 }
 
-static int32_t _dcam_calc_sc_size(enum dcam_path_index path_index)
+LOCAL int32_t _dcam_calc_sc_size(enum dcam_path_index path_index)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct dcam_path_desc   *path = NULL;
@@ -2106,7 +2133,7 @@ static int32_t _dcam_calc_sc_size(enum dcam_path_index path_index)
 	return -rtn;
 }
 
-static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
+LOCAL int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 {
 	struct dcam_path_desc   *path = NULL;
 	uint32_t                i = 0;
@@ -2222,7 +2249,7 @@ static int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 	return DCAM_RTN_SUCCESS;
 }
 
-static void _dcam_force_copy_ext(enum dcam_path_index path_index, uint32_t path_copy, uint32_t coef_copy)
+LOCAL void _dcam_force_copy_ext(enum dcam_path_index path_index, uint32_t path_copy, uint32_t coef_copy)
 {
 	uint32_t         reg_val = 0;
 
@@ -2245,7 +2272,7 @@ static void _dcam_force_copy_ext(enum dcam_path_index path_index, uint32_t path_
 	}
 }
 
-static void _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t path_copy, uint32_t coef_copy)
+LOCAL void _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t path_copy, uint32_t coef_copy)
 {
 	uint32_t         reg_val = 0;
 
@@ -2268,7 +2295,7 @@ static void _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t path_c
 	}
 }
 
-static void _dcam_force_copy(enum dcam_path_index path_index)
+LOCAL void _dcam_force_copy(enum dcam_path_index path_index)
 {
 	if(DCAM_PATH_IDX_1 == path_index){
 		REG_MWR(DCAM_CONTROL, BIT_10, 1 << 10);
@@ -2279,7 +2306,7 @@ static void _dcam_force_copy(enum dcam_path_index path_index)
 	}
 }
 
-static void _dcam_auto_copy(enum dcam_path_index path_index)
+LOCAL void _dcam_auto_copy(enum dcam_path_index path_index)
 {
 	if(DCAM_PATH_IDX_0 == path_index){
 		REG_MWR(DCAM_CONTROL, BIT_9, 1 << 9);
@@ -2292,7 +2319,7 @@ static void _dcam_auto_copy(enum dcam_path_index path_index)
 	}
 }
 
-static void _dcam_reg_trace(void)
+LOCAL void _dcam_reg_trace(void)
 {
 #ifdef DCAM_DRV_DEBUG
 	uint32_t                addr = 0;
@@ -2311,46 +2338,46 @@ static void _dcam_reg_trace(void)
 #endif	
 }
 
-static void    _sensor_sof(void)
+LOCAL void    _sensor_sof(void)
 {
 	//DCAM_TRACE("DCAM DRV: _sensor_sof \n");
 
 	return;
 }
 
-static void    _sensor_eof(void)
+LOCAL void    _sensor_eof(void)
 {
 	//DCAM_TRACE("DCAM DRV: _sensor_eof \n");
 	_dcam_stopped();
 	return;
 }
 
-static void    _cap_sof(void)
+LOCAL void    _cap_sof(void)
 {
 	//DCAM_TRACE("DCAM DRV: _cap_sof \n");
 
 	return;
 }
 
-static void    _cap_eof(void)
+LOCAL void    _cap_eof(void)
 {
 	//DCAM_TRACE("DCAM DRV: _cap_eof \n");
 	_dcam_stopped();
 	return;
 }
 
-static void    _path0_done(void)
+LOCAL void    _path0_done(void)
 {
 }
 
-static void    _path0_overflow(void)
+LOCAL void    _path0_overflow(void)
 {
 	printk("DCAM DRV: _path0_overflow \n");
 
 	return;
 }
 
-static void    _path1_done(void)
+LOCAL void    _path1_done(void)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	dcam_isr_func           user_func = s_dcam_mod.user_func[DCAM_TX_DONE];
@@ -2382,35 +2409,35 @@ static void    _path1_done(void)
 	return;
 }
 
-static void    _path1_overflow(void)
+LOCAL void    _path1_overflow(void)
 {
 	printk("DCAM DRV: _path1_overflow \n");
 
 	return;
 }
 
-static void    _sensor_line_err(void)
+LOCAL void    _sensor_line_err(void)
 {
 	printk("DCAM DRV: _sensor_line_err \n");
 
 	return;
 }
 
-static void    _sensor_frame_err(void)
+LOCAL void    _sensor_frame_err(void)
 {
 	printk("DCAM DRV: _sensor_eof \n");
 
 	return;
 }
 
-static void    _jpeg_buf_ov(void)
+LOCAL void    _jpeg_buf_ov(void)
 {
 	printk("DCAM DRV: _jpeg_buf_ov \n");
 
 	return;
 }
 
-static void    _path2_done(void)
+LOCAL void    _path2_done(void)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	dcam_isr_func           user_func = s_dcam_mod.user_func[DCAM_TX_DONE];
@@ -2443,49 +2470,49 @@ static void    _path2_done(void)
 	return;
 }
 
-static void    _path2_ov(void)
+LOCAL void    _path2_ov(void)
 {
 	printk("DCAM DRV: _path2_ov \n");
 
 	return;
 }
 
-static void    _isp_ov(void)
+LOCAL void    _isp_ov(void)
 {
 	printk("DCAM DRV: _isp_ov \n");
 
 	return;
 }
 
-static void    _mipi_ov(void)
+LOCAL void    _mipi_ov(void)
 {
 	printk("DCAM DRV: _mipi_ov \n");
 
 	return;
 }
 
-static void    _path1_slice_done(void)
+LOCAL void    _path1_slice_done(void)
 {
 	printk("DCAM DRV: _path1_slice_done \n");
 
 	return;
 }
 
-static void    _path2_slice_done(void)
+LOCAL void    _path2_slice_done(void)
 {
 	printk("DCAM DRV: _path2_slice_done \n");
 
 	return;
 }
 
-static void    raw_slice_done(void)
+LOCAL void    raw_slice_done(void)
 {
 	printk("DCAM DRV: raw_slice_done \n");
 
 	return;
 }
 
-static void    _dcam_wait_for_stop(void)
+LOCAL void    _dcam_wait_for_stop(void)
 {
 	int                     rtn = -1;
 
@@ -2497,7 +2524,7 @@ static void    _dcam_wait_for_stop(void)
 	return;
 }
 
-static void    _dcam_stopped(void)
+LOCAL void    _dcam_stopped(void)
 {
 	if (s_path1_wait) {
 		up(&s_done_sema);

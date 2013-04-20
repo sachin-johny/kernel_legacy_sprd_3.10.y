@@ -12,9 +12,15 @@
 //#define CURRENT_VERSION 0x3130302A                                                      
 #ifdef __SIMULATOR__
 #define CURRENT_VERSION 0     
-#else
+#else // __SIMULATOR__
+
+#if defined (CONFIG_ARCH_SC8825)
 #define CURRENT_VERSION 0x3130322A     
+#elif defined (CONFIG_ARCH_SC8830)
+#define CURRENT_VERSION 0x3130332A
 #endif
+
+#endif // __SIMULATOR__
 
 #define PHY_TESTCLR 0
 #define PHY_TESTCLK 1

@@ -62,11 +62,6 @@
 #define DCAM_RST                                       (DCAM_AHB_CTL0 + 0x0004UL)
 #define DCAM_MATRIX_EB                                 (DCAM_AHB_CTL0 + 0x0008UL)
 
-#define IRQ_BASE                                       SPRD_ASHB_BASE
-#define INT_IRQ_EN                                     (IRQ_BASE + 0x008UL)
-#define INT_IRQ_DISABLE                                (IRQ_BASE + 0x00CUL)
-
-
 #define DCAM_BASE                                      SPRD_DCAM_BASE 
 #define DCAM_CFG                                       (DCAM_BASE + 0x0000UL)
 #define DCAM_CONTROL                                   (DCAM_BASE + 0x0004UL)

@@ -38,6 +38,10 @@
 #include "dcam_drv_sc8830.h"
 #include "csi2/csi_api.h"
 
+
+//#define LOCAL   static
+#define LOCAL
+
 #define DCAM_MODULE_NAME                        "DCAM"
 #define DCAM_MINOR                              MISC_DYNAMIC_MINOR
 #define DCAM_INVALID_FOURCC                     0xFFFFFFFF
@@ -73,19 +77,19 @@ enum
 	V4L2_TX_STOP  = 0xFF
 };
 
-static int video_nr = -1;
+LOCAL int video_nr = -1;
 module_param(video_nr, uint, 0644);
 MODULE_PARM_DESC(video_nr, "videoX start number, -1 is autodetect");
 
-static unsigned debug;
+LOCAL unsigned debug;
 module_param(debug, uint, 0644);
 MODULE_PARM_DESC(debug, "activates debug info");
 
-static unsigned int vid_limit = 16;
+LOCAL unsigned int vid_limit = 16;
 module_param(vid_limit, uint, 0644);
 MODULE_PARM_DESC(vid_limit, "capture memory limit in megabytes");
 
-static LIST_HEAD(dcam_devlist);
+LOCAL LIST_HEAD(dcam_devlist);
 
 struct dcam_format {
 	char                       *name;
@@ -160,23 +164,23 @@ struct dcam_dev {
 };
 
 #ifndef __SIMULATOR__
-static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param);
-static int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param);
-static int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param);
-static int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node);
-static int sprd_v4l2_queue_read(struct dcam_queue *queue, struct dcam_node *node);
-static int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val);
-static void sprd_stop_timer(struct timer_list *dcam_timer);
+LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param);
+LOCAL int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param);
+LOCAL int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param);
+LOCAL int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node);
+LOCAL int sprd_v4l2_queue_read(struct dcam_queue *queue, struct dcam_node *node);
+LOCAL int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val);
+LOCAL void sprd_stop_timer(struct timer_list *dcam_timer);
 
-static const dcam_isr_func sprd_v4l2_isr[] = {
+LOCAL const dcam_isr_func sprd_v4l2_isr[] = {
 	sprd_v4l2_tx_done,
 	sprd_v4l2_tx_error,
 	sprd_v4l2_no_mem
 };
 
-static struct proc_dir_entry*  v4l2_proc_file;
+LOCAL struct proc_dir_entry*  v4l2_proc_file;
 
-static struct dcam_format dcam_img_fmt[] = {
+LOCAL struct dcam_format dcam_img_fmt[] = {
 	{
 		.name     = "4:2:2, packed, YUYV",
 		.fourcc   = V4L2_PIX_FMT_YUYV,
@@ -245,7 +249,7 @@ static struct dcam_format dcam_img_fmt[] = {
 	},
 };
 #else
-static struct dcam_format dcam_img_fmt[] = {
+LOCAL struct dcam_format dcam_img_fmt[] = {
 	{"4:2:2, packed, YUYV", V4L2_PIX_FMT_YUYV, 16},
 	{"4:2:2, packed, YVYU", V4L2_PIX_FMT_YVYU, 16},
 	{"4:2:2, packed, UYVY", V4L2_PIX_FMT_UYVY, 16},
@@ -262,7 +266,7 @@ static struct dcam_format dcam_img_fmt[] = {
 };
 #endif
 
-static struct dcam_format *sprd_v4l2_get_format(struct v4l2_format *f)
+LOCAL struct dcam_format *sprd_v4l2_get_format(struct v4l2_format *f)
 {
 	struct dcam_format       *fmt;
 	uint32_t                 i;
@@ -279,7 +283,7 @@ static struct dcam_format *sprd_v4l2_get_format(struct v4l2_format *f)
 	return &dcam_img_fmt[i];
 }
 
-static uint32_t sprd_v4l2_get_fourcc(struct dcam_path_spec *path)
+LOCAL uint32_t sprd_v4l2_get_fourcc(struct dcam_path_spec *path)
 {
 	uint32_t                 fourcc = DCAM_INVALID_FOURCC;
 
@@ -315,7 +319,7 @@ static uint32_t sprd_v4l2_get_fourcc(struct dcam_path_spec *path)
 	return fourcc;
 }
 
-static uint32_t sprd_v4l2_get_deci_factor(uint32_t src_size, uint32_t dst_size)
+LOCAL uint32_t sprd_v4l2_get_deci_factor(uint32_t src_size, uint32_t dst_size)
 {
 	uint32_t                 factor = 0;
 
@@ -332,7 +336,7 @@ static uint32_t sprd_v4l2_get_deci_factor(uint32_t src_size, uint32_t dst_size)
 	return factor;
 }
 
-static uint32_t sprd_v4l2_endian_sel(uint32_t fourcc, struct dcam_path_spec *path)
+LOCAL uint32_t sprd_v4l2_endian_sel(uint32_t fourcc, struct dcam_path_spec *path)
 {
 	uint32_t                 depth = 0;
 
@@ -368,7 +372,7 @@ static uint32_t sprd_v4l2_endian_sel(uint32_t fourcc, struct dcam_path_spec *pat
 	return depth;
 }
 
-static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
+LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 					struct v4l2_format *f,
 					struct dcam_info   *info)
 {
@@ -612,7 +616,7 @@ static int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 	return 0;
 }
 
-static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
+LOCAL int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 					struct v4l2_format *f,
 					struct dcam_info   *info)
 {
@@ -743,7 +747,7 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 	return 0;
 }
 
-static int sprd_v4l2_cap_cfg(struct dcam_info* info)
+LOCAL int sprd_v4l2_cap_cfg(struct dcam_info* info)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	uint32_t                 param = 0;
@@ -797,7 +801,7 @@ exit:
 	return ret;
 }
 
-static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
+LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
@@ -843,7 +847,7 @@ static int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	return ret;
 }
 
-static int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param)
+LOCAL int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
@@ -862,7 +866,7 @@ static int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param)
 	return ret;
 }
 
-static int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
+LOCAL int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
@@ -881,7 +885,7 @@ static int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
 	return ret;
 }
 
-static int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)
+LOCAL int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
@@ -902,7 +906,7 @@ static int sprd_v4l2_csi2_error(struct dcam_frame *frame, void* param)
 	return ret;
 }
 
-static int sprd_v4l2_tx_stop(void* param)
+LOCAL int sprd_v4l2_tx_stop(void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
@@ -917,7 +921,7 @@ static int sprd_v4l2_tx_stop(void* param)
 
 	return ret;
 }
-static int sprd_v4l2_path_cfg(path_cfg_func path_cfg,
+LOCAL int sprd_v4l2_path_cfg(path_cfg_func path_cfg,
 				struct dcam_path_spec* path_spec)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
@@ -967,7 +971,7 @@ exit:
 	return ret;
 }
 
-static int sprd_v4l2_local_deinit(struct dcam_dev *dev)
+LOCAL int sprd_v4l2_local_deinit(struct dcam_dev *dev)
 {
 	struct dcam_path_spec    *path = &dev->dcam_cxt.dcam_path[0];
 
@@ -985,7 +989,7 @@ static int sprd_v4l2_local_deinit(struct dcam_dev *dev)
 	return 0;
 }
 
-static int sprd_v4l2_queue_init(struct dcam_queue *queue)
+LOCAL int sprd_v4l2_queue_init(struct dcam_queue *queue)
 {
 	if (NULL == queue)
 		return -EINVAL;
@@ -997,7 +1001,7 @@ static int sprd_v4l2_queue_init(struct dcam_queue *queue)
 	return 0;
 }
 
-static int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node)
+LOCAL int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node)
 {
 	struct dcam_node         *ori_node;
 
@@ -1018,7 +1022,7 @@ static int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *nod
 	return 0;
 }
 
-static int sprd_v4l2_queue_read(struct dcam_queue *queue, struct dcam_node *node)
+LOCAL int sprd_v4l2_queue_read(struct dcam_queue *queue, struct dcam_node *node)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 
@@ -1037,7 +1041,7 @@ static int sprd_v4l2_queue_read(struct dcam_queue *queue, struct dcam_node *node
 	return ret;
 }
 
-static int v4l2_g_parm(struct file *file,
+LOCAL int v4l2_g_parm(struct file *file,
 			void *priv,
 			struct v4l2_streamparm *streamparm)
 {
@@ -1064,7 +1068,7 @@ static int v4l2_g_parm(struct file *file,
 	return 0;
 }
 
-static int v4l2_s_parm(struct file *file,
+LOCAL int v4l2_s_parm(struct file *file,
 			void *priv,
 			struct v4l2_streamparm *streamparm)
 {
@@ -1105,7 +1109,7 @@ static int v4l2_s_parm(struct file *file,
 	return 0;
 }
 
-static int v4l2_querycap(struct file *file,
+LOCAL int v4l2_querycap(struct file *file,
 			void  *priv,
 			struct v4l2_capability *cap)
 {
@@ -1121,7 +1125,7 @@ static int v4l2_querycap(struct file *file,
 	return 0;
 }
 
-static int v4l2_cropcap(struct file *file, 
+LOCAL int v4l2_cropcap(struct file *file, 
 			void  *priv,
 			struct v4l2_cropcap *cc)
 {
@@ -1148,7 +1152,7 @@ static int v4l2_cropcap(struct file *file,
 	return 0;
 }
 
-static int v4l2_s_crop(struct file *file, 
+LOCAL int v4l2_s_crop(struct file *file, 
 			void  *priv,
 			struct v4l2_crop *crop)
 {
@@ -1191,7 +1195,7 @@ static int v4l2_s_crop(struct file *file,
 	return 0;
 }
 
-static int  v4l2_g_crop(struct file *file,
+LOCAL int  v4l2_g_crop(struct file *file,
 			void *priv,
 			struct v4l2_crop *crop)
 {
@@ -1221,7 +1225,7 @@ static int  v4l2_g_crop(struct file *file,
 	return 0;
 }
 
-static int v4l2_enum_fmt_vid_cap(struct file *file,
+LOCAL int v4l2_enum_fmt_vid_cap(struct file *file,
 				void  *priv,
 				struct v4l2_fmtdesc *f)
 {
@@ -1240,7 +1244,7 @@ static int v4l2_enum_fmt_vid_cap(struct file *file,
 	return 0;
 }
 
-static int v4l2_g_fmt_vid_cap(struct file *file,
+LOCAL int v4l2_g_fmt_vid_cap(struct file *file,
 				void *priv,
 				struct v4l2_format *f)
 {
@@ -1263,7 +1267,7 @@ static int v4l2_g_fmt_vid_cap(struct file *file,
 }
 
 
-static int v4l2_try_fmt_vid_cap(struct file *file,
+LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 				void *priv,
 				struct v4l2_format *f)
 {
@@ -1305,14 +1309,14 @@ static int v4l2_try_fmt_vid_cap(struct file *file,
 	return ret;
 }
 
-static int v4l2_s_fmt_vid_cap(struct file *file,
+LOCAL int v4l2_s_fmt_vid_cap(struct file *file,
 				void *priv,
 				struct v4l2_format *f)
 {
 	return v4l2_try_fmt_vid_cap(file, priv, f);
 }
 
-static int v4l2_qbuf(struct file *file,
+LOCAL int v4l2_qbuf(struct file *file,
 			void *priv, 
 			struct v4l2_buffer *p)
 {
@@ -1371,7 +1375,7 @@ static int v4l2_qbuf(struct file *file,
 
 }
 
-static int v4l2_dqbuf(struct file *file,
+LOCAL int v4l2_dqbuf(struct file *file,
 			void *priv, 
 			struct v4l2_buffer *p)
 {
@@ -1423,7 +1427,7 @@ static int v4l2_dqbuf(struct file *file,
 	return DCAM_RTN_SUCCESS;
 }
 
-static int v4l2_streamon(struct file *file,
+LOCAL int v4l2_streamon(struct file *file,
 			void *priv, 
 			enum v4l2_buf_type i_type)
 {
@@ -1501,7 +1505,7 @@ exit:
 
 }
 
-static int v4l2_streamoff(struct file *file,
+LOCAL int v4l2_streamoff(struct file *file,
 			void *priv,
 			enum v4l2_buf_type i)
 {
@@ -1553,7 +1557,7 @@ exit:
 	return ret;
 }
 
-static int v4l2_g_output(struct file *file,
+LOCAL int v4l2_g_output(struct file *file,
 			void *priv, 
 			unsigned int *i)
 {
@@ -1642,7 +1646,7 @@ exit:
 	return ret;
 }
 
-static void sprd_timer_callback(unsigned long data)
+LOCAL void sprd_timer_callback(unsigned long data)
 {
 	struct dcam_dev          *dev = (struct dcam_dev*)data;
 	struct dcam_node         node;
@@ -1665,14 +1669,14 @@ static void sprd_timer_callback(unsigned long data)
 		up(&dev->irq_sem);
 	}
 }
-static int sprd_init_timer(struct timer_list *dcam_timer,unsigned long data)
+LOCAL int sprd_init_timer(struct timer_list *dcam_timer,unsigned long data)
 {
 	DCAM_TRACE("v4l2: Timer init s.\n");
 	setup_timer(dcam_timer, sprd_timer_callback, data);
 	DCAM_TRACE("v4l2: Timer init e.\n");
 	return 0;
 }
-static int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val)
+LOCAL int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val)
 {
 	int ret;
 	DCAM_TRACE("v4l2: starting timer%ld. \n",jiffies);
@@ -1682,12 +1686,41 @@ static int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val)
 	return 0;
 }
 
-static void sprd_stop_timer(struct timer_list *dcam_timer)
+LOCAL void sprd_stop_timer(struct timer_list *dcam_timer)
 {
 	DCAM_TRACE("v4l2: stop timer.\n");
 	del_timer_sync(dcam_timer);
 }
-static int sprd_v4l2_open(struct file *file)
+
+LOCAL void sprd_init_handle(struct file *file)
+{
+	struct dcam_dev          *dev = video_drvdata(file);
+	struct dcam_info         *info = &dev->dcam_cxt;
+	struct dcam_path_spec    *path;
+
+	atomic_set(&dev->stream_on, 0);
+	if (NULL == info) {
+		printk("V4L2:init handle fail.");
+		return;
+	}
+	printk("init handle.\n");
+	path = &info->dcam_path[0];
+	if (NULL == path) {
+		printk("V4L2:init path fail.");
+		return;
+	}
+	path->frm_cnt_act = 0;
+
+	path = &info->dcam_path[1];
+	if (NULL == path) {
+		printk("V4L2:init path 1 fail.");
+		return;
+	}
+	path->frm_cnt_act = 0;
+
+}
+
+LOCAL int sprd_v4l2_open(struct file *file)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
 	int                      ret = 0;
@@ -1718,6 +1751,8 @@ static int sprd_v4l2_open(struct file *file)
 
 	ret = sprd_init_timer(&dev->dcam_timer,(unsigned long)dev);
 	
+	sprd_init_handle(file);
+
 	DCAM_TRACE("V4L2: open /dev/video%d type=%s \n", dev->vfd->num,
 		v4l2_type_names[V4L2_BUF_TYPE_VIDEO_CAPTURE]);
 
@@ -1769,7 +1804,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 	return ret;
 }
 
-static int sprd_v4l2_close(struct file *file)
+LOCAL int sprd_v4l2_close(struct file *file)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
 	int                      ret = 0;
@@ -1791,7 +1826,7 @@ static int sprd_v4l2_close(struct file *file)
 	return ret;
 }
 
-static int  sprd_v4l2_proc_read(char           *page,
+LOCAL int  sprd_v4l2_proc_read(char           *page,
 			char  	       **start,
 			off_t          off,
 			int            count,
@@ -1897,7 +1932,7 @@ static int  sprd_v4l2_proc_read(char           *page,
 	return len;
 }
 
-static const struct v4l2_ioctl_ops sprd_v4l2_ioctl_ops = {
+LOCAL const struct v4l2_ioctl_ops sprd_v4l2_ioctl_ops = {
 	.vidioc_g_parm                = v4l2_g_parm,
 	.vidioc_s_parm                = v4l2_s_parm,	
 	.vidioc_querycap              = v4l2_querycap,
@@ -1919,7 +1954,7 @@ static const struct v4l2_ioctl_ops sprd_v4l2_ioctl_ops = {
 	.vidioc_s_ctrl                = v4l2_s_ctrl
 };
 
-static const struct v4l2_file_operations sprd_v4l2_fops = {
+LOCAL const struct v4l2_file_operations sprd_v4l2_fops = {
 	.owner                   = THIS_MODULE,
 	.open                    = sprd_v4l2_open,
 	.read                    = sprd_v4l2_read,
@@ -1929,7 +1964,7 @@ static const struct v4l2_file_operations sprd_v4l2_fops = {
 };
 
 
-static struct video_device sprd_v4l2_template = {
+LOCAL struct video_device sprd_v4l2_template = {
 	.name                    = "dcam",
 	.fops                    = &sprd_v4l2_fops,
 	.ioctl_ops               = &sprd_v4l2_ioctl_ops,
@@ -1939,7 +1974,7 @@ static struct video_device sprd_v4l2_template = {
 	.current_norm            = V4L2_STD_NTSC_M,
 };
 
-static int release(void)
+LOCAL int release(void)
 {
 	struct dcam_dev          *dev;
 	struct list_head         *list;
@@ -1957,7 +1992,7 @@ static int release(void)
 	return 0;
 }
 
-static int __init create_instance(int inst)
+LOCAL int __init create_instance(int inst)
 {
 	struct dcam_dev          *dev;
 	struct video_device      *vfd;
@@ -2038,7 +2073,7 @@ int sprd_v4l2_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int sprd_v4l2_remove(struct platform_device *dev)
+LOCAL int sprd_v4l2_remove(struct platform_device *dev)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 
@@ -2050,7 +2085,7 @@ static int sprd_v4l2_remove(struct platform_device *dev)
 	return ret;
 }
 
-static struct platform_driver sprd_v4l2_driver = {
+LOCAL struct platform_driver sprd_v4l2_driver = {
 	.probe = sprd_v4l2_probe,
 	.remove = sprd_v4l2_remove,
 	.driver = {
