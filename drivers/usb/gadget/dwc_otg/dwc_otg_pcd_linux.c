@@ -111,6 +111,7 @@ static DEFINE_MUTEX(udc_lock);
 
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
+extern int in_calibration(void);
 
 static int factory_mode = false;
 static int __init factory_start(char *str)
@@ -1524,7 +1525,8 @@ int usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {
 	int ret = 0;
 	int plug_irq = usb_get_vbus_irq();
-
+	if(in_calibration())
+		return ret;
 	if (cb){
 		hotplug_cb = cb;
 		enable_irq(plug_irq);

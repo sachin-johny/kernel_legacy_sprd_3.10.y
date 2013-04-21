@@ -225,6 +225,7 @@ static struct device_attribute sprd_caliberate[] = {
 	SPRD_CALIBERATE_ATTR_WO(battery_1),
 	SPRD_CALIBERATE_ATTR(hw_switch_point),
 	SPRD_CALIBERATE_ATTR_RO(charger_voltage),
+	SPRD_CALIBERATE_ATTR_RO(real_time_vbat_adc),
 };
 
 enum sprd_charge_prop {
@@ -235,6 +236,7 @@ enum sprd_charge_prop {
 	BATTERY_1,
 	HW_SWITCH_POINT,
 	CHARGER_VOLTAGE,
+	BATTERY_ADC,
 };
 extern uint16_t adc_voltage_table[2][2];
 static ssize_t sprd_set_caliberate(struct device *dev,
@@ -329,6 +331,12 @@ static ssize_t sprd_show_caliberate(struct device *dev,
 			i += scnprintf(buf + i, PAGE_SIZE - i, "%s\n",
 				       "discharging");
 		}
+		break;
+	case BATTERY_ADC:
+		adc_value = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
+		if (adc_value < 0)
+			 adc_value = 0;
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", adc_value);
 		break;
 	default:
 		i = -EINVAL;
