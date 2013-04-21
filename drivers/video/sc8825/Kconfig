@@ -62,6 +62,11 @@ config FB_LCD_OTM8018B_MIPI
 	depends on FB_SC8825 || FB_SC8830
 	default n
 
+config FB_LCD_SSD2075_MIPI
+	boolean "support ssd2075 mipi panel"
+	depends on FB_SC8825 || FB_SC8830
+	default n
+
 config FB_LCD_OVERLAY_SUPPORT
 	boolean "support lcd overlay"
 	depends on FB_SC8825 || FB_SC8830

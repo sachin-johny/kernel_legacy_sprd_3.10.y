@@ -404,6 +404,18 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	__raw_bits_or((1<<0), (SPRD_APBCKG_BASE+0x34));    //pll_src=384M
 	__raw_bits_or((1<<1), (SPRD_APBCKG_BASE+0x34));
 
+#ifdef CONFIG_FB_LCD_SSD2075_MIPI
+	//set DPI divdior
+	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x34));  //div=10, dpi_clk = pll_src/(10+1)
+	__raw_bits_or((1<<9), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_or((1<<10), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<11), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<12), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<13), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<14), (SPRD_APBCKG_BASE+0x34));
+	__raw_bits_and(~(1<<15), (SPRD_APBCKG_BASE+0x34));
+
+#else
 	//set DPI divdior
 	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x34));  //div=10, dpi_clk = pll_src/(10+1)
 	__raw_bits_or((1<<9), (SPRD_APBCKG_BASE+0x34));
@@ -413,7 +425,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	__raw_bits_and(~(1<<13), (SPRD_APBCKG_BASE+0x34));
 	__raw_bits_and(~(1<<14), (SPRD_APBCKG_BASE+0x34));
 	__raw_bits_and(~(1<<15), (SPRD_APBCKG_BASE+0x34));
-
+#endif
 	//enable dispc clock
 	__raw_bits_or((1<<18), SPRD_APBREG_BASE);  //core_clock_en
 

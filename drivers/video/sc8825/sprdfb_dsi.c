@@ -203,8 +203,11 @@ static int32_t dsi_dpi_init(struct panel_spec* panel)
 
 	dpi_param.no_of_lanes = mipi->lan_number;
 	dpi_param.byte_clock = mipi->phy_feq / 8;
+#ifdef CONFIG_FB_LCD_SSD2075_MIPI
+	dpi_param.pixel_clock = 384*1000/7;//16000;//DSI_PHY_REF_CLOCK / 4;
+#else
 	dpi_param.pixel_clock = 384*1000/11;//16000;//DSI_PHY_REF_CLOCK / 4;
-
+#endif
 	switch(mipi->video_bus_width){
 	case 16:
 		dpi_param.color_coding = COLOR_CODE_16BIT_CONFIG1;
@@ -503,7 +506,14 @@ static int32_t sprdfb_dsi_set_video_mode(void)
 static int32_t sprdfb_dsi_gen_write(uint8_t *param, uint16_t param_length)
 {
 	dsih_error_t result;
+#if defined(CONFIG_FB_SC8830) && defined(CONFIG_FB_LCD_SSD2075_MIPI)
+	dsih_ctrl_t *curInstancePtr = &(dsi_ctx.dsi_inst);
+	mipi_dsih_eotp_tx(curInstancePtr, 0);
+#endif
 	result = mipi_dsih_gen_wr_cmd(&(dsi_ctx.dsi_inst), 0, param, param_length);
+#if defined(CONFIG_FB_SC8830) && defined(CONFIG_FB_LCD_SSD2075_MIPI)
+	mipi_dsih_eotp_tx(curInstancePtr, 1);
+#endif
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s] error (%d)\n", __FUNCTION__, result);
 		return -1;
@@ -547,7 +557,14 @@ static int32_t sprdfb_dsi_dcs_read(uint8_t command, uint8_t bytes_to_read, uint8
 static int32_t sprd_dsi_force_write(uint8_t data_type, uint8_t *p_params, uint16_t param_length)
 {
 	int32_t iRtn = 0;
+#if defined(CONFIG_FB_SC8830) && defined(CONFIG_FB_LCD_SSD2075_MIPI)
+	dsih_ctrl_t *curInstancePtr = &(dsi_ctx.dsi_inst);
+	mipi_dsih_eotp_tx(curInstancePtr, 0);
+#endif
 	iRtn = mipi_dsih_gen_wr_packet(&(dsi_ctx.dsi_inst), 0, data_type,  p_params, param_length);
+#if defined(CONFIG_FB_SC8830) && defined(CONFIG_FB_LCD_SSD2075_MIPI)
+	mipi_dsih_eotp_tx(curInstancePtr, 1);
+#endif
 	return iRtn;
 }
 
@@ -556,7 +573,11 @@ static int32_t sprd_dsi_force_read(uint8_t command, uint8_t bytes_to_read, uint8
 	int32_t iRtn = 0;
 	dsih_ctrl_t *curInstancePtr = &(dsi_ctx.dsi_inst);
 
+#if defined(CONFIG_FB_SC8830) && defined(CONFIG_FB_LCD_SSD2075_MIPI)
+	mipi_dsih_eotp_tx(curInstancePtr, 1);
+#else
 	mipi_dsih_eotp_rx(curInstancePtr, 0);
+#endif
 	mipi_dsih_eotp_tx(curInstancePtr, 0);
 
 	iRtn = mipi_dsih_gen_rd_packet(&(dsi_ctx.dsi_inst),  0,  6,  0, command,  bytes_to_read, read_buffer);
