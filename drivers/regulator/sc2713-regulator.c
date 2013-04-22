@@ -116,6 +116,7 @@ int reguator_is_trimming(struct regulator_dev *rdev);
 int ldo_trimming_callback(void *data);
 int __def_callback(void *data)
 {
+	return 0;
 	return WARN_ON(1);
 }
 
