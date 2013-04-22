@@ -20,11 +20,6 @@
 #include <linux/io.h>
 #include <mach/regs_ana_glb_sc7710.h>
 
-#ifndef SCI_ADDR
-#define SCI_ADDR(_b_, _o_)                              ( (u32)(_b_) + (_o_) )
-#endif
-#define ANA_REGS_GLB_BASE	(SPRD_MISC_BASE + 0x0800)
-
 #define DCDC_CORE_V_09 (0x3)
 #define DCDC_CORE_V_MASK (0x1f)
 

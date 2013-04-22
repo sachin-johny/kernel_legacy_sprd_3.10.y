@@ -66,7 +66,9 @@ static int __init arch_init(void)
 early_initcall(arch_init);
 
 #ifdef CONFIG_ARCH_SC7710
-#include <mach/globalreg.h>
+
+#include <mach/globalregs.h>
+#include <mach/regs_ana_glb_sc7710.h>
 
 /*some chip init global helper functions */
 int sci_get_chipid(void)

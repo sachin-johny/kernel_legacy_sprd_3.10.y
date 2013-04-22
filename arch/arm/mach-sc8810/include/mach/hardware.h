@@ -14,6 +14,9 @@
 #ifndef __ASM_ARCH_HARDWARE_H
 #define __ASM_ARCH_HARDWARE_H
 
+#ifndef SCI_ADDR
+#define SCI_ADDR(_b_, _o_)                              ( (u32)(_b_) + (_o_) )
+#endif
 /*
  * SC8810 internal I/O mappings
  *
@@ -330,6 +333,10 @@ register offset.
 /*A-Die chip id define*/
 #define ANA_CHIP_ID_AA	0x7710A000
 #define ANA_CHIP_ID_BA	0x7710A001
+
+#ifndef ANA_REGS_GLB_BASE
+#define ANA_REGS_GLB_BASE       (SPRD_MISC_BASE + 0x0800)
+#endif
 
 #endif
 
