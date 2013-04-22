@@ -39,34 +39,25 @@
 #define VSP_MINOR MISC_DYNAMIC_MINOR
 #define VSP_TIMEOUT_MS 1000
 
-#define USE_INTERRUPT
+//#define USE_INTERRUPT
 /*#define RT_VSP_THREAD*/
 
 #define DEFAULT_FREQ_DIV 0x0
 
-#define SPRD_VSP_BASE SPRD_MEA_BASE
-#define SPRD_VSP_PHYS SPRD_MEA_PHYS
+#define ARM_ACCESS_CTRL_OFF         0x0
+#define ARM_ACCESS_STATUS_OFF   0x04
+#define MCU_CTRL_SET_OFF                0x08
+#define ARM_INT_STS_OFF                     0x10        //from OPENRISC
+#define ARM_INT_MASK_OFF                0x14
+#define ARM_INT_CLR_OFF                     0x18
+#define ARM_INT_RAW_OFF                 0x1C
+#define WB_ADDR_SET0_OFF                0x20
+#define WB_ADDR_SET1_OFF                0x24
 
-#define DCAM_CFG_OFF			0x0
-#define DCAM_SRC_SIZE_OFF		0xC
-#define DCAM_ISP_DIS_SIZE_OFF		0x10
-#define DCAM_VSP_TIME_OUT_OFF		0x14
-#define DCAM_INT_STS_OFF		0x20
-#define DCAM_INT_MASK_OFF		0x24
-#define DCAM_INT_CLR_OFF		0x28
-#define DCAM_INT_RAW_OFF		0x2C
-
-
-#if 0//defined(CONFIG_ARCH_SC8825)
-#ifdef USE_INTERRUPT
-#undef USE_INTERRUPT
-#endif
-
-#define DCAM_CLOCK_EN		SPRD_AHB_BASE+0x0200//0x20900000
-#define AHB_CTRL2                       SPRD_AHB_BASE+0x0208
-//#define DCAM_CLK_FREQUENCE	0x8b00000c
-#define PLL_SRC                            SPRD_GREG_BASE+0x0070  //0x4B000070
-
+#if defined(CONFIG_ARCH_SC8830)
+    #ifdef USE_INTERRUPT
+        #undef USE_INTERRUPT
+    #endif
 #endif
 
 
@@ -97,22 +88,13 @@ struct clock_name_map_t{
 	char *name;
 };
 
-#if defined(CONFIG_ARCH_SC8825)
 static struct clock_name_map_t clock_name_map[] = {
-						{192000000,"clk_192m"},
-						{153600000,"clk_153p6m"},
-						{64000000,"clk_64m"},
-						{48000000,"clk_48m"}
+						{256000000,"clk_256m"},
+						{192000000,"clk_192p6m"},
+						{128000000,"clk_128m"},
+						{76800000,"clk_76m8"}
 						};
 
-#else
-static struct clock_name_map_t clock_name_map[] = {
-						{153600000,"l3_153m600k"},
-						{128000000,"clk_128m"},
-						{64000000,"clk_64m"},
-						{48000000,"clk_48m"}
-						};
-#endif
 static int max_freq_level = ARRAY_SIZE(clock_name_map);
 
 static char *vsp_get_clk_src_name(unsigned int freq_level)
@@ -155,7 +137,7 @@ static void release_vsp(struct vsp_fh *vsp_fp)
 
 	return;
 }
-#if defined(CONFIG_ARCH_SC8825)
+#if defined(CONFIG_ARCH_SC8830)
 #ifdef USE_INTERRUPT
 static irqreturn_t vsp_isr(int irq, void *data);
 #endif
@@ -233,8 +215,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		release_vsp(vsp_fp);
 		break;
 #ifdef USE_INTERRUPT
-	case VSP_START:
-		pr_debug("vsp ioctl VSP_START\n");
+	case VSP_COMPLETE:
+		pr_debug("vsp ioctl VSP_COMPLETE\n");
 		ret = wait_event_interruptible_timeout(
 			vsp_hw_dev.wait_queue_work,
 			vsp_hw_dev.condition_work,
@@ -258,84 +240,23 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		put_user(vsp_hw_dev.vsp_int_status, (int __user *)arg);
 		vsp_hw_dev.vsp_int_status = 0;
 		vsp_hw_dev.condition_work = 0;
-		pr_debug("vsp ioctl VSP_START end\n");
+		pr_debug("vsp ioctl VSP_COMPLETE end\n");
 		return ret;
 		break;
 #endif
 	case VSP_RESET:
 		pr_debug("vsp ioctl VSP_RESET\n");
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT(15), AHB_SOFT_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
+//		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT(15), AHB_SOFT_RST);
+//		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
+	        __raw_writel((1<<11)|(1<<4), 0x60d01004);	
+	        __raw_writel((1<<4), 0x60d02004);	//Reset VSP 
+
 		break;
-#if defined(CONFIG_ARCH_SC8825)		
+	case VSP_START:
+		pr_debug("vsp ioctl VSP_START\n");
+                __raw_writel((1<<11), 0x60d02004);
+                break;
 
-	case VSP_ACQUAIRE_MEA_DONE:
-
-		pr_debug("vsp ioctl VSP_ACQUAIRE_MEA_DONE\n");
-		ret = wait_event_interruptible_timeout(
-			vsp_hw_dev.wait_queue_work,
-			vsp_hw_dev.condition_work,
-			msecs_to_jiffies(VSP_TIMEOUT_MS));
-		if (ret == -ERESTARTSYS) {
-			printk("KERN_ERR vsp error start -ERESTARTSYS\n");
-			ret = -EINVAL;
-		} else if (ret == 0) {
-			printk("KERN_ERR vsp error start  timeout\n");
-			ret = -ETIMEDOUT;
-		} else {
-			ret = 0;
-		}
-		
-		if (ret) { //timeout , clean all init bits.
-			/*clear vsp int*/
-			__raw_writel((1<<7)|(1<<8)|(1<<14),
-				SPRD_VSP_BASE+DCAM_INT_CLR_OFF);			
-			ret  = 1;
-		} 
-		else //catched an init
-		{
-			ret = vsp_hw_dev.vsp_int_status;
-		}
-				
-		printk(KERN_ERR "VSP_ACQUAIRE_MEA_DONE %x\n",ret);
-		vsp_hw_dev.vsp_int_status = 0;
-		vsp_hw_dev.condition_work = 0;
-		pr_debug("vsp ioctl VSP_ACQUAIRE_MEA_DONE end\n");
-		return ret;
-
-               break;
-			   
-	case VSP_ACQUAIRE_MP4ENC_DONE:
-		cmd0 = 0;
-		printk(KERN_ERR "VSP_ACQUAIRE_MP4ENC_DONE in !\n");
-		ret= __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
-		
-		while(!((ret & 0x80)|| (ret & 0x10000)  ) && (cmd0 < (int)arg))
-		{ 
-			ret = __raw_readl(SPRD_VSP_BASE+DCAM_INT_RAW_OFF);
-			//printk(KERN_INFO "DCAM_INT_RAW_OFF %x !\n",ret);
-			cmd0++;
-			msleep(1);
-		}
-
-		if(ret & 0x80)
-		{
-			printk(KERN_INFO "vsp stream buffer is full!\n");
-			return 2;//
-		}else if(ret & 0x10000)
-		{
-			printk(KERN_INFO "VSP MP4ENC_DONE DONE!\n");
-			return 0;
-		}else  if(cmd0 >=  (int)arg)
-        	{
-              		 printk(KERN_INFO "VSP_ACQUAIRE_MP4ENC_DONE time out\n");
-                   	return 1;
-		}else{
-			printk(KERN_INFO "vsp: ERR\n");
-			return -EINVAL;
-		}
-		break;
-#endif
 	default:
 		return -EINVAL;
 	}
@@ -473,7 +394,7 @@ static int vsp_probe(struct platform_device *pdev)
 	vsp_hw_dev.vsp_clk = NULL;
 	vsp_hw_dev.vsp_parent_clk = NULL;
 
-#if defined(CONFIG_ARCH_SC8825)
+#if defined(CONFIG_ARCH_SC8830)
 		//cmd0 = __raw_readl(AHB_CTRL2);//,"AHB_CTRL2:Read the AHB_CTRL2 CLOCK");
 		//cmd0 |= 0x440;
 		//__raw_writel(cmd0,AHB_CTRL2);//,"AHB_CTRL2:enable MMMTX_CLK_EN");

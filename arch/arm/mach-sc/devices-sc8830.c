@@ -738,6 +738,11 @@ struct platform_device sprd_vsp_device = {
 	.id	= -1,
 };
 
+struct platform_device sprd_jpg_device = {
+	.name	= "sprd_jpg",
+	.id	= -1,
+};
+
 #ifdef CONFIG_ION
 static struct ion_platform_data ion_pdata = {
 	.nr = 2,
