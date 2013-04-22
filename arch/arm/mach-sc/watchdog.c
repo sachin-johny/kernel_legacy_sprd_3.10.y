@@ -18,7 +18,16 @@
 #include <linux/string.h>
 #include <asm/bitops.h>
 
-#define WDG_BASE            (SPRD_MISC_BASE + 0x40)
+
+#ifdef CONFIG_ARCH_SC8830
+#define WDG_BASE		(SPRD_MISC_BASE + 0x8000 + 0x40)
+#define SPRD_ANA_BASE		(SPRD_MISC_BASE + 0x8800)
+#else
+#define WDG_BASE		(SPRD_MISC_BASE + 0x40)
+#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
+#endif
+
+
 #define WDG_LOAD_LOW        (WDG_BASE + 0x00)
 #define WDG_LOAD_HIGH       (WDG_BASE + 0x04)
 #define WDG_CTRL            (WDG_BASE + 0x08)
@@ -31,22 +40,17 @@
 
 #define WDG_INT_EN_BIT          BIT(0)
 #define WDG_CNT_EN_BIT          BIT(1)
+#define WDG_NEW_VER_EN		BIT(2)
 #define WDG_INT_CLEAR_BIT       BIT(0)
 #define WDG_LD_BUSY_BIT         BIT(4)
 #define WDG_RST_EN_BIT		BIT(3)
 
-#define WDG_UNLOCK_KEY          0xE551
-
-#ifdef CONFIG_ARCH_SC8830
-#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x8800)
-#else
-#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
-#endif
 
 #define ANA_REG_BASE            SPRD_ANA_BASE	/*  0x82000600 */
 
 
 #ifdef CONFIG_ARCH_SC8830
+#define WDG_NEW_VERSION
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0xE8)
 #define ANA_AGEN                (ANA_REG_BASE + 0x00)
 #define ANA_RTC_CLK_EN		(ANA_REG_BASE + 0x08)
@@ -66,8 +70,18 @@
 #endif
 
 #define WDG_CLK                 32768
+#define WDG_UNLOCK_KEY          0xE551
 
 #define ANA_WDG_LOAD_TIMEOUT_NUM    (10000)
+
+#ifdef WDG_NEW_VERSION
+#define WDG_LOAD_TIMER_VALUE(value) \
+        do{\
+                    sci_adi_raw_write( WDG_LOAD_HIGH, (uint16_t)(((value) >> 16 ) & 0xffff));\
+                    sci_adi_raw_write( WDG_LOAD_LOW , (uint16_t)((value)  & 0xffff) );\
+        }while(0)
+
+#else
 
 #define WDG_LOAD_TIMER_VALUE(value) \
         do{\
@@ -76,6 +90,7 @@
                     sci_adi_raw_write( WDG_LOAD_LOW , (uint16_t)((value)  & 0xffff) );\
                     while((sci_adi_read(WDG_INT_RAW) & WDG_LD_BUSY_BIT) && ( cnt < ANA_WDG_LOAD_TIMEOUT_NUM )) cnt++;\
         }while(0)
+#endif
 
 #define HWRST_STATUS_RECOVERY (0x20)
 #define HWRST_STATUS_NORMAL (0X40)
@@ -113,14 +128,13 @@ void sprd_turnon_watchdog(unsigned int ms)
 	uint32_t cnt;
 
 	cnt = (ms * 1000) / WDG_CLK;
-	/* turn on watch dog clock */
+
 	/*enable interface clk*/
 	sci_adi_set(ANA_AGEN, AGEN_WDG_EN);
 	/*enable work clk*/
 	sci_adi_set(ANA_RTC_CLK_EN, AGEN_RTC_WDG_EN);
 	sci_adi_raw_write(WDG_LOCK, WDG_UNLOCK_KEY);
-	/*disable irq mode*/
-	sci_adi_clr(WDG_CTRL, WDG_INT_EN_BIT);
+	sci_adi_set(WDG_CTRL, WDG_NEW_VER_EN);
 	WDG_LOAD_TIMER_VALUE(cnt);
 	sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT | WDG_RST_EN_BIT);
 	sci_adi_raw_write(WDG_LOCK, (uint16_t) (~WDG_UNLOCK_KEY));
