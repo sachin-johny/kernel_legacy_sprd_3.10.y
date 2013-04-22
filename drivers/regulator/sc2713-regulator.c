@@ -117,7 +117,7 @@ int ldo_trimming_callback(void *data);
 int __def_callback(void *data)
 {
 	return 0;
-	return WARN_ON(1);
+	//return WARN_ON(1);
 }
 
 int ldo_trimming_callback(void *)
