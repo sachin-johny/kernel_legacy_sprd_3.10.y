@@ -466,6 +466,8 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	switch(pdev->id) {
 	case 0:
 		host->mmc->pm_flags |= MMC_PM_ONLY_USED_SDIO0_SHARK;
+	       host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_180));
+	       host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
 		break;
 	case 1:
 		break;
