@@ -996,14 +996,14 @@ static int sprd_v4l2_path_lightly_cfg(path_cfg_func path_cfg,
 	ret = path_cfg(DCAM_PATH_OUTPUT_FORMAT, &path_spec->out_fmt);
 	V4L2_RTN_IF_ERR(ret);
 
-	ret = path_cfg(DCAM_PATH_FRAME_BASE_ID, &path_spec->frm_id_base);
-	V4L2_RTN_IF_ERR(ret);
+//	ret = path_cfg(DCAM_PATH_FRAME_BASE_ID, &path_spec->frm_id_base);
+//	V4L2_RTN_IF_ERR(ret);
 
-	ret = path_cfg(DCAM_PATH_FRAME_TYPE, &path_spec->frm_type);
-	V4L2_RTN_IF_ERR(ret);
+//	ret = path_cfg(DCAM_PATH_FRAME_TYPE, &path_spec->frm_type);
+//	V4L2_RTN_IF_ERR(ret);
 
-	ret = path_cfg(DCAM_PATH_DATA_ENDIAN, &path_spec->end_sel);
-	V4L2_RTN_IF_ERR(ret);
+//	ret = path_cfg(DCAM_PATH_DATA_ENDIAN, &path_spec->end_sel);
+//	V4L2_RTN_IF_ERR(ret);
 
 exit:
 	return ret;
@@ -1528,8 +1528,8 @@ static int v4l2_streamon(struct file *file,
 			V4L2_RTN_IF_ERR(ret);
 		}
 
-		ret = dcam_start();
 		atomic_set(&dev->stream_on, 1);
+		ret = dcam_start();
 
 	}
 
@@ -1570,7 +1570,6 @@ static int v4l2_streamoff(struct file *file,
 
 	if (dev->stream_mode) {
 		ret = dcam_pause();
-		dcam_wait_for_done_ex();
 	} else {
 		atomic_set(&dev->stream_on, 0);
 

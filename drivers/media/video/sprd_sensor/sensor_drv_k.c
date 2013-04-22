@@ -95,6 +95,10 @@ typedef enum {
 	SENSOR_ID_MAX
 } SENSOR_ID_E;
 
+typedef struct sensor_mem_tag {
+    void    *buf_ptr;
+    size_t  size;
+} SENSOR_MEM_T;
 
 static struct mutex sensor_lock;
 static wait_queue_head_t wait_queue_sensor;
@@ -108,6 +112,7 @@ LOCAL struct clk *s_ccir_enable_clk 	= NULL;
 
 LOCAL struct i2c_client *this_client = NULL;
 
+LOCAL SENSOR_MEM_T s_sensor_mem = {0};
 
 
 static const struct i2c_device_id sensor_device_id[] = {
@@ -146,6 +151,48 @@ LOCAL const SN_MCLK sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
 	{48, "clk_48m"},
 	{26, "ext_26m"}
 };
+
+LOCAL void* _Sensor_K_kmalloc(size_t size, unsigned flags)
+{
+    if(PNULL == s_sensor_mem.buf_ptr) {
+        s_sensor_mem.buf_ptr = kmalloc(size, flags);
+        if(PNULL != s_sensor_mem.buf_ptr) {
+            s_sensor_mem.size = size;
+        }
+
+        return s_sensor_mem.buf_ptr;
+    }else if(size <= s_sensor_mem.size) {
+        return s_sensor_mem.buf_ptr;
+    }else {
+        //realloc memory
+        kfree(s_sensor_mem.buf_ptr);
+        s_sensor_mem.buf_ptr = PNULL;
+        s_sensor_mem.size = 0;
+
+        s_sensor_mem.buf_ptr = kmalloc(size, flags);
+        if(PNULL != s_sensor_mem.buf_ptr) {
+            s_sensor_mem.size = size;
+        }
+
+        return s_sensor_mem.buf_ptr;
+    }
+}
+
+LOCAL void* _Sensor_K_kzalloc(size_t size, unsigned flags)
+{
+    void *ptr = _Sensor_K_kmalloc(size, flags);
+    if(PNULL != ptr) {
+        memset(ptr, 0, size);
+    }
+
+    return ptr;
+}
+
+LOCAL void _Sensor_K_kfree(void *p)
+{
+    /* memory will not be free */
+    return;
+}
 
 LOCAL uint32_t Sensor_K_GetCurId(void)
 {
@@ -970,7 +1017,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 	do_gettimeofday(&time1);
 	
 	size = cnt*sizeof(SENSOR_REG_T);
-	pBuff = kmalloc(size, GFP_KERNEL);
+	pBuff = _Sensor_K_kmalloc(size, GFP_KERNEL);
 	if(PNULL == pBuff){
 		ret = SENSOR_K_FAIL;
 		SENSOR_PRINT_ERR("_Sensor_K_WriteRegTab ERROR:kmalloc is fail, cnt=%d, size = %d \n", cnt, size);
@@ -1006,7 +1053,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 
 _Sensor_K_WriteRegTab_return:
 	if(PNULL != pBuff)
-		kfree(pBuff);
+		_Sensor_K_kfree(pBuff);
 
 	do_gettimeofday(&time2);
 	
@@ -1036,7 +1083,7 @@ LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
 	uint32_t cnt = pI2cTab->i2c_count;
 	int ret = SENSOR_K_FAIL;
 
-	pBuff = kmalloc(cnt, GFP_KERNEL);
+	pBuff = _Sensor_K_kmalloc(cnt, GFP_KERNEL);
 	if(PNULL == pBuff){
 		SENSOR_PRINT_ERR("_Sensor_K_WriteI2C ERROR:kmalloc is fail, size = %d \n", cnt);
 		goto sensor_k_writei2c_return;
@@ -1065,7 +1112,7 @@ LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
 
 sensor_k_writei2c_return:
 	if(PNULL != pBuff)
-		kfree(pBuff);
+		_Sensor_K_kfree(pBuff);
 
 	SENSOR_PRINT("sensor_k_write: done, ret = %d \n", ret);
 
@@ -1101,7 +1148,7 @@ static ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t
 		pBuff = buf;
 		need_alloc = 0;
 	}else{
-		pBuff = kmalloc(cnt, GFP_KERNEL);
+		pBuff = _Sensor_K_kmalloc(cnt, GFP_KERNEL);
 		if(PNULL == pBuff){
 			SENSOR_PRINT_ERR("sensor_k_write ERROR:kmalloc is fail, size = %d \n", cnt);
 			goto sensor_k_write_return;
@@ -1131,7 +1178,7 @@ static ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t
 
 sensor_k_write_return:
 	if((PNULL != pBuff) && need_alloc)
-		kfree(pBuff);
+		_Sensor_K_kfree(pBuff);
 
 	SENSOR_PRINT("sensor_k_write: done, ret = %d \n", ret);
 
@@ -1161,7 +1208,7 @@ int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 		printk("SENSOR: HI351_InitExt:error,i2c_client is NULL!.\n");
 		return -1;
 	}
-	p_reg_val_tmp = (uint8_t*)kzalloc(init_table_size*sizeof(uint16_t) + 16, GFP_KERNEL);
+	p_reg_val_tmp = (uint8_t*)_Sensor_K_kzalloc(init_table_size*sizeof(uint16_t) + 16, GFP_KERNEL);
 
 	if(PNULL == p_reg_val_tmp){
 		SENSOR_PRINT_ERR("hi351_init_write ERROR:kmalloc is fail, size = %d \n", init_table_size*sizeof(uint16_t) + 16);
@@ -1251,7 +1298,7 @@ int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 		written_num += wr_num_once-1;
 	}
     SENSOR_PRINT("SENSOR: HI351_InitExt, success\n");
-    kfree(p_reg_val_tmp);
+    _Sensor_K_kfree(p_reg_val_tmp);
     return rtn;
 }
 #endif

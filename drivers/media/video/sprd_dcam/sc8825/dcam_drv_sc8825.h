@@ -312,5 +312,4 @@ int32_t    dcam_frame_unlock(struct dcam_frame *frame);
 int32_t    dcam_read_registers(uint32_t* reg_buf, uint32_t *buf_len);
 int32_t    dcam_resize_start(void);
 int32_t    dcam_resize_end(void);
-void        dcam_wait_for_done_ex(void);
 #endif //_DCAM_DRV_TIGER_H_

@@ -178,8 +178,15 @@ static int32_t _isp_module_dis(void)
 static int32_t _isp_module_rst(void)
 {
 	int32_t	ret = 0;
+	uint32_t reg_value=0x00;
 
 	if (0x00 != atomic_read(&s_isp_users)) {
+		reg_value=ISP_READL(ISP_AXI_MASTER);
+		while(0x00==(reg_value&0x08))
+		{
+			msleep(1);
+			reg_value=ISP_READL(ISP_AXI_MASTER);
+		}
 		ISP_WRITEL(ISP_INT_CLEAR, 0x0fff);
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
