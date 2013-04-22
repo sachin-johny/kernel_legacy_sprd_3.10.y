@@ -44,6 +44,7 @@ extern struct platform_device sprd_audio_cpu_dai_vbc_device;
 extern struct platform_device sprd_audio_codec_sprd_codec_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
+extern struct platform_device sprd_jpg_device;
 #ifdef CONFIG_ION
 extern struct platform_device sprd_ion_dev;
 #endif
