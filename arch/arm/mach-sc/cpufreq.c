@@ -87,6 +87,8 @@ static unsigned int get_mcu_clk_freq(void)
 {
 	u32 mpll_refin, mpll_n, mpll_cfg = 0, rate, val;
 
+	mpll_cfg = __raw_readl(GR_MPLL_MN);
+
 	mpll_refin = (mpll_cfg >> GR_MPLL_REFIN_SHIFT) & GR_MPLL_REFIN_MASK;
 	switch(mpll_refin){
 		case 0:
