@@ -15,8 +15,8 @@
 
 #include <linux/ioctl.h>
 
-/*76k vsp address space size*/
-#define SPRD_VSP_MAP_SIZE 0x13000
+/*40k vsp address space size*/
+#define SPRD_VSP_MAP_SIZE 0xA000
 
 #define SPRD_VSP_IOCTL_MAGIC 'm'
 #define VSP_CONFIG_FREQ _IOW(SPRD_VSP_IOCTL_MAGIC, 1, unsigned int)
@@ -25,12 +25,12 @@
 #define VSP_DISABLE     _IO(SPRD_VSP_IOCTL_MAGIC, 4)
 #define VSP_ACQUAIRE    _IO(SPRD_VSP_IOCTL_MAGIC, 5)
 #define VSP_RELEASE     _IO(SPRD_VSP_IOCTL_MAGIC, 6)
-#define VSP_START       _IO(SPRD_VSP_IOCTL_MAGIC, 7)
+#define VSP_COMPLETE       _IO(SPRD_VSP_IOCTL_MAGIC, 7)
 #define VSP_RESET       _IO(SPRD_VSP_IOCTL_MAGIC, 8)
-#define VSP_REG_IRQ       _IO(SPRD_VSP_IOCTL_MAGIC,9)
-#define VSP_UNREG_IRQ       _IO(SPRD_VSP_IOCTL_MAGIC,10)
-#define VSP_ACQUAIRE_MEA_DONE _IO(SPRD_VSP_IOCTL_MAGIC, 11)
-#define VSP_ACQUAIRE_MP4ENC_DONE _IO(SPRD_VSP_IOCTL_MAGIC, 12)
+#define VSP_START            _IO(SPRD_VSP_IOCTL_MAGIC, 9)
+#define VSP_ACQUAIRE_MEA_DONE _IO(SPRD_VSP_IOCTL_MAGIC, 10)
+#define VSP_ACQUAIRE_MP4ENC_DONE _IO(SPRD_VSP_IOCTL_MAGIC, 11)
+
 enum sprd_vsp_frequency_e{ 
 	VSP_FREQENCY_LEVEL_0 = 0,
 	VSP_FREQENCY_LEVEL_1 = 1,
@@ -47,9 +47,10 @@ VSP_RELEASE:release the vsp lock
 all other commands must be sent only when the VSP user posses the lock
 VSP_ENABLE:enable vsp clock
 VSP_DISABLE:disable vsp clock
-VSP_START:all the preparing work is done and start the vsp, the vsp finishes 
+VSP_COMPLETE:all the preparing work is done and start the vsp, the vsp finishes 
 its job after this command retruns.
 VSP_RESET:reset vsp hardware
+VSP_START: start openrisc,and it can control VSP to begin decode/encode.
 VSP_CONFIG_FREQ/VSP_GET_FREQ:set/get vsp frequency,the parameter is of 
 type sprd_vsp_frequency_e, the smaller the faster
 */

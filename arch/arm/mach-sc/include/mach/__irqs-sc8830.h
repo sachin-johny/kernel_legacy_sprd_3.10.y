@@ -65,7 +65,7 @@
 #define IRQ_GPU_INT			SCI_IRQ(39)
 #define IRQ_CSI_INT0			SCI_IRQ(40)
 #define IRQ_CSI_INT1			SCI_IRQ(41)
-#define IRQ_JGP_INT			SCI_IRQ(42)
+#define IRQ_JPG_INT			SCI_IRQ(42)
 #define IRQ_VSP_INT			SCI_IRQ(43)
 #define IRQ_ISP_INT			SCI_IRQ(44)
 #define IRQ_DCAM_INT			SCI_IRQ(45)
