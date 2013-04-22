@@ -12,8 +12,13 @@
  */
 
 #include <linux/module.h>
-#include <mach/hardware.h>
+
 #include <asm/hardware/cache-l2x0.h>
+#include <asm/io.h>
+
+#include <mach/hardware.h>
+#include <mach/adi.h>
+
 
 #define CACHE_EARLY_BRESP_ENABLE	((0) << 30)
 #define CACHE_I_P_ENABLE		((0) << 29)
@@ -59,3 +64,17 @@ static int __init arch_init(void)
 }
 
 early_initcall(arch_init);
+
+#ifdef CONFIG_ARCH_SC7710
+#include <mach/globalreg.h>
+
+/*some chip init global helper functions */
+int sci_get_chipid(void)
+{
+	return __raw_readl(CHIP_ID);
+}
+int sci_get_ana_chipid(void)
+{
+	return ((sci_adi_read(ANA_REG_GLB_CHIP_ID_HIGH) << 16) | sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW));
+}
+#endif
