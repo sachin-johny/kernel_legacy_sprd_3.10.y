@@ -1220,7 +1220,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			real_div = div;
 			div >>= 1;
 			if ((div % 2) != 0){
-				div++;	
+				div++;
 			}
 #if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC8830)
 			if(div > 1) {
@@ -1236,6 +1236,14 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		}
 		real_div = div;
 		div >>= 1;
+#if defined(CONFIG_ARCH_SC8830)
+		if ((div % 2) != 0){
+			div++;
+		}
+		if(div > 1) {
+			div --;/*for freq = (clk_max / ((div +1) * 2))*/
+		}
+#endif
 	}
 
 	if (real_div)
