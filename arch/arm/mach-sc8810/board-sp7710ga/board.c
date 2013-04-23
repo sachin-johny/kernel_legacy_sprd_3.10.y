@@ -50,7 +50,7 @@ extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
 extern void __init sc8810_init_irq(void);
 extern void __init sc8810_timer_init(void);
-extern void __init regulator_add_devices(void);
+extern int __init sci_regulator_init(void);
 extern void __init sc8810_clock_init(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
@@ -409,7 +409,7 @@ static int sc8810_add_misc_devices(void)
 static void __init sc8810_init_machine(void)
 {
     sci_adc_init((void __iomem *)ADC_REG_BASE);
-	regulator_add_devices();
+	sci_regulator_init();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));

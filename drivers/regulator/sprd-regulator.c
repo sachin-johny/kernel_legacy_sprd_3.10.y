@@ -25,59 +25,16 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 
-#if defined(CONFIG_ARCH_SC7710)
-#include <mach/hardware.h>
-#include <mach/regs_ana_glb_sc7710.h>
-#include <mach/regulator.h>
-#include <mach/adi.h>
-
-#ifndef SCI_ADDR
-#define SCI_ADDR(_b_, _o_)                              ( (u32)(_b_) + (_o_) )
-#endif
-#define ANA_REGS_GLB_BASE	(SPRD_MISC_BASE + 0x0800)
-#define REG_GLB_CLK_GEN5	(SPRD_GREG_BASE + 0x007C)
-
-u32 sci_glb_read(u32 reg, u32 msk)
-{
-	return WARN_ON(1);
-}
-
-int sci_glb_set(u32 reg, u32 bit)
-{
-	return WARN_ON(1);
-}
-
-int sci_glb_clr(u32 reg, u32 bit)
-{
-	return WARN_ON(1);
-}
-
-int __init sc8825_regulator_init(void)
-{
-	static struct platform_device sc8825_regulator_device = {
-		.name 	= "sprd-regulator",
-		.id	= -1,
-	};
-	return platform_device_register(&sc8825_regulator_device);
-}
-
-void __init regulator_add_devices(void)
-{
-	sc8825_regulator_init();
-}
-
-#else
 #include <mach/sci.h>
 #include <mach/hardware.h>
 #include <mach/regs_glb.h>
 #include <mach/regs_ana_glb.h>
 #include <mach/regs_ana_glb2.h>
 #include <mach/adi.h>
-#endif
 
 #undef debug
-#define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
-#define debug0(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug(format, arg...) pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug0(format, arg...)
 
 #ifndef	ANA_REG_OR
 #define	ANA_REG_OR(_r, _b)	sci_adi_write(_r, _b, 0)
@@ -322,7 +279,7 @@ static int ldo_init_trimming(struct regulator_dev *rdev)
 	int shft = __ffs(regs->vol_trm_bits);
 	u32 trim;
 
-	if (!regs->vol_trm || !rdev)
+	if (!regs->vol_trm)
 		goto exit;
 
 	trim = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits) >> shft;
@@ -386,8 +343,7 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 	to_vol /= 1000;
 
 	cal_vol = ctl_vol - to_vol * 90 / 100;	/* cal range 90% ~ 110% */
-	if (!regs->vol_trm || !rdev
-	    || cal_vol < 0 || cal_vol >= to_vol * 20 / 100)
+	if (!regs->vol_trm || cal_vol < 0 || cal_vol >= to_vol * 20 / 100)
 		goto exit;
 
 	/* always update voltage ctrl bits */
@@ -397,7 +353,7 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 
 	else {
 		u32 trim =	/* assert 5 valid trim bits */
-		    DIV_ROUND_CLOSEST(cal_vol * 100 * 32, to_vol * 20) & 0x1f;
+		    (cal_vol * 100 * 32) / (to_vol * 20) & 0x1f;
 		debug
 		    ("regu %p (%s) trimming %u = %u %+dmv, got [%02X] %u.%03u%%\n",
 		     regs, desc->desc.name, ctl_vol, to_vol,
@@ -483,8 +439,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 		/* dcdc calibration control bits (default 00000),
 		 * small adjust voltage: 100/32mv ~= 3.125mv
 		 */
-		int j =
-		    DIV_ROUND_CLOSEST((mv - regs->vol_sel[i]) * 32, 100) % 32;
+		int j = ((mv - regs->vol_sel[i]) * 32) / (100) % 32;
 		ANA_REG_SET(regs->vol_trm,
 			    BITS_DCDC_CAL(j) |
 			    BITS_DCDC_CAL_RST(BITS_DCDC_CAL(-1) - j), -1);
@@ -507,11 +462,11 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 	       regs, desc->desc.name, regs->vol_ctl,
 	       shft, regs->vol_ctl_bits, regs->vol_sel_cnt);
 
-	if (!regs->vol_ctl)
-		return -EINVAL;
-
 	BUG_ON(shft != 0);
 	BUG_ON(regs->vol_sel_cnt > 8);
+
+	if (!regs->vol_ctl)
+		return -EINVAL;
 
 	i = (ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits);
 
@@ -773,7 +728,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 static int __devinit sci_regulator_probe(struct platform_device *pdev)
 {
 	debug0("platform device %p\n", pdev);
-#include CONFIG_REGULATOR_SPRD_MAP
+#include "mach/__regulator_map.h"
 	return 0;
 }
 

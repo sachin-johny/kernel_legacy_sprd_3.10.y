@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Spreadtrum Communications Inc.
+ * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -902,7 +902,5 @@
 #define BITS_CHIP_IP_HIGH(_x_)          ( (_x_) << 0 )
 
 /* vars definitions for controller ANA_REGS_GLB */
-#define BITS_DCDC_CAL(X)                ( BITS_DCDC_CORE_CAL(X) )
-#define BITS_DCDC_CAL_RST(X)            ( BITS_DCDC_CORE_CAL_RST(X) )
 
 #endif //__ANA_REGS_GLB_H__

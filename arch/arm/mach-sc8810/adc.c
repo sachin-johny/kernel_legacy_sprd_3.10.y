@@ -91,7 +91,7 @@ void sci_adc_enable(void)
 {
 	/* enable adc */
 	sci_adi_set(ANA_REG_GLB_APB_CLK_EN,
-			BIT_ADC_EB | BIT_CLK_AUXADC_EN | BIT_CLK_AUXAD_EN);
+		    BIT_ADC_EB | BIT_CLK_AUXADC_EN | BIT_CLK_AUXAD_EN);
 	sci_adi_set(ANA_CTL_ADC_BASE, BIT_ADC_EN);
 }
 
@@ -205,7 +205,6 @@ static DEFINE_SPINLOCK(adc_lock);
 #define BIT_ANA_CLK_AUXADC_EN               ( BIT(13) )
 #define BIT_ANA_ADC_EB                      ( BIT(5) )
 
-
 /*ADC_CTL */
 #define ADC_MAX_SAMPLE_NUM			(0x10)
 #define BIT_SW_CH_RUN_NUM(_X_)		((((_X_) - 1) & 0xf ) << 4)
@@ -229,7 +228,8 @@ void sci_adc_enable(void)
 {
 	/* enable adc */
 	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
-		    BIT_ANA_ADC_EB | BIT_ANA_CLK_AUXADC_EN | BIT_ANA_CLK_AUXAD_EN);
+		    BIT_ANA_ADC_EB | BIT_ANA_CLK_AUXADC_EN |
+		    BIT_ANA_CLK_AUXAD_EN);
 }
 
 void sci_adc_dump_register()
@@ -291,7 +291,8 @@ static int sci_adc_config(struct adc_sample_data *adc)
 	return ret;
 }
 
-void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div_numerators,
+void sci_adc_get_vol_ratio(unsigned int channel_id, int scale,
+			   unsigned int *div_numerators,
 			   unsigned int *div_denominators)
 {
 	unsigned int chip_id = 0;
@@ -318,8 +319,8 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 		return;
 	case ADC_CHANNEL_VBAT:	//channel 5
 	case ADC_CHANNEL_ISENSE:	//channel 8
-		*div_numerators = 8;
-		*div_denominators = 30;
+		*div_numerators = 7;
+		*div_denominators = 29;
 		return;
 	case ADC_CHANNEL_VCHGSEN:	//channel 6
 		*div_numerators = 77;
@@ -356,19 +357,19 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 			*div_denominators = 5;
 		}
 		return;
-        case ADC_CHANNEL_DCDCLDO:   //16
+	case ADC_CHANNEL_DCDCLDO:	//16
 		*div_numerators = 4;
 		*div_denominators = 9;
-            return;
+		return;
 	case ADC_CHANNEL_VBATBK:	//channel 17
-	case ADC_CHANNEL_LDO0:		//channel 19,20
+	case ADC_CHANNEL_LDO0:	//channel 19,20
 	case ADC_CHANNEL_LDO1:
 		*div_numerators = 1;
 		*div_denominators = 3;
 		return;
-	case ADC_CHANNEL_LDO2:		//channel 21
-		*div_numerators = 1;
-		*div_denominators = 2;
+	case ADC_CHANNEL_LDO2:	//channel 21
+		*div_numerators = 9;
+		*div_denominators = 25;
 		return;
 	default:
 		*div_numerators = 1;
