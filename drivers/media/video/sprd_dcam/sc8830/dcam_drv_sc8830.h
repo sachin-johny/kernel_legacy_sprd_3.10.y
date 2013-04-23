@@ -29,7 +29,16 @@
 #define DCAM_ERR_TRACE				printk
 
 #define DCAM_WAIT_FOREVER                        0xFFFFFFFF
-#define DCAM_FRM_CNT_MAX                         8
+#define DCAM_PATH_1_FRM_CNT_MAX                  8
+#define DCAM_PATH_2_FRM_CNT_MAX                  4
+#define DCAM_FRM_CNT_MAX                         8  /* max between path_1_frm_cnt and path_2_frm_cnt */
+
+enum dcam_swtich_status {
+	DCAM_SWITCH_IDLE = 0,
+	DCAM_SWITCH_PAUSE,
+	DCAM_SWITCH_DONE,
+	DCAM_SWITCH_MAX
+};
 
 enum dcam_drv_rtn {
 	DCAM_RTN_SUCCESS = 0,

@@ -162,9 +162,17 @@
 #define DCAM_JPG_UNITS                                 (1 << 10)
 #define DCAM_SC_COEFF_MAX                              4
 #define DCAM_PATH_DECI_FAC_MAX                         2
+#define DCAM_PATH1_LINE_BUF_LENGTH                     1280
 #define DCAM_SC_LINE_BUF_LENGTH                        4096
 #define DCAM_ISP_LINE_BUF_LENGTH                       1632
 #define DCAM_IRQ                                       IRQ_DCAM_INT
+
+#define DCAM_PATH_NUM                                  3
+enum {
+	DCAM_PATH0 = 0,
+	DCAM_PATH1,
+	DCAM_PATH2,
+};
 
 #ifdef   __cplusplus
 }

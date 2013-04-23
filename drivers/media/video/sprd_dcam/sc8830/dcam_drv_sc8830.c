@@ -105,12 +105,6 @@ enum {
 };
 
 enum {
-    DCAM_PATH0 = 0,
-    DCAM_PATH1,
-	DCAM_PATH2
-};
-
-enum {
     DCAM_ST_STOP = 0,
     DCAM_ST_START,
 };
@@ -352,18 +346,18 @@ int32_t dcam_module_en(void)
 		// aiden fpga
 		uint32_t bit_value;
 		// 0x60d0_000
-		bit_value = BIT_4;// | BIT_6;
+		bit_value = BIT_4 | BIT_6;
 		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CSI enable
 
-		bit_value = BIT_0 | BIT_1 | BIT_5 |BIT_7 | BIT_8 | BIT_9;// | BIT_13;
+		bit_value = BIT_0 | BIT_1 | BIT_5 |BIT_7 | BIT_8 | BIT_9 | BIT_13;
 		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
 		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
 
-		bit_value = BIT_0 | BIT_1 | BIT_3;// | BIT_7 | BIT_8;
+		bit_value = BIT_0 | BIT_1 | BIT_3 | BIT_7 | BIT_8;
 		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
 
-		//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
-		//REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
+		REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+		REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
 
 	}
 /*MODULE_EN_END:*/
