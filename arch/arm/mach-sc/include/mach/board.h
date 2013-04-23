@@ -29,22 +29,25 @@
 #include <asm/sizes.h>
 
 #ifdef CONFIG_ION
-
-    #if defined(CONFIG_CAMERA_8M)
-    #define SPRD_ION_SIZE	(23*1024*1024)
-    #elif defined(CONFIG_CAMERA_5M)
-    #define SPRD_ION_SIZE	(19*1024*1024)
-    #elif defined(CONFIG_CAMERA_3M)
-    #define SPRD_ION_SIZE	(13*1024*1024)
-    #elif defined(CONFIG_CAMERA_2M)
-        #ifdef CONFIG_CAMERA_ROTATION
-        #define SPRD_ION_SIZE	(13*1024*1024)
-        #else
-        #define SPRD_ION_SIZE	(8*1024*1024)
-        #endif
-    #else
-    #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE * SZ_1M)
-    #endif
+	#if defined (CONFIG_ARCH_SC8825)
+	    #if defined(CONFIG_CAMERA_8M)
+	    	#define SPRD_ION_SIZE	(23*1024*1024)
+	    #elif defined(CONFIG_CAMERA_5M)
+	    	#define SPRD_ION_SIZE	(19*1024*1024)
+	    #elif defined(CONFIG_CAMERA_3M)
+	    	#define SPRD_ION_SIZE	(13*1024*1024)
+	    #elif defined(CONFIG_CAMERA_2M)
+	        #ifdef CONFIG_CAMERA_ROTATION
+	        	#define SPRD_ION_SIZE	(13*1024*1024)
+	        #else
+	        	#define SPRD_ION_SIZE	(8*1024*1024)
+	        #endif
+	    #else
+	    #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE * SZ_1M)
+	    #endif
+	#elif defined (CONFIG_ARCH_SC8830)
+		#define SPRD_ION_SIZE	(100*1024*1024)
+	#endif
 
 #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)
 
