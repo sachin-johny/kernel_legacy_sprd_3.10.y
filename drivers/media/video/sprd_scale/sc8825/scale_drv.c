@@ -732,7 +732,7 @@ static irqreturn_t _scale_isr_root(int irq, void *dev_id)
 	status = REG_RD(SCALE_INT_STS);
 
 	if (unlikely(0 == (status & SCALE_IRQ_BIT))) {
-		return IRQ_HANDLED;
+		return IRQ_NONE;
 	}
 
 	SCALE_TRACE("SCALE DRV: _scale_isr_root \n");
