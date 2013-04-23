@@ -19,16 +19,16 @@
 #include <../../../drivers/staging/android/timed_output.h>
 #include <linux/sched.h>
 #include <mach/hardware.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
 
-#define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
-#define ANA_REG_BASE            (SPRD_ANA_BASE)
-#define ANA_VIBR_WR_PROT        (ANA_REG_BASE + 0x90)
-#define ANA_VIBRATOR_CTRL0      (ANA_REG_BASE + 0x74)
-#define ANA_VIBRATOR_CTRL1      (ANA_REG_BASE + 0x78)
+#define ANA_VIBRATOR_CTRL0      (ANA_REG_GLB_VIBR_CTRL0)
+#define ANA_VIBRATOR_CTRL1      (ANA_REG_GLB_VIBR_CTRL1)
+#define ANA_VIBRATOR_CTRL2      (ANA_REG_GLB_VIBR_CTRL2)
+#define ANA_VIBR_WR_PROT        (ANA_REG_GLB_VIBR_WR_PROT_VALUE)
 
-#define VIBRATOR_REG_UNLOCK     (0xA1B2)
+#define VIBRATOR_REG_UNLOCK     (0x1A2B)
 #define VIBRATOR_REG_LOCK       ((~VIBRATOR_REG_UNLOCK) & 0xffff)
 #define VIBRATOR_STABLE_LEVEL   (4)
 #define VIBRATOR_INIT_LEVEL     (11)
@@ -53,11 +53,10 @@ static void set_vibrator(int on)
 {
 	/* unlock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
-	sci_adi_clr(ANA_VIBRATOR_CTRL0, VIBR_PD_SET | VIBR_PD_RST);
 	if (on)
-		sci_adi_set(ANA_VIBRATOR_CTRL0, VIBR_PD_RST);
+		sci_adi_write(ANA_VIBRATOR_CTRL0, BIT_VIBR_PON, BIT_VIBR_PON);
 	else
-		sci_adi_set(ANA_VIBRATOR_CTRL0, VIBR_PD_SET);
+		sci_adi_write(ANA_VIBRATOR_CTRL0, 0, BIT_VIBR_PON);
 	/* lock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_LOCK, 0xffff);
 }
@@ -65,8 +64,7 @@ static void set_vibrator(int on)
 static void vibrator_hw_init(void)
 {
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
-	sci_adi_set(ANA_VIBRATOR_CTRL0, VIBR_RTC_EN);
-	sci_adi_clr(ANA_VIBRATOR_CTRL0, VIBR_BP_EN);
+	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_VIBR_EN, BIT_RTC_VIBR_EN);
 	/* set init current level */
 	sci_adi_write(ANA_VIBRATOR_CTRL0,
 		      (VIBRATOR_INIT_LEVEL << VIBR_INIT_V_SHIFT),
