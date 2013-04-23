@@ -1,6 +1,6 @@
-/* drivers/video/sc8825/lcd_nt35516_mipi.c
+/* drivers/video/sc8825/lcd_nt35512_mipi.c
  *
- * Support for nt35516 mipi LCD device
+ * Support for nt35512 mipi LCD device
  *
  * Copyright (C) 2010 Spreadtrum
  *
@@ -127,8 +127,8 @@ static uint32_t nt35512_readid(struct panel_spec *self)
 }
 
 static struct panel_operations lcd_nt35512_mipi_operations = {
-	.panel_init = nt35516_mipi_init,
-	.panel_readid = nt35516_readid,
+	.panel_init = nt35512_mipi_init,
+	.panel_readid = nt35512_readid,
 };
 
 static struct timing_rgb lcd_nt35512_mipi_timing = {
@@ -171,13 +171,13 @@ struct panel_cfg lcd_nt35512_mipi = {
 	/* this panel can only be main lcd */
 	.dev_id = SPRDFB_MAINLCD_ID,
 	.lcd_id = 0x12,
-	.lcd_name = "lcd_nt35516_mipi",
-	.panel = &lcd_nt35516_mipi_spec,
+	.lcd_name = "lcd_nt35512_mipi",
+	.panel = &lcd_nt35512_mipi_spec,
 };
 
 static int __init lcd_nt35512_mipi_init(void)
 {
-	return sprdfb_panel_register(&lcd_nt35516_mipi);
+	return sprdfb_panel_register(&lcd_nt35512_mipi);
 }
 
 subsys_initcall(lcd_nt35512_mipi_init);
