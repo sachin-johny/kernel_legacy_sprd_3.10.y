@@ -16,14 +16,14 @@
 
 
 #ifdef CONFIG_ARCH_SC8830
-#define DMA_CHN_MIN                     0
-#define DMA_CHN_MAX			31
+#define DMA_CHN_MIN                     1
+#define DMA_CHN_MAX			32
 #define DMA_CHN_NUM			32
 
 #define DMA_UID_SOFTWARE                0
 
 
-#define FULL_CHN_START 24
+#define FULL_CHN_START 25
 #define FULL_CHN_END DMA_CHN_MAX
 
 #endif
@@ -36,6 +36,12 @@ typedef enum {
 	TRANS_DONE,
 	CONFIG_ERR,
 } dma_int_type;
+
+typedef enum {
+	BYTE_WIDTH = 0X01,
+	SHORT_WIDTH,
+	WORD_WIDTH,
+} dma_datawidth;
 
 typedef enum {
 	DMA_PRI_0 = 0,
@@ -62,14 +68,20 @@ typedef enum {
 } dma_request_mode;
 
 struct sci_dma_cfg {
-	u32 datawidth;
+	dma_datawidth datawidth;
 	u32 src_addr;
 	u32 des_addr;
 	u32 fragmens_len;
 	u32 block_len;
-	u32 transcation_len;
 	u32 src_step;
 	u32 des_step;
+	dma_request_mode req_mode;
+	/*only full chn need following config*/
+	u32 transcation_len;
+	u32 src_frag_step;
+	u32 dst_frag_step;
+	u32 src_blk_step;
+	u32 dst_blk_step;
 	u32 linklist_ptr;
 	u32 is_end;
 };
@@ -93,6 +105,8 @@ int sci_dma_register_irqhandle(u32 dma_chn, dma_int_type int_type,
 int sci_dma_start(u32 dma_chn, u32 dev_id);
 int sci_dma_stop(u32 dma_chn, u32 dev_id);
 int sci_dma_ioctl(u32 dma_chn, dma_cmd cmd, void *arg);
+u32 sci_dma_get_src_addr(u32 dma_chn);
+u32 sci_dma_get_dst_addr(u32 dma_chn);
 
 /*just for compile ok, will be removed*/
 #define DISCARDED_VERSION
@@ -156,16 +170,12 @@ int sci_dma_ioctl(u32 dma_chn, dma_cmd cmd, void *arg);
 #define ON                              1
 #define OFF                             0
 
-#define DMA_CHN_MIN                     0
-#define DMA_CHN_MAX                     31
-
 #define DMA_CHx_EN                      (DMA_REG_BASE + 0x00C0)
 #define DMA_CHx_DIS                     (DMA_REG_BASE + 0x00C4)
 
 #define DMA_REG_BASE                    SPRD_DMA0_BASE
 
-#define DMA_CHx_CTL_BASE                (DMA_REG_BASE + 0x0400)
-#define DMA_CHx_BASE(x)                 (DMA_CHx_CTL_BASE + 0x20 * x )
+//#define DMA_CHx_BASE(x)	(DMA_REG_BASE + 0x1000 + 0x40 * (x - 1))
 
 #include <linux/io.h>
 

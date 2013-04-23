@@ -144,7 +144,7 @@ struct sci_dma_reg {
 #define DMA_DEGUG_STS	(DMA_REG_BASE + 0x0020)
 #define DMA_ARB_SEL_STS	(DMA_REG_BASE + 0x0024)
 
-#define DMA_CHx_BASE(x)	(DMA_REG_BASE + 0x1000 + 0x40 * (x))
+#define DMA_CHx_BASE(x)	(DMA_REG_BASE + 0x1000 + 0x40 * (x - 1))
 
 #define DMA_CHN_PAUSE(x)	(DMA_CHx_BASE(x) + 0x0000)
 #define DMA_CHN_REQ(x)		(DMA_CHx_BASE(x) + 0x0004)
@@ -212,6 +212,7 @@ struct sci_dma_reg {
 	u32 des_addr;
 	u32 frg_len;
 	u32 blk_len;
+	/*only full chn have following regs*/
 	union {
 		struct {
 			u32 trsc_len;

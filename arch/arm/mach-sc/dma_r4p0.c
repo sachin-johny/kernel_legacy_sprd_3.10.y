@@ -18,7 +18,6 @@
 #include <linux/interrupt.h>
 #include <linux/errno.h>
 #include <linux/io.h>
-#include <linux/dma-mapping.h>
 
 #include <mach/hardware.h>
 #include <mach/sci.h>
@@ -143,13 +142,13 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 	u32 llist_en = 0;
 
 	switch (cfg->datawidth) {
-	case 1:
+	case BYTE_WIDTH:
 		datawidth = 0;
 		break;
-	case 2:
+	case SHORT_WIDTH:
 		datawidth = 1;
 		break;
-	case 4:
+	case WORD_WIDTH:
 		datawidth = 2;
 		break;
 	default:
@@ -165,6 +164,9 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 
 	if (!IS_ALIGNED(cfg->des_step, cfg->datawidth))
 		return -EINVAL;
+
+	req_mode = cfg->req_mode;
+#if 0
 	/*linklist ptr must aligned with 8 bytes*/
 	if (cfg->linklist_ptr) {
 		if (!PTR_ALIGN(cfg->linklist_ptr, 8))
@@ -177,6 +179,7 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 			req_mode = FRAG_REQ_MODE;
 		}
 	}
+#endif
 
 	if (cfg->src_step != 0 && cfg->des_step != 0) {
 		addr_fix_mod = 0x0;
@@ -186,8 +189,10 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 			addr_fix_mod = 0;
 		} else {
 			if (cfg->src_step) {
+				/*dest addr is fixed*/
 				addr_fix_mod = 0x3;
 			} else {
+				/*src addr is fixed*/
 				addr_fix_mod = 0x1;
 			}
 		}
@@ -198,6 +203,7 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 	    ((cfg->src_step | cfg->des_step) == 0))
 			goto full_chn_convert;
 
+	/*set default priority*/
 	dma_reg->cfg = DMA_PRI_1 << CHN_PRIORITY_OFFSET;
 	/*src and des addr */
 	dma_reg->src_addr = cfg->src_addr;
@@ -244,17 +250,13 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 	} else {
 		dma_reg->trsc_len = cfg->transcation_len & TRSC_LEN_MASK;
 	}
-	/*fixme, the frag_step == datawidth*/
+
 	dma_reg->trsf_step =
-		(cfg->datawidth & TRSF_STEP_MASK) << DEST_TRSF_STEP_OFFSET |
-		(cfg->datawidth & TRSF_STEP_MASK) << SRC_TRSF_STEP_OFFSET;
+		(cfg->des_step & TRSF_STEP_MASK) << DEST_TRSF_STEP_OFFSET |
+		(cfg->src_step & TRSF_STEP_MASK) << SRC_TRSF_STEP_OFFSET;
+
 	dma_reg->llist_ptr = cfg->linklist_ptr;
-#if 0
-	dma_reg->frg_step = (cfg->des_step<< DEST_FRAG_STEP_OFFSET) |
-		cfg->src_step;
-	dma_reg->src_blk_step = cfg->block_len;
-	dma_reg->des_blk_step = cfg->block_len;
-#endif
+
 	return 0;
 }
 
@@ -272,14 +274,10 @@ static void __init __dma_reg_init(void)
 	while (i--) ;
 	sci_glb_clr(REG_AP_AHB_AHB_RST, 0x1 << 8);
 
-#ifdef DMA_DEBUG
-	__raw_writel(16, DMA_FRAG_WAIT);
-#else
 	__raw_writel(0x0, DMA_FRAG_WAIT);
-#endif
 }
 
-static irqreturn_t __dma_irq(int irq, void *dev_id)
+static irqreturn_t __dma_irq_handle(int irq, void *dev_id)
 {
 	int i;
 	u32 irq_status;
@@ -298,12 +296,14 @@ static irqreturn_t __dma_irq(int irq, void *dev_id)
 		i = __ffs(irq_status);
 		irq_status &= (irq_status - 1);
 
-		reg_addr = DMA_CHN_INT(i);
+		/*the dma chn index is start with 1,notice!*/
+		reg_addr = DMA_CHN_INT(i + 1);
 		/*clean all type interrupt */
-		writel(readl(reg_addr) | (0xf << 24), reg_addr);
+		writel(readl(reg_addr) | (0x1f << 24), reg_addr);
 
-		if (dma_chns[i].irq_handler)
-			dma_chns[i].irq_handler(irq, dma_chns[i].data);
+		if (dma_chns[i + 1].irq_handler)
+			/*audio driver need to get the dma chn*/
+			dma_chns[i + 1].irq_handler(i + 1, dma_chns[i + 1].data);
 	}
 
 	spin_unlock(&dma_lock);
@@ -330,6 +330,10 @@ static void __inline __dma_soft_request(u32 dma_chn)
 
 static void __dma_chn_disable(u32 dma_chn)
 {
+	/*if the chn has disable already, do nothing*/
+	if (!(readl(DMA_CHN_CFG(dma_chn)) & 0x1))
+		return;
+
 	writel(readl(DMA_CHN_PAUSE(dma_chn)) | 0x1, DMA_CHN_PAUSE(dma_chn));
 	/*fixme, need to set timeout */
 	while (!(readl(DMA_CHN_PAUSE(dma_chn)) & (0x1 << 16))) ;
@@ -362,9 +366,9 @@ int sci_dma_stop(u32 dma_chn, u32 dev_id)
 	if (dma_chn > DMA_CHN_MAX)
 		return -EINVAL;
 
-	__dma_int_clr(dma_chn);
-
 	__dma_chn_disable(dma_chn);
+
+	__dma_int_clr(dma_chn);
 
 	return 0;
 }
@@ -429,8 +433,12 @@ int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
 			return -EINVAL;
 	}
 
-	dma_reg.cfg = 0x10;
+	/*enable linklist mode*/
+	dma_reg.cfg = 0x1 << 4;
 	dma_reg.llist_ptr = cfg_addr->phys_addr + 0x10;
+	/*audio driver need to get the src and dst addr in the first node*/
+	dma_reg.src_addr = cfg_list[0].src_addr;
+	dma_reg.des_addr = cfg_list[0].des_addr;
 
  fill_dma_reg:
 	__dma_clk_enable();
@@ -485,24 +493,19 @@ int sci_dma_free(u32 dma_chn)
 	if (dma_chn > DMA_CHN_MAX)
 		return -EINVAL;
 
-	__dma_int_clr(dma_chn);
-
 	__dma_chn_disable(dma_chn);
 
-	/*set a valid dma chn for CID*/
-	__dma_set_uid(DMA_CHN_MAX  + 1, dma_chns[dma_chn].dev_id);
+	__dma_int_clr(dma_chn);
+
+	/*set a valid dma chn for CID, the CID is start with 1*/
+	__dma_set_uid(0, dma_chns[dma_chn].dev_id);
 
 	spin_lock_irqsave(&dma_lock, flags);
 
 	memset(dma_chns + dma_chn, 0x0, sizeof(*dma_chns));
 
 	/*if all dma chn be free, disable the DMA clk */
-	for (i = DMA_CHN_MIN; i <= DMA_CHN_MAX; i++) {
-		if (dma_chns[i].dev_name) {
-			break;
-		}
-	}
-	if (DMA_CHN_MAX + 1 == i)
+	if (0X0 == readl(DMA_EN_STS))
 		__dma_clk_disable();
 
 	spin_unlock_irqrestore(&dma_lock, flags);
@@ -528,7 +531,8 @@ static int __init sci_init_dma(void)
 {
 	int ret;
 
-	dma_chns = kzalloc(sizeof(*dma_chns) * DMA_CHN_NUM, GFP_KERNEL);
+	/*the first dma chn index is 1, notice!!*/
+	dma_chns = kzalloc(sizeof(*dma_chns) * (DMA_CHN_NUM + 1), GFP_KERNEL);
 	if (dma_chns == NULL)
 		return -ENOMEM;
 
@@ -538,7 +542,7 @@ static int __init sci_init_dma(void)
 
 	__dma_clk_disable();
 
-	ret = request_irq(IRQ_DMA_INT, __dma_irq, 0, "sci-dma", NULL);
+	ret = request_irq(IRQ_DMA_INT, __dma_irq_handle, 0, "sci-dma", NULL);
 	if (ret) {
 		printk(KERN_ERR "request dma irq failed %d\n", ret);
 		goto request_irq_err;
@@ -552,6 +556,27 @@ static int __init sci_init_dma(void)
 	return ret;
 }
 
+/*support for audio driver to get current src and dst addr*/
+u32 sci_dma_get_src_addr(u32 dma_chn)
+{
+	if (dma_chn > DMA_CHN_MAX) {
+		printk("dma chn %d is overflow!\n", dma_chn);
+		return 0;
+	}
+
+	return __raw_readl(DMA_CHN_SRC_ADR(dma_chn));
+}
+
+u32 sci_dma_get_dst_addr(u32 dma_chn)
+{
+	if (dma_chn > DMA_CHN_MAX) {
+		printk("dma chn %d is overflow!\n", dma_chn);
+		return 0;
+	}
+
+	return __raw_readl(DMA_CHN_DES_ADR(dma_chn));
+}
+
 arch_initcall(sci_init_dma);
 
 EXPORT_SYMBOL_GPL(sci_dma_request);
@@ -561,6 +586,8 @@ EXPORT_SYMBOL_GPL(sci_dma_register_irqhandle);
 EXPORT_SYMBOL_GPL(sci_dma_start);
 EXPORT_SYMBOL_GPL(sci_dma_stop);
 EXPORT_SYMBOL_GPL(sci_dma_ioctl);
+EXPORT_SYMBOL_GPL(sci_dma_get_src_addr);
+EXPORT_SYMBOL_GPL(sci_dma_get_dst_addr);
 
 
 #ifdef DISCARDED_VERSION
