@@ -76,7 +76,7 @@ static void scale_done(struct scale_frame* frame, void* u_data)
 	frm_rtn.type = 0;
 	up(&p_user->sem_done);
 	p_user->scale_total_slice_height += frm_rtn.height;
-	if (p_user->scale_total_slice_height >= p_user->scale_dst_height){
+	if (p_user->scale_total_slice_height >= p_user->scale_dst_height) {
 		p_user->scale_total_slice_height = 0;
 		cur_task_pid = INVALID_USER_ID;
 		mutex_unlock(&scale_param_cfg_mutex);
@@ -115,8 +115,7 @@ static int img_scale_open(struct inode *node, struct file *pf)
 		} else {
 			goto exit;
 		}
-	}
-	else{
+	} else {
 		goto exit;
 	}
 reg_faile:
@@ -216,11 +215,10 @@ static long img_scale_ioctl(struct file *file,
 			}
 		}
 	} else {
-		if (cur_task_pid == INVALID_USER_ID)
-		{
+		if (cur_task_pid == INVALID_USER_ID) {
 			mutex_lock(&scale_param_cfg_mutex);
 			cur_task_pid = ((struct scale_user *)(file->private_data))->pid;
-		}else if (cur_task_pid != ((struct scale_user *)(file->private_data))->pid){
+		} else if (cur_task_pid != ((struct scale_user *)(file->private_data))->pid) {
 			mutex_lock(&scale_param_cfg_mutex);
 		}
 

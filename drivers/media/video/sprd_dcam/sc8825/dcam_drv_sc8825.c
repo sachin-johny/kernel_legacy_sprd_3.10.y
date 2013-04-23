@@ -1494,6 +1494,13 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 
 	spin_lock_irqsave(&dcam_lock,flag);
 	status = REG_RD(DCAM_INT_STS);
+	if (0 == s_dcam_mod.dcam_path2.valide) {
+		if ((status & (1 << PATH2_DONE)) == (1 << PATH2_DONE) ||
+		(status & (1 << PATH2_OV)) == (1 << PATH2_OV)) {
+			spin_unlock_irqrestore(&dcam_lock, flag);
+			return IRQ_NONE;
+		}
+	}
 	REG_WR(DCAM_INT_CLR, status);
 	if (unlikely(0 == status)) {
 		spin_unlock_irqrestore(&dcam_lock, flag);
@@ -1514,11 +1521,6 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 		} else {
 			dcam_reset(DCAM_RST_PATH1);
 		}
-	}
-
-	if (0 == s_dcam_mod.dcam_path2.valide) {
-		status &= ~((1 << PATH2_DONE) | (1 << PATH2_OV));
-		irq_line = status;
 	}
 
 	if (err_flag && s_dcam_mod.user_func[DCAM_TX_ERR]) {
