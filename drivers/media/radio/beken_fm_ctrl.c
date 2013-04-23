@@ -671,7 +671,10 @@ static u8 bk1080_Seek(struct beken_drv_data *cxt,u8 seekDirection)
 		}
 		/* search is stopped manually */
 		if (atomic_read(&cxt->fm_searching) == 0)
+		{
+			dev_err(&cxt->client->dev, "bk1080_Seek: FM not searching\n");
 			break;
+		}
 
 		msleep(10);
 	    //read REG0A&0B
@@ -679,14 +682,18 @@ static u8 bk1080_Seek(struct beken_drv_data *cxt,u8 seekDirection)
 		tempdata[1]=0x0A;
 		ret = bk1080_register_write(cxt, 0x7e, tempdata,2);
 	    if(bk1080_register_read(cxt,0x0A,tempdata,4)!=0) return(0);	
-		dev_info(&cxt->client->dev, "REGA=%02x%02x\n", tempdata[0],tempdata[1]);
-#if 0
 		if((tempdata[0]==0x00)&&(tempdata[1]==0x00))
+			icount++;
+		else if(tempdata[1]<0x12)   // RSSI < 8
 			icount++;
 		else
 			icount=0;
-#endif
-	}while(((tempdata[0]&0x40)==0)/*&&(icount<100)*/);
+
+		dev_info(&cxt->client->dev, "REGA=%02x%02x\n", tempdata[0],tempdata[1]);
+		dev_info(&cxt->client->dev, "REGB=%02x%02x\n", tempdata[2],tempdata[3]);
+        dev_info(&cxt->client->dev, "icount=%d\n", icount);
+
+	}while(((tempdata[0]&0x40)==0)&&(icount<100));
 
 	 if (((tempdata[0])&0x20)==0)
 	  {	
