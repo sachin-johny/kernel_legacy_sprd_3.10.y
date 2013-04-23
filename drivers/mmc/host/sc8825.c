@@ -612,7 +612,8 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
         //host->mmc->caps |= MMC_CAP_NONREMOVABLE;
         break;
     case SDC_SLAVE_WIFI:
-        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER; /* MMC_PM_WAKE_SDIO_IRQ does not suitable for bcm wifi suspend */
+       /* MMC_PM_WAKE_SDIO_IRQ does not suitable for bcm wifi suspend */
+        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER | MMC_PM_DISABLE_TIMEOUT_IRQ;
         host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
         host->mmc->caps |= MMC_CAP_4_BIT_DATA;
         //host->mmc->caps |= MMC_CAP_NONREMOVABLE;
