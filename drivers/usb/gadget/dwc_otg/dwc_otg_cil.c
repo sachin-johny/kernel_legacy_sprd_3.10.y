@@ -758,10 +758,10 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 		dwc_modify_reg32(&core_if->core_global_regs->gusbcfg,
 				 0, gusbcfg.d32);
 	}
-
+#ifndef DWC_DEVICE_ONLY
 	/* Enable common interrupts */
 	dwc_otg_enable_common_interrupts(core_if);
-
+#endif
 	/* Do device or host intialization based on mode during PCD
 	 * and HCD initialization  */
 	if (dwc_otg_is_host_mode(core_if)) {
@@ -793,10 +793,10 @@ void dwc_otg_enable_device_interrupts(dwc_otg_core_if_t * core_if)
 
 	/* Clear any pending interrupts */
 	dwc_write_reg32(&global_regs->gintsts, 0xFFFFFFFF);
-
+#ifndef DWC_DEVICE_ONLY
 	/* Enable the common interrupts */
 	dwc_otg_enable_common_interrupts(core_if);
-
+#endif
 	/* Enable interrupts */
 	intr_mask.b.usbreset = 1;
 	intr_mask.b.enumdone = 1;
@@ -909,7 +909,7 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 		core_if->p_tx_msk = 0;
 #if defined(CONFIG_ARCH_SC8830)
 		/**fisrt 3 txfifos are 0x40 in shark, tooo small, don't use them*/
-		core_if->tx_msk = 3;
+		core_if->tx_msk = 7;
 #else
 		/** Set Tx FIFO Mask all bits 0 */
 		core_if->tx_msk = 0;
