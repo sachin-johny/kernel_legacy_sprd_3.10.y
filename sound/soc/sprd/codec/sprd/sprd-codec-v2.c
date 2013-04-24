@@ -994,6 +994,7 @@ int sprd_inter_headphone_pa(int on)
 				       PTR_ERR(regulator), CLASS_G_LDO_ID);
 				BUG_ON(1);
 			}
+			regulator_set_mode(regulator, REGULATOR_MODE_STANDBY);
 			regulator_enable(regulator);
 		}
 		sprd_codec_hp_pa_lpw(inter_hp_pa.setting.class_g_low_power);
@@ -1011,6 +1012,7 @@ int sprd_inter_headphone_pa(int on)
 		sprd_codec_hp_pa_hpl_en(0);
 		sprd_codec_hp_pa_hpr_en(0);
 		if (regulator) {
+			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
 			regulator_disable(regulator);
 			regulator_put(regulator);
 			regulator = 0;
