@@ -36,7 +36,7 @@
 #include <sound/pcm_params.h>
 #include <sound/tlv.h>
 
-#include "sprd-vbc-pcm.h"
+#include "sprd-vbc-r2p0-pcm.h"
 #include "vbc_r2p0.h"
 
 #ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
@@ -158,14 +158,13 @@ static struct vbc_priv vbc[3];
 static struct clk *s_vbc_clk = 0;
 static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 	.name = "VBC PCM Stereo out",
-	.workmode = DMA_LINKLIST,
-	.irq_type = TRANSACTION_DONE,
+	.workmode = DMA_LINKLIST,  /*no use*/
+	.irq_type = BLK_DONE,
 	.desc = {
-		 .cfg_req_mode_sel = DMA_REQMODE_NORMAL,
-		 .cfg_src_data_width = DMA_SDATA_WIDTH16,
-		 .cfg_dst_data_width = DMA_DDATA_WIDTH16,
-		 //.src_burst_mode = SRC_BURST_MODE_4,
-		 .dst_burst_mode = SRC_BURST_MODE_SINGLE,
+		 .datawidth = SHORT_WIDTH,
+		 .fragmens_len =  VBC_FIFO_FRAME_NUM *2,
+		 .src_step = 2,
+		 .des_step = 0,
 		 },
 #ifdef CONFIG_SPRD_VBC_LR_INVERT
 	.dev_paddr = {PHYS_VBDA1, PHYS_VBDA0},
@@ -177,13 +176,12 @@ static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 static struct sprd_pcm_dma_params vbc_pcm_stereo_in = {
 	.name = "VBC PCM Stereo in",
 	.workmode = DMA_LINKLIST,
-	.irq_type = TRANSACTION_DONE,
+	.irq_type = BLK_DONE,
 	.desc = {
-		 .cfg_req_mode_sel = DMA_REQMODE_NORMAL,
-		 .cfg_src_data_width = DMA_SDATA_WIDTH16,
-		 .cfg_dst_data_width = DMA_DDATA_WIDTH16,
-		 .src_burst_mode = SRC_BURST_MODE_SINGLE,
-		 //.dst_burst_mode = SRC_BURST_MODE_4,
+		.datawidth = SHORT_WIDTH,
+		.fragmens_len =  VBC_FIFO_FRAME_NUM *2,
+		.src_step = 0,
+		.des_step = 2,
 		 },
 	.dev_paddr = {PHYS_VBAD0, PHYS_VBAD1},
 };
@@ -191,13 +189,12 @@ static struct sprd_pcm_dma_params vbc_pcm_stereo_in = {
 static struct sprd_pcm_dma_params vbc_pcm23_stereo_in = {
 	.name = "VBC PCM23 Stereo in",
 	.workmode = DMA_LINKLIST,
-	.irq_type = TRANSACTION_DONE,
+	.irq_type = BLK_DONE,
 	.desc = {
-		 .cfg_req_mode_sel = DMA_REQMODE_NORMAL,
-		 .cfg_src_data_width = DMA_SDATA_WIDTH16,
-		 .cfg_dst_data_width = DMA_DDATA_WIDTH16,
-		 .src_burst_mode = SRC_BURST_MODE_SINGLE,
-		 //.dst_burst_mode = BURST_MODE_4,
+		.datawidth = SHORT_WIDTH,
+		.fragmens_len =  VBC_FIFO_FRAME_NUM *2,
+		.src_step = 0,
+		.des_step = 2,
 		 },
 	.dev_paddr = {PHYS_VBAD2, PHYS_VBAD3},
 };

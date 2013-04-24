@@ -40,6 +40,7 @@ enum {
 	AUDIO_TO_CP0_DSP_CTRL,
 	AUDIO_TO_CP1_DSP_CTRL,
 	AUDIO_TO_AP_ARM_CTRL,
+	AUDIO_TO_ARM_CTRL = AUDIO_TO_AP_ARM_CTRL,
 	AUDIO_TO_CP0_ARM_CTRL,
 	AUDIO_TO_CP1_ARM_CTRL,
 	AUDIO_TO_CP2_ARM_CTRL,
@@ -48,7 +49,10 @@ enum {
 #if FIXED_AUDIO
 #define VBC_BASE		SPRD_VBC_BASE
 #define CODEC_DP_BASE 		SPRD_AUDIO_BASE
-#define CODEC_AP_BASE		(SPRD_ADI_BASE + 0x8600)
+/*the AP BASE : 0x8600,  part1(0x0600) just for codec op, part2(0x8000) for real read/write offset */
+#define CODEC_AP_BASE		(SPRD_ADI_BASE + 0x0600)
+#define CODEC_AP_OFFSET	(0x8000)
+
 #define VBC_PHY_BASE		SPRD_VBC_PHYS
 #define CODEC_DP_PHY_BASE	SPRD_AUDIO_PHYS
 #define CODEC_AP_PHY_BASE	(SPRD_ADI_PHYS + 0x8600)
@@ -60,7 +64,7 @@ enum {
 #define SPRD_IRAM_ALL_SIZE	SZ_32K
 #endif
 
-#define CLASS_G_LDO_ID			"vddamp"
+#define CLASS_G_LDO_ID			"vddclsg"
 #endif
 
 /* ------------------------------------------------------------------------- */
@@ -389,7 +393,7 @@ static inline int arch_audio_codec_write_mask(int reg, int val, int mask)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	ret = sci_adi_write(reg, val, mask);
+	ret = sci_adi_write(reg + CODEC_AP_OFFSET, val, mask);
 #endif
 
 	return ret;
@@ -400,7 +404,7 @@ static inline int arch_audio_codec_write(int reg, int val)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	ret = sci_adi_write(reg, val, 0xFFFF);
+	ret = sci_adi_write(reg + CODEC_AP_OFFSET, val, 0xFFFF);
 #endif
 
 	return ret;
@@ -411,7 +415,7 @@ static inline int arch_audio_codec_read(int reg)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	ret = sci_adi_read(reg);
+	ret = sci_adi_read(reg + CODEC_AP_OFFSET);
 #endif
 
 	return ret;
@@ -451,7 +455,7 @@ static inline int arch_audio_codec_digital_reg_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AUD_EB);
+	ret = sci_glb_set(REG_AON_APB_APB_EB0, BIT_AUD_EB);
 	if (ret >= 0)
 		arch_audio_codec_audif_enable(1);
 #endif
@@ -500,10 +504,17 @@ static inline int arch_audio_codec_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
+	/*AUDIF , 6.5M*/
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
-	ret = sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, mask, mask);
+	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, mask, mask);
+	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN, BIT_CLK_AUD_6P5M_TX_INV_EN);
+	/*RTC*/
+	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_AUD_EN, BIT_RTC_AUD_EN);
+	/*26M*/
+	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_XTL_EN, BIT_XTL_EN);
+	/*internal digital 26M enable*/
+	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE), (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
 
-	ret = sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN, BIT_CLK_AUD_6P5M_TX_INV_EN);
 #endif
 
 	return ret;
@@ -514,10 +525,17 @@ static inline int arch_audio_codec_disable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
+	/*AUDIF , 6.5M*/
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
-	ret = sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, 0, mask);
+	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, 0, mask);
+	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN, BIT_CLK_AUD_6P5M_TX_INV_EN);
+	/*RTC*/
+	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, 0, BIT_RTC_AUD_EN);
+	/*26M*/
+	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, 0, BIT_XTL_EN);
+	/*internal digital 26M enable*/
+	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  0,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
 
-	ret = sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, 0, BIT_CLK_AUD_6P5M_TX_INV_EN);
 #endif
 
 	return ret;

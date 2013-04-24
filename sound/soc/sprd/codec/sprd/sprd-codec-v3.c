@@ -985,7 +985,7 @@ int sprd_inter_headphone_pa(int on)
 		if (!regulator) {
 			regulator = regulator_get(0, CLASS_G_LDO_ID);
 			if (IS_ERR(regulator)) {
-				pr_err("Failed to request %s: %d\n",
+				pr_err("Failed to request %ld: %s\n",
 				       PTR_ERR(regulator), CLASS_G_LDO_ID);
 				BUG_ON(1);
 			}
@@ -3161,8 +3161,6 @@ static struct platform_driver sprd_codec_codec_driver = {
 
 static int sprd_codec_init(void)
 {
-	
-	return 0;	
 	sprd_codec_inter_pa_init();
 	sprd_codec_inter_hp_pa_init();
 	arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);

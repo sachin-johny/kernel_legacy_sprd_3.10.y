@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/codec/sprd/sprd-codec-v2.h
+ * sound/soc/sprd/codec/sprd/sprd-codec-v3.h
  *
  * SPRD-CODEC -- SpreadTrum Tiger intergrated codec.
  *

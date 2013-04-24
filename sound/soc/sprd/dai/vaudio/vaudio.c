@@ -255,7 +255,7 @@ static int sprd_vaudio_drv_probe(struct platform_device *pdev)
 
 	sprd_vaudio_dbg("Entering %s\n", __func__);
 
-	ret = snd_soc_register_dais(&pdev->dev, &sprd_vaudio_dai, ARRAY_SIZE(sprd_vaudio_dai));
+	ret = snd_soc_register_dais(&pdev->dev, sprd_vaudio_dai, ARRAY_SIZE(sprd_vaudio_dai));
 
 	sprd_vaudio_dbg("return %i\n", ret);
 	sprd_vaudio_dbg("Leaving %s\n", __func__);
