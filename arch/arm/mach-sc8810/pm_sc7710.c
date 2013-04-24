@@ -37,6 +37,8 @@ extern void l2x0_resume(int collapsed);
 extern void init_ana_gr(void);
 extern void sc7710_turnoff_allldo(void);
 extern void enable_cp_jtag(void);
+extern void check_timer0_and_battery_handler(void);
+extern void enable_tiemr0_wakeup(void);
 
 /*init (arm gsm td mm) auto power down */
 #define CHIP_ID_VER_0		(0x88100000UL)
@@ -47,15 +49,23 @@ extern void enable_cp_jtag(void);
 
 static void setup_autopd_mode(void)
 {
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL); /*MM*/
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);/*GPU*/
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_TH_PWR_CTRL);
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x05000520/*|PD_AUTO_EN*/, GR_GSM_PWR_CTRL);/*GSM*/
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x05000520/*|PD_AUTO_EN*/, GR_TD_PWR_CTRL);/*TD*/
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x04000720/*|PD_AUTO_EN*/, GR_CEVA_RAM_BH_PWR_CTRL);
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x03000920/*|PD_AUTO_EN*/, GR_PERI_PWR_CTRL);
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
-	sprd_greg_write(REG_TYPE_GLOBAL, 0x07000a20|(1<<23), GR_POWCTL0);
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x06000320 | PD_AUTO_EN,
+			GR_MM_PWR_CTRL);
+	/*MM*/ sprd_greg_write(REG_TYPE_GLOBAL, 0x06000320 | PD_AUTO_EN,
+			       GR_G3D_PWR_CTRL);
+	/*GPU*/ sprd_greg_write(REG_TYPE_GLOBAL, 0x04000720 /*|PD_AUTO_EN */ ,
+				GR_CEVA_RAM_TH_PWR_CTRL);
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x05000520 /*|PD_AUTO_EN */ ,
+			GR_GSM_PWR_CTRL);
+	/*GSM*/ sprd_greg_write(REG_TYPE_GLOBAL, 0x05000520 /*|PD_AUTO_EN */ ,
+				GR_TD_PWR_CTRL);
+	/*TD*/ sprd_greg_write(REG_TYPE_GLOBAL, 0x04000720 /*|PD_AUTO_EN */ ,
+			       GR_CEVA_RAM_BH_PWR_CTRL);
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x03000920 /*|PD_AUTO_EN */ ,
+			GR_PERI_PWR_CTRL);
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x02000f20 | PD_AUTO_EN,
+			GR_ARM_SYS_PWR_CTRL);
+	sprd_greg_write(REG_TYPE_GLOBAL, 0x07000a20 | (1 << 23), GR_POWCTL0);
 }
 
 void check_pd(void)
@@ -66,8 +76,8 @@ void check_pd(void)
 		printk("### setting not same:"#_reg" = %08x !=%08x\n", val, (_val)); \
 	}
 	unsigned int val;
-	CHECK_PD(REG_TYPE_GLOBAL, 0x06000320|PD_AUTO_EN, GR_MM_PWR_CTRL);
-	CHECK_PD(REG_TYPE_GLOBAL, 0x06000320|PD_AUTO_EN, GR_G3D_PWR_CTRL);
+	CHECK_PD(REG_TYPE_GLOBAL, 0x06000320 | PD_AUTO_EN, GR_MM_PWR_CTRL);
+	CHECK_PD(REG_TYPE_GLOBAL, 0x06000320 | PD_AUTO_EN, GR_G3D_PWR_CTRL);
 	CHECK_PD(REG_TYPE_GLOBAL, 0x04000720, GR_CEVA_RAM_TH_PWR_CTRL);
 	CHECK_PD(REG_TYPE_GLOBAL, 0x05000520, GR_GSM_PWR_CTRL);
 	CHECK_PD(REG_TYPE_GLOBAL, 0x05000520, GR_TD_PWR_CTRL);
@@ -75,12 +85,14 @@ void check_pd(void)
 	CHECK_PD(REG_TYPE_GLOBAL, 0x03000920, GR_PERI_PWR_CTRL);
 	if (__raw_readl(CHIP_ID_ADR) == CHIP_ID_VER_0) {
 		printk("####:original version\n");
-		CHECK_PD(REG_TYPE_GLOBAL, 0x02000a20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
-		CHECK_PD(REG_TYPE_GLOBAL, 0x07000f20|(1<<23), GR_POWCTL0);
-	}else{
+		CHECK_PD(REG_TYPE_GLOBAL, 0x02000a20 | PD_AUTO_EN,
+			 GR_ARM_SYS_PWR_CTRL);
+		CHECK_PD(REG_TYPE_GLOBAL, 0x07000f20 | (1 << 23), GR_POWCTL0);
+	} else {
 		printk("####:next version\n");
-		CHECK_PD(REG_TYPE_GLOBAL, 0x02000f20|PD_AUTO_EN, GR_ARM_SYS_PWR_CTRL);
-		CHECK_PD(REG_TYPE_GLOBAL, 0x07000a20|(1<<23), GR_POWCTL0);
+		CHECK_PD(REG_TYPE_GLOBAL, 0x02000f20 | PD_AUTO_EN,
+			 GR_ARM_SYS_PWR_CTRL);
+		CHECK_PD(REG_TYPE_GLOBAL, 0x07000a20 | (1 << 23), GR_POWCTL0);
 	}
 }
 
@@ -106,25 +118,30 @@ void __iomem *iram_start;
 
 int init_reset_vector(void)
 {
-	sprd_greg_write(REG_TYPE_AHB_GLOBAL, 0x1|sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_REMAP), AHB_REMAP);
+	sprd_greg_write(REG_TYPE_AHB_GLOBAL,
+			0x1 | sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_REMAP),
+			AHB_REMAP);
 
 	if (!sp_pm_reset_vector) {
 		sp_pm_reset_vector = ioremap(0xffff0000, PAGE_SIZE);
 		if (sp_pm_reset_vector == NULL) {
-			printk(KERN_ERR "sp_pm_init: failed to map reset vector\n");
+			printk(KERN_ERR
+			       "sp_pm_init: failed to map reset vector\n");
 			return 0;
 		}
 	}
 
 	iram_start = (void __iomem *)(SPRD_IRAM_BASE);
 	/* copy sleep code to IRAM. */
-	if ((sc8810_standby_iram_end - sc8810_standby_iram + 128) > SLEEP_CODE_SIZE) {
-		panic("##: code size is larger than expected, need more memory!\n");
+	if ((sc8810_standby_iram_end - sc8810_standby_iram + 128) >
+	    SLEEP_CODE_SIZE) {
+		panic
+		    ("##: code size is larger than expected, need more memory!\n");
 	}
 
 	memcpy_toio(iram_start, sc8810_standby_iram, SLEEP_CODE_SIZE);
 
-	/* just make sure*/
+	/* just make sure */
 	flush_cache_all();
 	outer_flush_all();
 	return 0;
@@ -141,12 +158,13 @@ static void set_reset_vector(void)
 {
 	int i = 0;
 	for (i = 0; i < SAVED_VECTOR_SIZE; i++)
-		sp_pm_reset_vector[i] = 0xe320f000; /* nop*/
+		sp_pm_reset_vector[i] = 0xe320f000;	/* nop */
 
-	sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
+	sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004;	/* ldr pc, 4 */
 
 	sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = (sc8810_standby_exit_iram -
-		sc8810_standby_iram + IRAM_START_PHY);
+						     sc8810_standby_iram +
+						     IRAM_START_PHY);
 }
 
 static void restore_reset_vector(void)
@@ -228,7 +246,7 @@ static void disable_apb_module(void)
 	sprd_greg_clear_bits(REG_TYPE_GLOBAL, CLK_EN_MASK, GR_CLK_EN);
 }
 
-static void disable_ahb_module (void)
+static void disable_ahb_module(void)
 {
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_MASK, AHB_CTL0);
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL6_MASK, AHB_CTL6);
@@ -244,9 +262,9 @@ static void disable_ahb_module (void)
 
 #define INT_IRQ_MASK	(1<<3)
 
-
 /*save/restore global regs*/
-u32 reg_gen_clk_en, reg_gen0_val, reg_gen6_val, reg_gen7_val, reg_busclk_alm, reg_ahb_ctl0_val, reg_ahb_ctl6_val;
+u32 reg_gen_clk_en, reg_gen0_val, reg_gen6_val, reg_gen7_val, reg_busclk_alm,
+    reg_ahb_ctl0_val, reg_ahb_ctl6_val;
 
 /*register save*/
 #define SAVE_GR_REG(_reg_save, _reg_type, _reg_addr, _reg_mask)  \
@@ -288,14 +306,17 @@ static void wait_until_uart1_tx_done(void)
 	u32 really_done = 0;
 	u32 timeout = 200;
 
-	/*uart1 owner dsp sel*/
-	if (sprd_greg_read(REG_TYPE_GLOBAL, GR_PCTL) & (1<<8)/* UART1_SEL */) return ;
+	/*uart1 owner dsp sel */
+	if (sprd_greg_read(REG_TYPE_GLOBAL, GR_PCTL) & (1 << 8) /* UART1_SEL */
+	    )
+		return;
 
 	tx_fifo_val = __raw_readl(UART_STS1);
 	tx_fifo_val >>= 8;
 	tx_fifo_val &= 0xff;
-	while(tx_fifo_val != 0) {
-		if (timeout <= 0) break;
+	while (tx_fifo_val != 0) {
+		if (timeout <= 0)
+			break;
 		udelay(100);
 		tx_fifo_val = __raw_readl(UART_STS1);
 		tx_fifo_val >>= 8;
@@ -305,8 +326,9 @@ static void wait_until_uart1_tx_done(void)
 
 	timeout = 30;
 	really_done = __raw_readl(UART_STS0);
-	while(!(really_done & UART_TRANSFER_REALLY_OVER)) {
-		if (timeout <= 0) break;
+	while (!(really_done & UART_TRANSFER_REALLY_OVER)) {
+		if (timeout <= 0)
+			break;
 		udelay(100);
 		really_done = __raw_readl(UART_STS0);
 		timeout--;
@@ -330,7 +352,7 @@ void __enable_cp_sleep(void)
 	*(volatile unsigned long *)(SPRD_GREG_BASE + 0x008) |= GEN0_GPIO_EN;
 	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x688) |= BIT_FOLLOW_GPIO;
 	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x684) |= BIT_FOLLOW_GPIO;
-	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x680) &= ~ BIT_FOLLOW_GPIO;
+	*(volatile unsigned long *)(SPRD_GPIO_BASE + 0x680) &= ~BIT_FOLLOW_GPIO;
 }
 
 /* arm core sleep*/
@@ -362,24 +384,24 @@ static int deep_sleep(void)
 	disable_apb_module();
 	disable_ahb_module();
 #if 0
-	/*force cp shutdown for 7710 only*/
+	/*force cp shutdown for 7710 only */
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, 0x1 << 19, GR_GEN7);
 #endif
-	/*prevent uart1*/
+	/*prevent uart1 */
 	__raw_writel(INT_IRQ_MASK, INT_IRQ_DIS);
 
 #ifdef CONFIG_CACHE_L2X0
-	__raw_writel(1, SPRD_CACHE310_BASE+0xF80/*L2X0_POWER_CTRL*/);
+	__raw_writel(1, SPRD_CACHE310_BASE + 0xF80 /*L2X0_POWER_CTRL */ );
 	l2x0_suspend();
 #endif
 
-	/*go deepsleep when all PD auto poweroff en*/
+	/*go deepsleep when all PD auto poweroff en */
 	val = sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_PAUSE);
 	val &= ~(MCU_CORE_SLEEP | MCU_DEEP_SLEEP_EN | APB_SLEEP);
 	val |= (MCU_SYS_SLEEP_EN | MCU_DEEP_SLEEP_EN);
 	sprd_greg_write(REG_TYPE_AHB_GLOBAL, val, AHB_PAUSE);
 
-	/* set entry when deepsleep return*/
+	/* set entry when deepsleep return */
 	save_reset_vector();
 	set_reset_vector();
 	check_if_wait_trace(0);
@@ -396,12 +418,13 @@ static int deep_sleep(void)
 
 	RESTORE_GLOBAL_REG;
 	udelay(20);
-	if (ret) cpu_init();
+	if (ret)
+		cpu_init();
 
 #ifdef CONFIG_CACHE_L2X0
 	l2x0_resume(ret);
 #endif
-return ret;
+	return ret;
 }
 
 /*sleep entry for 8810 */
@@ -411,14 +434,16 @@ int sc8810_deep_sleep(void)
 	unsigned long flags, time;
 
 	time = get_sys_cnt();
-	if (!hw_irqs_disabled())  {
+	if (!hw_irqs_disabled()) {
 		flags = sc8810_read_cpsr();
 		printk("##: Error(%s): IRQ is enabled(%08lx)!\n",
-			 "wakelock_suspend", flags);
+		       "wakelock_suspend", flags);
 	}
 
+	enable_tiemr0_wakeup();
+
 	status = sc8810_get_clock_status();
-	if (status & DEVICE_AHB)  {
+	if (status & DEVICE_AHB) {
 		set_sleep_mode(SLP_MODE_ARM);
 		arm_sleep();
 	} else if (status & DEVICE_APB) {
@@ -428,6 +453,9 @@ int sc8810_deep_sleep(void)
 		set_sleep_mode(SLP_MODE_DEP);
 		ret = deep_sleep();
 	}
+
+	check_timer0_and_battery_handler();
+
 	time_add(get_sys_cnt() - time, ret);
 	print_hard_irq_inloop(ret);
 	return ret;
@@ -470,11 +498,10 @@ static void init_gr(void)
 	/* AHB_CTL1 */
 	val = sprd_greg_read(REG_TYPE_AHB_GLOBAL, AHB_CTL1);
 	val |= (AHB_CTRL1_EMC_CH_AUTO_GATE_EN | AHB_CTRL1_EMC_AUTO_GATE_EN |
-		AHB_CTRL1_ARM_AUTO_GATE_EN|
-		AHB_CTRL1_AHB_AUTO_GATE_EN|
+		AHB_CTRL1_ARM_AUTO_GATE_EN | AHB_CTRL1_AHB_AUTO_GATE_EN |
 /*		AHB_CTRL1_MCU_AUTO_GATE_EN| */
-		AHB_CTRL1_ARM_DAHB_SLEEP_EN|
-	        AHB_CTRL1_ARMMTX_AUTO_GATE_EN | AHB_CTRL1_MSTMTX_AUTO_GATE_EN);
+		AHB_CTRL1_ARM_DAHB_SLEEP_EN |
+		AHB_CTRL1_ARMMTX_AUTO_GATE_EN | AHB_CTRL1_MSTMTX_AUTO_GATE_EN);
 	val &= ~AHB_CTRL1_MCU_AUTO_GATE_EN;
 	sprd_greg_write(REG_TYPE_AHB_GLOBAL, val, AHB_CTL1);
 
@@ -502,5 +529,3 @@ void sc8810_pm_init(void)
 	init_led();
 	pm_debug_init();
 }
-
-
