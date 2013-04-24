@@ -30,12 +30,14 @@
 #include <linux/input.h>
 #include <asm/uaccess.h>
 #include <linux/gpio.h>
-#ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
-#endif
 #include <linux/regulator/consumer.h>
 #include <linux/i2c/ft5306_ts.h>
 #include <mach/regulator.h>
+
+#ifdef CONFIG_I2C_SPRD
+#include <mach/i2c-sprd.h>
+#endif
 
 #define I2C_BOARD_INFO_METHOD   1
 #define TS_DATA_THRESHOLD_CHECK	0
@@ -69,10 +71,8 @@ static ssize_t ft5x0x_update(struct device* cd, struct device_attribute *attr, c
 static ssize_t ft5x0x_show_debug(struct device* cd,struct device_attribute *attr, char* buf);
 static ssize_t ft5x0x_store_debug(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 static unsigned char ft5x0x_read_fw_ver(void);
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x0x_ts_suspend(struct early_suspend *handler);
 static void ft5x0x_ts_resume(struct early_suspend *handler);
-#endif
 static int fts_ctpm_fw_update(void);
 static int fts_ctpm_fw_upgrade_with_i_file(void);
 
@@ -97,9 +97,9 @@ struct ft5x0x_ts_data {
 	struct ts_event	event;
 	struct work_struct	pen_event_work;
 	struct workqueue_struct	*ts_workqueue;
-#ifdef CONFIG_HAS_EARLYSUSPEND
+        struct work_struct       resume_work;
+        struct workqueue_struct *ts_resume_workqueue;
 	struct early_suspend	early_suspend;
-#endif
 	struct ft5x0x_ts_platform_data	*platform_data;
 //	struct timer_list touch_timer;
 };
@@ -152,7 +152,6 @@ static ssize_t ft5x0x_store_suspend(struct device* cd, struct device_attribute *
 	unsigned long on_off = simple_strtoul(buf, NULL, 10);
 	suspend_flag = on_off;
 
-#if 0
 	if(on_off==1)
 	{
 		printk("FT5206 Entry Suspend\n");
@@ -163,7 +162,7 @@ static ssize_t ft5x0x_store_suspend(struct device* cd, struct device_attribute *
 		printk("FT5206 Entry Resume\n");
 		ft5x0x_ts_resume(NULL);
 	}
-#endif
+
 	return len;
 }
 
@@ -318,7 +317,7 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 			.addr	= this_client->addr,
 			.flags	= I2C_M_RD,
 			.len	= 1,
-			.buf	= buf,
+			.buf	= buf+1,
 		},
 	};
 
@@ -326,18 +325,26 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 	if (ret < 0)
 		pr_err("msg %s i2c read error: %d\n", __func__, ret);
 
-	*pdata = buf[0];
+	*pdata = buf[1];
 	return ret;
 }
 #ifdef TOUCH_VIRTUAL_KEYS
 
 static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
+	#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
+	return sprintf(buf,
+         __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":90:907:70:58"
+	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":250:907:70:58"
+	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":420:907:70:58"
+	 "\n");
+	#else
 	return sprintf(buf,
          __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":100:1020:80:65"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":280:1020:80:65"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":470:1020:80:65"
 	 "\n");
+	#endif
 }
 
 static struct kobj_attribute virtual_keys_attr = {
@@ -545,12 +552,18 @@ FTS_BOOL byte_read(FTS_BYTE* pbt_buf, FTS_BYTE bt_len)
 
 #define    FTS_PACKET_LENGTH        128
 
-#if 1
-static unsigned char CTPM_FW[]=
+static unsigned char FT5316_FW[]=
+{
+#include "ft5316_qHD.i"
+};
+
+static unsigned char FT5306_FW[]=
 {
 #include "ft5306_qHD.i"
 };
-#endif
+
+static unsigned char *CTPM_FW = FT5306_FW;
+static int fm_size;
 
 E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
 {
@@ -577,18 +590,19 @@ E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
     msleep(100);
 
     /*********Step 2:Enter upgrade mode *****/
-    auc_i2c_write_buf[0] = 0x55;
-    auc_i2c_write_buf[1] = 0xaa;
     do
     {
         i ++;
-        i_ret = ft5x0x_i2c_txdata(auc_i2c_write_buf, 2);
+        auc_i2c_write_buf[0] = 0x55;
+	i_ret = ft5x0x_i2c_txdata(auc_i2c_write_buf, 1);
+        i_ret |= auc_i2c_write_buf[0] = 0xaa;
+        ft5x0x_i2c_txdata(auc_i2c_write_buf, 1);
         msleep(5);
     }while(i_ret <= 0 && i < 5 );
     /*********Step 3:check READ-ID***********************/
     cmd_write(0x90,0x00,0x00,0x00,4);
     byte_read(reg_val,2);
-    if (reg_val[0] == 0x79 && reg_val[1] == 0x3)
+    if (reg_val[0] == 0x79 && (reg_val[1] == 0x07 || reg_val[1] == 0x03))
     {
         printk("[TSP] Step 3: CTPM ID,ID1 = 0x%x,ID2 = 0x%x\n",reg_val[0],reg_val[1]);
     }
@@ -731,7 +745,7 @@ int fts_ctpm_fw_upgrade_with_i_file(void)
     //=========FW upgrade========================*/
    pbt_buf = CTPM_FW;
    /*call the upgrade function*/
-   i_ret =  fts_ctpm_fw_upgrade(pbt_buf,sizeof(CTPM_FW));
+   i_ret =  fts_ctpm_fw_upgrade(pbt_buf,fm_size);
    if (i_ret != 0)
    {
 	printk("[FTS] upgrade failed i_ret = %d.\n", i_ret);
@@ -832,22 +846,42 @@ static int ft5x0x_read_data(void)
 		case 5:
 			event->x5 = (s16)(buf[0x1b] & 0x0F)<<8 | (s16)buf[0x1c];
 			event->y5 = (s16)(buf[0x1d] & 0x0F)<<8 | (s16)buf[0x1e];
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
+			event->x5 = event->x5*8/9;
+			event->y5 = event->y5*854/960;
+		#endif
 			TS_DBG("===x5 = %d,y5 = %d ====",event->x5,event->y5);
 		case 4:
 			event->x4 = (s16)(buf[0x15] & 0x0F)<<8 | (s16)buf[0x16];
 			event->y4 = (s16)(buf[0x17] & 0x0F)<<8 | (s16)buf[0x18];
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
+			event->x4 = event->x4*8/9;
+			event->y4 = event->y4*854/960;
+		#endif
 			TS_DBG("===x4 = %d,y4 = %d ====",event->x4,event->y4);
 		case 3:
 			event->x3 = (s16)(buf[0x0f] & 0x0F)<<8 | (s16)buf[0x10];
 			event->y3 = (s16)(buf[0x11] & 0x0F)<<8 | (s16)buf[0x12];
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
+			event->x3 = event->x3*8/9;
+			event->y3 = event->y3*854/960;
+		#endif
 			TS_DBG("===x3 = %d,y3 = %d ====",event->x3,event->y3);
 		case 2:
 			event->x2 = (s16)(buf[9] & 0x0F)<<8 | (s16)buf[10];
 			event->y2 = (s16)(buf[11] & 0x0F)<<8 | (s16)buf[12];
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
+			event->x2 = event->x2*8/9;
+			event->y2 = event->y2*854/960;
+		#endif
 			TS_DBG("===x2 = %d,y2 = %d ====",event->x2,event->y2);
 		case 1:
 			event->x1 = (s16)(buf[3] & 0x0F)<<8 | (s16)buf[4];
 			event->y1 = (s16)(buf[5] & 0x0F)<<8 | (s16)buf[6];
+		#if defined(CONFIG_MACH_SP6825GA) || defined(CONFIG_MACH_SP6825GB) || defined(CONFIG_MACH_SP7710GA)
+			event->x1 = event->x1*8/9;
+			event->y1 = event->y1*854/960;
+		#endif
 			TS_DBG("===x1 = %d,y1 = %d ====",event->x1,event->y1);
             break;
 		default:
@@ -960,12 +994,19 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 {
 
 	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
+	int ret = -1;
 
-	disable_irq_nosync(this_client->irq);
+#if 0
 	if (!work_pending(&ft5x0x_ts->pen_event_work)) {
 		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
 	}
-	//printk("==int=, 11irq=%d\n", this_client->irq);
+
+#endif
+	ret = ft5x0x_read_data();
+	if (ret == 0) {
+		ft5x0x_report_value();
+	}
+
 	return IRQ_HANDLED;
 }
 
@@ -994,20 +1035,31 @@ static void ft5x0x_ts_reset(void)
 	msleep(200);
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
+        disable_irq_nosync(this_client->irq);
 	printk("==ft5x0x_ts_suspend=\n");
 	ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
 }
 
 static void ft5x0x_ts_resume(struct early_suspend *handler)
 {
+#if 0
 	printk("==%s==\n", __FUNCTION__);
 	ft5x0x_ts_reset();
-	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
-}
+	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);//about 70HZ
 #endif
+        struct ft5x0x_ts_data  *ft5x0x_ts = (struct ft5x0x_ts_data *)i2c_get_clientdata(this_client);
+        queue_work(ft5x0x_ts->ts_resume_workqueue, &ft5x0x_ts->resume_work);
+}
+
+static void ft5x0x_ts_resume_work(struct work_struct *work)
+{
+        printk("==%s==\n", __FUNCTION__);
+        ft5x0x_ts_reset();
+        ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);//about 70HZ
+        enable_irq(this_client->irq);
+}
 
 static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 {
@@ -1022,15 +1074,8 @@ static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 	gpio_direction_input(pdata->irq_gpio_number);
 	//vdd power on
 	reg_vdd = regulator_get(&client->dev, pdata->vdd_name);
-	if (IS_ERR_OR_NULL(reg_vdd)) {
-		pr_warning("ft5x0x_ts_hw_init %d Problems while regulator_get.\n", __LINE__);
-		goto Err_reg;
-	}
-
-	regulator_set_voltage(reg_vdd, 2700000, 2800000);
+	regulator_set_voltage(reg_vdd, 2800000, 2800000);
 	regulator_enable(reg_vdd);
-
-Err_reg:
 	msleep(100);
 	//reset
 	ft5x0x_ts_reset();
@@ -1066,15 +1111,47 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	i2c_set_clientdata(client, ft5x0x_ts);
 	client->irq = gpio_to_irq(pdata->irq_gpio_number);
 
-	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
-	if(uc_reg_value != 0x55)
+	#ifdef CONFIG_I2C_SPRD
+	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
+	#endif
+
+	err = ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
+	if (err < 0)
 	{
-		printk("chip id error%x\n",uc_reg_value);
+		printk("read chip id error %x\n", uc_reg_value);
 		err = -ENODEV;
 		goto exit_alloc_data_failed;
 	}
 
-	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 8);//about 80HZ
+	printk("[FST] FT5X0X_REG_CIPHER is 0x%x\n",uc_reg_value);
+
+	/*
+	  Normally FT5306 chip id is 0x55, FT5316 chip id is 0x0a,
+	  but if the tp device power off when downloading firmware,
+	  FT5306 chip id changes to 0xa3, FT5316 changes to 0x0,
+	  and the firmware need to be downloaded first next time.
+	*/
+	if (uc_reg_value == 0x55 || uc_reg_value == 0xa3) {
+		CTPM_FW = FT5306_FW;
+		fm_size = sizeof(FT5306_FW);
+		if(uc_reg_value == 0xa3) {
+			msleep(100);
+			fts_ctpm_fw_upgrade_with_i_file();
+		}
+	} else if (uc_reg_value == 0x0a || uc_reg_value == 0x0) {
+		CTPM_FW = FT5316_FW;
+		fm_size = sizeof(FT5316_FW);
+		if(uc_reg_value == 0x0) {
+			msleep(100);
+			fts_ctpm_fw_upgrade_with_i_file();
+		}
+	} else {
+		printk("unknown chip id %x\n", uc_reg_value);
+		err = -ENODEV;
+		goto exit_alloc_data_failed;
+	}
+
+	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);//about 70HZ
 
 	INIT_WORK(&ft5x0x_ts->pen_event_work, ft5x0x_ts_pen_irq_work);
 
@@ -1083,6 +1160,13 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		err = -ESRCH;
 		goto exit_create_singlethread;
 	}
+
+        INIT_WORK(&ft5x0x_ts->resume_work, ft5x0x_ts_resume_work);
+        ft5x0x_ts->ts_resume_workqueue = create_singlethread_workqueue("ft5x0x_ts_resume_work");
+        if (!ft5x0x_ts->ts_resume_workqueue) {
+                err = -ESRCH;
+                goto create_singlethread_workqueue_resume;
+        }
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {
@@ -1140,7 +1224,7 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		goto exit_input_register_device_failed;
 	}
 
-	err = request_irq(client->irq, ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING, client->name, ft5x0x_ts);
+	err = request_threaded_irq(client->irq, NULL, ft5x0x_ts_interrupt, IRQF_TRIGGER_FALLING | IRQF_ONESHOT, client->name, ft5x0x_ts);
 	if (err < 0) {
 		dev_err(&client->dev, "ft5x0x_probe: request irq failed %d\n",err);
 		goto exit_irq_request_failed;
@@ -1148,21 +1232,19 @@ ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	disable_irq_nosync(client->irq);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 	TS_DBG("==register_early_suspend =");
 	ft5x0x_ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	ft5x0x_ts->early_suspend.suspend = ft5x0x_ts_suspend;
 	ft5x0x_ts->early_suspend.resume	= ft5x0x_ts_resume;
 	register_early_suspend(&ft5x0x_ts->early_suspend);
-#endif
 
 	msleep(100);
 	//get some register information
 	uc_reg_value = ft5x0x_read_fw_ver();
 	printk("[FST] Firmware version = 0x%x\n", uc_reg_value);
-	printk("[FST] New Firmware version = 0x%x\n", CTPM_FW[sizeof(CTPM_FW)-2]);
+	printk("[FST] New Firmware version = 0x%x\n", CTPM_FW[fm_size-2]);
 
-	if(uc_reg_value != CTPM_FW[sizeof(CTPM_FW)-2])
+	if(uc_reg_value != CTPM_FW[fm_size-2])
 	{
 		fts_ctpm_fw_upgrade_with_i_file();
 	}
@@ -1185,6 +1267,9 @@ exit_input_register_device_failed:
 exit_input_dev_alloc_failed:
 	free_irq(client->irq, ft5x0x_ts);
 exit_irq_request_failed:
+        cancel_work_sync(&ft5x0x_ts->resume_work);
+        destroy_workqueue(ft5x0x_ts->ts_resume_workqueue);
+create_singlethread_workqueue_resume:
 	cancel_work_sync(&ft5x0x_ts->pen_event_work);
 	destroy_workqueue(ft5x0x_ts->ts_workqueue);
 exit_create_singlethread:
@@ -1202,9 +1287,7 @@ static int __devexit ft5x0x_ts_remove(struct i2c_client *client)
 
 	printk("==ft5x0x_ts_remove=\n");
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&ft5x0x_ts->early_suspend);
-#endif
 	free_irq(client->irq, ft5x0x_ts);
 	input_unregister_device(ft5x0x_ts->input_dev);
 	kfree(ft5x0x_ts);

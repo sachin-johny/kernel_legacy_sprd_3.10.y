@@ -18,8 +18,8 @@
 #error  "Don't include this file directly, include <mach/board.h>"
 #endif
 
-#define GPIO_TOUCH_RESET         142
-#define GPIO_TOUCH_IRQ           141
+#define GPIO_TOUCH_RESET         81
+#define GPIO_TOUCH_IRQ           82
 
 #define GPIO_SENSOR_RESET        41
 #define GPIO_MAIN_SENSOR_PWN     42
