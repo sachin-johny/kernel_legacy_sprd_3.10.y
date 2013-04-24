@@ -123,7 +123,7 @@ static pid_t              vaudio_thread_id;
 static struct semaphore   vaudio_thread_sem;
 static bool		  vaudio_thread_aborted;
 static unsigned char	  vaudio_thread_init_now;
-#define VAUDIO_PROC_SYNC    1
+#define VAUDIO_PROC_SYNC    0
 #define VAUDIO_VTIMER_ROUND_JIFFIES (msecs_to_jiffies(800))
 
 #if VAUDIO_PROC_SYNC
@@ -383,6 +383,7 @@ vaudio_intr_data (void* cookie, NkXIrq xirq)
         s->stream->pstr->stream == SNDRV_PCM_STREAM_CAPTURE) {
         while (vaudio_send_data(s) >= 0);
         // memset(s->stream->dma_buffer.area, 0, NK_VAUDIO_MAX_RING_SIZE);
+	spin_unlock(&s->close_lock);
         return;
     }
 #endif
