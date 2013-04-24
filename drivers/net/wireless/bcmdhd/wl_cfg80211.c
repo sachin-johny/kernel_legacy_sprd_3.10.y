@@ -4621,7 +4621,7 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi)
 	notif_bss_info->channel =
 		bi->ctl_ch ? bi->ctl_ch : CHSPEC_CHANNEL(bi->chanspec);
 /*	notif_bss_info->channel = CHSPEC_CHANNEL(bi->chanspec);*/
-	if (((notif_bss_info->channel > CH_MAX_2G_CHANNEL) && (notif_bss_info->channel < CH_MIN_5G_CHANNEL)) || (notif_bss_info->channel > 140)){
+	if (((notif_bss_info->channel > CH_MAX_2G_CHANNEL) && (notif_bss_info->channel < CH_MIN_5G_CHANNEL)) || (notif_bss_info->channel > 196)){
 		WL_ERR(("channel %d is error\n", notif_bss_info->channel));
 		kfree(notif_bss_info);
 		return -EINVAL;
@@ -4630,6 +4630,11 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi)
 		band = wiphy->bands[IEEE80211_BAND_2GHZ];
 	else
 		band = wiphy->bands[IEEE80211_BAND_5GHZ];
+	if (!band) {
+		WL_ERR(("band  is not supported\n"));
+		kfree(notif_bss_info);
+		return -EINVAL;
+	}
 	notif_bss_info->rssi = dtoh16(bi->RSSI);
 	memcpy(mgmt->bssid, &bi->BSSID, ETHER_ADDR_LEN);
 	mgmt_type = wl->active_scan ?
