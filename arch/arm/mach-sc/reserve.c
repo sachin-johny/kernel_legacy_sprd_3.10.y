@@ -39,6 +39,19 @@ int __init __ramconsole_reserve_memblock(void)
 }
 #endif
 
+#ifdef CONFIG_FB_LCD_RESERVE_MEM
+static int __init __fbmem_reserve_memblock(void)
+{
+	pr_err("__fbmem_reserve_memblock,SPRD_FB_MEM_BASE:%x,SPRD_FB_MEM_SIZE:%x\n",SPRD_FB_MEM_BASE,SPRD_FB_MEM_SIZE);
+	if (memblock_is_region_reserved(SPRD_FB_MEM_BASE, SPRD_FB_MEM_SIZE))
+		return -EBUSY;
+	if (memblock_reserve(SPRD_FB_MEM_BASE, SPRD_FB_MEM_SIZE))
+		return -ENOMEM;
+	pr_err("__fbmem_reserve_memblock-end,\n");
+	return 0;
+}
+#endif
+
 #if defined(CONFIG_SIPC) && !defined(CONFIG_ARCH_SC8825)
 int __init __sipc_reserve_memblock(void)
 {
@@ -79,6 +92,12 @@ void __init sci_reserve(void)
 	ret = __ramconsole_reserve_memblock();
 	if (ret != 0)
 		pr_err("Fail to reserve mem for ram_console. errno=%d\n", ret);
+#endif
+
+#ifdef CONFIG_FB_LCD_RESERVE_MEM
+	ret = __fbmem_reserve_memblock();
+	if (ret != 0)
+		pr_err("Fail to reserve mem for framebuffer . errno=%d\n", ret);
 #endif
 
 #if defined(CONFIG_SIPC) && !defined(CONFIG_ARCH_SC8825)

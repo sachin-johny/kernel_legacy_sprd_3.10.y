@@ -68,6 +68,11 @@
 #define SPRD_RAM_CONSOLE_START	(SPRD_IO_MEM_BASE - SPRD_RAM_CONSOLE_SIZE)
 #endif
 
+#ifdef CONFIG_FB_LCD_RESERVE_MEM
+#define SPRD_FB_MEM_SIZE	SZ_8M
+#define SPRD_FB_MEM_BASE	(SPRD_RAM_CONSOLE_START - SPRD_FB_MEM_SIZE)
+#endif
+
 struct sysdump_mem {
 	unsigned long paddr;
 	unsigned long vaddr;

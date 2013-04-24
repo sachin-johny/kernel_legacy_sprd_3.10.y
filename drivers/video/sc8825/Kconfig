@@ -67,6 +67,11 @@ config FB_LCD_SSD2075_MIPI
 	depends on FB_SC8825 || FB_SC8830
 	default n
 
+config FB_LCD_RESERVE_MEM
+        boolean "support FB reserve mem"
+        depends on FB_SC8825 || FB_SC8830
+        default n
+
 config FB_LCD_OVERLAY_SUPPORT
 	boolean "support lcd overlay"
 	depends on FB_SC8825 || FB_SC8830

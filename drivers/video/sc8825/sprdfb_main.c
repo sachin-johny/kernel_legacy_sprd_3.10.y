@@ -22,6 +22,8 @@
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
 
+#include <mach/board.h>
+
 enum{
 	SPRD_IN_DATA_TYPE_ABGR888 = 0,
 	SPRD_IN_DATA_TYPE_BGR565,
@@ -78,6 +80,7 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 	uint32_t len, addr;
 
 	len = dev->panel->width * dev->panel->height * (dev->bpp / 8) * FRAMEBUFFER_NR;
+#ifndef	CONFIG_FB_LCD_RESERVE_MEM
 	addr = __get_free_pages(GFP_ATOMIC | __GFP_ZERO, get_order(len));
 	if (!addr) {
 		printk(KERN_ERR "sprdfb: Failed to allocate framebuffer memory\n");
@@ -88,7 +91,17 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 	dev->fb->fix.smem_start = __pa(addr);
 	dev->fb->fix.smem_len = len;
 	dev->fb->screen_base = (char*)addr;
-
+#else
+	dev->fb->fix.smem_start = SPRD_FB_MEM_BASE;
+	printk("sprdfb:setup_fb_mem--smem_start:%x,len:%d\n",dev->fb->fix.smem_start,len);
+	addr =  ioremap(SPRD_FB_MEM_BASE, len);
+	if (!addr) {
+		printk(KERN_ERR "Unable to map framebuffer base: 0x%08x\n", addr);
+		return -ENOMEM;
+	}
+	dev->fb->fix.smem_len = len;
+	dev->fb->screen_base =  addr;
+#endif
 	return 0;
 }
 

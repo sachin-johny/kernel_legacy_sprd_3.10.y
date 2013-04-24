@@ -97,7 +97,7 @@ static LCM_Init_Code init_data[] = {
  {LCM_SEND(7),{5,0,0xF0,0x38,0x00,0x00,0x00}},
  {LCM_SEND(6),{4,0,0xC9,0x60,0x00,0x82}},
  {LCM_SEND(11),{9,0,0xB5,0x00,0x00,0x00,0x1E,0x04,0x40,0x20,0xFC}},
- {LCM_SEND(2),{0x36,0x08}},
+ {LCM_SEND(2),{0x36,0x0B}},//08->0B rotate 180
  {LCM_SLEEP(10)},
  {LCM_SEND(2),{0x3A,0x70}},
  {LCM_SEND(1),{0x11}},
@@ -202,8 +202,8 @@ static struct info_mipi lcd_ssd2075_mipi_info = {
 };
 
 struct panel_spec lcd_ssd2075_mipi_spec = {
-	.width = 540,
-	.height = 960,
+	.width = 720,
+	.height = 1280,
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
 	.info = {
