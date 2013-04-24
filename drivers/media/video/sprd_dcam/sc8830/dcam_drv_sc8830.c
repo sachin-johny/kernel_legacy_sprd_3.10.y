@@ -1413,6 +1413,21 @@ int32_t dcam_path1_cfg(enum dcam_cfg_id id, void *param)
 		break;
 	}
 
+	case DCAM_PATH_FRM_DECI:
+	{
+		uint32_t deci_factor = *(uint32_t*)param;
+
+		DCAM_CHECK_PARAM_ZERO_POINTER(param);
+
+		if (deci_factor >= DCAM_FRM_DECI_FAC_MAX) {
+			rtn = DCAM_RTN_PATH_FRM_DECI_ERR;
+		} else {
+			path->frame_deci = deci_factor;
+			path->valid_param.frame_deci = 1;
+		}
+		break;
+	}
+
 	default:
 		break;
 	}
@@ -1597,6 +1612,21 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 		for (i = 0; i < DCAM_FRM_CNT_MAX; i++) {
 			frame->type = frm_type;
 			frame = frame->next;
+		}
+		break;
+	}
+
+	case DCAM_PATH_FRM_DECI:
+	{
+		uint32_t deci_factor = *(uint32_t*)param;
+
+		DCAM_CHECK_PARAM_ZERO_POINTER(param);
+
+		if (deci_factor >= DCAM_FRM_DECI_FAC_MAX) {
+			rtn = DCAM_RTN_PATH_FRM_DECI_ERR;
+		} else {
+			path->frame_deci = deci_factor;
+			path->valid_param.frame_deci = 1;
 		}
 		break;
 	}
@@ -1854,6 +1884,12 @@ LOCAL void _dcam_path1_set(void)
 		DCAM_TRACE("DCAM DRV: path 1: data_endian y=0x%x, uv=0x%x \n",
 			path->data_endian.y_endian, path->data_endian.uv_endian);
 	}
+
+	if(path->valid_param.frame_deci){
+		REG_MWR(DCAM_PATH0_CFG, BIT_24 | BIT_23, path->frame_deci << 23);
+		DCAM_TRACE("DCAM DRV: path 1: frame_deci=0x%x \n", path->frame_deci);
+	}
+
 }
 
 LOCAL void _dcam_path2_set(void)
@@ -1890,8 +1926,9 @@ LOCAL void _dcam_path2_set(void)
 		} else if (DCAM_YUV420_3FRAME == format) {
 			REG_MWR(DCAM_PATH2_CFG, BIT_7 | BIT_6, 3 << 6);
 		} else {
-			DCAM_TRACE("DCAM DRV: invalid path 1 output format %d \n", format);
+			DCAM_TRACE("DCAM DRV: invalid path 2 output format %d \n", format);
 		}
+		DCAM_TRACE("DCAM DRV: path 2: output_format=0x%x \n", format);
 	}
 
 	if(path->valid_param.src_sel){
@@ -1903,7 +1940,13 @@ LOCAL void _dcam_path2_set(void)
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_13 | BIT_12, path->data_endian.uv_endian << 12);
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_18, BIT_18); // axi write
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_19, BIT_19); // axi read
+		DCAM_TRACE("DCAM DRV: path 2: data_endian y=0x%x, uv=0x%x \n",
+			path->data_endian.y_endian, path->data_endian.uv_endian);
+	}
 
+	if(path->valid_param.frame_deci){
+		REG_MWR(DCAM_PATH0_CFG, BIT_24 | BIT_23, path->frame_deci << 23);
+		DCAM_TRACE("DCAM DRV: path 2: frame_deci=0x%x \n", path->frame_deci);
 	}
 }
 
