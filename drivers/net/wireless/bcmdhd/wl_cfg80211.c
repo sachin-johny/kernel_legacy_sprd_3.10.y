@@ -4621,7 +4621,7 @@ static s32 wl_inform_single_bss(struct wl_priv *wl, struct wl_bss_info *bi)
 	notif_bss_info->channel =
 		bi->ctl_ch ? bi->ctl_ch : CHSPEC_CHANNEL(bi->chanspec);
 /*	notif_bss_info->channel = CHSPEC_CHANNEL(bi->chanspec);*/
-	if ((notif_bss_info->channel > CH_MAX_2G_CHANNEL) && (notif_bss_info->channel < CH_MIN_5G_CHANNEL)){
+	if (((notif_bss_info->channel > CH_MAX_2G_CHANNEL) && (notif_bss_info->channel < CH_MIN_5G_CHANNEL)) || (notif_bss_info->channel > 140)){
 		WL_ERR(("channel %d is error\n", notif_bss_info->channel));
 		kfree(notif_bss_info);
 		return -EINVAL;
