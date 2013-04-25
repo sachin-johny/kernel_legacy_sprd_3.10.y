@@ -81,8 +81,7 @@ static unsigned adc_read(unsigned addr)
 /*ADC_HW_CH_DELAY*/
 #define BIT_HW_CH_DELAY(_X_)		((_X_) & 0xff)	/*its unit is ADC clock */
 #define BIT_ADC_EB                  ( BIT(5) )
-#define BIT_CLK_AUXADC_EN                      ( BIT(13) )
-#define BIT_CLK_AUXAD_EN						( BIT(14) )
+
 static void sci_adc_enable(void)
 {
 #if defined(CONFIG_ARCH_SC8825)
@@ -94,7 +93,10 @@ static void sci_adc_enable(void)
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN,
 		    BIT_ANA_ADC_EN);
 	sci_adi_set(ANA_REG_GLB_ARM_CLK_EN,
-	            BIT_CLK_AUXADC_EN | BIT_CLK_AUXAD_EN);
+		    BIT_CLK_AUXADC_EN | BIT_CLK_AUXAD_EN);
+	sci_adi_set(ANA_REG_GLB_XTL_WAIT_CTRL,
+		    BIT_XTL_EN);
+	sci_glb_set(REG_AON_APB_SINDRV_CTRL, BIT_SINDRV_ENA);    //maybe need to modify it in later
 #endif
 }
 
