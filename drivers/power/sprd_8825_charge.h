@@ -153,7 +153,7 @@
 #define SPRD_TIMER0_MODE    (BIT(6))	/* 0: one-time, 1: period */
 
 #define SPRD_CHG_WAKEUP_SLEEP_CNT (32768)
-#define SPRD_CHG_WAKEUP_NSLEEP_CNT  (32678 * 20)
+#define SPRD_DISCHG_WAKEUP_SLEEP_CNT  (32678 * 30)
 
 #else
 /* control register definition */
