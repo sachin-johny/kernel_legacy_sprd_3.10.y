@@ -127,6 +127,34 @@
 /* ANA_CHGR_CTL1 */
 #define CHGR_SW_POINT_SHIFT 0
 #define CHGR_SW_POINT_MSK   (0X1F << CHGR_SW_POINT_SHIFT)
+
+#define SPRD_TIMER0_BASE    (SPRD_TIMER_BASE)
+#define SPRD_TIMER0_LOAD    (SPRD_TIMER0_BASE + 0x0000)
+#define SPRD_TIMER0_VALUE   (SPRD_TIMER0_BASE + 0x0004)
+#define SPRD_TIMER0_CTL     (SPRD_TIMER0_BASE + 0x0008)
+#define SPRD_TIMER0_INT     (SPRD_TIMER0_BASE + 0x000C)
+
+#define SPRD_INTC_ADDR      (SPRD_INTCV_BASE)
+#define SPRD_INTC_MSK_STS   (SPRD_INTC_ADDR + 0x0000)
+#define SPRD_INTC_RAW_STS   (SPRD_INTC_ADDR + 0x0004)
+#define SPRD_INTC_EN_STS    (SPRD_INTC_ADDR + 0x0008)
+#define SPRD_INTC_DISEN_STS (SPRD_INTC_ADDR + 0x000C)
+
+#define SPRD_INTC_TIMER0_BIT    BIT(5)
+
+/* SPRD_TIEMR0_INT */
+#define SPRD_TIMER0_INT_EN  (BIT(0))
+#define SPRD_TIMER0_INT_RAW (BIT(1))
+#define SPRD_TIMER0_INT_MSK (BIT(2))
+#define SPRD_TIMER0_INT_CLR (BIT(3))
+#define SPRD_TIMER0_LD_BUSY (BIT(4))
+
+#define SPRD_TIMER0_RUN     (BIT(7))	/* 0: stop, 1: run */
+#define SPRD_TIMER0_MODE    (BIT(6))	/* 0: one-time, 1: period */
+
+#define SPRD_CHG_WAKEUP_SLEEP_CNT (32768)
+#define SPRD_CHG_WAKEUP_NSLEEP_CNT  (32678 * 20)
+
 #else
 /* control register definition */
 #define ANA_REG_BASE	(SPRD_MISC_BASE + 0x600)	/*  0x82000600 */
@@ -260,5 +288,11 @@ void put_vchg_value(uint32_t vchg);
 uint32_t get_vchg_value(void);
 int32_t sprd_get_chg_current(struct sprd_battery_data *data);
 
+#ifdef CONFIG_ARCH_SC7710
+void stop_chg_timer_work(void);
+void clear_chg_timer_int(void);
+void clear_chg_timer_in_intc(void);
+
+#endif
 
 #endif /* _CHG_DRVAPI_H_ */

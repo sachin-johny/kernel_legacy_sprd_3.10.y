@@ -17,6 +17,12 @@
 #include <mach/gpio.h>
 #include <linux/gpio.h>
 #include <mach/globalregs.h>
+
+#ifdef CONFIG_ARCH_SC7710
+#include <mach/hardware.h>
+#include <linux/io.h>
+#endif
+
 #ifndef CONFIG_ARCH_SC7710
 #include <mach/regs_ahb.h>
 #endif
@@ -38,8 +44,8 @@ extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
 #ifdef CONFIG_ARCH_SC7710
-    {3300, 4200},
-    {2800, 3600},
+	{3300, 4200},
+	{2800, 3600},
 #else
 	{3750, 4200},
 	{3210, 3600},
@@ -333,6 +339,9 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	}
 
+	printk(KERN_INFO "$$$ryan::: %s, voltage = %d, retval = %d\n",
+	       __FUNCTION__, voltage, percentum);
+
 	return percentum;
 }
 
@@ -471,11 +480,11 @@ int32_t sprd_get_chg_current(struct sprd_battery_data * data)
 	}
 	if (isense > vbat) {
 #ifdef CONFIG_ARCH_SC7710
-        return ((isense - vbat) * 100 / 36);
+		return ((isense - vbat) * 100 / 36);
 #else
 		return ((isense - vbat) * 10);	//(vol/0.1ohm)
 #endif
-    } else {
+	} else {
 		printk(KERN_ERR
 		       "chg_current err......................isense:%d..................vbat:%d\n",
 		       isense, vbat);
@@ -573,7 +582,7 @@ void sprd_set_chg_cur(uint32_t chg_current)
 		chg_current = SPRD_CHG_CUR_MAX;
 	}
 #ifdef COFNIG_ARCH_SC7710
-    temp = ((chg_current - 300) / 50);
+	temp = ((chg_current - 300) / 50);
 #else
 	temp = ((chg_current - 300) / 100);
 #endif
@@ -723,3 +732,23 @@ uint32_t get_vchg_value(void)
 	}
 	return sum / _VCHG_BUF_SIZE;
 }
+
+#ifdef CONFIG_ARCH_SC7710
+// add timer0 as wakeup source in sleep mode
+void stop_chg_timer_work(void)
+{
+	__raw_writel(__raw_readl(SPRD_TIMER0_CTL) & (~SPRD_TIMER0_RUN),
+		     SPRD_TIMER0_CTL);
+}
+
+void clear_chg_timer_int(void)
+{
+	__raw_writel(__raw_readl(SPRD_TIMER0_INT) | SPRD_TIMER0_INT_CLR,
+		     SPRD_TIMER0_INT);
+}
+
+void clear_chg_timer_in_intc(void)
+{
+	__raw_writel(SPRD_INTC_TIMER0_BIT, SPRD_INTC_DISEN_STS);
+}
+#endif

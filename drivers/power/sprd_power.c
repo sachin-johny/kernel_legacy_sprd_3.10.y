@@ -44,6 +44,10 @@ extern int sci_adc_get_value(unsigned chan, int scale);
 
 static struct sprd_battery_data *battery_data;
 
+#ifdef CONFIG_ARCH_SC7710
+static u32 sprd_chg_wakeup_cnt = 0;
+#endif
+
 #ifdef CONFIG_NOTIFY_BY_USB
 #include <mach/usb.h>
 static int plugin_callback(int usb_cable, void *data);
@@ -74,6 +78,7 @@ uint32_t sprd_get_vbat_voltage(void)
 {
 	return battery_data ? battery_data->voltage : 0;
 }
+
 EXPORT_SYMBOL(sprd_get_vbat_voltage);
 
 static int sprd_ac_get_property(struct power_supply *psy,
@@ -314,7 +319,7 @@ static ssize_t sprd_show_caliberate(struct device *dev,
 	case CHARGER_VOLTAGE:
 		if (battery_data->charging) {
 			adc_value = sci_adc_get_value(ADC_CHANNEL_VCHG, false);
-            if (adc_value < 0)
+			if (adc_value < 0)
 				voltage = 0;
 			else
 				voltage =
@@ -410,6 +415,8 @@ static int plugin_callback(int usb_cable, void *data)
 		return 1;
 	}
 
+	sprd_chg_wakeup_cnt = SPRD_CHG_WAKEUP_SLEEP_CNT;
+
 	d->ac_online = 0;
 	d->usb_online = 0;
 
@@ -438,6 +445,8 @@ static int plugout_callback(int usb_cable, void *data)
 		pr_warning("batttery_data is NULL!!\n");
 		return 1;
 	}
+
+	sprd_chg_wakeup_cnt = SPRD_CHG_WAKEUP_NSLEEP_CNT;
 
 	d->ac_online = 0;
 	d->usb_online = 0;
@@ -606,11 +615,12 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 
 		vchg_value = sci_adc_get_value(ADC_CHANNEL_VCHG, false);
 
-        if (vchg_value < 0)
+		if (vchg_value < 0)
 			goto out;
 		vchg_vol = sprd_charger_adc_to_vol(battery_data, vchg_value);
 		put_vchg_value(vchg_vol);
 		vchg_vol = get_vchg_value();
+
 		if (vchg_vol > battery_data->over_voltage) {
 			printk(KERN_ERR "charger voltage too high\n");
 			charge_stop(battery_data);
@@ -624,6 +634,7 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 			battery_data->in_precharge = 1;
 			printk(KERN_ERR "vbat over %d \n", voltage);
 		}
+
 	}
 	if (!battery_data->charging && !battery_data->in_precharge &&
 	    (usb_online || ac_online) && battery_data->over_voltage_flag) {
@@ -747,6 +758,7 @@ out:
 					sprd_bat_adc_to_vol(battery_data,
 							    get_vbat_capacity_value
 							    ()), 0);
+
 		voltage = (voltage / 10) * 10;
 
 		if (battery_data->capacity != capacity) {
@@ -768,6 +780,7 @@ out:
 		if (ac_notify) {
 			power_supply_changed(&battery_data->ac);
 		}
+
 		if (battery_notify || usb_notify || ac_notify) {
 			pr_debug("voltage %d\n", battery_data->voltage);
 			pr_debug("capacity %d\n", battery_data->capacity);
@@ -792,6 +805,44 @@ void battery_sleep(void)
 {
 	charge_handler(battery_data, 1);
 }
+
+#ifdef CONFIG_ARCH_SC7710
+void enable_tiemr0_wakeup(void)
+{
+	static u32 set_flag = 0;
+
+	while (__raw_readl(SPRD_TIMER0_INT) & SPRD_TIMER0_LD_BUSY) {
+		//wait timer0 ready
+	}
+
+	if (!set_flag) {
+		__raw_writel(sprd_chg_wakeup_cnt, SPRD_TIMER0_LOAD);
+		__raw_writel(__raw_readl(SPRD_TIMER0_CTL) | SPRD_TIMER0_MODE,
+			     SPRD_TIMER0_CTL);
+		__raw_writel(__raw_readl(SPRD_TIMER0_INT) | SPRD_TIMER0_INT_EN,
+			     SPRD_TIMER0_INT);
+
+		set_flag = 1;
+	}
+
+	__raw_writel(__raw_readl(SPRD_INTC_EN_STS) | SPRD_INTC_TIMER0_BIT,
+		     SPRD_INTC_EN_STS);
+	__raw_writel(__raw_readl(SPRD_TIMER0_CTL) | SPRD_TIMER0_RUN,
+		     SPRD_TIMER0_CTL);
+}
+
+void check_timer0_and_battery_handler(void)
+{
+	if (__raw_readl(SPRD_INTC_MSK_STS) & SPRD_INTC_TIMER0_BIT) {
+		battery_sleep();
+		clear_chg_timer_int();
+	} else {
+		stop_chg_timer_work();
+	}
+
+	clear_chg_timer_in_intc();
+}
+#endif
 
 /* used to detect battery capacity status
  * return 1: need update
@@ -864,17 +915,19 @@ int __weak usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 	return -ENODEV;
 }
 
-static unsigned int adc_data[2]={0};
+static unsigned int adc_data[2] = { 0 };
+
 static int __init adc_cal_start(char *str)
 {
-        char *cali_data = &str[1];
-        if(str){
-                pr_info("adc_cal%s!\n",str);
-                sscanf(cali_data, "%d,%d", &adc_data[0],&adc_data[1]);
-                pr_info("adc_data: 0x%x 0x%x!\n",adc_data[0],adc_data[1]);
-        }
-        return 1;
+	char *cali_data = &str[1];
+	if (str) {
+		pr_info("adc_cal%s!\n", str);
+		sscanf(cali_data, "%d,%d", &adc_data[0], &adc_data[1]);
+		pr_info("adc_data: 0x%x 0x%x!\n", adc_data[0], adc_data[1]);
+	}
+	return 1;
 }
+
 __setup("adc_cal", adc_cal_start);
 
 extern int sci_efuse_calibration_get(unsigned int *p_cal_data);
@@ -955,16 +1008,17 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		printk("probe efuse ok!!! adc4200: %d,adc3600:%d\n",
 		       adc_voltage_table[0][0], adc_voltage_table[1][0]);
 	}
-	if(((adc_data[2]&0xffff) < 4500 )&&((adc_data[2]&0xffff) > 3000)&&
-	   ((adc_data[3]&0xffff) < 4500 )&&((adc_data[3]&0xffff) > 3000)){
-                adc_voltage_table[0][1]=adc_data[0]&0xffff;
-                adc_voltage_table[0][0]=(adc_data[0]>>16)&0xffff;
-                adc_voltage_table[1][1]=adc_data[1]&0xffff;
-                adc_voltage_table[1][0]=(adc_data[1]>>16)&0xffff;
-                data->adc_cal_updated = ADC_CAL_TYPE_NV;
+	if (((adc_data[2] & 0xffff) < 4500) && ((adc_data[2] & 0xffff) > 3000)
+	    && ((adc_data[3] & 0xffff) < 4500)
+	    && ((adc_data[3] & 0xffff) > 3000)) {
+		adc_voltage_table[0][1] = adc_data[0] & 0xffff;
+		adc_voltage_table[0][0] = (adc_data[0] >> 16) & 0xffff;
+		adc_voltage_table[1][1] = adc_data[1] & 0xffff;
+		adc_voltage_table[1][0] = (adc_data[1] >> 16) & 0xffff;
+		data->adc_cal_updated = ADC_CAL_TYPE_NV;
 		printk("probe cmdline ok!!! adc4200: %d,adc3600:%d\n",
 		       adc_voltage_table[0][0], adc_voltage_table[1][0]);
-        }
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	if (unlikely(!res)) {
