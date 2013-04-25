@@ -709,6 +709,7 @@ void cp_code_init(void)
 		printk("cp_code_init remap cp iram erro\n");
 	}
 	memcpy((void *)cp_iram_addr, cp_code_data, sizeof(cp_code_data));
+	iounmap(cp_code_init);
 }
 void cp_do_change_emc_freq(u32 mode, u32 div, u32 sene, u32 ddr_type, u32 dpll_n)
 {
@@ -716,6 +717,7 @@ void cp_do_change_emc_freq(u32 mode, u32 div, u32 sene, u32 ddr_type, u32 dpll_n
 	volatile u32 i;
 	printk("cp_do_change_emc_freq: mode =%d, div = %d, sene = %d, ddr_type = %d", mode, div, sene, ddr_type);
 #ifdef CONFIG_NKERNEL
+	__raw_writel(0x0, REG_AHB_CP_RST);//reset cp
 	/*delete close cp*/
 	__raw_writel(0x00000000, REG_AHB_CP_SLEEP_CTRL);
 #endif
@@ -724,9 +726,9 @@ void cp_do_change_emc_freq(u32 mode, u32 div, u32 sene, u32 ddr_type, u32 dpll_n
 	//tell cp do disable dll mode
 	__raw_writel(value, REG_AHB_JMP_ADDR_CPU0);
 
-	__raw_writel(0x0, REG_AHB_CP_RST);//reset cp
-	__raw_writel(0x0, REG_AHB_CP_AHB_CTL);//close cp clock, selec cp iram to ap
-	for(i = 0; i < 0x100; i++);
+	//__raw_writel(0x0, REG_AHB_CP_RST);//reset cp
+	//__raw_writel(0x0, REG_AHB_CP_AHB_CTL);//close cp clock, selec cp iram to ap
+	for(i = 0; i < 0x200; i++);
 	__raw_writel(0x7, REG_AHB_CP_AHB_CTL);//open cp clock, selec cp iram to cp
 	__raw_writel(0x1, REG_AHB_CP_RST);//release cp
 }
@@ -739,13 +741,15 @@ void close_cp(void)
 	times = 0;
 	while((value & EMC_SWITCH_MODE_MASK) != EMC_SWITCH_MODE_COMPLETE) {
 		value = __raw_readl(REG_AHB_JMP_ADDR_CPU0);
-		mdelay(2);
+		mdelay(5);
 		if(times >= 10) {
 			break;
 		}
 		times ++;
 	}
 #ifdef CONFIG_NKERNEL
+	__raw_writel(0x2, REG_AHB_CP_AHB_CTL);
+	__raw_writel(0x0, REG_AHB_CP_RST);
 	/*force close cp*/
 	__raw_writel(0x00000001, REG_AHB_CP_SLEEP_CTRL);
 #endif
