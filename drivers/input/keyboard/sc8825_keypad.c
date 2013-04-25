@@ -409,11 +409,15 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	sci_kpd->cols = pdata->cols;
 	sci_kpd->controller_ver = pdata->controller_ver;
 
+#if !defined(CONFIG_ARCH_SC8830)
 	sci_glb_set(REG_GLB_SOFT_RST, BIT_KPD_RST);
 	mdelay(2);
 	sci_glb_clr(REG_GLB_SOFT_RST, BIT_KPD_RST);
 	sci_glb_set(REG_GLB_GEN0, BIT_KPD_EB | BIT_RTC_KPD_EB);
-
+#else
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_KPD_EB);
+	sci_glb_set(REG_AON_APB_APB_RTC_EB, BIT_KPD_RTC_EB);
+#endif
 	__raw_writel(KPD_INT_ALL, KPD_INT_CLR);
 	__raw_writel(CFG_ROW_POLARITY | CFG_COL_POLARITY, KPD_POLARITY);
 	__raw_writel(1, KPD_CLK_DIV_CNT);
@@ -534,7 +538,13 @@ static int __devexit sci_keypad_remove(struct
 	value = __raw_readl(KPD_CTRL);
 	value &= ~(1 << 0);
 	__raw_writel(value, KPD_CTRL);
+
+#if !defined(CONFIG_ARCH_SC8830)
 	sci_glb_clr(REG_GLB_GEN0, BIT_KPD_EB | BIT_RTC_KPD_EB);
+#else
+	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_KPD_EB);
+	sci_glb_clr(REG_AON_APB_APB_RTC_EB, BIT_KPD_RTC_EB);
+#endif
 	free_irq(sci_kpd->irq, pdev);
 	input_unregister_device(sci_kpd->input_dev);
 	kfree(sci_kpd);
