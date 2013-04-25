@@ -415,8 +415,9 @@ static int plugin_callback(int usb_cable, void *data)
 		return 1;
 	}
 
+#ifdef CONFIG_ARCH_SC7710
 	sprd_chg_wakeup_cnt = SPRD_CHG_WAKEUP_SLEEP_CNT;
-
+#endif
 	d->ac_online = 0;
 	d->usb_online = 0;
 
@@ -446,7 +447,9 @@ static int plugout_callback(int usb_cable, void *data)
 		return 1;
 	}
 
-	sprd_chg_wakeup_cnt = SPRD_CHG_WAKEUP_NSLEEP_CNT;
+#ifdef CONFIG_ARCH_SC7710
+	sprd_chg_wakeup_cnt = SPRD_DISCHG_WAKEUP_SLEEP_CNT;
+#endif
 
 	d->ac_online = 0;
 	d->usb_online = 0;
