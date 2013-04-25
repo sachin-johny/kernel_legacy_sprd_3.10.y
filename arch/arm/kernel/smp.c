@@ -41,6 +41,10 @@
 #include <asm/ptrace.h>
 #include <asm/localtimer.h>
 
+#ifdef CONFIG_SEC_DEBUG
+#include <mach/sec_debug.h>
+#endif
+
 
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
@@ -491,7 +495,13 @@ nk_do_local_timer (int irq, void* dev_id)
     struct clock_event_device *evt = dev_id;
     int cpu = smp_processor_id();
     irq_stat[cpu].local_timer_irqs++;
+#ifdef CONFIG_SEC_DEBUG
+    sec_debug_irq_log(0, nk_do_local_timer, 1);
+#endif
     evt->event_handler(evt);
+#ifdef CONFIG_SEC_DEBUG
+   sec_debug_irq_log(0, nk_do_local_timer, 2);
+#endif
     return IRQ_HANDLED;
 }
 #endif // #if defined(CONFIG_NATIVE_LOCAL_TIMER)
@@ -504,8 +514,18 @@ asmlinkage void __exception_irq_entry do_local_timer(struct pt_regs *regs)
 
 	if (local_timer_ack()) {
 		__inc_irq_stat(cpu, local_timer_irqs);
+#ifdef CONFIG_SEC_DEBUG
+		sec_debug_irq_log(0, do_local_timer, 1);
+#endif
 		ipi_timer();
+#ifdef CONFIG_SEC_DEBUG
+		sec_debug_irq_log(0, do_local_timer, 2);
+#endif
 	}
+#ifdef CONFIG_SEC_DEBUG
+	else
+		sec_debug_irq_log(0, do_local_timer, 3);
+#endif
 
 	set_irq_regs(old_regs);
 }
@@ -669,6 +689,10 @@ nk_do_IPI (int ipinr, void* dev_id)
 	if (ipinr >= IPI_TIMER && ipinr < IPI_TIMER + NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
 
+#ifdef CONFIG_SEC_DEBUG
+	sec_debug_irq_log(ipinr, nk_do_IPI, 1);
+#endif
+
 	switch (ipinr) {
 	case IPI_TIMER:
 		ipi_timer();
@@ -699,6 +723,10 @@ nk_do_IPI (int ipinr, void* dev_id)
 		       cpu, ipinr);
 		break;
 	}
+
+#ifdef CONFIG_SEC_DEBUG
+	sec_debug_irq_log(ipinr, nk_do_IPI, 2);
+#endif
 }
 
 #else
@@ -710,6 +738,10 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 
 	if (ipinr >= IPI_TIMER && ipinr < IPI_TIMER + NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
+
+#ifdef CONFIG_SEC_DEBUG
+	sec_debug_irq_log(ipinr, do_IPI, 1);
+#endif
 
 	switch (ipinr) {
 	case IPI_TIMER:
@@ -741,6 +773,11 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 		       cpu, ipinr);
 		break;
 	}
+
+#ifdef CONFIG_SEC_DEBUG
+	sec_debug_irq_log(ipinr, do_IPI, 2);
+#endif
+
 	set_irq_regs(old_regs);
 }
 

@@ -54,6 +54,10 @@
 #include <mach/regulator.h>
 #include <linux/spi/mxd_cmmb_026x.h>
 
+#if defined(CONFIG_SEC_DEBUG)
+#include <mach/sys_debug.h>
+#endif
+
 extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sc8825_init_irq(void);
@@ -665,6 +669,9 @@ static void __init sc8825_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+#if defined(CONFIG_SEC_DEBUG)
+	sys_debug_init();
+#endif
 }
 
 extern void sc8825_enable_timer_early(void);

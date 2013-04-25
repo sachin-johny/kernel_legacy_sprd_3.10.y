@@ -29,6 +29,9 @@
 
 #include <asm/ioctls.h>
 
+#if defined(CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#endif
 /*
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
  *
@@ -787,6 +790,12 @@ static int __init logger_init(void)
 	ret = init_log(&log_system);
 	if (unlikely(ret))
 		goto out;
+
+#if defined(CONFIG_SEC_DEBUG)
+	//{{ Mark for GetLog
+	sec_getlog_supply_loggerinfo(_buf_log_main, _buf_log_radio,
+			_buf_log_events, _buf_log_system);
+#endif
 
 out:
 	return ret;

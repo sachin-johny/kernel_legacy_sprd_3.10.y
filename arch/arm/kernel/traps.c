@@ -759,6 +759,12 @@ extern void vector_iswi(void);
 
 #endif
 
+#if defined(CONFIG_SEC_DEBUG)
+void cp_abort(void)
+{
+	panic("CP Crash");
+}
+#endif
 
 void __init trap_init(void)
 {
