@@ -460,7 +460,7 @@
 
 #define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x8800 )
 
-#define ADC_BASE	((unsigned int)SPRD_ADI_BASE + 0x300)
+#define ADC_BASE	((unsigned int)SPRD_ADI_BASE + 0x8300)
 
 #ifndef REGS_AHB_BASE
 #define REGS_AHB_BASE                                   ( SPRD_AHB_BASE  + 0x200)
