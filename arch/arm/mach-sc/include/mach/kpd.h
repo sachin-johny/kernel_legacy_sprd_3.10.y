@@ -15,6 +15,12 @@
 #ifndef __ARCH_KPD_H
 #define __ARCH_KPD_H 
 
+/**
+	For example, if you using chip row0 and (col0,col1) to define some keys
+	pls set :
+		rows_choose_hw = row0
+		cols_choose_hw = col0 | col1
+*/
 struct sci_keypad_platform_data {
 	int rows_choose_hw;	/* choose chip keypad controler rows */
 	int cols_choose_hw;	/* choose chip keypad controler cols */
