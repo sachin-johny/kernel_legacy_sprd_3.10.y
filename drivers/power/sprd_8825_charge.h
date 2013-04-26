@@ -155,6 +155,9 @@
 #define SPRD_CHG_WAKEUP_SLEEP_CNT (32768)
 #define SPRD_DISCHG_WAKEUP_SLEEP_CNT  (32678 * 30)
 
+#define CHGR_SW_POINT_SHIFT_METAL   (1)
+#define CHGR_SW_POINT_MSK_METAL (0x1F << CHGR_SW_POINT_SHIFT_METAL)
+
 #else
 /* control register definition */
 #define ANA_REG_BASE	(SPRD_MISC_BASE + 0x600)	/*  0x82000600 */
