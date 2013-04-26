@@ -12,13 +12,21 @@
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/smp.h>
+#include <linux/completion.h>
+#include <linux/delay.h>
+#include <linux/sched.h>
+#include <linux/io.h>
 
+#include <mach/hardware.h>
 #include <asm/cacheflush.h>
 #include <asm/cp15.h>
 #include <asm/smp_plat.h>
 
 extern volatile int pen_release;
-
+#ifdef CONFIG_ARCH_SC8830
+int powerdown_cpus(int cpu);
+int sci_shark_enter_lowpower(void);
+#endif
 static inline void cpu_enter_lowpower(void)
 {
 	unsigned int v;
@@ -92,6 +100,21 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 
 int platform_cpu_kill(unsigned int cpu)
 {
+#ifdef CONFIG_ARCH_SC8830
+	int i = 0;
+	printk("!! %d  platform_cpu_kill %d !!\n", smp_processor_id(), cpu);
+	while (i < 20) {
+		//check wfi?
+		if (__raw_readl(SPRD_AHB_BASE + 0x48) & (1 << cpu_logical_map(cpu))) {
+			powerdown_cpus(cpu);
+			break;
+		}
+		udelay(100);
+		i++;
+	}
+	printk("platform_cpu_kill finished i=%d !!\n", i);
+	return (i >= 20? 0 : 1);
+#endif
 	return 1;
 }
 
@@ -104,6 +127,10 @@ void platform_cpu_die(unsigned int cpu)
 {
 	int spurious = 0;
 
+#ifdef CONFIG_ARCH_SC8830
+	sci_shark_enter_lowpower();
+	panic("shouldn't be here \n");
+#endif
 	/*
 	 * we're ready for shutdown now, so do it
 	 */

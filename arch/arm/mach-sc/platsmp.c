@@ -45,8 +45,7 @@ static int __cpuinit boot_secondary_cpus(int cpu_id, u32 paddr)
 }
 
 #elif (defined CONFIG_ARCH_SC8830)
-
-static int __cpuinit __poweron_cpus(int cpu)
+int poweron_cpus(int cpu)
 {
 	u32 poweron, val;
 
@@ -67,7 +66,23 @@ static int __cpuinit __poweron_cpus(int cpu)
 	writel(val,poweron);
 	udelay(1000);
 	writel((__raw_readl(REG_AP_AHB_CA7_RST_SET) & ~(1 << cpu)), REG_AP_AHB_CA7_RST_SET);
+	return 0;
+}
 
+int powerdown_cpus(int cpu)
+{
+	u32 poweron, val;
+	if (cpu == 1)
+		poweron = REG_PMU_APB_PD_CA7_C1_CFG;
+	else if (cpu == 2)
+		poweron = REG_PMU_APB_PD_CA7_C2_CFG;
+	else if (cpu == 3)
+		poweron = REG_PMU_APB_PD_CA7_C3_CFG;
+	else
+		return -1;
+
+	val = (BIT_PD_CA7_C3_FORCE_SHUTDOWN | __raw_readl(poweron)) &~(BIT_PD_CA7_C3_AUTO_SHUTDOWN_EN);
+	writel(val, poweron);
 	return 0;
 }
 
@@ -78,7 +93,7 @@ static int __cpuinit boot_secondary_cpus(int cpu_id, u32 paddr)
 
 	writel(paddr,(CPU_JUMP_VADDR + (cpu_id << 2)));
 	writel(readl(HOLDING_PEN_VADDR) | (1 << cpu_id),HOLDING_PEN_VADDR);
-	__poweron_cpus(cpu_id);
+	poweron_cpus(cpu_id);
 
 	return 0;
 }
@@ -212,11 +227,24 @@ void __init smp_init_cpus(void)
 
 	set_smp_cross_call(gic_raise_softirq);
 }
-
+#ifdef CONFIG_FIX_V7TAGRAM_BUG
+unsigned long physical_from_idle = 0;
+#endif
 void __init platform_smp_prepare_cpus(unsigned int max_cpus)
 {
 #ifdef CONFIG_HAVE_ARM_SCU
 	scu_enable((void __iomem *)(SPRD_CORE_BASE));
+#endif
+#ifdef CONFIG_FIX_V7TAGRAM_BUG
+	extern unsigned long other_cpu_fix_phys;
+	extern void fix_tag_ram_bug(void);
+	extern void other_cpu_fix(void);
+
+	if(!other_cpu_fix_phys)
+		other_cpu_fix_phys = virt_to_phys(other_cpu_fix);
+	local_irq_disable();
+	fix_tag_ram_bug();
+	local_irq_enable();
 #endif
 }
 

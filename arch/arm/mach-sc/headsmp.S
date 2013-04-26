@@ -12,7 +12,7 @@
 #include <linux/linkage.h>
 #include <linux/init.h>
 
-	__INIT
+	__CPUINIT
 
 /*
  * sci smp specific entry point for secondary CPUs.
@@ -39,3 +39,27 @@ pen:	ldr	r7, [r6]
 	.align
 1:	.long	.
 	.long	pen_release
+
+ENTRY(sci_shark_enter_lowpower)
+	//stmfd 	sp!, {r4-r12, lr}
+	mrc     p15, 0, r1, c1, c0, 0
+	bic     r0, r1, #(1 << 2)		@disable d-cache
+	mcr     p15, 0, r0, c1, c0, 0
+	bl      v7_flush_dcache_all		@flush d-cache
+
+	clrex
+
+	mrc	p15, 0, r1, c1, c0, 1
+	bic	r1, r1, #(1 << 6)
+	mcr 	p15, 0, r1, c1, c0, 1
+
+	isb
+	dsb
+	nop
+
+_loop_wfi:
+	wfi
+	b 	_loop_wfi
+
+	//ldmfd 	sp!, {r4-r12, pc}
+ENDPROC(sci_shark_enter_lowpower)
