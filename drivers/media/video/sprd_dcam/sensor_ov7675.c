@@ -657,6 +657,7 @@ LOCAL uint32_t _ov7675_PowerOn(uint32_t power_on)
 		Sensor_SetMCLK(SENSOR_DISABLE_MCLK);
 		Sensor_SetVoltage(SENSOR_AVDD_CLOSED, SENSOR_AVDD_CLOSED,
 				  SENSOR_AVDD_CLOSED);
+		msleep(10);
 	}
 	SENSOR_PRINT("(1:on, 0:off): %d", power_on);
 	return SENSOR_SUCCESS;
