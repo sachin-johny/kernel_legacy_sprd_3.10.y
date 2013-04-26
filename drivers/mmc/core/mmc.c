@@ -42,6 +42,14 @@ static const unsigned int tacc_mant[] = {
 	35,	40,	45,	50,	55,	60,	70,	80,
 };
 
+#if defined(CONFIG_ARCH_SC8825)
+static const unsigned int sprd_hs_max_dtr = 104000000;
+#elif defined(CONFIG_ARCH_SC8830)
+static const unsigned int sprd_hs_max_dtr = 128000000;
+#else
+static const unsigned int sprd_hs_max_dtr = 200000000;
+#endif
+
 #define UNSTUFF_BITS(resp,start,size)					\
 	({								\
 		const int __size = size;				\
@@ -293,21 +301,21 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 	case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_1_8V:
 	case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_1_2V:
 	case EXT_CSD_CARD_TYPE_SDR_ALL_DDR_52:
-		card->ext_csd.hs_max_dtr = 200000000;
+		card->ext_csd.hs_max_dtr = sprd_hs_max_dtr;
 		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_200;
 		break;
 	case EXT_CSD_CARD_TYPE_SDR_1_2V_ALL:
 	case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_1_8V:
 	case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_1_2V:
 	case EXT_CSD_CARD_TYPE_SDR_1_2V_DDR_52:
-		card->ext_csd.hs_max_dtr = 200000000;
+		card->ext_csd.hs_max_dtr = sprd_hs_max_dtr;
 		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_1_2V;
 		break;
 	case EXT_CSD_CARD_TYPE_SDR_1_8V_ALL:
 	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_1_8V:
 	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_1_2V:
 	case EXT_CSD_CARD_TYPE_SDR_1_8V_DDR_52:
-		card->ext_csd.hs_max_dtr = 200000000;
+		card->ext_csd.hs_max_dtr = sprd_hs_max_dtr;
 		card->ext_csd.card_type = EXT_CSD_CARD_TYPE_SDR_1_8V;
 		break;
 	case EXT_CSD_CARD_TYPE_DDR_52 | EXT_CSD_CARD_TYPE_52 |
