@@ -2036,7 +2036,7 @@ static int ts0710_open_channel(__u8 dlci)
 								 (ts0710->dlci
 								  [dlci].state
 								  != CONNECTING
-								  ||
+								  &&
 								  ts0710->dlci
 								  [dlci].state
 								  !=
