@@ -35,6 +35,11 @@
 #include <mach/emc_repower.h>
 #include <linux/clockchips.h>
 
+#if defined(CONFIG_SEC_DEBUG)
+/* For saving Fault status */
+#include <mach/sec_debug.h>
+#endif
+
 extern int sc8825_get_clock_status(void);
 extern void secondary_startup(void);
 extern int sp_pm_collapse(unsigned int cpu, unsigned int save_state);
@@ -1289,7 +1294,9 @@ void sc8825_pm_init(void)
 	
 	init_reset_vector();
 	pm_power_off = sc8825_power_off;
+#ifndef CONFIG_SEC_DEBUG
 	arm_pm_restart = sc8825_machine_restart;
+#endif
 	pr_info("power off %pf, restart %pf\n", pm_power_off, arm_pm_restart);
 #ifdef FORCE_DISABLE_DSP
 	/* FPGA ONLY */
@@ -1311,4 +1318,8 @@ void sc8825_pm_init(void)
 	__raw_writel(val, sprd_get_scu_base());
 
 	pm_idle = sc8825_idle;
+
+#if defined(CONFIG_SEC_DEBUG)
+	sec_debug_init();
+#endif
 }

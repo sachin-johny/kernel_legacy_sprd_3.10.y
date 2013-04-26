@@ -49,6 +49,10 @@
 #include <nk/nkern.h>
 #endif
 
+#if defined (CONFIG_SEC_DEBUG)
+#include <mach/sec_debug.h>
+#endif
+
 /*
  * Architectures can override it:
  */
@@ -207,9 +211,14 @@ void __init setup_log_buf(int early)
 	char *new_log_buf;
 	int free;
 
-	if (!new_log_buf_len)
+	if (!new_log_buf_len) {
+#if defined(CONFIG_SEC_DEBUG)
+		//{{ Mark for GetLog
+		sec_getlog_supply_kloginfo(__log_buf);
+		//}} Mark for GetLog
+#endif
 		return;
-
+	}
 	if (early) {
 		unsigned long mem;
 
@@ -246,6 +255,12 @@ void __init setup_log_buf(int early)
 	con_start -= offset;
 	log_end -= offset;
 	spin_unlock_irqrestore(&logbuf_lock, flags);
+
+#if defined(CONFIG_SEC_DEBUG)
+		//{{ Mark for GetLog
+	sec_getlog_supply_kloginfo(__log_buf);
+		//}} Mark for GetLog
+#endif
 
 	pr_info("log_buf_len: %d\n", log_buf_len);
 	pr_info("early log buf free: %d(%d%%)\n",
