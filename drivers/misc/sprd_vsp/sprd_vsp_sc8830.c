@@ -248,13 +248,13 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		pr_debug("vsp ioctl VSP_RESET\n");
 //		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT(15), AHB_SOFT_RST);
 //		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
-	        __raw_writel((1<<11)|(1<<4), 0x60d01004);	
-	        __raw_writel((1<<4), 0x60d02004);	//Reset VSP 
+	        __raw_writel((1<<11)|(1<<4), SPRD_MMAHB_BASE + 0x1004);	
+	        __raw_writel((1<<4), SPRD_MMAHB_BASE + 0x2004);	//Reset VSP 
 
 		break;
 	case VSP_START:
 		pr_debug("vsp ioctl VSP_START\n");
-                __raw_writel((1<<11), 0x60d02004);
+                __raw_writel((1<<11), SPRD_MMAHB_BASE + 0x2004);
                 break;
 
 	default:
@@ -406,6 +406,17 @@ static int vsp_probe(struct platform_device *pdev)
 		//cmd0 = __raw_readl(DCAM_CLOCK_EN);//,"DCAM_CLOCK_EN:Read the DCAM_CLOCK_EN ");
 		//cmd0 = 0xFFFFFFFF;
 		//__raw_writel(cmd0,DCAM_CLOCK_EN);//"DCAM_CLOCK_EN:enable DCAM_CLOCK_EN");
+
+        // Open MM top power.
+	//*(volatile uint32 *)(0x402b001c) &= 0xfdffffff;
+	//*(volatile uint32 *)(0x402e0000) |= 0x02000000;
+
+	// Open VSP in MM top.
+	//VSP_WRITE_REG(0x60d00000, (1<<6)|(1<<3),  "[3]: VSP_eb, [6]: CKG_eb");
+	//VSP_WRITE_REG(0x60d00008, (1<<8)|(1<<7)|(1<<5), "[5]: VSP_AXI_CKG_EN, [7]: MM_AXI_CKG_EN, [8]: MM_MTX_AXI_CKG_EN");
+        __raw_writel((1<<6)|(1<<3), SPRD_MMAHB_BASE + 0x0);	
+        __raw_writel((1<<8)|(1<<7)|(1<<5), SPRD_MMAHB_BASE + 0x8);	
+
 
 #endif
 
