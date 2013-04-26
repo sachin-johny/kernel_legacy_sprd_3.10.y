@@ -248,8 +248,7 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return -EACCES;
 	for (i = 0; i < regs->vol_sel_cnt; i++) {
 		if (regs->vol_sel[i] == mv) {
-			ANA_REG_SET(regs->vol_ctl, vol_bits[i] << shft,
-				    regs->vol_ctl_bits);
+			ANA_REG_SET(regs->vol_ctl, i << shft, regs->vol_ctl_bits);
 			/*clear_bit(desc->desc.id, trimming_state); */
 			ret = 0;
 			break;
@@ -275,7 +274,10 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 		return -EACCES;
 
 	BUG_ON(regs->vol_sel_cnt != 4);
-	vol_bits = ((ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft);
+	i = vol_bits = ((ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft);
+	vol = regs->vol_sel[i];
+	debug2("regu %p (%s), voltage %d\n", regs, desc->desc.name, vol);
+	return vol * 1000;
 
 	if ((vol_bits & BIT(0)) ^ (vol_bits & BIT(1))
 	    && (vol_bits & BIT(2)) ^ (vol_bits & BIT(3))) {

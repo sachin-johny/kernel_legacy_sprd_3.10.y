@@ -1219,7 +1219,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			}
 			real_div = div;
 			div >>= 1;
-			if ((div % 2) != 0){
+			if ((real_div % 2) != 0){
 				div++;
 			}
 #if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC8830)
@@ -1237,7 +1237,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		real_div = div;
 		div >>= 1;
 #if defined(CONFIG_ARCH_SC8830)
-		if ((div % 2) != 0){
+		if ((real_div % 2) != 0){
 			div++;
 		}
 		if(div > 1) {
@@ -1651,9 +1651,15 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			else if (ios->timing == MMC_TIMING_UHS_DDR50){
 				ctrl_2 |= (SDHCI_CTRL_UHS_DDR50 << 16);
 				/* set write/read delay value . 0x0080, 0x0084, 0x0088*/
+			#if defined( CONFIG_MMC_SDHCI_SC8825 )
 				sdhci_writel(host, 0x18 , 0x0080);
 				sdhci_writel(host, 0x07 , 0x0084);
 				sdhci_writel(host, 0x05 , 0x0088);
+			#elif defined (CONFIG_MMC_SDHCI_SC8830)
+				sdhci_writel(host, 0x20 , 0x0080);
+				sdhci_writel(host, 0x07 , 0x0084);
+				sdhci_writel(host, 0x05 , 0x0088);
+			#endif
 			}
 			sdhci_writel(host, ctrl_2, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
@@ -2524,13 +2530,14 @@ static irqreturn_t sdhci_irq(int irq, void *dev_id)
 	}
 
 again:
+#if 0
 	DBG("*** %s got interrupt: 0x%08x\n",
 		mmc_hostname(host->mmc), intmask);
 
         /*
         * hot plug is not supported in our chip, we use gpio instead.
         */
-#if 0
+
 	if (intmask & (SDHCI_INT_CARD_INSERT | SDHCI_INT_CARD_REMOVE)) {
 		u32 present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
 			      SDHCI_CARD_PRESENT;

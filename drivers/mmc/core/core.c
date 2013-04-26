@@ -159,24 +159,24 @@ void mmc_request_done(struct mmc_host *host, struct mmc_request *mrq)
 
 		led_trigger_event(host->led, LED_OFF);
 
-		pr_debug("%s: req done (CMD%u): %d: %08x %08x %08x %08x\n",
-			mmc_hostname(host), cmd->opcode, err,
-			cmd->resp[0], cmd->resp[1],
-			cmd->resp[2], cmd->resp[3]);
+//		pr_debug("%s: req done (CMD%u): %d: %08x %08x %08x %08x\n",
+//			mmc_hostname(host), cmd->opcode, err,
+//			cmd->resp[0], cmd->resp[1],
+//			cmd->resp[2], cmd->resp[3]);
 
-		if (mrq->data) {
-			pr_debug("%s:     %d bytes transferred: %d\n",
-				mmc_hostname(host),
-				mrq->data->bytes_xfered, mrq->data->error);
-		}
+//		if (mrq->data) {
+//			pr_debug("%s:     %d bytes transferred: %d\n",
+//				mmc_hostname(host),
+//				mrq->data->bytes_xfered, mrq->data->error);
+//		}
 
-		if (mrq->stop) {
-			pr_debug("%s:     (CMD%u): %d: %08x %08x %08x %08x\n",
-				mmc_hostname(host), mrq->stop->opcode,
-				mrq->stop->error,
-				mrq->stop->resp[0], mrq->stop->resp[1],
-				mrq->stop->resp[2], mrq->stop->resp[3]);
-		}
+//		if (mrq->stop) {
+//			pr_debug("%s:     (CMD%u): %d: %08x %08x %08x %08x\n",
+//				mmc_hostname(host), mrq->stop->opcode,
+//				mrq->stop->error,
+//				mrq->stop->resp[0], mrq->stop->resp[1],
+//				mrq->stop->resp[2], mrq->stop->resp[3]);
+//		}
 
 		if (mrq->done)
 			mrq->done(mrq);
@@ -201,24 +201,24 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 			 mrq->sbc->arg, mrq->sbc->flags);
 	}
 
-	pr_debug("%s: starting CMD%u arg %08x flags %08x\n",
-		 mmc_hostname(host), mrq->cmd->opcode,
-		 mrq->cmd->arg, mrq->cmd->flags);
+//	pr_debug("%s: starting CMD%u arg %08x flags %08x\n",
+//		 mmc_hostname(host), mrq->cmd->opcode,
+//		 mrq->cmd->arg, mrq->cmd->flags);
 
-	if (mrq->data) {
-		pr_debug("%s:     blksz %d blocks %d flags %08x "
-			"tsac %d ms nsac %d\n",
-			mmc_hostname(host), mrq->data->blksz,
-			mrq->data->blocks, mrq->data->flags,
-			mrq->data->timeout_ns / 1000000,
-			mrq->data->timeout_clks);
-	}
+//	if (mrq->data) {
+//		pr_debug("%s:     blksz %d blocks %d flags %08x "
+//			"tsac %d ms nsac %d\n",
+//			mmc_hostname(host), mrq->data->blksz,
+//			mrq->data->blocks, mrq->data->flags,
+//			mrq->data->timeout_ns / 1000000,
+//			mrq->data->timeout_clks);
+//	}
 
-	if (mrq->stop) {
-		pr_debug("%s:     CMD%u arg %08x flags %08x\n",
-			 mmc_hostname(host), mrq->stop->opcode,
-			 mrq->stop->arg, mrq->stop->flags);
-	}
+//	if (mrq->stop) {
+//		pr_debug("%s:     CMD%u arg %08x flags %08x\n",
+//			 mmc_hostname(host), mrq->stop->opcode,
+//			 mrq->stop->arg, mrq->stop->flags);
+//	}
 
 	WARN_ON(!host->claimed);
 

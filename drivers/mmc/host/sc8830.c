@@ -294,8 +294,8 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 	if (((0 == strcmp(host_pdata->hw_name, "sprd-sdio1"))
 		|| ((0 == strcmp(host_pdata->hw_name, "sprd-sdio2"))))
 		&& ( 0 == sci_get_chip_id())/* chip id */){
-		host_pdata->clk_parent =  "ext_26m";
-		host_pdata->max_clock = 26000000;
+		host_pdata->clk_parent =  "clk_48m";
+		host_pdata->max_clock = 48000000;
 	}
 
 	/* Select the clk source of SDIO, default is 96MHz */
@@ -463,24 +463,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	printk("sdio: host->ioaddr:0x%x\n", (u32)host->ioaddr);
 	host->hw_name = (host_data->platdata->hw_name)?
 		host_data->platdata->hw_name:pdev->name;
-	switch(pdev->id) {
-	case 0:
-		host->mmc->pm_flags |= MMC_PM_ONLY_USED_SDIO0_SHARK;
-	       host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_180));
-	       host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-		break;
-	case 1:
-		break;
-	case 2:
-		host->mmc->caps |= MMC_CAP_8_BIT_DATA/* | MMC_CAP_1_8V_DDR*/;
-		break;
-	case 3:
-		host->mmc->caps |= MMC_CAP_8_BIT_DATA /* | MMC_CAP_1_8V_DDR*/;
-		break;
-	default:
-		BUG();
-		break;
-	}
 	host->ops = &sdhci_sprd_ops;
 	/*
 	 *   tiger don't have timeout value and cann't find card
@@ -526,6 +508,28 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 #endif
 	host->clk = NULL;
 	sdhci_module_init(host);
+
+	switch(pdev->id) {
+		case 0:
+			host->mmc->pm_flags |= MMC_PM_ONLY_USED_SDIO0_SHARK;
+			host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_180));
+			host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+			break;
+		case 1:
+			break;
+		case 2:
+			host->mmc->caps |= MMC_CAP_8_BIT_DATA/* | MMC_CAP_1_8V_DDR*/;
+			break;
+		case 3:
+			host->mmc->caps |= MMC_CAP_8_BIT_DATA ;//| MMC_CAP_1_8V_DDR;
+			host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
+			host->caps |= SDHCI_CAN_VDD_180;
+			host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+			break;
+		default:
+			BUG();
+			break;
+	}
 
 #ifdef CONFIG_PM_RUNTIME
 	ret = pm_runtime_set_active(&(pdev)->dev);
