@@ -81,6 +81,7 @@ static void __gptimer_set_mode(enum clock_event_mode mode,
 			       struct clock_event_device *c)
 {
 	unsigned int saved;
+
 	switch (mode) {
 	case CLOCK_EVT_MODE_PERIODIC:
 		__gptimer_ctl(EVENT_TIMER, TIMER_DISABLE, PERIOD_MODE);
@@ -205,16 +206,35 @@ static void __init __twd_init(void)
 #define __twd_init()	do { } while(0)
 #endif
 
+static int sched_clock_source_freq;
+static int gptimer_clock_source_freq;
+
 void __init sci_enable_timer_early(void)
 {
 	/* enable timer & syscnt in global regs */
+	u32 val = 26000000;
 #if defined(CONFIG_ARCH_SC8825)
+	sched_clock_source_freq = val;
+	gptimer_clock_source_freq = val;
 	sci_glb_set(REG_GLB_GEN0, BIT_TMR_EB | BIT_SYST0_EB);
+
 #elif defined(CONFIG_ARCH_SC8830)
-	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AP_TMR0_EB | BIT_AP_SYST_EB);
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AON_TMR_EB | BIT_AP_SYST_EB);
+
+	val = sci_glb_read(REG_AON_CLK_AON_APB_CFG, -1) & 0x3;
+	if (val == 0x1)
+		sched_clock_source_freq = 76800000;
+	else if (val == 0x2)
+		sched_clock_source_freq = 96000000;
+	else if (val == 0x3)
+		sched_clock_source_freq = 128000000;
+	else
+		sched_clock_source_freq = 26000000;//default setting
+
+	gptimer_clock_source_freq = sched_clock_source_freq;
 #endif
 #if !defined (CONFIG_ARM_ARCH_TIMER)
-	__sched_clock_init(26000000);
+	__sched_clock_init(sched_clock_source_freq);
 #endif
 }
 #ifdef CONFIG_ARM_ARCH_TIMER
@@ -238,12 +258,13 @@ static void __init __arch_timer_init(void)
 void __init sci_timer_init(void)
 {
 	/* setup timer2 and syscnt as clocksource */
-	__gptimer_clocksource_init("gptimer2", 26000000);
+	__gptimer_clocksource_init("gptimer2", gptimer_clock_source_freq);
 	__syscnt_clocksource_init("syscnt", 1000);
 
 	__twd_init();
 
 	__arch_timer_init();
+
 	/* setup timer1 as clockevent. */
 	sprd_gptimer_clockevent_init(IRQ_TIMER1_INT, "gptimer1", 32768);
 	printk("sci_timer_init\n");

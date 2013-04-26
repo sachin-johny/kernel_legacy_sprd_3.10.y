@@ -187,6 +187,6 @@ void __init ana_init_irq(void);
 
 
 /* redefined some MACROS for module code*/
-#define IRQ_TIMER1_INT			IRQ_APTMR1_INT
+#define IRQ_TIMER1_INT			IRQ_AONTMR0_INT
 
 #endif
