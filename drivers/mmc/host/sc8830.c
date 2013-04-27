@@ -521,7 +521,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 			host->mmc->caps |= MMC_CAP_8_BIT_DATA/* | MMC_CAP_1_8V_DDR*/;
 			break;
 		case 3:
-			host->mmc->caps |= MMC_CAP_8_BIT_DATA ;//| MMC_CAP_1_8V_DDR;
+			host->mmc->caps |= MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
 			host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
 			host->caps |= SDHCI_CAN_VDD_180;
 			host->quirks |= SDHCI_QUIRK_MISSING_CAPS;

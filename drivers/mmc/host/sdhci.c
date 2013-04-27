@@ -1920,6 +1920,12 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 	return err;
 }
 
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
+{
+	return 0;
+}
+#else
 static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	struct sdhci_host *host;
@@ -2114,6 +2120,7 @@ out:
 
 	return err;
 }
+#endif
 
 static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 {
@@ -2179,7 +2186,7 @@ static const struct mmc_host_ops sdhci_ops = {
 #endif
 	.enable_sdio_irq		= sdhci_enable_sdio_irq,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
-//	.execute_tuning			= sdhci_execute_tuning,
+	.execute_tuning			= sdhci_execute_tuning,
 	.enable_preset_value		= sdhci_enable_preset_value,
 };
 
