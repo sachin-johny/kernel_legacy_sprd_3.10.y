@@ -134,6 +134,7 @@ extern bool ap_fw_loaded;
 extern char iface_name[IFNAMSIZ];
 #endif
 
+extern int wl_cfg80211_is_associate(struct net_device *dev);
 /**
  * Local (static) functions and variables
  */
@@ -525,7 +526,12 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	}
 	else if (strnicmp(command, CMD_COUNTRY, strlen(CMD_COUNTRY)) == 0) {
 		char *country_code = command + strlen(CMD_COUNTRY) + 1;
-		bytes_written = wldev_set_country(net, country_code);
+		if(wl_cfg80211_is_associate(net)){
+			snprintf(command, 3, "OK");
+			bytes_written = strlen("OK");
+		}else {
+			bytes_written = wldev_set_country(net, country_code);
+		}
 	}
 #ifdef PNO_SUPPORT
 	else if (strnicmp(command, CMD_PNOSSIDCLR_SET, strlen(CMD_PNOSSIDCLR_SET)) == 0) {
