@@ -208,7 +208,11 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	if (update) {
 		pre_percentum = 0xffff;
+#ifdef CONFIG_ARCH_SC8830
+		return 100;
+#else
 		return 0;
+#endif
 	}
 
 	if (is_charging) {
@@ -317,7 +321,11 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	}
 
+#ifdef CONFIG_ARCH_SC8830
+	return 100;
+#else
 	return percentum;
+#endif
 }
 void __weak udc_enable(void)	{ }
 void __weak udc_phy_down(void)	{ }
