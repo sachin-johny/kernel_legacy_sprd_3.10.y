@@ -349,14 +349,14 @@ int32_t dcam_module_en(void)
 		bit_value = BIT_4 | BIT_6;
 		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CSI enable
 
-		bit_value = BIT_0 | BIT_1 | BIT_5 |BIT_7 | BIT_8 | BIT_9 | BIT_13;
+		bit_value = BIT_0 | BIT_7 | BIT_8 | BIT_9;
 		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
 		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
 
 		bit_value = BIT_0 | BIT_1 | BIT_3 | BIT_7 | BIT_8;
 		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
 
-		REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+		//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
 		REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
 
 	}
@@ -434,6 +434,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	return -rtn;
 }
 
+#if 0
 int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
@@ -564,7 +565,33 @@ int32_t _dcam_ccir_clk_dis(void)
 	}
 	return 0;
 }
+#else
+int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
+{
+	return 0;
+}
 
+int32_t _dcam_mipi_clk_en(void)
+{
+	return 0;
+}
+
+int32_t _dcam_mipi_clk_dis(void)
+{
+	return 0;
+}
+
+int32_t _dcam_ccir_clk_en(void)
+{
+	return 0;
+}
+
+int32_t _dcam_ccir_clk_dis(void)
+{
+	return 0;
+}
+
+#endif
 int32_t dcam_update_path(enum dcam_path_index path_index)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
@@ -2487,7 +2514,7 @@ LOCAL void    _path2_done(void)
 		return;
 	}
 
-	printk("DCAM 2\n");
+	DCAM_TRACE("DCAM 2\n");
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_2, false);
 	if (rtn) {

@@ -96,6 +96,39 @@
 		__raw_writel(_tmp | ((m) & (v)), (a)); \
 	}while(0)
 
+#define BIT_0                                          0x01
+#define BIT_1                                          0x02
+#define BIT_2                                          0x04
+#define BIT_3                                          0x08
+#define BIT_4                                          0x10
+#define BIT_5                                          0x20
+#define BIT_6                                          0x40
+#define BIT_7                                          0x80
+#define BIT_8                                          0x0100
+#define BIT_9                                          0x0200
+#define BIT_10                                         0x0400
+#define BIT_11                                         0x0800
+#define BIT_12                                         0x1000
+#define BIT_13                                         0x2000
+#define BIT_14                                         0x4000
+#define BIT_15                                         0x8000
+#define BIT_16                                         0x010000
+#define BIT_17                                         0x020000
+#define BIT_18                                         0x040000
+#define BIT_19                                         0x080000
+#define BIT_20                                         0x100000
+#define BIT_21                                         0x200000
+#define BIT_22                                         0x400000
+#define BIT_23                                         0x800000
+#define BIT_24                                         0x01000000
+#define BIT_25                                         0x02000000
+#define BIT_26                                         0x04000000
+#define BIT_27                                         0x08000000
+#define BIT_28                                         0x10000000
+#define BIT_29                                         0x20000000
+#define BIT_30                                         0x40000000
+#define BIT_31                                         0x80000000
+
 
 //#define LOCAL 				static
 #define LOCAL
@@ -226,6 +259,35 @@ LOCAL void _Sensor_K_kfree(void *p)
     return;
 }
 
+#ifdef CONFIG_ARCH_SC8830
+LOCAL uint16_t _adi_read_reg(uint32_t addr)
+{
+	uint32_t adi_rd_data;
+
+	REG_WR(SPRD_ADI_BASE + 0x24, addr);
+	do{
+		adi_rd_data = REG_RD(SPRD_ADI_BASE + 0x28);
+	}while(adi_rd_data & 0x80000000);
+
+	return (uint16_t)(adi_rd_data&0xffff);
+	
+}
+LOCAL void _sensor_set_ldo(void)
+{
+	uint32_t val;
+
+	//printk("aiden: _sensor_set_ldo start \n");
+	val = _adi_read_reg(SPRD_ADI_BASE+0x8828);
+	val &= ~0x3f;
+	val |= 0x10;
+	REG_WR(SPRD_ADI_BASE + 0x8828, val);
+
+	val = _adi_read_reg(SPRD_ADI_BASE+0x881c);
+	val &= ~(0xe0);
+	REG_WR(SPRD_ADI_BASE + 0x881c, val);
+}
+#endif
+
 LOCAL uint32_t Sensor_K_GetCurId(void)
 {
 	return g_sensor_id;
@@ -265,6 +327,39 @@ LOCAL int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
 	strcpy(info->type, client->name);
 	return 0;
 }
+
+#if defined(CONFIG_ARCH_SC8830)
+LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
+{
+	return 0;
+}
+
+LOCAL void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
+{
+}
+LOCAL int _sensor_regulator_enable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
+{
+	return 0;
+}
+LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
+{
+	return 0;
+}
+LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
+{
+	//_sensor_set_ldo();
+	return 0;
+}
+LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
+{
+	return 0;
+}
+LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
+{
+	return 0;
+}
+
+#else
 
 LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 {
@@ -667,6 +762,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 
 	return SENSOR_K_SUCCESS;
 }
+#endif
 
 LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 			     uint8_t * clk_div)
@@ -704,6 +800,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	return SENSOR_K_SUCCESS;
 }
 
+#if defined(CONFIG_ARCH_SC8825)
 LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 {
 	struct clk *clk_parent = NULL;
@@ -823,6 +920,12 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 
 	return 0;
 }
+#else
+LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
+{
+	return 0;
+}
+#endif
 LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 {
 	int err;
@@ -1613,9 +1716,30 @@ int __init sensor_k_init(void)
 		return SENSOR_K_FAIL;
 	}
 #ifdef CONFIG_ARCH_SC8830
-	REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
-	REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
-	REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
+	{
+		// aiden fpga
+		uint32_t bit_value;
+
+		REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
+		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
+		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
+
+		// 0x60d0_000
+		bit_value = BIT_6;
+		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CKG enable
+
+		bit_value = BIT_1;
+		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
+		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
+
+		bit_value = BIT_2 | BIT_7 | BIT_8;
+		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
+
+		REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+
+                _sensor_set_ldo();
+		printk("sensor_k_init: end \n");
+	}
 #endif
 	init_MUTEX(&g_sem_sensor);
 	mutex_init(&sensor_lock);

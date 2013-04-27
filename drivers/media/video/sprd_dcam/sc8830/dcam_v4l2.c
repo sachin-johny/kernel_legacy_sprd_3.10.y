@@ -1217,7 +1217,8 @@ LOCAL int v4l2_s_parm(struct file *file,
 	case PATH_FRM_DECI:
 		channel_id = streamparm->parm.capture.reserved[0];
 		path = &dev->dcam_cxt.dcam_path[channel_id];
-		path->path_frm_deci = streamparm->parm.capture.reserved[1];
+		//path->path_frm_deci = streamparm->parm.capture.reserved[1];
+		path->path_frm_deci = 0;//streamparm->parm.capture.reserved[1]; // aiden tmp changes
 		DCAM_TRACE("V4L2: channel %d, frm_deci=%d \n", channel_id, path->path_frm_deci);
 		break;
 		
