@@ -60,6 +60,7 @@
 #define KPLED_V_MSK             (0x07 << KPLED_V_SHIFT)
 #endif
 
+static int bk_suspend = 0;
 /* sprd keypad backlight */
 struct sprd_kb_led {
 	struct platform_device *dev;
@@ -101,11 +102,12 @@ static void Kb_SetBackLightBrightness( unsigned long  value)
 static void sprd_led_enable(struct sprd_kb_led *led)
 {
 	/* backlight on */
-	sci_adi_clr(KPLED_CTL, KPLED_PD_SET|KPLED_PD_RST);
-	sci_adi_set(KPLED_CTL, KPLED_PD_RST);
+	if(bk_suspend == 0){
+		sci_adi_clr(KPLED_CTL, KPLED_PD_SET|KPLED_PD_RST);
+		sci_adi_set(KPLED_CTL, KPLED_PD_RST);
 
-	Kb_SetBackLightBrightness(led->value);
-	
+		Kb_SetBackLightBrightness(led->value);
+	}
 	led->enabled = 1;
 }
 
@@ -165,6 +167,7 @@ static void sprd_led_early_suspend(struct early_suspend *es)
 {
 	struct sprd_kb_led *led = container_of(es, struct sprd_kb_led, early_suspend);
 	printk(KERN_INFO "sprd_led_early_suspend\n");
+	bk_suspend = 1;
 	sprd_led_disable(led);
 }
 
@@ -172,6 +175,7 @@ static void sprd_led_late_resume(struct early_suspend *es)
 {
  	struct sprd_kb_led *led = container_of(es, struct sprd_kb_led, early_suspend);
 	printk(KERN_INFO "sprd_led_late_resume\n");
+	bk_suspend = 0;
 	sprd_led_enable(led);
 }
 #endif
