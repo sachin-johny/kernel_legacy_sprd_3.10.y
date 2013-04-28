@@ -168,6 +168,7 @@ typedef struct sensor_mem_tag {
 LOCAL struct mutex sensor_lock;
 LOCAL wait_queue_head_t wait_queue_sensor;
 struct semaphore g_sem_sensor;
+LOCAL DEFINE_SPINLOCK(sensor_spin_lock);
 
 LOCAL uint32_t g_sensor_id 			= SENSOR_ID_MAX;
 
@@ -262,12 +263,17 @@ LOCAL void _Sensor_K_kfree(void *p)
 #ifdef CONFIG_ARCH_SC8830
 LOCAL uint16_t _adi_read_reg(uint32_t addr)
 {
-	uint32_t adi_rd_data;
+	uint32_t                adi_rd_data;
+	unsigned long           flag;
+
+	spin_lock_irqsave(&sensor_spin_lock, flag);
 
 	REG_WR(SPRD_ADI_BASE + 0x24, addr);
 	do{
 		adi_rd_data = REG_RD(SPRD_ADI_BASE + 0x28);
 	}while(adi_rd_data & 0x80000000);
+
+	spin_unlock_irqrestore(&sensor_spin_lock, flag);
 
 	return (uint16_t)(adi_rd_data&0xffff);
 	
@@ -1268,6 +1274,41 @@ sensor_k_writei2c_return:
 
 int sensor_k_open(struct inode *node, struct file *file)
 {
+#ifdef CONFIG_ARCH_SC8830
+	{
+		// aiden fpga
+		uint32_t bit_value;
+
+		printk("aiden: sensor_k_init: start enable module and set clock  \n");
+		// 0x60d0_000
+		bit_value = BIT_6;
+		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CKG enable
+		REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
+
+		bit_value = BIT_1;
+		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
+		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
+
+		bit_value = BIT_2 | BIT_3 | BIT_7 | BIT_8;
+		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
+
+		_sensor_set_ldo();
+		bit_value = BIT_4 | BIT_5;
+		REG_MWR(SPRD_PIN_BASE + 0x368, bit_value, 0);  // ccir mclk pin
+
+		REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+
+		bit_value = BIT_18;
+		REG_MWR(SPRD_APBREG_BASE, bit_value, bit_value);  // ccir clock enable
+
+		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
+		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
+
+		//REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xfff, 0x3);  	// MM AHB clock
+		printk("aiden: sensor_k_init: end \n");
+	}
+#endif
+
 	return 0;
 }
 
@@ -1718,40 +1759,6 @@ int __init sensor_k_init(void)
 		printk("platform device register Failed \n");
 		return SENSOR_K_FAIL;
 	}
-#ifdef CONFIG_ARCH_SC8830
-	{
-		// aiden fpga
-		uint32_t bit_value;
-
-		printk("aiden: sensor_k_init: start enable module and set clock  \n");
-		// 0x60d0_000
-		bit_value = BIT_6;
-		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CKG enable
-		REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
-
-		bit_value = BIT_1;
-		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
-		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
-
-		bit_value = BIT_2 | BIT_3 | BIT_7 | BIT_8;
-		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
-
-		_sensor_set_ldo();
-		bit_value = BIT_4 | BIT_5;
-		REG_MWR(SPRD_PIN_BASE + 0x368, bit_value, 0);  // ccir mclk pin
-
-		REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
-
-		bit_value = BIT_18;
-		REG_MWR(SPRD_APBREG_BASE, bit_value, bit_value);  // ccir clock enable
-		
-		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
-		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
-
-		//REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xfff, 0x3);  	// MM AHB clock
-		printk("aiden: sensor_k_init: end \n");
-	}
-#endif
 	init_MUTEX(&g_sem_sensor);
 	mutex_init(&sensor_lock);
 	return 0;

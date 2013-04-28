@@ -377,6 +377,32 @@ int32_t dcam_module_dis(void)
 		REG_AWR(DCAM_EB, ~DCAM_EB_BIT);
 		dcam_set_clk(DCAM_CLK_NONE);
 	}
+
+#if 1 // aiden debug
+	{
+		// aiden fpga
+		uint32_t bit_value;
+		// 0x60d0_000
+		printk("aiden: dcam_module_dis: start enable module and set clock  \n");
+
+
+		bit_value = BIT_0 | BIT_1 | BIT_5 | BIT_7 | BIT_8 | BIT_9;
+		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
+		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
+
+		bit_value = BIT_0 | BIT_1 | BIT_2 | BIT_3;
+		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, 0); // ckg_cfg
+
+		bit_value = BIT_0 | BIT_1| BIT_4;
+		REG_MWR(SPRD_MMAHB_BASE, bit_value, 0);  // CSI enable
+
+		//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+		//REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
+
+		printk("aiden: dcam_module_dis: end\n");
+	}
+#endif
+
 	return -rtn;
 }
 
