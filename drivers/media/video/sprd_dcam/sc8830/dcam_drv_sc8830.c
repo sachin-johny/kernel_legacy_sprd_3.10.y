@@ -1261,6 +1261,21 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 		break;
 	}
 
+	case DCAM_PATH_FRAME_BASE_ID:
+	{
+		struct dcam_frame *frame  = path->output_frame_head;
+		uint32_t          base_id = *(uint32_t*)param, i;
+
+		DCAM_CHECK_PARAM_ZERO_POINTER(param);
+
+		DCAM_TRACE("DCAM DRV: DCAM_PATH_FRAME_BASE_ID 0x%x \n", base_id);
+		for (i = 0; i < DCAM_FRM_CNT_MAX; i++) {
+			frame->fid = base_id + i;
+			frame = frame->next;
+		}
+		break;
+	}
+
 	case DCAM_PATH_FRM_DECI:
 	{
 		uint32_t deci_factor = *(uint32_t*)param;
@@ -2462,6 +2477,35 @@ LOCAL void    _cap_eof(void)
 
 LOCAL void    _path0_done(void)
 {
+	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
+	dcam_isr_func           user_func = s_dcam_mod.user_func[DCAM_TX_DONE];
+	void                    *data = s_dcam_mod.user_data[DCAM_TX_DONE];
+	struct dcam_path_desc   *path = &s_dcam_mod.dcam_path0;
+	struct dcam_frame       *frame = path->output_frame_cur->prev->prev;
+
+	if (0 == s_dcam_mod.dcam_path2.valide) {
+		DCAM_TRACE("DCAM DRV: path2 works not for capture \n");
+		return;
+	}
+
+	DCAM_TRACE("DCAM 0\n");
+
+	rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_0, false);
+	if (rtn) {
+		DCAM_TRACE("DCAM DRV: path 0 wait for frame unlocked \n");
+		return;
+	}
+	_dcam_auto_copy(DCAM_PATH_IDX_0);
+
+	frame->width = path->output_size.w;
+	frame->height = path->output_size.h;
+	
+
+	if(user_func)
+	{
+		(*user_func)(frame, data);
+	}
+	return;
 }
 
 LOCAL void    _path0_overflow(void)
@@ -2544,7 +2588,7 @@ LOCAL void    _path2_done(void)
 		return;
 	}
 
-	printk("DCAM 2\n");
+	DCAM_TRACE("DCAM 2\n");
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_2, false);
 	if (rtn) {

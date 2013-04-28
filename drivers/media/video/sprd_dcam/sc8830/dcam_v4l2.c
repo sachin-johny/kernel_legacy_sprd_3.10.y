@@ -388,6 +388,33 @@ LOCAL uint32_t sprd_v4l2_endian_sel(uint32_t fourcc, struct dcam_path_spec *path
 	return depth;
 }
 
+LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
+					struct v4l2_format *f,
+					struct dcam_info   *info)
+{
+	struct dcam_path_spec    *path = &info->dcam_path[DCAM_PATH0];
+
+	DCAM_TRACE("V4L2: check format for path0 \n");
+	if (unlikely(V4L2_BUF_TYPE_VIDEO_OUTPUT != f->type)) {
+		printk("V4L2: unsupported video type, 0x%x \n", f->type);
+		return -EINVAL;
+	}
+
+	path->frm_type = f->type;
+	path->is_work = 0;
+
+	switch (fourcc) {
+	case V4L2_PIX_FMT_GREY:
+	case V4L2_PIX_FMT_JPEG:
+		path->out_fmt = 0; // 0 - word, 1 - half word
+		break;
+	default:
+		printk("V4L2: unsupported image format for path0 0x%x \n", fourcc);
+		return -EINVAL;
+	}
+	path->is_work = 1;
+}
+
 LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 					struct v4l2_format *f,
 					struct dcam_info   *info)
@@ -842,12 +869,14 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == frame->type) {
 		path = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 
-	} else {
+	} else if (V4L2_BUF_TYPE_PRIVATE == frame->type) {
 		path = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 		if (DCAM_CAP_MODE_JPEG == dev->dcam_cxt.sn_mode) {
 			dcam_cap_get_info(DCAM_CAP_JPEG_GET_LENGTH, &node.reserved);
 			DCAM_TRACE("V4L2: sprd_v4l2_tx_done, JPEG length 0x%x \n", node.reserved);
 		}
+	} else {
+		path = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 	}
 	fmr_index = frame->fid - path->frm_id_base;
 	if (fmr_index >= path->frm_cnt_act) {
@@ -943,6 +972,42 @@ LOCAL int sprd_v4l2_tx_stop(void* param)
 
 	return ret;
 }
+LOCAL int sprd_v4l2_path0_cfg(path_cfg_func path_cfg,
+				struct dcam_path_spec* path_spec)
+{
+	int                      ret = DCAM_RTN_SUCCESS;
+	uint32_t                 param, i;
+
+	if (NULL == path_cfg || NULL == path_spec)
+		return -EINVAL;
+
+	ret = path_cfg(DCAM_PATH_INPUT_SIZE, &path_spec->in_size);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_OUTPUT_FORMAT, &path_spec->out_fmt);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_FRAME_BASE_ID, &path_spec->frm_id_base);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_FRAME_TYPE, &path_spec->frm_type);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_FRM_DECI, &path_spec->path_frm_deci);
+	V4L2_RTN_IF_ERR(ret);
+
+	for (i = 0; i < path_spec->frm_cnt_act; i++) {
+		ret = path_cfg(DCAM_PATH_OUTPUT_ADDR, &path_spec->frm_addr[i]);
+		V4L2_RTN_IF_ERR(ret);
+	}
+
+	param = 1;
+	ret = path_cfg(DCAM_PATH_ENABLE, &param);
+
+exit:
+	return ret;
+}
+
 LOCAL int sprd_v4l2_path_cfg(path_cfg_func path_cfg,
 				struct dcam_path_spec* path_spec)
 {
@@ -1047,11 +1112,19 @@ LOCAL int sprd_v4l2_local_deinit(struct dcam_dev *dev)
 		return -EINVAL;
 	}
 	path->frm_cnt_act = 0;
+
 	path = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 	if (unlikely(NULL == path))
 		return -EINVAL;
 	path->is_work = 0;
 	path->frm_cnt_act = 0;
+
+	path = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
+	if (unlikely(NULL == path))
+		return -EINVAL;
+	path->is_work = 0;
+	path->frm_cnt_act = 0;
+
 	DCAM_TRACE("V4L2: sprd_v4l2_local_deinit, frm_cnt_act %d \n", path->frm_cnt_act);
 
 	return 0;
@@ -1287,7 +1360,8 @@ LOCAL int v4l2_s_crop(struct file *file,
 	uint32_t                 i;
 
 	if (unlikely(crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
-		unlikely(crop->type != V4L2_BUF_TYPE_PRIVATE))
+		unlikely(crop->type != V4L2_BUF_TYPE_PRIVATE) &&
+		unlikely(crop->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
 		return -EINVAL;
 
 	if (unlikely(crop->c.left < 0 || crop->c.top < 0))
@@ -1309,9 +1383,12 @@ LOCAL int v4l2_s_crop(struct file *file,
 	if(crop->type == V4L2_BUF_TYPE_VIDEO_CAPTURE){
 		input_size = &dev->dcam_cxt.dcam_path[DCAM_PATH1].in_size;
 		input_rect = &dev->dcam_cxt.dcam_path[DCAM_PATH1].in_rect;
-	}else{
+	}else if (crop->type == V4L2_BUF_TYPE_PRIVATE){
 		input_size = &dev->dcam_cxt.dcam_path[DCAM_PATH2].in_size;
 		input_rect = &dev->dcam_cxt.dcam_path[DCAM_PATH2].in_rect;
+	}else{
+		input_size = &dev->dcam_cxt.dcam_path[DCAM_PATH0].in_size;
+		input_rect = &dev->dcam_cxt.dcam_path[DCAM_PATH0].in_rect;
 	}
 	input_size->w = dev->dcam_cxt.cap_out_size.w;
 	input_size->h = dev->dcam_cxt.cap_out_size.h;
@@ -1353,10 +1430,12 @@ LOCAL int  v4l2_g_crop(struct file *file,
 		dev->dcam_cxt.cap_in_rect.w,
 		dev->dcam_cxt.cap_in_rect.h);
 
-	if (crop->type == V4L2_BUF_TYPE_VIDEO_CAPTURE) {
+	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == crop->type) {
 		rect = &dev->dcam_cxt.dcam_path[DCAM_PATH1].in_rect;
-	} else {
+	} else if (V4L2_BUF_TYPE_PRIVATE == crop->type) {
 		rect = &dev->dcam_cxt.dcam_path[DCAM_PATH2].in_rect;
+	} else {
+		rect = &dev->dcam_cxt.dcam_path[DCAM_PATH0].in_rect;
 	}
 	crop->c.left   = (int)rect->x;
 	crop->c.top    = (int)rect->y;
@@ -1442,6 +1521,10 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 			/*failed to set path2, release the controller of resizer*/
 			dcam_rel_resizer();
 		}
+	} else if (V4L2_BUF_TYPE_VIDEO_OUTPUT == f->type){
+		mutex_lock(&dev->dcam_mutex);
+		ret = sprd_v4l2_check_path0_cap(fmt->fourcc, f, &dev->dcam_cxt);
+		mutex_unlock(&dev->dcam_mutex);
 	} else {
 		printk("V4L2: Buf type invalid. \n");
 		return -EINVAL;
@@ -1476,6 +1559,9 @@ LOCAL int v4l2_qbuf(struct file *file,
 	} else if (V4L2_BUF_TYPE_PRIVATE == p->type) {
 		path = &info->dcam_path[DCAM_PATH2];
 		path_cnt = DCAM_PATH_2_FRM_CNT_MAX;
+	} else if (V4L2_BUF_TYPE_VIDEO_OUTPUT == p->type){
+		path = &info->dcam_path[DCAM_PATH0];
+		path_cnt = DCAM_PATH_0_FRM_CNT_MAX;
 	} else {
 		printk("V4L2 error: v4l2_qbuf, type 0x%x \n", p->type);
 		return -EINVAL;
@@ -1561,9 +1647,10 @@ LOCAL int v4l2_dqbuf(struct file *file,
 	p->sequence = node.reserved;
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == p->type) {
 		path = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
-
-	} else {
+	} else if (V4L2_BUF_TYPE_PRIVATE == p->type) {
 		path = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
+	} else {
+		path = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 	}
 
 	memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
@@ -1580,6 +1667,7 @@ LOCAL int v4l2_streamon(struct file *file,
 	struct dcam_dev          *dev = video_drvdata(file);
 	int                      ret = DCAM_RTN_SUCCESS;
 	uint32_t                 i;
+	struct dcam_path_spec    *path_0 = NULL;
 	struct dcam_path_spec    *path_1 = NULL;
 	struct dcam_path_spec    *path_2 = NULL;
 
@@ -1587,9 +1675,10 @@ LOCAL int v4l2_streamon(struct file *file,
 	
 	mutex_lock(&dev->dcam_mutex);
 
+	path_0 = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
-	printk("path_1->is_work, path_2->is_work %d %d \n", path_1->is_work, path_2->is_work);
+	printk("path_0->is_work, path_1->is_work, path_2->is_work %d %d %d\n", path_0->is_work, path_1->is_work, path_2->is_work);
 	/* config CSI2 host firstly */
 	if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
 		ret = csi_api_init();
@@ -1635,6 +1724,15 @@ LOCAL int v4l2_streamon(struct file *file,
 		V4L2_RTN_IF_ERR(ret);
 	}
 
+	if (path_0->is_work) {
+		ret = sprd_v4l2_path0_cfg(dcam_path0_cfg, path_0);
+		V4L2_RTN_IF_ERR(ret);
+		path_0->status = PATH_RUN;
+	} else {
+		ret = dcam_path0_cfg(DCAM_PATH_ENABLE, &path_0->is_work);
+		V4L2_RTN_IF_ERR(ret);
+	}
+
 	ret = dcam_start();
 	atomic_set(&dev->stream_on, 1);
 exit:
@@ -1657,6 +1755,7 @@ LOCAL int v4l2_streamoff(struct file *file,
 {
 	struct dcam_dev          *dev = video_drvdata(file);
 	int                      ret = DCAM_RTN_SUCCESS;
+	struct dcam_path_spec    *path_0 = NULL;
 	struct dcam_path_spec    *path_1 = NULL;
 	struct dcam_path_spec    *path_2 = NULL;
 
@@ -1665,6 +1764,7 @@ LOCAL int v4l2_streamoff(struct file *file,
 
 	mutex_lock(&dev->dcam_mutex);
 
+	path_0 = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 
@@ -1688,6 +1788,12 @@ LOCAL int v4l2_streamoff(struct file *file,
 		V4L2_PRINT_IF_ERR(ret);
 		path_2->status = PATH_IDLE;
 		dcam_rel_resizer();
+	}
+
+	if (path_0->is_work) {
+		ret = dcam_stop_path(DCAM_PATH_IDX_0);
+		V4L2_PRINT_IF_ERR(ret);
+		path_0->status = PATH_IDLE;
 	}
 
 	atomic_set(&dev->stream_on, 0);
@@ -1846,21 +1952,26 @@ LOCAL int v4l2_streamresume(struct file *file, void *priv,
 
 	if (PATH_IDLE == path->status) {
 		if (path->is_work) {
-			if(DCAM_PATH0 == channel_id){
-			}else if(DCAM_PATH1 == channel_id){
+			if (DCAM_PATH0 == channel_id) {
+				path_cfg = dcam_path0_cfg;
+			}else if (DCAM_PATH1 == channel_id) {
 				path_cfg = dcam_path1_cfg;
-			}else if(DCAM_PATH2 == channel_id){
+			}else if (DCAM_PATH2 == channel_id) {
 				path_cfg = dcam_path2_cfg;
 				if (unlikely(dcam_get_resizer(0))) {
 					/*no wait to get the controller of resizer, failed*/
 					printk("V4L2: v4l2_streamresume, path2 has been occupied by other app \n");
 					return -EIO;
 				}
-			}else{
+			} else {
 				printk("V4L2: v4l2_streamresume, invalid channel_id=0x%x \n", channel_id);
 			}
 
-			ret = sprd_v4l2_path_cfg(path_cfg, path);
+			if(DCAM_PATH0 == channel_id) {
+				ret = sprd_v4l2_path0_cfg(path_cfg, path);
+			} else {
+				ret = sprd_v4l2_path_cfg(path_cfg, path);
+			}
 			V4L2_RTN_IF_ERR(ret);
 
 			ret = dcam_start_path(path_index);
@@ -1986,6 +2097,15 @@ LOCAL int sprd_init_handle(struct file *file)
 	}
 	path->frm_cnt_act = 0;
 	path->status = PATH_IDLE;
+
+	path = &info->dcam_path[DCAM_PATH0];
+	if (NULL == path) {
+		printk("V4L2:init path 0 fail \n");
+		return -EINVAL;
+	}
+	path->frm_cnt_act = 0;
+	path->status = PATH_IDLE;
+
 	return 0;
 }
 
