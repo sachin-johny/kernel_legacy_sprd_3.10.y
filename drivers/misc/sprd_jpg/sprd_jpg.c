@@ -103,22 +103,13 @@ struct clock_name_map_t{
 	char *name;
 };
 
-#if defined(CONFIG_ARCH_SC8825)
 static struct clock_name_map_t clock_name_map[] = {
-						{192000000,"clk_192m"},
-						{153600000,"clk_153p6m"},
-						{64000000,"clk_64m"},
-						{48000000,"clk_48m"}
+						{256000000,"clk_256m"},
+						{192000000,"clk_192p6m"},
+						{128000000,"clk_128m"},
+						{76800000,"clk_76m8"}
 						};
 
-#else
-static struct clock_name_map_t clock_name_map[] = {
-						{153600000,"l3_153m600k"},
-						{128000000,"clk_128m"},
-						{64000000,"clk_64m"},
-						{48000000,"clk_48m"}
-						};
-#endif
 static int max_freq_level = ARRAY_SIZE(clock_name_map);
 
 static char *jpg_get_clk_src_name(unsigned int freq_level)
