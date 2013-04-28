@@ -445,6 +445,8 @@ static int jpg_probe(struct platform_device *pdev)
 		//cmd0 = __raw_readl(DCAM_CLOCK_EN);//,"DCAM_CLOCK_EN:Read the DCAM_CLOCK_EN ");
 		//cmd0 = 0xFFFFFFFF;
 		//__raw_writel(cmd0,DCAM_CLOCK_EN);//"DCAM_CLOCK_EN:enable DCAM_CLOCK_EN");
+        __raw_writel((1<<6)|(1<<5), SPRD_MMAHB_BASE + 0x0);	
+        __raw_writel((1<<8)|(1<<7)|(1<<6), SPRD_MMAHB_BASE + 0x8);	
 
 #endif
 
