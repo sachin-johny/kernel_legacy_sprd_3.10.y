@@ -19,7 +19,7 @@
 
 #define CSI2_EB              (SPRD_MMAHB_BASE)
 #define CSI2_EB_BIT          (1 << 4)
-#define CSI2_RST             (SPRD_AHB_BASE + 0x4)
+#define CSI2_RST             (SPRD_MMAHB_BASE + 0x4)
 #define CSI2_RST_BIT         (1 << 5)
 
 
