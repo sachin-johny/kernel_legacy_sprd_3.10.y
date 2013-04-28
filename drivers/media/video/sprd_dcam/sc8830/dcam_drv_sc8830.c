@@ -346,6 +346,8 @@ int32_t dcam_module_en(void)
 		// aiden fpga
 		uint32_t bit_value;
 		// 0x60d0_000
+		printk("aiden: dcam_module_en: start enable module and set clock  \n");
+		
 		bit_value = BIT_4 | BIT_6;
 		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CSI enable
 
@@ -358,6 +360,8 @@ int32_t dcam_module_en(void)
 
 		//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
 		REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
+
+		printk("aiden: dcam_module_en: end\n");
 
 	}
 /*MODULE_EN_END:*/
@@ -2514,7 +2518,7 @@ LOCAL void    _path2_done(void)
 		return;
 	}
 
-	DCAM_TRACE("DCAM 2\n");
+	printk("DCAM 2\n");
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_2, false);
 	if (rtn) {

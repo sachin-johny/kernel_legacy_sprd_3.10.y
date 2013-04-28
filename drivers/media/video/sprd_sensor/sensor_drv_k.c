@@ -276,7 +276,7 @@ LOCAL void _sensor_set_ldo(void)
 {
 	uint32_t val;
 
-	//printk("aiden: _sensor_set_ldo start \n");
+	printk("aiden: _sensor_set_ldo start \n");
 	val = _adi_read_reg(SPRD_ADI_BASE+0x8828);
 	val &= ~0x3f;
 	val |= 0x10;
@@ -285,6 +285,9 @@ LOCAL void _sensor_set_ldo(void)
 	val = _adi_read_reg(SPRD_ADI_BASE+0x881c);
 	val &= ~(0xe0);
 	REG_WR(SPRD_ADI_BASE + 0x881c, val);
+
+	printk("aiden: _sensor_set_ldo end 1 \n");
+	printk("aiden: _sensor_set_ldo end 1 \n");
 }
 #endif
 
@@ -347,7 +350,6 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 }
 LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 {
-	//_sensor_set_ldo();
 	return 0;
 }
 LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
@@ -923,6 +925,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 #else
 LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 {
+	printk("aiden: no _Sensor_K_SetMCLK,  mclk = %d =0x%x \n", mclk, mclk);
 	return 0;
 }
 #endif
@@ -1720,25 +1723,33 @@ int __init sensor_k_init(void)
 		// aiden fpga
 		uint32_t bit_value;
 
-		REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
-		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
-		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
-
+		printk("aiden: sensor_k_init: start enable module and set clock  \n");
 		// 0x60d0_000
 		bit_value = BIT_6;
 		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CKG enable
+		REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
 
 		bit_value = BIT_1;
 		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
 		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
 
-		bit_value = BIT_2 | BIT_7 | BIT_8;
+		bit_value = BIT_2 | BIT_3 | BIT_7 | BIT_8;
 		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
+
+		_sensor_set_ldo();
+		bit_value = BIT_4 | BIT_5;
+		REG_MWR(SPRD_PIN_BASE + 0x368, bit_value, 0);  // ccir mclk pin
 
 		REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
 
-                _sensor_set_ldo();
-		printk("sensor_k_init: end \n");
+		bit_value = BIT_18;
+		REG_MWR(SPRD_APBREG_BASE, bit_value, bit_value);  // ccir clock enable
+		
+		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
+		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
+
+		//REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xfff, 0x3);  	// MM AHB clock
+		printk("aiden: sensor_k_init: end \n");
 	}
 #endif
 	init_MUTEX(&g_sem_sensor);
