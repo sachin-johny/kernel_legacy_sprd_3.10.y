@@ -33,8 +33,18 @@
 #include <linux/delay.h>
 #include <linux/proc_fs.h>
 #include <video/isp_drv_kernel.h>
-#include "Tiger_reg_isp.h"
+
 #include <asm/cacheflush.h>
+
+#if defined(CONFIG_ARCH_SC8830)
+#include "Shark_reg_isp.h"
+#elif defined(CONFIG_ARCH_SC8825)
+#include "Tiger_reg_isp.h"
+#else
+#error "Unknown architecture specification"
+#endif
+
+
 
 #define DEBUG_ISP_DRV
 #ifdef DEBUG_ISP_DRV
@@ -157,10 +167,16 @@ static int32_t _isp_module_eb(void)
 {
 	int32_t ret = 0;
 	uint32_t value=0x00;
+
+	ISP_PRINT("_isp_module_eb: clk_eb = 0x%x, en = 0x%x\n", ISP_CORE_CLK_EB, ISP_MODULE_EB);
+
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
 		ISP_OWR(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 		ISP_OWR(ISP_MODULE_EB, ISP_EB_BIT);
 	}
+
+	ISP_PRINT("_isp_module_eb: exit\n");
+
 	return ret;
 }
 
@@ -179,20 +195,49 @@ static int32_t _isp_module_rst(void)
 {
 	int32_t	ret = 0;
 	uint32_t reg_value=0x00;
+	int i =0;
+
+	ISP_PRINT("_isp_module_rst: axi master = 0x%x, reset = 0x%x, int clear = 0x%x\n",
+			ISP_AXI_MASTER, ISP_MODULE_RESET, ISP_INT_CLEAR);
 
 	if (0x00 != atomic_read(&s_isp_users)) {
+
+		ISP_OWR(ISP_AXI_MASTER_STOP, BIT_0);
 		reg_value=ISP_READL(ISP_AXI_MASTER);
+		//ISP_PRINT("_isp_module_rst: read axi = %d\n", reg_value);
 		while(0x00==(reg_value&0x08))
 		{
+			i++;
 			msleep(1);
 			reg_value=ISP_READL(ISP_AXI_MASTER);
+			//ISP_PRINT("_isp_module_rst: read axi = %d, i=%d\n", reg_value, i);
 		}
+
 		ISP_WRITEL(ISP_INT_CLEAR, 0x0fff);
+
+#if defined(CONFIG_ARCH_SC8830)
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
+		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_LOG_BIT);
+
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
+		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_CFG_BIT);
+#elif defined(CONFIG_ARCH_SC8825)
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
 		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_BIT);
+#else
+#error "Unknown architecture specification"
+#endif
+
 	}
+
+	ISP_PRINT("_isp_module_rst: exit\n");
+
 	return ret;
 }
 
@@ -216,13 +261,13 @@ static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t c
 
 		reg_value=ISP_READL(ISP_INT_RAW);
 
-		while(0x00==(reg_value&ISP_INT_LEN_S_LOAD))
+		while(0x00==(reg_value&ISP_INT_LENS_LOAD))
 		{
 			msleep(1);
 			reg_value=ISP_READL(ISP_INT_RAW);
 		}
 
-		ISP_OWR(ISP_INT_CLEAR, ISP_INT_LEN_S_LOAD);
+		ISP_OWR(ISP_INT_CLEAR, ISP_INT_LENS_LOAD);
 	}else {
 		ISP_PRINT("ISP_RAW: isp load lnc param error\n");
 	}
@@ -297,6 +342,15 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 static int32_t _isp_set_clk(enum isp_clk_sel clk_sel)
 {
 	int32_t       rtn = 0;
+
+#if defined(CONFIG_ARCH_SC8830)
+	ISP_WRITEL(ISP_CLOCK, 0x3);
+
+	ISP_PRINT("_isp_set_clk, isp clk: 0x%x, dcam clk: 0x%x, ahb clk: 0x%x",
+				ISP_READL(ISP_CLOCK), ISP_READL(ISP_CLOCK_BASE + 0x2c),
+				ISP_READL(ISP_CLOCK_BASE + 0x20));
+#endif
+
 	return rtn;
 }
 
@@ -531,8 +585,20 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 		return ret;
 	}
 
+	_isp_set_clk(0);
+
 	g_isp_device.reg_base_addr = (uint32_t)ISP_BASE_ADDR;
 	g_isp_device.size = ISP_REG_MAX_SIZE;
+
+	ISP_PRINT ("isp_k: base addr = 0x%x, size = %d \n", g_isp_device.reg_base_addr, 
+			g_isp_device.size);
+
+	ISP_PRINT("isp_k: 0x60d00000 = (0x%x, 0x%x, 0x%x)\n",
+				ISP_READL(ISP_MODULE_EB), ISP_READL(ISP_MODULE_RESET),
+					ISP_READL(ISP_CORE_CLK_EB));
+	ISP_PRINT("isp_k:(0x71300000, 0x%x), (0x60e00034, 0x%x)\n",
+				ISP_READL(SPRD_APBREG_BASE), ISP_READL(SPRD_MMCKG_BASE + 0x34));
+
 	ret = _isp_queue_init(&(g_isp_device.queue));
 
 	ISP_PRINT ("isp_k: open finished \n");
@@ -911,12 +977,17 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 
 	if(ISP_IO_IRQ==cmd)
 	{
+		uint32_t reg_value = 0;
+
 		ret = down_interruptible(&g_isp_device.sem_isr);
 		if (ret) {
 			ret = -ERESTARTSYS;
 			goto ISP_IOCTL_EXIT;
 		}
 		ret=_isp_queue_read(&g_isp_device.queue, &isp_node);
+		ISP_PRINT("isp_k: ioctl irq: _isp_queue_read , irq = 0x%x, 0x%x\n", isp_node.isp_irq_val, isp_node.dcam_irq_val);
+		reg_value=ISP_READL(ISP_BASE_ADDR + 0x2078);
+		ISP_PRINT("isp_k:0x2078= 0x%x\n", reg_value);
 		if ( 0 != ret) {
 
 			ISP_PRINT("isp_k: ioctl irq: _isp_queue_read error, ret = 0x%x", ret);

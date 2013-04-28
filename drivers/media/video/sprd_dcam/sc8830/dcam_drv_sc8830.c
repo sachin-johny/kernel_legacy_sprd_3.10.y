@@ -360,6 +360,8 @@ int32_t dcam_module_en(void)
 
 		//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
 		REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
+		s
+		REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xf, 0x3);  // ahb clock: 76, 128, 192, 256
 
 		printk("aiden: dcam_module_en: end\n");
 
