@@ -2297,12 +2297,10 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	/* Power */
 	{"DA Clk", NULL, "Analog Power"},
 	{"DA Clk", NULL, "Digital Power"},
-	{"DAC", NULL, "DA Clk"},
 
 	{"AD IBUF", NULL, "Analog Power"},
 	{"AD Clk", NULL, "Digital Power"},
 	{"AD Clk", NULL, "AD IBUF"},
-	{"ADC", NULL, "AD Clk"},
 
 	{"ADCL PGA", NULL, "AD IBUF"},
 	{"ADCR PGA", NULL, "AD IBUF"},
@@ -2315,8 +2313,6 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"EAR Switch", NULL, "DRV Clk"},
 
 	/* Playback */
-	{"Digital DACL Switch", NULL, "DAC"},
-	{"Digital DACR Switch", NULL, "DAC"},
 	{"ADie Digital DACL Switch", NULL, "Digital DACL Switch"},
 	{"ADie Digital DACR Switch", NULL, "Digital DACR Switch"},
 	{"DACL Mute", NULL, "ADie Digital DACL Switch"},
@@ -2401,8 +2397,7 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"ADie Digital ADCR Switch", NULL, "ADCR Switch"},
 	{"Digital ADCL Switch", NULL, "ADie Digital ADCL Switch"},
 	{"Digital ADCR Switch", NULL, "ADie Digital ADCR Switch"},
-	{"ADC", NULL, "Digital ADCL Switch"},
-	{"ADC", NULL, "Digital ADCR Switch"},
+
 	{"Mic Bias", NULL, "MIC"},
 	{"AuxMic Bias", NULL, "AUXMIC"},
 	{"HeadMic Bias", NULL, "HPMIC"},
@@ -3097,13 +3092,6 @@ static __devinit int sprd_codec_probe(struct platform_device *pdev)
 
 	atomic_set(&sprd_codec->power_refcount, 0);
 
-	ret = snd_soc_register_codec(&pdev->dev,
-				     &soc_codec_dev_sprd_codec, sprd_codec_dai,
-				     ARRAY_SIZE(sprd_codec_dai));
-	if (ret != 0) {
-		pr_err("Failed to register CODEC: %d\n", ret);
-		return ret;
-	}
 #ifdef CONFIG_SPRD_CODEC_USE_INT
 	sprd_codec->ap_irq = CODEC_AP_IRQ;
 
@@ -3126,6 +3114,14 @@ static __devinit int sprd_codec_probe(struct platform_device *pdev)
 	}
 #endif
 
+	ret = snd_soc_register_codec(&pdev->dev,
+				     &soc_codec_dev_sprd_codec, sprd_codec_dai,
+				     ARRAY_SIZE(sprd_codec_dai));
+	if (ret != 0) {
+		pr_err("Failed to register CODEC: %d\n", ret);
+		return ret;
+	}
+
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
 	return 0;
@@ -3134,7 +3130,6 @@ static __devinit int sprd_codec_probe(struct platform_device *pdev)
 dp_err_irq:
 	free_irq(sprd_codec->ap_irq, sprd_codec);
 err_irq:
-	snd_soc_unregister_codec(&pdev->dev);
 	return -EINVAL;
 #endif
 }

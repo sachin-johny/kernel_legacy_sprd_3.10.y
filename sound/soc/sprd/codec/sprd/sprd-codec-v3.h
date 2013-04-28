@@ -374,7 +374,7 @@
 #define IFR4_IFR3			(SPRD_CODEC_AP_BASE + 0x00CC)
 /* 0x00D0 ~ 0x00D8 is reserved */
 
-#define SPRD_CODEC_AP_END		(SPRD_CODEC_AP_BASE + 0x00CC)
+#define SPRD_CODEC_AP_END		(SPRD_CODEC_AP_BASE + 0x00D0)
 #define IS_SPRD_CODEC_AP_RANG(reg) (((reg) >= SPRD_CODEC_AP_BASE) && ((reg) < SPRD_CODEC_AP_END))
 
 #define SPRD_CODEC_IIS1_ID   1

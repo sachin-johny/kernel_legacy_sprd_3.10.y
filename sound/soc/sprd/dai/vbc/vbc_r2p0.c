@@ -158,11 +158,11 @@ static struct vbc_priv vbc[3];
 static struct clk *s_vbc_clk = 0;
 static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 	.name = "VBC PCM Stereo out",
-	.workmode = DMA_LINKLIST,  /*no use*/
+	.workmode = DMA_LINKLIST,	/*no use */
 	.irq_type = BLK_DONE,
 	.desc = {
 		 .datawidth = SHORT_WIDTH,
-		 .fragmens_len =  VBC_FIFO_FRAME_NUM *2,
+		 .fragmens_len = VBC_FIFO_FRAME_NUM * 2,
 		 .src_step = 2,
 		 .des_step = 0,
 		 },
@@ -178,10 +178,10 @@ static struct sprd_pcm_dma_params vbc_pcm_stereo_in = {
 	.workmode = DMA_LINKLIST,
 	.irq_type = BLK_DONE,
 	.desc = {
-		.datawidth = SHORT_WIDTH,
-		.fragmens_len =  VBC_FIFO_FRAME_NUM *2,
-		.src_step = 0,
-		.des_step = 2,
+		 .datawidth = SHORT_WIDTH,
+		 .fragmens_len = VBC_FIFO_FRAME_NUM * 2,
+		 .src_step = 0,
+		 .des_step = 2,
 		 },
 	.dev_paddr = {PHYS_VBAD0, PHYS_VBAD1},
 };
@@ -191,10 +191,10 @@ static struct sprd_pcm_dma_params vbc_pcm23_stereo_in = {
 	.workmode = DMA_LINKLIST,
 	.irq_type = BLK_DONE,
 	.desc = {
-		.datawidth = SHORT_WIDTH,
-		.fragmens_len =  VBC_FIFO_FRAME_NUM *2,
-		.src_step = 0,
-		.des_step = 2,
+		 .datawidth = SHORT_WIDTH,
+		 .fragmens_len = VBC_FIFO_FRAME_NUM * 2,
+		 .src_step = 0,
+		 .des_step = 2,
 		 },
 	.dev_paddr = {PHYS_VBAD2, PHYS_VBAD3},
 };
@@ -619,10 +619,6 @@ static void digtal_fm_input_enable(int enable)
 	/*SRC set */
 	vbc_dac_src_enable(enable);	/*todo:maybe we need to reserve SRC value */
 
-	/*DAC FM Mixer enable */
-	vbc_dac0_fm_mixer(enable ? DAPATH_ADD_FM : DAPATH_NO_MIX);
-	vbc_dac1_fm_mixer(enable ? DAPATH_ADD_FM : DAPATH_NO_MIX);
-
 	/*todo:  set fm input pin */
 }
 
@@ -644,11 +640,39 @@ static const char *st1_sel_txt[] = {
 	"AD1ST1", "AD0ST1", "NOINPUT",
 };
 
+static const char *da0_addfm_txt[] = {
+	"DA0ADDZERO", "DA0ADDST0", "DA0SUBST0",
+};
+
+static const char *da1_addfm_txt[] = {
+	"DA1ADDZERO", "DA1ADDST1", "DA1SUBST1",
+};
+
+static const char *ad0_dgmux_txt[] = {
+	"ADCAD0", "DA0AD0",
+};
+
+static const char *ad1_dgmux_txt[] = {
+	"ADCAD1", "DA1AD1",
+};
+
 static const struct soc_enum st0_sel_enum =
 SOC_ENUM_SINGLE(ADPATCHCTL, 12, 4, st0_sel_txt);
 
 static const struct soc_enum st1_sel_enum =
 SOC_ENUM_SINGLE(ADPATCHCTL, 14, 4, st1_sel_txt);
+
+static const struct soc_enum da0_fm_sel_enum =
+SOC_ENUM_SINGLE(DAPATCHCTL, 0, 4, da0_addfm_txt);
+
+static const struct soc_enum da1_fm_sel_enum =
+SOC_ENUM_SINGLE(DAPATCHCTL, 2, 4, da1_addfm_txt);
+
+static const struct soc_enum ad0_dgmux_sel_enum =
+SOC_ENUM_SINGLE(ADPATCHCTL, 8, 2, ad0_dgmux_txt);
+
+static const struct soc_enum ad1_dgmux_sel_enum =
+SOC_ENUM_SINGLE(DAPATCHCTL, 9, 2, ad1_dgmux_txt);
 
 static const struct snd_kcontrol_new st0_mux =
 SOC_DAPM_ENUM("ST0 INMUX", st0_sel_enum);
@@ -656,10 +680,30 @@ SOC_DAPM_ENUM("ST0 INMUX", st0_sel_enum);
 static const struct snd_kcontrol_new st1_mux =
 SOC_DAPM_ENUM("ST1 INMUX", st1_sel_enum);
 
+static const struct snd_kcontrol_new da0_fm_mux =
+SOC_DAPM_ENUM("DA0 FM Mixer", da0_fm_sel_enum);
+
+static const struct snd_kcontrol_new da1_fm_mux =
+SOC_DAPM_ENUM("DA1 FM Mixer", da1_fm_sel_enum);
+
+static const struct snd_kcontrol_new ad0_dg_mux =
+SOC_DAPM_ENUM("AD0 DGMUX", ad0_dgmux_sel_enum);
+
+static const struct snd_kcontrol_new ad1_dg_mux =
+SOC_DAPM_ENUM("AD1 DGMUX", ad1_dgmux_sel_enum);
+
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
 	/* ST inmux */
 	SND_SOC_DAPM_MUX("ST0 INMUX", SND_SOC_NOPM, 0, 0, &st0_mux),
 	SND_SOC_DAPM_MUX("ST1 INMUX", SND_SOC_NOPM, 0, 0, &st1_mux),
+
+	/*DAC FM_mixer inmux */
+	SND_SOC_DAPM_MUX("DA0 FM Mixer", SND_SOC_NOPM, 0, 0, &da0_fm_mux),
+	SND_SOC_DAPM_MUX("DA1 FM Mixer", SND_SOC_NOPM, 0, 0, &da1_fm_mux),
+
+	/*ADC dgmux */
+	SND_SOC_DAPM_MUX("AD0 DGMUX", SND_SOC_NOPM, 0, 0, &ad0_dg_mux),
+	SND_SOC_DAPM_MUX("AD1 DGMUX", SND_SOC_NOPM, 0, 0, &ad1_dg_mux),
 
 	/*digital fm input */
 	SND_SOC_DAPM_LINE("DIL", dig_fm_event),
@@ -668,15 +712,48 @@ static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
 
 /* sprd_vbc supported interconnection*/
 static const struct snd_soc_dapm_route vbc_intercon[] = {
-	/* digital fm */
+	/************************power********************************/
+	/* dac playback need to open DA Clk and DA power */
+	{"DAC", "DA0ADDZERO", "DA Clk"},
+	{"DAC", "DA1ADDZERO", "DA Clk"},
+
+	/* digital fm playback need to open DA Clk and DA power */
+	{"DIL", "DA0ADDST0", "DA Clk"},
+	{"DIR", "DA1ADDST1", "DA Clk"},
+
+	/*just adc input capture need to open AD clk and AD power */
+	{"ADC", "ADCAD0", "AD Clk"},
+	{"ADC", "ADCAD1", "AD Clk"},
+
+	/********************** playback  path in vbc ********************/
+	/*dac playback route */
+	{"DA0 FM Mixer", "DA0ADDZERO", "DAC"},
+	{"DA1 FM Mixer", "DA1ADDZERO", "DAC"},
+	/*fm playback route */
 	{"ST0 INMUX", "AD0ST0", "DIL"},
 	{"ST0 INMUX", "AD1ST0", "DIR"},
 	{"ST1 INMUX", "AD0ST1", "DIL"},
 	{"ST1 INMUX", "AD1ST1", "DIR"},
 
-	{"DIgital DACL Switch", NULL, "ST0 INMUX"},
-	{"DIgital DACR Switch", NULL, "ST1 INMUX"},
+	{"DA0 FM Mixer", "DA0ADDST0", "ST0 INMUX"},	/*adc loop to dac in vbc modules */
+	{"DA1 FM Mixer", "DA1ADDST1", "ST1 INMUX"},
 
+	/* playback out */
+	{"Digital DACL Switch", NULL, "DA1 FM Mixer"},	/*todo: check L/R chanel */
+	{"Digital DACR Switch", NULL, "DA0 FM Mixer"},
+
+	/********************** capture  path in vbc ********************/
+	/*dac  loop to adc  route */
+	{"AD0 DGMUX", "DA0AD0", "DA0 FM Mixer"},
+	{"AD1 DGMUX", "DA1AD1", "DA1 FM Mixer"},
+
+	/*adc  input capture route */
+	{"AD0 DGMUX", "ADCAD0", "Digital ADCL Switch"},
+	{"AD1 DGMUX", "ADCAD1", "Digital ADCR Switch"},
+
+	/*capture in */
+	{"ADC", NULL, "AD0 DGMUX"},
+	{"ADC", NULL, "AD1 DGMUX"},
 };
 
 static struct vbc_priv vbc[3] = {
@@ -1245,7 +1322,8 @@ static void vbc_eq_delay_work(struct work_struct *work)
 	struct vbc_eq_delayed_work *delay_work = container_of(work,
 							      struct
 							      vbc_eq_delayed_work,
-							      delayed_work.work);
+							      delayed_work.
+							      work);
 	struct snd_soc_codec *codec = delay_work->codec;
 	int ret;
 	ret = vbc_replace_controls(codec, &vbc_eq_setting.equalizer_control, 1);
