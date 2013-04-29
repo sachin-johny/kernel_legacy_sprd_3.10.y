@@ -293,7 +293,6 @@ LOCAL void _sensor_set_ldo(void)
 	REG_WR(SPRD_ADI_BASE + 0x881c, val);
 
 	printk("aiden: _sensor_set_ldo end 1 \n");
-	printk("aiden: _sensor_set_ldo end 1 \n");
 }
 #endif
 
@@ -931,7 +930,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 #else
 LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 {
-	printk("aiden: no _Sensor_K_SetMCLK,  mclk = %d =0x%x \n", mclk, mclk);
+	printk("no _Sensor_K_SetMCLK,  mclk = %d =0x%x \n", mclk, mclk);
 	return 0;
 }
 #endif

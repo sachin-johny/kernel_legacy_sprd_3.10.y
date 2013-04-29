@@ -413,6 +413,8 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 		return -EINVAL;
 	}
 	path->is_work = 1;
+
+	return 0;
 }
 
 LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
@@ -1464,6 +1466,13 @@ LOCAL int v4l2_enum_fmt_vid_cap(struct file *file,
 	return 0;
 }
 
+LOCAL int v4l2_g_fmt_vid_out(struct file *file,
+				void *priv,
+				struct v4l2_format *f)
+{
+	return 0;
+}
+
 LOCAL int v4l2_g_fmt_vid_cap(struct file *file,
 				void *priv,
 				struct v4l2_format *f)
@@ -2356,7 +2365,10 @@ LOCAL const struct v4l2_ioctl_ops sprd_v4l2_ioctl_ops = {
 	.vidioc_g_crop                = v4l2_g_crop,
 	.vidioc_g_output              = v4l2_g_output,
 	.vidioc_s_ctrl                = v4l2_s_ctrl,
-	.vidioc_s_ext_ctrls           = v4l2_s_ext_ctrl
+	.vidioc_s_ext_ctrls           = v4l2_s_ext_ctrl,
+	.vidioc_g_fmt_vid_out         = v4l2_g_fmt_vid_out,
+	.vidioc_enum_fmt_vid_out      = v4l2_enum_fmt_vid_cap,
+	.vidioc_try_fmt_vid_out       = v4l2_try_fmt_vid_cap
 };
 
 LOCAL const struct v4l2_file_operations sprd_v4l2_fops = {
