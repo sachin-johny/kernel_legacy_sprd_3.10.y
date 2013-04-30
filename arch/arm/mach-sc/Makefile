@@ -25,4 +25,5 @@ obj-$(CONFIG_BCMDHD)  += dhd_adapter.o
 
 obj-$(CONFIG_MACH_SP8825EA) += board-sp8825ea.o pinmap-sp8825ea.o dma_r1p0.o
 obj-$(CONFIG_MACH_SP8830EA) += board-sp8830ea.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP8830PAD) += board-sp8830pad.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8830FPGA) += board-sp8830fpga.o pinmap-sp8830fpga.o dma_r4p0.o

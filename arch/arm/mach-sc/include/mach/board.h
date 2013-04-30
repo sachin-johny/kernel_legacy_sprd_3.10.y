@@ -22,6 +22,10 @@
 #include "__board-sp8830ea.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP8830PAD
+#include "__board-sp8830pad.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP8830FPGA
 #include "__board-sp8830fpga.h"
 #endif
