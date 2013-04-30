@@ -266,10 +266,13 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
         #else
             {
-                unsigned int cmd = __raw_readl(JPG_RESET_REG);
+                //unsigned int cmd = __raw_readl(JPG_RESET_REG);
             
-                __raw_writel((cmd |(1<<6)),JPG_RESET_REG);
-                __raw_writel((cmd |(0<<6)),JPG_RESET_REG);
+               // __raw_writel((cmd |(1<<6)),JPG_RESET_REG);
+               // __raw_writel((cmd |(0<<6)),JPG_RESET_REG);
+				unsigned int cmd = __raw_readl(SPRD_MMAHB_BASE+0x04);
+				__raw_writel((cmd |(1<<6)),SPRD_MMAHB_BASE+0x04);
+				__raw_writel((cmd &(~(1<<6))),SPRD_MMAHB_BASE+0x04);
             }
         #endif
 		break;
