@@ -40,10 +40,17 @@ enum adc_channel {
 	ADC_CHANNEL_DCDCLDO = 16,
 	ADC_CHANNEL_VBATBK = 17,
 	ADC_CHANNEL_HEADMIC = 18,
+#if defined(CONFIG_ARCH_SC8825)
 	ADC_CHANNEL_LDO0 = 19,	/* ldo rf/abb/cama */
 	ADC_CHANNEL_LDO1 = 20,	/* ldo v3v/v28/vsim0/vsim1/cammot/sd0/usb/dvdd18/v25 */
 	ADC_CHANNEL_LDO2 = 21,	/* ldo camio/camcore/cmmb1v2/cmmb1v8/v18/sd1/sd3/ */
 	ADC_MAX = 21,
+#elif defined(CONFIG_ARCH_SC8830)
+	ADC_CHANNEL_LDO0 = 21,	/* vbatd ldo */
+	ADC_CHANNEL_LDO1 = 22,	/* dcdc ldo */
+	ADC_CHANNEL_LDO2 = 23,	/* vbata ldo */
+	ADC_MAX,
+#endif
 };
 
 struct adc_sample_data {

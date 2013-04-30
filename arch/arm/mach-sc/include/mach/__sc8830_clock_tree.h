@@ -345,37 +345,6 @@ SCI_CLK_ADD(clk_jpg, 0, &clk_jpg_ckg_i, 0,
 	0, 0, REG_MM_CLK_JPG_CFG, BIT(0)|BIT(1),
 	4, &clk_76m8, &clk_128m, &clk_192m, &clk_256m);
 
-SCI_CLK_ADD(clk_sensor_i, 0, REG_MM_AHB_AHB_EB, BIT(4),
-	0, 0, 0, 0,
-	1, &clk_mm_ahb);
-
-SCI_CLK_ADD(clk_sensor_ckg_i, 0, REG_MM_AHB_GEN_CKG_CFG, BIT(2),
-	0, 0, 0, 0,
-	1, &clk_sensor_i);
-
-SCI_CLK_ADD(clk_sensor, 0, &clk_sensor_ckg_i, 0,
-	REG_MM_CLK_SENSOR_CFG, BIT(8)|BIT(9)|BIT(10), REG_MM_CLK_SENSOR_CFG, BIT(0)|BIT(1),
-	4, &ext_26m, &clk_48m, &clk_76m8, &clk_96m);
-
-SCI_CLK_ADD(clk_ccir_in_i, 0, REG_MM_CLK_CCIR_CFG, BIT(16),
-	0, 0, 0, 0,
-	1, &clk_mm_i);
-
-SCI_CLK_ADD(clk_ccir_in, 64000000, &clk_ccir_in_i, 0,
-	0, 0, 0, 0, 0);
-
-SCI_CLK_ADD(clk_ccir_i, 0, REG_MM_AHB_AHB_EB, BIT(1),
-	0, 0, 0, 0,
-	1, &clk_mm_ahb);
-
-SCI_CLK_ADD(clk_csi_ckg_i, 0, REG_MM_AHB_GEN_CKG_CFG, BIT(1),
-	0, 0, 0, 0,
-	1, &clk_ccir_i);
-
-SCI_CLK_ADD(clk_ccir, 0, &clk_csi_ckg_i, 0,
-	0, 0, 0, 0,
-	1, &clk_ccir_in);
-
 SCI_CLK_ADD(clk_vsp_i, 0, REG_MM_AHB_AHB_EB, BIT(3),
 	0, 0, 0, 0,
 	1, &clk_mm_ahb);
@@ -400,6 +369,29 @@ SCI_CLK_ADD(clk_isp, 0, &clk_isp_ckg_i, 0,
 	0, 0, REG_MM_CLK_ISP_CFG, BIT(0)|BIT(1),
 	4, &clk_76m8, &clk_128m, &clk_192m, &clk_256m);
 
+SCI_CLK_ADD(clk_sensor_i, 0, REG_MM_AHB_AHB_EB, BIT(1),
+	0, 0, 0, 0,
+	1, &clk_mm_ahb);
+
+SCI_CLK_ADD(clk_sensor_ckg_i, 0, REG_MM_AHB_GEN_CKG_CFG, BIT(2),
+	0, 0, 0, 0,
+	1, &clk_sensor_i);
+
+SCI_CLK_ADD(clk_sensor, 0, &clk_sensor_ckg_i, 0,
+	REG_MM_CLK_SENSOR_CFG, BIT(8)|BIT(9)|BIT(10), REG_MM_CLK_SENSOR_CFG, BIT(0)|BIT(1),
+	4, &ext_26m, &clk_48m, &clk_76m8, &clk_96m);
+
+SCI_CLK_ADD(clk_ccir_in, 64000000, 0, 0,
+	0, 0, 0, 0, 0);
+
+SCI_CLK_ADD(clk_ccir_i, 0, REG_MM_AHB_AHB_EB, BIT(1),
+	0, 0, 0, 0,
+	1, &clk_mm_ahb);
+
+SCI_CLK_ADD(clk_ccir, 0, &clk_ccir_i, 0,
+	0, 0, REG_MM_CLK_CCIR_CFG, BIT(16),
+	2, &clk_24m, &clk_ccir_in);
+
 SCI_CLK_ADD(clk_dcam_i, 0, REG_MM_AHB_AHB_EB, BIT(0),
 	0, 0, 0, 0,
 	1, &clk_mm_ahb);
@@ -412,13 +404,21 @@ SCI_CLK_ADD(clk_dcam, 0, &clk_dcam_ckg_i, 0,
 	0, 0, REG_MM_CLK_DCAM_CFG, BIT(0)|BIT(1),
 	4, &clk_76m8, &clk_128m, &clk_192m, &clk_256m);
 
+SCI_CLK_ADD(clk_csi_i, 0, REG_MM_AHB_AHB_EB, BIT(4),
+	0, 0, 0, 0,
+	1, &clk_mm_ahb);
+
+SCI_CLK_ADD(clk_csi_ckg_i, 0, REG_MM_AHB_GEN_CKG_CFG, BIT(1),
+	0, 0, 0, 0,
+	1, &clk_csi_i);
+
 SCI_CLK_ADD(clk_cphy_cfg_i, 0, REG_MM_AHB_GEN_CKG_CFG, BIT(0),
 	0, 0, 0, 0,
 	1, &clk_mm_ahb);
 
-SCI_CLK_ADD(clk_cphy_cfg, 0, &clk_cphy_cfg_i, 0,
+SCI_CLK_ADD(clk_dcam_mipi, 0, &clk_cphy_cfg_i, 0,
 	0, 0, 0, 0,
-	1, &ext_26m);
+	1, &clk_csi_ckg_i);
 
 SCI_CLK_ADD(clk_aud, 0, REG_AON_APB_APB_EB0, BIT(18),
 	0, 0, 0, 0,

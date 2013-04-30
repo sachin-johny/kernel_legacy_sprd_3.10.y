@@ -195,8 +195,9 @@ EXPORT_SYMBOL(clk_set_parent);
 
 static int sci_clk_enable(struct clk *c, int enable, unsigned long *pflags)
 {
-	debug("clk %p (%s) enb %08x, %s\n", c, c->regs->name,
-	      c->regs->enb.reg, enable ? "enable" : "disable");
+	debug("clk %p (%s) %s %08x[%d]\n", c, c->regs->name,
+	      enable ? "enb" : "dis", c->regs->enb.reg,
+	      __ffs(c->regs->enb.mask));
 
 	BUG_ON(!c->regs->enb.reg);
 	if (c->regs->enb.reg & 1)
@@ -372,22 +373,40 @@ static struct clk_ops generic_pll_ops = {
 
 /* debugfs support to trace clock tree hierarchy and attributes */
 #if defined(CONFIG_DEBUG_FS)
-static int debugfs_enable_get(void *data, u64 * val)
+static int debugfs_usecount_get(void *data, u64 * val)
 {
 	struct clk *c = data;
-	*val = ! !(c->enable == NULL || sci_clk_is_enable(c));
+	int is_enable = ! !(c->enable == NULL || sci_clk_is_enable(c));
+	*val = (is_enable) ? c->usage : -c->usage;
 	return 0;
 }
 
-static int debugfs_enable_set(void *data, u64 val)
+static int debugfs_usecount_set(void *data, u64 val)
 {
 	struct clk *c = data;
 	(val) ? clk_enable(c) : clk_disable(c);
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(fops_enable,
-			debugfs_enable_get, debugfs_enable_set, "%llu\n");
+static int debugfs_rate_get(void *data, u64 * val)
+{
+	struct clk *c = data;
+	*val = clk_get_rate(c);
+	return 0;
+}
+
+static int debugfs_rate_set(void *data, u64 val)
+{
+	struct clk *c = data;
+	clk_set_rate(c, val);
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_usecount,
+			debugfs_usecount_get, debugfs_usecount_set, "%llu\n");
+
+DEFINE_SIMPLE_ATTRIBUTE(fops_rate,
+			debugfs_rate_get, debugfs_rate_set, "%llu\n");
 
 static struct dentry *clk_debugfs_root;
 static int __init clk_debugfs_register(struct clk *c)
@@ -400,15 +419,13 @@ static int __init clk_debugfs_register(struct clk *c)
 					       c->parent ? c->parent->dent :
 					       clk_debugfs_root))))
 		goto err_exit;
-	if (IS_ERR_OR_NULL(debugfs_create_u32
-			   ("usecount", S_IRUGO, c->dent, (u32 *) & c->usage)))
-		goto err_exit;
-	if (IS_ERR_OR_NULL(debugfs_create_u32
-			   ("rate", S_IRUGO, c->dent, (u32 *) & c->rate)))
+	if (IS_ERR_OR_NULL(debugfs_create_file
+			   ("usecount", S_IRUGO | S_IWUSR, c->dent, (u32 *) c,
+			    &fops_usecount)))
 		goto err_exit;
 	if (IS_ERR_OR_NULL(debugfs_create_file
-			   ("enable", S_IRUGO | S_IWUSR, c->dent, (u32 *) c,
-			    &fops_enable)))
+			   ("rate", S_IRUGO | S_IWUSR, c->dent, (u32 *) c,
+			    &fops_rate)))
 		goto err_exit;
 	return 0;
 err_exit:

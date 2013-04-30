@@ -80,7 +80,9 @@ static unsigned adc_read(unsigned addr)
 #define BIT_CH_DLY_EN(_X_)		(((_X_) & 0x1) << 7)	/*0:disable, 1:enable */
 /*ADC_HW_CH_DELAY*/
 #define BIT_HW_CH_DELAY(_X_)		((_X_) & 0xff)	/*its unit is ADC clock */
+#if defined(CONFIG_ARCH_SC8825)
 #define BIT_ADC_EB                  ( BIT(5) )
+#endif
 
 static void sci_adc_enable(void)
 {
@@ -186,16 +188,28 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 		return;
 	case ADC_CHANNEL_VBAT:	//channel 5
 	case ADC_CHANNEL_ISENSE:	//channel 8
+#if defined(CONFIG_ARCH_SC8830)
+#define ANA_REG_GLB_CHIP_ID_LOW         SCI_ADDR(ANA_REGS_GLB_BASE, 0x0108)
+#define ANA_REG_GLB_CHIP_ID_HIGH        SCI_ADDR(ANA_REGS_GLB_BASE, 0x010C)
+		chip_id = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
+		chip_id |= (sci_adi_read(ANA_REG_GLB_CHIP_ID_HIGH) << 16);
+#else
 		chip_id = sci_adi_read(CHIP_ID_LOW_REG);
 #ifdef CHIP_ID_HIGH_REG
 		chip_id |= (sci_adi_read(CHIP_ID_HIGH_REG) << 16);
+#endif
 #endif
 		if (chip_id == 0x8820A001) {	//metalfix
 			*div_numerators = 247;
 			*div_denominators = 1024;
 		} else {
+#if defined(CONFIG_ARCH_SC8830)
+			*div_numerators = 7;
+			* div_denominators = 29;
+#else
 			*div_numerators = 266;
 			* div_denominators = 1000;
+#endif
 		}
 		return;
 	case ADC_CHANNEL_VCHGSEN:	//channel 6
@@ -238,6 +252,20 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 		*div_denominators = 9;
             return;
 	case ADC_CHANNEL_VBATBK:	//channel 17
+#if defined(CONFIG_ARCH_SC8830)
+	case ADC_CHANNEL_LDO0:
+		*div_numerators = 1;
+		*div_denominators = 3;
+		return;
+	case ADC_CHANNEL_LDO1:
+		*div_numerators = 1;
+		*div_denominators = 2;
+		return;
+	case ADC_CHANNEL_LDO2:
+		*div_numerators = 1;
+		*div_denominators = 3;
+		return;
+#else
 	case ADC_CHANNEL_LDO0:		//channel 19,20
 	case ADC_CHANNEL_LDO1:
 		*div_numerators = 1;
@@ -247,6 +275,7 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 		*div_numerators = 1;
 		*div_denominators = 2;
 		return;
+#endif
 	default:
 		*div_numerators = 1;
 		*div_denominators = 1;
