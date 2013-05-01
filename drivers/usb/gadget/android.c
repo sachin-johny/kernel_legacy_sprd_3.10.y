@@ -66,7 +66,7 @@ MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 
 static const char longname[] = "Gadget Android";
-
+extern int in_calibration(void);
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
@@ -1516,7 +1516,11 @@ static int android_bind(struct usb_composite_dev *cdev)
 	if (id < 0)
 		return id;
 	strings_dev[STRING_SERIAL_IDX].id = id;
-	device_desc.iSerialNumber = id;
+	if(in_calibration()){
+		device_desc.iSerialNumber = 0;
+		cdev->desc.bDeviceClass = 0xff;
+	}else
+		device_desc.iSerialNumber = id;
 
 	gcnum = usb_gadget_controller_number(gadget);
 	if (gcnum >= 0)

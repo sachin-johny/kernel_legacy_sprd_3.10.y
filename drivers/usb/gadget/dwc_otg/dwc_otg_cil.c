@@ -60,7 +60,7 @@
 #include "dwc_os.h"
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
-
+extern int in_calibration(void);
 static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if);
 
 /**
@@ -401,9 +401,9 @@ static void init_devspd(dwc_otg_core_if_t * core_if)
 		/* High speed PHY running at high speed */
 		val = 0x0;
 	}
-
-	DWC_DEBUGPL(DBG_CIL, "Initializing DCFG.DevSpd to 0x%1x\n", val);
-
+	if(in_calibration())
+		val = 1;
+	DWC_DEBUGPL(DBG_CIL, "Initializing DCFG.DevSpd to 0x%1x\n", val);	
 	dcfg.d32 = dwc_read_reg32(&core_if->dev_if->dev_global_regs->dcfg);
 	dcfg.b.devspd = val;
 	dwc_write_reg32(&core_if->dev_if->dev_global_regs->dcfg, dcfg.d32);
