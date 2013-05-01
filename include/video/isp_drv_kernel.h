@@ -51,8 +51,8 @@ enum {
 	ISP_INT_AWBM_START = (1<<15),
 	ISP_INT_AFM_START = (1<<16),
 	ISP_INT_AE_START = (1<<17),
-	ISP_INT_DCAM_SOF = (1<<18),
-	ISP_INT_DCAM_EOF = (1<<19),
+	ISP_INT_FETCH_SOF = (1<<18),
+	ISP_INT_FETCH_EOF = (1<<19),
 	ISP_INT_AFM_WIN8 = (1<<20),
 	ISP_INT_AFM_WIN7 = (1<<21),
 	ISP_INT_AFM_WIN6 = (1<<22),
@@ -62,6 +62,7 @@ enum {
 	ISP_INT_AFM_WIN2 = (1<<26),
 	ISP_INT_AFM_WIN1 = (1<<27),
 	ISP_INT_AFM_WIN0 = (1<<28),
+	ISP_INT_STOP=(1<<31),
 };
 
 #define ISP_IO_MAGIC	'R'

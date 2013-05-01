@@ -570,7 +570,7 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 		ISP_PRINT ("isp_k: get control failed \n");
 		return -EFAULT;
 	}
-	
+
 	ret = _isp_module_eb();
 	if (unlikely(0 != ret)) {
 		ISP_PRINT("isp_k: Failed to enable isp module \n");
@@ -586,7 +586,6 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 	}
 
 	_isp_set_clk(0);
-
 	g_isp_device.reg_base_addr = (uint32_t)ISP_BASE_ADDR;
 	g_isp_device.size = ISP_REG_MAX_SIZE;
 
@@ -891,7 +890,7 @@ void _dcam_isp_root(void)
 	if(0x00 !=s_dcam_int_eb)
 	{
 		spin_lock_irqsave(&isp_spin_lock,flag);
-		node.dcam_irq_val = 0x01;
+		node.dcam_irq_val = ISP_INT_FETCH_SOF;
 
 		//ISP_PRINT("isp_k: dcam sof irq :0x%x\n", node.dcam_irq_val);
 		ret = _isp_queue_write((struct isp_queue *)&g_isp_device.queue, (struct isp_node*)&node);
@@ -999,7 +998,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 		irq_param.isp_irq_val = isp_node.isp_irq_val;
 		isp_irq = isp_node.isp_irq_val;
 		dcam_irq = isp_node.dcam_irq_val;
-		irq_param.irq_val = (dcam_irq<<ISP_IRQ_NUM)|isp_irq;
+		irq_param.irq_val = dcam_irq|isp_irq;
 		ret = copy_to_user ((void*) param, (void*)&irq_param, sizeof(struct isp_irq_param));
 		if ( 0 != ret) {
 
