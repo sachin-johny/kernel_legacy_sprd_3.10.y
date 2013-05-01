@@ -18,13 +18,15 @@
 #include "sc8830_reg_dcam.h"
 
 
-//#define DCAM_DEBUG
+#define DCAM_DEBUG
 
 #ifdef DCAM_DEBUG
 	#define DCAM_TRACE             printk
 #else
 	#define DCAM_TRACE             pr_debug
 #endif
+
+#define DCAM_TRACE_LOW             pr_debug
 
 #define DCAM_ERR_TRACE				printk
 
@@ -340,4 +342,5 @@ int32_t    dcam_frame_unlock(struct dcam_frame *frame);
 int32_t    dcam_read_registers(uint32_t* reg_buf, uint32_t *buf_len);
 int32_t    dcam_resize_start(void);
 int32_t    dcam_resize_end(void);
+int32_t    dcam_stop_cap(void);
 #endif //_DCAM_DRV_8830_H_

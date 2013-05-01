@@ -187,6 +187,9 @@ LOCAL int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node
 LOCAL int sprd_v4l2_queue_read(struct dcam_queue *queue, struct dcam_node *node);
 LOCAL int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val);
 LOCAL int sprd_stop_timer(struct timer_list *dcam_timer);
+LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id);
+LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id);
+
 
 LOCAL const dcam_isr_func sprd_v4l2_isr[] = {
 	sprd_v4l2_tx_done,
@@ -865,7 +868,7 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	node.index    = frame->fid;
 	node.height   = frame->height;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
+	DCAM_TRACE_LOW("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
 		node.irq_flag, node.f_type, node.index);
 
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == frame->type) {
@@ -882,7 +885,7 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	}
 	fmr_index = frame->fid - path->frm_id_base;
 	if (fmr_index >= path->frm_cnt_act) {
-		DCAM_TRACE("V4L2: sprd_v4l2_tx_done, index error %d, actually count %d \n",
+		DCAM_TRACE_LOW("V4L2: sprd_v4l2_tx_done, index error %d, actually count %d \n",
 			fmr_index,
 			path->frm_id_base);
 	}
@@ -1227,6 +1230,8 @@ LOCAL int v4l2_g_parm(struct file *file,
 	0x1003           base id for each frame             capture.reserved[1];
 
 	0x2000           path skip and deci number          recerved[0] channel, [1] deci number
+	0x2001           path pause                         recerved[0] channel
+	0x2002           path resume                        recerved[0] channel
 */
 enum dcam_parm_id {
 	CAPTURE_MODE = 0x1000,
@@ -1235,6 +1240,8 @@ enum dcam_parm_id {
 	CAPTURE_FRM_ID_BASE,
 	
 	PATH_FRM_DECI = 0x2000,
+	PATH_PAUSE    = 0x2001,
+	PATH_RESUME   = 0x2002,
 };
 LOCAL int v4l2_s_parm(struct file *file,
 			void *priv,
@@ -1295,6 +1302,16 @@ LOCAL int v4l2_s_parm(struct file *file,
 		//path->path_frm_deci = streamparm->parm.capture.reserved[1];
 		path->path_frm_deci = 0;//streamparm->parm.capture.reserved[1]; // aiden tmp changes
 		DCAM_TRACE("V4L2: channel %d, frm_deci=%d \n", channel_id, path->path_frm_deci);
+		break;
+
+	case PATH_PAUSE:
+		channel_id = streamparm->parm.capture.reserved[0];
+		sprd_v4l2_streampause(file, channel_id);
+		break;
+
+	case PATH_RESUME:
+		channel_id = streamparm->parm.capture.reserved[0];
+		sprd_v4l2_streamresume(file, channel_id);
 		break;
 		
 	default:
@@ -1495,6 +1512,48 @@ LOCAL int v4l2_g_fmt_vid_cap(struct file *file,
 	return 0;
 }
 
+LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
+{
+	struct dcam_dev          *dev = video_drvdata(file);
+	struct dcam_format       *fmt;
+	int                      ret = DCAM_RTN_SUCCESS;
+	struct dcam_path_spec    *path = NULL;
+	path_cfg_func            path_cfg;
+	enum dcam_path_index     path_index;
+
+	DCAM_TRACE("V4L2: sprd_v4l2_update_video, channel=%d \n", channel_id);
+
+	mutex_lock(&dev->dcam_mutex);
+
+	path = &dev->dcam_cxt.dcam_path[channel_id];
+	path_index = sprd_v4l2_get_path_index(channel_id);
+
+	if (DCAM_PATH1 == channel_id) {
+		path_cfg = dcam_path1_cfg;
+	}else if (DCAM_PATH2 == channel_id) {
+		path_cfg = dcam_path2_cfg;
+	}
+
+	ret = path_cfg(DCAM_PATH_INPUT_SIZE, &path->in_size);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_INPUT_RECT, &path->in_rect);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_OUTPUT_SIZE, &path->out_size);
+	V4L2_RTN_IF_ERR(ret);
+
+	dcam_update_path(path_index);
+
+exit:
+	mutex_unlock(&dev->dcam_mutex);
+
+	if (ret) {
+		printk("V4L2: Failed to update video 0x%x \n", ret);
+	}
+
+	return ret;
+}
 
 LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 				void *priv,
@@ -1503,6 +1562,7 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct dcam_format       *fmt;
 	int                      ret;
+	uint32_t                 channel_id;
 
 	DCAM_TRACE("V4L2: v4l2_try_fmt_vid_cap, type 0x%x \n", f->type);
 
@@ -1517,6 +1577,7 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 		mutex_lock(&dev->dcam_mutex);
 		ret = sprd_v4l2_check_path1_cap(fmt->fourcc, f, &dev->dcam_cxt);
 		mutex_unlock(&dev->dcam_mutex);
+		channel_id = DCAM_PATH1;
 	} else if (V4L2_BUF_TYPE_PRIVATE == f->type) {
 		if (unlikely(dcam_get_resizer(0))) {
 			/*no wait to get the controller of resizer, failed*/
@@ -1530,13 +1591,20 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 			/*failed to set path2, release the controller of resizer*/
 			dcam_rel_resizer();
 		}
+		channel_id = DCAM_PATH2;
 	} else if (V4L2_BUF_TYPE_VIDEO_OUTPUT == f->type){
 		mutex_lock(&dev->dcam_mutex);
 		ret = sprd_v4l2_check_path0_cap(fmt->fourcc, f, &dev->dcam_cxt);
 		mutex_unlock(&dev->dcam_mutex);
+		channel_id = DCAM_PATH0;
 	} else {
 		printk("V4L2: Buf type invalid. \n");
 		return -EINVAL;
+	}
+
+	if ((0 == ret) && (0 != atomic_read(&dev->stream_on))) {
+		if ((DCAM_PATH1 == channel_id))
+			ret = sprd_v4l2_update_video(file, channel_id);
 	}
 
 	return ret;
@@ -1560,7 +1628,7 @@ LOCAL int v4l2_qbuf(struct file *file,
 	uint32_t                 index;
 	uint32_t                 path_cnt;
 
-	DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x \n", p->type);
+	DCAM_TRACE_LOW("V4L2: v4l2_qbuf, type 0x%x \n", p->type);
 
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == p->type) {
 		path = &info->dcam_path[DCAM_PATH1];
@@ -1580,7 +1648,7 @@ LOCAL int v4l2_qbuf(struct file *file,
 
 	if (PATH_IDLE == path->status) {
 		if (unlikely(0 == p->m.userptr)) {
-			printk("V4L2: No yaddr \n");
+			printk("V4L2: No yaddr, type 0x%x \n", p->type);
 			ret = -EINVAL;
 		} else {
 			if (unlikely(path->frm_cnt_act < path_cnt)) {
@@ -1606,7 +1674,7 @@ LOCAL int v4l2_qbuf(struct file *file,
 		} else {
 			index = p->index - path->frm_id_base;
 			dcam_frame_unlock(path->frm_ptr[index]);
-			DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x, index = 0x%x \n", p->type, p->index);
+			DCAM_TRACE_LOW("V4L2: v4l2_qbuf, type 0x%x, index = 0x%x \n", p->type, p->index);
 		}
 	}
 
@@ -1625,7 +1693,7 @@ LOCAL int v4l2_dqbuf(struct file *file,
 	struct dcam_path_spec    *path;
 	int                      ret = 0;
 
-	DCAM_TRACE("V4L2: v4l2_dqbuf \n");
+	DCAM_TRACE_LOW("V4L2: v4l2_dqbuf \n");
 
 	while (1) {
 		ret = down_interruptible(&dev->irq_sem);
@@ -1647,7 +1715,7 @@ LOCAL int v4l2_dqbuf(struct file *file,
 	}
 
 	do_gettimeofday(&p->timestamp);
-	DCAM_TRACE("V4L2: time, %d %d \n", (int)p->timestamp.tv_sec, (int)p->timestamp.tv_usec);
+	DCAM_TRACE_LOW("V4L2: time, %d %d \n", (int)p->timestamp.tv_sec, (int)p->timestamp.tv_usec);
 
 	p->flags = node.irq_flag;
 	p->type  = node.f_type;
@@ -1664,7 +1732,7 @@ LOCAL int v4l2_dqbuf(struct file *file,
 
 	memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
 
-	DCAM_TRACE("V4L2: v4l2_dqbuf, flag 0x%x type 0x%x index 0x%x \n", p->flags, p->type, p->index);
+	DCAM_TRACE_LOW("V4L2: v4l2_dqbuf, flag 0x%x type 0x%x index 0x%x \n", p->flags, p->type, p->index);
 
 	return DCAM_RTN_SUCCESS;
 }
@@ -1747,7 +1815,7 @@ LOCAL int v4l2_streamon(struct file *file,
 exit:
 
 	if (ret) {
-		printk("V4L2: Failed to start stream %d \n", ret);
+		printk("V4L2: Failed to start stream 0x%x \n", ret);
 	} else {
 		atomic_set(&dev->run_flag, 0);
 		sprd_start_timer(&dev->dcam_timer, DCAM_TIMEOUT);
@@ -1784,6 +1852,9 @@ LOCAL int v4l2_streamoff(struct file *file,
 	V4L2_PRINT_IF_ERR(ret);
 
 	ret = sprd_stop_timer(&dev->dcam_timer);
+	V4L2_PRINT_IF_ERR(ret);
+
+	ret = dcam_stop_cap();
 	V4L2_PRINT_IF_ERR(ret);
 
 	if (path_1->is_work) {
@@ -1910,16 +1981,14 @@ exit:
 	return ret;
 }
 
-LOCAL int v4l2_streampause(struct file *file, void *priv,
-				struct v4l2_ext_controls *ext_ctrl)
+LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id)
 {
-	uint32_t                 channel_id = ext_ctrl->error_idx;
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct dcam_path_spec    *path = NULL;
 	int                      ret = 0;
 	enum dcam_path_index     path_index;
 
-	DCAM_TRACE("V4L2: v4l2_streampause, channel=%d \n", channel_id);
+	DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel=%d \n", channel_id);
 		
 	path = &dev->dcam_cxt.dcam_path[channel_id];
 	path_index = sprd_v4l2_get_path_index(channel_id);
@@ -1929,32 +1998,29 @@ LOCAL int v4l2_streampause(struct file *file, void *priv,
 		V4L2_PRINT_IF_ERR(ret);
 		path->status = PATH_IDLE;
 		path->is_work = 0;
+		path->frm_cnt_act = 0;
 
 		if(DCAM_PATH2 == channel_id){
 			dcam_rel_resizer();
 		}
-		DCAM_TRACE("V4L2: v4l2_streampause, channel=%d done \n", channel_id);
+		DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel=%d done \n", channel_id);
 	}else{
-		DCAM_TRACE("V4L2: v4l2_streampause, path %d not running, status=%d, cannot pause \n", 
+		DCAM_TRACE("V4L2: sprd_v4l2_streampause, path %d not running, status=%d, cannot pause \n", 
 			channel_id, path->status);
 	}
 
 	return ret;
 }
 
-LOCAL int v4l2_streamresume(struct file *file, void *priv,
-				struct v4l2_ext_controls *ext_ctrl)
+LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
-	uint32_t                 channel_id = ext_ctrl->error_idx;
-	uint32_t                 skip_number = ext_ctrl->reserved[0];
-	uint32_t                 deci_factor = ext_ctrl->reserved[1];
 	struct dcam_path_spec    *path = NULL;
 	enum dcam_path_index     path_index;
 	path_cfg_func            path_cfg;
 	int                      ret = 0;
 
-	DCAM_TRACE("V4L2: v4l2_streamresume, channel=%d \n", channel_id);
+	DCAM_TRACE("V4L2: sprd_v4l2_streamresume, channel=%d \n", channel_id);
 	
 	path = &dev->dcam_cxt.dcam_path[channel_id];
 	path_index = sprd_v4l2_get_path_index(channel_id);
@@ -1966,14 +2032,16 @@ LOCAL int v4l2_streamresume(struct file *file, void *priv,
 			}else if (DCAM_PATH1 == channel_id) {
 				path_cfg = dcam_path1_cfg;
 			}else if (DCAM_PATH2 == channel_id) {
-				path_cfg = dcam_path2_cfg;
+				path_cfg = dcam_path2_cfg; /* no need get resizer, it will done in try format */
+#if 0
 				if (unlikely(dcam_get_resizer(0))) {
 					/*no wait to get the controller of resizer, failed*/
-					printk("V4L2: v4l2_streamresume, path2 has been occupied by other app \n");
+					printk("V4L2: sprd_v4l2_streamresume, path2 has been occupied by other app \n");
 					return -EIO;
 				}
+#endif
 			} else {
-				printk("V4L2: v4l2_streamresume, invalid channel_id=0x%x \n", channel_id);
+				printk("V4L2: sprd_v4l2_streamresume, invalid channel_id=0x%x \n", channel_id);
 			}
 
 			if(DCAM_PATH0 == channel_id) {
@@ -1988,42 +2056,14 @@ LOCAL int v4l2_streamresume(struct file *file, void *priv,
 
 			path->status = PATH_RUN;
 		}else{
-			DCAM_TRACE("V4L2: v4l2_streamresume, path %d no parameter, is_work=%d, cannot resume \n", 
+			DCAM_TRACE("V4L2: sprd_v4l2_streamresume, path %d no parameter, is_work=%d, cannot resume \n", 
 				channel_id, path->is_work);
 		}
 	}else{
-		DCAM_TRACE("V4L2: v4l2_streamresume, path %d not idle, status=%d, cannot resume \n", 
+		DCAM_TRACE("V4L2: sprd_v4l2_streamresume, path %d not idle, status=%d, cannot resume \n", 
 			channel_id, path->status);
 	}
 exit:
-	return ret;
-}
-
-
-/*
-parameters for v4l2_ext_controls
- __u32 ctrl_class;     should be reserved by V4L2, can be V4L2_CTRL_CLASS_USER or 
-                       V4L2_CTRL_CLASS_CAMERA, etc;
- __u32 count;          pause/resume control , 0 means pause, 1 means resume;
- __u32 error_idx;      channel id;
- __u32 reserved[2];    reserved;
- struct v4l2_ext_control *controls;
-*/
-LOCAL  int v4l2_s_ext_ctrl(struct file *file, void *priv,
-				struct v4l2_ext_controls *ext_ctrl)
-{
-	struct dcam_dev          *dev = video_drvdata(file);
-	int                      ret = 0;
-
-	mutex_lock(&dev->dcam_mutex);
-
-	if(0 == ext_ctrl->count){
-		ret = v4l2_streampause(file, priv, ext_ctrl);
-	}else{
-		ret = v4l2_streamresume(file, priv, ext_ctrl);
-	}
-
-	mutex_unlock(&dev->dcam_mutex);
 	return ret;
 }
 
@@ -2365,7 +2405,6 @@ LOCAL const struct v4l2_ioctl_ops sprd_v4l2_ioctl_ops = {
 	.vidioc_g_crop                = v4l2_g_crop,
 	.vidioc_g_output              = v4l2_g_output,
 	.vidioc_s_ctrl                = v4l2_s_ctrl,
-	.vidioc_s_ext_ctrls           = v4l2_s_ext_ctrl,
 	.vidioc_g_fmt_vid_out         = v4l2_g_fmt_vid_out,
 	.vidioc_enum_fmt_vid_out      = v4l2_enum_fmt_vid_cap,
 	.vidioc_try_fmt_vid_out       = v4l2_try_fmt_vid_cap
