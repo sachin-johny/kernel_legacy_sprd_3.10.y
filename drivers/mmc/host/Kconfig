@@ -688,7 +688,7 @@ config MMC_USHC
 
 config MMC_BUS_SCAN
        bool "Spreadtrum SC8810 SD Host Controller Bus-Scan support"
-       depends on MMC_SDHCI_SC8810 || MMC_SDHCI_SC8825
+       depends on MMC_SDHCI_SC8810 || MMC_SDHCI_SC8825 || MMC_SDHCI_SC8830
        default y
        help
          This selects the Secure Digital Host Controller Interface (SDHCI) to

@@ -47,13 +47,13 @@
 #define GPIO_CMMB_INT           143
 #define GPIO_CMMB_26M_CLK_EN    197
 
-#define GPIO_BT_RESET       194
-#define GPIO_BT_POWER       190
-#define GPIO_BT2AP_WAKE     58
-#define GPIO_AP2BT_WAKE     51
+#define GPIO_BT_RESET       233
+#define GPIO_BT_POWER       231
+#define GPIO_BT2AP_WAKE     232
+#define GPIO_AP2BT_WAKE     235
 
-#define GPIO_WIFI_SHUTDOWN	189
-#define GPIO_WIFI_IRQ		52
+#define GPIO_WIFI_SHUTDOWN	230
+#define GPIO_WIFI_IRQ		234
 
 #define GPIO_PLSENSOR_IRQ	213
 #endif

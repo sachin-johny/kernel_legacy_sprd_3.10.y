@@ -115,7 +115,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm1_device,
 	&sprd_axi_bm2_device,
 #endif
-#if 0
+#ifdef CONFIG_BT_BCM4330
 	&rfkill_device,
 	&brcm_bluesleep_device,
 #endif
@@ -139,7 +139,7 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&kb_backlight_device,
 };
-#if 0
+
 /* BT suspend/resume */
 static struct resource bluesleep_resources[] = {
 	{
@@ -183,7 +183,6 @@ static struct platform_device rfkill_device = {
 	.num_resources	= ARRAY_SIZE(rfkill_resources),
 	.resource	= rfkill_resources,
 };
-#endif
 
 /* keypad backlight */
 static struct platform_device kb_backlight_device = {

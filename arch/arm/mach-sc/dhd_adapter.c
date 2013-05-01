@@ -110,7 +110,14 @@ Always power on  According to spec
 static int wlan_ldo_enable(void)
 {
 	int err;
+
+#ifdef CONFIG_ARCH_SC8830
+	/*temp config for clk_aux0, waiting for SC8830 pin config*/
+	__raw_writel(0x0101, SPRD_PIN_BASE + 0x0400);
+	wlan_regulator_18 = regulator_get(NULL, "vdd18");
+#else
 	wlan_regulator_18 = regulator_get(NULL, "vddsd1");
+#endif
 
 	if (IS_ERR(wlan_regulator_18)) {
 		pr_err("can't get wlan 1.8V regulator\n");
