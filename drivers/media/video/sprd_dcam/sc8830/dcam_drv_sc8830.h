@@ -295,6 +295,18 @@ struct dcam_addr {
 	uint32_t               vaddr;
 };
 
+struct dcam_sc_tap {
+	uint32_t               y_tap;
+	uint32_t               uv_tap;
+};
+
+struct dcam_deci {
+	uint32_t               deci_x_en;
+	uint32_t               deci_x;
+	uint32_t               deci_y_en;
+	uint32_t               deci_y;
+};
+
 struct dcam_frame {
 	uint32_t               type;
 	uint32_t               lock;

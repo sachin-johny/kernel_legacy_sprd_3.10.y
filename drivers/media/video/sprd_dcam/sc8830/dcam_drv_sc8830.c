@@ -156,6 +156,8 @@ struct dcam_path_valid{
 	uint32_t src_sel            :1;
 	uint32_t data_endian        :1;
 	uint32_t frame_deci         :1;
+	uint32_t scale_tap          :1;
+	uint32_t v_deci             :1;
 };
 
 struct dcam_path_desc {
@@ -167,6 +169,8 @@ struct dcam_path_desc {
 	struct dcam_frame          *output_frame_head;
 	struct dcam_frame          *output_frame_cur;
 	struct dcam_endian_sel     data_endian;
+	struct dcam_sc_tap         scale_tap;
+	struct dcam_deci           deci_val;
 	struct dcam_path_valid     valid_param;
 	uint32_t                   output_frame_count;
 	uint32_t                   output_format;
@@ -689,7 +693,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 
 	DCAM_TRACE("DCAM DRV: dcam_start_path: path=%d, mode=%x \n", path_index, s_dcam_mod.dcam_mode);
 
-#ifdef DCAM_DEBUG
+#if 0//def DCAM_DEBUG
 	REG_MWR(CAP_CCIR_FRM_CTRL, BIT_5 | BIT_4, 1 << 4);
 	REG_MWR(CAP_MIPI_FRM_CTRL, BIT_5 | BIT_4, 1 << 4);
 #endif
@@ -730,12 +734,13 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 
 	if ((DCAM_PATH_IDX_1 & path_index) && s_dcam_mod.dcam_path1.valide) {
 		
-		_dcam_path1_set();
-
 		//rtn = _dcam_path_trim(DCAM_PATH_IDX_1); 
 		//DCAM_RTN_IF_ERR;
 		rtn = _dcam_path_scaler(DCAM_PATH_IDX_1);
 		DCAM_RTN_IF_ERR;
+
+		_dcam_path1_set();
+
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_1, true);
 		DCAM_RTN_IF_ERR;
 		_dcam_force_copy_ext(DCAM_PATH_IDX_1, true, true);
@@ -743,12 +748,13 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 	}
 
 	if ((DCAM_PATH_IDX_2 & path_index) && s_dcam_mod.dcam_path2.valide) {
-		_dcam_path2_set();
-
 		//rtn = _dcam_path_trim(DCAM_PATH_IDX_2);
 		//DCAM_RTN_IF_ERR;
 		rtn = _dcam_path_scaler(DCAM_PATH_IDX_2);
 		DCAM_RTN_IF_ERR;
+
+		_dcam_path2_set();
+
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_2, true);
 		DCAM_RTN_IF_ERR;
 		_dcam_force_copy_ext(DCAM_PATH_IDX_2, true, true);
@@ -1946,6 +1952,7 @@ LOCAL irqreturn_t dcam_isr_root(int irq, void *dev_id)
 	if (unlikely(DCAM_IRQ_ERR_MASK & status)) {
 		err_flag = 1;
 		printk("DCAM DRV: error happened, 0x%x, %d \n", status, s_dcam_mod.dcam_path2.valide);
+		_dcam_reg_trace();
 		_dcam_stopped();
 		if (s_dcam_mod.dcam_path2.valide) {
 			/* both dcam paths have been working, it's safe to reset the whole dcam module*/
@@ -2066,6 +2073,23 @@ LOCAL void _dcam_path1_set(void)
 		DCAM_TRACE_LOW("DCAM DRV: path 1: frame_deci=0x%x \n", path->frame_deci);
 	}
 
+	if(path->valid_param.scale_tap){
+		path->valid_param.scale_tap = 0;
+		REG_MWR(DCAM_PATH1_CFG, BIT_19 | BIT_18 | BIT_17 | BIT_16, (path->scale_tap.y_tap & 0x0F) << 16);
+		REG_MWR(DCAM_PATH1_CFG, BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11, (path->scale_tap.uv_tap & 0x1F) << 11);
+		DCAM_TRACE("DCAM DRV: path 1: scale_tap, y=0x%x, uv=0x%x \n", path->scale_tap.y_tap, path->scale_tap.uv_tap);
+	}
+
+	if(path->valid_param.v_deci){
+		path->valid_param.v_deci = 0;
+		REG_MWR(DCAM_PATH1_CFG, BIT_2, path->deci_val.deci_x_en);
+		REG_MWR(DCAM_PATH1_CFG, BIT_1 | BIT_0, path->deci_val.deci_x);
+
+		REG_MWR(DCAM_PATH1_CFG, BIT_5, path->deci_val.deci_y_en);
+		REG_MWR(DCAM_PATH1_CFG, BIT_4 | BIT_3, path->deci_val.deci_y);
+		DCAM_TRACE("DCAM DRV: path 1: deci, x_en=%d, x=%d, y_en=%d, y=%d \n",
+			path->deci_val.deci_x_en, path->deci_val.deci_x, path->deci_val.deci_y_en, path->deci_val.deci_y);
+	}
 }
 
 LOCAL void _dcam_path2_set(void)
@@ -2123,6 +2147,24 @@ LOCAL void _dcam_path2_set(void)
 	if(path->valid_param.frame_deci){
 		REG_MWR(DCAM_PATH0_CFG, BIT_24 | BIT_23, path->frame_deci << 23);
 		DCAM_TRACE("DCAM DRV: path 2: frame_deci=0x%x \n", path->frame_deci);
+	}
+
+	if(path->valid_param.scale_tap){
+		path->valid_param.scale_tap = 0;
+		REG_MWR(DCAM_PATH2_CFG, BIT_19 | BIT_18 | BIT_17 | BIT_16, (path->scale_tap.y_tap & 0x0F) << 16);
+		REG_MWR(DCAM_PATH2_CFG, BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11, (path->scale_tap.uv_tap & 0x1F) << 11);
+		DCAM_TRACE_LOW("DCAM DRV: path 2: scale_tap, y=0x%x, uv=0x%x \n", path->scale_tap.y_tap, path->scale_tap.uv_tap);
+	}
+
+	if(path->valid_param.v_deci){
+		path->valid_param.v_deci = 0;
+		REG_MWR(DCAM_PATH2_CFG, BIT_2, path->deci_val.deci_x_en);
+		REG_MWR(DCAM_PATH2_CFG, BIT_1 | BIT_0, path->deci_val.deci_x);
+
+		REG_MWR(DCAM_PATH2_CFG, BIT_5, path->deci_val.deci_y_en);
+		REG_MWR(DCAM_PATH2_CFG, BIT_4 | BIT_3, path->deci_val.deci_y);
+		DCAM_TRACE("DCAM DRV: path 2: deci, x_en=%d, x=%d, y_en=%d, y=%d \n",
+			path->deci_val.deci_x_en, path->deci_val.deci_x, path->deci_val.deci_y_en, path->deci_val.deci_y);
 	}
 }
 
@@ -2270,7 +2312,7 @@ LOCAL int32_t _dcam_path_trim(enum dcam_path_index path_index)
 		path->input_size.h != path->input_rect.h) {
 //		REG_OWR(cfg_reg, 1 << ctrl_bit);
 	} else {
-		REG_MWR(cfg_reg, 1 << ctrl_bit, 0 << ctrl_bit);
+		//REG_MWR(cfg_reg, 1 << ctrl_bit, 0 << ctrl_bit);
 	}
 
 	return rtn;
@@ -2335,13 +2377,29 @@ LOCAL int32_t _dcam_calc_sc_size(enum dcam_path_index path_index)
 		path->sc_input_size.w = path->input_rect.w;
 		path->sc_input_size.h = path->input_rect.h;
 		if (path->input_rect.w > path->output_size.w * DCAM_SC_COEFF_MAX) {
-			REG_MWR(cfg_reg, BIT_1, 1 << 1);
+			//REG_MWR(cfg_reg, BIT_1 | BIT_0, 0);
+			//REG_MWR(cfg_reg, BIT_2, BIT_2);
+			path->deci_val.deci_x = 0;
+			path->deci_val.deci_x_en = 1;
+			path->valid_param.v_deci = 1;
 			path->sc_input_size.w = path->input_rect.w >> 1;
+		} else {
+			path->deci_val.deci_x = 0;
+			path->deci_val.deci_x_en = 0;
+			path->valid_param.v_deci = 1;
 		}
 
 		if (path->input_rect.h > path->output_size.h * DCAM_SC_COEFF_MAX) {
-			REG_MWR(cfg_reg, BIT_2, 1 << 2);
+			//REG_MWR(cfg_reg, BIT_3 | BIT_4, 0);
+			//REG_MWR(cfg_reg, BIT_5, BIT_5);
+			path->deci_val.deci_y = 0;
+			path->deci_val.deci_y_en = 1;
+			path->valid_param.v_deci = 1;
 			path->sc_input_size.h = path->input_rect.h >> 1;
+		} else {
+			path->deci_val.deci_y = 0;
+			path->deci_val.deci_y_en = 0;
+			path->valid_param.v_deci = 1;
 		}
 
 	}
@@ -2452,8 +2510,12 @@ LOCAL int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 		v_chroma_coeff++;
 	}
 
-	REG_MWR(ver_tap_reg, BIT_19 | BIT_18 | BIT_17 | BIT_16, (y_tap & 0x0F) << 16);
-	REG_MWR(ver_tap_reg, BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11, (uv_tap & 0x1F) << 11);
+	path->scale_tap.y_tap = y_tap;
+	path->scale_tap.uv_tap = uv_tap;
+	path->valid_param.scale_tap = 1;
+
+	//REG_MWR(ver_tap_reg, BIT_19 | BIT_18 | BIT_17 | BIT_16, (y_tap & 0x0F) << 16);
+	//REG_MWR(ver_tap_reg, BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11, (uv_tap & 0x1F) << 11);
 	DCAM_TRACE("DCAM DRV: _dcam_set_sc_coeff y_tap=0x%x, uv_tap=0x%x \n", y_tap, uv_tap);
 #if 0 //ndef __SIMULATOR__
 	do {
