@@ -59,3 +59,4 @@ obj-y		+= sprd_vsp/
 obj-y		+= sprd_jpg/
 obj-y		+= sprd_busmonitor/
 obj-y		+= sprd_cproc/
+obj-y		+= sprd_blc/
