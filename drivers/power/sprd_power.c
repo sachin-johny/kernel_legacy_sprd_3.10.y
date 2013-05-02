@@ -808,6 +808,19 @@ int __weak usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 	return -ENODEV;
 }
 
+static unsigned int adc_data[2]={0};
+static int __init adc_cal_start(char *str)
+{
+        char *cali_data = &str[1];
+        if(str){
+                pr_info("adc_cal%s!\n",str);
+                sscanf(cali_data, "%d,%d", &adc_data[0],&adc_data[1]);
+                pr_info("adc_data: 0x%x 0x%x!\n",adc_data[0],adc_data[1]);
+        }
+        return 1;
+}
+__setup("adc_cal", adc_cal_start);
+
 extern int sci_efuse_calibration_get(unsigned int* p_cal_data);
 static int sprd_battery_probe(struct platform_device *pdev)
 {
@@ -881,6 +894,16 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		data->adc_cal_updated = ADC_CAL_TYPE_EFUSE;
 		printk("probe efuse ok!!! adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],adc_voltage_table[1][0]);
 	}
+	if(((adc_data[2]&0xffff) < 4500 )&&((adc_data[2]&0xffff) > 3000)&&
+	   ((adc_data[3]&0xffff) < 4500 )&&((adc_data[3]&0xffff) > 3000)){
+                adc_voltage_table[0][1]=adc_data[0]&0xffff;
+                adc_voltage_table[0][0]=(adc_data[0]>>16)&0xffff;
+                adc_voltage_table[1][1]=adc_data[1]&0xffff;
+                adc_voltage_table[1][0]=(adc_data[1]>>16)&0xffff;
+                data->adc_cal_updated = ADC_CAL_TYPE_NV;
+		printk("probe cmdline ok!!! adc4200: %d,adc3600:%d\n",
+		       adc_voltage_table[0][0], adc_voltage_table[1][0]);
+        }
 
 	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	if (unlikely(!res)) {
