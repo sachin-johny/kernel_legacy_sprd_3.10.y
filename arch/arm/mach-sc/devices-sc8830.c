@@ -665,13 +665,14 @@ static const unsigned int test_keymap[] = {
 #elif defined (CONFIG_MACH_SP8830EA)
 
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW0 | SCI_ROW1)
-#define CUSTOM_KEYPAD_COLS          (SCI_COL0)
+#define CUSTOM_KEYPAD_COLS          (SCI_COL0 | SCI_COL1)
 #define ROWS	(2)
-#define COLS	(1)
+#define COLS	(2)
 
 static const unsigned int test_keymap[] = {
 	KEY(0, 0, KEY_VOLUMEDOWN),
 	KEY(1, 0, KEY_VOLUMEUP),
+	KEY(0, 1, KEY_HOME),
 };
 
 #endif
