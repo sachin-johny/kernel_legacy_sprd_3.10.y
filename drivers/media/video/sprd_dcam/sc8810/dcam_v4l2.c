@@ -1179,20 +1179,37 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		if (SENSOR_MAIN != Sensor_GetCurId()) {
 			break;
 		}
+		copy_from_user(&focus_param[0], (uint16_t *) ctrl->value,
+			       FOCUS_PARAM_LEN);
+		printk("V4L2:focus kernel,type=%d,zone_cnt=%d, focus_cancel=0x%x.\n",
+		       focus_param[0], focus_param[1], focus_param[25]);
+
+		af_param.cmd = SENSOR_EXT_FOCUS_CANCEL;
+		if(focus_param[25] == 0xabcd){
+			af_param.param = 1;
+		}else {
+			af_param.param = 0;
+		}
+		if (SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t) & af_param)) {
+			ret = -1;
+			printk("V4L2: focus cancel fail! \n");
+			break;
+		}
+		if(af_param.param){
+			break;
+		}
+
 		if (FLASH_AUTO == g_dcam_info.flash_mode){
-						printk("V4L2:vidioc_handle_ctrl FLASH_AUTO.\n.");
+			printk("V4L2:vidioc_handle_ctrl FLASH_AUTO.\n.");
 			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_AUTO);
 		}
 		else{
-		if (g_dcam_info.flash_mode) {
-			printk("V4L2:vidioc_handle_ctrl FLASH_OPEN.\n.");
-			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
+			if (g_dcam_info.flash_mode) {
+				printk("V4L2:vidioc_handle_ctrl FLASH_OPEN.\n.");
+				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
+			}
 		}
-		}
-		copy_from_user(&focus_param[0], (uint16_t *) ctrl->value,
-			       FOCUS_PARAM_LEN);
-		printk("V4L2:focus kernel,type=%d,zone_cnt=%d.\n",
-		       focus_param[0], focus_param[1]);
+
 		if ((0 == g_dcam_info.focus_param) && (0 != focus_param[0])) {
 			DCAM_V4L2_PRINT("V4L2: need initial auto firmware!.\n");
 			af_param.cmd = SENSOR_EXT_FUNC_INIT;
@@ -2492,16 +2509,22 @@ uint32_t video_write (struct file *fd, uint8_t *buf, size_t len, loff_t * offset
 	if (SENSOR_MAIN != Sensor_GetCurId()) {
 		return 0;
 	}
-		if (FLASH_AUTO == g_dcam_info.flash_mode){
-									printk("V4L2: video_write FLASH_AUTO.\n.");
-			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_AUTO);
+	af_param.cmd = SENSOR_EXT_FOCUS_CANCEL;
+	af_param.param = 0;
+	if (SENSOR_SUCCESS != Sensor_Ioctl(SENSOR_IOCTL_FOCUS, (uint32_t) & af_param)) {
+		printk("V4L2: error, video_write cancel focus fail .\n.");
+	}
+
+	if (FLASH_AUTO == g_dcam_info.flash_mode){
+		printk("V4L2: video_write FLASH_AUTO.\n.");
+		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_AUTO);
+	}
+	else{
+		if (g_dcam_info.flash_mode) {
+			printk("V4L2:video_write FLASH_OPEN.\n.");
+			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
 		}
-		else{
-				if (g_dcam_info.flash_mode) {
-											printk("V4L2:video_write FLASH_OPEN.\n.");
-					Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
-				}
-		}
+	}
 	copy_from_user(&focus_param[0], (uint16_t *) buf,FOCUS_PARAM_LEN);
 	printk("V4L2:focus kernel,type=%d,zone_cnt=%d.\n",
 	       focus_param[0], focus_param[1]);

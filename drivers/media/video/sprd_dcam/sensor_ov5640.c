@@ -32,6 +32,8 @@
 #define CMD_PARAM4 0x3028
 static uint32_t g_flash_mode_en = 0;
 static uint32_t g_auto_flash_mode_en = 0;
+static uint16_t g_focus_cancel = 0;
+
 LOCAL uint32_t _ov5640_InitExifInfo(void);
 LOCAL uint32_t _ov5640_GetResolutionTrimTab(uint32_t param);
 LOCAL uint32_t _ov5640_PowerOn(uint32_t power_on);
@@ -2565,7 +2567,7 @@ LOCAL uint32_t _ov5640_AutoFocusTrig(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 	uint16_t i=30;
 	uint16_t reg_value = 0x00;
 
-	printk("SENSOR: _ov5640_AutoFocusTrig \n");
+	printk("SENSOR: _ov5640_AutoFocusTrig, focus_cancel = %d\n", g_focus_cancel);
 
 	Sensor_WriteReg(CMD_ACK, 0x01);
 	Sensor_WriteReg(CMD_MAIN, 0x03);
@@ -2579,7 +2581,7 @@ LOCAL uint32_t _ov5640_AutoFocusTrig(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 		msleep(100);
 		reg_value = Sensor_ReadReg(CMD_ACK);
 		i--;
-	} while (0x00 != reg_value);
+	} while ((0x00 != reg_value) && (!g_focus_cancel));
 
 	if (SENSOR_SUCCESS == rtn) {
 		reg_value = Sensor_ReadReg(CMD_PARAM4);
@@ -2645,7 +2647,7 @@ LOCAL uint32_t _ov5640_AutoFocusZone(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 			msleep(100);
 			reg_value = Sensor_ReadReg(CMD_ACK);
 			i--;
-		} while (0x00 != reg_value);
+		} while ((0x00 != reg_value) && (!g_focus_cancel));
 
 		if(SENSOR_SUCCESS==rtn)
 		{
@@ -2669,8 +2671,8 @@ LOCAL uint32_t _ov5640_AutoFocusZone(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 		/* 0x3029: 0x00 - auto focusing, 0x10 - success, 0x7f - failed */
 		reg_value = Sensor_ReadReg(0x3029);
 		SENSOR_PRINT_ERR
-		    ("SENSOR: _ov5640_AutoFocusZone after: 0x3029 = %x \n",
-		     reg_value);
+		    ("SENSOR: _ov5640_AutoFocusZone after: 0x3029 = %x, focus_cancel = %d \n",
+		     reg_value, g_focus_cancel);
 	}
 	if (SENSOR_SUCCESS == rtn)
 		SENSOR_PRINT_HIGH("SENSOR: _ov5640_AutoFocusZone success! \n");
@@ -2686,7 +2688,7 @@ LOCAL uint32_t _ov5640_AutoFocusMultiZone(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 	uint32_t zone_cnt = 0;
 	uint32_t zone_num = 0x90;
 
-	SENSOR_PRINT_HIGH("SENSOR: _ov5640_AutoFocusMultiZone S.\n");
+	SENSOR_PRINT_HIGH("SENSOR: _ov5640_AutoFocusMultiZone, focus_cancel %d. S.\n", g_focus_cancel);
 	zone_cnt = (param_ptr->zone_cnt > 5) ? 5 : param_ptr->zone_cnt;
 	for (i = 0; i < zone_cnt; i++) {
 		ext_param[i].cmd = param_ptr->cmd;
@@ -2733,7 +2735,7 @@ LOCAL uint32_t _ov5640_AutoFocusMultiZone(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 		msleep(100);
 		reg_value = Sensor_ReadReg(CMD_ACK);
 		i--;
-	} while (0x00 != reg_value);
+	} while ((0x00 != reg_value) && (!g_focus_cancel));
 
 	if(SENSOR_SUCCESS==rtn)
 	{
@@ -2770,7 +2772,7 @@ LOCAL uint32_t _ov5640_AutoFocusMacro(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 		msleep(100);
 		reg_value = Sensor_ReadReg(CMD_ACK);
 		i--;
-	} while (0x00 != reg_value);
+	} while ((0x00 != reg_value) && (!g_focus_cancel));
 
 	if(SENSOR_SUCCESS==rtn)
 	{
@@ -2781,7 +2783,7 @@ LOCAL uint32_t _ov5640_AutoFocusMacro(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 			rtn=SENSOR_FAIL;
 		}
 	}
-	printk("SENSOR: _ov5640_AutoFocusMacro Done! rtn = %d \n", rtn);
+	printk("SENSOR: _ov5640_AutoFocusMacro Done! rtn = %d, focus_cancel = %d\n", rtn, g_focus_cancel);
 	return rtn;
 }
 
@@ -7062,6 +7064,9 @@ LOCAL uint32_t _ov5640_ExtFunc(uint32_t ctl_param)
 		break;
 	case SENSOR_EXT_EXPOSURE_START:
 		rtn = _ov5640_StartExposure(ctl_param);
+		break;
+	case SENSOR_EXT_FOCUS_CANCEL:
+		g_focus_cancel = ext_ptr->param;
 		break;
 	default:
 		break;
