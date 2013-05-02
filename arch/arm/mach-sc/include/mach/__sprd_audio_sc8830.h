@@ -207,9 +207,9 @@ static inline int arch_audio_vbc_switch(int master)
 		ret =
 		    sci_glb_read(REG_AON_APB_VBC_CTRL,
 				 BITS_VBC_DA01_INT_SYS_SEL(3));
-		if (ret == 0) {
+		if (ret == BITS_VBC_DA01_INT_SYS_SEL(0)) {
 			ret = AUDIO_TO_AP_ARM_CTRL;
-		} else if (ret == 1) {
+		} else if (ret == BITS_VBC_DA01_INT_SYS_SEL(1)) {
 			ret =
 			    sci_glb_read(REG_AON_APB_VBC_CTRL,
 					 BIT_VBC_INT_CP0_ARM_SEL);
@@ -217,7 +217,7 @@ static inline int arch_audio_vbc_switch(int master)
 				ret = AUDIO_TO_CP0_ARM_CTRL;
 			else
 				ret = AUDIO_TO_CP0_DSP_CTRL;
-		} else if (ret == 2) {
+		} else if (ret == BITS_VBC_DA01_INT_SYS_SEL(2)) {
 			ret =
 			    sci_glb_read(REG_AON_APB_VBC_CTRL,
 					 BIT_VBC_INT_CP1_ARM_SEL);
@@ -225,7 +225,7 @@ static inline int arch_audio_vbc_switch(int master)
 				ret = AUDIO_TO_CP1_ARM_CTRL;
 			else
 				ret = AUDIO_TO_CP1_DSP_CTRL;
-		} else if (ret == 3) {
+		} else if (ret == BITS_VBC_DA01_INT_SYS_SEL(3)) {
 			ret = AUDIO_TO_CP2_ARM_CTRL;
 		}
 		break;
