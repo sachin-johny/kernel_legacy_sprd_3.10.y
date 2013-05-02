@@ -519,7 +519,14 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	}
 	else if (strnicmp(command, CMD_SETBAND, strlen(CMD_SETBAND)) == 0) {
 		uint band = *(command + strlen(CMD_SETBAND) + 1) - '0';
-		bytes_written = wldev_set_band(net, band);
+		if(wl_cfg80211_is_associate(net)){
+			printk("%s is associated return directly set band\n", __FUNCTION__);
+			snprintf(command, 3, "OK");
+			bytes_written = strlen("OK");
+		}else {
+			printk("%s is not associated, set band\n", __FUNCTION__);
+			bytes_written = wldev_set_band(net, band);
+		}
 	}
 	else if (strnicmp(command, CMD_GETBAND, strlen(CMD_GETBAND)) == 0) {
 		bytes_written = wl_android_get_band(net, command, priv_cmd.total_len);
@@ -527,9 +534,11 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	else if (strnicmp(command, CMD_COUNTRY, strlen(CMD_COUNTRY)) == 0) {
 		char *country_code = command + strlen(CMD_COUNTRY) + 1;
 		if(wl_cfg80211_is_associate(net)){
+			printk("%s is associated set country return directly\n", __FUNCTION__);
 			snprintf(command, 3, "OK");
 			bytes_written = strlen("OK");
 		}else {
+			printk("%s is associated set country return directly\n", __FUNCTION__);
 			bytes_written = wldev_set_country(net, country_code);
 		}
 	}

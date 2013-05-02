@@ -6983,6 +6983,7 @@ int wl_cfg80211_is_associate(struct net_device *dev)
 	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
 
 	if (!wl_get_drv_status(wl, CONNECTED, dev) ||
+		!wl_get_drv_status(wl, CONNECTING, dev) ||
 		(dhd_is_associated(dhd, NULL) == FALSE)) {
 		return 0;
 	}
