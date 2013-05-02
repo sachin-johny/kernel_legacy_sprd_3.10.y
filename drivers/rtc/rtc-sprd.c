@@ -26,8 +26,7 @@
 #include <linux/clk.h>
 #include <linux/wakelock.h>
 
-/* RTC_BASE      0x82000080 */
-#define RTC_BASE (SPRD_MISC_BASE + 0x80)
+#define RTC_BASE (SPRD_MISC_BASE + 0x8080)
 #define ANA_RTC_SEC_CNT                 (RTC_BASE + 0x00)
 #define ANA_RTC_MIN_CNT                 (RTC_BASE + 0x04)
 #define ANA_RTC_HOUR_CNT                (RTC_BASE + 0x08)
@@ -529,6 +528,10 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 	int err = -ENODEV;
 	struct resource *irq;
 	int ret = 0;
+
+	/*disable and clean irq*/
+	sci_adi_clr(ANA_RTC_INT_EN, 0xffff);
+	sci_adi_set(ANA_RTC_INT_CLR, 0xffff);
 
 	rtc_data = kzalloc(sizeof(*rtc_data), GFP_KERNEL);
 	if(IS_ERR(rtc_data)){
