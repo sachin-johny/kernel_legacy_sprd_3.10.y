@@ -30,6 +30,7 @@
 #include <asm/unified.h>
 
 #include <mach/hardware.h>
+#include <mach/sci_glb_regs.h>
 
 extern void sci_secondary_startup(void);
 
@@ -45,13 +46,40 @@ static int __cpuinit boot_secondary_cpus(int cpu_id, u32 paddr)
 
 #elif (defined CONFIG_ARCH_SC8830)
 
+static int __cpuinit __poweron_cpus(int cpu)
+{
+	u32 poweron, val;
+
+	if (cpu == 1)
+		poweron = REG_PMU_APB_PD_CA7_C1_CFG;
+	else if (cpu == 2)
+		poweron = REG_PMU_APB_PD_CA7_C2_CFG;
+	else if (cpu == 3)
+		poweron = REG_PMU_APB_PD_CA7_C3_CFG;
+	else
+		return -1;
+
+	val = BITS_PD_CA7_C3_PWR_ON_DLY(4) | BITS_PD_CA7_C3_PWR_ON_SEQ_DLY(4) | BITS_PD_CA7_C3_ISO_ON_DLY(4);
+	writel(val,poweron);
+
+	writel((__raw_readl(REG_AP_AHB_CA7_RST_SET) | (1 << cpu)), REG_AP_AHB_CA7_RST_SET);
+	val = (BIT_PD_CA7_C3_AUTO_SHUTDOWN_EN | __raw_readl(poweron)) &~(BIT_PD_CA7_C3_FORCE_SHUTDOWN);
+	writel(val,poweron);
+	udelay(1000);
+	writel((__raw_readl(REG_AP_AHB_CA7_RST_SET) & ~(1 << cpu)), REG_AP_AHB_CA7_RST_SET);
+
+	return 0;
+}
+
 static int __cpuinit boot_secondary_cpus(int cpu_id, u32 paddr)
 {
-	int _cpu_id = readl(HOLDING_PEN_VADDR);
 	if (cpu_id < 1 || cpu_id > 3)
 		return -1;
+
 	writel(paddr,(CPU_JUMP_VADDR + (cpu_id << 2)));
-	writel(_cpu_id | (1 << cpu_id),HOLDING_PEN_VADDR);
+	writel(readl(HOLDING_PEN_VADDR) | (1 << cpu_id),HOLDING_PEN_VADDR);
+	__poweron_cpus(cpu_id);
+
 	return 0;
 }
 
@@ -118,11 +146,11 @@ int __cpuinit boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * that it has been released by resetting pen_release.
 	 *
 	 */
+	write_pen_release(cpu_logical_map(cpu));
+
 	ret = boot_secondary_cpus(cpu, virt_to_phys(sci_secondary_startup));
 	if (ret < 0)
 		pr_warn("SMP: boot_secondary(%u) error\n", cpu);
-
-	write_pen_release(cpu_logical_map(cpu));
 
 	dsb_sev();
 	timeout = jiffies + (1 * HZ);
