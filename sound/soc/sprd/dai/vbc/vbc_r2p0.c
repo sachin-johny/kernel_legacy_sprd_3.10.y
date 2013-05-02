@@ -149,6 +149,7 @@ struct vbc_priv {
 
 static DEFINE_MUTEX(load_mutex);
 static struct vbc_equ vbc_eq_setting = { 0 };
+static int vbc_control;
 
 static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai);
 #ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
@@ -1500,16 +1501,8 @@ req_fw_err:
 static int vbc_switch_get(struct snd_kcontrol *kcontrol,
 			  struct snd_ctl_elem_value *ucontrol)
 {
-	int ret;
-	ret = arch_audio_vbc_switch(AUDIO_NO_CHANGE);
-	if (ret >= 0)
-		ucontrol->value.integer.value[0] =
-		    ((ret ==
-		      AUDIO_TO_CP0_DSP_CTRL) ? 0 : ((ret ==
-						     AUDIO_TO_CP1_DSP_CTRL) ? 1
-						    : 2));
-
-	return ret;
+	ucontrol->value.integer.value[0] = vbc_control;
+	return 0;
 }
 
 static int vbc_switch_put(struct snd_kcontrol *kcontrol,
@@ -1519,16 +1512,19 @@ static int vbc_switch_put(struct snd_kcontrol *kcontrol,
 	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
 	pr_info("VBC switch to %s\n",
 		texts->texts[ucontrol->value.integer.value[0]]);
+	if (vbc_control == ucontrol->value.integer.value[0])
+		return 0;
 
-	ret = ucontrol->value.integer.value[0];
-	ret = arch_audio_vbc_switch(ret == 0 ?
-				    AUDIO_TO_CP0_DSP_CTRL : ((ret == 1) ?
+	vbc_control = ucontrol->value.integer.value[0];
+
+	arch_audio_vbc_switch(vbc_control  == 0 ?
+				    AUDIO_TO_CP0_DSP_CTRL : ((vbc_control  == 1) ?
 							     AUDIO_TO_CP1_DSP_CTRL
 							     :
 							     AUDIO_TO_AP_ARM_CTRL));
 
 	vbc_dbg("Leaving %s\n", __func__);
-	return ret;
+	return 1;
 }
 
 static int vbc_eq_switch_get(struct snd_kcontrol *kcontrol,
@@ -1816,7 +1812,15 @@ EXPORT_SYMBOL_GPL(vbc_add_controls);
 
 static int __init vbc_init(void)
 {
+	int ret;
 	arch_audio_vbc_switch(AUDIO_TO_AP_ARM_CTRL);
+	ret = arch_audio_vbc_switch(AUDIO_NO_CHANGE);
+	if (ret != AUDIO_TO_AP_ARM_CTRL) {
+		pr_err("Failed to Switch VBC to AP\n");
+		return -1;
+	}
+	vbc_control = 2; /*AP*/
+
 	return platform_driver_register(&vbc_driver);
 }
 
