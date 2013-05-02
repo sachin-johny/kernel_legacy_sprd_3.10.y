@@ -609,6 +609,28 @@ static inline int arch_audio_codec_reset(void)
 /* ------------------------------------------------------------------------- */
 
 /* i2s setting */
+static inline const char * arch_audio_i2s_clk_name(int id)
+{
+#if FIXED_AUDIO
+	switch (id) {
+	case 0:
+		return "clk_iis0";
+		break;
+	case 1:
+		return "clk_iis1";
+		break;
+	case 2:
+		return "clk_iis2";
+		break;
+	case 3:
+		return "clk_iis3";
+		break;
+	default:
+		break;
+	}
+	return NULL;
+#endif
+}
 
 static inline int arch_audio_i2s_enable(int id)
 {

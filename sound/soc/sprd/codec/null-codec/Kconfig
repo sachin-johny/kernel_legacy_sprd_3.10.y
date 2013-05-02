@@ -1,0 +1,3 @@
+config SND_SOC_NULL_CODEC tristate
+#"null codec"
+ help "just for the audio codec code"

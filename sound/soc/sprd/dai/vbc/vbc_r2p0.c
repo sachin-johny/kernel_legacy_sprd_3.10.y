@@ -36,7 +36,7 @@
 #include <sound/pcm_params.h>
 #include <sound/tlv.h>
 
-#include "sprd-vbc-r2p0-pcm.h"
+#include "../sprd-pcm.h"
 #include "vbc_r2p0.h"
 
 #ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
@@ -93,16 +93,16 @@ static const u32 vbc_eq_profile_default[VBC_EFFECT_PARAS_LEN] = {
 	0x00000183,		/*  STCTL0          */
 	0x00000183,		/*  STCTL1          */
 	0x00000000,		/*  ADPATCHCTL      */
-	0x00001818,		/*  ADDG01CTL         */
-	0x00001818,		/*  ADDG23CTL         */
+	0x00001818,		/*  ADDG01CTL       */
+	0x00001818,		/*  ADDG23CTL       */
 	0x00000000,		/*  ADHPCTL         */
-	0x00000000,		/*  ADCSRCCTL         */
-	0x00000000,		/*  DACSRCCTL         */
-	0x00000000,		/*  MIXERCTL         */
-	0x00000000,		/*  VBNGCVTHD        */
-	0x00000000,		/*  VBNGCTTHD          */
+	0x00000000,		/*  ADCSRCCTL       */
+	0x00000000,		/*  DACSRCCTL       */
+	0x00000000,		/*  MIXERCTL        */
+	0x00000000,		/*  VBNGCVTHD       */
+	0x00000000,		/*  VBNGCTTHD       */
 	0x00000000,		/*  VBNGCTL         */
-	0x00000000,		/*  HPCOEF0_H         */
+	0x00000000,		/*  HPCOEF0_H       */
 };
 
 #ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
