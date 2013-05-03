@@ -414,8 +414,10 @@ static int vsp_probe(struct platform_device *pdev)
 	// Open VSP in MM top.
 	//VSP_WRITE_REG(0x60d00000, (1<<6)|(1<<3),  "[3]: VSP_eb, [6]: CKG_eb");
 	//VSP_WRITE_REG(0x60d00008, (1<<8)|(1<<7)|(1<<5), "[5]: VSP_AXI_CKG_EN, [7]: MM_AXI_CKG_EN, [8]: MM_MTX_AXI_CKG_EN");
-        __raw_writel((1<<6)|(1<<3), SPRD_MMAHB_BASE + 0x0);	
-        __raw_writel((1<<8)|(1<<7)|(1<<5), SPRD_MMAHB_BASE + 0x8);	
+	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x0);
+        __raw_writel(cmd0|(1<<6)|(1<<3), SPRD_MMAHB_BASE + 0x0);	
+	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x8);
+        __raw_writel(cmd0|(1<<8)|(1<<7)|(1<<5), SPRD_MMAHB_BASE + 0x8);	
 
 
 #endif
