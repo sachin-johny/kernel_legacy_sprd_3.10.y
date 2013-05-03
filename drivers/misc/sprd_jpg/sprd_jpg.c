@@ -289,6 +289,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			ret = -EINVAL;
 		} else if (ret == 0) {
 			printk("KERN_ERR jpg error start  timeout\n");
+			ret = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
+			printk("jpg_int_status %x",ret);
 			ret = -ETIMEDOUT;
 		} else {
 			ret = 0;
@@ -333,16 +335,19 @@ static irqreturn_t jpg_isr(int irq, void *data)
 		{
 			__raw_writel((1<<3), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
 			ret = 0;
+			printk(KERN_ERR "jpg_isr MBIO");
 		}
 		if((int_status >> 0) & 0x1)  // JPEG ENC BSM INIT
 		{
 			__raw_writel((1<<0), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
 			ret = 2;
+			printk(KERN_ERR "jpg_isr BSM");
 		}
 		 if((int_status >> 1) & 0x1)  // JPEG ENC VLC DONE INIT
 		{
 			__raw_writel((1<<1), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
-			ret = 4;			
+			ret = 4;	
+			printk(KERN_ERR "jpg_isr VLC");
 		}
 
 		 jpg_hw_dev.jpg_int_status = ret;
@@ -448,8 +453,10 @@ static int jpg_probe(struct platform_device *pdev)
 		//cmd0 = __raw_readl(DCAM_CLOCK_EN);//,"DCAM_CLOCK_EN:Read the DCAM_CLOCK_EN ");
 		//cmd0 = 0xFFFFFFFF;
 		//__raw_writel(cmd0,DCAM_CLOCK_EN);//"DCAM_CLOCK_EN:enable DCAM_CLOCK_EN");
-        __raw_writel((1<<6)|(1<<5), SPRD_MMAHB_BASE + 0x0);	
-        __raw_writel((1<<8)|(1<<7)|(1<<6), SPRD_MMAHB_BASE + 0x8);	
+	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x0);
+	__raw_writel(cmd0|(1<<6)|(1<<5), SPRD_MMAHB_BASE + 0x0);
+	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x08);
+        __raw_writel(cmd0|(1<<8)|(1<<7)|(1<<6), SPRD_MMAHB_BASE + 0x8);	
 
 #endif
 
