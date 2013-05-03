@@ -857,8 +857,6 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	struct dcam_node         node;
 	uint32_t                 fmr_index;
 
-	mutex_lock(&dev->tx_mutex);
-
 	if (NULL == frame || NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
@@ -895,9 +893,6 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 		return ret;
 
 	up(&dev->irq_sem);
-
-	mutex_unlock(&dev->tx_mutex);
-
 	return ret;
 }
 
@@ -1748,14 +1743,16 @@ LOCAL int v4l2_streamon(struct file *file,
 	struct dcam_path_spec    *path_1 = NULL;
 	struct dcam_path_spec    *path_2 = NULL;
 
-	printk("v4l2_streamon, stream mode %d, buf_type 0x%x \n", dev->stream_mode, i_type);
+	DCAM_TRACE("V4L2: v4l2_streamon, mode %d, buf_type 0x%x \n",
+		dev->stream_mode, i_type);
 	
 	mutex_lock(&dev->dcam_mutex);
 
 	path_0 = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
-	printk("path_0->is_work, path_1->is_work, path_2->is_work %d %d %d\n", path_0->is_work, path_1->is_work, path_2->is_work);
+	DCAM_TRACE("V4L2: path_0, path_1, path_2 %d %d %d\n",
+		path_0->is_work, path_1->is_work, path_2->is_work);
 	/* config CSI2 host firstly */
 	if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
 		ret = csi_api_init();
@@ -1836,7 +1833,7 @@ LOCAL int v4l2_streamoff(struct file *file,
 	struct dcam_path_spec    *path_1 = NULL;
 	struct dcam_path_spec    *path_2 = NULL;
 
-	printk("v4l2_streamoff, stream mode %d, if mode %d, buf_type = 0x%x \n",
+	DCAM_TRACE("V4L2: streamoff, mode %d, if mode %d, buf_type = 0x%x \n",
 		dev->stream_mode, dev->dcam_cxt.if_mode, i_type);
 
 	mutex_lock(&dev->dcam_mutex);
@@ -1845,11 +1842,13 @@ LOCAL int v4l2_streamoff(struct file *file,
 	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 
-	DCAM_TRACE("V4L2: v4l2_streamoff, status: path_1=%d, path_2=%d, stream_on=%d \n", 
+	DCAM_TRACE("V4L2: streamoff, status: path_1 = %d, path_2 = %d, stream_on = %d \n", 
 		path_1->status, path_2->status, atomic_read(&dev->stream_on));
 
-	ret = atomic_read(&dev->stream_on);
-	V4L2_PRINT_IF_ERR(ret);
+	if (unlikely(0 == atomic_read(&dev->stream_on))) {
+		printk("V4L2: stream not on\n");
+		goto exit;
+	}
 
 	ret = sprd_stop_timer(&dev->dcam_timer);
 	V4L2_PRINT_IF_ERR(ret);
@@ -1888,6 +1887,7 @@ LOCAL int v4l2_streamoff(struct file *file,
 	ret = sprd_v4l2_local_deinit(dev);
 	V4L2_PRINT_IF_ERR(ret);
 
+exit:
 	mutex_unlock(&dev->dcam_mutex);
 	return ret;
 }

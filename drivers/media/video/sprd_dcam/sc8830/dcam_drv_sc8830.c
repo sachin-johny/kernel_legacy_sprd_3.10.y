@@ -815,16 +815,18 @@ int32_t dcam_stop_cap(void)
 
 	DCAM_TRACE("DCAM DRV: dcam_stop_cap, dcam_mode: %d \n", s_dcam_mod.dcam_mode);	
 	/* CAP_EB disable */
-	if (DCAM_CAPTURE_MODE_MULTIPLE == s_dcam_mod.dcam_mode) {
-		REG_AWR(DCAM_CONTROL, ~BIT_2); /* Cap Enable */
-		_dcam_wait_for_stop();
-		if (atomic_read(&s_resize_flag)) {
-			s_resize_wait = 1;
-			/* resize started , wait for it going to the end*/
-			DCAM_TRACE("DCAM DRV: dcam_stop, wait: %d \n", s_done_sema.count);
-			rtn = down_interruptible(&s_done_sema);
-		}
+	//REG_AWR(DCAM_CONTROL, ~BIT_2); /* Cap Enable */
+	REG_MWR(DCAM_CONTROL, BIT_2, 0); /* Cap Enable */
+	_dcam_wait_for_stop();
+	DCAM_TRACE("DCAM DRV: dcam_stop_cap, s_resize_flag %d \n", atomic_read(&s_resize_flag));
+	if (atomic_read(&s_resize_flag)) {
+		s_resize_wait = 1;
+		/* resize started , wait for it going to the end*/
+		DCAM_TRACE("DCAM DRV: dcam_stop, wait: %d \n", s_done_sema.count);
+		rtn = down_interruptible(&s_done_sema);
 	}
+
+	DCAM_TRACE("DCAM DRV: g_dcam_irq=0x%x \n", g_dcam_irq);
 
 	if(DCAM_IRQ_NONE != g_dcam_irq){
 		free_irq(DCAM_IRQ, &g_dcam_irq);
@@ -839,6 +841,8 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	uint32_t                stop_cap = 0;
+
+	DCAM_TRACE("DCAM DRV: dcam_stop_path=0x%x \n", path_index);
 
 	if(DCAM_PATH_IDX_0 & path_index){
 		s_dcam_mod.dcam_path0.status = DCAM_ST_STOP;
@@ -900,7 +904,9 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		dcam_reset(DCAM_RST_PATH2);
 		_dcam_frm_clear(DCAM_PATH_IDX_2);
 	}
-	
+
+	DCAM_TRACE("DCAM DRV: stop_cap=0x%x, try to reset all \n", stop_cap);
+
 	if(stop_cap){
 		dcam_reset(DCAM_RST_ALL);
 	}
@@ -2376,7 +2382,8 @@ LOCAL int32_t _dcam_calc_sc_size(enum dcam_path_index path_index)
 	} else {
 		path->sc_input_size.w = path->input_rect.w;
 		path->sc_input_size.h = path->input_rect.h;
-		if (path->input_rect.w > path->output_size.w * DCAM_SC_COEFF_MAX) {
+		//if (path->input_rect.w > path->output_size.w * DCAM_SC_COEFF_MAX) {
+		if(0) {
 			//REG_MWR(cfg_reg, BIT_1 | BIT_0, 0);
 			//REG_MWR(cfg_reg, BIT_2, BIT_2);
 			path->deci_val.deci_x = 0;
@@ -2389,7 +2396,8 @@ LOCAL int32_t _dcam_calc_sc_size(enum dcam_path_index path_index)
 			path->valid_param.v_deci = 1;
 		}
 
-		if (path->input_rect.h > path->output_size.h * DCAM_SC_COEFF_MAX) {
+		//if (path->input_rect.h > path->output_size.h * DCAM_SC_COEFF_MAX) {
+		if (0) {
 			//REG_MWR(cfg_reg, BIT_3 | BIT_4, 0);
 			//REG_MWR(cfg_reg, BIT_5, BIT_5);
 			path->deci_val.deci_y = 0;
