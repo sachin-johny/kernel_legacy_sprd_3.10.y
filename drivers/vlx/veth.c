@@ -350,6 +350,10 @@ veth_ring_pull_data (VEthRingDesc* ring, nku8_f* dst)
     sd = (VEthSlotDesc*) src;
     len = sd->len;
     VETH_OTRACE ("%p <- %p\n", dst, sd->data);
+    if(len > ETH_FRAME_LEN) {
+        VETH_ERR("veth_ring_pull_data len is invalid\n");
+        len = ETH_FRAME_LEN;
+    }
     memcpy (dst, (char*) sd->data + SLOT_HLEN_PAD, len);
 
     ring->c_idx++;
