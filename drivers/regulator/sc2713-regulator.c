@@ -384,14 +384,14 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 		goto exit;
 
 	/* FIXME: always update voltage ctrl bits */
-#if 0
+/*
 	ret =
 	    rdev->desc->ops->set_voltage(rdev, to_vol * 1000, to_vol * 1000, 0);
 	if (IS_ERR_VALUE(ret) && regs->vol_ctl)
 		goto exit;
 
 	else {
-#endif
+*/
 	if (regs->vol_trm) {
 		u32 trim =	/* assert 5 valid trim bits */
 		    (cal_vol * 100 * 32) / (to_vol * 20) & 0x1f;
@@ -522,8 +522,8 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 		/*check the reset relative bit of vol ctl */
 		if (regs->vol_trm != regs->vol_ctl) {
 			u32 vol_bits =
-			    (~ANA_REG_GET(regs->vol_ctl) & (regs->vol_ctl_bits << 4)) >>
-			    4;
+			    (~ANA_REG_GET(regs->vol_ctl) &
+			     (regs->vol_ctl_bits << 4)) >> 4;
 
 			if (i != vol_bits)
 				return -EFAULT;
@@ -577,7 +577,7 @@ static int __init __adc_cal_setup(char *str)
 		*p = simple_strtoul(str, &str, 0);
 		if (*p) {
 			/* update adc data from kernel parameter */
-			debug("%d : %d -- %d : %d\n",
+			debug2("%d : %d -- %d : %d\n",
 			      (int)adc_data[0][0], (int)adc_data[0][1],
 			      (int)adc_data[1][0], (int)adc_data[1][1]);
 			if (adc_data[0][1] >= BIT(10)
@@ -585,10 +585,10 @@ static int __init __adc_cal_setup(char *str)
 				adc_sample_bit = 1;	/*12bits mode */
 		}
 	}
-	return 1;
+	return 0;
 }
 
-__setup("adc_cal=", __adc_cal_setup);
+early_param("adc_cal", __adc_cal_setup);
 
 static int __adc2vbat(int adc_res)
 {
