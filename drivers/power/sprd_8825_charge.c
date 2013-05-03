@@ -534,43 +534,72 @@ uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
 	uint8_t shift_bit;
 	uint8_t chg_switchpoint;
 
-	chg_switchpoint =
-	    (sci_adi_read(ANA_CHGR_CTRL1) & CHGR_SW_POINT_MSK) >>
-	    CHGR_SW_POINT_SHIFT;
-	shift_bit = chg_switchpoint >> 4;
-	current_switchpoint = chg_switchpoint & 0x0F;
+#ifdef CONFIG_ARCH_SC7710
+	if (ANA_CHIP_ID_BA == sci_get_ana_chip_id()) {
+		chg_switchpoint =
+		    (sci_adi_read(ANA_CHGR_CTRL1) & CHGR_SW_POINT_MSK_METAL) >>
+		    CHGR_SW_POINT_SHIFT_METAL;
 
-	if (up_or_down) {
-		if (shift_bit > 0) {
-			if (current_switchpoint < 0xF) {
-				current_switchpoint += 1;
+		if (up_or_down) {
+			if (0x1F == chg_switchpoint) {
+				chg_switchpoint = 0x1F;
+			} else {
+				chg_switchpoint += 1;
 			}
 		} else {
-			if (current_switchpoint > 0) {
-				current_switchpoint -= 1;
+			if (0 == chg_switchpoint) {
+				chg_switchpoint = 0x0;
 			} else {
-				shift_bit = 1;
+				chg_switchpoint -= 1;
 			}
 		}
+
+		sci_adi_write(ANA_CHGR_CTRL1,
+			      ((chg_switchpoint << CHGR_SW_POINT_SHIFT_METAL) &
+			       CHGR_SW_POINT_MSK_METAL),
+			      CHGR_SW_POINT_MSK_METAL);
 	} else {
-		if (shift_bit > 0) {
-			if (current_switchpoint > 0) {
-				current_switchpoint -= 1;
+#endif
+		chg_switchpoint =
+		    (sci_adi_read(ANA_CHGR_CTRL1) & CHGR_SW_POINT_MSK) >>
+		    CHGR_SW_POINT_SHIFT;
+		shift_bit = chg_switchpoint >> 4;
+		current_switchpoint = chg_switchpoint & 0x0F;
+
+		if (up_or_down) {
+			if (shift_bit > 0) {
+				if (current_switchpoint < 0xF) {
+					current_switchpoint += 1;
+				}
 			} else {
-				shift_bit = 0;
+				if (current_switchpoint > 0) {
+					current_switchpoint -= 1;
+				} else {
+					shift_bit = 1;
+				}
 			}
 		} else {
-			if (current_switchpoint < 0xF) {
-				current_switchpoint += 1;
+			if (shift_bit > 0) {
+				if (current_switchpoint > 0) {
+					current_switchpoint -= 1;
+				} else {
+					shift_bit = 0;
+				}
+			} else {
+				if (current_switchpoint < 0xF) {
+					current_switchpoint += 1;
+				}
 			}
 		}
+
+		chg_switchpoint = (shift_bit << 4) | current_switchpoint;
+
+		sci_adi_write(ANA_CHGR_CTRL1,
+			      ((chg_switchpoint << CHGR_SW_POINT_SHIFT) &
+			       CHGR_SW_POINT_MSK), (CHGR_SW_POINT_MSK));
+#ifdef CONFIG_ARCH_SC7710
 	}
-
-	chg_switchpoint = (shift_bit << 4) | current_switchpoint;
-
-	sci_adi_write(ANA_CHGR_CTRL1,
-		      ((chg_switchpoint << CHGR_SW_POINT_SHIFT) &
-		       CHGR_SW_POINT_MSK), (CHGR_SW_POINT_MSK));
+#endif
 	return chg_switchpoint;
 }
 
