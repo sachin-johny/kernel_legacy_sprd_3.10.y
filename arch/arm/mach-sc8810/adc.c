@@ -224,12 +224,35 @@ static DEFINE_SPINLOCK(adc_lock);
 #define BIT_ADC_EB                  ( BIT(5) )
 #define BIT_CLK_AUXADC_EN                      ( BIT(13) )
 #define BIT_CLK_AUXAD_EN						( BIT(14) )
+#define ADC_HW_CH_ID_MSK            (0x1F)
+#define CP_PA_TEMPRATURE_HW_CFG        (4)
+#define CP_PA_TEMPRATURE_CHANNEL        (16)
+
+void sci_adc_hw_slow_init(void)
+{
+    u32 adc_hw_addr;
+    u32 adc_reg_val;
+
+    adc_hw_addr = io_base + ADC_SLOW_HW_CHX_CFG(CP_PA_TEMPRATURE_HW_CFG);
+
+    /* init cp PA temprature channel*/
+    adc_write((io_base + ADC_HW_CH_DELAY), 0xe0);
+    adc_write(adc_hw_addr, adc_read(adc_hw_addr) | BIT(6));
+
+    adc_reg_val = adc_read(adc_hw_addr) & ~ADC_HW_CH_ID_MSK;
+    adc_reg_val = adc_reg_val | BIT_CH_ID(CP_PA_TEMPRATURE_CHANNEL);
+    adc_write(adc_hw_addr, adc_reg_val);
+}
+
 void sci_adc_enable(void)
 {
 	/* enable adc */
 	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
 		    BIT_ANA_ADC_EB | BIT_ANA_CLK_AUXADC_EN |
 		    BIT_ANA_CLK_AUXAD_EN);
+
+    /* init HW slow channel */
+    sci_adc_hw_slow_init();
 }
 
 void sci_adc_dump_register()
