@@ -45,8 +45,8 @@
 
 #undef debug
 #define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
-#define debug0(format, arg...)
-#define debug2(format, arg...)
+#define debug0(format, arg...)	//pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug2(format, arg...)	//pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
 
 #ifndef	ANA_REG_OR
 #define	ANA_REG_OR(_r, _b)	sci_adi_write(_r, _b, 0)
@@ -67,6 +67,10 @@
 struct sci_regulator_regs {
 	int typ;
 	u32 pd_set, pd_set_bit;
+	/**
+	 * at new feature, some LDOs had only set, no rst bits.
+	 * and DCDCs voltage and trimming controller is the same register
+	 */
 	u32 pd_rst, pd_rst_bit;
 	u32 slp_ctl, slp_ctl_bit;
 	u32 vol_trm, vol_trm_bits;
@@ -246,14 +250,18 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 	int mv = min_uV / 1000;
 	int ret = -EINVAL;
 	int i, shft = __ffs(regs->vol_ctl_bits);
+	int has_rst_bit = !(0x3 == (regs->vol_ctl_bits >> shft));	/* new feature */
+
 	BUG_ON(regs->vol_sel_cnt > 4);
-	debug("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
+	debug("regu %p (%s) %d %d (%d)\n", regs, desc->desc.name, min_uV,
+	      max_uV, has_rst_bit);
 
 	if (!regs->vol_ctl)
 		return -EACCES;
 	for (i = 0; i < regs->vol_sel_cnt; i++) {
 		if (regs->vol_sel[i] == mv) {
-			ANA_REG_SET(regs->vol_ctl, vol_bits[i] << shft,
+			ANA_REG_SET(regs->vol_ctl,
+				    (!has_rst_bit) ? i : vol_bits[i] << shft,
 				    regs->vol_ctl_bits);
 			/*clear_bit(desc->desc.id, trimming_state); */
 			ret = 0;
@@ -272,6 +280,7 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	const struct sci_regulator_regs *regs = desc->regs;
 	u32 vol, vol_bits;
 	int i, shft = __ffs(regs->vol_ctl_bits);
+	int has_rst_bit = !(0x3 == (regs->vol_ctl_bits >> shft));	/* new feature */
 
 	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x\n",
 	       regs, desc->desc.name, regs->vol_ctl, shft, regs->vol_ctl_bits);
@@ -282,8 +291,8 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	BUG_ON(regs->vol_sel_cnt != 4);
 	vol_bits = ((ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft);
 
-	if ((vol_bits & BIT(0)) ^ (vol_bits & BIT(1))
-	    && (vol_bits & BIT(2)) ^ (vol_bits & BIT(3))) {
+	if (!has_rst_bit || ((vol_bits & BIT(0)) ^ (vol_bits & BIT(1))
+			     && (vol_bits & BIT(2)) ^ (vol_bits & BIT(3)))) {
 		i = (vol_bits & BIT(0)) | ((vol_bits >> 1) & BIT(1));
 		vol = regs->vol_sel[i];
 		debug2("regu %p (%s), voltage %d\n", regs, desc->desc.name,
@@ -379,13 +388,16 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 	if (!regs->vol_trm || cal_vol < 0 || cal_vol >= to_vol * 20 / 100)
 		goto exit;
 
-	/* always update voltage ctrl bits */
+	/* FIXME: always update voltage ctrl bits */
+/*
 	ret =
 	    rdev->desc->ops->set_voltage(rdev, to_vol * 1000, to_vol * 1000, 0);
 	if (IS_ERR_VALUE(ret) && regs->vol_ctl)
 		goto exit;
 
 	else {
+*/
+	if (regs->vol_trm) {
 		u32 trim =	/* assert 5 valid trim bits */
 		    (cal_vol * 100 * 32) / (to_vol * 20) & 0x1f;
 		debug
@@ -511,20 +523,22 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 
 	mv = regs->vol_sel[i];
 
-	if (regs->vol_trm && regs->vol_trm != regs->vol_ctl) {
+	if (regs->vol_trm) {
 		/*check the reset relative bit of vol ctl */
-		u32 vol_bits =
-		    (~ANA_REG_GET(regs->vol_ctl) & (regs->vol_ctl_bits << 4)) >>
-		    4;
+		if (regs->vol_trm != regs->vol_ctl) {
+			u32 vol_bits =
+			    (~ANA_REG_GET(regs->vol_ctl) &
+			     (regs->vol_ctl_bits << 4)) >> 4;
 
-		if (i != vol_bits)
-			return -EFAULT;
+			if (i != vol_bits)
+				return -EFAULT;
+		}
 
 		cal = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits)
 		    * desc->ops->get_trimming_step(rdev, mv) / 1000;
 	}
 
-	debug("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv, cal);
+	debug2("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv, cal);
 	return (mv + cal) * 1000;
 }
 
@@ -544,6 +558,8 @@ exit:
 	return ret;
 }
 
+static DEFINE_MUTEX(adc_chan_mutex);
+static int adc_sample_bit = 0;	/*10bits mode */
 static short adc_data[2][2]
 #if 0
     = {
@@ -566,15 +582,18 @@ static int __init __adc_cal_setup(char *str)
 		*p = simple_strtoul(str, &str, 0);
 		if (*p) {
 			/* update adc data from kernel parameter */
-			debug("%d : %d -- %d : %d\n",
+			debug2("%d : %d -- %d : %d\n",
 			      (int)adc_data[0][0], (int)adc_data[0][1],
 			      (int)adc_data[1][0], (int)adc_data[1][1]);
+			if (adc_data[0][1] >= BIT(10)
+			    || adc_data[1][1] >= BIT(10))
+				adc_sample_bit = 1;	/*12bits mode */
 		}
 	}
-	return 1;
+	return 0;
 }
 
-__setup("adc_cal=", __adc_cal_setup);
+early_param("adc_cal", __adc_cal_setup);
 
 static int __adc2vbat(int adc_res)
 {
@@ -630,7 +649,7 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 		.scale = 1,	/*big scale */
 		.pbuf = &adc_val[0],
 		.sample_num = MEASURE_TIMES,
-		.sample_bits = 1,	/*12bits mode */
+		.sample_bits = adc_sample_bit,
 		.sample_speed = 0,	/*quick mode */
 		.signal_mode = 0,	/*resistance path */
 	};
@@ -643,6 +662,7 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 
 	/* enable ldo cal before adc sampling and ldo calibration */
 	if (0 == regs->typ) {
+		mutex_lock(&adc_chan_mutex);
 		ANA_REG_OR(regs->cal_ctl, ldo_cal_sel);
 		debug0("%s adc channel %d : %04x\n",
 		       desc->desc.name, adc_data.channel_id, ldo_cal_sel);
@@ -651,15 +671,15 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 	ret = sci_adc_get_values(&adc_data);
 	BUG_ON(0 != ret);
 
-	__dump_adc_result(adc_val);
-
-	/* close ldo cal */
+	/* close ldo cal and release multiplexed aux adc channel */
 	if (0 == regs->typ) {
 		ANA_REG_BIC(regs->cal_ctl, ldo_cal_sel);
+		mutex_unlock(&adc_chan_mutex);
 	}
-	sort(adc_val, MEASURE_TIMES, sizeof(u32), cmp_val, 0);
 
 	__dump_adc_result(adc_val);
+	sort(adc_val, MEASURE_TIMES, sizeof(u32), cmp_val, 0);
+	/*__dump_adc_result(adc_val);*/
 
 	sci_adc_get_vol_ratio(adc_data.channel_id, adc_data.scale,
 			      &chan_numerators, &chan_denominators);
@@ -668,8 +688,9 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 			      &bat_denominators);
 
 	adc_res = adc_val[MEASURE_TIMES / 2];
-	debug("%s adc result value %d, chan (%d/%d)\n",
-	      desc->desc.name, adc_res, chan_numerators, chan_denominators);
+	debug("%s adc channel %d : 0x%04x, ratio (%d/%d), result value %d\n",
+	      desc->desc.name, adc_data.channel_id, ldo_cal_sel,
+	      chan_numerators, chan_denominators, adc_res);
 
 	if (adc_res == 0)
 		return -EAGAIN;
@@ -689,7 +710,7 @@ static void do_regu_work(struct work_struct *w)
 		int ret;
 		mutex_lock(&data->rdev->mutex);
 		ret = desc->ops->calibrate(data->rdev, 0, 0);
-		if (ret > 0) {
+		if (ret > 0) {	/* try again */
 			ret = desc->ops->calibrate(data->rdev, ret, 0);
 		}
 		mutex_unlock(&data->rdev->mutex);
@@ -724,7 +745,7 @@ static int regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
 
 	ctl_vol = rdev->desc->ops->get_voltage(rdev);
 	if (IS_ERR_VALUE(ctl_vol)) {
-		debug0("no valid %s vol ctrl bits\n", desc->desc.name);
+		debug("no valid %s vol ctrl bits\n", desc->desc.name);
 	} else			/* dcdc/ldo maybe had been adjusted or opened in uboot-spl */
 		ctl_vol /= 1000;
 
@@ -752,7 +773,7 @@ static int regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
 	if (!def_vol || !to_vol || adc_vol <= 0)
 		goto exit;
 
-	if (cal_vol > to_vol / 10)	/* adjust limit 10% */
+	if (abs(adc_vol - def_vol) > def_vol / 10)	/* adjust limit 10% */
 		goto exit;
 	else if (cal_vol < to_vol / 100) {	/* bias 1% */
 		goto verify;
@@ -786,13 +807,9 @@ verify:
 		return 0;
 	}
 
-	if (0 == regs->typ) {
-		debug("%s try again\n", desc->desc.name);
-		return ctl_vol;	/*FIXME: sometime, ldo need calibrate again */
-	} else {
-		WARN_ON(1);
-		return 0;
-	}
+	/*FIXME: unfortunately, dcdc/ldo need calibrate again */
+	WARN(1, "%s try again\n", desc->desc.name);
+	return def_vol;
 
 exit:
 	debug("%s failure\n", desc->desc.name);
@@ -907,7 +924,7 @@ static int debugfs_adc_chan_get(void *data, u64 * val)
 		.scale = 1,	/*big scale */
 		.pbuf = &adc_val[0],
 		.sample_num = MEASURE_TIMES,
-		.sample_bits = 1,	/*12bits mode */
+		.sample_bits = adc_sample_bit,
 		.sample_speed = 0,	/*quick mode */
 		.signal_mode = 0,	/*resistance path */
 	};
@@ -974,9 +991,18 @@ static int debugfs_ldo_set(void *data, u64 val)
 static int debugfs_dcdc_set(void *data, u64 val)
 {
 	struct regulator_dev *rdev = data;
+	struct sci_regulator_desc *desc = __get_desc(rdev);
 	int to_vol = (int)val;
-	if (rdev)
-		regu_calibrate(rdev, 0, to_vol);
+
+	if (rdev) {
+		int ret;
+		mutex_lock(&rdev->mutex);
+		ret = desc->ops->calibrate(rdev, 0, to_vol);
+		if (ret > 0) {	/* try again */
+			ret = desc->ops->calibrate(rdev, ret, to_vol);
+		}
+		mutex_unlock(&rdev->mutex);
+	}
 	return 0;
 }
 

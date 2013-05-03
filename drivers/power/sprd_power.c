@@ -1011,9 +1011,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		printk("probe efuse ok!!! adc4200: %d,adc3600:%d\n",
 		       adc_voltage_table[0][0], adc_voltage_table[1][0]);
 	}
-	if (((adc_data[2] & 0xffff) < 4500) && ((adc_data[2] & 0xffff) > 3000)
-	    && ((adc_data[3] & 0xffff) < 4500)
-	    && ((adc_data[3] & 0xffff) > 3000)) {
+	if (adc_data[0]) {
 		adc_voltage_table[0][1] = adc_data[0] & 0xffff;
 		adc_voltage_table[0][0] = (adc_data[0] >> 16) & 0xffff;
 		adc_voltage_table[1][1] = adc_data[1] & 0xffff;
