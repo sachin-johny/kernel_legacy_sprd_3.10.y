@@ -137,7 +137,7 @@ static int find_jpg_freq_level(unsigned long freq)
 
 static void disable_jpg (struct jpg_fh *jpg_fp)
 {
-	clk_disable(jpg_hw_dev.jpg_clk);
+//	clk_disable(jpg_hw_dev.jpg_clk);
 	jpg_fp->is_clock_enabled= 0;
 	pr_debug("jpg ioctl JPG_DISABLE\n");
 
@@ -279,7 +279,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 
 	case JPG_ACQUAIRE_MBIO_DONE:
 
-		pr_debug("jpg ioctl JPG_ACQUAIRE_MBIO_DONE\n");
+		printk("jpg ioctl JPG_ACQUAIRE_MBIO_DONE E\n");
 		ret = wait_event_interruptible_timeout(
 			jpg_hw_dev.wait_queue_work,
 			jpg_hw_dev.condition_work,
@@ -305,12 +305,13 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		else //catched an init
 		{
 			ret = jpg_hw_dev.jpg_int_status;
+			printk("__line__,%d,jpg_int_status %x",__LINE__,jpg_hw_dev.jpg_int_status);
 		}
 				
 		printk(KERN_ERR "JPG_ACQUAIRE_MBIO_DONE %x\n",ret);
 		jpg_hw_dev.jpg_int_status = 0;
 		jpg_hw_dev.condition_work = 0;
-		pr_debug("jpg ioctl JPG_ACQUAIRE_MBIO_DONE end\n");
+		printk(KERN_ERR "jpg ioctl JPG_ACQUAIRE_MBIO_DONE end X\n");
 		return ret;
 
                break;
@@ -327,7 +328,7 @@ static irqreturn_t jpg_isr(int irq, void *data)
 	int int_status;
 	
 	int_status = jpg_hw_dev.jpg_int_status = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
-	//printk(KERN_INFO "VSP_INT_STS %x\n",int_status);
+	printk(KERN_ERR "jpg_int_status %x\n",int_status);
         if((int_status) & 0xb) // JPEG ENC 
 	{
 		int ret = 7; // 7 : invalid
