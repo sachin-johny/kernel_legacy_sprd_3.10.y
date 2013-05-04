@@ -1528,7 +1528,7 @@ LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 	}else if (DCAM_PATH2 == channel_id) {
 		path_cfg = dcam_path2_cfg;
 	}
-
+#if 0
 	ret = path_cfg(DCAM_PATH_INPUT_SIZE, &path->in_size);
 	V4L2_RTN_IF_ERR(ret);
 
@@ -1537,8 +1537,8 @@ LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 
 	ret = path_cfg(DCAM_PATH_OUTPUT_SIZE, &path->out_size);
 	V4L2_RTN_IF_ERR(ret);
-
-	dcam_update_path(path_index);
+#endif
+	dcam_update_path(path_index, &path->in_size, &path->in_rect, &path->out_size);
 
 exit:
 	mutex_unlock(&dev->dcam_mutex);

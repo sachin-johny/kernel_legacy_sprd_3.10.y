@@ -331,7 +331,8 @@ int32_t    dcam_module_en(void);
 int32_t    dcam_module_dis(void);
 int32_t    dcam_reset(enum dcam_rst_mode reset_mode);
 int32_t    dcam_set_clk(enum dcam_clk_sel clk_sel);
-int32_t    dcam_update_path(enum dcam_path_index path_index);
+int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_size,
+		struct dcam_rect *in_rect, struct dcam_size *out_size);
 int32_t    dcam_start_path(enum dcam_path_index path_index);
 int32_t    dcam_start(void);
 int32_t    dcam_stop_path(enum dcam_path_index path_index);

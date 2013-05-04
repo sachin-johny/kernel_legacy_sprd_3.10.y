@@ -533,7 +533,7 @@ uint8_t GenScaleCoeff(int16_t i_w,
 	int16_t *cong_UVcom_ver = 0;
 
 	uint16_t luma_ver_tap, chrome_ver_tap;
-	uint16_t luma_ver_maxtap = 8, chrome_ver_maxtap = 8;
+	uint16_t luma_ver_maxtap = 16, chrome_ver_maxtap = 16;
 
 	uint32_t coef_buf_size = 0;
 	int16_t *temp_filter_ptr = NULL;
