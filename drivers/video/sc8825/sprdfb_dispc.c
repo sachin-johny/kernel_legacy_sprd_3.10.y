@@ -752,6 +752,9 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 		mdelay(50); /*fps>20*/
 
 		dev->enable = 0;
+#ifdef CONFIG_FB_SC8830
+		__raw_bits_and((~(1<<1)), SPRD_AHB_BASE);
+#endif
 		clk_disable(dispc_ctx.clk_dispc);
 		clk_disable(dispc_ctx.clk_dispc_dpi);
 		clk_disable(dispc_ctx.clk_dispc_dbi);
@@ -769,6 +772,9 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		clk_enable(dispc_ctx.clk_dispc);
 		clk_enable(dispc_ctx.clk_dispc_dpi);
 		clk_enable(dispc_ctx.clk_dispc_dbi);
+#ifdef CONFIG_FB_SC8830
+		__raw_bits_or((1<<1), SPRD_AHB_BASE);
+#endif
 		dispc_ctx.vsync_done = 1;
 		if (dispc_read(DISPC_SIZE_XY) == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);

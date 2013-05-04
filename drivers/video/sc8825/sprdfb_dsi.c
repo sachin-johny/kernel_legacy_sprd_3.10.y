@@ -148,7 +148,7 @@ int32_t dsi_early_int(void)
 	}
 
 #ifdef CONFIG_FB_SC8830
-	ret = request_irq(IRQ_DSI1_INT, dsi_isr1, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+	ret = request_irq(IRQ_DSI1_INT, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 #else
 	ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 #endif
@@ -328,7 +328,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		}
 
 #ifdef CONFIG_FB_SC8830
-		ret = request_irq(IRQ_DSI1_INT, dsi_isr1, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+		ret = request_irq(IRQ_DSI1_INT, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 #else
 		ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 #endif
