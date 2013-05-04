@@ -51,7 +51,7 @@
 #define DCAM_QUEUE_LENGTH                       16
 #define DCAM_TIMING_LEN                         16
 #define DCAM_TIMEOUT                            1000
-#define DEBUG_STR                               "L %d, %s: \n"
+#define DEBUG_STR                               "Error L %d, %s: \n"
 #define DEBUG_ARGS                              __LINE__,__FUNCTION__
 #define V4L2_RTN_IF_ERR(n)          \
 	do {                        \
@@ -1623,8 +1623,6 @@ LOCAL int v4l2_qbuf(struct file *file,
 	uint32_t                 index;
 	uint32_t                 path_cnt;
 
-	DCAM_TRACE_LOW("V4L2: v4l2_qbuf, type 0x%x \n", p->type);
-
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == p->type) {
 		path = &info->dcam_path[DCAM_PATH1];
 		path_cnt = DCAM_PATH_1_FRM_CNT_MAX;
@@ -1638,6 +1636,9 @@ LOCAL int v4l2_qbuf(struct file *file,
 		printk("V4L2 error: v4l2_qbuf, type 0x%x \n", p->type);
 		return -EINVAL;
 	}
+
+	DCAM_TRACE_LOW("V4L2: v4l2_qbuf, type 0x%x, status=%d, frm_cnt_act=%d, y=0x%x, u=0x%x, v=0x%x \n", 
+		p->type, path->status, path->frm_cnt_act, p->m.userptr, p->input, p->reserved);
 		
 	mutex_lock(&dev->dcam_mutex);
 
@@ -2064,6 +2065,9 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 			channel_id, path->status);
 	}
 exit:
+	if (ret) {
+		DCAM_TRACE("V4L2: fail sprd_v4l2_streamresume, path %d, ret = 0x%x\n", channel_id, ret);
+	}
 	return ret;
 }
 
