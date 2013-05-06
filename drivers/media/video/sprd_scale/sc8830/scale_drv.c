@@ -514,6 +514,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 	}
 
 	default:
+		printk("SCALE DRV: error io 0x%x \n", id);
 		rtn = SCALE_RTN_IO_ID_ERR;
 		break;
 	}

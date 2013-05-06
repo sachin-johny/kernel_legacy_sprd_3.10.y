@@ -21,7 +21,7 @@
 #include "img_scale.h"
 #include <linux/kthread.h>
 
-#define PARAM_SIZE 32
+#define PARAM_SIZE 128
 #define SCALE_USER_MAX 4
 #define INVALID_USER_ID PID_MAX_DEFAULT
 
@@ -184,7 +184,8 @@ static long img_scale_ioctl(struct file *file,
 	void *data = param;
 
 	param_size = _IOC_SIZE(cmd);
-	printk("img_scale_ioctl, io number 0x%x, param_size %d \n",
+	SCALE_TRACE("img_scale_ioctl,io 0x%x, io number 0x%x, param_size %d \n",
+		cmd,
 		_IOC_NR(cmd),
 		param_size);
 
@@ -195,7 +196,6 @@ static long img_scale_ioctl(struct file *file,
 			goto exit;
 		}
 	}
-
 	if (SCALE_IO_IS_DONE == cmd) {
 		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
 		if (ret) {
