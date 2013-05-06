@@ -26,6 +26,9 @@
  *
  *	Locking: none
  */
+#ifdef CONFIG_BT_BEKEN3211
+struct workqueue_struct *p_btuart_queue=NULL;
+#endif
 
 void tty_buffer_free_all(struct tty_struct *tty)
 {
@@ -409,6 +412,14 @@ static void flush_to_ldisc(struct work_struct *work)
 	disc = tty_ldisc_ref(tty);
 	if (disc == NULL)	/*  !TTY_LDISC */
 		return;
+#ifdef CONFIG_BT_BEKEN3211
+   if(tty->name!=NULL)
+        {
+      int cmp_flag=strcmp(tty->name, "ttyS0");
+      if(cmp_flag==0)
+         set_user_nice(current, -19);
+          }
+#endif
 
 	spin_lock_irqsave(&tty->buf.lock, flags);
 
@@ -495,11 +506,39 @@ void tty_flip_buffer_push(struct tty_struct *tty)
 
 	if (tty->low_latency)
 		flush_to_ldisc(&tty->buf.work);
+	else{
+#ifdef CONFIG_BT_BEKEN3211
+	int cmp_flag=-1;
+
+       if(tty->name!=NULL)
+           cmp_flag=strcmp(tty->name, "ttyS0" );
+	    
+       if(cmp_flag==0 && p_btuart_queue !=NULL)
+	    queue_work(p_btuart_queue,&tty->buf.work);
 	else
-		schedule_work(&tty->buf.work);
+	    schedule_work(&tty->buf.work);
+#else
+	    schedule_work(&tty->buf.work);
+#endif
+        }
 }
 EXPORT_SYMBOL(tty_flip_buffer_push);
 
+#ifdef CONFIG_BT_BEKEN3211
+void tty_read_create_workqueue(void)
+{
+    p_btuart_queue=create_singlethread_workqueue("btuart_queue");
+   //  dump_stack();
+}
+EXPORT_SYMBOL(tty_read_create_workqueue);
+
+void tty_read_destroy_workqueue(void)
+{
+    flush_workqueue(p_btuart_queue);
+    destroy_workqueue(p_btuart_queue);
+}
+EXPORT_SYMBOL(tty_read_destroy_workqueue);
+#endif
 /**
  *	tty_buffer_init		-	prepare a tty buffer structure
  *	@tty: tty to initialise

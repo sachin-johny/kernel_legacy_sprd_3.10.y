@@ -64,6 +64,7 @@
 /*UART FIFO watermark*/
 #define SP_TX_FIFO		0x40
 #define SP_RX_FIFO		0x40
+#define SP_RX_TOUT  0x03  // RX timeout
 /*UART IEN*/
 #define UART_IEN_RX_FIFO_FULL	(0x1<<0)
 #define UART_IEN_TX_FIFO_EMPTY	(0x1<<1)
@@ -405,7 +406,16 @@ static int serial_sprd_startup(struct uart_port *port)
 	}
 
 	ctrl1 = serial_in(port, ARM_UART_CTL1);
+#ifdef CONFIG_BT_BEKEN3211
+	if (0 == port->line) {
+	  ctrl1 |= (SP_RX_TOUT << 9)|(SP_RX_FIFO);
+	}
+	else{
+	  ctrl1 |= 0x3e00|SP_RX_FIFO;
+	}
+#else
 	ctrl1 |= 0x3e00 | SP_RX_FIFO;
+#endif
 	serial_out(port, ARM_UART_CTL1, ctrl1);
 
 	/* enable interrupt */
@@ -506,7 +516,16 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	/* clock divider bit16~bit20 */
 	serial_out(port, ARM_UART_CLKD1, (quot & 0x1f0000) >> 16);
 	serial_out(port, ARM_UART_CTL0, lcr);
+#ifdef CONFIG_BT_BEKEN3211
+	if (0 == port->line) {
+	  fc |= (SP_RX_TOUT << 9)|(SP_RX_FIFO);
+	}
+	else{
+	  fc |= 0x3e00|SP_RX_FIFO;
+	}
+#else
 	fc |= 0x3e00 | SP_RX_FIFO;
+#endif
 	serial_out(port, ARM_UART_CTL1, fc);
 }
 
@@ -877,6 +896,10 @@ static struct platform_driver serial_sprd_driver = {
 static int __init serial_sprd_init(void)
 {
 	int ret = 0;
+	
+#ifdef CONFIG_BT_BEKEN3211
+	tty_read_create_workqueue();
+#endif
 
 	ret = uart_register_driver(&serial_sprd_reg);
 	if (unlikely(ret != 0))
@@ -893,6 +916,9 @@ static void __exit serial_sprd_exit(void)
 {
 	platform_driver_unregister(&serial_sprd_driver);
 	uart_unregister_driver(&serial_sprd_reg);
+#ifdef CONFIG_BT_BEKEN3211
+	tty_read_destroy_workqueue();
+#endif
 }
 
 module_init(serial_sprd_init);

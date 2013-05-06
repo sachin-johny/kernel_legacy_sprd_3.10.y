@@ -439,6 +439,9 @@ extern void __do_SAK(struct tty_struct *tty);
 extern void disassociate_ctty(int priv);
 extern void no_tty(void);
 extern void tty_flip_buffer_push(struct tty_struct *tty);
+//add for bt a2dp
+extern void tty_read_create_workqueue(void);
+extern void tty_read_destroy_workqueue(void);
 extern void tty_flush_to_ldisc(struct tty_struct *tty);
 extern void tty_buffer_free_all(struct tty_struct *tty);
 extern void tty_buffer_flush(struct tty_struct *tty);
