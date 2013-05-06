@@ -44,6 +44,7 @@ extern void time_statisic_begin(void);
 extern void time_statisic_end(void);
 extern void print_time(void);
 extern void irq_wakeup_set(void);
+extern void irq_wakeup_clear(void);
 extern void time_add(unsigned int time, int ret);
 extern void print_hard_irq_inloop(int ret);
 extern void pm_debug_save_ahb_glb_regs(void);

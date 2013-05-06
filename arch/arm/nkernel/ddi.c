@@ -1628,6 +1628,7 @@ nk_do_xirq (struct pt_regs* regs)
 #endif
 		nk_do_IRQ(xirq, regs);
     }
+    irq_wakeup_clear();
 
     irq_exit();
 

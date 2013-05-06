@@ -191,7 +191,6 @@ void inc_irq(int irq)
 		sprd_irqs[irq]++;
 		if(is_print_wakeup)
 			printk("\n#####: wakeup irq = %d.\n", irq);
-		is_wakeup = 0;
 	}
 }
 EXPORT_SYMBOL(inc_irq);
@@ -199,6 +198,11 @@ EXPORT_SYMBOL(inc_irq);
 void irq_wakeup_set(void)
 {
 	is_wakeup = 1;
+}
+
+void irq_wakeup_clear(void)
+{
+	is_wakeup = 0;
 }
 
 static void print_irq(void)
