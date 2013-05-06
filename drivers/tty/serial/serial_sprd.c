@@ -122,7 +122,6 @@
 
 static struct wake_lock uart_rx_lock;  // UART0  RX  IRQ
 static bool is_uart_rx_wakeup;
-static struct serial_data plat_data;
 
 static inline unsigned int serial_in(struct uart_port *port, int offset)
 {
@@ -361,7 +360,9 @@ static int serial_sprd_startup(struct uart_port *port)
 {
 	int ret = 0;
 	unsigned int ien, ctrl1;
+	BT_HOST_WAKEUP_TYPE wakeup_type;
 
+	wakeup_type = *(BT_HOST_WAKEUP_TYPE *)(port->private_data);
 	/* FIXME: don't know who change u0cts pin in 88 */
 	serial_sprd_pin_config();
 
@@ -389,7 +390,7 @@ static int serial_sprd_startup(struct uart_port *port)
 		free_irq(port->irq, port);
 	}
 
-	if(BT_RX_WAKE_UP == plat_data.wakeup_type)
+	if(BT_RX_WAKE_UP == wakeup_type)
 	{
 		int ret2 = 0;
 
@@ -609,6 +610,10 @@ static int serial_sprd_setup_port(struct platform_device *pdev, struct resource 
 	if (up == NULL) {
 		return -ENOMEM;
 	}
+	up->private_data = kmalloc(sizeof(BT_HOST_WAKEUP_TYPE), GFP_KERNEL);
+	if (up->private_data == NULL) {
+		return -ENOMEM;
+	}
 
 	up->line = pdev->id;
 	up->type = PORT_SPRD;
@@ -617,6 +622,7 @@ static int serial_sprd_setup_port(struct platform_device *pdev, struct resource 
 	up->mapbase = mem->start;
 
 	plat_local_data = *(struct serial_data *)(pdev->dev.platform_data);
+	*(BT_HOST_WAKEUP_TYPE *)(up->private_data) = plat_local_data.wakeup_type;
 	up->uartclk = plat_local_data.clk;
 
 	up->irq = irq->start;
@@ -716,7 +722,7 @@ static int serial_sprd_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource *mem, *irq;
-
+	struct serial_data plat_data;
 
 	if (unlikely(pdev->id < 0 || pdev->id >= UART_NR_MAX)) {
 		dev_err(&pdev->dev, "does not support id %d\n", pdev->id);
@@ -801,9 +807,12 @@ int sc8800g_set_wakeup_src(bool wakeup_flag)
 }
 #endif
 
-static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
+static int serial_sprd_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	/* TODO */
+	struct serial_data plat_data;
+	plat_data = *(struct serial_data *)(pdev->dev.platform_data);
+
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
 #ifdef CONFIG_ARCH_SC7710
                 sc8800g_set_wakeup_src(true);
@@ -825,9 +834,12 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 	return 0;
 }
 
-static int serial_sprd_resume(struct platform_device *dev)
+static int serial_sprd_resume(struct platform_device *pdev)
 {
 	/* TODO */
+	struct serial_data plat_data;
+	plat_data = *(struct serial_data *)(pdev->dev.platform_data);
+
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
 		if(is_uart_rx_wakeup)
 		{
