@@ -110,6 +110,11 @@ Always power on  According to spec
 static int wlan_ldo_enable(void)
 {
 	int err;
+
+/*7710GA use vdd28 as vddio,do nothing*/
+#ifdef CONFIG_MACH_SP7710GA
+	return 0;
+#endif
 	wlan_regulator_18 = regulator_get(NULL, REGU_NAME_WIFI);
 
 	if (IS_ERR(wlan_regulator_18)) {
