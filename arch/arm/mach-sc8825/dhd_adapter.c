@@ -285,6 +285,7 @@ static unsigned char char2bin( char m)
 	if (( m >= '0') && (m <= '9')) {
 		return m - '0';
 	}
+	return 0;
 }
 
 static int wlan_device_get_mac_addr(unsigned char *buf)
