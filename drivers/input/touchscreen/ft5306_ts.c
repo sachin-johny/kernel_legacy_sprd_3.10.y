@@ -1296,10 +1296,10 @@ static int __devexit ft5x0x_ts_remove(struct i2c_client *client)
 	unregister_early_suspend(&ft5x0x_ts->early_suspend);
 	free_irq(client->irq, ft5x0x_ts);
 	input_unregister_device(ft5x0x_ts->input_dev);
-	kfree(ft5x0x_ts);
 	cancel_work_sync(&ft5x0x_ts->pen_event_work);
 	destroy_workqueue(ft5x0x_ts->ts_workqueue);
 	i2c_set_clientdata(client, NULL);
+	kfree(ft5x0x_ts);
 	return 0;
 }
 
