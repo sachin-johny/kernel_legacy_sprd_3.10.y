@@ -864,6 +864,11 @@ struct platform_device sprd_scale_device = {
 	.id	= -1,
 };
 
+struct platform_device sprd_gsp_device =
+{
+    .name	= "sprd_gsp",
+    .id	= -1,
+};
 struct platform_device sprd_rotation_device = {
 	.name	= "sprd_rotation",
 	.id	= -1,
