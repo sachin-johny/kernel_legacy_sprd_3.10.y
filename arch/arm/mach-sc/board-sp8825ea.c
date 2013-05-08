@@ -49,8 +49,6 @@
 
 #include "devices.h"
 
-/* IRQ's for the multi sensor board */
-#define MPUIRQ_GPIO 212
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include <linux/spi/mxd_cmmb_026x.h>
@@ -241,7 +239,7 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 };
 
 static struct ltr558_pls_platform_data ltr558_pls_info = {
-	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+	.irq_gpio_number	= GPIO_PROX_INT,
 };
 
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
@@ -281,21 +279,24 @@ static struct mpu_platform_data mpu9150_platform_data = {
 			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
 };
 
-
 static struct i2c_board_info i2c2_boardinfo[] = {
+	/*
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
 	},
+	*/
 	{ I2C_BOARD_INFO("mpu9150", 0x68),
-	  .irq = MPUIRQ_GPIO,
+	  .irq = GPIO_GYRO_INT1,
 	  .platform_data = &mpu9150_platform_data,
 	},
 	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
 	  .platform_data = &ltr558_pls_info,
 	},
-/*	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+	/*
+	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
-	},*/
+	},
+	*/
 };
 
 static struct i2c_board_info i2c1_boardinfo[] = {

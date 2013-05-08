@@ -41,21 +41,6 @@
 
 #include "inv_mpu_iio.h"
 
-//#define INVENSENSE_MISC_DBG
-#ifdef INVENSENSE_MISC_DBG
-#define ENTER printk(KERN_INFO "[INVENSENSE_MISC_DBG] func: %s  line: %04d  ", __func__, __LINE__)
-#define PRINT_DBG(x...)  printk(KERN_INFO "[INVENSENSE_MISC_DBG] " x)
-#define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_MISC_INFO] " x)
-#define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_MISC_WARN] " x)
-#define PRINT_ERR(format,x...)  printk(KERN_ERR "[INVENSENSE_MISC_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
-#else
-#define ENTER
-#define PRINT_DBG(x...)
-#define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_MISC_INFO] " x)
-#define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_MISC_WARN] " x)
-#define PRINT_ERR(format,x...)  printk(KERN_ERR "[INVENSENSE_MISC_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
-#endif
-
 /* DMP defines */
 #define DMP_ORIENTATION_TIME            500
 #define DMP_ORIENTATION_ANGLE           60
@@ -391,7 +376,6 @@ int inv_get_silicon_rev_mpu6500(struct inv_mpu_iio_s *st)
 
 int inv_get_silicon_rev_mpu6050(struct inv_mpu_iio_s *st)
 {
-	ENTER;
 	int result;
 	struct inv_reg_map_s *reg;
 	u8 prod_ver = 0x00, prod_rev = 0x00;
@@ -404,6 +388,8 @@ int inv_get_silicon_rev_mpu6050(struct inv_mpu_iio_s *st)
 	u16 sw_rev;
 	short index;
 	struct inv_chip_info_s *chip_info = &st->chip_info;
+
+	ENTER;
 	reg = &st->reg;
 
 	result = inv_i2c_read(st, REG_PRODUCT_ID, 1, &prod_ver);

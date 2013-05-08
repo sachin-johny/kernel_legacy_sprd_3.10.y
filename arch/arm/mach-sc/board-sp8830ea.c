@@ -38,6 +38,7 @@
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include <mach/pinmap.h>
+#include <linux/mpu.h>
 #include <linux/akm8975.h>
 #include <linux/irq.h>
 #include <linux/persistent_ram.h>
@@ -48,8 +49,6 @@
 
 #include "devices.h"
 
-/* IRQ's for the multi sensor board */
-#define MPUIRQ_GPIO 212
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include <linux/spi/mxd_cmmb_026x.h>
@@ -250,11 +249,9 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 };
 
 static struct ltr558_pls_platform_data ltr558_pls_info = {
-	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+	.irq_gpio_number	= GPIO_PROX_INT,
 };
 
-/* TODO: mpu sensor drivers not merged */
-#if 0
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.poll_interval = 10,
 	.min_interval = 10,
@@ -280,8 +277,8 @@ static struct mpu_platform_data mpu9150_platform_data = {
 	.int_config = 0x00,
 	.level_shifter = 0,
 	.orientation = { -1, 0, 0,
-					  0, -1, 0,
-					  0, 0, +1 },
+					  0, +1, 0,
+					  0, 0, -1 },
 	.sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
 	.sec_slave_id = COMPASS_ID_AK8963,
 	.secondary_i2c_addr = 0x0C,
@@ -292,23 +289,25 @@ static struct mpu_platform_data mpu9150_platform_data = {
 			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
 };
 
-
 static struct i2c_board_info i2c2_boardinfo[] = {
+	/*
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
 	},
+	*/
 	{ I2C_BOARD_INFO("mpu9150", 0x68),
-	  .irq = MPUIRQ_GPIO,
+	  .irq = GPIO_GYRO_INT1,
 	  .platform_data = &mpu9150_platform_data,
 	},
 	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
 	  .platform_data = &ltr558_pls_info,
 	},
-/*	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+	/*
+	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
-	},*/
+	},
+	*/
 };
-#endif
 
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
@@ -324,10 +323,7 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 
 static int sc8810_add_i2c_devices(void)
 {
-#if 0
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
-#endif
-
 	i2c_register_board_info(0, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(1, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
 	return 0;

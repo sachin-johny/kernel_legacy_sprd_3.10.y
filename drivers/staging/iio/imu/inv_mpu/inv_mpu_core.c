@@ -47,24 +47,7 @@
 
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
-
-//#define INVENSENSE_DBG
-#ifdef INVENSENSE_DBG
-#define ENTER printk(KERN_INFO "[INVENSENSE_DBG] func: %s  line: %04d  ", __func__, __LINE__)
-#define PRINT_DBG(x...)  printk(KERN_INFO "[INVENSENSE_DBG] " x)
-#define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_INFO] " x)
-#define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_WARN] " x)
-#define PRINT_ERR(format,x...)  printk(KERN_ERR "[INVENSENSE_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
-#else
-#define ENTER
-#define PRINT_DBG(x...)
-#define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_INFO] " x)
-#define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_WARN] " x)
-#define PRINT_ERR(format,x...)  printk(KERN_ERR "[INVENSENSE_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
-#endif
-
-/* IRQ's for the multi sensor board */
-#define MPUIRQ_GPIO 212
+#include <mach/board.h>
 
 #define FLICK_SUPPORTED (0)
 
@@ -1737,6 +1720,7 @@ static int inv_setup_compass(struct inv_mpu_iio_s *st)
 	int result;
 	u8 data[4];
 
+	ENTER;
 	result = inv_i2c_read(st, REG_YGOFFS_TC, 1, data);
 	if (result)
 		return result;
@@ -1758,6 +1742,7 @@ static int inv_setup_compass(struct inv_mpu_iio_s *st)
 		return result;
 	if (data[0] != DATA_AKM_ID)
 		return -ENXIO;
+	PRINT_DBG("read DATA_AKM_ID success\n");
 	/*set AKM to Fuse ROM access mode */
 	result = inv_secondary_write(REG_AKM_MODE, DATA_AKM_MODE_FR);
 	if (result)
@@ -1835,6 +1820,7 @@ static int inv_setup_compass(struct inv_mpu_iio_s *st)
 	/* slave 0 and 1 timer action is enabled every sample*/
 	result = inv_i2c_single_write(st, REG_I2C_MST_DELAY_CTRL,
 				BIT_SLV0_DLY_EN | BIT_SLV1_DLY_EN);
+	PRINT_DBG("inv_setup_compass success\n");
 	return result;
 }
 
@@ -2086,22 +2072,22 @@ static int inv_mpu_probe(struct i2c_client *client,
 
 probe_retry:
 	//inv_mpu_power_on();
-	if ((result = gpio_request(MPUIRQ_GPIO, "mpuirq"))) {
+	if ((result = gpio_request(client->irq, "mpuirq"))) {
 		PRINT_ERR("gpio_request failed\n");
 		goto out;
 	}
 	
-	if ((result = gpio_request(53, "akm8963R"))) {
+	if ((result = gpio_request(GPIO_M_RSTN, "akm8963R"))) {
 		PRINT_ERR("gpio_request failed\n");
 		goto out_free_gpio_mpuirq;
 	}
 
-	if ((result = gpio_direction_input(MPUIRQ_GPIO))) {
+	if ((result = gpio_direction_input(client->irq))) {
 		PRINT_ERR("gpio_direction_input failed\n");
 		goto out_free_gpio_all;
 	}
 
-	if ((result = gpio_direction_output(53, 1))) {
+	if ((result = gpio_direction_output(GPIO_M_RSTN, 1))) {
 		PRINT_ERR("gpio_direction_output failed\n");
 		goto out_free_gpio_all;
 	}
@@ -2206,9 +2192,9 @@ out_unreg_ring:
 out_free:
 	iio_free_device(indio_dev);
 out_free_gpio_all:
-	gpio_free(53);
+	gpio_free(GPIO_M_RSTN);
 out_free_gpio_mpuirq:
-	gpio_free(MPUIRQ_GPIO);
+	gpio_free(client->irq);
 out:
 	dev_err(&client->adapter->dev, "%s failed %d\n", __func__, result);
 

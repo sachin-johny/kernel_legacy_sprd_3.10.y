@@ -36,6 +36,21 @@
 
 #include "dmpKey.h"
 
+//#define INVENSENSE_DBG
+#ifdef INVENSENSE_DBG
+#define ENTER printk(KERN_INFO "[INVENSENSE_DBG] func: %s  line: %04d  ", __func__, __LINE__)
+#define PRINT_DBG(x...)  printk(KERN_INFO "[INVENSENSE_DBG] " x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[INVENSENSE_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#else
+#define ENTER
+#define PRINT_DBG(x...)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[INVENSENSE_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#endif
+
 /**
  *  struct inv_reg_map_s - Notable slave registers.
  *  @sample_rate_div:	Divider applied to gyro output rate.
