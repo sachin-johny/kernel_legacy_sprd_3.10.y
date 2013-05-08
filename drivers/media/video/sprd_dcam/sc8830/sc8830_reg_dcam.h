@@ -164,7 +164,7 @@
 #define DCAM_PATH_DECI_FAC_MAX                         2
 #define DCAM_PATH1_LINE_BUF_LENGTH                     1280
 #define DCAM_SC_LINE_BUF_LENGTH                        4096
-#define DCAM_ISP_LINE_BUF_LENGTH                       1632
+#define DCAM_ISP_LINE_BUF_LENGTH                       3264
 #define DCAM_IRQ                                       IRQ_DCAM_INT
 
 #define DCAM_PATH_NUM                                  3

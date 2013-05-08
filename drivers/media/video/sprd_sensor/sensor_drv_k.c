@@ -1284,6 +1284,14 @@ int sensor_k_open(struct inode *node, struct file *file)
 		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CKG enable
 		REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
 
+		REG_MWR(SPRD_MMAHB_BASE, 0xff, 0xff);  // CSI enable
+		//mdelay(100);
+
+		REG_MWR(SPRD_MMAHB_BASE+0x4, 0xff, 0xff);
+		//mdelay(100);
+		REG_MWR(SPRD_MMAHB_BASE+0x4, 0xff, 0);
+		//mdelay(100);
+
 		bit_value = BIT_1;
 		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
 		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
@@ -1300,9 +1308,14 @@ int sensor_k_open(struct inode *node, struct file *file)
 		bit_value = BIT_18;
 		REG_MWR(SPRD_APBREG_BASE, bit_value, bit_value);  // ccir clock enable
 
+#if 0
 		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
 		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
-
+#else
+		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x00);
+		mdelay(100);
+		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xff);
+#endif
 		//REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xfff, 0x3);  	// MM AHB clock
 		printk("aiden: sensor_k_init: end \n");
 	}
