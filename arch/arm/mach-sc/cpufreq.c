@@ -24,7 +24,7 @@
 #include <linux/suspend.h>
 #include <linux/debugfs.h>
 #include <linux/cpu.h>
-
+#include <linux/regulator/consumer.h>
 #include <asm/system.h>
 
 #include <mach/hardware.h>
@@ -33,6 +33,9 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 
+
+
+#if defined(CONFIG_ARCH_SC8825)
 
 #define MHz                     (1000000)
 #define GR_MPLL_REFIN_2M        (2 * MHz)
@@ -113,41 +116,73 @@ static unsigned int get_mcu_clk_freq(void)
 	return rate / val;
 }
 
+#endif
 
 
-#define FREQ_TABLE_SIZE 	3
+#define FREQ_TABLE_SIZE 	10
 
 struct cpufreq_conf {
-#if 0
-	struct clk						*clk[CONFIG_NR_CPUS];
-	struct regulator				*vdd[CONFIG_NR_CPUS];
-#endif
+	struct clk 					*clk;
+	struct regulator 				*regulator;
 	unsigned int					orignal_freq;
 	struct cpufreq_frequency_table	freq_tbl[FREQ_TABLE_SIZE];
-#if 0
-	unsigned long					vdd_mcu_mv[FREQ_TABLE_SIZE];
-#endif
+	unsigned int					vddarm_mv[FREQ_TABLE_SIZE];
 };
 
 struct cpufreq_status {
 	unsigned int	real_global;
 	unsigned int	percpu_target[CONFIG_NR_CPUS];
-	int				is_suspend;
+	int		is_suspend;
 };
 
 
 struct cpufreq_conf sc8825_cpufreq_conf = {
-	.freq_tbl =		{
-		{0, 1000000}, 	{1, 500000}, 	{2, CPUFREQ_TABLE_END}
+	.clk = NULL,
+	.regulator = NULL,
+	.freq_tbl =	{
+		{0, 1000000},
+		{1, 500000},
+		{2, CPUFREQ_TABLE_END}
 	},
-#if 0
-	.vdd_mcu_mv =	{
-		1100000,		1100000,		0
+	.vddarm_mv = {
+		0
+	},
+};
+
+struct cpufreq_conf sc8830_cpufreq_conf = {
+	.clk = NULL,
+	.regulator = NULL,
+#if 0 /* debug */
+	.freq_tbl = {
+		{0, 1400000},
+		{1, 1200000},
+		{2, 1000000},
+		{3,  750000},
+		{4, CPUFREQ_TABLE_END}
+	},
+	.vddarm_mv = {
+		1200000,
+		1200000,
+		1100000,
+		1000000,
+		 900000,
+	},
+#else
+	.freq_tbl = {
+		{0, 1000000},
+		{1,  750000},
+		{2, CPUFREQ_TABLE_END}
+	},
+	.vddarm_mv = {
+		1100000,
+		1000000,
+		 900000,
 	},
 #endif
 };
 
-struct cpufreq_status sc8825_cpufreq_status = {0};
+struct cpufreq_conf *sprd_cpufreq_conf = NULL;
+struct cpufreq_status sprd_cpufreq_status = {0};
 
 
 void sprd_auto_hotplug_init(void)
@@ -163,9 +198,56 @@ void tegra_auto_hotplug_governor(void)
 	return;
 }
 
+static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
+{
+#if defined(CONFIG_ARCH_SC8830)
+	int ret;
+
+#define CPUFREQ_SET_VOLTAGE() \
+	do { \
+	    ret = regulator_set_voltage(sprd_cpufreq_conf->regulator, \
+			sprd_cpufreq_conf->vddarm_mv[index], \
+			sprd_cpufreq_conf->vddarm_mv[index]); \
+		if (ret) \
+			pr_err("cpufreq: Failed to set vdd to %d mv\n", \
+				sprd_cpufreq_conf->vddarm_mv[index]); \
+	} while (0)
+#define CPUFREQ_SET_CLOCK() \
+	do { \
+		ret = clk_set_rate(sprd_cpufreq_conf->clk, freq.new * 1000); \
+		if (ret) \
+			pr_err("cpufreq: Failed to set cpu frequency to %d kHz\n", \
+				freq.new); \
+	} while (0)
+
+	if (freq.new > freq.old) {
+		CPUFREQ_SET_VOLTAGE();
+		CPUFREQ_SET_CLOCK();
+	} else {
+		CPUFREQ_SET_CLOCK();
+		CPUFREQ_SET_VOLTAGE();
+	}
+
+#undef CPUFREQ_SET_VOLTAGE
+#undef CPUFREQ_SET_CLOCK
+
+#elif defined(CONFIG_ARCH_SC8825)
+	set_mcu_clk_freq(freq.new * 1000);
+#endif
+	return;
+}
+
+static unsigned int sprd_raw_get_cpufreq(void)
+{
+#if defined(CONFIG_ARCH_SC8830)
+	return clk_get_rate(sprd_cpufreq_conf->clk) / 1000;
+#elif defined(CONFIG_ARCH_SC8825)
+	return get_mcu_clk_freq() / 1000;
+#endif
+}
 
 static int sprd_update_cpu_speed(int cpu,
-	unsigned int target_speed)
+	unsigned int target_speed, int index)
 {
 	int i;
 	unsigned int new_speed = 0;
@@ -177,58 +259,26 @@ static int sprd_update_cpu_speed(int cpu,
 	 * So we remeber the original target frequency and voltage of core0,
 	 * and use the higher one
 	 */
-	sc8825_cpufreq_status.percpu_target[cpu] = target_speed;
+	sprd_cpufreq_status.percpu_target[cpu] = target_speed;
 	for_each_online_cpu(i) {
-		new_speed = max(new_speed, sc8825_cpufreq_status.percpu_target[i]);
+		new_speed = max(new_speed, sprd_cpufreq_status.percpu_target[i]);
 	}
 
-	if (sc8825_cpufreq_status.real_global == new_speed)
+	if (sprd_cpufreq_status.real_global == new_speed)
 		return 0;
 
-	freqs.old = sc8825_cpufreq_status.real_global;
+	freqs.old = sprd_cpufreq_status.real_global;
 	freqs.new = new_speed;
 
 	for_each_online_cpu(freqs.cpu)
 		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
 
-	set_mcu_clk_freq(new_speed * 1000);
+	sprd_raw_set_cpufreq(freqs, index);
 
 	for_each_online_cpu(freqs.cpu)
 		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 
-	sc8825_cpufreq_status.real_global = new_speed;
-
-	return 0;
-}
-
-
-static int sc8825_cpufreq_table_init(int cpu)
-{
-	int i;
-
-	if (cpu > CONFIG_NR_CPUS) {
-		pr_err("%s --- no such cpu id %d\n", __FUNCTION__, cpu);
-		return -EINVAL;
-	}
-#if 0
-	sc8825_cpufreq_conf.clk[cpu] = clk_get(NULL, "clk_mcu");
-	if (IS_ERR_OR_NULL(sc8825_cpufreq_conf.clk[cpu])) {
-		pr_err("%s --- cpu_%d get clk error: 0x%p\n", __FUNCTION__, cpu,
-			sc8825_cpufreq_conf.clk[cpu]);
-		return -ENXIO;
-	}
-
-	sc8825_cpufreq_conf.vdd[cpu] = regulator_get(NULL, "vddarm");
-	if (IS_ERR_OR_NULL(sc8825_cpufreq_conf.vdd[cpu])) {
-		pr_err("%s --- cpu_%d get vdd error: 0x%p\n", __FUNCTION__, cpu,
-			sc8825_cpufreq_conf.vdd[cpu]);
-		return -ENXIO;
-	}
-#endif
-	for (i = 0; i < ARRAY_SIZE(sc8825_cpufreq_conf.freq_tbl); i++) {
-		pr_debug("%s --- sc8825_cpufreq_conf cpu_%d index:%d, freq:%d\n",
-			__FUNCTION__, cpu, i, sc8825_cpufreq_conf.freq_tbl[i].frequency);
-	}
+	sprd_cpufreq_status.real_global = new_speed;
 
 	return 0;
 }
@@ -241,16 +291,28 @@ static int sprd_cpufreq_pm_notify(struct notifier_block *nb,
 	/* in suspend and hibernation process, we need set frequency to the orignal
 	 * one to make sure all things go right */
 	if (event == PM_SUSPEND_PREPARE || event == PM_HIBERNATION_PREPARE) {
-		sc8825_cpufreq_status.is_suspend = true;
+		sprd_cpufreq_status.is_suspend = true;
 
 		for_each_online_cpu(i) {
-			sc8825_cpufreq_status.percpu_target[i] =
-				sc8825_cpufreq_conf.orignal_freq;
+			sprd_cpufreq_status.percpu_target[i] =
+				sprd_cpufreq_conf->orignal_freq;
 		}
 
-		sprd_update_cpu_speed(0, sc8825_cpufreq_conf.orignal_freq);
+		for (i = 0; i < FREQ_TABLE_SIZE; i++) {
+			if (CPUFREQ_TABLE_END == sprd_cpufreq_conf->freq_tbl[i].frequency)
+				break;
+			if (sprd_cpufreq_conf->freq_tbl[i].frequency ==
+				sprd_cpufreq_conf->orignal_freq)
+				break;
+		}
+
+		if (FREQ_TABLE_SIZE == i ||
+				CPUFREQ_TABLE_END == sprd_cpufreq_conf->freq_tbl[i].frequency) {
+			pr_err("cpufreq: Failed to find orignal cpu frequency in table\n");
+		} else
+			sprd_update_cpu_speed(0, sprd_cpufreq_conf->orignal_freq, i);
 	} else if (event == PM_POST_SUSPEND || event == PM_POST_HIBERNATION)
-		sc8825_cpufreq_status.is_suspend = false;
+		sprd_cpufreq_status.is_suspend = false;
 
 	return NOTIFY_OK;
 }
@@ -260,14 +322,14 @@ static struct notifier_block sprd_cpufreq_pm_notifier = {
 };
 
 
-int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
+static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 {
 	if (policy->cpu > CONFIG_NR_CPUS) {
 		pr_err("%s --- no such cpu id %d\n", __FUNCTION__, policy->cpu);
 		return -EINVAL;
 	}
 
-	return cpufreq_frequency_table_verify(policy, sc8825_cpufreq_conf.freq_tbl);
+	return cpufreq_frequency_table_verify(policy, sprd_cpufreq_conf->freq_tbl);
 }
 
 static int sprd_cpufreq_target(struct cpufreq_policy *policy,
@@ -279,7 +341,7 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	unsigned int new_speed;
 	struct cpufreq_frequency_table *table;
 
-	if (true == sc8825_cpufreq_status.is_suspend)
+	if (true == sprd_cpufreq_status.is_suspend)
 		return 0;
 
 	table = cpufreq_frequency_get_table(policy->cpu);
@@ -295,48 +357,53 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 			policy->min, policy->max, table[index].frequency);
 
 	new_speed = table[index].frequency;
-	ret = sprd_update_cpu_speed(policy->cpu, new_speed);
+	ret = sprd_update_cpu_speed(policy->cpu, new_speed, index);
 
 	tegra_auto_hotplug_governor();
 
 	return ret;
 }
 
-unsigned int sprd_cpufreq_getspeed(unsigned int cpu)
+static unsigned int sprd_cpufreq_getspeed(unsigned int cpu)
 {
 	if (cpu > CONFIG_NR_CPUS) {
 		pr_err("%s --- no such cpu id %d\n", __FUNCTION__, cpu);
 		return -EINVAL;
 	}
 
-	return get_mcu_clk_freq() / 1000;
+	return sprd_raw_get_cpufreq();
 }
 
 static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 {
 	int i, ret;
 
-	ret = sc8825_cpufreq_table_init(policy->cpu);
-	if(ret)
-		return -ENODEV;
+#if defined(CONFIG_ARCH_SC8830)
+	sprd_cpufreq_conf->clk = clk_get_sys(NULL, "clk_mcu");
+	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
+		return PTR_ERR(sprd_cpufreq_conf->clk);
+	clk_enable(sprd_cpufreq_conf->clk);
 
-	sc8825_cpufreq_conf.orignal_freq = get_mcu_clk_freq() / 1000;
+	sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
+#endif
 
-	cpufreq_frequency_table_cpuinfo(policy, sc8825_cpufreq_conf.freq_tbl);
-	policy->cur = get_mcu_clk_freq() / 1000; /* current cpu frequency: KHz*/
+	sprd_cpufreq_conf->orignal_freq = sprd_raw_get_cpufreq();
+
+	cpufreq_frequency_table_cpuinfo(policy, sprd_cpufreq_conf->freq_tbl);
+	policy->cur = sprd_raw_get_cpufreq(); /* current cpu frequency: KHz*/
 	policy->cpuinfo.transition_latency = 1 * 1000 * 1000; /* why this value? */
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	cpumask_copy(policy->related_cpus, cpu_possible_mask);
 
-	cpufreq_frequency_table_get_attr(sc8825_cpufreq_conf.freq_tbl, policy->cpu);
+	cpufreq_frequency_table_get_attr(sprd_cpufreq_conf->freq_tbl, policy->cpu);
 
-	sc8825_cpufreq_status.real_global = policy->cur;
+	sprd_cpufreq_status.real_global = policy->cur;
 	for_each_online_cpu(i) {
-		sc8825_cpufreq_status.percpu_target[i] = policy->cur;
+		sprd_cpufreq_status.percpu_target[i] = policy->cur;
 	}
-	sc8825_cpufreq_status.is_suspend = false;
+	sprd_cpufreq_status.is_suspend = false;
 
-	ret = cpufreq_frequency_table_cpuinfo(policy, sc8825_cpufreq_conf.freq_tbl);
+	ret = cpufreq_frequency_table_cpuinfo(policy, sprd_cpufreq_conf->freq_tbl);
 	if (ret != 0)
 		pr_err("%s --- Failed to config freq table: %d\n", __FUNCTION__, ret);
 
@@ -351,7 +418,15 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 
 static int sprd_cpufreq_exit(struct cpufreq_policy *policy)
 {
-	memset(&sc8825_cpufreq_status, 0, sizeof(sc8825_cpufreq_status));
+	memset(&sprd_cpufreq_status, 0, sizeof(sprd_cpufreq_status));
+
+#if defined(CONFIG_ARCH_SC8830)
+	sprd_cpufreq_conf = NULL;
+	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk)) /* do we need disable the clock? */
+		clk_put(sprd_cpufreq_conf->clk);
+
+	regulator_put(sprd_cpufreq_conf->regulator);
+#endif
 
 	if (policy->cpu == 0)
 		unregister_pm_notifier(&sprd_cpufreq_pm_notifier);
@@ -391,6 +466,12 @@ static int __init sprd_cpufreq_modinit(void)
 {
 	int ret;
 
+#if defined(CONFIG_ARCH_SC8830)
+	sprd_cpufreq_conf = &sc8830_cpufreq_conf;
+#elif defined(CONFIG_ARCH_SC8825)
+	sprd_cpufreq_conf = &sc8825_cpufreq_conf;
+#endif
+
 	sprd_auto_hotplug_init();
 	ret = cpufreq_register_notifier(
 		&sprd_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
@@ -408,7 +489,6 @@ static void __exit sprd_cpufreq_modexit(void)
 	cpufreq_unregister_driver(&sprd_cpufreq_driver);
 	cpufreq_unregister_notifier(
 		&sprd_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
-
 	return;
 }
 
