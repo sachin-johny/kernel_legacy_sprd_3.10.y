@@ -939,6 +939,7 @@ static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
 		pr_err("sprd_codec not supports rate %d\n", rate);
 		break;
 	}
+	sprd_codec_dbg("set playback rate 0x%x\n", snd_soc_read(codec, AUD_DAC_CTL));
 	return 0;
 }
 
@@ -956,6 +957,8 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 
 static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 {
+	sprd_codec_dbg("%s ad %d da %d \n", __func__,
+			sprd_codec->ad_sample_val, sprd_codec->da_sample_val);
 	if (sprd_codec->ad_sample_val) {
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
 					      sprd_codec->ad_sample_val, 0x0F,
@@ -1155,7 +1158,21 @@ int sprd_codec_auxmic_bias_control(int on)
 
 EXPORT_SYMBOL(sprd_codec_auxmic_bias_control);
 
-static int sprd_codec_open(struct snd_soc_codec *codec)
+static int sprd_codec_analog_open(struct snd_soc_codec *codec)
+{
+	int ret = 0;
+
+	sprd_codec_dbg("Entering %s\n", __func__);
+
+	/* SC8825 ask from ASIC to set initial value */
+	snd_soc_write(codec, AUD_SDM_CTL0, 0x400);
+	snd_soc_write(codec, AUD_SDM_CTL1, 0);
+
+	sprd_codec_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
+static int sprd_codec_digital_open(struct snd_soc_codec *codec)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
@@ -1163,10 +1180,6 @@ static int sprd_codec_open(struct snd_soc_codec *codec)
 	sprd_codec_dbg("Entering %s\n", __func__);
 
 	sprd_codec_sample_rate_setting(sprd_codec);
-
-	/* SC8825 ask from ASIC to set initial value */
-	snd_soc_write(codec, AUD_SDM_CTL0, 0x400);
-	snd_soc_write(codec, AUD_SDM_CTL1, 0);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -1183,7 +1196,7 @@ static void sprd_codec_power_enable(struct snd_soc_codec *codec)
 		ret = sprd_codec_ldo_on(sprd_codec);
 		if (ret != 0)
 			pr_err("sprd_codec open ldo error %d\n", ret);
-		sprd_codec_open(codec);
+		sprd_codec_analog_open(codec);
 		sprd_codec_dbg("Leaving %s\n", __func__);
 	}
 }
@@ -1233,6 +1246,7 @@ static int digital_power_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		arch_audio_codec_digital_reg_enable();
+		sprd_codec_digital_open(w->codec);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		arch_audio_codec_digital_reg_disable();
@@ -1615,7 +1629,7 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 			break;
 		case SND_SOC_DAPM_PRE_PMD:
 			sprd_codec_pa_sw_clr(SPRD_CODEC_PA_SW_AOL);
-			return;
+			return 0;
 		default: break;
 		}
 	}
