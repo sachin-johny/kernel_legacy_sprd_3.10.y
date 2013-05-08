@@ -264,4 +264,12 @@ config BT_SINGLE_LINK
           This enables the Bluetooth driver for single link.
 
           Say Y here to compile support for the property.
+
+config BT_CLK_AUX1
+        tristate "Bluetooth 32k aux1"
+        help
+            This enables the Bluetooth driver for 32k.
+
+            Say Y here to compile support for the property.
+
 endmenu

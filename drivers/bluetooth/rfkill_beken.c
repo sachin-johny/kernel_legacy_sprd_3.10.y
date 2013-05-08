@@ -51,7 +51,7 @@ static void bt_clk_init(bool clk_on )
     if(clk_on)
     {
         struct clk *clk_parent;
-#ifdef CONFIG_MACH_SP7710GA
+#ifdef CONFIG_BT_CLK_AUX1
         bt_clk = clk_get(NULL, "clk_aux1");
 #else
         bt_clk = clk_get(NULL, "clk_aux0");
