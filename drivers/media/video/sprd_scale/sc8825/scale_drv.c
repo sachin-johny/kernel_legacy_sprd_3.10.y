@@ -155,7 +155,6 @@ int32_t    scale_set_clk(enum scale_clk_sel clk_sel)
 int32_t    scale_start(void)
 {
 	enum scale_drv_rtn      rtn = SCALE_RTN_SUCCESS;
-	int                     ret = 0;
 
 	SCALE_TRACE("SCALE DRV: scale_start: %d \n", g_path->scale_mode);
 
@@ -181,16 +180,6 @@ int32_t    scale_start(void)
 	if(rtn) goto exit;
 	rtn = _scale_cfg_scaler();
 	if(rtn) goto exit;
-
-	ret = request_irq(SCALE_IRQ, 
-			_scale_isr_root, 
-			IRQF_SHARED, 
-			"SCALE", 
-			&g_scale_irq);
-	if (ret) {
-		printk("SCALE DRV: scale_start,error %d \n", ret);
-		rtn = SCALE_RTN_MAX;
-	}
 
 	if (SCALE_MODE_SLICE == g_path->scale_mode) {
 		g_path->slice_in_height += g_path->slice_height;
@@ -260,7 +249,6 @@ int32_t    scale_stop(void)
 	REG_MWR(SCALE_CFG, 1, 0);
 	REG_MWR(SCALE_INT_MASK, SCALE_IRQ_BIT, 0 << 9);
 	REG_MWR(SCALE_INT_CLR,  SCALE_IRQ_BIT, 0 << 9);
-	free_irq(SCALE_IRQ, &g_scale_irq);
 
 	_scale_free_tmp_buf();
 
@@ -279,6 +267,19 @@ int32_t    scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u
 		spin_lock_irqsave(&scale_lock, flag);
 		g_path->user_func = user_func;
 		g_path->user_data = u_data;
+		if (user_func) {
+			rtn = request_irq(SCALE_IRQ,
+					_scale_isr_root,
+					IRQF_SHARED,
+					"SCALE",
+					&g_scale_irq);
+			if (rtn) {
+				printk("SCALE DRV: scale_reg_isr,error %d \n", rtn);
+				rtn = SCALE_RTN_MAX;
+			}
+		} else {
+			free_irq(SCALE_IRQ, &g_scale_irq);
+		}
 		spin_unlock_irqrestore(&scale_lock, flag);
 	}
 	return rtn;	
