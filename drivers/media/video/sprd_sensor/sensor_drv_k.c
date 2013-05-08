@@ -1196,7 +1196,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 		}
 	}else if(7 == pRegTab->burst_mode){
 		printk("CAM %s, Line %d, burst_mode=%d, cnt=%d, start \n", __FUNCTION__, __LINE__, pRegTab->burst_mode, cnt);
-		ret = hi351_init_write(pRegTab->sensor_reg_tab_ptr, pRegTab->reg_count);
+		ret = hi351_init_write(sensor_reg_ptr, pRegTab->reg_count);
 		printk("CAM %s, Line %d, burst_mode=%d, cnt=%d end\n", __FUNCTION__, __LINE__, pRegTab->burst_mode, cnt);
 	}
 
