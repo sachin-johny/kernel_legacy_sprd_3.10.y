@@ -19,12 +19,35 @@
 #include <mach/board.h>
 #include <linux/input.h>
 
+#include <mach/adc.h>
+
+#define ADC_FIFO_CNT	(5)
+#define HEADSET_TYPE_ADC_DISPART_VALUE	(100)
+#define HEADSET_TYPE_GND_VALUE		(100)
+
+#define HEADMIC_ADC_SWITCH	(SPRD_MISC_BASE	+ 0x700 + 0xA0)
+#define HEADMIC_ADC_SWITCH_BIT			BIT(13)
+
+#define ABS(x)	(((x) < (0)) ? (-x) : (x))
+
+#define headset_reg_write(val, addr) \
+	do {	\
+		__writel(val, addr)	\
+	} while(0)
+
+#define headset_reg_read(addr) \
+	do {	\
+		__readl(addr);	\
+	} while(0)
+
 
 typedef enum sprd_headset_type{
 	HEADPHONE,
 	HEADSET_NORMAL,
-	HEADSET_NORTH_AMERECA,
+	HEADSET_NO_MIC,
+	HEADSET_NORTH_AMERICA,
 	HEADSET_APPLE,
+	HEADSET_TYPE_MAX,
 }SPRD_HEADSET_TYPE;
 
 static struct sprd_headset headset = {
@@ -57,8 +80,45 @@ static void headset_button_work_func(struct work_struct *work)
 	input_sync(ht_button->input);
 }
 
+
+static void set_adc_to_headmic(unsigned is_set)
+{
+	if (is_set) {
+		headset_reg_write(headset_reg_read(HEADMIC_ADC_SWITCH) | HEADMIC_ADC_SWITCH_BIT, HEADMICI_ADC_SWITCH);
+	} else {
+		headset_reg_write(headset_reg_read(HAEDMIC_ADC_SWITCH) & ~HEADMIC_ADC_SWITCH_BIT, HEADMIC_ADC_SWITCH);	
+	}
+}
+
 static SPRD_HEADSET_TYPE detect_headset_type(void)
 {
+	/* distinguish headset type */
+	int adc_mic, adc_l;
+	int adc_val[ADC_FIFO_CNT] = {0};
+	int count;
+
+	set_adc_to_headmic(1);
+	for (count = 0; count < ADC_FIFO_CNT; count++) {
+		adc_val[count] = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
+	}
+	adc_mic = adc_val[ADC_FIFO_CNT/2];
+
+	memset(adc_val, 0, sizeof(adc_val));
+
+	set_adc_to_headmic(0);
+	for (count = 0; count < ADC_FIFO_CNT; count++) {
+		adc_val[count] = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
+	}
+	adc_l = adc_val[ADC_FIFO_CNT/2];
+
+	if (ABS(adc_mic - adc_l) < HEADSET_TYPE_ADC_DISPART_VALUE) {
+		if (ABS(adc_mic - 0) < HEADSET_TYPE_GND_VALUE) {
+			return HEADSET_NO_MIC;
+		} else {
+			return HEADSET_NORTH_AMERICA;
+		}
+	}
+
 	return HEADSET_NORMAL;
 }
 
