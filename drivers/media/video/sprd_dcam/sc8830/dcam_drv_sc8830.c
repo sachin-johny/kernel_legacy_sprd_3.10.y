@@ -331,6 +331,7 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 			DCAM_TRACE("dcam_start, error %d \n", ret);
 			return -DCAM_RTN_MAX;
 		}
+		printk("g_dcam_irq=0x%x, ret=%d \n", g_dcam_irq, ret);
 	}
 
 /*MODULE_INIT_END:*/
@@ -352,6 +353,8 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 		REG_MWR(DCAM_CFG, BIT_9, 0 << 9);
 		_dcam_ccir_clk_dis();
 	}
+
+	printk("g_dcam_irq=0x%x \n", g_dcam_irq);
 
 	if (DCAM_IRQ_NONE != g_dcam_irq) {
 		free_irq(DCAM_IRQ, &g_dcam_irq);
@@ -378,7 +381,7 @@ int32_t dcam_module_en(void)
 			// aiden fpga
 			uint32_t bit_value;
 			// 0x60d0_000
-			printk("aiden: dcam_module_en: start enable module and set clock  \n");
+			printk("dcam_module_en: start enable module and set clock  \n");
 			
 			bit_value = BIT_4 | BIT_6;
 			REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CSI enable
@@ -395,7 +398,7 @@ int32_t dcam_module_en(void)
 
 			REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xf, 0x3);  // ahb clock: 76, 128, 192, 256
 		}
-		printk("aiden: dcam_module_en: end\n");
+		printk("dcam_module_en: end\n");
 	}
 
 /*MODULE_EN_END:*/
@@ -415,7 +418,7 @@ int32_t dcam_module_dis(void)
 			// aiden fpga
 			uint32_t bit_value;
 			// 0x60d0_000
-			printk("aiden: dcam_module_dis: start enable module and set clock  \n");
+			printk("dcam_module_dis: start enable module and set clock  \n");
 
 
 			bit_value = BIT_0 | BIT_1 | BIT_5 | BIT_7 | BIT_8 | BIT_9;
@@ -431,7 +434,7 @@ int32_t dcam_module_dis(void)
 			//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
 			//REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
 
-			printk("aiden: dcam_module_dis: end\n");
+			printk("dcam_module_dis: end\n");
 		}
 	}
 
@@ -579,7 +582,7 @@ int32_t _dcam_mipi_clk_en(void)
 #if 0 // aiden fpga
 	//REG_MWR(SPRD_MMAHB_BASE, BIT_4, BIT_4);
 	//REG_MWR(SPRD_MMAHB_BASE + 0X08, BIT_1|BIT_0, BIT_1|BIT_0);
-	printk("aiden: _dcam_mipi_clk_en \n");
+	printk("_dcam_mipi_clk_en \n");
 #else
 	if (NULL == s_dcam_mipi_clk) {
 		s_dcam_mipi_clk = clk_get(NULL, "clk_dcam_mipi");
@@ -680,13 +683,13 @@ int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_s
 			return;
 #else
 			//local_irq_restore(flags);
-			DCAM_TRACE("DCAM DRV: dcam_update_path 1:  waiting \n");
+			DCAM_TRACE("DCAM DRV: dcam_update_path 1:  waiting 1\n");
 			rtn = down_timeout(&s_path1_update_sema, msecs_to_jiffies(500));
 			if (rtn) {
 				printk("DCAM DRV: failed wait s_path1_update_sema \n");
 				return rtn;
 			}
-			DCAM_TRACE("DCAM DRV: dcam_update_path 1:  waiting done \n");
+			DCAM_TRACE("DCAM DRV: dcam_update_path 1:  waiting 1 done \n");
 #endif
 		}
 		//local_irq_restore(flags);
@@ -702,8 +705,17 @@ int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_s
 		DCAM_RTN_IF_ERR;
 
 		//local_irq_save(flags);
+		s_dcam_mod.dcam_path1.path_update_wait = 1;
 		s_dcam_mod.dcam_path1.path_done_cnt = 0;
 		s_dcam_mod.dcam_path1.path_update = 1;
+		DCAM_TRACE("DCAM DRV: dcam_update_path 1:  waiting 2 \n");
+		rtn = down_timeout(&s_path1_update_sema, msecs_to_jiffies(500));
+		if (rtn) {
+			printk("DCAM DRV: failed wait s_path1_update_sema \n");
+			return rtn;
+		}
+		DCAM_TRACE("DCAM DRV: dcam_update_path 1:  waiting 2 done \n");
+
 		//local_irq_restore(flags);
 	}
 
