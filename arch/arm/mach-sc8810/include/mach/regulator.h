@@ -46,6 +46,7 @@
 	#define REGU_NAMES_VDDRF1 REGULATOR_SUPPLY("V_ATVIO", NULL),
 */
 #ifdef CONFIG_ARCH_SC7710
+#warning "regulator.h is deprecated, pls replace supply name in device descriptions"
 #define REGU_NAME_ATV			"V_ATV"
 #define REGU_NAME_ATVIO			"V_ATVIO"
 #define REGU_NAME_CAMAVDD		"vddcama"

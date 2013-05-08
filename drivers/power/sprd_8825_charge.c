@@ -339,7 +339,7 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	}
 
-	printk(KERN_INFO "$$$ryan::: %s, voltage = %d, retval = %d\n",
+	printk(KERN_DEBUG "$$$ryan::: %s, voltage = %d, retval = %d\n",
 	       __FUNCTION__, voltage, percentum);
 
 	return percentum;

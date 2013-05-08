@@ -394,6 +394,12 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale,
 		*div_numerators = 9;
 		*div_denominators = 25;
 		return;
+	case ADC_CHANNEL_LP_LDO0://lp ldo ref
+	case ADC_CHANNEL_LP_LDO1:
+	case ADC_CHANNEL_LP_LDO2:
+		*div_numerators = 1;
+		*div_denominators = 2;
+		return;
 	default:
 		*div_numerators = 1;
 		*div_denominators = 1;

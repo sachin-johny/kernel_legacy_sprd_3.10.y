@@ -83,7 +83,10 @@ enum adc_channel {
 	ADC_CHANNEL_LDO2 = 21,	/* ldo camio/camcore/cmmb1v2/cmmb1v8/v18/sd1/sd3/ */
     ADC_CHANNEL_4 = 22,
     ADC_CHANNEL_WHTLED = 23,
-    ADC_MAX = 23,
+    ADC_CHANNEL_LP_LDO0 = 24,/* lp ldo ref*/
+    ADC_CHANNEL_LP_LDO1 = 25,
+    ADC_CHANNEL_LP_LDO2 = 26,
+    ADC_MAX = 26,
 };
 
 struct adc_sample_data {
