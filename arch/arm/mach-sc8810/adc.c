@@ -236,12 +236,12 @@ void sci_adc_hw_slow_init(void)
     adc_hw_addr = io_base + ADC_SLOW_HW_CHX_CFG(CP_PA_TEMPRATURE_HW_CFG);
 
     /* init cp PA temprature channel*/
-    adc_write((io_base + ADC_HW_CH_DELAY), 0xe0);
-    adc_write(adc_hw_addr, adc_read(adc_hw_addr) | BIT(6));
+    adc_write(0xe0, (io_base + ADC_HW_CH_DELAY));
+    adc_write(adc_read(adc_hw_addr) | BIT(6), adc_hw_addr);
 
     adc_reg_val = adc_read(adc_hw_addr) & ~ADC_HW_CH_ID_MSK;
     adc_reg_val = adc_reg_val | BIT_CH_ID(CP_PA_TEMPRATURE_CHANNEL);
-    adc_write(adc_hw_addr, adc_reg_val);
+    adc_write(adc_reg_val, adc_hw_addr);
 }
 
 void sci_adc_enable(void)
