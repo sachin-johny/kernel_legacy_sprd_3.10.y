@@ -71,9 +71,9 @@ static uint32_t                    g_dcam_irq = 0x12345678;/*for share irq handl
 #define ISP_REG_RD(a)	ISP_READL((a))
 
 #define ISP_DCAM_IRQ_MASK	0x03
-#define ISP_IRQ_MASK		0x0fff
+#define ISP_IRQ_MASK		0xffffffff
 #define ISP_DCAM_IRQ_NUM	0x02
-#define ISP_IRQ_NUM		0x0c
+#define ISP_IRQ_NUM		29
 #define ISP_INT_STOP_BIT		0x80000
 struct isp_node {
 	uint32_t	isp_irq_val;
