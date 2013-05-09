@@ -6976,6 +6976,19 @@ static void wl_delay(u32 ms)
 	}
 }
 
+
+int wl_cfg80211_is_associate(struct net_device *dev)
+{
+	struct wl_priv *wl = wlcfg_drv_priv;
+	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
+
+	if (!wl_get_drv_status(wl, CONNECTED, dev) ||
+		(dhd_is_associated(dhd, NULL) == FALSE)) {
+		return 0;
+	}
+	return 1;
+}
+
 s32 wl_cfg80211_get_p2p_dev_addr(struct net_device *net, struct ether_addr *p2pdev_addr)
 {
 	struct wl_priv *wl = wlcfg_drv_priv;
