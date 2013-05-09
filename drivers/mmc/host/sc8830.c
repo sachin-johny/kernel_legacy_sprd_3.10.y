@@ -915,7 +915,7 @@ static struct platform_driver sdhci_sprd_driver = {
 	.driver		= {
 		.owner		= THIS_MODULE,
 #ifdef CONFIG_PM_RUNTIME
-		.pm 		=  &sdhci_dev_pm_ops,
+	//	.pm 		=  &sdhci_dev_pm_ops,
 #endif
 		.name		= "sprd-sdhci",
 	},
