@@ -47,5 +47,8 @@
 #define GPIO_WIFI_SHUTDOWN	189
 #define GPIO_WIFI_IRQ		52
 
-#define GPIO_PLSENSOR_IRQ	213
+#define GPIO_PROX_INT 213
+#define GPIO_GYRO_INT1 212
+#define GPIO_M_RSTN	53
+#define GPIO_M_DRDY 166
 #endif
