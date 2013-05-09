@@ -3086,7 +3086,11 @@ static void sprd_codec_hold_enable(sprd_codec_hold_cond_op hold_cond_op)
 #endif
 
 #ifdef CONFIG_SPRD_AUDIO_HOLD_HP_DRIVER
+#ifdef CONFIG_INPUT_SPRD_HEADSET_FULL
+#include <linux/headset_sprd.h>
+#else
 #include <linux/headset.h>
+#endif
 static int sprd_codec_hp_notifier_call(struct notifier_block *nb,
 				       unsigned long is_plug, void *data)
 {

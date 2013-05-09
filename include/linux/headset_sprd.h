@@ -28,23 +28,24 @@ struct sprd_headset_buttons_platform_data {
 	/* Configuration parameters */
 	struct headset_button *headset_button;
 	int nbuttons;
-	int active_low;
 	const char *vdd_name;
 	const char *desc;
 };
 
 struct sprd_headset_detect_platform_data {
 	int switch_gpio;
+	int detect_gpio;
+	int button_gpio;
 	const char *vdd_name;
-	int active_low;
+	int detect_active_low;
+	int button_active_low;
 };
 
 struct headset_button_data {
 	struct sprd_headset_buttons_platform_data *platform_data;
-	struct input_dev *input;
+	struct input_dev *input_dev;
 	struct work_struct work;
 	struct timer_list timer;
-	int active_low;
 	int irq;
 };
 
@@ -67,5 +68,8 @@ struct sprd_headset {
 	struct headset_detect_data detect;
 	struct headset_button_data button;
 };
+
+extern int register_headset_plug_notifier(struct notifier_block *nb);
+extern int unregister_headset_plug_notifier(struct notifier_block *nb);
 
 #endif
