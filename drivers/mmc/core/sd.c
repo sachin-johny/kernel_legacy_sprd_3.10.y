@@ -1106,7 +1106,7 @@ static void mmc_sd_detect(struct mmc_host *host)
      * status is normal, leading to not be able to remove the
      * swap cards, thus add sdcard_present to check card.
     */
-#if  defined(CONFIG_MMC_CARD_HOTPLUG) && ( defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC7710))
+#if  defined(CONFIG_MMC_CARD_HOTPLUG)
 	int is_present ;
 	is_present = sdcard_present(mmc_priv(host));
 	if(!is_present || err) {
