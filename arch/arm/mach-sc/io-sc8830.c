@@ -133,7 +133,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(INTC1),
 	SPRD_DEVICE(INTC2),
 	SPRD_DEVICE(INTC3),
-	SPRD_DEVICE(IRAM0),
+	SPRD_IRAM(IRAM0),
 	SPRD_DEVICE(IRAM1),
 };
 

@@ -31,7 +31,8 @@ static u32 inline get_sys_cnt(void)
 #define SLP_MODE_ARM  0
 #define SLP_MODE_MCU  1
 #define SLP_MODE_DEP  2
-#define SLP_MODE_NON 3
+#define SLP_MODE_LIT  3
+#define SLP_MODE_NON 4
 
 extern void pm_debug_init(void);
 extern void print_statisic(void);

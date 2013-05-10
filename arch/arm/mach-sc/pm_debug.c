@@ -595,6 +595,7 @@ static int is_dsp_sleep(void)
 		printk("#####: REG_GLB_STC_DSP_ST[DSP_STOP] is NOT set!\n");
 	return 0;
 }
+extern void sci_clock_dump_active(void);
 static int print_thread(void * data)
 {
 	while(1){

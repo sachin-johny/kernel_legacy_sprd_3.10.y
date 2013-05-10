@@ -505,6 +505,20 @@ static int __init sci_clock_dump(void)
 	return 0;
 }
 
+void sci_clock_dump_active(void)
+{
+	struct clk_lookup *cl = (struct clk_lookup *)(&__clkinit_begin + 1);
+	while (cl < (struct clk_lookup *)&__clkinit_end) {
+		struct clk *c = cl->clk;
+		struct clk *p = clk_get_parent(c);
+		if(c->enable == NULL || sci_clk_is_enable(c))
+			printk("@@@clock[%s] is active, usage %d, rate %lu, parent[%s]\n",
+				 c->regs->name,
+				 c->usage, clk_get_rate(c), p ? p->regs->name : "none");
+		cl++;
+	}
+}
+
 static int
 __clk_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 {
