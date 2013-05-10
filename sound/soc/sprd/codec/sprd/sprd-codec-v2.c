@@ -1342,9 +1342,12 @@ EXPORT_SYMBOL(sprd_codec_headmic_bias_control);
 
 static int sprd_codec_analog_open(struct snd_soc_codec *codec)
 {
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
 	sprd_codec_dbg("Entering %s\n", __func__);
+
+	sprd_codec_sample_rate_setting(sprd_codec);
 
 	/* SC7710/SC8830 ask from ASIC to set initial value */
 	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(SEL_VCMI), BIT(SEL_VCMI));
