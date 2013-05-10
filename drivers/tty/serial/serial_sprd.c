@@ -834,7 +834,7 @@ static int serial_sprd_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
 #ifdef CONFIG_ARCH_SC7710
-                sc8800g_set_wakeup_src(true);
+          //      sc8800g_set_wakeup_src(true);
 #endif
 		is_uart_rx_wakeup = false;
 	}else if(BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type){
