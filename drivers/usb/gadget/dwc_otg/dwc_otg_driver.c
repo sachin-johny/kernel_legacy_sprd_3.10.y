@@ -198,21 +198,21 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 	#if defined(CONFIG_ARCH_SC8830)
 	.dev_tx_fifo_size = {
 			     /* dev_tx_fifo_size */
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1,
-			     -1
+			     0x40,
+			     0x40,
+			     0x100,
+			     0x100,
+			     0x100,
+			     0x100,
+			     0x100,
+			     0x80,
+			     0x80,
+			     0x80,
+			     0x80,
+			     0x80,
+			     0x80,
+			     0x80,
+			     0x200
 			     /* 15 */
 			     },
 
