@@ -783,6 +783,56 @@ struct platform_device sprd_audio_cpu_dai_i2s_device1 = {
         .resource       = sprd_i2s_resources1,
 };
 
+static struct resource sprd_i2s_resources2[] = {
+        [0] = {
+                .start = SPRD_IIS2_BASE,
+                .end   = SPRD_IIS2_BASE + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = SPRD_IIS2_PHYS,
+                .end   = SPRD_IIS2_PHYS + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [2] = {
+                .start = DMA_IIS2_TX,
+                .end   = DMA_IIS2_RX,
+                .flags = IORESOURCE_DMA,
+        }
+};
+
+struct platform_device sprd_audio_cpu_dai_i2s_device2 = {
+	.name           = "i2s",
+	.id             =  2,
+        .num_resources  = ARRAY_SIZE(sprd_i2s_resources2),
+        .resource       = sprd_i2s_resources2,
+};
+
+static struct resource sprd_i2s_resources3[] = {
+        [0] = {
+                .start = SPRD_IIS3_BASE,
+                .end   = SPRD_IIS3_BASE + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = SPRD_IIS3_PHYS,
+                .end   = SPRD_IIS3_PHYS + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [2] = {
+                .start = DMA_IIS3_TX,
+                .end   = DMA_IIS3_RX,
+                .flags = IORESOURCE_DMA,
+        }
+};
+
+struct platform_device sprd_audio_cpu_dai_i2s_device3 = {
+	.name           = "i2s",
+	.id             =  3,
+        .num_resources  = ARRAY_SIZE(sprd_i2s_resources3),
+        .resource       = sprd_i2s_resources3,
+};
+
 struct platform_device sprd_audio_codec_null_codec_device = {
 	.name           = "null-codec",
 	.id             =  -1,
