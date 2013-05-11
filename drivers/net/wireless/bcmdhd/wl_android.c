@@ -134,7 +134,9 @@ extern bool ap_fw_loaded;
 extern char iface_name[IFNAMSIZ];
 #endif
 
+#ifdef WL_CFG80211
 extern int wl_cfg80211_is_associate(struct net_device *dev);
+#endif
 /**
  * Local (static) functions and variables
  */
@@ -519,28 +521,36 @@ int wl_android_priv_cmd(struct net_device *net, struct ifreq *ifr, int cmd)
 	}
 	else if (strnicmp(command, CMD_SETBAND, strlen(CMD_SETBAND)) == 0) {
 		uint band = *(command + strlen(CMD_SETBAND) + 1) - '0';
+#ifdef WL_CFG80211
 		if(wl_cfg80211_is_associate(net)){
 			printk("%s is associated return directly set band\n", __FUNCTION__);
 			snprintf(command, 3, "OK");
 			bytes_written = strlen("OK");
 		}else {
+#endif
 			printk("%s is not associated, set band\n", __FUNCTION__);
 			bytes_written = wldev_set_band(net, band);
+#ifdef WL_CFG80211
 		}
+#endif
 	}
 	else if (strnicmp(command, CMD_GETBAND, strlen(CMD_GETBAND)) == 0) {
 		bytes_written = wl_android_get_band(net, command, priv_cmd.total_len);
 	}
 	else if (strnicmp(command, CMD_COUNTRY, strlen(CMD_COUNTRY)) == 0) {
 		char *country_code = command + strlen(CMD_COUNTRY) + 1;
+#ifdef WL_CFG80211
 		if(wl_cfg80211_is_associate(net)){
 			printk("%s is associated set country return directly\n", __FUNCTION__);
 			snprintf(command, 3, "OK");
 			bytes_written = strlen("OK");
 		}else {
-			printk("%s is associated set country return directly\n", __FUNCTION__);
+#endif
+			printk("%s is not associated set country\n", __FUNCTION__);
 			bytes_written = wldev_set_country(net, country_code);
+#ifdef WL_CFG80211
 		}
+#endif
 	}
 #ifdef PNO_SUPPORT
 	else if (strnicmp(command, CMD_PNOSSIDCLR_SET, strlen(CMD_PNOSSIDCLR_SET)) == 0) {
@@ -760,6 +770,10 @@ static int wifi_set_carddetect(int on)
 	return 0;
 }
 
+
+
+
+
 static int wifi_probe(struct platform_device *pdev)
 {
 	struct wifi_platform_data *wifi_ctrl =
@@ -773,6 +787,9 @@ static int wifi_probe(struct platform_device *pdev)
 	wifi_control_data = wifi_ctrl;
 
 	wifi_set_power(1, 0);	/* Power On */
+
+
+
 	wifi_set_carddetect(1);	/* CardDetect (0->1) */
 
 	up(&wifi_control_sem);

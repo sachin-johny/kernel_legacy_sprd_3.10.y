@@ -2338,6 +2338,7 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	bzero(&bssid, sizeof(bssid));
 	wl_update_prof(wl, dev, NULL, (void *)&bssid, WL_PROF_BSSID);
 
+	wl_set_drv_status(wl, CONNECTING, dev);
 	if (IS_P2P_SSID(sme->ssid) && (dev != wl_to_prmry_ndev(wl))) {
 		/* we only allow to connect using virtual interface in case of P2P */
 		if (p2p_is_on(wl) && is_wps_conn(sme)) {
@@ -2398,11 +2399,13 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 			err = wl_cfgp2p_set_management_ie(wl, dev, -1,
 				VNDR_IE_ASSOCREQ_FLAG, wpsie, wpsie_len);
 			if (unlikely(err)) {
+				wl_clr_drv_status(wl, CONNECTING, dev);
 				return err;
 			}
 	}
 	if (unlikely(!sme->ssid)) {
 		WL_ERR(("Invalid ssid\n"));
+		wl_clr_drv_status(wl, CONNECTING, dev);
 		return -EOPNOTSUPP;
 	}
 	if (chan) {
@@ -2417,8 +2420,10 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	if (sme->crypto.wpa_versions & NL80211_WAPI_VERSION_1) {
 		WL_DBG(("2. set wapi ie  \n"));
 		err = wl_set_set_wapi_ie(dev, sme);
-		if (unlikely(err))
+		if (unlikely(err)){
+			wl_clr_drv_status(wl, CONNECTING, dev);
 			return err;
+		}
 	} else
 		WL_DBG(("2. Not wapi ie  \n"));
 #endif
@@ -2429,6 +2434,7 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	err = wl_set_wpa_version(dev, sme);
 	if (unlikely(err)) {
 		WL_ERR(("Invalid wpa_version\n"));
+		wl_clr_drv_status(wl, CONNECTING, dev);
 		return err;
 	}
 #ifdef BCMWAPI_WPI
@@ -2440,6 +2446,7 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 		err = wl_set_auth_type(dev, sme);
 		if (unlikely(err)) {
 			WL_ERR(("Invalid auth type\n"));
+			wl_clr_drv_status(wl, CONNECTING, dev);
 			return err;
 		}
 #ifdef BCMWAPI_WPI
@@ -2449,18 +2456,21 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	err = wl_set_set_cipher(dev, sme);
 	if (unlikely(err)) {
 		WL_ERR(("Invalid ciper\n"));
+		wl_clr_drv_status(wl, CONNECTING, dev);
 		return err;
 	}
 
 	err = wl_set_key_mgmt(dev, sme);
 	if (unlikely(err)) {
 		WL_ERR(("Invalid key mgmt\n"));
+		wl_clr_drv_status(wl, CONNECTING, dev);
 		return err;
 	}
 
 	err = wl_set_set_sharedkey(dev, sme);
 	if (unlikely(err)) {
 		WL_ERR(("Invalid shared key\n"));
+		wl_clr_drv_status(wl, CONNECTING, dev);
 		return err;
 	}
 
@@ -2513,7 +2523,6 @@ wl_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 		WL_INFO(("ssid \"%s\", len (%d)\n", ext_join_params->ssid.SSID,
 			ext_join_params->ssid.SSID_len));
 	}
-	wl_set_drv_status(wl, CONNECTING, dev);
 	err = wldev_iovar_setbuf_bsscfg(dev, "join", ext_join_params, join_params_size,
 		wl->ioctl_buf, WLC_IOCTL_MAXLEN, wl_cfgp2p_find_idx(wl, dev), &wl->ioctl_buf_sync);
 	kfree(ext_join_params);
@@ -6976,18 +6985,17 @@ static void wl_delay(u32 ms)
 	}
 }
 
-
 int wl_cfg80211_is_associate(struct net_device *dev)
 {
 	struct wl_priv *wl = wlcfg_drv_priv;
 	dhd_pub_t *dhd =  (dhd_pub_t *)(wl->pub);
 
-	if (!wl_get_drv_status(wl, CONNECTED, dev) ||
-		!wl_get_drv_status(wl, CONNECTING, dev) ||
-		(dhd_is_associated(dhd, NULL) == FALSE)) {
-		return 0;
+	if (wl_get_drv_status(wl, CONNECTED, dev) ||
+		wl_get_drv_status(wl, CONNECTING, dev) ||
+		(dhd_is_associated(dhd, NULL) == TRUE)) {
+		return 1;
 	}
-	return 1;
+	return 0;
 }
 
 s32 wl_cfg80211_get_p2p_dev_addr(struct net_device *net, struct ether_addr *p2pdev_addr)
