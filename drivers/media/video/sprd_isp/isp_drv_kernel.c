@@ -984,9 +984,6 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			goto ISP_IOCTL_EXIT;
 		}
 		ret=_isp_queue_read(&g_isp_device.queue, &isp_node);
-		ISP_PRINT("isp_k: ioctl irq: _isp_queue_read , irq = 0x%x, 0x%x\n", isp_node.isp_irq_val, isp_node.dcam_irq_val);
-		reg_value=ISP_READL(ISP_BASE_ADDR + 0x2078);
-		ISP_PRINT("isp_k:0x2078= 0x%x\n", reg_value);
 		if ( 0 != ret) {
 
 			ISP_PRINT("isp_k: ioctl irq: _isp_queue_read error, ret = 0x%x", ret);

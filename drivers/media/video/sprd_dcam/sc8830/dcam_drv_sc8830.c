@@ -2813,7 +2813,7 @@ LOCAL void    _path1_done(void)
 		return;
 	}
 
-	DCAM_TRACE_LOW("DCAM 1\n");
+	printk("DCAM 1\n");
 
 	DCAM_TRACE_LOW("DCAM DRV: _path1_done, frame 0x%x, y uv, 0x%x 0x%x \n",
 		(int)frame, frame->yaddr, frame->uaddr);
@@ -2904,7 +2904,7 @@ LOCAL void    _path2_done(void)
 		return;
 	}
 
-	DCAM_TRACE_LOW("DCAM 2\n");
+	printk("DCAM 2\n");
 	
 	if (s_dcam_mod.dcam_path2.path_update) {
 		s_dcam_mod.dcam_path2.path_done_cnt++;
@@ -2912,9 +2912,9 @@ LOCAL void    _path2_done(void)
 		if (1 == s_dcam_mod.dcam_path2.path_done_cnt) {
 			coef_copy = 1;
 			_dcam_path2_set();
-		} else{
+		} else {
 			coef_copy = 0;
-			if(s_dcam_mod.dcam_path2.path_done_cnt > 2) {
+			if (s_dcam_mod.dcam_path2.path_done_cnt > 2) {
 				s_dcam_mod.dcam_path2.path_update = 0;
 				DCAM_TRACE("path 2, update path done \n");
 			}
@@ -2925,19 +2925,15 @@ LOCAL void    _path2_done(void)
 
 	} else {
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_2, false);
-		if (rtn) {
-			DCAM_TRACE_LOW("DCAM DRV: path 2 wait for frame unlocked \n");
-			return;
-		}
+		DCAM_RTN_IF_ERR;
 		_dcam_auto_copy(DCAM_PATH_IDX_2);
 	}
 
 	frame->width = path->output_size.w;
 	frame->height = path->output_size.h;
 	
-
-	if(user_func)
-	{
+	dcam_frame_lock(frame);
+	if (user_func) {
 		(*user_func)(frame, data);
 	}
 	return;
