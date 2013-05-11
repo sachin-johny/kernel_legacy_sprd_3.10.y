@@ -59,6 +59,7 @@ extern void __init sci_map_io(void);
 extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
+extern int __init sci_regulator_init(void);
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -68,8 +69,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
 	&sprd_serial_device2,
-	/* FIXME: jianjun.he */
-	//&sprd_device_rtc,
+	&sprd_device_rtc,
 	&sprd_eic_gpio_device,
 	&sprd_nand_device,
 	&sprd_lcd_device0,
@@ -85,10 +85,13 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_spi1_device,
 	&sprd_spi2_device,
 	&sprd_keypad_device,
-	&sprd_audio_platform_vbc_pcm_device,
+	&sprd_audio_platform_pcm_device,
 	&sprd_audio_cpu_dai_vaudio_device,
 	&sprd_audio_cpu_dai_vbc_device,
 	&sprd_audio_codec_sprd_codec_device,
+	&sprd_audio_cpu_dai_i2s_device,
+	&sprd_audio_cpu_dai_i2s_device1,
+	&sprd_audio_codec_null_codec_device,
 	&sprd_battery_device,
 #ifdef CONFIG_ION
 	&sprd_ion_dev,
@@ -101,6 +104,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_jpg_device,
 	&sprd_dcam_device,
 	&sprd_scale_device,
+	&sprd_gsp_device,
 	&sprd_rotation_device,
 	&sprd_sensor_device,
 	&sprd_isp_device,
@@ -114,7 +118,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm1_device,
 	&sprd_axi_bm2_device,
 #endif
-#if 0
+#ifdef CONFIG_BT_BCM4330
 	&rfkill_device,
 	&brcm_bluesleep_device,
 #endif
@@ -138,7 +142,7 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&kb_backlight_device,
 };
-#if 0
+
 /* BT suspend/resume */
 static struct resource bluesleep_resources[] = {
 	{
@@ -182,7 +186,6 @@ static struct platform_device rfkill_device = {
 	.num_resources	= ARRAY_SIZE(rfkill_resources),
 	.resource	= rfkill_resources,
 };
-#endif
 
 /* keypad backlight */
 static struct platform_device kb_backlight_device = {
@@ -541,15 +544,6 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
-int __init sc8825_regulator_init(void)
-{
-	static struct platform_device sc8825_regulator_device = {
-		.name 	= "sprd-regulator",
-		.id	= -1,
-	};
-	return platform_device_register(&sc8825_regulator_device);
-}
-
 int __init __clock_init_early(void)
 {
 	pr_info("ahb ctl0 %08x, ctl2 %08x glb aon apb0 %08x aon apb1 %08x clk_en %08x\n",
@@ -563,20 +557,20 @@ int __init __clock_init_early(void)
 		BIT_BUSMON2_EB		|
 		BIT_BUSMON1_EB		|
 		BIT_BUSMON0_EB		|
-		BIT_SPINLOCK_EB		|
+		//BIT_SPINLOCK_EB		|
 		BIT_GPS_EB		|
-		BIT_EMMC_EB		|
-		BIT_SDIO2_EB		|
-		BIT_SDIO1_EB		|
-		BIT_SDIO0_EB		|
+		//BIT_EMMC_EB		|
+		//BIT_SDIO2_EB		|
+		//BIT_SDIO1_EB		|
+		//BIT_SDIO0_EB		|
 		BIT_DRM_EB		|
 		BIT_NFC_EB		|
-		BIT_DMA_EB		|
-		BIT_USB_EB		|
-		BIT_GSP_EB		|
-		BIT_DISPC1_EB		|
-		BIT_DISPC0_EB		|
-		BIT_DSI_EB		|
+		//BIT_DMA_EB		|
+		//BIT_USB_EB		|
+		//BIT_GSP_EB		|
+		//BIT_DISPC1_EB		|
+		//BIT_DISPC0_EB		|
+		//BIT_DSI_EB		|
 		0);
 	sci_glb_clr(REG_AP_APB_APB_EB,
 		BIT_INTC3_EB		|
@@ -623,7 +617,7 @@ static void __init sc8830_init_machine(void)
 	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
 
 	sci_adc_init((void __iomem *)ADC_BASE);
-	sc8825_regulator_init();
+	sci_regulator_init();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));

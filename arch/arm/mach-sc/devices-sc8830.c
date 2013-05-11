@@ -674,7 +674,7 @@ static const unsigned int test_keymap[] = {
 	KEY(7, 3, KEY_LEFTCTRL),
 };
 
-#elif defined (CONFIG_MACH_SP8830EA)
+#elif defined (CONFIG_MACH_SP8830EA) || defined (CONFIG_MACH_SP8830PAD)
 
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW0 | SCI_ROW1)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL0 | SCI_COL1)
