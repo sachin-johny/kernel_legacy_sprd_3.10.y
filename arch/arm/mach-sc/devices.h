@@ -44,6 +44,10 @@ extern struct platform_device sprd_audio_cpu_dai_vbc_device;
 extern struct platform_device sprd_audio_codec_sprd_codec_device;
 extern struct platform_device sprd_audio_cpu_dai_i2s_device;
 extern struct platform_device sprd_audio_cpu_dai_i2s_device1;
+#ifdef CONFIG_ARCH_SC8830
+extern struct platform_device sprd_audio_cpu_dai_i2s_device2;
+extern struct platform_device sprd_audio_cpu_dai_i2s_device3;
+#endif
 extern struct platform_device sprd_audio_codec_null_codec_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;

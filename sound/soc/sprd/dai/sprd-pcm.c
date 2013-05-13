@@ -252,6 +252,7 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 		    dma_alloc_coherent(substream->pcm->card->dev,
 				       hw_chan * 2 * PAGE_SIZE,
 				       &rtd->dma_desc_array_phys, GFP_KERNEL);
+		memset(rtd->dma_desc_array, 0x0, hw_chan * 2  * PAGE_SIZE);
 #endif
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 	} else {
@@ -640,7 +641,12 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		for (i = 0; i < used_chan_count; i++) {
 			dma_desc[i]->datawidth = dma->desc.datawidth;
 			if (sprd_is_i2s(srtd->cpu_dai)) {
-				dma_desc[i]->fragmens_len = rtd->burst_len;
+				/*dma_desc[i]->fragmens_len = rtd->burst_len;*/
+				if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+					dma_desc[i]->fragmens_len = (I2S_FIFO_DEPTH - config->tx_watermark) * 4;
+				} else {
+					dma_desc[i]->fragmens_len = config->rx_watermark * 4;
+				}
 			} else {
 				dma_desc[i]->fragmens_len =
 				    dma->desc.fragmens_len;

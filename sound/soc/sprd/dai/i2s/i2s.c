@@ -89,7 +89,7 @@ struct i2s_priv {
 static DEFINE_MUTEX(i2s_list_mutex);
 static LIST_HEAD(i2s_list);
 
-#ifdef  DMA_VER_R1P0
+#if defined(DMA_VER_R1P0)
 static struct sprd_pcm_dma_params i2s_pcm_stereo_out = {
 	.name = "I2S PCM Stereo out",
 	.workmode = DMA_LINKLIST,
@@ -115,9 +115,8 @@ static struct sprd_pcm_dma_params i2s_pcm_stereo_in = {
 		 .dst_burst_mode = SRC_BURST_MODE_4,
 		 },
 };
-#endif
 
-#ifdef  DMA_VER_R4P0
+#elif defined(DMA_VER_R4P0)
 static struct sprd_pcm_dma_params i2s_pcm_stereo_out = {
 	.name = "I2S PCM Stereo out",
 	.workmode = DMA_LINKLIST,
@@ -135,7 +134,6 @@ static struct sprd_pcm_dma_params i2s_pcm_stereo_in = {
 	.irq_type = BLK_DONE,
 	.desc = {
 		 .datawidth = WORD_WIDTH,
-		 .fragmens_len = VBC_FIFO_FRAME_NUM * 2,
 		 .src_step = 0,
 		 .des_step = 4,
 		 },
@@ -404,10 +402,18 @@ static int i2s_get_ddata_width(struct i2s_priv *i2s)
 	struct i2s_config *config = &i2s->config;
 	if (PCM_BUS == config->bus_type) {
 		if (config->byte_per_chan == I2S_BPCH_16) {
+#if defined(DMA_VER_R1P0)
 			return DMA_DDATA_WIDTH16;
+#elif defined(DMA_VER_R4P0)
+			return SHORT_WIDTH;
+#endif
 		}
 	}
+#if defined(DMA_VER_R1P0)
 	return DMA_DDATA_WIDTH32;
+#elif defined( DMA_VER_R4P0)
+	return WORD_WIDTH;
+#endif
 }
 
 static int i2s_get_sdata_width(struct i2s_priv *i2s)
@@ -415,10 +421,18 @@ static int i2s_get_sdata_width(struct i2s_priv *i2s)
 	struct i2s_config *config = &i2s->config;
 	if (PCM_BUS == config->bus_type) {
 		if (config->byte_per_chan == I2S_BPCH_16) {
+#if defined(DMA_VER_R1P0)
 			return DMA_SDATA_WIDTH16;
+#elif defined(DMA_VER_R4P0)
+			return SHORT_WIDTH;
+#endif
 		}
 	}
+#if defined(DMA_VER_R1P0)
 	return DMA_SDATA_WIDTH32;
+#elif defined(DMA_VER_R4P0)
+	return WORD_WIDTH;
+#endif
 }
 
 static int i2s_get_data_position(struct i2s_priv *i2s)
@@ -589,11 +603,10 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 		dma_data = &i2s_pcm_stereo_in;
 		dma_data->channels[0] = i2s->rx.dma_no;
 	}
-#ifdef  DMA_VER_R1P0
+#if defined(DMA_VER_R1P0)
 	dma_data->desc.cfg_dst_data_width = i2s_get_ddata_width(i2s);
 	dma_data->desc.cfg_src_data_width = i2s_get_sdata_width(i2s);
-#endif
-#ifdef  DMA_VER_R4P0
+#elif defined(DMA_VER_R4P0)
 	dma_data->desc.datawidth = i2s_get_ddata_width(i2s);
 #endif
 
