@@ -46,4 +46,5 @@ obj-$(CONFIG_BACKLIGHT_SC8810)	+= sc8810_bl.o
 obj-$(CONFIG_BACKLIGHT_Z788BL)	+= z788_bl.o
 obj-$(CONFIG_BACKLIGHT_SGM3727)	+= sgm3727_bl.o
 obj-$(CONFIG_BACKLIGHT_SPRD_PWM)	+= sprd_pwm_bl.o
+obj-$(CONFIG_BACKLIGHT_SPRD)	+= sprd_backlight.o
 obj-$(CONFIG_BACKLIGHT_KTD253B)	+= ktd253b_bl.o
