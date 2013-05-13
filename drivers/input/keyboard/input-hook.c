@@ -125,7 +125,7 @@ void input_report_key_hook(struct input_dev *dev, unsigned int code, int value)
 			.private = NULL, /* like dev */
 			.trigger_watch_event_cb = trigger_watch_powerkey,
 		};
-		static int pre_value = -1;
+		static int pre_value = 0;
 		if (value != pre_value) {
 			if (value)
 				trigger_watch_event_start(&twe, 6 * 1000);
