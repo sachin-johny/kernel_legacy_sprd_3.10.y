@@ -36,9 +36,6 @@
 #include <linux/wakelock.h>
 
 
-
-#define IRQ_WAKEUP 	0
-
 #define UART_NR_MAX			CONFIG_SERIAL_SPRD_UART_NR
 #define SP_TTY_NAME			"ttyS"
 #define SP_TTY_MINOR_START	64
@@ -396,11 +393,11 @@ static int serial_sprd_startup(struct uart_port *port)
 		int ret2 = 0;
 
 		if (!port->line) {
-			ret2 = request_irq(IRQ_WAKEUP,wakeup_rx_interrupt,IRQF_SHARED,"wakeup_rx",port);
+			ret2 = request_irq(IRQ_SPECIAL_LATCH,wakeup_rx_interrupt,IRQF_SHARED,"wakeup_rx",port);
 			if(ret2)
 			{
 				printk("fail to request wakeup irq\n");
-				free_irq(IRQ_WAKEUP,NULL);
+				free_irq(IRQ_SPECIAL_LATCH,NULL);
 			}
 		}
 	}
