@@ -1923,6 +1923,10 @@ LOCAL uint32_t _ov5640_set_video_mode(uint32_t mode)
 	if(mode>1)
 		return 0;
 
+	#ifdef CONFIG_ARCH_SC7710
+	mode = 0;
+	#endif
+
 	video_mode = mode;
 
 	if(0 == mode)  //normal

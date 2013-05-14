@@ -1953,8 +1953,8 @@ static void set_next_buffer(struct dcam_fh *fh)
 		    ("#### V4L2: v4l2_buff: set_next_buffer addr = 0x%08x \n",
 		     buf->vb.baddr);*/
 	} else {
-		printk
-		    ("V4L2: fail: set_next_buffer filled buffer is 0.\n");
+		/*printk
+		    ("V4L2: fail: set_next_buffer filled buffer is 0.\n");*/
 		goto unlock;
 	}
 /*DCAM_V4L2_PRINT("V4L2: set_next_buffer filled buffer yaddr:0x%x,uaddr:0x%x.\n", (uint32_t)buf->vb.baddr,buf->vb.privsize);*/
