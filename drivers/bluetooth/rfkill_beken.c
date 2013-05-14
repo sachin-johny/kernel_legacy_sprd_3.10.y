@@ -23,6 +23,10 @@
 #include <mach/board.h>
 #include <linux/clk.h>
 #include <linux/err.h>
+#include <asm/io.h>
+#include <mach/hardware.h>
+
+#define SPRD_EICINT_BASE        (SPRD_EIC_BASE+0x80)
 
 static struct rfkill *bt_rfk;
 static const char bt_name[] = "bluetooth";
@@ -75,6 +79,28 @@ static void bt_clk_init(bool clk_on )
 
 }
 
+static void bluetooth_set_wakeup(bool setflag)
+{
+    u32 val;
+
+    printk(KERN_ERR "bluetooth_set_wakeup setflag = %d\n", setflag);
+
+    if(setflag){
+        //SIC interrupt enable
+        val = __raw_readl(SPRD_EICINT_BASE+0x00);
+        val |= BIT(0);
+        __raw_writel(val, SPRD_EICINT_BASE+0x00);
+    }
+    else{
+        //SIC interrupt disable
+        val = __raw_readl(SPRD_EICINT_BASE+0x00);
+        if((val&BIT(0))==BIT(0)){
+            val &= ~BIT(0);
+        }
+        __raw_writel(val, SPRD_EICINT_BASE+0x00);
+    }
+}
+
 static int bluetooth_set_power(void *data, bool blocked)
 {
     printk(KERN_ERR "bluetooth_set_power blocked = %d\n", blocked);
@@ -85,10 +111,12 @@ static int bluetooth_set_power(void *data, bool blocked)
         msleep(100);
         gpio_direction_output(bt_setpower, 1);
         msleep(200);
+        bluetooth_set_wakeup(true);
     } else {
         gpio_direction_output(bt_setpower, 0);
         msleep(100);
         bt_clk_init(false);
+        bluetooth_set_wakeup(false);
     }
 
     return 0;
