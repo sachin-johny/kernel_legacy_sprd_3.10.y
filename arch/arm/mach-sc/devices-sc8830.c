@@ -1220,11 +1220,11 @@ struct platform_device sprd_seth2_td_device = {
 };
 
 static struct saudio_init_data sprd_saudio_td={
-	"saudio_td",
+	"VIRTUAL AUDIO",
 	SIPC_ID_CPT,
-	SMSG_CH_VBC,
-	SMSG_CH_PLAYBACK,
-	SMSG_CH_CAPTURE,
+	SMSG_CH_VBC_T,
+	SMSG_CH_PLAYBACK_T,
+	SMSG_CH_CAPTURE_T,
 };
 
 struct platform_device sprd_saudio_td_device = {
@@ -1367,11 +1367,11 @@ struct platform_device sprd_seth2_wcdma_device = {
 };
 
 static struct saudio_init_data sprd_saudio_wcdma={
-	"saudio_w",
+	"VIRTUAL AUDIO W",
 	SIPC_ID_CPW,
-	SMSG_CH_VBC,
-	SMSG_CH_PLAYBACK,
-	SMSG_CH_CAPTURE,
+	SMSG_CH_VBC_W,
+	SMSG_CH_PLAYBACK_W,
+	SMSG_CH_CAPTURE_W,
 };
 
 struct platform_device sprd_saudio_wcdma_device = {

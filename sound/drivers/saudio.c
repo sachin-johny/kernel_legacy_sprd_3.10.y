@@ -33,9 +33,9 @@
 #include <linux/io.h>
 #include <sound/saudio.h>
 
-#define ETRACE(x...)			printk(KERN_ERR "Error: " x)
+#define ETRACE(x...)			pr_debug(KERN_ERR "Error: " x)
 
-#define ADEBUG()			pr_debug("saudio.c:line %d\n",__LINE__)
+#define ADEBUG()			pr_debug(KERN_ERR "saudio.c: function: %s,line %d\n",__FUNCTION__,__LINE__)
 
 #define CMD_BLOCK_SIZE			80
 #define TX_DATA_BLOCK_SIZE		80
