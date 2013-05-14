@@ -197,20 +197,17 @@ static int32_t _isp_module_rst(void)
 	uint32_t reg_value=0x00;
 	int i =0;
 
-	ISP_PRINT("_isp_module_rst: axi master = 0x%x, reset = 0x%x, int clear = 0x%x\n",
-			ISP_AXI_MASTER, ISP_MODULE_RESET, ISP_INT_CLEAR);
-
 	if (0x00 != atomic_read(&s_isp_users)) {
 
+#if defined(CONFIG_ARCH_SC8830)
 		ISP_OWR(ISP_AXI_MASTER_STOP, BIT_0);
+#endif
 		reg_value=ISP_READL(ISP_AXI_MASTER);
-		//ISP_PRINT("_isp_module_rst: read axi = %d\n", reg_value);
 		while(0x00==(reg_value&0x08))
 		{
 			i++;
 			msleep(1);
 			reg_value=ISP_READL(ISP_AXI_MASTER);
-			//ISP_PRINT("_isp_module_rst: read axi = %d, i=%d\n", reg_value, i);
 		}
 
 		ISP_WRITEL(ISP_INT_CLEAR, 0x0fff);
