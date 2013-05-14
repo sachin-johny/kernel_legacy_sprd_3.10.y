@@ -41,7 +41,7 @@
 #undef debug
 #define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
 #define debug0(format, arg...)	//pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
-#define debug2(format, arg...)	//pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug2(format, arg...)	pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
 
 #ifndef	ANA_REG_OR
 #define	ANA_REG_OR(_r, _b)	sci_adi_write(_r, _b, 0)
@@ -87,7 +87,7 @@ struct sci_regulator_ops {
 	int (*init_trimming) (struct regulator_dev * rdev);
 	int (*is_trimming) (struct regulator_dev * rdev);
 	int (*get_trimming_step) (struct regulator_dev * rdev, int);
-	int (*set_trimming) (struct regulator_dev * rdev, int, int);
+	int (*set_trimming) (struct regulator_dev * rdev, int, int, int);
 	int (*calibrate) (struct regulator_dev * rdev, int, int);
 };
 
@@ -110,8 +110,10 @@ enum {
 	VDD_TYP_LDO = 0,
 	VDD_TYP_LDO_D = 1,
 	VDD_TYP_DCDC = 2,
+	VDD_TYP_LPREF = 3,
 };
 
+static DEFINE_MUTEX(adc_chan_mutex);
 static int __regu_calibrate(struct regulator_dev *, int, int);
 
 #define SCI_REGU_REG(VDD, TYP, PD_SET, SET_BIT, PD_RST, RST_BIT, SLP_CTL, SLP_CTL_BIT, \
@@ -256,7 +258,7 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 	for (i = 0; i < regs->vol_sel_cnt; i++) {
 		if (regs->vol_sel[i] == mv) {
 			ANA_REG_SET(regs->vol_ctl,
-				    (!has_rst_bit) ? i : vol_bits[i] << shft,
+				    ((!has_rst_bit) ? i : vol_bits[i]) << shft,
 				    regs->vol_ctl_bits);
 			/*clear_bit(desc->desc.id, trimming_state); */
 			ret = 0;
@@ -286,15 +288,17 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	BUG_ON(regs->vol_sel_cnt != 4);
 	vol_bits = ((ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft);
 
-	if (!has_rst_bit || ((vol_bits & BIT(0)) ^ (vol_bits & BIT(1))
-			     && (vol_bits & BIT(2)) ^ (vol_bits & BIT(3)))) {
+	if (!has_rst_bit) {
+		i = vol_bits;
+	} else if (((vol_bits & BIT(0)) ^ (vol_bits & BIT(1))
+		    && (vol_bits & BIT(2)) ^ (vol_bits & BIT(3)))) {
 		i = (vol_bits & BIT(0)) | ((vol_bits >> 1) & BIT(1));
-		vol = regs->vol_sel[i];
-		debug2("regu %p (%s), voltage %d\n", regs, desc->desc.name,
-		       vol);
-		return vol * 1000;
-	}
-	return -EFAULT;
+	} else
+		return -EFAULT;
+
+	vol = regs->vol_sel[i];
+	debug2("regu %p (%s), voltage %d\n", regs, desc->desc.name, vol);
+	return vol * 1000;
 }
 
 static unsigned long trimming_state[2] = { 0, 0 };	/* max 64 bits */
@@ -334,54 +338,48 @@ exit:
 }
 
 /**
- * ldo trimming step about 0.7%, range 90% ~ 110%. that all maps as follow.
-	0x00 : 90.000
-	0x01 : 90.625
-	0x02 : 91.250
-	0x03 : 91.875
-	0x04 : 92.500
-	0x05 : 93.125
-	0x06 : 93.750
-	0x07 : 94.375
-	0x08 : 95.000
-	0x09 : 95.625
-	0x0A : 96.250
-	0x0B : 96.875
-	0x0C : 97.500
-	0x0D : 98.125
-	0x0E : 98.750
-	0x0F : 99.375
-	0x10 : 100.000
-	0x11 : 100.625
-	0x12 : 101.250
-	0x13 : 101.875
-	0x14 : 102.500
-	0x15 : 103.125
-	0x16 : 103.750
-	0x17 : 104.375
-	0x18 : 105.000
-	0x19 : 105.625
-	0x1A : 106.250
-	0x1B : 106.875
-	0x1C : 107.500
-	0x1D : 108.125
-	0x1E : 108.750
-	0x1F : 109.375
+ * ldo trimming step about 0.625%, range 90% ~ 109.375%. that all maps as follow.
 
-	0x20 : 110.000
+	0x1F :  +9.375 : 109.375
+	0x1E :  +8.750 : 108.750
+	0x1D :  +8.125 : 108.125
+	0x1C :  +7.500 : 107.500
+	0x1B :  +6.875 : 106.875
+	0x1A :  +6.250 : 106.250
+	0x19 :  +5.625 : 105.625
+	0x18 :  +5.000 : 105.000
+	0x17 :  +4.375 : 104.375
+	0x16 :  +3.750 : 103.750
+	0x15 :  +3.125 : 103.125
+	0x14 :  +2.500 : 102.500
+	0x13 :  +1.875 : 101.875
+	0x12 :  +1.250 : 101.250
+	0x11 :  +0.625 : 100.625
+	0x10 :  +0.000 : 100.000
+	0x0F :  -0.625 : 99.375
+	0x0E :  -1.250 : 98.750
+	0x0D :  -1.875 : 98.125
+	0x0C :  -2.500 : 97.500
+	0x0B :  -3.125 : 96.875
+	0x0A :  -3.750 : 96.250
+	0x09 :  -4.375 : 95.625
+	0x08 :  -5.000 : 95.000
+	0x07 :  -5.625 : 94.375
+	0x06 :  -6.250 : 93.750
+	0x05 :  -6.875 : 93.125
+	0x04 :  -7.500 : 92.500
+	0x03 :  -8.125 : 91.875
+	0x02 :  -8.750 : 91.250
+	0x01 :  -9.375 : 90.625
+	0x00 : -10.000 : 90.000
+
  */
-static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
+static int ldo_set_trimming(struct regulator_dev *rdev, int def_vol, int to_vol,
+			    int adc_vol)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
-	int ret = -EINVAL, cal_vol;
-
-	ctl_vol /= 1000;
-	to_vol /= 1000;
-
-	cal_vol = ctl_vol - to_vol * 90 / 100;	/* cal range 90% ~ 110% */
-	if (!regs->vol_trm || cal_vol < 0 || cal_vol >= to_vol * 20 / 100)
-		goto exit;
+	int ret = -EINVAL;
 
 	/* FIXME: always update voltage ctrl bits */
 /*
@@ -393,15 +391,18 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int ctl_vol, int to_vol)
 	else {
 */
 	if (regs->vol_trm) {
-		u32 trim =	/* assert 5 valid trim bits */
-		    (cal_vol * 100 * 32) / (to_vol * 20) & 0x1f;
-		debug
-		    ("regu %p (%s) trimming %u = %u %+dmv, got [%02X] %u.%03u%%\n",
-		     regs, desc->desc.name, ctl_vol, to_vol,
-		     (cal_vol - to_vol / 10), trim, ctl_vol * 100 / to_vol,
-		     (ctl_vol * 100 * 1000 / to_vol) % 1000);
+		u32 trim =	/* assert 5 valid trim bits, R = V_IDEAL / V_ADCIN - 1 */
+		    DIV_ROUND_UP((to_vol * 100 - adc_vol * 90) * 32,
+				 (adc_vol * 20));
+		if (trim > BIT(5) - 1)
+			goto exit;
+		debug("regu %p (%s) trimming %d = %d %+d%%, got [%02X]\n",
+		      regs, desc->desc.name, to_vol, adc_vol,
+		      (trim * 20 / 32 - 10), trim);
+
 #if !defined(CONFIG_REGULATOR_CAL_DEBUG)
-		ANA_REG_SET(regs->vol_trm, trim << __ffs(regs->vol_trm_bits),
+		ANA_REG_SET(regs->vol_trm,
+			    trim << __ffs(regs->vol_trm_bits),
 			    regs->vol_trm_bits);
 		ret = 0;
 #endif
@@ -411,20 +412,145 @@ exit:
 	return ret;
 }
 
-static int ldo_get_trimming_step(struct regulator_dev *rdev, int def_vol)
+static int ldo_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 {
-	return def_vol * 7 / 1000;	/*uV */
+	return 1000 * to_vol * 20 / 32;	/*uV */
 }
 
+/* patch for sc7710 BA version */
+#ifdef CONFIG_ARCH_SC7710
+/**
+ * lpref trimming step about 1.39%, range -22.22% ~ +20.83%. that all maps as follow.
+	0x0F : +20.833 : 120.833
+	0x0E : +19.444 : 119.444
+	0x0D : +18.056 : 118.056
+	0x0C : +16.667 : 116.667
+	0x0B : +15.278 : 115.278
+	0x0A : +13.889 : 113.889
+	0x09 : +12.500 : 112.500
+	0x08 : +11.111 : 111.111
+	0x07 :  +9.722 : 109.722
+	0x06 :  +8.333 : 108.333
+	0x05 :  +6.944 : 106.944
+	0x04 :  +5.556 : 105.556
+	0x03 :  +4.167 : 104.167
+	0x02 :  +2.778 : 102.778
+	0x01 :  +1.389 : 101.389
+	0x00 :  +0.000 : 100.000
+	0x1F :  -1.389 : 98.611
+	0x1E :  -2.778 : 97.222
+	0x1D :  -4.167 : 95.833
+	0x1C :  -5.556 : 94.444
+	0x1B :  -6.944 : 93.056
+	0x1A :  -8.333 : 91.667
+	0x19 :  -9.722 : 90.278
+	0x18 : -11.111 : 88.889
+	0x17 : -12.500 : 87.500
+	0x16 : -13.889 : 86.111
+	0x15 : -15.278 : 84.722
+	0x14 : -16.667 : 83.333
+	0x13 : -18.056 : 81.944
+	0x12 : -19.444 : 80.556
+	0x11 : -20.833 : 79.167
+	0x10 : -22.222 : 77.778
+*/
+static int lpref_set_trimming(struct regulator_dev *rdev, int def_vol,
+			      int to_vol, int adc_vol)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+	int ret = -EINVAL;
+	u32 set_bits, rst_bits;
+
+	u32 trim =		/* assert 5 valid trim bits, R = V_IDEAL / V_ADCIN - 1 */
+	    (abs(to_vol - adc_vol) * 72 / adc_vol);
+
+	if (to_vol < adc_vol)
+		trim = ~trim & 0x1f;
+	if (trim < BIT(5) - 1)
+		trim++;		/* FIXME: a little higher, according asic */
+	else if (trim > BIT(5) - 1)
+		goto exit;
+
+	debug("regu %p (%s) trimming %d = %d %+d%%, got [%02X]\n",
+	      regs, desc->desc.name, to_vol, adc_vol,
+	      (100 - adc_vol * 100 / to_vol), trim);
+
+#if !defined(CONFIG_REGULATOR_CAL_DEBUG)
+	mutex_lock(&adc_chan_mutex);
+	ANA_REG_BIC(ANA_REG_GLB_LDO_SW, BIT_WPA_DCDC_SEL);
+	switch (regs->cal_ctl_bits >> 16) {
+	case 0x1a:		//abb/rf/amp/emmcore/emmio/vddwif0/vddwif1
+		set_bits = (trim >> 0) & (BIT(0) | BIT(1));
+		ANA_REG_SET(ANA_REG_GLB_CHGR_CTRL0, set_bits << 8,
+			    BIT(9) | BIT(8));
+		set_bits = (trim >> 2) & (BIT(0) | BIT(1));
+		rst_bits = ~set_bits & (BIT(0) | BIT(1));
+		ANA_REG_SET(ANA_REG_GLB_DCDC_MEM_CTRL2,
+			    set_bits << 10 | rst_bits << 14,
+			    BIT(10) | BIT(11) | BIT(14) | BIT(15));
+		set_bits = (trim >> 4) & BIT(0);
+		rst_bits = ~set_bits & BIT(0);
+		ANA_REG_SET(ANA_REG_GLB_WPA_DCDC_CTRL1,
+			    set_bits << 10 | rst_bits << 14, BIT(10) | BIT(14));
+		break;
+	case 0x19:		//vdd18/vdd28/vdd25/vddcama/vddcamd/vddmem/vddusb
+		trim ^= BIT(4);
+		ANA_REG_SET(ANA_REG_GLB_LDO_TRIM6, trim << 8,
+			    BIT(8) | BIT(9) | BIT(10) | BIT(11) | BIT(12));
+		break;
+	case 0x18:		//sdio/sim0/sim1/sim2
+		set_bits = (trim >> 0) & (BIT(0) | BIT(1));
+		rst_bits = ~set_bits & (BIT(0) | BIT(1));
+		ANA_REG_SET(ANA_REG_GLB_DCDC_ARM_CTRL2,
+			    set_bits << 10 | rst_bits << 14,
+			    BIT(10) | BIT(11) | BIT(14) | BIT(15));
+		set_bits = (trim >> 2) & (BIT(0) | BIT(1));
+		rst_bits = ~set_bits & (BIT(0) | BIT(1));
+		ANA_REG_SET(ANA_REG_GLB_DCDC_CORE_CTRL2,
+			    set_bits << 10 | rst_bits << 14,
+			    BIT(10) | BIT(11) | BIT(14) | BIT(15));
+		set_bits = (trim >> 4) & BIT(0);
+		rst_bits = ~set_bits & BIT(0);
+		ANA_REG_SET(ANA_REG_GLB_WPA_DCDC_CTRL1,
+			    set_bits << 11 | rst_bits << 15, BIT(11) | BIT(15));
+		break;
+	default:
+		break;
+	}
+
+	msleep(1);		/*FIXME: wait for lpref voltage is okay */
+	ANA_REG_OR(ANA_REG_GLB_LDO_SW, BIT_WPA_DCDC_SEL);
+	mutex_unlock(&adc_chan_mutex);
+	ret = 0;
+#endif
+
+exit:
+	return ret;
+}
+
+static int lpref_get_trimming_step(struct regulator_dev *rdev, int to_vol)
+{
+	return 1000 * to_vol * 100 / 72;	/*uV */
+}
+#endif
+
 /* standard dcdc ops*/
-static int dcdc_get_trimming_step(struct regulator_dev *rdev, int def_vol)
+static int dcdc_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 {
 	return 1000 * 100 / 32;	/*uV */
 }
 
-static int dcdc_set_trimming(struct regulator_dev *rdev, int ctl_vol,
-			     int to_vol)
+static int dcdc_set_trimming(struct regulator_dev *rdev,
+			     int def_vol, int to_vol, int adc_vol)
 {
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	int acc_vol = desc->ops->get_trimming_step(rdev, to_vol);
+/**
+ * FIXME: no need division?
+	int ctl_vol = DIV_ROUND_UP(def_vol * to_vol * 1000, adc_vol) + acc_vol;
+*/
+	int ctl_vol = 1000 * (def_vol - (adc_vol - to_vol)) + acc_vol;
 	return rdev->desc->ops->set_voltage(rdev, ctl_vol, ctl_vol, 0);
 }
 
@@ -553,13 +679,12 @@ exit:
 	return ret;
 }
 
-static DEFINE_MUTEX(adc_chan_mutex);
-static int adc_sample_bit = 0;	/*10bits mode */
+static int adc_sample_bit = 1;	/*12bits mode */
 static short adc_data[2][2]
 #if 0
     = {
-	{4200, 822},		/* same as nv adc_t */
-	{3600, 701},
+	{4220, 3322},		/* same as nv adc_t */
+	{3572, 2791},
 }
 #endif
 ;
@@ -578,11 +703,11 @@ static int __init __adc_cal_setup(char *str)
 		if (*p) {
 			/* update adc data from kernel parameter */
 			debug2("%d : %d -- %d : %d\n",
-			      (int)adc_data[0][0], (int)adc_data[0][1],
-			      (int)adc_data[1][0], (int)adc_data[1][1]);
-			if (adc_data[0][1] >= BIT(10)
-			    || adc_data[1][1] >= BIT(10))
-				adc_sample_bit = 1;	/*12bits mode */
+			       (int)adc_data[0][0], (int)adc_data[0][1],
+			       (int)adc_data[1][0], (int)adc_data[1][1]);
+			if (adc_data[0][1] < BIT(10)
+			    && adc_data[1][1] < BIT(10))
+				adc_sample_bit = 0;	/*10bits mode */
 		}
 	}
 	return 0;
@@ -679,13 +804,19 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 	sci_adc_get_vol_ratio(adc_data.channel_id, adc_data.scale,
 			      &chan_numerators, &chan_denominators);
 
+#ifdef CONFIG_ARCH_SC8830
+	if (0 == strcmp(desc->desc.name, "vddcamio")) {
+		chan_denominators = 3;
+	}
+#endif
+
 	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
 			      &bat_denominators);
 
 	adc_res = adc_val[MEASURE_TIMES / 2];
-	debug("%s adc channel %d : 0x%04x, ratio (%d/%d), result value %d\n",
-	      desc->desc.name, adc_data.channel_id, ldo_cal_sel,
-	      chan_numerators, chan_denominators, adc_res);
+	debug2("%s adc channel %d : 0x%04x, ratio (%d/%d), result value %d\n",
+	       desc->desc.name, adc_data.channel_id, ldo_cal_sel,
+	       chan_numerators, chan_denominators, adc_res);
 
 	if (adc_res == 0)
 		return -EAGAIN;
@@ -702,12 +833,8 @@ static void do_regu_work(struct work_struct *w)
 	struct sci_regulator_desc *desc = __get_desc(data->rdev);
 	debug0("%s\n", desc->desc.name);
 	if (!desc->ops->is_trimming(data->rdev)) {
-		int ret;
 		mutex_lock(&data->rdev->mutex);
-		ret = desc->ops->calibrate(data->rdev, 0, 0);
-		if (ret > 0) {	/* try again */
-			ret = desc->ops->calibrate(data->rdev, ret, 0);
-		}
+		desc->ops->calibrate(data->rdev, 0, 0);
 		mutex_unlock(&data->rdev->mutex);
 	}
 }
@@ -718,7 +845,7 @@ int __regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
 	const struct sci_regulator_regs *regs = desc->regs;
 	int in_calibration(void);
 	if (in_calibration() || !__is_valid_adc_cal()
-	    || !regs->cal_ctl || !regs->vol_ctl || !regs->vol_trm) {
+	    || !regs->cal_ctl || !regs->vol_def || !regs->vol_trm) {
 		/* bypass if in CFT or not adc cal or no cal ctl */
 		return -EACCES;
 	}
@@ -734,13 +861,13 @@ static int regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
+	int ret = 0, retry_count = 2;
+	int adc_vol = 0, ctl_vol, cal_vol = 0;
 
-	int ret = 0;
-	int acc_vol, adc_vol = 0, ctl_vol, cal_vol = 0;
-
+retry:
 	ctl_vol = rdev->desc->ops->get_voltage(rdev);
 	if (IS_ERR_VALUE(ctl_vol)) {
-		debug("no valid %s vol ctrl bits\n", desc->desc.name);
+		debug0("no valid %s vol ctrl bits\n", desc->desc.name);
 	} else			/* dcdc/ldo maybe had been adjusted or opened in uboot-spl */
 		ctl_vol /= 1000;
 
@@ -752,59 +879,43 @@ static int regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
 
 	adc_vol = regu_adc_voltage(rdev);
 	if (adc_vol <= 0) {
-		debug("%s default %dmv, maybe not enable\n", desc->desc.name,
-		      def_vol);
+		debug("%s default %dmv, maybe not enable\n",
+		      desc->desc.name, def_vol);
 		goto exit;
 	}
-	cal_vol = abs(adc_vol - to_vol);
 
-	debug("%s default %dmv, from %dmv to %dmv, bias %c%d.%02d%%\n",
-	      desc->desc.name,
-	      def_vol, adc_vol, to_vol,
+	cal_vol = abs(adc_vol - to_vol);
+	debug("%s default %dmv, from %dmv to %dmv, bias %c%d.%03d%%\n",
+	      desc->desc.name, def_vol, adc_vol, to_vol,
 	      (adc_vol > to_vol) ? '+' : '-',
-	      to_vol ? cal_vol * 100 / to_vol : 0,
-	      to_vol ? cal_vol * 100 * 100 / to_vol % 100 : 0);
+	      cal_vol * 100 / adc_vol, cal_vol * 100 * 1000 / adc_vol % 1000);
 
 	if (!def_vol || !to_vol || adc_vol <= 0)
 		goto exit;
 
-	if (abs(adc_vol - def_vol) > def_vol / 10)	/* adjust limit 10% */
+	if (abs(adc_vol - def_vol) >= def_vol / 10)	/* adjust limit 10% */
 		goto exit;
 	else if (cal_vol < to_vol / 100) {	/* bias 1% */
-		goto verify;
+		/**
+		 * FIXME: cal_vol * 100 / adc_vol <= 1 is okay for ldo lpref
+		 */
+		set_bit(desc->desc.id, trimming_state);
+		debug("%s is okay\n", desc->desc.name);
+		return 0;
+	} else if (0 == retry_count--) {
+		/*FIXME: unfortunately, dcdc/ldo need calibrate again */
+		WARN(1, "%s try again\n", desc->desc.name);
+		return def_vol;
 	}
 
-	acc_vol = desc->ops->get_trimming_step(rdev, to_vol * 1000);
-
-	/* always set valid vol ctrl bits */
-	def_vol = ctl_vol =
-	    DIV_ROUND_UP(def_vol * to_vol, adc_vol) + acc_vol / 1000;
-	ret = desc->ops->set_trimming(rdev, ctl_vol * 1000, to_vol * 1000);
+	ret = desc->ops->set_trimming(rdev, def_vol, to_vol, adc_vol);
 	if (IS_ERR_VALUE(ret))
 		goto exit;
 
+	def_vol = 0;		/*force reacquire */
 	set_bit(desc->desc.id, trimming_state);	/*force set before verify */
 	msleep(1);		/* wait a moment before cal verify */
-
-verify:
-	adc_vol = regu_adc_voltage(rdev);
-	cal_vol = abs(adc_vol - to_vol);
-
-	debug("%s default %dmv, from %dmv to %dmv, bias %c%d.%02d%%\n",
-	      desc->desc.name,
-	      def_vol, adc_vol, to_vol,
-	      (adc_vol > to_vol) ? '+' : '-',
-	      cal_vol * 100 / to_vol, cal_vol * 100 * 100 / to_vol % 100);
-
-	if (cal_vol < to_vol / 100) {	/* bias 1% */
-		set_bit(desc->desc.id, trimming_state);
-		debug("%s is ok\n", desc->desc.name);
-		return 0;
-	}
-
-	/*FIXME: unfortunately, dcdc/ldo need calibrate again */
-	WARN(1, "%s try again\n", desc->desc.name);
-	return def_vol;
+	goto retry;
 
 exit:
 	debug("%s failure\n", desc->desc.name);
@@ -990,12 +1101,8 @@ static int debugfs_dcdc_set(void *data, u64 val)
 	int to_vol = (int)val;
 
 	if (rdev) {
-		int ret;
 		mutex_lock(&rdev->mutex);
-		ret = desc->ops->calibrate(rdev, 0, to_vol);
-		if (ret > 0) {	/* try again */
-			ret = desc->ops->calibrate(rdev, ret, to_vol);
-		}
+		desc->ops->calibrate(rdev, 0, to_vol);
 		mutex_unlock(&rdev->mutex);
 	}
 	return 0;
@@ -1075,12 +1182,37 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	       && desc->regs->pd_set == desc->regs->pd_rst
 	       && desc->regs->pd_set_bit == desc->regs->pd_rst_bit);
 
-	BUG_ON(desc->regs->typ >= sizeof(__regs_ops));
 	if (!desc->ops)
 		desc->ops = __sci_regs_ops[desc->regs->typ];
 
+	BUG_ON(desc->regs->typ >= ARRAY_SIZE(__regs_ops));
 	if (!desc->desc.ops)
 		desc->desc.ops = __regs_ops[desc->regs->typ];
+
+#ifdef CONFIG_ARCH_SC7710
+	if (sci_get_ana_chip_id() == ANA_CHIP_ID_BA &&
+	    desc->regs->typ == VDD_TYP_LPREF) {
+		static struct sci_regulator_ops sci_lpref_ops = {
+			.init_trimming = ldo_init_trimming,
+			.is_trimming = __is_trimming,
+			.get_trimming_step = lpref_get_trimming_step,
+			.set_trimming = lpref_set_trimming,
+			.calibrate = regu_calibrate,
+		};
+		static struct regulator_ops lpref_ops = {
+			.enable = ldo_turn_on,
+			.disable = ldo_turn_off,
+			.is_enabled = ldo_is_on,
+			.set_voltage = ldo_set_voltage,
+			.get_voltage = ldo_get_voltage,
+			.set_mode = ldo_set_mode,
+		};
+
+		BUG_ON(VDD_TYP_LPREF != 3);
+		desc->ops = &sci_lpref_ops;
+		desc->desc.ops = &lpref_ops;
+	}
+#endif
 
 	init_data.consumer_supplies =
 	    set_supply_map(&pdev->dev, desc->desc.name,
@@ -1139,11 +1271,13 @@ static int __init regu_driver_init(void)
 	}
 	debugfs_create_file("adc_chan", S_IRUGO | S_IWUSR,
 			    debugfs_root, &adc_chan, &fops_adc_chan);
+	debugfs_create_u64("adc_data", S_IRUGO | S_IWUSR,
+			   debugfs_root, (u64 *) & adc_data);
 #endif
 
 	pr_info("%s chip id: (%08x)\n", sci_regulator_driver.driver.name,
-		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_HIGH) << 16
-		| ANA_REG_GET(ANA_REG_GLB_CHIP_ID_LOW));
+		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_HIGH) << 16 |
+		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_LOW));
 	return platform_driver_register(&sci_regulator_driver);
 }
 
