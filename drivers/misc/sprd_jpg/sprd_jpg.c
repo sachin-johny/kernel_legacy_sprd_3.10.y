@@ -85,8 +85,12 @@ struct jpg_dev{
 
 	struct semaphore jpg_mutex;
 
-	wait_queue_head_t wait_queue_work;
-	int condition_work;
+	wait_queue_head_t wait_queue_work_MBIO;
+	int condition_work_MBIO;
+	wait_queue_head_t wait_queue_work_VLC;
+	int condition_work_VLC;
+	wait_queue_head_t wait_queue_work_BSM;
+	int condition_work_BSM;
 	int jpg_int_status;
 
 	struct clk *jpg_clk;
@@ -232,8 +236,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
 	case JPG_START:
 		pr_debug("jpg ioctl JPG_START\n");
 		ret = wait_event_interruptible_timeout(
-			jpg_hw_dev.wait_queue_work,
-			jpg_hw_dev.condition_work,
+			jpg_hw_dev.wait_queue_work_VLC,
+			jpg_hw_dev.condition_work_VLC,
 			msecs_to_jiffies(JPG_TIMEOUT_MS));
 		if (ret == -ERESTARTSYS) {
 			printk("KERN_ERR jpg error start -ERESTARTSYS\n");
@@ -252,8 +256,10 @@ by clk_get()!\n", "clk_vsp", name_parent);
 				SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
 		}
 		put_user(jpg_hw_dev.jpg_int_status, (int __user *)arg);
+		jpg_hw_dev.condition_work_MBIO= 0;
+		jpg_hw_dev.condition_work_VLC= 0;
+		jpg_hw_dev.condition_work_BSM= 0;
 		jpg_hw_dev.jpg_int_status = 0;
-		jpg_hw_dev.condition_work = 0;
 		pr_debug("jpg ioctl JPG_START end\n");
 		return ret;
 		break;
@@ -276,40 +282,85 @@ by clk_get()!\n", "clk_vsp", name_parent);
         #endif
 		break;
 
-	case JPG_ACQUAIRE_MBIO_DONE:
+	case JPG_ACQUAIRE_MBIO_VLC_DONE:
 
-		pr_debug("jpg ioctl JPG_ACQUAIRE_MBIO_DONE\n");
-		ret = wait_event_interruptible_timeout(
-			jpg_hw_dev.wait_queue_work,
-			jpg_hw_dev.condition_work,
-			msecs_to_jiffies(JPG_TIMEOUT_MS));
-		if (ret == -ERESTARTSYS) {
-			printk("KERN_ERR jpg error start -ERESTARTSYS\n");
-			ret = -EINVAL;
-		} else if (ret == 0) {
-			printk("KERN_ERR jpg error start  timeout\n");
-			ret = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
-			printk("jpg_int_status %x",ret);
-			ret = -ETIMEDOUT;
-		} else {
-			ret = 0;
-		}
-		
-		if (ret) { //timeout , clean all init bits.
-			/*clear jpg int*/
-			__raw_writel((1<<3)|(1<<2)|(1<<1)|(1<<0),
-				SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
-			ret  = 1;
-		} 
-		else //catched an init
+		cmd0 = (int)arg;
+		if(3 == cmd0) //MBIO
 		{
-			ret = jpg_hw_dev.jpg_int_status;
-		}
+			printk("jpg ioctl JPG_ACQUAIRE_MBIO_DONE E\n");
+			ret = wait_event_interruptible_timeout(
+				jpg_hw_dev.wait_queue_work_MBIO,
+				jpg_hw_dev.condition_work_MBIO,
+				msecs_to_jiffies(JPG_TIMEOUT_MS));
+			
+			if (ret == -ERESTARTSYS) {
+				printk("KERN_ERR jpg error start -ERESTARTSYS\n");
+				ret = -EINVAL;
+			} else if (ret == 0) {
+				printk("KERN_ERR jpg error start  timeout\n");
+				ret = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
+				printk("jpg_int_status %x",ret);
+				ret = -ETIMEDOUT;
+			} else {
+				ret = 0;
+			}
+		
+			if (ret) { //timeout , clean all init bits.
+				/*clear jpg int*/
+				__raw_writel((1<<3)|(1<<2)|(1<<1)|(1<<0),
+					SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
+				ret  = 1;
+			} 
+			else //catched an init
+			{
+				ret = 0;
+				printk("jpg_int_status %x",__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET));
+			}
 				
-		printk(KERN_ERR "JPG_ACQUAIRE_MBIO_DONE %x\n",ret);
-		jpg_hw_dev.jpg_int_status = 0;
-		jpg_hw_dev.condition_work = 0;
-		pr_debug("jpg ioctl JPG_ACQUAIRE_MBIO_DONE end\n");
+			printk(KERN_ERR "JPG_ACQUAIRE_MBIO_DONE X %x\n",ret);
+			jpg_hw_dev.jpg_int_status &= (~0x8);
+			jpg_hw_dev.condition_work_MBIO= 0;
+		}
+		else if(1 == cmd0)
+		{
+			printk("jpg ioctl JPG_ACQUAIRE_VLC_DONE E\n");
+			ret = wait_event_interruptible_timeout(
+				jpg_hw_dev.wait_queue_work_VLC,
+				jpg_hw_dev.condition_work_VLC,
+				msecs_to_jiffies(JPG_TIMEOUT_MS));
+			
+			if (ret == -ERESTARTSYS) {
+				printk("KERN_ERR jpg error start -ERESTARTSYS\n");
+				ret = -EINVAL;
+			} else if (ret == 0) {
+				printk("KERN_ERR jpg error start  timeout\n");
+				ret = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
+				printk("jpg_int_status %x",ret);
+				ret = -ETIMEDOUT;
+			} else {
+				ret = 0;
+			}
+		
+			if (ret) { //timeout , clean all init bits.
+				/*clear jpg int*/
+				__raw_writel((1<<3)|(1<<2)|(1<<1)|(1<<0),
+					SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
+				ret  = 1;
+			} 
+			else //catched an init
+			{
+				ret = 4;
+				printk("jpg_int_status %x",__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET));
+			}
+				
+			printk(KERN_ERR "JPG_ACQUAIRE_VLC_DONE %x\n",ret);
+			jpg_hw_dev.jpg_int_status &=(~0x2);
+			jpg_hw_dev.condition_work_VLC= 0;
+		}
+		else{
+			printk(KERN_ERR "JPG_ACQUAIRE_MBIO_DONE error arg");
+			ret = -1;
+		}
 		return ret;
 
                break;
@@ -325,8 +376,8 @@ static irqreturn_t jpg_isr(int irq, void *data)
 {
 	int int_status;
 	
-	int_status = jpg_hw_dev.jpg_int_status = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
-	//printk(KERN_INFO "VSP_INT_STS %x\n",int_status);
+	int_status   =__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
+	printk(KERN_INFO "jpg_isr JPG_INT_STS %x\n",int_status);
         if((int_status) & 0xb) // JPEG ENC 
 	{
 		int ret = 7; // 7 : invalid
@@ -334,25 +385,35 @@ static irqreturn_t jpg_isr(int irq, void *data)
 		{
 			__raw_writel((1<<3), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
 			ret = 0;
+			jpg_hw_dev.jpg_int_status |=0x8;
+			
+			jpg_hw_dev.condition_work_MBIO= 1;
+			wake_up_interruptible(&jpg_hw_dev.wait_queue_work_MBIO);
 			printk(KERN_ERR "jpg_isr MBIO");
 		}
 		if((int_status >> 0) & 0x1)  // JPEG ENC BSM INIT
 		{
 			__raw_writel((1<<0), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
-			ret = 2;
+			jpg_hw_dev.jpg_int_status |=0x1;
+			
+			jpg_hw_dev.condition_work_BSM= 1;
+			wake_up_interruptible(&jpg_hw_dev.wait_queue_work_BSM);
 			printk(KERN_ERR "jpg_isr BSM");
 		}
 		 if((int_status >> 1) & 0x1)  // JPEG ENC VLC DONE INIT
 		{
 			__raw_writel((1<<1), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
-			ret = 4;	
+			jpg_hw_dev.jpg_int_status |=0x2;	
+			
+			jpg_hw_dev.condition_work_VLC= 1;
+			wake_up_interruptible(&jpg_hw_dev.wait_queue_work_VLC);
 			printk(KERN_ERR "jpg_isr VLC");
 		}
 
-		 jpg_hw_dev.jpg_int_status = ret;
+		// jpg_hw_dev.jpg_int_status = ret;
 	}
-	jpg_hw_dev.condition_work = 1;
-	wake_up_interruptible(&jpg_hw_dev.wait_queue_work);
+//	jpg_hw_dev.condition_work = 1;
+//	wake_up_interruptible(&jpg_hw_dev.wait_queue_work);
 
 	return IRQ_HANDLED;
 }
@@ -382,6 +443,14 @@ static int jpg_open(struct inode *inode, struct file *filp)
 	filp->private_data = jpg_fp;
 	jpg_fp->is_clock_enabled = 0;
 	jpg_fp->is_jpg_aquired = 0;
+
+//	init_waitqueue_head(&jpg_hw_dev.wait_queue_work_MBIO);
+	jpg_hw_dev.condition_work_MBIO= 0;
+//	init_waitqueue_head(&jpg_hw_dev.wait_queue_work_VLC);
+	jpg_hw_dev.condition_work_VLC= 0;
+//	init_waitqueue_head(&jpg_hw_dev.wait_queue_work_BSM);
+	jpg_hw_dev.condition_work_BSM= 0;
+	jpg_hw_dev.jpg_int_status = 0;
 
 	printk(KERN_INFO "vsp_open %p\n", jpg_fp);
 	return 0;
@@ -431,9 +500,14 @@ static int jpg_probe(struct platform_device *pdev)
 
 	sema_init(&jpg_hw_dev.jpg_mutex, 1);
 
-	init_waitqueue_head(&jpg_hw_dev.wait_queue_work);
+	init_waitqueue_head(&jpg_hw_dev.wait_queue_work_MBIO);
+	jpg_hw_dev.condition_work_MBIO= 0;
+	init_waitqueue_head(&jpg_hw_dev.wait_queue_work_VLC);
+	jpg_hw_dev.condition_work_VLC= 0;
+	init_waitqueue_head(&jpg_hw_dev.wait_queue_work_BSM);
+	jpg_hw_dev.condition_work_BSM= 0;
 	jpg_hw_dev.jpg_int_status = 0;
-	jpg_hw_dev.condition_work = 0;
+	
 
 	jpg_hw_dev.freq_div = DEFAULT_FREQ_DIV;
 
