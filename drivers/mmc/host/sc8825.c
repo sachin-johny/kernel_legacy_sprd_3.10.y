@@ -806,12 +806,10 @@ static int sdhci_pm_resume(struct device *dev) {
         sdhci_host_wakeup_clear(host);
 #endif
     retval = sdhci_resume_host(host);
-    if(!retval) {
 #ifdef CONFIG_PM_RUNTIME
-        if(pm_runtime_enabled(dev))
-            pm_runtime_put_autosuspend(dev);
+    if(pm_runtime_enabled(dev))
+        pm_runtime_put_autosuspend(dev);
 #endif
-    }
     return retval;
 }
 
