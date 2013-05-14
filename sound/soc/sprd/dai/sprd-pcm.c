@@ -760,7 +760,7 @@ static int sprd_pcm_new(struct snd_card *card, struct snd_soc_dai *dai,
 							      SNDRV_PCM_STREAM_PLAYBACK);
 			if (ret)
 				goto out;
-			if (sprd_is_i2s(rtd->cpu_dai)) {
+			if (!sprd_is_i2s(rtd->cpu_dai)) {
 				save_p_buf = buf;
 			}
 			sprd_pcm_dbg("playback alloc memery\n");
@@ -778,7 +778,7 @@ static int sprd_pcm_new(struct snd_card *card, struct snd_soc_dai *dai,
 							      SNDRV_PCM_STREAM_CAPTURE);
 			if (ret)
 				goto out;
-			if (sprd_is_i2s(rtd->cpu_dai)) {
+			if (!sprd_is_i2s(rtd->cpu_dai)) {
 				save_c_buf = buf;
 			}
 			sprd_pcm_dbg("capture alloc memery\n");
