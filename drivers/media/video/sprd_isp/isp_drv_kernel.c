@@ -343,9 +343,6 @@ static int32_t _isp_set_clk(enum isp_clk_sel clk_sel)
 #if defined(CONFIG_ARCH_SC8830)
 	ISP_WRITEL(ISP_CLOCK, 0x3);
 
-	ISP_PRINT("_isp_set_clk, isp clk: 0x%x, dcam clk: 0x%x, ahb clk: 0x%x",
-				ISP_READL(ISP_CLOCK), ISP_READL(ISP_CLOCK_BASE + 0x2c),
-				ISP_READL(ISP_CLOCK_BASE + 0x20));
 #endif
 
 	return rtn;
@@ -589,12 +586,6 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 	ISP_PRINT ("isp_k: base addr = 0x%x, size = %d \n", g_isp_device.reg_base_addr, 
 			g_isp_device.size);
 
-	ISP_PRINT("isp_k: 0x60d00000 = (0x%x, 0x%x, 0x%x)\n",
-				ISP_READL(ISP_MODULE_EB), ISP_READL(ISP_MODULE_RESET),
-					ISP_READL(ISP_CORE_CLK_EB));
-	ISP_PRINT("isp_k:(0x71300000, 0x%x), (0x60e00034, 0x%x)\n",
-				ISP_READL(SPRD_APBREG_BASE), ISP_READL(SPRD_MMCKG_BASE + 0x34));
-
 	ret = _isp_queue_init(&(g_isp_device.queue));
 
 	ISP_PRINT ("isp_k: open finished \n");
@@ -770,7 +761,6 @@ static ssize_t _isp_kernel_write (struct file *fl, const char __user *buf, size_
 
 	if (fl == 0|| buf == 0) {
 		ret = -EFAULT;
-		ISP_PRINT("isp_k: write:invalidate param, fl = 0x%x, buf = 0x%x\n", (int32_t)fl, (int32_t)buf );
 		goto func_exit;
 	}
 
