@@ -963,6 +963,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		s_path_wait = 1;
 		rtn = down_timeout(&s_path_stop_sema, msecs_to_jiffies(500));
 		if (rtn) {
+			s_path_wait = 0;
 			printk("DCAM DRV: Failed wait s_path_stop_sema \n");
 		} else {
 			DCAM_TRACE("DCAM DRV: wait path stop done \n");
@@ -2440,13 +2441,13 @@ LOCAL int32_t _dcam_path_scaler(enum dcam_path_index path_index)
 		return rtn;
 	}
 
-	if (path->sc_input_size.w != path->output_size.w ||
-	path->sc_input_size.h != path->output_size.h) {
+//	if (path->sc_input_size.w != path->output_size.w ||
+//	path->sc_input_size.h != path->output_size.h) {
 		REG_MWR(cfg_reg, BIT_20, 0 << 20);
 		rtn = _dcam_set_sc_coeff(path_index);
-	} else {
-		REG_MWR(cfg_reg, BIT_20, 1 << 20);
-	}
+//	} else {
+//		REG_MWR(cfg_reg, BIT_20, 1 << 20);
+//	}
 
 	return rtn;
 }
