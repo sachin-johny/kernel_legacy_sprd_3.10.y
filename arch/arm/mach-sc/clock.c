@@ -555,6 +555,9 @@ int __init sci_clock_init(void)
 	__raw_writel(__raw_readl(REG_MM_AHB_GEN_CKG_CFG)
 		     | BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN,
 		     REG_MM_AHB_GEN_CKG_CFG);
+
+	__raw_writel(__raw_readl(REG_MM_CLK_MM_AHB_CFG) | 0x3,
+		     REG_MM_CLK_MM_AHB_CFG);
 #endif
 
 #if defined(CONFIG_DEBUG_FS)

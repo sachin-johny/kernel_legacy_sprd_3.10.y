@@ -54,7 +54,7 @@
 #define REGU_NAME_CAMVIO	"vddcamio"
 #define REGU_NAME_CAMDVDD	"vddcamd"
 #define REGU_NAME_CAMMOT	"vddcammot"
-#define SENSOR_CLK              "clk_sensor"
+#define SENSOR_CLK          "clk_sensor"
 
 #else
 
@@ -62,7 +62,7 @@
 #define REGU_NAME_CAMVIO	"vddcamio"
 #define REGU_NAME_CAMDVDD	"vddcamcore"
 #define REGU_NAME_CAMMOT	"vddcammot"
-#define SENSOR_CLK              "ccir_mclk"
+#define SENSOR_CLK          "ccir_mclk"
 
 #endif
 
@@ -211,13 +211,21 @@ typedef struct SN_MCLK {
 	char *src_name;
 } SN_MCLK;
 
+#if defined(CONFIG_ARCH_SC8830)
+LOCAL const SN_MCLK sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
+	{96, "clk_96m"},
+	{77, "clk_76m8"},
+	{48, "clk_48m"},
+	{26, "ext_26m"}
+};
+#else
 LOCAL const SN_MCLK sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
 	{96, "clk_96m"},
 	{77, "clk_76m800k"},
 	{48, "clk_48m"},
 	{26, "ext_26m"}
 };
-
+#endif
 LOCAL void* _Sensor_K_kmalloc(size_t size, unsigned flags)
 {
     if(PNULL == s_sensor_mem.buf_ptr) {
@@ -260,42 +268,6 @@ LOCAL void _Sensor_K_kfree(void *p)
     return;
 }
 
-#ifdef CONFIG_ARCH_SC8830
-LOCAL uint16_t _adi_read_reg(uint32_t addr)
-{
-	uint32_t                adi_rd_data;
-	unsigned long           flag;
-
-	spin_lock_irqsave(&sensor_spin_lock, flag);
-
-	REG_WR(SPRD_ADI_BASE + 0x24, addr);
-	do{
-		adi_rd_data = REG_RD(SPRD_ADI_BASE + 0x28);
-	}while(adi_rd_data & 0x80000000);
-
-	spin_unlock_irqrestore(&sensor_spin_lock, flag);
-
-	return (uint16_t)(adi_rd_data&0xffff);
-	
-}
-LOCAL void _sensor_set_ldo(void)
-{
-	uint32_t val;
-
-	printk("aiden: _sensor_set_ldo start \n");
-	val = _adi_read_reg(SPRD_ADI_BASE+0x8828);
-	val &= ~0x3f;
-	val |= 0x10;
-	REG_WR(SPRD_ADI_BASE + 0x8828, val);
-
-	val = _adi_read_reg(SPRD_ADI_BASE+0x881c);
-	val &= ~(0xe0);
-	REG_WR(SPRD_ADI_BASE + 0x881c, val);
-
-	printk("aiden: _sensor_set_ldo end 1 \n");
-}
-#endif
-
 LOCAL uint32_t Sensor_K_GetCurId(void)
 {
 	return g_sensor_id;
@@ -336,37 +308,6 @@ LOCAL int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
 	return 0;
 }
 
-#if defined(CONFIG_ARCH_SC8830)
-LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
-{
-	return 0;
-}
-
-LOCAL void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
-{
-}
-LOCAL int _sensor_regulator_enable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
-{
-	return 0;
-}
-LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
-{
-	return 0;
-}
-LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
-{
-	return 0;
-}
-LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
-{
-	return 0;
-}
-LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
-{
-	return 0;
-}
-
-#else
 
 LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 {
@@ -378,6 +319,7 @@ LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 	SENSOR_PRINT("SENSOR: _Sensor_K_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n",
 	     _pard(PIN_CTL_CCIRPD0));
 */
+
 	switch (Sensor_K_GetCurId()) {
 	case SENSOR_MAIN:
 		{
@@ -479,6 +421,17 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 		if (err)
 			SENSOR_PRINT_ERR("SENSOR:could not set cammot to 3800mv.\n");
 		break;
+#if defined (CONFIG_ARCH_SC8830)
+	case SENSOR_VDD_3300MV:
+		err =
+		    regulator_set_voltage(s_cammot_regulator,
+					  SENSOER_VDD_3300MV,
+					  SENSOER_VDD_3300MV);
+		volt_value = SENSOER_VDD_3300MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set cammot to 3300mv.\n");
+		break;
+#else
 	case SENSOR_VDD_2500MV:
 		err =
 		    regulator_set_voltage(s_cammot_regulator,
@@ -488,6 +441,7 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 		if (err)
 			SENSOR_PRINT_ERR("SENSOR:could not set cammot to 1800mv.\n");
 		break;
+#endif
 	case SENSOR_VDD_1800MV:
 		err =
 		    regulator_set_voltage(s_cammot_regulator,
@@ -623,6 +577,17 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 		}
 	}
 	switch (dvdd_val) {
+#if defined (CONFIG_ARCH_SC8830)
+	case SENSOR_VDD_1200MV:
+		err =
+		    regulator_set_voltage(s_camdvdd_regulator,
+					  SENSOER_VDD_1200MV,
+					  SENSOER_VDD_1200MV);
+		volt_value = SENSOER_VDD_1200MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set camdvdd to 1200mv.\n");
+		break;
+#else
 	case SENSOR_VDD_2800MV:
 		err =
 		    regulator_set_voltage(s_camdvdd_regulator,
@@ -632,6 +597,8 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 		if (err)
 			SENSOR_PRINT_ERR("SENSOR:could not set camdvdd to 2800mv.\n");
 		break;
+#endif
+
 	case SENSOR_VDD_1800MV:
 		err =
 		    regulator_set_voltage(s_camdvdd_regulator,
@@ -659,6 +626,8 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 		if (err)
 			SENSOR_PRINT_ERR("SENSOR:could not set camdvdd to 1300mv.\n");
 		break;
+
+
 	case SENSOR_VDD_CLOSED:
 	case SENSOR_VDD_UNUSED:
 	default:
@@ -713,6 +682,27 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 		if (err)
 			SENSOR_PRINT_ERR("SENSOR:could not set camvio to 2800mv.\n");
 		break;
+
+#if defined (CONFIG_ARCH_SC8830)
+	case SENSOR_VDD_2500MV:
+		err =
+		    regulator_set_voltage(s_camvio_regulator,
+					  SENSOER_VDD_2500MV,
+					  SENSOER_VDD_2500MV);
+		volt_value = SENSOER_VDD_2500MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set camvio to 2500mv.\n");
+		break;
+	case SENSOR_VDD_1500MV:
+		err =
+		    regulator_set_voltage(s_camvio_regulator,
+					  SENSOER_VDD_1500MV,
+					  SENSOER_VDD_1500MV);
+		volt_value = SENSOER_VDD_1500MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set camvio to 1500mv.\n");
+		break;
+#else
 	case SENSOR_VDD_3800MV:
 		err =
 		    regulator_set_voltage(s_camvio_regulator,
@@ -722,15 +712,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 		if (err)
 			SENSOR_PRINT_ERR("SENSOR:could not set camvio to 3800mv.\n");
 		break;
-	case SENSOR_VDD_1800MV:
-		err =
-		    regulator_set_voltage(s_camvio_regulator,
-					  SENSOER_VDD_1800MV,
-					  SENSOER_VDD_1800MV);
-		volt_value = SENSOER_VDD_1800MV;
-		if (err)
-			SENSOR_PRINT_ERR("SENSOR:could not set camvio to 1800mv.\n");
-		break;
+
 	case SENSOR_VDD_1200MV:
 		err =
 		    regulator_set_voltage(s_camvio_regulator,
@@ -739,6 +721,18 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 		volt_value = SENSOER_VDD_1200MV;
 		if (err)
 			SENSOR_PRINT_ERR("SENSOR:could not set camvio to 1200mv.\n");
+		break;
+
+#endif
+
+	case SENSOR_VDD_1800MV:
+		err =
+		    regulator_set_voltage(s_camvio_regulator,
+					  SENSOER_VDD_1800MV,
+					  SENSOER_VDD_1800MV);
+		volt_value = SENSOER_VDD_1800MV;
+		if (err)
+			SENSOR_PRINT_ERR("SENSOR:could not set camvio to 1800mv.\n");
 		break;
 	case SENSOR_VDD_CLOSED:
 	case SENSOR_VDD_UNUSED:
@@ -769,7 +763,6 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 
 	return SENSOR_K_SUCCESS;
 }
-#endif
 
 LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 			     uint8_t * clk_div)
@@ -807,7 +800,6 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	return SENSOR_K_SUCCESS;
 }
 
-#if defined(CONFIG_ARCH_SC8825)
 LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 {
 	struct clk *clk_parent = NULL;
@@ -927,13 +919,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 
 	return 0;
 }
-#else
-LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
-{
-	printk("no _Sensor_K_SetMCLK,  mclk = %d =0x%x \n", mclk, mclk);
-	return 0;
-}
-#endif
+
 LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 {
 	int err;
@@ -1273,53 +1259,6 @@ sensor_k_writei2c_return:
 
 int sensor_k_open(struct inode *node, struct file *file)
 {
-#ifdef CONFIG_ARCH_SC8830
-	{
-		// aiden fpga
-		uint32_t bit_value;
-
-		printk("aiden: sensor_k_init: start enable module and set clock  \n");
-		// 0x60d0_000
-		bit_value = BIT_6;
-		REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CKG enable
-		REG_OWR(SPRD_MMAHB_BASE, 3); // aiden fpga
-
-		REG_MWR(SPRD_MMAHB_BASE, 0xff, 0xff);  // CSI enable
-		//mdelay(100);
-
-		REG_MWR(SPRD_MMAHB_BASE+0x4, 0xff, 0xff);
-		//mdelay(100);
-		REG_MWR(SPRD_MMAHB_BASE+0x4, 0xff, 0);
-		//mdelay(100);
-
-		bit_value = BIT_1;
-		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
-		REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
-
-		bit_value = BIT_2 | BIT_3 | BIT_7 | BIT_8;
-		REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
-
-		_sensor_set_ldo();
-		bit_value = BIT_4 | BIT_5;
-		REG_MWR(SPRD_PIN_BASE + 0x368, bit_value, 0);  // ccir mclk pin
-
-		REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
-
-		bit_value = BIT_18;
-		REG_MWR(SPRD_APBREG_BASE, bit_value, bit_value);  // ccir clock enable
-
-#if 0
-		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x0f);
-		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xF0);
-#else
-		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0x00);
-		mdelay(100);
-		REG_MWR(SPRD_DCAM_BASE+0x144, 0xFF, 0xff);
-#endif
-		//REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xfff, 0x3);  	// MM AHB clock
-		printk("aiden: sensor_k_init: end \n");
-	}
-#endif
 
 	return 0;
 }

@@ -21,9 +21,9 @@
 #define GPIO_TOUCH_RESET         81
 #define GPIO_TOUCH_IRQ           82
 
-#define GPIO_SENSOR_RESET        41
-#define GPIO_MAIN_SENSOR_PWN     42
-#define GPIO_SUB_SENSOR_PWN      43
+#define GPIO_SENSOR_RESET        186//41
+#define GPIO_MAIN_SENSOR_PWN     187//42
+#define GPIO_SUB_SENSOR_PWN      188//43
 
 #define EIC_CHARGER_DETECT		(A_EIC_START + 0)
 #define EIC_POWER_PBINT2        (A_EIC_START + 1)

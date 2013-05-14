@@ -283,6 +283,27 @@ LOCAL const dcam_isr isr_list[IRQ_NUMBER] = {
 	raw_slice_done
 };
 
+void dcam_print_clock(void)
+{
+	uint32_t ahb_en, ahb_rst, gen_ckg_cfg;
+	uint32_t clk_ahb, clk_sensor, clk_ccir, clk_dcam;
+
+	ahb_en         = REG_RD(SPRD_MMAHB_BASE);
+	ahb_rst        = REG_RD(SPRD_MMAHB_BASE + 0x4);
+	gen_ckg_cfg    = REG_RD(SPRD_MMAHB_BASE + 0x8);
+
+	clk_ahb        = REG_RD(SPRD_MMCKG_BASE + 0x20);
+	clk_sensor     = REG_RD(SPRD_MMCKG_BASE + 0x24);
+	clk_ccir       = REG_RD(SPRD_MMCKG_BASE + 0x28);
+	clk_dcam       = REG_RD(SPRD_MMCKG_BASE + 0x2c);
+
+	printk("dcam_print_clock: start \n");
+	printk("ahb_en=0x%x, ahb_rst=0x%x, gen_ckg_cfg=0x%x \n", ahb_en, ahb_rst, gen_ckg_cfg);
+	printk("clk_ahb=0x%x, clk_sensor=0x%x, clk_ccir=0x%x, clk_dcam=0x%x \n", clk_ahb, clk_sensor, clk_ccir, clk_dcam);
+	printk("dcam_print_clock end \n");
+
+}
+
 int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 	              enum dcam_cap_sensor_mode sn_mode)
 {
@@ -334,6 +355,7 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 		printk("g_dcam_irq=0x%x, ret=%d \n", g_dcam_irq, ret);
 	}
 
+	dcam_print_clock();
 /*MODULE_INIT_END:*/
 	return -rtn;
 }
@@ -361,6 +383,8 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 		g_dcam_irq = DCAM_IRQ_NONE;
 	}
 
+	dcam_print_clock();
+
 	return -rtn;
 }
 
@@ -377,27 +401,8 @@ int32_t dcam_module_en(void)
 		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
 		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
 
-		{
-			// aiden fpga
-			uint32_t bit_value;
-			// 0x60d0_000
-			printk("dcam_module_en: start enable module and set clock  \n");
-			
-			bit_value = BIT_4 | BIT_6;
-			REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CSI enable
+		dcam_print_clock();
 
-			bit_value = BIT_0 | BIT_7 | BIT_8 | BIT_9;
-			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
-			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
-
-			bit_value = BIT_0 | BIT_1 | BIT_3 | BIT_7 | BIT_8;
-			REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
-
-			//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
-			REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
-
-			REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xf, 0x3);  // ahb clock: 76, 128, 192, 256
-		}
 		printk("dcam_module_en: end\n");
 	}
 
@@ -410,36 +415,16 @@ int32_t dcam_module_dis(void)
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 
 	DCAM_TRACE("DCAM DRV: dcam_module_dis: %d \n", s_dcam_users.counter);
+
 	if (atomic_dec_return(&s_dcam_users) == 0) {
 		REG_AWR(DCAM_EB, ~DCAM_EB_BIT);
 		dcam_set_clk(DCAM_CLK_NONE);
 
-		{
-			// aiden fpga
-			uint32_t bit_value;
-			// 0x60d0_000
-			printk("dcam_module_dis: start enable module and set clock  \n");
-
-
-			bit_value = BIT_0 | BIT_1 | BIT_5 | BIT_7 | BIT_8 | BIT_9;
-			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
-			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
-
-			bit_value = BIT_0 | BIT_1 | BIT_2 | BIT_3;
-			REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, 0); // ckg_cfg
-
-			bit_value = BIT_0 | BIT_1| BIT_4;
-			REG_MWR(SPRD_MMAHB_BASE, bit_value, 0);  // CSI enable
-
-			//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
-			//REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
-
-			printk("dcam_module_dis: end\n");
-		}
+		dcam_print_clock();
 	}
 
 
-
+	printk("dcam_module_dis: end\n");
 	return -rtn;
 }
 
@@ -509,7 +494,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	return -rtn;
 }
 
-#if 0
+#if 1
 int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
@@ -579,11 +564,6 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 int32_t _dcam_mipi_clk_en(void)
 {
 	int                     ret = 0;
-#if 0 // aiden fpga
-	//REG_MWR(SPRD_MMAHB_BASE, BIT_4, BIT_4);
-	//REG_MWR(SPRD_MMAHB_BASE + 0X08, BIT_1|BIT_0, BIT_1|BIT_0);
-	printk("_dcam_mipi_clk_en \n");
-#else
 	if (NULL == s_dcam_mipi_clk) {
 		s_dcam_mipi_clk = clk_get(NULL, "clk_dcam_mipi");
 	}
@@ -598,7 +578,7 @@ int32_t _dcam_mipi_clk_en(void)
 			return -1;
 		}
 	}
-#endif
+
 	return 0;
 }
 
