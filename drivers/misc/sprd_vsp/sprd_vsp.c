@@ -412,7 +412,28 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static int vsp_open(struct inode *inode, struct file *filp)
 {
-	struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
+	struct vsp_fh *vsp_fp;
+
+if(vsp_hw_dev.vsp_int_status & 0x8000)
+{
+
+	wait_event_interruptible_timeout(
+			vsp_hw_dev.wait_queue_work,
+			vsp_hw_dev.condition_work,
+			msecs_to_jiffies(VSP_TIMEOUT_MS));
+
+		vsp_hw_dev.vsp_int_status = 0;
+		vsp_hw_dev.condition_work = 0;
+	__raw_writel((1<<10)|(1<<12)|(1<<15)|(1<<16),
+				SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+
+	vsp_fp = filp->private_data;
+	disable_vsp(vsp_hw_dev.vsp_fp);
+	printk(KERN_ERR "disable_vsp");
+
+}
+
+	vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
 	if (vsp_fp == NULL) {
 		printk(KERN_ERR "vsp open error occured\n");
 		return  -EINVAL;
@@ -442,8 +463,9 @@ static int vsp_release (struct inode *inode, struct file *filp)
 	}
 
 	kfree(filp->private_data);
+	filp->private_data = NULL;
 
-
+	printk(KERN_ERR "vsp_release ");
 	return 0;
 }
 
