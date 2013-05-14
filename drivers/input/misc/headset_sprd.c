@@ -19,27 +19,66 @@
 #include <mach/board.h>
 #include <linux/input.h>
 
+#include <mach/hardware.h>
 #include <mach/adc.h>
+#include <mach/adi.h>
 
 #define ADC_FIFO_CNT	(5)
 #define HEADSET_TYPE_ADC_DISPART_VALUE	(100)
 #define HEADSET_TYPE_GND_VALUE		(100)
 
-#define HEADMIC_ADC_SWITCH	(SPRD_MISC_BASE	+ 0x700 + 0xA0)
-#define HEADMIC_ADC_SWITCH_BIT			BIT(13)
+#define HEADMIC_DETECT_BASE	(SPRD_MISC_BASE	+ 0x700)
+#define HEADMIC_DETECT_REG(X)   (HEADMIC_DETECT_BASE + (X))
+
+#define HEADMIC_DETECT_GLB_REG(X)   (ANA_REGS_GLB_BASE + (X))
+
+#define HEADMIC_DETECT_INSRT_VOL_SHIFT  (5)
+#define HEADMIC_DETECT_INSRT_VOL_MSK    (0x3 << HEADMIC_DETECT_INSRT_VOL_SHIFT)
+
+#define HEADMIC_DETECT_INSRT_2P1V   (3)
+#define HEADMIC_DETECT_INSRT_2P3V   (2)
+#define HEADMIC_DETECT_INSRT_2P5V   (1)
+#define HEADMIC_DETECT_INSRT_2P7V   (0)
+
+
+#define HEADMIC_ADC_SWITCH_BIT			(BIT(13))
+#define HEADMIC_DETECT_CIRCUIT_BIT      (BIT(11))
 
 #define ABS(x)	(((x) < (0)) ? (-x) : (x))
 
 #define headset_reg_write(val, addr) \
 	do {	\
-		__writel(val, addr)	\
+		sci_adi_raw_write(addr, val)	\
 	} while(0)
 
 #define headset_reg_read(addr) \
 	do {	\
-		__readl(addr);	\
+		sci_adi_read(addr);	\
 	} while(0)
 
+#define headset_reg_msk_or(val, addr, msk)  \
+    do {    \
+        uint32_t temp;    \
+        temp = sci_adi_read(addr);  \
+        temp = (temp & (~msk)) | val;   \
+        sci_adi_raw_write(addr, temp);    \
+    } while(0)
+
+#define headset_reg_clr_bit(addr, bit)   \
+    do {    \
+        uint32_t temp;    \
+        temp = sci_adi_read(addr);  \
+        temp = temp & (~bit);   \
+        sci_adi_raw_write(addr, temp);  \
+    } while(0)
+
+#define headset_reg_set_bit(addr, bit)   \
+    do {    \
+        uint32_t temp;    \
+        temp = sci_adi_read(addr);  \
+        temp = temp | bit;  \
+        sci_adi_raw_write(addr, temp);  \
+    } while(0)
 
 typedef enum sprd_headset_type{
 	HEADPHONE,
@@ -80,13 +119,37 @@ static void headset_button_work_func(struct work_struct *work)
 	input_sync(ht_button->input);
 }
 
+/*  on = 0: open headmic detect circuit */
+static void headset_detect_circuit(unsigned on)
+{
+    if (on) {
+        headset_reg_clr_bit(HEADMIC_DETECT_REG(0xA0), HEADMIC_DETECT_CIRCUIT_BIT);
+    } else {
+        headset_reg_set_bit(HEADMIC_DETECT_REG(0xA0), HEADMIC_DETECT_CIRCUIT_BIT);
+    }
+}
 
+static void headset_detect_openclk(void)
+{
+    headset_reg_set_bit(HEADMIC_DETECT_GLB_REG(0x84), (BIT(14) | BIT(15)));
+}
+
+static void headset_detect_init(void)
+{
+    /* enable headset detect clk */
+    headset_reg_set_bit(HEADMIC_DETECT_GLB_REG(0x84), (BIT(14) | BIT(15)));
+
+    /* set headset detect voltage */
+    headset_reg_msk_or(HEADMIC_DETECT_INSRT_2P1V, HEADMIC_DETECT_REG(0xA0), HEADMIC_DETECT_INSRT_VOL_MSK);
+}
+
+/* is_set = 1, headset_mic to AUXADC */
 static void set_adc_to_headmic(unsigned is_set)
 {
 	if (is_set) {
-		headset_reg_write(headset_reg_read(HEADMIC_ADC_SWITCH) | HEADMIC_ADC_SWITCH_BIT, HEADMICI_ADC_SWITCH);
+		headset_reg_set_bit(HEADMIC_DETECT_REG(0xA0), HEADMIC_ADC_SWITCH_BIT);
 	} else {
-		headset_reg_write(headset_reg_read(HAEDMIC_ADC_SWITCH) & ~HEADMIC_ADC_SWITCH_BIT, HEADMIC_ADC_SWITCH);	
+		headset_reg_clr_bit(HEADMIC_DETECT_REG(0xA0), HEADMIC_ADC_SWITCH_BIT);
 	}
 }
 
@@ -96,6 +159,9 @@ static SPRD_HEADSET_TYPE detect_headset_type(void)
 	int adc_mic, adc_l;
 	int adc_val[ADC_FIFO_CNT] = {0};
 	int count;
+
+    headset_detect_init();
+    headset_detect_circuit(1);
 
 	set_adc_to_headmic(1);
 	for (count = 0; count < ADC_FIFO_CNT; count++) {
@@ -134,14 +200,14 @@ static void headset_detect_work_func(struct work_struct *work)
 	int state;
 	SPRD_HEADSET_TYPE headset_type;
 
-	state = headset_plug_in();	
+	state = headset_plug_in();
 
 	if(state) {
 		sprd_codec_headmic_bias_control(1);
 		mdelay(20);
 
 		headset_type = detect_headset_type();
-		if(headset_type == HEADSET_NORTH_AMERECA)
+		if(headset_type == HEADSET_NORTH_AMERICA)
 			gpio_direction_output(144,1);
 
 		if(headset_type == HEADSET_NORMAL)
@@ -186,7 +252,7 @@ static irqreturn_t headset_button_irq_handler(int irq, void *dev)
 		ht->button.platform_data->active_low = 0;
 	} else {
 		irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
-		ht->button.platform_data->active_low = 1;		
+		ht->button.platform_data->active_low = 1;
 	}
 	mod_timer(&ht->button.timer,
 			jiffies + msecs_to_jiffies(50));
@@ -206,7 +272,7 @@ static irqreturn_t headset_detect_irq_handler(int irq, void *dev)
 		ht->detect.platform_data->active_low = 0;
 	} else {
 		irq_set_irq_type(ht->detect.irq, IRQF_TRIGGER_HIGH);
-		ht->detect.platform_data->active_low = 1;		
+		ht->detect.platform_data->active_low = 1;
 	}
 	mod_timer(&ht->detect.timer,
 			jiffies + msecs_to_jiffies(500));
@@ -266,7 +332,7 @@ static __devinit int headset_buttons_probe(struct platform_device *pdev)
 	struct sprd_headset *ht = &headset;
 	int i;
 	int ret;
-	
+
 	ht->button.input = input_allocate_device();
 	if (!pdata || !ht->button.input) {
 		dev_err(dev, "failed to allocate state\n");
