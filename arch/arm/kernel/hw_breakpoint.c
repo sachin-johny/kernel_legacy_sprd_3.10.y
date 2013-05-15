@@ -230,8 +230,7 @@ static int enable_monitor_mode(void)
 	ARM_DBG_READ(c1, 0, dscr);
 
 	/* Ensure that halting mode is disabled. */
-	if (WARN_ONCE(dscr & ARM_DSCR_HDBGEN,
-		"halting debug mode enabled. Unable to access hardware resources.\n")) {
+	if ((dscr & ARM_DSCR_HDBGEN)) {
 		ret = -EPERM;
 		goto out;
 	}
