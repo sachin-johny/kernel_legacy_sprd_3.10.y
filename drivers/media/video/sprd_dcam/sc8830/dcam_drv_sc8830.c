@@ -403,6 +403,28 @@ int32_t dcam_module_en(void)
 
 		dcam_print_clock();
 
+		{
+			// aiden fpga
+			uint32_t bit_value;
+			// 0x60d0_000
+			printk("dcam_module_en: start enable module and set clock  \n");
+			
+			bit_value = BIT_0 | BIT_4 | BIT_6;
+			REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CSI enable
+
+			bit_value = BIT_0 | BIT_7 | BIT_8 | BIT_9;
+			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
+			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
+
+			bit_value = BIT_0 | BIT_1 | BIT_3 | BIT_7 | BIT_8;
+			REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
+
+			//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+			REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
+
+			REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xf, 0x3);  // ahb clock: 76, 128, 192, 256
+		}
+
 		printk("dcam_module_en: end\n");
 	}
 
@@ -421,6 +443,28 @@ int32_t dcam_module_dis(void)
 		dcam_set_clk(DCAM_CLK_NONE);
 
 		dcam_print_clock();
+		{
+			// aiden fpga
+			uint32_t bit_value;
+			// 0x60d0_000
+			printk("dcam_module_dis: start enable module and set clock  \n");
+
+
+			bit_value = BIT_0 | BIT_1 | BIT_5 | BIT_7 | BIT_8 | BIT_9;
+			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
+			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
+
+			bit_value = BIT_0 | BIT_1 | BIT_2 | BIT_3;
+			REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, 0); // ckg_cfg
+
+			bit_value = BIT_0 | BIT_1| BIT_4;
+			REG_MWR(SPRD_MMAHB_BASE, bit_value, 0);  // CSI enable
+
+			//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+			//REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
+
+			printk("dcam_module_dis: end\n");
+		}
 	}
 
 
@@ -494,7 +538,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	return -rtn;
 }
 
-#if 1
+#if 0
 int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;

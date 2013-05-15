@@ -70,7 +70,7 @@
 
 #define DEBUG_SENSOR_DRV
 #ifdef DEBUG_SENSOR_DRV
-#define SENSOR_PRINT   pr_debug
+#define SENSOR_PRINT   printk  //pr_debug
 #else
 #define SENSOR_PRINT(...)
 #endif
@@ -800,6 +800,11 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	return SENSOR_K_SUCCESS;
 }
 
+#ifdef CONFIG_ARCH_SC8830
+LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
+{
+}
+#else
 LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 {
 	struct clk *clk_parent = NULL;
@@ -807,9 +812,8 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 	char *clk_src_name = NULL;
 	uint8_t clk_div;
 
-	SENSOR_PRINT
-	    ("SENSOR: _Sensor_K_SetMCLK -> s_sensor_mclk = %d MHz, clk = %d MHz\n",
-	     s_sensor_mclk, mclk);
+	SENSOR_PRINT("SENSOR: _Sensor_K_SetMCLK -> s_sensor_mclk = %d MHz, clk = %d MHz\n",
+					s_sensor_mclk, mclk);
 
 	if ((0 != mclk) && (s_sensor_mclk != mclk)) {
 		if (s_ccir_clk) {
@@ -818,25 +822,20 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 		} else {
 			s_ccir_clk = clk_get(NULL, SENSOR_CLK);
 			if (IS_ERR(s_ccir_clk)) {
-				SENSOR_PRINT_ERR
-				    ("###: Failed: Can't get clock [ccir_mclk]!\n");
-				SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n",
-						 s_ccir_clk);
+				SENSOR_PRINT_ERR("###: Failed: Can't get clock [ccir_mclk]!\n");
+				SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n",s_ccir_clk);
 			} else {
-				SENSOR_PRINT
-				    ("###sensor s_ccir_clk clk_get ok.\n");
+				SENSOR_PRINT("###sensor s_ccir_clk clk_get ok.\n");
 			}
 		}
 		if (mclk > SENSOR_MAX_MCLK) {
 			mclk = SENSOR_MAX_MCLK;
 		}
-		if (SENSOR_K_SUCCESS !=
-		    select_sensor_mclk((uint8_t) mclk, &clk_src_name,
-				       &clk_div)) {
-			SENSOR_PRINT_HIGH
-			    ("SENSOR:Sensor_SetMCLK select clock source fail.\n");
+		if (SENSOR_K_SUCCESS != select_sensor_mclk((uint8_t) mclk, &clk_src_name, &clk_div)) {
+			SENSOR_PRINT_HIGH("SENSOR:Sensor_SetMCLK select clock source fail.\n");
 			return -EINVAL;
 		}
+		SENSOR_PRINT("clk_src_name=%s, clk_div=%d \n", clk_src_name, clk_div);
 
 		clk_parent = clk_get(NULL, clk_src_name);
 		if (!clk_parent) {
@@ -844,6 +843,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 			    ("###:clock: failed to get clock [%s] by clk_get()!\n", clk_src_name);
 			return -EINVAL;
 		}
+		SENSOR_PRINT("clk_get clk_src_name=%s done\n", clk_src_name);
 
 		ret = clk_set_parent(s_ccir_clk, clk_parent);
 		if (ret) {
@@ -851,6 +851,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 			    ("###:clock: clk_set_parent() failed!parent \n");
 			return -EINVAL;
 		}
+		SENSOR_PRINT("clk_set_parent s_ccir_clk=%s done\n", s_ccir_clk);
 
 		ret = clk_set_rate(s_ccir_clk, (mclk * SENOR_CLK_M_VALUE));
 		if (ret) {
@@ -858,6 +859,8 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 			    ("###:clock: clk_set_rate failed!\n");
 			return -EINVAL;
 		}
+		SENSOR_PRINT("clk_set_rate s_ccir_clk=%s done\n", s_ccir_clk);
+
 		ret = clk_enable(s_ccir_clk);
 		if (ret) {
 			SENSOR_PRINT_ERR("###:clock: clk_enable() failed!\n");
@@ -868,15 +871,11 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 		if (NULL == s_ccir_enable_clk) {
 			s_ccir_enable_clk = clk_get(NULL, "clk_ccir");
 			if (IS_ERR(s_ccir_enable_clk)) {
-				SENSOR_PRINT_ERR
-				    ("###: Failed: Can't get clock [clk_ccir]!\n");
-				SENSOR_PRINT_ERR
-				    ("###: s_ccir_enable_clk = %p.\n",
-				     s_ccir_enable_clk);
+				SENSOR_PRINT_ERR("###: Failed: Can't get clock [clk_ccir]!\n");
+				SENSOR_PRINT_ERR("###: s_ccir_enable_clk = %p.\n", s_ccir_enable_clk);
 				return -EINVAL;
 			} else {
-				SENSOR_PRINT
-				    ("###sensor s_ccir_enable_clk clk_get ok.\n");
+				SENSOR_PRINT("###sensor s_ccir_enable_clk clk_get ok.\n");
 			}
 			ret = clk_enable(s_ccir_enable_clk);
 			if (ret) {
@@ -903,11 +902,9 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 
 		if (s_ccir_enable_clk) {
 			clk_disable(s_ccir_enable_clk);
-			SENSOR_PRINT
-			    ("###sensor s_ccir_enable_clk clk_disable ok.\n");
+			SENSOR_PRINT("###sensor s_ccir_enable_clk clk_disable ok.\n");
 			clk_put(s_ccir_enable_clk);
-			SENSOR_PRINT
-			    ("###sensor s_ccir_enable_clk clk_put ok.\n");
+			SENSOR_PRINT("###sensor s_ccir_enable_clk clk_put ok.\n");
 			s_ccir_enable_clk = NULL;
 		}
 		s_sensor_mclk = 0;
@@ -919,6 +916,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 
 	return 0;
 }
+#endif
 
 LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 {
@@ -960,6 +958,9 @@ LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 LOCAL int _Sensor_K_SetResetLevel(uint32_t plus_level)
 {
 	int err = 0xff;
+
+	SENSOR_PRINT("_Sensor_K_SetResetLevel: plus_level = %d, reset pin=%d \n", plus_level, GPIO_SENSOR_RESET);
+
 	err = gpio_request(GPIO_SENSOR_RESET, "ccirrst");
 	if (err) {
 		SENSOR_PRINT_HIGH("_Sensor_K_Reset failed requesting err=%d\n", err);
@@ -1257,9 +1258,20 @@ sensor_k_writei2c_return:
 	return ret;
 }
 
+
+
 int sensor_k_open(struct inode *node, struct file *file)
 {
+#ifdef CONFIG_ARCH_SC8830
+	uint32_t bit_value;
+	bit_value = BIT_1;
+	REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value); // ckg_cfg
 
+	bit_value = BIT_2;
+	REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
+
+	REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
+#endif
 	return 0;
 }
 
