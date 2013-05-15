@@ -30,7 +30,8 @@ static unsigned int modem_power_gpio;
 static int    cp_alive_gpio ;
 static int    cp_crash_gpio;
 static int    modem_is_poweron = 0;
-
+extern void   register_cp_watchdog_handler(void);
+extern void   unregister_cp_watchdog_handler(void);
 int get_alive_status(void)
 {
 	int status = gpio_get_value(cp_alive_gpio);
@@ -148,12 +149,14 @@ void modem_poweron(void)
 	} else {
 		sprd_greg_clear_bits(REG_TYPE_GLOBAL, 0x00000040, 0x4C);
 	}
+	register_cp_watchdog_handler();
 	modem_is_poweron = 1;
 }
 void modem_poweroff(void)
 {
 	printk("modem power off!!! \n");
 	modem_is_poweron = 0;
+	unregister_cp_watchdog_handler();
 	if (GPIO_INVALID != modem_power_gpio){
 		gpio_direction_output(modem_power_gpio, 0); //2012.1.10
 		gpio_set_value(modem_power_gpio, 0);

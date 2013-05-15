@@ -21,7 +21,6 @@
 #ifdef CONFIG_ARCH_SC7710
 	/* general irq numbers */
 #define NR_SPRD_IRQS		    48
-
 #define IRQ_SPECIAL_LATCH           0
 #define IRQ_SER0_INT		    2
 #define IRQ_CA5_L2CC_INT	    3
@@ -36,6 +35,7 @@
 #define IRQ_KPD_INT		    10
 #define IRQ_I2C0_INT		    11
 #define IRQ_SIM_INT		    12
+#define	IRQ_CP_WDG_INT		    13
 #define IRQ_I2C2_INT		    14
 #define IRQ_SER3_INT		    15
 #define IRQ_SDIO2_INT	    16

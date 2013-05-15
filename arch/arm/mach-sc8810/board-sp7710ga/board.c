@@ -40,11 +40,13 @@
 #include <linux/spi/spi.h>
 #include <mach/adc.h>
 #include <mach/globalregs.h>
+#include <mach/irqs.h>
 #include <mach/board.h>
 #include <sound/audio_pa.h>
 #include "../devices.h"
 #include <mach/serial_sprd.h>
 #include <gps/gpsctl.h>
+#include <linux/interrupt.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -55,7 +57,7 @@ extern void __init sc8810_clock_init(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 #endif
-
+static int	cp_watchdog_flag = 0;
 static struct platform_device rfkill_device;
 static struct platform_device kb_backlight_device;
 
@@ -406,9 +408,41 @@ static int sc8810_add_misc_devices(void)
 	return 0;
 }
 
+static irqreturn_t cp_watchdog_handle(int irq, void *dev)
+{
+	extern void modem_intf_channel_indicate_message(int dir,int para,int index);
+        int32_t retval = IRQ_HANDLED;
+	modem_intf_channel_indicate_message(0,0,0);
+	printk("CP_WATCHDOG Reset ...\n");
+        return retval;
+}
+void unregister_cp_watchdog_handler(void)
+{
+	printk("%s(%d)\n",__func__,cp_watchdog_flag);
+	if(cp_watchdog_flag){
+		free_irq(IRQ_CP_WDG_INT,NULL);
+		printk("free_irq CP watchdog reset\n");
+	}
+	cp_watchdog_flag = 0;
+}
+void register_cp_watchdog_handler(void)
+{
+	extern void sprd_turnon_watchdog(void);
+        int retval;
+
+	printk("%s(%d)\n",__func__,cp_watchdog_flag);
+	if(cp_watchdog_flag==1)
+		return;
+	cp_watchdog_flag = 1;
+	retval = request_irq(IRQ_CP_WDG_INT, cp_watchdog_handle,
+                        IRQF_ONESHOT|IRQF_DISABLED, NULL,NULL);
+        if (retval != 0) {
+                pr_err("request of irq%d failed\n", IRQ_CP_WDG_INT);
+        }
+}
 static void __init sc8810_init_machine(void)
 {
-    sci_adc_init((void __iomem *)ADC_REG_BASE);
+	sci_adc_init((void __iomem *)ADC_REG_BASE);
 	sci_regulator_init();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
@@ -422,6 +456,7 @@ static void __init sc8810_init_machine(void)
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 	sprd_ramconsole_init();
 #endif
+	
 }
 
 static void __init sc8810_fixup(struct machine_desc *desc, struct tag *tag,
