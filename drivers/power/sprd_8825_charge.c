@@ -339,8 +339,8 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	}
 
-	printk(KERN_DEBUG "$$$ryan::: %s, voltage = %d, retval = %d\n",
-	       __FUNCTION__, voltage, percentum);
+	pr_debug("SPRD_CHG::: %s, voltage = %d, retval = %d, is_charging = %d\n",
+	       __FUNCTION__, voltage, percentum, is_charging);
 
 	return percentum;
 }
@@ -606,18 +606,23 @@ uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
 void sprd_set_chg_cur(uint32_t chg_current)
 {
 	uint32_t temp;
+	uint32_t val;
 
 	if (chg_current > SPRD_CHG_CUR_MAX) {
 		chg_current = SPRD_CHG_CUR_MAX;
 	}
-#ifdef COFNIG_ARCH_SC7710
-	temp = ((chg_current - 300) / 50);
-#else
+
 	temp = ((chg_current - 300) / 100);
-#endif
+
+#ifdef CONFIG_ARCH_SC7710
+	sci_adi_write(ANA_CHGR_CTRL0,
+		      ((temp << CHGR_CHG_CUR_SHIFT) & CHGR_CHG_CUR_MSK),
+		      (CHGR_CHG_CUR_MSK));
+#else
 	sci_adi_write(ANA_CHGR_CTRL1,
 		      (temp << CHGR_CHG_CUR_SHIFT) & CHGR_CHG_CUR_MSK,
 		      CHGR_CHG_CUR_MSK);
+#endif
 }
 
 void sprd_chg_init(void)
