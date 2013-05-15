@@ -1854,8 +1854,8 @@ LOCAL int v4l2_streamoff(struct file *file,
 	ret = sprd_stop_timer(&dev->dcam_timer);
 	V4L2_PRINT_IF_ERR(ret);
 
-	ret = dcam_stop_cap();
-	V4L2_PRINT_IF_ERR(ret);
+	//ret = dcam_stop_cap();
+	//V4L2_PRINT_IF_ERR(ret);
 
 	if (path_1->is_work) {
 		ret = dcam_stop_path(DCAM_PATH_IDX_1);

@@ -195,7 +195,7 @@ struct dcam_module {
 	void                       *user_data[USER_IRQ_NUMBER];
 };
 
-#define DCAM_IRQ_NONE              0x5A0000A5
+#define DCAM_IRQ_DEV              0x5A0000A5
 
 LOCAL struct dcam_frame           s_path0_frame[DCAM_PATH_0_FRM_CNT_MAX];
 LOCAL struct dcam_frame           s_path1_frame[DCAM_PATH_1_FRM_CNT_MAX];
@@ -210,7 +210,8 @@ LOCAL uint32_t                    s_path1_wait = 0;
 LOCAL uint32_t                    s_sof_cnt = 0;
 LOCAL uint32_t                    s_path_wait = 0;
 LOCAL struct dcam_module          s_dcam_mod = {0};
-LOCAL uint32_t                    g_dcam_irq = DCAM_IRQ_NONE;
+LOCAL uint32_t                    g_dcam_irq = DCAM_IRQ_DEV;
+LOCAL uint32_t                    g_dcam_irq_en = 0;
 LOCAL struct clk                  *s_dcam_clk = NULL;
 static struct clk                  *s_ccir_clk = NULL;
 LOCAL struct clk                  *s_dcam_mipi_clk = NULL;
@@ -339,7 +340,7 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 		}
 	}
 
-	if(DCAM_IRQ_NONE == g_dcam_irq){
+	if(0 == g_dcam_irq_en){
 		REG_WR(DCAM_INT_CLR,  DCAM_IRQ_LINE_MASK);
 		REG_MWR(DCAM_INT_MASK, DCAM_IRQ_LINE_MASK, DCAM_IRQ_LINE_MASK);
 		ret = request_irq(DCAM_IRQ,
@@ -348,11 +349,11 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 				"DCAM",
 				&g_dcam_irq);
 		if (ret) {
-			g_dcam_irq = DCAM_IRQ_NONE;
 			DCAM_TRACE("dcam_start, error %d \n", ret);
 			return -DCAM_RTN_MAX;
 		}
-		printk("g_dcam_irq=0x%x, ret=%d \n", g_dcam_irq, ret);
+		g_dcam_irq_en = 1;
+		printk("g_dcam_irq=0x%x, g_dcam_irq_en = %d, ret=%d \n", g_dcam_irq, g_dcam_irq_en, ret);
 	}
 
 	dcam_print_clock();
@@ -376,11 +377,12 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 		_dcam_ccir_clk_dis();
 	}
 
-	printk("g_dcam_irq=0x%x \n", g_dcam_irq);
+	printk("g_dcam_irq=0x%x, g_dcam_irq_en=%d \n", g_dcam_irq, g_dcam_irq_en);
 
-	if (DCAM_IRQ_NONE != g_dcam_irq) {
+	if (0 != g_dcam_irq_en) {
 		free_irq(DCAM_IRQ, &g_dcam_irq);
-		g_dcam_irq = DCAM_IRQ_NONE;
+		g_dcam_irq_en = 0;
+		printk("free dcam irq \n");
 	}
 
 	dcam_print_clock();
@@ -877,7 +879,7 @@ int32_t dcam_start(void)
 	DCAM_TRACE("DCAM DRV: dcam_start %x \n", s_dcam_mod.dcam_mode);
 
 	ret = dcam_start_path(DCAM_PATH_IDX_ALL);
-	//ret = dcam_start_path(DCAM_PATH_IDX_1);
+	//ret = dcam_start_path(DCAM_PATH_IDX_2);
 	
 	return -rtn;
 }
@@ -890,7 +892,7 @@ int32_t dcam_stop_cap(void)
 	/* CAP_EB disable */
 	//REG_AWR(DCAM_CONTROL, ~BIT_2); /* Cap Enable */
 	REG_MWR(DCAM_CONTROL, BIT_2, 0); /* Cap Enable */
-	_dcam_wait_for_stop();
+	//_dcam_wait_for_stop();
 	DCAM_TRACE("DCAM DRV: dcam_stop_cap, s_resize_flag %d \n", atomic_read(&s_resize_flag));
 	if (atomic_read(&s_resize_flag)) {
 		s_resize_wait = 1;
@@ -980,9 +982,9 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		REG_MWR(DCAM_CFG, BIT_2, 0);
 	}
 
-	DCAM_TRACE("DCAM DRV: wait path stop, wait_path_stop=%d \n", wait_path_stop);
-#if 1
-	if (wait_path_stop) {
+	DCAM_TRACE("DCAM DRV: wait path stop, wait_path_stop=%d, dcam_mode=%d \n", wait_path_stop, s_dcam_mod.dcam_mode);
+
+	if (wait_path_stop && (DCAM_CAPTURE_MODE_MULTIPLE == s_dcam_mod.dcam_mode)) {
 		s_sof_cnt = 0;
 		s_path_wait = 1;
 		rtn = down_timeout(&s_path_stop_sema, msecs_to_jiffies(500));
@@ -993,7 +995,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 			DCAM_TRACE("DCAM DRV: wait path stop done \n");
 		}
 	}
-#endif
+
 	if ((DCAM_PATH_IDX_0 & path_index) && path_0_valid) {
 		dcam_reset(DCAM_RST_PATH0);
 		_dcam_frm_clear(DCAM_PATH_IDX_0);
@@ -1010,6 +1012,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 
 	if(stop_cap){
 		DCAM_TRACE("DCAM DRV: stop_cap=0x%x, try to reset all \n", stop_cap);
+		dcam_stop_cap();
 		dcam_reset(DCAM_RST_ALL);
 	}
 
@@ -1352,6 +1355,7 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 			} else {
 				REG_MWR(CAP_CCIR_CTRL, BIT_6, samp_mode << 6);
 			}
+			s_dcam_mod.dcam_mode = samp_mode;
 		}
 		break;
 	}
