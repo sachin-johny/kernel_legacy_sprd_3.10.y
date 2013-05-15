@@ -740,8 +740,8 @@ static const struct snd_soc_dapm_route vbc_intercon[] = {
 	{"DA1 FM Mixer", "DA1ADDST1", "ST1 INMUX"},
 
 	/* playback out */
-	{"Digital DACL Switch", NULL, "DA1 FM Mixer"},	/*todo: check L/R chanel */
-	{"Digital DACR Switch", NULL, "DA0 FM Mixer"},
+	{"Digital DACL Switch", NULL, "DA0 FM Mixer"},	/*todo: check L/R chanel */
+	{"Digital DACR Switch", NULL, "DA1 FM Mixer"},
 
 	/********************** capture  path in vbc ********************/
 	/*dac  loop to adc  route */
@@ -796,7 +796,6 @@ static inline int vbc_str_2_index(int stream)
 	if (stream == SNDRV_PCM_STREAM_CAPTURE) {
 		return 1;
 	}
-
 	return 0;
 }
 
