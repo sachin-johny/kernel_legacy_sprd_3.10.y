@@ -589,11 +589,15 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		if (rtd->interleaved) {
 			sprd_pcm_dbg("interleaved access\n");
 			if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-				dma->desc.des_step = 0;
 				dma->desc.src_step = 4;
 			} else {
-				dma->desc.src_step = 0;
 				dma->desc.des_step = 4;
+			}
+		} else {
+			if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+				dma->desc.src_step = 2;
+			} else {
+				dma->desc.des_step = 2;
 			}
 		}
 #endif
@@ -955,7 +959,7 @@ static int sprd_pcm_new(struct snd_soc_pcm_runtime *rtd)
 							      SNDRV_PCM_STREAM_PLAYBACK);
 			if (ret)
 				goto out;
-			if (sprd_is_i2s(cpu_dai)) {
+			if (!sprd_is_i2s(cpu_dai)) {
 				save_p_buf = buf;
 			}
 			sprd_pcm_dbg("playback alloc memery\n");
@@ -973,7 +977,7 @@ static int sprd_pcm_new(struct snd_soc_pcm_runtime *rtd)
 							      SNDRV_PCM_STREAM_CAPTURE);
 			if (ret)
 				goto out;
-			if (sprd_is_i2s(cpu_dai)) {
+			if (!sprd_is_i2s(cpu_dai)) {
 				save_c_buf = buf;
 			}
 			sprd_pcm_dbg("capture alloc memery\n");
