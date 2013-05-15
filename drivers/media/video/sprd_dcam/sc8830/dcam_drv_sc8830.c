@@ -2173,12 +2173,12 @@ LOCAL void _dcam_path1_set(void)
 		} else {
 			DCAM_TRACE("DCAM DRV: invalid path 1 output format %d \n", format);
 		}
-		DCAM_TRACE_LOW("DCAM DRV: path 1: output_format=0x%x \n", format);
+		DCAM_TRACE("DCAM DRV: path 1: output_format=0x%x \n", format);
 	}
 
 	if(path->valid_param.src_sel){
 		REG_MWR(DCAM_CFG, BIT_12 | BIT_11, path->src_sel << 11);
-		DCAM_TRACE_LOW("DCAM DRV: path 1: src_sel=0x%x \n", path->src_sel);
+		DCAM_TRACE("DCAM DRV: path 1: src_sel=0x%x \n", path->src_sel);
 	}
 
 	if(path->valid_param.data_endian){
@@ -2186,13 +2186,13 @@ LOCAL void _dcam_path1_set(void)
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_9 | BIT_8, path->data_endian.uv_endian << 8);
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_18, BIT_18); // axi write
 		REG_MWR(DCAM_ENDIAN_SEL, BIT_19, BIT_19); // axi read
-		DCAM_TRACE_LOW("DCAM DRV: path 1: data_endian y=0x%x, uv=0x%x \n",
+		DCAM_TRACE("DCAM DRV: path 1: data_endian y=0x%x, uv=0x%x \n",
 			path->data_endian.y_endian, path->data_endian.uv_endian);
 	}
 
 	if(path->valid_param.frame_deci){
 		REG_MWR(DCAM_PATH0_CFG, BIT_24 | BIT_23, path->frame_deci << 23);
-		DCAM_TRACE_LOW("DCAM DRV: path 1: frame_deci=0x%x \n", path->frame_deci);
+		DCAM_TRACE("DCAM DRV: path 1: frame_deci=0x%x \n", path->frame_deci);
 	}
 
 	if(path->valid_param.scale_tap){

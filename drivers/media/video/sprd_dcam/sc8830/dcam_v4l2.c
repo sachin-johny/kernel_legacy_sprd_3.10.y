@@ -779,6 +779,7 @@ LOCAL int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 		}
 
 		depth_pixel = sprd_v4l2_endian_sel(fourcc, path);
+		path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE; // tmp fix: output is vu, jpeg only support vu
 		break;
 	default:
 		printk("V4L2: unsupported image format for path2 0x%x \n", fourcc);
