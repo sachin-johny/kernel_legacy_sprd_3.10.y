@@ -59,6 +59,10 @@ extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
 extern int __init sci_regulator_init(void);
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+extern int __init sprd_ramconsole_init(void);
+#endif
+
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -626,6 +630,10 @@ static void __init sc8830_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+    sprd_ramconsole_init();
+#endif
+
 }
 
 extern void __init  sci_enable_timer_early(void);
