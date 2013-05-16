@@ -93,7 +93,7 @@ typedef struct MIPC_TRANSFER_Tag
 
 static struct kfifo  s_mipc_rx_cache_kfifo;
 
-u8   s_mipc_rx_buf[MAX_MIPC_RX_FRAME_SIZE];
+u8*   s_mipc_rx_buf = NULL;  
 
 #define MAX_MIPC_TX_FRAME_NUM    3
 MIPC_TRANSF_FRAME_T   s_tx_transfer_frame[MAX_MIPC_TX_FRAME_NUM];
@@ -116,6 +116,9 @@ static wait_queue_head_t s_mux_ipc_tx_wq;
 static wait_queue_head_t s_mux_ipc_rx_wq;
 
 static u32  s_mux_ipc_module_inited = 0;
+
+static int  sdio_transfer_crc_check_enable = 0;
+static int  sdio_transfer_frame_check_enable = 0;
 
 static DEFINE_MUTEX(sdio_tx_lock);
 static ssize_t mux_ipc_xmit_buf(const char *buf, ssize_t len);
@@ -194,7 +197,7 @@ int mux_ipc_sdio_read(char *buf, size_t  count)
 
     IPC_DBG("[mipc]mux_ipc_sdio_read read len:%d\r\n", count);
     ret = kfifo_out(&s_mipc_rx_cache_kfifo,buf,count);
-
+	
     ipc_info_mux_read(ret);
 
     ipc_info_sdio_read_saved_count(kfifo_len(&s_mipc_rx_cache_kfifo));	
@@ -251,6 +254,10 @@ static void _TransferInit(MIPC_TRANSFER_T* transfer_ptr)
 
 static void _transfer_frame_init(void)
  {
+ 	s_mipc_rx_buf =  (u8*) __get_free_pages(GFP_KERNEL, get_order(MAX_MIPC_RX_FRAME_SIZE));
+
+	WARN_ON(NULL == s_mipc_rx_buf);
+	
 	if(kfifo_alloc(&s_mipc_rx_cache_kfifo,MAX_MIPC_RX_CACHE_SIZE, GFP_KERNEL))
 	{
 		printk("_transfer_frame_init: kfifo rx cache no memory!\r\n");
@@ -514,12 +521,32 @@ static int sdio_read_modem_data(u8 *buf, int len)
 	return ret;
 }
 
+extern  __u8   mux_calc_crc(__u8 * data, __u32 length);
+
 static bool VerifyPacketHeader(struct packet_header *header)
 {
-	if ( (header->tag != HEADER_TAG) || (header->type != HEADER_TYPE)
-		|| (header->length > MAX_MIPC_RX_FRAME_SIZE))
+	if(sdio_transfer_crc_check_enable)
 	{
-		return false;
+	        __u8*  data_ptr = (__u8*)(header + 1);
+		__u8   crc_value = mux_calc_crc(data_ptr,  header->length );
+		if ( (header->tag != HEADER_TAG) || (header->type != HEADER_TYPE)
+			|| (header->length > MAX_MIPC_RX_FRAME_SIZE)
+			||(header->frame_num != crc_value))
+		{
+			printk("[mipc]:%s error, tag:0x%X, type:0x%X, len:0x%X, crc:0x%X, calc_crc:0x%X\r\n", 
+				 __func__, header->tag , header->type, header->length,header->frame_num, crc_value);
+			return false;
+		}
+	}
+	else
+	{
+		if ( (header->tag != HEADER_TAG) || (header->type != HEADER_TYPE)
+			|| (header->length > MAX_MIPC_RX_FRAME_SIZE))
+		{
+			printk("[mipc]:%s error, tag:0x%X, type:0x%X, len:0x%X, frame_num:0x%X\r\n", 
+				 __func__, header->tag , header->type, header->length,header->frame_num);
+			return false;
+		}
 	}
 
 	return true;
@@ -551,6 +578,9 @@ u32  process_modem_packet(unsigned long data)
 		}
 
 		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_CONNECTED);	 
+		
+		memset(s_mipc_rx_buf, 0xaa, MAX_MIPC_RX_FRAME_SIZE);
+		
 		ret = sdio_read_modem_data(s_mipc_rx_buf,  MAX_MIPC_RX_FRAME_SIZE);
 		if (!ret)
 		{
@@ -563,14 +593,14 @@ u32  process_modem_packet(unsigned long data)
 			{
 				ipc_info_error_status(IPC_RX_CHANNEL, IPC_STATUS_PACKET_ERROR);
 				result = SDHCI_TRANSFER_ERROR;
-				printk("SDIO READ FAIL,Packet Header error tag:0x%X, len:%d, rsev:0x%x\n", packet->tag, packet->length, packet->reserved2);
+				printk("[mipc] Sdio Rx Packet check error tag:0x%X, len:%d, rsev:0x%x\n", packet->tag, packet->length, packet->reserved2);
 			}
 		}
 		else
 		{
 				ipc_info_error_status(IPC_RX_CHANNEL, IPC_STATUS_CRC_ERROR);
 				result = SDHCI_TRANSFER_ERROR;
-				printk("SDIO READ FAIL \n");
+				printk("[mipc]SDIO READ FAIL, ret:%d\r \n", ret);
 		}
 
 		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_DISCONNECT_REQ);	
@@ -601,13 +631,18 @@ u32  process_modem_packet(unsigned long data)
 
 	if(!result)
 	{
+		u32  send_cnt = 0;
 		ipc_info_rate(IPC_RX_CHANNEL, packet->length*1000/MAX_MIPC_RX_FRAME_SIZE);
 		ipc_info_sdio_read(packet->length);
 
 			
 		while( kfifo_avail(&s_mipc_rx_cache_kfifo) < packet->length)
 		{
-			//printk("[MIPC] MIPC Rx Cache Full!\r\n");
+			if(send_cnt++ > 20)
+			{
+			    send_cnt = 0;
+			    printk("[MIPC] MIPC Rx Cache Full!\r\n");
+			}
 			ipc_info_mux_read_overflow(1);
 			msleep(10);	
 		}
@@ -615,8 +650,14 @@ u32  process_modem_packet(unsigned long data)
 		IPC_DBG("[mipc]Success receive data len:%d\r\n",  packet->length);
 		
 		receve_len  = packet->length;
+
+		if(sdio_transfer_frame_check_enable && sdio_frame_check(&s_mipc_rx_buf[sizeof(struct packet_header )], packet->length))
+		{
+			printk("[mipc]:sdio receved data frame error!\r\n");
+		}	
+		
 		kfifo_in(&s_mipc_rx_cache_kfifo,&s_mipc_rx_buf[sizeof(struct packet_header )], packet->length);
-			
+		
 		wake_up_interruptible(&s_mux_read_rts);
 	}
 	else
@@ -857,6 +898,11 @@ static void __exit mux_ipc_sdio_exit(void)
 {
         platform_driver_unregister(&modem_sdio_driver);
 }
+
+
+module_param_named(sdio_transfer_crc_check_enable, sdio_transfer_crc_check_enable, int, S_IRUGO | S_IWUSR);
+module_param_named(sdio_transfer_frame_check_enable, sdio_transfer_frame_check_enable, int, S_IRUGO | S_IWUSR);
+
 
 module_init(mux_ipc_sdio_init);
 module_exit(mux_ipc_sdio_exit);

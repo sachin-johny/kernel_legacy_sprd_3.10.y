@@ -186,6 +186,7 @@ u32 sdhci_disconnect(u32  status)
 	else
 	{
 		clear_ap_status();/* fail */
+		printk("[mipc]: sdhci_disconnect Error:%d\r\n", status);
 	}
 
          ap2cp_rts_disable();/* end */
