@@ -244,8 +244,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
 	case VSP_START:
 		pr_debug("vsp ioctl VSP_START\n");
 		ret = wait_event_interruptible_timeout(
-			vsp_hw_dev.wait_queue_work,
-			vsp_hw_dev.condition_work,
+			vsp_hw_dev.wait_queue_work_vsp,
+			vsp_hw_dev.condition_work_vsp,
 			msecs_to_jiffies(VSP_TIMEOUT_MS));
 		if (ret == -ERESTARTSYS) {
 			printk("KERN_ERR vsp error start -ERESTARTSYS\n");
@@ -265,7 +265,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		}
 		put_user(vsp_hw_dev.vsp_int_status, (int __user *)arg);
 		vsp_hw_dev.vsp_int_status = 0;
-		vsp_hw_dev.condition_work = 0;
+		vsp_hw_dev.condition_work_vsp= 0;
 		pr_debug("vsp ioctl VSP_START end\n");
 		return ret;
 		break;
