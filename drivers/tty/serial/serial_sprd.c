@@ -803,10 +803,6 @@ int sc8800g_set_wakeup_src(bool wakeup_flag)
 
         if(wakeup_flag)
 	{
-		//SIC interrupt enable
-		val = __raw_readl(SPRD_EICINT_BASE+0x00);
-		val |= BIT(0);
-		__raw_writel(val, SPRD_EICINT_BASE+0x00);
 
 		//SIC polarity 0
 		val = __raw_readl(SPRD_EICINT_BASE+0x10);
@@ -831,7 +827,7 @@ static int serial_sprd_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
 #ifdef CONFIG_ARCH_SC7710
-          //      sc8800g_set_wakeup_src(true);
+                sc8800g_set_wakeup_src(true);
 #endif
 		is_uart_rx_wakeup = false;
 	}else if(BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type){
