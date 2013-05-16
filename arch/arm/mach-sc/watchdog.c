@@ -104,28 +104,26 @@
 
 void sprd_set_reboot_mode(const char *cmd)
 {
-	if(cmd) {
+	if(cmd)
 		printk("sprd_set_reboot_mode:cmd=%s\n",cmd);
-	} else {
-		return;
-	}
-
-	if (!(strncmp(cmd, "recovery", 8))) {
+	if (cmd && !(strncmp(cmd, "recovery", 8))) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_RECOVERY);
-	} else if (!strncmp(cmd, "alarm", 5)) {
+	} else if (cmd && !strncmp(cmd, "alarm", 5)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_ALARM);
-	} else if (!strncmp(cmd, "fastsleep", 9)) {
+	} else if (cmd && !strncmp(cmd, "fastsleep", 9)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SLEEP);
-	} else if (!strncmp(cmd, "bootloader", 10)) {
+	} else if (cmd && !strncmp(cmd, "bootloader", 10)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_FASTBOOT);
-	} else if (!strncmp(cmd, "panic", 5)) {
+	} else if (cmd && !strncmp(cmd, "panic", 5)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_PANIC);
-	} else if (!strncmp(cmd, "special", 7)) {
+	} else if (cmd && !strncmp(cmd, "special", 7)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
-	} else if (!strncmp(cmd, "cftreboot", 9)) {
+	} else if (cmd && !strncmp(cmd, "cftreboot", 9)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_CFTREBOOT);
-	} else {
+	} else if(cmd){
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
+	}else{
+		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
 	}
 }
 
