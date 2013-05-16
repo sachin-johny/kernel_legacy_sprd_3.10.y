@@ -638,6 +638,15 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 			printk(KERN_ERR "vbat over %d \n", voltage);
 		}
 
+        pr_debug("SPRD_CHG::%s, voltage = %d, vchg_vol = %d, vprog_current = %d, usb = %d, ac = %d, cur_type = %d\n" \
+                , __FUNCTION__  \
+                , voltage   \
+                , vchg_vol  \
+                , vprog_current \
+                , usb_online    \
+                , ac_online     \
+                , battery_data->cur_type);
+
 	}
 	if (!battery_data->charging && !battery_data->in_precharge &&
 	    (usb_online || ac_online) && battery_data->over_voltage_flag) {
@@ -761,6 +770,9 @@ out:
 					sprd_bat_adc_to_vol(battery_data,
 							    get_vbat_capacity_value
 							    ()), 0);
+        pr_debug("SPRD_CHG::capacity = %u, battery_data capacity = %u\n"   \
+                    , capacity  \
+                    , battery_data->capacity);
 
 		voltage = (voltage / 10) * 10;
 
@@ -809,6 +821,7 @@ void battery_sleep(void)
 	charge_handler(battery_data, 1);
 }
 
+
 #ifdef CONFIG_ARCH_SC7710
 void enable_tiemr0_wakeup(void)
 {
@@ -832,6 +845,11 @@ void enable_tiemr0_wakeup(void)
 		     SPRD_INTC_EN_STS);
 	__raw_writel(__raw_readl(SPRD_TIMER0_CTL) | SPRD_TIMER0_RUN,
 		     SPRD_TIMER0_CTL);
+
+    pr_debug("wakeup source = %s, sprd_chg_wakeup_cnt = %u\n"\
+                , __FUNCTION__\
+                , sprd_chg_wakeup_cnt);
+
 }
 
 void check_timer0_and_battery_handler(void)
@@ -999,7 +1017,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 
 	sprd_chg_init();
 
-	printk("probe adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],
+	pr_debug("probe adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],
 	       adc_voltage_table[1][0]);
 
 	if (sci_efuse_calibration_get(efuse_cal_data)) {
@@ -1008,7 +1026,7 @@ static int sprd_battery_probe(struct platform_device *pdev)
 		adc_voltage_table[1][1] = efuse_cal_data[1] & 0xffff;
 		adc_voltage_table[1][0] = (efuse_cal_data[1] >> 16) & 0xffff;
 		data->adc_cal_updated = ADC_CAL_TYPE_EFUSE;
-		printk("probe efuse ok!!! adc4200: %d,adc3600:%d\n",
+		pr_debug("probe efuse ok!!! adc4200: %d,adc3600:%d\n",
 		       adc_voltage_table[0][0], adc_voltage_table[1][0]);
 	}
 	if (adc_data[0]) {
