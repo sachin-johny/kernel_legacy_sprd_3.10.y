@@ -560,7 +560,7 @@ FTS_BOOL byte_read(FTS_BYTE* pbt_buf, FTS_BYTE bt_len)
 
 static unsigned char FT5316_FW[]=
 {
-#include "ft5316_qHD.i"
+#include "ft5316_720p.i"
 };
 
 static unsigned char FT5306_FW[]=

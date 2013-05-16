@@ -1,8 +1,14 @@
 #ifndef __LINUX_FT5X0X_TS_H__
 #define __LINUX_FT5X0X_TS_H__
 
+#ifdef CONFIG_MACH_SP8830EA
+#define SCREEN_MAX_X    719
+#define SCREEN_MAX_Y    1279
+#else
 #define SCREEN_MAX_X    539
 #define SCREEN_MAX_Y    959
+#endif
+
 #define PRESS_MAX       255
 
 #define FT5X0X_NAME			"ft5x0x_ts"//"synaptics_i2c_rmi"//"synaptics-rmi-ts"// 
