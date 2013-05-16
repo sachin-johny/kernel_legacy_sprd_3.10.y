@@ -46,4 +46,5 @@ void ipc_info_sdio_read_saved_count(u32 size);
 void ipc_info_error_status(u32 channel,  u32 status);
 void ipc_info_sdio_write_overflow(u32 size);
 IPC_INFO_T*  ipc_info_getinfo(u32 channel);
+int sdio_frame_check(char* buf_ptr, size_t length);
 #endif /* __MICP_PERF_H__*/

@@ -303,6 +303,18 @@ static void mux_sched_send(void);
 static __u8 crctable[256];
 
 static ts0710_con ts0710_connection;
+
+
+ __u32  mux_crc_check(__u8 * data, __u32 length, __u8 check_sum)
+{
+	return  crc_check(data, length,  check_sum);
+}
+
+ __u8   mux_calc_crc(__u8 * data, __u32 length)
+{
+	return  crc_calc(data, length);
+}
+
 /*
 static rpn_values rpn_val;
 */
