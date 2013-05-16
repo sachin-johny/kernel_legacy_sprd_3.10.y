@@ -295,7 +295,7 @@ void modem_intf_channel_indicate_message(int dir,int para,int index)
 	if((modem_intf_device->mode == MODEM_MODE_UNKNOWN)||
 	   (modem_intf_device->mode == MODEM_MODE_RESET))
 		return;
-	modem_intf_state_change(0,0);
+	modem_intf_state_change(0,1);
 }
 
 
