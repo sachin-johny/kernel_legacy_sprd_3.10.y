@@ -325,6 +325,10 @@ int wldev_set_band(
 	return error;
 }
 
+#ifdef WL_CFG80211
+extern int wl_cfg80211_is_associate(struct net_device *dev);
+#endif
+
 int wldev_set_country(
 	struct net_device *dev, char *country_code)
 {
@@ -351,6 +355,19 @@ int wldev_set_country(
 			return error;
 		}
 	}
+#ifdef WL_CFG80211
+	else {
+		if(wl_cfg80211_is_associate(dev)){
+			bzero(&scbval, sizeof(scb_val_t));
+			error = wldev_ioctl(dev, WLC_DISASSOC, &scbval, sizeof(scb_val_t), 1);
+			if (error < 0) {
+				WLDEV_ERROR(("%s: set country failed due to Disassoc error %d\n",
+					__FUNCTION__, error));
+				return error;
+			}
+		}
+	}
+#endif
 	cspec.rev = -1;
 	memcpy(cspec.country_abbrev, country_code, WLC_CNTRY_BUF_SZ);
 	memcpy(cspec.ccode, country_code, WLC_CNTRY_BUF_SZ);
