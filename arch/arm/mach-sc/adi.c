@@ -185,8 +185,9 @@ static inline int __adi_read(u32 regPddr, unsigned long *v)
 
 int sci_adi_read(u32 reg)
 {
+	int val = 0;
 	if (!__adi_addr_check(reg)) {
-		unsigned long flags, val;
+		unsigned long flags;
 		int ret = 0;
 		reg = __adi_translate_addr(reg);
 		__adi_lock(&flags, NULL);
