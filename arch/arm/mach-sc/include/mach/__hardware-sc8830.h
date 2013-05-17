@@ -180,11 +180,6 @@
 #define SPRD_VBC_PHYS			0X40020000
 #define SPRD_VBC_SIZE			SZ_4K + SZ_8K
 
-/*
-#define SPRD_ADI_BASE			SCI_IOMAP(0x1f0000)
-#define SPRD_ADI_PHYS			0X40030000
-#define SPRD_ADI_SIZE			SZ_8K
-*/
 #define SPRD_SYSTIMER_CMP_BASE		SCI_IOMAP(0x1f2000)
 #define SPRD_SYSTIMER_CMP_PHYS		0X40040000
 #define SPRD_SYSTIMER_CMP_SIZE		SZ_4K
@@ -443,9 +438,15 @@
 #define SPRD_IRAM1_PHYS			0X50000000
 #define SPRD_IRAM1_SIZE			(SZ_32K + SZ_16K + SZ_4K)
 
+/*begin mapping adie master and slave address */
 #define SPRD_ADI_BASE			SCI_IOMAP(0x3f0000)
 #define SPRD_ADI_PHYS			0X40030000
-#define SPRD_ADI_SIZE			(SZ_64K)
+#define SPRD_ADI_SIZE			(SZ_4K)
+
+#define SPRD_ADISLAVE_BASE			SCI_IOMAP(0x3f0000 + SZ_32K)
+#define SPRD_ADISLAVE_PHYS			0X40038000
+#define SPRD_ADISLAVE_SIZE			(SZ_4K)
+/*end*/
 
 #define CORE_GIC_CPU_VA			(SPRD_CORE_BASE + 0x2000)
 #define CORE_GIC_DIS_VA			(SPRD_CORE_BASE + 0x1000)
@@ -456,17 +457,28 @@
 
 /* registers for watchdog ,RTC, touch panel, aux adc, analog die... */
 #define SPRD_MISC_BASE	((unsigned int)SPRD_ADI_BASE)
-#define SPRD_MISC_PHYS	((unsigned int)0X40030000)
+#define SPRD_MISC_PHYS	((unsigned int)SPRD_ADI_PHYS)
 
-#define ANA_CTL_GLB_BASE		( SPRD_MISC_BASE + 0x8800 )
-
-#define ADC_BASE	((unsigned int)SPRD_ADI_BASE + 0x8300)
+#define ANA_PWM_BASE			(SPRD_ADISLAVE_BASE + 0x20 )
+#define ANA_WDG_BASE			(SPRD_ADISLAVE_BASE + 0x40 )
+#define ANA_RTC_BASE			(SPRD_ADISLAVE_BASE + 0x80 )
+#define ANA_EIC_BASE			(SPRD_ADISLAVE_BASE + 0x100 )
+#define ANA_PIN_BASE			(SPRD_ADISLAVE_BASE + 0x180 )
+#define ANA_THM_BASE			(SPRD_ADISLAVE_BASE + 0x280 )
+#define ADC_BASE				(SPRD_ADISLAVE_BASE + 0x300 )
+#define ANA_CTL_INT_BASE		(SPRD_ADISLAVE_BASE + 0x380 )
+#define ANA_BTLC_INT_BASE		(SPRD_ADISLAVE_BASE + 0x3c0 )
+#define ANA_AUDIFA_INT_BASE		(SPRD_ADISLAVE_BASE + 0x400 )
+#define ANA_GPIO_INT_BASE		(SPRD_ADISLAVE_BASE + 0x480 )
+#define ANA_FPU_INT_BASE		(SPRD_ADISLAVE_BASE + 0x500 )
+#define ANA_AUDCFGA_INT_BASE		(SPRD_ADISLAVE_BASE + 0x600 )
+#define ANA_HDT_INT_BASE		(SPRD_ADISLAVE_BASE + 0x700 )
+#define ANA_CTL_GLB_BASE		(SPRD_ADISLAVE_BASE + 0x800 )
 
 #ifndef REGS_AHB_BASE
 #define REGS_AHB_BASE                                   ( SPRD_AHB_BASE  + 0x200)
 #endif
 
-/* FIXME: jianjun.he */
 #define SPRD_IRAM_BASE		SPRD_IRAM0_BASE + 0x1000
 #define SPRD_IRAM_PHYS		SPRD_IRAM0_PHYS + 0x1000
 #define SPRD_IRAM_SIZE		SZ_4K
@@ -476,7 +488,7 @@
 
 #ifndef REGS_GLB_BASE
 #define REGS_GLB_BASE                                   ( SPRD_GREG_BASE )
-#define ANA_REGS_GLB_BASE                               ( SPRD_MISC_BASE + 0x8800 )
+#define ANA_REGS_GLB_BASE                               ( ANA_CTL_GLB_BASE )
 #endif
 
 #define CHIP_ID_LOW_REG		(SPRD_AHB_BASE + 0xfc)

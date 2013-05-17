@@ -68,8 +68,8 @@
 /* Analog GPIO/EIC base address */
 
 #if defined(CONFIG_ARCH_SC8830)
-#define ANA_CTL_EIC_BASE	   (SPRD_ADI_BASE + 0x8100)
-#define ANA_CTL_GPIO_BASE      (SPRD_MISC_BASE + 0x8480)
+#define ANA_CTL_EIC_BASE	   (ANA_EIC_BASE)
+#define ANA_CTL_GPIO_BASE      (ANA_GPIO_INT_BASE)
 #else
 #define ANA_CTL_EIC_BASE       (SPRD_MISC_BASE + 0x0100)
 #define ANA_CTL_GPIO_BASE      (SPRD_MISC_BASE + 0x0480)

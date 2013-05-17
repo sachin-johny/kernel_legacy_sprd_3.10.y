@@ -7,7 +7,7 @@
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
 
-#define SCI_BLTC_BASE (SPRD_MISC_BASE + 0x83c0)
+#define SCI_BLTC_BASE (ANA_BTLC_INT_BASE)
 
 #define PRESCALE_OFFSET 0x00
 #define DUTY_OFFSET	0x04
