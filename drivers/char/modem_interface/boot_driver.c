@@ -76,6 +76,8 @@ static int dloader_open(struct inode *inode,struct file *filp)
 	wake_lock(&dloader_wake_lock);
 	if(modem_intf_open(MODEM_MODE_BOOT,0)< 0){
 		printk(KERN_INFO "modem_intf_open failed \n");
+		dl_dev->open_count--;
+		wake_unlock(&dloader_wake_lock);
 		return -EBUSY;
 	}
 	dl_dev->mode = MODEM_MODE_BOOT;
