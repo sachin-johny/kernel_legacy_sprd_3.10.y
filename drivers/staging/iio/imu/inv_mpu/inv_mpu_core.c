@@ -184,6 +184,7 @@ static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
 	u8 data;
 	int result;
 
+	ENTER;
 	reg = &st->reg;
 	if (power_on)
 		data = 0;
@@ -224,6 +225,7 @@ static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
 	}
 	st->chip_config.is_asleep = !power_on;
 
+	PRINT_DBG("set_power_itg success\n");
 	return 0;
 }
 
@@ -2017,15 +2019,15 @@ static int inv_create_dmp_sysfs(struct iio_dev *ind)
 	return result;
 }
 
-struct regulator *vdd_2v8 = NULL;
-struct regulator *vdd_sd3 = NULL;
+struct regulator *vdd28 = NULL;
+struct regulator *vddemmcio = NULL;
 
 static void inv_mpu_power_off(void)
 {
-	if(vdd_2v8 != NULL)
-		regulator_disable(vdd_2v8);
-	if(vdd_sd3 != NULL)
-		regulator_disable(vdd_sd3);
+	if(vdd28 != NULL)
+		regulator_disable(vdd28);
+	if(vddemmcio != NULL)
+		regulator_disable(vddemmcio);
 	PRINT_INFO("power off\n");
 }
 
@@ -2033,25 +2035,29 @@ static void inv_mpu_power_on(void)
 {
 	int err = 0;
 
-	vdd_2v8 = regulator_get(NULL, "vdd28");
-	if (IS_ERR(vdd_2v8)) {
-		PRINT_ERR("regulator_get failed\n");
-		return;
+	if(vdd28 == NULL) {
+		vdd28 = regulator_get(NULL, "vdd28");
+		if (IS_ERR(vdd28)) {
+			PRINT_ERR("regulator_get failed\n");
+			return;
+		}
+		err = regulator_set_voltage(vdd28,2800000,2800000);
+		if (err)
+			PRINT_ERR("regulator_set_voltage failed\n");
 	}
-	err = regulator_set_voltage(vdd_2v8,2800000,2800000);
-	if (err)
-		PRINT_ERR("regulator_set_voltage failed\n");
-	regulator_enable(vdd_2v8);
+	regulator_enable(vdd28);
 
-	vdd_sd3 = regulator_get(NULL, "vddsd3");
-	if (IS_ERR(vdd_sd3)) {
-		PRINT_ERR("regulator_get failed\n");
-		return;
+	if(vddemmcio == NULL) {
+		vddemmcio = regulator_get(NULL, "vddemmcio");
+		if (IS_ERR(vddemmcio)) {
+			PRINT_ERR("regulator_get failed\n");
+			return;
+		}
+		err = regulator_set_voltage(vddemmcio,1800000,1800000);
+		if (err)
+			PRINT_ERR("regulator_set_voltage failed\n");
 	}
-	err = regulator_set_voltage(vdd_sd3,1800000,1800000);
-	if (err)
-		PRINT_ERR("regulator_set_voltage failed\n");
-	regulator_enable(vdd_sd3);
+	regulator_enable(vddemmcio);
 
 	PRINT_INFO("power on\n");
 	msleep(20);
@@ -2071,7 +2077,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	PRINT_INFO("do probe\n");
 
 probe_retry:
-	//inv_mpu_power_on();
+	inv_mpu_power_on();
 	if ((result = gpio_request(client->irq, "mpuirq"))) {
 		PRINT_ERR("gpio_request failed\n");
 		goto out;
@@ -2198,7 +2204,7 @@ out_free_gpio_mpuirq:
 out:
 	dev_err(&client->adapter->dev, "%s failed %d\n", __func__, result);
 
-	//inv_mpu_power_off();
+	inv_mpu_power_off();
 
 	if(probe_retry_count++ < 10) {
 		msleep(50);
@@ -2232,18 +2238,24 @@ static int inv_mpu_remove(struct i2c_client *client)
 
 static int inv_mpu_resume(struct device *dev)
 {
+	int ret = -1;
 	struct inv_mpu_iio_s *st =
 			iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
-
-	return st->set_power_state(st, true);
+	PRINT_INFO("inv_mpu_resume\n");
+	inv_mpu_power_on();
+	ret = st->set_power_state(st, true);
+	return ret;
 }
 
 static int inv_mpu_suspend(struct device *dev)
 {
+	int ret = -1;
 	struct inv_mpu_iio_s *st =
 			iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
-
-	return st->set_power_state(st, false);
+	PRINT_INFO("inv_mpu_suspend\n");
+	ret = st->set_power_state(st, false);
+	inv_mpu_power_off();
+	return ret;
 }
 static const struct dev_pm_ops inv_mpu_pmops = {
 	SET_SYSTEM_SLEEP_PM_OPS(inv_mpu_suspend, inv_mpu_resume)
