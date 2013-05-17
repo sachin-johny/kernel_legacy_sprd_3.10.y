@@ -56,7 +56,7 @@
 #endif
 
 #ifndef	ANA_REG_SET
-#define	ANA_REG_SET(_r, _v, _m)	sci_adi_write(_r, _v, _m)
+#define	ANA_REG_SET(_r, _v, _m)	sci_adi_write((_r), ((_v) & (_m)), (_m))
 #endif
 
 struct sci_regulator_regs {
@@ -538,6 +538,12 @@ static int lpref_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 /* standard dcdc ops*/
 static int dcdc_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 {
+#ifdef CONFIG_ARCH_SC8830
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	if (0 == strcmp(desc->desc.name, "vddmem")) {
+		return 1000 * 200 / 32;	/*uV */
+	}
+#endif
 	return 1000 * 100 / 32;	/*uV */
 }
 
@@ -598,7 +604,8 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	{
 		int shft = __ffs(regs->vol_ctl_bits);
 		int max = regs->vol_ctl_bits >> shft;
-		int j = ((mv - regs->vol_sel[i]) * 32) / (100) % 32;
+		int j = (mv - regs->vol_sel[i]) * 1000 /
+		    desc->ops->get_trimming_step(rdev, mv) % 32;
 
 		if (regs->vol_trm == regs->vol_ctl) {	/* new feature */
 			ANA_REG_SET(regs->vol_ctl, j | (i << shft),
@@ -627,7 +634,7 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 	    (struct sci_regulator_desc *)rdev->desc;
 	const struct sci_regulator_regs *regs = desc->regs;
 	u32 mv;
-	int cal = 0;		/* mV */
+	int cal = 0;		/* uV */
 	int i, shft = __ffs(regs->vol_ctl_bits);
 
 	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x, sel %d\n",
@@ -656,11 +663,12 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 		}
 
 		cal = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits)
-		    * desc->ops->get_trimming_step(rdev, mv) / 1000;
+		    * desc->ops->get_trimming_step(rdev, mv);
 	}
 
-	debug2("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv, cal);
-	return (mv + cal) * 1000;
+	debug2("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv,
+	       cal / 1000);
+	return mv * 1000 + cal;
 }
 
 static int dcdc_init_trimming(struct regulator_dev *rdev)
@@ -806,6 +814,9 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 
 #ifdef CONFIG_ARCH_SC8830
 	if (0 == strcmp(desc->desc.name, "vddcamio")) {
+		chan_denominators = 3;
+	} else if (0 == strcmp(desc->desc.name, "vddwrf")) {
+		chan_numerators = 1;
 		chan_denominators = 3;
 	}
 #endif
