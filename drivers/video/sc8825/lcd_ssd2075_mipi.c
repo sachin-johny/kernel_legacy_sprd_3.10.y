@@ -134,10 +134,12 @@ static int32_t ssd2075_mipi_init(struct panel_spec *self)
 
 	mipi_set_cmd_mode_t mipi_set_cmd_mode = self->info.mipi->ops->mipi_set_cmd_mode;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
+	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
 
 	printk("lcd_ssd2075_init\n");
 
 	mipi_set_cmd_mode();
+	mipi_eotp_set(1,0);
 
 	for(i = 0; i < ARRAY_SIZE(init_data); i++){
 		tag = (init->tag >>24);
@@ -148,6 +150,7 @@ static int32_t ssd2075_mipi_init(struct panel_spec *self)
 		}
 		init++;
 	}
+	mipi_eotp_set(1,1);
 
 	return 0;
 }
@@ -162,10 +165,11 @@ static uint32_t ssd2075_readid(struct panel_spec *self)
 	mipi_set_cmd_mode_t mipi_set_cmd_mode = self->info.mipi->ops->mipi_set_cmd_mode;
 	mipi_force_write_t mipi_force_write = self->info.mipi->ops->mipi_force_write;
 	mipi_force_read_t mipi_force_read = self->info.mipi->ops->mipi_force_read;
+	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
 
 	printk("lcd_ssd2075_mipi read id!\n");
-	return 0x2075;//for debug no lcd
 	mipi_set_cmd_mode();
+	mipi_eotp_set(1,0);
 
 	for(j = 0; j < 4; j++){
 		param[0] = 0x0a;
@@ -180,6 +184,7 @@ static uint32_t ssd2075_readid(struct panel_spec *self)
 			return 0x2075;
 		}
 	}
+	mipi_eotp_set(1,1);
 
 	return 0;
 }
@@ -193,6 +198,7 @@ static int32_t ssd2075_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 
 	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
+	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
 
 	printk(KERN_DEBUG "ssd2075_enter_sleep, is_sleep = %d\n", is_sleep);
 
@@ -203,6 +209,7 @@ static int32_t ssd2075_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 		sleep_in_out = sleep_out;
 		size = ARRAY_SIZE(sleep_out);
 	}
+	mipi_eotp_set(1,0);
 
 	for(i = 0; i <size ; i++){
 		tag = (sleep_in_out->tag >>24);
@@ -213,6 +220,8 @@ static int32_t ssd2075_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 		}
 		sleep_in_out++;
 	}
+	mipi_eotp_set(1,1);
+
 	return 0;
 }
 

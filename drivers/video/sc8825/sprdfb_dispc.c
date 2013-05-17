@@ -26,15 +26,22 @@
 
 #ifdef CONFIG_FB_SC8830
 #define DISPC_SOFT_RST (1)
+#define DISPC_PLL_CLK	("clk_disc0")
+#define DISPC_DBI_CLK	("clk_disc0_dbi")
+#define DISPC_DPI_CLK	("clk_disc0_dpi")
+#define DISPC_DPI_CLOCK (384*1000000/7)
 #else
 #define DISPC_SOFT_RST (20)
+#define DISPC_PLL_CLK	("clk_dispc")
+#define DISPC_DBI_CLK	("clk_dispc_dbi")
+#define DISPC_DPI_CLK	("clk_dispc_dpi")
+#define DISPC_DPI_CLOCK (384*1000000/11)
 #endif
 #define DISPC_CLOCK_PARENT ("clk_256m")
 #define DISPC_CLOCK (256*1000000)
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")
 #define DISPC_DBI_CLOCK (256*1000000)
 #define DISPC_DPI_CLOCK_PARENT ("clk_384m")
-#define DISPC_DPI_CLOCK (384*1000000/11)
 
 #define DISPMTX_CLK_EN (11)
 #define DISPC_CORE_CLK_EN (9)
@@ -409,49 +416,6 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		return 0;
 	}
 #ifdef CONFIG_FB_SC8830
-	__raw_bits_and(~(1<<0), (SPRD_APBCKG_BASE+0x2c));    //pll_src=256M
-	__raw_bits_or((1<<1), (SPRD_APBCKG_BASE+0x2c));
-
-	//set DISPC divdior
-	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x2c));  //div=0
-	__raw_bits_and(~(1<<9), (SPRD_APBCKG_BASE+0x2c));
-	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x2c));
-
-	//select DBI clock source
-	__raw_bits_or((1<<0), (SPRD_APBCKG_BASE+0x30));    //pll_src=256M
-	__raw_bits_or((1<<1), (SPRD_APBCKG_BASE+0x30));
-
-	//set DBI divdior
-	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x30));  //div=0
-	__raw_bits_and(~(1<<9), (SPRD_APBCKG_BASE+0x30));
-	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x30));
-
-	//select DPI clock source
-	__raw_bits_or((1<<0), (SPRD_APBCKG_BASE+0x34));    //pll_src=384M
-	__raw_bits_or((1<<1), (SPRD_APBCKG_BASE+0x34));
-
-#ifdef CONFIG_FB_LCD_SSD2075_MIPI
-	//set DPI divdior
-	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x34));  //div=10, dpi_clk = pll_src/(10+1)
-	__raw_bits_or((1<<9), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_or((1<<10), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<11), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<12), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<13), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<14), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<15), (SPRD_APBCKG_BASE+0x34));
-
-#else
-	//set DPI divdior
-	__raw_bits_and(~(1<<8), (SPRD_APBCKG_BASE+0x34));  //div=10, dpi_clk = pll_src/(10+1)
-	__raw_bits_or((1<<9), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<10), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_or((1<<11), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<12), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<13), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<14), (SPRD_APBCKG_BASE+0x34));
-	__raw_bits_and(~(1<<15), (SPRD_APBCKG_BASE+0x34));
-#endif
 	//enable dispc clock
 	__raw_bits_or((1<<18), SPRD_APBREG_BASE);  //core_clock_en
 
@@ -460,21 +424,11 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	//enable DISPC
 	__raw_bits_or((1<<1), SPRD_AHB_BASE);
 
-//	dev->dpi_clock = SPRDFB_DPI_CLOCK_SRC / 11;
-//	dev->dpi_clock = DISPC_DPI_CLOCK;
-
-	printk("kernel-->early_init--sprdfb:(0x402e0004) = 0x%x\n", __raw_readl((SPRD_AONAPB_BASE+0x4)));
-	printk("kernel-->early_init--sprdfb:0x20d00000 = 0x%x\n", __raw_readl(SPRD_AHB_BASE));
-	printk("kernel-->early_init--(sprdfb:0x71300000 = 0x%x\n", __raw_readl(SPRD_APBREG_BASE));
-	printk("kernel-->early_init--sprdfb:(0x71200034) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x34)));
-	printk("kernel-->early_init--sprdfb:(0x71200030) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x30)));
-	printk("kernel-->early_init--sprdfb:(0x7120002c) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x2c)));
-
 #else
-
 	/*usesd to open dipsc matix clock*/
 	__raw_writel((__raw_readl(REG_AHB_MATRIX_CLOCK)) | (1<<DISPC_CORE_CLK_EN) | (1<<DISPMTX_CLK_EN), 
 			REG_AHB_MATRIX_CLOCK);
+#endif
 
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
 	if (IS_ERR(clk_parent1)) {
@@ -500,7 +454,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		pr_debug(KERN_INFO "sprdfb: get clk_parent3 ok!\n");
 	}
 
-	dispc_ctx.clk_dispc = clk_get(NULL, "clk_dispc");
+	dispc_ctx.clk_dispc = clk_get(NULL, DISPC_PLL_CLK);
 	if (IS_ERR(dispc_ctx.clk_dispc)) {
 		printk(KERN_WARNING "sprdfb: get clk_dispc fail!\n");
 		return 0;
@@ -508,7 +462,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc ok!\n");
 	}
 
-	dispc_ctx.clk_dispc_dbi = clk_get(NULL, "clk_dispc_dbi");
+	dispc_ctx.clk_dispc_dbi = clk_get(NULL, DISPC_DBI_CLK);
 	if (IS_ERR(dispc_ctx.clk_dispc_dbi)) {
 		printk(KERN_WARNING "sprdfb: get clk_dispc_dbi fail!\n");
 		return 0;
@@ -516,7 +470,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
 	}
 
-	dispc_ctx.clk_dispc_dpi = clk_get(NULL, "clk_dispc_dpi");
+	dispc_ctx.clk_dispc_dpi = clk_get(NULL, DISPC_DPI_CLK);
 	if (IS_ERR(dispc_ctx.clk_dispc_dpi)) {
 		printk(KERN_WARNING "sprdfb: get clk_dispc_dpi fail!\n");
 		return 0;
@@ -578,11 +532,21 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
 	}
 
+#ifdef CONFIG_FB_SC8830
+	printk("kernel-->early_init--sprdfb:(0x402e0004) = 0x%x\n", __raw_readl((SPRD_AONAPB_BASE+0x4)));
+	printk("kernel-->early_init--sprdfb:0x20d00000 = 0x%x\n", __raw_readl(SPRD_AHB_BASE));
+	printk("kernel-->early_init--(sprdfb:0x71300000 = 0x%x\n", __raw_readl(SPRD_APBREG_BASE));
+	printk("kernel-->early_init--sprdfb:(0x71200034) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x34)));
+	printk("kernel-->early_init--sprdfb:(0x71200030) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x30)));
+	printk("kernel-->early_init--sprdfb:(0x7120002c) = 0x%x\n", __raw_readl((SPRD_APBCKG_BASE+0x2c)));
+
+#else
 	printk("0x20900200 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x200));
 	printk("0x20900208 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x208));
 	printk("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x220));
 
 #endif
+
 
 	if(!dev->panel_ready){
 		dispc_reset();
@@ -784,9 +748,6 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 		mdelay(50); /*fps>20*/
 
 		dev->enable = 0;
-#ifdef CONFIG_FB_SC8830
-		__raw_bits_and((~(1<<1)), SPRD_AHB_BASE);
-#endif
 		clk_disable(dispc_ctx.clk_dispc);
 		clk_disable(dispc_ctx.clk_dispc_dpi);
 		clk_disable(dispc_ctx.clk_dispc_dbi);
@@ -804,9 +765,6 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		clk_enable(dispc_ctx.clk_dispc);
 		clk_enable(dispc_ctx.clk_dispc_dpi);
 		clk_enable(dispc_ctx.clk_dispc_dbi);
-#ifdef CONFIG_FB_SC8830
-		__raw_bits_or((1<<1), SPRD_AHB_BASE);
-#endif
 		dispc_ctx.vsync_done = 1;
 		if (dispc_read(DISPC_SIZE_XY) == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
