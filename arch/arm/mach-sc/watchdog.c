@@ -21,8 +21,8 @@
 #include <linux/module.h>
 
 #ifdef CONFIG_ARCH_SC8830
-#define WDG_BASE		(SPRD_MISC_BASE + 0x8000 + 0x40)
-#define SPRD_ANA_BASE		(SPRD_MISC_BASE + 0x8800)
+#define WDG_BASE		(ANA_WDG_BASE)
+#define SPRD_ANA_BASE		(ANA_CTL_GLB_BASE)
 #else
 #define WDG_BASE		(SPRD_MISC_BASE + 0x40)
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)

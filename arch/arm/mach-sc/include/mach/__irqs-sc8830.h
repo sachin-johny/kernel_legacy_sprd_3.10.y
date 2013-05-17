@@ -165,14 +165,15 @@
 #define IRQ_ANA_GPIO_INT		SCI_EXT_IRQ(1)
 #define IRQ_ANA_RTC_INT			SCI_EXT_IRQ(2)
 #define IRQ_ANA_WDG_INT			SCI_EXT_IRQ(3)
-#define IRQ_ANA_TPC_INT			SCI_EXT_IRQ(4)
+#define IRQ_ANA_FGU_INT			SCI_EXT_IRQ(4)
 #define IRQ_ANA_EIC_INT			SCI_EXT_IRQ(5)
-#define IRQ_ANA_CHGRWDG_INT		SCI_EXT_IRQ(6)
-#define IRQ_ANA_AUD_INT			SCI_EXT_IRQ(7)
-#define IRQ_ANA_DCDC_OTP_INT			SCI_EXT_IRQ(8)
+#define IRQ_ANA_AUD_HEAD_BUTTON_INT		SCI_EXT_IRQ(6)
+#define IRQ_ANA_AUD_PROTECT_INT			SCI_EXT_IRQ(7)
+#define IRQ_ANA_THM_OTP_INT			SCI_EXT_IRQ(8)
+#define IRQ_ANA_DCD_OTP_INT			SCI_EXT_IRQ(9)
 
 #define IRQ_ANA_INT_START		IRQ_ANA_ADC_INT
-#define NR_ANA_IRQS			(9)
+#define NR_ANA_IRQS			(10)
 
 /* sc8830 gpio&eic pin interrupt number, total is 320, which is bigger than 256 */
 #define GPIO_IRQ_START			SCI_EXT_IRQ(9)
@@ -188,5 +189,5 @@ void __init ana_init_irq(void);
 
 /* redefined some MACROS for module code*/
 #define IRQ_TIMER1_INT			IRQ_AONTMR0_INT
-
+#define IRQ_ANA_AUD_INT			IRQ_ANA_AUD_PROTECT_INT
 #endif

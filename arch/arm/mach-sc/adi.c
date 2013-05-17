@@ -34,7 +34,7 @@
 #include <mach/arch_lock.h>
 
 /* soc defined begin*/
-#define CTL_ADI_BASE			( SPRD_MISC_BASE )
+#define CTL_ADI_BASE			( SPRD_ADI_BASE )
 
 /* registers definitions for controller CTL_ADI */
 #define REG_ADI_CTRL0					(CTL_ADI_BASE + 0x04)
@@ -129,15 +129,23 @@ static inline int __adi_fifo_drain(void)
 	return 0;
 }
 
+#if defined(CONFIG_ARCH_SC8830)
+#define ANA_VIRT_BASE			( SPRD_ADISLAVE_BASE )
+#define ANA_PHYS_BASE			( SPRD_ADISLAVE_PHYS )
+#else
 #define ANA_VIRT_BASE			( SPRD_MISC_BASE )
 #define ANA_PHYS_BASE			( SPRD_MISC_PHYS )
-#if defined(CONFIG_ARCH_SC8830)
-#define ANA_ADDR_SIZE			(SZ_32K + SZ_4K)
-#else
-#define ANA_ADDR_SIZE			(SZ_4K)
 #endif
-#define ADDR_VERIFY(_X_)	do { \
-	BUG_ON((_X_) < ANA_VIRT_BASE || (_X_) > (ANA_VIRT_BASE + ANA_ADDR_SIZE));} while (0)
+
+#define ANA_ADDR_SIZE			(SZ_4K)
+static inline int __adi_addr_check(u32 vaddr)
+{
+	if(vaddr < ANA_VIRT_BASE || vaddr > (ANA_VIRT_BASE + ANA_ADDR_SIZE)) {
+		WARN(1, "Maybe ADI vaddr is wrong?!!");
+		return -1;
+	}
+	return 0;
+}
 
 static inline u32 __adi_translate_addr(u32 regvddr)
 {
@@ -145,7 +153,7 @@ static inline u32 __adi_translate_addr(u32 regvddr)
 	return regvddr;
 }
 
-static inline int __adi_read(u32 regPddr)
+static inline int __adi_read(u32 regPddr, unsigned long *v)
 {
 	unsigned long val;
 	int cnt = 2000;
@@ -168,20 +176,25 @@ static inline int __adi_read(u32 regPddr)
 
 	WARN(cnt == 0, "ADI READ timeout!!!");
 	/* val high part should be the address of the last read operation */
-	BUG_ON(TO_ADDR(val) != (regPddr & readback_addr_mak));
+	if ((!v) || TO_ADDR(val) != (regPddr & readback_addr_mak))
+		return -1;
 
-	return (val & MASK_RD_VALU);
+	*v = val & MASK_RD_VALU;
+	return 0;
 }
 
 int sci_adi_read(u32 reg)
 {
-	unsigned long val;
-	unsigned long flags;
-	ADDR_VERIFY(reg);
-	reg = __adi_translate_addr(reg);
-	__adi_lock(&flags, NULL);
-	val = __adi_read(reg);
-	__adi_unlock(&flags, NULL);
+	if (!__adi_addr_check(reg)) {
+		unsigned long flags, val;
+		int ret = 0;
+		reg = __adi_translate_addr(reg);
+		__adi_lock(&flags, NULL);
+		ret = __adi_read(reg, &val);
+		__adi_unlock(&flags, NULL);
+		if (ret)
+			BUG_ON(1);
+	}
 	return val;
 }
 
@@ -240,11 +253,12 @@ static inline int __adi_write(u32 reg, u16 val, u32 sync)
 
 int sci_adi_write_fast(u32 reg, u16 val, u32 sync)
 {
-	unsigned long flags;
-	ADDR_VERIFY(reg);
-	__adi_lock(&flags, NULL);
-	__adi_write(reg, val, sync);
-	__adi_unlock(&flags, NULL);
+	if (!__adi_addr_check(reg)) {
+		unsigned long flags;
+		__adi_lock(&flags, NULL);
+		__adi_write(reg, val, sync);
+		__adi_unlock(&flags, NULL);
+	}
 	return 0;
 }
 
@@ -252,14 +266,17 @@ EXPORT_SYMBOL(sci_adi_write_fast);
 
 int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
 {
-	unsigned long flags;
-
-	ADDR_VERIFY(reg);
-	__adi_lock(&flags, NULL);
-	__adi_write(reg,
-		    (__adi_read(__adi_translate_addr(reg)) &
-		     ~clear_msk) | or_val, 1);
-	__adi_unlock(&flags, NULL);
+	if (!__adi_addr_check(reg)) {
+		unsigned long flags, val;
+		int ret = 0;
+		__adi_lock(&flags, NULL);
+		ret = __adi_read(__adi_translate_addr(reg), &val);
+		if (!ret)
+			__adi_write(reg, (val & ~clear_msk) | or_val, 1);
+		__adi_unlock(&flags, NULL);
+		if (ret)
+			BUG_ON(1);
+	}
 	return 0;
 }
 
@@ -284,14 +301,15 @@ static void __init __adi_init(void)
 
 		readback_addr_mak = 0x7ff;
 	} else if (__adi_ver() == 1) {
-		if (value) {
+		if (value)
 			WARN_ON(1);
-		}
+
 		value = VALUE_CH_PRI;
 		__raw_writel(value, REG_ADI_CHNL_PRI);
 
 		value = __raw_readl(REG_ADI_GSSI_CFG0);
 		readback_addr_mak = (value & 0x3f) - ((value >> 11) & 0x1f) - 1;
+		readback_addr_mak = (1<<(readback_addr_mak + 2)) - 1;
 	}
 }
 
@@ -300,7 +318,6 @@ int __init sci_adi_init(void)
 #if defined(CONFIG_ARCH_SC8825)
 	/* enable adi in global regs */
 	sci_glb_set(REG_GLB_GEN0, BIT_ADI_EB);
-
 	/* reset adi */
 	sci_glb_set(REG_GLB_SOFT_RST, BIT_ADI_RST);
 	udelay(2);
