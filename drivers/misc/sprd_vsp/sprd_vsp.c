@@ -81,9 +81,13 @@ struct vsp_dev{
 
 	struct semaphore vsp_mutex;
 
-	wait_queue_head_t wait_queue_work;
-	int condition_work;
+	wait_queue_head_t wait_queue_work_vsp;
+	int condition_work_vsp;
 	int vsp_int_status;
+
+	wait_queue_head_t wait_queue_work_jpg;
+	int condition_work_jpg;
+	int jpg_int_status;
 
 	struct clk *vsp_clk;
 	struct clk *vsp_parent_clk;
@@ -277,8 +281,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
 
 		pr_debug("vsp ioctl VSP_ACQUAIRE_MEA_DONE\n");
 		ret = wait_event_interruptible_timeout(
-			vsp_hw_dev.wait_queue_work,
-			vsp_hw_dev.condition_work,
+			vsp_hw_dev.wait_queue_work_jpg,
+			vsp_hw_dev.condition_work_jpg,
 			msecs_to_jiffies(VSP_TIMEOUT_MS));
 		if (ret == -ERESTARTSYS) {
 			printk("KERN_ERR vsp error start -ERESTARTSYS\n");
@@ -298,12 +302,12 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		} 
 		else //catched an init
 		{
-			ret = vsp_hw_dev.vsp_int_status;
+			ret = vsp_hw_dev.jpg_int_status;
 		}
 				
 		printk(KERN_ERR "VSP_ACQUAIRE_MEA_DONE %x\n",ret);
-		vsp_hw_dev.vsp_int_status = 0;
-		vsp_hw_dev.condition_work = 0;
+		vsp_hw_dev.jpg_int_status = 0;
+		vsp_hw_dev.condition_work_jpg = 0;
 		pr_debug("vsp ioctl VSP_ACQUAIRE_MEA_DONE end\n");
 		return ret;
 
@@ -352,7 +356,7 @@ static irqreturn_t vsp_isr(int irq, void *data)
 {
 	int int_status;
 	
-	int_status = vsp_hw_dev.vsp_int_status = __raw_readl(SPRD_VSP_BASE+DCAM_INT_STS_OFF);
+	int_status  = __raw_readl(SPRD_VSP_BASE+DCAM_INT_STS_OFF);
 	//printk(KERN_INFO "VSP_INT_STS %x\n",int_status);
 	if((int_status >> 15) & 0x1) // CMD DONE
 	{
@@ -360,10 +364,17 @@ static irqreturn_t vsp_isr(int irq, void *data)
 
 		disable_vsp(vsp_hw_dev.vsp_fp);
 		release_vsp(vsp_hw_dev.vsp_fp);
+
+		vsp_hw_dev.vsp_int_status = int_status;
+		vsp_hw_dev.condition_work_vsp = 1;
+		wake_up_interruptible(&vsp_hw_dev.wait_queue_work_vsp);
 	}
 	else if((int_status >> 16) & 0x1) // MPEG4 ENC DONE
 	{
 		__raw_writel((1<<16), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+		vsp_hw_dev.vsp_int_status = int_status;
+		vsp_hw_dev.condition_work_vsp = 1;
+		wake_up_interruptible(&vsp_hw_dev.wait_queue_work_vsp);
 	}
 	else if((int_status) & 0x4180) // JPEG ENC 
 	{
@@ -385,10 +396,11 @@ static irqreturn_t vsp_isr(int irq, void *data)
 			ret = 4;			
 		}
 
-		 vsp_hw_dev.vsp_int_status = ret;
+		vsp_hw_dev.jpg_int_status = ret;
+		vsp_hw_dev.condition_work_jpg = 1;
+		wake_up_interruptible(&vsp_hw_dev.wait_queue_work_jpg);
 	}
-	vsp_hw_dev.condition_work = 1;
-	wake_up_interruptible(&vsp_hw_dev.wait_queue_work);
+
 
 
 
@@ -413,7 +425,7 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 static int vsp_open(struct inode *inode, struct file *filp)
 {
 	struct vsp_fh *vsp_fp;
-
+#if 0
 if(vsp_hw_dev.vsp_int_status & 0x8000)
 {
 
@@ -432,7 +444,7 @@ if(vsp_hw_dev.vsp_int_status & 0x8000)
 	printk(KERN_ERR "disable_vsp");
 
 }
-
+#endif
 	vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
 	if (vsp_fp == NULL) {
 		printk(KERN_ERR "vsp open error occured\n");
@@ -497,9 +509,13 @@ static int vsp_probe(struct platform_device *pdev)
      
 	sema_init(&vsp_hw_dev.vsp_mutex, 1);
 
-	init_waitqueue_head(&vsp_hw_dev.wait_queue_work);
+	init_waitqueue_head(&vsp_hw_dev.wait_queue_work_vsp);
 	vsp_hw_dev.vsp_int_status = 0;
-	vsp_hw_dev.condition_work = 0;
+	vsp_hw_dev.condition_work_vsp = 0;
+
+	init_waitqueue_head(&vsp_hw_dev.wait_queue_work_jpg);
+	vsp_hw_dev.jpg_int_status = 0;
+	vsp_hw_dev.condition_work_jpg = 0;
 
 	vsp_hw_dev.freq_div = DEFAULT_FREQ_DIV;
 
