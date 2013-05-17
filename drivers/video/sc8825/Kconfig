@@ -77,4 +77,8 @@ config FB_LCD_OVERLAY_SUPPORT
 	depends on FB_SC8825 || FB_SC8830
 	default n
 
+config FB_VSYNC_SUPPORT
+	boolean "support wait for vsync io"
+	depends on FB_SC8825 || FB_SC8830
+	default n
 endif
