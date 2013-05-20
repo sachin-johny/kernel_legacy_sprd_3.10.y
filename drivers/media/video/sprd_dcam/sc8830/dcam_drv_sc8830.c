@@ -1430,7 +1430,7 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
 		if((DCAM_OUTPUT_WORD != format) && 
-		(DCAM_OUTPUT_WORD != format)){
+		(DCAM_OUTPUT_HALF_WORD != format)){
 			rtn = DCAM_RTN_PATH_OUT_FMT_ERR;
 			path->output_format = DCAM_FTM_MAX;
 		}else{

@@ -408,13 +408,20 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 
 	switch (fourcc) {
 	case V4L2_PIX_FMT_GREY:
+		path->out_fmt = info->is_loose; // 0 - word/packet, 1 - half word
+		break;
+
 	case V4L2_PIX_FMT_JPEG:
 		path->out_fmt = 0; // 0 - word, 1 - half word
 		break;
+
 	default:
 		printk("V4L2: unsupported image format for path0 0x%x \n", fourcc);
 		return -EINVAL;
 	}
+
+	DCAM_TRACE("V4L2: check format for path0: out_fmt=%d, is_loose=%d \n", path->out_fmt, info->is_loose);
+
 	path->is_work = 1;
 
 	return 0;
@@ -1112,6 +1119,7 @@ LOCAL int sprd_v4l2_local_deinit(struct dcam_dev *dev)
 	if (unlikely(NULL == dev || NULL == path)) {
 		return -EINVAL;
 	}
+	path->is_work = 0;
 	path->frm_cnt_act = 0;
 
 	path = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
@@ -1402,8 +1410,20 @@ LOCAL int v4l2_s_crop(struct file *file,
 		input_size = &dev->dcam_cxt.dcam_path[DCAM_PATH2].in_size;
 		input_rect = &dev->dcam_cxt.dcam_path[DCAM_PATH2].in_rect;
 	}else{
+		/* path 0, need to do cap crop */
 		input_size = &dev->dcam_cxt.dcam_path[DCAM_PATH0].in_size;
 		input_rect = &dev->dcam_cxt.dcam_path[DCAM_PATH0].in_rect;
+
+		dev->dcam_cxt.cap_in_rect.x  = (uint32_t)crop->c.left;
+		dev->dcam_cxt.cap_in_rect.y  = (uint32_t)crop->c.top;
+		dev->dcam_cxt.cap_in_rect.w  = (uint32_t)crop->c.width;
+		dev->dcam_cxt.cap_in_rect.h  = (uint32_t)crop->c.height;
+		dev->dcam_cxt.cap_out_size.w = dev->dcam_cxt.cap_in_rect.w;
+		dev->dcam_cxt.cap_out_size.h = dev->dcam_cxt.cap_in_rect.h;
+		DCAM_TRACE("V4L2: v4l2_s_crop, Path 0, cap crop: cap_rect %d %d %d %d, cap_out:%d %d \n",
+			dev->dcam_cxt.cap_in_rect.x, dev->dcam_cxt.cap_in_rect.y,
+			dev->dcam_cxt.cap_in_rect.w, dev->dcam_cxt.cap_in_rect.h,
+			dev->dcam_cxt.cap_out_size.w, dev->dcam_cxt.cap_out_size.h);
 	}
 	input_size->w = dev->dcam_cxt.cap_out_size.w;
 	input_size->h = dev->dcam_cxt.cap_out_size.h;
@@ -1753,8 +1773,9 @@ LOCAL int v4l2_streamon(struct file *file,
 	path_0 = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
-	DCAM_TRACE("V4L2: path_0, path_1, path_2 %d %d %d\n",
-		path_0->is_work, path_1->is_work, path_2->is_work);
+	DCAM_TRACE("V4L2: streamon, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n", 
+		path_0->is_work, path_1->is_work, path_2->is_work, atomic_read(&dev->stream_on));
+
 	/* config CSI2 host firstly */
 	if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
 		ret = csi_api_init();
@@ -1844,8 +1865,8 @@ LOCAL int v4l2_streamoff(struct file *file,
 	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 
-	DCAM_TRACE("V4L2: streamoff, status: path_1 = %d, path_2 = %d, stream_on = %d \n", 
-		path_1->status, path_2->status, atomic_read(&dev->stream_on));
+	DCAM_TRACE("V4L2: streamoff, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n", 
+		path_0->is_work, path_1->is_work, path_2->is_work, atomic_read(&dev->stream_on));
 
 	if (unlikely(0 == atomic_read(&dev->stream_on))) {
 		printk("V4L2: stream not on\n");
