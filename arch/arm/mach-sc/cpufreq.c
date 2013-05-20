@@ -26,6 +26,7 @@
 #include <linux/cpu.h>
 #include <linux/regulator/consumer.h>
 #include <asm/system.h>
+#include <trace/events/power.h>
 
 #include <mach/hardware.h>
 #include <mach/regulator.h>
@@ -219,6 +220,7 @@ static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 			pr_err("cpufreq: Failed to set cpu frequency to %d kHz\n", \
 				freq.new); \
 	} while (0)
+	trace_cpu_frequency(freq.new, freq.cpu);
 
 	if (freq.new > freq.old) {
 		CPUFREQ_SET_VOLTAGE();
