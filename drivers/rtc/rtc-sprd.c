@@ -26,7 +26,12 @@
 #include <linux/clk.h>
 #include <linux/wakelock.h>
 
+#ifdef CONFIG_ARCH_SC8825
+#define RTC_BASE (SPRD_MISC_BASE + 0x80)
+#else
 #define RTC_BASE (SPRD_MISC_BASE + 0x8080)
+#endif
+
 #define ANA_RTC_SEC_CNT                 (RTC_BASE + 0x00)
 #define ANA_RTC_MIN_CNT                 (RTC_BASE + 0x04)
 #define ANA_RTC_HOUR_CNT                (RTC_BASE + 0x08)
