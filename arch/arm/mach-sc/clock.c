@@ -11,12 +11,24 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
+ * Fixes:
+ *		0.2
+ *		ARM: sc: add parent pll clock alias
+ *		and enable mpll fedback divider config
+ *		Change-Id: Ic2e5d78a058d3b017ea17b82e3a920c3efefcf49
+ *		0.1
+ *		shark dcam: update dcam and mm clocks
+ *		Change-Id: Id85d58178aca40fdf13b996853711e92e1171801
+ *
+ * To Fix:
+ *
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/debugfs.h>
 #include <linux/err.h>
+#include <linux/ctype.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/clk.h>
@@ -247,10 +259,12 @@ static int sci_clk_set_rate(struct clk *c, unsigned long rate)
 	rate = clk_round_rate(c, rate);
 	div = clk_get_rate(c->parent) / rate - 1;	//FIXME:
 	div_shift = __ffs(c->regs->div.mask);
-	debug0("clk %p (%s) pll div reg %08x, val %08x mask %08x\n", c,
-	       c->regs->name, c->regs->div.reg, div << div_shift,
-	       c->regs->div.mask);
-	sci_glb_write(c->regs->div.reg, div << div_shift, c->regs->div.mask);
+	debug("clk %p (%s) pll div reg %08x, val %08x mask %08x\n", c,
+	      c->regs->name, c->regs->div.reg, div << div_shift,
+	      c->regs->div.mask);
+	if (c->regs->div.reg)
+		sci_glb_write(c->regs->div.reg, div << div_shift,
+			      c->regs->div.mask);
 
 	c->rate = 0;		/* FIXME: auto update all children after new rate if need */
 	return 0;
@@ -275,15 +289,14 @@ static unsigned long sci_clk_get_rate(struct clk *c)
 	return rate;
 }
 
-#define SHFT_PLL_REFIN                 ( 16 )
-#define MASK_PLL_REFIN                 ( BIT(16)|BIT(17) )
 static unsigned long sci_pll_get_refin_rate(struct clk *c)
 {
-	int i;
-	const unsigned long refin[4] = { 2, 4, 4, 13 };	/* default refin 4M */
-	i = sci_glb_read(c->regs->div.reg, MASK_PLL_REFIN) >> SHFT_PLL_REFIN;
+	const unsigned long refin[4] = { 2000000, 4000000, 13000000, 26000000 };
+	u32 i, msk = BITS_MPLL_REFIN(-1);
+	i = sci_glb_read(c->regs->div.reg, msk) >> __ffs(msk);
 	debug0("pll %p (%s) refin %d\n", c, c->regs->name, i);
-	return refin[i] * 1000000;
+	BUG_ON(i >= ARRAY_SIZE(refin));
+	return refin[i];
 }
 
 static unsigned long sci_pll_get_rate(struct clk *c)
@@ -309,6 +322,29 @@ static unsigned long sci_pll_get_rate(struct clk *c)
 	c->rate = rate;
 	debug0("pll %p (%s) get real rate %lu\n", c, c->regs->name, rate);
 	return rate;
+}
+
+static int sci_pll_set_rate(struct clk *c, unsigned long rate)
+{
+	u32 mn = 1, mn_shift;
+	mn_shift = __ffs(c->regs->div.mask);
+	debug("pll %p (%s) rate %lu, mn reg %08x, shift %u msk %08x\n", c,
+	      c->regs->name, rate, c->regs->div.reg, mn_shift,
+	      c->regs->div.mask);
+
+	if (0 == c->regs->div.reg || c->regs->div.reg < MAX_DIV) {
+/*
+		WARN(1, "warning: clock (%s) not support set\n", c->regs->name);
+ */
+	} else {
+		mn = rate / sci_pll_get_refin_rate(c);
+		sci_glb_write(c->regs->div.reg, mn << mn_shift,
+			      c->regs->div.mask);
+	}
+
+	c->rate = 0;		/* FIXME: auto update all children after new rate if need */
+	debug("pll %p (%s) set rate %lu\n", c, c->regs->name, rate);
+	return 0;
 }
 
 static unsigned long sci_clk_round_rate(struct clk *c, unsigned long rate)
@@ -365,7 +401,7 @@ static struct clk_ops generic_clk_ops = {
 };
 
 static struct clk_ops generic_pll_ops = {
-	.set_rate = 0,		/*FIXME: PLL source is read only */
+	.set_rate = sci_pll_set_rate,
 	.get_rate = sci_pll_get_rate,
 	.round_rate = 0,
 	.set_parent = sci_clk_set_parent,
@@ -446,6 +482,23 @@ static __init int __clk_is_dummy_internal(struct clk *c)
 	return c->regs->name[i - 2] == '_' && c->regs->name[i - 1] == 'i';
 }
 
+static __init int __clk_add_alias(struct clk *c)
+{
+	int i = strlen(c->regs->name);
+	const char *p = &c->regs->name[i - 3];
+	if (isdigit(p[0]) && p[1] == 'm' && isdigit(p[2])) {
+		char alias[16];
+		struct clk_lookup *l;
+		strcpy(alias, c->regs->name);
+		strcat(alias, "00k");
+		l = clkdev_alloc(c, alias, 0);
+		BUG_ON(!l);
+		clkdev_add(l);
+		debug("%s <--- %s\n", c->regs->name, alias);
+	}
+	return 0;
+}
+
 int __init sci_clk_register(struct clk_lookup *cl)
 {
 	struct clk *c = cl->clk;
@@ -475,10 +528,13 @@ int __init sci_clk_register(struct clk_lookup *cl)
 
 	if (c->regs->nr_sources) {	/* FIXME: dummy update clock parent and rate */
 		clk_set_parent(c, c->regs->sources[sci_clk_get_parent(c)]);
+#if defined(CONFIG_DEBUG_FS)
 		clk_set_rate(c, clk_get_rate(c));
+#endif
 	}
 
 	clkdev_add(cl);
+	__clk_add_alias(c);
 
 #if defined(CONFIG_DEBUG_FS)
 	clk_debugfs_register(c);
@@ -511,10 +567,11 @@ void sci_clock_dump_active(void)
 	while (cl < (struct clk_lookup *)&__clkinit_end) {
 		struct clk *c = cl->clk;
 		struct clk *p = clk_get_parent(c);
-		if(c->enable == NULL || sci_clk_is_enable(c))
-			printk("@@@clock[%s] is active, usage %d, rate %lu, parent[%s]\n",
-				 c->regs->name,
-				 c->usage, clk_get_rate(c), p ? p->regs->name : "none");
+		if (c->enable == NULL || sci_clk_is_enable(c))
+			printk
+			    ("@@@clock[%s] is active, usage %d, rate %lu, parent[%s]\n",
+			     c->regs->name, c->usage, clk_get_rate(c),
+			     p ? p->regs->name : "none");
 		cl++;
 	}
 }
@@ -522,7 +579,7 @@ void sci_clock_dump_active(void)
 static int
 __clk_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 {
-#if !defined(CONFIG_ARCH_SC8830)
+#if 0				/*!defined(CONFIG_ARCH_SC8830) */
 	struct cpufreq_freqs *freq = data;
 	printk("%s (%u) dump cpu freq (%u %u %u %u)\n",
 	       __func__, (unsigned int)val,
@@ -591,3 +648,4 @@ late_initcall_sync(sci_clock_dump);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum Clock Driver");
 MODULE_AUTHOR("robot <zhulin.lian@spreadtrum.com>");
+MODULE_VERSION("0.2");

@@ -211,21 +211,13 @@ typedef struct SN_MCLK {
 	char *src_name;
 } SN_MCLK;
 
-#if defined(CONFIG_ARCH_SC8830)
 LOCAL const SN_MCLK sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
 	{96, "clk_96m"},
 	{77, "clk_76m8"},
 	{48, "clk_48m"},
 	{26, "ext_26m"}
 };
-#else
-LOCAL const SN_MCLK sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
-	{96, "clk_96m"},
-	{77, "clk_76m800k"},
-	{48, "clk_48m"},
-	{26, "ext_26m"}
-};
-#endif
+
 LOCAL void* _Sensor_K_kmalloc(size_t size, unsigned flags)
 {
     if(PNULL == s_sensor_mem.buf_ptr) {

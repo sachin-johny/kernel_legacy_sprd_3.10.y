@@ -317,7 +317,7 @@ SCI_CLK_ADD(clk_mm_i, 0, REG_AON_APB_APB_EB0, BIT(25),
 	0, 0, 0, 0,
 	1, &clk_mm_top_i);
 
-SCI_CLK_ADD(clk_mm_ahb, 0, &clk_mm_i, 0,
+SCI_CLK_ADD(clk_mm_ahb, 0, 0, 0,
 	0, 0, REG_MM_CLK_MM_AHB_CFG, BIT(0)|BIT(1),
 	4, &ext_26m, &clk_96m, &clk_128m, &clk_153m6);
 
