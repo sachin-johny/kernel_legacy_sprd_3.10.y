@@ -214,6 +214,7 @@ typedef struct ExDev {
     unsigned	 writes;
     unsigned long long read_bytes;
     unsigned long long written_bytes;
+    char*       wl_name;
     struct wake_lock wake_lock; /* lock to keep android system awake */
 } ExDev;
 
@@ -506,7 +507,6 @@ ex_open (struct inode* inode, struct file* file)
 {
     unsigned int minor   = iminor(inode);
     ExDev*       ex_dev;
-    char         wl_name[10];
 
 	/*
 	 * Check for "legal" minor
@@ -571,8 +571,15 @@ ex_open (struct inode* inode, struct file* file)
 	/*
 	 * init wake_lock for this vbpipe
 	 */
-    sprintf(wl_name, "vbpipe%d", minor);
-    wake_lock_init(&ex_dev->wake_lock, WAKE_LOCK_SUSPEND, wl_name);
+    ex_dev->wl_name = (char*)kmalloc(10, GFP_KERNEL);
+    if (ex_dev->wl_name == NULL) {
+        ex_dev_cleanup(ex_dev);
+        mutex_unlock(&ex_dev->olock);
+        return -ENOMEM;
+    }
+
+    sprintf(ex_dev->wl_name, "vbpipe%d", minor);
+    wake_lock_init(&ex_dev->wake_lock, WAKE_LOCK_SUSPEND, ex_dev->wl_name);
 
 #ifdef TRACE_SYSCONF
     printk(VBPIPE_MSG "ex_open for minor=%u is ok\n", minor);
@@ -631,6 +638,7 @@ ex_release (struct inode* inode, struct file* file)
 	printk(VBPIPE_MSG "ex_release for minor=%u is ok\n", minor);
 #endif
         wake_lock_destroy(&ex_dev->wake_lock);
+        kfree(ex_dev->wl_name);
     }
 
 
