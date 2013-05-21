@@ -1231,10 +1231,10 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 
 	value = usb_get_vbus_state();
 	if (value){
-		pr_debug("usb detect plug in\n");
+		pr_info("usb detect plug in\n");
 		usb_set_vbus_irq_type(irq, VBUS_PLUG_OUT);
 	} else {
-		pr_debug("usb detect plug out\n");
+		pr_info("usb detect plug out\n");
 		usb_set_vbus_irq_type(irq, VBUS_PLUG_IN);
 	}
 

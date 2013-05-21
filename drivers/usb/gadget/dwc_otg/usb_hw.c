@@ -133,11 +133,12 @@ void usb_phy_init(void)
 }
 static void usb_startup(void)
 {
-	usb_enable_module(1);
-	mdelay(10);
-	//usb_ldo_switch(0);
+
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(1)|BIT(2),AHB_CTL3);
 	usb_ldo_switch(1);
+	mdelay(2);
+	usb_enable_module(1);
+	mdelay(10);
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6),AHB_CTL3);
 
 //	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(8)|BIT(14)|BIT(15)|BIT(17),AHB_CTL3);
