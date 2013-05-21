@@ -414,6 +414,13 @@ config SPI_SC8825
 	depends on (ARCH_SC8825)
 	help
 	  SPI driver for Spreadtrum TIGER series ARM SoCs
+
+config SPI_SC8830
+	tristate "SC8830 SPI controller module support"
+	depends on (ARCH_SC8830)
+	help
+	  SPI driver for Spreadtrum Shark series ARM SoCs
+
 #
 # Add new SPI master controllers in alphabetical order above this line
 #
