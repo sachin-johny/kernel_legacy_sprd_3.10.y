@@ -370,8 +370,21 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 	for (i = 0; i < rtd->hw_chan; i++) {
 		if (rtd->uid_cid_map[i] >= 0) {
 			dma_cfg.llist_ptr = next_desc_phys[i];
-			dma_cfg.src_addr = dma_desc[i]->dsrc;
-			dma_cfg.dst_addr = dma_desc[i]->ddst;
+			if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+				dma_cfg.src_addr = dma_desc[i]->dsrc;
+				/* yes, it's right(+8/-8)!
+				   some DMA problem when DMA stoped
+				   and then start it
+				   for DMA was used linklist mode.
+				   sometimes DMA will use previous configure
+				   that still save on DMA internal memory.
+				   so, that need transfter invaild.
+				*/
+				dma_cfg.dst_addr = dma_desc[i]->ddst + 8;
+			} else {
+				dma_cfg.src_addr = dma_desc[i]->dsrc - 8;
+				dma_cfg.dst_addr = dma_desc[i]->ddst;
+			}
 			sprd_dma_channel_config(rtd->uid_cid_map[i],
 						dma->workmode, &dma_cfg);
 		}
