@@ -1081,24 +1081,28 @@ static int native_tdmodem_start(void *arg)
 {
 	u32 state;
 	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x500000};
-	memcpy(0x50001800, cp1data, sizeof(cp1data));      	/* copy cp1 source code */
-	*((volatile u32*)TD_REG_RESET_ADDR) |=  0x00000002;       /* reset cp1 */
+	memcpy(SPRD_IRAM1_BASE + 0x1800, cp1data, sizeof(cp1data));      	/* copy cp1 source code */
+
 	*((volatile u32*)TD_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp1 force shutdown */
+
 	while(1)
 	{
 		state = *((volatile u32*)TD_REG_STATUS_ADDR);
 		if (!(state & (0xf<<16)))
 			break;
 	}
-	*((volatile u32*)TD_REG_CLK_ADDR) &= ~0x10000000;       /* clear cp1 force deep sleep */
-	*((volatile u32*)TD_REG_RESET_ADDR) &= ~0x00000002;      /* clear reset cp0 cp1 */
+
+	*((volatile u32*)TD_REG_CLK_ADDR) |= ~0x10000000;       /* clear cp1 force deep sleep */
+
+	*((volatile u32*)TD_REG_RESET_ADDR) |= ~0x00000002;      /* clear reset cp1 */
 
 	return 0;
 }
 static int native_tdmodem_stop(void *arg)
 {
-	*((volatile u32*)TD_REG_RESET_ADDR) |=  0x00000002;       /* reset cp1 */
-	*((volatile u32*)TD_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp1 force shutdown */
+	*((volatile u32*)TD_REG_RESET_ADDR) |=  0x00000002;    /* reset cp1 */
+	*((volatile u32*)TD_REG_CLK_ADDR) |= 0x10000000;       /* cp1 force deep sleep */
+	*((volatile u32*)TD_REG_CLK_ADDR) |= 0x02000000;       /* cp1 force shutdown */
 	return 0;
 }
 static struct cproc_init_data sprd_cproc_td_pdata = {
@@ -1244,8 +1248,7 @@ static int native_wcdmamodem_start(void *arg)
 {
 	u32 state;
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
-	memcpy(0x50000000, cp0data, sizeof(cp0data));      /* copy cp0 source code */
-	*((volatile u32*)WCDMA_REG_RESET_ADDR) |=  0x00000001;       /* reset cp0 */
+	memcpy(SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));      /* copy cp0 source code */
 	*((volatile u32*)WCDMA_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp0 force shutdown */
 	while(1)
 	{
@@ -1253,16 +1256,19 @@ static int native_wcdmamodem_start(void *arg)
 		if (!(state & (0xf<<28)))
 			break;
 	}
-	*((volatile u32*)WCDMA_REG_CLK_ADDR) &= ~0x10000000;       /* clear cp0 force deep sleep */
-	*((volatile u32*)WCDMA_REG_RESET_ADDR) &= ~0x00000001;       /* clear reset cp0 cp1 */
+
+	*((volatile u32*)WCDMA_REG_CLK_ADDR) |= ~0x10000000;       /* clear cp0 force deep sleep */
+	*((volatile u32*)WCDMA_REG_RESET_ADDR) |= ~0x00000001;       /* clear reset cp0 cp1 */
 	return 0;
 }
 static int native_wcdmamodem_stop(void *arg)
 {
 	*((volatile u32*)WCDMA_REG_RESET_ADDR) |=  0x00000001;       /* reset cp0 */
-	*((volatile u32*)WCDMA_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp0 force shutdown */
+	*((volatile u32*)WCDMA_REG_CLK_ADDR) |= ~0x10000000;       /* cp0 force deep sleep */
+	*((volatile u32*)WCDMA_REG_CLK_ADDR) |= ~0x02000000;       /* clear cp0 force shutdown */
 	return 0;
 }
+
 static struct cproc_init_data sprd_cproc_wcdma_pdata = {
 	.devname	= "cpw",
 	.base		= CPW_START_ADDR,
