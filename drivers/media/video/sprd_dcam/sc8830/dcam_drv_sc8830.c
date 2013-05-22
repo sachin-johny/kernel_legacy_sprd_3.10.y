@@ -1571,6 +1571,9 @@ int32_t dcam_path1_cfg(enum dcam_cfg_id id, void *param)
 			memcpy((void*)&path->input_rect,
 				(void*)rect,
 				sizeof(struct dcam_rect));
+			if (path->input_rect.h >= DCAM_HEIGHT_MIN) {
+				path->input_rect.h--;
+			}
 			path->valid_param.input_rect = 1;
 		}
 		break;
@@ -1776,6 +1779,9 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 			memcpy((void*)&path->input_rect,
 				(void*)rect,
 				sizeof(struct dcam_rect));
+			if (path->input_rect.h >= DCAM_HEIGHT_MIN) {
+				path->input_rect.h--;
+			}
 			path->valid_param.input_rect = 1;
 		}
 		break;
