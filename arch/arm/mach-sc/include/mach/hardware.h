@@ -20,6 +20,8 @@
 #define SCI_ADDR(_b_, _o_)                              ( (u32)(_b_) + (_o_) )
 #endif
 
+#include <asm/sizes.h>
+
 #if defined(CONFIG_ARCH_SC8830)
 #include "__hardware-sc8830.h"
 #elif defined(CONFIG_ARCH_SC8825)
