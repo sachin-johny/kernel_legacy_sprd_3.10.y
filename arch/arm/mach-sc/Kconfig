@@ -117,6 +117,12 @@ config SPRD_DCDC_DEBUG
 	help
 	  This option select dcdc debug module.
 
+config SPRD_SIMCTRL
+	bool "Enable simctrl module"
+	default n
+	help
+	  This option select simctrl module.
+
 config SIPC_TD
 	bool "SIPC instance of TD modem"
 	select SIPC
