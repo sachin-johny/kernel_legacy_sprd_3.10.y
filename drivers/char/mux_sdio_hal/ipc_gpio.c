@@ -210,16 +210,11 @@ u32 sdhci_disconnect(u32  status)
 }
 
 
-extern void modem_intf_channel_indicate_message(int dir,int para,int index);
 u32 sdhci_resetconnect(u32  status)
 {
 	printk("[MIPC]sdhci_resetconnect, status: %d\r\n", status);
 	clear_ap_status();
 	ap2cp_rts_disable();
-	if(status)
-	{
-	     modem_intf_channel_indicate_message(0,0,0);	
-	}
 	return 0;
 }
 
