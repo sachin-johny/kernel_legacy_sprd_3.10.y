@@ -482,6 +482,7 @@ void enable_usb_charge(struct sprd_battery_data *battery_data)
 	sprd_set_sw(battery_data, battery_data->hw_switch_point);
 	sprd_start_charge(battery_data);
 	battery_data->in_precharge = 0;
+	sprd_set_recharge(battery_data);
 }
 
 void enable_ac_charge(struct sprd_battery_data *battery_data)
@@ -496,6 +497,7 @@ void enable_ac_charge(struct sprd_battery_data *battery_data)
 	sprd_set_sw(battery_data, battery_data->hw_switch_point);
 	sprd_start_charge(battery_data);
 	battery_data->in_precharge = 0;
+	sprd_set_recharge(battery_data);
 }
 
 void charge_stop(struct sprd_battery_data *battery_data)
@@ -677,7 +679,6 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 			}
 		}
 
-		sprd_set_recharge(battery_data);
 		now_jiffies = get_jiffies_64();
 		if ((now_jiffies - battery_data->charge_start_jiffies) >
 		    CHARGE_OVER_TIME * HZ) {
