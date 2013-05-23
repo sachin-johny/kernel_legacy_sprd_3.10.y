@@ -164,11 +164,16 @@ static struct important_tasks tasks[] = {
 	{"surfaceflinger",14},
 	{"mediaserver",11},
 	{"system_server",13},
+	{"kworker",7},
 	{"ActivityManager",15},
 	{"PowerManager",12},
 	{"WindowManager",13},
 	{"AudioService",12},
 	{"adbd",4},
+	{"mmcqd",5},
+	{"jbd2",4},
+	{"kswapd",6},
+	{"vaudio",6},
 };
 #endif
 
@@ -226,6 +231,7 @@ static int check_key_down(struct sci_keypad_t *sci_kpd, int key_status, int key_
 		if((key == key_value)&&(KPD_INT0_DOWN(key_status)))
 			return 1;
 	}
+
 	if((key_status & 0xff00) != 0) {
 		col = KPD_INT1_COL(key_status);
 		row = KPD_INT1_ROW(key_status);
@@ -333,11 +339,12 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 		static unsigned long key_panic_check_times = 0;
 		struct task_struct *g, *p;
 		int i;
-
-		if (check_key_down(sci_kpd, key_status, SPRD_CAMERA_KEY) &&
-			check_key_down(sci_kpd, key_status, SPRD_VOL_DOWN_KEY) && key_status != key_status_prev) {
+		if (((check_key_down(sci_kpd, key_status, SPRD_VOL_UP_KEY) &&
+		      check_key_down(sci_kpd, key_status, SPRD_VOL_DOWN_KEY)) ||
+		     (check_key_down(sci_kpd, key_status, SPRD_CAMERA_KEY) &&
+		      check_key_down(sci_kpd, key_status, SPRD_VOL_DOWN_KEY))) && key_status != key_status_prev) {
 			if(!key_panic_check_times){
-				printk("!!!! Combine key: vol_down + camera !!!! first dump important task\n");
+				printk("!!!! Combine key: vol_down + vol_up !!!! first dump important task\n");
 				printk("current\n");
 				printk("PID %d is %s\n",task_pid_nr(current),current->comm);
 				show_stack(current,NULL);
@@ -350,7 +357,7 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 					}
 				} while_each_thread(g, p);
 			}  else {
-				panic("!!!! Combine key: vol_down + camera !!!! secoend panic\n");
+				panic("!!!! Combine key: vol_down + vol_up !!!! second panic\n");
 			}
 			key_panic_check_times++;
 		}
