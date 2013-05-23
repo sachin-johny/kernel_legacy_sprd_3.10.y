@@ -41,6 +41,7 @@
 #include <mach/i2c-sc8810.h>
 #elif defined (CONFIG_ARCH_SC8830)
 #include <mach/i2c-sprd.h>
+#include <mach/adi.h>
 #endif
 
 #include "sensor_drv_k.h"
@@ -1087,6 +1088,34 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 	return ret;
 }
 
+#if defined (CONFIG_ARCH_SC8830)
+LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
+{
+	switch (flash_mode) {
+	case 1:		/*flash on */
+	case 2:		/*for torch */
+		/*low light */
+		sci_adi_set(SPRD_ADISLAVE_BASE+0x890, BIT_15 | 0x3); // 0x3 = 110ma
+		break;
+	case 0x11:
+		/*high light */
+		sci_adi_set(SPRD_ADISLAVE_BASE+0x890, BIT_15 | 0xf); // 0xf = 470ma
+		break;
+	case 0x10:		/*close flash */
+	case 0x0:
+		/*close the light */
+		sci_adi_clr(SPRD_ADISLAVE_BASE+0x890, BIT_15);
+		break;
+	default:
+		SENSOR_PRINT_HIGH("_Sensor_K_SetFlash unknow mode:flash_mode=%x \n", flash_mode);
+		break;
+	}
+
+	SENSOR_PRINT("_Sensor_K_SetFlash: flash_mode=%d  \n", flash_mode);
+
+	return SENSOR_K_SUCCESS;
+}
+#else
 LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 {
 	switch (flash_mode) {
@@ -1129,6 +1158,7 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	
 	return SENSOR_K_SUCCESS;
 }
+#endif
 int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size);
 
 LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
