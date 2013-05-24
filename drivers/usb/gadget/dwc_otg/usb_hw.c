@@ -254,7 +254,7 @@ int usb_alloc_id_irq(void)
 	gpio_request(USB_OTG_CABLE_DETECT,"USB OTG CABLE");
 	gpio_direction_input(USB_OTG_CABLE_DETECT);
 	irq = gpio_to_irq(USB_OTG_CABLE_DETECT);
-	//set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
 
 	return irq;
 }
@@ -274,9 +274,13 @@ int usb_get_id_irq(void)
 }
 int usb_get_id_state(void)
 {
+#if 1
+	return 1;
+#else
 	int value;
 	value = gpio_get_value(USB_OTG_CABLE_DETECT);
 	return !!value;
+#endif
 }
 
 void usb_set_id_irq_type(int irq, int irq_type)
