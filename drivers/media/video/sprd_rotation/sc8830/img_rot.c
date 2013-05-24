@@ -29,19 +29,12 @@
 #include "img_rot.h"
 #include <linux/delay.h>
 
-#define RTT_PRINT pr_debug
-//#define RTT_PRINT printk
-//#define ROTATION_DEBUG 0
+/*#define ROTATION_DEBUG 0*/
 
 #define ROT_TIMEOUT 100/*ms*/
 #define ROTATION_MINOR MISC_DYNAMIC_MINOR
 #define ROT_USER_MAX 4
 #define INVALID_USER_ID PID_MAX_DEFAULT
-
-struct rot_context {
-	atomic_t start_flag;
-	struct timer_list rot_timer;
-};
 
 struct rot_user {
 	pid_t pid;
@@ -54,8 +47,6 @@ struct rot_user {
 static wait_queue_head_t wait_queue;
 static struct semaphore g_sem_dev_open;
 static struct semaphore g_sem_rot;
-static struct rot_context rot_conext;
-static struct rot_context *rot_cnt = &rot_conext;
 static struct rot_user *g_rot_user = NULL;
 static atomic_t rot_users = ATOMIC_INIT(0);
 static int rot_condition;
@@ -86,60 +77,30 @@ static struct rot_user *rot_get_user(pid_t user_pid)
 	return ret_user;
 }
 
-static int rot_start_timer(struct timer_list *rot_timer, uint32_t time_val)
-{
-	int ret;
-	ret = mod_timer(rot_timer, jiffies + msecs_to_jiffies(time_val));
-	if (ret)
-		printk("rot:Error in mod_timer\n");
-	return 0;
-}
-
-static void rot_stop_timer(struct timer_list *rot_timer)
-{
-	del_timer_sync(rot_timer);
-}
-
-static void rot_timer_callback(unsigned long data)
-{
-	struct rot_user *p_user = NULL;
-
-	if (1 == atomic_read(&rot_cnt->start_flag)) {
-		printk("rot timeout.\n");
-		atomic_set(&rot_cnt->start_flag, 0);
-		p_user = rot_get_user(cur_task_pid);
-		up(&p_user->sem_done);
-
-	}
-}
-
-static int rot_init_timer(struct timer_list *rot_timer)
-{
-	RTT_PRINT("Timer module installing\n");
-	setup_timer(rot_timer, rot_timer_callback, 0);
-	RTT_PRINT("Timer module installing e\n");
-	return 0;
-}
-
 static void rot_k_irq(void)
 {
-	RTT_PRINT("%s, come\n", __func__ );
+	ROTATE_TRACE("%s, come\n", __func__ );
 	rot_condition = 1;
 	wake_up(&wait_queue);
-	RTT_PRINT("rotation_dma_irq X .\n");
+	ROTATE_TRACE("rotation_dma_irq X .\n");
 }
 
-static int rot_k_condition_init(void)
+static void rot_k_condition_init(void)
 {
 	rot_condition = 0;
-	return 0;
 }
 
-static void rot_k_wait_stop(void)
+static int rot_k_wait_stop(void)
 {
-	RTT_PRINT("rotation_dma_wait_stop E .\n");
-	wait_event(wait_queue, rot_condition);
-	RTT_PRINT("ok to rotation_dma_wait_stop.\n");
+	int ret = 0;
+	ROTATE_TRACE("rotation_dma_wait_stop E .\n");
+	ret = wait_event_timeout(wait_queue, rot_condition,msecs_to_jiffies(ROT_TIMEOUT));
+	ROTATE_TRACE("ok to rotation_dma_wait_stop.\n");
+	if (ret) {
+		return 0;
+	} else {
+		return -1;
+	}
 }
 
 static int rot_k_start(void)
@@ -147,28 +108,33 @@ static int rot_k_start(void)
 	int ret = 0;
 	struct rot_user *p_user = NULL;
 
-	atomic_set(&rot_cnt->start_flag, 1);
-	rot_start_timer(&rot_cnt->rot_timer,ROT_TIMEOUT);
-
 	rot_k_condition_init();
 	rot_k_done();
-	rot_k_wait_stop();
 
 	if (0 == rot_k_is_end()) {
-		RTT_PRINT("rot_k_start y done, uv start. \n");
+		ret = rot_k_wait_stop();
+		if (ret) {
+			printk("rot_k_thread y wait error \n");
+			goto rot_exit;
+		}
+
+		ROTATE_TRACE("rot_k_start y done, uv start. \n");
 		rot_k_condition_init();
 		rot_k_set_UV_param();
 		rot_k_done();
-		rot_k_wait_stop();
+	}
+	ret = rot_k_wait_stop();
+	if (ret) {
+		printk("rot_k_thread  wait error \n");
+		goto rot_exit;
 	}
 
-	rot_k_disable();
-	atomic_set(&rot_cnt->start_flag, 0);
-	rot_stop_timer(&rot_cnt->rot_timer);
+rot_exit:
+	rot_k_close();
 	p_user = rot_get_user(cur_task_pid);
 	up(&p_user->sem_done);
 
-	RTT_PRINT("rot_k_thread  done \n");
+	ROTATE_TRACE("rot_k_thread  done \n");
 
 	return ret;
 }
@@ -232,7 +198,7 @@ static int rot_k_release(struct inode *node, struct file *file)
 	((struct rot_user *)(file->private_data))->pid = INVALID_USER_ID;
 
 	if (0 == atomic_dec_return(&rot_users)) {
-		rot_k_isr_unreg();
+		rot_k_isr_reg(NULL);
 		rot_k_module_dis();
 	}
 
@@ -241,7 +207,7 @@ static int rot_k_release(struct inode *node, struct file *file)
 
 static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	RTT_PRINT("rot_k_ioctl, 0x%x \n", cmd);
+	ROTATE_TRACE("rot_k_ioctl, 0x%x \n", cmd);
 
 	switch (cmd) {
 	case ROT_IO_CFG:
@@ -263,7 +229,7 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				up(&g_sem_rot);
 			}
 
-			RTT_PRINT("rot_k_ioctl, ROT_IO_CFG, %d \n", ret);
+			ROTATE_TRACE("rot_k_ioctl, ROT_IO_CFG, %d \n", ret);
 			return ret;
 		}
 
@@ -276,7 +242,7 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				up(&g_sem_rot);
 			}
 
-			RTT_PRINT("rot_k_ioctl, ROT_IO_START, %d \n", ret);
+			ROTATE_TRACE("rot_k_ioctl, ROT_IO_START, %d \n", ret);
 			return ret;
 		}
 
@@ -292,6 +258,8 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 				if(((struct rot_user *)(file->private_data))->is_rot_enable) {
 					((struct rot_user *)(file->private_data))->is_rot_enable = 0;
+					if (!rot_condition)
+						ret = -1;
 					up(&g_sem_rot);
 				}
 
@@ -325,10 +293,10 @@ ROT_ANGLE_E rot_angle_test = ROT_90;
 ROT_DATA_FORMAT_E data_format_test = ROT_YUV422;
 void rot_k_irq_test(void)
 {
-	RTT_PRINT("%s, come\n", __func__ );
+	ROTATE_TRACE("%s, come\n", __func__ );
 	rot_condition = 1;
 	wake_up(&wait_queue);
-	RTT_PRINT("rotation_dma_irq X .\n");
+	ROTATE_TRACE("rotation_dma_irq X .\n");
 }
 
 int rot_k_condition_init_test(void)
@@ -339,9 +307,9 @@ int rot_k_condition_init_test(void)
 
 void rot_k_wait_stop_test(void)
 {
-	RTT_PRINT("rotation_dma_wait_stop E .\n");
+	ROTATE_TRACE("rotation_dma_wait_stop E .\n");
 	wait_event(wait_queue, rot_condition);
-	RTT_PRINT("ok to rotation_dma_wait_stop.\n");
+	ROTATE_TRACE("ok to rotation_dma_wait_stop.\n");
 }
 
 int rot_k_open_test(void)
@@ -428,13 +396,13 @@ while(1) {
 
 	rot_k_ioctl_test();
 
-	RTT_PRINT("rot_k_thread y start \n");
+	ROTATE_TRACE("rot_k_thread y start \n");
 	rot_k_condition_init_test();
 	rot_k_done();
 	rot_k_wait_stop_test();
 
 	if (0 == rot_k_is_end()) {
-		RTT_PRINT("rot_k_thread y done, uv start \n");
+		ROTATE_TRACE("rot_k_thread y done, uv start \n");
 		rot_k_condition_init_test();
 		rot_k_set_UV_param();
 		rot_k_done();
@@ -443,7 +411,7 @@ while(1) {
 
 	rot_k_disable();
 
-	RTT_PRINT("rot_k_thread  done \n");
+	ROTATE_TRACE("rot_k_thread  done \n");
 
 	rot_k_release_test();
 	}
@@ -473,7 +441,6 @@ int rot_k_probe(struct platform_device *pdev)
 	sema_init(&g_sem_rot, 1);
 	sema_init(&g_sem_dev_open, 1);
 	init_waitqueue_head(&wait_queue);
-	rot_init_timer(&rot_cnt->rot_timer);
 	p_user = g_rot_user;
 	for (i = 0; i < ROT_USER_MAX; i++) {
 		p_user->pid = INVALID_USER_ID;

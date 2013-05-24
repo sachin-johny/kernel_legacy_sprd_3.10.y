@@ -24,11 +24,10 @@
 #define PARAM_SIZE 128
 #define SCALE_USER_MAX 4
 #define INVALID_USER_ID PID_MAX_DEFAULT
+#define SCALE_TIMEOUT 100/*ms*/
 
 struct scale_user {
 	pid_t pid;
-	uint32_t scale_total_slice_height;
-	uint32_t scale_dst_height;
 	struct semaphore sem_done;
 };
 
@@ -74,12 +73,6 @@ static void scale_done(struct scale_frame* frame, void* u_data)
 	memcpy(&frm_rtn, frame, sizeof(struct scale_frame));
 	frm_rtn.type = 0;
 	up(&p_user->sem_done);
-	p_user->scale_total_slice_height += frm_rtn.height;
-	if (p_user->scale_total_slice_height >= p_user->scale_dst_height) {
-		p_user->scale_total_slice_height = 0;
-		cur_task_pid = INVALID_USER_ID;
-		mutex_unlock(&scale_param_cfg_mutex);
-	}
 }
 
 static int img_scale_open(struct inode *node, struct file *pf)
@@ -138,9 +131,6 @@ ssize_t img_scale_write(struct file *file, const char __user * u_data, size_t cn
 	printk("scale write %d, \n", cnt);
 	frm_rtn.type = 0xFF;
 	up(&(((struct scale_user *)(file->private_data))->sem_done));
-	((struct scale_user *)(file->private_data))->scale_total_slice_height = 0;
-	cur_task_pid = INVALID_USER_ID;
-	mutex_unlock(&scale_param_cfg_mutex);
 
 	return 1;
 }
@@ -197,7 +187,7 @@ static long img_scale_ioctl(struct file *file,
 		}
 	}
 	if (SCALE_IO_IS_DONE == cmd) {
-		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
+		ret = down_timeout(&(((struct scale_user *)(file->private_data))->sem_done), msecs_to_jiffies(SCALE_TIMEOUT));
 		if (ret) {
 			printk("img_scale_ioctl, failed to down, 0x%x \n", ret);
 			ret = -ERESTARTSYS;
@@ -218,14 +208,16 @@ static long img_scale_ioctl(struct file *file,
 		if (cur_task_pid == INVALID_USER_ID) {
 			mutex_lock(&scale_param_cfg_mutex);
 			cur_task_pid = ((struct scale_user *)(file->private_data))->pid;
-		}else if (cur_task_pid != ((struct scale_user *)(file->private_data))->pid) {
+		} else if (cur_task_pid != ((struct scale_user *)(file->private_data))->pid) {
 			mutex_lock(&scale_param_cfg_mutex);
 		}
 
-		if (SCALE_IO_OUTPUT_SIZE == cmd)
-			((struct scale_user *)(file->private_data))->scale_dst_height = ((struct scale_size*)data)->h;
-
 		ret = scale_cfg(_IOC_NR(cmd), data);
+
+		if (SCALE_IO_STOP == cmd) {
+			cur_task_pid = INVALID_USER_ID;
+			mutex_unlock(&scale_param_cfg_mutex);
+		}
 	}
 
 exit:
@@ -536,8 +528,6 @@ int img_scale_probe(struct platform_device *pdev)
 	p_user = g_scale_user;
 	for (i = 0; i < SCALE_USER_MAX; i++) {
 		p_user->pid = INVALID_USER_ID;
-		p_user->scale_total_slice_height = 0;
-		p_user->scale_dst_height = 0;
 		sema_init(&p_user->sem_done, 0);
 		p_user++;
 	}

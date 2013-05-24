@@ -19,9 +19,7 @@
 #include "sc8830_reg_rot.h"
 #include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
 
-#define RTT_PRINT pr_debug
-//#define RTT_PRINT printk
-//#define ROTATION_DEBUG 0
+/*#define ROTATION_DEBUG 0*/
 #define ALGIN_FOUR 0x03
 
 #define REG_RD(a) __raw_readl(a)
@@ -145,15 +143,19 @@ static void rot_k_interrupt_dis(void)
 	REG_AWR(REG_ROTATION_INT_MASK, (~ROT_IRQ_BIT));
 }
 
-void rot_k_enable(void)
+static void rot_k_enable(void)
 {
 	REG_OWR(REG_ROTATION_PATH_CFG, ROT_EB_BIT);
-	REG_OWR(REG_ROTATION_CTRL, ROT_START_BIT);
 }
 
-void rot_k_disable(void)
+static void rot_k_disable(void)
 {
 	REG_AWR(REG_ROTATION_PATH_CFG, (~ROT_EB_BIT));
+}
+
+static void rot_k_start(void)
+{
+	REG_OWR(REG_ROTATION_CTRL, ROT_START_BIT);
 }
 
 static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
@@ -165,7 +167,7 @@ static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
 	status = REG_RD(REG_ROTATION_INT_STS);
 
 	if (unlikely(0 == (status & ROT_IRQ_BIT))) {
-		return IRQ_HANDLED;
+		return IRQ_NONE;
 	}
 
 	spin_lock_irqsave(&rot_lock, flag);
@@ -189,26 +191,21 @@ int rot_k_isr_reg(rot_isr_func user_func)
 	spin_lock_irqsave(&rot_lock, flag);
 	user_rot_isr_func = user_func;
 	spin_unlock_irqrestore(&rot_lock, flag);
-
-	rtn = request_irq(ROT_IRQ,
-			rot_k_isr_root,
-			IRQF_SHARED,
-			"ROTATE",
-			&g_rot_irq);
-	if (rtn) {
-		printk("request_irq error %d \n", rtn);
-		rtn = -1;
-	}else
-		rot_k_interrupt_en();
+	if (user_func) {
+		rtn = request_irq(ROT_IRQ,
+				rot_k_isr_root,
+				IRQF_SHARED,
+				"ROTATE",
+				&g_rot_irq);
+		if (rtn) {
+			printk("request_irq error %d \n", rtn);
+			rtn = -1;
+		}
+	} else {
+		free_irq(ROT_IRQ, &g_rot_irq);
+	}
 
 	return rtn;
-}
-
-void rot_k_isr_unreg(void)
-{
-	rot_k_disable();
-	rot_k_interrupt_dis();
-	free_irq(ROT_IRQ, &g_rot_irq);
 }
 
 int rot_k_is_end(void)
@@ -310,13 +307,22 @@ void rot_k_done(void)
 	rot_k_set_dir(s->angle);
 	rot_k_set_endian(s->src_endian, s->dst_endian);
 	rot_k_enable();
-	RTT_PRINT("ok to rotation_done.\n");
+	rot_k_interrupt_dis();
+	rot_k_interrupt_en();
+	rot_k_start();
+	ROTATE_TRACE("ok to rotation_done.\n");
+}
+
+void rot_k_close(void)
+{
+	rot_k_disable();
+	rot_k_interrupt_dis();
 }
 
 static int rot_k_check_param(ROT_CFG_T * param_ptr)
 {
 	if (NULL == param_ptr) {
-		RTT_PRINT("Rotation: the param ptr is null.\n");
+		ROTATE_TRACE("Rotation: the param ptr is null.\n");
 		return -1;
 	}
 
@@ -326,28 +332,28 @@ static int rot_k_check_param(ROT_CFG_T * param_ptr)
 	|| (param_ptr->dst_addr.y_addr & ALGIN_FOUR)
 	|| (param_ptr->dst_addr.u_addr & ALGIN_FOUR)
 	|| (param_ptr->dst_addr.v_addr & ALGIN_FOUR)) {
-		RTT_PRINT("Rotation: the addr not algin.\n");
+		ROTATE_TRACE("Rotation: the addr not algin.\n");
 		return -1;
 	}
 
 	if (!(ROT_YUV422 == param_ptr->format || ROT_YUV420 == param_ptr->format
 		||ROT_RGB565 == param_ptr->format)) {
-		RTT_PRINT("Rotation: data for err : %d.\n", param_ptr->format);
+		ROTATE_TRACE("Rotation: data for err : %d.\n", param_ptr->format);
 		return -1;
 	}
 
 	if (ROT_MIRROR < param_ptr->angle) {
-		RTT_PRINT("Rotation: data angle err : %d.\n", param_ptr->angle);
+		ROTATE_TRACE("Rotation: data angle err : %d.\n", param_ptr->angle);
 		return -1;
 	}
-
+#if 0
 	if (ROT_ENDIAN_MAX <= param_ptr->src_endian ||
 		ROT_ENDIAN_MAX <= param_ptr->dst_endian ) {
-		RTT_PRINT("Rotation: endian err : %d %d.\n", param_ptr->src_endian,
+		ROTATE_TRACE("Rotation: endian err : %d %d.\n", param_ptr->src_endian,
 			param_ptr->dst_endian);
 		return -1;
 	}
-
+#endif
 	return 0;
 }
 
@@ -356,11 +362,11 @@ int rot_k_io_cfg(ROT_CFG_T * param_ptr)
 	int ret = 0;
 	ROT_CFG_T *p = param_ptr;
 
-	RTT_PRINT("rot_k_io_cfg start \n");
-	RTT_PRINT("w=%d, h=%d \n", p->img_size.w, p->img_size.h);
-	RTT_PRINT("format=%d, angle=%d \n", p->format, p->angle);
-	RTT_PRINT("s.y=%x, s.u=%x, s.v=%x \n", p->src_addr.y_addr, p->src_addr.u_addr, p->src_addr.v_addr);
-	RTT_PRINT("d.y=%x, d.u=%x, d.v=%x \n", p->dst_addr.y_addr, p->dst_addr.u_addr, p->dst_addr.v_addr);
+	ROTATE_TRACE("rot_k_io_cfg start \n");
+	ROTATE_TRACE("w=%d, h=%d \n", p->img_size.w, p->img_size.h);
+	ROTATE_TRACE("format=%d, angle=%d \n", p->format, p->angle);
+	ROTATE_TRACE("s.y=%x, s.u=%x, s.v=%x \n", p->src_addr.y_addr, p->src_addr.u_addr, p->src_addr.v_addr);
+	ROTATE_TRACE("d.y=%x, d.u=%x, d.v=%x \n", p->dst_addr.y_addr, p->dst_addr.u_addr, p->dst_addr.v_addr);
 
 	ret = rot_k_check_param(param_ptr);
 

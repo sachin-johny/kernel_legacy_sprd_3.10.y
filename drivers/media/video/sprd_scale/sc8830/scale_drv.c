@@ -141,7 +141,6 @@ int32_t scale_module_dis(void)
 int32_t scale_start(void)
 {
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-	int ret = 0;
 
 	SCALE_TRACE("SCALE DRV: scale_start: %d \n", g_path->scale_mode);
 
@@ -149,12 +148,12 @@ int32_t scale_start(void)
 	if (SCALE_MODE_NORMAL == g_path->scale_mode) {
 		if (g_path->output_size.w > SCALE_FRAME_WIDTH_MAX) {
 			rtn = SCALE_RTN_SC_ERR;
-			SCALE_RTN_IF_ERR;
+			goto exit;
 		}
 	} else {
 		if (g_path->output_size.w > SCALE_LINE_BUF_LENGTH) {
 			rtn = SCALE_RTN_SC_ERR;
-			SCALE_RTN_IF_ERR;
+			goto exit;
 		}
 	}
 
@@ -166,16 +165,6 @@ int32_t scale_start(void)
 
 	rtn = _scale_cfg_scaler();
 	if(rtn) goto exit;
-
-	ret = request_irq(SCALE_IRQ,
-			_scale_isr_root,
-			IRQF_SHARED,
-			"SCALE",
-			&g_scale_irq);
-	if (ret) {
-		printk("SCALE DRV: scale_start,error %d \n", ret);
-		rtn = SCALE_RTN_MAX;
-	}
 
 	if (SCALE_MODE_NORMAL != g_path->scale_mode) {
 		g_path->slice_in_height += g_path->slice_height;
@@ -238,8 +227,7 @@ int32_t scale_stop(void)
 
 	REG_MWR(SCALE_BASE, SCALE_PATH_EB_BIT, 0);
 	REG_MWR(SCALE_INT_MASK, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT), 0);
-	REG_MWR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT), 0);
-	free_irq(SCALE_IRQ, &g_scale_irq);
+	REG_OWR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
 
 	SCALE_TRACE("SCALE DRV: stop is OK.\n");
 	return rtn;
@@ -249,6 +237,7 @@ int32_t scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_da
 {
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
 	uint32_t flag;
+	int ret = 0;
 
 	if(id >= SCALE_IRQ_NUMBER) {
 		rtn = SCALE_RTN_ISR_ID_ERR;
@@ -257,6 +246,19 @@ int32_t scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_da
 		g_path->user_func = user_func;
 		g_path->user_data = u_data;
 		spin_unlock_irqrestore(&scale_lock, flag);
+		if (user_func) {
+			ret = request_irq(SCALE_IRQ,
+					_scale_isr_root,
+					IRQF_SHARED,
+					"SCALE",
+					&g_scale_irq);
+			if (ret) {
+				printk("SCALE DRV: scale_reg_isr,error %d \n", ret);
+				rtn = SCALE_RTN_MAX;
+			}
+		} else {
+			free_irq(SCALE_IRQ, &g_scale_irq);
+		}
 	}
 
 	return rtn;
