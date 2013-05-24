@@ -50,7 +50,7 @@ SCI_CLK_ADD(clk_37m5, 0, REG_PMU_APB_PLL_DIV_EN1, BIT(1),
 	24, 0, 0, 0,
 	1, &clk_mpll);
 
-SCI_CLK_ADD(clk_533m, 533000000, 0, 0,
+SCI_CLK_ADD(clk_533m, 0, 0, 0,
 	0, 0, 0, 0,
 	1, &clk_dpll);
 

@@ -121,6 +121,7 @@ enum {
 	VDD_TYP_LDO_D = 1,
 	VDD_TYP_DCDC = 2,
 	VDD_TYP_LPREF = 3,
+	VDD_TYP_BOOST = 4,
 };
 
 #define REGU_VERIFY_DLY	(1000)	/*ms */
@@ -184,7 +185,8 @@ static int ldo_turn_on(struct regulator_dev *rdev)
 
 	debug2("regu %p (%s), turn on\n", regs, desc->desc.name);
 	/* ldo trimming when first turn on */
-	if (regs->vol_trm && !desc->ops->is_trimming(rdev)) {
+	if (regs->cal_ctl && regs->vol_trm && desc->ops
+	    && !desc->ops->is_trimming(rdev)) {
 		__regu_calibrate(rdev, 0, 0);
 	}
 	return 0;
@@ -225,10 +227,17 @@ static int ldo_is_on(struct regulator_dev *rdev)
 			ret = -EINVAL;
 	} else if (regs->pd_set) {	/* new feature */
 		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
+	} else if (regs->pd_rst) {
+		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
 	}
 
 	debug2("regu %p (%s) return %d\n", regs, desc->desc.name, ret);
 	return ret;
+}
+
+static int ldo_enable_time(struct regulator_dev *rdev)
+{
+	return 1000 * 1;	/*Microseconds */
 }
 
 static int ldo_set_mode(struct regulator_dev *rdev, unsigned int mode)
@@ -399,8 +408,6 @@ static int ldo_set_trimming(struct regulator_dev *rdev, int def_vol, int to_vol,
 	    rdev->desc->ops->set_voltage(rdev, to_vol * 1000, to_vol * 1000, 0);
 	if (IS_ERR_VALUE(ret) && regs->vol_ctl)
 		goto exit;
-
-	else {
 */
 	if (regs->vol_trm) {
 		u32 trim =	/* assert 5 valid trim bits, R = V_IDEAL / V_ADCIN - 1 */
@@ -707,6 +714,63 @@ exit:
 	return ret;
 }
 
+/* standard boost ops*/
+#define MAX_CURRENT_SINK	(500)	/*FIXME: max current sink */
+static int boost_set_current_limit(struct regulator_dev *rdev, int min_uA,
+				   int max_uA)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+	int ma = min_uA / 1000;
+	int ret = -EACCES;
+	int i, shft = __ffs(regs->vol_ctl_bits);
+	int trim = (int)regs->vol_def / 1000;
+	int steps = (regs->vol_ctl_bits >> shft) + 1;
+
+	debug("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uA, max_uA);
+
+	if (!regs->vol_ctl)
+		goto exit;
+
+	if (trim > 0) {
+		trim <<= __ffs(regs->vol_trm_bits);
+	}
+
+	i = ma * steps / MAX_CURRENT_SINK;
+	if (i >= 0 && i < steps) {
+		ANA_REG_SET(regs->vol_ctl, (i << shft) | trim,
+			    regs->vol_ctl_bits | regs->vol_trm_bits);
+
+		ret = 0;
+	}
+
+	WARN(0 != ret,
+	     "warning: regulator (%s) not support %dmA\n", desc->desc.name, ma);
+
+exit:
+	return ret;
+}
+
+static int boost_get_current_limit(struct regulator_dev *rdev)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+	u32 cur;
+	int i, shft = __ffs(regs->vol_ctl_bits);
+	int steps = (regs->vol_ctl_bits >> shft) + 1;
+
+	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x\n",
+	       regs, desc->desc.name, regs->vol_ctl, shft, regs->vol_ctl_bits);
+
+	if (!regs->vol_ctl)
+		return -EACCES;
+
+	i = ((ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft);
+	cur = i * MAX_CURRENT_SINK / steps;
+	debug2("regu %p (%s), current %d\n", regs, desc->desc.name, cur);
+	return cur * 1000;
+}
+
 static int adc_sample_bit = 1;	/*12bits mode */
 static short adc_data[2][2]
 #if defined(CONFIG_REGULATOR_ADC_DEBUG)
@@ -729,7 +793,10 @@ static int __init __adc_cal_setup(char *str)
 	if (*p++ && *++str) {
 		*p = simple_strtoul(str, &str, 0);
 		if (*p) {
-			/* update adc data from kernel parameter */
+			/* FIXME:
+			 * update adc data from kernel parameter,
+			 * and compensate 12mV if need.
+			 */
 			debug("%d : %d -- %d : %d\n",
 			      (int)adc_data[0][0], (int)adc_data[0][1],
 			      (int)adc_data[1][0], (int)adc_data[1][1]);
@@ -961,6 +1028,7 @@ static struct regulator_ops ldo_ops = {
 	.set_voltage = ldo_set_voltage,
 	.get_voltage = ldo_get_voltage,
 	.set_mode = ldo_set_mode,
+/*	.enable_time = ldo_enable_time, */
 };
 
 static struct regulator_ops usbd_ops = {
@@ -975,6 +1043,15 @@ static struct regulator_ops dcdc_ops = {
 	.is_enabled = ldo_is_on,
 	.set_voltage = dcdc_set_voltage,
 	.get_voltage = dcdc_get_voltage,
+};
+
+static struct regulator_ops boost_ops = {
+	.enable = ldo_turn_on,
+	.disable = ldo_turn_off,
+	.is_enabled = ldo_is_on,
+	.set_current_limit = boost_set_current_limit,
+	.get_current_limit = boost_get_current_limit,
+	.set_mode = ldo_set_mode,
 };
 
 static struct sci_regulator_ops sci_ldo_ops = {
@@ -1056,7 +1133,7 @@ static int debugfs_ana_addr_get(void *data, u64 * val)
 	if (ana_addr < PAGE_SIZE) {
 		*val = ANA_REG_GET(ana_addr + (ANA_REGS_GLB_BASE & PAGE_MASK));
 	} else {
-		void * addr = ioremap(ana_addr, PAGE_SIZE);
+		void *addr = ioremap(ana_addr, PAGE_SIZE);
 		*val = __raw_readl(addr);
 		iounmap(addr);
 	}
@@ -1069,7 +1146,7 @@ static int debugfs_ana_addr_set(void *data, u64 val)
 		ANA_REG_SET(ana_addr + (ANA_REGS_GLB_BASE & PAGE_MASK), val,
 			    -1);
 	} else {
-		void * addr = ioremap(ana_addr, PAGE_SIZE);
+		void *addr = ioremap(ana_addr, PAGE_SIZE);
 		__raw_writel(val, addr);
 		iounmap(addr);
 	}
@@ -1166,6 +1243,25 @@ static int debugfs_dcdc_set(void *data, u64 val)
 	return 0;
 }
 
+static int debugfs_boost_get(void *data, u64 * val)
+{
+	struct regulator_dev *rdev = data;
+	if (rdev && rdev->desc->ops->get_current_limit)
+		*val = rdev->desc->ops->get_current_limit(rdev) / 1000;
+	else
+		*val = -1;
+	return 0;
+}
+
+static int debugfs_boost_set(void *data, u64 val)
+{
+	struct regulator_dev *rdev = data;
+	if (rdev && rdev->desc->ops->set_current_limit)
+		rdev->desc->ops->set_current_limit(rdev, val * 1000,
+						   val * 1000);
+	return 0;
+}
+
 DEFINE_SIMPLE_ATTRIBUTE(fops_ana_addr,
 			debugfs_ana_addr_get, debugfs_ana_addr_set, "%llu\n");
 DEFINE_SIMPLE_ATTRIBUTE(fops_adc_chan,
@@ -1176,6 +1272,8 @@ DEFINE_SIMPLE_ATTRIBUTE(fops_ldo,
 			debugfs_voltage_get, debugfs_ldo_set, "%llu\n");
 DEFINE_SIMPLE_ATTRIBUTE(fops_dcdc,
 			debugfs_voltage_get, debugfs_dcdc_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(fops_boost,
+			debugfs_boost_get, debugfs_boost_set, "%llu\n");
 
 static void rdev_init_debugfs(struct regulator_dev *rdev)
 {
@@ -1190,9 +1288,14 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 	debugfs_create_file("enable", S_IRUGO | S_IWUSR,
 			    desc->debugfs, rdev, &fops_enable);
 
-	debugfs_create_file("voltage", S_IRUGO | S_IWUSR,
-			    desc->debugfs, rdev,
-			    (0 == desc->regs->typ) ? &fops_ldo : &fops_dcdc);
+	if (desc->desc.type == REGULATOR_CURRENT)
+		debugfs_create_file("current", S_IRUGO | S_IWUSR,
+				    desc->debugfs, rdev, &fops_boost);
+	else
+		debugfs_create_file("voltage", S_IRUGO | S_IWUSR,
+				    desc->debugfs, rdev,
+				    (0 ==
+				     desc->regs->typ) ? &fops_ldo : &fops_dcdc);
 }
 #else
 static void rdev_init_debugfs(struct regulator_dev *rdev)
@@ -1206,10 +1309,10 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	static atomic_t __devinitdata idx = ATOMIC_INIT(1);	/* 0: dummy */
 	struct regulator_dev *rdev;
 	struct regulator_ops *__regs_ops[] = {
-		&ldo_ops, &usbd_ops, &dcdc_ops, 0,
+		&ldo_ops, &usbd_ops, &dcdc_ops, 0, &boost_ops, 0,
 	};
 	struct sci_regulator_ops *__sci_regs_ops[] = {
-		&sci_ldo_ops, 0, &sci_dcdc_ops, 0,
+		&sci_ldo_ops, 0, &sci_dcdc_ops, 0, 0,
 	};
 	struct regulator_consumer_supply consumer_supplies_default[] = {
 		[0] = {
@@ -1248,6 +1351,16 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	BUG_ON(desc->regs->typ >= ARRAY_SIZE(__regs_ops));
 	if (!desc->desc.ops)
 		desc->desc.ops = __regs_ops[desc->regs->typ];
+
+#ifdef CONFIG_ARCH_SC8830
+	if (desc->regs->typ == VDD_TYP_BOOST) {	/*FIXME: reconfig current sink */
+		init_data.constraints.min_uA = 0;
+		init_data.constraints.max_uA = MAX_CURRENT_SINK * 1000;
+		init_data.constraints.valid_ops_mask |=
+		    REGULATOR_CHANGE_CURRENT;
+		desc->desc.type = REGULATOR_CURRENT;
+	}
+#endif
 
 #ifdef CONFIG_ARCH_SC7710
 	if (sci_get_ana_chip_id() == ANA_CHIP_ID_BA &&
@@ -1290,7 +1403,8 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		rdev->reg_data = rdev;
 		INIT_DELAYED_WORK(&desc->data.dwork, do_regu_work);
 		desc->data.rdev = rdev;
-		desc->ops->init_trimming(rdev);
+		if (desc->ops && desc->ops->init_trimming)
+			desc->ops->init_trimming(rdev);
 		rdev_init_debugfs(rdev);
 	}
 	return rdev;
@@ -1345,6 +1459,12 @@ static int __init regu_driver_init(void)
 		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_HIGH) << 16 |
 		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_LOW),
 		ANA_REG_GET(ANA_REG_GLB_ANA_STATUS));
+
+#if defined(CONFIG_REGULATOR_ADC_DEBUG)
+	/*FIXME: enable all DCDC/LDOs for debug purpose */
+	ANA_REG_SET(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, -1, -1);
+	ANA_REG_SET(ANA_REG_GLB_LDO_PD_CTRL, 0, -1);
+#endif
 	return platform_driver_register(&sci_regulator_driver);
 }
 

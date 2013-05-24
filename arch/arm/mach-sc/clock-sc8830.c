@@ -114,7 +114,10 @@ unsigned long clk_get_rate(struct clk *clk)
 	debug0("clk %p, rate %lu\n", clk, IS_ERR_OR_NULL(clk) ? -1 : clk->rate);
 	if (IS_ERR_OR_NULL(clk))
 		return 0;
-/*
+
+/* FIXME:
+ * auto refill clk->rate after new parent or division
+ * auto update all child clock rate
 	if (clk->rate != 0)
 		return clk->rate;
 */
@@ -262,11 +265,11 @@ static int sci_clk_set_rate(struct clk *c, unsigned long rate)
 	debug("clk %p (%s) pll div reg %08x, val %08x mask %08x\n", c,
 	      c->regs->name, c->regs->div.reg, div << div_shift,
 	      c->regs->div.mask);
+
 	if (c->regs->div.reg)
 		sci_glb_write(c->regs->div.reg, div << div_shift,
 			      c->regs->div.mask);
 
-	c->rate = 0;		/* FIXME: auto update all children after new rate if need */
 	return 0;
 }
 
@@ -284,7 +287,7 @@ static unsigned long sci_clk_get_rate(struct clk *c)
 				   c->regs->div.mask) >> div_shift;
 	debug0("clk %p (%s) parent rate %lu, div %u\n", c, c->regs->name, rate,
 	       div + 1);
-	c->rate = rate = rate / (div + 1);	//FIXME:
+	rate = rate / (div + 1);	//FIXME:
 	debug0("clk %p (%s) get real rate %lu\n", c, c->regs->name, rate);
 	return rate;
 }
@@ -306,9 +309,14 @@ static unsigned long sci_pll_get_rate(struct clk *c)
 	mn_shift = __ffs(c->regs->div.mask);
 	debug0("pll %p (%s) mn reg %08x, shift %u msk %08x\n", c, c->regs->name,
 	       c->regs->div.reg, mn_shift, c->regs->div.mask);
+
+	/* get parent rate */
 	rate = clk_get_rate(c->parent);
-	if (0 == c->regs->div.reg) ;
-	else if (c->regs->div.reg < MAX_DIV) {
+
+	if (0 == c->regs->div.reg) {
+		if (c->rate)
+			rate = c->rate;	/* fixed rate */
+	} else if (c->regs->div.reg < MAX_DIV) {
 		mn = c->regs->div.reg;
 		if (mn)
 			rate = rate / mn;
@@ -319,7 +327,6 @@ static unsigned long sci_pll_get_rate(struct clk *c)
 		if (mn)
 			rate = rate * mn;
 	}
-	c->rate = rate;
 	debug0("pll %p (%s) get real rate %lu\n", c, c->regs->name, rate);
 	return rate;
 }
@@ -342,7 +349,6 @@ static int sci_pll_set_rate(struct clk *c, unsigned long rate)
 			      c->regs->div.mask);
 	}
 
-	c->rate = 0;		/* FIXME: auto update all children after new rate if need */
 	debug("pll %p (%s) set rate %lu\n", c, c->regs->name, rate);
 	return 0;
 }
@@ -369,8 +375,6 @@ static int sci_clk_set_parent(struct clk *c, struct clk *parent)
 				sci_glb_write(c->regs->sel.reg, i << sel_shift,
 					      c->regs->sel.mask);
 			c->parent = parent;
-			if (c->ops)
-				c->rate = 0;	/* FIXME: auto update clock rate after new parent */
 			return 0;
 		}
 	}
@@ -508,7 +512,7 @@ int __init sci_clk_register(struct clk_lookup *cl)
 		if (c->rate && !c->regs->nr_sources)	/* fixed OSC */
 			c->ops = NULL;
 		else if ((c->regs->div.reg >= 0 && c->regs->div.reg < MAX_DIV)
-			 || strstr(c->regs->name, "pll")) {
+			 || c->rate || strstr(c->regs->name, "pll")) {
 			c->ops = &generic_pll_ops;
 		}
 	}
