@@ -282,7 +282,6 @@
  To power down the USB:
  echo 0 > /sys/devices/lm0/buspower
  */
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -296,16 +295,14 @@
 #include <linux/delay.h>
 #include <linux/jiffies.h>
 
-
-#include <linux/platform_device.h>
-#include <asm/io.h>
-
+#include "dwc_otg_os_dep.h"
 #include "dwc_os.h"
 #include "dwc_otg_attr.h"
 #include "dwc_otg_driver.h"
 #include "dwc_otg_core_if.h"
 #include "dwc_otg_pcd_if.h"
-
+#include "dwc_otg_hcd_if.h"
+//#include <linux/platform_device.h>
 /*
  * MACROs for defining sysfs attribute
  */
@@ -385,7 +382,7 @@ static ssize_t regoffset_show(struct device *_dev,
 	dwc_otg_device_t *otg_dev = platform_get_drvdata(lm_dev);
 
 	return snprintf(buf, sizeof("0xFFFFFFFF\n") + 1, "0x%08x\n",
-			otg_dev->reg_offset);
+			otg_dev->os_dep.reg_offset);
 }
 
 /**
@@ -400,7 +397,7 @@ static ssize_t regoffset_store(struct device *_dev,
 
 	uint32_t offset = simple_strtoul(buf, NULL, 16);
         if (offset < SZ_256K) {
-		otg_dev->reg_offset = offset;
+		otg_dev->os_dep.reg_offset = offset;
 	} else {
 		dev_err(_dev, "invalid offset\n");
 	}
@@ -423,17 +420,17 @@ static ssize_t regvalue_show(struct device *_dev,
 	uint32_t val;
 	volatile uint32_t *addr;
 
-	if (otg_dev->reg_offset != 0xFFFFFFFF && 0 != otg_dev->base) {
+	if (otg_dev->os_dep.reg_offset != 0xFFFFFFFF && 0 != otg_dev->os_dep.base) {
 		/* Calculate the address */
-		addr = (uint32_t *) (otg_dev->reg_offset +
-				     (uint8_t *) otg_dev->base);
-		val = dwc_read_reg32(addr);
+		addr = (uint32_t *) (otg_dev->os_dep.reg_offset +
+				     (uint8_t *) otg_dev->os_dep.base);
+		val = DWC_READ_REG32(addr);
 		return snprintf(buf,
 				sizeof("Reg@0xFFFFFFFF = 0xFFFFFFFF\n") + 1,
-				"Reg@0x%06x = 0x%08x\n", otg_dev->reg_offset,
+				"Reg@0x%06x = 0x%08x\n", otg_dev->os_dep.reg_offset,
 				val);
 	} else {
-		dev_err(_dev, "Invalid offset (0x%0x)\n", otg_dev->reg_offset);
+		dev_err(_dev, "Invalid offset (0x%0x)\n", otg_dev->os_dep.reg_offset);
 		return sprintf(buf, "invalid offset\n");
 	}
 }
@@ -452,15 +449,15 @@ static ssize_t regvalue_store(struct device *_dev,
 
 	volatile uint32_t *addr;
 	uint32_t val = simple_strtoul(buf, NULL, 16);
-	//dev_dbg(_dev, "Offset=0x%08x Val=0x%08x\n", otg_dev->reg_offset, val);
-	if (otg_dev->reg_offset != 0xFFFFFFFF && 0 != otg_dev->base) {
+	//dev_dbg(_dev, "Offset=0x%08x Val=0x%08x\n", otg_dev->os_dep.reg_offset, val);
+	if (otg_dev->os_dep.reg_offset != 0xFFFFFFFF && 0 != otg_dev->os_dep.base) {
 		/* Calculate the address */
-		addr = (uint32_t *) (otg_dev->reg_offset +
-				     (uint8_t *) otg_dev->base);
-		dwc_write_reg32(addr, val);
+		addr = (uint32_t *) (otg_dev->os_dep.reg_offset +
+				     (uint8_t *) otg_dev->os_dep.base);
+		DWC_WRITE_REG32(addr, val);
 	} else {
 		dev_err(_dev, "Invalid Register Offset (0x%08x)\n",
-			otg_dev->reg_offset);
+			otg_dev->os_dep.reg_offset);
 	}
 	return count;
 }
@@ -920,7 +917,7 @@ DEVICE_ATTR(sleep_status, S_IRUGO | S_IWUSR, sleepstatus_show,
 /**
  * Create the device files
  */
-void dwc_otg_attr_create (
+void dwc_otg_attr_create(
 	struct platform_device *dev
 	)
 
@@ -967,7 +964,7 @@ void dwc_otg_attr_create (
 /**
  * Remove the device files
  */
-void dwc_otg_attr_remove (
+void dwc_otg_attr_remove(
 	struct platform_device *dev
        )
 
