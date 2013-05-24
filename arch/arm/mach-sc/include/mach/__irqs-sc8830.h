@@ -176,7 +176,7 @@
 #define NR_ANA_IRQS			(10)
 
 /* sc8830 gpio&eic pin interrupt number, total is 320, which is bigger than 256 */
-#define GPIO_IRQ_START			SCI_EXT_IRQ(9)
+#define GPIO_IRQ_START			SCI_EXT_IRQ(10)
 
 #define NR_GPIO_IRQS	( 320 )
 
