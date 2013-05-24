@@ -1,13 +1,13 @@
 /* ==========================================================================
- * $File: //dwh/usb_iip/dev/software/otg/linux/drivers/dwc_otg_attr.h $
- * $Revision: #10 $
- * $Date: 2008/12/24 $
- * $Change: 1158473 $
+ * $File: //dwh/usb_iip/dev/software/otg/linux/drivers/dwc_otg_adp.h $
+ * $Revision: #7 $
+ * $Date: 2011/10/24 $
+ * $Change: 1871159 $
  *
  * Synopsys HS OTG Linux Software Driver and documentation (hereinafter,
  * "Software") is an Unsupported proprietary work of Synopsys, Inc. unless
  * otherwise expressly agreed to in writing between Synopsys and you.
- * 
+ *
  * The Software IS NOT an item of Licensed Software or Licensed Product under
  * any End User Software License Agreement or Agreement for Licensed Product
  * with Synopsys or any supplement thereto. You are permitted to use and
@@ -17,7 +17,7 @@
  * any information contained herein except pursuant to this license grant from
  * Synopsys. If you do not agree with this notice, including the disclaimer
  * below, then you are not authorized to use the Software.
- * 
+ *
  * THIS SOFTWARE IS BEING DISTRIBUTED BY SYNOPSYS SOLELY ON AN "AS IS" BASIS
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -31,46 +31,50 @@
  * DAMAGE.
  * ========================================================================== */
 
-#if !defined(__DWC_OTG_ATTR_H__)
-#define __DWC_OTG_ATTR_H__
+#ifndef __DWC_OTG_ADP_H__
+#define __DWC_OTG_ADP_H__
 
-/** @file
- * This file contains the interface to the Linux device attributes.
+/**
+ * @file
+ *
+ * This file contains the Attach Detect Protocol interfaces and defines
+ * (functions) and structures for Linux.
+ *
  */
-extern struct device_attribute dev_attr_regoffset;
-extern struct device_attribute dev_attr_regvalue;
 
-extern struct device_attribute dev_attr_mode;
-extern struct device_attribute dev_attr_hnpcapable;
-extern struct device_attribute dev_attr_srpcapable;
-extern struct device_attribute dev_attr_hnp;
-extern struct device_attribute dev_attr_srp;
-extern struct device_attribute dev_attr_buspower;
-extern struct device_attribute dev_attr_bussuspend;
-extern struct device_attribute dev_attr_busconnected;
-extern struct device_attribute dev_attr_gotgctl;
-extern struct device_attribute dev_attr_gusbcfg;
-extern struct device_attribute dev_attr_grxfsiz;
-extern struct device_attribute dev_attr_gnptxfsiz;
-extern struct device_attribute dev_attr_gpvndctl;
-extern struct device_attribute dev_attr_ggpio;
-extern struct device_attribute dev_attr_guid;
-extern struct device_attribute dev_attr_gsnpsid;
-extern struct device_attribute dev_attr_devspeed;
-extern struct device_attribute dev_attr_enumspeed;
-extern struct device_attribute dev_attr_hptxfsiz;
-extern struct device_attribute dev_attr_hprt0;
-#ifdef CONFIG_USB_DWC_OTG_LPM
-extern struct device_attribute dev_attr_lpm_response;
-extern struct device_attribute dev_attr_sleep_local_dev;
-extern struct device_attribute devi_attr_sleep_status;
-#endif
+#define DWC_OTG_ADP_UNATTACHED	0
+#define DWC_OTG_ADP_ATTACHED	1
+#define DWC_OTG_ADP_UNKOWN	2
 
-void dwc_otg_attr_create(
-	struct platform_device *dev
-	);
+typedef struct dwc_otg_adp {
+	uint32_t adp_started;	
+	uint32_t initial_probe;
+	int32_t probe_timer_values[2];
+	uint32_t probe_enabled;
+	uint32_t sense_enabled;
+	dwc_timer_t *sense_timer;
+	uint32_t sense_timer_started;
+	dwc_timer_t *vbuson_timer;
+	uint32_t vbuson_timer_started;
+	uint32_t attached;
+	uint32_t probe_counter;
+	uint32_t gpwrdn;
+} dwc_otg_adp_t;
 
-void dwc_otg_attr_remove(
-	struct platform_device *dev
-	);
-#endif
+/**
+ * Attach Detect Protocol functions
+ */
+
+extern void dwc_otg_adp_write_reg(dwc_otg_core_if_t * core_if, uint32_t value);
+extern uint32_t dwc_otg_adp_read_reg(dwc_otg_core_if_t * core_if);
+extern uint32_t dwc_otg_adp_probe_start(dwc_otg_core_if_t * core_if);
+extern uint32_t dwc_otg_adp_sense_start(dwc_otg_core_if_t * core_if);
+extern uint32_t dwc_otg_adp_probe_stop(dwc_otg_core_if_t * core_if);
+extern uint32_t dwc_otg_adp_sense_stop(dwc_otg_core_if_t * core_if);
+extern void dwc_otg_adp_start(dwc_otg_core_if_t * core_if, uint8_t is_host);
+extern void dwc_otg_adp_init(dwc_otg_core_if_t * core_if);
+extern void dwc_otg_adp_remove(dwc_otg_core_if_t * core_if);
+extern int32_t dwc_otg_adp_handle_intr(dwc_otg_core_if_t * core_if);
+extern int32_t dwc_otg_adp_handle_srp_intr(dwc_otg_core_if_t * core_if);
+
+#endif //__DWC_OTG_ADP_H__
