@@ -153,7 +153,7 @@ static inline u32 __adi_translate_addr(u32 regvddr)
 	return regvddr;
 }
 
-static inline int __adi_read(u32 regPddr, unsigned long *v)
+static inline int __adi_read(u32 regPddr, unsigned int *v)
 {
 	unsigned long val;
 	int cnt = 2000;
@@ -203,13 +203,16 @@ EXPORT_SYMBOL(sci_adi_read);
 
 /*This value have a bit of depending on  real hardware fifo size*/
 #define CACHE_SIZE	(16)
+
 static struct __data {
 	u32 reg;
 	u16 val;
 } __data_array[CACHE_SIZE];
-struct __data *head_p = &__data_array[0];
-struct __data *tail_p = &__data_array[0];
+
+static struct __data *head_p = &__data_array[0];
+static struct __data *tail_p = &__data_array[0];
 static u32 data_in_cache = 0;
+
 #define HEAD_ADD	(1)
 #define TAIL_ADD	(0)
 static inline void __p_add(struct __data **p, u32 isHead)
@@ -268,8 +271,8 @@ EXPORT_SYMBOL(sci_adi_write_fast);
 int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
 {
 	if (!__adi_addr_check(reg)) {
-		unsigned long flags, val;
-		int ret = 0;
+		unsigned long flags;
+		int ret = 0, val = 0;
 		__adi_lock(&flags, NULL);
 		ret = __adi_read(__adi_translate_addr(reg), &val);
 		if (!ret)
