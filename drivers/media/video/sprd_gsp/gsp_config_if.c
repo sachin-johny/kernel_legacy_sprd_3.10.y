@@ -16,6 +16,8 @@
 **---------------------------------------------------------------------------*/
 //#include <linux/irq.h>
 
+#include <mach/hardware.h>
+
 #include "gsp_config_if.h"
 uint32_t testregsegment[0x190]= {0};
 

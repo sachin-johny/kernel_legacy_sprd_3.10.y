@@ -3,8 +3,11 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
+
+#include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/globalregs.h>
+
 #include "csi_api.h"
 #include "csi_log.h"
 

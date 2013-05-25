@@ -14,6 +14,8 @@
 #ifndef __ASM_ARM_ARCH_GLOBALREGS_H
 #define __ASM_ARM_ARCH_GLOBALREGS_H
 
+#if defined (CONFIG_ARCH_SC8825)
+
 #include <mach/hardware.h>
 
 /* general global register offset */
@@ -338,5 +340,6 @@ void sprd_greg_write(uint32_t type, uint32_t value, uint32_t reg_offset) __depre
 void sprd_greg_set_bits(uint32_t type, uint32_t bits, uint32_t reg_offset) __deprecated;
 void sprd_greg_clear_bits(uint32_t type, uint32_t bits, uint32_t reg_offset) __deprecated;
 
+#endif
 #endif
 

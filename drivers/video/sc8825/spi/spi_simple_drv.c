@@ -65,12 +65,14 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
 {
     if(is_en)
     {
+#if !(defined CONFIG_ARCH_SC8830)
 		if (spi_id == 0) 
             		//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT17); //APB_SPI0_EB
             		sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI0_EN, GR_GEN0);
 		else 
             		//*(volatile uint32_t *)GR_GEN0 |= ( 1 << BIT18); //APB_SPI1_EB
             		sprd_greg_set_bits(REG_TYPE_GLOBAL, GEN0_SPI1_EN, GR_GEN0);
+#endif
  }
     else
     {
@@ -82,6 +84,7 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
 void SPI_Reset( uint32_t spi_id, uint32_t ms)
 {
     uint32_t i = 0;
+#if !(defined CONFIG_ARCH_SC8830)
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
 
     if(spi_id == 0)
@@ -103,7 +106,7 @@ void SPI_Reset( uint32_t spi_id, uint32_t ms)
         //for(i=0; i<ms; i++);
         //*(volatile uint32_t *)APB_RST0_CLR |= SPI1_SOFT_RST_CLR;
     }
-
+#endif
 }
 
 
@@ -127,16 +130,19 @@ void SPI_ClkSetting(uint32_t spi_id, uint32_t clk_src, uint32_t clk_div)
 
     if(spi_id == 0)
     {
+#if !(defined CONFIG_ARCH_SC8830)
        // *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI0_SEL_SHIFT);
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 26, GR_CLK_DLY);
        // *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI0_DIV_SHIFT);
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 21, GR_GEN2);
-
+#endif
     } else {
+#if !(defined CONFIG_ARCH_SC8830)
 //        *(volatile uint32_t *) APB_CLKDLY |=( clk_src<<APB_CLK_SPI1_SEL_SHIFT);
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_src << 30, GR_CLK_DLY);
 //        *(volatile uint32_t *) APB_GEN2 |= (clk_div<<APB_CLK_SPI1_DIV_SHIFT);    
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, clk_div << 11, GR_GEN2);
+#endif
     }
 }
 

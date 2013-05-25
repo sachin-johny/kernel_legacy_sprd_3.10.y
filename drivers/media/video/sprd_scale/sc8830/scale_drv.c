@@ -16,7 +16,10 @@
 #include <linux/bitops.h>
 #include <linux/semaphore.h>
 #include <linux/delay.h>
+
 #include <asm/io.h>
+#include <mach/hardware.h>
+
 #include "scale_drv.h"
 #include "gen_scale_coef.h"
 #include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"

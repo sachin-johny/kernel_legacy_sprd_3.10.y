@@ -11,6 +11,10 @@
  * GNU General Public License for more details.
  */
 
+/*
+* Note: This File is only used in sc8825 project.!!!!!!!!!!!!!!
+*/
+
 #include <asm/io.h>
 #include <mach/globalregs.h>
 #include <linux/spinlock.h>

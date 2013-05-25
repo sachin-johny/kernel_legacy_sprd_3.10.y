@@ -27,6 +27,9 @@
 #include <linux/kthread.h>
 #include <linux/io.h>//for ioremap
 #include <linux/pid.h>
+
+#include <mach/hardware.h>
+
 #include "gsp_drv.h"
 #include "scaler_coef_cal.h"
 

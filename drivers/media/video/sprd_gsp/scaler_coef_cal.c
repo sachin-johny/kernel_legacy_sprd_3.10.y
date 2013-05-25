@@ -15,6 +15,7 @@
 #include "sin_cos.h"
 #include <linux/math64.h>
 #include <linux/mm.h>
+#include <mach/hardware.h>
 #include "scaler_coef_cal.h"
 #include "gsp_config_if.h"
 

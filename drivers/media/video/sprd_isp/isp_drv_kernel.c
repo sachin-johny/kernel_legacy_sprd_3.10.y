@@ -36,6 +36,8 @@
 
 #include <asm/cacheflush.h>
 
+#include <mach/hardware.h>
+
 #if defined(CONFIG_ARCH_SC8830)
 #include "Shark_reg_isp.h"
 #elif defined(CONFIG_ARCH_SC8825)

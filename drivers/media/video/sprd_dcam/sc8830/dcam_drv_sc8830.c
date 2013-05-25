@@ -19,7 +19,10 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <asm/io.h>
+
+#include <mach/hardware.h>
 #include <mach/irqs.h>
+
 #include "dcam_drv_sc8830.h"
 #include "gen_scale_coef.h"
 
