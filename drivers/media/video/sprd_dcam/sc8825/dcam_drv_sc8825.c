@@ -22,6 +22,7 @@
 #include <mach/irqs.h>
 #include "dcam_drv_sc8825.h"
 #include "gen_scale_coef.h"
+#include <mach/sci.h>
 
 //#define DCAM_DRV_DEBUG
 #define DCAM_LOWEST_ADDR                               0x800
@@ -288,10 +289,10 @@ int32_t dcam_module_en(void)
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		ret = dcam_set_clk(DCA_CLK_256M);
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
-		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 	}
 /*MODULE_EN_END:*/
 	return ret;
@@ -303,7 +304,7 @@ int32_t dcam_module_dis(void)
 
 	DCAM_TRACE("DCAM DRV: dcam_module_dis: %d \n", s_dcam_users.counter);
 	if (atomic_dec_return(&s_dcam_users) == 0) {
-		REG_AWR(DCAM_EB, ~DCAM_EB_BIT);
+		sci_glb_clr(DCAM_EB, DCAM_EB_BIT);
 		dcam_set_clk(DCAM_CLK_NONE);
 	}
 	return -rtn;
@@ -331,28 +332,28 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	/* do reset action */
 	switch (reset_mode) {
 	case DCAM_RST_PATH1:
-		REG_OWR(DCAM_RST, PATH1_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~PATH1_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, PATH1_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, PATH1_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 /*
-		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 */
 		DCAM_TRACE("DCAM DRV: reset path1 \n");
 		break;
 	case DCAM_RST_PATH2:
-		REG_OWR(DCAM_RST, PATH2_RST_BIT);
-		REG_AWR(DCAM_RST, ~PATH2_RST_BIT);
+		sci_glb_set(DCAM_RST, PATH2_RST_BIT);
+		sci_glb_clr(DCAM_RST, PATH2_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset path2 \n");
 		break;
 	case DCAM_RST_ALL:
-		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset all \n");
 		break;
 	default:
@@ -686,7 +687,11 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 			} else {
 				REG_MWR(CAP_CCIR_CTRL, BIT_3, sync_pol->hsync_pol << 3);
 				REG_MWR(CAP_CCIR_CTRL, BIT_4, sync_pol->vsync_pol << 4);
-				REG_MWR(CLK_DLY_CTRL,  BIT_19, sync_pol->pclk_pol << 19);
+				if (0 == sync_pol->pclk_pol) {
+					sci_glb_clr(CLK_DLY_CTRL, BIT_19);
+				}else{
+					sci_glb_set(CLK_DLY_CTRL, BIT_19);
+				}
 			}
 		} else {
 			if (sync_pol->need_href) {
