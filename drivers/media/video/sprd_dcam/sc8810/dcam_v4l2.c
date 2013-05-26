@@ -1202,8 +1202,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		if (FLASH_AUTO == g_dcam_info.flash_mode){
 			printk("V4L2:vidioc_handle_ctrl FLASH_AUTO.\n.");
 			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_AUTO);
-		}
-		else{
+		}else {
 			if (g_dcam_info.flash_mode) {
 				printk("V4L2:vidioc_handle_ctrl FLASH_OPEN.\n.");
 				Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
@@ -1826,7 +1825,7 @@ static int vidioc_streamoff(struct file *file, void *priv, enum v4l2_buf_type i)
 			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE_AFTER_OPEN);	// close flash from open
 		}
 	}
-		if (FLASH_AUTO == g_dcam_info.flash_mode){
+	if (FLASH_AUTO == g_dcam_info.flash_mode){
 #ifdef FLASH_DV_OPEN_ALWAYS
 		if (FLASH_TORCH != g_dcam_info.flash_mode)
 #endif
@@ -2460,15 +2459,12 @@ static int close(struct file *file)
 	uint32_t cnt = 0;
 
 	int minor = video_devdata(file)->minor;
-	printk("#### V4L2: close start.\n");
+	printk("#### V4L2: close start, flash_mode %d.\n", g_dcam_info.flash_mode);
 	if (g_dcam_info.flash_mode) {
 		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE);	/*close flash */
-		printk("V2L4:close the flash \n");
+		printk("V2L4:close the flash. \n");
 	}
-		if (FLASH_AUTO == g_dcam_info.flash_mode){
-		Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_CLOSE);	/*close flash */
-		printk("V2L4:close the flash \n");
-	}
+
 	dcam_stop_timer(&s_dcam_err_info.dcam_timer);
 	printk("v4l2:close,stop timer.\n");
 	s_dcam_err_info.is_stop = 1;
