@@ -616,6 +616,8 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 					struct v4l2_format *f,
 					struct dcam_info   *info)
 {
+	return -EINVAL;
+#if 0
 	uint32_t                 maxw, maxh, tempw,temph;
 	uint32_t                 depth_pixel = 0;
 	struct dcam_path_spec    *path = &info->dcam_path[1];
@@ -741,6 +743,7 @@ static int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 	path->is_work = 1;
 
 	return 0;
+#endif
 }
 
 static int sprd_v4l2_cap_cfg(struct dcam_info* info)
@@ -847,7 +850,7 @@ static int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
-	struct dcam_node         node;
+	struct dcam_node         node = {0};
 
 	if (NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
@@ -866,7 +869,7 @@ static int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
-	struct dcam_node         node;
+	struct dcam_node         node = {0};
 
 	if (NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
@@ -884,7 +887,7 @@ static int sprd_v4l2_csi2_error(uint32_t err_id, uint32_t err_status, void* u_da
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)u_data;
-	struct dcam_node         node;
+	struct dcam_node         node = {0};
 
 	(void)err_id; (void)err_status;
 	if (NULL == u_data || 0 == atomic_read(&dev->stream_on))
@@ -906,7 +909,7 @@ static int sprd_v4l2_tx_stop(void* param)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
-	struct dcam_node         node;
+	struct dcam_node         node = {0};
 
 	node.irq_flag = V4L2_TX_STOP;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
@@ -1692,7 +1695,7 @@ exit:
 static void sprd_timer_callback(unsigned long data)
 {
 	struct dcam_dev          *dev = (struct dcam_dev*)data;
-	struct dcam_node         node;
+	struct dcam_node         node = {0};
 	int                      ret = 0;
 
 	DCAM_TRACE("v4l2: sprd_timer_callback.\n");
