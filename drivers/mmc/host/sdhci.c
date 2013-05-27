@@ -142,6 +142,21 @@ void sdhci_dumpregs(struct sdhci_host *host)
 			sdhci_readl(host, 0x80), sdhci_readl(host, 0x84),
 			sdhci_readl(host, 0x88));
 
+#ifdef CONFIG_ARCH_SC8825
+	printk("AHB_CTL0:0x%x\n", sci_glb_raw_read(REG_AHB_AHB_CTL0));
+	printk("INTC0_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0X08) );	
+	printk("INTC1_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0x1000 + 0X08) );
+	printk("GIC_INT0_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x100) );
+	printk("GIC_INT1_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x104) );
+	printk("GIC_INT2_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x108) );
+	printk("INTCV1_IRQ_MSKSTS:0x%x\n", __raw_readl(SPRD_INTC0_BASE  + 0x1000 + 0x0000) );
+	printk("INTCV1_IRQ_RAW:0x%x\n", __raw_readl(SPRD_INTC0_BASE  + 0x1000 + 0x0004) );
+
+
+	printk("ANA_REG_GLB_LDO_PD_CTRL1:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL1));
+	printk("ANA_REG_GLB_LDO_VCTRL4:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_VCTRL4));
+#endif
+
 	if (host->flags & SDHCI_USE_ADMA)
 		printk(KERN_ERR DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
 		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
@@ -149,6 +164,9 @@ void sdhci_dumpregs(struct sdhci_host *host)
 
 	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");
 }
+
+EXPORT_SYMBOL_GPL(sdhci_dumpregs);
+
 
 /*****************************************************************************\
  *                                                                           *
@@ -1355,67 +1373,6 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
  * MMC callbacks                                                             *
  *                                                                           *
 \*****************************************************************************/
-
-#ifdef CONFIG_PM_RUNTIME
-static int sdhci_enable(struct mmc_host *mmc){
-	int ret = 0;
-	struct device *dev = mmc->parent;
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (mmc->card && mmc_card_sdio(mmc->card))
-		return 0;
-
-	if (dev->power.runtime_status == RPM_SUSPENDING) {
-		if (mmc->suspend_task == current) {
-			pm_runtime_get_noresume(dev);
-			goto out;
-		}
-	}
-if (pm_runtime_suspended(dev)){
-	if(!host->is_resumed){
-		ret = pm_runtime_get_sync(dev);
-	}
-	if (ret < 0) {
-		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
-				__func__, ret);
-		return ret;
-	}
-}
-	host->is_resumed = true;
-out:
-	return ret;
-}
-
-static int sdhci_disable(struct mmc_host *mmc, int lazy){
-	int ret = 0;
-	struct sdhci_host *host = mmc_priv(mmc);
-
-	if (mmc->card && mmc_card_sdio(mmc->card))
-		return 0;
-
-	if(host->is_resumed){
-		ret = pm_runtime_put_sync(mmc->parent);
-	}
-
-	if (ret < 0)
-		printk("%s: %s: failed with error %d", mmc_hostname(mmc),
-				__func__, ret);
-	else{
-		host->is_resumed = false;
-	}
-
-	return ret;
-}
-#else
-static int sdhci_enable(struct mmc_host *mmc){
-	return 0;
-}
-
-static int sdhci_disable(struct mmc_host *mmc){
-	return 0;
-}
-#endif
-
 static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host;
@@ -1757,10 +1714,12 @@ static void sdhci_hw_reset(struct mmc_host *mmc)
 {
 	int ret = 0;
 	struct sdhci_host *host = mmc_priv(mmc);
+	sdhci_init(host,0);
 	mmc_power_off(mmc);
-	usleep_range(5000, 5500);
+	msleep(300);
+	//usleep_range(5000, 5500);
 	mmc_power_up(mmc);
-	sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
+	//sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
 	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
 }
 
@@ -2174,10 +2133,6 @@ static void sdhci_enable_preset_value(struct mmc_host *mmc, bool enable)
 }
 
 static const struct mmc_host_ops sdhci_ops = {
-#ifndef CONFIG_MACH_SP8830FPGA
-	.enable				= sdhci_enable,
-	.disable			= sdhci_disable,
-#endif
 	.request			= sdhci_request,
 	.set_ios			= sdhci_set_ios,
 	.get_ro				= sdhci_get_ro,
@@ -2186,7 +2141,7 @@ static const struct mmc_host_ops sdhci_ops = {
 #endif
 	.enable_sdio_irq		= sdhci_enable_sdio_irq,
 	.start_signal_voltage_switch	= sdhci_start_signal_voltage_switch,
-	.execute_tuning			= sdhci_execute_tuning,
+	//.execute_tuning			= sdhci_execute_tuning,
 	.enable_preset_value		= sdhci_enable_preset_value,
 };
 
@@ -2636,31 +2591,27 @@ out:
 
 #ifdef CONFIG_PM
 
-int sdhci_suspend_host(struct sdhci_host *host)
+int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state)
 {
 	int ret;
-	bool has_tuning_timer;
-
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_disable_card_detection(host);
 #endif
-
 	/* Disable tuning since we are suspending */
-	has_tuning_timer = host->version >= SDHCI_SPEC_300 &&
-		host->tuning_count && host->tuning_mode == SDHCI_TUNING_MODE_1;
-	if (has_tuning_timer) {
+	if (host->flags & SDHCI_USING_RETUNING_TIMER) {
 		del_timer_sync(&host->tuning_timer);
 		host->flags &= ~SDHCI_NEEDS_RETUNING;
 	}
-	/* DEBUG ONLY */
-	sdhci_dumpregs(host);
 
 	/* avoid dpm timeout */
 	host->suspending = 1;
 
 	ret = mmc_suspend_host(host->mmc);
-	if (ret) {
-		if (has_tuning_timer) {
+	if (ret){
+		printk("=== wow~ %s suspend error:%d ===\n",
+					mmc_hostname(host->mmc), ret);
+
+		if (host->flags & SDHCI_USING_RETUNING_TIMER) {
 			host->flags |= SDHCI_NEEDS_RETUNING;
 			mod_timer(&host->tuning_timer, jiffies +
 					host->tuning_count * HZ);
@@ -2712,17 +2663,8 @@ int sdhci_resume_host(struct sdhci_host *host)
 	if (ret)
 		return ret;
 
-	if ((host->mmc->pm_flags & MMC_PM_KEEP_POWER) &&
-	    (host->quirks2 & SDHCI_QUIRK2_HOST_OFF_CARD_ON)) {
-		/* Card keeps power but host controller does not */
-		sdhci_init(host, 0);
-		host->pwr = 0;
-		host->clock = 0;
-		sdhci_do_set_ios(host, &host->mmc->ios);
-	} else {
-		sdhci_init(host, (host->mmc->pm_flags & MMC_PM_KEEP_POWER));
-		mmiowb();
-	}
+	sdhci_init(host, (host->mmc->pm_flags & MMC_PM_KEEP_POWER));
+	mmiowb();
 
 	ret = mmc_resume_host(host->mmc);
 	if (ret){
@@ -2737,8 +2679,7 @@ int sdhci_resume_host(struct sdhci_host *host)
 #endif
 
 	/* Set the re-tuning expiration flag */
-	if ((host->version >= SDHCI_SPEC_300) && host->tuning_count &&
-	    (host->tuning_mode == SDHCI_TUNING_MODE_1))
+	if (host->flags & SDHCI_USING_RETUNING_TIMER)
 		host->flags |= SDHCI_NEEDS_RETUNING;
 
 	return ret;
@@ -2777,8 +2718,7 @@ int sdhci_runtime_suspend_host(struct sdhci_host *host)
 	int ret = 0;
 
 	/* Disable tuning since we are suspending */
-	if (host->version >= SDHCI_SPEC_300 &&
-	    host->tuning_mode == SDHCI_TUNING_MODE_1) {
+	if (host->flags & SDHCI_USING_RETUNING_TIMER) {
 		del_timer_sync(&host->tuning_timer);
 		host->flags &= ~SDHCI_NEEDS_RETUNING;
 	}
@@ -2807,8 +2747,21 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 			host->ops->enable_dma(host);
 	}
 
-	sdhci_init(host, 0);
-
+	//sdhci_init(host, 0);
+	if (host->mmc->pm_flags & MMC_PM_DISABLE_TIMEOUT_IRQ) {
+		sdhci_clear_set_irqs(host, SDHCI_INT_ALL_MASK,
+			SDHCI_INT_BUS_POWER | SDHCI_INT_DATA_END_BIT |
+			SDHCI_INT_DATA_CRC | SDHCI_INT_INDEX |
+			SDHCI_INT_END_BIT | SDHCI_INT_CRC | SDHCI_INT_TIMEOUT |
+			SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE);
+	}
+	else {
+		sdhci_clear_set_irqs(host, SDHCI_INT_ALL_MASK,
+			SDHCI_INT_BUS_POWER | SDHCI_INT_DATA_END_BIT |
+			SDHCI_INT_DATA_CRC | SDHCI_INT_DATA_TIMEOUT | SDHCI_INT_INDEX |
+			SDHCI_INT_END_BIT | SDHCI_INT_CRC | SDHCI_INT_TIMEOUT |
+			SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE);
+	}
 	/* Force clock and power re-program */
 	host->pwr = 0;
 	host->clock = 0;
@@ -2819,8 +2772,7 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 		sdhci_do_enable_preset_value(host, true);
 
 	/* Set the re-tuning expiration flag */
-	if ((host->version >= SDHCI_SPEC_300) && host->tuning_count &&
-	    (host->tuning_mode == SDHCI_TUNING_MODE_1))
+	if (host->flags & SDHCI_USING_RETUNING_TIMER)
 		host->flags |= SDHCI_NEEDS_RETUNING;
 
 	spin_lock_irqsave(&host->lock, flags);
@@ -2840,7 +2792,8 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 }
 EXPORT_SYMBOL_GPL(sdhci_runtime_resume_host);
 
-#endif
+#endif /* CONFIG_PM *
+
 
 /*****************************************************************************\
  *                                                                           *
