@@ -483,15 +483,39 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 			host->mmc->caps |= MMC_CAP_8_BIT_DATA/* | MMC_CAP_1_8V_DDR*/;
 			break;
 		case 3:
-			host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300 ));
-			host->caps |=  MMC_CAP_8_BIT_DATA |SDHCI_CAN_VDD_180;// |MMC_CAP_1_8V_DDR;
+			host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
 			host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-			host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;// | MMC_PM_KEEP_POWER;
+			host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER;
+			host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
 			break;
 		default:
 			BUG();
 			break;
 	}
+
+#ifdef CONFIG_PM_RUNTIME
+		switch(pdev->id) {
+			case 1:
+			pm_runtime_set_active(&pdev->dev);
+			pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+			pm_runtime_use_autosuspend(&pdev->dev);
+			pm_runtime_enable(&pdev->dev);
+			pm_runtime_no_callbacks(mmc_classdev(host->mmc));
+			pm_suspend_ignore_children(mmc_classdev(host->mmc), true);
+			pm_runtime_set_active(mmc_classdev(host->mmc));
+			pm_runtime_enable(mmc_classdev(host->mmc));
+			break;
+			case 3:
+			case 0:
+			pm_suspend_ignore_children(&pdev->dev, true);
+			pm_runtime_set_active(&pdev->dev);
+			pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+			pm_runtime_use_autosuspend(&pdev->dev);
+			pm_runtime_enable(&pdev->dev);
+			default:
+			break;
+			}
+#endif
 
 	ret = sdhci_add_host(host);
 	if (ret) {
@@ -504,29 +528,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		sdhci_host_g = host;
 #endif
 
-#ifdef CONFIG_PM_RUNTIME
-	switch(pdev->id) {
-		case 1:
-		pm_runtime_set_active(&pdev->dev);
-		pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
-		pm_runtime_use_autosuspend(&pdev->dev);
-		pm_runtime_enable(&pdev->dev);
-		pm_runtime_no_callbacks(mmc_classdev(host->mmc));
-		pm_suspend_ignore_children(mmc_classdev(host->mmc), true);
-		pm_runtime_set_active(mmc_classdev(host->mmc));
-		pm_runtime_enable(mmc_classdev(host->mmc));
-		break;
-		case 3:
-		case 0:
-		pm_suspend_ignore_children(&pdev->dev, true);
-		pm_runtime_set_active(&pdev->dev);
-		pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
-		pm_runtime_use_autosuspend(&pdev->dev);
-		pm_runtime_enable(&pdev->dev);
-		default:
-		break;
-		}
-#endif
 	return 0;
 
 err_add_host:
