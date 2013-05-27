@@ -29,7 +29,7 @@
 #include <linux/firmware.h>
 #include <linux/workqueue.h>
 #include <linux/clk.h>
-
+#include <linux/io.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -159,7 +159,7 @@ static struct vbc_priv vbc[3];
 static struct clk *s_vbc_clk = 0;
 static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 	.name = "VBC PCM Stereo out",
-	.workmode = DMA_LINKLIST,	/*no use */
+/*	.workmode = DMA_LINKLIST,	no use */
 	.irq_type = BLK_DONE,
 	.desc = {
 		 .datawidth = SHORT_WIDTH,
@@ -176,7 +176,7 @@ static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 
 static struct sprd_pcm_dma_params vbc_pcm_stereo_in = {
 	.name = "VBC PCM Stereo in",
-	.workmode = DMA_LINKLIST,
+/*	.workmode = DMA_LINKLIST,*/
 	.irq_type = BLK_DONE,
 	.desc = {
 		 .datawidth = SHORT_WIDTH,
@@ -189,7 +189,7 @@ static struct sprd_pcm_dma_params vbc_pcm_stereo_in = {
 
 static struct sprd_pcm_dma_params vbc_pcm23_stereo_in = {
 	.name = "VBC PCM23 Stereo in",
-	.workmode = DMA_LINKLIST,
+/*	.workmode = DMA_LINKLIST,*/
 	.irq_type = BLK_DONE,
 	.desc = {
 		 .datawidth = SHORT_WIDTH,
