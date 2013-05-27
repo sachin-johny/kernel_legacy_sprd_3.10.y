@@ -28,7 +28,7 @@
 #include <linux/slab.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
-
+#include <linux/io.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -119,7 +119,7 @@ static struct sprd_pcm_dma_params i2s_pcm_stereo_in = {
 #elif defined(DMA_VER_R4P0)
 static struct sprd_pcm_dma_params i2s_pcm_stereo_out = {
 	.name = "I2S PCM Stereo out",
-	.workmode = DMA_LINKLIST,
+/*	.workmode = DMA_LINKLIST,*/
 	.irq_type = BLK_DONE,
 	.desc = {
 		 .datawidth = WORD_WIDTH,
@@ -130,7 +130,7 @@ static struct sprd_pcm_dma_params i2s_pcm_stereo_out = {
 
 static struct sprd_pcm_dma_params i2s_pcm_stereo_in = {
 	.name = "I2S PCM Stereo in",
-	.workmode = DMA_LINKLIST,
+/*	.workmode = DMA_LINKLIST,*/
 	.irq_type = BLK_DONE,
 	.desc = {
 		 .datawidth = WORD_WIDTH,
