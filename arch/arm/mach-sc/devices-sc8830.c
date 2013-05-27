@@ -875,25 +875,53 @@ struct platform_device sprd_jpg_device = {
 };
 
 #ifdef CONFIG_ION
+#ifdef CONFIG_CMA
 static struct ion_platform_data ion_pdata = {
-	.nr = 2,
-	.heaps = {
-		{
-			.id	= ION_HEAP_TYPE_CARVEOUT,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= "ion_carveout_heap",
-			.base   = SPRD_ION_BASE,
-			.size   = SPRD_ION_SIZE,
-		},
-		{
-			.id	= ION_HEAP_TYPE_CARVEOUT + 1,
-			.type	= ION_HEAP_TYPE_CARVEOUT,
-			.name	= "ion_carveout_heap_overlay",
-			.base   = SPRD_ION_OVERLAY_BASE,
-			.size   = SPRD_ION_OVERLAY_SIZE,
-		}
-	}
+        .nr = 2,
+        .heaps = {
+                {
+                        .id     = ION_HEAP_TYPE_CARVEOUT,
+                        .type   = ION_HEAP_TYPE_CUSTOM,
+                        .name   = "ion_cma_heap",
+                        .base   = SPRD_ION_BASE,
+                        .size   = SPRD_ION_SIZE,
+                },
+                {
+                        .id     = ION_HEAP_TYPE_CARVEOUT + 1,
+                        .type   = ION_HEAP_TYPE_CUSTOM,
+                        .name   = "ion_cma_heap_overlay",
+                        .base   = SPRD_ION_OVERLAY_BASE,
+                        .size   = SPRD_ION_OVERLAY_SIZE,
+                },
+        }
 };
+#else
+static struct ion_platform_data ion_pdata = {
+#if CONFIG_SPRD_ION_OVERLAY_SIZE
+        .nr = 2,
+#else
+        .nr = 1,
+#endif
+        .heaps = {
+                {
+                        .id     = ION_HEAP_TYPE_CARVEOUT,
+                        .type   = ION_HEAP_TYPE_CARVEOUT,
+                        .name   = "ion_carveout_heap",
+                        .base   = SPRD_ION_BASE,
+                        .size   = SPRD_ION_SIZE,
+                },
+#if CONFIG_SPRD_ION_OVERLAY_SIZE
+                {
+                        .id     = ION_HEAP_TYPE_CARVEOUT + 1,
+                        .type   = ION_HEAP_TYPE_CARVEOUT,
+                        .name   = "ion_carveout_heap_overlay",
+                        .base   = SPRD_ION_OVERLAY_BASE,
+                        .size   = SPRD_ION_OVERLAY_SIZE,
+                },
+#endif
+        }
+};
+#endif
 
 struct platform_device sprd_ion_dev = {
 	.name = "ion-sprd",
