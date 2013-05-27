@@ -16,18 +16,7 @@
 
 #define ION_HEAP_CARVEOUT_ID0   2
 #define ION_HEAP_CARVEOUT_ID1   3
-#define ION_HEAP_CARVEOUT_ID2   4
-#define ION_HEAP_CARVEOUT_ID3   5
 
-#define ION_HEAP_CMA_ID0        6
-#define ION_HEAP_CMA_ID1   	7
-#define ION_HEAP_CMA_ID2   	8
-#define ION_HEAP_CMA_ID3   	9
-
-#define ION_HEAP_IOMMU_ID0      10
-#define ION_HEAP_IOMMU_ID1   	11
-#define ION_HEAP_IOMMU_ID2   	12
-#define ION_HEAP_IOMMU_ID3   	13
 
 
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_CARVEOUT_ID0)

@@ -24,7 +24,29 @@
 struct ion_device *idev;
 int num_heaps;
 struct ion_heap **heaps;
+static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
+{
+        pgd_t *pgd = pgd_offset(mm, addr);
+        uint32_t pa = 0;
 
+        if (!pgd_none(*pgd)) {
+                pud_t *pud = pud_offset(pgd, addr);
+                if (!pud_none(*pud)) {
+                        pmd_t *pmd = pmd_offset(pud, addr);
+                        if (!pmd_none(*pmd)) {
+                                pte_t *ptep, pte;
+
+                                ptep = pte_offset_map(pmd, addr);
+                                pte = *ptep;
+                                if (pte_present(pte))
+                                        pa = pte_val(pte) & PAGE_MASK;
+                                pte_unmap(ptep);
+                        }
+                }
+        }
+
+        return pa;
+}
 
 static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 				unsigned long arg)
@@ -61,8 +83,8 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 	}
 	case ION_SPRD_CUSTOM_MSYNC:
 	{
+#if 1
 		struct ion_msync_data data;
-		void *flush_start, *flush_end;
 		void *kaddr;
 		void *paddr;
 		size_t size;
@@ -70,23 +92,34 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 				sizeof(data))) {
 			return -EFAULT;
 		}
-		flush_start = data.vaddr;
-		flush_end = data.vaddr + data.size;
-        kaddr = data.vaddr;
+		kaddr = data.vaddr;
 		paddr = data.paddr;	
 		size = data.size;
-		printk(KERN_INFO "ion flush_start %x, %x,size %x",data.vaddr,data.paddr,data.size);
-#if 0		
-		dmac_flush_range(flush_start, flush_end);
-#else	
-		{
-			//BUG_ON(!virt_addr_valid(kaddr) || !virt_addr_valid(kaddr + size - 1));
+		dmac_flush_range(kaddr, kaddr + size);
+		outer_clean_range(paddr, paddr + size);
 
-			dmac_flush_range(kaddr, kaddr + size);
- 	
-			outer_clean_range(paddr, paddr + size);
+/*maybe open in future if support discrete page map so keep this code unremoved here*/
+#else
+		struct ion_msync_data data;
+		void *v_addr;
 
-			/* FIXME: non-speculating: flush on bidirectional mappings? */
+		if (copy_from_user(&data, (void __user *)arg,
+				sizeof(data))) {
+			return -EFAULT;
+		}
+
+		if ((int)data.vaddr & (PAGE_SIZE - 1))
+			return -EFAULT;
+
+		dmac_flush_range(data.vaddr, data.vaddr + data.size);
+
+		v_addr = data.vaddr;
+		while (v_addr < data.vaddr + data.size) {
+			uint32_t phy_addr = user_va2pa(current->mm, (uint32_t)v_addr);
+			if (phy_addr) {
+				outer_clean_range(phy_addr, phy_addr + PAGE_SIZE);
+			}
+			v_addr += PAGE_SIZE;
 		}
 #endif
 		break;
@@ -96,6 +129,50 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 	}
 
 	return ret;
+}
+
+
+extern struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *heap_data);
+extern void ion_cma_heap_destroy(struct ion_heap *heap);
+
+
+static struct ion_heap *__ion_heap_create(struct ion_platform_heap *heap_data)
+{
+	struct ion_heap *heap = NULL;
+
+	switch ((int)heap_data->type) {
+	case ION_HEAP_TYPE_CUSTOM:
+		heap = ion_cma_heap_create(heap_data);
+		break;
+	default:
+		return ion_heap_create(heap_data);
+	}
+
+	if (IS_ERR_OR_NULL(heap)) {
+		pr_err("%s: error creating heap %s type %d base %lu size %u\n",
+		       __func__, heap_data->name, heap_data->type,
+		       heap_data->base, heap_data->size);
+		return ERR_PTR(-EINVAL);
+	}
+
+	heap->name = heap_data->name;
+	heap->id = heap_data->id;
+
+	return heap;
+}
+
+static void __ion_heap_destroy(struct ion_heap *heap)
+{
+	if (!heap)
+		return;
+
+	switch ((int)heap->type) {
+	case ION_HEAP_TYPE_CUSTOM:
+		ion_cma_heap_destroy(heap);
+		break;
+	default:
+		ion_heap_destroy(heap);
+	}
 }
 
 int sprd_ion_probe(struct platform_device *pdev)
@@ -118,7 +195,7 @@ int sprd_ion_probe(struct platform_device *pdev)
 	for (i = 0; i < num_heaps; i++) {
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
 
-		heaps[i] = ion_heap_create(heap_data);
+		heaps[i] = __ion_heap_create(heap_data);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			err = PTR_ERR(heaps[i]);
 			goto err;
@@ -143,7 +220,7 @@ int sprd_ion_remove(struct platform_device *pdev)
 
 	ion_device_destroy(idev);
 	for (i = 0; i < num_heaps; i++)
-		ion_heap_destroy(heaps[i]);
+		__ion_heap_destroy(heaps[i]);
 	kfree(heaps);
 	return 0;
 }
