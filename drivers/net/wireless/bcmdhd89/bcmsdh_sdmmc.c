@@ -84,7 +84,7 @@ int sdioh_sdmmc_card_regread(sdioh_info_t *sd, int func, uint32 regaddr, int reg
 static int
 sdioh_sdmmc_card_enablefuncs(sdioh_info_t *sd)
 {
-	int err_ret;
+	int err_ret = 0;
 	uint32 fbraddr;
 	uint8 func;
 
@@ -124,7 +124,7 @@ extern sdioh_info_t *
 sdioh_attach(osl_t *osh, void *bar0, uint irq)
 {
 	sdioh_info_t *sd;
-	int err_ret;
+	int err_ret = 0;
 
 	sd_trace(("%s\n", __FUNCTION__));
 
@@ -764,7 +764,7 @@ sdioh_cis_read(sdioh_info_t *sd, uint func, uint8 *cisd, uint32 length)
 extern SDIOH_API_RC
 sdioh_request_byte(sdioh_info_t *sd, uint rw, uint func, uint regaddr, uint8 *byte)
 {
-	int err_ret;
+	int err_ret = 0;
 
 	sd_info(("%s: rw=%d, func=%d, addr=0x%05x\n", __FUNCTION__, rw, func, regaddr));
 
