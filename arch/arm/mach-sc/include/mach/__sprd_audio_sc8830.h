@@ -47,7 +47,12 @@ enum {
 };
 
 #if FIXED_AUDIO
-#define VBC_BASE		SPRD_VBC_BASE
+#define VBC_REG_OFFSET          (0x1000)
+#define VBC_BASE		(SPRD_VBC_BASE + VBC_REG_OFFSET)
+#define VBC_END			(VBC_BASE + 0x0758)
+#define IS_SPRD_VBC_RANG(reg) (((reg) >= VBC_BASE) && ((reg) < VBC_END))
+#define SPRD_VBC_BASE_HI  (VBC_BASE & 0xFFFF0000)
+
 #define CODEC_DP_BASE 		SPRD_AUDIO_BASE
 /*the AP BASE : 0x8600,  part1(0x0600) just for codec op, part2(0x8000) for real read/write offset */
 #define CODEC_AP_BASE		(SPRD_ADI_BASE + 0x0600)
@@ -599,6 +604,36 @@ static inline int arch_audio_codec_reset(void)
 	udelay(10);
 	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_AUD_SOFT_RST);
 	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_AUDIF_SOFT_RST);
+	if (ret >= 0)
+		ret = sci_adi_write(ANA_REG_GLB_ARM_RST, 0, mask);
+#endif
+
+	return ret;
+}
+
+static inline int arch_audio_codec_digital_reset(void)
+{
+	int ret = 0;
+#if FIXED_AUDIO
+	sci_glb_set(REG_AON_APB_APB_RST0, BIT_AUD_SOFT_RST);
+	sci_glb_set(REG_AON_APB_APB_RST0, BIT_AUDIF_SOFT_RST);
+	udelay(10);
+	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_AUD_SOFT_RST);
+	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_AUDIF_SOFT_RST);
+#endif
+
+	return ret;
+}
+
+static inline int arch_audio_codec_analog_reset(void)
+{
+	int ret = 0;
+#if FIXED_AUDIO
+	int mask =
+	    BIT_ANA_AUD_SOFT_RST | BIT_ANA_AUDTX_SOFT_RST |
+	    BIT_ANA_AUDRX_SOFT_RST;
+	ret = sci_adi_write(ANA_REG_GLB_ARM_RST, mask, mask);
+	udelay(10);
 	if (ret >= 0)
 		ret = sci_adi_write(ANA_REG_GLB_ARM_RST, 0, mask);
 #endif

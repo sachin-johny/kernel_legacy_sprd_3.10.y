@@ -23,6 +23,8 @@
 #include <mach/sprd-audio.h>
 
 int vbc_add_controls(struct snd_soc_codec *codec);
+int dig_fm_event(struct snd_soc_dapm_widget *w,
+		   struct snd_kcontrol *k, int event);
 
 #ifdef CONFIG_SPRD_AUDIO_DEBUG
 #define sc883x_dbg pr_debug
@@ -47,6 +49,7 @@ enum {
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	SC883X_FUNC_DMIC,
 #endif
+	SC883X_FUNC_DFM,
 	SC883X_FUNC_MAX
 };
 
@@ -66,7 +69,7 @@ static const char *func_name[SC883X_FUNC_MAX] = {
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	"DMic Jack",
 #endif
-
+	"Dig FM Jack",
 };
 
 static void sc883x_ext_control(struct snd_soc_dapm_context *dapm, int s, int e)
@@ -162,6 +165,9 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	SND_SOC_DAPM_MIC("DMic Jack", NULL),
 #endif
+	/*digital fm input */
+	SND_SOC_DAPM_LINE("Dig FM Jack", dig_fm_event),
+
 	SND_SOC_DAPM_SPK("Ext Spk", sc883x_amp_event),
 	SND_SOC_DAPM_SPK("Ext Spk2", sc883x_amp_event),
 	SND_SOC_DAPM_SPK("Ext Ear", sc883x_ear_event),
@@ -231,7 +237,7 @@ static const struct snd_kcontrol_new sprd_codec_sc883x_controls[] = {
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	SC883X_CODEC_FUNC("DMic Function", SC883X_FUNC_DMIC),
 #endif
-
+	SC883X_CODEC_FUNC("Digital FM Function", SC883X_FUNC_DFM),
 };
 
 static int sc883x_late_probe(struct snd_soc_card *card)
@@ -251,6 +257,8 @@ static int sc883x_late_probe(struct snd_soc_card *card)
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk");
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Ext Spk2");
 	snd_soc_dapm_ignore_suspend(&card->dapm, "HeadPhone Jack");
+
+	snd_soc_dapm_ignore_suspend(&card->dapm, "Dig FM Jack");
 	return 0;
 }
 
