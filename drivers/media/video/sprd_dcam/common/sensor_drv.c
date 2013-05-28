@@ -1579,7 +1579,7 @@ LOCAL uint32_t _Sensor_Register(SENSOR_ID_E sensor_id)
 
 	if (SCI_TRUE == s_sensor_register_info_ptr->is_register[sensor_id]) {
 		SENSOR_PRINT("SENSOR: sensor identified");
-		return;
+		return SENSOR_SUCCESS;
 	}
 	sensor_list = Sensor_GetList(sensor_id);
 	if(s_sensor_identified && (5 != sensor_id)) {
