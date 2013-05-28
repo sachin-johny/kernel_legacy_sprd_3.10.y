@@ -54,7 +54,7 @@
 #include <mach/regulator.h>
 #include <linux/spi/mxd_cmmb_026x.h>
 
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 #include <mach/sys_debug.h>
 #endif
 
@@ -669,7 +669,7 @@ static void __init sc8825_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 	sys_debug_init();
 #endif
 }

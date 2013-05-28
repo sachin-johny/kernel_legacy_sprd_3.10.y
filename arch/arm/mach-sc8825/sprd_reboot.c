@@ -6,13 +6,13 @@
 #include <mach/system.h>
 //#include <mach/regs-pmu.h>
 #include <mach/gpio.h>
-#include <mach/sec_debug.h>
+#include <mach/sprd_debug.h>
 
 #if 0 /* should be fixed later */
 /* charger cable state */
 extern bool is_cable_attached;
 
-static void sec_power_off(void)
+static void sprd_power_off(void)
 {
 	int poweroff_try = 0;
 
@@ -79,7 +79,7 @@ static void sec_power_off(void)
 #define REBOOT_SET_SWSEL	0x000e0000
 #define REBOOT_SET_SUD		0x000f0000
 
-static void sec_reboot(char str, const char *cmd)
+static void sprd_reboot(char str, const char *cmd)
 {
 	local_irq_disable();
 	local_fiq_disable();
@@ -136,13 +136,13 @@ static void sec_reboot(char str, const char *cmd)
 	while (1);
 }
 
-static int __init sec_reboot_init(void)
+static int __init sprd_reboot_init(void)
 {
 	/* to support system shut down */
-//	pm_power_off = sec_power_off;
-	arm_pm_restart = sec_reboot;
+//	pm_power_off = sprd_power_off;
+	arm_pm_restart = sprd_reboot;
 	return 0;
 }
 
-subsys_initcall(sec_reboot_init);
+subsys_initcall(sprd_reboot_init);
 

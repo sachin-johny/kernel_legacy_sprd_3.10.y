@@ -759,7 +759,7 @@ extern void vector_iswi(void);
 
 #endif
 
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 void cp_abort(void)
 {
 	panic("CP Crash");

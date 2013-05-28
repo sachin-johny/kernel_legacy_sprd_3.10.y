@@ -42,8 +42,8 @@
 #include <linux/lockdep.h>
 #include <linux/idr.h>
 
-#ifdef CONFIG_SEC_DEBUG
-#include <mach/sec_debug.h>
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
 #endif
 
 #include "workqueue_sched.h"
@@ -1870,8 +1870,8 @@ __acquires(&gcwq->lock)
 	lock_map_acquire(&lockdep_map);
 	trace_workqueue_execute_start(work);
 
-#ifdef CONFIG_SEC_DEBUG
-	sec_debug_work_log(worker, work, f);
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_work_log(worker, work, f);
 #endif
 
 	f(work);

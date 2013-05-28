@@ -1,15 +1,15 @@
 #include <linux/device.h>
 #include <linux/err.h>
 
-struct class *sec_class;
-EXPORT_SYMBOL(sec_class);
+struct class *sprd_class;
+EXPORT_SYMBOL(sprd_class);
 
 static int __init rhea_class_create(void)
 {
-	sec_class = class_create(THIS_MODULE, "sec");
-	if (IS_ERR(sec_class)) {
+	sprd_class = class_create(THIS_MODULE, "sec");
+	if (IS_ERR(sprd_class)) {
 		pr_err("Failed to create class(sec)!\n");
-		return PTR_ERR(sec_class);
+		return PTR_ERR(sprd_class);
 	}
 
 	return 0;
