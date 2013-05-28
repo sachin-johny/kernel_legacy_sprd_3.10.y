@@ -298,7 +298,7 @@ static ISR_EXE_T _ISP_ISRSystemRoot(uint32_t param)
 static void _ISP_DriverISRRoot(uint32_t base_addr)
 {
 	uint32_t irq_line, irq_status;
-	uint32_t i;
+	int32_t i;
 
 	irq_line = ISP_IRQ_LINE_MASK & _ISP_DriverReadIrqLine(base_addr);
 	irq_status = irq_line;
