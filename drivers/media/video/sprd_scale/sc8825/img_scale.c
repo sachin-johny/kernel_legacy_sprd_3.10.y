@@ -186,7 +186,7 @@ static long img_scale_ioctl(struct file *file,
 	}
 
 	if (SCALE_IO_IS_DONE == cmd) {
-		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
+               ret = down_timeout(&(((struct scale_user *)(file->private_data))->sem_done), msecs_to_jiffies(5000));
 		if (ret) {
 			printk("img_scale_ioctl, failed to down, 0x%x \n", ret);
 			ret = -ERESTARTSYS;
