@@ -173,7 +173,7 @@ static uint32_t s_int_ctrl_flag = 0;
 #define DCAM_VERSION \
 	KERNEL_VERSION(DCAM_MAJOR_VERSION, DCAM_MINOR_VERSION, DCAM_RELEASE)
 
-static unsigned video_nr = -1;
+static int video_nr = -1;
 module_param(video_nr, uint, 0644);
 MODULE_PARM_DESC(video_nr, "videoX start number, -1 is autodetect");
 
@@ -1049,7 +1049,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 	}
 	if(DCAM_RESTAER_FAIL== s_dcam_err_info.work_status) {
 		printk("V4L2:vidioc_handle_ctrl restart end,don't need to set sensor.\n");
-		return;
+		return -1;
 	}
 	if(is_previewing) {
 		while(DCAM_RESTART_PROCESS == s_dcam_err_info.work_status) {
@@ -1179,8 +1179,12 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		if (SENSOR_MAIN != Sensor_GetCurId()) {
 			break;
 		}
-		copy_from_user(&focus_param[0], (uint16_t *) ctrl->value,
-			       FOCUS_PARAM_LEN);
+		if (0 != copy_from_user(&focus_param[0], (uint16_t *) ctrl->value,
+			       FOCUS_PARAM_LEN)) {
+			ret = -1;
+			printk("V4L2:video_ctrl_handle copy_from_user fail");
+			break;
+		}
 		printk("V4L2:focus kernel,type=%d,zone_cnt=%d, focus_cancel=0x%x.\n",
 		       focus_param[0], focus_param[1], focus_param[25]);
 
@@ -2377,7 +2381,9 @@ static int open(struct file *file)
 	int retval = 0;
 
 	if (atomic_inc_return(&dev->users) > 1) {
-		atomic_dec_return(&dev->users);
+		if (0 != atomic_dec_return(&dev->users)) {
+			printk("V4L2:open atomic_dec_return fail\n");
+		}
 		return -EBUSY;
 	}
 	dprintk(dev, 1, "open /dev/video%d type=%s users=%d\n", dev->vfd->num,
@@ -2386,7 +2392,9 @@ static int open(struct file *file)
 	/* allocate + initialize per filehandle data */
 	fh = kzalloc(sizeof(*fh), GFP_KERNEL);
 	if (NULL == fh) {
-		atomic_dec_return(&dev->users);
+		if (0 != atomic_dec_return(&dev->users)) {
+			printk("V4L2:open error dec users\n");
+		}
 		retval = -ENOMEM;
 	}
 	if (retval)
@@ -2488,7 +2496,9 @@ static int close(struct file *file)
 	videobuf_mmap_free(&fh->vb_vidq);
 	s_dcam_err_info.is_wakeup_thread = 0;
 	kfree(fh);
-	atomic_dec_return(&dev->users);
+	if (0 != atomic_dec_return(&dev->users)) {
+		printk("V4L2:close dec user fail\n");
+	}
 	dprintk(dev, 1, "close called (minor=%d, users=%d)\n", minor,
 		dev->users.counter);
 	printk("V4L2: close end.\n");
@@ -2521,7 +2531,10 @@ uint32_t video_write (struct file *fd, uint8_t *buf, size_t len, loff_t * offset
 			Sensor_Ioctl(SENSOR_IOCTL_FLASH, FLASH_OPEN);	/*open flash*/
 		}
 	}
-	copy_from_user(&focus_param[0], (uint16_t *) buf,FOCUS_PARAM_LEN);
+	if (0 != copy_from_user(&focus_param[0], (uint16_t *) buf,FOCUS_PARAM_LEN)) {
+		printk("V4L2:error copy_from_user\n");
+		return 0;
+	}
 	printk("V4L2:focus kernel,type=%d,zone_cnt=%d.\n",
 	       focus_param[0], focus_param[1]);
 	s_auto_focus = DCAM_AF_GOING;
