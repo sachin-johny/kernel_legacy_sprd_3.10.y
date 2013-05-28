@@ -841,7 +841,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
-
+	printk("mmc_init_card enter\n");
 	/* Set correct bus mode for MMC before attempting init */
 	if (!mmc_host_is_spi(host))
 		mmc_set_bus_mode(host, MMC_BUSMODE_OPENDRAIN);
@@ -860,6 +860,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	/* The extra bit indicates that we support high capacity */
 	err = mmc_send_op_cond(host, ocr | (1 << 30), &rocr);
+	printk("mmc_init_card mmc_send_op_cond err=%x\n",err);
 	if (err)
 		goto err;
 
@@ -877,14 +878,17 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (mmc_host_is_spi(host))
 		err = mmc_send_cid(host, cid);
-	else
+	else{
 		err = mmc_all_send_cid(host, cid);
+		printk("mmc_init_card mmc_all_send_cid err=%x\n",err);
+	}
 	if (err)
 		goto err;
 
 	if (oldcard) {
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
 			err = -ENOENT;
+			printk("mmc_init_card memcmp err=%x\n",err);
 			goto err;
 		}
 
@@ -894,6 +898,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 * Allocate card structure.
 		 */
 		card = mmc_alloc_card(host, &mmc_type);
+		printk("mmc_init_card mmc_alloc_card err=%x\n",err);
 		if (IS_ERR(card)) {
 			err = PTR_ERR(card);
 			goto err;
@@ -909,6 +914,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_set_relative_addr(card);
+		printk("mmc_init_card mmc_set_relative_addr err=%x\n",err);
 		if (err)
 			goto free_card;
 
@@ -920,13 +926,17 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 * Fetch CSD from card.
 		 */
 		err = mmc_send_csd(card, card->raw_csd);
+		printk("mmc_init_card mmc_send_csd err=%x\n",err);
+
 		if (err)
 			goto free_card;
 
 		err = mmc_decode_csd(card);
+		printk("mmc_init_card mmc_decode_csd err=%x\n",err);
 		if (err)
 			goto free_card;
 		err = mmc_decode_cid(card);
+		printk("mmc_init_card mmc_decode_cid err=%x\n",err);
 		if (err)
 			goto free_card;
 	}
@@ -936,6 +946,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_select_card(card);
+		printk("mmc_init_card mmc_select_card err=%x\n",err);
 		if (err)
 			goto free_card;
 	}
@@ -946,9 +957,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 */
 
 		err = mmc_get_ext_csd(card, &ext_csd);
+		printk("mmc_init_card mmc_get_ext_csd err=%x\n",err);
 		if (err)
 			goto free_card;
 		err = mmc_read_ext_csd(card, ext_csd);
+		printk("mmc_init_card mmc_get_ext_csd err=%x\n",err);
 		if (err)
 			goto free_card;
 
@@ -1151,7 +1164,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			mmc_host_clk_release(card->host);
 		}
 		if (err) {
-			pr_warning("%s: tuning execution failed\n",
+			printk("%s: tuning execution failed\n",
 				   mmc_hostname(card->host));
 			goto err;
 		}
@@ -1160,7 +1173,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				EXT_CSD_BUS_WIDTH_8 : EXT_CSD_BUS_WIDTH_4;
 		err = mmc_select_powerclass(card, ext_csd_bits, ext_csd);
 		if (err)
-			pr_warning("%s: power class selection to bus width %d"
+			printk("%s: power class selection to bus width %d"
 				   " failed\n", mmc_hostname(card->host),
 				   1 << bus_width);
 	}
@@ -1196,7 +1209,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			err = mmc_select_powerclass(card, ext_csd_bits[idx][0],
 						    ext_csd);
 			if (err)
-				pr_warning("%s: power class selection to "
+				printk("%s: power class selection to "
 					   "bus width %d failed\n",
 					   mmc_hostname(card->host),
 					   1 << bus_width);
@@ -1227,7 +1240,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			err = mmc_select_powerclass(card, ext_csd_bits[idx][1],
 						    ext_csd);
 			if (err)
-				pr_warning("%s: power class selection to "
+				printk("%s: power class selection to "
 					   "bus width %d ddr %d failed\n",
 					   mmc_hostname(card->host),
 					   1 << bus_width, ddr);
@@ -1238,7 +1251,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					 card->ext_csd.generic_cmd6_time);
 		}
 		if (err) {
-			pr_warning("%s: switch to bus width %d ddr %d "
+			printk("%s: switch to bus width %d ddr %d "
 				"failed\n", mmc_hostname(card->host),
 				1 << bus_width, ddr);
 			goto free_card;
@@ -1282,7 +1295,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (err && err != -EBADMSG)
 			goto free_card;
 		if (err) {
-			pr_warning("%s: Enabling HPI failed\n",
+			printk("%s: Enabling HPI failed\n",
 				   mmc_hostname(card->host));
 			err = 0;
 		} else
@@ -1322,6 +1335,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		host->card = card;
 
 	mmc_free_ext_csd(ext_csd);
+	printk("mmc_init_card success \n");
 	return 0;
 
 free_card:
@@ -1565,6 +1579,7 @@ int mmc_attach_mmc(struct mmc_host *host)
 	 * Detect and init the card.
 	 */
 	err = mmc_init_card(host, host->ocr, NULL);
+	printk("mmc init card err= %x\n",err);
 	if (err)
 		goto err;
 
