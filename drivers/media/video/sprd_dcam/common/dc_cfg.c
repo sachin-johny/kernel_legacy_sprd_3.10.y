@@ -346,19 +346,24 @@ void DC_GetExifParameter_Post(void)
 		    ("DC_CFG: DC_GetExifParameter_Post error,s_dc_exif_info_ptr = NULL \n");
 		return;
 	}
-	DCAM_CFG_PRINT("DC_CFG: before: (%x), %x, %x, %x %x \n",
+	DCAM_CFG_PRINT("DC_CFG: before: (%x), %x, %x, %x\n",
 		       (uint32_t) g_exif_info_start_ptr,
 		       (uint32_t) dc_exif_info_ptr->gps_ptr,
 		       (uint32_t) dc_exif_info_ptr->primary.data_struct_ptr,
-		       (uint32_t) dc_exif_info_ptr->spec_ptr,
-		       (uint32_t) dc_exif_info_ptr->spec_ptr->other_ptr);
-	DCAM_CFG_PRINT("DC_CFG: before: (%x), %x, %x, %x %x \n",
+		       (uint32_t) dc_exif_info_ptr->spec_ptr);
+
+	DCAM_CFG_PRINT("DC_CFG: before: (%x), %x\n",
 		       (uint32_t) g_exif_info_start_ptr,
-		       (uint32_t) dc_exif_info_ptr->primary.img_desc_ptr,
-		       (uint32_t) dc_exif_info_ptr->spec_ptr->date_time_ptr,
-		       (uint32_t) dc_exif_info_ptr->spec_ptr->user_ptr,
-		       (uint32_t) dc_exif_info_ptr->spec_ptr->
-		       pic_taking_cond_ptr);
+		       (uint32_t) dc_exif_info_ptr->primary.img_desc_ptr);
+
+	if (NULL != dc_exif_info_ptr->spec_ptr) {
+		DCAM_CFG_PRINT("DC_CFG: before: %x, %x, %x %x \n",
+			(uint32_t) dc_exif_info_ptr->spec_ptr->other_ptr,
+			(uint32_t) dc_exif_info_ptr->spec_ptr->date_time_ptr,
+			(uint32_t) dc_exif_info_ptr->spec_ptr->user_ptr,
+			(uint32_t) dc_exif_info_ptr->spec_ptr->
+				pic_taking_cond_ptr);
+	}
 
 	if (NULL != dc_exif_info_ptr->gps_ptr) {
 		dc_exif_info_ptr->gps_ptr =
