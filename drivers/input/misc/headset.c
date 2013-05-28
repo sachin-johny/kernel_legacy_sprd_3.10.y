@@ -19,6 +19,11 @@
 #include <linux/headset.h>
 #include <mach/board.h>
 
+#ifdef CONFIG_ARCH_SC8830
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
+#endif
+
 #ifndef HEADSET_DETECT_GPIO
 #define HEADSET_DETECT_GPIO 165
 #endif
@@ -38,6 +43,10 @@
 #endif
 #ifndef HEADSET_BUTTON_GPIO_DEBOUNCE_SW
 #define HEADSET_BUTTON_GPIO_DEBOUNCE_SW 100
+#endif
+
+#ifdef CONFIG_ARCH_SC8830
+extern int sprd_codec_headmic_bias_control(int on);
 #endif
 
 static enum hrtimer_restart report_headset_button_status(int active, struct _headset_gpio *hgp);
@@ -234,7 +243,12 @@ static enum hrtimer_restart report_headset_button_status(int active, struct _hea
 static enum hrtimer_restart report_headset_detect_status(int active, struct _headset_gpio *hgp)
 {
 	struct _headset * ht = hgp->parent;
+
 	if (active) {
+	#ifdef CONFIG_ARCH_SC8830
+		sprd_codec_headmic_bias_control(1);
+		mdelay(20);
+	#endif
 		headset_hook_detect(1);
 		ht->headphone = 0;
 		/* ht->headphone = ht->button.active_low ^ headset_gpio_get_value(ht->button.gpio); */
@@ -255,8 +269,12 @@ static enum hrtimer_restart report_headset_detect_status(int active, struct _hea
 		headset_hook_detect(0);
 		if (ht->headphone)
 			pr_info("headphone plug out\n");
-		else
+		else {
+		#ifdef CONFIG_ARCH_SC8830
+			sprd_codec_headmic_bias_control(0);
+		#endif
 			pr_info("headset plug out\n");
+		}
 		ht->type = BIT_HEADSET_OUT;
 		queue_work(ht->switch_workqueue, &ht->switch_work);
 	}
@@ -349,6 +367,15 @@ static int __init headset_init(void)
 {
 	int ret, i;
 	struct _headset *ht = &headset;
+
+#ifdef CONFIG_ARCH_SC8830
+	struct regulator *detect_regulator;
+	detect_regulator = regulator_get(NULL, "vddclsg");
+	if (!IS_ERR(detect_regulator)) {
+		regulator_set_voltage(detect_regulator, 1800000, 1800000);
+		regulator_enable(detect_regulator);
+	}
+#endif
 	ret = switch_dev_register(&ht->sdev);
 	if (ret < 0) {
 		pr_err("switch_dev_register failed!\n");
