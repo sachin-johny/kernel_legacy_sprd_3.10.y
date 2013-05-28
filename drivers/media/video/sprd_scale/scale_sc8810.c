@@ -652,7 +652,7 @@ uint32_t _SCALE_IsContinueSlice(void)
 int _SCALE_ContinueSlice(long unsigned int data)
 {
 	ISP_PATH_DESCRIPTION_T *p_path = &s_scale_mod.isp_path2;
-	ISP_FRAME_T next_frame;
+	ISP_FRAME_T next_frame = {0};
 	ISP_REG_T *p_isp_reg = (ISP_REG_T *) s_scale_mod.module_addr;
 	ISP_RECT_T rect = {0};
 	int32_t rtn_drv = 0;
@@ -806,8 +806,11 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param)
 	case ISP_PATH_INPUT_SIZE:
 		{
 			ISP_SIZE_T p_size;
-			copy_from_user(&p_size, (ISP_SIZE_T *) param,
-				       sizeof(ISP_SIZE_T));
+			if (0 != copy_from_user(&p_size, (ISP_SIZE_T *) param,
+				       sizeof(ISP_SIZE_T))) {
+				rtn = ISP_DRV_RTN_PARA_ERR;
+				break;
+			}
 			if (p_size.w > ISP_PATH_FRAME_WIDTH_MAX
 			    || p_size.h > ISP_PATH_FRAME_HEIGHT_MAX) {
 				rtn = ISP_DRV_RTN_PARA_ERR;
@@ -824,8 +827,11 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param)
 	case ISP_PATH_INPUT_RECT:
 		{
 			ISP_RECT_T p_rect;
-			copy_from_user(&p_rect, (ISP_RECT_T *) param,
-				       sizeof(ISP_RECT_T));
+			if (0 != copy_from_user(&p_rect, (ISP_RECT_T *) param,
+				       sizeof(ISP_RECT_T))) {
+				rtn = ISP_DRV_RTN_PARA_ERR;
+				break;
+			}
 
 			if (p_rect.x > ISP_PATH_FRAME_WIDTH_MAX ||
 			    p_rect.y > ISP_PATH_FRAME_HEIGHT_MAX ||
@@ -873,8 +879,11 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param)
 		{
 			ISP_ADDRESS_T p_addr;
 			SCALE_CHECK_PARAM_ZERO_POINTER(param);
-			copy_from_user(&p_addr, (ISP_ADDRESS_T *) param,
-				       sizeof(ISP_ADDRESS_T));
+			if (0 != copy_from_user(&p_addr, (ISP_ADDRESS_T *) param,
+				       sizeof(ISP_ADDRESS_T))) {
+				rtn = ISP_DRV_RTN_PARA_ERR;
+				break;
+			}
 
 			p_path->input_frame.yaddr = p_addr.yaddr;
 			p_path->input_frame.uaddr = p_addr.uaddr;
@@ -890,8 +899,11 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param)
 		{
 			ISP_SIZE_T p_size;
 			SCALE_CHECK_PARAM_ZERO_POINTER(param);
-			copy_from_user(&p_size, (ISP_SIZE_T *) param,
-				       sizeof(ISP_SIZE_T));
+			if (0 != copy_from_user(&p_size, (ISP_SIZE_T *) param,
+				       sizeof(ISP_SIZE_T))) {
+				rtn = ISP_DRV_RTN_PARA_ERR;
+				break;
+			}
 			if (p_size.w > ISP_PATH_FRAME_WIDTH_MAX
 			    || p_size.h > ISP_PATH_FRAME_HEIGHT_MAX) {
 				rtn = ISP_DRV_RTN_PARA_ERR;
@@ -935,8 +947,11 @@ static int32_t _SCALE_DriverPath2Config(ISP_CFG_ID_E id, void *param)
 		{
 			ISP_ADDRESS_T p_addr;
 			SCALE_CHECK_PARAM_ZERO_POINTER(param);
-			copy_from_user(&p_addr, (ISP_ADDRESS_T *) param,
-				       sizeof(ISP_ADDRESS_T));
+			if (0 != copy_from_user(&p_addr, (ISP_ADDRESS_T *) param,
+				       sizeof(ISP_ADDRESS_T))) {
+				rtn = ISP_DRV_RTN_PARA_ERR;
+				break;
+			}
 			{
 				p_path->output_frame.yaddr = p_addr.yaddr;
 				p_path->output_frame.uaddr = p_addr.uaddr;
@@ -1377,8 +1392,11 @@ static int SCALE_ioctl(struct file *fl, unsigned int cmd, unsigned long param) {
 		{
 			SCALE_CONFIG_T path2_config;
 			ISP_PATH_DESCRIPTION_T *p_path = &s_scale_mod.isp_path2;
-			copy_from_user(&path2_config, (SCALE_CONFIG_T *) param,
-				       sizeof(SCALE_CONFIG_T));
+			if (0 != copy_from_user(&path2_config, (SCALE_CONFIG_T *) param,
+				       sizeof(SCALE_CONFIG_T))) {
+					ret = -1;
+					break;
+			}
 			if (ISP_PATH_INPUT_RECT == path2_config.id) {
 				memcpy(&p_path->input_range, path2_config.param,
 				       sizeof(ISP_RECT_T));
@@ -1394,14 +1412,20 @@ static int SCALE_ioctl(struct file *fl, unsigned int cmd, unsigned long param) {
 	case SCALE_IOC_YUV422_YUV420:
 		{
 			SCALE_YUV420_ENDIAN_T yuv_config;
-			copy_from_user(&yuv_config, (SCALE_YUV420_ENDIAN_T *)param, sizeof(SCALE_YUV420_ENDIAN_T));
+			if (0 != copy_from_user(&yuv_config, (SCALE_YUV420_ENDIAN_T *)param, sizeof(SCALE_YUV420_ENDIAN_T))) {
+				ret = -1;
+				break;
+			}
 			_SCALE_DriverCopy(&yuv_config);
 		}
 			break;
 	case SCALE_IOC_YUV420_ENDIAN:
 	{
 		SCALE_YUV420_ENDIAN_T yuv_config;
-		copy_from_user(&yuv_config, (SCALE_YUV420_ENDIAN_T *)param, sizeof(SCALE_YUV420_ENDIAN_T));
+		if (0 != copy_from_user(&yuv_config, (SCALE_YUV420_ENDIAN_T *)param, sizeof(SCALE_YUV420_ENDIAN_T))) {
+			ret = -1;
+			break;
+		}
 		_SCALE_DriverEndianHalf2Little(&yuv_config);
 	}
 		break;
