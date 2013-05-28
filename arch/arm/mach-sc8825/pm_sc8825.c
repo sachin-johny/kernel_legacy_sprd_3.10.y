@@ -35,9 +35,9 @@
 #include <mach/emc_repower.h>
 #include <linux/clockchips.h>
 
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 /* For saving Fault status */
-#include <mach/sec_debug.h>
+#include <mach/sprd_debug.h>
 #endif
 
 extern int sc8825_get_clock_status(void);
@@ -1294,7 +1294,7 @@ void sc8825_pm_init(void)
 	
 	init_reset_vector();
 	pm_power_off = sc8825_power_off;
-#ifndef CONFIG_SEC_DEBUG
+#ifndef CONFIG_SPRD_DEBUG
 	arm_pm_restart = sc8825_machine_restart;
 #endif
 	pr_info("power off %pf, restart %pf\n", pm_power_off, arm_pm_restart);
@@ -1319,7 +1319,7 @@ void sc8825_pm_init(void)
 
 	pm_idle = sc8825_idle;
 
-#if defined(CONFIG_SEC_DEBUG)
-	sec_debug_init();
+#if defined(CONFIG_SPRD_DEBUG)
+	sprd_debug_init();
 #endif
 }

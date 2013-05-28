@@ -22,7 +22,7 @@
 extern void cp_abort(void);
 static int debugfs_make_kernel_panic(void *data, u64 val)
 {
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 	if (val > 0) cp_abort();
 #endif
 	return 0;

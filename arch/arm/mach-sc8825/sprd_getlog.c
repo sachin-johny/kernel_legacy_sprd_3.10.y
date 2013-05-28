@@ -1,5 +1,5 @@
 /*
- *  sec_getlog.c
+ *  sprd_getlog.c
  *
  */
 
@@ -24,7 +24,7 @@ static struct {
 	.special_mark_4 = (('f' << 24) | ('b' << 16) | ('u' << 8) | ('f' << 0)),
 };
 
-void sec_getlog_supply_fbinfo(void *p_fb, u32 xres, u32 yres, u32 bpp,
+void sprd_getlog_supply_fbinfo(void *p_fb, u32 xres, u32 yres, u32 bpp,
 			      u32 frames)
 {
 	if (p_fb) {
@@ -37,7 +37,7 @@ void sec_getlog_supply_fbinfo(void *p_fb, u32 xres, u32 yres, u32 bpp,
 		frame_buf_mark.frames = frames;
 	}
 }
-EXPORT_SYMBOL(sec_getlog_supply_fbinfo);
+EXPORT_SYMBOL(sprd_getlog_supply_fbinfo);
 
 static struct {
 	u32 special_mark_1;
@@ -79,7 +79,7 @@ static struct {
 	.special_mark_4 = (('p' << 24) | ('l' << 16) | ('o' << 8) | ('g' << 0)),
 };
 
-void sec_getlog_supply_loggerinfo(void *p_main,
+void sprd_getlog_supply_loggerinfo(void *p_main,
 				  void *p_radio, void *p_events, void *p_system)
 {
 	pr_info("%s: 0x%p 0x%p 0x%p 0x%p\n", __func__, p_main, p_radio,
@@ -89,7 +89,7 @@ void sec_getlog_supply_loggerinfo(void *p_main,
 	plat_log_mark.p_events = p_events;
 	plat_log_mark.p_system = p_system;
 }
-EXPORT_SYMBOL(sec_getlog_supply_loggerinfo);
+EXPORT_SYMBOL(sprd_getlog_supply_loggerinfo);
 
 static struct {
 	u32 special_mark_1;
@@ -104,14 +104,14 @@ static struct {
 	.special_mark_4 = (('k' << 24) | ('l' << 16) | ('o' << 8) | ('g' << 0)),
 };
 
-void sec_getlog_supply_kloginfo(void *klog_buf)
+void sprd_getlog_supply_kloginfo(void *klog_buf)
 {
 	pr_info("%s: 0x%p\n", __func__, klog_buf);
 	kernel_log_mark.klog_buf = klog_buf;
 }
-EXPORT_SYMBOL(sec_getlog_supply_kloginfo);
+EXPORT_SYMBOL(sprd_getlog_supply_kloginfo);
 
-static int __init sec_getlog_init(void)
+static int __init sprd_getlog_init(void)
 {
 	marks_ver_mark.mem[0].size = 0;
 #if defined(CONFIG_ARCH_SC8810) || defined(CONFIG_ARCH_SC8825)
@@ -125,4 +125,4 @@ static int __init sec_getlog_init(void)
 	return 0;
 }
 
-core_initcall(sec_getlog_init);
+core_initcall(sprd_getlog_init);

@@ -49,8 +49,8 @@
 #include <nk/nkern.h>
 #endif
 
-#if defined (CONFIG_SEC_DEBUG)
-#include <mach/sec_debug.h>
+#if defined (CONFIG_SPRD_DEBUG)
+#include <mach/sprd_debug.h>
 #endif
 
 /*
@@ -212,9 +212,9 @@ void __init setup_log_buf(int early)
 	int free;
 
 	if (!new_log_buf_len) {
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 		//{{ Mark for GetLog
-		sec_getlog_supply_kloginfo(__log_buf);
+		sprd_getlog_supply_kloginfo(__log_buf);
 		//}} Mark for GetLog
 #endif
 		return;
@@ -256,9 +256,9 @@ void __init setup_log_buf(int early)
 	log_end -= offset;
 	spin_unlock_irqrestore(&logbuf_lock, flags);
 
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 		//{{ Mark for GetLog
-	sec_getlog_supply_kloginfo(__log_buf);
+	sprd_getlog_supply_kloginfo(__log_buf);
 		//}} Mark for GetLog
 #endif
 

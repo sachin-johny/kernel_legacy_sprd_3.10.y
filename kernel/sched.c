@@ -77,8 +77,8 @@
 #include <asm/irq_regs.h>
 #include <asm/mutex.h>
 
-#ifdef CONFIG_SEC_DEBUG
-#include <mach/sec_debug.h>
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
 #endif
 
 #include "sched_cpupri.h"
@@ -4327,8 +4327,8 @@ need_resched:
 	} else
 		raw_spin_unlock_irq(&rq->lock);
 
-#ifdef CONFIG_SEC_DEBUG
-	sec_debug_task_log(cpu, rq->curr);
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_task_log(cpu, rq->curr);
 #endif
 	post_schedule(rq);
 

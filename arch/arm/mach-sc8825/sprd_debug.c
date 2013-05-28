@@ -1,5 +1,5 @@
 /*
- *  sec_debug.c
+ *  sprd_debug.c
  *
  */
 
@@ -25,9 +25,10 @@
 
 #include <mach/hardware.h>
 #include <mach/system.h>
-#include <mach/sec_debug.h>
+#include <mach/sprd_debug.h>
 #include <linux/fs.h>
 #include <linux/seq_file.h>
+#include <mach/pm_debug.h>
 
 #ifdef CONFIG_SEC_USER_EXEC_DIRECT
 #include "sec/user/exec.h"
@@ -42,7 +43,7 @@
 #define RESET_REASON_RECOVERY		0x1A2B3C11
 #define RESET_REASON_FOTA			0x1A2B3C12
 
-enum sec_debug_upload_cause_t {
+enum sprd_debug_upload_cause_t {
 	UPLOAD_CAUSE_INIT = 0xCAFEBABE,
 	UPLOAD_CAUSE_KERNEL_PANIC = 0x000000C8,
 	UPLOAD_CAUSE_FORCED_UPLOAD = 0x00000022,
@@ -51,7 +52,7 @@ enum sec_debug_upload_cause_t {
 	UPLOAD_CAUSE_HSIC_DISCONNECTED = 0x000000DD,
 };
 
-struct sec_debug_mmu_reg_t {
+struct sprd_debug_mmu_reg_t {
 	int SCTLR;
 	int TTBR0;
 	int TTBR1;
@@ -73,7 +74,7 @@ struct sec_debug_mmu_reg_t {
 };
 
 /* ARM CORE regs mapping structure */
-struct sec_debug_core_t {
+struct sprd_debug_core_t {
 	/* COMMON */
 	unsigned int r0;
 	unsigned int r1;
@@ -134,19 +135,19 @@ struct sec_debug_core_t {
 
 };
 
-/* enable/disable sec_debug feature
+/* enable/disable sprd_debug feature
  * level = 0 when enable = 0 && enable_user = 0
  * level = 1 when enable = 1 && enable_user = 0
  * level = 0x10001 when enable = 1 && enable_user = 1
  * The other cases are not considered
  */
-union sec_debug_level_t sec_debug_level = { .en.kernel_fault = 1, };
+union sprd_debug_level_t sprd_debug_level = { .en.kernel_fault = 1, };
 
-module_param_named(enable, sec_debug_level.en.kernel_fault, ushort, 0644);
-module_param_named(enable_user, sec_debug_level.en.user_fault, ushort, 0644);
-module_param_named(level, sec_debug_level.uint_val, uint, 0644);
+module_param_named(enable, sprd_debug_level.en.kernel_fault, ushort, 0644);
+module_param_named(enable_user, sprd_debug_level.en.user_fault, ushort, 0644);
+module_param_named(level, sprd_debug_level.uint_val, uint, 0644);
 
-struct sec_debug_fault_status_t {
+struct sprd_debug_fault_status_t {
 	/* COMMON */
 	unsigned int r0;
 	unsigned int r1;
@@ -172,31 +173,31 @@ static unsigned reset_reason = 0xFFEEFFEE;
 
 module_param_named(reset_reason, reset_reason, uint, 0644);
 
-static const char *gkernel_sec_build_info_date_time[] = {
+static const char *gkernel_sprd_build_info_date_time[] = {
 	__DATE__,
 	__TIME__
 };
 
-static char gkernel_sec_build_info[100];
+static char gkernel_sprd_build_info[100];
 
 /* klaatu - schedule log */
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-static struct sched_log sec_debug_log __cacheline_aligned;
+#ifdef CONFIG_SPRD_DEBUG_SCHED_LOG
+static struct sched_log sprd_debug_log __cacheline_aligned;
 static atomic_t task_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static atomic_t irq_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static atomic_t work_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static atomic_t hrtimer_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
-static struct sched_log (*psec_debug_log) = (&sec_debug_log);
+static struct sched_log (*psprd_debug_log) = (&sprd_debug_log);
 
-#ifdef CONFIG_SEC_DEBUG_IRQ_EXIT_LOG
+#ifdef CONFIG_SPRD_DEBUG_IRQ_EXIT_LOG
 static unsigned long long gExcpIrqExitTime[NR_CPUS];
 #endif
 
 static int checksum_sched_log(void)
 {
 	int sum = 0, i;
-	for (i = 0; i < sizeof(sec_debug_log); i++)
-		sum += *((char *)&sec_debug_log + i);
+	for (i = 0; i < sizeof(sprd_debug_log); i++)
+		sum += *((char *)&sprd_debug_log + i);
 
 	return sum;
 }
@@ -208,7 +209,7 @@ static int checksum_sched_log(void)
 #endif
 
 /* klaatu - semaphore log */
-#ifdef CONFIG_SEC_DEBUG_SEMAPHORE_LOG
+#ifdef CONFIG_SPRD_DEBUG_SEMAPHORE_LOG
 struct sem_debug sem_debug_free_head;
 struct sem_debug sem_debug_done_head;
 int sem_debug_free_head_cnt;
@@ -224,15 +225,15 @@ int rwsem_debug_done_head_cnt;
 int rwsem_debug_init = 0;
 spinlock_t rwsem_debug_lock;
 
-#endif /* CONFIG_SEC_DEBUG_SEMAPHORE_LOG */
+#endif /* CONFIG_SPRD_DEBUG_SEMAPHORE_LOG */
 
-DEFINE_PER_CPU(struct sec_debug_core_t, sec_debug_core_reg);
-DEFINE_PER_CPU(struct sec_debug_mmu_reg_t, sec_debug_mmu_reg);
-DEFINE_PER_CPU(enum sec_debug_upload_cause_t, sec_debug_upload_cause);
-DEFINE_PER_CPU(struct sec_debug_fault_status_t, sec_debug_fault_status);
+DEFINE_PER_CPU(struct sprd_debug_core_t, sprd_debug_core_reg);
+DEFINE_PER_CPU(struct sprd_debug_mmu_reg_t, sprd_debug_mmu_reg);
+DEFINE_PER_CPU(enum sprd_debug_upload_cause_t, sprd_debug_upload_cause);
+DEFINE_PER_CPU(struct sprd_debug_fault_status_t, sprd_debug_fault_status);
 
 /* core reg dump function*/
-static inline void sec_debug_save_core_reg(struct sec_debug_core_t *core_reg)
+static inline void sprd_debug_save_core_reg(struct sprd_debug_core_t *core_reg)
 {
 	/* we will be in SVC mode when we enter this function. Collect
 	   SVC registers along with cmn registers. */
@@ -329,7 +330,7 @@ static inline void sec_debug_save_core_reg(struct sec_debug_core_t *core_reg)
 	return;
 }
 
-static inline void sec_debug_save_mmu_reg(struct sec_debug_mmu_reg_t *mmu_reg)
+static inline void sprd_debug_save_mmu_reg(struct sprd_debug_mmu_reg_t *mmu_reg)
 {
 	asm("mrc    p15, 0, r1, c1, c0, 0\n\t"	/* SCTLR */
 	    "str r1, [%0]\n\t"
@@ -369,26 +370,26 @@ static inline void sec_debug_save_mmu_reg(struct sec_debug_mmu_reg_t *mmu_reg)
 	);
 }
 
-static inline void sec_debug_save_context(void)
+static inline void sprd_debug_save_context(void)
 {
 	unsigned long flags;
 	local_irq_save(flags);
-	sec_debug_save_mmu_reg(&per_cpu(sec_debug_mmu_reg, smp_processor_id()));
-	sec_debug_save_core_reg(&per_cpu
-				(sec_debug_core_reg, smp_processor_id()));
+	sprd_debug_save_mmu_reg(&per_cpu(sprd_debug_mmu_reg, smp_processor_id()));
+	sprd_debug_save_core_reg(&per_cpu
+				(sprd_debug_core_reg, smp_processor_id()));
 
 	pr_emerg("(%s) context saved(CPU:%d)\n", __func__, smp_processor_id());
 	local_irq_restore(flags);
 }
 
-void sec_debug_save_pte(void *pte, int task_addr) 
+void sprd_debug_save_pte(void *pte, int task_addr) 
 {
 
-	memcpy(&per_cpu(sec_debug_fault_status,smp_processor_id()), pte,sizeof(struct sec_debug_fault_status_t));
-	per_cpu(sec_debug_fault_status,smp_processor_id()).cur_process_magic =task_addr;
+	memcpy(&per_cpu(sprd_debug_fault_status,smp_processor_id()), pte,sizeof(struct sprd_debug_fault_status_t));
+	per_cpu(sprd_debug_fault_status,smp_processor_id()).cur_process_magic =task_addr;
 }
 
-static void sec_debug_set_upload_magic(unsigned magic)
+static void sprd_debug_set_upload_magic(unsigned magic)
 {
 	pr_emerg("(%s) %x\n", __func__, magic);
 
@@ -402,17 +403,17 @@ static void sec_debug_set_upload_magic(unsigned magic)
 	outer_flush_all();
 }
 
-static int sec_debug_normal_reboot_handler(struct notifier_block *nb,
+static int sprd_debug_normal_reboot_handler(struct notifier_block *nb,
 					   unsigned long l, void *p)
 {
-	sec_debug_set_upload_magic(0x0);
+	sprd_debug_set_upload_magic(0x0);
 
 	return 0;
 }
 
-static void sec_debug_set_upload_cause(enum sec_debug_upload_cause_t type)
+static void sprd_debug_set_upload_cause(enum sprd_debug_upload_cause_t type)
 {
-	per_cpu(sec_debug_upload_cause, smp_processor_id()) = type;
+	per_cpu(sprd_debug_upload_cause, smp_processor_id()) = type;
 
 	/* to check VDD_ALIVE / XnRESET issue */
 	__raw_writel(type, SPRD_INFORM3);
@@ -427,12 +428,12 @@ static void sec_debug_set_upload_cause(enum sec_debug_upload_cause_t type)
  * This function call does not necessarily mean that a fatal error
  * had occurred. It may be just a warning.
  */
-static inline int sec_debug_dump_stack(void)
+static inline int sprd_debug_dump_stack(void)
 {
-	if (!sec_debug_level.en.kernel_fault)
+	if (!sprd_debug_level.en.kernel_fault)
 		return -1;
 
-	sec_debug_save_context();
+	sprd_debug_save_context();
 
 	/* flush L1 from each core.
 	   L2 will be flushed later before reset. */
@@ -441,7 +442,7 @@ static inline int sec_debug_dump_stack(void)
 	return 0;
 }
 
-static inline void sec_debug_hw_reset(void)
+static inline void sprd_debug_hw_reset(void)
 {
 	pr_emerg("(%s) %s\n", __func__, linux_banner);
 	pr_emerg("(%s) rebooting...\n", __func__);
@@ -455,51 +456,51 @@ static inline void sec_debug_hw_reset(void)
 	while (1) ;
 }
 
-static int sec_debug_panic_handler(struct notifier_block *nb,
+static int sprd_debug_panic_handler(struct notifier_block *nb,
 				   unsigned long l, void *buf)
 {
 
-	if (!sec_debug_level.en.kernel_fault)
+	if (!sprd_debug_level.en.kernel_fault)
 		return -1;
 
-	sec_debug_set_upload_magic(0x66262564);
+	sprd_debug_set_upload_magic(0x66262564);
 
 	if (!strcmp(buf, "User Fault"))
-		sec_debug_set_upload_cause(UPLOAD_CAUSE_USER_FAULT);
+		sprd_debug_set_upload_cause(UPLOAD_CAUSE_USER_FAULT);
 	else if (!strcmp(buf, "Crash Key"))
-		sec_debug_set_upload_cause(UPLOAD_CAUSE_FORCED_UPLOAD);
+		sprd_debug_set_upload_cause(UPLOAD_CAUSE_FORCED_UPLOAD);
 	else if (!strcmp(buf, "CP Crash"))
-		sec_debug_set_upload_cause(UPLOAD_CAUSE_CP_ERROR_FATAL);
+		sprd_debug_set_upload_cause(UPLOAD_CAUSE_CP_ERROR_FATAL);
 	else if (!strcmp(buf, "HSIC Disconnected"))
-		sec_debug_set_upload_cause(UPLOAD_CAUSE_HSIC_DISCONNECTED);
+		sprd_debug_set_upload_cause(UPLOAD_CAUSE_HSIC_DISCONNECTED);
 	else
-		sec_debug_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
+		sprd_debug_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
 
 	pr_err("(%s) checksum_sched_log: %x\n", __func__, checksum_sched_log());
 
 	show_state();
 
-	sec_debug_dump_stack();
+	sprd_debug_dump_stack();
 #ifdef CONFIG_SEC_USER_EXEC_DIRECT
-	sec_user_exec_handler(nb, l, buf);
+	sprd_user_exec_handler(nb, l, buf);
 #endif
-	sec_debug_hw_reset();
+	sprd_debug_hw_reset();
 	return 0;
 }
-#ifdef CONFIG_SEC_DEBUG_FUPLOAD_DUMP_MORE
+#ifdef CONFIG_SPRD_DEBUG_FUPLOAD_DUMP_MORE
 static void dump_state_and_upload(void);
 #endif
 
-void sec_debug_check_crash_key(unsigned int code, int value)
+void sprd_debug_check_crash_key(unsigned int code, int value)
 {
 	static bool volup_p;
 	static bool voldown_p;
 	static int loopcount;
 
-	if (!sec_debug_level.en.kernel_fault)
+	if (!sprd_debug_level.en.kernel_fault)
 		return;
 
-#if 1
+#if 0
 	/* Must be deleted later */
 	pr_info("Test %s:key code(%d) value(%d)\n", __func__, code, value);
 #endif
@@ -518,7 +519,7 @@ void sec_debug_check_crash_key(unsigned int code, int value)
 			if (code == KEY_POWER) {
 				pr_info("%s: count for enter forced upload : %d\n", __func__, ++loopcount);
 				if (loopcount == 2)
-#ifdef CONFIG_SEC_DEBUG_FUPLOAD_DUMP_MORE
+#ifdef CONFIG_SPRD_DEBUG_FUPLOAD_DUMP_MORE
 					dump_state_and_upload();
 #else
 					panic("Crash Key");
@@ -536,46 +537,46 @@ void sec_debug_check_crash_key(unsigned int code, int value)
 }
 
 static struct notifier_block nb_reboot_block = {
-	.notifier_call = sec_debug_normal_reboot_handler
+	.notifier_call = sprd_debug_normal_reboot_handler
 };
 
 static struct notifier_block nb_panic_block = {
-	.notifier_call = sec_debug_panic_handler,
+	.notifier_call = sprd_debug_panic_handler,
 };
 
 
-void sec_debug_emergency_restart_handler(void)
+void sprd_debug_emergency_restart_handler(void)
 {
 
-	if (!sec_debug_level.en.kernel_fault)
+	if (!sprd_debug_level.en.kernel_fault)
 		return;
 
-	sec_debug_set_upload_magic(0x66262564);
-	sec_debug_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
-	sec_debug_dump_stack();
-	sec_debug_hw_reset();
+	sprd_debug_set_upload_magic(0x66262564);
+	sprd_debug_set_upload_cause(UPLOAD_CAUSE_KERNEL_PANIC);
+	sprd_debug_dump_stack();
+	sprd_debug_hw_reset();
 
 }
 
-static void sec_debug_set_build_info(void)
+static void sprd_debug_set_build_info(void)
 {
-	char *p = gkernel_sec_build_info;
+	char *p = gkernel_sprd_build_info;
 	sprintf(p, "Kernel Build Info : ");
 	strcat(p, " Date:");
-	strncat(p, gkernel_sec_build_info_date_time[0], 12);
+	strncat(p, gkernel_sprd_build_info_date_time[0], 12);
 	strcat(p, " Time:");
-	strncat(p, gkernel_sec_build_info_date_time[1], 9);
+	strncat(p, gkernel_sprd_build_info_date_time[1], 9);
 }
 
-__init int sec_debug_init(void)
+__init int sprd_debug_init(void)
 {
-	if (!sec_debug_level.en.kernel_fault)
+	if (!sprd_debug_level.en.kernel_fault)
 		return -1;
 
-	sec_debug_set_build_info();
+	sprd_debug_set_build_info();
 
-	sec_debug_set_upload_magic(0x66262564);
-	sec_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
+	sprd_debug_set_upload_magic(0x66262564);
+	sprd_debug_set_upload_cause(UPLOAD_CAUSE_INIT);
 
 	register_reboot_notifier(&nb_reboot_block);
 
@@ -584,76 +585,88 @@ __init int sec_debug_init(void)
 	return 0;
 }
 
-int get_sec_debug_level(void)
+int get_sprd_debug_level(void)
 {
-	return sec_debug_level.uint_val;
+	return sprd_debug_level.uint_val;
 }
 
 /* klaatu - schedule log */
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-void __sec_debug_task_log(int cpu, struct task_struct *task)
+#ifdef CONFIG_SPRD_DEBUG_SCHED_LOG
+void __sprd_debug_task_log(int cpu, struct task_struct *task)
 {
 	unsigned i;
 
 	i = atomic_inc_return(&task_log_idx[cpu]) &
-	    (ARRAY_SIZE(psec_debug_log->task[0]) - 1);
-	psec_debug_log->task[cpu][i].time = cpu_clock(cpu);
-	strcpy(psec_debug_log->task[cpu][i].comm, task->comm);
-	psec_debug_log->task[cpu][i].pid = task->pid;
+	    (ARRAY_SIZE(psprd_debug_log->task[0]) - 1);
+	psprd_debug_log->task[cpu][i].time = cpu_clock(cpu);
+#ifdef CP_DEBUG
+	psprd_debug_log->task[cpu][i].sys_cnt = get_sys_cnt();
+#endif
+	strcpy(psprd_debug_log->task[cpu][i].comm, task->comm);
+	psprd_debug_log->task[cpu][i].pid = task->pid;
 }
 
-void __sec_debug_irq_log(unsigned int irq, void *fn, int en)
+void __sprd_debug_irq_log(unsigned int irq, void *fn, int en)
 {
 	int cpu = raw_smp_processor_id();
 	unsigned i;
 
 	i = atomic_inc_return(&irq_log_idx[cpu]) &
-	    (ARRAY_SIZE(psec_debug_log->irq[0]) - 1);
-	psec_debug_log->irq[cpu][i].time = cpu_clock(cpu);
-	psec_debug_log->irq[cpu][i].irq = irq;
-	psec_debug_log->irq[cpu][i].fn = (void *)fn;
-	psec_debug_log->irq[cpu][i].en = en;
+	    (ARRAY_SIZE(psprd_debug_log->irq[0]) - 1);
+	psprd_debug_log->irq[cpu][i].time = cpu_clock(cpu);
+#ifdef CP_DEBUG
+	psprd_debug_log->irq[cpu][i].sys_cnt = get_sys_cnt();
+#endif
+	psprd_debug_log->irq[cpu][i].irq = irq;
+	psprd_debug_log->irq[cpu][i].fn = (void *)fn;
+	psprd_debug_log->irq[cpu][i].en = en;
 }
 
-void __sec_debug_work_log(struct worker *worker,
+void __sprd_debug_work_log(struct worker *worker,
 			  struct work_struct *work, work_func_t f)
 {
 	int cpu = raw_smp_processor_id();
 	unsigned i;
 
 	i = atomic_inc_return(&work_log_idx[cpu]) &
-	    (ARRAY_SIZE(psec_debug_log->work[0]) - 1);
-	psec_debug_log->work[cpu][i].time = cpu_clock(cpu);
-	psec_debug_log->work[cpu][i].worker = worker;
-	psec_debug_log->work[cpu][i].work = work;
-	psec_debug_log->work[cpu][i].f = f;
+	    (ARRAY_SIZE(psprd_debug_log->work[0]) - 1);
+	psprd_debug_log->work[cpu][i].time = cpu_clock(cpu);
+#ifdef CP_DEBUG
+	psprd_debug_log->work[cpu][i].sys_cnt = get_sys_cnt();
+#endif
+	psprd_debug_log->work[cpu][i].worker = worker;
+	psprd_debug_log->work[cpu][i].work = work;
+	psprd_debug_log->work[cpu][i].f = f;
 }
 
-void __sec_debug_hrtimer_log(struct hrtimer *timer,
+void __sprd_debug_hrtimer_log(struct hrtimer *timer,
 		     enum hrtimer_restart (*fn) (struct hrtimer *), int en)
 {
 	int cpu = raw_smp_processor_id();
 	unsigned i;
 
 	i = atomic_inc_return(&hrtimer_log_idx[cpu]) &
-	    (ARRAY_SIZE(psec_debug_log->hrtimers[0]) - 1);
-	psec_debug_log->hrtimers[cpu][i].time = cpu_clock(cpu);
-	psec_debug_log->hrtimers[cpu][i].timer = timer;
-	psec_debug_log->hrtimers[cpu][i].fn = fn;
-	psec_debug_log->hrtimers[cpu][i].en = en;
+	    (ARRAY_SIZE(psprd_debug_log->hrtimers[0]) - 1);
+	psprd_debug_log->hrtimers[cpu][i].time = cpu_clock(cpu);
+#ifdef CP_DEBUG
+	psprd_debug_log->hrtimers[cpu][i].sys_cnt = get_sys_cnt();
+#endif
+	psprd_debug_log->hrtimers[cpu][i].timer = timer;
+	psprd_debug_log->hrtimers[cpu][i].fn = fn;
+	psprd_debug_log->hrtimers[cpu][i].en = en;
 }
 
-#ifdef CONFIG_SEC_DEBUG_IRQ_EXIT_LOG
-void sec_debug_irq_last_exit_log(void)
+#ifdef CONFIG_SPRD_DEBUG_IRQ_EXIT_LOG
+void sprd_debug_irq_last_exit_log(void)
 {
 	int cpu = smp_processor_id();
     gExcpIrqExitTime[cpu] = cpu_clock(cpu);
 }
 #endif
-#endif /* CONFIG_SEC_DEBUG_SCHED_LOG */
+#endif /* CONFIG_SPRD_DEBUG_SCHED_LOG */
 
 /* klaatu - semaphore log */
-#ifdef CONFIG_SEC_DEBUG_SEMAPHORE_LOG
+#ifdef CONFIG_SPRD_DEBUG_SEMAPHORE_LOG
 void debug_semaphore_init(void)
 {
 	int i = 0;
@@ -801,16 +814,16 @@ void debug_rwsemaphore_up_log(struct rw_semaphore *sem)
 	}
 	spin_unlock_irqrestore(&rwsem_debug_lock, flags);
 }
-#endif /* CONFIG_SEC_DEBUG_SEMAPHORE_LOG */
+#endif /* CONFIG_SPRD_DEBUG_SEMAPHORE_LOG */
 
-#ifdef CONFIG_SEC_DEBUG_USER
-void sec_user_fault_dump(void)
+#ifdef CONFIG_SPRD_DEBUG_USER
+void sprd_user_fault_dump(void)
 {
-	if (sec_debug_level.en.kernel_fault == 1 && sec_debug_level.en.user_fault == 1)
+	if (sprd_debug_level.en.kernel_fault == 1 && sprd_debug_level.en.user_fault == 1)
 		panic("User Fault");
 }
 
-static int sec_user_fault_write(struct file *file, const char __user * buffer,
+static int sprd_user_fault_write(struct file *file, const char __user * buffer,
 				size_t count, loff_t * offs)
 {
 	char buf[100];
@@ -822,19 +835,19 @@ static int sec_user_fault_write(struct file *file, const char __user * buffer,
 	buf[count] = '\0';
 
 	if (strncmp(buf, "dump_user_fault", 15) == 0)
-		sec_user_fault_dump();
+		sprd_user_fault_dump();
 
 	if(strncmp(buf,"Intentional_reboot", 18) == 0)
 			kernel_restart(NULL);
 	return count;
 }
 
-static const struct file_operations sec_user_fault_proc_fops = {
-	.write = sec_user_fault_write,
+static const struct file_operations sprd_user_fault_proc_fops = {
+	.write = sprd_user_fault_write,
 };
 
 char forced_ramdump_enable=0;
-static int sec_debug_set_debug_level(char *str)
+static int sprd_debug_set_debug_level(char *str)
 {
 	if (!str)
 		return -EINVAL;
@@ -853,21 +866,21 @@ static int sec_debug_set_debug_level(char *str)
 	}
 	return 0;
 }
-early_param("DEBUG_LEVEL", sec_debug_set_debug_level);
+early_param("DEBUG_LEVEL", sprd_debug_set_debug_level);
 
-static int __init sec_debug_user_fault_init(void)
+static int __init sprd_debug_user_fault_init(void)
 {
 	struct proc_dir_entry *entry;
 
 	entry = proc_create("user_fault", S_IWUGO, NULL,
-			    &sec_user_fault_proc_fops);
+			    &sprd_user_fault_proc_fops);
 	if (!entry)
 		return -ENOMEM;
 	return 0;
 }
 
-device_initcall(sec_debug_user_fault_init);
-#endif  /* CONFIG_SEC_DEBUG_USER */
+device_initcall(sprd_debug_user_fault_init);
+#endif  /* CONFIG_SPRD_DEBUG_USER */
 
 /* Reset Reason given from Bootloader */
 static int set_reset_reason_proc_show(struct seq_file *m, void *v)
@@ -906,28 +919,28 @@ static int set_reset_reason_proc_show(struct seq_file *m, void *v)
 	return 0;
 }
 
-static int sec_reset_reason_proc_open(struct inode *inode, struct file *file)
+static int sprd_reset_reason_proc_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, set_reset_reason_proc_show, NULL);
 }
 
-static const struct file_operations sec_reset_reason_proc_fops = {
-	.open		= sec_reset_reason_proc_open,
+static const struct file_operations sprd_reset_reason_proc_fops = {
+	.open		= sprd_reset_reason_proc_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
 
-static int __init sec_debug_reset_reason_init(void)
+static int __init sprd_debug_reset_reason_init(void)
 {
 	struct proc_dir_entry *entry;
 
 	entry = proc_create("reset_reason", S_IRUGO, NULL,
-			    &sec_reset_reason_proc_fops);
+			    &sprd_reset_reason_proc_fops);
 	if (!entry)
 		return -ENOMEM;
 
 	return 0;
 }
 
-device_initcall(sec_debug_reset_reason_init);
+device_initcall(sprd_debug_reset_reason_init);

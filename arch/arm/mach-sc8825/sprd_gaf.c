@@ -1,5 +1,5 @@
 /*
- *  sec_gaf.c
+ *  sprd_gaf.c
  *
  */
 
@@ -186,7 +186,7 @@ static struct GAForensicINFO {
 	.GAFINFOCheckSum = 0
 };
 
-void sec_gaf_supply_rqinfo(unsigned short curr_offset, unsigned short rq_offset)
+void sprd_gaf_supply_rqinfo(unsigned short curr_offset, unsigned short rq_offset)
 {
 	unsigned short *checksum = &(GAFINFO.GAFINFOCheckSum);
 	unsigned char *memory = (unsigned char *)&GAFINFO;
@@ -213,12 +213,12 @@ void sec_gaf_supply_rqinfo(unsigned short curr_offset, unsigned short rq_offset)
 			(*checksum) = ((*checksum) << 1) ^ memory[address];
 	}
 }
-EXPORT_SYMBOL(sec_gaf_supply_rqinfo);
+EXPORT_SYMBOL(sprd_gaf_supply_rqinfo);
 
-static int __init sec_gaf_init(void)
+static int __init sprd_gaf_init(void)
 {
 	GAFINFO.phys_offset = PHYS_OFFSET;
 	return 0;
 }
 
-core_initcall(sec_gaf_init);
+core_initcall(sprd_gaf_init);

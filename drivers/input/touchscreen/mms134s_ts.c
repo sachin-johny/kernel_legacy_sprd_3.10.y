@@ -3729,7 +3729,7 @@ static void __exit mms_ts_exit(void)
 	i2c_del_driver(&mms_ts_driver);
 }
 #if 0
-#if defined(SEC_TSP) && !defined(CONFIG_SEC_DEBUG)
+#if defined(SEC_TSP) && !defined(CONFIG_SPRD_DEBUG)
 struct class *sec_class;
 
 static int __init rhea_class_create(void)

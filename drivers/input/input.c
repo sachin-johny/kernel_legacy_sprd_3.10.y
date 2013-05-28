@@ -29,8 +29,8 @@
 #include <linux/rcupdate.h>
 #include "input-compat.h"
 
-#if defined(CONFIG_SEC_DEBUG)
-#include <mach/sec_debug.h>
+#if defined(CONFIG_SPRD_DEBUG)
+#include <mach/sprd_debug.h>
 #endif
 
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
@@ -250,9 +250,9 @@ static void input_handle_event(struct input_dev *dev,
 
 			if (value != 2) {
 				__change_bit(code, dev->key);
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 				if(code != BTN_TOUCH)
-					sec_debug_check_crash_key(code ,value);
+					sprd_debug_check_crash_key(code ,value);
 #endif
 				if (value)
 					input_start_autorepeat(dev, code);
@@ -262,11 +262,11 @@ static void input_handle_event(struct input_dev *dev,
 
 			disposition = INPUT_PASS_TO_HANDLERS;
 		}
-#if defined(CONFIG_SEC_DEBUG)
+#if defined(CONFIG_SPRD_DEBUG)
 		else {
 			if(code != BTN_TOUCH && value == 0) {
 				printk("%s no info : 0x%lx code :%u\n", __func__, *dev->key, code);
-				sec_debug_check_crash_key(code ,value);
+				sprd_debug_check_crash_key(code ,value);
 			}
 		}
 #endif
