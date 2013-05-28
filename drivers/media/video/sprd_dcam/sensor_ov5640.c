@@ -7001,6 +7001,11 @@ LOCAL int _ov5640_init_firmware(uint32_t param)
 	if (0 == i2c_client) {
 		printk
 		    ("SENSOR: _ov5640_init_firmware:error,i2c_client is NULL!.\n");
+		return SENSOR_FAIL;
+	}
+	if (NULL == ext_ptr) {
+		printk("SENSOR:_ov5640_init_firmware:error,ext_ptr is NULL\n");
+		return SENSOR_FAIL;
 	}
 	//      sc8810_i2c_set_clk(1,400000); //wjp
 	printk("SENSOR: _ov5640_init_firmware: cmd=%d!.\n", ext_ptr->cmd);
