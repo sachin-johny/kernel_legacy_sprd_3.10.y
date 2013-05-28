@@ -558,8 +558,8 @@ LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				}
 
 				/* To check whether the output size is too lager*/
-				maxw = tempw * DCAM_SC_COEFF_MAX;
-				maxh = temph * DCAM_SC_COEFF_MAX;
+				maxw = tempw * DCAM_SC_COEFF_UP_MAX;
+				maxh = temph * DCAM_SC_COEFF_UP_MAX;
 				if (unlikely(f->fmt.pix.width > maxw || f->fmt.pix.height > maxh)) {
 					/*out of scaling capbility*/
 					printk("V4L2: the output size is too large, %d %d \n",
@@ -569,10 +569,10 @@ LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				}
 
 				/* To check whether the output size is too small*/
-				maxw = f->fmt.pix.width * DCAM_SC_COEFF_MAX;
+				maxw = f->fmt.pix.width * DCAM_SC_COEFF_DOWN_MAX;
 				if (unlikely( tempw > maxw)) {
 					path->img_deci.x_factor = sprd_v4l2_get_deci_factor(tempw, maxw);
-					if (path->img_deci.x_factor >= DCAM_PATH_DECI_FAC_MAX) {
+					if (path->img_deci.x_factor > DCAM_PATH_DECI_FAC_MAX) {
 						printk("V4L2: the output size is too small, %d %d \n",
 							f->fmt.pix.width,
 							f->fmt.pix.height);
@@ -580,10 +580,10 @@ LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 					}
 				}
 
-				maxh = f->fmt.pix.height * DCAM_SC_COEFF_MAX;
+				maxh = f->fmt.pix.height * DCAM_SC_COEFF_DOWN_MAX;
 				if (unlikely(temph > maxh)) {
 					path->img_deci.y_factor = sprd_v4l2_get_deci_factor(temph, maxh);
-					if (path->img_deci.y_factor >= DCAM_PATH_DECI_FAC_MAX) {
+					if (path->img_deci.y_factor > DCAM_PATH_DECI_FAC_MAX) {
 						printk("V4L2: the output size is too small, %d %d \n",
 							f->fmt.pix.width,
 							f->fmt.pix.height);
@@ -618,10 +618,10 @@ LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 				if (tempw != f->fmt.pix.width ||
 					temph != f->fmt.pix.height) {
 					/*scaling needed*/
-					maxw = f->fmt.pix.width * DCAM_SC_COEFF_MAX;
-					maxw = maxw * (1 << (DCAM_PATH_DECI_FAC_MAX - 1));
-					maxh = f->fmt.pix.height * DCAM_SC_COEFF_MAX;
-					maxh = maxh * (1 << (DCAM_PATH_DECI_FAC_MAX - 1));
+					maxw = f->fmt.pix.width * DCAM_SC_COEFF_DOWN_MAX;
+					maxw = maxw * (1 << DCAM_PATH_DECI_FAC_MAX);
+					maxh = f->fmt.pix.height * DCAM_SC_COEFF_DOWN_MAX;
+					maxh = maxh * (1 << DCAM_PATH_DECI_FAC_MAX);
 					if (unlikely(tempw > maxw || temph > maxh)) {
 						/*out of scaling capbility*/
 						printk("V4L2: the output size is too small, %d %d \n",
@@ -637,9 +637,9 @@ LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 							DCAM_PATH1_LINE_BUF_LENGTH);
 						return -EINVAL;
 					}
-				
-					maxw = tempw * DCAM_SC_COEFF_MAX;
-					maxh = temph * DCAM_SC_COEFF_MAX;
+
+					maxw = tempw * DCAM_SC_COEFF_UP_MAX;
+					maxh = temph * DCAM_SC_COEFF_UP_MAX;
 					if (unlikely(f->fmt.pix.width > maxw || f->fmt.pix.height > maxh)) {
 						/*out of scaling capbility*/
 						printk("V4L2: the output size is too large, %d %d \n",
@@ -719,71 +719,117 @@ LOCAL int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 			path->is_from_isp = 1;
 		}
 
-		if (tempw != f->fmt.pix.width || temph != f->fmt.pix.height) {
-			/*scaling needed*/
-			if (unlikely(f->fmt.pix.width > DCAM_SC_LINE_BUF_LENGTH)) {
-				/*out of scaling capbility*/
-				printk("V4L2: the output width %d can not be more than %d \n",
-					f->fmt.pix.width,
-					DCAM_SC_LINE_BUF_LENGTH);
-				return -EINVAL;
-			}
-
-			maxw = tempw * DCAM_SC_COEFF_MAX;
-			maxh = temph * DCAM_SC_COEFF_MAX;
-			if (unlikely(f->fmt.pix.width > maxw || f->fmt.pix.height > maxh)) {
-				/*out of scaling capbility*/
-				printk("V4L2: the output size is too large, %d %d \n",
-					f->fmt.pix.width,
-					f->fmt.pix.height);
-				return -EINVAL;
-			}
-
-			/* To check whether the output size is too small*/
-			maxw = f->fmt.pix.width * DCAM_SC_COEFF_MAX;
-			if (unlikely( tempw > maxw)) {
-				path->img_deci.x_factor = sprd_v4l2_get_deci_factor(tempw, maxw);
-				if (path->img_deci.x_factor >= DCAM_PATH_DECI_FAC_MAX) {
-					printk("V4L2: the output size is too small, %d %d \n",
-						f->fmt.pix.width,
-						f->fmt.pix.height);
-					return -EINVAL;
-				}
-			}
-
-			maxh = f->fmt.pix.height * DCAM_SC_COEFF_MAX;
-			if (unlikely(temph > maxh)) {
-				path->img_deci.y_factor = sprd_v4l2_get_deci_factor(temph, maxh);
-				if (path->img_deci.y_factor >= DCAM_PATH_DECI_FAC_MAX) {
-					printk("V4L2: the output size is too small, %d %d \n",
-						f->fmt.pix.width,
-						f->fmt.pix.height);
-					return -EINVAL;
-				}
-			}
-
-			if (path->img_deci.x_factor) {
-				tempw           = path->in_rect.w >> 1;
-				need_recal      = 1;
-			}
-
-			if (path->img_deci.y_factor) {
-				temph           = path->in_rect.h >> 1;
-				need_recal      = 1;
-			}
-
-			if (need_recal && (tempw != f->fmt.pix.width || temph != f->fmt.pix.height)) {
+		if (DCAM_CAP_MODE_YUV == info->sn_mode ||
+			DCAM_CAP_MODE_SPI == info->sn_mode) {
+			if (tempw != f->fmt.pix.width || temph != f->fmt.pix.height) {
 				/*scaling needed*/
-				if (unlikely(f->fmt.pix.width > DCAM_SC_LINE_BUF_LENGTH)) {
+				if (unlikely(f->fmt.pix.width > DCAM_PATH2_LINE_BUF_LENGTH)) {
 					/*out of scaling capbility*/
 					printk("V4L2: the output width %d can not be more than %d \n",
 						f->fmt.pix.width,
-						DCAM_SC_LINE_BUF_LENGTH);
+						DCAM_PATH2_LINE_BUF_LENGTH);
 					return -EINVAL;
 				}
-			}
 
+				/* To check whether the output size is too lager*/
+				maxw = tempw * DCAM_SC_COEFF_UP_MAX;
+				maxh = temph * DCAM_SC_COEFF_UP_MAX;
+				if (unlikely(f->fmt.pix.width > maxw || f->fmt.pix.height > maxh)) {
+					/*out of scaling capbility*/
+					printk("V4L2: the output size is too large, %d %d \n",
+						f->fmt.pix.width,
+						f->fmt.pix.height);
+					return -EINVAL;
+				}
+
+				/* To check whether the output size is too small*/
+				maxw = f->fmt.pix.width * DCAM_SC_COEFF_DOWN_MAX;
+				if (unlikely( tempw > maxw)) {
+					path->img_deci.x_factor = sprd_v4l2_get_deci_factor(tempw, maxw);
+					if (path->img_deci.x_factor > DCAM_PATH_DECI_FAC_MAX) {
+						printk("V4L2: the output size is too small, %d %d \n",
+							f->fmt.pix.width,
+							f->fmt.pix.height);
+						return -EINVAL;
+					}
+				}
+
+				maxh = f->fmt.pix.height * DCAM_SC_COEFF_DOWN_MAX;
+				if (unlikely(temph > maxh)) {
+					path->img_deci.y_factor = sprd_v4l2_get_deci_factor(temph, maxh);
+					if (path->img_deci.y_factor > DCAM_PATH_DECI_FAC_MAX) {
+						printk("V4L2: the output size is too small, %d %d \n",
+							f->fmt.pix.width,
+							f->fmt.pix.height);
+						return -EINVAL;
+					}
+				}
+
+				if (path->img_deci.x_factor) {
+					tempw           = path->in_rect.w >> 1;
+					need_recal      = 1;
+				}
+
+				if (path->img_deci.y_factor) {
+					temph           = path->in_rect.h >> 1;
+					need_recal      = 1;
+				}
+
+				if (need_recal && (tempw != f->fmt.pix.width || temph != f->fmt.pix.height)) {
+					/*scaling needed*/
+					if (unlikely(f->fmt.pix.width > DCAM_PATH2_LINE_BUF_LENGTH)) {
+						/*out of scaling capbility*/
+						printk("V4L2: the output width %d can not be more than %d \n",
+							f->fmt.pix.width,
+							DCAM_PATH2_LINE_BUF_LENGTH);
+						return -EINVAL;
+					}
+				}
+			}
+		} else if (DCAM_CAP_MODE_RAWRGB == info->sn_mode) {
+			if (path->is_from_isp) {
+
+				if (tempw != f->fmt.pix.width ||
+					temph != f->fmt.pix.height) {
+					/*scaling needed*/
+					maxw = f->fmt.pix.width * DCAM_SC_COEFF_DOWN_MAX;
+					maxw = maxw * (1 << DCAM_PATH_DECI_FAC_MAX);
+					maxh = f->fmt.pix.height * DCAM_SC_COEFF_DOWN_MAX;
+					maxh = maxh * (1 << DCAM_PATH_DECI_FAC_MAX);
+					if (unlikely(tempw > maxw || temph > maxh)) {
+						/*out of scaling capbility*/
+						printk("V4L2: the output size is too small, %d %d \n",
+								f->fmt.pix.width,
+								f->fmt.pix.height);
+						return -EINVAL;
+					}
+
+					if (unlikely(f->fmt.pix.width > DCAM_PATH2_LINE_BUF_LENGTH)) {
+						/*out of scaling capbility*/
+						printk("V4L2: the output width %d can not be more than %d \n",
+							f->fmt.pix.width,
+							DCAM_PATH2_LINE_BUF_LENGTH);
+						return -EINVAL;
+					}
+
+					maxw = tempw * DCAM_SC_COEFF_UP_MAX;
+					maxh = temph * DCAM_SC_COEFF_UP_MAX;
+					if (unlikely(f->fmt.pix.width > maxw || f->fmt.pix.height > maxh)) {
+						/*out of scaling capbility*/
+						printk("V4L2: the output size is too large, %d %d \n",
+							f->fmt.pix.width,
+							f->fmt.pix.height);
+						return -EINVAL;
+					}
+				}
+			} else {
+				/*no ISP ,only RawRGB data can be sampled*/
+				printk("V4L2: RawRGB sensor, no ISP, format 0x%x can't be supported \n",
+						fourcc);
+				return -EINVAL;
+			}
 		}
+
 
 		depth_pixel = sprd_v4l2_endian_sel(fourcc, path);
 		path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE; // tmp fix: output is vu, jpeg only support vu
@@ -1876,25 +1922,22 @@ LOCAL int v4l2_streamoff(struct file *file,
 	ret = sprd_stop_timer(&dev->dcam_timer);
 	V4L2_PRINT_IF_ERR(ret);
 
-	//ret = dcam_stop_cap();
-	//V4L2_PRINT_IF_ERR(ret);
+	ret = dcam_stop();
+	V4L2_PRINT_IF_ERR(ret);
+
+	ret = dcam_stop_cap();
+	V4L2_PRINT_IF_ERR(ret);
 
 	if (path_1->is_work) {
-		ret = dcam_stop_path(DCAM_PATH_IDX_1);
-		V4L2_PRINT_IF_ERR(ret);
 		path_1->status = PATH_IDLE;
 	}
 
 	if (path_2->is_work) {
-		ret = dcam_stop_path(DCAM_PATH_IDX_2);
-		V4L2_PRINT_IF_ERR(ret);
 		path_2->status = PATH_IDLE;
 		dcam_rel_resizer();
 	}
 
 	if (path_0->is_work) {
-		ret = dcam_stop_path(DCAM_PATH_IDX_0);
-		V4L2_PRINT_IF_ERR(ret);
 		path_0->status = PATH_IDLE;
 	}
 
@@ -2255,8 +2298,8 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 		return -1;
 	}
 
-	rt_word[0] = DCAM_SC_LINE_BUF_LENGTH;
-	rt_word[1] = DCAM_SC_COEFF_MAX;
+	rt_word[0] = DCAM_PATH2_LINE_BUF_LENGTH;
+	rt_word[1] = DCAM_SC_COEFF_UP_MAX;
 	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor %d.\n", rt_word[0], rt_word[1]);
 	(void)file; (void)cnt; (void)cnt_ret;
 	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
