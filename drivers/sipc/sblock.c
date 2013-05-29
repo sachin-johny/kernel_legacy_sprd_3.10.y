@@ -74,6 +74,11 @@ static int sblock_thread(void *data)
 			/* handle channel recovery */
 			smsg_open_ack(sblock->dst, sblock->channel);
 			break;
+		case SMSG_TYPE_CLOSE:
+			/* handle channel recovery */
+			smsg_close_ack(sblock->dst, sblock->channel);
+			sblock->state = SBLOCK_STATE_IDLE;
+			break;
 		case SMSG_TYPE_CMD:
 			/* respond cmd done for sblock init */
 			WARN_ON(mrecv.flag != SMSG_CMD_SBLOCK_INIT);
@@ -358,8 +363,8 @@ int sblock_send(uint8_t dst, uint8_t channel, struct sblock *blk)
 	txpos = ringhd->txblk_wrptr % ringhd->txblk_count;
 	ring->txblks[txpos].addr = blk->addr - sblock->smem_virt + sblock->smem_addr;
 	ring->txblks[txpos].length = blk->length;
-	pr_debug("sblock_send: wrptr=%d, txpos=%d, addr=%x\n",
-			ringhd->txblk_wrptr, txpos, ring->txblks[txpos].addr);
+	pr_debug("sblock_send: channel=%d, wrptr=%d, txpos=%d, addr=%x\n",
+			channel, ringhd->txblk_wrptr, txpos, ring->txblks[txpos].addr);
 	ringhd->txblk_wrptr = ringhd->txblk_wrptr + 1;
 	smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_SEND, 0);
 	smsg_send(dst, &mevt, -1);
@@ -386,8 +391,8 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
 
 	pr_debug("sblock_receive: dst=%d, channel=%d, timeout=%d\n",
 			dst, channel, timeout);
-	pr_debug("sblock_receive: wrptr=%d, rdptr=%d",
-			ringhd->rxblk_wrptr, ringhd->rxblk_rdptr);
+	pr_debug("sblock_receive: channel=%d, wrptr=%d, rdptr=%d",
+			channel, ringhd->rxblk_wrptr, ringhd->rxblk_rdptr);
 
 	if (ringhd->rxblk_wrptr == ringhd->rxblk_rdptr) {
 		if (timeout == 0) {
@@ -426,8 +431,8 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
 		blk->addr = ring->rxblks[rxpos].addr - sblock->smem_addr + sblock->smem_virt;
 		blk->length = ring->rxblks[rxpos].length;
 		ringhd->rxblk_rdptr = ringhd->rxblk_rdptr + 1;
-		pr_debug("sblock_receive: rxpos=%d, addr=%p, len=%d\n",
-			rxpos, blk->addr, blk->length);
+		pr_debug("sblock_receive: channel=%d, rxpos=%d, addr=%p, len=%d\n",
+			channel, rxpos, blk->addr, blk->length);
 	} else {
 		rval = -EAGAIN;
 	}

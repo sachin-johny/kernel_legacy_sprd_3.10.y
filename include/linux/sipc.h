@@ -136,6 +136,13 @@ static inline void smsg_open_ack(uint8_t dst, uint16_t channel)
 	smsg_send(dst, &mopen, -1);
 }
 
+/* ack an close msg for modem recovery */
+static inline void smsg_close_ack(uint8_t dst, uint16_t channel)
+{
+	struct smsg mclose;
+	smsg_set(&mclose, channel, SMSG_TYPE_CLOSE, SMSG_CLOSE_MAGIC, 0);
+	smsg_send(dst, &mclose, -1);
+}
 /* ****************************************************************** */
 /* SMEM interfaces */
 

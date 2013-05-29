@@ -60,6 +60,11 @@ static int sbuf_thread(void *data)
 			/* handle channel recovery */
 			smsg_open_ack(sbuf->dst, sbuf->channel);
 			break;
+		case SMSG_TYPE_CLOSE:
+			/* handle channel recovery */
+			smsg_close_ack(sbuf->dst, sbuf->channel);
+			sbuf->state = SBUF_STATE_IDLE;
+			break;
 		case SMSG_TYPE_CMD:
 			/* respond cmd done for sbuf init */
 			WARN_ON(mrecv.flag != SMSG_CMD_SBUF_INIT);
@@ -222,8 +227,8 @@ int sbuf_write(uint8_t dst, uint8_t channel, uint32_t bufid,
 
 	pr_debug("sbuf_write: dst=%d, channel=%d, bufid=%d, len=%d, timeout=%d\n",
 			dst, channel, bufid, len, timeout);
-	pr_debug("sbuf_write: wrptr=%d, rdptr=%d",
-			ringhd->txbuf_wrptr, ringhd->txbuf_rdptr);
+	pr_debug("sbuf_write: channel=%d, wrptr=%d, rdptr=%d",
+			channel, ringhd->txbuf_wrptr, ringhd->txbuf_rdptr);
 
 	rval = 0;
 	left = len;
@@ -301,7 +306,7 @@ int sbuf_write(uint8_t dst, uint8_t channel, uint32_t bufid,
 		}
 
 
-		pr_debug("sbuf_write: txpos=%p, txsize=%d\n", txpos, txsize);
+		pr_debug("sbuf_write: channel=%d, txpos=%p, txsize=%d\n", channel, txpos, txsize);
 
 		/* update tx wrptr */
 		ringhd->txbuf_wrptr = ringhd->txbuf_wrptr + txsize;
@@ -314,7 +319,7 @@ int sbuf_write(uint8_t dst, uint8_t channel, uint32_t bufid,
 
 	mutex_unlock(&ring->txlock);
 
-	pr_debug("sbuf_write done: len=%d\n", len - left);
+	pr_debug("sbuf_write done: channel=%d, len=%d\n", channel, len - left);
 
 	if (len == left) {
 		return rval;
@@ -343,8 +348,8 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 
 	pr_debug("sbuf_read: dst=%d, channel=%d, bufid=%d, len=%d, timeout=%d\n",
 			dst, channel, bufid, len, timeout);
-	pr_debug("sbuf_read: wrptr=%d, rdptr=%d",
-			ringhd->rxbuf_wrptr, ringhd->rxbuf_rdptr);
+	pr_debug("sbuf_read: channel=%d, wrptr=%d, rdptr=%d",
+			channel, ringhd->rxbuf_wrptr, ringhd->rxbuf_rdptr);
 
 	rval = 0;
 	left = len;
@@ -392,7 +397,7 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 		WARN_ON(rxsize > ringhd->rxbuf_size);
 		rxsize = min(rxsize, left);
 
-		pr_debug("sbuf_read: buf=%p, rxpos=%p, rxsize=%d\n", buf, rxpos, rxsize);
+		pr_debug("sbuf_read: channel=%d, buf=%p, rxpos=%p, rxsize=%d\n", channel, buf, rxpos, rxsize);
 
 		tail = rxpos + rxsize - (ring->rxbuf_virt + ringhd->rxbuf_size);
 		if (tail > 0) {
@@ -434,7 +439,7 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 
 	mutex_unlock(&ring->rxlock);
 
-	pr_debug("sbuf_read done: len=%d", len - left);
+	pr_debug("sbuf_read done: channel=%d, len=%d", channel, len - left);
 
 	if (len == left) {
 		return rval;
