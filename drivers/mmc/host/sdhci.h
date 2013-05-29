@@ -249,7 +249,18 @@ struct sprd_host_data {
 	int detect_irq;
 	struct sprd_host_platdata *platdata;
 	unsigned char clk_enable;
+	/* only used for emmc.*/
+	unsigned char sdr50_clk_pin;
+	unsigned char sdr50_data_pin;
+	unsigned char sdr50_write_delay;
+	unsigned char sdr50_read_pos_delay;
+
+	unsigned char ddr50_clk_pin;
+	unsigned char ddr50_write_delay;
+	unsigned char ddr50_read_pos_delay;
+	unsigned char ddr50_read_neg_delay;
 };
+
 /*
  * Host SDMA buffer boundary. Valid values from 4K to 512K in powers of 2.
  */

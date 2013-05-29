@@ -142,21 +142,6 @@ void sdhci_dumpregs(struct sdhci_host *host)
 			sdhci_readl(host, 0x80), sdhci_readl(host, 0x84),
 			sdhci_readl(host, 0x88));
 
-#ifdef CONFIG_ARCH_SC8825
-	printk("AHB_CTL0:0x%x\n", sci_glb_raw_read(REG_AHB_AHB_CTL0));
-	printk("INTC0_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0X08) );	
-	printk("INTC1_EN:0x%x\n", sci_glb_raw_read(SPRD_INTC0_BASE + 0x1000 + 0X08) );
-	printk("GIC_INT0_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x100) );
-	printk("GIC_INT1_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x104) );
-	printk("GIC_INT2_EN:0x%x\n", __raw_readl(SC8825_VA_GIC_DIS + 0x108) );
-	printk("INTCV1_IRQ_MSKSTS:0x%x\n", __raw_readl(SPRD_INTC0_BASE  + 0x1000 + 0x0000) );
-	printk("INTCV1_IRQ_RAW:0x%x\n", __raw_readl(SPRD_INTC0_BASE  + 0x1000 + 0x0004) );
-
-
-	printk("ANA_REG_GLB_LDO_PD_CTRL1:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL1));
-	printk("ANA_REG_GLB_LDO_VCTRL4:0x%x\n", sci_adi_read(ANA_REG_GLB_LDO_VCTRL4));
-#endif
-
 	if (host->flags & SDHCI_USE_ADMA)
 		printk(KERN_ERR DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
 		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
