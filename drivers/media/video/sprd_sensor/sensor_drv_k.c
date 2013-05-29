@@ -793,7 +793,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	return SENSOR_K_SUCCESS;
 }
 
-#ifdef CONFIG_ARCH_SC8830
+#if 0//def CONFIG_ARCH_SC8830
 LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 {
 }
@@ -1284,7 +1284,7 @@ sensor_k_writei2c_return:
 
 int sensor_k_open(struct inode *node, struct file *file)
 {
-#ifdef CONFIG_ARCH_SC8830
+#if 0//def CONFIG_ARCH_SC8830
 	uint32_t bit_value;
 	bit_value = BIT_1;
 	REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value); // ckg_cfg
