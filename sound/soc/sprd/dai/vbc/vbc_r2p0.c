@@ -336,10 +336,79 @@ static int vbc_ad3_dgmux_set(int val)
 	return 0;
 }
 
+static int vbc_adc_src_set(int rate, int is_ad23)
+{
+	int i;
+	int f1f2f3_bp;
+	int f1_sel;
+	int en_sel;
+	int val;
+	int mask;
+
+	vbc_dbg("Entering %s\n", __func__);
+	vbc_dbg("rate:%d, chan: ad%s", rate, (is_ad23) ? "23":"01");
+
+	/*src_clr*/
+	if (!is_ad23) {
+		vbc_reg_write(ADCSRCCTL, (1 << VBADCSRC_CLR_01),
+				  (1 << VBADCSRC_CLR_01));
+		udelay(10);
+		vbc_reg_write(ADCSRCCTL, 0, (1 << VBADCSRC_CLR_01));
+	} else {
+		vbc_reg_write(ADCSRCCTL, (1 << VBADCSRC_CLR_23),
+				  (1 << VBADCSRC_CLR_23));
+		udelay(10);
+		vbc_reg_write(ADCSRCCTL, 0, (1 << VBADCSRC_CLR_23));
+
+	}
+	switch  (rate) {
+		case 32000:
+			f1f2f3_bp = 0;
+			f1_sel = 1;
+			en_sel = 1;
+			break;
+		case 48000:
+			f1f2f3_bp = 0;
+			f1_sel = 0;
+			en_sel = 1;
+		case 44100:
+			f1f2f3_bp = 1;
+			f1_sel = 0;
+			en_sel = 1;
+		default:
+			f1f2f3_bp = 0;
+			f1_sel = 0;
+			en_sel = 0;
+			break;
+	}
+	/*src_set */
+	if (!is_ad23) {
+		mask = (1 << VBADCSRC_F1F2F3_BP_01) | (1 << VBADCSRC_F1_SEL_01) |
+			(1 << VBADCSRC_EN_01);
+
+		val =  (f1f2f3_bp << VBADCSRC_F1F2F3_BP_01) | (f1_sel << VBADCSRC_F1_SEL_01) |
+			(en_sel << VBADCSRC_EN_01);
+	} else {
+		mask = (1 << VBADCSRC_F1F2F3_BP_23) | (1 << VBADCSRC_F1_SEL_23) |
+			(1 << VBADCSRC_EN_23);
+
+		val =  (f1f2f3_bp << VBADCSRC_F1F2F3_BP_23) | (f1_sel << VBADCSRC_F1_SEL_23) |
+			(en_sel << VBADCSRC_EN_23);
+	}
+
+	vbc_reg_write(ADCSRCCTL, val, mask);
+
+	vbc_dbg("Leaving %s\n", __func__);
+	return 0;
+}
+
 static int vbc_ad_iismux_set(int port)
 {
 	vbc_reg_write(VBIISSEL, port << VBIISSEL_AD01_PORT_SHIFT,
 		      VBIISSEL_AD01_PORT_MASK);
+	/*ADC  SRC set*/
+	if (port  == 1 || port  == 2)  /* fm input */
+		vbc_adc_src_set(32000, 0);
 	return 0;
 }
 
@@ -347,6 +416,9 @@ static int vbc_ad23_iismux_set(int port)
 {
 	vbc_reg_write(VBIISSEL, port << VBIISSEL_AD23_PORT_SHIFT,
 		      VBIISSEL_AD23_PORT_MASK);
+	/*ADC23  SRC set*/
+	if (port  == 1 || port  == 2)  /* fm input */
+		vbc_adc_src_set(32000, 1);
 	return 0;
 }
 
@@ -939,48 +1011,12 @@ static int vbc_try_dg_set(int vbc_idx, int id)
 	return 0;
 }
 
-static int vbc_dac_src_enable(int enable)
-{
-	int i;
-	int mask =
-	    (1 << VBDACSRC_F1F2F3_BP) | (1 << VBDACSRC_F1_SEL) | (1 <<
-								  VBDACSRC_F0_BP)
-	    | (1 << VBDACSRC_F0_SEL) | (1 << VBDACSRC_EN);
-	if (enable) {
-		/*src_clr*/
-		vbc_reg_write(DACSRCCTL, (1 << VBDACSRC_CLR),
-			      (1 << VBDACSRC_CLR));
-		for (i = 0; i < 10; i++) ;
-		vbc_reg_write(DACSRCCTL, 0, (1 << VBDACSRC_CLR));
-
-		/*src_set and enable*/
-		vbc_reg_write(DACSRCCTL, 0x31, mask);
-	} else {
-		vbc_reg_write(DACSRCCTL, 0, 0x7F);
-	}
-	return 0;
-}
-
-static void digtal_fm_input_enable(int enable)
-{
-	if (enable) {
-		/*SRC set */
-		vbc_dac_src_enable(1);	/*todo:maybe we need to reserve SRC value */
-		/*vbc enable */
-		vbc_enable(1);
-	} else {
-		/*SRC set */
-		vbc_dac_src_enable(0);	/*todo:maybe we need to reserve SRC value */
-		vbc_enable(0);
-	}
-}
-
 int dig_fm_event(struct snd_soc_dapm_widget *w,
 		 struct snd_kcontrol *k, int event)
 {
 	vbc_dbg("Entering %s switch %s\n", __func__,
 		SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
-	digtal_fm_input_enable(! !SND_SOC_DAPM_EVENT_ON(event));
+	vbc_enable(! !SND_SOC_DAPM_EVENT_ON(event));
 	vbc_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -1636,6 +1672,12 @@ static int vbc_hw_params(struct snd_pcm_substream *substream,
 		pr_err("vbc can not supports grate 2 channels\n");
 	}
 
+	if (vbc_idx != 0) {
+		if (params_rate(params) == 44100)
+			vbc_adc_src_set(32000, vbc_idx-1);
+		else
+			vbc_adc_src_set(0, vbc_idx-1); /*close adc src*/
+	}
 	vbc_dbg("Leaving %s\n", __func__);
 	return 0;
 }
