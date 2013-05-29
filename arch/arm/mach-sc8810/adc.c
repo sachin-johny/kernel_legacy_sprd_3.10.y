@@ -207,6 +207,7 @@ static DEFINE_SPINLOCK(adc_lock);
 
 /*ADC_CTL */
 #define ADC_MAX_SAMPLE_NUM			(0x10)
+#define ADC_SW_RUN_NUM_MSK          (0xf << 4)
 #define BIT_SW_CH_RUN_NUM(_X_)		((((_X_) - 1) & 0xf ) << 4)
 #define BIT_ADC_BIT_MODE(_X_)		(((_X_) & 0x1) << 2)	/*0: adc in 10bits mode, 1: adc in 12bits mode */
 #define BIT_ADC_BIT_MODE_MASK		BIT_ADC_BIT_MODE(1)
@@ -250,6 +251,8 @@ void sci_adc_enable(void)
 	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
 		    BIT_ANA_ADC_EB | BIT_ANA_CLK_AUXADC_EN |
 		    BIT_ANA_CLK_AUXAD_EN);
+
+	sci_adi_set(io_base,  BIT(0));
 
     /* init HW slow channel */
     sci_adc_hw_slow_init();
@@ -435,17 +438,16 @@ int sci_adc_get_values(struct adc_sample_data *adc)
 
 	addr = io_base + ADC_CTL;
 	val = adc_read(addr);
-	val &= ~(BIT_ADC_EN | BIT_SW_CH_ON | BIT_ADC_BIT_MODE_MASK);
+	val &= ~(BIT_SW_CH_ON | BIT_ADC_BIT_MODE_MASK);
 	adc_write(val, addr);
 
 	adc_clear_irq();
 
 	val = BIT_SW_CH_RUN_NUM(num);
-	val |= BIT_ADC_EN;
 	val |= BIT_ADC_BIT_MODE(adc->sample_bits);
 	val |= BIT_SW_CH_ON;
 
-	adc_write(val, addr);
+	adc_write(((adc_read(addr) & (~ADC_SW_RUN_NUM_MSK)) | val), addr);
 
 	while ((!adc_raw_irqstatus()) && cnt--) {
 		udelay(50);
@@ -457,6 +459,8 @@ int sci_adc_get_values(struct adc_sample_data *adc)
 		goto Exit;
 	}
 
+	adc_clear_irq();
+
 	if (adc->sample_bits)
 		sample_bits_msk = ((1 << 12) - 1);	//12
 	else
@@ -464,9 +468,13 @@ int sci_adc_get_values(struct adc_sample_data *adc)
 	while (num--)
 		*pbuf++ = adc_get_data(sample_bits_msk);
 
+	sci_adc_unlock();
+
+	return ret;
+
 Exit:
 	val = adc_read(addr);
-	val &= ~BIT_ADC_EN;
+	val &= ~BIT_SW_CH_ON;
 	adc_write(val, addr);
 
 	sci_adc_unlock();
