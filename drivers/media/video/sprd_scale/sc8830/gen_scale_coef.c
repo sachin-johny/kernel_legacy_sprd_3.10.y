@@ -526,7 +526,7 @@ uint8_t GenScaleCoeff(int16_t i_w,
 	int16_t I_hor = o_w;
 	int16_t I_ver = o_h;
 	int16_t I_ver_bak_uv = o_h;
-
+	int16_t I_ver_bak_y = o_h;
 	int16_t *cong_Ycom_hor = 0;
 	int16_t *cong_UVcom_hor = 0;
 	int16_t *cong_Ycom_ver = 0;
@@ -616,13 +616,13 @@ uint8_t GenScaleCoeff(int16_t i_w,
 	CheckCoefRange(cong_UVcom_ver, 8, chrome_ver_tap, 16);
 
 	/* calculate edge coefficients of Y component in vertical direction */
-	if(2 * I_ver_bak_uv <= D_ver)
-		CalcVerEdgeCoef(cong_Ycom_ver, D_ver, I_ver, luma_ver_tap, 16);
-
+	if(2 * I_ver_bak_y <= D_ver) { 	//only scale down
+		CalcVerEdgeCoef(cong_Ycom_ver, D_ver, I_ver_bak_y, luma_ver_tap, 16);
+	}
 	/* calculate edge coefficients of UV component in vertical direction */
-	if(2 * I_ver_bak_uv <= D_ver)
-		CalcVerEdgeCoef(cong_UVcom_ver, D_ver, I_ver, chrome_ver_tap, 16);
-
+	if(2 * I_ver_bak_uv <= D_ver) {	//only scale down
+		CalcVerEdgeCoef(cong_UVcom_ver, D_ver, I_ver_bak_uv, chrome_ver_tap, 16);
+	}
 	/* write the coefficient to register format */
 	SetVerRegisterCoef(coeff_v_lum_ptr, coeff_v_ch_ptr,
 		cong_Ycom_ver, cong_UVcom_ver,
