@@ -66,11 +66,11 @@ extern struct device_attribute dev_attr_sleep_local_dev;
 extern struct device_attribute devi_attr_sleep_status;
 #endif
 
-void dwc_otg_attr_create(
+void dwc_otg_attr_create (
 	struct platform_device *dev
 	);
 
-void dwc_otg_attr_remove(
+void dwc_otg_attr_remove (
 	struct platform_device *dev
 	);
 #endif
