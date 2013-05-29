@@ -578,6 +578,12 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 	}*/
 
 	if (is_timeout == 1) {
+	    int i;
+	    for (i=0; i<40; i++)
+        {
+            printk("\r\nnfc cmd reg addr:0x%x, value:0x%xx!\r\n", NFC_CMD+i);
+        }
+
 		ret = fixon_timeout_function(flag);
 		if (ret == 0) {
 			panic("nfc cmd timeout, check nfc, flash, hardware\n");
@@ -897,6 +903,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			break;
 		case NAND_CMD_READSTART:
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
+			nfc_mcr_inst_add(0x10, NF_MC_NOP_ID); /* add nop clk */
 			nfc_mcr_inst_add(0, NF_MC_WAIT_ID);
 			if((!g_info.addr_array[0]) && (!g_info.addr_array[1]))
 				size = mtd->writesize + mtd->oobsize;
