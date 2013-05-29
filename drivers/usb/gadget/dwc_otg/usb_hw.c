@@ -146,22 +146,19 @@ void usb_phy_init(void)
 }
 static void usb_startup(void)
 {
+	usb_ldo_switch(1);
+	mdelay(2);
 	usb_enable_module(1);
 	mdelay(10);
 #if defined(CONFIG_ARCH_SC8830)
-	usb_ldo_switch(1);
 	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
 	mdelay(5);
 	sci_glb_clr(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
 	sci_glb_set(REG_AP_AHB_AHB_EB,BIT_USB_EB);
 #else	
-	//usb_ldo_switch(0);
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(1)|BIT(2),AHB_CTL3);
-	usb_ldo_switch(1);
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6),AHB_CTL3);
 
-//	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(8)|BIT(14)|BIT(15)|BIT(17),AHB_CTL3);
-//	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(12)|BIT(13)|BIT(16),AHB_CTL3);
 
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6)|BIT(7),AHB_SOFT_RST);
 	mdelay(5);
