@@ -265,6 +265,7 @@ struct sprd_codec_priv {
 	atomic_t power_refcount;
 	int da_sample_val;
 	int ad_sample_val;
+	int ad1_sample_val;
 	struct sprd_codec_mixer mixer[SPRD_CODEC_MIXER_MAX];
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
 	int mic_bias[SPRD_CODEC_MIC_BIAS_MAX];
@@ -1109,18 +1110,18 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 
 static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 {
-	sprd_codec_dbg("%s ad %d da %d \n", __func__,
-			sprd_codec->ad_sample_val, sprd_codec->da_sample_val);
+	sprd_codec_dbg("%s ad %d da %d ad1 %d\n", __func__,
+			sprd_codec->ad_sample_val, sprd_codec->da_sample_val, sprd_codec->ad1_sample_val);
 	if (sprd_codec->ad_sample_val) {
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
 					      sprd_codec->ad_sample_val, 0x0F,
 					      0);
-#ifdef CONFIG_SPRD_CODEC_DMIC
+	}
+	if (sprd_codec->ad1_sample_val) {
 		/*set adc1(dmic) sample rate */
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
-					      sprd_codec->ad_sample_val, 0xF0,
-					      4);
-#endif
+						  sprd_codec->ad1_sample_val, 0xF0,
+						  4);
 	}
 	if (sprd_codec->da_sample_val) {
 		sprd_codec_set_sample_rate(sprd_codec->codec,
@@ -1157,7 +1158,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);
 		arch_audio_codec_analog_reg_enable();
 		arch_audio_codec_enable();
-		arch_audio_codec_reset();
+		arch_audio_codec_analog_reset();
 		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 1);
 
 		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
@@ -1344,8 +1345,10 @@ EXPORT_SYMBOL(sprd_codec_headmic_bias_control);
 static int sprd_codec_analog_open(struct snd_soc_codec *codec)
 {
 	int ret = 0;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 
 	sprd_codec_dbg("Entering %s\n", __func__);
+	sprd_codec_sample_rate_setting(sprd_codec);
 
 	/* SC7710/SC8830 ask from ASIC to set initial value */
 	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(SEL_VCMI), BIT(SEL_VCMI));
@@ -1429,6 +1432,7 @@ static int digital_power_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		arch_audio_codec_digital_reg_enable();
+		arch_audio_codec_digital_reset();
 		sprd_codec_digital_open(w->codec);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
@@ -1514,7 +1518,6 @@ static int adc_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
-#ifdef  CONFIG_SPRD_CODEC_DMIC
 static int adc1_event(struct snd_soc_dapm_widget *w,
 		      struct snd_kcontrol *kcontrol, int event)
 {
@@ -1538,7 +1541,6 @@ static int adc1_event(struct snd_soc_dapm_widget *w,
 
 	return ret;
 }
-#endif
 
 static int _mixer_set_mixer(struct snd_soc_codec *codec, int id, int lr,
 			    int try_on)
@@ -2305,12 +2307,15 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			       0, 0,
 			       mic_bias_event,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	/*add DMIC ADC1 */
-#ifdef  CONFIG_SPRD_CODEC_DMIC
 	SND_SOC_DAPM_PGA_S("Digital ADC1L Switch", 5, SOC_REG(AUD_TOP_CTL),
 			   ADC1_EN_L, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("Digital ADC1R Switch", 5, SOC_REG(AUD_TOP_CTL),
 			   ADC1_EN_R, 0, NULL, 0),
+	SND_SOC_DAPM_ADC_E("ADC1", "Capture2", SND_SOC_NOPM, 0, 0,
+			   adc1_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	/*add DMIC ADC1 */
+#ifdef  CONFIG_SPRD_CODEC_DMIC
 	SND_SOC_DAPM_PGA_S("Digital ADC1L DMIC In", 4, SOC_REG(AUD_TOP_CTL),
 			   ADC1_DMIC_SEL, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("Digital ADC1R DMIC In", 4, SOC_REG(AUD_TOP_CTL),
@@ -2318,10 +2323,6 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("DMic Switch", 3, SOC_REG(AUD_DMIC_CTL),
 			   ADC1_DMIC_EN, 0,
 			   NULL, 0),
-	SND_SOC_DAPM_ADC_E("ADC1", "Capture-DMIC", SND_SOC_NOPM, 0, 0,
-			   adc1_event,
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
 	SND_SOC_DAPM_INPUT("DMIC"),
 #endif
 	SND_SOC_DAPM_OUTPUT("HEAD_P_L"),
@@ -2343,10 +2344,14 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	/* Power */
 	{"DA Clk", NULL, "Analog Power"},
 	{"DA Clk", NULL, "Digital Power"},
+	{"DAC", NULL, "DA Clk"},
 
 	{"AD IBUF", NULL, "Analog Power"},
 	{"AD Clk", NULL, "Digital Power"},
 	{"AD Clk", NULL, "AD IBUF"},
+	{"ADC", NULL, "AD Clk"},
+
+	{"ADC1", NULL, "AD Clk"},
 
 	{"ADCL PGA", NULL, "AD IBUF"},
 	{"ADCR PGA", NULL, "AD IBUF"},
@@ -2359,6 +2364,8 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"EAR Switch", NULL, "DRV Clk"},
 
 	/* Playback */
+	{"Digital DACL Switch", NULL, "DAC"},
+	{"Digital DACR Switch", NULL, "DAC"},
 	{"ADie Digital DACL Switch", NULL, "Digital DACL Switch"},
 	{"ADie Digital DACR Switch", NULL, "Digital DACR Switch"},
 	{"DACL Mute", NULL, "ADie Digital DACL Switch"},
@@ -2443,6 +2450,8 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"ADie Digital ADCR Switch", NULL, "ADCR Switch"},
 	{"Digital ADCL Switch", NULL, "ADie Digital ADCL Switch"},
 	{"Digital ADCR Switch", NULL, "ADie Digital ADCR Switch"},
+	{"ADC", NULL, "Digital ADCL Switch"},
+	{"ADC", NULL, "Digital ADCR Switch"},
 
 	{"Mic Bias", NULL, "MIC"},
 	{"AuxMic Bias", NULL, "AUXMIC"},
@@ -2455,9 +2464,12 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"Digital ADC1R DMIC In", NULL, "DMIC Switch"},
 	{"Digital ADC1L Switch", NULL, "Digital ADC1L DMIC In"},
 	{"Digital ADC1R Switch", NULL, "Digital ADC1R DMIC In"},
-	{"ADC1", NULL, "Digital ADCL Switch"},
-	{"ADC1", NULL, "Digital ADCR Switch"},
+	{"ADC1", NULL, "Digital ADC1L Switch"},
+	{"ADC1", NULL, "Digital ADC1R Switch"},
+	{"Digital ADC1L Switch", NULL, "ADie Digital ADCL Switch"},
+	{"Digital ADC1R Switch", NULL, "ADie Digital ADCR Switch"},
 #endif
+
 	/* Bias independent */
 	{"Mic Bias", NULL, "Analog Power"},
 	{"AuxMic Bias", NULL, "Analog Power"},
@@ -2731,6 +2743,8 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SPRD_CODEC_MIC_BIAS("HEADMIC Bias Switch", SPRD_CODEC_HEADMIC_BIAS),
 };
+ int vbc_reg_read(int reg);
+int vbc_reg_write2(int reg, int val);
 
 static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 				    unsigned int reg)
@@ -2750,11 +2764,14 @@ static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 		int id = FUN_REG(reg);
 		struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 		return mixer->on;
+	} else if (IS_SPRD_VBC_RANG(reg |SPRD_VBC_BASE_HI)) {
+		sprd_codec_dbg("read the register is vbc's reg = 0x%x\n", (reg - VBC_REG_OFFSET));
+		reg |= SPRD_VBC_BASE_HI;
+		return vbc_reg_read(reg);
 	}
 	sprd_codec_dbg("read the register is not codec's reg = 0x%x\n", reg);
 	return 0;
 }
-
 static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 			    unsigned int val)
 {
@@ -2764,6 +2781,10 @@ static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 	} else if (IS_SPRD_CODEC_DP_RANG(reg | SPRD_CODEC_DP_BASE_HI)) {
 		reg |= SPRD_CODEC_DP_BASE_HI;
 		return __raw_writel(val, reg);
+	} else if (IS_SPRD_VBC_RANG(reg |SPRD_VBC_BASE_HI)) {
+		sprd_codec_dbg("write the register is vbc's reg = 0x%x, val = %d\n", (reg - VBC_REG_OFFSET), val);
+		reg |= SPRD_VBC_BASE_HI;
+		return vbc_reg_write2(reg, val);
 	}
 	sprd_codec_dbg("write the register is not codec's reg = 0x%x\n", reg);
 	return 0;
@@ -2815,14 +2836,16 @@ static int sprd_codec_pcm_hw_params(struct snd_pcm_substream *substream,
 		pr_info("playback rate is [%d]\n", rate);
 		sprd_codec_set_sample_rate(codec, rate, mask, shift);
 	} else {
-		sprd_codec->ad_sample_val = rate;
 		pr_info("capture rate is [%d]\n", rate);
-		if (dai->id != SPRD_CODEC_IIS1_ID)
+		if (dai->id != SPRD_CODEC_IIS1_ID) {
+			sprd_codec->ad_sample_val = rate;
 			sprd_codec_set_ad_sample_rate(codec, rate, mask, shift);
-		else
+		} else {
+			sprd_codec->ad1_sample_val = rate;
 			sprd_codec_set_ad_sample_rate(codec, rate,
 						      ADC1_SRC_N_MASK,
 						      ADC1_SRC_N);
+		}
 	}
 
 	return 0;
@@ -2872,8 +2895,6 @@ static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 	int ret = 0;
 
 	sprd_codec_dbg("Entering %s\n", __func__);
-	if (dai->id == SPRD_CODEC_IIS1_ID)
-		return ret;
 
 	if (atomic_read(&sprd_codec->power_refcount) >= 1) {
 		sprd_codec_dbg("mute %i\n", mute);
@@ -3060,12 +3081,13 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 		},
 		.ops = &sprd_codec_dai_ops,
 	},
-#ifdef  CONFIG_SPRD_CODEC_DMIC
+#ifdef CONFIG_SPRD_CODEC_DMIC
+	/*digital  ad1*/
 	{
 		.id = SPRD_CODEC_IIS1_ID,
 		.name = "sprd-codec-i2s-1",
 		.capture = {
-			.stream_name = "Capture-DMIC",
+			.stream_name = "Capture2",
 			.channels_min = 1,
 			.channels_max =2,
 			.rates = SPRD_CODEC_PCM_AD_RATES,
