@@ -67,7 +67,7 @@
 #include <trace/events/sched.h>
 
 int core_uses_pid;
-char core_pattern[CORENAME_MAX_SIZE] = "core";
+char core_pattern[CORENAME_MAX_SIZE] = "/dev/null";
 unsigned int core_pipe_limit;
 int suid_dumpable = 0;
 
@@ -2203,7 +2203,7 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 
 		cprm.file = filp_open(cn.corename,
 				 O_CREAT | 2 | O_NOFOLLOW | O_LARGEFILE | flag,
-				 0600);
+				 0666);
 		if (IS_ERR(cprm.file))
 			goto fail_unlock;
 
