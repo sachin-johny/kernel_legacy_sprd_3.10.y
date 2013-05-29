@@ -357,7 +357,7 @@ static int sprd_spi_setup(struct spi_device *spi)
 	u32 clk_spi;
 	u8 clk_spi_mode;
 	u32 cs_gpio;
-	u8 clk_spi_div;
+	u8 clk_spi_div = 0;
 	u32 spi_clkd;
 	u32 spi_ctl0 = 0;
 	int data_width = 0;
