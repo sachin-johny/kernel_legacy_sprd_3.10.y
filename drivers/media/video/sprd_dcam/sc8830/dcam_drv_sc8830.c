@@ -416,7 +416,7 @@ int32_t dcam_module_en(void)
 		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
 
 		dcam_print_clock();
-
+#if 0
 		{
 			// aiden fpga
 			uint32_t bit_value;
@@ -438,7 +438,7 @@ int32_t dcam_module_en(void)
 
 			REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xf, 0x3);  // ahb clock: 76, 128, 192, 256
 		}
-
+#endif
 		printk("dcam_module_en: end\n");
 	}
 
@@ -457,6 +457,7 @@ int32_t dcam_module_dis(void)
 		dcam_set_clk(DCAM_CLK_NONE);
 
 		dcam_print_clock();
+#if 0
 		{
 			// aiden fpga
 			uint32_t bit_value;
@@ -479,6 +480,7 @@ int32_t dcam_module_dis(void)
 
 			printk("dcam_module_dis: end\n");
 		}
+#endif
 	}
 
 
@@ -552,7 +554,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	return -rtn;
 }
 
-#if 0
+#if 1
 int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
