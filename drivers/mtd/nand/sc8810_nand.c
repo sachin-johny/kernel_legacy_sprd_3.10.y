@@ -1044,9 +1044,14 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 	int index;
 	int array;
 
-	array = sizeof(nand_config_table) / sizeof(struct sc8810_nand_page_oob);
+	array = sizeof(nand_config_table) / sizeof(nand_config_table[0]);
 	for (index = 0; index < array; index ++) {
-		if ((nand_config_table[index].m_c == id[0]) && (nand_config_table[index].d_c == id[1]) && (nand_config_table[index].cyc_3 == id[2]) && (nand_config_table[index].cyc_4 == id[3]) && (nand_config_table[index].cyc_5 == id[4]))
+		if ((nand_config_table[index].m_c == id[0])
+		        && (nand_config_table[index].d_c == id[1])
+		        && (nand_config_table[index].cyc_3 == id[2])
+		        && (nand_config_table[index].cyc_4 == id[3])
+		        && (nand_config_table[index].cyc_5 == id[4])
+		    )
 			break;
 	}
 
@@ -1069,11 +1074,13 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 				mtd->oobsize = nand_config_table[index].oobsize;
 			break;
 		}
-	}else if((nand_config_table[index].pagesize == 2048) && (nand_config_table[index].eccbit == 4)){
-				this->ecc.size = nand_config_table[index].eccsize;
-				g_info.ecc_mode = nand_config_table[index].eccbit;
-				this->ecc.bytes = 7;
-				this->ecc.layout = &_nand_oob_64_4bit;
+	}else{
+        if((nand_config_table[array - 1].pagesize == 2048) && (nand_config_table[array - 1].eccbit == 4)){
+    				this->ecc.size = nand_config_table[index].eccsize;
+    				g_info.ecc_mode = nand_config_table[index].eccbit;
+    				this->ecc.bytes = 7;
+    				this->ecc.layout = &_nand_oob_64_4bit;
+    	}
 	}
 }
 
