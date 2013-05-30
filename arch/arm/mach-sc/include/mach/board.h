@@ -34,6 +34,10 @@
 #include "__board-sp8830fpga.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7735EC
+#include "__board-sp7735ec.h"
+#endif
+
 #include <asm/sizes.h>
 
 #ifdef CONFIG_ION
