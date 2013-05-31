@@ -451,7 +451,7 @@ static inline void sprd_debug_hw_reset(void)
 
 	outer_flush_all();
 
-	arch_reset(0,(const char *)"bootloader");
+	arch_reset(0,(const char *)"panic");
 
 	while (1) ;
 }
