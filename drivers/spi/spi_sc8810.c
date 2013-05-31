@@ -354,11 +354,11 @@ static int sprd_spi_setup(struct spi_device *spi)
 	struct sprd_spi_data *sprd_data;
 	struct sprd_spi_controller_data *sprd_ctrl_data = spi->controller_data;
 	u8 bits = spi->bits_per_word;
-	u32 clk_spi;
-	u8 clk_spi_mode;
-	u32 cs_gpio;
+	u32 clk_spi = 0;
+	u8 clk_spi_mode = 0;
+	u32 cs_gpio = 0;
 	u8 clk_spi_div = 0;
-	u32 spi_clkd;
+	u32 spi_clkd = 0;
 	u32 spi_ctl0 = 0;
 	int data_width = 0;
 	int ret;
