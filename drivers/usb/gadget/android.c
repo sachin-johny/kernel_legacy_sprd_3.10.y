@@ -67,7 +67,7 @@ MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 
 static const char longname[] = "Gadget Android";
-
+static int  gser_port_count=1;
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
@@ -720,7 +720,7 @@ static struct android_usb_function vser_function = {
 static int gser_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
-	return gserial_setup(cdev->gadget, 1);
+	return gserial_setup(cdev->gadget, 2);
 }
 
 static void gser_function_cleanup(struct android_usb_function *f)
@@ -731,7 +731,16 @@ static void gser_function_cleanup(struct android_usb_function *f)
 static int gser_function_bind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
-	return gser_bind_config(c, 0);
+	int i,ret;
+
+	for(i=0;i<gser_port_count;i++){
+		ret = gser_bind_config(c, i);
+		if(ret){
+			pr_err("Can not bind GSER%d\n",i);
+			break;
+		}
+	}
+	return ret;
 }
 
 static int gser_function_ctrlrequest(struct android_usb_function *f,
@@ -741,12 +750,40 @@ static int gser_function_ctrlrequest(struct android_usb_function *f,
 	return gser_setup(cdev, c);
 }
 
+static ssize_t gser_port_store(struct device *dev,
+               struct device_attribute *attr, char *buf)
+{
+       int     count;
+
+       printk("%s %s\n",__func__,buf);
+       sscanf(buf, "%d", &count);
+       if(count > 2)
+               return -1;
+       gser_port_count = count;
+       return count;
+}
+static ssize_t gser_port_show(struct device *dev,
+               struct device_attribute *attr, char *buf)
+{
+       struct android_usb_function *f = dev_get_drvdata(dev);
+       struct audio_source_config *config = f->config;
+
+       /* print PCM card and device numbers */
+       return sprintf(buf, "%d \n",gser_port_count );
+}
+static DEVICE_ATTR(port_count, S_IRUGO | S_IWUSR, gser_port_show, gser_port_store);
+
+static struct device_attribute *gser_function_attributes[] = {
+       &dev_attr_port_count,
+       NULL
+};
 static struct android_usb_function gser_function = {
 	.name		= "gser",
 	.init		= gser_function_init,
 	.cleanup	= gser_function_cleanup,
 	.bind_config	= gser_function_bind_config,
 	.ctrlrequest	= gser_function_ctrlrequest,
+	.attributes     = gser_function_attributes,
 };
 #endif
 static struct android_usb_function *supported_functions[] = {
