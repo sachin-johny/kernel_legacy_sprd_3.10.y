@@ -226,6 +226,19 @@ enum {
 #define	VBDACSRC_F0_BP		(5)
 #define 	VBDACSRC_F0_SEL		(6)
 
+    /*ADCSRCCTL*/
+#define 	VBADCSRC_EN_01		(0)
+#define 	VBADCSRC_CLR_01		(1)
+#define 	VBADCSRC_PAUSE_01	(2)
+#define 	VBADCSRC_F1F2F3_BP_01	(3)
+#define 	VBADCSRC_F1_SEL_01	(4)
+
+#define 	VBADCSRC_EN_23		(8)
+#define 	VBADCSRC_CLR_23		(9)
+#define 	VBADCSRC_PAUSE_23	(10)
+#define 	VBADCSRC_F1F2F3_BP_23	(11)
+#define 	VBADCSRC_F1_SEL_23	(12)
+
     /*STCTL0*/
 #define     VBST_EN_0			(12)
     /*STCTL1*/

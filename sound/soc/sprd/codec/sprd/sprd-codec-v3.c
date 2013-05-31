@@ -1100,6 +1100,8 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 					 int mask, int shift)
 {
 	int set;
+	if (rate == 44100)
+		rate = 32000;
 	set = rate / 4000;
 	if (set > 13) {
 		pr_err("sprd_codec not supports ad rate %d\n", rate);
@@ -1107,7 +1109,6 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 	snd_soc_update_bits(codec, SOC_REG(AUD_ADC_CTL), mask, set << shift);
 	return 0;
 }
-
 static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 {
 	sprd_codec_dbg("%s ad %d da %d ad1 %d\n", __func__,
@@ -1118,7 +1119,6 @@ static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 					      0);
 	}
 	if (sprd_codec->ad1_sample_val) {
-		/*set adc1(dmic) sample rate */
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
 						  sprd_codec->ad1_sample_val, 0xF0,
 						  4);
@@ -3059,6 +3059,7 @@ static int sprd_codec_audio_ldo(struct sprd_codec_priv *sprd_codec)
 	(SNDRV_PCM_RATE_8000 |  \
 	 SNDRV_PCM_RATE_16000 | \
 	 SNDRV_PCM_RATE_32000 | \
+	 SNDRV_PCM_RATE_44100 | \
 	 SNDRV_PCM_RATE_48000)
 
 /* PCM Playing and Recording default in full duplex mode */
