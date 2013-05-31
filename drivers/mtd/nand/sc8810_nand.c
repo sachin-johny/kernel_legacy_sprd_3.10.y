@@ -578,6 +578,12 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 	}*/
 
 	if (is_timeout == 1) {
+	    int i;
+	    for (i=0; i<40; i++)
+        {
+            printk("\r\nnfc cmd reg addr:0x%x, value:0x%xx!\r\n", NFC_CMD+i);
+        }
+
 		ret = fixon_timeout_function(flag);
 		if (ret == 0) {
 			panic("nfc cmd timeout, check nfc, flash, hardware\n");
@@ -897,6 +903,7 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			break;
 		case NAND_CMD_READSTART:
 			nfc_mcr_inst_add(cmd, NF_MC_CMD_ID);
+			nfc_mcr_inst_add(0x10, NF_MC_NOP_ID); /* add nop clk */
 			nfc_mcr_inst_add(0, NF_MC_WAIT_ID);
 			if((!g_info.addr_array[0]) && (!g_info.addr_array[1]))
 				size = mtd->writesize + mtd->oobsize;
@@ -1037,9 +1044,14 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 	int index;
 	int array;
 
-	array = sizeof(nand_config_table) / sizeof(struct sc8810_nand_page_oob);
+	array = sizeof(nand_config_table) / sizeof(nand_config_table[0]);
 	for (index = 0; index < array; index ++) {
-		if ((nand_config_table[index].m_c == id[0]) && (nand_config_table[index].d_c == id[1]) && (nand_config_table[index].cyc_3 == id[2]) && (nand_config_table[index].cyc_4 == id[3]) && (nand_config_table[index].cyc_5 == id[4]))
+		if ((nand_config_table[index].m_c == id[0])
+		        && (nand_config_table[index].d_c == id[1])
+		        && (nand_config_table[index].cyc_3 == id[2])
+		        && (nand_config_table[index].cyc_4 == id[3])
+		        && (nand_config_table[index].cyc_5 == id[4])
+		    )
 			break;
 	}
 
@@ -1062,11 +1074,13 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 				mtd->oobsize = nand_config_table[index].oobsize;
 			break;
 		}
-	}else if((nand_config_table[index].pagesize == 2048) && (nand_config_table[index].eccbit == 4)){
-				this->ecc.size = nand_config_table[index].eccsize;
-				g_info.ecc_mode = nand_config_table[index].eccbit;
-				this->ecc.bytes = 7;
-				this->ecc.layout = &_nand_oob_64_4bit;
+	}else{
+        if((nand_config_table[array - 1].pagesize == 2048) && (nand_config_table[array - 1].eccbit == 4)){
+    				this->ecc.size = nand_config_table[index].eccsize;
+    				g_info.ecc_mode = nand_config_table[index].eccbit;
+    				this->ecc.bytes = 7;
+    				this->ecc.layout = &_nand_oob_64_4bit;
+    	}
 	}
 }
 
