@@ -628,6 +628,7 @@ static int serial_sprd_setup_port(struct platform_device *pdev, struct resource 
 	}
 	up->private_data = kmalloc(sizeof(BT_HOST_WAKEUP_TYPE), GFP_KERNEL);
 	if (up->private_data == NULL) {
+                kfree(up);
 		return -ENOMEM;
 	}
 
