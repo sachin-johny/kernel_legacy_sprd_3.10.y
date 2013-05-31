@@ -70,9 +70,12 @@ seth_tx_ready_handler (void* data)
 		}
 	}
 	else {
+		seth->state = DEV_OFF;
 		if (!netif_carrier_ok (seth->netdev)) {
-	    	netif_carrier_off (seth->netdev);
-	    	netif_carrier_on (seth->netdev);
+		netif_carrier_off (seth->netdev);
+		/*
+		netif_carrier_on (seth->netdev);
+		*/
 		}
 	}
 }
