@@ -95,6 +95,7 @@ extern struct platform_device sprd_seth0_wcdma_device;
 extern struct platform_device sprd_seth1_wcdma_device;
 extern struct platform_device sprd_seth2_wcdma_device;
 extern struct platform_device sprd_saudio_wcdma_device;
+extern struct platform_device sprd_saudio_voip_device;
 #endif
 
 extern struct platform_device sprd_a7_pmu_device;

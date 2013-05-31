@@ -1354,6 +1354,19 @@ struct platform_device sprd_saudio_wcdma_device = {
 	.id         = 1,
 	.dev        = {.platform_data=&sprd_saudio_wcdma},
 };
+static struct saudio_init_data sprd_saudio_voip={
+	"saudiovoip",
+	SIPC_ID_CPW,
+	SMSG_CH_CTRL_VOIP,
+	SMSG_CH_PLAYBACK_VOIP,
+	SMSG_CH_CAPTURE_VOIP,
+};
+
+struct platform_device sprd_saudio_voip_device = {
+	.name       = "saudio",
+	.id         = 2,
+	.dev        = {.platform_data=&sprd_saudio_voip},
+};
 #endif
 
 struct sysdump_mem sprd_dump_mem[] = {

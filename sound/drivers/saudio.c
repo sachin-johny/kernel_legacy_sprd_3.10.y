@@ -565,7 +565,7 @@ static struct snd_saudio *saudio_card_probe(struct saudio_init_data *init_data)
 	struct snd_saudio *saudio = NULL;
 	struct snd_card *saudio_card;
 	int32_t result = 0;
-	result = snd_card_create(SNDRV_DEFAULT_IDX1, "VAUDIO", THIS_MODULE,
+	result = snd_card_create(SNDRV_DEFAULT_IDX1, init_data->name, THIS_MODULE,
 				 sizeof(struct snd_saudio), &saudio_card);
 
 	if (result < 0)
