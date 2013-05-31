@@ -583,7 +583,7 @@ void sci_clock_dump_active(void)
 static int
 __clk_cpufreq_notifier(struct notifier_block *nb, unsigned long val, void *data)
 {
-#if 0				/*!defined(CONFIG_ARCH_SC8830) */
+#if 0				/*!defined(CONFIG_ARCH_SCX35) */
 	struct cpufreq_freqs *freq = data;
 	printk("%s (%u) dump cpu freq (%u %u %u %u)\n",
 	       __func__, (unsigned int)val,
@@ -598,7 +598,7 @@ static struct notifier_block __clk_cpufreq_notifier_block = {
 
 int __init sci_clock_init(void)
 {
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	__raw_writel(__raw_readl(REG_PMU_APB_PD_MM_TOP_CFG)
 		     & ~(BIT_PD_MM_TOP_FORCE_SHUTDOWN),
 		     REG_PMU_APB_PD_MM_TOP_CFG);

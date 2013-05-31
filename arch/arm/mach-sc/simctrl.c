@@ -35,7 +35,7 @@ struct simdesc {
 	struct proc_dir_entry	*node;
 };
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 
 static struct simdesc sim_cards[] = {
 	{ "0", "t", SPRD_PIN_BASE + 0x08, 0x00100000 },

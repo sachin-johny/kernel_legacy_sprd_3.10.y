@@ -201,7 +201,7 @@ void tegra_auto_hotplug_governor(void)
 
 static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 {
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	int ret;
 
 #define CPUFREQ_SET_VOLTAGE() \
@@ -241,7 +241,7 @@ static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 
 static unsigned int sprd_raw_get_cpufreq(void)
 {
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	return clk_get_rate(sprd_cpufreq_conf->clk) / 1000;
 #elif defined(CONFIG_ARCH_SC8825)
 	return get_mcu_clk_freq() / 1000;
@@ -380,7 +380,7 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 {
 	int i, ret;
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	sprd_cpufreq_conf->clk = clk_get_sys(NULL, "clk_mcu");
 	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
 		return PTR_ERR(sprd_cpufreq_conf->clk);
@@ -422,7 +422,7 @@ static int sprd_cpufreq_exit(struct cpufreq_policy *policy)
 {
 	memset(&sprd_cpufreq_status, 0, sizeof(sprd_cpufreq_status));
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	sprd_cpufreq_conf = NULL;
 	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk)) /* do we need disable the clock? */
 		clk_put(sprd_cpufreq_conf->clk);
@@ -468,7 +468,7 @@ static int __init sprd_cpufreq_modinit(void)
 {
 	int ret;
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	sprd_cpufreq_conf = &sc8830_cpufreq_conf;
 #elif defined(CONFIG_ARCH_SC8825)
 	sprd_cpufreq_conf = &sc8825_cpufreq_conf;

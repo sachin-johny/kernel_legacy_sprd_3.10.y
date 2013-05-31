@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ASM_ARCH_HARDWARE_SC8830_H
-#define __ASM_ARCH_HARDWARE_SC8830_H
+#ifndef __ASM_ARCH_HARDWARE_SCX35_H
+#define __ASM_ARCH_HARDWARE_SCX35_H
 
 #ifndef __ASM_ARCH_SCI_HARDWARE_H
 #error  "Don't include this file directly, include <mach/hardware.h>"

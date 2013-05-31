@@ -22,7 +22,7 @@
 
 #include <asm/sizes.h>
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #include "__hardware-sc8830.h"
 #elif defined(CONFIG_ARCH_SC8825)
 #include "__hardware-sc8825.h"

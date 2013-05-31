@@ -61,7 +61,7 @@ static int __init hwspinlocks_init(void)
 	ret = platform_device_register(&sprd_hwspinlock_device0);
 	if (WARN(ret != 0, "register hwspinlock device error!!"))
 		platform_device_unregister(&sprd_hwspinlock_device0);
-#if	defined (CONFIG_ARCH_SC8830)
+#if	defined (CONFIG_ARCH_SCX35)
 	ret = platform_device_register(&sprd_hwspinlock_device1);
 	if (WARN(ret != 0, "register hwspinlock device error!!"))
 		platform_device_unregister(&sprd_hwspinlock_device1);

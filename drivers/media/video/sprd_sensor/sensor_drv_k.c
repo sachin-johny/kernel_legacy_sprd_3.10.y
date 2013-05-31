@@ -39,7 +39,7 @@
 #include <mach/i2c-sprd.h>
 #elif defined (CONFIG_ARCH_SC8810)
 #include <mach/i2c-sc8810.h>
-#elif defined (CONFIG_ARCH_SC8830)
+#elif defined (CONFIG_ARCH_SCX35)
 #include <mach/i2c-sprd.h>
 #include <mach/adi.h>
 #endif
@@ -49,7 +49,7 @@
 /* FIXME: Move to camera device platform data later */
 /*#if defined(CONFIG_ARCH_SC8825)*/
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 
 #define REGU_NAME_CAMAVDD	"vddcama"
 #define REGU_NAME_CAMVIO	"vddcamio"
@@ -414,7 +414,7 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 		if (err)
 			SENSOR_PRINT_ERR("SENSOR:could not set cammot to 3800mv.\n");
 		break;
-#if defined (CONFIG_ARCH_SC8830)
+#if defined (CONFIG_ARCH_SCX35)
 	case SENSOR_VDD_3300MV:
 		err =
 		    regulator_set_voltage(s_cammot_regulator,
@@ -570,7 +570,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 		}
 	}
 	switch (dvdd_val) {
-#if defined (CONFIG_ARCH_SC8830)
+#if defined (CONFIG_ARCH_SCX35)
 	case SENSOR_VDD_1200MV:
 		err =
 		    regulator_set_voltage(s_camdvdd_regulator,
@@ -676,7 +676,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 			SENSOR_PRINT_ERR("SENSOR:could not set camvio to 2800mv.\n");
 		break;
 
-#if defined (CONFIG_ARCH_SC8830)
+#if defined (CONFIG_ARCH_SCX35)
 	case SENSOR_VDD_2500MV:
 		err =
 		    regulator_set_voltage(s_camvio_regulator,
@@ -793,7 +793,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	return SENSOR_K_SUCCESS;
 }
 
-#if 0//def CONFIG_ARCH_SC8830
+#if 0//def CONFIG_ARCH_SCX35
 LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 {
 }
@@ -1088,7 +1088,7 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 	return ret;
 }
 
-#if defined (CONFIG_ARCH_SC8830)
+#if defined (CONFIG_ARCH_SCX35)
 LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 {
 	switch (flash_mode) {
@@ -1228,7 +1228,7 @@ LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 	sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
 #elif defined (CONFIG_ARCH_SC8825)
 	sc8810_i2c_set_clk(SENSOR_I2C_ID, clock);
-#elif defined (CONFIG_ARCH_SC8830)
+#elif defined (CONFIG_ARCH_SCX35)
 	//sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
 #endif
 
@@ -1284,7 +1284,7 @@ sensor_k_writei2c_return:
 
 int sensor_k_open(struct inode *node, struct file *file)
 {
-#if 0//def CONFIG_ARCH_SC8830
+#if 0//def CONFIG_ARCH_SCX35
 	uint32_t bit_value;
 	bit_value = BIT_1;
 	REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value); // ckg_cfg

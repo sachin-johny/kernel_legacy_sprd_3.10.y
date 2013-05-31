@@ -20,7 +20,7 @@ config  ARCH_SC8825
 	select ARCH_HAS_CPUFREQ
 	select NEED_MACH_IO_H
 
-config  ARCH_SC8830
+config  ARCH_SCX35
 	bool "sc8830 series(shark)"
 	select CPU_V7
 	select HAVE_SMP
@@ -63,37 +63,37 @@ config MACH_SP8825EA
 	help
 	  sp8825 EB board based on SC8825 serial.
 
-config MACH_SP8830PAD
+config MACH_SPX35PAD
 	bool "sp8830pad Pad Board"
 	depends on ARCH_SC
-	depends on ARCH_SC8830
+	depends on ARCH_SCX35
 	default n
 	help
-	  SP8830PAD board based on SC8830 serial.
+	  SPX35PAD board based on SC8830 serial.
 
-config MACH_SP8830EB
+config MACH_SPX35EB
 	bool "sp8830eb Phone Board"
 	depends on ARCH_SC
-	depends on ARCH_SC8830
+	depends on ARCH_SCX35
 	default n
 	help
-	  SP8830EB board based on SC8830 serial.
+	  SPX35EB board based on SC8830 serial.
 
-config MACH_SP8830EA
+config MACH_SPX35EA
 	bool "sp8830ea Phone Board"
 	depends on ARCH_SC
-	depends on ARCH_SC8830
+	depends on ARCH_SCX35
 	default n
 	help
-	  SP8830EA board based on SC8830 serial.
+	  SPX35EA board based on SC8830 serial.
 
-config MACH_SP8830FPGA
+config MACH_SPX35FPGA
 	bool "sp8830 FPGA Board"
 	depends on ARCH_SC
-	depends on ARCH_SC8830
+	depends on ARCH_SCX35
 	default n
 	help
-	  SP8830 fpga board based on SC8830 serial.
+	  SPX35 fpga board based on SC8830 serial.
 
 endmenu
 
@@ -117,7 +117,7 @@ config SC_VIBRATOR
 config FIX_V7TAGRAM_BUG
         bool "fix arm-v7 scu tag ram bug"
         default n
-	depends on ARCH_SC8830
+	depends on ARCH_SCX35
 
 config SPRD_DCDC_DEBUG
 	tristate "Enable dcdc debug module"

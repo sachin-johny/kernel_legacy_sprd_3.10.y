@@ -31,7 +31,7 @@ config HSEM_U8500
 
 config HWSPINLOCK_SCI
 	tristate "SC Hardware Spinlock device"
-	depends on ARCH_SC8830 || ARCH_SC8825
+	depends on ARCH_SCX35 || ARCH_SC8825
 	select HWSPINLOCK
 	help
 	  Say y here to support the SPRD Hardware Spinlock device (firstly

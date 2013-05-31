@@ -21,7 +21,7 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 #include <mach/sci_glb_regs.h>
 #define ANA_VIBRATOR_CTRL0      (ANA_REG_GLB_VIBR_CTRL0)
 #define ANA_VIBRATOR_CTRL1      (ANA_REG_GLB_VIBR_CTRL1)
@@ -60,7 +60,7 @@ static void set_vibrator(int on)
 {
 	/* unlock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	if (on)
 		sci_adi_write(ANA_VIBRATOR_CTRL0, BIT_VIBR_PON, BIT_VIBR_PON);
 	else
@@ -79,7 +79,7 @@ static void set_vibrator(int on)
 static void vibrator_hw_init(void)
 {
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_VIBR_EN, BIT_RTC_VIBR_EN);
 #else
 	sci_adi_set(ANA_VIBRATOR_CTRL0, VIBR_RTC_EN);

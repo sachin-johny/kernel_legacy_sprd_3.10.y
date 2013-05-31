@@ -155,7 +155,7 @@ static void release_jpg(struct jpg_fh *jpg_fp)
 
 	return;
 }
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #ifdef USE_INTERRUPT
 static irqreturn_t jpg_isr(int irq, void *data);
 #endif
@@ -514,7 +514,7 @@ static int jpg_probe(struct platform_device *pdev)
 	jpg_hw_dev.jpg_clk = NULL;
 	jpg_hw_dev.jpg_parent_clk = NULL;
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 		//cmd0 = __raw_readl(AHB_CTRL2);//,"AHB_CTRL2:Read the AHB_CTRL2 CLOCK");
 		//cmd0 |= 0x440;
 		//__raw_writel(cmd0,AHB_CTRL2);//,"AHB_CTRL2:enable MMMTX_CLK_EN");

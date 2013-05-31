@@ -111,7 +111,7 @@ static int wlan_ldo_enable(void)
 {
 	int err;
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	/*temp config for clk_aux0, waiting for SC8830 pin config*/
 	__raw_writel(0x0101, SPRD_PIN_BASE + 0x0400);
 	wlan_regulator_18 = regulator_get(NULL, "vdd18");

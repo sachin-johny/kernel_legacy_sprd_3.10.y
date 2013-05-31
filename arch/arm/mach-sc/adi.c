@@ -129,7 +129,7 @@ static inline int __adi_fifo_drain(void)
 	return 0;
 }
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #define ANA_VIRT_BASE			( SPRD_ADISLAVE_BASE )
 #define ANA_PHYS_BASE			( SPRD_ADISLAVE_PHYS )
 #else
@@ -327,7 +327,7 @@ int __init sci_adi_init(void)
 	udelay(2);
 	sci_glb_clr(REG_GLB_SOFT_RST, BIT_ADI_RST);
 
-#elif defined(CONFIG_ARCH_SC8830)
+#elif defined(CONFIG_ARCH_SCX35)
 	/*enable adi in global regs*/
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_ADI_EB);
 	/*reset adi*/

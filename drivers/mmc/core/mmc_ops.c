@@ -21,7 +21,7 @@
 #include "core.h"
 #include "mmc_ops.h"
 
-#ifdef CONFIG_MMC_SDHCI_SC8830
+#ifdef CONFIG_MMC_SDHCI_SCX35
 #include "mach/hardware.h"
 #include "mach/sci_glb_regs.h"
 #include "mach/sci.h"
@@ -102,7 +102,7 @@ int mmc_go_idle(struct mmc_host *host)
 {
 	int err;
 	struct mmc_command cmd = {0};
-#ifdef CONFIG_MMC_SDHCI_SC8830
+#ifdef CONFIG_MMC_SDHCI_SCX35
 	unsigned int tmp_flag, reg_val;
 #endif
 
@@ -117,7 +117,7 @@ int mmc_go_idle(struct mmc_host *host)
 	 */
 	if (!mmc_host_is_spi(host)) {
 		mmc_set_chip_select(host, MMC_CS_HIGH);
-	#ifdef CONFIG_MMC_SDHCI_SC8830
+	#ifdef CONFIG_MMC_SDHCI_SCX35
 		/* if sdio0 set data[3] to gpio out mode, and data is 1 , for shark*/
 		if ((host->pm_flags & MMC_PM_ONLY_USED_SDIO0_SHARK) != 0) {
 			tmp_flag = 0;
@@ -154,7 +154,7 @@ int mmc_go_idle(struct mmc_host *host)
 
 	if (!mmc_host_is_spi(host)) {
 		mmc_set_chip_select(host, MMC_CS_DONTCARE);
-	#ifdef CONFIG_MMC_SDHCI_SC8830
+	#ifdef CONFIG_MMC_SDHCI_SCX35
 		/* if sdio0 set data[3] to gpio out mode, and data is 1 , for shark*/
 		if ((host->pm_flags & MMC_PM_ONLY_USED_SDIO0_SHARK) != 0) {
 			if ((tmp_flag & 1) != 0) {

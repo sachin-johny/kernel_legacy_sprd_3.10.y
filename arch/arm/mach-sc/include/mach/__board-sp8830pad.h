@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __GPIO_SC8830PAD_H__
-#define __GPIO_SC8830PAD_H__
+#ifndef __GPIO_SCX35PAD_H__
+#define __GPIO_SCX35PAD_H__
 
 #ifndef __ASM_ARCH_BOARD_H
 #error  "Don't include this file directly, include <mach/board.h>"

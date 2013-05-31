@@ -240,7 +240,7 @@ static unsigned int sdhci_sprd_get_max_clk(struct sdhci_host *host)
 */
 static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 {
-#ifndef CONFIG_MACH_SP8830FPGA
+#ifndef CONFIG_MACH_SPX35FPGA
 	struct clk *clk_parent;
 	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
 
@@ -269,7 +269,7 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 */
 static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 {
-#ifndef CONFIG_MACH_SP8830FPGA
+#ifndef CONFIG_MACH_SPX35FPGA
 	struct sprd_host_data *host_data= sdhci_priv(host);
 	if(clock == 0){
 		if (host_data->clk_enable) {

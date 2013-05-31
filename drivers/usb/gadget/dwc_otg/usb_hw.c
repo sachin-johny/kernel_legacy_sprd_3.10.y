@@ -28,7 +28,7 @@
 
 
 
-#if defined(CONFIG_ARCH_SC8825)||defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SC8825)||defined(CONFIG_ARCH_SCX35)
 #define  USB_LDO_NAME	"vddusb"
 #define  USB_CLK_NAME    	"clk_usb_ref"
 #else
@@ -77,7 +77,7 @@ static int usb_clock_enable(int is_on)
 	}
 	return 0;
 }
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 static void usb_enable_module(int en)
 {
 	if (en){
@@ -105,7 +105,7 @@ static void usb_enable_module(int en)
 void usb_phy_init(void)
 {
 #ifdef CONFIG_USB_CORE_IP_293A
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #else
 		/*
 		* tiger PHY reg is different with previous ,
@@ -150,7 +150,7 @@ static void usb_startup(void)
 	mdelay(2);
 	usb_enable_module(1);
 	mdelay(10);
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
 	mdelay(5);
 	sci_glb_clr(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));

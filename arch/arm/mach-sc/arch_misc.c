@@ -33,7 +33,7 @@ u32 sci_get_chip_id(void)
 #if defined(CONFIG_ARCH_SC8825)
 	return __raw_readl(REG_AHB_CHIP_ID);
 #endif
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	return __raw_readl(REG_AON_APB_CHIP_ID);
 #endif
 }

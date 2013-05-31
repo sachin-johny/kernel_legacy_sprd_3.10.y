@@ -49,7 +49,7 @@
 #define ANA_RTC_INT_CLR                 (RTC_BASE + 0x38)
 #define ANA_RTC_INT_MSK                 (RTC_BASE + 0x3C)
 #define ANA_RTC_SPG_UPD			(RTC_BASE + 0x54)
-#if defined(CONFIG_ARCH_SC8830) || defined(CONFIG_ARCH_SC7710)
+#if defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SC7710)
 #define ANA_RTC_AUX_SEC_ALM		(RTC_BASE + 0x60)
 #define ANA_RTC_AUX_MIN_ALM		(RTC_BASE + 0x64)
 #define ANA_RTC_AUX_HOUR_ALM		(RTC_BASE + 0x68)
@@ -137,7 +137,7 @@ static inline unsigned get_day(void)
 	return sci_adi_read(ANA_RTC_DAY_CNT) & RTC_DAY_MASK;
 }
 
-#if defined(CONFIG_ARCH_SC8830) || defined(CONFIG_ARCH_SC7710)
+#if defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SC7710)
 static unsigned long sprd_rtc_get_sec(void)
 {
 	unsigned sec, min, hour, day;
@@ -308,7 +308,7 @@ static int sprd_rtc_read_alarm(struct device *dev,
 	return 0;
 }
 
-#if defined(CONFIG_ARCH_SC8830) || defined(CONFIG_ARCH_SC7710)
+#if defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SC7710)
 static inline unsigned long sprd_rtc_get_aux_alarm_sec(void)
 {
 	unsigned sec, min, hour, day;

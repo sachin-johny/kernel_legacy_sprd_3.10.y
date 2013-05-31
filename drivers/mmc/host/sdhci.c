@@ -245,7 +245,7 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 
 	if (host->ops->platform_reset_enter)
 		host->ops->platform_reset_enter(host, mask);
-#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 	sdhci_writeb(host, mask | SDHCI_HW_RESET_CARD, SDHCI_SOFTWARE_RESET);
 #else
 	sdhci_writeb(host, mask, SDHCI_SOFTWARE_RESET);
@@ -268,7 +268,7 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 		mdelay(1);
 	}
 
-#ifdef CONFIG_MMC_SDHCI_SC8830
+#ifdef CONFIG_MMC_SDHCI_SCX35
 	if (mask & SDHCI_RESET_ALL) {
 		if ((0 == strcmp(host->hw_name, "sprd-sdio1"))
 				|| (0 == strcmp(host->hw_name, "sprd-sdio2"))) {
@@ -1225,7 +1225,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			if ((real_div % 2) != 0){
 				div++;
 			}
-#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SC8825) || defined(CONFIG_ARCH_SCX35)
 			if(div > 1) {
 				div --;/*for sc8825 freq = (clk_max / ((div +1) * 2))*/
 			}
@@ -1239,7 +1239,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		}
 		real_div = div;
 		div >>= 1;
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 		if ((real_div % 2) != 0){
 			div++;
 		}
@@ -1521,7 +1521,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		ctrl &= ~SDHCI_CTRL_HISPD;
 
 	if (host->version >= SDHCI_SPEC_300) {
-#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 		u16 clk;
 		u32 ctrl_2;
 #else
@@ -1539,7 +1539,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			 * We only need to set Driver Strength if the
 			 * preset value enable is not set.
 			 */
-#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 			/*the driver strength is controller by pin, not sd controller in spreadtrum platform*/
 #else
 			ctrl_2 &= ~SDHCI_CTRL_DRV_TYPE_MASK;
@@ -1578,7 +1578,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		if (host->ops->set_uhs_signaling)
 			host->ops->set_uhs_signaling(host, ios->timing);
 		else {
-#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 			ctrl_2 = sdhci_readl(host, SDHCI_HOST_CONTROL2 & (~0x3));
 			/* Select Bus Speed Mode for host */
 			ctrl_2 &= ~(SDHCI_CTRL_UHS_MASK << 16);
@@ -1597,7 +1597,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 				sdhci_writel(host, 0x18 , 0x0080);
 				sdhci_writel(host, 0x07 , 0x0084);
 				sdhci_writel(host, 0x05 , 0x0088);
-			#elif defined (CONFIG_MMC_SDHCI_SC8830)
+			#elif defined (CONFIG_MMC_SDHCI_SCX35)
 				sdhci_writel(host, 0x20 , 0x0080);
 				sdhci_writel(host, 0x07 , 0x0084);
 				sdhci_writel(host, 0x05 , 0x0088);
@@ -1864,7 +1864,7 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 	return err;
 }
 
-#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 static int sdhci_execute_tuning(struct mmc_host *mmc, u32 opcode)
 {
 	return 0;
@@ -2068,7 +2068,7 @@ out:
 
 static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 {
-#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 	u32 ctrl;
 #else
 	u16 ctrl;
@@ -2088,7 +2088,7 @@ static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 	 * enabled or disabled respectively. Otherwise, we bail out.
 	 */
 	if (enable && !(ctrl & SDHCI_CTRL_PRESET_VAL_ENABLE)) {
-#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 		ctrl |= SDHCI_CTRL_PRESET_VAL_ENABLE << 16;
 		sdhci_writel(host, ctrl, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
@@ -2096,7 +2096,7 @@ static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 		sdhci_writew(host, ctrl, SDHCI_HOST_CONTROL2);
 #endif
 	} else if (!enable && (ctrl & SDHCI_CTRL_PRESET_VAL_ENABLE)) {
-#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SC8830)
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 		ctrl &= ~(SDHCI_CTRL_PRESET_VAL_ENABLE << 16);
 		sdhci_writel(host, ctrl, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
@@ -2121,7 +2121,7 @@ static const struct mmc_host_ops sdhci_ops = {
 	.request			= sdhci_request,
 	.set_ios			= sdhci_set_ios,
 	.get_ro				= sdhci_get_ro,
-#ifndef CONFIG_MACH_SP8830FPGA
+#ifndef CONFIG_MACH_SPX35FPGA
 	.hw_reset			= sdhci_hw_reset,
 #endif
 	.enable_sdio_irq		= sdhci_enable_sdio_irq,

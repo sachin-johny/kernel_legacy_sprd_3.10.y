@@ -19,7 +19,7 @@
 #include <linux/headset.h>
 #include <mach/board.h>
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #endif
@@ -45,7 +45,7 @@
 #define HEADSET_BUTTON_GPIO_DEBOUNCE_SW 100
 #endif
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 extern int sprd_codec_headmic_bias_control(int on);
 #endif
 
@@ -245,7 +245,7 @@ static enum hrtimer_restart report_headset_detect_status(int active, struct _hea
 	struct _headset * ht = hgp->parent;
 
 	if (active) {
-	#ifdef CONFIG_ARCH_SC8830
+	#ifdef CONFIG_ARCH_SCX35
 		sprd_codec_headmic_bias_control(1);
 		mdelay(20);
 	#endif
@@ -270,7 +270,7 @@ static enum hrtimer_restart report_headset_detect_status(int active, struct _hea
 		if (ht->headphone)
 			pr_info("headphone plug out\n");
 		else {
-		#ifdef CONFIG_ARCH_SC8830
+		#ifdef CONFIG_ARCH_SCX35
 			sprd_codec_headmic_bias_control(0);
 		#endif
 			pr_info("headset plug out\n");
@@ -368,7 +368,7 @@ static int __init headset_init(void)
 	int ret, i;
 	struct _headset *ht = &headset;
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	struct regulator *detect_regulator;
 	detect_regulator = regulator_get(NULL, "vddclsg");
 	if (!IS_ERR(detect_regulator)) {

@@ -11,9 +11,9 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __SDHCI_SC8830_H
-#define __SDHCI_SC8830_H
+#ifndef __SDHCI_SCX35_H
+#define __SDHCI_SCX35_H
 
 #include "sdhci.h"
 
-#endif /* __SDHCI_SC8830_H */
+#endif /* __SDHCI_SCX35_H */

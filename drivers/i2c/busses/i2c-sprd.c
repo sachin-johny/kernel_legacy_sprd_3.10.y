@@ -379,7 +379,7 @@ EXPORT_SYMBOL_GPL(sprd_i2c_ctl_chg_clk);
 
 static void sprd_i2c_reset(struct sprd_i2c *pi2c)
 {
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 
 	char buf[256] = { 0 };
 

@@ -21,7 +21,7 @@ config SND_SPRD_SOC_SC882X
 	  SoC Audio for the SPREADTRUM SC882X chips with intergrated sprd codec
 	  use VBC and  SPRD CODEC for the audio system.
 
-config SND_SPRD_SOC_SC8830
+config SND_SPRD_SOC_SCX35
 	tristate "SC883X phone"
 	select SND_ARM
 	select SND_SPRD_SOC_VBC_R2P0

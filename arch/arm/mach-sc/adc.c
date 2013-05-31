@@ -91,7 +91,7 @@ static void sci_adc_enable(void)
 	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
 		    BIT_ANA_ADC_EB | BIT_ANA_CLK_AUXADC_EN |
 		    BIT_ANA_CLK_AUXAD_EN);
-#elif defined(CONFIG_ARCH_SC8830)
+#elif defined(CONFIG_ARCH_SCX35)
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN,
 		    BIT_ANA_ADC_EN);
 	sci_adi_set(ANA_REG_GLB_ARM_CLK_EN,
@@ -188,7 +188,7 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 		return;
 	case ADC_CHANNEL_VBAT:	//channel 5
 	case ADC_CHANNEL_ISENSE:	//channel 8
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #define ANA_REG_GLB_CHIP_ID_LOW         SCI_ADDR(ANA_REGS_GLB_BASE, 0x0108)
 #define ANA_REG_GLB_CHIP_ID_HIGH        SCI_ADDR(ANA_REGS_GLB_BASE, 0x010C)
 		chip_id = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
@@ -203,7 +203,7 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 			*div_numerators = 247;
 			*div_denominators = 1024;
 		} else {
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 			*div_numerators = 7;
 			* div_denominators = 29;
 #else
@@ -252,7 +252,7 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 		*div_denominators = 9;
             return;
 	case ADC_CHANNEL_VBATBK:	//channel 17
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	case ADC_CHANNEL_LDO0:
 		*div_numerators = 1;
 		*div_denominators = 3;

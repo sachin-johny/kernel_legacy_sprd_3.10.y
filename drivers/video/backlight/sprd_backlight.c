@@ -45,7 +45,7 @@
  *	you need to define the PD_PWD_BASE
  */
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 #define SPRD_BACKLIGHT_WHITELED
 #define SPRD_DIM_PWM_MODE
 #define DIMMING_PWD_BASE	(SPRD_MISC_BASE + 0x8020)

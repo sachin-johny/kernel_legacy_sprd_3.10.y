@@ -56,7 +56,7 @@
 #endif
 
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 #define DMA_VER_R4P0
 #include <mach/dma_r4p0.h>
 /*DMA Request ID def*/

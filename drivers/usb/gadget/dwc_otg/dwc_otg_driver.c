@@ -195,7 +195,7 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 	.ulpi_fs_ls = -1,
 	.ts_dline = -1,
 	.en_multiple_tx_fifo = -1,
-	#if defined(CONFIG_ARCH_SC8830)
+	#if defined(CONFIG_ARCH_SCX35)
 	.dev_tx_fifo_size = {
 			     /* dev_tx_fifo_size */
 			     0x40,

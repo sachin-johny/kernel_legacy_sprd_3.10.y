@@ -44,7 +44,7 @@ static int __cpuinit boot_secondary_cpus(int cpu_id, u32 paddr)
 	return 0;
 }
 
-#elif (defined CONFIG_ARCH_SC8830)
+#elif (defined CONFIG_ARCH_SCX35)
 int poweron_cpus(int cpu)
 {
 	u32 poweron, val;

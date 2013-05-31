@@ -18,19 +18,19 @@
 #include "__board-sp8825ea.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP8830EA
+#ifdef	CONFIG_MACH_SPX35EA
 #include "__board-sp8830ea.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP8830EB
+#ifdef	CONFIG_MACH_SPX35EB
 #include "__board-sp8830eb.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP8830PAD
+#ifdef	CONFIG_MACH_SPX35PAD
 #include "__board-sp8830pad.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP8830FPGA
+#ifdef	CONFIG_MACH_SPX35FPGA
 #include "__board-sp8830fpga.h"
 #endif
 
@@ -53,7 +53,7 @@
 	    #else
 	    #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE * SZ_1M)
 	    #endif
-	#elif defined (CONFIG_ARCH_SC8830)
+	#elif defined (CONFIG_ARCH_SCX35)
 		#define SPRD_ION_SIZE	(100*1024*1024)
 	#endif
 

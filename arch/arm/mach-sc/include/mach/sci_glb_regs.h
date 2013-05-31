@@ -27,7 +27,7 @@
 #include "__regs_emc.h"
 #include "__regs_glb.h"
 
-#elif defined(CONFIG_ARCH_SC8830)
+#elif defined(CONFIG_ARCH_SCX35)
 
 #include "__regs_sc8830_ana_glb.h"
 #include "__regs_sc8830_aon_apb.h"

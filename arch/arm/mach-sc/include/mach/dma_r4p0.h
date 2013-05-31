@@ -15,7 +15,7 @@
 #define __ASM_ARCH_SPRD_DMA_H
 
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 #define DMA_CHN_MIN                     1
 #define DMA_CHN_MAX			32
 #define DMA_CHN_NUM			32

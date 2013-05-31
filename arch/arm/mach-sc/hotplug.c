@@ -23,7 +23,7 @@
 #include <asm/smp_plat.h>
 
 extern volatile int pen_release;
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 int powerdown_cpus(int cpu);
 int sci_shark_enter_lowpower(void);
 #endif
@@ -100,7 +100,7 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 
 int platform_cpu_kill(unsigned int cpu)
 {
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	int i = 0;
 	printk("!! %d  platform_cpu_kill %d !!\n", smp_processor_id(), cpu);
 	while (i < 20) {
@@ -127,7 +127,7 @@ void platform_cpu_die(unsigned int cpu)
 {
 	int spurious = 0;
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	sci_shark_enter_lowpower();
 	panic("shouldn't be here \n");
 #endif

@@ -19,7 +19,7 @@
 #include <asm/io.h>
 #include "scale_drv.h"
 #include "gen_scale_coef.h"
-#include "../sprd_dcam/sc8825/dcam_drv_sc8825.h"
+#include "../../sprd_dcam/sc8825/dcam_drv_sc8825.h"
 
 //#define SCALE_DRV_DEBUG
 #define SCALE_LOWEST_ADDR                              0x800

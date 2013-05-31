@@ -16,7 +16,7 @@
 
 #if defined (CONFIG_ARCH_SC8825)
 #define CURRENT_VERSION 0x3130322A     
-#elif defined (CONFIG_ARCH_SC8830)
+#elif defined (CONFIG_ARCH_SCX35)
 #define CURRENT_VERSION 0x3130332A
 #endif
 

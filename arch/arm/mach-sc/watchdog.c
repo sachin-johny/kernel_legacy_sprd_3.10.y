@@ -20,7 +20,7 @@
 #include <linux/debugfs.h>
 #include <linux/module.h>
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 #define WDG_BASE		(ANA_WDG_BASE)
 #define SPRD_ANA_BASE		(ANA_CTL_GLB_BASE)
 #else
@@ -50,7 +50,7 @@
 #define ANA_REG_BASE            SPRD_ANA_BASE	/*  0x82000600 */
 
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 #define WDG_NEW_VERSION
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0xE8)
 #define ANA_AGEN                (ANA_REG_BASE + 0x00)
@@ -127,7 +127,7 @@ void sprd_set_reboot_mode(const char *cmd)
 	}
 }
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 void sprd_turnon_watchdog(unsigned int ms)
 {
 	uint32_t cnt;

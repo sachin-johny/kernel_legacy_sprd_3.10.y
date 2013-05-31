@@ -557,7 +557,7 @@ static int lpref_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 /* standard dcdc ops*/
 static int dcdc_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 {
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	if (0 == strcmp(desc->desc.name, "vddmem")) {	/* FIXME: vddmem step 200/32mV */
 		return 1000 * 200 / 32;	/*uV */
@@ -647,7 +647,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	return 0;
 }
 
-/** CONFIG_ARCH_SC8830
+/** CONFIG_ARCH_SCX35
 	bonding option 5
 	bonding option 4	dcdc_wrf_ctl[2]
 	bonding option 3
@@ -899,7 +899,7 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 	sci_adc_get_vol_ratio(adc_data.channel_id, adc_data.scale,
 			      &chan_numerators, &chan_denominators);
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	if (0 == strcmp(desc->desc.name, "vddcamio")) {	/* FIXME: others is 1/2 */
 		chan_numerators = 1;
 		chan_denominators = 3;
@@ -1352,7 +1352,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	if (!desc->desc.ops)
 		desc->desc.ops = __regs_ops[desc->regs->typ];
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 	if (desc->regs->typ == VDD_TYP_BOOST) {	/*FIXME: reconfig current sink */
 		init_data.constraints.min_uA = 0;
 		init_data.constraints.max_uA = MAX_CURRENT_SINK * 1000;

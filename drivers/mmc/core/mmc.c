@@ -44,7 +44,7 @@ static const unsigned int tacc_mant[] = {
 
 #if defined(CONFIG_ARCH_SC8825)
 static const unsigned int sprd_hs_max_dtr = 104000000;
-#elif defined(CONFIG_ARCH_SC8830)
+#elif defined(CONFIG_ARCH_SCX35)
 static const unsigned int sprd_hs_max_dtr = 128000000;
 #else
 static const unsigned int sprd_hs_max_dtr = 200000000;

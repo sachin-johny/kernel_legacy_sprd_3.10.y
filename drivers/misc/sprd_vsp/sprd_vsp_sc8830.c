@@ -54,7 +54,7 @@
 #define WB_ADDR_SET0_OFF                0x20
 #define WB_ADDR_SET1_OFF                0x24
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
     #ifdef USE_INTERRUPT
         #undef USE_INTERRUPT
     #endif
@@ -137,7 +137,7 @@ static void release_vsp(struct vsp_fh *vsp_fp)
 
 	return;
 }
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #ifdef USE_INTERRUPT
 static irqreturn_t vsp_isr(int irq, void *data);
 #endif
@@ -394,7 +394,7 @@ static int vsp_probe(struct platform_device *pdev)
 	vsp_hw_dev.vsp_clk = NULL;
 	vsp_hw_dev.vsp_parent_clk = NULL;
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 		//cmd0 = __raw_readl(AHB_CTRL2);//,"AHB_CTRL2:Read the AHB_CTRL2 CLOCK");
 		//cmd0 |= 0x440;
 		//__raw_writel(cmd0,AHB_CTRL2);//,"AHB_CTRL2:enable MMMTX_CLK_EN");

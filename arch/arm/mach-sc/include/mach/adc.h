@@ -45,7 +45,7 @@ enum adc_channel {
 	ADC_CHANNEL_LDO1 = 20,	/* ldo v3v/v28/vsim0/vsim1/cammot/sd0/usb/dvdd18/v25 */
 	ADC_CHANNEL_LDO2 = 21,	/* ldo camio/camcore/cmmb1v2/cmmb1v8/v18/sd1/sd3/ */
 	ADC_MAX = 21,
-#elif defined(CONFIG_ARCH_SC8830)
+#elif defined(CONFIG_ARCH_SCX35)
 	ADC_CHANNEL_LDO0 = 21,	/* vbatd ldo */
 	ADC_CHANNEL_LDO1 = 22,	/* dcdc ldo */
 	ADC_CHANNEL_LDO2 = 23,	/* vbata ldo */

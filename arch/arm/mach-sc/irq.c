@@ -43,7 +43,7 @@ struct intc_mux_irq {/*multi irqs mapping to one bit*/
 	int bits;
 };
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 /*_intc and mux_irq is separately, we just simply enable/disable it at the same time
    When system deepsleep, only mux_irq(AON) can wakeup system(intc0,1,2,3,gic,armcore)
    intc0/1/2/3 will lose if system in deepsleep, _mux can wakeup. intc0/1/2/3 need SW retention.

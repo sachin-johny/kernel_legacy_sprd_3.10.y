@@ -15,7 +15,7 @@
 
 #include <linux/ioctl.h>
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 //#include "__sprd_vsp_sc8830.h"
 /*40k vsp address space size*/
 #define SPRD_VSP_MAP_SIZE 0xA000

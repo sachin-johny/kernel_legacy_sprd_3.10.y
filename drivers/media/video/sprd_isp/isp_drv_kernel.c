@@ -38,7 +38,7 @@
 
 #include <mach/hardware.h>
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #include "Shark_reg_isp.h"
 #elif defined(CONFIG_ARCH_SC8825)
 #include "Tiger_reg_isp.h"
@@ -201,7 +201,7 @@ static int32_t _isp_module_rst(void)
 
 	if (0x00 != atomic_read(&s_isp_users)) {
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 		ISP_OWR(ISP_AXI_MASTER_STOP, BIT_0);
 #endif
 		reg_value=ISP_READL(ISP_AXI_MASTER);
@@ -214,7 +214,7 @@ static int32_t _isp_module_rst(void)
 
 		ISP_WRITEL(ISP_INT_CLEAR, 0x0fff);
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
 		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
@@ -342,7 +342,7 @@ static int32_t _isp_set_clk(enum isp_clk_sel clk_sel)
 {
 	int32_t       rtn = 0;
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 	ISP_WRITEL(ISP_CLOCK, 0x3);
 
 #endif

@@ -24,7 +24,7 @@
  * 4	  288 ~	  319	32	ANA GPIO
  */
 
-#ifdef CONFIG_ARCH_SC8830
+#ifdef CONFIG_ARCH_SCX35
 #define	D_GPIO_START	0
 #define	D_GPIO_NR		256
 
@@ -67,7 +67,7 @@
 
 /* Analog GPIO/EIC base address */
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #define ANA_CTL_EIC_BASE	   (ANA_EIC_BASE)
 #define ANA_CTL_GPIO_BASE      (ANA_GPIO_INT_BASE)
 #else

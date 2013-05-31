@@ -24,7 +24,7 @@
 #include "sprdfb_dispc_reg.h"
 #include "sprdfb.h"
 
-#ifdef CONFIG_FB_SC8830
+#ifdef CONFIG_FB_SCX35
 #define DISPC_SOFT_RST (1)
 #define DISPC_PLL_CLK	("clk_disc0")
 #define DISPC_DBI_CLK	("clk_disc0_dbi")
@@ -188,7 +188,7 @@ static irqreturn_t dispc_isr(int irq, void *data)
 /* dispc soft reset */
 static void dispc_reset(void)
 {
-#ifdef CONFIG_FB_SC8830
+#ifdef CONFIG_FB_SCX35
 	#define REG_AHB_SOFT_RST (0x4 + SPRD_AHB_BASE)
 #else
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
@@ -415,7 +415,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		printk(KERN_WARNING "sprdfb: dispc early init warning!(has been inited)");
 		return 0;
 	}
-#ifdef CONFIG_FB_SC8830
+#ifdef CONFIG_FB_SCX35
 	//enable dispc clock
 	__raw_bits_or((1<<18), SPRD_APBREG_BASE);  //core_clock_en
 
@@ -532,7 +532,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
 	}
 
-#ifdef CONFIG_FB_SC8830
+#ifdef CONFIG_FB_SCX35
 	printk("kernel-->early_init--sprdfb:(0x402e0004) = 0x%x\n", __raw_readl((SPRD_AONAPB_BASE+0x4)));
 	printk("kernel-->early_init--sprdfb:0x20d00000 = 0x%x\n", __raw_readl(SPRD_AHB_BASE));
 	printk("kernel-->early_init--(sprdfb:0x71300000 = 0x%x\n", __raw_readl(SPRD_APBREG_BASE));
@@ -572,7 +572,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 #endif
 	dispc_ctx.is_inited = true;
 
-#ifdef CONFIG_FB_SC8830
+#ifdef CONFIG_FB_SCX35
 	ret = request_irq(IRQ_DISPC0_INT, dispc_isr, IRQF_DISABLED, "DISPC", &dispc_ctx);
 #else
 	ret = request_irq(IRQ_DISPC_INT, dispc_isr, IRQF_DISABLED, "DISPC", &dispc_ctx);

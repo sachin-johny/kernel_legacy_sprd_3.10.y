@@ -1,5 +1,5 @@
 # to add sprd jpg configs in the future
 config SPRD_BLC
 	tristate "SPRD Breathing Light Contoller"
-	depends on ARCH_SC8830
+	depends on ARCH_SCX35
 	default y

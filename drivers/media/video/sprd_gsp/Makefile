@@ -1,7 +1,7 @@
 # SC88XX Platform Support
 
 
-ifeq ($(CONFIG_ARCH_SC8830),y)
+ifeq ($(CONFIG_ARCH_SCX35),y)
 
 # CONFIG_VIDEO_GSP_SPRD = m
 ifeq ($(CONFIG_VIDEO_GSP_SPRD),y)

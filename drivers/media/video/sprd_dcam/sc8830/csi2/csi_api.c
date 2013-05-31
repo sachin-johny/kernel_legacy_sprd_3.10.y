@@ -18,7 +18,7 @@
 #define CSI2_RST             (SPRD_AHB_BASE + 0x210)
 #define CSI2_RST_BIT         (1 << 27)
 
-#elif defined (CONFIG_ARCH_SC8830)
+#elif defined (CONFIG_ARCH_SCX35)
 
 #define CSI2_EB              (SPRD_MMAHB_BASE)
 #define CSI2_EB_BIT          (1 << 4)

@@ -595,7 +595,7 @@ struct platform_device sprd_axi_bm2_device = {
 #endif
 
 //keypad 
-#if defined (CONFIG_MACH_SP8830FPGA)
+#if defined (CONFIG_MACH_SPX35FPGA)
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW7 | SCI_ROW6 | SCI_ROW5 | SCI_ROW4 | SCI_ROW3 | SCI_ROW2 | SCI_ROW1 | SCI_ROW0)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL7 | SCI_COL6 | SCI_COL5 | SCI_COL4 | SCI_COL3 | SCI_COL2 | SCI_COL1 | SCI_COL0)
 #define ROWS	(8)
@@ -674,7 +674,7 @@ static const unsigned int test_keymap[] = {
 	KEY(7, 3, KEY_LEFTCTRL),
 };
 
-#elif defined (CONFIG_MACH_SP8830EA) || defined (CONFIG_MACH_SP8830PAD)
+#elif defined (CONFIG_MACH_SPX35EA) || defined (CONFIG_MACH_SPX35PAD)
 
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW0 | SCI_ROW1)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL0 | SCI_COL1)

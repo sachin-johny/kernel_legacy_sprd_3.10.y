@@ -341,7 +341,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	local_irq_save(irq_flag);
 
 //FIXME: shark have not this regsiter, need to fix..
-#if !defined(CONFIG_ARCH_SC8830)
+#if !defined(CONFIG_ARCH_SCX35)
 	sci_glb_clr(REG_AHB_USB_PHY_CTRL,
 			     (BIT_DMPULLDOWN | BIT_DPPULLDOWN));
 

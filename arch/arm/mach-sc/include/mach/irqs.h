@@ -14,7 +14,7 @@
 #ifndef __ASM_ARCH_SCI_IRQS_H
 #define __ASM_ARCH_SCI_IRQS_H
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #include "__irqs-sc8830.h"
 #elif defined(CONFIG_ARCH_SC8825)
 #include "__irqs-sc8825.h"

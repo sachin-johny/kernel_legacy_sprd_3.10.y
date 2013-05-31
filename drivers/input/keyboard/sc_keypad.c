@@ -124,7 +124,7 @@ static __devexit void __keypad_disable(void)
 	sci_glb_clr(REG_GLB_GEN0, BIT_KPD_EB | BIT_RTC_KPD_EB);
 }
 
-#elif defined(CONFIG_ARCH_SC8830)
+#elif defined(CONFIG_ARCH_SCX35)
 static __devinit void __keypad_enable(void)
 {
 	sci_glb_set(REG_AON_APB_APB_RST0, BIT_KPD_SOFT_RST);

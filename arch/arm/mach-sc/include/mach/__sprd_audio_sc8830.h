@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ASM_ARCH_AUDIO_GLB_SC8830_H
-#define __ASM_ARCH_AUDIO_GLB_SC8830_H
+#ifndef __ASM_ARCH_AUDIO_GLB_SCX35_H
+#define __ASM_ARCH_AUDIO_GLB_SCX35_H
 
 #ifndef __ASM_ARCH_AUDIO_GLB_H
 #error  "Don't include this file directly, include <mach/sprd-audio.h>"

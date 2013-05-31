@@ -18,7 +18,7 @@
 #ifndef __ASM_ARCH_SCI_CLOCK_TREE_H
 #define __ASM_ARCH_SCI_CLOCK_TREE_H
 
-#if defined(CONFIG_ARCH_SC8830)
+#if defined(CONFIG_ARCH_SCX35)
 #include "__sc8830_clock_tree.h"
 #elif defined(CONFIG_ARCH_SC8825)
 #include "__sc8825_clock_tree.h"
