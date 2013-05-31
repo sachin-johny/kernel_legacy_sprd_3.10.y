@@ -77,6 +77,9 @@ static int sblock_thread(void *data)
 		case SMSG_TYPE_CLOSE:
 			/* handle channel recovery */
 			smsg_close_ack(sblock->dst, sblock->channel);
+			if (sblock->handler) {
+				sblock->handler(SBLOCK_NOTIFY_STATUS, sblock->data);
+			}
 			sblock->state = SBLOCK_STATE_IDLE;
 			break;
 		case SMSG_TYPE_CMD:
