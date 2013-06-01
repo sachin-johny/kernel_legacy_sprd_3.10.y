@@ -631,7 +631,7 @@ static int dwc_otg_driver_probe(
 )
 {
 	int retval = 0;
-	dwc_otg_device_t *dwc_otg_device;
+	dwc_otg_device_t *dwc_otg_device = NULL;
 	int irq;
 
 	dev_dbg(&_dev->dev, "dwc_otg_driver_probe(%p)\n", _dev);
@@ -777,6 +777,10 @@ static int dwc_otg_driver_probe(
 
 fail:
 	dwc_otg_driver_remove(_dev);
+
+	/*add by kenyliu at 2013 05 30 for coverity bug 39461 memory leak*/
+	if(dwc_otg_device)
+		dwc_free (dwc_otg_device);
 	return retval;
 }
 

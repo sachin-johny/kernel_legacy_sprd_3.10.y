@@ -1541,7 +1541,7 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 {
 	int prevented = 0;
 	unsigned long flags;
-	dwc_otg_pcd_request_t *req;
+	dwc_otg_pcd_request_t *req = NULL;
 	dwc_otg_pcd_ep_t *ep;
 	uint32_t max_transfer;
 
@@ -1638,6 +1638,10 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 				DWC_DEBUGPL(DBG_ANY, "ep0: odd state %d\n",
 					    pcd->ep0state);
 				DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
+				/*add by kenyliu at 2013 05 30 for coverity bug 39462 memory leak*/
+				if(req)
+					dwc_free(req);
+				
 				return -DWC_E_SHUTDOWN;
 			}
 

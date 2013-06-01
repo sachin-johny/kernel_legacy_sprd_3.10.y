@@ -854,6 +854,8 @@ struct usb_gadget_strings {
 /* put descriptor for string with that id into buf (buflen >= 256) */
 int usb_gadget_get_string(struct usb_gadget_strings *table, int id, u8 *buf);
 
+/*add by kenyliu at 2013 05 30 for coverity 38646*/
+int usb_gadget_get_string_ext(struct usb_gadget_strings *table, int id, u8 *buf);
 /*-------------------------------------------------------------------------*/
 
 /* utility to simplify managing config descriptors */

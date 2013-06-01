@@ -134,3 +134,35 @@ usb_gadget_get_string (struct usb_gadget_strings *table, int id, u8 *buf)
 	return buf [0];
 }
 
+/*Add by kenyliu at 2013 05 30 for coverity bug 38646*/
+int
+usb_gadget_get_string_ext (struct usb_gadget_strings *table, int id, u8 *buf)
+{
+	struct usb_string	*s;
+	int			len;
+
+	/* descriptor 0 has the language id */
+	if (id == 0) {
+		buf [0] = 4;
+		buf [1] = USB_DT_STRING;
+		buf [2] = (u8) table->language;
+		buf [3] = (u8) (table->language >> 8);
+		return 4;
+	}
+
+	s = table->strings;	
+	/* unrecognized: stall. */
+	if (!s->s)
+		return -EINVAL;
+
+	/* string descriptors have length, tag, then UTF16-LE text */
+	len = min ((size_t) 126, strlen (s->s));
+	memset (buf + 2, 0, 2 * len);	/* zero all the bytes */
+	len = utf8_to_utf16le(s->s, (__le16 *)&buf[2], len);
+	if (len < 0)
+		return -EINVAL;
+	buf [0] = (len + 1) * 2;
+	buf [1] = USB_DT_STRING;
+	return buf [0];
+}/*end kenyliu*/
+

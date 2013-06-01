@@ -714,7 +714,8 @@ static int get_string(struct usb_composite_dev *cdev,
 			.language = language,
 			.strings  = &(struct usb_string) { 0xff, str }
 		};
-		return usb_gadget_get_string(&strings, 0xff, buf);
+		/* modify by kenyliu at 2013 05 30 for coverity bug 38646 */
+		return usb_gadget_get_string_ext(&strings, 0xff, buf); 
 	}
 
 	/* String IDs are device-scoped, so we look up each string
