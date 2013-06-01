@@ -2606,6 +2606,7 @@ static void handle_exception(struct fsg_common *common)
 
 static int fsg_main_thread(void *common_)
 {
+    int rc = 0;
 	struct fsg_common	*common = common_;
 	
 	/*
@@ -2635,7 +2636,9 @@ static int fsg_main_thread(void *common_)
 		}
 
 		if (!common->running) {
-			sleep_thread(common);
+			rc = sleep_thread(common);
+			if (rc)
+				printk(KERN_ERR "fsg_main_thread ERROR! rc = %d\n",rc);
 			continue;
 		}
 
