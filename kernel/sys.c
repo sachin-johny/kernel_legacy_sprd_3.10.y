@@ -337,7 +337,7 @@ void kernel_restart(char *cmd)
 	if (!cmd)
 		printk(KERN_EMERG "%s(%d) Restarting system.\n",current->comm,current->pid);
 	else
-		printk(KERN_EMERG "%s(%d) Restarting system with command '%s'.\n", cmd,current->comm,current->pid);
+		printk(KERN_EMERG "%s(%d) Restarting system with command '%s'.\n",current->comm,current->pid,cmd);
 	kmsg_dump(KMSG_DUMP_RESTART);
 	machine_restart(cmd);
 }
