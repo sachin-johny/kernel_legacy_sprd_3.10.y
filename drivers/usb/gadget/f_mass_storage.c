@@ -2607,7 +2607,7 @@ static void handle_exception(struct fsg_common *common)
 static int fsg_main_thread(void *common_)
 {
 	struct fsg_common	*common = common_;
-
+	
 	/*
 	 * Allow the thread to be killed by a signal, but set the signal mask
 	 * to block everything but INT, TERM, KILL, and USR1.
@@ -2827,17 +2827,18 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 	/* Data buffers cyclic list */
 	bh = common->buffhds;
 	i = FSG_NUM_BUFFERS;
-	goto buffhds_first_it;
 	do {
-		bh->next = bh + 1;
-		++bh;
-buffhds_first_it:
 		bh->buf = kmalloc(FSG_BUFLEN, GFP_KERNEL);
 		if (unlikely(!bh->buf)) {
 			rc = -ENOMEM;
 			goto error_release;
 		}
-	} while (--i);
+		i--;
+		if(i >0){
+			bh->next = bh + 1;
+			++bh;
+		} else break;
+	} while (i);
 	bh->next = common->buffhds;
 
 	/* Prepare inquiryString */
