@@ -18,7 +18,7 @@
 #error  "Don't include this file directly, include <mach/irqs.h>"
 #endif
 
-#define NR_SCI_PHY_IRQS			(IRQ_GIC_START + 121)
+#define NR_SCI_PHY_IRQS			(IRQ_GIC_START + 125)
 #define IRQ_GIC_START			(32)
 
 #define SCI_IRQ(_X_)			(IRQ_GIC_START + (_X_))

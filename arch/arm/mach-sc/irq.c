@@ -53,7 +53,7 @@ static const struct intc _intc[] = {
 		{SPRD_INTC0_BASE, 2, 31, 0},
 		{SPRD_INTC1_BASE, 34, 63, 32},
 		{SPRD_INTC2_BASE, 66, 95, 64},
-		{SPRD_INTC3_BASE, 98, 121, 96},
+		{SPRD_INTC3_BASE, 98, 124, 96},
 };
 static const struct intc_mux_irq _mux[] = {
 		{30,SPRD_INT_BASE,2},{31,SPRD_INT_BASE,2},{28,SPRD_INT_BASE,2},

@@ -358,6 +358,15 @@ config SPRD_WATCHDOG
 	  If you wish to have watchdog support enabled,
           say Y, otherwise say N.
 
+config SPRD_WATCHDOG_SYS
+	bool "Spreadtrum watchdog"
+	depends on ARCH_SCX35
+	help
+	  This is the driver for the hardware watchdog
+	  on Spreadtrum SCX35 chip.
+	  If you wish to have watchdog support enabled,
+          say Y, otherwise say N.
+
 # AVR32 Architecture
 
 config AT32AP700X_WDT
