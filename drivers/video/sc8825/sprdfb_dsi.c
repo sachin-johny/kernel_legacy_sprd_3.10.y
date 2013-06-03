@@ -19,7 +19,7 @@
 #include <mach/globalregs.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
-
+#include <mach/sci.h>
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
 
@@ -92,9 +92,9 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 static void dsi_reset(void)
 {
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<DSI_SOFT_RST), REG_AHB_SOFT_RST);
+	sci_glb_set(REG_AHB_SOFT_RST, (1<<DSI_SOFT_RST));
 	udelay(10);
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<DSI_SOFT_RST)), REG_AHB_SOFT_RST);
+	sci_glb_clr(REG_AHB_SOFT_RST, (1<<DSI_SOFT_RST));
 }
 
 int32_t dsi_early_int(void)
@@ -112,7 +112,7 @@ int32_t dsi_early_int(void)
 //	clk_enable(dsi_ctx.clk_dsi);
 
 	/*enable dphy*/
-	__raw_writel(__raw_readl(REG_AHB_MIPI_PHY_CTRL) | (1<<MIPI_DPHY_EN), REG_AHB_MIPI_PHY_CTRL);
+	sci_glb_set(REG_AHB_MIPI_PHY_CTRL, (1<<MIPI_DPHY_EN));
 
 	dsi_reset();
 
