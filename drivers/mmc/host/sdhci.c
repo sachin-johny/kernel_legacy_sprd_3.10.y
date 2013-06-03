@@ -1628,10 +1628,22 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			}
 			else if (ios->timing == MMC_TIMING_UHS_DDR50){
 				ctrl_2 |= (SDHCI_CTRL_UHS_DDR50 << 16);
-				/* set write/read delay value . 0x0080, 0x0084, 0x0088*/
-				sdhci_writel(host, host_data->ddr50_write_delay, SDHCI_WR_DL);
-				sdhci_writel(host, host_data->ddr50_read_pos_delay, SDHCI_RD_POS_DL);
-				sdhci_writel(host, host_data->ddr50_read_neg_delay, SDHCI_RD_NEG_DL);
+			#if defined(CONFIG_MMC_SDHCI_SC8825)
+				/* check current vdd_core is 1.2V */
+				if ((sci_adi_read(ANA_REG_GLB_DCDC_CTRL0) & 0x07) == 0x06){
+					/* this is tiger 1.2G clock,vdd_core 1.2V, emmc delay param. */
+					sdhci_writel(host, (host_data->ddr50_write_delay + 4), SDHCI_WR_DL);
+					sdhci_writel(host, (host_data->ddr50_read_pos_delay - 1), SDHCI_RD_POS_DL);
+					sdhci_writel(host, (host_data->ddr50_read_neg_delay - 1), SDHCI_RD_NEG_DL);
+				}
+				else
+			#endif
+				{
+					/* set write/read delay value . 0x0080, 0x0084, 0x0088*/
+					sdhci_writel(host, host_data->ddr50_write_delay, SDHCI_WR_DL);
+					sdhci_writel(host, host_data->ddr50_read_pos_delay, SDHCI_RD_POS_DL);
+					sdhci_writel(host, host_data->ddr50_read_neg_delay, SDHCI_RD_NEG_DL);
+				}
 			}
 			sdhci_writel(host, ctrl_2, SDHCI_HOST_CONTROL2 & (~0x3));
 #else
