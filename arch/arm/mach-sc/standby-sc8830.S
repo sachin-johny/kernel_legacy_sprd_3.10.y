@@ -10,6 +10,10 @@
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
 
+#ifndef CONFIG_NR_CPUS
+#define CONFIG_NR_CPUS 1
+#endif
+
 #include "idle.h"
 #define REG_UART1_ENABLE_VIR	0xf53b0000
 #define REG_UART1_ENABLE_PHY	0x71300000

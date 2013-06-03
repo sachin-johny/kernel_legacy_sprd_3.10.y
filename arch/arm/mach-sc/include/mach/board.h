@@ -30,7 +30,7 @@
 #include "__board-sp8830pad.h"
 #endif
 
-#ifdef	CONFIG_MACH_SPX35FPGA
+#if defined (CONFIG_MACH_SPX35FPGA) || defined (CONFIG_MACH_SPX15FPGA)
 #include "__board-sp8830fpga.h"
 #endif
 

@@ -1,9 +1,6 @@
 if ARCH_SC
 
-comment "Spreadtrum SoC Type"
-
-choice
-	prompt "Spreadtrum SoC Type"
+menu "Spreadtrum SoC Type"
 
 config  ARCH_SC8825
 	bool "sc8825 series(tiger)"
@@ -35,22 +32,13 @@ config  ARCH_SCX35
 	select ARCH_HAS_CPUFREQ
 	select NEED_MACH_IO_H
 
-config  ARCH_DOLPHIN
-	bool "sc8830 series(dolphin)"
-	select CPU_V7
-	select HAVE_SMP
-	select ARM_GIC
-	select HAVE_SCHED_CLOCK
-	select LOCAL_TIMERS if SMP
-	select VFP
-	select VFPv3
-	select NEON
-	select GENERIC_TIME
-	select CLKSRC_MMIO
-	select ARCH_HAS_CPUFREQ
-	select NEED_MACH_IO_H
+config ARCH_SCX15
+	bool "scx15 series(dolphin,depend on ARCH_SCX35)"
+	select ARCH_SCX35
+	help
+	  Support for Spreadtrum scx15(dolphin) based systems.
 
-endchoice
+endmenu
 
 
 menu "Spreadtrum Board Type"
@@ -102,6 +90,15 @@ config MACH_SP7735EC
 	default n
 	help
 	  SP7735EC board based on SC8830 serial.
+
+config MACH_SPX15FPGA
+	bool "spx15 FPGA Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default y
+	help
+	  SPX15 fpga board based on dolphin serial.
 
 endmenu
 
