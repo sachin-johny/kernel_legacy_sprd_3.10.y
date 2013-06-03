@@ -515,6 +515,21 @@ u32 plus_charge_start_time = 0;
 
 #endif
 
+#undef THM_DB
+#define THM_DB
+#ifdef THM_DB //for debuf
+#define REG_SYST_VALUE                  (SPRD_SYSCNT_BASE + 0x0004)
+static u32 sci_syst_read(void)
+{
+	u32 t = __raw_readl(REG_SYST_VALUE);
+	while (t != __raw_readl(REG_SYST_VALUE))
+		t = __raw_readl(REG_SYST_VALUE);
+	return t;
+}
+static u32 old_time = 0;
+extern int sprd_thm_temp_read(u32 sensor);
+#endif
+
 uint32_t vbat_capacity_loop_cnt = 0;
 static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 {
@@ -533,6 +548,15 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 	int temp;
 #endif
 	uint64_t now_jiffies = 0;
+
+#ifdef THM_DB	//for debug
+	if ((sci_syst_read() - old_time) >= 4000) {
+		old_time = sci_syst_read();
+		printk(KERN_ERR "THM:arm sensor temp:%d,adie sensor temp:%d \n",
+		    sprd_thm_temp_read(0),
+		    sprd_thm_temp_read(1));
+	}
+#endif
 
 	usb_online = battery_data->usb_online;
 	ac_online = battery_data->ac_online;
