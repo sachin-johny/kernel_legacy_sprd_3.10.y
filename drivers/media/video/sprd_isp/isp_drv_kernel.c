@@ -35,7 +35,6 @@
 #include <video/isp_drv_kernel.h>
 #include "Tiger_reg_isp.h"
 #include <asm/cacheflush.h>
-#include <mach/sci.h>
 
 #define DEBUG_ISP_DRV
 #ifdef DEBUG_ISP_DRV
@@ -159,8 +158,8 @@ static int32_t _isp_module_eb(void)
 	int32_t ret = 0;
 	uint32_t value=0x00;
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
-		sci_glb_set(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
-		sci_glb_set(ISP_MODULE_EB, ISP_EB_BIT);
+		ISP_OWR(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
+		ISP_OWR(ISP_MODULE_EB, ISP_EB_BIT);
 	}
 	return ret;
 }
@@ -170,8 +169,8 @@ static int32_t _isp_module_dis(void)
 	int32_t	ret = 0;
 
 	if (0x00 == atomic_dec_return(&s_isp_users)) {
-		sci_glb_clr(ISP_MODULE_EB, ISP_EB_BIT);
-		sci_glb_clr(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
+		ISP_AWR(ISP_MODULE_EB, ~ISP_EB_BIT);
+		ISP_AWR(ISP_CORE_CLK_EB, ~ISP_CORE_CLK_EB_BIT);
 	}
 	return ret;
 }
@@ -189,10 +188,10 @@ static int32_t _isp_module_rst(void)
 			reg_value=ISP_READL(ISP_AXI_MASTER);
 		}
 		ISP_WRITEL(ISP_INT_CLEAR, 0x0fff);
-		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
-		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
-		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
-		sci_glb_clr(ISP_MODULE_RESET, ISP_RST_BIT);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
+		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
+		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_BIT);
 	}
 	return ret;
 }
