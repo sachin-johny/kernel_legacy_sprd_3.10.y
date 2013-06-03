@@ -45,10 +45,7 @@
 #include <mach/sci.h>
 #include <mach/hardware.h>
 
-#include <mach/regs_sc8830_aon_apb.h>
-#include <mach/regs_sc8830_ap_apb.h>
-#include <mach/regs_sc8830_aon_clk.h>
-#include <mach/regs_sc8830_ap_ahb.h>
+#include <mach/sci_glb_regs.h>
 
 
 #include "devices.h"
