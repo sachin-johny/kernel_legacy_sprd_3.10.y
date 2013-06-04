@@ -39,7 +39,7 @@ static struct class		*spipe_class;
 static int spipe_open(struct inode *inode, struct file *filp)
 {
 	int minor = iminor(filp->f_path.dentry->d_inode);
-	static struct spipe_device *spipe;
+	struct spipe_device *spipe;
 	struct spipe_sbuf *sbuf;
 
 	spipe = container_of(inode->i_cdev, struct spipe_device, cdev);

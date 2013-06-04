@@ -246,7 +246,14 @@ static ssize_t cproc_proc_write(struct file *filp,
 		return -EINVAL;
 	}
 
+	if (size <= offset) {
+		printk("cproc_proc_write modem dsp write over pos:%0x\n",offset);
+		*ppos += count;
+		return count;
+	}
+
 	pr_debug("cproc proc write: 0x%08x, 0x%08x\n!", base + offset, count);
+	count = min((size-offset), count);
 	vmem = cproc->vbase + (base - cproc->initdata->base) + offset;
 
 	if (copy_from_user(vmem, buf, count)) {
