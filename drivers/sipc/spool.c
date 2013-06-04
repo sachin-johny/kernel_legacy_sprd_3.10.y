@@ -221,15 +221,14 @@ static int __devinit spool_probe(struct platform_device *pdev)
 static int __devexit spool_remove(struct platform_device *pdev)
 {
 	struct spool_device *spool = platform_get_drvdata(pdev);
-
-    device_destroy(spool_class, MKDEV(spool->major, spool->minor));
+	device_destroy(spool_class, MKDEV(spool->major, spool->minor));
 
 	cdev_del(&(spool->cdev));
 	unregister_chrdev_region(
-		MKDEV(spool->major, spool->minor), 1);
+	MKDEV(spool->major, spool->minor), 1);
 
-	kfree(spool);
 	sbuf_destroy(spool->init->dst, spool->init->channel);
+	kfree(spool);
 
 	platform_set_drvdata(pdev, NULL);
 

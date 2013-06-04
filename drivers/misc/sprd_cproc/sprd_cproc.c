@@ -432,9 +432,9 @@ static int sprd_cproc_remove(struct platform_device *pdev)
 
 	sprd_cproc_fs_exit(cproc);
 	misc_deregister(&cproc->miscdev);
-	kfree(cproc);
 
 	printk(KERN_INFO "cproc %s removed!\n", cproc->initdata->devname);
+	kfree(cproc);
 
 	return 0;
 }

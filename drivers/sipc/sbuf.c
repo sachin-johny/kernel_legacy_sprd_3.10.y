@@ -109,7 +109,7 @@ int sbuf_create(uint8_t dst, uint8_t channel, uint32_t bufnum,
 	struct sbuf_mgr *sbuf;
 	volatile struct sbuf_smem_header *smem;
 	volatile struct sbuf_ring_header *ringhd;
-	int hsize, i;
+	int hsize, i, result;
 
 	sbuf = kzalloc(sizeof(struct sbuf_mgr), GFP_KERNEL);
 	if (!sbuf) {
@@ -181,9 +181,10 @@ int sbuf_create(uint8_t dst, uint8_t channel, uint32_t bufnum,
 		kfree(sbuf->rings);
 		iounmap(sbuf->smem_virt);
 		smem_free(sbuf->smem_addr, sbuf->smem_size);
+		result = PTR_ERR(sbuf->thread);
 		kfree(sbuf);
 
-		return PTR_ERR(sbuf->thread);
+		return result;
 	}
 
 	sbufs[dst][channel] = sbuf;

@@ -198,8 +198,8 @@ static int __devexit spipe_remove(struct platform_device *pdev)
 	unregister_chrdev_region(
 		MKDEV(spipe->major, spipe->minor), spipe->init->ringnr);
 
-	kfree(spipe);
 	sbuf_destroy(spipe->init->dst, spipe->init->channel);
+	kfree(spipe);
 
 	platform_set_drvdata(pdev, NULL);
 
