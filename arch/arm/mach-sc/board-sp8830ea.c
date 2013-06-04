@@ -101,6 +101,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
 	&sprd_serial_device2,
+	&sprd_serial_device3,
 	&sprd_device_rtc,
 	&sprd_eic_gpio_device,
 	&sprd_nand_device,
@@ -275,6 +276,10 @@ static struct serial_data plat_data1 = {
 	.clk = 26000000,
 };
 static struct serial_data plat_data2 = {
+	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.clk = 26000000,
+};
+static struct serial_data plat_data3 = {
 	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
 	.clk = 26000000,
 };
@@ -655,6 +660,7 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
+	platform_device_add_data(&sprd_serial_device3,(const void*)&plat_data3,sizeof(plat_data3));
 	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();

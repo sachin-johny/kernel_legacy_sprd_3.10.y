@@ -97,6 +97,26 @@ struct platform_device sprd_serial_device2 = {
 	.resource       = sprd_serial_resources2,
 };
 
+static struct resource sprd_serial_resources3[] = {
+	[0] = {
+		.start = SPRD_UART3_BASE,
+		.end = SPRD_UART3_BASE + SPRD_UART3_SIZE - 1,
+		.name = "serial_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_SER3_INT,
+		.end = IRQ_SER3_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_serial_device3 = {
+	.name           = "serial_sprd",
+	.id             =  3,
+	.num_resources  = ARRAY_SIZE(sprd_serial_resources3),
+	.resource       = sprd_serial_resources3,
+};
+
 static struct resource resources_rtc[] = {
 	[0] = {
 		.start	= IRQ_ANA_RTC_INT,
