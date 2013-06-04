@@ -25,8 +25,6 @@
 #define GPIO_MAIN_SENSOR_PWN     187//42
 #define GPIO_SUB_SENSOR_PWN      188//43
 
-#define USB_OTG_CABLE_DETECT     51
-
 #define EIC_CHARGER_DETECT		(A_EIC_START + 0)
 #define EIC_POWER_PBINT2        (A_EIC_START + 1)
 #define EIC_POWER_PBINT         (A_EIC_START + 2)
@@ -36,9 +34,12 @@
 #define EIC_VCHG_OVI            (A_EIC_START + 6)
 #define EIC_VBAT_OVI            (A_EIC_START + 7)
 
+#define HEADSET_DETECT_GPIO_ACTIVE_LOW 0
+
 #define EIC_KEY_POWER           (EIC_POWER_PBINT)
 #define HEADSET_BUTTON_GPIO		(EIC_AUD_HEAD_BUTTON)
-#define HEADSET_DETECT_GPIO		139
+#define HEADSET_DETECT_GPIO		(EIC_AUD_HEAD_INST2)
+#define HEADSET_SWITCH_GPIO	237
 
 #define SPI0_CMMB_CS_GPIO        156
 #define SPI1_WIFI_CS_GPIO        44
