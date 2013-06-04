@@ -316,7 +316,7 @@ static void sysdump_fill_core_hdr(struct pt_regs *regs,
 		phdr->p_vaddr	= sysmem[i].vaddr;
 		phdr->p_paddr	= sysmem[i].paddr;
 		phdr->p_filesz	= phdr->p_memsz	= sysmem[i].size;
-		phdr->p_align	= PAGE_SIZE;
+		phdr->p_align	= 0;//PAGE_SIZE;
 		dataoff += sysmem[i].size;
 	}
 
@@ -382,6 +382,7 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 	sprd_sysdump_extra.enter_id = enter_id;
 
 	sprd_sysdump_info = (struct sysdump_info *)phys_to_virt(SPRD_IO_MEM_BASE);
+	printk("vaddr is %p,paddr is %p\n",sprd_sysdump_info,SPRD_IO_MEM_BASE);
 	memcpy(sprd_sysdump_info->magic, SYSDUMP_MAGIC,
 			sizeof(sprd_sysdump_info->magic));
 
