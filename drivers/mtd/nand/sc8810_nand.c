@@ -102,7 +102,8 @@ static unsigned char nand_id_replace_table[][10] =
 
 static const struct nand_spec_str nand_spec_table[] = {
     {0x2c, 0xb3, 0xd1, 0x55, 0x5a, {10, 10, 12, 10, 20, 50}},// MT29C8G96MAAFBACKD-5, MT29C4G96MAAHBACKD-5
-    {0x2c, 0xba, 0x80, 0x55, 0x50, {10, 10, 12, 10, 20, 50}},// MT29C2G48MAKLCJA-5 IT
+	{0x2c, 0xb3, 0x90, 0x66, 0x64, {10, 10, 15, 10, 20, 50}},
+	{0x2c, 0xba, 0x80, 0x55, 0x50, {10, 10, 12, 10, 20, 50}},// MT29C2G48MAKLCJA-5 IT
     {0x2c, 0xbc, 0x90, 0x55, 0x56, {10, 10, 12, 10, 20, 50}},// KTR0405AS-HHg1, KTR0403AS-HHg1, MT29C4G96MAZAPDJA-5 IT
 
     {0x98, 0xac, 0x90, 0x15, 0x76, {12, 10, 12, 10, 20, 50}},// TYBC0A111392KC
@@ -1109,9 +1110,9 @@ int board_nand_init(struct nand_chip *this)
 {
 	g_info.chip = this;
 	g_info.ecc_mode = CONFIG_SYS_NAND_ECC_MODE;
+	sc8810_nand_hw_init();
 	read_chip_id();
 	ptr_nand_spec = get_nand_spec(io_wr_port);
-	sc8810_nand_hw_init();
 	this->IO_ADDR_R = (void __iomem*)NFC_MBUF_ADDR;
 	this->IO_ADDR_W = this->IO_ADDR_R;
 	this->cmd_ctrl = sc8810_nand_hwcontrol;
