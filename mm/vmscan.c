@@ -1523,7 +1523,7 @@ shrink_inactive_list(unsigned long nr_to_scan, struct zone *zone,
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 extern int lowmemkiller_reclaim_adj;
 unsigned long
-zone_id_shrink_pagelist(struct zone *zone, struct list_head *page_list)
+zone_id_shrink_pagelist(struct zone *zone, struct list_head *page_list, unsigned int nr_to_reclaim)
 {
 	unsigned long nr_reclaimed = 0;
 	unsigned long nr_anon;
@@ -1531,7 +1531,7 @@ zone_id_shrink_pagelist(struct zone *zone, struct list_head *page_list)
 	struct scan_control sc = {
 		.gfp_mask = GFP_USER,
 		.may_writepage = 1,
-		.nr_to_reclaim = SWAP_CLUSTER_MAX * lowmemkiller_reclaim_adj,
+		.nr_to_reclaim = nr_to_reclaim, //nr_to_reclaim > 256 ? 256 : nr_to_reclaim ,
 		.may_unmap = 1,
 		.may_swap = 1,
 		.swappiness = vm_swappiness,
@@ -1812,6 +1812,11 @@ static unsigned long shrink_list(enum lru_list lru, unsigned long nr_to_scan,
 	return reclaimed;
 }
 
+#ifdef CONFIG_ZRAM
+static int vmscan_swappiness_ratio = 1;
+module_param_named(vmscan_swappiness_ratio, vmscan_swappiness_ratio, int, S_IRUGO | S_IWUSR);
+#endif
+
 /*
  * Determine how aggressively the anon and file LRU lists should be
  * scanned.  The relative value of each set of LRU lists is determined
@@ -1877,8 +1882,18 @@ static void get_scan_count(struct zone *zone, struct scan_control *sc,
 	 * With swappiness at 100, anonymous and file have the same priority.
 	 * This scanning priority is essentially the inverse of IO cost.
 	 */
+#ifdef CONFIG_ZRAM
+	if (vmscan_swappiness_ratio) {
+		anon_prio = (sc->swappiness * anon) / (anon + file + 1);
+		file_prio =   (200 - sc->swappiness) * file / (anon + file + 1);
+	}else{
+		anon_prio = sc->swappiness;
+		file_prio = 200 - sc->swappiness;
+	}
+#else // CONFIG_ZRAM	 
 	anon_prio = sc->swappiness;
 	file_prio = 200 - sc->swappiness;
+#endif
 
 	/*
 	 * OK, so we have swap space and a fair amount of page cache
@@ -2265,11 +2280,7 @@ unsigned long try_to_free_pages(struct zonelist *zonelist, int order,
 	struct scan_control sc = {
 		.gfp_mask = gfp_mask,
 		.may_writepage = !laptop_mode,
-#ifdef  CONFIG_ZRAM_FOR_ANDROID		
-		.nr_to_reclaim = SWAP_CLUSTER_MAX * 4,
-#else
 		.nr_to_reclaim = SWAP_CLUSTER_MAX,
-#endif
 		.may_unmap = 1,
 		.may_swap = 1,
 		.swappiness = vm_swappiness,
