@@ -136,7 +136,7 @@ int sblock_create(uint8_t dst, uint8_t channel,
 	struct sblock_mgr *sblock;
 	volatile struct sblock_ring_header *ringhd;
 	uint32_t hsize;
-	int i;
+	int i, result;
 
 	sblock = kzalloc(sizeof(struct sblock_mgr) , GFP_KERNEL);
 	if (!sblock) {
@@ -232,8 +232,9 @@ int sblock_create(uint8_t dst, uint8_t channel,
 		kfree(sblock->ring);
 		iounmap(sblock->smem_virt);
 		smem_free(sblock->smem_addr, sblock->smem_size);
+		result = PTR_ERR(sblock->thread);
 		kfree(sblock);
-		return PTR_ERR(sblock->thread);
+		return result;
 	}
 
 	sblocks[dst][channel]=sblock;
