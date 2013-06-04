@@ -2274,7 +2274,7 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("ADCR Mute", 3, FUN_REG(SPRD_CODEC_PGA_ADCR), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_ADC_E("ADC", "Capture", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_ADC_E("ADC", "Main-Capture", SND_SOC_NOPM, 0, 0,
 			   adc_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
@@ -2311,19 +2311,23 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   ADC1_EN_L, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("Digital ADC1R Switch", 5, SOC_REG(AUD_TOP_CTL),
 			   ADC1_EN_R, 0, NULL, 0),
-	SND_SOC_DAPM_ADC_E("ADC1", "Capture2", SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_ADC_E("ADC1", "Ext-Capture", SND_SOC_NOPM, 0, 0,
 			   adc1_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	/*add DMIC ADC1 */
+	/*add DMIC */
 #ifdef  CONFIG_SPRD_CODEC_DMIC
-	SND_SOC_DAPM_PGA_S("Digital ADC1L DMIC In", 4, SOC_REG(AUD_TOP_CTL),
-			   ADC1_DMIC_SEL, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("Digital ADC1R DMIC In", 4, SOC_REG(AUD_TOP_CTL),
-			   ADC1_DMIC_SEL, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("DMic Switch", 3, SOC_REG(AUD_DMIC_CTL),
-			   ADC1_DMIC_EN, 0,
+	SND_SOC_DAPM_PGA_S("Digital ADC DMIC In", 4, SOC_REG(AUD_TOP_CTL),
+			   ADC_DMIC_SEL, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_S("Digital ADC1 DMIC In", 4, SOC_REG(AUD_TOP_CTL),
+			   ADC1_DMIC1_SEL, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_S("DMIC Switch", 3, SOC_REG(AUD_DMIC_CTL),
+			   ADC_DMIC_EN, 0,
+			   NULL, 0),
+	SND_SOC_DAPM_PGA_S("DMIC1 Switch", 3, SOC_REG(AUD_DMIC_CTL),
+			   ADC1_DMIC1_EN, 0,
 			   NULL, 0),
 	SND_SOC_DAPM_INPUT("DMIC"),
+	SND_SOC_DAPM_INPUT("DMIC1"),
 #endif
 	SND_SOC_DAPM_OUTPUT("HEAD_P_L"),
 	SND_SOC_DAPM_OUTPUT("HEAD_P_R"),
@@ -2453,21 +2457,27 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"ADC", NULL, "Digital ADCL Switch"},
 	{"ADC", NULL, "Digital ADCR Switch"},
 
+	{"Digital ADC1L Switch", NULL, "ADie Digital ADCL Switch"},
+	{"Digital ADC1R Switch", NULL, "ADie Digital ADCR Switch"},
+	{"ADC1", NULL, "Digital ADC1L Switch"},
+	{"ADC1", NULL, "Digital ADC1R Switch"},
+
+
 	{"Mic Bias", NULL, "MIC"},
 	{"AuxMic Bias", NULL, "AUXMIC"},
 	{"HeadMic Bias", NULL, "HPMIC"},
 
 #ifdef  CONFIG_SPRD_CODEC_DMIC
-	/* DMIC */
+	/* DMIC0 */
 	{"DMIC Switch", NULL, "DMIC"},
-	{"Digital ADC1L DMIC In", NULL, "DMIC Switch"},
-	{"Digital ADC1R DMIC In", NULL, "DMIC Switch"},
-	{"Digital ADC1L Switch", NULL, "Digital ADC1L DMIC In"},
-	{"Digital ADC1R Switch", NULL, "Digital ADC1R DMIC In"},
-	{"ADC1", NULL, "Digital ADC1L Switch"},
-	{"ADC1", NULL, "Digital ADC1R Switch"},
-	{"Digital ADC1L Switch", NULL, "ADie Digital ADCL Switch"},
-	{"Digital ADC1R Switch", NULL, "ADie Digital ADCR Switch"},
+	{"Digital ADC DMIC In", NULL, "DMIC Switch"},
+	{"Digital ADCL Switch", NULL, "Digital ADC DMIC In"},
+	{"Digital ADCR Switch", NULL, "Digital ADC DMIC In"},
+	/* DMIC1 */
+	{"DMIC1 Switch", NULL, "DMIC1"},
+	{"Digital ADC1 DMIC In", NULL, "DMIC1 Switch"},
+	{"Digital ADC1L Switch", NULL, "Digital ADC1 DMIC In"},
+	{"Digital ADC1R Switch", NULL, "Digital ADC1 DMIC In"},
 #endif
 
 	/* Bias independent */
@@ -2797,12 +2807,16 @@ static int sprd_codec_pcm_startup(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		snd_soc_dapm_force_enable_pin(&codec->card->dapm, "DAC");
 	} else {
-		if (dai->id != SPRD_CODEC_IIS1_ID)
+		if (dai->id != SPRD_CODEC_IIS1_ID) {
+			sprd_codec_dbg("open ADC\n");
 			snd_soc_dapm_force_enable_pin(&codec->card->dapm,
 						      "ADC");
-		else
+		} else {
+			sprd_codec_dbg("open ADC1\n");
 			snd_soc_dapm_force_enable_pin(&codec->card->dapm,
 						      "ADC1");
+
+		}
 	}
 	return 0;
 }
@@ -2814,10 +2828,14 @@ static void sprd_codec_pcm_shutdown(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		snd_soc_dapm_disable_pin(&codec->card->dapm, "DAC");
 	} else {
-		if (dai->id != SPRD_CODEC_IIS1_ID)
+		if (dai->id != SPRD_CODEC_IIS1_ID) {
+			sprd_codec_dbg("shutdown ADC\n");
 			snd_soc_dapm_disable_pin(&codec->card->dapm, "ADC");
-		else
+		}
+		else {
+			sprd_codec_dbg("shutdown ADC1\n");
 			snd_soc_dapm_disable_pin(&codec->card->dapm, "ADC1");
+		}
 	}
 }
 
@@ -2895,6 +2913,8 @@ static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 	int ret = 0;
 
 	sprd_codec_dbg("Entering %s\n", __func__);
+	if (dai->id == SPRD_CODEC_IIS1_ID)   /*codec_dai_1 has no playback*/
+		return 0;
 
 	if (atomic_read(&sprd_codec->power_refcount) >= 1) {
 		sprd_codec_dbg("mute %i\n", mute);
@@ -3074,7 +3094,7 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 			.formats = SNDRV_PCM_FMTBIT_S16_LE,
 		},
 		.capture = {
-			.stream_name = "Capture",
+			.stream_name = "Main-Capture",
 			.channels_min = 1,
 			.channels_max = 2,
 			.rates = SPRD_CODEC_PCM_AD_RATES,
@@ -3082,13 +3102,12 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 		},
 		.ops = &sprd_codec_dai_ops,
 	},
-#ifdef CONFIG_SPRD_CODEC_DMIC
 	/*digital  ad1*/
 	{
 		.id = SPRD_CODEC_IIS1_ID,
-		.name = "sprd-codec-i2s-1",
+		.name = "codec-i2s-ext",
 		.capture = {
-			.stream_name = "Capture2",
+			.stream_name = "Ext-Capture",
 			.channels_min = 1,
 			.channels_max =2,
 			.rates = SPRD_CODEC_PCM_AD_RATES,
@@ -3096,7 +3115,6 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 		},
 		.ops = &sprd_codec_dai_ops,
 	},
-#endif
 };
 
 static int sprd_codec_soc_probe(struct snd_soc_codec *codec)

@@ -1443,20 +1443,12 @@ static const struct snd_soc_dapm_route vbc_intercon[] = {
 	/********************** capture in  path in vbc ********************/
 	/*AD input route */
 	/*AD01 */
-	{"AD IISMUX", "AUDIIS0", "Digital ADCL Switch"},
-	{"AD IISMUX", "AUDIIS0", "Digital ADCR Switch"},
 	{"AD IISMUX", "DIGFM", "Dig FM Jack"},
 	{"AD IISMUX", "EXTDIGFM", "Dig FM Jack"},
-	{"AD IISMUX", "AUDIIS1", "Digital ADC1L Switch"},
-	{"AD IISMUX", "AUDIIS1", "Digital ADC1R Switch"},
 
 	/*AD23 */
-	{"AD23 IISMUX", "AUDIIS1", "Digital ADC1L Switch"},
-	{"AD23 IISMUX", "AUDIIS1", "Digital ADC1R Switch"},
 	{"AD23 IISMUX", "DIGFM", "Dig FM Jack"},
 	{"AD23 IISMUX", "EXTDIGFM", "Dig FM Jack"},
-	{"AD23 IISMUX", "AUDIIS0", "Digital ADCL Switch"},
-	{"AD23 IISMUX", "AUDIIS0", "Digital ADCR Switch"},
 
 	{"AD0 INMUX", "IIS0AD0", "AD IISMUX"},
 	{"AD0 INMUX", "IIS1AD0", "AD IISMUX"},
@@ -1505,13 +1497,6 @@ static const struct snd_soc_dapm_route vbc_intercon[] = {
 */
 	{"Digital DACL Switch", NULL, "DFM"},
 	{"Digital DACR Switch", NULL, "DFM"},
-
-	/********************** capture  path in vbc ********************/
-	/*capture in */
-	{"ADC", NULL, "AD0 Switch"},
-	{"ADC", NULL, "AD1 Switch"},
-	{"ADC1", NULL, "AD2 Switch"},
-	{"ADC1", NULL, "AD3 Switch"},
 };
 
 static struct vbc_priv vbc[3] = {
@@ -1568,7 +1553,7 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 	/*check SNDRV_PCM_STREAM_CAPTURE :ad01 or ad23  */
 	if (!strcmp(dai->name, "vbc-ad23"))
 		vbc_idx += 1;
-
+	vbc_dbg("vbc_idx:%d\n", vbc_idx);
 	if (vbc[vbc_idx].is_open || vbc[vbc_idx].is_active) {
 		pr_err("vbc is actived:%d\n", substream->stream);
 	}
@@ -1627,6 +1612,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 	/*check SNDRV_PCM_STREAM_CAPTURE :ad01 or ad23 */
 	if (!strcmp(dai->name, "vbc-ad23"))
 		vbc_idx += 1;
+	vbc_dbg("vbc_idx:%d\n", vbc_idx);
 
 	mutex_lock(&vbc_mutex);
 	vbc[vbc_idx].is_open = 0;
@@ -1753,7 +1739,6 @@ struct snd_soc_dai_driver vbc_dai[] = {
 		     },
 	 .ops = &vbc_dai_ops,
 	 },
-#ifdef CONFIG_SPRD_CODEC_DMIC
 	{
 	 .name = "vbc-ad23",
 	 .capture = {
@@ -1765,7 +1750,6 @@ struct snd_soc_dai_driver vbc_dai[] = {
 		     },
 	 .ops = &vbc_dai_ops,
 	 },
-#endif
 };
 
 static int vbc_drv_probe(struct platform_device *pdev)

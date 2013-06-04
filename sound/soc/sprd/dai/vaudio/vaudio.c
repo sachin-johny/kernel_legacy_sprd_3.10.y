@@ -111,17 +111,13 @@ static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 		snd_soc_dapm_force_enable_pin(&card->dapm, "DAC");
 		vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 1);
 	} else {
-#ifdef  CONFIG_SPRD_CODEC_DMIC
 		if (dai->id == VAUDIO_MAGIC_ID) {
-#endif
 			snd_soc_dapm_force_enable_pin(&card->dapm, "ADC");
 			vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 1);
-#ifdef  CONFIG_SPRD_CODEC_DMIC
 		} else {
 			snd_soc_dapm_force_enable_pin(&card->dapm, "ADC1");
 			vaudio_dapm_ignore_suspend(&card->dapm, "ADC1", 1);
 		}
-#endif
 	}
 
 	snd_soc_dapm_stream_event(rtd, substream->stream, codec_dai,
@@ -151,17 +147,13 @@ static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 		snd_soc_dapm_disable_pin(&card->dapm, "DAC");
 		vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 0);
 	} else {
-#ifdef  CONFIG_SPRD_CODEC_DMIC
 		if (dai->id == VAUDIO_MAGIC_ID) {
-#endif
 			snd_soc_dapm_disable_pin(&card->dapm, "ADC");
 			vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 0);
-#ifdef  CONFIG_SPRD_CODEC_DMIC
 		} else {
 			snd_soc_dapm_disable_pin(&card->dapm, "ADC1");
 			vaudio_dapm_ignore_suspend(&card->dapm, "ADC1", 0);
 		}
-#endif
 	}
 
 	snd_soc_dai_digital_mute(codec_dai, 1);
@@ -234,7 +226,6 @@ struct snd_soc_dai_driver sprd_vaudio_dai[] = {
 			    .formats = SNDRV_PCM_FMTBIT_S16_LE,},
 		.ops = &sprd_vaudio_dai_ops,
 	},
-#ifdef  CONFIG_SPRD_CODEC_DMIC
 	{
 		.id = VAUDIO_MAGIC_ID+1,
 		.name = "vaudio-ad23",
@@ -246,7 +237,6 @@ struct snd_soc_dai_driver sprd_vaudio_dai[] = {
 			},
 		.ops = &sprd_vaudio_dai_ops,
 	},
-#endif
 };
 
 static int sprd_vaudio_drv_probe(struct platform_device *pdev)
