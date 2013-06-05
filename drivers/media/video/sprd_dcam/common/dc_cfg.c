@@ -377,45 +377,49 @@ void DC_GetExifParameter_Post(void)
 			     data_struct_ptr -
 			     (uint32_t) g_exif_info_start_ptr);
 	}
-	if (NULL != dc_exif_info_ptr->spec_ptr->other_ptr) {
-		dc_exif_info_ptr->spec_ptr->other_ptr =
-		    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr->other_ptr -
-			     (uint32_t) g_exif_info_start_ptr);
-	}
 	if (NULL != dc_exif_info_ptr->primary.img_desc_ptr) {
 		dc_exif_info_ptr->primary.img_desc_ptr =
 		    (void *)((uint32_t) dc_exif_info_ptr->primary.img_desc_ptr -
 			     (uint32_t) g_exif_info_start_ptr);
 	}
-	if (NULL != dc_exif_info_ptr->spec_ptr->date_time_ptr) {
-		dc_exif_info_ptr->spec_ptr->date_time_ptr =
-		    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr->
-			     date_time_ptr - (uint32_t) g_exif_info_start_ptr);
-	}
-	if (NULL != dc_exif_info_ptr->spec_ptr->user_ptr) {
-		dc_exif_info_ptr->spec_ptr->user_ptr =
-		    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr->user_ptr -
-			     (uint32_t) g_exif_info_start_ptr);
-	}
-	if (NULL != dc_exif_info_ptr->spec_ptr->pic_taking_cond_ptr) {
-		dc_exif_info_ptr->spec_ptr->pic_taking_cond_ptr =
-		    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr->
-			     pic_taking_cond_ptr -
-			     (uint32_t) g_exif_info_start_ptr);
-	}
-	DCAM_CFG_PRINT("DC_CFG: after: (%x), %x, %x, %x %x \n",
-		       (uint32_t) g_exif_info_start_ptr,
-		       (uint32_t) dc_exif_info_ptr->gps_ptr,
-		       (uint32_t) dc_exif_info_ptr->primary.data_struct_ptr,
-		       (uint32_t) dc_exif_info_ptr->spec_ptr,
-		       (uint32_t) dc_exif_info_ptr->spec_ptr->other_ptr);
-	DCAM_CFG_PRINT("DC_CFG: before: (%x), %x, %x, %x %x \n",
-		       (uint32_t) g_exif_info_start_ptr,
-		       (uint32_t) dc_exif_info_ptr->primary.img_desc_ptr,
+
+	if (NULL != dc_exif_info_ptr->spec_ptr) {
+		if (NULL != dc_exif_info_ptr->spec_ptr->other_ptr) {
+			dc_exif_info_ptr->spec_ptr->other_ptr =
+			    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr->other_ptr -
+				     (uint32_t) g_exif_info_start_ptr);
+		}
+		if (NULL != dc_exif_info_ptr->spec_ptr->date_time_ptr) {
+			dc_exif_info_ptr->spec_ptr->date_time_ptr =
+			    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr->
+				     date_time_ptr - (uint32_t) g_exif_info_start_ptr);
+		}
+		if (NULL != dc_exif_info_ptr->spec_ptr->user_ptr) {
+			dc_exif_info_ptr->spec_ptr->user_ptr =
+			    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr->user_ptr -
+				     (uint32_t) g_exif_info_start_ptr);
+		}
+		if (NULL != dc_exif_info_ptr->spec_ptr->pic_taking_cond_ptr) {
+			dc_exif_info_ptr->spec_ptr->pic_taking_cond_ptr =
+			    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr->
+				     pic_taking_cond_ptr -
+				     (uint32_t) g_exif_info_start_ptr);
+		}
+
+		DCAM_CFG_PRINT("DC_CFG: before: %x, %x, %x %x \n",
 		       (uint32_t) dc_exif_info_ptr->spec_ptr->date_time_ptr,
 		       (uint32_t) dc_exif_info_ptr->spec_ptr->user_ptr,
-		       (uint32_t) dc_exif_info_ptr->spec_ptr->
-		       pic_taking_cond_ptr);
+		       (uint32_t) dc_exif_info_ptr->spec_ptr->pic_taking_cond_ptr,
+		       (uint32_t) dc_exif_info_ptr->spec_ptr->other_ptr);
+	}
+
+	DCAM_CFG_PRINT("DC_CFG: after: (%x), %x, %x, %x %x \n",
+		       (uint32_t) g_exif_info_start_ptr,
+		       (uint32_t) dc_exif_info_ptr->primary.img_desc_ptr,
+		       (uint32_t) dc_exif_info_ptr->primary.data_struct_ptr,
+		       (uint32_t) dc_exif_info_ptr->gps_ptr,
+		       (uint32_t) dc_exif_info_ptr->spec_ptr);
+
 	if (NULL != dc_exif_info_ptr->spec_ptr) {
 		dc_exif_info_ptr->spec_ptr =
 		    (void *)((uint32_t) dc_exif_info_ptr->spec_ptr -
