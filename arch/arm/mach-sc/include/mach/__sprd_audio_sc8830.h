@@ -504,7 +504,7 @@ static inline int arch_audio_codec_analog_reg_disable(void)
 	return ret;
 }
 
-static inline int arch_audio_codec_enable(void)
+static inline int arch_audio_codec_analog_enable(void)
 {
 	int ret = 0;
 
@@ -517,6 +517,16 @@ static inline int arch_audio_codec_enable(void)
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_AUD_EN, BIT_RTC_AUD_EN);
 	/*26M*/
 	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_XTL_EN, BIT_XTL_EN);
+#endif
+
+	return ret;
+}
+
+static inline int arch_audio_codec_digital_enable(void)
+{
+	int ret = 0;
+
+#if FIXED_AUDIO
 	/*internal digital 26M enable*/
 	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE), (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
 
@@ -525,7 +535,7 @@ static inline int arch_audio_codec_enable(void)
 	return ret;
 }
 
-static inline int arch_audio_codec_disable(void)
+static inline int arch_audio_codec_analog_disable(void)
 {
 	int ret = 0;
 
@@ -538,7 +548,17 @@ static inline int arch_audio_codec_disable(void)
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, 0, BIT_RTC_AUD_EN);
 	/*26M*/
 	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, 0, BIT_XTL_EN);
-	/*internal digital 26M enable*/
+#endif
+
+	return ret;
+}
+
+static inline int arch_audio_codec_digital_disable(void)
+{
+	int ret = 0;
+
+#if FIXED_AUDIO
+	/*internal digital 26M disable*/
 	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  0,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
 
 #endif
