@@ -1080,8 +1080,10 @@ static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 	gpio_direction_input(pdata->irq_gpio_number);
 	//vdd power on
 	reg_vdd = regulator_get(&client->dev, pdata->vdd_name);
-	regulator_set_voltage(reg_vdd, 2800000, 2800000);
-	regulator_enable(reg_vdd);
+	if (!WARN(IS_ERR(reg_vdd), "ft5x0x_ts_hw_init regulator: failed to get %s.\n", pdata->vdd_name)) {
+		regulator_set_voltage(reg_vdd, 2800000, 2800000);
+		regulator_enable(reg_vdd);
+	}
 	msleep(100);
 	//reset
 	ft5x0x_ts_reset();
