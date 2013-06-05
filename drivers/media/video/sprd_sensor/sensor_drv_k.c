@@ -1111,10 +1111,20 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 		break;
 	}
 
-	SENSOR_PRINT("_Sensor_K_SetFlash: flash_mode=%d  \n", flash_mode);
+	SENSOR_PRINT("_Sensor_K_SetFlash: flash_mode=0x%x  \n", flash_mode);
 
 	return SENSOR_K_SUCCESS;
 }
+LOCAL int _Sensor_K_GetFlashLevel(SENSOR_FLASH_LEVEL_T *level)
+{
+	level->low_light  = 110;
+	level->high_light = 470;
+
+	SENSOR_PRINT("_Sensor_K_GetFlashLevel:low_light=%d, high_light=%d  \n", level->low_light, level->high_light);
+
+	return SENSOR_K_SUCCESS;
+}
+
 #else
 LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 {
@@ -1654,6 +1664,21 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&i2cTab, (SENSOR_I2C_T *) arg, sizeof(SENSOR_I2C_T));
 			if(0 == ret)
 				ret = _Sensor_K_WriteI2C(&i2cTab);	
+
+		}
+		break;
+
+	case SENSOR_IO_GET_FLASH_LEVEL:
+		{
+			SENSOR_FLASH_LEVEL_T flash_level;
+			ret = copy_from_user(&flash_level, (SENSOR_FLASH_LEVEL_T *) arg, sizeof(SENSOR_FLASH_LEVEL_T));
+
+			if(0 == ret){
+				ret = _Sensor_K_GetFlashLevel(&flash_level);
+				if(SENSOR_K_FAIL != ret){
+					ret = copy_to_user((SENSOR_FLASH_LEVEL_T *)arg, &flash_level, sizeof(SENSOR_FLASH_LEVEL_T));
+				}
+			}
 
 		}
 		break;
