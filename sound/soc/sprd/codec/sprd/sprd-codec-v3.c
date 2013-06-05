@@ -1157,7 +1157,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 		}
 		arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);
 		arch_audio_codec_analog_reg_enable();
-		arch_audio_codec_enable();
+		arch_audio_codec_analog_enable();
 		arch_audio_codec_analog_reset();
 		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 1);
 
@@ -1240,7 +1240,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		}
 
 		arch_audio_codec_reset();
-		arch_audio_codec_disable();
+		arch_audio_codec_analog_disable();
 		arch_audio_codec_analog_reg_disable();
 		sprd_codec_dbg("ldo off!\n");
 	}
@@ -1432,10 +1432,12 @@ static int digital_power_event(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		arch_audio_codec_digital_reg_enable();
+		arch_audio_codec_digital_enable();
 		arch_audio_codec_digital_reset();
 		sprd_codec_digital_open(w->codec);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		arch_audio_codec_digital_disable();
 		arch_audio_codec_digital_reg_disable();
 		break;
 	default:
