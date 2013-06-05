@@ -338,7 +338,7 @@ static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *at
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":250:907:70:58"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":420:907:70:58"
 	 "\n");
-	#elif defined(CONFIG_MACH_SPX35EA)
+	#elif defined(CONFIG_MACH_SPX35EA) || defined (CONFIG_MACH_SPX35EB) ||defined (CONFIG_MACH_SP7735EC)
 	return sprintf(buf,
          __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":133:1360:107:87"
 	 ":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":373:1360:107:87"
