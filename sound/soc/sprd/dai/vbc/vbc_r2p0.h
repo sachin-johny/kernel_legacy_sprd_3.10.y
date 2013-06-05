@@ -67,8 +67,8 @@ enum {
 #define PHYS_VBDA1		(VBC_PHY_BASE + 0x0004)	/* 0x0004  Voice band DAC1 data buffer */
 #define PHYS_VBAD0		(VBC_PHY_BASE + 0x0008)	/* 0x0008  Voice band ADC0 data buffer */
 #define PHYS_VBAD1		(VBC_PHY_BASE + 0x000C)	/* 0x000C  Voice band ADC1 data buffer */
-#define PHYS_VBAD2		(VBC_PHY_BASE + 0x00C0)	/* 0x00C0  Voice band ADC0 data buffer */
-#define PHYS_VBAD3		(VBC_PHY_BASE + 0x00C4)	/* 0x00C4  Voice band ADC1 data buffer */
+#define PHYS_VBAD2		(VBC_PHY_BASE + 0x00C0)	/* 0x00C0  Voice band ADC2 data buffer */
+#define PHYS_VBAD3		(VBC_PHY_BASE + 0x00C4)	/* 0x00C4  Voice band ADC3 data buffer */
 
 #define ARM_VB_BASE		VBC_BASE
 #define VBDA0			(ARM_VB_BASE + 0x0000)	/*  Voice band DAC0 data buffer */
@@ -179,8 +179,8 @@ enum {
 #define VBDAPATH_DA0_ADDFM_MASK	(0x3<<VBDAPATH_DA0_ADDFM_SHIFT)
 #define VBDAPATH_DA1_ADDFM_SHIFT	(2)
 #define VBDAPATH_DA1_ADDFM_MASK	(0x3<<VBDAPATH_DA1_ADDFM_SHIFT)
-#define VBDAPATH_DA0_ADDFM 	(1)
-#define VBDAPATH_DA1_ADDFM 	(3)
+#define VBDAPATH_DA0_ADDFM 	(0)
+#define VBDAPATH_DA1_ADDFM 	(2)
 
 
      /*ADPATHCTL*/

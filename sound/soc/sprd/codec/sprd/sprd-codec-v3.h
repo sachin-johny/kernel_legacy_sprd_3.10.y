@@ -65,11 +65,13 @@
 #define ADC_EN_R		(3)
 #define ADC_SINC_SEL	(8)
 #define ADC_SINC_SEL_MASK  (0x3)
+#define ADC_DMIC_SEL	(9)
+
 #define ADC1_EN_L		(10)
 #define ADC1_EN_R		(11)
 #define ADC1_SINC_SEL	(14)
 #define ADC1_SINC_SEL_MASK  (0x3)
-#define ADC1_DMIC_SEL	(15)
+#define ADC1_DMIC1_SEL	(15)
 
 /* AUD_DAC_CTL */
 #define DAC_MUTE_START		(14)
@@ -102,7 +104,7 @@
 #define ADC1_DMIC_CLK_MODE_MASK	(0x3)
 #define ADC1_DMIC_LR_SEL		(5)
 #define ADC_DMIC_EN				(6)
-#define ADC1_DMIC_EN			(7)
+#define ADC1_DMIC1_EN			(7)
 
 /* AUDIF_ENB */
 #define AUDIFA_DACL_EN		(0)
@@ -377,6 +379,6 @@
 #define SPRD_CODEC_AP_END		(SPRD_CODEC_AP_BASE + 0x00D0)
 #define IS_SPRD_CODEC_AP_RANG(reg) (((reg) >= SPRD_CODEC_AP_BASE) && ((reg) < SPRD_CODEC_AP_END))
 
-#define SPRD_CODEC_IIS1_ID   1
+#define SPRD_CODEC_IIS1_ID  111
 
 #endif /* __SPRD_CODEC_V3_H */

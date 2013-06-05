@@ -48,6 +48,7 @@ enum {
 	SC883X_FUNC_HP_MIC,
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	SC883X_FUNC_DMIC,
+	SC883X_FUNC_DMIC1,
 #endif
 	SC883X_FUNC_DFM,
 	SC883X_FUNC_MAX
@@ -68,6 +69,7 @@ static const char *func_name[SC883X_FUNC_MAX] = {
 	"HP Mic Jack",
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	"DMic Jack",
+	"DMic1 Jack",
 #endif
 	"Dig FM Jack",
 };
@@ -164,6 +166,7 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("HP Mic Jack", NULL),
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	SND_SOC_DAPM_MIC("DMic Jack", NULL),
+	SND_SOC_DAPM_MIC("DMic1 Jack", NULL),
 #endif
 	/*digital fm input */
 	SND_SOC_DAPM_LINE("Dig FM Jack", dig_fm_event),
@@ -189,6 +192,7 @@ static const struct snd_soc_dapm_route sc883x_audio_map[] = {
 	{"AIR", NULL, "Line Jack"},
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	{"DMIC", NULL, "DMic Jack"},
+	{"DMIC1", NULL, "DMic1 Jack"},
 #endif
 };
 
@@ -236,6 +240,7 @@ static const struct snd_kcontrol_new sprd_codec_sc883x_controls[] = {
 	SC883X_CODEC_FUNC("HP Mic Function", SC883X_FUNC_HP_MIC),
 #ifdef CONFIG_SPRD_CODEC_DMIC
 	SC883X_CODEC_FUNC("DMic Function", SC883X_FUNC_DMIC),
+	SC883X_CODEC_FUNC("DMic1 Function", SC883X_FUNC_DMIC1),
 #endif
 	SC883X_CODEC_FUNC("Digital FM Function", SC883X_FUNC_DFM),
 };
@@ -272,7 +277,6 @@ static struct snd_soc_dai_link sc883x_dai[] = {
 	 .cpu_dai_name = "vbc",
 	 .codec_dai_name = "sprd-codec-i2s",
 	 },
-#ifdef CONFIG_SPRD_CODEC_DMIC
 	{
 	.name = "sc883x-vbc-ad23",
 	.stream_name = "vbc-ext",
@@ -280,9 +284,8 @@ static struct snd_soc_dai_link sc883x_dai[] = {
 	.codec_name = "sprd-codec",
 	.platform_name = "sprd-pcm-audio",
 	.cpu_dai_name = "vbc-ad23",
-	.codec_dai_name = "sprd-codec-i2s-1",
+	.codec_dai_name = "codec-i2s-ext",
 	},
-#endif
 #ifdef CONFIG_SND_SPRD_SOC_VAUDIO
 	{
 	 .name = "sc883x-dsp",
@@ -293,7 +296,6 @@ static struct snd_soc_dai_link sc883x_dai[] = {
 	 .cpu_dai_name = "vaudio",
 	 .codec_dai_name = "sprd-codec-i2s",
 	 },
-#ifdef CONFIG_SPRD_CODEC_DMIC
 	 {
 	  .name = "sc883x-dsp-ad23",
 	  .stream_name = "vbc-dsp-ext",
@@ -301,9 +303,8 @@ static struct snd_soc_dai_link sc883x_dai[] = {
 	  .codec_name = "sprd-codec",
 	  .platform_name = "sprd-pcm-audio",
 	  .cpu_dai_name = "vaudio-ad23",
-	  .codec_dai_name = "sprd-codec-i2s-1",
+	  .codec_dai_name = "codec-i2s-ext",
 	  },
-#endif
 #endif
 
 };
