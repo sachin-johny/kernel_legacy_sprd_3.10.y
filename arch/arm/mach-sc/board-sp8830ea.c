@@ -178,6 +178,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_saudio_wcdma_device,
 #endif
 	&kb_backlight_device,
+	&sprd_a7_pmu_device,
 };
 
 /* BT suspend/resume */
